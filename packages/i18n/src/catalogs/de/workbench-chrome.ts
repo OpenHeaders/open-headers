@@ -578,20 +578,21 @@ export const workbenchChrome = {
   'workbench.trafficMonitor.debugModeHint':
     'Debug-Modus — verbindet den Debugger des Browsers mit Tabs im Geltungsbereich und angepinnten Tabs für Bodies ' +
     'und exakte Header. Der Browser zeigt auf jedem verbundenen Tab einen Hinweis an.',
-  'workbench.trafficMonitor.observeAria': 'KI-Agent-Beobachtungsoptionen für diese Quelle',
-  'workbench.trafficMonitor.observeMenuStart': 'Beobachtung starten',
-  'workbench.trafficMonitor.observeMenuStartHint':
-    'Streamt den Verkehr dieser Quelle an die Desktop-App — verbundene KI-Agents können ihn während der ' +
-    'Beobachtung lesen',
-  'workbench.trafficMonitor.observeAdvanced': 'Erweitert',
-  'workbench.trafficMonitor.observeDebugOptionHint':
+  'workbench.trafficMonitor.captureAria': 'Erfassungsoptionen für diese Quelle',
+  'workbench.trafficMonitor.captureMenuStart': 'Erfassung starten',
+  'workbench.trafficMonitor.captureMenuStartHint':
+    'Behält den jüngsten Verkehr dieser Quelle: verbundene KI-Agents können ihn lesen (sensible Werte maskiert), ' +
+    'und „Sitzung speichern“ zeichnet ihn auf die Festplatte auf. Das Betrachten der Live-Ansicht hier erfordert ' +
+    'das nie.',
+  'workbench.trafficMonitor.captureAdvanced': 'Erweitert',
+  'workbench.trafficMonitor.captureDebugOptionHint':
     'Volle Detailtreue über den Debugger des Browsers — Antwortinhalte und exakte Header. Der Browser zeigt ein ' +
     'Debugging-Banner an.',
-  'workbench.trafficMonitor.observeSaveOption': 'Sitzung speichern',
-  'workbench.trafficMonitor.observeSaveOptionHint':
-    'Zeichnet die Beobachtung im verschlüsselten Sitzungsarchiv auf diesem Computer auf',
-  'workbench.trafficMonitor.observeMenuStop': 'Beobachtung stoppen',
-  'workbench.trafficMonitor.observeMenuStopRecordingHint': 'Beendet die Aufzeichnung und behält die Sitzung',
+  'workbench.trafficMonitor.captureSaveOption': 'Sitzung speichern',
+  'workbench.trafficMonitor.captureSaveOptionHint':
+    'Zeichnet die Erfassung im verschlüsselten Sitzungsarchiv auf diesem Computer auf',
+  'workbench.trafficMonitor.captureMenuStop': 'Erfassung stoppen',
+  'workbench.trafficMonitor.captureMenuStopRecordingHint': 'Beendet die Aufzeichnung und behält die Sitzung',
   'workbench.trafficMonitor.sessionsTitle': 'Sitzungen',
   'workbench.trafficMonitor.noBrowsersHint':
     'Keine Browser verbunden. Öffne einen Browser mit installierter Erweiterung oder installiere sie:',
@@ -609,38 +610,25 @@ export const workbenchChrome = {
   // ── Die SITZUNGEN-Sektion der Quellenleiste (das Sitzungsarchiv) ────
   'workbench.trafficSessions.empty': 'Noch keine gespeicherten Sitzungen',
   'workbench.trafficSessions.emptyHint':
-    'Beobachte eine Quelle im Traffic-Monitor mit aktiviertem „Sitzung speichern“ — gespeicherte Sitzungen ' +
+    'Erfasse eine Quelle im Traffic-Monitor mit aktiviertem „Sitzung speichern“ — gespeicherte Sitzungen ' +
     'landen hier',
   'workbench.trafficSessions.stateRecording': 'Aufzeichnung',
   'workbench.trafficSessions.stateSealing': 'Versiegeln…',
-  'workbench.trafficSessions.rowMenuAria': 'Sitzungsaktionen',
-  'workbench.trafficSessions.rename': 'Umbenennen…',
-  'workbench.trafficSessions.renameTitle': 'Sitzung umbenennen',
-  'workbench.trafficSessions.renameOk': 'Umbenennen',
   'workbench.trafficSessions.move': 'In Ordner verschieben',
   'workbench.trafficSessions.moveNew': 'Neuer Ordner…',
-  'workbench.trafficSessions.moveNewTitle': 'In einen neuen Ordner verschieben',
-  'workbench.trafficSessions.moveNewOk': 'Verschieben',
-  'workbench.trafficSessions.moveNewPlaceholder': 'Ordnername',
   'workbench.trafficSessions.moveNone': 'Aus dem Ordner entfernen',
-  'workbench.trafficSessions.delete': 'Löschen…',
   'workbench.trafficSessions.deleteTitle': 'Diese Sitzung löschen?',
   'workbench.trafficSessions.deleteBody':
     '„{name}“ und alle aufgezeichneten Daten, auf die nur diese Sitzung verweist, werden von der Festplatte entfernt.',
   'workbench.trafficSessions.deleteOk': 'Löschen',
-  'workbench.trafficSessions.detailRequests': '{count} Anfragen',
-  'workbench.trafficSessions.detailErrors': '{count} Fehler',
-  'workbench.trafficSessions.detailEncrypted': 'Verschlüsselt',
-  'workbench.trafficSessions.detailUnencrypted': 'Nicht verschlüsselt',
-  'workbench.trafficSessions.fidelityCdp': 'Volle Genauigkeit (Debugger)',
-  'workbench.trafficSessions.fidelityHeuristic': 'Heuristische Genauigkeit',
-  'workbench.trafficSessions.fidelityProxy': 'Netzwerkmitschnitt',
-  'workbench.trafficSessions.openSession': 'Öffnen',
+  'workbench.trafficSessions.deleteGroupTitle': '„{name}“ löschen?',
+  'workbench.trafficSessions.deleteGroupBody':
+    'Die enthaltenen {count} Sitzungen und alle aufgezeichneten Daten, auf die nur sie verweisen, werden von der Festplatte entfernt.',
 
   // ── Sitzungswiedergabe-Tab (C6) ─────────────────────────────────────
   'workbench.sessionReplay.empty': 'Diese Sitzung hat keine Anfragen aufgezeichnet',
   'workbench.sessionReplay.emptyHint':
-    'Die Quelle wurde beobachtet, aber während der Aufzeichnung floss kein Datenverkehr über sie',
+    'Die Quelle wurde erfasst, aber während der Aufzeichnung floss kein Datenverkehr über sie',
   'workbench.sessionReplay.unavailableTitle': 'Diese Sitzung konnte nicht geöffnet werden',
   'workbench.sessionReplay.unavailableBody':
     'Die aufgezeichneten Daten fehlen oder sind beschädigt, oder sie sind mit einem Schlüssel verschlüsselt, den diese App nicht mehr besitzt.',

@@ -419,31 +419,52 @@ describe('session recorder + archive', () => {
     });
   });
 
-  it('stamps the §11.1 auto-name and auto-placement folder at seal from the dominant origin', async () => {
+  it('stamps the §11.1 auto-placement collection at seal and keeps the start name', async () => {
     const archive = createTrafficSessionArchive({ dir: root, sealKey: null });
-    const meta = await recordOneSession(archive, 'ses-auto', [
-      startedEnvelope('r-1', 'https://api.openheaders.io/users'),
-      phaseEnvelope('r-1', { phase: 'failed' }),
-      startedEnvelope('r-2', 'https://app.openheaders.io/dash'),
-      phaseEnvelope('r-2', { phase: 'completed', statusCode: 503 }),
-      startedEnvelope('r-3', 'https://cdn.example.com/lib.js'),
-      phaseEnvelope('r-3', { phase: 'completed', statusCode: 200 }),
-    ]);
+    const meta = await recordOneSession(
+      archive,
+      'ses-auto',
+      [
+        startedEnvelope('r-1', 'https://api.openheaders.io/users'),
+        phaseEnvelope('r-1', { phase: 'failed' }),
+        startedEnvelope('r-2', 'https://app.openheaders.io/dash'),
+        phaseEnvelope('r-2', { phase: 'completed', statusCode: 503 }),
+        startedEnvelope('r-3', 'https://cdn.example.com/lib.js'),
+        phaseEnvelope('r-3', { phase: 'completed', statusCode: 200 }),
+      ],
+      { name: 'Checkout — Open Headers' },
+    );
     // Dominant origin: openheaders.io carried 2 of 3 requests; a failed
     // request and a 5xx answer both count as errors, a 200 does not.
-    expect(meta.folder).toBe('openheaders.io');
+    // The collection carries the site; the NAME stays the tab title the
+    // capture gesture passed — dates and counts are row chrome, never
+    // part of the name. Folders are user-created only.
+    expect(meta.collection).toBe('openheaders.io');
+    expect(meta.folder).toBeUndefined();
     expect(meta.errors).toBe(2);
-    expect(meta.name).toMatch(/^openheaders\.io — \d{4}-\d{2}-\d{2} \d{2}:\d{2} \(3 requests, 2 errors\)$/);
+    expect(meta.name).toBe('Checkout — Open Headers');
   });
 
-  it('files a proxy session under its source label', async () => {
+  it('stamps a blank start name with the dominant site at seal', async () => {
+    const archive = createTrafficSessionArchive({ dir: root, sealKey: null });
+    const meta = await recordOneSession(
+      archive,
+      'ses-blank',
+      [startedEnvelope('r-1', 'https://api.openheaders.io/users')],
+      { name: '  ' },
+    );
+    expect(meta.name).toBe('openheaders.io');
+    expect(meta.collection).toBe('openheaders.io');
+  });
+
+  it('files a proxy session under the fixed Traffic Interception collection, named by its dominant site', async () => {
     const archive = createTrafficSessionArchive({ dir: root, sealKey: null });
     const session = archive.start({
       sessionId: 'ses-proxy',
       sourceUid: 'proxy',
       sourceKind: 'proxy',
-      sourceLabel: 'Proxy capture',
-      name: 'traffic-interception',
+      sourceLabel: 'Traffic Interception',
+      name: '',
       partitionTabId: -2,
       initialFidelity: 'proxy',
       bounds: { maxBytes: 1_048_576, maxDurationMs: 60_000 },
@@ -455,8 +476,8 @@ describe('session recorder + archive', () => {
       expect(session.projection().state).toBe('sealed');
     });
     const [row] = await archive.listSessions();
-    expect(row?.meta.folder).toBe('Proxy capture');
-    expect(row?.meta.name).toMatch(/^Proxy capture — /);
+    expect(row?.meta.collection).toBe('Traffic Interception');
+    expect(row?.meta.name).toBe('openheaders.io');
   });
 
   it('refuses to delete a session that is still recording; the stop unlocks it', async () => {
@@ -518,6 +539,15 @@ describe('session recorder + archive', () => {
     if (cleared.ok) {
       expect(cleared.session.folder).toBeUndefined();
       expect(cleared.session.name).toBe('Checkout repro');
+    }
+
+    // The collection level rewrites the same way (a collection rename
+    // is one such rewrite per member, driven by the caller).
+    const recollected = await archive.organizeSession(orgId, { collection: 'staging.example.org' });
+    expect(recollected.ok).toBe(true);
+    if (recollected.ok) {
+      expect(recollected.session.collection).toBe('staging.example.org');
+      expect(recollected.session.name).toBe('Checkout repro');
     }
 
     expect((await archive.organizeSession(orgId, { name: '   ' })).ok).toBe(false);

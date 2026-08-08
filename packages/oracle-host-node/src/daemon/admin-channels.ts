@@ -442,7 +442,7 @@ export function createAdminChannelHandlers(deps: AdminChannelDeps): ReadonlyMap<
   // crosses the projection boundary, so redaction is structural — the
   // raw record type cannot ride this table. Agent-facing exposure is
   // the `observe` MCP tier (S3 tools), never these channels.
-  handlers.set('oh.daemon.traffic.arm', (message) => {
+  handlers.set('oh.daemon.traffic.arm', async (message) => {
     if (!deps.trafficTap) return { ok: false, error: 'traffic tap unavailable' };
     const bounds = {
       ...(typeof message.maxRecords === 'number' ? { maxRecords: Math.floor(message.maxRecords) } : {}),
@@ -459,7 +459,23 @@ export function createAdminChannelHandlers(deps: AdminChannelDeps): ReadonlyMap<
       if (typeof message.nodeId !== 'string' || message.nodeId.length === 0 || typeof message.tabId !== 'number') {
         return { ok: false, error: 'missing nodeId or tabId' };
       }
-      const uid = deps.trafficTap.armBrowserTab(message.nodeId, message.tabId, options);
+      // Human source label: the tab's title (fallback its URL) from the
+      // telemetry inventory — the machine coordinates stay the tap's
+      // own fallback when no peer answers in time.
+      let label: string | undefined;
+      try {
+        const inventory = await deps.telemetryTabs?.();
+        const tab = inventory?.peers
+          .find((peer) => peer.nodeId === message.nodeId)
+          ?.tabs.find((candidate) => candidate.tabId === message.tabId);
+        label = (tab?.title.trim() || tab?.url.trim()) ?? undefined;
+      } catch {
+        // Inventory unavailable — the coordinate fallback stands.
+      }
+      const uid = deps.trafficTap.armBrowserTab(message.nodeId, message.tabId, {
+        ...options,
+        ...(label !== undefined && label.length > 0 ? { label } : {}),
+      });
       if (uid === null) return { ok: false, error: 'arm refused — relay unavailable' };
       return { ok: true, uid };
     }
@@ -495,8 +511,10 @@ export function createAdminChannelHandlers(deps: AdminChannelDeps): ReadonlyMap<
     if (!deps.trafficTap) return { ok: false, error: 'traffic tap unavailable' };
     const uid = typeof message.uid === 'string' ? message.uid : '';
     if (!uid) return { ok: false, error: 'missing uid' };
+    // A blank name is accepted: the recorder stamps the dominant site
+    // at seal — the caller passes a name only when it knows a better
+    // one (a browser tab's title at the capture gesture).
     const name = typeof message.name === 'string' ? message.name.trim() : '';
-    if (!name) return { ok: false, error: 'missing name' };
     const bounds = {
       ...(typeof message.maxBytes === 'number' && message.maxBytes > 0
         ? { maxBytes: Math.floor(message.maxBytes) }
@@ -553,6 +571,9 @@ export function createAdminChannelHandlers(deps: AdminChannelDeps): ReadonlyMap<
     if (!id) return { ok: false, error: 'missing id' };
     return deps.trafficArchive.organizeSession(id, {
       ...(typeof message.name === 'string' ? { name: message.name } : {}),
+      ...(typeof message.collection === 'string' || message.collection === null
+        ? { collection: message.collection }
+        : {}),
       ...(typeof message.folder === 'string' || message.folder === null ? { folder: message.folder } : {}),
     });
   });

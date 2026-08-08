@@ -1,10 +1,10 @@
 /**
- * Traffic Monitor category — the observe-gesture defaults, the
+ * Traffic Monitor category — the capture-gesture defaults, the
  * sessions archive's disk budget, and the agent raw-read grant
  * (AGENT_TRAFFIC_PLAN.md §11.1/§11.4/§11.5).
  *
- * The two `observe*Default` rows seed the Advanced toggles of the
- * source rail's start-observing popover — the gesture itself can
+ * The two `capture*Default` rows seed the Advanced toggles of the
+ * source rail's start-capturing popover — the gesture itself can
  * override them per session. The retention row and the raw-read grant
  * are mirrored into the dotted-key user-settings record and read LIVE
  * by the daemon: a retention change applies to the next prune pass, a
@@ -24,8 +24,8 @@ export type TrafficMonitorRailSide = v.InferOutput<typeof railSideSchema>;
 
 declare module '@openheaders/ui/workbench/settings/types' {
   interface SettingsMap {
-    'trafficMonitor.observeDebugDefault': boolean;
-    'trafficMonitor.observeSaveDefault': boolean;
+    'trafficMonitor.captureDebugDefault': boolean;
+    'trafficMonitor.captureSaveDefault': boolean;
     'trafficMonitor.sessionRetentionGiB': number;
     'trafficMonitor.sessionAgentRawReads': boolean;
     'trafficMonitor.railSide': TrafficMonitorRailSide;
@@ -62,27 +62,27 @@ registerSetting({
 });
 
 registerSetting({
-  key: 'trafficMonitor.observeDebugDefault',
+  key: 'trafficMonitor.captureDebugDefault',
   type: 'boolean',
   default: true,
   schema: v.boolean(),
-  labelKey: 'workbench.settings.def.trafficMonitor.observeDebugDefault.label',
-  descriptionKey: 'workbench.settings.def.trafficMonitor.observeDebugDefault.description',
+  labelKey: 'workbench.settings.def.trafficMonitor.captureDebugDefault.label',
+  descriptionKey: 'workbench.settings.def.trafficMonitor.captureDebugDefault.description',
   category: 'trafficMonitor',
-  tags: ['traffic', 'observe', 'session', 'debug', 'cdp', 'fidelity', 'bodies'],
+  tags: ['traffic', 'capture', 'session', 'debug', 'cdp', 'fidelity', 'bodies'],
   scope: 'user',
   when: desktopOnly,
 });
 
 registerSetting({
-  key: 'trafficMonitor.observeSaveDefault',
+  key: 'trafficMonitor.captureSaveDefault',
   type: 'boolean',
   default: true,
   schema: v.boolean(),
-  labelKey: 'workbench.settings.def.trafficMonitor.observeSaveDefault.label',
-  descriptionKey: 'workbench.settings.def.trafficMonitor.observeSaveDefault.description',
+  labelKey: 'workbench.settings.def.trafficMonitor.captureSaveDefault.label',
+  descriptionKey: 'workbench.settings.def.trafficMonitor.captureSaveDefault.description',
   category: 'trafficMonitor',
-  tags: ['traffic', 'observe', 'session', 'save', 'record', 'archive', 'disk'],
+  tags: ['traffic', 'capture', 'session', 'save', 'record', 'archive', 'disk'],
   scope: 'user',
   when: desktopOnly,
 });

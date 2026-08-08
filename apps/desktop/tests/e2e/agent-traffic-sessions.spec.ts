@@ -9,19 +9,20 @@
  *      launch Chromium with the built extension and open the
  *      sessions-window generator page. Arm that tab and pin it to CDP
  *      fidelity.
- *   2. Auto-name + auto-placement on create (§11.1): a recorded
- *      OK/error probe mix seals with the stamped
- *      `<site> — <date time> (<n> requests, <m> errors)` name and the
- *      dominant-origin folder (the loopback host passes through the
- *      registrable-domain heuristic verbatim), and the archive-wide
- *      operator read (`sessions.list`) projects it with the
- *      directory-basename id.
- *   3. The SESSIONS section lists the archive: rows under their
- *      folder header, newest first — no sort/search chrome.
- *   4. Reorganize rewrites ONE meta only: rename and refile through
- *      the section's menu verbs change `meta.json` alone — the sealed
- *      log is byte-identical after both, and a bystander session's
- *      meta is untouched.
+ *   2. Naming + auto-placement on create (§11.1): a recorded OK/error
+ *      probe mix seals keeping its START NAME (the capture gesture's
+ *      tab title) and stamps the dominant-origin COLLECTION (the
+ *      loopback host passes through the registrable-domain heuristic
+ *      verbatim) — dates and counts are row chrome, never part of the
+ *      name — and the archive-wide operator read (`sessions.list`)
+ *      projects it with the directory-basename id.
+ *   3. The SESSIONS section lists the archive on the standard sidebar
+ *      tree: session leaves under their collection row, newest first —
+ *      no sort/search chrome.
+ *   4. Reorganize rewrites ONE meta only: inline rename and the Move
+ *      verb change `meta.json` alone — the sealed log is
+ *      byte-identical after both, and a bystander session's meta is
+ *      untouched.
  *   5. Reachability GC through the delete verb (`session-gc` page):
  *      two sessions record overlapping deterministic assets; deleting
  *      one through the section sweeps its EXCLUSIVE blob and spares
@@ -78,6 +79,7 @@ interface ArchivedSessionRow {
   id: string;
   sessionId: string;
   name: string;
+  collection?: string;
   folder?: string;
   sourceKind: string;
   state: string;
@@ -161,11 +163,14 @@ async function expandSessions(): Promise<void> {
 }
 
 function windowRow(id: string): ReturnType<Page['locator']> {
-  return workbench.locator(`[data-testid="traffic-sessions-row"][data-session-id="${id}"]`);
+  return workbench.locator(`[data-item-id="session:${id}"]`);
 }
 
+/** Open a session leaf's `⋯` menu — the standard tree's hover-revealed
+ *  MoreOutlined trigger (opacity-hidden, still clickable). */
 async function openRowMenu(id: string): Promise<void> {
-  await windowRow(id).locator('[data-testid="traffic-sessions-row-menu"]').click();
+  await windowRow(id).hover();
+  await windowRow(id).locator('.rules-sidebar-item-menu').click();
 }
 
 async function fireSessionTraffic(ok: number, errors: number): Promise<void> {
@@ -360,21 +365,18 @@ test('the daemon inventories the generator page; arming and CDP-pinning it succe
     .toBe(true);
 });
 
-// ── Auto-name + auto-placement on create (§11.1) ────────────────────
+// ── Naming + auto-placement on create (§11.1) ───────────────────────
 
-test('a sealed session carries the stamped auto-name and dominant-origin folder in the archive index', async () => {
+test('a sealed session keeps its start name and stamps the dominant-origin collection in the archive index', async () => {
   const first = await recordMixSession('raw start name one', 3, 1);
   sessionOne = await archivedRowOf(first.sessionId);
 
-  // The §11.1 stamp: `<site> — <date time> (<n> requests, <m> errors)`
-  // — the operator's start name is superseded at seal, and the folder
-  // is the dominant origin's registrable domain.
-  expect(sessionOne.folder).toBe(LOOPBACK_SITE);
-  expect(sessionOne.name).toMatch(
-    new RegExp(
-      `^${LOOPBACK_SITE.replaceAll('.', '\\.')} — \\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2} \\(\\d+ requests, \\d+ errors\\)$`,
-    ),
-  );
+  // The start name (the capture gesture's tab title) IS the name; the
+  // §11.1 auto-placement stamps the dominant origin's registrable
+  // domain on the COLLECTION. Folders are user-created only.
+  expect(sessionOne.collection).toBe(LOOPBACK_SITE);
+  expect(sessionOne.folder).toBeUndefined();
+  expect(sessionOne.name).toBe('raw start name one');
   expect(sessionOne.errors).toBeGreaterThanOrEqual(1);
   expect(sessionOne.requests).toBeGreaterThanOrEqual(4);
   expect(sessionOne.state).toBe('sealed');
@@ -387,39 +389,38 @@ test('a sealed session carries the stamped auto-name and dominant-origin folder 
   expect(sessionOne.id.endsWith(`-${sessionOne.sessionId}`)).toBe(true);
   const meta = JSON.parse(await readFile(path.join(archiveDir, 'sessions', sessionOne.id, 'meta.json'), 'utf8')) as {
     name: string;
-    folder?: string;
+    collection?: string;
     errors: number;
   };
-  expect(meta.name).toBe(sessionOne.name);
-  expect(meta.folder).toBe(LOOPBACK_SITE);
+  expect(meta.name).toBe('raw start name one');
+  expect(meta.collection).toBe(LOOPBACK_SITE);
   expect(meta.errors).toBe(sessionOne.errors);
 
   // A second, error-free session — the bystander for the organize leg
-  // and the second row the sort/search pins need.
+  // and the second row the newest-first pin needs.
   const second = await recordMixSession('raw start name two', 2, 0);
   sessionTwo = await archivedRowOf(second.sessionId);
-  expect(sessionTwo.folder).toBe(LOOPBACK_SITE);
+  expect(sessionTwo.collection).toBe(LOOPBACK_SITE);
 });
 
-// ── The SESSIONS section lists the archive: folders, newest first ───
+// ── The SESSIONS section: the standard tree, newest first ───────────
 
-test('the SESSIONS section groups rows by folder, newest first', async () => {
+test('the SESSIONS section groups leaves under their collection, newest first', async () => {
   await openToolWindow('traffic-monitor');
   await expandSessions();
 
-  // Both sealed sessions render under their auto-placement folder.
-  await expect(
-    workbench.locator(`[data-testid="traffic-sessions-folder"][data-folder="${LOOPBACK_SITE}"]`),
-  ).toBeVisible({ timeout: 10000 });
-  await expect(windowRow(sessionOne.id)).toBeVisible();
+  // Both sealed sessions render under the auto-placement collection —
+  // the section's first archive read seeds collections expanded.
+  await expect(workbench.locator(`[data-item-id="session-col-${LOOPBACK_SITE}"]`)).toBeVisible({ timeout: 10000 });
+  await expect(windowRow(sessionOne.id)).toBeVisible({ timeout: 10000 });
   await expect(windowRow(sessionTwo.id)).toBeVisible();
 
   // Newest first — the section carries no sort/search chrome.
   const rowIds = await workbench
-    .locator('[data-testid="traffic-sessions-row"]')
-    .evaluateAll((rows) => rows.map((row) => row.getAttribute('data-session-id') ?? ''));
-  expect(rowIds[0]).toBe(sessionTwo.id);
-  expect(rowIds).toContain(sessionOne.id);
+    .locator('[data-item-id^="session:"]')
+    .evaluateAll((rows) => rows.map((row) => row.getAttribute('data-item-id') ?? ''));
+  expect(rowIds[0]).toBe(`session:${sessionTwo.id}`);
+  expect(rowIds).toContain(`session:${sessionOne.id}`);
 });
 
 // ── Organize verbs rewrite ONE meta only ────────────────────────────
@@ -429,36 +430,43 @@ test('rename and refile rewrite the session meta alone', async () => {
   const bystanderMetaPath = path.join(archiveDir, 'sessions', sessionTwo.id, 'meta.json');
   const sealBefore = await readFile(sealPath);
   const bystanderBefore = await readFile(bystanderMetaPath, 'utf8');
+  const renameInput = workbench.locator('.rules-sidebar-rename-input');
 
-  // Rename through the row menu.
+  // Rename through the row `⋯` menu — INLINE rename, the standard
+  // sidebar-tree posture (no modal).
   await openRowMenu(sessionOne.id);
   await workbench.locator('[data-testid="traffic-sessions-menu-rename"]').click();
-  await workbench.locator('[data-testid="traffic-sessions-rename-input"]').fill('Checkout repro');
-  await workbench.locator('[data-testid="traffic-sessions-rename-ok"]').click();
+  await expect(renameInput).toBeVisible({ timeout: 10000 });
+  await renameInput.fill('Checkout repro');
+  await renameInput.press('Enter');
   await expect(windowRow(sessionOne.id)).toContainText('Checkout repro', { timeout: 10000 });
 
-  // Refile into a new folder. Open the submenu by CLICKING its title
-  // (antd toggles parent items on click) — hover-opening flaps shut
-  // while the pointer traverses to the child now that the C6 Open verb
-  // sits above it — and wait for the child before clicking it.
+  // Refile: Move to folder ▸ New folder… creates the default-named
+  // folder and drops straight into ITS inline rename. Open the
+  // submenu by CLICKING its title (antd toggles parents on click) and
+  // wait for the child before clicking it.
   await openRowMenu(sessionOne.id);
   await workbench.locator('[data-testid="traffic-sessions-menu-move"]').click();
   const moveNew = workbench.locator('[data-testid="traffic-sessions-menu-move-new"]');
   await expect(moveNew).toBeVisible({ timeout: 10000 });
   await moveNew.click();
-  await workbench.locator('[data-testid="traffic-sessions-new-folder-input"]').fill('investigations');
-  await workbench.locator('[data-testid="traffic-sessions-new-folder-ok"]').click();
-  await expect(workbench.locator('[data-testid="traffic-sessions-folder"][data-folder="investigations"]')).toBeVisible({
+  await expect(renameInput).toBeVisible({ timeout: 10000 });
+  await renameInput.fill('investigations');
+  await renameInput.press('Enter');
+  await expect(workbench.locator(`[data-item-id="session-folder-${LOOPBACK_SITE}::investigations"]`)).toBeVisible({
     timeout: 10000,
   });
+  await expect(windowRow(sessionOne.id)).toBeVisible({ timeout: 10000 });
 
   // §11.4: organizing rewrote ONE meta atomically — the sealed log is
   // byte-identical and the bystander session's meta is untouched.
   const meta = JSON.parse(await readFile(path.join(archiveDir, 'sessions', sessionOne.id, 'meta.json'), 'utf8')) as {
     name: string;
+    collection?: string;
     folder?: string;
   };
   expect(meta.name).toBe('Checkout repro');
+  expect(meta.collection).toBe(LOOPBACK_SITE);
   expect(meta.folder).toBe('investigations');
   expect((await readFile(sealPath)).equals(sealBefore)).toBe(true);
   expect(await readFile(bystanderMetaPath, 'utf8')).toBe(bystanderBefore);

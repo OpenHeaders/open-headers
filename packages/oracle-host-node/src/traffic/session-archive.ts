@@ -130,8 +130,12 @@ export interface TrafficSessionArchive {
    *  Refused while the session records or seals. */
   deleteSession(id: string): Promise<{ ok: boolean; error?: string }>;
   /** Rename and/or refile one SEALED session — one atomic meta rewrite
-   *  (§11.4), nothing else touched. `folder: null` clears to unfiled. */
-  organizeSession(id: string, changes: { name?: string; folder?: string | null }): Promise<TrafficArchiveVerbResult>;
+   *  (§11.4), nothing else touched. `collection: null` / `folder: null`
+   *  clear the respective level. */
+  organizeSession(
+    id: string,
+    changes: { name?: string; collection?: string | null; folder?: string | null },
+  ): Promise<TrafficArchiveVerbResult>;
   /** Open one SEALED session for replay (C6): the resolved envelope
    *  stream plus the CAS-backed body resolver. Throws on an unknown or
    *  unsealed id, a missing/corrupt seal, or a key this host no longer
@@ -151,6 +155,7 @@ export function projectArchivedSession(id: string, meta: TrafficSessionMeta): Tr
     id,
     sessionId: meta.sessionId,
     name: meta.name,
+    ...(meta.collection !== undefined ? { collection: meta.collection } : {}),
     ...(meta.folder !== undefined ? { folder: meta.folder } : {}),
     sourceKind: meta.sourceKind,
     sourceLabel: meta.sourceLabel,
@@ -408,17 +413,17 @@ export function createTrafficSessionArchive(options: TrafficSessionArchiveOption
         if (changes.name !== undefined && (name === undefined || name.length === 0)) {
           return { ok: false, error: 'name cannot be empty' };
         }
-        const folderChange = typeof changes.folder === 'string' ? changes.folder.trim() : changes.folder;
-        const { folder: keptFolder, ...bare } = meta;
-        const nextFolder =
-          folderChange === undefined
-            ? keptFolder
-            : folderChange === null || folderChange === ''
-              ? undefined
-              : folderChange;
+        const resolveLevel = (change: string | null | undefined, kept: string | undefined): string | undefined => {
+          const trimmed = typeof change === 'string' ? change.trim() : change;
+          return trimmed === undefined ? kept : trimmed === null || trimmed === '' ? undefined : trimmed;
+        };
+        const { collection: keptCollection, folder: keptFolder, ...bare } = meta;
+        const nextCollection = resolveLevel(changes.collection, keptCollection);
+        const nextFolder = resolveLevel(changes.folder, keptFolder);
         const next: TrafficSessionMeta = {
           ...bare,
           name: name ?? meta.name,
+          ...(nextCollection !== undefined ? { collection: nextCollection } : {}),
           ...(nextFolder !== undefined ? { folder: nextFolder } : {}),
         };
         await writeSessionMeta(dir, next);

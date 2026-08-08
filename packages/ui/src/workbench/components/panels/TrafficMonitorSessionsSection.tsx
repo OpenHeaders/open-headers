@@ -1,38 +1,47 @@
 /**
  * TrafficMonitorSessionsSection — the SESSIONS section of the Traffic
  * Monitor source rail (AGENT_TRAFFIC_PLAN.md §11.1, C5 folded in-rail,
- * S26): the sessions archive as a third source kind next to BROWSER
- * TABS and PROXY · SYSTEM. The header expands in place over the
- * archive's meta index (`oh.daemon.traffic.sessions.*` — human plane,
- * no MCP mirror): rows group by their organize folder with unfiled
- * sessions at the top level, newest first. Clicking a sealed row
- * opens-or-activates the session as a SOURCE TAB on the panel's strip
- * — the same grammar as every other rail row; a recording/sealing row
- * carries its live state tag and opens nothing until the seal lands.
+ * S26/S27): the sessions archive as a third source kind next to BROWSER
+ * TABS and PROXY · SYSTEM, rendered on the workbench's STANDARD sidebar
+ * tree — the same {@link TreeNodeRow} anatomy the HTTP Rules and API
+ * Requests trees use: collection rows (open-folder icon), user folders
+ * inside them, session leaves with a compact fidelity tag in the
+ * method-tag slot, inline rename, and `⋯` menus.
  *
- * Organize verbs (rename / move to folder / delete) ride the row's
- * context and ⋯ menus and rewrite one meta atomically host-side;
+ * Placement is auto-stamped at seal (collection = the dominant origin's
+ * registrable domain; wire captures under the fixed Traffic
+ * Interception collection); folders are user-created only. The session
+ * NAME is the tab's title at the capture gesture — date and error
+ * chrome render as a derived row badge, never baked into the name.
+ * Recording/sealing sessions carry no collection yet and ride the top
+ * level with their state tag until the seal files them.
+ *
+ * Clicking a sealed leaf opens-or-activates the session as a SOURCE TAB
+ * on the panel's strip — the same grammar as every other rail row.
+ * Organize verbs rewrite metas host-side (one per touched session);
  * delete additionally retires the session's open tab through
- * `onSessionDeleted`. Index facts (source, date, counts, size,
- * fidelity, encryption) live on the row tooltip — no detail footer.
+ * `onSessionDeleted`.
  *
  * The index re-reads while expanded only: on expand, on the tap's
  * `trafficStatusChanged` nudges (capture start/stop/seal), and on a
  * slow safety interval; collapsed, the section costs nothing.
  */
 
-import { EllipsisOutlined, FileOutlined, FolderOpenOutlined, FolderOutlined, LoadingOutlined } from '@ant-design/icons';
+import { DeleteOutlined, EditOutlined, FolderOpenOutlined, FolderOutlined, LoadingOutlined } from '@ant-design/icons';
 import { hostBridge } from '@openheaders/core/bridge';
 import type { TrafficArchivedSessionProjection } from '@openheaders/core/traffic';
-import type { MessageKey } from '@openheaders/i18n';
-import { Dropdown, Input, type MenuProps, Modal, Tag, theme, Tooltip } from 'antd';
+import { Modal, Tag, theme } from 'antd';
+import type { ItemType } from 'antd/es/menu/interface';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocale } from '@openheaders/ui/context/LocaleContext';
-import { formatSize } from '../../../panel/components/traffic/formatters';
+import { iconEl, sessionFidelityTag } from '../sidebar/icons';
 import { SectionHeader } from '../sidebar/SectionHeader';
+import { TreeNodeRow } from '../sidebar/TreeNodeRow';
+import type { TreeNode } from '../sidebar/types';
 
-/** Source-key namespace for archived-session tabs on the panel strip. */
+/** Source-key namespace for archived-session tabs on the panel strip.
+ *  Doubles as the leaf row's `data-item-id` in the tree. */
 const SESSION_SOURCE_KEY_PREFIX = 'session:';
 
 export function sessionSourceKey(id: string): string {
@@ -43,11 +52,26 @@ export function isSessionSourceKey(key: string): boolean {
   return key.startsWith(SESSION_SOURCE_KEY_PREFIX);
 }
 
-const FIDELITY_KEYS: Record<TrafficArchivedSessionProjection['fidelity'], MessageKey> = {
-  cdp: 'workbench.trafficSessions.fidelityCdp',
-  heuristic: 'workbench.trafficSessions.fidelityHeuristic',
-  proxy: 'workbench.trafficSessions.fidelityProxy',
-};
+/**
+ * One keyboard-navigable rail row — the rail owns ONE cursor spanning
+ * its own rows and this section's tree (a panel has one keyboard
+ * system, like the sidebars), so the section registers its VISIBLE
+ * nodes with the rail instead of running a second nav domain.
+ */
+export interface TrafficRailNavItem {
+  readonly id: string;
+  readonly expandable: boolean;
+  readonly expanded?: boolean;
+  readonly parentId?: string;
+  /** Enter — open a leaf / toggle a container. */
+  readonly open?: () => void;
+  /** ArrowRight/ArrowLeft on a container. */
+  readonly toggleExpand?: () => void;
+  /** F2 — inline rename. */
+  readonly startRename?: () => void;
+  /** Delete/Backspace — the row's delete verb (confirmed). */
+  readonly remove?: () => void;
+}
 
 /** Safety re-read cadence while expanded — the `trafficStatusChanged`
  *  nudges carry the interesting transitions, this catches the rest. */
@@ -56,22 +80,99 @@ const RELOAD_INTERVAL_MS = 15_000;
 /** One nudge storm (start + attach + seal) folds into one re-read. */
 const NUDGE_DEBOUNCE_MS = 300;
 
+/** Tree expansion survives dock-tab switches (the panel's
+ *  survive-unmount posture); `null` = never seeded — the first archive
+ *  read expands every collection once. */
+let lastExpandedKeys: ReadonlySet<string> | null = null;
+
+function collectionNodeId(collection: string): string {
+  return `session-col-${collection}`;
+}
+
+function folderNodeId(collection: string, folder: string): string {
+  return `session-folder-${collection}::${folder}`;
+}
+
+/** Derived row-badge timestamp — today by time, this year by day, else
+ *  the full date. Chrome, so locale-aware; never stored. */
+function sessionWhen(startedAtMs: number, locale: string): string {
+  const at = new Date(startedAtMs);
+  const now = new Date();
+  if (at.toDateString() === now.toDateString()) {
+    return at.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
+  }
+  if (at.getFullYear() === now.getFullYear()) {
+    return at.toLocaleDateString(locale, { month: 'short', day: 'numeric' });
+  }
+  return at.toLocaleDateString(locale);
+}
+
+interface SessionGroups {
+  /** Recording/sealing (and crash-recovered) rows — no collection yet. */
+  readonly loose: TrafficArchivedSessionProjection[];
+  readonly collections: ReadonlyArray<{
+    readonly name: string;
+    /** Directly under the collection, newest first. */
+    readonly unfoldered: TrafficArchivedSessionProjection[];
+    readonly folders: ReadonlyArray<{ readonly name: string; readonly rows: TrafficArchivedSessionProjection[] }>;
+    /** Every member, folders included — group verbs operate on this. */
+    readonly members: TrafficArchivedSessionProjection[];
+  }>;
+}
+
+function groupSessions(sessions: ReadonlyArray<TrafficArchivedSessionProjection>): SessionGroups {
+  const sorted = [...sessions].sort((a, b) => b.startedAtMs - a.startedAtMs);
+  const loose = sorted.filter((session) => session.collection === undefined);
+  const byCollection = new Map<string, TrafficArchivedSessionProjection[]>();
+  for (const session of sorted) {
+    if (session.collection === undefined) continue;
+    const members = byCollection.get(session.collection);
+    if (members !== undefined) members.push(session);
+    else byCollection.set(session.collection, [session]);
+  }
+  const collections = [...byCollection.entries()]
+    .sort((a, b) => a[0].localeCompare(b[0]))
+    .map(([name, members]) => {
+      const byFolder = new Map<string, TrafficArchivedSessionProjection[]>();
+      for (const session of members) {
+        if (session.folder === undefined) continue;
+        const rows = byFolder.get(session.folder);
+        if (rows !== undefined) rows.push(session);
+        else byFolder.set(session.folder, [session]);
+      }
+      return {
+        name,
+        unfoldered: members.filter((session) => session.folder === undefined),
+        folders: [...byFolder.entries()].sort((a, b) => a[0].localeCompare(b[0])).map(([f, rows]) => ({ name: f, rows })),
+        members,
+      };
+    });
+  return { loose, collections };
+}
+
 export interface TrafficMonitorSessionsSectionProps {
-  /** Away from the rail's side (see the rail's `side` prop). */
-  tooltipPlacement: 'left' | 'right';
   /** The panel's active source key — highlights the open session row. */
   selected: string | null;
   /** Open (or activate) one SEALED session as a source tab. */
   onOpenSession: (session: TrafficArchivedSessionProjection) => void;
   /** A session deleted here — the panel retires its open tab. */
   onSessionDeleted: (id: string) => void;
+  /** The rail's ONE keyboard cursor — highlights the matching row. */
+  focusedId: string | null;
+  /** A row was clicked — the rail moves its cursor here. */
+  onFocusRow: (id: string) => void;
+  /** Publish this section's VISIBLE nav rows to the rail's keyboard
+   *  system (written every render; the rail reads at key time). */
+  registerNavItems: (items: TrafficRailNavItem[]) => void;
 }
 
 export const TrafficMonitorSessionsSection: React.FC<TrafficMonitorSessionsSectionProps> = ({
-  tooltipPlacement,
   selected,
   onOpenSession,
   onSessionDeleted,
+  focusedId,
+  onFocusRow,
+  registerNavItems,
 }) => {
   const { locale, t } = useLocale();
   const { token } = theme.useToken();
@@ -80,13 +181,13 @@ export const TrafficMonitorSessionsSection: React.FC<TrafficMonitorSessionsSecti
   const [expanded, setExpanded] = useState(false);
   const [sessions, setSessions] = useState<ReadonlyArray<TrafficArchivedSessionProjection>>([]);
   const [loading, setLoading] = useState(false);
-  const [collapsedFolders, setCollapsedFolders] = useState<ReadonlySet<string>>(() => new Set());
-  /** Rows whose organize/delete verb is in flight — spinner state. */
-  const [pending, setPending] = useState<ReadonlySet<string>>(() => new Set());
-  const [renameTarget, setRenameTarget] = useState<TrafficArchivedSessionProjection | null>(null);
-  const [renameValue, setRenameValue] = useState('');
-  const [newFolderTarget, setNewFolderTarget] = useState<TrafficArchivedSessionProjection | null>(null);
-  const [newFolderValue, setNewFolderValue] = useState('');
+  const [expandedKeys, setExpandedKeys] = useState<Set<string>>(() => new Set(lastExpandedKeys ?? []));
+  const [renamingId, setRenamingId] = useState<string | null>(null);
+  const seededRef = useRef(lastExpandedKeys !== null);
+
+  useEffect(() => {
+    lastExpandedKeys = expandedKeys;
+  }, [expandedKeys]);
 
   const reload = useCallback(async (): Promise<void> => {
     setLoading(true);
@@ -119,36 +220,78 @@ export const TrafficMonitorSessionsSection: React.FC<TrafficMonitorSessionsSecti
     };
   }, [expanded, reload]);
 
-  const withPending = useCallback(
-    (id: string, verb: () => Promise<void>): void => {
-      setPending((prev) => new Set(prev).add(id));
-      void (async () => {
-        try {
-          await verb();
-        } catch {
-          // Archive unavailable — the reload leaves the list honest.
-        }
-        await reload();
-        setPending((prev) => {
-          const next = new Set(prev);
-          next.delete(id);
-          return next;
-        });
-      })();
+  const grouped = useMemo(() => groupSessions(sessions), [sessions]);
+
+  // First archive read: every collection starts expanded — the section
+  // is a shallow tree, and an all-collapsed opener would hide the rows
+  // the user expanded SESSIONS to see. Collapse state sticks after.
+  useEffect(() => {
+    if (seededRef.current || grouped.collections.length === 0) return;
+    seededRef.current = true;
+    setExpandedKeys(new Set(grouped.collections.map((collection) => collectionNodeId(collection.name))));
+  }, [grouped]);
+
+  const toggleExpandKey = useCallback((id: string): void => {
+    setExpandedKeys((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const expandKeys = useCallback((ids: string[]): void => {
+    setExpandedKeys((prev) => {
+      const next = new Set(prev);
+      for (const id of ids) next.add(id);
+      return next;
+    });
+  }, []);
+
+  const organize = useCallback(
+    async (id: string, changes: { name?: string; collection?: string | null; folder?: string | null }) => {
+      try {
+        await hostBridge.call('oh.daemon.traffic.sessions.organize', { id, ...changes });
+      } catch {
+        // Archive unavailable — the reload leaves the list honest.
+      }
+      await reload();
     },
     [reload],
   );
 
-  const organize = useCallback(
-    (session: TrafficArchivedSessionProjection, changes: { name?: string; folder?: string | null }): void => {
-      withPending(session.id, async () => {
-        await hostBridge.call('oh.daemon.traffic.sessions.organize', { id: session.id, ...changes });
-      });
+  /** Group rename — collection/folder are denormalized strings on each
+   *  member's meta, so a group verb is one atomic rewrite per member. */
+  const organizeMany = useCallback(
+    async (ids: ReadonlyArray<string>, changes: { collection?: string | null; folder?: string | null }) => {
+      for (const id of ids) {
+        try {
+          await hostBridge.call('oh.daemon.traffic.sessions.organize', { id, ...changes });
+        } catch {
+          // Partial failures converge on the reload below.
+        }
+      }
+      await reload();
     },
-    [withPending],
+    [reload],
   );
 
-  const confirmDelete = useCallback(
+  const deleteMany = useCallback(
+    async (rows: ReadonlyArray<TrafficArchivedSessionProjection>) => {
+      for (const session of rows) {
+        try {
+          await hostBridge.call('oh.daemon.traffic.sessions.delete', { id: session.id });
+          onSessionDeleted(session.id);
+        } catch {
+          // Refused (still recording) or unavailable — reload converges.
+        }
+      }
+      await reload();
+    },
+    [reload, onSessionDeleted],
+  );
+
+  const confirmDeleteSession = useCallback(
     (session: TrafficArchivedSessionProjection): void => {
       modal.confirm({
         title: t('workbench.trafficSessions.deleteTitle'),
@@ -157,193 +300,263 @@ export const TrafficMonitorSessionsSection: React.FC<TrafficMonitorSessionsSecti
         okButtonProps: { danger: true, 'data-testid': 'traffic-sessions-delete-ok' },
         cancelText: t('shared.action.cancel'),
         onOk: () => {
-          withPending(session.id, async () => {
-            await hostBridge.call('oh.daemon.traffic.sessions.delete', { id: session.id });
-            onSessionDeleted(session.id);
-          });
+          void deleteMany([session]);
         },
       });
     },
-    [modal, t, withPending, onSessionDeleted],
+    [modal, t, deleteMany],
   );
 
-  const folders = useMemo(() => {
-    const names = new Set<string>();
-    for (const session of sessions) {
-      if (session.folder !== undefined) names.add(session.folder);
-    }
-    return [...names].sort((a, b) => a.localeCompare(b));
-  }, [sessions]);
-
-  /** Newest first; unfiled rows at the top level, then folders
-   *  alphabetically — the archive at rail scale needs no sort/search
-   *  chrome. */
-  const grouped = useMemo(() => {
-    const sorted = [...sessions].sort((a, b) => b.startedAtMs - a.startedAtMs);
-    const unfiled = sorted.filter((session) => session.folder === undefined);
-    const byFolder = new Map<string, TrafficArchivedSessionProjection[]>();
-    for (const session of sorted) {
-      if (session.folder === undefined) continue;
-      const rows = byFolder.get(session.folder);
-      if (rows !== undefined) rows.push(session);
-      else byFolder.set(session.folder, [session]);
-    }
-    return { unfiled, folders: [...byFolder.entries()].sort((a, b) => a[0].localeCompare(b[0])) };
-  }, [sessions]);
-
-  const openSession = useCallback(
-    (session: TrafficArchivedSessionProjection): void => {
-      if (session.state !== 'sealed') return;
-      onOpenSession(session);
-    },
-    [onOpenSession],
-  );
-
-  const rowMenu = useCallback(
-    (session: TrafficArchivedSessionProjection): MenuProps => {
-      const sealed = session.state === 'sealed';
-      const moveChildren: NonNullable<MenuProps['items']> = folders
-        .filter((folder) => folder !== session.folder)
-        .map((folder) => ({
-          key: `move:${folder}`,
-          label: <span data-testid="traffic-sessions-menu-move-target">{folder}</span>,
-          onClick: () => organize(session, { folder }),
-        }));
-      moveChildren.push({
-        key: 'move-new',
-        label: <span data-testid="traffic-sessions-menu-move-new">{t('workbench.trafficSessions.moveNew')}</span>,
-        onClick: () => {
-          setNewFolderValue('');
-          setNewFolderTarget(session);
+  const confirmDeleteGroup = useCallback(
+    (name: string, members: ReadonlyArray<TrafficArchivedSessionProjection>): void => {
+      const sealed = members.filter((session) => session.state === 'sealed');
+      modal.confirm({
+        title: t('workbench.trafficSessions.deleteGroupTitle', { name }),
+        content: t('workbench.trafficSessions.deleteGroupBody', { count: sealed.length }),
+        okText: t('workbench.trafficSessions.deleteOk'),
+        okButtonProps: { danger: true, 'data-testid': 'traffic-sessions-delete-ok' },
+        cancelText: t('shared.action.cancel'),
+        onOk: () => {
+          void deleteMany(sealed);
         },
       });
-      if (session.folder !== undefined) {
+    },
+    [modal, t, deleteMany],
+  );
+
+  /** The leaf `⋯` menu — the sessions-specific verb set (Move-to-folder
+   *  has no place in the built-in leaf menu). Sealed rows only; a
+   *  collection-less row (crash recovery) has nowhere to move to. */
+  const sessionMenuItems = useCallback(
+    (
+      session: TrafficArchivedSessionProjection,
+      collection: { name: string; folders: ReadonlyArray<{ name: string }> } | null,
+    ): ItemType[] => {
+      const items: ItemType[] = [
+        {
+          key: 'rename',
+          icon: <EditOutlined />,
+          label: <span data-testid="traffic-sessions-menu-rename">{t('workbench.sidebar.menu.rename')}</span>,
+          onClick: () => setRenamingId(sessionSourceKey(session.id)),
+        },
+      ];
+      if (collection !== null) {
+        const moveChildren: ItemType[] = collection.folders
+          .filter((folder) => folder.name !== session.folder)
+          .map((folder) => ({
+            key: `move:${folder.name}`,
+            label: <span data-testid="traffic-sessions-menu-move-target">{folder.name}</span>,
+            onClick: () => void organize(session.id, { folder: folder.name }),
+          }));
         moveChildren.push({
-          key: 'move-none',
-          label: <span data-testid="traffic-sessions-menu-move-none">{t('workbench.trafficSessions.moveNone')}</span>,
-          onClick: () => organize(session, { folder: null }),
+          key: 'move-new',
+          label: <span data-testid="traffic-sessions-menu-move-new">{t('workbench.trafficSessions.moveNew')}</span>,
+          onClick: () => {
+            const folderName = t('workbench.sidebar.defaults.newFolder');
+            const fid = folderNodeId(collection.name, folderName);
+            expandKeys([collectionNodeId(collection.name), fid]);
+            setRenamingId(fid);
+            void organize(session.id, { folder: folderName });
+          },
+        });
+        if (session.folder !== undefined) {
+          moveChildren.push({
+            key: 'move-none',
+            label: <span data-testid="traffic-sessions-menu-move-none">{t('workbench.trafficSessions.moveNone')}</span>,
+            onClick: () => void organize(session.id, { folder: null }),
+          });
+        }
+        items.push({
+          key: 'move',
+          icon: <FolderOutlined />,
+          label: <span data-testid="traffic-sessions-menu-move">{t('workbench.trafficSessions.move')}</span>,
+          children: moveChildren,
         });
       }
-      return {
-        items: [
-          {
-            key: 'open',
-            label: <span data-testid="traffic-sessions-menu-open">{t('workbench.trafficSessions.openSession')}</span>,
-            disabled: !sealed,
-            onClick: () => openSession(session),
-          },
-          { type: 'divider' },
-          {
-            key: 'rename',
-            label: <span data-testid="traffic-sessions-menu-rename">{t('workbench.trafficSessions.rename')}</span>,
-            disabled: !sealed,
-            onClick: () => {
-              setRenameValue(session.name);
-              setRenameTarget(session);
-            },
-          },
-          {
-            key: 'move',
-            label: <span data-testid="traffic-sessions-menu-move">{t('workbench.trafficSessions.move')}</span>,
-            disabled: !sealed,
-            children: moveChildren,
-          },
-          { type: 'divider' },
-          {
-            key: 'delete',
-            label: <span data-testid="traffic-sessions-menu-delete">{t('workbench.trafficSessions.delete')}</span>,
-            danger: true,
-            disabled: !sealed,
-            onClick: () => confirmDelete(session),
-          },
-        ],
-      };
+      items.push(
+        { type: 'divider', key: 'div' },
+        {
+          key: 'delete',
+          icon: <DeleteOutlined />,
+          label: <span data-testid="traffic-sessions-menu-delete">{t('workbench.sidebar.menu.delete')}</span>,
+          danger: true,
+          onClick: () => confirmDeleteSession(session),
+        },
+      );
+      return items;
     },
-    [folders, organize, confirmDelete, openSession, t],
+    [t, organize, expandKeys, confirmDeleteSession],
   );
 
-  /** Index facts on the tooltip — the detail footer's successor. */
-  const rowDetail = (session: TrafficArchivedSessionProjection): React.ReactNode => (
-    <span style={{ fontSize: 12 }}>
-      {session.sourceLabel} · {new Date(session.startedAtMs).toLocaleString(locale)}
-      <br />
-      {t('workbench.trafficSessions.detailRequests', { count: session.requests })} ·{' '}
-      {t('workbench.trafficSessions.detailErrors', { count: session.errors })} · {formatSize(session.sizeBytes)}
-      <br />
-      {t(FIDELITY_KEYS[session.fidelity])} ·{' '}
-      {session.encrypted
-        ? t('workbench.trafficSessions.detailEncrypted')
-        : t('workbench.trafficSessions.detailUnencrypted')}
-    </span>
+  /** Container `⋯` — rename + delete-with-count, the standard verbs. */
+  const groupMenuItems = useCallback(
+    (nodeId: string, name: string, members: ReadonlyArray<TrafficArchivedSessionProjection>): ItemType[] => [
+      {
+        key: 'rename',
+        icon: <EditOutlined />,
+        label: <span data-testid="traffic-sessions-menu-rename">{t('workbench.sidebar.menu.rename')}</span>,
+        onClick: () => setRenamingId(nodeId),
+      },
+      { type: 'divider', key: 'div' },
+      {
+        key: 'delete',
+        icon: <DeleteOutlined />,
+        label: <span data-testid="traffic-sessions-menu-delete">{t('workbench.sidebar.menu.delete')}</span>,
+        danger: true,
+        onClick: () => confirmDeleteGroup(name, members),
+      },
+    ],
+    [t, confirmDeleteGroup],
   );
 
-  const renderRow = (session: TrafficArchivedSessionProjection, indented: boolean): React.ReactNode => {
-    const isPending = pending.has(session.id);
+  const countBadge = (count: number): React.ReactNode => (
+    <span style={{ marginLeft: 'auto', fontSize: 11, color: token.colorTextTertiary, flex: '0 0 auto' }}>{count}</span>
+  );
+
+  const sessionBadge = (session: TrafficArchivedSessionProjection): React.ReactNode => {
     const live = session.state !== 'sealed';
-    const active = selected === sessionSourceKey(session.id);
     return (
-      <Dropdown key={session.id} menu={rowMenu(session)} trigger={['contextMenu']}>
-        <Tooltip title={rowDetail(session)} placement={tooltipPlacement}>
-          <button
-            type="button"
-            data-testid="traffic-sessions-row"
-            data-session-id={session.id}
-            aria-pressed={active}
-            className={`rules-sidebar-item traffic-monitor-source-row${active ? ' selected' : ''}`}
-            style={{ paddingLeft: indented ? 30 : 14 }}
-            onClick={() => openSession(session)}
+      <span style={{ marginLeft: 'auto', display: 'inline-flex', gap: 6, alignItems: 'center', flex: '0 0 auto' }}>
+        {live && (
+          <Tag
+            color={session.state === 'recording' ? 'red' : 'default'}
+            style={{ margin: 0, fontSize: 11, lineHeight: '16px' }}
+            data-testid="traffic-sessions-row-state"
           >
-            <FileOutlined style={{ fontSize: 12, color: token.colorTextTertiary, flex: '0 0 auto' }} />
-            <span className="rules-sidebar-item-label" title={session.name}>
-              {session.name}
-            </span>
-            {live && (
-              <Tag
-                color={session.state === 'recording' ? 'red' : 'default'}
-                style={{ margin: 0, flex: '0 0 auto', fontSize: 11, lineHeight: '16px' }}
-                data-testid="traffic-sessions-row-state"
-              >
-                {session.state === 'recording'
-                  ? t('workbench.trafficSessions.stateRecording')
-                  : t('workbench.trafficSessions.stateSealing')}
-              </Tag>
-            )}
-            {isPending ? (
-              <LoadingOutlined spin style={{ fontSize: 12, color: token.colorPrimary, flex: '0 0 auto' }} />
-            ) : (
-              <Dropdown menu={rowMenu(session)} trigger={['click']} placement="bottomRight">
-                <span
-                  role="button"
-                  tabIndex={0}
-                  aria-label={t('workbench.trafficSessions.rowMenuAria')}
-                  data-testid="traffic-sessions-row-menu"
-                  style={{
-                    flex: '0 0 auto',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    color: token.colorTextTertiary,
-                  }}
-                  onClick={(e) => e.stopPropagation()}
-                  onKeyDown={(e) => e.stopPropagation()}
-                >
-                  <EllipsisOutlined style={{ fontSize: 14 }} />
-                </span>
-              </Dropdown>
-            )}
-          </button>
-        </Tooltip>
-      </Dropdown>
+            {session.state === 'recording'
+              ? t('workbench.trafficSessions.stateRecording')
+              : t('workbench.trafficSessions.stateSealing')}
+          </Tag>
+        )}
+        {!live && session.errors > 0 && (
+          <span style={{ fontSize: 11, color: token.colorError }}>{session.errors}</span>
+        )}
+        <span style={{ fontSize: 11, color: token.colorTextTertiary }}>{sessionWhen(session.startedAtMs, locale)}</span>
+      </span>
     );
   };
 
-  const toggleFolder = (folder: string): void => {
-    setCollapsedFolders((prev) => {
-      const next = new Set(prev);
-      if (next.has(folder)) next.delete(folder);
-      else next.add(folder);
-      return next;
-    });
+  const sessionNode = (
+    session: TrafficArchivedSessionProjection,
+    depth: number,
+    parent: { name: string; folders: ReadonlyArray<{ name: string }> } | null,
+    parentNodeId?: string,
+  ): TreeNode => {
+    const sealed = session.state === 'sealed';
+    const id = sessionSourceKey(session.id);
+    return {
+      id,
+      kind: 'leaf',
+      label: session.name || session.sourceLabel,
+      depth,
+      expandable: false,
+      ...(parentNodeId !== undefined ? { parentId: parentNodeId } : {}),
+      icon: sessionFidelityTag(session.fidelity),
+      badge: sessionBadge(session),
+      canRename: sealed,
+      canDelete: sealed,
+      canAddChild: false,
+      ...(sealed
+        ? {
+            onOpen: () => onOpenSession(session),
+            onRename: (name: string) => void organize(session.id, { name }),
+            onDelete: () => confirmDeleteSession(session),
+            actionMenuItems: sessionMenuItems(session, parent),
+          }
+        : {}),
+    };
   };
+
+  // Rebuilt per render on purpose: the tree is rail-scale (tens of
+  // rows), and the builders close over render-scope handlers — a memo
+  // here would either go stale or carry every handler as a dep.
+  const buildNodes = (): TreeNode[] => {
+    const out: TreeNode[] = [];
+    for (const session of grouped.loose) out.push(sessionNode(session, 0, null));
+    for (const collection of grouped.collections) {
+      const colId = collectionNodeId(collection.name);
+      out.push({
+        id: colId,
+        kind: 'group',
+        label: collection.name,
+        depth: 0,
+        expandable: true,
+        icon: iconEl(FolderOpenOutlined, 'var(--ant-color-text-tertiary, #999)'),
+        badge: countBadge(collection.members.length),
+        canRename: true,
+        canDelete: true,
+        // Container hover anatomy (`⋯` cluster) without a `+`: nothing
+        // under a collection is creatable — sessions arrive by
+        // recording, folders through a session's Move verb.
+        canAddChild: true,
+        onOpen: () => toggleExpandKey(colId),
+        onRename: (name: string) => {
+          // The node id derives from the name — carry the expansion over.
+          if (expandedKeys.has(colId)) expandKeys([collectionNodeId(name)]);
+          void organizeMany(
+            collection.members.filter((s) => s.state === 'sealed').map((s) => s.id),
+            { collection: name },
+          );
+        },
+        onDelete: () => confirmDeleteGroup(collection.name, collection.members),
+        actionMenuItems: groupMenuItems(colId, collection.name, collection.members),
+      });
+      if (!expandedKeys.has(colId)) continue;
+      for (const session of collection.unfoldered) out.push(sessionNode(session, 1, collection, colId));
+      for (const folder of collection.folders) {
+        const fid = folderNodeId(collection.name, folder.name);
+        out.push({
+          id: fid,
+          kind: 'folder',
+          label: folder.name,
+          depth: 1,
+          expandable: true,
+          parentId: colId,
+          icon: iconEl(FolderOutlined, 'var(--ant-color-text-tertiary, #999)'),
+          badge: countBadge(folder.rows.length),
+          canRename: true,
+          canDelete: true,
+          canAddChild: true,
+          onOpen: () => toggleExpandKey(fid),
+          onRename: (name: string) => {
+            if (expandedKeys.has(fid)) expandKeys([folderNodeId(collection.name, name)]);
+            void organizeMany(
+              folder.rows.filter((s) => s.state === 'sealed').map((s) => s.id),
+              { folder: name },
+            );
+          },
+          onDelete: () => confirmDeleteGroup(folder.name, folder.rows),
+          actionMenuItems: groupMenuItems(fid, folder.name, folder.rows),
+        });
+        if (!expandedKeys.has(fid)) continue;
+        for (const session of folder.rows) out.push(sessionNode(session, 2, collection, fid));
+      }
+    }
+    return out;
+  };
+  const nodes = buildNodes();
+
+  // Publish the visible rows into the rail's ONE keyboard system after
+  // every render (the rail stores them in a ref — no render loop).
+  // biome-ignore lint/correctness/useExhaustiveDependencies: intentionally runs every render — `nodes` is rebuilt each pass
+  useEffect(() => {
+    registerNavItems(
+      expanded
+        ? nodes.map((node) => ({
+            id: node.id,
+            expandable: node.expandable,
+            ...(node.expandable
+              ? { expanded: expandedKeys.has(node.id), toggleExpand: () => toggleExpandKey(node.id) }
+              : {}),
+            ...(node.parentId !== undefined ? { parentId: node.parentId } : {}),
+            ...(node.onOpen !== undefined ? { open: node.onOpen } : {}),
+            ...(node.canRename ? { startRename: () => setRenamingId(node.id) } : {}),
+            ...(node.onDelete !== undefined ? { remove: node.onDelete } : {}),
+          }))
+        : [],
+    );
+  });
+  useEffect(() => () => registerNavItems([]), [registerNavItems]);
 
   return (
     <>
@@ -383,93 +596,28 @@ export const TrafficMonitorSessionsSection: React.FC<TrafficMonitorSessionsSecti
               <span style={{ fontSize: 11 }}>{t('workbench.trafficSessions.emptyHint')}</span>
             </div>
           )}
-          {grouped.unfiled.map((session) => renderRow(session, false))}
-          {grouped.folders.map(([folder, rows]) => {
-            const collapsed = collapsedFolders.has(folder);
-            return (
-              <div key={folder}>
-                <button
-                  type="button"
-                  className="rules-sidebar-item traffic-monitor-source-row"
-                  data-testid="traffic-sessions-folder"
-                  data-folder={folder}
-                  aria-expanded={!collapsed}
-                  style={{ paddingLeft: 14 }}
-                  onClick={() => toggleFolder(folder)}
-                >
-                  {collapsed ? (
-                    <FolderOutlined style={{ fontSize: 12, color: token.colorTextTertiary, flex: '0 0 auto' }} />
-                  ) : (
-                    <FolderOpenOutlined style={{ fontSize: 12, color: token.colorTextTertiary, flex: '0 0 auto' }} />
-                  )}
-                  <span className="rules-sidebar-item-label" style={{ fontWeight: 600 }} title={folder}>
-                    {folder}
-                  </span>
-                  <span style={{ fontSize: 11, color: token.colorTextTertiary, flex: '0 0 auto' }}>{rows.length}</span>
-                </button>
-                {!collapsed && rows.map((session) => renderRow(session, true))}
-              </div>
-            );
-          })}
+          {nodes.map((node) => (
+            <TreeNodeRow
+              key={node.id}
+              node={node}
+              isSelected={node.id === selected}
+              isFocused={focusedId === node.id}
+              isRenaming={renamingId === node.id}
+              isExpanded={node.expandable ? expandedKeys.has(node.id) : undefined}
+              onClick={() => {
+                onFocusRow(node.id);
+                node.onOpen?.();
+              }}
+              onDoubleClick={() => {
+                if (node.canRename) setRenamingId(node.id);
+              }}
+              onStartRename={() => {
+                setRenamingId((prev) => (prev === node.id ? null : node.id));
+              }}
+            />
+          ))}
         </div>
       )}
-      <Modal
-        open={renameTarget !== null}
-        title={t('workbench.trafficSessions.renameTitle')}
-        okText={t('workbench.trafficSessions.renameOk')}
-        cancelText={t('shared.action.cancel')}
-        okButtonProps={{ disabled: renameValue.trim().length === 0, 'data-testid': 'traffic-sessions-rename-ok' }}
-        onCancel={() => setRenameTarget(null)}
-        onOk={() => {
-          if (renameTarget !== null && renameValue.trim().length > 0) {
-            organize(renameTarget, { name: renameValue.trim() });
-          }
-          setRenameTarget(null);
-        }}
-        destroyOnHidden
-      >
-        <Input
-          value={renameValue}
-          onChange={(e) => setRenameValue(e.target.value)}
-          onPressEnter={() => {
-            if (renameTarget !== null && renameValue.trim().length > 0) {
-              organize(renameTarget, { name: renameValue.trim() });
-              setRenameTarget(null);
-            }
-          }}
-          data-testid="traffic-sessions-rename-input"
-          autoFocus
-        />
-      </Modal>
-      <Modal
-        open={newFolderTarget !== null}
-        title={t('workbench.trafficSessions.moveNewTitle')}
-        okText={t('workbench.trafficSessions.moveNewOk')}
-        cancelText={t('shared.action.cancel')}
-        okButtonProps={{ disabled: newFolderValue.trim().length === 0, 'data-testid': 'traffic-sessions-new-folder-ok' }}
-        onCancel={() => setNewFolderTarget(null)}
-        onOk={() => {
-          if (newFolderTarget !== null && newFolderValue.trim().length > 0) {
-            organize(newFolderTarget, { folder: newFolderValue.trim() });
-          }
-          setNewFolderTarget(null);
-        }}
-        destroyOnHidden
-      >
-        <Input
-          value={newFolderValue}
-          onChange={(e) => setNewFolderValue(e.target.value)}
-          onPressEnter={() => {
-            if (newFolderTarget !== null && newFolderValue.trim().length > 0) {
-              organize(newFolderTarget, { folder: newFolderValue.trim() });
-              setNewFolderTarget(null);
-            }
-          }}
-          placeholder={t('workbench.trafficSessions.moveNewPlaceholder')}
-          data-testid="traffic-sessions-new-folder-input"
-          autoFocus
-        />
-      </Modal>
     </>
   );
 };

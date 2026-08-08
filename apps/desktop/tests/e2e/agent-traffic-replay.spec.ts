@@ -365,7 +365,7 @@ test('opening the sealed session replays the SAME rows with the browser tab gone
   // single click — the session becomes a source tab on the strip.
   await openToolWindow('traffic-monitor');
   await expandSessions();
-  const sessionRow = workbench.locator(`[data-testid="traffic-sessions-row"][data-session-id="${archivedRow.id}"]`);
+  const sessionRow = workbench.locator(`[data-item-id="session:${archivedRow.id}"]`);
   await expect(sessionRow).toBeVisible({ timeout: 15000 });
   await sessionRow.click();
 

@@ -60,6 +60,7 @@ function projectSessionIndexRow(session: TrafficArchivedSessionProjection): Reco
   return {
     sessionId: session.id,
     name: session.name,
+    ...(session.collection !== undefined ? { collection: session.collection } : {}),
     ...(session.folder !== undefined ? { folder: session.folder } : {}),
     sourceKind: session.sourceKind,
     sourceLabel: session.sourceLabel,
@@ -126,7 +127,7 @@ export function createSessionToolDefinitions(deps: McpSessionToolDeps): McpToolD
       title: 'List archived traffic sessions',
       description:
         'List the traffic sessions a human has RECORDED into the archive on this computer: sessionId, ' +
-        'name, folder, source, state (recording/sealing/sealed), time range, request/error/event counts, ' +
+        'name, collection/folder, source, state (recording/sealing/sealed), time range, request/error/event counts, ' +
         'size, fidelity (cdp/heuristic/proxy), and origins. Sessions are durable recordings of observed ' +
         'traffic — recording, organizing and deleting them are human gestures; no tool can do any of ' +
         'that. Only SEALED sessions are readable; pass a sessionId to traffic_session_list or ' +

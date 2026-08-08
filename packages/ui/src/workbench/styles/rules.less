@@ -540,26 +540,42 @@ body {
     background: rgba(128, 128, 128, 0.08);
   }
 
+  // Row echoes follow the tab-pill law: blue in the FOCUSED dock,
+  // grey everywhere else (the pills' colorPrimaryBg / colorFillSecondary
+  // pair) — working in one panel dims every other panel's highlights,
+  // and focusing the editor dims them all.
   &.selected {
+    background: var(--ant-color-fill-secondary, rgba(128, 128, 128, 0.12));
+  }
+
+  .rules-dock-body--focused &.selected {
     background: rgba(24, 144, 255, 0.08);
   }
 
-  &.focused {
+  // The keyboard cursor renders only while its OWN tree container holds
+  // DOM focus — the exact condition under which arrow keys reach it. At
+  // most one container can hold focus, so at most ONE cursor is visible
+  // across every mounted sidebar; the per-sidebar `focusedId` survives
+  // in memory and resumes when the panel is focused again.
+  .rules-sidebar-content:focus-within &.focused {
     background: rgba(24, 144, 255, 0.06);
     box-shadow: inset 0 0 0 1px rgba(24, 144, 255, 0.35);
   }
 
-  &.selected.focused {
+  .rules-sidebar-content:focus-within &.selected.focused {
     background: rgba(24, 144, 255, 0.12);
   }
 
   &:hover .rules-sidebar-item-menu,
-  &.focused .rules-sidebar-item-menu,
   &.selected .rules-sidebar-item-menu,
   &:hover .rules-sidebar-item-hover-action,
   &:hover .rules-sidebar-collection-actions,
-  &.focused .rules-sidebar-collection-actions,
   &.selected .rules-sidebar-collection-actions {
+    opacity: 1;
+  }
+
+  .rules-sidebar-content:focus-within &.focused .rules-sidebar-item-menu,
+  .rules-sidebar-content:focus-within &.focused .rules-sidebar-collection-actions {
     opacity: 1;
   }
 }
@@ -588,6 +604,30 @@ body {
   .rules-sidebar-item-label {
     min-width: 0;
   }
+}
+
+// In THIS rail a selected row is the ACTIVE SOURCE binding the plane
+// column — the same meaning as the storage rail's active section — so
+// it carries the DevTools panes' solid active fill instead of the
+// workbench sidebar's subtle echo-of-the-open-tab tint. Same pill law:
+// vivid only while this dock is the focused one, grey otherwise.
+.traffic-monitor-panel .rules-sidebar-item.selected {
+  background: var(--ant-color-fill-secondary, rgba(128, 128, 128, 0.12));
+}
+
+.rules-dock-body--focused .traffic-monitor-panel .rules-sidebar-item.selected {
+  background: var(--dt-pill-active-bg);
+}
+
+// The workbench-hosted DevTools rails (the storage plane's nav) obey
+// the same pill law. The browser devtools panel has no dock chrome, so
+// its own stylesheet's solid fill stands there untouched.
+.traffic-monitor-panel .dt-storage-nav-item[data-active='true'] {
+  background: var(--ant-color-fill-secondary, rgba(128, 128, 128, 0.12));
+}
+
+.rules-dock-body--focused .traffic-monitor-panel .dt-storage-nav-item[data-active='true'] {
+  background: var(--dt-pill-active-bg);
 }
 
 // Peer header row: the collapsible caret <button> plus the Debug-mode

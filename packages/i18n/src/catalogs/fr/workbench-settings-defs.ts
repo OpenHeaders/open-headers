@@ -92,8 +92,8 @@ export const workbenchSettingsDefs = {
     "d'accès n'existe pas. Activé, les agents munis d'un jeton d'accès peuvent lire vos espaces de travail.",
   'workbench.settings.def.mcp.allowObserve.label': "Autoriser l'observation du trafic",
   'workbench.settings.def.mcp.allowObserve.description':
-    'Les agents peuvent lire le trafic en direct des sources que vous armez dans le Moniteur de trafic. Les ' +
-    "sources non armées restent invisibles ; les en-têtes d'authentification, les cookies et les valeurs en " +
+    'Les agents peuvent lire le trafic en direct des sources que vous capturez dans le Moniteur de trafic. Les ' +
+    "sources non capturées restent invisibles ; les en-têtes d'authentification, les cookies et les valeurs en " +
     'forme de token sont remplacés par des marqueurs stables.',
   'workbench.settings.def.mcp.allowWrite.label': "Autoriser les outils d'écriture",
   'workbench.settings.def.mcp.allowWrite.description':
@@ -437,15 +437,15 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.inspection.cdpScope.option.both.description': "Les onglets DevTools et l'onglet actif.",
 
   // ── Traffic Monitor category defs ──────────────────────────────────
-  'workbench.settings.def.trafficMonitor.observeDebugDefault.label': 'Démarrer les sessions avec le mode débogage',
-  'workbench.settings.def.trafficMonitor.observeDebugDefault.description':
-    'Les nouvelles sessions d’observation attachent le débogueur du navigateur pour une fidélité maximale — corps ' +
-    'de réponse et en-têtes exacts. Le navigateur affiche un bandeau de débogage sur l’onglet. Chaque geste de ' +
-    'démarrage peut remplacer ce réglage sous Avancé.',
-  'workbench.settings.def.trafficMonitor.observeSaveDefault.label': 'Enregistrer les sessions dans l’archive',
-  'workbench.settings.def.trafficMonitor.observeSaveDefault.description':
-    'Les nouvelles sessions d’observation sont enregistrées dans l’archive de sessions chiffrée sur cet ' +
-    'ordinateur. Chaque geste de démarrage peut remplacer ce réglage sous Avancé.',
+  'workbench.settings.def.trafficMonitor.captureDebugDefault.label': 'Démarrer les captures avec le mode débogage',
+  'workbench.settings.def.trafficMonitor.captureDebugDefault.description':
+    'Les nouvelles captures attachent le débogueur du navigateur pour une fidélité maximale — corps de réponse ' +
+    'et en-têtes exacts. Le navigateur affiche un bandeau de débogage sur l’onglet. Chaque geste de démarrage ' +
+    'peut remplacer ce réglage sous Avancé.',
+  'workbench.settings.def.trafficMonitor.captureSaveDefault.label': 'Enregistrer les captures dans l’archive',
+  'workbench.settings.def.trafficMonitor.captureSaveDefault.description':
+    'Les nouvelles captures sont enregistrées dans l’archive de sessions chiffrée sur cet ordinateur. Chaque ' +
+    'geste de démarrage peut remplacer ce réglage sous Avancé.',
   'workbench.settings.def.trafficMonitor.sessionAgentRawReads.label':
     'Les agents lisent les sessions archivées sans caviardage',
   'workbench.settings.def.trafficMonitor.sessionAgentRawReads.description':

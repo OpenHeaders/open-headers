@@ -93,9 +93,8 @@ export const workbenchSettingsDefs = {
     'können Agents mit einem Zugriffstoken deine Arbeitsbereiche lesen.',
   'workbench.settings.def.mcp.allowObserve.label': 'Traffic-Beobachtung erlauben',
   'workbench.settings.def.mcp.allowObserve.description':
-    'Agents können den Live-Traffic der Quellen lesen, die du im Traffic-Monitor scharf schaltest. Nicht scharf ' +
-    'geschaltete Quellen bleiben unsichtbar; Auth-Header, Cookies und tokenförmige Werte werden durch stabile ' +
-    'Marker ersetzt.',
+    'Agents können den Live-Traffic der Quellen lesen, die du im Traffic-Monitor erfasst. Nicht erfasste Quellen ' +
+    'bleiben unsichtbar; Auth-Header, Cookies und tokenförmige Werte werden durch stabile Marker ersetzt.',
   'workbench.settings.def.mcp.allowWrite.label': 'Schreib-Tools erlauben',
   'workbench.settings.def.mcp.allowWrite.description':
     'Agents können Regeln, Anfragen, Umgebungen, Variablen und Workflows anlegen, bearbeiten und löschen. ' +
@@ -428,14 +427,14 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.inspection.cdpScope.option.both.description': 'DevTools-Tabs und der fokussierte Tab.',
 
   // ── Traffic Monitor category defs ──────────────────────────────────
-  'workbench.settings.def.trafficMonitor.observeDebugDefault.label': 'Sitzungen mit Debug-Modus starten',
-  'workbench.settings.def.trafficMonitor.observeDebugDefault.description':
-    'Neue Beobachtungssitzungen binden den Debugger des Browsers für volle Detailtreue an — Antwortinhalte und ' +
-    'exakte Header. Der Browser zeigt ein Debugging-Banner auf dem Tab. Jede Start-Geste kann dies unter ' +
-    '„Erweitert“ überschreiben.',
-  'workbench.settings.def.trafficMonitor.observeSaveDefault.label': 'Sitzungen im Archiv speichern',
-  'workbench.settings.def.trafficMonitor.observeSaveDefault.description':
-    'Neue Beobachtungssitzungen werden im verschlüsselten Sitzungsarchiv auf diesem Computer aufgezeichnet. Jede ' +
+  'workbench.settings.def.trafficMonitor.captureDebugDefault.label': 'Erfassungen mit Debug-Modus starten',
+  'workbench.settings.def.trafficMonitor.captureDebugDefault.description':
+    'Neue Erfassungen binden den Debugger des Browsers für volle Detailtreue an — Antwortinhalte und exakte ' +
+    'Header. Der Browser zeigt ein Debugging-Banner auf dem Tab. Jede Start-Geste kann dies unter „Erweitert“ ' +
+    'überschreiben.',
+  'workbench.settings.def.trafficMonitor.captureSaveDefault.label': 'Erfassungen im Archiv speichern',
+  'workbench.settings.def.trafficMonitor.captureSaveDefault.description':
+    'Neue Erfassungen werden im verschlüsselten Sitzungsarchiv auf diesem Computer aufgezeichnet. Jede ' +
     'Start-Geste kann dies unter „Erweitert“ überschreiben.',
   'workbench.settings.def.trafficMonitor.sessionAgentRawReads.label':
     'Agenten lesen archivierte Sitzungen ungeschwärzt',

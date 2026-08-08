@@ -38,7 +38,7 @@ import type { TelemetryDebugState } from '@openheaders/core/protocol';
 import type { TrafficArchivedSessionProjection } from '@openheaders/core/traffic';
 import { Button, Popover, Switch, Tag, theme, Tooltip } from 'antd';
 import type React from 'react';
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { RecordStartIcon, RecordStopIcon } from '@openheaders/ui/shared/icons';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { useSettingValue } from '../../settings/hooks';
@@ -49,7 +49,7 @@ import {
 } from '../../data/extension-stores';
 import { SectionHeader } from '../sidebar/SectionHeader';
 import { BrowserBrandIcon } from './browser-brand-icons';
-import { TrafficMonitorSessionsSection } from './TrafficMonitorSessionsSection';
+import { TrafficMonitorSessionsSection, type TrafficRailNavItem } from './TrafficMonitorSessionsSection';
 
 /** Default rail width; the vertical sash can resize it within bounds. */
 export const RAIL_DEFAULT_WIDTH = 350;
@@ -165,13 +165,19 @@ export function agentVersion(agent: string): string | null {
 
 function SourceRow({
   testid,
+  itemId,
   active,
+  focused,
   indent = false,
   onClick,
   children,
 }: {
   testid: string;
+  /** Keyboard-nav identity — `data-item-id`, the sidebar-tree idiom. */
+  itemId: string;
   active: boolean;
+  /** The rail's ONE keyboard cursor sits on this row. */
+  focused: boolean;
   /** Nested under a caret row (peer) — indents like tree children. */
   indent?: boolean;
   onClick: () => void;
@@ -181,8 +187,9 @@ function SourceRow({
     <button
       type="button"
       data-testid={testid}
+      data-item-id={itemId}
       aria-pressed={active}
-      className={`rules-sidebar-item traffic-monitor-source-row${active ? ' selected' : ''}`}
+      className={`rules-sidebar-item traffic-monitor-source-row${active ? ' selected' : ''}${focused ? ' focused' : ''}`}
       style={indent ? { paddingLeft: 30 } : undefined}
       onClick={onClick}
     >
@@ -361,8 +368,8 @@ function SourceObserveAffordance({
 }) {
   const t = useT();
   const { token } = theme.useToken();
-  const debugDefault = useSettingValue('trafficMonitor.observeDebugDefault');
-  const saveDefault = useSettingValue('trafficMonitor.observeSaveDefault');
+  const debugDefault = useSettingValue('trafficMonitor.captureDebugDefault');
+  const saveDefault = useSettingValue('trafficMonitor.captureSaveDefault');
   const [menuOpen, setMenuOpen] = useState(false);
   const [advancedOpen, setAdvancedOpen] = useState(false);
   // Seeded from the Settings defaults so a glyph click that never
@@ -390,16 +397,16 @@ function SourceObserveAffordance({
       <ObserveMenuHeader
         testid="traffic-monitor-observe-stop"
         icon={<EyeInvisibleOutlined style={{ fontSize: 12, color: capturing ? token.colorError : token.colorPrimary }} />}
-        title={t('workbench.trafficMonitor.observeMenuStop')}
-        {...(capturing ? { hint: t('workbench.trafficMonitor.observeMenuStopRecordingHint') } : {})}
+        title={t('workbench.trafficMonitor.captureMenuStop')}
+        {...(capturing ? { hint: t('workbench.trafficMonitor.captureMenuStopRecordingHint') } : {})}
       />
     ) : (
       <>
         <ObserveMenuHeader
           testid="traffic-monitor-observe-start"
           icon={<EyeOutlined style={{ fontSize: 12, color: token.colorPrimary }} />}
-          title={t('workbench.trafficMonitor.observeMenuStart')}
-          hint={t('workbench.trafficMonitor.observeMenuStartHint')}
+          title={t('workbench.trafficMonitor.captureMenuStart')}
+          hint={t('workbench.trafficMonitor.captureMenuStartHint')}
         />
         <button
           type="button"
@@ -419,7 +426,7 @@ function SourceObserveAffordance({
             />
           </span>
           <span style={{ fontSize: 12, color: token.colorTextSecondary }}>
-            {t('workbench.trafficMonitor.observeAdvanced')}
+            {t('workbench.trafficMonitor.captureAdvanced')}
           </span>
         </button>
         {advancedOpen && (
@@ -428,15 +435,15 @@ function SourceObserveAffordance({
               <ObserveMenuToggle
                 testid="traffic-monitor-observe-debug"
                 title={t('shared.chrome.debug.title')}
-                hint={t('workbench.trafficMonitor.observeDebugOptionHint')}
+                hint={t('workbench.trafficMonitor.captureDebugOptionHint')}
                 checked={debugOn}
                 onChange={setDebugOn}
               />
             )}
             <ObserveMenuToggle
               testid="traffic-monitor-observe-save"
-              title={t('workbench.trafficMonitor.observeSaveOption')}
-              hint={t('workbench.trafficMonitor.observeSaveOptionHint')}
+              title={t('workbench.trafficMonitor.captureSaveOption')}
+              hint={t('workbench.trafficMonitor.captureSaveOptionHint')}
               checked={saveOn}
               onChange={setSaveOn}
             />
@@ -484,7 +491,7 @@ function SourceObserveAffordance({
         role="button"
         tabIndex={0}
         data-testid={capturing ? 'traffic-monitor-source-capturing' : 'traffic-monitor-source-observe'}
-        aria-label={t('workbench.trafficMonitor.observeAria')}
+        aria-label={t('workbench.trafficMonitor.captureAria')}
         aria-pressed={armed || capturing}
         aria-busy={pending}
         aria-haspopup="menu"
@@ -566,6 +573,98 @@ export const TrafficMonitorSourceRail: React.FC<TrafficMonitorSourceRailProps> =
     });
   };
 
+  // ── The rail's ONE keyboard system (the sidebar contract): a single
+  // cursor spans the browser-tab rows, the wire row, and the SESSIONS
+  // tree, navigated from the content column (tabIndex −1 — clicking a
+  // row focuses it so arrows land here). The sessions section publishes
+  // its visible rows into a ref every render; the flat list is
+  // assembled at key time so it always matches what is on screen.
+  const [focusedKey, setFocusedKey] = useState<string | null>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
+  const sessionNavRef = useRef<TrafficRailNavItem[]>([]);
+  const registerNavItems = useCallback((items: TrafficRailNavItem[]) => {
+    sessionNavRef.current = items;
+  }, []);
+  const focusRow = useCallback((id: string) => {
+    setFocusedKey(id);
+    contentRef.current?.focus({ preventScroll: true });
+  }, []);
+
+  const peerRowId = (nodeId: string): string => `peer-${nodeId}`;
+
+  const railNavItems = (): TrafficRailNavItem[] => {
+    const items: TrafficRailNavItem[] = [];
+    if (browsersOpen) {
+      for (const peer of peers) {
+        const pid = peerRowId(peer.nodeId);
+        const expanded = !collapsedPeers.has(peer.nodeId);
+        items.push({ id: pid, expandable: true, expanded, toggleExpand: () => togglePeer(peer.nodeId) });
+        if (!expanded) continue;
+        for (const tab of peer.tabs) {
+          const key = tabSourceKey(peer.nodeId, tab.tabId);
+          items.push({ id: key, expandable: false, parentId: pid, open: () => onSelect(key) });
+        }
+      }
+    }
+    if (showWire && wireOpen) {
+      items.push({ id: WIRE_SOURCE_KEY, expandable: false, open: () => onSelect(WIRE_SOURCE_KEY) });
+    }
+    items.push(...sessionNavRef.current);
+    return items;
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent): void => {
+    // Keystrokes typed into a child input (the sessions tree's inline
+    // rename) belong to that input — mirror the sidebar's gating.
+    const target = e.target as HTMLElement | null;
+    if (target) {
+      const tag = target.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+      if (target.isContentEditable) return;
+    }
+    const items = railNavItems();
+    const current = items.findIndex((item) => item.id === focusedKey);
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      const nextIndex = e.key === 'ArrowDown' ? Math.min(current + 1, items.length - 1) : Math.max(current - 1, 0);
+      const next = items[nextIndex];
+      if (next) {
+        setFocusedKey(next.id);
+        setTimeout(
+          () =>
+            contentRef.current?.querySelector(`[data-item-id="${next.id}"]`)?.scrollIntoView({ block: 'nearest' }),
+          0,
+        );
+      }
+      return;
+    }
+    const item = current >= 0 ? items[current] : undefined;
+    if (item === undefined) return;
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      (item.open ?? item.toggleExpand)?.();
+    } else if (e.key === 'ArrowRight') {
+      if (item.expandable && item.expanded !== true) {
+        e.preventDefault();
+        item.toggleExpand?.();
+      }
+    } else if (e.key === 'ArrowLeft') {
+      e.preventDefault();
+      if (item.expandable && item.expanded === true) item.toggleExpand?.();
+      else if (item.parentId !== undefined) setFocusedKey(item.parentId);
+    } else if (e.key === 'F2') {
+      if (item.startRename !== undefined) {
+        e.preventDefault();
+        item.startRename();
+      }
+    } else if (e.key === 'Delete' || e.key === 'Backspace') {
+      if (item.remove !== undefined) {
+        e.preventDefault();
+        item.remove();
+      }
+    }
+  };
+
   // Install CTA — a store listing must land in the browser that will
   // install the extension, so the named-browser capability leads and
   // the default-browser open is the degraded path.
@@ -638,9 +737,15 @@ export const TrafficMonitorSourceRail: React.FC<TrafficMonitorSourceRailProps> =
                   <button
                     type="button"
                     data-testid="traffic-monitor-peer"
+                    data-item-id={peerRowId(peer.nodeId)}
                     aria-expanded={expanded}
-                    className="rules-sidebar-item traffic-monitor-source-row"
-                    onClick={() => togglePeer(peer.nodeId)}
+                    className={`rules-sidebar-item traffic-monitor-source-row${
+                      focusedKey === peerRowId(peer.nodeId) ? ' focused' : ''
+                    }`}
+                    onClick={() => {
+                      focusRow(peerRowId(peer.nodeId));
+                      togglePeer(peer.nodeId);
+                    }}
                   >
                     <CaretRightOutlined
                       style={{
@@ -704,9 +809,14 @@ export const TrafficMonitorSourceRail: React.FC<TrafficMonitorSourceRailProps> =
                           <Tooltip key={key} title={tab.url} placement={tooltipPlacement}>
                             <SourceRow
                               testid="traffic-monitor-source-tab"
+                              itemId={key}
                               active={selected === key}
+                              focused={focusedKey === key}
                               indent
-                              onClick={() => onSelect(key)}
+                              onClick={() => {
+                                focusRow(key);
+                                onSelect(key);
+                              }}
                             >
                               {tab.favIconUrl?.startsWith('data:') ? (
                                 <img
@@ -783,8 +893,13 @@ export const TrafficMonitorSourceRail: React.FC<TrafficMonitorSourceRailProps> =
         <Tooltip title={t('workbench.trafficMonitor.trafficInterceptionHint')} placement={tooltipPlacement}>
           <SourceRow
             testid="traffic-monitor-source-wire"
+            itemId={WIRE_SOURCE_KEY}
             active={selected === WIRE_SOURCE_KEY}
-            onClick={() => onSelect(WIRE_SOURCE_KEY)}
+            focused={focusedKey === WIRE_SOURCE_KEY}
+            onClick={() => {
+              focusRow(WIRE_SOURCE_KEY);
+              onSelect(WIRE_SOURCE_KEY);
+            }}
           >
             <GlobalOutlined style={{ fontSize: 12, flex: '0 0 auto' }} />
             <span className="rules-sidebar-item-label">{t('workbench.trafficMonitor.trafficInterception')}</span>
@@ -816,14 +931,17 @@ export const TrafficMonitorSourceRail: React.FC<TrafficMonitorSourceRailProps> =
         overflow: 'hidden',
       }}
     >
-      <div className="rules-sidebar-content">
+      {/* biome-ignore lint/a11y/noNoninteractiveTabindex: the nav container needs programmatic focus for arrow keys — the sidebar's exact posture */}
+      <div className="rules-sidebar-content" ref={contentRef} tabIndex={-1} onKeyDown={handleKeyDown}>
         {browsersSection}
         {wireSection}
         <TrafficMonitorSessionsSection
-          tooltipPlacement={tooltipPlacement}
           selected={selected}
           onOpenSession={onOpenSession}
           onSessionDeleted={onSessionDeleted}
+          focusedId={focusedKey}
+          onFocusRow={focusRow}
+          registerNavItems={registerNavItems}
         />
       </div>
     </div>

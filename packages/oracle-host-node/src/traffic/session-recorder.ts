@@ -181,11 +181,15 @@ export interface TrafficSessionMeta {
   readonly sourceKind: string;
   readonly sourceLabel: string;
   readonly name: string;
-  /** Organize folder (§11.1 auto-placement) — stamped at seal from the
-   *  dominant origin's registrable domain (proxy sessions: the source
-   *  label); rewritten only by the operator's organize verb after
-   *  that. Absent = unfiled (a crashed session recovers unfiled — the
+  /** Organize collection (§11.1 auto-placement) — stamped at seal:
+   *  browser-tab sessions under the dominant origin's registrable
+   *  domain, proxy sessions under {@link WIRE_SESSION_COLLECTION};
+   *  renameable through the organize verb after that. Absent = filed
+   *  nowhere (a crashed session recovers collection-less — the
    *  dominant-origin tally died with the recorder). */
+  readonly collection?: string;
+  /** Organize folder INSIDE the collection — user-created only, never
+   *  auto-stamped. Absent = directly under the collection. */
   readonly folder?: string;
   readonly startedAtMs: number;
   readonly bounds: TrafficCaptureBounds;
@@ -261,14 +265,10 @@ export function sessionDirName(startedAtMs: number, name: string, sessionId: str
   return `${stamp}-${slugifySessionName(name)}-${sessionId}`;
 }
 
-/** The auto-name's `<date time>` segment — local wall-clock, since the
- *  name is what the user reads back ("the session from that
- *  afternoon"), zero-padded so names sort with their sessions. */
-export function sessionStampLocal(atMs: number): string {
-  const d = new Date(atMs);
-  const p = (n: number): string => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
-}
+/** The wire sessions' fixed organize collection: a proxy capture spans
+ *  many sites, so filing it under one dominant domain would mislead.
+ *  A NAME is what it lacks — the dominant site stamps that instead. */
+export const WIRE_SESSION_COLLECTION = 'Traffic Interception';
 
 function payloadBytes(value: string): number {
   return Buffer.byteLength(value, 'utf8');
@@ -325,11 +325,14 @@ export function startTrafficSessionRecording(options: TrafficSessionRecorderOpti
   let stoppedAtMs: number | undefined;
   let endReason: TrafficCaptureEndReason | undefined;
   let fidelity: LifecycleSource = options.initialFidelity;
-  /** Meta name/folder — the operator start name until seal stamps the
-   *  §11.1 auto-name and auto-placement folder. */
+  /** Meta name/collection — the start name (a browser tab's title) is
+   *  the display name unless blank, in which case seal stamps the
+   *  dominant site; the §11.1 auto-placement collection stamps at seal
+   *  either way. Date, counts and fidelity are row chrome derived from
+   *  the meta's own fields — never baked into the name. */
   let displayName = options.name;
-  let folder: string | undefined;
-  /** Requests counted toward the auto-name's error tally. */
+  let collection: string | undefined;
+  /** Requests counted toward the error tally. */
   const errored = new Set<string>();
   /** Per-origin request tally (capped) — the dominant-origin input to
    *  auto-placement; the key list doubles as the meta's origin index. */
@@ -375,7 +378,7 @@ export function startTrafficSessionRecording(options: TrafficSessionRecorderOpti
       sourceKind: options.sourceKind,
       sourceLabel: options.sourceLabel,
       name: displayName,
-      ...(folder !== undefined ? { folder } : {}),
+      ...(collection !== undefined ? { collection } : {}),
       startedAtMs,
       bounds: options.bounds,
       planes: ['lifecycle'],
@@ -515,10 +518,8 @@ export function startTrafficSessionRecording(options: TrafficSessionRecorderOpti
   }
 
   /** §11.1 auto-placement input: the registrable domain of the origin
-   *  that carried the most requests; proxy sessions file under their
-   *  source label, as does a tab session that saw no origin at all. */
-  function dominantSite(): string {
-    if (options.sourceKind !== 'browser-tab') return options.sourceLabel;
+   *  that carried the most requests; `null` when no origin was seen. */
+  function dominantSite(): string | null {
     let best: string | null = null;
     let bestCount = 0;
     for (const [origin, count] of originCounts) {
@@ -527,7 +528,7 @@ export function startTrafficSessionRecording(options: TrafficSessionRecorderOpti
         bestCount = count;
       }
     }
-    if (best === null) return options.sourceLabel;
+    if (best === null) return null;
     return registrableDomain(best) ?? best;
   }
 
@@ -544,10 +545,13 @@ export function startTrafficSessionRecording(options: TrafficSessionRecorderOpti
       .then(async () => {
         // The trailer task runs AFTER every accepted append has
         // flushed, so the live counters ARE the final counts — which
-        // is also the earliest the §11.1 auto-name and auto-placement
-        // folder can be stamped honestly.
-        folder = dominantSite();
-        displayName = `${folder} — ${sessionStampLocal(startedAtMs)} (${requests} requests, ${errored.size} errors)`;
+        // is also the earliest the §11.1 auto-placement collection
+        // (and a blank name's dominant-site fallback) can be stamped
+        // honestly. The start name — a browser tab's title — survives:
+        // it is the one string that behaves like a NAME.
+        const site = dominantSite();
+        collection = options.sourceKind === 'browser-tab' ? (site ?? options.sourceLabel) : WIRE_SESSION_COLLECTION;
+        if (displayName.trim().length === 0) displayName = site ?? options.sourceLabel;
         try {
           writeLine(
             eventsFd,

@@ -184,9 +184,10 @@ describe('index read', () => {
       fidelity: 'cdp',
       encrypted: true,
     });
-    // The C5 auto-name stamped at seal — site + counts, one error
-    // (the net-fail probe).
-    expect(sessions[0]?.name).toMatch(/^openheaders\.io — .+ \(4 requests, 1 errors\)$/);
+    // The start name survives the seal; auto-placement stamps the
+    // dominant site on the COLLECTION, never into the name.
+    expect(sessions[0]?.name).toBe('secrets run');
+    expect(sessions[0]?.collection).toBe('openheaders.io');
     expect(JSON.stringify(sessions)).not.toContain(JWT);
   });
 });

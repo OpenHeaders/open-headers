@@ -560,18 +560,19 @@ export const workbenchChrome = {
   'workbench.trafficMonitor.debugModeHint':
     'Debug mode — attaches the browser’s debugger to scoped and pinned tabs for bodies and exact headers. The browser ' +
     'shows a banner on each attached tab.',
-  'workbench.trafficMonitor.observeAria': 'AI agent observation options for this source',
-  'workbench.trafficMonitor.observeMenuStart': 'Start observing',
-  'workbench.trafficMonitor.observeMenuStartHint':
-    'Streams this source’s traffic to the desktop app — connected AI agents can read it while observing',
-  'workbench.trafficMonitor.observeAdvanced': 'Advanced',
-  'workbench.trafficMonitor.observeDebugOptionHint':
+  'workbench.trafficMonitor.captureAria': 'Capture options for this source',
+  'workbench.trafficMonitor.captureMenuStart': 'Start capturing',
+  'workbench.trafficMonitor.captureMenuStartHint':
+    'Keeps this source’s recent traffic: connected AI agents can read it (sensitive values masked), and “Save ' +
+    'session” records it to disk. Watching the live view here never needs this.',
+  'workbench.trafficMonitor.captureAdvanced': 'Advanced',
+  'workbench.trafficMonitor.captureDebugOptionHint':
     'Full fidelity via the browser’s debugger — response bodies and exact headers. The browser shows a debugging banner.',
-  'workbench.trafficMonitor.observeSaveOption': 'Save session',
-  'workbench.trafficMonitor.observeSaveOptionHint':
-    'Records the observation to the encrypted session archive on this computer',
-  'workbench.trafficMonitor.observeMenuStop': 'Stop observing',
-  'workbench.trafficMonitor.observeMenuStopRecordingHint': 'Ends the recording and keeps the session',
+  'workbench.trafficMonitor.captureSaveOption': 'Save session',
+  'workbench.trafficMonitor.captureSaveOptionHint':
+    'Records the capture to the encrypted session archive on this computer',
+  'workbench.trafficMonitor.captureMenuStop': 'Stop capturing',
+  'workbench.trafficMonitor.captureMenuStopRecordingHint': 'Ends the recording and keeps the session',
   'workbench.trafficMonitor.sessionsTitle': 'Sessions',
   'workbench.trafficMonitor.noBrowsersHint':
     'No browsers connected. Open a browser with the extension installed, or install it:',
@@ -587,36 +588,23 @@ export const workbenchChrome = {
   // ── The SESSIONS rail section (the sessions archive, in-rail) ───────
   'workbench.trafficSessions.empty': 'No saved sessions yet',
   'workbench.trafficSessions.emptyHint':
-    'Start observing a source in the Traffic Monitor with “Save session” on — saved sessions land here',
+    'Capture a source in the Traffic Monitor with “Save session” on — saved sessions land here',
   'workbench.trafficSessions.stateRecording': 'Recording',
   'workbench.trafficSessions.stateSealing': 'Sealing…',
-  'workbench.trafficSessions.rowMenuAria': 'Session actions',
-  'workbench.trafficSessions.rename': 'Rename…',
-  'workbench.trafficSessions.renameTitle': 'Rename session',
-  'workbench.trafficSessions.renameOk': 'Rename',
   'workbench.trafficSessions.move': 'Move to folder',
   'workbench.trafficSessions.moveNew': 'New folder…',
-  'workbench.trafficSessions.moveNewTitle': 'Move to a new folder',
-  'workbench.trafficSessions.moveNewOk': 'Move',
-  'workbench.trafficSessions.moveNewPlaceholder': 'Folder name',
   'workbench.trafficSessions.moveNone': 'Remove from folder',
-  'workbench.trafficSessions.delete': 'Delete…',
   'workbench.trafficSessions.deleteTitle': 'Delete this session?',
   'workbench.trafficSessions.deleteBody':
     '“{name}” and any recorded data only this session references are removed from disk.',
   'workbench.trafficSessions.deleteOk': 'Delete',
-  'workbench.trafficSessions.detailRequests': '{count} requests',
-  'workbench.trafficSessions.detailErrors': '{count} errors',
-  'workbench.trafficSessions.detailEncrypted': 'Encrypted',
-  'workbench.trafficSessions.detailUnencrypted': 'Not encrypted',
-  'workbench.trafficSessions.fidelityCdp': 'Full fidelity (debugger)',
-  'workbench.trafficSessions.fidelityHeuristic': 'Heuristic fidelity',
-  'workbench.trafficSessions.fidelityProxy': 'Wire capture',
-  'workbench.trafficSessions.openSession': 'Open',
+  'workbench.trafficSessions.deleteGroupTitle': 'Delete “{name}”?',
+  'workbench.trafficSessions.deleteGroupBody':
+    'Its {count} sessions and any recorded data only they reference are removed from disk.',
 
   // ── Session replay tab (C6 — an archived session in the live views) ──
   'workbench.sessionReplay.empty': 'This session recorded no requests',
-  'workbench.sessionReplay.emptyHint': 'The source was observed, but no traffic crossed it while recording',
+  'workbench.sessionReplay.emptyHint': 'The source was captured, but no traffic crossed it while recording',
   'workbench.sessionReplay.unavailableTitle': 'This session could not be opened',
   'workbench.sessionReplay.unavailableBody':
     'The recorded data is missing or damaged, or it is encrypted with a key this app no longer holds.',

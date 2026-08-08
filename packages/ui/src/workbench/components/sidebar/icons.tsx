@@ -105,6 +105,34 @@ export function websocketTag(flavor: 'raw' | 'socketio', muted = false): React.R
   );
 }
 
+/** Compact fidelity tag used as the leaf "icon" for archived traffic
+ *  sessions — same footprint as {@link methodTag} so session leaves
+ *  align with sibling trees. Vocabulary, like GET/POST — not localized. */
+export function sessionFidelityTag(fidelity: 'cdp' | 'heuristic' | 'proxy'): React.ReactNode {
+  const spec = {
+    cdp: { label: 'CDP', color: 'var(--oh-method-get, #0a7d33)' },
+    proxy: { label: 'PROXY', color: 'var(--oh-method-put, #0b5cad)' },
+    heuristic: { label: 'BASIC', color: 'var(--ant-color-text-tertiary, #999)' },
+  }[fidelity];
+  return createElement(
+    'span',
+    {
+      key: 'fidelity',
+      style: {
+        display: 'inline-block',
+        minWidth: 44,
+        fontSize: 9,
+        fontWeight: 700,
+        color: spec.color,
+        fontFamily: "'SF Mono', monospace",
+        textAlign: 'right',
+        flexShrink: 0,
+      },
+    },
+    spec.label,
+  );
+}
+
 /** The shared "e.g." chip, right-aligned inside the {@link methodTag}
  *  footprint so example labels align with sibling request labels. */
 export function exampleTag(): React.ReactNode {

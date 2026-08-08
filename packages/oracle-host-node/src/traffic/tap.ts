@@ -139,6 +139,10 @@ export interface TrafficArmOptions {
   /** Arm lifetime override (e2e drives a tiny one); defaults to
    *  {@link DEFAULT_TRAFFIC_ARM_TTL_MS}. */
   readonly ttlMs?: number;
+  /** Human source label — the arm caller resolves it (a browser tab's
+   *  title from the telemetry inventory); the fallback is the partition
+   *  coordinates. Stamped on the projection and every session meta. */
+  readonly label?: string;
 }
 
 export interface TrafficSourceStatus extends TrafficSourceProjection {
@@ -469,7 +473,7 @@ export function createTrafficTap(deps: TrafficTapDeps): TrafficTap {
       projection: {
         uid,
         kind: 'browser-tab',
-        label: `tab ${tabId} @ ${nodeId}`,
+        label: options?.label?.trim() || `tab ${tabId} @ ${nodeId}`,
         nodeId,
         tabId,
         armedAtMs: now,
@@ -533,7 +537,7 @@ export function createTrafficTap(deps: TrafficTapDeps): TrafficTap {
     const ttlMs = resolveTtl(options);
     const now = Date.now();
     const source: ArmedSource = {
-      projection: { uid, kind: 'proxy', label: 'Proxy capture', armedAtMs: now },
+      projection: { uid, kind: 'proxy', label: 'Traffic Interception', armedAtMs: now },
       ring,
       consumer,
       ttlMs,

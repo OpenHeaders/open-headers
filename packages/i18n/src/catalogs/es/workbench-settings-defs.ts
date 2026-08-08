@@ -110,8 +110,8 @@ export const workbenchSettingsDefs = {
     'trabajo.',
   'workbench.settings.def.mcp.allowObserve.label': 'Permitir la observación del tráfico',
   'workbench.settings.def.mcp.allowObserve.description':
-    'Los agentes pueden leer el tráfico en vivo de las fuentes que armas en el Monitor de tráfico. Las fuentes ' +
-    'sin armar permanecen invisibles; las cabeceras de autenticación, las cookies y los valores con forma de ' +
+    'Los agentes pueden leer el tráfico en vivo de las fuentes que capturas en el Monitor de tráfico. Las fuentes ' +
+    'sin capturar permanecen invisibles; las cabeceras de autenticación, las cookies y los valores con forma de ' +
     'token se reemplazan por marcadores estables.',
   'workbench.settings.def.mcp.allowWrite.label': 'Permitir las herramientas de escritura',
   'workbench.settings.def.mcp.allowWrite.description':
@@ -458,15 +458,15 @@ export const workbenchSettingsDefs = {
     'Las pestañas con DevTools y la pestaña con el foco.',
 
   // ── Traffic Monitor category defs ──────────────────────────────────
-  'workbench.settings.def.trafficMonitor.observeDebugDefault.label': 'Iniciar sesiones con el modo de depuración',
-  'workbench.settings.def.trafficMonitor.observeDebugDefault.description':
-    'Las nuevas sesiones de observación adjuntan el depurador del navegador para una fidelidad completa: cuerpos ' +
-    'de respuesta y encabezados exactos. El navegador muestra un aviso de depuración en la pestaña. Cada gesto de ' +
-    'inicio puede cambiarlo en Avanzado.',
-  'workbench.settings.def.trafficMonitor.observeSaveDefault.label': 'Guardar sesiones en el archivo',
-  'workbench.settings.def.trafficMonitor.observeSaveDefault.description':
-    'Las nuevas sesiones de observación se graban en el archivo de sesiones cifrado de este equipo. Cada gesto de ' +
-    'inicio puede cambiarlo en Avanzado.',
+  'workbench.settings.def.trafficMonitor.captureDebugDefault.label': 'Iniciar capturas con el modo de depuración',
+  'workbench.settings.def.trafficMonitor.captureDebugDefault.description':
+    'Las nuevas capturas adjuntan el depurador del navegador para una fidelidad completa: cuerpos de respuesta y ' +
+    'encabezados exactos. El navegador muestra un aviso de depuración en la pestaña. Cada gesto de inicio puede ' +
+    'cambiarlo en Avanzado.',
+  'workbench.settings.def.trafficMonitor.captureSaveDefault.label': 'Guardar capturas en el archivo',
+  'workbench.settings.def.trafficMonitor.captureSaveDefault.description':
+    'Las nuevas capturas se graban en el archivo de sesiones cifrado de este equipo. Cada gesto de inicio puede ' +
+    'cambiarlo en Avanzado.',
   'workbench.settings.def.trafficMonitor.sessionAgentRawReads.label':
     'Los agentes leen las sesiones archivadas sin censura',
   'workbench.settings.def.trafficMonitor.sessionAgentRawReads.description':

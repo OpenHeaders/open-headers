@@ -584,20 +584,21 @@ export const workbenchChrome = {
   'workbench.trafficMonitor.debugModeHint':
     'Mode Débogage — attache le débogueur du navigateur aux onglets du périmètre et épinglés pour obtenir corps et ' +
     'en-têtes exacts. Le navigateur affiche un bandeau sur chaque onglet attaché.',
-  'workbench.trafficMonitor.observeAria': 'Options d’observation par agent IA pour cette source',
-  'workbench.trafficMonitor.observeMenuStart': 'Démarrer l’observation',
-  'workbench.trafficMonitor.observeMenuStartHint':
-    'Diffuse le trafic de cette source vers l’application de bureau — les agents IA connectés peuvent le lire ' +
-    'pendant l’observation',
-  'workbench.trafficMonitor.observeAdvanced': 'Avancé',
-  'workbench.trafficMonitor.observeDebugOptionHint':
+  'workbench.trafficMonitor.captureAria': 'Options de capture pour cette source',
+  'workbench.trafficMonitor.captureMenuStart': 'Démarrer la capture',
+  'workbench.trafficMonitor.captureMenuStartHint':
+    'Conserve le trafic récent de cette source : les agents IA connectés peuvent le lire (valeurs sensibles ' +
+    'masquées), et « Enregistrer la session » l’enregistre sur disque. Regarder la vue en direct ici ne le ' +
+    'nécessite jamais.',
+  'workbench.trafficMonitor.captureAdvanced': 'Avancé',
+  'workbench.trafficMonitor.captureDebugOptionHint':
     'Fidélité maximale via le débogueur du navigateur — corps de réponse et en-têtes exacts. Le navigateur affiche ' +
     'un bandeau de débogage.',
-  'workbench.trafficMonitor.observeSaveOption': 'Enregistrer la session',
-  'workbench.trafficMonitor.observeSaveOptionHint':
-    'Enregistre l’observation dans l’archive de sessions chiffrée sur cet ordinateur',
-  'workbench.trafficMonitor.observeMenuStop': 'Arrêter l’observation',
-  'workbench.trafficMonitor.observeMenuStopRecordingHint': 'Termine l’enregistrement et conserve la session',
+  'workbench.trafficMonitor.captureSaveOption': 'Enregistrer la session',
+  'workbench.trafficMonitor.captureSaveOptionHint':
+    'Enregistre la capture dans l’archive de sessions chiffrée sur cet ordinateur',
+  'workbench.trafficMonitor.captureMenuStop': 'Arrêter la capture',
+  'workbench.trafficMonitor.captureMenuStopRecordingHint': 'Termine l’enregistrement et conserve la session',
   'workbench.trafficMonitor.sessionsTitle': 'Sessions',
   'workbench.trafficMonitor.noBrowsersHint':
     "Aucun navigateur connecté. Ouvrez un navigateur avec l'extension installée, ou installez-la :",
@@ -615,38 +616,25 @@ export const workbenchChrome = {
   // ── La section SESSIONS du rail (l'archive des sessions, dans le rail) ──
   'workbench.trafficSessions.empty': 'Aucune session enregistrée pour l’instant',
   'workbench.trafficSessions.emptyHint':
-    'Commencez à observer une source dans le Moniteur de trafic avec « Enregistrer la session » activé — les ' +
-    'sessions enregistrées arrivent ici',
+    'Capturez une source dans le Moniteur de trafic avec « Enregistrer la session » activé — les sessions ' +
+    'enregistrées arrivent ici',
   'workbench.trafficSessions.stateRecording': 'Enregistrement',
   'workbench.trafficSessions.stateSealing': 'Scellement…',
-  'workbench.trafficSessions.rowMenuAria': 'Actions de la session',
-  'workbench.trafficSessions.rename': 'Renommer…',
-  'workbench.trafficSessions.renameTitle': 'Renommer la session',
-  'workbench.trafficSessions.renameOk': 'Renommer',
   'workbench.trafficSessions.move': 'Déplacer vers un dossier',
   'workbench.trafficSessions.moveNew': 'Nouveau dossier…',
-  'workbench.trafficSessions.moveNewTitle': 'Déplacer vers un nouveau dossier',
-  'workbench.trafficSessions.moveNewOk': 'Déplacer',
-  'workbench.trafficSessions.moveNewPlaceholder': 'Nom du dossier',
   'workbench.trafficSessions.moveNone': 'Retirer du dossier',
-  'workbench.trafficSessions.delete': 'Supprimer…',
   'workbench.trafficSessions.deleteTitle': 'Supprimer cette session ?',
   'workbench.trafficSessions.deleteBody':
     '« {name} » et toutes les données enregistrées que seule cette session référence sont supprimées du disque.',
   'workbench.trafficSessions.deleteOk': 'Supprimer',
-  'workbench.trafficSessions.detailRequests': '{count} requêtes',
-  'workbench.trafficSessions.detailErrors': '{count} erreurs',
-  'workbench.trafficSessions.detailEncrypted': 'Chiffré',
-  'workbench.trafficSessions.detailUnencrypted': 'Non chiffré',
-  'workbench.trafficSessions.fidelityCdp': 'Fidélité totale (débogueur)',
-  'workbench.trafficSessions.fidelityHeuristic': 'Fidélité heuristique',
-  'workbench.trafficSessions.fidelityProxy': 'Capture réseau',
-  'workbench.trafficSessions.openSession': 'Ouvrir',
+  'workbench.trafficSessions.deleteGroupTitle': 'Supprimer « {name} » ?',
+  'workbench.trafficSessions.deleteGroupBody':
+    'Ses {count} sessions et toutes les données enregistrées que seules elles référencent sont supprimées du disque.',
 
   // ── Onglet de relecture de session (C6) ─────────────────────────────
   'workbench.sessionReplay.empty': 'Cette session n’a enregistré aucune requête',
   'workbench.sessionReplay.emptyHint':
-    'La source était observée, mais aucun trafic ne l’a traversée pendant l’enregistrement',
+    'La source était capturée, mais aucun trafic ne l’a traversée pendant l’enregistrement',
   'workbench.sessionReplay.unavailableTitle': 'Impossible d’ouvrir cette session',
   'workbench.sessionReplay.unavailableBody':
     'Les données enregistrées sont manquantes ou endommagées, ou elles sont chiffrées avec une clé que cette application ne détient plus.',

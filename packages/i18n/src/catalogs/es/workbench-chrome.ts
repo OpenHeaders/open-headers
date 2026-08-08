@@ -583,20 +583,19 @@ export const workbenchChrome = {
   'workbench.trafficMonitor.debugModeHint':
     'Modo Depuración: adjunta el depurador del navegador a las pestañas del ámbito y fijadas para obtener cuerpos y ' +
     'cabeceras exactas. El navegador muestra un aviso en cada pestaña adjuntada.',
-  'workbench.trafficMonitor.observeAria': 'Opciones de observación por agente de IA para esta fuente',
-  'workbench.trafficMonitor.observeMenuStart': 'Empezar a observar',
-  'workbench.trafficMonitor.observeMenuStartHint':
-    'Transmite el tráfico de esta fuente a la aplicación de escritorio: los agentes de IA conectados pueden ' +
-    'leerlo durante la observación',
-  'workbench.trafficMonitor.observeAdvanced': 'Avanzado',
-  'workbench.trafficMonitor.observeDebugOptionHint':
+  'workbench.trafficMonitor.captureAria': 'Opciones de captura para esta fuente',
+  'workbench.trafficMonitor.captureMenuStart': 'Iniciar captura',
+  'workbench.trafficMonitor.captureMenuStartHint':
+    'Conserva el tráfico reciente de esta fuente: los agentes de IA conectados pueden leerlo (valores sensibles ' +
+    'enmascarados) y «Guardar sesión» lo graba en disco. Ver la vista en directo aquí nunca lo requiere.',
+  'workbench.trafficMonitor.captureAdvanced': 'Avanzado',
+  'workbench.trafficMonitor.captureDebugOptionHint':
     'Fidelidad completa mediante el depurador del navegador: cuerpos de respuesta y encabezados exactos. El ' +
     'navegador muestra un aviso de depuración.',
-  'workbench.trafficMonitor.observeSaveOption': 'Guardar sesión',
-  'workbench.trafficMonitor.observeSaveOptionHint':
-    'Graba la observación en el archivo de sesiones cifrado de este equipo',
-  'workbench.trafficMonitor.observeMenuStop': 'Dejar de observar',
-  'workbench.trafficMonitor.observeMenuStopRecordingHint': 'Termina la grabación y conserva la sesión',
+  'workbench.trafficMonitor.captureSaveOption': 'Guardar sesión',
+  'workbench.trafficMonitor.captureSaveOptionHint': 'Graba la captura en el archivo de sesiones cifrado de este equipo',
+  'workbench.trafficMonitor.captureMenuStop': 'Detener captura',
+  'workbench.trafficMonitor.captureMenuStopRecordingHint': 'Termina la grabación y conserva la sesión',
   'workbench.trafficMonitor.sessionsTitle': 'Sesiones',
   'workbench.trafficMonitor.noBrowsersHint':
     'No hay navegadores conectados. Abre un navegador con la extensión instalada, o instálala:',
@@ -614,37 +613,23 @@ export const workbenchChrome = {
   // ── La sección SESIONES del raíl (el archivo de sesiones) ───────────
   'workbench.trafficSessions.empty': 'Aún no hay sesiones guardadas',
   'workbench.trafficSessions.emptyHint':
-    'Empieza a observar una fuente en el Monitor de tráfico con «Guardar sesión» activado — las sesiones guardadas ' +
-    'llegan aquí',
+    'Captura una fuente en el Monitor de tráfico con «Guardar sesión» activado — las sesiones guardadas llegan aquí',
   'workbench.trafficSessions.stateRecording': 'Grabando',
   'workbench.trafficSessions.stateSealing': 'Sellando…',
-  'workbench.trafficSessions.rowMenuAria': 'Acciones de la sesión',
-  'workbench.trafficSessions.rename': 'Renombrar…',
-  'workbench.trafficSessions.renameTitle': 'Renombrar sesión',
-  'workbench.trafficSessions.renameOk': 'Renombrar',
   'workbench.trafficSessions.move': 'Mover a carpeta',
   'workbench.trafficSessions.moveNew': 'Nueva carpeta…',
-  'workbench.trafficSessions.moveNewTitle': 'Mover a una carpeta nueva',
-  'workbench.trafficSessions.moveNewOk': 'Mover',
-  'workbench.trafficSessions.moveNewPlaceholder': 'Nombre de la carpeta',
   'workbench.trafficSessions.moveNone': 'Quitar de la carpeta',
-  'workbench.trafficSessions.delete': 'Eliminar…',
   'workbench.trafficSessions.deleteTitle': '¿Eliminar esta sesión?',
   'workbench.trafficSessions.deleteBody':
     '«{name}» y los datos grabados que solo esta sesión referencia se eliminan del disco.',
   'workbench.trafficSessions.deleteOk': 'Eliminar',
-  'workbench.trafficSessions.detailRequests': '{count} solicitudes',
-  'workbench.trafficSessions.detailErrors': '{count} errores',
-  'workbench.trafficSessions.detailEncrypted': 'Cifrado',
-  'workbench.trafficSessions.detailUnencrypted': 'Sin cifrar',
-  'workbench.trafficSessions.fidelityCdp': 'Fidelidad total (depurador)',
-  'workbench.trafficSessions.fidelityHeuristic': 'Fidelidad heurística',
-  'workbench.trafficSessions.fidelityProxy': 'Captura de red',
-  'workbench.trafficSessions.openSession': 'Abrir',
+  'workbench.trafficSessions.deleteGroupTitle': '¿Eliminar «{name}»?',
+  'workbench.trafficSessions.deleteGroupBody':
+    'Sus {count} sesiones y los datos grabados que solo ellas referencian se eliminan del disco.',
 
   // ── Pestaña de reproducción de sesión (C6) ──────────────────────────
   'workbench.sessionReplay.empty': 'Esta sesión no registró ninguna solicitud',
-  'workbench.sessionReplay.emptyHint': 'La fuente estaba en observación, pero no la cruzó tráfico durante la grabación',
+  'workbench.sessionReplay.emptyHint': 'La fuente estaba capturada, pero no la cruzó tráfico durante la grabación',
   'workbench.sessionReplay.unavailableTitle': 'No se pudo abrir esta sesión',
   'workbench.sessionReplay.unavailableBody':
     'Los datos grabados faltan o están dañados, o están cifrados con una clave que esta aplicación ya no posee.',

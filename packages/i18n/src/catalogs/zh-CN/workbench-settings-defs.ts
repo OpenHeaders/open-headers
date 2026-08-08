@@ -76,7 +76,7 @@ export const workbenchSettingsDefs = {
     '在此应用的后端端口上应答 MCP 客户端。关闭时端点不存在。开启后，持有访问 token 的智能体可以读取你的工作区。',
   'workbench.settings.def.mcp.allowObserve.label': '允许观察流量',
   'workbench.settings.def.mcp.allowObserve.description':
-    '智能体可以读取你在流量监视中授权观察的来源的实时流量。未授权的来源保持不可见；身份验证标头、Cookie 和 token 形态的值会被替换为稳定的标记。',
+    '智能体可以读取你在流量监视中捕获的来源的实时流量。未捕获的来源保持不可见；身份验证标头、Cookie 和 token 形态的值会被替换为稳定的标记。',
   'workbench.settings.def.mcp.allowWrite.label': '允许写入工具',
   'workbench.settings.def.mcp.allowWrite.description':
     '智能体可以创建、编辑和删除规则、请求、环境、变量和工作流。每次更改都会进入活动流，并且可以回退。',
@@ -328,12 +328,12 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.inspection.cdpScope.option.both.description': 'DevTools 标签页加聚焦的标签页。',
 
   // ── Traffic Monitor category defs ──────────────────────────────────
-  'workbench.settings.def.trafficMonitor.observeDebugDefault.label': '以调试模式开始会话',
-  'workbench.settings.def.trafficMonitor.observeDebugDefault.description':
-    '新的观察会话会附加浏览器调试器以获得完整保真度——响应正文与精确的标头。浏览器会在该标签页上显示调试横幅。每次开始手势都可在“高级”中覆盖此设置。',
-  'workbench.settings.def.trafficMonitor.observeSaveDefault.label': '把会话保存到归档',
-  'workbench.settings.def.trafficMonitor.observeSaveDefault.description':
-    '新的观察会话会录制到本机的加密会话归档中。每次开始手势都可在“高级”中覆盖此设置。',
+  'workbench.settings.def.trafficMonitor.captureDebugDefault.label': '以调试模式开始捕获',
+  'workbench.settings.def.trafficMonitor.captureDebugDefault.description':
+    '新的捕获会附加浏览器调试器以获得完整保真度——响应正文与精确的标头。浏览器会在该标签页上显示调试横幅。每次开始手势都可在“高级”中覆盖此设置。',
+  'workbench.settings.def.trafficMonitor.captureSaveDefault.label': '把捕获保存到归档',
+  'workbench.settings.def.trafficMonitor.captureSaveDefault.description':
+    '新的捕获会录制到本机的加密会话归档中。每次开始手势都可在“高级”中覆盖此设置。',
   'workbench.settings.def.trafficMonitor.sessionAgentRawReads.label': '智能体以未脱敏方式读取归档会话',
   'workbench.settings.def.trafficMonitor.sessionAgentRawReads.description':
     '已连接的智能体读取归档会话时会看到真实值而非脱敏标记——包括身份验证标头、Cookie 和 token 形态的值。默认关闭；开启期间，每次未脱敏读取都会记录到活动信息流。',

@@ -538,11 +538,14 @@ const TrafficMonitorPanel: React.FC<TrafficMonitorPanelProps> = ({
     },
     [peers],
   );
+  // The session's start name: a browser tab's title (its URL when the
+  // title is blank). The wire passes NO name — a proxy capture spans
+  // many sites, and the seal stamps its dominant site honestly.
   const sourceName = useCallback(
     (key: string): string => {
-      if (key === WIRE_SOURCE_KEY) return 'traffic-interception';
+      if (key === WIRE_SOURCE_KEY) return '';
       const found = findTab(key);
-      return found ? found.tab.title || found.tab.url || 'tab' : 'tab';
+      return found ? found.tab.title || found.tab.url : '';
     },
     [findTab],
   );

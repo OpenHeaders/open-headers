@@ -71,7 +71,7 @@ export const workbenchSettingsDefs = {
     'Answer MCP clients on this app’s back-end port. While off, the endpoint does not exist. On, agents with an access token can read your workspaces.',
   'workbench.settings.def.mcp.allowObserve.label': 'Allow traffic observation',
   'workbench.settings.def.mcp.allowObserve.description':
-    'Agents can read live traffic from sources you arm in the Traffic Monitor. Unarmed sources stay invisible; auth headers, cookies, and token-shaped values are replaced with stable markers.',
+    'Agents can read live traffic from sources you capture in the Traffic Monitor. Uncaptured sources stay invisible; auth headers, cookies, and token-shaped values are replaced with stable markers.',
   'workbench.settings.def.mcp.allowWrite.label': 'Allow write tools',
   'workbench.settings.def.mcp.allowWrite.description':
     'Agents can create, edit, and delete rules, requests, environments, variables, and workflows. Every change lands in the Activity Feed and can be reverted.',
@@ -347,12 +347,12 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.inspection.cdpScope.option.both.description': 'DevTools tabs and the focused tab.',
 
   // ── Traffic Monitor category defs ──────────────────────────────────
-  'workbench.settings.def.trafficMonitor.observeDebugDefault.label': 'Start sessions with Debug mode',
-  'workbench.settings.def.trafficMonitor.observeDebugDefault.description':
-    'New observation sessions attach the browser’s debugger for full fidelity — response bodies and exact headers. The browser shows a debugging banner on the tab. Each start gesture can override this under Advanced.',
-  'workbench.settings.def.trafficMonitor.observeSaveDefault.label': 'Save sessions to the archive',
-  'workbench.settings.def.trafficMonitor.observeSaveDefault.description':
-    'New observation sessions record to the encrypted session archive on this computer. Each start gesture can override this under Advanced.',
+  'workbench.settings.def.trafficMonitor.captureDebugDefault.label': 'Start captures with Debug mode',
+  'workbench.settings.def.trafficMonitor.captureDebugDefault.description':
+    'New captures attach the browser’s debugger for full fidelity — response bodies and exact headers. The browser shows a debugging banner on the tab. Each start gesture can override this under Advanced.',
+  'workbench.settings.def.trafficMonitor.captureSaveDefault.label': 'Save captures to the archive',
+  'workbench.settings.def.trafficMonitor.captureSaveDefault.description':
+    'New captures record to the encrypted session archive on this computer. Each start gesture can override this under Advanced.',
   'workbench.settings.def.trafficMonitor.sessionAgentRawReads.label': 'Agents read archived sessions unredacted',
   'workbench.settings.def.trafficMonitor.sessionAgentRawReads.description':
     'Connected agents read archived sessions with real values instead of redaction markers — authentication headers, cookies, and token-shaped values included. Off by default; every unredacted read is logged to the Activity Feed while this is on.',

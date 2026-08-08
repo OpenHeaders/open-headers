@@ -535,7 +535,7 @@ test('the popover start bundles arm + debug + record, and the single stop unwind
   // Hovering the idle eye opens the informational popover: the verb a
   // glyph click fires, with the two bundled toggles under Advanced,
   // seeded ON from their Settings defaults
-  // (`trafficMonitor.observe{Debug,Save}Default`).
+  // (`trafficMonitor.capture{Debug,Save}Default`).
   const row = workbench.locator('[data-testid="traffic-monitor-source-tab"]', { hasText: 'Session archive' }).first();
   await row.hover();
   const observeGlyph = row.locator('[data-testid="traffic-monitor-source-observe"]');
@@ -608,13 +608,14 @@ test('the SESSIONS section expands over the archive and a recording row carries 
   const sessions = await captureSessions();
   expect(sessions.length).toBeGreaterThanOrEqual(4);
   expect(sessions.every((s) => s.state === 'sealed')).toBe(true);
-  expect(await workbench.locator('[data-testid="traffic-sessions-row"]').count()).toBe(0);
+  expect(await workbench.locator('[data-item-id^="session:"]').count()).toBe(0);
 
-  // Expanding lists the sealed archive grouped under its folders.
+  // Expanding lists the sealed archive on the standard sidebar tree —
+  // collection rows seeded expanded, session leaves inside them.
   await workbench.locator('[data-testid="traffic-monitor-sessions-header"]').click();
-  await expect(workbench.locator('[data-testid="traffic-sessions-folder"]').first()).toBeVisible({ timeout: 10000 });
+  await expect(workbench.locator('[data-item-id^="session-col-"]').first()).toBeVisible({ timeout: 10000 });
   await expect
-    .poll(async () => workbench.locator('[data-testid="traffic-sessions-row"]').count(), { timeout: 10000 })
+    .poll(async () => workbench.locator('[data-item-id^="session:"]').count(), { timeout: 10000 })
     .toBeGreaterThanOrEqual(4);
 
   // A recording session's row carries the live state tag until the
@@ -641,7 +642,7 @@ test('the SESSIONS section expands over the archive and a recording row carries 
 
   // Collapse back — the later legs assert rail geometry undisturbed.
   await workbench.locator('[data-testid="traffic-monitor-sessions-header"]').click();
-  await expect(workbench.locator('[data-testid="traffic-sessions-row"]')).toHaveCount(0);
+  await expect(workbench.locator('[data-item-id^="session:"]')).toHaveCount(0);
 });
 
 // ── The source tab row (S25): rail opens tabs, tabs drive the planes ─

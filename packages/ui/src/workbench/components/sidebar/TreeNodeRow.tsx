@@ -285,8 +285,19 @@ export function TreeNodeRow({
               </Tooltip>
             ))}
 
-          {/* Context menu for leaf nodes */}
-          {!node.canAddChild && (node.canRename || node.canDelete || node.onExport) && (
+          {/* Context menu for leaf nodes. A leaf with explicit
+              `actionMenuItems` renders those instead of the built
+              Rename/Duplicate/Delete list — entity kinds whose verbs
+              differ (archived sessions' Move-to-folder) supply their
+              own items without forking the row. */}
+          {!node.canAddChild && node.actionMenuItems && node.actionMenuItems.length > 0 && (
+            <Dropdown menu={{ items: node.actionMenuItems }} trigger={['click']} placement="bottomRight">
+              <MoreOutlined className="rules-sidebar-item-menu" onClick={(e) => e.stopPropagation()} />
+            </Dropdown>
+          )}
+          {!node.canAddChild &&
+            !(node.actionMenuItems && node.actionMenuItems.length > 0) &&
+            (node.canRename || node.canDelete || node.onExport) && (
             <Dropdown
               menu={{
                 items: [

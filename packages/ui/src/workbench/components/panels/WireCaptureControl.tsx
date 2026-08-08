@@ -239,7 +239,7 @@ export const WireCaptureControl: React.FC<WireCaptureControlProps> = ({
           />
         </span>
         <span style={{ fontSize: 12, color: token.colorTextSecondary }}>
-          {t('workbench.trafficMonitor.observeAdvanced')}
+          {t('workbench.trafficMonitor.captureAdvanced')}
         </span>
       </button>
       {advancedOpen && (

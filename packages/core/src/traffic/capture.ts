@@ -128,14 +128,20 @@ export interface TrafficArchivedSessionProjection {
   readonly id: string;
   /** The per-run id the recording projection carried. */
   readonly sessionId: string;
-  /** Display name. Auto-stamped at seal (`<site> — <date time>
-   *  (<n> requests, <m> errors)`) unless the user renamed it — the
-   *  name is data, not chrome, so it is not localized. */
+  /** Display name — the start name (a browser tab's title at the
+   *  capture gesture); a blank one is stamped with the dominant
+   *  origin's registrable domain at seal. Date, counts and fidelity
+   *  are NOT part of the name — surfaces derive that chrome from the
+   *  row's own fields. Data, not chrome, so never localized. */
   readonly name: string;
-  /** Organize folder (§11.1 auto-placement: the dominant origin's
-   *  registrable domain; proxy sessions under the source label).
-   *  Absent = unfiled. Reorganizing rewrites one meta atomically and
-   *  never moves any other session. */
+  /** Organize collection (§11.1 auto-placement: browser-tab sessions
+   *  under the dominant origin's registrable domain, proxy sessions
+   *  under the fixed wire collection). Absent = filed nowhere.
+   *  Reorganizing rewrites one meta atomically and never moves any
+   *  other session. */
+  readonly collection?: string;
+  /** Organize folder inside the collection — user-created only, never
+   *  auto-stamped. Absent = directly under the collection. */
   readonly folder?: string;
   readonly sourceKind: string;
   readonly sourceLabel: string;
