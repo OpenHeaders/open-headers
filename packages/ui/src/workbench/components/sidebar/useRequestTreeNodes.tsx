@@ -59,14 +59,12 @@ interface UseRequestTreeNodesParams {
   deleteWsResponseExample: (uid: string) => Promise<unknown> | unknown;
   draftsByLocationRequest: Map<string, WorkbenchTab[]>;
   buildRequestDraftNode: (tab: WorkbenchTab, depth: number, parentId: string) => TreeNode;
-  expandedKeys: ReadonlySet<string>;
+  /** Reveal-aware expansion predicate — see `useRulesTreeNodes`. */
+  isExpandedKey: (id: string) => boolean;
   setExpandedKeys: React.Dispatch<React.SetStateAction<Set<string>>>;
   toggleExpand: (key: string) => void;
   setRenamingId: (id: string | null) => void;
   filterText: string;
-  /** Speed-search (search mode): force-expand every branch WITHOUT
-   *  hiding non-matching rows — the filter's expansion half alone. */
-  revealAll: boolean;
   confirmDelete: (name: string, onConfirm: () => void) => void;
   updateRequestData: (uid: string, patch: Partial<Request>) => Promise<unknown> | unknown;
   deleteRequest: (uid: string) => Promise<unknown> | unknown;
@@ -115,19 +113,43 @@ interface UseRequestTreeNodesParams {
   onCreateWorkflowFromContainer?: (target: { name: string; tree: CoreTreeNode[] }) => void;
 }
 
+/** Filter-mode pruning — see `subtreeHasRuleMatch` (rules hook): no
+ *  empty containers under a live filter. */
+function subtreeHasRequestMatch(nodes: CoreTreeNode[], lowerFilter: string): boolean {
+  for (const n of nodes) {
+    if (
+      (n.type === 'request' || n.type === 'grpc-request' || n.type === 'websocket-request') &&
+      n.name.toLowerCase().includes(lowerFilter)
+    ) {
+      return true;
+    }
+    if (n.type === 'folder') {
+      if (n.name.toLowerCase().includes(lowerFilter)) return true;
+      if (subtreeHasRequestMatch(n.children, lowerFilter)) return true;
+    }
+  }
+  return false;
+}
+
 export function useRequestTreeNodes(p: UseRequestTreeNodesParams): TreeNode[] {
   const t = useT();
   const copySnippet = useCopyRequestSnippet();
   const lowerFilter = p.filterText.toLowerCase();
-  const forceExpand = lowerFilter !== '' || p.revealAll;
 
   const walkRequestTree = useCallback(
     (v5Nodes: CoreTreeNode[], depth: number, parentId: string, collectionId: string): TreeNode[] => {
       const items: TreeNode[] = [];
       for (const node of v5Nodes) {
         if (node.type === 'folder') {
+          if (
+            lowerFilter &&
+            !node.name.toLowerCase().includes(lowerFilter) &&
+            !subtreeHasRequestMatch(node.children, lowerFilter)
+          ) {
+            continue;
+          }
           const fid = `req-folder-${node.uid}`;
-          const isExpanded = p.expandedKeys.has(fid) || forceExpand;
+          const isExpanded = p.isExpandedKey(fid);
           const onAddFolder = () => {
             void p.createRequestFolderRpc(t('workbench.sidebar.defaults.newFolder'), node.path).then((f) => {
               if (f) {
@@ -292,7 +314,7 @@ export function useRequestTreeNodes(p: UseRequestTreeNodesParams): TreeNode[] {
               }),
             awareness: { entityType: GRPC_REQUEST_ENTITY_TYPE, entityId: node.uid },
           });
-          if (hasGrpcExamples && (p.expandedKeys.has(gid) || forceExpand)) {
+          if (hasGrpcExamples && p.isExpandedKey(gid)) {
             for (const example of grpcExamples) {
               items.push({
                 id: `grpc-example-${example.uid}`,
@@ -365,7 +387,7 @@ export function useRequestTreeNodes(p: UseRequestTreeNodesParams): TreeNode[] {
               }),
             awareness: { entityType: WEBSOCKET_REQUEST_ENTITY_TYPE, entityId: node.uid },
           });
-          if (hasWsExamples && (p.expandedKeys.has(wid) || forceExpand)) {
+          if (hasWsExamples && p.isExpandedKey(wid)) {
             for (const example of wsExamples) {
               items.push({
                 id: `ws-example-${example.uid}`,
@@ -469,7 +491,7 @@ export function useRequestTreeNodes(p: UseRequestTreeNodesParams): TreeNode[] {
             ...exportNodeFields({ kind: 'request', uid: node.uid, name: node.name }, p.onExportEntity),
             awareness: { entityType: REQUEST_ENTITY_TYPE, entityId: node.uid },
           });
-          if (hasExamples && (p.expandedKeys.has(rid) || forceExpand)) {
+          if (hasExamples && p.isExpandedKey(rid)) {
             for (const example of examples) {
               items.push({
                 id: `resp-example-${example.uid}`,
@@ -517,9 +539,8 @@ export function useRequestTreeNodes(p: UseRequestTreeNodesParams): TreeNode[] {
       p.onCreateWebSocketRequest,
       p.requestCollections,
       p.resolver,
-      p.expandedKeys,
+      p.isExpandedKey,
       lowerFilter,
-      forceExpand,
       p.toggleExpand,
       p.updateRequestData,
       p.deleteRequest,
@@ -556,28 +577,13 @@ export function useRequestTreeNodes(p: UseRequestTreeNodesParams): TreeNode[] {
   return useMemo((): TreeNode[] => {
     const items: TreeNode[] = [];
 
-    const hasRequestMatch = (nodes: CoreTreeNode[]): boolean => {
-      for (const n of nodes) {
-        if (
-          (n.type === 'request' || n.type === 'grpc-request' || n.type === 'websocket-request') &&
-          n.name.toLowerCase().includes(lowerFilter)
-        )
-          return true;
-        if (n.type === 'folder') {
-          if (n.name.toLowerCase().includes(lowerFilter)) return true;
-          if (hasRequestMatch(n.children)) return true;
-        }
-      }
-      return false;
-    };
-
     for (const collection of p.requestCollectionTrees) {
       if (lowerFilter && !collection.name.toLowerCase().includes(lowerFilter)) {
-        if (!hasRequestMatch(collection.tree)) continue;
+        if (!subtreeHasRequestMatch(collection.tree, lowerFilter)) continue;
       }
 
       const colId = `req-col-${collection.uid}`;
-      const isExpanded = p.expandedKeys.has(colId) || forceExpand;
+      const isExpanded = p.isExpandedKey(colId);
       const onAddRequest = () => {
         p.setExpandedKeys((prev) => {
           const next = new Set(prev);
@@ -706,7 +712,7 @@ export function useRequestTreeNodes(p: UseRequestTreeNodesParams): TreeNode[] {
         const rootDraftNodes = rootDrafts.map((d) => p.buildRequestDraftNode(d, 1, colId));
         if (children.length > 0 || rootDraftNodes.length > 0) {
           items.push(...children, ...rootDraftNodes);
-        } else {
+        } else if (!lowerFilter || collection.tree.length === 0) {
           items.push({
             id: `${colId}-empty`,
             kind: 'placeholder',
@@ -740,8 +746,7 @@ export function useRequestTreeNodes(p: UseRequestTreeNodesParams): TreeNode[] {
   }, [
     p.requestCollectionTrees,
     lowerFilter,
-    forceExpand,
-    p.expandedKeys,
+    p.isExpandedKey,
     p.toggleExpand,
     walkRequestTree,
     p.createRequestFolderRpc,

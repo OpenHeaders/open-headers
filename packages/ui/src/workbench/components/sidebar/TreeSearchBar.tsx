@@ -15,7 +15,7 @@
 
 import { CloseOutlined, FilterOutlined, SearchOutlined } from '@ant-design/icons';
 import type { InputRef } from 'antd';
-import { Input, Tooltip, theme } from 'antd';
+import { Input, Tooltip } from 'antd';
 import type React from 'react';
 import { useEffect, useRef } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
@@ -24,6 +24,10 @@ import type { TreeSearch, TreeSearchMatches, TreeSearchMode } from './useTreeSea
 interface TreeSearchBarProps {
   search: TreeSearch;
   matches: TreeSearchMatches;
+  /** FILTER mode's no-match signal — true when a live filter query
+   *  leaves zero visible rows (search mode derives its own from the
+   *  match list). */
+  filterNoMatch: boolean;
   /** Filter-mode ArrowDown/Enter — move DOM focus into the tree and
    *  put the cursor on the first visible row. */
   onJumpToTree: () => void;
@@ -68,8 +72,7 @@ function ModeToggle({
   );
 }
 
-export function TreeSearchBar({ search, matches, onJumpToTree, onClose }: TreeSearchBarProps) {
-  const { token } = theme.useToken();
+export function TreeSearchBar({ search, matches, filterNoMatch, onJumpToTree, onClose }: TreeSearchBarProps) {
   const t = useT();
   const inputRef = useRef<InputRef>(null);
 
@@ -83,7 +86,7 @@ export function TreeSearchBar({ search, matches, onJumpToTree, onClose }: TreeSe
   }, [search.focusNonce]);
 
   const searching = search.mode === 'search' && search.query !== '';
-  const noMatch = searching && matches.matchIds.length === 0;
+  const noMatch = (searching && matches.matchIds.length === 0) || (search.mode === 'filter' && filterNoMatch);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Escape') {
@@ -118,7 +121,6 @@ export function TreeSearchBar({ search, matches, onJumpToTree, onClose }: TreeSe
         placeholder={
           search.mode === 'search' ? t('workbench.sidebar.search.searchPlaceholder') : t('workbench.sidebar.filterPlaceholder')
         }
-        prefix={<SearchOutlined style={{ color: token.colorTextTertiary, fontSize: 12 }} />}
         value={search.query}
         aria-invalid={noMatch}
         onChange={(e) => search.setQuery(e.target.value)}

@@ -22,15 +22,15 @@ interface UseRulesTreeNodesParams {
   dirtyRuleUids?: ReadonlySet<string>;
   draftsByLocationRule: Map<string, WorkbenchTab[]>;
   buildRuleDraftNode: (tab: WorkbenchTab, depth: number, parentId: string) => TreeNode;
-  expandedKeys: ReadonlySet<string>;
+  /** Reveal-aware expansion predicate (owned by Sidebar): persistent
+   *  `expandedKeys` normally; while a filter/search query is live,
+   *  every branch defaults OPEN and the user's in-reveal collapses
+   *  override it — so the caret and the children always agree. */
+  isExpandedKey: (id: string) => boolean;
   setExpandedKeys: React.Dispatch<React.SetStateAction<Set<string>>>;
   toggleExpand: (key: string) => void;
   setRenamingId: (id: string | null) => void;
   filterText: string;
-  /** Speed-search (search mode): force-expand every branch WITHOUT
-   *  hiding non-matching rows — the filter's expansion half alone.
-   *  Derived upstream; `expandedKeys` is never written. */
-  revealAll: boolean;
   confirmDelete: (name: string, onConfirm: () => void) => void;
   handleToggleRule: (uid: string, enabled: boolean) => void;
   togglePause: (path: string) => void;
@@ -58,10 +58,24 @@ interface UseRulesTreeNodesParams {
   onOpenCollectionVariables?: (uid: string, name: string) => void;
 }
 
+/** Filter-mode pruning: does this subtree contain a rule OR folder
+ *  whose name matches? Folders that fail this AND don't match by name
+ *  drop out entirely — a live filter must never surface empty
+ *  containers. */
+function subtreeHasRuleMatch(nodes: CoreTreeNode[], lowerFilter: string): boolean {
+  for (const n of nodes) {
+    if (n.type === 'rule' && n.name.toLowerCase().includes(lowerFilter)) return true;
+    if (n.type === 'folder') {
+      if (n.name.toLowerCase().includes(lowerFilter)) return true;
+      if (subtreeHasRuleMatch(n.children, lowerFilter)) return true;
+    }
+  }
+  return false;
+}
+
 export function useRulesTreeNodes(p: UseRulesTreeNodesParams): TreeNode[] {
   const t = useT();
   const lowerFilter = p.filterText.toLowerCase();
-  const forceExpand = lowerFilter !== '' || p.revealAll;
 
   const walkV5Tree = useCallback(
     (v5Nodes: CoreTreeNode[], depth: number, parentId: string, collectionId: string): TreeNode[] => {
@@ -69,8 +83,15 @@ export function useRulesTreeNodes(p: UseRulesTreeNodesParams): TreeNode[] {
 
       for (const node of v5Nodes) {
         if (node.type === 'folder') {
+          if (
+            lowerFilter &&
+            !node.name.toLowerCase().includes(lowerFilter) &&
+            !subtreeHasRuleMatch(node.children, lowerFilter)
+          ) {
+            continue;
+          }
           const fid = `folder-${node.uid}`;
-          const isExpanded = p.expandedKeys.has(fid) || forceExpand;
+          const isExpanded = p.isExpandedKey(fid);
           const folderPaused = p.pausedUids.has(node.uid);
           const folderHasOwnMarker = p.pauseMarkers.has(node.path);
           const folderHasNestedMarkers = hasNestedPauseMarkers(node.path, p.pauseMarkers);
@@ -149,7 +170,10 @@ export function useRulesTreeNodes(p: UseRulesTreeNodesParams): TreeNode[] {
             const folderDraftNodes = folderDrafts.map((d) => p.buildRuleDraftNode(d, depth + 1, fid));
             if (children.length > 0 || folderDraftNodes.length > 0) {
               items.push(...children, ...folderDraftNodes);
-            } else {
+            } else if (!lowerFilter || node.children.length === 0) {
+              // Placeholder only when the folder is TRULY empty in the
+              // data — a folder whose children merely don't match the
+              // live filter shows nothing (the scaffold would lie).
               items.push({
                 id: `${fid}-empty`,
                 kind: 'placeholder',
@@ -248,9 +272,8 @@ export function useRulesTreeNodes(p: UseRulesTreeNodesParams): TreeNode[] {
       return items;
     },
     [
-      p.expandedKeys,
+      p.isExpandedKey,
       lowerFilter,
-      forceExpand,
       p.rules,
       p.pauseMarkers,
       p.pausedUids,
@@ -282,24 +305,13 @@ export function useRulesTreeNodes(p: UseRulesTreeNodesParams): TreeNode[] {
   return useMemo((): TreeNode[] => {
     const items: TreeNode[] = [];
 
-    const hasRuleMatch = (nodes: CoreTreeNode[]): boolean => {
-      for (const n of nodes) {
-        if (n.type === 'rule' && n.name.toLowerCase().includes(lowerFilter)) return true;
-        if (n.type === 'folder') {
-          if (n.name.toLowerCase().includes(lowerFilter)) return true;
-          if (hasRuleMatch(n.children)) return true;
-        }
-      }
-      return false;
-    };
-
     for (const collection of p.localCollectionTrees) {
       if (lowerFilter && !collection.name.toLowerCase().includes(lowerFilter)) {
-        if (!hasRuleMatch(collection.tree)) continue;
+        if (!subtreeHasRuleMatch(collection.tree, lowerFilter)) continue;
       }
 
       const colId = `col-${collection.uid}`;
-      const isExpanded = p.expandedKeys.has(colId) || forceExpand;
+      const isExpanded = p.isExpandedKey(colId);
       const onAddRule = (type: string) => p.onCreateRule(type, { collectionId: collection.uid });
       const onAddFolder = () => {
         void p.createLocalFolder(t('workbench.sidebar.defaults.newFolder'), collection.path).then((f) => {
@@ -384,7 +396,7 @@ export function useRulesTreeNodes(p: UseRulesTreeNodesParams): TreeNode[] {
         const rootDraftNodes = rootDrafts.map((d) => p.buildRuleDraftNode(d, 1, colId));
         if (children.length > 0 || rootDraftNodes.length > 0) {
           items.push(...children, ...rootDraftNodes);
-        } else {
+        } else if (!lowerFilter || collection.tree.length === 0) {
           items.push({
             id: `${colId}-empty`,
             kind: 'placeholder',
@@ -418,8 +430,7 @@ export function useRulesTreeNodes(p: UseRulesTreeNodesParams): TreeNode[] {
   }, [
     p.localCollectionTrees,
     lowerFilter,
-    forceExpand,
-    p.expandedKeys,
+    p.isExpandedKey,
     p.pauseMarkers,
     p.pausedUids,
     p.togglePause,

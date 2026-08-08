@@ -47,7 +47,7 @@ import { useVariableResolver } from '@openheaders/ui/shared/hooks/variables/useV
 import { isRuleResolvable } from '@openheaders/core/utils';
 import { App, Modal } from 'antd';
 import type React from 'react';
-import { useCallback, useImperativeHandle, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { useEnvSwitcher } from '../../services/env-switcher';
 import { useSettingValue } from '../../settings/hooks';
@@ -328,7 +328,7 @@ const Sidebar: React.FC<SidebarProps> = ({
 
   // On-demand speed-search state machine (dual filter/search mode).
   // Runs BEFORE the node hooks: they consume `filterText` (filter mode
-  // hides) and `revealAll` (search mode force-expands, nothing hides).
+  // hides) and the reveal-aware `isExpandedKey` predicate below.
   const search = useTreeSearch();
   const filterText = search.filterText;
   const [renamingId, setRenamingId] = useState<string | null>(null);
@@ -342,7 +342,12 @@ const Sidebar: React.FC<SidebarProps> = ({
   const [alwaysSelectOpened, setAlwaysSelectOpened] = useState(true);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  const { toggleSection, toggleExpand, expandAll, collapseAll } = useSidebarExpansion({
+  const {
+    toggleSection,
+    toggleExpand: toggleExpandPersistent,
+    expandAll,
+    collapseAll,
+  } = useSidebarExpansion({
     view,
     sectionsExpanded,
     localCollectionTrees,
@@ -351,6 +356,40 @@ const Sidebar: React.FC<SidebarProps> = ({
     setSectionsExpanded,
     setExpandedKeys,
   });
+
+  // ── Reveal-aware expansion ──────────────────────────────────────
+  // A live query force-expands every branch as a DEFAULT the user can
+  // override: collapsing while the query is live toggles this
+  // transient set instead of `expandedKeys`, so the caret AND the
+  // children agree, the persistent expansion state is never polluted,
+  // and clearing/retyping the query re-reveals everything.
+  const [revealCollapsedKeys, setRevealCollapsedKeys] = useState<Set<string>>(() => new Set());
+  const revealActive = filterText !== '' || search.revealAll;
+
+  useEffect(() => {
+    setRevealCollapsedKeys((prev) => (prev.size > 0 ? new Set() : prev));
+  }, [search.query]);
+
+  const isExpandedKey = useCallback(
+    (id: string) => (revealActive ? !revealCollapsedKeys.has(id) : expandedKeys.has(id)),
+    [revealActive, revealCollapsedKeys, expandedKeys],
+  );
+
+  const toggleExpand = useCallback(
+    (key: string) => {
+      if (revealActive) {
+        setRevealCollapsedKeys((prev) => {
+          const next = new Set(prev);
+          if (next.has(key)) next.delete(key);
+          else next.add(key);
+          return next;
+        });
+        return;
+      }
+      toggleExpandPersistent(key);
+    },
+    [revealActive, toggleExpandPersistent],
+  );
 
   const confirmOnDelete = useSettingValue('general.confirmOnDelete');
   const confirmDelete = useCallback(
@@ -579,12 +618,11 @@ const Sidebar: React.FC<SidebarProps> = ({
     dirtyRuleUids,
     draftsByLocationRule: draftsByLocation.rule,
     buildRuleDraftNode,
-    expandedKeys,
+    isExpandedKey,
     setExpandedKeys,
     toggleExpand,
     setRenamingId,
     filterText,
-    revealAll: search.revealAll,
     confirmDelete,
     handleToggleRule,
     togglePause,
@@ -607,12 +645,11 @@ const Sidebar: React.FC<SidebarProps> = ({
 
   const { systemTemplateNodes, templateNodes } = useTemplateTreeNodes({
     templateCollectionTrees,
-    expandedKeys,
+    isExpandedKey,
     setExpandedKeys,
     toggleExpand,
     setRenamingId,
     filterText,
-    revealAll: search.revealAll,
     confirmDelete,
     createTemplateFolder,
     renameTemplateFolder,
@@ -652,12 +689,11 @@ const Sidebar: React.FC<SidebarProps> = ({
     deleteWsResponseExample,
     draftsByLocationRequest: draftsByLocation.request,
     buildRequestDraftNode,
-    expandedKeys,
+    isExpandedKey,
     setExpandedKeys,
     toggleExpand,
     setRenamingId,
     filterText,
-    revealAll: search.revealAll,
     confirmDelete,
     updateRequestData,
     deleteRequest,
@@ -820,7 +856,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     openWithSingleClick,
     openCollectionsWithSingleClick,
     openFoldersWithSingleClick,
-    expandedKeys,
+    isExpandedKey,
     localCollectionTrees,
     templateCollectionTrees,
     requestCollectionTrees,
@@ -907,9 +943,10 @@ const Sidebar: React.FC<SidebarProps> = ({
     handleItemDoubleClick,
     renamingId,
     setRenamingId,
-    expandedKeys,
+    isExpandedKey,
     searchHighlightQuery: search.highlightQuery,
     activeSearchMatchId: searchMatches.activeMatchId,
+    filterActive: filterText !== '',
   });
 
   return (
@@ -941,7 +978,13 @@ const Sidebar: React.FC<SidebarProps> = ({
         setAlwaysSelectOpened={setAlwaysSelectOpened}
       />
       {search.open && (
-        <TreeSearchBar search={search} matches={searchMatches} onJumpToTree={jumpToTree} onClose={closeSearch} />
+        <TreeSearchBar
+          search={search}
+          matches={searchMatches}
+          filterNoMatch={filterText !== '' && allFlatItems.length === 0}
+          onJumpToTree={jumpToTree}
+          onClose={closeSearch}
+        />
       )}
 
       {/* biome-ignore lint/a11y/noStaticElementInteractions: keyboard navigation container */}

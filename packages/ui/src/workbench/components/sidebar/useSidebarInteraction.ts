@@ -38,7 +38,10 @@ interface UseSidebarInteractionParams {
   openWithSingleClick: boolean;
   openCollectionsWithSingleClick: boolean;
   openFoldersWithSingleClick: boolean;
-  expandedKeys: Set<string>;
+  /** Reveal-aware expansion predicate (see Sidebar) — keyboard
+   *  Left/Right must agree with what the tree actually renders,
+   *  including during a live filter/search reveal. */
+  isExpandedKey: (id: string) => boolean;
   localCollectionTrees: readonly { uid: string; tree: CoreTreeNode[] }[];
   templateCollectionTrees: readonly { uid: string; tree: CoreTreeNode[] }[];
   requestCollectionTrees: readonly { uid: string; tree: CoreTreeNode[] }[];
@@ -80,7 +83,7 @@ export function useSidebarInteraction({
   openWithSingleClick,
   openCollectionsWithSingleClick,
   openFoldersWithSingleClick,
-  expandedKeys,
+  isExpandedKey,
   localCollectionTrees,
   templateCollectionTrees,
   requestCollectionTrees,
@@ -190,7 +193,7 @@ export function useSidebarInteraction({
       containerRef.current?.focus({ preventScroll: true });
       if (shouldOpenOnSingleClick(node)) node.onOpen?.();
     },
-    [shouldOpenOnSingleClick, allFlatItems, exportSelectedIds.size],
+    [shouldOpenOnSingleClick, allFlatItems, exportSelectedIds.size, containerRef],
   );
 
   const handleItemDoubleClick = useCallback(
@@ -292,14 +295,14 @@ export function useSidebarInteraction({
         allFlatItems.find((n) => n.id === focusedId)?.onOpen?.();
       } else if (e.key === 'ArrowRight' && focusedId) {
         const node = allFlatItems.find((n) => n.id === focusedId);
-        if (node?.expandable && !expandedKeys.has(node.id)) {
+        if (node?.expandable && !isExpandedKey(node.id)) {
           e.preventDefault();
           toggleExpand(node.id);
         }
       } else if (e.key === 'ArrowLeft' && focusedId) {
         e.preventDefault();
         const node = allFlatItems.find((n) => n.id === focusedId);
-        if (node?.expandable && expandedKeys.has(node.id)) toggleExpand(node.id);
+        if (node?.expandable && isExpandedKey(node.id)) toggleExpand(node.id);
         else if (node?.parentId) setFocusedId(node.parentId);
       } else if ((e.key === 'Delete' || e.key === 'Backspace') && focusedId) {
         e.preventDefault();
@@ -314,7 +317,7 @@ export function useSidebarInteraction({
         lastExportSelectAnchorRef.current = null;
       }
     },
-    [allFlatItems, focusedId, expandedKeys, toggleExpand, exportSelectedIds.size],
+    [allFlatItems, focusedId, isExpandedKey, toggleExpand, exportSelectedIds.size, containerRef, setRenamingId],
   );
 
   return {
