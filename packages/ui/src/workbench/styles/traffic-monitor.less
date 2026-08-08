@@ -17,17 +17,15 @@
   }
 }
 
-// In THIS rail a selected row is the ACTIVE SOURCE binding the plane
-// column — the same meaning as the storage rail's active section — so
-// it carries the DevTools panes' solid active fill instead of the
-// workbench sidebar's subtle echo-of-the-open-tab tint. Same pill law:
-// vivid only while this dock is the focused one, grey otherwise.
+// In THIS rail a selected row ECHOES the strip's active tab — the
+// pill and the row mark the same source, and blue marks exactly one
+// locus, so the row stays the grey echo at ALL times (no
+// dock-focused vivid state): the strip pill is the one blue while
+// the dock is focused, and the rail's keyboard cursor takes it over
+// while the rail owns DOM focus (the pill yields — see
+// TrafficMonitorPanel's railFocused gate).
 .traffic-monitor-panel .rules-sidebar-item.selected {
   background: var(--ant-color-fill-secondary, rgba(128, 128, 128, 0.12));
-}
-
-.rules-dock-body--focused .traffic-monitor-panel .rules-sidebar-item.selected {
-  background: var(--dt-pill-active-bg);
 }
 
 // The workbench-hosted DevTools rails (the storage plane's nav) obey

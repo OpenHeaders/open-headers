@@ -286,6 +286,12 @@ const TrafficMonitorPanel: React.FC<TrafficMonitorPanelProps> = ({
   const t = useT();
   const headerWiring = useMemo(() => createPanelHeaderWiring({ onHide }), [onHide]);
   const dockFocused = useIsDockFocused(dockSlot);
+  // One blue INSIDE the panel too: the strip pill and the rail's
+  // selected row mark the same source, so the row is a permanent grey
+  // echo (traffic-monitor.less) and the pill yields its vivid tint
+  // while the rail owns DOM focus — the rail's keyboard cursor is the
+  // one blue then, exactly like a sidebar tree greying the editor tab.
+  const [railFocused, setRailFocused] = useState(false);
   const showWire = hasCapability('proxyCapture');
   const proxy = useProxyCaptureStatus();
   // Which side the sources rail sits on — a persisted preference the
@@ -1207,40 +1213,51 @@ const TrafficMonitorPanel: React.FC<TrafficMonitorPanelProps> = ({
     <TrafficMonitorTabStrip
       tabs={openTabs}
       activeKey={selectedKey}
-      focused={dockFocused}
+      focused={dockFocused && !railFocused}
       onActivate={onActivateStripTab}
       onClose={onCloseStripTab}
     />
   );
   const railNode = (
-    <TrafficMonitorSourceRail
-      peers={peers}
-      loading={loading}
-      showWire={showWire}
-      wireRunning={proxy.status?.running === true}
-      wirePort={proxy.status?.boundPort ?? null}
-      selected={selectedKey}
-      onSelect={onSelect}
-      onDebugPin={onDebugPin}
-      onDebugEnable={onDebugEnable}
-      debugPending={debugPending}
-      debugEnablePending={debugEnablePending}
-      observeArmed={observeArmedKeys}
-      observePending={observePending}
-      onObserveAction={onObserveAction}
-      captureActive={captureActive}
-      onOpenSession={openArchivedSession}
-      onSessionDeleted={onSessionDeleted}
-      width={railWidth}
-      side={railSide}
-      wireControl={
-        <WireCaptureControl
-          controls={proxy}
-          placement={railSide === 'left' ? 'rightBottom' : 'leftBottom'}
-          onOpenProxySettings={onOpenProxySettings}
-        />
-      }
-    />
+    // display:contents so the focus-tracking wrapper stays out of the
+    // rail | sash | planes flex row — focusin/focusout still bubble
+    // through it, which is all the railFocused gate needs.
+    <div
+      style={{ display: 'contents' }}
+      onFocus={() => setRailFocused(true)}
+      onBlur={(e) => {
+        if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setRailFocused(false);
+      }}
+    >
+      <TrafficMonitorSourceRail
+        peers={peers}
+        loading={loading}
+        showWire={showWire}
+        wireRunning={proxy.status?.running === true}
+        wirePort={proxy.status?.boundPort ?? null}
+        selected={selectedKey}
+        onSelect={onSelect}
+        onDebugPin={onDebugPin}
+        onDebugEnable={onDebugEnable}
+        debugPending={debugPending}
+        debugEnablePending={debugEnablePending}
+        observeArmed={observeArmedKeys}
+        observePending={observePending}
+        onObserveAction={onObserveAction}
+        captureActive={captureActive}
+        onOpenSession={openArchivedSession}
+        onSessionDeleted={onSessionDeleted}
+        width={railWidth}
+        side={railSide}
+        wireControl={
+          <WireCaptureControl
+            controls={proxy}
+            placement={railSide === 'left' ? 'rightBottom' : 'leftBottom'}
+            onOpenProxySettings={onOpenProxySettings}
+          />
+        }
+      />
+    </div>
   );
   const bodySash = (
     <div
