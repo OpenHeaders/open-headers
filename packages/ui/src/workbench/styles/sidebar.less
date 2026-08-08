@@ -7,14 +7,12 @@
   overflow: hidden;
 }
 
-// The sidebar panels carry NO header line at rest (IDE tree posture):
-// the boundary is scroll-aware — `.oh-scroll-topline` on the tree's
-// scroll container paints it only once rows have scrolled under the
-// header. Headers that anchor a tab strip (editor, Traffic Monitor)
-// keep their static half-strength line.
-.rules-sidebar .rules-panel-header::after {
-  content: none;
-}
+// The sidebar panel header KEEPS its static hairline: what sits
+// directly under the title is PINNED section chrome (the content
+// column never scrolls — each section's inner list does), so a
+// scrolled-only line at this boundary would never fire. The
+// scroll-aware `.oh-scroll-topline` lives on the sections' inner
+// scrollers instead, where rows really do slide under a header.
 
 // Speed-search row — transient (⋯ Options → Search / Cmd+F / the
 // focus-sidebar-filter shortcut), in the slot the permanent filter

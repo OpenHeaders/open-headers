@@ -23,6 +23,7 @@ import { EllipsisOutlined, MinusOutlined } from '@ant-design/icons';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { Dropdown, type MenuProps, Tooltip } from 'antd';
 import type React from 'react';
+import { useState } from 'react';
 import { InfoTrigger } from '@openheaders/ui/shared/info-popover';
 import type { InfoPopoverContent } from '@openheaders/ui/shared/info-popover';
 import type { PanelHeaderWiring } from './panel-header-wiring';
@@ -50,6 +51,12 @@ const PanelHeader: React.FC<PanelHeaderProps> = ({ wiring, title, info, actions,
   // un-brand.
   const onHide = (wiring as unknown as { onHide: () => void }).onHide;
 
+  // The ⋯ tooltip yields to the menu: hidden the instant the trigger
+  // is clicked and while the dropdown is open; re-arms on the next
+  // hover-in (the SortableTab suppression pattern).
+  const [optionsMenuOpen, setOptionsMenuOpen] = useState(false);
+  const [optionsTooltipSuppressed, setOptionsTooltipSuppressed] = useState(false);
+
   return (
     <div className="rules-panel-header">
       {(title !== undefined || info) && (
@@ -61,8 +68,17 @@ const PanelHeader: React.FC<PanelHeaderProps> = ({ wiring, title, info, actions,
       <div className="rules-panel-header-actions" data-focus-skip>
         {actions}
         {optionsMenuItems && optionsMenuItems.length > 0 && (
-          <Dropdown menu={{ items: optionsMenuItems }} trigger={['click']} placement="bottomRight">
-            <Tooltip title={t('shared.dock.panelOptions')} placement="bottom">
+          <Dropdown
+            menu={{ items: optionsMenuItems }}
+            trigger={['click']}
+            placement="bottomRight"
+            onOpenChange={setOptionsMenuOpen}
+          >
+            <Tooltip
+              title={t('shared.dock.panelOptions')}
+              placement="bottom"
+              open={optionsMenuOpen || optionsTooltipSuppressed ? false : undefined}
+            >
               <span
                 role="button"
                 tabIndex={0}
@@ -72,6 +88,8 @@ const PanelHeader: React.FC<PanelHeaderProps> = ({ wiring, title, info, actions,
                 // want whatever had focus before (editor, another panel) to
                 // stay focused after the menu closes.
                 onMouseDown={(e) => e.preventDefault()}
+                onClick={() => setOptionsTooltipSuppressed(true)}
+                onMouseEnter={() => setOptionsTooltipSuppressed(false)}
               >
                 <EllipsisOutlined />
               </span>

@@ -50,7 +50,7 @@ const EnvironmentsSection: React.FC<EnvironmentsSectionProps> = ({
         }
       />
       {sectionsExpanded.environments && (
-        <div style={{ flex: 1, overflowY: 'auto', overscrollBehavior: 'none' }}>
+        <div className="oh-scroll-topline" style={{ flex: 1, overflowY: 'auto', overscrollBehavior: 'none' }}>
           {renderNodes(environmentNodes, () => void createNewEnvironment())}
         </div>
       )}

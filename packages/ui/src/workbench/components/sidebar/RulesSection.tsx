@@ -68,7 +68,7 @@ const RulesSection: React.FC<RulesSectionProps> = ({
         }
       />
       {sectionsExpanded.rules && (
-        <div style={{ flex: 1, overflowY: 'auto', overscrollBehavior: 'none' }}>
+        <div className="oh-scroll-topline" style={{ flex: 1, overflowY: 'auto', overscrollBehavior: 'none' }}>
           {renderFolderDndNodes(rulesNodes, rulesFolderDndConfig, () => void createNewCollection())}
         </div>
       )}
@@ -90,7 +90,7 @@ const RulesSection: React.FC<RulesSectionProps> = ({
         }
       />
       {sectionsExpanded.templates && (
-        <div style={{ flex: 1, overflowY: 'auto' }}>
+        <div className="oh-scroll-topline" style={{ flex: 1, overflowY: 'auto' }}>
           {(() => {
             // System and user templates render side-by-side under the
             // single TEMPLATES section header. When both lists are

@@ -54,7 +54,7 @@ const RequestsSection: React.FC<RequestsSectionProps> = ({
         }
       />
       {sectionsExpanded['api-requests'] && (
-        <div style={{ flex: 1, overflowY: 'auto', overscrollBehavior: 'none' }}>
+        <div className="oh-scroll-topline" style={{ flex: 1, overflowY: 'auto', overscrollBehavior: 'none' }}>
           {renderFolderDndNodes(requestNodes, requestFolderDndConfig, () => void createNewRequestCollection())}
         </div>
       )}

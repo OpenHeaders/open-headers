@@ -73,7 +73,7 @@ const SpecsSection: React.FC<SpecsSectionProps> = ({
         }
       />
       {sectionsExpanded.specs && (
-        <div style={{ flex: 1, overflowY: 'auto', overscrollBehavior: 'none' }}>
+        <div className="oh-scroll-topline" style={{ flex: 1, overflowY: 'auto', overscrollBehavior: 'none' }}>
           {renderNodes(specNodes, () => void createNewSpec())}
         </div>
       )}

@@ -53,7 +53,9 @@ const WorkflowsSection: React.FC<WorkflowsSectionProps> = ({
         }
       />
       {sectionsExpanded.workflows && (
-        <div style={{ overflowY: 'auto', overscrollBehavior: 'none' }}>{renderNodes(workflowNodes, () => onCreateWorkflow?.())}</div>
+        <div className="oh-scroll-topline" style={{ overflowY: 'auto', overscrollBehavior: 'none' }}>
+          {renderNodes(workflowNodes, () => onCreateWorkflow?.())}
+        </div>
       )}
     </>
   );
