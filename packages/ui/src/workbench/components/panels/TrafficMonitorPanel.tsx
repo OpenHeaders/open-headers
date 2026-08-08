@@ -1256,7 +1256,7 @@ const TrafficMonitorPanel: React.FC<TrafficMonitorPanelProps> = ({
     <div className="rules-bottom-panel traffic-monitor-panel">
       {/* Single-row header (terminal posture): the title cell — sized to
           the rail width — the divider's header segment, and the source
-          tab strip share the ONE 32px PanelHeader row, so the divider
+          tab strip share the ONE 36px PanelHeader row, so the divider
           reads as one continuous bar from the card's top edge down
           through the body row; the whole row mirrors with the rail
           side. The (i) rides inline after the title — PanelHeader's

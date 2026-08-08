@@ -107,8 +107,8 @@
 
   // Section headers are PINNED chrome — each section's list scrolls
   // under them — so unlike a scrolling tree they need a boundary
-  // line. Same half-strength weight as the panel-header separator
-  // (dock-layout.css): present, but part of the slim divider system.
+  // line. The shared slim hairline (--oh-divider, dock-layout.css):
+  // present, but part of the slim divider system.
   &::before {
     content: '';
     position: absolute;
@@ -118,7 +118,7 @@
     right: 8px;
     top: -1px;
     height: 1px;
-    background: color-mix(in srgb, var(--ant-color-border-secondary, rgba(5, 5, 5, 0.06)) 55%, transparent);
+    background: var(--oh-divider, rgba(0, 0, 0, 0.07));
     pointer-events: none;
   }
 

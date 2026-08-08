@@ -84,12 +84,8 @@
    reads as a section divider (and doubles as the resize handle). */
 .rules-main .rules-notifications-split .split-view-view::before {
   display: block !important;
-  /* Same half-strength weight as the panel-header separator below. */
-  background-color: color-mix(
-    in srgb,
-    var(--ant-color-border-secondary, rgba(5, 5, 5, 0.06)) 55%,
-    transparent
-  ) !important;
+  /* The shared slim hairline weight (see --oh-divider). */
+  background-color: var(--oh-divider, rgba(0, 0, 0, 0.07)) !important;
 }
 
 /* Allotment's default sash hover/drag indicator paints a 3–4 px blue bar
@@ -883,7 +879,10 @@
 .rules-panel-header {
   display: flex;
   align-items: center;
-  height: 32px;
+  /* 36px — the IDE tool-window header register: the title row gets a
+     touch more air than content rows. The editor tab bar matches
+     (rules-tabs-bar) so bottom borders still align across cards. */
+  height: 36px;
   padding: 0 6px 0 12px;
   gap: 6px;
   flex-shrink: 0;
@@ -892,9 +891,8 @@
 
 /* Bottom separator inset 3px on each side so it stops short of the
    panel card's rounded edges instead of running into the radius.
-   Half-strength on purpose: the full border-secondary token reads as
-   a hard rule in dark mode, and the header needs an anchor, not a
-   wall — color-mix keeps it theme-driven while it recedes. */
+   --oh-divider: the shared slim hairline weight, explicitly themed
+   (a percentage of border-secondary vanished on dark variants). */
 .rules-panel-header::after {
   content: '';
   position: absolute;
@@ -902,7 +900,7 @@
   right: 3px;
   bottom: 0;
   height: 1px;
-  background: color-mix(in srgb, var(--ant-color-border-secondary, rgba(5, 5, 5, 0.06)) 55%, transparent);
+  background: var(--oh-divider, rgba(0, 0, 0, 0.07));
   pointer-events: none;
 }
 
@@ -972,10 +970,7 @@
 .oh-scroll-topline {
   --oh-scroll-cover: var(--ant-color-bg-container, #fff);
   background-image: linear-gradient(var(--oh-scroll-cover), var(--oh-scroll-cover)),
-    linear-gradient(
-      var(--ant-color-border-secondary, rgba(5, 5, 5, 0.06)),
-      var(--ant-color-border-secondary, rgba(5, 5, 5, 0.06))
-    );
+    linear-gradient(var(--oh-divider, rgba(0, 0, 0, 0.07)), var(--oh-divider, rgba(0, 0, 0, 0.07)));
   background-size:
     100% 2px,
     calc(100% - 6px) 1px;
@@ -1070,12 +1065,12 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 22px;
-  height: 22px;
+  width: 24px;
+  height: 24px;
   border-radius: 4px;
   cursor: pointer;
   color: var(--ant-color-text-secondary, rgba(0, 0, 0, 0.65));
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .rules-panel-header-action:hover {
@@ -1305,6 +1300,13 @@
  * Workspace already declares these in rules.less; redeclaring here
  * keeps the devpanel (which doesn't import rules.less) in sync. */
 :root {
+  /* The ONE divider color for panel chrome hairlines (header lines,
+   * section separators, scroll-aware toplines, split seams). Explicit
+   * per-theme values on purpose: deriving it from
+   * --ant-color-border-secondary at reduced strength dropped below
+   * visibility on dark variants (the token already sits near the
+   * background there). */
+  --oh-divider: rgba(0, 0, 0, 0.07);
   --scope-vault-color:       #cf1322;
   --scope-vault-bg:          #ffd8d5;
   --scope-environment-color: #007F31;
@@ -1326,6 +1328,7 @@
 }
 
 [data-theme='dark'] {
+  --oh-divider: rgba(255, 255, 255, 0.09);
   --scope-vault-color:       #ff7875;
   --scope-vault-bg:          #2a1215;
   --scope-environment-color: #6BDD9A;
