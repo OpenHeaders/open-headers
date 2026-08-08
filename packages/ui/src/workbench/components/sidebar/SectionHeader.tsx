@@ -63,12 +63,9 @@ export function SectionOpenerRow({ title, node, selected }: { title: string; nod
   const { token } = theme.useToken();
   return (
     <div
-      className="rules-sidebar-section"
+      className={`rules-sidebar-section${selected ? ' rules-sidebar-section--selected' : ''}`}
       data-item-id={node.id}
-      style={{
-        color: token.colorTextSecondary,
-        backgroundColor: selected ? 'rgba(24, 144, 255, 0.08)' : undefined,
-      }}
+      style={{ color: token.colorTextSecondary }}
       onClick={() => node.onOpen?.()}
       onKeyDown={(e) => {
         if (e.key === 'Enter') node.onOpen?.();

@@ -1,0 +1,342 @@
+// ── Editor Area ────────────────────────────────────────────────────
+
+.rules-editor-area {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-width: 0;
+}
+
+// ── Editor tree (recursive split groups) ──────────────────────────
+
+.rules-editor-tree {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+}
+
+.rules-editor-leaf {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  position: relative;
+}
+
+// The outlined "focused" leaf hint is rendered inline via the antd
+// token-aware color in EditorGroupRenderer — keeping the rule here
+// purely as a documentation anchor for future tweaks.
+
+// ── Shared editor header ───────────────────────────────────────────
+//
+// Single 40px row at the top of every editor. Mirrors the dock-panel
+// PanelHeader pattern — title on the left, panel-specific actions +
+// Save + kebab on the right. Editors render this themselves (not the
+// shell) so each editor's state (dirty, handlers, custom buttons)
+// wires up with no cross-cutting indirection.
+
+.rules-editor-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-shrink: 0;
+  // `min-height`, not a fixed `height`: single-line titles stay 40px,
+  // but the RequestEditor's URL field grows the header while focused
+  // (expand-on-focus) instead of spilling its multi-line content over
+  // the editor body.
+  min-height: 40px;
+  padding: 4px 16px;
+  box-sizing: border-box;
+  position: relative;
+}
+
+// Inset bottom separator — 3px gap each side so the line stops short
+// of the editor card's rounded corners (matches the side-panel
+// header / filter-row insets).
+.rules-editor-header::after {
+  content: '';
+  position: absolute;
+  left: 3px;
+  right: 3px;
+  bottom: 0;
+  height: 1px;
+  // Half-strength like the panel headers' separator (dock-layout.css)
+  // — one divider weight across every header in the shell.
+  background: color-mix(in srgb, var(--ant-color-border-secondary, rgba(5, 5, 5, 0.06)) 55%, transparent);
+  pointer-events: none;
+}
+
+// Bottom-docked variant (`appearance.editorHeaderPosition` = bottom).
+// Every editor renders the header as the first child of its flex
+// column with the scrollable body as the sibling, so `order: 1`
+// re-slots the row after the body without touching any editor. The
+// inset separator flips to the top edge to divide header from content.
+.rules-editor-header--bottom {
+  order: 1;
+
+  &::after {
+    bottom: auto;
+    top: 0;
+  }
+}
+
+.rules-editor-header-title {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  // No `overflow: hidden` here — the title slot hosts the URL input's
+  // `{{…}}` suggestion popover for RequestEditor, and clipping this
+  // container would hide it. Title text children manage their own
+  // ellipsis via inline `overflow/textOverflow/whiteSpace`.
+}
+
+.rules-editor-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+// ── Editor content ─────────────────────────────────────────────────
+
+.rules-editor-content {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+// Empty editor leaf — grayscale brand mark over the three primary
+// create gestures (rule / API request / workflow). Borderless rows that
+// highlight on hover so the screen reads as a calm landing, not a
+// toolbar. Scales down gracefully inside narrow split panes.
+.oh-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  padding: 24px;
+  gap: 12px;
+}
+
+.oh-empty-logo {
+  width: 80px;
+  height: 80px;
+  filter: grayscale(1);
+  opacity: 0.3;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+.oh-empty-heading-spacer {
+  height: 24px;
+}
+
+.oh-empty-actions {
+  display: flex;
+  flex-direction: column;
+  width: 320px;
+  max-width: 100%;
+  gap: 2px;
+}
+
+.oh-empty-action {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 8px 12px;
+  background: transparent;
+  border: none;
+  border-radius: var(--ant-border-radius, 8px);
+  cursor: pointer;
+  text-align: left;
+  color: inherit;
+  font: inherit;
+  outline: none;
+  transition: background 0.15s ease;
+}
+
+.oh-empty-action:hover,
+.oh-empty-action:focus-visible {
+  background: var(--ant-color-bg-text-hover, rgba(0, 0, 0, 0.04));
+}
+
+[data-theme='dark'] .oh-empty-action:hover,
+[data-theme='dark'] .oh-empty-action:focus-visible {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.oh-empty-action-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  flex-shrink: 0;
+  font-size: 16px;
+  color: var(--ant-color-text-secondary, #595959);
+}
+
+.oh-empty-action-text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+  flex: 1;
+}
+
+.oh-empty-action-label {
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.4;
+  color: var(--ant-color-text, rgba(0, 0, 0, 0.88));
+}
+
+.oh-empty-action-desc.ant-typography {
+  font-size: 12px;
+  line-height: 1.4;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.oh-empty-action-chevron {
+  flex-shrink: 0;
+  font-size: 11px;
+  color: var(--ant-color-text-tertiary, #8c8c8c);
+}
+
+// Per-tab panel — each open tab gets its own scroll container and its
+// own container-query context. Inactive panels use `display: none` so
+// they take no layout / paint cost and don't run resize observers. The
+// TabPanel component in EditorGroupRenderer restores scrollTop on
+// activation from a per-instance ref, so switching tabs preserves
+// scroll position even though the browser resets scrollTop when a
+// scroll container goes from display: none → block.
+.rules-editor-tab-panel {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: none;
+  container-type: inline-size;
+  container-name: editor;
+}
+
+.rules-welcome {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 24px;
+  text-align: center;
+}
+
+// ── Rule Editor ────────────────────────────────────────────────────
+
+.rules-rule-editor {
+  padding: 24px 32px 48px;
+  max-width: clamp(600px, 70%, 1100px);
+  margin: 0 auto;
+
+  .ant-form-item-label > label {
+    font-size: 12px;
+  }
+
+  .ant-divider {
+    border-color: var(--ant-color-border-secondary, #f0f0f0);
+  }
+
+  // Muted non-selected segments in edit mode
+  .ant-segmented-item-disabled {
+    opacity: 0.35;
+  }
+}
+
+// Two-column layout when editor pane is wide enough
+@container editor (min-width: 1000px) {
+  .rules-rule-editor {
+    max-width: 100%;
+    padding: 24px 48px 48px;
+  }
+}
+
+// Split-pane variant — the rule editor's Actions/Conditions Allotment
+// (request-editor UX) provides per-pane scroll + padding itself, so
+// the pane wrapper keeps `.rules-rule-editor`'s form-control styling
+// but drops the single-column readability clamp. Declared after the
+// container query above so it wins at every width.
+.rules-rule-editor--pane {
+  max-width: none;
+  margin: 0;
+  padding: 0;
+}
+
+// ── Request response Tabs ──────────────────────────────────────────
+//
+// Ant Design's <Tabs> renders the children inside
+// `.ant-tabs-content-holder` → `.ant-tabs-content` → `.ant-tabs-tabpane`.
+// The outermost style we set (`flex: 1, min-height: 0`) only lands on
+// the OUTER `.ant-tabs` wrapper — the inner holder stays at its
+// intrinsic height, so the children's `overflow: auto` container has
+// nothing to clip against and the body/headers pane grows to fit the
+// content instead of scrolling. Same pattern as the popup's
+// `.header-workbench-tabs` block (`popup.less:316`).
+.rules-response-tabs {
+  .ant-tabs-content-holder {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+  }
+  .ant-tabs-content {
+    flex: 1;
+    min-height: 0;
+  }
+  .ant-tabs-tabpane-active {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+  .ant-tabs-tabpane:focus,
+  .ant-tabs-tabpane:focus-visible {
+    outline: none;
+    box-shadow: none;
+  }
+}
+
+/*
+ * Request editor · Settings tab — full-row hover band that visually
+ * ties the right-aligned control back to its left-aligned label.
+ * Negative side margins keep the text column aligned while the band
+ * bleeds past it.
+ */
+.rules-settings-row {
+  padding: 0 8px;
+  margin: 0 -8px;
+  border-radius: 4px;
+
+  &:hover {
+    background: var(--ant-color-fill-tertiary);
+  }
+
+  /*
+   * Settings-tab placeholders render at full text contrast (an empty
+   * knob states its effective default as live behavior), so unlike a
+   * normal dim placeholder they would read as content to delete once
+   * the caret is in the field — hide them while the input has focus;
+   * the example line under the row keeps the format visible.
+   */
+  input:focus::placeholder {
+    color: transparent;
+  }
+}
+

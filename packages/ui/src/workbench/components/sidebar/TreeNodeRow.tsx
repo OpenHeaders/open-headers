@@ -112,7 +112,7 @@ export function TreeNodeRow({
 
   // Placeholder rendering for empty collections
   if (node.kind === 'placeholder') {
-    const paddingLeft = 8 + node.depth * 16;
+    const paddingLeft = 8 + node.depth * 12;
     return (
       <div
         className="rules-sidebar-placeholder"
@@ -150,7 +150,7 @@ export function TreeNodeRow({
     .filter(Boolean)
     .join(' ');
 
-  const paddingLeft = 8 + node.depth * 16;
+  const paddingLeft = 8 + node.depth * 12;
 
   return (
     // biome-ignore lint/a11y/noStaticElementInteractions: sidebar tree row — keyboard nav happens at the parent container level

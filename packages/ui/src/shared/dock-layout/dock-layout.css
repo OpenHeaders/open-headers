@@ -84,7 +84,12 @@
    reads as a section divider (and doubles as the resize handle). */
 .rules-main .rules-notifications-split .split-view-view::before {
   display: block !important;
-  background-color: var(--ant-color-border-secondary, rgba(5, 5, 5, 0.06)) !important;
+  /* Same half-strength weight as the panel-header separator below. */
+  background-color: color-mix(
+    in srgb,
+    var(--ant-color-border-secondary, rgba(5, 5, 5, 0.06)) 55%,
+    transparent
+  ) !important;
 }
 
 /* Allotment's default sash hover/drag indicator paints a 3–4 px blue bar
@@ -886,7 +891,10 @@
 }
 
 /* Bottom separator inset 3px on each side so it stops short of the
-   panel card's rounded edges instead of running into the radius. */
+   panel card's rounded edges instead of running into the radius.
+   Half-strength on purpose: the full border-secondary token reads as
+   a hard rule in dark mode, and the header needs an anchor, not a
+   wall — color-mix keeps it theme-driven while it recedes. */
 .rules-panel-header::after {
   content: '';
   position: absolute;
@@ -894,7 +902,7 @@
   right: 3px;
   bottom: 0;
   height: 1px;
-  background: var(--ant-color-border-secondary, rgba(5, 5, 5, 0.06));
+  background: color-mix(in srgb, var(--ant-color-border-secondary, rgba(5, 5, 5, 0.06)) 55%, transparent);
   pointer-events: none;
 }
 

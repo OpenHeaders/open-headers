@@ -159,6 +159,17 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
         // the variant's default fontFamily. Editor font is independent.
         fontFamily,
       },
+      components: {
+        // Overlay menus (every menu in the app is a Dropdown — create
+        // menus, `⋯` menus, context menus, submenus) render at the
+        // sidebar trees' 12px density: stock antd menu rows read
+        // oversized next to the compact rails. Row ≈ 26px.
+        Dropdown: {
+          fontSize: Math.round(12 * uiScale),
+          paddingBlock: 3,
+          controlPaddingHorizontal: 10,
+        },
+      },
     }),
     // `algorithms` rebuilds every render but its content is stable when
     // these inputs are; including primitives here keeps the memo honest.

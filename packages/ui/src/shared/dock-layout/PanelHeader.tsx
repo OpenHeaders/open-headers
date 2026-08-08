@@ -21,7 +21,7 @@
 
 import { EllipsisOutlined, MinusOutlined } from '@ant-design/icons';
 import { useT } from '@openheaders/ui/context/LocaleContext';
-import { Dropdown, type MenuProps } from 'antd';
+import { Dropdown, type MenuProps, Tooltip } from 'antd';
 import type React from 'react';
 import { InfoTrigger } from '@openheaders/ui/shared/info-popover';
 import type { InfoPopoverContent } from '@openheaders/ui/shared/info-popover';
@@ -62,33 +62,37 @@ const PanelHeader: React.FC<PanelHeaderProps> = ({ wiring, title, info, actions,
         {actions}
         {optionsMenuItems && optionsMenuItems.length > 0 && (
           <Dropdown menu={{ items: optionsMenuItems }} trigger={['click']} placement="bottomRight">
-            <span
-              role="button"
-              tabIndex={0}
-              aria-label={t('shared.dock.panelOptions')}
-              className="rules-panel-header-action"
-              // Prevent the button from stealing DOM focus on click — we
-              // want whatever had focus before (editor, another panel) to
-              // stay focused after the menu closes.
-              onMouseDown={(e) => e.preventDefault()}
-            >
-              <EllipsisOutlined />
-            </span>
+            <Tooltip title={t('shared.dock.panelOptions')} placement="bottom">
+              <span
+                role="button"
+                tabIndex={0}
+                aria-label={t('shared.dock.panelOptions')}
+                className="rules-panel-header-action"
+                // Prevent the button from stealing DOM focus on click — we
+                // want whatever had focus before (editor, another panel) to
+                // stay focused after the menu closes.
+                onMouseDown={(e) => e.preventDefault()}
+              >
+                <EllipsisOutlined />
+              </span>
+            </Tooltip>
           </Dropdown>
         )}
-        <span
-          role="button"
-          tabIndex={0}
-          aria-label={t('shared.dock.hidePanel')}
-          className="rules-panel-header-action"
-          onMouseDown={(e) => e.preventDefault()}
-          onClick={onHide}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' || e.key === ' ') onHide();
-          }}
-        >
-          <MinusOutlined />
-        </span>
+        <Tooltip title={t('shared.dock.hidePanel')} placement="bottom">
+          <span
+            role="button"
+            tabIndex={0}
+            aria-label={t('shared.dock.hidePanel')}
+            className="rules-panel-header-action"
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={onHide}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') onHide();
+            }}
+          >
+            <MinusOutlined />
+          </span>
+        </Tooltip>
       </div>
     </div>
   );

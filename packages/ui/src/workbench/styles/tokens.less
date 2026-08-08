@@ -1,0 +1,82 @@
+// HTTP method tints, dark theme — brighter variants of the dark
+// light-theme fallbacks baked into METHOD_COLORS (sidebar/icons.tsx),
+// which would drown on a dark background.
+[data-theme='dark'] {
+  --oh-method-get: #4ec776;
+  --oh-method-post: #e0b34c;
+  --oh-method-put: #5ea3f0;
+  --oh-method-patch: #b087e0;
+  --oh-method-delete: #f06a5e;
+  --oh-method-head: #45c4b8;
+  --oh-method-options: #e56bb1;
+}
+
+// ── Wider allotment sash hit targets ──────────────────────────────
+
+:root {
+  --sash-size: 16px;
+
+  /* Vertical cap (with inner scroll) for fields that hold long pasted
+   * values — JWTs, Bearer tokens, comma-separated hostname lists. ~4
+   * lines at the small font size we use for these surfaces (popover
+   * editor, snapshot block, condition-editor domain rows, dt-kv value
+   * cells in the inspector). One number, four call sites — change here. */
+  --oh-multiline-cap: 96px;
+
+  --scope-vault-color:       #cf1322;
+  --scope-vault-bg:          #ffd8d5;
+  --scope-environment-color: #007F31;
+  --scope-environment-bg:    #E5FFF1;
+  --scope-collection-color:  #AD7A03;
+  --scope-collection-bg:     #FFF4BE;
+  /* Collection pin accent — the standalone pin glyph has no tinted
+   * badge background behind it, so the badge foreground reads too
+   * dark; a lighter gold matches the "C" badge's perceived tone. */
+  --scope-collection-pin:    #E0A526;
+  --scope-workspace-color:   #0053B8;
+  --scope-workspace-bg:      #E7F0FF;
+  --scope-live-color:        #531dab;
+  --scope-live-bg:           #f5f0ff;
+  --scope-step-color:        #0F766E;
+  --scope-step-bg:           #CCFBF1;
+  --scope-file-color:        #475569;
+  --scope-file-bg:           #E2E8F0;
+  --scope-dynamic-color:     #737373;
+  --scope-dynamic-bg:        #F5F5F4;
+  --scope-neutral-color:     #595959;
+  --scope-neutral-bg:        #F0F0F0;
+
+  /* Rule-type code badge — a single neutral gradient shared by ALL codes
+   * (`ruleTypeBadge()` in rule-type-menu.tsx, the create/picker menus).
+   * Deliberately hue-less so it can't be mistaken for the status colors
+   * used on real rule rows/tabs (blue = active, gold = paused, gray =
+   * draft) or the scope-color badges. Codes differentiate by text. */
+  --rule-code-from: #6b7689;
+  --rule-code-to:   #3d4456;
+}
+
+[data-theme='dark'] {
+  --scope-vault-color:       #ff7875;
+  --scope-vault-bg:          #2a1215;
+  --scope-environment-color: #6BDD9A;
+  --scope-environment-bg:    #013614;
+  --scope-collection-color:  #FFE47E;
+  --scope-collection-bg:     #3d2800;
+  --scope-collection-pin:    #FFE47E;
+  --scope-workspace-color:   #74AEF6;
+  --scope-workspace-bg:      #112749;
+  --scope-live-color:        #c084fc;
+  --scope-live-bg:           #2d1b69;
+  --scope-step-color:        #5EEAD4;
+  --scope-step-bg:           #042F2E;
+  --scope-file-color:        #94A3B8;
+  --scope-file-bg:           #1E293B;
+  --scope-dynamic-color:     #A3A3A3;
+  --scope-dynamic-bg:        #262626;
+  --scope-neutral-color:     #A6A6A6;
+  --scope-neutral-bg:        #333333;
+
+  --rule-code-from: #c7d0de;
+  --rule-code-to:   #8b95a8;
+}
+

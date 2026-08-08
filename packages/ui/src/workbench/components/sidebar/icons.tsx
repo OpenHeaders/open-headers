@@ -39,7 +39,7 @@ export function methodTag(method: string, muted = false): React.ReactNode {
       key: 'method',
       style: {
         display: 'inline-block',
-        minWidth: 44,
+        minWidth: 38,
         fontSize: 9,
         fontWeight: 700,
         color,
@@ -64,7 +64,7 @@ export function grpcTag(muted = false): React.ReactNode {
       key: 'grpc',
       style: {
         display: 'inline-block',
-        minWidth: 44,
+        minWidth: 38,
         fontSize: 9,
         fontWeight: 700,
         color,
@@ -91,7 +91,7 @@ export function websocketTag(flavor: 'raw' | 'socketio', muted = false): React.R
       key: 'websocket',
       style: {
         display: 'inline-block',
-        minWidth: 44,
+        minWidth: 38,
         fontSize: 9,
         fontWeight: 700,
         color,
@@ -120,7 +120,7 @@ export function sessionFidelityTag(fidelity: 'cdp' | 'heuristic' | 'proxy'): Rea
       key: 'fidelity',
       style: {
         display: 'inline-block',
-        minWidth: 44,
+        minWidth: 38,
         fontSize: 9,
         fontWeight: 700,
         color: spec.color,
@@ -142,7 +142,7 @@ export function exampleTag(): React.ReactNode {
       key: 'example',
       style: {
         display: 'inline-flex',
-        minWidth: 44,
+        minWidth: 38,
         justifyContent: 'flex-end',
         flexShrink: 0,
       },
@@ -188,9 +188,14 @@ export function composeBadge(
     }
   }
   if (isDirty) children.push(dirtyDot(t));
+  // The class lets the compact hover-chrome CSS collapse the badge
+  // while the row's `+`/`⋯` cluster is up (sidebar.less).
   return createElement(
     'span',
-    { style: { marginLeft: 'auto', display: 'inline-flex', gap: 6, alignItems: 'center' } },
+    {
+      className: 'rules-sidebar-item-badge',
+      style: { marginLeft: 'auto', display: 'inline-flex', gap: 6, alignItems: 'center' },
+    },
     ...children,
   );
 }

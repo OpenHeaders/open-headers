@@ -1,0 +1,256 @@
+// Traffic Monitor source rows are <button>s wearing the sidebar-item
+// idiom — neutralize the UA button chrome so the shared hover/selected
+// states show through (the width accounts for the item's 4px margins).
+// `min-width: 0` lets the flex label actually ellipsize instead of the
+// row growing the fixed-width rail.
+.traffic-monitor-source-row {
+  width: calc(100% - 8px);
+  min-width: 0;
+  border: none;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  font: inherit;
+
+  .rules-sidebar-item-label {
+    min-width: 0;
+  }
+}
+
+// In THIS rail a selected row is the ACTIVE SOURCE binding the plane
+// column — the same meaning as the storage rail's active section — so
+// it carries the DevTools panes' solid active fill instead of the
+// workbench sidebar's subtle echo-of-the-open-tab tint. Same pill law:
+// vivid only while this dock is the focused one, grey otherwise.
+.traffic-monitor-panel .rules-sidebar-item.selected {
+  background: var(--ant-color-fill-secondary, rgba(128, 128, 128, 0.12));
+}
+
+.rules-dock-body--focused .traffic-monitor-panel .rules-sidebar-item.selected {
+  background: var(--dt-pill-active-bg);
+}
+
+// The workbench-hosted DevTools rails (the storage plane's nav) obey
+// the same pill law. The browser devtools panel has no dock chrome, so
+// its own stylesheet's solid fill stands there untouched.
+.traffic-monitor-panel .dt-storage-nav-item[data-active='true'] {
+  background: var(--ant-color-fill-secondary, rgba(128, 128, 128, 0.12));
+}
+
+.rules-dock-body--focused .traffic-monitor-panel .dt-storage-nav-item[data-active='true'] {
+  background: var(--dt-pill-active-bg);
+}
+
+// Peer header row: the collapsible caret <button> plus the Debug-mode
+// switch, which must sit OUTSIDE the button (nested buttons are invalid
+// markup) while reading as one row.
+.traffic-monitor-peer-row {
+  display: flex;
+  align-items: center;
+
+  > .traffic-monitor-source-row {
+    flex: 1 1 auto;
+    width: auto;
+  }
+
+  > :last-child:not(.traffic-monitor-source-row) {
+    margin-right: 12px;
+  }
+}
+
+// The Traffic Monitor's action cluster (rail-side layout toggle + the
+// hide −) lives INSIDE the header's title composite, at the rail
+// column's right edge (the HTTP Rules posture: actions belong to the
+// card the title names) — so PanelHeader's own far-right cluster is
+// dropped for this panel; the panel renders its replacement with the
+// same header action classes, keeping the dock-hover reveal law (the
+// terminal panel's split-mode precedent).
+.traffic-monitor-panel > .rules-panel-header > .rules-panel-header-actions {
+  display: none;
+}
+
+// The stacked plane toolbars (Network / Storage / Console) collapse
+// via their always-visible leading caret (PlaneCollapseCaret) — their
+// shared toolbars' − clusters are dropped here; the strip row is the
+// reopen affordance. The wire plane never collapses (it is the wire
+// column's only plane) and its − was always inert on this surface.
+.traffic-monitor-panel .dt-panel > .rules-panel-header > .rules-panel-header-actions {
+  display: none;
+}
+
+// Draggable vertical divider between the source rail and the plane
+// views — the workbench's inter-panel gutter idiom (a 6px band of the
+// layout background, the editor split seam's exact treatment) rather
+// than a hairline. Two segments carry the class — one on the panel
+// header row, one spanning the body — stacked at the same x offset so
+// the bar reads as ONE continuous divider from the card's top edge to
+// its bottom; dragging either resizes the rail.
+.traffic-monitor-rail-sash {
+  flex: 0 0 auto;
+  align-self: stretch;
+  width: 6px;
+  cursor: col-resize;
+  position: relative;
+  // Above the panel header's ::after separator (also positioned,
+  // painted later): the gutter must run continuously from card top
+  // to bottom — without this the header's hairline cuts across it.
+  z-index: 1;
+  background: var(--ant-color-bg-layout, #f5f5f5);
+
+  // The band splits the panel into two visual cards, so the four
+  // inner corners where it meets the card's top and bottom edges get
+  // the dock cards' 8px rounding: gutter-colored fillets overlay each
+  // column's corner, and the card background shows through the
+  // quarter-circle cutout. The `--top` segment rides the header row
+  // (card top), the `--bottom` segment spans the body (card bottom).
+  &--top::before,
+  &--top::after,
+  &--bottom::before,
+  &--bottom::after {
+    content: '';
+    position: absolute;
+    width: 8px;
+    height: 8px;
+    pointer-events: none;
+  }
+
+  &--top::before {
+    top: 0;
+    left: -8px;
+    background: radial-gradient(circle 8px at 0 100%, transparent 7.5px, var(--ant-color-bg-layout, #f5f5f5) 8px);
+  }
+
+  &--top::after {
+    top: 0;
+    right: -8px;
+    background: radial-gradient(circle 8px at 100% 100%, transparent 7.5px, var(--ant-color-bg-layout, #f5f5f5) 8px);
+  }
+
+  &--bottom::before {
+    bottom: 0;
+    left: -8px;
+    background: radial-gradient(circle 8px at 0 0, transparent 7.5px, var(--ant-color-bg-layout, #f5f5f5) 8px);
+  }
+
+  &--bottom::after {
+    bottom: 0;
+    right: -8px;
+    background: radial-gradient(circle 8px at 100% 0, transparent 7.5px, var(--ant-color-bg-layout, #f5f5f5) 8px);
+  }
+}
+
+// Segments of the wire row's Start/Stop split control — hover feedback
+// like the observe popover's option rows (the control renders spans,
+// nested inside the row button).
+.traffic-monitor-wire-segment {
+  transition: background-color 0.12s ease;
+
+  &:hover {
+    background-color: var(--ant-color-fill-tertiary, rgba(0, 0, 0, 0.04));
+  }
+}
+
+[data-theme='dark'] .traffic-monitor-wire-segment:hover {
+  background-color: rgba(255, 255, 255, 0.06);
+}
+
+// Option rows inside the observe affordance's popover.
+.traffic-monitor-observe-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 8px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  cursor: pointer;
+  transition: background-color 0.12s ease;
+
+  &:hover {
+    background-color: var(--ant-color-fill-tertiary, rgba(0, 0, 0, 0.04));
+  }
+}
+
+[data-theme='dark'] .traffic-monitor-observe-option:hover {
+  background-color: rgba(255, 255, 255, 0.06);
+}
+
+// Draggable divider above the Traffic Monitor's stacked storage/console panes.
+.traffic-monitor-storage-sash,
+.traffic-monitor-console-sash {
+  flex: 0 0 auto;
+  height: 6px;
+  cursor: row-resize;
+  position: relative;
+
+  &::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 50%;
+    height: 1px;
+    transform: translateY(-50%);
+    background: rgba(128, 128, 128, 0.25);
+    transition: background 0.12s ease;
+  }
+
+  &:hover::after {
+    background: rgba(24, 144, 255, 0.5);
+    height: 2px;
+  }
+}
+
+// Collapsed planes — one-row section headers (the request-metadata
+// disclosure idiom): opaque, caret + title, click reopens the pane.
+// Mirrors the shared 32px PanelHeader metrics (height, inset, 13px
+// title) so a plane's title doesn't jump when it collapses.
+.traffic-monitor-plane-strip {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  border: none;
+  border-top: 1px solid var(--dt-border);
+  background: var(--dt-bg);
+  color: var(--dt-text);
+  // The expanded toolbar title's type (13px, <strong> bold, the app
+  // font — buttons don't inherit family on their own) — the two
+  // states must read as the same header, never a font jump.
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: bold;
+  text-align: left;
+  padding: 0 12px;
+  cursor: pointer;
+
+  // Directly under the shared panel header, whose ::after separator
+  // already draws this line — a second border would double it.
+  &:first-child {
+    border-top: none;
+  }
+
+  &::before {
+    content: '';
+    width: 0;
+    height: 0;
+    border-left: 4px solid currentColor;
+    border-top: 3px solid transparent;
+    border-bottom: 3px solid transparent;
+    opacity: 0.6;
+  }
+
+  &:hover {
+    background: var(--dt-row-hover);
+  }
+}
+
+// A pane growing directly under a collapsed strip has no sash between
+// them (a grower has nothing above to trade height with) — the pane's
+// top edge carries the separator the sash would have drawn.
+.traffic-monitor-plane-strip + .traffic-monitor-plane-pane {
+  border-top: 1px solid var(--dt-border);
+}
+

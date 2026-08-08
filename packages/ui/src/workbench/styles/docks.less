@@ -1,0 +1,306 @@
+// ── Tool-window docks (ShellLayout) ───────────────────────────────
+//
+// Each dock is a rectangular region hosting a single tool window at a
+// time. The "strip" is a tab control — vertical inside the left/right
+// activity bars, horizontal at the top of each bottom sub-pane. Tabs
+// are drag sources (dnd-kit); dropping on a DropZoneOverlay rectangle
+// relocates the tool window.
+
+.rules-main-row {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  position: relative;
+}
+
+
+.rules-main-horizontal {
+  flex: 1;
+  min-width: 0;
+  position: relative;
+}
+
+.rules-dock-strip {
+  display: flex;
+  gap: 2px;
+
+  &.rules-dock-strip--vertical {
+    flex-direction: column;
+    align-items: stretch;
+    width: 100%;
+  }
+
+  &.rules-dock-strip--horizontal {
+    flex-direction: row;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 8px;
+    min-height: 28px;
+  }
+
+  &.rules-dock-strip--empty-drop {
+    min-height: 36px;
+    min-width: 36px;
+    outline: 1px dashed rgba(22, 119, 255, 0.35);
+    outline-offset: -3px;
+    border-radius: 4px;
+  }
+
+  .rules-dock-strip-tabs {
+    display: flex;
+    flex-direction: inherit;
+    gap: 2px;
+    flex: 1;
+    min-width: 0;
+  }
+}
+
+.rules-dock-strip--horizontal .rules-dock-strip-tabs {
+  flex-direction: row;
+}
+
+.rules-dock-strip-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 3px;
+  cursor: pointer;
+  opacity: 0.5;
+  transition: opacity 0.12s, background 0.12s;
+  font-size: 10px;
+
+  &:hover {
+    opacity: 1;
+    background: rgba(128, 128, 128, 0.12);
+  }
+}
+
+.rules-dock-tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  user-select: none;
+  border-radius: 4px;
+  transition: color 0.15s, background 0.12s;
+
+  &.rules-dock-tab--vertical {
+    box-sizing: border-box;
+    // Full strip width (NOT a fixed px) so labels grow with the rail when
+    // the user widens it — mirrors the shared dock-layout.css rule, which
+    // this later-imported block otherwise overrides back to a fixed width
+    // that ellipsizes long labels regardless of rail width.
+    width: 100%;
+    min-height: 32px;
+    padding: 6px 4px 4px;
+    flex-direction: column;
+    justify-content: center;
+    gap: 2px;
+    font-size: 16px;
+
+    .rules-activity-bar--compact & {
+      width: 32px;
+      padding: 6px 0;
+    }
+  }
+
+  &.rules-dock-tab--horizontal {
+    padding: 3px 8px;
+    font-size: 12px;
+    border-radius: 3px;
+  }
+
+  &:not(.active):hover {
+    background: rgba(128, 128, 128, 0.1);
+  }
+
+  &.dragging {
+    cursor: grabbing;
+    opacity: 1;
+
+    > .rules-dock-tab-icon,
+    > .rules-dock-tab-label {
+      visibility: hidden;
+    }
+  }
+}
+
+.rules-dock-tab-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.rules-dock-tab-label {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  font-size: 11px;
+  line-height: 1.15;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding: 0 2px;
+
+  .rules-dock-tab--horizontal & {
+    font-size: 12px;
+    width: auto;
+    max-width: none;
+    padding: 0;
+  }
+}
+
+.rules-dock-content {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+// ── Drop-zone overlay (shown during drag) ─────────────────────────
+
+.rules-drop-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 50;
+}
+
+// One dashed rectangle per dock slot. Pre-inset by ShellLayout so
+// adjacent zones never share an edge. Border width is fixed (2px);
+// background + border-color animate but `border` (which includes
+// width) never does — a width transition fires ResizeObserver through
+// the animation and pushes dnd-kit's measureRects past React's nested
+// update ceiling (#185).
+.rules-drop-zone {
+  position: absolute;
+  border-radius: 6px;
+  border: 2px dashed;
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.12s, border-color 0.12s;
+}
+
+.rules-drop-zone-label {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 4px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.rules-drop-zone-label-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+// ── Drag preview (DragOverlay) ────────────────────────────────────
+
+.rules-drag-preview {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  background: rgba(22, 119, 255, 0.92);
+  color: #fff;
+  border-radius: 4px;
+  font-size: 12px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.18);
+  pointer-events: none;
+}
+
+.rules-drag-preview-icon {
+  display: inline-flex;
+  align-items: center;
+  font-size: 13px;
+}
+
+// ── Bottom Panel ───────────────────────────────────────────────────
+
+.rules-bottom-panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.rules-bottom-tabs {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 12px;
+  flex-shrink: 0;
+}
+
+.rules-bottom-tab {
+  font-size: 12px;
+  padding: 3px 0;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+
+  &.active {
+    font-weight: 500;
+  }
+}
+
+.rules-live-indicator {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+}
+
+.rules-bottom-content {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  min-height: 0;
+
+  &.is-fill {
+    display: block;
+    padding: 0;
+    align-items: stretch;
+    justify-content: flex-start;
+  }
+}
+
+// ── Right-pane panels (Docs / Variables) ──────────────────────────
+//
+// Each right panel is a top-level view — no internal tab UI. Selection
+// lives on the RightActivityBar to the right of the allotment pane.
+
+.rules-right-panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+// ── Regions (focus-aware containers) ──────────────────────────────
+//
+// Each shell region — left, editor, bottom, right — wraps its content
+// in a .workbench-region div carrying a data-region attribute. The focus
+// tracker hook reads the attribute to determine which region owns
+// keyboard focus. Styling hooks live on this class so we can layer on
+// a subtle focus outline if desired later without changing component
+// code.
+
+.rules-region {
+  position: relative;
+  outline: none;
+}
+

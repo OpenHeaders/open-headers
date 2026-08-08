@@ -1,0 +1,242 @@
+// ── Activity Bar ───────────────────────────────────────────────────
+//
+// Vertical icon strip mounted on either edge of the shell. Internal
+// structure uses three groups:
+//
+//   .workbench-activity-group--top        pinned to the top
+//   .workbench-activity-group--bottom     pushed above the trailing slot
+//   .workbench-activity-group--trailing   stuck to the bottom (e.g. Settings)
+//
+// The top group expands (flex: 1) so the bottom/trailing groups are
+// locked against the bottom edge.
+
+.rules-activity-bar {
+  // Width and height are governed by the outer Allotment.Pane in
+  // ShellLayout (per-rail user setting, locked at 36px in icon-only
+  // mode). The base bar styling lives in `dock-layout.css`; this
+  // block only carries workspace-specific layout-variant tweaks.
+  &::-webkit-scrollbar {
+    display: none;
+  }
+
+  &.rules-activity-bar--layout-compact {
+    .rules-activity-group--top {
+      flex: 0 0 auto;
+    }
+    .rules-activity-subslot {
+      flex: 0 0 auto;
+    }
+    .rules-activity-group--bottom {
+      margin-top: auto;
+    }
+  }
+
+  &.rules-activity-bar--layout-stacked {
+    .rules-activity-group--top {
+      flex: 0 0 auto;
+    }
+    .rules-activity-subslot {
+      flex: 0 0 auto;
+    }
+    .rules-activity-group--bottom {
+      flex: 0 0 auto;
+      margin-top: 0;
+    }
+  }
+}
+
+.rules-activity-group {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  gap: 2px;
+}
+
+.rules-activity-group--top {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+// Every sub-slot / bottom group reserves at least one icon row so empty
+// sections still read as a valid drop target regardless of layout
+// variant. The compact (icons-only) activity bar uses smaller tab tiles
+// and gets a smaller floor.
+@rules-subslot-min: 44px;
+@rules-subslot-min-compact: 32px;
+
+.rules-activity-subslot {
+  flex: 1 1 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  min-height: @rules-subslot-min;
+  overflow: hidden;
+}
+
+.rules-activity-subslot--second {
+  border-top: 1px dashed rgba(128, 128, 128, 0.32);
+  padding-top: 6px;
+  margin-top: 6px;
+}
+
+// Dynamic layout: collapse the subslot's top spacing so the first tab
+// in the lower subslot lines up with the lower dock body's top edge
+// (panel sits at margin-top:3 inside its pane; border 1px + padding 2px
+// = 3px from the subslot divider to the first tab).
+.rules-activity-bar--layout-dynamic .rules-activity-subslot--second {
+  margin-top: 0;
+  padding-top: 2px;
+}
+
+// Dynamic-mode: drop bar padding-top so subslots can occupy the bar
+// from y=0; the 3px panel-margin offset lives on subslot--first below.
+.rules-main--layout-dynamic .rules-activity-bar {
+  padding-top: 0;
+}
+
+.rules-activity-bar--layout-dynamic .rules-activity-subslot {
+  box-sizing: border-box;
+}
+
+.rules-activity-bar--layout-dynamic .rules-activity-subslot--first {
+  padding-top: 3px;
+}
+
+// Dynamic mode: drop the inter-subslot gap so subslot heights add up
+// to side-region height exactly. The default 2px gap was offsetting
+// subslot--second downward and breaking lower-panel alignment.
+.rules-activity-bar--layout-dynamic .rules-activity-group--top {
+  gap: 0;
+}
+
+// Empty upper-first placeholder — mirrors subslot--second's dashed
+// boundary so the slot stays visually present when it has no tabs.
+// Scoped to non-dynamic layouts (dynamic collapses empty subslots to 0
+// on purpose). The adjacent-sibling override drops subslot--second's
+// own top border so the separator reads as a single dashed line.
+.rules-activity-bar:not(.rules-activity-bar--layout-dynamic) {
+  .rules-activity-subslot--first.rules-activity-subslot--empty {
+    border-bottom: 1px dashed rgba(128, 128, 128, 0.32);
+    padding-bottom: 6px;
+    margin-bottom: 6px;
+  }
+  .rules-activity-subslot--first.rules-activity-subslot--empty
+    + .rules-activity-subslot--second {
+    border-top: none;
+    margin-top: 0;
+  }
+}
+
+.rules-activity-subslot .rules-dock-strip--vertical {
+  flex: 1 1 auto;
+  min-height: 0;
+  width: 100%;
+}
+
+.rules-activity-group--bottom {
+  flex: 0 0 auto;
+  border-top: 1px solid rgba(128, 128, 128, 0.34);
+  padding-top: 6px;
+  margin-top: 6px;
+  width: 100%;
+  min-height: @rules-subslot-min;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+// Dynamic mode: tighten the group's top padding AND clear the 6px
+// base margin-top — for an absolute-positioned element, that margin
+// shifts the group down 6px on top of the JS-set `top: regionH`,
+// which is why the bottom-group tab was landing well below its
+// bottom-panel header. Result: tab lands at regionH + border 1 +
+// padding 2 = regionH + 3 = bottom panel top.
+.rules-activity-bar--layout-dynamic .rules-activity-group--bottom {
+  margin-top: 0;
+  padding-top: 2px;
+}
+
+.rules-activity-bar--compact .rules-activity-subslot,
+.rules-activity-bar--compact .rules-activity-group--bottom {
+  min-height: @rules-subslot-min-compact;
+}
+
+.rules-activity-group--trailing {
+  margin-top: 2px;
+  margin-bottom: 4px;
+  width: 100%;
+}
+
+.rules-activity-icon {
+  width: 56px;
+  padding: 6px 0 4px;
+  border-radius: 5px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  font-size: 15px;
+  cursor: pointer;
+  transition: color 0.15s, background 0.12s;
+  border: 1px solid transparent;
+
+  // In compact mode every icon shrinks with the bar.
+  .rules-activity-bar--compact & {
+    width: 32px;
+    padding: 6px 0;
+  }
+
+  &:hover:not(.disabled) {
+    background: rgba(0, 0, 0, 0.06);
+  }
+
+  // Active — panel is open for this icon, but the region doesn't have
+  // keyboard focus. Renders as a "selected but unfocused" grey tint.
+  // Grey-alpha reads as near-invisible against both light `#e8e8e8`
+  // and dark `#262626` frames, so we split: black alpha for light,
+  // white alpha for dark (see `[data-theme='dark']` overrides below).
+  &.active:not(.focused):not(.disabled) {
+    background: rgba(0, 0, 0, 0.1);
+  }
+
+  // Focused — panel is open AND the region owns keyboard focus. The
+  // parent injects the blue primary accent via inline style; this class
+  // is still useful for CSS selectors downstream.
+  &.focused {
+    // inline style sets background / border — this keeps the class
+    // available as a styling hook.
+  }
+
+  &.disabled {
+    opacity: 0.35;
+    cursor: default;
+  }
+}
+
+[data-theme='dark'] .rules-activity-icon:hover:not(.disabled) {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+// Active tile in dark mode — a near-white bg (light-white tile) with
+// dark foreground so the selected panel's chip reads as an inverted
+// high-contrast marker against the dark frame.
+[data-theme='dark'] .rules-activity-icon.active:not(.focused):not(.disabled) {
+  background: rgba(255, 255, 255, 0.45);
+  color: #1a1a1a;
+}
+
+.rules-activity-label {
+  font-size: 9px;
+  line-height: 1.1;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 56px;
+}
+

@@ -190,7 +190,7 @@ function SourceRow({
       data-item-id={itemId}
       aria-pressed={active}
       className={`rules-sidebar-item traffic-monitor-source-row${active ? ' selected' : ''}${focused ? ' focused' : ''}`}
-      style={indent ? { paddingLeft: 30 } : undefined}
+      style={indent ? { paddingLeft: 22 } : undefined}
       onClick={onClick}
     >
       {children}
@@ -705,7 +705,7 @@ export const TrafficMonitorSourceRail: React.FC<TrafficMonitorSourceRailProps> =
             <div
               data-testid="traffic-monitor-install-ctas"
               style={{
-                padding: '8px 14px',
+                padding: '8px 10px',
                 display: 'flex',
                 flexDirection: 'column',
                 alignItems: 'flex-start',
@@ -798,7 +798,7 @@ export const TrafficMonitorSourceRail: React.FC<TrafficMonitorSourceRailProps> =
                   groupByWindow(peer.tabs).map((group, index, groups) => (
                     <div key={group.windowId}>
                       {groups.length > 1 && (
-                        <div style={{ padding: '4px 14px 0 30px', fontSize: 11, color: token.colorTextTertiary }}>
+                        <div style={{ padding: '4px 10px 0 22px', fontSize: 11, color: token.colorTextTertiary }}>
                           {t('workbench.trafficMonitor.windowLabel', { n: index + 1 })}
                         </div>
                       )}

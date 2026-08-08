@@ -167,7 +167,7 @@ function windowRow(id: string): ReturnType<Page['locator']> {
 }
 
 /** Open a session leaf's `⋯` menu — the standard tree's hover-revealed
- *  MoreOutlined trigger (opacity-hidden, still clickable). */
+ *  MoreOutlined trigger (display-gated: the hover is required). */
 async function openRowMenu(id: string): Promise<void> {
   await windowRow(id).hover();
   await windowRow(id).locator('.rules-sidebar-item-menu').click();

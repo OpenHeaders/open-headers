@@ -1,0 +1,67 @@
+// ── Git tool window ref rows (hover/selected mirror the sidebar tree
+// nodes' grey/blue so the rail reads as the same control family) ────
+.git-tool-ref-row {
+  background: transparent;
+
+  &:hover {
+    background: rgba(128, 128, 128, 0.08);
+  }
+
+  // The pill law (ONE global blue): grey echo at rest, vivid only
+  // while the git dock owns focus — same pair as the sidebar trees.
+  &.selected {
+    background: var(--ant-color-fill-secondary, rgba(128, 128, 128, 0.12));
+  }
+
+  .rules-dock-body--focused &.selected {
+    background: rgba(24, 144, 255, 0.08);
+  }
+
+  &:focus-visible {
+    outline: none;
+    background: rgba(24, 144, 255, 0.06);
+    box-shadow: inset 0 0 0 1px rgba(24, 144, 255, 0.35);
+  }
+
+  &.selected:focus-visible {
+    background: rgba(24, 144, 255, 0.12);
+  }
+}
+
+// Scope-panel section headers — both the top-level In-context / All-scopes
+// sections and each scope row: the "Edit" link and the (i) info trigger
+// stay hidden until the row is hovered or focused, or the (i)'s popover is
+// open. Holding them at opacity:0 keeps their layout box so revealing
+// never reflows the header — the same hover-reveal the network table's (i)
+// affordances use.
+.vp-scope-head {
+  border-radius: 4px;
+  transition: background-color 0.12s ease;
+
+  // Same hover wash as the sidebar section headers / tree rows.
+  &:hover {
+    background-color: var(--ant-color-fill-tertiary, rgba(0, 0, 0, 0.04));
+  }
+
+  .vp-scope-reveal {
+    opacity: 0;
+    transition: opacity 80ms linear;
+  }
+
+  &:hover .vp-scope-reveal,
+  &:focus-within .vp-scope-reveal,
+  .vp-scope-reveal[aria-expanded='true'] {
+    opacity: 1;
+  }
+
+  // The (i) sits inline right after the scope name — drop its default
+  // right margin so the header's flex gap alone controls spacing.
+  .oh-info-trigger {
+    margin: 0;
+  }
+}
+
+[data-theme='dark'] .vp-scope-head:hover {
+  background-color: rgba(255, 255, 255, 0.06);
+}
+

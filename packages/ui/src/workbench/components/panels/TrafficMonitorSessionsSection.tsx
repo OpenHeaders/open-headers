@@ -410,13 +410,21 @@ export const TrafficMonitorSessionsSection: React.FC<TrafficMonitorSessionsSecti
   );
 
   const countBadge = (count: number): React.ReactNode => (
-    <span style={{ marginLeft: 'auto', fontSize: 11, color: token.colorTextTertiary, flex: '0 0 auto' }}>{count}</span>
+    <span
+      className="rules-sidebar-item-badge"
+      style={{ marginLeft: 'auto', fontSize: 11, color: token.colorTextTertiary, flex: '0 0 auto' }}
+    >
+      {count}
+    </span>
   );
 
   const sessionBadge = (session: TrafficArchivedSessionProjection): React.ReactNode => {
     const live = session.state !== 'sealed';
     return (
-      <span style={{ marginLeft: 'auto', display: 'inline-flex', gap: 6, alignItems: 'center', flex: '0 0 auto' }}>
+      <span
+        className="rules-sidebar-item-badge"
+        style={{ marginLeft: 'auto', display: 'inline-flex', gap: 6, alignItems: 'center', flex: '0 0 auto' }}
+      >
         {live && (
           <Tag
             color={session.state === 'recording' ? 'red' : 'default'}
@@ -588,7 +596,7 @@ export const TrafficMonitorSessionsSection: React.FC<TrafficMonitorSessionsSecti
                 flexDirection: 'column',
                 alignItems: 'flex-start',
                 gap: 2,
-                padding: '4px 14px 8px',
+                padding: '4px 10px 8px',
                 color: token.colorTextSecondary,
               }}
             >

@@ -460,14 +460,17 @@ export const EditorGroupRenderer: React.FC<EditorGroupRendererProps> = ({
     [dragActive, draggingTab, hover, insertion],
   );
 
-  // Tab-strip focus exclusivity: the editor's active tab and the
-  // terminal's active tab are both tab strips, so only one shows the
-  // primary tint at a time. When the bottom region (the terminal's
-  // home) owns focus, the editor's active tab drops to the neutral
-  // fill — and vice versa. Sidebar focus deliberately leaves the
-  // editor tint alone: sidebars have no competing tab strip.
+  // ONE global blue: the editor's active pill renders the primary tint
+  // only while the editor REGION itself owns focus. Working in any
+  // dock — sidebars included, since their rows echo this strip's
+  // active tab — greys the pill down to the neutral fill, so blue
+  // always marks exactly one locus of focus across the workbench.
+  // Functional leaf focus stays broader on purpose (below): create
+  // menu, tab search, and shortcut targets keep following the focused
+  // leaf while a sidebar owns focus, exactly as before.
   const focusedRegion = useFocusedRegion();
   const editorOwnsFocus = focusedRegion !== 'bottom';
+  const editorOwnsTint = focusedRegion === 'editor';
 
   const renderLeaf = (leaf: EditorLeaf): React.ReactNode => {
     // Leaf focus (which group owns editor keyboard actions) is
@@ -476,6 +479,7 @@ export const EditorGroupRenderer: React.FC<EditorGroupRendererProps> = ({
     // focus; only the blue-vs-grey highlight follows the region.
     const isFocusedLeafId = groups.focusedLeafId === leaf.id;
     const isFocused = isFocusedLeafId && editorOwnsFocus;
+    const isTintedLeaf = isFocusedLeafId && editorOwnsTint;
     const activeTab = leaf.tabs.find((t) => t.id === leaf.activeTabId);
     const canUnsplit = parentedLeafIds.has(leaf.id);
     const hoverHere = hover?.leafId === leaf.id;
@@ -494,7 +498,7 @@ export const EditorGroupRenderer: React.FC<EditorGroupRendererProps> = ({
       >
         <TabBar
           leafId={leaf.id}
-          isFocusedLeaf={isFocused}
+          isFocusedLeaf={isTintedLeaf}
           tabs={leaf.tabs}
           activeTabId={leaf.activeTabId}
           rules={rules}

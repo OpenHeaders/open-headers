@@ -1,0 +1,75 @@
+/**
+ * Workbench base — bundled fonts, root/viewport sizing, and the
+ * top-level shell scaffold. First module in the manifest (rules.less):
+ * the plain-CSS font @imports below must precede every rule in the
+ * compiled output.
+ */
+
+// Inter — bundled UI font available via the appearance.fontFamilyPreset
+// "Inter" option. Three weights (regular / medium / bold), latin subset
+// only — ~70 KB total.
+@import '@fontsource/inter/latin-400.css';
+@import '@fontsource/inter/latin-500.css';
+@import '@fontsource/inter/latin-700.css';
+// Atkinson Hyperlegible — accessibility-first sans bundled for the
+// matching preset. Only 400 and 700 weights ship upstream.
+@import '@fontsource/atkinson-hyperlegible/latin-400.css';
+@import '@fontsource/atkinson-hyperlegible/latin-700.css';
+// Bundled monospace code fonts for `editor.fontFamilyPreset`. Regular
+// weight only, except JetBrains Mono: it is also the terminal face
+// (TUIs render bold) and an `appearance.fontFamilyPreset` chrome
+// option, so it ships medium and bold like Inter.
+@import '@fontsource/fira-code/latin-400.css';
+@import '@fontsource/jetbrains-mono/latin-400.css';
+@import '@fontsource/jetbrains-mono/latin-500.css';
+@import '@fontsource/jetbrains-mono/latin-700.css';
+@import '@fontsource/cascadia-code/latin-400.css';
+@import '@fontsource/source-code-pro/latin-400.css';
+
+@font-face {
+  font-family: 'Press Start 2P';
+  font-style: normal;
+  font-weight: 400;
+  font-display: block;
+  src: url('../../assets/fonts/PressStart2P-Regular.woff2') format('woff2');
+}
+
+html, body, #root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  // Pin the workbench to the viewport: `.rules-shell` is a fixed
+  // 100vh/100vw shell that owns ALL scrolling in its inner containers,
+  // so the root must never scroll. `overflow: hidden` removes any
+  // document scrollbar; `overscroll-behavior: none` kills the macOS
+  // elastic rubber-band so a scroll gesture that overshoots can't drag
+  // the whole page and expose white gutters past the content edges.
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
+// ThemeContext writes `--oh-ui-font-family` on :root from the active
+// `appearance.fontFamilyPreset`. Routing the body through the variable
+// keeps plain HTML in step with the AntD token — without it, every
+// preset would render the same as System Sans on macOS.
+body {
+  font-family: var(--oh-ui-font-family, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif);
+}
+
+// ── Shell layout ───────────────────────────────────────────────────
+
+.rules-shell {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  width: 100vw;
+  overflow: hidden;
+}
+
+.rules-main {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  position: relative;
+}
+

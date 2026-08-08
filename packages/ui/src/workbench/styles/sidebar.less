@@ -1,0 +1,397 @@
+// ── Sidebar ────────────────────────────────────────────────────────
+
+.rules-sidebar {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+// Sidebar filter row — sits below the standardized PanelHeader. The
+// bordered Input itself provides the visible rectangle, so the row
+// is just a flex container with side padding.
+.rules-sidebar-filter-row {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 4px 8px;
+  flex-shrink: 0;
+}
+
+.rules-sidebar-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  overscroll-behavior: none;
+  font-size: 12px;
+  min-height: 0;
+}
+
+.rules-sidebar-section {
+  padding: 5px 10px;
+  margin: 0 4px;
+  border-radius: 4px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  position: relative;
+  transition: background-color 0.12s ease;
+
+  // No separator line between consecutive sections: the uppercase
+  // header typography plus the row spacing carry the grouping on
+  // their own — hairlines here just polluted the crowded rail.
+
+  &:hover {
+    background-color: var(--ant-color-fill-tertiary, rgba(0, 0, 0, 0.04));
+  }
+}
+
+[data-theme='dark'] .rules-sidebar-section:hover {
+  background-color: rgba(255, 255, 255, 0.06);
+}
+
+.rules-sidebar-section-title {
+  font-weight: 600;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+}
+
+// Singleton opener rows (Vault, Package Library, …) echo their open
+// tab exactly like tree rows: grey at rest, vivid only while their
+// dock owns focus — the pill law. Written at two-class specificity so
+// the hover washes above can't repaint a selected row.
+.rules-sidebar-section.rules-sidebar-section--selected {
+  background-color: var(--ant-color-fill-secondary, rgba(128, 128, 128, 0.12));
+}
+
+.rules-dock-body--focused .rules-sidebar-section.rules-sidebar-section--selected {
+  background-color: rgba(24, 144, 255, 0.08);
+}
+
+// ── Sidebar tree nodes (mirrors desktop v5-sidebar-item) ───────────
+
+.rules-sidebar-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  font-size: 12px;
+  // Compact density (the IDE tree posture): the pinned line-height is
+  // load-bearing — without it the 12px label inherits antd's 1.57
+  // ratio (~19px box) and sets the row past 26px on its own, so no
+  // padding cut compacts anything. min-height + border-box normalize
+  // rows whose tallest child differs (state tags vs plain labels).
+  line-height: 16px;
+  min-height: 22px;
+  box-sizing: border-box;
+  cursor: pointer;
+  border-radius: 4px;
+  margin: 0 4px;
+  outline: none;
+
+  &:hover {
+    background: rgba(128, 128, 128, 0.08);
+  }
+
+  // Row echoes follow the tab-pill law: blue in the FOCUSED dock,
+  // grey everywhere else (the pills' colorPrimaryBg / colorFillSecondary
+  // pair) — working in one panel dims every other panel's highlights,
+  // and focusing the editor dims them all.
+  &.selected {
+    background: var(--ant-color-fill-secondary, rgba(128, 128, 128, 0.12));
+  }
+
+  .rules-dock-body--focused &.selected {
+    background: rgba(24, 144, 255, 0.08);
+  }
+
+  // The keyboard cursor renders only while its OWN tree container holds
+  // DOM focus — the exact condition under which arrow keys reach it. At
+  // most one container can hold focus, so at most ONE cursor is visible
+  // across every mounted sidebar; the per-sidebar `focusedId` survives
+  // in memory and resumes when the panel is focused again.
+  .rules-sidebar-content:focus-within &.focused {
+    background: rgba(24, 144, 255, 0.06);
+    box-shadow: inset 0 0 0 1px rgba(24, 144, 255, 0.35);
+  }
+
+  .rules-sidebar-content:focus-within &.selected.focused {
+    background: rgba(24, 144, 255, 0.12);
+  }
+
+  // ONE blue per panel: while the keyboard cursor is live in this
+  // container (the exact arrows-work condition), the selected echo
+  // yields its blue to the cursor — grey unless the cursor sits on
+  // the selected row itself. The selector's specificity deliberately
+  // outranks every focused-dock vivid rule, the Traffic Monitor's
+  // `--dt-pill-active-bg` override included.
+  .rules-dock-body--focused .rules-sidebar-content:focus-within &.selected:not(.focused) {
+    background: var(--ant-color-fill-secondary, rgba(128, 128, 128, 0.12));
+  }
+
+  // Stateful hover-action glyphs (capture / debug / pin) keep the
+  // opacity reveal: they RESERVE their layout box so an in-flight,
+  // armed, or pinned state never shifts the trigger out from under
+  // the cursor. The `+`/`⋯` chrome clusters are display-gated instead
+  // — see the compact hover-chrome block below.
+  &:hover .rules-sidebar-item-hover-action {
+    opacity: 1;
+  }
+}
+
+.rules-sidebar-item-label {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rules-sidebar-item-hover-action {
+  opacity: 0;
+  font-size: 12px;
+  padding: 1px 4px;
+  border-radius: 3px;
+  flex-shrink: 0;
+  margin-left: auto;
+  cursor: pointer;
+
+  &:hover {
+    background: rgba(128, 128, 128, 0.15);
+  }
+}
+
+/* Active/pending/open affordances stay visible without dropping the base
+ * class — removing it would change the span's padding and margin, moving
+ * the trigger out from under the cursor (a hover-popover open/close loop). */
+.rules-sidebar-item-hover-action--pinned {
+  opacity: 1;
+}
+
+// ── Compact hover chrome ───────────────────────────────────────────
+//
+// The `+`/`⋯` clusters take NO width at rest — labels run to the row
+// edge — and join the flow on row hover, on the keyboard cursor, or
+// while their dropdown is open (the trigger must not vanish out from
+// under an open menu, and antd would re-align the overlay against a
+// hidden anchor). The row badge yields its slot while a cluster is
+// up so the label doesn't lose width twice.
+//
+// The hidden state is written at two-class specificity on purpose:
+// `@ant-design/icons` injects a runtime `.anticon { display: … }`
+// AFTER this bundle, and a bare one-class `display: none` would lose
+// that cascade tie.
+
+.rules-sidebar-item .rules-sidebar-item-menu {
+  display: none;
+  font-size: 12px;
+  padding: 1px 4px;
+  border-radius: 3px;
+  flex-shrink: 0;
+
+  &:hover {
+    background: rgba(128, 128, 128, 0.15);
+  }
+}
+
+.rules-sidebar-item:hover .rules-sidebar-item-menu,
+.rules-sidebar-content:focus-within .rules-sidebar-item.focused .rules-sidebar-item-menu,
+.rules-sidebar-item .rules-sidebar-item-menu.ant-dropdown-open {
+  display: inline-flex;
+}
+
+.rules-sidebar-item .rules-sidebar-collection-actions {
+  display: none;
+  align-items: center;
+  gap: 2px;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.rules-sidebar-item:hover .rules-sidebar-collection-actions,
+.rules-sidebar-content:focus-within .rules-sidebar-item.focused .rules-sidebar-collection-actions,
+.rules-sidebar-item .rules-sidebar-collection-actions:has(.ant-dropdown-open) {
+  display: flex;
+}
+
+// Badge yields while its row's cluster is visible (rows without any
+// cluster keep their badge under the cursor and on hover).
+.rules-sidebar-item:hover:has(.rules-sidebar-item-menu, .rules-sidebar-collection-actions) .rules-sidebar-item-badge,
+.rules-sidebar-content:focus-within
+  .rules-sidebar-item.focused:has(.rules-sidebar-item-menu, .rules-sidebar-collection-actions)
+  .rules-sidebar-item-badge,
+.rules-sidebar-item:has(.ant-dropdown-open) .rules-sidebar-item-badge {
+  display: none;
+}
+
+// ── Sidebar folder drag-handle (FolderDndTree) ─────────────────────
+//
+// The wrapper hosts the dnd-kit attributes + drop indicator lines; the
+// handle button hosts the pointer listeners so clicks on the row body
+// don't initiate a drag. The handle is hidden until the wrapper is
+// hovered, then nudges into the gutter at the row's left edge.
+
+.folder-dnd-row {
+  position: relative;
+}
+
+.folder-dnd-handle {
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 18px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: rgba(128, 128, 128, 0.85);
+  opacity: 0;
+  cursor: grab;
+  font-size: 11px;
+  outline: none;
+
+  &:active {
+    cursor: grabbing;
+  }
+}
+
+.folder-dnd-row:hover .folder-dnd-handle {
+  opacity: 0.55;
+}
+
+.folder-dnd-handle:hover {
+  opacity: 1 !important;
+}
+
+// ── Environment selector rows ────────────────────────────────────────
+// Mirrors .rules-sidebar-item pattern: raw <span> actions with opacity
+// toggled by parent :hover. No AntD Button/Space wrappers (their internal
+// background transitions paint a ghost even when a parent is hidden).
+
+.oh-env-row {
+  &:hover {
+    background: rgba(128, 128, 128, 0.08);
+  }
+
+  .oh-env-row-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    margin-left: auto;
+    flex-shrink: 0;
+  }
+
+  .oh-env-row-action {
+    opacity: 0;
+  }
+
+  &:hover .oh-env-row-action {
+    opacity: 1;
+  }
+}
+
+.oh-env-row-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 3px;
+  cursor: pointer;
+  flex-shrink: 0;
+
+  &:hover {
+    background: rgba(128, 128, 128, 0.15);
+  }
+}
+
+// Capped list sections (snippets menu, packages menu, …) — persistent
+// (non-overlay) scrollbar so the list reads as scrollable at a glance
+// instead of only revealing the thumb mid-scroll (macOS overlay default).
+// The env selector's `.oh-env-scroll` twin lives in
+// `components/shell/EnvironmentSelector.css` so non-workbench surfaces
+// get it too. Standard `scrollbar-width`/`scrollbar-color` (not the
+// webkit pseudos) so the thumb stays compositor-driven and can't lag
+// behind the scroll when the main thread is busy; a custom color also
+// opts out of the platform's auto-hiding overlay bar.
+.oh-persistent-scroll {
+  overflow-y: auto;
+  overscroll-behavior: none;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(128, 128, 128, 0.4) transparent;
+}
+
+.rules-sidebar-action-icon {
+  font-size: 12px;
+  padding: 1px 4px;
+  border-radius: 3px;
+  cursor: pointer;
+
+  &:hover {
+    background: rgba(128, 128, 128, 0.15);
+  }
+}
+
+.rules-sidebar-rename-input {
+  flex: 1;
+  min-width: 0;
+  font-size: 11px;
+  padding: 1px 4px;
+  border: 1px solid rgba(128, 128, 128, 0.35);
+  border-radius: 3px;
+  background: transparent;
+  color: inherit;
+  outline: none;
+
+  &:focus {
+    border-color: var(--ant-color-primary, #1677ff);
+  }
+}
+
+.rules-sidebar-empty {
+  padding: 6px 10px;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.rules-sidebar-placeholder {
+  padding: 6px 10px;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.rules-sidebar-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 10px;
+}
+
+.rules-sidebar-create-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 12px;
+  font-size: 12px;
+  font-weight: 500;
+  border: 1px solid rgba(128, 128, 128, 0.4);
+  border-radius: 5px;
+  background: transparent;
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s;
+
+  &:hover {
+    background: rgba(128, 128, 128, 0.08);
+    border-color: rgba(128, 128, 128, 0.6);
+  }
+}
+

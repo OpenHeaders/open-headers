@@ -1,0 +1,326 @@
+// ── Tab Bar ────────────────────────────────────────────────────────
+
+.rules-tabs-bar {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  height: 32px;
+  position: relative;
+}
+
+.rules-tabs-scroll {
+  display: flex;
+  align-items: center;
+  // `flex: 0 1 auto` + `min-width: 0` makes the strip content-sized
+  // when the tabs fit and shrinks-but-never-grows when they overflow.
+  // Combined with the `+` button being a sibling outside this strip,
+  // it lets `+` sit immediately after the last tab in the fit case
+  // and at the right edge of the visible strip in the overflow case
+  // — without `+` itself ever scrolling away.
+  flex: 0 1 auto;
+  min-width: 0;
+  // `align-self: stretch` overrides the bar's `align-items: center`
+  // so the scroll element fills the full 32 px bar height. Without
+  // it the strip is content-sized vertically and floats centered in
+  // the bar — meaning the scrollbar gutter (drawn at the strip's
+  // bottom) lands a few px above the bar's divider with empty grey
+  // space underneath. Stretching pins the scrollbar flush against
+  // the divider, the way IDE tab strips render it.
+  align-self: stretch;
+  gap: 2px;
+  // `overflow-x: scroll` (not `auto`): with `auto`, Chromium reserves
+  // the 3 px webkit gutter only once the content actually overflows,
+  // so the first overflowing tab shifts the whole row up. `scroll`
+  // keeps the gutter reserved at all times — the thumb is invisible
+  // until there is both overflow and bar hover, so nothing is painted
+  // in the fit case; the space just stays stable. The 3 px top padding
+  // mirrors the gutter so the tabs stay vertically centered instead of
+  // riding 3 px high. (Gecko hides the native bar entirely — its
+  // symmetric counterweight is the padding-bottom in the `@supports`
+  // block below, where the overlay thumb draws inside the padding.)
+  padding: 3px 4px 0;
+  overflow-x: scroll;
+  overscroll-behavior: none;
+  overflow-y: hidden;
+
+  // Edge-fade only when the strip is overflowing (the renderer adds
+  // `is-overflow` after measuring `scrollWidth > clientWidth`). With
+  // no overflow there is nothing to fade; painting the mask anyway
+  // would dim the rightmost tab's edge for no reason.
+  &.is-overflow {
+    mask-image: linear-gradient(
+      to right,
+      transparent 0,
+      black 24px,
+      black calc(100% - 24px),
+      transparent 100%
+    );
+    -webkit-mask-image: linear-gradient(
+      to right,
+      transparent 0,
+      black 24px,
+      black calc(100% - 24px),
+      transparent 100%
+    );
+  }
+
+  // Thin overlay scrollbar — exactly 3 px tall, transparent thumb at
+  // rest, fades to a calm grey when the user is hovering anywhere in
+  // the tab bar. The 3 px gutter is reserved at all times so the
+  // scrollbar never causes a layout shift on hover-in / hover-out.
+  //
+  // We do NOT set `scrollbar-width` unscoped here: Chromium 121+
+  // honors that property natively and, when set, ignores the
+  // `::-webkit-scrollbar` pseudo entirely — landing us back on the
+  // browser's built-in "thin" (~12 px) scrollbar. The webkit pseudo
+  // is the only way to get a sub-`thin` scrollbar in Chromium right
+  // now. Firefox ignores the webkit pseudos and would paint its
+  // full-size classic scrollbar across the 32 px bar; its `thin` is
+  // still ~8 px and reserves layout space, so there the native
+  // scrollbar is hidden and `OverlayScrollThumb` (a sibling of this
+  // strip, styled by `.rules-tabs-overlay-thumb` below) mirrors the
+  // 3 px webkit thumb from scroll metrics instead. Scoped via
+  // `@supports (-moz-appearance: none)` (Firefox-only) because if
+  // Chromium saw `scrollbar-width` it would discard the webkit
+  // pseudo styling.
+  //
+  // Inside a dock panel (the terminal strip) the dock body's
+  // `:where(.rules-dock-body) *` wildcard sets `scrollbar-width: thin`
+  // — which, being non-auto, disables the webkit pseudos and swaps in
+  // the ~6 px standards scrollbar. Explicit `auto`s here out-rank the
+  // zero-specificity wildcard (the cascade contract in dock-layout.css
+  // asks nested webkit opt-ins to self-guard exactly this way), so the
+  // strip renders the same 3 px hover thumb in and out of docks.
+  scrollbar-width: auto;
+  scrollbar-color: auto;
+  @supports (-moz-appearance: none) {
+    scrollbar-width: none;
+    // No native gutter in Gecko — balance the shared 3 px padding-top
+    // so the tabs sit centered; the sibling overlay thumb paints over
+    // this padding band, exactly where the webkit gutter sits.
+    padding-bottom: 3px;
+  }
+  &::-webkit-scrollbar {
+    height: 3px;
+    background: transparent;
+  }
+  &::-webkit-scrollbar-thumb {
+    background: transparent;
+    border-radius: 2px;
+    transition: background 0.15s ease;
+  }
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  &::-webkit-scrollbar-button {
+    display: none;
+  }
+  &::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+}
+
+// Subtler thumb than a typical content scrollbar: this one shares
+// vertical space with the tooltip that the hovered tab opens just
+// below the bar, so a heavy thumb reads as visual noise next to the
+// tooltip arrow. Low alpha keeps the indicator legible while letting
+// the tooltip own the visual focus. Gated on `.is-overflow` — with
+// `overflow-x: scroll` the scrollbar element exists even in the fit
+// case, and the thumb must never tint when there is nothing to scroll.
+.rules-tabs-bar:hover .rules-tabs-scroll.is-overflow {
+  &::-webkit-scrollbar-thumb {
+    background: rgba(128, 128, 128, 0.28);
+  }
+}
+
+[data-theme='dark'] .rules-tabs-bar:hover .rules-tabs-scroll.is-overflow {
+  &::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.18);
+  }
+}
+
+// Gecko stand-in for the webkit thumb above — same 3 px height, same
+// rest/hover colours. `OverlayScrollThumb` owns `left`/`width` (synced
+// from scroll metrics); CSS owns everything visual. `pointer-events:
+// none` because at 3 px the webkit thumb isn't practically draggable
+// either — wheel, auto-scroll and tab search are the navigation paths.
+.rules-tabs-overlay-thumb {
+  position: absolute;
+  bottom: 0;
+  height: 3px;
+  border-radius: 2px;
+  background: transparent;
+  pointer-events: none;
+  transition: background 0.15s ease;
+}
+
+.rules-tabs-bar:hover .rules-tabs-overlay-thumb {
+  background: rgba(128, 128, 128, 0.28);
+}
+
+[data-theme='dark'] .rules-tabs-bar:hover .rules-tabs-overlay-thumb {
+  background: rgba(255, 255, 255, 0.18);
+}
+
+// `+` button anchored to the strip's right edge, never shrinking. The
+// search chevron uses `margin-left: auto` to push itself to the bar's
+// right edge regardless of whether tabs fit (gap between + and chevron
+// in the fit case) or overflow (no gap; everything packed right).
+.rules-tabs-bar > .rules-tab-action-create {
+  flex-shrink: 0;
+}
+
+.rules-tab {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  // Vertical padding shrunk from 4 → 2 so the painted hover/active
+  // pill leaves a few pixels of bar above and below the tab. Two
+  // gains: (1) the 3 px scrollbar gutter never visually clips the
+  // active pill's bottom edge, (2) the active pill reads as a chip
+  // floating in the bar instead of stretching edge-to-edge — same
+  // visual rhythm as IDE editor tabs.
+  padding: 2px 10px;
+  font-size: 12px;
+  white-space: nowrap;
+  cursor: pointer;
+  border-radius: 6px;
+  flex-shrink: 0;
+  position: relative;
+  user-select: none;
+  transition: background 0.12s;
+
+  &.active {
+    font-weight: 500;
+  }
+
+  &:hover:not(.active):not(.dragging) {
+    background: rgba(128, 128, 128, 0.1);
+  }
+
+  &:hover .rules-tab-close {
+    opacity: 1;
+  }
+}
+
+.rules-tab-action {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  // Fixed height instead of 100% so the hover pill floats in the bar
+  // (the bar's `align-items: center` keeps it vertically centered) —
+  // same chip-in-a-bar rhythm as the tab hover pill above.
+  height: 22px;
+  border-radius: 6px;
+  cursor: pointer;
+  flex-shrink: 0;
+  opacity: 0.7;
+  transition: opacity 0.12s, background 0.12s;
+
+  &:hover {
+    opacity: 1;
+    background: rgba(128, 128, 128, 0.14);
+  }
+}
+
+.rules-tab-label {
+  white-space: nowrap;
+}
+
+.rules-tab-unsaved {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+
+.rules-tab-close {
+  opacity: 0;
+  cursor: pointer;
+  transition: opacity 0.15s;
+  margin-left: 2px;
+
+  &:hover {
+    opacity: 1 !important;
+  }
+}
+
+// ── Drag-to-reorder (dnd-kit) ──────────────────────────────────────
+// Editor tabs subscribe to the shell's shared DndContext via
+// SortableContext + useSortable. While dragging, the source tab keeps
+// its box (outline + background are applied inline in TabBar.tsx) but
+// its children must be hidden — icons carry hardcoded fills so the
+// `color: transparent` trick alone isn't enough.
+
+.rules-tab.dragging {
+  cursor: grabbing;
+
+  > .rules-type-badge,
+  > .rules-tab-label,
+  > .rules-tab-unsaved,
+  > .rules-tab-close {
+    visibility: hidden;
+  }
+}
+
+// ── Tab Search Dropdown ────────────────────────────────────────────
+
+.rules-tab-search-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 98;
+}
+
+.rules-tab-search-dropdown {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  width: 300px;
+  border-radius: 6px;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12);
+  z-index: 99;
+  animation: rules-tab-search-in 0.15s ease-out;
+}
+
+@keyframes rules-tab-search-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.rules-tab-search-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  transition: background 0.1s;
+
+  &:hover {
+    background: rgba(128, 128, 128, 0.08);
+  }
+}
+
+.rules-type-badge {
+  font-size: 11px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+}
+
+// ── Tab path tooltip ───────────────────────────────────────────────
+//
+// AntD's default Tooltip caps .ant-tooltip at 250px, which wraps our
+// breadcrumb path unnecessarily even when the viewport has room. We
+// bump the cap so the path renders on one line in common cases and
+// still wraps gracefully between segments on narrow viewports.
+
+.rules-tab-path-tooltip {
+  max-width: min(520px, 80vw);
+
+  .ant-tooltip-inner {
+    max-width: min(520px, 80vw);
+  }
+}
+

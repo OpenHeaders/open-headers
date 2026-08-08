@@ -1,0 +1,210 @@
+// ── Code editor corner actions overlay ────────────────────────────
+//
+// Fades the Find / Replace / Format cluster in only when the editor
+// is hovered or focused so it stays out of the way during reading and
+// pops when the user is about to act. Focus-within covers keyboard
+// users.
+
+.rules-code-editor {
+  .rules-code-editor-actions {
+    opacity: 0;
+    transition: opacity 120ms ease-out;
+    pointer-events: none;
+  }
+
+  &:hover .rules-code-editor-actions,
+  &:focus-within .rules-code-editor-actions {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  // While Monaco's find/replace widget is open it occupies the same
+  // corner — keep the launcher cluster hidden until the widget closes.
+  &:has(.find-widget.visible) .rules-code-editor-actions {
+    opacity: 0;
+    pointer-events: none;
+  }
+}
+
+// Corner resize grip — same affordance (and diagonal-lines glyph) as
+// `.oh-template-input-resize-grip`; drags the editor height, double-
+// click resets to the default. Lives in a reserved strip below the
+// editor, so it never contends with Monaco's vertical scrollbar.
+.rules-code-editor-resize-grip {
+  position: absolute;
+  right: 2px;
+  bottom: 2px;
+  width: 8px;
+  height: 8px;
+  cursor: ns-resize;
+  touch-action: none;
+  background: linear-gradient(
+    135deg,
+    transparent 0 45%,
+    var(--ant-color-text-quaternary, rgba(0, 0, 0, 0.25)) 45% 55%,
+    transparent 55% 70%,
+    var(--ant-color-text-quaternary, rgba(0, 0, 0, 0.25)) 70% 80%,
+    transparent 80%
+  );
+}
+
+.rules-code-editor-resize-grip:hover {
+  background: linear-gradient(
+    135deg,
+    transparent 0 45%,
+    var(--ant-color-text-tertiary, rgba(0, 0, 0, 0.45)) 45% 55%,
+    transparent 55% 70%,
+    var(--ant-color-text-tertiary, rgba(0, 0, 0, 0.45)) 70% 80%,
+    transparent 80%
+  );
+}
+
+/*
+ * Monaco's native empty-buffer placeholder is single-line by default
+ * (nowrap + ellipsis). Our hints can be multi-line (Docs tab), so honor
+ * \n and wrap within the buffer width.
+ */
+.rules-code-editor .monaco-editor .editorPlaceholder {
+  white-space: pre-line;
+  text-wrap: wrap;
+  max-width: 100%;
+}
+
+/*
+ * Detected-JWT underline (value-editors decoration plane). Link
+ * detection is off in our editors, so this is the only "this value is
+ * actionable" cue — hover carries the Edit JWT command link.
+ */
+.rules-code-editor .monaco-editor .oh-jwt-token-link {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+/*
+ * Spec outline Add affordances — hover-on-chrome (same reveal pattern
+ * as the sidebar item actions): the "+" sits invisible at the row end
+ * until its tree row is hovered. The empty-group inline "Add …" row is
+ * always visible (it IS the group's content).
+ */
+/* The outline rail lives in the editor area, not a dock body, so the
+ * PanelHeader action cluster's dock-scoped reveal never fires — mirror
+ * it on the pane's own hover/focus. */
+.oh-spec-outline-pane:hover .rules-panel-header-actions,
+.oh-spec-outline-pane:focus-within .rules-panel-header-actions {
+  opacity: 1;
+}
+
+.oh-spec-outline-tree {
+  /* Vendor-parity density: shallow per-level indent + slim switcher
+   * column so nested rows (schemas, operations) stay close to the rail
+   * edge instead of drowning in the antd 24px default. */
+  .ant-tree-indent-unit {
+    width: 10px;
+  }
+
+  .ant-tree-switcher {
+    width: 16px;
+    align-self: center;
+  }
+
+  /* Caret matches the dock-panel tree rows (TreeNodeRow): 10px
+   * CaretRightOutlined in tertiary color, rotating 90° when open.
+   * antd's default closed-state -90° svg rotation is neutralized —
+   * the open-state rotation carries the same visual instead. */
+  .ant-tree-switcher-icon {
+    font-size: 10px;
+    color: var(--ant-color-text-tertiary, #999);
+
+    svg {
+      transition: transform 0.2s;
+      transform: rotate(90deg);
+    }
+  }
+
+  .ant-tree-switcher_close .ant-tree-switcher-icon svg {
+    transform: rotate(0deg);
+  }
+
+  .ant-tree-treenode {
+    padding-bottom: 0;
+    align-items: center;
+  }
+
+  /* Root group rows echo the dock panel's section headers
+   * (.rules-sidebar-section): secondary-color caret, taller row. */
+  .ant-tree-treenode.oh-spec-outline-root {
+    .ant-tree-switcher-icon {
+      color: var(--ant-color-text-secondary, #666);
+    }
+
+    .ant-tree-node-content-wrapper {
+      min-height: 30px;
+      line-height: 30px;
+    }
+  }
+
+  .ant-tree-node-content-wrapper {
+    min-height: 26px;
+    line-height: 26px;
+    padding: 0 4px;
+    display: flex;
+    align-items: center;
+    min-width: 0;
+  }
+
+  /* antd's title slot is inline — stretch it so row-end affordances
+   * (the hover "+" / "⋯" with margin-left: auto) reach the row edge
+   * like the dock rows' action cluster. */
+  .ant-tree-node-content-wrapper .ant-tree-title {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .oh-spec-outline-add {
+    opacity: 0;
+    margin-left: auto;
+    padding: 0 4px;
+    border: none;
+    border-radius: 3px;
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+    flex-shrink: 0;
+    line-height: 1;
+
+    &:hover {
+      background: rgba(128, 128, 128, 0.15);
+    }
+  }
+
+  .ant-tree-treenode:hover .oh-spec-outline-add,
+  .oh-spec-outline-add:focus-visible,
+  .oh-spec-outline-add.ant-dropdown-open {
+    opacity: 1;
+  }
+
+  .oh-spec-outline-empty-add {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11px;
+    color: var(--ant-color-text-tertiary, #999);
+    cursor: pointer;
+
+    &:hover {
+      color: var(--ant-color-text-secondary, #666);
+    }
+  }
+}
+
+/*
+ * Outline-click section highlight — a primary-color bar in the editor's
+ * lines-decorations gutter spanning the clicked section (vendor
+ * parity). One decoration lives at a time; the next click replaces it.
+ */
+.rules-code-editor .monaco-editor .oh-spec-nav-section {
+  background: var(--ant-color-primary, #1677ff);
+  width: 3px !important;
+  margin-left: 4px;
+}
+
