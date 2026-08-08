@@ -700,7 +700,7 @@ export const TrafficMonitorSourceRail: React.FC<TrafficMonitorSourceRailProps> =
         }
       />
       {browsersOpen && (
-        <div style={{ flex: 1, overflowY: 'auto', overscrollBehavior: 'none' }}>
+        <div className="oh-scroll-topline" style={{ flex: 1, overflowY: 'auto', overscrollBehavior: 'none' }}>
           {peers.length === 0 && !loading && (
             <div
               data-testid="traffic-monitor-install-ctas"

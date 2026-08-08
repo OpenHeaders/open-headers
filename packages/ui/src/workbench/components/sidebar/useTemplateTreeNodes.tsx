@@ -39,6 +39,9 @@ interface UseTemplateTreeNodesParams {
   toggleExpand: (key: string) => void;
   setRenamingId: (id: string | null) => void;
   filterText: string;
+  /** Speed-search (search mode): force-expand every branch WITHOUT
+   *  hiding non-matching rows — the filter's expansion half alone. */
+  revealAll: boolean;
   confirmDelete: (name: string, onConfirm: () => void) => void;
   createTemplateFolder: (
     name: string,
@@ -65,6 +68,7 @@ export function useTemplateTreeNodes(p: UseTemplateTreeNodesParams): {
 } {
   const t = useT();
   const lowerFilter = p.filterText.toLowerCase();
+  const forceExpand = lowerFilter !== '' || p.revealAll;
 
   const walkTemplateTree = useCallback(
     (v5Nodes: CoreTreeNode[], depth: number, parentId: string, collectionId: string): TreeNode[] => {
@@ -73,7 +77,7 @@ export function useTemplateTreeNodes(p: UseTemplateTreeNodesParams): {
       for (const node of v5Nodes) {
         if (node.type === 'folder') {
           const fid = `tpl-folder-${node.uid}`;
-          const isExpanded = p.expandedKeys.has(fid) || lowerFilter !== '';
+          const isExpanded = p.expandedKeys.has(fid) || forceExpand;
           const onAddFolder = () => {
             void p.createTemplateFolder(t('workbench.sidebar.defaults.newFolder'), node.path).then((f) => {
               if (f) {
@@ -181,6 +185,7 @@ export function useTemplateTreeNodes(p: UseTemplateTreeNodesParams): {
     [
       p.expandedKeys,
       lowerFilter,
+      forceExpand,
       p.toggleExpand,
       p.createTemplateFolder,
       p.renameTemplateFolder,
@@ -202,7 +207,7 @@ export function useTemplateTreeNodes(p: UseTemplateTreeNodesParams): {
     const colId = 'sys-tpl-col';
     // Active filter forces expansion so matches surface without
     // requiring a manual click — search-as-typed UX.
-    const isExpanded = p.expandedKeys.has(colId) || lowerFilter !== '';
+    const isExpanded = p.expandedKeys.has(colId) || forceExpand;
 
     // Hide the "System Templates" group entirely when an active filter
     // doesn't match the group label OR any bundled template inside.
@@ -238,7 +243,7 @@ export function useTemplateTreeNodes(p: UseTemplateTreeNodesParams): {
         if (lowerFilter && filteredTpls.length === 0) continue;
 
         const folderId = `sys-tpl-${ruleType}`;
-        const folderExpanded = p.expandedKeys.has(folderId) || lowerFilter !== '';
+        const folderExpanded = p.expandedKeys.has(folderId) || forceExpand;
 
         items.push({
           id: folderId,
@@ -275,7 +280,7 @@ export function useTemplateTreeNodes(p: UseTemplateTreeNodesParams): {
     }
 
     return items;
-  }, [p.expandedKeys, lowerFilter, p.toggleExpand, p.onCreateRule, t]);
+  }, [p.expandedKeys, lowerFilter, forceExpand, p.toggleExpand, p.onCreateRule, t]);
 
   const templateNodes = useMemo((): TreeNode[] => {
     const items: TreeNode[] = [];
@@ -297,7 +302,7 @@ export function useTemplateTreeNodes(p: UseTemplateTreeNodesParams): {
       }
 
       const colId = `tpl-col-${collection.uid}`;
-      const isExpanded = p.expandedKeys.has(colId) || lowerFilter !== '';
+      const isExpanded = p.expandedKeys.has(colId) || forceExpand;
       const isDefault = collection.name === DEFAULT_TEMPLATE_COLLECTION;
       const onAddFolder = () => {
         void p.createTemplateFolder(t('workbench.sidebar.defaults.newFolder'), collection.path).then((f) => {
@@ -392,6 +397,7 @@ export function useTemplateTreeNodes(p: UseTemplateTreeNodesParams): {
   }, [
     p.templateCollectionTrees,
     lowerFilter,
+    forceExpand,
     p.expandedKeys,
     p.toggleExpand,
     walkTemplateTree,

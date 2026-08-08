@@ -583,6 +583,7 @@ export const TrafficMonitorSessionsSection: React.FC<TrafficMonitorSessionsSecti
       {expanded && (
         <div
           data-testid="traffic-sessions-list"
+          className="oh-scroll-topline"
           // Basis 0 to match the browsers body's `flex: 1` — the two
           // open lists split the column's slack EQUALLY; basis auto
           // would let whichever list holds more content crush the other.

@@ -46,7 +46,6 @@ import {
 import { hostBridge } from '@openheaders/core/bridge';
 import type { PostmanImportSummary } from '@openheaders/core/import';
 import type { CompanionRevealTarget } from '@openheaders/core/protocol';
-import type { InputRef } from 'antd';
 import { App as AntApp, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
@@ -76,6 +75,7 @@ import MigrationReportModal from './components/import/MigrationReportModal';
 import SaveToCollectionModal from './components/save/SaveToCollectionModal';
 import ShellLayout from './components/shell/ShellLayout';
 import type { SidebarView } from './components/sidebar/types';
+import type { SidebarSearchHandle } from './components/sidebar/useTreeSearch';
 import StatusBar from './components/shell/StatusBar';
 import { renderTabLabel, tabIcon } from './components/tabbar/tab-format';
 import TopBar from './components/shell/TopBar';
@@ -1035,12 +1035,12 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
     ],
   );
 
-  // Sidebar filter focus refs — one per sidebar-backed tool window.
-  // The `/` shortcut routes to the filter in the currently focused
+  // Sidebar speed-search handles — one per sidebar-backed tool window.
+  // The `/` shortcut routes to the search in the currently focused
   // dock so it doesn't yank focus across panels (e.g. typing `/`
-  // while interacting with the http-rules sidebar must focus the
-  // http-rules filter, not whichever sidebar happened to mount last).
-  const sidebarFilterRefs = useRef<Map<SidebarView, InputRef | null>>(new Map());
+  // while interacting with the http-rules sidebar must open the
+  // http-rules search, not whichever sidebar happened to mount last).
+  const sidebarSearchRefs = useRef<Map<SidebarView, SidebarSearchHandle | null>>(new Map());
 
   // ── Command palette data ──────────────────────────────────────
   const { groups: cmdGroups, sections: cmdSections } = useCommandPaletteData({
@@ -1101,15 +1101,15 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
     onNewRule: openCreateMenu,
     onFocusFilter: () => {
       // Scope to whatever panel the user is currently focused in.
-      // Look up the active tool window in the focused dock, focus
-      // its registered filter ref. No mapping, no fallbacks — if
-      // the panel doesn't have a filter, the shortcut is a no-op
+      // Look up the active tool window in the focused dock, open its
+      // registered speed-search bar. No mapping, no fallbacks — if
+      // the panel doesn't have a search, the shortcut is a no-op
       // and the keystroke flows through to the browser.
       const focusedDock = getFocusedDock();
       if (!focusedDock) return;
       const activeWindow = tl.state.docks[focusedDock]?.active;
       if (!activeWindow) return;
-      const ref = sidebarFilterRefs.current.get(activeWindow as SidebarView);
+      const ref = sidebarSearchRefs.current.get(activeWindow as SidebarView);
       ref?.focus();
     },
     onTerminalNewTab: () => {
@@ -1387,7 +1387,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
         handleCloseTab={handleCloseTab}
         handleViewActivityEntity={handleViewActivityEntity}
         importExportRef={importExportRef}
-        sidebarFilterRefs={sidebarFilterRefs}
+        sidebarSearchRefs={sidebarSearchRefs}
         dirtyRuleUids={dirtyRuleUids}
         dirtyRequestUids={dirtyRequestUids}
         scriptsReviewPendingUids={scriptsReviewPendingUids}

@@ -58,6 +58,14 @@ export const workbenchChromeSidebar = {
   'workbench.sidebar.behavior.alwaysSelectOpened': "Toujours sélectionner l'onglet ouvert",
   'workbench.sidebar.filterPlaceholder': 'Filtrer',
 
+  // ── Sidebar : barre de recherche rapide (à la demande, double mode) ──
+  'workbench.sidebar.menu.search': 'Rechercher',
+  'workbench.sidebar.search.searchPlaceholder': 'Rechercher',
+  'workbench.sidebar.search.modeSearch': 'Recherche : surligner les lignes correspondantes',
+  'workbench.sidebar.search.modeFilter': 'Filtre : masquer les lignes sans correspondance',
+  'workbench.sidebar.search.noMatches': 'Aucune correspondance',
+  'workbench.sidebar.search.close': 'Fermer la recherche',
+
   // ── Sidebar: container + row menus ──────────────────────────────────
   'workbench.sidebar.menu.newCollection': 'Nouvelle collection',
   'workbench.sidebar.menu.newRequest': 'Nouvelle requête',

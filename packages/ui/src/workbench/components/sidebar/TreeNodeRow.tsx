@@ -22,6 +22,7 @@ import type React from 'react';
 import { useEffect, useRef, useState } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { EntityField } from '@openheaders/ui/shared/awareness';
+import { highlightLabel } from './search-highlight';
 import type { TreeNode } from './types';
 
 interface TreeNodeRowProps {
@@ -32,6 +33,11 @@ interface TreeNodeRowProps {
   isExpanded?: boolean;
   /** True when this node is part of the multi-select export set. */
   isExportSelected?: boolean;
+  /** Speed-search (search mode) — matching label runs get the
+   *  warning-tinted hit span. Empty/absent outside search. */
+  highlightQuery?: string;
+  /** True when this row is the speed-search's active match. */
+  isSearchActive?: boolean;
   onClick: (e: React.MouseEvent) => void;
   onDoubleClick: () => void;
   onStartRename: () => void;
@@ -103,6 +109,8 @@ export function TreeNodeRow({
   isRenaming,
   isExpanded,
   isExportSelected,
+  highlightQuery,
+  isSearchActive,
   onClick,
   onDoubleClick,
   onStartRename,
@@ -146,6 +154,7 @@ export function TreeNodeRow({
     isSelected ? 'selected' : '',
     isFocused ? 'focused' : '',
     isExportSelected ? 'export-selected' : '',
+    isSearchActive ? 'search-active' : '',
   ]
     .filter(Boolean)
     .join(' ');
@@ -210,7 +219,9 @@ export function TreeNodeRow({
         )
       ) : (
         <>
-          <span className="rules-sidebar-item-label">{node.label}</span>
+          <span className="rules-sidebar-item-label">
+            {highlightQuery ? highlightLabel(node.label, highlightQuery) : node.label}
+          </span>
 
           {/* Badge */}
           {node.badge}

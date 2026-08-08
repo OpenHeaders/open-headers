@@ -51,6 +51,14 @@ export const workbenchChromeSidebar = {
   'workbench.sidebar.behavior.alwaysSelectOpened': 'Always Select Opened Tab',
   'workbench.sidebar.filterPlaceholder': 'Filter',
 
+  // ── Sidebar: speed-search bar (on-demand, dual filter/search mode) ──
+  'workbench.sidebar.menu.search': 'Search',
+  'workbench.sidebar.search.searchPlaceholder': 'Search',
+  'workbench.sidebar.search.modeSearch': 'Search: highlight matching rows',
+  'workbench.sidebar.search.modeFilter': 'Filter: hide non-matching rows',
+  'workbench.sidebar.search.noMatches': 'No matches',
+  'workbench.sidebar.search.close': 'Close search',
+
   // ── Sidebar: container + row menus ──────────────────────────────────
   'workbench.sidebar.menu.newCollection': 'New Collection',
   'workbench.sidebar.menu.newRequest': 'New Request',

@@ -17,6 +17,7 @@ import {
   ExportOutlined,
   MenuUnfoldOutlined,
   PlusOutlined,
+  SearchOutlined,
 } from '@ant-design/icons';
 import { createPanelHeaderWiring, PanelHeader } from '@openheaders/ui/shared/dock-layout';
 import type { InfoPopoverContent } from '@openheaders/ui/shared/info-popover';
@@ -57,6 +58,8 @@ interface SidebarHeaderActionsProps {
   handleExportSelectedClick: () => void;
   clearExportSelection: () => void;
   selectOpenedFile: () => boolean;
+  /** Open the on-demand speed-search bar (⋯ Options → Search). */
+  onOpenSearch: () => void;
   expandAll: () => void;
   collapseAll: () => void;
   openWithSingleClick: boolean;
@@ -82,6 +85,7 @@ const SidebarHeaderActions: React.FC<SidebarHeaderActionsProps> = ({
   handleExportSelectedClick,
   clearExportSelection,
   selectOpenedFile,
+  onOpenSearch,
   expandAll,
   collapseAll,
   openWithSingleClick,
@@ -107,6 +111,12 @@ const SidebarHeaderActions: React.FC<SidebarHeaderActionsProps> = ({
   const viewLabel = t(SIDEBAR_VIEW_LABEL_KEY[view]);
   const headerWiring = createPanelHeaderWiring({ onHide });
   const behaviorMenuItems: MenuProps['items'] = [
+    {
+      key: 'search',
+      icon: <SearchOutlined />,
+      label: t('workbench.sidebar.menu.search'),
+      onClick: onOpenSearch,
+    },
     {
       key: 'behavior',
       label: t('workbench.sidebar.behavior.title'),

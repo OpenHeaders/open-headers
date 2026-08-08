@@ -952,6 +952,40 @@
   opacity: 1;
 }
 
+/* ── Scroll-aware top boundary ───────────────────────────────────────
+   IDE tree posture: a panel whose chrome sits directly above a
+   scrolling tree/list shows NO divider at rest — the line appears only
+   once content has scrolled under the chrome. Pure CSS, two stacked
+   background layers on the SCROLL CONTAINER itself:
+
+     1. an opaque 2px cover strip, `background-attachment: local`, so
+        it scrolls away with the content, and
+     2. under it the 1px boundary line, `background-attachment:
+        scroll`, pinned to the container's top edge.
+
+   At scrollTop 0 the cover hides the line; any scroll slides the cover
+   up and the line surfaces. The line is inset 3px per side to stop
+   short of the dock card's rounded corners (the old static header
+   line's geometry). The cover must be opaque and match the surface —
+   override `--oh-scroll-cover` on hosts that aren't bg-container.
+   Adopting panels drop their static `.rules-panel-header::after`. */
+.oh-scroll-topline {
+  --oh-scroll-cover: var(--ant-color-bg-container, #fff);
+  background-image: linear-gradient(var(--oh-scroll-cover), var(--oh-scroll-cover)),
+    linear-gradient(
+      var(--ant-color-border-secondary, rgba(5, 5, 5, 0.06)),
+      var(--ant-color-border-secondary, rgba(5, 5, 5, 0.06))
+    );
+  background-size:
+    100% 2px,
+    calc(100% - 6px) 1px;
+  background-position:
+    0 0,
+    3px 0;
+  background-repeat: no-repeat, no-repeat;
+  background-attachment: local, scroll;
+}
+
 /* ── Reveal-on-hover scrollbars ──────────────────────────────────────
    Every scrollable region inside a dock panel gets a thin scrollbar
    whose THUMB is transparent at rest and colours up while the panel

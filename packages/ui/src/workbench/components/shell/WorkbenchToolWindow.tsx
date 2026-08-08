@@ -17,7 +17,6 @@
  */
 
 import type { LiveWorkflow } from '@openheaders/core/types';
-import type { InputRef } from 'antd';
 import type React from 'react';
 import { lazy, Suspense } from 'react';
 import type { MutableRefObject, RefObject } from 'react';
@@ -42,6 +41,7 @@ const TrafficMonitorPanel = lazy(() => import('../panels/TrafficMonitorPanel'));
 const GitLogPanel = lazy(() => import('../panels/git/GitLogPanel'));
 import { DesktopTeaser } from '@openheaders/ui/shared/desktop-teaser';
 import type { SidebarView } from '../sidebar/types';
+import type { SidebarSearchHandle } from '../sidebar/useTreeSearch';
 import { buildEntityExportScope, buildSelectionExportScope } from '../workspace-export/build-export-scope';
 import type { ImportExportModalsHandle } from '../workspace-export/ImportExportModals';
 import type { UseEditorGroupsApi } from '../../hooks/useEditorGroups';
@@ -110,7 +110,7 @@ interface WorkbenchToolWindowProps {
 
   // Imperative refs.
   importExportRef: RefObject<ImportExportModalsHandle | null>;
-  sidebarFilterRefs: MutableRefObject<Map<SidebarView, InputRef | null>>;
+  sidebarSearchRefs: MutableRefObject<Map<SidebarView, SidebarSearchHandle | null>>;
 
   // Decoration sets (useEntityStatusSets).
   dirtyRuleUids: EntityStatusSets['dirtyRuleUids'];
@@ -174,7 +174,7 @@ const WorkbenchToolWindow: React.FC<WorkbenchToolWindowProps> = ({
   handleCloseTab,
   handleViewActivityEntity,
   importExportRef,
-  sidebarFilterRefs,
+  sidebarSearchRefs,
   dirtyRuleUids,
   dirtyRequestUids,
   scriptsReviewPendingUids,
@@ -238,9 +238,9 @@ const WorkbenchToolWindow: React.FC<WorkbenchToolWindowProps> = ({
           onSelectGrpcResponseExample={openGrpcResponseExampleTab}
           onSelectWsResponseExample={openWsResponseExampleTab}
           onImport={(ctx) => importExportRef.current?.openImportSource(ctx)}
-          filterRef={(node: InputRef | null) => {
-            if (node) sidebarFilterRefs.current.set(id as SidebarView, node);
-            else sidebarFilterRefs.current.delete(id as SidebarView);
+          searchRef={(handle: SidebarSearchHandle | null) => {
+            if (handle) sidebarSearchRefs.current.set(id as SidebarView, handle);
+            else sidebarSearchRefs.current.delete(id as SidebarView);
           }}
           dirtyRuleUids={dirtyRuleUids}
           dirtyRequestUids={dirtyRequestUids}

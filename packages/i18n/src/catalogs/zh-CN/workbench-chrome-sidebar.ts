@@ -60,6 +60,14 @@ export const workbenchChromeSidebar = {
   'workbench.sidebar.behavior.alwaysSelectOpened': '始终选中已打开的标签页',
   'workbench.sidebar.filterPlaceholder': '筛选',
 
+  // ── 侧边栏：快速搜索栏（按需打开，双模式） ──
+  'workbench.sidebar.menu.search': '搜索',
+  'workbench.sidebar.search.searchPlaceholder': '搜索',
+  'workbench.sidebar.search.modeSearch': '搜索：高亮匹配的行',
+  'workbench.sidebar.search.modeFilter': '筛选：隐藏不匹配的行',
+  'workbench.sidebar.search.noMatches': '无匹配项',
+  'workbench.sidebar.search.close': '关闭搜索',
+
   // ── Sidebar: container + row menus ──────────────────────────────────
   'workbench.sidebar.menu.newCollection': '新建集合',
   'workbench.sidebar.menu.newRequest': '新建请求',

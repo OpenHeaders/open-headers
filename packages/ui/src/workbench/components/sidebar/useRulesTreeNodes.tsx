@@ -27,6 +27,10 @@ interface UseRulesTreeNodesParams {
   toggleExpand: (key: string) => void;
   setRenamingId: (id: string | null) => void;
   filterText: string;
+  /** Speed-search (search mode): force-expand every branch WITHOUT
+   *  hiding non-matching rows — the filter's expansion half alone.
+   *  Derived upstream; `expandedKeys` is never written. */
+  revealAll: boolean;
   confirmDelete: (name: string, onConfirm: () => void) => void;
   handleToggleRule: (uid: string, enabled: boolean) => void;
   togglePause: (path: string) => void;
@@ -57,6 +61,7 @@ interface UseRulesTreeNodesParams {
 export function useRulesTreeNodes(p: UseRulesTreeNodesParams): TreeNode[] {
   const t = useT();
   const lowerFilter = p.filterText.toLowerCase();
+  const forceExpand = lowerFilter !== '' || p.revealAll;
 
   const walkV5Tree = useCallback(
     (v5Nodes: CoreTreeNode[], depth: number, parentId: string, collectionId: string): TreeNode[] => {
@@ -65,7 +70,7 @@ export function useRulesTreeNodes(p: UseRulesTreeNodesParams): TreeNode[] {
       for (const node of v5Nodes) {
         if (node.type === 'folder') {
           const fid = `folder-${node.uid}`;
-          const isExpanded = p.expandedKeys.has(fid) || lowerFilter !== '';
+          const isExpanded = p.expandedKeys.has(fid) || forceExpand;
           const folderPaused = p.pausedUids.has(node.uid);
           const folderHasOwnMarker = p.pauseMarkers.has(node.path);
           const folderHasNestedMarkers = hasNestedPauseMarkers(node.path, p.pauseMarkers);
@@ -245,6 +250,7 @@ export function useRulesTreeNodes(p: UseRulesTreeNodesParams): TreeNode[] {
     [
       p.expandedKeys,
       lowerFilter,
+      forceExpand,
       p.rules,
       p.pauseMarkers,
       p.pausedUids,
@@ -293,7 +299,7 @@ export function useRulesTreeNodes(p: UseRulesTreeNodesParams): TreeNode[] {
       }
 
       const colId = `col-${collection.uid}`;
-      const isExpanded = p.expandedKeys.has(colId) || lowerFilter !== '';
+      const isExpanded = p.expandedKeys.has(colId) || forceExpand;
       const onAddRule = (type: string) => p.onCreateRule(type, { collectionId: collection.uid });
       const onAddFolder = () => {
         void p.createLocalFolder(t('workbench.sidebar.defaults.newFolder'), collection.path).then((f) => {
@@ -412,6 +418,7 @@ export function useRulesTreeNodes(p: UseRulesTreeNodesParams): TreeNode[] {
   }, [
     p.localCollectionTrees,
     lowerFilter,
+    forceExpand,
     p.expandedKeys,
     p.pauseMarkers,
     p.pausedUids,

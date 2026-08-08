@@ -64,6 +64,9 @@ interface UseRequestTreeNodesParams {
   toggleExpand: (key: string) => void;
   setRenamingId: (id: string | null) => void;
   filterText: string;
+  /** Speed-search (search mode): force-expand every branch WITHOUT
+   *  hiding non-matching rows — the filter's expansion half alone. */
+  revealAll: boolean;
   confirmDelete: (name: string, onConfirm: () => void) => void;
   updateRequestData: (uid: string, patch: Partial<Request>) => Promise<unknown> | unknown;
   deleteRequest: (uid: string) => Promise<unknown> | unknown;
@@ -116,6 +119,7 @@ export function useRequestTreeNodes(p: UseRequestTreeNodesParams): TreeNode[] {
   const t = useT();
   const copySnippet = useCopyRequestSnippet();
   const lowerFilter = p.filterText.toLowerCase();
+  const forceExpand = lowerFilter !== '' || p.revealAll;
 
   const walkRequestTree = useCallback(
     (v5Nodes: CoreTreeNode[], depth: number, parentId: string, collectionId: string): TreeNode[] => {
@@ -123,7 +127,7 @@ export function useRequestTreeNodes(p: UseRequestTreeNodesParams): TreeNode[] {
       for (const node of v5Nodes) {
         if (node.type === 'folder') {
           const fid = `req-folder-${node.uid}`;
-          const isExpanded = p.expandedKeys.has(fid) || lowerFilter !== '';
+          const isExpanded = p.expandedKeys.has(fid) || forceExpand;
           const onAddFolder = () => {
             void p.createRequestFolderRpc(t('workbench.sidebar.defaults.newFolder'), node.path).then((f) => {
               if (f) {
@@ -288,7 +292,7 @@ export function useRequestTreeNodes(p: UseRequestTreeNodesParams): TreeNode[] {
               }),
             awareness: { entityType: GRPC_REQUEST_ENTITY_TYPE, entityId: node.uid },
           });
-          if (hasGrpcExamples && (p.expandedKeys.has(gid) || lowerFilter !== '')) {
+          if (hasGrpcExamples && (p.expandedKeys.has(gid) || forceExpand)) {
             for (const example of grpcExamples) {
               items.push({
                 id: `grpc-example-${example.uid}`,
@@ -361,7 +365,7 @@ export function useRequestTreeNodes(p: UseRequestTreeNodesParams): TreeNode[] {
               }),
             awareness: { entityType: WEBSOCKET_REQUEST_ENTITY_TYPE, entityId: node.uid },
           });
-          if (hasWsExamples && (p.expandedKeys.has(wid) || lowerFilter !== '')) {
+          if (hasWsExamples && (p.expandedKeys.has(wid) || forceExpand)) {
             for (const example of wsExamples) {
               items.push({
                 id: `ws-example-${example.uid}`,
@@ -465,7 +469,7 @@ export function useRequestTreeNodes(p: UseRequestTreeNodesParams): TreeNode[] {
             ...exportNodeFields({ kind: 'request', uid: node.uid, name: node.name }, p.onExportEntity),
             awareness: { entityType: REQUEST_ENTITY_TYPE, entityId: node.uid },
           });
-          if (hasExamples && (p.expandedKeys.has(rid) || lowerFilter !== '')) {
+          if (hasExamples && (p.expandedKeys.has(rid) || forceExpand)) {
             for (const example of examples) {
               items.push({
                 id: `resp-example-${example.uid}`,
@@ -515,6 +519,7 @@ export function useRequestTreeNodes(p: UseRequestTreeNodesParams): TreeNode[] {
       p.resolver,
       p.expandedKeys,
       lowerFilter,
+      forceExpand,
       p.toggleExpand,
       p.updateRequestData,
       p.deleteRequest,
@@ -572,7 +577,7 @@ export function useRequestTreeNodes(p: UseRequestTreeNodesParams): TreeNode[] {
       }
 
       const colId = `req-col-${collection.uid}`;
-      const isExpanded = p.expandedKeys.has(colId) || lowerFilter !== '';
+      const isExpanded = p.expandedKeys.has(colId) || forceExpand;
       const onAddRequest = () => {
         p.setExpandedKeys((prev) => {
           const next = new Set(prev);
@@ -735,6 +740,7 @@ export function useRequestTreeNodes(p: UseRequestTreeNodesParams): TreeNode[] {
   }, [
     p.requestCollectionTrees,
     lowerFilter,
+    forceExpand,
     p.expandedKeys,
     p.toggleExpand,
     walkRequestTree,

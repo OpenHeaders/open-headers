@@ -14,7 +14,6 @@
  * ./sidebar/ — this file owns state + chrome + JSX assembly only.
  */
 
-import { SearchOutlined } from '@ant-design/icons';
 import type { InfoPopoverContent } from '@openheaders/ui/shared/info-popover';
 import { useEnvironments } from '@openheaders/ui/shared/hooks/readers/useEnvironments';
 import { useAllLiveCaches } from '@openheaders/ui/shared/hooks/readers/useLiveCache';
@@ -46,10 +45,9 @@ import {
 import { applySpecCreate, applySpecDelete, applySpecUpdate } from '@openheaders/ui/shared/sync/spec-write-client';
 import { useVariableResolver } from '@openheaders/ui/shared/hooks/variables/useVariableResolver';
 import { isRuleResolvable } from '@openheaders/core/utils';
-import type { InputRef } from 'antd';
-import { App, Input, Modal, theme } from 'antd';
+import { App, Modal } from 'antd';
 import type React from 'react';
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { useEnvSwitcher } from '../../services/env-switcher';
 import { useSettingValue } from '../../settings/hooks';
@@ -65,7 +63,9 @@ import RulesSection from './RulesSection';
 import SpecsSection from './SpecsSection';
 import { createBlankSpecSeed, type SpecCreateFormat } from '../specs/spec-scaffold';
 import SidebarHeaderActions from './SidebarHeaderActions';
+import { TreeSearchBar } from './TreeSearchBar';
 import type { SidebarView, TreeNode } from './types';
+import { type SidebarSearchHandle, useTreeSearch, useTreeSearchMatches } from './useTreeSearch';
 import VariablesSection from './VariablesSection';
 import WorkflowsSection from './WorkflowsSection';
 import type { SidebarExportEntity } from '../workspace-export/build-export-scope';
@@ -84,6 +84,7 @@ import { useVariableSingletonNodes } from './useVariableSingletonNodes';
 import { useWorkflowNodes } from './useWorkflowNodes';
 
 export type { SidebarView };
+export type { SidebarSearchHandle };
 
 interface SidebarProps {
   view: SidebarView;
@@ -159,7 +160,10 @@ interface SidebarProps {
   onSelectWsResponseExample?: (uid: string, name: string, websocketRequestUid: string) => void;
   /** Opens the import hub (single "Import…" entry; formats auto-detected). */
   onImport?: (context?: { collectionId?: string }) => void;
-  filterRef?: React.Ref<InputRef>;
+  /** Imperative speed-search handle — the host's focus-sidebar-filter
+   *  shortcut calls `focus()`, which opens the on-demand bar (or
+   *  re-focuses its input when already open). */
+  searchRef?: React.Ref<SidebarSearchHandle>;
   dirtyRuleUids?: ReadonlySet<string>;
   dirtyRequestUids?: ReadonlySet<string>;
   /** Post-import "scripts" review reminder set — imported request uids
@@ -219,7 +223,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   onSelectGrpcResponseExample,
   onSelectWsResponseExample,
   onImport,
-  filterRef,
+  searchRef,
   dirtyRuleUids,
   dirtyRequestUids,
   scriptsReviewPendingUids,
@@ -234,7 +238,6 @@ const Sidebar: React.FC<SidebarProps> = ({
   sectionsExpanded,
   setSectionsExpanded,
 }) => {
-  const { token } = theme.useToken();
   const t = useT();
   const {
     rules,
@@ -323,7 +326,11 @@ const Sidebar: React.FC<SidebarProps> = ({
   } = useRequests();
   const { message } = App.useApp();
 
-  const [filterText, setFilterText] = useState('');
+  // On-demand speed-search state machine (dual filter/search mode).
+  // Runs BEFORE the node hooks: they consume `filterText` (filter mode
+  // hides) and `revealAll` (search mode force-expands, nothing hides).
+  const search = useTreeSearch();
+  const filterText = search.filterText;
   const [renamingId, setRenamingId] = useState<string | null>(null);
   // "Create Workflow…" on a request collection / folder row — non-null
   // opens the request picker modal over that container's subtree.
@@ -577,6 +584,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     toggleExpand,
     setRenamingId,
     filterText,
+    revealAll: search.revealAll,
     confirmDelete,
     handleToggleRule,
     togglePause,
@@ -604,6 +612,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     toggleExpand,
     setRenamingId,
     filterText,
+    revealAll: search.revealAll,
     confirmDelete,
     createTemplateFolder,
     renameTemplateFolder,
@@ -648,6 +657,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     toggleExpand,
     setRenamingId,
     filterText,
+    revealAll: search.revealAll,
     confirmDelete,
     updateRequestData,
     deleteRequest,
@@ -825,6 +835,59 @@ const Sidebar: React.FC<SidebarProps> = ({
     onExportSelection,
   });
 
+  // ── Speed-search derivation + host handle ─────────────────────
+  // Match derivation runs after `allFlatItems` (search lands on the
+  // revealed rows); the state machine ran before the node hooks.
+
+  const searchMatches = useTreeSearchMatches({ search, allFlatItems, containerRef, setFocusedId });
+
+  useImperativeHandle(searchRef, () => ({ focus: search.openBar }), [search.openBar]);
+
+  // Filter-mode ArrowDown/Enter — the old filter row's hand-off into
+  // the tree: cursor on the first visible row, DOM focus on the
+  // container so arrows keep working.
+  const jumpToTree = useCallback(() => {
+    const first = allFlatItems[0];
+    if (!first) return;
+    setFocusedId(first.id);
+    containerRef.current?.focus();
+    setTimeout(() => {
+      containerRef.current?.querySelector(`[data-item-id="${first.id}"]`)?.scrollIntoView({ block: 'nearest' });
+    }, 0);
+  }, [allFlatItems, setFocusedId]);
+
+  const closeSearch = useCallback(() => {
+    search.closeBar();
+    containerRef.current?.focus();
+  }, [search.closeBar]);
+
+  // Cmd/Ctrl+F opens the bar — bound on the panel root so it fires
+  // only while DOM focus is inside THIS panel (keydown bubbles up from
+  // the focused descendant). The editor's find is Monaco-scoped and
+  // the window shortcut bus carries no mod+f, so nothing global is
+  // intercepted.
+  const handleRootKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && !e.altKey && !e.shiftKey && e.key.toLowerCase() === 'f') {
+        e.preventDefault();
+        search.openBar();
+        return;
+      }
+      // Esc anywhere in the tree closes an open bar. Inputs are exempt:
+      // the search input and the inline-rename input own their Esc
+      // (cancel/close) and events bubble here without stopPropagation.
+      if (e.key === 'Escape' && search.open) {
+        const target = e.target as HTMLElement | null;
+        if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) {
+          return;
+        }
+        e.preventDefault();
+        closeSearch();
+      }
+    },
+    [search.openBar, search.open, closeSearch],
+  );
+
   const createMenuItems = buildCreateMenuItems({ onCreateRule, createNewCollection }, t);
 
   const requestImportMenuItems = buildRequestImportMenuItems(
@@ -845,14 +908,18 @@ const Sidebar: React.FC<SidebarProps> = ({
     renamingId,
     setRenamingId,
     expandedKeys,
+    searchHighlightQuery: search.highlightQuery,
+    activeSearchMatchId: searchMatches.activeMatchId,
   });
 
   return (
-    <div className="rules-sidebar">
+    // biome-ignore lint/a11y/noStaticElementInteractions: panel-scoped Cmd/Ctrl+F opens the speed-search bar
+    <div className="rules-sidebar" onKeyDown={handleRootKeyDown}>
       <SidebarHeaderActions
         view={view}
         info={info}
         onHide={onHide}
+        onOpenSearch={search.openBar}
         createMenuItems={createMenuItems}
         requestImportMenuItems={requestImportMenuItems}
         createNewEnvironment={createNewEnvironment}
@@ -873,44 +940,14 @@ const Sidebar: React.FC<SidebarProps> = ({
         alwaysSelectOpened={alwaysSelectOpened}
         setAlwaysSelectOpened={setAlwaysSelectOpened}
       />
-      <div className="rules-sidebar-filter-row">
-        <Input
-          ref={filterRef}
-          size="small"
-          placeholder={t('workbench.sidebar.filterPlaceholder')}
-          prefix={<SearchOutlined style={{ color: token.colorTextTertiary, fontSize: 12 }} />}
-          value={filterText}
-          onChange={(e) => setFilterText(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'ArrowDown' || e.key === 'Enter') {
-              e.preventDefault();
-              const first = allFlatItems[0];
-              if (first) {
-                setFocusedId(first.id);
-                containerRef.current?.focus();
-                setTimeout(() => {
-                  containerRef.current
-                    ?.querySelector(`[data-item-id="${first.id}"]`)
-                    ?.scrollIntoView({ block: 'nearest' });
-                }, 0);
-              }
-            } else if (e.key === 'Escape') {
-              if (filterText) {
-                setFilterText('');
-              } else {
-                containerRef.current?.focus();
-              }
-            }
-          }}
-          allowClear
-          style={{ flex: 1, fontSize: 12, height: 28 }}
-        />
-      </div>
+      {search.open && (
+        <TreeSearchBar search={search} matches={searchMatches} onJumpToTree={jumpToTree} onClose={closeSearch} />
+      )}
 
       {/* biome-ignore lint/a11y/noStaticElementInteractions: keyboard navigation container */}
       <div
         ref={containerRef}
-        className="rules-sidebar-content"
+        className="rules-sidebar-content oh-scroll-topline"
         onKeyDown={handleKeyDown}
         tabIndex={-1}
         style={{ outline: 'none' }}

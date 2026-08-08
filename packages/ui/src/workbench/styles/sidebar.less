@@ -7,15 +7,80 @@
   overflow: hidden;
 }
 
-// Sidebar filter row — sits below the standardized PanelHeader. The
-// bordered Input itself provides the visible rectangle, so the row
-// is just a flex container with side padding.
-.rules-sidebar-filter-row {
+// The sidebar panels carry NO header line at rest (IDE tree posture):
+// the boundary is scroll-aware — `.oh-scroll-topline` on the tree's
+// scroll container paints it only once rows have scrolled under the
+// header. Headers that anchor a tab strip (editor, Traffic Monitor)
+// keep their static half-strength line.
+.rules-sidebar .rules-panel-header::after {
+  content: none;
+}
+
+// Speed-search row — transient (⋯ Options → Search / Cmd+F / the
+// focus-sidebar-filter shortcut), in the slot the permanent filter
+// input used to occupy. The bordered Input provides the visible
+// rectangle, so the row is just a flex container with side padding.
+.rules-sidebar-search-row {
   display: flex;
   align-items: center;
   gap: 2px;
   padding: 4px 8px;
   flex-shrink: 0;
+
+  .rules-sidebar-search-input {
+    flex: 1;
+    font-size: 12px;
+    height: 28px;
+  }
+
+  // No-match state (search mode): the QUERY turns red, the IDE
+  // speed-search convention — the counter follows.
+  .rules-sidebar-search-input--nomatch input.ant-input {
+    color: var(--ant-color-error, #ff4d4f);
+  }
+
+  .rules-sidebar-search-input--nomatch .rules-sidebar-search-count {
+    color: var(--ant-color-error, #ff4d4f);
+  }
+}
+
+.rules-sidebar-search-suffix {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.rules-sidebar-search-count {
+  font-size: 11px;
+  color: var(--ant-color-text-tertiary, #999);
+  padding-right: 2px;
+  font-variant-numeric: tabular-nums;
+}
+
+// Mode toggles + close — tiny icon buttons inside the suffix. The
+// picked mode gets a filled chip (grey on purpose: blue stays the one
+// global focus color). Mousedown is prevented in the component so a
+// toggle click never steals the input's DOM focus.
+.rules-sidebar-search-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 3px;
+  cursor: pointer;
+  font-size: 11px;
+  color: var(--ant-color-text-tertiary, #999);
+
+  &:hover {
+    background: rgba(128, 128, 128, 0.15);
+    color: var(--ant-color-text, inherit);
+  }
+}
+
+.rules-sidebar-search-toggle--active {
+  background: var(--ant-color-fill-secondary, rgba(128, 128, 128, 0.12));
+  color: var(--ant-color-text, inherit);
 }
 
 .rules-sidebar-content {
@@ -40,9 +105,26 @@
   position: relative;
   transition: background-color 0.12s ease;
 
-  // No separator line between consecutive sections: the uppercase
-  // header typography plus the row spacing carry the grouping on
-  // their own — hairlines here just polluted the crowded rail.
+  // Section headers are PINNED chrome — each section's list scrolls
+  // under them — so unlike a scrolling tree they need a boundary
+  // line. Same half-strength weight as the panel-header separator
+  // (dock-layout.css): present, but part of the slim divider system.
+  &::before {
+    content: '';
+    position: absolute;
+    // Inset 8px from each edge so the line sits inside the section's
+    // hover rectangle rather than spanning to the panel edges.
+    left: 8px;
+    right: 8px;
+    top: -1px;
+    height: 1px;
+    background: color-mix(in srgb, var(--ant-color-border-secondary, rgba(5, 5, 5, 0.06)) 55%, transparent);
+    pointer-events: none;
+  }
+
+  &:first-child::before {
+    display: none;
+  }
 
   &:hover {
     background-color: var(--ant-color-fill-tertiary, rgba(0, 0, 0, 0.04));
@@ -148,6 +230,27 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+// ── Speed-search row visuals ───────────────────────────────────────
+//
+// Warning family on purpose: blue marks exactly one locus of focus
+// (the one-global-blue law), so search hits and the active match tint
+// yellow — the classic IDE speed-search palette.
+
+.rules-sidebar-search-hit {
+  background: var(--ant-color-warning-bg, #fffbe6);
+  box-shadow: inset 0 0 0 1px var(--ant-color-warning-border, #ffe58f);
+  border-radius: 2px;
+}
+
+// Content-scoped so the active-match tint outranks the selected-echo
+// washes (grey AND dock-focused vivid) at equal specificity by cascade
+// order — the ring itself has no competitor while the search input
+// holds DOM focus (the cursor rules need :focus-within on the tree).
+.rules-sidebar-content .rules-sidebar-item.search-active {
+  background: var(--ant-color-warning-bg, #fffbe6);
+  box-shadow: inset 0 0 0 1px var(--ant-color-warning-border-hover, #ffd666);
 }
 
 .rules-sidebar-item-hover-action {

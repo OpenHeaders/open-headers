@@ -32,6 +32,10 @@ interface UseSidebarNodeRenderersParams {
   renamingId: string | null;
   setRenamingId: React.Dispatch<React.SetStateAction<string | null>>;
   expandedKeys: Set<string>;
+  /** Speed-search (search mode): the live query rows highlight, and
+   *  the active match's row id. Empty/null outside search. */
+  searchHighlightQuery: string;
+  activeSearchMatchId: string | null;
 }
 
 export interface SidebarNodeRenderers {
@@ -50,6 +54,8 @@ export function useSidebarNodeRenderers({
   renamingId,
   setRenamingId,
   expandedKeys,
+  searchHighlightQuery,
+  activeSearchMatchId,
 }: UseSidebarNodeRenderersParams): SidebarNodeRenderers {
   const { token } = theme.useToken();
   const t = useT();
@@ -63,6 +69,8 @@ export function useSidebarNodeRenderers({
       isRenaming={renamingId === node.id}
       isExpanded={node.expandable ? expandedKeys.has(node.id) : undefined}
       isExportSelected={isExportSelected(node.id)}
+      highlightQuery={searchHighlightQuery}
+      isSearchActive={activeSearchMatchId === node.id}
       onClick={(e) => handleItemClick(node, e)}
       onDoubleClick={() => handleItemDoubleClick(node)}
       onStartRename={() => {

@@ -62,6 +62,14 @@ export const workbenchChromeSidebar = {
   'workbench.sidebar.behavior.alwaysSelectOpened': 'Seleccionar siempre la pestaña abierta',
   'workbench.sidebar.filterPlaceholder': 'Filtrar',
 
+  // ── Sidebar: barra de búsqueda rápida (bajo demanda, modo dual) ──
+  'workbench.sidebar.menu.search': 'Buscar',
+  'workbench.sidebar.search.searchPlaceholder': 'Buscar',
+  'workbench.sidebar.search.modeSearch': 'Búsqueda: resaltar las filas coincidentes',
+  'workbench.sidebar.search.modeFilter': 'Filtro: ocultar las filas sin coincidencia',
+  'workbench.sidebar.search.noMatches': 'Sin coincidencias',
+  'workbench.sidebar.search.close': 'Cerrar la búsqueda',
+
   // ── Sidebar: container + row menus ──────────────────────────────────
   'workbench.sidebar.menu.newCollection': 'Nueva colección',
   'workbench.sidebar.menu.newRequest': 'Nueva solicitud',
