@@ -467,6 +467,16 @@ export interface WorkspaceRpc {
     res: WorkspaceTreeFileDiffWire;
   };
   /**
+   * The Console tab's read-only feed (§9): audit rows of every
+   * state-changing git command the engine ran in this binding's repo,
+   * oldest first. Host-side capped ring; reads never appear (the §7
+   * audit law) and the engine never takes commands FROM this surface.
+   */
+  'oh.workspaceTree.gitConsole': {
+    req: { workspaceId: string };
+    res: WorkspaceTreeGitConsoleWire;
+  };
+  /**
    * Focus left the app (every window blurred) — the `on-blur` cadence
    * trigger. Fired by the host shell (desktop main observes its own
    * windows); bindings on other cadences ignore it.
@@ -605,6 +615,9 @@ export interface WorkspaceTreeLogFileWire {
 /** One commit in the §9 history view. */
 export interface WorkspaceTreeLogEntryWire {
   sha: string;
+  /** Parent shas in `%P` order (first parent first) — the log graph's edge
+   *  feed; two or more mark a merge commit, none the root. */
+  parents: string[];
   authorName: string;
   authorEmail: string;
   /** Author date, strict ISO-8601. */
@@ -636,6 +649,22 @@ export interface WorkspaceTreeRefWire {
 export type WorkspaceTreeRefsWire =
   | { ok: true; refs: WorkspaceTreeRefWire[]; current: string | null }
   | { ok: false; reason: 'not-bound' | 'git-unavailable' | 'not-a-repo' | 'refs-failed'; detail?: string };
+
+/** One state-changing git invocation in the Console tab's feed. */
+export interface WorkspaceTreeGitConsoleRowWire {
+  /** Invocation wall-clock, strict ISO-8601. */
+  at: string;
+  args: readonly string[];
+  cwd: string;
+  code: number;
+  durationMs: number;
+  /** Combined stdout+stderr, trimmed and capped host-side. */
+  output: string;
+}
+
+export type WorkspaceTreeGitConsoleWire =
+  | { ok: true; rows: WorkspaceTreeGitConsoleRowWire[] }
+  | { ok: false; reason: 'not-bound' };
 
 /** One file's old/new blob pair in one commit (Phase 7 slice 3) — the diff pane's feed. */
 export interface WorkspaceTreeFileDiffPairWire {

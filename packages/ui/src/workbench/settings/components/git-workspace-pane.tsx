@@ -22,9 +22,6 @@
  */
 
 import {
-  type BridgeRpcRequest,
-  type BridgeRpcResponse,
-  type BridgeRpcType,
   hostBridge,
   type WorkspaceTreeCommitCadence,
   type WorkspaceTreeGitStatusWire,
@@ -35,8 +32,12 @@ import type React from 'react';
 import { useCallback, useEffect, useState } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { useActiveWorkspaceId } from '@openheaders/ui/shared/hooks/readers/useActiveWorkspaceId';
+import GitBindForm from '../../components/git/GitBindForm';
+import { localWorkspaceTreeTransport, type WorkspaceTreeTransport } from '../../components/git/transport';
 import { resolveLabel, resolveOptionalDescription } from '../localize';
 import type { CategoryPaneProps } from '../types';
+
+export type { WorkspaceTreeRpcType, WorkspaceTreeTransport } from '../../components/git/transport';
 
 interface BindingRow {
   workspaceId: string;
@@ -45,22 +46,6 @@ interface BindingRow {
 }
 
 type GitStatusRow = WorkspaceTreeGitStatusWire;
-
-/** The workspace-tree slice of the bridge contract this card drives. */
-export type WorkspaceTreeRpcType = Extract<BridgeRpcType, `oh.workspaceTree.${string}`>;
-
-/**
- * Typed call seam for the card's host gestures — identical in shape to
- * `hostBridge.call` narrowed to the workspace-tree channels, so a
- * remote transport (the admin console's dispatch wrapper) slots in
- * without the card knowing which daemon answers.
- */
-export type WorkspaceTreeTransport = <K extends WorkspaceTreeRpcType>(
-  type: K,
-  ...args: BridgeRpcRequest<K> extends Record<string, never> ? [] : [payload: BridgeRpcRequest<K>]
-) => Promise<BridgeRpcResponse<K>>;
-
-const localTransport: WorkspaceTreeTransport = (type, ...args) => hostBridge.call(type, ...args);
 
 export interface GitWorkspacePaneProps extends Partial<CategoryPaneProps> {
   /** Host call seam; defaults to the local `hostBridge.call`. */
@@ -80,13 +65,10 @@ const GitWorkspacePane: React.FC<GitWorkspacePaneProps> = ({
   const { token } = theme.useToken();
   const t = useT();
   const { message } = AntApp.useApp();
-  const call = transport ?? localTransport;
+  const call = transport ?? localWorkspaceTreeTransport;
   const activeWorkspaceId = useActiveWorkspaceId();
   const workspaceId = explicitWorkspaceId ?? activeWorkspaceId;
   const [bindings, setBindings] = useState<BindingRow[]>([]);
-  const [draftPath, setDraftPath] = useState('');
-  const [busy, setBusy] = useState(false);
-  const [bindError, setBindError] = useState<string | null>(null);
   const [gitStatus, setGitStatus] = useState<GitStatusRow | null>(null);
   const [commitMessage, setCommitMessage] = useState('');
   const [committing, setCommitting] = useState(false);
@@ -430,53 +412,11 @@ const GitWorkspacePane: React.FC<GitWorkspacePaneProps> = ({
     }
   };
 
-  const chooseFolder = async (): Promise<void> => {
-    try {
-      const result = await call('oh.workspaceTree.pickFolder');
-      if (result.path !== null) {
-        setDraftPath(result.path);
-        setBindError(null);
-      }
-    } catch {
-      // No native picker on this host — the path input stands alone.
-    }
-  };
-
-  const bind = async (): Promise<void> => {
-    if (workspaceId === null || draftPath.trim() === '') return;
-    setBusy(true);
-    setBindError(null);
-    try {
-      const result = await call('oh.workspaceTree.bind', {
-        workspaceId,
-        rootDir: draftPath.trim(),
-      });
-      if (result.ok) {
-        setDraftPath('');
-        message.success(
-          result.initialized
-            ? t('workbench.settings.gitPane.boundInitialized')
-            : t('workbench.settings.gitPane.bound'),
-        );
-        await refresh();
-      } else if (result.reason === 'locked') {
-        setBindError(t('workbench.settings.gitPane.refusal.locked', { pid: result.holder.pid }));
-      } else if (result.reason === 'uuid-collision') {
-        setBindError(t('workbench.settings.gitPane.refusal.uuidCollision'));
-      } else if (result.reason === 'identity-mismatch') {
-        setBindError(t('workbench.settings.gitPane.refusal.identityMismatch', { uid: result.treeWorkspaceUid }));
-      } else if (result.reason === 'invalid-manifest') {
-        setBindError(t('workbench.settings.gitPane.refusal.invalidManifest', { message: result.message }));
-      } else if (result.reason === 'already-bound') {
-        setBindError(t('workbench.settings.gitPane.refusal.alreadyBound'));
-      } else {
-        setBindError(t('workbench.settings.gitPane.refusal.unknownWorkspace'));
-      }
-    } catch (err) {
-      setBindError((err as Error).message);
-    } finally {
-      setBusy(false);
-    }
+  const onBound = (initialized: boolean): void => {
+    message.success(
+      initialized ? t('workbench.settings.gitPane.boundInitialized') : t('workbench.settings.gitPane.bound'),
+    );
+    void refresh();
   };
 
   const unbind = async (): Promise<void> => {
@@ -1115,44 +1055,13 @@ const GitWorkspacePane: React.FC<GitWorkspacePaneProps> = ({
       ) : (
         <section>
           <div className="settings-card" style={{ padding: '10px 14px 12px' }}>
-            <div style={{ fontSize: 12, fontWeight: 600, color: token.colorText, marginBottom: 4 }}>
-              {t('workbench.settings.gitPane.notBound.title')}
-            </div>
-            <p style={{ margin: '0 0 10px', fontSize: 11.5, color: token.colorTextSecondary }}>
-              {t('workbench.settings.gitPane.notBound.body')}
-            </p>
-            <div style={{ display: 'flex', gap: 8 }}>
-              <Input
-                value={draftPath}
-                onChange={(e) => {
-                  setDraftPath(e.target.value);
-                  setBindError(null);
-                }}
-                placeholder={t('workbench.settings.gitPane.pathPlaceholder')}
-                style={{ fontFamily: token.fontFamilyCode, fontSize: 11.5 }}
-                data-testid="git-pane-path-input"
-              />
-              {allowFolderPicker && (
-                <Button size="small" style={{ height: 'auto' }} onClick={() => void chooseFolder()}>
-                  {t('workbench.settings.gitPane.chooseFolder')}
-                </Button>
-              )}
-            </div>
-            {bindError !== null && (
-              <div style={{ marginTop: 6, fontSize: 12, color: token.colorError }}>{bindError}</div>
-            )}
-            <div style={{ marginTop: 8 }}>
-              <Button
-                type="primary"
-                size="small"
-                loading={busy}
-                disabled={workspaceId === null || draftPath.trim() === ''}
-                onClick={() => void bind()}
-                data-testid="git-pane-bind-button"
-              >
-                {t('workbench.settings.gitPane.bindButton')}
-              </Button>
-            </div>
+            <GitBindForm
+              call={call}
+              workspaceId={workspaceId}
+              allowFolderPicker={allowFolderPicker}
+              onBound={onBound}
+              testidPrefix="git-pane"
+            />
           </div>
         </section>
       )}

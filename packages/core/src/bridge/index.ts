@@ -59,6 +59,8 @@ export type {
   WorkspaceTreeFileDiffWire,
   WorkspaceTreeForcePushResolveWire,
   WorkspaceTreeForcePushStateWire,
+  WorkspaceTreeGitConsoleRowWire,
+  WorkspaceTreeGitConsoleWire,
   WorkspaceTreeGitStatusWire,
   WorkspaceTreeLogEntryWire,
   WorkspaceTreeLogWire,

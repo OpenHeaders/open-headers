@@ -48,11 +48,18 @@ export type GitRunner = (args: readonly string[], options: GitExecOptions) => Pr
 
 /** One audit row per state-changing git command (§7). */
 export interface GitAuditRow {
+  /** Invocation wall-clock, strict ISO-8601. */
+  at: string;
   args: readonly string[];
   cwd: string;
   code: number;
   durationMs: number;
+  /** Combined stdout+stderr, trimmed and capped — the console tab's feed. */
+  output: string;
 }
+
+/** Cap on the audit row's captured output (a `git fetch` can be chatty). */
+const AUDIT_OUTPUT_CAP = 4000;
 
 export interface CreateGitExecOptions {
   /** Binary to invoke; tests point this at fixtures. Default `git`. */
@@ -158,11 +165,14 @@ export function createGitExec(options: CreateGitExecOptions = {}): GitRunner {
           const subcommand = subcommandOf(args);
           const configRead = subcommand === 'config' && (args.includes('--get') || args.includes('--list'));
           if (subcommand !== null && STATE_CHANGING.has(subcommand) && !configRead) {
+            const output = `${result.stdout}${result.stdout !== '' && result.stderr !== '' ? '\n' : ''}${result.stderr}`;
             options.audit?.({
+              at: new Date(startedAt).toISOString(),
               args,
               cwd: invocation.cwd,
               code: result.code,
               durationMs: Date.now() - startedAt,
+              output: output.trim().slice(0, AUDIT_OUTPUT_CAP),
             });
           }
           resolve(result);

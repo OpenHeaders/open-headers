@@ -341,6 +341,11 @@ describe('commitWorkspaceTree', () => {
     expect(audited).toContain('commit');
     expect(audited).not.toContain('status');
     expect(audited).not.toContain('rev-parse');
+    // Console-feed fields: wall-clock + captured output per row.
+    const commitRow = auditRows.find((row) => subcommandOf(row.args) === 'commit');
+    expect(commitRow?.at).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+    expect(commitRow?.cwd).toBe(tmpDir);
+    expect(commitRow?.output).toContain('Initial tree');
   });
 });
 
@@ -494,6 +499,8 @@ describe('remote plumbing (Phase 4)', () => {
     const p2 = await raw(repoB, 'rev-parse', 'HEAD^2');
     expect(p1.stdout.trim()).toBe(localSha);
     expect(p2.stdout.trim()).toBe(upstream?.sha);
+    const logged = await listCommitLog(run, repoB, 1);
+    expect(logged?.[0].parents).toEqual([localSha, upstream?.sha]);
     expect(await gitOperationInProgress(repoB)).toBeNull();
     expect(await countDirtyFiles(run, repoB)).toBe(0);
     const after = await resolveUpstream(run, repoB);
@@ -824,9 +831,11 @@ describe('history feeds (Phase 7)', () => {
     expect(entries[0].authoredAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
     expect(entries[0].coAuthors).toEqual(['Dana Reyes <dana@openheaders.io>']);
     expect(entries[0].files).toEqual([{ status: 'A', path: 'rules/a/rule.yaml' }]);
+    expect(entries[0].parents).toEqual([entries[1].sha]);
     expect(entries[1].subject).toBe('Initial tree');
     expect(entries[1].coAuthors).toEqual([]);
     expect(entries[1].files).toEqual([{ status: 'A', path: 'workspace.yaml' }]);
+    expect(entries[1].parents).toEqual([]);
   });
 
   it('reports a pure rename as one R record at the new path and honors the limit', async () => {

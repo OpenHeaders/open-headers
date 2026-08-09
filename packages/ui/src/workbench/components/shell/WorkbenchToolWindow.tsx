@@ -337,11 +337,7 @@ const WorkbenchToolWindow: React.FC<WorkbenchToolWindowProps> = ({
     case 'git':
       return (
         <Suspense fallback={null}>
-          <GitLogPanel
-            info={getToolWindowInfo('git', t)}
-            onHide={() => tl.closeDock(slot)}
-            onOpenGitSettings={() => openSettingsTab({ categoryId: 'git' })}
-          />
+          <GitLogPanel info={getToolWindowInfo('git', t)} dockSlot={slot} onHide={() => tl.closeDock(slot)} />
         </Suspense>
       );
     default:

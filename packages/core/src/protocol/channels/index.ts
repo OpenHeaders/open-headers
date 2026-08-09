@@ -103,6 +103,8 @@ export type {
   WorkspaceTreeFileDiffWire,
   WorkspaceTreeForcePushResolveWire,
   WorkspaceTreeForcePushStateWire,
+  WorkspaceTreeGitConsoleRowWire,
+  WorkspaceTreeGitConsoleWire,
   WorkspaceTreeGitStatusWire,
   WorkspaceTreeIssueWire,
   WorkspaceTreeLogEntryWire,

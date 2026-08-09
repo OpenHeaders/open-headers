@@ -662,6 +662,9 @@ export interface CommitLogFileChange {
 
 export interface CommitLogEntry {
   sha: string;
+  /** Parent shas in `%P` order (first parent first) — the log graph's edge feed;
+   *  two or more mark a merge commit, none the root. */
+  parents: string[];
   authorName: string;
   authorEmail: string;
   /** Author date, strict ISO-8601 (`%aI`). */
@@ -680,7 +683,7 @@ export interface CommitLogEntry {
  * Trailers are parsed from `%b` app-side — the `%(trailers:…)` pretty
  * options postdate the 2.20 version floor.
  */
-const LOG_FORMAT = '%x1e%H%x1f%an%x1f%ae%x1f%aI%x1f%s%x1f%b';
+const LOG_FORMAT = '%x1e%H%x1f%P%x1f%an%x1f%ae%x1f%aI%x1f%s%x1f%b';
 
 const CO_AUTHOR_TRAILER = /^co-authored-by:\s*(.+)$/gim;
 
@@ -690,9 +693,9 @@ function parseCommitLog(stdout: string): CommitLogEntry[] {
     if (record.length === 0) continue;
     const tokens = record.split('\0');
     const header = tokens[0].split('\x1f');
-    if (header.length < 6) continue;
+    if (header.length < 7) continue;
     const coAuthors: string[] = [];
-    for (const match of header.slice(5).join('\x1f').matchAll(CO_AUTHOR_TRAILER)) {
+    for (const match of header.slice(6).join('\x1f').matchAll(CO_AUTHOR_TRAILER)) {
       const author = match[1].trim();
       if (author.length > 0 && !coAuthors.includes(author)) coAuthors.push(author);
     }
@@ -709,10 +712,11 @@ function parseCommitLog(stdout: string): CommitLogEntry[] {
     }
     entries.push({
       sha: header[0],
-      authorName: header[1],
-      authorEmail: header[2],
-      authoredAt: header[3],
-      subject: header[4],
+      parents: header[1].split(' ').filter((parent) => parent.length > 0),
+      authorName: header[2],
+      authorEmail: header[3],
+      authoredAt: header[4],
+      subject: header[5],
       coAuthors,
       files,
     });

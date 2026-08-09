@@ -51,29 +51,34 @@
   box-sizing: border-box;
 }
 
-/* Same exception for the terminal panel's split panes — the editor
-   card's 6px gutter band + leading inset, scoped to the terminal's
-   own tree wrapper (it lives in the bottom dock, outside
+/* Same exception for the split-tab dock panels (terminal, git log) —
+   the editor card's 6px gutter band + leading inset, scoped to each
+   panel's own tree wrapper (they live in the bottom dock, outside
    .rules-region-editor). */
-.rules-main .terminal-split-tree .split-view-view::before {
+.rules-main .terminal-split-tree .split-view-view::before,
+.rules-main .git-split-tree .split-view-view::before {
   display: block !important;
   background-color: var(--ant-color-bg-layout, #f5f5f5) !important;
 }
 
-.rules-main .terminal-split-tree .split-view-horizontal > .split-view-container > .split-view-view::before {
+.rules-main .terminal-split-tree .split-view-horizontal > .split-view-container > .split-view-view::before,
+.rules-main .git-split-tree .split-view-horizontal > .split-view-container > .split-view-view::before {
   width: 6px !important;
 }
 
-.rules-main .terminal-split-tree .split-view-vertical > .split-view-container > .split-view-view::before {
+.rules-main .terminal-split-tree .split-view-vertical > .split-view-container > .split-view-view::before,
+.rules-main .git-split-tree .split-view-vertical > .split-view-container > .split-view-view::before {
   height: 6px !important;
 }
 
-.rules-main .terminal-split-tree .split-view-horizontal > .split-view-container > .split-view-view:not(:first-child) {
+.rules-main .terminal-split-tree .split-view-horizontal > .split-view-container > .split-view-view:not(:first-child),
+.rules-main .git-split-tree .split-view-horizontal > .split-view-container > .split-view-view:not(:first-child) {
   padding-left: 6px;
   box-sizing: border-box;
 }
 
-.rules-main .terminal-split-tree .split-view-vertical > .split-view-container > .split-view-view:not(:first-child) {
+.rules-main .terminal-split-tree .split-view-vertical > .split-view-container > .split-view-view:not(:first-child),
+.rules-main .git-split-tree .split-view-vertical > .split-view-container > .split-view-view:not(:first-child) {
   padding-top: 6px;
   box-sizing: border-box;
 }

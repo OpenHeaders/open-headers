@@ -49,6 +49,7 @@ import {
   currentBranch,
   ensureWorkspaceRepo,
   fetchWorkspaceRemote,
+  type GitAuditRow,
   type GitAvailability,
   type GitRunner,
   gitOperationInProgress,
@@ -123,6 +124,8 @@ const OP_HOLD_RETRY_MS = 5_000;
 /** History reads (§9, Phase 7): default page + hard cap — a recent timeline, not a full log browser. */
 const LOG_DEFAULT_LIMIT = 20;
 const LOG_MAX_LIMIT = 200;
+/** Console-tab ring cap — enough scrollback without unbounded growth. */
+const GIT_CONSOLE_CAP = 300;
 
 export type WorkspaceTreeCommitCadence = 'off' | 'auto' | 'on-blur' | 'every-5m' | 'every-15m' | 'every-30m';
 
@@ -253,6 +256,8 @@ export type WorkspaceTreeRefsRpcResult =
   | { ok: true; refs: RepoRef[]; current: string | null }
   | { ok: false; reason: 'not-bound' | 'git-unavailable' | 'not-a-repo' | 'refs-failed'; detail?: string };
 
+export type WorkspaceTreeGitConsoleRpcResult = { ok: true; rows: GitAuditRow[] } | { ok: false; reason: 'not-bound' };
+
 export type WorkspaceTreeFileDiffRpcResult =
   | { ok: true; diff: CommitFileDiff }
   | {
@@ -361,6 +366,13 @@ export interface WorkspaceTreeRuntime {
    * answer and `path` a plain tree path; anything else refuses typed.
    */
   fileDiff(workspaceId: string, sha: string, path: string): Promise<WorkspaceTreeFileDiffRpcResult>;
+  /**
+   * The Console tab's read-only feed (§9): audit rows of every
+   * state-changing git command the engine ran in this binding's repo,
+   * newest last. Host-side ring, capped; commands from injected
+   * runners (tests) never appear.
+   */
+  gitConsole(workspaceId: string): Promise<WorkspaceTreeGitConsoleRpcResult>;
   setCommitCadence(workspaceId: string, cadence: WorkspaceTreeCommitCadence): Promise<{ ok: boolean }>;
   /** The explicit setting behind `--no-verify` (§3.3) — per binding, like the cadence. */
   setBypassHooks(workspaceId: string, bypassHooks: boolean): Promise<{ ok: boolean }>;
@@ -443,10 +455,20 @@ export function createWorkspaceTreeRuntime(options: WorkspaceTreeRuntimeOptions)
   let records: WorkspaceTreeBindingRecord[] = [];
   let disposed = false;
 
+  // Read-only console feed (§9, IDE-log Console tab): the last N audit
+  // rows of the REAL git plane, host-global, filtered per binding at
+  // read time. Injected runners (tests, the fault suite) bypass
+  // `createGitExec`, so their commands never reach the feed — the
+  // console mirrors what actually ran on the user's repo.
+  const consoleRows: GitAuditRow[] = [];
   const gitRun: GitRunner =
     options.gitRunner ??
     createGitExec({
-      audit: (row) => logger.info(SCOPE, `git ${row.args.join(' ')} → ${row.code} (${row.durationMs}ms)`),
+      audit: (row) => {
+        logger.info(SCOPE, `git ${row.args.join(' ')} → ${row.code} (${row.durationMs}ms)`);
+        consoleRows.push(row);
+        if (consoleRows.length > GIT_CONSOLE_CAP) consoleRows.splice(0, consoleRows.length - GIT_CONSOLE_CAP);
+      },
     });
 
   // Availability is a property of the machine, probed once per process
@@ -812,6 +834,17 @@ export function createWorkspaceTreeRuntime(options: WorkspaceTreeRuntimeOptions)
     const entries = await read(rootDir, capped);
     if (entries === null) return { ok: false, reason: 'log-failed' };
     return { ok: true, entries };
+  };
+
+  /** Console-tab read: this binding's slice of the audit ring (cwd inside its root). */
+  const runGitConsole = async (workspaceId: string): Promise<WorkspaceTreeGitConsoleRpcResult> => {
+    const binding = open.get(workspaceId);
+    if (!binding) return { ok: false, reason: 'not-bound' };
+    const { rootDir } = binding.record;
+    return {
+      ok: true,
+      rows: consoleRows.filter((row) => row.cwd === rootDir || row.cwd.startsWith(`${rootDir}/`)),
+    };
   };
 
   /**
@@ -1635,6 +1668,10 @@ export function createWorkspaceTreeRuntime(options: WorkspaceTreeRuntimeOptions)
       if (!isCommitSha(sha)) return { ok: false, reason: 'unknown-commit' };
       if (!isSafeTreePath(filePath)) return { ok: false, reason: 'unknown-path' };
       return readCommitFileDiff(gitRun, rootDir, sha, filePath);
+    },
+
+    gitConsole(workspaceId: string): Promise<WorkspaceTreeGitConsoleRpcResult> {
+      return runGitConsole(workspaceId);
     },
 
     async setCommitCadence(workspaceId: string, cadence: WorkspaceTreeCommitCadence): Promise<{ ok: boolean }> {

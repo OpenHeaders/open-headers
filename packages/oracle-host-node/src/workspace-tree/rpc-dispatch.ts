@@ -201,6 +201,11 @@ export async function dispatchWorkspaceTreeRpc(
     if (!workspaceId || !filePath || runtime === null) return { ok: false, reason: 'not-bound' };
     return await runtime.fileLog(workspaceId, filePath, typeof message.limit === 'number' ? message.limit : undefined);
   }
+  if (type === 'oh.workspaceTree.gitConsole') {
+    const workspaceId = typeof message.workspaceId === 'string' ? message.workspaceId : '';
+    if (!workspaceId || runtime === null) return { ok: false, reason: 'not-bound' };
+    return await runtime.gitConsole(workspaceId);
+  }
   if (type === 'oh.workspaceTree.appBlur') {
     runtime?.notifyAppBlur();
     return { ok: runtime !== null };
