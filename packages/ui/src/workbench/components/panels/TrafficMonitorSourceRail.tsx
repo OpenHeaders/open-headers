@@ -27,7 +27,6 @@ import {
   BugOutlined,
   CaretRightOutlined,
   EyeInvisibleOutlined,
-  EyeOutlined,
   FileOutlined,
   GlobalOutlined,
   LoadingOutlined,
@@ -39,7 +38,7 @@ import type { TrafficArchivedSessionProjection } from '@openheaders/core/traffic
 import { Button, Popover, Switch, Tag, theme, Tooltip } from 'antd';
 import type React from 'react';
 import { useCallback, useRef, useState } from 'react';
-import { RecordStartIcon, RecordStopIcon } from '@openheaders/ui/shared/icons';
+import { CaptureActiveIcon, CaptureStartIcon } from '@openheaders/ui/shared/icons';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { useSettingValue } from '../../settings/hooks';
 import {
@@ -277,7 +276,7 @@ export type ObserveAction = { kind: 'start'; debug: boolean; save: boolean } | {
 
 /** The popover's lead row: icon + the verb CLICKING THE GLYPH fires,
  *  with an honesty hint below. Informational, never a button — the
- *  record glyph itself is the start/stop control. */
+ *  capture glyph itself is the start/stop control. */
 function ObserveMenuHeader({
   testid,
   icon,
@@ -333,8 +332,8 @@ function ObserveMenuToggle({
 
 /**
  * Per-source observation affordance (AGENT_TRAFFIC_PLAN.md §11.1 —
- * one gesture, one bundle): the record glyph (the browser devtools'
- * own record-start/record-stop pair) IS the verb — clicking it starts
+ * one gesture, one bundle): the capture glyph (the viewfinder-frame
+ * capture-start/capture-active pair) IS the verb — clicking it starts
  * observing idle, stops armed/recording. The hover popover never
  * carries a clickable verb: it states what the click will do, and
  * idle it adds an Advanced expand/collapse over the two bundled
@@ -343,7 +342,7 @@ function ObserveMenuToggle({
  * defaults per open; the start click bundles whatever they say.
  * Colors state the stakes — blue (the Debug affordance's color) =
  * streaming to the desktop app, red = also recording to the session
- * archive — and the red record-stop glyph IS the per-row retention
+ * archive — and the red capture-active glyph IS the per-row retention
  * indicator, always visible, never hover-revealed, the whole time a
  * session records (PLAN §3).
  */
@@ -376,17 +375,17 @@ function SourceObserveAffordance({
   // opened the popover still bundles the configured posture.
   const [debugOn, setDebugOn] = useState<boolean>(() => debugDefault);
   const [saveOn, setSaveOn] = useState<boolean>(() => saveDefault);
-  // The record glyphs draw on the browser's padded 20x20 grid, so they
-  // render a size up to hold the same optical weight as the 16-grid
-  // neighbours (the bug/pin affordances).
+  // The capture glyphs draw on a padded 20x20 grid, so they render a
+  // size up to hold the same optical weight as the 16-grid neighbours
+  // (the bug/pin affordances).
   const icon = pending ? (
     <LoadingOutlined spin style={{ fontSize: 12, color: token.colorPrimary }} />
   ) : capturing ? (
-    <RecordStopIcon style={{ fontSize: 14, color: token.colorError }} />
+    <CaptureActiveIcon style={{ fontSize: 14, color: token.colorError }} />
   ) : armed ? (
-    <RecordStopIcon style={{ fontSize: 14, color: token.colorPrimary }} />
+    <CaptureActiveIcon style={{ fontSize: 14, color: token.colorPrimary }} />
   ) : (
-    <RecordStartIcon style={{ fontSize: 14, color: token.colorTextTertiary }} />
+    <CaptureStartIcon style={{ fontSize: 14, color: token.colorTextTertiary }} />
   );
   const fire = (action: ObserveAction): void => {
     setMenuOpen(false);
@@ -396,7 +395,7 @@ function SourceObserveAffordance({
     armed || capturing ? (
       <ObserveMenuHeader
         testid="traffic-monitor-observe-stop"
-        icon={<EyeInvisibleOutlined style={{ fontSize: 12, color: capturing ? token.colorError : token.colorPrimary }} />}
+        icon={<CaptureActiveIcon style={{ fontSize: 12, color: capturing ? token.colorError : token.colorPrimary }} />}
         title={t('workbench.trafficMonitor.captureMenuStop')}
         {...(capturing ? { hint: t('workbench.trafficMonitor.captureMenuStopRecordingHint') } : {})}
       />
@@ -404,7 +403,7 @@ function SourceObserveAffordance({
       <>
         <ObserveMenuHeader
           testid="traffic-monitor-observe-start"
-          icon={<EyeOutlined style={{ fontSize: 12, color: token.colorPrimary }} />}
+          icon={<CaptureStartIcon style={{ fontSize: 12, color: token.colorPrimary }} />}
           title={t('workbench.trafficMonitor.captureMenuStart')}
           hint={t('workbench.trafficMonitor.captureMenuStartHint')}
         />
