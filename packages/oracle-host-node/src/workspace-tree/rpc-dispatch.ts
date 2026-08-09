@@ -203,6 +203,18 @@ export async function dispatchWorkspaceTreeRpc(
       workspaceId,
       typeof message.limit === 'number' ? message.limit : undefined,
       typeof message.ref === 'string' && message.ref.length > 0 ? message.ref : undefined,
+      {
+        ...(typeof message.author === 'string' && message.author.length > 0 ? { author: message.author } : {}),
+        ...(message.authorMe === true ? { authorMe: true } : {}),
+        ...(typeof message.since === 'string' && message.since.length > 0 ? { since: message.since } : {}),
+        ...(typeof message.until === 'string' && message.until.length > 0 ? { until: message.until } : {}),
+        ...(Array.isArray(message.paths) && message.paths.every((path): path is string => typeof path === 'string')
+          ? { paths: message.paths }
+          : {}),
+        ...(message.noMerges === true ? { noMerges: true } : {}),
+        ...(message.firstParent === true ? { firstParent: true } : {}),
+        ...(message.topoOrder === true ? { topoOrder: true } : {}),
+      },
     );
   }
   if (type === 'oh.workspaceTree.listRefs') {

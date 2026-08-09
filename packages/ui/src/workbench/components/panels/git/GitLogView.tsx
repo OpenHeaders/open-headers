@@ -1,34 +1,39 @@
 /**
- * GitLogView — ONE log tab's view (toolbar, branches rail with its
- * activity bar, commit timeline, split detail pane, diff modal),
- * self-sufficient per pane: it fetches its own refs + log for its
- * tab's scope and refetches on `workspaceTreeGitStatus` frames (the
- * panel-wide lifeline — every pass that can move git status pushes
- * one). Splitting the panel mounts one instance per visible log tab;
- * each holds only view state, the tab's scope/filter/selection/rail
- * state live in the registry (git-panel-view-store) so they survive
- * unmounts and moves between panes. Hiding the rail swaps section #1
- * for the vertical Branches strip (the IDE-log gesture).
+ * GitLogView — ONE log tab's view, the IDE-log anatomy: three
+ * sub-panes (branches rail, commit timeline, changes/details), EACH
+ * owning its slice of the shared top band — the rail's Branch-or-tag
+ * search, the log toolbar (text filter + Branch/User/Date/Paths chips
+ * + Graph Options + actions), and the details toolbar (Show Diff /
+ * View Options / expand-collapse). Self-sufficient per pane: it
+ * fetches its own refs + log for its tab's scope and filters and
+ * refetches on `workspaceTreeGitStatus` frames. Filter state lives in
+ * the tab registry (travels with the tab); display prefs are
+ * per-workspace. Hiding the rail swaps section #1 for the vertical
+ * Branches strip (the IDE-log gesture).
  */
 
-import { ReloadOutlined } from '@ant-design/icons';
 import {
   hostBridge,
   type WorkspaceTreeLogEntryWire,
   type WorkspaceTreeRefWire,
 } from '@openheaders/core/bridge';
-import { Button, Input, Tag, theme } from 'antd';
+import { theme } from 'antd';
 import type React from 'react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { useLocale } from '@openheaders/ui/context/LocaleContext';
 import CommitDetails from './CommitDetails';
 import CommitList from './CommitList';
 import DiffModal from './DiffModal';
-import FileTreeView from './FileTreeView';
+import FileTreeView, { type FileTreeViewHandle } from './FileTreeView';
+import { getGitLogViewPrefs, patchGitLogViewPrefs, subscribeGitLogViewPrefs } from './git-log-view-prefs';
 import { type GitLogTabState, gitPanelTabKey } from './git-panel-view-store';
 import { computeLogGraph } from './graph';
+import { getGitRailPrefs, subscribeGitRailPrefs } from './rail/git-rail-prefs';
 import GitRailCollapsedStrip from './rail/GitRailCollapsedStrip';
 import GitRefRail from './rail/GitRefRail';
+import GitDetailsToolbar from './toolbar/GitDetailsToolbar';
+import GitLogToolbar from './toolbar/GitLogToolbar';
+import { buildLogWireFilters, hasRowFilters, makeTextMatcher } from './toolbar/log-filters';
 import { useFileDiff } from './use-file-diff';
 
 export interface GitLogViewProps {
@@ -46,6 +51,8 @@ const LOG_LIMIT = 200;
 const GitLogView: React.FC<GitLogViewProps> = ({ workspaceId, tab, branch, patchTab, onOpenCompare }) => {
   const { token } = theme.useToken();
   const { t } = useLocale();
+  const rootRef = useRef<HTMLDivElement>(null);
+  const fileTreeRef = useRef<FileTreeViewHandle>(null);
 
   const [entries, setEntries] = useState<WorkspaceTreeLogEntryWire[]>([]);
   const [refs, setRefs] = useState<WorkspaceTreeRefWire[]>([]);
@@ -53,10 +60,31 @@ const GitLogView: React.FC<GitLogViewProps> = ({ workspaceId, tab, branch, patch
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [scrollTo, setScrollTo] = useState<{ sha: string; nonce: number } | null>(null);
+  const [selectedFile, setSelectedFile] = useState<string | null>(null);
   const fileDiff = useFileDiff(workspaceId);
 
-  const { selectedRef, filter, selectedSha, refsCollapsed, railSelection } = tab;
+  const subscribeViewPrefs = useCallback(
+    (listener: () => void) => subscribeGitLogViewPrefs(workspaceId, listener),
+    [workspaceId],
+  );
+  const prefs = useSyncExternalStore(subscribeViewPrefs, () => getGitLogViewPrefs(workspaceId));
+  const subscribeRailPrefs = useCallback(
+    (listener: () => void) => subscribeGitRailPrefs(workspaceId, listener),
+    [workspaceId],
+  );
+  const railPrefs = useSyncExternalStore(subscribeRailPrefs, () => getGitRailPrefs(workspaceId));
+  const favoriteSet = useMemo<ReadonlySet<string>>(() => new Set(railPrefs.favorites), [railPrefs.favorites]);
+
+  const { selectedRef, filter, filterRegex, filterCase, selectedSha, refsCollapsed, railSelection } = tab;
+  const { author, date, paths, sort, firstParent, noMerges } = tab;
   const tabKey = gitPanelTabKey(tab);
+  const rowFiltersActive = hasRowFilters(tab);
+  // Keyed on the filter fields alone — a selection or rail patch must
+  // never refetch the log.
+  const wireFilters = useMemo(
+    () => buildLogWireFilters({ author, date, paths, sort, firstParent, noMerges }, new Date()),
+    [author, date, paths, sort, firstParent, noMerges],
+  );
 
   const reload = useCallback(async (): Promise<void> => {
     setLoading(true);
@@ -86,6 +114,7 @@ const GitLogView: React.FC<GitLogViewProps> = ({ workspaceId, tab, branch, patch
         workspaceId,
         limit: LOG_LIMIT,
         ...(selectedRef !== null ? { ref: selectedRef } : {}),
+        ...wireFilters,
       });
       if (result.ok) {
         setEntries(result.entries);
@@ -103,7 +132,7 @@ const GitLogView: React.FC<GitLogViewProps> = ({ workspaceId, tab, branch, patch
     } finally {
       setLoading(false);
     }
-  }, [workspaceId, selectedRef, branch, patchTab, t]);
+  }, [workspaceId, selectedRef, branch, wireFilters, patchTab, t]);
 
   useEffect(() => {
     void reload();
@@ -116,20 +145,25 @@ const GitLogView: React.FC<GitLogViewProps> = ({ workspaceId, tab, branch, patch
     });
   }, [workspaceId, reload]);
 
+  // A fresh commit selection starts with no file row selected.
+  useEffect(() => {
+    setSelectedFile(null);
+  }, [selectedSha]);
+
+  const matcher = useMemo(() => makeTextMatcher(filter, filterRegex, filterCase), [filter, filterRegex, filterCase]);
+
   const filtered = useMemo(() => {
-    const needle = filter.trim().toLowerCase();
-    if (needle === '') return entries;
-    return entries.filter(
-      (entry) =>
-        entry.subject.toLowerCase().includes(needle) ||
-        entry.authorName.toLowerCase().includes(needle) ||
-        entry.sha.startsWith(needle),
-    );
-  }, [entries, filter]);
+    if (matcher.kind !== 'match') return entries;
+    return entries.filter((entry) => matcher.test(entry));
+  }, [entries, matcher]);
 
   // Graph edges are honest only over the contiguous log — a text filter
-  // hides rows, so filtered rendering degrades to plain dots.
-  const graph = useMemo(() => (filtered === entries ? computeLogGraph(entries) : null), [filtered, entries]);
+  // or any row filter hides commits, so rendering degrades to plain
+  // dots (sort order alone keeps the graph).
+  const graph = useMemo(
+    () => (filtered === entries && !rowFiltersActive ? computeLogGraph(entries) : null),
+    [filtered, entries, rowFiltersActive],
+  );
 
   const refsBySha = useMemo(() => {
     const map = new Map<string, WorkspaceTreeRefWire[]>();
@@ -161,11 +195,6 @@ const GitLogView: React.FC<GitLogViewProps> = ({ workspaceId, tab, branch, patch
     [branch, refs],
   );
 
-  const selectedRefKind = useMemo(
-    () => refs.find((ref) => ref.name === selectedRef)?.kind ?? 'local',
-    [refs, selectedRef],
-  );
-
   const navigateToSha = (sha: string): void => {
     patchTab({ selectedSha: sha });
     setScrollTo((prev) => ({ sha, nonce: (prev?.nonce ?? 0) + 1 }));
@@ -174,51 +203,26 @@ const GitLogView: React.FC<GitLogViewProps> = ({ workspaceId, tab, branch, patch
   const combinedError =
     error ?? (fileDiff.error !== null ? t('workbench.gitLog.loadFailed', { detail: fileDiff.error }) : null);
 
+  const filtersActive = matcher.kind !== 'none' || selectedRef !== null || rowFiltersActive;
+  const resetFilters = (): void =>
+    patchTab({
+      filter: '',
+      selectedRef: null,
+      author: null,
+      date: null,
+      paths: [],
+      noMerges: false,
+      firstParent: false,
+    });
+
+  const container = rootRef.current?.closest<HTMLElement>('.git-tool-panel') ?? null;
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }} data-testid="git-tool-view">
-      <div
-        style={{
-          flex: '0 0 auto',
-          display: 'flex',
-          alignItems: 'center',
-          gap: 8,
-          padding: '6px 12px',
-          borderBottom: `1px solid ${token.colorBorderSecondary}`,
-          background: token.colorFillQuaternary,
-        }}
-      >
-        <Input
-          size="small"
-          allowClear
-          value={filter}
-          onChange={(e) => patchTab({ filter: e.target.value })}
-          placeholder={t('workbench.gitLog.filterPlaceholder')}
-          style={{ maxWidth: 240 }}
-          data-testid="git-tool-filter"
-        />
-        {selectedRef !== null && (
-          <Tag
-            closable
-            onClose={() => patchTab({ selectedRef: null })}
-            style={{ margin: 0, fontFamily: token.fontFamilyCode }}
-            data-testid="git-tool-scope-chip"
-          >
-            {selectedRefKind === 'tag'
-              ? t('workbench.gitLog.scopeChip.tag', { name: selectedRef })
-              : t('workbench.gitLog.scopeChip.branch', { name: selectedRef })}
-          </Tag>
-        )}
-        <span style={{ flex: 1 }} />
-        <Button
-          size="small"
-          type="text"
-          icon={<ReloadOutlined />}
-          loading={loading}
-          title={t('workbench.gitLog.refresh')}
-          onClick={() => void reload()}
-          data-testid="git-tool-refresh"
-        />
-      </div>
+    <div
+      ref={rootRef}
+      style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}
+      data-testid="git-tool-view"
+    >
       {combinedError !== null && (
         <div
           style={{
@@ -256,25 +260,54 @@ const GitLogView: React.FC<GitLogViewProps> = ({ workspaceId, tab, branch, patch
             flex: '1 1 55%',
             minWidth: 0,
             display: 'flex',
+            flexDirection: 'column',
             minHeight: 0,
             borderRight: `1px solid ${token.colorBorderSecondary}`,
           }}
         >
+          <GitLogToolbar
+            tab={tab}
+            patchTab={patchTab}
+            refs={refs}
+            currentRef={currentRef}
+            favorites={favoriteSet}
+            entries={entries}
+            loading={loading}
+            onRefresh={() => void reload()}
+            onNavigate={navigateToSha}
+            prefs={prefs}
+            onPatchPrefs={(patch) => patchGitLogViewPrefs(workspaceId, patch)}
+            textInvalid={matcher.kind === 'invalid'}
+            container={container}
+          />
           <CommitList
             entries={filtered}
             graph={graph}
             refsBySha={refsBySha}
             selectedSha={selectedSha}
             onSelect={(sha) => patchTab({ selectedSha: sha })}
-            filtersActive={filter.trim() !== '' || selectedRef !== null}
-            onResetFilters={() => patchTab({ filter: '', selectedRef: null })}
+            filtersActive={filtersActive}
+            onResetFilters={resetFilters}
             scrollTo={scrollTo}
+            showTagChips={prefs.showTagNames}
+            showTimestamp={prefs.showCommitTimestamp}
+            dimMergeCommits={prefs.highlightMergeCommits}
           />
         </div>
         <div
           style={{ flex: '1 1 45%', minWidth: 0, display: 'flex', flexDirection: 'column', minHeight: 0 }}
           data-testid="git-tool-detail"
         >
+          <GitDetailsToolbar
+            canShowDiff={selected !== null && selectedFile !== null}
+            onShowDiff={() => {
+              if (selected !== null && selectedFile !== null) void fileDiff.open(selected.sha, selectedFile);
+            }}
+            prefs={prefs}
+            onPatchPrefs={(patch) => patchGitLogViewPrefs(workspaceId, patch)}
+            onExpandAll={() => fileTreeRef.current?.expandAll()}
+            onCollapseAll={() => fileTreeRef.current?.collapseAll()}
+          />
           {selected === null ? (
             <>
               <div
@@ -290,43 +323,51 @@ const GitLogView: React.FC<GitLogViewProps> = ({ workspaceId, tab, branch, patch
               >
                 {t('workbench.gitLog.selectCommit')}
               </div>
-              <div
-                style={{
-                  flex: '1 1 45%',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: 12,
-                  color: token.colorTextSecondary,
-                  borderTop: `1px solid ${token.colorBorderSecondary}`,
-                }}
-                data-testid="git-tool-detail-none"
-              >
-                {t('workbench.gitLog.noneSelected')}
-              </div>
+              {prefs.showDetails && (
+                <div
+                  style={{
+                    flex: '1 1 45%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: 12,
+                    color: token.colorTextSecondary,
+                    borderTop: `1px solid ${token.colorBorderSecondary}`,
+                  }}
+                  data-testid="git-tool-detail-none"
+                >
+                  {t('workbench.gitLog.noneSelected')}
+                </div>
+              )}
             </>
           ) : (
             <>
               <FileTreeView
                 key={`${tabKey}:${selected.sha}`}
+                ref={fileTreeRef}
                 files={selected.files}
                 loadingPath={fileDiff.loadingPath}
                 onOpenFile={(path) => void fileDiff.open(selected.sha, path)}
+                selectedPath={selectedFile}
+                onSelectFile={setSelectedFile}
+                groupByDirectory={prefs.groupFilesByDirectory}
               />
-              <div
-                style={{
-                  flex: '1 1 45%',
-                  minHeight: 0,
-                  overflowY: 'auto',
-                  borderTop: `1px solid ${token.colorBorderSecondary}`,
-                }}
-              >
-                <CommitDetails
-                  entry={selected}
-                  refsAtCommit={refsBySha.get(selected.sha) ?? []}
-                  isHead={selected.sha === headSha}
-                />
-              </div>
+              {prefs.showDetails && (
+                <div
+                  style={{
+                    flex: '1 1 45%',
+                    minHeight: 0,
+                    overflowY: 'auto',
+                    borderTop: `1px solid ${token.colorBorderSecondary}`,
+                  }}
+                >
+                  <CommitDetails
+                    entry={selected}
+                    refsAtCommit={refsBySha.get(selected.sha) ?? []}
+                    isHead={selected.sha === headSha}
+                  />
+                </div>
+              )}
             </>
           )}
         </div>

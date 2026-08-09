@@ -189,11 +189,30 @@ export type MergeBranchRpcResult =
       detail?: string;
     };
 
+/**
+ * Caller-supplied log row filters (the toolbar's User / Date / Paths
+ * chips + Graph Options). Validated SHAPES like every history read:
+ * `author` a bounded plain string (matched literally, host-escaped),
+ * `authorMe` resolved host-side to the commit pass's own identity,
+ * dates strict ISO-8601, `paths` tree paths — anything else refuses
+ * typed (`invalid-filter`).
+ */
+export interface WorkspaceTreeLogFilters {
+  author?: string;
+  authorMe?: boolean;
+  since?: string;
+  until?: string;
+  paths?: string[];
+  noMerges?: boolean;
+  firstParent?: boolean;
+  topoOrder?: boolean;
+}
+
 export type WorkspaceTreeLogRpcResult =
   | { ok: true; entries: CommitLogEntry[] }
   | {
       ok: false;
-      reason: 'not-bound' | 'git-unavailable' | 'not-a-repo' | 'unknown-ref' | 'log-failed';
+      reason: 'not-bound' | 'git-unavailable' | 'not-a-repo' | 'unknown-ref' | 'invalid-filter' | 'log-failed';
       detail?: string;
     };
 
@@ -329,9 +348,16 @@ export interface WorkspaceTreeRuntime {
    * Workspace history timeline (§9, Phase 7) — recent commits with
    * changed paths. `ref` scopes the walk to a branch/tag from
    * {@link WorkspaceTreeRuntime.listRefs}'s answer; anything else
-   * refuses `unknown-ref`.
+   * refuses `unknown-ref`. `filters` are the toolbar's row filters
+   * ({@link WorkspaceTreeLogFilters}) — validated shapes, refusing
+   * `invalid-filter`.
    */
-  log(workspaceId: string, limit?: number, ref?: string): Promise<WorkspaceTreeLogRpcResult>;
+  log(
+    workspaceId: string,
+    limit?: number,
+    ref?: string,
+    filters?: WorkspaceTreeLogFilters,
+  ): Promise<WorkspaceTreeLogRpcResult>;
   /** One path's timeline (`--follow`) — the newest entry is "who last touched this". */
   fileLog(workspaceId: string, path: string, limit?: number): Promise<WorkspaceTreeLogRpcResult>;
   /** The log view's ref tree (§9, Phase 7 slice 2) — local branches, remote-tracking refs, tags. */

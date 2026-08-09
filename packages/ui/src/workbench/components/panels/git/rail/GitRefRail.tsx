@@ -75,7 +75,9 @@ const GitRefRail: React.FC<GitRefRailProps> = ({
   const handleLeafClick = (node: RefTreeSelection): void => {
     onSelectionChange(node);
     if (prefs.singleClick === 'filter') {
-      onScopeChange(node.name === scopeRef ? null : node.name);
+      // Re-clicking the scoped branch KEEPS the filter (IDE behavior)
+      // — only the chip's × or another row changes the scope.
+      onScopeChange(node.name);
       return;
     }
     const sha = selectedSha(node);

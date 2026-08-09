@@ -32,6 +32,12 @@ export interface CommitListProps {
   /** Navigate gesture: scroll the row for `sha` into view. The nonce
    *  distinguishes repeated navigations to the same sha. */
   scrollTo?: { sha: string; nonce: number } | null;
+  /** Eye menu — Show > Tag Names: tag chips on rows. */
+  showTagChips?: boolean;
+  /** Eye menu — Show > Commit Timestamp: time on older dates. */
+  showTimestamp?: boolean;
+  /** Eye menu — Highlight > Merge Commits: dim merge subjects. */
+  dimMergeCommits?: boolean;
 }
 
 const CommitList: React.FC<CommitListProps> = ({
@@ -43,6 +49,9 @@ const CommitList: React.FC<CommitListProps> = ({
   filtersActive,
   onResetFilters,
   scrollTo,
+  showTagChips = true,
+  showTimestamp = true,
+  dimMergeCommits = true,
 }) => {
   const { token } = theme.useToken();
   const { locale, t } = useLocale();
@@ -85,8 +94,10 @@ const CommitList: React.FC<CommitListProps> = ({
     <div ref={listRef} style={{ flex: '1 1 auto', minHeight: 0, overflowY: 'auto' }} data-testid="git-tool-list">
       {entries.map((entry, index) => {
         const isSelected = entry.sha === selectedSha;
-        const isMerge = entry.parents.length > 1;
+        const isMerge = dimMergeCommits && entry.parents.length > 1;
         const row = graph?.[index] ?? null;
+        const rowRefs = refsBySha.get(entry.sha) ?? [];
+        const chipRefs = showTagChips ? rowRefs : rowRefs.filter((ref) => ref.kind !== 'tag');
         return (
           <button
             key={entry.sha}
@@ -131,7 +142,7 @@ const CommitList: React.FC<CommitListProps> = ({
               >
                 {entry.subject}
               </span>
-              <RefChips refs={refsBySha.get(entry.sha) ?? []} max={2} />
+              <RefChips refs={chipRefs} max={2} />
             </span>
             <span style={{ flex: '0 0 auto', fontSize: 11.5, fontWeight: 600, color: token.colorTextSecondary }}>
               {entry.authorName}
@@ -146,7 +157,7 @@ const CommitList: React.FC<CommitListProps> = ({
                 color: token.colorTextSecondary,
               }}
             >
-              {formatLogDate(entry.authoredAt, locale, (time) => t('workbench.gitLog.date.yesterday', { time }))}
+              {formatLogDate(entry.authoredAt, locale, (time) => t('workbench.gitLog.date.yesterday', { time }), showTimestamp)}
             </span>
           </button>
         );

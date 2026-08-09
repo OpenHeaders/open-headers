@@ -1,7 +1,8 @@
 /**
  * Pure-model suite for the Git tool window's IDE-log surfaces: the
  * multi-lane graph layout, the compressed changed-files tree, the
- * slash-folded ref rail, and the graduated date column.
+ * slash-folded ref rail, the graduated date column, and the toolbar's
+ * filter model (wire translation + text matcher).
  */
 
 import { allDirKeys, buildFileTree } from '@openheaders/ui/workbench/components/panels/git/file-tree';
@@ -13,6 +14,12 @@ import {
   filterRefTree,
   folderKeysToRef,
 } from '@openheaders/ui/workbench/components/panels/git/rail/ref-tree-model';
+import {
+  buildLogWireFilters,
+  type GitLogRowFilterState,
+  hasRowFilters,
+  makeTextMatcher,
+} from '@openheaders/ui/workbench/components/panels/git/toolbar/log-filters';
 import { describe, expect, it } from 'vitest';
 
 describe('computeLogGraph', () => {
@@ -106,6 +113,89 @@ describe('buildFileTree', () => {
     expect(rules.label).toBe('rules');
     expect(rules.children.map((node) => (node.kind === 'dir' ? node.label : ''))).toEqual(['a', 'b']);
   });
+
+  it('answers flat sorted full-path leaves while Group By Directory is off', () => {
+    const flat = buildFileTree(
+      [
+        { path: 'rules/b/rule.yaml', status: 'D' },
+        { path: 'rules/a/rule.yaml', status: 'M' },
+        { path: 'workspace.yaml', status: 'M' },
+      ],
+      false,
+    );
+    expect(flat.map((node) => (node.kind === 'file' ? node.label : ''))).toEqual([
+      'rules/a/rule.yaml',
+      'rules/b/rule.yaml',
+      'workspace.yaml',
+    ]);
+    expect(flat.every((node) => node.kind === 'file')).toBe(true);
+  });
+});
+
+describe('log filter model', () => {
+  const base: GitLogRowFilterState = {
+    author: null,
+    date: null,
+    paths: [],
+    sort: 'date',
+    firstParent: false,
+    noMerges: false,
+  };
+  const now = new Date('2026-08-09T12:00:00Z');
+
+  it('translates chips to wire fields — me stays a host-side flag', () => {
+    expect(buildLogWireFilters(base, now)).toEqual({});
+    expect(buildLogWireFilters({ ...base, author: { kind: 'me' } }, now)).toEqual({ authorMe: true });
+    expect(buildLogWireFilters({ ...base, author: { kind: 'user', value: 'John Doe' } }, now)).toEqual({
+      author: 'John Doe',
+    });
+    expect(buildLogWireFilters({ ...base, paths: ['rules/a'], noMerges: true, firstParent: true }, now)).toEqual({
+      paths: ['rules/a'],
+      noMerges: true,
+      firstParent: true,
+    });
+    expect(buildLogWireFilters({ ...base, sort: 'topo' }, now)).toEqual({ topoOrder: true });
+  });
+
+  it('presets roll against now; an explicit until widens to end of day', () => {
+    const day = buildLogWireFilters({ ...base, date: { kind: 'preset', preset: '24h' } }, now);
+    expect(day.since).toBe('2026-08-08T12:00:00.000Z');
+    const week = buildLogWireFilters({ ...base, date: { kind: 'preset', preset: '7d' } }, now);
+    expect(week.since).toBe('2026-08-02T12:00:00.000Z');
+    const range = buildLogWireFilters(
+      { ...base, date: { kind: 'range', since: '2026-08-01', until: '2026-08-05' } },
+      now,
+    );
+    expect(range).toEqual({ since: '2026-08-01', until: '2026-08-05T23:59:59' });
+  });
+
+  it('hasRowFilters counts row-hiding filters only — sort never does', () => {
+    expect(hasRowFilters(base)).toBe(false);
+    expect(hasRowFilters({ ...base, sort: 'topo' })).toBe(false);
+    expect(hasRowFilters({ ...base, author: { kind: 'me' } })).toBe(true);
+    expect(hasRowFilters({ ...base, date: { kind: 'preset', preset: '7d' } })).toBe(true);
+    expect(hasRowFilters({ ...base, paths: ['a'] })).toBe(true);
+    expect(hasRowFilters({ ...base, noMerges: true })).toBe(true);
+    expect(hasRowFilters({ ...base, firstParent: true })).toBe(true);
+  });
+
+  it('text matcher: substring by default, sha prefix, case + regex toggles, invalid regex flagged', () => {
+    const entry = { subject: 'Fix Response panel', authorName: 'Daniel', sha: 'abc123def' };
+    const plain = makeTextMatcher('response', false, false);
+    if (plain.kind !== 'match') throw new Error('expected matcher');
+    expect(plain.test(entry)).toBe(true);
+    const cased = makeTextMatcher('response', false, true);
+    if (cased.kind !== 'match') throw new Error('expected matcher');
+    expect(cased.test(entry)).toBe(false);
+    const sha = makeTextMatcher('abc12', false, false);
+    if (sha.kind !== 'match') throw new Error('expected matcher');
+    expect(sha.test(entry)).toBe(true);
+    const regex = makeTextMatcher('^fix .*panel$', true, false);
+    if (regex.kind !== 'match') throw new Error('expected matcher');
+    expect(regex.test(entry)).toBe(true);
+    expect(makeTextMatcher('(', true, false).kind).toBe('invalid');
+    expect(makeTextMatcher('  ', false, false).kind).toBe('none');
+  });
 });
 
 describe('ref tree model', () => {
@@ -163,17 +253,26 @@ describe('formatLogDate', () => {
 
   it('renders fresh commits relative, same-day as time, yesterday labeled, older as full date', () => {
     const fresh = new Date(2026, 7, 9, 14, 0).toISOString();
-    expect(formatLogDate(fresh, 'en', (time) => `Yesterday ${time}`, now)).toMatch(/30/);
+    expect(formatLogDate(fresh, 'en', (time) => `Yesterday ${time}`, true, now)).toMatch(/30/);
 
     const today = new Date(2026, 7, 9, 9, 15).toISOString();
-    const todayOut = formatLogDate(today, 'en', (time) => `Yesterday ${time}`, now);
+    const todayOut = formatLogDate(today, 'en', (time) => `Yesterday ${time}`, true, now);
     expect(todayOut).toContain('15');
     expect(todayOut).not.toContain('2026');
 
     const yesterday = new Date(2026, 7, 8, 22, 5).toISOString();
-    expect(formatLogDate(yesterday, 'en', (time) => `Yesterday ${time}`, now)).toMatch(/^Yesterday /);
+    expect(formatLogDate(yesterday, 'en', (time) => `Yesterday ${time}`, true, now)).toMatch(/^Yesterday /);
 
     const older = new Date(2026, 6, 8, 21, 23).toISOString();
-    expect(formatLogDate(older, 'en', (time) => `Yesterday ${time}`, now)).toContain('2026');
+    expect(formatLogDate(older, 'en', (time) => `Yesterday ${time}`, true, now)).toContain('2026');
+  });
+
+  it('drops the time from older dates while Commit Timestamp is off', () => {
+    const older = new Date(2026, 6, 8, 21, 23).toISOString();
+    const withTime = formatLogDate(older, 'en', (time) => `Yesterday ${time}`, true, now);
+    const dateOnly = formatLogDate(older, 'en', (time) => `Yesterday ${time}`, false, now);
+    expect(withTime).toContain('23');
+    expect(dateOnly).toContain('2026');
+    expect(dateOnly).not.toContain(':');
   });
 });

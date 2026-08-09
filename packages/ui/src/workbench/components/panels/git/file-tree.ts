@@ -71,8 +71,20 @@ function emit(dir: BuildDir, prefix: string): FileTreeNode[] {
   return nodes;
 }
 
-/** Fold one commit's changed paths into the compressed display tree. */
-export function buildFileTree(files: ReadonlyArray<{ path: string; status: string }>): FileTreeNode[] {
+/**
+ * Fold one commit's changed paths into the compressed display tree.
+ * With `groupByDirectory` off (the details eye toggle) the answer is a
+ * flat sorted list — every file a leaf labeled by its full path.
+ */
+export function buildFileTree(
+  files: ReadonlyArray<{ path: string; status: string }>,
+  groupByDirectory = true,
+): FileTreeNode[] {
+  if (!groupByDirectory) {
+    return [...files]
+      .sort((a, b) => a.path.localeCompare(b.path))
+      .map((file) => ({ kind: 'file', label: file.path, path: file.path, status: file.status }));
+  }
   const root = newBuildDir();
   for (const file of files) {
     const segments = file.path.split('/').filter((segment) => segment.length > 0);

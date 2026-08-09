@@ -121,6 +121,36 @@ describe('git panel workbench (shared pane-tabs machinery)', () => {
     expect(tabs[1]).toMatchObject({ kind: 'log', id: 2, filter: 'fix', selectedRef: 'main' });
   });
 
+  it('log tabs start with every toolbar filter off (the IDE default row)', () => {
+    const { registry } = freshWorkbench();
+    const [primary] = registry.tabs();
+    expect(primary).toMatchObject({
+      kind: 'log',
+      filterRegex: false,
+      filterCase: false,
+      author: null,
+      date: null,
+      paths: [],
+      sort: 'date',
+      firstParent: false,
+      noMerges: false,
+    });
+    registry.patchLogTab(GIT_PRIMARY_TAB_KEY, {
+      author: { kind: 'me' },
+      date: { kind: 'preset', preset: '7d' },
+      paths: ['rules'],
+      sort: 'topo',
+      noMerges: true,
+    });
+    expect(registry.tabs()[0]).toMatchObject({
+      author: { kind: 'me' },
+      date: { kind: 'preset', preset: '7d' },
+      paths: ['rules'],
+      sort: 'topo',
+      noMerges: true,
+    });
+  });
+
   it('log tabs carry the rail selection and start with the rail expanded', () => {
     const { registry } = freshWorkbench();
     const [primary] = registry.tabs();

@@ -57,6 +57,7 @@ import {
   pushWorkspaceBranch,
   readCommitFileDiff,
   readCommitTreeFiles,
+  resolveAuthorFilterValue,
   resolveCommitIdentity,
   resolveRefSha,
   resolveUpstream,
@@ -877,6 +878,59 @@ describe('history feeds (Phase 7)', () => {
     const manifest = await listFileLog(run, tmpDir, 'workspace.yaml', 20);
     if (manifest === null) throw new Error('file log failed');
     expect(manifest.map((entry) => entry.subject)).toEqual(['Edit manifest', 'Initial tree']);
+  });
+
+  it('row filters ride the walk: author literal + case-insensitive, dates, paths, topo order', async () => {
+    await initialCommit();
+    await write('rules/a/rule.yaml', 'name: a\n');
+    const second = await commitWorkspaceTree({
+      run,
+      rootDir: tmpDir,
+      message: 'Add rule a',
+      identityEnv: {
+        GIT_AUTHOR_NAME: 'Dana R. Reyes',
+        GIT_AUTHOR_EMAIL: 'dana@openheaders.io',
+        GIT_COMMITTER_NAME: 'Dana R. Reyes',
+        GIT_COMMITTER_EMAIL: 'dana@openheaders.io',
+      },
+    });
+    if (!second.ok || !second.committed) throw new Error('second commit failed');
+
+    // Author: literal escaped substring, case-insensitive — the dot in
+    // the name must not act as a regex wildcard.
+    const byAuthor = await listCommitLog(run, tmpDir, 20, undefined, { author: 'dana r. reyes' });
+    expect(byAuthor?.map((entry) => entry.subject)).toEqual(['Add rule a']);
+    const noWildcard = await listCommitLog(run, tmpDir, 20, undefined, { author: 'dana rX reyes' });
+    expect(noWildcard).toEqual([]);
+
+    // Dates: an all-inclusive window keeps both; an ancient until drops both.
+    const wide = await listCommitLog(run, tmpDir, 20, undefined, { since: '2000-01-01' });
+    expect(wide).toHaveLength(2);
+    const ancient = await listCommitLog(run, tmpDir, 20, undefined, { until: '2000-01-02' });
+    expect(ancient).toEqual([]);
+
+    // Paths: only commits touching the scope answer.
+    const scoped = await listCommitLog(run, tmpDir, 20, undefined, { paths: ['rules'] });
+    expect(scoped?.map((entry) => entry.subject)).toEqual(['Add rule a']);
+
+    // Walk riders compose without narrowing a linear history.
+    const riders = await listCommitLog(run, tmpDir, 20, undefined, {
+      topoOrder: true,
+      noMerges: true,
+      firstParent: true,
+    });
+    expect(riders?.map((entry) => entry.subject)).toEqual(['Add rule a', 'Initial tree']);
+  });
+
+  it('resolveAuthorFilterValue answers configured email first, then name, then the fallback', async () => {
+    await ensureWorkspaceRepo(run, tmpDir);
+    const gitDirArgs = ['--git-dir', path.join(tmpDir, '.git'), '--work-tree', tmpDir];
+    const fallback = { name: 'Probe Operator', email: null };
+    expect(await resolveAuthorFilterValue(run, tmpDir, fallback)).toBe('Probe Operator');
+    await run([...gitDirArgs, 'config', 'user.name', 'Config Name'], { cwd: tmpDir });
+    expect(await resolveAuthorFilterValue(run, tmpDir, fallback)).toBe('Config Name');
+    await run([...gitDirArgs, 'config', 'user.email', 'config@openheaders.io'], { cwd: tmpDir });
+    expect(await resolveAuthorFilterValue(run, tmpDir, fallback)).toBe('config@openheaders.io');
   });
 });
 

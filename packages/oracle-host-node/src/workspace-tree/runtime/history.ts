@@ -8,6 +8,7 @@
 
 import {
   type CommitLogEntry,
+  type CommitLogFilters,
   isCommitSha,
   isSafeRefName,
   isSafeTreePath,
@@ -17,12 +18,14 @@ import {
   listFileLog,
   listRepoRefs,
   readCommitFileDiff,
+  resolveAuthorFilterValue,
 } from '../../git';
 import { LOG_DEFAULT_LIMIT, LOG_MAX_LIMIT, type RuntimeCtx } from './core';
 import type {
   CompareRefsRpcResult,
   WorkspaceTreeFileDiffRpcResult,
   WorkspaceTreeGitConsoleRpcResult,
+  WorkspaceTreeLogFilters,
   WorkspaceTreeLogRpcResult,
   WorkspaceTreeRefsRpcResult,
 } from './types';
@@ -58,13 +61,75 @@ export async function runLog(
   return { ok: true, entries };
 }
 
+const LOG_FILTER_MAX_PATHS = 32;
+const LOG_FILTER_MAX_AUTHOR = 200;
+// Strict ISO-8601: a date, optionally with a time and zone — the only
+// shapes the Date chip composes; anything else refuses.
+const LOG_FILTER_DATE = /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}(:\d{2}(\.\d{1,3})?)?(Z|[+-]\d{2}:\d{2})?)?$/;
+
+function isValidAuthorFilter(author: string): boolean {
+  if (author.length === 0 || author.length > LOG_FILTER_MAX_AUTHOR) return false;
+  if (author.startsWith('-')) return false;
+  // biome-ignore lint/suspicious/noControlCharactersInRegex: rejecting control chars is the point
+  return !/[\x00-\x1f\x7f]/.test(author);
+}
+
+function isValidDateFilter(value: string): boolean {
+  return LOG_FILTER_DATE.test(value) && !Number.isNaN(Date.parse(value));
+}
+
+/** Validate the caller's row filters into plumbing shape (§9 posture:
+ *  typed refusals, host-composed arguments). */
+function validateLogFilters(filters: WorkspaceTreeLogFilters): { ok: true; filters: CommitLogFilters } | { ok: false } {
+  const out: CommitLogFilters = {};
+  if (filters.author !== undefined) {
+    if (!isValidAuthorFilter(filters.author)) return { ok: false };
+    out.author = filters.author;
+  }
+  if (filters.since !== undefined) {
+    if (!isValidDateFilter(filters.since)) return { ok: false };
+    out.since = filters.since;
+  }
+  if (filters.until !== undefined) {
+    if (!isValidDateFilter(filters.until)) return { ok: false };
+    out.until = filters.until;
+  }
+  if (filters.paths !== undefined) {
+    if (filters.paths.length > LOG_FILTER_MAX_PATHS || !filters.paths.every((path) => isSafeTreePath(path))) {
+      return { ok: false };
+    }
+    if (filters.paths.length > 0) out.paths = [...filters.paths];
+  }
+  if (filters.noMerges === true) out.noMerges = true;
+  if (filters.firstParent === true) out.firstParent = true;
+  if (filters.topoOrder === true) out.topoOrder = true;
+  return { ok: true, filters: out };
+}
+
 export function runWorkspaceLog(
   ctx: RuntimeCtx,
   workspaceId: string,
   limit?: number,
   ref?: string,
+  filters?: WorkspaceTreeLogFilters,
 ): Promise<WorkspaceTreeLogRpcResult> {
-  return runLog(ctx, workspaceId, (rootDir, capped) => listCommitLog(ctx.gitRun, rootDir, capped, ref), limit, ref);
+  const validated = filters !== undefined ? validateLogFilters(filters) : { ok: true as const, filters: {} };
+  if (!validated.ok) return Promise.resolve({ ok: false, reason: 'invalid-filter' });
+  const authorMe = filters?.authorMe === true;
+  if (authorMe && filters?.author !== undefined) return Promise.resolve({ ok: false, reason: 'invalid-filter' });
+  return runLog(
+    ctx,
+    workspaceId,
+    async (rootDir, capped) => {
+      const plumbing = { ...validated.filters };
+      // `User: me` resolves HOST-SIDE to the identity the commit pass
+      // itself runs under (§11.3) — the client never supplies it.
+      if (authorMe) plumbing.author = await resolveAuthorFilterValue(ctx.gitRun, rootDir, ctx.syntheticIdentity());
+      return listCommitLog(ctx.gitRun, rootDir, capped, ref, plumbing);
+    },
+    limit,
+    ref,
+  );
 }
 
 export function runFileLog(

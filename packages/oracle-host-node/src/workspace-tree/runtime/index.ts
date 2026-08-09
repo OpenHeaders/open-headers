@@ -88,6 +88,7 @@ import type {
   WorkspaceTreeFileDiffRpcResult,
   WorkspaceTreeGitConsoleRpcResult,
   WorkspaceTreeGitStatusRpcResult,
+  WorkspaceTreeLogFilters,
   WorkspaceTreeLogRpcResult,
   WorkspaceTreeRefsRpcResult,
   WorkspaceTreeRuntime,
@@ -113,6 +114,7 @@ export type {
   WorkspaceTreeFileDiffRpcResult,
   WorkspaceTreeGitConsoleRpcResult,
   WorkspaceTreeGitStatusRpcResult,
+  WorkspaceTreeLogFilters,
   WorkspaceTreeLogRpcResult,
   WorkspaceTreeRefsRpcResult,
   WorkspaceTreeRuntime,
@@ -499,8 +501,13 @@ export function createWorkspaceTreeRuntime(options: WorkspaceTreeRuntimeOptions)
       return ctx.readGitStatus(binding);
     },
 
-    log(workspaceId: string, limit?: number, ref?: string): Promise<WorkspaceTreeLogRpcResult> {
-      return runWorkspaceLog(ctx, workspaceId, limit, ref);
+    log(
+      workspaceId: string,
+      limit?: number,
+      ref?: string,
+      filters?: WorkspaceTreeLogFilters,
+    ): Promise<WorkspaceTreeLogRpcResult> {
+      return runWorkspaceLog(ctx, workspaceId, limit, ref, filters);
     },
 
     fileLog(workspaceId: string, filePath: string, limit?: number): Promise<WorkspaceTreeLogRpcResult> {

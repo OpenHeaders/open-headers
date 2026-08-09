@@ -28,6 +28,7 @@ import {
 import { Dropdown, theme, Tooltip } from 'antd';
 import type React from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
+import { menuCheckIcon } from '../toolbar/menu-check';
 import type { GitRailSingleClick } from './git-rail-prefs';
 
 export interface GitRailActivityBarProps {
@@ -187,22 +188,28 @@ const GitRailActivityBar: React.FC<GitRailActivityBarProps> = (props) => {
         trigger={['click']}
         placement="bottomLeft"
         menu={{
+          // The ✓ prefix IS the state (IDE convention) — highlight is
+          // hover-only, so nothing is ever "selected".
           selectable: false,
           items: [
             {
               type: 'group',
               label: t('workbench.gitLog.rail.singleClickHeading'),
               children: [
-                { key: 'single-click-filter', label: t('workbench.gitLog.rail.singleClickFilter') },
-                { key: 'single-click-navigate', label: t('workbench.gitLog.rail.singleClickNavigate') },
+                {
+                  key: 'single-click-filter',
+                  label: t('workbench.gitLog.rail.singleClickFilter'),
+                  icon: menuCheckIcon(props.singleClick === 'filter'),
+                },
+                {
+                  key: 'single-click-navigate',
+                  label: t('workbench.gitLog.rail.singleClickNavigate'),
+                  icon: menuCheckIcon(props.singleClick === 'navigate'),
+                },
               ],
             },
             { type: 'divider' },
-            { key: 'show-tags', label: t('workbench.gitLog.rail.showTags') },
-          ],
-          selectedKeys: [
-            props.singleClick === 'filter' ? 'single-click-filter' : 'single-click-navigate',
-            ...(props.showTags ? ['show-tags'] : []),
+            { key: 'show-tags', label: t('workbench.gitLog.rail.showTags'), icon: menuCheckIcon(props.showTags) },
           ],
           onClick: ({ key }) => {
             if (key === 'single-click-filter') props.onSingleClickChange('filter');

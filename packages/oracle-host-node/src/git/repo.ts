@@ -725,6 +725,45 @@ export function parseCommitLog(stdout: string): CommitLogEntry[] {
 }
 
 /**
+ * Row filters for {@link listCommitLog} — the log toolbar's User /
+ * Date / Paths chips and Graph Options riding the walk itself, so
+ * answers are honest over real history rather than the loaded window.
+ * `author` is matched as a literal substring (escaped before git's
+ * regex machinery, case-insensitive); dates are ISO-8601 strings the
+ * dispatch layer validated; `paths` are validated tree paths.
+ */
+export interface CommitLogFilters {
+  author?: string;
+  since?: string;
+  until?: string;
+  paths?: string[];
+  noMerges?: boolean;
+  firstParent?: boolean;
+  topoOrder?: boolean;
+}
+
+function escapeAuthorPattern(author: string): string {
+  return author.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/**
+ * The `User: me` filter's value — the same resolution order the commit
+ * pass runs under (§11.3 git config first, synthetic fallback): the
+ * configured `user.email`, else `user.name`, else the synthetic name.
+ */
+export async function resolveAuthorFilterValue(
+  run: GitRunner,
+  rootDir: string,
+  fallback: SyntheticCommitIdentity,
+): Promise<string> {
+  const email = await configValue(run, rootDir, 'user.email');
+  if (email !== null) return email;
+  const name = await configValue(run, rootDir, 'user.name');
+  if (name !== null) return name;
+  return fallback.name.length > 0 ? fallback.name : 'OpenHeaders';
+}
+
+/**
  * Recent commits with their changed paths — the §9 history view's
  * workspace timeline. One invocation regardless of `limit`; an unborn
  * HEAD answers an empty list (a fresh repo has no history yet). `ref`
@@ -736,9 +775,11 @@ export async function listCommitLog(
   rootDir: string,
   limit: number,
   ref?: string,
+  filters?: CommitLogFilters,
 ): Promise<CommitLogEntry[] | null> {
   if (ref !== undefined && !isSafeRefName(ref)) return null;
   if (ref === undefined && (await localHeadSha(run, rootDir)) === null) return [];
+  const paths = filters?.paths ?? [];
   const result = await run(
     [
       ...repoArgs(rootDir),
@@ -749,7 +790,17 @@ export async function listCommitLog(
       `-n`,
       String(limit),
       `--format=${LOG_FORMAT}`,
-      ...(ref !== undefined ? [ref, '--'] : []),
+      ...(filters?.noMerges === true ? ['--no-merges'] : []),
+      ...(filters?.firstParent === true ? ['--first-parent'] : []),
+      ...(filters?.topoOrder === true ? ['--topo-order'] : []),
+      ...(filters?.author !== undefined
+        ? [`--author=${escapeAuthorPattern(filters.author)}`, '--regexp-ignore-case']
+        : []),
+      ...(filters?.since !== undefined ? [`--since=${filters.since}`] : []),
+      ...(filters?.until !== undefined ? [`--until=${filters.until}`] : []),
+      ...(ref !== undefined ? [ref] : []),
+      '--',
+      ...paths,
     ],
     { cwd: rootDir },
   );

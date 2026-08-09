@@ -475,6 +475,24 @@ export interface WorkspaceRpc {
       /** Scope the walk to a branch/tag from `listRefs` — a validated
        *  ref NAME, never a revision expression; unknown names refuse. */
       ref?: string;
+      /** Author filter (`User:` chip) — a plain string matched literally
+       *  and case-insensitively against author name/email; the host
+       *  escapes it before git's regex machinery. */
+      author?: string;
+      /** `User: me` — resolved HOST-SIDE to the identity the commit
+       *  pass runs under; mutually exclusive with `author`. */
+      authorMe?: boolean;
+      /** Date window (`Date:` chip) — strict ISO-8601 date or date-time
+       *  strings; anything else refuses `invalid-filter`. */
+      since?: string;
+      until?: string;
+      /** Path scope (`Paths:` chip) — validated tree paths, composed
+       *  host-side after `--`. */
+      paths?: string[];
+      /** Graph Options riders — flags composed host-side. */
+      noMerges?: boolean;
+      firstParent?: boolean;
+      topoOrder?: boolean;
     };
     res: WorkspaceTreeLogWire;
   };
@@ -732,7 +750,7 @@ export type WorkspaceTreeLogWire =
   | { ok: true; entries: WorkspaceTreeLogEntryWire[] }
   | {
       ok: false;
-      reason: 'not-bound' | 'git-unavailable' | 'not-a-repo' | 'unknown-ref' | 'log-failed';
+      reason: 'not-bound' | 'git-unavailable' | 'not-a-repo' | 'unknown-ref' | 'invalid-filter' | 'log-failed';
       detail?: string;
     };
 

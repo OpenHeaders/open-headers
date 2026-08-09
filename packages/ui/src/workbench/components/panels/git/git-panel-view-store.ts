@@ -19,6 +19,7 @@
  */
 
 import { createPaneTabsStore, type PaneTabsRegistry, type WorkbenchPaneTabs } from '../pane-tabs/pane-tabs-store';
+import type { GitLogAuthorFilter, GitLogDateFilter, GitLogSort } from './toolbar/log-filters';
 
 /** The branches tree's selection — the activity bar's action target. */
 export interface GitRailSelection {
@@ -26,13 +27,27 @@ export interface GitRailSelection {
   kind: 'local' | 'remote' | 'tag';
 }
 
-/** One log tab's view state — scope, filter, selection, and rail
+/** One log tab's view state — scope, filters, selection, and rail
  *  visibility travel with the tab. */
 export interface GitLogTabState {
   kind: 'log';
   id: number;
   selectedRef: string | null;
   filter: string;
+  /** The text field's `.*` toggle — interpret `filter` as a regex. */
+  filterRegex: boolean;
+  /** The text field's `Cc` toggle — case-sensitive matching. */
+  filterCase: boolean;
+  /** `User:` chip — the log verb's author filter. */
+  author: GitLogAuthorFilter | null;
+  /** `Date:` chip — preset window or explicit range. */
+  date: GitLogDateFilter | null;
+  /** `Paths:` chip — repo-relative tree paths; empty = off. */
+  paths: readonly string[];
+  /** Graph Options: sort order + walk riders. */
+  sort: GitLogSort;
+  firstParent: boolean;
+  noMerges: boolean;
   selectedSha: string | null;
   refsCollapsed: boolean;
   /** The rail tree's selection (highlight + bar enablement); null = HEAD. */
@@ -101,6 +116,14 @@ function makeLogTab(id: number): GitLogTabState {
     id,
     selectedRef: null,
     filter: '',
+    filterRegex: false,
+    filterCase: false,
+    author: null,
+    date: null,
+    paths: [],
+    sort: 'date',
+    firstParent: false,
+    noMerges: false,
     selectedSha: null,
     refsCollapsed: false,
     railSelection: null,

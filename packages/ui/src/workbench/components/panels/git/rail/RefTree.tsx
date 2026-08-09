@@ -16,7 +16,7 @@
  * handle (the bar sits outside this scroll area).
  */
 
-import { CaretDownOutlined, CaretRightOutlined, FolderOutlined } from '@ant-design/icons';
+import { CaretDownOutlined, CaretRightOutlined, FolderOutlined, SearchOutlined } from '@ant-design/icons';
 import type { WorkspaceTreeRefWire } from '@openheaders/core/bridge';
 import { Input, theme } from 'antd';
 import type React from 'react';
@@ -229,13 +229,25 @@ const RefTree = forwardRef<RefTreeHandle, RefTreeProps>(function RefTree(
       }}
       data-testid="git-tool-refs"
     >
-      <div style={{ flex: '0 0 auto', padding: '6px 8px 4px' }}>
+      {/* The rail's slice of the shared top band — same height and
+          rule as the log/details toolbars so the row reads as one. */}
+      <div
+        style={{
+          flex: '0 0 auto',
+          display: 'flex',
+          alignItems: 'center',
+          height: 33,
+          padding: '0 8px',
+          borderBottom: `1px solid ${token.colorBorderSecondary}`,
+        }}
+      >
         <Input
           size="small"
           allowClear
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder={t('workbench.gitLog.refs.search')}
+          prefix={<SearchOutlined style={{ color: token.colorTextTertiary }} />}
           data-testid="git-tool-refs-search"
         />
       </div>

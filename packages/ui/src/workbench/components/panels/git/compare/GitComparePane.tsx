@@ -139,6 +139,7 @@ const CompareSide: React.FC<CompareSideProps> = ({
                 files={selected.files}
                 loadingPath={loadingPath}
                 onOpenFile={(path) => onOpenFile(selected.sha, path)}
+                showHeader
               />
               <div
                 style={{
