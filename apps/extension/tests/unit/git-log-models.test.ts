@@ -12,7 +12,7 @@ import {
   buildRefTree,
   filterRefTree,
   folderKeysToRef,
-} from '@openheaders/ui/workbench/components/panels/git/ref-tree-model';
+} from '@openheaders/ui/workbench/components/panels/git/rail/ref-tree-model';
 import { describe, expect, it } from 'vitest';
 
 describe('computeLogGraph', () => {
@@ -144,6 +144,17 @@ describe('ref tree model', () => {
   it('names the ancestor folder keys of a ref for default expansion', () => {
     expect(folderKeysToRef('v5/deep/branch', 'local')).toEqual(['local:v5', 'local:v5/deep']);
     expect(folderKeysToRef('main', 'local')).toEqual([]);
+  });
+
+  it('renders a flat sorted full-name list while Group By Directory is off', () => {
+    const flat = buildRefTree(refs, 'local', false);
+    expect(flat.map((node) => (node.kind === 'leaf' ? node.label : `d:${node.label}`))).toEqual([
+      'fix/one',
+      'main',
+      'v5/data-model',
+      'v5/other',
+    ]);
+    expect(flat.every((node) => node.kind === 'leaf')).toBe(true);
   });
 });
 

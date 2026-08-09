@@ -164,7 +164,29 @@ export async function dispatchWorkspaceTreeRpc(
     const workspaceId = typeof message.workspaceId === 'string' ? message.workspaceId : '';
     const branch = typeof message.branch === 'string' ? message.branch.trim() : '';
     if (!workspaceId || !branch || runtime === null) return { ok: false, reason: 'not-bound' };
-    return await runtime.createBranch(workspaceId, branch);
+    const from = typeof message.from === 'string' && message.from.length > 0 ? message.from : undefined;
+    return await runtime.createBranch(workspaceId, branch, {
+      ...(from !== undefined ? { from } : {}),
+      checkout: message.checkout !== false,
+      overwrite: message.overwrite === true,
+    });
+  }
+  if (type === 'oh.workspaceTree.deleteBranch') {
+    const workspaceId = typeof message.workspaceId === 'string' ? message.workspaceId : '';
+    const branch = typeof message.branch === 'string' ? message.branch.trim() : '';
+    if (!workspaceId || !branch || runtime === null) return { ok: false, reason: 'not-bound' };
+    return await runtime.deleteBranch(workspaceId, branch);
+  }
+  if (type === 'oh.workspaceTree.updateBranch') {
+    const workspaceId = typeof message.workspaceId === 'string' ? message.workspaceId : '';
+    const branch = typeof message.branch === 'string' ? message.branch.trim() : '';
+    if (!workspaceId || !branch || runtime === null) return { ok: false, reason: 'not-bound' };
+    return await runtime.updateBranch(workspaceId, branch);
+  }
+  if (type === 'oh.workspaceTree.fetch') {
+    const workspaceId = typeof message.workspaceId === 'string' ? message.workspaceId : '';
+    if (!workspaceId || runtime === null) return { ok: false, reason: 'not-bound' };
+    return await runtime.fetch(workspaceId);
   }
   if (type === 'oh.workspaceTree.mergeBranch') {
     const workspaceId = typeof message.workspaceId === 'string' ? message.workspaceId : '';
@@ -187,6 +209,12 @@ export async function dispatchWorkspaceTreeRpc(
     const workspaceId = typeof message.workspaceId === 'string' ? message.workspaceId : '';
     if (!workspaceId || runtime === null) return { ok: false, reason: 'not-bound' };
     return await runtime.listRefs(workspaceId);
+  }
+  if (type === 'oh.workspaceTree.compareRefs') {
+    const workspaceId = typeof message.workspaceId === 'string' ? message.workspaceId : '';
+    const ref = typeof message.ref === 'string' ? message.ref.trim() : '';
+    if (!workspaceId || !ref || runtime === null) return { ok: false, reason: 'not-bound' };
+    return await runtime.compareRefs(workspaceId, ref);
   }
   if (type === 'oh.workspaceTree.fileDiff') {
     const workspaceId = typeof message.workspaceId === 'string' ? message.workspaceId : '';

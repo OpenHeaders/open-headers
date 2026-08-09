@@ -171,9 +171,11 @@ const GitLogPanel: React.FC<GitLogPanelProps> = ({ info, dockSlot, onHide }) => 
   );
 
   if (workspaceId === null || workbench === null || !bound) {
+    // Version Control naming law: unbound, the window keeps its BASE
+    // identity — it becomes "Git" only once the binding exists.
     return (
       <div className="rules-bottom-panel">
-        <PanelHeader wiring={headerWiring} title={<strong>{t('workbench.toolWindows.git')}</strong>} info={info} />
+        <PanelHeader wiring={headerWiring} title={<strong>{t('workbench.toolWindows.versionControl')}</strong>} info={info} />
         <div
           style={{ flex: '1 1 auto', minHeight: 0, overflowY: 'auto', display: 'flex' }}
           data-testid="git-tool-not-bound"
@@ -193,7 +195,7 @@ const GitLogPanel: React.FC<GitLogPanelProps> = ({ info, dockSlot, onHide }) => 
   }
 
   return (
-    <div className="rules-bottom-panel">
+    <div className="rules-bottom-panel git-tool-panel">
       <GitGroupRenderer
         key={workspaceId}
         workbench={workbench}

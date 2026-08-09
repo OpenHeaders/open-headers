@@ -15,18 +15,20 @@
  */
 
 import type React from 'react';
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 import {
   type BottomPanelAlignment,
   makeEditorTabCollisionDetection,
   ShellLayout as SharedShellLayout,
   type SidebarLayoutVariant,
 } from '@openheaders/ui/shared/dock-layout';
+import { useActiveWorkspaceId } from '@openheaders/ui/shared/hooks/readers/useActiveWorkspaceId';
 import type { ResponsiveLayout } from '../../hooks/useResponsiveLayout';
 import type { ToolLayoutApi } from '../../hooks/useToolLayout';
 import { useSetting, useSettingValue } from '../../settings/hooks';
 import { focusStore } from '../../stores/focus-region-store';
-import { TOOL_WINDOW_MAP } from '../../tool-windows';
+import { useWorkspaceGitBound } from '../../stores/git-binding-store';
+import { TOOL_WINDOW_MAP, type ToolWindowDef } from '../../tool-windows';
 import type { DockSlot, ToolWindowId } from '../../types';
 
 // ── Props ─────────────────────────────────────────────────────────────
@@ -58,6 +60,29 @@ const ShellLayout: React.FC<ShellLayoutProps> = ({
   onVerticalResize,
   renderEditorTabDragPreview,
 }) => {
+  // Version Control naming law (the IDE model): the tool window's BASE
+  // identity is "Version Control"; it reads "Git" only once the active
+  // workspace's directory binding exists. Everything else about the
+  // def (id, icon, slot, gating) stays the registry's.
+  const workspaceId = useActiveWorkspaceId();
+  const gitBound = useWorkspaceGitBound(workspaceId);
+  const windowMap = useMemo(() => {
+    if (gitBound) return TOOL_WINDOW_MAP;
+    const { id, icon, core, defaultSlot, openByDefault, requiresCapability, teaserWhenUnavailable } =
+      TOOL_WINDOW_MAP.git;
+    const versionControl: ToolWindowDef = {
+      id,
+      icon,
+      core,
+      defaultSlot,
+      ...(openByDefault !== undefined ? { openByDefault } : {}),
+      ...(requiresCapability !== undefined ? { requiresCapability } : {}),
+      ...(teaserWhenUnavailable !== undefined ? { teaserWhenUnavailable } : {}),
+      labelKey: 'workbench.toolWindows.versionControl',
+    };
+    return { ...TOOL_WINDOW_MAP, git: versionControl };
+  }, [gitBound]);
+
   const [showLabels, setShowLabels] = useSetting('workspaceLayout.showToolWindowLabels');
   const bottomPanelAlignment = useSettingValue('workspaceLayout.bottomPanelAlignment') as BottomPanelAlignment;
   const sidebarLayout = useSettingValue('workspaceLayout.sidebarLayout') as SidebarLayoutVariant;
@@ -75,7 +100,7 @@ const ShellLayout: React.FC<ShellLayoutProps> = ({
   return (
     <SharedShellLayout<ToolWindowId>
       tl={tl}
-      windowMap={TOOL_WINDOW_MAP}
+      windowMap={windowMap}
       renderToolWindow={renderToolWindow}
       renderEditor={renderEditor}
       onHorizontalResize={onHorizontalResize}

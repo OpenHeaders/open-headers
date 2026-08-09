@@ -5,6 +5,18 @@
  * never by surfaces (they reach the git plane via gesture RPCs, §8).
  */
 
+export {
+  type BranchCreateResult,
+  type BranchDeleteResult,
+  type BranchUpdateResult,
+  type CreateLocalBranchOptions,
+  createLocalBranch,
+  deleteLocalBranch,
+  type FetchAllRemotesResult,
+  fetchAllRemotes,
+  listCommitRangeLog,
+  updateBranchFromUpstream,
+} from './branch-ops';
 export { type CommitIntent, composeCommitMessage } from './commit-message';
 export {
   type CreateGitExecOptions,

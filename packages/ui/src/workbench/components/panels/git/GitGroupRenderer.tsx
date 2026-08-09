@@ -46,6 +46,7 @@ import {
   type PaneTabRef,
 } from '../pane-tabs/pane-tabs-store';
 import { type GitDragIntent, GitDragIntentContext } from './git-drag-intent';
+import GitComparePane from './compare/GitComparePane';
 import { GIT_PRIMARY_TAB_KEY, type GitPanelTab, type GitPanelWorkbench, gitPanelTabKey } from './git-panel-view-store';
 import GitConsolePane from './GitConsolePane';
 import GitLogView from './GitLogView';
@@ -96,10 +97,11 @@ export const GitGroupRenderer: React.FC<GitGroupRendererProps> = ({
 
   const tabByKey = new Map<string, GitPanelTab>();
   for (const tab of registry.tabs()) tabByKey.set(gitPanelTabKey(tab), tab);
-  const labelFor = (tab: GitPanelTab): string =>
-    tab.kind === 'console'
-      ? t('workbench.gitLog.console.tab')
-      : t('workbench.gitLog.logTab', { branch: branch ?? 'HEAD' });
+  const labelFor = (tab: GitPanelTab): string => {
+    if (tab.kind === 'console') return t('workbench.gitLog.console.tab');
+    if (tab.kind === 'compare') return t('workbench.gitLog.compareTab', { a: branch ?? 'HEAD', b: tab.ref });
+    return t('workbench.gitLog.logTab', { branch: branch ?? 'HEAD' });
+  };
   const leafDescriptors = (leaf: EditorLeaf<PaneTabRef>): GitTabDescriptor[] =>
     leaf.tabs.flatMap((ref) => {
       const tab = tabByKey.get(ref.id);
@@ -307,12 +309,22 @@ export const GitGroupRenderer: React.FC<GitGroupRendererProps> = ({
     const tab = leaf.activeTabId !== null ? tabByKey.get(leaf.activeTabId) : undefined;
     if (tab === undefined) return null;
     if (tab.kind === 'console') return <GitConsolePane workspaceId={workspaceId} />;
+    if (tab.kind === 'compare') {
+      return (
+        <GitComparePane
+          workspaceId={workspaceId}
+          tab={tab}
+          patchTab={(patch) => registry.patchCompareTab(gitPanelTabKey(tab), patch)}
+        />
+      );
+    }
     return (
       <GitLogView
         workspaceId={workspaceId}
         tab={tab}
         branch={branch}
         patchTab={(patch) => registry.patchLogTab(gitPanelTabKey(tab), patch)}
+        onOpenCompare={(ref) => registry.openCompare(ref)}
       />
     );
   };

@@ -48,8 +48,21 @@ function emit(dir: BuildFolder, groupKind: string, prefix: string): RefTreeNode[
   return nodes;
 }
 
-/** Fold one namespace group's refs into its folder tree. */
-export function buildRefTree(refs: readonly WorkspaceTreeRefWire[], groupKind: string): RefTreeNode[] {
+/**
+ * Fold one namespace group's refs into its folder tree. With
+ * `groupByDirectory` off (the IDE-log gear toggle) the group stays a
+ * flat sorted list — every ref a leaf labeled by its full name.
+ */
+export function buildRefTree(
+  refs: readonly WorkspaceTreeRefWire[],
+  groupKind: string,
+  groupByDirectory = true,
+): RefTreeNode[] {
+  if (!groupByDirectory) {
+    return [...refs]
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .map((ref) => ({ kind: 'leaf', label: ref.name, name: ref.name, refKind: ref.kind }));
+  }
   const root = newBuildFolder();
   for (const ref of refs) {
     const segments = ref.name.split('/').filter((segment) => segment.length > 0);

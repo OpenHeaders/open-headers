@@ -12,6 +12,13 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
+  createLocalBranch,
+  deleteLocalBranch,
+  fetchAllRemotes,
+  listCommitRangeLog,
+  updateBranchFromUpstream,
+} from '../../src/git/branch-ops';
+import {
   createGitExec,
   type GitAuditRow,
   type GitRunner,
@@ -1100,5 +1107,119 @@ describe('commit file diff (Phase 7 slice 3)', () => {
       ok: false,
       reason: 'unknown-path',
     });
+  });
+});
+
+describe('branch ops (IDE-log activity bar)', () => {
+  it('deleteLocalBranch answers the pre-delete sha and refuses unknown names', async () => {
+    await initialCommit();
+    await createAndSwitchBranch(run, tmpDir, 'feature/x');
+    const featureSha = await localHeadSha(run, tmpDir);
+    await checkoutWorkspaceBranch(
+      run,
+      tmpDir,
+      (await listLocalBranches(run, tmpDir)).find((b) => b !== 'feature/x') ?? 'main',
+    );
+
+    const deleted = await deleteLocalBranch(run, tmpDir, 'feature/x');
+    expect(deleted).toEqual({ ok: true, sha: featureSha });
+    expect(await listLocalBranches(run, tmpDir)).not.toContain('feature/x');
+
+    expect((await deleteLocalBranch(run, tmpDir, 'feature/x')).ok).toBe(false);
+    expect((await deleteLocalBranch(run, tmpDir, '--force')).ok).toBe(false);
+  });
+
+  it('createLocalBranch mints a ref at a start point without moving HEAD; checkout/overwrite variants', async () => {
+    await initialCommit();
+    const first = await localHeadSha(run, tmpDir);
+    if (first === null) throw new Error('no head');
+    await write('rules/block-r0000001/rule.yaml', 'schemaVersion: 5\nuid: r0000001\n');
+    const second = await commitWorkspaceTree({ run, rootDir: tmpDir, message: 'Second', identityEnv: IDENTITY_ENV });
+    if (!second.ok || !second.committed) throw new Error('second commit failed');
+    const head = await currentBranch(run, tmpDir);
+
+    // No checkout: HEAD stays; the new branch points at the start sha.
+    expect(
+      await createLocalBranch(run, tmpDir, 'restore/x', { from: first, checkout: false, overwrite: false }),
+    ).toEqual({
+      ok: true,
+    });
+    expect(await currentBranch(run, tmpDir)).toBe(head);
+    expect(await resolveRefSha(run, tmpDir, 'refs/heads/restore/x')).toBe(first);
+
+    // Overwrite moves the existing ref (`branch -f`).
+    expect(
+      await createLocalBranch(run, tmpDir, 'restore/x', { from: second.sha, checkout: false, overwrite: true }),
+    ).toEqual({ ok: true });
+    expect(await resolveRefSha(run, tmpDir, 'refs/heads/restore/x')).toBe(second.sha);
+
+    // Checkout variant is the `checkout -b` gesture.
+    expect(
+      await createLocalBranch(run, tmpDir, 'feature/y', { from: first, checkout: true, overwrite: false }),
+    ).toEqual({
+      ok: true,
+    });
+    expect(await currentBranch(run, tmpDir)).toBe('feature/y');
+    expect(await localHeadSha(run, tmpDir)).toBe(first);
+
+    // Duplicate without overwrite fails through git's own guard.
+    expect((await createLocalBranch(run, tmpDir, 'restore/x', { checkout: false, overwrite: false })).ok).toBe(false);
+  });
+
+  it('listCommitRangeLog answers each exclusive side and refuses unsafe shapes', async () => {
+    await initialCommit();
+    const base = await currentBranch(run, tmpDir);
+    if (base === null) throw new Error('no branch');
+    await createAndSwitchBranch(run, tmpDir, 'feature/z');
+    await write('rules/block-r0000002/rule.yaml', 'schemaVersion: 5\nuid: r0000002\n');
+    const onBranch = await commitWorkspaceTree({
+      run,
+      rootDir: tmpDir,
+      message: 'Branch work',
+      identityEnv: IDENTITY_ENV,
+    });
+    if (!onBranch.ok || !onBranch.committed) throw new Error('branch commit failed');
+
+    const onlyInFeature = await listCommitRangeLog(run, tmpDir, base, 'feature/z', 200);
+    expect(onlyInFeature?.map((entry) => entry.subject)).toEqual(['Branch work']);
+    expect(onlyInFeature?.[0].files.map((file) => file.path)).toEqual(['rules/block-r0000002/rule.yaml']);
+    const onlyInBase = await listCommitRangeLog(run, tmpDir, 'feature/z', base, 200);
+    expect(onlyInBase).toEqual([]);
+
+    expect(await listCommitRangeLog(run, tmpDir, `${base}..feature/z`, base, 200)).toBeNull();
+    expect(await listCommitRangeLog(run, tmpDir, base, '--all', 200)).toBeNull();
+  });
+
+  it('fetchAllRemotes refuses with no remote and updateBranchFromUpstream fast-forwards a non-current branch', async () => {
+    await initialCommit();
+    expect(await fetchAllRemotes(run, tmpDir)).toEqual({ ok: false, reason: 'no-remote' });
+
+    // remote.git <- clone: the clone's main tracks origin/main.
+    const bare = path.join(tmpDir, 'remote.git');
+    const clone = path.join(tmpDir, 'clone');
+    await run(['init', '--bare', bare], { cwd: tmpDir });
+    const head = await currentBranch(run, tmpDir);
+    await run(['--git-dir', path.join(tmpDir, '.git'), 'push', '--quiet', bare, `${head}:refs/heads/main`], {
+      cwd: tmpDir,
+    });
+    await run(['--git-dir', bare, 'symbolic-ref', 'HEAD', 'refs/heads/main'], { cwd: tmpDir });
+    await run(['clone', '--quiet', bare, clone], { cwd: tmpDir });
+
+    // Park the clone on another branch so `main` is NOT checked out.
+    await createAndSwitchBranch(run, clone, 'parking');
+    // Advance the remote from the source repo.
+    await write('rules/block-r0000003/rule.yaml', 'schemaVersion: 5\nuid: r0000003\n');
+    const advanced = await commitWorkspaceTree({ run, rootDir: tmpDir, message: 'Advance', identityEnv: IDENTITY_ENV });
+    if (!advanced.ok || !advanced.committed) throw new Error('advance commit failed');
+    await run(['--git-dir', path.join(tmpDir, '.git'), 'push', '--quiet', bare, `${head}:refs/heads/main`], {
+      cwd: tmpDir,
+    });
+
+    expect(await fetchAllRemotes(run, clone)).toEqual({ ok: true });
+    expect(await updateBranchFromUpstream(run, clone, 'main')).toEqual({ ok: true });
+    expect(await resolveRefSha(run, clone, 'refs/heads/main')).toBe(advanced.sha);
+
+    // A branch with no upstream refuses typed.
+    expect(await updateBranchFromUpstream(run, clone, 'parking')).toEqual({ ok: false, reason: 'no-upstream' });
   });
 });

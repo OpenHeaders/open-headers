@@ -403,10 +403,52 @@ export interface WorkspaceRpc {
     req: { workspaceId: string; branch: string; dirtyAction?: 'commit' | 'stash' | 'discard' };
     res: WorkspaceTreeSwitchBranchWire;
   };
-  /** Create a branch at HEAD and switch to it (`checkout -b` — dirty work rides along). */
+  /**
+   * Create a branch (IDE-log New Branch dialog): start point `from` —
+   * a ref name from `listRefs` or a FULL commit sha (the delete-toast
+   * Restore path); HEAD when absent. `checkout` (default true) keeps
+   * the historic `checkout -b` gesture, dirty work riding along;
+   * `overwrite` resets an existing branch (`-B` / `branch -f`), the
+   * current branch refusing.
+   */
   'oh.workspaceTree.createBranch': {
-    req: { workspaceId: string; branch: string };
+    req: { workspaceId: string; branch: string; from?: string; checkout?: boolean; overwrite?: boolean };
     res: WorkspaceTreeCreateBranchWire;
+  };
+  /**
+   * Safe local-branch delete (`git branch -d` — git itself refuses
+   * unmerged work; the current branch refuses typed). The pre-delete
+   * sha rides the answer so the surface can offer Restore as a plain
+   * create-from-sha — never a history edit.
+   */
+  'oh.workspaceTree.deleteBranch': {
+    req: { workspaceId: string; branch: string };
+    res: WorkspaceTreeDeleteBranchWire;
+  };
+  /**
+   * Update Selected (IDE-log activity bar): fast-forward a NON-current
+   * local branch from its configured upstream without touching the
+   * working tree (`fetch <remote> <src>:<branch> --prune`). The
+   * current branch refuses — its in-app update is the pull gesture.
+   */
+  'oh.workspaceTree.updateBranch': {
+    req: { workspaceId: string; branch: string };
+    res: WorkspaceTreeUpdateBranchWire;
+  };
+  /** Explicit Fetch gesture — all remotes, pruned; non-mutating (§3.2). */
+  'oh.workspaceTree.fetch': {
+    req: { workspaceId: string };
+    res: WorkspaceTreeFetchWire;
+  };
+  /**
+   * Compare with Current (IDE-log): the two exclusive commit lists
+   * between the checked-out branch and a validated ref from
+   * `listRefs`. Pure read; the range expressions are composed
+   * host-side from validated names.
+   */
+  'oh.workspaceTree.compareRefs': {
+    req: { workspaceId: string; ref: string };
+    res: WorkspaceTreeCompareRefsWire;
   };
   /**
    * In-app branch merge (§6): the Phase 4 pull machinery pointed at a
@@ -583,8 +625,65 @@ export type WorkspaceTreeSwitchBranchWire =
     };
 
 export type WorkspaceTreeCreateBranchWire =
+  | { ok: true; branch: string; checkedOut: boolean }
+  | {
+      ok: false;
+      reason:
+        | 'not-bound'
+        | 'git-unavailable'
+        | 'not-a-repo'
+        | 'unknown-ref'
+        | 'exists'
+        | 'current-branch'
+        | 'create-failed';
+      detail?: string;
+    };
+
+export type WorkspaceTreeDeleteBranchWire =
+  | { ok: true; branch: string; sha: string }
+  | {
+      ok: false;
+      reason: 'not-bound' | 'git-unavailable' | 'not-a-repo' | 'unknown-branch' | 'current-branch' | 'delete-failed';
+      detail?: string;
+    };
+
+export type WorkspaceTreeUpdateBranchWire =
   | { ok: true; branch: string }
-  | { ok: false; reason: 'not-bound' | 'git-unavailable' | 'not-a-repo' | 'create-failed'; detail?: string };
+  | {
+      ok: false;
+      reason:
+        | 'not-bound'
+        | 'git-unavailable'
+        | 'not-a-repo'
+        | 'unknown-branch'
+        | 'current-branch'
+        | 'no-upstream'
+        | 'update-failed';
+      detail?: string;
+    };
+
+export type WorkspaceTreeFetchWire =
+  | { ok: true }
+  | {
+      ok: false;
+      reason: 'not-bound' | 'git-unavailable' | 'not-a-repo' | 'no-remote' | 'fetch-failed';
+      detail?: string;
+    };
+
+/** The Compare-with-Current answer — both exclusive sides, `log`-shaped entries. */
+export type WorkspaceTreeCompareRefsWire =
+  | {
+      ok: true;
+      current: string;
+      ref: string;
+      onlyInCurrent: WorkspaceTreeLogEntryWire[];
+      onlyInRef: WorkspaceTreeLogEntryWire[];
+    }
+  | {
+      ok: false;
+      reason: 'not-bound' | 'git-unavailable' | 'not-a-repo' | 'detached-head' | 'unknown-ref' | 'compare-failed';
+      detail?: string;
+    };
 
 export type WorkspaceTreeMergeBranchWire =
   | { ok: true; upToDate: true }

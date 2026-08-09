@@ -32,11 +32,11 @@ import type { TreeFile } from '@openheaders/core/workspace-tree';
 import type { GitExecResult, GitRunner } from './git-exec';
 
 /** Explicit repo addressing prefix for every command (GIT_PLAN.md §7). */
-function repoArgs(rootDir: string): string[] {
+export function repoArgs(rootDir: string): string[] {
   return ['--git-dir', path.join(rootDir, '.git'), '--work-tree', rootDir];
 }
 
-function failureDetail(result: GitExecResult): string {
+export function failureDetail(result: GitExecResult): string {
   const parts = [result.stderr.trim(), result.stdout.trim()].filter((part) => part.length > 0);
   return parts.join('\n') || `git exited with code ${result.code}`;
 }
@@ -683,11 +683,11 @@ export interface CommitLogEntry {
  * Trailers are parsed from `%b` app-side — the `%(trailers:…)` pretty
  * options postdate the 2.20 version floor.
  */
-const LOG_FORMAT = '%x1e%H%x1f%P%x1f%an%x1f%ae%x1f%aI%x1f%s%x1f%b';
+export const LOG_FORMAT = '%x1e%H%x1f%P%x1f%an%x1f%ae%x1f%aI%x1f%s%x1f%b';
 
 const CO_AUTHOR_TRAILER = /^co-authored-by:\s*(.+)$/gim;
 
-function parseCommitLog(stdout: string): CommitLogEntry[] {
+export function parseCommitLog(stdout: string): CommitLogEntry[] {
   const entries: CommitLogEntry[] = [];
   for (const record of stdout.split('\x1e')) {
     if (record.length === 0) continue;

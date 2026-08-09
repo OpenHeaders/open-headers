@@ -11,6 +11,7 @@
 import type { WorkspaceTreeLogEntryWire, WorkspaceTreeRefWire } from '@openheaders/core/bridge';
 import { Button, theme } from 'antd';
 import type React from 'react';
+import { useEffect, useRef } from 'react';
 import { useLocale } from '@openheaders/ui/context/LocaleContext';
 import type { GraphRow } from './graph';
 import GraphCell, { GRAPH_ROW_HEIGHT } from './GraphCell';
@@ -28,6 +29,9 @@ export interface CommitListProps {
    *  no-matches empty state and its reset action. */
   filtersActive: boolean;
   onResetFilters: () => void;
+  /** Navigate gesture: scroll the row for `sha` into view. The nonce
+   *  distinguishes repeated navigations to the same sha. */
+  scrollTo?: { sha: string; nonce: number } | null;
 }
 
 const CommitList: React.FC<CommitListProps> = ({
@@ -38,9 +42,17 @@ const CommitList: React.FC<CommitListProps> = ({
   onSelect,
   filtersActive,
   onResetFilters,
+  scrollTo,
 }) => {
   const { token } = theme.useToken();
   const { locale, t } = useLocale();
+  const listRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (scrollTo === null || scrollTo === undefined || listRef.current === null) return;
+    const row = listRef.current.querySelector(`[data-sha="${scrollTo.sha}"]`);
+    row?.scrollIntoView({ behavior: 'instant', block: 'center' });
+  }, [scrollTo]);
 
   if (entries.length === 0) {
     return (
@@ -70,7 +82,7 @@ const CommitList: React.FC<CommitListProps> = ({
   const maxLanes = graph === null ? 1 : Math.max(1, ...graph.map((row) => row.laneCount));
 
   return (
-    <div style={{ flex: '1 1 auto', minHeight: 0, overflowY: 'auto' }} data-testid="git-tool-list">
+    <div ref={listRef} style={{ flex: '1 1 auto', minHeight: 0, overflowY: 'auto' }} data-testid="git-tool-list">
       {entries.map((entry, index) => {
         const isSelected = entry.sha === selectedSha;
         const isMerge = entry.parents.length > 1;

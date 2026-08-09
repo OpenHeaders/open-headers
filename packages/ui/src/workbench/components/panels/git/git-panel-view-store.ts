@@ -2,7 +2,8 @@
  * git-panel-view-store — the Git tool window's tab REGISTRY (the
  * terminal-instance analog): per workspace, the flat list of tab
  * identities — log tabs with their scope/filter/selection/rail state,
- * plus the read-only console tab — and the active tab. WHERE each tab
+ * Compare-with-Current tabs, plus the read-only console tab — and the
+ * active tab. WHERE each tab
  * lives (splits, per-leaf order, focus) is the shared pane-tabs
  * store's business: {@link getGitPanelWorkbench} binds one pane store
  * per workspace to this registry, the exact terminal wiring.
@@ -19,6 +20,12 @@
 
 import { createPaneTabsStore, type PaneTabsRegistry, type WorkbenchPaneTabs } from '../pane-tabs/pane-tabs-store';
 
+/** The branches tree's selection — the activity bar's action target. */
+export interface GitRailSelection {
+  name: string;
+  kind: 'local' | 'remote' | 'tag';
+}
+
 /** One log tab's view state — scope, filter, selection, and rail
  *  visibility travel with the tab. */
 export interface GitLogTabState {
@@ -28,20 +35,35 @@ export interface GitLogTabState {
   filter: string;
   selectedSha: string | null;
   refsCollapsed: boolean;
+  /** The rail tree's selection (highlight + bar enablement); null = HEAD. */
+  railSelection: GitRailSelection | null;
 }
 
 export interface GitConsoleTabState {
   kind: 'console';
 }
 
-export type GitPanelTab = GitLogTabState | GitConsoleTabState;
+/** One Compare-with-Current tab — the compared ref plus each side's
+ *  commit selection (frames refetch the lists live against the
+ *  CURRENT branch, so only the ref identity persists). */
+export interface GitCompareTabState {
+  kind: 'compare';
+  id: number;
+  ref: string;
+  selectedInCurrent: string | null;
+  selectedInRef: string | null;
+}
+
+export type GitPanelTab = GitLogTabState | GitConsoleTabState | GitCompareTabState;
 
 export const GIT_CONSOLE_TAB_KEY = 'console';
 export const GIT_PRIMARY_TAB_KEY = 'log:1';
 
 /** Stable registry/strip key of a tab. */
 export function gitPanelTabKey(tab: GitPanelTab): string {
-  return tab.kind === 'console' ? GIT_CONSOLE_TAB_KEY : `log:${tab.id}`;
+  if (tab.kind === 'console') return GIT_CONSOLE_TAB_KEY;
+  if (tab.kind === 'compare') return `compare:${tab.id}`;
+  return `log:${tab.id}`;
 }
 
 /** The pane-tabs registry contract plus the git-specific verbs. */
@@ -53,9 +75,12 @@ export interface GitPanelTabsRegistry extends PaneTabsRegistry {
   newLogTab(): void;
   /** Add the console tab if absent, then activate it. */
   openConsole(): void;
+  /** Open (or re-activate) the Compare-with-Current tab for a ref. */
+  openCompare(ref: string): void;
   /** Close tabs by key — the primary log tab is silently skipped. */
   closeTabs(keys: readonly string[]): void;
   patchLogTab(key: string, patch: Partial<Omit<GitLogTabState, 'kind' | 'id'>>): void;
+  patchCompareTab(key: string, patch: Partial<Omit<GitCompareTabState, 'kind' | 'id' | 'ref'>>): void;
 }
 
 export interface GitPanelWorkbench {
@@ -71,7 +96,15 @@ interface RegistryState {
 }
 
 function makeLogTab(id: number): GitLogTabState {
-  return { kind: 'log', id, selectedRef: null, filter: '', selectedSha: null, refsCollapsed: false };
+  return {
+    kind: 'log',
+    id,
+    selectedRef: null,
+    filter: '',
+    selectedSha: null,
+    refsCollapsed: false,
+    railSelection: null,
+  };
 }
 
 function createRegistry(): GitPanelTabsRegistry {
@@ -136,6 +169,25 @@ function createRegistry(): GitPanelTabsRegistry {
       state.activeId = GIT_CONSOLE_TAB_KEY;
       notify();
     },
+    openCompare: (ref) => {
+      const existing = state.tabs.find((tab) => tab.kind === 'compare' && tab.ref === ref);
+      if (existing !== undefined) {
+        state.activeId = gitPanelTabKey(existing);
+        notify();
+        return;
+      }
+      const tab: GitCompareTabState = {
+        kind: 'compare',
+        id: state.nextTabId,
+        ref,
+        selectedInCurrent: null,
+        selectedInRef: null,
+      };
+      state.nextTabId += 1;
+      state.tabs = [...state.tabs, tab];
+      state.activeId = gitPanelTabKey(tab);
+      notify();
+    },
     closeTabs: (keys) => {
       const closing = new Set(keys);
       closing.delete(GIT_PRIMARY_TAB_KEY);
@@ -152,6 +204,17 @@ function createRegistry(): GitPanelTabsRegistry {
       let changed = false;
       const next = state.tabs.map((tab) => {
         if (tab.kind !== 'log' || gitPanelTabKey(tab) !== key) return tab;
+        changed = true;
+        return { ...tab, ...patch };
+      });
+      if (!changed) return;
+      state.tabs = next;
+      notify();
+    },
+    patchCompareTab: (key, patch) => {
+      let changed = false;
+      const next = state.tabs.map((tab) => {
+        if (tab.kind !== 'compare' || gitPanelTabKey(tab) !== key) return tab;
         changed = true;
         return { ...tab, ...patch };
       });

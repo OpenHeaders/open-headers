@@ -1,23 +1,35 @@
 /**
- * RefTree — the Git tool window's left rail, IDE-log shape: a
+ * RefTree — the Git tool window's branches tree, IDE-log shape: a
  * "Branch or tag" search box, the `HEAD (Current Branch)` row, then the
  * Local / Remote / Tags groups whose ref names fold on `/` into
  * collapsible folders (`v5/data-model` = folder `v5` → leaf
- * `data-model`; a remote's first segment is its remote-name folder).
- * The current branch renders bold + ★ with its ancestor folders open by
- * default; every other folder starts collapsed. Searching prunes to
- * matches and renders them fully expanded. Selection scopes the log to
- * that ref; the HEAD row (or re-clicking the selection) clears back to
- * HEAD scope.
+ * `data-model`; a remote's first segment is its remote-name folder) —
+ * or flat full-name rows while Group By Directory is off. The current
+ * branch renders bold + ★ with its ancestor folders open by default;
+ * favorite refs carry the gold ★ too. Searching prunes to matches and
+ * renders them fully expanded.
+ *
+ * Selection is the TREE selection (the activity bar's target), owned
+ * by the rail orchestrator — what a click DOES (scope the log /
+ * navigate to the head) is the gear's single-click setting, decided
+ * above. Expand All / Collapse All arrive through the imperative
+ * handle (the bar sits outside this scroll area).
  */
 
 import { CaretDownOutlined, CaretRightOutlined, FolderOutlined } from '@ant-design/icons';
 import type { WorkspaceTreeRefWire } from '@openheaders/core/bridge';
 import { Input, theme } from 'antd';
 import type React from 'react';
-import { useEffect, useMemo, useState } from 'react';
+import { forwardRef, useEffect, useImperativeHandle, useMemo, useState } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
+import { gitRailFavoriteKey } from './git-rail-prefs';
 import { allFolderKeys, buildRefTree, filterRefTree, folderKeysToRef, type RefTreeNode } from './ref-tree-model';
+
+/** One selectable tree row — the activity bar's action target. */
+export interface RefTreeSelection {
+  name: string;
+  kind: WorkspaceTreeRefWire['kind'];
+}
 
 export interface RefTreeProps {
   refs: WorkspaceTreeRefWire[];
@@ -25,11 +37,27 @@ export interface RefTreeProps {
   currentRef: string | null;
   /** Branch reported by `gitStatus` but absent from `listRefs` (unborn
    *  HEAD — fresh repo, first commit pending). Rendered as the current
-   *  Local leaf; selecting it is HEAD scope (its name must never reach
-   *  `log`, the membership gate would refuse it). */
+   *  Local leaf, selectable and scopeable like any row — the log view
+   *  answers the unborn scope with the no-matches empty state (the
+   *  IDE posture) instead of asking `log` (the membership gate would
+   *  refuse the name). */
   unbornBranch: string | null;
-  selectedRef: string | null;
-  onSelect: (ref: string | null) => void;
+  /** The tree selection (highlight + bar target); null selects HEAD. */
+  selected: RefTreeSelection | null;
+  /** Favorite keys (`<kind>:<name>`) — gold ★ rows. */
+  favorites: ReadonlySet<string>;
+  /** Group By Directory (gear toggle) — off renders flat full names. */
+  groupByDirectory: boolean;
+  /** Show Tags (gear toggle) — off drops the Tags group. */
+  showTags: boolean;
+  onLeafClick: (node: RefTreeSelection) => void;
+  /** HEAD row (and the unborn-branch row) — clears selection + scope. */
+  onHeadClick: () => void;
+}
+
+export interface RefTreeHandle {
+  expandAll: () => void;
+  collapseAll: () => void;
 }
 
 const GROUPS = [
@@ -40,7 +68,10 @@ const GROUPS = [
 
 const INDENT = 14;
 
-const RefTree: React.FC<RefTreeProps> = ({ refs, currentRef, unbornBranch, selectedRef, onSelect }) => {
+const RefTree = forwardRef<RefTreeHandle, RefTreeProps>(function RefTree(
+  { refs, currentRef, unbornBranch, selected, favorites, groupByDirectory, showTags, onLeafClick, onHeadClick },
+  handleRef,
+) {
   const { token } = theme.useToken();
   const t = useT();
   const [search, setSearch] = useState('');
@@ -55,22 +86,44 @@ const RefTree: React.FC<RefTreeProps> = ({ refs, currentRef, unbornBranch, selec
     if (currentRef !== null) setAutoExpanded(new Set(folderKeysToRef(currentRef, 'local')));
   }, [currentRef]);
 
+  const visibleGroups = useMemo(() => GROUPS.filter((group) => showTags || group.kind !== 'tag'), [showTags]);
+
   const groups = useMemo(
     () =>
-      GROUPS.map((group) => {
+      visibleGroups.map((group) => {
         const tree = buildRefTree(
           refs.filter((ref) => ref.kind === group.kind),
           group.kind,
+          groupByDirectory,
         );
         return { ...group, tree: filterRefTree(tree, search) };
       }),
-    [refs, search],
+    [refs, search, visibleGroups, groupByDirectory],
   );
 
   const searching = search.trim() !== '';
   const searchOpen = useMemo(
     () => (searching ? new Set(groups.flatMap((group) => allFolderKeys(group.tree))) : null),
     [searching, groups],
+  );
+
+  // Expand All / Collapse All (activity bar): folders AND the three
+  // namespace groups — the IDE gesture flattens everything at once.
+  useImperativeHandle(
+    handleRef,
+    () => ({
+      expandAll: () => {
+        setCollapsed(new Set());
+        setAutoExpanded(new Set(groups.flatMap((group) => allFolderKeys(group.tree))));
+      },
+      collapseAll: () => {
+        setCollapsed(
+          new Set([...groups.flatMap((group) => allFolderKeys(group.tree)), ...groups.map((g) => `group:${g.kind}`)]),
+        );
+        setAutoExpanded(new Set());
+      },
+    }),
+    [groups],
   );
 
   const isOpen = (key: string): boolean => {
@@ -136,13 +189,14 @@ const RefTree: React.FC<RefTreeProps> = ({ refs, currentRef, unbornBranch, selec
         );
       }
       const isCurrent = node.refKind === 'local' && node.name === currentRef;
-      const isActive = node.name === selectedRef;
+      const isActive = selected !== null && node.name === selected.name && node.refKind === selected.kind;
+      const isFavorite = favorites.has(gitRailFavoriteKey(node.refKind, node.name));
       return (
         <button
           key={`${node.refKind}:${node.name}`}
           type="button"
           className={isActive ? 'git-tool-row selected' : 'git-tool-row'}
-          onClick={() => onSelect(isActive ? null : node.name)}
+          onClick={() => onLeafClick({ name: node.name, kind: node.refKind })}
           title={node.name}
           style={{ ...rowStyle(depth), fontWeight: isCurrent ? 600 : 400 }}
           data-testid="git-tool-ref-row"
@@ -154,8 +208,8 @@ const RefTree: React.FC<RefTreeProps> = ({ refs, currentRef, unbornBranch, selec
           >
             {node.label}
           </span>
-          {isCurrent && (
-            <span aria-hidden style={{ flex: '0 0 auto', color: token.colorWarningText }}>
+          {(isCurrent || isFavorite) && (
+            <span aria-hidden data-testid="git-tool-ref-star" style={{ flex: '0 0 auto', color: token.colorWarningText }}>
               ★
             </span>
           )}
@@ -168,12 +222,10 @@ const RefTree: React.FC<RefTreeProps> = ({ refs, currentRef, unbornBranch, selec
   return (
     <div
       style={{
-        flex: '0 0 220px',
+        flex: '1 1 auto',
         minWidth: 0,
         display: 'flex',
         flexDirection: 'column',
-        borderRight: `1px solid ${token.colorBorderSecondary}`,
-        background: token.colorFillQuaternary,
       }}
       data-testid="git-tool-refs"
     >
@@ -191,9 +243,9 @@ const RefTree: React.FC<RefTreeProps> = ({ refs, currentRef, unbornBranch, selec
         {!searching && (
           <button
             type="button"
-            className={selectedRef === null ? 'git-tool-row selected' : 'git-tool-row'}
+            className={selected === null ? 'git-tool-row selected' : 'git-tool-row'}
             style={{ ...rowStyle(0), fontWeight: 600 }}
-            onClick={() => onSelect(null)}
+            onClick={onHeadClick}
             data-testid="git-tool-ref-head"
           >
             <span
@@ -254,8 +306,14 @@ const RefTree: React.FC<RefTreeProps> = ({ refs, currentRef, unbornBranch, selec
                 {open && showUnborn && (
                   <button
                     type="button"
-                    className="git-tool-row"
-                    onClick={() => onSelect(null)}
+                    className={
+                      selected !== null && selected.kind === 'local' && selected.name === unbornBranch
+                        ? 'git-tool-row selected'
+                        : 'git-tool-row'
+                    }
+                    onClick={() => {
+                      if (unbornBranch !== null) onLeafClick({ name: unbornBranch, kind: 'local' });
+                    }}
                     title={unbornBranch ?? undefined}
                     style={{ ...rowStyle(0), fontWeight: 600 }}
                     data-testid="git-tool-ref-row"
@@ -286,6 +344,6 @@ const RefTree: React.FC<RefTreeProps> = ({ refs, currentRef, unbornBranch, selec
       </div>
     </div>
   );
-};
+});
 
 export default RefTree;

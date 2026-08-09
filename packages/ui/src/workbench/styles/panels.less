@@ -30,6 +30,18 @@
   }
 }
 
+// Git tool window as a modal host: the panel's dialogs (Create Branch)
+// center over the TOOL WINDOW, not the app window — the antd wrap and
+// mask re-scope from the viewport to this positioned container.
+.git-tool-panel {
+  position: relative;
+
+  .ant-modal-root .ant-modal-mask,
+  .ant-modal-root .ant-modal-wrap {
+    position: absolute;
+  }
+}
+
 // Scope-panel section headers — both the top-level In-context / All-scopes
 // sections and each scope row: the "Edit" link and the (i) info trigger
 // stay hidden until the row is hovered or focused, or the (i)'s popover is

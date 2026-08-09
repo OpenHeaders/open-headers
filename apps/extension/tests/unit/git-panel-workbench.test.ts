@@ -120,4 +120,45 @@ describe('git panel workbench (shared pane-tabs machinery)', () => {
     expect(tabs[0]).toMatchObject({ kind: 'log', id: 1, filter: '' });
     expect(tabs[1]).toMatchObject({ kind: 'log', id: 2, filter: 'fix', selectedRef: 'main' });
   });
+
+  it('log tabs carry the rail selection and start with the rail expanded', () => {
+    const { registry } = freshWorkbench();
+    const [primary] = registry.tabs();
+    expect(primary).toMatchObject({ kind: 'log', refsCollapsed: false, railSelection: null });
+    registry.patchLogTab(GIT_PRIMARY_TAB_KEY, {
+      railSelection: { name: 'v5/data-model', kind: 'local' },
+      refsCollapsed: true,
+    });
+    expect(registry.tabs()[0]).toMatchObject({
+      railSelection: { name: 'v5/data-model', kind: 'local' },
+      refsCollapsed: true,
+    });
+  });
+
+  it('openCompare mints one closable tab per ref and re-activates on repeat', () => {
+    const { registry, panes } = freshWorkbench();
+    registry.openCompare('v5/data-model');
+    const leaf = allLeaves(panes.root())[0];
+    expect(leaf.tabs.map((ref) => ref.id)).toEqual([GIT_PRIMARY_TAB_KEY, 'compare:2']);
+    expect(registry.activeId()).toBe('compare:2');
+    expect(registry.tabs()[1]).toMatchObject({
+      kind: 'compare',
+      ref: 'v5/data-model',
+      selectedInCurrent: null,
+      selectedInRef: null,
+    });
+
+    // Same ref re-activates; a different ref opens a second tab.
+    registry.newLogTab();
+    registry.openCompare('v5/data-model');
+    expect(registry.activeId()).toBe('compare:2');
+    registry.openCompare('main');
+    expect(registry.tabs().filter((tab) => tab.kind === 'compare')).toHaveLength(2);
+
+    // Compare tabs close like any non-primary tab; per-side selections patch.
+    registry.patchCompareTab('compare:2', { selectedInCurrent: 'abc' });
+    expect(registry.tabs()[1]).toMatchObject({ kind: 'compare', selectedInCurrent: 'abc' });
+    registry.closeTabs(['compare:2']);
+    expect(registry.tabs().some((tab) => tab.kind === 'compare' && tab.ref === 'v5/data-model')).toBe(false);
+  });
 });
