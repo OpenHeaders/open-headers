@@ -597,7 +597,7 @@ test('the attached tab serves response bodies — CDP fidelity end to end', asyn
 test('inspect-tab CTAs hand off locally: rule draft + Create API request', async () => {
   // The inspect tab from the previous leg is focused; its breadcrumb
   // names the Traffic Monitor origin, not the Rules default.
-  await expect(workbench.locator('.rules-breadcrumbs').filter({ hasText: 'Traffic Monitor' }).first()).toBeVisible();
+  await expect(workbench.locator('.rules-breadcrumbs').filter({ hasText: 'Traffic' }).first()).toBeVisible();
 
   // The Headers tab hosts the CTAs.
   await workbench.getByRole('tab', { name: 'Headers', exact: true }).first().click();
@@ -655,7 +655,7 @@ test('a storage row opens as an editor tab and a desktop delete actuates in the 
   await pane.locator('.dt-storage-row').filter({ hasText: 'oh-e2e-storage-key' }).first().click();
   const editorTab = workbench.getByRole('tab', { name: /storage-key/ }).first();
   await expect(editorTab).toHaveAttribute('aria-selected', 'true');
-  await expect(workbench.locator('.rules-breadcrumbs').filter({ hasText: 'Traffic Monitor' }).first()).toBeVisible();
+  await expect(workbench.locator('.rules-breadcrumbs').filter({ hasText: 'Traffic' }).first()).toBeVisible();
   await expect(workbench.locator('.view-line').filter({ hasText: 'oh-e2e-storage-value' }).first()).toBeVisible({
     timeout: 20000,
   });
@@ -846,7 +846,7 @@ test("a scoped routed exchange joins the watched tab's row to the wire capture",
   // annotation rail once the derive-at-consume join matches the twins.
   const row = workbench.locator('.dt-row').filter({ hasText: 'wirejoin-1' }).first();
   await expect(row).toBeVisible({ timeout: 15000 });
-  await expect(row.locator('.dt-annot-glyph')).toHaveAttribute('aria-label', 'Traffic Interception joined', {
+  await expect(row.locator('.dt-annot-glyph')).toHaveAttribute('aria-label', 'System Proxy joined', {
     timeout: 15000,
   });
 });
@@ -981,7 +981,7 @@ test('perf: a 300-burst on the watched tab stays in budget with the join active'
   await filter.fill('wirejoin-1');
   await expect(
     workbench.locator('.dt-row').filter({ hasText: 'wirejoin-1' }).first().locator('.dt-annot-glyph'),
-  ).toHaveAttribute('aria-label', 'Traffic Interception joined');
+  ).toHaveAttribute('aria-label', 'System Proxy joined');
   await filter.fill('');
 
   console.log(

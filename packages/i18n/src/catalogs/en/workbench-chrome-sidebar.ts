@@ -22,7 +22,7 @@ export const workbenchChromeSidebar = {
   'workbench.sidebar.section.specs': 'SPECS',
 
   // ── Sidebar: per-view header title ──────────────────────────────────
-  'workbench.sidebar.view.httpRules': 'HTTP Rules',
+  'workbench.sidebar.view.httpRules': 'Interceptor',
   'workbench.sidebar.view.apiRequests': 'API Requests',
   'workbench.sidebar.view.workflows': 'Workflows',
   'workbench.sidebar.view.variables': 'Variables',
@@ -205,7 +205,7 @@ export const workbenchChromeSidebar = {
     'An agent read live traffic through the MCP observe tier — redacted projections from an armed source.',
   'workbench.activityFeed.rawRead': 'Unredacted',
   'workbench.activityFeed.rawReadTip':
-    'This read projected raw values — the unredacted session reads grant was on in Settings → Traffic Monitor.',
+    'This read projected raw values — the unredacted session reads grant was on in Settings → Traffic.',
 
   // ── Overview tabs (collection / folder, all three families). The
   // folder-suffix chunks carry their leading '· ' — the JSX supplies

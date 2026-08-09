@@ -348,7 +348,7 @@ export const workbenchChrome = {
 
   // ── Tool-window registry (activity bars, dock tab strips, restore
   //    rows, drag previews) ───────────────────────────────────────────
-  'workbench.toolWindows.httpRules': 'Reglas HTTP',
+  'workbench.toolWindows.httpRules': 'Interceptor',
   'workbench.toolWindows.apiRequests': 'Solicitudes API',
   'workbench.toolWindows.workflows': 'Workflows',
   'workbench.toolWindows.notifications': 'Notificaciones',
@@ -358,7 +358,7 @@ export const workbenchChrome = {
   'workbench.toolWindows.workflowStatus': 'Estado de los workflows',
   'workbench.toolWindows.activity': 'Actividad',
   'workbench.toolWindows.activityTooltip': 'Flujo de actividad — cambios entrantes de los pares',
-  'workbench.toolWindows.trafficMonitor': 'Monitor de tráfico',
+  'workbench.toolWindows.trafficMonitor': 'Tráfico',
   'workbench.toolWindows.terminal': 'Terminal',
   'workbench.toolWindows.git': 'Git',
   'workbench.toolWindows.versionControl': 'Control de versiones',
@@ -477,7 +477,7 @@ export const workbenchChrome = {
   'workbench.terminal.cliGate.openSettings': 'Abrir la configuración',
   'workbench.toolWindows.info.trafficMonitor.summary':
     'La vista unificada del tráfico en vivo: elige una fuente de la lista, una pestaña de navegador conectada ' +
-    '(la extensión transmite su tráfico en vivo) o la interceptación de tráfico (cualquier herramienta de esta máquina ' +
+    '(la extensión transmite su tráfico en vivo) o el Proxy del sistema (cualquier herramienta de esta máquina ' +
     'apuntada al puerto del proxy local). Ambas usan el mismo registro de red del panel DevTools; no se transmite ' +
     'nada hasta que se selecciona una fuente. Las sesiones guardadas viven bajo SESIONES — se nombran y archivan ' +
     'automáticamente al terminar; haz clic en una para reproducirla en una pestaña.',
@@ -495,7 +495,7 @@ export const workbenchChrome = {
   'workbench.proxyCapture.stop': 'Detener',
   'workbench.proxyCapture.port': 'Puerto',
   'workbench.proxyCapture.scope': 'Ámbito de descifrado',
-  'workbench.proxyCapture.optionsAria': 'Ajustes de la interceptación de tráfico',
+  'workbench.proxyCapture.optionsAria': 'Ajustes del Proxy del sistema',
   'workbench.proxyCapture.scopePlaceholder': 'example.com, *.example.com',
   'workbench.proxyCapture.scopeHint':
     'Solo se descifran los hosts listados; el resto del tráfico HTTPS pasa como túnel opaco.',
@@ -552,7 +552,7 @@ export const workbenchChrome = {
     'Los hosts enrutados caen de HTTP/3 a HTTP/2 o 1.1; los endpoints con certificado fijado pueden fallar mientras ' +
     'están enrutados.',
   'workbench.proxyCapture.routingPopoverHint':
-    'Enruta los hosts del ámbito de descifrado de los navegadores conectados a través del proxy de interceptación. ' +
+    'Enruta los hosts del ámbito de descifrado de los navegadores conectados a través del proxy de captura. ' +
     'Sobre todo para navegadores que no puedes observar ni depurar directamente: una pestaña observable obtiene ' +
     'más con el modo Depuración en su fila.',
 
@@ -569,13 +569,13 @@ export const workbenchChrome = {
   'workbench.trafficMonitor.browserTabs': 'Pestañas del navegador',
   'workbench.trafficMonitor.windowLabel': 'Ventana {n}',
   'workbench.trafficMonitor.proxySystem': 'Proxy · Sistema',
-  'workbench.trafficMonitor.trafficInterception': 'Interceptación de tráfico',
-  'workbench.trafficMonitor.trafficInterceptionHint':
+  'workbench.trafficMonitor.systemProxy': 'Proxy del sistema',
+  'workbench.trafficMonitor.systemProxyHint':
     'Tráfico fuera del navegador y no observable: todo lo enrutado por el puerto de captura — herramientas CLI, ' +
     'aplicaciones nativas, otros dispositivos',
   'workbench.trafficMonitor.emptyNoSource': 'Ninguna fuente seleccionada',
   'workbench.trafficMonitor.emptyNoSourceHint':
-    'Elige en la lista de fuentes una pestaña del navegador o la interceptación de tráfico para ver su tráfico',
+    'Elige en la lista de fuentes una pestaña del navegador o el Proxy del sistema para ver su tráfico',
   'workbench.trafficMonitor.debugTab': 'Depurar esta pestaña: fidelidad completa — cuerpos, cabeceras exactas, tiempos',
   'workbench.trafficMonitor.debugAttached':
     'Depurando esta pestaña: fidelidad completa mediante el depurador del navegador',
@@ -614,7 +614,7 @@ export const workbenchChrome = {
   // ── La sección SESIONES del raíl (el archivo de sesiones) ───────────
   'workbench.trafficSessions.empty': 'Aún no hay sesiones guardadas',
   'workbench.trafficSessions.emptyHint':
-    'Captura una fuente en el Monitor de tráfico con «Guardar sesión» activado — las sesiones guardadas llegan aquí',
+    'Captura una fuente en el panel de Tráfico con «Guardar sesión» activado — las sesiones guardadas llegan aquí',
   'workbench.trafficSessions.stateRecording': 'Grabando',
   'workbench.trafficSessions.stateSealing': 'Sellando…',
   'workbench.trafficSessions.move': 'Mover a carpeta',

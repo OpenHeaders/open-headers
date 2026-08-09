@@ -47,7 +47,7 @@ export const popup = {
   // ── Desktop watch privacy indicator ────────────────────────────────
   'popup.desktopWatch.label': 'Escritorio observando',
   'popup.desktopWatch.tooltip':
-    'La aplicación de escritorio de Open Headers está viendo este navegador en su Traffic Monitor. Haz clic para ' +
+    'La aplicación de escritorio de Open Headers está viendo este navegador en su panel de Tráfico. Haz clic para ' +
     'abrir los ajustes — «Permitir que la aplicación de escritorio vea este navegador» es el interruptor.',
   'popup.desktopWatch.aria': 'La aplicación de escritorio está viendo este navegador — abrir ajustes',
 

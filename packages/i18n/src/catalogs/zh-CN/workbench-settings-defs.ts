@@ -35,7 +35,7 @@ export const workbenchSettingsDefs = {
     '拒绝本机桌面应用的配对码和粘贴令牌——只有经操作系统验证的握手才能授予其访问权限。远程后端不受影响。通常由组织策略设置。',
   'workbench.settings.def.backend.allowDesktopWatch.label': '允许桌面应用查看此浏览器',
   'workbench.settings.def.backend.allowDesktopWatch.description':
-    '允许本机上已配对的桌面应用在其 Traffic Monitor 中观察此浏览器的网络流量、存储和控制台。关闭后规则与同步照常工作，' +
+    '允许本机上已配对的桌面应用在其流量面板中观察此浏览器的网络流量、存储和控制台。关闭后规则与同步照常工作，' +
     '桌面端的实时视图则会收到明确的拒绝。',
   'workbench.settings.def.backend.bindAddress.label': '与你网络中的设备同步',
   'workbench.settings.def.backend.bindAddress.description':
@@ -76,7 +76,7 @@ export const workbenchSettingsDefs = {
     '在此应用的后端端口上应答 MCP 客户端。关闭时端点不存在。开启后，持有访问 token 的智能体可以读取你的工作区。',
   'workbench.settings.def.mcp.allowObserve.label': '允许观察流量',
   'workbench.settings.def.mcp.allowObserve.description':
-    '智能体可以读取你在流量监视中捕获的来源的实时流量。未捕获的来源保持不可见；身份验证标头、Cookie 和 token 形态的值会被替换为稳定的标记。',
+    '智能体可以读取你在流量面板中捕获的来源的实时流量。未捕获的来源保持不可见；身份验证标头、Cookie 和 token 形态的值会被替换为稳定的标记。',
   'workbench.settings.def.mcp.allowWrite.label': '允许写入工具',
   'workbench.settings.def.mcp.allowWrite.description':
     '智能体可以创建、编辑和删除规则、请求、环境、变量和工作流。每次更改都会进入活动流，并且可以回退。',
@@ -342,7 +342,7 @@ export const workbenchSettingsDefs = {
     '归档会话占用的磁盘空间总额。超出预算后，最旧的已封存会话会最先被删除；正在录制的会话永远不会被删除。',
   'workbench.settings.def.trafficMonitor.railSide.label': '来源列表位置',
   'workbench.settings.def.trafficMonitor.railSide.description':
-    '来源列表位于流量监视器的哪一侧。面板标题栏上的布局按钮也可以切换。',
+    '来源列表位于流量面板的哪一侧。面板标题栏上的布局按钮也可以切换。',
   'workbench.settings.def.trafficMonitor.railSide.option.left.label': '左侧',
   'workbench.settings.def.trafficMonitor.railSide.option.left.description': '来源列表在左，流量视图在右。',
   'workbench.settings.def.trafficMonitor.railSide.option.right.label': '右侧',

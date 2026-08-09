@@ -35,8 +35,8 @@ export const popup = {
   // ── Desktop watch privacy indicator ────────────────────────────────
   'popup.desktopWatch.label': 'Bureau en observation',
   'popup.desktopWatch.tooltip':
-    "L'application de bureau Open Headers observe actuellement ce navigateur dans son Traffic Monitor. Cliquez pour " +
-    'ouvrir les paramètres — « Laisser l\'application de bureau voir ce navigateur » est l\'interrupteur.',
+    "L'application de bureau Open Headers observe actuellement ce navigateur dans son panneau Trafic. Cliquez pour " +
+    "ouvrir les paramètres — « Laisser l'application de bureau voir ce navigateur » est l'interrupteur.",
   'popup.desktopWatch.aria': "L'application de bureau observe ce navigateur — ouvrir les paramètres",
 
   // ── Tabs ───────────────────────────────────────────────────────────

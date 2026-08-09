@@ -323,7 +323,7 @@ export const workbenchChrome = {
 
   // ── Tool-window registry (activity bars, dock tab strips, restore
   //    rows, drag previews) ───────────────────────────────────────────
-  'workbench.toolWindows.httpRules': 'HTTP Rules',
+  'workbench.toolWindows.httpRules': 'Interceptor',
   'workbench.toolWindows.apiRequests': 'API Requests',
   'workbench.toolWindows.workflows': 'Workflows',
   'workbench.toolWindows.notifications': 'Notifications',
@@ -333,7 +333,7 @@ export const workbenchChrome = {
   'workbench.toolWindows.workflowStatus': 'Workflow Status',
   'workbench.toolWindows.activity': 'Activity',
   'workbench.toolWindows.activityTooltip': 'Activity Feed — inbound changes from peers',
-  'workbench.toolWindows.trafficMonitor': 'Traffic Monitor',
+  'workbench.toolWindows.trafficMonitor': 'Traffic',
   'workbench.toolWindows.terminal': 'Terminal',
   'workbench.toolWindows.git': 'Git',
   'workbench.toolWindows.versionControl': 'Version Control',
@@ -402,7 +402,7 @@ export const workbenchChrome = {
     'Per-request behavior — SSL verification, redirects, and more.',
   'workbench.toolWindows.info.trafficMonitor.summary':
     'The unified live traffic view — pick a source from the list: a connected browser tab (the extension streams its ' +
-    'traffic live) or Traffic Interception (any tool on this machine pointed at the local proxy port). Both render the ' +
+    'traffic live) or the System Proxy (any tool on this machine pointed at the local proxy port). Both render the ' +
     'same network log the DevTools panel uses; nothing streams until a source is selected. Saved sessions live under ' +
     'SESSIONS — named and filed automatically when they end; click one to replay it as a tab.',
   'workbench.toolWindows.info.workflowStatus.summary':
@@ -588,7 +588,7 @@ export const workbenchChrome = {
   'workbench.proxyCapture.stop': 'Stop',
   'workbench.proxyCapture.port': 'Port',
   'workbench.proxyCapture.scope': 'Decrypt scope',
-  'workbench.proxyCapture.optionsAria': 'Traffic Interception settings',
+  'workbench.proxyCapture.optionsAria': 'System Proxy settings',
   'workbench.proxyCapture.scopePlaceholder': 'example.com, *.example.com',
   'workbench.proxyCapture.scopeHint':
     'Only listed hosts are decrypted; all other HTTPS traffic passes through as an opaque tunnel.',
@@ -638,7 +638,7 @@ export const workbenchChrome = {
   'workbench.proxyCapture.routingInfo.h3Desc':
     'Routed hosts fall back from HTTP/3 to HTTP/2 or 1.1; certificate-pinned endpoints may fail while routed.',
   'workbench.proxyCapture.routingPopoverHint':
-    'Routes decrypt-scope hosts from connected browsers through the interception proxy. Mainly for browsers ' +
+    'Routes decrypt-scope hosts from connected browsers through the capture proxy. Mainly for browsers ' +
     'you can’t watch or debug directly — a watchable tab gets more via Debug mode on its row.',
 
   // ── Traffic Monitor tool window (unified observability surface) ─────
@@ -654,12 +654,12 @@ export const workbenchChrome = {
   'workbench.trafficMonitor.browserTabs': 'Browser tabs',
   'workbench.trafficMonitor.windowLabel': 'Window {n}',
   'workbench.trafficMonitor.proxySystem': 'Proxy · System',
-  'workbench.trafficMonitor.trafficInterception': 'Traffic Interception',
-  'workbench.trafficMonitor.trafficInterceptionHint':
+  'workbench.trafficMonitor.systemProxy': 'System Proxy',
+  'workbench.trafficMonitor.systemProxyHint':
     'Non-browser & un-watchable traffic — anything routed through the capture port: CLI tools, native apps, other devices',
   'workbench.trafficMonitor.emptyNoSource': 'No source selected',
   'workbench.trafficMonitor.emptyNoSourceHint':
-    'Pick a browser tab or Traffic Interception in the source list to watch its traffic',
+    'Pick a browser tab or the System Proxy in the source list to watch its traffic',
   'workbench.trafficMonitor.debugTab': 'Debug this tab — full fidelity: bodies, exact headers, timing',
   'workbench.trafficMonitor.debugAttached': 'Debugging this tab — full fidelity via the browser’s debugger',
   'workbench.trafficMonitor.debugPinned': 'Pinned for debugging — attaches once Debug mode is on',
@@ -695,7 +695,7 @@ export const workbenchChrome = {
   // ── The SESSIONS rail section (the sessions archive, in-rail) ───────
   'workbench.trafficSessions.empty': 'No saved sessions yet',
   'workbench.trafficSessions.emptyHint':
-    'Capture a source in the Traffic Monitor with “Save session” on — saved sessions land here',
+    'Capture a source in the Traffic panel with “Save session” on — saved sessions land here',
   'workbench.trafficSessions.stateRecording': 'Recording',
   'workbench.trafficSessions.stateSealing': 'Sealing…',
   'workbench.trafficSessions.move': 'Move to folder',

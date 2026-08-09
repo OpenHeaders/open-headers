@@ -31,7 +31,7 @@ export const workbenchChromeSidebar = {
   'workbench.sidebar.section.specs': '规范',
 
   // ── Sidebar: per-view header title ──────────────────────────────────
-  'workbench.sidebar.view.httpRules': 'HTTP 规则',
+  'workbench.sidebar.view.httpRules': '拦截器',
   'workbench.sidebar.view.apiRequests': 'API 请求',
   'workbench.sidebar.view.workflows': '工作流',
   'workbench.sidebar.view.variables': '变量',
@@ -200,7 +200,7 @@ export const workbenchChromeSidebar = {
   'workbench.activityFeed.kind.agentObservedTip':
     '一个智能体通过 MCP observe 层级读取了实时流量——来自已授权来源的脱敏投影。',
   'workbench.activityFeed.rawRead': '未脱敏',
-  'workbench.activityFeed.rawReadTip': '此次读取投影了原始值——设置 → 流量监视中的会话未脱敏读取授权处于开启状态。',
+  'workbench.activityFeed.rawReadTip': '此次读取投影了原始值——设置 → 流量中的会话未脱敏读取授权处于开启状态。',
 
   // ── Overview tabs (collection / folder, all three families). The
   // folder-suffix chunks carry their leading '· ' — the JSX supplies

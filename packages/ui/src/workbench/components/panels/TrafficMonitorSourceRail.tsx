@@ -889,7 +889,7 @@ export const TrafficMonitorSourceRail: React.FC<TrafficMonitorSourceRailProps> =
         }
       />
       {wireOpen && (
-        <Tooltip title={t('workbench.trafficMonitor.trafficInterceptionHint')} placement={tooltipPlacement}>
+        <Tooltip title={t('workbench.trafficMonitor.systemProxyHint')} placement={tooltipPlacement}>
           <SourceRow
             testid="traffic-monitor-source-wire"
             itemId={WIRE_SOURCE_KEY}
@@ -901,7 +901,7 @@ export const TrafficMonitorSourceRail: React.FC<TrafficMonitorSourceRailProps> =
             }}
           >
             <GlobalOutlined style={{ fontSize: 12, flex: '0 0 auto' }} />
-            <span className="rules-sidebar-item-label">{t('workbench.trafficMonitor.trafficInterception')}</span>
+            <span className="rules-sidebar-item-label">{t('workbench.trafficMonitor.systemProxy')}</span>
             <SourceObserveAffordance
               armed={observeArmed.has(WIRE_SOURCE_KEY)}
               capturing={captureActive.has(WIRE_SOURCE_KEY)}

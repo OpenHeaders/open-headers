@@ -1,5 +1,5 @@
 /**
- * WireCaptureControl — the Traffic Interception row's capture control:
+ * WireCaptureControl — the System Proxy row's capture control:
  * an always-visible Start/Stop split button whose chevron opens the
  * wire settings popover, over the `oh.daemon.proxy.{status,start,stop,
  * scope.set,routing.*}` admin RPCs.
@@ -77,7 +77,7 @@ export interface WireCaptureControlProps {
    *  sits at the rail's bottom — a downward overlay runs off the
    *  window edge). */
   placement: 'leftBottom' | 'rightBottom';
-  /** Opens Settings › Proxy · Traffic Interception — the CA-install action on the no-CA warning. */
+  /** Opens Settings › Proxy · System — the CA-install action on the no-CA warning. */
   onOpenProxySettings: () => void;
 }
 

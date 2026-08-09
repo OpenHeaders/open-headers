@@ -34,7 +34,7 @@ export const workbenchChromeSidebar = {
   'workbench.sidebar.section.specs': 'SPEZIFIKATIONEN',
 
   // ── Sidebar: per-view header title ──────────────────────────────────
-  'workbench.sidebar.view.httpRules': 'HTTP-Regeln',
+  'workbench.sidebar.view.httpRules': 'Interceptor',
   'workbench.sidebar.view.apiRequests': 'API-Anfragen',
   'workbench.sidebar.view.workflows': 'Workflows',
   'workbench.sidebar.view.variables': 'Variablen',
@@ -219,7 +219,7 @@ export const workbenchChromeSidebar = {
   'workbench.activityFeed.rawRead': 'Ungeschwärzt',
   'workbench.activityFeed.rawReadTip':
     'Dieser Lesezugriff projizierte Rohwerte — die Freigabe für ungeschwärzte Sitzungs-Lesezugriffe war in ' +
-    'Einstellungen → Traffic-Monitor aktiviert.',
+    'Einstellungen → Traffic aktiviert.',
 
   // ── Overview tabs (collection / folder, all three families). The
   // folder-suffix chunks carry their leading '· ' — the JSX supplies

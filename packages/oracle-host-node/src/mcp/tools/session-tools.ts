@@ -52,7 +52,7 @@ export interface McpSessionToolDeps {
  *  values look redacted and that only a human Setting changes that. */
 const GRANT_NOTE =
   'Reads are redacted by default; a human can enable unredacted session reads in Open Headers → ' +
-  'Settings → Traffic Monitor, in which case the result reports projection: "raw" and every such ' +
+  'Settings → Traffic, in which case the result reports projection: "raw" and every such ' +
   'read is logged to the Activity Feed.';
 
 /** One archive index row for agents — meta facts only, never content. */

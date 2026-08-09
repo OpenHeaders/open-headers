@@ -37,7 +37,7 @@ export const popup = {
   // ── Desktop watch privacy indicator ────────────────────────────────
   'popup.desktopWatch.label': 'Desktop viewing',
   'popup.desktopWatch.tooltip':
-    'The Open Headers desktop app is currently viewing this browser in its Traffic Monitor. Click to open Settings — “Let the desktop app view this browser” is the off switch.',
+    'The Open Headers desktop app is currently viewing this browser in its Traffic panel. Click to open Settings — “Let the desktop app view this browser” is the off switch.',
   'popup.desktopWatch.aria': 'Desktop app is viewing this browser — open settings',
 
   // ── Tabs ───────────────────────────────────────────────────────────

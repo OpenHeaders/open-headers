@@ -28,7 +28,7 @@ export const workbenchSettingsDefs = {
     'Refuses pairing codes and pasted tokens for the desktop app on this computer — only the operating-system-verified handoff can grant it access. Remote back-ends are unaffected. Usually set by an organization policy.',
   'workbench.settings.def.backend.allowDesktopWatch.label': 'Let the desktop app view this browser',
   'workbench.settings.def.backend.allowDesktopWatch.description':
-    'Allows a paired desktop app on this computer to watch this browser’s network traffic, storage, and console in its Traffic Monitor. Turn off to keep rules and sync working while the desktop’s live views are politely refused.',
+    'Allows a paired desktop app on this computer to watch this browser’s network traffic, storage, and console in its Traffic panel. Turn off to keep rules and sync working while the desktop’s live views are politely refused.',
   'workbench.settings.def.backend.bindAddress.label': 'Sync with devices on your network',
   'workbench.settings.def.backend.bindAddress.description':
     'Lets other computers and browsers on the same network connect to this app and share its workspaces. Off by default — only this computer can reach it.',
@@ -71,7 +71,7 @@ export const workbenchSettingsDefs = {
     'Answer MCP clients on this app’s back-end port. While off, the endpoint does not exist. On, agents with an access token can read your workspaces.',
   'workbench.settings.def.mcp.allowObserve.label': 'Allow traffic observation',
   'workbench.settings.def.mcp.allowObserve.description':
-    'Agents can read live traffic from sources you capture in the Traffic Monitor. Uncaptured sources stay invisible; auth headers, cookies, and token-shaped values are replaced with stable markers.',
+    'Agents can read live traffic from sources you capture in the Traffic panel. Uncaptured sources stay invisible; auth headers, cookies, and token-shaped values are replaced with stable markers.',
   'workbench.settings.def.mcp.allowWrite.label': 'Allow write tools',
   'workbench.settings.def.mcp.allowWrite.description':
     'Agents can create, edit, and delete rules, requests, environments, variables, and workflows. Every change lands in the Activity Feed and can be reverted.',
@@ -361,7 +361,7 @@ export const workbenchSettingsDefs = {
     'Total disk space for archived sessions. Once the archive exceeds the budget, the oldest sealed sessions are removed first; a session that is still recording is never removed.',
   'workbench.settings.def.trafficMonitor.railSide.label': 'Sources side',
   'workbench.settings.def.trafficMonitor.railSide.description':
-    'Which side of the Traffic Monitor the source list sits on. The layout button on the panel header switches it too.',
+    'Which side of the Traffic panel the source list sits on. The layout button on the panel header switches it too.',
   'workbench.settings.def.trafficMonitor.railSide.option.left.label': 'Left',
   'workbench.settings.def.trafficMonitor.railSide.option.left.description':
     'Source list on the left, traffic views on the right.',

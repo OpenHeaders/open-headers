@@ -29,7 +29,7 @@ export const workbenchChromeSidebar = {
   'workbench.sidebar.section.specs': 'SPÉCIFICATIONS',
 
   // ── Sidebar: per-view header title ──────────────────────────────────
-  'workbench.sidebar.view.httpRules': 'Règles HTTP',
+  'workbench.sidebar.view.httpRules': 'Intercepteur',
   'workbench.sidebar.view.apiRequests': 'Requêtes API',
   'workbench.sidebar.view.workflows': 'Workflows',
   'workbench.sidebar.view.variables': 'Variables',
@@ -214,7 +214,7 @@ export const workbenchChromeSidebar = {
     "Un agent a lu du trafic en direct via le palier MCP observe — des projections caviardées d'une source armée.",
   'workbench.activityFeed.rawRead': 'Non caviardé',
   'workbench.activityFeed.rawReadTip':
-    'Cette lecture a projeté les valeurs brutes — l’autorisation de lecture non caviardée des sessions était activée dans Paramètres → Moniteur de trafic.',
+    'Cette lecture a projeté les valeurs brutes — l’autorisation de lecture non caviardée des sessions était activée dans Paramètres → Trafic.',
 
   // ── Overview tabs (collection / folder, all three families). The
   // folder-suffix chunks carry their leading '· ' — the JSX supplies

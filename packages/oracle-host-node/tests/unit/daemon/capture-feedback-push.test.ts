@@ -205,7 +205,7 @@ describe('capture feedback push', () => {
     const { tap } = fakeTap([
       source({ uid: 's1', nodeId: 'ext-a', tabId: 7 }),
       source({ uid: 's2', nodeId: 'ext-a', tabId: 9, state: 'refused' }),
-      source({ uid: 's3', kind: 'proxy', label: 'Traffic Interception' }),
+      source({ uid: 's3', kind: 'proxy', label: 'System Proxy' }),
     ]);
     const push = createCaptureFeedbackPush(tap);
     push.setWsServer(rig.server);

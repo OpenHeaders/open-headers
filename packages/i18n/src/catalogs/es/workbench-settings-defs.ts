@@ -49,7 +49,7 @@ export const workbenchSettingsDefs = {
     'Permitir que la aplicación de escritorio vea este navegador',
   'workbench.settings.def.backend.allowDesktopWatch.description':
     'Permite que una aplicación de escritorio emparejada en este equipo observe el tráfico de red, el almacenamiento ' +
-    'y la consola de este navegador en su Traffic Monitor. Al desactivarlo, las reglas y la sincronización siguen ' +
+    'y la consola de este navegador en su panel de Tráfico. Al desactivarlo, las reglas y la sincronización siguen ' +
     'funcionando mientras las vistas en vivo del escritorio se rechazan educadamente.',
   'workbench.settings.def.backend.bindAddress.label': 'Sincronizar con los dispositivos de tu red',
   'workbench.settings.def.backend.bindAddress.description':
@@ -110,7 +110,7 @@ export const workbenchSettingsDefs = {
     'trabajo.',
   'workbench.settings.def.mcp.allowObserve.label': 'Permitir la observación del tráfico',
   'workbench.settings.def.mcp.allowObserve.description':
-    'Los agentes pueden leer el tráfico en vivo de las fuentes que capturas en el Monitor de tráfico. Las fuentes ' +
+    'Los agentes pueden leer el tráfico en vivo de las fuentes que capturas en el panel de Tráfico. Las fuentes ' +
     'sin capturar permanecen invisibles; las cabeceras de autenticación, las cookies y los valores con forma de ' +
     'token se reemplazan por marcadores estables.',
   'workbench.settings.def.mcp.allowWrite.label': 'Permitir las herramientas de escritura',
@@ -480,7 +480,7 @@ export const workbenchSettingsDefs = {
     'sesiones selladas más antiguas; una sesión que aún graba nunca se elimina.',
   'workbench.settings.def.trafficMonitor.railSide.label': 'Lado de las fuentes',
   'workbench.settings.def.trafficMonitor.railSide.description':
-    'Lado del Traffic Monitor donde se sitúa la lista de fuentes. El botón de disposición en la cabecera del ' +
+    'Lado del panel de Tráfico donde se sitúa la lista de fuentes. El botón de disposición en la cabecera del ' +
     'panel también lo cambia.',
   'workbench.settings.def.trafficMonitor.railSide.option.left.label': 'Izquierda',
   'workbench.settings.def.trafficMonitor.railSide.option.left.description':

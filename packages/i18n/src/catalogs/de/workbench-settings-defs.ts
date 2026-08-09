@@ -36,7 +36,7 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.backend.allowDesktopWatch.label': 'Desktop-App darf diesen Browser einsehen',
   'workbench.settings.def.backend.allowDesktopWatch.description':
     'Erlaubt einer gekoppelten Desktop-App auf diesem Computer, den Netzwerkverkehr, den Speicher und die Konsole ' +
-    'dieses Browsers in ihrem Traffic Monitor zu beobachten. Deaktiviert bleiben Regeln und Synchronisierung aktiv, ' +
+    'dieses Browsers in ihrem Traffic-Panel zu beobachten. Deaktiviert bleiben Regeln und Synchronisierung aktiv, ' +
     'während die Live-Ansichten des Desktops höflich abgelehnt werden.',
   'workbench.settings.def.backend.bindAddress.label': 'Mit Geräten in deinem Netzwerk synchronisieren',
   'workbench.settings.def.backend.bindAddress.description':
@@ -93,7 +93,7 @@ export const workbenchSettingsDefs = {
     'können Agents mit einem Zugriffstoken deine Arbeitsbereiche lesen.',
   'workbench.settings.def.mcp.allowObserve.label': 'Traffic-Beobachtung erlauben',
   'workbench.settings.def.mcp.allowObserve.description':
-    'Agents können den Live-Traffic der Quellen lesen, die du im Traffic-Monitor erfasst. Nicht erfasste Quellen ' +
+    'Agents können den Live-Traffic der Quellen lesen, die du im Traffic-Panel erfasst. Nicht erfasste Quellen ' +
     'bleiben unsichtbar; Auth-Header, Cookies und tokenförmige Werte werden durch stabile Marker ersetzt.',
   'workbench.settings.def.mcp.allowWrite.label': 'Schreib-Tools erlauben',
   'workbench.settings.def.mcp.allowWrite.description':
@@ -448,7 +448,7 @@ export const workbenchSettingsDefs = {
     'versiegelten Sitzungen entfernt; eine noch aufzeichnende Sitzung wird nie entfernt.',
   'workbench.settings.def.trafficMonitor.railSide.label': 'Seite der Quellen',
   'workbench.settings.def.trafficMonitor.railSide.description':
-    'Auf welcher Seite des Traffic Monitors die Quellenliste sitzt. Der Layout-Button in der Panel-Kopfzeile ' +
+    'Auf welcher Seite des Traffic-Panels die Quellenliste sitzt. Der Layout-Button in der Panel-Kopfzeile ' +
     'wechselt sie ebenfalls.',
   'workbench.settings.def.trafficMonitor.railSide.option.left.label': 'Links',
   'workbench.settings.def.trafficMonitor.railSide.option.left.description':

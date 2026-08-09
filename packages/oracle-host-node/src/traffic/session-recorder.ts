@@ -268,7 +268,7 @@ export function sessionDirName(startedAtMs: number, name: string, sessionId: str
 /** The wire sessions' fixed organize collection: a proxy capture spans
  *  many sites, so filing it under one dominant domain would mislead.
  *  A NAME is what it lacks — the dominant site stamps that instead. */
-export const WIRE_SESSION_COLLECTION = 'Traffic Interception';
+export const WIRE_SESSION_COLLECTION = 'System Proxy';
 
 function payloadBytes(value: string): number {
   return Buffer.byteLength(value, 'utf8');

@@ -537,7 +537,7 @@ export function createTrafficTap(deps: TrafficTapDeps): TrafficTap {
     const ttlMs = resolveTtl(options);
     const now = Date.now();
     const source: ArmedSource = {
-      projection: { uid, kind: 'proxy', label: 'Traffic Interception', armedAtMs: now },
+      projection: { uid, kind: 'proxy', label: 'System Proxy', armedAtMs: now },
       ring,
       consumer,
       ttlMs,

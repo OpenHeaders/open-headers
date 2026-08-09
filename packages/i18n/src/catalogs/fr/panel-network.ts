@@ -20,7 +20,7 @@ export const panelNetwork = {
   'panel.capture.watchRefused.title': 'La vue en direct est désactivée dans ce navigateur',
   'panel.capture.watchRefused.body':
     "L'extension Open Headers de ce navigateur n'autorise pas l'application de bureau à voir son trafic, son " +
-    'stockage ni sa console. Activez « Laisser l\'application de bureau voir ce navigateur » dans les paramètres de ' +
+    "stockage ni sa console. Activez « Laisser l'application de bureau voir ce navigateur » dans les paramètres de " +
     "l'extension pour l'observer ici.",
 
   // Traffic table cells
@@ -533,15 +533,15 @@ export const panelNetwork = {
     "Cette redirection est Open Headers appliquant une règle de redirection, pas le serveur. Elle s'effectue " +
     "comme une redirection interne, la requête d'origine apparaît donc comme son propre saut avant de " +
     "continuer vers l'URL réécrite.",
-  'panel.rowAnnotations.interceptionJoined.label': 'Interception du trafic jointe',
-  'panel.rowAnnotations.interceptionJoined.detail':
-    'Cet échange a aussi été capturé par l’interception du trafic — le proxy local. Les en-têtes exacts sur le fil, les ' +
+  'panel.rowAnnotations.systemProxyJoined.label': 'Proxy système joint',
+  'panel.rowAnnotations.systemProxyJoined.detail':
+    'Cet échange a aussi été capturé par le Proxy système — le proxy local. Les en-têtes exacts sur le fil, les ' +
     "tailles mesurées et les temps de socket de cette capture complètent ce que la capture navigateur n'a " +
     'pas enregistré elle-même.',
-  'panel.rowAnnotations.interceptionSeen.label': 'Vu sur un onglet du navigateur',
-  'panel.rowAnnotations.interceptionSeen.detail':
+  'panel.rowAnnotations.systemProxySeen.label': 'Vu sur un onglet du navigateur',
+  'panel.rowAnnotations.systemProxySeen.detail':
     "Cet échange intercepté a aussi été observé sur l'onglet du navigateur {tab} — les deux lignes sont la " +
     'même requête vue des deux côtés.',
-  'panel.rowAnnotations.interceptionSeen.unknownTab': 'un onglet surveillé',
-  'panel.rowAnnotations.interceptionSeen.jump': "Afficher dans la source de l'onglet",
+  'panel.rowAnnotations.systemProxySeen.unknownTab': 'un onglet surveillé',
+  'panel.rowAnnotations.systemProxySeen.jump': "Afficher dans la source de l'onglet",
 } as const satisfies Catalog;

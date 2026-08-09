@@ -265,7 +265,7 @@ export function createTrafficToolDefinitions(deps: McpTrafficToolDeps): McpToolD
       description:
         'List the browser tabs and proxy partitions a human has ARMED for live-traffic observation: uid, ' +
         'kind, label, armed-at, expiry, and retention counters (records held, bytes, evictions). Arming is ' +
-        'a human gesture in the Open Headers Traffic Monitor — an unarmed source is absent from this list ' +
+        'a human gesture in the Open Headers Traffic panel — an unarmed source is absent from this list ' +
         'and unreadable by uid; if a tab you need is missing, ask the user to arm it. Arms expire when ' +
         'idle; reading traffic keeps them warm. Source uids feed every other traffic_* tool. A row may ' +
         'carry capturing: true while a HUMAN-started disk capture session records that source — capture ' +

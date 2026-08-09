@@ -348,7 +348,7 @@ export const workbenchChrome = {
 
   // ── Tool-window registry (activity bars, dock tab strips, restore
   //    rows, drag previews) ───────────────────────────────────────────
-  'workbench.toolWindows.httpRules': 'HTTP-Regeln',
+  'workbench.toolWindows.httpRules': 'Interceptor',
   'workbench.toolWindows.apiRequests': 'API-Anfragen',
   'workbench.toolWindows.workflows': 'Workflows',
   'workbench.toolWindows.notifications': 'Benachrichtigungen',
@@ -358,7 +358,7 @@ export const workbenchChrome = {
   'workbench.toolWindows.workflowStatus': 'Workflow-Status',
   'workbench.toolWindows.activity': 'Aktivität',
   'workbench.toolWindows.activityTooltip': 'Aktivitäts-Feed — eingehende Änderungen von Peers',
-  'workbench.toolWindows.trafficMonitor': 'Traffic-Monitor',
+  'workbench.toolWindows.trafficMonitor': 'Traffic',
   'workbench.toolWindows.terminal': 'Terminal',
   'workbench.toolWindows.git': 'Git',
   'workbench.toolWindows.versionControl': 'Versionsverwaltung',
@@ -474,7 +474,7 @@ export const workbenchChrome = {
   'workbench.terminal.cliGate.openSettings': 'Einstellungen öffnen',
   'workbench.toolWindows.info.trafficMonitor.summary':
     'Die vereinte Live-Verkehrsansicht — wähle eine Quelle aus der Liste: einen verbundenen Browser-Tab (die Erweiterung ' +
-    'streamt seinen Verkehr live) oder die Traffic-Interception (beliebige Tools dieser Maschine, die auf den ' +
+    'streamt seinen Verkehr live) oder den System-Proxy (beliebige Tools dieser Maschine, die auf den ' +
     'lokalen Proxy-Port zeigen). Beide nutzen dasselbe Netzwerkprotokoll wie das DevTools-Panel; es wird nichts ' +
     'gestreamt, bis eine Quelle ausgewählt ist. Gespeicherte Sitzungen liegen unter SITZUNGEN — beim Ende ' +
     'automatisch benannt und abgelegt; ein Klick spielt sie in einem Tab wieder ab.',
@@ -492,7 +492,7 @@ export const workbenchChrome = {
   'workbench.proxyCapture.stop': 'Stoppen',
   'workbench.proxyCapture.port': 'Port',
   'workbench.proxyCapture.scope': 'Entschlüsselungsbereich',
-  'workbench.proxyCapture.optionsAria': 'Traffic-Interception-Einstellungen',
+  'workbench.proxyCapture.optionsAria': 'System-Proxy-Einstellungen',
   'workbench.proxyCapture.scopePlaceholder': 'example.com, *.example.com',
   'workbench.proxyCapture.scopeHint':
     'Nur gelistete Hosts werden entschlüsselt; der übrige HTTPS-Verkehr läuft als opaker Tunnel durch.',
@@ -548,7 +548,7 @@ export const workbenchChrome = {
     'Geroutete Hosts fallen von HTTP/3 auf HTTP/2 oder 1.1 zurück; Endpunkte mit Certificate-Pinning können ' +
     'während des Routings fehlschlagen.',
   'workbench.proxyCapture.routingPopoverHint':
-    'Leitet Hosts im Entschlüsselungsbereich verbundener Browser über den Interception-Proxy. Vor allem für Browser, die sich ' +
+    'Leitet Hosts im Entschlüsselungsbereich verbundener Browser über den Capture-Proxy. Vor allem für Browser, die sich ' +
     'nicht direkt beobachten oder debuggen lassen — ein beobachtbarer Tab bekommt mehr über den Debug-Modus in ' +
     'seiner Zeile.',
 
@@ -565,13 +565,13 @@ export const workbenchChrome = {
   'workbench.trafficMonitor.browserTabs': 'Browser-Tabs',
   'workbench.trafficMonitor.windowLabel': 'Fenster {n}',
   'workbench.trafficMonitor.proxySystem': 'Proxy · System',
-  'workbench.trafficMonitor.trafficInterception': 'Traffic-Interception',
-  'workbench.trafficMonitor.trafficInterceptionHint':
+  'workbench.trafficMonitor.systemProxy': 'System-Proxy',
+  'workbench.trafficMonitor.systemProxyHint':
     'Nicht-Browser- und nicht beobachtbarer Verkehr — alles, was über den Capture-Port geroutet wird: CLI-Tools, ' +
     'native Apps, andere Geräte',
   'workbench.trafficMonitor.emptyNoSource': 'Keine Quelle ausgewählt',
   'workbench.trafficMonitor.emptyNoSourceHint':
-    'Wähle in der Quellenliste einen Browser-Tab oder die Traffic-Interception, um den zugehörigen Verkehr live zu sehen',
+    'Wähle in der Quellenliste einen Browser-Tab oder den System-Proxy, um den zugehörigen Verkehr live zu sehen',
   'workbench.trafficMonitor.debugTab': 'Diesen Tab debuggen — volle Genauigkeit: Bodies, exakte Header, Timing',
   'workbench.trafficMonitor.debugAttached': 'Tab wird debuggt — volle Genauigkeit über den Debugger des Browsers',
   'workbench.trafficMonitor.debugPinned': 'Zum Debuggen angepinnt — verbindet sich, sobald der Debug-Modus an ist',
@@ -611,7 +611,7 @@ export const workbenchChrome = {
   // ── Die SITZUNGEN-Sektion der Quellenleiste (das Sitzungsarchiv) ────
   'workbench.trafficSessions.empty': 'Noch keine gespeicherten Sitzungen',
   'workbench.trafficSessions.emptyHint':
-    'Erfasse eine Quelle im Traffic-Monitor mit aktiviertem „Sitzung speichern“ — gespeicherte Sitzungen ' +
+    'Erfasse eine Quelle im Traffic-Panel mit aktiviertem „Sitzung speichern“ — gespeicherte Sitzungen ' +
     'landen hier',
   'workbench.trafficSessions.stateRecording': 'Aufzeichnung',
   'workbench.trafficSessions.stateSealing': 'Versiegeln…',

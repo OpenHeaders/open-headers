@@ -457,13 +457,13 @@ describe('session recorder + archive', () => {
     expect(meta.collection).toBe('openheaders.io');
   });
 
-  it('files a proxy session under the fixed Traffic Interception collection, named by its dominant site', async () => {
+  it('files a proxy session under the fixed System Proxy collection, named by its dominant site', async () => {
     const archive = createTrafficSessionArchive({ dir: root, sealKey: null });
     const session = archive.start({
       sessionId: 'ses-proxy',
       sourceUid: 'proxy',
       sourceKind: 'proxy',
-      sourceLabel: 'Traffic Interception',
+      sourceLabel: 'System Proxy',
       name: '',
       partitionTabId: -2,
       initialFidelity: 'proxy',
@@ -476,7 +476,7 @@ describe('session recorder + archive', () => {
       expect(session.projection().state).toBe('sealed');
     });
     const [row] = await archive.listSessions();
-    expect(row?.meta.collection).toBe('Traffic Interception');
+    expect(row?.meta.collection).toBe('System Proxy');
     expect(row?.meta.name).toBe('openheaders.io');
   });
 

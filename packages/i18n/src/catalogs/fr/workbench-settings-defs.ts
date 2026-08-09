@@ -34,7 +34,7 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.backend.allowDesktopWatch.label': "Laisser l'application de bureau voir ce navigateur",
   'workbench.settings.def.backend.allowDesktopWatch.description':
     "Permet à une application de bureau appairée sur cet ordinateur d'observer le trafic réseau, le stockage et la " +
-    'console de ce navigateur dans son Traffic Monitor. Désactivé, les règles et la synchronisation continuent de ' +
+    'console de ce navigateur dans son panneau Trafic. Désactivé, les règles et la synchronisation continuent de ' +
     'fonctionner tandis que les vues en direct du bureau sont poliment refusées.',
   'workbench.settings.def.backend.bindAddress.label': 'Synchroniser avec les appareils de votre réseau',
   'workbench.settings.def.backend.bindAddress.description':
@@ -92,7 +92,7 @@ export const workbenchSettingsDefs = {
     "d'accès n'existe pas. Activé, les agents munis d'un jeton d'accès peuvent lire vos espaces de travail.",
   'workbench.settings.def.mcp.allowObserve.label': "Autoriser l'observation du trafic",
   'workbench.settings.def.mcp.allowObserve.description':
-    'Les agents peuvent lire le trafic en direct des sources que vous capturez dans le Moniteur de trafic. Les ' +
+    'Les agents peuvent lire le trafic en direct des sources que vous capturez dans le panneau Trafic. Les ' +
     "sources non capturées restent invisibles ; les en-têtes d'authentification, les cookies et les valeurs en " +
     'forme de token sont remplacés par des marqueurs stables.',
   'workbench.settings.def.mcp.allowWrite.label': "Autoriser les outils d'écriture",
@@ -458,7 +458,7 @@ export const workbenchSettingsDefs = {
     'anciennes sont supprimées en premier ; une session en cours d’enregistrement n’est jamais supprimée.',
   'workbench.settings.def.trafficMonitor.railSide.label': 'Côté des sources',
   'workbench.settings.def.trafficMonitor.railSide.description':
-    'Côté du Traffic Monitor où se trouve la liste des sources. Le bouton de disposition de l’en-tête du panneau ' +
+    'Côté du panneau Trafic où se trouve la liste des sources. Le bouton de disposition de l’en-tête du panneau ' +
     'permet aussi de basculer.',
   'workbench.settings.def.trafficMonitor.railSide.option.left.label': 'Gauche',
   'workbench.settings.def.trafficMonitor.railSide.option.left.description':

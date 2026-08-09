@@ -124,9 +124,9 @@ export const workbenchSettings = {
   'workbench.settings.category.inspection.description':
     'La voie opt-in qui attache le protocole de débogage de votre navigateur — inspectez et modifiez les ' +
     'requêtes avec la même profondeur que les outils de développement intégrés.',
-  'workbench.settings.category.trafficMonitor.label': 'Moniteur de trafic',
+  'workbench.settings.category.trafficMonitor.label': 'Trafic',
   'workbench.settings.category.trafficMonitor.description':
-    'Valeurs par défaut du geste « Démarrer l’observation » du Moniteur de trafic, et budget disque de ' +
+    'Valeurs par défaut du geste « Démarrer l’observation » du panneau Trafic, et budget disque de ' +
     'l’archive de sessions.',
   'workbench.settings.category.editor.label': 'Éditeur de code',
   'workbench.settings.category.editor.description':
@@ -166,8 +166,8 @@ export const workbenchSettings = {
   'workbench.settings.category.proxyOutbound.description':
     'Le proxy sortant de cet appareil — comment les requêtes, sessions WebSocket et appels gRPC ' +
     'atteignent le réseau.',
-  'workbench.settings.category.proxyTrust.label': 'Proxy · Interception du trafic',
-  'workbench.settings.category.proxyTrust.navLabel': 'Interception du trafic',
+  'workbench.settings.category.proxyTrust.label': 'Proxy · Système',
+  'workbench.settings.category.proxyTrust.navLabel': 'Proxy système',
   'workbench.settings.category.proxyTrust.description':
     "L'autorité de certification et les magasins de confiance qui permettent de déchiffrer le trafic " +
     'HTTPS pour inspection — créée sur cette machine, révocable ici.',

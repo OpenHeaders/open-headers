@@ -539,15 +539,15 @@ export const panelNetwork = {
     'Esta redirección es Open Headers aplicando una regla de redirección, no el servidor. Se realiza como ' +
     'una redirección interna, así que la solicitud original aparece como su propio salto antes de continuar ' +
     'hacia la URL reescrita.',
-  'panel.rowAnnotations.interceptionJoined.label': 'Interceptación de tráfico unida',
-  'panel.rowAnnotations.interceptionJoined.detail':
-    'Este intercambio también fue capturado por la interceptación de tráfico — el proxy local. Los encabezados exactos en el ' +
+  'panel.rowAnnotations.systemProxyJoined.label': 'Proxy del sistema unido',
+  'panel.rowAnnotations.systemProxyJoined.detail':
+    'Este intercambio también fue capturado por el Proxy del sistema — el proxy local. Los encabezados exactos en el ' +
     'cable, los tamaños medidos y los tiempos de socket de esa captura completan lo que la captura del ' +
     'navegador no registró por sí misma.',
-  'panel.rowAnnotations.interceptionSeen.label': 'Visto en una pestaña del navegador',
-  'panel.rowAnnotations.interceptionSeen.detail':
+  'panel.rowAnnotations.systemProxySeen.label': 'Visto en una pestaña del navegador',
+  'panel.rowAnnotations.systemProxySeen.detail':
     'Este intercambio interceptado también se observó en la pestaña del navegador {tab} — las dos filas son ' +
     'la misma solicitud vista desde ambos lados.',
-  'panel.rowAnnotations.interceptionSeen.unknownTab': 'una pestaña observada',
-  'panel.rowAnnotations.interceptionSeen.jump': 'Mostrar en la fuente de la pestaña',
+  'panel.rowAnnotations.systemProxySeen.unknownTab': 'una pestaña observada',
+  'panel.rowAnnotations.systemProxySeen.jump': 'Mostrar en la fuente de la pestaña',
 } as const satisfies Catalog;

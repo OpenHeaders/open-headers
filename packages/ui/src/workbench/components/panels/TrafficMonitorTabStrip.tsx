@@ -76,7 +76,7 @@ function SourceTabPill({
   const [hovered, setHovered] = useState(false);
   const isWire = tab.key === WIRE_SOURCE_KEY;
   const label = isWire
-    ? t('workbench.trafficMonitor.trafficInterception')
+    ? t('workbench.trafficMonitor.systemProxy')
     : tab.label || t('workbench.trafficMonitor.untitledTab');
   return (
     <span

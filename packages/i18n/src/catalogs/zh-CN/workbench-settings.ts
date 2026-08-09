@@ -111,8 +111,9 @@ export const workbenchSettings = {
   'workbench.settings.category.inspection.label': '调试模式',
   'workbench.settings.category.inspection.description':
     '自愿开启的路径，附加浏览器的调试协议——以内置开发者工具同等的深度检查并修改请求。',
-  'workbench.settings.category.trafficMonitor.label': '流量监视器',
-  'workbench.settings.category.trafficMonitor.description': '流量监视器“开始观察”手势的默认选项，以及会话归档的磁盘预算。',
+  'workbench.settings.category.trafficMonitor.label': '流量',
+  'workbench.settings.category.trafficMonitor.description':
+    '流量面板“开始观察”手势的默认选项，以及会话归档的磁盘预算。',
   'workbench.settings.category.editor.label': '代码编辑器',
   'workbench.settings.category.editor.description': '代码编辑界面的字体、缩进和视图选项。',
   'workbench.settings.category.requests.label': 'API 请求',
@@ -145,8 +146,8 @@ export const workbenchSettings = {
   'workbench.settings.category.proxyOutbound.navLabel': '出站请求',
   'workbench.settings.category.proxyOutbound.description':
     '此设备的出站代理——请求、WebSocket 会话和 gRPC 调用如何抵达网络。',
-  'workbench.settings.category.proxyTrust.label': '代理 · 流量拦截',
-  'workbench.settings.category.proxyTrust.navLabel': '流量拦截',
+  'workbench.settings.category.proxyTrust.label': '代理 · 系统',
+  'workbench.settings.category.proxyTrust.navLabel': '系统代理',
   'workbench.settings.category.proxyTrust.description':
     '让 HTTPS 流量可被解密检查的证书颁发机构与信任存储——在本机创建,也可在此移除。',
   'workbench.settings.category.data.label': '数据',

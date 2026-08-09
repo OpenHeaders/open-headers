@@ -132,9 +132,9 @@ export const workbenchSettings = {
   'workbench.settings.category.inspection.description':
     'La vía opt-in que adjunta el protocolo de depuración de tu navegador — inspecciona y modifica solicitudes ' +
     'con la misma profundidad que las herramientas de desarrollo integradas.',
-  'workbench.settings.category.trafficMonitor.label': 'Monitor de tráfico',
+  'workbench.settings.category.trafficMonitor.label': 'Tráfico',
   'workbench.settings.category.trafficMonitor.description':
-    'Valores predeterminados del gesto «Empezar a observar» del Monitor de tráfico y presupuesto de disco del ' +
+    'Valores predeterminados del gesto «Empezar a observar» del panel de Tráfico y presupuesto de disco del ' +
     'archivo de sesiones.',
   'workbench.settings.category.editor.label': 'Editor de código',
   'workbench.settings.category.editor.description':
@@ -175,8 +175,8 @@ export const workbenchSettings = {
   'workbench.settings.category.proxyOutbound.description':
     'El proxy de salida de este dispositivo — cómo alcanzan la red las solicitudes, sesiones WebSocket y ' +
     'llamadas gRPC.',
-  'workbench.settings.category.proxyTrust.label': 'Proxy · Interceptación de tráfico',
-  'workbench.settings.category.proxyTrust.navLabel': 'Interceptación de tráfico',
+  'workbench.settings.category.proxyTrust.label': 'Proxy · Sistema',
+  'workbench.settings.category.proxyTrust.navLabel': 'Proxy del sistema',
   'workbench.settings.category.proxyTrust.description':
     'La autoridad de certificación y los almacenes de confianza que permiten descifrar el tráfico HTTPS ' +
     'para inspección — creada en esta máquina, eliminable aquí.',

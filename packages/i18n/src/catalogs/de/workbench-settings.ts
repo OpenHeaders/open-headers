@@ -126,9 +126,9 @@ export const workbenchSettings = {
   'workbench.settings.category.inspection.description':
     'Der Opt-in-Pfad, der das Debugging-Protokoll deines Browsers anbindet — untersuche und verändere ' +
     'Anfragen mit derselben Tiefe wie die eingebauten Entwicklerwerkzeuge.',
-  'workbench.settings.category.trafficMonitor.label': 'Traffic-Monitor',
+  'workbench.settings.category.trafficMonitor.label': 'Traffic',
   'workbench.settings.category.trafficMonitor.description':
-    'Voreinstellungen der Geste „Beobachtung starten“ im Traffic-Monitor und das Speicherbudget des ' +
+    'Voreinstellungen der Geste „Beobachtung starten“ im Traffic-Panel und das Speicherbudget des ' +
     'Sitzungsarchivs.',
   'workbench.settings.category.editor.label': 'Code-Editor',
   'workbench.settings.category.editor.description':
@@ -170,8 +170,8 @@ export const workbenchSettings = {
   'workbench.settings.category.proxyOutbound.description':
     'Der ausgehende Proxy dieses Geräts — wie Anfragen, WebSocket-Sitzungen und gRPC-Aufrufe das ' +
     'Netzwerk erreichen.',
-  'workbench.settings.category.proxyTrust.label': 'Proxy · Traffic-Interception',
-  'workbench.settings.category.proxyTrust.navLabel': 'Traffic-Interception',
+  'workbench.settings.category.proxyTrust.label': 'Proxy · System',
+  'workbench.settings.category.proxyTrust.navLabel': 'System-Proxy',
   'workbench.settings.category.proxyTrust.description':
     'Die Zertifizierungsstelle und Vertrauensspeicher, die das Entschlüsseln von HTTPS-Verkehr zur ' +
     'Inspektion erlauben — auf dieser Maschine erstellt, hier wieder entfernbar.',

@@ -108,9 +108,9 @@ export const workbenchSettings = {
   'workbench.settings.category.inspection.label': 'Debug mode',
   'workbench.settings.category.inspection.description':
     'The opt-in path that attaches your browser’s debugging protocol — inspect and modify requests with the same depth as the built-in developer tools.',
-  'workbench.settings.category.trafficMonitor.label': 'Traffic Monitor',
+  'workbench.settings.category.trafficMonitor.label': 'Traffic',
   'workbench.settings.category.trafficMonitor.description':
-    'Defaults for the start-observing gesture in the Traffic Monitor, and the disk budget of the session archive.',
+    'Defaults for the start-observing gesture in the Traffic panel, and the disk budget of the session archive.',
   'workbench.settings.category.editor.label': 'Code Editor',
   'workbench.settings.category.editor.description': 'Font, indentation, and view options for code editing surfaces.',
   'workbench.settings.category.requests.label': 'API Requests',
@@ -146,8 +146,8 @@ export const workbenchSettings = {
   'workbench.settings.category.proxyOutbound.navLabel': 'Outbound Requests',
   'workbench.settings.category.proxyOutbound.description':
     'This device’s outbound proxy — how requests, WebSocket sessions, and gRPC calls reach the network.',
-  'workbench.settings.category.proxyTrust.label': 'Proxy · Traffic Interception',
-  'workbench.settings.category.proxyTrust.navLabel': 'Traffic Interception',
+  'workbench.settings.category.proxyTrust.label': 'Proxy · System',
+  'workbench.settings.category.proxyTrust.navLabel': 'System Proxy',
   'workbench.settings.category.proxyTrust.description':
     'The certificate authority and trust stores that let HTTPS traffic be decrypted for inspection — created on this machine, removable here.',
   'workbench.settings.category.data.label': 'Data',
