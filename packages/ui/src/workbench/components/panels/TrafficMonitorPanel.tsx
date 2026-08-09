@@ -718,11 +718,14 @@ const TrafficMonitorPanel: React.FC<TrafficMonitorPanelProps> = ({
   }, []);
 
   // Deleting a session from the rail retires its open tab — the only
-  // retirement path a durable archive source has.
-  const onSessionDeleted = useCallback(
-    (id: string) => onCloseStripTab(sessionSourceKey(id)),
-    [onCloseStripTab],
-  );
+  // retirement path a durable archive source has. Routed through a
+  // latest-ref: the section's delete-confirm modal captures this
+  // callback when it OPENS, and the strip may gain/lose tabs before
+  // the user confirms — a direct closure would retire against that
+  // stale tab list.
+  const closeStripTabRef = useRef(onCloseStripTab);
+  closeStripTabRef.current = onCloseStripTab;
+  const onSessionDeleted = useCallback((id: string) => closeStripTabRef.current(sessionSourceKey(id)), []);
 
   // A source vanishing from the inventory (browser tab closed, peer
   // gone — after the peer-gone linger) retires its tab honestly; the

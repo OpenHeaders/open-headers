@@ -173,6 +173,13 @@ async function openRowMenu(id: string): Promise<void> {
   await windowRow(id).locator('.rules-sidebar-item-menu').click();
 }
 
+/** A menu item inside the OPEN dropdown. Closed antd overlays stay
+ *  mounted in the DOM, so once a second row's menu has ever opened a
+ *  bare testid lookup resolves twice — filter to the visible one. */
+function menuItem(testid: string): ReturnType<Page['locator']> {
+  return workbench.locator(`[data-testid="${testid}"]`).filter({ visible: true }).first();
+}
+
 async function fireSessionTraffic(ok: number, errors: number): Promise<void> {
   await windowPage.evaluate(
     async (options) => {
@@ -435,7 +442,7 @@ test('rename and refile rewrite the session meta alone', async () => {
   // Rename through the row `⋯` menu — INLINE rename, the standard
   // sidebar-tree posture (no modal).
   await openRowMenu(sessionOne.id);
-  await workbench.locator('[data-testid="traffic-sessions-menu-rename"]').click();
+  await menuItem('traffic-sessions-menu-rename').click();
   await expect(renameInput).toBeVisible({ timeout: 10000 });
   await renameInput.fill('Checkout repro');
   await renameInput.press('Enter');
@@ -446,8 +453,8 @@ test('rename and refile rewrite the session meta alone', async () => {
   // submenu by CLICKING its title (antd toggles parents on click) and
   // wait for the child before clicking it.
   await openRowMenu(sessionOne.id);
-  await workbench.locator('[data-testid="traffic-sessions-menu-move"]').click();
-  const moveNew = workbench.locator('[data-testid="traffic-sessions-menu-move-new"]');
+  await menuItem('traffic-sessions-menu-move').click();
+  const moveNew = menuItem('traffic-sessions-menu-move-new');
   await expect(moveNew).toBeVisible({ timeout: 10000 });
   await moveNew.click();
   await expect(renameInput).toBeVisible({ timeout: 10000 });
@@ -575,8 +582,8 @@ test('deleting a session sweeps its exclusive blobs and spares shared ones', asy
   await expandSessions();
   await expect(windowRow(victimRow.id)).toBeVisible({ timeout: 20000 });
   await openRowMenu(victimRow.id);
-  await workbench.locator('[data-testid="traffic-sessions-menu-delete"]').click();
-  await workbench.locator('[data-testid="traffic-sessions-delete-ok"]').click();
+  await menuItem('traffic-sessions-menu-delete').click();
+  await menuItem('traffic-sessions-delete-ok').click();
 
   // §11.4 reachability: the exclusive blob sweeps with its session;
   // the shared blob survives through the keeper's manifest.

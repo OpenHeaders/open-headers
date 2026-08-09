@@ -169,9 +169,15 @@ export function TreeNodeRow({
       data-item-id={node.id}
       style={{ color: token.colorText, paddingLeft }}
       onClick={(e) => {
+        // The ⋯ dropdown overlay is PORTALED but React bubbles its
+        // events through the owner tree — a menu-item click is not a
+        // row click. Only real DOM descendants count (a session row's
+        // open would otherwise fire on every menu verb).
+        if (!e.currentTarget.contains(e.target as Node)) return;
         if (!isRenaming) onClick(e);
       }}
-      onDoubleClick={() => {
+      onDoubleClick={(e) => {
+        if (!e.currentTarget.contains(e.target as Node)) return;
         if (!isRenaming) onDoubleClick();
       }}
     >
