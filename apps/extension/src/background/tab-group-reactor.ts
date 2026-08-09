@@ -1,48 +1,52 @@
 /**
- * Tab-group reactor — in-browser feedback for desktop observation
- * (AGENT_TRAFFIC_PLAN.md §4). While a tab is armed (some desktop
- * consumer holds a lifecycle watch on it — the armed-tab ledger's
- * transitions), the tab rides in a blue tab group titled "OpenHeaders";
- * when the arm ends, the tab's prior grouping is restored. The reactor
- * REACTS to arm state only — it never alters it, and no protocol
- * vocabulary rides on it.
+ * Tab-group reactor — in-browser feedback for AI capture
+ * (AGENT_TRAFFIC_PLAN.md §4). While a tab is capture-armed (connected
+ * AI agents can read its traffic — the captured-tab ledger's
+ * transitions, fed by the desktop's pushed capture state), the tab
+ * rides in a blue tab group titled "OpenHeaders AI"; when the capture
+ * ends, the tab's prior grouping is restored. A workbench live view
+ * never badges — watching is not capture. The reactor REACTS to
+ * capture state only — it never alters it.
  *
  * Laws:
  *
  *   - **Capability-gated, never UA-sniffed.** The tab-group port
  *     feature-detects `chrome.tabs.group` + `chrome.tabGroups`; a
  *     browser without them gets a silent no-op reactor.
- *   - **Never fight the user.** A tab is grouped once, at its armed
+ *   - **Never fight the user.** A tab is grouped once, at its captured
  *     transition. A tab the user pulls out of the group stays out; on
- *     disarm only a tab still sitting in the reactor's group is
+ *     release only a tab still sitting in the reactor's group is
  *     restored — to its prior group when it had one, else ungrouped.
  *     Pre-existing user groups are never retitled or recolored.
- *   - **One group per window.** Concurrently armed tabs in a window
+ *   - **One group per window.** Concurrently captured tabs in a window
  *     share one reactor-created group; the browser dissolves it when
- *     its last tab leaves, so the last disarm dissolves exactly the
+ *     its last tab leaves, so the last release dissolves exactly the
  *     group the reactor made.
  *   - **Bookkeeping survives SW restarts** (chrome.storage is the
- *     authoritative tier): a disarm landing after a restart still
- *     restores the prior grouping, and entries whose arm never
- *     re-subscribes are swept after a grace window so a group cannot
- *     outlive its arm.
+ *     authoritative tier): a release landing after a restart still
+ *     restores the prior grouping, and entries whose capture never
+ *     re-announces are swept after a grace window so a group cannot
+ *     outlive its capture.
  */
 
 import { getHostStorage, OH, type TabGroupFeedbackEntry } from '@openheaders/core/storage';
 import { logger } from '@utils/logger';
-import { type ArmedTabTransition, isTabArmed, subscribeArmedTabs } from './telemetry-stream-host/armed-tabs';
+import { type CapturedTabTransition, isTabCaptured, subscribeCapturedTabs } from './captured-tabs';
 
 const SCOPE = 'TabGroupReactor';
 
-/** The group chip's label — a product name, deliberately unlocalized. */
-export const OBSERVED_GROUP_TITLE = 'OpenHeaders';
+/** The group chip's label — a product name, deliberately unlocalized.
+ *  "AI" is load-bearing: the group marks tabs whose traffic connected
+ *  AI agents can read, not mere desktop presence. */
+export const OBSERVED_GROUP_TITLE = 'OpenHeaders AI';
 
 /** `chrome.tabGroups.TAB_GROUP_ID_NONE` — the ungrouped sentinel. */
 const NO_GROUP = -1;
 
-/** Grace window after a cold start before entries whose arm never
- *  re-subscribed are swept: the daemon re-joins live watches at
- *  reconnect/host-ready, comfortably inside this. */
+/** Grace window after a cold start before entries whose capture never
+ *  re-announced are swept: the daemon re-pushes the captured set at
+ *  reconnect, and the feedback host's hello pulls it at SW boot —
+ *  both comfortably inside this. */
 export const RECONCILE_DELAY_MS = 30_000;
 
 /**
@@ -121,8 +125,8 @@ function chromeTabGroupPort(): TabGroupPort {
 export interface TabGroupReactorOptions {
   /** Test seams — default to the real chrome APIs + ledger. */
   readonly port?: TabGroupPort;
-  readonly subscribe?: typeof subscribeArmedTabs;
-  readonly isArmed?: typeof isTabArmed;
+  readonly subscribe?: typeof subscribeCapturedTabs;
+  readonly isCaptured?: typeof isTabCaptured;
   readonly reconcileDelayMs?: number;
 }
 
@@ -137,8 +141,8 @@ const NOOP_REACTOR: TabGroupReactor = { dispose: () => undefined, settled: () =>
 export function startTabGroupReactor(options?: TabGroupReactorOptions): TabGroupReactor {
   const port = options?.port ?? chromeTabGroupPort();
   if (!port.available()) return NOOP_REACTOR;
-  const subscribe = options?.subscribe ?? subscribeArmedTabs;
-  const armed = options?.isArmed ?? isTabArmed;
+  const subscribe = options?.subscribe ?? subscribeCapturedTabs;
+  const captured = options?.isCaptured ?? isTabCaptured;
 
   const entries = new Map<number, TabGroupFeedbackEntry>();
 
@@ -168,10 +172,10 @@ export function startTabGroupReactor(options?: TabGroupReactorOptions): TabGroup
     return new Set([...entries.values()].map((entry) => entry.groupId));
   }
 
-  async function onArmed(tabId: number): Promise<void> {
-    // An entry already present is a re-subscribe after an SW restart
-    // (or an extra consumer joining): grouping happened at the first
-    // armed transition, and manual moves since are respected.
+  async function onCaptured(tabId: number): Promise<void> {
+    // An entry already present is a re-announce after an SW restart
+    // (or a second backend joining): grouping happened at the first
+    // captured transition, and manual moves since are respected.
     if (entries.has(tabId)) return;
     const tab = await port.tab(tabId);
     if (tab === null) return;
@@ -191,7 +195,7 @@ export function startTabGroupReactor(options?: TabGroupReactorOptions): TabGroup
       return;
     }
     // A prior group that is itself reactor-made is never a restore
-    // target — record "none" so disarm ungroups instead of re-pinning.
+    // target — record "none" so release ungroups instead of re-pinning.
     const priorGroupId = owned.has(tab.groupId) ? NO_GROUP : tab.groupId;
     const groupId = await port.group(tabId, target ?? undefined);
     if (groupId === null) return;
@@ -200,7 +204,7 @@ export function startTabGroupReactor(options?: TabGroupReactorOptions): TabGroup
     await persist();
   }
 
-  async function onDisarmed(tabId: number): Promise<void> {
+  async function onReleased(tabId: number): Promise<void> {
     const entry = entries.get(tabId);
     if (entry === undefined) return;
     entries.delete(tabId);
@@ -223,17 +227,19 @@ export function startTabGroupReactor(options?: TabGroupReactorOptions): TabGroup
     await persist();
   }
 
-  /** Post-restart sweep: an entry whose arm never re-subscribed inside
-   *  the grace window is a group outliving its arm — end it honestly. */
+  /** Post-restart sweep: an entry whose capture never re-announced
+   *  inside the grace window is a group outliving its capture — end it
+   *  honestly. */
   async function reconcile(): Promise<void> {
     for (const tabId of [...entries.keys()]) {
-      if (!armed(tabId)) await onDisarmed(tabId);
+      if (!captured(tabId)) await onReleased(tabId);
     }
   }
 
   // Transitions serialize through one promise chain: group/ungroup are
   // multi-step async against live browser state, and interleaving two
-  // arms in one window would mint two groups where the law wants one.
+  // captures in one window would mint two groups where the law wants
+  // one.
   let chain: Promise<void> = hydrate().catch((err) => {
     logger.warn(SCOPE, 'bookkeeping hydrate failed', err);
   });
@@ -243,8 +249,8 @@ export function startTabGroupReactor(options?: TabGroupReactorOptions): TabGroup
     });
   };
 
-  const unsubscribe = subscribe((event: ArmedTabTransition) => {
-    run(() => (event.kind === 'armed' ? onArmed(event.tabId) : onDisarmed(event.tabId)));
+  const unsubscribe = subscribe((event: CapturedTabTransition) => {
+    run(() => (event.kind === 'captured' ? onCaptured(event.tabId) : onReleased(event.tabId)));
   });
   const offTabRemoved = port.onTabRemoved((tabId) => {
     run(() => forget(tabId));

@@ -1,18 +1,25 @@
 /**
- * Agent traffic S13 E2E — in-browser tab-group feedback against the
- * real dual-app stack (AGENT_TRAFFIC_PLAN.md §4, the observation-
- * transparency law made visible in the tab strip):
+ * Agent traffic S13 E2E — in-browser tab-group capture feedback against
+ * the real dual-app stack (AGENT_TRAFFIC_PLAN.md §4, the capture-
+ * transparency law made visible in the tab strip). Since S30 the badge
+ * rides the desktop's pushed capture state (the tap's armed sources),
+ * not the extension's stream sessions — so these legs prove the whole
+ * push path: arm RPC → tap transition → capture-state frame → reactor.
  *
  *   1. Launch the built desktop app isolated on a fresh daemon port;
  *      launch Chromium with the built extension and open two playground
- *      tabs. Arming the first puts it in a blue tab group titled
- *      "OpenHeaders".
+ *      tabs. Capture-arming the first puts it in a blue tab group
+ *      titled "OpenHeaders AI".
  *   2. Arming the second tab joins it to the SAME group — one group per
  *      window, never one per tab.
  *   3. Disarming the first tab ungroups exactly it; the still-armed
  *      second tab stays grouped.
  *   4. Disarming the last tab ungroups it and the group dissolves —
- *      the feedback never outlives the observation.
+ *      the badge never outlives the capture.
+ *
+ * The inverse law — a workbench live-view watch never badges — is
+ * structural now (the stream host feeds no ledger) and pinned at the
+ * unit layer (capture-feedback-host + tab-group-reactor tests).
  *
  * Group state is read through the extension PAGE (popup-page evaluate
  * law — never the service worker): `chrome.tabs.get(...).groupId` plus
@@ -46,7 +53,7 @@ const PAGE_URL = 'http://127.0.0.1:3000/src/agent-traffic/known-shape.html';
 const PAGE_A_URL = `${PAGE_URL}?tab=a`;
 const PAGE_B_URL = `${PAGE_URL}?tab=b`;
 
-const GROUP_TITLE = 'OpenHeaders';
+const GROUP_TITLE = 'OpenHeaders AI';
 const NO_GROUP = -1;
 
 interface GroupInfo {
@@ -182,9 +189,9 @@ test.afterAll(async () => {
   await electronApp?.close();
 });
 
-// ── Arm → the blue "OpenHeaders" group appears ──────────────────────
+// ── Arm → the blue "OpenHeaders AI" group appears ───────────────────
 
-test('arming a tab puts it in a blue tab group titled "OpenHeaders"', async () => {
+test('capture-arming a tab puts it in a blue tab group titled "OpenHeaders AI"', async () => {
   await expect
     .poll(
       async () => {
@@ -210,8 +217,8 @@ test('arming a tab puts it in a blue tab group titled "OpenHeaders"', async () =
   expect((await groupInfoOf(tabIdA)).groupId).toBe(NO_GROUP);
   uidA = await armTab(tabIdA);
 
-  // The subscribe round-trips through the extension; the reactor
-  // groups on the armed transition.
+  // The arm commits on the tap, the daemon pushes the capture-state
+  // frame, and the reactor groups on the captured transition.
   await expect.poll(async () => (await groupInfoOf(tabIdA)).groupId, { timeout: 15000 }).not.toBe(NO_GROUP);
   const info = await groupInfoOf(tabIdA);
   expect(info.title).toBe(GROUP_TITLE);

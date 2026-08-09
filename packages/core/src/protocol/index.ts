@@ -215,6 +215,15 @@ export {
   TELEMETRY_TABS_SUBSCRIBE_TYPE,
   TELEMETRY_WATCH_REFUSED_TYPE,
 } from './telemetry-stream';
+export type {
+  TrafficCaptureHelloMessage,
+  TrafficCaptureStateMessage,
+  TrafficCaptureWireMessage,
+} from './traffic-capture';
+export {
+  TRAFFIC_CAPTURE_HELLO_TYPE,
+  TRAFFIC_CAPTURE_STATE_TYPE,
+} from './traffic-capture';
 export type { IncompatibleProtocolReason } from './version';
 export {
   HANDSHAKE_REJECT_CLOSE_CODE,

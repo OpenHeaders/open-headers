@@ -38,7 +38,6 @@ import {
   type TelemetryDebugSeam,
   type TelemetryStreamHost,
 } from '@/background/telemetry-stream-host';
-import { __resetArmedTabsForTests, isTabArmed } from '@/background/telemetry-stream-host/armed-tabs';
 
 const TAB_ID = 7;
 
@@ -156,7 +155,6 @@ function batchMessages(sent: SentFrame[], consumerId?: string): LifecycleWireMes
 beforeEach(() => {
   vi.useFakeTimers();
   resetTabTelemetry();
-  __resetArmedTabsForTests();
 });
 
 afterEach(() => {
@@ -213,25 +211,6 @@ describe('startTelemetryStreamHost', () => {
     h.store.apply(startedUpdate('b', 'https://openheaders.io/b'));
     await vi.advanceTimersByTimeAsync(50);
     expect(batchMessages(h.sent)).toHaveLength(before);
-    h.host.dispose();
-  });
-
-  it('sessions feed the armed-tab ledger: armed on the first, disarmed on the last', async () => {
-    const h = makeHarness();
-    expect(isTabArmed(TAB_ID)).toBe(false);
-    await h.deliver(
-      { type: TELEMETRY_LIFECYCLE_CONSUMER_TYPE, tabId: TAB_ID, consumerId: 'c1', message: { kind: 'subscribe' } },
-      h.wire,
-    );
-    await h.deliver(
-      { type: TELEMETRY_LIFECYCLE_CONSUMER_TYPE, tabId: TAB_ID, consumerId: 'c2', message: { kind: 'subscribe' } },
-      h.wire,
-    );
-    expect(isTabArmed(TAB_ID)).toBe(true);
-    await h.deliver({ type: TELEMETRY_LIFECYCLE_DETACH_TYPE, tabId: TAB_ID, consumerId: 'c1' }, h.wire);
-    expect(isTabArmed(TAB_ID)).toBe(true);
-    await h.deliver({ type: TELEMETRY_LIFECYCLE_DETACH_TYPE, tabId: TAB_ID, consumerId: 'c2' }, h.wire);
-    expect(isTabArmed(TAB_ID)).toBe(false);
     h.host.dispose();
   });
 

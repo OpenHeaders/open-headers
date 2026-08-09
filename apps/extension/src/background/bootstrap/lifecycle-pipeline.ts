@@ -11,6 +11,7 @@ import { RequestLifecycleHub } from '@openheaders/oracle/request-lifecycle-hub';
 import { resolveRulesForCompile } from '@openheaders/oracle/rule-engine/variables-resolver';
 import { RuleFireHub } from '@openheaders/oracle/rule-fire-hub';
 import { TabLifecycleBus } from '@openheaders/oracle/tab-lifecycle-bus';
+import { startCaptureFeedbackHost } from '../capture-feedback-host';
 import { startConsoleStreamPortHost } from '../console-stream-port-host';
 import type { CdpAttachObservable, CdpControlReplay } from '../correlator-host';
 import {
@@ -398,12 +399,17 @@ export function startLifecyclePipeline(): LifecyclePipelineHandles {
   // view-only (no eval verbs cross this seam); loopback wires only.
   // Same start-order law as the storage host — before the announce.
   startTelemetryConsoleHost({ hub: consoleStreamHub });
-  // In-browser observation feedback (AGENT_TRAFFIC_PLAN.md §4): while a
-  // desktop consumer watches a tab, the tab rides in a blue "OpenHeaders"
-  // tab group. Started BEFORE the stream host so the armed-tab ledger's
-  // first transition already has its subscriber; feature-detected —
-  // browsers without tab groups get a silent no-op.
+  // In-browser capture feedback (AGENT_TRAFFIC_PLAN.md §4): while a tab
+  // is capture-armed (connected AI agents can read its traffic), it
+  // rides in a blue "OpenHeaders AI" tab group; a workbench live view
+  // never badges. Reactor first so the captured-tab ledger's first
+  // transition already has its subscriber; feature-detected — browsers
+  // without tab groups get a silent no-op.
   startTabGroupReactor();
+  // The feedback host feeds the ledger from the desktop's pushed
+  // capture state (full-set frames, loopback wires only) and pulls the
+  // current set on wires already up (the cold-SW hello closer).
+  startCaptureFeedbackHost();
   // Desktop live-view plane (OBSERVABILITY_PLAN.md Phase 1): the same
   // hub + floors + provenance + body fetcher served over the backend
   // wire — a forwarded workbench subscribe raises the tracking ref and

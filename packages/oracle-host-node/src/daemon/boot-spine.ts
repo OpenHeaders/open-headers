@@ -193,6 +193,7 @@ import { createStaticWebHandler } from './static-web';
 import type { SpineStatusReporter, SpineStatusStore } from './status-seam';
 import { installSyncStatusReporter, type SyncStatusReporter } from './sync-status-reporter';
 import { createBrowserLiveRelay } from './telemetry/browser-live-relay';
+import { createCaptureFeedbackPush } from './telemetry/capture-feedback-push';
 
 const SCOPE = 'boot-spine';
 
@@ -865,6 +866,11 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
   const unsubscribeTrafficStatus = trafficTap.onStatusChanged(() => {
     broadcastLocal('trafficStatusChanged', {});
   });
+  // Capture-feedback pusher (§4) — each browser peer gets the complete
+  // set of its capture-armed tabIds (streaming arms only), so the
+  // extension badges exactly the tabs agents can read. Watching the
+  // live view never reaches this plane.
+  const captureFeedbackPush = createCaptureFeedbackPush(trafficTap);
 
   // CLI provisioning writes this machine's `openheaders/cli.json`;
   // rotate evicts the old token's live peers, same as tokens.revoke.
@@ -1352,7 +1358,7 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
         createPeerAdminRpc({ channels: adminChannels }),
         createPeerRequestsRpc({ cliStatus: () => cliProvision.status() }),
       ),
-      peerPush: composePeerPush(browserLiveRelay.peerPush, proxyRoutingControl.peerPush),
+      peerPush: composePeerPush(browserLiveRelay.peerPush, proxyRoutingControl.peerPush, captureFeedbackPush.peerPush),
       httpRequestHandler: admission.wrapHttpHandler(
         (req, res) =>
           healthzHandler(req, res) ||
@@ -1370,6 +1376,7 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
         setMutationForwarderWsServer(next);
         browserLiveRelay.setWsServer(next);
         proxyRoutingControl.setWsServer(next);
+        captureFeedbackPush.setWsServer(next);
         if (next) syncStatusReporter.attachServer(next);
         else syncStatusReporter.detachServer();
       },
@@ -1396,6 +1403,7 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
     workspaceTreeRuntime = null;
     stopLiveRunner();
     unsubscribeTrafficStatus();
+    captureFeedbackPush.dispose();
     trafficTap.dispose();
     trafficMirror.dispose();
     uninstallTrafficMirrorInterposer();
