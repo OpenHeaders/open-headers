@@ -196,6 +196,105 @@ export async function countDirtyFiles(run: GitRunner, rootDir: string): Promise<
   return parsePorcelainCount(result.stdout);
 }
 
+// ── Working changes (the Commit tool window's tree feed) ─────────────
+
+/** One row of the Commit window's changes tree — a porcelain entry. */
+export interface WorkingChange {
+  /** Repo-relative path where the file lives now. */
+  path: string;
+  /**
+   * Merged display letter (worktree side wins over index side):
+   * `A`/`M`/`D`/`T`/`R`/`C` for tracked rows, the raw `?`/`!` for
+   * unversioned/ignored ones (the flags below are the real signal).
+   */
+  status: string;
+  /** Porcelain `??` — the Unversioned Files group. */
+  unversioned: boolean;
+  /** Porcelain `!!` — listed only when the caller asked for ignored files. */
+  ignored: boolean;
+  /** Rename/copy origin (the old path) when the index carries one. */
+  renamedFrom?: string;
+}
+
+/**
+ * Parse `git status --porcelain -z` into display rows. Rename/copy
+ * records carry the origin as a second NUL token. Rows sort by path so
+ * repeated reads of an unchanged tree are byte-identical (the status
+ * feed hashes frames).
+ */
+export function parseWorkingChanges(stdout: string): WorkingChange[] {
+  const tokens = stdout.split('\0');
+  const changes: WorkingChange[] = [];
+  for (let i = 0; i < tokens.length; i += 1) {
+    const token = tokens[i];
+    if (token.length < 4) continue;
+    const x = token[0];
+    const y = token[1];
+    const filePath = token.slice(3);
+    if (filePath.length === 0) continue;
+    if (x === '?') {
+      changes.push({ path: filePath, status: '?', unversioned: true, ignored: false });
+      continue;
+    }
+    if (x === '!') {
+      changes.push({ path: filePath, status: '!', unversioned: false, ignored: true });
+      continue;
+    }
+    let renamedFrom: string | undefined;
+    if (x === 'R' || x === 'C' || y === 'R' || y === 'C') {
+      const origin = tokens[i + 1];
+      if (origin !== undefined && origin.length > 0) renamedFrom = origin;
+      i += 1;
+    }
+    const status = y !== ' ' ? y : x;
+    changes.push({
+      path: filePath,
+      status,
+      unversioned: false,
+      ignored: false,
+      ...(renamedFrom !== undefined ? { renamedFrom } : {}),
+    });
+  }
+  return changes.sort((a, b) => a.path.localeCompare(b.path));
+}
+
+/**
+ * The Commit window's changes rows; null when porcelain fails.
+ * `--untracked-files=all` expands untracked directories into their
+ * individual files (the tree shows files, not `rules/`).
+ */
+export async function listWorkingChanges(
+  run: GitRunner,
+  rootDir: string,
+  options?: { includeIgnored?: boolean },
+): Promise<WorkingChange[] | null> {
+  const result = await run(
+    [
+      ...repoArgs(rootDir),
+      'status',
+      '--porcelain',
+      '-z',
+      '--untracked-files=all',
+      ...(options?.includeIgnored === true ? ['--ignored'] : []),
+    ],
+    { cwd: rootDir },
+  );
+  if (result.code !== 0) return null;
+  return parseWorkingChanges(result.stdout);
+}
+
+/** Parent shas of a commit (`rev-list --parents -n 1`); null when the ref is unknown. */
+export async function commitParents(run: GitRunner, rootDir: string, ref: string): Promise<string[] | null> {
+  const result = await run([...repoArgs(rootDir), 'rev-list', '--parents', '-n', '1', ref, '--'], { cwd: rootDir });
+  if (result.code !== 0) return null;
+  const shas = result.stdout
+    .trim()
+    .split(/\s+/)
+    .filter((sha) => sha.length > 0);
+  if (shas.length === 0) return null;
+  return shas.slice(1);
+}
+
 // ── In-progress-op detection (§3.3: mid-op trees are never ingested) ─
 
 /**
@@ -1015,6 +1114,71 @@ export async function readCommitFileDiff(
   return { ok: true, diff: { ...base, oldContent, newContent } };
 }
 
+/** Git's own binary heuristic: a NUL in the first 8000 bytes. */
+function looksBinary(content: string): boolean {
+  return content.slice(0, 8000).includes('\0');
+}
+
+/**
+ * One file's change between HEAD and the WORKING TREE — the Commit
+ * window's diff feed. The old side is HEAD's blob (null when the file
+ * is new/unversioned or HEAD is unborn), the new side the on-disk
+ * bytes (null when deleted). Same caps and typed flags as
+ * {@link readCommitFileDiff}; the caller supplies a validated tree
+ * path, re-checked here as defense in depth.
+ */
+export async function readWorkingFileDiff(
+  run: GitRunner,
+  rootDir: string,
+  filePath: string,
+  maxBytes: number = COMMIT_FILE_DIFF_MAX_BYTES,
+): Promise<CommitFileDiffResult> {
+  if (!isSafeTreePath(filePath)) return { ok: false, reason: 'unknown-path' };
+  const headRev = `HEAD:${filePath}`;
+  const oldSize = await readBlobSize(run, rootDir, headRev);
+
+  const absPath = path.join(rootDir, filePath);
+  let newSize: number | null = null;
+  try {
+    const stat = await fs.stat(absPath);
+    if (stat.isFile()) newSize = stat.size;
+  } catch {
+    // absent on disk — deleted (or never existed)
+  }
+  if (oldSize === null && newSize === null) return { ok: false, reason: 'unknown-path' };
+  const tooLarge = (oldSize ?? 0) > maxBytes || (newSize ?? 0) > maxBytes;
+
+  const base: CommitFileDiff = {
+    path: filePath,
+    oldContent: null,
+    newContent: null,
+    binary: false,
+    tooLarge,
+    oldSize,
+    newSize,
+  };
+  if (tooLarge) return { ok: true, diff: base };
+
+  let oldContent: string | null = null;
+  if (oldSize !== null) {
+    const blob = await run([...repoArgs(rootDir), 'show', headRev], { cwd: rootDir });
+    if (blob.code !== 0) return { ok: false, reason: 'diff-failed', detail: failureDetail(blob) };
+    oldContent = blob.stdout;
+  }
+  let newContent: string | null = null;
+  if (newSize !== null) {
+    try {
+      newContent = await fs.readFile(absPath, 'utf-8');
+    } catch (err) {
+      return { ok: false, reason: 'diff-failed', detail: (err as Error).message };
+    }
+  }
+  if ((oldContent !== null && looksBinary(oldContent)) || (newContent !== null && looksBinary(newContent))) {
+    return { ok: true, diff: { ...base, binary: true } };
+  }
+  return { ok: true, diff: { ...base, oldContent, newContent } };
+}
+
 // ── Temp-index commit (§3.3 / §23.4) ─────────────────────────────────
 
 export interface CommitWorkspaceTreeOptions {
@@ -1036,6 +1200,25 @@ export interface CommitWorkspaceTreeOptions {
    * {@link fastForwardWorkspaceBranch} instead.
    */
   mergeParent?: string;
+  /**
+   * Commit only these validated tree paths (the Commit window's
+   * checked set) instead of the whole tree. `git add -A` scoped to the
+   * pathspec — modifications, deletions, and untracked files within
+   * the set all stage; `.gitignore` still applies. An EMPTY array
+   * skips staging entirely (the seeded HEAD tree commits as-is — the
+   * message-only Amend gesture). Absent = the historic `-A .` pass.
+   */
+  paths?: readonly string[];
+  /**
+   * User-explicit Amend (the Commit window carve-out — never FROM the
+   * engine): `git commit --amend` on the temp index. The CALLER owns
+   * the refusal conditions (unborn/merge/pushed HEAD); an unchanged
+   * tree still commits (a message-only amend is the point). Mutually
+   * exclusive with `mergeParent`.
+   */
+  amend?: boolean;
+  /** Per-commit `Signed-off-by` trailer (`--signoff`) — the gear's Sign-off option. */
+  signOff?: boolean;
 }
 
 export type CommitWorkspaceTreeResult =
@@ -1094,11 +1277,16 @@ export async function commitWorkspaceTree(options: CommitWorkspaceTreeOptions): 
     });
     if (seed.code !== 0) return { ok: false, reason: 'stage-failed', detail: failureDetail(seed) };
 
-    const stage = await run([...repoArgs(rootDir), 'add', '-A', '--', '.'], { cwd: rootDir, env: indexEnv });
-    if (stage.code !== 0) return { ok: false, reason: 'stage-failed', detail: failureDetail(stage) };
+    if (options.paths === undefined || options.paths.length > 0) {
+      const stage = await run([...repoArgs(rootDir), 'add', '-A', '--', ...(options.paths ?? ['.'])], {
+        cwd: rootDir,
+        env: indexEnv,
+      });
+      if (stage.code !== 0) return { ok: false, reason: 'stage-failed', detail: failureDetail(stage) };
+    }
 
     const diff = await run([...repoArgs(rootDir), 'diff', '--cached', '--quiet'], { cwd: rootDir, env: indexEnv });
-    if (diff.code === 0 && mergeParent === undefined) return { ok: true, committed: false };
+    if (diff.code === 0 && mergeParent === undefined && options.amend !== true) return { ok: true, committed: false };
 
     if (mergeParent !== undefined) {
       await fs.writeFile(mergeHeadPath, `${mergeParent}\n`, 'utf-8');
@@ -1106,7 +1294,15 @@ export async function commitWorkspaceTree(options: CommitWorkspaceTreeOptions): 
     }
 
     const commit = await run(
-      [...repoArgs(rootDir), 'commit', '-m', message, ...(options.bypassHooks === true ? ['--no-verify'] : [])],
+      [
+        ...repoArgs(rootDir),
+        'commit',
+        '-m',
+        message,
+        ...(options.amend === true ? ['--amend'] : []),
+        ...(options.signOff === true ? ['--signoff'] : []),
+        ...(options.bypassHooks === true ? ['--no-verify'] : []),
+      ],
       { cwd: rootDir, env: { ...indexEnv, ...options.identityEnv } },
     );
     if (commit.code !== 0) return { ok: false, reason: 'commit-failed', detail: failureDetail(commit) };

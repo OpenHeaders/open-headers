@@ -96,6 +96,7 @@ export type {
 export type { SecretsStorageState } from './secrets';
 export type { AppUpdatePhase, AppUpdateSeverity, AppUpdateState } from './updates';
 export type {
+  WorkspaceTreeChangesWire,
   WorkspaceTreeCommitCadence,
   WorkspaceTreeCommitWire,
   WorkspaceTreeCompareRefsWire,
@@ -121,6 +122,8 @@ export type {
   WorkspaceTreeSweepSummary,
   WorkspaceTreeSwitchBranchWire,
   WorkspaceTreeUpdateBranchWire,
+  WorkspaceTreeUserCommitWire,
+  WorkspaceTreeWorkingChangeWire,
 } from './workspace';
 
 /**

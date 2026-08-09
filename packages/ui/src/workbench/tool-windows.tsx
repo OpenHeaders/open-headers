@@ -20,6 +20,7 @@ import { hasCapability } from '@openheaders/core/capabilities';
 import type { DesktopFeature } from '@openheaders/ui/shared/desktop-teaser';
 import type { ToolWindowDef as GenericToolWindowDef } from '@openheaders/ui/shared/dock-layout';
 import ActivityFeedIcon from './components/panels/ActivityFeedIcon';
+import { CommitToolIcon } from './components/panels/git/commit/CommitToolIcon';
 import { ApiRequestsIcon, RequestRulesIcon, VariablesIcon, WorkflowStatusIcon } from '@openheaders/ui/shared/icons';
 import { NotificationsIcon } from '@openheaders/ui/shared/notifications';
 import type { ToolWindowId } from './types';
@@ -47,6 +48,22 @@ export const TOOL_WINDOWS: readonly ToolWindowDef[] = [
     icon: <RequestRulesIcon />,
     core: true,
     defaultSlot: 'left-top',
+  },
+  // The Commit tool window (S22) — the IDE-style companion Commit tab,
+  // directly under the Interceptor in the left activity bar: the
+  // checkable changes tree + message box over the workspace-tree
+  // binding's working tree. Gated like the Git window (only hosts
+  // whose bridge reaches a workspace-tree runtime register
+  // `workspaceGit`); dormant until opened.
+  {
+    id: 'commit',
+    labelKey: 'workbench.toolWindows.commit',
+    icon: <CommitToolIcon />,
+    core: false,
+    defaultSlot: 'left-top',
+    openByDefault: false,
+    requiresCapability: 'workspaceGit',
+    teaserWhenUnavailable: 'git',
   },
   {
     id: 'api-requests',

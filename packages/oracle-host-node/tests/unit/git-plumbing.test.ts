@@ -28,6 +28,7 @@ import {
 import {
   checkoutWorkspaceBranch,
   cleanUntracked,
+  commitParents,
   commitWorkspaceTree,
   countDirtyFiles,
   countLeftRight,
@@ -50,13 +51,16 @@ import {
   listLocalBranches,
   listRepoRefs,
   listTreeYamlPaths,
+  listWorkingChanges,
   localHeadSha,
   mergeBaseOf,
   parsePorcelainCount,
+  parseWorkingChanges,
   pushHeadToNewBranch,
   pushWorkspaceBranch,
   readCommitFileDiff,
   readCommitTreeFiles,
+  readWorkingFileDiff,
   resolveAuthorFilterValue,
   resolveCommitIdentity,
   resolveRefSha,
@@ -65,6 +69,7 @@ import {
   userIndexHasStagedChanges,
   withCommitAttribution,
 } from '../../src/git/repo';
+import { validateUserCommitInput } from '../../src/workspace-tree/runtime/user-commit';
 
 let tmpDir: string;
 let auditRows: GitAuditRow[];
@@ -1275,5 +1280,280 @@ describe('branch ops (IDE-log activity bar)', () => {
 
     // A branch with no upstream refuses typed.
     expect(await updateBranchFromUpstream(run, clone, 'parking')).toEqual({ ok: false, reason: 'no-upstream' });
+  });
+});
+
+describe('Commit window plumbing (S22)', () => {
+  it('parseWorkingChanges classifies porcelain rows and sorts by path', () => {
+    const raw = [
+      ' M b/modified.yaml',
+      'A  a/staged-add.yaml',
+      '?? z/new.yaml',
+      '!! ignored.log',
+      'R  renamed/new.yaml\0renamed/old.yaml',
+      'MM twice.yaml',
+    ].join('\0');
+    const rows = parseWorkingChanges(`${raw}\0`);
+    expect(rows.map((row) => row.path)).toEqual([
+      'a/staged-add.yaml',
+      'b/modified.yaml',
+      'ignored.log',
+      'renamed/new.yaml',
+      'twice.yaml',
+      'z/new.yaml',
+    ]);
+    expect(rows.find((row) => row.path === 'b/modified.yaml')).toMatchObject({ status: 'M', unversioned: false });
+    expect(rows.find((row) => row.path === 'a/staged-add.yaml')).toMatchObject({ status: 'A' });
+    expect(rows.find((row) => row.path === 'z/new.yaml')).toMatchObject({ status: '?', unversioned: true });
+    expect(rows.find((row) => row.path === 'ignored.log')).toMatchObject({ status: '!', ignored: true });
+    expect(rows.find((row) => row.path === 'renamed/new.yaml')).toMatchObject({
+      status: 'R',
+      renamedFrom: 'renamed/old.yaml',
+    });
+    expect(rows.find((row) => row.path === 'twice.yaml')).toMatchObject({ status: 'M' });
+  });
+
+  it('listWorkingChanges reads tracked, unversioned, and (on request) ignored rows', async () => {
+    await initialCommit();
+    await write('.gitignore', 'secret.log\n');
+    await write('workspace.yaml', 'schemaVersion: 5\nuid: wsaaaaaa\nname: Renamed\n');
+    await write('rules/block-r0000001/rule.yaml', 'schemaVersion: 5\nuid: r0000001\n');
+    await write('secret.log', 'shh\n');
+
+    const plain = await listWorkingChanges(run, tmpDir);
+    expect(plain).not.toBeNull();
+    const paths = (plain ?? []).map((row) => row.path);
+    expect(paths).toContain('workspace.yaml');
+    expect(paths).toContain('rules/block-r0000001/rule.yaml');
+    expect(paths).toContain('.gitignore');
+    expect(paths).not.toContain('secret.log');
+    expect((plain ?? []).find((row) => row.path === 'workspace.yaml')).toMatchObject({
+      status: 'M',
+      unversioned: false,
+    });
+    expect((plain ?? []).find((row) => row.path === 'rules/block-r0000001/rule.yaml')).toMatchObject({
+      unversioned: true,
+    });
+
+    const withIgnored = await listWorkingChanges(run, tmpDir, { includeIgnored: true });
+    expect((withIgnored ?? []).find((row) => row.path === 'secret.log')).toMatchObject({ ignored: true });
+  });
+
+  it('pathspec commit takes only the checked paths and leaves the rest dirty', async () => {
+    await initialCommit();
+    await write('workspace.yaml', 'schemaVersion: 5\nuid: wsaaaaaa\nname: Dirty\n');
+    await write('note.yaml', 'kind: note\n');
+
+    const result = await commitWorkspaceTree({
+      run,
+      rootDir: tmpDir,
+      message: 'Add the note only',
+      identityEnv: IDENTITY_ENV,
+      paths: ['note.yaml'],
+    });
+    expect(result).toMatchObject({ ok: true, committed: true });
+
+    // The unchecked path stays dirty; the checked one is committed.
+    const rows = (await listWorkingChanges(run, tmpDir)) ?? [];
+    expect(rows.map((row) => row.path)).toEqual(['workspace.yaml']);
+    const log = await listCommitLog(run, tmpDir, 5);
+    expect(log?.[0]?.subject).toBe('Add the note only');
+    expect(log?.[0]?.files.map((file) => file.path)).toEqual(['note.yaml']);
+    // The user's real staging area never participated (§3.3).
+    expect(await userIndexHasStagedChanges(run, tmpDir)).toBe(false);
+  });
+
+  it('pathspec commit leaves the user-staged paths exactly as found (§3.3)', async () => {
+    await initialCommit();
+    await write('staged.yaml', 'kind: staged\n');
+    await run(['--git-dir', path.join(tmpDir, '.git'), '--work-tree', tmpDir, 'add', '--', 'staged.yaml'], {
+      cwd: tmpDir,
+    });
+    await write('note.yaml', 'kind: note\n');
+
+    const result = await commitWorkspaceTree({
+      run,
+      rootDir: tmpDir,
+      message: 'Note only',
+      identityEnv: IDENTITY_ENV,
+      paths: ['note.yaml'],
+    });
+    expect(result).toMatchObject({ ok: true, committed: true });
+    // staged.yaml is still the user's staged entry, not committed.
+    expect(await userIndexHasStagedChanges(run, tmpDir)).toBe(true);
+    const log = await listCommitLog(run, tmpDir, 1);
+    expect(log?.[0]?.files.map((file) => file.path)).toEqual(['note.yaml']);
+  });
+
+  it('unchanged checked paths answer committed:false, never an empty commit', async () => {
+    await initialCommit();
+    const result = await commitWorkspaceTree({
+      run,
+      rootDir: tmpDir,
+      message: 'Nothing really',
+      identityEnv: IDENTITY_ENV,
+      paths: ['workspace.yaml'],
+    });
+    expect(result).toEqual({ ok: true, committed: false });
+  });
+
+  it('amend rewrites HEAD in place — same parent, new message, extra path', async () => {
+    await initialCommit();
+    await write('a.yaml', 'kind: a\n');
+    const second = await commitWorkspaceTree({ run, rootDir: tmpDir, message: 'Second', identityEnv: IDENTITY_ENV });
+    if (!second.ok || !second.committed) throw new Error('second commit failed');
+    const parentsBefore = await commitParents(run, tmpDir, second.sha);
+
+    await write('b.yaml', 'kind: b\n');
+    const amended = await commitWorkspaceTree({
+      run,
+      rootDir: tmpDir,
+      message: 'Second, amended',
+      identityEnv: IDENTITY_ENV,
+      paths: ['b.yaml'],
+      amend: true,
+    });
+    expect(amended).toMatchObject({ ok: true, committed: true });
+
+    const log = await listCommitLog(run, tmpDir, 10);
+    expect(log?.length).toBe(2);
+    expect(log?.[0]?.subject).toBe('Second, amended');
+    expect(log?.[0]?.files.map((file) => file.path).sort()).toEqual(['a.yaml', 'b.yaml']);
+    if (!amended.ok || !amended.committed) throw new Error('amend failed');
+    expect(await commitParents(run, tmpDir, amended.sha)).toEqual(parentsBefore);
+    expect(await userIndexHasStagedChanges(run, tmpDir)).toBe(false);
+  });
+
+  it('message-only amend (empty pathspec) rewrites the subject alone', async () => {
+    await initialCommit();
+    await write('a.yaml', 'kind: a\n');
+    const second = await commitWorkspaceTree({ run, rootDir: tmpDir, message: 'Second', identityEnv: IDENTITY_ENV });
+    if (!second.ok || !second.committed) throw new Error('second commit failed');
+
+    const amended = await commitWorkspaceTree({
+      run,
+      rootDir: tmpDir,
+      message: 'Second, better said',
+      identityEnv: IDENTITY_ENV,
+      paths: [],
+      amend: true,
+    });
+    expect(amended).toMatchObject({ ok: true, committed: true });
+    const log = await listCommitLog(run, tmpDir, 10);
+    expect(log?.length).toBe(2);
+    expect(log?.[0]?.subject).toBe('Second, better said');
+    expect(log?.[0]?.files.map((file) => file.path)).toEqual(['a.yaml']);
+  });
+
+  it('signOff appends the Signed-off-by trailer', async () => {
+    await initialCommit();
+    await write('a.yaml', 'kind: a\n');
+    const result = await commitWorkspaceTree({
+      run,
+      rootDir: tmpDir,
+      message: 'Signed work',
+      identityEnv: IDENTITY_ENV,
+      signOff: true,
+    });
+    expect(result).toMatchObject({ ok: true, committed: true });
+    const body = await run(['--git-dir', path.join(tmpDir, '.git'), 'log', '-1', '--format=%B'], { cwd: tmpDir });
+    expect(body.stdout).toContain('Signed-off-by: Probe Operator <probe-operator@users.noreply.openheaders.io>');
+  });
+
+  it('commitParents answers the parent chain (root, linear)', async () => {
+    await initialCommit();
+    const rootSha = await localHeadSha(run, tmpDir);
+    expect(await commitParents(run, tmpDir, rootSha ?? '')).toEqual([]);
+    await write('a.yaml', 'kind: a\n');
+    const second = await commitWorkspaceTree({ run, rootDir: tmpDir, message: 'Second', identityEnv: IDENTITY_ENV });
+    if (!second.ok || !second.committed) throw new Error('second commit failed');
+    expect(await commitParents(run, tmpDir, second.sha)).toEqual([rootSha]);
+    expect(await commitParents(run, tmpDir, 'deadbeef')).toBeNull();
+  });
+
+  it('the amend-pushed predicate: HEAD reachable from upstream after push, not after new work', async () => {
+    const bare = path.join(tmpDir, 'remote.git');
+    await run(['init', '--bare', bare], { cwd: tmpDir });
+    await run(['--git-dir', bare, 'symbolic-ref', 'HEAD', 'refs/heads/main'], { cwd: tmpDir });
+    await initialCommit();
+    await run(['--git-dir', path.join(tmpDir, '.git'), '--work-tree', tmpDir, 'remote', 'add', 'origin', bare], {
+      cwd: tmpDir,
+    });
+    await run(
+      ['--git-dir', path.join(tmpDir, '.git'), '--work-tree', tmpDir, 'push', '--quiet', '-u', 'origin', 'HEAD'],
+      {
+        cwd: tmpDir,
+      },
+    );
+
+    // Pushed: amending would rewrite published history — the refusal case.
+    const pushedHead = await localHeadSha(run, tmpDir);
+    const upstream = await resolveUpstream(run, tmpDir);
+    expect(upstream).not.toBeNull();
+    expect(await isAncestorOf(run, tmpDir, pushedHead ?? '', upstream?.sha ?? '')).toBe(true);
+
+    // A fresh local commit is NOT reachable from the upstream — amend allowed.
+    await write('a.yaml', 'kind: a\n');
+    const local = await commitWorkspaceTree({ run, rootDir: tmpDir, message: 'Local only', identityEnv: IDENTITY_ENV });
+    if (!local.ok || !local.committed) throw new Error('local commit failed');
+    expect(await isAncestorOf(run, tmpDir, local.sha, upstream?.sha ?? '')).toBe(false);
+  });
+
+  it('readWorkingFileDiff answers modified / unversioned / deleted / unknown shapes', async () => {
+    await initialCommit();
+    await write('workspace.yaml', 'schemaVersion: 5\nuid: wsaaaaaa\nname: Edited\n');
+    const modified = await readWorkingFileDiff(run, tmpDir, 'workspace.yaml');
+    expect(modified.ok).toBe(true);
+    if (modified.ok) {
+      expect(modified.diff.oldContent).toContain('name: Probe');
+      expect(modified.diff.newContent).toContain('name: Edited');
+      expect(modified.diff.binary).toBe(false);
+    }
+
+    await write('fresh.yaml', 'kind: fresh\n');
+    const fresh = await readWorkingFileDiff(run, tmpDir, 'fresh.yaml');
+    expect(fresh.ok).toBe(true);
+    if (fresh.ok) {
+      expect(fresh.diff.oldContent).toBeNull();
+      expect(fresh.diff.newContent).toContain('kind: fresh');
+    }
+
+    await fs.rm(path.join(tmpDir, 'workspace.yaml'));
+    const deleted = await readWorkingFileDiff(run, tmpDir, 'workspace.yaml');
+    expect(deleted.ok).toBe(true);
+    if (deleted.ok) {
+      expect(deleted.diff.oldContent).toContain('name: Probe');
+      expect(deleted.diff.newContent).toBeNull();
+      expect(deleted.diff.newSize).toBeNull();
+    }
+
+    expect(await readWorkingFileDiff(run, tmpDir, 'no-such.yaml')).toEqual({ ok: false, reason: 'unknown-path' });
+    expect(await readWorkingFileDiff(run, tmpDir, '../escape.yaml')).toEqual({ ok: false, reason: 'unknown-path' });
+  });
+
+  it('readWorkingFileDiff flags binary bytes without contents', async () => {
+    await initialCommit();
+    await fs.writeFile(path.join(tmpDir, 'blob.bin'), Buffer.from([0x4f, 0x48, 0x00, 0x01, 0x02]));
+    const result = await readWorkingFileDiff(run, tmpDir, 'blob.bin');
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.diff.binary).toBe(true);
+      expect(result.diff.oldContent).toBeNull();
+      expect(result.diff.newContent).toBeNull();
+    }
+  });
+
+  it('validateUserCommitInput refuses empty message, bad paths, and a pathless non-amend', () => {
+    expect(validateUserCommitInput({ message: '  ', paths: ['a.yaml'] })).toEqual({
+      ok: false,
+      reason: 'empty-message',
+    });
+    expect(validateUserCommitInput({ message: 'ok', paths: ['../escape'] })).toEqual({
+      ok: false,
+      reason: 'invalid-paths',
+    });
+    expect(validateUserCommitInput({ message: 'ok', paths: [] })).toEqual({ ok: false, reason: 'no-paths' });
+    expect(validateUserCommitInput({ message: 'ok', paths: [], amend: true })).toEqual({ ok: true });
+    expect(validateUserCommitInput({ message: 'ok', paths: ['rules/a.yaml'] })).toEqual({ ok: true });
   });
 });

@@ -306,6 +306,7 @@ import type {
 /** Identifiers for every tool window known to the extension shell. */
 export type ToolWindowId =
   | 'http-rules'
+  | 'commit'
   | 'api-requests'
   | 'variables'
   | 'workflows'

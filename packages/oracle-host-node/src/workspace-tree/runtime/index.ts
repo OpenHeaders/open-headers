@@ -84,6 +84,7 @@ import type {
   ResolveForcePushRpcResult,
   SwitchBranchRpcResult,
   UpdateBranchRpcResult,
+  WorkspaceTreeChangesRpcResult,
   WorkspaceTreeCommitCadence,
   WorkspaceTreeFileDiffRpcResult,
   WorkspaceTreeGitConsoleRpcResult,
@@ -93,7 +94,10 @@ import type {
   WorkspaceTreeRefsRpcResult,
   WorkspaceTreeRuntime,
   WorkspaceTreeRuntimeOptions,
+  WorkspaceTreeUserCommitInput,
+  WorkspaceTreeUserCommitRpcResult,
 } from './types';
+import { runListChanges, runUserCommit, runWorkingFileDiff, validateUserCommitInput } from './user-commit';
 import { detectForcePush, recordWatermark, watermarkFor } from './watermark';
 
 export type {
@@ -110,6 +114,7 @@ export type {
   ResolveForcePushRpcResult,
   SwitchBranchRpcResult,
   UpdateBranchRpcResult,
+  WorkspaceTreeChangesRpcResult,
   WorkspaceTreeCommitCadence,
   WorkspaceTreeFileDiffRpcResult,
   WorkspaceTreeGitConsoleRpcResult,
@@ -119,6 +124,8 @@ export type {
   WorkspaceTreeRefsRpcResult,
   WorkspaceTreeRuntime,
   WorkspaceTreeRuntimeOptions,
+  WorkspaceTreeUserCommitInput,
+  WorkspaceTreeUserCommitRpcResult,
 } from './types';
 
 export function createWorkspaceTreeRuntime(options: WorkspaceTreeRuntimeOptions): WorkspaceTreeRuntime {
@@ -512,6 +519,34 @@ export function createWorkspaceTreeRuntime(options: WorkspaceTreeRuntimeOptions)
 
     fileLog(workspaceId: string, filePath: string, limit?: number): Promise<WorkspaceTreeLogRpcResult> {
       return runFileLog(ctx, workspaceId, filePath, limit);
+    },
+
+    changes(workspaceId: string, includeIgnored?: boolean): Promise<WorkspaceTreeChangesRpcResult> {
+      return runListChanges(ctx, workspaceId, includeIgnored);
+    },
+
+    workingFileDiff(workspaceId: string, filePath: string): Promise<WorkspaceTreeFileDiffRpcResult> {
+      return runWorkingFileDiff(ctx, workspaceId, filePath);
+    },
+
+    async userCommit(
+      workspaceId: string,
+      input: WorkspaceTreeUserCommitInput,
+    ): Promise<WorkspaceTreeUserCommitRpcResult> {
+      const binding = open.get(workspaceId);
+      if (!binding) return { ok: false, reason: 'not-bound' };
+      const valid = validateUserCommitInput(input);
+      if (!valid.ok) return { ok: false, reason: valid.reason };
+      return onChain<WorkspaceTreeUserCommitRpcResult>(
+        binding,
+        { ok: false, reason: 'commit-failed', detail: 'commit pass did not run' },
+        async () => {
+          const result = await runUserCommit(ctx, binding, input);
+          if (result.ok && result.committed) await ctx.maybeAutoPush(binding);
+          await ctx.publishGitStatus(binding);
+          return result;
+        },
+      );
     },
 
     listRefs(workspaceId: string): Promise<WorkspaceTreeRefsRpcResult> {

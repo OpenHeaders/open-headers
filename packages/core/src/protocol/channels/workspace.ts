@@ -507,6 +507,51 @@ export interface WorkspaceRpc {
     res: WorkspaceTreeRefsWire;
   };
   /**
+   * The Commit tool window's changes rows (working tree vs HEAD,
+   * porcelain): tracked changes, unversioned (`??`) files, and — when
+   * `includeIgnored` — gitignored ones (read-only rows; `git add`
+   * respects `.gitignore`, so they can never be committed). Pure read;
+   * the window refetches on status frames.
+   */
+  'oh.workspaceTree.changes': {
+    req: { workspaceId: string; includeIgnored?: boolean };
+    res: WorkspaceTreeChangesWire;
+  };
+  /**
+   * One file's HEAD-vs-WORKING-TREE diff — the Commit window's
+   * double-click feed. Old side HEAD's blob (null when new/unversioned
+   * or HEAD unborn), new side the on-disk bytes (null when deleted).
+   * Same caps and typed flags as `fileDiff`.
+   */
+  'oh.workspaceTree.workingFileDiff': {
+    req: { workspaceId: string; path: string };
+    res: WorkspaceTreeFileDiffWire;
+  };
+  /**
+   * The Commit window's user commit: the checked paths ride the same
+   * throwaway temp-index pass as engine commits (the user's real index
+   * is never read or written), hooks and signing run as configured.
+   * `amend` is the USER-surface carve-out of the never-amend law —
+   * refused typed on an unborn HEAD, a merge commit, or a HEAD already
+   * reachable from its upstream (`amend-pushed`: amending published
+   * history would need a force-push the engine never performs).
+   * `signOff` adds the `Signed-off-by` trailer; `bypassHooks` is the
+   * per-commit "Run Git hooks" inverse, seeded from the binding
+   * setting and never written back. An empty `paths` array is only
+   * meaningful with `amend` (message-only amend).
+   */
+  'oh.workspaceTree.userCommit': {
+    req: {
+      workspaceId: string;
+      message: string;
+      paths: string[];
+      amend?: boolean;
+      signOff?: boolean;
+      bypassHooks?: boolean;
+    };
+    res: WorkspaceTreeUserCommitWire;
+  };
+  /**
    * One path's timeline (`--follow`, renames included) — the blame
    * answer: the newest entry is "who last touched this". Entries carry
    * no file lists (the diff isn't asked for).
@@ -804,6 +849,44 @@ export type WorkspaceTreeFileDiffWire =
   | {
       ok: false;
       reason: 'not-bound' | 'git-unavailable' | 'not-a-repo' | 'unknown-commit' | 'unknown-path' | 'diff-failed';
+      detail?: string;
+    };
+
+/** One row of the Commit tool window's changes tree — a porcelain entry. */
+export interface WorkspaceTreeWorkingChangeWire {
+  /** Repo-relative path where the file lives now. */
+  path: string;
+  /** Merged display letter (`A`/`M`/`D`/`T`/`R`/`C`; raw `?`/`!` on flag rows). */
+  status: string;
+  /** Porcelain `??` — the Unversioned Files group. */
+  unversioned: boolean;
+  /** Porcelain `!!` — present only when `includeIgnored` was asked; read-only rows. */
+  ignored: boolean;
+  /** Rename/copy origin (the old path) when the index carries one. */
+  renamedFrom?: string;
+}
+
+export type WorkspaceTreeChangesWire =
+  | { ok: true; changes: WorkspaceTreeWorkingChangeWire[] }
+  | { ok: false; reason: 'not-bound' | 'git-unavailable' | 'not-a-repo' | 'status-failed'; detail?: string };
+
+export type WorkspaceTreeUserCommitWire =
+  | { ok: true; committed: boolean; sha?: string }
+  | {
+      ok: false;
+      reason:
+        | 'not-bound'
+        | 'git-unavailable'
+        | 'not-a-repo'
+        | 'empty-message'
+        | 'invalid-paths'
+        | 'no-paths'
+        | 'amend-unborn'
+        | 'amend-merge'
+        | 'amend-pushed'
+        | 'stage-failed'
+        | 'commit-failed';
+      /** stderr/stdout of the failing git invocation — hook output lands here (§3.3). */
       detail?: string;
     };
 

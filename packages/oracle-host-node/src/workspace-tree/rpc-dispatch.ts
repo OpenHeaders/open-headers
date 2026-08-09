@@ -235,6 +235,36 @@ export async function dispatchWorkspaceTreeRpc(
     if (!workspaceId || !sha || !filePath || runtime === null) return { ok: false, reason: 'not-bound' };
     return await runtime.fileDiff(workspaceId, sha, filePath);
   }
+  // Commit tool window (§9): the changes-tree read, the working-tree
+  // diff, and the user-driven pathspec commit (Amend carve-out with
+  // typed refusals; the user's real index is never touched).
+  if (type === 'oh.workspaceTree.changes') {
+    const workspaceId = typeof message.workspaceId === 'string' ? message.workspaceId : '';
+    if (!workspaceId || runtime === null) return { ok: false, reason: 'not-bound' };
+    return await runtime.changes(workspaceId, message.includeIgnored === true);
+  }
+  if (type === 'oh.workspaceTree.workingFileDiff') {
+    const workspaceId = typeof message.workspaceId === 'string' ? message.workspaceId : '';
+    const filePath = typeof message.path === 'string' ? message.path : '';
+    if (!workspaceId || !filePath || runtime === null) return { ok: false, reason: 'not-bound' };
+    return await runtime.workingFileDiff(workspaceId, filePath);
+  }
+  if (type === 'oh.workspaceTree.userCommit') {
+    const workspaceId = typeof message.workspaceId === 'string' ? message.workspaceId : '';
+    const commitMessage = typeof message.message === 'string' ? message.message : '';
+    const paths =
+      Array.isArray(message.paths) && message.paths.every((path): path is string => typeof path === 'string')
+        ? message.paths
+        : null;
+    if (!workspaceId || paths === null || runtime === null) return { ok: false, reason: 'not-bound' };
+    return await runtime.userCommit(workspaceId, {
+      message: commitMessage,
+      paths,
+      ...(message.amend === true ? { amend: true } : {}),
+      ...(message.signOff === true ? { signOff: true } : {}),
+      ...(message.bypassHooks === true ? { bypassHooks: true } : {}),
+    });
+  }
   if (type === 'oh.workspaceTree.fileLog') {
     const workspaceId = typeof message.workspaceId === 'string' ? message.workspaceId : '';
     const filePath = typeof message.path === 'string' ? message.path : '';

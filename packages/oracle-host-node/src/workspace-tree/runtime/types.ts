@@ -16,6 +16,7 @@ import type {
   GitAvailability,
   GitRunner,
   RepoRef,
+  WorkingChange,
 } from '../../git';
 import type { BindWorkspaceTreeResult, probeWorkspaceTree } from '../bind';
 import type { ForcePushChoice } from '../force-push';
@@ -231,6 +232,45 @@ export type CompareRefsRpcResult =
 
 export type WorkspaceTreeGitConsoleRpcResult = { ok: true; rows: GitAuditRow[] } | { ok: false; reason: 'not-bound' };
 
+/** The Commit tool window's changes rows — porcelain, path-sorted. */
+export type WorkspaceTreeChangesRpcResult =
+  | { ok: true; changes: WorkingChange[] }
+  | { ok: false; reason: 'not-bound' | 'git-unavailable' | 'not-a-repo' | 'status-failed'; detail?: string };
+
+/**
+ * The Commit window's user-driven commit gesture: checked paths ride a
+ * temp-index pathspec pass (the user's real index is never touched),
+ * `amend`/`signOff` are the gear/checkbox options, `bypassHooks` the
+ * per-commit "Run Git hooks" inverse (seeded from the binding setting,
+ * never written back).
+ */
+export interface WorkspaceTreeUserCommitInput {
+  message: string;
+  paths: string[];
+  amend?: boolean;
+  signOff?: boolean;
+  bypassHooks?: boolean;
+}
+
+export type WorkspaceTreeUserCommitRpcResult =
+  | { ok: true; committed: boolean; sha?: string }
+  | {
+      ok: false;
+      reason:
+        | 'not-bound'
+        | 'git-unavailable'
+        | 'not-a-repo'
+        | 'empty-message'
+        | 'invalid-paths'
+        | 'no-paths'
+        | 'amend-unborn'
+        | 'amend-merge'
+        | 'amend-pushed'
+        | 'stage-failed'
+        | 'commit-failed';
+      detail?: string;
+    };
+
 export type WorkspaceTreeFileDiffRpcResult =
   | { ok: true; diff: CommitFileDiff }
   | {
@@ -358,6 +398,26 @@ export interface WorkspaceTreeRuntime {
     ref?: string,
     filters?: WorkspaceTreeLogFilters,
   ): Promise<WorkspaceTreeLogRpcResult>;
+  /**
+   * The Commit tool window's changes rows (working tree vs HEAD,
+   * porcelain): tracked changes, unversioned files, and — when asked —
+   * ignored ones. Pure read off the per-binding chain; the window
+   * refetches on status frames.
+   */
+  changes(workspaceId: string, includeIgnored?: boolean): Promise<WorkspaceTreeChangesRpcResult>;
+  /**
+   * One file's HEAD-vs-WORKING-TREE diff — the Commit window's
+   * double-click feed. Same caps/typed flags as `fileDiff`; `path` is
+   * a validated tree path.
+   */
+  workingFileDiff(workspaceId: string, path: string): Promise<WorkspaceTreeFileDiffRpcResult>;
+  /**
+   * The Commit window's user commit: checked paths through the
+   * temp-index pathspec pass, with the Amend carve-out (typed refusals
+   * on unborn/merge/pushed HEAD), Sign-off, and per-commit hooks
+   * bypass. The user's real index is never read or written.
+   */
+  userCommit(workspaceId: string, input: WorkspaceTreeUserCommitInput): Promise<WorkspaceTreeUserCommitRpcResult>;
   /** One path's timeline (`--follow`) — the newest entry is "who last touched this". */
   fileLog(workspaceId: string, path: string, limit?: number): Promise<WorkspaceTreeLogRpcResult>;
   /** The log view's ref tree (§9, Phase 7 slice 2) — local branches, remote-tracking refs, tags. */

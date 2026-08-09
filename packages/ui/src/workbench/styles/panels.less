@@ -32,8 +32,11 @@
 
 // Git tool window as a modal host: the panel's dialogs (Create Branch)
 // center over the TOOL WINDOW, not the app window — the antd wrap and
-// mask re-scope from the viewport to this positioned container.
-.git-tool-panel {
+// mask re-scope from the viewport to this positioned container. The
+// Commit window carries the same host class for its future dialogs
+// (DiffModal stays window-centered by law).
+.git-tool-panel,
+.commit-tool-panel {
   position: relative;
 
   .ant-modal-root .ant-modal-mask,

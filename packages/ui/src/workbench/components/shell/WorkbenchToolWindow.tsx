@@ -39,6 +39,7 @@ const TrafficMonitorPanel = lazy(() => import('../panels/TrafficMonitorPanel'));
 // Lazy for the same reason: the window exists solely on hosts with the
 // `workspaceGit` capability (registry `requiresCapability` gate).
 const GitLogPanel = lazy(() => import('../panels/git/GitLogPanel'));
+const CommitToolPanel = lazy(() => import('../panels/git/commit/CommitToolPanel'));
 import { DesktopTeaser } from '@openheaders/ui/shared/desktop-teaser';
 import type { SidebarView } from '../sidebar/types';
 import type { SidebarSearchHandle } from '../sidebar/useTreeSearch';
@@ -338,6 +339,12 @@ const WorkbenchToolWindow: React.FC<WorkbenchToolWindowProps> = ({
       return (
         <Suspense fallback={null}>
           <GitLogPanel info={getToolWindowInfo('git', t)} dockSlot={slot} onHide={() => tl.closeDock(slot)} />
+        </Suspense>
+      );
+    case 'commit':
+      return (
+        <Suspense fallback={null}>
+          <CommitToolPanel info={getToolWindowInfo('commit', t)} onHide={() => tl.closeDock(slot)} />
         </Suspense>
       );
     default:
