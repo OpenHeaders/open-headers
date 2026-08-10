@@ -22,17 +22,23 @@ import { createPanelHeaderWiring, PanelHeader } from '@openheaders/ui/shared/doc
 import type { InfoPopoverContent } from '@openheaders/ui/shared/info-popover';
 import { InfoTrigger } from '@openheaders/ui/shared/info-popover';
 import { useActiveWorkspaceId } from '@openheaders/ui/shared/hooks/readers/useActiveWorkspaceId';
+import { postGitPanelReveal } from '../../../../data/git-panel-reveal';
 import GitBindForm from '../../../git/GitBindForm';
 import { localWorkspaceTreeTransport } from '../../../git/transport';
 import DiffModal from '../DiffModal';
+import { GIT_PRIMARY_TAB_KEY, getGitPanelWorkbench } from '../git-panel-view-store';
+import CreateBranchModal from '../rail/CreateBranchModal';
 import {
   type CheckedState,
+  checkedOnly,
   checkedPaths,
   countChanges,
   EMPTY_CHECKED_STATE,
   setPathsChecked,
   splitChangeGroups,
 } from './commit-model';
+import { buildCommitRowMenu, type CommitRowMenuHandlers } from './commit-row-menu';
+import CompareBranchModal from './CompareBranchModal';
 import {
   type CommitViewPrefs,
   getCommitViewPrefs,
@@ -41,7 +47,7 @@ import {
   subscribeCommitViewPrefs,
 } from './commit-view-prefs';
 import CommitChangesTree, { type CommitChangesTreeHandle } from './CommitChangesTree';
-import CommitForm from './CommitForm';
+import CommitForm, { type CommitFormHandle } from './CommitForm';
 import CommitToolbar from './CommitToolbar';
 
 export interface CommitToolPanelProps {
@@ -64,7 +70,12 @@ const CommitToolPanel: React.FC<CommitToolPanelProps> = ({ info, onHide }) => {
   const [committing, setCommitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [diff, setDiff] = useState<WorkspaceTreeFileDiffPairWire | null>(null);
+  const [currentBranch, setCurrentBranch] = useState<string | null>(null);
+  const [compareOpen, setCompareOpen] = useState(false);
+  const [createBranchFrom, setCreateBranchFrom] = useState<string | null>(null);
   const treeRef = useRef<CommitChangesTreeHandle>(null);
+  const formRef = useRef<CommitFormHandle>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
   const preAmendDraft = useRef<string | null>(null);
 
   const prefs: CommitViewPrefs = useSyncExternalStore(
@@ -108,6 +119,7 @@ const CommitToolPanel: React.FC<CommitToolPanelProps> = ({ info, onHide }) => {
       if (!isBound) return;
       const status = await hostBridge.call('oh.workspaceTree.gitStatus', { workspaceId });
       setBypassHooksSetting(status.bypassHooks);
+      setCurrentBranch(status.branch);
     } catch {
       setBound(false);
     }
@@ -129,6 +141,7 @@ const CommitToolPanel: React.FC<CommitToolPanelProps> = ({ info, onHide }) => {
       setBound(payload.status.bound);
       if (!payload.status.bound) return;
       setBypassHooksSetting(payload.status.bypassHooks);
+      setCurrentBranch(payload.status.branch);
       void refreshChanges();
     });
   }, [workspaceId, refreshChanges]);
@@ -209,6 +222,20 @@ const CommitToolPanel: React.FC<CommitToolPanelProps> = ({ info, onHide }) => {
     [t],
   );
 
+  const pushCurrent = useCallback(async (): Promise<void> => {
+    if (workspaceId === null) return;
+    const push = await hostBridge.call('oh.workspaceTree.push', { workspaceId });
+    if (push.ok) {
+      message.success(t(push.pushed ? 'workbench.commitTool.pushed' : 'workbench.commitTool.nothingToPush'));
+    } else {
+      setError(
+        push.detail !== undefined && push.detail.length > 0
+          ? `${t('workbench.commitTool.errors.pushFailed')}\n${push.detail}`
+          : t('workbench.commitTool.errors.pushFailed'),
+      );
+    }
+  }, [workspaceId, message, t]);
+
   const handleCommit = useCallback(
     async (andPush: boolean): Promise<void> => {
       if (workspaceId === null) return;
@@ -238,25 +265,26 @@ const CommitToolPanel: React.FC<CommitToolPanelProps> = ({ info, onHide }) => {
         setChecked(EMPTY_CHECKED_STATE);
         message.success(t('workbench.commitTool.committed', { sha: (result.sha ?? '').slice(0, 8) }));
         await refreshChanges();
-        if (andPush) {
-          const push = await hostBridge.call('oh.workspaceTree.push', { workspaceId });
-          if (push.ok) {
-            message.success(t(push.pushed ? 'workbench.commitTool.pushed' : 'workbench.commitTool.nothingToPush'));
-          } else {
-            setError(
-              push.detail !== undefined && push.detail.length > 0
-                ? `${t('workbench.commitTool.errors.pushFailed')}\n${push.detail}`
-                : t('workbench.commitTool.errors.pushFailed'),
-            );
-          }
-        }
+        if (andPush) await pushCurrent();
       } catch (err) {
         setError((err as Error).message);
       } finally {
         setCommitting(false);
       }
     },
-    [workspaceId, prefs.draft, prefs.signOff, paths, amend, runGitHooks, commitErrorText, message, refreshChanges, t],
+    [
+      workspaceId,
+      prefs.draft,
+      prefs.signOff,
+      paths,
+      amend,
+      runGitHooks,
+      commitErrorText,
+      message,
+      refreshChanges,
+      pushCurrent,
+      t,
+    ],
   );
 
   const handleOpenDiff = useCallback(
@@ -270,6 +298,86 @@ const CommitToolPanel: React.FC<CommitToolPanelProps> = ({ info, onHide }) => {
       }
     },
     [workspaceId],
+  );
+
+  // Commit File… (IDE gesture, scoped to our own commit UI): check
+  // ONLY that file and land in the message box.
+  const handleCommitFile = useCallback(
+    (filePath: string): void => {
+      setChecked(checkedOnly(rows, filePath));
+      formRef.current?.focusMessage();
+    },
+    [rows],
+  );
+
+  const handlePull = useCallback(async (): Promise<void> => {
+    if (workspaceId === null) return;
+    try {
+      const result = await hostBridge.call('oh.workspaceTree.pull', { workspaceId });
+      if (!result.ok) {
+        setError(t('workbench.commitTool.menu.pullFailed', { detail: result.detail ?? result.reason }));
+        return;
+      }
+      message.success(
+        t(result.upToDate ? 'workbench.commitTool.menu.pullUpToDate' : 'workbench.commitTool.menu.pullDone'),
+      );
+      await refreshChanges();
+    } catch (err) {
+      setError((err as Error).message);
+    }
+  }, [workspaceId, message, refreshChanges, t]);
+
+  const handleFetch = useCallback(async (): Promise<void> => {
+    if (workspaceId === null) return;
+    try {
+      const result = await hostBridge.call('oh.workspaceTree.fetch', { workspaceId });
+      if (result.ok) message.success(t('workbench.commitTool.menu.fetchDone'));
+      else setError(t('workbench.gitLog.fetch.failed', { detail: result.detail ?? result.reason }));
+    } catch (err) {
+      setError((err as Error).message);
+    }
+  }, [workspaceId, message, t]);
+
+  // Compare with Branch or Tag… — the picked ref opens the Git
+  // window's Compare-with-Current tab via the shared registry.
+  const handleComparePick = useCallback(
+    (ref: string): void => {
+      setCompareOpen(false);
+      if (workspaceId === null) return;
+      getGitPanelWorkbench(workspaceId).registry.openCompare(ref);
+      postGitPanelReveal();
+    },
+    [workspaceId],
+  );
+
+  // Branches… — reveal the Git window on its primary log tab with the
+  // ref rail expanded.
+  const handleBranches = useCallback((): void => {
+    if (workspaceId === null) return;
+    const { registry } = getGitPanelWorkbench(workspaceId);
+    registry.patchLogTab(GIT_PRIMARY_TAB_KEY, { refsCollapsed: false });
+    registry.activateTab(GIT_PRIMARY_TAB_KEY);
+    postGitPanelReveal();
+  }, [workspaceId]);
+
+  const rowMenuHandlers = useMemo<CommitRowMenuHandlers>(
+    () => ({
+      onCommitFile: handleCommitFile,
+      onShowDiff: (filePath) => void handleOpenDiff(filePath),
+      onRefresh: () => void refreshChanges(),
+      onPush: () => void pushCurrent(),
+      onPull: () => void handlePull(),
+      onFetch: () => void handleFetch(),
+      onCompareWithBranch: () => setCompareOpen(true),
+      onBranches: handleBranches,
+      onNewBranch: () => setCreateBranchFrom(currentBranch ?? 'HEAD'),
+    }),
+    [handleCommitFile, handleOpenDiff, refreshChanges, pushCurrent, handlePull, handleFetch, handleBranches, currentBranch],
+  );
+
+  const rowMenu = useCallback(
+    (row: WorkspaceTreeWorkingChangeWire) => (row.ignored ? null : buildCommitRowMenu(row, t, rowMenuHandlers)),
+    [t, rowMenuHandlers],
   );
 
   if (workspaceId === null || !bound) {
@@ -299,7 +407,7 @@ const CommitToolPanel: React.FC<CommitToolPanelProps> = ({ info, onHide }) => {
   }
 
   return (
-    <div className="rules-bottom-panel commit-tool-panel" data-testid="commit-tool-panel">
+    <div ref={panelRef} className="rules-bottom-panel commit-tool-panel" data-testid="commit-tool-panel">
       <PanelHeader
         wiring={headerWiring}
         title={
@@ -326,8 +434,10 @@ const CommitToolPanel: React.FC<CommitToolPanelProps> = ({ info, onHide }) => {
         onOpenFile={(filePath) => void handleOpenDiff(filePath)}
         groupByDirectory={prefs.groupByDirectory}
         showIgnored={prefs.showIgnored}
+        rowMenu={rowMenu}
       />
       <CommitForm
+        ref={formRef}
         draft={prefs.draft}
         onDraftChange={(draft) => patchPrefs({ draft })}
         amend={amend}
@@ -346,6 +456,25 @@ const CommitToolPanel: React.FC<CommitToolPanelProps> = ({ info, onHide }) => {
         onDismissError={() => setError(null)}
       />
       <DiffModal diff={diff} onClose={() => setDiff(null)} />
+      <CompareBranchModal
+        workspaceId={workspaceId}
+        open={compareOpen}
+        container={panelRef.current}
+        onClose={() => setCompareOpen(false)}
+        onPick={handleComparePick}
+      />
+      <CreateBranchModal
+        workspaceId={workspaceId}
+        from={createBranchFrom}
+        fromRef={undefined}
+        container={panelRef.current}
+        onClose={() => setCreateBranchFrom(null)}
+        onCreated={(branch, from, checkedOut) => {
+          if (checkedOut) {
+            message.success(t('workbench.gitLog.createBranch.checkedOut', { branch, from }));
+          }
+        }}
+      />
     </div>
   );
 };

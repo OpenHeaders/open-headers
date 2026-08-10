@@ -14,9 +14,10 @@
 
 import { CaretDownOutlined, CaretRightOutlined, FolderOutlined } from '@ant-design/icons';
 import type { WorkspaceTreeWorkingChangeWire } from '@openheaders/core/bridge';
-import { Checkbox, theme } from 'antd';
+import { Checkbox, Dropdown, theme } from 'antd';
+import type { MenuProps } from 'antd';
 import type React from 'react';
-import { forwardRef, useImperativeHandle, useMemo, useState } from 'react';
+import { forwardRef, Fragment, useImperativeHandle, useMemo, useState } from 'react';
 import { useTheme } from '@openheaders/ui/context';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { allDirKeys, buildFileTree, type FileTreeNode } from '../file-tree';
@@ -34,6 +35,8 @@ export interface CommitChangesTreeProps {
   onOpenFile: (path: string) => void;
   groupByDirectory: boolean;
   showIgnored: boolean;
+  /** Right-click menu for a checkable file row; null = no menu (ignored rows). */
+  rowMenu: (row: WorkspaceTreeWorkingChangeWire) => MenuProps | null;
 }
 
 export interface CommitChangesTreeHandle {
@@ -69,7 +72,7 @@ interface GroupSpec {
 }
 
 const CommitChangesTree = forwardRef<CommitChangesTreeHandle, CommitChangesTreeProps>(function CommitChangesTree(
-  { groups, checked, onSetChecked, selectedPath, onSelectFile, onOpenFile, groupByDirectory, showIgnored },
+  { groups, checked, onSetChecked, selectedPath, onSelectFile, onOpenFile, groupByDirectory, showIgnored, rowMenu },
   handleRef,
 ) {
   const { token } = theme.useToken();
@@ -195,9 +198,8 @@ const CommitChangesTree = forwardRef<CommitChangesTreeHandle, CommitChangesTreeP
     suffix: string,
   ): React.ReactNode => {
     const isSelected = selectedPath === row.path;
-    return (
+    const rowBody = (
       <div
-        key={row.path}
         className={isSelected ? 'git-tool-row selected' : 'git-tool-row'}
         style={rowStyle(depth)}
         title={row.renamedFrom !== undefined ? `${row.renamedFrom} → ${row.path}` : row.path}
@@ -259,6 +261,13 @@ const CommitChangesTree = forwardRef<CommitChangesTreeHandle, CommitChangesTreeP
           )}
         </button>
       </div>
+    );
+    const menu = rowMenu(row);
+    if (menu === null) return <Fragment key={row.path}>{rowBody}</Fragment>;
+    return (
+      <Dropdown key={row.path} menu={menu} trigger={['contextMenu']}>
+        {rowBody}
+      </Dropdown>
     );
   };
 

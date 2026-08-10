@@ -121,6 +121,7 @@ import { useUrlWorkspaceBindingMirror } from './hooks/useUrlWorkspaceBindingMirr
 import { useWorkbenchShortcutActions } from './hooks/useWorkbenchShortcutActions';
 import { useWorkbenchSidebarState } from './hooks/useWorkbenchSidebarState';
 import { useWorkbenchWorkspaceSlice } from './hooks/useWorkbenchWorkspaceSlice';
+import { subscribeGitPanelReveal } from './data/git-panel-reveal';
 import { subscribeTrafficStorageReveal } from './data/traffic-storage-reveal';
 import { useWorkspaceIntentRouter } from './hooks/useWorkspaceIntentRouter';
 import { useWorkspaceShortcuts } from './hooks/useWorkspaceShortcuts';
@@ -419,6 +420,11 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
   // "Reveal in Storage" from a storage-document editor tab: activate
   // the Traffic Monitor; the mounted panel consumes the parked intent.
   useEffect(() => subscribeTrafficStorageReveal(() => tl.activateWindow('traffic-monitor')), [tl]);
+
+  // Commit-window gestures that land in the Git window (Compare with
+  // Branch or Tag, Branches…) — tab state is already applied on the
+  // git-panel registry; the shell only activates the window.
+  useEffect(() => subscribeGitPanelReveal(() => tl.activateWindow('git')), [tl]);
 
   // Host-reported app updates land in the Notifications timeline
   // (no-op on hosts without the getAppUpdate capability), and the

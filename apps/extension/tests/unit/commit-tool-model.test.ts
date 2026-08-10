@@ -8,6 +8,7 @@
 import type { WorkspaceTreeWorkingChangeWire } from '@openheaders/core/bridge';
 import {
   aggregateChecked,
+  checkedOnly,
   checkedPaths,
   countChanges,
   EMPTY_CHECKED_STATE,
@@ -68,6 +69,23 @@ describe('checked-set algebra', () => {
     const grown = [...ROWS, row({ path: 'rules/c.yaml', status: 'M' })];
     expect(isRowChecked(grown[5], state)).toBe(true);
     expect(checkedPaths(grown, state)).toEqual(['rules/b.yaml', 'workspace.yaml', 'rules/c.yaml']);
+  });
+});
+
+describe('checkedOnly', () => {
+  it('checks exactly the target path — tracked target', () => {
+    const state = checkedOnly(ROWS, 'rules/b.yaml');
+    expect(checkedPaths(ROWS, state)).toEqual(['rules/b.yaml']);
+  });
+
+  it('checks exactly the target path — unversioned target', () => {
+    const state = checkedOnly(ROWS, 'notes/new.yaml');
+    expect(checkedPaths(ROWS, state)).toEqual(['notes/new.yaml']);
+  });
+
+  it('an ignored target answers the empty checked set', () => {
+    const state = checkedOnly(ROWS, 'secret.log');
+    expect(checkedPaths(ROWS, state)).toEqual([]);
   });
 });
 

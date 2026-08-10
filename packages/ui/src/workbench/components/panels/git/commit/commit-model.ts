@@ -78,6 +78,25 @@ export function setPathsChecked(
   return { uncheckedTracked, checkedUnversioned };
 }
 
+/**
+ * The Commit File… gesture: a checked state where ONLY the given path
+ * is checked — every tracked row lands in the unchecked exceptions,
+ * the target joins the checked set for its own group.
+ */
+export function checkedOnly(rows: readonly WorkspaceTreeWorkingChangeWire[], path: string): CheckedState {
+  const uncheckedTracked = new Set<string>();
+  const checkedUnversioned = new Set<string>();
+  for (const row of rows) {
+    if (row.ignored) continue;
+    if (row.path === path) {
+      if (row.unversioned) checkedUnversioned.add(row.path);
+    } else if (!row.unversioned) {
+      uncheckedTracked.add(row.path);
+    }
+  }
+  return { uncheckedTracked, checkedUnversioned };
+}
+
 export type CheckAggregate = 'none' | 'some' | 'all';
 
 /** Tri-state for a directory node / group header checkbox. */

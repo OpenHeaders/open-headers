@@ -10,8 +10,9 @@
 
 import { ClockCircleOutlined, SettingOutlined } from '@ant-design/icons';
 import { Alert, Button, Checkbox, Input, Popover, theme, Tooltip } from 'antd';
+import type { TextAreaRef } from 'antd/es/input/TextArea';
 import type React from 'react';
-import { useState } from 'react';
+import { forwardRef, useImperativeHandle, useRef, useState } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import type { ChangeCounter } from './commit-model';
 
@@ -34,8 +35,14 @@ export interface CommitFormProps {
   onDismissError: () => void;
 }
 
-const CommitForm: React.FC<CommitFormProps> = ({
-  draft,
+export interface CommitFormHandle {
+  /** The Commit File… gesture's landing — focus the message box. */
+  focusMessage: () => void;
+}
+
+const CommitForm = forwardRef<CommitFormHandle, CommitFormProps>(function CommitForm(
+  {
+    draft,
   onDraftChange,
   amend,
   onAmendChange,
@@ -46,15 +53,20 @@ const CommitForm: React.FC<CommitFormProps> = ({
   onSignOffChange,
   runGitHooks,
   onRunGitHooksChange,
-  committing,
-  canCommit,
-  onCommit,
-  error,
-  onDismissError,
-}) => {
+    committing,
+    canCommit,
+    onCommit,
+    error,
+    onDismissError,
+  },
+  handleRef,
+) {
   const t = useT();
   const { token } = theme.useToken();
   const [historyOpen, setHistoryOpen] = useState(false);
+  const messageRef = useRef<TextAreaRef>(null);
+
+  useImperativeHandle(handleRef, () => ({ focusMessage: () => messageRef.current?.focus() }), []);
 
   const counterParts: string[] = [];
   if (counter.modified > 0) counterParts.push(t('workbench.commitTool.counter.modified', { count: counter.modified }));
@@ -157,6 +169,7 @@ const CommitForm: React.FC<CommitFormProps> = ({
         )}
       </div>
       <Input.TextArea
+        ref={messageRef}
         value={draft}
         onChange={(event) => onDraftChange(event.target.value)}
         placeholder={t('workbench.commitTool.messagePlaceholder')}
@@ -208,6 +221,6 @@ const CommitForm: React.FC<CommitFormProps> = ({
       </div>
     </div>
   );
-};
+});
 
 export default CommitForm;
