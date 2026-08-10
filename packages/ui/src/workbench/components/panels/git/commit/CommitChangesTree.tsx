@@ -175,6 +175,19 @@ const CommitChangesTree = forwardRef<CommitChangesTreeHandle, CommitChangesTreeP
   const filesCountText = (count: number): string =>
     count === 1 ? t('workbench.commitTool.oneFile') : t('workbench.gitLog.filesCount', { count });
 
+  const directoriesCountText = (count: number): string =>
+    count === 1 ? t('workbench.commitTool.oneDirectory') : t('workbench.commitTool.directoriesCount', { count });
+
+  // Group-level count — "1 directory and 6 files" on the group header
+  // and its content-root node when the grouped tree carries folder
+  // rows; flat mode (no folder rows) keeps the plain file count.
+  const groupCountText = (spec: GroupSpec): string => {
+    const dirCount = groupByDirectory ? allDirKeys(trees.get(spec.key) ?? []).length : 0;
+    const files = filesCountText(spec.rows.length);
+    if (dirCount === 0) return files;
+    return t('workbench.commitTool.dirsAndFiles', { dirs: directoriesCountText(dirCount), files });
+  };
+
   const renderFileRow = (
     spec: GroupSpec,
     row: WorkspaceTreeWorkingChangeWire,
@@ -333,7 +346,7 @@ const CommitChangesTree = forwardRef<CommitChangesTreeHandle, CommitChangesTreeP
             onClick={() => toggleCollapse(rootKey)}
             style={{ ...bareLabelStyle, fontSize: ROW_FONT - 1, color: token.colorTextTertiary }}
           >
-            {filesCountText(spec.rows.length)}
+            {groupCountText(spec)}
           </button>
         </div>
         {open && renderTreeNodes(spec, trees.get(spec.key) ?? [], 2)}
@@ -392,7 +405,7 @@ const CommitChangesTree = forwardRef<CommitChangesTreeHandle, CommitChangesTreeP
                 {spec.label}
               </button>
               <span style={{ fontSize: ROW_FONT - 1, color: token.colorTextTertiary }}>
-                {filesCountText(spec.rows.length)}
+                {groupCountText(spec)}
               </span>
             </div>
             {open && (groupByDirectory ? renderRootedTree(spec) : renderFlatRows(spec))}
