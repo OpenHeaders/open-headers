@@ -17,11 +17,12 @@ import type { WorkspaceTreeWorkingChangeWire } from '@openheaders/core/bridge';
 import { Checkbox, theme } from 'antd';
 import type React from 'react';
 import { forwardRef, useImperativeHandle, useMemo, useState } from 'react';
+import { useTheme } from '@openheaders/ui/context';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { allDirKeys, buildFileTree, type FileTreeNode } from '../file-tree';
-import { statusColor } from '../FileTreeView';
 import { aggregateChecked, type ChangeGroups, type CheckedState, isRowChecked } from './commit-model';
 import { FileTypeIcon } from './FileTypeIcon';
+import { vcsFileColor, vcsPalette } from './vcs-colors';
 
 export interface CommitChangesTreeProps {
   groups: ChangeGroups;
@@ -72,7 +73,9 @@ const CommitChangesTree = forwardRef<CommitChangesTreeHandle, CommitChangesTreeP
   handleRef,
 ) {
   const { token } = theme.useToken();
+  const { isDarkMode } = useTheme();
   const t = useT();
+  const palette = vcsPalette(isDarkMode);
 
   // The Changes group is the IDE's default changelist — always present,
   // even empty; the other groups appear only with rows.
@@ -104,12 +107,13 @@ const CommitChangesTree = forwardRef<CommitChangesTreeHandle, CommitChangesTreeP
   const allRows = useMemo(() => specs.flatMap((spec) => spec.rows), [specs]);
   const rowsByPath = useMemo(() => new Map(allRows.map((row) => [row.path, row])), [allRows]);
 
-  // Collapse keys are `<group>` for headers and `<group>:<dirKey>` for
-  // dirs — everything starts expanded (the IDE default).
+  // Collapse keys are `<group>` for headers, `<group>:__root__` for
+  // the content-root node, and `<group>:<dirKey>` for dirs —
+  // everything starts expanded (the IDE default).
   const collapseKeys = useMemo(() => {
     const keys: string[] = [];
     for (const spec of specs) {
-      keys.push(spec.key);
+      keys.push(spec.key, `${spec.key}:__root__`);
       for (const dirKey of allDirKeys(trees.get(spec.key) ?? [])) keys.push(`${spec.key}:${dirKey}`);
     }
     return keys;
@@ -167,11 +171,9 @@ const CommitChangesTree = forwardRef<CommitChangesTreeHandle, CommitChangesTreeP
     textAlign: 'left',
   };
 
-  const fileColor = (row: WorkspaceTreeWorkingChangeWire): string => {
-    if (row.ignored) return token.colorTextTertiary;
-    if (row.unversioned) return token.colorErrorText;
-    return statusColor(row.status, token);
-  };
+  /** "1 file" / "{n} files" — the IDE's singular form at one. */
+  const filesCountText = (count: number): string =>
+    count === 1 ? t('workbench.commitTool.oneFile') : t('workbench.gitLog.filesCount', { count });
 
   const renderFileRow = (
     spec: GroupSpec,
@@ -222,7 +224,7 @@ const CommitChangesTree = forwardRef<CommitChangesTreeHandle, CommitChangesTreeP
               textOverflow: 'ellipsis',
               whiteSpace: 'nowrap',
               fontSize: ROW_FONT,
-              color: fileColor(row),
+              color: vcsFileColor(row, palette),
             }}
           >
             {baseName(row.path)}
@@ -268,7 +270,7 @@ const CommitChangesTree = forwardRef<CommitChangesTreeHandle, CommitChangesTreeP
                   data-testid="commit-tool-dir-check"
                 />
               )}
-              <FolderOutlined style={{ flex: '0 0 auto', fontSize: 12, color: token.colorTextTertiary }} />
+              <FolderOutlined style={{ flex: '0 0 auto', fontSize: 14, color: token.colorTextTertiary }} />
               <button
                 type="button"
                 onClick={() => toggleCollapse(key)}
@@ -284,7 +286,7 @@ const CommitChangesTree = forwardRef<CommitChangesTreeHandle, CommitChangesTreeP
                 {node.label}
               </button>
               <span style={{ flex: '0 0 auto', fontSize: ROW_FONT - 1, color: token.colorTextTertiary }}>
-                {t('workbench.gitLog.filesCount', { count: node.fileCount })}
+                {filesCountText(node.fileCount)}
               </span>
             </div>
             {open && renderTreeNodes(spec, node.children, depth + 1)}
@@ -303,6 +305,42 @@ const CommitChangesTree = forwardRef<CommitChangesTreeHandle, CommitChangesTreeP
       .sort((a, b) => baseName(a.path).localeCompare(baseName(b.path)) || a.path.localeCompare(b.path))
       .map((row) => renderFileRow(spec, row, 1, dirSuffix(row.path)));
 
+  // The IDE's content-root node under each group when grouping: a
+  // nameless folder row carrying only the gray count, its own
+  // tri-state checkbox, and the whole tree beneath it.
+  const renderRootedTree = (spec: GroupSpec): React.ReactNode => {
+    const rootKey = `${spec.key}:__root__`;
+    const open = !collapsed.has(rootKey);
+    const paths = spec.rows.map((row) => row.path);
+    const aggregate = spec.checkable ? aggregateChecked(allRows, checked, paths) : 'none';
+    return (
+      <div>
+        <div className="git-tool-row" style={rowStyle(1)} data-testid="commit-tool-root">
+          <button type="button" aria-label={spec.label} onClick={() => toggleCollapse(rootKey)} style={caretStyle}>
+            {open ? <CaretDownOutlined /> : <CaretRightOutlined />}
+          </button>
+          {spec.checkable && (
+            <Checkbox
+              checked={aggregate === 'all'}
+              indeterminate={aggregate === 'some'}
+              onChange={(event) => onSetChecked(paths, event.target.checked)}
+              data-testid="commit-tool-root-check"
+            />
+          )}
+          <FolderOutlined style={{ flex: '0 0 auto', fontSize: 14, color: token.colorTextTertiary }} />
+          <button
+            type="button"
+            onClick={() => toggleCollapse(rootKey)}
+            style={{ ...bareLabelStyle, fontSize: ROW_FONT - 1, color: token.colorTextTertiary }}
+          >
+            {filesCountText(spec.rows.length)}
+          </button>
+        </div>
+        {open && renderTreeNodes(spec, trees.get(spec.key) ?? [], 2)}
+      </div>
+    );
+  };
+
   return (
     <div style={{ flex: '1 1 auto', minHeight: 0, overflowY: 'auto', paddingBottom: 4 }} data-testid="commit-tool-tree">
       {specs.map((spec) => {
@@ -314,6 +352,19 @@ const CommitChangesTree = forwardRef<CommitChangesTreeHandle, CommitChangesTreeP
               spec.rows.map((row) => row.path),
             )
           : 'none';
+        // An empty group is a plain label row — no caret, no checkbox,
+        // no count (the IDE's empty default changelist).
+        if (spec.rows.length === 0) {
+          return (
+            <div
+              key={spec.key}
+              style={{ display: 'flex', alignItems: 'center', padding: '3px 12px' }}
+              data-testid={`commit-tool-group-${spec.key}`}
+            >
+              <span style={{ fontSize: ROW_FONT, fontWeight: 600, color: token.colorText }}>{spec.label}</span>
+            </div>
+          );
+        }
         return (
           <div key={spec.key}>
             <div
@@ -326,9 +377,8 @@ const CommitChangesTree = forwardRef<CommitChangesTreeHandle, CommitChangesTreeP
               </button>
               {spec.checkable && (
                 <Checkbox
-                  checked={spec.rows.length > 0 && aggregate === 'all'}
+                  checked={aggregate === 'all'}
                   indeterminate={aggregate === 'some'}
-                  disabled={spec.rows.length === 0}
                   onChange={(event) =>
                     onSetChecked(
                       spec.rows.map((row) => row.path),
@@ -341,13 +391,11 @@ const CommitChangesTree = forwardRef<CommitChangesTreeHandle, CommitChangesTreeP
               <button type="button" onClick={() => toggleCollapse(spec.key)} style={{ ...bareLabelStyle, fontWeight: 600 }}>
                 {spec.label}
               </button>
-              {spec.rows.length > 0 && (
-                <span style={{ fontSize: ROW_FONT - 1, color: token.colorTextTertiary }}>
-                  {t('workbench.gitLog.filesCount', { count: spec.rows.length })}
-                </span>
-              )}
+              <span style={{ fontSize: ROW_FONT - 1, color: token.colorTextTertiary }}>
+                {filesCountText(spec.rows.length)}
+              </span>
             </div>
-            {open && (groupByDirectory ? renderTreeNodes(spec, trees.get(spec.key) ?? [], 1) : renderFlatRows(spec))}
+            {open && (groupByDirectory ? renderRootedTree(spec) : renderFlatRows(spec))}
           </div>
         );
       })}

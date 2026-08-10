@@ -763,6 +763,7 @@ export const workbenchChrome = {
     'Confirma cambios de la vinculación Git del espacio de trabajo activo: árbol de cambios marcable, ' +
     'mensaje de commit y Commit / Commit y push con tu propia identidad git y tus hooks.',
   'workbench.commitTool.groups.changes': 'Cambios',
+  'workbench.commitTool.oneFile': '1 archivo',
   'workbench.commitTool.groups.unversioned': 'Archivos sin versionar',
   'workbench.commitTool.groups.ignored': 'Archivos ignorados',
   'workbench.commitTool.refresh': 'Actualizar',

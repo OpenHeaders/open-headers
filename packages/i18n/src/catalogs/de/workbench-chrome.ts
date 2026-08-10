@@ -763,6 +763,7 @@ export const workbenchChrome = {
     'Änderungen der Git-Bindung des aktiven Workspace committen — abhakbarer Änderungsbaum, ' +
     'Commit-Nachricht und Commit / Commit und Push mit Ihrer eigenen Git-Identität und Ihren Hooks.',
   'workbench.commitTool.groups.changes': 'Änderungen',
+  'workbench.commitTool.oneFile': '1 Datei',
   'workbench.commitTool.groups.unversioned': 'Nicht versionierte Dateien',
   'workbench.commitTool.groups.ignored': 'Ignorierte Dateien',
   'workbench.commitTool.refresh': 'Aktualisieren',

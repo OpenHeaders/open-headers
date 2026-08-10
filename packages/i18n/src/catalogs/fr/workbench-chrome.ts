@@ -766,6 +766,7 @@ export const workbenchChrome = {
     'modifications cochable, message de commit, et Commit / Commit et pousser avec votre propre identité ' +
     'git et vos hooks.',
   'workbench.commitTool.groups.changes': 'Modifications',
+  'workbench.commitTool.oneFile': '1 fichier',
   'workbench.commitTool.groups.unversioned': 'Fichiers non versionnés',
   'workbench.commitTool.groups.ignored': 'Fichiers ignorés',
   'workbench.commitTool.refresh': 'Actualiser',

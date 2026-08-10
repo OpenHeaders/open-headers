@@ -583,6 +583,7 @@ export const workbenchChrome = {
   'workbench.toolWindows.info.commit.summary':
     '提交当前工作区 Git 绑定中的更改——可勾选的更改树、提交信息，以及使用你自己的 git 身份和钩子的提交 / 提交并推送。',
   'workbench.commitTool.groups.changes': '更改',
+  'workbench.commitTool.oneFile': '1 个文件',
   'workbench.commitTool.groups.unversioned': '未版本控制的文件',
   'workbench.commitTool.groups.ignored': '已忽略的文件',
   'workbench.commitTool.refresh': '刷新',

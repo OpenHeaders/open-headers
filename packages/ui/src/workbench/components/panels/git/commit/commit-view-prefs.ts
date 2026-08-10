@@ -11,8 +11,8 @@
  */
 
 export interface CommitViewPrefs {
-  /** Eye: Group By > Directory — OFF by default (the IDE's flat
-   *  filename + dim-directory-suffix format); on nests the tree. */
+  /** Eye: Group By > Directory — ON by default (the IDE default);
+   *  off renders the flat filename + dim-directory-suffix format. */
   groupByDirectory: boolean;
   /** Eye: Show > Ignored Files — read-only `!!` rows. */
   showIgnored: boolean;
@@ -33,7 +33,7 @@ export interface CommitViewPrefs {
 export const COMMIT_MESSAGE_HISTORY_CAP = 25;
 
 const DEFAULT_PREFS: CommitViewPrefs = {
-  groupByDirectory: false,
+  groupByDirectory: true,
   showIgnored: false,
   signOff: false,
   runGitHooks: null,
@@ -60,7 +60,7 @@ function readPersisted(workspaceId: string): CommitViewPrefs {
     if (typeof parsed !== 'object' || parsed === null) return DEFAULT_PREFS;
     const p = parsed as Partial<CommitViewPrefs>;
     return {
-      groupByDirectory: p.groupByDirectory === true,
+      groupByDirectory: p.groupByDirectory !== false,
       showIgnored: p.showIgnored === true,
       signOff: p.signOff === true,
       runGitHooks: typeof p.runGitHooks === 'boolean' ? p.runGitHooks : null,

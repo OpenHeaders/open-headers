@@ -587,6 +587,7 @@ export const workbenchChrome = {
     'Commit changes from the active workspace’s Git binding — a checkable changes tree, commit message, ' +
     'and Commit / Commit and Push over your own git identity and hooks.',
   'workbench.commitTool.groups.changes': 'Changes',
+  'workbench.commitTool.oneFile': '1 file',
   'workbench.commitTool.groups.unversioned': 'Unversioned Files',
   'workbench.commitTool.groups.ignored': 'Ignored Files',
   'workbench.commitTool.refresh': 'Refresh',
