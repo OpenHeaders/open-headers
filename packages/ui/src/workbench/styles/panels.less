@@ -30,6 +30,67 @@
   }
 }
 
+// Commit changes tree: one scroll host for BOTH axes on the standards
+// thin scrollbar (the un-styled native horizontal bar was the
+// mismatch); the focus outline is suppressed — selection is the
+// keyboard indicator. Bottom padding lives inline on the container so
+// rows clear the bar / the panel edge even without overflow.
+.commit-tool-tree {
+  outline: none;
+  scrollbar-width: thin;
+}
+
+// Commit tree selection = the sidebar trees' focused-cursor pair
+// (Interceptor look): vivid blue + inset ring while the tree holds
+// focus; the `.selected` grey echo above takes over when focus leaves
+// — e.g. into an open row context menu.
+.commit-tool-tree:focus-within .git-tool-row.selected {
+  background: rgba(24, 144, 255, 0.12);
+  box-shadow: inset 0 0 0 1px rgba(24, 144, 255, 0.35);
+}
+
+// Commit tree tri-state checkboxes, the IDE minus: a partially-checked
+// group/root/dir box fills solid primary with a white dash (antd's
+// default indeterminate is a small inner square that reads as empty at
+// tree density). Clicking an indeterminate box checks the whole
+// subtree — antd's indeterminate → checked step.
+// The doubled class outranks antd's runtime-injected checkbox rules —
+// equal-specificity ties go to their later <style> injection.
+// antd v6: the box IS the `.ant-checkbox` element (no `-inner` span)
+// and the indeterminate mark is its `::after`.
+.commit-tool-panel {
+  .ant-checkbox.ant-checkbox-indeterminate {
+    background-color: var(--ant-color-primary, #1677ff);
+    border-color: var(--ant-color-primary, #1677ff);
+
+    &::after {
+      width: 9px;
+      height: 2px;
+      border-radius: 1px;
+      background-color: #fff;
+      transform: translate(-50%, -50%);
+      opacity: 1;
+    }
+
+    &:hover {
+      background-color: var(--ant-color-primary, #1677ff);
+      border-color: var(--ant-color-primary, #1677ff);
+    }
+  }
+}
+
+// Commit row context menu: the selection-blue band on hover AND on
+// keyboard-active items (antd marks both as -active); submenu titles
+// follow. Same ONE-global-blue family as the tree selection.
+.commit-tool-row-menu {
+  .ant-dropdown-menu-item:not(.ant-dropdown-menu-item-disabled):hover,
+  .ant-dropdown-menu-item-active:not(.ant-dropdown-menu-item-disabled),
+  .ant-dropdown-menu-submenu-title:hover,
+  .ant-dropdown-menu-submenu-active > .ant-dropdown-menu-submenu-title {
+    background: rgba(24, 144, 255, 0.12);
+  }
+}
+
 // Git tool window as a modal host: the panel's dialogs (Create Branch)
 // center over the TOOL WINDOW, not the app window — the antd wrap and
 // mask re-scope from the viewport to this positioned container. The

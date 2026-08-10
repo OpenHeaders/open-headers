@@ -65,7 +65,6 @@ const CommitToolPanel: React.FC<CommitToolPanelProps> = ({ info, onHide }) => {
   const [bypassHooksSetting, setBypassHooksSetting] = useState(false);
   const [rows, setRows] = useState<WorkspaceTreeWorkingChangeWire[]>([]);
   const [checked, setChecked] = useState<CheckedState>(EMPTY_CHECKED_STATE);
-  const [selectedPath, setSelectedPath] = useState<string | null>(null);
   const [amend, setAmend] = useState(false);
   const [committing, setCommitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -429,8 +428,6 @@ const CommitToolPanel: React.FC<CommitToolPanelProps> = ({ info, onHide }) => {
         groups={groups}
         checked={checked}
         onSetChecked={handleSetChecked}
-        selectedPath={selectedPath}
-        onSelectFile={setSelectedPath}
         onOpenFile={(filePath) => void handleOpenDiff(filePath)}
         groupByDirectory={prefs.groupByDirectory}
         showIgnored={prefs.showIgnored}

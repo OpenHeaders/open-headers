@@ -60,6 +60,7 @@ function gitignoreSubmenu(t: Translate, keyPrefix: string): MenuItems[number] {
   return {
     key: `${keyPrefix}gitignore`,
     label: menuLabel(<StopOutlined />, t('workbench.commitTool.menu.addToGitignore')),
+    popupClassName: 'commit-tool-row-menu',
     children: [
       {
         key: `${keyPrefix}gitignore-file`,
@@ -81,6 +82,7 @@ function gitSubmenu(row: WorkspaceTreeWorkingChangeWire, t: Translate, h: Commit
   return {
     key: 'git',
     label: menuLabel(null, t('workbench.commitTool.menu.git')),
+    popupClassName: 'commit-tool-row-menu',
     children: [
       {
         key: 'git-commit-file',
@@ -246,6 +248,7 @@ export function buildCommitRowMenu(
     {
       key: 'local-history',
       label: menuLabel(null, t('workbench.commitTool.menu.localHistory')),
+      popupClassName: 'commit-tool-row-menu',
       children: [
         {
           key: 'local-history-show',
