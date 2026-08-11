@@ -60,7 +60,7 @@ import {
   useSetActiveTabEntity,
 } from '@openheaders/ui/shared/awareness';
 import 'allotment/dist/style.css';
-import { createShellEventBus, ShellEventBusContext } from '@openheaders/ui/shared/dock-layout';
+import { createShellEventBus, dockRegion, ShellEventBusContext } from '@openheaders/ui/shared/dock-layout';
 import type { EditingScopeViewStateApi } from '@openheaders/ui/shared/editing-scope-view-state';
 import { getCurrentHost, instanceLabel } from '@openheaders/ui/shared/host-vocabulary';
 import { useT } from '@openheaders/ui/context/LocaleContext';
@@ -142,6 +142,7 @@ import { ConnectionProvider } from './settings/ConnectionContext';
 import { get as getSetting } from './settings/store';
 import { SettingsModal } from './settings/ui';
 import { getFocusedDock } from './stores/focus-region-store';
+import { TOOL_WINDOW_MAP } from './tool-windows';
 import type { DockSlot, ToolWindowId, WorkbenchTab } from './types';
 
 // Companion-reveal targets → this surface's dock tool windows. The
@@ -151,6 +152,7 @@ import type { DockSlot, ToolWindowId, WorkbenchTab } from './types';
 const REVEAL_WINDOW_BY_TARGET: Partial<Record<CompanionRevealTarget, ToolWindowId>> = {
   terminal: 'terminal',
   git: 'git',
+  commit: 'commit',
   proxy: 'traffic-monitor',
   liveNetwork: 'traffic-monitor',
 };
@@ -806,8 +808,15 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
         if (!windowId) return;
         if (tl.state.hidden.includes(windowId)) tl.restoreWindow(windowId);
         tl.activateWindow(windowId);
+        // Land DOM focus inside the revealed panel (same idiom as
+        // cycleRegion): without it, the window-fronting focus
+        // restoration re-commits whatever was focused before and the
+        // dock highlight clears — only self-focusing panels (the
+        // terminal's xterm) survived it.
+        const slot = tl.dockOf(windowId) ?? TOOL_WINDOW_MAP[windowId].defaultSlot;
+        focus.focusRegion(dockRegion(slot));
       }),
-    [tl, openSettings],
+    [tl, openSettings, focus],
   );
 
   // The console opens as a workbench tab — dismiss the settings overlay

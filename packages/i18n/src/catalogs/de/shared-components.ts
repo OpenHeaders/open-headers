@@ -481,6 +481,9 @@ export const sharedComponents = {
   'shared.desktopTeaser.git.title': 'Git-Verlauf',
   'shared.desktopTeaser.git.body':
     'Durchstöbere die Commit-Chronik deines Arbeitsbereichs — mit Details pro Commit und Datei-Diffs.',
+  'shared.desktopTeaser.commit.title': 'Commit',
+  'shared.desktopTeaser.commit.body':
+    'Prüfe und committe die Änderungen deines Arbeitsbereichs — ein abhakbarer Dateibaum mit Datei-Diffs und einem Feld für die Commit-Nachricht.',
   'shared.desktopTeaser.proxy.title': 'Capture-Proxy',
   'shared.desktopTeaser.proxy.body':
     'Erfasse laufenden HTTP(S)-Verkehr mit dem integrierten Proxy und untersuche jede Anfrage in dem Moment, in dem sie passiert.',

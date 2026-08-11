@@ -63,7 +63,7 @@ export const TOOL_WINDOWS: readonly ToolWindowDef[] = [
     defaultSlot: 'left-top',
     openByDefault: false,
     requiresCapability: 'workspaceGit',
-    teaserWhenUnavailable: 'git',
+    teaserWhenUnavailable: 'commit',
   },
   {
     id: 'api-requests',

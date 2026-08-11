@@ -457,6 +457,10 @@ export const sharedComponents = {
   'shared.desktopTeaser.git.title': 'Historique Git',
   'shared.desktopTeaser.git.body':
     'Parcourez la chronologie des commits de votre espace de travail, avec le détail par commit et les diffs de fichiers.',
+  'shared.desktopTeaser.commit.title': 'Commit',
+  'shared.desktopTeaser.commit.body':
+    'Passez en revue et validez les modifications de votre espace de travail — arborescence de fichiers cochable, ' +
+    'diffs par fichier et zone de message de commit.',
   'shared.desktopTeaser.proxy.title': 'Proxy de capture',
   'shared.desktopTeaser.proxy.body':
     'Capturez le trafic HTTP(S) en direct avec le proxy intégré et inspectez chaque requête au moment où elle se produit.',

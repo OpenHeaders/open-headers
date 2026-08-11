@@ -477,6 +477,9 @@ export const sharedComponents = {
     'Open a real terminal inside your workspace — your own shell, running locally right next to your rules and requests.',
   'shared.desktopTeaser.git.title': 'Git history',
   'shared.desktopTeaser.git.body': 'Browse your workspace’s commit timeline, with per-commit detail and file diffs.',
+  'shared.desktopTeaser.commit.title': 'Commit',
+  'shared.desktopTeaser.commit.body':
+    'Review and commit your workspace’s changes — a checkable file tree with per-file diffs and a commit message box.',
   'shared.desktopTeaser.proxy.title': 'Capture proxy',
   'shared.desktopTeaser.proxy.body':
     'Capture live HTTP(S) traffic with the built-in proxy and inspect every request as it happens.',

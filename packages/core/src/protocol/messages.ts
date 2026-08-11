@@ -21,6 +21,7 @@ export type CompanionRevealTarget =
   | 'workbench'
   | 'terminal'
   | 'git'
+  | 'commit'
   | 'proxy'
   | 'liveNetwork'
   | 'mcp'
@@ -31,6 +32,7 @@ export const COMPANION_REVEAL_TARGETS: readonly CompanionRevealTarget[] = [
   'workbench',
   'terminal',
   'git',
+  'commit',
   'proxy',
   'liveNetwork',
   'mcp',
