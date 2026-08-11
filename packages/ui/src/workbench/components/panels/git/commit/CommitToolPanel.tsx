@@ -337,6 +337,25 @@ const CommitToolPanel: React.FC<CommitToolPanelProps> = ({ info, onHide }) => {
     }
   }, [workspaceId, message, t]);
 
+  // Add to .gitignore ▸ — the row leaves Unversioned Files on the
+  // refetch (and joins Ignored Files while Show Ignored Files is on).
+  const handleIgnorePath = useCallback(
+    async (filePath: string, target: 'gitignore' | 'exclude'): Promise<void> => {
+      if (workspaceId === null) return;
+      try {
+        const result = await hostBridge.call('oh.workspaceTree.ignorePath', { workspaceId, path: filePath, target });
+        if (!result.ok) {
+          setError(t('workbench.commitTool.menu.ignoreFailed', { detail: result.detail ?? result.reason }));
+          return;
+        }
+        await refreshChanges();
+      } catch (err) {
+        setError((err as Error).message);
+      }
+    },
+    [workspaceId, refreshChanges, t],
+  );
+
   // Compare with Branch or Tag… — the picked ref opens the Git
   // window's Compare-with-Current tab via the shared registry.
   const handleComparePick = useCallback(
@@ -370,8 +389,19 @@ const CommitToolPanel: React.FC<CommitToolPanelProps> = ({ info, onHide }) => {
       onCompareWithBranch: () => setCompareOpen(true),
       onBranches: handleBranches,
       onNewBranch: () => setCreateBranchFrom(currentBranch ?? 'HEAD'),
+      onIgnorePath: (filePath, target) => void handleIgnorePath(filePath, target),
     }),
-    [handleCommitFile, handleOpenDiff, refreshChanges, pushCurrent, handlePull, handleFetch, handleBranches, currentBranch],
+    [
+      handleCommitFile,
+      handleOpenDiff,
+      refreshChanges,
+      pushCurrent,
+      handlePull,
+      handleFetch,
+      handleBranches,
+      handleIgnorePath,
+      currentBranch,
+    ],
   );
 
   const rowMenu = useCallback(

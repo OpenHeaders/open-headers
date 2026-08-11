@@ -3,9 +3,10 @@
  * two variants): tracked rows carry the changelist/patch/shelve block,
  * unversioned rows carry Add to .gitignore instead. S22 posture — reads
  * and gestures with existing machinery are live (Commit File…, Show
- * Diff, Refresh, and the Git ▸ verbs Push/Pull/Fetch/Compare with
- * Branch or Tag/Branches…/New Branch…); IDE-only constructs
- * (changelists, shelf, Local History) and unbuilt write verbs render
+ * Diff, Refresh, the Git ▸ verbs Push/Pull/Fetch/Compare with Branch
+ * or Tag/Branches…/New Branch…, and the Add to .gitignore ▸ targets
+ * over the `ignorePath` verb); IDE-only constructs (changelists,
+ * shelf, Local History) and unbuilt write verbs render
  * visible-disabled. Shortcut hints mirror the IDE anatomy; bindings
  * ride the keymap plane later.
  */
@@ -40,6 +41,7 @@ export interface CommitRowMenuHandlers {
   onCompareWithBranch: () => void;
   onBranches: () => void;
   onNewBranch: () => void;
+  onIgnorePath: (path: string, target: 'gitignore' | 'exclude') => void;
 }
 
 type MenuItems = NonNullable<MenuProps['items']>;
@@ -55,8 +57,13 @@ function menuLabel(icon: React.ReactNode | null, text: string, hint?: string): R
   );
 }
 
-/** The Add to .gitignore ▸ submenu — the write verb is a future slice. */
-function gitignoreSubmenu(t: Translate, keyPrefix: string): MenuItems[number] {
+/** The Add to .gitignore ▸ submenu — repo-root `.gitignore` (shared) or `.git/info/exclude` (local-only). */
+function gitignoreSubmenu(
+  row: WorkspaceTreeWorkingChangeWire,
+  t: Translate,
+  h: CommitRowMenuHandlers,
+  keyPrefix: string,
+): MenuItems[number] {
   return {
     key: `${keyPrefix}gitignore`,
     label: menuLabel(<StopOutlined />, t('workbench.commitTool.menu.addToGitignore')),
@@ -65,12 +72,12 @@ function gitignoreSubmenu(t: Translate, keyPrefix: string): MenuItems[number] {
       {
         key: `${keyPrefix}gitignore-file`,
         label: menuLabel(<StopOutlined />, t('workbench.commitTool.menu.addToGitignore')),
-        disabled: true,
+        onClick: () => h.onIgnorePath(row.path, 'gitignore'),
       },
       {
         key: `${keyPrefix}gitignore-exclude`,
         label: menuLabel(<StopOutlined />, t('workbench.commitTool.menu.excludeFile')),
-        disabled: true,
+        onClick: () => h.onIgnorePath(row.path, 'exclude'),
       },
     ],
   };
@@ -94,7 +101,7 @@ function gitSubmenu(row: WorkspaceTreeWorkingChangeWire, t: Translate, h: Commit
         label: menuLabel(<PlusOutlined />, t('workbench.commitTool.menu.add'), '⌥⌘A'),
         disabled: true,
       },
-      ...(unversioned ? [gitignoreSubmenu(t, 'git-')] : []),
+      ...(unversioned ? [gitignoreSubmenu(row, t, h, 'git-')] : []),
       { type: 'divider' },
       {
         key: 'git-show-diff',
@@ -211,7 +218,7 @@ export function buildCommitRowMenu(
     { type: 'divider' },
     { key: 'delete', label: menuLabel(null, t('workbench.commitTool.menu.delete')), disabled: true },
     { key: 'add-vcs', label: menuLabel(null, t('workbench.commitTool.menu.addToVcs'), '⌥⌘A'), disabled: true },
-    ...(unversioned ? [gitignoreSubmenu(t, '')] : []),
+    ...(unversioned ? [gitignoreSubmenu(row, t, h, '')] : []),
     { type: 'divider' },
     ...(unversioned
       ? []

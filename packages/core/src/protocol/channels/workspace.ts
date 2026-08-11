@@ -552,6 +552,19 @@ export interface WorkspaceRpc {
     res: WorkspaceTreeUserCommitWire;
   };
   /**
+   * The Commit window's Add to .gitignore ▸ verbs: append the path's
+   * root-anchored entry (`/<path>`) to the repo-root `.gitignore`
+   * (shared, shows up as a change row itself) or to
+   * `.git/info/exclude` (local-only, invisible to the tree). `added:
+   * false` means the target already carried the entry — never a
+   * duplicate line. A status frame follows, so the window refetches
+   * and the row leaves Unversioned Files on its own.
+   */
+  'oh.workspaceTree.ignorePath': {
+    req: { workspaceId: string; path: string; target: 'gitignore' | 'exclude' };
+    res: WorkspaceTreeIgnoreWire;
+  };
+  /**
    * One path's timeline (`--follow`, renames included) — the blame
    * answer: the newest entry is "who last touched this". Entries carry
    * no file lists (the diff isn't asked for).
@@ -887,6 +900,14 @@ export type WorkspaceTreeUserCommitWire =
         | 'stage-failed'
         | 'commit-failed';
       /** stderr/stdout of the failing git invocation — hook output lands here (§3.3). */
+      detail?: string;
+    };
+
+export type WorkspaceTreeIgnoreWire =
+  | { ok: true; added: boolean }
+  | {
+      ok: false;
+      reason: 'not-bound' | 'git-unavailable' | 'not-a-repo' | 'unknown-path' | 'ignore-failed';
       detail?: string;
     };
 

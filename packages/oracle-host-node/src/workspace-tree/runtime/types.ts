@@ -15,6 +15,7 @@ import type {
   GitAuditRow,
   GitAvailability,
   GitRunner,
+  IgnoreTarget,
   RepoRef,
   WorkingChange,
 } from '../../git';
@@ -271,6 +272,18 @@ export type WorkspaceTreeUserCommitRpcResult =
       detail?: string;
     };
 
+/**
+ * The Commit window's Add to .gitignore ▸ verbs: `added: false` means
+ * the target file already carried the entry (never a duplicate line).
+ */
+export type WorkspaceTreeIgnoreRpcResult =
+  | { ok: true; added: boolean }
+  | {
+      ok: false;
+      reason: 'not-bound' | 'git-unavailable' | 'not-a-repo' | 'unknown-path' | 'ignore-failed';
+      detail?: string;
+    };
+
 export type WorkspaceTreeFileDiffRpcResult =
   | { ok: true; diff: CommitFileDiff }
   | {
@@ -418,6 +431,12 @@ export interface WorkspaceTreeRuntime {
    * bypass. The user's real index is never read or written.
    */
   userCommit(workspaceId: string, input: WorkspaceTreeUserCommitInput): Promise<WorkspaceTreeUserCommitRpcResult>;
+  /**
+   * The Commit window's Add to .gitignore ▸ verbs: append the path's
+   * root-anchored entry to `.gitignore` (shared) or `.git/info/exclude`
+   * (local-only). On the per-binding chain; a status frame follows.
+   */
+  ignorePath(workspaceId: string, path: string, target: IgnoreTarget): Promise<WorkspaceTreeIgnoreRpcResult>;
   /** One path's timeline (`--follow`) — the newest entry is "who last touched this". */
   fileLog(workspaceId: string, path: string, limit?: number): Promise<WorkspaceTreeLogRpcResult>;
   /** The log view's ref tree (§9, Phase 7 slice 2) — local branches, remote-tracking refs, tags. */

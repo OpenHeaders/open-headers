@@ -656,6 +656,7 @@ export const workbenchChrome = {
   'workbench.commitTool.menu.pullUpToDate': '已是最新',
   'workbench.commitTool.menu.pullDone': '拉取完成',
   'workbench.commitTool.menu.pullFailed': '拉取失败：{detail}',
+  'workbench.commitTool.menu.ignoreFailed': '无法更新忽略文件：{detail}',
   'workbench.commitTool.menu.fetchDone': '抓取完成',
   'workbench.commitTool.pushed': '已推送',
   'workbench.commitTool.nothingToPush': '没有可推送的内容',

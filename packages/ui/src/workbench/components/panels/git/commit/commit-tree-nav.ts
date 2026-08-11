@@ -34,8 +34,20 @@ export function commitFileRowKey(path: string): string {
 }
 
 /**
+ * The IDE's content-root compression: the nameless root node collapses
+ * away when the whole tree is one single-child directory chain — the
+ * chain (already compressed by `buildFileTree`) hangs directly off the
+ * group header. A lone top-level FILE cannot merge into a chain, so it
+ * keeps the root node.
+ */
+export function rootCompressed(nodes: readonly FileTreeNode[]): boolean {
+  return nodes.length === 1 && nodes[0].kind === 'dir';
+}
+
+/**
  * Every selectable row in display order for the current collapse
- * state. Empty groups render as plain label rows and are skipped.
+ * state. Empty groups render as plain label rows and are skipped; a
+ * group whose tree compresses the root node carries no `__root__` row.
  */
 export function visibleCommitRows(
   groups: ReadonlyArray<{ key: string; rows: readonly WorkspaceTreeWorkingChangeWire[] }>,
@@ -55,10 +67,6 @@ export function visibleCommitRows(
       }
       continue;
     }
-    const rootKey = `${group.key}:__root__`;
-    const rootExpanded = !collapsed.has(rootKey);
-    out.push({ key: rootKey, kind: 'root', collapseKey: rootKey, expanded: rootExpanded, parentKey: group.key });
-    if (!rootExpanded) continue;
     const walk = (nodes: readonly FileTreeNode[], parentKey: string): void => {
       for (const node of nodes) {
         if (node.kind === 'dir') {
@@ -71,7 +79,15 @@ export function visibleCommitRows(
         }
       }
     };
-    walk(trees.get(group.key) ?? [], rootKey);
+    const nodes = trees.get(group.key) ?? [];
+    if (rootCompressed(nodes)) {
+      walk(nodes, group.key);
+      continue;
+    }
+    const rootKey = `${group.key}:__root__`;
+    const rootExpanded = !collapsed.has(rootKey);
+    out.push({ key: rootKey, kind: 'root', collapseKey: rootKey, expanded: rootExpanded, parentKey: group.key });
+    if (rootExpanded) walk(nodes, rootKey);
   }
   return out;
 }

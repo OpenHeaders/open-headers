@@ -20,6 +20,7 @@ import {
 } from '../../src/git/branch-ops';
 import { isStateChanging, subcommandOf } from '../../src/git/audit-classify';
 import { createGitExec, type GitAuditRow, type GitRunner, probeGitAvailability } from '../../src/git/git-exec';
+import { addIgnoreEntry } from '../../src/git/ignore-ops';
 import {
   checkoutWorkspaceBranch,
   cleanUntracked,
@@ -1564,5 +1565,52 @@ describe('Commit window plumbing (S22)', () => {
     expect(validateUserCommitInput({ message: 'ok', paths: [] })).toEqual({ ok: false, reason: 'no-paths' });
     expect(validateUserCommitInput({ message: 'ok', paths: [], amend: true })).toEqual({ ok: true });
     expect(validateUserCommitInput({ message: 'ok', paths: ['rules/a.yaml'] })).toEqual({ ok: true });
+  });
+});
+
+describe('Ignore-file plumbing (S23)', () => {
+  it('addIgnoreEntry appends the anchored entry and git starts ignoring the file', async () => {
+    await initialCommit();
+    await write('notes/scratch.yaml', 'kind: note\n');
+
+    const before = (await listWorkingChanges(run, tmpDir)) ?? [];
+    expect(before.find((row) => row.path === 'notes/scratch.yaml')).toMatchObject({ unversioned: true });
+
+    const added = await addIgnoreEntry(tmpDir, 'notes/scratch.yaml', 'gitignore');
+    expect(added).toEqual({ ok: true, added: true, entry: '/notes/scratch.yaml' });
+    expect(await fs.readFile(path.join(tmpDir, '.gitignore'), 'utf-8')).toBe('/notes/scratch.yaml\n');
+
+    // The row leaves the porcelain feed; with includeIgnored it comes
+    // back flagged; the .gitignore itself now shows as a change row.
+    const after = (await listWorkingChanges(run, tmpDir)) ?? [];
+    expect(after.map((row) => row.path)).not.toContain('notes/scratch.yaml');
+    expect(after.map((row) => row.path)).toContain('.gitignore');
+    const withIgnored = (await listWorkingChanges(run, tmpDir, { includeIgnored: true })) ?? [];
+    expect(withIgnored.find((row) => row.path === 'notes/scratch.yaml')).toMatchObject({ ignored: true });
+  });
+
+  it('addIgnoreEntry never duplicates an entry and preserves existing lines', async () => {
+    await initialCommit();
+    await write('.gitignore', 'secret.log');
+    const first = await addIgnoreEntry(tmpDir, 'notes/scratch.yaml', 'gitignore');
+    expect(first).toMatchObject({ ok: true, added: true });
+    const second = await addIgnoreEntry(tmpDir, 'notes/scratch.yaml', 'gitignore');
+    expect(second).toMatchObject({ ok: true, added: false });
+    expect(await fs.readFile(path.join(tmpDir, '.gitignore'), 'utf-8')).toBe('secret.log\n/notes/scratch.yaml\n');
+  });
+
+  it('the exclude target writes .git/info/exclude and stays invisible to the changes feed', async () => {
+    await initialCommit();
+    await write('notes/local.yaml', 'kind: note\n');
+    const added = await addIgnoreEntry(tmpDir, 'notes/local.yaml', 'exclude');
+    expect(added).toEqual({ ok: true, added: true, entry: '/notes/local.yaml' });
+    expect(await fs.readFile(path.join(tmpDir, '.git', 'info', 'exclude'), 'utf-8')).toContain('/notes/local.yaml\n');
+
+    const after = (await listWorkingChanges(run, tmpDir)) ?? [];
+    expect(after.map((row) => row.path)).not.toContain('notes/local.yaml');
+    // Local-only: no working-tree file changed, so no new change rows.
+    expect(after.map((row) => row.path)).not.toContain('.gitignore');
+    const withIgnored = (await listWorkingChanges(run, tmpDir, { includeIgnored: true })) ?? [];
+    expect(withIgnored.find((row) => row.path === 'notes/local.yaml')).toMatchObject({ ignored: true });
   });
 });

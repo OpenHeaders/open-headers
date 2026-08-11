@@ -839,6 +839,7 @@ export const workbenchChrome = {
   'workbench.commitTool.menu.pullUpToDate': 'Déjà à jour',
   'workbench.commitTool.menu.pullDone': 'Pull terminé',
   'workbench.commitTool.menu.pullFailed': 'Échec du pull : {detail}',
+  'workbench.commitTool.menu.ignoreFailed': "Impossible de mettre à jour le fichier d'exclusion : {detail}",
   'workbench.commitTool.menu.fetchDone': 'Récupération terminée',
   'workbench.commitTool.pushed': 'Poussé',
   'workbench.commitTool.nothingToPush': 'Rien à pousser',

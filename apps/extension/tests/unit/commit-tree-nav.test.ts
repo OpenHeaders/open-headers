@@ -37,7 +37,7 @@ function groupsAndTrees(): {
 }
 
 describe('visibleCommitRows', () => {
-  it('grouped mode walks header, root node, dirs-first tree', () => {
+  it('grouped mode walks header, root node, dirs-first tree — a single-chain tree compresses the root away', () => {
     const { groups, trees } = groupsAndTrees();
     const keys = visibleCommitRows(groups, trees, new Set(), true).map((r) => r.key);
     expect(keys).toEqual([
@@ -47,7 +47,6 @@ describe('visibleCommitRows', () => {
       commitFileRowKey('rules/a.yaml'),
       commitFileRowKey('workspace.yaml'),
       'unversioned',
-      'unversioned:__root__',
       'unversioned:notes',
       commitFileRowKey('notes/new.yaml'),
     ]);
@@ -73,6 +72,43 @@ describe('visibleCommitRows', () => {
       commitFileRowKey('notes/new.yaml'),
     ]);
     expect(rows[1].parentKey).toBe('changes');
+  });
+
+  it('a single top-level dir hangs off the header (compressed root); several bring the root node back', () => {
+    const oneDir = [
+      row({ path: 'logs/run.log', status: '!', ignored: true }),
+      row({ path: 'logs/old.log', status: '!', ignored: true }),
+    ];
+    const compressed = visibleCommitRows(
+      [{ key: 'ignored', rows: oneDir }],
+      new Map([['ignored', buildFileTree(oneDir, true)]]),
+      new Set(),
+      true,
+    );
+    expect(compressed.map((r) => r.key)).toEqual([
+      'ignored',
+      'ignored:logs',
+      commitFileRowKey('logs/old.log'),
+      commitFileRowKey('logs/run.log'),
+    ]);
+    expect(compressed[1].parentKey).toBe('ignored');
+
+    const twoDirs = [...oneDir, row({ path: 'cache/blob.bin', status: '!', ignored: true })];
+    const rooted = visibleCommitRows(
+      [{ key: 'ignored', rows: twoDirs }],
+      new Map([['ignored', buildFileTree(twoDirs, true)]]),
+      new Set(),
+      true,
+    );
+    expect(rooted.map((r) => r.key)).toEqual([
+      'ignored',
+      'ignored:__root__',
+      'ignored:cache',
+      commitFileRowKey('cache/blob.bin'),
+      'ignored:logs',
+      commitFileRowKey('logs/old.log'),
+      commitFileRowKey('logs/run.log'),
+    ]);
   });
 
   it('empty groups are skipped (label rows are not selectable)', () => {

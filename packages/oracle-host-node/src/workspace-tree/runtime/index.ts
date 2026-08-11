@@ -31,6 +31,8 @@ import {
   type GitAuditRow,
   type GitAvailability,
   type GitRunner,
+  type IgnoreTarget,
+  isSafeTreePath,
   isWorkspaceRepo,
   probeGitAvailability,
   pushHeadToNewBranch,
@@ -65,6 +67,7 @@ import {
   SCOPE,
 } from './core';
 import { runCompareRefs, runFileDiff, runFileLog, runGitConsole, runListRefs, runWorkspaceLog } from './history';
+import { runIgnorePath } from './ignore';
 import { closeBinding, openBinding } from './lifecycle';
 import { applyAll, buildSnapshot, workspaceEntity } from './snapshot';
 import { notBoundStatus, publishGitStatus, readGitStatus } from './status';
@@ -89,6 +92,7 @@ import type {
   WorkspaceTreeFileDiffRpcResult,
   WorkspaceTreeGitConsoleRpcResult,
   WorkspaceTreeGitStatusRpcResult,
+  WorkspaceTreeIgnoreRpcResult,
   WorkspaceTreeLogFilters,
   WorkspaceTreeLogRpcResult,
   WorkspaceTreeRefsRpcResult,
@@ -119,6 +123,7 @@ export type {
   WorkspaceTreeFileDiffRpcResult,
   WorkspaceTreeGitConsoleRpcResult,
   WorkspaceTreeGitStatusRpcResult,
+  WorkspaceTreeIgnoreRpcResult,
   WorkspaceTreeLogFilters,
   WorkspaceTreeLogRpcResult,
   WorkspaceTreeRefsRpcResult,
@@ -543,6 +548,25 @@ export function createWorkspaceTreeRuntime(options: WorkspaceTreeRuntimeOptions)
         async () => {
           const result = await runUserCommit(ctx, binding, input);
           if (result.ok && result.committed) await ctx.maybeAutoPush(binding);
+          await ctx.publishGitStatus(binding);
+          return result;
+        },
+      );
+    },
+
+    async ignorePath(
+      workspaceId: string,
+      filePath: string,
+      target: IgnoreTarget,
+    ): Promise<WorkspaceTreeIgnoreRpcResult> {
+      const binding = open.get(workspaceId);
+      if (!binding) return { ok: false, reason: 'not-bound' };
+      if (!isSafeTreePath(filePath)) return { ok: false, reason: 'unknown-path' };
+      return onChain<WorkspaceTreeIgnoreRpcResult>(
+        binding,
+        { ok: false, reason: 'ignore-failed', detail: 'ignore pass did not run' },
+        async () => {
+          const result = await runIgnorePath(ctx, binding, filePath, target);
           await ctx.publishGitStatus(binding);
           return result;
         },

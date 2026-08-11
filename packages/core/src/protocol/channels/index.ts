@@ -110,6 +110,7 @@ export type {
   WorkspaceTreeGitConsoleRowWire,
   WorkspaceTreeGitConsoleWire,
   WorkspaceTreeGitStatusWire,
+  WorkspaceTreeIgnoreWire,
   WorkspaceTreeIssueWire,
   WorkspaceTreeLogEntryWire,
   WorkspaceTreeLogFileWire,

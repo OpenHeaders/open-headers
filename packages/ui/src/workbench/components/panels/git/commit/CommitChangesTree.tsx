@@ -6,9 +6,12 @@
  * filename — switching to the compressed directory tree when Group By
  * Directory is on. The Changes group header renders even when empty
  * (the IDE's default changelist); Unversioned / Ignored appear only
- * with rows, and group headers are transparent like tree rows.
- * Checkboxes ride file rows, directory nodes (tri-state), and group
- * headers; ignored rows are read-only.
+ * with rows, and group headers are transparent like tree rows. The
+ * content-root node compresses away when a group's tree is one
+ * single-child directory chain (the IDE folds the root into the
+ * chain); Ignored Files counts read plain files. Checkboxes ride file
+ * rows, directory nodes (tri-state), and group headers; ignored rows
+ * are read-only.
  *
  * Interaction model (IDE): click selects any row (the shared
  * grey-echo/vivid-blue selection pair — vivid only while the dock owns
@@ -31,7 +34,7 @@ import { useTheme } from '@openheaders/ui/context';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { allDirKeys, buildFileTree, type FileTreeNode } from '../file-tree';
 import { aggregateChecked, type ChangeGroups, type CheckedState, isRowChecked } from './commit-model';
-import { baseName, commitFileRowKey, flatSortedRows, visibleCommitRows } from './commit-tree-nav';
+import { baseName, commitFileRowKey, flatSortedRows, rootCompressed, visibleCommitRows } from './commit-tree-nav';
 import { FileTypeIcon } from './FileTypeIcon';
 import { vcsFileColor, vcsPalette } from './vcs-colors';
 
@@ -72,6 +75,8 @@ interface GroupSpec {
   label: string;
   rows: WorkspaceTreeWorkingChangeWire[];
   checkable: boolean;
+  /** IDE anatomy: Ignored Files counts read plain files ("6 files"), never "N directories and…". */
+  countDirs: boolean;
 }
 
 const CommitChangesTree = forwardRef<CommitChangesTreeHandle, CommitChangesTreeProps>(function CommitChangesTree(
@@ -89,7 +94,13 @@ const CommitChangesTree = forwardRef<CommitChangesTreeHandle, CommitChangesTreeP
   // even empty; the other groups appear only with rows.
   const specs = useMemo<GroupSpec[]>(() => {
     const list: GroupSpec[] = [
-      { key: 'changes', label: t('workbench.commitTool.groups.changes'), rows: groups.changes, checkable: true },
+      {
+        key: 'changes',
+        label: t('workbench.commitTool.groups.changes'),
+        rows: groups.changes,
+        checkable: true,
+        countDirs: true,
+      },
     ];
     if (groups.unversioned.length > 0) {
       list.push({
@@ -97,10 +108,17 @@ const CommitChangesTree = forwardRef<CommitChangesTreeHandle, CommitChangesTreeP
         label: t('workbench.commitTool.groups.unversioned'),
         rows: groups.unversioned,
         checkable: true,
+        countDirs: true,
       });
     }
     if (showIgnored && groups.ignored.length > 0) {
-      list.push({ key: 'ignored', label: t('workbench.commitTool.groups.ignored'), rows: groups.ignored, checkable: false });
+      list.push({
+        key: 'ignored',
+        label: t('workbench.commitTool.groups.ignored'),
+        rows: groups.ignored,
+        checkable: false,
+        countDirs: false,
+      });
     }
     return list;
   }, [groups, showIgnored, t]);
@@ -143,7 +161,8 @@ const CommitChangesTree = forwardRef<CommitChangesTreeHandle, CommitChangesTreeP
   const collapseKeys = useMemo(() => {
     const keys: string[] = [];
     for (const spec of specs) {
-      keys.push(spec.key, `${spec.key}:__root__`);
+      keys.push(spec.key);
+      if (!rootCompressed(trees.get(spec.key) ?? [])) keys.push(`${spec.key}:__root__`);
       for (const dirKey of allDirKeys(trees.get(spec.key) ?? [])) keys.push(`${spec.key}:${dirKey}`);
     }
     return keys;
@@ -270,9 +289,10 @@ const CommitChangesTree = forwardRef<CommitChangesTreeHandle, CommitChangesTreeP
 
   // Group-level count — "1 directory and 6 files" on the group header
   // and its content-root node when the grouped tree carries folder
-  // rows; flat mode (no folder rows) keeps the plain file count.
+  // rows; flat mode (no folder rows) and Ignored Files (plain file
+  // count per the IDE) skip the directories part.
   const groupCountText = (spec: GroupSpec): string => {
-    const dirCount = groupByDirectory ? allDirKeys(trees.get(spec.key) ?? []).length : 0;
+    const dirCount = groupByDirectory && spec.countDirs ? allDirKeys(trees.get(spec.key) ?? []).length : 0;
     const files = filesCountText(spec.rows.length);
     if (dirCount === 0) return files;
     return t('workbench.commitTool.dirsAndFiles', { dirs: directoriesCountText(dirCount), files });
@@ -551,7 +571,12 @@ const CommitChangesTree = forwardRef<CommitChangesTreeHandle, CommitChangesTreeP
               <span style={{ fontSize: ROW_FONT, fontWeight: 600 }}>{spec.label}</span>
               <span style={{ fontSize: ROW_FONT - 1, color: token.colorTextTertiary }}>{groupCountText(spec)}</span>
             </div>
-            {open && (groupByDirectory ? renderRootedTree(spec) : renderFlatRows(spec))}
+            {open &&
+              (groupByDirectory
+                ? rootCompressed(trees.get(spec.key) ?? [])
+                  ? renderTreeNodes(spec, trees.get(spec.key) ?? [], 1)
+                  : renderRootedTree(spec)
+                : renderFlatRows(spec))}
           </div>
         );
       })}

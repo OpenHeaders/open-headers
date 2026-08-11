@@ -66,6 +66,7 @@ export type {
   WorkspaceTreeGitConsoleRowWire,
   WorkspaceTreeGitConsoleWire,
   WorkspaceTreeGitStatusWire,
+  WorkspaceTreeIgnoreWire,
   WorkspaceTreeLogEntryWire,
   WorkspaceTreeLogWire,
   WorkspaceTreeMergeBranchWire,

@@ -660,6 +660,7 @@ export const workbenchChrome = {
   'workbench.commitTool.menu.pullUpToDate': 'Already up to date',
   'workbench.commitTool.menu.pullDone': 'Pull finished',
   'workbench.commitTool.menu.pullFailed': 'Pull failed: {detail}',
+  'workbench.commitTool.menu.ignoreFailed': 'Could not update the ignore file: {detail}',
   'workbench.commitTool.menu.fetchDone': 'Fetch finished',
   'workbench.commitTool.pushed': 'Pushed',
   'workbench.commitTool.nothingToPush': 'Nothing to push',
