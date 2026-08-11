@@ -55,11 +55,18 @@ interface TerminalPanelProps {
   /** Dock slot this panel rides — drives blue-vs-grey active-tab
    *  highlighting (editor tab strip focus posture). */
   dockSlot: DockSlot;
+  /**
+   * Whether this window is its dock's active tab. The keep-alive body
+   * stack keeps the panel mounted across close/reopen, so "the user
+   * opened the terminal" is an activation edge, not a mount — the
+   * ensure-a-tab effect keys on it.
+   */
+  active: boolean;
   /** Hide handler — wired to the shared PanelHeader's − button. */
   onHide: () => void;
 }
 
-const TerminalPanel: React.FC<TerminalPanelProps> = ({ info, dockSlot, onHide }) => {
+const TerminalPanel: React.FC<TerminalPanelProps> = ({ info, dockSlot, active, onHide }) => {
   const t = useT();
   // Context-aware modal/message: the static `Modal.confirm` mounts
   // outside the ConfigProvider tree, so it renders unthemed (light
@@ -86,11 +93,14 @@ const TerminalPanel: React.FC<TerminalPanelProps> = ({ info, dockSlot, onHide })
   // Layout/focus changes (splits, moves, pane focus) re-render too.
   useEffect(() => panesApi?.subscribe(bumpVersion), [panesApi]);
 
-  // First open (and reopen after a close-last-tab hide) starts a tab —
-  // after the persisted-identity restore settles, so a restored session
+  // Every open (first activation AND reopen after a close-last-tab
+  // hide) starts a tab — keyed on the activation edge, not the mount:
+  // the keep-alive stack keeps this panel mounted through close/reopen,
+  // so a mount-keyed ensure would leave a reopened terminal empty.
+  // Deferred past the persisted-identity restore, so a restored session
   // isn't shadowed by an eager fresh "Local".
   useEffect(() => {
-    if (!tabsApi) return;
+    if (!tabsApi || !active) return;
     let cancelled = false;
     void tabsApi.whenReady().then(() => {
       if (!cancelled && tabsApi.list().length === 0) tabsApi.createTab();
@@ -98,7 +108,7 @@ const TerminalPanel: React.FC<TerminalPanelProps> = ({ info, dockSlot, onHide })
     return () => {
       cancelled = true;
     };
-  }, [tabsApi]);
+  }, [tabsApi, active]);
 
   useEffect(() => {
     tabsApi?.setTheme(buildXtermTheme(token, isDarkMode));

@@ -54,6 +54,24 @@ const REGION_FOCUS_SELECTORS: Record<Exclude<FocusRegion, null>, string> = {
     '[data-region="editor"] .rules-tab.active, [data-region="editor"] .rules-tab, [data-region="editor"] input, [data-region="editor"] textarea, [data-region="editor"] button',
 };
 
+/**
+ * The dock's preferred focus target — the panel's natural input first
+ * (the terminal's xterm textarea, the commit message box), then any
+ * visible interactive element. Meta-actions (`data-focus-skip`) and
+ * display-hidden keep-alive siblings never win; null falls back to the
+ * dock body anchor.
+ */
+function pickDockFocusTarget(body: HTMLElement): HTMLElement | null {
+  for (const selector of ['textarea', 'input, [role="tab"], button, [tabindex="0"]']) {
+    for (const el of body.querySelectorAll<HTMLElement>(selector)) {
+      if (el.closest('[data-focus-skip]')) continue;
+      if (el.offsetParent === null) continue;
+      return el;
+    }
+  }
+  return null;
+}
+
 export interface UseFocusRegionOptions {
   shellRef: RefObject<HTMLElement | null>;
   setFocusedRegion: (region: FocusRegion) => void;
@@ -170,7 +188,9 @@ export function useFocusRegion({
         // The dock BODY, not the tab strip — both carry the slot attr.
         const body = root.querySelector<HTMLElement>(`[data-dock-slot="${slot}"]:not([role="tablist"])`);
         if (!body) return;
-        if (!body.contains(document.activeElement)) body.focus({ preventScroll: true });
+        if (!body.contains(document.activeElement)) {
+          (pickDockFocusTarget(body) ?? body).focus({ preventScroll: true });
+        }
         setFocusedRegion(dockRegion(slot));
         setFocusedDock?.(slot);
       });
