@@ -7,7 +7,7 @@
 
 import type { MessageKey } from '@openheaders/i18n';
 import type { Translate } from '@openheaders/ui/context/LocaleContext';
-import type { DockSlot, ToolWindowDef } from './types';
+import type { BottomPanelSplit, DockSlot, ToolWindowDef } from './types';
 
 export const DOCK_LABEL_KEYS: Record<DockSlot, MessageKey> = {
   'left-top': 'shared.dock.slot.leftTop',
@@ -17,6 +17,19 @@ export const DOCK_LABEL_KEYS: Record<DockSlot, MessageKey> = {
   'bottom-left': 'shared.dock.slot.bottomLeft',
   'bottom-right': 'shared.dock.slot.bottomRight',
 };
+
+/**
+ * Split-aware slot label — in stacked (`rows`) mode the bottom docks
+ * read "Bottom Top" / "Bottom Bottom" instead of left/right, matching
+ * where they actually render.
+ */
+export function dockSlotLabelKey(slot: DockSlot, bottomSplit: BottomPanelSplit = 'columns'): MessageKey {
+  if (bottomSplit === 'rows') {
+    if (slot === 'bottom-left') return 'shared.dock.slot.bottomTop';
+    if (slot === 'bottom-right') return 'shared.dock.slot.bottomBottom';
+  }
+  return DOCK_LABEL_KEYS[slot];
+}
 
 /** Display label for a tool window — keyed defs translate, raw defs pass through. */
 export function resolveToolWindowLabel<T extends string>(def: ToolWindowDef<T>, t: Translate): string {

@@ -15,6 +15,9 @@ export type DevpanelSidebarLayoutVariantSetting = v.InferOutput<typeof sidebarLa
 const bottomPanelAlignmentSchema = v.picklist(['center', 'left', 'right', 'justify']);
 export type DevpanelBottomPanelAlignmentSetting = v.InferOutput<typeof bottomPanelAlignmentSchema>;
 
+const bottomPanelSplitSchema = v.picklist(['columns', 'rows']);
+export type DevpanelBottomPanelSplitSetting = v.InferOutput<typeof bottomPanelSplitSchema>;
+
 const footerTimingModeSchema = v.picklist(['aggregate', 'lastNav']);
 export type DevpanelFooterTimingModeSetting = v.InferOutput<typeof footerTimingModeSchema>;
 
@@ -34,6 +37,7 @@ declare module '@openheaders/ui/workbench/settings/types' {
     'devpanelLayout.topbarShowPanelToggles': boolean;
     'devpanelLayout.topbarShowLayoutMenu': boolean;
     'devpanelLayout.bottomPanelAlignment': DevpanelBottomPanelAlignmentSetting;
+    'devpanelLayout.bottomPanelSplit': DevpanelBottomPanelSplitSetting;
     'devpanelLayout.showToolWindowLabels': boolean;
     'devpanelLayout.sidebarLayout': DevpanelSidebarLayoutVariantSetting;
     'devpanelLayout.activityBarWidthLeft': number;
@@ -232,6 +236,31 @@ registerSetting({
       value: 'justify',
       labelKey: 'workbench.settings.def.devpanelLayout.bottomPanelAlignment.option.justify.label',
       descriptionKey: 'workbench.settings.def.devpanelLayout.bottomPanelAlignment.option.justify.description',
+    },
+  ],
+});
+
+registerSetting({
+  key: 'devpanelLayout.bottomPanelSplit',
+  type: 'enum',
+  default: 'columns',
+  schema: bottomPanelSplitSchema,
+  labelKey: 'workbench.settings.def.devpanelLayout.bottomPanelSplit.label',
+  descriptionKey: 'workbench.settings.def.devpanelLayout.bottomPanelSplit.description',
+  category: 'devpanelLayout',
+  subcategory: 'Shell',
+  tags: ['bottom', 'panel', 'layout', 'split', 'stack', 'rows', 'columns', 'devtools'],
+  scope: 'user',
+  enumOptions: [
+    {
+      value: 'columns',
+      labelKey: 'workbench.settings.def.devpanelLayout.bottomPanelSplit.option.columns.label',
+      descriptionKey: 'workbench.settings.def.devpanelLayout.bottomPanelSplit.option.columns.description',
+    },
+    {
+      value: 'rows',
+      labelKey: 'workbench.settings.def.devpanelLayout.bottomPanelSplit.option.rows.label',
+      descriptionKey: 'workbench.settings.def.devpanelLayout.bottomPanelSplit.option.rows.description',
     },
   ],
 });

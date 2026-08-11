@@ -36,6 +36,7 @@ import DropZoneOverlay from './DropZoneOverlay';
 import type { FocusStore } from './focus-store';
 import type {
   BottomPanelAlignment,
+  BottomPanelSplit,
   DockSlot,
   DropZoneRect,
   ShellSurface,
@@ -67,6 +68,9 @@ export interface ShellLayoutProps<T extends string> {
   renderEditorTabDragPreview?: (tabId: string) => React.ReactNode;
   /** Layout configuration — read from settings store by the host. */
   bottomPanelAlignment: BottomPanelAlignment;
+  /** How the two bottom docks share the bottom panel — side-by-side
+      columns (default) or stacked rows. */
+  bottomPanelSplit?: BottomPanelSplit;
   showToolWindowLabels: boolean;
   sidebarLayout: SidebarLayoutVariant;
   onToggleLabels: () => void;
@@ -129,6 +133,7 @@ function ShellLayoutInner<T extends string>({
   onVerticalResize,
   renderEditorTabDragPreview,
   bottomPanelAlignment,
+  bottomPanelSplit = 'columns',
   showToolWindowLabels,
   sidebarLayout,
   onToggleLabels,
@@ -308,7 +313,7 @@ function ShellLayoutInner<T extends string>({
       maxSize={sizes.bottom.max}
       visible={bottomOpen}
     >
-      <BottomRegion tl={tl} renderToolWindow={renderToolWindow} focusStore={focusStore} />
+      <BottomRegion tl={tl} renderToolWindow={renderToolWindow} focusStore={focusStore} split={bottomPanelSplit} />
     </Allotment.Pane>
   );
 
@@ -530,14 +535,18 @@ function ShellLayoutInner<T extends string>({
             focusStore={focusStore}
           />,
         )}
-        {surfaceItem('bottom', <BottomRegion tl={tl} renderToolWindow={renderToolWindow} focusStore={focusStore} />)}
+        {surfaceItem(
+          'bottom',
+          <BottomRegion tl={tl} renderToolWindow={renderToolWindow} focusStore={focusStore} split={bottomPanelSplit} />,
+        )}
       </div>
     );
   }
 
   const dropZoneRects = useMemo<Record<DockSlot, DropZoneRect> | null>(
-    () => (dragging ? computeDropZoneRects({ shellSize, sizes, bottomPanelAlignment, barWidths }) : null),
-    [dragging, shellSize, sizes, bottomPanelAlignment, barWidths.left, barWidths.right],
+    () =>
+      dragging ? computeDropZoneRects({ shellSize, sizes, bottomPanelAlignment, bottomPanelSplit, barWidths }) : null,
+    [dragging, shellSize, sizes, bottomPanelAlignment, bottomPanelSplit, barWidths.left, barWidths.right],
   );
 
   const { barMin, barMax, leftBarPreferred, rightBarPreferred, barsAllotmentRef, barsRowRef, handleBarsReset } =
@@ -555,6 +564,7 @@ function ShellLayoutInner<T extends string>({
             dragging={dragging}
             showLabels={showToolWindowLabels}
             sidebarLayout={sidebarLayout}
+            bottomSplit={bottomPanelSplit}
             onToggleLabels={onToggleLabels}
             focusStore={focusStore}
             layoutRevision={effectiveAlignment}
@@ -572,6 +582,7 @@ function ShellLayoutInner<T extends string>({
             dragging={dragging}
             showLabels={showToolWindowLabels}
             sidebarLayout={sidebarLayout}
+            bottomSplit={bottomPanelSplit}
             onToggleLabels={onToggleLabels}
             focusStore={focusStore}
             layoutRevision={effectiveAlignment}
@@ -613,6 +624,7 @@ function ShellLayoutInner<T extends string>({
           highlightedSlot={highlightedSlot}
           leftBarWidth={barWidths.left}
           rightBarWidth={barWidths.right}
+          bottomSplit={bottomPanelSplit}
         />
       </div>
       <DragOverlay>

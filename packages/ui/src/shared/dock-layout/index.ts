@@ -6,6 +6,8 @@ export { default as DockTabStrip } from './DockTabStrip';
 export { default as DropZoneOverlay } from './DropZoneOverlay';
 export type { DragData, EditorTabDragData, ToolWindowDragData } from './drag-data';
 export { asDragData } from './drag-data';
+export type { DropZoneRectsInput } from './drop-zone-rects';
+export { computeDropZoneRects } from './drop-zone-rects';
 export { makeEditorTabCollisionDetection } from './editor-tab-collision';
 export type { FocusStore } from './focus-store';
 export { createFocusStore } from './focus-store';
@@ -28,9 +30,15 @@ export {
   useShellFocusOut,
   useShellKeyDown,
 } from './shell-event-bus';
-export { DOCK_LABEL_KEYS, resolveToolWindowLabel, resolveToolWindowTooltip } from './tool-window-copy';
+export {
+  DOCK_LABEL_KEYS,
+  dockSlotLabelKey,
+  resolveToolWindowLabel,
+  resolveToolWindowTooltip,
+} from './tool-window-copy';
 export type {
   BottomPanelAlignment,
+  BottomPanelSplit,
   DockSlot,
   DockState,
   DropZoneRect,

@@ -13,7 +13,7 @@ import type React from 'react';
 import { useState } from 'react';
 import { ShortcutHintTitle } from '@openheaders/ui/components/ShortcutKbd';
 import {
-  DOCK_LABEL_KEYS,
+  dockSlotLabelKey,
   LayoutMenuIcon,
   RegionToggle,
   resolveToolWindowLabel,
@@ -27,7 +27,11 @@ import type { ToolLayoutApi, WorkbenchViewState } from '../../hooks/useToolLayou
 import { useShortcutLabel } from '../../hooks/useWorkspaceShortcuts';
 import { useEnvSwitcher } from '../../services/env-switcher';
 import { useSetting, useSettingValue } from '../../settings/hooks';
-import type { BottomPanelAlignmentSetting, SidebarLayoutVariantSetting } from '../../settings/schema/workspace-layout';
+import type {
+  BottomPanelAlignmentSetting,
+  BottomPanelSplitSetting,
+  SidebarLayoutVariantSetting,
+} from '../../settings/schema/workspace-layout';
 import { TOOL_WINDOW_MAP } from '../../tool-windows';
 import EnvironmentSelector from './EnvironmentSelector';
 import { SettingsGearMenu } from '@openheaders/ui/shared/settings-menu';
@@ -108,6 +112,7 @@ const TopBar: React.FC<TopBarProps> = ({
   const showPanelToggles = useSettingValue('workspaceLayout.topbarShowPanelToggles');
   const showLayoutMenu = useSettingValue('workspaceLayout.topbarShowLayoutMenu');
   const [bottomPanelAlignment, setBottomPanelAlignment] = useSetting('workspaceLayout.bottomPanelAlignment');
+  const [bottomPanelSplit, setBottomPanelSplit] = useSetting('workspaceLayout.bottomPanelSplit');
   const [showLabelsSetting, setShowLabels] = useSetting('workspaceLayout.showToolWindowLabels');
   const [sidebarLayout, setSidebarLayout] = useSetting('workspaceLayout.sidebarLayout');
 
@@ -169,24 +174,40 @@ const TopBar: React.FC<TopBarProps> = ({
   const alignmentGlyph = (a: BottomPanelAlignmentSetting) =>
     a === 'justify' ? 'bottom-full' : a === 'left' ? 'bottom-left' : a === 'right' ? 'bottom-right' : 'bottom-nested';
 
+  const splitGlyph = (s: BottomPanelSplitSetting) => (s === 'rows' ? 'bottom-split-rows' : 'bottom-split-columns');
+
   const layoutMenu: MenuProps['items'] = [
     {
-      key: 'bottom-alignment',
+      key: 'bottom-layout',
       icon: menuIconWrap(<LayoutMenuIcon kind={alignmentGlyph(bottomPanelAlignment)} />),
-      label: t('workbench.shell.topbar.layout.bottomAlignment'),
-      children: (
-        [
-          { key: 'center', label: t('workbench.shell.topbar.layout.alignCenter') },
-          { key: 'left', label: t('workbench.shell.topbar.layout.alignLeft') },
-          { key: 'right', label: t('workbench.shell.topbar.layout.alignRight') },
-          { key: 'justify', label: t('workbench.shell.topbar.layout.alignJustify') },
-        ] as { key: BottomPanelAlignmentSetting; label: string }[]
-      ).map((opt) => ({
-        key: `bottom-${opt.key}`,
-        icon: menuIconWrap(<LayoutMenuIcon kind={alignmentGlyph(opt.key)} />),
-        label: menuLabel(bottomPanelAlignment === opt.key, opt.label),
-        onClick: () => setBottomPanelAlignment(opt.key),
-      })),
+      label: t('workbench.shell.topbar.layout.bottomLayout'),
+      children: [
+        ...(
+          [
+            { key: 'center', label: t('workbench.shell.topbar.layout.alignCenter') },
+            { key: 'left', label: t('workbench.shell.topbar.layout.alignLeft') },
+            { key: 'right', label: t('workbench.shell.topbar.layout.alignRight') },
+            { key: 'justify', label: t('workbench.shell.topbar.layout.alignJustify') },
+          ] as { key: BottomPanelAlignmentSetting; label: string }[]
+        ).map((opt) => ({
+          key: `bottom-${opt.key}`,
+          icon: menuIconWrap(<LayoutMenuIcon kind={alignmentGlyph(opt.key)} />),
+          label: menuLabel(bottomPanelAlignment === opt.key, opt.label),
+          onClick: () => setBottomPanelAlignment(opt.key),
+        })),
+        { type: 'divider' as const },
+        ...(
+          [
+            { key: 'columns', label: t('workbench.shell.topbar.layout.splitColumns') },
+            { key: 'rows', label: t('workbench.shell.topbar.layout.splitRows') },
+          ] as { key: BottomPanelSplitSetting; label: string }[]
+        ).map((opt) => ({
+          key: `split-${opt.key}`,
+          icon: menuIconWrap(<LayoutMenuIcon kind={splitGlyph(opt.key)} />),
+          label: menuLabel(bottomPanelSplit === opt.key, opt.label),
+          onClick: () => setBottomPanelSplit(opt.key),
+        })),
+      ],
     },
     {
       key: 'show-labels',
@@ -267,7 +288,7 @@ const TopBar: React.FC<TopBarProps> = ({
                   <Space size={6}>
                     <span>{resolveToolWindowLabel(def, t)}</span>
                     <span style={{ color: token.colorTextTertiary, fontSize: 10 }}>
-                      → {t(DOCK_LABEL_KEYS[def.defaultSlot])}
+                      → {t(dockSlotLabelKey(def.defaultSlot, bottomPanelSplit))}
                     </span>
                   </Space>
                 ),
@@ -415,19 +436,33 @@ const TopBar: React.FC<TopBarProps> = ({
                 open={bottomAlignDropdownOpen}
                 onOpenChange={handleBottomAlignOpenChange}
                 menu={{
-                  items: (
-                    [
-                      { key: 'center', label: t('workbench.shell.topbar.layout.alignCenter') },
-                      { key: 'left', label: t('workbench.shell.topbar.layout.alignLeft') },
-                      { key: 'right', label: t('workbench.shell.topbar.layout.alignRight') },
-                      { key: 'justify', label: t('workbench.shell.topbar.layout.alignJustify') },
-                    ] as { key: BottomPanelAlignmentSetting; label: string }[]
-                  ).map((opt) => ({
-                    key: `topbar-bottom-${opt.key}`,
-                    icon: menuIconWrap(<LayoutMenuIcon kind={alignmentGlyph(opt.key)} />),
-                    label: menuLabel(bottomPanelAlignment === opt.key, opt.label),
-                    onClick: () => setBottomPanelAlignment(opt.key),
-                  })),
+                  items: [
+                    ...(
+                      [
+                        { key: 'center', label: t('workbench.shell.topbar.layout.alignCenter') },
+                        { key: 'left', label: t('workbench.shell.topbar.layout.alignLeft') },
+                        { key: 'right', label: t('workbench.shell.topbar.layout.alignRight') },
+                        { key: 'justify', label: t('workbench.shell.topbar.layout.alignJustify') },
+                      ] as { key: BottomPanelAlignmentSetting; label: string }[]
+                    ).map((opt) => ({
+                      key: `topbar-bottom-${opt.key}`,
+                      icon: menuIconWrap(<LayoutMenuIcon kind={alignmentGlyph(opt.key)} />),
+                      label: menuLabel(bottomPanelAlignment === opt.key, opt.label),
+                      onClick: () => setBottomPanelAlignment(opt.key),
+                    })),
+                    { type: 'divider' as const },
+                    ...(
+                      [
+                        { key: 'columns', label: t('workbench.shell.topbar.layout.splitColumns') },
+                        { key: 'rows', label: t('workbench.shell.topbar.layout.splitRows') },
+                      ] as { key: BottomPanelSplitSetting; label: string }[]
+                    ).map((opt) => ({
+                      key: `topbar-split-${opt.key}`,
+                      icon: menuIconWrap(<LayoutMenuIcon kind={splitGlyph(opt.key)} />),
+                      label: menuLabel(bottomPanelSplit === opt.key, opt.label),
+                      onClick: () => setBottomPanelSplit(opt.key),
+                    })),
+                  ],
                 }}
               >
                 <Tooltip

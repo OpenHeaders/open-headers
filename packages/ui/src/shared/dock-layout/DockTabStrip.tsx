@@ -21,8 +21,8 @@ import type React from 'react';
 import { useState } from 'react';
 import { ALL_DOCK_SLOTS } from './constants';
 import DockSlotIcon from './DockSlotIcon';
-import { DOCK_LABEL_KEYS, resolveToolWindowLabel, resolveToolWindowTooltip } from './tool-window-copy';
-import type { DockSlot, ToolWindowDef } from './types';
+import { dockSlotLabelKey, resolveToolWindowLabel, resolveToolWindowTooltip } from './tool-window-copy';
+import type { BottomPanelSplit, DockSlot, ToolWindowDef } from './types';
 
 export interface DockTabStripProps<T extends string> {
   slot: DockSlot;
@@ -33,6 +33,8 @@ export interface DockTabStripProps<T extends string> {
   dragging: boolean;
   windowMap: Record<T, ToolWindowDef<T>>;
   isFocused: boolean;
+  /** Drives the bottom-slot names/glyphs in the Move-to menu. */
+  bottomSplit: BottomPanelSplit;
   onActivate: (id: T) => void;
   onHide: (id: T) => void;
   onMove: (id: T, target: DockSlot) => void;
@@ -190,6 +192,7 @@ function DockTabStripInner<T extends string>({
   dragging,
   windowMap,
   isFocused,
+  bottomSplit,
   onActivate,
   onHide,
   onMove,
@@ -236,7 +239,7 @@ function DockTabStripInner<T extends string>({
                   height: 18,
                 }}
               >
-                <DockSlotIcon slot={target} size={20} />
+                <DockSlotIcon slot={target} size={20} bottomSplit={bottomSplit} />
               </span>
             ),
             label: (
@@ -248,7 +251,7 @@ function DockTabStripInner<T extends string>({
                   lineHeight: '20px',
                 }}
               >
-                <span style={{ flex: 1 }}>{t(DOCK_LABEL_KEYS[target])}</span>
+                <span style={{ flex: 1 }}>{t(dockSlotLabelKey(target, bottomSplit))}</span>
                 {target === slot && (
                   <span style={{ marginLeft: 12, fontSize: 12, opacity: 0.75 }} title={t('shared.dock.currentSlot')}>
                     {'\u2713'}

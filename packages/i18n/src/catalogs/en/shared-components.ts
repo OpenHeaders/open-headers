@@ -380,6 +380,9 @@ export const sharedComponents = {
   'shared.dock.slot.rightBottom': 'Right Bottom',
   'shared.dock.slot.bottomLeft': 'Bottom Left',
   'shared.dock.slot.bottomRight': 'Bottom Right',
+  // Stacked (rows) bottom-split names for the same two slots.
+  'shared.dock.slot.bottomTop': 'Bottom Upper',
+  'shared.dock.slot.bottomBottom': 'Bottom Lower',
   'shared.dock.hide': 'Hide',
   'shared.dock.moveTo': 'Move to',
   'shared.dock.currentSlot': 'current slot',

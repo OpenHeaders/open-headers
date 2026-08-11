@@ -46,11 +46,13 @@ export const panel = {
   'panel.toolbar.bottomAlignTooltip.justify': 'Panel inferior: ancho completo',
 
   // ── Layout menu ─────────────────────────────────────────────────────
-  'panel.layout.bottomAlignment': 'Alineación del panel inferior',
+  'panel.layout.bottomLayout': 'Disposición del panel inferior',
   'panel.layout.alignCenter': 'Centrado (anidado)',
   'panel.layout.alignLeft': 'Izquierda',
   'panel.layout.alignRight': 'Derecha',
   'panel.layout.alignJustify': 'Justificado (ancho completo)',
+  'panel.layout.splitColumns': 'Lado a lado',
+  'panel.layout.splitRows': 'Apilados',
   'panel.layout.showToolWindowNames': 'Mostrar los nombres de las ventanas de herramientas',
   'panel.layout.activityBarLayout': 'Disposición de la barra de actividad',
   'panel.layout.sidebarProportional': 'Proporcional (mitades iguales)',

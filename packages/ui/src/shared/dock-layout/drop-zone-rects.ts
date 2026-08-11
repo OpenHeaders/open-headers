@@ -6,7 +6,7 @@
  * Returns null before the shell has been measured. Extracted from ShellLayout.
  */
 
-import type { BottomPanelAlignment, DockSlot, DropZoneRect } from './types';
+import type { BottomPanelAlignment, BottomPanelSplit, DockSlot, DropZoneRect } from './types';
 
 export interface DropZoneRectsInput {
   shellSize: { width: number; height: number };
@@ -16,6 +16,7 @@ export interface DropZoneRectsInput {
     bottom: { preferred: number };
   };
   bottomPanelAlignment: BottomPanelAlignment;
+  bottomPanelSplit: BottomPanelSplit;
   barWidths: { left: number; right: number };
 }
 
@@ -23,6 +24,7 @@ export function computeDropZoneRects({
   shellSize,
   sizes,
   bottomPanelAlignment,
+  bottomPanelSplit,
   barWidths,
 }: DropZoneRectsInput): Record<DockSlot, DropZoneRect> | null {
   const fullW = shellSize.width;
@@ -121,7 +123,9 @@ export function computeDropZoneRects({
     width: preferredInspector,
     height: rightHeight,
   });
-  const [bl, br] = splitHorizontal({
+  // Stacked (`rows`) mode: bottom-left is the upper row, bottom-right
+  // the lower — same [first, second] order the columns mode uses.
+  const [bl, br] = (bottomPanelSplit === 'rows' ? splitVertical : splitHorizontal)({
     left: bottomLeft,
     top: fullH - preferredBottom,
     width: bottomWidth,

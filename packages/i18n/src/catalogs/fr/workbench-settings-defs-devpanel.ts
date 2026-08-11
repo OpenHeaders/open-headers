@@ -91,6 +91,15 @@ export const workbenchSettingsDefsDevpanel = {
   'workbench.settings.def.devpanelLayout.bottomPanelAlignment.option.justify.label': 'Justifié',
   'workbench.settings.def.devpanelLayout.bottomPanelAlignment.option.justify.description':
     'Le panneau inférieur couvre toute la largeur du panneau DevTools',
+  'workbench.settings.def.devpanelLayout.bottomPanelSplit.label': 'Division du panneau inférieur',
+  'workbench.settings.def.devpanelLayout.bottomPanelSplit.description':
+    "Comment deux docks inférieurs ouverts se partagent le panneau inférieur : côte à côte, ou l'un au-dessus de l'autre.",
+  'workbench.settings.def.devpanelLayout.bottomPanelSplit.option.columns.label': 'Côte à côte',
+  'workbench.settings.def.devpanelLayout.bottomPanelSplit.option.columns.description':
+    'Les docks inférieurs sont placés côte à côte',
+  'workbench.settings.def.devpanelLayout.bottomPanelSplit.option.rows.label': 'Empilés',
+  'workbench.settings.def.devpanelLayout.bottomPanelSplit.option.rows.description':
+    "Les docks inférieurs sont empilés l'un au-dessus de l'autre",
   'workbench.settings.def.devpanelLayout.showToolWindowLabels.label': "Afficher les noms des fenêtres d'outils",
   'workbench.settings.def.devpanelLayout.showToolWindowLabels.description':
     "Affiche des libellés texte à côté des icônes de la barre d'activité et des onglets de dock dans le " +

@@ -13,7 +13,7 @@ import { useEffect, useMemo, useRef } from 'react';
 import { regionDocks } from './constants';
 import { DockBodyStack } from './DockBodyStack';
 import type { FocusStore } from './focus-store';
-import type { DockSlot } from './types';
+import type { BottomPanelSplit, DockSlot } from './types';
 import type { DockLayoutApi } from './use-dock-layout';
 
 /**
@@ -133,9 +133,11 @@ interface BottomRegionProps<T extends string> {
   tl: DockLayoutApi<T>;
   renderToolWindow: (id: T, slot: DockSlot) => React.ReactNode;
   focusStore: FocusStore;
+  /** columns → bottom-left | bottom-right side by side; rows → stacked. */
+  split: BottomPanelSplit;
 }
 
-export function BottomRegion<T extends string>({ tl, renderToolWindow, focusStore }: BottomRegionProps<T>) {
+export function BottomRegion<T extends string>({ tl, renderToolWindow, focusStore, split }: BottomRegionProps<T>) {
   const leftDock = tl.state.docks['bottom-left'];
   const rightDock = tl.state.docks['bottom-right'];
   const leftActive = leftDock.active;
@@ -148,6 +150,11 @@ export function BottomRegion<T extends string>({ tl, renderToolWindow, focusStor
       lastBothVisibleSizesRef.current = sizes;
     }
   };
+  // A remembered sash drag is meaningless across an axis flip (widths
+  // vs heights) — drop it so the re-keyed Allotment seeds 50/50.
+  useEffect(() => {
+    lastBothVisibleSizesRef.current = null;
+  }, [split]);
   useEffect(() => {
     if (leftActive === null || rightActive === null) return;
     // Restore the user's last drag if we have one, otherwise fall back
@@ -175,13 +182,22 @@ export function BottomRegion<T extends string>({ tl, renderToolWindow, focusStor
     );
   };
 
+  // Keyed by split so an axis flip cleanly remounts the Allotment —
+  // its internal pane sizes are per-axis and don't survive a `vertical`
+  // prop change in place. Stacked rows take a smaller minimum than the
+  // side-by-side columns: 200px of height would forbid two rows inside
+  // typical bottom-panel heights, while 84px still fits a panel header
+  // plus a usable content strip.
+  const stacked = split === 'rows';
+  const paneMin = stacked ? 84 : 200;
+
   return (
     <div className="rules-region rules-region-bottom" data-region="bottom" tabIndex={-1} style={{ height: '100%' }}>
-      <Allotment ref={allotmentRef} proportionalLayout onDragEnd={handleDragEnd}>
-        <Allotment.Pane preferredSize="50%" visible={leftActive !== null} minSize={200}>
+      <Allotment key={split} ref={allotmentRef} vertical={stacked} proportionalLayout onDragEnd={handleDragEnd}>
+        <Allotment.Pane preferredSize="50%" visible={leftActive !== null} minSize={paneMin}>
           {renderBottomSub('bottom-left')}
         </Allotment.Pane>
-        <Allotment.Pane preferredSize="50%" visible={rightActive !== null} minSize={200}>
+        <Allotment.Pane preferredSize="50%" visible={rightActive !== null} minSize={paneMin}>
           {renderBottomSub('bottom-right')}
         </Allotment.Pane>
       </Allotment>

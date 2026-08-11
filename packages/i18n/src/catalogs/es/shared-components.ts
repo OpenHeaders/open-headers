@@ -375,6 +375,8 @@ export const sharedComponents = {
   'shared.dock.slot.rightBottom': 'Derecha abajo',
   'shared.dock.slot.bottomLeft': 'Abajo izquierda',
   'shared.dock.slot.bottomRight': 'Abajo derecha',
+  'shared.dock.slot.bottomTop': 'Abajo superior',
+  'shared.dock.slot.bottomBottom': 'Abajo inferior',
   'shared.dock.hide': 'Ocultar',
   'shared.dock.moveTo': 'Mover a',
   'shared.dock.currentSlot': 'posición actual',

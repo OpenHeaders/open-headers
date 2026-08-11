@@ -77,6 +77,13 @@ export const workbenchSettingsDefsDevpanel = {
   'workbench.settings.def.devpanelLayout.bottomPanelAlignment.option.justify.label': '两端',
   'workbench.settings.def.devpanelLayout.bottomPanelAlignment.option.justify.description':
     '底部面板横跨 DevTools 面板的全部宽度',
+  'workbench.settings.def.devpanelLayout.bottomPanelSplit.label': '底部面板拆分',
+  'workbench.settings.def.devpanelLayout.bottomPanelSplit.description':
+    '两个已打开的底部停靠区如何共享底部面板：并排放置，或上下堆叠。',
+  'workbench.settings.def.devpanelLayout.bottomPanelSplit.option.columns.label': '并排',
+  'workbench.settings.def.devpanelLayout.bottomPanelSplit.option.columns.description': '底部停靠区并排放置',
+  'workbench.settings.def.devpanelLayout.bottomPanelSplit.option.rows.label': '堆叠',
+  'workbench.settings.def.devpanelLayout.bottomPanelSplit.option.rows.description': '底部停靠区上下堆叠',
   'workbench.settings.def.devpanelLayout.showToolWindowLabels.label': '显示工具窗口名称',
   'workbench.settings.def.devpanelLayout.showToolWindowLabels.description':
     '在 DevTools 面板中，于活动栏和停靠标签图标旁渲染文字名称。默认禁用，因为面板比工作区更窄。',

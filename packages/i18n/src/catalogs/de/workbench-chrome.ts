@@ -117,11 +117,13 @@ export const workbenchChrome = {
 
   // ── Shell: top bar (search button, layout menu, panel toggles) ──────
   'workbench.shell.topbar.search': 'Suche oder führe einen Befehl aus...',
-  'workbench.shell.topbar.layout.bottomAlignment': 'Ausrichtung des unteren Panels',
+  'workbench.shell.topbar.layout.bottomLayout': 'Layout des unteren Panels',
   'workbench.shell.topbar.layout.alignCenter': 'Zentriert (verschachtelt)',
   'workbench.shell.topbar.layout.alignLeft': 'Links',
   'workbench.shell.topbar.layout.alignRight': 'Rechts',
   'workbench.shell.topbar.layout.alignJustify': 'Blocksatz (volle Breite)',
+  'workbench.shell.topbar.layout.splitColumns': 'Nebeneinander',
+  'workbench.shell.topbar.layout.splitRows': 'Gestapelt',
   'workbench.shell.topbar.layout.showToolWindowNames': 'Werkzeugfenster-Namen anzeigen',
   'workbench.shell.topbar.layout.activityBarLayout': 'Layout der Aktivitätsleiste',
   'workbench.shell.topbar.layout.sidebarProportional': 'Proportional (gleiche Hälften)',

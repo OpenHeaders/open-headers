@@ -116,11 +116,13 @@ export const workbenchChrome = {
 
   // ── Shell: top bar (search button, layout menu, panel toggles) ──────
   'workbench.shell.topbar.search': '搜索或运行命令...',
-  'workbench.shell.topbar.layout.bottomAlignment': '底部面板对齐',
+  'workbench.shell.topbar.layout.bottomLayout': '底部面板布局',
   'workbench.shell.topbar.layout.alignCenter': '居中（嵌套）',
   'workbench.shell.topbar.layout.alignLeft': '左',
   'workbench.shell.topbar.layout.alignRight': '右',
   'workbench.shell.topbar.layout.alignJustify': '两端（全宽）',
+  'workbench.shell.topbar.layout.splitColumns': '并排',
+  'workbench.shell.topbar.layout.splitRows': '堆叠',
   'workbench.shell.topbar.layout.showToolWindowNames': '显示工具窗口名称',
   'workbench.shell.topbar.layout.activityBarLayout': '活动栏布局',
   'workbench.shell.topbar.layout.sidebarProportional': '按比例（均分两半）',

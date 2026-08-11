@@ -49,11 +49,13 @@ export const panel = {
   'panel.toolbar.bottomAlignTooltip.justify': 'Unteres Panel: volle Breite',
 
   // ── Layout menu ─────────────────────────────────────────────────────
-  'panel.layout.bottomAlignment': 'Ausrichtung des unteren Panels',
+  'panel.layout.bottomLayout': 'Layout des unteren Panels',
   'panel.layout.alignCenter': 'Zentriert (verschachtelt)',
   'panel.layout.alignLeft': 'Links',
   'panel.layout.alignRight': 'Rechts',
   'panel.layout.alignJustify': 'Blocksatz (volle Breite)',
+  'panel.layout.splitColumns': 'Nebeneinander',
+  'panel.layout.splitRows': 'Gestapelt',
   'panel.layout.showToolWindowNames': 'Werkzeugfenster-Namen anzeigen',
   'panel.layout.activityBarLayout': 'Layout der Aktivitätsleiste',
   'panel.layout.sidebarProportional': 'Proportional (gleiche Hälften)',

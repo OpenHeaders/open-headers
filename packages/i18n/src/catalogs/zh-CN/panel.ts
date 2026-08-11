@@ -46,11 +46,13 @@ export const panel = {
   'panel.toolbar.bottomAlignTooltip.justify': '底部面板：全宽',
 
   // ── Layout menu ─────────────────────────────────────────────────────
-  'panel.layout.bottomAlignment': '底部面板对齐',
+  'panel.layout.bottomLayout': '底部面板布局',
   'panel.layout.alignCenter': '居中（嵌套）',
   'panel.layout.alignLeft': '左',
   'panel.layout.alignRight': '右',
   'panel.layout.alignJustify': '两端（全宽）',
+  'panel.layout.splitColumns': '并排',
+  'panel.layout.splitRows': '堆叠',
   'panel.layout.showToolWindowNames': '显示工具窗口名称',
   'panel.layout.activityBarLayout': '活动栏布局',
   'panel.layout.sidebarProportional': '按比例（均分两半）',

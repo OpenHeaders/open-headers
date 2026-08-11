@@ -302,6 +302,15 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.workspaceLayout.bottomPanelAlignment.option.justify.label': 'Justify',
   'workbench.settings.def.workspaceLayout.bottomPanelAlignment.option.justify.description':
     'Bottom spans the full viewport width',
+  'workbench.settings.def.workspaceLayout.bottomPanelSplit.label': 'Bottom Panel Split',
+  'workbench.settings.def.workspaceLayout.bottomPanelSplit.description':
+    'How two open bottom docks share the bottom panel: next to each other, or one above the other.',
+  'workbench.settings.def.workspaceLayout.bottomPanelSplit.option.columns.label': 'Side by Side',
+  'workbench.settings.def.workspaceLayout.bottomPanelSplit.option.columns.description':
+    'Bottom docks sit next to each other',
+  'workbench.settings.def.workspaceLayout.bottomPanelSplit.option.rows.label': 'Stacked',
+  'workbench.settings.def.workspaceLayout.bottomPanelSplit.option.rows.description':
+    'Bottom docks stack one above the other',
   'workbench.settings.def.workspaceLayout.showToolWindowLabels.label': 'Show Tool Window Labels',
   'workbench.settings.def.workspaceLayout.showToolWindowLabels.description':
     'Render text labels next to activity-bar and dock-tab icons. Disable for an icon-only compact shell.',

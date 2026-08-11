@@ -66,6 +66,15 @@ export const workbenchSettingsDefsDevpanel = {
   'workbench.settings.def.devpanelLayout.bottomPanelAlignment.option.justify.label': 'Justify',
   'workbench.settings.def.devpanelLayout.bottomPanelAlignment.option.justify.description':
     'Bottom spans the full DevTools panel width',
+  'workbench.settings.def.devpanelLayout.bottomPanelSplit.label': 'Bottom Panel Split',
+  'workbench.settings.def.devpanelLayout.bottomPanelSplit.description':
+    'How two open bottom docks share the bottom panel: next to each other, or one above the other.',
+  'workbench.settings.def.devpanelLayout.bottomPanelSplit.option.columns.label': 'Side by Side',
+  'workbench.settings.def.devpanelLayout.bottomPanelSplit.option.columns.description':
+    'Bottom docks sit next to each other',
+  'workbench.settings.def.devpanelLayout.bottomPanelSplit.option.rows.label': 'Stacked',
+  'workbench.settings.def.devpanelLayout.bottomPanelSplit.option.rows.description':
+    'Bottom docks stack one above the other',
   'workbench.settings.def.devpanelLayout.showToolWindowLabels.label': 'Show Tool Window Labels',
   'workbench.settings.def.devpanelLayout.showToolWindowLabels.description':
     'Render text labels next to activity-bar and dock-tab icons in the DevTools panel. Disabled by default because the panel is narrower than the workspace.',

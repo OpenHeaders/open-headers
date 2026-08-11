@@ -25,9 +25,11 @@ import { RuleExecutionsHint } from './RuleExecutions';
 import {
   alignmentGlyph,
   type BottomPanelAlignmentSetting,
+  type BottomPanelSplitSetting,
   buildPanelLayoutMenu,
   menuIconWrap,
   menuLabel,
+  splitGlyph,
 } from './toolbar-layout-menu';
 import { IconClear } from './toolbar-icons';
 import { getMoreFiltersInfo, getViewInfo } from './toolbar-menu-info';
@@ -153,6 +155,7 @@ export const PanelToolbar: React.FC<PanelToolbarProps> = ({
   const showPanelToggles = useSettingValue('devpanelLayout.topbarShowPanelToggles');
   const showLayoutMenu = useSettingValue('devpanelLayout.topbarShowLayoutMenu');
   const [bottomPanelAlignment, setBottomPanelAlignment] = useSetting('devpanelLayout.bottomPanelAlignment');
+  const [bottomPanelSplit, setBottomPanelSplit] = useSetting('devpanelLayout.bottomPanelSplit');
   const [showLabels, setShowLabels] = useSetting('devpanelLayout.showToolWindowLabels');
   const [sidebarLayout, setSidebarLayout] = useSetting('devpanelLayout.sidebarLayout');
 
@@ -234,6 +237,8 @@ export const PanelToolbar: React.FC<PanelToolbarProps> = ({
     perTab,
     bottomPanelAlignment,
     setBottomPanelAlignment,
+    bottomPanelSplit,
+    setBottomPanelSplit,
     showLabels,
     setShowLabels,
     sidebarLayout,
@@ -393,19 +398,33 @@ export const PanelToolbar: React.FC<PanelToolbarProps> = ({
                   open={bottomAlignDropdownOpen}
                   onOpenChange={handleBottomAlignOpenChange}
                   menu={{
-                    items: (
-                      [
-                        { key: 'center', label: t('panel.layout.alignCenter') },
-                        { key: 'left', label: t('panel.layout.alignLeft') },
-                        { key: 'right', label: t('panel.layout.alignRight') },
-                        { key: 'justify', label: t('panel.layout.alignJustify') },
-                      ] as { key: BottomPanelAlignmentSetting; label: string }[]
-                    ).map((opt) => ({
-                      key: `topbar-bottom-${opt.key}`,
-                      icon: menuIconWrap(<LayoutMenuIcon kind={alignmentGlyph(opt.key)} />),
-                      label: menuLabel(bottomPanelAlignment === opt.key, opt.label),
-                      onClick: () => setBottomPanelAlignment(opt.key),
-                    })),
+                    items: [
+                      ...(
+                        [
+                          { key: 'center', label: t('panel.layout.alignCenter') },
+                          { key: 'left', label: t('panel.layout.alignLeft') },
+                          { key: 'right', label: t('panel.layout.alignRight') },
+                          { key: 'justify', label: t('panel.layout.alignJustify') },
+                        ] as { key: BottomPanelAlignmentSetting; label: string }[]
+                      ).map((opt) => ({
+                        key: `topbar-bottom-${opt.key}`,
+                        icon: menuIconWrap(<LayoutMenuIcon kind={alignmentGlyph(opt.key)} />),
+                        label: menuLabel(bottomPanelAlignment === opt.key, opt.label),
+                        onClick: () => setBottomPanelAlignment(opt.key),
+                      })),
+                      { type: 'divider' as const },
+                      ...(
+                        [
+                          { key: 'columns', label: t('panel.layout.splitColumns') },
+                          { key: 'rows', label: t('panel.layout.splitRows') },
+                        ] as { key: BottomPanelSplitSetting; label: string }[]
+                      ).map((opt) => ({
+                        key: `topbar-split-${opt.key}`,
+                        icon: menuIconWrap(<LayoutMenuIcon kind={splitGlyph(opt.key)} />),
+                        label: menuLabel(bottomPanelSplit === opt.key, opt.label),
+                        onClick: () => setBottomPanelSplit(opt.key),
+                      })),
+                    ],
                   }}
                 >
                   <Tooltip

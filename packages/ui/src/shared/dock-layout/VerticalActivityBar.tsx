@@ -16,7 +16,7 @@ import { useLayoutEffect, useRef, useState } from 'react';
 import { regionDocks } from './constants';
 import DockTabStrip, { type DockTabStripProps } from './DockTabStrip';
 import type { FocusStore } from './focus-store';
-import type { DockSlot, SidebarLayoutVariant, ToolWindowDef } from './types';
+import type { BottomPanelSplit, DockSlot, SidebarLayoutVariant, ToolWindowDef } from './types';
 import type { DockLayoutApi } from './use-dock-layout';
 
 interface VerticalBarProps<T extends string> {
@@ -27,6 +27,7 @@ interface VerticalBarProps<T extends string> {
   dragging: boolean;
   showLabels: boolean;
   sidebarLayout: SidebarLayoutVariant;
+  bottomSplit: BottomPanelSplit;
   onToggleLabels: () => void;
   focusStore: FocusStore;
   /** Passed into the Dynamic height-mirror hook so it re-runs — and
@@ -202,6 +203,7 @@ function VerticalActivityBar<T extends string>({
   dragging,
   showLabels,
   sidebarLayout,
+  bottomSplit,
   onToggleLabels,
   focusStore,
   layoutRevision,
@@ -264,6 +266,7 @@ function VerticalActivityBar<T extends string>({
       showLabels={showLabels}
       dragging={dragging}
       windowMap={windowMap}
+      bottomSplit={bottomSplit}
       focusStore={focusStore}
       onActivate={tl.toggleWindow}
       onHide={tl.hideWindow}

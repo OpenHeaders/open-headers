@@ -47,11 +47,13 @@ export const panel = {
   'panel.toolbar.bottomAlignTooltip.justify': 'Bottom panel: full width',
 
   // ── Layout menu ─────────────────────────────────────────────────────
-  'panel.layout.bottomAlignment': 'Bottom Panel Alignment',
+  'panel.layout.bottomLayout': 'Bottom Panel Layout',
   'panel.layout.alignCenter': 'Center (nested)',
   'panel.layout.alignLeft': 'Left',
   'panel.layout.alignRight': 'Right',
   'panel.layout.alignJustify': 'Justify (full width)',
+  'panel.layout.splitColumns': 'Side by Side',
+  'panel.layout.splitRows': 'Stacked',
   'panel.layout.showToolWindowNames': 'Show Tool Window Names',
   'panel.layout.activityBarLayout': 'Activity Bar Layout',
   'panel.layout.sidebarProportional': 'Proportional (even halves)',

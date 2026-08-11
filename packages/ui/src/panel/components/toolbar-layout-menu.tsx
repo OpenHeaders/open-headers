@@ -25,6 +25,7 @@ import type { PanelViewState } from '../data/use-panel-tool-layout';
 
 export type SidebarLayoutVariantSetting = 'proportional' | 'compact' | 'stacked' | 'dynamic';
 export type BottomPanelAlignmentSetting = 'center' | 'left' | 'right' | 'justify';
+export type BottomPanelSplitSetting = 'columns' | 'rows';
 
 export const menuIconWrap = (node: React.ReactNode): React.ReactNode => (
   <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 22, height: 18 }}>
@@ -46,6 +47,9 @@ export const alignmentGlyph = (
 ): 'bottom-full' | 'bottom-left' | 'bottom-right' | 'bottom-nested' =>
   a === 'justify' ? 'bottom-full' : a === 'left' ? 'bottom-left' : a === 'right' ? 'bottom-right' : 'bottom-nested';
 
+export const splitGlyph = (s: BottomPanelSplitSetting): 'bottom-split-columns' | 'bottom-split-rows' =>
+  s === 'rows' ? 'bottom-split-rows' : 'bottom-split-columns';
+
 export interface PanelLayoutMenuOptions {
   t: Translate;
   token: GlobalToken;
@@ -53,6 +57,8 @@ export interface PanelLayoutMenuOptions {
   perTab: EditingScopeViewStateApi<PanelViewState>;
   bottomPanelAlignment: BottomPanelAlignmentSetting;
   setBottomPanelAlignment: (v: BottomPanelAlignmentSetting) => void;
+  bottomPanelSplit: BottomPanelSplitSetting;
+  setBottomPanelSplit: (v: BottomPanelSplitSetting) => void;
   showLabels: boolean;
   setShowLabels: (v: boolean) => void;
   sidebarLayout: SidebarLayoutVariantSetting;
@@ -72,6 +78,8 @@ export function buildPanelLayoutMenu({
   perTab,
   bottomPanelAlignment,
   setBottomPanelAlignment,
+  bottomPanelSplit,
+  setBottomPanelSplit,
   showLabels,
   setShowLabels,
   sidebarLayout,
@@ -79,22 +87,36 @@ export function buildPanelLayoutMenu({
 }: PanelLayoutMenuOptions): MenuProps['items'] {
   return [
     {
-      key: 'bottom-alignment',
+      key: 'bottom-layout',
       icon: menuIconWrap(<LayoutMenuIcon kind={alignmentGlyph(bottomPanelAlignment)} />),
-      label: t('panel.layout.bottomAlignment'),
-      children: (
-        [
-          { key: 'center', label: t('panel.layout.alignCenter') },
-          { key: 'left', label: t('panel.layout.alignLeft') },
-          { key: 'right', label: t('panel.layout.alignRight') },
-          { key: 'justify', label: t('panel.layout.alignJustify') },
-        ] as { key: BottomPanelAlignmentSetting; label: string }[]
-      ).map((opt) => ({
-        key: `bottom-${opt.key}`,
-        icon: menuIconWrap(<LayoutMenuIcon kind={alignmentGlyph(opt.key)} />),
-        label: menuLabel(bottomPanelAlignment === opt.key, opt.label),
-        onClick: () => setBottomPanelAlignment(opt.key),
-      })),
+      label: t('panel.layout.bottomLayout'),
+      children: [
+        ...(
+          [
+            { key: 'center', label: t('panel.layout.alignCenter') },
+            { key: 'left', label: t('panel.layout.alignLeft') },
+            { key: 'right', label: t('panel.layout.alignRight') },
+            { key: 'justify', label: t('panel.layout.alignJustify') },
+          ] as { key: BottomPanelAlignmentSetting; label: string }[]
+        ).map((opt) => ({
+          key: `bottom-${opt.key}`,
+          icon: menuIconWrap(<LayoutMenuIcon kind={alignmentGlyph(opt.key)} />),
+          label: menuLabel(bottomPanelAlignment === opt.key, opt.label),
+          onClick: () => setBottomPanelAlignment(opt.key),
+        })),
+        { type: 'divider' as const },
+        ...(
+          [
+            { key: 'columns', label: t('panel.layout.splitColumns') },
+            { key: 'rows', label: t('panel.layout.splitRows') },
+          ] as { key: BottomPanelSplitSetting; label: string }[]
+        ).map((opt) => ({
+          key: `split-${opt.key}`,
+          icon: menuIconWrap(<LayoutMenuIcon kind={splitGlyph(opt.key)} />),
+          label: menuLabel(bottomPanelSplit === opt.key, opt.label),
+          onClick: () => setBottomPanelSplit(opt.key),
+        })),
+      ],
     },
     {
       key: 'show-labels',

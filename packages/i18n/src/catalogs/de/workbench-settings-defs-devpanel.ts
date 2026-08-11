@@ -91,6 +91,14 @@ export const workbenchSettingsDefsDevpanel = {
   'workbench.settings.def.devpanelLayout.bottomPanelAlignment.option.justify.label': 'Blocksatz',
   'workbench.settings.def.devpanelLayout.bottomPanelAlignment.option.justify.description':
     'Unteres Panel umspannt die volle Breite des DevTools-Panels',
+  'workbench.settings.def.devpanelLayout.bottomPanelSplit.label': 'Aufteilung des unteren Panels',
+  'workbench.settings.def.devpanelLayout.bottomPanelSplit.description':
+    'Wie sich zwei geöffnete untere Docks das untere Panel teilen: nebeneinander oder übereinander.',
+  'workbench.settings.def.devpanelLayout.bottomPanelSplit.option.columns.label': 'Nebeneinander',
+  'workbench.settings.def.devpanelLayout.bottomPanelSplit.option.columns.description':
+    'Untere Docks liegen nebeneinander',
+  'workbench.settings.def.devpanelLayout.bottomPanelSplit.option.rows.label': 'Gestapelt',
+  'workbench.settings.def.devpanelLayout.bottomPanelSplit.option.rows.description': 'Untere Docks liegen übereinander',
   'workbench.settings.def.devpanelLayout.showToolWindowLabels.label': 'Werkzeugfenster-Namen anzeigen',
   'workbench.settings.def.devpanelLayout.showToolWindowLabels.description':
     'Rendert Textbeschriftungen neben den Icons der Aktivitätsleiste und der Dock-Tabs im DevTools-Panel. ' +

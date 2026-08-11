@@ -109,11 +109,13 @@ export const workbenchChrome = {
 
   // ── Shell: top bar (search button, layout menu, panel toggles) ──────
   'workbench.shell.topbar.search': 'Rechercher ou exécuter une commande...',
-  'workbench.shell.topbar.layout.bottomAlignment': 'Alignement du panneau inférieur',
+  'workbench.shell.topbar.layout.bottomLayout': 'Disposition du panneau inférieur',
   'workbench.shell.topbar.layout.alignCenter': 'Centré (imbriqué)',
   'workbench.shell.topbar.layout.alignLeft': 'Gauche',
   'workbench.shell.topbar.layout.alignRight': 'Droite',
   'workbench.shell.topbar.layout.alignJustify': 'Justifié (pleine largeur)',
+  'workbench.shell.topbar.layout.splitColumns': 'Côte à côte',
+  'workbench.shell.topbar.layout.splitRows': 'Empilés',
   'workbench.shell.topbar.layout.showToolWindowNames': "Afficher les noms des fenêtres d'outils",
   'workbench.shell.topbar.layout.activityBarLayout': "Disposition de la barre d'activité",
   'workbench.shell.topbar.layout.sidebarProportional': 'Proportionnelle (moitiés égales)',

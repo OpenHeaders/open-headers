@@ -23,7 +23,12 @@ import {
   SurfaceAwarenessPublisher,
   type SurfaceIdentityHandle,
 } from '@openheaders/ui/shared/awareness';
-import type { BottomPanelAlignment, DockSlot, SidebarLayoutVariant } from '@openheaders/ui/shared/dock-layout';
+import type {
+  BottomPanelAlignment,
+  BottomPanelSplit,
+  DockSlot,
+  SidebarLayoutVariant,
+} from '@openheaders/ui/shared/dock-layout';
 import {
   createShellEventBus,
   makeEditorTabCollisionDetection,
@@ -478,6 +483,7 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
   // ── Layout settings (persisted via settings store) ────────────
   const [activityLabels, setActivityLabels] = useSetting('devpanelLayout.showToolWindowLabels');
   const [bottomPanelAlignment] = useSetting('devpanelLayout.bottomPanelAlignment');
+  const [bottomPanelSplit] = useSetting('devpanelLayout.bottomPanelSplit');
   const [sidebarLayout] = useSetting('devpanelLayout.sidebarLayout');
   const [barWidthLeft, setBarWidthLeft] = useSetting('devpanelLayout.activityBarWidthLeft');
   const [barWidthRight, setBarWidthRight] = useSetting('devpanelLayout.activityBarWidthRight');
@@ -1190,6 +1196,7 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
         onVerticalResize={noopResize}
         renderEditorTabDragPreview={renderEditorTabDragPreview}
         bottomPanelAlignment={bottomPanelAlignment as BottomPanelAlignment}
+        bottomPanelSplit={bottomPanelSplit as BottomPanelSplit}
         showToolWindowLabels={activityLabels}
         sidebarLayout={sidebarLayout as SidebarLayoutVariant}
         onToggleLabels={toggleLabels}

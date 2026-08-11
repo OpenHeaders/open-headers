@@ -21,6 +21,9 @@ export type SidebarLayoutVariantSetting = v.InferOutput<typeof sidebarLayoutSche
 const bottomPanelAlignmentSchema = v.picklist(['center', 'left', 'right', 'justify']);
 export type BottomPanelAlignmentSetting = v.InferOutput<typeof bottomPanelAlignmentSchema>;
 
+const bottomPanelSplitSchema = v.picklist(['columns', 'rows']);
+export type BottomPanelSplitSetting = v.InferOutput<typeof bottomPanelSplitSchema>;
+
 declare module '@openheaders/ui/workbench/settings/types' {
   interface SettingsMap {
     'workspaceLayout.footerShowVersion': boolean;
@@ -28,6 +31,7 @@ declare module '@openheaders/ui/workbench/settings/types' {
     'workspaceLayout.topbarShowPanelToggles': boolean;
     'workspaceLayout.topbarShowLayoutMenu': boolean;
     'workspaceLayout.bottomPanelAlignment': BottomPanelAlignmentSetting;
+    'workspaceLayout.bottomPanelSplit': BottomPanelSplitSetting;
     'workspaceLayout.showToolWindowLabels': boolean;
     'workspaceLayout.sidebarLayout': SidebarLayoutVariantSetting;
     'workspaceLayout.activityBarWidthLeft': number;
@@ -128,6 +132,31 @@ registerSetting({
       value: 'justify',
       labelKey: 'workbench.settings.def.workspaceLayout.bottomPanelAlignment.option.justify.label',
       descriptionKey: 'workbench.settings.def.workspaceLayout.bottomPanelAlignment.option.justify.description',
+    },
+  ],
+});
+
+registerSetting({
+  key: 'workspaceLayout.bottomPanelSplit',
+  type: 'enum',
+  default: 'columns',
+  schema: bottomPanelSplitSchema,
+  labelKey: 'workbench.settings.def.workspaceLayout.bottomPanelSplit.label',
+  descriptionKey: 'workbench.settings.def.workspaceLayout.bottomPanelSplit.description',
+  category: 'workspaceLayout',
+  subcategory: 'Shell',
+  tags: ['bottom', 'panel', 'layout', 'split', 'stack', 'rows', 'columns'],
+  scope: 'user',
+  enumOptions: [
+    {
+      value: 'columns',
+      labelKey: 'workbench.settings.def.workspaceLayout.bottomPanelSplit.option.columns.label',
+      descriptionKey: 'workbench.settings.def.workspaceLayout.bottomPanelSplit.option.columns.description',
+    },
+    {
+      value: 'rows',
+      labelKey: 'workbench.settings.def.workspaceLayout.bottomPanelSplit.option.rows.label',
+      descriptionKey: 'workbench.settings.def.workspaceLayout.bottomPanelSplit.option.rows.description',
     },
   ],
 });

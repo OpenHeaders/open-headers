@@ -13,16 +13,17 @@ import { useT } from '@openheaders/ui/context/LocaleContext';
 import { theme } from 'antd';
 import type React from 'react';
 import DockSlotIcon from './DockSlotIcon';
-import { DOCK_LABEL_KEYS } from './tool-window-copy';
-import type { DockSlot, DropZoneRect } from './types';
+import { dockSlotLabelKey } from './tool-window-copy';
+import type { BottomPanelSplit, DockSlot, DropZoneRect } from './types';
 
 interface DropZoneProps {
   slot: DockSlot;
   rect: DropZoneRect;
   highlighted: boolean;
+  bottomSplit: BottomPanelSplit;
 }
 
-const DropZone: React.FC<DropZoneProps> = ({ slot, rect, highlighted }) => {
+const DropZone: React.FC<DropZoneProps> = ({ slot, rect, highlighted, bottomSplit }) => {
   const { token } = theme.useToken();
   const t = useT();
   // Drop-zone sizes are computed once at drag start and never change
@@ -62,9 +63,9 @@ const DropZone: React.FC<DropZoneProps> = ({ slot, rect, highlighted }) => {
     >
       <span className="rules-drop-zone-label" style={{ color: token.colorPrimary, background: token.colorBgContainer }}>
         <span className="rules-drop-zone-label-icon">
-          <DockSlotIcon slot={slot} size={20} />
+          <DockSlotIcon slot={slot} size={20} bottomSplit={bottomSplit} />
         </span>
-        {t(DOCK_LABEL_KEYS[slot])}
+        {t(dockSlotLabelKey(slot, bottomSplit))}
       </span>
     </div>
   );
@@ -79,6 +80,7 @@ interface DropZoneOverlayProps {
       / cross-rail moves and must remain visually accessible. */
   leftBarWidth: number;
   rightBarWidth: number;
+  bottomSplit: BottomPanelSplit;
 }
 
 const DropZoneOverlay: React.FC<DropZoneOverlayProps> = ({
@@ -87,6 +89,7 @@ const DropZoneOverlay: React.FC<DropZoneOverlayProps> = ({
   highlightedSlot,
   leftBarWidth,
   rightBarWidth,
+  bottomSplit,
 }) => {
   if (!visible || !rects) return null;
 
@@ -104,7 +107,13 @@ const DropZoneOverlay: React.FC<DropZoneOverlayProps> = ({
         style={{ left: leftBarWidth, right: rightBarWidth, top: 0, bottom: 0 }}
       />
       {(Object.keys(rects) as DockSlot[]).map((slot) => (
-        <DropZone key={slot} slot={slot} rect={rects[slot]} highlighted={highlightedSlot === slot} />
+        <DropZone
+          key={slot}
+          slot={slot}
+          rect={rects[slot]}
+          highlighted={highlightedSlot === slot}
+          bottomSplit={bottomSplit}
+        />
       ))}
     </div>
   );

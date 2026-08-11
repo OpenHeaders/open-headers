@@ -6,6 +6,8 @@ export type LayoutMenuIconKind =
   | 'bottom-nested'
   | 'bottom-left'
   | 'bottom-right'
+  | 'bottom-split-columns'
+  | 'bottom-split-rows'
   | 'show-labels'
   | 'hide-labels'
   | 'restore-hidden'
@@ -106,6 +108,30 @@ const LayoutMenuIcon: React.FC<LayoutMenuIconProps> = ({ kind, size = 16 }) => {
           fillOpacity={0.15}
         />
         <line x1={5} y1={8.5} x2={15.5} y2={8.5} stroke={stroke} strokeWidth={1} />
+      </>
+    );
+  } else if (kind === 'bottom-split-columns' || kind === 'bottom-split-rows') {
+    // Bottom-panel split modes — a taller bottom band (so the stacked
+    // rows stay legible) divided into two columns or two rows.
+    content = (
+      <>
+        <rect
+          x={0.5}
+          y={6.5}
+          width={15}
+          height={6}
+          rx={1.5}
+          fill={fill}
+          stroke={stroke}
+          strokeWidth={1}
+          fillOpacity={0.15}
+        />
+        <line x1={0.5} y1={6.5} x2={15.5} y2={6.5} stroke={stroke} strokeWidth={1} />
+        {kind === 'bottom-split-columns' ? (
+          <line x1={8} y1={6.5} x2={8} y2={12.5} stroke={stroke} strokeWidth={1} />
+        ) : (
+          <line x1={0.5} y1={9.5} x2={15.5} y2={9.5} stroke={stroke} strokeWidth={1} />
+        )}
       </>
     );
   } else if (kind === 'show-labels') {

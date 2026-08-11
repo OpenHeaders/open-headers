@@ -119,6 +119,16 @@ export type SidebarLayoutVariant = 'proportional' | 'compact' | 'stacked' | 'dyn
  */
 export type BottomPanelAlignment = 'center' | 'left' | 'right' | 'justify';
 
+/**
+ * How the two bottom docks share the bottom panel:
+ *   - columns → side by side (bottom-left | bottom-right)
+ *   - rows    → stacked (bottom-left above bottom-right)
+ * Slot ids keep their names in both modes — `bottom-left` is simply the
+ * first (left / top) dock and `bottom-right` the second (right / bottom),
+ * so persisted layouts survive a mode switch unchanged.
+ */
+export type BottomPanelSplit = 'columns' | 'rows';
+
 export interface DropZoneRect {
   left: number;
   top: number;

@@ -370,6 +370,8 @@ export const sharedComponents = {
   'shared.dock.slot.rightBottom': '右下',
   'shared.dock.slot.bottomLeft': '底部左侧',
   'shared.dock.slot.bottomRight': '底部右侧',
+  'shared.dock.slot.bottomTop': '底部上方',
+  'shared.dock.slot.bottomBottom': '底部下方',
   'shared.dock.hide': '隐藏',
   'shared.dock.moveTo': '移动到',
   'shared.dock.currentSlot': '当前槽位',
