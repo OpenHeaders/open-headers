@@ -42,11 +42,13 @@ const RefRowLabel: React.FC<RefRowLabelProps> = ({ refs, isHead }) => {
           return second !== undefined ? refColor(second.kind, token) : labelColor;
         })();
 
+  // Side-by-side tags, the extra label's color first so the named
+  // ref's tag sits beside its name.
   const glyph =
     extraCount > 0 ? (
-      <span style={{ position: 'relative', display: 'inline-flex', width: 14, height: 12, flex: '0 0 auto' }}>
-        <TagOutlined style={{ fontSize: 10, position: 'absolute', left: 3, top: 0, color: backColor, opacity: 0.85 }} />
-        <TagOutlined style={{ fontSize: 10, position: 'absolute', left: 0, top: 2, color: labelColor }} />
+      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 2, flex: '0 0 auto' }}>
+        <TagOutlined style={{ fontSize: 10, color: backColor }} />
+        <TagOutlined style={{ fontSize: 10, color: labelColor }} />
       </span>
     ) : (
       <TagOutlined style={{ fontSize: 10, color: labelColor, flex: '0 0 auto' }} />
