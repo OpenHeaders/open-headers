@@ -111,8 +111,8 @@ export const TOOL_WINDOWS: readonly ToolWindowDef[] = [
     core: false,
     defaultSlot: 'right-bottom',
   },
-  // Bottom dock, left pane: the working surfaces (a shell, the live
-  // traffic monitor, the workspace tree's git plane). Bottom dock,
+  // Bottom dock, left pane: the working surfaces (a shell, the
+  // workspace tree's git plane, the live traffic monitor). Bottom dock,
   // right pane: the ambient surfaces (workflow health, activity).
   // The capability-gated windows below
   // declare `teaserWhenUnavailable`, so browser hosts keep their tabs
@@ -133,25 +133,6 @@ export const TOOL_WINDOWS: readonly ToolWindowDef[] = [
     requiresCapability: 'terminal',
     teaserWhenUnavailable: 'terminal',
   },
-  // The unified observability surface (Observability epic): every
-  // source's live view in ONE window — connected browser tabs streamed
-  // through the daemon spine's telemetry relay, plus the L7 wire
-  // capture with its control strip. Gated on `liveNetwork`; the wire
-  // source additionally checks `proxyCapture` inside the panel — every
-  // host that registers one registers both (the desktop renderer,
-  // which runs the spine in-process). Dormant until opened. Sits
-  // under the terminal in the left pane — a working surface, not an
-  // ambient one.
-  {
-    id: 'traffic-monitor',
-    labelKey: 'workbench.toolWindows.trafficMonitor',
-    icon: <FundViewOutlined />,
-    core: false,
-    defaultSlot: 'bottom-left',
-    openByDefault: false,
-    requiresCapability: 'liveNetwork',
-    teaserWhenUnavailable: 'liveNetwork',
-  },
   // The git log/history surface over the workspace-tree verb table
   // (GIT_PLAN.md §9) — commit timeline + per-commit detail for the
   // active workspace's binding. Only hosts whose bridge reaches a
@@ -166,6 +147,25 @@ export const TOOL_WINDOWS: readonly ToolWindowDef[] = [
     openByDefault: false,
     requiresCapability: 'workspaceGit',
     teaserWhenUnavailable: 'git',
+  },
+  // The unified observability surface (Observability epic): every
+  // source's live view in ONE window — connected browser tabs streamed
+  // through the daemon spine's telemetry relay, plus the L7 wire
+  // capture with its control strip. Gated on `liveNetwork`; the wire
+  // source additionally checks `proxyCapture` inside the panel — every
+  // host that registers one registers both (the desktop renderer,
+  // which runs the spine in-process). Dormant until opened. Sits
+  // under the git window in the left pane — a working surface, not an
+  // ambient one.
+  {
+    id: 'traffic-monitor',
+    labelKey: 'workbench.toolWindows.trafficMonitor',
+    icon: <FundViewOutlined />,
+    core: false,
+    defaultSlot: 'bottom-left',
+    openByDefault: false,
+    requiresCapability: 'liveNetwork',
+    teaserWhenUnavailable: 'liveNetwork',
   },
   // Per-workflow circuit-breaker dashboard (state, consecutive
   // failures, openings, next-attempt countdown, manual Retry /

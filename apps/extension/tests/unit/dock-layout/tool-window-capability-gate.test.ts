@@ -69,9 +69,9 @@ describe('capability-gated tool windows', () => {
     expect(out.docks['bottom-left'].active).not.toBe('terminal');
   });
 
-  it('orders the bottom dock terminal→traffic-monitor→git (left) and workflow-status→activity (right)', () => {
+  it('orders the bottom dock terminal→git→traffic-monitor (left) and workflow-status→activity (right)', () => {
     const out = normalizeDockLayout(null, availableToolWindows(), availableToolWindowMap());
-    expect(out.docks['bottom-left'].windows).toEqual(['terminal', 'traffic-monitor', 'git']);
+    expect(out.docks['bottom-left'].windows).toEqual(['terminal', 'git', 'traffic-monitor']);
     expect(out.docks['bottom-right'].windows).toEqual(['workflow-status', 'activity']);
   });
 });
