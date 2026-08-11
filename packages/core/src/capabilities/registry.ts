@@ -103,6 +103,20 @@ export type NmAutoPairResult =
   | { readonly ok: false; readonly reason: 'refused' | 'unreachable' | 'unavailable' };
 
 /**
+ * What the NM presence probe learned. `present` — a registered host
+ * binary exists and runs (any framed answer proves it; a spawn error
+ * refutes it). `anchored` — that host could actually launch the app it
+ * shipped with: a host running from the dev layout has no install root
+ * and reports `anchored: false`, so launch affordances know not to
+ * offer a gesture that is guaranteed to refuse. Never `anchored`
+ * without `present`.
+ */
+export interface NmHostPresenceVerdict {
+  readonly present: boolean;
+  readonly anchored: boolean;
+}
+
+/**
  * A newer app build the host knows about. `version` is the display
  * string ("2026.7.2"); `url` is where the user gets it (release page
  * or direct installer download). Hosts with an in-app updater (the
@@ -284,14 +298,14 @@ export interface Capabilities {
   /**
    * Whether the desktop app's native-messaging host is registered for
    * this browser — OS truth for "was the desktop app ever installed
-   * here": any framed answer from the spawned host proves the manifest
-   * + binary exist, a spawn error proves they don't. Says nothing
-   * about the daemon RUNNING (connection state answers that). Same
-   * registration surface as {@link Capabilities.nmAutoPair}; absent on
-   * hosts without the NM plane, where the status surface degrades to a
-   * neutral not-connected row.
+   * here", plus whether that host is anchored to a launchable install
+   * (see {@link NmHostPresenceVerdict}). Says nothing about the daemon
+   * RUNNING (connection state answers that). Same registration surface
+   * as {@link Capabilities.nmAutoPair}; absent on hosts without the NM
+   * plane, where the status surface degrades to a neutral
+   * not-connected row.
    */
-  nmHostPresence?: () => Promise<boolean>;
+  nmHostPresence?: () => Promise<NmHostPresenceVerdict>;
 
   /**
    * Ask the companion desktop app on this machine to front its window
@@ -314,8 +328,8 @@ export interface Capabilities {
    * anything a caller passes. Same registration surface as
    * {@link Capabilities.nmAutoPair} (extension surfaces whose manifest
    * carries the `nativeMessaging` permission); callers pair it with
-   * {@link Capabilities.nmHostPresence} so the affordance only shows
-   * where an installed app can actually answer. Resolves
+   * {@link Capabilities.nmHostPresence} — the anchored verdict — so
+   * the affordance only shows where a launch can succeed. Resolves
    * `{ ok: false }` on every failure — no registered host, an
    * unanchored dev host, a failed spawn — and the disconnected
    * affordance it replaced remains the honest fallback.

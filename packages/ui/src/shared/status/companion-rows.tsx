@@ -22,7 +22,7 @@
 
 import { DownloadOutlined } from '@ant-design/icons';
 import { createBackend, isLoopbackBackendUrl, updateBackend } from '@openheaders/core/backends';
-import { getCapability } from '@openheaders/core/capabilities';
+import { getCapability, type NmHostPresenceVerdict } from '@openheaders/core/capabilities';
 import { WS_PORT } from '@openheaders/core/protocol';
 import type { BackendConnection, BackendSyncStatus } from '@openheaders/core/types';
 import type { MessageKey } from '@openheaders/i18n';
@@ -85,7 +85,7 @@ const DesktopAppRow: React.FC = () => {
   const backends = useBackends();
   const { snapshot: syncSlots } = useBackendSyncStatus();
   const hasLoopbackRecord = backends.some((b) => isLoopbackBackendUrl(b.url));
-  const [presence, setPresence] = React.useState<boolean | null>(null);
+  const [presence, setPresence] = React.useState<NmHostPresenceVerdict | null>(null);
 
   // The probe spawns a real process — consult it only when no record
   // can answer, and only once per mount (the impl caches briefly too).
@@ -93,19 +93,19 @@ const DesktopAppRow: React.FC = () => {
     if (hasLoopbackRecord) return;
     const probe = getCapability('nmHostPresence');
     if (!probe) {
-      setPresence(false);
+      setPresence({ present: false, anchored: false });
       return;
     }
     let alive = true;
-    void probe().then((present) => {
-      if (alive) setPresence(present);
+    void probe().then((verdict) => {
+      if (alive) setPresence(verdict);
     });
     return () => {
       alive = false;
     };
   }, [hasLoopbackRecord]);
 
-  const state = deriveDesktopCompanionState(backends, syncSlots, presence);
+  const state = deriveDesktopCompanionState(backends, syncSlots, presence === null ? null : presence.present);
   // Unresolved probe: render nothing rather than flash a wrong guess.
   if (state === 'unknown') return null;
 
@@ -130,7 +130,7 @@ const DesktopAppRow: React.FC = () => {
       {state === 'installed-not-connected' && (
         <span style={{ display: 'inline-flex', gap: 4 }}>
           <DesktopConnectAction />
-          <DesktopOpenAppAction />
+          {presence?.anchored === true && <DesktopOpenAppAction />}
         </span>
       )}
     </CompanionRow>
@@ -142,7 +142,9 @@ const DesktopAppRow: React.FC = () => {
  * desktop app it shipped inside (`desktopLaunch`), and the service
  * worker's watch sentinel attaches the moment the app is up, so the
  * row re-derives to Connected on its own. Absent capability (no NM
- * plane) hides the button; a failed launch leaves the row as it was.
+ * plane) hides the button; the probe-backed state also hides it when
+ * the host is unanchored (a dev layout refuses every launch); a failed
+ * launch leaves the row as it was.
  */
 const DesktopOpenAppAction: React.FC<{ primary?: boolean }> = ({ primary }) => {
   const t = useT();

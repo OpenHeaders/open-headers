@@ -79,8 +79,10 @@ const DesktopTeaser: React.FC<DesktopTeaserProps> = ({ feature, icon }) => {
   }, [companionConnected]);
 
   // Installed-but-not-connected: the launch gesture needs the NM plane
-  // (`desktopLaunch`) AND OS truth that the app is actually installed —
-  // the presence probe, same derivation as the status popover's row.
+  // (`desktopLaunch`) AND OS truth that the app is actually installed
+  // AND anchored — a dev-layout host runs but refuses every launch, so
+  // an unanchored verdict keeps the honest download CTA instead of a
+  // button guaranteed to demote on click.
   const desktopLaunch = getCapability('desktopLaunch');
   const launchAvailable = desktopLaunch !== undefined;
   useEffect(() => {
@@ -88,8 +90,8 @@ const DesktopTeaser: React.FC<DesktopTeaserProps> = ({ feature, icon }) => {
     const probe = getCapability('nmHostPresence');
     if (!probe) return;
     let alive = true;
-    void probe().then((present) => {
-      if (alive) setLaunchable(present);
+    void probe().then((verdict) => {
+      if (alive) setLaunchable(verdict.present && verdict.anchored);
     });
     return () => {
       alive = false;

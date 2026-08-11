@@ -74,15 +74,18 @@ export function launchCommand(
   return null;
 }
 
-export interface PerformLaunchDeps {
+export interface AnchoredCommandDeps {
   /** This host binary's own path (`process.execPath` in the binary). */
   readonly ownExecutablePath: string;
   /** Platform seam — defaults to `process.platform`. */
   readonly platform?: NodeJS.Platform;
-  /** Spawn seam — defaults to a real detached spawn. */
-  readonly spawnDetached?: DetachedSpawner;
   /** Existence seam for the direct-binary platforms. */
   readonly fileExists?: (target: string) => boolean;
+}
+
+export interface PerformLaunchDeps extends AnchoredCommandDeps {
+  /** Spawn seam — defaults to a real detached spawn. */
+  readonly spawnDetached?: DetachedSpawner;
 }
 
 function safeRealpath(candidate: string): string {
@@ -94,21 +97,34 @@ function safeRealpath(candidate: string): string {
 }
 
 /**
- * Launch the desktop app this host shipped with. Never throws — every
- * failure is a typed refusal relayed as the framed answer.
+ * The launch this host could anchor, or null when it can't: a dev
+ * layout with no install root, an unsupported platform, or an install
+ * whose app binary is gone. The single derivation behind both the
+ * `launch` verb's refusal and the `presence` verb's `anchored` answer —
+ * presence promises exactly what launch would enforce.
  */
-export async function performLaunch(deps: PerformLaunchDeps): Promise<LaunchResponse> {
+export function resolveAnchoredCommand(deps: AnchoredCommandDeps): { file: string; args: readonly string[] } | null {
   const platform = deps.platform ?? process.platform;
   const installRoot = appInstallRoot(safeRealpath(deps.ownExecutablePath), platform);
-  if (installRoot === null) return { ok: false, reason: 'unanchored' };
+  if (installRoot === null) return null;
   const command = launchCommand(installRoot, platform);
-  if (command === null) return { ok: false, reason: 'unanchored' };
+  if (command === null) return null;
   if (platform !== 'darwin') {
     const exists = deps.fileExists ?? existsSync;
     // The anchored binary must actually be there — a moved/broken
     // install answers honestly instead of spawning into an error.
-    if (!exists(command.file)) return { ok: false, reason: 'unanchored' };
+    if (!exists(command.file)) return null;
   }
+  return command;
+}
+
+/**
+ * Launch the desktop app this host shipped with. Never throws — every
+ * failure is a typed refusal relayed as the framed answer.
+ */
+export async function performLaunch(deps: PerformLaunchDeps): Promise<LaunchResponse> {
+  const command = resolveAnchoredCommand(deps);
+  if (command === null) return { ok: false, reason: 'unanchored' };
   const spawnDetached = deps.spawnDetached ?? defaultDetachedSpawner;
   const launched = await spawnDetached(command.file, command.args);
   return launched ? { ok: true } : { ok: false, reason: 'launch-failed' };

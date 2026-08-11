@@ -4,6 +4,7 @@ export type {
   CapabilityName,
   InstallTargetBrowser,
   NmAutoPairResult,
+  NmHostPresenceVerdict,
   PairWithCodeInput,
   PairWithCodeResult,
   RequestRuntimeKind,

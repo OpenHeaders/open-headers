@@ -2,7 +2,7 @@
  * `oh-nm-host` — the Open Headers native-messaging host
  * (OBSERVABILITY_PLAN.md §4 + §8 Phase 7).
  *
- * The browser spawns this binary per its NM manifest. Three verbs, one
+ * The browser spawns this binary per its NM manifest. Four verbs, one
  * dispatch on the first framed message:
  *
  *   - `bootstrap` — the original one-shot token handoff
@@ -18,9 +18,11 @@
  *   - `launch` — explicit user gesture: open the desktop app this
  *     host shipped with (anchored by the binary's own install root,
  *     never by the wire), relay the verdict, exit.
+ *   - `presence` — the extension's install probe: answer that this
+ *     binary runs, plus whether a launch from here would anchor
+ *     (dev layouts answer `anchored: false`), exit.
  *
- * Anything else — the extension's presence probe included — answers
- * one `bad-request` frame and exits.
+ * Anything else answers one `bad-request` frame and exits.
  *
  * Compiled with `bun build --compile` (see `scripts/pack-bun.mjs`) so
  * one signable, self-contained binary ships inside the desktop app's
@@ -33,6 +35,7 @@ import * as process from 'node:process';
 import { type BootstrapResponse, parseBootstrapRequest, performBootstrap } from './bootstrap';
 import { createNmMessageDecoder, encodeNmMessage } from './framing';
 import { type LaunchResponse, parseLaunchRequest, performLaunch } from './launch';
+import { type PresenceResponse, parsePresenceRequest, performPresence } from './presence';
 import { verifyDaemonListener } from './verify-daemon';
 import { parseWatchRequest, startWatch } from './watch';
 import { win32ImageNamePath } from './win32-image-name';
@@ -40,7 +43,7 @@ import { win32ImageNamePath } from './win32-image-name';
 /** A stuck spawn (browser never writes, daemon hangs) must not leak hosts. */
 const IDLE_EXIT_MS = 30_000;
 
-function respondAndExit(response: BootstrapResponse | LaunchResponse): void {
+function respondAndExit(response: BootstrapResponse | LaunchResponse | PresenceResponse): void {
   process.stdout.write(encodeNmMessage(response), () => {
     process.exit(0);
   });
@@ -90,6 +93,11 @@ function main(): void {
       const launch = parseLaunchRequest(value);
       if (launch) {
         void performLaunch({ ownExecutablePath: process.execPath }).then(respondAndExit);
+        return;
+      }
+      const presence = parsePresenceRequest(value);
+      if (presence) {
+        respondAndExit(performPresence({ ownExecutablePath: process.execPath }));
         return;
       }
       respondAndExit({ ok: false, reason: 'bad-request' });
