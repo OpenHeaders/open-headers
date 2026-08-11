@@ -18,13 +18,8 @@ import {
   listCommitRangeLog,
   updateBranchFromUpstream,
 } from '../../src/git/branch-ops';
-import {
-  createGitExec,
-  type GitAuditRow,
-  type GitRunner,
-  probeGitAvailability,
-  subcommandOf,
-} from '../../src/git/git-exec';
+import { isStateChanging, subcommandOf } from '../../src/git/audit-classify';
+import { createGitExec, type GitAuditRow, type GitRunner, probeGitAvailability } from '../../src/git/git-exec';
 import {
   checkoutWorkspaceBranch,
   cleanUntracked,
@@ -359,6 +354,20 @@ describe('commitWorkspaceTree', () => {
     expect(commitRow?.at).toMatch(/^\d{4}-\d{2}-\d{2}T/);
     expect(commitRow?.cwd).toBe(tmpDir);
     expect(commitRow?.output).toContain('Initial tree');
+  });
+
+  it('audits dual-use subcommands only in their write forms', async () => {
+    await initialCommit();
+    const before = auditRows.length;
+    await currentBranch(run, tmpDir);
+    expect(auditRows.length).toBe(before);
+
+    const repo = ['--git-dir', '/repo/.git', '--work-tree', '/repo'];
+    expect(isStateChanging([...repo, 'symbolic-ref', '--short', '-q', 'HEAD'])).toBe(false);
+    expect(isStateChanging([...repo, 'config', '--get', 'user.email'])).toBe(false);
+    expect(isStateChanging([...repo, 'symbolic-ref', 'HEAD', 'refs/heads/main'])).toBe(true);
+    expect(isStateChanging([...repo, 'symbolic-ref', '--delete', 'refs/heads/tmp'])).toBe(true);
+    expect(isStateChanging([...repo, 'config', 'user.email', 'engine@openheaders.io'])).toBe(true);
   });
 });
 

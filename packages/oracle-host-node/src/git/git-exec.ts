@@ -22,6 +22,7 @@
  */
 
 import { execFile } from 'node:child_process';
+import { isStateChanging } from './audit-classify';
 
 /** Structured outcome of one git invocation. Non-zero exit is a value, not a throw. */
 export interface GitExecResult {
@@ -72,53 +73,6 @@ export interface CreateGitExecOptions {
 const DEFAULT_TIMEOUT_MS = 30_000;
 
 /**
- * Subcommands that mutate repo state — these produce audit rows.
- * Reads (`status`, `rev-parse`, `config --get`, `version`, `diff`)
- * stay out of the audit stream by design.
- */
-const STATE_CHANGING = new Set([
-  'init',
-  'add',
-  'rm',
-  'mv',
-  'commit',
-  'read-tree',
-  'write-tree',
-  'commit-tree',
-  'update-ref',
-  'symbolic-ref',
-  'checkout',
-  'switch',
-  'restore',
-  'merge',
-  'fetch',
-  'pull',
-  'push',
-  'branch',
-  'tag',
-  'reset',
-  'update-index',
-  'config',
-]);
-
-/** Global options that precede the subcommand in an arg vector — each consumes one value argument. */
-const VALUED_GLOBAL_OPTIONS = new Set(['--git-dir', '--work-tree', '-C', '-c']);
-
-/** The subcommand of an invocation, skipping `--git-dir <p> --work-tree <p>`-style global options. */
-export function subcommandOf(args: readonly string[]): string | null {
-  for (let i = 0; i < args.length; i += 1) {
-    const arg = args[i];
-    if (VALUED_GLOBAL_OPTIONS.has(arg)) {
-      i += 1;
-      continue;
-    }
-    if (arg.startsWith('-')) continue;
-    return arg;
-  }
-  return null;
-}
-
-/**
  * Environment the wrapper pins on every invocation. `GIT_TERMINAL_PROMPT=0`
  * turns would-be credential prompts into fast failures; the `GIT_DIR` /
  * `GIT_WORK_TREE` / `GIT_INDEX_FILE` deletions ensure ambient state from
@@ -162,9 +116,7 @@ export function createGitExec(options: CreateGitExecOptions = {}): GitRunner {
             spawnFailed,
             timedOut,
           };
-          const subcommand = subcommandOf(args);
-          const configRead = subcommand === 'config' && (args.includes('--get') || args.includes('--list'));
-          if (subcommand !== null && STATE_CHANGING.has(subcommand) && !configRead) {
+          if (isStateChanging(args)) {
             const output = `${result.stdout}${result.stdout !== '' && result.stderr !== '' ? '\n' : ''}${result.stderr}`;
             options.audit?.({
               at: new Date(startedAt).toISOString(),

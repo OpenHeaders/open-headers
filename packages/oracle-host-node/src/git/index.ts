@@ -17,6 +17,7 @@ export {
   listCommitRangeLog,
   updateBranchFromUpstream,
 } from './branch-ops';
+export { isStateChanging, subcommandOf } from './audit-classify';
 export { type CommitIntent, composeCommitMessage } from './commit-message';
 export {
   type CreateGitExecOptions,
