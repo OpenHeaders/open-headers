@@ -8,20 +8,19 @@
  * sensible slot when the user un-hides them.
  */
 
-import {
-  BookOutlined,
-  BranchesOutlined,
-  CodeOutlined,
-  GlobalOutlined,
-  ScanOutlined,
-  SisternodeOutlined,
-} from '@ant-design/icons';
+import { BookOutlined, BranchesOutlined, CodeOutlined, ScanOutlined, SisternodeOutlined } from '@ant-design/icons';
 import { hasCapability } from '@openheaders/core/capabilities';
 import type { DesktopFeature } from '@openheaders/ui/shared/desktop-teaser';
 import type { ToolWindowDef as GenericToolWindowDef } from '@openheaders/ui/shared/dock-layout';
 import ActivityFeedIcon from './components/panels/ActivityFeedIcon';
 import { CommitToolIcon } from './components/panels/git/commit/CommitToolIcon';
-import { ApiRequestsIcon, RequestRulesIcon, VariablesIcon, WorkflowStatusIcon } from '@openheaders/ui/shared/icons';
+import {
+  ApiRequestsIcon,
+  RequestRulesIcon,
+  TrafficIcon,
+  VariablesIcon,
+  WorkflowStatusIcon,
+} from '@openheaders/ui/shared/icons';
 import { NotificationsIcon } from '@openheaders/ui/shared/notifications';
 import type { ToolWindowId } from './types';
 
@@ -145,7 +144,7 @@ export const TOOL_WINDOWS: readonly ToolWindowDef[] = [
   {
     id: 'traffic-monitor',
     labelKey: 'workbench.toolWindows.trafficMonitor',
-    icon: <GlobalOutlined />,
+    icon: <TrafficIcon />,
     core: false,
     defaultSlot: 'bottom-left',
     openByDefault: false,
