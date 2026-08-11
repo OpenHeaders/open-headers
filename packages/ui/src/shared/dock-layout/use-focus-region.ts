@@ -170,7 +170,7 @@ export function useFocusRegion({
         // The dock BODY, not the tab strip — both carry the slot attr.
         const body = root.querySelector<HTMLElement>(`[data-dock-slot="${slot}"]:not([role="tablist"])`);
         if (!body) return;
-        if (!body.contains(document.activeElement)) body.focus();
+        if (!body.contains(document.activeElement)) body.focus({ preventScroll: true });
         setFocusedRegion(dockRegion(slot));
         setFocusedDock?.(slot);
       });

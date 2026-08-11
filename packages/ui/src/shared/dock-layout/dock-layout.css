@@ -859,6 +859,9 @@
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  /* Programmatic focus anchor (focusDock) — the focused-dock state is
+     the activity-bar highlight, never a ring around the panel card. */
+  outline: none;
 }
 
 .rules-dock-body--bottom {
