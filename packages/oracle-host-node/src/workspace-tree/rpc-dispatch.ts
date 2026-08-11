@@ -214,6 +214,7 @@ export async function dispatchWorkspaceTreeRpc(
         ...(message.noMerges === true ? { noMerges: true } : {}),
         ...(message.firstParent === true ? { firstParent: true } : {}),
         ...(message.topoOrder === true ? { topoOrder: true } : {}),
+        ...(message.allRefs === true ? { allRefs: true } : {}),
       },
     );
   }
@@ -273,6 +274,15 @@ export async function dispatchWorkspaceTreeRpc(
       return { ok: false, reason: 'not-bound' };
     }
     return await runtime.ignorePath(workspaceId, filePath, target);
+  }
+  if (type === 'oh.workspaceTree.unignorePath') {
+    const workspaceId = typeof message.workspaceId === 'string' ? message.workspaceId : '';
+    const filePath = typeof message.path === 'string' ? message.path : '';
+    const target = message.target;
+    if (!workspaceId || !filePath || runtime === null || (target !== 'gitignore' && target !== 'exclude')) {
+      return { ok: false, reason: 'not-bound' };
+    }
+    return await runtime.unignorePath(workspaceId, filePath, target);
   }
   if (type === 'oh.workspaceTree.fileLog') {
     const workspaceId = typeof message.workspaceId === 'string' ? message.workspaceId : '';

@@ -15,6 +15,7 @@ import { App as AntApp, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
+import { GIT_LOG_SCOPE_HEAD } from '../git-panel-view-store';
 import CreateBranchModal from './CreateBranchModal';
 import GitRailActivityBar from './GitRailActivityBar';
 import { getGitRailPrefs, patchGitRailPrefs, subscribeGitRailPrefs, toggleGitRailFavorite } from './git-rail-prefs';
@@ -84,9 +85,17 @@ const GitRefRail: React.FC<GitRefRailProps> = ({
     if (sha !== null) onNavigateToSha(sha);
   };
 
+  // The HEAD row mirrors a branch row's gestures: single-click 'filter'
+  // scopes the log to HEAD (the `Branch: HEAD` chip — the IDE move),
+  // 'navigate' jumps to the checked-out tip.
   const handleHeadClick = (): void => {
     onSelectionChange(null);
-    onScopeChange(null);
+    if (prefs.singleClick === 'filter') {
+      onScopeChange(GIT_LOG_SCOPE_HEAD);
+      return;
+    }
+    const sha = currentRef !== null ? (refs.find((ref) => ref.kind === 'local' && ref.name === currentRef)?.sha ?? null) : null;
+    if (sha !== null) onNavigateToSha(sha);
   };
 
   const isLocalSelection = selection !== null && selection.kind === 'local';

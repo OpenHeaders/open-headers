@@ -455,6 +455,7 @@ export const workbenchChrome = {
 
   // ── Git tool window (log view) ───────────────────────────────────
   'workbench.gitLog.logTab': 'Log: {branch}',
+  'workbench.gitLog.logTabAll': 'Log',
   'workbench.gitLog.closeTab': 'Close tab',
   'workbench.gitLog.newLogTab': 'New Log tab',
   'workbench.gitLog.tabMenu': 'Tab options',
@@ -661,6 +662,8 @@ export const workbenchChrome = {
   'workbench.commitTool.menu.pullDone': 'Pull finished',
   'workbench.commitTool.menu.pullFailed': 'Pull failed: {detail}',
   'workbench.commitTool.menu.ignoreFailed': 'Could not update the ignore file: {detail}',
+  'workbench.commitTool.menu.stopIgnoring': 'Stop Ignoring',
+  'workbench.commitTool.ignoreSourceGlobal': 'global',
   'workbench.commitTool.menu.fetchDone': 'Fetch finished',
   'workbench.commitTool.pushed': 'Pushed',
   'workbench.commitTool.nothingToPush': 'Nothing to push',

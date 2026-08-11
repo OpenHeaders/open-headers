@@ -208,6 +208,9 @@ export interface WorkspaceTreeLogFilters {
   noMerges?: boolean;
   firstParent?: boolean;
   topoOrder?: boolean;
+  /** Walk every ref instead of one scope (the IDE log's unfiltered
+   *  view) — mutually exclusive with `ref`, refused `invalid-filter`. */
+  allRefs?: boolean;
 }
 
 export type WorkspaceTreeLogRpcResult =
@@ -278,6 +281,15 @@ export type WorkspaceTreeUserCommitRpcResult =
  */
 export type WorkspaceTreeIgnoreRpcResult =
   | { ok: true; added: boolean }
+  | {
+      ok: false;
+      reason: 'not-bound' | 'git-unavailable' | 'not-a-repo' | 'unknown-path' | 'ignore-failed';
+      detail?: string;
+    };
+
+/** Stop Ignoring: `removed: false` means the exact entry was not in the target file. */
+export type WorkspaceTreeUnignoreRpcResult =
+  | { ok: true; removed: boolean }
   | {
       ok: false;
       reason: 'not-bound' | 'git-unavailable' | 'not-a-repo' | 'unknown-path' | 'ignore-failed';
@@ -437,6 +449,12 @@ export interface WorkspaceTreeRuntime {
    * (local-only). On the per-binding chain; a status frame follows.
    */
   ignorePath(workspaceId: string, path: string, target: IgnoreTarget): Promise<WorkspaceTreeIgnoreRpcResult>;
+  /**
+   * Stop Ignoring — delete the path's exact anchored entry from the
+   * target ignore file (the inverse of `ignorePath`; never touches
+   * globs). On the per-binding chain; a status frame follows.
+   */
+  unignorePath(workspaceId: string, path: string, target: IgnoreTarget): Promise<WorkspaceTreeUnignoreRpcResult>;
   /** One path's timeline (`--follow`) — the newest entry is "who last touched this". */
   fileLog(workspaceId: string, path: string, limit?: number): Promise<WorkspaceTreeLogRpcResult>;
   /** The log view's ref tree (§9, Phase 7 slice 2) — local branches, remote-tracking refs, tags. */

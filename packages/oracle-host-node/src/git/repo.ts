@@ -30,6 +30,7 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import type { TreeFile } from '@openheaders/core/workspace-tree';
 import type { GitExecResult, GitRunner } from './git-exec';
+import type { IgnoreProvenance } from './ignore-ops';
 
 /** Explicit repo addressing prefix for every command (GIT_PLAN.md §7). */
 export function repoArgs(rootDir: string): string[] {
@@ -214,6 +215,8 @@ export interface WorkingChange {
   ignored: boolean;
   /** Rename/copy origin (the old path) when the index carries one. */
   renamedFrom?: string;
+  /** Ignored rows only: which ignore source matched (annotated by the runtime, not porcelain). */
+  ignoreSource?: IgnoreProvenance;
 }
 
 /**
@@ -839,6 +842,10 @@ export interface CommitLogFilters {
   noMerges?: boolean;
   firstParent?: boolean;
   topoOrder?: boolean;
+  /** Walk every ref (branches + tags + remotes + HEAD) instead of one
+   *  scope — the IDE log's unfiltered view. Composes rev ARGS, not
+   *  filter flags; mutually exclusive with a `ref` scope. */
+  allRefs?: boolean;
 }
 
 function escapeAuthorPattern(author: string): string {
@@ -877,7 +884,12 @@ export async function listCommitLog(
   filters?: CommitLogFilters,
 ): Promise<CommitLogEntry[] | null> {
   if (ref !== undefined && !isSafeRefName(ref)) return null;
-  if (ref === undefined && (await localHeadSha(run, rootDir)) === null) return [];
+  const allRefs = ref === undefined && filters?.allRefs === true;
+  // HEAD is the default walk root, and under `allRefs` it still rides
+  // along explicitly — but only when it resolves: an unborn HEAD would
+  // fail the whole spawn, while other refs may still exist.
+  const headSha = ref === undefined ? await localHeadSha(run, rootDir) : null;
+  if (ref === undefined && !allRefs && headSha === null) return [];
   const paths = filters?.paths ?? [];
   const result = await run(
     [
@@ -897,13 +909,22 @@ export async function listCommitLog(
         : []),
       ...(filters?.since !== undefined ? [`--since=${filters.since}`] : []),
       ...(filters?.until !== undefined ? [`--until=${filters.until}`] : []),
-      ...(ref !== undefined ? [ref] : []),
+      ...(ref !== undefined
+        ? [ref]
+        : allRefs
+          ? ['--branches', '--tags', '--remotes', ...(headSha !== null ? ['HEAD'] : [])]
+          : []),
       '--',
       ...paths,
     ],
     { cwd: rootDir },
   );
-  if (result.code !== 0) return null;
+  if (result.code !== 0) {
+    // All-refs over an empty repo (no refs, unborn HEAD): rev machinery
+    // falls back to the unresolvable HEAD default — an empty timeline,
+    // not a failure.
+    return allRefs && headSha === null ? [] : null;
+  }
   return parseCommitLog(result.stdout);
 }
 

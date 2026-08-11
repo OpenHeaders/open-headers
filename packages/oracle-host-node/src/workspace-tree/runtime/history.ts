@@ -103,6 +103,7 @@ function validateLogFilters(filters: WorkspaceTreeLogFilters): { ok: true; filte
   if (filters.noMerges === true) out.noMerges = true;
   if (filters.firstParent === true) out.firstParent = true;
   if (filters.topoOrder === true) out.topoOrder = true;
+  if (filters.allRefs === true) out.allRefs = true;
   return { ok: true, filters: out };
 }
 
@@ -117,6 +118,9 @@ export function runWorkspaceLog(
   if (!validated.ok) return Promise.resolve({ ok: false, reason: 'invalid-filter' });
   const authorMe = filters?.authorMe === true;
   if (authorMe && filters?.author !== undefined) return Promise.resolve({ ok: false, reason: 'invalid-filter' });
+  // `allRefs` is a scope, not a filter — it and a `ref` scope are
+  // mutually exclusive by construction.
+  if (filters?.allRefs === true && ref !== undefined) return Promise.resolve({ ok: false, reason: 'invalid-filter' });
   return runLog(
     ctx,
     workspaceId,

@@ -32,6 +32,8 @@ export interface GitRailSelection {
 export interface GitLogTabState {
   kind: 'log';
   id: number;
+  /** Log scope triad — null: all refs; {@link GIT_LOG_SCOPE_HEAD}:
+   *  the checked-out HEAD; any other string: that ref. */
   selectedRef: string | null;
   filter: string;
   /** The text field's `.*` toggle — interpret `filter` as a regex. */
@@ -74,6 +76,14 @@ export type GitPanelTab = GitLogTabState | GitConsoleTabState | GitCompareTabSta
 export const GIT_CONSOLE_TAB_KEY = 'console';
 export const GIT_PRIMARY_TAB_KEY = 'log:1';
 
+/**
+ * The log scope's HEAD sentinel — `selectedRef` is a triad: null =
+ * every ref (the unfiltered IDE log), this sentinel = the checked-out
+ * HEAD, any other string = that ref. Safe as a sentinel because git
+ * itself refuses `HEAD` as a branch or tag name.
+ */
+export const GIT_LOG_SCOPE_HEAD = 'HEAD';
+
 /** Stable registry/strip key of a tab. */
 export function gitPanelTabKey(tab: GitPanelTab): string {
   if (tab.kind === 'console') return GIT_CONSOLE_TAB_KEY;
@@ -86,7 +96,7 @@ export interface GitPanelTabsRegistry extends PaneTabsRegistry {
   /** Full tab identities in persisted order (labels + view state). */
   tabs(): readonly GitPanelTab[];
   getLogTab(key: string): GitLogTabState | null;
-  /** Add a fresh HEAD-scoped log tab and activate it. */
+  /** Add a fresh unfiltered (all-refs) log tab and activate it. */
   newLogTab(): void;
   /** Add the console tab if absent, then activate it. */
   openConsole(): void;

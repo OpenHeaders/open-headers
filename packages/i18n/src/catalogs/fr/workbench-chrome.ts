@@ -698,6 +698,7 @@ export const workbenchChrome = {
   'workbench.gitLog.empty':
     'Aucun commit pour le moment — les commits arrivent selon la cadence configurée, ou committez manuellement dans Paramètres › Git.',
   'workbench.gitLog.logTab': 'Log : {branch}',
+  'workbench.gitLog.logTabAll': 'Log',
   'workbench.gitLog.closeTab': "Fermer l'onglet",
   'workbench.gitLog.newLogTab': 'Nouvel onglet Log',
   'workbench.gitLog.tabMenu': 'Options des onglets',
@@ -840,6 +841,8 @@ export const workbenchChrome = {
   'workbench.commitTool.menu.pullDone': 'Pull terminé',
   'workbench.commitTool.menu.pullFailed': 'Échec du pull : {detail}',
   'workbench.commitTool.menu.ignoreFailed': "Impossible de mettre à jour le fichier d'exclusion : {detail}",
+  'workbench.commitTool.menu.stopIgnoring': 'Ne plus ignorer',
+  'workbench.commitTool.ignoreSourceGlobal': 'global',
   'workbench.commitTool.menu.fetchDone': 'Récupération terminée',
   'workbench.commitTool.pushed': 'Poussé',
   'workbench.commitTool.nothingToPush': 'Rien à pousser',

@@ -695,6 +695,7 @@ export const workbenchChrome = {
   'workbench.gitLog.empty':
     'Noch keine Commits — Commits entstehen gemäß der konfigurierten Kadenz, oder committe manuell unter Einstellungen › Git.',
   'workbench.gitLog.logTab': 'Log: {branch}',
+  'workbench.gitLog.logTabAll': 'Log',
   'workbench.gitLog.closeTab': 'Tab schließen',
   'workbench.gitLog.newLogTab': 'Neuer Log-Tab',
   'workbench.gitLog.tabMenu': 'Tab-Optionen',
@@ -837,6 +838,8 @@ export const workbenchChrome = {
   'workbench.commitTool.menu.pullDone': 'Pull abgeschlossen',
   'workbench.commitTool.menu.pullFailed': 'Pull fehlgeschlagen: {detail}',
   'workbench.commitTool.menu.ignoreFailed': 'Ignore-Datei konnte nicht aktualisiert werden: {detail}',
+  'workbench.commitTool.menu.stopIgnoring': 'Nicht mehr ignorieren',
+  'workbench.commitTool.ignoreSourceGlobal': 'global',
   'workbench.commitTool.menu.fetchDone': 'Abrufen abgeschlossen',
   'workbench.commitTool.pushed': 'Gepusht',
   'workbench.commitTool.nothingToPush': 'Nichts zu pushen',

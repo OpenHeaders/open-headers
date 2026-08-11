@@ -1,11 +1,13 @@
 /**
  * CommitList — the log's middle pane: graph cell, subject (dimmed for
- * merge commits, the IDE convention), inline ref chips, bold author,
- * and the graduated date column. The graph layout arrives from the
- * orchestrator and is null while a text filter hides rows (edges over a
- * non-contiguous list would lie — cells degrade to plain dots). Empty
- * states: filters-active answers "no matches" with a reset action; a
- * genuinely empty repo keeps the standing first-commit hint.
+ * merge commits, the IDE convention), the right-aligned ref label
+ * column, bold author, and the graduated date column. Rows reachable
+ * from the rail-selected branch carry the IDE's blue wash. The graph
+ * layout arrives from the orchestrator and is null while a text filter
+ * hides rows (edges over a non-contiguous list would lie — cells
+ * degrade to plain dots). Empty states: filters-active answers "no
+ * matches" with a reset action; a genuinely empty repo keeps the
+ * standing first-commit hint.
  */
 
 import type { WorkspaceTreeLogEntryWire, WorkspaceTreeRefWire } from '@openheaders/core/bridge';
@@ -16,13 +18,18 @@ import { useLocale } from '@openheaders/ui/context/LocaleContext';
 import type { GraphRow } from './graph';
 import GraphCell, { GRAPH_ROW_HEIGHT } from './GraphCell';
 import { formatLogDate } from './log-date';
-import RefChips from './RefChips';
+import RefRowLabel from './RefRowLabel';
 
 export interface CommitListProps {
   entries: WorkspaceTreeLogEntryWire[];
   /** Per-entry graph rows aligned with `entries`; null while filtered. */
   graph: GraphRow[] | null;
   refsBySha: ReadonlyMap<string, WorkspaceTreeRefWire[]>;
+  /** The checked-out tip — its row's ref hover leads with HEAD. */
+  headSha: string | null;
+  /** Commits reachable from the rail-selected branch — the IDE's blue
+   *  row wash; null when nothing is selected. */
+  highlightShas: ReadonlySet<string> | null;
   selectedSha: string | null;
   onSelect: (sha: string) => void;
   /** True when a text filter or ref scope is active — drives the
@@ -44,6 +51,8 @@ const CommitList: React.FC<CommitListProps> = ({
   entries,
   graph,
   refsBySha,
+  headSha,
+  highlightShas,
   selectedSha,
   onSelect,
   filtersActive,
@@ -97,7 +106,8 @@ const CommitList: React.FC<CommitListProps> = ({
         const isMerge = dimMergeCommits && entry.parents.length > 1;
         const row = graph?.[index] ?? null;
         const rowRefs = refsBySha.get(entry.sha) ?? [];
-        const chipRefs = showTagChips ? rowRefs : rowRefs.filter((ref) => ref.kind !== 'tag');
+        const labelRefs = showTagChips ? rowRefs : rowRefs.filter((ref) => ref.kind !== 'tag');
+        const isHighlighted = !isSelected && highlightShas !== null && highlightShas.has(entry.sha);
         return (
           <button
             key={entry.sha}
@@ -115,35 +125,27 @@ const CommitList: React.FC<CommitListProps> = ({
               textAlign: 'left',
               cursor: 'pointer',
               color: token.colorText,
+              ...(isHighlighted ? { background: token.colorPrimaryBg } : {}),
             }}
             data-testid="git-tool-row"
             data-sha={entry.sha}
+            data-highlighted={isHighlighted || undefined}
           >
             <GraphCell row={row} maxLanes={maxLanes} fallbackColor={token.colorTextQuaternary} />
             <span
               style={{
                 flex: '1 1 auto',
                 minWidth: 0,
-                display: 'flex',
-                alignItems: 'center',
-                gap: 6,
+                fontSize: 12,
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+                color: isMerge ? token.colorTextSecondary : token.colorText,
               }}
             >
-              <span
-                style={{
-                  flex: '0 1 auto',
-                  minWidth: 0,
-                  fontSize: 12,
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap',
-                  color: isMerge ? token.colorTextSecondary : token.colorText,
-                }}
-              >
-                {entry.subject}
-              </span>
-              <RefChips refs={chipRefs} max={2} />
+              {entry.subject}
             </span>
+            <RefRowLabel refs={labelRefs} isHead={entry.sha === headSha} />
             <span style={{ flex: '0 0 auto', fontSize: 11.5, fontWeight: 600, color: token.colorTextSecondary }}>
               {entry.authorName}
             </span>

@@ -65,7 +65,7 @@ interface LeafHover {
 export interface GitGroupRendererProps {
   workbench: GitPanelWorkbench;
   workspaceId: string;
-  /** Checked-out branch — every log tab's label + the unborn-HEAD row. */
+  /** Checked-out branch — the compare tabs' label + the unborn-HEAD row. */
   branch: string | null;
   /** True while the git dock owns focus (strip tint law). */
   dockFocused: boolean;
@@ -100,7 +100,11 @@ export const GitGroupRenderer: React.FC<GitGroupRendererProps> = ({
   const labelFor = (tab: GitPanelTab): string => {
     if (tab.kind === 'console') return t('workbench.gitLog.console.tab');
     if (tab.kind === 'compare') return t('workbench.gitLog.compareTab', { a: branch ?? 'HEAD', b: tab.ref });
-    return t('workbench.gitLog.logTab', { branch: branch ?? 'HEAD' });
+    // The IDE tab title names the tab's SCOPE: plain `Log` unfiltered,
+    // `Log: HEAD` / `Log: <ref>` when scoped.
+    return tab.selectedRef === null
+      ? t('workbench.gitLog.logTabAll')
+      : t('workbench.gitLog.logTab', { branch: tab.selectedRef });
   };
   const leafDescriptors = (leaf: EditorLeaf<PaneTabRef>): GitTabDescriptor[] =>
     leaf.tabs.flatMap((ref) => {

@@ -20,7 +20,7 @@ import {
 } from '../../src/git/branch-ops';
 import { isStateChanging, subcommandOf } from '../../src/git/audit-classify';
 import { createGitExec, type GitAuditRow, type GitRunner, probeGitAvailability } from '../../src/git/git-exec';
-import { addIgnoreEntry } from '../../src/git/ignore-ops';
+import { addIgnoreEntry, checkIgnoreProvenance, removeIgnoreEntry } from '../../src/git/ignore-ops';
 import {
   checkoutWorkspaceBranch,
   cleanUntracked,
@@ -1042,6 +1042,36 @@ describe('ref tree (Phase 7 slice 2)', () => {
     expect(await listCommitLog(run, tmpDir, 20, 'main..feature')).toBeNull();
     expect(await listCommitLog(run, tmpDir, 20, '--all')).toBeNull();
   });
+
+  it('walks every ref under allRefs, and a ref scope wins over the flag', async () => {
+    await ensureWorkspaceRepo(run, tmpDir);
+    await raw(tmpDir, 'symbolic-ref', 'HEAD', 'refs/heads/main');
+    await write('workspace.yaml', 'schemaVersion: 5\nuid: wsaaaaaa\nname: Probe\n');
+    await commitIn(tmpDir, 'Initial tree');
+    await raw(tmpDir, 'tag', 'v1');
+    await raw(tmpDir, 'checkout', '-q', '-b', 'feature');
+    await write('rules/block-r0000001/rule.yaml', 'schemaVersion: 5\nuid: r0000001\n');
+    await commitIn(tmpDir, 'Feature edit');
+    await raw(tmpDir, 'checkout', '-q', 'main');
+
+    // HEAD alone sees only main; the all-refs walk sees the feature tip too.
+    const head = await listCommitLog(run, tmpDir, 20);
+    if (head === null) throw new Error('log failed');
+    expect(head.map((entry) => entry.subject)).toEqual(['Initial tree']);
+    const all = await listCommitLog(run, tmpDir, 20, undefined, { allRefs: true });
+    if (all === null) throw new Error('all-refs log failed');
+    expect(all.map((entry) => entry.subject).sort()).toEqual(['Feature edit', 'Initial tree']);
+
+    // A ref scope wins: the flag never widens an explicit scope.
+    const scoped = await listCommitLog(run, tmpDir, 20, 'main', { allRefs: true });
+    if (scoped === null) throw new Error('scoped log failed');
+    expect(scoped.map((entry) => entry.subject)).toEqual(['Initial tree']);
+  });
+
+  it('answers an empty all-refs timeline on a fresh repo', async () => {
+    await ensureWorkspaceRepo(run, tmpDir);
+    expect(await listCommitLog(run, tmpDir, 20, undefined, { allRefs: true })).toEqual([]);
+  });
 });
 
 describe('commit file diff (Phase 7 slice 3)', () => {
@@ -1612,5 +1642,56 @@ describe('Ignore-file plumbing (S23)', () => {
     expect(after.map((row) => row.path)).not.toContain('.gitignore');
     const withIgnored = (await listWorkingChanges(run, tmpDir, { includeIgnored: true })) ?? [];
     expect(withIgnored.find((row) => row.path === 'notes/local.yaml')).toMatchObject({ ignored: true });
+  });
+});
+
+describe('Ignore provenance + removal (S23)', () => {
+  it('checkIgnoreProvenance attributes root .gitignore, exclude, and nested sources with the removable gate', async () => {
+    await initialCommit();
+    await write('.gitignore', '/notes/exact.yaml\n*.log\n');
+    await write('notes/exact.yaml', 'kind: note\n');
+    await write('notes/run.log', 'log\n');
+    await write('deep/.gitignore', 'inner.yaml\n');
+    await write('deep/inner.yaml', 'kind: note\n');
+    await addIgnoreEntry(tmpDir, 'local.yaml', 'exclude');
+    await write('local.yaml', 'kind: note\n');
+
+    const provenance = await checkIgnoreProvenance(run, tmpDir, [
+      'notes/exact.yaml',
+      'notes/run.log',
+      'deep/inner.yaml',
+      'local.yaml',
+      'not-ignored.yaml',
+    ]);
+    expect(provenance.get('notes/exact.yaml')).toMatchObject({
+      kind: 'gitignore',
+      pattern: '/notes/exact.yaml',
+      removable: true,
+    });
+    // A glob match is never removable — deleting it would un-ignore other files.
+    expect(provenance.get('notes/run.log')).toMatchObject({ kind: 'gitignore', pattern: '*.log', removable: false });
+    expect(provenance.get('deep/inner.yaml')).toMatchObject({ kind: 'nested', removable: false });
+    expect(provenance.get('deep/inner.yaml')?.source).toBe('deep/.gitignore');
+    expect(provenance.get('local.yaml')).toMatchObject({ kind: 'exclude', removable: true });
+    expect(provenance.has('not-ignored.yaml')).toBe(false);
+  });
+
+  it('removeIgnoreEntry deletes only the exact entry and round-trips with addIgnoreEntry', async () => {
+    await initialCommit();
+    await write('.gitignore', '# comment\n*.log\n');
+    await write('notes/scratch.yaml', 'kind: note\n');
+    await addIgnoreEntry(tmpDir, 'notes/scratch.yaml', 'gitignore');
+
+    const removed = await removeIgnoreEntry(tmpDir, 'notes/scratch.yaml', 'gitignore');
+    expect(removed).toEqual({ ok: true, removed: true });
+    expect(await fs.readFile(path.join(tmpDir, '.gitignore'), 'utf-8')).toBe('# comment\n*.log\n');
+    const again = await removeIgnoreEntry(tmpDir, 'notes/scratch.yaml', 'gitignore');
+    expect(again).toEqual({ ok: true, removed: false });
+
+    // The file is visible to porcelain again.
+    const rows = (await listWorkingChanges(run, tmpDir)) ?? [];
+    expect(rows.find((row) => row.path === 'notes/scratch.yaml')).toMatchObject({ unversioned: true });
+    // A missing target file answers removed: false, never an error.
+    expect(await removeIgnoreEntry(tmpDir, 'anything.yaml', 'exclude')).toEqual({ ok: true, removed: false });
   });
 });

@@ -1,8 +1,8 @@
 /**
- * RefChips — the inline branch/tag labels the IDE log paints on commit
- * rows and in the detail pane: small monospace pills for every ref
- * pointing at a sha (plus HEAD where asked). Rows cap at two chips with
- * a `+N` overflow pill; the detail pane shows them all.
+ * RefChips — the branch/tag labels the IDE log paints in the detail
+ * pane: small monospace pills for every ref pointing at a sha (plus
+ * HEAD where asked). List rows use {@link RefRowLabel} instead — the
+ * collapsed right-aligned label with hover details.
  */
 
 import { BranchesOutlined, TagOutlined } from '@ant-design/icons';
@@ -14,7 +14,7 @@ export interface RefChipsProps {
   refs: readonly WorkspaceTreeRefWire[];
   /** Prepend a HEAD chip (the detail pane's `HEAD` marker). */
   showHead?: boolean;
-  /** Cap rendered chips, overflowing into `+N` (list rows); omit for all. */
+  /** Cap rendered chips, overflowing into `+N`; omit for all. */
   max?: number;
 }
 

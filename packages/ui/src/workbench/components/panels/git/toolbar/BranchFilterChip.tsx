@@ -3,8 +3,9 @@
  * picker: Select… (switches the popup to a searchable flat list),
  * the Favorites section (HEAD + starred refs + the current branch's
  * always-★), then one submenu per namespace — Local, each remote's
- * `<remote>/…`, Tags. Picking a ref sets the log scope; HEAD clears
- * it; the chip's × clears without opening.
+ * `<remote>/…`, Tags. Scope triad: idle (null) = the unfiltered
+ * all-refs log; picking HEAD or a ref scopes it and the chip reads
+ * `Branch: <scope>`; the × clears back to unfiltered.
  */
 
 import type { WorkspaceTreeRefWire } from '@openheaders/core/bridge';
@@ -12,6 +13,7 @@ import { Input, Menu, theme } from 'antd';
 import type React from 'react';
 import { useMemo, useState } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
+import { GIT_LOG_SCOPE_HEAD } from '../git-panel-view-store';
 import { gitRailFavoriteKey } from '../rail/git-rail-prefs';
 import GitFilterChip from './GitFilterChip';
 
@@ -94,7 +96,7 @@ const BranchFilterChip: React.FC<BranchFilterChipProps> = ({
           return;
         }
         if (key === 'head') {
-          onScopeChange(null);
+          onScopeChange(GIT_LOG_SCOPE_HEAD);
           close();
           return;
         }

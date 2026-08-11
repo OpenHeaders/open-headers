@@ -26,7 +26,7 @@ import CommitList from './CommitList';
 import DiffModal from './DiffModal';
 import FileTreeView, { type FileTreeViewHandle } from './FileTreeView';
 import { getGitLogViewPrefs, patchGitLogViewPrefs, subscribeGitLogViewPrefs } from './git-log-view-prefs';
-import { type GitLogTabState, gitPanelTabKey } from './git-panel-view-store';
+import { GIT_LOG_SCOPE_HEAD, type GitLogTabState, gitPanelTabKey } from './git-panel-view-store';
 import { computeLogGraph } from './graph';
 import { getGitRailPrefs, subscribeGitRailPrefs } from './rail/git-rail-prefs';
 import GitRailCollapsedStrip from './rail/GitRailCollapsedStrip';
@@ -110,10 +110,13 @@ const GitLogView: React.FC<GitLogViewProps> = ({ workspaceId, tab, branch, patch
         setEntries([]);
         return;
       }
+      // Scope triad (the IDE model): null = every ref (`allRefs`),
+      // the HEAD sentinel = the default walk, a name = that ref.
       const result = await hostBridge.call('oh.workspaceTree.log', {
         workspaceId,
         limit: LOG_LIMIT,
-        ...(selectedRef !== null ? { ref: selectedRef } : {}),
+        ...(selectedRef !== null && selectedRef !== GIT_LOG_SCOPE_HEAD ? { ref: selectedRef } : {}),
+        ...(selectedRef === null ? { allRefs: true } : {}),
         ...wireFilters,
       });
       if (result.ok) {
@@ -178,13 +181,36 @@ const GitLogView: React.FC<GitLogViewProps> = ({ workspaceId, tab, branch, patch
   const headSha = useMemo(() => {
     const current = refs.find((ref) => ref.kind === 'local' && ref.name === currentRef);
     if (current !== undefined) return current.sha;
-    return selectedRef === null ? (entries[0]?.sha ?? null) : null;
+    // Only a HEAD-scoped walk guarantees row 0 is the head tip.
+    return selectedRef === GIT_LOG_SCOPE_HEAD ? (entries[0]?.sha ?? null) : null;
   }, [refs, currentRef, selectedRef, entries]);
 
   const selected = useMemo(
     () => (selectedSha !== null ? (entries.find((entry) => entry.sha === selectedSha) ?? null) : null),
     [entries, selectedSha],
   );
+
+  // The rail-selected branch's commits carry the IDE's blue row wash —
+  // reachability from the selection's tip, walked over the loaded
+  // window (`parents` ride every entry). Null when nothing is selected
+  // (the HEAD row clears the selection, so it never highlights).
+  const highlightShas = useMemo(() => {
+    if (railSelection === null) return null;
+    const tip = refs.find((ref) => ref.kind === railSelection.kind && ref.name === railSelection.name)?.sha;
+    if (tip === undefined) return null;
+    const bySha = new Map(entries.map((entry) => [entry.sha, entry]));
+    const reachable = new Set<string>();
+    const queue = [tip];
+    while (queue.length > 0) {
+      const sha = queue.pop() as string;
+      if (reachable.has(sha)) continue;
+      const entry = bySha.get(sha);
+      if (entry === undefined) continue;
+      reachable.add(sha);
+      queue.push(...entry.parents);
+    }
+    return reachable.size > 0 ? reachable : null;
+  }, [railSelection, refs, entries]);
 
   // The branch gitStatus reports but listRefs doesn't: an unborn HEAD
   // (fresh repo, first commit pending). Shown as the current branch in
@@ -284,6 +310,8 @@ const GitLogView: React.FC<GitLogViewProps> = ({ workspaceId, tab, branch, patch
             entries={filtered}
             graph={graph}
             refsBySha={refsBySha}
+            headSha={headSha}
+            highlightShas={highlightShas}
             selectedSha={selectedSha}
             onSelect={(sha) => patchTab({ selectedSha: sha })}
             filtersActive={filtersActive}

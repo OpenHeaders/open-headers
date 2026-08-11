@@ -493,6 +493,10 @@ export interface WorkspaceRpc {
       noMerges?: boolean;
       firstParent?: boolean;
       topoOrder?: boolean;
+      /** Walk every ref (branches + tags + remotes + HEAD) instead of
+       *  one scope — the IDE log's unfiltered view; mutually exclusive
+       *  with `ref`, refused `invalid-filter`. */
+      allRefs?: boolean;
     };
     res: WorkspaceTreeLogWire;
   };
@@ -563,6 +567,17 @@ export interface WorkspaceRpc {
   'oh.workspaceTree.ignorePath': {
     req: { workspaceId: string; path: string; target: 'gitignore' | 'exclude' };
     res: WorkspaceTreeIgnoreWire;
+  };
+  /**
+   * Stop Ignoring — the inverse of `ignorePath`: delete the path's
+   * exact anchored entry from the target ignore file. Only exact
+   * single-file entries are ever removed (the surface gates on the
+   * row's `ignoreSource.removable`); `removed: false` means the entry
+   * was not there. A status frame follows.
+   */
+  'oh.workspaceTree.unignorePath': {
+    req: { workspaceId: string; path: string; target: 'gitignore' | 'exclude' };
+    res: WorkspaceTreeUnignoreWire;
   };
   /**
    * One path's timeline (`--follow`, renames included) — the blame
@@ -865,6 +880,23 @@ export type WorkspaceTreeFileDiffWire =
       detail?: string;
     };
 
+/**
+ * Which ignore source matched one ignored row (`git check-ignore -v`):
+ * the root `.gitignore`, `.git/info/exclude`, a nested `.gitignore`,
+ * or the global excludesfile. `removable` gates Stop Ignoring — true
+ * only when the match is an exact single-file entry in the root
+ * `.gitignore` or `exclude` (a glob covering other files is never
+ * offered for removal).
+ */
+export interface WorkspaceTreeIgnoreSourceWire {
+  kind: 'gitignore' | 'exclude' | 'nested' | 'global';
+  /** Ignore-file path as git reports it (repo-relative; absolute for the global excludesfile). */
+  source: string;
+  /** The matching pattern line, verbatim. */
+  pattern: string;
+  removable: boolean;
+}
+
 /** One row of the Commit tool window's changes tree — a porcelain entry. */
 export interface WorkspaceTreeWorkingChangeWire {
   /** Repo-relative path where the file lives now. */
@@ -877,6 +909,8 @@ export interface WorkspaceTreeWorkingChangeWire {
   ignored: boolean;
   /** Rename/copy origin (the old path) when the index carries one. */
   renamedFrom?: string;
+  /** Ignored rows only: the attributing ignore source (best-effort — absent when unattributed). */
+  ignoreSource?: WorkspaceTreeIgnoreSourceWire;
 }
 
 export type WorkspaceTreeChangesWire =
@@ -905,6 +939,14 @@ export type WorkspaceTreeUserCommitWire =
 
 export type WorkspaceTreeIgnoreWire =
   | { ok: true; added: boolean }
+  | {
+      ok: false;
+      reason: 'not-bound' | 'git-unavailable' | 'not-a-repo' | 'unknown-path' | 'ignore-failed';
+      detail?: string;
+    };
+
+export type WorkspaceTreeUnignoreWire =
+  | { ok: true; removed: boolean }
   | {
       ok: false;
       reason: 'not-bound' | 'git-unavailable' | 'not-a-repo' | 'unknown-path' | 'ignore-failed';
