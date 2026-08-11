@@ -46,7 +46,7 @@ export interface CommitChangesTreeProps {
   onOpenFile: (path: string) => void;
   groupByDirectory: boolean;
   showIgnored: boolean;
-  /** Right-click menu for a checkable file row; null = no menu (ignored rows). */
+  /** Right-click menu for a file row (ignored rows get the Stop Ignoring variant); null = no menu. */
   rowMenu: (row: WorkspaceTreeWorkingChangeWire) => MenuProps | null;
 }
 
@@ -284,6 +284,14 @@ const CommitChangesTree = forwardRef<CommitChangesTreeHandle, CommitChangesTreeP
   const filesCountText = (count: number): string =>
     count === 1 ? t('workbench.commitTool.oneFile') : t('workbench.gitLog.filesCount', { count });
 
+  /** Ignored rows' dim provenance suffix — which ignore source matched. */
+  const ignoreSourceLabel = (source: NonNullable<WorkspaceTreeWorkingChangeWire['ignoreSource']>): string => {
+    if (source.kind === 'gitignore') return '.gitignore';
+    if (source.kind === 'exclude') return 'exclude';
+    if (source.kind === 'nested') return source.source;
+    return t('workbench.commitTool.ignoreSourceGlobal');
+  };
+
   const directoriesCountText = (count: number): string =>
     count === 1 ? t('workbench.commitTool.oneDirectory') : t('workbench.commitTool.directoriesCount', { count });
 
@@ -305,11 +313,17 @@ const CommitChangesTree = forwardRef<CommitChangesTreeHandle, CommitChangesTreeP
     suffix: string,
   ): React.ReactNode => {
     const rowKey = commitFileRowKey(row.path);
+    const rowTitle =
+      row.ignored && row.ignoreSource !== undefined
+        ? `${row.path} — ${row.ignoreSource.pattern} (${row.ignoreSource.source})`
+        : row.renamedFrom !== undefined
+          ? `${row.renamedFrom} → ${row.path}`
+          : row.path;
     const rowBody = (
       <div
         className={rowClass(rowKey)}
         style={rowStyle(depth)}
-        title={row.renamedFrom !== undefined ? `${row.renamedFrom} → ${row.path}` : row.path}
+        title={rowTitle}
         onClick={() => selectRow(rowKey)}
         onDoubleClick={() => onOpenFile(row.path)}
         onContextMenu={() => selectRow(rowKey)}
@@ -360,6 +374,22 @@ const CommitChangesTree = forwardRef<CommitChangesTreeHandle, CommitChangesTreeP
               }}
             >
               {suffix}
+            </span>
+          )}
+          {row.ignored && row.ignoreSource !== undefined && (
+            <span
+              style={{
+                flex: '0 1 auto',
+                minWidth: 0,
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+                fontSize: ROW_FONT,
+                color: token.colorTextTertiary,
+              }}
+              data-testid="commit-tool-ignore-source"
+            >
+              {ignoreSourceLabel(row.ignoreSource)}
             </span>
           )}
         </span>

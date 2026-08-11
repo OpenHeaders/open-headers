@@ -42,6 +42,7 @@ export interface CommitRowMenuHandlers {
   onBranches: () => void;
   onNewBranch: () => void;
   onIgnorePath: (path: string, target: 'gitignore' | 'exclude') => void;
+  onUnignorePath: (path: string, target: 'gitignore' | 'exclude') => void;
 }
 
 type MenuItems = NonNullable<MenuProps['items']>;
@@ -174,9 +175,35 @@ function gitSubmenu(row: WorkspaceTreeWorkingChangeWire, t: Translate, h: Commit
 }
 
 /**
- * The row menu for a checkable file row (tracked or unversioned) —
- * ignored rows carry no menu. Returned fresh per open; the builder is
- * pure over (row, t, handlers).
+ * The ignored-row menu — one verb: Stop Ignoring, enabled only when
+ * the row's provenance is an exact single-file entry in the root
+ * `.gitignore` or `exclude` (`removable`); a glob or a nested/global
+ * source renders it visible-disabled (deleting a glob would un-ignore
+ * other files, and foreign ignore files are not ours to edit).
+ */
+export function buildIgnoredRowMenu(
+  row: WorkspaceTreeWorkingChangeWire,
+  t: Translate,
+  h: CommitRowMenuHandlers,
+): MenuProps {
+  const source = row.ignoreSource;
+  const removable = source !== undefined && source.removable;
+  const target = source?.kind === 'exclude' ? 'exclude' : 'gitignore';
+  const items: MenuItems = [
+    {
+      key: 'stop-ignoring',
+      label: menuLabel(<StopOutlined />, t('workbench.commitTool.menu.stopIgnoring')),
+      disabled: !removable,
+      ...(removable ? { onClick: () => h.onUnignorePath(row.path, target) } : {}),
+    },
+  ];
+  return { items, selectable: false };
+}
+
+/**
+ * The row menu for a checkable file row (tracked or unversioned).
+ * Returned fresh per open; the builder is pure over (row, t,
+ * handlers).
  */
 export function buildCommitRowMenu(
   row: WorkspaceTreeWorkingChangeWire,

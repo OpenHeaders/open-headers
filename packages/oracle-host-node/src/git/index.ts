@@ -19,7 +19,15 @@ export {
 } from './branch-ops';
 export { isStateChanging, subcommandOf } from './audit-classify';
 export { type CommitIntent, composeCommitMessage } from './commit-message';
-export { type AddIgnoreEntryResult, addIgnoreEntry, type IgnoreTarget } from './ignore-ops';
+export {
+  type AddIgnoreEntryResult,
+  addIgnoreEntry,
+  checkIgnoreProvenance,
+  type IgnoreProvenance,
+  type IgnoreTarget,
+  type RemoveIgnoreEntryResult,
+  removeIgnoreEntry,
+} from './ignore-ops';
 export {
   type CreateGitExecOptions,
   createGitExec,

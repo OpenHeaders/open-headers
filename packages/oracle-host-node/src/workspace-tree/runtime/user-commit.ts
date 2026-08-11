@@ -13,6 +13,7 @@
 
 import { logger } from '@openheaders/core/utils';
 import {
+  checkIgnoreProvenance,
   commitParents,
   commitWorkspaceTree,
   ensureWorkspaceRepo,
@@ -39,7 +40,10 @@ export const USER_COMMIT_MAX_PATHS = 1_000;
 /**
  * The Commit window's changes rows — a pure porcelain read OFF the
  * per-binding chain (the history-read posture): it never queues behind
- * a commit/pull pass, and the window refetches on status frames.
+ * a commit/pull pass, and the window refetches on status frames. With
+ * ignored rows in the answer, one `check-ignore -v` batch attributes
+ * each to its ignore source (the provenance suffix + Stop Ignoring
+ * gate); attribution is best-effort and never hides a row.
  */
 export async function runListChanges(
   ctx: RuntimeCtx,
@@ -56,6 +60,14 @@ export async function runListChanges(
     ...(includeIgnored === true ? { includeIgnored: true } : {}),
   });
   if (changes === null) return { ok: false, reason: 'status-failed' };
+  const ignoredPaths = changes.filter((change) => change.ignored).map((change) => change.path);
+  if (ignoredPaths.length > 0) {
+    const provenance = await checkIgnoreProvenance(ctx.gitRun, rootDir, ignoredPaths);
+    for (const change of changes) {
+      const source = provenance.get(change.path);
+      if (change.ignored && source !== undefined) change.ignoreSource = source;
+    }
+  }
   return { ok: true, changes };
 }
 

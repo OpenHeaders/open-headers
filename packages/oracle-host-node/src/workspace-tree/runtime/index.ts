@@ -67,7 +67,7 @@ import {
   SCOPE,
 } from './core';
 import { runCompareRefs, runFileDiff, runFileLog, runGitConsole, runListRefs, runWorkspaceLog } from './history';
-import { runIgnorePath } from './ignore';
+import { runIgnorePath, runUnignorePath } from './ignore';
 import { closeBinding, openBinding } from './lifecycle';
 import { applyAll, buildSnapshot, workspaceEntity } from './snapshot';
 import { notBoundStatus, publishGitStatus, readGitStatus } from './status';
@@ -98,6 +98,7 @@ import type {
   WorkspaceTreeRefsRpcResult,
   WorkspaceTreeRuntime,
   WorkspaceTreeRuntimeOptions,
+  WorkspaceTreeUnignoreRpcResult,
   WorkspaceTreeUserCommitInput,
   WorkspaceTreeUserCommitRpcResult,
 } from './types';
@@ -129,6 +130,7 @@ export type {
   WorkspaceTreeRefsRpcResult,
   WorkspaceTreeRuntime,
   WorkspaceTreeRuntimeOptions,
+  WorkspaceTreeUnignoreRpcResult,
   WorkspaceTreeUserCommitInput,
   WorkspaceTreeUserCommitRpcResult,
 } from './types';
@@ -567,6 +569,25 @@ export function createWorkspaceTreeRuntime(options: WorkspaceTreeRuntimeOptions)
         { ok: false, reason: 'ignore-failed', detail: 'ignore pass did not run' },
         async () => {
           const result = await runIgnorePath(ctx, binding, filePath, target);
+          await ctx.publishGitStatus(binding);
+          return result;
+        },
+      );
+    },
+
+    async unignorePath(
+      workspaceId: string,
+      filePath: string,
+      target: IgnoreTarget,
+    ): Promise<WorkspaceTreeUnignoreRpcResult> {
+      const binding = open.get(workspaceId);
+      if (!binding) return { ok: false, reason: 'not-bound' };
+      if (!isSafeTreePath(filePath)) return { ok: false, reason: 'unknown-path' };
+      return onChain<WorkspaceTreeUnignoreRpcResult>(
+        binding,
+        { ok: false, reason: 'ignore-failed', detail: 'unignore pass did not run' },
+        async () => {
+          const result = await runUnignorePath(ctx, binding, filePath, target);
           await ctx.publishGitStatus(binding);
           return result;
         },

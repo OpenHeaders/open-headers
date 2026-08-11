@@ -37,7 +37,7 @@ import {
   setPathsChecked,
   splitChangeGroups,
 } from './commit-model';
-import { buildCommitRowMenu, type CommitRowMenuHandlers } from './commit-row-menu';
+import { buildCommitRowMenu, buildIgnoredRowMenu, type CommitRowMenuHandlers } from './commit-row-menu';
 import CompareBranchModal from './CompareBranchModal';
 import {
   type CommitViewPrefs,
@@ -356,6 +356,25 @@ const CommitToolPanel: React.FC<CommitToolPanelProps> = ({ info, onHide }) => {
     [workspaceId, refreshChanges, t],
   );
 
+  // Stop Ignoring — deletes the exact entry; the row rejoins
+  // Unversioned Files on the refetch.
+  const handleUnignorePath = useCallback(
+    async (filePath: string, target: 'gitignore' | 'exclude'): Promise<void> => {
+      if (workspaceId === null) return;
+      try {
+        const result = await hostBridge.call('oh.workspaceTree.unignorePath', { workspaceId, path: filePath, target });
+        if (!result.ok) {
+          setError(t('workbench.commitTool.menu.ignoreFailed', { detail: result.detail ?? result.reason }));
+          return;
+        }
+        await refreshChanges();
+      } catch (err) {
+        setError((err as Error).message);
+      }
+    },
+    [workspaceId, refreshChanges, t],
+  );
+
   // Compare with Branch or Tag… — the picked ref opens the Git
   // window's Compare-with-Current tab via the shared registry.
   const handleComparePick = useCallback(
@@ -390,6 +409,7 @@ const CommitToolPanel: React.FC<CommitToolPanelProps> = ({ info, onHide }) => {
       onBranches: handleBranches,
       onNewBranch: () => setCreateBranchFrom(currentBranch ?? 'HEAD'),
       onIgnorePath: (filePath, target) => void handleIgnorePath(filePath, target),
+      onUnignorePath: (filePath, target) => void handleUnignorePath(filePath, target),
     }),
     [
       handleCommitFile,
@@ -400,12 +420,14 @@ const CommitToolPanel: React.FC<CommitToolPanelProps> = ({ info, onHide }) => {
       handleFetch,
       handleBranches,
       handleIgnorePath,
+      handleUnignorePath,
       currentBranch,
     ],
   );
 
   const rowMenu = useCallback(
-    (row: WorkspaceTreeWorkingChangeWire) => (row.ignored ? null : buildCommitRowMenu(row, t, rowMenuHandlers)),
+    (row: WorkspaceTreeWorkingChangeWire) =>
+      row.ignored ? buildIgnoredRowMenu(row, t, rowMenuHandlers) : buildCommitRowMenu(row, t, rowMenuHandlers),
     [t, rowMenuHandlers],
   );
 
