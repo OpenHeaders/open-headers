@@ -54,7 +54,9 @@ import VerticalActivityBar from './VerticalActivityBar';
 export interface ShellLayoutProps<T extends string> {
   tl: DockLayoutApi<T>;
   windowMap: Record<T, ToolWindowDef<T>>;
-  /** Renders the body of a tool window when it is the active one in its dock. */
+  /** Renders the body of a tool window. Called for every window the user
+      has activated in its dock — bodies are kept mounted (display-toggled)
+      across tab switches, so this must tolerate concurrent instances. */
   renderToolWindow: (id: T, slot: DockSlot) => React.ReactNode;
   /** Renders the central editor area (tabs + breadcrumb + active tab body). */
   renderEditor: () => React.ReactNode;

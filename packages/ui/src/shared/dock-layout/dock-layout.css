@@ -874,6 +874,22 @@
   flex-direction: column;
 }
 
+/* Keep-alive wrapper around each mounted tool-window body (see
+   DockBodyStack). The visible one fills the dock body exactly as the
+   body used to when it was the sole child; the hidden ones stay
+   mounted so their React state survives tab switches. */
+.rules-dock-keepalive {
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.rules-dock-keepalive--hidden {
+  display: none;
+}
+
 /* ── Panel header ─────────────────────────────────────────────────── */
 /* Shared 32 px header for every tool-window panel. Left slot (title)
    always visible; right slot (actions + ⋯ + −) fades in on hover OR

@@ -1,4 +1,5 @@
 export { ALL_DOCK_SLOTS, BAR_LABELED_MAX, BAR_LABELED_MIN, dockRegion, regionDocks } from './constants';
+export { DockBodyStack } from './DockBodyStack';
 export { default as DockSlotIcon } from './DockSlotIcon';
 export type { DockTabStripProps } from './DockTabStrip';
 export { default as DockTabStrip } from './DockTabStrip';

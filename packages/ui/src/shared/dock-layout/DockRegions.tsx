@@ -11,6 +11,7 @@ import { theme } from 'antd';
 import type React from 'react';
 import { useEffect, useMemo, useRef } from 'react';
 import { regionDocks } from './constants';
+import { DockBodyStack } from './DockBodyStack';
 import type { FocusStore } from './focus-store';
 import type { DockSlot } from './types';
 import type { DockLayoutApi } from './use-dock-layout';
@@ -105,19 +106,23 @@ export function SideRegion<T extends string>({
         onDragEnd={handleDragEnd}
         defaultSizes={sideDefaultSizes}
       >
+        {/* Bodies render unconditionally (the pane's `visible` hides the
+            whole dock): DockBodyStack keeps activated windows mounted so
+            their state survives tab switches and dock close/reopen. */}
         <Allotment.Pane minSize={topSize.min} visible={topActive !== null}>
-          {topActive && (
-            <FocusAwareDockBody slot={topSlot} focusStore={focusStore} baseClass="rules-dock-body">
-              {renderToolWindow(topActive, topSlot)}
-            </FocusAwareDockBody>
-          )}
+          <FocusAwareDockBody slot={topSlot} focusStore={focusStore} baseClass="rules-dock-body">
+            <DockBodyStack windows={topDock.windows} active={topActive} slot={topSlot} renderToolWindow={renderToolWindow} />
+          </FocusAwareDockBody>
         </Allotment.Pane>
         <Allotment.Pane minSize={bottomSize.min} visible={bottomActive !== null}>
-          {bottomActive && (
-            <FocusAwareDockBody slot={bottomSlot} focusStore={focusStore} baseClass="rules-dock-body">
-              {renderToolWindow(bottomActive, bottomSlot)}
-            </FocusAwareDockBody>
-          )}
+          <FocusAwareDockBody slot={bottomSlot} focusStore={focusStore} baseClass="rules-dock-body">
+            <DockBodyStack
+              windows={bottomDock.windows}
+              active={bottomActive}
+              slot={bottomSlot}
+              renderToolWindow={renderToolWindow}
+            />
+          </FocusAwareDockBody>
         </Allotment.Pane>
       </Allotment>
     </div>
@@ -156,13 +161,16 @@ export function BottomRegion<T extends string>({ tl, renderToolWindow, focusStor
     }
   }, [leftActive, rightActive]);
 
+  // Bodies render unconditionally (the pane's `visible` hides the whole
+  // dock): DockBodyStack keeps activated windows mounted so their state
+  // survives tab switches and dock close/reopen.
   const renderBottomSub = (slot: DockSlot) => {
     const dock = tl.state.docks[slot];
-    const active = dock.active;
-    if (!active) return null;
     return (
       <FocusAwareDockBody slot={slot} focusStore={focusStore} baseClass="rules-dock-body rules-dock-body--bottom">
-        <div className="rules-dock-content">{renderToolWindow(active, slot)}</div>
+        <div className="rules-dock-content">
+          <DockBodyStack windows={dock.windows} active={dock.active} slot={slot} renderToolWindow={renderToolWindow} />
+        </div>
       </FocusAwareDockBody>
     );
   };
@@ -171,10 +179,10 @@ export function BottomRegion<T extends string>({ tl, renderToolWindow, focusStor
     <div className="rules-region rules-region-bottom" data-region="bottom" tabIndex={-1} style={{ height: '100%' }}>
       <Allotment ref={allotmentRef} proportionalLayout onDragEnd={handleDragEnd}>
         <Allotment.Pane preferredSize="50%" visible={leftActive !== null} minSize={200}>
-          {leftActive !== null && renderBottomSub('bottom-left')}
+          {renderBottomSub('bottom-left')}
         </Allotment.Pane>
         <Allotment.Pane preferredSize="50%" visible={rightActive !== null} minSize={200}>
-          {rightActive !== null && renderBottomSub('bottom-right')}
+          {renderBottomSub('bottom-right')}
         </Allotment.Pane>
       </Allotment>
     </div>
