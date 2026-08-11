@@ -14,8 +14,8 @@ import {
   FileTextOutlined,
   FolderOpenOutlined,
   FolderOutlined,
+  FundViewOutlined,
   GiftOutlined,
-  GlobalOutlined,
   HistoryOutlined,
   SettingOutlined,
   SisternodeOutlined,
@@ -103,7 +103,7 @@ export function tabIcon(
     tab.mode === 'live-storage-doc-inspect'
   )
     // Captured-traffic + storage inspect tabs — the Traffic Monitor's vocabulary.
-    return <GlobalOutlined style={{ fontSize: 12, color: TAB_ICON_GRAY }} />;
+    return <FundViewOutlined style={{ fontSize: 12, color: TAB_ICON_GRAY }} />;
   if (tab.mode === 'session-replay-request-inspect')
     // Archived-session inspect tabs — the sessions-archive vocabulary.
     return <HistoryOutlined style={{ fontSize: 12, color: TAB_ICON_GRAY }} />;

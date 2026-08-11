@@ -20,6 +20,7 @@ import {
   EditOutlined,
   ExportOutlined,
   FunctionOutlined,
+  FundViewOutlined,
   GlobalOutlined,
   InfoCircleOutlined,
   LayoutOutlined,
@@ -27,7 +28,7 @@ import {
   SafetyCertificateOutlined,
   SettingOutlined,
 } from '@ant-design/icons';
-import { ApiRequestsIcon, KeyboardIcon, TrafficIcon } from '@openheaders/ui/shared/icons';
+import { ApiRequestsIcon, KeyboardIcon } from '@openheaders/ui/shared/icons';
 import { lazy } from 'react';
 import { getCurrentHost } from '../../shared/host-vocabulary';
 import DevPanelGlyph from './components/DevPanelGlyph';
@@ -195,7 +196,7 @@ registerCategory({
 registerCategory({
   id: 'trafficMonitor',
   labelKey: 'workbench.settings.category.trafficMonitor.label',
-  icon: <TrafficIcon />,
+  icon: <FundViewOutlined />,
   order: 22,
   descriptionKey: 'workbench.settings.category.trafficMonitor.description',
   // Only the desktop host runs the Traffic Monitor tool window (the

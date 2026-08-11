@@ -6,7 +6,6 @@ export { LanguageIcon, type LanguageIconProps } from './LanguageIcon';
 export { RecordStartIcon } from './RecordStartIcon';
 export { RecordStopIcon } from './RecordStopIcon';
 export { RequestRulesIcon } from './RequestRulesIcon';
-export { TrafficIcon } from './TrafficIcon';
 export type { GlyphIconProps } from './types';
 export { VariablesIcon } from './VariablesIcon';
 export { WorkflowStatusIcon } from './WorkflowStatusIcon';
