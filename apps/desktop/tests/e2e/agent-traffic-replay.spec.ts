@@ -67,6 +67,7 @@ interface CaptureSessionRow {
   name: string;
   dirPath: string;
   requests: number;
+  events: number;
   state: string;
   endReason?: string;
 }

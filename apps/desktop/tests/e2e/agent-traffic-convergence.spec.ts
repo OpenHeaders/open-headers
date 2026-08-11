@@ -78,7 +78,7 @@ async function watchSessions(): Promise<number> {
   const page = await harness.extensionPage();
   return page.evaluate(async () => {
     const stored = await new Promise<Record<string, unknown>>((resolve) => {
-      chrome.storage.local.get('oh.desktopWatchActivity', resolve);
+      chrome.storage.local.get('oh.desktopWatchActivity', (items) => resolve(items));
     });
     const value = stored['oh.desktopWatchActivity'] as { sessions?: number } | undefined;
     return value?.sessions ?? 0;
