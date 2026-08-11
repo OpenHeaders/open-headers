@@ -33,7 +33,7 @@ interface FocusAwareDockBodyProps {
 function FocusAwareDockBody({ slot, focusStore, baseClass, children }: FocusAwareDockBodyProps) {
   const focused = focusStore.useIsDockFocused(slot);
   return (
-    <div className={`${baseClass}${focused ? ' rules-dock-body--focused' : ''}`} data-dock-slot={slot}>
+    <div className={`${baseClass}${focused ? ' rules-dock-body--focused' : ''}`} data-dock-slot={slot} tabIndex={-1}>
       {children}
     </div>
   );

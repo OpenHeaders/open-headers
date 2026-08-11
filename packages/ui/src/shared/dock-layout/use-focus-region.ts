@@ -25,7 +25,7 @@
  */
 
 import { type RefObject, useCallback, useMemo } from 'react';
-import { ALL_DOCK_SLOTS } from './constants';
+import { ALL_DOCK_SLOTS, dockRegion } from './constants';
 import { useShellClickCapture, useShellFocusIn, useShellFocusOut } from './shell-event-bus';
 import type { DockSlot, FocusRegion } from './types';
 
@@ -69,6 +69,17 @@ export interface UseFocusRegionOptions {
 
 export interface FocusRegionApi {
   focusRegion: (region: FocusRegion) => void;
+  /**
+   * Move DOM focus into `slot`'s dock body and commit the store to
+   * match. Unlike {@link focusRegion} this never depends on the
+   * focusin-commit chain: the store is set explicitly after the focus
+   * lands, so callers outside a user gesture (the companion-reveal
+   * broadcast) get the focused-dock highlight even when a window-front
+   * focus restoration races the imposed focus. A panel that already
+   * holds DOM focus (the terminal's xterm grabs it on attach) keeps
+   * it — only the store is committed then.
+   */
+  focusDock: (slot: DockSlot) => void;
 }
 
 export function useFocusRegion({
@@ -151,6 +162,22 @@ export function useFocusRegion({
     ),
   );
 
+  const focusDock = useCallback(
+    (slot: DockSlot) => {
+      const root = shellRef.current;
+      if (!root) return;
+      raf(() => {
+        // The dock BODY, not the tab strip — both carry the slot attr.
+        const body = root.querySelector<HTMLElement>(`[data-dock-slot="${slot}"]:not([role="tablist"])`);
+        if (!body) return;
+        if (!body.contains(document.activeElement)) body.focus();
+        setFocusedRegion(dockRegion(slot));
+        setFocusedDock?.(slot);
+      });
+    },
+    [shellRef, setFocusedRegion, setFocusedDock, raf],
+  );
+
   const focusRegion = useCallback(
     (region: FocusRegion) => {
       if (!region) return;
@@ -176,5 +203,5 @@ export function useFocusRegion({
     [shellRef, setFocusedRegion, raf],
   );
 
-  return useMemo(() => ({ focusRegion }), [focusRegion]);
+  return useMemo(() => ({ focusRegion, focusDock }), [focusRegion, focusDock]);
 }

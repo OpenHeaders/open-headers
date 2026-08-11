@@ -60,7 +60,7 @@ import {
   useSetActiveTabEntity,
 } from '@openheaders/ui/shared/awareness';
 import 'allotment/dist/style.css';
-import { createShellEventBus, dockRegion, ShellEventBusContext } from '@openheaders/ui/shared/dock-layout';
+import { createShellEventBus, ShellEventBusContext } from '@openheaders/ui/shared/dock-layout';
 import type { EditingScopeViewStateApi } from '@openheaders/ui/shared/editing-scope-view-state';
 import { getCurrentHost, instanceLabel } from '@openheaders/ui/shared/host-vocabulary';
 import { useT } from '@openheaders/ui/context/LocaleContext';
@@ -808,13 +808,12 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
         if (!windowId) return;
         if (tl.state.hidden.includes(windowId)) tl.restoreWindow(windowId);
         tl.activateWindow(windowId);
-        // Land DOM focus inside the revealed panel (same idiom as
-        // cycleRegion): without it, the window-fronting focus
-        // restoration re-commits whatever was focused before and the
-        // dock highlight clears — only self-focusing panels (the
-        // terminal's xterm) survived it.
+        // Land DOM focus inside the revealed panel: without it, the
+        // window-fronting focus restoration re-commits whatever was
+        // focused before and the dock highlight clears — only
+        // self-focusing panels (the terminal's xterm) survived it.
         const slot = tl.dockOf(windowId) ?? TOOL_WINDOW_MAP[windowId].defaultSlot;
-        focus.focusRegion(dockRegion(slot));
+        focus.focusDock(slot);
       }),
     [tl, openSettings, focus],
   );
