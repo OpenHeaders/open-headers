@@ -354,7 +354,7 @@ export const workbenchChrome = {
   'workbench.toolWindows.activityTooltip': "Flux d'activité — modifications entrantes des pairs",
   'workbench.toolWindows.trafficMonitor': 'Trafic',
   'workbench.toolWindows.terminal': 'Terminal',
-  'workbench.toolWindows.git': 'Git',
+  'workbench.toolWindows.git': 'Git · Gestion de versions',
   'workbench.toolWindows.versionControl': 'Gestion de versions',
 
   // ── Tool-window `(i)` info popovers. `{{live.*}}` / `{{name}}`

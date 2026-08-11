@@ -360,7 +360,7 @@ export const workbenchChrome = {
   'workbench.toolWindows.activityTooltip': 'Aktivitäts-Feed — eingehende Änderungen von Peers',
   'workbench.toolWindows.trafficMonitor': 'Traffic',
   'workbench.toolWindows.terminal': 'Terminal',
-  'workbench.toolWindows.git': 'Git',
+  'workbench.toolWindows.git': 'Git · Versionsverwaltung',
   'workbench.toolWindows.versionControl': 'Versionsverwaltung',
 
   // ── Tool-window `(i)` info popovers. `{{live.*}}` / `{{name}}`

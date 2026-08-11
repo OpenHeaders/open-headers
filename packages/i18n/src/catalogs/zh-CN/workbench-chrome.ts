@@ -353,7 +353,7 @@ export const workbenchChrome = {
   'workbench.toolWindows.activityTooltip': '活动流——来自对等方的入站更改',
   'workbench.toolWindows.trafficMonitor': '流量',
   'workbench.toolWindows.terminal': '终端',
-  'workbench.toolWindows.git': 'Git',
+  'workbench.toolWindows.git': 'Git · 版本控制',
   'workbench.toolWindows.versionControl': '版本控制',
 
   // ── Tool-window `(i)` info popovers. `{{live.*}}` / `{{name}}`

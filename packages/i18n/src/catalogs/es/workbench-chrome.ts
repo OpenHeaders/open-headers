@@ -360,7 +360,7 @@ export const workbenchChrome = {
   'workbench.toolWindows.activityTooltip': 'Flujo de actividad — cambios entrantes de los pares',
   'workbench.toolWindows.trafficMonitor': 'Tráfico',
   'workbench.toolWindows.terminal': 'Terminal',
-  'workbench.toolWindows.git': 'Git',
+  'workbench.toolWindows.git': 'Git · Control de versiones',
   'workbench.toolWindows.versionControl': 'Control de versiones',
 
   // ── Tool-window `(i)` info popovers. `{{live.*}}` / `{{name}}`
