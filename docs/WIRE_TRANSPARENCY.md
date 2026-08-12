@@ -144,20 +144,24 @@ event of the current session byte for byte, sent or suppressed.
 
 - **Endpoint**: `POST https://telemetry.openheaders.io/v1/events`
 - **Request headers**: `content-type: application/json`
-- **Request body** — a batch envelope, exactly these seven fields:
+- **Request body** — a batch envelope, exactly these fields:
 
 ```json
 {
   "schemaVersion": 2,
   "host": "extension",
+  "channel": "chrome-store",
+  "appVersion": { "year": 2026, "month": 8, "patch": 0 },
+  "platform": "mac",
+  "browser": "firefox",
+  "locale": "en",
   "sessionId": "c0ffee00c0ffee00c0ffee00c0ffee00",
   "installId": "feedface00feedface00feedface0000",
   "sinceInstall": "2-7",
   "sentAt": 1760000000000,
   "events": [
-    { "name": "first_run", "channel": "chrome-store" },
-    { "name": "session_start", "appVersion": { "year": 2026, "month": 7, "patch": 2 },
-      "platform": "mac", "browser": "firefox", "locale": "en", "rules": "1-5", "workspaces": "0" },
+    { "name": "first_run" },
+    { "name": "session_start", "rules": "1-5", "workspaces": "0" },
     { "name": "feature_used", "feature": "workflow-editor" },
     { "name": "rule_created", "ruleType": "header" },
     { "name": "import_run", "source": "postman", "ok": true },
@@ -172,6 +176,19 @@ event of the current session byte for byte, sent or suppressed.
     server are hard-off and have no vocabulary member). Clients built
     before 2026.8 carried it on `session_start` instead; the worker
     accepts both.
+  - `channel`, `appVersion`, `platform`, `browser`, `locale` — the
+    remaining per-process facts, hoisted to the envelope alongside
+    `host` (2026-08 second rev) so every stored row is segmentable
+    without joins. All closed unions or integers: `channel` is the
+    static distribution fact (which store or package manager the build
+    shipped through — never sniffed from traffic); `appVersion` is the
+    CalVer version as integers, plus a `beta` iteration on pre-release
+    builds; `platform` is omitted where the running OS has no
+    vocabulary member; `browser` exists only on browser-hosted
+    surfaces; `locale` is the resolved interface language from the
+    shipped catalog, with anything outside it reported as `other` —
+    never a raw language tag. Earlier schema-v2 clients carried these
+    on `session_start`/`first_run` instead; the worker accepts both.
   - `sessionId` — 32 hex chars minted at random per process launch,
     held in memory only, never persisted. It groups one session's
     events and nothing else.
@@ -186,15 +203,13 @@ event of the current session byte for byte, sent or suppressed.
     are inexpressible.
   - `events` — only the seven event shapes above exist, and every
     field value comes from a closed union checked into the
-    repository. `appVersion` is the CalVer version as integers — year,
-    month, patch, plus a `beta` iteration on pre-release builds
-    (stable builds omit it, so the release train is readable from the
-    version alone).
-    `first_run` fires once per install and carries only the
-    distribution channel (which store or package manager the build
-    shipped through — a static fact of the build, never sniffed from
-    traffic); the surface rides the envelope's `host`. `rules`/`workspaces` are the same coarse buckets as
-    `sinceInstall` (`0`, `1-5`, `6-20`, `21+`), never exact counts.
+    repository. `first_run` fires once per install; `session_start`
+    fires once per session per UTC day (a long-running browser or tray
+    process re-announces itself daily — same event, same fields, no
+    extra data) and carries only the coarse scale-of-use buckets:
+    `rules`/`workspaces` use the same bucket grammar as `sinceInstall`
+    (`0`, `1-5`, `6-20`, `21+`), never exact counts. Every other
+    per-process fact rides the envelope.
 - **Response**: `202` when the envelope validates, `4xx` otherwise.
   The client never acts on the status either way — failures are
   silent, the batch simply rides the next flush, and nothing ever
