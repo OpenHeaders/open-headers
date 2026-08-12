@@ -62,6 +62,7 @@ const runtimeMock = {
   })),
   getURL: vi.fn((path: string) => `chrome-extension://test-id/${path}`),
   getManifest: vi.fn(() => ({ version: '4.0.0' })),
+  getPlatformInfo: vi.fn(async () => ({ os: 'mac', arch: 'arm64', nacl_arch: 'arm' })),
   lastError: null as chrome.runtime.LastError | null,
 };
 

@@ -27,8 +27,21 @@ export const TelemetryPlatformSchema = v.picklist(['mac', 'win', 'linux']);
 
 export const TelemetryBrowserKindSchema = v.picklist(['chrome', 'firefox', 'edge', 'safari', 'other']);
 
-/** Shipped UI locales; grows with the i18n catalog (core stays i18n-free, so the list is pinned here). */
-export const TelemetryLocaleSchema = v.picklist(['en']);
+/**
+ * Shipped interface languages — the `@openheaders/i18n` locale registry
+ * minus its synthetic pseudo locale, plus `other` for any resolved code
+ * outside this list (a catalog that grows before this vocabulary does
+ * reports `other`, never a wrong member). Core stays i18n-free, so the
+ * list is pinned here and a vocabulary test keeps the two registries in
+ * sync — growing it is a deliberate disclosure addition.
+ */
+export const TelemetryLocaleSchema = v.picklist(['en', 'fr', 'es', 'de', 'zh-CN', 'other']);
+
+/** Map a resolved app locale onto the vocabulary; unlisted codes (pseudo, future waves) read as `other`. */
+export function toTelemetryLocale(code: string): TelemetryLocale {
+  const options: readonly string[] = TelemetryLocaleSchema.options;
+  return options.includes(code) ? (code as TelemetryLocale) : 'other';
+}
 
 /** Fired on the first meaningful use of a surface per session. */
 export const TelemetryFeatureIdSchema = v.picklist([
@@ -185,20 +198,26 @@ export function parseTelemetryAppVersion(version: string): TelemetryAppVersion {
  * property outside the allowlist fails validation and is dropped.
  */
 export const TelemetryEventSchema = v.variant('name', [
+  // `channel` lives on the envelope since 2026-08 (S15) — a static
+  // install fact stamped on every stored row; it stays accepted here
+  // only for clients built when it was event-level.
   v.strictObject({
     name: v.literal('first_run'),
-    channel: TelemetryChannelIdSchema,
+    channel: v.optional(TelemetryChannelIdSchema),
   }),
-  // `host` lives on the envelope (one per-process fact, stamped on every
-  // stored row); it stays accepted here only because 2026.7 clients were
-  // built when it was event-level — current clients no longer send it.
+  // `host` (2026-08-12) and `appVersion`/`platform`/`browser`/`locale`
+  // (S15) live on the envelope — per-process facts stamped on every
+  // stored row; they stay accepted here only because earlier schema-v2
+  // clients carried them event-level — current clients no longer send
+  // them. `rules`/`workspaces` remain event-level: they are measurements
+  // taken at session start, not process constants.
   v.strictObject({
     name: v.literal('session_start'),
     host: v.optional(TelemetryHostKindSchema),
-    appVersion: TelemetryAppVersionSchema,
-    platform: TelemetryPlatformSchema,
+    appVersion: v.optional(TelemetryAppVersionSchema),
+    platform: v.optional(TelemetryPlatformSchema),
     browser: v.optional(TelemetryBrowserKindSchema),
-    locale: TelemetryLocaleSchema,
+    locale: v.optional(TelemetryLocaleSchema),
     rules: v.optional(TelemetryScaleBucketSchema),
     workspaces: v.optional(TelemetryScaleBucketSchema),
   }),
@@ -237,18 +256,25 @@ export const TelemetrySessionIdSchema = v.pipe(v.string(), v.regex(/^[0-9a-f]{32
 export const TelemetryInstallIdSchema = v.pipe(v.string(), v.regex(/^[0-9a-f]{32}$/));
 
 /**
- * The batch envelope: exactly `schemaVersion` + `host` + `sessionId` +
- * `installId` + `sinceInstall` + `sentAt` + events, nothing else
- * (plan §3). Per-process facts live on the envelope, not on events, so
- * every event carries the surface and the day-bucket without any
- * payload shape widening — Analytics Engine SQL has no joins, so a
- * per-event host must ride the row itself. `host` is optional on the
- * wire only for schema-v2 clients built before the field (2026.7
- * extensions); every current client stamps it.
+ * The batch envelope (plan §3). Per-process facts live on the envelope,
+ * not on events, so every event carries the surface, channel, version,
+ * platform, browser, locale, and day-bucket without any payload shape
+ * widening — Analytics Engine SQL has no joins, so a fact that should
+ * segment every stored row must ride the row itself. The fact fields
+ * are optional on the wire only for schema-v2 clients built before
+ * them (`host` predates the S15 set); every current client stamps all
+ * it can — `platform` is omitted where the running platform has no
+ * vocabulary member and `browser` exists only on browser-hosted
+ * surfaces.
  */
 export const TelemetryEnvelopeSchema = v.strictObject({
   schemaVersion: v.literal(TELEMETRY_SCHEMA_VERSION),
   host: v.optional(TelemetryHostKindSchema),
+  channel: v.optional(TelemetryChannelIdSchema),
+  appVersion: v.optional(TelemetryAppVersionSchema),
+  platform: v.optional(TelemetryPlatformSchema),
+  browser: v.optional(TelemetryBrowserKindSchema),
+  locale: v.optional(TelemetryLocaleSchema),
   sessionId: TelemetrySessionIdSchema,
   installId: TelemetryInstallIdSchema,
   sinceInstall: TelemetrySinceInstallBucketSchema,

@@ -216,6 +216,7 @@
     "yaml": "^2.8.3"
   },
   "devDependencies": {
+    "@openheaders/i18n": "workspace:*",
     "@types/node": "^22.19.15",
     "typescript": "^5.9.3",
     "vitest": "^4.1.0"

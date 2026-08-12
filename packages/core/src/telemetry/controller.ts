@@ -19,9 +19,14 @@
  */
 
 import type { ProductTelemetrySnapshot } from '../protocol/channels/product-telemetry';
-import type { TelemetryInstallContext, TelemetryQueueStore, TelemetryTransport } from './client';
+import type {
+  TelemetryEnvelopeFacts,
+  TelemetryInstallContext,
+  TelemetryQueueStore,
+  TelemetryTransport,
+} from './client';
 import { mintTelemetryInstallId, TelemetryClient } from './client';
-import type { TelemetryChannelId, TelemetryEvent, TelemetryHostKind } from './vocabulary';
+import type { TelemetryEvent, TelemetryHostKind } from './vocabulary';
 
 /**
  * Per-session state; RAM-backed on every host, never written to disk.
@@ -29,13 +34,28 @@ import type { TelemetryChannelId, TelemetryEvent, TelemetryHostKind } from './vo
  * `session_start` sent-bit plus the per-member dedupe for
  * `feature_used` and `error_beacon` (first occurrence per session
  * counts; repeats are non-events, not suppressed entries).
+ *
+ * Latches re-arm daily (plan §3, S15 amendment): the controller stamps
+ * the UTC day it last armed them and clears every latch when a track
+ * or flush lands on a later day — a browser or tray process that runs
+ * for weeks stays a daily active, not a one-day ghost. The session id
+ * itself never rolls; a session is still one browser launch / one
+ * process.
  */
 export interface ProductTelemetrySessionStore {
   getSessionId(): Promise<string | null>;
   setSessionId(id: string): Promise<void>;
   wasLatched(key: string): Promise<boolean>;
   latch(key: string): Promise<void>;
+  /** UTC day (days since epoch) the latches were last armed for, or null before the first arm. */
+  getLatchDay(): Promise<number | null>;
+  setLatchDay(day: number): Promise<void>;
+  /** Wipe every latch — the daily re-arm; the session id and latch day are untouched. */
+  clearLatches(): Promise<void>;
 }
+
+/** UTC-day granularity of the latch re-arm (plan §3, S15 amendment). */
+const DAY_MS = 24 * 60 * 60 * 1000;
 
 /** Latch key marking that `session_start` fired (queued or suppressed) this session. */
 export const SESSION_START_LATCH_KEY = 'session_start';
@@ -100,6 +120,7 @@ export function oncePerSessionLatchKey(event: TelemetryEvent): string | null {
 /** Session store for hosts whose process lifetime IS the session (desktop main). */
 export function createInMemoryProductTelemetrySessionStore(): ProductTelemetrySessionStore {
   let sessionId: string | null = null;
+  let latchDay: number | null = null;
   const latched = new Set<string>();
   return {
     getSessionId: async () => sessionId,
@@ -109,6 +130,13 @@ export function createInMemoryProductTelemetrySessionStore(): ProductTelemetrySe
     wasLatched: async (key) => latched.has(key),
     latch: async (key) => {
       latched.add(key);
+    },
+    getLatchDay: async () => latchDay,
+    setLatchDay: async (day) => {
+      latchDay = day;
+    },
+    clearLatches: async () => {
+      latched.clear();
     },
   };
 }
@@ -122,8 +150,8 @@ export interface ProductTelemetryControllerDeps {
   queueStore?: TelemetryQueueStore;
   /** The surface this controller runs in — stamped on every envelope the client flushes. */
   host: TelemetryHostKind;
-  /** This build's distribution channel — a static host fact stamped on `first_run`. */
-  channel: TelemetryChannelId;
+  /** Per-process envelope facts (channel, version, locale, platform, browser), read at flush time. */
+  facts(): TelemetryEnvelopeFacts | Promise<TelemetryEnvelopeFacts>;
   /** Current `telemetry.enabled` setting value. */
   getEnabled(): boolean;
   /** Subscribe to `telemetry.enabled` changes. */
@@ -164,6 +192,7 @@ export class ProductTelemetryController {
     const baseDeps = {
       transport: this.deps.transport,
       host: this.deps.host,
+      facts: this.deps.facts,
       now: this.deps.now,
       install: () => this.installContext,
       queueStore: this.deps.queueStore,
@@ -195,12 +224,39 @@ export class ProductTelemetryController {
     });
     this.deps.onIdentityChanged?.(this.installContext?.installId ?? null);
 
+    await this.rollLatchDay();
     await this.ensureSessionStart();
   }
 
   private async settled(): Promise<void> {
     await this.init();
     await this.gateWork;
+  }
+
+  /**
+   * Re-arm the once-per-session latches when a later UTC day is
+   * reached (plan §3, S15 amendment): without this, a browser or tray
+   * process alive for weeks would report nothing after its first day —
+   * actives and retention would systematically undercount long-lived
+   * sessions. Clearing includes the `session_start` latches, so the
+   * day's first activity re-fires it through the same gates as boot
+   * (and re-reads the scale buckets — a daily growth snapshot). The
+   * session id never rolls here.
+   */
+  private async rollLatchDay(): Promise<void> {
+    const day = Math.floor(this.deps.now() / DAY_MS);
+    const current = await this.deps.sessionStore.getLatchDay();
+    if (current === day) return;
+    await this.deps.sessionStore.setLatchDay(day);
+    if (current === null) return;
+    await this.deps.sessionStore.clearLatches();
+    await this.ensureSessionStart();
+  }
+
+  /** Serialize a rollover check on the gate chain so it never races a toggle transition or another entry point. */
+  private rolloverSettled(): Promise<void> {
+    this.gateWork = this.gateWork.then(() => this.rollLatchDay());
+    return this.gateWork;
   }
 
   /**
@@ -234,7 +290,8 @@ export class ProductTelemetryController {
     this.installContext = record;
     if (!(await this.deps.installStore.wasFirstRunSent())) {
       await this.deps.installStore.markFirstRunSent();
-      this.client?.track({ name: 'first_run', channel: this.deps.channel });
+      // The distribution channel rides the envelope facts, not the event.
+      this.client?.track({ name: 'first_run' });
     }
   }
 
@@ -267,6 +324,7 @@ export class ProductTelemetryController {
    */
   async track(event: TelemetryEvent): Promise<void> {
     await this.settled();
+    await this.rolloverSettled();
     const latchKey = oncePerSessionLatchKey(event);
     if (latchKey) {
       if (await this.deps.sessionStore.wasLatched(latchKey)) return;
@@ -277,6 +335,7 @@ export class ProductTelemetryController {
 
   async flush(): Promise<void> {
     await this.settled();
+    await this.rolloverSettled();
     await this.client?.flush();
   }
 

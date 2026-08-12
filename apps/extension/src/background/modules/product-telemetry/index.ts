@@ -21,10 +21,15 @@ import {
   parseTelemetryAppVersion,
   type TelemetryChannelId,
   type TelemetryEnvelope,
+  type TelemetryEnvelopeFacts,
   type TelemetryEvent,
   type TelemetryInstallContext,
+  type TelemetryLocale,
+  type TelemetryPlatform,
   type TelemetryQueueStore,
+  toTelemetryLocale,
 } from '@openheaders/core/telemetry';
+import { resolveLocale } from '@openheaders/i18n';
 import { get as getSetting, subscribeKey } from '@openheaders/ui/workbench/settings/store';
 import { alarms, isEdge, isFirefox, isSafari, runtime } from '@utils/browser-api';
 
@@ -35,6 +40,7 @@ const FLUSH_PERIOD_MINUTES = 1;
 
 const SESSION_ID_KEY = 'oh.productTelemetry.sessionId';
 const LATCH_KEY_PREFIX = 'oh.productTelemetry.latch.';
+const LATCH_DAY_KEY = 'oh.productTelemetry.latchDay';
 const INSTALL_RECORD_KEY = 'oh.productTelemetry.install';
 const FIRST_RUN_SENT_KEY = 'oh.productTelemetry.firstRunSent';
 const QUEUE_KEY = 'oh.productTelemetry.queue';
@@ -84,6 +90,31 @@ const sessionStore: ProductTelemetrySessionStore = {
       return;
     }
     await area.set({ [storageKey]: true });
+  },
+  async getLatchDay() {
+    const area = sessionArea();
+    const value = area ? (await area.get(LATCH_DAY_KEY))[LATCH_DAY_KEY] : fallbackSession[LATCH_DAY_KEY];
+    return typeof value === 'number' ? value : null;
+  },
+  async setLatchDay(day) {
+    const area = sessionArea();
+    if (!area) {
+      fallbackSession[LATCH_DAY_KEY] = day;
+      return;
+    }
+    await area.set({ [LATCH_DAY_KEY]: day });
+  },
+  async clearLatches() {
+    const area = sessionArea();
+    if (!area) {
+      for (const key of Object.keys(fallbackSession)) {
+        if (key.startsWith(LATCH_KEY_PREFIX)) delete fallbackSession[key];
+      }
+      return;
+    }
+    const items = await area.get(null);
+    const keys = Object.keys(items).filter((key) => key.startsWith(LATCH_KEY_PREFIX));
+    if (keys.length > 0) await area.remove(keys);
   },
 };
 
@@ -211,20 +242,49 @@ async function readScaleBuckets(): Promise<
   }
 }
 
-async function buildSessionStart(): Promise<TelemetryEvent | null> {
+async function telemetryPlatform(): Promise<TelemetryPlatform | null> {
   const api = typeof browser !== 'undefined' ? browser : chrome;
   const info = await api.runtime.getPlatformInfo();
-  // Only vocabulary platforms report; anything else skips the event
+  // Only vocabulary platforms report; anything else stays unstamped
   // rather than misreporting under the nearest member.
-  if (info.os !== 'mac' && info.os !== 'win' && info.os !== 'linux') return null;
+  return info.os === 'mac' || info.os === 'win' || info.os === 'linux' ? info.os : null;
+}
+
+/**
+ * The interface language, resolved exactly like the UI resolves it
+ * (persisted `general.language` setting, `auto` walking the browser's
+ * preference list) and mapped onto the telemetry vocabulary — a locale
+ * the catalog gained before the vocabulary reports `other`.
+ */
+function currentTelemetryLocale(): TelemetryLocale {
+  let setting: string;
+  try {
+    setting = getSetting('general.language');
+  } catch {
+    setting = 'auto';
+  }
+  const preferences = typeof navigator !== 'undefined' ? (navigator.languages ?? [navigator.language]) : [];
+  return toTelemetryLocale(resolveLocale(setting, preferences));
+}
+
+/** Per-process envelope facts (plan §3, S15): read fresh per flush so a language switch re-stamps the next batch. */
+export async function buildEnvelopeFacts(): Promise<TelemetryEnvelopeFacts> {
+  const platform = await telemetryPlatform();
   return {
-    name: 'session_start',
+    channel: detectDistributionChannel(),
     appVersion: parseTelemetryAppVersion(runtime.getManifest().version),
-    platform: info.os,
+    locale: currentTelemetryLocale(),
+    ...(platform !== null ? { platform } : {}),
     browser: detectBrowserKind(),
-    locale: 'en',
-    ...(await readScaleBuckets()),
   };
+}
+
+async function buildSessionStart(): Promise<TelemetryEvent | null> {
+  // Unmappable platforms skip the event rather than misreport (the
+  // envelope stays unstamped too); the per-process facts ride the
+  // envelope, so the event carries only the scale-of-use measurements.
+  if ((await telemetryPlatform()) === null) return null;
+  return { name: 'session_start', ...(await readScaleBuckets()) };
 }
 
 /** The uninstall-URL target for one install id (WIRE_TRANSPARENCY.md §4). */
@@ -262,7 +322,7 @@ const controller = new ProductTelemetryController({
   installStore,
   queueStore,
   host: 'extension',
-  channel: detectDistributionChannel(),
+  facts: buildEnvelopeFacts,
   getEnabled: () => getSetting('telemetry.enabled'),
   subscribeEnabled: (fn) => void subscribeKey('telemetry.enabled', fn),
   buildSessionStart,

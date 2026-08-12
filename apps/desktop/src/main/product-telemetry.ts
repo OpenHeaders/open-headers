@@ -28,9 +28,11 @@ import {
   parseTelemetryAppVersion,
   type TelemetryChannelId,
   type TelemetryEnvelope,
+  type TelemetryEnvelopeFacts,
   type TelemetryEvent,
   type TelemetryPlatform,
   type TelemetryTransport,
+  toTelemetryLocale,
 } from '@openheaders/core/telemetry';
 
 const FLUSH_PERIOD_MS = 60_000;
@@ -41,8 +43,14 @@ export interface ProductTelemetryHostDeps {
   appVersion: string;
   /** `process.platform`; unmappable values skip `session_start` rather than misreport. */
   platform: NodeJS.Platform;
-  /** This build's distribution channel, stamped on `first_run` (packaged = github-release; unpackaged = dev). */
+  /** This build's distribution channel, stamped on every envelope (packaged = github-release; unpackaged = dev). */
   channel: TelemetryChannelId;
+  /**
+   * The resolved interface locale (the main-process locale module's
+   * current value) — read per flush so a language switch re-stamps the
+   * next envelope; mapped onto the vocabulary here.
+   */
+  locale(): string;
   /** Test seams; production uses the fetch transport + wall clock. */
   transport?: TelemetryTransport;
   now?: () => number;
@@ -108,17 +116,23 @@ async function readScaleBuckets(
 
 async function buildSessionStart(
   platform: NodeJS.Platform,
-  appVersion: string,
   storage: Pick<HostStorage, 'get'>,
 ): Promise<TelemetryEvent | null> {
-  const mapped = telemetryPlatform(platform);
-  if (!mapped) return null;
+  // Unmappable platforms skip the event rather than misreport (the
+  // envelope stays unstamped too); the per-process facts ride the
+  // envelope, so the event carries only the scale-of-use measurements.
+  if (!telemetryPlatform(platform)) return null;
+  return { name: 'session_start', ...(await readScaleBuckets(storage)) };
+}
+
+/** Per-process envelope facts (plan §3, S15): read fresh per flush so a language switch re-stamps the next batch. */
+function buildEnvelopeFacts(deps: ProductTelemetryHostDeps): TelemetryEnvelopeFacts {
+  const platform = telemetryPlatform(deps.platform);
   return {
-    name: 'session_start',
-    appVersion: parseTelemetryAppVersion(appVersion),
-    platform: mapped,
-    locale: 'en',
-    ...(await readScaleBuckets(storage)),
+    channel: deps.channel,
+    appVersion: parseTelemetryAppVersion(deps.appVersion),
+    locale: toTelemetryLocale(deps.locale()),
+    ...(platform !== null ? { platform } : {}),
   };
 }
 
@@ -147,10 +161,10 @@ export async function installProductTelemetry(deps: ProductTelemetryHostDeps): P
     sessionStore: createInMemoryProductTelemetrySessionStore(),
     installStore: createStorageInstallStore(deps.storage),
     host: 'desktop',
-    channel: deps.channel,
+    facts: () => buildEnvelopeFacts(deps),
     getEnabled: () => enabled,
     subscribeEnabled: (fn) => enabledListeners.push(fn),
-    buildSessionStart: () => buildSessionStart(deps.platform, deps.appVersion, deps.storage),
+    buildSessionStart: () => buildSessionStart(deps.platform, deps.storage),
   });
   await controller.init();
   // Enabled transitions can queue a consent-time session_start; flush

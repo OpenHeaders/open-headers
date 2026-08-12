@@ -112,18 +112,15 @@ describe('bootCliProductTelemetry — session_start', () => {
     await handle.finish();
     expect(sent).toHaveLength(1);
     expect(sent[0].host).toBe('cli');
+    expect(sent[0].channel).toBe('npm');
+    expect(sent[0].appVersion).toEqual({ year: 2026, month: 7, patch: 2 });
+    expect(sent[0].platform).toBe('mac');
+    expect(sent[0].locale).toBe('en');
+    expect('browser' in sent[0]).toBe(false);
     expect(sent[0].sessionId).toMatch(/^[0-9a-f]{32}$/);
     expect(sent[0].installId).toMatch(/^[0-9a-f]{32}$/);
     expect(sent[0].sinceInstall).toBe('0');
-    expect(sent[0].events).toEqual([
-      { name: 'first_run', channel: 'npm' },
-      {
-        name: 'session_start',
-        appVersion: { year: 2026, month: 7, patch: 2 },
-        platform: 'mac',
-        locale: 'en',
-      },
-    ]);
+    expect(sent[0].events).toEqual([{ name: 'first_run' }, { name: 'session_start' }]);
     expect(JSON.parse(await readFile(configPath, 'utf8'))).toMatchObject({
       telemetryInstallId: sent[0].installId,
       telemetryFirstRunSent: true,
@@ -172,14 +169,15 @@ describe('bootCliProductTelemetry — session_start', () => {
     const handle = await boot();
     await handle.finish();
     expect(sent).toHaveLength(1);
-    expect(sent[0].events).toEqual([{ name: 'first_run', channel: 'npm' }]);
+    expect(sent[0].events).toEqual([{ name: 'first_run' }]);
+    expect('platform' in sent[0]).toBe(false);
   });
 
   it('maps the dev version stamp to zeros rather than failing', async () => {
     const { boot, sent } = await makeRig({ cliVersion: 'dev' });
     const handle = await boot();
     await handle.finish();
-    expect(sent[0].events[1]).toMatchObject({ appVersion: { year: 0, month: 0, patch: 0 } });
+    expect(sent[0].appVersion).toEqual({ year: 0, month: 0, patch: 0 });
   });
 });
 

@@ -17,6 +17,7 @@ export {
   TelemetryClient,
   type TelemetryClientDeps,
   type TelemetryDisposition,
+  type TelemetryEnvelopeFacts,
   type TelemetryInstallContext,
   type TelemetryLogEntry,
   type TelemetryQueueStore,
@@ -68,4 +69,5 @@ export {
   TelemetrySessionIdSchema,
   type TelemetrySinceInstallBucket,
   TelemetrySinceInstallBucketSchema,
+  toTelemetryLocale,
 } from './vocabulary';

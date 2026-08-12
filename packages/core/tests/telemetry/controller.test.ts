@@ -10,21 +10,30 @@ import {
   type ProductTelemetrySessionStore,
   SESSION_START_LATCH_KEY,
   type TelemetryEnvelope,
+  type TelemetryEnvelopeFacts,
   type TelemetryEvent,
   type TelemetryInstallContext,
   type TelemetryQueueStore,
 } from '../../src/telemetry';
 
-const SESSION_START: TelemetryEvent = {
-  name: 'session_start',
+// The current client shape: per-process facts ride the envelope, so the
+// event carries only the scale-of-use measurements.
+const SESSION_START: TelemetryEvent = { name: 'session_start', rules: '1-5' };
+
+const FACTS: TelemetryEnvelopeFacts = {
+  channel: 'chrome-store',
   appVersion: { year: 2026, month: 7, patch: 0 },
+  locale: 'en',
   platform: 'mac',
   browser: 'chrome',
-  locale: 'en',
 };
 
-function makeSessionStore(initial: Partial<{ sessionId: string; latched: string[] }> = {}) {
-  const state = { sessionId: initial.sessionId ?? null, latched: new Set<string>(initial.latched ?? []) };
+function makeSessionStore(initial: Partial<{ sessionId: string; latched: string[]; latchDay: number | null }> = {}) {
+  const state = {
+    sessionId: initial.sessionId ?? null,
+    latched: new Set<string>(initial.latched ?? []),
+    latchDay: initial.latchDay ?? null,
+  };
   const store: ProductTelemetrySessionStore = {
     getSessionId: async () => state.sessionId,
     setSessionId: async (id) => {
@@ -33,6 +42,13 @@ function makeSessionStore(initial: Partial<{ sessionId: string; latched: string[
     wasLatched: async (key) => state.latched.has(key),
     latch: async (key) => {
       state.latched.add(key);
+    },
+    getLatchDay: async () => state.latchDay,
+    setLatchDay: async (day) => {
+      state.latchDay = day;
+    },
+    clearLatches: async () => {
+      state.latched.clear();
     },
   };
   return { store, state };
@@ -47,6 +63,7 @@ interface RigOptions {
   enabled?: boolean;
   sessionId?: string;
   latched?: string[];
+  latchDay?: number | null;
   sessionStart?: TelemetryEvent | null;
   /** Preseeded by default so session-focused tests carry no first_run noise; null = fresh install. */
   install?: TelemetryInstallContext | null;
@@ -58,6 +75,7 @@ function makeRig(options: RigOptions = {}) {
   const sent: TelemetryEnvelope[] = [];
   const gates = { enabled: options.enabled ?? true };
   const listeners = { enabled: [] as Array<() => void> };
+  const clock = { now: 1_760_000_000_000 };
   const { store, state } = makeSessionStore(options);
   const installStore =
     options.installStore ??
@@ -70,12 +88,12 @@ function makeRig(options: RigOptions = {}) {
         return true;
       },
     },
-    now: () => 1_760_000_000_000,
+    now: () => clock.now,
     sessionStore: store,
     installStore,
     queueStore: options.queueStore,
     host: 'extension',
-    channel: 'chrome-store',
+    facts: () => FACTS,
     getEnabled: () => gates.enabled,
     subscribeEnabled: (fn) => listeners.enabled.push(fn),
     buildSessionStart: async () => (options.sessionStart === undefined ? SESSION_START : options.sessionStart),
@@ -86,7 +104,7 @@ function makeRig(options: RigOptions = {}) {
     gates.enabled = value;
     for (const fn of listeners.enabled) fn();
   };
-  return { controller, sent, state, setEnabled, installStore };
+  return { controller, sent, state, setEnabled, installStore, clock };
 }
 
 describe('ProductTelemetryController — session identity', () => {
@@ -334,7 +352,8 @@ describe('ProductTelemetryController — install identity lifecycle', () => {
     expect(sent[0].installId).toBe(record?.installId);
     expect(sent[0].sinceInstall).toBe('0');
     expect(sent[0].host).toBe('extension');
-    expect(sent[0].events).toEqual([{ name: 'first_run', channel: 'chrome-store' }, SESSION_START]);
+    expect(sent[0].channel).toBe('chrome-store');
+    expect(sent[0].events).toEqual([{ name: 'first_run' }, SESSION_START]);
   });
 
   it('does not re-announce first_run for an existing install', async () => {
@@ -386,7 +405,7 @@ describe('ProductTelemetryController — install identity lifecycle', () => {
       sessionStore: makeSessionStore().store,
       installStore: createInMemoryProductTelemetryInstallStore(INSTALL),
       host: 'extension',
-      channel: 'chrome-store',
+      facts: () => FACTS,
       getEnabled: () => gates.enabled,
       subscribeEnabled: (fn) => listeners.push(fn),
       buildSessionStart: async () => null,
@@ -409,6 +428,84 @@ describe('ProductTelemetryController — install identity lifecycle', () => {
   });
 });
 
+describe('ProductTelemetryController — daily latch re-arm', () => {
+  const DAY = 24 * 60 * 60 * 1000;
+
+  it('re-fires session_start and re-arms the feature latches when a later UTC day is reached', async () => {
+    const { controller, sent, clock } = makeRig();
+    await controller.init();
+    await controller.track({ name: 'feature_used', feature: 'vault' });
+    await controller.flush();
+    expect(sent).toHaveLength(1);
+    expect(sent[0].events).toEqual([SESSION_START, { name: 'feature_used', feature: 'vault' }]);
+
+    clock.now += DAY;
+    await controller.track({ name: 'feature_used', feature: 'vault' });
+    await controller.flush();
+    expect(sent).toHaveLength(2);
+    expect(sent[1].events).toEqual([SESSION_START, { name: 'feature_used', feature: 'vault' }]);
+  });
+
+  it('keeps the session id across the day boundary — the day rolls, the session does not', async () => {
+    const { controller, sent, clock } = makeRig();
+    await controller.init();
+    await controller.flush();
+    clock.now += DAY;
+    await controller.flush();
+    expect(sent).toHaveLength(2);
+    expect(sent[1].sessionId).toBe(sent[0].sessionId);
+  });
+
+  it('does not re-arm within the same UTC day', async () => {
+    const { controller, sent, clock } = makeRig();
+    await controller.init();
+    await controller.flush();
+    // Advance to the last millisecond of the same UTC day — the boundary, not a duration, arms the roll.
+    clock.now = (Math.floor(clock.now / DAY) + 1) * DAY - 1;
+    await controller.flush();
+    expect(sent).toHaveLength(1);
+  });
+
+  it('re-arms exactly once per day boundary, via flush alone', async () => {
+    const { controller, sent, clock } = makeRig();
+    await controller.init();
+    await controller.flush();
+    clock.now += 3 * DAY;
+    await controller.flush();
+    await controller.flush();
+    expect(sent).toHaveLength(2);
+    expect(sent[1].events).toEqual([SESSION_START]);
+  });
+
+  it('re-arms at a wake into a new day through the shared session store (SW eviction across midnight)', async () => {
+    const first = makeRig();
+    await first.controller.init();
+    await first.controller.flush();
+    expect(first.sent).toHaveLength(1);
+
+    const second = makeRig({
+      sessionId: first.state.sessionId ?? '',
+      latched: [...first.state.latched],
+      latchDay: first.state.latchDay,
+    });
+    second.clock.now += DAY;
+    await second.controller.init();
+    await second.controller.flush();
+    expect(second.sent).toHaveLength(1);
+    expect(second.sent[0].events).toEqual([SESSION_START]);
+  });
+
+  it('logs a suppressed daily session_start while disabled and never sends', async () => {
+    const { controller, sent, clock } = makeRig({ enabled: false });
+    await controller.init();
+    clock.now += DAY;
+    await controller.flush();
+    expect(sent).toEqual([]);
+    const dispositions = (await controller.snapshot()).entries.map((entry) => entry.disposition);
+    expect(dispositions).toEqual(['suppressed', 'suppressed']);
+  });
+});
+
 describe('createInMemoryProductTelemetrySessionStore', () => {
   it('holds the id and the keyed latches for the process lifetime', async () => {
     const store = createInMemoryProductTelemetrySessionStore();
@@ -421,5 +518,17 @@ describe('createInMemoryProductTelemetrySessionStore', () => {
     expect(await store.wasLatched(SESSION_START_LATCH_KEY)).toBe(true);
     expect(await store.wasLatched('feature_used:vault')).toBe(true);
     expect(await store.wasLatched('feature_used:variables')).toBe(false);
+  });
+
+  it('stamps the latch day and clears latches without touching id or day', async () => {
+    const store = createInMemoryProductTelemetrySessionStore();
+    expect(await store.getLatchDay()).toBeNull();
+    await store.setSessionId('deadbeefdeadbeefdeadbeefdeadbeef');
+    await store.setLatchDay(20_700);
+    await store.latch('feature_used:vault');
+    await store.clearLatches();
+    expect(await store.wasLatched('feature_used:vault')).toBe(false);
+    expect(await store.getLatchDay()).toBe(20_700);
+    expect(await store.getSessionId()).toBe('deadbeefdeadbeefdeadbeefdeadbeef');
   });
 });

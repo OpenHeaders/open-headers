@@ -17,7 +17,16 @@
  * reads it byte-for-byte.
  */
 
-import type { TelemetryEnvelope, TelemetryEvent, TelemetryHostKind } from './vocabulary';
+import type {
+  TelemetryAppVersion,
+  TelemetryBrowserKind,
+  TelemetryChannelId,
+  TelemetryEnvelope,
+  TelemetryEvent,
+  TelemetryHostKind,
+  TelemetryLocale,
+  TelemetryPlatform,
+} from './vocabulary';
 import { bucketSinceInstall, TELEMETRY_SCHEMA_VERSION } from './vocabulary';
 
 /** The one published ingestion endpoint (`docs/WIRE_TRANSPARENCY.md` §4); hosts' transports POST envelopes here. */
@@ -58,6 +67,26 @@ export interface TelemetryQueueStore {
   save(entries: ReadonlyArray<PersistedTelemetryQueueEntry>): Promise<void>;
 }
 
+/**
+ * Per-process facts stamped on every envelope (plan §3, S15 amendment):
+ * Analytics Engine SQL has no joins, so a fact that should segment
+ * every stored row — features by platform, errors by version — must
+ * ride every row. Read fresh at flush time, so a locale switched
+ * mid-session re-stamps the very next envelope.
+ */
+export interface TelemetryEnvelopeFacts {
+  /** This build's distribution channel — a static install fact. */
+  channel: TelemetryChannelId;
+  /** The host's CalVer version, decomposed into wire integers. */
+  appVersion: TelemetryAppVersion;
+  /** The resolved interface language (`toTelemetryLocale` of the app locale). */
+  locale: TelemetryLocale;
+  /** Omitted when the running platform has no vocabulary member. */
+  platform?: TelemetryPlatform;
+  /** Browser-hosted surfaces only. */
+  browser?: TelemetryBrowserKind;
+}
+
 /** The durable identity facts an envelope carries (plan §4, amended 2026-07-16). */
 export interface TelemetryInstallContext {
   /** 32 lowercase hex chars — random, resettable, deleted on toggle-off. */
@@ -70,6 +99,8 @@ export interface TelemetryClientDeps {
   transport: TelemetryTransport;
   /** The surface this client runs in — stamped on every envelope. */
   host: TelemetryHostKind;
+  /** Per-process envelope facts, read at flush time (see `TelemetryEnvelopeFacts`). */
+  facts(): TelemetryEnvelopeFacts | Promise<TelemetryEnvelopeFacts>;
   /** Wall clock (ms since epoch), injected so hosts and tests own time. */
   now(): number;
   /**
@@ -229,9 +260,15 @@ export class TelemetryClient {
     this.queue = [];
     try {
       const sentAt = this.deps.now();
+      const facts = await this.deps.facts();
       const envelope: TelemetryEnvelope = {
         schemaVersion: TELEMETRY_SCHEMA_VERSION,
         host: this.deps.host,
+        channel: facts.channel,
+        appVersion: facts.appVersion,
+        ...(facts.platform !== undefined ? { platform: facts.platform } : {}),
+        ...(facts.browser !== undefined ? { browser: facts.browser } : {}),
+        locale: facts.locale,
         sessionId: this.sessionId,
         installId: install.installId,
         sinceInstall: bucketSinceInstall(install.installedAt, sentAt),

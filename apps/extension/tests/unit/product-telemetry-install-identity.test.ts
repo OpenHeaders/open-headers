@@ -46,3 +46,31 @@ describe('detectDistributionChannel', () => {
     expect(detectDistributionChannel()).toBe('chrome-store');
   });
 });
+
+describe('buildEnvelopeFacts', () => {
+  it('assembles the per-process envelope facts from static build and platform reads (plan §3, S15)', async () => {
+    const { buildEnvelopeFacts } = await loadModule();
+    const facts = await buildEnvelopeFacts();
+    expect(facts.channel).toBe('dev');
+    expect(facts.appVersion).toEqual({ year: 4, month: 0, patch: 0 });
+    expect(facts.platform).toBe('mac');
+    // The test runtime's UA carries no engine token, so detection
+    // honestly reads other rather than guessing.
+    expect(facts.browser).toBe('other');
+    // The settings store is not hydrated in this rig, so resolution
+    // falls back to `auto` over the runtime's preference list — the
+    // mapped result must still be a vocabulary member.
+    expect(facts.locale).toBe('en');
+  });
+
+  it('omits the platform fact on an os outside the vocabulary', async () => {
+    const { buildEnvelopeFacts } = await loadModule();
+    (chrome.runtime.getPlatformInfo as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      os: 'cros',
+      arch: 'arm64',
+      nacl_arch: 'arm',
+    });
+    const facts = await buildEnvelopeFacts();
+    expect('platform' in facts).toBe(false);
+  });
+});

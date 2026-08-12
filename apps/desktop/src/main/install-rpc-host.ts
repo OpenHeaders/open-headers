@@ -82,7 +82,7 @@ import { app, BrowserWindow, dialog } from 'electron';
 import { dataDir } from './bootstrap/app-paths';
 import { revealAppSurface } from './bootstrap/app-reveal';
 import { registerTeardown } from './bootstrap/lifecycle';
-import { installLocaleSubscription } from './bootstrap/locale';
+import { installLocaleSubscription, mainTranslator } from './bootstrap/locale';
 import { createEngineHostLogger } from './bootstrap/logger';
 import { relaunchApp } from './bootstrap/relaunch';
 import { broadcastToAllRenderers } from './bootstrap/renderer-broadcast';
@@ -309,6 +309,7 @@ export async function installRpcHost(): Promise<void> {
     appVersion: app.getVersion(),
     platform: process.platform,
     channel: app.isPackaged ? 'github-release' : 'dev',
+    locale: () => mainTranslator().locale,
   });
 
   // Check-and-notify updates (docs/UPDATES_PLAN.md): the service only

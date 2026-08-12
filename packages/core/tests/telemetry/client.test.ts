@@ -9,6 +9,7 @@ import {
   TELEMETRY_SCHEMA_VERSION,
   TelemetryClient,
   type TelemetryEnvelope,
+  type TelemetryEnvelopeFacts,
   TelemetryEnvelopeSchema,
   type TelemetryEvent,
   type TelemetryInstallContext,
@@ -17,6 +18,13 @@ import {
 
 const NOW = 1_760_000_000_000;
 const INSTALL: TelemetryInstallContext = { installId: 'feedface00feedface00feedface0000', installedAt: NOW };
+const FACTS: TelemetryEnvelopeFacts = {
+  channel: 'chrome-store',
+  appVersion: { year: 2026, month: 8, patch: 0 },
+  locale: 'fr',
+  platform: 'mac',
+  browser: 'chrome',
+};
 
 function makeTransport(overrides: Partial<{ result: boolean; error: Error }> = {}) {
   const sent: TelemetryEnvelope[] = [];
@@ -38,6 +46,7 @@ function makeClient(
   const client = new TelemetryClient({
     transport,
     host: 'extension',
+    facts: () => FACTS,
     now: () => clock++,
     install: () => (overrides.install === undefined ? INSTALL : overrides.install),
   });
@@ -67,6 +76,7 @@ describe('TelemetryClient — session id', () => {
     const client = new TelemetryClient({
       transport,
       host: 'extension',
+      facts: () => FACTS,
       now: () => NOW,
       install: () => INSTALL,
       sessionId: injected,
@@ -92,6 +102,7 @@ describe('TelemetryClient — install identity on the envelope', () => {
     const client = new TelemetryClient({
       transport,
       host: 'extension',
+      facts: () => FACTS,
       now: () => NOW,
       install: () => ({ installId: INSTALL.installId, installedAt: NOW - 12 * 24 * 60 * 60 * 1000 }),
     });
@@ -106,6 +117,7 @@ describe('TelemetryClient — install identity on the envelope', () => {
     const client = new TelemetryClient({
       transport,
       host: 'extension',
+      facts: () => FACTS,
       now: () => NOW,
       install: () => ({ installId, installedAt: NOW }),
     });
@@ -158,6 +170,53 @@ describe('TelemetryClient — batching and envelope shape', () => {
     expect(client.queuedCount).toBe(0);
   });
 
+  it('stamps the per-process facts on the envelope — every row is segmentable without joins', async () => {
+    const { client, transport } = makeClient();
+    client.track(makeEvent());
+    await client.flush();
+    const envelope = transport.sent[0];
+    expect(envelope.channel).toBe('chrome-store');
+    expect(envelope.appVersion).toEqual({ year: 2026, month: 8, patch: 0 });
+    expect(envelope.locale).toBe('fr');
+    expect(envelope.platform).toBe('mac');
+    expect(envelope.browser).toBe('chrome');
+  });
+
+  it('omits the optional facts a host cannot state (unmappable platform, no browser)', async () => {
+    const transport = makeTransport();
+    const client = new TelemetryClient({
+      transport,
+      host: 'cli',
+      facts: () => ({ channel: 'brew', appVersion: { year: 2026, month: 8, patch: 0 }, locale: 'en' }),
+      now: () => NOW,
+      install: () => INSTALL,
+    });
+    client.track(makeEvent());
+    await client.flush();
+    const envelope = transport.sent[0];
+    expect('platform' in envelope).toBe(false);
+    expect('browser' in envelope).toBe(false);
+    expect(v.safeParse(TelemetryEnvelopeSchema, envelope).success).toBe(true);
+  });
+
+  it('re-reads the facts per flush so a locale switch re-stamps the next envelope', async () => {
+    const transport = makeTransport();
+    let locale: TelemetryEnvelopeFacts['locale'] = 'en';
+    const client = new TelemetryClient({
+      transport,
+      host: 'extension',
+      facts: () => ({ ...FACTS, locale }),
+      now: () => NOW,
+      install: () => INSTALL,
+    });
+    client.track(makeEvent());
+    await client.flush();
+    locale = 'de';
+    client.track(makeEvent());
+    await client.flush();
+    expect(transport.sent.map((envelope) => envelope.locale)).toEqual(['en', 'de']);
+  });
+
   it('sends nothing when the queue is empty', async () => {
     const { client, transport } = makeClient();
     expect(await client.flush()).toBe(false);
@@ -192,6 +251,7 @@ describe('TelemetryClient — failure is silent, batch rides the next flush', ()
         },
       },
       host: 'extension',
+      facts: () => FACTS,
       now: () => NOW,
       install: () => INSTALL,
     });
@@ -245,6 +305,7 @@ describe('TelemetryClient — durable queue store', () => {
     const client = new TelemetryClient({
       transport,
       host: 'extension',
+      facts: () => FACTS,
       now: () => NOW,
       install: () => INSTALL,
       queueStore: store,
@@ -263,6 +324,7 @@ describe('TelemetryClient — durable queue store', () => {
     const client = new TelemetryClient({
       transport: { send: async () => false },
       host: 'extension',
+      facts: () => FACTS,
       now: () => NOW,
       install: () => INSTALL,
       queueStore: store,
@@ -283,6 +345,7 @@ describe('TelemetryClient — durable queue store', () => {
     const client = new TelemetryClient({
       transport,
       host: 'extension',
+      facts: () => FACTS,
       now: () => NOW,
       install: () => INSTALL,
       queueStore: store,
@@ -301,6 +364,7 @@ describe('TelemetryClient — durable queue store', () => {
     const client = new TelemetryClient({
       transport,
       host: 'extension',
+      facts: () => FACTS,
       now: () => NOW,
       install: () => INSTALL,
       queueStore: store,
@@ -317,6 +381,7 @@ describe('TelemetryClient — durable queue store', () => {
     const client = new TelemetryClient({
       transport,
       host: 'extension',
+      facts: () => FACTS,
       now: () => NOW,
       install: () => INSTALL,
       queueStore: store,
@@ -337,6 +402,7 @@ describe('TelemetryClient — durable queue store', () => {
     const client = new TelemetryClient({
       transport: makeTransport(),
       host: 'extension',
+      facts: () => FACTS,
       now: () => NOW,
       install: () => INSTALL,
       queueStore: store,
@@ -351,6 +417,7 @@ describe('TelemetryClient — durable queue store', () => {
     const client = new TelemetryClient({
       transport: makeTransport(),
       host: 'extension',
+      facts: () => FACTS,
       now: () => NOW,
       install: () => INSTALL,
       queueStore: {

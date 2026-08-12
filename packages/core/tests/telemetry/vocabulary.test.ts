@@ -1,3 +1,4 @@
+import { LOCALES } from '@openheaders/i18n';
 import * as v from 'valibot';
 import { describe, expect, it } from 'vitest';
 import type { DetectedImportSource } from '../../src/import/detect';
@@ -14,8 +15,10 @@ import {
   type TelemetryImportSourceId,
   TelemetryImportSourceIdSchema,
   TelemetryInstallIdSchema,
+  TelemetryLocaleSchema,
   TelemetryRuleTypeIdSchema,
   TelemetrySessionIdSchema,
+  toTelemetryLocale,
 } from '../../src/telemetry';
 
 type MutuallyAssignable<A, B> = [A] extends [B] ? ([B] extends [A] ? true : never) : never;
@@ -58,10 +61,15 @@ describe('telemetry vocabulary — round-trips', () => {
     });
   }
 
-  it('round-trips a batch envelope', () => {
+  it('round-trips a batch envelope carrying the full per-process fact set', () => {
     const envelope: TelemetryEnvelope = {
       schemaVersion: TELEMETRY_SCHEMA_VERSION,
       host: 'extension',
+      channel: 'firefox-amo',
+      appVersion: { year: 2026, month: 8, patch: 1 },
+      platform: 'linux',
+      browser: 'firefox',
+      locale: 'de',
       sessionId: SESSION_ID,
       installId: INSTALL_ID,
       sinceInstall: '2-7',
@@ -70,6 +78,16 @@ describe('telemetry vocabulary — round-trips', () => {
     };
     const parsed = v.parse(TelemetryEnvelopeSchema, JSON.parse(JSON.stringify(envelope)));
     expect(parsed).toEqual(envelope);
+  });
+
+  it('round-trips the current client event shapes — facts ride the envelope, not the events', () => {
+    for (const event of [
+      { name: 'first_run' },
+      { name: 'session_start' },
+      { name: 'session_start', rules: '1-5', workspaces: '0' },
+    ]) {
+      expect(v.parse(TelemetryEventSchema, JSON.parse(JSON.stringify(event)))).toEqual(event);
+    }
   });
 
   it('accepts an envelope without the optional host (schema-v2 clients built before the field)', () => {
@@ -222,6 +240,11 @@ describe('telemetry vocabulary — sync pins', () => {
     expect([...TelemetryRuleTypeIdSchema.options]).toEqual([...RuleTypeSchema.options]);
   });
 
+  it('keeps the locale union at the shipped i18n registry (minus pseudo) plus other', () => {
+    const shipped = LOCALES.filter((locale) => !locale.synthetic).map((locale) => locale.code);
+    expect([...TelemetryLocaleSchema.options]).toEqual([...shipped, 'other']);
+  });
+
   it('keeps the import-source members identical to the detector kinds', () => {
     expect([...TelemetryImportSourceIdSchema.options]).toEqual([
       'curl',
@@ -235,6 +258,17 @@ describe('telemetry vocabulary — sync pins', () => {
       'workspace',
       'unknown',
     ]);
+  });
+});
+
+describe('toTelemetryLocale', () => {
+  it('passes vocabulary members through and maps everything else to other', () => {
+    expect(toTelemetryLocale('en')).toBe('en');
+    expect(toTelemetryLocale('fr')).toBe('fr');
+    expect(toTelemetryLocale('zh-CN')).toBe('zh-CN');
+    expect(toTelemetryLocale('pseudo')).toBe('other');
+    expect(toTelemetryLocale('ja')).toBe('other');
+    expect(toTelemetryLocale('')).toBe('other');
   });
 });
 

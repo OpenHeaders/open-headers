@@ -7,6 +7,7 @@ interface RigOptions {
   settings?: Record<string, unknown>;
   platform?: NodeJS.Platform;
   appVersion?: string;
+  locale?: string;
 }
 
 function makeRig(options: RigOptions = {}) {
@@ -40,6 +41,7 @@ function makeRig(options: RigOptions = {}) {
       appVersion: options.appVersion ?? '2026.7.1',
       platform: options.platform ?? 'darwin',
       channel: 'github-release',
+      locale: () => options.locale ?? 'en',
       transport: {
         async send(envelope) {
           sent.push(envelope);
@@ -62,17 +64,13 @@ describe('installProductTelemetry — session_start', () => {
     await handle.flush();
     expect(sent).toHaveLength(1);
     expect(sent[0].host).toBe('desktop');
+    expect(sent[0].channel).toBe('github-release');
+    expect(sent[0].appVersion).toEqual({ year: 2026, month: 7, patch: 1 });
+    expect(sent[0].platform).toBe('mac');
+    expect(sent[0].locale).toBe('en');
     expect(sent[0].installId).toMatch(/^[0-9a-f]{32}$/);
     expect(sent[0].sinceInstall).toBe('0');
-    expect(sent[0].events).toEqual([
-      { name: 'first_run', channel: 'github-release' },
-      {
-        name: 'session_start',
-        appVersion: { year: 2026, month: 7, patch: 1 },
-        platform: 'mac',
-        locale: 'en',
-      },
-    ]);
+    expect(sent[0].events).toEqual([{ name: 'first_run' }, { name: 'session_start' }]);
 
     // A second flush sends nothing — the latch holds for the process lifetime.
     await handle.flush();
@@ -101,11 +99,12 @@ describe('installProductTelemetry — session_start', () => {
     const handle = await install();
     await handle.flush();
     expect(sent).toHaveLength(1);
-    expect(sent[0].events).toEqual([{ name: 'first_run', channel: 'github-release' }]);
+    expect(sent[0].events).toEqual([{ name: 'first_run' }]);
+    expect('platform' in sent[0]).toBe(false);
     handle.dispose();
   });
 
-  it('maps win32 and linux to their vocabulary members', async () => {
+  it('maps win32 and linux onto the envelope platform fact', async () => {
     for (const [node, wire] of [
       ['win32', 'win'],
       ['linux', 'linux'],
@@ -113,7 +112,20 @@ describe('installProductTelemetry — session_start', () => {
       const { install, sent } = makeRig({ platform: node });
       const handle = await install();
       await handle.flush();
-      expect(sent[0].events[1]).toMatchObject({ name: 'session_start', platform: wire });
+      expect(sent[0].platform).toBe(wire);
+      handle.dispose();
+    }
+  });
+
+  it('stamps the resolved interface locale, mapping codes outside the vocabulary to other', async () => {
+    for (const [resolved, wire] of [
+      ['zh-CN', 'zh-CN'],
+      ['pseudo', 'other'],
+    ] as const) {
+      const { install, sent } = makeRig({ locale: resolved });
+      const handle = await install();
+      await handle.flush();
+      expect(sent[0].locale).toBe(wire);
       handle.dispose();
     }
   });
@@ -185,16 +197,7 @@ describe('installProductTelemetry — inspector snapshot', () => {
     const snapshot = await handle.snapshot();
     expect(snapshot.sessionId).toMatch(/^[0-9a-f]{32}$/);
     expect(snapshot.entries).toEqual([
-      {
-        event: {
-          name: 'session_start',
-          appVersion: { year: 2026, month: 7, patch: 1 },
-          platform: 'mac',
-          locale: 'en',
-        },
-        at: 1_760_000_000_000,
-        disposition: 'suppressed',
-      },
+      { event: { name: 'session_start' }, at: 1_760_000_000_000, disposition: 'suppressed' },
       { event: { name: 'feature_used', feature: 'variables' }, at: 1_760_000_000_000, disposition: 'suppressed' },
     ]);
     handle.dispose();

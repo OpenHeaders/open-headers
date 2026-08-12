@@ -26,6 +26,7 @@ import {
   parseTelemetryAppVersion,
   type TelemetryChannelId,
   type TelemetryEnvelope,
+  type TelemetryEnvelopeFacts,
   type TelemetryEvent,
   type TelemetryPlatform,
   type TelemetryTransport,
@@ -46,7 +47,7 @@ export interface CliProductTelemetryDeps {
   env?: NodeJS.ProcessEnv;
   platform?: NodeJS.Platform;
   cliVersion?: string;
-  /** Distribution channel stamped on `first_run`; defaults to detection from the running script's path. */
+  /** Distribution channel stamped on every envelope; defaults to detection from the running script's path. */
   channel?: TelemetryChannelId;
   configPath?: string;
   /** Test seams; production uses the aborting fetch transport + wall clock. */
@@ -159,14 +160,28 @@ function telemetryPlatform(platform: NodeJS.Platform): TelemetryPlatform | null 
   return null;
 }
 
-function buildSessionStart(platform: NodeJS.Platform, cliVersion: string): TelemetryEvent | null {
+function buildSessionStart(platform: NodeJS.Platform): TelemetryEvent | null {
+  // Unmappable platforms skip the event rather than misreport; the
+  // per-process facts ride the envelope, so nothing is left to carry.
+  return telemetryPlatform(platform) ? { name: 'session_start' } : null;
+}
+
+/**
+ * Per-process envelope facts (plan §3, S15). The CLI's interface is
+ * English-only, so `en` is the honest locale fact — the OS locale is
+ * not the interface language and is never read.
+ */
+function buildEnvelopeFacts(
+  channel: TelemetryChannelId,
+  platform: NodeJS.Platform,
+  cliVersion: string,
+): TelemetryEnvelopeFacts {
   const mapped = telemetryPlatform(platform);
-  if (!mapped) return null;
   return {
-    name: 'session_start',
+    channel,
     appVersion: parseTelemetryAppVersion(cliVersion),
-    platform: mapped,
     locale: 'en',
+    ...(mapped !== null ? { platform: mapped } : {}),
   };
 }
 
@@ -226,17 +241,19 @@ export async function bootCliProductTelemetry(deps: CliProductTelemetryDeps = {}
     const installStore = configReadable
       ? createConfigInstallStore(configPath)
       : createInMemoryProductTelemetryInstallStore({ installId: mintTelemetryInstallId(), installedAt: now() });
+    const channel = deps.channel ?? detectCliChannel(process.argv[1] ?? '', process.execPath);
+    const platform = deps.platform ?? process.platform;
+    const cliVersion = deps.cliVersion ?? CLI_VERSION;
     const controller = new ProductTelemetryController({
       transport: deps.transport ?? abortingFetchTransport,
       now,
       sessionStore: createInMemoryProductTelemetrySessionStore(),
       installStore,
       host: 'cli',
-      channel: deps.channel ?? detectCliChannel(process.argv[1] ?? '', process.execPath),
+      facts: () => buildEnvelopeFacts(channel, platform, cliVersion),
       getEnabled: () => true,
       subscribeEnabled: () => undefined,
-      buildSessionStart: async () =>
-        buildSessionStart(deps.platform ?? process.platform, deps.cliVersion ?? CLI_VERSION),
+      buildSessionStart: async () => buildSessionStart(platform),
     });
     await controller.init();
 
