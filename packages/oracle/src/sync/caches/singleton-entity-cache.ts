@@ -217,7 +217,7 @@ export function createSingletonEntityCache<T, I>(
       );
     }
     refreshFromOracle();
-    logger.info(config.loggerTag, `Seeded singleton for scope=${scope}`);
+    logger.debug(config.loggerTag, `Seeded singleton for scope=${scope}`);
   };
 
   return {

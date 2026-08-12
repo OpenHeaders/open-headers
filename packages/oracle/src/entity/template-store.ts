@@ -569,7 +569,7 @@ export async function hydrateTemplatesFromStorage(): Promise<void> {
   templateCollections = snapshot.templateCollections;
   templateFolders = snapshot.templateFolders;
   loadedWorkspaceId = workspaceId;
-  logger.info(
+  logger.debug(
     'TemplateStore',
     `Hydrated ws=${workspaceId}: ${templates.length} templates, ${templateCollections.length} collections, ${templateFolders.length} folders`,
   );

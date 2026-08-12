@@ -242,7 +242,7 @@ export async function bridgeFilesSyncEngine(): Promise<void> {
   await cache.seedFromPersistedFiles(persisted);
   mirror = cache.getSnapshot().refs.slice();
   mirrorWorkspaceId = workspaceId;
-  logger.info('FilesStore', `Bridged ws=${workspaceId}: ${mirror.length} refs`);
+  logger.debug('FilesStore', `Bridged ws=${workspaceId}: ${mirror.length} refs`);
 }
 
 // ── Test helpers ──────────────────────────────────────────────────

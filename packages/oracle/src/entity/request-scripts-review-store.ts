@@ -145,7 +145,7 @@ export async function hydrateRequestScriptsReviewFromStorage(): Promise<void> {
   const workspaceId = requireActiveWorkspaceId();
   pending = await readPendingFor(workspaceId);
   loadedWorkspaceId = workspaceId;
-  logger.info('RequestScriptsReviewStore', `Hydrated ws=${workspaceId}: ${pending.size} pending`);
+  logger.debug('RequestScriptsReviewStore', `Hydrated ws=${workspaceId}: ${pending.size} pending`);
 }
 
 export async function switchToWorkspace(workspaceId: string): Promise<void> {

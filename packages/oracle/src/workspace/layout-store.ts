@@ -39,5 +39,5 @@ export async function bridgeLayoutStateSyncEngine(): Promise<void> {
   const workspaceId = requireActiveWorkspaceId();
   const persisted = await readLayoutFor(workspaceId);
   await cache.seedFromPersistedLayout(persisted);
-  logger.info('LayoutStore', `Bridged ws=${workspaceId}: ${persisted ? 'seeded' : 'empty'}`);
+  logger.debug('LayoutStore', `Bridged ws=${workspaceId}: ${persisted ? 'seeded' : 'empty'}`);
 }

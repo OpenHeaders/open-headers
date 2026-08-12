@@ -267,7 +267,7 @@ export async function hydrateFromStorage(): Promise<LiveVariable[]> {
   const workspaceId = requireActiveWorkspaceId();
   variables = await readSnapshot(workspaceId);
   loadedWorkspaceId = workspaceId;
-  logger.info('LiveVariableStore', `Hydrated ws=${workspaceId}: ${variables.length} variables`);
+  logger.debug('LiveVariableStore', `Hydrated ws=${workspaceId}: ${variables.length} variables`);
   return variables;
 }
 

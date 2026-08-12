@@ -543,7 +543,7 @@ export async function hydrateEnvironmentsFromStorage(): Promise<void> {
   manualEnvId = reconcilePointer(snapshot.manualEnvId, environments);
   loadedWorkspaceId = workspaceId;
   bindActivePointerSubscriptions(workspaceId);
-  logger.info(
+  logger.debug(
     'EnvironmentStore',
     `Hydrated ws=${workspaceId}: ${environments.length} envs, active=${activeEnvironmentId ?? 'none'}, default=${defaultEnvironmentId ?? 'none'}`,
   );

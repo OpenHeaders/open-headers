@@ -76,7 +76,7 @@ export async function bridgePauseMarkersSyncEngine(): Promise<void> {
   const persisted = await readMarkersFor(workspaceId);
   await cache.seedFromPersistedPauseMarkers(persisted);
   markers = new Map(Object.entries(cache.getSnapshot().markers));
-  logger.info('PauseMarkersStore', `Bridged ws=${workspaceId}: ${markers.size} markers`);
+  logger.debug('PauseMarkersStore', `Bridged ws=${workspaceId}: ${markers.size} markers`);
 }
 
 // ── Test helpers ──────────────────────────────────────────────────

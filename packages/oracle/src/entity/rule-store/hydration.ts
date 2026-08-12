@@ -75,7 +75,7 @@ export async function hydrateFromStorage(): Promise<Rule[]> {
   setCollections(snapshot.collections);
   setFolders(snapshot.folders);
   setLoadedWorkspaceId(workspaceId);
-  logger.info(
+  logger.debug(
     'RuleStore',
     `Hydrated ws=${workspaceId}: ${rules.length} rules, ${collections.length} collections, ${folders.length} folders`,
   );

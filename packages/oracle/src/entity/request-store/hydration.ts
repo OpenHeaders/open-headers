@@ -54,7 +54,7 @@ export async function hydrateFromStorage(): Promise<Request[]> {
   setCollections(snapshot.collections);
   setFolders(snapshot.folders);
   setLoadedWorkspaceId(workspaceId);
-  logger.info(
+  logger.debug(
     'RequestStore',
     `Hydrated ws=${workspaceId}: ${requests.length} requests, ${collections.length} collections, ${folders.length} folders`,
   );
