@@ -142,9 +142,13 @@ const OnboardingTour: React.FC<OnboardingTourProps> = ({ open, onClose }) => {
         closeIcon: isFirefox ? (
           <CloseOutlined style={{ fontSize: 14 }} />
         ) : (
-          <kbd className="kbd-key" style={{ fontSize: 13, height: 24, minWidth: 32, padding: '0 6px' }}>
-            Esc
-          </kbd>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            <kbd className="kbd-key" style={{ fontSize: 13, height: 24, minWidth: 32, padding: '0 6px' }}>
+              Esc
+            </kbd>
+            <span style={{ fontSize: 11, color: 'var(--ant-color-text-tertiary)' }}>{t('popup.tour.migrateOr')}</span>
+            <CloseOutlined style={{ fontSize: 14 }} />
+          </span>
         ),
       },
     }),

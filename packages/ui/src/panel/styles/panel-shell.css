@@ -206,13 +206,11 @@
 }
 
 /* ── Onboarding tour ────────────────────────────────────────────────
-   antd sizes .ant-tour-close as a fixed ~22px icon square, which clips
-   the Esc kbd chip the tour uses as its close affordance. Auto-size the
-   button around the chip; scoped to the panel root the tour portals into. */
-.dt-panel-root .ant-tour-close {
+   antd sizes .ant-tour-close as a fixed ~22px square; auto-size it
+   around the X icon so the hover highlight hugs the glyph. Scoped to
+   the panel root the tour portals into. */
+.dt-panel-root .ant-tour .ant-tour-section button.ant-tour-close {
   width: auto;
   height: auto;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
+  padding: 4px;
 }

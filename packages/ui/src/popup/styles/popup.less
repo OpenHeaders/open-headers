@@ -1214,6 +1214,38 @@ body {
   box-shadow: 0 1px 0 rgba(255, 255, 255, 0.05);
 }
 
+/* Onboarding tour — antd sizes .ant-tour-close as a fixed ~22px icon
+ * square that centers overflow both ways, which clips the "Esc or ✕"
+ * close affordance at the panel edge. Auto-size the button; anchored
+ * via inset-inline-end, it grows leftward and stays inside. The button
+ * qualifier out-specifies antd's (0,3,0) cssinjs rule. */
+.ant-tour .ant-tour-section button.ant-tour-close {
+  width: auto;
+  height: auto;
+  padding: 0;
+}
+
+/* The whole button closes on click, but the hover highlight belongs on
+ * the ✕ glyph alone — antd paints it across the full button, which
+ * sweeps over the Esc chip and the "or" text. */
+.ant-tour .ant-tour-section button.ant-tour-close:hover,
+.ant-tour .ant-tour-section button.ant-tour-close:active {
+  background: none;
+}
+
+.ant-tour-close .anticon-close {
+  padding: 4px;
+  border-radius: 4px;
+  transition:
+    color 0.2s,
+    background-color 0.2s;
+}
+
+.ant-tour-close .anticon-close:hover {
+  color: var(--ant-color-icon-hover, rgba(0, 0, 0, 0.88));
+  background: var(--ant-color-bg-text-hover, rgba(0, 0, 0, 0.06));
+}
+
 /* Add Rule dropdown menu styling */
 .ant-dropdown-menu {
   &.ant-dropdown-menu-root {

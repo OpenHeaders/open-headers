@@ -10,11 +10,20 @@
  * default, the tour is where the reduced-capture default gets explained.
  *
  * Keyboard is rc-tour's own: it binds ArrowLeft/ArrowRight on window
- * and Esc through its portal, so the kbd hints on the buttons come for
- * free — no listener here (a second one double-steps every keypress).
+ * through its portal, so the arrow hints on the buttons come for free —
+ * no listener here (a second one double-steps every keypress). Esc never
+ * reaches the panel document — DevTools claims it for its drawer toggle —
+ * so the close affordance is a plain X with no Esc hint anywhere.
  */
 
-import { DatabaseOutlined, ExperimentTwoTone, FileTextOutlined, GlobalOutlined, LayoutOutlined } from '@ant-design/icons';
+import {
+  CloseOutlined,
+  DatabaseOutlined,
+  ExperimentTwoTone,
+  FileTextOutlined,
+  GlobalOutlined,
+  LayoutOutlined,
+} from '@ant-design/icons';
 import { hostAssets } from '@openheaders/core/assets';
 import { hostStorage, UI } from '@openheaders/core/storage';
 import { useT } from '@openheaders/ui/context/LocaleContext';
@@ -39,16 +48,16 @@ function getTarget(selector: string): HTMLElement | null {
   return document.querySelector(selector);
 }
 
-const Kbd: React.FC<{ children: string; large?: boolean }> = ({ children, large }) => (
+const Kbd: React.FC<{ children: string }> = ({ children }) => (
   <kbd
     style={{
       display: 'inline-flex',
       alignItems: 'center',
       justifyContent: 'center',
-      minWidth: large ? 30 : 16,
-      height: large ? 20 : 16,
-      padding: large ? '0 6px' : '0 4px',
-      fontSize: large ? 11 : 10,
+      minWidth: 16,
+      height: 16,
+      padding: '0 4px',
+      fontSize: 10,
       fontFamily: 'inherit',
       border: '1px solid var(--ant-color-border)',
       borderRadius: 3,
@@ -148,7 +157,9 @@ const PanelOnboardingTour: React.FC<PanelOnboardingTourProps> = ({ open, onClose
         ),
       },
       closable: {
-        closeIcon: <Kbd large>Esc</Kbd>,
+        // DevTools claims Esc for its own drawer toggle before the panel
+        // document sees the key, so an Esc hint would be a lie — plain X.
+        closeIcon: <CloseOutlined style={{ fontSize: 14 }} />,
       },
     }),
     [btnRow, t],
@@ -158,15 +169,10 @@ const PanelOnboardingTour: React.FC<PanelOnboardingTourProps> = ({ open, onClose
     () => ({
       ...sharedStepProps,
       nextButtonProps: {
-        children: (
-          <span style={btnRow}>
-            <span>{t('panel.tour.finish')}</span>
-            <Kbd>Esc</Kbd>
-          </span>
-        ),
+        children: <span>{t('panel.tour.finish')}</span>,
       },
     }),
-    [sharedStepProps, btnRow, t],
+    [sharedStepProps, t],
   );
 
   const steps: TourProps['steps'] = useMemo(
