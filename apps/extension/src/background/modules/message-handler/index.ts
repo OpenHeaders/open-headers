@@ -77,9 +77,19 @@ export function handleGeneralMessage(
       return handler({ message, sender, respond, ctx }) ? true : undefined;
     }
 
-    // `proxy-*` is owned by another listener; stay quiet. Anything else is
+    // `proxy-*` is owned by another listener; stay quiet. `oh.updates.*`
+    // and `oh.secrets.*` are host-optional RPCs the desktop answers but
+    // this host doesn't — surfaces probe them first and fall back on the
+    // rejection, so the miss is expected; log at debug. Anything else is
     // genuinely unknown.
     if (typeof message.type === 'string' && message.type.startsWith('proxy-')) {
+      return false;
+    }
+    if (
+      typeof message.type === 'string' &&
+      (message.type.startsWith('oh.updates.') || message.type.startsWith('oh.secrets.'))
+    ) {
+      logger.debug('MessageHandler', 'Host-optional RPC not served here:', message.type);
       return false;
     }
     logger.info('MessageHandler', 'Unknown message type:', message.type);
