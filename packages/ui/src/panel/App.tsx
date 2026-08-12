@@ -43,6 +43,7 @@ import {
   getNotificationsPanelInfo,
   NotificationsPanel,
   useAppUpdateNotification,
+  useDesktopAppSuggestion,
   useSeedNotifications,
   useUpdatedNotification,
 } from '@openheaders/ui/shared/notifications';
@@ -306,6 +307,7 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
   // (no-op on hosts without the getAppUpdate capability).
   useAppUpdateNotification();
   useSeedNotifications();
+  useDesktopAppSuggestion();
   // Store-updated hosts: the post-update timeline entry. "See what's
   // new" opens the bundled notes in a modal right here — the panel
   // never bounces the user out of DevTools (SettingsModal precedent).

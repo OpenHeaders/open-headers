@@ -33,6 +33,12 @@ export interface NotificationAction {
   icon?: ReactNode;
   /** Optional hover hint explaining what the action does. */
   tooltip?: string;
+  /**
+   * Render style for a suggestion's primary slot — 'button' (default)
+   * for a bordered follow-through, 'link' for the same blue text link
+   * the timeline cards use. Non-primary actions always render as links.
+   */
+  variant?: 'button' | 'link';
 }
 
 export interface NotificationEntry {
@@ -75,6 +81,12 @@ export interface SuggestionEntry {
   dedupeKey?: string;
   /** Custom card glyph; falls back to the severity icon. */
   icon?: ReactNode;
+  /**
+   * Sticky suggestions have no mute menu, survive Clear all, and ignore
+   * mutes — same contract as sticky timeline entries: only the producer
+   * removes them (via {@link dismissSuggestionByKey}).
+   */
+  sticky?: boolean;
 }
 
 export interface PushSuggestionInput {
@@ -84,6 +96,7 @@ export interface PushSuggestionInput {
   actions?: readonly NotificationAction[];
   dedupeKey?: string;
   icon?: ReactNode;
+  sticky?: boolean;
 }
 
 export interface PushNotificationInput {
@@ -225,7 +238,10 @@ function commitSuggestions(next: readonly SuggestionEntry[]): void {
 }
 
 export function pushSuggestion(input: PushSuggestionInput): void {
-  if (input.dedupeKey && (suggestions.some((s) => s.dedupeKey === input.dedupeKey) || isMuted(input.dedupeKey))) return;
+  if (input.dedupeKey && suggestions.some((s) => s.dedupeKey === input.dedupeKey)) return;
+  // Sticky suggestions are producer-controlled only — like sticky
+  // timeline entries they ignore mutes.
+  if (input.dedupeKey && !input.sticky && isMuted(input.dedupeKey)) return;
   seq += 1;
   commitSuggestions([
     {
@@ -236,6 +252,7 @@ export function pushSuggestion(input: PushSuggestionInput): void {
       actions: input.actions,
       dedupeKey: input.dedupeKey,
       icon: input.icon,
+      sticky: input.sticky,
     },
     ...suggestions,
   ]);
@@ -247,9 +264,10 @@ export function dismissSuggestion(id: string): void {
   commitSuggestions(next);
 }
 
+/** Clears the suggestions except sticky ones, which only their producer removes. */
 export function clearAllSuggestions(): void {
-  if (suggestions.length === 0) return;
-  commitSuggestions([]);
+  if (suggestions.every((s) => s.sticky)) return;
+  commitSuggestions(suggestions.filter((s) => s.sticky));
 }
 
 /** Producer-side removal by dedupe key. */

@@ -20,6 +20,7 @@ import { AwarenessIdentityProvider, type SurfaceIdentityHandle } from '@openhead
 import { useActiveWorkspaceId } from '@openheaders/ui/shared/hooks/readers/useActiveWorkspaceId';
 import {
   useAppUpdateNotification,
+  useDesktopAppSuggestion,
   useSeedNotifications,
   useUpdatedNotification,
 } from '@openheaders/ui/shared/notifications';
@@ -56,6 +57,7 @@ const AppInner: React.FC<AppInnerProps> = ({ tourOpen, onTourClose }) => {
   // cross-surface acknowledge rides the shared localStorage ack keys.
   useAppUpdateNotification();
   useSeedNotifications();
+  useDesktopAppSuggestion();
   // Store-updated hosts: the post-update timeline entry. "See what's
   // new" opens the bundled notes in a modal, in-surface.
   const [whatsNewOpen, setWhatsNewOpen] = useState(false);

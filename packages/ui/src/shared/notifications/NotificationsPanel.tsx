@@ -21,7 +21,7 @@ import {
   MoreOutlined,
 } from '@ant-design/icons';
 import { Allotment } from 'allotment';
-import { Button, Dropdown, Empty, type MenuProps, Tooltip, theme } from 'antd';
+import { Button, Dropdown, type MenuProps, Tooltip, theme } from 'antd';
 import type React from 'react';
 import { useEffect, useMemo, useState } from 'react';
 import { type Translate, useT } from '@openheaders/ui/context/LocaleContext';
@@ -61,10 +61,11 @@ interface NotificationsPanelProps {
 }
 
 // Sash bounds for the Suggestions pane — never collapses away, never
-// squeezes the Timeline out of view.
+// squeezes the Timeline out of view. Preferred fits the desktop-app
+// card whole (title + five feature rows + action link).
 const SUGGESTIONS_MIN_HEIGHT = 64;
 const SUGGESTIONS_MAX_HEIGHT = 320;
-const SUGGESTIONS_PREFERRED_HEIGHT = 140;
+const SUGGESTIONS_PREFERRED_HEIGHT = 230;
 const TIMELINE_MIN_HEIGHT = 120;
 
 const SEVERITY_ICON: Record<NotificationSeverity, React.ReactNode> = {
@@ -253,6 +254,36 @@ const NotificationCard: React.FC<{ entry: NotificationEntry }> = ({ entry }) => 
   );
 };
 
+// Empty state for either section — centered in the pane's remaining
+// height, headline on one row with the explanation beneath it.
+const SectionEmpty: React.FC<{ icon?: React.ReactNode; title: string; description: string }> = ({
+  icon,
+  title,
+  description,
+}) => {
+  const { token } = theme.useToken();
+  return (
+    <div
+      style={{
+        flex: 1,
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 4,
+        padding: '12px 16px',
+        textAlign: 'center',
+      }}
+    >
+      {icon != null && (
+        <span style={{ fontSize: 20, lineHeight: 1, color: token.colorTextQuaternary, marginBottom: 4 }}>{icon}</span>
+      )}
+      <span style={{ fontSize: 12, fontWeight: 500, color: token.colorTextSecondary }}>{title}</span>
+      <span style={{ fontSize: 12, color: token.colorTextTertiary }}>{description}</span>
+    </div>
+  );
+};
+
 const SuggestionCard: React.FC<{ entry: SuggestionEntry }> = ({ entry }) => {
   const { token } = theme.useToken();
   const [hover, setHover] = useState(false);
@@ -280,7 +311,7 @@ const SuggestionCard: React.FC<{ entry: SuggestionEntry }> = ({ entry }) => {
           <span style={{ flex: 1, minWidth: 0, fontSize: 13, fontWeight: 500, color: token.colorText }}>
             {entry.title}
           </span>
-          {entry.dedupeKey !== undefined && (
+          {entry.dedupeKey !== undefined && !entry.sticky && (
             <CardMuteMenu
               dedupeKey={entry.dedupeKey}
               title={entry.title}
@@ -296,10 +327,14 @@ const SuggestionCard: React.FC<{ entry: SuggestionEntry }> = ({ entry }) => {
         )}
         {primary && (
           <div style={{ marginTop: 6, display: 'flex', alignItems: 'center', gap: 12 }}>
-            <Button size="small" onClick={primary.run} style={{ fontSize: 12 }}>
-              {primary.icon}
-              {primary.label}
-            </Button>
+            {primary.variant === 'link' ? (
+              <ActionLink action={primary} />
+            ) : (
+              <Button size="small" onClick={primary.run} style={{ fontSize: 12 }}>
+                {primary.icon}
+                {primary.label}
+              </Button>
+            )}
             {rest.map((action) => (
               <ActionLink key={action.label} action={action} />
             ))}
@@ -341,7 +376,16 @@ const NotificationsPanel: React.FC<NotificationsPanelProps> = ({ info, onClose }
             maxSize={SUGGESTIONS_MAX_HEIGHT}
             preferredSize={SUGGESTIONS_PREFERRED_HEIGHT}
           >
-            <div style={{ height: '100%', overflowY: 'auto', overscrollBehavior: 'none', padding: '8px 10px' }}>
+            <div
+              style={{
+                height: '100%',
+                display: 'flex',
+                flexDirection: 'column',
+                overflowY: 'auto',
+                overscrollBehavior: 'none',
+                padding: '8px 10px',
+              }}
+            >
               <div style={{ display: 'flex', alignItems: 'center', marginBottom: 6 }}>
                 <span style={{ flex: 1, fontSize: 12, fontWeight: 600, color: token.colorTextSecondary }}>
                   {t('shared.notifications.suggestionsHeading')}
@@ -350,16 +394,17 @@ const NotificationsPanel: React.FC<NotificationsPanelProps> = ({ info, onClose }
                   size="small"
                   type="link"
                   onClick={clearAllSuggestions}
-                  disabled={suggestions.length === 0}
+                  disabled={suggestions.every((s) => s.sticky)}
                   style={{ fontSize: 12, padding: 0, height: 'auto' }}
                 >
                   {t('shared.notifications.clearAll')}
                 </Button>
               </div>
               {suggestions.length === 0 ? (
-                <div style={{ fontSize: 12, color: token.colorTextTertiary }}>
-                  {t('shared.notifications.suggestionsEmpty')}
-                </div>
+                <SectionEmpty
+                  title={t('shared.notifications.suggestionsEmpty.title')}
+                  description={t('shared.notifications.suggestionsEmpty.description')}
+                />
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                   {suggestions.map((entry) => (
@@ -370,7 +415,16 @@ const NotificationsPanel: React.FC<NotificationsPanelProps> = ({ info, onClose }
             </div>
           </Allotment.Pane>
           <Allotment.Pane minSize={TIMELINE_MIN_HEIGHT}>
-            <div style={{ height: '100%', overflowY: 'auto', overscrollBehavior: 'none', padding: '8px 10px' }}>
+            <div
+              style={{
+                height: '100%',
+                display: 'flex',
+                flexDirection: 'column',
+                overflowY: 'auto',
+                overscrollBehavior: 'none',
+                padding: '8px 10px',
+              }}
+            >
               <div style={{ display: 'flex', alignItems: 'center', marginBottom: 6 }}>
                 <span style={{ flex: 1, fontSize: 12, fontWeight: 600, color: token.colorTextSecondary }}>
                   {t('shared.notifications.timelineHeading')}
@@ -386,24 +440,11 @@ const NotificationsPanel: React.FC<NotificationsPanelProps> = ({ info, onClose }
                 </Button>
               </div>
               {entries.length === 0 ? (
-                <div
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    padding: '32px 16px',
-                  }}
-                >
-                  <Empty
-                    image={<BellOutlined style={{ fontSize: 32, color: token.colorTextQuaternary }} />}
-                    imageStyle={{ height: 40 }}
-                    description={
-                      <span style={{ fontSize: 12, color: token.colorTextTertiary }}>
-                        {t('shared.notifications.timelineEmpty')}
-                      </span>
-                    }
-                  />
-                </div>
+                <SectionEmpty
+                  icon={<BellOutlined />}
+                  title={t('shared.notifications.timelineEmpty.title')}
+                  description={t('shared.notifications.timelineEmpty.description')}
+                />
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                   {entries.map((entry) => (

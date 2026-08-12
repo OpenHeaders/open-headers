@@ -17,8 +17,10 @@ export const sharedNotifications = {
   'shared.notifications.suggestionsHeading': 'Suggestions',
   'shared.notifications.timelineHeading': 'Timeline',
   'shared.notifications.clearAll': 'Clear all',
-  'shared.notifications.suggestionsEmpty': 'No suggestions — advice about your setup will appear here.',
-  'shared.notifications.timelineEmpty': 'No notifications — app events and updates will appear here.',
+  'shared.notifications.suggestionsEmpty.title': 'No suggestions',
+  'shared.notifications.suggestionsEmpty.description': 'Advice about your setup will appear here.',
+  'shared.notifications.timelineEmpty.title': 'No notifications',
+  'shared.notifications.timelineEmpty.description': 'App events and updates will appear here.',
   'shared.notifications.dismiss': 'Dismiss',
   'shared.notifications.moreActions': 'More actions',
 
@@ -38,6 +40,16 @@ export const sharedNotifications = {
   'shared.notifications.seed.star.description': 'Recommend us to your friends & colleagues',
   'shared.notifications.seed.star.action': 'Give us a star on GitHub',
   'shared.notifications.seed.star.tooltip': 'Open github and clear notification',
+
+  // ── Desktop-app suggestion (browser hosts without the companion) ───
+  'shared.notifications.desktopApp.title': 'One Unified User Experience',
+  'shared.notifications.desktopApp.rowTerminal': 'Integrated terminal — full shell access in your workspaces',
+  'shared.notifications.desktopApp.rowGit': 'Version control — Git commits & history for your workspaces',
+  'shared.notifications.desktopApp.rowProxy': 'Capture live traffic from your browser tabs or system',
+  'shared.notifications.desktopApp.rowMcp': 'MCP server for AI assistants — live traffic analysis & debugging',
+  'shared.notifications.desktopApp.rowRequests': 'Build & run native API requests — gRPC, WebSocket, SSE & more',
+  'shared.notifications.desktopApp.action': 'Download the desktop app',
+  'shared.notifications.desktopApp.tooltip': 'Download app and clear suggestion',
 
   // ── App-update timeline entries ────────────────────────────────────
   'shared.notifications.appUpdate.title': '{version} available',

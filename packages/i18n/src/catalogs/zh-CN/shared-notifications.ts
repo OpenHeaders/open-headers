@@ -18,8 +18,10 @@ export const sharedNotifications = {
   'shared.notifications.suggestionsHeading': '建议',
   'shared.notifications.timelineHeading': '时间线',
   'shared.notifications.clearAll': '全部清除',
-  'shared.notifications.suggestionsEmpty': '暂无建议——关于你的设置的建议会显示在这里。',
-  'shared.notifications.timelineEmpty': '暂无通知——应用事件和更新会显示在这里。',
+  'shared.notifications.suggestionsEmpty.title': '暂无建议',
+  'shared.notifications.suggestionsEmpty.description': '关于你的设置的建议会显示在这里。',
+  'shared.notifications.timelineEmpty.title': '暂无通知',
+  'shared.notifications.timelineEmpty.description': '应用事件和更新会显示在这里。',
   'shared.notifications.dismiss': '忽略',
   'shared.notifications.moreActions': '更多操作',
 
@@ -39,6 +41,16 @@ export const sharedNotifications = {
   'shared.notifications.seed.star.description': '把我们推荐给你的朋友和同事',
   'shared.notifications.seed.star.action': '在 GitHub 上给我们一颗星',
   'shared.notifications.seed.star.tooltip': '打开 GitHub 并清除通知',
+
+  // ── Desktop-app suggestion (browser hosts without the companion) ───
+  'shared.notifications.desktopApp.title': '统一的一体化用户体验',
+  'shared.notifications.desktopApp.rowTerminal': '集成终端——在工作区中获得完整 shell 访问',
+  'shared.notifications.desktopApp.rowGit': '版本控制——工作区的 Git 提交与历史',
+  'shared.notifications.desktopApp.rowProxy': '捕获浏览器标签页或系统的实时流量',
+  'shared.notifications.desktopApp.rowMcp': '面向 AI 助手的 MCP 服务器——实时流量分析与调试',
+  'shared.notifications.desktopApp.rowRequests': '构建并运行原生 API 请求——gRPC、WebSocket、SSE 等',
+  'shared.notifications.desktopApp.action': '下载桌面应用',
+  'shared.notifications.desktopApp.tooltip': '下载应用并清除建议',
 
   // ── App-update timeline entries ────────────────────────────────────
   'shared.notifications.appUpdate.title': '{version} 可用',

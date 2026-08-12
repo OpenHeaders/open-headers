@@ -17,9 +17,11 @@ export const sharedNotifications = {
   'shared.notifications.suggestionsHeading': 'Suggestions',
   'shared.notifications.timelineHeading': 'Chronologie',
   'shared.notifications.clearAll': 'Tout effacer',
-  'shared.notifications.suggestionsEmpty': 'Aucune suggestion — des conseils sur votre configuration apparaîtront ici.',
-  'shared.notifications.timelineEmpty':
-    "Aucune notification — les événements de l'application et les mises à jour apparaîtront ici.",
+  'shared.notifications.suggestionsEmpty.title': 'Aucune suggestion',
+  'shared.notifications.suggestionsEmpty.description': 'Des conseils sur votre configuration apparaîtront ici.',
+  'shared.notifications.timelineEmpty.title': 'Aucune notification',
+  'shared.notifications.timelineEmpty.description':
+    "Les événements de l'application et les mises à jour apparaîtront ici.",
   'shared.notifications.dismiss': 'Ignorer',
   'shared.notifications.moreActions': "Plus d'actions",
 
@@ -40,6 +42,16 @@ export const sharedNotifications = {
   'shared.notifications.seed.star.description': 'Recommandez-nous à vos amis et collègues',
   'shared.notifications.seed.star.action': 'Donnez-nous une étoile sur GitHub',
   'shared.notifications.seed.star.tooltip': 'Ouvrir GitHub et effacer la notification',
+
+  // ── Desktop-app suggestion (browser hosts without the companion) ───
+  'shared.notifications.desktopApp.title': 'Une expérience utilisateur unifiée',
+  'shared.notifications.desktopApp.rowTerminal': 'Terminal intégré — accès shell complet dans vos espaces de travail',
+  'shared.notifications.desktopApp.rowGit': 'Contrôle de version — commits et historique Git pour vos espaces de travail',
+  'shared.notifications.desktopApp.rowProxy': 'Capturez le trafic en direct de vos onglets de navigateur ou du système',
+  'shared.notifications.desktopApp.rowMcp': 'Serveur MCP pour les assistants IA — analyse du trafic en direct et débogage',
+  'shared.notifications.desktopApp.rowRequests': 'Créez et exécutez des requêtes API natives — gRPC, WebSocket, SSE et plus',
+  'shared.notifications.desktopApp.action': "Télécharger l'application de bureau",
+  'shared.notifications.desktopApp.tooltip': "Télécharger l'app et effacer la suggestion",
 
   // ── App-update timeline entries ────────────────────────────────────
   'shared.notifications.appUpdate.title': 'Open Headers {version} disponible',

@@ -2,7 +2,8 @@
  * useSeedNotifications — baseline entries every surface starts its
  * notifications timeline with: the Help-Us-Grow nudge (star the repo)
  * and the Visit-Our-Website nudge, split so neither card gets heavy.
- * Copy and icons mirror the onboarding tour's final step.
+ * Copy mirrors the onboarding tour's final step; description icons are
+ * neutral outlined glyphs, matching the suggestion cards.
  *
  * Both are sticky: no dismiss affordance, immune to Clear all. Each
  * retires itself permanently when its link is followed (persisted per
@@ -15,7 +16,7 @@
  * store's law; this is the sanctioned dismiss-and-reissue path).
  */
 
-import { LikeTwoTone, SmileTwoTone } from '@ant-design/icons';
+import { LikeOutlined, SmileOutlined } from '@ant-design/icons';
 import { getCapability } from '@openheaders/core/capabilities';
 import { useEffect } from 'react';
 import { useLocale } from '@openheaders/ui/context/LocaleContext';
@@ -77,7 +78,7 @@ export function useSeedNotifications(): void {
         title: t('shared.notifications.seed.website.title'),
         description: (
           <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <SmileTwoTone style={{ fontSize: 13 }} />
+            <SmileOutlined style={{ fontSize: 13, color: 'var(--ant-color-text-secondary)' }} />
             {t('shared.notifications.seed.website.description')}
           </span>
         ),
@@ -102,7 +103,7 @@ export function useSeedNotifications(): void {
         title: t('shared.notifications.seed.star.title'),
         description: (
           <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <LikeTwoTone style={{ fontSize: 13 }} />
+            <LikeOutlined style={{ fontSize: 13, color: 'var(--ant-color-text-secondary)' }} />
             {t('shared.notifications.seed.star.description')}
           </span>
         ),

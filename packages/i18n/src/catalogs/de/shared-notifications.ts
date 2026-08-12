@@ -19,8 +19,10 @@ export const sharedNotifications = {
   'shared.notifications.suggestionsHeading': 'Vorschläge',
   'shared.notifications.timelineHeading': 'Zeitverlauf',
   'shared.notifications.clearAll': 'Alle löschen',
-  'shared.notifications.suggestionsEmpty': 'Keine Vorschläge — Hinweise zu deiner Einrichtung erscheinen hier.',
-  'shared.notifications.timelineEmpty': 'Keine Benachrichtigungen — App-Ereignisse und Updates erscheinen hier.',
+  'shared.notifications.suggestionsEmpty.title': 'Keine Vorschläge',
+  'shared.notifications.suggestionsEmpty.description': 'Hinweise zu deiner Einrichtung erscheinen hier.',
+  'shared.notifications.timelineEmpty.title': 'Keine Benachrichtigungen',
+  'shared.notifications.timelineEmpty.description': 'App-Ereignisse und Updates erscheinen hier.',
   'shared.notifications.dismiss': 'Verwerfen',
   'shared.notifications.moreActions': 'Weitere Aktionen',
 
@@ -41,6 +43,16 @@ export const sharedNotifications = {
   'shared.notifications.seed.star.description': 'Empfiehl uns deinen Freunden und Kollegen',
   'shared.notifications.seed.star.action': 'Gib uns einen Stern auf GitHub',
   'shared.notifications.seed.star.tooltip': 'GitHub öffnen und Benachrichtigung löschen',
+
+  // ── Desktop-app suggestion (browser hosts without the companion) ───
+  'shared.notifications.desktopApp.title': 'Ein einheitliches Nutzererlebnis',
+  'shared.notifications.desktopApp.rowTerminal': 'Integriertes Terminal — voller Shell-Zugriff in deinen Arbeitsbereichen',
+  'shared.notifications.desktopApp.rowGit': 'Versionskontrolle — Git-Commits und -Verlauf für deine Arbeitsbereiche',
+  'shared.notifications.desktopApp.rowProxy': 'Erfasse Live-Traffic aus deinen Browser-Tabs oder dem System',
+  'shared.notifications.desktopApp.rowMcp': 'MCP-Server für KI-Assistenten — Live-Traffic-Analyse und Debugging',
+  'shared.notifications.desktopApp.rowRequests': 'Erstelle und führe native API-Requests aus — gRPC, WebSocket, SSE und mehr',
+  'shared.notifications.desktopApp.action': 'Desktop-App herunterladen',
+  'shared.notifications.desktopApp.tooltip': 'App herunterladen und Vorschlag löschen',
 
   // ── App-update timeline entries ────────────────────────────────────
   'shared.notifications.appUpdate.title': 'Open Headers {version} verfügbar',

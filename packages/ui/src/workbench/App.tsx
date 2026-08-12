@@ -131,6 +131,7 @@ import {
   AppUpdateToast,
   SecurityUpdateBanner,
   useAppUpdateNotification,
+  useDesktopAppSuggestion,
   useSecretsStorageNotice,
   useSeedNotifications,
   useUpdatedNotification,
@@ -438,6 +439,9 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
   // as a standing suggestion with the relaunch remedy; the footer's
   // status pill carries the same fact as a red `secrets` row.
   useSecretsStorageNotice();
+  // Browser hosts without the companion desktop app get a standing
+  // download suggestion; self-gates off on the desktop shell.
+  useDesktopAppSuggestion();
 
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const [createMenuOpen, setCreateMenuOpen] = useState(false);

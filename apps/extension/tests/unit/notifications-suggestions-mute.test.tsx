@@ -58,6 +58,19 @@ describe('suggestions list', () => {
     act(() => clearAllSuggestions());
     expect(suggestions.result.current).toHaveLength(0);
   });
+
+  it('sticky suggestions survive Clear all and ignore mutes', () => {
+    const suggestions = renderHook(() => useSuggestions());
+    act(() => muteNotificationKey('get-desktop-app'));
+    act(() => {
+      pushSuggestion({ title: 'One Unified User Experience', dedupeKey: 'get-desktop-app', sticky: true });
+      pushSuggestion({ title: 'Enable request capture', dedupeKey: 'enable-capture' });
+    });
+    expect(suggestions.result.current).toHaveLength(2);
+
+    act(() => clearAllSuggestions());
+    expect(suggestions.result.current.map((s) => s.title)).toEqual(['One Unified User Experience']);
+  });
 });
 
 describe('mute ("Don\'t show again")', () => {

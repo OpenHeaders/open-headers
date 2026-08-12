@@ -26,6 +26,7 @@ export {
   useUnseenNotificationCount,
 } from './store';
 export { useAppUpdateNotification } from './use-app-update-notification';
+export { __resetDesktopAppSuggestionForTests, useDesktopAppSuggestion } from './use-desktop-app-suggestion';
 export { useSecretsStorageNotice } from './use-secrets-storage-notice';
 export { __resetSeedNotificationsForTests, useSeedNotifications } from './use-seed-notifications';
 export { useUpdatedNotification } from './use-updated-notification';

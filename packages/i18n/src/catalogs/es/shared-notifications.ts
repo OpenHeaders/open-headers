@@ -19,9 +19,11 @@ export const sharedNotifications = {
   'shared.notifications.suggestionsHeading': 'Sugerencias',
   'shared.notifications.timelineHeading': 'Cronología',
   'shared.notifications.clearAll': 'Borrar todo',
-  'shared.notifications.suggestionsEmpty': 'Sin sugerencias — los consejos sobre tu configuración aparecerán aquí.',
-  'shared.notifications.timelineEmpty':
-    'Sin notificaciones — los eventos de la aplicación y las actualizaciones aparecerán aquí.',
+  'shared.notifications.suggestionsEmpty.title': 'Sin sugerencias',
+  'shared.notifications.suggestionsEmpty.description': 'Los consejos sobre tu configuración aparecerán aquí.',
+  'shared.notifications.timelineEmpty.title': 'Sin notificaciones',
+  'shared.notifications.timelineEmpty.description':
+    'Los eventos de la aplicación y las actualizaciones aparecerán aquí.',
   'shared.notifications.dismiss': 'Descartar',
   'shared.notifications.moreActions': 'Más acciones',
 
@@ -42,6 +44,16 @@ export const sharedNotifications = {
   'shared.notifications.seed.star.description': 'Recomiéndanos a tus amigos y colegas',
   'shared.notifications.seed.star.action': 'Danos una estrella en GitHub',
   'shared.notifications.seed.star.tooltip': 'Abrir GitHub y borrar la notificación',
+
+  // ── Desktop-app suggestion (browser hosts without the companion) ───
+  'shared.notifications.desktopApp.title': 'Una experiencia de usuario unificada',
+  'shared.notifications.desktopApp.rowTerminal': 'Terminal integrado — acceso completo al shell en tus espacios de trabajo',
+  'shared.notifications.desktopApp.rowGit': 'Control de versiones — commits e historial de Git para tus espacios de trabajo',
+  'shared.notifications.desktopApp.rowProxy': 'Captura el tráfico en vivo de tus pestañas del navegador o del sistema',
+  'shared.notifications.desktopApp.rowMcp': 'Servidor MCP para asistentes de IA — análisis del tráfico en vivo y depuración',
+  'shared.notifications.desktopApp.rowRequests': 'Crea y ejecuta solicitudes API nativas — gRPC, WebSocket, SSE y más',
+  'shared.notifications.desktopApp.action': 'Descargar la aplicación de escritorio',
+  'shared.notifications.desktopApp.tooltip': 'Descargar la app y borrar la sugerencia',
 
   // ── App-update timeline entries ────────────────────────────────────
   'shared.notifications.appUpdate.title': 'Open Headers {version} disponible',
