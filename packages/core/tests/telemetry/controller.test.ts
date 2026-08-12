@@ -17,7 +17,6 @@ import {
 
 const SESSION_START: TelemetryEvent = {
   name: 'session_start',
-  host: 'extension',
   appVersion: { year: 2026, month: 7, patch: 0 },
   platform: 'mac',
   browser: 'chrome',
@@ -75,6 +74,7 @@ function makeRig(options: RigOptions = {}) {
     sessionStore: store,
     installStore,
     queueStore: options.queueStore,
+    host: 'extension',
     channel: 'chrome-store',
     getEnabled: () => gates.enabled,
     subscribeEnabled: (fn) => listeners.enabled.push(fn),
@@ -333,6 +333,7 @@ describe('ProductTelemetryController — install identity lifecycle', () => {
     expect(sent).toHaveLength(1);
     expect(sent[0].installId).toBe(record?.installId);
     expect(sent[0].sinceInstall).toBe('0');
+    expect(sent[0].host).toBe('extension');
     expect(sent[0].events).toEqual([{ name: 'first_run', channel: 'chrome-store' }, SESSION_START]);
   });
 
@@ -384,6 +385,7 @@ describe('ProductTelemetryController — install identity lifecycle', () => {
       now: () => 1_760_000_000_000,
       sessionStore: makeSessionStore().store,
       installStore: createInMemoryProductTelemetryInstallStore(INSTALL),
+      host: 'extension',
       channel: 'chrome-store',
       getEnabled: () => gates.enabled,
       subscribeEnabled: (fn) => listeners.push(fn),

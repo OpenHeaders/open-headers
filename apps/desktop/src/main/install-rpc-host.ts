@@ -308,7 +308,7 @@ export async function installRpcHost(): Promise<void> {
     storage: hostStorage,
     appVersion: app.getVersion(),
     platform: process.platform,
-    channel: app.isPackaged ? 'github-release' : 'unknown',
+    channel: app.isPackaged ? 'github-release' : 'dev',
   });
 
   // Check-and-notify updates (docs/UPDATES_PLAN.md): the service only

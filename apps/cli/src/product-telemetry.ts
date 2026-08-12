@@ -57,10 +57,30 @@ export interface CliProductTelemetryDeps {
 /**
  * Where this `oh` came from — a static fact of the installed path
  * (Homebrew cellar vs an npm `node_modules` tree), never a request.
+ *
+ * Standalone builds embed their entry script in the executable, so
+ * `argv[1]` is a virtual bundle path (Bun's `$bunfs`/`~BUN` roots) or
+ * the executable itself (Node SEA) — for those the installed binary's
+ * own location is the channel fact. A compiled binary outside a
+ * package manager's tree can only have come from the release feed
+ * (`install.sh`/`install.ps1` or a manual download).
  */
-export function detectCliChannel(scriptPath: string): TelemetryChannelId {
-  if (scriptPath.includes('/Cellar/') || scriptPath.includes('/homebrew/')) return 'brew';
+export function detectCliChannel(scriptPath: string, execPath = ''): TelemetryChannelId {
+  // Cellar before node_modules: the formula's libexec tree contains one.
+  // node_modules before the /homebrew/ residual: `npm -g` under a
+  // Homebrew-installed Node lands in /opt/homebrew/lib/node_modules and
+  // is an npm install, not a formula.
+  if (scriptPath.includes('/Cellar/')) return 'brew';
   if (scriptPath.includes('node_modules')) return 'npm';
+  if (scriptPath.includes('/homebrew/')) return 'brew';
+  const standalone =
+    scriptPath.includes('$bunfs') || scriptPath.includes('~BUN') || (execPath !== '' && scriptPath === execPath);
+  if (standalone) {
+    const binary = execPath.toLowerCase();
+    if (binary.includes('/cellar/') || binary.includes('/homebrew/')) return 'brew';
+    if (binary.includes('winget')) return 'winget';
+    return 'github-release';
+  }
   return 'unknown';
 }
 
@@ -144,7 +164,6 @@ function buildSessionStart(platform: NodeJS.Platform, cliVersion: string): Telem
   if (!mapped) return null;
   return {
     name: 'session_start',
-    host: 'cli',
     appVersion: parseTelemetryAppVersion(cliVersion),
     platform: mapped,
     locale: 'en',
@@ -212,7 +231,8 @@ export async function bootCliProductTelemetry(deps: CliProductTelemetryDeps = {}
       now,
       sessionStore: createInMemoryProductTelemetrySessionStore(),
       installStore,
-      channel: deps.channel ?? detectCliChannel(process.argv[1] ?? ''),
+      host: 'cli',
+      channel: deps.channel ?? detectCliChannel(process.argv[1] ?? '', process.execPath),
       getEnabled: () => true,
       subscribeEnabled: () => undefined,
       buildSessionStart: async () =>

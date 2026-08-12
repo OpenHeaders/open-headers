@@ -175,11 +175,19 @@ function detectBrowserKind(): 'chrome' | 'firefox' | 'edge' | 'safari' | 'other'
   return 'other';
 }
 
-/** The store this build ships through — a static fact of the browser flavor. */
+/**
+ * The store this build ships through — a static fact of the browser
+ * flavor. On Chromium engines only a store-delivered build carries an
+ * `update_url` in its runtime manifest, so an unpacked dev load reports
+ * `dev` instead of inflating store install counts. Firefox has no such
+ * marker (AMO-listed builds carry none either) and Safari builds only
+ * ever arrive through the store.
+ */
 export function detectDistributionChannel(): TelemetryChannelId {
   if (isFirefox) return 'firefox-amo';
-  if (isEdge) return 'edge-store';
   if (isSafari) return 'safari-store';
+  if (!runtime.getManifest().update_url) return 'dev';
+  if (isEdge) return 'edge-store';
   return 'chrome-store';
 }
 
@@ -211,7 +219,6 @@ async function buildSessionStart(): Promise<TelemetryEvent | null> {
   if (info.os !== 'mac' && info.os !== 'win' && info.os !== 'linux') return null;
   return {
     name: 'session_start',
-    host: 'extension',
     appVersion: parseTelemetryAppVersion(runtime.getManifest().version),
     platform: info.os,
     browser: detectBrowserKind(),
@@ -254,6 +261,7 @@ const controller = new ProductTelemetryController({
   sessionStore,
   installStore,
   queueStore,
+  host: 'extension',
   channel: detectDistributionChannel(),
   getEnabled: () => getSetting('telemetry.enabled'),
   subscribeEnabled: (fn) => void subscribeKey('telemetry.enabled', fn),

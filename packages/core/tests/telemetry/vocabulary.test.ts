@@ -61,6 +61,7 @@ describe('telemetry vocabulary — round-trips', () => {
   it('round-trips a batch envelope', () => {
     const envelope: TelemetryEnvelope = {
       schemaVersion: TELEMETRY_SCHEMA_VERSION,
+      host: 'extension',
       sessionId: SESSION_ID,
       installId: INSTALL_ID,
       sinceInstall: '2-7',
@@ -71,12 +72,35 @@ describe('telemetry vocabulary — round-trips', () => {
     expect(parsed).toEqual(envelope);
   });
 
+  it('accepts an envelope without the optional host (schema-v2 clients built before the field)', () => {
+    const envelope = {
+      schemaVersion: TELEMETRY_SCHEMA_VERSION,
+      sessionId: SESSION_ID,
+      installId: INSTALL_ID,
+      sinceInstall: '2-7',
+      sentAt: 1_760_000_000_000,
+      events: [],
+    };
+    expect(v.parse(TelemetryEnvelopeSchema, envelope)).toEqual(envelope);
+  });
+
   it('accepts session_start without the optional browser and scale buckets (desktop, cli)', () => {
     const event = {
       name: 'session_start',
       host: 'cli',
       appVersion: { year: 2026, month: 7, patch: 1 },
       platform: 'linux',
+      locale: 'en',
+    };
+    expect(v.parse(TelemetryEventSchema, event)).toEqual(event);
+  });
+
+  it('accepts session_start without host — current clients carry the surface on the envelope', () => {
+    const event = {
+      name: 'session_start',
+      appVersion: { year: 2026, month: 8, patch: 0 },
+      platform: 'mac',
+      browser: 'chrome',
       locale: 'en',
     };
     expect(v.parse(TelemetryEventSchema, event)).toEqual(event);
@@ -91,6 +115,11 @@ describe('telemetry vocabulary — rejections', () => {
   it('rejects an event carrying a property outside the allowlist', () => {
     const smuggled = { name: 'workflow_run', ok: true, url: 'https://openheaders.io/secret' };
     expect(v.safeParse(TelemetryEventSchema, smuggled).success).toBe(false);
+  });
+
+  it('rejects a first_run carrying a host — the surface lives on the envelope, no client ever sent it here', () => {
+    const forged = { name: 'first_run', host: 'extension', channel: 'chrome-store' };
+    expect(v.safeParse(TelemetryEventSchema, forged).success).toBe(false);
   });
 
   it('rejects a free-form string where a closed union is required', () => {
@@ -210,12 +239,29 @@ describe('telemetry vocabulary — sync pins', () => {
 });
 
 describe('parseTelemetryAppVersion', () => {
-  it('decomposes CalVer into the numeric triple', () => {
+  it('decomposes CalVer into the numeric triple, without a beta member on stable builds', () => {
     expect(parseTelemetryAppVersion('2026.7.3')).toEqual({ year: 2026, month: 7, patch: 3 });
   });
 
   it('zeroes malformed or missing segments instead of failing', () => {
     expect(parseTelemetryAppVersion('2026.7')).toEqual({ year: 2026, month: 7, patch: 0 });
     expect(parseTelemetryAppVersion('dev')).toEqual({ year: 0, month: 0, patch: 0 });
+  });
+
+  it('reads the -beta.N pre-release tag as the beta iteration — the release train rides the version', () => {
+    expect(parseTelemetryAppVersion('2026.8.0-beta.2')).toEqual({ year: 2026, month: 8, patch: 0, beta: 2 });
+    expect(parseTelemetryAppVersion('2026.8.0-beta')).toEqual({ year: 2026, month: 8, patch: 0, beta: 1 });
+    expect(parseTelemetryAppVersion('2026.8.0-nightly.1')).toEqual({ year: 2026, month: 8, patch: 0 });
+  });
+
+  it('round-trips a beta appVersion through the session_start schema', () => {
+    const event = {
+      name: 'session_start',
+      host: 'desktop',
+      appVersion: { year: 2026, month: 8, patch: 0, beta: 2 },
+      platform: 'win',
+      locale: 'en',
+    };
+    expect(v.parse(TelemetryEventSchema, event)).toEqual(event);
   });
 });

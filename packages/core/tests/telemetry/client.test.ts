@@ -37,6 +37,7 @@ function makeClient(
   let clock = NOW;
   const client = new TelemetryClient({
     transport,
+    host: 'extension',
     now: () => clock++,
     install: () => (overrides.install === undefined ? INSTALL : overrides.install),
   });
@@ -63,7 +64,13 @@ describe('TelemetryClient — session id', () => {
   it('carries an injected session id onto the envelope', async () => {
     const transport = makeTransport();
     const injected = 'deadbeefdeadbeefdeadbeefdeadbeef';
-    const client = new TelemetryClient({ transport, now: () => NOW, install: () => INSTALL, sessionId: injected });
+    const client = new TelemetryClient({
+      transport,
+      host: 'extension',
+      now: () => NOW,
+      install: () => INSTALL,
+      sessionId: injected,
+    });
     client.track(makeEvent());
     await client.flush();
     expect(client.sessionId).toBe(injected);
@@ -84,6 +91,7 @@ describe('TelemetryClient — install identity on the envelope', () => {
     const transport = makeTransport();
     const client = new TelemetryClient({
       transport,
+      host: 'extension',
       now: () => NOW,
       install: () => ({ installId: INSTALL.installId, installedAt: NOW - 12 * 24 * 60 * 60 * 1000 }),
     });
@@ -97,6 +105,7 @@ describe('TelemetryClient — install identity on the envelope', () => {
     let installId = INSTALL.installId;
     const client = new TelemetryClient({
       transport,
+      host: 'extension',
       now: () => NOW,
       install: () => ({ installId, installedAt: NOW }),
     });
@@ -142,6 +151,7 @@ describe('TelemetryClient — batching and envelope shape', () => {
     expect(transport.sent).toHaveLength(1);
     const envelope = transport.sent[0];
     expect(envelope.schemaVersion).toBe(TELEMETRY_SCHEMA_VERSION);
+    expect(envelope.host).toBe('extension');
     expect(envelope.sessionId).toBe(client.sessionId);
     expect(envelope.events).toEqual(events);
     expect(v.safeParse(TelemetryEnvelopeSchema, envelope).success).toBe(true);
@@ -181,6 +191,7 @@ describe('TelemetryClient — failure is silent, batch rides the next flush', ()
           return transport.send(envelope);
         },
       },
+      host: 'extension',
       now: () => NOW,
       install: () => INSTALL,
     });
@@ -231,7 +242,13 @@ describe('TelemetryClient — durable queue store', () => {
   it('mirrors pending entries into the store on track and wipes it after an accepted flush', async () => {
     const transport = makeTransport();
     const { store, state } = makeQueueStore();
-    const client = new TelemetryClient({ transport, now: () => NOW, install: () => INSTALL, queueStore: store });
+    const client = new TelemetryClient({
+      transport,
+      host: 'extension',
+      now: () => NOW,
+      install: () => INSTALL,
+      queueStore: store,
+    });
     client.track(makeEvent());
     await settle();
     expect(state.entries).toEqual([{ event: makeEvent(), at: NOW }]);
@@ -245,6 +262,7 @@ describe('TelemetryClient — durable queue store', () => {
     const { store, state } = makeQueueStore();
     const client = new TelemetryClient({
       transport: { send: async () => false },
+      host: 'extension',
       now: () => NOW,
       install: () => INSTALL,
       queueStore: store,
@@ -262,7 +280,13 @@ describe('TelemetryClient — durable queue store', () => {
       { event: makeEvent(), at: NOW - 4000 },
     ];
     const { store } = makeQueueStore(persisted);
-    const client = new TelemetryClient({ transport, now: () => NOW, install: () => INSTALL, queueStore: store });
+    const client = new TelemetryClient({
+      transport,
+      host: 'extension',
+      now: () => NOW,
+      install: () => INSTALL,
+      queueStore: store,
+    });
     await client.restoreQueue();
     expect(client.queuedCount).toBe(2);
     expect(client.readEventLog().map((entry) => entry.at)).toEqual([NOW - 5000, NOW - 4000]);
@@ -274,7 +298,13 @@ describe('TelemetryClient — durable queue store', () => {
   it('restores ahead of events tracked in the new process life', async () => {
     const transport = makeTransport();
     const { store } = makeQueueStore([{ event: makeEvent(), at: NOW - 5000 }]);
-    const client = new TelemetryClient({ transport, now: () => NOW, install: () => INSTALL, queueStore: store });
+    const client = new TelemetryClient({
+      transport,
+      host: 'extension',
+      now: () => NOW,
+      install: () => INSTALL,
+      queueStore: store,
+    });
     client.track({ name: 'workflow_run', ok: true });
     await client.restoreQueue();
     await client.flush();
@@ -284,7 +314,13 @@ describe('TelemetryClient — durable queue store', () => {
   it('surfaces a restored queue as suppressed while disabled and wipes the store — off means off', async () => {
     const transport = makeTransport();
     const { store, state } = makeQueueStore([{ event: makeEvent(), at: NOW - 5000 }]);
-    const client = new TelemetryClient({ transport, now: () => NOW, install: () => INSTALL, queueStore: store });
+    const client = new TelemetryClient({
+      transport,
+      host: 'extension',
+      now: () => NOW,
+      install: () => INSTALL,
+      queueStore: store,
+    });
     client.setEnabled(false);
     await client.restoreQueue();
     await settle();
@@ -300,6 +336,7 @@ describe('TelemetryClient — durable queue store', () => {
     const { store, state } = makeQueueStore();
     const client = new TelemetryClient({
       transport: makeTransport(),
+      host: 'extension',
       now: () => NOW,
       install: () => INSTALL,
       queueStore: store,
@@ -313,6 +350,7 @@ describe('TelemetryClient — durable queue store', () => {
   it('ignores a store that fails to load and stays silent', async () => {
     const client = new TelemetryClient({
       transport: makeTransport(),
+      host: 'extension',
       now: () => NOW,
       install: () => INSTALL,
       queueStore: {

@@ -111,6 +111,7 @@ describe('bootCliProductTelemetry — session_start', () => {
     const handle = await boot();
     await handle.finish();
     expect(sent).toHaveLength(1);
+    expect(sent[0].host).toBe('cli');
     expect(sent[0].sessionId).toMatch(/^[0-9a-f]{32}$/);
     expect(sent[0].installId).toMatch(/^[0-9a-f]{32}$/);
     expect(sent[0].sinceInstall).toBe('0');
@@ -118,7 +119,6 @@ describe('bootCliProductTelemetry — session_start', () => {
       { name: 'first_run', channel: 'npm' },
       {
         name: 'session_start',
-        host: 'cli',
         appVersion: { year: 2026, month: 7, patch: 2 },
         platform: 'mac',
         locale: 'en',
@@ -188,6 +188,23 @@ describe('detectCliChannel', () => {
     expect(detectCliChannel('/opt/homebrew/Cellar/openheaders-cli/2026.7.2/bin/oh')).toBe('brew');
     expect(detectCliChannel('/usr/local/lib/node_modules/@openheaders/cli/bin/oh')).toBe('npm');
     expect(detectCliChannel('/Users/dev/oh/dist/oh')).toBe('unknown');
+  });
+
+  it('attributes standalone binaries by the executable location, feed installs to github-release', () => {
+    expect(detectCliChannel('/$bunfs/root/oh', '/Users/dev/.local/bin/oh')).toBe('github-release');
+    expect(detectCliChannel('B:/~BUN/root/oh', 'C:\\Users\\dev\\bin\\oh.exe')).toBe('github-release');
+    expect(detectCliChannel('/$bunfs/root/oh', '/opt/homebrew/bin/oh')).toBe('brew');
+    expect(detectCliChannel('/$bunfs/root/oh', '/opt/homebrew/Cellar/openheaders-cli/2026.7.29/bin/oh')).toBe('brew');
+    expect(
+      detectCliChannel('B:/~BUN/root/oh', 'C:\\Users\\dev\\AppData\\Local\\Microsoft\\WinGet\\Packages\\oh.exe'),
+    ).toBe('winget');
+    // Node SEA builds report argv[1] as the executable itself.
+    expect(detectCliChannel('/Users/dev/.local/bin/oh', '/Users/dev/.local/bin/oh')).toBe('github-release');
+    // An npm tree under a Homebrew-installed Node stays npm — the formula's own paths go through Cellar.
+    expect(detectCliChannel('/opt/homebrew/lib/node_modules/@openheaders/cli/bin/oh.js')).toBe('npm');
+    expect(detectCliChannel('/usr/local/lib/node_modules/@openheaders/cli/bin/oh.js', '/opt/homebrew/bin/node')).toBe(
+      'npm',
+    );
   });
 });
 

@@ -41,7 +41,7 @@ export interface ProductTelemetryHostDeps {
   appVersion: string;
   /** `process.platform`; unmappable values skip `session_start` rather than misreport. */
   platform: NodeJS.Platform;
-  /** This build's distribution channel, stamped on `first_run` (packaged = github-release; dev = unknown). */
+  /** This build's distribution channel, stamped on `first_run` (packaged = github-release; unpackaged = dev). */
   channel: TelemetryChannelId;
   /** Test seams; production uses the fetch transport + wall clock. */
   transport?: TelemetryTransport;
@@ -115,7 +115,6 @@ async function buildSessionStart(
   if (!mapped) return null;
   return {
     name: 'session_start',
-    host: 'desktop',
     appVersion: parseTelemetryAppVersion(appVersion),
     platform: mapped,
     locale: 'en',
@@ -147,6 +146,7 @@ export async function installProductTelemetry(deps: ProductTelemetryHostDeps): P
     now: deps.now ?? Date.now,
     sessionStore: createInMemoryProductTelemetrySessionStore(),
     installStore: createStorageInstallStore(deps.storage),
+    host: 'desktop',
     channel: deps.channel,
     getEnabled: () => enabled,
     subscribeEnabled: (fn) => enabledListeners.push(fn),

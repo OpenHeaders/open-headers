@@ -61,13 +61,13 @@ describe('installProductTelemetry — session_start', () => {
     const handle = await install();
     await handle.flush();
     expect(sent).toHaveLength(1);
+    expect(sent[0].host).toBe('desktop');
     expect(sent[0].installId).toMatch(/^[0-9a-f]{32}$/);
     expect(sent[0].sinceInstall).toBe('0');
     expect(sent[0].events).toEqual([
       { name: 'first_run', channel: 'github-release' },
       {
         name: 'session_start',
-        host: 'desktop',
         appVersion: { year: 2026, month: 7, patch: 1 },
         platform: 'mac',
         locale: 'en',
@@ -188,7 +188,6 @@ describe('installProductTelemetry — inspector snapshot', () => {
       {
         event: {
           name: 'session_start',
-          host: 'desktop',
           appVersion: { year: 2026, month: 7, patch: 1 },
           platform: 'mac',
           locale: 'en',

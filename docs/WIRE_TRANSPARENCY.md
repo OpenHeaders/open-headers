@@ -144,18 +144,19 @@ event of the current session byte for byte, sent or suppressed.
 
 - **Endpoint**: `POST https://telemetry.openheaders.io/v1/events`
 - **Request headers**: `content-type: application/json`
-- **Request body** — a batch envelope, exactly these six fields:
+- **Request body** — a batch envelope, exactly these seven fields:
 
 ```json
 {
   "schemaVersion": 2,
+  "host": "extension",
   "sessionId": "c0ffee00c0ffee00c0ffee00c0ffee00",
   "installId": "feedface00feedface00feedface0000",
   "sinceInstall": "2-7",
   "sentAt": 1760000000000,
   "events": [
     { "name": "first_run", "channel": "chrome-store" },
-    { "name": "session_start", "host": "extension", "appVersion": { "year": 2026, "month": 7, "patch": 2 },
+    { "name": "session_start", "appVersion": { "year": 2026, "month": 7, "patch": 2 },
       "platform": "mac", "browser": "firefox", "locale": "en", "rules": "1-5", "workspaces": "0" },
     { "name": "feature_used", "feature": "workflow-editor" },
     { "name": "rule_created", "ruleType": "header" },
@@ -166,6 +167,11 @@ event of the current session byte for byte, sent or suppressed.
 }
 ```
 
+  - `host` — which surface sent the batch, only ever
+    `desktop`/`extension`/`cli` (the daemon, served web app, and MCP
+    server are hard-off and have no vocabulary member). Clients built
+    before 2026.8 carried it on `session_start` instead; the worker
+    accepts both.
   - `sessionId` — 32 hex chars minted at random per process launch,
     held in memory only, never persisted. It groups one session's
     events and nothing else.
@@ -179,14 +185,15 @@ event of the current session byte for byte, sent or suppressed.
     coarse buckets (`0`, `1`, `2-7`, `8-30`, `31+` days); precise ages
     are inexpressible.
   - `events` — only the seven event shapes above exist, and every
-    field value comes from a closed union checked into the repository
-    (`host` can only ever be `desktop`/`extension`/`cli` — the daemon,
-    served web app, and MCP server are hard-off and have no vocabulary
-    member). `appVersion` is the CalVer version as three integers.
+    field value comes from a closed union checked into the
+    repository. `appVersion` is the CalVer version as integers — year,
+    month, patch, plus a `beta` iteration on pre-release builds
+    (stable builds omit it, so the release train is readable from the
+    version alone).
     `first_run` fires once per install and carries only the
     distribution channel (which store or package manager the build
     shipped through — a static fact of the build, never sniffed from
-    traffic). `rules`/`workspaces` are the same coarse buckets as
+    traffic); the surface rides the envelope's `host`. `rules`/`workspaces` are the same coarse buckets as
     `sinceInstall` (`0`, `1-5`, `6-20`, `21+`), never exact counts.
 - **Response**: `202` when the envelope validates, `4xx` otherwise.
   The client never acts on the status either way — failures are

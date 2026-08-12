@@ -21,7 +21,7 @@
 import type { ProductTelemetrySnapshot } from '../protocol/channels/product-telemetry';
 import type { TelemetryInstallContext, TelemetryQueueStore, TelemetryTransport } from './client';
 import { mintTelemetryInstallId, TelemetryClient } from './client';
-import type { TelemetryChannelId, TelemetryEvent } from './vocabulary';
+import type { TelemetryChannelId, TelemetryEvent, TelemetryHostKind } from './vocabulary';
 
 /**
  * Per-session state; RAM-backed on every host, never written to disk.
@@ -120,6 +120,8 @@ export interface ProductTelemetryControllerDeps {
   installStore: ProductTelemetryInstallStore;
   /** Durable pending-queue home for evictable hosts (see `TelemetryQueueStore`); omitted = RAM-only queue. */
   queueStore?: TelemetryQueueStore;
+  /** The surface this controller runs in — stamped on every envelope the client flushes. */
+  host: TelemetryHostKind;
   /** This build's distribution channel — a static host fact stamped on `first_run`. */
   channel: TelemetryChannelId;
   /** Current `telemetry.enabled` setting value. */
@@ -161,6 +163,7 @@ export class ProductTelemetryController {
     let sessionId = await this.deps.sessionStore.getSessionId();
     const baseDeps = {
       transport: this.deps.transport,
+      host: this.deps.host,
       now: this.deps.now,
       install: () => this.installContext,
       queueStore: this.deps.queueStore,

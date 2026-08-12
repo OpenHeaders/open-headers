@@ -84,6 +84,8 @@ export const TelemetryImportSourceIdSchema = v.picklist([
 /**
  * Distribution channels a first run can be attributed to — a static fact
  * of the build/store flavor, never derived from referrers or requests.
+ * `dev` is an explicitly-development build (unpackaged desktop, unpacked
+ * extension); `unknown` means the fact genuinely could not be read.
  */
 export const TelemetryChannelIdSchema = v.picklist([
   'chrome-store',
@@ -94,6 +96,9 @@ export const TelemetryChannelIdSchema = v.picklist([
   'website-download',
   'npm',
   'brew',
+  'winget',
+  'docker',
+  'dev',
   'unknown',
 ]);
 
@@ -140,27 +145,39 @@ export const TelemetryErrorCodeSchema = v.picklist([
 const wholeNumber = () => v.pipe(v.number(), v.integer());
 
 /**
- * CalVer (`YYYY.M.PATCH`) decomposed into integers — the version is the one
- * "string-shaped" fact we ship, so it travels as numbers to keep payloads
- * string-free.
+ * CalVer (`YYYY.M.PATCH[-beta.N]`) decomposed into integers — the version
+ * is the one "string-shaped" fact we ship, so it travels as numbers to
+ * keep payloads string-free. `beta` is the pre-release iteration and is
+ * absent on stable builds, so the release train (stable vs beta) is
+ * readable without a train field of its own.
  */
 export const TelemetryAppVersionSchema = v.strictObject({
   year: wholeNumber(),
   month: wholeNumber(),
   patch: wholeNumber(),
+  beta: v.optional(wholeNumber()),
 });
 
+const PRERELEASE_BETA = /^beta(?:\.(\d+))?$/;
+
 /**
- * Decompose a CalVer version string into the numeric triple the wire
- * carries. Malformed segments become 0 rather than failing — the version
- * is context, never worth blocking an event over.
+ * Decompose a CalVer version string into the numbers the wire carries.
+ * Malformed segments become 0 rather than failing — the version is
+ * context, never worth blocking an event over. Only the `-beta.N` tag
+ * of the release grammar maps to `beta` (a bare `-beta` reads as
+ * iteration 1); any other suffix is ignored.
  */
 export function parseTelemetryAppVersion(version: string): TelemetryAppVersion {
-  const [year = 0, month = 0, patch = 0] = version.split('.').map((part) => {
+  const hyphen = version.indexOf('-');
+  const release = hyphen === -1 ? version : version.slice(0, hyphen);
+  const prerelease = hyphen === -1 ? '' : version.slice(hyphen + 1);
+  const [year = 0, month = 0, patch = 0] = release.split('.').map((part) => {
     const n = Number.parseInt(part, 10);
     return Number.isInteger(n) ? n : 0;
   });
-  return { year, month, patch };
+  const betaTag = PRERELEASE_BETA.exec(prerelease);
+  if (!betaTag) return { year, month, patch };
+  return { year, month, patch, beta: betaTag[1] === undefined ? 1 : Number.parseInt(betaTag[1], 10) };
 }
 
 /**
@@ -172,9 +189,12 @@ export const TelemetryEventSchema = v.variant('name', [
     name: v.literal('first_run'),
     channel: TelemetryChannelIdSchema,
   }),
+  // `host` lives on the envelope (one per-process fact, stamped on every
+  // stored row); it stays accepted here only because 2026.7 clients were
+  // built when it was event-level — current clients no longer send it.
   v.strictObject({
     name: v.literal('session_start'),
-    host: TelemetryHostKindSchema,
+    host: v.optional(TelemetryHostKindSchema),
     appVersion: TelemetryAppVersionSchema,
     platform: TelemetryPlatformSchema,
     browser: v.optional(TelemetryBrowserKindSchema),
@@ -217,13 +237,18 @@ export const TelemetrySessionIdSchema = v.pipe(v.string(), v.regex(/^[0-9a-f]{32
 export const TelemetryInstallIdSchema = v.pipe(v.string(), v.regex(/^[0-9a-f]{32}$/));
 
 /**
- * The batch envelope: exactly `schemaVersion` + `sessionId` + `installId`
- * + `sinceInstall` + `sentAt` + events, nothing else (plan §3). Install
- * facts live on the envelope, not on events, so every event carries the
- * day-bucket without any payload shape widening.
+ * The batch envelope: exactly `schemaVersion` + `host` + `sessionId` +
+ * `installId` + `sinceInstall` + `sentAt` + events, nothing else
+ * (plan §3). Per-process facts live on the envelope, not on events, so
+ * every event carries the surface and the day-bucket without any
+ * payload shape widening — Analytics Engine SQL has no joins, so a
+ * per-event host must ride the row itself. `host` is optional on the
+ * wire only for schema-v2 clients built before the field (2026.7
+ * extensions); every current client stamps it.
  */
 export const TelemetryEnvelopeSchema = v.strictObject({
   schemaVersion: v.literal(TELEMETRY_SCHEMA_VERSION),
+  host: v.optional(TelemetryHostKindSchema),
   sessionId: TelemetrySessionIdSchema,
   installId: TelemetryInstallIdSchema,
   sinceInstall: TelemetrySinceInstallBucketSchema,

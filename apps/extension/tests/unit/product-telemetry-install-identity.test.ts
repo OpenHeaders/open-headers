@@ -9,7 +9,7 @@
  */
 
 import { PRODUCT_TELEMETRY_UNINSTALL_ENDPOINT } from '@openheaders/core/telemetry';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 const INSTALL_ID = 'feedface00feedface00feedface0000';
 
@@ -30,8 +30,19 @@ describe('uninstallUrlFor', () => {
 });
 
 describe('detectDistributionChannel', () => {
-  it('reports the chrome store for the default test flavor', async () => {
+  it('reports dev for an unpacked load — no update_url in the manifest (the default test flavor)', async () => {
     const { detectDistributionChannel } = await loadModule();
+    expect(detectDistributionChannel()).toBe('dev');
+  });
+
+  it('reports the chrome store for a store-delivered build (update_url present)', async () => {
+    const { detectDistributionChannel } = await loadModule();
+    vi.mocked(chrome.runtime.getManifest).mockReturnValueOnce({
+      manifest_version: 3,
+      name: 'Open Headers',
+      version: '4.0.0',
+      update_url: 'https://clients2.google.com/service/update2/crx',
+    });
     expect(detectDistributionChannel()).toBe('chrome-store');
   });
 });

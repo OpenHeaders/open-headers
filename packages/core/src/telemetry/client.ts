@@ -17,7 +17,7 @@
  * reads it byte-for-byte.
  */
 
-import type { TelemetryEnvelope, TelemetryEvent } from './vocabulary';
+import type { TelemetryEnvelope, TelemetryEvent, TelemetryHostKind } from './vocabulary';
 import { bucketSinceInstall, TELEMETRY_SCHEMA_VERSION } from './vocabulary';
 
 /** The one published ingestion endpoint (`docs/WIRE_TRANSPARENCY.md` §4); hosts' transports POST envelopes here. */
@@ -68,6 +68,8 @@ export interface TelemetryInstallContext {
 
 export interface TelemetryClientDeps {
   transport: TelemetryTransport;
+  /** The surface this client runs in — stamped on every envelope. */
+  host: TelemetryHostKind;
   /** Wall clock (ms since epoch), injected so hosts and tests own time. */
   now(): number;
   /**
@@ -229,6 +231,7 @@ export class TelemetryClient {
       const sentAt = this.deps.now();
       const envelope: TelemetryEnvelope = {
         schemaVersion: TELEMETRY_SCHEMA_VERSION,
+        host: this.deps.host,
         sessionId: this.sessionId,
         installId: install.installId,
         sinceInstall: bucketSinceInstall(install.installedAt, sentAt),
