@@ -761,10 +761,7 @@ export const workbenchDocs = {
     'already invested in another tool — bring your collection across in one step, keep working.',
   'workbench.docs.body.roadmap.cloudCalloutTitle': 'What about a hosted cloud back-end?',
   'workbench.docs.body.roadmap.cloudCallout1':
-    'Not on the menu for now — if you want a cloud-hosted back-end, you can self-host it on your own VM (see ' +
-    'above). The focus right now is the product, not running and maintaining free cloud infrastructure ' +
-    "for end users. Happy to help if you're setting up a self-hosted deployment and run into trouble; just not in a " +
-    'position to provide hosting itself.',
+    'Not on the menu for now — if you want a cloud-hosted back-end, you can self-host it on your own VM (see above).',
 
   // ── Docs sub-anchor (i) popovers (DOC_ANCHOR_INFO) ──────────────────
   'workbench.docs.anchor.override.title': 'Add / Replace',

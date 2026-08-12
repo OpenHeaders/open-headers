@@ -573,7 +573,7 @@ export const workbenchDocs = {
     '在 cURL / HAR / Postman 导入器之外：Insomnia 集合、OpenAPI 规范和完整的 HAR 请求导入（不只是标头）——今天全部可用。导入器的对等能力是 Open Headers 赢得已投入其他工具的用户的方式——一步把你的集合带过来，继续干活。',
   'workbench.docs.body.roadmap.cloudCalloutTitle': '托管的云后端呢？',
   'workbench.docs.body.roadmap.cloudCallout1':
-    '暂不提供——想要云托管的后端，可以在你自己的 VM 上自托管（见上文）。当下的重心是产品本身，而不是为最终用户运行和维护免费的云基础设施。如果你在搭建自托管部署时遇到麻烦，乐意帮忙；只是没有条件提供托管本身。',
+    '暂不提供——想要云托管的后端，可以在你自己的 VM 上自托管（见上文）。',
 
   // ── Docs sub-anchor (i) popovers (DOC_ANCHOR_INFO) ──────────────────
   'workbench.docs.anchor.override.title': '添加 / 覆盖',
