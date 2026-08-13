@@ -44,6 +44,7 @@ import { MCP_HTTP_PATH } from '@openheaders/core/protocol';
 import type { McpPolicy } from './policy';
 import type { McpToolRegistry } from './registry';
 import { createMcpServer, type McpObserveCallEvent } from './server';
+import { notifyMcpClientInitialized, notifyMcpRequestServed } from './usage-observer';
 
 const SCOPE = 'McpHttp';
 
@@ -136,6 +137,18 @@ function isStreamingRunCall(body: unknown): boolean {
   return (params._meta as { progressToken?: unknown }).progressToken !== undefined;
 }
 
+/** The `clientInfo.name` an `initialize` request announces, or null for any other body shape. */
+function initializeClientName(body: unknown): string | null {
+  if (typeof body !== 'object' || body === null || Array.isArray(body)) return null;
+  const message = body as { method?: unknown; params?: unknown };
+  if (message.method !== 'initialize') return null;
+  if (typeof message.params !== 'object' || message.params === null) return null;
+  const clientInfo = (message.params as { clientInfo?: unknown }).clientInfo;
+  if (typeof clientInfo !== 'object' || clientInfo === null) return null;
+  const name = (clientInfo as { name?: unknown }).name;
+  return typeof name === 'string' ? name : null;
+}
+
 function readBearerSecret(req: IncomingMessage): string | undefined {
   const header = req.headers.authorization;
   if (typeof header !== 'string') return undefined;
@@ -203,6 +216,16 @@ export function createMcpHttpHandler(options: McpHttpHandlerOptions): McpHttpHan
             jsonError(res, 400, 'Parse error', undefined, -32700);
             return;
           }
+        }
+
+        // Usage visibility (policy-free): the request passed admission
+        // and is about to be served; an initialize body additionally
+        // announces which client is connecting. The observer decides
+        // what — if anything — to do with either signal.
+        if (req.method === 'POST') {
+          notifyMcpRequestServed();
+          const clientName = initializeClientName(parsedBody);
+          if (clientName !== null) notifyMcpClientInitialized(clientName);
         }
 
         const server = createMcpServer({

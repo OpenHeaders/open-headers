@@ -104,6 +104,7 @@ import {
   windowsNmManifestTargets,
 } from './nm-host-install';
 import { installProductTelemetry } from './product-telemetry';
+import { installProductTelemetryMcpBeacons } from './product-telemetry-mcp-beacons';
 import { installProductTelemetrySyncBeacons } from './product-telemetry-sync-beacons';
 import { safeStorageCipher } from './safe-storage-cipher';
 import { installScriptSandbox } from './script-sandbox';
@@ -467,6 +468,10 @@ export async function installRpcHost(): Promise<void> {
     trackProductTelemetry: (event) => productTelemetry.track(event),
   });
   installProductTelemetrySyncBeacons(syncWiring, (event) => productTelemetry.track(event));
+  // Embedded MCP surface (MCP visibility slice): the `/mcp` module's
+  // policy-free usage observer, mapped to typed events here — the
+  // standalone daemon never installs one and stays silent.
+  installProductTelemetryMcpBeacons((event) => productTelemetry.track(event));
 
   // Safe-mode script runtime: pre/post request scripts run in a hidden
   // sandboxed renderer; the capability makes the spine's executeRequest

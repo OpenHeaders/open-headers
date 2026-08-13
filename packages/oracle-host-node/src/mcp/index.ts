@@ -41,3 +41,9 @@ export { createSecretToolDefinitions } from './tools/secret-tools';
 export { createSessionToolDefinitions, type McpSessionToolDeps } from './tools/session-tools';
 export { createTrafficToolDefinitions, type McpTrafficToolDeps } from './tools/traffic-tools';
 export { createWriteToolDefinitions } from './tools/write-tools';
+export {
+  type McpUsageObserver,
+  notifyMcpClientInitialized,
+  notifyMcpRequestServed,
+  setMcpUsageObserver,
+} from './usage-observer';

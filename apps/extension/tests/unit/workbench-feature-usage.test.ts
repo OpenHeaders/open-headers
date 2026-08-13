@@ -64,6 +64,12 @@ describe('noteTabFeatureUsed', () => {
     expect(events).toEqual([]);
   });
 
+  it('maps the server admin console tab (MCP visibility slice)', () => {
+    noteTabFeatureUsed('server-admin');
+    noteTabFeatureUsed('server-admin');
+    expect(events).toEqual([{ name: 'feature_used', feature: 'server-admin' }]);
+  });
+
   it('maps the S17 surfaces — specs, examples, protocol clients, changelog', () => {
     noteTabFeatureUsed('spec-edit');
     noteTabFeatureUsed('response-example');

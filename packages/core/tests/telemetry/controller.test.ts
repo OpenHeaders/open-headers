@@ -333,7 +333,7 @@ describe('ProductTelemetryController — once-per-session dedupe', () => {
 });
 
 describe('oncePerSessionLatchKey', () => {
-  it('keys feature_used, error_beacon, rule_matched, and upgrade_cta_shown per member, everything else null', () => {
+  it('keys feature_used, error_beacon, rule_matched, upgrade_cta_shown, and mcp_client_connected per member, everything else null', () => {
     expect(oncePerSessionLatchKey({ name: 'feature_used', feature: 'vault' })).toBe('feature_used:vault');
     expect(oncePerSessionLatchKey({ name: 'error_beacon', code: 'sync-push-failed' })).toBe(
       'error_beacon:sync-push-failed',
@@ -341,6 +341,9 @@ describe('oncePerSessionLatchKey', () => {
     expect(oncePerSessionLatchKey({ name: 'rule_matched', ruleType: 'response' })).toBe('rule_matched:response');
     expect(oncePerSessionLatchKey({ name: 'upgrade_cta_shown', surface: 'license-pane' })).toBe(
       'upgrade_cta_shown:license-pane',
+    );
+    expect(oncePerSessionLatchKey({ name: 'mcp_client_connected', client: 'claude-code' })).toBe(
+      'mcp_client_connected:claude-code',
     );
     expect(oncePerSessionLatchKey({ name: 'workflow_run', ok: true })).toBeNull();
     expect(oncePerSessionLatchKey({ name: 'rule_created', ruleType: 'header' })).toBeNull();
@@ -384,6 +387,20 @@ describe('oncePerSessionLatchKey', () => {
       { name: 'upgrade_cta_clicked', surface: 'license-pane' },
       { name: 'paywall_hit', surface: 'seat-gate' },
       { name: 'paywall_hit', surface: 'seat-gate' },
+    ]);
+  });
+
+  it('dedupes mcp_client_connected per client through the controller latch', async () => {
+    const { controller, sent } = makeRig({ sessionStart: null });
+    await controller.init();
+    await controller.track({ name: 'mcp_client_connected', client: 'claude-code' });
+    await controller.track({ name: 'mcp_client_connected', client: 'claude-code' });
+    await controller.track({ name: 'mcp_client_connected', client: 'cursor' });
+    await controller.flush();
+    expect(sent).toHaveLength(1);
+    expect(sent[0].events).toEqual([
+      { name: 'mcp_client_connected', client: 'claude-code' },
+      { name: 'mcp_client_connected', client: 'cursor' },
     ]);
   });
 });

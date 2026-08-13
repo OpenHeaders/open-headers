@@ -75,6 +75,12 @@ export const TelemetryFeatureIdSchema = v.picklist([
   'ws-client',
   'workflow-scripts',
   'whats-new',
+  // MCP visibility slice (user-signed 2026-08-13): S17 skipped-on-demand
+  // ids whose demand arrived — the embedded MCP surface serving a
+  // session (desktop-side observer; the MCP surface itself stays
+  // hard-off) and the server admin console tab.
+  'mcp-server',
+  'server-admin',
 ]);
 
 /**
@@ -233,6 +239,38 @@ export function activatedPlanFromLicenseSnapshot(snapshot: LicenseSnapshot): Tel
 export const TelemetryMonetizationSurfaceSchema = v.picklist(['seat-gate', 'license-pane', 'grace-banner']);
 
 /**
+ * AI clients observed on the MCP `initialize` handshake (plan §3, MCP
+ * visibility slice, user-signed 2026-08-13) — "which agents do people
+ * use". The handshake's `clientInfo.name` is free-form, so it maps
+ * through this picklist locale-style: anything unlisted reports
+ * `other`, never a raw string.
+ */
+export const TelemetryMcpClientSchema = v.picklist([
+  'claude-code',
+  'claude-desktop',
+  'cursor',
+  'windsurf',
+  'vscode',
+  'other',
+]);
+
+/**
+ * Map a free-form MCP `clientInfo.name` onto the vocabulary — keyword
+ * containment over the lowercased name, most specific first: VS Code
+ * forks announce themselves with `vscode` in the name, so the fork
+ * checks run before the `vscode` member catches the rest, and Claude
+ * Desktop announces without a `code` token (`claude-ai`).
+ */
+export function toTelemetryMcpClient(clientName: string): TelemetryMcpClient {
+  const name = clientName.toLowerCase();
+  if (name.includes('claude')) return name.includes('code') ? 'claude-code' : 'claude-desktop';
+  if (name.includes('cursor')) return 'cursor';
+  if (name.includes('windsurf')) return 'windsurf';
+  if (name.includes('vscode') || name.includes('visual studio code')) return 'vscode';
+  return 'other';
+}
+
+/**
  * Uninstall micro-survey picklist (S20) — the one optional "why?"
  * answer a departing person can tap on the openheaders.io landing
  * page. No client ever emits it: the value is chosen by the person on
@@ -384,6 +422,16 @@ export const TelemetryEventSchema = v.variant('name', [
     name: v.literal('upgrade_cta_clicked'),
     surface: TelemetryMonetizationSurfaceSchema,
   }),
+  // MCP visibility (user-signed 2026-08-13): which AI client completed
+  // the MCP `initialize` handshake, once per client per session per UTC
+  // day. Desktop-embedded host only by construction — the MCP surface
+  // itself stays hard-off (plan §2) and standalone daemons carry no
+  // channel; the free-form client name maps through the picklist before
+  // it ever becomes an event.
+  v.strictObject({
+    name: v.literal('mcp_client_connected'),
+    client: TelemetryMcpClientSchema,
+  }),
 ]);
 
 /**
@@ -441,6 +489,7 @@ export type TelemetryRuleCreatedOrigin = v.InferOutput<typeof TelemetryRuleCreat
 export type TelemetryImportSourceId = v.InferOutput<typeof TelemetryImportSourceIdSchema>;
 export type TelemetryPlanBucket = v.InferOutput<typeof TelemetryPlanBucketSchema>;
 export type TelemetryMonetizationSurface = v.InferOutput<typeof TelemetryMonetizationSurfaceSchema>;
+export type TelemetryMcpClient = v.InferOutput<typeof TelemetryMcpClientSchema>;
 export type TelemetryUninstallReason = v.InferOutput<typeof TelemetryUninstallReasonSchema>;
 export type TelemetryErrorCode = v.InferOutput<typeof TelemetryErrorCodeSchema>;
 export type TelemetryAppVersion = v.InferOutput<typeof TelemetryAppVersionSchema>;

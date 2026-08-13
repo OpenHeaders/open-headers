@@ -47,10 +47,10 @@ describe('telemetry vocabulary — no-string-fields guard', () => {
   collectNodeTypes(TelemetryEventSchema, 'event', nodes);
 
   it('actually walked the vocabulary (sanity floor)', () => {
-    // 12 variant options plus their properties — a broken walker that visits
+    // 13 variant options plus their properties — a broken walker that visits
     // nothing must not masquerade as a passing guard.
     expect(nodes.length).toBeGreaterThan(20);
-    expect(nodes.filter((n) => n.type === 'strict_object').length).toBeGreaterThanOrEqual(12);
+    expect(nodes.filter((n) => n.type === 'strict_object').length).toBeGreaterThanOrEqual(13);
   });
 
   it('admits no string-typed node anywhere in any event payload', () => {

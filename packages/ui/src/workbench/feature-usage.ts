@@ -33,6 +33,9 @@ const TAB_MODE_FEATURES: Partial<Record<TabMode, TelemetryFeatureId>> = {
   'grpc-edit': 'grpc-client',
   'websocket-edit': 'ws-client',
   'whats-new': 'whats-new',
+  // Only reachable behind an admin grant, so an opened tab is always
+  // the real console — never a teaser (MCP visibility slice).
+  'server-admin': 'server-admin',
 };
 
 /** Record the feature a freshly-opened workbench tab represents, if any. */

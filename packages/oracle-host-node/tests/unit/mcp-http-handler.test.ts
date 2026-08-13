@@ -29,6 +29,7 @@ import { createPairingHttpHandler } from '../../src/host-runtime/pairing-http';
 import { createMcpHttpHandler, type McpHttpHandler } from '../../src/mcp/http-handler';
 import type { McpPolicy } from '../../src/mcp/policy';
 import { createMcpToolRegistry, type McpToolDefinition } from '../../src/mcp/registry';
+import { setMcpUsageObserver } from '../../src/mcp/usage-observer';
 import { createHostStorageFake } from './_host-storage-fake';
 
 const ECHO_TOOL: McpToolDefinition = {
@@ -273,6 +274,100 @@ describe('MCP HTTP handler', () => {
     });
     expect(json.error).toBeDefined();
     expect((json.error as { message: string }).message).toContain('unknown tool');
+  });
+});
+
+// ── Usage observer (policy-free visibility seam) ────────────────────
+//
+// A host shell may install a process-wide observer to learn that the
+// MCP surface is in real use: every admitted POST notifies once, and
+// an `initialize` body additionally announces the client's free-form
+// `clientInfo.name`. Requests refused by admission (switch off, bad
+// origin, bad token) never notify — the seam reports real use only.
+
+describe('MCP HTTP handler — usage observer', () => {
+  let harness: Harness;
+  let secret: string;
+  let served: number;
+  let clients: string[];
+
+  beforeEach(async () => {
+    setHostLogger(consoleLogger);
+    setHostStorage(createHostStorageFake());
+    clearIdentitySnapshot();
+    await ensureSyntheticIdentity({ hostKind: 'daemon', now: '2026-07-09T00:00:00.000Z' });
+    secret = (await mintDaemonAuthToken({ label: 'observed client' })).secret;
+    served = 0;
+    clients = [];
+    setMcpUsageObserver({
+      requestServed: () => {
+        served += 1;
+      },
+      clientInitialized: (name) => {
+        clients.push(name);
+      },
+    });
+    const enabled = { value: true };
+    const handler = createMcpHttpHandler({
+      registry: createMcpToolRegistry([ECHO_TOOL]),
+      isEnabled: () => enabled.value,
+      getPolicy: () => ({ enabledTiers: new Set(['read']) }),
+      serverVersion: '2026.7.0',
+    });
+    const started = await startHarness(handler);
+    harness = { ...started, enabled };
+  });
+
+  afterEach(async () => {
+    setMcpUsageObserver(null);
+    await new Promise<void>((resolve, reject) => {
+      harness.server.close((err) => (err ? reject(err) : resolve()));
+    });
+  });
+
+  it('notifies one served request plus the announced client name on initialize', async () => {
+    const { status } = await postRpc(harness.baseUrl, secret, 'initialize', INITIALIZE_PARAMS);
+    expect(status).toBe(200);
+    expect(served).toBe(1);
+    expect(clients).toEqual(['openheaders-test-client']);
+  });
+
+  it('notifies served without a client for non-initialize bodies', async () => {
+    await postRpc(harness.baseUrl, secret, 'tools/call', { name: 'echo_args', arguments: { value: 'ok' } });
+    expect(served).toBe(1);
+    expect(clients).toEqual([]);
+  });
+
+  it('never notifies while the switch is off or when admission refuses', async () => {
+    harness.enabled.value = false;
+    await postRpc(harness.baseUrl, secret, 'initialize', INITIALIZE_PARAMS);
+    harness.enabled.value = true;
+    await fetch(`${harness.baseUrl}${MCP_HTTP_PATH}`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', accept: 'application/json, text/event-stream' },
+      body: rpcBody('initialize', INITIALIZE_PARAMS),
+    });
+    await fetch(`${harness.baseUrl}${MCP_HTTP_PATH}`, {
+      method: 'POST',
+      headers: { ...rpcHeaders(secret), origin: 'https://openheaders.io' },
+      body: rpcBody('initialize', INITIALIZE_PARAMS),
+    });
+    expect(served).toBe(0);
+    expect(clients).toEqual([]);
+  });
+
+  it('a throwing observer never fails the request', async () => {
+    setMcpUsageObserver({
+      requestServed: () => {
+        throw new Error('observer bug');
+      },
+      clientInitialized: () => {
+        throw new Error('observer bug');
+      },
+    });
+    const { status, json } = await postRpc(harness.baseUrl, secret, 'initialize', INITIALIZE_PARAMS);
+    expect(status).toBe(200);
+    expect((json.result as { serverInfo: { name: string } }).serverInfo.name).toBe('open-headers');
   });
 });
 

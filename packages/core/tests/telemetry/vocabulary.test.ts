@@ -22,6 +22,7 @@ import {
   TelemetryRuleTypeIdSchema,
   TelemetrySessionIdSchema,
   toTelemetryLocale,
+  toTelemetryMcpClient,
 } from '../../src/telemetry';
 
 type MutuallyAssignable<A, B> = [A] extends [B] ? ([B] extends [A] ? true : never) : never;
@@ -62,6 +63,9 @@ const SAMPLE_EVENTS: TelemetryEvent[] = [
   { name: 'paywall_hit', surface: 'seat-gate' },
   { name: 'upgrade_cta_shown', surface: 'license-pane' },
   { name: 'upgrade_cta_clicked', surface: 'grace-banner' },
+  { name: 'feature_used', feature: 'mcp-server' },
+  { name: 'feature_used', feature: 'server-admin' },
+  { name: 'mcp_client_connected', client: 'claude-code' },
 ];
 
 describe('telemetry vocabulary — round-trips', () => {
@@ -184,6 +188,17 @@ describe('telemetry vocabulary — rejections', () => {
     for (const name of ['paywall_hit', 'upgrade_cta_shown', 'upgrade_cta_clicked']) {
       expect(v.safeParse(TelemetryEventSchema, { name, surface: 'pricing-page' }).success).toBe(false);
     }
+  });
+
+  it('rejects a raw MCP client name — the picklist mapping is structural, never a passthrough', () => {
+    for (const client of ['My Custom Agent/1.0', 'Claude Code', 'openheaders-test-client']) {
+      expect(v.safeParse(TelemetryEventSchema, { name: 'mcp_client_connected', client }).success).toBe(false);
+    }
+  });
+
+  it('rejects mcp_client_connected carrying anything beyond the client bucket', () => {
+    const smuggled = { name: 'mcp_client_connected', client: 'cursor', version: '1.2.3' };
+    expect(v.safeParse(TelemetryEventSchema, smuggled).success).toBe(false);
   });
 
   it('rejects a web host kind — served-web is hard-off and inexpressible', () => {
@@ -359,6 +374,30 @@ describe('activatedPlanFromLicenseSnapshot', () => {
   it('derives nothing from unlicensed or invalid snapshots — no activation, no event', () => {
     expect(activatedPlanFromLicenseSnapshot({ status: 'unlicensed' })).toBeNull();
     expect(activatedPlanFromLicenseSnapshot({ status: 'invalid', reason: 'bad-signature' })).toBeNull();
+  });
+});
+
+describe('toTelemetryMcpClient', () => {
+  it('maps the known agent families by keyword, case-insensitively', () => {
+    expect(toTelemetryMcpClient('claude-code')).toBe('claude-code');
+    expect(toTelemetryMcpClient('Claude Code')).toBe('claude-code');
+    expect(toTelemetryMcpClient('claude-ai')).toBe('claude-desktop');
+    expect(toTelemetryMcpClient('Claude Desktop')).toBe('claude-desktop');
+    expect(toTelemetryMcpClient('cursor')).toBe('cursor');
+    expect(toTelemetryMcpClient('Windsurf')).toBe('windsurf');
+    expect(toTelemetryMcpClient('Visual Studio Code')).toBe('vscode');
+    expect(toTelemetryMcpClient('vscode')).toBe('vscode');
+  });
+
+  it('reads VS Code forks as the fork, not vscode — fork checks run first', () => {
+    expect(toTelemetryMcpClient('cursor-vscode')).toBe('cursor');
+    expect(toTelemetryMcpClient('windsurf-vscode')).toBe('windsurf');
+  });
+
+  it('maps everything unlisted to other, never a raw string', () => {
+    expect(toTelemetryMcpClient('mcp-inspector')).toBe('other');
+    expect(toTelemetryMcpClient('My Custom Agent/1.0')).toBe('other');
+    expect(toTelemetryMcpClient('')).toBe('other');
   });
 });
 

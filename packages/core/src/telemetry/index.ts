@@ -63,6 +63,8 @@ export {
   TelemetryInstallIdSchema,
   type TelemetryLocale,
   TelemetryLocaleSchema,
+  type TelemetryMcpClient,
+  TelemetryMcpClientSchema,
   type TelemetryMonetizationSurface,
   TelemetryMonetizationSurfaceSchema,
   type TelemetryPlanBucket,
@@ -83,4 +85,5 @@ export {
   type TelemetryUninstallReason,
   TelemetryUninstallReasonSchema,
   toTelemetryLocale,
+  toTelemetryMcpClient,
 } from './vocabulary';
