@@ -172,7 +172,8 @@ event of the current session byte for byte, sent or suppressed.
     { "name": "license_activated", "plan": "individual" },
     { "name": "paywall_hit", "surface": "seat-gate" },
     { "name": "upgrade_cta_shown", "surface": "license-pane" },
-    { "name": "upgrade_cta_clicked", "surface": "grace-banner" }
+    { "name": "upgrade_cta_clicked", "surface": "grace-banner" },
+    { "name": "mcp_client_connected", "client": "claude-code" }
   ]
 }
 ```
@@ -211,7 +212,7 @@ event of the current session byte for byte, sent or suppressed.
     moment the batch is sent, only ever as one of five coarse buckets
     (`0-9m`, `10-59m`, `1-8h`, `8-24h`, `24h+`); precise durations are
     inexpressible. Added 2026-08 (S17); earlier clients omit it.
-  - `events` — only the twelve event shapes above exist, and every
+  - `events` — only the thirteen event shapes above exist, and every
     field value comes from a closed union checked into the
     repository. `first_run` fires once per install; `session_start`
     fires once per session per UTC day (a long-running browser or tray
@@ -233,8 +234,17 @@ event of the current session byte for byte, sent or suppressed.
     or seat count; `paywall_hit` and the `upgrade_cta_*` pair carry
     only which in-app spot was involved (`seat-gate`, `license-pane`,
     `grace-banner`), with `upgrade_cta_shown` firing at most once per
-    spot per session per UTC day. Every other per-process fact rides
-    the envelope.
+    spot per session per UTC day. `mcp_client_connected` (2026-08, S21)
+    fires from the desktop app at most once per client per session per
+    UTC day when an AI tool completes the MCP `initialize` handshake
+    against the app's embedded MCP server — it carries only which
+    client family connected (`claude-code`, `claude-desktop`, `cursor`,
+    `windsurf`, `vscode`, `other`); a client not on that list reports
+    `other`, never its name, and nothing about the agent's session,
+    tools, or data is expressible. (The MCP server itself still sends
+    no telemetry — this is the desktop app counting that its MCP
+    surface is in use, and a standalone server deployment counts
+    nothing.) Every other per-process fact rides the envelope.
 - **Response**: `202` when the envelope validates, `4xx` otherwise.
   The client never acts on the status either way — failures are
   silent, the batch simply rides the next flush, and nothing ever
@@ -247,7 +257,12 @@ event of the current session byte for byte, sent or suppressed.
   The IP address it derives from is never read into a data point, and
   no other request header is either; no third-party analytics SDK or
   processor is involved (Cloudflare already hosts the license worker
-  and is the only processor named in the privacy policy). Monthly
+  and is the only processor named in the privacy policy). Stored
+  column positions never change meaning; a few are shared across event
+  names carrying the same kind of fact (the typed reason code of
+  `error_beacon`/`uninstall_reason`; the external source id of
+  `import_run`/`mcp_client_connected`), split by event name when
+  queried. Monthly
   aggregate snapshots (counts only — ids are aggregated away) are
   committed to the repository as the long-term metrics ledger.
 - **Uninstall ping (extension only)**: the extension registers
