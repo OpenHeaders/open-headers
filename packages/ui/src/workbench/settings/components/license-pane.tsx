@@ -8,12 +8,16 @@
  */
 
 import { hostBridge } from '@openheaders/core/bridge';
+import { getCapability } from '@openheaders/core/capabilities';
 import { FREE_SEAT_LIMIT, type LicenseInvalidReason, type LicenseSnapshot } from '@openheaders/core/licensing';
+import type { TelemetryMonetizationSurface } from '@openheaders/core/telemetry';
 import type { MessageKey } from '@openheaders/i18n';
 import { Alert, App as AntApp, Button, Input, Popconfirm, Tag, theme, Upload } from 'antd';
 import type React from 'react';
 import { useEffect, useState } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
+import { getCurrentHost } from '../../../shared/host-vocabulary';
+import { noteUpgradeCtaShown, trackProductTelemetryEvent } from '../../../shared/product-telemetry';
 import { resolveLabel, resolveOptionalDescription } from '../localize';
 import type { CategoryPaneProps } from '../types';
 
@@ -27,6 +31,32 @@ const INVALID_REASON_TEXT: Record<LicenseInvalidReason, MessageKey> = {
 function formatDay(ms: number): string {
   return new Date(ms).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' });
 }
+
+const PRICING_URL = 'https://openheaders.io/pricing';
+
+/**
+ * Upgrade CTA on the free-tier/grace/expired alerts — desktop only:
+ * the pricing page is an external destination (the desktop-teaser
+ * download CTA carve-out), and the monetization emitters are desktop-
+ * scoped by law (served web is telemetry hard-off; teased hosts render
+ * no license pane at all).
+ */
+const UpgradeCta: React.FC<{ surface: TelemetryMonetizationSurface; label: string }> = ({ surface, label }) => {
+  useEffect(() => {
+    noteUpgradeCtaShown(surface);
+  }, [surface]);
+  const open = (): void => {
+    trackProductTelemetryEvent({ name: 'upgrade_cta_clicked', surface });
+    const openUrl = getCapability('openExternalUrl');
+    if (openUrl) void openUrl(PRICING_URL);
+    else window.open(PRICING_URL, '_blank', 'noopener');
+  };
+  return (
+    <Button size="small" onClick={open} data-testid={`license-upgrade-cta-${surface}`}>
+      {label}
+    </Button>
+  );
+};
 
 const DetailRow: React.FC<{ label: string; children: React.ReactNode }> = ({ label, children }) => {
   const { token } = theme.useToken();
@@ -94,6 +124,7 @@ const LicensePane: React.FC<CategoryPaneProps> = ({ category }) => {
   };
 
   const licensed = snapshot !== null && snapshot.status !== 'unlicensed' && snapshot.status !== 'invalid';
+  const upgradeCtaHost = getCurrentHost() === 'desktop';
 
   return (
     <div style={{ padding: '14px 18px 20px', maxWidth: 760 }}>
@@ -119,6 +150,11 @@ const LicensePane: React.FC<CategoryPaneProps> = ({ category }) => {
                 <span style={{ fontSize: 12 }}>
                   {t('workbench.settings.licensePane.freeTier.body', { limit: FREE_SEAT_LIMIT })}
                 </span>
+              }
+              action={
+                upgradeCtaHost ? (
+                  <UpgradeCta surface="license-pane" label={t('workbench.settings.licensePane.getLicenseCta')} />
+                ) : undefined
               }
               style={{ marginBottom: 12 }}
             />
@@ -153,6 +189,11 @@ const LicensePane: React.FC<CategoryPaneProps> = ({ category }) => {
                   })}
                 </span>
               }
+              action={
+                upgradeCtaHost ? (
+                  <UpgradeCta surface="grace-banner" label={t('workbench.settings.licensePane.renewLicenseCta')} />
+                ) : undefined
+              }
               style={{ marginBottom: 12 }}
             />
           )}
@@ -166,6 +207,11 @@ const LicensePane: React.FC<CategoryPaneProps> = ({ category }) => {
                 <span style={{ fontSize: 12 }}>
                   {t('workbench.settings.licensePane.expired.body', { limit: FREE_SEAT_LIMIT })}
                 </span>
+              }
+              action={
+                upgradeCtaHost ? (
+                  <UpgradeCta surface="grace-banner" label={t('workbench.settings.licensePane.renewLicenseCta')} />
+                ) : undefined
               }
               style={{ marginBottom: 12 }}
             />

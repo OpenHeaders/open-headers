@@ -232,7 +232,9 @@ event of the current session byte for byte, sent or suppressed.
     (`free`/`individual`/`team`) — never a license id, key, licensee,
     or seat count; `paywall_hit` and the `upgrade_cta_*` pair carry
     only which in-app spot was involved (`seat-gate`, `license-pane`,
-    `grace-banner`). Every other per-process fact rides the envelope.
+    `grace-banner`), with `upgrade_cta_shown` firing at most once per
+    spot per session per UTC day. Every other per-process fact rides
+    the envelope.
 - **Response**: `202` when the envelope validates, `4xx` otherwise.
   The client never acts on the status either way — failures are
   silent, the batch simply rides the next flush, and nothing ever

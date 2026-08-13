@@ -33,6 +33,7 @@ import { type BridgeRpcRequest, type BridgeRpcResponse, hostBridge } from '@open
 import { getDateTimeFormat, type MessageKey } from '@openheaders/i18n';
 import { useLocale, useT } from '@openheaders/ui/context/LocaleContext';
 import { useWorkspaces } from '../../../shared/hooks/readers/useWorkspaces';
+import { noteUpgradeCtaShown, trackProductTelemetryEvent } from '../../../shared/product-telemetry';
 import BackendTokensSection from '../../settings/components/backend-tokens-section';
 import GitWorkspacePane, {
   type WorkspaceTreeRpcType,
@@ -405,6 +406,11 @@ const ServerAdminConsole: React.FC = () => {
     if (gitWorkspaceId === null && workspaces.length > 0) setGitWorkspaceId(workspaces[0].id);
   }, [gitWorkspaceId, workspaces]);
 
+  // The seat wall's pricing pointer is the seat-gate upgrade CTA.
+  useEffect(() => {
+    if (seatBlocked) noteUpgradeCtaShown('seat-gate');
+  }, [seatBlocked]);
+
   async function handleAddUser(values: { displayName: string; email: string; personalLicense?: string }): Promise<void> {
     setAdding(true);
     try {
@@ -413,14 +419,20 @@ const ServerAdminConsole: React.FC = () => {
         email: values.email?.trim() || undefined,
         personalLicense: values.personalLicense?.trim() || undefined,
       });
-      if (!resp.ok) throw new Error(resp.error);
+      if (!resp.ok) {
+        // The seat wall is the conversion moment: reveal the redeem field
+        // so the blocked admission can complete with the user's own seat.
+        if (resp.reason === 'seat-limit-reached') {
+          setSeatBlocked(true);
+          trackProductTelemetryEvent({ name: 'paywall_hit', surface: 'seat-gate' });
+        }
+        message.error(t('workbench.serverAdmin.users.addFailed', { message: resp.error }));
+        return;
+      }
       addForm.resetFields();
       setSeatBlocked(false);
       await refresh();
     } catch (err) {
-      // The seat wall is the conversion moment: reveal the redeem field
-      // so the blocked admission can complete with the user's own seat.
-      if ((err as Error).message.includes('seat limit reached')) setSeatBlocked(true);
       message.error(t('workbench.serverAdmin.users.addFailed', { message: (err as Error).message }));
     } finally {
       setAdding(false);
@@ -585,7 +597,11 @@ const ServerAdminConsole: React.FC = () => {
           {seatBlocked && (
             <div style={{ fontSize: 11, color: token.colorTextTertiary, marginBottom: 12 }}>
               {t('workbench.serverAdmin.users.seatLimit')} {t('workbench.serverAdmin.users.seatsSoldAt')}{' '}
-              <Typography.Link href="https://openheaders.io/pricing" target="_blank">
+              <Typography.Link
+                href="https://openheaders.io/pricing"
+                target="_blank"
+                onClick={() => trackProductTelemetryEvent({ name: 'upgrade_cta_clicked', surface: 'seat-gate' })}
+              >
                 openheaders.io/pricing
               </Typography.Link>
               .

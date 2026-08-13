@@ -117,12 +117,16 @@ export function createInMemoryProductTelemetryInstallStore(
 /**
  * Latch key for events that fire once per session per union member
  * (`feature_used` per feature, `error_beacon` per code, `rule_matched`
- * per rule type); null for events that count every occurrence.
+ * per rule type, `upgrade_cta_shown` per surface); null for events that
+ * count every occurrence — `upgrade_cta_clicked`, `paywall_hit`, and
+ * `license_activated` stay unlatched by design (S22): each occurrence
+ * is a distinct funnel fact and all three are low-volume.
  */
 export function oncePerSessionLatchKey(event: TelemetryEvent): string | null {
   if (event.name === 'feature_used') return `feature_used:${event.feature}`;
   if (event.name === 'error_beacon') return `error_beacon:${event.code}`;
   if (event.name === 'rule_matched') return `rule_matched:${event.ruleType}`;
+  if (event.name === 'upgrade_cta_shown') return `upgrade_cta_shown:${event.surface}`;
   return null;
 }
 

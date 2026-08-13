@@ -12,7 +12,7 @@
  */
 
 import { getHostBridge } from '@openheaders/core/bridge';
-import type { TelemetryEvent, TelemetryFeatureId } from '@openheaders/core/telemetry';
+import type { TelemetryEvent, TelemetryFeatureId, TelemetryMonetizationSurface } from '@openheaders/core/telemetry';
 import { getCurrentHost } from '../host-vocabulary';
 
 export function trackProductTelemetryEvent(event: TelemetryEvent): void {
@@ -32,7 +32,17 @@ export function noteFeatureUsed(feature: TelemetryFeatureId): void {
   trackProductTelemetryEvent({ name: 'feature_used', feature });
 }
 
-/** Test-only — clears the per-document feature guard. */
+const notedCtaSurfaces = new Set<TelemetryMonetizationSurface>();
+
+/** Record an upgrade-CTA impression (monetization funnel, S22); repeats in this document are dropped before the RPC. */
+export function noteUpgradeCtaShown(surface: TelemetryMonetizationSurface): void {
+  if (notedCtaSurfaces.has(surface)) return;
+  notedCtaSurfaces.add(surface);
+  trackProductTelemetryEvent({ name: 'upgrade_cta_shown', surface });
+}
+
+/** Test-only — clears the per-document feature and CTA-impression guards. */
 export function __resetProductTelemetryTrackForTests(): void {
   notedFeatures.clear();
+  notedCtaSurfaces.clear();
 }

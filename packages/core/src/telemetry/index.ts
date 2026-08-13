@@ -36,6 +36,7 @@ export {
   SESSION_START_SENT_LATCH_KEY,
 } from './controller';
 export {
+  activatedPlanFromLicenseSnapshot,
   bucketScale,
   bucketSessionAge,
   bucketSinceInstall,

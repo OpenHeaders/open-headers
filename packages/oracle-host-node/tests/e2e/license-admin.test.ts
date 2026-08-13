@@ -300,6 +300,7 @@ describe.skipIf(!ENABLED)('licensing enforcement over the admin wire', () => {
         email: `seat-probe-${RUN}-over@openheaders.io`,
       });
       expect(refused.ok).toBe(false);
+      expect(refused.reason).toBe('seat-limit-reached');
       expect(String(refused.error)).toContain(`seat limit reached (${seatLimit} active users)`);
     } finally {
       for (const userId of probeIds) {

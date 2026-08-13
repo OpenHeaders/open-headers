@@ -333,15 +333,21 @@ describe('ProductTelemetryController — once-per-session dedupe', () => {
 });
 
 describe('oncePerSessionLatchKey', () => {
-  it('keys feature_used, error_beacon, and rule_matched per member, everything else null', () => {
+  it('keys feature_used, error_beacon, rule_matched, and upgrade_cta_shown per member, everything else null', () => {
     expect(oncePerSessionLatchKey({ name: 'feature_used', feature: 'vault' })).toBe('feature_used:vault');
     expect(oncePerSessionLatchKey({ name: 'error_beacon', code: 'sync-push-failed' })).toBe(
       'error_beacon:sync-push-failed',
     );
     expect(oncePerSessionLatchKey({ name: 'rule_matched', ruleType: 'response' })).toBe('rule_matched:response');
+    expect(oncePerSessionLatchKey({ name: 'upgrade_cta_shown', surface: 'license-pane' })).toBe(
+      'upgrade_cta_shown:license-pane',
+    );
     expect(oncePerSessionLatchKey({ name: 'workflow_run', ok: true })).toBeNull();
     expect(oncePerSessionLatchKey({ name: 'rule_created', ruleType: 'header' })).toBeNull();
     expect(oncePerSessionLatchKey({ name: 'import_run', source: 'curl', ok: true })).toBeNull();
+    expect(oncePerSessionLatchKey({ name: 'upgrade_cta_clicked', surface: 'license-pane' })).toBeNull();
+    expect(oncePerSessionLatchKey({ name: 'paywall_hit', surface: 'seat-gate' })).toBeNull();
+    expect(oncePerSessionLatchKey({ name: 'license_activated', plan: 'team' })).toBeNull();
     expect(oncePerSessionLatchKey(SESSION_START)).toBeNull();
   });
 
@@ -356,6 +362,28 @@ describe('oncePerSessionLatchKey', () => {
     expect(sent[0].events).toEqual([
       { name: 'rule_matched', ruleType: 'header' },
       { name: 'rule_matched', ruleType: 'block' },
+    ]);
+  });
+
+  it('dedupes upgrade_cta_shown per surface while clicks and paywall hits count every occurrence', async () => {
+    const { controller, sent } = makeRig({ sessionStart: null });
+    await controller.init();
+    await controller.track({ name: 'upgrade_cta_shown', surface: 'license-pane' });
+    await controller.track({ name: 'upgrade_cta_shown', surface: 'license-pane' });
+    await controller.track({ name: 'upgrade_cta_shown', surface: 'seat-gate' });
+    await controller.track({ name: 'upgrade_cta_clicked', surface: 'license-pane' });
+    await controller.track({ name: 'upgrade_cta_clicked', surface: 'license-pane' });
+    await controller.track({ name: 'paywall_hit', surface: 'seat-gate' });
+    await controller.track({ name: 'paywall_hit', surface: 'seat-gate' });
+    await controller.flush();
+    expect(sent).toHaveLength(1);
+    expect(sent[0].events).toEqual([
+      { name: 'upgrade_cta_shown', surface: 'license-pane' },
+      { name: 'upgrade_cta_shown', surface: 'seat-gate' },
+      { name: 'upgrade_cta_clicked', surface: 'license-pane' },
+      { name: 'upgrade_cta_clicked', surface: 'license-pane' },
+      { name: 'paywall_hit', surface: 'seat-gate' },
+      { name: 'paywall_hit', surface: 'seat-gate' },
     ]);
   });
 });

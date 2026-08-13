@@ -2,8 +2,10 @@ import { LOCALES } from '@openheaders/i18n';
 import * as v from 'valibot';
 import { describe, expect, it } from 'vitest';
 import type { DetectedImportSource } from '../../src/import/detect';
+import type { LicensedSnapshot } from '../../src/licensing/types';
 import { RuleTypeSchema } from '../../src/schemas/rule';
 import {
+  activatedPlanFromLicenseSnapshot,
   bucketScale,
   bucketSessionAge,
   bucketSinceInstall,
@@ -332,6 +334,31 @@ describe('telemetry vocabulary — sync pins', () => {
       'workspace',
       'unknown',
     ]);
+  });
+});
+
+describe('activatedPlanFromLicenseSnapshot', () => {
+  const licensed = (overrides: Partial<LicensedSnapshot> = {}): LicensedSnapshot => ({
+    status: 'licensed',
+    licenseId: 'lic-1',
+    licensee: { name: 'Dev' },
+    seats: 25,
+    entitlements: [],
+    validUntil: 1_900_000_000_000,
+    graceEndsAt: 1_902_000_000_000,
+    ...overrides,
+  });
+
+  it('maps a personal-seat artifact to individual and any other verified license to team', () => {
+    expect(activatedPlanFromLicenseSnapshot(licensed({ kind: 'personal-seat', seats: 1 }))).toBe('individual');
+    expect(activatedPlanFromLicenseSnapshot(licensed())).toBe('team');
+    expect(activatedPlanFromLicenseSnapshot(licensed({ status: 'grace' }))).toBe('team');
+    expect(activatedPlanFromLicenseSnapshot(licensed({ status: 'expired' }))).toBe('team');
+  });
+
+  it('derives nothing from unlicensed or invalid snapshots — no activation, no event', () => {
+    expect(activatedPlanFromLicenseSnapshot({ status: 'unlicensed' })).toBeNull();
+    expect(activatedPlanFromLicenseSnapshot({ status: 'invalid', reason: 'bad-signature' })).toBeNull();
   });
 });
 

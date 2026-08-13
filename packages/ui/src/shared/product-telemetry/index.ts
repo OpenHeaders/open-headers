@@ -1,1 +1,6 @@
-export { __resetProductTelemetryTrackForTests, noteFeatureUsed, trackProductTelemetryEvent } from './track';
+export {
+  __resetProductTelemetryTrackForTests,
+  noteFeatureUsed,
+  noteUpgradeCtaShown,
+  trackProductTelemetryEvent,
+} from './track';

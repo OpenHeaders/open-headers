@@ -56,6 +56,7 @@ export {
   type AbsorbPersonalSeatResult,
   absorbPersonalSeat,
   type CreateDaemonUserInput,
+  type CreateDaemonUserRefusalReason,
   type CreateDaemonUserResult,
   createDaemonUser,
   type DaemonUserGitAttribution,

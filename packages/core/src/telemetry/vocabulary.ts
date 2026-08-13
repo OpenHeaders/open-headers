@@ -14,6 +14,7 @@
  */
 
 import * as v from 'valibot';
+import type { LicenseSnapshot } from '../licensing/types';
 
 export const TELEMETRY_SCHEMA_VERSION = 2 as const;
 
@@ -207,6 +208,21 @@ export function bucketSessionAge(startedAt: number, now: number): TelemetrySessi
  * never a license id, key, licensee, or seat count.
  */
 export const TelemetryPlanBucketSchema = v.picklist(['free', 'individual', 'team']);
+
+/**
+ * The plan a user-initiated license install activated, from the
+ * entitlement snapshot the install returned — the ONLY seam
+ * `license_activated` may derive from (S20 law: never the license file,
+ * never id/key/licensee/seats). Null means nothing activated
+ * (`unlicensed`/`invalid`) and no event fires; `free` is never an
+ * activation. A `personal-seat` artifact is the Individual plan, any
+ * other verified license is an org license (Team; Enterprise is
+ * deliberately indistinguishable).
+ */
+export function activatedPlanFromLicenseSnapshot(snapshot: LicenseSnapshot): TelemetryPlanBucket | null {
+  if (snapshot.status === 'unlicensed' || snapshot.status === 'invalid') return null;
+  return snapshot.kind === 'personal-seat' ? 'individual' : 'team';
+}
 
 /**
  * Where a monetization moment happened (S20) — one unified list across

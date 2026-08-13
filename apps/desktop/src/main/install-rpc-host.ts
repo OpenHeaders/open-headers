@@ -43,11 +43,12 @@ import { randomUUID } from 'node:crypto';
 import { existsSync } from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
+import type { BridgeRpcResponse } from '@openheaders/core/bridge';
 import type { ImportReport } from '@openheaders/core/import';
 import { setHostLogger } from '@openheaders/core/logger';
 import { CHROMIUM_EXTENSION_IDS, GECKO_EXTENSION_IDS } from '@openheaders/core/protocol';
 import { OH } from '@openheaders/core/storage';
-import type { TelemetryEvent } from '@openheaders/core/telemetry';
+import { activatedPlanFromLicenseSnapshot, type TelemetryEvent } from '@openheaders/core/telemetry';
 import {
   clearImportReports,
   findImportReportBySourceHash,
@@ -607,6 +608,21 @@ export async function installRpcHost(): Promise<void> {
     if (type === 'oh.migration.readInsomniaData') {
       const dir = typeof message.dir === 'string' ? message.dir : '';
       return readInsomniaData(dir);
+    }
+    // `license_activated` (TELEMETRY_PLAN.md §3, S22): the one emit
+    // point for user-initiated license installs — the spine handles the
+    // install and stays telemetry-free; the refresh agent's silent file
+    // swaps never pass through here. Desktop-renderer installs only by
+    // construction (served-web admin reaches the spine over its own
+    // gated peer plane, never this dispatcher). Plan derives from the
+    // returned snapshot alone, never the license file.
+    if (type === 'oh.daemon.license.install') {
+      const result = (await spine.dispatchRpc(raw)) as BridgeRpcResponse<'oh.daemon.license.install'>;
+      if (result.ok) {
+        const plan = activatedPlanFromLicenseSnapshot(result.snapshot);
+        if (plan) productTelemetry.track({ name: 'license_activated', plan });
+      }
+      return result;
     }
     // Product-telemetry seam (TELEMETRY_PLAN.md §6/§7): UI surfaces
     // track through the bridge and the inspector row reads the session

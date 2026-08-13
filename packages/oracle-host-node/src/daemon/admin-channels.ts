@@ -593,27 +593,37 @@ export function createAdminChannelHandlers(deps: AdminChannelDeps): ReadonlyMap<
       if (created.reason === 'seat-limit-reached') {
         return {
           ok: false,
+          reason: created.reason,
           error:
             `seat limit reached (${created.seatLimit} active users) — deactivate a user to free a seat, ` +
             "add seats via a license, or redeem the joining user's individual seat",
         };
       }
       if (created.reason === 'personal-license-identity-mismatch') {
-        return { ok: false, error: 'the individual seat belongs to a different email — it only admits its holder' };
+        return {
+          ok: false,
+          reason: created.reason,
+          error: 'the individual seat belongs to a different email — it only admits its holder',
+        };
       }
       if (created.reason === 'personal-license-invalid') {
         return {
           ok: false,
+          reason: created.reason,
           error: 'the individual-seat key is not usable (invalid, expired, or not an individual seat)',
         };
       }
       if (created.reason === 'personal-license-no-identity') {
-        return { ok: false, error: 'an individual seat needs the user email to match — set an email for the new user' };
+        return {
+          ok: false,
+          reason: created.reason,
+          error: 'an individual seat needs the user email to match — set an email for the new user',
+        };
       }
       if (created.reason === 'personal-seats-disabled') {
-        return { ok: false, error: 'individual-seat redemption is disabled on this daemon' };
+        return { ok: false, reason: created.reason, error: 'individual-seat redemption is disabled on this daemon' };
       }
-      return { ok: false, error: created.reason };
+      return { ok: false, reason: created.reason, error: created.reason };
     } catch (err) {
       return { ok: false, error: (err as Error).message };
     }

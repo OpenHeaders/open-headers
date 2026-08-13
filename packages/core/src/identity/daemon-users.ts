@@ -64,6 +64,9 @@ export type CreateDaemonUserResult =
       readonly seatLimit: number;
     };
 
+/** The refusal vocabulary, as the `users.create` channel's typed `reason` (admin surfaces branch on it, never the message). */
+export type CreateDaemonUserRefusalReason = Extract<CreateDaemonUserResult, { readonly ok: false }>['reason'];
+
 export type DeactivateDaemonUserResult =
   | { readonly ok: true }
   | { readonly ok: false; readonly reason: 'unknown-user' | 'already-deactivated' };

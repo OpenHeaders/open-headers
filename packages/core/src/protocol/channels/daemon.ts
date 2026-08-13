@@ -10,6 +10,7 @@
  * uniform in-band error.
  */
 
+import type { CreateDaemonUserRefusalReason } from '../../identity';
 import type { LicenseSnapshot } from '../../licensing';
 import type {
   TrafficArchivedSessionProjection,
@@ -269,7 +270,8 @@ export interface DaemonRpc {
    */
   'oh.daemon.users.create': {
     req: { displayName: string; email?: string; personalLicense?: string };
-    res: { ok: true; userId: string } | { ok: false; error: string };
+    /** Refusals carry the store's typed `reason` beside the message — surfaces branch on it (seat wall, redeem field), never on the string. */
+    res: { ok: true; userId: string } | { ok: false; error: string; reason?: CreateDaemonUserRefusalReason };
   };
 
   /** Flat directory projection for admin surfaces, grants included. */

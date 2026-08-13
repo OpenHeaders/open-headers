@@ -13,6 +13,7 @@ import { setCurrentHost } from '@openheaders/ui/shared/host-vocabulary';
 import {
   __resetProductTelemetryTrackForTests,
   noteFeatureUsed,
+  noteUpgradeCtaShown,
   trackProductTelemetryEvent,
 } from '@openheaders/ui/shared/product-telemetry';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -62,6 +63,22 @@ describe('noteFeatureUsed', () => {
     });
     expect(call).toHaveBeenNthCalledWith(2, 'productTelemetryTrack', {
       event: { name: 'feature_used', feature: 'variables' },
+    });
+  });
+});
+
+describe('noteUpgradeCtaShown', () => {
+  it('fires one RPC per surface per document, host latch owns the session dedupe', () => {
+    const call = installBridge();
+    noteUpgradeCtaShown('license-pane');
+    noteUpgradeCtaShown('license-pane');
+    noteUpgradeCtaShown('seat-gate');
+    expect(call).toHaveBeenCalledTimes(2);
+    expect(call).toHaveBeenNthCalledWith(1, 'productTelemetryTrack', {
+      event: { name: 'upgrade_cta_shown', surface: 'license-pane' },
+    });
+    expect(call).toHaveBeenNthCalledWith(2, 'productTelemetryTrack', {
+      event: { name: 'upgrade_cta_shown', surface: 'seat-gate' },
     });
   });
 });
