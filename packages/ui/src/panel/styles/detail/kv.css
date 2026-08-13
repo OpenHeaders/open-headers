@@ -26,7 +26,14 @@
      overflow horizontally — that scrolled the whole row sideways and
      broke the rule-applied {{ref}} highlight. Wrap-and-break inside
      the value, cap visible height at ~4 lines, and scroll vertically
-     inside the value cell. */
+     inside the value cell.
+
+     No overscroll-behavior here: an overflow-y:auto element is a scroll
+     container even when its content fits, and `none` would make every
+     short value (the common case) consume wheel deltas at its boundary
+     instead of chaining them to the pane — turning the General / Timing
+     / Initiator rows into scroll dead zones. Gesture latching already
+     keeps an overflowing value from handing mid-scroll to the pane. */
   flex: 1;
   min-width: 0;
   word-break: break-all;
@@ -34,7 +41,6 @@
   /* Visible-height cap; defined in panel.css :root. */
   max-height: var(--oh-multiline-cap, 96px);
   overflow-y: auto;
-  overscroll-behavior: none;
   overflow-x: hidden;
 }
 
