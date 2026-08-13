@@ -258,11 +258,16 @@ event of the current session byte for byte, sent or suppressed.
   no other request header is either; no third-party analytics SDK or
   processor is involved (Cloudflare already hosts the license worker
   and is the only processor named in the privacy policy). Stored
-  column positions never change meaning; a few are shared across event
-  names carrying the same kind of fact (the typed reason code of
-  `error_beacon`/`uninstall_reason`; the external source id of
-  `import_run`/`mcp_client_connected`), split by event name when
-  queried. Monthly
+  column positions never change meaning; a column may be shared across
+  event names carrying the same kind of fact (the external source id
+  of `import_run`/`mcp_client_connected`), split by event name when
+  queried. Storage is a two-member dataset family (2026-08, S25):
+  events from installed apps land in the product dataset, while the
+  two anonymous landing-page rows described below
+  (`uninstall_reason`, `download_clicked`) land in a separate web
+  dataset with its own columns — they are unjoinable to installs by
+  construction, and the storage boundary now matches that identity
+  boundary. Monthly
   aggregate snapshots (counts only — ids are aggregated away) are
   committed to the repository as the long-term metrics ledger.
 - **Uninstall ping (extension only)**: the extension registers
