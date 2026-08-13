@@ -168,7 +168,11 @@ event of the current session byte for byte, sent or suppressed.
     { "name": "rule_matched", "ruleType": "header" },
     { "name": "import_run", "source": "postman", "ok": true },
     { "name": "workflow_run", "ok": true },
-    { "name": "error_beacon", "code": "ws-connect-failed" }
+    { "name": "error_beacon", "code": "ws-connect-failed" },
+    { "name": "license_activated", "plan": "individual" },
+    { "name": "paywall_hit", "surface": "seat-gate" },
+    { "name": "upgrade_cta_shown", "surface": "license-pane" },
+    { "name": "upgrade_cta_clicked", "surface": "grace-banner" }
   ]
 }
 ```
@@ -207,21 +211,28 @@ event of the current session byte for byte, sent or suppressed.
     moment the batch is sent, only ever as one of five coarse buckets
     (`0-9m`, `10-59m`, `1-8h`, `8-24h`, `24h+`); precise durations are
     inexpressible. Added 2026-08 (S17); earlier clients omit it.
-  - `events` — only the eight event shapes above exist, and every
+  - `events` — only the twelve event shapes above exist, and every
     field value comes from a closed union checked into the
     repository. `first_run` fires once per install; `session_start`
     fires once per session per UTC day (a long-running browser or tray
     process re-announces itself daily — same event, same fields, no
     extra data) and carries only the coarse scale-of-use buckets:
-    `rules`/`workspaces` use the same bucket grammar as `sinceInstall`
-    (`0`, `1-5`, `6-20`, `21-100`, `100+` — clients built before
-    2026-08 S17 send `21+` for the whole top end, still accepted),
+    `rules`/`workspaces` use coarse buckets
+    (`0`, `1`, `2-5`, `6-20`, `21-100`, `100+` — clients built before
+    2026-08 send the older `1-5` and `21+` spans, still accepted),
     never exact counts. `rule_created`
     carries `origin` — which in-app affordance created the rule, one of
     `editor`, `quick-editor`, `empty-state-nudge`. `rule_matched` fires
     at most once per rule type per session per UTC day when a rule of
     that type acts on a request — it carries the rule type and nothing
-    about the request. Every other per-process fact rides the envelope.
+    about the request. The four monetization shapes (2026-08, S20)
+    carry one closed-union value each: `license_activated` fires only
+    on a license install you perform yourself (background license
+    refreshes never emit) with `plan` as a coarse bucket
+    (`free`/`individual`/`team`) — never a license id, key, licensee,
+    or seat count; `paywall_hit` and the `upgrade_cta_*` pair carry
+    only which in-app spot was involved (`seat-gate`, `license-pane`,
+    `grace-banner`). Every other per-process fact rides the envelope.
 - **Response**: `202` when the envelope validates, `4xx` otherwise.
   The client never acts on the status either way — failures are
   silent, the batch simply rides the next flush, and nothing ever
@@ -243,11 +254,23 @@ event of the current session byte for byte, sent or suppressed.
   extension is removed. It carries the install id plus two coarse
   vocabulary values already described above — `a` is the `sinceInstall`
   bucket at registration time and `c` is the distribution channel —
-  counts one departure, and redirects to `https://openheaders.io/`.
-  The worker validates both context values against their closed unions
-  and stores nothing for anything else. It is registered only while
-  the telemetry toggle is on and an install id exists; toggling off
-  clears it (no id, no ping).
+  counts one departure, and redirects to `https://openheaders.io/`,
+  passing only the validated `a`/`c` values along (the install id
+  never leaves the worker). The worker validates both context values
+  against their closed unions and stores nothing for anything else. It
+  is registered only while the telemetry toggle is on and an install
+  id exists; toggling off clears it (no id, no ping).
+- **Uninstall micro-survey (2026-08, S20)**: the landing page the
+  redirect opens may offer one optional "why did you uninstall?"
+  picklist. Tapping an answer submits
+  `GET https://telemetry.openheaders.io/v1/uninstall-reason?r=<reason>&a=<sinceInstall>&c=<channel>`
+  — the reason is one of seven fixed values (`not-needed`,
+  `not-working`, `missing-feature`, `too-complex`, `privacy`,
+  `switching`, `other`) and the coarse context is the same pair the
+  redirect carried. The stored row is anonymous by construction:
+  no install id, no session, nothing joinable back to an install —
+  free-text is inexpressible and an off-list value stores nothing.
+  Skipping the question sends nothing at all.
 - **Cadence**: batched — the host flushes the in-memory queue on an
   interval and best-effort on quit.
 - **Off switches**: Settings → General → telemetry toggle (extension

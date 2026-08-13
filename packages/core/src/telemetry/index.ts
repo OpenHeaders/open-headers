@@ -62,6 +62,10 @@ export {
   TelemetryInstallIdSchema,
   type TelemetryLocale,
   TelemetryLocaleSchema,
+  type TelemetryMonetizationSurface,
+  TelemetryMonetizationSurfaceSchema,
+  type TelemetryPlanBucket,
+  TelemetryPlanBucketSchema,
   type TelemetryPlatform,
   TelemetryPlatformSchema,
   type TelemetryRuleCreatedOrigin,
@@ -75,5 +79,7 @@ export {
   TelemetrySessionIdSchema,
   type TelemetrySinceInstallBucket,
   TelemetrySinceInstallBucketSchema,
+  type TelemetryUninstallReason,
+  TelemetryUninstallReasonSchema,
   toTelemetryLocale,
 } from './vocabulary';

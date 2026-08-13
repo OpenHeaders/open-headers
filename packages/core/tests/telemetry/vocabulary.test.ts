@@ -56,6 +56,10 @@ const SAMPLE_EVENTS: TelemetryEvent[] = [
   { name: 'error_beacon', code: 'ws-connect-failed' },
   { name: 'error_beacon', code: 'dnr-rule-limit' },
   { name: 'error_beacon', code: 'storage-quota' },
+  { name: 'license_activated', plan: 'individual' },
+  { name: 'paywall_hit', surface: 'seat-gate' },
+  { name: 'upgrade_cta_shown', surface: 'license-pane' },
+  { name: 'upgrade_cta_clicked', surface: 'grace-banner' },
 ];
 
 describe('telemetry vocabulary — round-trips', () => {
@@ -163,6 +167,23 @@ describe('telemetry vocabulary — rejections', () => {
     expect(v.safeParse(TelemetryEventSchema, { name: 'rule_matched', ruleType: 'anything' }).success).toBe(false);
   });
 
+  it('rejects a license_activated plan outside the coarse bucket picklist — channel separation is structural', () => {
+    for (const plan of ['enterprise', 'lic_00000042', 'user@openheaders.io']) {
+      expect(v.safeParse(TelemetryEventSchema, { name: 'license_activated', plan }).success).toBe(false);
+    }
+  });
+
+  it('rejects license_activated carrying anything beyond the plan bucket', () => {
+    const smuggled = { name: 'license_activated', plan: 'team', seats: 25 };
+    expect(v.safeParse(TelemetryEventSchema, smuggled).success).toBe(false);
+  });
+
+  it('rejects a monetization surface outside the closed union', () => {
+    for (const name of ['paywall_hit', 'upgrade_cta_shown', 'upgrade_cta_clicked']) {
+      expect(v.safeParse(TelemetryEventSchema, { name, surface: 'pricing-page' }).success).toBe(false);
+    }
+  });
+
   it('rejects a web host kind — served-web is hard-off and inexpressible', () => {
     const forged = {
       name: 'session_start',
@@ -256,10 +277,11 @@ describe('telemetry vocabulary — coarse buckets', () => {
     expect(bucketSinceInstall(NOW + DAY, NOW)).toBe('0');
   });
 
-  it('buckets entity counts coarsely with the S17 top-end split', () => {
+  it('buckets entity counts coarsely with the S17 top-end and S20 bottom-end splits', () => {
     expect(bucketScale(0)).toBe('0');
-    expect(bucketScale(1)).toBe('1-5');
-    expect(bucketScale(5)).toBe('1-5');
+    expect(bucketScale(1)).toBe('1');
+    expect(bucketScale(2)).toBe('2-5');
+    expect(bucketScale(5)).toBe('2-5');
     expect(bucketScale(6)).toBe('6-20');
     expect(bucketScale(20)).toBe('6-20');
     expect(bucketScale(21)).toBe('21-100');
@@ -268,8 +290,8 @@ describe('telemetry vocabulary — coarse buckets', () => {
     expect(bucketScale(-3)).toBe('0');
   });
 
-  it('still accepts the legacy 21+ scale bucket from pre-S17 clients', () => {
-    const event = { name: 'session_start', rules: '21+', workspaces: '21-100' };
+  it('still accepts the legacy 1-5 and 21+ scale buckets from earlier clients', () => {
+    const event = { name: 'session_start', rules: '21+', workspaces: '1-5' };
     expect(v.parse(TelemetryEventSchema, event)).toEqual(event);
   });
 

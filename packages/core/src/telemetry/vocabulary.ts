@@ -149,10 +149,12 @@ export const TelemetrySinceInstallBucketSchema = v.picklist(['0', '1', '2-7', '8
 /**
  * Coarse scale-of-use buckets — exact counts could fingerprint (plan §3).
  * S17 split the top end (`21-100`/`100+`) to separate heavy adopters
- * from the merely-established; `21+` stays wire-accepted only for
- * pre-S17 clients and is never emitted by current ones.
+ * from the merely-established; S20 split the bottom (`1`/`2-5`) so the
+ * single-default-workspace majority separates from real multi-workspace
+ * use — the Team-tier demand signal. `1-5` and `21+` stay wire-accepted
+ * only for earlier clients and are never emitted by current ones.
  */
-export const TelemetryScaleBucketSchema = v.picklist(['0', '1-5', '6-20', '21-100', '100+', '21+']);
+export const TelemetryScaleBucketSchema = v.picklist(['0', '1', '2-5', '6-20', '21-100', '100+', '1-5', '21+']);
 
 /**
  * Coarse session-age buckets, stamped on the envelope at flush time
@@ -177,7 +179,8 @@ export function bucketSinceInstall(installedAt: number, now: number): TelemetryS
 /** Bucket an entity count (rules, workspaces) for `session_start`. */
 export function bucketScale(count: number): TelemetryScaleBucket {
   if (count <= 0) return '0';
-  if (count <= 5) return '1-5';
+  if (count === 1) return '1';
+  if (count <= 5) return '2-5';
   if (count <= 20) return '6-20';
   if (count <= 100) return '21-100';
   return '100+';
@@ -194,6 +197,41 @@ export function bucketSessionAge(startedAt: number, now: number): TelemetrySessi
   if (elapsed < 24 * HOUR_MS) return '8-24h';
   return '24h+';
 }
+
+/**
+ * Coarse plan bucket for the monetization funnel (S20, user-signed
+ * 2026-08-13) — derivable from the license artifact alone: no license,
+ * a `personal-seat` license, or an org license. Enterprise is a
+ * purchasing tier, not a software tier, and is deliberately not
+ * distinguishable here. Channel separation (plan §1) is absolute:
+ * never a license id, key, licensee, or seat count.
+ */
+export const TelemetryPlanBucketSchema = v.picklist(['free', 'individual', 'team']);
+
+/**
+ * Where a monetization moment happened (S20) — one unified list across
+ * `paywall_hit` and the upgrade-CTA pair so the stored column keeps a
+ * single meaning: `seat-gate` is the seat-limit refusal, `license-pane`
+ * is Settings → License, `grace-banner` is the grace/expired alerts.
+ */
+export const TelemetryMonetizationSurfaceSchema = v.picklist(['seat-gate', 'license-pane', 'grace-banner']);
+
+/**
+ * Uninstall micro-survey picklist (S20) — the one optional "why?"
+ * answer a departing person can tap on the openheaders.io landing
+ * page. No client ever emits it: the value is chosen by the person on
+ * the website and accepted only through the worker's picklist gate,
+ * with no install id attached.
+ */
+export const TelemetryUninstallReasonSchema = v.picklist([
+  'not-needed',
+  'not-working',
+  'missing-feature',
+  'too-complex',
+  'privacy',
+  'switching',
+  'other',
+]);
 
 /** Typed failure codes only — never messages, never stacks (stacks can embed URLs; plan §3). */
 export const TelemetryErrorCodeSchema = v.picklist([
@@ -309,6 +347,27 @@ export const TelemetryEventSchema = v.variant('name', [
     name: v.literal('error_beacon'),
     code: TelemetryErrorCodeSchema,
   }),
+  // Monetization funnel (S20, user-signed 2026-08-13; emitters land
+  // S22). Desktop and CLI only by construction — daemon/served-web are
+  // hard-off and the extension carries no license plumbing. Fired on
+  // user-initiated license installs only: the refresh agent's silent
+  // periodic file swaps never emit.
+  v.strictObject({
+    name: v.literal('license_activated'),
+    plan: TelemetryPlanBucketSchema,
+  }),
+  v.strictObject({
+    name: v.literal('paywall_hit'),
+    surface: TelemetryMonetizationSurfaceSchema,
+  }),
+  v.strictObject({
+    name: v.literal('upgrade_cta_shown'),
+    surface: TelemetryMonetizationSurfaceSchema,
+  }),
+  v.strictObject({
+    name: v.literal('upgrade_cta_clicked'),
+    surface: TelemetryMonetizationSurfaceSchema,
+  }),
 ]);
 
 /**
@@ -364,6 +423,9 @@ export type TelemetryFeatureId = v.InferOutput<typeof TelemetryFeatureIdSchema>;
 export type TelemetryRuleTypeId = v.InferOutput<typeof TelemetryRuleTypeIdSchema>;
 export type TelemetryRuleCreatedOrigin = v.InferOutput<typeof TelemetryRuleCreatedOriginSchema>;
 export type TelemetryImportSourceId = v.InferOutput<typeof TelemetryImportSourceIdSchema>;
+export type TelemetryPlanBucket = v.InferOutput<typeof TelemetryPlanBucketSchema>;
+export type TelemetryMonetizationSurface = v.InferOutput<typeof TelemetryMonetizationSurfaceSchema>;
+export type TelemetryUninstallReason = v.InferOutput<typeof TelemetryUninstallReasonSchema>;
 export type TelemetryErrorCode = v.InferOutput<typeof TelemetryErrorCodeSchema>;
 export type TelemetryAppVersion = v.InferOutput<typeof TelemetryAppVersionSchema>;
 export type TelemetryEvent = v.InferOutput<typeof TelemetryEventSchema>;
