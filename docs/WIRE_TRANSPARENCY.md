@@ -271,12 +271,13 @@ event of the current session byte for byte, sent or suppressed.
   extension is removed. It carries the install id plus two coarse
   vocabulary values already described above — `a` is the `sinceInstall`
   bucket at registration time and `c` is the distribution channel —
-  counts one departure, and redirects to `https://openheaders.io/`,
-  passing only the validated `a`/`c` values along (the install id
-  never leaves the worker). The worker validates both context values
-  against their closed unions and stores nothing for anything else. It
-  is registered only while the telemetry toggle is on and an install
-  id exists; toggling off clears it (no id, no ping).
+  counts one departure, and redirects to the farewell page at
+  `https://openheaders.io/uninstall/`, passing only the validated
+  `a`/`c` values along (the install id never leaves the worker). The
+  worker validates both context values against their closed unions and
+  stores nothing for anything else. It is registered only while the
+  telemetry toggle is on and an install id exists; toggling off clears
+  it (no id, no ping).
 - **Uninstall micro-survey (2026-08, S20)**: the landing page the
   redirect opens may offer one optional "why did you uninstall?"
   picklist. Tapping an answer submits
@@ -288,6 +289,14 @@ event of the current session byte for byte, sent or suppressed.
   no install id, no session, nothing joinable back to an install —
   free-text is inexpressible and an off-list value stores nothing.
   Skipping the question sends nothing at all.
+- **Download-click beacon (website only, 2026-08, S23)**: clicking a
+  desktop-installer link on openheaders.io sends
+  `GET https://telemetry.openheaders.io/v1/download?t=<platform>` —
+  `t` is one of `mac`, `win`, `linux` (the same closed union the apps
+  report) and nothing else is attached. The stored row is anonymous by
+  the same construction as the micro-survey: no install id, no
+  session, nothing joinable. It counts a click on the website, never a
+  download or an install; the apps themselves never call this route.
 - **Cadence**: batched — the host flushes the in-memory queue on an
   interval and best-effort on quit.
 - **Off switches**: Settings → General → telemetry toggle (extension
