@@ -158,6 +158,7 @@ event of the current session byte for byte, sent or suppressed.
   "sessionId": "c0ffee00c0ffee00c0ffee00c0ffee00",
   "installId": "feedface00feedface00feedface0000",
   "sinceInstall": "2-7",
+  "sessionAge": "1-8h",
   "sentAt": 1760000000000,
   "events": [
     { "name": "first_run" },
@@ -202,6 +203,10 @@ event of the current session byte for byte, sent or suppressed.
   - `sinceInstall` — how old the install is, only ever as one of five
     coarse buckets (`0`, `1`, `2-7`, `8-30`, `31+` days); precise ages
     are inexpressible.
+  - `sessionAge` — how long this session has been running at the
+    moment the batch is sent, only ever as one of five coarse buckets
+    (`0-9m`, `10-59m`, `1-8h`, `8-24h`, `24h+`); precise durations are
+    inexpressible. Added 2026-08 (S17); earlier clients omit it.
   - `events` — only the eight event shapes above exist, and every
     field value comes from a closed union checked into the
     repository. `first_run` fires once per install; `session_start`
@@ -209,7 +214,9 @@ event of the current session byte for byte, sent or suppressed.
     process re-announces itself daily — same event, same fields, no
     extra data) and carries only the coarse scale-of-use buckets:
     `rules`/`workspaces` use the same bucket grammar as `sinceInstall`
-    (`0`, `1-5`, `6-20`, `21+`), never exact counts. `rule_created`
+    (`0`, `1-5`, `6-20`, `21-100`, `100+` — clients built before
+    2026-08 S17 send `21+` for the whole top end, still accepted),
+    never exact counts. `rule_created`
     carries `origin` — which in-app affordance created the rule, one of
     `editor`, `quick-editor`, `empty-state-nudge`. `rule_matched` fires
     at most once per rule type per session per UTC day when a rule of
