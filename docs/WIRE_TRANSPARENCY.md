@@ -163,7 +163,8 @@ event of the current session byte for byte, sent or suppressed.
     { "name": "first_run" },
     { "name": "session_start", "rules": "1-5", "workspaces": "0" },
     { "name": "feature_used", "feature": "workflow-editor" },
-    { "name": "rule_created", "ruleType": "header" },
+    { "name": "rule_created", "ruleType": "header", "origin": "editor" },
+    { "name": "rule_matched", "ruleType": "header" },
     { "name": "import_run", "source": "postman", "ok": true },
     { "name": "workflow_run", "ok": true },
     { "name": "error_beacon", "code": "ws-connect-failed" }
@@ -201,15 +202,19 @@ event of the current session byte for byte, sent or suppressed.
   - `sinceInstall` — how old the install is, only ever as one of five
     coarse buckets (`0`, `1`, `2-7`, `8-30`, `31+` days); precise ages
     are inexpressible.
-  - `events` — only the seven event shapes above exist, and every
+  - `events` — only the eight event shapes above exist, and every
     field value comes from a closed union checked into the
     repository. `first_run` fires once per install; `session_start`
     fires once per session per UTC day (a long-running browser or tray
     process re-announces itself daily — same event, same fields, no
     extra data) and carries only the coarse scale-of-use buckets:
     `rules`/`workspaces` use the same bucket grammar as `sinceInstall`
-    (`0`, `1-5`, `6-20`, `21+`), never exact counts. Every other
-    per-process fact rides the envelope.
+    (`0`, `1-5`, `6-20`, `21+`), never exact counts. `rule_created`
+    carries `origin` — which in-app affordance created the rule, one of
+    `editor`, `quick-editor`, `empty-state-nudge`. `rule_matched` fires
+    at most once per rule type per session per UTC day when a rule of
+    that type acts on a request — it carries the rule type and nothing
+    about the request. Every other per-process fact rides the envelope.
 - **Response**: `202` when the envelope validates, `4xx` otherwise.
   The client never acts on the status either way — failures are
   silent, the batch simply rides the next flush, and nothing ever
@@ -226,12 +231,16 @@ event of the current session byte for byte, sent or suppressed.
   aggregate snapshots (counts only — ids are aggregated away) are
   committed to the repository as the long-term metrics ledger.
 - **Uninstall ping (extension only)**: the extension registers
-  `GET https://telemetry.openheaders.io/v1/uninstall?i=<installId>`
+  `GET https://telemetry.openheaders.io/v1/uninstall?i=<installId>&a=<sinceInstall>&c=<channel>`
   as its browser uninstall URL — the page the browser opens when the
-  extension is removed. It carries only the install id, counts one
-  departure, and redirects to `https://openheaders.io/`. It is
-  registered only while the telemetry toggle is on and an install id
-  exists; toggling off clears it (no id, no ping).
+  extension is removed. It carries the install id plus two coarse
+  vocabulary values already described above — `a` is the `sinceInstall`
+  bucket at registration time and `c` is the distribution channel —
+  counts one departure, and redirects to `https://openheaders.io/`.
+  The worker validates both context values against their closed unions
+  and stores nothing for anything else. It is registered only while
+  the telemetry toggle is on and an install id exists; toggling off
+  clears it (no id, no ping).
 - **Cadence**: batched — the host flushes the in-memory queue on an
   interval and best-effort on quit.
 - **Off switches**: Settings → General → telemetry toggle (extension
