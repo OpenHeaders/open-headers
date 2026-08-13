@@ -52,6 +52,7 @@ import { declarativeNetRequest, isChrome, isEdge, isFirefox } from '@utils/brows
 import { logger } from '@utils/logger';
 import { updateScriptableRules } from './inject-manager';
 import { recordLog } from './modules/observability-log';
+import { trackProductTelemetryEvent } from './modules/product-telemetry';
 import { observeRuleState } from './modules/rules/rule-state-observer';
 import { refreshCachedTotpCodes } from './modules/totp-scheduler';
 
@@ -428,6 +429,9 @@ async function rebuildAll(rawRules: Rule[]): Promise<void> {
     dropped = globalDynamic.length - cap;
     effectiveDynamic = globalDynamic.slice(0, cap);
     logger.warn('DnrManager', `Active rule cap (${cap}) exceeded — dropping ${dropped} overflow DNR rules`);
+    // Typed beacon only — no counts, no rule data (S17); the session
+    // latch keeps repeated rebuilds at one event per session per day.
+    trackProductTelemetryEvent({ name: 'error_beacon', code: 'dnr-rule-limit' });
   }
 
   // ── Large rule-set warning ────────────────────────────────────

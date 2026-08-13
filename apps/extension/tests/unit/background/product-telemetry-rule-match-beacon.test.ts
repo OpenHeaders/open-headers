@@ -40,6 +40,10 @@ vi.mock('@openheaders/oracle/sync/client/backend-connection-manager', () => ({
 vi.mock('@openheaders/oracle/sync/client/mutation-forwarder', () => ({
   setOutboundSyncFailureObserver: vi.fn(),
 }));
+// The storage-beacon half pulls the host storage adapter — inert here.
+vi.mock('@/host/extension-storage', () => ({
+  setStorageQuotaObserver: vi.fn(),
+}));
 
 import { installProductTelemetryRuleMatchBeacon } from '@/background/bootstrap/product-telemetry-beacons';
 

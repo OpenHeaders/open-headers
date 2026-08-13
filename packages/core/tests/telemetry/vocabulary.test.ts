@@ -5,6 +5,7 @@ import type { DetectedImportSource } from '../../src/import/detect';
 import { RuleTypeSchema } from '../../src/schemas/rule';
 import {
   bucketScale,
+  bucketSessionAge,
   bucketSinceInstall,
   parseTelemetryAppVersion,
   TELEMETRY_SCHEMA_VERSION,
@@ -44,12 +45,17 @@ const SAMPLE_EVENTS: TelemetryEvent[] = [
   },
   { name: 'feature_used', feature: 'traffic-panel' },
   { name: 'feature_used', feature: 'desktop-download' },
+  { name: 'feature_used', feature: 'git-commit' },
+  { name: 'feature_used', feature: 'keymap' },
+  { name: 'feature_used', feature: 'workflow-scripts' },
   { name: 'rule_created', ruleType: 'header' },
   { name: 'rule_created', ruleType: 'response', origin: 'quick-editor' },
   { name: 'rule_matched', ruleType: 'header' },
   { name: 'import_run', source: 'postman', ok: true },
   { name: 'workflow_run', ok: false },
   { name: 'error_beacon', code: 'ws-connect-failed' },
+  { name: 'error_beacon', code: 'dnr-rule-limit' },
+  { name: 'error_beacon', code: 'storage-quota' },
 ];
 
 describe('telemetry vocabulary — round-trips', () => {
@@ -76,6 +82,7 @@ describe('telemetry vocabulary — round-trips', () => {
       sessionId: SESSION_ID,
       installId: INSTALL_ID,
       sinceInstall: '2-7',
+      sessionAge: '1-8h',
       sentAt: 1_760_000_000_000,
       events: SAMPLE_EVENTS,
     };
@@ -194,6 +201,19 @@ describe('telemetry vocabulary — rejections', () => {
     }
   });
 
+  it('rejects a precise sessionAge — buckets only', () => {
+    const envelope = {
+      schemaVersion: TELEMETRY_SCHEMA_VERSION,
+      sessionId: SESSION_ID,
+      installId: INSTALL_ID,
+      sinceInstall: '0',
+      sessionAge: '37m',
+      sentAt: 1,
+      events: [],
+    };
+    expect(v.safeParse(TelemetryEnvelopeSchema, envelope).success).toBe(false);
+  });
+
   it('rejects a precise sinceInstall day count — buckets only', () => {
     const envelope = {
       schemaVersion: TELEMETRY_SCHEMA_VERSION,
@@ -236,14 +256,34 @@ describe('telemetry vocabulary — coarse buckets', () => {
     expect(bucketSinceInstall(NOW + DAY, NOW)).toBe('0');
   });
 
-  it('buckets entity counts coarsely', () => {
+  it('buckets entity counts coarsely with the S17 top-end split', () => {
     expect(bucketScale(0)).toBe('0');
     expect(bucketScale(1)).toBe('1-5');
     expect(bucketScale(5)).toBe('1-5');
     expect(bucketScale(6)).toBe('6-20');
     expect(bucketScale(20)).toBe('6-20');
-    expect(bucketScale(21)).toBe('21+');
+    expect(bucketScale(21)).toBe('21-100');
+    expect(bucketScale(100)).toBe('21-100');
+    expect(bucketScale(101)).toBe('100+');
     expect(bucketScale(-3)).toBe('0');
+  });
+
+  it('still accepts the legacy 21+ scale bucket from pre-S17 clients', () => {
+    const event = { name: 'session_start', rules: '21+', workspaces: '21-100' };
+    expect(v.parse(TelemetryEventSchema, event)).toEqual(event);
+  });
+
+  const HOUR = 60 * 60 * 1000;
+
+  it('buckets session age coarsely and clamps a backwards clock to the youngest bucket', () => {
+    expect(bucketSessionAge(NOW, NOW)).toBe('0-9m');
+    expect(bucketSessionAge(NOW - 9 * 60 * 1000, NOW)).toBe('0-9m');
+    expect(bucketSessionAge(NOW - 10 * 60 * 1000, NOW)).toBe('10-59m');
+    expect(bucketSessionAge(NOW - HOUR + 1, NOW)).toBe('10-59m');
+    expect(bucketSessionAge(NOW - HOUR, NOW)).toBe('1-8h');
+    expect(bucketSessionAge(NOW - 8 * HOUR, NOW)).toBe('8-24h');
+    expect(bucketSessionAge(NOW - 24 * HOUR, NOW)).toBe('24h+');
+    expect(bucketSessionAge(NOW + HOUR, NOW)).toBe('0-9m');
   });
 });
 

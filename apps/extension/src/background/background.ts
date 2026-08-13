@@ -69,7 +69,9 @@ import { installMessageRouting } from './bootstrap/message-routing';
 import { installNetworkEventHandlers } from './bootstrap/network-events';
 import { installOracleHostHooks } from './bootstrap/oracle-host-hooks';
 import {
+  installProductTelemetryCdpBeacon,
   installProductTelemetryRuleMatchBeacon,
+  installProductTelemetryStorageBeacon,
   installProductTelemetrySyncBeacons,
 } from './bootstrap/product-telemetry-beacons';
 import { installStatusReporters } from './bootstrap/status-reporters';
@@ -124,6 +126,7 @@ const syncWiring = installWsFrameRouting();
 installStatusReporters({ syncWiring });
 installProductTelemetrySyncBeacons(syncWiring);
 installProductTelemetryRuleMatchBeacon();
+installProductTelemetryStorageBeacon();
 installActivityBroadcasts();
 // Forwarded gRPC invokes: the companion's live grpcStreamEvent frames
 // come back down the backend wire — relay them to the local broadcast.
@@ -215,6 +218,7 @@ async function initializeExtension(): Promise<void> {
   installCdpScopeMode(setCdpScopeMode);
   registerCdpTabPinControls({ pin: pinCdpTab, unpin: unpinCdpTab });
   installLifecycleStatusReporters({ cdpAttach });
+  installProductTelemetryCdpBeacon(cdpAttach);
 
   setupTabListeners({ updateBadge: debouncedUpdateBadge, lifecycleStore });
   setupPeriodicCleanup();

@@ -77,11 +77,31 @@ function areaGet(area: StorageArea, keys: string[]): Promise<Record<string, unkn
   });
 }
 
+/**
+ * Observer for quota-exceeded storage writes, injected by the background
+ * bootstrap (product telemetry's `storage-quota` beacon); other contexts
+ * leave it unwired. This adapter stays coupled to `@openheaders/core`
+ * only — it classifies the failure, never names the consumer.
+ */
+let onQuotaExceeded: (() => void) | null = null;
+
+export function setStorageQuotaObserver(fn: (() => void) | null): void {
+  onQuotaExceeded = fn;
+}
+
 function areaSet(area: StorageArea, items: Record<string, unknown>): Promise<void> {
   const api = rawArea(area);
   if (!api) return Promise.resolve();
   return new Promise((resolve) => {
-    api.set(items, () => resolve());
+    api.set(items, () => {
+      // Reading lastError also marks the failure as handled (no
+      // "Unchecked runtime.lastError" console noise). Every quota
+      // family message contains "quota" ("QUOTA_BYTES quota exceeded",
+      // "MAX_ITEMS quota exceeded", Firefox's QuotaExceededError).
+      const message = getBrowserAPI().runtime?.lastError?.message ?? '';
+      if (/quota/i.test(message)) onQuotaExceeded?.();
+      resolve();
+    });
   });
 }
 

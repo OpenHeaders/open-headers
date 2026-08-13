@@ -31,6 +31,7 @@ import type React from 'react';
 import { useEffect, useMemo, useState } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { KeyboardIcon } from '@openheaders/ui/shared/icons';
+import { noteFeatureUsed } from '@openheaders/ui/shared/product-telemetry';
 import { getCurrentHost } from '../../../../shared/host-vocabulary';
 import { formatChord } from '../../../hooks/useWorkspaceShortcuts';
 import { useChordCapture } from '../../fields/use-chord-capture';
@@ -53,6 +54,9 @@ const KeymapPane: React.FC<CategoryPaneProps> = ({ category, defs }) => {
   const { token } = theme.useToken();
   const t = useT();
   useSettingsReady();
+  // Product telemetry: opening the keymap pane is the feature's first
+  // meaningful use (S17); the per-document guard drops repeats.
+  useEffect(() => noteFeatureUsed('keymap'), []);
   const [query, setQuery] = useState('');
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(new Set());
   const [conflictsOnly, setConflictsOnly] = useState(false);

@@ -217,6 +217,31 @@ describe('TelemetryClient — batching and envelope shape', () => {
     expect(v.safeParse(TelemetryEnvelopeSchema, envelope).success).toBe(true);
   });
 
+  it('stamps the coarse sessionAge bucket from the session start time at flush', async () => {
+    const transport = makeTransport();
+    const twoHours = 2 * 60 * 60 * 1000;
+    const client = new TelemetryClient({
+      transport,
+      host: 'extension',
+      facts: () => FACTS,
+      now: () => NOW,
+      install: () => INSTALL,
+      sessionStartedAt: NOW - twoHours,
+    });
+    client.track(makeEvent());
+    await client.flush();
+    const envelope = transport.sent[0];
+    expect(envelope.sessionAge).toBe('1-8h');
+    expect(v.safeParse(TelemetryEnvelopeSchema, envelope).success).toBe(true);
+  });
+
+  it('omits sessionAge when no session start time was injected', async () => {
+    const { client, transport } = makeClient();
+    client.track(makeEvent());
+    await client.flush();
+    expect('sessionAge' in transport.sent[0]).toBe(false);
+  });
+
   it('re-reads the facts per flush so a locale switch re-stamps the next envelope', async () => {
     const transport = makeTransport();
     let locale: TelemetryEnvelopeFacts['locale'] = 'en';

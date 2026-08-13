@@ -39,6 +39,7 @@ const FLUSH_ALARM = 'productTelemetryFlush';
 const FLUSH_PERIOD_MINUTES = 1;
 
 const SESSION_ID_KEY = 'oh.productTelemetry.sessionId';
+const SESSION_STARTED_AT_KEY = 'oh.productTelemetry.sessionStartedAt';
 const LATCH_KEY_PREFIX = 'oh.productTelemetry.latch.';
 const LATCH_DAY_KEY = 'oh.productTelemetry.latchDay';
 const INSTALL_RECORD_KEY = 'oh.productTelemetry.install';
@@ -74,6 +75,21 @@ const sessionStore: ProductTelemetrySessionStore = {
       return;
     }
     await area.set({ [SESSION_ID_KEY]: id });
+  },
+  async getStartedAt() {
+    const area = sessionArea();
+    const value = area
+      ? (await area.get(SESSION_STARTED_AT_KEY))[SESSION_STARTED_AT_KEY]
+      : fallbackSession[SESSION_STARTED_AT_KEY];
+    return typeof value === 'number' ? value : null;
+  },
+  async setStartedAt(at) {
+    const area = sessionArea();
+    if (!area) {
+      fallbackSession[SESSION_STARTED_AT_KEY] = at;
+      return;
+    }
+    await area.set({ [SESSION_STARTED_AT_KEY]: at });
   },
   async wasLatched(key) {
     const storageKey = LATCH_KEY_PREFIX + key;

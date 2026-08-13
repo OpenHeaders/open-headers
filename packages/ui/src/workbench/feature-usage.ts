@@ -8,7 +8,7 @@
 
 import type { TelemetryFeatureId } from '@openheaders/core/telemetry';
 import { noteFeatureUsed } from '@openheaders/ui/shared/product-telemetry';
-import type { TabMode } from './types';
+import type { TabMode, ToolWindowId } from './types';
 
 const TAB_MODE_FEATURES: Partial<Record<TabMode, TelemetryFeatureId>> = {
   'request-edit': 'request-editor',
@@ -26,10 +26,38 @@ const TAB_MODE_FEATURES: Partial<Record<TabMode, TelemetryFeatureId>> = {
   'request-collection-vars': 'variables',
   'template-collection-vars': 'variables',
   'env-edit': 'variables',
+  'spec-edit': 'api-specs',
+  'response-example': 'response-examples',
+  'grpc-response-example': 'response-examples',
+  'ws-response-example': 'response-examples',
+  'grpc-edit': 'grpc-client',
+  'websocket-edit': 'ws-client',
+  'whats-new': 'whats-new',
 };
 
 /** Record the feature a freshly-opened workbench tab represents, if any. */
 export function noteTabFeatureUsed(mode: TabMode): void {
   const feature = TAB_MODE_FEATURES[mode];
+  if (feature) noteFeatureUsed(feature);
+}
+
+/**
+ * Which activated tool windows count as the first meaningful use of a
+ * vocabulary feature — the dock analog of the tab-mode map above (S17).
+ * Only surfaces with a real working plane behind them are listed; the
+ * ambient inspectors (notifications, docs, variable scope) carry no
+ * adoption question.
+ */
+export const TOOL_WINDOW_FEATURES: Partial<Record<ToolWindowId, TelemetryFeatureId>> = {
+  commit: 'git-commit',
+  git: 'git-log',
+  terminal: 'terminal',
+  'traffic-monitor': 'traffic-monitor',
+  activity: 'activity-feed',
+};
+
+/** Record the feature an activated workbench tool window represents, if any. */
+export function noteToolWindowFeatureUsed(id: ToolWindowId): void {
+  const feature = TOOL_WINDOW_FEATURES[id];
   if (feature) noteFeatureUsed(feature);
 }

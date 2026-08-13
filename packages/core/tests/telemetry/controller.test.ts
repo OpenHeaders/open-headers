@@ -28,9 +28,12 @@ const FACTS: TelemetryEnvelopeFacts = {
   browser: 'chrome',
 };
 
-function makeSessionStore(initial: Partial<{ sessionId: string; latched: string[]; latchDay: number | null }> = {}) {
+function makeSessionStore(
+  initial: Partial<{ sessionId: string; startedAt: number | null; latched: string[]; latchDay: number | null }> = {},
+) {
   const state = {
     sessionId: initial.sessionId ?? null,
+    startedAt: initial.startedAt ?? null,
     latched: new Set<string>(initial.latched ?? []),
     latchDay: initial.latchDay ?? null,
   };
@@ -38,6 +41,10 @@ function makeSessionStore(initial: Partial<{ sessionId: string; latched: string[
     getSessionId: async () => state.sessionId,
     setSessionId: async (id) => {
       state.sessionId = id;
+    },
+    getStartedAt: async () => state.startedAt,
+    setStartedAt: async (at) => {
+      state.startedAt = at;
     },
     wasLatched: async (key) => state.latched.has(key),
     latch: async (key) => {
@@ -62,6 +69,7 @@ const INSTALL: TelemetryInstallContext = {
 interface RigOptions {
   enabled?: boolean;
   sessionId?: string;
+  startedAt?: number | null;
   latched?: string[];
   latchDay?: number | null;
   sessionStart?: TelemetryEvent | null;
@@ -120,6 +128,30 @@ describe('ProductTelemetryController — session identity', () => {
     const { controller, state } = makeRig();
     await controller.init();
     expect(state.sessionId).toMatch(/^[0-9a-f]{32}$/);
+  });
+
+  it('mints and persists the session start time at boot, and stamps the envelope sessionAge', async () => {
+    const { controller, sent, state, clock } = makeRig();
+    await controller.init();
+    expect(state.startedAt).toBe(clock.now);
+    await controller.flush();
+    expect(sent[0].sessionAge).toBe('0-9m');
+  });
+
+  it('keeps the persisted session start across SW wakes — sessionAge reflects the true session, not the wake', async () => {
+    const twoHours = 2 * 60 * 60 * 1000;
+    const { controller, sent, state, clock } = makeRig({
+      sessionId: 'deadbeefdeadbeefdeadbeefdeadbeef',
+      startedAt: 1_760_000_000_000 - twoHours,
+      latched: [],
+    });
+    await controller.init();
+    expect(state.startedAt).toBe(1_760_000_000_000 - twoHours);
+    clock.now += 1000;
+    await controller.track({ name: 'workflow_run', ok: true });
+    await controller.flush();
+    const last = sent[sent.length - 1];
+    expect(last.sessionAge).toBe('1-8h');
   });
 });
 
@@ -533,6 +565,13 @@ describe('createInMemoryProductTelemetrySessionStore', () => {
     expect(await store.wasLatched(SESSION_START_LATCH_KEY)).toBe(true);
     expect(await store.wasLatched('feature_used:vault')).toBe(true);
     expect(await store.wasLatched('feature_used:variables')).toBe(false);
+  });
+
+  it('holds the session start time for the process lifetime', async () => {
+    const store = createInMemoryProductTelemetrySessionStore();
+    expect(await store.getStartedAt()).toBeNull();
+    await store.setStartedAt(1_760_000_000_000);
+    expect(await store.getStartedAt()).toBe(1_760_000_000_000);
   });
 
   it('stamps the latch day and clears latches without touching id or day', async () => {

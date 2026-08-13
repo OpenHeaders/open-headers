@@ -60,6 +60,20 @@ export const TelemetryFeatureIdSchema = v.picklist([
   'live-sources',
   'devtools-scripts',
   'desktop-download',
+  // S17 coverage growth (user-signed 2026-08-13): surfaces shipped
+  // since the vocabulary was first cut.
+  'git-commit',
+  'git-log',
+  'terminal',
+  'traffic-monitor',
+  'activity-feed',
+  'keymap',
+  'api-specs',
+  'response-examples',
+  'grpc-client',
+  'ws-client',
+  'workflow-scripts',
+  'whats-new',
 ]);
 
 /**
@@ -132,8 +146,21 @@ export const TelemetryChannelIdSchema = v.picklist([
  */
 export const TelemetrySinceInstallBucketSchema = v.picklist(['0', '1', '2-7', '8-30', '31+']);
 
-/** Coarse scale-of-use buckets — exact counts could fingerprint (plan §3). */
-export const TelemetryScaleBucketSchema = v.picklist(['0', '1-5', '6-20', '21+']);
+/**
+ * Coarse scale-of-use buckets — exact counts could fingerprint (plan §3).
+ * S17 split the top end (`21-100`/`100+`) to separate heavy adopters
+ * from the merely-established; `21+` stays wire-accepted only for
+ * pre-S17 clients and is never emitted by current ones.
+ */
+export const TelemetryScaleBucketSchema = v.picklist(['0', '1-5', '6-20', '21-100', '100+', '21+']);
+
+/**
+ * Coarse session-age buckets, stamped on the envelope at flush time
+ * (plan §3, S17). `MAX` per session id is the session-duration
+ * distribution — no on-quit event needed. Buckets, never minutes:
+ * precise ages could fingerprint.
+ */
+export const TelemetrySessionAgeBucketSchema = v.picklist(['0-9m', '10-59m', '1-8h', '8-24h', '24h+']);
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -152,7 +179,20 @@ export function bucketScale(count: number): TelemetryScaleBucket {
   if (count <= 0) return '0';
   if (count <= 5) return '1-5';
   if (count <= 20) return '6-20';
-  return '21+';
+  if (count <= 100) return '21-100';
+  return '100+';
+}
+
+const HOUR_MS = 60 * 60 * 1000;
+
+/** Bucket a session's age at flush time; a clock that ran backwards reads as the youngest bucket, never a failure. */
+export function bucketSessionAge(startedAt: number, now: number): TelemetrySessionAgeBucket {
+  const elapsed = now - startedAt;
+  if (elapsed < 10 * 60 * 1000) return '0-9m';
+  if (elapsed < HOUR_MS) return '10-59m';
+  if (elapsed < 8 * HOUR_MS) return '1-8h';
+  if (elapsed < 24 * HOUR_MS) return '8-24h';
+  return '24h+';
 }
 
 /** Typed failure codes only — never messages, never stacks (stacks can embed URLs; plan §3). */
@@ -164,6 +204,12 @@ export const TelemetryErrorCodeSchema = v.picklist([
   'import-parse-failed',
   'workflow-step-failed',
   'update-check-failed',
+  // S17 coverage growth (user-signed 2026-08-13).
+  'dnr-rule-limit',
+  'proxy-start-failed',
+  'ca-trust-failed',
+  'storage-quota',
+  'cdp-attach-failed',
 ]);
 
 const wholeNumber = () => v.pipe(v.number(), v.integer());
@@ -299,6 +345,9 @@ export const TelemetryEnvelopeSchema = v.strictObject({
   sessionId: TelemetrySessionIdSchema,
   installId: TelemetryInstallIdSchema,
   sinceInstall: TelemetrySinceInstallBucketSchema,
+  // Coarse age of this session at flush time (S17); optional on the
+  // wire only for pre-S17 clients — current clients always stamp it.
+  sessionAge: v.optional(TelemetrySessionAgeBucketSchema),
   sentAt: wholeNumber(),
   events: v.array(TelemetryEventSchema),
 });
@@ -307,6 +356,7 @@ export type TelemetryHostKind = v.InferOutput<typeof TelemetryHostKindSchema>;
 export type TelemetryChannelId = v.InferOutput<typeof TelemetryChannelIdSchema>;
 export type TelemetrySinceInstallBucket = v.InferOutput<typeof TelemetrySinceInstallBucketSchema>;
 export type TelemetryScaleBucket = v.InferOutput<typeof TelemetryScaleBucketSchema>;
+export type TelemetrySessionAgeBucket = v.InferOutput<typeof TelemetrySessionAgeBucketSchema>;
 export type TelemetryPlatform = v.InferOutput<typeof TelemetryPlatformSchema>;
 export type TelemetryBrowserKind = v.InferOutput<typeof TelemetryBrowserKindSchema>;
 export type TelemetryLocale = v.InferOutput<typeof TelemetryLocaleSchema>;

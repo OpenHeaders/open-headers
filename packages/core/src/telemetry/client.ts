@@ -27,7 +27,7 @@ import type {
   TelemetryLocale,
   TelemetryPlatform,
 } from './vocabulary';
-import { bucketSinceInstall, TELEMETRY_SCHEMA_VERSION } from './vocabulary';
+import { bucketSessionAge, bucketSinceInstall, TELEMETRY_SCHEMA_VERSION } from './vocabulary';
 
 /** The one published ingestion endpoint (`docs/WIRE_TRANSPARENCY.md` §4); hosts' transports POST envelopes here. */
 export const PRODUCT_TELEMETRY_ENDPOINT = 'https://telemetry.openheaders.io/v1/events';
@@ -137,6 +137,14 @@ export interface TelemetryClientDeps {
    * exit). Must match `TelemetrySessionIdSchema`; omitted = minted fresh.
    */
   sessionId?: string;
+  /**
+   * ms since epoch when this session began (plan §3, S17) — persisted
+   * beside the session id on evictable hosts, so an evicted-and-rewoken
+   * service worker keeps the true session start. Feeds the coarse
+   * envelope `sessionAge` bucket at flush time; omitted (pre-S17 rigs
+   * only) = the envelope carries no bucket.
+   */
+  sessionStartedAt?: number;
   /** Durable pending-queue home for evictable hosts; omitted = RAM-only queue. */
   queueStore?: TelemetryQueueStore;
 }
@@ -292,6 +300,9 @@ export class TelemetryClient {
         sessionId: this.sessionId,
         installId: install.installId,
         sinceInstall: bucketSinceInstall(install.installedAt, sentAt),
+        ...(this.deps.sessionStartedAt !== undefined
+          ? { sessionAge: bucketSessionAge(this.deps.sessionStartedAt, sentAt) }
+          : {}),
         sentAt,
         events: batch.map((entry) => entry.event),
       };

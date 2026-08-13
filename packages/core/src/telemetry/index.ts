@@ -37,6 +37,7 @@ export {
 } from './controller';
 export {
   bucketScale,
+  bucketSessionAge,
   bucketSinceInstall,
   parseTelemetryAppVersion,
   TELEMETRY_SCHEMA_VERSION,
@@ -69,6 +70,8 @@ export {
   TelemetryRuleTypeIdSchema,
   type TelemetryScaleBucket,
   TelemetryScaleBucketSchema,
+  type TelemetrySessionAgeBucket,
+  TelemetrySessionAgeBucketSchema,
   TelemetrySessionIdSchema,
   type TelemetrySinceInstallBucket,
   TelemetrySinceInstallBucketSchema,

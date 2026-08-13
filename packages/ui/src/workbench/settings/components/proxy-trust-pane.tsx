@@ -17,6 +17,7 @@ import { Alert, App as AntApp, Button, Checkbox, Modal, Popconfirm, Tag, theme }
 import type React from 'react';
 import { useCallback, useEffect, useState } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
+import { trackProductTelemetryEvent } from '@openheaders/ui/shared/product-telemetry';
 import { resolveLabel, resolveOptionalDescription } from '../localize';
 import type { CategoryPaneProps } from '../types';
 
@@ -165,10 +166,17 @@ const ProxyTrustPane: React.FC<CategoryPaneProps> = ({ category }) => {
       const result = await hostBridge.call('oh.daemon.proxy.trust.install', { stores: selected });
       if (result.ok) {
         setWizard({ step: 'results', results: result.results });
+        // A per-store refusal is trust friction too — the typed beacon
+        // carries no store, message, or path (S17).
+        if (result.results.some((r) => !r.ok)) {
+          trackProductTelemetryEvent({ name: 'error_beacon', code: 'ca-trust-failed' });
+        }
       } else {
+        trackProductTelemetryEvent({ name: 'error_beacon', code: 'ca-trust-failed' });
         message.error(t('workbench.settings.proxyTrustPane.wizard.installFailed', { message: result.error }));
       }
     } catch (err) {
+      trackProductTelemetryEvent({ name: 'error_beacon', code: 'ca-trust-failed' });
       message.error(t('workbench.settings.proxyTrustPane.wizard.installFailed', { message: (err as Error).message }));
     } finally {
       setInstalling(false);

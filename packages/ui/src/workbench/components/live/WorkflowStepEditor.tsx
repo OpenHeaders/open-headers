@@ -24,6 +24,7 @@ import type { DraftCapture, DraftStep, StructuralError } from '@openheaders/core
 import { newDraftCapture } from '@openheaders/core/live';
 import type { PriorityRef, StepGate, StepRetryPolicy } from '@openheaders/core/types';
 import { useT } from '@openheaders/ui/context/LocaleContext';
+import { noteFeatureUsed } from '@openheaders/ui/shared/product-telemetry';
 import { Button, Collapse, Input, Select, Space, Switch, Tag, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useEffect, useMemo, useRef } from 'react';
@@ -259,6 +260,9 @@ const WorkflowStepEditor: React.FC<Props> = ({
   // Off deletes the field rather than persisting `false` — absent is
   // the canonical "no scripts" state (schema default, cleaner YAML).
   const setRunScripts = (next: boolean | undefined) => {
+    // Step scripts ship default-off, so switching them on is the
+    // feature's first meaningful use (S17 product telemetry).
+    if (next === true) noteFeatureUsed('workflow-scripts');
     const nextStep = { ...step };
     if (next === undefined) {
       delete nextStep.runScripts;

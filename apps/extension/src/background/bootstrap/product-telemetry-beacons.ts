@@ -26,6 +26,8 @@ import type { TelemetryRuleTypeId } from '@openheaders/core/telemetry';
 import { getRules } from '@openheaders/oracle/entity/rule-store';
 import { subscribeOnWebSocketOpen } from '@openheaders/oracle/sync/client/backend-connection-manager';
 import { setOutboundSyncFailureObserver } from '@openheaders/oracle/sync/client/mutation-forwarder';
+import { setStorageQuotaObserver } from '@/host/extension-storage';
+import type { CdpAttachFault, CdpAttachObservable } from '../correlator-host/cdp-attach-controller';
 import { trackProductTelemetryEvent } from '../modules/product-telemetry';
 import { subscribeFiresAll } from '../modules/tab-telemetry';
 import type { SyncWiring } from './ws-frame-routing';
@@ -97,5 +99,34 @@ export function installProductTelemetryRuleMatchBeacon(): void {
     if (reported.has(type)) return;
     reported.add(type);
     trackProductTelemetryEvent({ name: 'rule_matched', ruleType: type });
+  });
+}
+
+/**
+ * `storage-quota` (S17): the host storage adapter classifies a
+ * quota-exceeded write and signals through its injected observer; this
+ * is the one place that maps it onto the typed beacon. Today a quota'd
+ * write is silent data loss — the beacon makes its frequency visible.
+ */
+export function installProductTelemetryStorageBeacon(): void {
+  setStorageQuotaObserver(() => {
+    trackProductTelemetryEvent({ name: 'error_beacon', code: 'storage-quota' });
+  });
+}
+
+/**
+ * `cdp-attach-failed` (S17): a real `chrome.debugger.attach` rejection
+ * (not a tolerated already-attached race) — the same fault the status
+ * pill turns red on. Edge-detected by fault identity so re-emissions of
+ * unchanged state stay silent; the session latch dedupes per day anyway.
+ */
+export function installProductTelemetryCdpBeacon(cdpAttach: CdpAttachObservable): void {
+  let lastFault: CdpAttachFault | null = cdpAttach.getState().lastFault;
+  cdpAttach.onChange((state) => {
+    const fault = state.lastFault;
+    if (fault !== lastFault && fault?.kind === 'attach-failed') {
+      trackProductTelemetryEvent({ name: 'error_beacon', code: 'cdp-attach-failed' });
+    }
+    lastFault = fault;
   });
 }

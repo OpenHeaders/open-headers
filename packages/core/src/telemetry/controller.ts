@@ -45,6 +45,14 @@ import type { TelemetryEvent, TelemetryHostKind } from './vocabulary';
 export interface ProductTelemetrySessionStore {
   getSessionId(): Promise<string | null>;
   setSessionId(id: string): Promise<void>;
+  /**
+   * ms since epoch when this session began (plan §3, S17) — set once
+   * beside the session id, lives wherever the id lives (RAM-only law
+   * intact), feeds the envelope `sessionAge` bucket. Null only for a
+   * store written before the field existed; the controller re-mints.
+   */
+  getStartedAt(): Promise<number | null>;
+  setStartedAt(at: number): Promise<void>;
   wasLatched(key: string): Promise<boolean>;
   latch(key: string): Promise<void>;
   /** UTC day (days since epoch) the latches were last armed for, or null before the first arm. */
@@ -121,12 +129,17 @@ export function oncePerSessionLatchKey(event: TelemetryEvent): string | null {
 /** Session store for hosts whose process lifetime IS the session (desktop main). */
 export function createInMemoryProductTelemetrySessionStore(): ProductTelemetrySessionStore {
   let sessionId: string | null = null;
+  let startedAt: number | null = null;
   let latchDay: number | null = null;
   const latched = new Set<string>();
   return {
     getSessionId: async () => sessionId,
     setSessionId: async (id) => {
       sessionId = id;
+    },
+    getStartedAt: async () => startedAt,
+    setStartedAt: async (at) => {
+      startedAt = at;
     },
     wasLatched: async (key) => latched.has(key),
     latch: async (key) => {
@@ -190,6 +203,14 @@ export class ProductTelemetryController {
 
   private async boot(): Promise<void> {
     let sessionId = await this.deps.sessionStore.getSessionId();
+    // The session's birth time travels with its id (an evicted SW keeps
+    // the true start); a store from before the field re-mints at boot —
+    // one session under-reports its age, never a failure.
+    let startedAt = await this.deps.sessionStore.getStartedAt();
+    if (startedAt === null) {
+      startedAt = this.deps.now();
+      await this.deps.sessionStore.setStartedAt(startedAt);
+    }
     const baseDeps = {
       transport: this.deps.transport,
       host: this.deps.host,
@@ -197,6 +218,7 @@ export class ProductTelemetryController {
       now: this.deps.now,
       install: () => this.installContext,
       queueStore: this.deps.queueStore,
+      sessionStartedAt: startedAt,
     };
     const client = sessionId ? new TelemetryClient({ ...baseDeps, sessionId }) : new TelemetryClient(baseDeps);
     if (!sessionId) {

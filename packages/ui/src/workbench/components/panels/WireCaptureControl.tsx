@@ -29,6 +29,7 @@ import { App as AntApp, InputNumber, Popover, Select, Space, Switch, Tag, Toolti
 import type React from 'react';
 import { useCallback, useEffect, useState } from 'react';
 import { type Translate, useT } from '@openheaders/ui/context/LocaleContext';
+import { trackProductTelemetryEvent } from '@openheaders/ui/shared/product-telemetry';
 import { RoutingInfoTrigger, ScopeInfoTrigger } from './WireCaptureInfo';
 import { agentVersion } from './TrafficMonitorSourceRail';
 
@@ -111,8 +112,12 @@ export const WireCaptureControl: React.FC<WireCaptureControlProps> = ({
     setBusy(true);
     try {
       const resp = await hostBridge.call('oh.daemon.proxy.start', portDraft !== null ? { port: portDraft } : {});
-      if (!resp.ok) message.error(t('workbench.proxyCapture.startFailed', { message: resp.error }));
+      if (!resp.ok) {
+        trackProductTelemetryEvent({ name: 'error_beacon', code: 'proxy-start-failed' });
+        message.error(t('workbench.proxyCapture.startFailed', { message: resp.error }));
+      }
     } catch (err) {
+      trackProductTelemetryEvent({ name: 'error_beacon', code: 'proxy-start-failed' });
       message.error(t('workbench.proxyCapture.startFailed', { message: (err as Error).message }));
     } finally {
       setBusy(false);

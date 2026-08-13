@@ -142,8 +142,9 @@ import { EnvSwitcherProvider } from './services/env-switcher';
 import { ConnectionProvider } from './settings/ConnectionContext';
 import { get as getSetting } from './settings/store';
 import { SettingsModal } from './settings/ui';
+import { noteToolWindowFeatureUsed } from './feature-usage';
 import { getFocusedDock } from './stores/focus-region-store';
-import { TOOL_WINDOW_MAP } from './tool-windows';
+import { isToolWindowTeased, TOOL_WINDOW_MAP } from './tool-windows';
 import type { DockSlot, ToolWindowId, WorkbenchTab } from './types';
 
 // Companion-reveal targets → this surface's dock tool windows. The
@@ -419,6 +420,18 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
 
   // ── Tool-window layout state machine ───────────────────────────
   const tl = useToolLayout(perTab);
+
+  // Product telemetry: an active working-plane tool window is the
+  // feature in use (S17) — the dock analog of the panel's observer.
+  // Teased windows (browser hosts rendering the desktop teaser) are
+  // not usage and stay silent; the teaser CTA carries its own signal.
+  useEffect(() => {
+    for (const dock of Object.values(tl.state.docks)) {
+      if (!dock.active) continue;
+      const def = TOOL_WINDOW_MAP[dock.active];
+      if (def && !isToolWindowTeased(def)) noteToolWindowFeatureUsed(dock.active);
+    }
+  }, [tl.state.docks]);
 
   // "Reveal in Storage" from a storage-document editor tab: activate
   // the Traffic Monitor; the mounted panel consumes the parked intent.
