@@ -108,12 +108,13 @@ export function createInMemoryProductTelemetryInstallStore(
 
 /**
  * Latch key for events that fire once per session per union member
- * (`feature_used` per feature, `error_beacon` per code); null for
- * events that count every occurrence.
+ * (`feature_used` per feature, `error_beacon` per code, `rule_matched`
+ * per rule type); null for events that count every occurrence.
  */
 export function oncePerSessionLatchKey(event: TelemetryEvent): string | null {
   if (event.name === 'feature_used') return `feature_used:${event.feature}`;
   if (event.name === 'error_beacon') return `error_beacon:${event.code}`;
+  if (event.name === 'rule_matched') return `rule_matched:${event.ruleType}`;
   return null;
 }
 

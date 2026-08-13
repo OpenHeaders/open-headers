@@ -301,15 +301,30 @@ describe('ProductTelemetryController — once-per-session dedupe', () => {
 });
 
 describe('oncePerSessionLatchKey', () => {
-  it('keys feature_used and error_beacon per member, everything else null', () => {
+  it('keys feature_used, error_beacon, and rule_matched per member, everything else null', () => {
     expect(oncePerSessionLatchKey({ name: 'feature_used', feature: 'vault' })).toBe('feature_used:vault');
     expect(oncePerSessionLatchKey({ name: 'error_beacon', code: 'sync-push-failed' })).toBe(
       'error_beacon:sync-push-failed',
     );
+    expect(oncePerSessionLatchKey({ name: 'rule_matched', ruleType: 'response' })).toBe('rule_matched:response');
     expect(oncePerSessionLatchKey({ name: 'workflow_run', ok: true })).toBeNull();
     expect(oncePerSessionLatchKey({ name: 'rule_created', ruleType: 'header' })).toBeNull();
     expect(oncePerSessionLatchKey({ name: 'import_run', source: 'curl', ok: true })).toBeNull();
     expect(oncePerSessionLatchKey(SESSION_START)).toBeNull();
+  });
+
+  it('dedupes rule_matched per rule type through the controller latch', async () => {
+    const { controller, sent } = makeRig({ sessionStart: null });
+    await controller.init();
+    await controller.track({ name: 'rule_matched', ruleType: 'header' });
+    await controller.track({ name: 'rule_matched', ruleType: 'header' });
+    await controller.track({ name: 'rule_matched', ruleType: 'block' });
+    await controller.flush();
+    expect(sent).toHaveLength(1);
+    expect(sent[0].events).toEqual([
+      { name: 'rule_matched', ruleType: 'header' },
+      { name: 'rule_matched', ruleType: 'block' },
+    ]);
   });
 });
 

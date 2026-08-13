@@ -32,8 +32,28 @@ import { bucketSinceInstall, TELEMETRY_SCHEMA_VERSION } from './vocabulary';
 /** The one published ingestion endpoint (`docs/WIRE_TRANSPARENCY.md` §4); hosts' transports POST envelopes here. */
 export const PRODUCT_TELEMETRY_ENDPOINT = 'https://telemetry.openheaders.io/v1/events';
 
-/** The uninstall-ping route (§4): the extension's `setUninstallURL` target, carrying only the install id. */
+/**
+ * The uninstall-ping route (§4): the extension's `setUninstallURL`
+ * target. Carries the install id plus two coarse vocabulary facts —
+ * `a` (the sinceInstall bucket) and `c` (the distribution channel) —
+ * so churn segments by age and acquisition (plan §3, S16). The host
+ * re-registers the URL as the age bucket rolls.
+ */
 export const PRODUCT_TELEMETRY_UNINSTALL_ENDPOINT = 'https://telemetry.openheaders.io/v1/uninstall';
+
+/**
+ * Build the uninstall-ping URL for one install identity. Every value is
+ * vocabulary-pinned (hex id, closed bucket/channel unions), so plain
+ * concatenation is byte-exact against `WIRE_TRANSPARENCY.md` §4.
+ */
+export function buildTelemetryUninstallUrl(
+  install: TelemetryInstallContext,
+  channel: TelemetryChannelId,
+  now: number,
+): string {
+  const age = bucketSinceInstall(install.installedAt, now);
+  return `${PRODUCT_TELEMETRY_UNINSTALL_ENDPOINT}?i=${install.installId}&a=${encodeURIComponent(age)}&c=${channel}`;
+}
 
 export interface TelemetryTransport {
   /**

@@ -443,7 +443,7 @@ describe('applyRuleCreate — rule_created product telemetry', () => {
     return track;
   }
 
-  it('records rule_created with the rule type on a successful create', async () => {
+  it('records rule_created with the rule type and the editor origin default on a successful create', async () => {
     mockCall.mockResolvedValue({ ok: true, outcomes: [] });
     const track = installTelemetrySpy();
     await applyRuleCreate(
@@ -451,7 +451,19 @@ describe('applyRuleCreate — rule_created product telemetry', () => {
       { workspaceId: 'ws-1', surfaceId: 'workbench', context: makeContextHandle() },
     );
     expect(track).toHaveBeenCalledWith('productTelemetryTrack', {
-      event: { name: 'rule_created', ruleType: 'header' },
+      event: { name: 'rule_created', ruleType: 'header', origin: 'editor' },
+    });
+  });
+
+  it('stamps the caller-declared origin — quick-create popovers and empty-state affordances', async () => {
+    mockCall.mockResolvedValue({ ok: true, outcomes: [] });
+    const track = installTelemetrySpy();
+    await applyRuleCreate(
+      { rule: createSeed, parentPath: 'rules/c-1' },
+      { workspaceId: 'ws-1', surfaceId: 'devpanel', origin: 'quick-editor', context: makeContextHandle() },
+    );
+    expect(track).toHaveBeenCalledWith('productTelemetryTrack', {
+      event: { name: 'rule_created', ruleType: 'header', origin: 'quick-editor' },
     });
   });
 

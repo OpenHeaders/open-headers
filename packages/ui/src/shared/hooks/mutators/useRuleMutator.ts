@@ -9,6 +9,7 @@
  * `{ ok: true } | { ok: false; reason: 'not-found' | 'other' }`.
  */
 
+import type { TelemetryRuleCreatedOrigin } from '@openheaders/core/telemetry';
 import type { RuleSeed } from '@openheaders/core/utils';
 import {
   applyRuleCreate,
@@ -28,6 +29,9 @@ export type { RuleMutationResult, RuleSimpleResult, RuleUpdates };
 export interface UseRuleMutatorOptions {
   workspaceId: string | null;
   surfaceId: string;
+  /** `rule_created` origin attribution for creates minted through this
+   *  mutator (plan §3, S16); omitted = the write client's `editor` default. */
+  createOrigin?: TelemetryRuleCreatedOrigin;
 }
 
 export interface UseRuleMutatorApi {
@@ -41,10 +45,10 @@ export interface UseRuleMutatorApi {
 }
 
 export function useRuleMutator(opts: UseRuleMutatorOptions): UseRuleMutatorApi {
-  const { workspaceId, surfaceId } = opts;
+  const { workspaceId, surfaceId, createOrigin } = opts;
 
   const createRule = useGuardedMutation(workspaceId, surfaceId, (writeOpts, rule: RuleSeed, parentPath: string) =>
-    applyRuleCreate({ rule, parentPath }, writeOpts),
+    applyRuleCreate({ rule, parentPath }, createOrigin ? { ...writeOpts, origin: createOrigin } : writeOpts),
   );
 
   const publishRule = useGuardedMutation(workspaceId, surfaceId, (writeOpts, ruleUid: string) =>

@@ -4,6 +4,7 @@
  * returns, and the helpers used by more than one family.
  */
 
+import type { TelemetryRuleCreatedOrigin } from '@openheaders/core/telemetry';
 import type { Collection, Request, Rule, RuleDraft } from '@openheaders/core/types';
 import type { MessageKey } from '@openheaders/i18n';
 import type { Translate } from '@openheaders/ui/context/LocaleContext';
@@ -61,6 +62,7 @@ export interface UseTabOpenersApi {
     context?: { collectionId: string; folderPath?: string },
     templateKey?: string,
     initialDraft?: RuleDraft,
+    origin?: TelemetryRuleCreatedOrigin,
   ) => void;
   openEditTab: (uid: string) => void;
   openCollectionOverview: (uid: string, name: string, autoRename?: boolean) => void;

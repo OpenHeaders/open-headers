@@ -60,7 +60,7 @@ export function ResponseQuickCreate({
   const { message } = App.useApp();
   const t = useT();
   const workspaceId = useActiveWorkspaceId();
-  const mutator = useRuleMutator({ workspaceId, surfaceId: 'devpanel' });
+  const mutator = useRuleMutator({ workspaceId, surfaceId: 'devpanel', createOrigin: 'quick-editor' });
   const { rules } = useRules();
   const strategy = useSettingValue('rulesEngine.draftUrlStrategy');
 

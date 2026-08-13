@@ -68,7 +68,10 @@ import { installLifecycleStatusReporters } from './bootstrap/lifecycle-status-re
 import { installMessageRouting } from './bootstrap/message-routing';
 import { installNetworkEventHandlers } from './bootstrap/network-events';
 import { installOracleHostHooks } from './bootstrap/oracle-host-hooks';
-import { installProductTelemetrySyncBeacons } from './bootstrap/product-telemetry-beacons';
+import {
+  installProductTelemetryRuleMatchBeacon,
+  installProductTelemetrySyncBeacons,
+} from './bootstrap/product-telemetry-beacons';
 import { installStatusReporters } from './bootstrap/status-reporters';
 import { installStorageListeners } from './bootstrap/storage-listeners';
 import { installStoreBroadcasts } from './bootstrap/store-broadcasts';
@@ -120,6 +123,7 @@ installOracleHostHooks();
 const syncWiring = installWsFrameRouting();
 installStatusReporters({ syncWiring });
 installProductTelemetrySyncBeacons(syncWiring);
+installProductTelemetryRuleMatchBeacon();
 installActivityBroadcasts();
 // Forwarded gRPC invokes: the companion's live grpcStreamEvent frames
 // come back down the backend wire — relay them to the local broadcast.

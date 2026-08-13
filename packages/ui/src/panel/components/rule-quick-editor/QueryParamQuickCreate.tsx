@@ -54,7 +54,7 @@ export function QueryParamQuickCreate({
 }: QueryParamQuickCreateProps) {
   const { message } = App.useApp();
   const workspaceId = useActiveWorkspaceId();
-  const mutator = useRuleMutator({ workspaceId, surfaceId: 'devpanel' });
+  const mutator = useRuleMutator({ workspaceId, surfaceId: 'devpanel', createOrigin: 'quick-editor' });
   const { rules } = useRules();
   const strategy = useSettingValue('rulesEngine.draftUrlStrategy');
 

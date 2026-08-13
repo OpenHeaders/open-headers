@@ -1288,8 +1288,12 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
   const renderEmpty = useCallback(
     () => (
       <EmptyState
-        onCreateRule={openCreateTab}
-        onCreateRuleFromTemplate={(type, templateKey) => openCreateTab(type, undefined, templateKey)}
+        // Empty-state creates carry their own rule_created origin — the
+        // zero-rules onboarding lever is measured from birth (S16).
+        onCreateRule={(type) => openCreateTab(type, undefined, undefined, undefined, 'empty-state-nudge')}
+        onCreateRuleFromTemplate={(type, templateKey) =>
+          openCreateTab(type, undefined, templateKey, undefined, 'empty-state-nudge')
+        }
         onBrowseTemplates={handleBrowseTemplates}
         onCreateRequest={() => openCreateRequestTab()}
         onCreateWorkflow={() => openCreateLiveWorkflow()}

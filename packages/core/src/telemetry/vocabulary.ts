@@ -59,7 +59,18 @@ export const TelemetryFeatureIdSchema = v.picklist([
   'workspace-sync',
   'live-sources',
   'devtools-scripts',
+  'desktop-download',
 ]);
+
+/**
+ * Which affordance a rule creation originated from — the activation
+ * funnel's creation-side split (plan §3, S16). `editor` is every full
+ * editor flow (workbench, popup, panel editor tab); `quick-editor` is
+ * the in-context quick-create popovers; `empty-state-nudge` is a create
+ * initiated from an empty-state affordance. Import-attributed creates
+ * stay excluded from `rule_created` entirely.
+ */
+export const TelemetryRuleCreatedOriginSchema = v.picklist(['editor', 'quick-editor', 'empty-state-nudge']);
 
 /**
  * Mirrors `RuleTypeSchema` (`schemas/rule.ts`) as its own list so a new
@@ -225,8 +236,18 @@ export const TelemetryEventSchema = v.variant('name', [
     name: v.literal('feature_used'),
     feature: TelemetryFeatureIdSchema,
   }),
+  // `origin` is optional on the wire only for pre-S16 clients; current
+  // clients always stamp it.
   v.strictObject({
     name: v.literal('rule_created'),
+    ruleType: TelemetryRuleTypeIdSchema,
+    origin: v.optional(TelemetryRuleCreatedOriginSchema),
+  }),
+  // A rule of this type demonstrably acted on a request this session —
+  // once per session per type (daily re-arm, plan §3). Created ≠ fired:
+  // this is the activation funnel's fired side.
+  v.strictObject({
+    name: v.literal('rule_matched'),
     ruleType: TelemetryRuleTypeIdSchema,
   }),
   v.strictObject({
@@ -291,6 +312,7 @@ export type TelemetryBrowserKind = v.InferOutput<typeof TelemetryBrowserKindSche
 export type TelemetryLocale = v.InferOutput<typeof TelemetryLocaleSchema>;
 export type TelemetryFeatureId = v.InferOutput<typeof TelemetryFeatureIdSchema>;
 export type TelemetryRuleTypeId = v.InferOutput<typeof TelemetryRuleTypeIdSchema>;
+export type TelemetryRuleCreatedOrigin = v.InferOutput<typeof TelemetryRuleCreatedOriginSchema>;
 export type TelemetryImportSourceId = v.InferOutput<typeof TelemetryImportSourceIdSchema>;
 export type TelemetryErrorCode = v.InferOutput<typeof TelemetryErrorCodeSchema>;
 export type TelemetryAppVersion = v.InferOutput<typeof TelemetryAppVersionSchema>;

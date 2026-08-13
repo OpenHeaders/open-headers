@@ -30,6 +30,7 @@ import { useEffect, useState } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { useBackends } from '../backend';
 import { useBackendSyncStatus } from '../hooks/useBackendSyncStatus';
+import { noteFeatureUsed } from '../product-telemetry';
 import { DESKTOP_TEASER_COPY, type DesktopFeature } from './features';
 import { DESKTOP_DOWNLOAD_URL, type DesktopInstaller, fetchLatestDesktopInstaller } from './update-feed';
 
@@ -43,6 +44,12 @@ function openExternal(url: string): void {
   const openUrl = getCapability('openExternalUrl');
   if (openUrl) void openUrl(url);
   else window.open(url, '_blank', 'noopener');
+}
+
+/** Download intent — the extension→desktop funnel signal (plan §3, S16). */
+function openDownload(url: string): void {
+  noteFeatureUsed('desktop-download');
+  openExternal(url);
 }
 
 const DesktopTeaser: React.FC<DesktopTeaserProps> = ({ feature, icon }) => {
@@ -167,7 +174,7 @@ const DesktopTeaser: React.FC<DesktopTeaserProps> = ({ feature, icon }) => {
           <Button
             type="primary"
             icon={<DownloadOutlined />}
-            onClick={() => openExternal(installer?.url ?? DESKTOP_DOWNLOAD_URL)}
+            onClick={() => openDownload(installer?.url ?? DESKTOP_DOWNLOAD_URL)}
             data-testid="desktop-teaser-cta"
             // The Save button's orange (EditorHeader), with the label
             // eased off pure white — full-brightness text on this fill
@@ -179,7 +186,7 @@ const DesktopTeaser: React.FC<DesktopTeaserProps> = ({ feature, icon }) => {
           <Button
             type="link"
             size="small"
-            onClick={() => openExternal(DESKTOP_DOWNLOAD_URL)}
+            onClick={() => openDownload(DESKTOP_DOWNLOAD_URL)}
             style={{ fontSize: 12, padding: 0, height: 'auto' }}
           >
             {t('shared.desktopTeaser.otherPlatforms')}

@@ -7,6 +7,7 @@
  */
 
 export {
+  buildTelemetryUninstallUrl,
   mintTelemetryInstallId,
   mintTelemetrySessionId,
   type PersistedTelemetryQueueEntry,
@@ -62,6 +63,8 @@ export {
   TelemetryLocaleSchema,
   type TelemetryPlatform,
   TelemetryPlatformSchema,
+  type TelemetryRuleCreatedOrigin,
+  TelemetryRuleCreatedOriginSchema,
   type TelemetryRuleTypeId,
   TelemetryRuleTypeIdSchema,
   type TelemetryScaleBucket,

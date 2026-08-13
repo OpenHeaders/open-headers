@@ -11,10 +11,10 @@ import type { ProductTelemetrySnapshot } from '@openheaders/core/bridge';
 import { getHostStorage, OH, wsKeys } from '@openheaders/core/storage';
 import {
   bucketScale,
+  buildTelemetryUninstallUrl,
   mintTelemetrySessionId,
   type PersistedTelemetryQueueEntry,
   PRODUCT_TELEMETRY_ENDPOINT,
-  PRODUCT_TELEMETRY_UNINSTALL_ENDPOINT,
   ProductTelemetryController,
   type ProductTelemetryInstallStore,
   type ProductTelemetrySessionStore,
@@ -287,23 +287,42 @@ async function buildSessionStart(): Promise<TelemetryEvent | null> {
   return { name: 'session_start', ...(await readScaleBuckets()) };
 }
 
-/** The uninstall-URL target for one install id (WIRE_TRANSPARENCY.md §4). */
-export function uninstallUrlFor(installId: string | null): string {
-  return installId ? `${PRODUCT_TELEMETRY_UNINSTALL_ENDPOINT}?i=${installId}` : '';
+/**
+ * The uninstall-URL target for one install identity
+ * (WIRE_TRANSPARENCY.md §4): the install id plus the coarse age bucket
+ * and distribution channel (S16) — churn segments by age and
+ * acquisition. Empty without an identity.
+ */
+export function uninstallUrlFor(record: TelemetryInstallContext | null): string {
+  return record ? buildTelemetryUninstallUrl(record, detectDistributionChannel(), Date.now()) : '';
 }
 
 /**
- * Keep the browser's uninstall ping in step with the identity: set while
- * an install id exists, cleared the moment the toggle wipes it. Best
- * effort — not every engine implements `setUninstallURL`.
+ * Keep the browser's uninstall ping in step with the identity AND the
+ * rolling age bucket: recomputed on every identity change and on every
+ * flush cadence tick, re-registered only when the URL actually changed
+ * (the bucket rolls a handful of times per install lifetime; everything
+ * else is a no-op read). Serialized on one chain so a rapid toggle
+ * cycle can't interleave reads and register a stale URL. Best effort —
+ * not every engine implements `setUninstallURL`.
  */
-function syncUninstallUrl(installId: string | null): void {
+let lastRegisteredUninstallUrl: string | null = null;
+let uninstallUrlChain: Promise<void> = Promise.resolve();
+
+async function refreshUninstallUrl(): Promise<void> {
+  const url = uninstallUrlFor(await installStore.getRecord());
+  if (url === lastRegisteredUninstallUrl) return;
+  lastRegisteredUninstallUrl = url;
   const api = typeof browser !== 'undefined' ? browser : chrome;
   try {
-    void api.runtime.setUninstallURL?.(uninstallUrlFor(installId))?.catch?.(() => undefined);
+    void api.runtime.setUninstallURL?.(url)?.catch?.(() => undefined);
   } catch {
     // Engines without the API just never ping.
   }
+}
+
+function scheduleUninstallUrlRefresh(): void {
+  uninstallUrlChain = uninstallUrlChain.then(refreshUninstallUrl).catch(() => undefined);
 }
 
 const controller = new ProductTelemetryController({
@@ -326,7 +345,7 @@ const controller = new ProductTelemetryController({
   getEnabled: () => getSetting('telemetry.enabled'),
   subscribeEnabled: (fn) => void subscribeKey('telemetry.enabled', fn),
   buildSessionStart,
-  onIdentityChanged: syncUninstallUrl,
+  onIdentityChanged: scheduleUninstallUrlRefresh,
 });
 
 /**
@@ -357,6 +376,9 @@ export function isProductTelemetryAlarm(alarm: chrome.alarms.Alarm): boolean {
 }
 
 export async function handleProductTelemetryAlarm(): Promise<void> {
+  // The cadence tick doubles as the age-bucket watchdog: the registered
+  // uninstall URL re-derives here and re-registers only on change.
+  scheduleUninstallUrlRefresh();
   await controller.flush();
 }
 

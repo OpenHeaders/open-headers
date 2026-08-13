@@ -20,6 +20,7 @@ import {
   buildToggleBatch,
   buildUpdateBatch,
 } from '@openheaders/core/sync-builders/mutations/rule-mutations';
+import type { TelemetryRuleCreatedOrigin } from '@openheaders/core/telemetry';
 import type { Rule } from '@openheaders/core/types';
 import { generateUid, shouldAutoUnpublishOnUpdate, toFolderName } from '@openheaders/core/utils';
 import { getRuleSyncMirrorForWorkspace, type RuleSyncMirror } from '../../context/mirrors/rule-sync-mirror';
@@ -44,6 +45,13 @@ export type RuleSimpleResult = SyncSimpleResult;
 export interface RuleWriteOptions extends BaseSyncWriteOptions {
   /** Override the singleton mirror for tests. */
   mirror?: RuleSyncMirror;
+  /**
+   * Which affordance a create gesture came from, for the `rule_created`
+   * telemetry split (plan §3, S16). Defaults to `editor`; quick-create
+   * popovers and empty-state affordances pass their own member. Only
+   * `applyRuleCreate` reads it.
+   */
+  origin?: TelemetryRuleCreatedOrigin;
 }
 
 /**
@@ -149,7 +157,7 @@ export async function applyRuleCreate(
   const ack = await applySyncPayload(payload);
   if (ack.ok) {
     if (opts.surfaceId !== IMPORT_ATTRIBUTION_SURFACE_ID) {
-      trackProductTelemetryEvent({ name: 'rule_created', ruleType: created.type });
+      trackProductTelemetryEvent({ name: 'rule_created', ruleType: created.type, origin: opts.origin ?? 'editor' });
     }
     return { ok: true, rule: created };
   }

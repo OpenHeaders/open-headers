@@ -2,6 +2,7 @@
  * Types for the workbench.html full-page editor.
  */
 
+import type { TelemetryRuleCreatedOrigin } from '@openheaders/core/telemetry';
 import type { Request, Rule, RuleDraft } from '@openheaders/core/types';
 import type { JarCookieKey } from '../panel/host-cookie-jar';
 import type { DomStorageArea } from '../panel/host-storage-inspector';
@@ -116,6 +117,12 @@ export interface WorkbenchTab {
    */
   preferredCollectionId?: string;
   preferredFolderPath?: string;
+  /**
+   * For rule-create tabs: which affordance opened the draft, carried to
+   * the eventual Save so `rule_created` telemetry attributes the create
+   * (plan §3, S16). Absent = the write client's `editor` default.
+   */
+  createOrigin?: TelemetryRuleCreatedOrigin;
   /**
    * Environment pinned to this tab. While the tab is focused the pinned
    * env takes over the active environment with the highest precedence

@@ -1,11 +1,12 @@
 /**
- * Product-telemetry beacons for the sync plane — wires the
- * host-neutral observability seams to the vocabulary's typed events
- * (`TELEMETRY_PLAN.md` §3): the `workspace-sync` feature signal on a
- * wire connect, plus the typed error codes. The oracle modules stay
- * telemetry-free; this is the extension's one place that maps their
- * signals onto product-telemetry events. The controller's session
- * latch keeps each feature/code to once per browser session.
+ * Product-telemetry beacons — wires host-neutral observability seams to
+ * the vocabulary's typed events (`TELEMETRY_PLAN.md` §3). The oracle
+ * modules stay telemetry-free; this is the extension's one place that
+ * maps their signals onto product-telemetry events. The controller's
+ * session latch keeps each member to once per session (re-armed daily).
+ *
+ * Sync plane: the `workspace-sync` feature signal on a wire connect,
+ * plus the typed error codes.
  *
  *   - push: a pending-out enqueue that threw, or a flush that died
  *     mid-drain (`sync-push-failed`) — routine queueing while
@@ -15,11 +16,18 @@
  *
  * `ws-connect-failed` is wired where the connection manager is
  * installed (`websocket.ts`).
+ *
+ * Rule-match plane (S16): `rule_matched` per rule type off the
+ * tab-telemetry fire pipeline — see
+ * {@link installProductTelemetryRuleMatchBeacon}.
  */
 
+import type { TelemetryRuleTypeId } from '@openheaders/core/telemetry';
+import { getRules } from '@openheaders/oracle/entity/rule-store';
 import { subscribeOnWebSocketOpen } from '@openheaders/oracle/sync/client/backend-connection-manager';
 import { setOutboundSyncFailureObserver } from '@openheaders/oracle/sync/client/mutation-forwarder';
 import { trackProductTelemetryEvent } from '../modules/product-telemetry';
+import { subscribeFiresAll } from '../modules/tab-telemetry';
 import type { SyncWiring } from './ws-frame-routing';
 
 export function installProductTelemetrySyncBeacons(syncWiring: SyncWiring): void {
@@ -48,5 +56,46 @@ export function installProductTelemetrySyncBeacons(syncWiring: SyncWiring): void
     }
     unsubscribers.get(event.backendId)?.();
     unsubscribers.delete(event.backendId);
+  });
+}
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+const MAX_CACHED_RULE_TYPES = 1024;
+
+/**
+ * `rule_matched` — the activation funnel's fired side (plan §3, S16):
+ * a rule of this type demonstrably acted this session, once per type
+ * per UTC day. Fed by the tab-telemetry fire pipeline, which runs on
+ * every install with no consumer required (the background holds an
+ * `active-tab` tracking reason per window) and sits downstream of the
+ * effective-uid intersection and shadow arbitration — a rule that was
+ * unpublished, paused, or dropped over the rule cap never claims a
+ * fire, so created-but-silently-dead rules correctly stay silent here
+ * too. The controller's daily-re-armed latch is authoritative; the
+ * in-memory day set just keeps this hot path (every matching request
+ * on the active tab) from re-entering the controller per fire.
+ */
+export function installProductTelemetryRuleMatchBeacon(): void {
+  const typeByUid = new Map<string, TelemetryRuleTypeId>();
+  const reported = new Set<TelemetryRuleTypeId>();
+  let reportedDay = -1;
+
+  subscribeFiresAll((_tabId, record) => {
+    const day = Math.floor(Date.now() / DAY_MS);
+    if (day !== reportedDay) {
+      reportedDay = day;
+      reported.clear();
+    }
+    let type = typeByUid.get(record.ruleUid);
+    if (type === undefined) {
+      const rule = getRules().find((r) => r.uid === record.ruleUid);
+      if (!rule) return;
+      if (typeByUid.size >= MAX_CACHED_RULE_TYPES) typeByUid.clear();
+      typeByUid.set(record.ruleUid, rule.type);
+      type = rule.type;
+    }
+    if (reported.has(type)) return;
+    reported.add(type);
+    trackProductTelemetryEvent({ name: 'rule_matched', ruleType: type });
   });
 }

@@ -1,6 +1,7 @@
 import * as v from 'valibot';
 import { describe, expect, it } from 'vitest';
 import {
+  buildTelemetryUninstallUrl,
   mintTelemetryInstallId,
   mintTelemetrySessionId,
   type PersistedTelemetryQueueEntry,
@@ -56,6 +57,23 @@ function makeClient(
 function makeEvent(overrides: Partial<Extract<TelemetryEvent, { name: 'import_run' }>> = {}): TelemetryEvent {
   return { name: 'import_run', source: 'insomnia', ok: true, ...overrides };
 }
+
+describe('buildTelemetryUninstallUrl', () => {
+  const DAY = 24 * 60 * 60 * 1000;
+
+  it('carries the install id plus the coarse age bucket and channel', () => {
+    expect(buildTelemetryUninstallUrl(INSTALL, 'chrome-store', NOW)).toBe(
+      `https://telemetry.openheaders.io/v1/uninstall?i=${INSTALL.installId}&a=0&c=chrome-store`,
+    );
+  });
+
+  it('rolls the age bucket with the clock — the host re-registers as it changes', () => {
+    expect(buildTelemetryUninstallUrl(INSTALL, 'firefox-amo', NOW + 3 * DAY)).toBe(
+      `https://telemetry.openheaders.io/v1/uninstall?i=${INSTALL.installId}&a=2-7&c=firefox-amo`,
+    );
+    expect(buildTelemetryUninstallUrl(INSTALL, 'dev', NOW + 40 * DAY)).toContain('&a=31%2B&c=dev');
+  });
+});
 
 describe('TelemetryClient — session id', () => {
   it('mints 32 lowercase hex chars', () => {

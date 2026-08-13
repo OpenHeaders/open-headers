@@ -4,6 +4,7 @@
  * duplicate-tab scratch.
  */
 
+import type { TelemetryRuleCreatedOrigin } from '@openheaders/core/telemetry';
 import type { Collection, Rule, RuleDraft, RuleType } from '@openheaders/core/types';
 import { buildEmptyRule } from '@openheaders/core/utils';
 import { useT } from '@openheaders/ui/context/LocaleContext';
@@ -88,6 +89,7 @@ export function useRuleOpeners(
       context?: { collectionId: string; folderPath?: string },
       templateKey?: string,
       initialDraft?: RuleDraft,
+      origin?: TelemetryRuleCreatedOrigin,
     ) => {
       if (!workspaceId) {
         message.error(t('workbench.shell.toast.noActiveWorkspace'));
@@ -102,7 +104,8 @@ export function useRuleOpeners(
       const parentPath = resolveContextParentPath(context, localCollections);
       if (parentPath) {
         const seed = buildEmptyRule(type as RuleType, draftName);
-        void applyRuleCreate({ rule: seed, parentPath }, { workspaceId, surfaceId }).then((result) => {
+        const writeOpts = { workspaceId, surfaceId, ...(origin ? { origin } : {}) };
+        void applyRuleCreate({ rule: seed, parentPath }, writeOpts).then((result) => {
           if (!result.ok) {
             message.error(t('workbench.shell.toast.createRuleFailed'));
             return;
@@ -141,6 +144,9 @@ export function useRuleOpeners(
         initialDraft: draftMatches,
         preferredCollectionId: context?.collectionId,
         preferredFolderPath: context?.folderPath,
+        // The gesture's origin rides the draft tab so the eventual Save
+        // (useSaveRuleFlow) attributes the create to this affordance.
+        createOrigin: origin,
       });
       setPendingRenameTabId(tabId);
     },

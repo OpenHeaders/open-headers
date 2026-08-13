@@ -9,6 +9,7 @@
  * matches "opened an existing rule".
  */
 
+import type { TelemetryRuleCreatedOrigin } from '@openheaders/core/telemetry';
 import type { Collection, Rule } from '@openheaders/core/types';
 import {
   applyRuleCreate,
@@ -67,10 +68,11 @@ async function persist(
   workspaceId: string,
   surfaceId: string,
   replaceTab: (oldId: string, newTab: WorkbenchTab) => void,
+  origin?: TelemetryRuleCreatedOrigin,
 ): Promise<RuleMutationResult> {
   const result = await applyRuleCreate(
     { rule: draft as Omit<Rule, 'uid' | 'path' | 'schemaVersion'>, parentPath },
-    { workspaceId, surfaceId },
+    { workspaceId, surfaceId, ...(origin ? { origin } : {}) },
   );
   if (result.ok) {
     // Scratch Save is the user's "ship it" gesture — crossing the
@@ -107,7 +109,15 @@ export function useSaveRuleFlow({
         : null;
       const fastParentPath = tab.preferredFolderPath ?? preferredCollection?.path;
       if (fastParentPath) {
-        void persist(tabId, { ...draftData, name }, fastParentPath, workspaceId, surfaceId, replaceTab);
+        void persist(
+          tabId,
+          { ...draftData, name },
+          fastParentPath,
+          workspaceId,
+          surfaceId,
+          replaceTab,
+          tab.createOrigin,
+        );
         return;
       }
 
@@ -133,12 +143,13 @@ export function useSaveRuleFlow({
         workspaceId,
         surfaceId,
         replaceTab,
+        allTabs.find((t) => t.id === saveModalTabId)?.createOrigin,
       );
       setSaveModalOpen(false);
       setSaveModalTabId(null);
       setSaveModalDraftData(null);
     },
-    [saveModalTabId, saveModalDraftData, workspaceId, surfaceId, localCollections, replaceTab],
+    [saveModalTabId, saveModalDraftData, workspaceId, surfaceId, localCollections, replaceTab, allTabs],
   );
 
   const closeSaveModal = useCallback(() => setSaveModalOpen(false), []);

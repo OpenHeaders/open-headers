@@ -43,7 +43,10 @@ const SAMPLE_EVENTS: TelemetryEvent[] = [
     workspaces: '0',
   },
   { name: 'feature_used', feature: 'traffic-panel' },
+  { name: 'feature_used', feature: 'desktop-download' },
   { name: 'rule_created', ruleType: 'header' },
+  { name: 'rule_created', ruleType: 'response', origin: 'quick-editor' },
+  { name: 'rule_matched', ruleType: 'header' },
   { name: 'import_run', source: 'postman', ok: true },
   { name: 'workflow_run', ok: false },
   { name: 'error_beacon', code: 'ws-connect-failed' },
@@ -142,6 +145,15 @@ describe('telemetry vocabulary — rejections', () => {
 
   it('rejects a free-form string where a closed union is required', () => {
     expect(v.safeParse(TelemetryEventSchema, { name: 'feature_used', feature: 'anything-else' }).success).toBe(false);
+  });
+
+  it('rejects a rule_created origin outside the closed union', () => {
+    const forged = { name: 'rule_created', ruleType: 'header', origin: 'https://openheaders.io/landing' };
+    expect(v.safeParse(TelemetryEventSchema, forged).success).toBe(false);
+  });
+
+  it('rejects a rule_matched with a free-form rule type', () => {
+    expect(v.safeParse(TelemetryEventSchema, { name: 'rule_matched', ruleType: 'anything' }).success).toBe(false);
   });
 
   it('rejects a web host kind — served-web is hard-off and inexpressible', () => {

@@ -2,7 +2,8 @@
  * Extension host wiring for the durable install identity
  * (`TELEMETRY_PLAN.md` §4, amended 2026-07-16): the distribution
  * channel is a static browser-flavor fact, the uninstall URL carries
- * only the install id (and clears with it), and the install store on
+ * the install id plus the coarse age bucket and channel (S16) and
+ * clears with the identity, and the install store on
  * `chrome.storage.local` keeps the identity record and the first_run
  * sent-bit under separate keys so a toggle-off wipe never re-announces
  * the install.
@@ -12,15 +13,17 @@ import { PRODUCT_TELEMETRY_UNINSTALL_ENDPOINT } from '@openheaders/core/telemetr
 import { describe, expect, it, vi } from 'vitest';
 
 const INSTALL_ID = 'feedface00feedface00feedface0000';
+const DAY_MS = 24 * 60 * 60 * 1000;
 
 async function loadModule() {
   return import('../../src/background/modules/product-telemetry');
 }
 
 describe('uninstallUrlFor', () => {
-  it('targets the published uninstall route with only the install id', async () => {
+  it('targets the published uninstall route with the id plus the coarse age and channel context', async () => {
     const { uninstallUrlFor } = await loadModule();
-    expect(uninstallUrlFor(INSTALL_ID)).toBe(`${PRODUCT_TELEMETRY_UNINSTALL_ENDPOINT}?i=${INSTALL_ID}`);
+    const url = uninstallUrlFor({ installId: INSTALL_ID, installedAt: Date.now() - 3 * DAY_MS });
+    expect(url).toBe(`${PRODUCT_TELEMETRY_UNINSTALL_ENDPOINT}?i=${INSTALL_ID}&a=2-7&c=dev`);
   });
 
   it('clears to the empty string when no identity exists', async () => {
