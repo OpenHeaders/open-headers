@@ -79,39 +79,9 @@ jobs:
         run: pnpm release
         env:
           OH_EXT_CHANNEL: release
-
-      - name: Generate Release Body
-        id: ext_repo
-        run: |
-          TAG="${{ steps.parse_tag.outputs.version }}"
-          EXT_REPO_TAG="v${TAG}"
-          echo "tag=${EXT_REPO_TAG}" >> $GITHUB_OUTPUT
-
-          {
-            echo '## Installation'
-            echo ''
-            echo "Install from your browser's store:"
-            echo ''
-            echo '- [Chrome Web Store](https://chromewebstore.google.com/detail/ablaikadpbfblkmhpmbbnbbfjoibeejb)'
-            echo '- [Edge Add-ons](https://microsoftedge.microsoft.com/addons/detail/gnbibobkkddlflknjkgcmokdlpddegpo)'
-            echo '- Firefox (AMO): listing pending'
-          } > release_body.md
-
-      # Extension-only releases land on the same public flagship repo
-      # as the full release train (DISTRIBUTION_PLAN §2) — the `v*-ext`
-      # source tag maps to a plain `vX.Y.Z` extension tag there.
-      # No zips are attached — store listings are the only
-      # distribution; the build above is a verification gate.
-      - name: Publish to flagship repo
-        uses: softprops/action-gh-release@v2
-        with:
-          token: ${{ secrets.RELEASES_PAT }}
-          repository: OpenHeaders/open-headers
-          tag_name: ${{ steps.ext_repo.outputs.tag }}
-          draft: false
-          prerelease: false
-          name: ${{ steps.ext_repo.outputs.tag }}
-          body_path: release_body.md
+          # The three-browser vite build exceeds the runner's default
+          # heap (first hit at 2026.8.0).
+          NODE_OPTIONS: --max-old-space-size=8192
 
       - name: Check R2 credentials
         id: r2
@@ -130,7 +100,10 @@ jobs:
       # Patch ONLY the extension entry of the STABLE versions manifest
       # — the desktop/cli/daemon entries ride through untouched, so
       # this lane can never move another app's contract. The beta
-      # manifest carries no extension entry, ever.
+      # manifest carries no extension entry, ever. No flagship release
+      # is published for `-ext` tags — store listings are the
+      # extension's only public surface; the build above is a
+      # verification gate and its zips are discarded.
       - name: Update extension entry on the update feed
         if: steps.r2.outputs.enabled == 'true'
         env:
@@ -141,7 +114,7 @@ jobs:
           AWS_RESPONSE_CHECKSUM_VALIDATION: when_required
         run: |
           EXT_VERSION="${{ steps.parse_tag.outputs.version }}"
-          EXT_TAG="${{ steps.ext_repo.outputs.tag }}"
+          EXT_TAG="v${EXT_VERSION}"
 
           # Current manifest from the feed; a channel that has never
           # published starts from an empty object.
