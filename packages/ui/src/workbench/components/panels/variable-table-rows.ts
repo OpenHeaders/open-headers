@@ -5,7 +5,8 @@
  * uses to detect external changes without clobbering in-flight edits.
  */
 
-import type { TotpAlgorithm, Variable, VaultSecret } from '@openheaders/core/types';
+import { buildSecretLocator, SECRET_LOCATOR_FIELDS, secretLocatorToFields } from '@openheaders/core/secret-providers';
+import type { SecretProviderId, TotpAlgorithm, Variable, VaultSecret } from '@openheaders/core/types';
 import { generateUid } from '@openheaders/core/utils';
 import type { PathConflict } from '@openheaders/ui/shared/conflicts/types';
 
@@ -36,7 +37,7 @@ export interface VariableTableConflictBridge {
   onDismiss(path: string): void;
 }
 
-export type RowKind = 'string' | 'totp' | 'client-certificate';
+export type RowKind = 'string' | 'totp' | 'client-certificate' | 'secret-manager';
 
 /**
  * Internal row state — superset of every persisted shape the table
@@ -65,6 +66,14 @@ export interface LocalRow {
   cert: string;
   certKey: string;
   passphrase?: string;
+  // ── Secret-manager-only fields ──
+  /** Provider id driving the locator field set. */
+  smProvider: SecretProviderId;
+  /** Flat locator field values, keyed by the provider's locator field
+   *  names (see `SECRET_LOCATOR_FIELDS`). Serialized back to the typed
+   *  `SecretLocator` via `buildSecretLocator` — forgiving, so partial
+   *  input survives a save; completeness is a status hint, not a gate. */
+  smFields: Record<string, string>;
 }
 
 export const TOTP_DEFAULTS = { algorithm: 'SHA1' as TotpAlgorithm, digits: 6, period: 30 };
@@ -101,6 +110,8 @@ export function emptyRow(isPlaceholder: boolean): LocalRow {
     period: TOTP_DEFAULTS.period,
     cert: '',
     certKey: '',
+    smProvider: 'onepassword',
+    smFields: {},
   };
 }
 
@@ -166,6 +177,17 @@ export function secretsToLocal(secrets: VaultSecret[]): LocalRow[] {
         ...(s.passphrase !== undefined ? { passphrase: s.passphrase } : {}),
       };
     }
+    if (s.kind === 'secret-manager') {
+      return {
+        ...emptyRow(false),
+        uid: s.uid,
+        kind: 'secret-manager' as const,
+        name: s.name,
+        isSensitive: true,
+        smProvider: s.locator.provider,
+        smFields: secretLocatorToFields(s.locator),
+      };
+    }
     return {
       ...emptyRow(false),
       uid: s.uid,
@@ -204,6 +226,13 @@ export function secretsFromLocal(rows: LocalRow[]): VaultSecret[] {
         key: row.certKey,
         ...(row.passphrase ? { passphrase: row.passphrase } : {}),
       });
+    } else if (row.kind === 'secret-manager') {
+      out.push({
+        uid: row.uid,
+        kind: 'secret-manager',
+        name,
+        locator: buildSecretLocator(row.smProvider, row.smFields),
+      });
     } else {
       out.push({ uid: row.uid, kind: 'string', name, value: row.value });
     }
@@ -217,6 +246,19 @@ export function secretsFingerprint(secrets: VaultSecret[]): string {
       if (s.kind === 'totp') return ['totp', s.uid, s.name, s.seed, s.algorithm, s.digits, s.period, s.issuer ?? ''];
       if (s.kind === 'client-certificate')
         return ['client-certificate', s.uid, s.name, s.cert, s.key, s.passphrase ?? ''];
+      if (s.kind === 'secret-manager') {
+        // Project locator fields in spec order — the external side may
+        // have round-tripped chrome.storage (alphabetized keys), so raw
+        // JSON of the record would fingerprint-differ on key order alone.
+        const fields = secretLocatorToFields(s.locator);
+        return [
+          'secret-manager',
+          s.uid,
+          s.name,
+          s.locator.provider,
+          ...SECRET_LOCATOR_FIELDS[s.locator.provider].map((spec) => fields[spec.key] ?? ''),
+        ];
+      }
       return ['string', s.uid, s.name, s.value];
     }),
   );

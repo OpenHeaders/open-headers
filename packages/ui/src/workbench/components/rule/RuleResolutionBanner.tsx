@@ -48,6 +48,9 @@ const REASON_LABEL_KEY: Record<ResolutionError['reason'], MessageKey> = {
   'step-out-of-context': 'workbench.editors.rule.resolution.reason.stepOutOfContext',
   empty: 'workbench.editors.rule.resolution.reason.empty',
   'invalid-resolved-value': 'workbench.editors.rule.resolution.reason.invalidResolvedValue',
+  'secret-authorization-required': 'workbench.editors.rule.resolution.reason.secretAuthorizationRequired',
+  'secret-not-found': 'workbench.editors.rule.resolution.reason.secretNotFound',
+  'secret-unavailable': 'workbench.editors.rule.resolution.reason.secretUnavailable',
 };
 
 interface RuleResolutionBannerProps {

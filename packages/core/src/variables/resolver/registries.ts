@@ -54,6 +54,38 @@ export type TotpRegistry = ReadonlyMap<string, string>;
 /** An empty {@link TotpRegistry} — the DNR-compile default. */
 export const EMPTY_TOTP_REGISTRY: TotpRegistry = new Map();
 
+// ── Secret-manager registry ────────────────────────────────────────
+
+/**
+ * Snapshot of provider-resolved secret values, keyed by the vault
+ * entry's `name`. Built once per request execution by the host that
+ * holds the providers (see the oracle's `buildSecretManagerRegistry`);
+ * resolution looks values up here instead of calling providers
+ * synchronously (the resolver is sync, provider resolution is async
+ * and auth-gated).
+ *
+ * Same architectural gate as {@link TotpRegistry}: callers that don't
+ * precompute (DNR rule compile) leave the registry empty, so
+ * `secret-manager` entries surface as `unset-in-scope` and never bake
+ * a provider-fetched value into persistent rules (L1/L2 — no resolved
+ * secret persists anywhere).
+ */
+export type SecretManagerRegistry = ReadonlyMap<string, string>;
+
+/** An empty {@link SecretManagerRegistry} — the compile-path default. */
+export const EMPTY_SECRET_MANAGER_REGISTRY: SecretManagerRegistry = new Map();
+
+/**
+ * Typed per-entry failures from the registry build, keyed by entry
+ * name. Installed alongside the registry so the resolver's diagnostics
+ * can answer "unset — and here's why" (`authorization-required` /
+ * `not-found` / `unavailable`) instead of a generic miss.
+ */
+export type SecretManagerFailures = ReadonlyMap<string, 'authorization-required' | 'not-found' | 'unavailable'>;
+
+/** An empty {@link SecretManagerFailures} map — the default. */
+export const EMPTY_SECRET_MANAGER_FAILURES: SecretManagerFailures = new Map();
+
 /**
  * How the resolver treats a `kind: 'totp'` vault entry whose code is
  * not in the {@link TotpRegistry}.

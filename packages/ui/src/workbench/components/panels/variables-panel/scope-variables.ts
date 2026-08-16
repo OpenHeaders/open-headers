@@ -13,6 +13,7 @@
  */
 
 import { isLiveVariableEffective } from '@openheaders/core/live';
+import { formatSecretLocator } from '@openheaders/core/secret-providers';
 import type {
   Environment,
   LiveVariable,
@@ -76,6 +77,18 @@ export function buildAllScopeVariables(input: AllScopeVariablesInput): AllScopeV
         value: '',
         scope: 'vault',
         isSensitive: true,
+        resolved: true,
+      };
+    }
+    // Secret-manager entries show their REFERENCE (shareable by
+    // construction) — never a resolved value, which only exists
+    // transiently at consume time.
+    if (s.kind === 'secret-manager') {
+      return {
+        name: s.name,
+        value: formatSecretLocator(s.locator),
+        scope: 'vault',
+        isSensitive: false,
         resolved: true,
       };
     }

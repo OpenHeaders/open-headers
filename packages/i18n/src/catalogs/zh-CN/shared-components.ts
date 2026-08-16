@@ -132,6 +132,8 @@ export const sharedComponents = {
   'shared.templateInput.completion.totpDoc': '**TOTP 代码**——{algorithm}，{digits} 位，每 {period}s 刷新。',
   'shared.templateInput.completion.totpDocIssuer':
     '**{issuer}** 的 **TOTP 代码**——{algorithm}，{digits} 位，每 {period}s 刷新。',
+  'shared.templateInput.completion.secretManagerDoc':
+    '**机密管理器引用**——`{reference}`。发送时从管理器解析；值永不存储。',
 
   // ── Value editors: shared chrome ───────────────────────────────────
   'shared.valueEditors.decoded': '已解码',

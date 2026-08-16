@@ -85,6 +85,14 @@ function renderPreview(suggestion: VariableSuggestion, reveal: boolean, t: Trans
             : t('shared.templateInput.totpPreview', { digits: preview.digits, period: preview.period })}
         </Text>
       );
+    case 'secret-manager':
+      // The reference is shareable by construction — safe to render
+      // unmasked; the resolved value never reaches the suggester.
+      return (
+        <Text code style={{ fontSize: 11 }}>
+          {preview.reference}
+        </Text>
+      );
     case 'stale':
     case 'value': {
       if (!preview.value) {

@@ -24,6 +24,8 @@ export type {
   ResolvedLiveValue,
   ScopedLookupFn,
   ScopedResolution,
+  SecretManagerFailures,
+  SecretManagerRegistry,
   StepCaptureContext,
   TemplateVariable,
   TotpRegistry,
@@ -31,6 +33,8 @@ export type {
 export {
   buildPostResolveError,
   EMPTY_LIVE_REGISTRY,
+  EMPTY_SECRET_MANAGER_FAILURES,
+  EMPTY_SECRET_MANAGER_REGISTRY,
   EMPTY_TOTP_REGISTRY,
   resolveTemplate,
   resolveVariable,

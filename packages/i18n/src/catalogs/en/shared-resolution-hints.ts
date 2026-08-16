@@ -41,6 +41,12 @@ export const sharedResolutionHints = {
     'Step references ({{step.<stepId>.<captureName>}}) are only valid inside a Live Workflow step.',
   'shared.resolutionHint.unresolved':
     'Not found in vault, environment, collection, or workspace. Define it in one of those scopes.',
+  'shared.resolutionHint.secretAuthorizationRequired':
+    'The secret manager holding this entry needs authorization. Unlock or approve access in the manager, then retry.',
+  'shared.resolutionHint.secretNotFound':
+    'The secret manager could not find a secret at this reference. Check the reference fields in the Vault entry.',
+  'shared.resolutionHint.secretUnavailable':
+    'The secret manager for this entry is not available on this device. Install or configure it, then retry.',
   'shared.resolutionHint.invalidDomain.whitespace':
     'Variable resolved to a value Chrome rejects in this slot — contains whitespace (separate hostnames with commas). Use bare hostnames separated by commas.',
   'shared.resolutionHint.invalidDomain.scheme':

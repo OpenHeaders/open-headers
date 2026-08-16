@@ -23,9 +23,13 @@ export {
 export {
   type DeferredVaultMode,
   EMPTY_LIVE_REGISTRY,
+  EMPTY_SECRET_MANAGER_FAILURES,
+  EMPTY_SECRET_MANAGER_REGISTRY,
   EMPTY_TOTP_REGISTRY,
   type LiveRegistry,
   type ResolvedLiveValue,
+  type SecretManagerFailures,
+  type SecretManagerRegistry,
   type StepCaptureContext,
   type TotpRegistry,
 } from './registries';

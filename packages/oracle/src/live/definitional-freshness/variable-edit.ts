@@ -3,6 +3,7 @@ import {
   type VariableFingerprint,
   workflowVariableFingerprint,
 } from '@openheaders/core/live';
+import { formatSecretLocator } from '@openheaders/core/secret-providers';
 import { logger } from '@openheaders/core/utils';
 import {
   getActiveEnvironmentId,
@@ -50,13 +51,18 @@ export function __setVariableEditRefreshDebounceMs(ms: number): void {
 let variableSurfaceBaseline = new Map<string, Map<string, Map<string | null, VariableFingerprint>>>();
 let variableEditDebounceTimer: ReturnType<typeof setTimeout> | null = null;
 
-/** Reduce the vault to name → recipe — a TOTP entry contributes its seed + params, never the rotating code. */
+/** Reduce the vault to name → recipe — a TOTP entry contributes its seed + params, never the rotating code;
+ *  a secret-manager entry contributes its reference, never a resolved value. */
 function snapshotVaultVars(): Map<string, string> {
   const out = new Map<string, string>();
   for (const secret of getVault().secrets) {
     if (secret.kind === 'client-certificate') {
       // Never template-resolvable — contributes no value content.
       out.set(secret.name, '');
+      continue;
+    }
+    if (secret.kind === 'secret-manager') {
+      out.set(secret.name, `secretmgr:${formatSecretLocator(secret.locator)}`);
       continue;
     }
     out.set(

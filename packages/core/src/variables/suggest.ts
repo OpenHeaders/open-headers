@@ -21,6 +21,8 @@
  * `docs/VARIABLE_AUTOCOMPLETE_PLAN.md` for the full design.
  */
 
+import { formatSecretLocator } from '../secret-providers/locator';
+import type { SecretLocator, SecretProviderId } from '../types';
 import { DYNAMIC_GENERATORS } from './dynamic';
 import type { ScopeNamespace } from './namespaces';
 
@@ -96,11 +98,16 @@ export interface VariableEntry {
  * `client-certificate` rows are accepted (callers pass the raw vault
  * list) but never suggested — they are not template-resolvable, so no
  * PEM field crosses this surface either.
+ *
+ * `secret-manager` rows preview the provider id + the reference in the
+ * provider's native idiom (never a resolved value — the value only
+ * exists transiently at consume time).
  */
 export type VaultSecretEntry =
   | { kind: 'string'; name: string; value: string }
   | { kind: 'totp'; name: string; algorithm: string; digits: number; period: number; issuer?: string }
-  | { kind: 'client-certificate'; name: string };
+  | { kind: 'client-certificate'; name: string }
+  | { kind: 'secret-manager'; name: string; locator: SecretLocator };
 
 export interface EnvironmentEntry {
   uid: string;
@@ -184,7 +191,11 @@ export type SuggestionPreview =
   | { kind: 'dynamic'; subtitle: string }
   /** Vault TOTP entry — UI shows "TOTP" badge + algorithm/digits/period
    *  hint. No `value` because the code is computed at request time. */
-  | { kind: 'totp'; algorithm: string; digits: number; period: number; issuer?: string };
+  | { kind: 'totp'; algorithm: string; digits: number; period: number; issuer?: string }
+  /** Vault secret-manager entry — UI shows the provider + the reference
+   *  in its native idiom. No `value`: the secret is fetched from the
+   *  provider at consume time and never held for display. */
+  | { kind: 'secret-manager'; provider: SecretProviderId; reference: string };
 
 /**
  * One candidate for the popover. `reference` is the exact text the UI
@@ -334,7 +345,13 @@ export function buildSuggestions(registries: SuggestionRegistries, context: Sugg
               period: secret.period,
               ...(secret.issuer ? { issuer: secret.issuer } : {}),
             }
-          : valuePreview(secret.value, maskForScope('vault', null, maskAll), false);
+          : secret.kind === 'secret-manager'
+            ? {
+                kind: 'secret-manager',
+                provider: secret.locator.provider,
+                reference: formatSecretLocator(secret.locator),
+              }
+            : valuePreview(secret.value, maskForScope('vault', null, maskAll), false);
       out.push({
         reference: `vault.${secret.name}`,
         scope: 'vault',

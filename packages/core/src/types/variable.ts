@@ -20,12 +20,15 @@
 import type * as v from 'valibot';
 import type {
   EnvironmentSchema,
+  SecretLocatorSchema,
+  SecretProviderIdSchema,
   TotpAlgorithmSchema,
   VariableSchema,
   VariableTypeSchema,
   VaultSchema,
   VaultSecretClientCertificateSchema,
   VaultSecretKindSchema,
+  VaultSecretManagerSchema,
   VaultSecretSchema,
   VaultSecretStringSchema,
   VaultSecretTotpSchema,
@@ -73,6 +76,11 @@ export type Variable = v.InferOutput<typeof VariableSchema>;
  *                passphrase). Not template-resolvable — requests reference
  *                it by NAME via `clientCertificateRef` and the executor
  *                resolves the pair at send time.
+ *   - `secret-manager` — a structured REFERENCE into an external secret
+ *                manager (see `secret-providers`); `{{vault.X}}` resolves
+ *                to the provider-fetched value at consume time, never
+ *                persisted (resolution is host-side where the provider
+ *                is installed).
  *
  * All kinds are local-per-device (highest scope priority, never synced).
  * The discriminated union keeps the storage shape, the suggester, the
@@ -81,9 +89,12 @@ export type Variable = v.InferOutput<typeof VariableSchema>;
  */
 export type VaultSecretKind = v.InferOutput<typeof VaultSecretKindSchema>;
 export type TotpAlgorithm = v.InferOutput<typeof TotpAlgorithmSchema>;
+export type SecretProviderId = v.InferOutput<typeof SecretProviderIdSchema>;
+export type SecretLocator = v.InferOutput<typeof SecretLocatorSchema>;
 export type VaultSecretString = v.InferOutput<typeof VaultSecretStringSchema>;
 export type VaultSecretTotp = v.InferOutput<typeof VaultSecretTotpSchema>;
 export type VaultSecretClientCertificate = v.InferOutput<typeof VaultSecretClientCertificateSchema>;
+export type VaultSecretManager = v.InferOutput<typeof VaultSecretManagerSchema>;
 export type VaultSecret = v.InferOutput<typeof VaultSecretSchema>;
 export type Vault = v.InferOutput<typeof VaultSchema>;
 

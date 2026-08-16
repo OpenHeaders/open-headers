@@ -174,6 +174,15 @@ const VariableTable: React.FC<VariableTableProps> = (props) => {
               certKey: '',
               passphrase: undefined,
             };
+          } else if (patch.kind === 'secret-manager') {
+            row = {
+              ...prior,
+              ...patch,
+              isPlaceholder: false,
+              isSensitive: true,
+              smProvider: 'onepassword',
+              smFields: {},
+            };
           } else {
             row = { ...prior, ...patch, value: '', isPlaceholder: false };
           }

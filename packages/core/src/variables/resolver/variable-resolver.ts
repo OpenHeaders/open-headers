@@ -16,8 +16,12 @@ import type { ResolutionEnvSnapshot, ResolutionError, ScopedResolution } from '.
 import {
   type DeferredVaultMode,
   EMPTY_LIVE_REGISTRY,
+  EMPTY_SECRET_MANAGER_FAILURES,
+  EMPTY_SECRET_MANAGER_REGISTRY,
   EMPTY_TOTP_REGISTRY,
   type LiveRegistry,
+  type SecretManagerFailures,
+  type SecretManagerRegistry,
   type StepCaptureContext,
   type TotpRegistry,
 } from './registries';
@@ -51,6 +55,8 @@ export class VariableResolver {
   private fileRegistry: FileRegistry;
   private liveRegistry: LiveRegistry;
   private totpRegistry: TotpRegistry;
+  private secretManagerRegistry: SecretManagerRegistry;
+  private secretManagerFailures: SecretManagerFailures;
   private deferredVaultMode: DeferredVaultMode;
   private stepCaptures: StepCaptureContext;
 
@@ -64,6 +70,8 @@ export class VariableResolver {
     this.fileRegistry = EMPTY_FILE_REGISTRY;
     this.liveRegistry = EMPTY_LIVE_REGISTRY;
     this.totpRegistry = EMPTY_TOTP_REGISTRY;
+    this.secretManagerRegistry = EMPTY_SECRET_MANAGER_REGISTRY;
+    this.secretManagerFailures = EMPTY_SECRET_MANAGER_FAILURES;
     this.deferredVaultMode = 'reject';
     this.stepCaptures = null;
   }
@@ -145,6 +153,22 @@ export class VariableResolver {
   }
 
   /**
+   * Install the secret-manager registry — a per-execution snapshot of
+   * `name → provider-resolved value` for `kind: 'secret-manager'` vault
+   * entries, plus the typed per-name failures from the same build. Like
+   * the TOTP registry, callers that don't precompute (DNR compile) leave
+   * both empty — entries then surface as unresolved and no
+   * provider-fetched value can reach a persistent rule.
+   */
+  setSecretManagerRegistry(
+    registry: SecretManagerRegistry,
+    failures: SecretManagerFailures = EMPTY_SECRET_MANAGER_FAILURES,
+  ): void {
+    this.secretManagerRegistry = registry;
+    this.secretManagerFailures = failures;
+  }
+
+  /**
    * Pick how to handle a `kind: 'totp'` vault entry whose code is not
    * in the registry. See {@link DeferredVaultMode} for the contract.
    * Defaults to `'reject'` — keeps DNR safe.
@@ -189,20 +213,41 @@ export class VariableResolver {
    * `client-certificate` kind always returns `null` — the PEM pair only
    * leaves the vault through the executor's `clientCertificateRef`
    * resolution, never through `{{vault.X}}`.
+   *
+   * `secret-manager` kind mirrors `totp`: the value comes from the
+   * per-execution {@link secretManagerRegistry}; on miss the
+   * {@link deferredVaultMode} contract applies unchanged (reject →
+   * unresolved, keeping compile paths safe; defer → renderer
+   * existence checks).
    */
   private projectVaultValue(secret: VaultSecret, name: string): ResolvedVariable | null {
     if (secret.kind === 'string') {
       return { name, value: secret.value, scope: 'vault', isSensitive: true };
     }
     if (secret.kind === 'client-certificate') return null;
-    const code = this.totpRegistry.get(secret.name);
-    if (code !== undefined) {
-      return { name, value: code, scope: 'vault', isSensitive: true };
+    const value =
+      secret.kind === 'totp' ? this.totpRegistry.get(secret.name) : this.secretManagerRegistry.get(secret.name);
+    if (value !== undefined) {
+      return { name, value, scope: 'vault', isSensitive: true };
     }
     if (this.deferredVaultMode === 'defer') {
       return { name, value: '', scope: 'vault', isSensitive: true, deferred: true };
     }
     return null;
+  }
+
+  /**
+   * Typed `failureReason` for an unprojectable `secret-manager` entry —
+   * looked up from the per-execution failures map installed alongside
+   * the registry. Empty for every other kind (and for compile paths
+   * that never built a registry), where the plain `unset-in-scope`
+   * miss is the whole answer.
+   */
+  private secretFailureReason(secret: VaultSecret): Pick<ScopedResolution, 'failureReason'> {
+    if (secret.kind !== 'secret-manager') return {};
+    const failure = this.secretManagerFailures.get(secret.name);
+    if (!failure) return {};
+    return { failureReason: `secret-${failure}` };
   }
 
   /**
@@ -328,7 +373,7 @@ export class VariableResolver {
         const secret = this.vault.secrets.find((s) => s.name === name);
         if (!secret) return { resolved: null };
         const projected = this.projectVaultValue(secret, name);
-        if (projected === null) return { resolved: null };
+        if (projected === null) return { resolved: null, ...this.secretFailureReason(secret) };
         // Empty string-kind value falls through to `unset-in-scope` so
         // the user fixes the underlying empty entry. Deferred TOTP
         // entries report as resolved — the actual code lands at

@@ -170,6 +170,8 @@ function scopeDetail(s: VariableSuggestion, t: Translate): string {
         digits: s.preview.digits,
         period: s.preview.period,
       })}`;
+    case 'secret-manager':
+      return `${label} — ${s.preview.reference}`;
   }
 }
 
@@ -218,5 +220,9 @@ function previewDocumentation(s: VariableSuggestion, t: Translate): string | nul
         ? t('shared.templateInput.completion.totpDocIssuer', { ...args, issuer: s.preview.issuer })
         : t('shared.templateInput.completion.totpDoc', args);
     }
+    case 'secret-manager':
+      // The reference is shareable by construction — surfacing it in
+      // the hover is safe; the resolved value never reaches this layer.
+      return t('shared.templateInput.completion.secretManagerDoc', { reference: s.preview.reference });
   }
 }

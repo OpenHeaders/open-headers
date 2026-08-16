@@ -21,6 +21,9 @@ const REASON_TAG_COLOR: Record<ResolutionError['reason'], string> = {
   'step-out-of-context': 'volcano',
   empty: 'default',
   'invalid-resolved-value': 'warning',
+  'secret-authorization-required': 'warning',
+  'secret-not-found': 'error',
+  'secret-unavailable': 'warning',
 };
 
 const REASON_TAG_LABEL: Record<ResolutionError['reason'], MessageKey> = {
@@ -30,6 +33,9 @@ const REASON_TAG_LABEL: Record<ResolutionError['reason'], MessageKey> = {
   'step-out-of-context': 'workbench.variables.panel.errors.reason.stepOutOfContext',
   empty: 'workbench.variables.panel.errors.reason.empty',
   'invalid-resolved-value': 'workbench.variables.panel.errors.reason.invalidResolvedValue',
+  'secret-authorization-required': 'workbench.variables.panel.errors.reason.secretAuthorizationRequired',
+  'secret-not-found': 'workbench.variables.panel.errors.reason.secretNotFound',
+  'secret-unavailable': 'workbench.variables.panel.errors.reason.secretUnavailable',
 };
 
 export function ResolutionErrorList({ errors }: { errors: ResolutionError[] }) {

@@ -15,12 +15,22 @@ import {
 } from '@ant-design/icons';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import {
+  buildSecretLocator,
+  formatSecretLocator,
+  isSecretLocatorComplete,
+  SECRET_LOCATOR_FIELDS,
+  SECRET_PROVIDER_IDS,
+} from '@openheaders/core/secret-providers';
+import type { SecretProviderId } from '@openheaders/core/types';
 import { useT } from '@openheaders/ui/context/LocaleContext';
+import type { MessageKey } from '@openheaders/i18n';
 import { Collapse, Input, InputNumber, Select, Tooltip, theme } from 'antd';
 import type React from 'react';
 import { useCallback } from 'react';
 import { ConflictDiffChip, EntityField, SetRowConflictChip } from '@openheaders/ui/shared/awareness';
 import TotpPreview from '../totp/TotpPreview';
+import SecretProviderStatusChip from './SecretProviderStatusChip';
 import {
   gridColsFor,
   type LocalRow,
@@ -94,6 +104,38 @@ function ValueCell({ value, masked, onChange, onReveal, placeholder }: ValueCell
   );
 }
 
+// ── Secret-manager label catalogs ──────────────────────────────────
+// Explicit key maps (never computed template keys) so the message-key
+// union stays typecheckable — same idiom as the conflict adapters.
+
+const SM_PROVIDER_LABEL: Record<SecretProviderId, MessageKey> = {
+  onepassword: 'workbench.variables.table.smProvider.onepassword',
+  bitwarden: 'workbench.variables.table.smProvider.bitwarden',
+  oskeychain: 'workbench.variables.table.smProvider.oskeychain',
+  awssm: 'workbench.variables.table.smProvider.awssm',
+  azurekv: 'workbench.variables.table.smProvider.azurekv',
+  hashivault: 'workbench.variables.table.smProvider.hashivault',
+};
+
+const SM_FIELD_LABEL: Record<string, MessageKey> = {
+  vault: 'workbench.variables.table.smField.vault',
+  item: 'workbench.variables.table.smField.item',
+  field: 'workbench.variables.table.smField.field',
+  account: 'workbench.variables.table.smField.account',
+  secretId: 'workbench.variables.table.smField.secretId',
+  service: 'workbench.variables.table.smField.service',
+  name: 'workbench.variables.table.smField.name',
+  stage: 'workbench.variables.table.smField.stage',
+  region: 'workbench.variables.table.smField.region',
+  profile: 'workbench.variables.table.smField.profile',
+  vaultUrl: 'workbench.variables.table.smField.vaultUrl',
+  version: 'workbench.variables.table.smField.version',
+  mount: 'workbench.variables.table.smField.mount',
+  path: 'workbench.variables.table.smField.path',
+  key: 'workbench.variables.table.smField.key',
+  serverUrl: 'workbench.variables.table.smField.serverUrl',
+};
+
 // ── Sortable row ───────────────────────────────────────────────────
 
 interface SortableRowProps {
@@ -137,6 +179,7 @@ export function SortableRow({
   const isVault = mode === 'vault';
   const isTotp = isVault && row.kind === 'totp' && !row.isPlaceholder;
   const isCert = isVault && row.kind === 'client-certificate' && !row.isPlaceholder;
+  const isSecretManager = isVault && row.kind === 'secret-manager' && !row.isPlaceholder;
   const setPathPrefix = isVault ? 'secrets' : 'variables';
   const conflictPathFor = (leaf: string) => `${setPathPrefix}.${row.uid}.${leaf}`;
   const nameConflict =
@@ -144,7 +187,7 @@ export function SortableRow({
       ? conflictBridge.getLeafConflict(conflictPathFor('name'), row.name)
       : null;
   const valueConflict =
-    !row.isPlaceholder && conflictBridge && !isTotp && !isCert
+    !row.isPlaceholder && conflictBridge && !isTotp && !isCert && !isSecretManager
       ? conflictBridge.getLeafConflict(conflictPathFor('value'), row.value)
       : null;
   // Set-level conflict: this row was removed externally while still in
@@ -168,7 +211,7 @@ export function SortableRow({
     transform: CSS.Translate.toString(transform),
     transition,
     ...(isDragging ? { position: 'relative' as const, zIndex: 50, opacity: 0.85 } : {}),
-    alignItems: isTotp || isCert ? 'flex-start' : 'stretch',
+    alignItems: isTotp || isCert || isSecretManager ? 'flex-start' : 'stretch',
   };
 
   return (
@@ -321,13 +364,73 @@ export function SortableRow({
                 { value: 'string', label: t('workbench.variables.table.kindText') },
                 { value: 'totp', label: t('workbench.variables.table.kindTotp') },
                 { value: 'client-certificate', label: t('workbench.variables.table.kindCertificate') },
+                { value: 'secret-manager', label: t('workbench.variables.table.kindSecretManager') },
               ]}
-              style={{ width: 96, flexShrink: 0 }}
+              style={{ width: 112, flexShrink: 0 }}
               disabled={row.isPlaceholder}
               popupMatchSelectWidth={false}
             />
           )}
-          {isCert ? (
+          {isSecretManager ? (
+            (() => {
+              const locator = buildSecretLocator(row.smProvider, row.smFields);
+              return (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1, minWidth: 0 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <Select
+                      variant="borderless"
+                      size="small"
+                      value={row.smProvider}
+                      onChange={(v) => update(index, { smProvider: v as SecretProviderId, smFields: {} })}
+                      options={SECRET_PROVIDER_IDS.map((id) => ({ value: id, label: t(SM_PROVIDER_LABEL[id]) }))}
+                      style={{ minWidth: 140, flexShrink: 0 }}
+                      popupMatchSelectWidth={false}
+                      data-testid="vault-sm-provider"
+                    />
+                    <SecretProviderStatusChip provider={row.smProvider} />
+                  </div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                    {SECRET_LOCATOR_FIELDS[row.smProvider].map((spec) => (
+                      <Input
+                        key={spec.key}
+                        size="small"
+                        variant="borderless"
+                        value={row.smFields[spec.key] ?? ''}
+                        placeholder={
+                          spec.required
+                            ? t(SM_FIELD_LABEL[spec.key])
+                            : t('workbench.variables.table.smFieldOptional', { label: t(SM_FIELD_LABEL[spec.key]) })
+                        }
+                        onChange={(e) => update(index, { smFields: { ...row.smFields, [spec.key]: e.target.value } })}
+                        style={{
+                          fontFamily: "'SF Mono', 'Fira Code', monospace",
+                          fontSize: 12,
+                          padding: '4px 6px',
+                          flex: '1 1 140px',
+                          minWidth: 120,
+                        }}
+                        data-testid={`vault-sm-field-${spec.key}`}
+                      />
+                    ))}
+                  </div>
+                  {isSecretLocatorComplete(locator) && (
+                    <span
+                      style={{
+                        fontFamily: "'SF Mono', 'Fira Code', monospace",
+                        fontSize: 11,
+                        color: token.colorTextTertiary,
+                        padding: '0 6px 2px',
+                        overflowWrap: 'anywhere',
+                      }}
+                      data-testid="vault-sm-reference"
+                    >
+                      {formatSecretLocator(locator)}
+                    </span>
+                  )}
+                </div>
+              );
+            })()
+          ) : isCert ? (
             <>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1, minWidth: 0 }}>
                 <ValueCell

@@ -27,6 +27,13 @@ export type ResolutionErrorReason =
   | 'unset-in-scope' // `{{env.X}}` but X not in active env (and no default fallback)
   | 'step-out-of-context' // `{{step.X.Y}}` outside an active Live Workflow step
   | 'unresolved' // `{{X}}` — nowhere in the 4-scope chain
+  // `{{vault.X}}` names a secret-manager entry whose provider resolution
+  // failed with a typed reason (see SecretManagerFailures). Three
+  // distinct reasons because the fixes differ: authorize/unlock the
+  // manager, fix the reference, or make the provider available here.
+  | 'secret-authorization-required'
+  | 'secret-not-found'
+  | 'secret-unavailable'
   // The reference resolved cleanly, but the resolved value isn't a legal
   // hostname for `requestDomains` (scheme, path, wildcard, whitespace,
   // non-ASCII, …). We sanitize at compile time so the rule still ships,
@@ -36,10 +43,10 @@ export type ResolutionErrorReason =
 
 /**
  * Return shape of the diagnostic scoped-resolver. `failureReason` is
- * set when resolution failed for a reason richer than "not in scope"
- * — today only `step-out-of-context`, but the field exists so future
- * namespaces can surface their own structured failures without
- * changing the callsite.
+ * set when resolution failed for a reason richer than "not in scope" —
+ * `step-out-of-context`, and the typed `secret-*` failures from the
+ * secret-manager registry. `resolveTemplate` passes any failureReason
+ * straight through to the emitted {@link ResolutionError}.
  */
 export interface ScopedResolution {
   resolved: ResolvedVariable | null;
@@ -152,6 +159,12 @@ export function buildHint(
       return 'Not set in this scope.';
     case 'step-out-of-context':
       return 'Step references ({{step.<stepId>.<captureName>}}) are only valid inside a Live Workflow step.';
+    case 'secret-authorization-required':
+      return 'The secret manager holding this entry needs authorization. Unlock or approve access in the manager, then retry.';
+    case 'secret-not-found':
+      return 'The secret manager could not find a secret at this reference. Check the reference fields in the Vault entry.';
+    case 'secret-unavailable':
+      return 'The secret manager for this entry is not available on this device. Install or configure it, then retry.';
     case 'unresolved':
       return 'Not found in vault, environment, collection, or workspace. Define it in one of those scopes.';
     case 'invalid-resolved-value':

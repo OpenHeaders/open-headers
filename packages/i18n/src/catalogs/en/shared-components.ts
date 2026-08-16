@@ -136,6 +136,8 @@ export const sharedComponents = {
   'shared.templateInput.completion.totpDoc': '**TOTP code** — {algorithm}, {digits} digits, refreshes every {period}s.',
   'shared.templateInput.completion.totpDocIssuer':
     '**TOTP code** for **{issuer}** — {algorithm}, {digits} digits, refreshes every {period}s.',
+  'shared.templateInput.completion.secretManagerDoc':
+    '**Secret manager reference** — `{reference}`. Resolved from the manager at send time; the value is never stored.',
 
   // ── Value editors: shared chrome ───────────────────────────────────
   'shared.valueEditors.decoded': 'Decoded',

@@ -262,12 +262,14 @@ const VaultEditor: React.FC<VaultEditorProps> = ({ onDirtyChange, registerSaveRe
     let strings = 0;
     let totps = 0;
     let certs = 0;
+    let refs = 0;
     for (const s of draft) {
       if (s.kind === 'totp') totps++;
       else if (s.kind === 'client-certificate') certs++;
+      else if (s.kind === 'secret-manager') refs++;
       else strings++;
     }
-    return { strings, totps, certs };
+    return { strings, totps, certs, refs };
   }, [draft]);
 
   const localInstanceId = useLocalInstanceId();
@@ -331,6 +333,7 @@ const VaultEditor: React.FC<VaultEditorProps> = ({ onDirtyChange, registerSaveRe
                     strings: counts.strings,
                     totps: counts.totps,
                     certs: counts.certs,
+                    refs: counts.refs,
                   })}
                 </Text>
 

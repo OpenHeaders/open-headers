@@ -64,7 +64,7 @@ export const VariableSchema = v.object({
 //            and the executor resolves the pair at send time. The PEM
 //            never leaves the vault file.
 
-export const VaultSecretKindSchema = v.picklist(['string', 'totp', 'client-certificate']);
+export const VaultSecretKindSchema = v.picklist(['string', 'totp', 'client-certificate', 'secret-manager']);
 
 export const TotpAlgorithmSchema = v.picklist(['SHA1', 'SHA256', 'SHA512']);
 
@@ -98,10 +98,77 @@ export const VaultSecretClientCertificateSchema = v.object({
   passphrase: v.optional(v.string()),
 });
 
+// ── Secret-manager locators (discriminated on `provider`) ──────────
+// A `secret-manager` vault entry stores a structured REFERENCE into an
+// external secret manager — never the secret. Locator fields mirror
+// each provider's native addressing idiom; optional fields are
+// account/org disambiguation hints. References are not secret material:
+// they are team-shareable by construction, and resolution is gated by
+// the provider's own auth on each device.
+
+export const SecretProviderIdSchema = v.picklist([
+  'onepassword',
+  'bitwarden',
+  'oskeychain',
+  'awssm',
+  'azurekv',
+  'hashivault',
+]);
+
+export const SecretLocatorSchema = v.variant('provider', [
+  v.object({
+    provider: v.literal('onepassword'),
+    vault: v.string(),
+    item: v.string(),
+    field: v.string(),
+    /** Account hint for machines with more than one signed-in account. */
+    account: v.optional(v.string()),
+  }),
+  v.object({
+    provider: v.literal('bitwarden'),
+    secretId: v.string(),
+  }),
+  v.object({
+    provider: v.literal('oskeychain'),
+    service: v.string(),
+    account: v.string(),
+  }),
+  v.object({
+    provider: v.literal('awssm'),
+    name: v.string(),
+    stage: v.optional(v.string()),
+    region: v.optional(v.string()),
+    /** Credential-chain profile hint. */
+    profile: v.optional(v.string()),
+  }),
+  v.object({
+    provider: v.literal('azurekv'),
+    vaultUrl: v.string(),
+    name: v.string(),
+    version: v.optional(v.string()),
+  }),
+  v.object({
+    provider: v.literal('hashivault'),
+    mount: v.string(),
+    path: v.string(),
+    key: v.string(),
+    /** Server hint when more than one server is configured. */
+    serverUrl: v.optional(v.string()),
+  }),
+]);
+
+export const VaultSecretManagerSchema = v.object({
+  uid: UidSchema,
+  kind: v.literal('secret-manager'),
+  name: v.string(),
+  locator: SecretLocatorSchema,
+});
+
 export const VaultSecretSchema = v.variant('kind', [
   VaultSecretStringSchema,
   VaultSecretTotpSchema,
   VaultSecretClientCertificateSchema,
+  VaultSecretManagerSchema,
 ]);
 
 export const VaultSchema = v.object({

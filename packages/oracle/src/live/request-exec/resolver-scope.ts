@@ -17,10 +17,23 @@
  * Send-from-workbench path.
  */
 
+import { getSecretProvider, type SecretResolveFailureReason } from '@openheaders/core/secret-providers';
 import { generateTotp } from '@openheaders/core/totp';
-import type { Collection, Environment, Vault, VaultSecretTotp, WorkspaceVariables } from '@openheaders/core/types';
+import type {
+  Collection,
+  Environment,
+  Vault,
+  VaultSecretManager,
+  VaultSecretTotp,
+  WorkspaceVariables,
+} from '@openheaders/core/types';
 import { logger } from '@openheaders/core/utils';
-import { type TotpRegistry, VariableResolver } from '@openheaders/core/variables';
+import {
+  type SecretManagerFailures,
+  type SecretManagerRegistry,
+  type TotpRegistry,
+  VariableResolver,
+} from '@openheaders/core/variables';
 import {
   getActiveEnvironmentId,
   getDefaultEnvironmentId,
@@ -118,6 +131,11 @@ export async function buildResolver(
   // TOTP scope — precompute the current code for every kind:'totp' vault
   // entry so the resolver's `vault` arm returns them synchronously.
   resolver.setTotpRegistry(await buildTotpRegistry(scope.vault));
+  // Secret-manager scope — batch-resolve every kind:'secret-manager'
+  // entry through the host's provider registry (empty on hosts without
+  // providers — every entry then carries a typed `unavailable` failure).
+  const secretManager = await buildSecretManagerRegistry(scope.vault);
+  resolver.setSecretManagerRegistry(secretManager.registry, secretManager.failures);
   // Live scope — for an Active-workspace dispatch read the snapshot that
   // backs the DNR compile pipeline; for a per-workspace dispatch read the
   // workspace's own mirror keyed on the explicit envId.
@@ -177,4 +195,58 @@ export async function buildTotpRegistry(vault: Vault): Promise<TotpRegistry> {
     if (entry) out.set(entry[0], entry[1]);
   }
   return out;
+}
+
+/** One execution's secret-manager resolution snapshot — values for the
+ *  resolver's registry, typed failures for its diagnostics. */
+export interface SecretManagerSnapshot {
+  registry: SecretManagerRegistry;
+  failures: SecretManagerFailures;
+}
+
+/**
+ * Batch-resolve every `kind: 'secret-manager'` vault entry through the
+ * host's provider registry — the per-execution counterpart of
+ * {@link buildTotpRegistry}, awaited concurrently. Values live only in
+ * the returned map for the duration of the execution (L1: never
+ * persisted, re-resolved per send). Every failure is typed, keyed by
+ * entry name:
+ *   - provider not installed on this host, or probe says unavailable
+ *     → `unavailable`
+ *   - the provider's own resolve failure passes through verbatim
+ *     (`authorization-required` / `not-found` / `unavailable`).
+ */
+export async function buildSecretManagerRegistry(vault: Vault): Promise<SecretManagerSnapshot> {
+  const entries = vault.secrets.filter((s): s is VaultSecretManager => s.kind === 'secret-manager');
+  const registry = new Map<string, string>();
+  const failures = new Map<string, SecretResolveFailureReason>();
+  if (entries.length === 0) return { registry, failures };
+  await Promise.all(
+    entries.map(async (entry) => {
+      const provider = getSecretProvider(entry.locator.provider);
+      if (!provider) {
+        failures.set(entry.name, 'unavailable');
+        return;
+      }
+      try {
+        const probe = await provider.probe();
+        if (!probe.available) {
+          failures.set(entry.name, 'unavailable');
+          return;
+        }
+        const result = await provider.resolve(entry.locator);
+        if (result.ok) {
+          registry.set(entry.name, result.value);
+        } else {
+          failures.set(entry.name, result.reason);
+        }
+      } catch (err) {
+        // Providers are non-throwing by contract; a throw is a bug in
+        // the implementation — degrade to the honest typed failure.
+        logger.info('RequestExec', `Secret resolve failed for '${entry.name}': ${(err as Error).message}`);
+        failures.set(entry.name, 'unavailable');
+      }
+    }),
+  );
+  return { registry, failures };
 }

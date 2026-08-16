@@ -31,6 +31,10 @@ export const sharedResolutionHints = {
   'shared.resolutionHint.unset.generic': '在此作用域中未设置。',
   'shared.resolutionHint.stepOutOfContext': '步骤引用（{{step.<stepId>.<captureName>}}）只在 Live 工作流步骤内有效。',
   'shared.resolutionHint.unresolved': '在 vault、环境、集合或工作区中都找不到。请在其中一个作用域中定义它。',
+  'shared.resolutionHint.secretAuthorizationRequired':
+    '存放此条目的机密管理器需要授权。请在管理器中解锁或批准访问后重试。',
+  'shared.resolutionHint.secretNotFound': '机密管理器未在此引用处找到机密。请检查 Vault 条目中的引用字段。',
+  'shared.resolutionHint.secretUnavailable': '此条目对应的机密管理器在此设备上不可用。请先安装或配置后重试。',
   'shared.resolutionHint.invalidDomain.whitespace':
     '变量解析出的值被 Chrome 在此槽位拒绝——包含空白字符（请用逗号分隔主机名）。请使用以逗号分隔的裸主机名。',
   'shared.resolutionHint.invalidDomain.scheme':

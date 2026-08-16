@@ -26,6 +26,7 @@ import {
   type ExecutionPolicyResult,
   isFallbackEligible,
 } from '@openheaders/core/live';
+import { formatSecretLocator } from '@openheaders/core/secret-providers';
 import type { LiveWorkflow, Request, Vault } from '@openheaders/core/types';
 import {
   getEnvironmentsForWorkspace,
@@ -72,6 +73,12 @@ function vaultVarMap(vault: Vault): Map<string, string> {
     if (secret.kind === 'client-certificate') {
       // Never template-resolvable — contributes no value content to scan.
       out.set(secret.name, '');
+      continue;
+    }
+    if (secret.kind === 'secret-manager') {
+      // Recipe identity is the REFERENCE — the resolved value never
+      // persists, so it can never be part of a recipe fingerprint.
+      out.set(secret.name, `secretmgr:${formatSecretLocator(secret.locator)}`);
       continue;
     }
     out.set(

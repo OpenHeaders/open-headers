@@ -62,6 +62,12 @@ export function resolutionHint(t: Translate, error: ResolutionError): string {
       return t('shared.resolutionHint.stepOutOfContext');
     case 'unresolved':
       return t('shared.resolutionHint.unresolved');
+    case 'secret-authorization-required':
+      return t('shared.resolutionHint.secretAuthorizationRequired');
+    case 'secret-not-found':
+      return t('shared.resolutionHint.secretNotFound');
+    case 'secret-unavailable':
+      return t('shared.resolutionHint.secretUnavailable');
     case 'invalid-resolved-value': {
       const kind = error.params?.domainIssueKind;
       return kind ? t(DOMAIN_ISSUE_HINT_KEY[kind]) : error.hint;

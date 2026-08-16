@@ -103,6 +103,10 @@
       "import": "./src/totp/index.ts",
       "default": "./dist/totp/index.js"
     },
+    "./secret-providers": {
+      "import": "./src/secret-providers/index.ts",
+      "default": "./dist/secret-providers/index.js"
+    },
     "./sync": {
       "import": "./src/sync/index.ts",
       "default": "./dist/sync/index.js"

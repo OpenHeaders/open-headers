@@ -104,6 +104,37 @@ describe('VaultSchema', () => {
     expect(v.safeParse(VaultSchema, { schemaVersion: 5, secrets: [{ ...base, cert: 'c' }] }).success).toBe(false);
     expect(v.safeParse(VaultSchema, { schemaVersion: 5, secrets: [{ ...base, key: 'k' }] }).success).toBe(false);
   });
+
+  it('accepts a secret-manager entry with a per-provider structured locator', () => {
+    const base = { uid: 'abcd1234', kind: 'secret-manager', name: 'api-token' };
+    const locators = [
+      { provider: 'onepassword', vault: 'Engineering', item: 'api.openheaders.io', field: 'token' },
+      { provider: 'onepassword', vault: 'Engineering', item: 'api.openheaders.io', field: 'token', account: 'work' },
+      { provider: 'bitwarden', secretId: 'bw-secret-id' },
+      { provider: 'oskeychain', service: 'openheaders.io', account: 'daniel' },
+      { provider: 'awssm', name: 'db-password', stage: 'AWSCURRENT', region: 'eu-west-1' },
+      { provider: 'azurekv', vaultUrl: 'https://oh.vault.azure.net', name: 'token' },
+      { provider: 'hashivault', mount: 'kv', path: 'apps/openheaders', key: 'token' },
+    ];
+    for (const locator of locators) {
+      expect(v.safeParse(VaultSchema, { schemaVersion: 5, secrets: [{ ...base, locator }] }).success).toBe(true);
+    }
+  });
+
+  it('rejects a secret-manager entry with a missing or unknown-provider locator', () => {
+    const base = { uid: 'abcd1234', kind: 'secret-manager', name: 'api-token' };
+    expect(v.safeParse(VaultSchema, { schemaVersion: 5, secrets: [base] }).success).toBe(false);
+    expect(
+      v.safeParse(VaultSchema, { schemaVersion: 5, secrets: [{ ...base, locator: { provider: 'unknown' } }] }).success,
+    ).toBe(false);
+    // Missing a required per-provider field (onepassword without `field`).
+    expect(
+      v.safeParse(VaultSchema, {
+        schemaVersion: 5,
+        secrets: [{ ...base, locator: { provider: 'onepassword', vault: 'Engineering', item: 'x' } }],
+      }).success,
+    ).toBe(false);
+  });
 });
 
 describe('EnvironmentSchema', () => {

@@ -140,16 +140,18 @@ export function resolveTemplate(
       } else {
         variables.push({ name: key, resolved: false });
 
-        // Emit a structured error per unique unresolved reference.
-        if (resolution.failureReason === 'step-out-of-context') {
+        // Emit a structured error per unique unresolved reference. A
+        // scoped lookup's typed failureReason (step-out-of-context,
+        // secret-* reasons) passes through verbatim.
+        if (resolution.failureReason) {
           errors.push({
             reference: ref.raw,
-            reason: 'step-out-of-context',
+            reason: resolution.failureReason,
             namespace: ref.namespace,
             variableName: ref.name,
             activeEnvironmentId,
             defaultEnvironmentId,
-            hint: buildHint('step-out-of-context', ref.namespace, activeEnvironmentId),
+            hint: buildHint(resolution.failureReason, ref.namespace, activeEnvironmentId),
           });
         } else if (ref.namespace) {
           errors.push({
