@@ -4,7 +4,7 @@
  * same keyboard model: ↑/↓ move, Enter switches/reopens, Esc closes)
  * over the terminal registry's simpler data: open tabs, a session-only
  * recently-closed section, and a sticky Settings row that jumps to
- * Settings → Terminal (IDE posture).
+ * Settings → Terminal (IDE terminal posture).
  *
  * Rendered through a portal with fixed positioning: the strip lives in
  * the PanelHeader's title slot, whose `overflow: hidden` would clip an

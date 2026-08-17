@@ -2,8 +2,7 @@
  * Auto-collapse unchanged regions in a Monaco editor via
  * `editor.setHiddenAreas(...)`, with clickable "N lines hidden —
  * click to expand" markers at each gap (the user-facing affordance
- * mainstream diff viewers all surface for the same
- * primitive).
+ * mainstream diff viewers all surface for the same primitive).
  *
  * `setHiddenAreas` isn't part of Monaco's stable public type surface
  * but it ships on `IStandaloneCodeEditor` instances; we treat it as

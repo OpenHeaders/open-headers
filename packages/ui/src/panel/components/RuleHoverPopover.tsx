@@ -17,8 +17,8 @@
  *
  * The two surfaces together make the historical-vs-config split
  * explicit, matching the pattern debugging proxies and API-client
- * history all use — captured events are immutable, configuration is
- * mutable, the UI shows both.
+ * history views all use — captured events are immutable, configuration
+ * is mutable, the UI shows both.
  *
  * ## Edge cases
  *

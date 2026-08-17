@@ -77,8 +77,8 @@ const MergeConflictModal = ({
     nonConflicting: 0,
     conflicts: 0,
   });
-  // VS Code's default — gutter shows conflicts only until the user
-  // opts into the noisier view. Plan §5.4.
+  // The common editor default — gutter shows conflicts only until the
+  // user opts into the noisier view. Plan §5.4.
   const [showNonConflicting, setShowNonConflicting] = useState(false);
   // Single-click-resolve: when enabled, accepting one side of a hunk
   // auto-dismisses the other so the hunk fully resolves on the first
@@ -88,8 +88,8 @@ const MergeConflictModal = ({
   // affects future clicks.
   const [singleClickResolve, setSingleClickResolve] = useState(false);
   // Affordance-style toggles. Both default ON. The user-side prefers
-  // one or the other based on muscle memory — some users
-  // gravitate to the gutter glyphs, VS Code users to the inline
+  // one or the other based on muscle memory — some users gravitate
+  // to the gutter glyphs, others to the inline
   // labels. Defaulting both lets each user land in something they
   // recognize, and they can disable the redundant one once they've
   // chosen. Side gutters are spatially incorrect in show-base-*

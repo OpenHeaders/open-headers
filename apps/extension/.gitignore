@@ -1,4 +1,4 @@
-# WebStorm and other JetBrains IDEs
+# IDE project files
 .idea/
 *.iml
 *.iws

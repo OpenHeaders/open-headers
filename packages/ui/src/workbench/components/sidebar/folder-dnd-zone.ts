@@ -11,7 +11,7 @@
  *
  * Splitting the row into top-edge / middle / bottom-edge bands matches
  * the convention every file-tree dnd UI uses (file managers and IDE
- * project view). Threshold defaults to 25% per edge band — adjustable
+ * project views). Threshold defaults to 25% per edge band — adjustable
  * for callers that want a more aggressive 'into' affordance.
  *
  * For collection (group) rows that can't accept siblings (root-level

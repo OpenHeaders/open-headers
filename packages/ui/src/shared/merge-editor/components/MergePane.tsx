@@ -99,7 +99,7 @@ export interface MergePaneProps {
    *  diagonal-append affordance stays visible so users can opt to
    *  stack both sides. */
   singleClickResolve?: boolean;
-  /** Show VS Code-style inline action labels above each pending
+  /** Show inline action labels above each pending
    *  hunk in the theirs / mine panes ("Accept Incoming | Accept
    *  Combination | Ignore"). Layout-agnostic. Default true. */
   inlineActionLabels?: boolean;
@@ -117,8 +117,8 @@ export interface MergePaneProps {
   onPickStateChange?: (hunkId: string | null) => void;
   /** When true, collapse unchanged regions across all three panes so
    *  the editor focuses on hunk regions + a few lines of context.
-   *  Same Monaco primitive (`setHiddenAreas`) VS Code's merge editor
-   *  uses. Default false. */
+   *  Same Monaco primitive (`setHiddenAreas`) upstream merge editors
+   *  use. Default false. */
   compactView?: boolean;
 }
 
@@ -342,7 +342,7 @@ const MergePane = forwardRef<MergePaneHandle, MergePaneProps>(function MergePane
   // it carries is the post-write RESULT position (not mine), so
   // decorations would land on the wrong rows after the first accept.
 
-  // VS Code-style inline action labels above each pending hunk in
+  // Inline action labels above each pending hunk in
   // the theirs / mine panes. Layout-agnostic — works in every
   // layout because the labels live INSIDE the source panes. Frame
   // color (orange/blue/grey) derives from `analysis.conflict` +
