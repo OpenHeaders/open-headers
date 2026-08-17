@@ -180,7 +180,7 @@ describe('log filter model', () => {
   });
 
   it('text matcher: substring by default, sha prefix, case + regex toggles, invalid regex flagged', () => {
-    const entry = { subject: 'Fix Response panel', authorName: 'Daniel', sha: 'abc123def' };
+    const entry = { subject: 'Fix Response panel', authorName: 'John', sha: 'abc123def' };
     const plain = makeTextMatcher('response', false, false);
     if (plain.kind !== 'match') throw new Error('expected matcher');
     expect(plain.test(entry)).toBe(true);
