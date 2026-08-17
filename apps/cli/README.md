@@ -20,16 +20,16 @@ npm install -g @openheaders/cli
 
 No Node.js? Standalone `oh` binaries (macOS, Linux, Windows) ship with every
 release at
-[open-headers-releases](https://github.com/OpenHeaders/open-headers-releases/releases),
+[open-headers releases](https://github.com/OpenHeaders/open-headers/releases),
 with SHA-256 checksums. The macOS binary is signed and notarized; the Windows
 binary is unsigned, so SmartScreen warns on first run.
 
 ```sh
-curl -fsSL https://github.com/OpenHeaders/open-headers-releases/releases/latest/download/install-oh.sh | sh
+curl -fsSL https://updates.openheaders.io/install.sh | sh
 ```
 
 ```powershell
-irm https://github.com/OpenHeaders/open-headers-releases/releases/latest/download/install-oh.ps1 | iex
+irm https://updates.openheaders.io/install.ps1 | iex
 ```
 
 The script verifies checksums and installs to `~/.local/bin`
