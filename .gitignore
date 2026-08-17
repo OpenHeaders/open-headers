@@ -57,6 +57,3 @@ Thumbs.db
 # Chrome extension artifacts
 *.crx
 *.pem
-
-# Telemetry rollup store (operator data, never committed)
-apps/telemetry-dashboard/data/
