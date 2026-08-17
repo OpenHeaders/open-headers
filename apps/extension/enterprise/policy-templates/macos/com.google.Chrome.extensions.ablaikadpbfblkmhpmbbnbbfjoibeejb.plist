@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Open Headers extension policy — Google Chrome (stable), macOS.
+  Place at: /Library/Managed Preferences/com.google.Chrome.extensions.ablaikadpbfblkmhpmbbnbbfjoibeejb.plist
+  (Chrome Beta reads the same keys from the
+   com.google.Chrome.beta.extensions.ablaikadpbfblkmhpmbbnbbfjoibeejb domain.)
+  See ../../README.md for the placement recipe — copy the FILE, never `defaults write`.
+  Every key is optional: ship only the ones your fleet locks.
+-->
+<plist version="1.0">
+<dict>
+  <!-- Silent, OS-verified pairing with the desktop app stays on and locked. -->
+  <key>backend.nmAutoJoin</key>
+  <true/>
+  <!-- Periodic background check for a newly installed desktop app. -->
+  <key>backend.nmAutoJoinProbe</key>
+  <true/>
+  <!-- Refuse pairing codes / pasted tokens for the desktop app: only the
+       OS-verified native-messaging handoff can mint desktop credentials. -->
+  <key>backend.requireNmIdentity</key>
+  <true/>
+  <!-- Telemetry consent: may a paired desktop app watch this browser's
+       traffic, storage, and console. Set false to lock it off. -->
+  <key>backend.allowDesktopWatch</key>
+  <true/>
+</dict>
+</plist>

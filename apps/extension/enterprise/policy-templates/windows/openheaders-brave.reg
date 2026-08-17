@@ -1,0 +1,20 @@
+Windows Registry Editor Version 5.00
+
+; Open Headers deployment policy — Brave, Windows.
+; Brave installs from the Chrome Web Store, so the extension id is the
+; Chrome one.
+
+; ── Extension-scope policy (managed storage) ─────────────────────────
+[HKEY_LOCAL_MACHINE\SOFTWARE\Policies\BraveSoftware\Brave\3rdparty\extensions\ablaikadpbfblkmhpmbbnbbfjoibeejb\policy]
+"backend.nmAutoJoin"=dword:00000001
+"backend.nmAutoJoinProbe"=dword:00000001
+"backend.requireNmIdentity"=dword:00000001
+"backend.allowDesktopWatch"=dword:00000001
+
+; ── Force-install from the Chrome Web Store ──────────────────────────
+[HKEY_LOCAL_MACHINE\SOFTWARE\Policies\BraveSoftware\Brave\ExtensionInstallForcelist]
+"1"="ablaikadpbfblkmhpmbbnbbfjoibeejb;https://clients2.google.com/service/update2/crx"
+
+; ── Only needed when your fleet blocks native messaging by default ───
+[HKEY_LOCAL_MACHINE\SOFTWARE\Policies\BraveSoftware\Brave\NativeMessagingAllowlist]
+"1"="io.openheaders.nm_bootstrap"

@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Open Headers deployment policy — Brave, macOS.
+  Place at: /Library/Managed Preferences/com.brave.Browser.plist
+  Brave installs from the Chrome Web Store. MERGE these keys into your
+  existing Brave policy plist if you already manage one.
+-->
+<plist version="1.0">
+<dict>
+  <!-- Force-install the Open Headers extension from the Chrome Web Store. -->
+  <key>ExtensionInstallForcelist</key>
+  <array>
+    <string>ablaikadpbfblkmhpmbbnbbfjoibeejb;https://clients2.google.com/service/update2/crx</string>
+  </array>
+  <!-- Only needed when your fleet blocks native messaging by default. -->
+  <key>NativeMessagingAllowlist</key>
+  <array>
+    <string>io.openheaders.nm_bootstrap</string>
+  </array>
+</dict>
+</plist>

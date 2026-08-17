@@ -1,0 +1,23 @@
+Windows Registry Editor Version 5.00
+
+; Open Headers deployment policy — Microsoft Edge, Windows.
+; The extension id below is the Edge Add-ons listing id; for a fleet
+; that deploys the Chrome Web Store build into Edge instead, use
+; ablaikadpbfblkmhpmbbnbbfjoibeejb in the 3rdparty key.
+; Note: edge://policy never renders extension-scope policies — verify
+; via the extension's Settings (MANAGED badges), see ../README.md.
+
+; ── Extension-scope policy (managed storage) ─────────────────────────
+[HKEY_LOCAL_MACHINE\SOFTWARE\Policies\Microsoft\Edge\3rdparty\extensions\gnbibobkkddlflknjkgcmokdlpddegpo\policy]
+"backend.nmAutoJoin"=dword:00000001
+"backend.nmAutoJoinProbe"=dword:00000001
+"backend.requireNmIdentity"=dword:00000001
+"backend.allowDesktopWatch"=dword:00000001
+
+; ── Force-install from Edge Add-ons ──────────────────────────────────
+[HKEY_LOCAL_MACHINE\SOFTWARE\Policies\Microsoft\Edge\ExtensionInstallForcelist]
+"1"="gnbibobkkddlflknjkgcmokdlpddegpo;https://edge.microsoft.com/extensionwebstorebase/v1/crx"
+
+; ── Only needed when your fleet blocks native messaging by default ───
+[HKEY_LOCAL_MACHINE\SOFTWARE\Policies\Microsoft\Edge\NativeMessagingAllowlist]
+"1"="io.openheaders.nm_bootstrap"

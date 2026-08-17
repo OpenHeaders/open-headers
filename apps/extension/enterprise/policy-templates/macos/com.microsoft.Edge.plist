@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Open Headers deployment policy — Microsoft Edge, macOS.
+  Place at: /Library/Managed Preferences/com.microsoft.Edge.plist
+  MERGE these keys into your existing Edge policy plist if you already
+  manage one — this file replaces the whole domain when copied as-is.
+-->
+<plist version="1.0">
+<dict>
+  <!-- Force-install the Open Headers extension from Edge Add-ons. -->
+  <key>ExtensionInstallForcelist</key>
+  <array>
+    <string>gnbibobkkddlflknjkgcmokdlpddegpo;https://edge.microsoft.com/extensionwebstorebase/v1/crx</string>
+  </array>
+  <!-- Only needed when your fleet blocks native messaging by default. -->
+  <key>NativeMessagingAllowlist</key>
+  <array>
+    <string>io.openheaders.nm_bootstrap</string>
+  </array>
+</dict>
+</plist>

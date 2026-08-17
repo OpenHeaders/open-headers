@@ -1,0 +1,11 @@
+{
+  "name": "{2c14f276-673b-4078-a575-8acf9d0579fa}",
+  "description": "Open Headers managed settings",
+  "type": "storage",
+  "data": {
+    "backend.nmAutoJoin": true,
+    "backend.nmAutoJoinProbe": true,
+    "backend.requireNmIdentity": true,
+    "backend.allowDesktopWatch": true
+  }
+}

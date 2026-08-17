@@ -1,0 +1,10 @@
+Windows Registry Editor Version 5.00
+
+; Open Headers managed storage — Firefox, Windows.
+; Firefox reads extension policy from a ManagedStorage native manifest:
+; the registry value below points at a JSON document on disk (use the
+; template in ../firefox/contact@tirzuman.com.json and adjust the path).
+; HKLM works too for machine-wide deployment.
+
+[HKEY_CURRENT_USER\Software\Mozilla\ManagedStorage\contact@tirzuman.com]
+@="C:\\ProgramData\\OpenHeaders\\contact@tirzuman.com.json"

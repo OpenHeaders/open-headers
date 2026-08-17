@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Open Headers extension policy — Brave, macOS.
+  Place at: /Library/Managed Preferences/com.brave.Browser.extensions.ablaikadpbfblkmhpmbbnbbfjoibeejb.plist
+  Brave installs the Chrome Web Store build, so the extension id is the
+  Chrome one. See ../../README.md for the placement recipe.
+  Every key is optional: ship only the ones your fleet locks.
+-->
+<plist version="1.0">
+<dict>
+  <key>backend.nmAutoJoin</key>
+  <true/>
+  <key>backend.nmAutoJoinProbe</key>
+  <true/>
+  <key>backend.requireNmIdentity</key>
+  <true/>
+  <key>backend.allowDesktopWatch</key>
+  <true/>
+</dict>
+</plist>

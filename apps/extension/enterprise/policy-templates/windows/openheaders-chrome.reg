@@ -1,0 +1,27 @@
+Windows Registry Editor Version 5.00
+
+; Open Headers deployment policy — Google Chrome, Windows.
+; Chrome channels (stable/beta/dev) all read the stable key below.
+; Every value is optional: ship only the ones your fleet locks.
+; Booleans are REG_DWORD 0/1.
+
+; ── Extension-scope policy (managed storage) ─────────────────────────
+[HKEY_LOCAL_MACHINE\SOFTWARE\Policies\Google\Chrome\3rdparty\extensions\ablaikadpbfblkmhpmbbnbbfjoibeejb\policy]
+; Silent, OS-verified pairing with the desktop app stays on and locked.
+"backend.nmAutoJoin"=dword:00000001
+; Periodic background check for a newly installed desktop app.
+"backend.nmAutoJoinProbe"=dword:00000001
+; Refuse pairing codes / pasted tokens for the desktop app: only the
+; OS-verified native-messaging handoff can mint desktop credentials.
+"backend.requireNmIdentity"=dword:00000001
+; Telemetry consent: may a paired desktop app watch this browser's
+; traffic, storage, and console. 0 locks it off.
+"backend.allowDesktopWatch"=dword:00000001
+
+; ── Force-install from the Chrome Web Store ──────────────────────────
+[HKEY_LOCAL_MACHINE\SOFTWARE\Policies\Google\Chrome\ExtensionInstallForcelist]
+"1"="ablaikadpbfblkmhpmbbnbbfjoibeejb;https://clients2.google.com/service/update2/crx"
+
+; ── Only needed when your fleet blocks native messaging by default ───
+[HKEY_LOCAL_MACHINE\SOFTWARE\Policies\Google\Chrome\NativeMessagingAllowlist]
+"1"="io.openheaders.nm_bootstrap"

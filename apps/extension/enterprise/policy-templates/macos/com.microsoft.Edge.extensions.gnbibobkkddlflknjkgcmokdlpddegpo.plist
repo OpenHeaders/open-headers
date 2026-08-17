@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Open Headers extension policy — Microsoft Edge, macOS.
+  Place at: /Library/Managed Preferences/com.microsoft.Edge.extensions.gnbibobkkddlflknjkgcmokdlpddegpo.plist
+  The id above is the Edge Add-ons listing id. For a fleet that deploys
+  the Chrome Web Store build into Edge instead, use the
+  com.microsoft.Edge.extensions.ablaikadpbfblkmhpmbbnbbfjoibeejb domain.
+  Note: edge://policy never renders extension-scope policies — verify via
+  the extension's Settings (MANAGED badges), see ../../README.md.
+  Every key is optional: ship only the ones your fleet locks.
+-->
+<plist version="1.0">
+<dict>
+  <key>backend.nmAutoJoin</key>
+  <true/>
+  <key>backend.nmAutoJoinProbe</key>
+  <true/>
+  <key>backend.requireNmIdentity</key>
+  <true/>
+  <key>backend.allowDesktopWatch</key>
+  <true/>
+</dict>
+</plist>

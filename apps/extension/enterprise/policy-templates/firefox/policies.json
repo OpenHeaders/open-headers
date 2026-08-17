@@ -1,0 +1,20 @@
+{
+  "policies": {
+    "ExtensionSettings": {
+      "{2c14f276-673b-4078-a575-8acf9d0579fa}": {
+        "installation_mode": "force_installed",
+        "install_url": "https://addons.mozilla.org/firefox/downloads/latest/REPLACE-WITH-AMO-SLUG/latest.xpi"
+      }
+    },
+    "3rdparty": {
+      "Extensions": {
+        "{2c14f276-673b-4078-a575-8acf9d0579fa}": {
+          "backend.nmAutoJoin": true,
+          "backend.nmAutoJoinProbe": true,
+          "backend.requireNmIdentity": true,
+          "backend.allowDesktopWatch": true
+        }
+      }
+    }
+  }
+}
