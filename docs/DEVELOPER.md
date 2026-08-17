@@ -1,27 +1,44 @@
 # Developer Documentation
 
-Technical documentation for developers who want to understand, build, test, or contribute to OpenHeaders.
+Technical reference for building, testing, and contributing to Open
+Headers. For the system map — what each app and package is and how they
+talk — start with [ARCHITECTURE.md](ARCHITECTURE.md).
 
 ## Monorepo Overview
 
-OpenHeaders is a pnpm + Turborepo monorepo with three packages:
+Open Headers is a pnpm + Turborepo monorepo: seven shared packages under
+`packages/`, six shipping apps under `apps/`, and one native helper
+crate.
 
-| Package | Path | Description |
-|---------|------|-------------|
-| `@openheaders/core` | `packages/core/` | Canonical domain model — types, protocol, utils, schemas |
-| `@openheaders/desktop` | `apps/desktop/` | Electron desktop app (macOS, Windows, Linux) |
+| Workspace | Path | Description |
+|-----------|------|-------------|
+| `@openheaders/core` | `packages/core/` | Domain model: types, wire protocol, valibot schemas, shared utilities. Zero platform deps. |
+| `@openheaders/rule-engine` | `packages/rule-engine/` | `declarativeNetRequest` compile pipeline, content-script generation, scripting injection |
+| `@openheaders/oracle` | `packages/oracle/` | Entity-agnostic sync engine: workspace state, batching, conflict resolution |
+| `@openheaders/oracle-host-node` | `packages/oracle-host-node/` | Node host adapter — SQLite persistence, WebSocket server (desktop, daemon) |
+| `@openheaders/oracle-host-browser` | `packages/oracle-host-browser/` | Browser host adapter — IndexedDB persistence (extension, web) |
+| `@openheaders/ui` | `packages/ui/` | Shared React UI: workbench, DevTools panel, popup primitives |
+| `@openheaders/i18n` | `packages/i18n/` | Locale registry, message catalogs, translation runtime |
 | `@openheaders/extension` | `apps/extension/` | Browser extension (Chrome, Firefox, Edge, Safari) |
+| `@openheaders/desktop` | `apps/desktop/` | Electron desktop companion (macOS, Windows, Linux) |
+| `@openheaders/daemon` | `apps/daemon/` | `ohd` — standalone headless team server |
+| `@openheaders/cli` | `apps/cli/` | `oh` — CLI & TUI client |
+| `@openheaders/web` | `apps/web/` | Workbench in a browser tab, served by the daemon |
+| `@openheaders/nm-host` | `apps/nm-host/` | Native-messaging bootstrap host |
 
-### Dependency Graph
+`native/h3-helper` is a Rust helper crate the daemon uses for HTTP/3
+requests; it builds independently of the pnpm workspace.
 
-```
-@openheaders/core          ← zero platform deps (just valibot for boundary schemas)
-    ↑           ↑
-    |           |
-  desktop    extension     ← each depends on core, NOT on each other
-```
+Dependency direction is strictly `packages ← apps` — never the reverse,
+and desktop and extension never depend on each other. Apps import core
+via subpath exports (`@openheaders/core/types`,
+`@openheaders/core/protocol`, …).
 
-The desktop app runs a WebSocket server on port 59210. The extension connects as a client. Shared types and protocol definitions live in `@openheaders/core`.
+The desktop app (or a daemon) runs a WebSocket server on
+`127.0.0.1:8137`; the extension and CLI connect as clients. Every
+message shape and constant lives in `@openheaders/core/protocol`, and
+the protocol carries its own integer version
+(`packages/core/src/protocol/version.ts`), independent of app versions.
 
 ## Getting Started
 
@@ -42,257 +59,152 @@ pnpm install
 ### Common Commands
 
 ```bash
-# Typecheck all packages
-pnpm turbo typecheck
+pnpm turbo typecheck                  # Typecheck all packages
+pnpm turbo test                       # Run all tests (~14,000 across all packages)
+pnpm turbo build                      # Build everything
+pnpm biome check .                    # Lint + format check
+pnpm lint:fix                         # Auto-fix lint + format
 
-# Run all tests (7900+ tests)
-pnpm turbo test
+# Per-package
+pnpm --filter @openheaders/desktop test
+pnpm --filter @openheaders/extension test
+pnpm --filter @openheaders/core test
+pnpm --filter @openheaders/desktop dev            # Desktop dev with hot-reload
+pnpm --filter @openheaders/extension dev          # Extension dev (Chrome watch)
 
-# Build everything
-pnpm turbo build
+# Single test file
+pnpm --filter @openheaders/desktop exec vitest run path/to/test.test.ts
 
-# Lint + format check
-pnpm biome check .
-
-# Auto-fix lint + format
-pnpm lint:fix
-
-# Development (desktop)
-pnpm --filter @openheaders/desktop dev
-
-# Development (extension, Chrome watch mode)
-pnpm --filter @openheaders/extension dev
-
-# Clean all build artifacts
+# Clean build artifacts
 pnpm turbo clean
 ```
 
-Turborepo caches task results — unchanged packages are skipped automatically.
+Turborepo caches task results — unchanged packages are skipped
+automatically.
+
+The desktop app has two tsconfigs; its `typecheck` runs both
+(`tsc --noEmit && tsc -p src/renderer/tsconfig.json --noEmit`).
+
+## Building Each App
+
+### Extension
+
+```bash
+pnpm --filter @openheaders/extension build            # All browsers
+pnpm --filter @openheaders/extension build:chrome     # One browser: chrome / firefox / edge / safari
+pnpm --filter @openheaders/extension dev              # Chrome watch mode (also dev:firefox etc.)
+```
+
+Vite build with the `BROWSER` env var selecting the target; output lands
+in `apps/extension/dist/<browser>/`, loadable as an unpacked extension.
+Custom plugins handle store CSP compliance, asset copying, and content
+script IIFE bundling.
+
+Source manifests in `manifests/<browser>/manifest.json` carry
+`"version": "0.0.0"` as a placeholder; the build injects the real
+version from `apps/extension/package.json` into the output manifest.
+
+### Desktop
+
+```bash
+pnpm --filter @openheaders/desktop dev                 # Dev with hot-reload
+pnpm --filter @openheaders/desktop build               # Production build (no installer)
+pnpm --filter @openheaders/desktop dist:mac            # macOS (signed + notarized)
+pnpm --filter @openheaders/desktop dist:mac:unsigned   # macOS (no signing)
+pnpm --filter @openheaders/desktop dist:win            # Windows (dist:win:unsigned without cert)
+pnpm --filter @openheaders/desktop dist:linux          # Linux (AppImage + deb + RPM)
+```
+
+**electron-vite** builds three targets (main, preload, renderer);
+electron-builder packages installers into `apps/desktop/dist/`. The
+`dist:*` scripts run `predist` first, which also builds the web bundle
+the app serves.
+
+### Daemon & CLI
+
+```bash
+pnpm --filter @openheaders/daemon pack       # npm-layout bundle → dist-package/
+pnpm --filter @openheaders/daemon pack:sea   # self-contained single executable → dist-sea/
+pnpm --filter @openheaders/cli pack
+pnpm --filter @openheaders/cli pack:sea
+```
+
+`pack:sea` uses Node's single-executable packaging — the bundled
+runtime, the app, and (for the daemon) the web app and compiled SQLite
+addon all live inside one binary. Build on the platform/arch you
+target.
+
+### Web & nm-host
+
+```bash
+pnpm --filter @openheaders/web build         # Static workbench bundle → apps/web/dist/
+pnpm --filter @openheaders/nm-host pack:bun  # Native-messaging host binary
+```
 
 ## Project Structure
 
 ```
-open-headers/
-├── packages/core/                  @openheaders/core
-│   └── src/
-│       ├── types/                  Source, HeaderEntry, Rules, Recording types
-│       ├── protocol/               WS message contract, constants (port 59210)
-│       ├── utils/                  Header validation, hash functions
-│       └── schemas/                Valibot schemas (boundary validation)
+open-headers-app/
+├── packages/
+│   ├── core/src/               Domain model: types/, protocol/, schemas/, telemetry/,
+│   │                           licensing/, sync/, variables/, vault/, import/, …
+│   ├── rule-engine/            Rule → DNR/content-script/scripting compile pipeline
+│   ├── oracle/                 Sync engine (platform-neutral)
+│   ├── oracle-host-node/       SQLite + WS server host; daemon boot spine
+│   ├── oracle-host-browser/    IndexedDB host
+│   ├── ui/src/                 workbench/, devtools panel, popup, shared components
+│   └── i18n/                   Locales and translation runtime
 │
-├── apps/desktop/                   @openheaders/desktop
-│   └── src/
-│       ├── main.ts                 Electron main process entry
-│       ├── preload.ts              IPC bridge
-│       ├── main/modules/           Lifecycle, IPC handlers, tray, shortcuts, updater
-│       ├── services/               WS server, proxy, workspace/git, video, CLI API, network
-│       ├── renderer/               React app (contexts, components, hooks, services)
-│       ├── types/                  App-specific types (extends core)
-│       └── shared/                 Circuit breaker, concurrency, JSON filter, TOTP
+├── apps/
+│   ├── extension/src/          background/ (service worker), popup/, panel/ (DevTools),
+│   │                           sidepanel/, workbench/, offscreen/, host/, utils/
+│   │       manifests/          Per-browser manifest sources (chrome/firefox/edge/safari)
+│   ├── desktop/src/            main.ts + main/ (host wiring, updater, telemetry,
+│   │                           script-sandbox), preload.ts, renderer/ (workbench host)
+│   ├── daemon/src/             Headless server + service lifecycle CLI
+│   ├── cli/src/                oh command tree, TUI, self-update
+│   ├── web/src/                Workbench entry served by the daemon
+│   └── nm-host/src/            Native-messaging bootstrap
 │
-├── apps/extension/                 @openheaders/extension
-│   └── src/
-│       ├── background/             MV3 service worker (rules, WS client, badge, request tracking)
-│       ├── popup/                  React popup UI (800x600)
-│       ├── context/                HeaderContext, ThemeContext
-│       ├── assets/recording/       Recording system (state machine, content script, rrweb)
-│       ├── types/                  Extension-specific types (DNR rules, recording service)
-│       └── utils/                  Cross-browser API wrapper, storage chunking, messaging
-│
-├── docs/                           Repo-wide documentation
-├── turbo.json                      Turborepo task pipeline
-├── pnpm-workspace.yaml             Workspace definition
-├── tsconfig.base.json              Shared TS config (strict, ES2022, isolatedModules)
-└── biome.json                      Linter + formatter
+├── native/h3-helper/           HTTP/3 helper crate (Rust)
+├── scripts/                    Repo-wide scripts (i18n scan, update feed, changelog)
+├── docs/                       Public documentation
+├── turbo.json                  Turborepo task pipeline
+├── pnpm-workspace.yaml         Workspace definition
+├── tsconfig.base.json          Shared TS config (strict, isolatedModules)
+└── biome.json                  Linter + formatter
 ```
 
 ## Technology Stack
 
-| Layer | Desktop | Extension | Core |
-|-------|---------|-----------|------|
-| Language | TypeScript (strict) | TypeScript (strict) | TypeScript (strict) |
-| UI | React 19, Ant Design 5 | React 18, Ant Design 5 | N/A |
-| Build | electron-vite | Vite 8 | tsc |
-| Runtime | Electron (Node + Chromium) | Browser service worker | N/A |
-| Tests | vitest, Playwright | vitest, Playwright | vitest |
-| Styling | Less | Less | N/A |
-| Validation | valibot | — | valibot |
-
----
-
-## Desktop App Architecture
-
-### Components
-
-- **Main Process** (`src/main.ts`): App lifecycle, IPC handlers, services
-- **Renderer** (`src/renderer/`): React + Ant Design UI with context providers
-- **Preload** (`src/preload.ts`): Secure IPC bridge with context isolation
-- **Services** (`src/services/`): Backend services running in the main process
-
-### Main Process Services
-
-| Service | Description |
-|---------|-------------|
-| `services/websocket/` | WS server (port 59210) — serves extension/CLI clients |
-| `services/proxy/` | HTTP proxy with header injection, caching, domain matching |
-| `services/workspace/` | Git-based team workspace sync with auth strategies |
-| `services/source-refresh/` | Source fetcher with cron/interval scheduling |
-| `services/video/` | Screen capture, FFmpeg conversion, video export |
-| `services/cli/` | REST API for CLI tool integration |
-| `services/network/` | Network state monitoring (online/offline, VPN detection) |
-| `services/core/` | App state machine, service registry, settings cache |
-
-### Renderer Architecture
-
-| Directory | Description |
-|-----------|-------------|
-| `renderer/contexts/` | React contexts (core, data, services, ui) |
-| `renderer/components/` | UI components by feature (rules, sources, proxy, recording, workspaces) |
-| `renderer/hooks/` | Custom hooks (app, environment, sources, workspace) |
-| `renderer/services/` | Renderer-side services (refresh, export-import, environment) |
-
-### UI Tabs
-
-1. **Workflows** — Session recording playback
-2. **Rules** — Header, payload, URL, scripts/CSS rules (sub-tabs)
-3. **Sources** — HTTP, file, and environment variable sources
-4. **Environments** — Variable management with secret support
-5. **Workspaces** — Personal and team workspaces with git sync
-6. **Server Config** — WebSocket, proxy, and CLI server (sub-tabs)
-
-### Desktop Data Flow
-
-```
-User → React UI → Context providers → IPC (preload bridge) → Main process services
-                                                                    ↓
-                                                              WebSocket server
-                                                                    ↓
-                                                            Browser extension
-```
-
-### Desktop Build & Distribution
-
-```bash
-pnpm --filter @openheaders/desktop dev              # Dev with hot-reload
-pnpm --filter @openheaders/desktop build             # Production build
-pnpm --filter @openheaders/desktop dist:mac          # macOS (signed + notarized)
-pnpm --filter @openheaders/desktop dist:mac:unsigned  # macOS (no signing)
-pnpm --filter @openheaders/desktop dist:win          # Windows
-pnpm --filter @openheaders/desktop dist:linux        # Linux (AppImage + deb + RPM)
-```
-
-Build uses **electron-vite** with three targets (main, preload, renderer). Theme customization via Less preprocessor options. The `@openheaders/core` package is excluded from electron-vite's `externalizeDepsPlugin` so it gets bundled into all three targets.
-
----
-
-## Browser Extension Architecture
-
-### Components
-
-1. **Background Service Worker** (`src/background/`) — Manages `declarativeNetRequest` rules, WebSocket connection to desktop app, request monitoring, badge state
-2. **Popup UI** (`src/popup/`) — React interface for rules, recording, connection state
-3. **Recording System** (`src/assets/recording/`) — State machine, content script injection, rrweb capture
-4. **Context System** (`src/context/`) — HeaderContext (rules/sources), ThemeContext (dark/light/auto)
-
-### Extension Data Flow
-
-```
-React Popup → HeaderContext → chrome.storage.sync
-                    ↓
-         Background Service Worker → declarativeNetRequest rules
-                    ↓
-           WebSocket Client (ws://127.0.0.1:59210)
-                    ↓
-              Desktop App
-```
-
-### Cross-Browser Compatibility
-
-| Feature | Chrome/Edge | Firefox | Safari |
-|---------|------------|---------|--------|
-| Background | Service worker | Background scripts | Background scripts |
-| Manifest | MV3 | MV3 (gecko settings) | MV3 (limited perms) |
-| Sourcemaps | Disabled | Inline (AMO review) | Disabled |
-| Extra perms | `system.display`, `windows` | `webRequestBlocking` | — |
-
-The `src/utils/browser-api.ts` module wraps all Chrome/Firefox/Safari API differences (callback vs promise-based).
-
-### Extension Build
-
-```bash
-pnpm --filter @openheaders/extension dev             # Chrome watch mode
-pnpm --filter @openheaders/extension build            # All browsers
-pnpm --filter @openheaders/extension build:chrome     # Chrome only
-pnpm --filter @openheaders/extension build:firefox    # Firefox only
-```
-
-Build uses **Vite 8** with `BROWSER` env var selecting the target. Custom plugins handle Chrome Web Store CSP compliance, asset copying, and content script IIFE bundling.
-
-**Manifest versioning** — Source manifests in `manifests/*/manifest.json` have `"version": "0.0.0"` as a placeholder. The build injects the real version from `apps/extension/package.json` into the output manifest. For beta releases, the CI workflow converts semver-with-prerelease (`4.1.0-beta.1`) to the numeric format required by browser stores (`4.1.0.1`).
-
-### Key Extension Implementation Details
-
-**Rule Engine** — All rule updates go through `scheduleUpdate(reason, options)`. Debounces rapid calls (150ms) and deduplicates by hash.
-
-**Badge State Priority** — `disconnected > paused > active (count) > none`. Recording overrides all states.
-
-**Recording State Machine** — `idle → starting → recording → stopping → idle` with `pre_navigation` branch. Per-tab stop lock makes concurrent stops idempotent.
-
-**URL Pattern Matching** — Pre-compiled RegExp cache, recompiled when rules change. Supports wildcards, IPs, localhost with ports, IDN domains.
-
----
-
-## Core Package
-
-`@openheaders/core` is the canonical domain model. Both apps import from it via subpath exports:
-
-```typescript
-import type { Source } from '@openheaders/core/types';
-import { validateHeaderName } from '@openheaders/core/utils';
-import { WS_PORT, MESSAGE_TYPES } from '@openheaders/core/protocol';
-import { SourceSchema } from '@openheaders/core/schemas';
-```
-
-### What lives in core
-
-- **Types** (`types/`): Domain interfaces (Source, HeaderEntry, Rules, Recording), common utilities (JsonValue, OperationResult, errorMessage, toError)
-- **Protocol** (`protocol/`): WS message types (AppNavigationIntent, WorkflowRecordingPayload, DisplayContext, RulesData), constants (port 59210, protocol name, message types)
-- **Utils** (`utils/`): Header validation/sanitization (RFC 7230), FNV-1a hashing for change detection
-- **Schemas** (`schemas/`): Valibot schemas for boundary validation (SourceSchema, WorkflowRecordingPayloadSchema)
-
-### What does NOT live in core
-
-Anything that imports `chrome`, `electron`, `fs`, `ws`, or DOM APIs. UI components, hooks, contexts, platform-specific adapters.
-
----
+| Layer | Value |
+|-------|-------|
+| Language | TypeScript, strict mode, everywhere |
+| UI | React 19 + Ant Design (shared components from `packages/ui`) |
+| Desktop runtime | Electron (main / preload / renderer via electron-vite) |
+| Extension runtime | MV3 service worker (background scripts on Firefox/Safari) |
+| Build | Vite (extension, daemon, cli, web), electron-vite (desktop) |
+| Validation | valibot schemas at every process/wire boundary |
+| Tests | vitest (unit/integration), Playwright (E2E) |
+| Lint/format | Biome |
 
 ## Testing
 
-### Test Stack
-
-- **vitest** — Unit and integration tests with TypeScript typecheck
-- **Playwright** — E2E tests (Electron app + Chrome extension)
-
-### Running Tests
-
 ```bash
 pnpm turbo test                                       # All packages
-pnpm --filter @openheaders/desktop test               # Desktop only (7153 tests)
-pnpm --filter @openheaders/extension test             # Extension only (765 tests)
+pnpm --filter @openheaders/desktop test               # One package
 pnpm --filter @openheaders/desktop test:e2e           # Desktop e2e (requires build)
 pnpm --filter @openheaders/extension test:e2e         # Extension e2e (requires Chrome build)
-pnpm turbo typecheck                                  # Typecheck all
 ```
 
-### Test Architecture
-
+- **vitest** for unit/integration tests, **Playwright** for E2E
 - Tests mirror `src/` structure under `tests/unit/`
-- Factory functions (`makeSource()`, `makeWorkspace()`) with `Partial<T>` overrides
-- Chrome API mock in `tests/__mocks__/chrome.ts` (extension)
-- Electron mock in `tests/__mocks__/electron.ts` (desktop)
-- IPC contract tests verify every channel has matching handler + bridge (desktop)
-
----
+- Factory functions (`makeSource()`, `makeWorkspace()`) with
+  `Partial<T>` overrides
+- Chrome API mock: `tests/__mocks__/chrome.ts` (extension); Electron
+  mock: `tests/__mocks__/electron.ts` (desktop)
+- Use `openheaders.io` domains (and variants) in test data, not
+  made-up domains
 
 ## CI/CD
 
@@ -301,28 +213,43 @@ pnpm turbo typecheck                                  # Typecheck all
 Runs on push to `main` and PRs:
 
 1. `pnpm install --frozen-lockfile`
-2. `pnpm biome check .` (lint — non-blocking, warnings only)
-3. `pnpm turbo typecheck` (all packages)
-4. `pnpm turbo test` (all packages)
-5. `pnpm turbo build` (all packages)
+2. `pnpm biome check .` (non-blocking, warnings only)
+3. `pnpm turbo typecheck`
+4. i18n scans (hardcoded-string scan + locale-catalog lint)
+5. Tests for core, extension, and desktop
+6. `pnpm turbo build`
+7. A desktop E2E smoke spec under xvfb
 
 ### Release Pipelines
 
-- **Full release**: Tag `v*` triggers `release.yml` — builds desktop (3 platforms, signed) + extension (4 browsers) into one GitHub Release. Desktop version = tag, extension version = its own `package.json`.
-- **Extension-only**: Tag `v*-ext` / `v*-ext-beta.N` triggers `release-extension.yml` — builds extension only, publishes to `OpenHeaders/open-headers-browser-extension`. Fails if tag doesn't match `apps/extension/package.json`.
+- **Suite release**: a `v*` tag triggers `release.yml` — desktop for
+  three platforms (signed), extension zips for four browsers, and the
+  standalone `oh`/`ohd` binaries, published as one GitHub Release on
+  [`OpenHeaders/open-headers`](https://github.com/OpenHeaders/open-headers)
+  plus the update feed at `updates.openheaders.io`.
+- **Stream lanes**: `v*-cli` and `v*-daemon` tags trigger
+  `release-binaries.yml` — ship only `oh` or only `ohd` (+ its
+  `ghcr.io/openheaders/ohd` image) without rebuilding the suite.
+- `check-store-versions.yml` polls the browser stores' own update
+  endpoints on a schedule and keeps the update feed's extension entry
+  honest about what the stores actually serve.
 
-Desktop and extension have **independent versions**. See [RELEASES.md](RELEASES.md) for full release process.
+### Versioning
 
----
+Desktop and extension have **independent versions**: the desktop
+version comes from the git tag on release, the extension version from
+`apps/extension/package.json`. Apps and packages use CalVer
+(`YYYY.M.PATCH`); the wire protocol versions separately as an integer
+in `packages/core/src/protocol/version.ts`.
 
 ## Code Style
 
-Enforced by **Biome** (lint + format):
+Enforced by **Biome** (not ESLint/Prettier):
 
 - 2-space indentation, single quotes, trailing commas, semicolons
 - 120 character line width
-- No `any` types, no unused imports/variables (warnings)
-- `isolatedModules` enabled (explicit `export type`)
+- No `any` types — use proper specific types
+- `isolatedModules` enabled — use explicit `export type`
 
 ```bash
 pnpm biome check .          # Check
@@ -331,11 +258,21 @@ pnpm lint:fix               # Auto-fix
 
 ## Security
 
-- **CSP**: Strict Content Security Policy in extension manifests
-- **Local-only**: WS server binds to `127.0.0.1:59210`, never exposed to network
-- **Validation**: Header names/values validated against RFC 7230 and browser restrictions
-- **No external transmission**: Neither app nor extension sends data to external servers
-- **Context isolation**: Electron preload uses `contextBridge` with strict API surface
+- **Local-only bridge**: the WebSocket server binds to
+  `127.0.0.1:8137` and never exposes itself to the network; the daemon
+  requires tokens on every non-loopback connection
+- **Validation**: data crossing a process or wire boundary is validated
+  against valibot schemas from core; header names/values are validated
+  against RFC 7230 and browser restrictions
+- **Context isolation**: the Electron preload uses `contextBridge` with
+  a strict API surface
+- **Static bundling**: every dependency is packed at build time; no
+  code is loaded at runtime from CDNs or any remote source
+- **Documented wire surface**: every OpenHeaders-bound network call is
+  specified byte for byte in
+  [WIRE_TRANSPARENCY.md](WIRE_TRANSPARENCY.md); a request the software
+  makes that is not documented there is treated as a vulnerability —
+  see [SECURITY.md](../SECURITY.md)
 
 ## Contributing
 
