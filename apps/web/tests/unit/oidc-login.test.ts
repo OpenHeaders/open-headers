@@ -105,10 +105,10 @@ describe('oidcErrorKey', () => {
   it('resolves to the exact English sentences', () => {
     const t = getTranslator('en');
     expect(t(oidcErrorKey('unknown-user'))).toBe(
-      'Signed in, but this daemon has no user for your email. Ask the daemon admin to add you.',
+      'Signed in, but this server has no user for your email. Ask the server admin to add you.',
     );
     expect(t(oidcErrorKey('seat-limit-reached'))).toBe(
-      'Signed in, but this daemon has no free seats for a new user. Ask the daemon admin — or get in now with your own individual seat.',
+      'Signed in, but this server has no free seats for a new user. Ask the server admin — or get in now with your own individual seat.',
     );
     expect(t(oidcErrorKey('anything-else'))).toBe('Single sign-on failed. Try again, or connect with a pairing token instead.');
   });

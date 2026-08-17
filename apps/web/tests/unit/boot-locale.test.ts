@@ -39,29 +39,29 @@ describe('bootTranslator', () => {
     );
     expect(t('web.insecure.waysIn')).toBe('Open it one of these ways instead:');
     expect(t('web.insecure.httpsPrefix')).toBe(
-      "Over HTTPS — put the daemon behind a TLS reverse proxy (see “Behind a reverse proxy” in the daemon's README) and open",
+      "Over HTTPS — put the server behind a TLS reverse proxy (see “Behind a reverse proxy” in the server's README) and open",
     );
-    expect(t('web.insecure.loopbackPrefix')).toBe("On the daemon's own machine at");
+    expect(t('web.insecure.loopbackPrefix')).toBe("On the server's own machine at");
   });
 
   it('renders gate copy byte-exact, recomposed around the raw islands', () => {
     vi.stubGlobal('navigator', { languages: ['en'] });
     const t = bootTranslator();
-    expect(t('web.gate.titleSignIn')).toBe('Sign in to this daemon');
-    expect(t('web.gate.titlePair')).toBe('Pair with this daemon');
+    expect(t('web.gate.titleSignIn')).toBe('Sign in to this server');
+    expect(t('web.gate.titlePair')).toBe('Pair with this server');
     expect(t('web.gate.introSso', { provider: 'ACME SSO' })).toBe(
       'Sign in with ACME SSO, or paste a pairing token below.',
     );
     expect(`${t('web.gate.introTokenPrefix')} ohd show-token ${t('web.gate.introTokenSuffix')}`).toBe(
-      'This OpenHeaders daemon requires a pairing token. Mint one on the machine running it with ohd show-token and paste it below.',
+      'This OpenHeaders Server requires a pairing token. Mint one on the machine running it with ohd show-token and paste it below.',
     );
     expect(`${t('web.gate.seatIntroPrefix')} openheaders.io/pricing${t('web.gate.seatIntroSuffix')}`).toBe(
       'Have an individual seat? Paste its key to sign in without waiting on a free team seat — it admits the email it was purchased with. Get one at openheaders.io/pricing.',
     );
     expect(t('web.gate.workLocally')).toBe('Skip — work locally');
-    expect(t('web.gate.errorTokenRejected')).toBe('The daemon rejected this token. Check it and try again.');
-    expect(t('web.gate.errorTokenOffline')).toBe('The daemon did not answer. Check that it is running and try again.');
+    expect(t('web.gate.errorTokenRejected')).toBe('The server rejected this token. Check it and try again.');
+    expect(t('web.gate.errorTokenOffline')).toBe('The server did not answer. Check that it is running and try again.');
     expect(t('web.gate.errorPasswordRefused')).toBe('Sign-in failed. Check the email and password and try again.');
-    expect(t('web.gate.errorSessionRefused')).toBe('The daemon did not accept the session. Try again.');
+    expect(t('web.gate.errorSessionRefused')).toBe('The server did not accept the session. Try again.');
   });
 });

@@ -5,9 +5,8 @@
  * Electron menus are immutable snapshots, so this module owns the
  * current updater state and re-runs every registered menu builder on
  * each transition: the item reads "Check for Updates…" → "Checking for
- * Updates…" → "Update to Open Headers X & Restart" → "Downloading
- * Update… N%" → "Restart to Install Open Headers X" as the machine
- * advances.
+ * Updates…" → "Update to X & Restart" → "Downloading Update… N%" →
+ * "Restart to Install X" as the machine advances.
  *
  * Every click maps 1:1 onto one `oh.updates.*` action — checking never
  * downloads, and only the explicit Update & Restart / Restart items

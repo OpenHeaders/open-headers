@@ -19,7 +19,7 @@ import {
 import { afterEach, describe, expect, it } from 'vitest';
 import { createNodeGrpcTransport } from '../../src/live/node-grpc-transport';
 
-const PROTO_PATH = new URL('../../../../playground/fixtures/grpc/book_service.proto', import.meta.url).pathname;
+const PROTO_PATH = new URL('./fixtures/book_service.proto', import.meta.url).pathname;
 const PKG = 'openheaders.playground.v1';
 
 const registry = buildRegistry([{ path: 'book_service.proto', census: parseProto(readFileSync(PROTO_PATH, 'utf8')) }]);
