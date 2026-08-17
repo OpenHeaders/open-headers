@@ -1,6 +1,6 @@
 {
   "name": "@openheaders/core",
-  "version": "2026.7.5",
+  "version": "2026.8.0",
   "private": true,
   "description": "OpenHeaders core domain model — types, schemas, protocol, and shared utilities",
   "license": "Apache-2.0",
@@ -214,7 +214,8 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "clean": "rm -rf dist"
+    "pack": "node scripts/pack.mjs",
+    "clean": "rm -rf dist dist-package"
   },
   "dependencies": {
     "valibot": "^1.3.1",
