@@ -18,8 +18,9 @@ stated so it can be verified both from the code and from the outside.
 2. **Anonymous by construction.** The only usage data is anonymous
    feature counting over a typed event allowlist compiled into the
    app — closed unions only, no free-form strings, so URLs, headers,
-   traffic, and identity are inexpressible. It is disclosed on first
-   run, inspectable byte for byte in-app, off with one switch, and the
+   traffic, and identity are inexpressible. It is disclosed in the
+   privacy policy, the store listings, and the setting itself;
+   inspectable byte for byte in-app; off with one switch; and the
    server surfaces (daemon, served web app, MCP server) never send it
    at all. No crash reports, no stack traces, no third-party analytics
    SDK.
@@ -37,8 +38,8 @@ The full outbound surface of the software is:
 | Call | Who makes it | Payload | Off switch |
 |---|---|---|---|
 | License refresh (`POST license.openheaders.io/refresh`) | desktop main process, daemon | `{licenseKey, appVersion, platform}` — nothing else | no license / `offline` license / `licenseRefresh: false` |
-| Update check (GitHub releases repo) | packaged desktop builds | plain `GET`s, no payload | `updates.check: off` |
-| Severity manifest (planned) | packaged desktop builds | plain `GET` of a static file | same as update check |
+| Update check (`GET updates.openheaders.io` feed) | packaged desktop builds, the `oh` CLI, the daemon on `ohd status` or opt-in | plain `GET`s, no payload | `updates.check: off` / `oh autoupdate off` |
+| Severity manifest (`GET updates.openheaders.io/versions/stable.json`) | same surfaces, only as part of an update check | plain `GET` of a static file | same as update check |
 | Anonymous telemetry (`POST telemetry.openheaders.io/v1/events`) | extension, desktop app, CLI — never the daemon, served web app, or MCP server | typed event allowlist — closed unions only, no free-form strings | Settings → General toggle / `OH_TELEMETRY=0` |
 
 Everything else leaving the process is operator-configured: your OIDC
@@ -82,8 +83,10 @@ files. Consequences:
   compile time. The software loads no code at runtime from CDNs or any
   remote source, so its behavior cannot change between the build you
   audited and the build you run.
-- **Updates:** check-and-notify only. The app never downloads or
-  installs updates without explicit user action.
+- **Updates:** an available update may download in the background
+  (default on, one switch to off), but it is only ever applied by an
+  explicit "Update & Restart" or a quit that happens anyway — a running
+  app is never restarted without your action.
 
 ## 5. Multi-user daemon
 

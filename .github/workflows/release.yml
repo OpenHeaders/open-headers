@@ -21,7 +21,7 @@ permissions:
 env:
   NODE_OPTIONS: --max-old-space-size=4096
   # Where release artifacts land; the update feed's pointer files carry
-  # absolute URLs into this repo's release pages (DISTRIBUTION_PLAN §3).
+  # absolute URLs into this repo's release pages.
   RELEASE_REPO: OpenHeaders/open-headers
   R2_BUCKET: oh-updates
 
@@ -612,8 +612,8 @@ jobs:
   # of a matrix row here — a second 10×-billed runner just to repeat
   # setup was the pipeline's most expensive overhead. Versions come
   # from each app's own package.json (the extension precedent) — the
-  # tag stays the desktop's version axis. Runtime split
-  # (DISTRIBUTION_PLAN §6): `oh` is bun-compiled, `ohd` stays Node SEA
+  # tag stays the desktop's version axis. Runtime split:
+  # `oh` is bun-compiled, `ohd` stays Node SEA
   # — two toolchains, one leg, no cross-contamination.
   build-binaries:
     if: ${{ github.event_name != 'workflow_dispatch' && !contains(github.ref_name, '-ext') && !contains(github.ref_name, '-cli') && !contains(github.ref_name, '-daemon') && !contains(github.ref_name, '-beta') }}
@@ -648,7 +648,7 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      # Insurance law (DISTRIBUTION_PLAN §6): the CLI source stays
+      # Insurance law: the CLI source stays
       # runtime-neutral, proven by running its unit suite under bun on
       # every stable release; the regular CI lane runs it under Node.
       - name: Run CLI unit suite under bun
@@ -893,7 +893,7 @@ jobs:
 
       # The single authority for where downloads live. With R2, every
       # printed and machine-read download URL is an own-domain form
-      # (DISTRIBUTION_PLAN §3) — corporate networks only ever need
+      # — corporate networks only ever need
       # openheaders.io reachable. Artifacts also land on the GitHub
       # release page as a human-browsable redundant copy.
       - name: Determine download base
@@ -986,7 +986,7 @@ jobs:
           GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
           GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
 
-      # versions.json — the static severity manifest (UPDATES_PLAN §4).
+      # versions.json — the static severity manifest.
       # Clients fetch it anonymously via /releases/latest/download/,
       # which resolves to the newest non-prerelease, so beta tags never
       # move it. Severity is authored in .github/release-severity.json
@@ -1297,7 +1297,7 @@ jobs:
           append_body: true
 
       # The update feed: static pointer files on R2 behind
-      # updates.openheaders.io (DISTRIBUTION_PLAN §3). The yml/json
+      # updates.openheaders.io. The yml/json
       # pointers carry absolute URLs to this release's artifacts (the
       # feed's own dl/ path, or the GitHub assets when R2 is off), so
       # staging happens only after the bytes exist. A beta tag stages

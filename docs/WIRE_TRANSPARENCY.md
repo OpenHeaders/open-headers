@@ -10,7 +10,7 @@ fully functional with all of these unreachable or disabled — see the
 per-endpoint off switches.
 
 The only usage data that ever leaves is the anonymous telemetry channel
-of section 4 (TELEMETRY_PLAN.md, amending LICENSING_PLAN.md §1): a typed
+of section 4: a typed
 allowlist of feature-usage counts, structurally incapable of carrying
 URLs, headers, traffic, or identity, default-on for desktop/extension/CLI
 with a one-switch opt-out, and hard-off for the daemon, served web app,
@@ -23,7 +23,7 @@ The extension's only OpenHeaders-bound call is that telemetry channel
 
 ## 1. License refresh
 
-Self-serve subscription renewal (LICENSING_PLAN.md §3.2). Node hosts only
+Self-serve subscription renewal. Node hosts only
 (desktop main process and the daemon — never the extension). The agent
 only ever *delivers* files: the response is verified offline against the
 compiled-in Ed25519 trust ring before anything persists; no online
@@ -74,7 +74,7 @@ validation path exists.
 ## 2. Update check
 
 Anonymous check, staging by default, and a restart that is never
-unprompted (docs/UPDATES_PLAN.md, 2026-07-20 rev): an available update
+unprompted: an available update
 may download in the background (default on, one switch to off), but a
 running app is only ever restarted by an explicit "Update & Restart"
 click or a quit that happens anyway. The `oh` CLI additionally
@@ -133,7 +133,7 @@ from anything about your install.
 
 ## 4. Anonymous telemetry
 
-Anonymous usage counting (TELEMETRY_PLAN.md) — which features get used,
+Anonymous usage counting — which features get used,
 nothing more. The event vocabulary is a typed allowlist compiled into
 the app (`packages/core/src/telemetry/`): every payload property is a
 closed union, boolean, or number; free-form strings are banned by a

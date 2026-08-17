@@ -57,7 +57,7 @@ The app runs 99.99% in the background (system tray). All critical work runs in t
 ### Extension: Background + Popup
 
 - **Background service worker** (`src/background/`): `declarativeNetRequest` rules, WebSocket client to desktop app, request tracking, badge state
-- **Popup** (`src/popup/`): React 18 + Ant Design UI (800x600)
+- **Popup** (`src/popup/`): React 19 + Ant Design UI (800x600)
 - Rule updates go through `scheduleUpdate(reason, options)` — debounced (150ms) and deduplicated by hash
 
 ### Communication

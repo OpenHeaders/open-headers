@@ -1,7 +1,7 @@
 name: Release Binaries
 
-# Stream-scoped release lanes for the standalone binaries
-# (RELEASES.md): a `v*-cli` tag ships only `oh`, a `v*-daemon` tag
+# Stream-scoped release lanes for the standalone binaries:
+# a `v*-cli` tag ships only `oh`, a `v*-daemon` tag
 # only `ohd` + its ghcr image — no desktop matrix, no suite rebuild.
 # Stable-only by law (betas ship no standalone binaries): the tag
 # grammar takes no `-beta` suffix and the trigger patterns cannot
@@ -98,7 +98,7 @@ jobs:
 
       # ── CLI lane ─────────────────────────────────────────────────
 
-      # Insurance law (DISTRIBUTION_PLAN §6): the CLI source stays
+      # Insurance law: the CLI source stays
       # runtime-neutral, proven by running its unit suite under bun on
       # every release that ships the compiled binary.
       - name: Run CLI unit suite under bun
