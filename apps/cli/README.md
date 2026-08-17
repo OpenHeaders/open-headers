@@ -8,21 +8,17 @@ workspaces — straight from the shell, always in sync with what the UI shows.
 
 ## Requirements
 
-- Node.js 22 or newer
 - A running Open Headers desktop app (or standalone daemon) with the MCP
   surface enabled — Settings → MCP
 
 ## Install
 
-```sh
-npm install -g @openheaders/cli
-```
-
-No Node.js? Standalone `oh` binaries (macOS, Linux, Windows) ship with every
-release at
+Standalone `oh` binaries (macOS, Linux, Windows) ship with every release
+at
 [open-headers releases](https://github.com/OpenHeaders/open-headers/releases),
-with SHA-256 checksums. The macOS binary is signed and notarized; the Windows
-binary is unsigned, so SmartScreen warns on first run.
+with SHA-256 checksums — no Node.js required. The macOS binary is signed
+and notarized; the Windows binary is unsigned, so SmartScreen warns on
+first run.
 
 ```sh
 curl -fsSL https://updates.openheaders.io/install.sh | sh
@@ -33,8 +29,11 @@ irm https://updates.openheaders.io/install.ps1 | iex
 ```
 
 The script verifies checksums and installs to `~/.local/bin`
-(`%LOCALAPPDATA%\OpenHeaders\bin` on Windows); pass `--with-daemon` to also
-install `ohd`.
+(`%LOCALAPPDATA%\OpenHeaders\bin` on Windows); pass `--with-daemon`
+(`curl … | sh -s -- --with-daemon`) to also install `ohd`. Installed
+binaries keep themselves current between invocations (`oh autoupdate
+off` to stop). To build from source instead, see the repository's
+[developer guide](../../docs/DEVELOPER.md).
 
 ## Quick start
 
@@ -85,7 +84,7 @@ The CLI collects anonymous usage counts (command names and versions — never
 your data or targets) and says so once, on first run. Opt out anytime with
 `export OH_TELEMETRY=0` or `"telemetry": false` in the config file
 (`~/.config/openheaders/cli.json`). The exact wire format is documented in
-the repository's `WIRE_TRANSPARENCY.md`; details:
+the repository's [wire-transparency specification](../../docs/WIRE_TRANSPARENCY.md); details:
 [openheaders.io/privacy](https://openheaders.io/privacy).
 
 ## Shell completions
