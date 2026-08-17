@@ -1,0 +1,29 @@
+name: Feature request
+description: Propose new functionality (features land by discussion-first — see CONTRIBUTING.md)
+labels: ['feature']
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Features follow a discussion-first policy: agreement on the problem and
+        behavior happens in the issue **before** any code is written. See
+        [CONTRIBUTING.md](https://github.com/OpenHeaders/open-headers-app/blob/main/docs/CONTRIBUTING.md).
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: The workflow you're trying to accomplish, not just the mechanism you have in mind.
+    validations:
+      required: true
+  - type: textarea
+    id: behavior
+    attributes:
+      label: Proposed behavior
+      description: What you'd like to see happen.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Workarounds you use today, or other shapes this could take. Optional.

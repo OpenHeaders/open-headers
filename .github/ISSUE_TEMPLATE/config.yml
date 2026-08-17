@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Questions & discussion
+    url: https://github.com/OpenHeaders/open-headers-app/discussions
+    about: Ask questions, get feedback on ideas before filing an issue, or share how you use Open Headers.
+  - name: Security vulnerabilities
+    url: https://github.com/OpenHeaders/open-headers-app/blob/main/SECURITY.md
+    about: Please report security issues privately — never as a public issue.

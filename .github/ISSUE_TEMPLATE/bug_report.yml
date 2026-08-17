@@ -1,0 +1,55 @@
+name: Bug report
+description: Something isn't working
+labels: ['bug']
+body:
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: Expected vs actual behavior.
+      placeholder: 'Expected: the header is injected. Actual: the request goes out unmodified.'
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Create a rule matching https://api.openheaders.io/*
+        2. Enable it
+        3. Reload the page
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: App / extension version
+      description: Desktop app and browser extension versions are independent — include whichever applies.
+      placeholder: 'extension 2026.8.0, desktop 2026.8.0'
+    validations:
+      required: true
+  - type: dropdown
+    id: surface
+    attributes:
+      label: Component
+      options:
+        - Browser extension
+        - Desktop app
+        - Server / daemon
+        - CLI
+        - Web app
+        - Other / not sure
+    validations:
+      required: true
+  - type: input
+    id: platform
+    attributes:
+      label: Platform & browser
+      placeholder: 'macOS 15.5, Chrome 139'
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs / screenshots
+      description: Anything relevant — redact tokens and private URLs before pasting.
