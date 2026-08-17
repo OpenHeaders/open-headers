@@ -267,7 +267,7 @@ describe('formatUrlPattern', () => {
   });
 
   it('handles bare single-label domains from env vars', () => {
-    // Real-world: CORP_DOMAIN_LIST includes "intranet" and "portal.corp"
+    // Real-world: CORP_DOMAIN_LIST includes bare intranet hosts like "intranet" and "portal.corp"
     expect(formatUrlPattern('intranet')).toBe('*://intranet/*');
     expect(formatUrlPattern('portal.corp')).toBe('*://portal.corp/*');
     expect(formatUrlPattern('development.api.openheaders.io')).toBe('*://development.api.openheaders.io/*');
