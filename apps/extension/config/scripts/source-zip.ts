@@ -52,7 +52,8 @@ const ROOT_MANIFESTS = [
   'biome.json',
   '.npmrc',
   'README.md',
-  'LICENSE.md',
+  'LICENSE',
+  'NOTICE',
 ];
 
 const INCLUDE = [...WORKSPACE_PACKAGES.map((pkg) => `${pkg}/**`), ...ROOT_MANIFESTS];

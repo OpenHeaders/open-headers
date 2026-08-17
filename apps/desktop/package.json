@@ -5,7 +5,7 @@
   "description": "OpenHeaders desktop app",
   "homepage": "https://openheaders.io",
   "author": "Open Headers <contact@openheaders.io>",
-  "license": "SEE LICENSE IN LICENSE.md",
+  "license": "Apache-2.0",
   "main": "dist-webpack/main/index.js",
   "sideEffects": [
     "**/*.css",

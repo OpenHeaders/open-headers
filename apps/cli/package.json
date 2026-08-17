@@ -3,6 +3,7 @@
   "version": "2026.8.0",
   "private": true,
   "description": "Open Headers command line — a client of the daemon's /mcp surface",
+  "license": "Apache-2.0",
   "type": "module",
   "sideEffects": false,
   "bin": {

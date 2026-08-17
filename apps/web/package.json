@@ -3,6 +3,7 @@
   "version": "2026.8.0",
   "private": true,
   "description": "OpenHeaders web app \u2014 the Workbench in a browser tab, served by a daemon",
+  "license": "Apache-2.0",
   "type": "module",
   "sideEffects": [
     "**/*.css",

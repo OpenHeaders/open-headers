@@ -34,7 +34,7 @@ The extension is the full toolkit, standalone in the browser:
 
 ## License
 
-Open Headers is proprietary software that is free to use. Every feature
+Open Headers is open source under the Apache License 2.0. Every feature
 is included in the free tier — the software is identical on every plan,
 and paid plans exist only to add team seats. See
 [LICENSE.md](LICENSE.md).

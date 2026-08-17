@@ -2,6 +2,7 @@
   "name": "open-headers",
   "private": true,
   "description": "OpenHeaders monorepo — desktop app, browser extension, and shared core",
+  "license": "Apache-2.0",
   "scripts": {
     "build": "turbo run build",
     "dev": "turbo run dev",

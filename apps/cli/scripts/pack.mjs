@@ -48,7 +48,8 @@ rmSync(stageDir, { recursive: true, force: true });
 cpSync(path.join(packageRoot, 'dist'), path.join(stageDir, 'dist'), { recursive: true });
 chmodSync(path.join(stageDir, 'dist', 'cli.js'), 0o755);
 cpSync(path.join(packageRoot, 'README.md'), path.join(stageDir, 'README.md'));
-cpSync(path.join(repoRoot, 'LICENSE.md'), path.join(stageDir, 'LICENSE.md'));
+cpSync(path.join(repoRoot, 'LICENSE'), path.join(stageDir, 'LICENSE'));
+cpSync(path.join(repoRoot, 'NOTICE'), path.join(stageDir, 'NOTICE'));
 writeFileSync(
   path.join(stageDir, 'package.json'),
   `${JSON.stringify(
@@ -56,7 +57,7 @@ writeFileSync(
       name: manifest.name,
       version: manifest.version,
       description: manifest.description,
-      license: 'SEE LICENSE IN LICENSE.md',
+      license: 'Apache-2.0',
       homepage: 'https://openheaders.io',
       type: 'module',
       bin: { oh: './dist/cli.js' },
@@ -108,18 +109,18 @@ if (!unreachable.stderr.includes('no Open Headers daemon reachable')) {
 console.log(`pack: verified — version, help, unreachable exit 3 (node ${process.version})`);
 
 // ── Tarball: the npm-publishable artifact (verified stage only) ──────
-// `npm pack` honors `files` — dist + README/LICENSE/package.json land
-// in the tarball and nothing else ever may.
+// `npm pack` honors `files` — dist + README/LICENSE/NOTICE/package.json
+// land in the tarball and nothing else ever may.
 
 const packed = spawnSync('npm', ['pack', '--json'], { cwd: stageDir, encoding: 'utf-8' });
 if (packed.status !== 0) fail(`npm pack exited ${packed.status}: ${packed.stderr}`);
 const [tarball] = JSON.parse(packed.stdout);
 
 // Leak gate: the tarball may contain ONLY the curated set — the built
-// bundle plus the three manifest/docs files. Source maps and anything
+// bundle plus the manifest/docs files. Source maps and anything
 // npm's default includes might sweep in (logs, dotfiles, lockfiles)
 // fail the pack outright.
-const allowedTop = new Set(['package.json', 'README.md', 'LICENSE.md']);
+const allowedTop = new Set(['package.json', 'README.md', 'LICENSE', 'NOTICE']);
 const contraband = tarball.files
   .map((entry) => entry.path)
   .filter((file) => !(allowedTop.has(file) || (file.startsWith('dist/') && !file.endsWith('.map'))));

@@ -5,7 +5,7 @@
 [![CI](https://github.com/OpenHeaders/open-headers-app/actions/workflows/ci.yml/badge.svg)](https://github.com/OpenHeaders/open-headers-app/actions/workflows/ci.yml)
 [![GitHub release](https://img.shields.io/github/v/release/OpenHeaders/open-headers)](https://github.com/OpenHeaders/open-headers/releases/latest)
 [![GitHub downloads](https://img.shields.io/github/downloads/OpenHeaders/open-headers/total)](https://github.com/OpenHeaders/open-headers/releases)
-[![License: Proprietary](https://img.shields.io/badge/license-proprietary-lightgrey)](LICENSE.md)
+[![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Windows%20%7C%20Linux-blue)]()
 
 Your existing Web DevToolkit inside a browser extension — modify live
@@ -65,8 +65,8 @@ beyond the browser:
 
 ## License
 
-Open Headers is proprietary software that is free to use. Every feature
-is included in the free tier — the software is identical on every plan,
-and paid plans exist only to add team seats (free up to 3 active users
-per team server daemon). See the
-[End User License Agreement](LICENSE.md).
+Open Headers is open source under the [Apache License 2.0](LICENSE).
+Official branded binaries and store builds are distributed under the
+[End User License Agreement](legal/EULA.md). Every feature is included
+in the free tier — the software is identical on every plan, and paid
+plans exist only to add team seats.

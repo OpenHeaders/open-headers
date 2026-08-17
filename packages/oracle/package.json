@@ -3,6 +3,7 @@
   "version": "2026.7.5",
   "private": true,
   "description": "OpenHeaders oracle — entity-agnostic sync engine, workspace state, conflict resolution",
+  "license": "Apache-2.0",
   "type": "module",
   "sideEffects": false,
   "main": "./src/index.ts",

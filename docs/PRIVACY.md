@@ -88,7 +88,7 @@ We may update this Privacy Policy from time to time. We will notify users of any
 
 ## 10. Transparency Commitment
 
-Open Headers is proprietary software with a verifiable privacy posture. We publish:
+Open Headers is open-source software with a verifiable privacy posture. We publish:
 - A wire-transparency specification documenting the exact payload of every network call the software can make — including every telemetry event
 - A security whitepaper describing the architecture behind these guarantees
 - A vulnerability disclosure policy

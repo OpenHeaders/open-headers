@@ -306,5 +306,6 @@ scanners can match them directly.
 
 ## License
 
-Proprietary — free up to 10 active users per daemon; paid seats above that.
-See the End User License Agreement at the repository root (`LICENSE.md`).
+Apache License 2.0 — see `LICENSE` at the repository root. Official
+binaries are distributed under the End User License Agreement
+(`legal/EULA.md`); paid plans only add team seats above the free tier.

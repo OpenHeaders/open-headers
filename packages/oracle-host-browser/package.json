@@ -3,6 +3,7 @@
   "version": "2026.7.5",
   "private": true,
   "description": "Browser host adapter for @openheaders/oracle — IndexedDB-backed sync persistence, blob storage, and platform-native live transports",
+  "license": "Apache-2.0",
   "type": "module",
   "sideEffects": false,
   "exports": {

@@ -3,7 +3,7 @@
   "version": "2026.8.0",
   "private": true,
   "description": "OpenHeaders browser extension for Chrome, Firefox, Edge, and Safari",
-  "license": "SEE LICENSE IN LICENSE.md",
+  "license": "Apache-2.0",
   "sideEffects": [
     "**/*.css",
     "**/*.less",
