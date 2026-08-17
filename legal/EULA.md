@@ -1,6 +1,6 @@
 # Open Headers — End User License Agreement
 
-**Effective date: July 13, 2026**
+**Effective date: August 17, 2026**
 
 This End User License Agreement (the "Agreement") is a legal agreement
 between you (an individual or a legal entity, "you") and **Bithub Team
@@ -18,7 +18,7 @@ do not agree, do not install or use the Software.
 - **Active User** — a user record in an active (non-deactivated) state
   in a daemon deployment's user directory.
 - **Free Tier** — use of the Software without a License File, limited
-  to 5 Active Users per daemon deployment.
+  to 6 Active Users per daemon deployment.
 - **Individual Seat License** — a License File issued to a named
   individual (the "holder") that records the holder's email address
   and admits that individual, and only that individual, as one Active
@@ -34,7 +34,7 @@ Subject to this Agreement, Bithub Team grants you a non-exclusive,
 non-transferable, worldwide license to install and use the Software:
 
 - **Free Tier:** free of charge, for personal or internal business
-  purposes, on any number of devices, with up to 5 Active Users per
+  purposes, on any number of devices, with up to 6 Active Users per
   daemon deployment. The Free Tier is not a trial and does not expire,
   and capabilities included in the Free Tier will not subsequently be
   withdrawn from it or moved behind payment.
@@ -103,12 +103,13 @@ not limit any rights you hold under those licenses.
 
 ## 7. Privacy
 
-The Software collects no telemetry and sends no usage data. Its only
-outbound connections are to documented endpoints (license renewal,
-update checks, notification manifests) with publicly specified
-payloads, plus destinations you configure yourself. See the Open
-Headers Privacy Policy and the published wire-transparency
-documentation at https://openheaders.io.
+The Software sends anonymous telemetry events that contain no personal
+data and no user content; telemetry can be switched off with a single
+setting. Its only outbound connections are to documented endpoints
+(telemetry, license renewal, update checks, notification manifests)
+with publicly specified payloads, plus destinations you configure
+yourself. See the Open Headers Privacy Policy and the published
+wire-transparency documentation at https://openheaders.io.
 
 ## 8. Updates
 

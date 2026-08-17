@@ -5,9 +5,9 @@
 Open Headers is a browser development toolkit: a desktop app, browser
 extensions, a multi-user daemon, a CLI, and an MCP server. This
 document describes the security architecture those components share.
-It makes no claim that proprietary licensing is itself a security
-property; the guarantees below hold because of how the software is
-built, and each one is stated so it can be verified from the outside.
+The source code is public under the Apache-2.0 license; the guarantees
+below hold because of how the software is built, and each one is
+stated so it can be verified both from the code and from the outside.
 
 ## 1. Principles
 
@@ -102,10 +102,10 @@ carve-out from the EULA's reverse-engineering restrictions.
 
 ## 7. What we deliberately do not claim
 
-- We do not claim that being closed-source makes the software more
-  secure. Source access is one audit channel; we substitute verifiable
-  behavior (documented wire surface, static bundling, local-first
-  storage) and independent observability for it.
+- We do not claim that being open-source by itself makes the software
+  secure. Source access is one audit channel; verifiable behavior
+  (documented wire surface, static bundling, local-first storage) and
+  independent observability stand alongside it.
 - We do not claim immunity from compromise. We publish this document
   so that our guarantees are falsifiable, and we treat any deviation
   from it as a security bug.

@@ -204,7 +204,7 @@
       "icon": "build/icon.png",
       "category": "Utility;Development;Network",
       "executableName": "open-headers",
-      "maintainer": "Daniel Tirzuman <github@tirzuman.com>",
+      "maintainer": "Open Headers <contact@openheaders.io>",
       "desktop": {
         "Name": "OpenHeaders",
         "Comment": "OpenHeaders",
