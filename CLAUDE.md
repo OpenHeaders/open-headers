@@ -33,13 +33,18 @@ pnpm --filter @openheaders/desktop typecheck      # runs: tsc --noEmit && tsc -p
 
 ## Architecture
 
-**Monorepo** (pnpm workspaces + Turborepo) with three packages:
+**Monorepo** (pnpm workspaces + Turborepo). Shared packages under `packages/`, shipping apps under `apps/`:
 
-- `packages/core/` (`@openheaders/core`) — Domain model: types, protocol, utils, valibot schemas. Zero platform deps. Both apps import via subpath exports (`@openheaders/core/types`, `@openheaders/core/protocol`, etc.)
-- `apps/desktop/` (`@openheaders/desktop`) — Electron app. electron-vite builds three targets: main, preload, renderer.
-- `apps/extension/` (`@openheaders/extension`) — Browser extension (Chrome/Firefox/Edge/Safari). Vite build with `BROWSER` env var selecting target.
+- `packages/core` — Domain model: types, protocol, utils, valibot schemas. Zero platform deps. Apps import via subpath exports (`@openheaders/core/types`, `@openheaders/core/protocol`, etc.)
+- `packages/i18n` — Locale registry, message catalogs, translation runtime
+- `packages/oracle` — Entity-agnostic sync engine, workspace state, conflict resolution; `packages/oracle-host-node` (SQLite/WebSocket) and `packages/oracle-host-browser` (IndexedDB) are its platform host adapters
+- `packages/rule-engine` — `declarativeNetRequest` compile pipeline, content-script generation, scripting injection
+- `packages/ui` — Shared UI: workbench, devtools panel, popup primitives
+- `apps/desktop` — Electron app. electron-vite builds three targets: main, preload, renderer.
+- `apps/extension` — Browser extension (Chrome/Firefox/Edge/Safari). Vite build with `BROWSER` env var selecting target.
+- `apps/daemon` — Standalone headless server; `apps/web` (Workbench in a browser tab, served by the daemon), `apps/cli` (`oh`), `apps/nm-host` (native-messaging bootstrap) are its satellites. `native/h3-helper` is the HTTP/3 helper crate.
 
-Dependency flow: `core ← desktop`, `core ← extension`. Desktop and extension never depend on each other.
+Dependency flow: packages ← apps, never the reverse. Desktop and extension never depend on each other.
 
 ### Desktop: Main vs Renderer Process
 
@@ -81,4 +86,4 @@ Enforced by **Biome** (not ESLint/Prettier):
 
 Desktop and extension have **independent versions**. Desktop version comes from git tag on release; extension version from `apps/extension/package.json`.
 
-Apps and packages use **CalVer** (`YYYY.M.PATCH`); protocol is a separate integer in `packages/core/src/protocol/version.ts`. The full versioning model — five axes, public/private boundary, eventual package landscape — is documented in [`docs/architecture-roadmap.md`](./docs/architecture-roadmap.md). Per-release ledger: [`docs/compatibility.md`](./docs/compatibility.md). In-flight refactor progress: [`docs/refactor-status.md`](./docs/refactor-status.md).
+Apps and packages use **CalVer** (`YYYY.M.PATCH`); protocol is a separate integer in `packages/core/src/protocol/version.ts`. The system overview is in [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md); full technical documentation in [`docs/DEVELOPER.md`](./docs/DEVELOPER.md).
