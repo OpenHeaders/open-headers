@@ -37,6 +37,22 @@ test.beforeAll(async () => {
 
   const page: Page = await context.newPage();
   workbench = await WorkbenchPage.open(page, extensionId);
+
+  // The wire-capture plane (webRequest → extension-traffic channel)
+  // comes up async after SW boot; until then snapshots carry no `wire`
+  // field — the documented degradation. Warm it up so the shape suite
+  // asserts the steady state (same gate as request-executor-errors).
+  await expect
+    .poll(
+      async () => {
+        const res = await workbench.rpc<{ success: boolean; snapshot?: ExecSnapshot }>('executeRequest', {
+          draft: draft({}),
+        });
+        return res.snapshot?.wire !== undefined;
+      },
+      { timeout: 30000 },
+    )
+    .toBe(true);
 });
 
 test.afterAll(async () => {

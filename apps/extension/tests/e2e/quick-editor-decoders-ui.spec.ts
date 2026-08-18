@@ -146,8 +146,7 @@ test.beforeAll(async () => {
   workbenchPage = await context.newPage();
   workbench = await WorkbenchPage.open(workbenchPage, extensionId);
 
-  const col = await workbench.rpc<{ success: boolean }>('createLocalCollection', { name: 'Panel decoder rules' });
-  expect(col.success).toBe(true);
+  await workbench.seedCollection('Panel decoder rules');
   await publishHeaderRule(RULE_NAME, HEADER_NAME, BASIC_ORIGINAL);
 
   // ── Playground traffic: poll until the published rule rides DNR ──

@@ -53,6 +53,33 @@ test.beforeAll(async () => {
         chrome.storage.local.set({ onboardingCompleted: true }, () => resolve());
       }),
   );
+
+  // The request store hydrates async on a fresh profile and rejects
+  // mutations until then — probe with a real create once (the
+  // live-orchestration readiness idiom), so every test's seeding RPCs
+  // run against the steady state.
+  const readiness = await context.newPage();
+  await readiness.goto(`chrome-extension://${extensionId}/workbench.html`);
+  await readiness.waitForFunction(() => {
+    const root = document.getElementById('root');
+    return root !== null && root.children.length > 0;
+  });
+  let probeUid = '';
+  await expect
+    .poll(
+      async () => {
+        const res = await rpc<{ success: boolean; request?: { uid: string } }>(readiness, 'createLocalRequest', {
+          name: 'readiness-probe',
+          seed: { method: 'GET', url: 'https://api.openheaders.io/probe', headers: [], params: [] },
+        });
+        probeUid = res.request?.uid ?? '';
+        return res.success === true;
+      },
+      { timeout: 30000 },
+    )
+    .toBe(true);
+  await rpc(readiness, 'deleteLocalRequest', { requestUid: probeUid });
+  await readiness.close();
 });
 
 test.afterAll(async () => {

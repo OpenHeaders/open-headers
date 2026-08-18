@@ -315,8 +315,7 @@ test.beforeAll(async () => {
   workbench = await WorkbenchPage.open(workbenchPage, extensionId);
 
   // The quick-create destination's first-collection fallback needs one.
-  const col = await workbench.rpc<{ success: boolean }>('createLocalCollection', { name: 'Override editor rules' });
-  expect(col.success).toBe(true);
+  await workbench.seedCollection('Override editor rules');
 
   // ── Pin the playground tab into CDP, bind the plain-tab panel to it ──
   playgroundPage = await context.newPage();

@@ -123,10 +123,7 @@ test.beforeAll(async () => {
   page = await context.newPage();
   workbench = await WorkbenchPage.open(page, extensionId);
   // Destination for the header rule's full Save leg.
-  const col = await workbench.rpc<{ success: boolean; collection?: { uid: string } }>('createLocalCollection', {
-    name: 'Decoder rules',
-  });
-  expect(col.success).toBe(true);
+  await workbench.seedCollection('Decoder rules');
 });
 
 test.afterAll(async () => {

@@ -97,6 +97,34 @@ export class WorkbenchPage {
     throw new Error(`seedRequest failed: ${lastError}`);
   }
 
+  /** Persist a rule collection via the real CRUD RPC; returns its uid.
+   *  Same fresh-profile bootstrap retry as {@link seedRequest} — the
+   *  store rejects mutations until the SW's sync oracle is up. */
+  async seedCollection(name: string): Promise<string> {
+    return this.seedCollectionRpc('createLocalCollection', name);
+  }
+
+  /** Persist a REQUEST collection (API Requests sidebar) via the real
+   *  CRUD RPC; returns its uid. Same bootstrap retry. */
+  async seedRequestCollection(name: string): Promise<string> {
+    return this.seedCollectionRpc('createLocalRequestCollection', name);
+  }
+
+  private async seedCollectionRpc(
+    type: 'createLocalCollection' | 'createLocalRequestCollection',
+    name: string,
+  ): Promise<string> {
+    let lastError = 'unknown';
+    for (let attempt = 0; attempt < 30; attempt++) {
+      const res = await this.rpc<{ success: boolean; collection?: { uid: string }; error?: string }>(type, { name });
+      if (res.success && res.collection) return res.collection.uid;
+      lastError = res.error ?? 'unknown';
+      if (!/not initialized|before hydration/.test(lastError)) break;
+      await this.page.waitForTimeout(1000);
+    }
+    throw new Error(`${type} failed: ${lastError}`);
+  }
+
   /**
    * Activate the API Requests tool window (the workbench opens on the
    * rules view). The activity-bar icon carries `aria-label="API Requests"`;
@@ -126,17 +154,31 @@ export class WorkbenchPage {
   }
 
   /** Collapse the Docs/Scope dock panel so the API Requests panel fills
-   *  the pane. No-op when it is already collapsed (`aria-selected`). */
+   *  the pane. Verified, not fire-and-forget: on fresh profiles the
+   *  per-workspace dock layout hydrates AFTER first paint with `docs`
+   *  active — a single early click gets overwritten and the reopened
+   *  panel halves the editor pane. Re-collapse until the state sticks
+   *  across two consecutive checks. */
   async collapseDocsPanel(): Promise<void> {
     const docsTab = this.dockTab('docs');
-    if ((await docsTab.getAttribute('aria-selected')) === 'true') {
-      await docsTab.click();
+    let settled = 0;
+    for (let attempt = 0; attempt < 20; attempt++) {
+      if ((await docsTab.getAttribute('aria-selected')) === 'true') {
+        settled = 0;
+        await docsTab.click();
+      } else if (++settled >= 2) return;
+      await this.page.waitForTimeout(500);
     }
   }
 
-  /** A dock-strip tool-window tab by its stable tool-window id. */
+  /** A dock-strip tool-window tab by its stable tool-window id. The
+   *  `role="tab"` scope matters: the dock body's keep-alive wrapper
+   *  carries the same `data-tool-window`, and for an ACTIVE window it
+   *  precedes the strip tab in document order — a bare `.first()`
+   *  reads `aria-selected` off that wrapper (null) and state-driven
+   *  callers silently no-op. */
   private dockTab(id: string): Locator {
-    return this.page.locator(`[data-tool-window="${id}"]`).first();
+    return this.page.locator(`[data-tool-window="${id}"][role="tab"]`).first();
   }
 
   /** Make a request row visible, expanding its collection if needed. */
@@ -374,9 +416,10 @@ export class WorkbenchPage {
     await this.scriptSnippetsPopover().getByRole('button', { name: label, exact: true }).click();
   }
 
-  /** Run the Scripts tab action bar's Format (beautify) button. */
+  /** Run the Scripts tab toolbar's Beautify (format) button — the
+   *  labelled `CodeEditorActions` cluster above the editor. */
   async formatScript(): Promise<void> {
-    await this.page.getByRole('button', { name: 'Format script' }).filter({ visible: true }).first().click();
+    await this.page.getByRole('button', { name: 'Beautify' }).filter({ visible: true }).first().click();
   }
 
   // ── Scripts tab — packages popover ──────────────────────────────
@@ -434,7 +477,11 @@ export class WorkbenchPage {
   }
 
   /** Right-click INSIDE the current selection (first rendered line) so
-   *  Monaco keeps the selection and shows its context menu. */
+   *  Monaco keeps the selection and shows its context menu. Needs the
+   *  Docs panel collapsed (see collapseDocsPanel): in a halved pane the
+   *  select-all reveals the selection END, the buffer scrolls right and
+   *  the line's left edge slides under the line-number gutter, which
+   *  then swallows the click. */
   async openMonacoContextMenu(index: number): Promise<void> {
     const line = this.page.locator('.monaco-editor').filter({ visible: true }).nth(index).locator('.view-line').first();
     await line.click({ button: 'right', position: { x: 10, y: 5 } });

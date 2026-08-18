@@ -231,12 +231,7 @@ test.beforeAll(async () => {
   workbench = await WorkbenchPage.open(page, extensionId);
 
   // The suite collection through the real CRUD RPC (page realm).
-  const created = await workbench.rpc<{ success: boolean; collection?: { uid: string }; error?: string }>(
-    'createLocalRequestCollection',
-    { name: 'WS Suite' },
-  );
-  expect(created.success, created.error).toBe(true);
-  collectionUid = created.collection!.uid;
+  collectionUid = await workbench.seedRequestCollection('WS Suite');
 
   await workbench.reload();
   await workbench.showRequestsView();
