@@ -9,10 +9,14 @@ for and why.
 entry in this file at PR time.** If a permission lands without a
 justification, the PR is incomplete.
 
-**Trust commitment**: this extension is local-first. Its only
-OpenHeaders-bound call is the documented anonymous product-telemetry
+**Trust commitment**: this extension is local-first. Its
+OpenHeaders-bound calls are the documented anonymous product-telemetry
 channel (typed feature counts, disclosed on first run, inspectable
-byte-for-byte in Settings, off with one switch); beyond that it makes
+byte-for-byte in Settings, off with one switch) and two anonymous
+on-demand reads of static first-party files — the What's New release
+notes when you open that section, and the latest-desktop-version
+manifest that fills in the optional "get the desktop app" download
+link — plain GETs with no identifier or payload; beyond those it makes
 no network calls except the ones the user explicitly triggers, and
 stores no data outside the user's browser profile.
 `credentials: 'omit'` is hardcoded at the wire level for user-triggered
@@ -34,13 +38,12 @@ per-request.
 | `tabGroups` *(Chrome, Edge & Firefox manifests; not on Safari)* | Visual transparency for desktop observation: while the paired desktop app (or an AI agent working through it, always on the user's own machine) is observing a tab's traffic, the extension places that tab in a blue tab group titled "OpenHeaders" so the user can SEE the observation directly in the tab strip; when observation ends the tab's prior grouping is restored. We only ever create/dissolve our own group — pre-existing user groups are never modified, and a tab the user pulls out of the group is left alone. No browsing data is read through this API. |
 | `webRequest` | `onBeforeRequest` / `onCompleted` / `onErrorOccurred` listeners for request tracking + the verdict engine. Used only to observe whether requests matched user rules — no blocking on Chrome (MV3 DNR handles modification). |
 | `webNavigation` | `onCommitted` events drive our MAIN-world script/CSS injection on navigation: we wait for the commit, then ask `chrome.scripting` to inject the user's inject-rule code at the right lifecycle point. |
+| `debugger` *(Chrome/Edge only)* | Powers the opt-in **Debug mode** of the DevTools panel: `chrome.debugger.attach` on the inspected tab feeds CDP `Network.*` / `Page.*` events into the request-lifecycle correlator, surfacing what `webRequest` alone cannot (memory-cache serves, exact timings, response bodies on demand via `Network.getResponseBody`). Master switch is the `inspection.cdpEnabled` setting, **OFF by default** — attaching is always an explicit user choice, and the browser's own "started debugging this browser" banner stays visible on every attached tab for the duration. The service worker is the sole owner of the API; scope is limited to tabs the user is actively inspecting (per the Debug-mode scope setting). All captured data stays local. Not requested on Firefox/Safari (no CDP there). |
 | `activeTab` | User-gesture access to the current tab for the DevTools panel's "Save this request to workspace" handoff. We never invoke tab access without a user gesture. |
 | `scripting` | `chrome.scripting.executeScript` + `registerContentScripts` run the user's own inject-rule code (MAIN-world or ISOLATED world per user choice) and attach the delay-simulation shim. Only runs when an enabled, matching rule triggers. |
 | `userScripts` *(Chrome/Edge only)* | `chrome.userScripts.execute` runs an inject-rule's own JavaScript when — and only when — that rule has **Bypass CSP** enabled, so a strict page Content-Security-Policy (including a `<meta>` CSP that no header strip can reach) cannot block the user's own script. This is the browser-sanctioned path for user-authored code and is strictly safer than the alternative of stripping the page's CSP wholesale. Availability is gated by the browser's user-scripts toggle (or the `UserScriptsAllowed` enterprise policy); when unavailable we fall back to the `<script>`-tag path. Never used for a rule without Bypass CSP. |
-| `downloads` | `chrome.downloads.download` for the "Export to .har", "Export rules", "Export logs" flows. User-initiated; nothing is saved without a click. |
-| `cookies` | Read-only `chrome.cookies.getAll` in the DevTools panel's cookie inspector — users can see which cookies were in scope for a captured request. We never write cookies or upload them anywhere. |
+| `cookies` | Two user-facing surfaces: `chrome.cookies.getAll` powers the DevTools panel's cookie inspector (which cookies were in scope for a captured request), and the Storage panel's cookie editor lets the user set, edit, or delete cookies for a site they are inspecting (`chrome.cookies.set`/`remove`). Every write is an explicit user edit in that panel — the extension never modifies cookies on its own, and cookies are never uploaded anywhere. |
 | `browsingData` | `chrome.browsingData.remove({ origins })` is called by the cache invalidator when a user's rules change. Clearing the HTTP cache for affected origins is the only way to guarantee a stale cached response doesn't mask a rule that would have fired. Scoped to specific origins — never a global wipe. |
-| `system.display` *(Chrome/Edge only)* | `chrome.system.display.getInfo` powers the popup's "pop out into its own window" view-mode — we pick a sensible screen on multi-monitor setups. Not used on Firefox. |
 | `windows` *(Chrome/Edge only)* | `chrome.windows.create` / `.get` for the pop-out window view-mode. Not used on Firefox. |
 | `sidePanel` *(Chrome/Edge only)* | `chrome.sidePanel.setPanelBehavior` enables the persistent side-panel surface (one of four UI modes the user can pick). Firefox uses `sidebar_action`; Safari uses its own sidebar path. |
 | `identity` | `chrome.identity.launchWebAuthFlow` + `getRedirectURL()` power the OAuth 2.0 / OIDC auth subsystem (ARCHITECTURE §18). Only invoked when the user clicks the "Authorize" button on a request's OAuth config. The authorization window opens against the provider's own endpoint; tokens are exchanged at the provider's token endpoint via the same `withHostAccess` fetch path every user request uses. Redirect URI is `https://<extension-id>.chromiumapp.org/` — pinned stable by the pre-registered manifest `key` (§Phase 1). |
@@ -118,7 +121,8 @@ authorize every scheme the user can legitimately test:
   renderer (§17 future work).
 
 The trust commitment stays the same: no undisclosed network, no
-writes to cookies. The CSP authorizes the user's own requests; it is
+cookie changes the user didn't make themselves. The CSP authorizes
+the user's own requests; it is
 not a license for the extension to talk to the internet on its own.
 Every outbound fetch either:
 - Is a direct response to a user action (Send, test run, rule
@@ -126,6 +130,11 @@ Every outbound fetch either:
 - Is the documented anonymous product-telemetry batch flush to
   `telemetry.openheaders.io` (typed event allowlist, disclosed on
   first run, one-switch off), OR
+- Is one of the two anonymous static-file reads from
+  `updates.openheaders.io` (What's New release notes when that
+  section is opened; the latest-desktop-version manifest behind the
+  optional desktop-download link) — plain GETs, no identifier or
+  payload, documented in the wire-transparency spec, OR
 - Routes through `withHostAccess(url, fn)` in
   `apps/extension/src/shared/fetch/with-host-access.ts` — the single
   choke point a future "request hosts on first use" minimal-
@@ -159,5 +168,5 @@ ours.
 - No undisclosed data collection. The only analytics is the documented anonymous product-telemetry channel: typed feature counts (closed unions, no free-form strings — URLs, headers, and traffic are inexpressible), disclosed on first run, inspectable byte-for-byte in Settings, off with one switch. No crash reports sent off-device. The "Export logs" button exists so bug reports can be file-attached manually when the user chooses.
 - No background network activity beyond that telemetry flush. The service worker otherwise only makes HTTP calls in response to an explicit user action (send a request, run a test, rebuild DNR rules from the configured refresh schedule).
 - No reading of page DOM or page `window` globals from content scripts running in the ISOLATED world.
-- No writing of cookies. We only read them (in the DevTools cookie inspector), never set, delete, or mutate.
+- No autonomous writing of cookies. Cookies are read in the DevTools cookie inspector, and written or deleted only when the user explicitly edits them in the Storage panel's cookie editor — never by the extension on its own, and never uploaded.
 - No user data leaves the browser profile. The workspace manifest, request collections, rule definitions, vault secrets — all of it stays in `chrome.storage.local` / IndexedDB / OPFS on this machine.

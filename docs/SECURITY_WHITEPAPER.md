@@ -41,14 +41,17 @@ The full outbound surface of the software is:
 | Update check (`GET updates.openheaders.io` feed) | packaged desktop builds, the `oh` CLI, the daemon on `ohd status` or opt-in | plain `GET`s, no payload | `updates.check: off` / `oh autoupdate off` |
 | Severity manifest (`GET updates.openheaders.io/versions/stable.json`) | same surfaces, only as part of an update check | plain `GET` of a static file | same as update check |
 | Anonymous telemetry (`POST telemetry.openheaders.io/v1/events`) | extension, desktop app, CLI — never the daemon, served web app, or MCP server | typed event allowlist — closed unions only, no free-form strings | Settings → General toggle / `OH_TELEMETRY=0` |
+| Static feed reads (`GET updates.openheaders.io/changelog/*`, `GET updates.openheaders.io/versions/stable.json`) | desktop app + extension, on demand: the What's New history section, and the latest-version lookup behind the optional desktop-download link on extension/web surfaces | plain `GET`s of static files, no payload | don't open the section / feature is enhancement-only, failure hides it |
 
-Everything else leaving the process is operator-configured: your OIDC
-issuer, your Git remotes, your SIEM collector, and the HTTP requests
-your own rules, sources, and workflows define. The browser extension's
-only OpenHeaders-bound call is the telemetry channel above. The exact
-bytes of each call above are published in the wire-transparency
-specification; a request not listed there is a bug we treat as a
-vulnerability.
+Everything else leaving the process is operator-configured or
+user-initiated: your OIDC issuer, your Git remotes, your SIEM
+collector, the HTTP requests your own rules, sources, and workflows
+define, and the source tool's own API when you explicitly run an
+import that pulls from it (such as the Postman Data API, with your own
+API key). The browser extension's OpenHeaders-bound calls are the
+telemetry channel and the static feed reads above. The exact bytes of
+each call above are published in the wire-transparency specification;
+a request not listed there is a bug we treat as a vulnerability.
 
 The software is fully functional with every OpenHeaders endpoint
 unreachable — offline use is a supported mode, not a degraded one.

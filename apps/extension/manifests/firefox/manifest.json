@@ -10,7 +10,7 @@
       "id": "{2c14f276-673b-4078-a575-8acf9d0579fa}",
       "strict_min_version": "115.0",
       "data_collection_permissions": {
-        "required": ["none"]
+        "required": ["technicalAndInteraction"]
       }
     }
   },

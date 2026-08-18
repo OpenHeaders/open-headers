@@ -74,7 +74,7 @@ These permissions are used solely for the extension's core header modification f
 
 We prioritize security through:
 - Local-only data storage
-- No external network connections beyond documented endpoints (license renewal, update checks, notification manifests, anonymous usage counting) and destinations you configure yourself
+- No external network connections beyond documented endpoints (license renewal, update checks, notification manifests, release notes, anonymous usage counting) and destinations you configure yourself
 - Publicly documented wire behavior that anyone can verify with a packet capture
 - Regular security updates and a published vulnerability disclosure policy
 

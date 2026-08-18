@@ -3,7 +3,8 @@
 Outbound connections from the apps are limited to the documented
 OpenHeaders endpoints below, plus targets the operator configures
 themselves (IdP issuer for SSO, Git remotes, an audit/SIEM collector,
-and whatever requests the user's own rules/workflows make). This
+user-initiated import pulls to a source tool's API, and whatever
+requests the user's own rules/workflows make). This
 document is the published specification of every phone-home payload; if
 a request is not listed here, the app does not make it. The app is
 fully functional with all of these unreachable or disabled — see the
@@ -18,8 +19,10 @@ and MCP server. The license system itself remains
 telemetry-free: license endpoints and telemetry never share identifiers,
 payloads, or deployments.
 
-The extension's only OpenHeaders-bound call is that telemetry channel
-(section 4); browser store distribution owns its updates.
+The extension's OpenHeaders-bound calls are that telemetry channel
+(section 4) and the anonymous static-file reads of section 5 (release
+notes and the latest-version manifest behind the desktop-download
+link); browser store distribution owns its updates.
 
 ## 1. License refresh
 
@@ -315,9 +318,39 @@ event of the current session byte for byte, sent or suppressed.
   separate deployment sharing no secrets or code paths with the
   license worker beyond the published schema.
 
+## 5. Static feed reads (release notes & download link)
+
+Two more anonymous reads of static files on the same first-party feed
+host (`updates.openheaders.io`). Like the severity manifest, these are
+plain HTTP `GET`s of published files: no request body, no identifier,
+no license or machine information — nothing beyond what any HTTP
+client sends. Both are enhancement-only: every failure reads as
+"section hidden" or "generic link", never an error.
+
+- **What's New release notes**:
+  `GET https://updates.openheaders.io/changelog/<stream>.json` (the
+  stream index) and
+  `GET https://updates.openheaders.io/changelog/<stream>/<version>.json`
+  (one entry's body), where `<stream>` is `desktop` or `extension`.
+  Fetched by the desktop app (main process, answering the What's New
+  tab) and by the extension (directly from the What's New surface) —
+  strictly on demand, only when the user opens the What's New history
+  section. The bundled current-release notes never depend on it.
+- **Latest-desktop-version manifest**:
+  `GET https://updates.openheaders.io/versions/stable.json` — the same
+  static file as section 3, read here for a different purpose: on
+  extension and served-web surfaces that offer the optional "get the
+  desktop app" link, it resolves the latest installer version so the
+  link can point at a direct download. At most one fetch per page
+  load, and only on pages that show that link; unreachable simply
+  means the link falls back to the website's install section.
+
 ---
 
-Anything else leaving the process is operator-configured, not
-OpenHeaders-bound: the OIDC issuer you set, the Git remotes you sync,
-the SIEM collector you point audit streaming at, and the HTTP requests
-your own rules, sources, and workflows define.
+Anything else leaving the process is operator-configured or
+user-initiated, not OpenHeaders-bound: the OIDC issuer you set, the
+Git remotes you sync, the SIEM collector you point audit streaming at,
+the HTTP requests your own rules, sources, and workflows define, and —
+when you explicitly run an import that pulls from the source tool's
+own API (such as the Postman Data API, with your own API key) — that
+tool's documented endpoint, dialed once per import you trigger.

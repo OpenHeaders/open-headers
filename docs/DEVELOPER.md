@@ -274,6 +274,21 @@ pnpm lint:fix               # Auto-fix
   makes that is not documented there is treated as a vulnerability —
   see [SECURITY.md](../SECURITY.md)
 
+### Software Bill of Materials
+
+A CycloneDX SBOM for the whole monorepo — every npm workspace
+dependency from `pnpm-lock.yaml` plus the `native/h3-helper` crates
+from `Cargo.lock` — can be generated from a fresh clone with no build
+step:
+
+```bash
+pnpm dlx @cyclonedx/cdxgen -t pnpm -t rust --no-install-deps -o sbom.cdx.json .
+```
+
+GitHub's dependency graph also offers a zero-tooling SPDX export of
+the same dependency set:
+`gh api repos/OpenHeaders/open-headers-app/dependency-graph/sbom`.
+
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md).
