@@ -39,7 +39,7 @@ registerCapability('openExternalUrl', (url) => window.oh.openExternal(url));
 // back to the default browser when the named one isn't installed.
 registerCapability('openUrlInBrowser', (url, browser) => window.oh.openInBrowser(url, browser));
 
-// In-app updater (docs/UPDATES_PLAN.md): report a seen-but-not-installed
+// In-app updater (the updates plan): report a seen-but-not-installed
 // update so the gear menu shows its dot. No `url` — the gear routes to
 // the Settings update row, where download/restart run in-app.
 registerCapability('getAppUpdate', async () => {

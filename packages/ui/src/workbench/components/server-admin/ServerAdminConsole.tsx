@@ -60,7 +60,7 @@ interface DirectoryUser {
 /**
  * The Git card's call seam over the admin wire: every workspace-tree
  * verb rides `oh.daemon.workspaceTree.dispatch` to the daemon spine's
- * shared verb table (GIT_PLAN.md §11.5). The dispatch channel's wire
+ * shared verb table (the git-sync plan §11.5). The dispatch channel's wire
  * response is untyped by construction (one channel, many ops), so the
  * op's own response shape is asserted here — the one narrowing seam.
  */
@@ -298,7 +298,7 @@ const PasswordModal: React.FC<{
 
 /**
  * Set / change / remove a directory user's git commit-author email
- * override (GIT_PLAN.md §11.5). Name is never editable here — commit
+ * override (the git-sync plan §11.5). Name is never editable here — commit
  * authorship always carries the directory displayName.
  */
 const GitEmailModal: React.FC<{
@@ -730,7 +730,7 @@ const ServerAdminConsole: React.FC = () => {
         <GitEmailModal user={gitEmailUser} onClose={() => setGitEmailUser(null)} onSetGitEmail={handleSetGitEmail} />
       )}
 
-      {/* Git bindings (GIT_PLAN.md §11.5) — the settings Git card over
+      {/* Git bindings (the git-sync plan §11.5) — the settings Git card over
           the gated dispatch wire; paths and repos live on the daemon.
           No native picker here: binds go through the path input. */}
       <section style={{ marginBottom: 12 }}>

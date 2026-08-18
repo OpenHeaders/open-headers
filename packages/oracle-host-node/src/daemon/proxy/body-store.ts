@@ -1,5 +1,5 @@
 /**
- * Captured-body plane for the proxy partition (`OBSERVABILITY_PLAN.md`
+ * Captured-body plane for the proxy partition (the observability plan
  * §6 capture contract): bodies stay OUT of the lifecycle rows and are
  * fetched lazily on inspect — the lifeline's `request-body` pull answers
  * from this store with an ordinary `body-attached` update.

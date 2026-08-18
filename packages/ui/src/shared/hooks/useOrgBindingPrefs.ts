@@ -1,6 +1,6 @@
 /**
  * useOrgBindingPrefs — live-tracked per-user org-binding preferences
- * (UNIFIED_ORACLE_MODEL.md §6.2).
+ * (the unified-oracle model §6.2).
  *
  * `defaultNewWorkspaceOrgId` is the Org newly-created workspaces bind to.
  * Persisted in the global `OH.orgBindingPrefs` slot; every surface that

@@ -1,5 +1,5 @@
 /**
- * Scoped browser-routing controller laws (OBSERVABILITY_PLAN.md §5.1):
+ * Scoped browser-routing controller laws (the observability plan §5.1):
  *   - state pushes go to loopback peers only, folded from the capture
  *     service (desire AND bound port)
  *   - a routing-change signal pushes to every loopback peer

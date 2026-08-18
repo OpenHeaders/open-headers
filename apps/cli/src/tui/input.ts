@@ -6,7 +6,7 @@
  * means "that Esc was the Esc key" by calling flushPending(). SGR
  * mouse reports (press/release/motion/wheel) decode to events;
  * bracketed paste is swallowed whole — no text input exists in v1
- * (TUI_DESIGN.md §2), so pasted bytes must never replay as keys.
+ * (the TUI design §2), so pasted bytes must never replay as keys.
  */
 
 import { StringDecoder } from 'node:string_decoder';

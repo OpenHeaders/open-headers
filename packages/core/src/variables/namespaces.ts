@@ -9,7 +9,7 @@
  *
  * Explicit namespaces remove the "where does this value come from?"
  * ambiguity at the reference site — the single biggest UX failure of
- * Postman's flat {{X}} model. See docs/V5_FOUNDATION_PLAN.md §Phase 0 #5.
+ * Postman's flat {{X}} model. See the v5 foundation plan §Phase 0 #5.
  *
  * Pure function — no I/O, no framework deps.
  */
@@ -29,7 +29,7 @@ export type VariableNamespace = 'env' | 'vault' | 'collection' | 'workspace' | '
  * executor at send time.
  *
  * `live` resolves to the cached extracted value of a Live Variable —
- * see `docs/LIVE_VARIABLES_PLAN.md`. Callers provide a `LiveRegistry`
+ * see the live-variables plan. Callers provide a `LiveRegistry`
  * snapshot to the resolver; a missing or stale entry surfaces through
  * structured resolution errors.
  *

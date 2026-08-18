@@ -609,7 +609,7 @@ export const workbenchSettingsPanes = {
   'workbench.settings.licensePane.installButton': 'Instalar',
   'workbench.settings.licensePane.loadFromFile': 'Cargar desde un archivo…',
 
-  // ── System-plane proxy section (REQUEST_ENGINE_PROXY_DESIGN.md P3) ─
+  // ── System-plane proxy section (the request-engine proxy design P3) ─
   'workbench.settings.systemProxy.title': 'Proxy de salida — este dispositivo',
   'workbench.settings.systemProxy.intro':
     'Cómo alcanzan la red las solicitudes, sesiones WebSocket y llamadas gRPC de esta máquina.',
@@ -668,7 +668,7 @@ export const workbenchSettingsPanes = {
   'workbench.settings.systemProxy.previewPlaceholder': 'Previsualiza una URL — ¿qué ruta tomaría?',
   'workbench.settings.systemProxy.previewButton': 'Resolver',
 
-  // ── Proxy trust pane body (PROXY_SECURITY.md §2.3 consent posture) ─
+  // ── Proxy trust pane body (the proxy-security design §2.3 consent posture) ─
   'workbench.settings.proxyTrustPane.intro':
     'Descifrar el tráfico HTTPS necesita una autoridad de certificación creada en esta máquina. No se ' +
     'instala nada hasta que configures aquí la confianza, y todo lo instalado aquí puede eliminarse aquí.',
@@ -826,7 +826,7 @@ export const workbenchSettingsPanes = {
   'workbench.settings.backendDetails.device.yourDevice': 'Tu dispositivo',
   'workbench.settings.backendDetails.inBrowserTitle': 'Open Headers — Chrome / Edge / Firefox',
 
-  // ── Git pane (workspace-tree binding card, GIT_PLAN.md §9) ─────────
+  // ── Git pane (workspace-tree binding card, the git-sync plan §9) ─────────
   'workbench.settings.gitPane.notBound.title': 'Ninguna carpeta vinculada',
   'workbench.settings.gitPane.notBound.body':
     'Vincula este espacio de trabajo a una carpeta para mantener un árbol YAML vivo de cada regla, solicitud y ' +

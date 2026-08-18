@@ -1,7 +1,7 @@
 /**
  * Durable per-(backend, Org) conflict registry — the persisted record of
  * WELCOME refusals under the Org-uniqueness invariant
- * (MULTI_BACKEND_PLAN.md §2: one Org, one backend).
+ * (the multi-backend plan §2: one Org, one backend).
  *
  * The refusal itself is surfaced twice: the per-backend sync-status slot
  * carries it temporally (a later report overwrites it), and this slot

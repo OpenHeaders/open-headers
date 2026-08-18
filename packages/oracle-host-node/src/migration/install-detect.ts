@@ -1,6 +1,6 @@
 /**
  * Install-detection probe runner — the fs half of migration ladder rung 1
- * (MIGRATION_PLAN.md §3.1). Core owns the per-OS probe allowlist and the
+ * (the migration plan §3.1). Core owns the per-OS probe allowlist and the
  * findings interpretation; this module only answers the probes:
  *
  *   - `path`             → one lstat, existence only.

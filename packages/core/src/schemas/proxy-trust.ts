@@ -1,6 +1,6 @@
 /**
  * Proxy trust plane — persisted shapes for the host capture plane's CA
- * lifecycle (PROXY_SECURITY.md §2, §6).
+ * lifecycle (the proxy-security design §2, §6).
  *
  * `ProxyCaRecordSchema` is the sealed CA slot: the private key rides a
  * `sensitive: true` storage slot and never leaves the host process —

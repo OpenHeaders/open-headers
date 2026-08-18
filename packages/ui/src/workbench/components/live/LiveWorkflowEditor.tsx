@@ -149,7 +149,7 @@ interface CreateProps {
 type Props = EditProps | CreateProps;
 
 /**
- * Editor↔preview view toggle (WORKFLOW_GRAPH_PLAN.md §4). Component-local
+ * Editor↔preview view toggle (the workflow-graph plan §4). Component-local
  * UI state — never persisted, never on the tab or entity. Both panes
  * render from the same draft, so switching is loss-free by construction.
  * The selected segment fills primary so the control reads as a mode
@@ -212,7 +212,7 @@ const EditMode: React.FC<EditProps> = ({ workflowUid, seedSteps, onDirtyChange, 
 
   const [refreshing, setRefreshing] = useState(false);
   const [view, setView] = useState<WorkflowView>('form');
-  // Graph↔form selection sync (WORKFLOW_GRAPH_PLAN.md §6.2). Ephemeral
+  // Graph↔form selection sync (the workflow-graph plan §6.2). Ephemeral
   // UI state like `view` — never persisted, never on the draft, so it
   // can't move `isDirty` by construction. `scrollToStepId` is a
   // consume-once request set only by an explicit graph-side "Edit

@@ -1,6 +1,6 @@
 /**
  * Coverage for the per-workspace LRU recents cache used by
- * TemplateInput (docs/VARIABLE_AUTOCOMPLETE_PLAN.md §Phase B).
+ * TemplateInput (the variable-autocomplete plan §Phase B).
  */
 
 import { type HostStorage, setHostStorage } from '@openheaders/core/storage';

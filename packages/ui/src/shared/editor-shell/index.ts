@@ -1,7 +1,7 @@
 /**
  * Editor-shell — universal editor wiring layer.
  *
- * See `docs/EDITOR_SHELL_DESIGN.md` (v4) and `docs/EDITOR_SHELL_SPIKE.md`
+ * See the editor-shell design (v4) and the editor-shell spike notes
  * for the bug-class motivation + measurement actuals. Every workbench
  * editor (Environment, Rule, Request, Vault, Variables, Template,
  * LiveVariable, LiveWorkflow) routes its wiring through `useEditorShell`;

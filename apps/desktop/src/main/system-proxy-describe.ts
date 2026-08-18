@@ -1,6 +1,6 @@
 /**
  * OS proxy-configuration snapshot for the System mode's informational
- * display (docs/REQUEST_ENGINE_PROXY_DESIGN.md P3): what THIS
+ * display (the request-engine proxy design P3): what THIS
  * machine's own configuration says, read from the platform's canonical
  * store — `scutil --proxy` on macOS, the per-user Internet Settings
  * registry key on Windows, the HTTP_PROXY-family environment variables

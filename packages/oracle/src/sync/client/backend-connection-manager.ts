@@ -1,6 +1,6 @@
 /**
  * Backend connection manager — one client FSM per enabled `OH.backends`
- * record (MULTI_BACKEND_PLAN.md §3: one manager, N sockets). Host-neutral:
+ * record (the multi-backend plan §3: one manager, N sockets). Host-neutral:
  * the extension SW and the desktop main process install it with their own
  * socket factory, reachability probe, and reliability-knob getters via
  * {@link installBackendConnectionManager}.

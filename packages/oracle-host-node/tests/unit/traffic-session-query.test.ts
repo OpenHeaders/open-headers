@@ -1,5 +1,5 @@
 /**
- * Session query plane pins (AGENT_TRAFFIC_PLAN.md §11.5, C7): a sealed
+ * Session query plane pins (the agent-traffic plan §11.5, C7): a sealed
  * session folds through the retention reducer into redacted projections
  * (raw at rest, markers at read — the inverted law), the persistent
  * grant flips the SAME read to raw per call, both archived body planes

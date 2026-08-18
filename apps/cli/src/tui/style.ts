@@ -1,5 +1,5 @@
 /**
- * Semantic styling — TUI_DESIGN.md §5.1: one semantic system rendered
+ * Semantic styling — the TUI design §5.1: one semantic system rendered
  * per color tier. Truecolor maps to the workbench's exact status
  * palette so the embedded pane sits color-true inside the app; 256/16
  * snap to named ANSI slots (roles, never hex) so user themes keep

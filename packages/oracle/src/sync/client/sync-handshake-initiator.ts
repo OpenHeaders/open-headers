@@ -1,6 +1,6 @@
 /**
  * Extension-side handshake coordinator — Phase C / U6.3 wire-up of
- * `docs/DATA_PLANE_TOPOLOGIES.md §11.1`.
+ * the data-plane topologies design §11.1`.
  *
  * One instance per extension service-worker lifetime. The handshake is
  * split across two sub-FSMs (U6.3 Part B):

@@ -286,7 +286,7 @@ export interface Capabilities {
 
   /**
    * Exchange OS-verified process identity for a daemon token over the
-   * desktop's native-messaging host (OBSERVABILITY_PLAN.md Phase 7) —
+   * desktop's native-messaging host (the observability plan Phase 7) —
    * the pairing path with no code to type: the browser spawns the
    * desktop-registered host, the daemon verifies WHO is asking from OS
    * truth, and an `nmSession` secret comes back. Registered only by
@@ -498,7 +498,7 @@ export interface Capabilities {
    * The release notes bundled into this build, as markdown, or `null`
    * when the build carries none. Registered only by hosts that ship a
    * What's New surface (the desktop app bundles the notes at build
-   * time — they are never fetched, `docs/UPDATES_PLAN.md`). Extension
+   * time — they are never fetched, the updates plan). Extension
    * surfaces update through the store and leave it absent, which hides
    * the What's New affordances in shared UI.
    */
@@ -542,7 +542,7 @@ export interface Capabilities {
   /**
    * Availability gate for the workbench Live Network tool window — the
    * always-on live view of browser traffic streamed from the extension
-   * through the daemon spine's telemetry relay (OBSERVABILITY_PLAN.md
+   * through the daemon spine's telemetry relay (the observability plan
    * Phase 1). Registered only by hosts that run the daemon spine
    * in-process and expose its lifeline server (the desktop renderer).
    * The tab-inventory RPC rides `hostBridge`; the lifecycle stream
@@ -553,7 +553,7 @@ export interface Capabilities {
   /**
    * Availability gate for the workbench Git tool window — the log/history
    * surface over the workspace-tree git verbs (`oh.workspaceTree.log` /
-   * `fileLog`, GIT_PLAN.md §9). Registered only by hosts whose bridge
+   * `fileLog`, the git-sync plan §9). Registered only by hosts whose bridge
    * reaches a workspace-tree runtime in-process (the desktop renderer);
    * browser surfaces have no filesystem tree and leave it absent, which
    * drops the Git tool window from the dock registry via

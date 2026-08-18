@@ -1,6 +1,6 @@
 /**
  * Sealed-artifact framing + seal-key acquisition for the sessions
- * archive (AGENT_TRAFFIC_PLAN.md §11.4/§11.5, §9.5 confirmed).
+ * archive (the agent-traffic plan §11.4/§11.5, §9.5 confirmed).
  *
  * One container format serves both artifact kinds — content-addressed
  * blobs and sealed event logs:

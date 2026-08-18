@@ -1,5 +1,5 @@
 //! The framed stdio protocol's Rust twin — frame type ids and control
-//! payload shapes. The contract is `docs/REQUEST_ENGINE_H3_PROTOCOL.md`;
+//! payload shapes. The contract is the request-engine H3-protocol design;
 //! the TypeScript twin is `oracle-host-node/src/live/h3-helper/protocol.ts`.
 //! Any wire-shape change bumps `PROTOCOL_VERSION` on both sides.
 

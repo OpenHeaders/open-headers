@@ -1,6 +1,6 @@
 /**
  * Product-telemetry beacons for the embedded MCP surface
- * (`TELEMETRY_PLAN.md` §3, MCP visibility slice) — the desktop's one
+ * (the telemetry plan §3, MCP visibility slice) — the desktop's one
  * place that maps the `/mcp` module's policy-free usage observer onto
  * the vocabulary's typed events. The daemon spine stays telemetry-free
  * and the standalone daemon never installs an observer, so only the

@@ -3,7 +3,7 @@
  * top border, the frame bottom border, the footer verb legend, and the
  * single-pane tab row. Legends are measured with visibleWidth
  * and drop lowest-priority entries first when the terminal is narrow
- * (TUI_DESIGN.md §6.3) — never assumed widths, never wrapped.
+ * (the TUI design §6.3) — never assumed widths, never wrapped.
  */
 
 import { padToWidth } from './box';

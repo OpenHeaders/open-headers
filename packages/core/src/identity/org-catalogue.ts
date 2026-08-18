@@ -1,7 +1,7 @@
 /**
  * Org-catalogue helpers — the pure projection from an {@link IdentitySnapshot}
  * to the set of Orgs a workspace can be bound to, and the human-facing
- * classification each Org carries (UNIFIED_ORACLE_MODEL.md §6.2 / §6.4).
+ * classification each Org carries (the unified-oracle model §6.2 / §6.4).
  *
  * `Workspace.orgId` is a raw UUID; the workspace org-binding UI (the
  * "where does this live?" badge + sync-scope picker + two-personal-Orgs

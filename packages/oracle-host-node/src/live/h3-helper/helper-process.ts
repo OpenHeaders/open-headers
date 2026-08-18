@@ -1,6 +1,6 @@
 /**
  * The helper client — the node side of the framed stdio protocol
- * (`docs/REQUEST_ENGINE_H3_PROTOCOL.md`). ONE long-lived helper per
+ * (the request-engine H3-protocol design). ONE long-lived helper per
  * host process, spawned lazily on the first `'3'` send; frames carry a
  * request id and concurrent sends multiplex over one stdio pair.
  * Sends queue until the helper's HELLO arrives (protocol-int mismatch

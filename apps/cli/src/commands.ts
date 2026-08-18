@@ -137,7 +137,7 @@ export async function commandStatus(argv: readonly string[]): Promise<string[]> 
 
 /**
  * `oh channel [stable|beta]` — show or persist the update channel
- * (`DISTRIBUTION_PLAN.md` §4). Local, no daemon round-trip: the value
+ * (the distribution plan §4). Local, no daemon round-trip: the value
  * selects which `versions/<channel>.json` line version checks and the
  * future `oh upgrade` follow. Absent = `stable`.
  */
@@ -163,7 +163,7 @@ export async function commandChannel(argv: readonly string[]): Promise<string[]>
 
 /**
  * `oh autoupdate [on|off]` — show or persist background self-update
- * (`DISTRIBUTION_PLAN.md` §5). Absent = on. Only applies to binary
+ * (the distribution plan §5). Absent = on. Only applies to binary
  * installs the CLI owns itself; package-manager installs (npm, brew,
  * system) never auto-update regardless of this switch.
  */

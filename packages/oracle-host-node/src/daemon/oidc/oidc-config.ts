@@ -1,5 +1,5 @@
 /**
- * OIDC provider configuration (Phase 5 slice 3, DAEMON_PLAN.md §4 team
+ * OIDC provider configuration (Phase 5 slice 3, the daemon plan §4 team
  * tier). One provider per daemon; the shell reads it from `daemon.json`
  * (client secret optionally from the environment) and threads it into
  * the spine. SSO is ADDITIVE — daemon-local users, pairing, and

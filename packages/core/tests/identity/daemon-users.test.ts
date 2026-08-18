@@ -343,7 +343,7 @@ describe('daemon users', () => {
     });
   });
 
-  describe('seat gate (LICENSING_PLAN.md §4)', () => {
+  describe('seat gate (the licensing plan §4)', () => {
     const LICENSED_BASE: Omit<LicensedSnapshot, 'status' | 'seats'> = {
       licenseId: 'lic-0001',
       licensee: { name: 'Ada Example', org: 'OpenHeaders', email: 'ada@openheaders.io' },

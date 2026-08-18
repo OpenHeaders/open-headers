@@ -6,7 +6,7 @@
  * gate: entries poll on a fixed cadence while mounted, scopes re-list
  * on a slower one, and a hidden DevTools window (`document.hidden`)
  * skips ticks. Standard-plane reads have no change events to ride
- * (see STORAGE_PANEL_PLAN.md §2.1), so polling is the live tier here.
+ * (see the storage-panel plan §2.1), so polling is the live tier here.
  *
  * The Cookies section rides the same loop with the invalidation
  * discipline: a tick doesn't read anything, it invalidates the shipped

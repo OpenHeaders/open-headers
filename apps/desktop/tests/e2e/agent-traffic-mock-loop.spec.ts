@@ -1,5 +1,5 @@
 /**
- * Agent traffic S6 E2E — the ACCEPTANCE test (AGENT_TRAFFIC_PLAN.md
+ * Agent traffic S6 E2E — the ACCEPTANCE test (the agent-traffic plan
  * §7.2 `mock-loop`, §8 S6): the origin session, mechanized, MCP-driven
  * over HTTP `/mcp` end to end:
  *

@@ -1,6 +1,6 @@
 /**
  * Product telemetry — the one-switch anonymous usage counting toggle
- * (`TELEMETRY_PLAN.md` §2/§6). The toggle never ships without the "view
+ * (the telemetry plan §2/§6). The toggle never ships without the "view
  * every event" affordance by law: its `(i)` popover carries the "View
  * events" action that opens the byte-for-byte inspector modal.
  *

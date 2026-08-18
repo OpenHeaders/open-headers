@@ -22,7 +22,7 @@
  * Two filters compose at the transport boundary:
  *
  * 1. {@link filterEnvelopesByOrgAsync} drops envelopes whose `orgId`
- *    is not in the host's authorized Org set (UNIFIED_ORACLE_MODEL.md
+ *    is not in the host's authorized Org set (the unified-oracle model
  *    §6.1, §8.2). Cross-org envelopes that happen to live in the same
  *    workspace's log — historical envelopes stamped with the
  *    workspace's pre-flip `orgId`, per §6.5.3 — never reach the wire.

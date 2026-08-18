@@ -1,7 +1,7 @@
 /**
  * Workspace Navigator — the SW-hosted dispatcher for cross-surface
  * `WorkspaceIntent`s (see packages/core/src/workspace-intent/ + Phase 9
- * of docs/V5_FOUNDATION_PLAN.md).
+ * of the v5 foundation plan).
  *
  * Entry point: {@link openWorkspaceIntent} handles the RPC. Pure helper
  * {@link selectTargetTab} picks the best existing workspace tab (if

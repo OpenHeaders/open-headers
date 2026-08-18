@@ -1,6 +1,6 @@
 /**
  * useEditingScopeViewState — unit tests covering the bug-class predictions in
- * `docs/PER_WINDOW_OR_TAB_VIEW_STATE_DESIGN.md` § 16:
+ * the per-window/tab view-state design § 16:
  *   - BC-V2 — schema-mismatched payloads silently fall through.
  *   - BC-V4 — sessionStorage survives reload (re-mount uses persisted snapshot).
  *   - BC-V5 — all-tabs-closed → next tab inherits last-published donor record.

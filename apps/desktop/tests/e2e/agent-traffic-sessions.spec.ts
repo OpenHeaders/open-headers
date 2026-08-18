@@ -1,7 +1,7 @@
 /**
  * Agent traffic C5 E2E — the sessions archive in the Traffic Monitor's
  * SESSIONS rail section (S26; formerly the Traffic Sessions window)
- * against the real dual-app stack (AGENT_TRAFFIC_PLAN.md §11.6
+ * against the real dual-app stack (the agent-traffic plan §11.6
  * `agent-traffic/sessions-window` + the inherited `session-gc` page
  * the C5 delete verb unlocked).
  *

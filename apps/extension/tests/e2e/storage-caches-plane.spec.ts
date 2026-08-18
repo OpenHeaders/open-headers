@@ -1,5 +1,5 @@
 /**
- * Cache Storage + quota + clear-site-data e2e (STORAGE_PANEL_PLAN.md §5,
+ * Cache Storage + quota + clear-site-data e2e (the storage-panel plan §5,
  * slices 5–7) — drives the SW storage-inspector handlers end-to-end over
  * the real bridge against a detached tab (injected transport; the CDP
  * tier's contract is pinned by storage-cdp-probe.spec.ts) and asserts

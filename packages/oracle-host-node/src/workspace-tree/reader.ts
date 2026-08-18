@@ -1,7 +1,7 @@
 /**
  * Filesystem tree reader — walks a bound workspace folder into the
  * flat `TreeFile[]` shape core's `readWorkspaceTree` consumes
- * (GIT_PLAN.md §3.1 rung 2: on any external change the tree is truth;
+ * (the git-sync plan §3.1 rung 2: on any external change the tree is truth;
  * this is the read half the cold-boot sweep and the watcher slice
  * both ride).
  *

@@ -1,7 +1,7 @@
 /**
  * Validation pipeline for an incoming workspace-export envelope.
  *
- * Discipline (per docs/V5_WORKSPACE_EXPORT_DESIGN.md §4):
+ * Discipline (per the workspace-export design §4):
  *   - **Fail-closed on the envelope, fail-soft per-entity.** A malformed
  *     envelope rejects the whole import. A single malformed entity
  *     drops to the report and the rest proceeds.

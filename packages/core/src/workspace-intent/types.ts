@@ -3,7 +3,7 @@
  * the workspace. Every "open X in the workspace" action from the popup,
  * sidepanel, devtools panel, or the workspace itself flows through this
  * tagged union; the navigator dispatches it, the renderer's router
- * applies it. See docs/V5_FOUNDATION_PLAN.md §Phase 9.
+ * applies it. See the v5 foundation plan §Phase 9.
  *
  * Types are declared here; the valibot schema in `./schema.ts` is the
  * runtime source of truth. `WorkspaceIntent` is re-derived via

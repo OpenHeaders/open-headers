@@ -21,13 +21,13 @@
  *     CREATE INDEX mutation_log_branch
  *       ON mutation_log (scope, branch, hlc_key);
  *
- *   - **`org_id`** is denormalized per UNIFIED_ORACLE_MODEL.md §8.2 so
+ *   - **`org_id`** is denormalized per the unified-oracle model §8.2 so
  *     transport filters can run `WHERE org_id IN (authorized set)`
- *     without unpacking each envelope blob (U2.7-U2.9). V5 has zero
- *     users (per `project_v5_fresh_start.md`); no backfill code path
- *     because there is no pre-v5 data.
- *   - **`branch`** is the per-branch log of DATA_PLANE_TOPOLOGIES.md
- *     §6.3 (GIT_PLAN.md Phase 6): a tree-bound workspace's rows are
+ *     without unpacking each envelope blob (U2.7-U2.9). V5 launched
+ *     fresh with zero prior users; no backfill code path because
+ *     there is no pre-v5 data.
+ *   - **`branch`** is the per-branch log of the data-plane topologies design
+ *     §6.3 (the git-sync plan Phase 6): a tree-bound workspace's rows are
  *     stamped with the git branch active when they were appended, and
  *     ordered reads filter to the active branch — two branches can
  *     legitimately hold different histories for the same entity, and
@@ -58,7 +58,7 @@
  *     interface are satisfied trivially — every operation returns a
  *     resolved Promise. This is intentional: the oracle's `withLock`
  *     callback runs sqlite reads/writes directly without await, per
- *     `docs/SYNC_ENGINE_DESIGN.md` §11.1.
+ *     the sync-engine design §11.1.
  *
  * Hosts open one {@link Database} (typically `<userData>/oracle.db`) and
  * pass it to every per-scope `SqliteMutationLog` / `SqlitePendingIntents`
@@ -106,7 +106,7 @@ export function ensureMutationLogSchema(db: Database.Database): void {
 
 /**
  * The per-branch surface a git-hosting runtime needs beyond
- * {@link MutationLog} (DATA_PLANE_TOPOLOGIES.md §6.3). Only the SQLite
+ * {@link MutationLog} (the data-plane topologies design §6.3). Only the SQLite
  * log implements it — extension/in-memory logs have no git plane.
  */
 export interface BranchScopedMutationLog extends MutationLog {

@@ -107,7 +107,7 @@ describe('yaml codec — preserve-unknown on identity write', () => {
     expect(serializeWorkspace(write)).toBe(WORKSPACE_WITH_UNKNOWN);
   });
 
-  it('workspace.yaml drops orgId without capturing an unknown row (GIT_PLAN.md §5)', () => {
+  it('workspace.yaml drops orgId without capturing an unknown row (the git-sync plan §5)', () => {
     const withOrgId = `schemaVersion: 5
 uid: a1b2c3d4
 name: OpenHeaders Demo

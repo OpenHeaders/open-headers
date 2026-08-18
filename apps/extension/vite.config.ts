@@ -195,7 +195,7 @@ function chromeSafePlugin() {
 
 /**
  * Bundles the running version's canonical changelog entry
- * (`changelog/extension/<year>/<version>.md`, CHANGELOG_PLAN.md §4.3) as
+ * (`changelog/extension/<year>/<version>.md`, the changelog plan §4.3) as
  * the `virtual:whats-new` module: frontmatter stripped, relative asset
  * refs rewritten to `whats-new-assets/…` with the files emitted at the
  * dist root — never fetched at runtime. Betas amend the base version's

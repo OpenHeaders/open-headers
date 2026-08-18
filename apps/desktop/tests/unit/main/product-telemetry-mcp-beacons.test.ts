@@ -1,5 +1,5 @@
 /**
- * MCP usage observer → product-telemetry mapping (`TELEMETRY_PLAN.md`
+ * MCP usage observer → product-telemetry mapping (the telemetry plan
  * §3, MCP visibility slice): the desktop shell installs the `/mcp`
  * module's process-wide observer and maps its policy-free signals onto
  * typed events — a served request is the `mcp-server` feature, an

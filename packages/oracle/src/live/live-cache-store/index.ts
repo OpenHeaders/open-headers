@@ -1,6 +1,6 @@
 /**
  * Live Cache Store — per-workspace cache of workflow-run extractions
- * (see `docs/LIVE_VARIABLES_PLAN.md`).
+ * (see the live-variables plan).
  *
  * One blob per workspace at `oh.ws.<id>.liveCache`, shaped as:
  *

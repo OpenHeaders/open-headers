@@ -1,6 +1,6 @@
 /**
  * Extension implementation of the `nmAutoPair` capability
- * (OBSERVABILITY_PLAN.md Phase 7) — the wizard's explicit
+ * (the observability plan Phase 7) — the wizard's explicit
  * pair-without-a-code gesture over the shared NM handoff primitive.
  *
  * Extension pages hold the same `nativeMessaging` permission as the

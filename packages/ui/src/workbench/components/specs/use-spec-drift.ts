@@ -1,5 +1,5 @@
 /**
- * Drift signal for spec-linked collections (API_SPECS_PLAN.md Phase F).
+ * Drift signal for spec-linked collections (the API-specs plan Phase F).
  *
  * Drift is judged at read time, never cached in the model: a link has
  * drifted when `hashImportSource(saved root content)` no longer equals

@@ -1,5 +1,5 @@
 /**
- * JS contexts console e2e (JS_CONTEXTS_PLAN.md Phase E) — the context
+ * JS contexts console e2e (the JS-contexts plan Phase E) — the context
  * selector, per-context console attribution, the REPL, and the
  * "Selected context only" filter, exercised over the playground contexts
  * page, which hosts every context shape at once: top frame, same-origin

@@ -1,5 +1,5 @@
 /**
- * Capture-feedback pusher (AGENT_TRAFFIC_PLAN.md §4) — the daemon side
+ * Capture-feedback pusher (the agent-traffic plan §4) — the daemon side
  * of the in-browser capture badge. Owns no capture truth of its own:
  * the tap's armed-source registry decides which tabs agents can read;
  * this module pushes each browser peer the COMPLETE set of its

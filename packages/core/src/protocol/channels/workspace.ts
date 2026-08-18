@@ -178,7 +178,7 @@ export interface WorkspaceRpc {
    * entity AS IT WAS IMPORTED.
    *
    * Drives the merge editor's 3-pane ancestor on re-imports
-   * (`MERGE_CONFLICT_EDITOR_PLAN.md` §7): collisions on a uid present
+   * (the merge-conflict-editor plan §7): collisions on a uid present
    * here merge against the snapshot as the common base; collisions on
    * a uid not present here fall back to 2-pane.
    *
@@ -264,11 +264,11 @@ export interface WorkspaceRpc {
     res: { report: ImportReport | null };
   };
 
-  // ── Workspace-tree bindings (GIT_PLAN.md Phase 2, Node hosts) ────
+  // ── Workspace-tree bindings (the git-sync plan Phase 2, Node hosts) ────
   //
   // The settings Git card's host surface. Answered by the daemon
   // spine's workspace-tree runtime; refusal reasons are the four typed
-  // dialogs of GIT_PLAN.md §9 plus the runtime's own registry guards.
+  // dialogs of the git-sync plan §9 plus the runtime's own registry guards.
   // Wire shapes are structural (never imported from the Node host
   // package — dependency direction).
 
@@ -307,7 +307,7 @@ export interface WorkspaceRpc {
     res: { path: string | null };
   };
   /**
-   * Explicit Commit gesture (GIT_PLAN.md §9, Phase 3): flush the tree,
+   * Explicit Commit gesture (the git-sync plan §9, Phase 3): flush the tree,
    * then a REAL `git commit` via a temp index — hooks and signing run,
    * the user's staging area is untouched (§3.3). `message` overrides
    * the semantic draft; empty/absent uses the suggestion.
@@ -336,7 +336,7 @@ export interface WorkspaceRpc {
     res: { ok: boolean };
   };
   /**
-   * Explicit Pull gesture (GIT_PLAN.md §9, Phase 4; §11.4 mechanics):
+   * Explicit Pull gesture (the git-sync plan §9, Phase 4; §11.4 mechanics):
    * fetch, then converge the foreign head through the mutators as
    * virtual batches and record a TWO-PARENT merge commit through the
    * temp-index path — `git merge` is never invoked. Local uncommitted
@@ -347,7 +347,7 @@ export interface WorkspaceRpc {
     res: WorkspaceTreePullWire;
   };
   /**
-   * Explicit Push gesture (GIT_PLAN.md §9, Phase 5): push the current
+   * Explicit Push gesture (the git-sync plan §9, Phase 5): push the current
    * branch to its upstream (establishing tracking on a lone remote
    * when none is configured). Non-fast-forward rejections and
    * permission failures come back as typed reasons the card renders
@@ -390,7 +390,7 @@ export interface WorkspaceRpc {
     res: WorkspaceTreeForcePushResolveWire;
   };
   /**
-   * In-app branch switch (GIT_PLAN.md §6; DATA_PLANE_TOPOLOGIES.md
+   * In-app branch switch (the git-sync plan §6; the data-plane topologies design
    * §6.2): a wrapped `git checkout` carrying the uncommitted-changes
    * answer — `commit` lands the engine commit first, `stash` pushes
    * onto the user's own stash stack, `discard` force-checks-out and
@@ -463,9 +463,9 @@ export interface WorkspaceRpc {
     res: WorkspaceTreeMergeBranchWire;
   };
   /**
-   * Workspace history timeline (GIT_PLAN.md §9, Phase 7): recent
+   * Workspace history timeline (the git-sync plan §9, Phase 7): recent
    * commits with their changed paths — `git log` as the canonical
-   * audit trail (DATA_PLANE_TOPOLOGIES.md §7.1). Read-only; an unborn
+   * audit trail (the data-plane topologies design §7.1). Read-only; an unborn
    * HEAD answers an empty list.
    */
   'oh.workspaceTree.log': {

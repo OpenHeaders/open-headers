@@ -1,7 +1,7 @@
 /**
  * Valibot schemas for Live Variables + Live Workflows.
  *
- * See docs/LIVE_VARIABLES_PLAN.md for the architectural motivation.
+ * See the live-variables plan for the architectural motivation.
  *
  * ── Entity split ──────────────────────────────────────────────────
  *
@@ -361,7 +361,8 @@ export const LiveWorkflowSchema = v.object({
    * per-keystroke edits stream into a real entity without firing
    * scheduled requests against the user's network. Type-level
    * `published?: boolean`; runtime contract is "anything not `=== true`
-   * is draft." See `memory/project_publication_gate_decision.md`.
+   * is draft." Publication is a deliberate Save gate, separate from
+   * `enabled`.
    */
   published: v.optional(v.boolean()),
   /**

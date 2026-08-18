@@ -1,5 +1,5 @@
 /**
- * Capture → request-lifecycle mapper (`PROXY_PLAN.md` §1.2 hard law —
+ * Capture → request-lifecycle mapper (the proxy plan §1.2 hard law —
  * the proxy produces lifecycles, it owns no viewer). Turns the MITM
  * server's {@link ProxyCaptureObserver} callbacks into
  * `RequestLifecycleUpdate`s on the reserved proxy partition

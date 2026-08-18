@@ -1,6 +1,6 @@
 /**
  * GenerateCollectionModal — the spec editor's Generate Collection
- * action (API_SPECS_PLAN.md Phase E). Pins:
+ * action (the API-specs plan Phase E). Pins:
  *   - the modal parses the SAVED content and pre-fills the required
  *     name from the document's info.title;
  *   - Generate rides the shared landing loop through the Requests

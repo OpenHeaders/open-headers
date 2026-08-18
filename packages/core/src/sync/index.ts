@@ -1,7 +1,7 @@
 /**
  * Sync engine public surface (`@openheaders/core/sync`).
  *
- * See `docs/SYNC_ENGINE_DESIGN.md` for the architectural contract this
+ * See the sync-engine design for the architectural contract this
  * package implements. Phase A scope is generic mutation primitives +
  * the in-memory document store; Rule-specific mutators, the SW local
  * oracle, awareness, and the side-effect runner ship in the same

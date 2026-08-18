@@ -3,7 +3,7 @@
  *
  * Holds the host-pushed truth about which tabs are CAPTURE-ARMED: their
  * traffic sits in the desktop tap's retention ring where connected AI
- * agents can read it (AGENT_TRAFFIC_PLAN.md §4). The capture-feedback
+ * agents can read it (the agent-traffic plan §4). The capture-feedback
  * host replaces one backend's complete set per state frame; per-tab
  * union across backends turns into captured/released TRANSITIONS for
  * subscribers. A workbench live watch never lands here — the host

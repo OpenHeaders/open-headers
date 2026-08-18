@@ -1,7 +1,7 @@
 /**
  * useEditingScopeViewState — per-tab view state with default-donor inheritance.
  *
- * See `docs/PER_WINDOW_OR_TAB_VIEW_STATE_DESIGN.md` § 6 (protocol), § 7 (focus
+ * See the per-window/tab view-state design § 6 (protocol), § 7 (focus
  * tracking + claim predicate), § 9 (hook contract). This is the only
  * load + write surface for view-state in the extension; `useToolLayout`
  * and `usePanelToolLayout` consume it via the surface wrappers.

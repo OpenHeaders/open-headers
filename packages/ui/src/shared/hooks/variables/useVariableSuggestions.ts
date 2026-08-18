@@ -16,7 +16,7 @@
  * filtered to the active env, honoring manualOverride.until. Keep the
  * three in sync when extending.
  *
- * See `docs/VARIABLE_AUTOCOMPLETE_PLAN.md` Phase B.
+ * See the variable-autocomplete plan Phase B.
  */
 
 import { isLiveVariableEffective } from '@openheaders/core/live';

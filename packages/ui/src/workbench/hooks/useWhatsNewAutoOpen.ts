@@ -1,6 +1,6 @@
 /**
  * useWhatsNewAutoOpen — the What's New tab's trigger
- * (`docs/UPDATES_PLAN.md`; design settled in `UPDATES_STATUS.md` S2).
+ * (the updates plan; design settled in the updates status log S2).
  *
  * Fires on the first WORKBENCH OPEN after the app version changed —
  * not on app start: the desktop relaunches into the tray after an

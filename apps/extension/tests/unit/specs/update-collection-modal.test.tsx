@@ -1,5 +1,5 @@
 /**
- * UpdateCollectionModal — the per-link Update action (API_SPECS_PLAN.md
+ * UpdateCollectionModal — the per-link Update action (the API-specs plan
  * Phase F). Pins:
  *   - an in-sync collection presents the empty-plan state and Apply
  *     only rewrites `specLink.sourceHash` ("Mark in sync");

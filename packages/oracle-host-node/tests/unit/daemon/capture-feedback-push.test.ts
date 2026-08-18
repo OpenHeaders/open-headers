@@ -1,5 +1,5 @@
 /**
- * Capture-feedback pusher laws (AGENT_TRAFFIC_PLAN.md §4):
+ * Capture-feedback pusher laws (the agent-traffic plan §4):
  *   - server attach pushes each loopback peer its OWN capture-armed
  *     tabId set (keyed on the stable peer qualifier); remote peers
  *     never hear about capture state

@@ -3,7 +3,7 @@
  * `{{live.X}}` values stay warm without requiring a renderer-side
  * refresh click.
  *
- * ARCHITECTURE §20 + `docs/LIVE_VARIABLES_PLAN.md` (Phase C).
+ * ARCHITECTURE §20 + the live-variables plan (Phase C).
  *
  * Implementation: thin provider over the host-neutral `RefreshScheduler`
  * core (`@openheaders/oracle/scheduling`), armed through the

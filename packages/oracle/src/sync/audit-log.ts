@@ -1,6 +1,6 @@
 /**
  * `AuditLog` — durable record of every capability decision the resolver
- * emits. Per UNIFIED_ORACLE_MODEL.md §9.1 entries are retained for a
+ * emits. Per the unified-oracle model §9.1 entries are retained for a
  * single configurable window (default 90 days) regardless of actor
  * type; per §9.5 ids are gapless within Org via a per-Org sequence
  * counter committed inside the same transaction as the entry insert.

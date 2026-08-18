@@ -1,6 +1,6 @@
 /**
  * Parity materialization — the write half of migration ladder rung 3
- * (MIGRATION_PLAN.md §3.3). The pull returns raw payloads attributed
+ * (the migration plan §3.3). The pull returns raw payloads attributed
  * to their vendor workspaces; everything here rides the standard
  * import path: `parsePostman` / `parsePostmanEnvironment`, entities
  * minted with the same core batch builders + `applySyncRequest` route

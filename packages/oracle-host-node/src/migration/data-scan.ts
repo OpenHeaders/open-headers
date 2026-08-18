@@ -1,6 +1,6 @@
 /**
  * Data-scan runner — the fs half of migration ladder rung 2
- * (MIGRATION_PLAN.md §3.2). Core owns the target allowlist, the
+ * (the migration plan §3.2). Core owns the target allowlist, the
  * file-name policy, and the interpretation; this module lists each
  * allowlisted directory (names only, no recursion), reads exactly the
  * files core's pattern matched, and hands the contents back.

@@ -1,6 +1,6 @@
 /**
  * Agent traffic C3 E2E — the sessions archive against the real
- * dual-app stack (AGENT_TRAFFIC_PLAN.md §11.6 `agent-traffic/
+ * dual-app stack (the agent-traffic plan §11.6 `agent-traffic/
  * session-archive`; supersedes the retired v1 `capture-session` page
  * and its "no raw on disk" pin — §11.5 inverted that law).
  *

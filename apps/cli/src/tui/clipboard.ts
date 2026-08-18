@@ -1,5 +1,5 @@
 /**
- * OSC 52 clipboard write — the `y` yank path (TUI_DESIGN.md §2). The
+ * OSC 52 clipboard write — the `y` yank path (the TUI design §2). The
  * terminal owns the actual clipboard; we emit the escape and confirm
  * in the status bar. Works over ssh where no local clipboard API can.
  */

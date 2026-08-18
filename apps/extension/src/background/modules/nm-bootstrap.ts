@@ -1,6 +1,6 @@
 /**
  * NM identity bootstrap — the extension side of the Phase 7 token
- * handoff (OBSERVABILITY_PLAN.md §4 + §8), POLICY layer: which backends
+ * handoff (the observability plan §4 + §8), POLICY layer: which backends
  * get an attempt, when a record is minted, and the loop discipline. The
  * wire mechanics live in `@/shared/nm-handoff`.
  *

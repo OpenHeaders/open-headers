@@ -1,6 +1,6 @@
 /**
  * OS proxy-configuration snapshot parsers — the System mode's
- * informational display (docs/REQUEST_ENGINE_PROXY_DESIGN.md P3):
+ * informational display (the request-engine proxy design P3):
  * `scutil --proxy` dictionaries, the Windows Internet Settings
  * registry query, and the HTTP_PROXY-family environment fallback.
  */

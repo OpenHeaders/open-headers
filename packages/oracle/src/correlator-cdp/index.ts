@@ -7,8 +7,8 @@
  * correlator owns a {@link CdpHarBuilder} that synthesizes per-hop
  * `InspectorHarEntry`s across the multi-event CDP request lifecycle.
  *
- * See `docs/REQUEST_LIFECYCLE_DESIGN.md` §6.2 and
- * `docs/CDP_INSPECTION_PLAN.md`.
+ * See the request-lifecycle design §6.2 and
+ * the CDP-inspection plan.
  */
 
 export { cdpBlockedReasonLabel } from './blocked-reason';

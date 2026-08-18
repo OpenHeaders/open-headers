@@ -1,6 +1,6 @@
 /**
  * Tier-zero card — the pinned, always-on local engine at the top of the
- * Back-end pane (MULTI_BACKEND_PLAN.md §4). Not a list entry: the
+ * Back-end pane (the multi-backend plan §4). Not a list entry: the
  * extension's service worker / the desktop app's embedded back-end runs
  * regardless of what the connections list holds, and it hosts the home
  * Org. On the desktop host the daemon-side inbound surfaces ride along

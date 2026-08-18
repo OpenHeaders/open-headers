@@ -13,7 +13,7 @@
  *    heuristic compares against the configured thresholds.
  *
  * The thresholds are policy, not engine math, so they live as a
- * separate input. v1 defaults come from DATA_PLANE_TOPOLOGIES §11.1:
+ * separate input. v1 defaults come from the data-plane topologies design §11.1:
  * `> 1000` mutations OR `> 500ms` estimated replay. Replay-duration
  * estimation requires per-mutator timing data we don't yet collect;
  * the byte-size knob is the v1 stand-in (≈10kB per envelope ⇒ a few

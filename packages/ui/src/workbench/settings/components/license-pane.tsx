@@ -4,7 +4,7 @@
  * entitlement snapshot the host's license slot pushes (`licenseUpdated`)
  * and drives the `oh.daemon.license.*` admin RPCs. The UI renders state
  * and never gates — degradation itself lives in the seat gate
- * (LICENSING_PLAN.md §3.3/§4).
+ * (the licensing plan §3.3/§4).
  */
 
 import { hostBridge } from '@openheaders/core/bridge';

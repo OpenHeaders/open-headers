@@ -1,6 +1,6 @@
 /**
  * DesktopWatchPill — the popup's privacy indicator for the telemetry
- * consent gate (OBSERVABILITY_PLAN.md §8 Phase 7): visible only while
+ * consent gate (the observability plan §8 Phase 7): visible only while
  * the paired desktop app actively holds at least one watch session on
  * this browser (traffic, storage, or console). Reads the service
  * worker's `OH.desktopWatchActivity` ledger reactively — chrome.storage

@@ -1,5 +1,5 @@
 /**
- * Exit-code contract (the CI interface, CLI_PLAN.md §5): 0 success,
+ * Exit-code contract (the CI interface, the CLI plan §5): 0 success,
  * 1 operation failed, 2 usage error, 3 daemon unreachable or MCP
  * disabled, 4 auth or tier denial. Each non-zero class has a dedicated
  * error type; `exitCodeFor` is the single classification point.

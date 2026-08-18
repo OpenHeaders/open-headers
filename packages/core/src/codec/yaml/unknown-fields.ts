@@ -1,6 +1,6 @@
 /**
  * Unknown-field capture — the serializable half of preserve-unknown
- * (invariant #4; SYNC_ENGINE_DESIGN.md §13.2 pass-through reads).
+ * (invariant #4; the sync-engine design §13.2 pass-through reads).
  *
  * Parse walks the raw document JS against the entity schema and
  * captures every key the schema doesn't declare as

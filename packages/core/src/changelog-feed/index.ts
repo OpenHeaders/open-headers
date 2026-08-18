@@ -1,6 +1,6 @@
 /**
  * Client half of the static changelog feed
- * (`updates.openheaders.io/changelog/*`, CHANGELOG_PLAN.md §4.1): the
+ * (`updates.openheaders.io/changelog/*`, the changelog plan §4.1): the
  * URL contract plus tolerant validators for the two shapes in-app
  * history surfaces read — per-stream index rows and full-entry bodies.
  *

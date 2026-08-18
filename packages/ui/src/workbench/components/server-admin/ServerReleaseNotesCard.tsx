@@ -2,7 +2,7 @@
  * ServerReleaseNotesCard — the admin console's release-notes section:
  * the server build's own `changelog/daemon` entry, embedded at build
  * and answered over `oh.daemon.changelog.get`, so the browser renders
- * it without ever dialing the feed (CHANGELOG_PLAN.md §4.3). Null
+ * it without ever dialing the feed (the changelog plan §4.3). Null
  * notes — an entry-less build (entry-existence law), a host that
  * embeds none (the desktop), or a failed call — render nothing.
  * Images demote to links: a render must not fetch, and offline they

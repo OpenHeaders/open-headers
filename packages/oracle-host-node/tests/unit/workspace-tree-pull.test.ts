@@ -1,5 +1,5 @@
 /**
- * Pull pass on real tmp repos + a bare "remote" (GIT_PLAN.md §10
+ * Pull pass on real tmp repos + a bare "remote" (the git-sync plan §10
  * Phase 4; §11.4 as ratified S6): foreign commits converge through the
  * mutator seam as virtual batches, the engine-written tree is recorded
  * as a TWO-PARENT merge commit with `Co-Authored-By:` trailers, and

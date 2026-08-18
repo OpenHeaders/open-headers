@@ -1,6 +1,6 @@
 /**
  * Regenerates the flagship repo's top-level `CHANGELOG.md` from the
- * canonical `changelog/` tree (CHANGELOG_PLAN.md §4.2): one interleaved
+ * canonical `changelog/` tree (the changelog plan §4.2): one interleaved
  * timeline, newest first, each line app-labeled, prose entries linked
  * to their in-repo file (the flagship commit carries the same tree
  * layout, so relative links render on GitHub). Entries whose living

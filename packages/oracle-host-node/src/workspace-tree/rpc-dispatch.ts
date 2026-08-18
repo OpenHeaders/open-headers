@@ -38,7 +38,7 @@ export async function dispatchWorkspaceTreeRpc(
   type: string,
   message: Record<string, unknown>,
 ): Promise<unknown> {
-  // Workspace-tree bindings (GIT_PLAN.md §9 — the settings Git card's
+  // Workspace-tree bindings (the git-sync plan §9 — the settings Git card's
   // host side); refusals return typed reasons the card renders as its
   // four dialogs.
   if (type === 'oh.workspaceTree.bind') {
@@ -68,7 +68,7 @@ export async function dispatchWorkspaceTreeRpc(
       })),
     };
   }
-  // Phase 3 git plane (GIT_PLAN.md §9/§10): the explicit Commit
+  // Phase 3 git plane (the git-sync plan §9/§10): the explicit Commit
   // gesture, the git slot feed, and the cadence toggle. The runtime
   // serializes commit passes on the per-binding chain (§8 single
   // actor).
@@ -194,7 +194,7 @@ export async function dispatchWorkspaceTreeRpc(
     if (!workspaceId || !ref || runtime === null) return { ok: false, reason: 'not-bound' };
     return await runtime.mergeBranch(workspaceId, ref);
   }
-  // Phase 7 history view (§9 / DATA_PLANE_TOPOLOGIES.md §7.1): pure
+  // Phase 7 history view (§9 / the data-plane topologies design §7.1): pure
   // repo reads — the workspace timeline and the per-path blame answer.
   if (type === 'oh.workspaceTree.log') {
     const workspaceId = typeof message.workspaceId === 'string' ? message.workspaceId : '';

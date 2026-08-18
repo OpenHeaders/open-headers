@@ -1,5 +1,5 @@
 /**
- * Storage CDP tier e2e (STORAGE_PANEL_PLAN.md §2.3 / §3) — exercises
+ * Storage CDP tier e2e (the storage-panel plan §2.3 / §3) — exercises
  * the PRODUCTION attach path end-to-end, which the probe spec (raw
  * protocol contract) and the injected-plane specs deliberately don't:
  * pinning the tab drives the attach reconciler, and the assertions pin

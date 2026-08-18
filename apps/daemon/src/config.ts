@@ -1,6 +1,6 @@
 /**
  * Daemon configuration — one `daemon.json` file plus env/argv overrides
- * (DAEMON_PLAN.md §6). Precedence, highest first: argv → env → config
+ * (the daemon plan §6). Precedence, highest first: argv → env → config
  * file → defaults. Carries the bind, data dir, log level, the Phase-3
  * reverse-proxy posture (`trustedProxy`, `allowedHosts`), and the
  * Phase-4a web bundle root (`webRoot`); native TLS certs stay optional
@@ -99,13 +99,13 @@ export interface DaemonConfig {
    */
   vaultPassphrase: string | null;
   /**
-   * Audit-log retention window in days (UNIFIED_ORACLE_MODEL.md §9.1).
+   * Audit-log retention window in days (the unified-oracle model §9.1).
    * One number for every entry regardless of actor type; default 90,
    * uncapped upward for compliance deployments.
    */
   auditRetentionDays: number;
   /**
-   * License file location (LICENSING_PLAN.md §3.3). `null` = the
+   * License file location (the licensing plan §3.3). `null` = the
    * spine's default, `<dataDir>/license.key`; packaged deployments
    * point elsewhere (`OH_LICENSE_FILE`, systemd `LoadCredential=`,
    * compose `secrets:`). The file holds the pasteable `oh-license.`
@@ -113,7 +113,7 @@ export interface DaemonConfig {
    */
   licenseFile: string | null;
   /**
-   * Self-serve license renewal loop (LICENSING_PLAN.md §3.2). `false`
+   * Self-serve license renewal loop (the licensing plan §3.2). `false`
    * disables the refresh agent — the air-gapped/no-outbound posture by
    * config; `offline: true` licenses stand it down on their own either
    * way. Default true. `licenseRefresh` in `daemon.json` or
@@ -138,7 +138,7 @@ export interface DaemonConfig {
   auditForwarding: DaemonAuditForwardingConfig | null;
   /**
    * System-plane egress proxy — how THIS daemon's own sends reach
-   * the network (docs/REQUEST_ENGINE_PROXY_DESIGN.md; distinct from
+   * the network (the request-engine proxy design; distinct from
    * `trustedProxy`, the inbound reverse-proxy posture). `null` = no
    * explicit config; the stored per-device slot (or the tier default,
    * Env — honor HTTP_PROXY / HTTPS_PROXY / NO_PROXY with curl

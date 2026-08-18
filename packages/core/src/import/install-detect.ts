@@ -1,5 +1,5 @@
 /**
- * Install detection — migration ladder rung 1 (MIGRATION_PLAN.md §3.1).
+ * Install detection — migration ladder rung 1 (the migration plan §3.1).
  *
  * Pure allowlist + interpretation: this module lists the exact per-OS
  * filesystem probes that decide whether a known API tool is present, and
@@ -67,7 +67,7 @@ function darwinProbes(roots: InstallProbeRoots): InstallProbe[] {
   const home = roots.home;
   const support = `${home}/Library/Application Support`;
   return [
-    // Verified on a live macOS install (MIGRATION_STATUS.md S1).
+    // Verified on a live macOS install (the migration status log S1).
     { tool: 'postman', kind: 'path', path: '/Applications/Postman.app' },
     { tool: 'postman', kind: 'path', path: `${home}/Applications/Postman.app` },
     { tool: 'postman', kind: 'path', path: `${support}/Postman` },

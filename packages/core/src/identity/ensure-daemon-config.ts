@@ -4,7 +4,7 @@
  * first boot and returning the persisted shape on every subsequent boot.
  *
  * The function is the entry point to U1.4 (host-install-id minting +
- * persistence per UNIFIED_ORACLE_STATUS.md). It runs over the
+ * persistence per the unified-oracle status log). It runs over the
  * `HostStorage` proxy, so the per-host transport (chrome.storage.local
  * on the extension SW, `FileBackedHostStorage` JSON on desktop main) is
  * already abstracted — no per-host plumbing needed beyond the host

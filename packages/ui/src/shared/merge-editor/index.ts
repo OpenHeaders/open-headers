@@ -4,7 +4,7 @@
  * Outer shell + Column 3-pane / 2-pane fallback only. Hunk arrows,
  * layout switcher, file list, bulk ops, multi-file shell, and the
  * resolution-state-machine wiring land in subsequent phases per
- * `docs/MERGE_CONFLICT_EDITOR_PLAN.md` §10.
+ * the merge-conflict-editor plan §10.
  *
  * Lift-readiness rules (bake-off doc §3.7):
  *   - This subtree imports only from `@openheaders/core` + npm

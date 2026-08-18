@@ -6,7 +6,7 @@
  * No chrome dependency lives in this module. The chrome bindings are
  * the caller's responsibility: implement {@link WebRequestEventSource}
  * + {@link HarEventSource} and pass both to {@link HeuristicCorrelator}.
- * See `docs/REQUEST_LIFECYCLE_DESIGN.md` §6.2.
+ * See the request-lifecycle design §6.2.
  */
 
 export { BodyJoinMap } from './body-join-map';

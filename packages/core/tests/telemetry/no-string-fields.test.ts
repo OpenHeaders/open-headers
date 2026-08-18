@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { TelemetryEventSchema } from '../../src/telemetry';
 
 /**
- * The structural law of TELEMETRY_PLAN.md §1: no event payload property may
+ * The structural law of the telemetry plan §1: no event payload property may
  * admit arbitrary `string`. This test walks the runtime shape of the event
  * schema and fails if a `string`-typed node appears anywhere inside a
  * payload — closed unions (picklist/literal), booleans, and numbers are the

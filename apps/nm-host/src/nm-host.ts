@@ -1,6 +1,6 @@
 /**
  * `oh-nm-host` — the Open Headers native-messaging host
- * (OBSERVABILITY_PLAN.md §4 + §8 Phase 7).
+ * (the observability plan §4 + §8 Phase 7).
  *
  * The browser spawns this binary per its NM manifest. Four verbs, one
  * dispatch on the first framed message:

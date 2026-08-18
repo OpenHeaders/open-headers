@@ -1,5 +1,5 @@
 # Composed deployment: daemon + TLS-terminating Caddy front — the
-# runnable twin of docs/DAEMON_OPS.md. From the repo root:
+# runnable twin of the daemon ops runbook. From the repo root:
 #
 #   docker compose -f apps/daemon/docker/docker-compose.yml up -d
 #
@@ -20,7 +20,7 @@
 #
 # The daemon service publishes no ports: every request enters through
 # Caddy, which is what OH_DAEMON_TRUSTED_PROXY=1 asserts. Backups: see
-# docs/DAEMON_OPS.md — stop-copy the oh-daemon-data volume, or online
+# the daemon ops runbook — stop-copy the oh-daemon-data volume, or online
 # `sqlite3 oracle.db ".backup ..."`; never plain-cp a live oracle.db.
 
 name: openheaders-daemon
@@ -41,7 +41,7 @@ services:
       #   OH_DAEMON_VAULT_PASSPHRASE_FILE: /run/secrets/oh-vault-passphrase
       # with a compose `secrets:` entry, or set OH_DAEMON_VAULT_PASSPHRASE
       # directly on a trusted host. Unset = sensitive slots refuse
-      # (never plaintext). See docs/DAEMON_OPS.md → Vault cipher.
+      # (never plaintext). See the daemon ops runbook → Vault cipher.
     volumes:
       - oh-daemon-data:/data
 

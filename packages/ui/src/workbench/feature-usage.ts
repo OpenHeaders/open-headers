@@ -1,6 +1,6 @@
 /**
  * Workbench feature-usage mapping for product telemetry
- * (`TELEMETRY_PLAN.md` §3): which editor-tab modes count as the first
+ * (the telemetry plan §3): which editor-tab modes count as the first
  * meaningful use of a vocabulary feature. Rule tabs are deliberately
  * absent — `rule_created` carries the rule signal. The host session
  * latch dedupes per session; `noteFeatureUsed` guards per document.

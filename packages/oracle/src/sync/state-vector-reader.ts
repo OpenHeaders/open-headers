@@ -18,7 +18,7 @@
  *   applied (the log is append-only; compaction drops only the
  *   pre-watermark tail and snapshot bootstrap covers the rest).
  * - {@link filterEnvelopesByOrgAsync} — transport-boundary org filter
- *   (UNIFIED_ORACLE_MODEL.md §6.1, §8.2). Envelopes whose `orgId` is
+ *   (the unified-oracle model §6.1, §8.2). Envelopes whose `orgId` is
  *   not in the host's authorized Org set are skipped. With the
  *   denormalized `(workspaceId, orgId)` index this is the cheap
  *   "WHERE org_id IN (authorized set)" predicate the doc calls for;

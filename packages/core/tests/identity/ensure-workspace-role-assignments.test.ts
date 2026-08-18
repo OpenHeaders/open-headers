@@ -1,7 +1,7 @@
 /**
  * Coverage for `ensureWorkspaceRoleAssignments` — the host-neutral
  * reconcile pass that keeps `OH.workspaceRoleAssignments` aligned with
- * the live workspace set (U1.8 per UNIFIED_ORACLE_STATUS.md).
+ * the live workspace set (U1.8 per the unified-oracle status log).
  *
  * Pinned invariants:
  *   - First call against a workspace set mints one owner-role WRA per

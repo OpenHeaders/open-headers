@@ -274,7 +274,7 @@ registerCategory({
   order: 86,
   descriptionKey: 'workbench.settings.category.git.description',
   renderPane: GitWorkspacePane,
-  // Only Node hosts have a filesystem to bind (GIT_PLAN.md §12): the
+  // Only Node hosts have a filesystem to bind (the git-sync plan §12): the
   // desktop is Phase 2's host; the daemon's served web tab follows
   // with the admin console work, and the extension never qualifies.
   // Browser hosts keep the nav entry and render the desktop teaser.

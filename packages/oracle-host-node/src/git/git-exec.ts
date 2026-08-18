@@ -1,6 +1,6 @@
 /**
  * git-exec — the ONE seam between the engine and the user's installed
- * `git` binary (GIT_PLAN.md §7). Every git-plane invocation, on every
+ * `git` binary (the git-sync plan §7). Every git-plane invocation, on every
  * phase, goes through {@link createGitExec}:
  *
  *   - arg-vector only (`execFile`, never a shell-interpolated string);

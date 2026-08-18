@@ -11,11 +11,11 @@ import * as v from 'valibot';
 
 /**
  * The data-model baseline. Fresh workspaces carry `schemaVersion: 5`; any
- * persisted entity below 5 is rejected at the boundary. There is no
- * prior users to support (per memory: project_v5_fresh_start) — so
- * we don't carry a compat pane for v1–v4. Future breaking changes in
+ * persisted entity below 5 is rejected at the boundary. v5 launched
+ * fresh with no prior users to support — so we don't carry a compat
+ * pane for v1–v4. Future breaking changes in
  * any entity bump per-entity (6, 7, …). See
- * docs/V5_FOUNDATION_PLAN.md §Phase 0 #3.
+ * the v5 foundation plan §Phase 0 #3.
  */
 export const MIN_SCHEMA_VERSION = 5;
 export const SchemaVersionSchema = v.pipe(v.number(), v.integer(), v.minValue(MIN_SCHEMA_VERSION));
@@ -28,7 +28,7 @@ export const UidSchema = v.pipe(v.string(), v.regex(/^[a-z0-9]{8}$/));
  * Identity-schema rows (User, Org, UserIdentity, Session, OrgMembership,
  * Principal, WorkspaceRoleAssignment, AuditLogEntry) are keyed by UUIDv7.
  * Synthetic rows use deterministic UUIDv7s seeded from `host-install-id`
- * (per UNIFIED_ORACLE_MODEL.md §5.1); the regex accepts those identically
+ * (per the unified-oracle model §5.1); the regex accepts those identically
  * since the seed expands to a valid v7 layout.
  */
 export const UuidV7Schema = v.pipe(

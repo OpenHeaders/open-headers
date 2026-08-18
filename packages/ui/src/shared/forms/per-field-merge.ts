@@ -1,8 +1,7 @@
 /**
  * Per-field save-merge primitives shared across editors.
  *
- * Save is the deliberate publication gate
- * (`memory/project_publication_gate_decision.md`) for entities whose
+ * Save is the deliberate publication gate for entities whose
  * commits stream to live runners. For per-leaf convergence at Save,
  * each editor's save batch must carry only leaves the user actually
  * edited — untouched leaves must not enter the diff, otherwise per-

@@ -2,7 +2,7 @@
  * useToolLayout — workbench tool-window state machine.
  *
  * Per-tab view state lives in `useEditingScopeViewState` (see
- * `docs/PER_WINDOW_OR_TAB_VIEW_STATE_DESIGN.md`); `useToolLayout` is the surface
+ * the per-window/tab view-state design); `useToolLayout` is the surface
  * wrapper that adapts the perTab snapshot to `useDockLayout`'s
  * `initial` + `onPersist` API.
  *

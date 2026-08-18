@@ -1,5 +1,5 @@
 /**
- * Changelog-tree lint — the canonical-entry gate (CHANGELOG_PLAN.md §2).
+ * Changelog-tree lint — the canonical-entry gate (the changelog plan §2).
  *
  * For every entry under `changelog/<stream>/<year>/<version>.md`,
  * verifies the canonical-form laws:

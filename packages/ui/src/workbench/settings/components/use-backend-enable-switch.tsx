@@ -1,7 +1,7 @@
 /**
  * use-backend-enable-switch — the probe-gated enable toggle for a
  * backend record. Enabling is the moment a record earns its wire
- * (MULTI_BACKEND_PLAN.md §4: nothing connects until the probe passes),
+ * (the multi-backend plan §4: nothing connects until the probe passes),
  * so the off→on flip:
  *
  *   1. Verifies the wire first — a reachability + auth probe against the

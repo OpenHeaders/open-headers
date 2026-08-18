@@ -148,7 +148,7 @@ export class PermissionDeniedError extends Error {
 }
 
 /**
- * Renderer→SW capability gate (UNIFIED_ORACLE_MODEL.md §5.8).
+ * Renderer→SW capability gate (the unified-oracle model §5.8).
  *
  * Every renderer-originated message type in the table below maps to a
  * capability + a workspaceId extractor. `gateDispatch` consults
@@ -288,7 +288,7 @@ function gateDispatch(message: Record<string, unknown>, subject: GateSubject): v
 
 /**
  * Re-stamp `orgId` on a renderer-originated `oh.sync.apply` batch from
- * the host's authoritative workspace→Org resolver (UNIFIED_ORACLE_MODEL.md
+ * the host's authoritative workspace→Org resolver (the unified-oracle model
  * §6.1 / §8.2).
  *
  * The renderer mints envelopes through `createRendererContextHandle`,
@@ -388,7 +388,7 @@ async function dispatchSyncRpcAsPeer(message: Record<string, unknown>, peer: Syn
       decision,
     });
     if (!decision.allow) return { ok: true };
-    // Stamp-at-ingest (DATA_PLANE_TOPOLOGIES.md §9 — same-user-only
+    // Stamp-at-ingest (the data-plane topologies design §9 — same-user-only
     // awareness): the hub is the one point that knows which user a
     // presence state belongs to, from the peer's per-frame identity.
     // `userId` drives the same-user fan-out filter; `deviceId` (the

@@ -1,6 +1,6 @@
 /**
  * Storage tool window — application-storage inspector for the inspected
- * tab. The locked layout (STORAGE_PANEL_PLAN.md §4) is a storage-type
+ * tab. The locked layout (the storage-panel plan §4) is a storage-type
  * rail on the left and the active section's view on the right; the
  * scope bar (origin select + partition chip) is shared across sections.
  *

@@ -1,5 +1,5 @@
 /**
- * Workspace-tree property harness — the Phase 2 gate (GIT_PLAN.md §8
+ * Workspace-tree property harness — the Phase 2 gate (the git-sync plan §8
  * round-trip law lifted from one document to the whole tree).
  *
  * Over seeded full-workspace states spanning every entity family:

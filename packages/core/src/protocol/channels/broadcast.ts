@@ -148,7 +148,7 @@ export interface BridgeBroadcastContract {
   secretsStorageState: SecretsStorageState;
   /**
    * Migration pull progress — ONE message for every connected surface
-   * (MIGRATION_STATUS.md S5 addendum): each `PostmanPullEvent` the run
+   * (the migration status log S5 addendum): each `PostmanPullEvent` the run
    * produces, in order. `seq` is a per-run monotonic counter so mirrors
    * can drop stale/duplicate deliveries; late joiners hydrate via the
    * `oh.migration.postmanPull.getState` RPC and fold from there with
@@ -313,7 +313,7 @@ export interface BridgeBroadcastContract {
   liveCacheChanged: { workflowUid: string | null };
 
   /**
-   * Workspace-tree git plane (GIT_PLAN.md §9): the bound workspace's
+   * Workspace-tree git plane (the git-sync plan §9): the bound workspace's
    * git slot changed — dirty count, cadence, bypass-hooks, or repo
    * availability. Fired by the Node host's workspace-tree runtime
    * after every pass that can move `git status` (materialize flush,
@@ -507,7 +507,7 @@ export interface BridgeBroadcastContract {
    * persisted. Lives on a separate channel from `syncBroadcast` because
    * awareness is high-frequency and entangling presence flicker with
    * mutation projection would couple two unrelated lifecycles
-   * (`docs/SYNC_ENGINE_DESIGN.md` §14).
+   * (the sync-engine design §14).
    */
   awarenessBroadcast: {
     workspaceId: string;

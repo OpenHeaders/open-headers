@@ -1,6 +1,6 @@
 /**
  * Browser code-signing allowlist for the NM identity bootstrap
- * (OBSERVABILITY_PLAN.md §8 Phase 7). A token is only released to an
+ * (the observability plan §8 Phase 7). A token is only released to an
  * NM host whose spawning parent process carries one of these signer
  * identities — the OS-verified answer to "which browser is asking",
  * never a claim from the wire.

@@ -1,6 +1,6 @@
 /**
  * MigrateToolModal — the single-modal migration surface's contract
- * (MIGRATION_STATUS.md S14 UI law: one wide modal, sections collapse
+ * (the migration status log S14 UI law: one wide modal, sections collapse
  * and steps render inline):
  *   - the vendor section is always visible; detection runs only on the
  *     explicit "Scan this computer" click and fills in status-only

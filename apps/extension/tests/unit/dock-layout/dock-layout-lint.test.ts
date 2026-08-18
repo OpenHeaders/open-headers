@@ -2,7 +2,7 @@
  * Dock-layout lint — runs as part of the test suite so CI catches
  * convention violations without requiring custom Biome plugin support.
  *
- * Four rules, one per bug class in `docs/DOCK_LAYOUT_SPIKE.md` § 2:
+ * Four rules, one per bug class in the dock-layout spike notes § 2:
  *
  *   1. **PanelHeader mount (BC-D1).** Every file under
  *      `src/{workbench,panel}/**` that imports `PanelHeader` from

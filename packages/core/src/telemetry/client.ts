@@ -1,6 +1,6 @@
 /**
  * Telemetry client — typed `track()` + in-memory queue + batched flush
- * behind a transport port (`TELEMETRY_PLAN.md` §7).
+ * behind a transport port (the telemetry plan §7).
  *
  * Core never opens a socket and never owns a timer: hosts inject the
  * transport and drive the flush cadence (interval + best-effort on quit).

@@ -1,7 +1,7 @@
 /**
  * Per-backend sync-status aggregation — the roll-up between the
  * N-connection plane and the single `sync` Status subsystem the UI
- * reads (MULTI_BACKEND_PLAN.md §3, last paragraph).
+ * reads (the multi-backend plan §3, last paragraph).
  *
  * Each connection contributes one slot, written by both of its
  * reporters — the wire-level entry from the connection manager and the
@@ -24,7 +24,7 @@
  *
  * A Node host with a git-bound workspace contributes one GIT slot per
  * binding ({@link reportGitSyncStatus} — "N uncommitted changes",
- * GIT_PLAN.md §9): the same worst-of candidacy as a backend slot,
+ * the git-sync plan §9): the same worst-of candidacy as a backend slot,
  * never part of the per-backend snapshot.
  *
  * The slots themselves are also observable per backend
@@ -94,7 +94,7 @@ export function dropBackendSyncStatus(backendId: string): void {
 }
 
 /**
- * Install/update a bound workspace's git slot (GIT_PLAN.md §9: the
+ * Install/update a bound workspace's git slot (the git-sync plan §9: the
  * sync aggregate gains a git slot per bound workspace — "N uncommitted
  * changes"). Joins the worst-of roll-up exactly like a backend slot
  * but never enters the per-backend snapshot — row dots are backend

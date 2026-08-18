@@ -1,7 +1,7 @@
 /**
  * CDP plane of the Cache Storage browser — the one storage type whose
  * CDP read domain works for extension debugger clients (probe-verified,
- * STORAGE_PANEL_PLAN.md §2.3): `CacheStorage.requestCacheNames` /
+ * the storage-panel plan §2.3): `CacheStorage.requestCacheNames` /
  * `requestEntries` (natively paged) / `deleteCache` / `deleteEntry`.
  *
  * Every op resolves `null` on any CDP failure (detached mid-flight,

@@ -10,7 +10,7 @@
  *   - `prune` removes rows with `occurredAt < beforeIso` and reports
  *     the count.
  *   - The IDB-backed implementation honours the same contract using the
- *     `audit_counters` object store (UNIFIED_ORACLE_MODEL.md §9.5).
+ *     `audit_counters` object store (the unified-oracle model §9.5).
  */
 
 import { describe, expect, it } from 'vitest';

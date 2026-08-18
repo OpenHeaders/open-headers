@@ -13,7 +13,7 @@
  * its own `schemaVersion`, so migrations can target a single entity kind
  * without rewriting the whole tree. Starts at 5 to mark the rewrite;
  * future breaking changes bump per-entity (6, 7, …). See
- * docs/V5_FOUNDATION_PLAN.md §Phase 0.
+ * the v5 foundation plan §Phase 0.
  *
  * `Workspace` is derived from `WorkspaceSchema` so the runtime validator
  * and the type stay locked together. `rootPath` is optional here to match
@@ -35,7 +35,7 @@ export type Workspace = v.InferOutput<typeof WorkspaceSchema>;
 
 /**
  * The committed `workspace.yaml` shape — {@link Workspace} without the
- * host-local `orgId` binding (GIT_PLAN.md §5: org context never enters
+ * host-local `orgId` binding (the git-sync plan §5: org context never enters
  * committed YAML; the binding host supplies its own tenancy on read).
  */
 export type WorkspaceManifest = v.InferOutput<typeof WorkspaceManifestSchema>;

@@ -7,7 +7,7 @@
  * Shared by the quick-create destination heuristic (rules land in a
  * folder named after the captured URL's domain) and the sessions
  * archive's auto-placement (a session's default folder is its dominant
- * origin's registrable domain, AGENT_TRAFFIC_PLAN.md §11.1).
+ * origin's registrable domain, the agent-traffic plan §11.1).
  */
 
 const PUBLIC_SECOND_LEVELS = new Set(['co', 'com', 'net', 'org', 'gov', 'edu', 'ac']);

@@ -1,6 +1,6 @@
 /**
  * Proxy routing host — the extension side of scoped browser routing
- * (OBSERVABILITY_PLAN.md §5.1).
+ * (the observability plan §5.1).
  *
  * The desktop owns the routing truth (decrypt scope + capture port +
  * toggle, folded with the proxy's run state); this host applies each

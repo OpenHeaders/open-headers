@@ -1,5 +1,5 @@
 /**
- * `verifyLicense` — the one verification path (`LICENSING_PLAN.md` §3).
+ * `verifyLicense` — the one verification path (the licensing plan §3).
  *
  * Wire format (decided slice 1): a compact three-segment string,
  *

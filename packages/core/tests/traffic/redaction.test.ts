@@ -1,5 +1,5 @@
 /**
- * Redaction predicates (AGENT_TRAFFIC_PLAN.md §4, slice S2).
+ * Redaction predicates (the agent-traffic plan §4, slice S2).
  *
  * Pinned invariants:
  *   - The marker is `[redacted:<8-hex sha256 prefix>]`, STABLE per value

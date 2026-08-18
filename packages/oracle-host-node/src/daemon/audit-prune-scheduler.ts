@@ -4,7 +4,7 @@
  * Sibling of {@link installActivityPruneScheduler}: a plain hourly
  * `setInterval` on the long-lived host process. Each tick drops every
  * `audit_log` row older than the retention window in one statement
- * (UNIFIED_ORACLE_MODEL.md §9.1 — one knob for all entries regardless
+ * (the unified-oracle model §9.1 — one knob for all entries regardless
  * of actor type; default 90 days, uncapped upward for compliance
  * deployments).
  */

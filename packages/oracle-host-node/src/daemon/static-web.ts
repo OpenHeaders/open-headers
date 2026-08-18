@@ -1,5 +1,5 @@
 /**
- * Static web serving on the composed bind (Phase 4a, DAEMON_PLAN.md §3/§5):
+ * Static web serving on the composed bind (Phase 4a, the daemon plan §3/§5):
  * the daemon hands out the Workbench web bundle so a plain browser tab
  * becomes a front-end. Composed LAST in the HTTP chain
  * (healthz ‖ pairing ‖ mcp ‖ static) — every route with its own handler

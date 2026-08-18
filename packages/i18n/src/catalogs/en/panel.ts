@@ -8,7 +8,7 @@
  * sibling `panel-*.ts` files; everything merges under the same
  * `panel.*` namespace in `index.ts`.
  *
- * English boundary (I18N_PLAN.md §3) — raw by design inside or beside
+ * English boundary (the i18n plan §3) — raw by design inside or beside
  * keyed values: resource-type pills (All / Fetch/XHR / Doc / …),
  * throttle tier names (Fast 4G, Fiber, DSL, …), CDP method names
  * (`Network.setCacheDisabled`), header names (User-Agent), event names

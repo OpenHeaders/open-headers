@@ -2,7 +2,7 @@
  * Postman backup importer coverage.
  *
  * Fixtures are hand-authored against the envelope schema verified on a
- * live install (MIGRATION_PLAN.md §2.2): `{version: 1, collections,
+ * live install (the migration plan §2.2): `{version: 1, collections,
  * environments, headerPresets, globals}`. Sections mirror the parser:
  * envelope validation, per-section delegation, legacy-v1 handling,
  * header presets, aggregate report + redaction.

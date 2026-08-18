@@ -1,7 +1,7 @@
 /**
  * `ensureWorkspaceRoleAssignments` — host-neutral reconcile pass that
  * keeps `OH.workspaceRoleAssignments` aligned with the live workspace
- * set (U1.8 per UNIFIED_ORACLE_STATUS.md).
+ * set (U1.8 per the unified-oracle status log).
  *
  * Semantics:
  *

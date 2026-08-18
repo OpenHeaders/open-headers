@@ -1,9 +1,9 @@
 /**
- * `ohd` — the Open Headers daemon control binary (DAEMON_PLAN.md §6):
+ * `ohd` — the Open Headers daemon control binary (the daemon plan §6):
  * `ohd install / start / stop / status / show-token` and the offline
  * admin verbs. It ships with the daemon distribution and is
  * version-locked to the engine whose disk state it writes. The client
- * command line is a separate binary (`oh`, CLI_PLAN.md — a client of
+ * command line is a separate binary (`oh`, the CLI plan — a client of
  * the `/mcp` surface) with its own release cadence.
  *
  * Deliberately sqlite-free: the engine lives behind `dist/main.js`;
@@ -223,7 +223,7 @@ async function commandStatus(argv: readonly string[]): Promise<void> {
     return;
   }
   console.log(`running — /healthz OK on 127.0.0.1:${config.bindPort} (configured bind ${config.bindAddress})`);
-  // Availability notify (DISTRIBUTION_PLAN.md §5): one best-effort,
+  // Availability notify (the distribution plan §5): one best-effort,
   // abort-capped feed read — silent unless a newer release exists.
   const availability = await fetchAvailabilityLine();
   if (availability !== null) console.log(availability);

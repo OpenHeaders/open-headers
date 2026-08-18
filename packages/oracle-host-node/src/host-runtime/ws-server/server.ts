@@ -91,7 +91,8 @@ export async function startOracleWsServer(options: OracleWsServerOptions): Promi
   // attach to non-upgrade `request` events on the same bind. Without
   // this, `new WebSocketServer({ host, port })` would spin its own
   // listener and the pairing routes would have to live on a separate
-  // port — `data-plane.md` §11.4 calls out single-bind explicitly.
+  // port — the data-plane topologies design §11.4 calls out
+  // single-bind explicitly.
   const httpServer: HttpServer = createHttpServer((req, res) => {
     if (httpRequestHandler?.(req, res)) return;
     // Default: anything that isn't an upgrade and isn't claimed by the

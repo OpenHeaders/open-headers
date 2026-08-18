@@ -2,7 +2,7 @@
  * Command seam for the trust-store modules — every `security` /
  * `certutil` invocation routes through an {@link ExecFn} so tests
  * inject fakes and the elevation posture stays explicit
- * (PROXY_SECURITY.md §2.6: elevation only for trust-store operations,
+ * (the proxy-security design §2.6: elevation only for trust-store operations,
  * and only via the signed privileged helper — never an app-drawn
  * prompt, never osascript, whose detached security session cannot
  * manage admin-domain trust).

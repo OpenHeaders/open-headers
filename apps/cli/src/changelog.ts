@@ -1,6 +1,6 @@
 /**
  * `oh changelog` — this release's notes, embedded at build
- * (CHANGELOG_PLAN.md §4.3): the bundle configs stamp the canonical
+ * (the changelog plan §4.3): the bundle configs stamp the canonical
  * entry body into `__CLI_CHANGELOG__`, so the command works air-gapped.
  * A version without an entry ships the empty string (entry-existence
  * law) and the command says so instead of inventing prose; history

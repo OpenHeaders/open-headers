@@ -1,7 +1,7 @@
 /**
  * detectImportSource — content-based classification of pasted text or a
  * picked file so the import hub routes to the right flow without asking
- * the user for a format (IMPORT_PLAN.md §2.2).
+ * the user for a format (the import plan §2.2).
  *
  * Pure + synchronous: the caller already holds the full text (pasted
  * string or `file.text()` result). Detection is intentionally shallow —

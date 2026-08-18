@@ -1,5 +1,5 @@
 /**
- * Enforcement-planner laws (PROXY_PLAN.md Phase 3). Pure module — the
+ * Enforcement-planner laws (the proxy plan Phase 3). Pure module — the
  * plan is derived from an injected rule source and one request's facts:
  *  - matching rides the core rule-matcher predicates: URL conditions
  *    required (no conditions ⇒ no match), method gates, resource-type

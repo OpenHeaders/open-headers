@@ -2,7 +2,7 @@
  * Synthetic-editor harness for the editor-shell Phase A spike.
  *
  * Each test targets one row of the bug-class predictions table in
- * `docs/EDITOR_SHELL_SPIKE.md`. Tests intentionally reach for the
+ * the editor-shell spike notes. Tests intentionally reach for the
  * shape of the bug and assert the hook prevents it (compile-time error
  * captured via @ts-expect-error, render-time invariant, or branded-type
  * rejection).

@@ -443,7 +443,7 @@ export interface DevToolsRpc {
    * DOM storage is shared per origin, so the isolated world sees the
    * page's data); there is no extension API for DOM storage and the
    * CDP `DOMStorage` domain is not dispatched for extension debugger
-   * clients (see docs/STORAGE_PANEL_PLAN.md §2.3).
+   * clients (see the storage-panel plan §2.3).
    *
    * `entries` is `null` when injection fails (frame gone, page not
    * injectable). `truncated` marks an entry-count cap hit; per-value
@@ -512,7 +512,7 @@ export interface DevToolsRpc {
    * Enumerate one scope's IndexedDB databases with their object-store
    * shapes. Injection-only, like DOM storage — the CDP `IndexedDB`
    * domain is not dispatched for extension debugger clients
-   * (docs/STORAGE_PANEL_PLAN.md §2.3); the reader rides
+   * (the storage-panel plan §2.3); the reader rides
    * `indexedDB.databases()` plus a versionless open per database.
    * `databases` is `null` when injection fails or the page has no
    * IndexedDB reach (opaque origin, API unavailable).

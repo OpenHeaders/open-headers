@@ -1,5 +1,5 @@
 /**
- * Bind / unbind — exclusivity + identity (GIT_PLAN.md §3.5): lockfile
+ * Bind / unbind — exclusivity + identity (the git-sync plan §3.5): lockfile
  * refusal with holder identity, uuid-collision vs identity-mismatch on
  * a foreign manifest, init authoring of workspace.yaml + .gitignore,
  * and unbind leaving the tree a valid workspace folder.

@@ -5,7 +5,7 @@
  * produced by the F2 classifier. The feed exists to give users
  * passive visibility into changes that landed without a foreground
  * conflict prompt — the editor-closed silent-LWW gap described in
- * `docs/DATA_PLANE_TOPOLOGIES.md` §11.6.
+ * the data-plane topologies design §11.6.
  *
  * Contract:
  *

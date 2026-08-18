@@ -1,6 +1,6 @@
 /**
  * Connections list — the managed `OH.backends` records on the Back-end
- * pane (MULTI_BACKEND_PLAN.md §4). One row per record: status dot,
+ * pane (the multi-backend plan §4). One row per record: status dot,
  * label, address, the Orgs consumed from it, the auto-connect and
  * enabled toggles, re-pair, edit, remove.
  *

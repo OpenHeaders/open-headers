@@ -2,7 +2,7 @@
  * Desktop install of the host-neutral backend client plane
  * (`@openheaders/oracle/sync/client/*`) — the desktop app joining daemon
  * backends as a client through the same plane the extension SW uses
- * (MULTI_BACKEND_PLAN.md §5). The desktop stays a *server* on its own
+ * (the multi-backend plan §5). The desktop stays a *server* on its own
  * bind (the spine's WS server); this module is the outbound role only.
  *
  * Node-bound edges installed here:
@@ -91,7 +91,7 @@ export interface InstallBackendClientConfig {
   appVersion: string;
   /**
    * Product-telemetry sink for the `ws-connect-failed` beacon — a dial
-   * that closes without ever opening (`TELEMETRY_PLAN.md` §3). The
+   * that closes without ever opening (the telemetry plan §3). The
    * remaining sync-plane beacons ride `installProductTelemetrySyncBeacons`
    * over the returned wiring.
    */

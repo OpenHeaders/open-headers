@@ -3,7 +3,7 @@
  * file. Designed to be the canonical persistent KV for any host that
  * owns durable state on a local filesystem — Electron main process,
  * headless Node daemon, CLI `runOnce` (per
- * `docs/SYNC_ENGINE_DESIGN.md` §20.1).
+ * the sync-engine design §20.1).
  *
  * Zero Electron coupling. Encryption is delegated to a
  * {@link SecretCipher}; the host wires whichever cipher matches its

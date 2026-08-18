@@ -1,6 +1,6 @@
 /**
  * Product-telemetry host adapter for the desktop main process
- * (`TELEMETRY_PLAN.md` §7) — the persistent-process twin of the
+ * (the telemetry plan §7) — the persistent-process twin of the
  * extension SW module. One process launch is one session, so the
  * session id and the session_start latch live in the shared controller's
  * in-memory store (never persisted); cadence is a plain interval because

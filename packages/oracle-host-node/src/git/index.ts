@@ -1,5 +1,5 @@
 /**
- * Git plane (GIT_PLAN.md Phase 3+) — system-binary execution seam,
+ * Git plane (the git-sync plan Phase 3+) — system-binary execution seam,
  * repo init/adopt, temp-index commits, identity resolution, and the
  * porcelain status feeds. Consumed by the workspace-tree runtime;
  * never by surfaces (they reach the git plane via gesture RPCs, §8).

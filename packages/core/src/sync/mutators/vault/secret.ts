@@ -20,8 +20,8 @@
  * to abstract over both the id-resolution shape (id-arg vs singleton)
  * and the item shape (Variable vs VaultSecret). The two combine to
  * make the factor ungainly — wrapping arg translators is the wrong
- * shape (see project memory `feedback_no_workarounds.md`). Keep
- * concrete catalogs; the pattern is recognizable and ≤50-line bodies.
+ * shape. Keep concrete catalogs; the pattern is recognizable and
+ * ≤50-line bodies.
  */
 
 import type { VaultSecret } from '../../../types';

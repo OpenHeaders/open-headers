@@ -1,7 +1,7 @@
 /**
  * Standard-plane Cache Storage READS and DELETES — `chrome.scripting`
  * injection into the scope's frame. Cache Storage also has a full CDP
- * tier (STORAGE_PANEL_PLAN.md §2.3 — the one storage type whose read
+ * tier (the storage-panel plan §2.3 — the one storage type whose read
  * domain works for extension debugger clients); the arbitration in
  * `caches.ts` picks injection for detached tabs, so the panel never
  * sees the difference.

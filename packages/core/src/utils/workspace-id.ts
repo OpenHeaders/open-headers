@@ -1,6 +1,6 @@
 /**
  * Workspace identity — canonical form is UUIDv7 per
- * `docs/DATA_PLANE_TOPOLOGIES.md §11.3`.
+ * the data-plane topologies design §11.3`.
  *
  * **Why UUIDv7 specifically:**
  *

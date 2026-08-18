@@ -1,5 +1,5 @@
 /**
- * Local data scan — migration ladder rung 2 (MIGRATION_PLAN.md §3.2).
+ * Local data scan — migration ladder rung 2 (the migration plan §3.2).
  *
  * Same pure/impure split as install detection: core owns the target
  * allowlist (`targets.ts`), the store readers/interpreters

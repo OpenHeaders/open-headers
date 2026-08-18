@@ -1,6 +1,6 @@
 /**
  * Multi-Backend Phase 2 — the Org-uniqueness guard at WELCOME
- * (MULTI_BACKEND_PLAN.md §2): an Org is authoritative on exactly one
+ * (the multi-backend plan §2): an Org is authoritative on exactly one
  * backend. A WELCOME from wire B claiming an Org already bound to
  * still-present wire A is refused — the binding never moves, the join
  * is never double-consumed. A binding whose record was deleted is stale

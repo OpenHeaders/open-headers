@@ -1,5 +1,5 @@
 /**
- * Proxy capture service laws (PROXY_PLAN.md Phase 2) — the control
+ * Proxy capture service laws (the proxy plan Phase 2) — the control
  * surface that drives S5's capture engine and persists the port + §2.4
  * decrypt scope. Status is re-derived per call; scope edits validate and
  * persist (a bare `*` is unrepresentable); start/stop bind and unbind a

@@ -1,6 +1,6 @@
 /**
  * Desktop system-plane service — the mode-driven half of the
- * two-plane proxy architecture (docs/REQUEST_ENGINE_PROXY_DESIGN.md
+ * two-plane proxy architecture (the request-engine proxy design
  * P3): mode → resolver mapping over the P2 registry, the dedicated
  * Chromium resolver session's System/PAC wiring, per-device settings
  * hydration with malformed-slot tolerance, and the renderer-safe

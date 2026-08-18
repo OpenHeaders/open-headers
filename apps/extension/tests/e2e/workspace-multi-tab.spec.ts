@@ -4,7 +4,7 @@
  * `workspaceTabsChanged` broadcast → `useWorkspaceTabTitle` →
  * `document.title`.
  *
- * Scenarios come straight from the V5_FOUNDATION_PLAN.md §Phase 9
+ * Scenarios come straight from the v5 foundation plan §Phase 9
  * verification list:
  *   • 1 workspace tab open → title is exactly `Open Headers`.
  *   • Open a 2nd tab → both titles become `#1 Open Headers` /

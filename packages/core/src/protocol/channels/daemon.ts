@@ -52,7 +52,7 @@ export interface DaemonRpc {
   /**
    * This build's own release notes — the running server version and
    * the `changelog/daemon` entry body the daemon host embedded at
-   * build (CHANGELOG_PLAN.md §4.3), served here so the admin console
+   * build (the changelog plan §4.3), served here so the admin console
    * renders them without the browser ever dialing the feed. `notes`
    * null = entry-less build (entry-existence law) or a host that
    * embeds none (the desktop); the card hides either way.
@@ -67,7 +67,8 @@ export interface DaemonRpc {
   // Admin-only surface for issuing a short-lived pairing code that a
   // peer can confirm by opening a daemon-hosted URL. The peer never
   // sees these RPCs — they hit the HTTP routes attached to the same
-  // ws-server bind. See `data-plane.md` §11.4 hybrid pattern.
+  // ws-server bind. See the data-plane topologies design §11.4 hybrid
+  // pattern.
 
   /**
    * Allocate a fresh pairing code + URL. Returns the candidate URLs
@@ -189,7 +190,7 @@ export interface DaemonRpc {
     res: { ok: true } | { ok: false; error: string };
   };
 
-  // ── CLI provisioning (TUI_PLAN.md §7 / TUI_STATUS.md S15) ────────
+  // ── CLI provisioning (the TUI plan §7 / the TUI status log S15) ────────
   //
   // Admin-only. One-click setup of the host machine's `oh` CLI: mint an
   // `apiToken` labeled `CLI — <hostname>` through the same daemon-mutex
@@ -282,7 +283,7 @@ export interface DaemonRpc {
         userId: string;
         displayName: string;
         email: string | null;
-        /** Git commit-author email override (GIT_PLAN.md §11.5); null = derive from email/synthetic. */
+        /** Git commit-author email override (the git-sync plan §11.5); null = derive from email/synthetic. */
         gitEmail: string | null;
         createdAt: number;
         deactivatedAt: number | null;
@@ -325,7 +326,7 @@ export interface DaemonRpc {
 
   /**
    * Set (or clear, `gitEmail: null`) a directory user's git
-   * commit-author email override (GIT_PLAN.md §11.5) — the address
+   * commit-author email override (the git-sync plan §11.5) — the address
    * daemon-minted commits attribute the user's work to, so commits
    * link to their hosting-platform profile. The author name is always
    * the directory displayName. Refused on deactivated users.
@@ -336,7 +337,7 @@ export interface DaemonRpc {
   };
 
   /**
-   * The admin console's Git card (GIT_PLAN.md §11.5): every
+   * The admin console's Git card (the git-sync plan §11.5): every
    * `oh.workspaceTree.*` gesture rides this one channel as
    * `{ op, payload }`, answered by the daemon spine's shared verb
    * table under the same `daemon.admin` gate as the rest of this
@@ -384,7 +385,7 @@ export interface DaemonRpc {
     res: { ok: true } | { ok: false; error: string };
   };
 
-  // ── License slot (LICENSING_PLAN.md §3.3, slice 2) ───────────────
+  // ── License slot (the licensing plan §3.3, slice 2) ───────────────
   //
   // Admin-only. The slot (load / verify / watch of the host's
   // `license.key`) lives in the daemon spine; these RPCs are its whole
@@ -432,7 +433,7 @@ export interface DaemonRpc {
    * non-null when more rows match — echo it back as `after` for the
    * next page.
    */
-  // ── Proxy trust plane (PROXY_SECURITY.md §6, Phase 1) ────────────
+  // ── Proxy trust plane (the proxy-security design §6, Phase 1) ────────────
   //
   // Admin-only. The CA lifecycle behind the host capture plane's
   // consent wizard: install/remove the per-machine CA in concrete
@@ -573,7 +574,7 @@ export interface DaemonRpc {
     res: { ok: boolean; error?: string };
   };
 
-  // ── Proxy capture plane (PROXY_PLAN.md Phase 2) ──────────────────
+  // ── Proxy capture plane (the proxy plan Phase 2) ──────────────────
   //
   // Admin-only. The L7 capture proxy's control surface — bind/unbind
   // the local proxy port, read live state, and set the §2.4 decrypt
@@ -624,7 +625,7 @@ export interface DaemonRpc {
   };
 
   /**
-   * Flip the scoped browser-routing desire (OBSERVABILITY_PLAN.md
+   * Flip the scoped browser-routing desire (the observability plan
    * §5.1) — persisted, and pushed to every same-device browser peer as
    * the folded verdict (desire AND proxy bound). The response carries
    * the post-edit routing projection so the surface renders without a
@@ -646,7 +647,7 @@ export interface DaemonRpc {
     res: ProxyRoutingStatus;
   };
 
-  // ── Browser telemetry plane (OBSERVABILITY_PLAN.md Phase 1) ──────
+  // ── Browser telemetry plane (the observability plan Phase 1) ──────
   //
   // Admin-only. The live browser-tab inventory the workbench's Live
   // Network picker renders — gathered per call by asking every
@@ -693,7 +694,7 @@ export interface DaemonRpc {
 
   /**
    * One storage bridge call relayed to the extension peer named by
-   * `nodeId` (OBSERVABILITY_PLAN.md Phase 3 — the storage plane).
+   * `nodeId` (the observability plan Phase 3 — the storage plane).
    * `method`/`params`/`payload` are the verb's own `DevToolsRpc`
    * shapes, carried opaquely here; the caller's typed client narrows
    * them at the wire boundary. `ok` false = the peer is absent or never
@@ -705,7 +706,7 @@ export interface DaemonRpc {
     res: { ok: boolean; payload: unknown };
   };
 
-  // ── Agent-traffic tap (AGENT_TRAFFIC_PLAN.md §8 S1/S2) ────────────
+  // ── Agent-traffic tap (the agent-traffic plan §8 S1/S2) ────────────
   //
   // Admin-only. The operator plane of the daemon's traffic-retention
   // tap: arm/disarm a source, read content-free counters, and (S2) read

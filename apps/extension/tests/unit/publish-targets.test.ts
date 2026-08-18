@@ -1,6 +1,6 @@
 /**
  * derivePublishTargets — the joined-Org enumeration behind the Publish
- * picker (PUBLISH_TARGET_PICKER.md). Pins:
+ * picker (the publish-target picker design). Pins:
  *   - one target per binding, name-sorted, the home Org never listed;
  *   - health folds out of the annotation ladder: green / connecting
  *     stay selectable, off / disconnected / re-pair / removed-record

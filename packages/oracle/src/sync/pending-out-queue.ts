@@ -5,7 +5,7 @@
  * peer (WS disconnected, peer not handshook yet, transport error)
  * so a reconnect-flush (C15) can replay them in HLC order.
  *
- * Per `docs/PHASE_C_D_STATUS.md`: keyed per-remote so a single host
+ * Per the phase-C/D status log: keyed per-remote so a single host
  * can maintain independent queues against multiple peers (e.g. a
  * future setup with both a localhost desktop and a LAN daemon).
  * Until Phase D, there's exactly one remote — the backend WS — and

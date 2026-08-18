@@ -1,6 +1,6 @@
 /**
  * Coverage for the deterministic UUIDv7 derivation underlying every
- * synthetic identity row (UNIFIED_ORACLE_MODEL.md §5.1).
+ * synthetic identity row (the unified-oracle model §5.1).
  *
  * The contract:
  *   - Same seed → byte-identical UUID across runs.

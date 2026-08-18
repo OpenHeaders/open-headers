@@ -1,6 +1,6 @@
 /**
  * Entitlement vocabulary + the free-tier seat constant
- * (`LICENSING_PLAN.md` §2–§4).
+ * (the licensing plan §2–§4).
  *
  * Entitlements are capability strings, never plan booleans. v1 licenses
  * carry an empty `entitlements` array — `seats` is the only live claim —
@@ -17,7 +17,7 @@ export type ReservedEntitlement = (typeof RESERVED_ENTITLEMENTS)[number];
 /**
  * Active daemon users admitted without a license — enough to evaluate
  * team mode for real; actual teams pay. The seat gate
- * (`LICENSING_PLAN.md` §4) compares against
+ * (the licensing plan §4) compares against
  * `license?.seats ?? FREE_SEAT_LIMIT`; degradation after grace reverts
  * to this limit for NEW user creation only.
  */

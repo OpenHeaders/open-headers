@@ -1,5 +1,5 @@
 /**
- * The host's one job (OBSERVABILITY_PLAN.md §4 + §8 Phase 7): take the
+ * The host's one job (the observability plan §4 + §8 Phase 7): take the
  * extension's bootstrap request, dial the desktop daemon's loopback
  * `/nm/bootstrap` route, and relay the answer. Caller-identity
  * verification happens entirely on the daemon side — from OS truth

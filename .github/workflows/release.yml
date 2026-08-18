@@ -986,11 +986,10 @@ jobs:
           GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
           GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
 
-      # versions.json — the static severity manifest.
-      # Clients fetch it anonymously via /releases/latest/download/,
-      # which resolves to the newest non-prerelease, so beta tags never
-      # move it. Severity is authored in .github/release-severity.json
-      # before tagging, never inferred.
+      # versions.json — the static severity manifest. Clients fetch it
+      # anonymously from the update feed at versions/<channel>.json;
+      # the release-page copy is redundant. Severity is authored in
+      # .github/release-severity.json before tagging, never inferred.
       - name: Generate versions manifest
         run: |
           node scripts/generate-versions-manifest.mjs "$GITHUB_REF_NAME" > processed_files/versions.json
@@ -1228,7 +1227,7 @@ jobs:
           fi
 
       # The canonical entry's body rides the release page too
-      # (CHANGELOG_PLAN §4.2) — appended after the download tables so
+      # (the changelog plan §4.2) — appended after the download tables so
       # the Releases tab reads as a full changelog with no extra
       # authoring. Stubs and missing entries append nothing.
       - name: Append changelog entry to release body
@@ -1308,7 +1307,7 @@ jobs:
             "${{ steps.dl_base.outputs.url }}" \
             processed_files feed
 
-      # Changelog feed objects (CHANGELOG_PLAN §4.1) stage into the
+      # Changelog feed objects (the changelog plan §4.1) stage into the
       # same tree the pointer upload walks. The previously published
       # index is merged in fail-open — it may carry rows for entry-less
       # releases the canonical tree never records.
@@ -1366,7 +1365,7 @@ jobs:
               --no-progress
           done
 
-      # Flagship projection (CHANGELOG_PLAN §4.2): the canonical tree
+      # Flagship projection (the changelog plan §4.2): the canonical tree
       # + a regenerated interleaved CHANGELOG.md, committed to the
       # public repo's main. Entries keep their relative asset refs —
       # the tree layout travels whole, so links render on GitHub.

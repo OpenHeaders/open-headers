@@ -1,6 +1,6 @@
 /**
  * Host-local workspace eviction — the Discard leg of removing a
- * backend (MULTI_BACKEND_PLAN.md §4).
+ * backend (the multi-backend plan §4).
  *
  * A consumed workspace's Discard must NOT be a synced delete: the
  * remove mutation's tombstone carries a fresh local HLC that outranks

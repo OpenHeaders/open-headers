@@ -1,5 +1,5 @@
 /**
- * Lifeline acceptor for sessions-archive replay (AGENT_TRAFFIC_PLAN.md
+ * Lifeline acceptor for sessions-archive replay (the agent-traffic plan
  * §11.1, C6) — a workbench surface opens `oh-replay:<archiveId>` and is
  * served the sealed session's recorded envelope stream over the SAME
  * wire vocabulary a live lifecycle lifeline speaks. No bespoke viewer

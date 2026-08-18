@@ -1,7 +1,7 @@
 /**
  * Append-only mutation log for the local oracle (Phase A R5).
  *
- * Per `docs/SYNC_ENGINE_DESIGN.md` §9.1, the log lives in IndexedDB,
+ * Per the sync-engine design §9.1, the log lives in IndexedDB,
  * not `chrome.storage.local` — `chrome.storage.local.set` serializes
  * the entire stored value on every write, terrible for an append-only
  * stream. The HLC string codec drives the IDB primary key so

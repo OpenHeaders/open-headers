@@ -114,7 +114,7 @@ export type EvaluateHelloOutcome =
 
 /**
  * Per-handshake gating options. When `requireAuth` is true (the host
- * sets it on every connection per `UNIFIED_ORACLE_MODEL.md` §4.2), the
+ * sets it on every connection per the unified-oracle model §4.2), the
  * dispatcher hashes `hello.authToken` and constant-time-compares against
  * the persisted daemon auth-token ledger. A miss becomes a WELCOME with
  * `reason: 'auth-required'` — the peer surfaces "this daemon requires

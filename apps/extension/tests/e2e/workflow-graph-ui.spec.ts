@@ -1,5 +1,5 @@
 /**
- * Workflow graph mode — slices 1+2+3+4 e2e (WORKFLOW_GRAPH_PLAN.md §7).
+ * Workflow graph mode — slices 1+2+3+4 e2e (the workflow-graph plan §7).
  *
  * Seeds a fan-out/fan-in workflow via real RPC (request + workflow +
  * one bound LV for the exposure mark), opens its editor from the

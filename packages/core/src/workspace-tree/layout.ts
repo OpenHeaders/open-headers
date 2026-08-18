@@ -1,7 +1,7 @@
 /**
  * Workspace-tree layout constants — the single authority for where each
  * entity's files live inside a materialized workspace folder
- * (SYNC_ENGINE_DESIGN.md §23.8, GIT_PLAN.md §4).
+ * (the sync-engine design §23.8, the git-sync plan §4).
  *
  * Placement of tree-resident entities (collections, folders, requests,
  * rules, templates, specs, live workflows/variables) comes from the
@@ -33,14 +33,14 @@ export const GITIGNORE_FILE = '.gitignore';
 export const GITATTRIBUTES_FILE = '.gitattributes';
 
 /**
- * Authored at bind (GIT_PLAN.md §3.4): byte-determinism guard so
+ * Authored at bind (the git-sync plan §3.4): byte-determinism guard so
  * `core.autocrlf` on Windows can never rewrite the canonical LF
  * serialization on checkout/commit.
  */
 export const WORKSPACE_GITATTRIBUTES_CONTENT = '*.yaml text eol=lf\n';
 
 /**
- * Authored at bind (GIT_PLAN.md §10 Phase 2). `.oh/` is the engine's
+ * Authored at bind (the git-sync plan §10 Phase 2). `.oh/` is the engine's
  * cache tier; `*.secret.yaml` keeps environment secrets and the vault
  * out of every commit (the committed `.secret.yaml.template` skeletons
  * carry the key names teammates need to fill in).

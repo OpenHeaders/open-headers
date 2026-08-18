@@ -1,5 +1,5 @@
 /**
- * Migration pull mirror — the web tab's face of the MIGRATION_PLAN.md
+ * Migration pull mirror — the web tab's face of the migration plan
  * S5-addendum law: progress auto-syncs to every connected surface.
  *
  * The serving daemon fans the operator's `migrationPullEvent` frames to

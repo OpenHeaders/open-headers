@@ -1,6 +1,6 @@
 /**
  * Canonical-codec property harness — the Phase 1 P0 gate of the git
- * epic (GIT_PLAN.md §8 round-trip law; SYNC_ENGINE_DESIGN.md §13.2,
+ * epic (the git-sync plan §8 round-trip law; the sync-engine design §13.2,
  * §23.3). The codec ships WITH this harness or not at all.
  *
  * Three properties over 1000+ seeded entities across the catalogue:

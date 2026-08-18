@@ -1,7 +1,7 @@
 /**
  * Browser console-plane streaming wire types — the observability plane's
  * console channels on the extension ↔ daemon WebSocket
- * (OBSERVABILITY_PLAN.md Phase 4).
+ * (the observability plan Phase 4).
  *
  * The console plane is push-shaped (page-emitted events, not pulls), so
  * the wire mirrors the lifecycle trio, NOT the storage relay: a

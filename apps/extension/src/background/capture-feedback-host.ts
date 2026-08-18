@@ -1,6 +1,6 @@
 /**
  * Capture-feedback host — the extension side of the in-browser capture
- * badge (AGENT_TRAFFIC_PLAN.md §4).
+ * badge (the agent-traffic plan §4).
  *
  * The desktop owns the capture truth (the tap's armed-source registry);
  * this host only FEEDS it into the captured-tab ledger. Each state

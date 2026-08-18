@@ -408,7 +408,7 @@ export async function bootstrap(): Promise<void> {
   // private home Org id is derived deterministically here from the
   // host-install-id seed — same input `ensureSyntheticIdentity` will
   // use moments later, so the two end up referencing identical UUIDs.
-  // Per UNIFIED_ORACLE_MODEL.md §5.1 this derivation is the recovery
+  // Per the unified-oracle model §5.1 this derivation is the recovery
   // key for orphan-data reconnection too.
   const config = await ensureDaemonConfig();
   const orgId = await deriveSyntheticUuidV7(SYNTHETIC_SEEDS.org(config.hostInstallId));

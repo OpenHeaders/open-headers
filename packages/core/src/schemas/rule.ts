@@ -104,7 +104,7 @@ export const RuleBaseSchema = v.object({
   conditions: v.array(RuleConditionSchema),
 });
 // `version: number` was the Phase 10 stale-draft counter — the sync
-// engine (`docs/SYNC_ENGINE_DESIGN.md` §24 kill list) replaces it with
+// engine (the sync-engine design §24 kill list) replaces it with
 // HLC-stamped per-field LWW. Other entities keep their `version` until
 // Phase B; rule is the first to drop it.
 

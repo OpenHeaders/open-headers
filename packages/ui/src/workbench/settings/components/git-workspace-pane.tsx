@@ -1,6 +1,6 @@
 /**
  * GitWorkspacePane — right-pane renderer for the Git category (Node
- * hosts; desktop-gated at the category). The GIT_PLAN.md §9 settings
+ * hosts; desktop-gated at the category). The git-sync plan §9 settings
  * card: bind the active workspace to an on-disk folder (init when
  * empty), surface the four typed bind refusals, list the tree's
  * quarantined documents, and unbind — plus the Phase 3 git section:
@@ -13,7 +13,7 @@
  * desktop shell's native dialog with a plain path input as the
  * universal fallback.
  *
- * Reused by the daemon admin console (GIT_PLAN.md §11.5) with an
+ * Reused by the daemon admin console (the git-sync plan §11.5) with an
  * injected `transport` that rides the gated
  * `oh.daemon.workspaceTree.dispatch` wire channel — same card, same
  * verbs, remote daemon. There the native picker is absent

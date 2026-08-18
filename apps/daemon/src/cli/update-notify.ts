@@ -1,5 +1,5 @@
 /**
- * `ohd status` availability line (`DISTRIBUTION_PLAN.md` §5, daemon
+ * `ohd status` availability line (the distribution plan §5, daemon
  * row) — the notify half of the update pair. Status is an explicit,
  * short-lived probe command, so unlike the client CLI there is no
  * cache: one best-effort anonymous GET of the channel's pointer file,

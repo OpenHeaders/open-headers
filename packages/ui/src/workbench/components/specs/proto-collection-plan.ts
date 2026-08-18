@@ -1,5 +1,5 @@
 /**
- * Protobuf spec → collection generation plan (GRPC_CLIENT_PLAN.md
+ * Protobuf spec → collection generation plan (the gRPC-client plan
  * Phase G) — the pure derivation behind the proto spec editor's
  * Generate Collection action.
  *

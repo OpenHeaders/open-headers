@@ -1,6 +1,6 @@
 /**
  * MigrateAccountPullModal — the extension's migration entry
- * (EXTENSION_ACCOUNT_PULL_PLAN.md Phase D: the funnel redesign).
+ * (the extension account-pull plan Phase D: the funnel redesign).
  *
  * The account pull runs NATIVELY on this host — the background service
  * worker answers the same `oh.migration.postmanPull.*` RPC pair the

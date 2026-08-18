@@ -1,6 +1,6 @@
 /**
  * System-plane proxy settings — the per-DEVICE half of the
- * two-plane proxy architecture (docs/REQUEST_ENGINE_PROXY_DESIGN.md).
+ * two-plane proxy architecture (the request-engine proxy design).
  * Host-local by design (the vault posture): "on this machine, egress
  * works like this" is machine state, never workspace data, and never
  * syncs. Not a sensitive slot — the manual credential is a vault entry

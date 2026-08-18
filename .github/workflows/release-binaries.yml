@@ -540,7 +540,7 @@ jobs:
               --no-progress
           done
 
-      # Flagship projection (CHANGELOG_PLAN §4.2), same gate as the
+      # Flagship projection (the changelog plan §4.2), same gate as the
       # suite lane.
       - name: Project changelog to flagship repo
         env:

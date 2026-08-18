@@ -1,5 +1,5 @@
 /**
- * Partition-mirror pins (AGENT_TRAFFIC_PLAN.md §11.2, C2): one wire
+ * Partition-mirror pins (the agent-traffic plan §11.2, C2): one wire
  * session per watched partition regardless of reader count, viewers
  * served hub-style from the LOCAL store (§10 read-model law), the tap
  * fed the verbatim envelope stream with the synthesized arm floor for

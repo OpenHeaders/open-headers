@@ -1,5 +1,5 @@
 /**
- * Sessions-archive pins (AGENT_TRAFFIC_PLAN.md §11.4/§11.5, C3): the
+ * Sessions-archive pins (the agent-traffic plan §11.4/§11.5, C3): the
  * OHS2 container round-trips with digest integrity, the seal keys mint
  * once and reload, the CAS dedups by plaintext digest across sessions,
  * the recorder writes the v2 event log (payloads over the threshold

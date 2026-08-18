@@ -36,7 +36,7 @@ interface EmptyStateProps {
   onCreateVariable: (scope: VariableCreateScope) => void;
   /** Opens the import hub — formats are auto-detected there. */
   onImport: () => void;
-  /** First-run migration offer (MIGRATION_STATUS.md S5 addendum) —
+  /** First-run migration offer (the migration status log S5 addendum) —
    *  present only on hosts with the migration ladder while the
    *  workspace has no data yet. */
   onMigrate?: () => void;

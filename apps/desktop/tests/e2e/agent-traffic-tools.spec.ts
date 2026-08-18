@@ -1,6 +1,6 @@
 /**
  * Agent traffic S3 E2E — the first observe-tier MCP tools against the
- * real dual-app stack (AGENT_TRAFFIC_PLAN.md §7.2 `known-shape` +
+ * real dual-app stack (the agent-traffic plan §7.2 `known-shape` +
  * `failure-mix` + `body-shapes`, §8 S3), driven over HTTP `/mcp` like
  * an agent client:
  *

@@ -1,6 +1,6 @@
 /**
  * Telemetry stream host — the extension side of the browser live-
- * telemetry plane (OBSERVABILITY_PLAN.md Phase 1).
+ * telemetry plane (the observability plan Phase 1).
  *
  * Serves the desktop's watch of browser tabs over the backend WS wire,
  * mirroring what `lifecycle-port-host` does for a chrome runtime port:

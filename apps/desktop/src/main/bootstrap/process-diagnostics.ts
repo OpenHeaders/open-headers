@@ -10,8 +10,8 @@
  *   - Renderer: `render-process-gone` (crash / killed), `unresponsive`
  *     / `responsive` (event loop blocked).
  *
- * Output is `console.*` for now; a structured logger (electron-log to
- * file in packaged builds) lands in a separate slice.
+ * Output goes through the shared main-process logger (electron-log's
+ * file transport in packaged builds — see `./logger`).
  */
 
 import type { BrowserWindow } from 'electron';

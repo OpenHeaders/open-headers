@@ -25,7 +25,7 @@
  * their original parent maps on serialize. The brands simply prevent
  * the codec from being called with the wrong input.
  *
- * See docs/V5_FOUNDATION_PLAN.md §Phase 0 #4.
+ * See the v5 foundation plan §Phase 0 #4.
  */
 
 /**

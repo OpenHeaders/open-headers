@@ -14,7 +14,7 @@
  * writes it.
  *
  * `orgId` is host-local tenancy context and never manifest content
- * (GIT_PLAN.md §5): serialize never emits it, and parse drops it
+ * (the git-sync plan §5): serialize never emits it, and parse drops it
  * without capturing an unknown row — a manifest that still carries one
  * normalizes clean on the next write. The binding host injects its own
  * Org when it consumes the parsed manifest.

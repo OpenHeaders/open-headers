@@ -1,7 +1,7 @@
 /**
  * Telemetry consent gate — the single enforcement point the three
  * telemetry hosts (lifecycle, storage, console) read before serving a
- * desktop peer (OBSERVABILITY_PLAN.md §8 Phase 7): identity decides WHO
+ * desktop peer (the observability plan §8 Phase 7): identity decides WHO
  * may attach (the NM plane), consent decides WHAT an attached peer may
  * subscribe to. The gate covers the watch planes only — rules/sync ride
  * the same wire untouched.

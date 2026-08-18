@@ -1,6 +1,6 @@
 /**
  * Service-worker fetch routing — the pure decision half of the PWA
- * offline shell (Phase 6, DAEMON_PLAN.md §8). Classifies one fetch into
+ * offline shell (Phase 6, the daemon plan §8). Classifies one fetch into
  * what the worker does with it; the worker body (`sw.ts`) owns the
  * cache mechanics.
  *

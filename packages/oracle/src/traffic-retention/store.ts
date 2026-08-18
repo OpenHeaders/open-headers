@@ -1,6 +1,6 @@
 /**
  * `TrafficRetentionRing` — one armed source's bounded in-memory record
- * ring (AGENT_TRAFFIC_PLAN.md §3). Host-neutral: no node deps, no
+ * ring (the agent-traffic plan §3). Host-neutral: no node deps, no
  * chrome deps; the tap in `oracle-host-node` feeds it and any future
  * host (browser-extension surfaces included) can reuse it as-is.
  *

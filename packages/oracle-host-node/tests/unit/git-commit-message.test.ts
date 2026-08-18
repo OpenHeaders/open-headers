@@ -1,5 +1,5 @@
 /**
- * Semantic commit-message composition (GIT_PLAN.md §23.4) — batch
+ * Semantic commit-message composition (the git-sync plan §23.4) — batch
  * intents fold to a one-line draft; per-entity strongest verb wins;
  * empty intents fall back to the generic message.
  */

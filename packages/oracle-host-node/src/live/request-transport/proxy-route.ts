@@ -1,7 +1,7 @@
 /**
  * Per-send proxy-route resolution — the request plane's order of
  * precedence over the system plane, turned into the attempt list
- * the transport walks (docs/REQUEST_ENGINE_PROXY_DESIGN.md):
+ * the transport walks (the request-engine proxy design):
  *
  *   1. Request plane `proxyMode: 'url'` / a set `proxyUrl` → that
  *      proxy, exactly today's behavior (guards and errors included).

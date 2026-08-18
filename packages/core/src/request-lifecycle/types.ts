@@ -3,7 +3,7 @@
  *
  * One typed lifecycle per request, per tab, with one owner. Replaces the
  * legacy 5-stream + 1,374-line panel-store implicit pipeline. See
- * `docs/REQUEST_LIFECYCLE_DESIGN.md` for the full architecture; this
+ * the request-lifecycle design for the full architecture; this
  * module owns the wire-shaped data the engine produces and every
  * consumer (panel, popup, rule-engine) reduces against.
  *

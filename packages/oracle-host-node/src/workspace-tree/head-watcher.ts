@@ -1,5 +1,5 @@
 /**
- * `.git/HEAD` watcher — the external-checkout trigger (GIT_PLAN.md §10
+ * `.git/HEAD` watcher — the external-checkout trigger (the git-sync plan §10
  * Phase 6). The tree watcher deliberately ignores `.git/`, and a
  * terminal `git checkout` between branches with identical trees moves
  * nothing BUT `HEAD` — so branch moves need their own signal: a

@@ -242,7 +242,7 @@ const ImportExportModals = forwardRef<ImportExportModalsHandle, ImportExportModa
     noteFeatureUsed('import-hub');
   }, []);
 
-  // Migration surface (EXTENSION_ACCOUNT_PULL_PLAN.md Phase D). The
+  // Migration surface (the extension account-pull plan Phase D). The
   // desktop gets the full ladder modal (install detection + the data
   // scan need fs); the extension gets the native account-pull modal —
   // its service worker answers the same `oh.migration.postmanPull.*`
@@ -261,7 +261,7 @@ const ImportExportModals = forwardRef<ImportExportModalsHandle, ImportExportModa
   }, [migrationAvailable, currentHost]);
 
   /**
-   * Hub routing (IMPORT_PLAN.md §2.1): a recognized paste or file lands
+   * Hub routing (the import plan §2.1): a recognized paste or file lands
    * in the matching stage-2 flow pre-filled, carrying the hub's
    * collection context. `unknown` never reaches here — the hub keeps it
    * inline with a hint.
@@ -314,7 +314,7 @@ const ImportExportModals = forwardRef<ImportExportModalsHandle, ImportExportModa
 
   /**
    * Materialize backup header presets as UNPUBLISHED header rules
-   * (MIGRATION_STATUS.md S2 decision): one rule per preset, all-`add`
+   * (the migration status log S2 decision): one rule per preset, all-`add`
    * modifications, no conditions — the publication gate keeps them
    * inert until the user scopes and publishes them. They land in a
    * dedicated rule collection so the sidebar shows one obvious home.

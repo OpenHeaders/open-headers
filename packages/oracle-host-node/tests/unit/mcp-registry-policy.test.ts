@@ -201,7 +201,7 @@ describe('gateMcpToolCall', () => {
     );
   });
 
-  describe('observe tier (AGENT_TRAFFIC_PLAN.md §4 — the S2 grant model)', () => {
+  describe('observe tier (the agent-traffic plan §4 — the S2 grant model)', () => {
     it('is disabled by default — a read-enabled host denies observe tools outright', async () => {
       const tool = makeTool({ tier: 'observe', resolveWorkspaceId: () => WS_ID });
       expect(await reasonOf(gateMcpToolCall(tool, {}, policyOf('read'), ctxOf(operatorUserId)))).toBe('tier-disabled');

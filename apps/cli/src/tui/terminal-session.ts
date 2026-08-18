@@ -5,7 +5,7 @@
  * exit, SIGINT, SIGTERM, uncaughtException. Restore is idempotent;
  * whichever path fires first wins and the rest are no-ops. Mouse mode
  * lives and dies with the session so terminal-native selection returns
- * the instant the alt screen closes (TUI_DESIGN.md §2.1).
+ * the instant the alt screen closes (the TUI design §2.1).
  */
 
 import type { ProcessLike, TtyInput, TtyOutput } from './tty';

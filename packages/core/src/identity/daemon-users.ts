@@ -127,7 +127,7 @@ export async function createDaemonUser(input: CreateDaemonUserInput): Promise<Cr
     ) {
       return { ok: false, reason: 'duplicate-email' };
     }
-    // The seat gate (LICENSING_PLAN.md §4) — the ONE enforcement point
+    // The seat gate (the licensing plan §4) — the ONE enforcement point
     // every user-adding path funnels through: admin console RPC, CLI
     // `user add`, OIDC auto-provision. Counted against ACTIVE records
     // only, so deactivating a user frees their seat immediately; the
@@ -347,7 +347,7 @@ export type SetDaemonUserGitEmailResult =
 
 /**
  * Set or clear a directory user's git commit-author email override
- * (GIT_PLAN.md §11.5). `null` clears it — attribution then falls back
+ * (the git-sync plan §11.5). `null` clears it — attribution then falls back
  * to the identity email, then the synthetic noreply address. Refused
  * on deactivated records, same posture as the password setter.
  */
@@ -402,7 +402,7 @@ export async function setDaemonUserWorkspaceCreate(
   });
 }
 
-/** Git-author identity for daemon-minted commits (GIT_PLAN.md §11.5). */
+/** Git-author identity for daemon-minted commits (the git-sync plan §11.5). */
 export interface DaemonUserGitAttribution {
   readonly name: string;
   readonly email: string;
@@ -410,7 +410,7 @@ export interface DaemonUserGitAttribution {
 
 /**
  * The commit-author identity a contributing userId resolves to
- * (GIT_PLAN.md §11.5 / SYNC_ENGINE_DESIGN.md §23.6). The name is
+ * (the git-sync plan §11.5 / the sync-engine design §23.6). The name is
  * always the directory `displayName` — attribution never drifts from
  * the directory; the email walks gitEmail → identity email → the
  * synthetic `<userId>@users.noreply.openheaders.io` (deterministic and

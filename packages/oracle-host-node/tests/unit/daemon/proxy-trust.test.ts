@@ -1,5 +1,5 @@
 /**
- * Proxy trust-plane laws (PROXY_SECURITY.md §2/§5/§6) — the CA mints
+ * Proxy trust-plane laws (the proxy-security design §2/§5/§6) — the CA mints
  * once per machine and persists ONLY through the sealed sensitive slot
  * (a cipher-less host refuses, never plaintext); public projections and
  * RPC results carry no key material; leaves are short-lived, signed by

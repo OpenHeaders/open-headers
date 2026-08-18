@@ -1,6 +1,6 @@
 /**
  * Connection resolution — the flag → env → config → default order the
- * plan pins (CLI_PLAN.md §3), plus URL normalization.
+ * plan pins (the CLI plan §3), plus URL normalization.
  */
 
 import { describe, expect, it } from 'vitest';

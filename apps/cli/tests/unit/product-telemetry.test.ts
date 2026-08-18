@@ -1,5 +1,5 @@
 /**
- * CLI product-telemetry adapter (`TELEMETRY_PLAN.md` §2/§7) — the
+ * CLI product-telemetry adapter (the telemetry plan §2/§7) — the
  * OH_TELEMETRY/config gate matrix, the quiet-terminal posture (no
  * runtime notice; the disclosure lives in the docs), the
  * `session_start` envelope one invocation earns, and the

@@ -1,5 +1,5 @@
 /**
- * `TrafficRetentionRing` law pins (AGENT_TRAFFIC_PLAN.md §3, slice S1):
+ * `TrafficRetentionRing` law pins (the agent-traffic plan §3, slice S1):
  * dual bounds (count + bytes, byte ceiling trips first when tripped),
  * FIFO eviction, monotonic eviction (no replay resurrection), in-place
  * updates that never re-order, growth-triggered eviction, oversize

@@ -1,5 +1,5 @@
 /**
- * Cache Storage data plane (STORAGE_PANEL_PLAN.md §5, slice 5) — the
+ * Cache Storage data plane (the storage-panel plan §5, slice 5) — the
  * injected read/delete funcs run against a Map-backed `caches` stub
  * (Node's real `Request`/`Headers` globals); the arbitrated RPC surface
  * is exercised over both transports: injected via the mocked

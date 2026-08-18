@@ -1,7 +1,7 @@
 /**
  * Browser storage-plane relay wire types — the observability plane's
  * storage channels on the extension ↔ daemon WebSocket
- * (OBSERVABILITY_PLAN.md Phase 3).
+ * (the observability plan Phase 3).
  *
  * The storage plane is pull-shaped: the shared Storage tool window reads
  * through paged RPCs and lazy document fetches, and writes are the same

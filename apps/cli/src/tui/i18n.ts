@@ -1,6 +1,6 @@
 /**
  * TUI translation surface — the shared catalog architecture's `tui.*`
- * namespace (TUI_DESIGN.md §6.3), compiled into the binary. v1 ships
+ * namespace (the TUI design §6.3), compiled into the binary. v1 ships
  * English only; locale resolution still reads the environment
  * (LC_ALL → LC_MESSAGES → LANG, terminal convention) so locale waves
  * reach the TUI without touching call sites. Keys are typed against

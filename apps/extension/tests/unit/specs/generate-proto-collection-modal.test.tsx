@@ -1,6 +1,6 @@
 /**
  * GenerateProtoCollectionModal — the Protobuf spec editor's Generate
- * Collection action (GRPC_CLIENT_PLAN.md Phase G). Pins:
+ * Collection action (the gRPC-client plan Phase G). Pins:
  *   - the modal pre-fills the name from the spec entity and shows the
  *     method/service counts;
  *   - Generate creates the collection, one folder per service (multi-

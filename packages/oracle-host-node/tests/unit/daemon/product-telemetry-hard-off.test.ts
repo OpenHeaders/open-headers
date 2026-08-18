@@ -1,5 +1,5 @@
 /**
- * Hard-off gate for product telemetry (`TELEMETRY_PLAN.md` §2): the
+ * Hard-off gate for product telemetry (the telemetry plan §2): the
  * daemon spine — including its MCP and served-web surfaces — must stay
  * structurally incapable of counting anything, not flagged-off. A
  * text-level sweep pins that: no module in this package may import the

@@ -7,7 +7,7 @@
  * surface mint its own instanceId at construction.
  *
  * The local oracle is the **single GC authority**
- * (`docs/SYNC_ENGINE_DESIGN.md` §14.2): surfaces report their state, the
+ * (the sync-engine design §14.2): surfaces report their state, the
  * store prunes by `lastActivityHlc` physical-time TTL on every publish,
  * and a canonical presence list is emitted whenever the visible set
  * changes.

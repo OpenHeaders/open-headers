@@ -3,7 +3,7 @@
  * optional `runIf` gate. Surfaces the full architectural capability
  * (match mode + 4 v1 clause kinds + 3 future clause kinds + OR future)
  * with a show-but-disable policy on unimplemented features; see
- * `docs/LIVE_ORCHESTRATION_PLAN.md` §UI — show-but-disable catalog.
+ * the live-orchestration plan §UI — show-but-disable catalog.
  *
  * Validation errors flow in through `errors`; every clause row that
  * matches an error kind (`gate-unknown-stepid` / `gate-unreachable-stepid`

@@ -1,6 +1,6 @@
 /**
  * GenerateCollectionModal — the spec editor's Generate Collection
- * action (API_SPECS_PLAN.md Phase E).
+ * action (the API-specs plan Phase E).
  *
  * Generation reuses the import machinery wholesale (§4 law): the SAVED
  * canonical spec source parses through `parseOpenApi` (response

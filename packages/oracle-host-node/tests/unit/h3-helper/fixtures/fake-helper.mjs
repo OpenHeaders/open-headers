@@ -1,5 +1,5 @@
 // Protocol-faithful fake HTTP/3 helper — speaks the framed stdio
-// protocol (docs/REQUEST_ENGINE_H3_PROTOCOL.md) over real child-process
+// protocol (the request-engine H3-protocol design) over real child-process
 // stdio so the client/hop/transport suites exercise spawn, HELLO
 // gating, multiplexing, cancel, and crash against the actual wire
 // shape. Behaviors key off the request URL's path; session-level knobs

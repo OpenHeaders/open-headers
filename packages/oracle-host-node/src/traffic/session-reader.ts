@@ -1,5 +1,5 @@
 /**
- * Sealed-session read plane for replay (AGENT_TRAFFIC_PLAN.md §11.1
+ * Sealed-session read plane for replay (the agent-traffic plan §11.1
  * "replay is the live UI", C6) — the first consumer that reads an
  * event log back. One sealed session opens into:
  *

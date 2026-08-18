@@ -1,6 +1,6 @@
 /**
  * Session MCP tools — the C7 tier of the agent traffic epic
- * (AGENT_TRAFFIC_PLAN.md §11.5): agent reads over the sessions ARCHIVE,
+ * (the agent-traffic plan §11.5): agent reads over the sessions ARCHIVE,
  * the durable sibling of the live `traffic_*` family. Three tools, all
  * `observe`-tier:
  *

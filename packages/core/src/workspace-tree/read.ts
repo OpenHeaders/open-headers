@@ -1,6 +1,6 @@
 /**
  * Tree reader — a flat file listing in, a workspace snapshot out
- * (GIT_PLAN.md §10 Phase 2; the tree→engine direction of §3.1 rung 2).
+ * (the git-sync plan §10 Phase 2; the tree→engine direction of §3.1 rung 2).
  *
  * Classification is by file-name convention (the same conventions the
  * planner writes): manifest names identify entities, the first path

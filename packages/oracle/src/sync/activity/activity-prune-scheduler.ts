@@ -23,7 +23,7 @@ import type { ActivityLog } from './activity-log';
 
 const SCOPE = 'ActivityPrune';
 
-/** Default retention window — 7 days, per `docs/DATA_PLANE_TOPOLOGIES.md` §11.6. */
+/** Default retention window — 7 days, per the data-plane topologies design §11.6. */
 export const ACTIVITY_PRUNE_DEFAULT_RETENTION_MS = 7 * 24 * 60 * 60 * 1000;
 
 /** Default sweep cadence — once an hour. Cheap enough to skip throttling. */

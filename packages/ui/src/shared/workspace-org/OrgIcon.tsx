@@ -1,5 +1,5 @@
 /**
- * OrgIcon — an Org's identity glyph (UNIFIED_ORACLE_MODEL.md §6.2).
+ * OrgIcon — an Org's identity glyph (the unified-oracle model §6.2).
  *
  * Precedence, most-specific fact first:
  *

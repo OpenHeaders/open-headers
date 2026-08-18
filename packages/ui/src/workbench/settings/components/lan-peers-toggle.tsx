@@ -1,6 +1,6 @@
 /**
  * LAN-peers toggle — custom editor for `backend.bindAddress` (Phase U3.1
- * per `UNIFIED_ORACLE_MODEL.md` §4.2 + `DATA_PLANE_TOPOLOGIES.md` §11.4).
+ * per the unified-oracle model §4.2 + the data-plane topologies design §11.4).
  *
  * The persisted setting is the literal bind address string so future
  * deliverables (interface-specific binds, IPv6) extend the enum without

@@ -1,7 +1,7 @@
 /**
  * Update-feed client for the desktop teaser — resolves the latest
  * desktop installer for THIS platform from the same static manifest
- * every app reads (`docs/DISTRIBUTION_PLAN.md` §3): the release
+ * every app reads (the distribution plan §3): the release
  * workflow writes `versions/stable.json` behind
  * `updates.openheaders.io` (CORS-enabled, edge-cached five minutes)
  * with the desktop entry's `latest` version + release `tag`, and

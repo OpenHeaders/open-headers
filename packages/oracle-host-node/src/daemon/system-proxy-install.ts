@@ -1,5 +1,5 @@
 /**
- * Node-tier system-plane install (docs/REQUEST_ENGINE_PROXY_DESIGN.md
+ * Node-tier system-plane install (the request-engine proxy design
  * P4) — the daemon/CLI/TUI half of the mode-driven service the desktop
  * ships in its shell. Same per-device slot (`OH.systemProxy`),
  * same resolvers; the tier's modes are Off / Env / Manual with Env the

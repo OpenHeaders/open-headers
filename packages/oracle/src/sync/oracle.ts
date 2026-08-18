@@ -6,7 +6,7 @@
  * `RuleOracle` while Phase A only had Rule; renamed in Phase B once
  * Environment landed as a second consumer.
  *
- * Per `docs/SYNC_ENGINE_DESIGN.md` §11.1 the oracle:
+ * Per the sync-engine design §11.1 the oracle:
  *
  *   1. Serializes concurrent mutations from multiple surfaces via
  *      `withLock(entityLockName(ws, type, id))` — the lock is

@@ -1,5 +1,5 @@
 /**
- * Session tools (AGENT_TRAFFIC_PLAN.md §11.5, C7) over a fake session
+ * Session tools (the agent-traffic plan §11.5, C7) over a fake session
  * query plane: the three-tool registration contract (observe tier +
  * mandatory workspace resolution — the visibility seam's precondition),
  * host-side filters + pagination over one session's rows, the archived

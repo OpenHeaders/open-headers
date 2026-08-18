@@ -1,5 +1,5 @@
 /**
- * Replay read-plane pins (AGENT_TRAFFIC_PLAN.md §11.1, C6): a sealed
+ * Replay read-plane pins (the agent-traffic plan §11.1, C6): a sealed
  * session opens into the verbatim envelope stream in arrival order;
  * the markers resolve where the LIVE contract puts each payload —
  * har-attached bodies and stream frames re-inline into the stream,

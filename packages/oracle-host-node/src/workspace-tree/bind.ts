@@ -1,6 +1,6 @@
 /**
  * Bind / unbind — attach one workspace to one on-disk tree
- * (GIT_PLAN.md §3.5 exclusivity + identity; §10 Phase 2).
+ * (the git-sync plan §3.5 exclusivity + identity; §10 Phase 2).
  *
  * Bind establishes three facts, refusing loudly when any fails:
  *   - identity: `workspace.yaml` carries the workspace uid (written on

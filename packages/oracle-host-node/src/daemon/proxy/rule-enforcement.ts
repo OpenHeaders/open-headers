@@ -1,5 +1,5 @@
 /**
- * Rule enforcement on the proxy plane (`PROXY_PLAN.md` Phase 3) — the
+ * Rule enforcement on the proxy plane (the proxy plan Phase 3) — the
  * unification payoff: a rule authored once runs verbatim through the
  * MITM path. Pure planning module: given the current effective+resolved
  * rule set and one captured request, produce an enforcement plan the

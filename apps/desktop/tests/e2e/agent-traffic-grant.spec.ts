@@ -1,6 +1,6 @@
 /**
  * Agent traffic S2 E2E — the grant model against the real dual-app
- * stack (AGENT_TRAFFIC_PLAN.md §7.2 `agent-traffic/unarmed` +
+ * stack (the agent-traffic plan §7.2 `agent-traffic/unarmed` +
  * `agent-traffic/secrets-bearing` — the epic's most important test).
  *
  *   1. Launch the built desktop app isolated on a fresh daemon port;

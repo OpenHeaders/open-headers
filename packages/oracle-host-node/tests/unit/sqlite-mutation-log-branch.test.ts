@@ -1,5 +1,5 @@
 /**
- * Per-branch mutation log (DATA_PLANE_TOPOLOGIES.md §6.3; GIT_PLAN.md
+ * Per-branch mutation log (the data-plane topologies design §6.3; the git-sync plan
  * Phase 6): rows are stamped with the active branch, ordered reads see
  * the branchless trunk plus the active branch only — never a sibling
  * branch's rows — and compaction is branch-local. Also pins the

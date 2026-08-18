@@ -3,7 +3,7 @@
  * pipeline.
  *
  * Contents are all chrome-bound; oracle (`@openheaders/oracle/*`) stays
- * chrome-free by design. See `docs/REQUEST_LIFECYCLE_DESIGN.md` §6.2.
+ * chrome-free by design. See the request-lifecycle design §6.2.
  */
 
 export type {

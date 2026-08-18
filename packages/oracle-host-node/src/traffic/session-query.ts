@@ -1,5 +1,5 @@
 /**
- * Agent-facing read plane over the sessions archive (AGENT_TRAFFIC_PLAN.md
+ * Agent-facing read plane over the sessions archive (the agent-traffic plan
  * §11.5, C7) — the projection consumer the session MCP tools speak
  * through. One sealed session opens via the SAME read replay uses
  * (`archive.openReplay`) and folds through the SAME retention reducer

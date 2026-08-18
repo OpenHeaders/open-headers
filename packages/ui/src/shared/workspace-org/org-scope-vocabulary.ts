@@ -1,6 +1,6 @@
 /**
  * org-scope-vocabulary — two decoupled vocabularies the workspace
- * org-binding UI reads from (UNIFIED_ORACLE_MODEL.md §6.2 / §6.4):
+ * org-binding UI reads from (the unified-oracle model §6.2 / §6.4):
  *
  *   - sync-reach    — keyed by {@link OrgScopeKind}: the one-line reach
  *                     explanation and the tag colour.

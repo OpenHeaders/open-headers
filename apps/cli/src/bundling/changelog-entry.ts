@@ -1,6 +1,6 @@
 /**
  * Build-time resolution of the running version's canonical changelog
- * entry (`changelog/cli/<year>/<version>.md`, CHANGELOG_PLAN.md §4.3)
+ * entry (`changelog/cli/<year>/<version>.md`, the changelog plan §4.3)
  * for the `__CLI_CHANGELOG__` define both bundle configs stamp — never
  * fetched at runtime (offline law). Betas amend the base version's
  * living entry file, so the `-beta.N` suffix is stripped before

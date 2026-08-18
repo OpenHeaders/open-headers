@@ -178,7 +178,7 @@ export function qualifiedLifecyclePortName(tabId: number, nodeId: string): strin
  * A sealed session in the traffic archive, replayed over the SAME wire
  * vocabulary the live lifelines speak — `oh-replay:<archiveId>`, where
  * `archiveId` is the session DIRECTORY basename the sessions window
- * lists (AGENT_TRAFFIC_PLAN.md §11.1 "replay is the live UI"). A
+ * lists (the agent-traffic plan §11.1 "replay is the live UI"). A
  * distinct prefix keeps replay ports out of every live acceptor's path
  * (the partition mirror's interposer and the browser relay both parse
  * only `oh-lifecycle:` shapes) and vice versa.

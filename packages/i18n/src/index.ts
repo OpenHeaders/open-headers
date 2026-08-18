@@ -2,7 +2,7 @@
  * @openheaders/i18n — locale registry, message catalogs, translation
  * runtime, pseudo-locale. Platform-free and framework-free: the React
  * provider lives in @openheaders/ui, the Electron main-process consumer
- * in the desktop app. See docs/I18N_PLAN.md.
+ * in the desktop app. See the i18n plan.
  */
 
 export { getCatalog, getTranslator, isCatalogLoaded, loadCatalog } from './catalog-registry';

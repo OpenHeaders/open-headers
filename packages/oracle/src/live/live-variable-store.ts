@@ -1,6 +1,6 @@
 /**
  * Live Variable Store — SW-side source of truth for `{{live.<name>}}`
- * bindings (see `docs/LIVE_VARIABLES_PLAN.md`).
+ * bindings (see the live-variables plan).
  *
  * A LiveVariable is a thin projection — a `(name, workflowUid, stepId,
  * captureName)` quad that exposes one workflow-step capture as a

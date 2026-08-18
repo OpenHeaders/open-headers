@@ -1,6 +1,6 @@
 /**
  * org-catalogue helpers — the pure projection from an IdentitySnapshot
- * to the workspace org-binding UI's data (UNIFIED_ORACLE_MODEL.md §6.2 /
+ * to the workspace org-binding UI's data (the unified-oracle model §6.2 /
  * §6.4). Multi-org-native: every case here is pure over `snapshot.orgs`.
  */
 

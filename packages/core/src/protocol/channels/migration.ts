@@ -1,6 +1,6 @@
 /**
  * Migration bridge RPCs — the Postman Data API pull run
- * (`docs/MIGRATION_PLAN.md` §3.3, surfaces per the MIGRATION_STATUS.md
+ * (the migration plan §3.3, surfaces per the migration status log
  * S5 addendum). Node hosts with the migration ladder answer these;
  * progress rides the `migrationPullEvent` broadcast.
  *

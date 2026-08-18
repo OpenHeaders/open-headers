@@ -1,6 +1,6 @@
 /**
  * This build's own release notes, embedded at build
- * (CHANGELOG_PLAN.md §4.3): the bundle configs stamp the canonical
+ * (the changelog plan §4.3): the bundle configs stamp the canonical
  * `changelog/daemon` entry body into `__DAEMON_CHANGELOG__`, and the
  * spine serves it to admin surfaces over `oh.daemon.changelog.get` —
  * the served browser tab never dials the feed (offline law). Empty on

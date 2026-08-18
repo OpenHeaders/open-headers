@@ -207,8 +207,7 @@ export function isRuleResolvable(
  * Distinct from `isRuleComplete` (data-shape validity) and
  * `rule.enabled` (user toggle). A draft rule MAY be complete and
  * enabled — it's just not on the wire yet because the user hasn't
- * clicked Save (the publication gate). See
- * `memory/project_publication_gate_decision.md`.
+ * clicked Save (the publication gate).
  *
  * Reads `published === true` so both `false` and `undefined` collapse
  * to "draft" — matches `isRuleEffective`'s contract.

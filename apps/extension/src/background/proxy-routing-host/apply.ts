@@ -1,5 +1,5 @@
 /**
- * Per-browser routing appliers (OBSERVABILITY_PLAN.md §5.1). One
+ * Per-browser routing appliers (the observability plan §5.1). One
  * adapter per proxy-config surface:
  *
  *  - Chromium (`chrome.proxy.settings`): the scope compiles into a PAC

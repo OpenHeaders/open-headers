@@ -1,6 +1,6 @@
 /**
  * `oh upgrade [--channel stable|beta]` — the explicit half of the
- * update pair (`DISTRIBUTION_PLAN.md` §5): resolve the channel's
+ * update pair (the distribution plan §5): resolve the channel's
  * manifest, download the release's own binary for this platform from
  * the feed's immutable `dl/<tag>/` path, verify it against
  * `SHA256SUMS.txt`, and atomically replace the running executable.

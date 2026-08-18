@@ -18,7 +18,7 @@ import type { Capability } from '@openheaders/core/identity';
  * / `secrets` are separate opt-ins. A token's effective rights are the
  * intersection of its own tier grant and the host's enabled tiers.
  *
- * `observe` (AGENT_TRAFFIC_PLAN.md §4) gates live-traffic observation —
+ * `observe` (the agent-traffic plan §4) gates live-traffic observation —
  * deliberately NOT `read`: a token holding `read` gets nothing from the
  * traffic surface, and the default capability is `workspace.observe`,
  * distinct from `workspace.read`.
@@ -50,7 +50,7 @@ export interface McpToolCallContext {
   readonly progress?: (update: { progress: number; total?: number; message?: string }) => void;
   /**
    * Raw-projection flag for the observe-visibility seam
-   * (AGENT_TRAFFIC_PLAN.md §11.5): a tool whose read projected RAW
+   * (the agent-traffic plan §11.5): a tool whose read projected RAW
    * values under the persistent unredacted grant calls this so the
    * call's Activity Feed entry carries the raw flag. The projection
    * layer decides raw vs redacted — this only reports what happened.

@@ -1,5 +1,5 @@
 /**
- * Scoped browser-routing controller (OBSERVABILITY_PLAN.md §5.1) — the
+ * Scoped browser-routing controller (the observability plan §5.1) — the
  * daemon side of the routing control plane. Owns no routing truth of
  * its own: the capture service holds the persisted desire and folds it
  * with the proxy's run state ({@link ProxyRoutingWireState}); this

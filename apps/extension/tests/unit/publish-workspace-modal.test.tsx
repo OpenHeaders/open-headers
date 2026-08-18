@@ -1,6 +1,6 @@
 /**
  * PublishWorkspaceModal — the Publish target picker over the
- * Duplicate-into RPC (PUBLISH_TARGET_PICKER.md). Pins:
+ * Duplicate-into RPC (the publish-target picker design). Pins:
  *   - the submitted values (the `duplicateWorkspace` options payload):
  *     source name pre-filled, first healthy target pre-selected,
  *     secrets excluded by default;

@@ -1,5 +1,5 @@
 /**
- * Desktop system-plane service (docs/REQUEST_ENGINE_PROXY_DESIGN.md):
+ * Desktop system-plane service (the request-engine proxy design):
  * the mode-driven half of the two-plane proxy architecture on this
  * device — Off / System / Manual / PAC — around the P2 resolver
  * registry, plus the settings surface's RPCs.

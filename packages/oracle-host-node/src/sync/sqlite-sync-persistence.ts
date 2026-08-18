@@ -18,7 +18,7 @@
  *   - **Open:** synchronous; `mkdir -p` the directory; ensure schema;
  *     set `journal_mode=WAL` + `synchronous=NORMAL` (durable enough
  *     for a single-writer local oracle, fast enough for typing-speed
- *     mutation streams per `docs/SYNC_ENGINE_DESIGN.md` §6.3).
+ *     mutation streams per the sync-engine design §6.3).
  *   - **Close:** flushes WAL and closes the database. Idempotent.
  */
 

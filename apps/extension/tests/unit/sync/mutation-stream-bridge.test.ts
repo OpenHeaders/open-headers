@@ -55,7 +55,7 @@ import { installBackingStorage, installHostStorage, seedStorageMany } from '../.
 import { clearTestIdentitySnapshot, installTestIdentitySnapshot } from '../../helpers/identity-snapshot';
 
 const wsId = 'ws-bridge';
-// The inbound bridge's receiver-side org filter (UNIFIED_ORACLE_MODEL.md
+// The inbound bridge's receiver-side org filter (the unified-oracle model
 // §6.1 / §6.3) drops envelopes whose `orgId` is outside the host's
 // authorized Org set. Pin the test snapshot's home-org to the same
 // `orgId` the ctx factory stamps so the in-trust-zone envelopes apply.

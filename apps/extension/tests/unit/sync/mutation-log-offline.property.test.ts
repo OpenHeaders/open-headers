@@ -19,7 +19,7 @@
  *     resulting log, same dedup).
  *
  * Together these cover the handshake-streaming + dedup pillars in
- * `docs/DATA_PLANE_TOPOLOGIES.md §11.4` (HLC ordering) and
+ * the data-plane topologies design §11.4` (HLC ordering) and
  * `§11.7` (mutationId dedup).
  */
 import { hlcToString, type MutationEnvelope } from '@openheaders/core/sync';

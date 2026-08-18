@@ -1,6 +1,6 @@
 /**
  * Public traffic vocabulary — the ONLY shapes that cross the retention
- * store's boundary (AGENT_TRAFFIC_PLAN.md §2, §4).
+ * store's boundary (the agent-traffic plan §2, §4).
  *
  * The retained record type itself is private to
  * `@openheaders/oracle/traffic-retention`; everything a consumer (MCP

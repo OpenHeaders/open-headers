@@ -1,6 +1,6 @@
 /**
  * Telemetry storage host — the extension side of the storage-plane
- * relay (OBSERVABILITY_PLAN.md Phase 3). Asserts:
+ * relay (the observability plan Phase 3). Asserts:
  *   - a relayed call dispatches into the shared handler maps and
  *     answers on `<type>:response` with the caller's callId
  *   - the method whitelist holds (console verbs never dispatch) and

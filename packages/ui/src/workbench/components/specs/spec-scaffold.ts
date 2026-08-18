@@ -3,7 +3,7 @@
  * created from the sidebar, one per creatable format.
  *
  * The OpenAPI template is the captured vendor scaffold recorded
- * verbatim in `docs/API_SPECS_SCAFFOLDS.md` (the spacecraft sample):
+ * verbatim in the API-specs scaffolds doc (the spacecraft sample):
  * one root `index.yaml`, OpenAPI 3.1, fully parseable out of the box.
  * The Protobuf template is a proto3 library sample covering all four
  * rpc call shapes plus nested/enum/map/oneof anatomy, so the outline

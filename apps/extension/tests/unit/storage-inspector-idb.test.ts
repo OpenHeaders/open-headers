@@ -1,5 +1,5 @@
 /**
- * IndexedDB read + delete planes (STORAGE_PANEL_PLAN.md §5, slice 4) —
+ * IndexedDB read + delete planes (the storage-panel plan §5, slice 4) —
  * the injected enumeration/cursor/delete funcs run against
  * fake-indexeddb (real IDB semantics: versionless opens, upgrade
  * events, cursors, blocked deletes), plus the SW wrappers' clamps and

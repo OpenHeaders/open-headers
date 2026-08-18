@@ -1,7 +1,7 @@
 /**
  * Postman backup import — parse the periodic `backup-*.json` data dump
  * Postman writes to its app-support root (schema verified live:
- * MIGRATION_PLAN.md §2.2) into per-section results + one aggregate
+ * the migration plan §2.2) into per-section results + one aggregate
  * `ImportReport`.
  *
  * Scope (Migration epic Phase 1):
@@ -16,7 +16,7 @@
  *     "Globals" so imported `{{var}}` references keep resolving.
  *   • `headerPresets[]` — named header bundles, parsed to `RequestHeader`
  *     rows. Target entity: one unpublished extension header rule per
- *     preset (MIGRATION_STATUS.md S2 decision); desktop treats them as
+ *     preset (the migration status log S2 decision); desktop treats them as
  *     pass-through.
  *   • Per-section counts (`counts`) feed the Phase 4 findings inventory
  *     verbatim; sub-parser drops/transforms merge into the aggregate

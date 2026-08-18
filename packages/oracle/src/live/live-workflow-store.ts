@@ -1,7 +1,7 @@
 /**
  * Live Workflow Store — SW-side source of truth for the workflow
  * definitions that power `{{live.X}}` refresh (see
- * `docs/LIVE_VARIABLES_PLAN.md`).
+ * the live-variables plan).
  *
  * Writes route through the sync oracle (catalog factory →
  * MutationBatch → `oracle.apply`); the {@link LiveWorkflowCache} owns

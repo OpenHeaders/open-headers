@@ -1,6 +1,6 @@
 /**
  * `DaemonUserRecord` — one daemon-local user in the daemon's directory
- * (`OH.daemonUsers`, Daemon Phase 5 / `UNIFIED_ORACLE_MODEL.md` §5.6:
+ * (`OH.daemonUsers`, Daemon Phase 5 / the unified-oracle model §5.6:
  * "OrgMemberships live on the daemons, not the app-instance").
  *
  * Each record reuses the universal §5 identity rows verbatim — User +
@@ -52,7 +52,7 @@ export const DaemonUserRecordSchema = v.object({
     }),
   ),
   /**
-   * Git commit-author email override (GIT_PLAN.md §11.5): the address
+   * Git commit-author email override (the git-sync plan §11.5): the address
    * daemon-minted commits attribute this user's work to, so commits
    * link to the user's hosting-platform profile. Absent → the identity
    * email, then the synthetic noreply address. The author NAME is

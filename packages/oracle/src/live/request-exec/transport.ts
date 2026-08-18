@@ -164,7 +164,7 @@ export interface TransportRequest {
   /**
    * Request-plane proxy routing mode. Absent = INHERIT: a transport
    * with an system plane (the node host's system/env resolver —
-   * see docs/REQUEST_ENGINE_PROXY_DESIGN.md) resolves whether the send
+   * see the request-engine proxy design) resolves whether the send
    * traverses a proxy; transports without one go direct, as before.
    * `'direct'` opts the send out of any ambient proxy. `'url'` routes
    * through {@link proxyUrl} (a set `proxyUrl` is explicit routing

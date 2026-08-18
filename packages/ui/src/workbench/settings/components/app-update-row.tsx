@@ -1,6 +1,6 @@
 /**
  * App-update row — custom editor for `updates.state`
- * (`docs/UPDATES_PLAN.md`). Mirrors the main process's updater over
+ * (the updates plan). Mirrors the main process's updater over
  * `oh.updates.getState` + the `appUpdateState` broadcast, and drives it
  * with the consent actions: Check now, Update & Restart (download if
  * needed, then restart into the update), Restart to install. Nothing

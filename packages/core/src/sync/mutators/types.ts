@@ -115,7 +115,7 @@ export interface EntityState {
 export interface MutatorContext {
   workspaceId: string;
   /**
-   * Org binding for `workspaceId` (UNIFIED_ORACLE_MODEL.md §6.1).
+   * Org binding for `workspaceId` (the unified-oracle model §6.1).
    * Resolved by the per-surface context handle via the
    * `workspaceOrgResolver` registered at boot; stamped onto every
    * envelope this context mints. Equal to `snapshot.user.homeOrgId`

@@ -1,5 +1,5 @@
 /**
- * The body plane (AGENT_TRAFFIC_PLAN.md §3, slice S3): capture caps
+ * The body plane (the agent-traffic plan §3, slice S3): capture caps
  * honestly, projection redacts at the boundary, base64 rides verbatim
  * so binary round-trips — and the on-demand pull path shapes bodies
  * through the same module as the retained carve-out.

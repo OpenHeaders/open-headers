@@ -1,7 +1,8 @@
 /**
  * WebSocket server for host-side oracle access — the "extension-as-client
- * of desktop / daemon" pipe (`docs/refactor-status.md` Desktop host #2
- * Stage 2 commit 9; `.notes/oracle-arc.md` Mode 2 / Mode 3).
+ * of desktop / daemon" pipe (the host-refactor status log, Desktop
+ * host #2 Stage 2 commit 9; the oracle architecture notes, Mode 2 /
+ * Mode 3).
  *
  * Lives in `@openheaders/oracle-host-node/host-runtime` rather than
  * apps/desktop so any Node host can reuse it — Electron main today, a headless Node

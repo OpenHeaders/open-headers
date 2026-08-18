@@ -1,6 +1,6 @@
 /**
  * `ohd license install / status / remove` — the offline license
- * management path (LICENSING_PLAN.md §3.3). Thin CLI plumbing over the
+ * management path (the licensing plan §3.3). Thin CLI plumbing over the
  * same license slot the spine runs, pointed at the same file, so the
  * CLI can never disagree with the daemon about what a key means.
  *

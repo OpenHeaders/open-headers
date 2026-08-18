@@ -1,6 +1,6 @@
 /**
  * SW migration run host — the extension leg of "one runner, no forks"
- * (EXTENSION_ACCOUNT_PULL_PLAN.md Phase B). Covers: acceptance persists
+ * (the extension account-pull plan Phase B). Covers: acceptance persists
  * the run marker + the runId-bound session key BEFORE start resolves
  * (an SW death right after acceptance is already resumable); every
  * locally-produced event fans out as the ONE `migrationPullEvent`

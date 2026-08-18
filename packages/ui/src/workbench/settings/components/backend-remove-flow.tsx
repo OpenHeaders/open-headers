@@ -1,5 +1,5 @@
 /**
- * Remove flow for a backend record (MULTI_BACKEND_PLAN.md §4).
+ * Remove flow for a backend record (the multi-backend plan §4).
  *
  * An unbound record (no consumed Orgs) removes through a plain
  * Popconfirm — nothing was synced from it, only its address and pairing

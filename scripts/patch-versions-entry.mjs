@@ -1,6 +1,6 @@
 /**
  * Patches ONE app's entry in a versions manifest and prints the result
- * — the per-app-leg law (DISTRIBUTION_PLAN §3) for release lanes that
+ * — the per-app-leg law (the distribution plan §3) for release lanes that
  * must not rewrite the whole manifest: the extension-only release
  * updates `extension.latest`/`tag`, the store-version cron updates
  * `extension.stores`, and every other entry rides through byte-exact.

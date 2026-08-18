@@ -1,7 +1,7 @@
 /**
  * Browser-telemetry streaming wire types — the observability plane's
  * lifecycle channels on the extension ↔ daemon WebSocket
- * (OBSERVABILITY_PLAN.md Phase 1).
+ * (the observability plan Phase 1).
  *
  * Telemetry plane ≠ sync plane: these frames share the WS lifeline with
  * the sync channels but never touch the mutation log or sync engine —

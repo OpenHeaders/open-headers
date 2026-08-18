@@ -14,7 +14,7 @@
  * WS boundary shared by every consuming host: validate the frame
  * shape, gate it against the delivering connection, then delegate.
  *
- * **Per-connection gates** (MULTI_BACKEND_PLAN.md §3, invariants 2 + 4):
+ * **Per-connection gates** (the multi-backend plan §3, invariants 2 + 4):
  *
  *   - **Org ownership** — a connection delivers only envelopes stamped
  *     with an Org *bound to that backend* (`getOrgBackendBindings`).

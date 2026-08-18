@@ -1,8 +1,8 @@
 /**
- * SQLite-backed {@link AuditLog} — Phase 5 slice 4 (DAEMON_PLAN.md §7).
+ * SQLite-backed {@link AuditLog} — Phase 5 slice 4 (the daemon plan §7).
  *
  * Node-host twin of the extension SW's `IdbAuditLog`: same
- * per-Org gapless sequence contract (UNIFIED_ORACLE_MODEL.md §9.5),
+ * per-Org gapless sequence contract (the unified-oracle model §9.5),
  * same append/list/prune surface, riding the shared `oracle.db`
  * better-sqlite3 handle like the other persistence shims here.
  *

@@ -1,7 +1,7 @@
 /**
  * Pure layout helper for the Live Workflow editor's graph view.
  *
- * Naive layered layout over the step DAG (WORKFLOW_GRAPH_PLAN.md §3):
+ * Naive layered layout over the step DAG (the workflow-graph plan §3):
  *
  *   - `layer` — longest-path depth from the roots, the same computation
  *     `buildDependencyRows` uses for the indented tree but WITHOUT the

@@ -6,7 +6,7 @@
  * the secret.
  *
  * Provider ids are brand-free in source (standing rule); the product
- * each id maps to is documented in `docs/SECRET_PROVIDERS_PLAN.md`.
+ * each id maps to is documented in the secret-providers plan.
  *
  * Resolution is always host-side where the provider is installed (the
  * desktop main process); renderer/extension surfaces consume resolved

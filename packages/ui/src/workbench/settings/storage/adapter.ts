@@ -27,7 +27,7 @@
  *
  * The discriminated union pins BC-MWPT-15: a developer adding a
  * workspace-scoped setting without picking a sub-scope fails the
- * TypeScript build. See `MULTI_WORKSPACE_PER_WINDOW_OR_TAB_DESIGN.md` § 5.3.
+ * TypeScript build. See the multi-workspace window/tab design § 5.3.
  */
 export type SettingScope = 'user' | 'workspace-taste' | 'workspace-behavioral';
 

@@ -1,6 +1,6 @@
 /**
  * Multi-Backend Phase 5 acceptance — one extension instance concurrently
- * joined to TWO real backends (MULTI_BACKEND_PLAN.md §6 Phase 5):
+ * joined to TWO real backends (the multi-backend plan §6 Phase 5):
  *
  *   1. Backend A is a spawned headless daemon on loopback. Backend B is
  *      a second spawned daemon by default; set OH_DROPLET_TOKEN to run

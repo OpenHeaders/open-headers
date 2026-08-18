@@ -1,7 +1,7 @@
 /**
  * `DaemonAuthToken` — one long-lived peer access credential the desktop
- * daemon recognizes (U3.2, `UNIFIED_ORACLE_MODEL.md` §4.2 +
- * `DATA_PLANE_TOPOLOGIES.md` §11.4 Phase D LAN solo).
+ * daemon recognizes (U3.2, the unified-oracle model §4.2 +
+ * the data-plane topologies design §11.4 Phase D LAN solo).
  *
  * Only the hash of the secret survives in storage. The raw secret is
  * returned exactly once at mint time so the admin can copy it; from

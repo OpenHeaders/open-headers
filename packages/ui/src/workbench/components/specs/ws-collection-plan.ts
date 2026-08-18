@@ -1,5 +1,5 @@
 /**
- * AsyncAPI spec → collection generation plan (WEBSOCKET_CLIENT_PLAN.md
+ * AsyncAPI spec → collection generation plan (the WebSocket-client plan
  * Phase F, ratified GO) — the pure derivation behind the asyncapi spec
  * editor's Generate Collection action, the `proto-collection-plan`
  * sibling.

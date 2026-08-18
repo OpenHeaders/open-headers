@@ -1,5 +1,5 @@
 /**
- * Hard-off gate for product telemetry (`TELEMETRY_PLAN.md` §2): the
+ * Hard-off gate for product telemetry (the telemetry plan §2): the
  * standalone daemon distribution phones home nothing — off by
  * construction, not by flag. A text-level sweep pins that: no module
  * in this app may import the core telemetry client, answer a

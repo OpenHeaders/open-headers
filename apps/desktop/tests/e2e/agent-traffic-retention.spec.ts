@@ -1,6 +1,6 @@
 /**
  * Agent traffic S1 E2E — the retention seam against the real dual-app
- * stack (AGENT_TRAFFIC_PLAN.md §7.2 `agent-traffic/retention-bounds`):
+ * stack (the agent-traffic plan §7.2 `agent-traffic/retention-bounds`):
  * frames crossing the browser live-relay land as bounded retention
  * records in the daemon's traffic tap.
  *

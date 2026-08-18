@@ -1,7 +1,7 @@
 /**
  * `@openheaders/core/telemetry` — anonymous product-analytics vocabulary
  * (typed allowlist), fire-and-forget client, and the host controller
- * that gates it (`TELEMETRY_PLAN.md`). Zero platform deps; hosts inject
+ * that gates it (the telemetry plan). Zero platform deps; hosts inject
  * transport/session/gate seams and drive flush cadence, UI surfaces only
  * call `track()` over the bridge.
  */

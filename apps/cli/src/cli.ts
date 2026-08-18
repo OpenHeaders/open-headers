@@ -1,7 +1,7 @@
 /**
  * `oh` — the Open Headers command line: headless scripting and CI
  * integration against the same daemon the extension and desktop app
- * use (CLI_PLAN.md). Every command is one `tools/call` POST to the
+ * use (the CLI plan). Every command is one `tools/call` POST to the
  * daemon's `/mcp` surface; admission, tiers, validation, and audit are
  * the server's — this binary is a protocol-only, engine-opaque client.
  * The daemon host's own control binary is `ohd` (the daemon
@@ -93,12 +93,12 @@ async function main(): Promise<void> {
   const argv = process.argv.slice(2);
   const [first] = argv;
 
-  // Anonymous usage counting (TELEMETRY_PLAN.md §2): one invocation is
+  // Anonymous usage counting (the telemetry plan §2): one invocation is
   // one session. Boot prints the first-run notice to stderr when owed;
   // the exit flush in the finally is best-effort and abort-capped, so
   // telemetry can never change a command's outcome or hold it open.
   const telemetry = await bootCliProductTelemetry();
-  // Update availability notify (DISTRIBUTION_PLAN.md §5): prints from
+  // Update availability notify (the distribution plan §5): prints from
   // the 24h cache only, TTY-and-flag gated; the ≤1/day feed refresh
   // rides in the background and is capped in the exit flush like the
   // telemetry channel — it can never change a command's outcome.

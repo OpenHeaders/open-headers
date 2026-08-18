@@ -1,7 +1,7 @@
 /**
  * `bootstrapSyntheticIdentity` — the host-neutral pure helper that
  * produces the synthetic identity-row tuple every host materializes on
- * boot (UNIFIED_ORACLE_MODEL.md §5.2).
+ * boot (the unified-oracle model §5.2).
  *
  * Pure of transport: it computes the rows and returns them; the caller
  * (each host's init wiring, U1.6 / U1.7) persists them through whatever

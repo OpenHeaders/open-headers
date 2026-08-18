@@ -23,7 +23,7 @@
  *     into net/tls.connect, so the URL's host stays cosmetic for
  *     dialing while the handshake `Host`, SNI, and certificate
  *     verification keep it.
- *   - Ambient proxy coverage (docs/REQUEST_ENGINE_PROXY_DESIGN.md,
+ *   - Ambient proxy coverage (the request-engine proxy design,
  *     P6): a connect consults the host's system plane per target
  *     — WS editors carry no request-plane proxy knobs (the H5
  *     ruling), so the plane's answer is the whole story. An HTTP(S)

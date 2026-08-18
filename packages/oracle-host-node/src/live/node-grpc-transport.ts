@@ -25,7 +25,7 @@
  *     prior-knowledge hop's hoisted-dial idiom) — the authority stays
  *     cosmetic for dialing while `:authority`, SNI, and certificate
  *     verification keep it.
- *   - Ambient proxy coverage (docs/REQUEST_ENGINE_PROXY_DESIGN.md,
+ *   - Ambient proxy coverage (the request-engine proxy design,
  *     P6): a call consults the host's system plane per target —
  *     gRPC editors carry no request-plane proxy knobs (the H5
  *     ruling), so the plane's answer is the whole story. An HTTP(S)

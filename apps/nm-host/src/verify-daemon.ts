@@ -1,6 +1,6 @@
 /**
  * Daemon listener verification — the mirror image of the daemon's
- * caller chain (OBSERVABILITY_PLAN.md §4 + §8 Phase 7, the Phase 5
+ * caller chain (the observability plan §4 + §8 Phase 7, the Phase 5
  * server-authentication residual). The daemon proves WHO is asking
  * from OS truth; this module proves WHO is answering: before the host
  * relays a mint, the process LISTENING on the loopback port must be

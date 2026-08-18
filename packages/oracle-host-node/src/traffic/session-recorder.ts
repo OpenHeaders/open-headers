@@ -1,6 +1,6 @@
 /**
  * Session recorder v2 — the event-log persistence policy on the
- * converged partition store (AGENT_TRAFFIC_PLAN.md §11.3/§11.4).
+ * converged partition store (the agent-traffic plan §11.3/§11.4).
  *
  * A session records the reducer INPUT: the verbatim wire-plane
  * envelope stream the mirror fans out (the same plane the retention

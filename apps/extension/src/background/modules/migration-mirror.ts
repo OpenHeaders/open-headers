@@ -1,5 +1,5 @@
 /**
- * Migration pull mirror — client-plane inbound (MIGRATION_STATUS.md
+ * Migration pull mirror — client-plane inbound (the migration status log
  * S5 addendum: progress auto-syncs to every connected surface).
  *
  * Frame-router companion to the awareness receiver: claims

@@ -6,7 +6,7 @@
  * mirrors live state: hydrate from `getState` at mount, follow the
  * `appUpdateState` broadcast after. A release below the published
  * security floor escalates the entry — warning severity, copy naming
- * the fix (`docs/UPDATES_PLAN.md` §4). URL-reporting hosts without an
+ * the fix (the updates plan §4). URL-reporting hosts without an
  * updater fall back to the one-shot capability probe. Deduped per
  * version so re-mounts and repeat broadcasts don't stack entries.
  */

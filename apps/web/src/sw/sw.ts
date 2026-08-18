@@ -1,7 +1,7 @@
 /// <reference lib="webworker" />
 /**
  * The web app's service worker — the offline shell (Phase 6,
- * DAEMON_PLAN.md §8). Built by the vite plugin in `vite.sw-plugin.ts`,
+ * the daemon plan §8). Built by the vite plugin in `vite.sw-plugin.ts`,
  * which bundles this entry standalone (classic script, not a module —
  * module service workers are still not universal) and injects the two
  * build-time constants:

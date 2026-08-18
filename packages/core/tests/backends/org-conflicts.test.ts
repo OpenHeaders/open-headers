@@ -1,6 +1,6 @@
 /**
  * Coverage for the durable Org-conflict registry
- * (`OH.backendOrgConflicts` — MULTI_BACKEND_PLAN.md §2's Org-uniqueness
+ * (`OH.backendOrgConflicts` — the multi-backend plan §2's Org-uniqueness
  * invariant, persisted). Pinned invariants:
  *   - One row per (backendId, orgId): a repeat refusal upserts in place.
  *   - A successful claim clears exactly its own row.

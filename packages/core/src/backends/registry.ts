@@ -1,6 +1,6 @@
 /**
  * Backend-connection registry — the persisted `OH.backends` list plus an
- * in-memory mirror for synchronous reads (MULTI_BACKEND_PLAN.md §2/§3).
+ * in-memory mirror for synchronous reads (the multi-backend plan §2/§3).
  *
  * The list holds every back-end this app instance has joined: a URL, a
  * per-backend paired token, autoConnect, and the `enabled` kill switch.
@@ -138,7 +138,7 @@ export type CreateBackendInput = Partial<Pick<BackendConnection, 'label' | 'url'
 /**
  * Append a new backend record. Born DISABLED regardless of input — a
  * record only earns its wire through the explicit probe-gated enable
- * (MULTI_BACKEND_PLAN.md §4: nothing connects until the probe passes).
+ * (the multi-backend plan §4: nothing connects until the probe passes).
  * Unspecified fields take the same defaults as the cap-1 first write.
  */
 export function createBackend(input: CreateBackendInput = {}): Promise<BackendConnection> {

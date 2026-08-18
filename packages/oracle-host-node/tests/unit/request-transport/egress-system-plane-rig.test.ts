@@ -1,6 +1,6 @@
 /**
  * Refresh-subsystem egress through LIVE local proxies — the deferred
- * S30/S32 coverage slice (docs/REQUEST_ENGINE_PROXY_DESIGN.md): the
+ * S30/S32 coverage slice (the request-engine proxy design): the
  * OAuth refresh_token exchange now dispatches through the injected
  * node transport instead of the bare global fetch, so an inheriting
  * token POST really tunnels through the proxy the machine's

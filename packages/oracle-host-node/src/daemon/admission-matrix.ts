@@ -1,5 +1,5 @@
 /**
- * Daemon-wide Host/Origin admission matrix (Phase 3, DAEMON_PLAN.md §3):
+ * Daemon-wide Host/Origin admission matrix (Phase 3, the daemon plan §3):
  * one table declaring, per route on the composed bind, which Origins
  * and Hosts are accepted. Generalizes the `/mcp` posture (any Origin ⇒
  * 403, verified live in the MCP epic) to every route instead of leaving

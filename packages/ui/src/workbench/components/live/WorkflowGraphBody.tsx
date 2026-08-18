@@ -1,6 +1,6 @@
 /**
  * WorkflowGraphBody — read-only graph view of a workflow draft
- * (WORKFLOW_GRAPH_PLAN.md slice 1).
+ * (the workflow-graph plan slice 1).
  *
  * A pure projection of the same `DraftWorkflow` the form edits: one
  * node per step (request, captures + exposure marks, gate / priority

@@ -1,5 +1,5 @@
 /**
- * Traffic-tap seam pins (AGENT_TRAFFIC_PLAN.md §8 S1): the loopback
+ * Traffic-tap seam pins (the agent-traffic plan §8 S1): the loopback
  * lifeline dialer reaches acceptors registered through the wrapper, the
  * browser-tab source rides the relay's exact consumer contract
  * (qualified port name + `subscribe` handshake), the proxy source

@@ -4,7 +4,7 @@
  * Validates the parse → gate → apply → seen-set flow without touching
  * the WS layer: the receiver is a pure function of the frame plus the
  * delivering connection's handle. The per-connection gates
- * (MULTI_BACKEND_PLAN.md §3, invariants 2 + 4) are pinned here: a
+ * (the multi-backend plan §3, invariants 2 + 4) are pinned here: a
  * connection delivers only envelopes stamped with an Org bound to ITS
  * backend record, and local-only envelopes (active-workspace pointer,
  * vault) pass only over a loopback wire.

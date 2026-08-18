@@ -1,5 +1,5 @@
 /**
- * Shared helpers for the canonical changelog tree (CHANGELOG_PLAN.md §2).
+ * Shared helpers for the canonical changelog tree (the changelog plan §2).
  * The frontmatter parser covers exactly the subset the plan prescribes —
  * scalar `key: value`, one-level string lists, inline maps as raw
  * strings — anything fancier is an error by design; the machine layer

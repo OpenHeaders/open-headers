@@ -270,7 +270,7 @@ function resolveArrayBase<T extends { uid: string; name: string; path?: string }
       // Version handling on `update`: bump past max(target, incoming).
       // Without this the target's local edit history would silently
       // regress to the snapshot version that shipped in the export
-      // (see V5_WORKSPACE_EXPORT_DESIGN.md §2.1 / `version` semantics).
+      // (see the workspace-export design §2.1 / `version` semantics).
       const bumped = bumpVersion(entry.entity, entry.matchedTarget);
       return {
         action: 'update',

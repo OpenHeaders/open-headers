@@ -140,7 +140,7 @@ export interface H2Leg {
  * Per-send HTTP/3 pipeline leg — present exactly when the request pins
  * `'3'`. Carries the helper client every hop rides, the TLS trust legs
  * the framed protocol maps onto rustls (which inherits nothing from
- * Node/OpenSSL — see `docs/REQUEST_ENGINE_H3_PROTOCOL.md`), and the
+ * Node/OpenSSL — see the request-engine H3-protocol design), and the
  * spoken-protocol sink, like {@link H2Leg}. The client-certificate key
  * is already decrypted — a passphrase never crosses the protocol.
  */

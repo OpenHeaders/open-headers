@@ -1,6 +1,6 @@
 /**
  * `TrafficRetentionConsumer` — the third reducer of the lifecycle wire
- * (AGENT_TRAFFIC_PLAN.md §1.3): it folds a `LifecycleWireMessage`
+ * (the agent-traffic plan §1.3): it folds a `LifecycleWireMessage`
  * stream into one source's retention ring under exactly the
  * replay/dedup semantics the panel reducer honors, plus the retention-
  * specific obligations the transport does not deliver by itself

@@ -215,7 +215,7 @@ export interface DaemonSpineConfig {
   appVersion: string;
   /**
    * This build's own release-notes body (the canonical
-   * `changelog/daemon` entry embedded at build, CHANGELOG_PLAN.md
+   * `changelog/daemon` entry embedded at build, the changelog plan
    * §4.3), served to admin surfaces via `oh.daemon.changelog.get` so
    * the served browser tab never dials the feed. Absent or null =
    * entry-less build; the admin card hides (entry-existence law). The
@@ -242,7 +242,7 @@ export interface DaemonSpineConfig {
   /** Already-composed host storage backend; the spine installs it as the process-wide seam. */
   hostStorage: HostStorage;
   /**
-   * Traffic-session seal key (AGENT_TRAFFIC_PLAN.md §9.5/§11.5) — 32
+   * Traffic-session seal key (the agent-traffic plan §9.5/§11.5) — 32
    * random bytes the sessions archive encrypts sealed artifacts with.
    * The HOST owns acquisition: desktop wraps it via `safeStorage`
    * (`loadOrCreateWrappedSealKey`), the headless daemon keeps a 0600
@@ -268,7 +268,7 @@ export interface DaemonSpineConfig {
   broadcastLocal: (type: string, payload: unknown) => void;
   /**
    * Optional outbound seam for a host that is ALSO a client of daemon
-   * backends (MULTI_BACKEND_PLAN.md §5): every committed envelope is
+   * backends (the multi-backend plan §5): every committed envelope is
    * offered to the client plane's forwarder, whose own gates (echo,
    * consumed-Org tenancy, Org→backend routing) decide whether anything
    * leaves. The desktop passes the shared mutation forwarder; the
@@ -316,7 +316,7 @@ export interface DaemonSpineConfig {
    */
   oidc?: DaemonOidcConfig;
   /**
-   * Audit-log retention window in days (UNIFIED_ORACLE_MODEL.md §9.1).
+   * Audit-log retention window in days (the unified-oracle model §9.1).
    * Absent = 90. One knob for every entry regardless of actor type.
    */
   auditRetentionDays?: number;
@@ -328,7 +328,7 @@ export interface DaemonSpineConfig {
    */
   auditForwarding?: DaemonAuditForwardingConfig;
   /**
-   * License file location override (LICENSING_PLAN.md §3.3). Absent =
+   * License file location override (the licensing plan §3.3). Absent =
    * `<dataDir>/license.key`, which covers the desktop (userData) and
    * the default daemon deployment; the daemon's `OH_LICENSE_FILE` /
    * `licenseFile` config lands here. The trust ring is deliberately
@@ -336,7 +336,7 @@ export interface DaemonSpineConfig {
    */
   licenseFilePath?: string;
   /**
-   * Self-serve renewal loop (LICENSING_PLAN.md §3.2). `false` disables
+   * Self-serve renewal loop (the licensing plan §3.2). `false` disables
    * the refresh agent entirely (air-gapped posture by config); absent =
    * enabled — the agent still stands down on its own when no license is
    * installed or the artifact carries `offline: true`.
@@ -350,7 +350,7 @@ export interface DaemonSpineConfig {
    */
   personalSeats?: boolean;
   /**
-   * NM identity bootstrap (OBSERVABILITY_PLAN.md §8 Phase 7) — composed
+   * NM identity bootstrap (the observability plan §8 Phase 7) — composed
    * only when this host ships the NM host binary (the desktop app).
    * `hostBinaryPath` anchors the caller verification chain; a headless
    * daemon omits the whole block and the `/nm/bootstrap` route simply
@@ -405,7 +405,7 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
   // local surfaces only, which is harmless — no peer has handshook yet).
   let wsServer: OracleWsServer | null = null;
 
-  // Workspace-tree runtime (GIT_PLAN.md Phase 2) — created after the
+  // Workspace-tree runtime (the git-sync plan Phase 2) — created after the
   // sync engine boots (its bindings hold services resident); the sync
   // host-hook below feeds it committed envelopes through this slot.
   let workspaceTreeRuntime: WorkspaceTreeRuntime | null = null;
@@ -431,7 +431,7 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
   setHostLogger(config.logger ?? consoleLogger);
   setHostStorage(config.hostStorage);
   // U1.6 / U1.7 — materialize the synthetic identity-row tuple before
-  // any privileged-path code runs (UNIFIED_ORACLE_MODEL.md §5.2 / §12
+  // any privileged-path code runs (the unified-oracle model §5.2 / §12
   // step 2). Idempotent across boots; first-boot mints the
   // host-install-id seed too. Failures are logged, not fatal: a hard
   // throw here would abort the whole host install (no oracle, no WS
@@ -567,7 +567,7 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
           : s,
       );
       awarenessFanOut.enqueue(event.workspaceId, stampedPresence);
-      // Client role (MULTI_BACKEND_PLAN.md §5): the same emission is
+      // Client role (the multi-backend plan §5): the same emission is
       // offered to the backend forwarder, which applies its own appId
       // filter and routes by the workspace's Org binding.
       config.forwardAwarenessToBackends?.(event);
@@ -604,7 +604,7 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
     hostLogger.warn(SCOPE, 'refreshIdentitySnapshotFromHostStorage failed', err);
   });
   // U2.6 — install the workspaceId → orgId resolver consulted by every
-  // envelope mint site (UNIFIED_ORACLE_MODEL.md §6.1). Per-workspace
+  // envelope mint site (the unified-oracle model §6.1). Per-workspace
   // mutations resolve through `workspace.orgId`; global-scope metadata
   // mutations ride the user's home-org channel per §6.5. The resolver
   // is invalidated on every workspace-store change.
@@ -626,18 +626,18 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
   await hydrateActiveWorkspaceStores();
   await bootSyncEngine();
 
-  // Workspace-tree bindings (GIT_PLAN.md Phase 2): reopen persisted
+  // Workspace-tree bindings (the git-sync plan Phase 2): reopen persisted
   // bindings now that services can materialize — each open runs the
   // MANDATORY cold-boot tree-wins sweep (§11.2) before its first
   // materialize pass. Failures disable the tree plane only.
-  // Live git-slot feed (GIT_PLAN.md §9): every status the runtime
+  // Live git-slot feed (the git-sync plan §9): every status the runtime
   // publishes fans to local surfaces (the Git card's live refresh) and
   // into the sync aggregate's git slot — "N uncommitted changes" joins
   // the pill's worst-of roll-up; a clean/unbound workspace drops out.
   const onWorkspaceTreeGitStatus = (workspaceId: string, gitStatus: WorkspaceTreeGitStatusRpcResult): void => {
     broadcastLocal('workspaceTreeGitStatus', { workspaceId, status: gitStatus });
     // §16: a detected remote history rewrite is the one RED git state
-    // (GIT_PLAN.md §9) — it outranks the routine dirty/divergence slot
+    // (the git-sync plan §9) — it outranks the routine dirty/divergence slot
     // until the trichotomy dialog resolves it.
     if (gitStatus.bound && gitStatus.repo && gitStatus.forcePush !== null) {
       reportGitSyncStatus(workspaceId, {
@@ -741,7 +741,7 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
   //       construction) and the WS peer plane (per-frame `daemon.admin`
   //       gate + audit in `peer-admin-rpc.ts`), wired into the server
   //       via the supervisor's `peerRpc` seam.
-  // License slot (LICENSING_PLAN.md §3.3) — load/verify/watch the
+  // License slot (the licensing plan §3.3) — load/verify/watch the
   // host's license file; snapshot changes fan out on `licenseUpdated`
   // the same way `statusUpdated` rides. Slice 3's seat gate reads the
   // same handle.
@@ -772,19 +772,19 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
     proxyCaptureService.serveRequestBody(requestId, hopIndex),
   );
 
-  // Scoped browser-routing controller (OBSERVABILITY_PLAN.md §5.1) —
+  // Scoped browser-routing controller (the observability plan §5.1) —
   // pushes the capture service's folded routing verdict to same-device
   // browser peers and folds their acks into the status projection.
   const proxyRoutingControl = createProxyRoutingControl(proxyCaptureService);
 
-  // Loopback lifeline dialing (AGENT_TRAFFIC_PLAN.md §2) — wraps the
+  // Loopback lifeline dialing (the agent-traffic plan §2) — wraps the
   // installed lifeline server so an in-process consumer can dial the
   // acceptors registered BELOW this line. Ordering is load-bearing: the
   // relay's acceptor must register through the wrapper for the
   // partition mirror's wire session to be dialable.
   const lifelineDialer = installLoopbackLifelineDialer();
 
-  // Traffic partition mirror (AGENT_TRAFFIC_PLAN.md §11.2, C2) — ONE
+  // Traffic partition mirror (the agent-traffic plan §11.2, C2) — ONE
   // wire consumer session per watched browser-tab partition feeding one
   // host-side fold; workbench viewer ports are claimed by the
   // interposer below and served hub-style from the local store, and the
@@ -794,7 +794,7 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
   const trafficMirror = createTrafficPartitionMirror({ dialer: lifelineDialer });
   const uninstallTrafficMirrorInterposer = trafficMirror.installInterposer();
 
-  // Browser live-telemetry relay (OBSERVABILITY_PLAN.md Phase 1) — the
+  // Browser live-telemetry relay (the observability plan Phase 1) — the
   // qualified lifecycle lifelines bridge through here to the extension
   // peer that owns each browser tab. No second store or hub: envelopes
   // relay frame-for-frame, watches are subscription-gated end to end.
@@ -802,13 +802,13 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
   const browserLiveRelay = createBrowserLiveRelay();
   const uninstallBrowserLiveLifeline = browserLiveRelay.installLifeline();
 
-  // Agent-traffic tap (AGENT_TRAFFIC_PLAN.md §8 S1) — the armed-source
+  // Agent-traffic tap (the agent-traffic plan §8 S1) — the armed-source
   // registry over the partition mirror (browser tabs) and the
   // proxy-capture hub. Dormant until an operator arms a source; the
   // `observe`-tier traffic_* tools (S3) read it through the MCP install
   // below. The proxy body server backs the failure-body carve-out and
   // on-demand pulls for the proxy partition.
-  // Sessions archive (AGENT_TRAFFIC_PLAN.md §11.4, C3) — the ONLY path
+  // Sessions archive (the agent-traffic plan §11.4, C3) — the ONLY path
   // traffic ever takes to disk, scoped under the host's own data dir
   // like every durable artifact. The host supplies the §9.5 seal key
   // (safeStorage-wrapped on desktop, config-dir key file on the
@@ -892,11 +892,11 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
     queryAudit: (filter) => queryAuditEntries(syncPersistence.db, filter),
     license: licenseSlot,
     cliProvision,
-    // Proxy trust plane (PROXY_SECURITY.md §6) — CA lifecycle only.
+    // Proxy trust plane (the proxy-security design §6) — CA lifecycle only.
     // Elevation rides the per-command OS prompt seam, requested only
     // for System-keychain operations.
     proxyTrust: createProxyTrustService(),
-    // Proxy capture plane (PROXY_PLAN.md Phase 2) — the L7 capture
+    // Proxy capture plane (the proxy plan Phase 2) — the L7 capture
     // proxy's control surface + the daemon-side lifecycle hub the
     // workbench's Proxy source attaches to (lifeline acceptor below).
     proxyCapture: proxyCaptureService,
@@ -920,17 +920,17 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
     // and organize/delete verbs. Human plane; no MCP mirror.
     trafficArchive,
     // The admin console's Git card rides the same verb table the local
-    // operator dispatch uses (GIT_PLAN.md §11.5) — gated `daemon.admin`
+    // operator dispatch uses (the git-sync plan §11.5) — gated `daemon.admin`
     // by the peer plane like every other channel in this table.
     workspaceTreeDispatch: (type, message) => dispatchWorkspaceTreeRpc(workspaceTreeRuntime, type, message),
   });
 
   // 4b'. `/healthz` — unauthenticated, data-free liveness for ops
-  //      probes (DAEMON_PLAN.md §3). First in the composition below so a
+  //      probes (the daemon plan §3). First in the composition below so a
   //      probe never touches the pairing/MCP routing.
   const healthzHandler = createHealthzHandler();
 
-  // 4c. MCP endpoint (`/mcp`, MCP_SERVER_PLAN.md Phase 1). Read-tier
+  // 4c. MCP endpoint (`/mcp`, the MCP-server plan Phase 1). Read-tier
   //     tools over stateless streamable HTTP, gated by the `mcp.enabled`
   //     setting (default off) + a paired daemon token per request. Rides
   //     the same bound socket as pairing via handler composition below.
@@ -943,7 +943,7 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
     // Sessions-archive read plane (C7) — the observe-tier session
     // tools' seam; §11.5 redaction and the raw grant live below it.
     trafficSessions: trafficSessionQuery,
-    // Observe-visibility (AGENT_TRAFFIC_PLAN.md §4): every successful
+    // Observe-visibility (the agent-traffic plan §4): every successful
     // `observe`-tier call lands in the Activity Feed per authorized
     // workspace — reads must not stay invisible on this tier.
     onObserveCall: (event) => {
@@ -1025,7 +1025,7 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
       return { activeWorkspaceId: getActiveWorkspaceId() ?? null };
     }
     // Host-local eviction of one consumed workspace (Discard on a
-    // removed backend, MULTI_BACKEND_STATUS.md S11) — no synced delete,
+    // removed backend, the multi-backend status log S11) — no synced delete,
     // and it must run host-side: it purges IDB/SQLite log stripes and
     // per-workspace services the surface can't reach. Same channel the
     // extension SW serves; the shared remove flow calls it blind.
@@ -1299,7 +1299,7 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
     if (type === 'getLocalRules') {
       return { rules: getRules() };
     }
-    // Workspace-tree channels (GIT_PLAN.md §9 — the Git card's host
+    // Workspace-tree channels (the git-sync plan §9 — the Git card's host
     // side): one shared verb table. The local caller here is the
     // operator by construction, same posture as importWorkspace above;
     // the admin console reaches the SAME table over the wire through
@@ -1332,7 +1332,7 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
   // 6. WS server — the peers-as-clients pipe. The supervisor owns the
   //    bind lifecycle so the user-controlled `backend.bindAddress`
   //    setting can flip between loopback and LAN at runtime without a
-  //    host restart (U3.1, `UNIFIED_ORACLE_MODEL.md` §4.2). Peers
+  //    host restart (U3.1, the unified-oracle model §4.2). Peers
   //    connect here on boot; the same `dispatchSyncRpc` routes their
   //    messages, and oracle broadcasts fan out to every connected peer.
   //    Failure to bind (another instance running, port held by something

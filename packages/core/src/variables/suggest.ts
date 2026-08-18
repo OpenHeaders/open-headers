@@ -18,7 +18,7 @@
  * workspace > live > step > file > dynamic).
  *
  * Pure function — no I/O, no React, no framework deps. See
- * `docs/VARIABLE_AUTOCOMPLETE_PLAN.md` for the full design.
+ * the variable-autocomplete plan for the full design.
  */
 
 import { formatSecretLocator } from '../secret-providers/locator';

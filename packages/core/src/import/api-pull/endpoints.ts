@@ -1,5 +1,5 @@
 /**
- * Data API endpoints + pacing policy (MIGRATION_PLAN.md §3.3). Two rate
+ * Data API endpoints + pacing policy (the migration plan §3.3). Two rate
  * buckets shape the run: the enumeration endpoints (workspace list +
  * detail) ride a strict 10-calls-per-10-seconds bucket, so enumeration
  * is serial at ~1 call/s; per-item pulls ride only the 300 rpm global

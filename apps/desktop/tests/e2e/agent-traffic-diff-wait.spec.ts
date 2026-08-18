@@ -1,6 +1,6 @@
 /**
  * Agent traffic S4 E2E — `traffic_diff` + `traffic_wait` against the
- * real dual-app stack (AGENT_TRAFFIC_PLAN.md §7.2 `two-sessions` +
+ * real dual-app stack (the agent-traffic plan §7.2 `two-sessions` +
  * `wait-predicate`, §8 S4), MCP-driven over HTTP `/mcp` per the S3
  * pattern:
  *

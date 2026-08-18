@@ -1,5 +1,5 @@
 /**
- * Working-tree → engine delta emission (GIT_PLAN.md §3.1 rung 2).
+ * Working-tree → engine delta emission (the git-sync plan §3.1 rung 2).
  *
  * Given the engine's snapshot (`prev`), a tree read (`next`), and the
  * per-file change classification against the last-materialized baseline

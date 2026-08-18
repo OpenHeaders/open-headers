@@ -1,6 +1,6 @@
 /**
  * Deterministic UUIDv7 derivation from a string seed — the cryptographic
- * primitive behind synthetic identity row ids (UNIFIED_ORACLE_MODEL.md §5.1).
+ * primitive behind synthetic identity row ids (the unified-oracle model §5.1).
  *
  * Given a stable seed (e.g. `'local-user@<host-install-id>'`), produces a
  * UUIDv7 with the canonical RFC 9562 layout (version nibble = 7,
@@ -51,7 +51,7 @@ export async function deriveSyntheticUuidV7(seed: string): Promise<string> {
 
 /**
  * Seed factories — single source of truth for the two synthetic seed
- * formats. UNIFIED_ORACLE_MODEL.md §5.1 pins these strings; any future
+ * formats. The unified-oracle model §5.1 pins these strings; any future
  * synthetic row type adds its own factory here so the seed format stays
  * grep-discoverable in one place.
  */

@@ -1,6 +1,6 @@
 /**
  * ProxyTrustPane — the consent surface over `oh.daemon.proxy.trust.*`
- * (PROXY_SECURITY.md §2.3, §5). Pins the load-bearing consent laws:
+ * (the proxy-security design §2.3, §5). Pins the load-bearing consent laws:
  * nothing is installed before the wizard's explicit commit, no store is
  * ever pre-checked, the install call carries exactly the checked
  * stores, partial failure renders exactly as reported (an elevation

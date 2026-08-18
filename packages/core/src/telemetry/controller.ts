@@ -1,6 +1,6 @@
 /**
  * Product-telemetry controller — owns a host's single `TelemetryClient`
- * (TELEMETRY_PLAN.md §7) behind injected seams so the whole gate matrix
+ * (the telemetry plan §7) behind injected seams so the whole gate matrix
  * (enabled toggle, once-per-session `session_start`) is unit-testable
  * without any platform API. Exactly one instance lives
  * per host process (extension SW / desktop main); UI surfaces never

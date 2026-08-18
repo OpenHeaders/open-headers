@@ -1,7 +1,7 @@
 /**
  * Stages the static changelog feed objects uploaded to
  * `updates.openheaders.io/changelog/*` by the release workflow
- * (CHANGELOG_PLAN.md §4.1), beside the version feed. Everything is
+ * (the changelog plan §4.1), beside the version feed. Everything is
  * projected from the canonical `changelog/` tree — nothing here is
  * authored:
  *
@@ -20,7 +20,7 @@
  * still gets an index row (version/date, no notes link), and rows from
  * the previously published index survive regeneration — the feed's
  * history is additive. Indexes complement `versions.json`; the updater
- * never reads them (UPDATES_PLAN.md feed law).
+ * never reads them (the updates plan feed law).
  *
  * Usage: node scripts/generate-changelog-feed.mjs <tag> <output-dir> [prior-index.json]
  */
@@ -41,7 +41,7 @@ const FIRST_PUBLIC_VERSION = '2026.7.23';
 // The streams a suite tag cuts (the extension rides its own store
 // lane; its rows come from authored tree entries and its manifest
 // version, like versions.json's extension entry). A stream-lane tag
-// (`v*-cli` / `v*-daemon`, RELEASES.md) cuts only its own stream.
+// (`v*-cli` / `v*-daemon`) cuts only its own stream.
 const CUT_APPS = { desktop: null, cli: 'apps/cli', daemon: 'apps/daemon', web: 'apps/web', extension: 'apps/extension' };
 
 function fail(message) {

@@ -21,7 +21,7 @@ export const WorkspaceSchema = v.object({
    * Accepts both id shapes: 8-char entity uids (fixtures, pre-binding
    * manifests) and uuidv7 — the host workspace store mints uuidv7 ids
    * (`generateWorkspaceId`), and a tree binding writes that id into
-   * `workspace.yaml` as the clone join key (GIT_PLAN.md §4).
+   * `workspace.yaml` as the clone join key (the git-sync plan §4).
    */
   uid: v.union([UidSchema, UuidV7Schema]),
   name: v.string(),
@@ -29,7 +29,7 @@ export const WorkspaceSchema = v.object({
   defaultEnvironmentId: v.optional(v.string()),
   rootPath: v.optional(v.string()),
   /**
-   * Org binding (UNIFIED_ORACLE_MODEL.md §6.1). Canonical source-of-truth
+   * Org binding (the unified-oracle model §6.1). Canonical source-of-truth
    * for which Org's authorized set the workspace's envelopes ride on.
    * Stamped onto every mutation envelope at mint time; never rewritten on
    * workspace re-binding (§8.2).
@@ -40,7 +40,7 @@ export const WorkspaceSchema = v.object({
 /**
  * Committed `workspace.yaml` shape — {@link WorkspaceSchema} minus the
  * org binding. `orgId` is host-local tenancy context and never enters
- * committed YAML (GIT_PLAN.md §5): each binding host injects its own
+ * committed YAML (the git-sync plan §5): each binding host injects its own
  * Org when it consumes the manifest, so a clone never carries the
  * origin host's tenancy.
  */

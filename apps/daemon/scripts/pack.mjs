@@ -1,5 +1,5 @@
 /**
- * Stage the plain-Node distribution (DAEMON_PLAN.md §6 channels).
+ * Stage the plain-Node distribution (the daemon plan §6 channels).
  *
  * The monorepo's better-sqlite3 is compiled for Electron's ABI and
  * must stay that way (desktop dev depends on it), so the distribution

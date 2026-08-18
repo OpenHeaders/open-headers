@@ -1,5 +1,5 @@
 /**
- * Daemon-side pairing modal (U3.3, `DATA_PLANE_TOPOLOGIES.md` §11.4
+ * Daemon-side pairing modal (U3.3, the data-plane topologies design §11.4
  * hybrid pattern).
  *
  * The admin clicks "Pair a device" on the daemon's Paired-devices

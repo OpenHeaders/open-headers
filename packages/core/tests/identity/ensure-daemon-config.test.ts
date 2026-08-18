@@ -1,6 +1,6 @@
 /**
  * Coverage for `ensureDaemonConfig` — the host-neutral entry point for
- * minting + persisting `hostInstallId` (U1.4 per UNIFIED_ORACLE_STATUS.md).
+ * minting + persisting `hostInstallId` (U1.4 per the unified-oracle status log).
  *
  * Uses the shared in-memory `HostStorage` fake so the test exercises the
  * real proxy + key plumbing without coupling to any host's storage

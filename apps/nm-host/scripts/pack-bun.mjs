@@ -1,7 +1,7 @@
 /**
  * Build the single-executable `oh-nm-host` binary with bun (`bun build
  * --compile`) — the same client-tier compile idiom as the CLI's
- * pack-bun (DISTRIBUTION_PLAN.md §6). One self-contained, signable
+ * pack-bun (the distribution plan §6). One self-contained, signable
  * binary; the desktop app bundles it under its resources and points
  * every registered NM manifest at it.
  *

@@ -1,6 +1,6 @@
 /**
  * Stages the static update feed uploaded to `updates.openheaders.io`
- * by the release workflow (DISTRIBUTION_PLAN §3). Input is the release
+ * by the release workflow (the distribution plan §3). Input is the release
  * job's `processed_files` directory (electron-builder `latest*.yml`
  * feed files + the generated `versions.json`); output is the exact R2
  * object layout for ONE channel:

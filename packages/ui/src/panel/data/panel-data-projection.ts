@@ -11,7 +11,7 @@
  *     renderer in the loop.
  *   - **Oracle.** It is the full-recompute reference any future
  *     incremental derived-state path must match for the same input
- *     sequence (see `docs/PANEL_PERF_FOUNDATION_PLAN.md` §3).
+ *     sequence (see the panel-perf foundation plan §3).
  *
  * `usePanelData` is now a thin `useMemo` wrapper over this function; the
  * memo dependency list is what bounds how often it runs, and the

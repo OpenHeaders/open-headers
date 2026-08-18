@@ -14,7 +14,7 @@
  *      property a future incremental path must preserve.
  *
  * Timing is measured and logged (not asserted) so the numbers land in
- * `docs/PANEL_PERF_FOUNDATION_STATUS.md`. The unbatched total is the sum
+ * the panel-perf foundation status log. The unbatched total is the sum
  * of a projection after every event (today's O(n²)-across-a-capture cost);
  * the batched total is one projection per frame.
  */

@@ -1,6 +1,6 @@
 /**
  * Phase-3 WAN acceptance — the daemon behind a TLS-terminating reverse
- * proxy (DAEMON_PLAN.md §3/§4, `apps/daemon/README.md` → "Behind a
+ * proxy (the daemon plan §3/§4, `apps/daemon/README.md` → "Behind a
  * reverse proxy (TLS)"), using the reusable `playground/daemon-rig`:
  *
  *   1. Spawn the built daemon on LOOPBACK — the reverse-proxy posture:

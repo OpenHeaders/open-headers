@@ -1,5 +1,5 @@
 /**
- * HTTP/3 helper bootstrap (docs/REQUEST_ENGINE_H3_PROTOCOL.md): where
+ * HTTP/3 helper bootstrap (the request-engine H3-protocol design): where
  * the desktop finds the bundled `oh-h3-helper` binary the `'3'`
  * HTTP-version pin spawns. Packaged builds carry it under
  * `resources/h3-helper` — the per-arch copy the afterPack hook stages

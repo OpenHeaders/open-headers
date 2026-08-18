@@ -1,6 +1,6 @@
 // ── Common ─────────────────────────────────────────────────────────
 
-// ── Backend connection (one joined back-end; MULTI_BACKEND_PLAN §2) ──
+// ── Backend connection (one joined back-end; the multi-backend plan §2) ──
 export type { BackendConnection } from './backend-connection';
 // ── CDP attach-scope vocabulary ────────────────────────────────────
 export type {

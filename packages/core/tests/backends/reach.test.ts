@@ -1,6 +1,6 @@
 /**
  * Coverage for the per-connection reach slot (`OH.backendReach`,
- * MULTI_BACKEND_PLAN.md Phase 4 — per-backend keying). Pinned:
+ * the multi-backend plan Phase 4 — per-backend keying). Pinned:
  *   - Entries are keyed per connection; one wire's write/clear never
  *     touches another's (or the self entry).
  *   - Redundant writes and missing-key clears skip the storage write.

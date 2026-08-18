@@ -5,7 +5,7 @@
  * only daemon entry inside the single-binary SEA build, which has no
  * separate main.js to exec).
  *
- * The daemon is the desktop app minus the GUI (UNIFIED_ORACLE_MODEL.md
+ * The daemon is the desktop app minus the GUI (the unified-oracle model
  * §3): the same `bootDaemonSpine` the desktop main process calls, with
  * the headless edges injected — plain file-backed host storage, a local
  * status store, a no-op surface broadcast (no renderer exists until the
@@ -147,7 +147,7 @@ export async function runDaemon(argv: readonly string[]): Promise<void> {
 
     const staticWeb = resolveStaticWebRoot(config.webRoot);
 
-    // Traffic-session seal key (AGENT_TRAFFIC_PLAN.md §9.5): the
+    // Traffic-session seal key (the agent-traffic plan §9.5): the
     // headless daemon has no OS keychain, so the key lives as a 0600
     // file in the CONFIG dir — deliberately outside the data dir, so a
     // data-dir exfiltration (backup, cloud sync) alone never carries

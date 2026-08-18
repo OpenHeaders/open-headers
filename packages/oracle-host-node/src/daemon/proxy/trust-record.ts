@@ -1,5 +1,5 @@
 /**
- * Durable "what we changed" record (PROXY_SECURITY.md §2.5) — one row
+ * Durable "what we changed" record (the proxy-security design §2.5) — one row
  * per concrete trust store the CA was installed into, keyed by
  * `(store, ref)`. Rows are written BEFORE the install command runs, so
  * a crash mid-install can never leave trust the record doesn't know

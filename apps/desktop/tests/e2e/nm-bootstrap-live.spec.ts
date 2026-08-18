@@ -1,5 +1,5 @@
 /**
- * NM identity bootstrap — live E2E (OBSERVABILITY_PLAN.md §4 + §8
+ * NM identity bootstrap — live E2E (the observability plan §4 + §8
  * Phase 7) against the real dual-app stack: the bun-compiled
  * `oh-nm-host` binary, the desktop daemon's `/nm/bootstrap` route with
  * its OS-truth verification chain, and the extension's handoff module.

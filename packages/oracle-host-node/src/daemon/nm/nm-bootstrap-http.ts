@@ -1,6 +1,6 @@
 /**
  * `POST /nm/bootstrap` — the NM identity handoff's daemon side
- * (OBSERVABILITY_PLAN.md §4 + §8 Phase 7).
+ * (the observability plan §4 + §8 Phase 7).
  *
  * The browser spawns the shipped NM host (stdio); the host dials this
  * loopback route; the daemon verifies WHO is dialing from OS truth

@@ -1,5 +1,5 @@
 /**
- * IndexedDB plane e2e (STORAGE_PANEL_PLAN.md §5, slice 4) — drives the
+ * IndexedDB plane e2e (the storage-panel plan §5, slice 4) — drives the
  * SW storage-inspector handlers end-to-end over the real bridge against
  * a REAL browser IndexedDB (the unit tier rides fake-indexeddb, whose
  * structured clone loses ArrayBuffer/Blob identity — the binary preview

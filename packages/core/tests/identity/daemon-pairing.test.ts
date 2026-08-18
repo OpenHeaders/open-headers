@@ -1,6 +1,6 @@
 /**
  * Coverage for the daemon device-flow pairing service (U3.3,
- * `DATA_PLANE_TOPOLOGIES.md` §11.4 hybrid pattern).
+ * the data-plane topologies design §11.4 hybrid pattern).
  *
  * Exercises the pure pairing state machine — code allocation, TTL
  * expiry, confirm-once semantics, mint reuse — against the shared

@@ -1,5 +1,5 @@
 /**
- * Scope-match predicate laws (PROXY_SECURITY.md §2.4 — scoped decrypt by
+ * Scope-match predicate laws (the proxy-security design §2.4 — scoped decrypt by
  * default). The empty list matches nothing; exact patterns match the
  * apex only; `*.` wildcards match any subdomain but never the apex;
  * matching is case-insensitive and port/bracket agnostic; there is no

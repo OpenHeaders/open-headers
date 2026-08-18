@@ -1,6 +1,6 @@
 /**
  * Pure draft-mutation helpers for the workflow graph view's editing
- * gestures (WORKFLOW_GRAPH_PLAN.md slice 4). Sibling of
+ * gestures (the workflow-graph plan slice 4). Sibling of
  * `graph-layout.ts`: layout projects the draft, these mutate it — the
  * graph stays a projection of the ONE canonical `DraftWorkflow`, so
  * every helper returns a new draft shaped exactly as the form's own

@@ -1,6 +1,6 @@
 /**
  * Host-neutral capability resolver — the single code path every host runs
- * before applying a privileged action (UNIFIED_ORACLE_MODEL.md §5.8).
+ * before applying a privileged action (the unified-oracle model §5.8).
  *
  * Reads from a synchronous snapshot of the identity rows persisted by
  * `ensureSyntheticIdentity` + `ensureWorkspaceRoleAssignments`. Synthetic
@@ -78,7 +78,7 @@ export interface IdentitySnapshot {
    * single private home Org; multi-org membership (real team Orgs
    * joined via a daemon) folds more rows in without changing the shape.
    * Consulted by the org-catalogue helpers that drive the workspace
-   * org-binding UI (UNIFIED_ORACLE_MODEL.md §6.2 / §6.4).
+   * org-binding UI (the unified-oracle model §6.2 / §6.4).
    */
   orgs: ReadonlyMap<string, Org>;
 }
@@ -138,7 +138,7 @@ export function hasCapability(
     if (capability === 'workspace.read') {
       return { allow: true };
     }
-    // `workspace.observe` (AGENT_TRAFFIC_PLAN.md §4): live-traffic
+    // `workspace.observe` (the agent-traffic plan §4): live-traffic
     // observation is a categorically larger grant than a config read,
     // so a viewer's `workspace.read` deliberately does not carry it —
     // the same owner/editor floor as `workspace.write`.
@@ -153,7 +153,7 @@ export function hasCapability(
 /**
  * The set of org ids this host is authorized to read envelopes for —
  * both at the sender-side transport readers and at the receiver-side
- * ingest filter (UNIFIED_ORACLE_MODEL.md §6.1, §8.2, §10.2 — "one sync
+ * ingest filter (the unified-oracle model §6.1, §8.2, §10.2 — "one sync
  * filter"). State-vector reader, delta-stream reader, snapshot builder,
  * and the inbound `applyInboundMutationBatch` ingest path all enforce
  * `envelope.orgId ∈ authorizedOrgIds(...)`.
@@ -181,7 +181,7 @@ export function authorizedOrgIds(snapshot: IdentitySnapshot | null): ReadonlySet
 /**
  * The subset of {@link authorizedOrgIds} this identity *consumes* from a
  * joined backend — every authorized Org minus the identity's own home Org
- * (UNIFIED_ORACLE_MODEL.md §6.5, Phase U6).
+ * (the unified-oracle model §6.5, Phase U6).
  *
  * A fresh V5 install carries only its private home Org, so this set is
  * empty — nothing is consumed, nothing syncs down. After a join (U5.2)

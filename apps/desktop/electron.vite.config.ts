@@ -97,7 +97,7 @@ function stripTestIdPropsPlugin(): Plugin {
 }
 /**
  * Bundles the running version's canonical changelog entry
- * (`changelog/desktop/<year>/<version>.md`, CHANGELOG_PLAN.md §4.3) as
+ * (`changelog/desktop/<year>/<version>.md`, the changelog plan §4.3) as
  * the `virtual:whats-new` module: frontmatter stripped, relative asset
  * refs rewritten to `whats-new-assets/…` with the files emitted beside
  * the renderer bundle — never fetched at runtime. A version without an

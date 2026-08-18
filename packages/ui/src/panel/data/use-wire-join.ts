@@ -1,6 +1,6 @@
 /**
  * `useWireJoin` — the consume-time wire-join seam
- * (OBSERVABILITY_PLAN.md Phase 6) for a network capture surface.
+ * (the observability plan Phase 6) for a network capture surface.
  *
  * `'browser'` mode (a watched browser-tab partition on a host that runs
  * the wire capture): mounts a SECOND lifecycle client on the local

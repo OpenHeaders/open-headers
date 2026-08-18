@@ -1,5 +1,5 @@
 /**
- * Tree reader edge cases — the issue-reporting seam (GIT_PLAN.md §10
+ * Tree reader edge cases — the issue-reporting seam (the git-sync plan §10
  * Phase 2; quarantine consumes these rows in Phase 4). A broken
  * document must never abort the read of the rest of the tree.
  */

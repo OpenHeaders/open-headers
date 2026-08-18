@@ -1,6 +1,6 @@
 /**
  * `ohd upgrade [--channel stable|beta] [--no-restart]` — the daemon's
- * "Update & Restart" verb (`DISTRIBUTION_PLAN.md` §5): resolve the
+ * "Update & Restart" verb (the distribution plan §5): resolve the
  * channel's manifest, download the release's `ohd` binary for this
  * platform from the immutable `dl/<tag>/` path, verify it against
  * `SHA256SUMS.txt`, atomically replace the executable, and — because

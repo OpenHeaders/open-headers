@@ -1,6 +1,6 @@
 /**
  * Traffic MCP tools — the agent traffic epic's Phase A surface
- * (AGENT_TRAFFIC_PLAN.md §5, slices S3–S6), over the injected
+ * (the agent-traffic plan §5, slices S3–S6), over the injected
  * {@link TrafficTap}: the observe-tier read tools plus the ONE
  * write-tier member, `traffic_to_rule`, which mints a response-override
  * rule from an observed exchange through the same canonical rule-mint

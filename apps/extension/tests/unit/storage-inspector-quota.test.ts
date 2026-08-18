@@ -1,5 +1,5 @@
 /**
- * Storage quota data plane (STORAGE_PANEL_PLAN.md §5, slice 6) — the
+ * Storage quota data plane (the storage-panel plan §5, slice 6) — the
  * injected `navigator.storage.estimate()` func runs against a stubbed
  * `navigator.storage`; the arbitrated RPC surface is exercised over both
  * transports: CDP `Storage.getUsageAndQuota` (with the per-type

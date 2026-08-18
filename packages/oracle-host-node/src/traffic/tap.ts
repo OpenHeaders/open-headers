@@ -1,6 +1,6 @@
 /**
  * The traffic tap — source registry over the two installers
- * (AGENT_TRAFFIC_PLAN.md §2, §8 S1). One armed source = one retention
+ * (the agent-traffic plan §2, §8 S1). One armed source = one retention
  * ring + one reducer + one live subscription; disarming releases the
  * subscription and drops the pair.
  *

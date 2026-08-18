@@ -1,6 +1,6 @@
 /**
  * GenerateWsCollectionModal — the AsyncAPI spec editor's Generate
- * Collection action (WEBSOCKET_CLIENT_PLAN.md Phase F, ratified GO),
+ * Collection action (the WebSocket-client plan Phase F, ratified GO),
  * the asyncapi twin of {@link GenerateProtoCollectionModal}.
  *
  * Walks the plan from `ws-collection-plan.ts`: create the collection,

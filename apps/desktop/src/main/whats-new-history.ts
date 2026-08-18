@@ -1,6 +1,6 @@
 /**
  * Main-process half of the What's New online history
- * (CHANGELOG_PLAN.md §4.3): enhancement-only static GETs against the
+ * (the changelog plan §4.3): enhancement-only static GETs against the
  * changelog feed's desktop stream, answering the renderer's
  * `oh.whatsNew.*` bridge RPCs. Runs here because the renderer's CSP
  * (`default-src 'self'`) blocks dialing the feed directly. Same

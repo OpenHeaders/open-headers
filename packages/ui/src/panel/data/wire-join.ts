@@ -1,6 +1,6 @@
 /**
  * Wire-join — the browser-row ⇄ wire-row correlation layer
- * (OBSERVABILITY_PLAN.md Phase 6, §2).
+ * (the observability plan Phase 6, §2).
  *
  * The extension's browser-truth rows and the proxy's wire-truth rows are
  * parallel witnesses of the same exchange in two partitions. This module

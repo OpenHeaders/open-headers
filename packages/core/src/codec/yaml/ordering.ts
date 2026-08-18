@@ -2,7 +2,7 @@
  * Canonical top-level field ordering for every persisted entity.
  *
  * Matches invariant #6 — metadata top, payload nested — from
- * docs/V5_FOUNDATION_PLAN.md §Phase 0. The codec serializes known
+ * the v5 foundation plan §Phase 0. The codec serializes known
  * fields in this order; unknown keys (preserve-unknown, invariant #4)
  * retain their original position beneath the known block.
  */

@@ -1,6 +1,6 @@
 /**
  * `traffic_diff`'s structural delta, computed host-side over redacted
- * projections (AGENT_TRAFFIC_PLAN.md §5, slice S4). The whole point is
+ * projections (the agent-traffic plan §5, slice S4). The whole point is
  * to never hand the agent two row dumps: requests are paired by
  * method+path, and only the DIFFERENCES cross the wire — status
  * divergence, header presence/value changes, and the request-set

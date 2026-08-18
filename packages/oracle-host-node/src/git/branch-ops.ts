@@ -1,5 +1,5 @@
 /**
- * Branch operations of the IDE-log activity bar (GIT_PLAN.md §9):
+ * Branch operations of the IDE-log activity bar (the git-sync plan §9):
  * create-from, safe delete, per-branch upstream update, the explicit
  * all-remotes fetch, and the compare-with-current range read. Same
  * discipline as `repo.ts`: explicit repo addressing, the injected

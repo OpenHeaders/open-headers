@@ -1,6 +1,6 @@
 /**
  * T3 acceptance — the standalone headless daemon as a real backend
- * (DAEMON_PLAN.md §7 Phase 1):
+ * (the daemon plan §7 Phase 1):
  *
  *   1. Spawn the built `apps/daemon` bundle headless on a LAN bind
  *      (`0.0.0.0`, non-default port) with an isolated data dir. The

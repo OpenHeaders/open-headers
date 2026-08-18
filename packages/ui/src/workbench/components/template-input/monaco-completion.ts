@@ -7,7 +7,7 @@
  * ordering the line-input picker uses — callers plug in the
  * suggestion getter and the shared {@link SuggestionContext}.
  *
- * See `docs/VARIABLE_AUTOCOMPLETE_PLAN.md` Phase D.
+ * See the variable-autocomplete plan Phase D.
  */
 
 import { filterSuggestions, type SuggestionContext, type VariableSuggestion } from '@openheaders/core/variables';

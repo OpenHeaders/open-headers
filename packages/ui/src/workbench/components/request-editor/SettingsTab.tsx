@@ -77,7 +77,7 @@
  *     store/prompt, so there is no browser control.
  *   • `proxyMode` / `proxyUrl` / `proxyCredentialRef` — node-runtime
  *     only: the tri-state Proxy row over the two-plane architecture
- *     (docs/REQUEST_ENGINE_PROXY_DESIGN.md). Inherit (the default —
+ *     (the request-engine proxy design). Inherit (the default —
  *     the cleared select, `undefined` on disk) lets the executing
  *     DEVICE's system plane decide (system settings / PAC /
  *     env vars); Direct opts the send out of any ambient proxy;

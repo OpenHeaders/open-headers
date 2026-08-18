@@ -1,5 +1,5 @@
 /**
- * Drift hooks (API_SPECS_PLAN.md Phase F) — drift derives at read time
+ * Drift hooks (the API-specs plan Phase F) — drift derives at read time
  * from `hashImportSource(saved root content)` vs each link's
  * `specLink.sourceHash`; nothing is ever cached in the model.
  */

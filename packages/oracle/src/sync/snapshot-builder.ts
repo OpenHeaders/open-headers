@@ -16,7 +16,7 @@
  *   vector + workspaceId explicitly. Useful for tests + for callers
  *   that already hold a service handle.
  *
- * Transport-boundary org gate (UNIFIED_ORACLE_MODEL.md §6.1 / §8.2).
+ * Transport-boundary org gate (the unified-oracle model §6.1 / §8.2).
  * The workspace's *current* `orgId` is resolved via
  * {@link resolveWorkspaceOrgId} and compared against the host's
  * authorized Org set; a workspace whose `orgId` falls outside the set

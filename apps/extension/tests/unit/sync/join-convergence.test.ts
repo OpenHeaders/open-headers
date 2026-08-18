@@ -3,7 +3,7 @@
  *
  * Drives the real {@link createSyncHandshakeInitiator} against a
  * scripted fake backend and asserts the three properties the
- * consume-only join data plane must hold (UNIFIED_ORACLE_STATUS.md
+ * consume-only join data plane must hold (the unified-oracle status log
  * Phase U6 acceptance):
  *
  *   1. **The backend's workspaces appear on the joiner.** After the

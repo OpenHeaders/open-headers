@@ -64,7 +64,7 @@ export interface AdminChannelDeps {
   /**
    * This build's own release notes (`oh.daemon.changelog.get`): the
    * running server version and the `changelog/daemon` entry body the
-   * daemon host embedded at build (CHANGELOG_PLAN.md §4.3) — null
+   * daemon host embedded at build (the changelog plan §4.3) — null
    * notes = entry-less build, the admin card hides. Optional so
    * dispatch tables composed without it (the desktop host, test rigs)
    * answer an honest nothing instead of failing construction.
@@ -111,7 +111,7 @@ export interface AdminChannelDeps {
   /**
    * The `oh.daemon.traffic.*` backing — the agent-traffic tap's
    * operator-plane arm/disarm/status/records controls
-   * (AGENT_TRAFFIC_PLAN.md §8 S1/S2). Status is content-free counters;
+   * (the agent-traffic plan §8 S1/S2). Status is content-free counters;
    * `records` answers REDACTED projections only (the projection-layer
    * law makes anything else unrepresentable). Optional so dispatch
    * tables composed without the tap (test rigs) answer an empty source
@@ -178,7 +178,7 @@ export function createAdminChannelHandlers(deps: AdminChannelDeps): ReadonlyMap<
   handlers.set(ADMIN_STATUS_CHANNEL, () => ({ admin: true }));
 
   // This build's own release notes — served rather than fetched (the
-  // browser never dials the feed, CHANGELOG_PLAN.md §4.3). Null notes
+  // browser never dials the feed, the changelog plan §4.3). Null notes
   // (entry-less build, or a host that embeds none) hide the card.
   handlers.set('oh.daemon.changelog.get', () => ({
     version: deps.changelog?.version ?? null,
@@ -674,7 +674,7 @@ export function createAdminChannelHandlers(deps: AdminChannelDeps): ReadonlyMap<
     return { ok: true };
   });
 
-  // The admin console's Git card (GIT_PLAN.md §11.5) — every
+  // The admin console's Git card (the git-sync plan §11.5) — every
   // `oh.workspaceTree.*` gesture rides this one channel as
   // `{ op, ...payload }`, delegating to the spine's shared verb table.
   // Non-tree ops refuse up front; host-only verbs (the native folder

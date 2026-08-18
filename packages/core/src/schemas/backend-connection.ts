@@ -1,6 +1,6 @@
 /**
  * `BackendConnection` — one back-end this app instance has joined
- * (MULTI_BACKEND_PLAN.md §2). A back-end is precisely a daemon the
+ * (the multi-backend plan §2). A back-end is precisely a daemon the
  * client dials: a URL, a per-backend paired token, and the Orgs
  * consumed from it. The local host engine (extension SW / desktop
  * embedded oracle) is tier zero — always on, never a record here.

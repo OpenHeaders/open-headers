@@ -9,7 +9,7 @@
  *     serializable `{ path, value }` rows in `ParsedDocument.raw`
  *     (`unknown-fields.ts`); serialize re-emits them beneath the known
  *     block of their original parent map at every depth — never only
- *     the top level (SYNC_ENGINE_DESIGN.md §13.2 pass-through reads).
+ *     the top level (the sync-engine design §13.2 pass-through reads).
  *   - Invariant #6 (metadata top, payload nested): top-level fields
  *     serialize in the canonical order declared in `ordering.ts`;
  *     nested maps follow the valibot schema's entry-definition order

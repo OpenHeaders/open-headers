@@ -4,7 +4,7 @@
  * Engine modules import the types + invariant predicates from here. UI
  * modules import the wire-shaped `RequestLifecycleUpdate` to reduce
  * against. See `./types` for the eight invariants this primitive
- * embodies and `docs/REQUEST_LIFECYCLE_DESIGN.md` for the architecture.
+ * embodies and the request-lifecycle design for the architecture.
  */
 
 export type { RequestCorrelator, RequestLifecycleListener, Unsubscribe } from './correlator';

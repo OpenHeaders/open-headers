@@ -1,6 +1,6 @@
 /**
  * In-app branch merge — the Phase 4 pull machinery pointed at a LOCAL
- * ref (GIT_PLAN.md §6 / §10 Phase 6). Raw `git merge` is never
+ * ref (the git-sync plan §6 / §10 Phase 6). Raw `git merge` is never
  * invoked: two branches that diverged textually CAN conflict at the
  * git level, and the no-`<<<<<<<` guarantee (§23.7) holds only when
  * the mutation pipeline does the merging. The other branch's commits

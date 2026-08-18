@@ -1,5 +1,5 @@
 /**
- * Stage the npm distribution of the `oh` CLI (CLI_PLAN.md §6).
+ * Stage the npm distribution of the `oh` CLI (the CLI plan §6).
  *
  * The workspace manifest stays `private: true` forever — publishing
  * only ever happens from the staged `dist-package/`, whose generated

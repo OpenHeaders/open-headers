@@ -1,5 +1,5 @@
 /**
- * Body capture + projection for the retention plane (AGENT_TRAFFIC_PLAN.md
+ * Body capture + projection for the retention plane (the agent-traffic plan
  * §3). Bodies are the first NEW content plane since projection-boundary
  * redaction landed, so every body that crosses to a consumer is shaped
  * HERE — beside `projectRecord`, never in tool code:

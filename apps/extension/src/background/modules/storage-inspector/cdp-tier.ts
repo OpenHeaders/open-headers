@@ -1,6 +1,6 @@
 /**
  * CDP tier of the storage inspector — additive, never required
- * (STORAGE_PANEL_PLAN.md §2.3). When the inspected tab is CDP-attached,
+ * (the storage-panel plan §2.3). When the inspected tab is CDP-attached,
  * scope listing upgrades each scope with its partitioned storage key via
  * `Storage.getStorageKey`, and arms the `Storage.track*ForStorageKey`
  * commands (IndexedDB + Cache Storage) per stamped key so tracked

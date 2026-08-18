@@ -1,5 +1,5 @@
 /**
- * Hardcoded-string scanner — the enforcement gate of I18N_PLAN.md §7.
+ * Hardcoded-string scanner — the enforcement gate of the i18n plan §7.
  *
  * Flags English prose in localizable positions: JSX text children,
  * `{'string'}` JSX children, string values of the `title`,

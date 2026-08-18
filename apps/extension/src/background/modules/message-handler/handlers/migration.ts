@@ -1,6 +1,6 @@
 /**
  * Migration RPCs — the account pull now runs LOCALLY in this service
- * worker (EXTENSION_ACCOUNT_PULL_PLAN.md Phase B): `listWorkspaces` and
+ * worker (the extension account-pull plan Phase B): `listWorkspaces` and
  * `start` mirror the desktop pair's vocabulary exactly, so the stepper
  * stays host-blind. The key crosses the bridge per call and reaches
  * only the run host — never state, events, reports, or logs.

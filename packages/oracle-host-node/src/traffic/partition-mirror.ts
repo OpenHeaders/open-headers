@@ -1,6 +1,6 @@
 /**
  * Traffic partition mirror — the single authoritative host-side store
- * per watched browser-tab partition (AGENT_TRAFFIC_PLAN.md §11.2, C2).
+ * per watched browser-tab partition (the agent-traffic plan §11.2, C2).
  *
  * Before C2 every consumer of a `(nodeId, tabId)` partition — the
  * Traffic Monitor's viewer port, the agent tap, each inspect tab — was

@@ -18,8 +18,8 @@
  *     mute decision leaking onto our feed.
  *   - **Open-ended.** No tombstone; `remove` is the unmute.
  *
- * Design source: `docs/DATA_PLANE_TOPOLOGIES.md` §11.6 (Activity Feed)
- * and `docs/PHASE_C_D_STATUS.md` F6 row.
+ * Design source: the data-plane topologies design §11.6 (Activity Feed)
+ * and the phase-C/D status log F6 row.
  */
 import type { EntityType } from '../envelope';
 

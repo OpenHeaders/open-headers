@@ -166,7 +166,7 @@ export interface AgentObservationInput {
   tokenLabel?: string;
   userId: string;
   /** The read projected RAW values under the persistent unredacted
-   *  session grant (AGENT_TRAFFIC_PLAN.md §11.5) — surfaced on the
+   *  session grant (the agent-traffic plan §11.5) — surfaced on the
    *  feed card so "what did the agent look at" includes "and how". */
   raw?: boolean;
 }
@@ -176,7 +176,7 @@ let observeSeq = 0;
 
 /**
  * Land one `observe`-tier read in the Activity Feed
- * (AGENT_TRAFFIC_PLAN.md §4: "a human must be able to answer 'what did
+ * (the agent-traffic plan §4: "a human must be able to answer 'what did
  * the agent look at?' after the fact"). Reads have no envelope, no
  * prior and nothing to revert, so the entry is minted directly rather
  * than through the classifier: the workspace's own context handle

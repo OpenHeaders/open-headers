@@ -68,7 +68,7 @@ export interface SyncHandshakeHandles {
 
 /**
  * Build the handshake coordinator for one backend wire — one initiator
- * instance per connection (MULTI_BACKEND_PLAN.md §3). Everything that
+ * instance per connection (the multi-backend plan §3). Everything that
  * used to read the singular primary record reads the wire instead: the
  * send path, the auth token, the Org provenance stamp, and the fan-out
  * enumeration (only workspaces whose Org is bound to THIS backend).
@@ -175,7 +175,7 @@ export function createSyncHandshakeForWire(
     // the user made since.
     onJoinedOrg: async (org, backendActiveWorkspaceId) => {
       // Provenance: the WELCOME rode this wire, so the Org binds to its
-      // registry record (MULTI_BACKEND_PLAN.md §2). The claim enforces
+      // registry record (the multi-backend plan §2). The claim enforces
       // Org uniqueness: an Org already bound to a different, still-
       // present backend is refused — never re-bound, never
       // double-consumed.

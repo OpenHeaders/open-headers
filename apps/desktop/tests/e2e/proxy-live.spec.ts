@@ -1,6 +1,6 @@
 /**
  * Proxy Live E2E — the observability Phase-2 wire plane against the real
- * dual-app stack (OBSERVABILITY_PLAN.md §5.1 routing + the S6 body
+ * dual-app stack (the observability plan §5.1 routing + the S6 body
  * plane), the same chassis as `live-network.spec.ts`:
  *
  *   1. Launch the built desktop app with an isolated userData dir, mint

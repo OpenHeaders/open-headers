@@ -1,7 +1,7 @@
 /**
  * Global-scope sync service — singleton lifecycle around an
  * {@link EntityOracle} dedicated to cross-workspace metadata
- * (`extensionWorkspace` entity, §SYNC_ENGINE_DESIGN.md §8).
+ * (`extensionWorkspace` entity, §the sync-engine design §8).
  *
  * The per-workspace `service.ts` keys all of its IDB stores +
  * in-memory caches by the active workspace id and is reinit'd on

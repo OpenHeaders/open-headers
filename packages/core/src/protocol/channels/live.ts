@@ -1,6 +1,6 @@
 /**
  * Live Variables + Workflows bridge RPCs (Phase B —
- * docs/LIVE_VARIABLES_PLAN.md). Workflows own the step list + refresh
+ * the live-variables plan). Workflows own the step list + refresh
  * schedule; `{{live.X}}` namespace bindings live on Live Variables.
  */
 

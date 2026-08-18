@@ -1,6 +1,6 @@
 /**
  * NM token handoff — the wire mechanics of one bootstrap exchange with
- * the desktop's native-messaging host (OBSERVABILITY_PLAN.md §4 + §8
+ * the desktop's native-messaging host (the observability plan §4 + §8
  * Phase 7). Context-neutral by design: the service worker's silent
  * auto-join policy and the workbench wizard's explicit pairing gesture
  * (the `nmAutoPair` capability) both ride this one primitive.

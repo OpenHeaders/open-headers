@@ -1,6 +1,6 @@
 /**
  * Agent traffic C6 E2E — the replay viewer against the real dual-app
- * stack (AGENT_TRAFFIC_PLAN.md §11.6 `agent-traffic/replay-parity` —
+ * stack (the agent-traffic plan §11.6 `agent-traffic/replay-parity` —
  * THE PHASE'S ACCEPTANCE TEST).
  *
  *   1. Launch the built desktop app isolated on a fresh daemon port;

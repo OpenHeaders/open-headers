@@ -124,7 +124,7 @@ export interface TrafficMonitorSourceRailProps {
   debugPending: ReadonlySet<TrafficSourceKey>;
   /** Peers whose master-switch command is in flight — switch loading. */
   debugEnablePending: ReadonlySet<string>;
-  /** Sources armed for AI-agent observation (AGENT_TRAFFIC_PLAN.md §4)
+  /** Sources armed for AI-agent observation (the agent-traffic plan §4)
    *  — tab keys plus {@link WIRE_SOURCE_KEY} when the proxy partition
    *  is armed. Armed = the source streams to the desktop app. */
   observeArmed: ReadonlySet<TrafficSourceKey>;
@@ -331,7 +331,7 @@ function ObserveMenuToggle({
 }
 
 /**
- * Per-source observation affordance (AGENT_TRAFFIC_PLAN.md §11.1 —
+ * Per-source observation affordance (the agent-traffic plan §11.1 —
  * one gesture, one bundle): the capture glyph (the viewfinder-frame
  * capture-start/capture-active pair) IS the verb — clicking it starts
  * observing idle, stops armed/recording. The hover popover never

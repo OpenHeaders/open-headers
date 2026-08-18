@@ -1,6 +1,6 @@
 /**
  * `@openheaders/oracle/traffic-retention` — bounded per-source retention
- * for the agent traffic epic (AGENT_TRAFFIC_PLAN.md §3, slice S1).
+ * for the agent traffic epic (the agent-traffic plan §3, slice S1).
  *
  * Deliberately host-neutral (this package, not `oracle-host-node`): the
  * browser-extension host will eventually want the same ring for its own

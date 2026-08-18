@@ -1,6 +1,6 @@
 /**
  * Tree planner — one workspace snapshot in, the complete deterministic
- * file set out (GIT_PLAN.md §10 Phase 2; SYNC_ENGINE_DESIGN.md §23).
+ * file set out (the git-sync plan §10 Phase 2; the sync-engine design §23).
  *
  * Placement comes from each entity's mutator-maintained `path`; file
  * contents come from the canonical per-entity codecs, so the plan is
@@ -69,7 +69,7 @@ function toWrite<T>(value: T, rows: readonly UnknownField[] | undefined): Writea
  * file bind writes before any full materialize runs (§3.5). Same emit
  * path the planner uses, so bind-authored and materializer-authored
  * manifests are byte-identical. `orgId` never reaches the file — the
- * codec drops it on both directions (GIT_PLAN.md §5, S5 decision).
+ * codec drops it on both directions (the git-sync plan §5, S5 decision).
  */
 export function serializeWorkspaceManifest(workspace: WorkspaceManifest, rows?: readonly UnknownField[]): string {
   return serializeWorkspace(toWrite(workspace, rows));

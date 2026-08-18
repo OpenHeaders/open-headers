@@ -1,5 +1,5 @@
 /**
- * Telemetry event vocabulary — the typed allowlist of `TELEMETRY_PLAN.md` §3.
+ * Telemetry event vocabulary — the typed allowlist of the telemetry plan §3.
  *
  * Every event name and every payload property is a closed union, boolean,
  * or number: the `string` type is structurally banned from event payloads,

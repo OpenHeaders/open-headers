@@ -1,5 +1,5 @@
 /**
- * PAC generation for scoped browser routing (OBSERVABILITY_PLAN.md
+ * PAC generation for scoped browser routing (the observability plan
  * §5.1, Chromium leg). Chromium has no per-request proxy hook, so the
  * scope list compiles into a proxy auto-config script: scoped hosts get
  * `PROXY 127.0.0.1:<port>; DIRECT` (the DIRECT failover keeps browsing

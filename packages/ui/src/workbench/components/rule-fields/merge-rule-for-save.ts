@@ -1,7 +1,7 @@
 /**
  * Per-field save merge for Rule editors.
  *
- * Save is the deliberate publication gate (`memory/project_publication_gate_decision.md`).
+ * Save is the deliberate publication gate.
  * For the merge to honor §6.2's killer-demo promise — two surfaces editing
  * different paths both apply unconditionally with no banner — the Save
  * batch must carry **only the leaves the user actually edited**. Untouched

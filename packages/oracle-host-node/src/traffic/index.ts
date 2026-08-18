@@ -1,6 +1,6 @@
 /**
  * `oracle-host-node/traffic` — the broker tap for the agent traffic
- * epic (AGENT_TRAFFIC_PLAN.md §2): loopback lifeline dialing, the
+ * epic (the agent-traffic plan §2): loopback lifeline dialing, the
  * partition mirror (§11.2 — the one authoritative store per watched
  * partition), the sessions archive (§11.4 — event-log recorder, CAS
  * blob store, reachability GC), the two source connectors, and the

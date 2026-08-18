@@ -9,7 +9,7 @@
  *      / `secrets` are separate opt-ins). A disabled tier denies before
  *      any workspace context is even resolved.
  *   2. Capability gate. Same discipline as oracle's `gateDispatch`
- *      (UNIFIED_ORACLE_MODEL.md §5.8): resolve the workspaceId(s) the
+ *      (the unified-oracle model §5.8): resolve the workspaceId(s) the
  *      tool acts on, consult {@link hasCapability} against the CALLING
  *      USER's snapshot, and emit an audit entry on every decision. The
  *      snapshot is re-resolved per call (`resolveDaemonPeerIdentitySnapshot`,

@@ -1,5 +1,5 @@
 /**
- * Workspace → Org resolver (UNIFIED_ORACLE_MODEL.md §6.1 / §8.2).
+ * Workspace → Org resolver (the unified-oracle model §6.1 / §8.2).
  *
  * Per-surface context handles ({@link createSwContextHandle},
  * {@link createRendererContextHandle}) consult this resolver at envelope

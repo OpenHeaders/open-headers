@@ -1,5 +1,5 @@
 /**
- * Check-and-notify update orchestrator (`docs/UPDATES_PLAN.md`).
+ * Check-and-notify update orchestrator (the updates plan).
  *
  * Pure state machine over an injected {@link UpdaterPort} — the
  * electron-updater wiring lives in `electron-updater-port.ts`; this
@@ -59,7 +59,7 @@ export interface UpdatePreferences {
   check: 'all' | 'security-only' | 'off';
   autoDownload: boolean;
   /**
-   * Which release line checks follow (DISTRIBUTION_PLAN.md §4). The
+   * Which release line checks follow (the distribution plan §4). The
    * channel changes offers, never consent; severity always reads the
    * STABLE manifest regardless (`versions-manifest.ts`).
    */

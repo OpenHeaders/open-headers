@@ -1,6 +1,6 @@
 /**
  * Agent traffic C2 E2E — single-store convergence against the real
- * dual-app stack (AGENT_TRAFFIC_PLAN.md §11.2).
+ * dual-app stack (the agent-traffic plan §11.2).
  *
  *   1. Inventory the generator tab.
  *   2. A workbench watch opens ONE extension stream session (the

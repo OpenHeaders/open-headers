@@ -1,6 +1,6 @@
 /**
  * Workspace-tree contracts — the pure interchange between an engine
- * snapshot and the on-disk YAML working tree (GIT_PLAN.md §10 Phase 2).
+ * snapshot and the on-disk YAML working tree (the git-sync plan §10 Phase 2).
  *
  * Core stays host-free: a tree is modeled as a flat list of
  * `{ path, content }` files. Node hosts walk the filesystem into that
@@ -35,7 +35,7 @@ export interface TreeFile {
 export interface WorkspaceTreeState {
   /**
    * The manifest shape — no `orgId` (host-local tenancy never enters
-   * committed YAML, GIT_PLAN.md §5). A full runtime {@link Workspace}
+   * committed YAML, the git-sync plan §5). A full runtime {@link Workspace}
    * is assignable; the planner simply never emits the org binding.
    */
   workspace: WorkspaceManifest;
@@ -78,7 +78,7 @@ export interface TreeReadResult {
   /**
    * `workspace` is null when `workspace.yaml` is missing or invalid
    * (reported in `issues`). The parsed manifest carries no `orgId` —
-   * committed YAML never does (GIT_PLAN.md §5); the binding host
+   * committed YAML never does (the git-sync plan §5); the binding host
    * injects its own tenancy when it consumes the read.
    */
   state: Omit<WorkspaceTreeState, 'workspace'> & { workspace: WorkspaceManifest | null };

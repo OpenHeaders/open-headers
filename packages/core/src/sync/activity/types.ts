@@ -5,7 +5,7 @@
  * case so users are passively notified of changes that landed without
  * a foreground prompt.
  *
- * Design source: `docs/DATA_PLANE_TOPOLOGIES.md` §11.6.
+ * Design source: the data-plane topologies design §11.6.
  *
  * One entry is produced per (mutationId, kind) pair by the classifier
  * at the receiver. Most envelopes yield a single entry, but a single
@@ -44,7 +44,7 @@ export type ActivityEntryKind =
   | 'sensitive-field-rotation'
   | 'permission-scope-expansion'
   /**
-   * An agent READ through the MCP `observe` tier (AGENT_TRAFFIC_PLAN.md
+   * An agent READ through the MCP `observe` tier (the agent-traffic plan
    * §4): reads of live traffic must be answerable after the fact
    * ("what did the agent look at?"), so every observe-tier tool call
    * lands here the way MCP mutations do. Not a mutation — there is no

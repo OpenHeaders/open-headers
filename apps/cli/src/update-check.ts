@@ -1,5 +1,5 @@
 /**
- * On-start availability notify (`DISTRIBUTION_PLAN.md` §5, CLI row) —
+ * On-start availability notify (the distribution plan §5, CLI row) —
  * the only automatic piece of the update pair; installation is always
  * the human-typed `oh upgrade`. Any command may print the one stderr
  * line, but only from the 24h on-disk cache and only when every gate
@@ -9,7 +9,7 @@
  * static pointer file, silent on every failure, capped at exit so a
  * slow feed can never hold a finished command open or change its
  * outcome. Severity law: the loud tier keys off the STABLE manifest on
- * both channels (`UPDATES_PLAN.md` §4) — a beta install below the
+ * both channels (the updates plan §4) — a beta install below the
  * stable floor still escalates.
  */
 

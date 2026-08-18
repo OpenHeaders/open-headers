@@ -14,7 +14,7 @@
  *     two envelopes with identical HLC + workspace.
  *   • Index `by_mutation_id` for the dedup query.
  *   • Index `by_workspace_org` on `(workspaceId, orgId)` — denormalized
- *     per UNIFIED_ORACLE_MODEL.md §8.2 so transport filters can run
+ *     per the unified-oracle model §8.2 so transport filters can run
  *     `WHERE orgId IN (authorized set)` without unpacking each
  *     envelope blob (U2.7-U2.9).
  *

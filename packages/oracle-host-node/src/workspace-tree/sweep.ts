@@ -1,5 +1,5 @@
 /**
- * Tree-wins sweep — the rung-2 reconcile pass (GIT_PLAN.md §3.1;
+ * Tree-wins sweep — the rung-2 reconcile pass (the git-sync plan §3.1;
  * S3 §11.2 ratification: MANDATORY on every bind-open, and the same
  * pass the filesystem watcher schedules for live external edits).
  *

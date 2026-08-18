@@ -4,8 +4,8 @@
  * Every "create rule" gesture in the product mints a real entity at click
  * time (via `openCreateTab` → `applyRuleCreate`); this editor only ever
  * sees a persisted rule. The `published` flag on the rule distinguishes
- * "still drafting" from "live" — the Save button is the publication gate
- * (see `memory/project_publication_gate_decision.md`).
+ * "still drafting" from "live" — the Save button is the publication
+ * gate.
  *
  * Ownership model:
  *   - **Form** owns content fields (domains, per-type fields).

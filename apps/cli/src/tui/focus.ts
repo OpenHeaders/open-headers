@@ -1,6 +1,6 @@
 /**
  * Focus ring: which pane owns the keys. Tab/Shift+Tab cycle the pane
- * order and digits jump directly (TUI_DESIGN.md §2 — the workbench's
+ * order and digits jump directly (the TUI design §2 — the workbench's
  * alt+N family with the modifier dropped). A modal stack captures
  * focus wholesale: while any modal is open pane movement is inert and
  * `active` answers the top modal, so overlays compose (help over

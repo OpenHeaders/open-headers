@@ -1,5 +1,5 @@
 /**
- * NM bootstrap host install (OBSERVABILITY_PLAN.md §4 + §8 Phase 7):
+ * NM bootstrap host install (the observability plan §4 + §8 Phase 7):
  * where the desktop finds the shipped `oh-nm-host` binary, and the
  * per-browser native-messaging manifest registration that points a
  * browser at it.

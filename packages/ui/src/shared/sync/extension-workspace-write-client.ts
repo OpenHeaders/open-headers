@@ -106,7 +106,7 @@ export async function applyCreateWorkspace(
   opts: ExtensionWorkspaceWriteOptions,
 ): Promise<ApplyCreateWorkspaceResult> {
   const mirror = opts.mirror ?? getActiveExtensionWorkspaceSyncMirror();
-  // Org binding for the new workspace (UNIFIED_ORACLE_MODEL.md §6.2):
+  // Org binding for the new workspace (the unified-oracle model §6.2):
   // the user's stored "default for new workspaces" preference when it
   // still names an authorized Org, else the home-org. Falls back to the
   // `PRE_BOOTSTRAP_ORG_ID` sentinel when the identity snapshot isn't

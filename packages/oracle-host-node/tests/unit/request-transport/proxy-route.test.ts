@@ -1,7 +1,7 @@
 /**
  * Per-send proxy-route resolution — the request plane's precedence,
  * the stand-down rule, the SOCKS gate, and effective-proxy
- * materialization (docs/REQUEST_ENGINE_PROXY_DESIGN.md).
+ * materialization (the request-engine proxy design).
  */
 
 import { TransportError } from '@openheaders/oracle/live/request-exec/transport';

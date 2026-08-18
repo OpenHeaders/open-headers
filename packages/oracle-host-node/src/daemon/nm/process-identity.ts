@@ -1,6 +1,6 @@
 /**
  * NM caller verification — the OS-truth identity chain behind the
- * `/nm/bootstrap` handoff (OBSERVABILITY_PLAN.md §4 + §8 Phase 7).
+ * `/nm/bootstrap` handoff (the observability plan §4 + §8 Phase 7).
  *
  * Nothing on the wire is trusted. Given the connecting socket's remote
  * endpoint, the chain reads three facts from the operating system:

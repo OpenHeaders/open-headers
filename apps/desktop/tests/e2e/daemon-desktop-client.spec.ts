@@ -1,6 +1,6 @@
 /**
  * Desktop-as-client acceptance — the desktop app joins a daemon backend
- * as a CLIENT through the shared host-neutral plane (MULTI_BACKEND_PLAN.md
+ * as a CLIENT through the shared host-neutral plane (the multi-backend plan
  * §5), while staying a server on its own bind:
  *
  *   1. A headless daemon is spawned on loopback with a pre-seeded pair

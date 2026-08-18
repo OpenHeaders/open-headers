@@ -1,6 +1,6 @@
 /**
  * Do-not-translate glossary — the machine-readable half of the English
- * boundary (I18N_PLAN.md §3).
+ * boundary (the i18n plan §3).
  *
  * These terms stay English in every locale: the hardcoded-string
  * scanner whitelists them, the translator handoff marks them

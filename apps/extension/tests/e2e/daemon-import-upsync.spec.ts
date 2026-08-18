@@ -1,6 +1,6 @@
 /**
  * Extension→backend import-propagation gate — the SW-host leg of the
- * import local-mutation emission (REQUEST_SETTINGS_STATUS.md S19; the
+ * import local-mutation emission (the request-settings status log S19; the
  * web-tab and desktop-spine directions are gated by
  * `request-settings-web.spec.ts` legs 10 + 14):
  *

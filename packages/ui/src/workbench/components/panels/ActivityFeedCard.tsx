@@ -200,7 +200,7 @@ const ActivityFeedCard: React.FC<ActivityFeedCardProps> = ({
   // rather than hidden so the user understands why this particular
   // mutation can't be reverted (e.g. deletes are permanent).
   // An agent read that projected RAW values under the archived-session
-  // unredacted grant (AGENT_TRAFFIC_PLAN.md §11.5) — flagged on the
+  // unredacted grant (the agent-traffic plan §11.5) — flagged on the
   // entry by the observe sink; surfaced here so "what did the agent
   // look at" includes "and how".
   const rawRead = kinds.includes('agent-observe') && group.entries.some((e) => e.context?.raw === true);

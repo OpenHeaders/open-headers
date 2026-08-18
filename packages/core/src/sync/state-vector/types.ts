@@ -12,7 +12,7 @@ import type { HLC } from '../hlc';
  *
  * 1. **Handshake** — peers exchange vectors to compute each other's
  *    missing-mutations set without enumerating histories. See
- *    `docs/DATA_PLANE_TOPOLOGIES.md` §11.1.
+ *    the data-plane topologies design §11.1.
  * 2. **Watermark bookkeeping** — a node persists its peer's `SYNCED`
  *    vector so reconnect can resume from there without rescanning the
  *    whole log.

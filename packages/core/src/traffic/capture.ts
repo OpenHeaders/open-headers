@@ -1,6 +1,6 @@
 /**
  * Capture-session vocabulary — the disk tier of the storage model
- * (AGENT_TRAFFIC_PLAN.md §3, rebuilt to §11 in Phase C). A capture
+ * (the agent-traffic plan §3, rebuilt to §11 in Phase C). A capture
  * session is the ONLY path by which observed traffic ever reaches disk,
  * and every property of that path is deliberate:
  *

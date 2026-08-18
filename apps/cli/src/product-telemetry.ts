@@ -1,5 +1,5 @@
 /**
- * Product-telemetry host adapter for the CLI (`TELEMETRY_PLAN.md` §2/§7)
+ * Product-telemetry host adapter for the CLI (the telemetry plan §2/§7)
  * — the short-lived-process sibling of the extension SW and desktop main
  * adapters. One `oh` invocation is one session: the id and latches live
  * in the controller's in-memory store, and the host-owned cadence is a
@@ -207,9 +207,10 @@ const abortingFetchTransport: TelemetryTransport = {
 const inert: CliProductTelemetry = { finish: async () => undefined };
 
 /**
- * Boot the channel for this invocation: resolve the gates, print the
- * first-run notice when owed, and queue `session_start`. Returns the
- * exit-flush handle; every failure path degrades to the inert handle.
+ * Boot the channel for this invocation: resolve the gates and queue
+ * `session_start` (no runtime notice — the disclosure lives in the
+ * docs, per the module header). Returns the exit-flush handle; every
+ * failure path degrades to the inert handle.
  */
 export async function bootCliProductTelemetry(deps: CliProductTelemetryDeps = {}): Promise<CliProductTelemetry> {
   try {

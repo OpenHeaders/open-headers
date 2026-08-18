@@ -1,8 +1,8 @@
 /**
  * Force-push resolution pass — a detected remote history rewrite is
  * resolved by the §16 trichotomy, never merged silently and never
- * auto-rebased (GIT_PLAN.md §10 Phase 5; SYNC_ENGINE_DESIGN.md §16;
- * DATA_PLANE_TOPOLOGIES.md §6.4).
+ * auto-rebased (the git-sync plan §10 Phase 5; the sync-engine design §16;
+ * the data-plane topologies design §6.4).
  *
  * The caller (runtime) has already committed local uncommitted work
  * under its own semantic draft, so the pre-resolution HEAD carries the

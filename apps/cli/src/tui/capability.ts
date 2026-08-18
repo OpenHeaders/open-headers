@@ -1,5 +1,5 @@
 /**
- * Terminal capability probe — TUI_DESIGN.md §5: the four color tiers
+ * Terminal capability probe — the TUI design §5: the four color tiers
  * (truecolor → 256 → 16 → none) and the unicode/ASCII glyph set. A
  * pure function of the environment plus the `--no-color`/`--ascii`
  * flags. Meaning survives every rung: glyphs are reinforcement, so

@@ -1,7 +1,7 @@
 /**
  * Awareness bridge protocol — wire shapes for ephemeral, high-frequency
  * presence signals that do NOT ride the sync mutation channel
- * (`docs/SYNC_ENGINE_DESIGN.md` §14).
+ * (the sync-engine design §14).
  *
  * Awareness is non-persistent and never participates in mutator
  * convergence. It carries surface focus + dirty-fields + heartbeats so
@@ -18,7 +18,7 @@
  * `instanceId` + `surfaceKind`; richer layers (`userId`, `browserContext`,
  * navigation handles) light up incrementally as deployment topology
  * grows from Mode 1 (single browser) to Mode 2 (multi-device daemon) to
- * Mode 3 (team cloud) — see `.notes/oracle-arc.md`.
+ * Mode 3 (team cloud) — the oracle architecture notes.
  *
  * Sensitive-entity rule (§14.4): for entities the schema marks
  * sensitive (Vault, OAuth client_secret, …) the `fieldFocus` slot MUST

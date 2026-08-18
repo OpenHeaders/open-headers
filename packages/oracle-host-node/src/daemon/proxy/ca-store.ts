@@ -1,5 +1,5 @@
 /**
- * Proxy CA lifecycle — mint, seal, project, and sign (PROXY_SECURITY.md
+ * Proxy CA lifecycle — mint, seal, project, and sign (the proxy-security design
  * §2.1/§2.2/§2.7).
  *
  * The CA is generated on THIS machine at first trust, unique per

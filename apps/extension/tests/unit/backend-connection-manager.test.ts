@@ -1,5 +1,5 @@
 /**
- * websocket.ts — the N-socket connection manager (MULTI_BACKEND_PLAN.md
+ * websocket.ts — the N-socket connection manager (the multi-backend plan
  * §3). Pins the reconcile behavior the cap lift introduced:
  *
  *   - one socket per enabled registry record, dialed concurrently

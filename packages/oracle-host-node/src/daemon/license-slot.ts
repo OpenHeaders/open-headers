@@ -1,6 +1,6 @@
 /**
  * License slot — the host side of the one verification path
- * (LICENSING_PLAN.md §3.3): load the license file, verify through the
+ * (the licensing plan §3.3): load the license file, verify through the
  * pure core verifier, watch for external changes, and re-evaluate at
  * the validity/grace boundaries so `licensed → grace → expired`
  * transitions surface without a restart.
@@ -100,7 +100,7 @@ function describeRefusal(snapshot: LicenseSnapshot): string {
 }
 
 /**
- * Lifecycle stamp for the audit log (LICENSING_PLAN.md §4 "audit rows
+ * Lifecycle stamp for the audit log (the licensing plan §4 "audit rows
  * for license events"). Every path funnels here — admin RPC and the
  * offline CLI both act as the host operator; peer-plane callers were
  * already stamped by the `daemon.admin` gate.

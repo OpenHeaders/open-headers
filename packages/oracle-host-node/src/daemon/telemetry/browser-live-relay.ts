@@ -1,5 +1,5 @@
 /**
- * Browser live-telemetry relay (OBSERVABILITY_PLAN.md Phase 1) — the
+ * Browser live-telemetry relay (the observability plan Phase 1) — the
  * daemon-side bridge between workbench lifecycle lifelines and the
  * extension peer that owns the browser tab.
  *
@@ -116,7 +116,7 @@ export interface BrowserLiveRelay {
   debugControl(nodeId: string, command: TelemetryDebugCommand): Promise<TelemetryDebugState | null>;
   /**
    * Relay one storage bridge verb to the peer named by the stable
-   * qualifier (OBSERVABILITY_PLAN.md Phase 3 — reads AND writes, the
+   * qualifier (the observability plan Phase 3 — reads AND writes, the
    * actuator model). Replies are correlated by a relay-minted `callId`
    * (storage verbs run concurrently — FIFO is not enough). `ok` false =
    * peer absent or reply missed the window; a verb-level failure rides

@@ -70,7 +70,7 @@ export type StorageArea = 'local' | 'sync' | 'session';
  * populated at runtime.
  *
  * `sensitive: true` marks slots that hold schema-marked sensitive content
- * (per SYNC_ENGINE_DESIGN §12.1). Host-storage adapters that support
+ * (per the sync-engine design §12.1). Host-storage adapters that support
  * encryption-at-rest (Electron `safeStorage`, future keytar / KMS impls)
  * route reads + writes for these slots through their `SecretCipher` seam;
  * adapters without that capability persist them as plain JSON.
@@ -162,7 +162,7 @@ export interface PersistedPanelLayout {
 }
 
 /**
- * Per-user org-binding preferences (UNIFIED_ORACLE_MODEL.md §6.2).
+ * Per-user org-binding preferences (the unified-oracle model §6.2).
  * `defaultNewWorkspaceOrgId` is the Org newly-created workspaces bind to;
  * when unset or stale the resolver falls back to the widest-reach Org.
  * Plain JSON — not security-sensitive.
@@ -175,7 +175,7 @@ export interface OrgBindingPrefs {
 /**
  * One persisted row of `OH.joinedOrgs` — an Org consumed from another
  * backend, stamped with the {@link OH.backends} record it was consumed
- * from (MULTI_BACKEND_PLAN.md §2 — Org provenance). The Org is the
+ * from (the multi-backend plan §2 — Org provenance). The Org is the
  * routing key of the multi-backend model: every joined Org is
  * authoritative on exactly one backend.
  */
@@ -219,7 +219,7 @@ export interface BackendOrgConflict {
 
 /**
  * One persisted row of `OH.workspaceTreeBindings` — a workspace bound
- * to an on-disk working tree on this Node host (GIT_PLAN.md §4: the
+ * to an on-disk working tree on this Node host (the git-sync plan §4: the
  * workspace is the repo-bindable grain; the binding is HOST-LOCAL
  * config and never syncs). `rootDir` is an absolute path of the bound
  * folder; tree exclusivity itself is enforced by the `.oh/lock` file,
@@ -229,7 +229,7 @@ export interface WorkspaceTreeBindingRecord {
   workspaceId: string;
   rootDir: string;
   /**
-   * Commit cadence for the git plane (GIT_PLAN.md §3.2 / §6.5):
+   * Commit cadence for the git plane (the git-sync plan §3.2 / §6.5):
    * commit is an explicit act by default; every other value opts into
    * automation — `auto` on 2s batch quiescence, `on-blur` when focus
    * leaves the app, `every-Nm` on a wall-clock interval. All automated
@@ -239,12 +239,12 @@ export interface WorkspaceTreeBindingRecord {
    */
   commitCadence?: 'off' | 'auto' | 'on-blur' | 'every-5m' | 'every-15m' | 'every-30m';
   /**
-   * The explicit user setting behind `--no-verify` (GIT_PLAN.md §3.3:
+   * The explicit user setting behind `--no-verify` (the git-sync plan §3.3:
    * the engine never bypasses hooks on its own). Absent = false.
    */
   bypassHooks?: boolean;
   /**
-   * Opt-in auto-push after every engine commit (GIT_PLAN.md §3.2 /
+   * Opt-in auto-push after every engine commit (the git-sync plan §3.2 /
    * §9: push is NEVER automatic except through this explicit toggle).
    * Absent = false.
    */
@@ -256,7 +256,7 @@ export interface WorkspaceTreeBindingRecord {
    * current branch's sha is still an ancestor of its remote head; a
    * rewrite raises the trichotomy dialog and holds pull/push until
    * resolved. Keyed by branch because each branch syncs against its
-   * own upstream (GIT_PLAN.md §6 — one active branch per binding, but
+   * own upstream (the git-sync plan §6 — one active branch per binding, but
    * watermarks survive a switch-and-return). Absent until the first
    * sync on that branch.
    */
@@ -327,7 +327,7 @@ export const OH = {
    */
   desktopWatchActivity: storageKey<DesktopWatchActivity>('oh.desktopWatchActivity'),
   /**
-   * Tab-group feedback bookkeeping (AGENT_TRAFFIC_PLAN.md §4): tabId →
+   * Tab-group feedback bookkeeping (the agent-traffic plan §4): tabId →
    * prior/current group for tabs the reactor grouped while a desktop
    * consumer observes them. chrome.storage-authoritative so a service-
    * worker restart mid-arm still restores the tab's prior grouping on
@@ -335,7 +335,7 @@ export const OH = {
    */
   tabGroupFeedback: storageKey<Record<string, TabGroupFeedbackEntry>>('oh.tabGroupFeedback'),
   /**
-   * Product-telemetry install identity (TELEMETRY_PLAN.md §4, amended
+   * Product-telemetry install identity (the telemetry plan §4, amended
    * 2026-07-16): a random resettable id + mint date. Deleted whenever
    * the telemetry toggle goes off — off means no identity.
    */
@@ -356,7 +356,7 @@ export const OH = {
   /**
    * Per-host daemon configuration record. Carries `hostInstallId` — the
    * seed for deterministic synthetic identity UUIDs
-   * (UNIFIED_ORACLE_MODEL.md §5.1). Minted once at first boot, persisted
+   * (the unified-oracle model §5.1). Minted once at first boot, persisted
    * here, never regenerated except on reinstall (§11 OQ1).
    *
    * `ensureDaemonConfig` (in `../identity`) is the host-neutral writer.
@@ -365,7 +365,7 @@ export const OH = {
   /**
    * Synthetic identity-row tuple materialized at host boot (User + Org +
    * UserIdentity + Session + OrgMembership + Principal + LocalAdmin per
-   * UNIFIED_ORACLE_MODEL.md §5.2). Persisted as one blob so a single
+   * the unified-oracle model §5.2). Persisted as one blob so a single
    * storage write satisfies the §5.2 "single transaction" requirement
    * even on backends without multi-row transactionality.
    *
@@ -375,7 +375,7 @@ export const OH = {
   syntheticIdentity: storageKey<SyntheticIdentityRecord>('oh.syntheticIdentity'),
   /**
    * Per-workspace `WorkspaceRoleAssignment` rows minted on every
-   * workspace creation (UNIFIED_ORACLE_MODEL.md §5.2 row 'WRA' / U1.8).
+   * workspace creation (the unified-oracle model §5.2 row 'WRA' / U1.8).
    * One owner-role row per (synthetic-principal, workspaceId); the list
    * is reconciled against the live workspace set by
    * `ensureWorkspaceRoleAssignments` (in `../identity`).
@@ -383,7 +383,7 @@ export const OH = {
   workspaceRoleAssignments: storageKey<WorkspaceRoleAssignment[]>('oh.workspaceRoleAssignments'),
   /**
    * Long-lived peer access tokens recognized by this daemon (U3.2,
-   * `UNIFIED_ORACLE_MODEL.md` §4.2 + `DATA_PLANE_TOPOLOGIES.md` §11.4).
+   * the unified-oracle model §4.2 + the data-plane topologies design §11.4).
    * Consulted on every HELLO and every `/mcp` request, loopback and LAN
    * alike. Stores only SHA-256 hashes of high-entropy random secrets —
    * the raw secret is returned to the admin exactly once at mint time
@@ -414,7 +414,7 @@ export const OH = {
    */
   daemonUsers: storageKey<DaemonUserRecord[]>('oh.daemonUsers'),
   /**
-   * Per-user org-binding preferences (UNIFIED_ORACLE_MODEL.md §6.2 / U3.6)
+   * Per-user org-binding preferences (the unified-oracle model §6.2 / U3.6)
    * — the two-personal-Orgs onboarding acknowledgement + the default Org
    * for newly-created workspaces. See {@link OrgBindingPrefs}.
    */
@@ -433,7 +433,7 @@ export const OH = {
   joinedOrgs: storageKey<JoinedOrgRecord[]>('oh.joinedOrgs'),
   /**
    * Registry of back-ends this app instance has joined
-   * (MULTI_BACKEND_PLAN.md §2). Ordered records; the Phase-1 cap-1
+   * (the multi-backend plan §2). Ordered records; the Phase-1 cap-1
    * adapter reads entry #0 as "the" backend until the N-socket
    * connection plane lands. The local host engine is tier zero and is
    * never stored here. Sensitive: each record carries its per-backend
@@ -490,7 +490,7 @@ export const OH = {
   scriptExecutionModes: storageKey<Record<string, ScriptExecutionMode>>('oh.scriptExecutionModes'),
   /**
    * System-plane proxy settings for THIS device
-   * (docs/REQUEST_ENGINE_PROXY_DESIGN.md) — how this machine's egress
+   * (the request-engine proxy design) — how this machine's egress
    * reaches the network: Off / System / Manual / PAC. Host-local by
    * design (the vault posture): machine state, never workspace data,
    * never synced. Absent reads as the tier default (System on the
@@ -499,7 +499,7 @@ export const OH = {
    */
   systemProxy: storageKey<SystemProxySettings>('oh.systemProxy'),
   /**
-   * The proxy plane's per-machine CA (PROXY_SECURITY.md §2.1/§2.2) —
+   * The proxy plane's per-machine CA (the proxy-security design §2.1/§2.2) —
    * cert PEM + private key, minted on this machine at first trust and
    * never shipped, shared, or transmitted. Sensitive: the slot rides
    * the host's `SecretCipher` seam, and on cipher-less hosts sensitive
@@ -509,14 +509,14 @@ export const OH = {
    */
   proxyCa: storageKey<ProxyCaRecord>('oh.proxyCa', { sensitive: true }),
   /**
-   * Capture-proxy settings on this host (PROXY_PLAN.md Phase 2) — the
+   * Capture-proxy settings on this host (the proxy plan Phase 2) — the
    * bind-port preference and the §2.4 decrypt-scope list. Host-local by
    * design; not sensitive (host patterns + a port, no secret material).
    */
   proxyCaptureSettings: storageKey<ProxyCaptureSettings>('oh.proxyCaptureSettings'),
   /**
    * Durable "what we changed" rows for the proxy CA's trust-store
-   * installs (PROXY_SECURITY.md §2.5) — one row per concrete store the
+   * installs (the proxy-security design §2.5) — one row per concrete store the
    * CA went into, written BEFORE the install runs so a crash can never
    * orphan trust the record doesn't know about. Teardown undoes exactly
    * these rows and drops each on verified removal. Not sensitive:
@@ -595,7 +595,7 @@ export interface WorkspaceKeys {
    */
   oauth: StorageKey<unknown>;
   /**
-   * Live Workflow definitions (see docs/LIVE_VARIABLES_PLAN.md).
+   * Live Workflow definitions (see the live-variables plan).
    * Refreshable multi-step data sources — each workflow owns its
    * steps + refresh schedule; the workflow-run cache lives under
    * {@link liveCache}.
@@ -676,7 +676,7 @@ export interface WorkspaceKeys {
    * acts as the common ancestor (3-pane merge against the version we
    * last brought in vs. the new incoming vs. the local edits the user
    * has made since). Without this, every collision falls back to a
-   * 2-pane diff per `MERGE_CONFLICT_EDITOR_PLAN.md` §7.
+   * 2-pane diff per the merge-conflict-editor plan §7.
    *
    * Snapshots are written by `importWorkspace` after a successful
    * `setMany`. Skipped plan entries don't update their snapshot —

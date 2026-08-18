@@ -1,6 +1,6 @@
 /**
  * `@openheaders/oracle/request-lifecycle-store` — engine-side store for
- * request lifecycles. See `docs/REQUEST_LIFECYCLE_DESIGN.md` §8.
+ * request lifecycles. See the request-lifecycle design §8.
  */
 
 export { DEFAULT_MAX_LIFECYCLES_PER_TAB } from './config';

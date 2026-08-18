@@ -5,7 +5,7 @@
  * asks: the sectioned import modal (Postman backup / Insomnia / Bruno
  * / OpenAPI) and the spec editor's Generate Collection action both
  * drive this loop — generation reuses the import machinery, never a
- * parallel conversion pipeline (API_SPECS_PLAN.md §4).
+ * parallel conversion pipeline (the API-specs plan §4).
  *
  * Per section: create the collection, land its scripts / default auth
  * / variables, create folders depth-first so parents exist, then the

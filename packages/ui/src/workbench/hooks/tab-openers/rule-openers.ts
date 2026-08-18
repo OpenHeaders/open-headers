@@ -57,10 +57,10 @@ export function useRuleOpeners(
 
   /**
    * Opens a rule-creation gesture by **minting a real entity** (per
-   * `docs/SYNC_ENGINE_DESIGN.md` §19.1 streaming-from-click) and
+   * the sync-engine design §19.1 streaming-from-click) and
    * opening the resulting uid in an edit tab. The entity starts
    * `published: false` — the editor's Save button is the publication
-   * gate (see `memory/project_publication_gate_decision.md`).
+   * gate.
    *
    * Heterogeneous origins, single funnel: workbench `+ New Rule`,
    * sidebar context menus, command palette, inspector "override this

@@ -60,7 +60,7 @@ interface Props {
   errors?: StructuralError[];
   /** Layout metadata (indent + effective parents) from `buildDependencyRows`. */
   dependencyRow?: DependencyRow;
-  // ── Selection sync (graph↔form, WORKFLOW_GRAPH_PLAN.md §6.2) ─────
+  // ── Selection sync (graph↔form, the workflow-graph plan §6.2) ─────
   /** This step is the editor's selected step — accent highlight. */
   selected?: boolean;
   /** Consume-once scroll request from a graph-side "Edit step" jump:

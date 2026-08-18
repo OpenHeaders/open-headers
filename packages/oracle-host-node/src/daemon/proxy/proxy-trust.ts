@@ -1,6 +1,6 @@
 /**
  * Proxy trust service — the `oh.daemon.proxy.trust.*` backing
- * (PROXY_SECURITY.md §6). Composes the CA store, the per-store
+ * (the proxy-security design §6). Composes the CA store, the per-store
  * install/remove/probe modules, and the durable change record into the
  * three surface operations: live status, consented install, verified
  * teardown.

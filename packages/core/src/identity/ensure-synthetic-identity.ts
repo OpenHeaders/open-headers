@@ -1,7 +1,7 @@
 /**
  * `ensureSyntheticIdentity` — the single host-neutral entry point that
  * every host calls once at boot to materialize the synthetic identity-row
- * tuple (UNIFIED_ORACLE_MODEL.md §5.2 / U1.6 + U1.7).
+ * tuple (the unified-oracle model §5.2 / U1.6 + U1.7).
  *
  * Composition:
  *

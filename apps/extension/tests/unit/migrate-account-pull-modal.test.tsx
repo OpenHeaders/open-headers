@@ -1,6 +1,6 @@
 /**
  * MigrateAccountPullModal — the extension's migration entry after the
- * Phase D funnel redesign (EXTENSION_ACCOUNT_PULL_PLAN.md): the account
+ * Phase D funnel redesign (the extension account-pull plan): the account
  * pull runs natively on this host, so the stepper is the PRIMARY path,
  * open from the first paint with no scan affordance; the desktop
  * hand-off survives only as a connection-routed fallback note; local

@@ -1,6 +1,6 @@
 /**
  * `License` — the signed claims payload of a license artifact
- * (`LICENSING_PLAN.md` §3.1).
+ * (the licensing plan §3.1).
  *
  * The schema is deliberately non-strict: valibot strips unknown keys, so
  * a license signed by a newer control plane with claims this build has

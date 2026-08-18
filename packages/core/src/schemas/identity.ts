@@ -1,6 +1,6 @@
 /**
  * Identity-schema valibot validators — the universal rows materialized on
- * every host that runs the oracle (per UNIFIED_ORACLE_MODEL.md §5).
+ * every host that runs the oracle (per the unified-oracle model §5).
  *
  * Mode-1 / Mode-2-localhost hosts populate these rows with deterministic
  * synthetic singletons seeded from `host-install-id`; promotion to real
@@ -29,7 +29,7 @@ import { DaemonAdminSchema, OrgMembershipSchema, PrincipalSchema } from './ident
  *   api_token_label — opaque label paired with an issued API token
  *   local           — synthetic identity, OS-derived; present on every
  *                     host before real authentication has happened
- *                     (UNIFIED_ORACLE_MODEL.md §5.3)
+ *                     (the unified-oracle model §5.3)
  */
 export const UserIdentityKindSchema = v.picklist(['email', 'sso_subject', 'api_token_label', 'local']);
 
@@ -40,7 +40,7 @@ export const UserIdentityKindSchema = v.picklist(['email', 'sso_subject', 'api_t
  *   local                      — synthetic session, never authenticated;
  *                                minted deterministically alongside the
  *                                synthetic User. Revoked only at promotion
- *                                (UNIFIED_ORACLE_MODEL.md §5.2 / §5.4).
+ *                                (the unified-oracle model §5.2 / §5.4).
  */
 export const SessionSourceSchema = v.picklist(['password', 'sso', 'api_token', 'local']);
 
@@ -62,7 +62,7 @@ export const HostKindSchema = v.picklist(['browser', 'desktop', 'daemon']);
 /**
  * `User` — one per app-instance identity. The standalone local-user is
  * seeded deterministically from `host-install-id` at bootstrap with no
- * remote identity attached; the connect event (UNIFIED_ORACLE_MODEL.md
+ * remote identity attached; the connect event (the unified-oracle model
  * §5.4 step 1) flips `isStandalone` to `false` and updates `displayName`
  * / attached `UserIdentity` rows when the user connects to a real
  * backend. `id` is the sentinel and NEVER changes (ADR-3).
@@ -83,7 +83,7 @@ export const UserSchema = v.object({
  * `Org` — tenancy boundary. The private home Org is seeded
  * deterministically from `host-install-id` and is the `org_id` stamped on
  * every standalone-mode mutation envelope. Becomes the `org_id` filter
- * at the transport boundary (UNIFIED_ORACLE_MODEL.md §6.1 / §8.2).
+ * at the transport boundary (the unified-oracle model §6.1 / §8.2).
  *
  * Every Org is multi-org-capable — there is no static single-vs-multi
  * mode flag. Whether an Org reads as "personal" or "team" is derived at
@@ -130,7 +130,7 @@ export const OrgSchema = v.object({
  * `UserIdentity` — one row per (User, IdP-or-local) pair. A real User can
  * accrue multiple rows (work email + personal email + SSO subject); the
  * synthetic `local` row is preserved post-promotion for audit
- * (UNIFIED_ORACLE_MODEL.md §5.4 step 2) but flagged non-primary.
+ * (the unified-oracle model §5.4 step 2) but flagged non-primary.
  */
 export const UserIdentitySchema = v.object({
   id: UuidV7Schema,
@@ -145,7 +145,7 @@ export const UserIdentitySchema = v.object({
  * `Session` — one per authenticated channel. The synthetic local Session
  * is created at host bootstrap (deterministic id from `host-install-id`),
  * never expires, and is revoked only at promotion
- * (UNIFIED_ORACLE_MODEL.md §5.2 row 3 / §5.4 step 3).
+ * (the unified-oracle model §5.2 row 3 / §5.4 step 3).
  */
 export const SessionSchema = v.object({
   id: UuidV7Schema,
@@ -159,7 +159,7 @@ export const SessionSchema = v.object({
 
 /**
  * The full row tuple every host materializes at boot
- * (UNIFIED_ORACLE_MODEL.md §5.2 — User + Org + UserIdentity + Session +
+ * (the unified-oracle model §5.2 — User + Org + UserIdentity + Session +
  * OrgMembership + Principal + LocalAdmin). Composed from the per-entity
  * schemas so a single boundary parse validates the whole record.
  *

@@ -1,6 +1,6 @@
 /**
  * Pull pass — foreign history → the engine → a two-parent merge commit
- * (GIT_PLAN.md §10 Phase 4; §11.4 as ratified S6: the tree git records
+ * (the git-sync plan §10 Phase 4; §11.4 as ratified S6: the tree git records
  * is ENGINE-WRITTEN and `git merge` is never invoked).
  *
  * The sequence, on the binding's §8 chain:

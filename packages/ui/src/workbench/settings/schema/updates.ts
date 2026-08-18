@@ -1,6 +1,6 @@
 /**
  * Update preferences — the check-and-notify consent axes
- * (`docs/UPDATES_PLAN.md` §5). Two orthogonal choices: whether the app
+ * (the updates plan §5). Two orthogonal choices: whether the app
  * LOOKS for updates, and whether a seen update DOWNLOADS by itself
  * (default on, so installing is a single Update & Restart and a natural
  * quit+relaunch opens the new version). A restart is never automatic on

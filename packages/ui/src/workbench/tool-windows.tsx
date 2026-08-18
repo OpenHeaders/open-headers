@@ -134,7 +134,7 @@ export const TOOL_WINDOWS: readonly ToolWindowDef[] = [
     teaserWhenUnavailable: 'terminal',
   },
   // The git log/history surface over the workspace-tree verb table
-  // (GIT_PLAN.md §9) — commit timeline + per-commit detail for the
+  // (the git-sync plan §9) — commit timeline + per-commit detail for the
   // active workspace's binding. Only hosts whose bridge reaches a
   // workspace-tree runtime register `workspaceGit`. Dormant until
   // opened, like the other bottom-dock panels.

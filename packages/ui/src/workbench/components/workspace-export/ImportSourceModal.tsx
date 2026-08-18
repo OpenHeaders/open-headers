@@ -1,5 +1,5 @@
 /**
- * Import hub modal — the single "Import…" entry point (IMPORT_PLAN.md
+ * Import hub modal — the single "Import…" entry point (the import plan
  * §2.1). One surface accepts anything importable and routes by content,
  * never by asking the user for a format:
  *

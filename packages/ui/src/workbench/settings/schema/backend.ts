@@ -16,7 +16,7 @@
  *                             Reach anywhere with the same data.
  *                             *Coming soon.*
  *
- * Since the multi-backend Phase-1 retirement (MULTI_BACKEND_PLAN.md §2)
+ * Since the multi-backend Phase-1 retirement (the multi-backend plan §2)
  * the mode is no longer a stored setting: the connection identity lives
  * in the `OH.backends` registry (`@openheaders/core/backends`), and
  * `BackendMode` survives purely as presentation vocabulary DERIVED from
@@ -57,7 +57,7 @@ export function tierZeroMode(host: Host): BackendMode {
 
 /**
  * Derive the presentation mode from the connection registry — "kind" is
- * read off the record, never stored (MULTI_BACKEND_PLAN.md §1). No
+ * read off the record, never stored (the multi-backend plan §1). No
  * enabled entry means tier zero; an enabled entry classifies by URL:
  * `wss` is a remote back-end, a loopback address dialed from a browser
  * host is the desktop app, anything else is a local / LAN daemon.
@@ -75,7 +75,7 @@ export function currentBackendMode(): BackendMode {
 }
 
 /**
- * Bind address for the desktop daemon's WebSocket server (UNIFIED_ORACLE_MODEL.md §4.2).
+ * Bind address for the desktop daemon's WebSocket server (the unified-oracle model §4.2).
  * `127.0.0.1` keeps the daemon loopback-only; `0.0.0.0` opens it to every local
  * interface. The bind controls reachability only — auth is mandatory on every
  * connection regardless of origin (loopback included), so a paired token is required
@@ -111,7 +111,7 @@ declare module '@openheaders/ui/workbench/settings/types' {
 }
 
 registerSetting({
-  // Consent gate for the NM identity plane (OBSERVABILITY_PLAN.md
+  // Consent gate for the NM identity plane (the observability plan
   // Phase 7): on (the default), the extension silently pairs with —
   // and auto-joins — the desktop app on this machine once the daemon
   // has OS-verified the browser; off, only the explicit gestures (the
@@ -148,7 +148,7 @@ registerSetting({
 });
 
 registerSetting({
-  // Fleet posture for the NM identity plane (OBSERVABILITY_PLAN.md §4,
+  // Fleet posture for the NM identity plane (the observability plan §4,
   // deferred from S17's degraded-mode fork): on, the manual credential
   // gestures for the desktop app — pairing codes and pasted tokens on
   // loopback records — are refused, so only the daemon's OS-verified
@@ -186,7 +186,7 @@ export function useNmIdentityRequired(url: string): boolean {
 }
 
 registerSetting({
-  // Telemetry consent gate (OBSERVABILITY_PLAN.md §8 Phase 7, ratified
+  // Telemetry consent gate (the observability plan §8 Phase 7, ratified
   // S16): identity decides WHO may attach; this decides WHAT an
   // attached peer may subscribe to. Off, a paired desktop stays
   // connected for rules/sync while traffic/storage/console watch

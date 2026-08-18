@@ -1,5 +1,5 @@
 /**
- * Product-telemetry RPCs (`TELEMETRY_PLAN.md` §6/§7) — the seam between
+ * Product-telemetry RPCs (the telemetry plan §6/§7) — the seam between
  * UI surfaces and the host-owned `TelemetryClient`. Exactly one client
  * lives per host (extension SW / desktop main); surfaces never construct
  * one and never open the socket themselves.

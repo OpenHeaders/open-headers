@@ -1,16 +1,16 @@
 /**
- * Builds the static severity manifest (`versions.json`, UPDATES_PLAN §4)
- * printed to stdout by the release workflow and published as a release
- * asset. Clients fetch it anonymously from the public releases repo via
- * `/releases/latest/download/versions.json` — a URL GitHub resolves to
- * the newest non-prerelease, so beta tags never move the manifest.
+ * Builds the static severity manifest (`versions.json`, the updates
+ * plan §4) printed to stdout by the release workflow. Clients fetch it
+ * anonymously from the update feed at
+ * `updates.openheaders.io/versions/<channel>.json`; the GitHub release
+ * asset is a redundant human-browsable copy, not the client contract.
  *
  * Shape, per app: `{ latest, tag, severity, minimumSafeVersion? }`.
  * `latest` comes from each app's own package.json (the desktop's from
  * the tag — that is its version axis); `tag` is the release tag whose
  * page hosts the app's assets, so consumers (the install scripts)
  * construct absolute download URLs without ever resolving GitHub
- * "latest" (DISTRIBUTION_PLAN §3). `severity` and the optional
+ * "latest" (the distribution plan §3). `severity` and the optional
  * `minimumSafeVersion` come from `.github/release-severity.json`, an
  * authored file: escalation is a human decision made before tagging,
  * never inferred. A `security` release must name its safe floor.

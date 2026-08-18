@@ -1,5 +1,5 @@
 /**
- * Redaction predicates for traffic projections (AGENT_TRAFFIC_PLAN.md
+ * Redaction predicates for traffic projections (the agent-traffic plan
  * §4, slice S2). Sensitive values are replaced with a marker that is
  * STABLE per value — `[redacted:<sha256-prefix>]` — so a consumer can
  * still reason "the same token was sent on both requests" (the origin

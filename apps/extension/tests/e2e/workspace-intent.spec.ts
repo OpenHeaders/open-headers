@@ -3,7 +3,7 @@
  * `hashToIntent` / `parseIntent` → `useWorkspaceIntentRouter` →
  * existing openers (docs scroll, rule editor, etc.).
  *
- * Scenarios from V5_FOUNDATION_PLAN.md §Phase 9 verification:
+ * Scenarios from the v5 foundation plan §Phase 9 verification:
  *   • Cold start — navigate to `workbench.html#/docs/system-status`
  *     → docs panel opens on that section (the panel is a paged
  *     reader: the requested section becomes the active page).

@@ -1,5 +1,5 @@
 /**
- * Background self-update (`DISTRIBUTION_PLAN.md` §5) — the automatic
+ * Background self-update (the distribution plan §5) — the automatic
  * half that makes the NEXT invocation launch the new version. When the
  * daily notify cache shows a newer release and this is a self-managed
  * binary install, a detached `oh upgrade` is spawned and this process

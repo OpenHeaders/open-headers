@@ -5,7 +5,7 @@
  * (entity-conflict, import, future git) project their domain into
  * this shape; the editor stays domain-agnostic.
  *
- * See `docs/MERGE_CONFLICT_EDITOR_PLAN.md` §4.
+ * See the merge-conflict-editor plan §4.
  */
 
 export type MergeFileKind = 'modify' | 'add' | 'remove';

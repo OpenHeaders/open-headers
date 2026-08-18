@@ -1,5 +1,5 @@
 /**
- * Slice-0 probe for the Storage panel epic (docs/STORAGE_PANEL_PLAN.md §2.3):
+ * Slice-0 probe for the Storage panel epic (the storage-panel plan §2.3):
  * does `chrome.debugger` actually dispatch the storage-inspection CDP
  * domains, despite the reference doc's stale "available domains" prose?
  *
@@ -11,7 +11,7 @@
  *
  * The whole probe runs inside the extension service worker — the exact
  * production context the storage-inspector CDP plane will use. Verdicts
- * land in docs/STORAGE_PANEL_STATUS.md; this spec stays as the permanent
+ * land in the storage-panel status log; this spec stays as the permanent
  * gate that the CDP tier's substrate exists.
  */
 
@@ -294,7 +294,7 @@ test('storage CDP domains dispatch over chrome.debugger', async () => {
   // (a blocked domain must not mask the others' results).
   //
   // The assertions pin the OBSERVED contract (slice-0 verdict, recorded in
-  // docs/STORAGE_PANEL_STATUS.md): chrome.debugger enforces the reference
+  // the storage-panel status log): chrome.debugger enforces the reference
   // doc's domain list, so DOMStorage / IndexedDB reads are blocked (-32601)
   // while Storage / CacheStorage — including the Storage-domain tracking
   // events for IDB and caches — work. If Chrome ever unblocks the read

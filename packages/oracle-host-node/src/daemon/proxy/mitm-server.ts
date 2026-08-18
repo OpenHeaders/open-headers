@@ -1,5 +1,5 @@
 /**
- * L7 MITM capture core (`PROXY_PLAN.md` Phases 2+3). A forward HTTP(S)
+ * L7 MITM capture core (the proxy plan Phases 2+3). A forward HTTP(S)
  * proxy bound to a daemon-local port:
  *
  *  - plain `http://` requests (absolute-form) are re-originated upstream
@@ -9,7 +9,7 @@
  *    inner HTTP server, re-originated over TLS, and captured;
  *  - `CONNECT` for an UN-scoped host (or when no CA is on record) is an
  *    opaque blind tunnel — bytes piped verbatim, nothing decrypted or
- *    captured (`PROXY_SECURITY.md` §2.4 scoped-decrypt-by-default).
+ *    captured (the proxy-security design §2.4 scoped-decrypt-by-default).
  *
  * Phase 3: when an enforcer is injected, every captured request runs the
  * rule engine before re-origination — block answers a synthesized 502

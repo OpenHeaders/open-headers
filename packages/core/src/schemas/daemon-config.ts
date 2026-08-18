@@ -1,12 +1,12 @@
 /**
  * `DaemonConfig` — per-host configuration record. Owned by every
  * daemon-shaped thing (extension SW, desktop main, future standalone
- * daemon binary) per UNIFIED_ORACLE_MODEL.md §2.2.
+ * daemon binary) per the unified-oracle model §2.2.
  *
  * `hostInstallId` is the seed for the deterministic synthetic identity
  * UUIDs: minted once at first boot, persisted to the host's storage
  * (chrome.storage.local on the extension SW; SQLite on desktop main),
- * never regenerated except on reinstall (UNIFIED_ORACLE_MODEL.md §5.1
+ * never regenerated except on reinstall (the unified-oracle model §5.1
  * + §11 OQ1). Surviving `hostInstallId` is the recovery key for
  * orphan-data adoption after storage corruption.
  *

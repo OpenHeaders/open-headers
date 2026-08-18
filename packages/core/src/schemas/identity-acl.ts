@@ -3,7 +3,7 @@
  * and daemon-admin rows. Sit alongside the entity-level shapes in
  * `./identity.ts` (User, Org, UserIdentity, Session).
  *
- * Per UNIFIED_ORACLE_MODEL.md §5.2, every host materializes one
+ * Per the unified-oracle model §5.2, every host materializes one
  * `OrgMembership(synthetic-user, synthetic-org, role='owner')`, one
  * `Principal(synthetic-user-in-synthetic-org)`, one `WRA` per workspace
  * (owner role on the synthetic principal), and a `DaemonAdmin` row whose
@@ -43,7 +43,7 @@ export const OrgMembershipSchema = v.object({
  * `Principal` — (User, Org) binding used as the subject of every
  * `WorkspaceRoleAssignment`. Decoupling principals from raw user ids lets
  * the same User have distinct WRAs in distinct Orgs without ambiguity
- * (identity doc §3 / UNIFIED_ORACLE_MODEL.md §5.2).
+ * (identity doc §3 / the unified-oracle model §5.2).
  */
 export const PrincipalSchema = v.object({
   id: UuidV7Schema,
@@ -77,7 +77,7 @@ export const WorkspaceRoleAssignmentSchema = v.object({
 });
 
 /**
- * `DaemonAdmin` — operator-of-the-install role. Per UNIFIED_ORACLE_MODEL.md
+ * `DaemonAdmin` — operator-of-the-install role. Per the unified-oracle model
  * §9.4 the same row schema covers two logical scopes:
  *
  *   - `LocalAdmin`  — auto-assigned to the synthetic user on every host;
@@ -114,7 +114,7 @@ export const DaemonAdminSchema = v.object({
  * (or re-roles) / removes at login, stamped with the logging-in user as
  * the actor and the affected workspace.
  *
- * `daemon.seat-admit` is the seat gate's stamp (LICENSING_PLAN.md §4)
+ * `daemon.seat-admit` is the seat gate's stamp (the licensing plan §4)
  * — a deny row per directory-user admission refused at the seat limit
  * (including the personal-seat refusal reasons), and an allow row when
  * a personal-seat license admits past it (the exceptional admission is
@@ -164,7 +164,7 @@ export const AuditDecisionSchema = v.object({
 
 /**
  * `AuditLogEntry` — one row per capability check, gapless within an Org
- * (UNIFIED_ORACLE_MODEL.md §9.5). `seq` is the per-Org sequence number;
+ * (the unified-oracle model §9.5). `seq` is the per-Org sequence number;
  * `id` is `${orgId}:${seq}` so the row's key is content-addressable.
  *
  * `actorUserId` is immutable — the display layer always resolves

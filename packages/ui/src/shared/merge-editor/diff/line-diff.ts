@@ -4,7 +4,7 @@
  * Renderer Interface §5 (state-machine spec) treats `hunkId` as opaque
  * from the state-machine layer's perspective. Owning hunk identity is
  * the primary architectural reason Option B beat Option A in the
- * Phase 0b bake-off (§5 decision in `MERGE_CONFLICT_BAKE_OFF.md`):
+ * Phase 0b bake-off (§5 decision in the merge-conflict bake-off notes):
  * IDs survive non-intersecting edits because they're content-hashed,
  * not derived from any pane's diff recompute ordinal.
  *
@@ -14,7 +14,7 @@
  * uses — git, diff3 and the mainstream editor diff engines.
  *
  * Known limitation (carried forward from the deleted Option B
- * prototype + `MERGE_CONFLICT_EDITOR_STATUS.md` Session 3 notes):
+ * prototype + the merge-conflict-editor status log Session 3 notes):
  * line-LCS coalesces adjacent unrelated changes when no anchor line
  * separates them. The fix path is Patience or schema-aware structural
  * regions per state-machine spec §3.2; both are larger investments

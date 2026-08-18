@@ -1,6 +1,6 @@
 /**
  * `.oh/` sidecar — the engine's per-tree working directory
- * (SYNC_ENGINE_DESIGN.md §23.8; GIT_PLAN.md §3.1 rung 3: disposable,
+ * (the sync-engine design §23.8; the git-sync plan §3.1 rung 3: disposable,
  * rebuildable, never committed).
  *
  * This slice owns four sidecar artifacts:

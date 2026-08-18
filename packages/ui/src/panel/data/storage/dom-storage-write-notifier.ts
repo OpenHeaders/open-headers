@@ -2,7 +2,7 @@
  * Module-level write notifier for the DOM storage plane.
  *
  * The standard-plane DOM storage reads have no change events to ride
- * (see STORAGE_PANEL_PLAN.md §2.1) — the grid polls. Open document
+ * (see the storage-panel plan §2.1) — the grid polls. Open document
  * editors need faster catch-up for writes THIS panel makes (grid
  * inline edits, another entry document's save), so every write path
  * taps this notifier after the host write lands. Same discipline as

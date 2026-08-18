@@ -1,6 +1,6 @@
 /**
  * Outbound mutation forwarder — Phase C C7 / C15, generalized to the
- * N-backend connection plane (MULTI_BACKEND_PLAN.md §3).
+ * N-backend connection plane (the multi-backend plan §3).
  *
  * The N-backend install of the shared outbound mutation plane
  * ({@link createOutboundMutationPlane}): every envelope the local

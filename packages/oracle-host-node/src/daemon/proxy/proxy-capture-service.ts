@@ -44,7 +44,7 @@ export type ProxyCaptureScopeResult = { ok: true; scopePatterns: string[] } | { 
 
 /**
  * The folded scoped-routing verdict a browser peer receives
- * (OBSERVABILITY_PLAN.md §5.1): `enabled` only while the persisted
+ * (the observability plan §5.1): `enabled` only while the persisted
  * desire is on AND the proxy is actually bound — a browser is never
  * told to route at a port nothing listens on.
  */

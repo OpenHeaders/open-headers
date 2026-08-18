@@ -1,6 +1,6 @@
 /**
  * Phase U1 slice 1 schema coverage — the five fields landed per
- * UNIFIED_ORACLE_MODEL.md §5.3 (`User.isStandalone`, `Org.isPrivate`,
+ * the unified-oracle model §5.3 (`User.isStandalone`, `Org.isPrivate`,
  * `'local'` in `UserIdentityKind`, `'local'` in `SessionSource`,
  * `DaemonConfig.hostInstallId`).
  *

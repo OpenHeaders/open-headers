@@ -1,5 +1,5 @@
 /**
- * Git daemon-console e2e — the T7-automatable core (GIT_PLAN.md §10
+ * Git daemon-console e2e — the T7-automatable core (the git-sync plan §10
  * Phase 7 / §11.5) on the REAL remote-wire stack: a headless daemon
  * serving the Workbench web bundle, browser tabs as its clients, the
  * admin console's Git card driving the daemon's bindings over the

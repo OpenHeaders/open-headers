@@ -1,7 +1,7 @@
 /**
  * System-plane legs through LIVE local proxies — the H2 CONNECT
  * rig extended per P4, the SOCKS5 rig joined per P5
- * (docs/REQUEST_ENGINE_PROXY_DESIGN.md): an inheriting send (no
+ * (the request-engine proxy design): an inheriting send (no
  * request-plane proxy) really tunnels through the proxy the machine's
  * environment names, the NO_PROXY bypass really goes direct, an
  * env-var credential really rides the CONNECT (Basic) or the SOCKS5

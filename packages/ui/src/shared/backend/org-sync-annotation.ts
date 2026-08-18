@@ -1,6 +1,6 @@
 /**
  * useOrgSyncAnnotations — per-Org sync provenance for workspace-picker
- * surfaces (MULTI_BACKEND_PLAN.md §4, "via <backend>"): which backend
+ * surfaces (the multi-backend plan §4, "via <backend>"): which backend
  * provides an Org, and whether it is currently syncing. Joins the Org →
  * backend bindings (identity snapshot), the `OH.backends` registry, and
  * the per-backend sync slot feed, so every workbench tab / popup sees a

@@ -1,5 +1,5 @@
 /**
- * Workbench tab-mode → feature_used mapping (`TELEMETRY_PLAN.md` §3).
+ * Workbench tab-mode → feature_used mapping (the telemetry plan §3).
  * Pins which editor tabs count as feature usage — rule tabs stay out
  * (rule_created carries that signal) — and that the per-document guard
  * fires one RPC per feature.

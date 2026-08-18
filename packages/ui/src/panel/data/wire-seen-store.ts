@@ -1,6 +1,6 @@
 /**
  * Wire-seen record — the historical half of the wire-join
- * (OBSERVABILITY_PLAN.md Phase 6). While a browser-tab view computes
+ * (the observability plan Phase 6). While a browser-tab view computes
  * joins, it records which wire exchanges were also witnessed on a
  * browser tab; the Wire source view annotates its rows from this record
  * and offers the jump back to the tab source.

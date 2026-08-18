@@ -2,7 +2,7 @@
  * Valibot schema for the workspace-export envelope.
  *
  * One file shape, three callers, one importer (see
- * docs/V5_WORKSPACE_EXPORT_DESIGN.md §1). The envelope discriminator is
+ * the workspace-export design §1). The envelope discriminator is
  * `kind: 'workspace-export'` literal; `schemaVersion: 5` matches the destination
  * entity baseline; `exportFormatVersion` bumps independently when this
  * envelope's shape evolves.

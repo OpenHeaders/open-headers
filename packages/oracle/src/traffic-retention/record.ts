@@ -1,7 +1,7 @@
 /**
  * The retained record — PRIVATE to this module. `index.ts` deliberately
  * does not export it: everything past the store boundary is a
- * `TrafficRecordProjection` (AGENT_TRAFFIC_PLAN.md §2, §4), so a
+ * `TrafficRecordProjection` (the agent-traffic plan §2, §4), so a
  * consumer that wants raw traffic has no type to import. Derivation
  * strips bodies structurally — no code path ever copies HAR
  * `content.text` / `postData` or a `body-attached` payload into a
@@ -197,7 +197,7 @@ export function applyHarToRecord(record: RetainedTrafficRecord, har: InspectorHa
 }
 
 /**
- * Reveal escalation (AGENT_TRAFFIC_PLAN.md §4): unredacted projection
+ * Reveal escalation (the agent-traffic plan §4): unredacted projection
  * is a separate, deliberate, per-source, TIME-BOXED grant the tap owns —
  * never a tool-layer choice. Default is always redacted.
  */

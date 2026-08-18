@@ -1,5 +1,5 @@
 /**
- * Migration pull — the WS-peer face (MIGRATION_STATUS.md S5 addendum:
+ * Migration pull — the WS-peer face (the migration status log S5 addendum:
  * progress auto-syncs to every connected surface).
  *
  * Two seams, both operator-scoped: the run is started by the host

@@ -1,5 +1,5 @@
 /**
- * Pure transport-boundary org filter (UNIFIED_ORACLE_MODEL.md §6.1 +
+ * Pure transport-boundary org filter (the unified-oracle model §6.1 +
  * §8.2). The state-vector reader, delta-stream reader, and snapshot
  * builder compose this over their per-workspace mutation log scan so
  * envelopes whose `orgId` is not in the host's authorized Org set are

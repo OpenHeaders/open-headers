@@ -1,7 +1,7 @@
 /**
  * Transport client for the OpenHeaders trust helper — the signed
  * SMAppService dual-mode binary that manages System-keychain (admin
- * domain) trust for the proxy CA (PROXY_SECURITY.md §2.6 amendment).
+ * domain) trust for the proxy CA (the proxy-security design §2.6 amendment).
  *
  * Two halves, split by what each context is allowed to do
  * (live-proven): the root launchd daemon moves the System-keychain

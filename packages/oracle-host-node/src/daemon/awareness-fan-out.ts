@@ -1,6 +1,6 @@
 /**
  * Same-user awareness fan-out (Phase 5 slice 2 —
- * DATA_PLANE_TOPOLOGIES.md §9: presence is same-user only).
+ * the data-plane topologies design §9: presence is same-user only).
  *
  * The hub's canonical presence set for a workspace mixes states from
  * every connected surface — the operator's own windows plus each

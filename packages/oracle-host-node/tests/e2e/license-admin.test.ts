@@ -1,6 +1,6 @@
 /**
  * Licensing enforcement over the live admin wire — end to end against
- * a REAL daemon (LICENSING_PLAN.md §3–§4), driving the same ws peer
+ * a REAL daemon (the licensing plan §3–§4), driving the same ws peer
  * plane the admin console rides: HELLO/WELCOME with a daemon auth
  * token, then `oh.daemon.license.*` + `oh.daemon.users.*` frames.
  *

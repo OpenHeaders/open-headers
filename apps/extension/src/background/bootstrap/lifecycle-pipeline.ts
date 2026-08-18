@@ -387,19 +387,19 @@ export function startLifecyclePipeline(): LifecyclePipelineHandles {
   startConsoleStreamPortHost({ hub: consoleStreamHub });
   lifecycleHost.debuggerSource.subscribeConsole((tabId, entry) => consoleStreamHub.recordEntry(tabId, entry));
 
-  // Desktop storage plane (OBSERVABILITY_PLAN.md Phase 3): the DevTools-
+  // Desktop storage plane (the observability plan Phase 3): the DevTools-
   // bridge storage/cookie verbs relayed over the backend wire, plus
   // per-consumer invalidation watches; loopback wires only. Started
   // BEFORE the stream host so its inbound handlers are registered when
   // the stream host's `host ready` announce triggers the daemon's
   // re-join (which re-subscribes storage watches too).
   startTelemetryStorageHost();
-  // Desktop console plane (OBSERVABILITY_PLAN.md Phase 4): the SAME
+  // Desktop console plane (the observability plan Phase 4): the SAME
   // console hub streamed over the backend wire, per-consumer sessions,
   // view-only (no eval verbs cross this seam); loopback wires only.
   // Same start-order law as the storage host — before the announce.
   startTelemetryConsoleHost({ hub: consoleStreamHub });
-  // In-browser capture feedback (AGENT_TRAFFIC_PLAN.md §4): while a tab
+  // In-browser capture feedback (the agent-traffic plan §4): while a tab
   // is capture-armed (connected AI agents can read its traffic), it
   // rides in a blue "OpenHeaders AI" tab group; a workbench live view
   // never badges. Reactor first so the captured-tab ledger's first
@@ -410,7 +410,7 @@ export function startLifecyclePipeline(): LifecyclePipelineHandles {
   // capture state (full-set frames, loopback wires only) and pulls the
   // current set on wires already up (the cold-SW hello closer).
   startCaptureFeedbackHost();
-  // Desktop live-view plane (OBSERVABILITY_PLAN.md Phase 1): the same
+  // Desktop live-view plane (the observability plan Phase 1): the same
   // hub + floors + provenance + body fetcher served over the backend
   // wire — a forwarded workbench subscribe raises the tracking ref and
   // streams tick-batched lifecycle envelopes; loopback wires only.

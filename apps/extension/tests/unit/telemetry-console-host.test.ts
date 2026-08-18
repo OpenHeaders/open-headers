@@ -1,6 +1,6 @@
 /**
  * Telemetry console host — the extension side of the console-plane
- * stream (OBSERVABILITY_PLAN.md Phase 4). Asserts:
+ * stream (the observability plan Phase 4). Asserts:
  *   - a forwarded subscribe attaches to the hub and streams `ready` +
  *     replay + live entries as tick-coalesced batch frames addressed to
  *     exactly that consumer's session

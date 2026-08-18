@@ -1,5 +1,5 @@
 /**
- * Workspace-tree runtime — composition root (GIT_PLAN.md §10 Phase 2,
+ * Workspace-tree runtime — composition root (the git-sync plan §10 Phase 2,
  * the S4 engine wiring). One instance per host process, installed by
  * the daemon spine. The behavior lives in the focused pass modules:
  *

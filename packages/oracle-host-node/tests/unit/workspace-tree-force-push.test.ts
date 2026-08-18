@@ -1,7 +1,7 @@
 /**
  * Force-push trichotomy on real tmp repos + a bare "remote"
- * (GIT_PLAN.md §10 Phase 5; SYNC_ENGINE_DESIGN.md §16;
- * DATA_PLANE_TOPOLOGIES.md §6.4): the bare remote is force-pushed
+ * (the git-sync plan §10 Phase 5; the sync-engine design §16;
+ * the data-plane topologies design §6.4): the bare remote is force-pushed
  * between syncs — the peer rewinds the synced head and lands a
  * divergent commit — so the last-synced watermark is no longer an
  * ancestor of the remote head, and each of the three resolutions must

@@ -1,5 +1,5 @@
 /**
- * Projection-boundary redaction (AGENT_TRAFFIC_PLAN.md §4, slice S2).
+ * Projection-boundary redaction (the agent-traffic plan §4, slice S2).
  *
  * The record→projection mapping is the ONLY place records become
  * readable, so redaction pinned here is redaction everywhere: a raw

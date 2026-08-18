@@ -1,6 +1,6 @@
 /**
  * TrafficMonitorSessionsSection — the SESSIONS section of the Traffic
- * Monitor source rail (AGENT_TRAFFIC_PLAN.md §11.1, C5 folded in-rail,
+ * Monitor source rail (the agent-traffic plan §11.1, C5 folded in-rail,
  * S26/S27): the sessions archive as a third source kind next to BROWSER
  * TABS and PROXY · SYSTEM, rendered on the workbench's STANDARD sidebar
  * tree — the same {@link TreeNodeRow} anatomy the HTTP Rules and API

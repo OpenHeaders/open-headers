@@ -2,7 +2,7 @@
  * usePanelToolLayout — DevTools Inspector tool-window state machine.
  *
  * Per-tab view state lives in `useEditingScopeViewState` (see
- * `docs/PER_WINDOW_OR_TAB_VIEW_STATE_DESIGN.md`); this hook adapts the perTab
+ * the per-window/tab view-state design); this hook adapts the perTab
  * snapshot to `useDockLayout`'s `initial` + `onPersist`.
  *
  * The host calls `usePanelEditingScopeViewState` first (gate on `ready`), then

@@ -1,5 +1,5 @@
 /**
- * Run-status overlay for the workflow graph view (WORKFLOW_GRAPH_PLAN.md
+ * Run-status overlay for the workflow graph view (the workflow-graph plan
  * §6.3) — `StepRunDot`, the per-node state dot (`classifyStepRun`
  * vocabulary) `WorkflowGraphBody` composes when the editor hands it the
  * active environment's run row. When the step has captured values,

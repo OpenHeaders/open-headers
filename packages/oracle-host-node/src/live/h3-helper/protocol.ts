@@ -1,7 +1,7 @@
 /**
  * The framed stdio protocol's TypeScript twin — frame type ids and
  * control payload shapes. The contract is
- * `docs/REQUEST_ENGINE_H3_PROTOCOL.md`; the Rust twin is
+ * the request-engine H3-protocol design; the Rust twin is
  * `native/h3-helper/src/protocol.rs`. Any wire-shape change bumps
  * {@link H3_PROTOCOL_VERSION} on both sides — no negotiation, both
  * sides ship from one repo.

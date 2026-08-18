@@ -1,5 +1,5 @@
 /**
- * CLI half of the update feed contract (`DISTRIBUTION_PLAN.md` §3–§5):
+ * CLI half of the update feed contract (the distribution plan §3–§5):
  * URL builders for the static pointer files on `updates.openheaders.io`
  * plus the manifest's `cli` entry parser and the CalVer ordering both
  * the version check and `oh upgrade` compare with. No GitHub URL ever
@@ -51,7 +51,7 @@ export function compareCalVer(a: string, b: string): number {
 
 export type UpdateSeverity = 'normal' | 'security';
 
-/** The manifest's `cli` entry, validated (`UPDATES_PLAN.md` §4 shape). */
+/** The manifest's `cli` entry, validated (the updates plan §4 shape). */
 export interface CliManifestEntry {
   latest: string;
   tag: string;

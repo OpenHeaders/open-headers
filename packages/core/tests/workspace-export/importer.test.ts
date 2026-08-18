@@ -332,7 +332,7 @@ describe('buildImportPlan — strategy resolution', () => {
   });
 
   // Note: Rule.version was the Phase-10 stale-draft counter — removed
-  // by the sync engine (`docs/SYNC_ENGINE_DESIGN.md` §24). The importer
+  // by the sync engine (the sync-engine design §24). The importer
   // still honors `version` on entities that retain it (Collection,
   // Request, Environment, etc.); rule-specific version-bump cases are
   // gone with the field.

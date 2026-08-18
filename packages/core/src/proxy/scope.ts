@@ -1,5 +1,5 @@
 /**
- * Scope-match predicate for the host capture plane (`PROXY_SECURITY.md`
+ * Scope-match predicate for the host capture plane (the proxy-security design
  * §2.4 — scoped decrypt by default). A pure host→boolean test shared by
  * the daemon MITM server (which hosts to TLS-terminate vs blind-tunnel)
  * and any surface that previews the scope list. Core stays `node:`-free,

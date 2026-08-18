@@ -1,6 +1,6 @@
 /**
  * CDP control-plane audit — epic-end live-verification pass
- * (docs/CDP_CONTROL_AUDIT.md, the batched live milestone).
+ * (the CDP-control audit, the batched live milestone).
  *
  * Automates the per-phase live criteria the fix slices S36–S52 deferred
  * to "real Chromium", over the playground + the plain-tab panel recipe

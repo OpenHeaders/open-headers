@@ -1,6 +1,6 @@
 /**
  * SW-side migration pull run host — the extension leg of "one runner,
- * no forks" (EXTENSION_ACCOUNT_PULL_PLAN.md §2): the lifted
+ * no forks" (the extension account-pull plan §2): the lifted
  * `@openheaders/oracle/migration` runner wired to this host's ports.
  * The service worker's global `fetch` is the network port (the
  * extension holds `<all_urls>`, so the Data API call carries the

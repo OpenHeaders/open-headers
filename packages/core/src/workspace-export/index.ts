@@ -2,7 +2,7 @@
  * Workspace export / import — envelope format, builder, crypto.
  *
  * One file shape, three callers, one importer (see
- * docs/V5_WORKSPACE_EXPORT_DESIGN.md). The envelope is consumed by both
+ * the workspace-export design). The envelope is consumed by both
  * the extension and (eventually) the desktop app — this package has
  * zero platform deps.
  *

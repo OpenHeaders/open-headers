@@ -1,5 +1,5 @@
 /**
- * PAC-generation laws (OBSERVABILITY_PLAN.md §5.1, Chromium leg). The
+ * PAC-generation laws (the observability plan §5.1, Chromium leg). The
  * generated script must agree with `hostInScope` on every host — exact
  * apex-only, `*.`-wildcard-never-apex, IP-literal exact — route scoped
  * hosts with a DIRECT failover, and keep hostile patterns inert inside

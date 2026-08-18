@@ -1,5 +1,5 @@
 /**
- * Spec → linked-collection update planner (API_SPECS_PLAN.md Phase F).
+ * Spec → linked-collection update planner (the API-specs plan Phase F).
  *
  * Pure comparison of a freshly parsed spec document against the live
  * collection it generated — the user-mediated diff the Update surface

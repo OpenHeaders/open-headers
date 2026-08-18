@@ -2,7 +2,7 @@
  * The transport's two-plane proxy behavior end to end over the fetch
  * seam — inherit-mode resolution, chain walking with dial-failure
  * fall-through, stand-down recording, and the proxy-route wire truth
- * (docs/REQUEST_ENGINE_PROXY_DESIGN.md). Fake resolvers only — no
+ * (the request-engine proxy design). Fake resolvers only — no
  * Chromium, no real proxies.
  */
 

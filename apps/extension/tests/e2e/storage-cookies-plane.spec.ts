@@ -1,5 +1,5 @@
 /**
- * Cookies plane e2e (STORAGE_PANEL_PLAN.md §5, slice 3) — drives the
+ * Cookies plane e2e (the storage-panel plan §5, slice 3) — drives the
  * jar RPCs (`fetchCookieJarForUrl` / `setCookieForUrl` /
  * `removeCookieForUrl`) end-to-end over the real bridge against a real
  * browser jar. HttpOnly is the point of the plane: the playground's

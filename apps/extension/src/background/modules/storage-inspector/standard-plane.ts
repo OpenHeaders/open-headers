@@ -4,7 +4,7 @@
  * origin's DOM storage, so this reads and writes exactly what the page
  * sees; there is no extension API for DOM storage and the CDP
  * `DOMStorage` domain is not dispatched for extension debugger clients
- * (STORAGE_PANEL_PLAN.md §2.3), so injection is the only transport in
+ * (the storage-panel plan §2.3), so injection is the only transport in
  * BOTH inspection modes.
  *
  * Payload discipline: entry count capped, each value clipped to a

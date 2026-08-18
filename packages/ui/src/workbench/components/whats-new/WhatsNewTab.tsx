@@ -1,5 +1,5 @@
 /**
- * WhatsNewTab — the bundled release-notes page (`docs/UPDATES_PLAN.md`).
+ * WhatsNewTab — the bundled release-notes page (the updates plan).
  *
  * Content comes from the host's `getWhatsNew` capability: notes are
  * baked into the build from the canonical changelog entry and never

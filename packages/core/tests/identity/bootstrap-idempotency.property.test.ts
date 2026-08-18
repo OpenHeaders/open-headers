@@ -3,7 +3,7 @@
  * across re-runs for the same `hostInstallId`, sampled across a 1000-id
  * batch.
  *
- * The deliverable text in `UNIFIED_ORACLE_STATUS.md` calls for "1000+
+ * The deliverable text in the unified-oracle status log calls for "1000+
  * scenarios of random init-then-reseed-then-init produce byte-identical
  * row sets, asserting deterministic-UUID idempotency." This file pins
  * exactly that contract at the helper level. The wider end-to-end

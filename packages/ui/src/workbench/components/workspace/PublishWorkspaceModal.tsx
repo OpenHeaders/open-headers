@@ -1,6 +1,6 @@
 /**
  * PublishWorkspaceModal — "Publish to <backend>" as presentation over
- * the Duplicate-into RPC (PUBLISH_TARGET_PICKER.md). Targets are joined
+ * the Duplicate-into RPC (the publish-target picker design). Targets are joined
  * Orgs labeled with their "via <backend>" provenance: exactly one
  * target keeps the one-click shape (no picker, the OK button names the
  * Org); two or more get a Select. Unhealthy targets list disabled with

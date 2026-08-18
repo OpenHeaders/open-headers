@@ -1,5 +1,5 @@
 /**
- * `traffic_to_rule` draft computation (AGENT_TRAFFIC_PLAN.md §5, slice
+ * `traffic_to_rule` draft computation (the agent-traffic plan §5, slice
  * S6) — pure over projections, like `traffic-diff.ts` and
  * `traffic-graph.ts`: no tap, no workspace, no mutation. The tool layer
  * resolves the exchange and the body, hands both here, and mints the

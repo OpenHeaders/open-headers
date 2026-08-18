@@ -35,7 +35,7 @@ const SCOPE = 'McpServer';
 export const MCP_SERVER_NAME = 'open-headers';
 
 /**
- * One successful `observe`-tier tool call (AGENT_TRAFFIC_PLAN.md §4).
+ * One successful `observe`-tier tool call (the agent-traffic plan §4).
  * Reads through the observe tier must be visible after the fact —
  * "what did the agent look at?" — so the server reports each one to
  * the host's sink, which lands it in the Activity Feed the way

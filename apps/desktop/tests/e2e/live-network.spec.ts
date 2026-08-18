@@ -1,6 +1,6 @@
 /**
  * Live Network E2E — the observability Phase-1 stream against the real
- * dual-app stack (OBSERVABILITY_PLAN.md Phase 1):
+ * dual-app stack (the observability plan Phase 1):
  *
  *   1. Launch the built desktop app with an isolated userData dir
  *      (OPENHEADERS_USER_DATA_DIR) on a non-default daemon port bound

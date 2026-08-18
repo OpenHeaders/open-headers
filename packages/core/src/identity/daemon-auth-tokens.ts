@@ -1,6 +1,6 @@
 /**
  * Daemon auth-token persistence + helpers (U3.2,
- * `UNIFIED_ORACLE_MODEL.md` §4.2 + `DATA_PLANE_TOPOLOGIES.md` §11.4).
+ * the unified-oracle model §4.2 + the data-plane topologies design §11.4).
  *
  * Host-neutral surface — all storage flows through {@link hostStorage}
  * so the desktop main process and the headless-daemon binary share one
@@ -99,11 +99,10 @@ async function writeTokens(tokens: DaemonAuthToken[]): Promise<void> {
  * helpers funnel their store access through this tail-promise chain so
  * each one reads what the previous one wrote.
  *
- * Scope is one JS realm. On desktop the admin UI mutates tokens from
- * the renderer realm while HELLO validation runs in main — that
- * cross-realm pair shares the backing store but not this chain, and is
- * tracked as a separate finding (route mutations through a single
- * realm, or serialize at the storage layer).
+ * Scope is one JS realm, which is sufficient as wired: every mutation
+ * runs in the host process (desktop main / daemon) — the admin UI
+ * mutates tokens via IPC into main rather than touching the backing
+ * store from the renderer — so this chain serializes all writers.
  */
 const withTokenStoreLock = createMutex();
 

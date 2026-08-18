@@ -609,7 +609,7 @@ export const workbenchSettingsPanes = {
   'workbench.settings.licensePane.installButton': 'Installer',
   'workbench.settings.licensePane.loadFromFile': 'Charger depuis un fichier…',
 
-  // ── System-plane proxy section (REQUEST_ENGINE_PROXY_DESIGN.md P3) ─
+  // ── System-plane proxy section (the request-engine proxy design P3) ─
   'workbench.settings.systemProxy.title': 'Proxy sortant — cet appareil',
   'workbench.settings.systemProxy.intro':
     'Comment les requêtes, sessions WebSocket et appels gRPC de cette machine atteignent le réseau.',
@@ -668,7 +668,7 @@ export const workbenchSettingsPanes = {
   'workbench.settings.systemProxy.previewPlaceholder': 'Prévisualiser une URL — quelle route prendrait-elle ?',
   'workbench.settings.systemProxy.previewButton': 'Résoudre',
 
-  // ── Proxy trust pane body (PROXY_SECURITY.md §2.3 consent posture) ─
+  // ── Proxy trust pane body (the proxy-security design §2.3 consent posture) ─
   'workbench.settings.proxyTrustPane.intro':
     "Déchiffrer le trafic HTTPS demande une autorité de certification créée sur cette machine. Rien n'est " +
     'installé tant que vous ne mettez pas en place la confiance ici, et tout ce qui est installé ici peut ' +

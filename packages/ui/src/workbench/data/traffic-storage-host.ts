@@ -1,6 +1,6 @@
 /**
  * Workbench-side storage host — binds the shared Storage tool window to
- * the daemon's storage relay (OBSERVABILITY_PLAN.md Phase 3).
+ * the daemon's storage relay (the observability plan Phase 3).
  *
  * Every `StorageInspectorHost` method becomes one
  * `oh.daemon.telemetry.storage.call` (the extension executes the verb —

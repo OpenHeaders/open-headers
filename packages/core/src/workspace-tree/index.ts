@@ -1,6 +1,6 @@
 /**
  * Workspace tree — pure planner + reader for the materialized YAML
- * working tree (GIT_PLAN.md Phase 2). String-in / string-out like the
+ * working tree (the git-sync plan Phase 2). String-in / string-out like the
  * codec layer beneath it; Node hosts (`@openheaders/oracle-host-node`)
  * layer filesystem I/O, the `.oh/` sidecar, and bind exclusivity on top.
  */

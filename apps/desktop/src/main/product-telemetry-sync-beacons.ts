@@ -2,7 +2,7 @@
  * Product-telemetry beacons for the desktop's sync plane — the twin of
  * the extension SW's `bootstrap/product-telemetry-beacons.ts`, mapping
  * the same host-neutral observability seams onto the vocabulary's typed
- * events (`TELEMETRY_PLAN.md` §3): the `workspace-sync` feature signal
+ * events (the telemetry plan §3): the `workspace-sync` feature signal
  * on a wire connect, plus the typed error codes. The oracle modules
  * stay telemetry-free; this is the desktop's one place that maps their
  * signals onto product-telemetry events. The controller's session latch

@@ -1,6 +1,6 @@
 /**
  * Extension host wiring for the durable install identity
- * (`TELEMETRY_PLAN.md` §4, amended 2026-07-16): the distribution
+ * (the telemetry plan §4, amended 2026-07-16): the distribution
  * channel is a static browser-flavor fact, the uninstall URL carries
  * the install id plus the coarse age bucket and channel (S16) and
  * clears with the identity, and the install store on

@@ -1,5 +1,5 @@
 /**
- * Spec → linked-collection update planner (API_SPECS_PLAN.md Phase F).
+ * Spec → linked-collection update planner (the API-specs plan Phase F).
  * Pins:
  *   - requests pair by method + URL template: an in-sync collection
  *     plans empty; spec-only operations plan as adds, live-only as

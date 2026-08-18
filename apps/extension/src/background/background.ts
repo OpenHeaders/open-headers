@@ -260,7 +260,7 @@ async function initializeExtension(): Promise<void> {
   // an exclusive cred against the still-live backend — it banners + re-pairs
   // instead. Sticky across the reconnect-backoff flap (see `isBackendEvicting`).
   setBackendEvictedProbe(() => syncWiring.isAnyBackendEvicting());
-  // NM identity bootstrap (OBSERVABILITY_PLAN.md Phase 7): a loopback
+  // NM identity bootstrap (the observability plan Phase 7): a loopback
   // backend with no credential — or one actively evicting this peer —
   // asks the desktop's native-messaging host for an nmSession token.
   // Fire-and-forget: a written token flips the registry fingerprint and

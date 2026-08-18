@@ -9,7 +9,7 @@
  * notes (drops/transforms with full reasons). Target collections are
  * auto-created from the source names (editable inline) — the import
  * never blocks on structure. Header presets materialize as UNPUBLISHED
- * header rules (MIGRATION_STATUS.md S2 decision): the publication gate
+ * header rules (the migration status log S2 decision): the publication gate
  * keeps them inert until the user scopes and publishes them.
  *
  * ARCHITECTURE.md §23 — re-import diff + single `recordImportReport`

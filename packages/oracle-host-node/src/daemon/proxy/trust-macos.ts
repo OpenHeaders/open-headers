@@ -1,5 +1,5 @@
 /**
- * macOS keychain trust-store operations (PROXY_SECURITY.md §4 row 1) —
+ * macOS keychain trust-store operations (the proxy-security design §4 row 1) —
  * install, remove, and probe the proxy CA against the login and System
  * keychains.
  *

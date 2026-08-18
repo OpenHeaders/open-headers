@@ -42,7 +42,7 @@
  *     same connection policy, redirect/digest/jar layer, and native
  *     trailers; `'3'` rides the HTTP/3 helper pipeline (a framed stdio
  *     exchange with the bundled Rust helper — see
- *     `docs/REQUEST_ENGINE_H3_PROTOCOL.md` and `h3-helper/`), one QUIC
+ *     the request-engine H3-protocol design and `h3-helper/`), one QUIC
  *     connection per hop with the TLS trust legs carried onto the
  *     helper's own TLS stack (cipher suites cross only as exact TLS
  *     1.3 IANA names — the helper's three-suite vocabulary), failing
@@ -89,7 +89,7 @@
  *     while the explicit-vs-explicit conflicts keep their pre-wire
  *     errors. The winning route lands on
  *     {@link TransportResponse.proxyRoute} as wire truth. See
- *     docs/REQUEST_ENGINE_PROXY_DESIGN.md.
+ *     the request-engine proxy design.
  *   - **Always-on negotiated-protocol report.** Every direct send's
  *     dispatcher dials through a connector that observes the ready
  *     socket's ALPN result per origin (undici's own connector wrapped
@@ -243,7 +243,7 @@ export function createNodeRequestTransport(options: NodeRequestTransportOptions 
     }
     // A pinned HTTP/3 send rides the helper pipeline — every knob the
     // pipeline cannot honor fails BEFORE the wire, never quietly rides
-    // another protocol (see docs/REQUEST_ENGINE_H3_PROTOCOL.md for the
+    // another protocol (see the request-engine H3-protocol design for the
     // TLS subset mapping).
     let h3Client: H3HelperClient | undefined;
     let h3ClientCert: { certPem: string; keyPem: string } | undefined;
@@ -517,7 +517,7 @@ export function createNodeRequestTransport(options: NodeRequestTransportOptions 
     // deadline — the hand-rolled pipelines have no library watchdog
     // behind them the way undici's own timers back the fetch paths.
     const request = withPinnedPipelineTimeout(incoming);
-    // Two-plane proxy resolution (docs/REQUEST_ENGINE_PROXY_DESIGN.md):
+    // Two-plane proxy resolution (the request-engine proxy design):
     // an explicit request-plane setting wins outright; an inheriting
     // send asks the host's system plane, whose answer is a
     // fallback chain of attempts. The injectable resolver seat is for

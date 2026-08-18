@@ -1,6 +1,6 @@
 /**
  * Data API puller — the network half of migration ladder rung 3
- * (MIGRATION_PLAN.md §3.3), host-neutral: the host supplies the fetch
+ * (the migration plan §3.3), host-neutral: the host supplies the fetch
  * port and the same pipeline runs on desktop and the extension service
  * worker alike. Core owns the endpoint table, pacing policy, response
  * interpretation, and budget/failure classification; this module sends

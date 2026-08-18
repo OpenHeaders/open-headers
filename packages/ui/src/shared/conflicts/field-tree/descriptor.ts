@@ -4,7 +4,7 @@
  * derives extractBaseline / readPath / snapshotSets / resolution
  * writes / pretty labels by recursive descent.
  *
- * Locked design — see docs/MWPT_FULL_ENTITY_MIGRATION_STATUS.md
+ * Locked design — see the full-entity-migration status log
  * "Session 27 — closed" block. Five concrete fixes from three rounds
  * of design review live in the node-kind union below.
  */

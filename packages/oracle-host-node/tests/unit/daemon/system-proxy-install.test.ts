@@ -3,7 +3,7 @@
  * registry (Off / Env / Manual, Env the tier default), config seeding
  * onto the per-device slot, malformed-slot tolerance, per-resolve
  * vault-ref credentials, and the honest refusal of the desktop-only
- * modes (docs/REQUEST_ENGINE_PROXY_DESIGN.md P4).
+ * modes (the request-engine proxy design P4).
  */
 
 import { OH, type StorageKey } from '@openheaders/core/storage';

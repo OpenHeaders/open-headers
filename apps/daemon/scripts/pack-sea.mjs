@@ -1,5 +1,5 @@
 /**
- * Build the single-executable ohd binary (DAEMON_PLAN.md §8) from the
+ * Build the single-executable ohd binary (the daemon plan §8) from the
  * SEA bundle (`vite.config.sea.ts` → `dist-sea/ohd.cjs`).
  *
  * A native addon cannot run from inside the SEA blob, so the script

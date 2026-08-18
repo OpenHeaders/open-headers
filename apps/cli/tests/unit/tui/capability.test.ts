@@ -1,6 +1,6 @@
 /**
  * Capability probe — the four color tiers and the unicode/ASCII glyph
- * switch of TUI_DESIGN.md §5, as a pure function of environment plus
+ * switch of the TUI design §5, as a pure function of environment plus
  * the --no-color/--ascii flags.
  */
 

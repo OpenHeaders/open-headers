@@ -1,6 +1,6 @@
 /**
  * SecurityUpdateBanner — the loud tier's entry banner
- * (`docs/UPDATES_PLAN.md` §4). Renders only while the host's updater
+ * (the updates plan §4). Renders only while the host's updater
  * reports `belowSafeFloor`: the running version is under the safe
  * floor a published security release named. In-flow under the top bar
  * so entering the workbench cannot miss it.

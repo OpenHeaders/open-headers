@@ -1,6 +1,6 @@
 /**
  * Tab-lifecycle bridge — closes **S6** in
- * `REQUEST_LIFECYCLE_STATUS.md`.
+ * the request-lifecycle status log.
  *
  * Two responsibilities:
  *

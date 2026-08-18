@@ -1,5 +1,5 @@
 /**
- * NSS trust-store operations (PROXY_SECURITY.md §4 NSS column) —
+ * NSS trust-store operations (the proxy-security design §4 NSS column) —
  * Firefox keeps its own certificate store, so trusting the system
  * keychain is not enough there. Install/remove/probe run `certutil`
  * (NSS tools) against each discovered profile's `cert9.db`.

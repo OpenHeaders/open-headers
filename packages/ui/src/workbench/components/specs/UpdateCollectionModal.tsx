@@ -1,6 +1,6 @@
 /**
  * UpdateCollectionModal — the per-link Update action for a
- * spec-generated collection (API_SPECS_PLAN.md Phase F).
+ * spec-generated collection (the API-specs plan Phase F).
  *
  * Parses the SAVED spec source, plans a user-mediated diff against the
  * live collection (spec-update-plan.ts) and presents it as grouped

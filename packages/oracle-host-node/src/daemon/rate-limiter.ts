@@ -1,6 +1,6 @@
 /**
  * Per-peer brute-force limiter for the daemon's token-bearing entry
- * points (Phase 3, DAEMON_PLAN.md §7): pairing-code guesses, WS HELLO
+ * points (Phase 3, the daemon plan §7): pairing-code guesses, WS HELLO
  * auth failures, and `/mcp` bearer rejections all feed one counter per
  * peer address. Crossing the failure budget inside the sliding window
  * blocks the peer for a fixed cool-down; while blocked, rate-limited

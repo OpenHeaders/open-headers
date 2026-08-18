@@ -1,5 +1,5 @@
 /**
- * ImportSectionedModal — spec-entity landing (API_SPECS_PLAN.md Phase
+ * ImportSectionedModal — spec-entity landing (the API-specs plan Phase
  * G). Pins:
  *   - OpenAPI imports default to "Specification with a Collection":
  *     the document lands verbatim as a spec entity and the generated

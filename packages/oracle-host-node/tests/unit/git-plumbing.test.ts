@@ -1,6 +1,6 @@
 /**
  * Git plumbing — real tmp repos against the system binary
- * (GIT_PLAN.md §3.3 / §7 / §10 Phase 3): init/adopt, temp-index
+ * (the git-sync plan §3.3 / §7 / §10 Phase 3): init/adopt, temp-index
  * commits that never touch the user's staging area, hook enforcement,
  * identity fallback, porcelain feeds, and audit rows. The injected
  * runner env pins GIT_CONFIG_GLOBAL/GIT_CONFIG_NOSYSTEM so the

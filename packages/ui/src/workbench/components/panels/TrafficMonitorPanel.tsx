@@ -230,7 +230,7 @@ interface TrafficConsolePaneProps {
 /**
  * The console plane of one watched browser tab — the shared ConsoleView
  * over the qualified `oh-console:<tabId>@<nodeId>` lifeline, view-only
- * (OBSERVABILITY_PLAN.md Phase 4): capture is the peer's CDP console
+ * (the observability plan Phase 4): capture is the peer's CDP console
  * stream, arming belongs to the source rail's Debug affordance, and the
  * REPL prompt never mounts (remoteCapture suppresses it).
  */
@@ -465,7 +465,7 @@ const TrafficMonitorPanel: React.FC<TrafficMonitorPanelProps> = ({
     [peers, debugControl],
   );
 
-  // Agent-observation arming (AGENT_TRAFFIC_PLAN.md §4 S2): the rail's
+  // Agent-observation arming (the agent-traffic plan §4 S2): the rail's
   // per-source affordance drives the daemon tap's operator plane. The
   // armed set re-reads on the tap's `trafficStatusChanged` nudges —
   // idle arms expire host-side (`expiresAtMs`), the sweep's disarm

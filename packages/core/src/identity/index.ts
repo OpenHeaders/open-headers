@@ -1,6 +1,6 @@
 /**
  * `@openheaders/core/identity` — host-neutral helpers for the synthetic
- * identity bootstrap path (UNIFIED_ORACLE_MODEL.md §5).
+ * identity bootstrap path (the unified-oracle model §5).
  *
  * Three layers stack here:
  *

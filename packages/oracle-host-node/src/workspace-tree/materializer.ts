@@ -1,6 +1,6 @@
 /**
  * Working-tree materializer — engine snapshot → YAML tree on disk
- * (GIT_PLAN.md §3.1 rung 1: inside a live session the engine is truth
+ * (the git-sync plan §3.1 rung 1: inside a live session the engine is truth
  * and the tree follows; §3.2: materialize is continuous, debounced,
  * always on).
  *

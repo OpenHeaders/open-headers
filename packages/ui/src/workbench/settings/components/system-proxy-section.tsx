@@ -1,6 +1,6 @@
 /**
  * SystemProxySection — the system plane's settings surface
- * (docs/REQUEST_ENGINE_PROXY_DESIGN.md P3): how THIS device's egress
+ * (the request-engine proxy design P3): how THIS device's egress
  * reaches the network. The body of the Proxy · Outbound category on
  * the desktop host (`SystemProxyPane` owns the header) — per-device
  * state (the vault posture), never workspace data.

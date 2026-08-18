@@ -2,7 +2,7 @@
  * Renderer Interface — the seam between the resolution-state-machine
  * layer and whatever Monaco strategy renders the panes.
  *
- * Per `docs/MERGE_CONFLICT_STATE_MACHINE.md` §5. The state machine
+ * Per the merge-conflict state-machine design §5. The state machine
  * observes events the renderer emits and commands operations against
  * a single editable result buffer. Phase 1 wires only the buffer +
  * apply-flush surface; pick events (§5.1 onTablePick / onHunkAccept)

@@ -1,6 +1,6 @@
 /**
  * Manual-mode system-plane resolver — the config-driven half of
- * the P3 settings surface (docs/REQUEST_ENGINE_PROXY_DESIGN.md): one
+ * the P3 settings surface (the request-engine proxy design): one
  * proxy value (env-var idiom — bare `host:port` implies `http://`),
  * credentials by VAULT REF resolved at RESOLVE time through an
  * injected callback (the credential value never sits in config), and

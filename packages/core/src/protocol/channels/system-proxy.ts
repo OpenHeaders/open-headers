@@ -1,7 +1,7 @@
 /**
  * System-plane proxy bridge RPCs — the desktop settings surface
  * over this device's egress configuration
- * (docs/REQUEST_ENGINE_PROXY_DESIGN.md). Desktop-shell answered: the
+ * (the request-engine proxy design). Desktop-shell answered: the
  * modes are Chromium concerns (System delegates to the OS via
  * `resolveProxy`; PAC points a dedicated resolver session's
  * `setProxy({ pacScript })`), so only the Electron main process serves

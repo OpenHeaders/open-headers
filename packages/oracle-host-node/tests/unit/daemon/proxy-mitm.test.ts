@@ -1,5 +1,5 @@
 /**
- * L7 MITM capture-core laws (PROXY_PLAN.md Phase 2). Read-only capture:
+ * L7 MITM capture-core laws (the proxy plan Phase 2). Read-only capture:
  *  - a plain `http://` request is re-originated upstream and captured as
  *    a lifecycle on the reserved proxy partition;
  *  - a CONNECT to a SCOPED host is TLS-terminated with a CA-signed leaf,

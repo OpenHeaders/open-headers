@@ -1,6 +1,6 @@
 /**
  * Extension half of the What's New online history
- * (CHANGELOG_PLAN.md §4.3): enhancement-only static GETs against the
+ * (the changelog plan §4.3): enhancement-only static GETs against the
  * changelog feed's extension stream, fetched directly from the calling
  * surface — the manifest's host permissions exempt extension pages
  * from the feed's origin-scoped CORS. Strictly on demand (only the

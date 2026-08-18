@@ -1,7 +1,7 @@
 /**
  * Proxy scoped-routing wire types — the extension↔daemon control frames
  * that flip browser proxy routing for the capture proxy
- * (OBSERVABILITY_PLAN.md §5.1).
+ * (the observability plan §5.1).
  *
  * The extension never carries traffic: it sets browser proxy CONFIG so
  * the browser's own stack CONNECTs to the local capture port for scoped

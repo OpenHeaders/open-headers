@@ -1,6 +1,6 @@
 /**
  * Agent traffic S13 E2E — in-browser tab-group capture feedback against
- * the real dual-app stack (AGENT_TRAFFIC_PLAN.md §4, the capture-
+ * the real dual-app stack (the agent-traffic plan §4, the capture-
  * transparency law made visible in the tab strip). Since S30 the badge
  * rides the desktop's pushed capture state (the tap's armed sources),
  * not the extension's stream sessions — so these legs prove the whole

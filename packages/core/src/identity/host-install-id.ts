@@ -1,7 +1,7 @@
 /**
  * `host-install-id` minting — a fresh stable identifier per host install,
  * minted once at first boot, persisted to the host's storage, never
- * regenerated except on reinstall (UNIFIED_ORACLE_MODEL.md §5.1 / §11 OQ1).
+ * regenerated except on reinstall (the unified-oracle model §5.1 / §11 OQ1).
  *
  * The identifier is opaque — anything stable and unique-per-host suffices.
  * `crypto.randomUUID()` gives us 122 bits of entropy on every supported

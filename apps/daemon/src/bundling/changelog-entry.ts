@@ -1,6 +1,6 @@
 /**
  * Build-time resolution of the running version's canonical changelog
- * entry (`changelog/daemon/<year>/<version>.md`, CHANGELOG_PLAN.md
+ * entry (`changelog/daemon/<year>/<version>.md`, the changelog plan
  * §4.3) for the `__DAEMON_CHANGELOG__` define both bundle configs
  * stamp — never fetched at runtime (offline law): the daemon serves
  * this body to its admin surfaces itself, so the browser never dials

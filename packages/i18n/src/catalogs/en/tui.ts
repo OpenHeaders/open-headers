@@ -1,5 +1,5 @@
 /**
- * TUI namespace — the `oh tui` terminal dashboard (TUI_DESIGN.md §6.3).
+ * TUI namespace — the `oh tui` terminal dashboard (the TUI design §6.3).
  * Data stays data: workspace/environment/rule names, uids, URLs, kinds,
  * and daemon-provided copy render verbatim in the composers. Key-cap
  * glyphs (⏎, ␣, arrows) come from the capability glyph tables, not the

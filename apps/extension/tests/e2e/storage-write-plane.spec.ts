@@ -1,5 +1,5 @@
 /**
- * DOM-storage write plane e2e (STORAGE_PANEL_PLAN.md §5, slice 2) —
+ * DOM-storage write plane e2e (the storage-panel plan §5, slice 2) —
  * drives the SW storage-inspector handlers end-to-end over the real
  * bridge (an extension page RPCs `chrome.runtime.sendMessage`, the SW
  * injects into the playground tab) and asserts the PAGE-SIDE state

@@ -1,6 +1,6 @@
 /**
  * App-update bridge RPCs — the check-and-notify surface
- * (`docs/UPDATES_PLAN.md`). Desktop-only today: the renderer drives
+ * (the updates plan). Desktop-only today: the renderer drives
  * the main process's updater and mirrors its state.
  *
  * Consent model is structural: `checkNow` only looks, `download` only
@@ -16,7 +16,7 @@ export type AppUpdatePhase = 'idle' | 'checking' | 'available' | 'downloading' |
 
 /**
  * Severity of the latest published release, from the static
- * `versions.json` manifest (`docs/UPDATES_PLAN.md` §4). Authored by a
+ * `versions.json` manifest (the updates plan §4). Authored by a
  * human before tagging, never inferred.
  */
 export type AppUpdateSeverity = 'normal' | 'security';
@@ -77,7 +77,7 @@ export interface UpdatesRpc {
    */
   'oh.updates.updateAndRestart': { req: Record<string, never>; res: AppUpdateState };
 
-  // ── What's New online history (CHANGELOG_PLAN.md §4.3) ────────────
+  // ── What's New online history (the changelog plan §4.3) ────────────
   //
   // The renderer's CSP forbids dialing the changelog feed directly, so
   // the main process performs the enhancement-only static GETs and the

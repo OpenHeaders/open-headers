@@ -3,7 +3,7 @@
  * `chrome.scripting` injection into the scope's frame, same transport
  * rationale as DOM storage: there is no extension API and the CDP
  * `IndexedDB` domain is not dispatched for extension debugger clients
- * (STORAGE_PANEL_PLAN.md §2.3).
+ * (the storage-panel plan §2.3).
  *
  * Payload discipline: cursor-paged reads with a clamped page size, and
  * every key/value PREVIEW-SERIALIZED in-page — IDB values are

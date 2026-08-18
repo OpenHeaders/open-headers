@@ -6,7 +6,7 @@
  * level guarantee with a runtime walk so a stray `as SettingScope` cast
  * or unsafe registration path still trips the suite.
  *
- * See `MULTI_WORKSPACE_PER_WINDOW_OR_TAB_DESIGN.md` § 5.3 + § 11.2 BC-MWPT-15.
+ * See the multi-workspace window/tab design § 5.3 + § 11.2 BC-MWPT-15.
  */
 
 import { readdirSync, readFileSync } from 'node:fs';

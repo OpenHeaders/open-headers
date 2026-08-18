@@ -1,6 +1,6 @@
 /**
  * HTTP request handler for the daemon device-flow pairing UX (U3.3,
- * `DATA_PLANE_TOPOLOGIES.md` §11.4 hybrid improvement).
+ * the data-plane topologies design §11.4 hybrid improvement).
  *
  * Rides on the same bound socket as the WebSocket upgrade handler — see
  * {@link startOracleWsServer}'s `pairingService` option. Two routes

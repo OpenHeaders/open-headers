@@ -1,6 +1,6 @@
 /**
  * Branch-switch pass — the wrapped checkout behind the in-app switch
- * gesture (GIT_PLAN.md §6; DATA_PLANE_TOPOLOGIES.md §6.2). The gesture
+ * gesture (the git-sync plan §6; the data-plane topologies design §6.2). The gesture
  * carries the uncommitted-changes answer when the tree is dirty:
  *
  *   - `commit` — the ordinary engine commit (semantic draft) lands

@@ -1,5 +1,5 @@
 /**
- * Client half of the severity manifest (`docs/UPDATES_PLAN.md` §4).
+ * Client half of the severity manifest (the updates plan §4).
  *
  * `versions/<channel>.json` is a static pointer file on the update feed
  * (`update-feed.ts`), written by the release workflow
@@ -14,7 +14,7 @@
  *
  * Severity always reads the STABLE manifest, regardless of channel —
  * the security floor is a property of the stable line, and a beta
- * install below it must still escalate (`docs/DISTRIBUTION_PLAN.md` §4).
+ * install below it must still escalate (the distribution plan §4).
  *
  * Severity is authored by a human before tagging, never inferred; a
  * `security` entry always names its `minimumSafeVersion` floor (the

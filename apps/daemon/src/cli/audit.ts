@@ -13,7 +13,7 @@
  *
  * `list` renders display names at view time by resolving each row's
  * immutable `actorUserId` through the current directory record
- * (UNIFIED_ORACLE_MODEL.md §9.3); ids without a directory row (the
+ * (the unified-oracle model §9.3); ids without a directory row (the
  * daemon operator's synthetic user, deleted rows) print verbatim.
  * `export` emits the raw `AuditLogEntry` rows as JSONL, oldest-first.
  */

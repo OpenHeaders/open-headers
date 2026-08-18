@@ -1,6 +1,6 @@
 /**
  * Coverage for the backend-connection registry (`OH.backends`,
- * MULTI_BACKEND_PLAN.md §2 / Phase 1) — the persisted list, its
+ * the multi-backend plan §2 / Phase 1) — the persisted list, its
  * in-memory mirror, and the cap-1 `updatePrimaryBackend` writer.
  *
  * Pinned invariants:

@@ -1,6 +1,6 @@
 /**
  * Canonical YAML emission — byte-identical output for identical state
- * (SYNC_ENGINE_DESIGN.md §23.3), independent of parse history or key
+ * (the sync-engine design §23.3), independent of parse history or key
  * insertion order.
  *
  * The emitter builds the document tree explicitly, never from plain JS

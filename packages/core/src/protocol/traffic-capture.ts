@@ -1,6 +1,6 @@
 /**
  * Agent-traffic capture-feedback wire types — the host↔extension frames
- * behind the in-browser capture badge (AGENT_TRAFFIC_PLAN.md §4).
+ * behind the in-browser capture badge (the agent-traffic plan §4).
  *
  * The host owns the capture truth (the tap's armed-source registry);
  * the extension only RENDERS it — the tab-group reactor badges exactly

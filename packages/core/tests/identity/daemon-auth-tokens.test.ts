@@ -1,6 +1,6 @@
 /**
  * Coverage for daemon auth-token persistence + validation (U3.2,
- * `UNIFIED_ORACLE_MODEL.md` §4.2 + `DATA_PLANE_TOPOLOGIES.md` §11.4).
+ * the unified-oracle model §4.2 + the data-plane topologies design §11.4).
  *
  * Exercises the full mint → validate → revoke lifecycle against the
  * shared in-memory `HostStorage` fake. No transport, no UI — just the

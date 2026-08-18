@@ -2,7 +2,7 @@
 
 The HTTP/3 wire pipeline behind the request engine's `httpVersion: '3'`
 knob — a static helper binary (quinn + h3 + rustls) speaking the framed
-stdio protocol documented in `docs/REQUEST_ENGINE_H3_PROTOCOL.md` to the
+stdio protocol documented in the request-engine H3-protocol design to the
 node host. It performs exactly one wire hop per request; all policy
 (redirects, cookies, digest, deadlines, capped reads) lives above the
 seam in TypeScript.

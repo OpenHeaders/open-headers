@@ -1,5 +1,5 @@
 /**
- * The two tappable traffic sources (AGENT_TRAFFIC_PLAN.md §8 S1), each
+ * The two tappable traffic sources (the agent-traffic plan §8 S1), each
  * normalized to ONE feed shape — a verbatim `LifecycleWireMessage`
  * stream — so the tap neither knows nor cares which transport fed it:
  *

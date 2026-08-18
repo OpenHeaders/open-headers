@@ -17,7 +17,7 @@
  * collide with the create-time `auth.type` leaf and let the stale
  * discriminant clobber the edit at materialize time. Per-leaf
  * PERSISTENCE is live; per-leaf CONFLICT tracking inside the variants
- * stays deferred (SYNC_ENGINE_STATUS.md §427).
+ * stays deferred (the sync-engine status log §427).
  */
 
 import type { MutatorContext, MutatorIntent } from '../types';

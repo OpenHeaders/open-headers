@@ -1,6 +1,6 @@
 /**
  * License refresh agent — the self-serve renewal loop
- * (LICENSING_PLAN.md §3.2). Periodically POSTs
+ * (the licensing plan §3.2). Periodically POSTs
  * `{ licenseKey, appVersion, platform }` — the whole payload, publicly
  * documented in `docs/WIRE_TRANSPARENCY.md` — to the license endpoint
  * and swaps the fresh signed file in through the slot's one write

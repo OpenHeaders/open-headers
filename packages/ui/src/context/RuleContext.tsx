@@ -251,7 +251,7 @@ export const RuleProvider: React.FC<RuleProviderProps> = ({ children, surfaceId,
   //    `popupOpen` path returns global-default-scoped data (correct for
   //    system surfaces) so it can't satisfy a diverged tab; reading the
   //    materialized snapshots directly is the discipline-conforming
-  //    shape per `SYNC_ENGINE_DESIGN.md` § 9.1 ("Snapshots are the read
+  //    shape per the sync-engine design § 9.1 ("Snapshots are the read
   //    path"). Same pattern pause-markers already use.
   //    `hostStorage.subscribe` rebinds when the override id changes;
   //    cross-process / cross-workspace mutations land via host storage
@@ -409,7 +409,7 @@ export const RuleProvider: React.FC<RuleProviderProps> = ({ children, surfaceId,
   // global default's. Mirror writes by the cache layer drive
   // the host storage layer's change events; the resulting hook fires
   // regardless of whether the SW oracle for X is the currently-loaded
-  // one. SYNC_ENGINE_DESIGN.md § 9.1 — snapshots are the read path.
+  // one. The sync-engine design § 9.1 — snapshots are the read path.
   // Pause-markers already use this pattern; this extension generalizes
   // it to the rest of the editing-scope data RuleProvider owns.
   //

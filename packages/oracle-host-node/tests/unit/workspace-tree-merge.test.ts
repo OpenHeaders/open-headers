@@ -1,5 +1,5 @@
 /**
- * In-app branch merge on real tmp repos (GIT_PLAN.md §6 / §10
+ * In-app branch merge on real tmp repos (the git-sync plan §6 / §10
  * Phase 6): the Phase 4 pull machinery pointed at a LOCAL ref — raw
  * `git merge` is never invoked, an un-diverged current branch
  * fast-forwards, genuine divergence records a two-parent commit with

@@ -1,6 +1,6 @@
 /**
  * WorkspaceOrgBadge — the per-workspace "where does this live?" badge
- * (U3.5, UNIFIED_ORACLE_MODEL.md §6.2). Resolves a workspace's `orgId`
+ * (U3.5, the unified-oracle model §6.2). Resolves a workspace's `orgId`
  * to a scope tag: icon + colour + label per Org.
  *
  * Always visible — §6.2 calls for the org-binding affordance to be a

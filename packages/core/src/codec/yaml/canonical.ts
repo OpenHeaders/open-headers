@@ -5,7 +5,7 @@
  * writing the same entity produce byte-identical output. Round-trip
  * fixtures assert this. Matches invariant #16 (yaml eemeli) +
  * invariant #17 (one platform-agnostic codec) — see
- * docs/V5_FOUNDATION_PLAN.md §Phase 0.
+ * the v5 foundation plan §Phase 0.
  */
 
 import type { ToStringOptions } from 'yaml';

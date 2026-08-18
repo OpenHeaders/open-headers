@@ -1,6 +1,6 @@
 /**
  * Workspace repo plumbing — init/adopt, commit identity, temp-index
- * commits, and the porcelain dirty feed (GIT_PLAN.md §3.3 bill of
+ * commits, and the porcelain dirty feed (the git-sync plan §3.3 bill of
  * rights + §10 Phase 3).
  *
  * Discipline this module owes the git user:
@@ -32,7 +32,7 @@ import type { TreeFile } from '@openheaders/core/workspace-tree';
 import type { GitExecResult, GitRunner } from './git-exec';
 import type { IgnoreProvenance } from './ignore-ops';
 
-/** Explicit repo addressing prefix for every command (GIT_PLAN.md §7). */
+/** Explicit repo addressing prefix for every command (the git-sync plan §7). */
 export function repoArgs(rootDir: string): string[] {
   return ['--git-dir', path.join(rootDir, '.git'), '--work-tree', rootDir];
 }

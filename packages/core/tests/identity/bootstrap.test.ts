@@ -1,6 +1,6 @@
 /**
  * Coverage for the synthetic-row bootstrap helper (U1.5 — pure of host
- * transport per UNIFIED_ORACLE_STATUS.md).
+ * transport per the unified-oracle status log).
  *
  * Pinned invariants:
  *   - Deterministic in `hostInstallId`: same input → byte-identical rows.

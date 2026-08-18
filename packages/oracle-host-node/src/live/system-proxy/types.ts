@@ -1,6 +1,6 @@
 /**
  * System-plane proxy resolution — the per-DEVICE half of the
- * two-plane proxy architecture (docs/REQUEST_ENGINE_PROXY_DESIGN.md).
+ * two-plane proxy architecture (the request-engine proxy design).
  *
  * The system plane answers "on this machine, egress works like
  * this" for one target URL at a time. It is machine state, never

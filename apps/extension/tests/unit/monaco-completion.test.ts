@@ -1,6 +1,6 @@
 /**
  * Unit coverage for the Monaco completion provider factory
- * (docs/VARIABLE_AUTOCOMPLETE_PLAN.md §Phase D).
+ * (the variable-autocomplete plan §Phase D).
  *
  * The registration API (`monaco.languages.registerCompletionItemProvider`)
  * is exercised with a minimal stub; we capture the registered provider

@@ -122,7 +122,7 @@ describe('WorkflowStepEditor — Phase I', () => {
   // ── Show-but-disable catalog ────────────────────────────────────────
   // Each of these assertions verifies a future-feature affordance is
   // surfaced in v1 with a disabled state — the plan's show-but-disable
-  // contract (docs/LIVE_ORCHESTRATION_PLAN.md §UI).
+  // contract (the live-orchestration plan §UI).
 
   it('step-type selector marks Foreach + Composite as aria-disabled options', () => {
     renderStep(mkStep());

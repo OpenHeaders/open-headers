@@ -1,6 +1,6 @@
 /**
  * Workflow step-editor combination matrix — slice 7 e2e
- * (WORKFLOW_GRAPH_PLAN.md §7, follow-up to the retry/timeout slice).
+ * (the workflow-graph plan §7, follow-up to the retry/timeout slice).
  *
  * Pairwise coverage over the six per-step dimensions — dependsOn
  * (implicit / explicit root / multi-parent) × run condition (each

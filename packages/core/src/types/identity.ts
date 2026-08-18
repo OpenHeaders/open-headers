@@ -5,7 +5,7 @@
  *
  * The shapes are universal: every host materializes them (synthetic rows
  * in Mode-1 / Mode-2-localhost, real rows once promotion happens). See
- * UNIFIED_ORACLE_MODEL.md §5 for the synthetic-row catalogue.
+ * the unified-oracle model §5 for the synthetic-row catalogue.
  */
 
 import type * as v from 'valibot';

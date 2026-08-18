@@ -1,6 +1,6 @@
 /**
  * Service-unit rendering — pure text generation for the two service
- * managers the daemon installs under (DAEMON_PLAN.md §6): a launchd
+ * managers the daemon installs under (the daemon plan §6): a launchd
  * user LaunchAgent on macOS and a systemd user unit on Linux. No I/O
  * here; `service-manager.ts` owns paths and process control.
  *

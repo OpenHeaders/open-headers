@@ -1,6 +1,6 @@
 /**
  * Publish targets — the joined Orgs a workspace can be published into
- * (PUBLISH_TARGET_PICKER.md). Publish is Duplicate-into pointed at a
+ * (the publish-target picker design). Publish is Duplicate-into pointed at a
  * joined Org: targets are Orgs, not backends, labeled with the same
  * "via <backend>" provenance the workspace dropdown uses. The home Org
  * is never a target (it has no binding — publishing to yourself is

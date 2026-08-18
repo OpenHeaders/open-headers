@@ -12,7 +12,7 @@
  * to serialize its manifest, how to parse it back (with fixed sibling
  * contents where the entity fans out), and how to make a known-field
  * edit. Workspace generates the committed manifest shape (no `orgId` —
- * host-local tenancy never enters committed YAML, GIT_PLAN.md §5).
+ * host-local tenancy never enters committed YAML, the git-sync plan §5).
  */
 
 import {

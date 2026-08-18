@@ -1,6 +1,6 @@
 /**
  * `traffic_graph`'s structure report, computed host-side over redacted
- * projections (AGENT_TRAFFIC_PLAN.md §5, slice S5). Like the diff, the
+ * projections (the agent-traffic plan §5, slice S5). Like the diff, the
  * point is to never hand the agent an edge dump: the host resolves
  * redirect chains, joins initiator chains, walks the waterfall's
  * critical path and clusters failures — the agent gets chains, clusters

@@ -8,7 +8,7 @@
  * ({@link filterEnvelopesByOrg}), and checks two invariants:
  *
  *   1. **No cross-org leak** — every yielded envelope's `orgId` is in
- *      the authorized set. Per UNIFIED_ORACLE_MODEL.md §6.1 / §8.2,
+ *      the authorized set. Per the unified-oracle model §6.1 / §8.2,
  *      this is the property that gates the wire.
  *   2. **Snapshot-bootstrap not history-replay** — for a workspace
  *      whose `orgId` was flipped from local-org → team-org per §6.5.3,
@@ -224,7 +224,7 @@ describe('U2.10 — cross-org property test', () => {
 });
 
 /**
- * Phase U4.1 — Coexist double-import, receiver side (UNIFIED_ORACLE_MODEL.md
+ * Phase U4.1 — Coexist double-import, receiver side (the unified-oracle model
  * §6.3).
  *
  * Models the desktop receiver after a mode-switch to "keep both as
@@ -324,7 +324,7 @@ describe('U4.1 — Coexist double-import (receiver-side org filter)', () => {
 
 /**
  * Phase U5.8 — a join never lands a joiner-`Org` envelope on an
- * authenticated target (UNIFIED_ORACLE_MODEL.md §6.1, Phase U5).
+ * authenticated target (the unified-oracle model §6.1, Phase U5).
  *
  * Models the authenticated-backend join. The joiner connects to a
  * target it does NOT control. Per U5.2 the join is consume-first: the

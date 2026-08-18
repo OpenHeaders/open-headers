@@ -64,7 +64,7 @@ export interface InstallMcpServerOptions {
   serverVersion: string;
   /** Trusted-proxy-aware peer resolver for rejection log lines (Phase 3). */
   resolvePeer?: (req: IncomingMessage) => string;
-  /** Observe-visibility sink (AGENT_TRAFFIC_PLAN.md §4) — the spine
+  /** Observe-visibility sink (the agent-traffic plan §4) — the spine
    *  lands each successful `observe`-tier call in the Activity Feed. */
   onObserveCall?: (event: McpObserveCallEvent) => void;
   /** The agent-traffic tap (PLAN §5) — injected by the boot spine; the

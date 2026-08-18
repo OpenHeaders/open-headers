@@ -4,7 +4,7 @@
  * Derived from the valibot schemas in `../../schemas/live.ts` so the
  * runtime validator and the TypeScript type stay locked together.
  *
- * See docs/LIVE_VARIABLES_PLAN.md for the architectural motivation.
+ * See the live-variables plan for the architectural motivation.
  */
 
 import type * as v from 'valibot';

@@ -1,6 +1,6 @@
 /**
- * Branch-switch pass on real tmp repos (GIT_PLAN.md §6;
- * DATA_PLANE_TOPOLOGIES.md §6.2): a dirty tree refuses without an
+ * Branch-switch pass on real tmp repos (the git-sync plan §6;
+ * the data-plane topologies design §6.2): a dirty tree refuses without an
  * answer, and each of the Commit / Stash / Discard choices lands its
  * contract — the commit rides the engine's own commit seam, the stash
  * is the user's ordinary recoverable stash entry, and discard is the

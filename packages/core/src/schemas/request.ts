@@ -196,7 +196,7 @@ export const ProxyUrlSchema = v.pipe(
  * INHERIT: the executing host's system plane (system settings /
  * PAC on the desktop, HTTP_PROXY-family env vars on the node tier)
  * resolves whether the send traverses a proxy — see
- * docs/REQUEST_ENGINE_PROXY_DESIGN.md. `'direct'` is the explicit
+ * the request-engine proxy design. `'direct'` is the explicit
  * opt-out (never proxy this request, whatever the machine says);
  * `'url'` routes through the request's own `proxyUrl`. The H11 reset
  * law holds: per-row reset returns the field to absent = inherit.

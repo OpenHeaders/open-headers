@@ -1,5 +1,5 @@
 /**
- * UI-side product-telemetry entry point (`TELEMETRY_PLAN.md` §7).
+ * UI-side product-telemetry entry point (the telemetry plan §7).
  * Pins the call-site contracts:
  *   - events travel as one fire-and-forget `productTelemetryTrack` RPC;
  *   - non-counting hosts (daemon-served web) and a missing bridge are

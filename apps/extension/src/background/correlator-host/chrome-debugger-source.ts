@@ -265,7 +265,7 @@ export class ChromeDebuggerEventSource implements CdpEventSource {
    * `Storage.track*ForStorageKey` commands on the tab's root session.
    * Pure invalidation input: the panel refetches through its read plane
    * (injected for IndexedDB — its CDP read domain stays blocked, see
-   * STORAGE_PANEL_PLAN.md §2.3 — arbitrated for Cache Storage). NOT part
+   * the storage-panel plan §2.3 — arbitrated for Cache Storage). NOT part
    * of the oracle `CdpEventSource` interface — storage inspection is a
    * host concern (mirror of `subscribeConsole`).
    */

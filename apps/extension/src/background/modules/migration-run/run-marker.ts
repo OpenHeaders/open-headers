@@ -1,6 +1,6 @@
 /**
  * Migration pull run bookkeeping — the two storage slots the silent
- * resume story (EXTENSION_ACCOUNT_PULL_PLAN.md §2, Phase C) consumes,
+ * resume story (the extension account-pull plan §2, Phase C) consumes,
  * written and cleared by the run host while a local pull is in flight.
  *
  * Two slots, two lifetimes, one law:

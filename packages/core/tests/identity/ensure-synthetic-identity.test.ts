@@ -1,7 +1,7 @@
 /**
  * Coverage for `ensureSyntheticIdentity` — the host-neutral composition
  * helper that every host calls once at boot (U1.6 / U1.7 per
- * UNIFIED_ORACLE_STATUS.md).
+ * the unified-oracle status log).
  *
  * Pinned invariants:
  *   - First boot mints `OH.daemonConfig` + persists `OH.syntheticIdentity`;

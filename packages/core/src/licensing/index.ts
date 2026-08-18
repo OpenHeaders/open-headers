@@ -1,6 +1,6 @@
 /**
  * `@openheaders/core/licensing` — license artifact model + pure offline
- * Ed25519 verification (`LICENSING_PLAN.md` §3). Zero platform deps;
+ * Ed25519 verification (the licensing plan §3). Zero platform deps;
  * host slots, the seat gate, and the refresh agent all consume this
  * module unchanged.
  */

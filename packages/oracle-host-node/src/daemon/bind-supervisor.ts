@@ -1,6 +1,6 @@
 /**
  * Daemon WS-bind supervisor — Phase U3.1
- * (`UNIFIED_ORACLE_MODEL.md` §4.2 / `DATA_PLANE_TOPOLOGIES.md` §11.4).
+ * (the unified-oracle model §4.2 / the data-plane topologies design §11.4).
  *
  * Owns the {@link OracleWsServer} handle and reacts to the user-controlled
  * `backend.bindAddress` setting (`'127.0.0.1'` by default, `'0.0.0.0'`

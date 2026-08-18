@@ -5,7 +5,7 @@
  * has a backend gone — N concurrent runs are at worst wasteful) or
  * **exclusive** (at most one run per refresh window, globally — a
  * concurrent run burns a single-use code or trips OAuth reuse-detection
- * and silently revokes the session). See `docs/LIVE_RUNNER_OWNERSHIP_PLAN.md`
+ * and silently revokes the session). See the live-runner ownership plan
  * §3–4 + §WS-C.4.
  *
  * The policy is **derived from a positive signal**, never assumed:

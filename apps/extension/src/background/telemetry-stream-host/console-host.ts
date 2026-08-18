@@ -1,6 +1,6 @@
 /**
  * Telemetry console host — the extension side of the console-plane
- * stream (OBSERVABILITY_PLAN.md Phase 4).
+ * stream (the observability plan Phase 4).
  *
  * Serves the desktop's console watch over the backend WS wire,
  * mirroring what `console-stream-port-host` does for a chrome runtime

@@ -1,7 +1,7 @@
 /**
  * Traffic Monitor category — the capture-gesture defaults, the
  * sessions archive's disk budget, and the agent raw-read grant
- * (AGENT_TRAFFIC_PLAN.md §11.1/§11.4/§11.5).
+ * (the agent-traffic plan §11.1/§11.4/§11.5).
  *
  * The two `capture*Default` rows seed the Advanced toggles of the
  * source rail's start-capturing popover — the gesture itself can

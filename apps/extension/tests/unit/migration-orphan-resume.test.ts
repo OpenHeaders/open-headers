@@ -1,6 +1,6 @@
 /**
  * Orphaned-run detection on SW boot — the kill-SW story's three legs
- * (EXTENSION_ACCOUNT_PULL_PLAN.md Phase C): a marker whose session key
+ * (the extension account-pull plan Phase C): a marker whose session key
  * survived resumes SILENTLY with the same key and selection; a marker
  * whose key is gone (browser restart) or bound to a different run
  * surfaces as interrupted through the run host; a live run or a clean

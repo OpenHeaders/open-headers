@@ -1,6 +1,6 @@
 /**
  * Orphaned-run detection on SW boot — the silent-resume story
- * (EXTENSION_ACCOUNT_PULL_PLAN.md §2, amended: resume is SILENT).
+ * (the extension account-pull plan §2, amended: resume is SILENT).
  *
  * A run marker with no live run means the previous SW died mid-pull.
  * Three legs:

@@ -1,5 +1,5 @@
 /**
- * Add/edit wizard for one `OH.backends` record (MULTI_BACKEND_PLAN.md
+ * Add/edit wizard for one `OH.backends` record (the multi-backend plan
  * §4) — the guided flow behind "Add back-end" and the row's Edit:
  * scenario → connect → pair → turn on.
  *
@@ -107,7 +107,7 @@ const WizardDialog: React.FC<{
   /**
    * Leaving the scenario step: a fresh add of the desktop-app scenario
    * on a host with the NM plane first tries the pair-without-a-code
-   * gesture (OBSERVABILITY_PLAN.md Phase 7) — the daemon verifies this
+   * gesture (the observability plan Phase 7) — the daemon verifies this
    * browser from OS truth and answers with a token, and the wizard
    * jumps straight to Turn on. Every failure falls through to the
    * manual steps with the pair step explaining the fallback.

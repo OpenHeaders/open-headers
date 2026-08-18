@@ -2,7 +2,7 @@
  * The scan allowlist — which directories may be listed and which entry
  * names count as a data store. Directory listing never recurses and
  * only matched files are ever opened, so credential/session stores
- * stay unreachable (MIGRATION_PLAN.md §7).
+ * stay unreachable (the migration plan §7).
  */
 
 import type { InstallProbeRoots } from '../install-detect';

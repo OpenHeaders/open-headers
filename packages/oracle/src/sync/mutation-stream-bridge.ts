@@ -286,7 +286,7 @@ export async function applyInboundMutationEnvelope(
  * set; a failed apply leaves the seen set untouched so a subsequent
  * redelivery can retry.
  *
- * **Receiver-side org filter (UNIFIED_ORACLE_MODEL.md §6.1 / §6.3).**
+ * **Receiver-side org filter (the unified-oracle model §6.1 / §6.3).**
  * The sender-side transport readers (state-vector / delta-stream /
  * snapshot-threshold) filter the *sender's own* log by the *sender's
  * own* authorized Org set — a no-op for cross-host isolation, since a
@@ -335,7 +335,7 @@ export async function applyInboundMutationBatch(input: MutationBatch, actor?: In
     );
   }
   if (accepted.length === 0) return;
-  // Stamp-at-ingest (SYNC_ENGINE_DESIGN.md §23.6): when a hub gates a
+  // Stamp-at-ingest (the sync-engine design §23.6): when a hub gates a
   // peer, every accepted envelope's `origin.userId` is overwritten from
   // the authenticated actor — attribution comes from the credential,
   // not the frame, mirroring the awareness-presence stamp. Client hosts

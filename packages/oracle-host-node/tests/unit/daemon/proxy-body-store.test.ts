@@ -1,5 +1,5 @@
 /**
- * Body-plane laws (OBSERVABILITY_PLAN.md §6 capture contract):
+ * Body-plane laws (the observability plan §6 capture contract):
  *  - the wire-path tee truncates over its cap, never the wire count;
  *  - bodies resolve to the HAR-body wire shape — UTF-8 as text, binary
  *    as base64, content-encoding decoded lazily at resolve time;

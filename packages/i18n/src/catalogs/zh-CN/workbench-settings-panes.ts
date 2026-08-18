@@ -511,7 +511,7 @@ export const workbenchSettingsPanes = {
   'workbench.settings.licensePane.installButton': '安装',
   'workbench.settings.licensePane.loadFromFile': '从文件加载…',
 
-  // ── System-plane proxy section (REQUEST_ENGINE_PROXY_DESIGN.md P3) ─
+  // ── System-plane proxy section (the request-engine proxy design P3) ─
   'workbench.settings.systemProxy.title': '出站代理——此设备',
   'workbench.settings.systemProxy.intro': '从这台机器发出的请求、WebSocket 会话和 gRPC 调用如何抵达网络。',
   'workbench.settings.systemProxy.introNote': '设备本地、永不同步——除非请求自己设置了代理模式，否则都遵循此处配置。',
@@ -561,7 +561,7 @@ export const workbenchSettingsPanes = {
   'workbench.settings.systemProxy.previewPlaceholder': '预览一个 URL——它会走哪条路由？',
   'workbench.settings.systemProxy.previewButton': '解析',
 
-  // ── Proxy trust pane body (PROXY_SECURITY.md §2.3 consent posture) ─
+  // ── Proxy trust pane body (the proxy-security design §2.3 consent posture) ─
   'workbench.settings.proxyTrustPane.intro':
     '解密 HTTPS 流量需要一个在这台机器上创建的证书颁发机构。在你于此设置信任之前不会安装任何东西，在此安装的一切也都能在此移除。',
   'workbench.settings.proxyTrustPane.refresh': '重新检查',
@@ -686,7 +686,7 @@ export const workbenchSettingsPanes = {
   'workbench.settings.backendDetails.device.yourDevice': '你的设备',
   'workbench.settings.backendDetails.inBrowserTitle': 'Open Headers——Chrome / Edge / Firefox',
 
-  // ── Git pane (workspace-tree binding card, GIT_PLAN.md §9) ─────────
+  // ── Git pane (workspace-tree binding card, the git-sync plan §9) ─────────
   'workbench.settings.gitPane.notBound.title': '未绑定文件夹',
   'workbench.settings.gitPane.notBound.body':
     '把此工作区绑定到一个文件夹，即可维持一棵包含每条规则、每个请求和每个环境的实时 YAML 树——随时可用于备份、diff、手工编辑以及（即将支持的）git。',

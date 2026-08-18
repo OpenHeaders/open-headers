@@ -1,5 +1,5 @@
 /**
- * The update feed's URL contract (`docs/DISTRIBUTION_PLAN.md` §3).
+ * The update feed's URL contract (the distribution plan §3).
  *
  * Every machine-readable update contract lives behind
  * `updates.openheaders.io` — static pointer files on R2, written by the

@@ -1,6 +1,6 @@
 /**
  * Traffic Monitor Debug-mode Live E2E — the S8 per-tab Debug-mode
- * affordance against the real dual-app stack (OBSERVABILITY_PLAN.md §7
+ * affordance against the real dual-app stack (the observability plan §7
  * actuation over the telemetry control verb), on the proxy-live chassis:
  *
  *   1. The rail lists the connected Chrome peer with the Debug-mode

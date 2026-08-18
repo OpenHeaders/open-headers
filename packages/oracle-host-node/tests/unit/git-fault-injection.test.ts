@@ -1,6 +1,6 @@
 /**
- * Fault-injection suite over the `GitRunner` seam (GIT_PLAN.md §22.2 /
- * SYNC_ENGINE_DESIGN.md §22.2): scripted runners — never spawned
+ * Fault-injection suite over the `GitRunner` seam (the git-sync plan §22.2 /
+ * the sync-engine design §22.2): scripted runners — never spawned
  * processes — inject concurrent pushes, rewritten history, timeouts,
  * and credential failures, and every outcome must land in a typed
  * classification (no fault ever surfaces as a success, no

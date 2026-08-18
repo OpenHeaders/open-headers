@@ -1,6 +1,6 @@
 /**
  * Daemon "Known devices" admin surface (U3.4,
- * `UNIFIED_ORACLE_MODEL.md` §4.2 step 4 + `DATA_PLANE_TOPOLOGIES.md` §11.4).
+ * the unified-oracle model §4.2 step 4 + the data-plane topologies design §11.4).
  *
  * Visible whenever the desktop is the active back-end (it owns the
  * daemon). Pairing is the universal connection floor — every peer,

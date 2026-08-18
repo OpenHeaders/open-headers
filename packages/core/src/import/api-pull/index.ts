@@ -1,5 +1,5 @@
 /**
- * Data API pull — migration ladder rung 3 (MIGRATION_PLAN.md §3.3).
+ * Data API pull — migration ladder rung 3 (the migration plan §3.3).
  *
  * Same pure/impure split as the install/data scans: core owns the
  * endpoint table + pacing policy (`endpoints.ts`), the response

@@ -1,5 +1,5 @@
 /**
- * Materializer — GIT_PLAN.md §3.1 rung 1 mechanics on a real (tmp)
+ * Materializer — the git-sync plan §3.1 rung 1 mechanics on a real (tmp)
  * filesystem: diff-writes (no-op passes touch nothing), index-scoped
  * deletions that never sweep hand-added files, empty-dir pruning, and
  * the disk round-trip through the tree reader.

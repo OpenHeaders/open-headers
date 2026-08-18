@@ -3,7 +3,7 @@
  *
  * Folder names use the `<slug>-<uid>` convention. The uid is the stable
  * identity (embedded in the YAML of the item it names); the slug is a
- * rename-safe human hint. See docs/V5_FOUNDATION_PLAN.md (Phase 0 #1, #2, #14).
+ * rename-safe human hint. See the v5 foundation plan (Phase 0 #1, #2, #14).
  */
 
 const UID_CHARS = 'abcdefghijklmnopqrstuvwxyz0123456789';

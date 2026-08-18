@@ -1,5 +1,5 @@
 /**
- * UI-side product-telemetry entry point (`TELEMETRY_PLAN.md` §7) — the
+ * UI-side product-telemetry entry point (the telemetry plan §7) — the
  * one way a surface records a vocabulary event. Fire-and-forget over
  * the host bridge: surfaces never construct a client, never wait on
  * the RPC, and never observe a failure. Hosts other than extension and

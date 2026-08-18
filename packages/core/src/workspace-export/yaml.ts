@@ -17,7 +17,7 @@
  * only thing that disambiguates which tree a collection or folder
  * belongs to. Stripping path without adding a `kind` discriminator
  * would lose tree affiliation. This deviates from design §1.1's "path
- * is omitted on export" line and is captured in V5_WORKSPACE_EXPORT_STATUS.md
+ * is omitted on export" line and is captured in the workspace-export status log
  * as a divergence to revisit when the importer lands (PR 2). The path
  * value is already canonical (`toFolderName(name, uid)`) so re-imports
  * stay round-trip stable.

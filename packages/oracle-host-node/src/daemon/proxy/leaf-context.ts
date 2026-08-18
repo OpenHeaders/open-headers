@@ -2,7 +2,7 @@
  * Per-host leaf `SecureContext` cache for the MITM terminator.
  *
  * The proxy presents a locally-minted, CA-signed leaf for each decrypted
- * host (`PROXY_SECURITY.md` §2.7 — short-lived per-host leaves off the
+ * host (the proxy-security design §2.7 — short-lived per-host leaves off the
  * per-machine CA). Minting is asynchronous and moderately expensive
  * (WebCrypto keygen + signature), so contexts are cached per host and
  * re-minted only once a leaf ages past {@link LEAF_REFRESH_MAX_AGE_MS} —

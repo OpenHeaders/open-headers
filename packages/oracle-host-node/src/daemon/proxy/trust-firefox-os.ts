@@ -1,5 +1,5 @@
 /**
- * Firefox OS-store coverage (PROXY_SECURITY.md §4 Firefox row, derived
+ * Firefox OS-store coverage (the proxy-security design §4 Firefox row, derived
  * path) — since Firefox 120 the browser trusts TLS roots from the OS
  * store by default (`security.enterprise_roots.enabled`; on macOS it
  * reads the user- and admin-domain trust settings both our keychain

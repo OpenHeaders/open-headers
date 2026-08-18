@@ -1,6 +1,6 @@
 /**
  * BackendPane — custom right-pane renderer for the Backend settings
- * category (MULTI_BACKEND_PLAN.md §4). Three bands:
+ * category (the multi-backend plan §4). Three bands:
  *
  *   1. **Tier-zero card** — the always-on local engine ("This browser" /
  *      "This app"), pinned, never a list entry. Desktop's daemon-side

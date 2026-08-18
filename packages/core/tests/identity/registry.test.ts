@@ -1,8 +1,8 @@
 /**
  * Coverage for the identity-snapshot registry — `installIdentitySnapshot`,
  * `refreshIdentitySnapshotFromHostStorage`, and `recordJoinedOrg`
- * (Phase U5.2 "consume-first join", UNIFIED_ORACLE_MODEL.md §6.2;
- * provenance + fold-by-presence per MULTI_BACKEND_PLAN.md §2).
+ * (Phase U5.2 "consume-first join", the unified-oracle model §6.2;
+ * provenance + fold-by-presence per the multi-backend plan §2).
  *
  * Pinned invariants:
  *   - The snapshot's `orgs` map always carries the home Org;
@@ -309,7 +309,7 @@ describe('identity registry — joined-Org folding (U5.2)', () => {
   });
 });
 
-describe('identity registry — Org→backend bindings + claimJoinedOrg (MULTI_BACKEND_PLAN.md §2/§3)', () => {
+describe('identity registry — Org→backend bindings + claimJoinedOrg (the multi-backend plan §2/§3)', () => {
   let fake: HostStorageFake;
 
   beforeEach(() => {

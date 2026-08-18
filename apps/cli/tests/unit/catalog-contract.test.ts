@@ -1,6 +1,6 @@
 /**
  * Catalog contract — the CLI's command tables map 1:1 onto the shipped
- * MCP tool catalog (MCP_SERVER_PLAN.md §5), pinned here as the client's
+ * MCP tool catalog (the MCP-server plan §5), pinned here as the client's
  * copy of that contract: a server-side rename or removal lands as a
  * visible diff in this list, never a silent drift. The desktop e2e
  * (mcp.spec.ts) pins the same catalog from the server side.

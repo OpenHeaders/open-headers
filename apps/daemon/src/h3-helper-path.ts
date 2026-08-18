@@ -1,5 +1,5 @@
 /**
- * HTTP/3 helper bootstrap (docs/REQUEST_ENGINE_H3_PROTOCOL.md): where
+ * HTTP/3 helper bootstrap (the request-engine H3-protocol design): where
  * the daemon finds the bundled `oh-h3-helper` binary the `'3'`
  * HTTP-version pin spawns. Two distribution faces, one locator: the
  * SEA build unpacks the helper embedded in the binary (lazily — the

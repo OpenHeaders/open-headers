@@ -1,5 +1,5 @@
 /**
- * SW network e2e (SW_NETWORK_PLAN.md Phase C) — the three worker-traffic
+ * SW network e2e (the SW-network plan Phase C) — the three worker-traffic
  * row families side by side, over the playground SW page and the pin +
  * `panel.html?ohInspectTabId=N` recipe (a real DevTools window is
  * unreachable from Playwright):

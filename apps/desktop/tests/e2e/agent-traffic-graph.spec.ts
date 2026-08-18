@@ -1,6 +1,6 @@
 /**
  * Agent traffic S5 E2E — `traffic_graph` against the real dual-app
- * stack (AGENT_TRAFFIC_PLAN.md §7.2 `redirect-chain`, §8 S5),
+ * stack (the agent-traffic plan §7.2 `redirect-chain`, §8 S5),
  * MCP-driven over HTTP `/mcp` per the S3/S4 pattern:
  *
  *   1. Redirect chains on a heuristic tab: a 3-hop and a 1-hop

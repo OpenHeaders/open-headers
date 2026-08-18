@@ -1,6 +1,6 @@
 /**
  * Product-telemetry beacons — wires host-neutral observability seams to
- * the vocabulary's typed events (`TELEMETRY_PLAN.md` §3). The oracle
+ * the vocabulary's typed events (the telemetry plan §3). The oracle
  * modules stay telemetry-free; this is the extension's one place that
  * maps their signals onto product-telemetry events. The controller's
  * session latch keeps each member to once per session (re-armed daily).

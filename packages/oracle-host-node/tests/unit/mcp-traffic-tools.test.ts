@@ -1,5 +1,5 @@
 /**
- * Traffic tools (AGENT_TRAFFIC_PLAN.md §5, slices S3–S6) over a fake
+ * Traffic tools (the agent-traffic plan §5, slices S3–S6) over a fake
  * tap: host-side filters + pagination (the "host computes, agent
  * queries" law), failure classification with attached bodies and honest
  * `bodyUnavailable` reasons, unknown-source/unknown-request errors that

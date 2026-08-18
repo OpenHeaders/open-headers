@@ -1,5 +1,5 @@
 /**
- * The sessions archive (AGENT_TRAFFIC_PLAN.md §11.4) — the durable
+ * The sessions archive (the agent-traffic plan §11.4) — the durable
  * home of every recorded session and the shared blob store, with the
  * three responsibilities the recorder itself must not own:
  *

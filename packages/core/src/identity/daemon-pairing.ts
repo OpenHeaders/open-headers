@@ -1,6 +1,6 @@
 /**
  * In-memory pairing-code service for the daemon device-flow UX (U3.3,
- * `UNIFIED_ORACLE_MODEL.md` §4.2 step 3 + `DATA_PLANE_TOPOLOGIES.md`
+ * the unified-oracle model §4.2 step 3 + the data-plane topologies design
  * §11.4 hybrid improvement).
  *
  * Owns the short-lived `code → PendingPair` table the daemon admin

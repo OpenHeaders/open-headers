@@ -11,7 +11,7 @@
  * stays in the node hosts.
  */
 
-/** Release line for version checks and the future `oh upgrade` (`DISTRIBUTION_PLAN.md` §4). */
+/** Release line for version checks and the future `oh upgrade` (the distribution plan §4). */
 export type UpdateChannel = 'stable' | 'beta';
 
 export interface CliConfig {
@@ -21,7 +21,7 @@ export interface CliConfig {
   channel?: UpdateChannel;
   /** Background self-update on binary installs — absent = on; `oh autoupdate` reads/writes it. */
   autoUpdate?: boolean;
-  /** Anonymous usage counting (`TELEMETRY_PLAN.md` §2) — absent = on; the `OH_TELEMETRY` env var overrides. */
+  /** Anonymous usage counting (the telemetry plan §2) — absent = on; the `OH_TELEMETRY` env var overrides. */
   telemetry?: boolean;
   /** Random resettable install id (plan §4, amended 2026-07-16). Deleted when the channel is off. */
   telemetryInstallId?: string;

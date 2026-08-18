@@ -27,7 +27,7 @@
  * (the socket itself). When server-initiated push to a specific
  * logical user matters (admin force-disconnect, permission
  * revocation), a `PeerRegistry` layers on top — see the
- * complementary phase-D note in `docs/DATA_PLANE_TOPOLOGIES.md §8`.
+ * complementary phase-D note in the data-plane topologies design §8`.
  *
  * **Lifecycle.** Created by the host runtime (ws-server today, the
  * future daemon's transport tomorrow) after a successful HELLO/WELCOME

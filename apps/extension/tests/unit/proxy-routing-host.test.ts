@@ -1,6 +1,6 @@
 /**
  * Proxy routing host — the extension side of scoped browser routing
- * (OBSERVABILITY_PLAN.md §5.1). Asserts:
+ * (the observability plan §5.1). Asserts:
  *   - a pushed state persists, applies through the adapter, and acks
  *     with the adapter's mode on the delivering wire
  *   - non-loopback wires are claimed and dropped (the capture port is

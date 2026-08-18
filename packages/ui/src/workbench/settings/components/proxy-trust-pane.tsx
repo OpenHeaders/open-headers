@@ -1,7 +1,7 @@
 /**
  * ProxyTrustPane — right-pane renderer for the Proxy · HTTPS Trust
  * child category (desktop + served web admin). The consent surface over the
- * `oh.daemon.proxy.trust.*` admin RPCs (PROXY_SECURITY.md §2.3): a
+ * `oh.daemon.proxy.trust.*` admin RPCs (the proxy-security design §2.3): a
  * wizard that names what is installed, what it enables, and how it is
  * removed — nothing is installed before the explicit commit; per-store
  * outcomes render exactly as reported (§5 refuse-rather-than-half-

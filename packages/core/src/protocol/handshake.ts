@@ -1,7 +1,7 @@
 /**
  * Sync handshake protocol — Yjs-style state-vector exchange.
  *
- * Implements the wire types for `docs/DATA_PLANE_TOPOLOGIES.md` §11.1:
+ * Implements the wire types for the data-plane topologies design §11.1:
  *
  * ```
  *   1. Client opens WS  →  HELLO        { protocol_version, clientNodeId, ... }
@@ -197,8 +197,8 @@ export interface SyncHelloMessage {
   installId?: string;
   /**
    * Long-lived daemon access token presented by the peer when the
-   * daemon is bound non-loopback (U3.2, `UNIFIED_ORACLE_MODEL.md` §4.2
-   * / `DATA_PLANE_TOPOLOGIES.md` §11.4). Omitted on loopback handshakes
+   * daemon is bound non-loopback (U3.2, the unified-oracle model §4.2
+   * / the data-plane topologies design §11.4). Omitted on loopback handshakes
    * (trust-by-process); a missing or wrong token on a non-loopback
    * daemon yields a `AUTH_REQUIRED` reject. Secret material — never
    * logged.
@@ -238,7 +238,7 @@ export interface SyncWelcomeAccept {
   workspaceId: string;
   agent: string;
   /**
-   * The responding backend's home `Org` (UNIFIED_ORACLE_MODEL.md §6.2).
+   * The responding backend's home `Org` (the unified-oracle model §6.2).
    * The joining peer folds this into its identity snapshot's authorized
    * Org set (Phase U5.2 — "consume-first join") so the backend's
    * workspaces sync down through the existing `authorizedOrgIds` filter.

@@ -2,7 +2,7 @@
  * SystemProxyPane — right-pane renderer for the Proxy · Outbound child
  * category (desktop only): the standard pane header over
  * `SystemProxySection`, the outbound plane's settings surface
- * (docs/REQUEST_ENGINE_PROXY_DESIGN.md P3). Split from the trust pane
+ * (the request-engine proxy design P3). Split from the trust pane
  * so each proxy plane reads as its own page — outbound egress here,
  * capture-proxy trust under Proxy · HTTPS Trust.
  */

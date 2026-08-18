@@ -1,6 +1,6 @@
 /**
  * Coverage for the host-neutral capability resolver
- * (UNIFIED_ORACLE_MODEL.md §5.8). Slice 1 of Phase U2.
+ * (the unified-oracle model §5.8). Slice 1 of Phase U2.
  *
  * Pinned invariants:
  *   - Standalone identity rows resolve to ALLOW through the same branches
@@ -216,7 +216,7 @@ describe('hasCapability', () => {
     });
   });
 
-  describe('workspace.observe (AGENT_TRAFFIC_PLAN.md §4 — distinct from workspace.read)', () => {
+  describe('workspace.observe (the agent-traffic plan §4 — distinct from workspace.read)', () => {
     it('allows for LocalAdmin on any workspace', () => {
       expect(hasCapability(makeSnapshot(), 'workspace.observe', { workspaceId: W1 })).toEqual({ allow: true });
     });

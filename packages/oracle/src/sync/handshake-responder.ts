@@ -24,7 +24,7 @@
  *
  * **Sensitivity (Phase D seam).** `options.redactSensitive` is the
  * broader cross-trust-zone strip — vault + oauth-bundle (+ live values)
- * from the snapshot per `docs/DATA_PLANE_TOPOLOGIES.md §11.1`. Distinct
+ * from the snapshot per the data-plane topologies design §11.1`. Distinct
  * from `offDevicePeer`: that gate is reach-scoped (vault only); this one
  * is trust-zone-scoped (all sensitive entities). Phase C localhost is
  * same-user same-process — defaults to off.
@@ -154,7 +154,7 @@ export async function respondToStateVector(
   let sentSnapshot = false;
 
   // Snapshot builder returns `null` when the workspace's `orgId` is
-  // outside the host's authorized Org set (UNIFIED_ORACLE_MODEL.md §6.1
+  // outside the host's authorized Org set (the unified-oracle model §6.1
   // / §6.5.3 step 4). In that case skip the snapshot frame — the
   // delta-stream reader applies the same org gate and will yield
   // nothing, so the responder falls through to a SYNCED frame with the

@@ -3,7 +3,7 @@
  * seam. All Electron/updater specifics live here; the state machine in
  * `update-service.ts` stays host-free.
  *
- * Posture (docs/UPDATES_PLAN.md): `autoDownload` stays FALSE at the
+ * Posture (the updates plan): `autoDownload` stays FALSE at the
  * library level — the service decides when to download, so the
  * `updates.autoDownload` preference is enforced in one place.
  * `autoInstallOnAppQuit` starts true (a staged download applies on a

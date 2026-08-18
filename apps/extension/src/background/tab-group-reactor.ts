@@ -1,6 +1,6 @@
 /**
  * Tab-group reactor — in-browser feedback for AI capture
- * (AGENT_TRAFFIC_PLAN.md §4). While a tab is capture-armed (connected
+ * (the agent-traffic plan §4). While a tab is capture-armed (connected
  * AI agents can read its traffic — the captured-tab ledger's
  * transitions, fed by the desktop's pushed capture state), the tab
  * rides in a blue tab group titled "OpenHeaders AI"; when the capture

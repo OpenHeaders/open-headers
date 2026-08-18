@@ -1,7 +1,7 @@
 /**
  * Prints one canonical entry's body with asset refs resolved to the
  * feed's absolute URLs — the GitHub release-body projection
- * (CHANGELOG_PLAN.md §4.2). Prints nothing (exit 0) when the entry is
+ * (the changelog plan §4.2). Prints nothing (exit 0) when the entry is
  * missing or a frontmatter-only stub: the entry-existence law makes a
  * notes-free release legitimate, so the caller appends only when there
  * is prose.

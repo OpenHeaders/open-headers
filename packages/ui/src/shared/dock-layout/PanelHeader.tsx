@@ -16,7 +16,7 @@
  * The `wiring` prop is branded (`PanelHeaderWiring`) and produced only
  * by `createPanelHeaderWiring(...)`. Combined with the AST lint test,
  * this closes BC-D1 (forgot to mount) + BC-D2 (literal-bypass) by
- * construction. See `docs/DOCK_LAYOUT_SPIKE.md` § 2.
+ * construction. See the dock-layout spike notes § 2.
  */
 
 import { EllipsisOutlined, MinusOutlined } from '@ant-design/icons';

@@ -1,7 +1,7 @@
 /**
  * Build the single-executable `oh` binary with bun (`bun build
  * --compile`) — the client-tier compile target settled in
- * DISTRIBUTION_PLAN.md §6. The daemon (`ohd`) stays on the Node SEA
+ * the distribution plan §6. The daemon (`ohd`) stays on the Node SEA
  * idiom; this script exists only for `oh`.
  *
  * bun bundles straight from `src/cli.ts` (workspace TS included via

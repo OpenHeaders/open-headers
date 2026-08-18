@@ -1,6 +1,6 @@
 /**
  * Telemetry storage host — the extension side of the storage-plane relay
- * (OBSERVABILITY_PLAN.md Phase 3).
+ * (the observability plan Phase 3).
  *
  * Serves the desktop's Storage tool window over the backend WS wire by
  * RELAYING the existing DevTools-bridge storage verbs: an inbound

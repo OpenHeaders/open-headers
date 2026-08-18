@@ -1,6 +1,6 @@
 /**
- * `TrafficRetentionConsumer` — the triplet-reducer pins (AGENT_TRAFFIC_
- * PLAN.md §1.3, S0 findings 2 + 4): the arm floor from the FIRST
+ * `TrafficRetentionConsumer` — the triplet-reducer pins (the
+ * agent-traffic plan §1.3, S0 findings 2 + 4): the arm floor from the FIRST
  * `ready`, ready-epoch replay dedup (a double-`ready` replay must not
  * double-count), no resurrection of ring-evicted identities, refinement
  * folding, body/stream updates ignored wholesale, provenance stamping,

@@ -1,6 +1,6 @@
 /**
  * Content-addressed blob store shared across ALL capture sessions
- * (AGENT_TRAFFIC_PLAN.md §11.4) — the WARC-revisit / git-object answer
+ * (the agent-traffic plan §11.4) — the WARC-revisit / git-object answer
  * to "archiving the same site daily repeats the data".
  *
  * One rule: identity is the SHA-256 of the DECODED content — the

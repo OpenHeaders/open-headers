@@ -115,7 +115,7 @@ export interface ExecutedNetworkFacts {
 
 /**
  * Wire truth for the send's proxy routing — which plane decided the
- * effective route and what it was (docs/REQUEST_ENGINE_PROXY_DESIGN.md).
+ * effective route and what it was (the request-engine proxy design).
  * Present only when a plane made a decision: an explicit request-plane
  * proxy or opt-out, an system-plane proxy answer, or an ambient
  * proxy standing down for an explicit ask. A plain default-direct send

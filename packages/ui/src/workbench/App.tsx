@@ -594,7 +594,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
   } = openers;
 
   // First workbench open after a feature release auto-opens the
-  // bundled What's New tab (docs/UPDATES_PLAN.md; no-op off desktop).
+  // bundled What's New tab (the updates plan; no-op off desktop).
   useWhatsNewAutoOpen(openWhatsNew);
 
   // Store-updated hosts (no in-app updater): the post-update timeline
@@ -1290,7 +1290,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
     });
   }, [tl, sidebarState]);
 
-  // First-run migration offer (MIGRATION_STATUS.md S5 addendum): the
+  // First-run migration offer (the migration status log S5 addendum): the
   // desktop opens the ladder modal, the extension the desktop hand-off
   // (the funnel) — both only while the workspace is still empty; once
   // anything exists, the permanent hub entry inside the import modal

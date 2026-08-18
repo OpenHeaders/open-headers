@@ -21,7 +21,7 @@ let current: IdentitySnapshot | null = null;
 /**
  * Org-id → `OH.backends` record id for every joined Org the snapshot
  * folds (same presence filter as the fold itself). This is the routing
- * key of the multi-backend connection plane (MULTI_BACKEND_PLAN.md §3):
+ * key of the multi-backend connection plane (the multi-backend plan §3):
  * outbound envelopes go to exactly the backend bound to their `orgId`,
  * and each connection's inbound gate accepts only its own Orgs. Kept in
  * lockstep with the snapshot by the refresh path — every joined-org
@@ -209,7 +209,7 @@ export interface RecordJoinedOrgResult {
  * Orgs can't clobber each other.
  *
  * `backendId` is the `OH.backends` record the WELCOME arrived over —
- * the Org's provenance (MULTI_BACKEND_PLAN.md §2). This writer does NOT
+ * the Org's provenance (the multi-backend plan §2). This writer does NOT
  * enforce Org uniqueness — a differing stored `backendId` is
  * drift-updated in place. WELCOME processing goes through
  * {@link claimJoinedOrg}, which layers the uniqueness guard on top.
@@ -269,7 +269,7 @@ export type ClaimJoinedOrgResult =
   | { outcome: 'refused'; boundBackendId: string };
 
 /**
- * The Org-uniqueness-guarded join writer (MULTI_BACKEND_PLAN.md §2): an
+ * The Org-uniqueness-guarded join writer (the multi-backend plan §2): an
  * Org is authoritative on exactly one backend. A claim for an Org
  * already bound to a *different, still-present* `OH.backends` record is
  * refused — never silently re-bound, never double-consumed; the caller
@@ -309,7 +309,7 @@ export async function claimJoinedOrg(org: Org, backendId: string): Promise<Claim
 /**
  * Drop every `OH.joinedOrgs` row bound to `backendId`, then rebuild the
  * snapshot. The designated cleaner behind the backend remove flow
- * (MULTI_BACKEND_PLAN.md §4): the fold already tolerates orphan rows by
+ * (the multi-backend plan §4): the fold already tolerates orphan rows by
  * presence-filtering them out, but removing the record is the moment the
  * unbind becomes deliberate, so the rows go with it. Returns the pruned
  * Orgs so the remove flow can name what was unbound.

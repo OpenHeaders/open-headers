@@ -1,6 +1,6 @@
 /**
  * Agent traffic C7 E2E — the MCP session tier against the real dual-app
- * stack (AGENT_TRAFFIC_PLAN.md §11.5/§11.6
+ * stack (the agent-traffic plan §11.5/§11.6
  * `agent-traffic/session-redaction-at-read` — the pin C3 owed C7):
  *
  *   1. Record a secrets-bearing session on a CDP-pinned tab (the

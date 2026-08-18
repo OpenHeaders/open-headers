@@ -260,7 +260,7 @@ export async function installRpcHost(): Promise<void> {
     engineLogger.info(SCOPE, `NM host binary not found at ${nmHostBinaryPath}; identity bootstrap stays inert`);
   }
 
-  // HTTP/3 helper (docs/REQUEST_ENGINE_H3_PROTOCOL.md): register where
+  // HTTP/3 helper (the request-engine H3-protocol design): register where
   // this install keeps the bundled `oh-h3-helper` so a `'3'` send can
   // spawn it. The resolver owns the env override and the honest
   // not-bundled failure; absence only costs this boot log line.
@@ -279,7 +279,7 @@ export async function installRpcHost(): Promise<void> {
     );
   }
 
-  // System-plane proxy service (docs/REQUEST_ENGINE_PROXY_DESIGN.md):
+  // System-plane proxy service (the request-engine proxy design):
   // inherit-mode sends follow this machine's proxy reality — Off /
   // System / Manual / PAC per the per-device settings, System by
   // default via Chromium's own resolver on a dedicated session
@@ -301,7 +301,7 @@ export async function installRpcHost(): Promise<void> {
     updateService.preferencesChanged();
   });
 
-  // Anonymous usage counting (TELEMETRY_PLAN.md §7): the desktop host's
+  // Anonymous usage counting (the telemetry plan §7): the desktop host's
   // product-telemetry adapter. A host-shell concern the spine never
   // learns — the daemon distribution stays hard-off by construction.
   // The enabled gate rides the same storage the renderer writes:
@@ -314,7 +314,7 @@ export async function installRpcHost(): Promise<void> {
     locale: () => mainTranslator().locale,
   });
 
-  // Check-and-notify updates (docs/UPDATES_PLAN.md): the service only
+  // Check-and-notify updates (the updates plan): the service only
   // ever checks and stages; installing takes the user's explicit
   // restart action (or the next natural quit applying a staged
   // download). Unsupported where no updater can run — dev builds,
@@ -363,7 +363,7 @@ export async function installRpcHost(): Promise<void> {
     install: async () => (await updateService.dispatchRpc('oh.updates.install')) ?? updateService.state(),
   });
 
-  // Traffic-session seal key (AGENT_TRAFFIC_PLAN.md §9.5): a random
+  // Traffic-session seal key (the agent-traffic plan §9.5): a random
   // 32-byte key wrapped by the OS keychain via safeStorage — the
   // wrapped blob may live inside the data dir because it is ciphertext
   // under the keychain. When no keychain backend exists (Linux without
@@ -406,7 +406,7 @@ export async function installRpcHost(): Promise<void> {
     hostStorage,
     status: { report, getSnapshot: getStatusSnapshot, subscribe, clear: clearStatus },
     broadcastLocal: broadcastToAllRenderers,
-    // Desktop-as-client (MULTI_BACKEND_PLAN.md §5): local commits are
+    // Desktop-as-client (the multi-backend plan §5): local commits are
     // also offered to the client plane's Org-routed forwarder — its own
     // gates decide whether anything leaves for a joined daemon.
     forwardMutationToBackends: forwardMutationToBackend,
@@ -438,7 +438,7 @@ export async function installRpcHost(): Promise<void> {
       : undefined,
   });
 
-  // `on-blur` commit cadence (GIT_PLAN.md §3.2): the trigger is focus
+  // `on-blur` commit cadence (the git-sync plan §3.2): the trigger is focus
   // leaving the APP, not a window losing focus to a sibling window —
   // check on the next tick, after Electron has settled which window
   // (if any) took focus. The spine no-ops for every other cadence.
@@ -451,7 +451,7 @@ export async function installRpcHost(): Promise<void> {
   });
 
   // Focus returning to the app triggers a throttled background fetch
-  // (GIT_PLAN.md §3.2) so the ahead/behind affordance is fresh the
+  // (the git-sync plan §3.2) so the ahead/behind affordance is fresh the
   // moment the user looks; the runtime's own throttle absorbs bursts.
   app.on('browser-window-focus', () => {
     void spine.dispatchRpc({ type: 'oh.workspaceTree.appFocus' }).catch(() => undefined);
@@ -480,7 +480,7 @@ export async function installRpcHost(): Promise<void> {
   // spawns lazily on the first scripted run.
   const scriptSandbox = installScriptSandbox();
 
-  // Migration pull (MIGRATION_PLAN.md §3.3) — the desktop runs the
+  // Migration pull (the migration plan §3.3) — the desktop runs the
   // ladder, so the run orchestrator lives here beside the engine it
   // writes through. Progress fans as the ONE `migrationPullEvent`
   // broadcast to every open renderer AND to the operator's connected
@@ -539,7 +539,7 @@ export async function installRpcHost(): Promise<void> {
     if (type === 'oh.migration.postmanPull.stop') {
       return { stopped: migrationPullRunner.stop() };
     }
-    // Ladder rungs 1–2 behind consent click 1 (MIGRATION_PLAN.md §5.1):
+    // Ladder rungs 1–2 behind consent click 1 (the migration plan §5.1):
     // both run only when the renderer's migration surface asks, never on
     // a timer. `readBackup` re-validates against the scan allowlist
     // host-side, so a renderer-supplied path can't open anything else.
@@ -614,7 +614,7 @@ export async function installRpcHost(): Promise<void> {
       const dir = typeof message.dir === 'string' ? message.dir : '';
       return readInsomniaData(dir);
     }
-    // `license_activated` (TELEMETRY_PLAN.md §3, S22): the one emit
+    // `license_activated` (the telemetry plan §3, S22): the one emit
     // point for user-initiated license installs — the spine handles the
     // install and stays telemetry-free; the refresh agent's silent file
     // swaps never pass through here. Desktop-renderer installs only by
@@ -629,7 +629,7 @@ export async function installRpcHost(): Promise<void> {
       }
       return result;
     }
-    // Product-telemetry seam (TELEMETRY_PLAN.md §6/§7): UI surfaces
+    // Product-telemetry seam (the telemetry plan §6/§7): UI surfaces
     // track through the bridge and the inspector row reads the session
     // log; the client itself never leaves this process.
     if (type === 'productTelemetryTrack') {
@@ -677,7 +677,7 @@ export async function installRpcHost(): Promise<void> {
         return { report: null };
       }
     }
-    // What's New online history (CHANGELOG_PLAN.md §4.3) — the
+    // What's New online history (the changelog plan §4.3) — the
     // renderer's CSP can't dial the feed, so these two enhancement-only
     // static GETs run here. Null answers hide the section, never error.
     if (type === 'oh.whatsNew.history') {

@@ -11,7 +11,7 @@ import { PostmanBackupParseError } from './types';
 /**
  * Parse a Postman `backup-*.json` data dump:
  * `{version: 1, collections: [], environments: [], headerPresets: [], globals: []}`
- * (schema verified on a live install — MIGRATION_PLAN.md §2.2).
+ * (schema verified on a live install — the migration plan §2.2).
  *
  * The envelope parser owns only the envelope: `collections[]` entries
  * carrying the v2.x `info` marker delegate to `parsePostman`,

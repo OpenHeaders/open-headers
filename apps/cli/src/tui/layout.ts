@@ -1,5 +1,5 @@
 /**
- * Dashboard geometry — TUI_DESIGN.md §4.1/§5.3. The screen is an outer
+ * Dashboard geometry — the TUI design §4.1/§5.3. The screen is an outer
  * frame: header segments ride the top border (row 0), the bottom
  * border sits above a frameless footer legend (last row), and panes
  * are nested boxes in the interior. Left column stacks panes 1–2,

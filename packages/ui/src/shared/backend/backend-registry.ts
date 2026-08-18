@@ -1,6 +1,6 @@
 /**
  * backend-registry — React bindings over the `OH.backends` registry
- * (MULTI_BACKEND_PLAN.md §2). Generalizes the Phase-1 cap-1 facade:
+ * (the multi-backend plan §2). Generalizes the Phase-1 cap-1 facade:
  * surfaces read the whole list through {@link useBackends}; the hooks
  * lazily hydrate this context's mirror from host storage and keep it
  * hot via the persisted-slot subscription, the same per-context

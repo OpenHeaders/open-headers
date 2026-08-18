@@ -1,5 +1,5 @@
 /**
- * Proto collection generation plan (GRPC_CLIENT_PLAN.md Phase G). Pins:
+ * Proto collection generation plan (the gRPC-client plan Phase G). Pins:
  *   - one GrpcRequest per rpc named after it, method ref + ids-only
  *     specLink on the seed, example message pre-filled;
  *   - services group in declaration order; the method count aggregates

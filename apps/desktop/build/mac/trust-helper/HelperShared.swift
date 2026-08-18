@@ -4,7 +4,7 @@ import Security
 /// Shared constants and signing-identity helpers for the OpenHeaders
 /// trust helper — the SMAppService privileged daemon scoped to
 /// installing/removing System-keychain trust for the proxy CA
-/// (PROXY_SECURITY.md §2.6 amendment).
+/// (the proxy-security design §2.6 amendment).
 enum HelperConstants {
   static let machServiceName = "io.openheaders.trust-helper"
   static let plistName = "io.openheaders.trust-helper.plist"

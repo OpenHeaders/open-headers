@@ -9,14 +9,14 @@
  *
  * The hard constraint: with the backend down the browsers are **fully
  * partitioned** — the desktop is the only path between them (extensions
- * can't bind sockets; `UNIFIED_ORACLE_MODEL §4.1`), so "exactly one
+ * can't bind sockets; the unified-oracle model §4.1`), so "exactly one
  * runner across browsers" can't be coordinated live (FLP/CAP). Each peer
  * therefore decides **locally**, with no live coordination, from two
  * inputs captured *while it was still connected*:
  *
  *   1. a frozen, last-synced **priority list** — an explicit, user-ordered
  *      ranking of the host identities (`Principal.id`) eligible to take
- *      over (`LIVE_RUNNER_OWNERSHIP_PLAN.md §C.4`);
+ *      over (the live-runner ownership plan §C.4);
  *   2. its own **seed eligibility** — whether it locally holds every secret
  *      the workflow consumes. A same-device host holds the loopback-synced
  *      vault seed (WS-B); a cross-device host structurally never does.

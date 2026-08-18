@@ -1,7 +1,7 @@
 /**
  * Product-telemetry toggle row — the anonymous usage counting checkbox
  * with the "view every event, byte for byte" affordance folded into its
- * `(i)` popover (`TELEMETRY_PLAN.md` §6): the popover's "View events"
+ * `(i)` popover (the telemetry plan §6): the popover's "View events"
  * action opens the inspector modal, so the toggle and the transparency
  * affordance ship as one row. The modal reads the host client's session
  * log over `productTelemetryRead`: every event since launch, including

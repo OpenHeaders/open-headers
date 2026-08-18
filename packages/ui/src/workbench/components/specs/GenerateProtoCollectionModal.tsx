@@ -1,6 +1,6 @@
 /**
  * GenerateProtoCollectionModal — the Protobuf spec editor's Generate
- * Collection action (GRPC_CLIENT_PLAN.md Phase G), the proto twin of
+ * Collection action (the gRPC-client plan Phase G), the proto twin of
  * {@link GenerateCollectionModal}.
  *
  * The OpenAPI flow rides the import machinery (parse → sectioned

@@ -1,7 +1,7 @@
 /**
  * Shared collection-landing loop — the one code path both the
  * sectioned import modal and the spec editor's Generate Collection
- * ride (API_SPECS_PLAN.md §4: no parallel conversion pipeline).
+ * ride (the API-specs plan §4: no parallel conversion pipeline).
  *
  * Pins: create order (collection → auth → variables → folders
  * depth-first → requests), report drops on write failures, per-section

@@ -1,6 +1,6 @@
 /**
  * Phase C C7 / C15 — outbound mutation forwarder + reconnect-flush,
- * generalized to Org-binding routing (MULTI_BACKEND_PLAN.md §3):
+ * generalized to Org-binding routing (the multi-backend plan §3):
  * every envelope goes to exactly the backend its Org is bound to, and
  * the pending-out queue keeps one cursor per backend.
  */

@@ -1,6 +1,6 @@
 /**
  * Proxy capture plane — persisted settings for the daemon's L7 capture
- * proxy (PROXY_PLAN.md Phase 2). Host-local by design: the port and the
+ * proxy (the proxy plan Phase 2). Host-local by design: the port and the
  * decrypt-scope list are statements about THIS machine's capture proxy,
  * never synced. The scope list is the §2.4 scoped-decrypt-by-default
  * control — an empty list intercepts nothing.

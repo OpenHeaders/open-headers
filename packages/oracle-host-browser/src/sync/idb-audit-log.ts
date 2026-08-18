@@ -1,6 +1,6 @@
 /**
  * IDB-backed {@link AuditLog} — Phase U2.4. Implements the
- * `audit_counters` pattern from UNIFIED_ORACLE_MODEL.md §9.5: a separate
+ * `audit_counters` pattern from the unified-oracle model §9.5: a separate
  * object store keyed by `orgId` holds the next sequence number, read +
  * incremented + written back inside the same transaction as the entry
  * insert. This gives gapless ids within an Org without depending on

@@ -1,6 +1,6 @@
 /**
  * Multi-Backend Phase 2 — the three routing invariants, property-tested
- * over randomized multi-backend scenarios (MULTI_BACKEND_PLAN.md §3):
+ * over randomized multi-backend scenarios (the multi-backend plan §3):
  *
  *   1. **Outbound (no cross-send)** — an envelope is sent to exactly the
  *      backend whose Org set contains its `orgId`; home-Org envelopes go
