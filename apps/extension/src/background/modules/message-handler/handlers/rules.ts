@@ -154,9 +154,10 @@ export const ruleHandlers: HandlerMap = {
   },
 
   createLocalCollection: ({ message, respond }) => {
-    const name = message.name as string;
-    const collection = createCollection(name);
-    respond({ success: true, collection });
+    createCollection(message.name as string)
+      .then((collection) => respond({ success: true, collection }))
+      .catch((err: Error) => respond({ success: false, error: err.message }));
+    return true;
   },
 
   renameLocalCollection: ({ message, respond }) => {

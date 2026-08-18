@@ -50,7 +50,7 @@ export function ensureDefaultCollection(): Collection {
   return collection;
 }
 
-export function createCollection(name: string): Collection {
+export async function createCollection(name: string): Promise<Collection> {
   const uid = generateUid();
   const folderName = toFolderName(name, uid);
   const collection: Collection = {
@@ -63,10 +63,17 @@ export function createCollection(name: string): Collection {
     defaultEnvironmentId: null,
   };
   setCollections([...collections, collection]);
-  void applyCollectionMutationOrThrow(
-    (ctx) => ({ batch: seedCollection(collection, ctx), sideEffects: [] }),
-    'createCollection',
-  );
+  try {
+    await applyCollectionMutationOrThrow(
+      (ctx) => ({ batch: seedCollection(collection, ctx), sideEffects: [] }),
+      'createCollection',
+    );
+  } catch (err) {
+    // The mutation never committed (e.g. sync service still booting) —
+    // roll the optimistic insert back so the caller's error is honest.
+    setCollections(collections.filter((c) => c.uid !== uid));
+    throw err;
+  }
   return collection;
 }
 
