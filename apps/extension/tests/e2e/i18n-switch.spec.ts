@@ -84,6 +84,12 @@ function languageRow(page: Page) {
   return page.locator('[data-setting-key="general.language"]');
 }
 
+/** The language Select's OPEN dropdown — antd portals it to the body. */
+async function openLanguageDropdown(page: Page) {
+  await languageRow(page).getByRole('combobox').click();
+  return page.locator('.ant-select-dropdown').filter({ visible: true });
+}
+
 /** Drive gear menu → Settings… → General and return the language row. */
 async function openLanguageSetting(page: Page) {
   await page.getByRole('button', { name: 'Settings menu' }).click();
@@ -124,7 +130,8 @@ test('pseudo switch re-renders workbench and popup in place', async () => {
   });
 
   const row = await openLanguageSetting(workbenchPage);
-  await row.getByText(PSEUDO_NATIVE_NAME).click();
+  const dropdown = await openLanguageDropdown(workbenchPage);
+  await dropdown.locator('.ant-select-item-option').getByText(PSEUDO_NATIVE_NAME, { exact: true }).click();
 
   // The settings surface itself re-renders: the row label pseudoizes.
   await expect(row).toContainText('⟦');
@@ -146,10 +153,13 @@ test('pseudo switch re-renders workbench and popup in place', async () => {
 });
 
 test('technical plane and brand vocabulary stay raw under pseudo', async () => {
-  // Locale registry names are proper nouns — never pseudoized.
+  // Locale registry names are proper nouns — never pseudoized. The
+  // picker is a Select, so the option list only exists while open.
   const row = languageRow(workbenchPage);
-  await expect(row.getByText('English', { exact: true })).toBeVisible();
-  await expect(row.getByText(PSEUDO_NATIVE_NAME)).toBeVisible();
+  await expect(row.locator('.ant-select-content')).toContainText(PSEUDO_NATIVE_NAME);
+  const dropdown = await openLanguageDropdown(workbenchPage);
+  await expect(dropdown.locator('.ant-select-item-option').getByText('English', { exact: true })).toBeVisible();
+  await workbenchPage.keyboard.press('Escape');
 
   // Pseudo is accented English and announces itself as `en`.
   expect(await workbenchPage.evaluate(() => document.documentElement.lang)).toBe('en');

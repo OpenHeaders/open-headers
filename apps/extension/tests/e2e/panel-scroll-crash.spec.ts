@@ -16,6 +16,7 @@
 
 import path from 'node:path';
 import { type BrowserContext, chromium, expect, type Page, test, type Worker } from '@playwright/test';
+import { seedPanelDebugFlags } from './fixtures/panel-seed';
 import { WorkbenchPage } from './pages/workbench-page';
 
 const extensionPath = path.resolve(__dirname, '../../dist/chrome');
@@ -55,6 +56,7 @@ test.describe('panel scroll crash repro — wheel scroll during debug-mode captu
     });
     sw = context.serviceWorkers()[0] || (await context.waitForEvent('serviceworker'));
     extensionId = sw.url().split('/')[2]!;
+    sw = await seedPanelDebugFlags(context);
 
     workbenchPage = await context.newPage();
     workbench = await WorkbenchPage.open(workbenchPage, extensionId);

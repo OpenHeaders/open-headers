@@ -12,6 +12,7 @@
 
 import path from 'node:path';
 import { type BrowserContext, chromium, expect, type Page, test } from '@playwright/test';
+import { seedPanelDebugFlags } from './fixtures/panel-seed';
 import { STORAGE_PAGE_URL } from './pages/storage-matrix-page';
 
 const extensionPath = path.resolve(__dirname, '../../dist/chrome');
@@ -35,8 +36,9 @@ test.beforeAll(async () => {
       '--silent-debugger-extension-api',
     ],
   });
-  const sw = context.serviceWorkers()[0] || (await context.waitForEvent('serviceworker'));
+  let sw = context.serviceWorkers()[0] || (await context.waitForEvent('serviceworker'));
   const extensionId = sw.url().split('/')[2]!;
+  sw = await seedPanelDebugFlags(context);
 
   rpcPage = await context.newPage();
   await rpcPage.goto(`chrome-extension://${extensionId}/workbench.html`);

@@ -30,6 +30,7 @@
 
 import path from 'node:path';
 import { type BrowserContext, chromium, expect, type Locator, type Page, test, type Worker } from '@playwright/test';
+import { seedPanelDebugFlags } from './fixtures/panel-seed';
 import { SW_PAGE_URL } from './pages/sw-page';
 import { WorkbenchPage } from './pages/workbench-page';
 
@@ -96,15 +97,10 @@ test.beforeAll(async () => {
   });
   sw = context.serviceWorkers()[0] || (await context.waitForEvent('serviceworker'));
   extensionId = sw.url().split('/')[2]!;
+  sw = await seedPanelDebugFlags(context);
 
   workbenchPage = await context.newPage();
   workbench = await WorkbenchPage.open(workbenchPage, extensionId);
-  await workbenchPage.evaluate(
-    () =>
-      new Promise<void>((resolve) => {
-        chrome.storage.local.set({ onboardingCompleted: true }, () => resolve());
-      }),
-  );
 
   // Register the playground SW and wait until it is activated AND controls
   // the page (activate runs clients.claim, so no reload is needed).

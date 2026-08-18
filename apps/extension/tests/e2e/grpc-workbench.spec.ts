@@ -50,6 +50,7 @@ import { createRequire } from 'node:module';
 import * as os from 'node:os';
 import path from 'node:path';
 import { type BrowserContext, chromium, expect, type Page, test } from '@playwright/test';
+import { seedEncryptedBackendRegistry } from './fixtures/backend-seed';
 import { WorkbenchPage } from './pages/workbench-page';
 
 const REPO_ROOT = path.resolve(__dirname, '../../../..');
@@ -376,45 +377,12 @@ test('the extension joins and the gRPC entities replicate down', async () => {
   const seedBackend = async (): Promise<void> => {
     const worker = extensionContext?.serviceWorkers().at(-1) ?? (await extensionContext?.waitForEvent('serviceworker'));
     if (!worker) throw new Error('no extension service worker');
-    await worker.evaluate(
-      async ({ backendUrl, authToken }: { backendUrl: string; authToken: string }) => {
-        const key = await new Promise<CryptoKey>((resolve, reject) => {
-          const open = indexedDB.open('oh-secret-cipher', 1);
-          open.onerror = () => reject(open.error);
-          open.onsuccess = () => {
-            const db = open.result;
-            const request = db.transaction('keys', 'readonly').objectStore('keys').get('at-rest-aes-gcm-v1');
-            request.onerror = () => reject(request.error);
-            request.onsuccess = () => resolve(request.result as CryptoKey);
-          };
-        });
-        const record = {
-          id: 'grpc-wb-e2e-backend',
-          label: 'grpc workbench e2e daemon',
-          url: backendUrl,
-          authToken,
-          autoConnect: true,
-          enabled: true,
-          addedAt: new Date().toISOString(),
-          lastConnectedAt: null,
-        };
-        const iv = crypto.getRandomValues(new Uint8Array(12));
-        const ciphertext = await crypto.subtle.encrypt(
-          { name: 'AES-GCM', iv },
-          key,
-          new TextEncoder().encode(JSON.stringify([record])),
-        );
-        const packed = new Uint8Array(iv.length + ciphertext.byteLength);
-        packed.set(iv, 0);
-        packed.set(new Uint8Array(ciphertext), iv.length);
-        let binary = '';
-        for (const byte of packed) binary += String.fromCharCode(byte);
-        await new Promise<void>((resolve) => {
-          chrome.storage.local.set({ onboardingCompleted: true, 'oh.backends': `v1:${btoa(binary)}` }, () => resolve());
-        });
-      },
-      { backendUrl: `ws://127.0.0.1:${DAEMON_PORT}`, authToken: token },
-    );
+    await seedEncryptedBackendRegistry(worker, {
+      backendUrl: `ws://127.0.0.1:${DAEMON_PORT}`,
+      authToken: token,
+      recordId: 'grpc-wb-e2e-backend',
+      recordLabel: 'grpc workbench e2e daemon',
+    });
   };
   let seedError: unknown;
   for (let attempt = 0; attempt < 3; attempt++) {

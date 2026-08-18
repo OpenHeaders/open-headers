@@ -24,6 +24,7 @@
 import { createHmac } from 'node:crypto';
 import path from 'node:path';
 import { type BrowserContext, chromium, expect, type Locator, type Page, test, type Worker } from '@playwright/test';
+import { seedPanelDebugFlags } from './fixtures/panel-seed';
 import { WorkbenchPage } from './pages/workbench-page';
 
 const extensionPath = path.resolve(__dirname, '../../dist/chrome');
@@ -140,6 +141,7 @@ test.beforeAll(async () => {
   });
   sw = context.serviceWorkers()[0] || (await context.waitForEvent('serviceworker'));
   extensionId = sw.url().split('/')[2]!;
+  sw = await seedPanelDebugFlags(context);
 
   workbenchPage = await context.newPage();
   workbench = await WorkbenchPage.open(workbenchPage, extensionId);

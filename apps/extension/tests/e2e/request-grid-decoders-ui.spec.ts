@@ -42,7 +42,17 @@ const BASIC_EDITED = `Basic ${b64('admin@openheaders.io:rotated2026!!')}`;
 /** One row per non-JWT registry type. `icon` is the rail edit icon's
  *  accessible name (the per-type tooltip), `title` the modal's, and
  *  `probe` a fragment the decoded pane must show. */
-const CASES = [
+interface DecoderCase {
+  key: string;
+  value: string;
+  icon: string;
+  title: string;
+  probe: string;
+  /** Structured grid editor (rows + encoded preview) instead of Monaco. */
+  grid?: boolean;
+}
+
+const CASES: DecoderCase[] = [
   {
     key: 'X-Data-Uri',
     value: 'data:text/plain,hello%20openheaders',
@@ -91,6 +101,10 @@ const CASES = [
     icon: 'Edit cookie pairs',
     title: 'Cookie value',
     probe: 'session=abc123',
+    // The cookie editor is a structured name/value grid with an encoded
+    // preview, not a Monaco buffer — the probe asserts against the
+    // modal text (the preview carries the joined string).
+    grid: true,
   },
   {
     key: 'Authorization',
@@ -104,6 +118,7 @@ const CASES = [
     value: 'grant_type=client_credentials&scope=read%20write',
     icon: 'Edit query pairs',
     title: 'Query string',
+    grid: true,
     probe: 'grant_type=client_credentials',
   },
   {
@@ -232,10 +247,16 @@ test.describe('Request editor — grid value rail decoders', () => {
       await workbench.openValueEditor(c.icon);
       const modal = editorModal(c.title);
       await expect(modal).toBeVisible();
-      // Retry the read — Monaco lays the buffer out asynchronously and a
-      // multi-line decode may have only its first line in the DOM yet.
+      // Shape-agnostic decoded-view read: grid-shaped editors (cookie,
+      // query string, …) carry the probe as plain modal text via their
+      // rows + encoded preview; Monaco-shaped ones need the buffer read,
+      // retried because Monaco lays it out asynchronously.
       await expect(async () => {
-        expect(await workbench.monacoTextWithin(modal, 0)).toContain(c.probe);
+        if ((await modal.locator('.monaco-editor').count()) === 0) {
+          await expect(modal).toContainText(c.probe, { timeout: 1000 });
+        } else {
+          expect(await workbench.monacoTextWithin(modal, 0)).toContain(c.probe);
+        }
       }).toPass();
       // Nothing is dirty yet — Save must sit disabled.
       await expect(modal.getByRole('button', { name: /Save$/ })).toBeDisabled();
@@ -271,10 +292,21 @@ test.describe('Request editor — grid value rail decoders', () => {
     expect(await workbench.valueCellText(workbench.valueCellByEditIcon('Edit timestamp'))).toBe('1767225600');
   });
 
-  test('cookie: line-per-segment edits re-join with `; `', async () => {
+  test('cookie: grid row edits re-join with `; `', async () => {
     await workbench.openValueEditor('Edit cookie pairs');
     const modal = editorModal('Cookie value');
-    await workbench.fillMonacoWithin(modal, 0, 'session=xyz789\ntheme=light\nPath=/\nSecure');
+    // The cookie editor is a name/value grid: each pair is a row, flags
+    // ride name-only rows, and the encoded preview shows the join.
+    const valueInputFor = async (name: string) => {
+      const inputs = modal.locator('input');
+      const count = await inputs.count();
+      for (let i = 0; i < count; i++) {
+        if ((await inputs.nth(i).inputValue()) === name) return inputs.nth(i + 1);
+      }
+      throw new Error(`no cookie row named ${name}`);
+    };
+    await (await valueInputFor('session')).fill('xyz789');
+    await (await valueInputFor('theme')).fill('light');
     await expect(modal).toContainText('session=xyz789; theme=light; Path=/; Secure');
     await modal.getByRole('button', { name: /Save$/ }).click();
     await expect(modal).toBeHidden();

@@ -31,6 +31,7 @@
 
 import path from 'node:path';
 import { type BrowserContext, chromium, expect, type Locator, type Page, test, type Worker } from '@playwright/test';
+import { seedPanelDebugFlags } from './fixtures/panel-seed';
 import { WorkbenchPage } from './pages/workbench-page';
 
 const extensionPath = path.resolve(__dirname, '../../dist/chrome');
@@ -71,7 +72,17 @@ const JAR_COOKIE_B64 = b64(JAR_COOKIE_DECODED);
  *  test, and its whole buffer is the one detected value. */
 function echoPost(): Promise<unknown> {
   return playgroundPage.evaluate(
-    ({ path, body, headerName, headerValue }: { path: string; body: string; headerName: string; headerValue: string }) =>
+    ({
+      path,
+      body,
+      headerName,
+      headerValue,
+    }: {
+      path: string;
+      body: string;
+      headerName: string;
+      headerValue: string;
+    }) =>
       fetch(path, {
         method: 'POST',
         headers: { 'content-type': 'application/json', [headerName]: headerValue },
@@ -113,6 +124,7 @@ test.beforeAll(async () => {
   });
   sw = context.serviceWorkers()[0] || (await context.waitForEvent('serviceworker'));
   extensionId = sw.url().split('/')[2]!;
+  sw = await seedPanelDebugFlags(context);
 
   workbenchPage = await context.newPage();
   workbench = await WorkbenchPage.open(workbenchPage, extensionId);

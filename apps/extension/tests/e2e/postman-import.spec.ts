@@ -41,6 +41,27 @@ test.beforeAll(async () => {
   });
   const sw = context.serviceWorkers()[0] || (await context.waitForEvent('serviceworker'));
   extensionId = sw.url().split('/')[2];
+
+  // The request stores hydrate async on a fresh profile and reject
+  // mutations until then — probe with a real create once.
+  const readiness = await newRpcPage();
+  let probeUid = '';
+  await expect
+    .poll(
+      async () => {
+        const res = await rpc<{ success?: boolean; collection?: { uid: string } }>(
+          readiness,
+          'createLocalRequestCollection',
+          { name: 'readiness-probe' },
+        );
+        probeUid = res?.collection?.uid ?? '';
+        return res?.success === true;
+      },
+      { timeout: 30000 },
+    )
+    .toBe(true);
+  await rpc(readiness, 'deleteLocalRequestCollection', { uid: probeUid });
+  await readiness.close();
 });
 
 test.afterAll(async () => {

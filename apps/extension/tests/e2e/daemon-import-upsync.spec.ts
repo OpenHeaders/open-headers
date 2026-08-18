@@ -29,6 +29,7 @@ import { createRequire } from 'node:module';
 import * as os from 'node:os';
 import path from 'node:path';
 import { type BrowserContext, chromium, expect, type Page, test } from '@playwright/test';
+import { seedEncryptedBackendRegistry } from './fixtures/backend-seed';
 
 const REPO_ROOT = path.resolve(__dirname, '../../../..');
 const EXTENSION_PATH = path.resolve(__dirname, '../../dist/chrome');
@@ -189,50 +190,18 @@ test('the extension joins and adopts the daemon workspace as active', async () =
   rpcPage = await extensionContext.newPage();
   await rpcPage.goto(`chrome-extension://${extensionId}/popup.html`);
 
-  // Point the extension at the daemon with the bootstrap token — same
-  // encrypted registry seed as daemon-join.spec.ts (the record is a
-  // sensitive slot; encrypt with the SW's own at-rest key). The SW can
-  // restart between acquire and evaluate, so re-acquire + retry.
+  // Point the extension at the daemon with the bootstrap token — the
+  // shared encrypted registry seed (the record is a sensitive slot;
+  // encrypt with the SW's own at-rest key). The SW can restart between
+  // acquire and evaluate, so re-acquire + retry.
   const seedBackend = async (seed: { backendUrl: string; authToken: string }): Promise<void> => {
-    const worker =
-      extensionContext?.serviceWorkers().at(-1) ?? (await extensionContext?.waitForEvent('serviceworker'));
+    const worker = extensionContext?.serviceWorkers().at(-1) ?? (await extensionContext?.waitForEvent('serviceworker'));
     if (!worker) throw new Error('no extension service worker');
-    await worker.evaluate(async ({ backendUrl, authToken }) => {
-      const key = await new Promise<CryptoKey>((resolve, reject) => {
-        const open = indexedDB.open('oh-secret-cipher', 1);
-        open.onerror = () => reject(open.error);
-        open.onsuccess = () => {
-          const db = open.result;
-          const request = db.transaction('keys', 'readonly').objectStore('keys').get('at-rest-aes-gcm-v1');
-          request.onerror = () => reject(request.error);
-          request.onsuccess = () => resolve(request.result as CryptoKey);
-        };
-      });
-      const record = {
-        id: 'import-upsync-backend',
-        label: 'import-upsync daemon',
-        url: backendUrl,
-        authToken,
-        autoConnect: true,
-        enabled: true,
-        addedAt: new Date().toISOString(),
-        lastConnectedAt: null,
-      };
-      const iv = crypto.getRandomValues(new Uint8Array(12));
-      const ciphertext = await crypto.subtle.encrypt(
-        { name: 'AES-GCM', iv },
-        key,
-        new TextEncoder().encode(JSON.stringify([record])),
-      );
-      const packed = new Uint8Array(iv.length + ciphertext.byteLength);
-      packed.set(iv, 0);
-      packed.set(new Uint8Array(ciphertext), iv.length);
-      let binary = '';
-      for (const byte of packed) binary += String.fromCharCode(byte);
-      await new Promise<void>((resolve) => {
-        chrome.storage.local.set({ onboardingCompleted: true, 'oh.backends': `v1:${btoa(binary)}` }, () => resolve());
-      });
-    }, seed);
+    await seedEncryptedBackendRegistry(worker, {
+      ...seed,
+      recordId: 'import-upsync-backend',
+      recordLabel: 'import-upsync daemon',
+    });
   };
 
   let seedError: unknown;
@@ -291,6 +260,7 @@ test('an SW-host import propagates upstream — the daemon sees the environment'
         workspaceVars: { schemaVersion: 5, variables: [] },
         liveWorkflows: [],
         liveVariables: [],
+        specs: [],
       },
       meta: {
         redactions: { vault: 'omitted', liveCache: 'omitted', oauthTokens: 'omitted', totpCooldowns: 'omitted' },
@@ -302,6 +272,7 @@ test('an SW-host import propagates upstream — the daemon sees the environment'
           liveVariables: 0,
           templates: 0,
           secrets: 0,
+          specs: 0,
         },
       },
     },

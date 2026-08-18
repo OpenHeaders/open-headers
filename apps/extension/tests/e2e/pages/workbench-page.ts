@@ -76,14 +76,25 @@ export class WorkbenchPage {
     return tabId;
   }
 
-  /** Persist a request via the real CRUD RPC; returns its generated uid. */
+  /** Persist a request via the real CRUD RPC; returns its generated uid.
+   *  On a fresh profile the SW's sync oracle bootstraps async and the
+   *  store rejects mutations until it is up — retry that race, bounded. */
   async seedRequest(seed: RequestSeed): Promise<string> {
-    const res = await this.rpc<{ success: boolean; request?: { uid: string }; error?: string }>('createLocalRequest', {
-      name: seed.name,
-      seed: { method: seed.method, url: seed.url, headers: [], params: [], auth: seed.auth, body: seed.body },
-    });
-    if (!res.success || !res.request) throw new Error(`seedRequest failed: ${res.error ?? 'unknown'}`);
-    return res.request.uid;
+    let lastError = 'unknown';
+    for (let attempt = 0; attempt < 30; attempt++) {
+      const res = await this.rpc<{ success: boolean; request?: { uid: string }; error?: string }>(
+        'createLocalRequest',
+        {
+          name: seed.name,
+          seed: { method: seed.method, url: seed.url, headers: [], params: [], auth: seed.auth, body: seed.body },
+        },
+      );
+      if (res.success && res.request) return res.request.uid;
+      lastError = res.error ?? 'unknown';
+      if (!/not initialized|before hydration/.test(lastError)) break;
+      await this.page.waitForTimeout(1000);
+    }
+    throw new Error(`seedRequest failed: ${lastError}`);
   }
 
   /**
@@ -292,9 +303,10 @@ export class WorkbenchPage {
   // ── Body controls ───────────────────────────────────────────────
 
   /** Pick a body encoding radio (none / form-data / x-www-form-urlencoded
-   *  / raw / GraphQL). */
+   *  / raw / GraphQL). Non-exact name match: the hover-revealed `(i)`
+   *  InfoTrigger inside each label folds into the accessible name. */
   async selectBodyRadio(label: string): Promise<void> {
-    await this.page.getByRole('radio', { name: label, exact: true }).check();
+    await this.page.getByRole('radio', { name: label }).first().check();
   }
 
   /** Pick the raw-body format from the Select next to the `raw` radio

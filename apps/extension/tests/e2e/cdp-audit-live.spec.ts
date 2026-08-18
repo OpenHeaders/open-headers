@@ -315,22 +315,44 @@ test.beforeAll(async () => {
   workbench = await WorkbenchPage.open(workbenchPage, extensionId);
 
   // Seed flags from the PAGE context (shared extension-origin storage).
+  // `inspection.cdpEnabled` defaults OFF — the attach must be an explicit
+  // user choice — so the spec opts in through the persisted user-settings
+  // dict, the same write any settings surface makes.
   await workbenchPage.evaluate(
     () =>
       new Promise<void>((resolve) => {
-        chrome.storage.local.set({ onboardingCompleted: true, __oh_parity_hook__: true }, () => resolve());
+        chrome.storage.local.set(
+          {
+            onboardingCompleted: true,
+            panelOnboardingCompleted: true,
+            __oh_parity_hook__: true,
+            'oh.settings.user': { 'inspection.cdpEnabled': true },
+          },
+          () => resolve(),
+        );
       }),
   );
 
-  // Import the audit rules through the parity seam (production addRule path).
-  const imported = await sw.evaluate(
-    async (specs) => {
-      const seam = (globalThis as Record<string, unknown>).__OH_PARITY_IMPORT_RULES__;
-      if (typeof seam !== 'function') return { ok: false, error: '__OH_PARITY_IMPORT_RULES__ not installed' };
-      return (seam as (s: unknown[]) => Promise<unknown>)(specs);
-    },
-    AUDIT_RULES as unknown as unknown[],
-  );
+  // Import the audit rules through the parity seam (production addRule
+  // path). On a fresh profile the SW's sync oracle bootstraps async and
+  // the seam throws until it is up — retry that specific race, bounded.
+  let imported: unknown;
+  for (let attempt = 0; ; attempt++) {
+    try {
+      imported = await sw.evaluate(
+        async (specs) => {
+          const seam = (globalThis as Record<string, unknown>).__OH_PARITY_IMPORT_RULES__;
+          if (typeof seam !== 'function') return { ok: false, error: '__OH_PARITY_IMPORT_RULES__ not installed' };
+          return (seam as (s: unknown[]) => Promise<unknown>)(specs);
+        },
+        AUDIT_RULES as unknown as unknown[],
+      );
+      break;
+    } catch (err) {
+      if (attempt >= 15 || !String(err).includes('sync service not initialized')) throw err;
+      await new Promise((resolve) => setTimeout(resolve, 1_000));
+    }
+  }
   const importResult = imported as ParityImportResult;
   if (!importResult.ok || !importResult.rules) throw new Error(`rule import failed: ${importResult.error}`);
   const incomplete = importResult.rules.filter((r) => !r.complete);

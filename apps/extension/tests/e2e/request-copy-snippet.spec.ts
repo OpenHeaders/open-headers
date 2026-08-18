@@ -203,9 +203,12 @@ test.describe('Copy as — editor header ⋯ menu', () => {
     // URL bar is the editor header's one TemplateInput (a contenteditable
     // combobox with no accessible name), so scope by the header class.
     const input = page.locator('.rules-editor-header .oh-template-input-editable').filter({ visible: true }).first();
+    // A click lands the caret at the pointer position and `End` does not
+    // reliably reach the template-input's caret handling — select-all and
+    // retype the full draft value instead.
     await input.click();
-    await input.press('End');
-    await input.pressSequentially('?draft=1');
+    await input.press('ControlOrMeta+a');
+    await input.pressSequentially(`${API_ECHO_URL}?draft=1`);
     await workbench.copyAsFromEditor('cURL');
     await expectClipboard(`curl '${API_ECHO_URL}?draft=1'`);
   });

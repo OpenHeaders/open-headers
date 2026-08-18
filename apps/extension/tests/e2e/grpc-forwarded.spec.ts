@@ -50,6 +50,7 @@ import * as os from 'node:os';
 import path from 'node:path';
 import type tls from 'node:tls';
 import { type BrowserContext, chromium, expect, type Page, test } from '@playwright/test';
+import { seedEncryptedBackendRegistry } from './fixtures/backend-seed';
 import { startGrpcTlsTerminator } from './fixtures/grpc-tls-terminator';
 import { WorkbenchPage } from './pages/workbench-page';
 
@@ -328,45 +329,12 @@ test('the extension joins and the gRPC entities replicate down', async () => {
   const seedBackend = async (): Promise<void> => {
     const worker = extensionContext?.serviceWorkers().at(-1) ?? (await extensionContext?.waitForEvent('serviceworker'));
     if (!worker) throw new Error('no extension service worker');
-    await worker.evaluate(
-      async ({ backendUrl, authToken }: { backendUrl: string; authToken: string }) => {
-        const key = await new Promise<CryptoKey>((resolve, reject) => {
-          const open = indexedDB.open('oh-secret-cipher', 1);
-          open.onerror = () => reject(open.error);
-          open.onsuccess = () => {
-            const db = open.result;
-            const request = db.transaction('keys', 'readonly').objectStore('keys').get('at-rest-aes-gcm-v1');
-            request.onerror = () => reject(request.error);
-            request.onsuccess = () => resolve(request.result as CryptoKey);
-          };
-        });
-        const record = {
-          id: 'grpc-e2e-backend',
-          label: 'grpc e2e daemon',
-          url: backendUrl,
-          authToken,
-          autoConnect: true,
-          enabled: true,
-          addedAt: new Date().toISOString(),
-          lastConnectedAt: null,
-        };
-        const iv = crypto.getRandomValues(new Uint8Array(12));
-        const ciphertext = await crypto.subtle.encrypt(
-          { name: 'AES-GCM', iv },
-          key,
-          new TextEncoder().encode(JSON.stringify([record])),
-        );
-        const packed = new Uint8Array(iv.length + ciphertext.byteLength);
-        packed.set(iv, 0);
-        packed.set(new Uint8Array(ciphertext), iv.length);
-        let binary = '';
-        for (const byte of packed) binary += String.fromCharCode(byte);
-        await new Promise<void>((resolve) => {
-          chrome.storage.local.set({ onboardingCompleted: true, 'oh.backends': `v1:${btoa(binary)}` }, () => resolve());
-        });
-      },
-      { backendUrl: `ws://127.0.0.1:${DAEMON_PORT}`, authToken: token },
-    );
+    await seedEncryptedBackendRegistry(worker, {
+      backendUrl: `ws://127.0.0.1:${DAEMON_PORT}`,
+      authToken: token,
+      recordId: 'grpc-e2e-backend',
+      recordLabel: 'grpc e2e daemon',
+    });
   };
   let seedError: unknown;
   for (let attempt = 0; attempt < 3; attempt++) {
@@ -384,18 +352,19 @@ test('the extension joins and the gRPC entities replicate down', async () => {
   // Every replicated key of the joined workspace, with a content marker
   // per slot of interest — one readback drives both polls below and
   // makes a replication gap legible in the failure message.
-  const replicatedState = async (): Promise<{ keys: string[]; hasRule: boolean; hasGrpc: boolean }> => {
+  const replicatedState = async (): Promise<{ keys: string[]; hasRule: boolean; hasGrpc: boolean; slot: string }> => {
     const worker = extensionContext?.serviceWorkers().at(-1);
-    if (!worker) return { keys: [], hasRule: false, hasGrpc: false };
+    if (!worker) return { keys: [], hasRule: false, hasGrpc: false, slot: '' };
     return worker.evaluate(
       async (wsId: string) =>
-        new Promise<{ keys: string[]; hasRule: boolean; hasGrpc: boolean }>((resolve) => {
+        new Promise<{ keys: string[]; hasRule: boolean; hasGrpc: boolean; slot: string }>((resolve) => {
           chrome.storage.local.get(null, (items) => {
             const keys = Object.keys(items).filter((k) => k.startsWith('oh.ws.'));
             resolve({
               keys,
               hasRule: JSON.stringify(items[`oh.ws.${wsId}.rules`] ?? '').includes('gRPC e2e marker rule'),
               hasGrpc: JSON.stringify(items[`oh.ws.${wsId}.grpcRequests`] ?? '').includes('e2egrpc1'),
+              slot: JSON.stringify(items[`oh.ws.${wsId}.grpcRequests`] ?? null)?.slice(0, 600) ?? '',
             });
           });
         }),
@@ -417,7 +386,7 @@ test('the extension joins and the gRPC entities replicate down', async () => {
   await expect
     .poll(async () => (await replicatedState()).hasGrpc, {
       timeout: 30000,
-      message: `grpcRequests slot missing from replication; replicated keys: ${finalState.keys.join(', ')}`,
+      message: `grpcRequests slot missing from replication; slot content: ${finalState.slot}`,
     })
     .toBe(true);
 });

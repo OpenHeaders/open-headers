@@ -44,6 +44,28 @@ test.beforeAll(async () => {
   });
   const sw = context.serviceWorkers()[0] || (await context.waitForEvent('serviceworker'));
   extensionId = sw.url().split('/')[2];
+
+  // The live-workflow store hydrates async on a fresh profile and
+  // rejects mutations until then — probe with a real create once.
+  const readiness = await newRpcPage();
+  let probeUid = '';
+  await expect
+    .poll(
+      async () => {
+        const res = (await rpc(readiness, 'createLiveWorkflow', {
+          name: 'readiness-probe',
+          enabled: false,
+          refresh: { kind: 'manual' },
+          steps: [{ uid: 'probeuid', id: 'probe', requestUid: 'reqprobe', captures: [] }],
+        })) as { success?: boolean; workflow?: { uid: string } };
+        probeUid = res?.workflow?.uid ?? '';
+        return res?.success === true;
+      },
+      { timeout: 30000 },
+    )
+    .toBe(true);
+  await rpc(readiness, 'deleteLiveWorkflow', { uid: probeUid });
+  await readiness.close();
 });
 
 test.afterAll(async () => {
@@ -97,17 +119,20 @@ test.describe('Phase I — DAG primitive round-trip', () => {
         refresh: { kind: 'manual' },
         steps: [
           {
+            uid: 'stepuid1',
             id: 'introspect',
-            requestUid: 'reqintro0',
-            captures: [{ name: 'active', extractor: { kind: 'json-path', path: '$.active' } }],
+            requestUid: 'reqintro',
+            captures: [{ uid: 'capuid01', name: 'active', extractor: { kind: 'json-path', path: '$.active' } }],
           },
           {
+            uid: 'stepuid2',
             id: 'refresh',
-            requestUid: 'reqrefrsh',
+            requestUid: 'reqrefrs',
             dependsOn: ['introspect'],
             runIf: {
               all: [
                 {
+                  uid: 'gateuid1',
                   kind: 'capture-equals',
                   stepId: 'introspect',
                   captureName: 'active',
@@ -116,12 +141,12 @@ test.describe('Phase I — DAG primitive round-trip', () => {
               ],
             },
             priorityFrom: { stepId: 'introspect', captureName: 'active', sort: 'numeric' },
-            captures: [{ name: 'token', extractor: { kind: 'json-path', path: '$.access_token' } }],
+            captures: [{ uid: 'capuid02', name: 'token', extractor: { kind: 'json-path', path: '$.access_token' } }],
           },
         ],
-      })) as { success: true; workflow: WorkflowSummary };
+      })) as { success: true; workflow: WorkflowSummary; error?: string };
 
-      expect(created.success).toBe(true);
+      expect(created.success, created.error).toBe(true);
       const { workflow: w } = created;
       expect(w.steps).toHaveLength(2);
       expect(w.steps[1].dependsOn).toEqual(['introspect']);
@@ -155,21 +180,23 @@ test.describe('Phase I — DAG primitive round-trip', () => {
         refresh: { kind: 'manual' },
         steps: [
           {
+            uid: 'stepuid3',
             id: 'alpha',
-            requestUid: 'reqalpha0',
-            captures: [{ name: 'v', extractor: { kind: 'whole-body' } }],
+            requestUid: 'reqalpha',
+            captures: [{ uid: 'capuid03', name: 'v', extractor: { kind: 'whole-body' } }],
           },
           {
+            uid: 'stepuid4',
             id: 'beta',
-            requestUid: 'reqbeta00',
+            requestUid: 'reqbeta0',
             // Explicit root — beta is parallel to alpha, not a linear chain.
             dependsOn: [],
-            captures: [{ name: 'v', extractor: { kind: 'whole-body' } }],
+            captures: [{ uid: 'capuid04', name: 'v', extractor: { kind: 'whole-body' } }],
           },
         ],
-      })) as { success: true; workflow: WorkflowSummary };
+      })) as { success: true; workflow: WorkflowSummary; error?: string };
 
-      expect(created.success).toBe(true);
+      expect(created.success, created.error).toBe(true);
       expect(created.workflow.steps[1].dependsOn).toEqual([]);
 
       const listed = (await rpc(caller, 'listLiveWorkflows')) as { workflows: WorkflowSummary[] };
@@ -193,9 +220,10 @@ test.describe('Phase I — DAG primitive round-trip', () => {
         refresh: { kind: 'manual' },
         steps: [
           {
+            uid: 'stepuid5',
             id: 'only',
-            requestUid: 'reqonlyxx',
-            captures: [{ name: 'v', extractor: { kind: 'whole-body' } }],
+            requestUid: 'reqonly0',
+            captures: [{ uid: 'capuid05', name: 'v', extractor: { kind: 'whole-body' } }],
           },
         ],
       })) as { success: true; workflow: WorkflowSummary };
@@ -300,18 +328,28 @@ test.describe('Phase I — Runtime branching', () => {
         refresh: { kind: 'manual' },
         steps: [
           {
+            uid: 'stepuid6',
             id: 'introspect',
             requestUid: introspectReq.uid,
-            captures: [{ name: 'active', extractor: { kind: 'json-path', path: '$.active' } }],
+            captures: [{ uid: 'capuid06', name: 'active', extractor: { kind: 'json-path', path: '$.active' } }],
           },
           {
+            uid: 'stepuid7',
             id: 'refresh',
             requestUid: refreshReq.uid,
             dependsOn: ['introspect'],
             runIf: {
-              all: [{ kind: 'capture-equals', stepId: 'introspect', captureName: 'active', value: 'false' }],
+              all: [
+                {
+                  uid: 'gateuid2',
+                  kind: 'capture-equals',
+                  stepId: 'introspect',
+                  captureName: 'active',
+                  value: 'false',
+                },
+              ],
             },
-            captures: [{ name: 'token', extractor: { kind: 'json-path', path: '$.access_token' } }],
+            captures: [{ uid: 'capuid07', name: 'token', extractor: { kind: 'json-path', path: '$.access_token' } }],
           },
         ],
       })) as { success: true; workflow: { uid: string } };
@@ -361,18 +399,28 @@ test.describe('Phase I — Runtime branching', () => {
         refresh: { kind: 'manual' },
         steps: [
           {
+            uid: 'stepuid8',
             id: 'introspect',
             requestUid: introspectReq.uid,
-            captures: [{ name: 'active', extractor: { kind: 'json-path', path: '$.active' } }],
+            captures: [{ uid: 'capuid08', name: 'active', extractor: { kind: 'json-path', path: '$.active' } }],
           },
           {
+            uid: 'stepuid9',
             id: 'refresh',
             requestUid: refreshReq.uid,
             dependsOn: ['introspect'],
             runIf: {
-              all: [{ kind: 'capture-equals', stepId: 'introspect', captureName: 'active', value: 'false' }],
+              all: [
+                {
+                  uid: 'gateuid3',
+                  kind: 'capture-equals',
+                  stepId: 'introspect',
+                  captureName: 'active',
+                  value: 'false',
+                },
+              ],
             },
-            captures: [{ name: 'token', extractor: { kind: 'json-path', path: '$.access_token' } }],
+            captures: [{ uid: 'capuid09', name: 'token', extractor: { kind: 'json-path', path: '$.access_token' } }],
           },
         ],
       })) as { success: true; workflow: { uid: string } };
@@ -417,27 +465,30 @@ test.describe('Phase I — Runtime branching', () => {
         refresh: { kind: 'manual' },
         steps: [
           {
+            uid: 'stepuida',
             id: 'probe',
             requestUid: probeReq.uid,
-            captures: [{ name: 'go', extractor: { kind: 'json-path', path: '$.go' } }],
+            captures: [{ uid: 'capuid10', name: 'go', extractor: { kind: 'json-path', path: '$.go' } }],
           },
           {
+            uid: 'stepuidb',
             id: 'follow',
             requestUid: fetchReq.uid,
             dependsOn: ['probe'],
             runIf: {
-              all: [{ kind: 'capture-equals', stepId: 'probe', captureName: 'go', value: 'true' }],
+              all: [{ uid: 'gateuid4', kind: 'capture-equals', stepId: 'probe', captureName: 'go', value: 'true' }],
             },
-            captures: [{ name: 'token', extractor: { kind: 'json-path', path: '$.access_token' } }],
+            captures: [{ uid: 'capuid11', name: 'token', extractor: { kind: 'json-path', path: '$.access_token' } }],
           },
           {
+            uid: 'stepuidc',
             id: 'finalize',
             requestUid: extractReq.uid,
             dependsOn: ['follow'],
             runIf: {
-              all: [{ kind: 'capture-exists', stepId: 'follow', captureName: 'token' }],
+              all: [{ uid: 'gateuid5', kind: 'capture-exists', stepId: 'follow', captureName: 'token' }],
             },
-            captures: [{ name: 'token', extractor: { kind: 'json-path', path: '$.access_token' } }],
+            captures: [{ uid: 'capuid12', name: 'token', extractor: { kind: 'json-path', path: '$.access_token' } }],
           },
         ],
       })) as { success: true; workflow: { uid: string } };

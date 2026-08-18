@@ -31,6 +31,27 @@ test.beforeAll(async () => {
   });
   const sw = context.serviceWorkers()[0] || (await context.waitForEvent('serviceworker'));
   extensionId = sw.url().split('/')[2];
+
+  // On a fresh profile the active workspace's sync service bootstraps
+  // async and the write-path RPCs error until it is up — probe with a
+  // real putFile once (delete the probe blob after).
+  const readinessPage = await newRpcPage();
+  let probeFileId = '';
+  await expect
+    .poll(
+      async () => {
+        const resp = await rpc<{ success: boolean; fileRef?: { fileId: string } }>(readinessPage, 'putFile', {
+          filename: 'readiness-probe.txt',
+          bytesBase64: btoa('probe'),
+        });
+        probeFileId = resp?.fileRef?.fileId ?? '';
+        return resp?.success === true;
+      },
+      { timeout: 30000 },
+    )
+    .toBe(true);
+  await rpc(readinessPage, 'deleteFile', { fileId: probeFileId });
+  await readinessPage.close();
 });
 
 test.afterAll(async () => {
@@ -95,8 +116,8 @@ async function uploadFile(page: Page, filename: string, content: string, mimeTyp
       });
     },
     { filename, content, mimeType },
-  )) as { success: boolean; fileRef?: FileRef };
-  expect(resp.success).toBe(true);
+  )) as { success: boolean; fileRef?: FileRef; error?: string };
+  expect(resp.success, resp.error).toBe(true);
   expect(resp.fileRef).toBeDefined();
   return resp.fileRef!;
 }

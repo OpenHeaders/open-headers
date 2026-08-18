@@ -28,7 +28,7 @@
 
 import { type ChildProcess, spawn } from 'node:child_process';
 import { createHash, randomBytes } from 'node:crypto';
-import { readFileSync } from 'node:fs';
+import { readFileSync, realpathSync } from 'node:fs';
 import { mkdtemp, writeFile } from 'node:fs/promises';
 import https from 'node:https';
 import { createRequire } from 'node:module';
@@ -38,7 +38,10 @@ import { expect, test } from '@playwright/test';
 
 const REPO_ROOT = path.resolve(__dirname, '../../../..');
 const DAEMON_MAIN = path.join(REPO_ROOT, 'apps/daemon/dist/main.js');
-const DAEMON_RIG = path.join(REPO_ROOT, 'playground/daemon-rig');
+// realpath so the rig CLIs' `import.meta.url === pathToFileURL(argv[1])`
+// entry gate holds when the playground is reached through a symlink
+// (Node realpath-resolves the main module, argv[1] stays as spawned).
+const DAEMON_RIG = realpathSync(path.join(REPO_ROOT, 'playground/daemon-rig'));
 const RIG_CA = path.join(DAEMON_RIG, '.certs/oh.test.cert.pem');
 const electronBinary = createRequire(path.join(REPO_ROOT, 'packages/oracle-host-node/package.json'))(
   'electron',

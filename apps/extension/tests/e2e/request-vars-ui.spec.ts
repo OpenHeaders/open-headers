@@ -211,6 +211,7 @@ function buildSeedEnvelope(): Record<string, unknown> {
       workspaceVars: { schemaVersion: 5, variables: WS_VARS },
       liveWorkflows: [],
       liveVariables: [],
+      specs: [],
       vault: { schemaVersion: 5, secrets: VAULT_SECRETS },
     },
     meta: {
@@ -223,6 +224,7 @@ function buildSeedEnvelope(): Record<string, unknown> {
         liveVariables: 0,
         templates: 0,
         secrets: VAULT_SECRETS.length,
+        specs: 0,
       },
     },
   };
@@ -279,9 +281,10 @@ async function seedLiveVariable(envUid: string): Promise<void> {
       refresh: { kind: 'manual' },
       steps: [
         {
+          uid: 'wfstep01',
           id: 'fetch',
           requestUid,
-          captures: [{ name: 'token', extractor: { kind: 'json-path', path: '$.access_token' } }],
+          captures: [{ uid: 'wfcap001', name: 'token', extractor: { kind: 'json-path', path: '$.access_token' } }],
         },
       ],
     },
@@ -296,13 +299,32 @@ async function seedLiveVariable(envUid: string): Promise<void> {
   expect(lvRes.success, lvRes.error).toBe(true);
   const lvUid = lvRes.variable!.uid;
 
-  // The live registry only includes EFFECTIVE (published + enabled)
-  // workflows + LVs; new entities start as drafts, so publish both.
+  // The create lands through the oracle and the store cache refreshes
+  // on broadcast — wait for visibility before the publish writes, then
+  // publish both (the effective registry gates on `published`).
+  await expect
+    .poll(
+      async () => {
+        const res = await workbench.rpc<{ workflows?: Array<{ uid: string }> }>('listLiveWorkflows');
+        return (res.workflows ?? []).some((w) => w.uid === workflowUid);
+      },
+      { timeout: 10000 },
+    )
+    .toBe(true);
   const wfPub = await workbench.rpc<{ success: boolean; error?: string }>('updateLiveWorkflow', {
     uid: workflowUid,
     updates: { published: true },
   });
   expect(wfPub.success, wfPub.error).toBe(true);
+  await expect
+    .poll(
+      async () => {
+        const res = await workbench.rpc<{ variables?: Array<{ uid: string }> }>('listLiveVariables');
+        return (res.variables ?? []).some((v) => v.uid === lvUid);
+      },
+      { timeout: 10000 },
+    )
+    .toBe(true);
   const lvPub = await workbench.rpc<{ success: boolean; error?: string }>('updateLiveVariable', {
     uid: lvUid,
     updates: { published: true },

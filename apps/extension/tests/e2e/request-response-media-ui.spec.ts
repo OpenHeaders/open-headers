@@ -54,6 +54,7 @@ const STREAM_REQUESTS: Record<string, string> = {
 let context: BrowserContext;
 let extensionId: string;
 let workbench: WorkbenchPage;
+let workbenchPage: Page;
 const seededUids = new Map<string, string>();
 
 test.beforeAll(async () => {
@@ -66,6 +67,16 @@ test.beforeAll(async () => {
   extensionId = sw.url().split('/')[2]!;
 
   const page: Page = await context.newPage();
+  // Clipboard capture — the filtered-pane assertions read what the copy
+  // affordance writes (the pane's Monaco virtualizes, so innerText only
+  // sees the rendered viewport).
+  await page.addInitScript(() => {
+    navigator.clipboard.writeText = (text: string) => {
+      (window as Window & { __ohCopiedText?: string }).__ohCopiedText = text;
+      return Promise.resolve();
+    };
+  });
+  workbenchPage = page;
   workbench = await WorkbenchPage.open(page, extensionId);
 
   for (const name of PROBE_REQUESTS) {
@@ -199,13 +210,23 @@ test.describe('Response viewer — content-type sweep (UI)', () => {
     expect(raw).toContain('oh_request_duration_seconds_bucket{le="0.1"} 512 # {trace_id="4bf92f3577b34da6"}');
 
     // Selector query: series-level narrowing, header lines riding along.
-    // Poll until the filter has evaluated — the pane shows the whole
-    // body until then, and the negative assertions would race it.
+    // The pane's Monaco virtualizes, so read the shown result through
+    // the copy affordance (it copies the FILTERED text while a filter
+    // is applied) — polled until the filter has evaluated.
     await workbench.filterResponseBody('oh_http_requests{code="500"}');
+    const copiedFiltered = async (): Promise<string> => {
+      await workbenchPage.getByRole('button', { name: 'Copy body' }).filter({ visible: true }).first().click();
+      return workbenchPage.evaluate(() => {
+        const w = window as Window & { __ohCopiedText?: string };
+        const text = w.__ohCopiedText ?? '';
+        w.__ohCopiedText = undefined;
+        return text;
+      });
+    };
     await expect
-      .poll(() => workbench.responsePrettyText(), { timeout: 15000 })
+      .poll(copiedFiltered, { timeout: 15000 })
       .toContain('oh_http_requests_total{code="500",path="/api/echo"} 3');
-    const filtered = await workbench.responsePrettyText();
+    const filtered = await copiedFiltered();
     expect(filtered).toContain('# TYPE oh_http_requests counter');
     expect(filtered).not.toContain('code="200"');
     expect(filtered).not.toContain('oh_build_info');

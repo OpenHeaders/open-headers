@@ -20,6 +20,7 @@
 import { createHmac } from 'node:crypto';
 import path from 'node:path';
 import { type BrowserContext, chromium, expect, type Locator, type Page, test, type Worker } from '@playwright/test';
+import { seedPanelDebugFlags } from './fixtures/panel-seed';
 import { WorkbenchPage } from './pages/workbench-page';
 
 const extensionPath = path.resolve(__dirname, '../../dist/chrome');
@@ -102,16 +103,17 @@ test.beforeAll(async () => {
   });
   sw = context.serviceWorkers()[0] || (await context.waitForEvent('serviceworker'));
   extensionId = sw.url().split('/')[2]!;
+  sw = await seedPanelDebugFlags(context);
 
   workbenchPage = await context.newPage();
   workbench = await WorkbenchPage.open(workbenchPage, extensionId);
 
   playgroundPage = await context.newPage();
   await playgroundPage.goto(PLAYGROUND_URL);
-  await playgroundPage.evaluate(
-    ({ key, value }: { key: string; value: string }) => localStorage.setItem(key, value),
-    { key: STORAGE_KEY, value: STORED_JWT },
-  );
+  await playgroundPage.evaluate(({ key, value }: { key: string; value: string }) => localStorage.setItem(key, value), {
+    key: STORAGE_KEY,
+    value: STORED_JWT,
+  });
 
   const tabId = await workbench.tabIdForUrl(PLAYGROUND_URL);
   const pin = await workbench.rpc<{ success: boolean }>('setCdpTabPin', { tabId, pinned: true });
@@ -202,10 +204,7 @@ test.describe('localStorage entry document — editable JWT with write-back', ()
 
     // Byte-equal to the independent node:crypto HMAC.
     await expect
-      .poll(
-        () => playgroundPage.evaluate((key: string) => localStorage.getItem(key), STORAGE_KEY),
-        { timeout: 15_000 },
-      )
+      .poll(() => playgroundPage.evaluate((key: string) => localStorage.getItem(key), STORAGE_KEY), { timeout: 15_000 })
       .toBe(STORED_RESIGNED);
     await expect(save).toBeDisabled();
   });
