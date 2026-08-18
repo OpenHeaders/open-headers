@@ -31,7 +31,11 @@ function formatSize(bytes: number): string {
   return `${(kb / 1024).toFixed(2)} MB`;
 }
 
-function zip(sourceDir: string, outputPath: string): Promise<number> {
+function zip(
+  sourceDir: string,
+  outputPath: string,
+  extraFiles: ReadonlyArray<{ path: string; name: string }> = [],
+): Promise<number> {
   return new Promise((resolve, reject) => {
     if (!fs.existsSync(sourceDir)) {
       reject(new Error(`Missing: ${sourceDir}`));
@@ -46,6 +50,9 @@ function zip(sourceDir: string, outputPath: string): Promise<number> {
 
     archive.pipe(output);
     archive.directory(sourceDir, false);
+    for (const extra of extraFiles) {
+      archive.file(extra.path, { name: extra.name });
+    }
     void archive.finalize();
   });
 }
@@ -79,6 +86,17 @@ async function package_(): Promise<void> {
 
   console.log('  Packaging...\n');
 
+  // Store zips carry the aggregated license texts of the bundled
+  // dependencies and fonts alongside the built extension.
+  const noticesPath = path.join(RELEASES, 'THIRD-PARTY-NOTICES.txt');
+  execSync(
+    'node ../../scripts/generate-third-party-notices.mjs --out apps/extension/releases/THIRD-PARTY-NOTICES.txt apps/extension',
+    {
+      cwd: ROOT,
+      stdio: 'inherit',
+    },
+  );
+
   for (const browser of BROWSERS) {
     const sourceDir = path.join(DIST, browser);
     const zipPath = path.join(RELEASES, `open-headers-${browser}-v${VERSION}.zip`);
@@ -88,7 +106,7 @@ async function package_(): Promise<void> {
       continue;
     }
 
-    const bytes = await zip(sourceDir, zipPath);
+    const bytes = await zip(sourceDir, zipPath, [{ path: noticesPath, name: 'THIRD-PARTY-NOTICES.txt' }]);
     console.log(`    ${browser.padEnd(8)} ${formatSize(bytes).padStart(10)}  ${path.basename(zipPath)}`);
   }
 }

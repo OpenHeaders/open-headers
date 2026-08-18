@@ -289,6 +289,16 @@ GitHub's dependency graph also offers a zero-tooling SPDX export of
 the same dependency set:
 `gh api repos/OpenHeaders/open-headers-app/dependency-graph/sbom`.
 
+### Third-party license notices
+
+Every shipped artifact carries an aggregated `THIRD-PARTY-NOTICES.txt`
+with the license text of each bundled package (plus the vendored
+Press Start 2P font's OFL text where the UI ships):
+`scripts/generate-third-party-notices.mjs` walks the production
+dependency closure of the artifact's app packages and runs in the
+desktop `predist` step (into `resources/`), the extension release
+zips, and the standalone-binaries release lane (as a release asset).
+
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md).

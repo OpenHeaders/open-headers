@@ -805,6 +805,10 @@ jobs:
             OHD_VERSION=$(node -p "require('./apps/daemon/package.json').version")
             cp apps/cli/dist-bun/oh "release-binaries/oh-${OH_VERSION}-${OS_ARCH}"
             cp apps/daemon/dist-sea/ohd "release-binaries/ohd-${OHD_VERSION}-${OS_ARCH}"
+            # One leg generates the aggregated license texts for the
+            # bundled JS closure — identical across platforms, ships as
+            # a release asset beside the binaries.
+            node scripts/generate-third-party-notices.mjs --out release-binaries/THIRD-PARTY-NOTICES-oh-ohd.txt apps/cli apps/daemon
           fi
         shell: bash
 
