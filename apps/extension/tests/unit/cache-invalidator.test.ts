@@ -10,12 +10,20 @@ vi.mock('@utils/logger', () => ({
 }));
 
 // Hoist the browsingData mock so the factory can read it.
-const { removeSpy, handlerBehaviorChangedSpy } = vi.hoisted(() => ({
+const { removeSpy, handlerBehaviorChangedSpy, browserState } = vi.hoisted(() => ({
   removeSpy: vi.fn(() => Promise.resolve()),
   handlerBehaviorChangedSpy: vi.fn(),
+  browserState: { firefox: false },
+}));
+
+vi.mock('@utils/browser-runtime', () => ({
+  get isFirefox() {
+    return browserState.firefox;
+  },
 }));
 
 beforeEach(() => {
+  browserState.firefox = false;
   removeSpy.mockReset();
   removeSpy.mockImplementation(() => Promise.resolve());
   handlerBehaviorChangedSpy.mockReset();
@@ -66,6 +74,13 @@ describe('enqueueInvalidation', () => {
 
   it('switches to global wipe when the caller flags broad=true', async () => {
     enqueueInvalidation([], true);
+    await flushPending();
+    expect(removeSpy).toHaveBeenCalledWith({}, { cache: true });
+  });
+
+  it('degrades scoped eviction to the global wipe on Firefox (RemovalOptions has no origins)', async () => {
+    browserState.firefox = true;
+    enqueueInvalidation(['https://api.openheaders.io']);
     await flushPending();
     expect(removeSpy).toHaveBeenCalledWith({}, { cache: true });
   });

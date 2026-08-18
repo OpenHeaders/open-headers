@@ -37,6 +37,7 @@
  *     doesn't fall out of sync with the new rule state.
  */
 
+import { isFirefox } from '@utils/browser-runtime';
 import { logger } from '@utils/logger';
 
 /**
@@ -101,7 +102,10 @@ async function flush(batch: PendingInvalidation): Promise<void> {
   }
 
   const origins = [...batch.origins];
-  const broad = batch.broad || origins.length > BROAD_ORIGIN_THRESHOLD;
+  // Firefox's RemovalOptions has no `origins` key — Gecko cannot scope
+  // cache eviction by origin at all, so the scoped path degrades to the
+  // global wipe there.
+  const broad = batch.broad || origins.length > BROAD_ORIGIN_THRESHOLD || isFirefox;
 
   try {
     if (broad) {

@@ -121,6 +121,12 @@ type MessageCallback = (response: unknown) => void;
 type TabCallback = (tab: chrome.tabs.Tab) => void;
 type TabsQueryCallback = (tabs: chrome.tabs.Tab[]) => void;
 
+// `chrome.tabs` is absent in devtools documents (both engines) — the
+// event reads below run at module scope, so resolve the namespace
+// defensively or importing this module from a shared chunk crashes
+// the devtools panel.
+const tabsNamespace = (browserAPI as { tabs?: typeof chrome.tabs }).tabs;
+
 // Cross-browser tabs API
 export const tabs = {
   create: (options: chrome.tabs.CreateProperties, callback?: TabCallback): void | Promise<void> => {
@@ -173,11 +179,11 @@ export const tabs = {
       return browserAPI.tabs.remove(tabId, callback!);
     }
   },
-  onActivated: browserAPI.tabs.onActivated,
-  onUpdated: browserAPI.tabs.onUpdated,
-  onRemoved: browserAPI.tabs.onRemoved,
-  onReplaced: browserAPI.tabs.onReplaced,
-  onCreated: browserAPI.tabs.onCreated,
+  onActivated: tabsNamespace?.onActivated,
+  onUpdated: tabsNamespace?.onUpdated,
+  onRemoved: tabsNamespace?.onRemoved,
+  onReplaced: tabsNamespace?.onReplaced,
+  onCreated: tabsNamespace?.onCreated,
 };
 
 // Cross-browser alarms API
