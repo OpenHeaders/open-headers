@@ -25,6 +25,7 @@
 import { parseHarSourcePortName } from '@openheaders/core/types';
 import { logger } from '@utils/logger';
 import { getBrowserAPI } from '@/types/browser';
+import { isExtensionOriginPort } from '../port-origin-gate';
 
 export interface DevtoolsPortPresence {
   /** Detach the onConnect listener. Tests / SW shutdown only. */
@@ -50,6 +51,7 @@ export function startDevtoolsPortPresence(options: DevtoolsPortPresenceOptions):
   const listener = (port: chrome.runtime.Port): void => {
     const tabId = parseHarSourcePortName(port.name);
     if (tabId === null) return;
+    if (!isExtensionOriginPort(port, 'DevtoolsPortPresence')) return;
     const next = (counts.get(tabId) ?? 0) + 1;
     counts.set(tabId, next);
     if (next === 1) options.onConnected(tabId);

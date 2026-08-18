@@ -11,6 +11,7 @@ import { startDevtoolsPortPresence } from '@/background/correlator-host/devtools
 
 interface FakePort {
   name: string;
+  sender: { url: string };
   disconnectListeners: Array<() => void>;
   onDisconnect: { addListener: (fn: () => void) => void };
   disconnect: () => void;
@@ -19,6 +20,7 @@ interface FakePort {
 function fakePort(name: string): FakePort {
   const port: FakePort = {
     name,
+    sender: { url: 'chrome-extension://test-id/panel.html' },
     disconnectListeners: [],
     onDisconnect: { addListener: (fn) => port.disconnectListeners.push(fn) },
     disconnect: () => {

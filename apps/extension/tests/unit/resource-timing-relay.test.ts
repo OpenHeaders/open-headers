@@ -171,6 +171,7 @@ describe('createResourceTimingRelay — notify + fanout', () => {
 
 interface FakePort {
   name: string;
+  sender: { url: string };
   messageListeners: Array<(msg: HarSourceMessage) => void>;
   disconnectListeners: Array<() => void>;
   posted: ResourceTimingWireMessage[];
@@ -182,6 +183,7 @@ interface FakePort {
 function fakePort(name: string): FakePort {
   const port: FakePort = {
     name,
+    sender: { url: 'chrome-extension://test-id/panel.html' },
     messageListeners: [],
     disconnectListeners: [],
     posted: [],

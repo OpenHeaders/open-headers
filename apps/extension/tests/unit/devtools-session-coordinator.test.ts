@@ -16,6 +16,7 @@ import type { ResourceTimingRelay } from '@/background/resource-timing-relay';
 
 interface FakePort {
   name: string;
+  sender: { url: string };
   messageListeners: Array<(msg: HarSourceMessage) => void>;
   onMessage: { addListener: (fn: (msg: HarSourceMessage) => void) => void };
   onDisconnect: { addListener: (fn: () => void) => void };
@@ -25,6 +26,7 @@ interface FakePort {
 function fakePort(name: string): FakePort {
   const port: FakePort = {
     name,
+    sender: { url: 'chrome-extension://test-id/panel.html' },
     messageListeners: [],
     onMessage: { addListener: (fn) => port.messageListeners.push(fn) },
     onDisconnect: { addListener: () => {} },

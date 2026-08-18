@@ -28,6 +28,7 @@ import type { PageStreamHub } from '@openheaders/oracle/page-stream-hub';
 import type { RequestLifecycleHub } from '@openheaders/oracle/request-lifecycle-hub';
 import { logger } from '@utils/logger';
 import { getBrowserAPI } from '@/types/browser';
+import { isExtensionOriginPort } from '../port-origin-gate';
 import type { ResourceTimingRelay } from '../resource-timing-relay';
 
 export interface DevtoolsSessionCoordinator {
@@ -54,6 +55,7 @@ export function startDevtoolsSessionCoordinator(
   const listener = (port: chrome.runtime.Port): void => {
     const tabId = parseHarSourcePortName(port.name);
     if (tabId === null) return;
+    if (!isExtensionOriginPort(port, 'DevtoolsSessionCoordinator')) return;
     port.onMessage.addListener((msg: HarSourceMessage) => {
       if (msg?.type !== 'session' || typeof msg.token !== 'string' || typeof msg.openedAtWallMs !== 'number') {
         return;

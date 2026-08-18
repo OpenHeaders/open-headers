@@ -79,12 +79,7 @@
   "web_accessible_resources": [
     {
       "resources": [
-        "*.html",
-        "*.js",
-        "*.css",
-        "js/*.js",
-        "js/**/*.js",
-        "images/*"
+        "delay.html"
       ],
       "matches": [
         "<all_urls>"

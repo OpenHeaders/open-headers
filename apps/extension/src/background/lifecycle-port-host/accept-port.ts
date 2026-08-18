@@ -27,6 +27,7 @@ import {
 } from '@openheaders/core/request-lifecycle';
 import type { AttachmentHandle, RequestLifecycleHub } from '@openheaders/oracle/request-lifecycle-hub';
 import { startTracking, stopTracking } from '../modules/tab-telemetry';
+import { isExtensionOriginPort } from '../port-origin-gate';
 import { attachPanelWatchingTracker, type PanelWatchingTrackerDeps } from './panel-watching-tracker';
 import { createPortSink } from './port-sink';
 
@@ -80,6 +81,7 @@ export function acceptLifecyclePort(
   // capture source) — the extension host only serves real browser tabs.
   const tabId = parseLifecyclePortName(port.name);
   if (tabId === null || tabId < 0) return false;
+  if (!isExtensionOriginPort(port, 'LifecyclePortHost')) return false;
   const sink = createPortSink(port);
   const tracker = attachPanelWatchingTracker(tabId, options.trackerDeps ?? defaultTrackerDeps);
   const { ready, provenance, bodyFetcher } = options;

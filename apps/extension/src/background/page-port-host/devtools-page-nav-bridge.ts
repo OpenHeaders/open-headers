@@ -39,6 +39,7 @@ import { type HarSourceMessage, parseHarSourcePortName } from '@openheaders/core
 import type { PageStreamHub } from '@openheaders/oracle/page-stream-hub';
 import { logger } from '@utils/logger';
 import { getBrowserAPI } from '@/types/browser';
+import { isExtensionOriginPort } from '../port-origin-gate';
 
 export interface DevtoolsPageNavBridge {
   /** Detach the chrome listener. Tests / SW shutdown only. */
@@ -107,6 +108,7 @@ export function startDevtoolsPageNavBridge(options: DevtoolsPageNavBridgeOptions
   const listener = (port: chrome.runtime.Port): void => {
     const tabId = parseHarSourcePortName(port.name);
     if (tabId === null) return;
+    if (!isExtensionOriginPort(port, 'DevtoolsPageNavBridge')) return;
     port.onMessage.addListener((msg: HarSourceMessage) => {
       if (!msg) return;
       // A CDP-owned tab is fed by the Page-domain bridge; ignore its

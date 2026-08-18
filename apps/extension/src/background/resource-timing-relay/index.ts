@@ -17,6 +17,7 @@ import { type HarSourceMessage, parseHarSourcePortName } from '@openheaders/core
 import type { TabLifecycleBus } from '@openheaders/oracle/tab-lifecycle-bus';
 import { logger } from '@utils/logger';
 import { getBrowserAPI } from '@/types/browser';
+import { isExtensionOriginPort } from '../port-origin-gate';
 import type { ResourceTimingRelay } from './relay';
 import { createResourceTimingRelay } from './relay';
 
@@ -49,6 +50,7 @@ export function startResourceTimingRelay(options: ResourceTimingRelayHostOptions
   const listener = (port: chrome.runtime.Port): void => {
     const subscriberTabId = parseResourceTimingPortName(port.name);
     if (subscriberTabId !== null) {
+      if (!isExtensionOriginPort(port, 'ResourceTimingRelay')) return;
       const detach = relay.subscribe(subscriberTabId, (msg) => {
         try {
           port.postMessage(msg);
@@ -62,6 +64,7 @@ export function startResourceTimingRelay(options: ResourceTimingRelayHostOptions
 
     const sourceTabId = parseHarSourcePortName(port.name);
     if (sourceTabId === null) return;
+    if (!isExtensionOriginPort(port, 'ResourceTimingRelay')) return;
     port.onMessage.addListener((msg: HarSourceMessage) => {
       if (msg?.type === 'resource-timing' && typeof msg.timeOriginMs === 'number' && Array.isArray(msg.entries)) {
         relay.notifySnapshot(sourceTabId, msg.timeOriginMs, msg.entries);

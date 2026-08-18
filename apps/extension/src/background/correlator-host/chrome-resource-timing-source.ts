@@ -23,6 +23,7 @@ import { type HarSourceMessage, parseHarSourcePortName } from '@openheaders/core
 import type { ResourceTimingEvent, ResourceTimingEventSource } from '@openheaders/oracle/correlator-heuristic';
 import { logger } from '@utils/logger';
 import { getBrowserAPI } from '@/types/browser';
+import { isExtensionOriginPort } from '../port-origin-gate';
 
 type ResourceTimingListener = (event: ResourceTimingEvent) => void;
 
@@ -57,6 +58,7 @@ export class ChromeResourceTimingEventSource implements ResourceTimingEventSourc
     const listener = (port: chrome.runtime.Port): void => {
       const tabId = parseHarSourcePortName(port.name);
       if (tabId === null) return;
+      if (!isExtensionOriginPort(port, 'LifecycleHost')) return;
       port.onMessage.addListener((msg: HarSourceMessage) => {
         this.dispatchMessage(tabId, msg);
       });

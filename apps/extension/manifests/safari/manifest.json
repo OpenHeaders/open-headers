@@ -55,7 +55,7 @@
   ],
   "web_accessible_resources": [
     {
-      "resources": ["*.html", "*.js", "*.css", "js/*.js", "js/**/*.js", "images/*"],
+      "resources": ["delay.html"],
       "matches": ["<all_urls>"]
     }
   ],

@@ -108,6 +108,7 @@ describe('startLifecycleHost — trailing HAR gc tick', () => {
       const onPortMessages: Array<(msg: unknown) => void> = [];
       const port = {
         name: `devtools-har-source:${TAB}`,
+        sender: { url: 'chrome-extension://test-id/panel.html' },
         onMessage: {
           addListener: (fn: (msg: unknown) => void) => {
             onPortMessages.push(fn);

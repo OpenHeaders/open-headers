@@ -3,20 +3,16 @@
  * `PageStreamHub.attach`. Sibling of `lifecycle-port-host.test.ts`.
  */
 
-import { describe, expect, it, vi } from 'vitest';
-
-import {
-  PAGE_PORT_PREFIX,
-  pagePortName,
-  parsePagePortName,
-} from '@openheaders/core/page-stream';
+import { PAGE_PORT_PREFIX, pagePortName, parsePagePortName } from '@openheaders/core/page-stream';
 import { PageStreamHub } from '@openheaders/oracle/page-stream-hub';
+import { describe, expect, it, vi } from 'vitest';
 
 import { acceptPagePort } from '@/background/page-port-host/accept-port';
 import { createPortSink } from '@/background/page-port-host/port-sink';
 
 interface FakePort {
   name: string;
+  sender: { url: string };
   posted: unknown[];
   disconnectListeners: Array<() => void>;
   onDisconnect: { addListener: (fn: () => void) => void };
@@ -27,6 +23,7 @@ interface FakePort {
 function fakePort(name: string, postImpl?: (msg: unknown) => void): FakePort {
   const port: FakePort = {
     name,
+    sender: { url: 'chrome-extension://test-id/panel.html' },
     posted: [],
     disconnectListeners: [],
     onDisconnect: {

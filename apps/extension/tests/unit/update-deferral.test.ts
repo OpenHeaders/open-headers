@@ -11,6 +11,7 @@ import { startUpdateDeferral, UPDATE_RELOAD_GRACE_MS, type UpdateDeferralHost } 
 
 interface FakePort {
   name: string;
+  sender: { url: string };
   disconnectListeners: Array<() => void>;
   onDisconnect: { addListener: (fn: () => void) => void };
   onMessage: { addListener: (fn: (msg: unknown) => void) => void };
@@ -20,6 +21,7 @@ interface FakePort {
 function fakePort(name: string): FakePort {
   const port: FakePort = {
     name,
+    sender: { url: 'chrome-extension://test-id/panel.html' },
     disconnectListeners: [],
     onDisconnect: { addListener: (fn) => port.disconnectListeners.push(fn) },
     onMessage: { addListener: () => {} },

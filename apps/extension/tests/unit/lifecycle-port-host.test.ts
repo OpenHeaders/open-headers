@@ -19,6 +19,7 @@ import { createPortSink } from '@/background/lifecycle-port-host/port-sink';
 
 interface FakePort {
   name: string;
+  sender: { url: string };
   posted: unknown[];
   disconnectListeners: Array<() => void>;
   messageListeners: Array<(msg: unknown) => void>;
@@ -33,6 +34,7 @@ interface FakePort {
 function fakePort(name: string, postImpl?: (msg: unknown) => void): FakePort {
   const port: FakePort = {
     name,
+    sender: { url: 'chrome-extension://test-id/panel.html' },
     posted: [],
     disconnectListeners: [],
     messageListeners: [],

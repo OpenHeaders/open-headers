@@ -31,6 +31,7 @@
 import { parseHarSourcePortName } from '@openheaders/core/types';
 import { logger } from '@utils/logger';
 import { getBrowserAPI } from '@/types/browser';
+import { isExtensionOriginPort } from './port-origin-gate';
 
 const PENDING_KEY = 'update.pendingReload';
 
@@ -101,6 +102,7 @@ export function startUpdateDeferral(options: UpdateDeferralOptions = {}): Update
 
   const connectListener = (port: chrome.runtime.Port): void => {
     if (parseHarSourcePortName(port.name) === null) return;
+    if (!isExtensionOriginPort(port, 'UpdateDeferral')) return;
     openSessions.add(port);
     cancelTimer();
     port.onDisconnect.addListener(() => {

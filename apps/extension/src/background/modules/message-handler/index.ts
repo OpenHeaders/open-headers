@@ -17,6 +17,7 @@
 
 import type { ScriptHostRequest } from '@openheaders/core/scripts';
 import { dispatchSyncRpc } from '@openheaders/oracle/rpc';
+import { runtime } from '@utils/browser-runtime';
 import { logger } from '@utils/logger';
 import type { MessageHandlerContext, SendResponse } from '@/types/browser';
 import { handleScriptHostRequest } from '../offscreen-host';
@@ -32,6 +33,45 @@ function createSafeResponse(sendResponse: SendResponse): SendResponse {
   };
 }
 
+/**
+ * The only RPC types a tab realm (content script / page context) may
+ * send. Everything else on the surface is reserved for the extension's
+ * own pages — popup, sidepanel, workbench, devtools, offscreen — whose
+ * sender URL carries the extension origin. The handlers behind these
+ * types already key on `sender.tab.id`; the gate formalizes which types
+ * a tab may reach at all. (`oh-delay-bypass` is routed before this
+ * dispatcher and is sender-scoped there.)
+ */
+const TAB_ORIGINATED_TYPES: ReadonlySet<string> = new Set([
+  'tabFire',
+  'tabResponseOverride',
+  'tabRequestOverride',
+  'tabMessageCapture',
+  'perfResourceEntries',
+  'getWorkspaceTabOrdinal',
+]);
+
+/** Lazy: `runtime.getURL` needs the extension context, absent in bare tests. */
+let cachedOwnOriginPrefix: string | null = null;
+function ownOriginPrefix(): string {
+  if (cachedOwnOriginPrefix === null) cachedOwnOriginPrefix = runtime.getURL('');
+  return cachedOwnOriginPrefix;
+}
+
+/**
+ * Sender-context gate: a message from outside the extension origin
+ * (any tab realm) may only use the tab-originated allowlist. Content
+ * scripts run in pages the extension can't vouch for — without this
+ * gate every RPC type would be reachable from any compromised page
+ * realm. Extension-origin senders (chrome-extension:// /
+ * moz-extension:// / safari-web-extension://) pass untouched.
+ */
+function senderMayDispatch(message: Record<string, unknown>, sender: chrome.runtime.MessageSender): boolean {
+  const senderUrl = sender.url ?? '';
+  if (senderUrl.startsWith(ownOriginPrefix())) return true;
+  return TAB_ORIGINATED_TYPES.has(message.type as string);
+}
+
 export function handleGeneralMessage(
   message: Record<string, unknown>,
   sender: chrome.runtime.MessageSender,
@@ -41,6 +81,11 @@ export function handleGeneralMessage(
   const respond = createSafeResponse(sendResponse);
 
   try {
+    if (!senderMayDispatch(message, sender)) {
+      logger.warn('MessageHandler', 'Dropped RPC from non-extension sender:', message.type, sender.url ?? '(no url)');
+      return false;
+    }
+
     // Script sandbox host RPC (from offscreen doc). Tagged with
     // `target: 'background'` so we route it here instead of letting the
     // offscreen doc's broker handle its own messages.

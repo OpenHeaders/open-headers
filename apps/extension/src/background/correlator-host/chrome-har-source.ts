@@ -28,6 +28,7 @@ import type {
 } from '@openheaders/oracle/correlator-heuristic';
 import { logger } from '@utils/logger';
 import { getBrowserAPI } from '@/types/browser';
+import { isExtensionOriginPort } from '../port-origin-gate';
 
 type HarListener = (event: HarEvent) => void;
 type PresenceListener = (event: HarPresenceEvent) => void;
@@ -72,6 +73,7 @@ export class ChromeHarEventSource implements HarEventSource, HarPresenceSource {
     const listener = (port: chrome.runtime.Port): void => {
       const tabId = parseHarSourcePortName(port.name);
       if (tabId === null) return;
+      if (!isExtensionOriginPort(port, 'LifecycleHost')) return;
       this.acceptPort(tabId, port);
     };
     onConnect.addListener(listener);
