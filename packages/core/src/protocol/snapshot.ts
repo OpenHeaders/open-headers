@@ -19,7 +19,10 @@
  *
  * What lives where:
  *
- * - **Per-workspace entities** (17 types) — included in the blob.
+ * - **Per-workspace entities** — every registered per-workspace kind
+ *   is included in the blob; a kind missing here silently vanishes on
+ *   snapshot-bootstrap AND on workspace duplicate, and the SYNCED
+ *   watermark then covers its mutations so no delta ever backfills it.
  * - **Global-scope `extensionWorkspace`** — NOT included; it's not
  *   per-workspace and ships through its own host-level seeding.
  * - **Sensitive entities** (`vault`, `oauth-bundle`) — per §12.3 are
@@ -46,6 +49,8 @@ import type {
   SyncEnvironmentPostState,
   SyncFilesPostState,
   SyncFolderPostState,
+  SyncGrpcRequestPostState,
+  SyncGrpcResponseExamplePostState,
   SyncLayoutStatePostState,
   SyncLiveFallbackPriorityPostState,
   SyncLiveValuePostState,
@@ -56,12 +61,17 @@ import type {
   SyncRequestCollectionPostState,
   SyncRequestFolderPostState,
   SyncRequestPostState,
+  SyncResponseExamplePostState,
   SyncRulePostState,
+  SyncScriptPackagePostState,
+  SyncSpecPostState,
   SyncTemplateCollectionPostState,
   SyncTemplateFolderPostState,
   SyncTemplatePostState,
   SyncVaultPostState,
+  SyncWebSocketRequestPostState,
   SyncWorkspaceVariablesPostState,
+  SyncWsResponseExamplePostState,
 } from './sync-bridge';
 
 /** Current snapshot envelope schema version. Bumps on breaking shape changes. */
@@ -86,6 +96,13 @@ export interface WorkspaceSnapshot {
   requests: SyncRequestPostState[];
   requestCollections: SyncRequestCollectionPostState[];
   requestFolders: SyncRequestFolderPostState[];
+  grpcRequests: SyncGrpcRequestPostState[];
+  websocketRequests: SyncWebSocketRequestPostState[];
+  responseExamples: SyncResponseExamplePostState[];
+  grpcResponseExamples: SyncGrpcResponseExamplePostState[];
+  wsResponseExamples: SyncWsResponseExamplePostState[];
+  scriptPackages: SyncScriptPackagePostState[];
+  specs: SyncSpecPostState[];
   templates: SyncTemplatePostState[];
   templateCollections: SyncTemplateCollectionPostState[];
   templateFolders: SyncTemplateFolderPostState[];
@@ -123,6 +140,16 @@ export const WorkspaceSnapshotSchema = v.object({
   requests: v.array(v.unknown()),
   requestCollections: v.array(v.unknown()),
   requestFolders: v.array(v.unknown()),
+  // Kinds added after the first snapshot cut — optional with an empty
+  // default so a blob from an older sender (which omits them) still
+  // parses; the receiver simply has nothing of those kinds to seed.
+  grpcRequests: v.optional(v.array(v.unknown()), []),
+  websocketRequests: v.optional(v.array(v.unknown()), []),
+  responseExamples: v.optional(v.array(v.unknown()), []),
+  grpcResponseExamples: v.optional(v.array(v.unknown()), []),
+  wsResponseExamples: v.optional(v.array(v.unknown()), []),
+  scriptPackages: v.optional(v.array(v.unknown()), []),
+  specs: v.optional(v.array(v.unknown()), []),
   templates: v.array(v.unknown()),
   templateCollections: v.array(v.unknown()),
   templateFolders: v.array(v.unknown()),

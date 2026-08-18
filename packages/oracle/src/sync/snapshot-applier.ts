@@ -38,6 +38,8 @@ import {
   type SyncEnvironmentPostState,
   type SyncFilesPostState,
   type SyncFolderPostState,
+  type SyncGrpcRequestPostState,
+  type SyncGrpcResponseExamplePostState,
   type SyncLayoutStatePostState,
   type SyncLiveFallbackPriorityPostState,
   type SyncLiveValuePostState,
@@ -48,12 +50,17 @@ import {
   type SyncRequestCollectionPostState,
   type SyncRequestFolderPostState,
   type SyncRequestPostState,
+  type SyncResponseExamplePostState,
   type SyncRulePostState,
+  type SyncScriptPackagePostState,
+  type SyncSpecPostState,
   type SyncTemplateCollectionPostState,
   type SyncTemplateFolderPostState,
   type SyncTemplatePostState,
   type SyncVaultPostState,
+  type SyncWebSocketRequestPostState,
   type SyncWorkspaceVariablesPostState,
+  type SyncWsResponseExamplePostState,
   type WorkspaceSnapshot,
 } from '@openheaders/core/protocol';
 import type { MutatorContext } from '@openheaders/core/sync';
@@ -61,6 +68,8 @@ import { seedCollection } from '@openheaders/core/sync-builders/projections/coll
 import { seedEnvironment } from '@openheaders/core/sync-builders/projections/env-projection';
 import { seedFiles } from '@openheaders/core/sync-builders/projections/files-projection';
 import { seedFolder } from '@openheaders/core/sync-builders/projections/folder-projection';
+import { seedGrpcRequest } from '@openheaders/core/sync-builders/projections/grpc-request-projection';
+import { seedGrpcResponseExample } from '@openheaders/core/sync-builders/projections/grpc-response-example-projection';
 import { seedLayoutState } from '@openheaders/core/sync-builders/projections/layout-state-projection';
 import { seedLiveFallbackPriority } from '@openheaders/core/sync-builders/projections/live-fallback-priority-projection';
 import { seedLiveValues } from '@openheaders/core/sync-builders/projections/live-value-projection';
@@ -71,12 +80,17 @@ import { seedPauseMarkers } from '@openheaders/core/sync-builders/projections/pa
 import { seedRequestCollection } from '@openheaders/core/sync-builders/projections/request-collection-projection';
 import { seedRequestFolder } from '@openheaders/core/sync-builders/projections/request-folder-projection';
 import { seedRequest } from '@openheaders/core/sync-builders/projections/request-projection';
+import { seedResponseExample } from '@openheaders/core/sync-builders/projections/response-example-projection';
 import { seedRule } from '@openheaders/core/sync-builders/projections/rule-projection';
+import { seedScriptPackage } from '@openheaders/core/sync-builders/projections/script-package-projection';
+import { seedSpec } from '@openheaders/core/sync-builders/projections/spec-projection';
 import { seedTemplateCollection } from '@openheaders/core/sync-builders/projections/template-collection-projection';
 import { seedTemplateFolder } from '@openheaders/core/sync-builders/projections/template-folder-projection';
 import { seedTemplate } from '@openheaders/core/sync-builders/projections/template-projection';
 import { seedVault } from '@openheaders/core/sync-builders/projections/vault-projection';
+import { seedWebSocketRequest } from '@openheaders/core/sync-builders/projections/websocket-request-projection';
 import { seedWorkspaceVariables } from '@openheaders/core/sync-builders/projections/workspace-variables-projection';
+import { seedWsResponseExample } from '@openheaders/core/sync-builders/projections/ws-response-example-projection';
 
 import { applySyncRequest } from './service';
 
@@ -151,6 +165,25 @@ export async function applyWorkspaceSnapshot(
     seedRequestFolder(p.folder, ctx),
   );
   await seedEach<SyncRequestPostState>('requests', snapshot.requests, (p, ctx) => seedRequest(p.request, ctx));
+  await seedEach<SyncGrpcRequestPostState>('grpcRequests', snapshot.grpcRequests, (p, ctx) =>
+    seedGrpcRequest(p.grpcRequest, ctx),
+  );
+  await seedEach<SyncWebSocketRequestPostState>('websocketRequests', snapshot.websocketRequests, (p, ctx) =>
+    seedWebSocketRequest(p.websocketRequest, ctx),
+  );
+  await seedEach<SyncSpecPostState>('specs', snapshot.specs, (p, ctx) => seedSpec(p.spec, ctx));
+  await seedEach<SyncScriptPackagePostState>('scriptPackages', snapshot.scriptPackages, (p, ctx) =>
+    seedScriptPackage(p.scriptPackage, ctx),
+  );
+  await seedEach<SyncResponseExamplePostState>('responseExamples', snapshot.responseExamples, (p, ctx) =>
+    seedResponseExample(p.responseExample, ctx),
+  );
+  await seedEach<SyncGrpcResponseExamplePostState>('grpcResponseExamples', snapshot.grpcResponseExamples, (p, ctx) =>
+    seedGrpcResponseExample(p.grpcResponseExample, ctx),
+  );
+  await seedEach<SyncWsResponseExamplePostState>('wsResponseExamples', snapshot.wsResponseExamples, (p, ctx) =>
+    seedWsResponseExample(p.wsResponseExample, ctx),
+  );
   await seedEach<SyncTemplateCollectionPostState>('templateCollections', snapshot.templateCollections, (p, ctx) =>
     seedTemplateCollection(p.collection, ctx),
   );

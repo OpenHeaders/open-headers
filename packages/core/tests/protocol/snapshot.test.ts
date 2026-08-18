@@ -30,6 +30,13 @@ function makeSnapshot(overrides: Partial<WorkspaceSnapshot> = {}): WorkspaceSnap
     requests: [],
     requestCollections: [],
     requestFolders: [],
+    grpcRequests: [],
+    websocketRequests: [],
+    responseExamples: [],
+    grpcResponseExamples: [],
+    wsResponseExamples: [],
+    scriptPackages: [],
+    specs: [],
     templates: [],
     templateCollections: [],
     templateFolders: [],
@@ -77,6 +84,25 @@ describe('WorkspaceSnapshotSchema', () => {
     const snap = makeSnapshot();
     delete (snap as Partial<WorkspaceSnapshot>).rules;
     expect(() => v.parse(WorkspaceSnapshotSchema, snap)).toThrow();
+  });
+
+  it('defaults the post-first-cut arrays to empty when an older sender omits them', () => {
+    const snap = makeSnapshot();
+    for (const key of [
+      'grpcRequests',
+      'websocketRequests',
+      'responseExamples',
+      'grpcResponseExamples',
+      'wsResponseExamples',
+      'scriptPackages',
+      'specs',
+    ] as const) {
+      delete (snap as Partial<WorkspaceSnapshot>)[key];
+    }
+    const parsed = v.parse(WorkspaceSnapshotSchema, snap);
+    expect(parsed.grpcRequests).toEqual([]);
+    expect(parsed.specs).toEqual([]);
+    expect(parsed.websocketRequests).toEqual([]);
   });
 
   it('validates an embedded takenAtHlc state vector', () => {
