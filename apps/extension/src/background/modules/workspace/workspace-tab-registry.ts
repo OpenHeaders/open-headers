@@ -70,6 +70,45 @@ export function ordinalForTab(tabId: number): number | null {
   return ordinalByTab.get(tabId) ?? null;
 }
 
+/**
+ * Idempotent on-demand registration for the ordinal RPC. A renderer can
+ * mount — and ask for its ordinal — before the fresh-profile SW init
+ * reaches `setupWorkspaceTabRegistry` (the settings/workspace hydration
+ * chain runs first and takes seconds), and the renderer caches that
+ * first answer for its lifetime. Assigning here makes the answer
+ * authoritative regardless of listener timing; the later listener /
+ * bootstrap passes are no-ops for an already-tracked tab.
+ *
+ * Reconciles first: a tab tracked on demand and closed inside that same
+ * pre-listener window never got its `onRemoved` — without the prune its
+ * ghost inflates the count forever and keeps the allocator off `1`.
+ */
+export async function ensureWorkspaceTabTracked(tabId: number, url: string | undefined | null): Promise<number | null> {
+  if (!isWorkspaceUrl(url)) return ordinalForTab(tabId);
+  await reconcileGhostTabs();
+  return assignOrdinal(tabId);
+}
+
+/** Drop tracked tabs that no longer exist. Steady state is covered by
+ *  `onRemoved`; this closes the pre-listener window (and any missed
+ *  close while the SW was asleep). Query failure keeps current state. */
+async function reconcileGhostTabs(): Promise<void> {
+  if (ordinalByTab.size === 0) return;
+  try {
+    const api = getBrowserAPI();
+    const tabs = await queryTabs(api, { url: `${getWorkspaceUrlPrefix()}*` });
+    const live = new Set<number>();
+    for (const tab of tabs) {
+      if (typeof tab.id === 'number') live.add(tab.id);
+    }
+    for (const tabId of [...ordinalByTab.keys()]) {
+      if (!live.has(tabId)) releaseOrdinal(tabId);
+    }
+  } catch (err) {
+    logger.info('WorkspaceTabRegistry', 'ghost reconcile failed:', (err as Error).message);
+  }
+}
+
 /** Count of live workspace tabs. */
 export function workspaceTabCount(): number {
   return ordinalByTab.size;
@@ -203,6 +242,15 @@ async function bootstrapFromExistingTabs(): Promise<void> {
     const api = getBrowserAPI();
     const workspaceUrl = getWorkspaceUrlPrefix();
     const tabs = await queryTabs(api, { url: `${workspaceUrl}*` });
+    // Full reconcile, not add-only: prune on-demand entries whose tabs
+    // closed before the listeners wired, then register the live set.
+    const live = new Set<number>();
+    for (const tab of tabs) {
+      if (typeof tab.id === 'number') live.add(tab.id);
+    }
+    for (const tabId of [...ordinalByTab.keys()]) {
+      if (!live.has(tabId)) releaseOrdinal(tabId);
+    }
     const sorted = [...tabs].sort((a, b) => tabIdOrMax(a) - tabIdOrMax(b));
     for (const tab of sorted) {
       if (typeof tab.id === 'number') assignOrdinal(tab.id);

@@ -3,7 +3,7 @@
 import { evictConsumedWorkspace } from '@openheaders/oracle/workspace/workspace-eviction';
 import { duplicateWorkspace as duplicateWorkspaceData } from '../../workspace/workspace-orchestrator';
 import { getActiveWorkspace, getActiveWorkspaceId, listWorkspaces } from '../../workspace/workspace-store';
-import { ordinalForTab, workspaceTabCount } from '../../workspace/workspace-tab-registry';
+import { ensureWorkspaceTabTracked, ordinalForTab, workspaceTabCount } from '../../workspace/workspace-tab-registry';
 import type { HandlerMap } from '../types';
 
 export const workspaceHandlers: HandlerMap = {
@@ -40,8 +40,18 @@ export const workspaceHandlers: HandlerMap = {
   },
 
   getWorkspaceTabOrdinal: ({ sender, respond }) => {
+    // Assign-on-demand (not just read): the asking renderer caches this
+    // first answer for its lifetime, and on fresh profiles the RPC can
+    // land before the slow init chain wires the tabs listeners — a
+    // read-only answer would freeze the tab on `ordinal: null` forever.
     const tabId = sender.tab?.id;
-    const ordinal = typeof tabId === 'number' ? ordinalForTab(tabId) : null;
-    respond({ ordinal, count: workspaceTabCount() });
+    if (typeof tabId !== 'number') {
+      respond({ ordinal: null, count: workspaceTabCount() });
+      return;
+    }
+    ensureWorkspaceTabTracked(tabId, sender.url)
+      .then((ordinal) => respond({ ordinal, count: workspaceTabCount() }))
+      .catch(() => respond({ ordinal: ordinalForTab(tabId), count: workspaceTabCount() }));
+    return true;
   },
 };

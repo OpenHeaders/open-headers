@@ -392,6 +392,95 @@ describe('setupWorkspaceTabRegistry — bootstrap-on-wake', () => {
   });
 });
 
+describe('ensureWorkspaceTabTracked — on-demand registration', () => {
+  it('assigns an ordinal before setup wires any listener (fresh-profile init window)', async () => {
+    const { queryMock } = installChromeWithListenerCapture([makeTab({ id: 10 })]);
+    queryMock.mockResolvedValue([makeTab({ id: 10 })]);
+    const { ensureWorkspaceTabTracked, workspaceTabCount } = await loadRegistry();
+
+    const ordinal = await ensureWorkspaceTabTracked(10, 'chrome-extension://test-id/workbench.html#/');
+
+    expect(ordinal).toBe(1);
+    expect(workspaceTabCount()).toBe(1);
+  });
+
+  it('does NOT assign for a non-workbench sender url', async () => {
+    installChromeWithListenerCapture();
+    const { ensureWorkspaceTabTracked, workspaceTabCount } = await loadRegistry();
+
+    const ordinal = await ensureWorkspaceTabTracked(10, 'https://openheaders.io/docs');
+
+    expect(ordinal).toBeNull();
+    expect(workspaceTabCount()).toBe(0);
+  });
+
+  it('is idempotent — a second ask returns the same ordinal', async () => {
+    const { queryMock } = installChromeWithListenerCapture();
+    queryMock.mockResolvedValue([makeTab({ id: 10 })]);
+    const { ensureWorkspaceTabTracked } = await loadRegistry();
+
+    const url = 'chrome-extension://test-id/workbench.html';
+    expect(await ensureWorkspaceTabTracked(10, url)).toBe(1);
+    expect(await ensureWorkspaceTabTracked(10, url)).toBe(1);
+  });
+
+  it('prunes ghosts (closed pre-listener) before assigning, resetting the allocator', async () => {
+    const { queryMock } = installChromeWithListenerCapture();
+    const { ensureWorkspaceTabTracked, ordinalForTab, workspaceTabCount } = await loadRegistry();
+    const url = 'chrome-extension://test-id/workbench.html';
+
+    // Tab 10 registers on demand, then closes inside the pre-listener
+    // window — no onRemoved ever fires for it.
+    queryMock.mockResolvedValue([makeTab({ id: 10 })]);
+    expect(await ensureWorkspaceTabTracked(10, url)).toBe(1);
+
+    // Next ask: only tab 30 is alive — the ghost must not hold #1.
+    queryMock.mockResolvedValue([makeTab({ id: 30 })]);
+    expect(await ensureWorkspaceTabTracked(30, url)).toBe(1);
+    expect(ordinalForTab(10)).toBeNull();
+    expect(workspaceTabCount()).toBe(1);
+  });
+
+  it('keeps live on-demand entries while pruning only the ghosts', async () => {
+    const { queryMock } = installChromeWithListenerCapture();
+    const { ensureWorkspaceTabTracked, ordinalForTab } = await loadRegistry();
+    const url = 'chrome-extension://test-id/workbench.html';
+
+    queryMock.mockResolvedValue([makeTab({ id: 10 })]);
+    expect(await ensureWorkspaceTabTracked(10, url)).toBe(1);
+    queryMock.mockResolvedValue([makeTab({ id: 10 }), makeTab({ id: 20 })]);
+    expect(await ensureWorkspaceTabTracked(20, url)).toBe(2);
+
+    // 10 closes unseen; 30 asks — 20 keeps #2, 30 gets #3.
+    queryMock.mockResolvedValue([makeTab({ id: 20 }), makeTab({ id: 30 })]);
+    expect(await ensureWorkspaceTabTracked(30, url)).toBe(3);
+    expect(ordinalForTab(10)).toBeNull();
+    expect(ordinalForTab(20)).toBe(2);
+  });
+});
+
+describe('setupWorkspaceTabRegistry — bootstrap reconcile', () => {
+  it('releases on-demand entries whose tabs closed before setup', async () => {
+    const { queryMock } = installChromeWithListenerCapture();
+    const { ensureWorkspaceTabTracked, setupWorkspaceTabRegistry, ordinalForTab, workspaceTabCount } =
+      await loadRegistry();
+    const url = 'chrome-extension://test-id/workbench.html';
+
+    queryMock.mockResolvedValue([makeTab({ id: 10 }), makeTab({ id: 20 })]);
+    await ensureWorkspaceTabTracked(10, url);
+    await ensureWorkspaceTabTracked(20, url);
+
+    // By setup time only 20 survives — bootstrap prunes 10, keeps 20.
+    queryMock.mockResolvedValue([makeTab({ id: 20 })]);
+    setupWorkspaceTabRegistry();
+    await flushBootstrap();
+
+    expect(ordinalForTab(10)).toBeNull();
+    expect(ordinalForTab(20)).toBe(2);
+    expect(workspaceTabCount()).toBe(1);
+  });
+});
+
 describe('setupWorkspaceTabRegistry — observability', () => {
   it('records a structured entry on every assignment', async () => {
     const { listeners } = installChromeWithListenerCapture();
