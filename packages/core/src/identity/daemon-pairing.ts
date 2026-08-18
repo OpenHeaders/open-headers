@@ -140,16 +140,23 @@ export interface DaemonPairingService {
   dispose(): void;
 }
 
-function defaultGenerateCode(length: number): string {
+/**
+ * Exported for tests. Rejection-samples so every digit is uniform:
+ * a bare `byte % 10` favors 0–5 (26/256) over 6–9 (25/256); skipping
+ * bytes ≥ 250 (the largest multiple of 10 below 256) removes the bias.
+ */
+export function defaultGenerateCode(length: number): string {
   // Cryptographic randomness so codes can't be guessed from a clock
   // value or a per-process counter. 6 digits = 20 bits of entropy; the
   // TTL plus the failed-lookup limiter (see the service's module doc) are
   // what bound the brute-force surface, not the entropy alone.
   const bytes = new Uint8Array(length);
-  crypto.getRandomValues(bytes);
   let out = '';
-  for (let i = 0; i < length; i++) {
-    out += CODE_DIGITS[bytes[i] % 10];
+  while (out.length < length) {
+    crypto.getRandomValues(bytes);
+    for (let i = 0; i < bytes.length && out.length < length; i++) {
+      if (bytes[i] < 250) out += CODE_DIGITS[bytes[i] % 10];
+    }
   }
   return out;
 }

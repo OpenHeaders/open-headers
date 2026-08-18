@@ -9,8 +9,8 @@
  * actually lands in `OH.daemonAuthTokens` (no fork of the mint path).
  */
 
-import { beforeEach, describe, expect, it } from 'vitest';
-import { createDaemonPairingService, listDaemonAuthTokens } from '../../src/identity';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { createDaemonPairingService, defaultGenerateCode, listDaemonAuthTokens } from '../../src/identity';
 import { setHostStorage } from '../../src/storage/host-storage';
 import { createHostStorageFake } from './_host-storage-fake';
 
@@ -147,6 +147,35 @@ describe('daemon pairing service', () => {
     const svc = createDaemonPairingService();
     svc.dispose();
     expect(() => svc.startPair()).toThrow();
+  });
+
+  describe('default code generator', () => {
+    afterEach(() => {
+      vi.restoreAllMocks();
+    });
+
+    it('produces digit strings of the requested length', () => {
+      expect(defaultGenerateCode(6)).toMatch(/^\d{6}$/);
+      expect(defaultGenerateCode(8)).toMatch(/^\d{8}$/);
+    });
+
+    it('rejection-samples bytes ≥ 250 so no digit is over-represented', () => {
+      // Two deterministic fills: the first mixes rejected bytes (250,
+      // 251, 255 — the values that would bias `% 10` toward 0–5) with
+      // accepted ones; the second supplies the remainder.
+      const fills = [
+        [250, 251, 255, 0, 9, 10],
+        [23, 249, 100, 250, 7, 77],
+      ];
+      let call = 0;
+      vi.spyOn(globalThis.crypto, 'getRandomValues').mockImplementation((array) => {
+        const bytes = array as Uint8Array;
+        bytes.set(fills[call++] ?? []);
+        return array;
+      });
+      // Accepted in order: 0→0, 9→9, 10→0, then 23→3, 249→9, 100→0.
+      expect(defaultGenerateCode(6)).toBe('090390');
+    });
   });
 
   describe('brute-force lockout', () => {

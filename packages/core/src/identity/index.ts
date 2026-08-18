@@ -46,6 +46,7 @@ export {
   createDaemonPairingService,
   type DaemonPairingService,
   type DaemonPairingServiceOptions,
+  defaultGenerateCode,
   type PendingPair,
   type PendingPairStatus,
   type StartPairInput,

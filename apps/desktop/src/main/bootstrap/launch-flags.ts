@@ -1,8 +1,8 @@
 /**
  * Hide-on-launch signals. Two sources, equivalent intent:
  *
- *   1. `--hidden` argv flag — passed by `auto-launch` (and other
- *      caller-controlled launches) so the app boots silently into the
+ *   1. `--hidden` argv flag — passed by caller-controlled launches
+ *      (e.g. a login-item entry) so the app boots silently into the
  *      tray. Window is created but not shown; first reveal is a
  *      tray click / `app.on('activate')`.
  *
