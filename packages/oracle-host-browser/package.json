@@ -33,7 +33,7 @@
   "devDependencies": {
     "@types/ws": "^8.18.1",
     "typescript": "^5.9.3",
-    "vitest": "^4.1.0",
-    "ws": "^8.16.0"
+    "vitest": "^4.1.10",
+    "ws": "^8.21.3"
   }
 }

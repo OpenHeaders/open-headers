@@ -36,7 +36,7 @@
     "dist:win:unsigned:dir": "pnpm run predist && cross-env WIN_CSC_LINK='' electron-builder --win dir --publish never",
     "dist:win:frompacked": "cross-env WIN_CSC_LINK='' electron-builder --win --prepackaged dist/win-unpacked --publish never",
     "dist:linux": "pnpm run predist && electron-builder --linux --x64 --arm64 --publish never",
-  "dist:linux:beta": "pnpm run predist && electron-builder --linux AppImage deb --x64 -c.compression=store --publish never",
+    "dist:linux:beta": "pnpm run predist && electron-builder --linux AppImage deb --x64 -c.compression=store --publish never",
     "dist:linux:rpm:x64": "pnpm run predist && electron-builder --linux --x64 --config.linux.target=rpm --publish never",
     "dist:linux:rpm:arm64": "pnpm run predist && electron-builder --linux --arm64 --config.linux.target=rpm --publish never",
     "build:dmg-bg": "node scripts/build/build-dmg-background.js",
@@ -305,7 +305,6 @@
     "@dnd-kit/modifiers": "^9.0.0",
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
-    "adm-zip": "^0.5.16",
     "allotment": "^1.20.5",
     "antd": "^6.3.5",
     "auto-launch": "^5.0.6",
@@ -315,7 +314,7 @@
     "dayjs": "^1.11.20",
     "electron-is-dev": "^2.0.0",
     "electron-log": "^5.4.0",
-    "electron-updater": "^6.6.2",
+    "electron-updater": "^6.8.9",
     "glob": "^13.0.6",
     "http-proxy": "^1.18.1",
     "node-abi": "^4.26.0",
@@ -325,9 +324,8 @@
     "react-window": "^1.8.11",
     "react-window-infinite-loader": "^1.0.10",
     "scheduler": "^0.27.0",
-    "tar": "^7.5.4",
-    "valibot": "^1.3.1",
-    "ws": "^8.16.0",
+    "valibot": "^1.4.2",
+    "ws": "^8.21.3",
     "yaml": "^2.8.3"
   },
   "optionalDependencies": {
@@ -344,7 +342,6 @@
     "@openheaders/ui": "workspace:*",
     "@playwright/test": "^1.58.2",
     "@testing-library/react": "^16.3.2",
-    "@types/adm-zip": "^0.5.7",
     "@types/auto-launch": "^5.0.5",
     "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^20.19.8",
@@ -354,8 +351,9 @@
     "@types/ws": "^8.18.1",
     "bufferutil": "^4.0.8",
     "cross-env": "^7.0.3",
-    "electron": "^39.2.7",
-    "electron-builder": "^25.1.8",
+    "electron": "^39.8.10",
+    "electron-builder": "^26.15.7",
+    "electron-builder-squirrel-windows": "^26.15.7",
     "electron-playwright-helpers": "^2.1.0",
     "electron-vite": "^5.0.0",
     "jsdom": "^29.0.0",
@@ -363,12 +361,12 @@
     "rollup-plugin-copy": "^3.5.0",
     "typescript": "^5.9.3",
     "utf-8-validate": "^6.0.3",
-    "vite": "^7.3.1",
-    "vitest": "^4.1.0"
+    "vite": "^7.3.6",
+    "vitest": "^4.1.10"
   },
   "overrides": {
     "node-abi": "^4.26.0",
-    "lodash": "^4.17.23",
-    "tar": "^7.5.4"
+    "lodash": "^4.18.0",
+    "tar": "^7.5.21"
   }
 }

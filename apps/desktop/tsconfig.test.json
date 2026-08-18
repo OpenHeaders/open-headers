@@ -5,5 +5,8 @@
     "src/**/*.tsx",
     "tests/**/*.ts",
     "tests/**/*.tsx"
+  ],
+  "exclude": [
+    "tests/e2e/**"
   ]
 }
