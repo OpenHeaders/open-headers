@@ -180,15 +180,6 @@ export default defineConfig({
       externalizeDepsPlugin({
         exclude: ['@openheaders/core'],
       }),
-      copy({
-        targets: [
-          {
-            src: 'build/linux/install-open-headers.sh',
-            dest: 'dist-webpack/main',
-          },
-        ],
-        hook: 'writeBundle',
-      }),
     ],
     build: {
       outDir: 'dist-webpack/main',

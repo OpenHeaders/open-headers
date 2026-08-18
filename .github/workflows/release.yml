@@ -591,7 +591,6 @@ jobs:
             apps/desktop/dist/*.deb
             apps/desktop/dist/*.rpm
             apps/desktop/dist/*.yml
-            apps/desktop/dist/install-open-headers.sh
 
   # Standalone `oh` and `ohd` (win32 is not a daemon target) ship on
   # STABLE tags only — betas carry no standalone binaries: the daemon
@@ -924,7 +923,6 @@ jobs:
             cp dist/desktop-ubuntu-latest/*.AppImage processed_files/ 2>/dev/null || true
             cp dist/desktop-ubuntu-latest/*.deb processed_files/ 2>/dev/null || true
             find dist/desktop-ubuntu-latest -name "*.rpm" -exec cp {} processed_files/ \; 2>/dev/null || true
-            cp dist/desktop-ubuntu-latest/install-open-headers.sh processed_files/ 2>/dev/null || true
             cp dist/desktop-ubuntu-latest/latest-linux.yml processed_files/ 2>/dev/null || true
             cp dist/desktop-ubuntu-latest/latest-linux-arm64.yml processed_files/ 2>/dev/null || true
             cp dist/desktop-ubuntu-latest/beta-linux.yml processed_files/ 2>/dev/null || true
@@ -1091,12 +1089,12 @@ jobs:
             if [ "$IS_PRERELEASE" = "true" ]; then
               echo "| ${I_MAC} macOS | [Apple Silicon (DMG)](${DL}/OpenHeaders-${VERSION}-mac-arm64.dmg) |"
               echo "| ${I_WIN} Windows | [Installer (EXE)](${DL}/OpenHeaders-${VERSION}-Setup.exe) |"
-              echo "| ${I_LINUX} Linux | [AppImage x64](${DL}/OpenHeaders-${VERSION}-x86_64.AppImage) · [install script](${DL}/install-open-headers.sh) |"
+              echo "| ${I_LINUX} Linux | [AppImage x64](${DL}/OpenHeaders-${VERSION}-x86_64.AppImage) |"
               echo "| ${I_DEBIAN} Debian / Ubuntu | [x64 (deb)](${DL}/open-headers_${VERSION}_amd64.deb) |"
             else
               echo "| ${I_MAC} macOS | [Apple Silicon (DMG)](${DL}/OpenHeaders-${VERSION}-mac-arm64.dmg) · [Intel (DMG)](${DL}/OpenHeaders-${VERSION}-mac-x64.dmg) |"
               echo "| ${I_WIN} Windows | [Installer (EXE)](${DL}/OpenHeaders-${VERSION}-Setup.exe) |"
-              echo "| ${I_LINUX} Linux | [AppImage x64](${DL}/OpenHeaders-${VERSION}-x86_64.AppImage) · [AppImage ARM64](${DL}/OpenHeaders-${VERSION}-arm64.AppImage) · [install script](${DL}/install-open-headers.sh) |"
+              echo "| ${I_LINUX} Linux | [AppImage x64](${DL}/OpenHeaders-${VERSION}-x86_64.AppImage) · [AppImage ARM64](${DL}/OpenHeaders-${VERSION}-arm64.AppImage) |"
               echo "| ${I_DEBIAN} Debian / Ubuntu | [x64 (deb)](${DL}/open-headers_${VERSION}_amd64.deb) · [ARM64 (deb)](${DL}/open-headers_${VERSION}_arm64.deb) |"
               echo "| ${I_FEDORA} Fedora / RHEL | [x64 (rpm)](${DL}/open-headers-${VERSION}.x86_64.rpm) · [ARM64 (rpm)](${DL}/open-headers-${VERSION}.aarch64.rpm) |"
             fi
