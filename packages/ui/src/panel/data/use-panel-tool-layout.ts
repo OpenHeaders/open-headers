@@ -50,9 +50,10 @@ const PANEL_FRESH_DOCK_LAYOUT: ToolLayoutState<PanelToolWindowId> = normalizeDoc
       'right-top': { windows: [], active: null },
       'right-bottom': { windows: [], active: null },
       'bottom-left': { windows: [], active: null },
-      // Request Rules opens with the panel so a selected request's
-      // matched/future rules are visible without a rail click.
-      'bottom-right': { windows: ['matched-rules'], active: 'matched-rules' },
+      // Request Rules stays docked but collapsed on a fresh profile so
+      // the request inspect pane gets the full column height; the rail
+      // icon (and the footprint chip) opens it on demand.
+      'bottom-right': { windows: ['matched-rules'], active: null },
     } satisfies Record<string, DockState<PanelToolWindowId>>,
   },
   PANEL_TOOL_WINDOWS,
