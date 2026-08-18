@@ -33,10 +33,18 @@ export function registerExtensionTrafficSource(subscribe: ExtensionTrafficSubscr
  *  belong to this fetch. */
 const JOIN_EPSILON_MS = 100;
 
-/** One short grace wait for webRequest event delivery — the terminal
- *  event has fired on the wall clock by the time the body read
- *  completes, but listener dispatch is a separate task. */
+/** Grace slice for webRequest event delivery — the terminal event has
+ *  fired on the wall clock by the time the body read completes, but
+ *  listener dispatch is a separate task. */
 const DELIVERY_GRACE_MS = 50;
+
+/** Total delivery budget. Near-instant failures (loopback connection
+ *  refused settles in ~2ms) leave dispatch trailing the fetch promise
+ *  by several tasks on a loaded machine — one 50ms slice measurably
+ *  misses the error event there, and with it the recovered net code.
+ *  Only failure/absent-chain paths pay this wait, and only while the
+ *  chain is still missing its terminal event. */
+const DELIVERY_BUDGET_MS = 400;
 
 export interface WireJoinMatch {
   method: string;
@@ -166,7 +174,8 @@ export function startWireCapture(options: WireCaptureOptions): WireCapture {
     if (unsubscribe === null) return undefined;
     await new Promise((resolve) => setTimeout(resolve, 0));
     let chain = pickWireChain(chains, match);
-    if (chain === undefined || !hasTerminal(chain)) {
+    const deadline = Date.now() + DELIVERY_BUDGET_MS;
+    while ((chain === undefined || !hasTerminal(chain)) && Date.now() < deadline) {
       await new Promise((resolve) => setTimeout(resolve, DELIVERY_GRACE_MS));
       chain = pickWireChain(chains, match);
     }
