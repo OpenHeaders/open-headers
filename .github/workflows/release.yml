@@ -1185,7 +1185,7 @@ jobs:
               echo "irm https://updates.openheaders.io/install.ps1 | iex"
               echo '```'
               echo ""
-              echo "No Node.js required (\`npm install -g @openheaders/cli\` is the Node channel). macOS binaries are signed and notarized; the Windows \`oh\` is unsigned — SmartScreen warns on first run (More info → Run anyway). Script copies on this page: [install-oh.sh](${DL}/install-oh.sh) · [install-oh.ps1](${DL}/install-oh.ps1)"
+              echo "No Node.js required (\`npm install -g @openheaders/cli\` is the Node channel). macOS binaries are signed and notarized; the Windows \`oh\` is Authenticode-signed. Script copies on this page: [install-oh.sh](${DL}/install-oh.sh) · [install-oh.ps1](${DL}/install-oh.ps1)"
               echo ""
               echo "</details>"
             } >> release_body.md

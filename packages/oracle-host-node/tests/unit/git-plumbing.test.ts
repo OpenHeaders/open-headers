@@ -1105,6 +1105,14 @@ describe('commit file diff (Phase 7 slice 3)', () => {
     expect(isSafeTreePath('rules/')).toBe(false);
   });
 
+  it('isSafeTreePath rejects control characters', () => {
+    expect(isSafeTreePath('foo\n!*.secret.yaml')).toBe(false);
+    expect(isSafeTreePath('foo\rbar.yaml')).toBe(false);
+    expect(isSafeTreePath('foo\tbar.yaml')).toBe(false);
+    expect(isSafeTreePath('foo\0bar.yaml')).toBe(false);
+    expect(isSafeTreePath('foo\x7fbar.yaml')).toBe(false);
+  });
+
   it('answers old/new blob contents for a modified file', async () => {
     await initialCommit();
     await write('workspace.yaml', 'schemaVersion: 5\nuid: wsaaaaaa\nname: Probe Edited\n');

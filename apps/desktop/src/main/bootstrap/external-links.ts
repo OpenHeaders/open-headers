@@ -17,9 +17,12 @@
  * installed. http(s) only — no mailto for a browser-targeted open.
  */
 
-import { spawn } from 'node:child_process';
+import { execFile, spawn } from 'node:child_process';
+import { promisify } from 'node:util';
 import { ipcMain, shell } from 'electron';
 import { createLogger } from './logger';
+
+const run = promisify(execFile);
 
 const CHANNEL = 'oh:open-external';
 const BROWSER_CHANNEL = 'oh:open-in-browser';
@@ -37,13 +40,15 @@ export type InstallTargetBrowser = 'chrome' | 'edge' | 'firefox';
 
 /**
  * Per-platform launch vocabulary. macOS resolves by app bundle name
- * (`open -a`); Windows resolves through `start`'s App Paths lookup;
- * Linux tries the distro binary names in order.
+ * (`open -a`); Windows resolves the executable through the App Paths
+ * registry keys (the same lookup `start` performs) and spawns it
+ * directly — no shell layer; Linux tries the distro binary names in
+ * order.
  */
 const BROWSER_LAUNCH: Record<InstallTargetBrowser, { mac: string; win: string; linux: string[] }> = {
-  chrome: { mac: 'Google Chrome', win: 'chrome', linux: ['google-chrome', 'google-chrome-stable', 'chromium'] },
-  edge: { mac: 'Microsoft Edge', win: 'msedge', linux: ['microsoft-edge', 'microsoft-edge-stable'] },
-  firefox: { mac: 'Firefox', win: 'firefox', linux: ['firefox'] },
+  chrome: { mac: 'Google Chrome', win: 'chrome.exe', linux: ['google-chrome', 'google-chrome-stable', 'chromium'] },
+  edge: { mac: 'Microsoft Edge', win: 'msedge.exe', linux: ['microsoft-edge', 'microsoft-edge-stable'] },
+  firefox: { mac: 'Firefox', win: 'firefox.exe', linux: ['firefox'] },
 };
 
 function isInstallTargetBrowser(value: unknown): value is InstallTargetBrowser {
@@ -60,6 +65,50 @@ function tryLaunch(command: string, args: string[]): Promise<boolean> {
   });
 }
 
+/**
+ * Spawn a browser binary directly; resolves once the process launches.
+ * Unlike {@link tryLaunch} it never waits for exit — a fresh browser
+ * instance stays alive for the whole session.
+ */
+function tryLaunchDetached(command: string, args: string[]): Promise<boolean> {
+  return new Promise((resolve) => {
+    const child = spawn(command, args, { stdio: 'ignore', detached: true });
+    child.once('error', () => resolve(false));
+    child.once('spawn', () => resolve(true));
+    child.unref();
+  });
+}
+
+/**
+ * Parse `reg query <key> /ve` output: the default value's data. Matched
+ * on the REG_* type token, not the "(Default)" label — that label is
+ * localized. EXPAND_SZ values get their `%VAR%` references expanded.
+ */
+export function parseAppPathsDefault(text: string, env: Record<string, string | undefined>): string | undefined {
+  const match = text.match(/REG_(SZ|EXPAND_SZ)\s+(.+)$/m);
+  if (match === null) return undefined;
+  let value = match[2].trim().replace(/^"(.*)"$/, '$1');
+  if (match[1] === 'EXPAND_SZ') {
+    value = value.replace(/%([^%]+)%/g, (whole, name: string) => env[name] ?? whole);
+  }
+  return value === '' ? undefined : value;
+}
+
+/** Resolve a browser executable via the App Paths registry keys (HKCU first, like `start`). */
+async function resolveWindowsBrowserExe(exeName: string): Promise<string | undefined> {
+  for (const hive of ['HKCU', 'HKLM']) {
+    const key = `${hive}\\Software\\Microsoft\\Windows\\CurrentVersion\\App Paths\\${exeName}`;
+    try {
+      const { stdout } = await run('reg', ['query', key, '/ve']);
+      const exe = parseAppPathsDefault(stdout, process.env);
+      if (exe !== undefined) return exe;
+    } catch {
+      // Key absent in this hive — reg exits non-zero.
+    }
+  }
+  return undefined;
+}
+
 /** Open `url` in the named browser; false when the browser isn't launchable. */
 async function openInNamedBrowser(browser: InstallTargetBrowser, url: string): Promise<boolean> {
   const launch = BROWSER_LAUNCH[browser];
@@ -67,11 +116,12 @@ async function openInNamedBrowser(browser: InstallTargetBrowser, url: string): P
     return tryLaunch('open', ['-a', launch.mac, url]);
   }
   if (process.platform === 'win32') {
-    // `start` resolves registered App Paths; an unknown target exits non-zero.
-    return tryLaunch('cmd.exe', ['/c', 'start', '', launch.win, url]);
+    const exe = await resolveWindowsBrowserExe(launch.win);
+    if (exe === undefined) return false;
+    return tryLaunchDetached(exe, [url]);
   }
   for (const bin of launch.linux) {
-    if (await tryLaunch(bin, [url])) return true;
+    if (await tryLaunchDetached(bin, [url])) return true;
   }
   return false;
 }

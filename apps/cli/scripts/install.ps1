@@ -61,6 +61,5 @@ if (($userPath -split ';') -notcontains $installDir) {
 }
 
 Write-Host ''
-Write-Host 'Note: oh.exe is not code-signed yet; SmartScreen may warn on first run (More info -> Run anyway).'
 Write-Host "Note: PowerShell aliases 'oh' to its Out-Host cmdlet - run 'oh.exe' there, or add 'Remove-Item Alias:oh' to your PowerShell profile. Other shells (cmd) can use plain 'oh'."
 & (Join-Path $installDir 'oh.exe') --version

@@ -1031,11 +1031,17 @@ export function isCommitSha(sha: string): boolean {
 /**
  * Strict tree-path gate for caller-supplied diff targets: a plain
  * repo-relative file path — no option injection (leading `-`), no
- * absolute paths, no `.`/`..` segments, no trailing slash.
+ * absolute paths, no `.`/`..` segments, no trailing slash, no control
+ * characters (a newline would otherwise ride into `.gitignore` content
+ * writes via `addIgnoreEntry`, and into log lines).
  */
 export function isSafeTreePath(filePath: string): boolean {
   if (filePath.length === 0 || filePath.length > 4096) return false;
-  if (filePath.includes('\0') || filePath.startsWith('-') || filePath.startsWith('/') || filePath.endsWith('/')) {
+  for (let i = 0; i < filePath.length; i++) {
+    const code = filePath.charCodeAt(i);
+    if (code < 0x20 || code === 0x7f) return false;
+  }
+  if (filePath.startsWith('-') || filePath.startsWith('/') || filePath.endsWith('/')) {
     return false;
   }
   return !filePath.split('/').some((segment) => segment === '' || segment === '.' || segment === '..');

@@ -105,6 +105,21 @@ function embedH3Helper(context) {
     console.log(`✓ HTTP/3 helper embedded (${osName}-${archName})`);
 }
 
+// Lanes whose Setup.exe ships unsigned (betas, local unsigned builds)
+// set OH_WIN_SETUP_UNSIGNED=1: the packed app-update.yml must not carry
+// publisherName, or electron-updater would refuse that lane's own
+// unsigned downloads. The signed stable lane keeps the field — its
+// Setup.exe gets Authenticode-signed after packaging.
+function stripUnsignedUpdatePublisher(appOutDir) {
+    if (process.env.OH_WIN_SETUP_UNSIGNED !== '1') return;
+    const updateYml = path.join(appOutDir, 'resources', 'app-update.yml');
+    if (!fs.existsSync(updateYml)) return;
+    const lines = fs.readFileSync(updateYml, 'utf8').split('\n');
+    const kept = lines.filter((line) => !line.startsWith('#') && !line.startsWith('publisherName:'));
+    fs.writeFileSync(updateYml, kept.join('\n'));
+    console.log('✓ publisherName stripped from app-update.yml (unsigned Setup.exe lane)');
+}
+
 exports.default = async function(context) {
     const { appOutDir, electronPlatformName } = context;
 
@@ -117,6 +132,7 @@ exports.default = async function(context) {
 
     // Windows builds — verify the native foreground module was unpacked
     if (electronPlatformName === 'win32') {
+        stripUnsignedUpdatePublisher(appOutDir);
         const nativeModulePath = path.join(appOutDir, 'resources', 'app.asar.unpacked', 'node_modules', '@openheaders', 'windows-foreground');
         if (fs.existsSync(nativeModulePath)) {
             console.log('✓ @openheaders/windows-foreground module found in unpacked resources');

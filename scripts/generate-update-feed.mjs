@@ -91,10 +91,17 @@ mkdirSync(path.join(outputDir, 'versions'), { recursive: true });
 copyFileSync(versionsPath, path.join(outputDir, 'versions', `${channel}.json`));
 
 // CLI install scripts ride the stable feed root — the printed
-// one-liners fetch them from updates.openheaders.io directly.
+// one-liners fetch them from updates.openheaders.io directly. The ps1
+// prefers the release-artifact copy (the windows leg's, Authenticode-
+// signed on stable) over the unsigned checkout copy, so saved-file runs
+// under AllSigned execution policies keep working from the feed too.
 if (channel === 'stable') {
   copyFileSync(path.join(repoRoot, 'apps/cli/scripts/install.sh'), path.join(outputDir, 'install.sh'));
-  copyFileSync(path.join(repoRoot, 'apps/cli/scripts/install.ps1'), path.join(outputDir, 'install.ps1'));
+  const signedPs1 = path.join(inputDir, 'install-oh.ps1');
+  copyFileSync(
+    existsSync(signedPs1) ? signedPs1 : path.join(repoRoot, 'apps/cli/scripts/install.ps1'),
+    path.join(outputDir, 'install.ps1'),
+  );
 }
 
 console.error(`generate-update-feed: staged ${channel} feed for ${tag} in ${outputDir}`);

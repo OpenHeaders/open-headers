@@ -75,6 +75,17 @@ describe('generate-update-feed', () => {
     expect(existsSync(path.join(out, 'install.ps1'))).toBe(true);
   });
 
+  it('prefers the signed install-oh.ps1 release artifact for the feed copy', () => {
+    const { out, run } = stage('v2026.7.2', {
+      'latest-mac.yml': LATEST_MAC_YML,
+      'versions.json': VERSIONS_JSON,
+      'install-oh.ps1': '# signed artifact copy',
+    });
+    run();
+
+    expect(readFileSync(path.join(out, 'install.ps1'), 'utf8')).toBe('# signed artifact copy');
+  });
+
   it('a beta tag never touches stable paths', () => {
     const { out, run } = stage('v2026.8.0-beta.1', {
       'latest-mac.yml': LATEST_MAC_YML,

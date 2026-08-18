@@ -50,7 +50,13 @@ export const sessionPartitionMock = {
     return Promise.resolve(this.resolveProxyAnswer);
   },
 };
-export const session = { fromPartition: (_name: string) => sessionPartitionMock };
+export const session = {
+  fromPartition: (_name: string) => sessionPartitionMock,
+  defaultSession: {
+    setPermissionRequestHandler: () => {},
+    setPermissionCheckHandler: () => {},
+  },
+};
 
 export default {
   app,

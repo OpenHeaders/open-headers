@@ -44,6 +44,7 @@ import { createLogger, installMainLogger } from './main/bootstrap/logger';
 import { installProcessDiagnostics } from './main/bootstrap/process-diagnostics';
 import { drainPendingProtocolUrls, installProtocolHandler, registerAsProtocolHandler } from './main/bootstrap/protocol';
 import { installRpcQueue } from './main/bootstrap/rpc-queue';
+import { installPermissionPolicy } from './main/bootstrap/security';
 import { enforceSingleInstanceLock } from './main/bootstrap/single-instance';
 import { installStartupDataBridge } from './main/bootstrap/startup-data-bridge';
 import { installTray } from './main/bootstrap/tray';
@@ -136,6 +137,8 @@ function bootstrapDesktopApp(): void {
     // A quit already committed (lost single-instance race, instant
     // Cmd+Q) must not grow windows, a tray, or an engine mid-teardown.
     if (isQuitting()) return;
+    // Default-session permission policy before any window exists.
+    installPermissionPolicy();
     registerAsProtocolHandler();
     installAboutPanel();
     // OS-resolved locale default before the first menu build; the

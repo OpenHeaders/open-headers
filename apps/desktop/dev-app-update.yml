@@ -2,3 +2,10 @@ provider: generic
 url: https://updates.openheaders.io/desktop/stable
 useMultipleRangeRequest: false
 updaterCacheDirName: openheaders-updater
+# Authenticode gate for downloaded Windows installers: electron-updater
+# refuses a Setup.exe whose signer CN differs (and skips the check when
+# the field is absent). CN-only on purpose — the full-DN compare is
+# brittle across Windows DN renderings. Lanes whose Setup.exe ships
+# unsigned (betas, local unsigned builds) strip this line at pack time
+# via afterPackHook (OH_WIN_SETUP_UNSIGNED=1).
+publisherName: [BITHUB TEAM SRL]
