@@ -25,7 +25,7 @@ body:
     attributes:
       label: App / extension version
       description: Desktop app and browser extension versions are independent — include whichever applies.
-      placeholder: 'extension 2026.8.0, desktop 2026.8.0'
+      placeholder: 'extension 2026.8.1, desktop 2026.8.1'
     validations:
       required: true
   - type: dropdown
