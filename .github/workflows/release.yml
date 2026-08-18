@@ -50,15 +50,15 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           fetch-depth: 0
 
       - name: Install pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 22.x
           cache: pnpm
@@ -73,7 +73,7 @@ jobs:
       # rebuilding native modules (node-pty). Put a 3.11 first in PATH.
       - name: Setup Python 3.11 for node-gyp (macOS)
         if: matrix.os == 'macos-latest'
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
           python-version: '3.11'
 
@@ -97,7 +97,7 @@ jobs:
           fi
 
       - name: Cache Electron
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: |
             ~/.cache/electron
@@ -140,7 +140,7 @@ jobs:
       # extension degrades to device-flow pairing. One binary per
       # platform, so every desktop leg compiles its own.
       - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
           bun-version: 1.3.14
 
@@ -155,7 +155,7 @@ jobs:
       # covers: mac arm64+x64 (runner is arm64; the script adds the x64
       # rust target), win x64, linux x64+arm64 (cross-linked below).
       - name: Cache cargo (HTTP/3 helper)
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: |
             ~/.cargo/registry
@@ -180,7 +180,7 @@ jobs:
 
       - name: Setup macOS code signing
         if: matrix.os == 'macos-latest'
-        uses: apple-actions/import-codesign-certs@v3
+        uses: apple-actions/import-codesign-certs@63fff01cd422d4b7b855d40ca1e9d34d2de9427d # v3
         with:
           p12-file-base64: ${{ secrets.MACOS_CERTIFICATE }}
           p12-password: ${{ secrets.MACOS_CERTIFICATE_PWD }}
@@ -293,7 +293,7 @@ jobs:
 
       - name: Sign app executable
         if: matrix.os == 'windows-2022' && steps.detect_beta.outputs.is_beta != 'true' && steps.win_sign.outputs.enabled == 'true'
-        uses: sslcom/esigner-codesign@v1.3.1
+        uses: sslcom/esigner-codesign@a272724cb13abe0abc579c6c40f7899969b6942b # v1.3.1
         with:
           command: sign
           username: ${{ secrets.ES_USERNAME }}
@@ -310,7 +310,7 @@ jobs:
 
       - name: Sign NM host executable
         if: matrix.os == 'windows-2022' && steps.detect_beta.outputs.is_beta != 'true' && steps.win_sign.outputs.enabled == 'true'
-        uses: sslcom/esigner-codesign@v1.3.1
+        uses: sslcom/esigner-codesign@a272724cb13abe0abc579c6c40f7899969b6942b # v1.3.1
         with:
           command: sign
           username: ${{ secrets.ES_USERNAME }}
@@ -330,7 +330,7 @@ jobs:
       # other inner binaries.
       - name: Sign HTTP/3 helper executable
         if: matrix.os == 'windows-2022' && steps.detect_beta.outputs.is_beta != 'true' && steps.win_sign.outputs.enabled == 'true'
-        uses: sslcom/esigner-codesign@v1.3.1
+        uses: sslcom/esigner-codesign@a272724cb13abe0abc579c6c40f7899969b6942b # v1.3.1
         with:
           command: sign
           username: ${{ secrets.ES_USERNAME }}
@@ -382,7 +382,7 @@ jobs:
 
       - name: Sign Windows Executables
         if: matrix.os == 'windows-2022' && steps.detect_beta.outputs.is_beta != 'true' && steps.win_sign.outputs.enabled == 'true'
-        uses: sslcom/esigner-codesign@v1.3.1
+        uses: sslcom/esigner-codesign@a272724cb13abe0abc579c6c40f7899969b6942b # v1.3.1
         with:
           command: sign
           username: ${{ secrets.ES_USERNAME }}
@@ -457,7 +457,7 @@ jobs:
 
       - name: Sign Windows MSI
         if: matrix.os == 'windows-2022' && steps.detect_beta.outputs.is_beta != 'true' && steps.win_sign.outputs.enabled == 'true'
-        uses: sslcom/esigner-codesign@v1.3.1
+        uses: sslcom/esigner-codesign@a272724cb13abe0abc579c6c40f7899969b6942b # v1.3.1
         with:
           command: sign
           username: ${{ secrets.ES_USERNAME }}
@@ -582,13 +582,13 @@ jobs:
 
       - name: Upload binary artifacts (macOS)
         if: matrix.os == 'macos-latest' && steps.detect_beta.outputs.is_beta != 'true'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: binaries-macos-latest
           path: release-binaries/*
 
       - name: Upload desktop artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: desktop-${{ matrix.os }}
           path: |
@@ -625,23 +625,23 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           # Full history so build stamps derived from commit counts
           # mean something on release binaries.
           fetch-depth: 0
 
       - name: Install pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 22.x
           cache: pnpm
 
       - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
           bun-version: 1.3.14
 
@@ -687,7 +687,7 @@ jobs:
 
       - name: Sign oh CLI executable
         if: matrix.os == 'windows-2022' && steps.win_sign.outputs.enabled == 'true'
-        uses: sslcom/esigner-codesign@v1.3.1
+        uses: sslcom/esigner-codesign@a272724cb13abe0abc579c6c40f7899969b6942b # v1.3.1
         with:
           command: sign
           username: ${{ secrets.ES_USERNAME }}
@@ -704,7 +704,7 @@ jobs:
 
       - name: Sign Windows install script
         if: matrix.os == 'windows-2022' && steps.win_sign.outputs.enabled == 'true'
-        uses: sslcom/esigner-codesign@v1.3.1
+        uses: sslcom/esigner-codesign@a272724cb13abe0abc579c6c40f7899969b6942b # v1.3.1
         with:
           command: sign
           username: ${{ secrets.ES_USERNAME }}
@@ -740,7 +740,7 @@ jobs:
       # leg has its own checkout, so it builds its own (host target).
       - name: Cache cargo (HTTP/3 helper)
         if: matrix.os != 'windows-2022'
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: |
             ~/.cargo/registry
@@ -821,7 +821,7 @@ jobs:
         shell: bash
 
       - name: Upload binary artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: binaries-${{ matrix.os }}
           path: release-binaries/*
@@ -840,7 +840,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Determine release type
         id: release_type
@@ -860,7 +860,7 @@ jobs:
         run: node scripts/lint-changelog.mjs
 
       - name: Download all artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           path: dist
 
@@ -1282,7 +1282,7 @@ jobs:
       # redundant copy of every artifact — machine contracts point at
       # the feed.
       - name: Create Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
         with:
           token: ${{ secrets.RELEASES_PAT }}
           repository: ${{ env.RELEASE_REPO }}
