@@ -118,19 +118,8 @@ jobs:
         shell: bash
 
       - name: Install dependencies
-        run: |
-          if [ -n "${{ secrets.PACKAGES_PAT }}" ]; then
-            echo "@openheaders:registry=https://npm.pkg.github.com" >> ~/.npmrc
-            echo "//npm.pkg.github.com/:_authToken=${{ secrets.PACKAGES_PAT }}" >> ~/.npmrc
-          else
-            echo "@openheaders:registry=https://npm.pkg.github.com" >> ~/.npmrc
-            echo "//npm.pkg.github.com/:_authToken=${{ secrets.GITHUB_TOKEN }}" >> ~/.npmrc
-          fi
-          pnpm install --frozen-lockfile
+        run: pnpm install --frozen-lockfile
         shell: bash
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          PACKAGES_PAT: ${{ secrets.PACKAGES_PAT }}
 
       - name: Build core package
         run: pnpm --filter @openheaders/core build

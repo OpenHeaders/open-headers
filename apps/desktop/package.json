@@ -329,7 +329,7 @@
     "yaml": "^2.8.3"
   },
   "optionalDependencies": {
-    "@openheaders/windows-foreground": "^1.0.4"
+    "@openheaders/windows-foreground": "file:../../native/windows-foreground"
   },
   "devDependencies": {
     "@electron/notarize": "^3.0.1",

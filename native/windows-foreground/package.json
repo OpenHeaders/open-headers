@@ -1,0 +1,25 @@
+{
+  "name": "@openheaders/windows-foreground",
+  "version": "1.0.4",
+  "private": true,
+  "description": "Enhanced Windows foreground window management with multiple fallback strategies",
+  "main": "index.js",
+  "typings": "index.d.ts",
+  "scripts": {
+    "test": "node test/test.js",
+    "install": "node-gyp-build",
+    "build": "node-gyp rebuild"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/OpenHeaders/open-headers-app.git",
+    "directory": "native/windows-foreground"
+  },
+  "author": "Open Headers",
+  "license": "Apache-2.0",
+  "os": ["win32"],
+  "gypfile": true,
+  "dependencies": {
+    "node-gyp-build": "^4.8.0"
+  }
+}

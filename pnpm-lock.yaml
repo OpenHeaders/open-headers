@@ -280,8 +280,8 @@ importers:
         version: 4.1.10(@types/node@20.19.43)(jsdom@29.1.1(@noble/hashes@2.3.0))(vite@7.3.6(@types/node@20.19.43)(jiti@2.7.0)(less@4.9.0)(terser@5.50.0)(tsx@4.23.12)(yaml@2.9.0))
     optionalDependencies:
       '@openheaders/windows-foreground':
-        specifier: ^1.0.4
-        version: 1.0.4
+        specifier: file:../../native/windows-foreground
+        version: file:native/windows-foreground
 
   apps/extension:
     dependencies:
@@ -1519,8 +1519,8 @@ packages:
   '@octokit/types@14.1.0':
     resolution: {integrity: sha512-1y6DgTy8Jomcpu33N+p5w58l6xyt55Ar2I91RPiIA0xCJBXyUAhXCcmZaDWSANiha7R9a6qJJ2CRomGPZ6f46g==}
 
-  '@openheaders/windows-foreground@1.0.4':
-    resolution: {integrity: sha512-kaul7yY3WW4kzPr4cljkWM5E6jJCjyQSEPTA6Pue9C3+00tdtbc7KpQV4gSUAS0FS6nkuvgmNfD+J0PssAiXUw==, tarball: https://npm.pkg.github.com/download/@openheaders/windows-foreground/1.0.4/1b3cbcb73ecdf273ecdd7c0a53d13f8b1e5c17f7}
+  '@openheaders/windows-foreground@file:native/windows-foreground':
+    resolution: {directory: native/windows-foreground, type: directory}
     os: [win32]
 
   '@peculiar/asn1-cms@2.9.2':
@@ -5410,7 +5410,7 @@ snapshots:
     dependencies:
       '@octokit/openapi-types': 25.1.0
 
-  '@openheaders/windows-foreground@1.0.4':
+  '@openheaders/windows-foreground@file:native/windows-foreground':
     dependencies:
       node-gyp-build: 4.8.4
     optional: true
