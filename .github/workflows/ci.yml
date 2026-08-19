@@ -191,7 +191,7 @@ jobs:
 
   build-e2e:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 35
     steps:
       - name: Checkout code
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -226,12 +226,13 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      # The web build peaks ~4GB heap — right at Node's default cap on a
-      # 16GB runner — so the builds get headroom, and the app layer is
-      # capped to two at a time: three headroom-sized builds in parallel
-      # exhaust the VM's physical memory and the runner kills the job.
+      # The private-repo runner is 2-core/7GB. The web and extension
+      # builds each peak ~4GB, so no two app builds fit on one box: the
+      # build runs strictly serially, with the heap cap lifted past
+      # Node's ~2GB small-machine default. Once the repo is public
+      # (4-core/16GB runners) the concurrency can come back.
       - name: Build all packages
-        run: pnpm turbo build --concurrency=2
+        run: pnpm turbo build --concurrency=1
         env:
           NODE_OPTIONS: --max-old-space-size=6144
 
