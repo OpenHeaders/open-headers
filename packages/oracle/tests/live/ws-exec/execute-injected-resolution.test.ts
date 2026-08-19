@@ -123,7 +123,7 @@ describe('executeWsSession — injected resolution', () => {
     expect(snapshot.error).toContain('missing_host');
   });
 
-  it("stamps a transport-reported route as the environment plane's wire truth", async () => {
+  it("stamps a transport-reported route as the system plane's wire truth", async () => {
     const rig = scriptedTransport();
     const settled = executeWsSession(makeWsRequest(), {
       workspaceId: null,
@@ -138,7 +138,7 @@ describe('executeWsSession — injected resolution', () => {
     rig.callbacks().onEnd();
     const snapshot = await settled;
     expect(snapshot.proxyRoute).toEqual({
-      plane: 'environment',
+      plane: 'system',
       proxyUrl: 'http://corp.openheaders.io:8080',
       source: 'system',
     });
