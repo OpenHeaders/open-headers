@@ -26,6 +26,25 @@
  * because the per-entity wiring differs.
  */
 
+import {
+  AuthConfigSchema,
+  CollectionSchema,
+  EnvironmentSchema,
+  GrpcRequestSchema,
+  GrpcResponseExampleSchema,
+  LiveVariableSchema,
+  LiveWorkflowSchema,
+  RequestSchema,
+  ResponseExampleSchema,
+  RuleSchema,
+  SchemaVersionSchema,
+  ScriptPackageSchema,
+  SpecSchema,
+  schemaParseError,
+  TemplateSchema,
+  WebSocketRequestSchema,
+  WsResponseExampleSchema,
+} from '@openheaders/core/schemas';
 import type { EntitySchema, EntitySchemaRegistry, MutationEnvelope, SetPathsResolver } from '@openheaders/core/sync';
 import {
   COLLECTION_ENTITY_TYPE,
@@ -79,6 +98,7 @@ import {
   WORKSPACE_VARIABLES_PATH,
   WS_RESPONSE_EXAMPLE_ENTITY_TYPE,
 } from '@openheaders/core/sync';
+import * as v from 'valibot';
 import { type BroadcastProjector, composeProjectors, type EntityPostState } from './bridge';
 import type { InMemoryBroadcast } from './broadcast';
 import { createCollectionCache } from './caches/collection-cache';
@@ -207,6 +227,9 @@ type ByUidProjector<K extends PostStateKey> = (oracle: EntityOracle, id: string)
 
 type SingletonProjector<K extends PostStateKey> = (oracle: EntityOracle) => ProjectionOf<K> | null | undefined;
 
+/** Valibot schema shape accepted by the local-write gate. */
+export type LocalWriteSchema = v.BaseSchema<unknown, unknown, v.BaseIssue<unknown>>;
+
 interface BaseRegistration<K extends PostStateKey> {
   entityType: string;
   createCache: CacheFactory;
@@ -218,6 +241,24 @@ interface BaseRegistration<K extends PostStateKey> {
    *  Omit for entities with no set-modeled fields (folder, layout,
    *  live-workflow, live-variable). */
   setPaths?: SetPathsResolver;
+  /**
+   * Canonical schema for this entity's MATERIALIZED shape
+   * (`MaterializedEntity.data`). Consulted by the oracle's local-write
+   * gate ({@link OracleConfig.validateLocalWrite}) after each local
+   * batch applies: a post-state that fails the schema rolls the batch
+   * back with `schema-rejected` and a path-bearing detail, so a
+   * caller-shaped seed (`createLocalRequest` and siblings forward
+   * their payloads verbatim) can never persist an out-of-shape entity.
+   *
+   * `null` = consciously ungated. Singletons stay null because they
+   * are observable without a create (`observableWithoutCreate`), so a
+   * partial materialization mid-convergence — e.g. a vault secret
+   * re-entered over an undecryptable baseline before any create — is
+   * a legal state the canonical schema would false-reject. Required
+   * (not optional) so every new registration makes the gating
+   * decision explicitly.
+   */
+  localWriteSchema: LocalWriteSchema | null;
 }
 
 export interface FlatRegistration<K extends PostStateKey = PostStateKey> extends BaseRegistration<K> {
@@ -243,6 +284,7 @@ function flatEntity<K extends PostStateKey, C extends EntityCacheLike>(spec: {
   projectPostState: PostStateProjector<K>;
   projectByUid: ByUidProjector<K>;
   setPaths?: SetPathsResolver;
+  localWriteSchema: LocalWriteSchema | null;
 }): FlatRegistration<K> {
   return {
     kind: 'flat',
@@ -252,6 +294,7 @@ function flatEntity<K extends PostStateKey, C extends EntityCacheLike>(spec: {
     projectPostState: spec.projectPostState,
     projectByUid: spec.projectByUid,
     setPaths: spec.setPaths,
+    localWriteSchema: spec.localWriteSchema,
   };
 }
 
@@ -262,6 +305,7 @@ function singletonEntity<K extends PostStateKey, C extends EntityCacheLike>(spec
   projectPostState: PostStateProjector<K>;
   projectSingleton: SingletonProjector<K>;
   setPaths?: SetPathsResolver;
+  localWriteSchema: LocalWriteSchema | null;
 }): SingletonRegistration<K> {
   return {
     kind: 'singleton',
@@ -271,10 +315,34 @@ function singletonEntity<K extends PostStateKey, C extends EntityCacheLike>(spec
     projectPostState: spec.projectPostState,
     projectSingleton: spec.projectSingleton,
     setPaths: spec.setPaths,
+    localWriteSchema: spec.localWriteSchema,
   };
 }
 
 // ── Per-entity registrations ────────────────────────────────────────
+
+// Folder entities materialize a scalar shell, not the canonical
+// `Folder`: `path` is reconstructed at projection time by walking the
+// parent chain, and `uid` rides `MaterializedEntity.id`. The
+// local-write gate therefore validates the shell shape the seed
+// builders commit (`seedFolder` / `seedRequestFolder` /
+// `seedTemplateFolder`), mirroring their payloads verbatim.
+const FolderShellSchema = v.object({
+  schemaVersion: SchemaVersionSchema,
+  name: v.string(),
+  pathSegment: v.pipe(v.string(), v.minLength(1)),
+});
+
+// Request-folder shells additionally carry the ancestor script slots
+// and default auth (field absent ↔ no script / transparent level).
+const RequestFolderShellSchema = v.object({
+  schemaVersion: SchemaVersionSchema,
+  name: v.string(),
+  pathSegment: v.pipe(v.string(), v.minLength(1)),
+  preRequestScript: v.optional(v.string()),
+  postResponseScript: v.optional(v.string()),
+  auth: v.optional(AuthConfigSchema),
+});
 
 // `conditions` is universal across rule variants. `action.requestHeaders`
 // + `action.responseHeaders` exist only on `type: 'header'` rules — the
@@ -299,6 +367,7 @@ export const RULE_REGISTRATION = flatEntity({
   projectPostState: projectRulePostState,
   projectByUid: projectRuleByUid,
   setPaths: ruleSetPaths,
+  localWriteSchema: RuleSchema,
 });
 
 export const ENVIRONMENT_REGISTRATION = flatEntity({
@@ -308,6 +377,7 @@ export const ENVIRONMENT_REGISTRATION = flatEntity({
   projectPostState: projectEnvironmentPostState,
   projectByUid: projectEnvironmentByUid,
   setPaths: [ENV_VARS_PATH],
+  localWriteSchema: EnvironmentSchema,
 });
 
 export const COLLECTION_REGISTRATION = flatEntity({
@@ -317,6 +387,7 @@ export const COLLECTION_REGISTRATION = flatEntity({
   projectPostState: projectCollectionPostState,
   projectByUid: projectCollectionByUid,
   setPaths: [COLLECTION_VARS_PATH],
+  localWriteSchema: CollectionSchema,
 });
 
 export const FOLDER_REGISTRATION = flatEntity({
@@ -325,6 +396,7 @@ export const FOLDER_REGISTRATION = flatEntity({
   postStateKey: 'folderPostState',
   projectPostState: projectFolderPostState,
   projectByUid: projectFolderByUid,
+  localWriteSchema: FolderShellSchema,
 });
 
 export const WORKSPACE_VARIABLES_REGISTRATION = singletonEntity({
@@ -334,6 +406,7 @@ export const WORKSPACE_VARIABLES_REGISTRATION = singletonEntity({
   projectPostState: projectWorkspaceVariablesPostState,
   projectSingleton: projectWorkspaceVariablesSingleton,
   setPaths: [WORKSPACE_VARIABLES_PATH],
+  localWriteSchema: null,
 });
 
 export const VAULT_REGISTRATION = singletonEntity({
@@ -343,6 +416,7 @@ export const VAULT_REGISTRATION = singletonEntity({
   projectPostState: projectVaultPostState,
   projectSingleton: projectVaultSingleton,
   setPaths: [VAULT_PATH],
+  localWriteSchema: null,
 });
 
 export const REQUEST_REGISTRATION = flatEntity({
@@ -352,6 +426,7 @@ export const REQUEST_REGISTRATION = flatEntity({
   projectPostState: projectRequestPostState,
   projectByUid: projectRequestByUid,
   setPaths: [REQUEST_HEADERS_PATH, REQUEST_PARAMS_PATH],
+  localWriteSchema: RequestSchema,
 });
 
 export const GRPC_REQUEST_REGISTRATION = flatEntity({
@@ -361,6 +436,7 @@ export const GRPC_REQUEST_REGISTRATION = flatEntity({
   projectPostState: projectGrpcRequestPostState,
   projectByUid: projectGrpcRequestByUid,
   setPaths: [GRPC_REQUEST_METADATA_PATH],
+  localWriteSchema: GrpcRequestSchema,
 });
 
 export const WEBSOCKET_REQUEST_REGISTRATION = flatEntity({
@@ -370,6 +446,7 @@ export const WEBSOCKET_REQUEST_REGISTRATION = flatEntity({
   projectPostState: projectWebSocketRequestPostState,
   projectByUid: projectWebSocketRequestByUid,
   setPaths: [WEBSOCKET_REQUEST_HEADERS_PATH, WEBSOCKET_REQUEST_PARAMS_PATH, WEBSOCKET_REQUEST_EVENTS_PATH],
+  localWriteSchema: WebSocketRequestSchema,
 });
 
 export const REQUEST_COLLECTION_REGISTRATION = flatEntity({
@@ -379,6 +456,7 @@ export const REQUEST_COLLECTION_REGISTRATION = flatEntity({
   projectPostState: projectRequestCollectionPostState,
   projectByUid: projectRequestCollectionByUid,
   setPaths: [REQUEST_COLLECTION_VARS_PATH],
+  localWriteSchema: CollectionSchema,
 });
 
 export const REQUEST_FOLDER_REGISTRATION = flatEntity({
@@ -387,6 +465,7 @@ export const REQUEST_FOLDER_REGISTRATION = flatEntity({
   postStateKey: 'requestFolderPostState',
   projectPostState: projectRequestFolderPostState,
   projectByUid: projectRequestFolderByUid,
+  localWriteSchema: RequestFolderShellSchema,
 });
 
 export const TEMPLATE_REGISTRATION = flatEntity({
@@ -396,6 +475,7 @@ export const TEMPLATE_REGISTRATION = flatEntity({
   projectPostState: projectTemplatePostState,
   projectByUid: projectTemplateByUid,
   setPaths: [TEMPLATE_CONDITIONS_PATH],
+  localWriteSchema: TemplateSchema,
 });
 
 export const TEMPLATE_COLLECTION_REGISTRATION = flatEntity({
@@ -405,6 +485,7 @@ export const TEMPLATE_COLLECTION_REGISTRATION = flatEntity({
   projectPostState: projectTemplateCollectionPostState,
   projectByUid: projectTemplateCollectionByUid,
   setPaths: [TEMPLATE_COLLECTION_VARS_PATH],
+  localWriteSchema: CollectionSchema,
 });
 
 export const TEMPLATE_FOLDER_REGISTRATION = flatEntity({
@@ -413,6 +494,7 @@ export const TEMPLATE_FOLDER_REGISTRATION = flatEntity({
   postStateKey: 'templateFolderPostState',
   projectPostState: projectTemplateFolderPostState,
   projectByUid: projectTemplateFolderByUid,
+  localWriteSchema: FolderShellSchema,
 });
 
 export const LIVE_VARIABLE_REGISTRATION = flatEntity({
@@ -421,6 +503,7 @@ export const LIVE_VARIABLE_REGISTRATION = flatEntity({
   postStateKey: 'liveVariablePostState',
   projectPostState: projectLiveVariablePostState,
   projectByUid: projectLiveVariableByUid,
+  localWriteSchema: LiveVariableSchema,
 });
 
 export const SCRIPT_PACKAGE_REGISTRATION = flatEntity({
@@ -429,6 +512,7 @@ export const SCRIPT_PACKAGE_REGISTRATION = flatEntity({
   postStateKey: 'scriptPackagePostState',
   projectPostState: projectScriptPackagePostState,
   projectByUid: projectScriptPackageByUid,
+  localWriteSchema: ScriptPackageSchema,
 });
 
 export const SPEC_REGISTRATION = flatEntity({
@@ -438,6 +522,7 @@ export const SPEC_REGISTRATION = flatEntity({
   projectPostState: projectSpecPostState,
   projectByUid: projectSpecByUid,
   setPaths: [SPEC_FILES_PATH],
+  localWriteSchema: SpecSchema,
 });
 
 export const GRPC_RESPONSE_EXAMPLE_REGISTRATION = flatEntity({
@@ -446,6 +531,7 @@ export const GRPC_RESPONSE_EXAMPLE_REGISTRATION = flatEntity({
   postStateKey: 'grpcResponseExamplePostState',
   projectPostState: projectGrpcResponseExamplePostState,
   projectByUid: projectGrpcResponseExampleByUid,
+  localWriteSchema: GrpcResponseExampleSchema,
 });
 
 export const WS_RESPONSE_EXAMPLE_REGISTRATION = flatEntity({
@@ -454,6 +540,7 @@ export const WS_RESPONSE_EXAMPLE_REGISTRATION = flatEntity({
   postStateKey: 'wsResponseExamplePostState',
   projectPostState: projectWsResponseExamplePostState,
   projectByUid: projectWsResponseExampleByUid,
+  localWriteSchema: WsResponseExampleSchema,
 });
 
 export const RESPONSE_EXAMPLE_REGISTRATION = flatEntity({
@@ -462,6 +549,7 @@ export const RESPONSE_EXAMPLE_REGISTRATION = flatEntity({
   postStateKey: 'responseExamplePostState',
   projectPostState: projectResponseExamplePostState,
   projectByUid: projectResponseExampleByUid,
+  localWriteSchema: ResponseExampleSchema,
 });
 
 export const LIVE_WORKFLOW_REGISTRATION = flatEntity({
@@ -470,6 +558,7 @@ export const LIVE_WORKFLOW_REGISTRATION = flatEntity({
   postStateKey: 'liveWorkflowPostState',
   projectPostState: projectLiveWorkflowPostState,
   projectByUid: projectLiveWorkflowByUid,
+  localWriteSchema: LiveWorkflowSchema,
 });
 
 export const LIVE_VALUE_REGISTRATION = singletonEntity({
@@ -479,6 +568,7 @@ export const LIVE_VALUE_REGISTRATION = singletonEntity({
   projectPostState: projectLiveValuePostState,
   projectSingleton: projectLiveValueSingleton,
   setPaths: [LIVE_VALUE_VALUES_PATH],
+  localWriteSchema: null,
 });
 
 export const LIVE_FALLBACK_PRIORITY_REGISTRATION = singletonEntity({
@@ -488,6 +578,7 @@ export const LIVE_FALLBACK_PRIORITY_REGISTRATION = singletonEntity({
   projectPostState: projectLiveFallbackPriorityPostState,
   projectSingleton: projectLiveFallbackPrioritySingleton,
   setPaths: [LIVE_FALLBACK_PRIORITY_MEMBERS_PATH],
+  localWriteSchema: null,
 });
 
 export const OAUTH_BUNDLE_REGISTRATION = singletonEntity({
@@ -497,6 +588,7 @@ export const OAUTH_BUNDLE_REGISTRATION = singletonEntity({
   projectPostState: projectOAuthBundlePostState,
   projectSingleton: projectOAuthBundleSingleton,
   setPaths: [OAUTH_TOKENS_PATH, OAUTH_CONFIGS_PATH, OAUTH_REFRESH_ERRORS_PATH],
+  localWriteSchema: null,
 });
 
 export const PAUSE_MARKERS_REGISTRATION = singletonEntity({
@@ -506,6 +598,7 @@ export const PAUSE_MARKERS_REGISTRATION = singletonEntity({
   projectPostState: projectPauseMarkersPostState,
   projectSingleton: projectPauseMarkersSingleton,
   setPaths: [PAUSE_MARKERS_PATH],
+  localWriteSchema: null,
 });
 
 export const LAYOUT_STATE_REGISTRATION = singletonEntity({
@@ -514,6 +607,7 @@ export const LAYOUT_STATE_REGISTRATION = singletonEntity({
   postStateKey: 'layoutStatePostState',
   projectPostState: projectLayoutStatePostState,
   projectSingleton: projectLayoutStateSingleton,
+  localWriteSchema: null,
 });
 
 export const FILES_REGISTRATION = singletonEntity({
@@ -523,6 +617,7 @@ export const FILES_REGISTRATION = singletonEntity({
   projectPostState: projectFilesPostState,
   projectSingleton: projectFilesSingleton,
   setPaths: [FILES_REFS_PATH],
+  localWriteSchema: null,
 });
 
 export const EXTENSION_WORKSPACE_REGISTRATION = singletonEntity({
@@ -532,6 +627,7 @@ export const EXTENSION_WORKSPACE_REGISTRATION = singletonEntity({
   projectPostState: projectExtensionWorkspacePostState,
   projectSingleton: projectExtensionWorkspaceSingleton,
   setPaths: [EXTENSION_WORKSPACES_SET_PATH],
+  localWriteSchema: null,
 });
 
 /**
@@ -598,6 +694,29 @@ export function buildSchemaRegistry(registry: EntityRegistration[]): EntitySchem
     }
   }
   return out;
+}
+
+/**
+ * Compose the local-write schema gate for an oracle scope. The oracle
+ * calls the returned validator on every touched entity's materialized
+ * post-state after a LOCAL batch applies ({@link
+ * OracleConfig.validateLocalWrite}); a path-bearing error string rolls
+ * the batch back with `schema-rejected`. Registrations with
+ * `localWriteSchema: null` (and unknown entity types) pass — the gate
+ * is a per-kind opt-in declared at the registry, never a guess.
+ */
+export function buildLocalWriteValidator(
+  registry: EntityRegistration[],
+): (type: string, data: unknown) => string | null {
+  const byType = new Map<string, LocalWriteSchema>();
+  for (const reg of registry) {
+    if (reg.localWriteSchema) byType.set(reg.entityType, reg.localWriteSchema);
+  }
+  return (type, data) => {
+    const schema = byType.get(type);
+    if (!schema) return null;
+    return schemaParseError(schema, data);
+  };
 }
 
 // ── Lifecycle helpers (scope-agnostic) ──────────────────────────────

@@ -1,6 +1,6 @@
 // ── Requests ────────────────────────────────────────────────────────
 
-import { RequestSchema } from '@openheaders/core/schemas';
+import { RequestSchema, schemaParseError } from '@openheaders/core/schemas';
 import { REQUEST_ENTITY_TYPE } from '@openheaders/core/sync';
 import {
   buildAddBatch,
@@ -22,7 +22,6 @@ import {
   getOracleForCurrentWorkspace,
   nextSwMutatorContext,
 } from '@openheaders/oracle/sync/service/accessors';
-import * as v from 'valibot';
 import { applyRequestMutationOrThrow } from './apply';
 import { deleteResponseExamplesForRequests } from './response-examples';
 import { assertLoaded, collections, loadedWorkspaceId, requests } from './state';
@@ -37,13 +36,8 @@ import { assertLoaded, collections, loadedWorkspaceId, requests } from './state'
  * `assertValidSteps` in `live-workflow-store`.
  */
 function requestSchemaError(candidate: Request): string | null {
-  const result = v.safeParse(RequestSchema, candidate);
-  if (result.success) return null;
-  const detail = result.issues
-    .slice(0, 3)
-    .map((issue) => `${v.getDotPath(issue) ?? '(root)'}: ${issue.message}`)
-    .join('; ');
-  return `invalid request — ${detail}`;
+  const detail = schemaParseError(RequestSchema, candidate);
+  return detail === null ? null : `invalid request — ${detail}`;
 }
 
 /** Seed shape for a fresh request — name + minimal defaults. */

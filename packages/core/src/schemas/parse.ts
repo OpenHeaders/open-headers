@@ -39,6 +39,34 @@ export function parseEntity<TSchema extends v.BaseSchema<unknown, unknown, v.Bas
 }
 
 /**
+ * Compress valibot issues into a path-bearing, human-readable summary:
+ * `body.formParts: Invalid key; url: Invalid length`. Capped at the
+ * first three issues — write-boundary rejections need the failing
+ * paths, not the full issue tree.
+ */
+export function describeSchemaIssues(issues: readonly v.BaseIssue<unknown>[]): string {
+  return issues
+    .slice(0, 3)
+    .map((issue) => `${v.getDotPath(issue) ?? '(root)'}: ${issue.message}`)
+    .join('; ');
+}
+
+/**
+ * Validate `candidate` against `schema` at a write boundary. Returns
+ * `null` when valid, otherwise the {@link describeSchemaIssues}
+ * summary. The strict counterpart of {@link parseEntity}: reads
+ * tolerate and substitute defaults; writes reject with the paths.
+ */
+export function schemaParseError<TSchema extends v.BaseSchema<unknown, unknown, v.BaseIssue<unknown>>>(
+  schema: TSchema,
+  candidate: unknown,
+): string | null {
+  const result = v.safeParse(schema, candidate);
+  if (result.success) return null;
+  return describeSchemaIssues(result.issues);
+}
+
+/**
  * Parse an array of entities; entries that fail the schema are dropped
  * (with an `onError` callback per entry, so one bad row doesn't poison
  * the whole list). Returns the surviving entries.

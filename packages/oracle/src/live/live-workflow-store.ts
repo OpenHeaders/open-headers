@@ -18,7 +18,7 @@
  *   (cache lives at `oh.ws.<id>.liveCache` — see `live-cache-store.ts`)
  */
 
-import { LiveWorkflowSchema, WorkflowStepSchema } from '@openheaders/core/schemas';
+import { LiveWorkflowSchema, schemaParseError, WorkflowStepSchema } from '@openheaders/core/schemas';
 import type { MutationBatch, MutatorContext, SideEffectIntent } from '@openheaders/core/sync';
 import {
   buildAddLiveWorkflowBatch,
@@ -126,12 +126,8 @@ export interface CreateLiveWorkflowInput {
  * and only surface later as phantom conflicts / hydration drops.
  */
 function assertValidSteps(steps: readonly WorkflowStep[], operation: string): void {
-  const result = v.safeParse(v.array(WorkflowStepSchema), steps);
-  if (result.success) return;
-  const detail = result.issues
-    .slice(0, 3)
-    .map((issue) => `${v.getDotPath(issue) ?? '(root)'}: ${issue.message}`)
-    .join('; ');
+  const detail = schemaParseError(v.array(WorkflowStepSchema), steps);
+  if (detail === null) return;
   throw new Error(`${operation}: invalid steps — ${detail}`);
 }
 

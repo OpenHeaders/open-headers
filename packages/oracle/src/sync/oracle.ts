@@ -75,6 +75,19 @@ export interface OracleConfig {
    *  the legacy "untouched paths are absent" shape. */
   schemas?: EntitySchemaRegistry;
   /**
+   * Local-write schema gate. When present, every batch applied with
+   * `applyOrigin === 'local'` has each touched entity's materialized
+   * post-state validated before commit; a non-null return (the
+   * path-bearing detail) rolls the whole batch back with status
+   * `schema-rejected`. Scoped to LOCAL writes only by design: inbound
+   * peer envelopes, hydration seeds, and snapshot replay must apply
+   * whatever the CRDT converged on — a replica-side validation veto
+   * would fork convergence. Malformed persisted data is instead
+   * absorbed by the tolerant read gates. Return `null` for entity
+   * types the caller does not gate.
+   */
+  validateLocalWrite?: (type: string, data: unknown) => string | null;
+  /**
    * Fired with the batch's highest HLC after every successful commit.
    * Wired to the owning sequencer's `observe()` at construction so the
    * NEXT local mint strictly exceeds every envelope of a
@@ -107,7 +120,7 @@ export class EntityOracle {
       return { ok: true, outcomes: [] };
     }
     const targets = collectEntityTargets(batch);
-    return this.lockChain(targets, async () => this.applyUnderLock(batch, sideEffects, applyOrigin));
+    return this.lockChain(targets, async () => this.applyUnderLock(batch, targets, sideEffects, applyOrigin));
   }
 
   /** Direct snapshot read for surfaces that need the materialized view. */
@@ -167,6 +180,7 @@ export class EntityOracle {
 
   private async applyUnderLock(
     batch: MutationBatch,
+    targets: ReadonlyArray<{ type: string; id: string }>,
     sideEffects: SideEffectIntent[],
     applyOrigin: FieldOrigin,
   ): Promise<OracleApplyResult> {
@@ -182,6 +196,32 @@ export class EntityOracle {
           ok: false,
           outcomes,
           failure: { mutationId: env.mutationId, status: outcome.status, detail: outcome.detail },
+        };
+      }
+    }
+
+    // Local-write schema gate (see OracleConfig.validateLocalWrite):
+    // each touched entity's materialized post-state must satisfy its
+    // registered schema before the batch commits. Tombstoned and
+    // not-yet-created entities materialize to null and are skipped —
+    // deletes always pass, and an update racing ahead of its create
+    // is judged once the create lands.
+    if (applyOrigin === 'local' && this.cfg.validateLocalWrite) {
+      for (const { type, id } of targets) {
+        const materialized = this.store.materializeOne(type, id);
+        if (!materialized) continue;
+        const detail = this.cfg.validateLocalWrite(type, materialized.data);
+        if (detail === null) continue;
+        this.store.restore(snapshot);
+        const env = batch.mutations.find((m) => m.body.type === type && m.body.id === id);
+        return {
+          ok: false,
+          outcomes,
+          failure: {
+            mutationId: env?.mutationId ?? batch.mutations[0].mutationId,
+            status: 'schema-rejected',
+            detail: `${type} ${id}: ${detail}`,
+          },
         };
       }
     }

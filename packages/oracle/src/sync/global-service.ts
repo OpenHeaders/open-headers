@@ -35,6 +35,7 @@ import { InMemoryBroadcast } from './broadcast';
 import { type ExtensionWorkspaceCache, setActiveExtensionWorkspaceCache } from './caches/extension-workspace-cache';
 import {
   buildCaches,
+  buildLocalWriteValidator,
   buildProjectorPipeline,
   buildSchemaRegistry,
   disposeCaches,
@@ -206,6 +207,7 @@ function wire(deps: WireDeps): GlobalServiceState {
     intents: deps.intents,
     broadcast,
     schemas: buildSchemaRegistry(GLOBAL_REGISTRY),
+    validateLocalWrite: buildLocalWriteValidator(GLOBAL_REGISTRY),
     // Fold every committed batch's max HLC into the sequencer so the
     // next mint strictly exceeds the batch's ticked envelopes.
     onBatchApplied: (hlc) => context.observe(hlc),

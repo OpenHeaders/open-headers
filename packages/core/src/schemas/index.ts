@@ -72,7 +72,7 @@ export {
   WorkflowStepSchema,
 } from './live';
 export type { ParseEntityOptions } from './parse';
-export { parseEntity, parseEntityArray } from './parse';
+export { describeSchemaIssues, parseEntity, parseEntityArray, schemaParseError } from './parse';
 export { ProxyCaptureSettingsSchema } from './proxy-capture';
 export { ProxyCaRecordSchema, ProxyTrustChangeSchema, ProxyTrustStoreIdSchema } from './proxy-trust';
 export {

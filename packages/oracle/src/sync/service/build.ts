@@ -10,6 +10,7 @@ import { createAwarenessStore } from '../awareness/awareness';
 import { wireBroadcastToSink } from '../bridge';
 import { InMemoryBroadcast } from '../broadcast';
 import {
+  buildLocalWriteValidator,
   buildProjectorPipeline,
   buildSchemaRegistry,
   type EntityCacheLike,
@@ -63,6 +64,7 @@ export function buildService(deps: WireDeps): WorkspaceServiceState {
     intents: deps.intents,
     broadcast,
     schemas: buildSchemaRegistry(WORKSPACE_REGISTRY),
+    validateLocalWrite: buildLocalWriteValidator(WORKSPACE_REGISTRY),
     // Fold every committed batch's max HLC into the sequencer so the
     // next mint strictly exceeds the batch's ticked envelopes.
     onBatchApplied: (hlc) => context.observe(hlc),

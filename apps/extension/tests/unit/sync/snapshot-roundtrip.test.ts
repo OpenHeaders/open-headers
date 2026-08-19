@@ -43,9 +43,9 @@ const makeRule = (uid: string, name: string): Rule =>
     type: 'header',
     name,
     enabled: true,
-    conditions: [{ uid: 'cnd00001', kind: 'url-pattern', urlPattern: 'https://openheaders.io/*' }],
+    conditions: [{ uid: 'cnd00001', type: 'url-filter', values: ['https://openheaders.io/*'] }],
     action: {
-      requestHeaders: [{ uid: 'hmd00001', headerName: 'X-A', operation: 'set', value: '1' }],
+      requestHeaders: [{ uid: 'hmd00001', headerName: 'X-A', operation: 'override', value: '1' }],
       responseHeaders: [],
     },
   }) as unknown as Rule;
