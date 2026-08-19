@@ -49,7 +49,7 @@ export const ConditionsHostVsOriginDiagram: React.FC = () => {
       <rect x={64} y={28} width={228} height={14} rx={2} fill={inputBg} stroke={browserStroke} />
       <rect x={68} y={30} width={130} height={10} rx={1} fill={FILL_CYAN} />
       <text x={76} y={38} fontFamily="monospace" fontSize={9} fill={TEXT}>
-        portal.openheaders.io
+        portal.openheaders.com
       </text>
 
       {/* Caption above code */}
@@ -73,7 +73,7 @@ export const ConditionsHostVsOriginDiagram: React.FC = () => {
       </text>
       <rect x={92} y={84} width={160} height={16} rx={2} fill={FILL_GREEN} stroke={STROKE_GREEN} />
       <text x={172} y={95} textAnchor="middle" fontFamily="monospace" fontSize={9} fill={TEXT}>
-        api.openheaders.io/v2/users
+        api.openheaders.com/v2/users
       </text>
       <text x={256} y={95} fontFamily="monospace" fontSize={11} fill={TEXT_DIM}>
         ')
@@ -126,21 +126,21 @@ export const ConditionsMatchingDiagram: React.FC = () => {
     },
     {
       attr: t('workbench.docs.diagrams.conditions.matching.attrUrl'),
-      value: 'api.openheaders.io/v2/users',
+      value: 'api.openheaders.com/v2/users',
       cond: t('workbench.docs.diagrams.conditions.matching.condUrlPattern'),
       fill: FILL_BLUE,
       stroke: STROKE_BLUE,
     },
     {
       attr: t('workbench.docs.diagrams.conditions.matching.attrHost'),
-      value: 'api.openheaders.io',
+      value: 'api.openheaders.com',
       cond: t('workbench.docs.diagrams.conditions.matching.condRequestDomains'),
       fill: FILL_GREEN,
       stroke: STROKE_GREEN,
     },
     {
       attr: t('workbench.docs.diagrams.conditions.matching.attrOrigin'),
-      value: 'portal.openheaders.io',
+      value: 'portal.openheaders.com',
       cond: t('workbench.docs.diagrams.conditions.matching.condInitiatorDomains'),
       fill: FILL_CYAN,
       stroke: STROKE_CYAN,
@@ -306,7 +306,7 @@ export const ConditionsRuleFiresDiagram: React.FC = () => {
         POST
       </text>
       <text x={20} y={108} fontFamily="monospace" fontSize={9} fill={TEXT}>
-        api.openheaders.io
+        api.openheaders.com
       </text>
       <text x={20} y={120} fontFamily="monospace" fontSize={9} fill={TEXT_DIM}>
         /v2/users
@@ -341,7 +341,7 @@ export const ConditionsRuleFiresDiagram: React.FC = () => {
         POST
       </text>
       <text x={180} y={108} fontFamily="monospace" fontSize={9} fill={TEXT}>
-        api.openheaders.io
+        api.openheaders.com
       </text>
       <text x={180} y={120} fontFamily="monospace" fontSize={9} fill={TEXT_DIM}>
         /v2/users

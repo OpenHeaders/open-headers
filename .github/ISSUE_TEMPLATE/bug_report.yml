@@ -15,7 +15,7 @@ body:
     attributes:
       label: Steps to reproduce
       placeholder: |
-        1. Create a rule matching https://api.openheaders.io/*
+        1. Create a rule matching https://api.openheaders.com/*
         2. Enable it
         3. Reload the page
     validations:

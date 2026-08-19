@@ -295,8 +295,8 @@ export function doesResourceTypeMatchRule(resourceType: string, rule: Rule): boo
 
 /**
  * Test a hostname against a DNR-style domain list: a domain matches the
- * host itself and every subdomain (`openheaders.io` matches both
- * `openheaders.io` and `app.openheaders.io`). Mirrors Chrome's
+ * host itself and every subdomain (`openheaders.com` matches both
+ * `openheaders.com` and `app.openheaders.com`). Mirrors Chrome's
  * `initiatorDomains` / `excludedInitiatorDomains` semantics.
  */
 export function doesHostMatchDomains(host: string, domains: string[]): boolean {

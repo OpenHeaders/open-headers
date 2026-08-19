@@ -1,6 +1,6 @@
 /**
  * CLI half of the update feed contract (the distribution plan §3–§5):
- * URL builders for the static pointer files on `updates.openheaders.io`
+ * URL builders for the static pointer files on `updates.openheaders.com`
  * plus the manifest's `cli` entry parser and the CalVer ordering both
  * the version check and `oh upgrade` compare with. No GitHub URL ever
  * appears here — the feed law — and no network code either: fetching
@@ -9,7 +9,7 @@
 
 import type { UpdateChannel } from './config-store';
 
-export const UPDATE_FEED_BASE = 'https://updates.openheaders.io';
+export const UPDATE_FEED_BASE = 'https://updates.openheaders.com';
 
 export function versionsManifestUrl(channel: UpdateChannel): string {
   return `${UPDATE_FEED_BASE}/versions/${channel}.json`;

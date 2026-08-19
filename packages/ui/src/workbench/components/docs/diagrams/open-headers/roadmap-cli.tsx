@@ -36,7 +36,7 @@ export const RoadmapCliDiagram: React.FC = () => {
     { kind: 'prompt', text: '$ oh env switch staging' },
     { kind: 'output', text: '  active environment: staging (env-a1)' },
     { kind: 'prompt', text: '$ oh request send ping' },
-    { kind: 'output', text: '  GET api.openheaders.io/ping → 200 OK · 11 B · 83 ms' },
+    { kind: 'output', text: '  GET api.openheaders.com/ping → 200 OK · 11 B · 83 ms' },
     { kind: 'comment', text: t('workbench.docs.diagrams.openHeaders.roadmapCli.comment') },
   ];
 

@@ -42,7 +42,7 @@ export const UrlPatternDiagram: React.FC = () => {
         *://
       </text>
       <text x={164} y={40} textAnchor="middle" fontFamily="monospace" fontSize={11} fontWeight={600} fill={TEXT}>
-        api.openheaders.io
+        api.openheaders.com
       </text>
       <text x={240} y={40} textAnchor="middle" fontFamily="monospace" fontSize={11} fontWeight={600} fill={TEXT}>
         /*
@@ -95,21 +95,21 @@ export const UrlPatternDiagram: React.FC = () => {
         ✓
       </text>
       <text x={40} y={162} fontFamily="monospace" fontSize={9} fill={TEXT}>
-        https://api.openheaders.io/v2/users
+        https://api.openheaders.com/v2/users
       </text>
 
       <text x={24} y={180} fontSize={12} fontWeight={700} fill={matchOk}>
         ✓
       </text>
       <text x={40} y={180} fontFamily="monospace" fontSize={9} fill={TEXT}>
-        http://api.openheaders.io/health?ok=1
+        http://api.openheaders.com/health?ok=1
       </text>
 
       <text x={24} y={206} fontSize={12} fontWeight={700} fill={matchFail}>
         ✗
       </text>
       <text x={40} y={206} fontFamily="monospace" fontSize={9} fill={TEXT_DIM}>
-        https://cdn.openheaders.io/img.png
+        https://cdn.openheaders.com/img.png
       </text>
       <text x={40} y={218} fontSize={8} fontStyle="italic" fill={TEXT_DIM}>
         {t('workbench.docs.diagrams.conditions.urlPattern.reasonSubdomain')}
@@ -244,21 +244,21 @@ export const UrlRegexDiagram: React.FC = () => {
         ✓
       </text>
       <text x={40} y={162} fontFamily="monospace" fontSize={9} fill={TEXT}>
-        https://api.openheaders.io/v2
+        https://api.openheaders.com/v2
       </text>
 
       <text x={24} y={180} fontSize={12} fontWeight={700} fill={matchOk}>
         ✓
       </text>
       <text x={40} y={180} fontFamily="monospace" fontSize={9} fill={TEXT}>
-        https://api.openheaders.io/v42/items?q=1
+        https://api.openheaders.com/v42/items?q=1
       </text>
 
       <text x={24} y={206} fontSize={12} fontWeight={700} fill={matchFail}>
         ✗
       </text>
       <text x={40} y={206} fontFamily="monospace" fontSize={9} fill={TEXT_DIM}>
-        http://api.openheaders.io/v2
+        http://api.openheaders.com/v2
       </text>
       <text x={40} y={218} fontSize={8} fontStyle="italic" fill={TEXT_DIM}>
         {t('workbench.docs.diagrams.conditions.urlRegex.reasonHttp')}
@@ -268,7 +268,7 @@ export const UrlRegexDiagram: React.FC = () => {
         ✗
       </text>
       <text x={40} y={240} fontFamily="monospace" fontSize={9} fill={TEXT_DIM}>
-        https://api.openheaders.io/latest
+        https://api.openheaders.com/latest
       </text>
       <text x={40} y={252} fontSize={8} fontStyle="italic" fill={TEXT_DIM}>
         {t('workbench.docs.diagrams.conditions.urlRegex.reasonLatest')}

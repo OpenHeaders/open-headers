@@ -18,8 +18,8 @@ import { useSetting, useSettingsReady } from '@openheaders/ui/workbench/settings
 import { Button, Typography, theme } from 'antd';
 import type { ReactNode } from 'react';
 
-const EULA_URL = 'https://openheaders.io/eula';
-const PRIVACY_URL = 'https://openheaders.io/privacy';
+const EULA_URL = 'https://openheaders.com/eula';
+const PRIVACY_URL = 'https://openheaders.com/privacy';
 
 export function FirstRunLegalNotice(): ReactNode {
   const ready = useSettingsReady();

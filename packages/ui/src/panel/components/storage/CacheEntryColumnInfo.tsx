@@ -14,7 +14,7 @@ export type CacheEntryColumnKey = 'request' | 'method' | 'size' | 'time';
 /** The single stored entry every column popover illustrates. */
 const EX = {
   method: 'GET',
-  request: 'https://openheaders.io/assets/app.js',
+  request: 'https://openheaders.com/assets/app.js',
   size: '1.2 kB',
   time: 'Jan 4, 2027, 18:00:00',
 } as const;

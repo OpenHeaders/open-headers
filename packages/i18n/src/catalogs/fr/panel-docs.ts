@@ -74,7 +74,7 @@ export const panelDocs = {
     "Correspond au nom d'hôte par sous-chaîne, si bien qu'un domaine apex attrape chaque sous-domaine —",
   'panel.docs.filterSyntax.domain1Suffix': '— sans jokers.',
   'panel.docs.filterSyntax.domainCaption':
-    "Une seule valeur couvre chaque sous-domaine de openheaders.io ; l'hôte tiers échoue.",
+    "Une seule valeur couvre chaque sous-domaine de openheaders.com ; l'hôte tiers échoue.",
 
   'panel.docs.filterSyntax.statusCodeTitle': 'Code de statut',
   'panel.docs.filterSyntax.statusCode1':

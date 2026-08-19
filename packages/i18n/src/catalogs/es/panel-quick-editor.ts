@@ -67,7 +67,7 @@ export const panelQuickEditor = {
   'panel.quickEditor.validation.switchTo': 'Cambiar a {operation}',
 
   // Typed bodies — popover-only copy.
-  'panel.quickEditor.redirect.targetPlaceholder': 'p. ej. https://openheaders.io/redirected',
+  'panel.quickEditor.redirect.targetPlaceholder': 'p. ej. https://openheaders.com/redirected',
   'panel.quickEditor.redirect.hint': 'Las solicitudes coincidentes se envían a esta URL antes de llegar a la red.',
   'panel.quickEditor.delay.hint':
     'Las navegaciones se retrasan hasta 30 000 ms; XHR/fetch se limita a 5 000 ms. Los subrecursos no se ' +

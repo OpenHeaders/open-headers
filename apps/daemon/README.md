@@ -1,7 +1,7 @@
 # @openheaders/daemon
 
 Standalone Open Headers daemon — the self-hosted back-end tier of
-[Open Headers](https://openheaders.io). It runs the same sync engine as the
+[Open Headers](https://openheaders.com). It runs the same sync engine as the
 desktop app, headless: workspaces, rules, and live values served to the browser
 extension, desktop app, and CLI over one WebSocket/HTTP bind.
 
@@ -25,7 +25,7 @@ you target). Everything is inside the binary — the bundled runtime, the CLI,
 the daemon, the web app, and the compiled SQLite addon.
 
 ```sh
-curl -fsSL https://updates.openheaders.io/install.sh | sh -s -- --with-daemon
+curl -fsSL https://updates.openheaders.com/install.sh | sh -s -- --with-daemon
 ```
 
 The script verifies SHA-256 checksums and installs `oh` and `ohd` to
@@ -242,7 +242,7 @@ pruned hourly.
 ```sh
 oh daemon audit list                             # newest first, 50 rows
 oh daemon audit list --decision deny --since 7d
-oh daemon audit list --actor alice@openheaders.io --workspace <id>
+oh daemon audit list --actor alice@openheaders.com --workspace <id>
 oh daemon audit export --since 2026-07-01 > audit.jsonl
 ```
 

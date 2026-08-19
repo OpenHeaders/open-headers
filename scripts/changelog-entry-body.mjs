@@ -15,7 +15,7 @@ import { fileURLToPath } from 'node:url';
 import { STREAMS, parseFrontmatter } from './lib/changelog.mjs';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const FEED_BASE = 'https://updates.openheaders.io/changelog';
+const FEED_BASE = 'https://updates.openheaders.com/changelog';
 
 function fail(message) {
   console.error(`changelog-entry-body: ${message}`);

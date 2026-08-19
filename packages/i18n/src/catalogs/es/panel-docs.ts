@@ -77,7 +77,7 @@ export const panelDocs = {
     'Coincide con el nombre de host por subcadena, de modo que un dominio raíz atrapa todos los subdominios —',
   'panel.docs.filterSyntax.domain1Suffix': '— sin comodines.',
   'panel.docs.filterSyntax.domainCaption':
-    'Un solo valor cubre todos los subdominios de openheaders.io; el host de terceros falla.',
+    'Un solo valor cubre todos los subdominios de openheaders.com; el host de terceros falla.',
 
   'panel.docs.filterSyntax.statusCodeTitle': 'Código de estado',
   'panel.docs.filterSyntax.statusCode1':

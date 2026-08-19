@@ -452,7 +452,7 @@ export const workbenchDocsDiagrams = {
   'workbench.docs.diagrams.conditions.requestDomains.doesntMatch': "Doesn't match:",
   'workbench.docs.diagrams.conditions.requestDomains.reasonTld': 'different TLD (.com ≠ .io)',
   'workbench.docs.diagrams.conditions.requestDomains.reasonNotSub':
-    'not a true subdomain — no dot before "openheaders.io"',
+    'not a true subdomain — no dot before "openheaders.com"',
   'workbench.docs.diagrams.conditions.requestDomains.footerPathPrefix': 'Need to scope by path? Add ',
   'workbench.docs.diagrams.conditions.requestDomains.footerPathSuffix': ' to the rule.',
   'workbench.docs.diagrams.conditions.requestDomains.footerCross': 'Cross-domain? Add each domain as a separate entry.',
@@ -475,7 +475,7 @@ export const workbenchDocsDiagrams = {
     'Initiator Domains: same destination, different page origins, opposite outcomes',
   'workbench.docs.diagrams.conditions.initiatorDomains.title': 'Initiator Domains — match by which page made the call',
   'workbench.docs.diagrams.conditions.initiatorDomains.subtitle': 'Same fetch, two page contexts → different outcomes',
-  'workbench.docs.diagrams.conditions.initiatorDomains.ruleBanner': 'Initiator Domains: portal.openheaders.io',
+  'workbench.docs.diagrams.conditions.initiatorDomains.ruleBanner': 'Initiator Domains: portal.openheaders.com',
   'workbench.docs.diagrams.conditions.initiatorDomains.openPage': 'OPEN PAGE',
   'workbench.docs.diagrams.conditions.initiatorDomains.fetches': '↓ fetches',
   'workbench.docs.diagrams.conditions.initiatorDomains.matches': '✓ MATCHES',
@@ -565,7 +565,7 @@ export const workbenchDocsDiagrams = {
   'workbench.docs.diagrams.conditions.urlPattern.reasonSubdomain': '"cdn" ≠ "api" — subdomain mismatch',
   'workbench.docs.diagrams.conditions.urlPattern.reasonHost': 'different host entirely',
   'workbench.docs.diagrams.conditions.urlPattern.footerQ': 'Need to match all subdomains at once?',
-  'workbench.docs.diagrams.conditions.urlPattern.footerExample': 'Request Domains: openheaders.io',
+  'workbench.docs.diagrams.conditions.urlPattern.footerExample': 'Request Domains: openheaders.com',
 
   // ── Conditions: URL regex ───────────────────────────────────────────
   'workbench.docs.diagrams.conditions.urlRegex.aria':
@@ -1522,7 +1522,7 @@ export const workbenchDocsDiagrams = {
   'workbench.docs.diagrams.block.aria':
     'Block cancels matching requests at the network layer — the page sees a network error. main_frame blocks ' +
     'render ERR_BLOCKED_BY_CLIENT; sub-resource blocks fail silently.',
-  'workbench.docs.diagrams.block.rule': 'Block · Request Domains: ads.openheaders.io',
+  'workbench.docs.diagrams.block.rule': 'Block · Request Domains: ads.openheaders.com',
   'workbench.docs.diagrams.block.pageTitle': 'Page',
   'workbench.docs.diagrams.block.dnrBlock': 'DNR block',
   'workbench.docs.diagrams.block.network': 'Network',
@@ -1535,7 +1535,7 @@ export const workbenchDocsDiagrams = {
   'workbench.docs.diagrams.block.useCasesAria':
     'Block — common use cases: ads & trackers, outage simulation, endpoint denial, and page-only block.',
   'workbench.docs.diagrams.block.card1Title': 'Ads & trackers',
-  'workbench.docs.diagrams.block.card1Example': 'Block ads.openheaders.io',
+  'workbench.docs.diagrams.block.card1Example': 'Block ads.openheaders.com',
   'workbench.docs.diagrams.block.card2Title': 'Outage simulation',
   'workbench.docs.diagrams.block.card2Example': 'Take a host offline to test',
   'workbench.docs.diagrams.block.card3Title': 'Endpoint denial',
@@ -1553,7 +1553,7 @@ export const workbenchDocsDiagrams = {
   // ── Redirect ────────────────────────────────────────────────────────
   'workbench.docs.diagrams.redirect.staticAria':
     'Static redirect — every matching request is rewritten to the same destination URL.',
-  'workbench.docs.diagrams.redirect.ruleStatic': 'Redirect → https://openheaders.io/new-page',
+  'workbench.docs.diagrams.redirect.ruleStatic': 'Redirect → https://openheaders.com/new-page',
   'workbench.docs.diagrams.redirect.originalRequestKicker': 'ORIGINAL REQUEST',
   'workbench.docs.diagrams.redirect.urlRewritten': 'URL rewritten',
   'workbench.docs.diagrams.redirect.redirectedToKicker': 'REDIRECTED TO',
@@ -1564,7 +1564,7 @@ export const workbenchDocsDiagrams = {
   'workbench.docs.diagrams.redirect.ruleRegexLine1': 'URL Regex: ^http://(openheaders\\.io/.*)$',
   'workbench.docs.diagrams.redirect.ruleRegexLine2': 'Redirect → https://\\1',
   'workbench.docs.diagrams.redirect.originalUrlKicker': 'ORIGINAL URL',
-  'workbench.docs.diagrams.redirect.captureChip': '\\1 = openheaders.io/page',
+  'workbench.docs.diagrams.redirect.captureChip': '\\1 = openheaders.com/page',
   'workbench.docs.diagrams.redirect.substituted': '\\1 substituted',
   'workbench.docs.diagrams.redirect.regexStamp': '\\1 inherits whatever the capture group matched.',
   'workbench.docs.diagrams.redirect.useCasesAria':
@@ -1881,9 +1881,9 @@ export const workbenchDocsDiagrams = {
   'workbench.docs.diagrams.requestTracking.uiAria':
     'UI anatomy — collapsed badge expands into a list of matched requests',
   'workbench.docs.diagrams.requestTracking.uiTitle': 'Rule row in the popup',
-  'workbench.docs.diagrams.requestTracking.uiRule': 'Block ads.openheaders.io',
+  'workbench.docs.diagrams.requestTracking.uiRule': 'Block ads.openheaders.com',
   'workbench.docs.diagrams.requestTracking.clickBadge': 'click badge',
-  'workbench.docs.diagrams.requestTracking.matchedPattern': 'matched: ads.openheaders.io',
+  'workbench.docs.diagrams.requestTracking.matchedPattern': 'matched: ads.openheaders.com',
   'workbench.docs.diagrams.requestTracking.legendFields': 'timestamp · URL · resource type · matched pattern',
   'workbench.docs.diagrams.requestTracking.legendBadge': 'badge count = number of rows',
 
@@ -1968,7 +1968,7 @@ export const workbenchDocsDiagrams = {
   // ── Direct vs Indirect ──────────────────────────────────────────────
   'workbench.docs.diagrams.directVsIndirect.aria': 'Direct vs indirect matches — same rule, two page contexts',
   'workbench.docs.diagrams.directVsIndirect.ruleLabel': 'Rule',
-  'workbench.docs.diagrams.directVsIndirect.ruleBanner': 'Request Domains: openheaders.io',
+  'workbench.docs.diagrams.directVsIndirect.ruleBanner': 'Request Domains: openheaders.com',
   'workbench.docs.diagrams.directVsIndirect.directTitle': 'Direct',
   'workbench.docs.diagrams.directVsIndirect.directSub': 'page URL itself matches',
   'workbench.docs.diagrams.directVsIndirect.pageLabel': 'page',
@@ -2009,7 +2009,7 @@ export const workbenchDocsDiagrams = {
   'workbench.docs.diagrams.mock.dynamicRule': 'Dynamic response: redact PII fields',
   'workbench.docs.diagrams.mock.dynamicBeforeKicker': 'REAL RESPONSE',
   'workbench.docs.diagrams.mock.dynBodyOpen': '{ "user":',
-  'workbench.docs.diagrams.mock.dynBodyEmail': '  { "email": "alice@openheaders.io" } }',
+  'workbench.docs.diagrams.mock.dynBodyEmail': '  { "email": "alice@openheaders.com" } }',
   'workbench.docs.diagrams.mock.dynAfterPrefix': '  { "email": ',
   'workbench.docs.diagrams.mock.dynRedacted': '"[redacted]"',
   'workbench.docs.diagrams.mock.dynamicArrow': 'fn(real response) →',

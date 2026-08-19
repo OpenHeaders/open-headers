@@ -83,9 +83,9 @@ function isolated(base: GitRunner): GitRunner {
 const IDENTITY = { name: 'Probe Operator', email: null };
 const IDENTITY_ENV = {
   GIT_AUTHOR_NAME: 'Probe Operator',
-  GIT_AUTHOR_EMAIL: 'probe-operator@users.noreply.openheaders.io',
+  GIT_AUTHOR_EMAIL: 'probe-operator@users.noreply.openheaders.com',
   GIT_COMMITTER_NAME: 'Probe Operator',
-  GIT_COMMITTER_EMAIL: 'probe-operator@users.noreply.openheaders.io',
+  GIT_COMMITTER_EMAIL: 'probe-operator@users.noreply.openheaders.com',
 };
 
 beforeEach(async () => {
@@ -167,8 +167,8 @@ describe('resolveCommitIdentity', () => {
 });
 
 describe('withCommitAttribution', () => {
-  const ALICE = { name: 'Alice', email: 'alice@users.noreply.openheaders.io' };
-  const BOB = { name: 'Bob', email: 'bob@users.noreply.openheaders.io' };
+  const ALICE = { name: 'Alice', email: 'alice@users.noreply.openheaders.com' };
+  const BOB = { name: 'Bob', email: 'bob@users.noreply.openheaders.com' };
 
   it('passes through untouched with no contributors', () => {
     expect(withCommitAttribution(IDENTITY_ENV, 'Update request', [])).toEqual({
@@ -181,9 +181,9 @@ describe('withCommitAttribution', () => {
     const attributed = withCommitAttribution(IDENTITY_ENV, 'Update request', [ALICE]);
     expect(attributed.message).toBe('Update request');
     expect(attributed.env.GIT_AUTHOR_NAME).toBe('Alice');
-    expect(attributed.env.GIT_AUTHOR_EMAIL).toBe('alice@users.noreply.openheaders.io');
+    expect(attributed.env.GIT_AUTHOR_EMAIL).toBe('alice@users.noreply.openheaders.com');
     expect(attributed.env.GIT_COMMITTER_NAME).toBe('Probe Operator');
-    expect(attributed.env.GIT_COMMITTER_EMAIL).toBe('probe-operator@users.noreply.openheaders.io');
+    expect(attributed.env.GIT_COMMITTER_EMAIL).toBe('probe-operator@users.noreply.openheaders.com');
   });
 
   it('several contributors keep the operator author and ride as deduped trailers', () => {
@@ -191,8 +191,8 @@ describe('withCommitAttribution', () => {
     expect(attributed.env).toEqual(IDENTITY_ENV);
     expect(attributed.message).toBe(
       'Update request\n\n' +
-        'Co-Authored-By: Alice <alice@users.noreply.openheaders.io>\n' +
-        'Co-Authored-By: Bob <bob@users.noreply.openheaders.io>',
+        'Co-Authored-By: Alice <alice@users.noreply.openheaders.com>\n' +
+        'Co-Authored-By: Bob <bob@users.noreply.openheaders.com>',
     );
   });
 
@@ -209,8 +209,8 @@ describe('withCommitAttribution', () => {
     expect(result.ok && result.committed).toBe(true);
     const show = await run(['-C', tmpDir, 'log', '-1', '--format=%an <%ae>%n%cn <%ce>'], { cwd: tmpDir });
     expect(show.stdout.trim().split('\n')).toEqual([
-      'Alice <alice@users.noreply.openheaders.io>',
-      'Probe Operator <probe-operator@users.noreply.openheaders.io>',
+      'Alice <alice@users.noreply.openheaders.com>',
+      'Probe Operator <probe-operator@users.noreply.openheaders.com>',
     ]);
   });
 });
@@ -231,7 +231,7 @@ describe('commitWorkspaceTree', () => {
     const author = await run(['--git-dir', path.join(tmpDir, '.git'), 'log', '-1', '--format=%an <%ae>'], {
       cwd: tmpDir,
     });
-    expect(author.stdout.trim()).toBe('Probe Operator <probe-operator@users.noreply.openheaders.io>');
+    expect(author.stdout.trim()).toBe('Probe Operator <probe-operator@users.noreply.openheaders.com>');
 
     const second = await commitWorkspaceTree({
       run,
@@ -850,7 +850,7 @@ describe('history feeds (Phase 7)', () => {
     expect(entries[0].sha).toBe(second.sha);
     expect(entries[0].subject).toBe('Add rule a');
     expect(entries[0].authorName).toBe('Probe Operator');
-    expect(entries[0].authorEmail).toBe('probe-operator@users.noreply.openheaders.io');
+    expect(entries[0].authorEmail).toBe('probe-operator@users.noreply.openheaders.com');
     expect(entries[0].authoredAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
     expect(entries[0].coAuthors).toEqual(['Dana Reyes <dana@openheaders.io>']);
     expect(entries[0].files).toEqual([{ status: 'A', path: 'rules/a/rule.yaml' }]);
@@ -1510,7 +1510,7 @@ describe('Commit window plumbing (S22)', () => {
     });
     expect(result).toMatchObject({ ok: true, committed: true });
     const body = await run(['--git-dir', path.join(tmpDir, '.git'), 'log', '-1', '--format=%B'], { cwd: tmpDir });
-    expect(body.stdout).toContain('Signed-off-by: Probe Operator <probe-operator@users.noreply.openheaders.io>');
+    expect(body.stdout).toContain('Signed-off-by: Probe Operator <probe-operator@users.noreply.openheaders.com>');
   });
 
   it('commitParents answers the parent chain (root, linear)', async () => {

@@ -40,7 +40,7 @@ export type SurfaceKind = 'workbench' | 'popup' | 'devpanel' | 'sidepanel';
  *   - `extension` — browser extension contexts (popup, sidepanel,
  *     devpanel, full-page workbench tab). Carries `browserContext`.
  *   - `desktop`   — Electron main window. No `browserContext`.
- *   - `web`       — the openheaders.io web bundle, when shipped.
+ *   - `web`       — the openheaders.com web bundle, when shipped.
  *     Hosted in a real browser, so carries `browserContext`, but
  *     bucketed separately from extension surfaces in the same
  *     browser so the popover can disambiguate.

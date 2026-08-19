@@ -51,7 +51,7 @@ import type { LicenseSlotHandle } from './license-slot';
 
 const SCOPE = 'license-refresh';
 
-export const LICENSE_REFRESH_ENDPOINT = 'https://license.openheaders.io/refresh';
+export const LICENSE_REFRESH_ENDPOINT = 'https://license.openheaders.com/refresh';
 
 /** A signed license file is a few KiB — the cap bounds a hostile answer. */
 const MAX_RESPONSE_BODY_BYTES = 256 * 1024;

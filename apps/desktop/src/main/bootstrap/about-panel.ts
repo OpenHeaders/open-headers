@@ -16,7 +16,7 @@ export function installAboutPanel(): void {
     applicationName: app.getName(),
     applicationVersion: app.getVersion(),
     copyright: `© ${new Date().getFullYear()} Bithub Team SRL`,
-    website: 'https://openheaders.io',
+    website: 'https://openheaders.com',
     iconPath: buildAssetPath('icon128.png'),
   });
 }

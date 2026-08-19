@@ -1,6 +1,6 @@
 /**
  * Stages the static changelog feed objects uploaded to
- * `updates.openheaders.io/changelog/*` by the release workflow
+ * `updates.openheaders.com/changelog/*` by the release workflow
  * (the changelog plan §4.1), beside the version feed. Everything is
  * projected from the canonical `changelog/` tree — nothing here is
  * authored:
@@ -32,7 +32,7 @@ import { STREAMS, compareCalVer, parseFrontmatter, parseInlineMap } from './lib/
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const changelogDir = path.join(repoRoot, 'changelog');
-const FEED_BASE = 'https://updates.openheaders.io/changelog';
+const FEED_BASE = 'https://updates.openheaders.com/changelog';
 
 // Public history starts at the first public release — earlier versions
 // never appear on the feed, whether from the tree or a prior index.
@@ -217,7 +217,7 @@ const noteLinks = index
   .map((row) => `- [${STREAM_LABELS[row.app] ?? row.app} ${row.version}](${row.md}): JSON twin at ${row.json}`);
 const llmsTxt = `# Open Headers
 
-> Open Headers is a web development toolkit — a browser extension, desktop app, CLI, and server for modifying live browser requests, managing API collections, and collaborating with your team. This host (updates.openheaders.io) is its static update feed: version manifests and the release changelog as JSON and raw markdown. Streams are products: desktop, extension, cli, daemon (labeled "Server"), web.
+> Open Headers is a web development toolkit — a browser extension, desktop app, CLI, and server for modifying live browser requests, managing API collections, and collaborating with your team. This host (updates.openheaders.com) is its static update feed: version manifests and the release changelog as JSON and raw markdown. Streams are products: desktop, extension, cli, daemon (labeled "Server"), web.
 
 ## Changelog
 
@@ -232,13 +232,13 @@ ${noteLinks.join('\n')}
 
 ## Versions
 
-- [Stable manifest](https://updates.openheaders.io/versions/stable.json): latest version, severity, and download URLs per product
-- [Beta manifest](https://updates.openheaders.io/versions/beta.json): same shape for the beta channel
+- [Stable manifest](https://updates.openheaders.com/versions/stable.json): latest version, severity, and download URLs per product
+- [Beta manifest](https://updates.openheaders.com/versions/beta.json): same shape for the beta channel
 
 ## Optional
 
-- [Website](https://openheaders.io)
-- [Changelog page](https://openheaders.io/changelog)
+- [Website](https://openheaders.com)
+- [Changelog page](https://openheaders.com/changelog)
 - [Public repository](https://github.com/OpenHeaders/open-headers)
 `;
 writeFileSync(path.join(outputDir, 'llms.txt'), llmsTxt);

@@ -21,7 +21,7 @@ import type { Catalog } from '../../types';
 export const workbenchEditorsWebsocket = {
   // ── WebSocket request editor ────────────────────────────────────────
   'workbench.editors.websocket.notFound': '未找到 WebSocket 请求。',
-  'workbench.editors.websocket.urlPlaceholder': 'wss://echo.openheaders.io/socket',
+  'workbench.editors.websocket.urlPlaceholder': 'wss://echo.openheaders.com/socket',
   'workbench.editors.websocket.scheme.wss': 'wss——TLS 已开启。点击切换为明文 ws。',
   'workbench.editors.websocket.scheme.ws': 'ws——明文。点击切换为 wss。',
   'workbench.editors.websocket.flavor.raw': 'WebSocket',

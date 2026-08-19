@@ -306,12 +306,12 @@ export const DomainTypeDiagram: React.FC = () => {
   const tpStroke = STROKE_GOLD;
   const rows: { dest: string; party: string; matched: boolean }[] = [
     {
-      dest: 'api.openheaders.io',
+      dest: 'api.openheaders.com',
       party: t('workbench.docs.diagrams.conditions.domainType.partyFirst'),
       matched: false,
     },
     {
-      dest: 'cdn.openheaders.io',
+      dest: 'cdn.openheaders.com',
       party: t('workbench.docs.diagrams.conditions.domainType.partyFirst'),
       matched: false,
     },
@@ -347,7 +347,7 @@ export const DomainTypeDiagram: React.FC = () => {
         {t('workbench.docs.diagrams.conditions.domainType.pageLabel')}
       </text>
       <text x={88} y={51} fontFamily="monospace" fontSize={10} fontWeight={700} fill={TEXT}>
-        portal.openheaders.io
+        portal.openheaders.com
       </text>
 
       {/* Rule selector */}

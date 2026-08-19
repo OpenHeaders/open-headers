@@ -423,7 +423,7 @@ export const workbenchDocsDiagrams = {
   'workbench.docs.diagrams.conditions.requestDomains.hostOnly': '只匹配主机——任意路径或查询串均可',
   'workbench.docs.diagrams.conditions.requestDomains.doesntMatch': '不匹配：',
   'workbench.docs.diagrams.conditions.requestDomains.reasonTld': '顶级域不同（.com ≠ .io）',
-  'workbench.docs.diagrams.conditions.requestDomains.reasonNotSub': '不是真正的子域名——“openheaders.io”前没有点',
+  'workbench.docs.diagrams.conditions.requestDomains.reasonNotSub': '不是真正的子域名——“openheaders.com”前没有点',
   'workbench.docs.diagrams.conditions.requestDomains.footerPathPrefix': '需要按路径限定？请在规则中加入',
   'workbench.docs.diagrams.conditions.requestDomains.footerPathSuffix': '。',
   'workbench.docs.diagrams.conditions.requestDomains.footerCross': '跨多个域名？请把每个域名添加为单独一条。',
@@ -445,7 +445,7 @@ export const workbenchDocsDiagrams = {
   'workbench.docs.diagrams.conditions.initiatorDomains.aria': '发起者域名：相同目标，不同页面来源，结果相反',
   'workbench.docs.diagrams.conditions.initiatorDomains.title': '发起者域名——按发起调用的页面匹配',
   'workbench.docs.diagrams.conditions.initiatorDomains.subtitle': '同一次 fetch，两个页面上下文 → 结果不同',
-  'workbench.docs.diagrams.conditions.initiatorDomains.ruleBanner': '发起者域名：portal.openheaders.io',
+  'workbench.docs.diagrams.conditions.initiatorDomains.ruleBanner': '发起者域名：portal.openheaders.com',
   'workbench.docs.diagrams.conditions.initiatorDomains.openPage': '打开的页面',
   'workbench.docs.diagrams.conditions.initiatorDomains.fetches': '↓ 发起 fetch',
   'workbench.docs.diagrams.conditions.initiatorDomains.matches': '✓ 匹配',
@@ -526,7 +526,7 @@ export const workbenchDocsDiagrams = {
   'workbench.docs.diagrams.conditions.urlPattern.reasonSubdomain': '“cdn” ≠ “api”——子域名不符',
   'workbench.docs.diagrams.conditions.urlPattern.reasonHost': '主机完全不同',
   'workbench.docs.diagrams.conditions.urlPattern.footerQ': '需要一次匹配所有子域名？',
-  'workbench.docs.diagrams.conditions.urlPattern.footerExample': '“请求域名”：openheaders.io',
+  'workbench.docs.diagrams.conditions.urlPattern.footerExample': '“请求域名”：openheaders.com',
 
   // ── Conditions: URL regex ───────────────────────────────────────────
   'workbench.docs.diagrams.conditions.urlRegex.aria':
@@ -1399,7 +1399,7 @@ export const workbenchDocsDiagrams = {
   // ── Block ───────────────────────────────────────────────────────────
   'workbench.docs.diagrams.block.aria':
     '拦截在网络层取消匹配的请求——页面会看到网络错误。main_frame 拦截会显示 ERR_BLOCKED_BY_CLIENT；子资源拦截则静默失败。',
-  'workbench.docs.diagrams.block.rule': 'Block · Request Domains: ads.openheaders.io',
+  'workbench.docs.diagrams.block.rule': 'Block · Request Domains: ads.openheaders.com',
   'workbench.docs.diagrams.block.pageTitle': '页面',
   'workbench.docs.diagrams.block.dnrBlock': 'DNR 拦截',
   'workbench.docs.diagrams.block.network': '网络',
@@ -1411,7 +1411,7 @@ export const workbenchDocsDiagrams = {
   'workbench.docs.diagrams.block.pageHandlesError': '页面自行处理错误',
   'workbench.docs.diagrams.block.useCasesAria': '拦截——常见用例：广告与跟踪器、模拟故障、拒绝端点、仅拦截页面。',
   'workbench.docs.diagrams.block.card1Title': '广告与跟踪器',
-  'workbench.docs.diagrams.block.card1Example': '拦截 ads.openheaders.io',
+  'workbench.docs.diagrams.block.card1Example': '拦截 ads.openheaders.com',
   'workbench.docs.diagrams.block.card2Title': '模拟故障',
   'workbench.docs.diagrams.block.card2Example': '让主机离线以便测试',
   'workbench.docs.diagrams.block.card3Title': '拒绝端点',
@@ -1427,7 +1427,7 @@ export const workbenchDocsDiagrams = {
 
   // ── Redirect ────────────────────────────────────────────────────────
   'workbench.docs.diagrams.redirect.staticAria': '静态重定向——每个匹配的请求都被改写到同一个目标 URL。',
-  'workbench.docs.diagrams.redirect.ruleStatic': 'Redirect → https://openheaders.io/new-page',
+  'workbench.docs.diagrams.redirect.ruleStatic': 'Redirect → https://openheaders.com/new-page',
   'workbench.docs.diagrams.redirect.originalRequestKicker': '原始请求',
   'workbench.docs.diagrams.redirect.urlRewritten': 'URL 已重写',
   'workbench.docs.diagrams.redirect.redirectedToKicker': '重定向至',
@@ -1437,7 +1437,7 @@ export const workbenchDocsDiagrams = {
   'workbench.docs.diagrams.redirect.ruleRegexLine1': 'URL Regex: ^http://(openheaders\\.io/.*)$',
   'workbench.docs.diagrams.redirect.ruleRegexLine2': 'Redirect → https://\\1',
   'workbench.docs.diagrams.redirect.originalUrlKicker': '原始 URL',
-  'workbench.docs.diagrams.redirect.captureChip': '\\1 = openheaders.io/page',
+  'workbench.docs.diagrams.redirect.captureChip': '\\1 = openheaders.com/page',
   'workbench.docs.diagrams.redirect.substituted': '已代入 \\1',
   'workbench.docs.diagrams.redirect.regexStamp': '\\1 继承捕获组匹配到的内容。',
   'workbench.docs.diagrams.redirect.useCasesAria':
@@ -1728,9 +1728,9 @@ export const workbenchDocsDiagrams = {
   'workbench.docs.diagrams.requestTracking.seqFooter': '记录是实时发生的；弹窗只是读回。',
   'workbench.docs.diagrams.requestTracking.uiAria': 'UI 结构——折叠的徽章展开为匹配请求列表',
   'workbench.docs.diagrams.requestTracking.uiTitle': '弹窗中的规则行',
-  'workbench.docs.diagrams.requestTracking.uiRule': 'Block ads.openheaders.io',
+  'workbench.docs.diagrams.requestTracking.uiRule': 'Block ads.openheaders.com',
   'workbench.docs.diagrams.requestTracking.clickBadge': '点击徽章',
-  'workbench.docs.diagrams.requestTracking.matchedPattern': '匹配：ads.openheaders.io',
+  'workbench.docs.diagrams.requestTracking.matchedPattern': '匹配：ads.openheaders.com',
   'workbench.docs.diagrams.requestTracking.legendFields': '时间戳 · URL · 资源类型 · 匹配的模式',
   'workbench.docs.diagrams.requestTracking.legendBadge': '徽章计数 = 行数',
 
@@ -1813,7 +1813,7 @@ export const workbenchDocsDiagrams = {
   // ── Direct vs Indirect ──────────────────────────────────────────────
   'workbench.docs.diagrams.directVsIndirect.aria': '直接匹配与间接匹配——同一条规则，两种页面场景',
   'workbench.docs.diagrams.directVsIndirect.ruleLabel': '规则',
-  'workbench.docs.diagrams.directVsIndirect.ruleBanner': 'Request Domains: openheaders.io',
+  'workbench.docs.diagrams.directVsIndirect.ruleBanner': 'Request Domains: openheaders.com',
   'workbench.docs.diagrams.directVsIndirect.directTitle': '直接',
   'workbench.docs.diagrams.directVsIndirect.directSub': '页面 URL 本身匹配',
   'workbench.docs.diagrams.directVsIndirect.pageLabel': '页面',
@@ -1853,7 +1853,7 @@ export const workbenchDocsDiagrams = {
   'workbench.docs.diagrams.mock.dynamicRule': 'Dynamic response: 隐去 PII 字段',
   'workbench.docs.diagrams.mock.dynamicBeforeKicker': '真实响应',
   'workbench.docs.diagrams.mock.dynBodyOpen': '{ "user":',
-  'workbench.docs.diagrams.mock.dynBodyEmail': '  { "email": "alice@openheaders.io" } }',
+  'workbench.docs.diagrams.mock.dynBodyEmail': '  { "email": "alice@openheaders.com" } }',
   'workbench.docs.diagrams.mock.dynAfterPrefix': '  { "email": ',
   'workbench.docs.diagrams.mock.dynRedacted': '"[已隐去]"',
   'workbench.docs.diagrams.mock.dynamicArrow': 'fn(real response) →',

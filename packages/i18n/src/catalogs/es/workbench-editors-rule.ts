@@ -328,7 +328,7 @@ export const workbenchEditorsRule = {
   'workbench.editors.rule.fields.redirect.localFile': 'Archivo local',
   'workbench.editors.rule.fields.redirect.desktopOnly': 'Disponible en la aplicación de escritorio',
   'workbench.editors.rule.fields.redirect.targetPlaceholder':
-    'p. ej. https://openheaders.io/redirected — usa \\1, \\2 con condiciones Regex de URL',
+    'p. ej. https://openheaders.com/redirected — usa \\1, \\2 con condiciones Regex de URL',
 
   // ── Query-param rule fields ────────────────────────────────────────
   'workbench.editors.rule.fields.queryParam.kicker': 'Regla de parámetros de consulta',

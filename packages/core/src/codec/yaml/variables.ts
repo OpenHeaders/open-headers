@@ -12,7 +12,7 @@
  *   variables:
  *     - uid: a3f7c1e9
  *       name: API_URL
- *       value: https://api.openheaders.io
+ *       value: https://api.openheaders.com
  *       type: default
  *
  *   workspace-vars.secret.yaml

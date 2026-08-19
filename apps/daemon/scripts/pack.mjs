@@ -78,7 +78,7 @@ writeFileSync(
       version: manifest.version,
       description: manifest.description,
       license: 'Apache-2.0',
-      homepage: 'https://openheaders.io',
+      homepage: 'https://openheaders.com',
       type: 'module',
       bin: { ohd: './dist/cli.js' },
       files: ['dist'],

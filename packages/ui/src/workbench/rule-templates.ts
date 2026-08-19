@@ -67,7 +67,7 @@ const HEADER_TREE: SystemTemplateNode[] = [
       icon: '🔓',
       nameKey: 'shared.ruleTemplates.corsBypass.name',
       descriptionKey: 'shared.ruleTemplates.corsBypass.description',
-      conditions: [{ uid: 'sct00001', type: 'request-domains', values: ['openheaders.io'] }],
+      conditions: [{ uid: 'sct00001', type: 'request-domains', values: ['openheaders.com'] }],
       formValues: {
         requestHeaders: [],
         responseHeaders: [
@@ -88,7 +88,7 @@ const HEADER_TREE: SystemTemplateNode[] = [
       icon: '⚡',
       nameKey: 'shared.ruleTemplates.removeCsp.name',
       descriptionKey: 'shared.ruleTemplates.removeCsp.description',
-      conditions: [{ uid: 'sct00002', type: 'request-domains', values: ['openheaders.io'] }],
+      conditions: [{ uid: 'sct00002', type: 'request-domains', values: ['openheaders.com'] }],
       formValues: {
         requestHeaders: [],
         responseHeaders: [
@@ -118,7 +118,7 @@ const HEADER_TREE: SystemTemplateNode[] = [
       icon: '🔑',
       nameKey: 'shared.ruleTemplates.apiAuth.name',
       descriptionKey: 'shared.ruleTemplates.apiAuth.description',
-      conditions: [{ uid: 'sct00004', type: 'request-domains', values: ['api.openheaders.io'] }],
+      conditions: [{ uid: 'sct00004', type: 'request-domains', values: ['api.openheaders.com'] }],
       formValues: {
         requestHeaders: [
           { uid: 'shm00009', operation: 'override', headerName: 'Authorization', value: 'Bearer YOUR_TOKEN' },
@@ -134,7 +134,7 @@ const HEADER_TREE: SystemTemplateNode[] = [
       icon: '🕵️',
       nameKey: 'shared.ruleTemplates.customUa.name',
       descriptionKey: 'shared.ruleTemplates.customUa.description',
-      conditions: [{ uid: 'sct00005', type: 'request-domains', values: ['openheaders.io'] }],
+      conditions: [{ uid: 'sct00005', type: 'request-domains', values: ['openheaders.com'] }],
       formValues: {
         requestHeaders: [
           {
@@ -152,7 +152,7 @@ const HEADER_TREE: SystemTemplateNode[] = [
       icon: '🍪',
       nameKey: 'shared.ruleTemplates.blockCookies.name',
       descriptionKey: 'shared.ruleTemplates.blockCookies.description',
-      conditions: [{ uid: 'sct00006', type: 'request-domains', values: ['openheaders.io'] }],
+      conditions: [{ uid: 'sct00006', type: 'request-domains', values: ['openheaders.com'] }],
       formValues: {
         requestHeaders: [{ uid: 'shm00012', operation: 'remove', headerName: 'Cookie' }],
         responseHeaders: [{ uid: 'shm00013', operation: 'remove', headerName: 'Set-Cookie' }],
@@ -223,8 +223,8 @@ const REDIRECT_TREE: SystemTemplateNode[] = [
       icon: '↪️',
       nameKey: 'shared.ruleTemplates.redirectDomain.name',
       descriptionKey: 'shared.ruleTemplates.redirectDomain.description',
-      conditions: [{ uid: 'sct00011', type: 'url-filter', values: ['*://old.openheaders.io/*'] }],
-      formValues: { redirectTo: 'https://new.openheaders.io/' },
+      conditions: [{ uid: 'sct00011', type: 'url-filter', values: ['*://old.openheaders.com/*'] }],
+      formValues: { redirectTo: 'https://new.openheaders.com/' },
     }),
     t({
       key: 'force-https',
@@ -246,7 +246,7 @@ const QUERY_PARAM_TREE: SystemTemplateNode[] = [
       icon: '🧹',
       nameKey: 'shared.ruleTemplates.removeUtm.name',
       descriptionKey: 'shared.ruleTemplates.removeUtm.description',
-      conditions: [{ uid: 'sct00013', type: 'request-domains', values: ['openheaders.io'] }],
+      conditions: [{ uid: 'sct00013', type: 'request-domains', values: ['openheaders.com'] }],
       formValues: {
         queryParams: [
           { param: 'utm_source', value: '', operation: 'remove' },
@@ -264,7 +264,7 @@ const QUERY_PARAM_TREE: SystemTemplateNode[] = [
       icon: '🐛',
       nameKey: 'shared.ruleTemplates.addDebug.name',
       descriptionKey: 'shared.ruleTemplates.addDebug.description',
-      conditions: [{ uid: 'sct00014', type: 'request-domains', values: ['api.openheaders.io'] }],
+      conditions: [{ uid: 'sct00014', type: 'request-domains', values: ['api.openheaders.com'] }],
       formValues: { queryParams: [{ param: 'debug', value: 'true', operation: 'add' }] },
     }),
   ]),
@@ -279,7 +279,7 @@ const INJECT_TREE: SystemTemplateNode[] = [
       icon: '🌙',
       nameKey: 'shared.ruleTemplates.darkMode.name',
       descriptionKey: 'shared.ruleTemplates.darkMode.description',
-      conditions: [{ uid: 'sct00015', type: 'request-domains', values: ['openheaders.io'] }],
+      conditions: [{ uid: 'sct00015', type: 'request-domains', values: ['openheaders.com'] }],
       formValues: {
         injectType: 'css',
         injectSource: 'code',
@@ -294,7 +294,7 @@ const INJECT_TREE: SystemTemplateNode[] = [
       icon: '📋',
       nameKey: 'shared.ruleTemplates.consoleLogger.name',
       descriptionKey: 'shared.ruleTemplates.consoleLogger.description',
-      conditions: [{ uid: 'sct00016', type: 'request-domains', values: ['openheaders.io'] }],
+      conditions: [{ uid: 'sct00016', type: 'request-domains', values: ['openheaders.com'] }],
       formValues: {
         injectType: 'script',
         injectSource: 'code',
@@ -315,7 +315,7 @@ const DELAY_TREE: SystemTemplateNode[] = [
       icon: '🐢',
       nameKey: 'shared.ruleTemplates.slowApi.name',
       descriptionKey: 'shared.ruleTemplates.slowApi.description',
-      conditions: [{ uid: 'sct00017', type: 'request-domains', values: ['api.openheaders.io'] }],
+      conditions: [{ uid: 'sct00017', type: 'request-domains', values: ['api.openheaders.com'] }],
       formValues: { delayMs: 2000 },
     }),
     t({
@@ -323,7 +323,7 @@ const DELAY_TREE: SystemTemplateNode[] = [
       icon: '⏱️',
       nameKey: 'shared.ruleTemplates.timeoutTest.name',
       descriptionKey: 'shared.ruleTemplates.timeoutTest.description',
-      conditions: [{ uid: 'sct00018', type: 'request-domains', values: ['api.openheaders.io'] }],
+      conditions: [{ uid: 'sct00018', type: 'request-domains', values: ['api.openheaders.com'] }],
       formValues: { delayMs: 5000 },
     }),
   ]),
@@ -338,11 +338,11 @@ const REQUEST_BODY_TREE: SystemTemplateNode[] = [
       icon: '📝',
       nameKey: 'shared.ruleTemplates.restBodyOverride.name',
       descriptionKey: 'shared.ruleTemplates.restBodyOverride.description',
-      conditions: [{ uid: 'sct00019', type: 'request-domains', values: ['api.openheaders.io'] }],
+      conditions: [{ uid: 'sct00019', type: 'request-domains', values: ['api.openheaders.com'] }],
       formValues: {
         requestResourceType: 'rest',
         requestBodyType: 'static',
-        requestStaticBody: '{\n  "name": "Test User",\n  "email": "user@openheaders.io"\n}',
+        requestStaticBody: '{\n  "name": "Test User",\n  "email": "user@openheaders.com"\n}',
       },
     }),
   ]),
@@ -352,7 +352,7 @@ const REQUEST_BODY_TREE: SystemTemplateNode[] = [
       icon: '🔮',
       nameKey: 'shared.ruleTemplates.graphqlOverride.name',
       descriptionKey: 'shared.ruleTemplates.graphqlOverride.description',
-      conditions: [{ uid: 'sct00020', type: 'request-domains', values: ['api.openheaders.io'] }],
+      conditions: [{ uid: 'sct00020', type: 'request-domains', values: ['api.openheaders.com'] }],
       formValues: {
         requestResourceType: 'graphql',
         requestBodyType: 'static',
@@ -375,7 +375,7 @@ const RESPONSE_TREE: SystemTemplateNode[] = [
       icon: '✅',
       nameKey: 'shared.ruleTemplates.mock200.name',
       descriptionKey: 'shared.ruleTemplates.mock200.description',
-      conditions: [{ uid: 'sct00021', type: 'request-domains', values: ['api.openheaders.io'] }],
+      conditions: [{ uid: 'sct00021', type: 'request-domains', values: ['api.openheaders.com'] }],
       formValues: {
         responseSource: 'mock',
         responseResourceType: 'rest',
@@ -389,7 +389,7 @@ const RESPONSE_TREE: SystemTemplateNode[] = [
       icon: '❌',
       nameKey: 'shared.ruleTemplates.mock404.name',
       descriptionKey: 'shared.ruleTemplates.mock404.description',
-      conditions: [{ uid: 'sct00022', type: 'request-domains', values: ['api.openheaders.io'] }],
+      conditions: [{ uid: 'sct00022', type: 'request-domains', values: ['api.openheaders.com'] }],
       formValues: {
         responseSource: 'mock',
         responseResourceType: 'rest',
@@ -403,7 +403,7 @@ const RESPONSE_TREE: SystemTemplateNode[] = [
       icon: '💥',
       nameKey: 'shared.ruleTemplates.mock500.name',
       descriptionKey: 'shared.ruleTemplates.mock500.description',
-      conditions: [{ uid: 'sct00023', type: 'request-domains', values: ['api.openheaders.io'] }],
+      conditions: [{ uid: 'sct00023', type: 'request-domains', values: ['api.openheaders.com'] }],
       formValues: {
         responseSource: 'mock',
         responseResourceType: 'rest',
@@ -419,14 +419,14 @@ const RESPONSE_TREE: SystemTemplateNode[] = [
       icon: '🔮',
       nameKey: 'shared.ruleTemplates.mockGraphql.name',
       descriptionKey: 'shared.ruleTemplates.mockGraphql.description',
-      conditions: [{ uid: 'sct00024', type: 'request-domains', values: ['api.openheaders.io'] }],
+      conditions: [{ uid: 'sct00024', type: 'request-domains', values: ['api.openheaders.com'] }],
       formValues: {
         responseSource: 'mock',
         responseResourceType: 'graphql',
         responseStatusCode: 200,
         responseBodyType: 'static',
         responseStaticBody:
-          '{\n  "data": {\n    "user": {\n      "id": "1",\n      "name": "Test User",\n      "email": "user@openheaders.io"\n    }\n  }\n}',
+          '{\n  "data": {\n    "user": {\n      "id": "1",\n      "name": "Test User",\n      "email": "user@openheaders.com"\n    }\n  }\n}',
         responseGraphqlKey: 'operationName',
         responseGraphqlOperator: 'Equals',
         responseGraphqlValue: 'GetUser',
@@ -439,7 +439,7 @@ const RESPONSE_TREE: SystemTemplateNode[] = [
       icon: '⚙️',
       nameKey: 'shared.ruleTemplates.mockDynamic.name',
       descriptionKey: 'shared.ruleTemplates.mockDynamic.description',
-      conditions: [{ uid: 'sct00025', type: 'request-domains', values: ['api.openheaders.io'] }],
+      conditions: [{ uid: 'sct00025', type: 'request-domains', values: ['api.openheaders.com'] }],
       formValues: {
         responseSource: 'network',
         responseResourceType: 'rest',
@@ -455,7 +455,7 @@ const RESPONSE_TREE: SystemTemplateNode[] = [
 
   // Replace field values
   if (responseJSON.user) {
-    responseJSON.user.email = "redacted@openheaders.io";
+    responseJSON.user.email = "redacted@openheaders.com";
     responseJSON.user.role = "admin"; // escalate for testing
   }
 
@@ -485,7 +485,7 @@ const RESPONSE_TREE: SystemTemplateNode[] = [
       icon: '⚙️',
       nameKey: 'shared.ruleTemplates.mockDynamicGraphql.name',
       descriptionKey: 'shared.ruleTemplates.mockDynamicGraphql.description',
-      conditions: [{ uid: 'sct00026', type: 'request-domains', values: ['api.openheaders.io'] }],
+      conditions: [{ uid: 'sct00026', type: 'request-domains', values: ['api.openheaders.com'] }],
       formValues: {
         responseSource: 'network',
         responseResourceType: 'graphql',

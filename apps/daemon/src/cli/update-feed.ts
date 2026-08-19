@@ -1,7 +1,7 @@
 /**
  * Daemon half of the update feed contract (the distribution plan
  * §3–§5): URL builders for the static pointer files on
- * `updates.openheaders.io` plus the manifest's `daemon` entry parser
+ * `updates.openheaders.com` plus the manifest's `daemon` entry parser
  * and the CalVer ordering `ohd upgrade` and the status line compare
  * with. Mirrors the client CLI's `update-feed.ts` — the two binaries
  * ship separately, so each carries its own copy of the feed law. No
@@ -11,7 +11,7 @@
 
 export type UpdateChannel = 'stable' | 'beta';
 
-export const UPDATE_FEED_BASE = 'https://updates.openheaders.io';
+export const UPDATE_FEED_BASE = 'https://updates.openheaders.com';
 
 export function versionsManifestUrl(channel: UpdateChannel): string {
   return `${UPDATE_FEED_BASE}/versions/${channel}.json`;

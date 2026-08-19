@@ -4,11 +4,11 @@ Open Headers takes the security of its users seriously. This policy
 explains how to report vulnerabilities and what you can expect from us.
 It applies to the desktop app, the browser extensions, the daemon, the
 CLI, the MCP server, the web application, and the
-`license.openheaders.io` and `telemetry.openheaders.io` services.
+`license.openheaders.com` and `telemetry.openheaders.com` services.
 
 ## Reporting a vulnerability
 
-Email **security@openheaders.io** with:
+Email **security@openheaders.com** with:
 
 - a description of the issue and its impact,
 - steps to reproduce (a proof of concept helps but is not required),
@@ -35,7 +35,7 @@ We do not operate a paid bounty program at this time.
 Releases that include the standalone `oh` (CLI) and `ohd` (daemon)
 binaries ship a `SHA256SUMS.txt` checksums manifest with a detached GPG
 signature (`SHA256SUMS.txt.asc`). The signing key is published at
-<https://openheaders.io/gpg> and attached to each signed release as
+<https://openheaders.com/gpg> and attached to each signed release as
 `openheaders-release-key.asc`:
 
 - **User ID:** `OpenHeaders Release Signing <security@openheaders.io>`
@@ -47,7 +47,7 @@ gpg --verify SHA256SUMS.txt.asc SHA256SUMS.txt
 shasum -a 256 --check --ignore-missing SHA256SUMS.txt
 ```
 
-The fingerprint here and the one on <https://openheaders.io/gpg> must
+The fingerprint here and the one on <https://openheaders.com/gpg> must
 agree; if they ever disagree, trust neither and report it. Installers
 carry platform trust roots on top: Windows artifacts are
 Authenticode-signed, macOS artifacts are Developer ID-signed and
@@ -70,7 +70,7 @@ research conducted under this policy.
   feature counting over a typed event allowlist — inspectable in-app
   and off with one switch. Every OpenHeaders-bound network call,
   telemetry included, is specified byte-for-byte in the published
-  [wire-transparency documentation](https://openheaders.io/wire-transparency);
+  [wire-transparency documentation](https://openheaders.com/wire-transparency);
   a request the software makes that is not documented there is a valid
   finding on its own.
 - The license system is designed so that its failure is never lockout:

@@ -112,7 +112,7 @@ export const HANDSHAKE_ROLES = {
   DESKTOP: 'desktop',
   DAEMON: 'daemon',
   CLI: 'cli',
-  /** openheaders.io web bundle (future). Hosted in a real browser tab,
+  /** openheaders.com web bundle (future). Hosted in a real browser tab,
    *  separate from the extension. */
   WEB: 'web',
 } as const;

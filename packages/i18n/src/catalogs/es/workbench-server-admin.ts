@@ -4,7 +4,7 @@
  * inside keyed sentences: capability ids (`daemon.admin`),
  * admission-status enum values and audit `reason` strings ({status} /
  * {reason} holes carry server data), license ids ({id}), the
- * `oh-license.` key prefix and `openheaders.io/pricing` URL, `IdP` /
+ * `oh-license.` key prefix and `openheaders.com/pricing` URL, `IdP` /
  * `SSO` / `JSONL` vocabulary, and `daemon` as the product loanword
  * (m., web.ts precedent). Seat vocabulary (`plaza individual`, the
  * `oh-license.…` placeholder) reuses `web.ts` verbatim. Mints: pool =

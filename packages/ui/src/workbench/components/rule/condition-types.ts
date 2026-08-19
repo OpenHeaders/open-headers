@@ -31,7 +31,7 @@ const CONDITION_TYPES: ConditionTypeDef[] = [
     labelKey: 'workbench.editors.rule.condition.type.urlFilter',
     groupKey: 'workbench.editors.rule.condition.group.urlMatching',
     inputType: 'text',
-    placeholder: '*://api.openheaders.io/*',
+    placeholder: '*://api.openheaders.com/*',
   },
   {
     value: 'url-regex',
@@ -46,21 +46,21 @@ const CONDITION_TYPES: ConditionTypeDef[] = [
     labelKey: 'workbench.editors.rule.condition.type.requestDomains',
     groupKey: 'workbench.editors.rule.condition.group.domainFiltering',
     inputType: 'text',
-    placeholder: 'openheaders.io, api.openheaders.io',
+    placeholder: 'openheaders.com, api.openheaders.com',
   },
   {
     value: 'exclude-request-domains',
     labelKey: 'workbench.editors.rule.condition.type.excludeRequestDomains',
     groupKey: 'workbench.editors.rule.condition.group.domainFiltering',
     inputType: 'text',
-    placeholder: 'staging.openheaders.io',
+    placeholder: 'staging.openheaders.com',
   },
   {
     value: 'initiator-domains',
     labelKey: 'workbench.editors.rule.condition.type.initiatorDomains',
     groupKey: 'workbench.editors.rule.condition.group.domainFiltering',
     inputType: 'text',
-    placeholder: 'portal.openheaders.io',
+    placeholder: 'portal.openheaders.com',
   },
   {
     value: 'exclude-initiator-domains',

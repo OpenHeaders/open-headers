@@ -394,7 +394,7 @@ export const RequestTrackingUiDiagram: React.FC = () => {
         14:32:08
       </text>
       <text x={88} y={114} fontFamily="monospace" fontSize={9} fill={TEXT}>
-        ads.openheaders.io/track
+        ads.openheaders.com/track
       </text>
       <ResourceTag x={246} y={106} label={t('workbench.docs.diagrams.requestTracking.wireTagXhr')} />
       <text x={88} y={125} fontSize={9} fill={TEXT_DIM}>
@@ -407,7 +407,7 @@ export const RequestTrackingUiDiagram: React.FC = () => {
         14:32:11
       </text>
       <text x={88} y={146} fontFamily="monospace" fontSize={9} fill={TEXT}>
-        ads.openheaders.io/pixel
+        ads.openheaders.com/pixel
       </text>
       <ResourceTag x={246} y={138} label={t('workbench.docs.diagrams.requestTracking.wireTagImage')} />
       <text x={88} y={157} fontSize={9} fill={TEXT_DIM}>
@@ -420,7 +420,7 @@ export const RequestTrackingUiDiagram: React.FC = () => {
         14:32:35
       </text>
       <text x={88} y={178} fontFamily="monospace" fontSize={9} fill={TEXT}>
-        ads.openheaders.io/beacon
+        ads.openheaders.com/beacon
       </text>
       <ResourceTag x={246} y={170} label={t('workbench.docs.diagrams.requestTracking.wireTagPing')} />
       <text x={88} y={189} fontSize={9} fill={TEXT_DIM}>

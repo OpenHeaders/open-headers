@@ -39,7 +39,7 @@ export const PermissionsImpactDiagram: React.FC = () => {
           {t('workbench.docs.diagrams.systemStatus.permissionsImpact.addHeader')}
         </text>
         <text x={xOff + 12} y={86} fontFamily="monospace" fontSize={8} fill={TEXT_DIM}>
-          api.openheaders.io
+          api.openheaders.com
         </text>
 
         {/* Request flow */}

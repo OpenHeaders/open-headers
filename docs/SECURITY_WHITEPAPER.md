@@ -37,11 +37,11 @@ The full outbound surface of the software is:
 
 | Call | Who makes it | Payload | Off switch |
 |---|---|---|---|
-| License refresh (`POST license.openheaders.io/refresh`) | desktop main process, daemon | `{licenseKey, appVersion, platform}` — nothing else | no license / `offline` license / `licenseRefresh: false` |
-| Update check (`GET updates.openheaders.io` feed) | packaged desktop builds, the `oh` CLI, the daemon on `ohd status` or opt-in | plain `GET`s, no payload | `updates.check: off` / `oh autoupdate off` |
-| Severity manifest (`GET updates.openheaders.io/versions/stable.json`) | same surfaces, only as part of an update check | plain `GET` of a static file | same as update check |
-| Anonymous telemetry (`POST telemetry.openheaders.io/v1/events`) | extension, desktop app, CLI — never the daemon, served web app, or MCP server | typed event allowlist — closed unions only, no free-form strings | Settings → General toggle / `OH_TELEMETRY=0` |
-| Static feed reads (`GET updates.openheaders.io/changelog/*`, `GET updates.openheaders.io/versions/stable.json`) | desktop app + extension, on demand: the What's New history section, and the latest-version lookup behind the optional desktop-download link on extension/web surfaces | plain `GET`s of static files, no payload | don't open the section / feature is enhancement-only, failure hides it |
+| License refresh (`POST license.openheaders.com/refresh`) | desktop main process, daemon | `{licenseKey, appVersion, platform}` — nothing else | no license / `offline` license / `licenseRefresh: false` |
+| Update check (`GET updates.openheaders.com` feed) | packaged desktop builds, the `oh` CLI, the daemon on `ohd status` or opt-in | plain `GET`s, no payload | `updates.check: off` / `oh autoupdate off` |
+| Severity manifest (`GET updates.openheaders.com/versions/stable.json`) | same surfaces, only as part of an update check | plain `GET` of a static file | same as update check |
+| Anonymous telemetry (`POST telemetry.openheaders.com/v1/events`) | extension, desktop app, CLI — never the daemon, served web app, or MCP server | typed event allowlist — closed unions only, no free-form strings | Settings → General toggle / `OH_TELEMETRY=0` |
+| Static feed reads (`GET updates.openheaders.com/changelog/*`, `GET updates.openheaders.com/versions/stable.json`) | desktop app + extension, on demand: the What's New history section, and the latest-version lookup behind the optional desktop-download link on extension/web surfaces | plain `GET`s of static files, no payload | don't open the section / feature is enhancement-only, failure hides it |
 
 Everything else leaving the process is operator-configured or
 user-initiated: your OIDC issuer, your Git remotes, your SIEM
@@ -102,7 +102,7 @@ per-frame on the wire and audited.
 ## 6. Disclosure
 
 Vulnerabilities: see `SECURITY.md` (published as our disclosure
-policy) and `security.txt` on openheaders.io. Good-faith research is
+policy) and `security.txt` on openheaders.com. Good-faith research is
 protected by the safe-harbor terms there, including an explicit
 carve-out from the EULA's reverse-engineering restrictions.
 

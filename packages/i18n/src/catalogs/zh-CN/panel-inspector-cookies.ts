@@ -253,7 +253,7 @@ export const panelInspectorCookies = {
     '该值是一个快照：即使变量之后发生变化，罐中保留的仍是这段文本——如果值应当跟随变量变化，请使用“覆盖 Cookie”规则。',
   'panel.inspector.cookies.fieldInfo.domain.summary': '哪些主机会收到该 Cookie。',
   'panel.inspector.cookies.fieldInfo.domain.description':
-    '像 openheaders.io 这样的普通域名包含其子域（浏览器存储时带前导点），除非开启 Host-only——它会把 Cookie 严格固定在此主机上。',
+    '像 openheaders.com 这样的普通域名包含其子域（浏览器存储时带前导点），除非开启 Host-only——它会把 Cookie 严格固定在此主机上。',
   'panel.inspector.cookies.fieldInfo.path.summary':
     'Cookie 所附着的 URL 路径前缀——/api 表示只有 /api 下的请求才携带它。',
   'panel.inspector.cookies.fieldInfo.path.description': '默认为 /。',
@@ -315,7 +315,7 @@ export const panelInspectorCookies = {
     '百分号编码的文本——在“视图”中开启“解码 URL 编码的值”即可就地显示解码结果。',
   'panel.inspector.cookies.columnInfo.scope.summary': '浏览器附加此 Cookie 的位置——Domain 与 Path 的组合。',
   'panel.inspector.cookies.columnInfo.scope.description':
-    '域名带前导点（例如 `.openheaders.io`）表示包含子域。带路径后缀（如 `/api`）表示该 Cookie 只在该路径下的请求上发送。',
+    '域名带前导点（例如 `.openheaders.com`）表示包含子域。带路径后缀（如 `/api`）表示该 Cookie 只在该路径下的请求上发送。',
   'panel.inspector.cookies.columnInfo.expires.summary': '浏览器停止发送此 Cookie 的时间。颜色反映紧迫程度。',
   'panel.inspector.cookies.columnInfo.expires.colorHeading': '颜色含义',
   'panel.inspector.cookies.columnInfo.expires.red': '红色',

@@ -257,7 +257,7 @@ export const panelInspectorCookies = {
     'Sustituir las cookies cuando el valor deba seguir a la variable.',
   'panel.inspector.cookies.fieldInfo.domain.summary': 'Qué hosts reciben la cookie.',
   'panel.inspector.cookies.fieldInfo.domain.description':
-    'Un dominio simple como openheaders.io incluye sus subdominios (el navegador lo almacena con un punto ' +
+    'Un dominio simple como openheaders.com incluye sus subdominios (el navegador lo almacena con un punto ' +
     'inicial), salvo que Host-only esté activado, lo que fija la cookie exactamente a este host.',
   'panel.inspector.cookies.fieldInfo.path.summary':
     'Prefijo de ruta de URL por el que viaja la cookie — /api significa que solo la llevan las solicitudes ' +
@@ -348,7 +348,7 @@ export const panelInspectorCookies = {
   'panel.inspector.cookies.columnInfo.scope.summary':
     'Dónde adjuntará el navegador esta cookie — la combinación de Domain + Path.',
   'panel.inspector.cookies.columnInfo.scope.description':
-    'Un punto inicial en el dominio (p. ej. `.openheaders.io`) significa que se incluyen los subdominios. Una ' +
+    'Un punto inicial en el dominio (p. ej. `.openheaders.com`) significa que se incluyen los subdominios. Una ' +
     'ruta final como `/api` significa que la cookie solo se envía en las solicitudes bajo esa ruta.',
   'panel.inspector.cookies.columnInfo.expires.summary':
     'Cuándo dejará el navegador de enviar esta cookie. El color refleja la urgencia.',

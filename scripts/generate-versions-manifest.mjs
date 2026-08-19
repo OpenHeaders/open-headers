@@ -2,7 +2,7 @@
  * Builds the static severity manifest (`versions.json`, the updates
  * plan §4) printed to stdout by the release workflow. Clients fetch it
  * anonymously from the update feed at
- * `updates.openheaders.io/versions/<channel>.json`; the GitHub release
+ * `updates.openheaders.com/versions/<channel>.json`; the GitHub release
  * asset is a redundant human-browsable copy, not the client contract.
  *
  * Shape, per app: `{ latest, tag, severity, minimumSafeVersion? }`.

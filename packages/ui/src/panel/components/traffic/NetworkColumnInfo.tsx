@@ -25,7 +25,7 @@ const EX = {
   num: '7',
   method: 'GET',
   scheme: 'https',
-  domain: 'api.openheaders.io',
+  domain: 'api.openheaders.com',
   pathDir: '/v1/',
   name: 'users?page=2',
   status: '200',

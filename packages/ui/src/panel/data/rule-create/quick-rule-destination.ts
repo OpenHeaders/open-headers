@@ -2,7 +2,7 @@
  * Destination heuristic for the quick-create popovers. Rules created
  * from the panel should land somewhere organized, not pile up at a
  * collection root — so the default destination is a folder named after
- * the captured URL's registrable domain (`openheaders.io`), inside the
+ * the captured URL's registrable domain (`openheaders.com`), inside the
  * first local collection, created on demand and shared by every later
  * quick-created rule for that domain. The popover shows the plan and
  * lets the user override collection and folder before Save.

@@ -1,5 +1,5 @@
 provider: generic
-url: https://updates.openheaders.io/desktop/stable
+url: https://updates.openheaders.com/desktop/stable
 useMultipleRangeRequest: false
 updaterCacheDirName: openheaders-updater
 # Authenticode gate for downloaded Windows installers: electron-updater

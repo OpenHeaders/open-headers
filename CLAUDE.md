@@ -80,7 +80,7 @@ Enforced by **Biome** (not ESLint/Prettier):
 - Factory functions (`makeSource()`, `makeWorkspace()`) with `Partial<T>` overrides
 - Chrome API mock: `tests/__mocks__/chrome.ts` (extension)
 - Electron mock: `tests/__mocks__/electron.ts` (desktop)
-- Use `openheaders.io` domain (and variants) in test data, not made-up domains
+- Use `openheaders.io` domain (and variants) in test data, not made-up domains — test fixtures deliberately stay on `.io`; product URLs in `src/` use `openheaders.com`
 
 ## Versioning
 

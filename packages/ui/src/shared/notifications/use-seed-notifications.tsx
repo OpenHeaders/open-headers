@@ -24,7 +24,7 @@ import { useSettingsReady } from '@openheaders/ui/workbench/settings/hooks';
 import { dismissByKey, pushNotification } from './store';
 
 const GITHUB_URL = 'https://github.com/OpenHeaders/open-headers';
-const WEBSITE_URL = 'https://openheaders.io';
+const WEBSITE_URL = 'https://openheaders.com';
 
 function isDone(flag: string): boolean {
   try {

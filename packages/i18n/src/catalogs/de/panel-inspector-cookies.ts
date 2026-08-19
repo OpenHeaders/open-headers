@@ -268,7 +268,7 @@ export const panelInspectorCookies = {
     'eine „Cookies überschreiben“-Regel, wenn der Wert der Variablen folgen soll.',
   'panel.inspector.cookies.fieldInfo.domain.summary': 'Welche Hosts das Cookie erhalten.',
   'panel.inspector.cookies.fieldInfo.domain.description':
-    'Eine einfache Domain wie openheaders.io schließt ihre Subdomains ein (der Browser speichert sie mit ' +
+    'Eine einfache Domain wie openheaders.com schließt ihre Subdomains ein (der Browser speichert sie mit ' +
     'führendem Punkt), außer Host-only ist eingeschaltet, was das Cookie exakt auf diesen Host festlegt.',
   'panel.inspector.cookies.fieldInfo.path.summary':
     'URL-Pfadpräfix, auf dem das Cookie mitfährt — /api bedeutet, dass nur Anfragen unter /api es tragen.',
@@ -357,7 +357,7 @@ export const panelInspectorCookies = {
   'panel.inspector.cookies.columnInfo.scope.summary':
     'Wo der Browser dieses Cookie anhängen wird — die Kombination aus Domain + Path.',
   'panel.inspector.cookies.columnInfo.scope.description':
-    'Ein führender Punkt in der Domain (z. B. `.openheaders.io`) bedeutet, dass Subdomains eingeschlossen ' +
+    'Ein führender Punkt in der Domain (z. B. `.openheaders.com`) bedeutet, dass Subdomains eingeschlossen ' +
     'sind. Ein nachgestellter Pfad wie `/api` bedeutet, dass das Cookie nur bei Anfragen unter diesem Pfad ' +
     'gesendet wird.',
   'panel.inspector.cookies.columnInfo.expires.summary':

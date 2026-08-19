@@ -9,7 +9,7 @@ import { describe, expect, it } from 'vitest';
 import { commandChangelog } from '../../src/changelog';
 import { UsageError } from '../../src/exit-codes';
 
-const ENTRY = '## Streams\n\nGrouped WebSocket timelines on openheaders.io requests.';
+const ENTRY = '## Streams\n\nGrouped WebSocket timelines on openheaders.com requests.';
 
 describe('commandChangelog', () => {
   it('prints the embedded entry between the version header and the full-changelog pointer', () => {
@@ -18,16 +18,16 @@ describe('commandChangelog', () => {
       '',
       '## Streams',
       '',
-      'Grouped WebSocket timelines on openheaders.io requests.',
+      'Grouped WebSocket timelines on openheaders.com requests.',
       '',
-      'full changelog: https://openheaders.io/changelog',
+      'full changelog: https://openheaders.com/changelog',
     ]);
   });
 
   it('reports an unbundled dev run honestly when nothing is embedded', () => {
     expect(commandChangelog([], '')).toEqual([
       'no release notes in an unbundled dev run',
-      'full changelog: https://openheaders.io/changelog',
+      'full changelog: https://openheaders.com/changelog',
     ]);
   });
 

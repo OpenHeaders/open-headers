@@ -413,14 +413,14 @@ export interface DaemonUserGitAttribution {
  * (the git-sync plan §11.5 / the sync-engine design §23.6). The name is
  * always the directory `displayName` — attribution never drifts from
  * the directory; the email walks gitEmail → identity email → the
- * synthetic `<userId>@users.noreply.openheaders.io` (deterministic and
+ * synthetic `<userId>@users.noreply.openheaders.com` (deterministic and
  * rename-stable, the platform-noreply convention). The operator's own
  * synthetic identity resolves too, so a mixed operator+user batch
  * lists every contributor. Deactivated records still resolve —
  * attribution is historical. Unknown ids return null.
  */
 export async function resolveDaemonUserGitAttribution(userId: string): Promise<DaemonUserGitAttribution | null> {
-  const syntheticEmail = `${userId}@users.noreply.openheaders.io`;
+  const syntheticEmail = `${userId}@users.noreply.openheaders.com`;
   const identity = await hostStorage.get(OH.syntheticIdentity);
   if (identity && identity.user.id === userId) {
     return { name: identity.user.displayName, email: syntheticEmail };

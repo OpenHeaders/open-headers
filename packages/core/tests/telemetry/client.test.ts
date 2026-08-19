@@ -63,13 +63,13 @@ describe('buildTelemetryUninstallUrl', () => {
 
   it('carries the install id plus the coarse age bucket and channel', () => {
     expect(buildTelemetryUninstallUrl(INSTALL, 'chrome-store', NOW)).toBe(
-      `https://telemetry.openheaders.io/v1/uninstall?i=${INSTALL.installId}&a=0&c=chrome-store`,
+      `https://telemetry.openheaders.com/v1/uninstall?i=${INSTALL.installId}&a=0&c=chrome-store`,
     );
   });
 
   it('rolls the age bucket with the clock — the host re-registers as it changes', () => {
     expect(buildTelemetryUninstallUrl(INSTALL, 'firefox-amo', NOW + 3 * DAY)).toBe(
-      `https://telemetry.openheaders.io/v1/uninstall?i=${INSTALL.installId}&a=2-7&c=firefox-amo`,
+      `https://telemetry.openheaders.com/v1/uninstall?i=${INSTALL.installId}&a=2-7&c=firefox-amo`,
     );
     expect(buildTelemetryUninstallUrl(INSTALL, 'dev', NOW + 40 * DAY)).toContain('&a=31%2B&c=dev');
   });

@@ -90,7 +90,7 @@ export const BlockDiagram: React.FC = () => {
         fontSize={8}
         fill={TEXT_DIM}
       >
-        ads.openheaders.io
+        ads.openheaders.com
       </text>
 
       {/* Arrow toward middle */}

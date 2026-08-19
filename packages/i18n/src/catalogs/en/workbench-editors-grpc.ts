@@ -10,7 +10,7 @@ import type { Catalog } from '../../types';
 export const workbenchEditorsGrpc = {
   // ── gRPC request editor ─────────────────────────────────────────────
   'workbench.editors.grpc.notFound': 'gRPC request not found.',
-  'workbench.editors.grpc.urlPlaceholder': 'host:port (e.g. grpc.openheaders.io:443)',
+  'workbench.editors.grpc.urlPlaceholder': 'host:port (e.g. grpc.openheaders.com:443)',
   'workbench.editors.grpc.tls.on': 'TLS on — click to switch to plaintext',
   'workbench.editors.grpc.tls.off': 'TLS off (plaintext) — click to switch to TLS',
   'workbench.editors.grpc.method.placeholder': 'Select a method',

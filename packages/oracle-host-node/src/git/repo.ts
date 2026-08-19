@@ -93,7 +93,7 @@ function syntheticEmail(identity: SyntheticCommitIdentity): string {
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/^-+|-+$/g, '') || 'openheaders';
-  return `${slug}@users.noreply.openheaders.io`;
+  return `${slug}@users.noreply.openheaders.com`;
 }
 
 async function configValue(run: GitRunner, rootDir: string, key: string): Promise<string | null> {

@@ -475,7 +475,7 @@ jobs:
         run: |
           STREAM="${{ needs.parse.outputs.stream }}"
           VERSION="${{ needs.parse.outputs.version }}"
-          if ! curl -fsS "https://updates.openheaders.io/versions/stable.json" -o current.json; then
+          if ! curl -fsS "https://updates.openheaders.com/versions/stable.json" -o current.json; then
             echo '{}' > current.json
           fi
           # Severity is human-authored in release-severity.json; a
@@ -497,7 +497,7 @@ jobs:
       # only this stream.
       - name: Stage changelog feed objects
         run: |
-          curl -fsS --max-time 30 "https://updates.openheaders.io/changelog/index.json" -o prior_index.json \
+          curl -fsS --max-time 30 "https://updates.openheaders.com/changelog/index.json" -o prior_index.json \
             || rm -f prior_index.json
           if [ -f prior_index.json ]; then
             node scripts/generate-changelog-feed.mjs "$GITHUB_REF_NAME" feed prior_index.json
@@ -557,7 +557,7 @@ jobs:
           node scripts/generate-flagship-changelog.mjs > flagship/CHANGELOG.md
           cd flagship
           git config user.name "OpenHeaders Release"
-          git config user.email "releases@openheaders.io"
+          git config user.email "releases@openheaders.com"
           git add changelog CHANGELOG.md
           if git diff --cached --quiet; then
             echo "No changelog changes to project"

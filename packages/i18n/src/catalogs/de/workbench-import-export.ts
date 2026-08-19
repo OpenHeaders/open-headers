@@ -320,7 +320,7 @@ export const workbenchImportExport = {
   'workbench.importExport.curl.introSuffix':
     'Befehl ein — z. B. „Copy as cURL“ aus den Browser-DevTools oder aus API-Dokumentation.',
   'workbench.importExport.curl.sourcePlaceholder':
-    "curl -X POST 'https://api.openheaders.io/v1/things' \\\n  -H 'authorization: Bearer xyz' \\\n  -H 'content-type: application/json' \\\n  --data-raw '{\"name\":\"hello\"}'",
+    "curl -X POST 'https://api.openheaders.com/v1/things' \\\n  -H 'authorization: Bearer xyz' \\\n  -H 'content-type: application/json' \\\n  --data-raw '{\"name\":\"hello\"}'",
   'workbench.importExport.curl.cantParse': 'Dieser Befehl ließ sich nicht parsen',
   'workbench.importExport.curl.parseFallback': 'Parsen nicht möglich — prüfe den Befehl und versuche es erneut.',
   'workbench.importExport.curl.nameLabel': 'NAME',

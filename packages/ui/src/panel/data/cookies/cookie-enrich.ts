@@ -189,7 +189,7 @@ export function enrichCookies(input: EnrichmentInputs): EnrichmentResult {
 
   // The Cookie header can carry the same NAME more than once — one entry
   // per jar cookie of that name whose domain/path matched the URL (e.g.
-  // a `tz` on `.openheaders.io` and another on `app.openheaders.io`).
+  // a `tz` on `.openheaders.com` and another on `app.openheaders.com`).
   // Match each sent entry to a DISTINCT jar cookie (skip ones already
   // claimed) so the rows show their real, differing scopes — and key each
   // row by its sent-index so duplicate names never collide on the React

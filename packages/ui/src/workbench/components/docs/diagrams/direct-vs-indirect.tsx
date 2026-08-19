@@ -1,11 +1,11 @@
 /**
  * Direct vs Indirect matches — comparison diagram.
  *
- * Same rule ("Request Domains: openheaders.io"), two different page
- * contexts. Left scene: page IS on openheaders.io — page itself
+ * Same rule ("Request Domains: openheaders.com"), two different page
+ * contexts. Left scene: page IS on openheaders.com — page itself
  * matches (direct), and same-host sub-resources also count as direct
  * hits. Right scene: page is on app.example.com but loads a sub-
- * resource from openheaders.io — only that sub-resource matches
+ * resource from openheaders.com — only that sub-resource matches
  * (indirect); the page URL itself is excluded.
  */
 
@@ -62,7 +62,7 @@ export const DirectVsIndirectDiagram: React.FC = () => {
         {t('workbench.docs.diagrams.directVsIndirect.pageLabel')}
       </text>
       <text x={80} y={92} textAnchor="middle" fontFamily="monospace" fontSize={10} fontWeight={600} fill={TEXT}>
-        openheaders.io/dash
+        openheaders.com/dash
       </text>
       {/* Tree connectors */}
       <line x1={80} y1={96} x2={80} y2={108} stroke={dimStroke} />
@@ -132,7 +132,7 @@ export const DirectVsIndirectDiagram: React.FC = () => {
       <line x1={205} y1={108} x2={275} y2={108} stroke={dimStroke} />
       <line x1={205} y1={108} x2={205} y2={120} stroke={dimStroke} />
       <line x1={275} y1={108} x2={275} y2={120} stroke={dimStroke} />
-      {/* Sub-resource 1 (matches — openheaders.io domain) */}
+      {/* Sub-resource 1 (matches — openheaders.com domain) */}
       <rect x={172} y={120} width={66} height={22} rx={2} fill={matchFill} stroke={matchStroke} />
       <text x={205} y={134} textAnchor="middle" fontFamily="monospace" fontSize={9} fill={TEXT}>
         api.oh.io

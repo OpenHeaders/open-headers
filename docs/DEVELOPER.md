@@ -204,7 +204,8 @@ pnpm --filter @openheaders/extension test:e2e         # Extension e2e (requires 
 - Chrome API mock: `tests/__mocks__/chrome.ts` (extension); Electron
   mock: `tests/__mocks__/electron.ts` (desktop)
 - Use `openheaders.io` domains (and variants) in test data, not
-  made-up domains
+  made-up domains — test fixtures deliberately stay on `.io`; product
+  URLs in `src/` use `openheaders.com`
 
 ## CI/CD
 
@@ -226,7 +227,7 @@ Runs on push to `main` and PRs:
   three platforms (signed), extension zips for four browsers, and the
   standalone `oh`/`ohd` binaries, published as one GitHub Release on
   [`OpenHeaders/open-headers`](https://github.com/OpenHeaders/open-headers)
-  plus the update feed at `updates.openheaders.io`.
+  plus the update feed at `updates.openheaders.com`.
 - **Stream lanes**: `v*-cli` and `v*-daemon` tags trigger
   `release-binaries.yml` — ship only `oh` or only `ohd` (+ its
   `ghcr.io/openheaders/ohd` image) without rebuilding the suite.

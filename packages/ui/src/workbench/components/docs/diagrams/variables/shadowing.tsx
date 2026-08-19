@@ -50,7 +50,7 @@ export const VariablesShadowingDiagram: React.FC = () => {
         {t('workbench.docs.diagrams.variables.shadowing.envLabel')}
       </text>
       <text x={24} y={108} fontFamily="monospace" fontSize={7.5} fill={TEXT}>
-        api_host=stg.openheaders.io
+        api_host=stg.openheaders.com
       </text>
 
       {/* Workspace definition */}
@@ -59,7 +59,7 @@ export const VariablesShadowingDiagram: React.FC = () => {
         {t('workbench.docs.diagrams.variables.shadowing.wsLabel')}
       </text>
       <text x={172} y={108} fontFamily="monospace" fontSize={7.5} fill={TEXT}>
-        api_host=openheaders.io
+        api_host=openheaders.com
       </text>
 
       {/* Namespaced escape hatch */}

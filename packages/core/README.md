@@ -1,6 +1,6 @@
 # @openheaders/core
 
-The [Open Headers](https://openheaders.io) domain model — types, valibot
+The [Open Headers](https://openheaders.com) domain model — types, valibot
 schemas, wire protocol, and shared utilities used by every Open Headers
 app (browser extension, desktop app, server, CLI).
 

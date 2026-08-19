@@ -65,7 +65,7 @@ function ExampleCard({ setting }: { setting: ConsoleSettingKey }) {
           <span className={cls('prenavRow')}>boot complete</span>
         </div>
         <div className="dt-console-eg-row dt-console-eg-nav">
-          <span className={cls('navDivider')}>Navigated to app.openheaders.io</span>
+          <span className={cls('navDivider')}>Navigated to app.openheaders.com</span>
         </div>
         <div className="dt-console-eg-row">
           <span className="dt-console-eg-dot" />
@@ -78,11 +78,11 @@ function ExampleCard({ setting }: { setting: ConsoleSettingKey }) {
         </div>
         <div className="dt-console-eg-row" data-tone="error">
           <span className="dt-console-eg-dot" data-tone="error" />
-          <span className={cls('netErrRow')}>GET https://api.openheaders.io/coupons 404 (Not Found)</span>
+          <span className={cls('netErrRow')}>GET https://api.openheaders.com/coupons 404 (Not Found)</span>
         </div>
         <div className="dt-console-eg-row" data-tone="error">
           <span className="dt-console-eg-dot" data-tone="error" />
-          <span className={cls('corsRow')}>Access to fetch at pay.openheaders.io blocked by CORS policy</span>
+          <span className={cls('corsRow')}>Access to fetch at pay.openheaders.com blocked by CORS policy</span>
         </div>
         <div className="dt-console-eg-row">
           <span className="dt-console-eg-dot" data-tone="info" />

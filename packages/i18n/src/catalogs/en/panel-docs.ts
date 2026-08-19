@@ -69,7 +69,7 @@ export const panelDocs = {
     'Matches the hostname by substring, so an apex domain catches every subdomain —',
   'panel.docs.filterSyntax.domain1Suffix': '— without wildcards.',
   'panel.docs.filterSyntax.domainCaption':
-    'One value covers every openheaders.io subdomain; the third-party host misses.',
+    'One value covers every openheaders.com subdomain; the third-party host misses.',
 
   'panel.docs.filterSyntax.statusCodeTitle': 'Status Code',
   'panel.docs.filterSyntax.statusCode1':

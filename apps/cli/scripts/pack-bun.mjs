@@ -65,7 +65,7 @@ const entryPath = path.join(
 const changelogEntry = existsSync(entryPath)
   ? readFileSync(entryPath, 'utf8')
       .replace(/^---\n[\s\S]*?\n---\n/, '')
-      .replaceAll('](./assets/', '](https://updates.openheaders.io/changelog/assets/cli/')
+      .replaceAll('](./assets/', '](https://updates.openheaders.com/changelog/assets/cli/')
       .trim()
   : '';
 

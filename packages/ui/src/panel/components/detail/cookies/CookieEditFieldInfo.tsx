@@ -31,7 +31,7 @@ export type CookieEditFieldKey =
 const EX = {
   name: 'session',
   value: 'a81f52ce4b21',
-  domain: 'Domain=.openheaders.io',
+  domain: 'Domain=.openheaders.com',
   path: 'Path=/account',
   expires: 'Expires=Mon, 04 Jan 2027 18:00:00 GMT',
   secure: 'Secure',

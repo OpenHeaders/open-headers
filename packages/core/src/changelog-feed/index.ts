@@ -1,6 +1,6 @@
 /**
  * Client half of the static changelog feed
- * (`updates.openheaders.io/changelog/*`, the changelog plan §4.1): the
+ * (`updates.openheaders.com/changelog/*`, the changelog plan §4.1): the
  * URL contract plus tolerant validators for the two shapes in-app
  * history surfaces read — per-stream index rows and full-entry bodies.
  *
@@ -11,7 +11,7 @@
  * `versions.json`; the updater never reads them.
  */
 
-export const CHANGELOG_FEED_BASE = 'https://updates.openheaders.io/changelog';
+export const CHANGELOG_FEED_BASE = 'https://updates.openheaders.com/changelog';
 
 /** The streams the canonical tree records (products, not cadences). */
 export type ChangelogStream = 'desktop' | 'extension' | 'cli' | 'daemon' | 'web';

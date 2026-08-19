@@ -1,6 +1,6 @@
 # @openheaders/cli
 
-`oh` — the [Open Headers](https://openheaders.io) command line: headless
+`oh` — the [Open Headers](https://openheaders.com) command line: headless
 scripting and CI integration against the same daemon the desktop app and
 browser extension use. List rules, toggle them, switch environments and
 workspaces, set variables, send saved requests, run workflows, diff
@@ -21,11 +21,11 @@ and notarized; the Windows binary is unsigned, so SmartScreen warns on
 first run.
 
 ```sh
-curl -fsSL https://updates.openheaders.io/install.sh | sh
+curl -fsSL https://updates.openheaders.com/install.sh | sh
 ```
 
 ```powershell
-irm https://updates.openheaders.io/install.ps1 | iex
+irm https://updates.openheaders.com/install.ps1 | iex
 ```
 
 The script verifies checksums and installs to `~/.local/bin`
@@ -85,7 +85,7 @@ your data or targets) and says so once, on first run. Opt out anytime with
 `export OH_TELEMETRY=0` or `"telemetry": false` in the config file
 (`~/.config/openheaders/cli.json`). The exact wire format is documented in
 the repository's [wire-transparency specification](../../docs/WIRE_TRANSPARENCY.md); details:
-[openheaders.io/privacy](https://openheaders.io/privacy).
+[openheaders.com/privacy](https://openheaders.com/privacy).
 
 ## Shell completions
 

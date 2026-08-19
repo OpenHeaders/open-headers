@@ -30,7 +30,7 @@ import type {
 import { bucketSessionAge, bucketSinceInstall, TELEMETRY_SCHEMA_VERSION } from './vocabulary';
 
 /** The one published ingestion endpoint (`docs/WIRE_TRANSPARENCY.md` §4); hosts' transports POST envelopes here. */
-export const PRODUCT_TELEMETRY_ENDPOINT = 'https://telemetry.openheaders.io/v1/events';
+export const PRODUCT_TELEMETRY_ENDPOINT = 'https://telemetry.openheaders.com/v1/events';
 
 /**
  * The uninstall-ping route (§4): the extension's `setUninstallURL`
@@ -39,7 +39,7 @@ export const PRODUCT_TELEMETRY_ENDPOINT = 'https://telemetry.openheaders.io/v1/e
  * so churn segments by age and acquisition (plan §3, S16). The host
  * re-registers the URL as the age bucket rolls.
  */
-export const PRODUCT_TELEMETRY_UNINSTALL_ENDPOINT = 'https://telemetry.openheaders.io/v1/uninstall';
+export const PRODUCT_TELEMETRY_UNINSTALL_ENDPOINT = 'https://telemetry.openheaders.com/v1/uninstall';
 
 /**
  * Build the uninstall-ping URL for one install identity. Every value is

@@ -169,7 +169,7 @@ info:
 
 servers:
   production:
-    host: ws.openheaders.io
+    host: ws.openheaders.com
     protocol: wss
     description: Public event stream
   development:

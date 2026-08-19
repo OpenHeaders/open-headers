@@ -598,11 +598,11 @@ const ServerAdminConsole: React.FC = () => {
             <div style={{ fontSize: 11, color: token.colorTextTertiary, marginBottom: 12 }}>
               {t('workbench.serverAdmin.users.seatLimit')} {t('workbench.serverAdmin.users.seatsSoldAt')}{' '}
               <Typography.Link
-                href="https://openheaders.io/pricing"
+                href="https://openheaders.com/pricing"
                 target="_blank"
                 onClick={() => trackProductTelemetryEvent({ name: 'upgrade_cta_clicked', surface: 'seat-gate' })}
               >
-                openheaders.io/pricing
+                openheaders.com/pricing
               </Typography.Link>
               .
             </div>

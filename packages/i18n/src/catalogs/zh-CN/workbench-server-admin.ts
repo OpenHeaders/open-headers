@@ -4,7 +4,7 @@
  * inside keyed sentences: capability ids (`daemon.admin`),
  * admission-status enum values and audit `reason` strings ({status} /
  * {reason} holes carry server data), license ids ({id}), the
- * `oh-license.` key prefix and `openheaders.io/pricing` URL, `IdP` /
+ * `oh-license.` key prefix and `openheaders.com/pricing` URL, `IdP` /
  * `SSO` / `JSONL` vocabulary, and the ` · ` separator glyphs. 守护进程
  * = daemon; 席位 / 个人席位 + 个人席位密钥（oh-license.…） reused
  * verbatim from `zh-CN/web.ts`; 邮箱 = email; 授予 = grant (shipped

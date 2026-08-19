@@ -401,7 +401,7 @@ describe('request bodies', () => {
       name: 'string',
       age: 0,
       active: true,
-      email: 'user@openheaders.io',
+      email: 'user@openheaders.com',
       tags: ['string'],
       plan: 'free',
     });

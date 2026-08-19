@@ -886,13 +886,13 @@ jobs:
       # The single authority for where downloads live. With R2, every
       # printed and machine-read download URL is an own-domain form
       # — corporate networks only ever need
-      # openheaders.io reachable. Artifacts also land on the GitHub
+      # openheaders.com reachable. Artifacts also land on the GitHub
       # release page as a human-browsable redundant copy.
       - name: Determine download base
         id: dl_base
         run: |
           if [ "${{ steps.r2.outputs.enabled }}" = "true" ]; then
-            echo "url=https://updates.openheaders.io/dl/${GITHUB_REF_NAME}" >> $GITHUB_OUTPUT
+            echo "url=https://updates.openheaders.com/dl/${GITHUB_REF_NAME}" >> $GITHUB_OUTPUT
           else
             echo "url=https://github.com/${RELEASE_REPO}/releases/download/${GITHUB_REF_NAME}" >> $GITHUB_OUTPUT
           fi
@@ -969,7 +969,7 @@ jobs:
           gpg --verify processed_files/SHA256SUMS.txt.asc processed_files/SHA256SUMS.txt
           # The public key rides along so a release is verifiable on its
           # own; the canonical fingerprint cross-check lives at
-          # https://openheaders.io/gpg and SECURITY.md.
+          # https://openheaders.com/gpg and SECURITY.md.
           gpg --batch --armor --export security@openheaders.io \
             > processed_files/openheaders-release-key.asc
         shell: bash
@@ -1005,7 +1005,7 @@ jobs:
           # extension entry at all (stores are the extension's only
           # channel; no sideload zips exist on any channel).
           if [ "$CHANNEL" = "stable" ]; then
-            if curl -fsS --max-time 30 "https://updates.openheaders.io/versions/stable.json" -o live_versions.json; then
+            if curl -fsS --max-time 30 "https://updates.openheaders.com/versions/stable.json" -o live_versions.json; then
               STORES=$(jq -c '.extension.stores // empty' live_versions.json)
               if [ -n "$STORES" ]; then
                 node scripts/patch-versions-entry.mjs processed_files/versions.json extension \
@@ -1020,7 +1020,7 @@ jobs:
             fi
           fi
           if [ "$CHANNEL" = "beta" ]; then
-            if curl -fsS --max-time 30 "https://updates.openheaders.io/versions/stable.json" -o live_stable.json; then
+            if curl -fsS --max-time 30 "https://updates.openheaders.com/versions/stable.json" -o live_stable.json; then
               for APP in cli daemon; do
                 ENTRY=$(jq -c ".${APP} // empty" live_stable.json)
                 if [ -n "$ENTRY" ]; then
@@ -1049,7 +1049,7 @@ jobs:
           ICONS="https://raw.githubusercontent.com/${REPO}/main/assets"
           SUMS_LINE="Checksums: [SHA256SUMS.txt](${DL}/SHA256SUMS.txt)"
           if [ -f processed_files/SHA256SUMS.txt.asc ]; then
-            SUMS_LINE="${SUMS_LINE} · [GPG signature](${DL}/SHA256SUMS.txt.asc) · [signing key](https://openheaders.io/gpg)"
+            SUMS_LINE="${SUMS_LINE} · [GPG signature](${DL}/SHA256SUMS.txt.asc) · [signing key](https://openheaders.com/gpg)"
           fi
 
           {
@@ -1167,13 +1167,13 @@ jobs:
               echo "Install script (verifies checksums, installs \`oh\` to \`~/.local/bin\`):"
               echo ""
               echo '```sh'
-              echo "curl -fsSL https://updates.openheaders.io/install.sh | sh"
+              echo "curl -fsSL https://updates.openheaders.com/install.sh | sh"
               echo '```'
               echo ""
               echo "Windows (PowerShell):"
               echo ""
               echo '```powershell'
-              echo "irm https://updates.openheaders.io/install.ps1 | iex"
+              echo "irm https://updates.openheaders.com/install.ps1 | iex"
               echo '```'
               echo ""
               echo "No Node.js required (\`npm install -g @openheaders/cli\` is the Node channel). macOS binaries are signed and notarized; the Windows \`oh\` is Authenticode-signed. Script copies on this page: [install-oh.sh](${DL}/install-oh.sh) · [install-oh.ps1](${DL}/install-oh.ps1)"
@@ -1202,7 +1202,7 @@ jobs:
               echo "Install script (verifies checksums, installs \`oh\` + \`ohd\` to \`~/.local/bin\`):"
               echo ""
               echo '```sh'
-              echo "curl -fsSL https://updates.openheaders.io/install.sh | sh -s -- --with-daemon"
+              echo "curl -fsSL https://updates.openheaders.com/install.sh | sh -s -- --with-daemon"
               echo '```'
               if [ -n "$OHD_DOCKER_VERSION" ]; then
                 echo ""
@@ -1287,7 +1287,7 @@ jobs:
           append_body: true
 
       # The update feed: static pointer files on R2 behind
-      # updates.openheaders.io. The yml/json
+      # updates.openheaders.com. The yml/json
       # pointers carry absolute URLs to this release's artifacts (the
       # feed's own dl/ path, or the GitHub assets when R2 is off), so
       # staging happens only after the bytes exist. A beta tag stages
@@ -1304,7 +1304,7 @@ jobs:
       # releases the canonical tree never records.
       - name: Stage changelog feed objects
         run: |
-          curl -fsS --max-time 30 "https://updates.openheaders.io/changelog/index.json" -o prior_index.json \
+          curl -fsS --max-time 30 "https://updates.openheaders.com/changelog/index.json" -o prior_index.json \
             || rm -f prior_index.json
           if [ -f prior_index.json ]; then
             node scripts/generate-changelog-feed.mjs "$GITHUB_REF_NAME" feed prior_index.json
@@ -1379,7 +1379,7 @@ jobs:
           node scripts/generate-flagship-changelog.mjs > flagship/CHANGELOG.md
           cd flagship
           git config user.name "OpenHeaders Release"
-          git config user.email "releases@openheaders.io"
+          git config user.email "releases@openheaders.com"
           git add changelog CHANGELOG.md
           if git diff --cached --quiet; then
             echo "No changelog changes to project"

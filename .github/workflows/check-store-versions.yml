@@ -77,7 +77,7 @@ jobs:
           AWS_RESPONSE_CHECKSUM_VALIDATION: when_required
           STORES_PATCH: ${{ steps.stores.outputs.patch }}
         run: |
-          if ! curl -fsS "https://updates.openheaders.io/versions/stable.json" -o current.json; then
+          if ! curl -fsS "https://updates.openheaders.com/versions/stable.json" -o current.json; then
             echo '{}' > current.json
           fi
 

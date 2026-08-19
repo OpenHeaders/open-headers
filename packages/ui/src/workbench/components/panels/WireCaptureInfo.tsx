@@ -12,9 +12,9 @@ import { InfoTrigger, type InfoPopoverContent } from '@openheaders/ui/shared/inf
 
 /** The one example scope both cards illustrate. */
 const EX = {
-  scoped: 'api.openheaders.io',
-  wildcard: '*.dev.openheaders.io',
-  scopedUrl: 'https://api.openheaders.io/v1/users',
+  scoped: 'api.openheaders.com',
+  wildcard: '*.dev.openheaders.com',
+  scopedUrl: 'https://api.openheaders.com/v1/users',
   otherUrl: 'https://cdn.example.com/app.js',
 } as const;
 

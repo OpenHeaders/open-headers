@@ -325,7 +325,7 @@ export const workbenchEditorsRule = {
   'workbench.editors.rule.fields.redirect.localFile': 'Lokale Datei',
   'workbench.editors.rule.fields.redirect.desktopOnly': 'In der Desktop-App verfügbar',
   'workbench.editors.rule.fields.redirect.targetPlaceholder':
-    'z. B. https://openheaders.io/redirected — verwende \\1, \\2 mit URL-Regex-Bedingungen',
+    'z. B. https://openheaders.com/redirected — verwende \\1, \\2 mit URL-Regex-Bedingungen',
 
   // ── Query-param rule fields ────────────────────────────────────────
   'workbench.editors.rule.fields.queryParam.kicker': 'Query-Parameter-Regel',

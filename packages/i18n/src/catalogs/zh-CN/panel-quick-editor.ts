@@ -67,7 +67,7 @@ export const panelQuickEditor = {
   'panel.quickEditor.validation.switchTo': '切换为 {operation}',
 
   // Typed bodies — popover-only copy.
-  'panel.quickEditor.redirect.targetPlaceholder': '例如 https://openheaders.io/redirected',
+  'panel.quickEditor.redirect.targetPlaceholder': '例如 https://openheaders.com/redirected',
   'panel.quickEditor.redirect.hint': '匹配的请求会在到达网络之前被发送到此 URL。',
   'panel.quickEditor.delay.hint': '导航最多延迟 30,000 ms；XHR/fetch 上限为 5,000 ms。子资源不会被延迟。',
   'panel.quickEditor.block.editHint': '匹配的请求会在到达网络之前被拦截。',

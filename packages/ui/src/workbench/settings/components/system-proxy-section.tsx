@@ -43,7 +43,7 @@ import VaultSelectFooter from '../../components/variables/VaultSelectFooter';
 
 /** The preview's canonical default target — schemeless (the resolve
  *  handler assumes https), auto-resolved when the pane opens. */
-const DEFAULT_TARGET = 'openheaders.io';
+const DEFAULT_TARGET = 'openheaders.com';
 
 /** Platform-native key names for the System snapshot's rows — each
  *  value is labeled what the OS itself calls it (raw wire vocabulary,

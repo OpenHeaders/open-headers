@@ -8,7 +8,7 @@
  * monospace data (`daemon.admission` cell values), admission-status
  * enum values and audit `reason` strings ({status} / {reason} holes
  * carry server data), license ids ({id}), the `oh-license.` key prefix
- * and `openheaders.io/pricing` URL, `IdP` / `SSO` / `JSONL` vocabulary,
+ * and `openheaders.com/pricing` URL, `IdP` / `SSO` / `JSONL` vocabulary,
  * and the ` · ` separator glyphs.
  */
 

@@ -24,6 +24,6 @@ export function resolveChangelogEntry(pkgVersion: string): string {
   if (!existsSync(entryPath)) return '';
   return readFileSync(entryPath, 'utf8')
     .replace(/^---\n[\s\S]*?\n---\n/, '')
-    .replaceAll('](./assets/', '](https://updates.openheaders.io/changelog/assets/daemon/')
+    .replaceAll('](./assets/', '](https://updates.openheaders.com/changelog/assets/daemon/')
     .trim();
 }

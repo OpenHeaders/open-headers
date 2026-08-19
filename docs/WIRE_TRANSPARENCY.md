@@ -32,7 +32,7 @@ only ever *delivers* files: the response is verified offline against the
 compiled-in Ed25519 trust ring before anything persists; no online
 validation path exists.
 
-- **Endpoint**: `POST https://license.openheaders.io/refresh`
+- **Endpoint**: `POST https://license.openheaders.com/refresh`
 - **Request headers**: `content-type: application/json`
 - **Request body** — exactly these three fields, nothing else:
 
@@ -91,13 +91,13 @@ container images, and npm/brew installs make no update requests —
 their owning channel updates them.
 
 - **Endpoint**: the update feed,
-  `GET https://updates.openheaders.io/desktop/stable/latest.yml`
+  `GET https://updates.openheaders.com/desktop/stable/latest.yml`
   (`latest-mac.yml` / `latest-linux.yml` per platform) — a static
   pointer file read by electron-updater's generic provider. Only after
   the user chooses to download, the installer artifact itself is
   fetched from the URL the pointer file carries — the feed's own
   `dl/<tag>/` path on the same host. The entire update lifecycle
-  reaches exactly one first-party domain (`updates.openheaders.io`,
+  reaches exactly one first-party domain (`updates.openheaders.com`,
   served by Cloudflare, subject to its hosting logs); GitHub hosts a
   redundant human-browsable copy but is never contacted by the app.
 - **Request body**: none. These are plain HTTP `GET`s; no identifier,
@@ -123,7 +123,7 @@ security release can escalate loudly (red badge, entry banner).
 Severity is authored by a human before each release, never derived
 from anything about your install.
 
-- **Endpoint**: `GET https://updates.openheaders.io/versions/stable.json`
+- **Endpoint**: `GET https://updates.openheaders.com/versions/stable.json`
 - **Request body**: none — a plain HTTP `GET` of a static file; no
   identifier, license, or machine information is attached. The
   comparison against your running version happens locally.
@@ -145,7 +145,7 @@ request/response data, and file paths are inexpressible. The in-app
 inspector (Settings → General → View telemetry events) shows every
 event of the current session byte for byte, sent or suppressed.
 
-- **Endpoint**: `POST https://telemetry.openheaders.io/v1/events`
+- **Endpoint**: `POST https://telemetry.openheaders.com/v1/events`
 - **Request headers**: `content-type: application/json`
 - **Request body** — a batch envelope, exactly these fields:
 
@@ -274,13 +274,13 @@ event of the current session byte for byte, sent or suppressed.
   aggregate snapshots (counts only — ids are aggregated away) are
   committed to the repository as the long-term metrics ledger.
 - **Uninstall ping (extension only)**: the extension registers
-  `GET https://telemetry.openheaders.io/v1/uninstall?i=<installId>&a=<sinceInstall>&c=<channel>`
+  `GET https://telemetry.openheaders.com/v1/uninstall?i=<installId>&a=<sinceInstall>&c=<channel>`
   as its browser uninstall URL — the page the browser opens when the
   extension is removed. It carries the install id plus two coarse
   vocabulary values already described above — `a` is the `sinceInstall`
   bucket at registration time and `c` is the distribution channel —
   counts one departure, and redirects to the farewell page at
-  `https://openheaders.io/uninstall/`, passing only the validated
+  `https://openheaders.com/uninstall/`, passing only the validated
   `a`/`c` values along (the install id never leaves the worker). The
   worker validates both context values against their closed unions and
   stores nothing for anything else. It is registered only while the
@@ -289,7 +289,7 @@ event of the current session byte for byte, sent or suppressed.
 - **Uninstall micro-survey (2026-08, S20)**: the landing page the
   redirect opens may offer one optional "why did you uninstall?"
   picklist. Tapping an answer submits
-  `GET https://telemetry.openheaders.io/v1/uninstall-reason?r=<reason>&a=<sinceInstall>&c=<channel>`
+  `GET https://telemetry.openheaders.com/v1/uninstall-reason?r=<reason>&a=<sinceInstall>&c=<channel>`
   — the reason is one of seven fixed values (`not-needed`,
   `not-working`, `missing-feature`, `too-complex`, `privacy`,
   `switching`, `other`) and the coarse context is the same pair the
@@ -298,8 +298,8 @@ event of the current session byte for byte, sent or suppressed.
   free-text is inexpressible and an off-list value stores nothing.
   Skipping the question sends nothing at all.
 - **Download-click beacon (website only, 2026-08, S23)**: clicking a
-  desktop-installer link on openheaders.io sends
-  `GET https://telemetry.openheaders.io/v1/download?t=<platform>` —
+  desktop-installer link on openheaders.com sends
+  `GET https://telemetry.openheaders.com/v1/download?t=<platform>` —
   `t` is one of `mac`, `win`, `linux` (the same closed union the apps
   report) and nothing else is attached. The stored row is anonymous by
   the same construction as the micro-survey: no install id, no
@@ -321,23 +321,23 @@ event of the current session byte for byte, sent or suppressed.
 ## 5. Static feed reads (release notes & download link)
 
 Two more anonymous reads of static files on the same first-party feed
-host (`updates.openheaders.io`). Like the severity manifest, these are
+host (`updates.openheaders.com`). Like the severity manifest, these are
 plain HTTP `GET`s of published files: no request body, no identifier,
 no license or machine information — nothing beyond what any HTTP
 client sends. Both are enhancement-only: every failure reads as
 "section hidden" or "generic link", never an error.
 
 - **What's New release notes**:
-  `GET https://updates.openheaders.io/changelog/<stream>.json` (the
+  `GET https://updates.openheaders.com/changelog/<stream>.json` (the
   stream index) and
-  `GET https://updates.openheaders.io/changelog/<stream>/<version>.json`
+  `GET https://updates.openheaders.com/changelog/<stream>/<version>.json`
   (one entry's body), where `<stream>` is `desktop` or `extension`.
   Fetched by the desktop app (main process, answering the What's New
   tab) and by the extension (directly from the What's New surface) —
   strictly on demand, only when the user opens the What's New history
   section. The bundled current-release notes never depend on it.
 - **Latest-desktop-version manifest**:
-  `GET https://updates.openheaders.io/versions/stable.json` — the same
+  `GET https://updates.openheaders.com/versions/stable.json` — the same
   static file as section 3, read here for a different purpose: on
   extension and served-web surfaces that offer the optional "get the
   desktop app" link, it resolves the latest installer version so the

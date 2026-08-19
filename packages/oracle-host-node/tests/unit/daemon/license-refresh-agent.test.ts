@@ -237,7 +237,7 @@ describe('license refresh agent — wire payload', () => {
     const agent = makeAgent(slot, transport);
     await agent.tick();
     expect(calls).toHaveLength(1);
-    expect(calls[0]?.url).toBe('https://license.openheaders.io/refresh');
+    expect(calls[0]?.url).toBe('https://license.openheaders.com/refresh');
     expect(calls[0]?.method).toBe('POST');
     expect(calls[0]?.body).toEqual({
       licenseKey: installed,

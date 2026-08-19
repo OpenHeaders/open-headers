@@ -140,7 +140,7 @@ export const ParadigmApiCatalogDiagram: React.FC = () => {
         stroke="var(--ant-color-border)"
       />
       <text x={MOCK_X + 78} y={MOCK_Y + 22} fontSize={10} fontFamily="monospace" fill={TEXT}>
-        https://api.openheaders.io/v2/items
+        https://api.openheaders.com/v2/items
       </text>
       <rect x={MOCK_X + MOCK_W - 80} y={MOCK_Y + 8} width={72} height={22} rx={3} fill={OH_GREEN} stroke={OH_GREEN} />
       <text

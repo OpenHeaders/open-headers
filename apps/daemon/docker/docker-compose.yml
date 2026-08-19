@@ -7,7 +7,7 @@
 # warn, curl needs -k). Production sets a real domain and Caddy issues
 # certificates automatically:
 #
-#   OH_DOMAIN=daemon.openheaders.io docker compose -f ... up -d
+#   OH_DOMAIN=daemon.openheaders.com docker compose -f ... up -d
 #
 # First-boot token bootstrap — storage.json is single-writer, and the
 # CLI's running-daemon guard probes its OWN container's loopback, so it

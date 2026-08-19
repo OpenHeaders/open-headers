@@ -276,7 +276,7 @@ export const workbenchImportExport = {
   'workbench.importExport.curl.introPrefix': '粘贴一条',
   'workbench.importExport.curl.introSuffix': '命令——例如浏览器 DevTools 的“以 cURL 格式复制”，或来自 API 文档。',
   'workbench.importExport.curl.sourcePlaceholder':
-    "curl -X POST 'https://api.openheaders.io/v1/things' \\\n  -H 'authorization: Bearer xyz' \\\n  -H 'content-type: application/json' \\\n  --data-raw '{\"name\":\"hello\"}'",
+    "curl -X POST 'https://api.openheaders.com/v1/things' \\\n  -H 'authorization: Bearer xyz' \\\n  -H 'content-type: application/json' \\\n  --data-raw '{\"name\":\"hello\"}'",
   'workbench.importExport.curl.cantParse': '无法解析此命令',
   'workbench.importExport.curl.parseFallback': '无法解析——请检查命令后重试。',
   'workbench.importExport.curl.nameLabel': '名称',

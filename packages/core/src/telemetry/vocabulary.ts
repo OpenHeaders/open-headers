@@ -272,7 +272,7 @@ export function toTelemetryMcpClient(clientName: string): TelemetryMcpClient {
 
 /**
  * Uninstall micro-survey picklist (S20) — the one optional "why?"
- * answer a departing person can tap on the openheaders.io landing
+ * answer a departing person can tap on the openheaders.com landing
  * page. No client ever emits it: the value is chosen by the person on
  * the website and accepted only through the worker's picklist gate,
  * with no install id attached.

@@ -256,7 +256,7 @@ export const panelInspectorCookies = {
     'règle Substituer les cookies quand la valeur doit suivre la variable.',
   'panel.inspector.cookies.fieldInfo.domain.summary': 'Quels hôtes reçoivent le cookie.',
   'panel.inspector.cookies.fieldInfo.domain.description':
-    'Un domaine simple comme openheaders.io inclut ses sous-domaines (le navigateur le stocke avec un point ' +
+    'Un domaine simple comme openheaders.com inclut ses sous-domaines (le navigateur le stocke avec un point ' +
     'de tête), sauf si Host-only est activé, ce qui épingle le cookie exactement à cet hôte.',
   'panel.inspector.cookies.fieldInfo.path.summary':
     "Préfixe de chemin d'URL que le cookie emprunte — /api signifie que seules les requêtes sous /api le " + 'portent.',
@@ -344,7 +344,7 @@ export const panelInspectorCookies = {
   'panel.inspector.cookies.columnInfo.scope.summary':
     'Où le navigateur attachera ce cookie — le Domain + Path combinés.',
   'panel.inspector.cookies.columnInfo.scope.description':
-    'Un point de tête sur le domaine (p. ex. `.openheaders.io`) signifie que les sous-domaines sont inclus. ' +
+    'Un point de tête sur le domaine (p. ex. `.openheaders.com`) signifie que les sous-domaines sont inclus. ' +
     "Un chemin comme `/api` signifie que le cookie n'est envoyé que sur les requêtes sous ce chemin.",
   'panel.inspector.cookies.columnInfo.expires.summary':
     "Quand le navigateur cessera d'envoyer ce cookie. La couleur suit l'urgence.",

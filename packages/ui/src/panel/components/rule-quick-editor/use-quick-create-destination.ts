@@ -26,7 +26,7 @@ export interface QuickCreateDestinationApi {
   setOverride: (next: QuickDestinationOverride | null) => void;
   /** Collection trees for the picker. */
   trees: CollectionTree[];
-  /** Auto-choice label for the picker ("openheaders.io"). */
+  /** Auto-choice label for the picker ("openheaders.com"). */
   autoFolderName: string | null;
   /** Suggestion scope — the collection the rule will land in. */
   collectionId: string | undefined;

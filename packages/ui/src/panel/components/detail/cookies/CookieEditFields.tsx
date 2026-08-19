@@ -154,7 +154,7 @@ export function CookieEditFields({ values, fields, set, busy, readOnly = false, 
           <CookieEditFieldInfo infoKey="domain" />
           {affixes?.domain}
         </span>
-        {textField('domain', 'openheaders.io')}
+        {textField('domain', 'openheaders.com')}
       </div>
 
       <div className="dt-cookie-edit-field">

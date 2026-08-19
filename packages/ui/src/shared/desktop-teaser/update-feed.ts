@@ -3,7 +3,7 @@
  * desktop installer for THIS platform from the same static manifest
  * every app reads (the distribution plan §3): the release
  * workflow writes `versions/stable.json` behind
- * `updates.openheaders.io` (CORS-enabled, edge-cached five minutes)
+ * `updates.openheaders.com` (CORS-enabled, edge-cached five minutes)
  * with the desktop entry's `latest` version + release `tag`, and
  * asset URLs derive from the pipeline's asset-naming contract on the
  * feed's `dl/<tag>/` paths — the exact computation the website's
@@ -14,11 +14,11 @@
  * falls back to the website's install section.
  */
 
-export const UPDATE_FEED_ORIGIN = 'https://updates.openheaders.io';
+export const UPDATE_FEED_ORIGIN = 'https://updates.openheaders.com';
 
 /** The website's install section — the CTA fallback when the feed is
  *  unreachable, and the "other platforms" secondary link. */
-export const DESKTOP_DOWNLOAD_URL = 'https://openheaders.io/#install-desktop';
+export const DESKTOP_DOWNLOAD_URL = 'https://openheaders.com/#install-desktop';
 
 export type DesktopPlatform = 'mac' | 'windows' | 'linux';
 

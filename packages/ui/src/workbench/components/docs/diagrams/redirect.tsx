@@ -69,7 +69,7 @@ export const RedirectStaticDiagram: React.FC = () => {
         {t('workbench.docs.diagrams.redirect.originalRequestKicker')}
       </text>
       <text x={STATE_X + 10} y={BEFORE_Y + 30} fontFamily="monospace" fontSize={10} fill={TEXT}>
-        https://openheaders.io/old-page
+        https://openheaders.com/old-page
       </text>
 
       <line
@@ -96,7 +96,7 @@ export const RedirectStaticDiagram: React.FC = () => {
         {t('workbench.docs.diagrams.redirect.redirectedToKicker')}
       </text>
       <text x={STATE_X + 10} y={AFTER_Y + 30} fontFamily="monospace" fontSize={10} fontWeight={700} fill={STROKE_GREEN}>
-        https://openheaders.io/new-page
+        https://openheaders.com/new-page
       </text>
 
       <text x={160} y={STAMP_Y} textAnchor="middle" fontSize={10} fontWeight={700} fill={TEXT}>
@@ -177,7 +177,7 @@ export const RedirectRegexDiagram: React.FC = () => {
       <text x={STATE_X + 10} y={BEFORE_Y + 30} fontFamily="monospace" fontSize={10} fill={TEXT}>
         http://
         <tspan fill={GOLD} fontWeight={700}>
-          openheaders.io/page
+          openheaders.com/page
         </tspan>
       </text>
       {/* Capture-group chip below */}
@@ -220,7 +220,7 @@ export const RedirectRegexDiagram: React.FC = () => {
       <text x={STATE_X + 10} y={AFTER_Y + 30} fontFamily="monospace" fontSize={10} fill={TEXT}>
         https://
         <tspan fill={GOLD} fontWeight={700}>
-          openheaders.io/page
+          openheaders.com/page
         </tspan>
       </text>
 

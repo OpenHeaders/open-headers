@@ -282,8 +282,8 @@ const TerminalPanel: React.FC<TerminalPanelProps> = ({ info, dockSlot, active, o
         if (!status.binaryInstalled) {
           const command =
             status.hostPlatform === 'win32'
-              ? 'powershell -c "irm https://updates.openheaders.io/install.ps1 | iex"'
-              : 'curl -fsSL https://updates.openheaders.io/install.sh | sh';
+              ? 'powershell -c "irm https://updates.openheaders.com/install.ps1 | iex"'
+              : 'curl -fsSL https://updates.openheaders.com/install.sh | sh';
           modal.info({
             okCancel: true,
             title: <span style={{ fontSize: 13, fontWeight: 600 }}>{t('workbench.terminal.cliGate.installTitle')}</span>,

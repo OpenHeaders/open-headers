@@ -29,7 +29,7 @@ export const EXAMPLE_REQUESTS: readonly ExampleRequest[] = [
     num: 7,
     method: 'GET',
     status: 200,
-    url: 'https://api.openheaders.io/v1/users?page=2',
+    url: 'https://api.openheaders.com/v1/users?page=2',
     meta: 'fetch · application/json · 1.2 kB',
   },
   {
@@ -37,7 +37,7 @@ export const EXAMPLE_REQUESTS: readonly ExampleRequest[] = [
     num: 8,
     method: 'POST',
     status: 201,
-    url: 'https://api.openheaders.io/v1/login',
+    url: 'https://api.openheaders.com/v1/login',
     meta: 'xhr · application/json · 0.4 kB',
   },
   {
@@ -45,7 +45,7 @@ export const EXAMPLE_REQUESTS: readonly ExampleRequest[] = [
     num: 12,
     method: 'GET',
     status: 200,
-    url: 'https://cdn.openheaders.io/assets/app.js',
+    url: 'https://cdn.openheaders.com/assets/app.js',
     meta: 'script · text/javascript · 128 kB · x-cache: HIT',
   },
   {
@@ -53,7 +53,7 @@ export const EXAMPLE_REQUESTS: readonly ExampleRequest[] = [
     num: 15,
     method: 'GET',
     status: 404,
-    url: 'https://static.openheaders.io/fonts/inter.woff2',
+    url: 'https://static.openheaders.com/fonts/inter.woff2',
     meta: 'font · 2.1 kB',
   },
   {

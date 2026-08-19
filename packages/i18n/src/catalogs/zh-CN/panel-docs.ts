@@ -68,7 +68,7 @@ export const panelDocs = {
   'panel.docs.filterSyntax.domainTitle': '域名',
   'panel.docs.filterSyntax.domain1Prefix': '按子串匹配主机名，因此填主域名即可命中它的每个子域名——',
   'panel.docs.filterSyntax.domain1Suffix': '——无需通配符。',
-  'panel.docs.filterSyntax.domainCaption': '一个值覆盖 openheaders.io 的所有子域名；第三方主机不匹配。',
+  'panel.docs.filterSyntax.domainCaption': '一个值覆盖 openheaders.com 的所有子域名；第三方主机不匹配。',
 
   'panel.docs.filterSyntax.statusCodeTitle': '状态码',
   'panel.docs.filterSyntax.statusCode1': '保留响应恰好带有此状态码的请求。待处理和失败的请求没有状态码，因此永不匹配。',

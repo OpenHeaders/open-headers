@@ -219,16 +219,16 @@ export const VariablesEnvironmentRefDiagram: React.FC = () => {
       spec={{
         scope: 'environment',
         title: t('workbench.docs.diagrams.variables.refs.environment.title'),
-        chipLabel: 'api_host = stg.openheaders.io',
+        chipLabel: 'api_host = stg.openheaders.com',
         chipSub: t('workbench.docs.diagrams.variables.refs.environment.chipSub'),
         arrowCaption: t('workbench.docs.diagrams.variables.refs.environment.arrowCaption'),
         goods: [
           {
-            text: '{{api_host}} → stg.openheaders.io',
+            text: '{{api_host}} → stg.openheaders.com',
             note: t('workbench.docs.diagrams.variables.refs.environment.good1Note'),
           },
           {
-            text: 'production → openheaders.io',
+            text: 'production → openheaders.com',
             note: t('workbench.docs.diagrams.variables.refs.environment.good2Note'),
           },
         ],
@@ -261,7 +261,7 @@ export const VariablesCollectionRefDiagram: React.FC = () => {
       spec={{
         scope: 'collection',
         title: t('workbench.docs.diagrams.variables.refs.collection.title'),
-        chipLabel: 'base_url = pay.openheaders.io',
+        chipLabel: 'base_url = pay.openheaders.com',
         chipSub: t('workbench.docs.diagrams.variables.refs.collection.chipSub'),
         arrowCaption: t('workbench.docs.diagrams.variables.refs.collection.arrowCaption'),
         goods: [
@@ -308,7 +308,7 @@ export const VariablesWorkspaceRefDiagram: React.FC = () => {
         goods: [
           { text: 'X-Team: {{team_id}}', note: t('workbench.docs.diagrams.variables.refs.workspace.good1Note') },
           {
-            text: 'api.openheaders.io/{{team_id}}/usage',
+            text: 'api.openheaders.com/{{team_id}}/usage',
             note: t('workbench.docs.diagrams.variables.refs.workspace.good2Note'),
           },
           { text: '{{workspace.team_id}}', note: t('workbench.docs.diagrams.variables.refs.workspace.good3Note') },
@@ -320,7 +320,7 @@ export const VariablesWorkspaceRefDiagram: React.FC = () => {
             reason: t('workbench.docs.diagrams.variables.refs.workspace.bad1Reason'),
           },
           {
-            text: 'api_host = stg.openheaders.io',
+            text: 'api_host = stg.openheaders.com',
             reason: t('workbench.docs.diagrams.variables.refs.workspace.bad2Reason'),
           },
         ],

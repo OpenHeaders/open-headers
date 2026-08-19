@@ -89,14 +89,14 @@ const RESOURCE_TYPES = [
     code: 'main_frame',
     color: 'blue',
     descKey: 'workbench.docs.body.resourceTypes.descPage',
-    examples: ['https://openheaders.io/', 'https://openheaders.io/docs/getting-started'],
+    examples: ['https://openheaders.com/', 'https://openheaders.com/docs/getting-started'],
   },
   {
     tag: 'Frame',
     code: 'sub_frame',
     color: 'cyan',
     descKey: 'workbench.docs.body.resourceTypes.descFrame',
-    examples: ['<iframe src="https://ads.openheaders.io/banner">', '<iframe src="https://player.vimeo.com/video/123">'],
+    examples: ['<iframe src="https://ads.openheaders.com/banner">', '<iframe src="https://player.vimeo.com/video/123">'],
   },
   {
     tag: 'Fetch/XHR',
@@ -145,7 +145,7 @@ const RESOURCE_TYPES = [
     code: 'websocket',
     color: 'lime',
     descKey: 'workbench.docs.body.resourceTypes.descWebsocket',
-    examples: ['new WebSocket("wss://ws.openheaders.io/live")', 'new WebSocket("ws://localhost:59510")'],
+    examples: ['new WebSocket("wss://ws.openheaders.com/live")', 'new WebSocket("ws://localhost:59510")'],
   },
   {
     tag: 'Ping',

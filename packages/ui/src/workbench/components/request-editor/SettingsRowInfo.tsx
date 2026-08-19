@@ -59,7 +59,7 @@ export type SettingsInfoKey =
  * concrete send. */
 const EX = {
   method: 'POST',
-  url: 'https://api.openheaders.io/v1/users',
+  url: 'https://api.openheaders.com/v1/users',
   body: 'body: json',
   protocol: 'h2',
   dial: 'direct',

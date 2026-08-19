@@ -16,7 +16,7 @@ declare const __CLI_CHANGELOG__: string | undefined;
 
 export const CLI_CHANGELOG: string = typeof __CLI_CHANGELOG__ === 'string' ? __CLI_CHANGELOG__ : '';
 
-const FULL_CHANGELOG_URL = 'https://openheaders.io/changelog';
+const FULL_CHANGELOG_URL = 'https://openheaders.com/changelog';
 
 export function commandChangelog(argv: readonly string[], entry: string = CLI_CHANGELOG): string[] {
   let parsed: { values: { json?: boolean }; positionals: string[] };

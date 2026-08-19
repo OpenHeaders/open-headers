@@ -137,7 +137,7 @@ export function FilterSyntaxSection() {
           {t('panel.docs.filterSyntax.domain1Suffix')}
           <DiagramFrame caption={t('panel.docs.filterSyntax.domainCaption')}>
             <FilterExample
-              filter="domain:openheaders.io"
+              filter="domain:openheaders.com"
               verdicts={[
                 { id: 'users', pass: true },
                 { id: 'login', pass: true },

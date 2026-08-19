@@ -213,9 +213,9 @@ describe('daemon users', () => {
       const created = await createDaemonUser({ displayName: 'Alice', email: 'alice@openheaders.io' });
       if (!created.ok) throw new Error('setup failed');
       const userId = created.record.user.id;
-      expect(await setDaemonUserGitEmail(userId, 'alice@users.noreply.openheaders.io')).toEqual({ ok: true });
+      expect(await setDaemonUserGitEmail(userId, 'alice@users.noreply.openheaders.com')).toEqual({ ok: true });
       let found = await findDaemonUserByEmail('alice@openheaders.io');
-      expect(found?.gitEmail).toBe('alice@users.noreply.openheaders.io');
+      expect(found?.gitEmail).toBe('alice@users.noreply.openheaders.com');
       expect(v.safeParse(DaemonUserRecordSchema, found).success).toBe(true);
       expect(await setDaemonUserGitEmail(userId, '  alice@commits.openheaders.io  ')).toEqual({ ok: true });
       found = await findDaemonUserByEmail('alice@openheaders.io');
@@ -257,7 +257,7 @@ describe('daemon users', () => {
       if (!local.ok) throw new Error('setup failed');
       expect(await resolveDaemonUserGitAttribution(local.record.user.id)).toEqual({
         name: 'CI runner',
-        email: `${local.record.user.id}@users.noreply.openheaders.io`,
+        email: `${local.record.user.id}@users.noreply.openheaders.com`,
       });
     });
 
@@ -266,7 +266,7 @@ describe('daemon users', () => {
       if (!identity) throw new Error('setup failed');
       expect(await resolveDaemonUserGitAttribution(identity.user.id)).toEqual({
         name: identity.user.displayName,
-        email: `${identity.user.id}@users.noreply.openheaders.io`,
+        email: `${identity.user.id}@users.noreply.openheaders.com`,
       });
       const created = await createDaemonUser({ displayName: 'Alice', email: 'alice@openheaders.io' });
       if (!created.ok) throw new Error('setup failed');

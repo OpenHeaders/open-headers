@@ -8,7 +8,7 @@ the repository root as `LICENSE`, alongside the `NOTICE` file.
 
 Official branded builds published to the browser stores are governed by
 the Open Headers End User License Agreement (`legal/EULA.md` at the
-repository root, published at https://openheaders.io/eula). The EULA
+repository root, published at https://openheaders.com/eula). The EULA
 governs those signed artifacts only; it does not limit any rights the
 Apache License grants you over the source.
 

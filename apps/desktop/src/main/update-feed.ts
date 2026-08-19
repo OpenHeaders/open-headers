@@ -2,7 +2,7 @@
  * The update feed's URL contract (the distribution plan §3).
  *
  * Every machine-readable update contract lives behind
- * `updates.openheaders.io` — static pointer files on R2, written by the
+ * `updates.openheaders.com` — static pointer files on R2, written by the
  * release workflow (`scripts/generate-update-feed.mjs`). The pointer
  * files carry absolute URLs to the GitHub release assets; clients never
  * resolve GitHub "latest" themselves, so per-app release cadence can
@@ -13,7 +13,7 @@
  *   versions/{stable,beta}.json         — severity manifest, all apps
  */
 
-export const UPDATE_FEED_ORIGIN = 'https://updates.openheaders.io';
+export const UPDATE_FEED_ORIGIN = 'https://updates.openheaders.com';
 
 /** Channel = path segment, selected by the `updates.channel` setting (default `stable`). */
 export type UpdateChannel = 'stable' | 'beta';

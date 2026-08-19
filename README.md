@@ -13,7 +13,7 @@ browser requests, manage API collections, collaborate with your team.
 
 Local-first: no account, no cloud, your data stays on your machine.
 
-**Website**: [openheaders.io](https://openheaders.io)
+**Website**: [openheaders.com](https://openheaders.com)
 
 <!-- screenshot: hero — the workbench with the rules list and the
      network panel side by side. Drop the asset at
@@ -54,11 +54,11 @@ beyond the browser:
    and `oh` / `ohd` as self-contained binaries (no Node.js required):
 
    ```sh
-   curl -fsSL https://updates.openheaders.io/install.sh | sh
+   curl -fsSL https://updates.openheaders.com/install.sh | sh
    ```
 
    ```powershell
-   irm https://updates.openheaders.io/install.ps1 | iex
+   irm https://updates.openheaders.com/install.ps1 | iex
    ```
 
    The script verifies SHA-256 checksums and installs to `~/.local/bin`

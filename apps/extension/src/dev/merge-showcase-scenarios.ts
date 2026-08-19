@@ -67,7 +67,7 @@ function renderRule(headers: readonly HeaderRow[], ruleName = 'Demo header rule'
     'conditions:',
     '  - uid: cnd00001',
     '    type: url-filter',
-    "    values: ['||openheaders.io^']",
+    "    values: ['||openheaders.com^']",
     'action:',
     '  requestHeaders:',
     headers.map(renderHeader).join('\n'),

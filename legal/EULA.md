@@ -109,7 +109,7 @@ setting. Its only outbound connections are to documented endpoints
 (telemetry, license renewal, update checks, notification manifests)
 with publicly specified payloads, plus destinations you configure
 yourself. See the Open Headers Privacy Policy and the published
-wire-transparency documentation at https://openheaders.io.
+wire-transparency documentation at https://openheaders.com.
 
 ## 8. Updates
 
@@ -171,4 +171,4 @@ with notice.
 
 ## 14. Contact
 
-Bithub Team SRL — contact@openheaders.io — https://openheaders.io
+Bithub Team SRL — contact@openheaders.com — https://openheaders.com

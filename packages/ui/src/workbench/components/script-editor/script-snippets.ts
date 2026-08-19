@@ -28,7 +28,7 @@ const SEND_REQUEST: ScriptSnippet = {
   labelKey: 'workbench.editors.scriptEditor.snippet.sendRequest',
   code: `try {
   const response = await oh.sendRequest({
-    url: 'https://api.openheaders.io/v1/items',
+    url: 'https://api.openheaders.com/v1/items',
     method: 'GET',
   });
   console.log(response.status, response.body);
@@ -42,7 +42,7 @@ const SEND_REQUEST_WITH_BODY: ScriptSnippet = {
   labelKey: 'workbench.editors.scriptEditor.snippet.sendRequestJsonBody',
   code: `try {
   const response = await oh.sendRequest({
-    url: 'https://api.openheaders.io/v1/items',
+    url: 'https://api.openheaders.com/v1/items',
     method: 'POST',
     headers: [{ key: 'Content-Type', value: 'application/json' }],
     body: { type: 'json', content: JSON.stringify({ name: 'value' }) },
@@ -116,7 +116,7 @@ const PRE_REQUEST_GROUPS: ScriptSnippetGroup[] = [
       {
         id: 'set-url',
         labelKey: 'workbench.editors.scriptEditor.snippet.setUrl',
-        code: `oh.setUrl('https://api.openheaders.io/v1/items');`,
+        code: `oh.setUrl('https://api.openheaders.com/v1/items');`,
       },
       {
         id: 'set-method',

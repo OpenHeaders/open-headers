@@ -191,8 +191,8 @@ export function LoginGate({
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }} data-testid="login-gate-personal-seat">
           <Typography.Text type="secondary" style={{ fontSize: 12 }}>
             {t('web.gate.seatIntroPrefix')}{' '}
-            <Typography.Link href="https://openheaders.io/pricing" target="_blank">
-              openheaders.io/pricing
+            <Typography.Link href="https://openheaders.com/pricing" target="_blank">
+              openheaders.com/pricing
             </Typography.Link>
             {t('web.gate.seatIntroSuffix')}
           </Typography.Text>

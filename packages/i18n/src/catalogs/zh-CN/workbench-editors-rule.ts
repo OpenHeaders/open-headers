@@ -263,7 +263,7 @@ export const workbenchEditorsRule = {
   'workbench.editors.rule.fields.redirect.localFile': '本地文件',
   'workbench.editors.rule.fields.redirect.desktopOnly': '在桌面端应用中可用',
   'workbench.editors.rule.fields.redirect.targetPlaceholder':
-    '例如 https://openheaders.io/redirected——配合“URL 正则”条件可使用 \\1、\\2',
+    '例如 https://openheaders.com/redirected——配合“URL 正则”条件可使用 \\1、\\2',
 
   // ── Query-param rule fields ────────────────────────────────────────
   'workbench.editors.rule.fields.queryParam.kicker': '查询参数规则',

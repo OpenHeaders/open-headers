@@ -3,8 +3,8 @@
   "version": "2026.8.1",
   "private": true,
   "description": "OpenHeaders desktop app",
-  "homepage": "https://openheaders.io",
-  "author": "Open Headers <contact@openheaders.io>",
+  "homepage": "https://openheaders.com",
+  "author": "Open Headers <contact@openheaders.com>",
   "license": "Apache-2.0",
   "main": "dist-webpack/main/index.js",
   "sideEffects": [
@@ -208,7 +208,7 @@
       "icon": "build/icon.png",
       "category": "Utility;Development;Network",
       "executableName": "open-headers",
-      "maintainer": "Open Headers <contact@openheaders.io>",
+      "maintainer": "Open Headers <contact@openheaders.com>",
       "desktop": {
         "Name": "OpenHeaders",
         "Comment": "OpenHeaders",
@@ -300,7 +300,7 @@
     },
     "publish": {
       "provider": "generic",
-      "url": "https://updates.openheaders.io/desktop/stable"
+      "url": "https://updates.openheaders.com/desktop/stable"
     }
   },
   "dependencies": {

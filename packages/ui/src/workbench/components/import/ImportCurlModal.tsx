@@ -234,7 +234,7 @@ const ImportCurlModal: React.FC<ImportCurlModalProps> = ({
   }, [name, suggestedName, nameDirty]);
 
   // Name for an auto-created collection: the request's hostname reads
-  // naturally in the sidebar ("api.openheaders.io"); fall back to a
+  // naturally in the sidebar ("api.openheaders.com"); fall back to a
   // generic label when the URL isn't parseable.
   const newCollectionName = useMemo(() => {
     if (parsed?.ok) {

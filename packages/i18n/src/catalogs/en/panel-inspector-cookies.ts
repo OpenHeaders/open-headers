@@ -259,7 +259,7 @@ export const panelInspectorCookies = {
     'The value is a snapshot: if the variable changes later the jar keeps this text — use an Override Cookies rule when the value should track the variable.',
   'panel.inspector.cookies.fieldInfo.domain.summary': 'Which hosts receive the cookie.',
   'panel.inspector.cookies.fieldInfo.domain.description':
-    'A plain domain like openheaders.io includes its subdomains (the browser stores it with a leading dot) unless Host-only is on, which pins the cookie to exactly this host.',
+    'A plain domain like openheaders.com includes its subdomains (the browser stores it with a leading dot) unless Host-only is on, which pins the cookie to exactly this host.',
   'panel.inspector.cookies.fieldInfo.path.summary':
     'URL path prefix the cookie rides on — /api means only requests under /api carry it.',
   'panel.inspector.cookies.fieldInfo.path.description': 'Defaults to /.',
@@ -329,7 +329,7 @@ export const panelInspectorCookies = {
   'panel.inspector.cookies.columnInfo.scope.summary':
     'Where the browser will attach this cookie — the combined Domain + Path.',
   'panel.inspector.cookies.columnInfo.scope.description':
-    'A leading dot on the domain (e.g. `.openheaders.io`) means subdomains are included. A trailing path like `/api` means the cookie is only sent on requests under that path.',
+    'A leading dot on the domain (e.g. `.openheaders.com`) means subdomains are included. A trailing path like `/api` means the cookie is only sent on requests under that path.',
   'panel.inspector.cookies.columnInfo.expires.summary':
     'When the browser will stop sending this cookie. Color tracks urgency.',
   'panel.inspector.cookies.columnInfo.expires.colorHeading': 'Reading the color',

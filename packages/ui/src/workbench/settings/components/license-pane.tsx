@@ -32,7 +32,7 @@ function formatDay(ms: number): string {
   return new Date(ms).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' });
 }
 
-const PRICING_URL = 'https://openheaders.io/pricing';
+const PRICING_URL = 'https://openheaders.com/pricing';
 
 /**
  * Upgrade CTA on the free-tier/grace/expired alerts — desktop only:

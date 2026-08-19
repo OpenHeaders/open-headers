@@ -229,7 +229,7 @@ export const ActionsRuleAnatomyDiagram: React.FC<{ focus?: 'conditions' | 'actio
         t('workbench.docs.diagrams.actions.ruleAnatomy.outgoingRequest'),
         t('workbench.docs.diagrams.actions.ruleAnatomy.sideBefore'),
         [
-          { text: 'POST  https://api.openheaders.io/v2/users' },
+          { text: 'POST  https://api.openheaders.com/v2/users' },
           { text: 'Content-Type: application/json' },
         ],
         'neutral',
@@ -334,7 +334,7 @@ export const ActionsRuleAnatomyDiagram: React.FC<{ focus?: 'conditions' | 'actio
               },
               {
                 label: t('workbench.docs.diagrams.actions.ruleAnatomy.condRequestDomains'),
-                value: 'api.openheaders.io',
+                value: 'api.openheaders.com',
                 match: true,
               },
               {
@@ -459,7 +459,7 @@ export const ActionsRuleAnatomyDiagram: React.FC<{ focus?: 'conditions' | 'actio
         t('workbench.docs.diagrams.actions.ruleAnatomy.outgoingRequest'),
         t('workbench.docs.diagrams.actions.ruleAnatomy.sideAfter'),
         [
-          { text: 'POST  https://api.openheaders.io/v2/users' },
+          { text: 'POST  https://api.openheaders.com/v2/users' },
           { text: 'Content-Type: application/json' },
           { text: 'Authorization: Bearer abc123…', highlight: true },
         ],

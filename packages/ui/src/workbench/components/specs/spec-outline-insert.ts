@@ -94,7 +94,7 @@ interface Snippet {
 }
 
 function serverSnippet(): Snippet {
-  const token = 'https://api.openheaders.io';
+  const token = 'https://api.openheaders.com';
   return { lines: [`url: '${token}'`, `description: 'Server description'`], token };
 }
 

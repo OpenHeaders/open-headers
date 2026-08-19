@@ -234,7 +234,7 @@ function extractHeaderOps(rule: HeaderRule): MatchingRuleHeaderOp[] {
 export interface MatchRequestContext {
   method?: string;
   resourceType?: string;
-  /** The request initiator (an origin string, e.g. 'http://openheaders.io'). */
+  /** The request initiator (an origin string, e.g. 'http://openheaders.com'). */
   initiator?: string;
 }
 

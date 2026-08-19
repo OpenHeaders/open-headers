@@ -7,7 +7,7 @@
  * answers "where does this surface run?":
  *   - browser extension in Chrome     → `extension:chrome`
  *   - browser extension in Firefox    → `extension:firefox`
- *   - openheaders.io web tab in Chrome → `web:chrome`     (future)
+ *   - openheaders.com web tab in Chrome → `web:chrome`     (future)
  *   - desktop Electron app            → `app:desktop`
  * Naming this level "host" (not "browser") matters once Mode 2+ has
  * desktop and web surfaces coexisting in the same identity tree — a
@@ -177,7 +177,7 @@ function identifyLevel(
 /**
  * Host-level bucketing. The host axis composes `appId` + (when
  * present) `browserContext`, so two surfaces in the same browser but
- * different apps (the extension and a future openheaders.io web tab in
+ * different apps (the extension and a future openheaders.com web tab in
  * Chrome) end up in different buckets, and a desktop surface never
  * lands in a "Chrome" bucket inherited from Electron's user-agent.
  */

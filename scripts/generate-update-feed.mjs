@@ -1,5 +1,5 @@
 /**
- * Stages the static update feed uploaded to `updates.openheaders.io`
+ * Stages the static update feed uploaded to `updates.openheaders.com`
  * by the release workflow (the distribution plan §3). Input is the release
  * job's `processed_files` directory (electron-builder `latest*.yml`
  * feed files + the generated `versions.json`); output is the exact R2
@@ -91,7 +91,7 @@ mkdirSync(path.join(outputDir, 'versions'), { recursive: true });
 copyFileSync(versionsPath, path.join(outputDir, 'versions', `${channel}.json`));
 
 // CLI install scripts ride the stable feed root — the printed
-// one-liners fetch them from updates.openheaders.io directly. The ps1
+// one-liners fetch them from updates.openheaders.com directly. The ps1
 // prefers the release-artifact copy (the windows leg's, Authenticode-
 // signed on stable) over the unsigned checkout copy, so saved-file runs
 // under AllSigned execution policies keep working from the feed too.

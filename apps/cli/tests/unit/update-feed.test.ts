@@ -49,8 +49,8 @@ describe('parseCliManifestEntry', () => {
 
 describe('feed URLs', () => {
   it('builds channel manifest and immutable per-tag download paths', () => {
-    expect(versionsManifestUrl('stable')).toBe('https://updates.openheaders.io/versions/stable.json');
-    expect(versionsManifestUrl('beta')).toBe('https://updates.openheaders.io/versions/beta.json');
-    expect(downloadBaseUrl('v2026.7.19')).toBe('https://updates.openheaders.io/dl/v2026.7.19');
+    expect(versionsManifestUrl('stable')).toBe('https://updates.openheaders.com/versions/stable.json');
+    expect(versionsManifestUrl('beta')).toBe('https://updates.openheaders.com/versions/beta.json');
+    expect(downloadBaseUrl('v2026.7.19')).toBe('https://updates.openheaders.com/dl/v2026.7.19');
   });
 });

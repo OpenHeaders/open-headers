@@ -267,7 +267,7 @@ export const ResourceTypesAnatomyDiagram: React.FC = () => {
       {/* Address bar — Page = main_frame */}
       <rect x={PAGE_X} y={PAGE_Y} width={PAGE_W} height={20} rx={6} fill={FILL_BLUE} stroke={STROKE_BLUE} />
       <text x={PAGE_X + 8} y={PAGE_Y + 14} fontFamily="monospace" fontSize={9} fontWeight={700} fill={TEXT}>
-        https://openheaders.io
+        https://openheaders.com
       </text>
 
       {/* Inside the page */}

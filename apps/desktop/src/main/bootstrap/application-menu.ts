@@ -22,9 +22,9 @@ import { broadcastToAllRenderers, sendToFocusedRenderer, sendToRendererWindow } 
 import { registerUpdateMenuBuilder, updateMenuItems } from './update-menus';
 import { createChildWindow, getMainWindow, showMainWindow } from './window-manager';
 
-const HOMEPAGE_URL = 'https://openheaders.io';
+const HOMEPAGE_URL = 'https://openheaders.com';
 const ISSUES_URL = 'https://github.com/OpenHeaders/open-headers/issues/new';
-const EULA_URL = 'https://openheaders.io/eula';
+const EULA_URL = 'https://openheaders.com/eula';
 
 export function openSettingsSurface(): void {
   // The tray-resident window is hidden, not destroyed, so the renderer

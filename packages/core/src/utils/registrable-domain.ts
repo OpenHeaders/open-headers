@@ -12,7 +12,7 @@
 
 const PUBLIC_SECOND_LEVELS = new Set(['co', 'com', 'net', 'org', 'gov', 'edu', 'ac']);
 
-/** `https://www.app.openheaders.io/x` → `openheaders.io`; null on an
+/** `https://www.app.openheaders.com/x` → `openheaders.com`; null on an
  *  unparseable URL or an empty host. */
 export function registrableDomain(url: string): string | null {
   try {

@@ -128,10 +128,10 @@ Every outbound fetch either:
 - Is a direct response to a user action (Send, test run, rule
   refresh schedule the user configured), OR
 - Is the documented anonymous product-telemetry batch flush to
-  `telemetry.openheaders.io` (typed event allowlist, disclosed on
+  `telemetry.openheaders.com` (typed event allowlist, disclosed on
   first run, one-switch off), OR
 - Is one of the two anonymous static-file reads from
-  `updates.openheaders.io` (What's New release notes when that
+  `updates.openheaders.com` (What's New release notes when that
   section is opened; the latest-desktop-version manifest behind the
   optional desktop-download link) — plain GETs, no identifier or
   payload, documented in the wire-transparency spec, OR

@@ -71,7 +71,7 @@ export const panelQuickEditor = {
   'panel.quickEditor.validation.switchTo': 'Zu {operation} wechseln',
 
   // Typed bodies — popover-only copy.
-  'panel.quickEditor.redirect.targetPlaceholder': 'z. B. https://openheaders.io/redirected',
+  'panel.quickEditor.redirect.targetPlaceholder': 'z. B. https://openheaders.com/redirected',
   'panel.quickEditor.redirect.hint':
     'Getroffene Anfragen werden an diese URL geschickt, bevor sie das Netzwerk erreichen.',
   'panel.quickEditor.delay.hint':

@@ -73,7 +73,7 @@ export async function addUser(config: DaemonConfig, input: AddUserInput): Promis
       throw new Error(
         `seat limit reached (${result.seatLimit} active users) — deactivate a user to free a seat, ` +
           'install a license with more seats (ohd license install <file>), or redeem the joining ' +
-          "user's individual seat (--individual-license <key>; keys at https://openheaders.io/pricing).",
+          "user's individual seat (--individual-license <key>; keys at https://openheaders.com/pricing).",
       );
     }
     if (result.reason === 'personal-license-identity-mismatch') {

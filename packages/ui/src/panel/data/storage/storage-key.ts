@@ -2,7 +2,7 @@
  * Pure parsing for a serialized storage key (`Storage.getStorageKey`).
  *
  * A first-party key serializes as the origin with a trailing slash
- * (`https://openheaders.io/`). A partitioned key appends caret-delimited
+ * (`https://openheaders.com/`). A partitioned key appends caret-delimited
  * components, each `^<digit><value>` — the `0` component carries the
  * top-level site the storage is partitioned under; the others (ancestor
  * chain bit, nonces) are opaque here. The parser is deliberately

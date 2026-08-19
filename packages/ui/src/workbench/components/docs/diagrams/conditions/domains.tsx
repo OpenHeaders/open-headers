@@ -6,7 +6,7 @@ import { FILL_CYAN,STROKE_CYAN } from './_shared';
 /**
  * Request Domains — one entry expands to all subdomains.
  *
- * The unique teaching hook: a single value like "openheaders.io"
+ * The unique teaching hook: a single value like "openheaders.com"
  * auto-matches every subdomain (api., cdn., www., deeply-nested) and
  * the apex domain itself. No wildcard syntax needed. The diagram
  * makes that explicit by showing one rule entry fanning into a
@@ -34,7 +34,7 @@ export const RequestDomainsDiagram: React.FC = () => {
       {/* Rule input box — single value */}
       <rect x={80} y={22} width={160} height={26} rx={4} fill={FILL_GREEN} stroke={STROKE_GREEN} />
       <text x={160} y={39} textAnchor="middle" fontFamily="monospace" fontSize={12} fontWeight={700} fill={TEXT}>
-        openheaders.io
+        openheaders.com
       </text>
 
       {/* Down arrow with caption */}
@@ -54,12 +54,12 @@ export const RequestDomainsDiagram: React.FC = () => {
         stroke={STROKE_GREEN}
       />
       {[
-        'openheaders.io',
-        'openheaders.io/about',
-        'api.openheaders.io/v2/users',
-        'cdn.openheaders.io/static/img.png',
-        'www.openheaders.io/?q=foo',
-        'a.b.c.openheaders.io',
+        'openheaders.com',
+        'openheaders.com/about',
+        'api.openheaders.com/v2/users',
+        'cdn.openheaders.com/static/img.png',
+        'www.openheaders.com/?q=foo',
+        'a.b.c.openheaders.com',
       ].map((host, i) => {
         const y = 98 + i * 14;
         return (
@@ -99,7 +99,7 @@ export const RequestDomainsDiagram: React.FC = () => {
         ✗
       </text>
       <text x={48} y={272} fontFamily="monospace" fontSize={10} fill={TEXT_DIM}>
-        not-openheaders.io
+        not-openheaders.com
       </text>
       <text x={48} y={284} fontSize={8} fontStyle="italic" fill={TEXT_DIM}>
         {t('workbench.docs.diagrams.conditions.requestDomains.reasonNotSub')}
@@ -176,7 +176,7 @@ export const ExcludeDomainsDiagram: React.FC = () => {
         {t('workbench.docs.diagrams.conditions.excludeDomains.includeKicker')}
       </text>
       <text x={82} y={71} textAnchor="middle" fontFamily="monospace" fontSize={10} fontWeight={700} fill={TEXT}>
-        openheaders.io
+        openheaders.com
       </text>
 
       <rect x={166} y={42} width={144} height={36} rx={4} fill={excludeFill} stroke={excludeStroke} />
@@ -184,7 +184,7 @@ export const ExcludeDomainsDiagram: React.FC = () => {
         {t('workbench.docs.diagrams.conditions.excludeDomains.excludeKicker')}
       </text>
       <text x={238} y={71} textAnchor="middle" fontFamily="monospace" fontSize={9} fontWeight={700} fill={TEXT}>
-        staging.openheaders.io
+        staging.openheaders.com
       </text>
 
       {/* Down arrow */}
@@ -201,21 +201,21 @@ export const ExcludeDomainsDiagram: React.FC = () => {
         ✓
       </text>
       <text x={52} y={152} fontFamily="monospace" fontSize={10} fill={TEXT}>
-        openheaders.io
+        openheaders.com
       </text>
 
       <text x={36} y={168} fontSize={11} fontWeight={700} fill={matchOk}>
         ✓
       </text>
       <text x={52} y={168} fontFamily="monospace" fontSize={10} fill={TEXT}>
-        api.openheaders.io
+        api.openheaders.com
       </text>
 
       <text x={36} y={184} fontSize={11} fontWeight={700} fill={matchOk}>
         ✓
       </text>
       <text x={52} y={184} fontFamily="monospace" fontSize={10} fill={TEXT}>
-        cdn.openheaders.io
+        cdn.openheaders.com
       </text>
 
       {/* Excluded (2) — struck-through, dim */}
@@ -223,7 +223,7 @@ export const ExcludeDomainsDiagram: React.FC = () => {
         ✗
       </text>
       <text x={52} y={206} fontFamily="monospace" fontSize={10} fill={TEXT_DIM} textDecoration="line-through">
-        staging.openheaders.io
+        staging.openheaders.com
       </text>
       <text x={52} y={218} fontSize={8} fontStyle="italic" fill={TEXT_DIM}>
         {t('workbench.docs.diagrams.conditions.excludeDomains.excluded')}
@@ -233,7 +233,7 @@ export const ExcludeDomainsDiagram: React.FC = () => {
         ✗
       </text>
       <text x={52} y={232} fontFamily="monospace" fontSize={10} fill={TEXT_DIM} textDecoration="line-through">
-        a.b.staging.openheaders.io
+        a.b.staging.openheaders.com
       </text>
       <text x={52} y={244} fontSize={8} fontStyle="italic" fill={TEXT_DIM}>
         {t('workbench.docs.diagrams.conditions.excludeDomains.excludedSub')}
@@ -260,8 +260,8 @@ export const ExcludeDomainsDiagram: React.FC = () => {
  * Beginners assume "domain conditions" all behave like Request
  * Domains (matching the destination). Initiator Domains matches the
  * PAGE the request came from. The visual hook: two side-by-side
- * scenario cards, both making the same fetch to api.openheaders.io,
- * but from different pages (portal.openheaders.io vs other-site.com).
+ * scenario cards, both making the same fetch to api.openheaders.com,
+ * but from different pages (portal.openheaders.com vs other-site.com).
  * Identical destination, different initiators → opposite outcomes.
  */
 export const InitiatorDomainsDiagram: React.FC = () => {
@@ -293,20 +293,20 @@ export const InitiatorDomainsDiagram: React.FC = () => {
         {t('workbench.docs.diagrams.conditions.initiatorDomains.ruleBanner')}
       </text>
 
-      {/* LEFT scenario — page is portal.openheaders.io */}
+      {/* LEFT scenario — page is portal.openheaders.com */}
       <rect x={10} y={70} width={140} height={80} rx={4} fill="var(--ant-color-bg-container)" stroke={STROKE_CYAN} />
       <text x={80} y={84} textAnchor="middle" fontSize={8} fontWeight={700} fill={TEXT_DIM}>
         {t('workbench.docs.diagrams.conditions.initiatorDomains.openPage')}
       </text>
       <rect x={20} y={88} width={120} height={14} rx={2} fill={FILL_CYAN} stroke={STROKE_CYAN} />
       <text x={80} y={98} textAnchor="middle" fontFamily="monospace" fontSize={9} fontWeight={700} fill={TEXT}>
-        portal.openheaders.io
+        portal.openheaders.com
       </text>
       <text x={80} y={118} textAnchor="middle" fontSize={9} fontStyle="italic" fill={TEXT_DIM}>
         {t('workbench.docs.diagrams.conditions.initiatorDomains.fetches')}
       </text>
       <text x={80} y={138} textAnchor="middle" fontFamily="monospace" fontSize={9} fill={TEXT_DIM}>
-        api.openheaders.io
+        api.openheaders.com
       </text>
 
       {/* RIGHT scenario — page is other-site.com */}
@@ -340,7 +340,7 @@ export const InitiatorDomainsDiagram: React.FC = () => {
         {t('workbench.docs.diagrams.conditions.initiatorDomains.fetches')}
       </text>
       <text x={240} y={138} textAnchor="middle" fontFamily="monospace" fontSize={9} fill={TEXT_DIM}>
-        api.openheaders.io
+        api.openheaders.com
       </text>
 
       {/* Down arrows to outcomes */}
@@ -357,7 +357,7 @@ export const InitiatorDomainsDiagram: React.FC = () => {
         {t('workbench.docs.diagrams.conditions.initiatorDomains.initiatorEq')}
       </text>
       <text x={80} y={234} textAnchor="middle" fontFamily="monospace" fontSize={8} fontWeight={700} fill={TEXT}>
-        portal.openheaders.io
+        portal.openheaders.com
       </text>
 
       <rect x={170} y={176} width={140} height={64} rx={4} fill={failBg} stroke={failStroke} />

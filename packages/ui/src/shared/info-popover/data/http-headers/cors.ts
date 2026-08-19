@@ -20,7 +20,7 @@ export const CORS_HEADERS: HeaderInfoEntries = [
       commonValues: [
         { value: '*', descKey: 'shared.info.header.accessControlAllowOrigin.value.wildcard' },
         {
-          value: 'https://app.openheaders.io',
+          value: 'https://app.openheaders.com',
           descKey: 'shared.info.header.accessControlAllowOrigin.value.httpsAppOpenheadersIo',
         },
       ],

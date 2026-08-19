@@ -1,17 +1,17 @@
 # Installs the standalone oh.exe, verified against the release's
 # SHA256SUMS.txt. Everything resolves through the update feed
-# (updates.openheaders.io): the current release from versions/stable.json,
+# (updates.openheaders.com): the current release from versions/stable.json,
 # the binary from the feed's dl/<tag>/ path - one first-party domain,
 # no GitHub reachability needed.
 #
-#   powershell -c "irm https://updates.openheaders.io/install.ps1 | iex"
+#   powershell -c "irm https://updates.openheaders.com/install.ps1 | iex"
 #
 # Environment:
 #   OH_INSTALL_DIR    install directory (default: %LOCALAPPDATA%\OpenHeaders\bin)
 #   OH_RELEASE_TAG    release tag to install (default: current stable)
 $ErrorActionPreference = 'Stop'
 
-$feed = 'https://updates.openheaders.io'
+$feed = 'https://updates.openheaders.com'
 $installDir = if ($env:OH_INSTALL_DIR) { $env:OH_INSTALL_DIR } else { Join-Path $env:LOCALAPPDATA 'OpenHeaders\bin' }
 
 $tag = if ($env:OH_RELEASE_TAG) {

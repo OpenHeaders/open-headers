@@ -76,7 +76,7 @@ export const panelQuickEditor = {
   // mirror a workbench control reuse its key (see the station comment
   // above); the ws direction words differ from the workbench's
   // parenthesized pair, so they are popover-local (glyphs ride raw).
-  'panel.quickEditor.redirect.targetPlaceholder': 'e.g. https://openheaders.io/redirected',
+  'panel.quickEditor.redirect.targetPlaceholder': 'e.g. https://openheaders.com/redirected',
   'panel.quickEditor.redirect.hint': 'Matching requests are sent to this URL before they reach the network.',
   'panel.quickEditor.delay.hint':
     'Navigations are delayed up to 30,000 ms; XHR/fetch is capped at 5,000 ms. Sub-resources are not delayed.',
