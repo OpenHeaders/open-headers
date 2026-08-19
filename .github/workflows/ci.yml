@@ -213,6 +213,7 @@ jobs:
   # touch the extension or its inputs pay the three runners; every
   # non-push trigger (PR, dispatch, nightly) runs unconditionally.
   test-extension:
+    name: test-extension (shard ${{ matrix.shard }}/3)
     runs-on: ubuntu-latest
     timeout-minutes: 20
     needs: changes
