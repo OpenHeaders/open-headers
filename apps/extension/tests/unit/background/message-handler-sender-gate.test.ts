@@ -44,10 +44,13 @@ describe('handleGeneralMessage sender gate', () => {
     expect(respond).not.toHaveBeenCalled();
   });
 
-  it('lets a tab realm reach the tab-originated allowlist', () => {
+  it('lets a tab realm reach the tab-originated allowlist', async () => {
     const respond = vi.fn();
+    // The tab path answers asynchronously (assign-on-demand tracking).
     handleGeneralMessage({ type: 'getWorkspaceTabOrdinal' }, tabSender(), respond, ctx);
-    expect(respond).toHaveBeenCalledWith(expect.objectContaining({ count: expect.any(Number) }));
+    await vi.waitFor(() => {
+      expect(respond).toHaveBeenCalledWith(expect.objectContaining({ count: expect.any(Number) }));
+    });
   });
 
   it('lets extension-origin senders through untouched', () => {
