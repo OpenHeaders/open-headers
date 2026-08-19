@@ -116,7 +116,7 @@ function gateDialog(): ReturnType<Page['getByRole']> {
 }
 
 async function openTerminalPanel(): Promise<void> {
-  const openTui = workbench.getByRole('button', { name: 'Open TUI mode' });
+  const openTui = workbench.getByTestId('terminal-open-tui');
   if (await openTui.isVisible().catch(() => false)) return;
   await workbench.locator('[aria-label="Terminal"]').first().click();
   await expect(openTui).toBeVisible();
@@ -187,11 +187,11 @@ test('the fresh machine reads unconfigured in the RPC and the card', async () =>
 
 test('the Open TUI gate appears and Cancel mints nothing', async () => {
   await openTerminalPanel();
-  await workbench.getByRole('button', { name: 'Open TUI mode' }).click();
+  await workbench.getByTestId('terminal-open-tui').click();
 
   const gate = gateDialog();
   await expect(gate).toBeVisible();
-  await expect(gate).toContainText(cliConfigPath);
+  await expect(gate).toContainText('TUI mode is powered by the oh command-line tool');
   await gate.getByRole('button', { name: 'Cancel' }).click();
   await expect(gate).toBeHidden();
 
@@ -200,7 +200,7 @@ test('the Open TUI gate appears and Cancel mints nothing', async () => {
 });
 
 test('Connect and open provisions the file, the ledger row, and the TUI tab', async () => {
-  await workbench.getByRole('button', { name: 'Open TUI mode' }).click();
+  await workbench.getByTestId('terminal-open-tui').click();
   await gateDialog().getByRole('button', { name: 'Connect and open' }).click();
 
   await expect
@@ -274,7 +274,7 @@ test('a ledger revoke flips the card to stale and re-arms the gate', async () =>
   await closeSettings();
 
   await openTerminalPanel();
-  await workbench.getByRole('button', { name: 'Open TUI mode' }).click();
+  await workbench.getByTestId('terminal-open-tui').click();
   const gate = gateDialog();
   await expect(gate).toBeVisible();
   await gate.getByRole('button', { name: 'Cancel' }).click();
@@ -299,7 +299,7 @@ test('a malformed file is refused and reported in the card, the gate, and the RP
   await expect(workbench.getByTestId('cli-access-provision')).toHaveCount(0);
   await closeSettings();
 
-  await workbench.getByRole('button', { name: 'Open TUI mode' }).click();
+  await workbench.getByTestId('terminal-open-tui').click();
   const gate = gateDialog();
   await expect(gate).toContainText('The CLI config file can’t be read');
   await gate.getByRole('button', { name: 'Open Settings' }).click();
@@ -320,7 +320,7 @@ test('a foreign config reads external, never prompts, and Connect repoints it', 
 
   await openTerminalPanel();
   const tabsBefore = await workbench.getByText('oh tui', { exact: true }).count();
-  await workbench.getByRole('button', { name: 'Open TUI mode' }).click();
+  await workbench.getByTestId('terminal-open-tui').click();
   await expect(gateDialog()).toBeHidden();
   await expect(async () => {
     expect(await workbench.getByText('oh tui', { exact: true }).count()).toBeGreaterThan(tabsBefore);
@@ -328,7 +328,7 @@ test('a foreign config reads external, never prompts, and Connect repoints it', 
 
   await openSettingsMcp();
   await expect(
-    workbench.getByText(`The CLI is currently connected to a different daemon (${foreignUrl}).`, { exact: false }),
+    workbench.getByText(`The CLI is currently connected to a different back-end (${foreignUrl}).`, { exact: false }),
   ).toBeVisible({ timeout: 10_000 });
   await workbench.getByRole('button', { name: 'Connect to this app' }).click();
 
