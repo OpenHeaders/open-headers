@@ -281,33 +281,37 @@
 
 // ── Request response Tabs ──────────────────────────────────────────
 //
-// Ant Design's <Tabs> renders the children inside
-// `.ant-tabs-content-holder` → `.ant-tabs-content` → `.ant-tabs-tabpane`.
-// The outermost style we set (`flex: 1, min-height: 0`) only lands on
-// the OUTER `.ant-tabs` wrapper — the inner holder stays at its
-// intrinsic height, so the children's `overflow: auto` container has
-// nothing to clip against and the body/headers pane grows to fit the
-// content instead of scrolling. Same pattern as the popup's
-// `.header-workbench-tabs` block (`popup.less:316`).
+// Ant Design 6's <Tabs> renders the children inside
+// `.ant-tabs-body-holder` → `.ant-tabs-body` → one `.ant-tabs-content`
+// per tab (`-active` shown, `-hidden` display:none) — the v5
+// `content-holder` / `tabpane` wrappers are gone. The outermost style
+// we set (`flex: 1, min-height: 0`) only lands on the OUTER
+// `.ant-tabs` wrapper; antd leaves `.ant-tabs-body` a plain block, so
+// without this chain the pane collapses to its intrinsic height (a
+// fill-mode Monaco shrinks to a few px) instead of filling the panel.
+// Same pattern as the popup's `.header-rules-tabs` block in
+// `popup.less`.
 .rules-response-tabs {
-  .ant-tabs-content-holder {
+  .ant-tabs-body-holder {
     display: flex;
     flex-direction: column;
     flex: 1;
     min-height: 0;
   }
-  .ant-tabs-content {
+  .ant-tabs-body {
+    display: flex;
+    flex-direction: column;
     flex: 1;
     min-height: 0;
   }
-  .ant-tabs-tabpane-active {
-    height: 100%;
+  .ant-tabs-content-active {
     display: flex;
     flex-direction: column;
+    flex: 1;
     min-height: 0;
   }
-  .ant-tabs-tabpane:focus,
-  .ant-tabs-tabpane:focus-visible {
+  .ant-tabs-content:focus,
+  .ant-tabs-content:focus-visible {
     outline: none;
     box-shadow: none;
   }

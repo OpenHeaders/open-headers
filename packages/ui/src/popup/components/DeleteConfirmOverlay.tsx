@@ -18,7 +18,7 @@ const DeleteConfirmOverlay: React.FC<DeleteConfirmOverlayProps> = ({ pendingDele
       setTargetRow(null);
       return;
     }
-    const activePane = document.querySelector('.ant-tabs-tabpane-active') ?? document;
+    const activePane = document.querySelector('.ant-tabs-content-active') ?? document;
     const rows = activePane.querySelectorAll('.ant-table-tbody > tr.ant-table-row');
     const row = rows[pendingDeleteIndex] as HTMLElement | undefined;
     setTargetRow(row ?? null);

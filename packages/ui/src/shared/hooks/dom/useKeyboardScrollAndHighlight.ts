@@ -3,7 +3,7 @@ import type { RefObject } from 'react';
 import { useEffect } from 'react';
 
 function getActivePane(container: HTMLElement): Element {
-  return container.querySelector('.ant-tabs-tabpane-active') ?? container;
+  return container.querySelector('.ant-tabs-content-active') ?? container;
 }
 
 function scrollIntoScrollContainer(element: HTMLElement, container: HTMLElement): void {

@@ -235,7 +235,7 @@ export function useKeyboardDispatch(options: UseKeyboardDispatchOptions): void {
       // Focus search
       if (matchesPopupShortcut(e, 'focus-search')) {
         e.preventDefault();
-        const activePane = containerRef.current?.querySelector('.ant-tabs-tabpane-active') ?? containerRef.current;
+        const activePane = containerRef.current?.querySelector('.ant-tabs-content-active') ?? containerRef.current;
         const searchInput = activePane?.querySelector<HTMLInputElement>(
           '.ant-input-search input, .ant-input-affix-wrapper input',
         );
@@ -290,7 +290,7 @@ export function useKeyboardDispatch(options: UseKeyboardDispatchOptions): void {
         if (matchesPopupShortcut(e, 'copy-value') && !e.ctrlKey && !e.metaKey) {
           e.preventDefault();
           // Copy nested row URL — this is the one place we touch DOM for a user action
-          const activePane = containerRef.current?.querySelector('.ant-tabs-tabpane-active') ?? containerRef.current;
+          const activePane = containerRef.current?.querySelector('.ant-tabs-content-active') ?? containerRef.current;
           if (activePane) {
             const parentRows = activePane.querySelectorAll('tr.ant-table-row[data-row-key]');
             const parentRow = parentRows[focusedRowIndex];
@@ -307,7 +307,7 @@ export function useKeyboardDispatch(options: UseKeyboardDispatchOptions): void {
         if (matchesPopupShortcut(e, 'toggle-row')) {
           e.preventDefault();
           // Toggle the switch in the focused nested row
-          const activePane = containerRef.current?.querySelector('.ant-tabs-tabpane-active') ?? containerRef.current;
+          const activePane = containerRef.current?.querySelector('.ant-tabs-content-active') ?? containerRef.current;
           if (activePane) {
             const parentRows = activePane.querySelectorAll('tr.ant-table-row[data-row-key]');
             const parentRow = parentRows[focusedRowIndex];

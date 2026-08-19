@@ -400,23 +400,32 @@ body {
 }
 
 
-/* Ensure tab content panes fill available height */
+/* Ensure tab content panes fill available height. Ant Design 6 DOM:
+   `.ant-tabs-body-holder` → `.ant-tabs-body` → one `.ant-tabs-content`
+   per tab (`-active` / `-hidden`) — see the workbench's
+   `.rules-response-tabs` block in `editor.less` for the rationale. */
 .header-rules-tabs {
-  .ant-tabs-content-holder {
+  .ant-tabs-body-holder {
     display: flex;
     flex-direction: column;
     flex: 1;
     min-height: 0;
   }
-  .ant-tabs-content {
+  .ant-tabs-body {
+    display: flex;
+    flex-direction: column;
     flex: 1;
     min-height: 0;
   }
-  .ant-tabs-tabpane-active {
-    height: 100%;
+  /* Stays a block (unlike the workbench variant) — the popup panes'
+     children lay out against a plain full-height block, as they did
+     against the v5 tabpane. */
+  .ant-tabs-content-active {
+    flex: 1;
+    min-height: 0;
   }
-  .ant-tabs-tabpane:focus,
-  .ant-tabs-tabpane:focus-visible {
+  .ant-tabs-content:focus,
+  .ant-tabs-content:focus-visible {
     outline: none;
     box-shadow: none;
   }
