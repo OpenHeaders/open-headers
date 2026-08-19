@@ -163,10 +163,15 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      # Typecheck stays off here: the shard runners never build workspace
+      # deps, so @openheaders/ui's dist-pointed types resolve to any and
+      # tsc storms. Test-file types ride the gates job's turbo typecheck
+      # (extension typecheck script runs tsconfig.test.json too).
       - name: Test extension (shard ${{ matrix.shard }}/3)
         run: >
           pnpm --filter @openheaders/extension exec vitest run
           --shard=${{ matrix.shard }}/3
+          --typecheck.enabled=false
           --reporter=default --reporter=github-actions
 
   build-e2e:
@@ -197,8 +202,12 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      # The web build peaks ~4GB heap — right at Node's default cap on a
+      # 16GB runner — so give the build processes headroom.
       - name: Build all packages
         run: pnpm turbo build
+        env:
+          NODE_OPTIONS: --max-old-space-size=6144
 
       # Ubuntu 24.04 confines unprivileged user namespaces behind AppArmor,
       # which breaks Electron's sandbox under xvfb.

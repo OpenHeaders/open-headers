@@ -29,7 +29,7 @@
     "test:stress": "STRESS_PROPERTY_TESTS=1 vitest run tests/unit/sync/*.property.test.ts --test-timeout=900000",
     "test:e2e": "pnpm exec playwright test",
     "test:e2e:headed": "pnpm exec playwright test --headed",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit && tsc -p tsconfig.test.json --noEmit",
     "scan:i18n": "node ../../scripts/scan.mjs src",
     "postbuild": "pnpm exec tsx config/scripts/build-report.ts",
     "release": "pnpm exec tsx config/scripts/release.ts",
