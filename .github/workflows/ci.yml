@@ -6,6 +6,10 @@ on:
   pull_request:
     branches: [main]
   workflow_dispatch:
+  # Nightly full matrix: no path gating, no cache restore — the cold
+  # safety net that catches anything the scoped runs wrongly skipped.
+  schedule:
+    - cron: '0 3 * * *'
 
 permissions:
   contents: read
@@ -17,6 +21,38 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # Computes which slices of the tree a push touched, so the non-turbo
+  # jobs (the extension shards) can skip when nothing they cover
+  # changed. Turbo-driven jobs skip work through their cache instead.
+  changes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      extension: ${{ steps.filter.outputs.extension }}
+    steps:
+      # Only pushes have a diff base to gate on — every other trigger
+      # runs the full matrix and never reads this job's output.
+      - name: Checkout code
+        if: github.event_name == 'push'
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect changed paths
+        if: github.event_name == 'push'
+        id: filter
+        uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
+        with:
+          filters: |
+            extension:
+              - 'apps/extension/**'
+              - 'packages/**'
+              - 'pnpm-lock.yaml'
+              - 'package.json'
+              - 'turbo.json'
+              - 'tsconfig.base.json'
+              - '.github/workflows/ci.yml'
+
   # Fast tripwires: lint (warn-only until the lint-debt session),
   # typecheck, and the i18n gates. Fails in minutes when a push is
   # structurally broken, while the test matrix grinds in parallel.
@@ -45,6 +81,16 @@ jobs:
           path: ~/.cache/electron
           key: electron-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
           restore-keys: electron-${{ runner.os }}-
+
+      # Content-addressed replay of unchanged tasks across runs; the
+      # nightly scheduled run stays cold on purpose.
+      - name: Cache turbo
+        if: github.event_name != 'schedule'
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: .turbo/cache
+          key: turbo-gates-${{ runner.os }}-${{ github.sha }}
+          restore-keys: turbo-gates-${{ runner.os }}-
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -85,6 +131,14 @@ jobs:
           path: ~/.cache/electron
           key: electron-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
           restore-keys: electron-${{ runner.os }}-
+
+      - name: Cache turbo
+        if: github.event_name != 'schedule'
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: .turbo/cache
+          key: turbo-test-packages-${{ runner.os }}-${{ github.sha }}
+          restore-keys: turbo-test-packages-${{ runner.os }}-
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -137,6 +191,14 @@ jobs:
           sudo apt-get -o Acquire::Retries=1 -o Acquire::http::Timeout=15 -o Acquire::https::Timeout=15 install -y
           libgtk-3-0 libnotify4 libnss3 libxss1 libasound2t64 libgbm1
 
+      - name: Cache turbo
+        if: github.event_name != 'schedule'
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: .turbo/cache
+          key: turbo-electron-hosts-${{ runner.os }}-${{ github.sha }}
+          restore-keys: turbo-electron-hosts-${{ runner.os }}-
+
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
@@ -147,10 +209,14 @@ jobs:
           --filter=@openheaders/desktop
 
   # The extension suite's cost is per-file overhead across ~1,400 test
-  # files, so it shards near-linearly.
+  # files, so it shards near-linearly. Path-gated: only pushes that
+  # touch the extension or its inputs pay the three runners; every
+  # non-push trigger (PR, dispatch, nightly) runs unconditionally.
   test-extension:
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    needs: changes
+    if: github.event_name != 'push' || needs.changes.outputs.extension == 'true'
     strategy:
       fail-fast: false
       matrix:
@@ -222,6 +288,14 @@ jobs:
           sudo apt-get -o Acquire::Retries=1 -o Acquire::http::Timeout=15 -o Acquire::https::Timeout=15 update &&
           sudo apt-get -o Acquire::Retries=1 -o Acquire::http::Timeout=15 -o Acquire::https::Timeout=15 install -y
           libgtk-3-0 libnotify4 libnss3 libxss1 libasound2t64 libgbm1
+
+      - name: Cache turbo
+        if: github.event_name != 'schedule'
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: .turbo/cache
+          key: turbo-build-e2e-${{ runner.os }}-${{ github.sha }}
+          restore-keys: turbo-build-e2e-${{ runner.os }}-
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
