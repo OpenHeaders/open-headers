@@ -22,6 +22,10 @@ jobs:
   # structurally broken, while the test matrix grinds in parallel.
   gates:
     runs-on: ubuntu-latest
+    # Job timeouts sit at ~2x each job's observed wall time so a wedged
+    # infra step (dead apt mirror, hung install) releases the concurrency
+    # slot in minutes instead of holding it for the 6h default.
+    timeout-minutes: 15
     steps:
       - name: Checkout code
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -61,6 +65,7 @@ jobs:
   # bind ports (daemon, web) never contend on one VM.
   test-packages:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - name: Checkout code
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -100,6 +105,7 @@ jobs:
   # serialized — Electron suites flake under same-machine contention.
   test-electron-hosts:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - name: Checkout code
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -120,8 +126,16 @@ jobs:
           key: electron-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
           restore-keys: electron-${{ runner.os }}-
 
+      # The runner's regional apt mirror (azure.archive) blackholes often
+      # enough to wedge apt past its own timeouts — route straight to the
+      # canonical archive, and keep the short acquire timeouts as the
+      # backstop for any remaining slow leg.
       - name: Install Electron system dependencies
-        run: sudo apt-get update && sudo apt-get install -y libgtk-3-0 libnotify4 libnss3 libxss1 libasound2t64 libgbm1
+        run: >
+          sudo sed -i 's|http://azure.archive.ubuntu.com/ubuntu|https://archive.ubuntu.com/ubuntu|' /etc/apt/apt-mirrors.txt &&
+          sudo apt-get -o Acquire::Retries=1 -o Acquire::http::Timeout=15 -o Acquire::https::Timeout=15 update &&
+          sudo apt-get -o Acquire::Retries=1 -o Acquire::http::Timeout=15 -o Acquire::https::Timeout=15 install -y
+          libgtk-3-0 libnotify4 libnss3 libxss1 libasound2t64 libgbm1
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -136,6 +150,7 @@ jobs:
   # files, so it shards near-linearly.
   test-extension:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
@@ -176,6 +191,7 @@ jobs:
 
   build-e2e:
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     steps:
       - name: Checkout code
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -196,8 +212,16 @@ jobs:
           key: electron-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
           restore-keys: electron-${{ runner.os }}-
 
+      # The runner's regional apt mirror (azure.archive) blackholes often
+      # enough to wedge apt past its own timeouts — route straight to the
+      # canonical archive, and keep the short acquire timeouts as the
+      # backstop for any remaining slow leg.
       - name: Install Electron system dependencies
-        run: sudo apt-get update && sudo apt-get install -y libgtk-3-0 libnotify4 libnss3 libxss1 libasound2t64 libgbm1
+        run: >
+          sudo sed -i 's|http://azure.archive.ubuntu.com/ubuntu|https://archive.ubuntu.com/ubuntu|' /etc/apt/apt-mirrors.txt &&
+          sudo apt-get -o Acquire::Retries=1 -o Acquire::http::Timeout=15 -o Acquire::https::Timeout=15 update &&
+          sudo apt-get -o Acquire::Retries=1 -o Acquire::http::Timeout=15 -o Acquire::https::Timeout=15 install -y
+          libgtk-3-0 libnotify4 libnss3 libxss1 libasound2t64 libgbm1
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
