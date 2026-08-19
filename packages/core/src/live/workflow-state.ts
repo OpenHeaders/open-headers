@@ -31,10 +31,18 @@ import { validateStepRequestsExist, validateWorkflowShape } from './step-validat
  *     Phase I-A validator surface.
  */
 export function isWorkflowComplete(wf: LiveWorkflow): boolean {
-  if (wf.steps.length === 0) return false;
-  if (wf.steps.some((s) => !s.requestUid || s.requestUid.length === 0)) return false;
-  if (validateWorkflowShape(wf).length > 0) return false;
-  return true;
+  // Trust boundary: same contract as `isRequestResolvable` — persisted
+  // rows the renderer reads raw can be malformed (non-array `steps`
+  // would throw here); answer "incomplete" (draft badge, scheduler
+  // skips) instead of throwing into the render path.
+  try {
+    if (!Array.isArray(wf.steps) || wf.steps.length === 0) return false;
+    if (wf.steps.some((s) => !s.requestUid || s.requestUid.length === 0)) return false;
+    if (validateWorkflowShape(wf).length > 0) return false;
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 /**

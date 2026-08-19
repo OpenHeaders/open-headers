@@ -324,3 +324,16 @@ describe('isRequestResolvable — malformed entities', () => {
     expect(isRequestResolvable(req, () => null)).toBe(false);
   });
 });
+
+describe('isRequestComplete — malformed entities', () => {
+  it('a request missing auth answers false instead of throwing', () => {
+    const req = makeRequest();
+    delete (req as Partial<Request>).auth;
+    expect(isRequestComplete(req)).toBe(false);
+  });
+
+  it('a basic auth missing username answers false instead of throwing', () => {
+    const req = makeRequest({ auth: { type: 'basic' } as unknown as Request['auth'] });
+    expect(isRequestComplete(req)).toBe(false);
+  });
+});

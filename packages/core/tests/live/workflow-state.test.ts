@@ -58,6 +58,17 @@ describe('isWorkflowComplete', () => {
     });
     expect(isWorkflowComplete(workflow)).toBe(false);
   });
+
+  // Trust boundary: persisted rows the renderer reads raw can be
+  // malformed — the gate answers "incomplete" instead of throwing.
+  it('returns false for a malformed row with non-array steps instead of throwing', () => {
+    expect(isWorkflowComplete(wf({ steps: undefined as unknown as LiveWorkflow['steps'] }))).toBe(false);
+    expect(isWorkflowComplete(wf({ steps: {} as unknown as LiveWorkflow['steps'] }))).toBe(false);
+  });
+
+  it('returns false for malformed step rows instead of throwing', () => {
+    expect(isWorkflowComplete(wf({ steps: [null] as unknown as LiveWorkflow['steps'] }))).toBe(false);
+  });
 });
 
 describe('isWorkflowDraft', () => {

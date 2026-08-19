@@ -424,7 +424,10 @@ export function useRequestTreeNodes(p: UseRequestTreeNodesParams): TreeNode[] {
           const complete = fullRequest ? isRequestComplete(fullRequest) : true;
           let requestResolvable = true;
           if (fullRequest && complete) {
-            const ownerCollection = p.requestCollections.find((c) => fullRequest.path.startsWith(`${c.path}/`));
+            const requestPath = typeof fullRequest.path === 'string' ? fullRequest.path : '';
+            const ownerCollection = requestPath
+              ? p.requestCollections.find((c) => requestPath.startsWith(`${c.path}/`))
+              : undefined;
             const context = ownerCollection ? { collectionId: ownerCollection.uid } : undefined;
             requestResolvable = isRequestResolvable(
               fullRequest,

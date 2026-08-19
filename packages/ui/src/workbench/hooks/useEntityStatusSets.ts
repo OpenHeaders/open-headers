@@ -51,7 +51,10 @@ export function useEntityStatusSets({
   const unresolvableRuleUids = useMemo(() => {
     const out = new Set<string>();
     for (const rule of rules) {
-      const collectionId = localCollections.find((c) => rule.path.startsWith(`${c.path}/`))?.uid;
+      // Persisted rows are read raw — a pathless row derives no
+      // collection context instead of throwing out of the render path.
+      const rulePath = typeof rule.path === 'string' ? rule.path : '';
+      const collectionId = rulePath ? localCollections.find((c) => rulePath.startsWith(`${c.path}/`))?.uid : undefined;
       const context = collectionId ? { collectionId } : undefined;
       if (
         !isRuleResolvable(
@@ -67,7 +70,8 @@ export function useEntityStatusSets({
   const unresolvableRequestUids = useMemo(() => {
     const out = new Set<string>();
     for (const request of requests) {
-      const owner = requestCollections.find((c) => request.path.startsWith(`${c.path}/`));
+      const requestPath = typeof request.path === 'string' ? request.path : '';
+      const owner = requestPath ? requestCollections.find((c) => requestPath.startsWith(`${c.path}/`)) : undefined;
       const context = owner ? { collectionId: owner.uid } : undefined;
       if (
         !isRequestResolvable(
@@ -120,7 +124,8 @@ export function useEntityStatusSets({
   const unresolvableWorkflowUids = useMemo(() => {
     const out = new Set<string>();
     for (const wf of workflows) {
-      for (const step of wf.steps) {
+      const steps = Array.isArray(wf.steps) ? wf.steps : [];
+      for (const step of steps) {
         if (step.requestUid && unresolvableRequestUids.has(step.requestUid)) {
           out.add(wf.uid);
           break;

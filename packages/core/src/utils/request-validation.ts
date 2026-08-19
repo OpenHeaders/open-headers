@@ -51,6 +51,22 @@ import { logger } from './logger';
 export function isRequestComplete(
   request: Request | Omit<Request, 'uid' | 'path' | 'schemaVersion' | 'version'>,
 ): boolean {
+  // Trust boundary: same contract as `isRequestResolvable` — persisted
+  // rows the renderer reads raw can be malformed (a missing `auth`
+  // variant field would throw out of the switch below); answer
+  // "incomplete" (draft badge, Send gated) instead of throwing into
+  // the render path.
+  try {
+    return isRequestCompleteUnsafe(request);
+  } catch (err) {
+    logger.debug('RequestValidation', `malformed request treated as incomplete: ${(err as Error).message}`);
+    return false;
+  }
+}
+
+function isRequestCompleteUnsafe(
+  request: Request | Omit<Request, 'uid' | 'path' | 'schemaVersion' | 'version'>,
+): boolean {
   if (!request.url?.trim()) return false;
 
   const auth = request.auth;
