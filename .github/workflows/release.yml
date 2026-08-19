@@ -1274,8 +1274,7 @@ jobs:
       - name: Create Release
         uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
         with:
-          token: ${{ secrets.RELEASES_PAT }}
-          repository: ${{ env.RELEASE_REPO }}
+          token: ${{ secrets.GITHUB_TOKEN }}
           tag_name: "${{ github.ref_name }}"
           draft: false
           prerelease: ${{ steps.release_type.outputs.is_prerelease == 'true' }}
@@ -1356,40 +1355,4 @@ jobs:
               --no-progress
           done
 
-      # Flagship projection (the changelog plan §4.2): the canonical tree
-      # + a regenerated interleaved CHANGELOG.md, committed to the
-      # public repo's main. Entries keep their relative asset refs —
-      # the tree layout travels whole, so links render on GitHub.
-      # Betas project too: the amendment commits are the desired
-      # activity signal. Until the OH_CHANGELOG_FLAGSHIP repo variable
-      # is set to 1 this is a dry run — the commit is built and shown
-      # but never pushed (the Phase 3 rehearsal gate).
-      - name: Project changelog to flagship repo
-        env:
-          RELEASES_PAT: ${{ secrets.RELEASES_PAT }}
-          OH_CHANGELOG_FLAGSHIP: ${{ vars.OH_CHANGELOG_FLAGSHIP }}
-        run: |
-          if [ -z "$RELEASES_PAT" ]; then
-            echo "::warning::RELEASES_PAT not configured — changelog not projected to ${RELEASE_REPO}"
-            exit 0
-          fi
-          git clone --depth 1 "https://x-access-token:${RELEASES_PAT}@github.com/${RELEASE_REPO}.git" flagship
-          rm -rf flagship/changelog
-          cp -R changelog flagship/changelog
-          node scripts/generate-flagship-changelog.mjs > flagship/CHANGELOG.md
-          cd flagship
-          git config user.name "OpenHeaders Release"
-          git config user.email "releases@openheaders.com"
-          git add changelog CHANGELOG.md
-          if git diff --cached --quiet; then
-            echo "No changelog changes to project"
-            exit 0
-          fi
-          git commit -m "changelog: desktop ${GITHUB_REF_NAME}"
-          git show --stat HEAD
-          if [ "$OH_CHANGELOG_FLAGSHIP" = "1" ]; then
-            git push origin HEAD:main
-          else
-            echo "::notice::OH_CHANGELOG_FLAGSHIP is not 1 — dry run only, nothing pushed to ${RELEASE_REPO}"
-          fi
 
