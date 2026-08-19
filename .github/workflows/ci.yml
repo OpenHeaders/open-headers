@@ -304,8 +304,16 @@ jobs:
       # public 4-core/16GB runner two app builds share the box safely but
       # three would not — and the heap cap stays lifted past Node's
       # default so the big builds can reach their real working sets.
+      # The extension builds its chrome target only: one leg proves the
+      # pipeline, the e2e never loads it, and the four-browser matrix
+      # belongs to the release lanes.
       - name: Build all packages
-        run: pnpm turbo build --concurrency=2
+        run: pnpm turbo build --concurrency=2 --filter=!@openheaders/extension
+        env:
+          NODE_OPTIONS: --max-old-space-size=6144
+
+      - name: Build extension (chrome only)
+        run: pnpm turbo build:chrome --filter=@openheaders/extension
         env:
           NODE_OPTIONS: --max-old-space-size=6144
 
