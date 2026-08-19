@@ -24,7 +24,9 @@ export default defineConfig({
       tsconfig: './tsconfig.test.json',
       include: ['tests/**/*.test.{ts,tsx}'],
     },
-    testTimeout: 10000,
+    // 20s: a jsdom-heavy antd render can crawl past 10s under CI CPU
+    // contention while every assertion inside stays 1s-bounded.
+    testTimeout: 20000,
     coverage: {
       provider: 'v8',
       include: ['src/**'],
