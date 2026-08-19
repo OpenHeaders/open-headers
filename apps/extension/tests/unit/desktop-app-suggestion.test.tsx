@@ -120,7 +120,7 @@ describe('useDesktopAppSuggestion', () => {
     await waitFor(() => expect(result.current).toHaveLength(1));
 
     act(() => result.current[0]?.actions?.[0]?.run());
-    await waitFor(() => expect(openUrl).toHaveBeenCalledWith('https://openheaders.io/#install-desktop'));
+    await waitFor(() => expect(openUrl).toHaveBeenCalledWith('https://openheaders.com/#install-desktop'));
     expect(result.current).toHaveLength(0);
     expect(window.localStorage.getItem(DONE_FLAG)).toBe('1');
   });

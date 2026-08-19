@@ -6,8 +6,8 @@
 import { describe, expect, it, vi } from 'vitest';
 import { fetchAvailabilityLine } from '../../src/cli/update-notify';
 
-const STABLE_URL = 'https://updates.openheaders.io/versions/stable.json';
-const BETA_URL = 'https://updates.openheaders.io/versions/beta.json';
+const STABLE_URL = 'https://updates.openheaders.com/versions/stable.json';
+const BETA_URL = 'https://updates.openheaders.com/versions/beta.json';
 
 function feedFetch(byUrl: Record<string, () => Response>): typeof fetch {
   return vi.fn(async (input: RequestInfo | URL) => {

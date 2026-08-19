@@ -167,7 +167,7 @@ describe('CookieEditorTab', () => {
 
     await waitFor(() => expect(nameInput().value).toBe('sid'));
     expect(valueInput().value).toBe('abc');
-    expect((screen.getByLabelText('openheaders.io') as HTMLInputElement).value).toBe('openheaders.io');
+    expect((screen.getByLabelText('openheaders.com') as HTMLInputElement).value).toBe('openheaders.io');
     expect(screen.getByRole('button', { name: 'Save' })).toBeTruthy();
   });
 

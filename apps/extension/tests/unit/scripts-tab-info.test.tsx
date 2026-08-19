@@ -70,7 +70,7 @@ describe('ScriptsTab rail info popovers', () => {
     fireEvent.click(screen.getByRole('button', { name: 'About Pre-request script' }));
     expect(await screen.findByText('Example send')).toBeTruthy();
     expect(document.querySelector('.oh-info-popover-kicker')?.textContent).toBe('Scripts');
-    expect(litTokens()).toEqual(['https://api.openheaders.io/v1/users', 'scripts: safe']);
+    expect(litTokens()).toEqual(['https://api.openheaders.com/v1/users', 'scripts: safe']);
     expect(screen.getByText('oh.setHeader(name, value)')).toBeTruthy();
   });
 

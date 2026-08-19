@@ -35,7 +35,7 @@ afterEach(async () => {
   await rm(dir, { recursive: true, force: true });
 });
 
-const STABLE_URL = 'https://updates.openheaders.io/versions/stable.json';
+const STABLE_URL = 'https://updates.openheaders.com/versions/stable.json';
 
 function feedFetch(byUrl: Record<string, () => Response>): typeof fetch {
   return vi.fn(async (input: RequestInfo | URL) => {
@@ -49,7 +49,7 @@ function stableFeed(sha: string = NEW_SHA): Record<string, () => Response> {
   return {
     [STABLE_URL]: () =>
       new Response(JSON.stringify({ daemon: { latest: '2026.7.19', tag: 'v2026.7.19', severity: 'normal' } })),
-    'https://updates.openheaders.io/dl/v2026.7.19/SHA256SUMS.txt': () =>
+    'https://updates.openheaders.com/dl/v2026.7.19/SHA256SUMS.txt': () =>
       new Response(
         [
           `${'a'.repeat(64)}  oh-2026.7.19-linux-x64`,
@@ -57,7 +57,7 @@ function stableFeed(sha: string = NEW_SHA): Record<string, () => Response> {
           `${'b'.repeat(64)}  ohd-2026.7.19-mac-arm64`,
         ].join('\n'),
       ),
-    'https://updates.openheaders.io/dl/v2026.7.19/ohd-2026.7.19-linux-x64': () =>
+    'https://updates.openheaders.com/dl/v2026.7.19/ohd-2026.7.19-linux-x64': () =>
       new Response(new Uint8Array(NEW_BYTES)),
   };
 }

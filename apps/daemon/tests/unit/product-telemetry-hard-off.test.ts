@@ -15,7 +15,7 @@ import { describe, expect, it } from 'vitest';
 
 const srcRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..', 'src');
 
-const FORBIDDEN = ['core/telemetry', 'productTelemetry', 'product-telemetry', 'telemetry.openheaders.io'];
+const FORBIDDEN = ['core/telemetry', 'productTelemetry', 'product-telemetry', 'telemetry.openheaders.com'];
 
 function sourceFiles(dir: string): string[] {
   return fs.readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {

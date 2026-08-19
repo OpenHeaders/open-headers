@@ -46,8 +46,8 @@ function feedFetch(byUrl: Record<string, () => Response | Promise<Response>>): t
   }) as unknown as typeof fetch;
 }
 
-const STABLE_URL = 'https://updates.openheaders.io/versions/stable.json';
-const BETA_URL = 'https://updates.openheaders.io/versions/beta.json';
+const STABLE_URL = 'https://updates.openheaders.com/versions/stable.json';
+const BETA_URL = 'https://updates.openheaders.com/versions/beta.json';
 
 function baseDeps(fetchFn: typeof fetch) {
   return { env: {}, configPath, cliVersion: '2026.7.0', stderrIsTTY: true, fetchFn, now: () => NOW };
