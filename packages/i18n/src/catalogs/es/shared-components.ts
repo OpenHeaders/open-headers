@@ -129,6 +129,9 @@ export const sharedComponents = {
     '**Código TOTP** — {algorithm}, {digits} dígitos, se renueva cada {period}s.',
   'shared.templateInput.completion.totpDocIssuer':
     '**Código TOTP** para **{issuer}** — {algorithm}, {digits} dígitos, se renueva cada {period}s.',
+  'shared.templateInput.completion.secretManagerDoc':
+    '**Referencia de gestor de secretos** — `{reference}`. Se resuelve desde el gestor al enviar; el ' +
+    'valor nunca se almacena.',
 
   // ── Value editors: shared chrome ───────────────────────────────────
   'shared.valueEditors.decoded': 'Decodificado',

@@ -218,6 +218,9 @@ export const workbenchEditorsRule = {
   'workbench.editors.rule.resolution.reason.stepOutOfContext': "réf. d'étape hors de portée",
   'workbench.editors.rule.resolution.reason.empty': 'vide',
   'workbench.editors.rule.resolution.reason.invalidResolvedValue': 'valeur invalide',
+  'workbench.editors.rule.resolution.reason.secretAuthorizationRequired': 'autorisation requise',
+  'workbench.editors.rule.resolution.reason.secretNotFound': 'secret introuvable',
+  'workbench.editors.rule.resolution.reason.secretUnavailable': 'gestionnaire indisponible',
   'workbench.editors.rule.resolution.hint.noCacheForEnv':
     "aucune exécution en cache pour l'env « {envName} » — ouvrez le workflow et cliquez sur Actualiser sous " +
     'cet env pour la remplir',

@@ -135,6 +135,9 @@ export const sharedComponents = {
     '**TOTP-Code** — {algorithm}, {digits} Stellen, erneuert sich alle {period}s.',
   'shared.templateInput.completion.totpDocIssuer':
     '**TOTP-Code** für **{issuer}** — {algorithm}, {digits} Stellen, erneuert sich alle {period}s.',
+  'shared.templateInput.completion.secretManagerDoc':
+    '**Secret-Manager-Referenz** — `{reference}`. Wird beim Senden aus dem Manager aufgelöst; der Wert ' +
+    'wird nie gespeichert.',
 
   // ── Value editors: shared chrome ───────────────────────────────────
   'shared.valueEditors.decoded': 'Dekodiert',

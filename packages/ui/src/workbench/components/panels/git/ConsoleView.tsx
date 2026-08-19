@@ -58,7 +58,7 @@ const ConsoleView: React.FC<ConsoleViewProps> = ({ rows }) => {
             <div style={{ color: token.colorText, overflowWrap: 'anywhere' }}>
               <span style={{ color: token.colorTextTertiary }}>{timestamp(row.at, locale)}: </span>
               <span style={{ color: token.colorTextSecondary }}>[{row.cwd}] </span>
-              git {row.args.join(' ')}
+              <code style={{ fontFamily: 'inherit' }}>git {row.args.join(' ')}</code>
               {row.code !== 0 && <span style={{ color: token.colorErrorText }}> → {row.code}</span>}
             </div>
             {row.output !== '' && (

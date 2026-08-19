@@ -590,6 +590,8 @@ export const workbenchSettingsPanes = {
     'Nutzern. Bestehende Nutzer melden sich weiter an, bestehende Arbeitsbereiche funktionieren weiter, und ' +
     'Daten sind nie betroffen. Installiere einen verlängerten Schlüssel, um die lizenzierte Platzzahl ' +
     'wiederherzustellen.',
+  'workbench.settings.licensePane.getLicenseCta': 'Lizenz erhalten',
+  'workbench.settings.licensePane.renewLicenseCta': 'Lizenz erneuern',
   'workbench.settings.licensePane.detail.licensedTo': 'Lizenziert für',
   'workbench.settings.licensePane.detail.contact': 'Kontakt',
   'workbench.settings.licensePane.detail.seats': 'Plätze',

@@ -41,6 +41,15 @@ export const sharedResolutionHints = {
   'shared.resolutionHint.unresolved':
     'Weder in vault noch Umgebung, Sammlung oder Arbeitsbereich gefunden. Definiere sie in einem dieser ' +
     'Geltungsbereiche.',
+  'shared.resolutionHint.secretAuthorizationRequired':
+    'Der Secret-Manager mit diesem Eintrag benötigt eine Autorisierung. Entsperre den Manager oder ' +
+    'genehmige den Zugriff, und versuche es dann erneut.',
+  'shared.resolutionHint.secretNotFound':
+    'Der Secret-Manager konnte unter dieser Referenz kein Secret finden. Prüfe die Referenzfelder im ' +
+    'vault-Eintrag.',
+  'shared.resolutionHint.secretUnavailable':
+    'Der Secret-Manager für diesen Eintrag ist auf diesem Gerät nicht verfügbar. Installiere oder ' +
+    'konfiguriere ihn, und versuche es dann erneut.',
   'shared.resolutionHint.invalidDomain.whitespace':
     'Die Variable ergibt einen Wert, den Chrome an dieser Stelle ablehnt — enthält Leerzeichen (trenne ' +
     'Hostnamen mit Kommas). Verwende einfache Hostnamen, durch Kommas getrennt.',

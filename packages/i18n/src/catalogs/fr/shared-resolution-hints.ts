@@ -40,6 +40,15 @@ export const sharedResolutionHints = {
   'shared.resolutionHint.unresolved':
     "Introuvable dans le vault, l'environnement, la collection ou l'espace de travail. Définissez-la dans " +
     'une de ces portées.',
+  'shared.resolutionHint.secretAuthorizationRequired':
+    'Le gestionnaire de secrets qui détient cette entrée nécessite une autorisation. Déverrouillez ou ' +
+    "approuvez l'accès dans le gestionnaire, puis réessayez.",
+  'shared.resolutionHint.secretNotFound':
+    "Le gestionnaire de secrets n'a trouvé aucun secret à cette référence. Vérifiez les champs de " +
+    "référence dans l'entrée du vault.",
+  'shared.resolutionHint.secretUnavailable':
+    "Le gestionnaire de secrets de cette entrée n'est pas disponible sur cet appareil. Installez-le ou " +
+    'configurez-le, puis réessayez.',
   'shared.resolutionHint.invalidDomain.whitespace':
     'La variable se résout en une valeur que Chrome rejette à cet endroit — elle contient des espaces (séparez ' +
     "les noms d'hôte par des virgules). Utilisez des noms d'hôte nus séparés par des virgules.",

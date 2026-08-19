@@ -223,6 +223,9 @@ export const workbenchEditorsRule = {
   'workbench.editors.rule.resolution.reason.stepOutOfContext': 'Schritt-Referenz außerhalb des Geltungsbereichs',
   'workbench.editors.rule.resolution.reason.empty': 'leer',
   'workbench.editors.rule.resolution.reason.invalidResolvedValue': 'ungültiger Wert',
+  'workbench.editors.rule.resolution.reason.secretAuthorizationRequired': 'Autorisierung erforderlich',
+  'workbench.editors.rule.resolution.reason.secretNotFound': 'Secret nicht gefunden',
+  'workbench.editors.rule.resolution.reason.secretUnavailable': 'Manager nicht verfügbar',
   'workbench.editors.rule.resolution.hint.noCacheForEnv':
     'kein zwischengespeicherter Lauf für die Umgebung „{envName}“ — öffne den Workflow und klicke unter ' +
     'dieser Umgebung auf Aktualisieren, um ihn zu befüllen',

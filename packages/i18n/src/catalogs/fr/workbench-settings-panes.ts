@@ -591,6 +591,8 @@ export const workbenchSettingsPanes = {
     'utilisateurs actifs. Les utilisateurs existants continuent de se connecter, les espaces de travail ' +
     "existants continuent de fonctionner, et aucune donnée n'est jamais affectée. Installez une clé " +
     'renouvelée pour restaurer le nombre de sièges sous licence.',
+  'workbench.settings.licensePane.getLicenseCta': 'Obtenir une licence',
+  'workbench.settings.licensePane.renewLicenseCta': 'Renouveler la licence',
   'workbench.settings.licensePane.detail.licensedTo': 'Titulaire',
   'workbench.settings.licensePane.detail.contact': 'Contact',
   'workbench.settings.licensePane.detail.seats': 'Sièges',

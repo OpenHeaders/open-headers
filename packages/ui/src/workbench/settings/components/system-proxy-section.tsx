@@ -329,29 +329,29 @@ const SystemProxySection: React.FC = () => {
                           wordBreak: 'break-all',
                         }}
                       >
-                        <span style={{ color: token.colorTextSecondary }}>[HTTP]</span>
+                        <code style={{ color: token.colorTextSecondary, fontFamily: 'inherit' }}>[HTTP]</code>
                         <span style={{ color: token.colorTextSecondary }}>{SNAPSHOT_LABELS[osSnapshot.source].http}</span>
                         <span>{osSnapshot.httpProxy ?? '—'}</span>
-                        <span style={{ color: token.colorTextSecondary }}>[HTTPS]</span>
+                        <code style={{ color: token.colorTextSecondary, fontFamily: 'inherit' }}>[HTTPS]</code>
                         <span style={{ color: token.colorTextSecondary }}>
                           {SNAPSHOT_LABELS[osSnapshot.source].https}
                         </span>
                         <span>{osSnapshot.httpsProxy ?? '—'}</span>
-                        <span style={{ color: token.colorTextSecondary }}>[PAC]</span>
+                        <code style={{ color: token.colorTextSecondary, fontFamily: 'inherit' }}>[PAC]</code>
                         <span style={{ color: token.colorTextSecondary }}>{SNAPSHOT_LABELS[osSnapshot.source].pac}</span>
                         <span>{osSnapshot.pacUrl ?? '—'}</span>
-                        <span style={{ color: token.colorTextSecondary }}>[BYPASS]</span>
+                        <code style={{ color: token.colorTextSecondary, fontFamily: 'inherit' }}>[BYPASS]</code>
                         <span style={{ color: token.colorTextSecondary }}>
                           {SNAPSHOT_LABELS[osSnapshot.source].bypass}
                         </span>
                         <span>{osSnapshot.bypassList ?? '—'}</span>
                         {osSnapshot.autoDetect === true && (
                           <>
-                            <span style={{ color: token.colorTextSecondary }}>[WPAD]</span>
+                            <code style={{ color: token.colorTextSecondary, fontFamily: 'inherit' }}>[WPAD]</code>
                             <span style={{ color: token.colorTextSecondary }}>
                               {SNAPSHOT_LABELS[osSnapshot.source].wpad}
                             </span>
-                            <span>on</span>
+                            <code style={{ fontFamily: 'inherit' }}>on</code>
                           </>
                         )}
                       </div>
@@ -367,7 +367,7 @@ const SystemProxySection: React.FC = () => {
                   raw wire vocabulary, the caption alone is localized. */}
               <div style={{ display: 'flex', gap: 12 }}>
                 <FieldLabel>{t('workbench.settings.systemProxy.manual.supported')}</FieldLabel>
-                <span
+                <code
                   data-testid="oh-sysproxy-manual-supported"
                   style={{
                     fontSize: 11,
@@ -377,7 +377,7 @@ const SystemProxySection: React.FC = () => {
                   }}
                 >
                   HTTP ✓&emsp;HTTPS ✓&emsp;SOCKS5 ✓
-                </span>
+                </code>
               </div>
               <div style={{ display: 'flex', gap: 12 }}>
                 <FieldLabel>{t('workbench.settings.systemProxy.manual.url')}</FieldLabel>
