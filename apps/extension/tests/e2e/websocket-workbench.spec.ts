@@ -235,7 +235,7 @@ test.beforeAll(async () => {
 
   await workbench.reload();
   await workbench.showRequestsView();
-  await workbench.collapseDocsPanel();
+  await workbench.collapseRightSidebar();
 });
 
 test.afterAll(async () => {
@@ -285,7 +285,7 @@ test('url, message and subprotocols survive Save + reload + reopen', async () =>
 
   await workbench.reload();
   await workbench.showRequestsView();
-  await workbench.collapseDocsPanel();
+  await workbench.collapseRightSidebar();
   await openWebsocketRequest(RAW_NAME);
 
   await expect(urlInput()).toHaveValue(WS_URL);
@@ -351,7 +351,7 @@ test('an AsyncAPI spec binds through the picker and the specLink persists', asyn
 
   await workbench.reload();
   await workbench.showRequestsView();
-  await workbench.collapseDocsPanel();
+  await workbench.collapseRightSidebar();
   await openWebsocketRequest(RAW_NAME);
   // Exact: the substring would also match the "Streams AsyncAPI"
   // DOCUMENT tab and switch documents instead of editor tabs.

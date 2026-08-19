@@ -268,7 +268,7 @@ test("extension-self plane: a request-editor Send appears as a row in the workbe
   });
   await workbench.reload();
   await workbench.showRequestsView();
-  await workbench.collapseDocsPanel();
+  await workbench.collapseRightSidebar();
   await workbench.openRequest(uid);
   await workbench.send();
   expect(await workbench.responseStatusText()).toContain('200');

@@ -411,7 +411,7 @@ test('the workbench opens on the joined workspace', async () => {
 
   try {
     await workbench.showRequestsView();
-    await workbench.collapseDocsPanel();
+    await workbench.collapseRightSidebar();
     await page.locator('[data-item-id="req-col-e2ecol01"]').waitFor({ state: 'visible', timeout: 15000 });
   } catch (err) {
     const active = await workbench.rpc<{ workspace?: { id: string; name: string } }>('getActiveWorkspace');

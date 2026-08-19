@@ -71,7 +71,7 @@ test.beforeAll(async () => {
   });
   await workbench.reload();
   await workbench.showRequestsView();
-  await workbench.collapseDocsPanel();
+  await workbench.collapseRightSidebar();
 
   await workbench.openRequest(requestUid);
   await workbench.openEditorTab(/Authorization/);

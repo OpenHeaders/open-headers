@@ -153,19 +153,23 @@ export class WorkbenchPage {
     await this.page.locator('[data-item-id^="req-col-"]').first().waitFor({ state: 'visible', timeout: 10000 });
   }
 
-  /** Collapse the Docs/Scope dock panel so the API Requests panel fills
-   *  the pane. Verified, not fire-and-forget: on fresh profiles the
-   *  per-workspace dock layout hydrates AFTER first paint with `docs`
-   *  active — a single early click gets overwritten and the reopened
-   *  panel halves the editor pane. Re-collapse until the state sticks
-   *  across two consecutive checks. */
-  async collapseDocsPanel(): Promise<void> {
-    const docsTab = this.dockTab('docs');
+  /** Collapse the right sidebar region (Docs/Scope dock) via the top
+   *  bar's "Right sidebar" toggle so the editor pane runs full width.
+   *  Region-level on purpose — it never references a specific tool
+   *  window, so it survives Docs being moved or replaced in the dock.
+   *  Verified, not fire-and-forget: on fresh profiles the per-workspace
+   *  dock layout hydrates AFTER first paint with the region open — a
+   *  single early click gets overwritten and the reopened region halves
+   *  the editor pane. Re-collapse until the state sticks across two
+   *  consecutive checks. */
+  async collapseRightSidebar(): Promise<void> {
+    const region = this.page.locator('[data-region="right"]');
+    const toggle = this.page.getByRole('button', { name: 'Right sidebar' });
     let settled = 0;
     for (let attempt = 0; attempt < 20; attempt++) {
-      if ((await docsTab.getAttribute('aria-selected')) === 'true') {
+      if (await region.isVisible().catch(() => false)) {
         settled = 0;
-        await docsTab.click();
+        await toggle.click();
       } else if (++settled >= 2) return;
       await this.page.waitForTimeout(500);
     }
@@ -478,7 +482,7 @@ export class WorkbenchPage {
 
   /** Right-click INSIDE the current selection (first rendered line) so
    *  Monaco keeps the selection and shows its context menu. Needs the
-   *  Docs panel collapsed (see collapseDocsPanel): in a halved pane the
+   *  right sidebar collapsed (see collapseRightSidebar): in a halved pane the
    *  select-all reveals the selection END, the buffer scrolls right and
    *  the line's left edge slides under the line-number gutter, which
    *  then swallows the click. */

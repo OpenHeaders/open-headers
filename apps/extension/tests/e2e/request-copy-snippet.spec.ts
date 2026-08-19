@@ -80,9 +80,9 @@ const SEEDS = [
     body: {
       type: 'form',
       formParts: [
-        { uid: 'f1', key: 'a', value: '1' },
-        { uid: 'f2', key: 'b c', value: '2&3' },
-        { uid: 'f3', key: 'off', value: 'x', enabled: false },
+        { uid: 'frmpart1', key: 'a', value: '1' },
+        { uid: 'frmpart2', key: 'b c', value: '2&3' },
+        { uid: 'frmpart3', key: 'off', value: 'x', enabled: false },
       ],
     },
   },
@@ -120,7 +120,7 @@ test.beforeAll(async () => {
   }
   await workbench.reload();
   await workbench.showRequestsView();
-  await workbench.collapseDocsPanel();
+  await workbench.collapseRightSidebar();
 });
 
 test.afterAll(async () => {

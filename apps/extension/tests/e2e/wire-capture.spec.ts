@@ -160,7 +160,7 @@ test.describe('Request editor — Cookies tab renders the captured wire', () => 
     });
     await workbench.reload();
     await workbench.showRequestsView();
-    await workbench.collapseDocsPanel();
+    await workbench.collapseRightSidebar();
     await workbench.openRequest(uid);
     await workbench.send();
     expect(await workbench.responseStatusText()).toContain('200');

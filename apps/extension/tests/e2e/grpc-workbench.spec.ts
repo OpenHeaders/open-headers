@@ -181,7 +181,7 @@ function timelineMessageRows() {
 
 async function openWorkbenchViews(): Promise<void> {
   await workbench.showRequestsView();
-  await workbench.collapseDocsPanel();
+  await workbench.collapseRightSidebar();
 }
 
 async function openGrpcRequest(uid: string, collectionUid = 'e2ecol01'): Promise<void> {
