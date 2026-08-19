@@ -24,9 +24,10 @@
  * fire as the presence list rebuilds.
  */
 
+import { hostBridge } from '@openheaders/core/bridge';
 import { hostLogger as logger } from '@openheaders/core/logger';
 import type { AwarenessState } from '@openheaders/core/protocol';
-import { hostBridge } from '@openheaders/core/bridge';
+import { callSnapshotRpc } from './snapshot-rpc';
 
 export type AwarenessListener = () => void;
 
@@ -132,7 +133,7 @@ export function createAwarenessMirror(options: CreateAwarenessMirrorOptions = {}
   });
 
   if (bootstrap) {
-    void hostBridge.call('oh.awareness.snapshot')
+    void callSnapshotRpc('oh.awareness.snapshot')
       .then((resp) => {
         if (disposed) return;
         // A broadcast that landed mid-flight wins; only seed if no
@@ -166,11 +167,7 @@ export function createAwarenessMirror(options: CreateAwarenessMirrorOptions = {}
     );
   }
 
-  function filterByPathPrefix(
-    ref: EntityRef,
-    pathPrefix: string,
-    opts?: PresenceQueryOptions,
-  ): AwarenessState[] {
+  function filterByPathPrefix(ref: EntityRef, pathPrefix: string, opts?: PresenceQueryOptions): AwarenessState[] {
     return presence.filter(
       (s) =>
         s.fieldFocus !== null &&

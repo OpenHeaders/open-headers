@@ -9,11 +9,11 @@
  * position-preserving file upserts without a SW round-trip.
  */
 
-import { hostBridge } from '@openheaders/core/bridge';
 import { SPEC_ENTITY_TYPE, SPEC_FILES_PATH } from '@openheaders/core/sync';
 import type { Spec } from '@openheaders/core/types';
 import { type CreateFlatMirrorOptions, createFlatEntityMirror } from './flat-entity-mirror';
 import { createWorkspaceMirrorRegistry } from './per-workspace-mirror-registry';
+import { callSnapshotRpc } from './snapshot-rpc';
 
 export interface SpecMirrorEntry {
   spec: Spec;
@@ -54,7 +54,7 @@ export function createSpecSyncMirror(workspaceId: string, options: CreateSpecSyn
         };
       },
       fetchSnapshot: async () => {
-        const resp = await hostBridge.call('oh.sync.snapshotSpecs', { workspaceId });
+        const resp = await callSnapshotRpc('oh.sync.snapshotSpecs', { workspaceId });
         return resp.entries.map((e) => ({
           uid: e.spec.uid,
           entry: { spec: e.spec, setOrderKeys: e.setOrderKeys },

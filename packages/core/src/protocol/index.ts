@@ -133,6 +133,7 @@ export type {
   SyncRequestFolderPostState,
   SyncRequestPostState,
   SyncResponseExamplePostState,
+  SyncRpcNotReadyResponse,
   SyncRulePostState,
   SyncScriptPackagePostState,
   SyncSpecPostState,
@@ -144,7 +145,7 @@ export type {
   SyncWorkspaceVariablesPostState,
   SyncWsResponseExamplePostState,
 } from './sync-bridge';
-export { SYNC_APPLY_TYPE, SYNC_BROADCAST_TYPE } from './sync-bridge';
+export { isSyncRpcNotReady, SYNC_APPLY_TYPE, SYNC_BROADCAST_TYPE } from './sync-bridge';
 export type {
   QualifiedConsolePortTarget,
   TelemetryConsoleBatchMessage,

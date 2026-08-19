@@ -8,12 +8,9 @@
 
 import type { FileRef } from '@openheaders/core/files';
 import { FILES_ENTITY_TYPE } from '@openheaders/core/sync';
-import { hostBridge } from '@openheaders/core/bridge';
-import {
-  createSingletonEntityMirror,
-  type CreateSingletonMirrorOptions,
-} from './singleton-entity-mirror';
 import { createWorkspaceMirrorRegistry } from './per-workspace-mirror-registry';
+import { type CreateSingletonMirrorOptions, createSingletonEntityMirror } from './singleton-entity-mirror';
+import { callSnapshotRpc } from './snapshot-rpc';
 
 export interface FilesMirrorEntry {
   refs: FileRef[];
@@ -48,7 +45,7 @@ export function createFilesSyncMirror(
         return { refs: filesPostState.refs, fileIds: filesPostState.fileIds };
       },
       fetchSnapshot: async () => {
-        const resp = await hostBridge.call('oh.sync.snapshotFiles', { workspaceId });
+        const resp = await callSnapshotRpc('oh.sync.snapshotFiles', { workspaceId });
         const first = resp.entries[0];
         return first ? { refs: first.refs, fileIds: first.fileIds } : null;
       },
@@ -75,8 +72,8 @@ export function createFilesSyncMirror(
 // `oh.sync.snapshotX, { workspaceId }` (M-1). Cross-workspace
 // contamination is structurally inexpressible.
 
-const filesSyncMirrorRegistry = createWorkspaceMirrorRegistry<FilesSyncMirror>(
-  (workspaceId) => createFilesSyncMirror(workspaceId),
+const filesSyncMirrorRegistry = createWorkspaceMirrorRegistry<FilesSyncMirror>((workspaceId) =>
+  createFilesSyncMirror(workspaceId),
 );
 
 export function getFilesSyncMirrorForWorkspace(workspaceId: string): FilesSyncMirror {

@@ -43,6 +43,7 @@ import type {
   SyncExtensionWorkspacePostState,
   SyncMutationBatchMessage,
   SyncMutationMessage,
+  SyncRpcNotReadyResponse,
 } from '@openheaders/core/protocol';
 import {
   SYNC_AWARENESS_PRESENCE_TYPE,
@@ -53,7 +54,7 @@ import {
 import type { InverseEnvelopeContext } from '@openheaders/core/sync';
 import { resolveWorkspaceOrgId } from '@openheaders/core/sync';
 import { logger } from '@openheaders/core/utils';
-import { peekActiveWorkspaceId, requireActiveWorkspaceId } from '../sync';
+import { getOracleHostHooks, peekActiveWorkspaceId } from '../sync';
 import {
   listMutedActivityEntities,
   muteActivityEntity,
@@ -349,6 +350,23 @@ const SYNC_SNAPSHOT_DISPATCH: Record<string, (workspaceId?: string) => { entries
 };
 
 /**
+ * The mirror-bootstrap read channels — answered with
+ * {@link SyncRpcNotReadyResponse} while the host reports its stores are
+ * still hydrating ({@link OracleHostHooks.isSnapshotPlaneReady}). A
+ * pre-hydration snapshot would either deny on the not-yet-installed
+ * identity (audit noise for a request that merely raced the boot) or,
+ * worse, answer an honest-looking empty list the renderer mirror caches
+ * as canonical and never re-fetches.
+ */
+const BOOTSTRAP_READ_CHANNELS: ReadonlySet<string> = new Set([
+  ...Object.keys(SYNC_SNAPSHOT_DISPATCH),
+  'oh.sync.snapshotExtensionWorkspaces',
+  'oh.awareness.snapshot',
+]);
+
+const NOT_READY_RESPONSE: SyncRpcNotReadyResponse = { notReady: true };
+
+/**
  * True when `type` is a channel this dispatcher owns — the gate table's
  * renderer-shaped channels plus the three peer-driven ones. Must stay
  * in lockstep with {@link routeSyncRpc}'s branches so peer dispatch can
@@ -484,6 +502,16 @@ export function dispatchSyncRpc(message: Record<string, unknown>, peer?: SyncRpc
   if (peer) {
     if (!ownsSyncRpcChannel(type)) return null;
     return { kind: 'async', promise: dispatchSyncRpcAsPeer(message, peer) };
+  }
+
+  // Boot window: a renderer surface can mount and fire its mirror
+  // bootstrap while the host is still hydrating (MV3 SW wake / fresh
+  // install). Answer not-ready so the mirror retries — no capability
+  // decision is minted for a request that merely raced the boot. Peer
+  // dispatch skips this: peer-serving hosts finish hydration before
+  // accepting connections and never wire the hook.
+  if (BOOTSTRAP_READ_CHANNELS.has(type) && getOracleHostHooks().isSnapshotPlaneReady?.() === false) {
+    return { kind: 'sync', response: NOT_READY_RESPONSE };
   }
 
   gateDispatch(message, localGateSubject());
@@ -650,10 +678,12 @@ function routeSyncRpc(message: Record<string, unknown>): SyncRpcResult | null {
   }
 
   if (type === 'oh.awareness.snapshot') {
+    // Nullable per the channel contract — no active workspace (post-
+    // tear-down edge) answers an empty presence list, never a throw.
     return {
       kind: 'sync',
       response: {
-        workspaceId: requireActiveWorkspaceId(),
+        workspaceId: peekActiveWorkspaceId(),
         presence: snapshotAwarenessPresence(),
       },
     };

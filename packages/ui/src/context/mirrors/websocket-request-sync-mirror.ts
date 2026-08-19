@@ -8,11 +8,11 @@
  * at the set-modeled `headers` / `params` paths.
  */
 
-import { hostBridge } from '@openheaders/core/bridge';
 import { WEBSOCKET_REQUEST_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { WebSocketRequest } from '@openheaders/core/types';
 import { type CreateFlatMirrorOptions, createFlatEntityMirror } from './flat-entity-mirror';
 import { createWorkspaceMirrorRegistry } from './per-workspace-mirror-registry';
+import { callSnapshotRpc } from './snapshot-rpc';
 
 export interface WebSocketRequestMirrorEntry {
   websocketRequest: WebSocketRequest;
@@ -64,7 +64,7 @@ export function createWebSocketRequestSyncMirror(
         };
       },
       fetchSnapshot: async () => {
-        const resp = await hostBridge.call('oh.sync.snapshotWebSocketRequests', { workspaceId });
+        const resp = await callSnapshotRpc('oh.sync.snapshotWebSocketRequests', { workspaceId });
         return resp.entries.map((e) => ({
           uid: e.websocketRequest.uid,
           entry: {

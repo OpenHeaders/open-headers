@@ -8,11 +8,11 @@
  * `order`, and a self-reported host `label`; not sensitive.
  */
 
-import { hostBridge } from '@openheaders/core/bridge';
 import { LIVE_FALLBACK_PRIORITY_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { LiveFallbackPriorityMember } from '@openheaders/core/types';
 import { createWorkspaceMirrorRegistry } from './per-workspace-mirror-registry';
 import { type CreateSingletonMirrorOptions, createSingletonEntityMirror } from './singleton-entity-mirror';
+import { callSnapshotRpc } from './snapshot-rpc';
 
 export interface LiveFallbackPriorityMirrorEntry {
   members: Record<string, LiveFallbackPriorityMember>;
@@ -51,7 +51,7 @@ export function createLiveFallbackPrioritySyncMirror(
         };
       },
       fetchSnapshot: async () => {
-        const resp = await hostBridge.call('oh.sync.snapshotFallbackPriority', { workspaceId });
+        const resp = await callSnapshotRpc('oh.sync.snapshotFallbackPriority', { workspaceId });
         const first = resp.entries[0];
         return first ? { members: first.members, principalIds: first.principalIds } : null;
       },

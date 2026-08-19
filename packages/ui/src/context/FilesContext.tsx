@@ -36,6 +36,7 @@ import { hostBridge } from '@openheaders/core/bridge';
 import type React from 'react';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { getFilesSyncMirrorForWorkspace } from './mirrors/files-sync-mirror';
+import { callSnapshotRpc } from './mirrors/snapshot-rpc';
 
 export type RenameFileOutcome =
   | { ok: true; fileRef: FileRef }
@@ -143,7 +144,7 @@ export const FilesProvider: React.FC<FilesProviderProps> = ({ children, activeWo
     // Kick a snapshot to gate isReady — the mirror also auto-fetches
     // at construction, but the Provider needs an explicit ack so
     // editors can pause spinners until the catalog has landed.
-    void hostBridge.call('oh.sync.snapshotFiles', { workspaceId: wsId })
+    void callSnapshotRpc('oh.sync.snapshotFiles', { workspaceId: wsId })
       .then((resp) => {
         if (overrideIdRef.current !== wsId) return;
         const first = resp.entries[0];

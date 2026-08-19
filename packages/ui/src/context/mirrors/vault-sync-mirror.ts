@@ -7,12 +7,9 @@
 
 import { VAULT_ENTITY_TYPE, VAULT_PATH } from '@openheaders/core/sync';
 import type { Vault } from '@openheaders/core/types';
-import { hostBridge } from '@openheaders/core/bridge';
-import {
-  createSingletonEntityMirror,
-  type CreateSingletonMirrorOptions,
-} from './singleton-entity-mirror';
 import { createWorkspaceMirrorRegistry } from './per-workspace-mirror-registry';
+import { type CreateSingletonMirrorOptions, createSingletonEntityMirror } from './singleton-entity-mirror';
+import { callSnapshotRpc } from './snapshot-rpc';
 
 export interface VaultMirrorEntry {
   vault: Vault;
@@ -58,11 +55,9 @@ export function createVaultSyncMirror(
         };
       },
       fetchSnapshot: async () => {
-        const resp = await hostBridge.call('oh.sync.snapshotVault', { workspaceId });
+        const resp = await callSnapshotRpc('oh.sync.snapshotVault', { workspaceId });
         const first = resp.entries[0];
-        return first
-          ? { vault: first.vault, secretUids: first.secretUids, setOrderKeys: first.setOrderKeys }
-          : null;
+        return first ? { vault: first.vault, secretUids: first.secretUids, setOrderKeys: first.setOrderKeys } : null;
       },
     },
     options,
@@ -87,8 +82,8 @@ export function createVaultSyncMirror(
 // `oh.sync.snapshotX, { workspaceId }` (M-1). Cross-workspace
 // contamination is structurally inexpressible.
 
-const vaultSyncMirrorRegistry = createWorkspaceMirrorRegistry<VaultSyncMirror>(
-  (workspaceId) => createVaultSyncMirror(workspaceId),
+const vaultSyncMirrorRegistry = createWorkspaceMirrorRegistry<VaultSyncMirror>((workspaceId) =>
+  createVaultSyncMirror(workspaceId),
 );
 
 export function getVaultSyncMirrorForWorkspace(workspaceId: string): VaultSyncMirror {

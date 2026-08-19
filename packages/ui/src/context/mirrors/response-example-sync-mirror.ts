@@ -5,11 +5,11 @@
  * flat records so there are no set-modeled paths to enumerate.
  */
 
-import { hostBridge } from '@openheaders/core/bridge';
 import { RESPONSE_EXAMPLE_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { ResponseExample } from '@openheaders/core/types';
 import { type CreateFlatMirrorOptions, createFlatEntityMirror } from './flat-entity-mirror';
 import { createWorkspaceMirrorRegistry } from './per-workspace-mirror-registry';
+import { callSnapshotRpc } from './snapshot-rpc';
 
 export interface ResponseExampleMirrorEntry {
   responseExample: ResponseExample;
@@ -46,7 +46,7 @@ export function createResponseExampleSyncMirror(
         return { uid, entry: { responseExample: responseExamplePostState.responseExample } };
       },
       fetchSnapshot: async () => {
-        const resp = await hostBridge.call('oh.sync.snapshotResponseExamples', { workspaceId });
+        const resp = await callSnapshotRpc('oh.sync.snapshotResponseExamples', { workspaceId });
         return resp.entries.map((e) => ({
           uid: e.responseExample.uid,
           entry: { responseExample: e.responseExample },

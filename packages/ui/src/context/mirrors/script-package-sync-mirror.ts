@@ -5,11 +5,11 @@
  * flat-scalar so there are no set-modeled paths to enumerate.
  */
 
-import { hostBridge } from '@openheaders/core/bridge';
 import { SCRIPT_PACKAGE_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { ScriptPackage } from '@openheaders/core/types';
 import { type CreateFlatMirrorOptions, createFlatEntityMirror } from './flat-entity-mirror';
 import { createWorkspaceMirrorRegistry } from './per-workspace-mirror-registry';
+import { callSnapshotRpc } from './snapshot-rpc';
 
 export interface ScriptPackageMirrorEntry {
   scriptPackage: ScriptPackage;
@@ -44,7 +44,7 @@ export function createScriptPackageSyncMirror(
         return { uid, entry: { scriptPackage: scriptPackagePostState.scriptPackage } };
       },
       fetchSnapshot: async () => {
-        const resp = await hostBridge.call('oh.sync.snapshotScriptPackages', { workspaceId });
+        const resp = await callSnapshotRpc('oh.sync.snapshotScriptPackages', { workspaceId });
         return resp.entries.map((e) => ({
           uid: e.scriptPackage.uid,
           entry: { scriptPackage: e.scriptPackage },

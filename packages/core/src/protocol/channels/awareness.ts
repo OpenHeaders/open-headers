@@ -4,6 +4,7 @@
  */
 
 import type { AwarenessPublishRequest, AwarenessPublishResponse, AwarenessState } from '../awareness-bridge';
+import type { SyncRpcNotReadyResponse } from '../sync-bridge';
 
 export interface AwarenessRpc {
   /**
@@ -23,6 +24,6 @@ export interface AwarenessRpc {
    */
   'oh.awareness.snapshot': {
     req: Record<string, never>;
-    res: { workspaceId: string | null; presence: AwarenessState[] };
+    res: { workspaceId: string | null; presence: AwarenessState[] } | SyncRpcNotReadyResponse;
   };
 }

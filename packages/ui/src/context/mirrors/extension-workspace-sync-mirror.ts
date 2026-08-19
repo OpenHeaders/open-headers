@@ -12,21 +12,15 @@
  * (the singleton) at the global scope; the snapshot row is the same
  * shape the broadcast carries.
  *
- * NOT YET WIRED INTO CALL SITES — the scaffold lands ahead of the
- * `useWorkspaces.ts` migration. Until callers flip, this mirror
- * coexists with the bridge-RPC path and is harmless overhead.
+ * `useWorkspaces.ts` and `useActiveWorkspaceId.ts` read through this
+ * mirror — it is the single workspace-list source for every renderer
+ * surface.
  */
 
-import {
-  EXTENSION_WORKSPACE_ENTITY_TYPE,
-  EXTENSION_WORKSPACE_GLOBAL_SCOPE,
-} from '@openheaders/core/sync';
+import { EXTENSION_WORKSPACE_ENTITY_TYPE, EXTENSION_WORKSPACE_GLOBAL_SCOPE } from '@openheaders/core/sync';
 import type { ExtensionWorkspace } from '@openheaders/core/types';
-import { hostBridge } from '@openheaders/core/bridge';
-import {
-  createSingletonEntityMirror,
-  type CreateSingletonMirrorOptions,
-} from './singleton-entity-mirror';
+import { type CreateSingletonMirrorOptions, createSingletonEntityMirror } from './singleton-entity-mirror';
+import { callSnapshotRpc } from './snapshot-rpc';
 
 export interface ExtensionWorkspaceMirrorEntry {
   workspaces: ExtensionWorkspace[];
@@ -75,7 +69,7 @@ export function createExtensionWorkspaceSyncMirror(
         };
       },
       fetchSnapshot: async () => {
-        const resp = await hostBridge.call('oh.sync.snapshotExtensionWorkspaces');
+        const resp = await callSnapshotRpc('oh.sync.snapshotExtensionWorkspaces');
         const first = resp.entries[0];
         return first
           ? {

@@ -10,12 +10,9 @@
 
 import { TEMPLATE_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { Template } from '@openheaders/core/types';
-import { hostBridge } from '@openheaders/core/bridge';
-import {
-  createFlatEntityMirror,
-  type CreateFlatMirrorOptions,
-} from './flat-entity-mirror';
+import { type CreateFlatMirrorOptions, createFlatEntityMirror } from './flat-entity-mirror';
 import { createWorkspaceMirrorRegistry } from './per-workspace-mirror-registry';
+import { callSnapshotRpc } from './snapshot-rpc';
 
 export interface TemplateMirrorEntry {
   template: Template;
@@ -63,7 +60,7 @@ export function createTemplateSyncMirror(
         };
       },
       fetchSnapshot: async () => {
-        const resp = await hostBridge.call('oh.sync.snapshotTemplates', { workspaceId });
+        const resp = await callSnapshotRpc('oh.sync.snapshotTemplates', { workspaceId });
         return resp.entries.map((e) => ({
           uid: e.template.uid,
           entry: {
@@ -102,8 +99,8 @@ export function createTemplateSyncMirror(
 // `oh.sync.snapshotX, { workspaceId }` (M-1). Cross-workspace
 // contamination is structurally inexpressible.
 
-const templateSyncMirrorRegistry = createWorkspaceMirrorRegistry<TemplateSyncMirror>(
-  (workspaceId) => createTemplateSyncMirror(workspaceId),
+const templateSyncMirrorRegistry = createWorkspaceMirrorRegistry<TemplateSyncMirror>((workspaceId) =>
+  createTemplateSyncMirror(workspaceId),
 );
 
 export function getTemplateSyncMirrorForWorkspace(workspaceId: string): TemplateSyncMirror {

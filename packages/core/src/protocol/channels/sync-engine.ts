@@ -24,6 +24,7 @@ import type {
   SyncRequestFolderPostState,
   SyncRequestPostState,
   SyncResponseExamplePostState,
+  SyncRpcNotReadyResponse,
   SyncRulePostState,
   SyncScriptPackagePostState,
   SyncSpecPostState,
@@ -61,7 +62,7 @@ export interface SyncEngineRpc {
    */
   'oh.sync.snapshotRules': {
     req: { workspaceId?: string };
-    res: { entries: SyncRulePostState[] };
+    res: { entries: SyncRulePostState[] } | SyncRpcNotReadyResponse;
   };
   /**
    * Snapshot the active workspace's full Environment oracle state.
@@ -72,7 +73,7 @@ export interface SyncEngineRpc {
    */
   'oh.sync.snapshotEnvironments': {
     req: { workspaceId?: string };
-    res: { entries: SyncEnvironmentPostState[] };
+    res: { entries: SyncEnvironmentPostState[] } | SyncRpcNotReadyResponse;
   };
   /**
    * Snapshot the active workspace's full Collection oracle state.
@@ -82,7 +83,7 @@ export interface SyncEngineRpc {
    */
   'oh.sync.snapshotCollections': {
     req: { workspaceId?: string };
-    res: { entries: SyncCollectionPostState[] };
+    res: { entries: SyncCollectionPostState[] } | SyncRpcNotReadyResponse;
   };
   /**
    * Snapshot the active workspace's singleton workspace-variables
@@ -92,7 +93,7 @@ export interface SyncEngineRpc {
    */
   'oh.sync.snapshotWorkspaceVariables': {
     req: { workspaceId?: string };
-    res: { entries: SyncWorkspaceVariablesPostState[] };
+    res: { entries: SyncWorkspaceVariablesPostState[] } | SyncRpcNotReadyResponse;
   };
   /**
    * Snapshot the active workspace's singleton vault oracle state.
@@ -102,7 +103,7 @@ export interface SyncEngineRpc {
    */
   'oh.sync.snapshotVault': {
     req: { workspaceId?: string };
-    res: { entries: SyncVaultPostState[] };
+    res: { entries: SyncVaultPostState[] } | SyncRpcNotReadyResponse;
   };
   /**
    * Snapshot the active workspace's full Folder oracle state. Same
@@ -114,7 +115,7 @@ export interface SyncEngineRpc {
    */
   'oh.sync.snapshotFolders': {
     req: { workspaceId?: string };
-    res: { entries: SyncFolderPostState[] };
+    res: { entries: SyncFolderPostState[] } | SyncRpcNotReadyResponse;
   };
   /**
    * Snapshot the active workspace's full Request oracle state. Same
@@ -123,7 +124,7 @@ export interface SyncEngineRpc {
    */
   'oh.sync.snapshotRequests': {
     req: { workspaceId?: string };
-    res: { entries: SyncRequestPostState[] };
+    res: { entries: SyncRequestPostState[] } | SyncRpcNotReadyResponse;
   };
   /**
    * Snapshot the active workspace's full GrpcRequest oracle state. Same
@@ -132,7 +133,7 @@ export interface SyncEngineRpc {
    */
   'oh.sync.snapshotGrpcRequests': {
     req: { workspaceId?: string };
-    res: { entries: SyncGrpcRequestPostState[] };
+    res: { entries: SyncGrpcRequestPostState[] } | SyncRpcNotReadyResponse;
   };
   /**
    * Snapshot the active workspace's full WebSocketRequest oracle state.
@@ -142,7 +143,7 @@ export interface SyncEngineRpc {
    */
   'oh.sync.snapshotWebSocketRequests': {
     req: { workspaceId?: string };
-    res: { entries: SyncWebSocketRequestPostState[] };
+    res: { entries: SyncWebSocketRequestPostState[] } | SyncRpcNotReadyResponse;
   };
   /**
    * Snapshot the active workspace's full WebSocket response-example
@@ -151,7 +152,7 @@ export interface SyncEngineRpc {
    */
   'oh.sync.snapshotWsResponseExamples': {
     req: { workspaceId?: string };
-    res: { entries: SyncWsResponseExamplePostState[] };
+    res: { entries: SyncWsResponseExamplePostState[] } | SyncRpcNotReadyResponse;
   };
   /**
    * Snapshot the active workspace's full request-collection oracle
@@ -161,7 +162,7 @@ export interface SyncEngineRpc {
    */
   'oh.sync.snapshotRequestCollections': {
     req: { workspaceId?: string };
-    res: { entries: SyncRequestCollectionPostState[] };
+    res: { entries: SyncRequestCollectionPostState[] } | SyncRpcNotReadyResponse;
   };
   /**
    * Snapshot the active workspace's full request-folder oracle state.
@@ -172,7 +173,7 @@ export interface SyncEngineRpc {
    */
   'oh.sync.snapshotRequestFolders': {
     req: { workspaceId?: string };
-    res: { entries: SyncRequestFolderPostState[] };
+    res: { entries: SyncRequestFolderPostState[] } | SyncRpcNotReadyResponse;
   };
   /**
    * Snapshot the active workspace's full Template oracle state. Same
@@ -181,7 +182,7 @@ export interface SyncEngineRpc {
    */
   'oh.sync.snapshotTemplates': {
     req: { workspaceId?: string };
-    res: { entries: SyncTemplatePostState[] };
+    res: { entries: SyncTemplatePostState[] } | SyncRpcNotReadyResponse;
   };
   /**
    * Snapshot the active workspace's full template-collection oracle
@@ -191,7 +192,7 @@ export interface SyncEngineRpc {
    */
   'oh.sync.snapshotTemplateCollections': {
     req: { workspaceId?: string };
-    res: { entries: SyncTemplateCollectionPostState[] };
+    res: { entries: SyncTemplateCollectionPostState[] } | SyncRpcNotReadyResponse;
   };
   /**
    * Snapshot the active workspace's full template-folder oracle state.
@@ -201,7 +202,7 @@ export interface SyncEngineRpc {
    */
   'oh.sync.snapshotTemplateFolders': {
     req: { workspaceId?: string };
-    res: { entries: SyncTemplateFolderPostState[] };
+    res: { entries: SyncTemplateFolderPostState[] } | SyncRpcNotReadyResponse;
   };
   /**
    * Snapshot the active workspace's full Live-Variable oracle state.
@@ -210,7 +211,7 @@ export interface SyncEngineRpc {
    */
   'oh.sync.snapshotLiveVariables': {
     req: { workspaceId?: string };
-    res: { entries: SyncLiveVariablePostState[] };
+    res: { entries: SyncLiveVariablePostState[] } | SyncRpcNotReadyResponse;
   };
   /**
    * Snapshot the active workspace's full Live-Workflow oracle state.
@@ -219,7 +220,7 @@ export interface SyncEngineRpc {
    */
   'oh.sync.snapshotLiveWorkflows': {
     req: { workspaceId?: string };
-    res: { entries: SyncLiveWorkflowPostState[] };
+    res: { entries: SyncLiveWorkflowPostState[] } | SyncRpcNotReadyResponse;
   };
   /**
    * Snapshot the active workspace's full script-package oracle state.
@@ -228,7 +229,7 @@ export interface SyncEngineRpc {
    */
   'oh.sync.snapshotScriptPackages': {
     req: { workspaceId?: string };
-    res: { entries: SyncScriptPackagePostState[] };
+    res: { entries: SyncScriptPackagePostState[] } | SyncRpcNotReadyResponse;
   };
   /**
    * Snapshot the active workspace's full response-example oracle state.
@@ -237,7 +238,7 @@ export interface SyncEngineRpc {
    */
   'oh.sync.snapshotResponseExamples': {
     req: { workspaceId?: string };
-    res: { entries: SyncResponseExamplePostState[] };
+    res: { entries: SyncResponseExamplePostState[] } | SyncRpcNotReadyResponse;
   };
   /**
    * Snapshot the active workspace's full gRPC response-example oracle
@@ -246,7 +247,7 @@ export interface SyncEngineRpc {
    */
   'oh.sync.snapshotGrpcResponseExamples': {
     req: { workspaceId?: string };
-    res: { entries: SyncGrpcResponseExamplePostState[] };
+    res: { entries: SyncGrpcResponseExamplePostState[] } | SyncRpcNotReadyResponse;
   };
   /**
    * Snapshot the active workspace's full spec oracle state. Each entry
@@ -256,7 +257,7 @@ export interface SyncEngineRpc {
    */
   'oh.sync.snapshotSpecs': {
     req: { workspaceId?: string };
-    res: { entries: SyncSpecPostState[] };
+    res: { entries: SyncSpecPostState[] } | SyncRpcNotReadyResponse;
   };
   /**
    * Snapshot the active workspace's singleton oauth-bundle oracle
@@ -266,7 +267,7 @@ export interface SyncEngineRpc {
    */
   'oh.sync.snapshotOAuthBundle': {
     req: { workspaceId?: string };
-    res: { entries: SyncOAuthBundlePostState[] };
+    res: { entries: SyncOAuthBundlePostState[] } | SyncRpcNotReadyResponse;
   };
   /**
    * Snapshot the active workspace's singleton pause-markers oracle
@@ -276,7 +277,7 @@ export interface SyncEngineRpc {
    */
   'oh.sync.snapshotPauseMarkers': {
     req: { workspaceId?: string };
-    res: { entries: SyncPauseMarkersPostState[] };
+    res: { entries: SyncPauseMarkersPostState[] } | SyncRpcNotReadyResponse;
   };
   /**
    * Snapshot the active workspace's singleton layout-state oracle
@@ -285,7 +286,7 @@ export interface SyncEngineRpc {
    */
   'oh.sync.snapshotLayoutState': {
     req: { workspaceId?: string };
-    res: { entries: SyncLayoutStatePostState[] };
+    res: { entries: SyncLayoutStatePostState[] } | SyncRpcNotReadyResponse;
   };
   /**
    * Snapshot the active workspace's singleton live-fallback-priority
@@ -297,7 +298,7 @@ export interface SyncEngineRpc {
    */
   'oh.sync.snapshotFallbackPriority': {
     req: { workspaceId?: string };
-    res: { entries: SyncLiveFallbackPriorityPostState[] };
+    res: { entries: SyncLiveFallbackPriorityPostState[] } | SyncRpcNotReadyResponse;
   };
   /**
    * Snapshot the active workspace's singleton files oracle state. Same
@@ -308,7 +309,7 @@ export interface SyncEngineRpc {
    */
   'oh.sync.snapshotFiles': {
     req: { workspaceId?: string };
-    res: { entries: SyncFilesPostState[] };
+    res: { entries: SyncFilesPostState[] } | SyncRpcNotReadyResponse;
   };
   /**
    * Snapshot the global-scope extensionWorkspace oracle's singleton
@@ -320,6 +321,6 @@ export interface SyncEngineRpc {
    */
   'oh.sync.snapshotExtensionWorkspaces': {
     req: Record<string, never>;
-    res: { entries: SyncExtensionWorkspacePostState[] };
+    res: { entries: SyncExtensionWorkspacePostState[] } | SyncRpcNotReadyResponse;
   };
 }

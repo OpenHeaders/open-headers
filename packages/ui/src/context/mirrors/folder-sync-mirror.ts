@@ -11,12 +11,9 @@
 
 import { FOLDER_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { Folder } from '@openheaders/core/types';
-import { hostBridge } from '@openheaders/core/bridge';
-import {
-  createFlatEntityMirror,
-  type CreateFlatMirrorOptions,
-} from './flat-entity-mirror';
+import { type CreateFlatMirrorOptions, createFlatEntityMirror } from './flat-entity-mirror';
 import { createWorkspaceMirrorRegistry } from './per-workspace-mirror-registry';
+import { callSnapshotRpc } from './snapshot-rpc';
 
 export interface FolderMirrorEntry {
   folder: Folder;
@@ -32,10 +29,7 @@ export interface FolderSyncMirror {
   getFolderMirror(folderUid: string): FolderMirrorEntry | null;
   /** Snapshot of every known folder, in stable uid order. */
   listFolders(): Folder[];
-  liveOrderedSetItems(
-    folderUid: string,
-    setPath: string,
-  ): Array<{ itemId: string; orderKey: string }>;
+  liveOrderedSetItems(folderUid: string, setPath: string): Array<{ itemId: string; orderKey: string }>;
   subscribeFolderMirror(folderUid: string, listener: FolderMirrorListener): () => void;
   /** Subscribe to *any* folder change. */
   subscribeAny(listener: FolderMirrorListener): () => void;
@@ -64,7 +58,7 @@ export function createFolderSyncMirror(
         };
       },
       fetchSnapshot: async () => {
-        const resp = await hostBridge.call('oh.sync.snapshotFolders', { workspaceId });
+        const resp = await callSnapshotRpc('oh.sync.snapshotFolders', { workspaceId });
         return resp.entries.map((e) => ({
           uid: e.folder.uid,
           entry: { folder: e.folder, setOrderKeys: e.setOrderKeys },
@@ -98,8 +92,8 @@ export function createFolderSyncMirror(
 // `oh.sync.snapshotX, { workspaceId }` (M-1). Cross-workspace
 // contamination is structurally inexpressible.
 
-const folderSyncMirrorRegistry = createWorkspaceMirrorRegistry<FolderSyncMirror>(
-  (workspaceId) => createFolderSyncMirror(workspaceId),
+const folderSyncMirrorRegistry = createWorkspaceMirrorRegistry<FolderSyncMirror>((workspaceId) =>
+  createFolderSyncMirror(workspaceId),
 );
 
 export function getFolderSyncMirrorForWorkspace(workspaceId: string): FolderSyncMirror {

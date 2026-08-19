@@ -8,11 +8,11 @@
  * synchronously without a SW round-trip per write (§19.4).
  */
 
-import { hostBridge } from '@openheaders/core/bridge';
 import { ENV_VARS_PATH } from '@openheaders/core/sync';
 import type { Environment } from '@openheaders/core/types';
 import { type CreateFlatMirrorOptions, createFlatEntityMirror } from './flat-entity-mirror';
 import { createWorkspaceMirrorRegistry } from './per-workspace-mirror-registry';
+import { callSnapshotRpc } from './snapshot-rpc';
 
 export interface EnvironmentMirrorEntry {
   environment: Environment;
@@ -61,7 +61,7 @@ export function createEnvSyncMirror(workspaceId: string, options: CreateEnvSyncM
         };
       },
       fetchSnapshot: async () => {
-        const resp = await hostBridge.call('oh.sync.snapshotEnvironments', { workspaceId });
+        const resp = await callSnapshotRpc('oh.sync.snapshotEnvironments', { workspaceId });
         return resp.entries.map((e) => ({
           uid: e.environment.uid,
           entry: { environment: e.environment, varUids: e.varUids, setOrderKeys: e.setOrderKeys },

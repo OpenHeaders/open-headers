@@ -8,12 +8,9 @@
  */
 
 import { PAUSE_MARKERS_ENTITY_TYPE, type PauseMarkerKind } from '@openheaders/core/sync';
-import { hostBridge } from '@openheaders/core/bridge';
-import {
-  createSingletonEntityMirror,
-  type CreateSingletonMirrorOptions,
-} from './singleton-entity-mirror';
 import { createWorkspaceMirrorRegistry } from './per-workspace-mirror-registry';
+import { type CreateSingletonMirrorOptions, createSingletonEntityMirror } from './singleton-entity-mirror';
+import { callSnapshotRpc } from './snapshot-rpc';
 
 export interface PauseMarkersMirrorEntry {
   markers: Record<string, PauseMarkerKind>;
@@ -48,7 +45,7 @@ export function createPauseMarkersSyncMirror(
         return { markers: pauseMarkersPostState.markers, paths: pauseMarkersPostState.paths };
       },
       fetchSnapshot: async () => {
-        const resp = await hostBridge.call('oh.sync.snapshotPauseMarkers', { workspaceId });
+        const resp = await callSnapshotRpc('oh.sync.snapshotPauseMarkers', { workspaceId });
         const first = resp.entries[0];
         return first ? { markers: first.markers, paths: first.paths } : null;
       },
@@ -75,8 +72,8 @@ export function createPauseMarkersSyncMirror(
 // `oh.sync.snapshotX, { workspaceId }` (M-1). Cross-workspace
 // contamination is structurally inexpressible.
 
-const pauseMarkersSyncMirrorRegistry = createWorkspaceMirrorRegistry<PauseMarkersSyncMirror>(
-  (workspaceId) => createPauseMarkersSyncMirror(workspaceId),
+const pauseMarkersSyncMirrorRegistry = createWorkspaceMirrorRegistry<PauseMarkersSyncMirror>((workspaceId) =>
+  createPauseMarkersSyncMirror(workspaceId),
 );
 
 export function getPauseMarkersSyncMirrorForWorkspace(workspaceId: string): PauseMarkersSyncMirror {

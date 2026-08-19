@@ -138,6 +138,17 @@ export interface OracleHostHooks {
    */
   peekActiveWorkspaceId?: () => string | null;
   /**
+   * True once the host's stores are hydrated enough that the mirror-
+   * bootstrap read channels (`oh.sync.snapshot*`, `oh.awareness.snapshot`)
+   * reflect persisted state. While false, the sync RPC dispatcher
+   * answers those channels with `SyncRpcNotReadyResponse` so renderer
+   * mirrors retry instead of caching a partial or empty snapshot as
+   * canonical — and no capability decision (deny audit) is minted for a
+   * request that merely raced the boot. Absent = always ready (hosts
+   * that finish hydration before serving any renderer, e.g. the daemon).
+   */
+  isSnapshotPlaneReady?: () => boolean;
+  /**
    * Synchronous read of the host's cached TOTP code mirror. The DNR
    * compile path inside the resolver reads this on every refresh;
    * async crypto stays out of the resolver's hot path because the

@@ -7,12 +7,9 @@
 
 import { LIVE_VARIABLE_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { LiveVariable } from '@openheaders/core/types';
-import { hostBridge } from '@openheaders/core/bridge';
-import {
-  createFlatEntityMirror,
-  type CreateFlatMirrorOptions,
-} from './flat-entity-mirror';
+import { type CreateFlatMirrorOptions, createFlatEntityMirror } from './flat-entity-mirror';
 import { createWorkspaceMirrorRegistry } from './per-workspace-mirror-registry';
+import { callSnapshotRpc } from './snapshot-rpc';
 
 export interface LiveVariableMirrorEntry {
   liveVariable: LiveVariable;
@@ -47,7 +44,7 @@ export function createLiveVariableSyncMirror(
         return { uid, entry: { liveVariable: liveVariablePostState.liveVariable } };
       },
       fetchSnapshot: async () => {
-        const resp = await hostBridge.call('oh.sync.snapshotLiveVariables', { workspaceId });
+        const resp = await callSnapshotRpc('oh.sync.snapshotLiveVariables', { workspaceId });
         return resp.entries.map((e) => ({
           uid: e.liveVariable.uid,
           entry: { liveVariable: e.liveVariable },
@@ -80,8 +77,8 @@ export function createLiveVariableSyncMirror(
 // `oh.sync.snapshotX, { workspaceId }` (M-1). Cross-workspace
 // contamination is structurally inexpressible.
 
-const liveVariableSyncMirrorRegistry = createWorkspaceMirrorRegistry<LiveVariableSyncMirror>(
-  (workspaceId) => createLiveVariableSyncMirror(workspaceId),
+const liveVariableSyncMirrorRegistry = createWorkspaceMirrorRegistry<LiveVariableSyncMirror>((workspaceId) =>
+  createLiveVariableSyncMirror(workspaceId),
 );
 
 export function getLiveVariableSyncMirrorForWorkspace(workspaceId: string): LiveVariableSyncMirror {

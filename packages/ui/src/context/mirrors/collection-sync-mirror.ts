@@ -8,12 +8,9 @@
  */
 
 import type { Collection } from '@openheaders/core/types';
-import { hostBridge } from '@openheaders/core/bridge';
-import {
-  createFlatEntityMirror,
-  type CreateFlatMirrorOptions,
-} from './flat-entity-mirror';
+import { type CreateFlatMirrorOptions, createFlatEntityMirror } from './flat-entity-mirror';
 import { createWorkspaceMirrorRegistry } from './per-workspace-mirror-registry';
+import { callSnapshotRpc } from './snapshot-rpc';
 
 export interface CollectionMirrorEntry {
   collection: Collection;
@@ -33,10 +30,7 @@ export interface CollectionSyncMirror {
    *  enumerate descendants by path prefix. */
   listCollections(): Collection[];
   liveVarNames(collectionUid: string): string[];
-  liveOrderedSetItems(
-    collectionUid: string,
-    setPath: string,
-  ): Array<{ itemId: string; orderKey: string }>;
+  liveOrderedSetItems(collectionUid: string, setPath: string): Array<{ itemId: string; orderKey: string }>;
   subscribeCollectionMirror(collectionUid: string, listener: CollectionMirrorListener): () => void;
   hydrated: Promise<void>;
   dispose(): void;
@@ -67,7 +61,7 @@ export function createCollectionSyncMirror(
         };
       },
       fetchSnapshot: async () => {
-        const resp = await hostBridge.call('oh.sync.snapshotCollections', { workspaceId });
+        const resp = await callSnapshotRpc('oh.sync.snapshotCollections', { workspaceId });
         return resp.entries.map((e) => ({
           uid: e.collection.uid,
           entry: { collection: e.collection, varUids: e.varUids, setOrderKeys: e.setOrderKeys },
@@ -97,8 +91,8 @@ export function createCollectionSyncMirror(
 // `oh.sync.snapshotX, { workspaceId }` (M-1). Cross-workspace
 // contamination is structurally inexpressible.
 
-const collectionSyncMirrorRegistry = createWorkspaceMirrorRegistry<CollectionSyncMirror>(
-  (workspaceId) => createCollectionSyncMirror(workspaceId),
+const collectionSyncMirrorRegistry = createWorkspaceMirrorRegistry<CollectionSyncMirror>((workspaceId) =>
+  createCollectionSyncMirror(workspaceId),
 );
 
 export function getCollectionSyncMirrorForWorkspace(workspaceId: string): CollectionSyncMirror {

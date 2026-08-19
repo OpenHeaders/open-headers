@@ -781,3 +781,20 @@ export type SyncBridgeMessage = SyncApplyRequest | SyncBroadcastEvent;
 
 export const SYNC_APPLY_TYPE = 'oh.sync.apply' as const;
 export const SYNC_BROADCAST_TYPE = 'oh.sync.broadcast' as const;
+
+/**
+ * Explicit "host is still booting" answer for the mirror-bootstrap read
+ * channels (`oh.sync.snapshot*`, `oh.awareness.snapshot`). A host whose
+ * stores are not yet hydrated must answer with this instead of a partial
+ * or empty snapshot — an empty answer would be cached by the renderer
+ * mirror as canonical state and never re-fetched. Renderer callers
+ * detect it via {@link isSyncRpcNotReady} and retry until the host
+ * reports ready.
+ */
+export interface SyncRpcNotReadyResponse {
+  notReady: true;
+}
+
+export function isSyncRpcNotReady(resp: unknown): resp is SyncRpcNotReadyResponse {
+  return typeof resp === 'object' && resp !== null && (resp as SyncRpcNotReadyResponse).notReady === true;
+}

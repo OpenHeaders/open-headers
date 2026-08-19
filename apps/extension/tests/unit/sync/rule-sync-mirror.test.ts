@@ -75,7 +75,7 @@ const env = (uid: string): MutationEnvelope => ({
   body: { kind: 'setField', type: RULE_ENTITY_TYPE, id: uid, path: 'name', value: 'x' },
 });
 
-const rule = (uid: string, name = 'r'): Rule => ({ uid, name } as unknown as Rule);
+const rule = (uid: string, name = 'r'): Rule => ({ uid, name }) as unknown as Rule;
 
 const outcome: MutatorOutcome = { status: 'applied' };
 
@@ -161,8 +161,7 @@ describe('rule sync mirror', () => {
     });
     const mirror = createRuleSyncMirror('ws-1');
     expect(mockCall).toHaveBeenCalledWith('oh.sync.snapshotRules', { workspaceId: 'ws-1' });
-    await Promise.resolve();
-    await Promise.resolve();
+    await mirror.hydrated;
     expect(mirror.getRuleMirror('rA')?.rule.name).toBe('A');
     expect(mirror.liveSetItems('rA', 'conditions')).toEqual(['c1']);
     expect(mirror.getRuleMirror('rB')?.rule.name).toBe('B');
@@ -170,7 +169,11 @@ describe('rule sync mirror', () => {
 
   it('bootstrap defers to broadcasts that landed first', async () => {
     let resolveSnap!: (v: { entries: Array<{ rule: Rule; setItemIds: Record<string, string[]> }> }) => void;
-    mockCall.mockReturnValueOnce(new Promise((res) => { resolveSnap = res; }));
+    mockCall.mockReturnValueOnce(
+      new Promise((res) => {
+        resolveSnap = res;
+      }),
+    );
     const mirror = createRuleSyncMirror('ws-1');
     // Broadcast lands while snapshot in flight.
     lastHandler?.({

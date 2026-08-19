@@ -8,12 +8,9 @@
  */
 
 import { LAYOUT_STATE_ENTITY_TYPE } from '@openheaders/core/sync';
-import { hostBridge } from '@openheaders/core/bridge';
-import {
-  createSingletonEntityMirror,
-  type CreateSingletonMirrorOptions,
-} from './singleton-entity-mirror';
 import { createWorkspaceMirrorRegistry } from './per-workspace-mirror-registry';
+import { type CreateSingletonMirrorOptions, createSingletonEntityMirror } from './singleton-entity-mirror';
+import { callSnapshotRpc } from './snapshot-rpc';
 
 export interface LayoutStateMirrorEntry {
   layout: unknown;
@@ -46,7 +43,7 @@ export function createLayoutStateSyncMirror(
         return { layout: layoutStatePostState.layout };
       },
       fetchSnapshot: async () => {
-        const resp = await hostBridge.call('oh.sync.snapshotLayoutState', { workspaceId });
+        const resp = await callSnapshotRpc('oh.sync.snapshotLayoutState', { workspaceId });
         const first = resp.entries[0];
         return first ? { layout: first.layout } : null;
       },
@@ -72,8 +69,8 @@ export function createLayoutStateSyncMirror(
 // `oh.sync.snapshotX, { workspaceId }` (M-1). Cross-workspace
 // contamination is structurally inexpressible.
 
-const layoutStateSyncMirrorRegistry = createWorkspaceMirrorRegistry<LayoutStateSyncMirror>(
-  (workspaceId) => createLayoutStateSyncMirror(workspaceId),
+const layoutStateSyncMirrorRegistry = createWorkspaceMirrorRegistry<LayoutStateSyncMirror>((workspaceId) =>
+  createLayoutStateSyncMirror(workspaceId),
 );
 
 export function getLayoutStateSyncMirrorForWorkspace(workspaceId: string): LayoutStateSyncMirror {

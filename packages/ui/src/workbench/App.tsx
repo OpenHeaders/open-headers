@@ -897,7 +897,11 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
 
   // ── Workspace Intent routing (cold-hash + warm-message) ────────
   useWorkspaceIntentRouter({
-    isStatusLoaded,
+    // Data-dependent intents also wait for the workspace mirror — a
+    // create dispatched while the host is still booting would hit a
+    // null workspaceId and surface an error toast instead of quietly
+    // running once hydration lands.
+    isStatusLoaded: isStatusLoaded && editingScopeWorkspaceId !== null,
     // An external surface routed the user here to look at something —
     // drop the settings modal so it doesn't cover the destination.
     // `open-settings` is the one intent whose destination IS the modal.

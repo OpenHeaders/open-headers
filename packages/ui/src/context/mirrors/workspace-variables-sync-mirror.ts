@@ -8,12 +8,9 @@
 
 import { WORKSPACE_VARIABLES_ENTITY_TYPE, WORKSPACE_VARIABLES_PATH } from '@openheaders/core/sync';
 import type { WorkspaceVariables } from '@openheaders/core/types';
-import { hostBridge } from '@openheaders/core/bridge';
-import {
-  createSingletonEntityMirror,
-  type CreateSingletonMirrorOptions,
-} from './singleton-entity-mirror';
 import { createWorkspaceMirrorRegistry } from './per-workspace-mirror-registry';
+import { type CreateSingletonMirrorOptions, createSingletonEntityMirror } from './singleton-entity-mirror';
+import { callSnapshotRpc } from './snapshot-rpc';
 
 export interface WorkspaceVariablesMirrorEntry {
   workspaceVariables: WorkspaceVariables;
@@ -60,7 +57,7 @@ export function createWorkspaceVariablesSyncMirror(
         };
       },
       fetchSnapshot: async () => {
-        const resp = await hostBridge.call('oh.sync.snapshotWorkspaceVariables', { workspaceId });
+        const resp = await callSnapshotRpc('oh.sync.snapshotWorkspaceVariables', { workspaceId });
         const first = resp.entries[0];
         return first
           ? {

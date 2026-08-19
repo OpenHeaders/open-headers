@@ -13,12 +13,9 @@
  */
 
 import type { Rule } from '@openheaders/core/types';
-import { hostBridge } from '@openheaders/core/bridge';
-import {
-  createFlatEntityMirror,
-  type CreateFlatMirrorOptions,
-} from './flat-entity-mirror';
+import { type CreateFlatMirrorOptions, createFlatEntityMirror } from './flat-entity-mirror';
 import { createWorkspaceMirrorRegistry } from './per-workspace-mirror-registry';
+import { callSnapshotRpc } from './snapshot-rpc';
 
 export interface RuleMirrorEntry {
   rule: Rule;
@@ -45,10 +42,7 @@ export interface RuleSyncMirror {
 
 export type CreateRuleSyncMirrorOptions = CreateFlatMirrorOptions;
 
-export function createRuleSyncMirror(
-  workspaceId: string,
-  options: CreateRuleSyncMirrorOptions = {},
-): RuleSyncMirror {
+export function createRuleSyncMirror(workspaceId: string, options: CreateRuleSyncMirrorOptions = {}): RuleSyncMirror {
   const core = createFlatEntityMirror<RuleMirrorEntry>(
     {
       loggerTag: 'RuleSyncMirror',
@@ -73,7 +67,7 @@ export function createRuleSyncMirror(
         };
       },
       fetchSnapshot: async () => {
-        const resp = await hostBridge.call('oh.sync.snapshotRules', { workspaceId });
+        const resp = await callSnapshotRpc('oh.sync.snapshotRules', { workspaceId });
         return resp.entries.map((e) => ({
           uid: e.rule.uid,
           entry: {
@@ -107,8 +101,8 @@ export function createRuleSyncMirror(
 // `oh.sync.snapshotX, { workspaceId }` (M-1). Cross-workspace
 // contamination is structurally inexpressible.
 
-const ruleSyncMirrorRegistry = createWorkspaceMirrorRegistry<RuleSyncMirror>(
-  (workspaceId) => createRuleSyncMirror(workspaceId),
+const ruleSyncMirrorRegistry = createWorkspaceMirrorRegistry<RuleSyncMirror>((workspaceId) =>
+  createRuleSyncMirror(workspaceId),
 );
 
 export function getRuleSyncMirrorForWorkspace(workspaceId: string): RuleSyncMirror {
@@ -122,6 +116,7 @@ export function disposeRuleSyncMirrorForWorkspace(workspaceId: string): void {
 export function disposeAllRuleSyncMirrors(): void {
   ruleSyncMirrorRegistry.disposeAll();
 }
+
 // ── React hook ────────────────────────────────────────────────────────
 
 import { useEffect, useState } from 'react';
@@ -147,10 +142,7 @@ import { useEffect, useState } from 'react';
  * mirror directly), not `useRules()` (which would return the empty
  * default and never update).
  */
-export function useLiveRule(
-  uid: string | null | undefined,
-  workspaceId: string | null,
-): Rule | null {
+export function useLiveRule(uid: string | null | undefined, workspaceId: string | null): Rule | null {
   const [rule, setRule] = useState<Rule | null>(() => {
     if (!uid || !workspaceId) return null;
     return getRuleSyncMirrorForWorkspace(workspaceId).getRuleMirror(uid)?.rule ?? null;

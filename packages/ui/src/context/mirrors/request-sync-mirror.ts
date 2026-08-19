@@ -12,12 +12,9 @@
 
 import { REQUEST_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { Request } from '@openheaders/core/types';
-import { hostBridge } from '@openheaders/core/bridge';
-import {
-  createFlatEntityMirror,
-  type CreateFlatMirrorOptions,
-} from './flat-entity-mirror';
+import { type CreateFlatMirrorOptions, createFlatEntityMirror } from './flat-entity-mirror';
 import { createWorkspaceMirrorRegistry } from './per-workspace-mirror-registry';
+import { callSnapshotRpc } from './snapshot-rpc';
 
 export interface RequestMirrorEntry {
   request: Request;
@@ -69,7 +66,7 @@ export function createRequestSyncMirror(
         };
       },
       fetchSnapshot: async () => {
-        const resp = await hostBridge.call('oh.sync.snapshotRequests', { workspaceId });
+        const resp = await callSnapshotRpc('oh.sync.snapshotRequests', { workspaceId });
         return resp.entries.map((e) => ({
           uid: e.request.uid,
           entry: {
@@ -108,8 +105,8 @@ export function createRequestSyncMirror(
 // `oh.sync.snapshotX, { workspaceId }` (M-1). Cross-workspace
 // contamination is structurally inexpressible.
 
-const requestSyncMirrorRegistry = createWorkspaceMirrorRegistry<RequestSyncMirror>(
-  (workspaceId) => createRequestSyncMirror(workspaceId),
+const requestSyncMirrorRegistry = createWorkspaceMirrorRegistry<RequestSyncMirror>((workspaceId) =>
+  createRequestSyncMirror(workspaceId),
 );
 
 export function getRequestSyncMirrorForWorkspace(workspaceId: string): RequestSyncMirror {

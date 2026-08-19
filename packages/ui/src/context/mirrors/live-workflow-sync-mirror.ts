@@ -8,12 +8,9 @@
 
 import { LIVE_WORKFLOW_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { LiveWorkflow } from '@openheaders/core/types';
-import { hostBridge } from '@openheaders/core/bridge';
-import {
-  createFlatEntityMirror,
-  type CreateFlatMirrorOptions,
-} from './flat-entity-mirror';
+import { type CreateFlatMirrorOptions, createFlatEntityMirror } from './flat-entity-mirror';
 import { createWorkspaceMirrorRegistry } from './per-workspace-mirror-registry';
+import { callSnapshotRpc } from './snapshot-rpc';
 
 export interface LiveWorkflowMirrorEntry {
   workflow: LiveWorkflow;
@@ -48,7 +45,7 @@ export function createLiveWorkflowSyncMirror(
         return { uid, entry: { workflow: liveWorkflowPostState.workflow } };
       },
       fetchSnapshot: async () => {
-        const resp = await hostBridge.call('oh.sync.snapshotLiveWorkflows', { workspaceId });
+        const resp = await callSnapshotRpc('oh.sync.snapshotLiveWorkflows', { workspaceId });
         return resp.entries.map((e) => ({
           uid: e.workflow.uid,
           entry: { workflow: e.workflow },
@@ -81,8 +78,8 @@ export function createLiveWorkflowSyncMirror(
 // `oh.sync.snapshotX, { workspaceId }` (M-1). Cross-workspace
 // contamination is structurally inexpressible.
 
-const liveWorkflowSyncMirrorRegistry = createWorkspaceMirrorRegistry<LiveWorkflowSyncMirror>(
-  (workspaceId) => createLiveWorkflowSyncMirror(workspaceId),
+const liveWorkflowSyncMirrorRegistry = createWorkspaceMirrorRegistry<LiveWorkflowSyncMirror>((workspaceId) =>
+  createLiveWorkflowSyncMirror(workspaceId),
 );
 
 export function getLiveWorkflowSyncMirrorForWorkspace(workspaceId: string): LiveWorkflowSyncMirror {

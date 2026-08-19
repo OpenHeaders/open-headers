@@ -7,12 +7,9 @@
 
 import { TEMPLATE_FOLDER_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { Folder } from '@openheaders/core/types';
-import { hostBridge } from '@openheaders/core/bridge';
-import {
-  createFlatEntityMirror,
-  type CreateFlatMirrorOptions,
-} from './flat-entity-mirror';
+import { type CreateFlatMirrorOptions, createFlatEntityMirror } from './flat-entity-mirror';
 import { createWorkspaceMirrorRegistry } from './per-workspace-mirror-registry';
+import { callSnapshotRpc } from './snapshot-rpc';
 
 export interface TemplateFolderMirrorEntry {
   folder: Folder;
@@ -26,14 +23,8 @@ export type TemplateFolderMirrorListener = (folderUid: string) => void;
 export interface TemplateFolderSyncMirror {
   getTemplateFolderMirror(folderUid: string): TemplateFolderMirrorEntry | null;
   listTemplateFolders(): Folder[];
-  liveOrderedSetItems(
-    folderUid: string,
-    setPath: string,
-  ): Array<{ itemId: string; orderKey: string }>;
-  subscribeTemplateFolderMirror(
-    folderUid: string,
-    listener: TemplateFolderMirrorListener,
-  ): () => void;
+  liveOrderedSetItems(folderUid: string, setPath: string): Array<{ itemId: string; orderKey: string }>;
+  subscribeTemplateFolderMirror(folderUid: string, listener: TemplateFolderMirrorListener): () => void;
   subscribeAny(listener: TemplateFolderMirrorListener): () => void;
   hydrated: Promise<void>;
   dispose(): void;
@@ -63,7 +54,7 @@ export function createTemplateFolderSyncMirror(
         };
       },
       fetchSnapshot: async () => {
-        const resp = await hostBridge.call('oh.sync.snapshotTemplateFolders', { workspaceId });
+        const resp = await callSnapshotRpc('oh.sync.snapshotTemplateFolders', { workspaceId });
         return resp.entries.map((e) => ({
           uid: e.folder.uid,
           entry: { folder: e.folder, setOrderKeys: e.setOrderKeys },
@@ -97,8 +88,8 @@ export function createTemplateFolderSyncMirror(
 // `oh.sync.snapshotX, { workspaceId }` (M-1). Cross-workspace
 // contamination is structurally inexpressible.
 
-const templateFolderSyncMirrorRegistry = createWorkspaceMirrorRegistry<TemplateFolderSyncMirror>(
-  (workspaceId) => createTemplateFolderSyncMirror(workspaceId),
+const templateFolderSyncMirrorRegistry = createWorkspaceMirrorRegistry<TemplateFolderSyncMirror>((workspaceId) =>
+  createTemplateFolderSyncMirror(workspaceId),
 );
 
 export function getTemplateFolderSyncMirrorForWorkspace(workspaceId: string): TemplateFolderSyncMirror {

@@ -10,12 +10,9 @@
 
 import { REQUEST_COLLECTION_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { Collection } from '@openheaders/core/types';
-import { hostBridge } from '@openheaders/core/bridge';
-import {
-  createFlatEntityMirror,
-  type CreateFlatMirrorOptions,
-} from './flat-entity-mirror';
+import { type CreateFlatMirrorOptions, createFlatEntityMirror } from './flat-entity-mirror';
 import { createWorkspaceMirrorRegistry } from './per-workspace-mirror-registry';
+import { callSnapshotRpc } from './snapshot-rpc';
 
 export interface RequestCollectionMirrorEntry {
   collection: Collection;
@@ -31,14 +28,8 @@ export type RequestCollectionMirrorListener = (collectionUid: string) => void;
 export interface RequestCollectionSyncMirror {
   getRequestCollectionMirror(collectionUid: string): RequestCollectionMirrorEntry | null;
   listRequestCollections(): Collection[];
-  liveOrderedSetItems(
-    collectionUid: string,
-    setPath: string,
-  ): Array<{ itemId: string; orderKey: string }>;
-  subscribeRequestCollectionMirror(
-    collectionUid: string,
-    listener: RequestCollectionMirrorListener,
-  ): () => void;
+  liveOrderedSetItems(collectionUid: string, setPath: string): Array<{ itemId: string; orderKey: string }>;
+  subscribeRequestCollectionMirror(collectionUid: string, listener: RequestCollectionMirrorListener): () => void;
   subscribeAny(listener: RequestCollectionMirrorListener): () => void;
   hydrated: Promise<void>;
   dispose(): void;
@@ -69,7 +60,7 @@ export function createRequestCollectionSyncMirror(
         };
       },
       fetchSnapshot: async () => {
-        const resp = await hostBridge.call('oh.sync.snapshotRequestCollections', { workspaceId });
+        const resp = await callSnapshotRpc('oh.sync.snapshotRequestCollections', { workspaceId });
         return resp.entries.map((e) => ({
           uid: e.collection.uid,
           entry: { collection: e.collection, varUids: e.varUids, setOrderKeys: e.setOrderKeys },
@@ -103,8 +94,8 @@ export function createRequestCollectionSyncMirror(
 // `oh.sync.snapshotX, { workspaceId }` (M-1). Cross-workspace
 // contamination is structurally inexpressible.
 
-const requestCollectionSyncMirrorRegistry = createWorkspaceMirrorRegistry<RequestCollectionSyncMirror>(
-  (workspaceId) => createRequestCollectionSyncMirror(workspaceId),
+const requestCollectionSyncMirrorRegistry = createWorkspaceMirrorRegistry<RequestCollectionSyncMirror>((workspaceId) =>
+  createRequestCollectionSyncMirror(workspaceId),
 );
 
 export function getRequestCollectionSyncMirrorForWorkspace(workspaceId: string): RequestCollectionSyncMirror {

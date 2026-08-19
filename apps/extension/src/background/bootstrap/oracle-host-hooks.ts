@@ -11,6 +11,7 @@ import { seedFromWorkspaceSwitch } from '../modules/rules/rule-state-observer';
 import { getCachedTotpCodes } from '../modules/totp-scheduler';
 import { getActiveWorkspaceId, peekActiveWorkspaceId } from '../modules/workspace/workspace-store';
 import { observeForActivityFeed } from '../sync-activity-installer';
+import { isBackgroundReady } from './background-ready';
 
 // Installs the oracle's host-callback port. Must run before bootSyncEngine
 // so the first envelope finds the hooks populated.
@@ -38,6 +39,7 @@ export function installOracleHostHooks(): void {
       }),
     getActiveWorkspaceId,
     peekActiveWorkspaceId,
+    isSnapshotPlaneReady: isBackgroundReady,
     getCachedTotpCodes,
     onWorkspaceSwitched: (nextRules, pauseMarkers) => {
       seedFromWorkspaceSwitch(nextRules, pauseMarkers, getRulesPaused());

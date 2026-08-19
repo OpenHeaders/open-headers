@@ -9,12 +9,9 @@
 
 import { TEMPLATE_COLLECTION_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { Collection } from '@openheaders/core/types';
-import { hostBridge } from '@openheaders/core/bridge';
-import {
-  createFlatEntityMirror,
-  type CreateFlatMirrorOptions,
-} from './flat-entity-mirror';
+import { type CreateFlatMirrorOptions, createFlatEntityMirror } from './flat-entity-mirror';
 import { createWorkspaceMirrorRegistry } from './per-workspace-mirror-registry';
+import { callSnapshotRpc } from './snapshot-rpc';
 
 export interface TemplateCollectionMirrorEntry {
   collection: Collection;
@@ -30,14 +27,8 @@ export type TemplateCollectionMirrorListener = (collectionUid: string) => void;
 export interface TemplateCollectionSyncMirror {
   getTemplateCollectionMirror(collectionUid: string): TemplateCollectionMirrorEntry | null;
   listTemplateCollections(): Collection[];
-  liveOrderedSetItems(
-    collectionUid: string,
-    setPath: string,
-  ): Array<{ itemId: string; orderKey: string }>;
-  subscribeTemplateCollectionMirror(
-    collectionUid: string,
-    listener: TemplateCollectionMirrorListener,
-  ): () => void;
+  liveOrderedSetItems(collectionUid: string, setPath: string): Array<{ itemId: string; orderKey: string }>;
+  subscribeTemplateCollectionMirror(collectionUid: string, listener: TemplateCollectionMirrorListener): () => void;
   subscribeAny(listener: TemplateCollectionMirrorListener): () => void;
   hydrated: Promise<void>;
   dispose(): void;
@@ -68,7 +59,7 @@ export function createTemplateCollectionSyncMirror(
         };
       },
       fetchSnapshot: async () => {
-        const resp = await hostBridge.call('oh.sync.snapshotTemplateCollections', { workspaceId });
+        const resp = await callSnapshotRpc('oh.sync.snapshotTemplateCollections', { workspaceId });
         return resp.entries.map((e) => ({
           uid: e.collection.uid,
           entry: { collection: e.collection, varUids: e.varUids, setOrderKeys: e.setOrderKeys },

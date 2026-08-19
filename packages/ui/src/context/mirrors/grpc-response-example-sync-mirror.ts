@@ -6,11 +6,11 @@
  * records so there are no set-modeled paths to enumerate.
  */
 
-import { hostBridge } from '@openheaders/core/bridge';
 import { GRPC_RESPONSE_EXAMPLE_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { GrpcResponseExample } from '@openheaders/core/types';
 import { type CreateFlatMirrorOptions, createFlatEntityMirror } from './flat-entity-mirror';
 import { createWorkspaceMirrorRegistry } from './per-workspace-mirror-registry';
+import { callSnapshotRpc } from './snapshot-rpc';
 
 export interface GrpcResponseExampleMirrorEntry {
   grpcResponseExample: GrpcResponseExample;
@@ -47,7 +47,7 @@ export function createGrpcResponseExampleSyncMirror(
         return { uid, entry: { grpcResponseExample: grpcResponseExamplePostState.grpcResponseExample } };
       },
       fetchSnapshot: async () => {
-        const resp = await hostBridge.call('oh.sync.snapshotGrpcResponseExamples', { workspaceId });
+        const resp = await callSnapshotRpc('oh.sync.snapshotGrpcResponseExamples', { workspaceId });
         return resp.entries.map((e) => ({
           uid: e.grpcResponseExample.uid,
           entry: { grpcResponseExample: e.grpcResponseExample },
