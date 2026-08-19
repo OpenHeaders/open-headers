@@ -777,7 +777,8 @@ describe('peer admin plane — gated oh.daemon.* over real sockets', () => {
   it('an operator deactivates a connected directory user over the wire — tokens revoked, live socket evicted', async () => {
     const viewer = await addUserWithGrant('Bob', 'viewer');
     const port = await freePort();
-    server = await startServerWithAdminPlane(port);
+    const rig = await startServerWithAdminPlane(port);
+    server = rig;
     const operator = await connectOperator(port, 'web-operator');
     const viewerClient = await connectAs(port, viewer, 'ext-bob');
 
@@ -789,7 +790,7 @@ describe('peer admin plane — gated oh.daemon.* over real sockets', () => {
     await closed;
     // The client-side close can land before the server's own close
     // bookkeeping runs — the count converges, it isn't ordered.
-    await vi.waitFor(() => expect(server.connectedCount()).toBe(1));
+    await vi.waitFor(() => expect(rig.connectedCount()).toBe(1));
   });
 
   it('tokens.list projects the ledger to an operator — revoked rows kept, hash excluded; a directory user gets the uniform deny', async () => {
