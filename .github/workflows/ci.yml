@@ -322,6 +322,14 @@ jobs:
       - name: Allow unprivileged user namespaces for the Electron sandbox
         run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
 
+      # The desktop's TUI gate probes PATH for `oh` — without it every
+      # provisioning state collapses to the install dialog.
+      - name: Put the built oh CLI on PATH
+        run: |
+          printf '#!/bin/sh\nexec node "%s/apps/cli/dist/cli.js" "$@"\n' "$PWD" | sudo tee /usr/local/bin/oh >/dev/null
+          sudo chmod +x /usr/local/bin/oh
+          command -v oh
+
       - name: E2E — CLI provisioning (desktop + oh + pty)
         run: xvfb-run --auto-servernum pnpm --filter @openheaders/desktop exec playwright test --trace retain-on-failure tests/e2e/cli-provision.spec.ts
 
