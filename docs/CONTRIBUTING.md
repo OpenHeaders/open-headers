@@ -41,7 +41,7 @@ address.
 
 ### Report bugs
 
-[Open a bug report](https://github.com/OpenHeaders/open-headers-app/issues/new?template=bug_report.yml) with:
+[Open a bug report](https://github.com/OpenHeaders/open-headers/issues/new?template=bug_report.yml) with:
 
 - Steps to reproduce
 - Expected vs actual behavior
@@ -50,7 +50,7 @@ address.
 
 ### Propose features
 
-[Open a feature request](https://github.com/OpenHeaders/open-headers-app/issues/new?template=feature_request.yml) describing:
+[Open a feature request](https://github.com/OpenHeaders/open-headers/issues/new?template=feature_request.yml) describing:
 
 - The problem you're solving (the workflow, not just the mechanism)
 - The behavior you'd like to see
@@ -58,7 +58,7 @@ address.
 
 ### Ask questions & discuss
 
-Use [GitHub Discussions](https://github.com/OpenHeaders/open-headers-app/discussions)
+Use [GitHub Discussions](https://github.com/OpenHeaders/open-headers/discussions)
 for questions, ideas you'd like feedback on before filing an issue, and
 sharing how you use Open Headers.
 
@@ -76,8 +76,8 @@ sharing how you use Open Headers.
 ## Development setup
 
 ```bash
-git clone https://github.com/OpenHeaders/open-headers-app.git
-cd open-headers-app
+git clone https://github.com/OpenHeaders/open-headers.git
+cd open-headers
 pnpm install               # requires pnpm 10+, Node 22+
 pnpm turbo typecheck       # Typecheck all packages
 pnpm turbo test            # Run all tests

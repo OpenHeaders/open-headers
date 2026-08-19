@@ -147,7 +147,7 @@ writeFileSync(
       description: manifest.description,
       license: 'Apache-2.0',
       homepage: 'https://openheaders.io',
-      repository: { type: 'git', url: 'git+https://github.com/OpenHeaders/open-headers-app.git' },
+      repository: { type: 'git', url: 'git+https://github.com/OpenHeaders/open-headers.git' },
       type: 'module',
       main: './dist/index.js',
       types: './dist/index.d.ts',

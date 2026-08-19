@@ -7,7 +7,7 @@ body:
       value: |
         Features follow a discussion-first policy: agreement on the problem and
         behavior happens in the issue **before** any code is written. See
-        [CONTRIBUTING.md](https://github.com/OpenHeaders/open-headers-app/blob/main/docs/CONTRIBUTING.md).
+        [CONTRIBUTING.md](https://github.com/OpenHeaders/open-headers/blob/main/docs/CONTRIBUTING.md).
   - type: textarea
     id: problem
     attributes:

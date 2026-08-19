@@ -98,7 +98,7 @@ Because the software's outbound behavior is fully documented, you can verify our
 ## 11. Contact Information
 
 If you have questions about this Privacy Policy or the Open Headers project, please:
-- Create an issue at https://github.com/OpenHeaders/open-headers-app
+- Create an issue at https://github.com/OpenHeaders/open-headers
 - Email us at contact@openheaders.io
 
 We welcome feedback on both our software and our policies.

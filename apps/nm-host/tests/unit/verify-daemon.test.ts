@@ -34,8 +34,8 @@ describe('appInstallRoot', () => {
   });
 
   it('answers null for the dev layout', () => {
-    expect(appInstallRoot('/Users/dev/open-headers-app/apps/nm-host/dist-bun/oh-nm-host', 'darwin')).toBeNull();
-    expect(appInstallRoot('/Users/dev/open-headers-app/apps/nm-host/dist-bun/oh-nm-host', 'linux')).toBeNull();
+    expect(appInstallRoot('/Users/dev/open-headers/apps/nm-host/dist-bun/oh-nm-host', 'darwin')).toBeNull();
+    expect(appInstallRoot('/Users/dev/open-headers/apps/nm-host/dist-bun/oh-nm-host', 'linux')).toBeNull();
   });
 });
 
@@ -98,7 +98,7 @@ describe('verifyDaemonListener', () => {
   it('does not enforce from the dev layout', async () => {
     const verification = await verifyDaemonListener({
       port: 8137,
-      ownExecutablePath: '/Users/dev/open-headers-app/apps/nm-host/dist-bun/oh-nm-host',
+      ownExecutablePath: '/Users/dev/open-headers/apps/nm-host/dist-bun/oh-nm-host',
       platform: 'darwin',
       run: async () => {
         throw new Error('no probe should run');

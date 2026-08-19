@@ -51,8 +51,8 @@ the protocol carries its own integer version
 ### Setup
 
 ```bash
-git clone https://github.com/OpenHeaders/open-headers-app.git
-cd open-headers-app
+git clone https://github.com/OpenHeaders/open-headers.git
+cd open-headers
 pnpm install
 ```
 
@@ -144,7 +144,7 @@ pnpm --filter @openheaders/nm-host pack:bun  # Native-messaging host binary
 ## Project Structure
 
 ```
-open-headers-app/
+open-headers/
 ├── packages/
 │   ├── core/src/               Domain model: types/, protocol/, schemas/, telemetry/,
 │   │                           licensing/, sync/, variables/, vault/, import/, …
@@ -287,7 +287,7 @@ pnpm dlx @cyclonedx/cdxgen -t pnpm -t rust --no-install-deps -o sbom.cdx.json .
 
 GitHub's dependency graph also offers a zero-tooling SPDX export of
 the same dependency set:
-`gh api repos/OpenHeaders/open-headers-app/dependency-graph/sbom`.
+`gh api repos/OpenHeaders/open-headers/dependency-graph/sbom`.
 
 ### Third-party license notices
 

@@ -2,7 +2,7 @@
 
 ![Open Headers Logo](./apps/desktop/build/icon128.png)
 
-[![CI](https://github.com/OpenHeaders/open-headers-app/actions/workflows/ci.yml/badge.svg)](https://github.com/OpenHeaders/open-headers-app/actions/workflows/ci.yml)
+[![CI](https://github.com/OpenHeaders/open-headers/actions/workflows/ci.yml/badge.svg)](https://github.com/OpenHeaders/open-headers/actions/workflows/ci.yml)
 [![GitHub release](https://img.shields.io/github/v/release/OpenHeaders/open-headers)](https://github.com/OpenHeaders/open-headers/releases/latest)
 [![GitHub downloads](https://img.shields.io/github/downloads/OpenHeaders/open-headers/total)](https://github.com/OpenHeaders/open-headers/releases)
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
@@ -79,8 +79,8 @@ run their own builds in production. Prerequisites: [Node.js](https://nodejs.org/
 [pnpm](https://pnpm.io/) 10+ (`corepack enable`).
 
 ```sh
-git clone https://github.com/OpenHeaders/open-headers-app.git
-cd open-headers-app
+git clone https://github.com/OpenHeaders/open-headers.git
+cd open-headers
 pnpm install
 pnpm turbo build          # builds every package and app
 ```

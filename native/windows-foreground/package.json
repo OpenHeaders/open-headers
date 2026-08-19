@@ -12,7 +12,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/OpenHeaders/open-headers-app.git",
+    "url": "git+https://github.com/OpenHeaders/open-headers.git",
     "directory": "native/windows-foreground"
   },
   "author": "Open Headers",

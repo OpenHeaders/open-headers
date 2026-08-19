@@ -33,7 +33,7 @@ they use.
 
 ## Source
 
-Developed in the [open-headers-app](https://github.com/OpenHeaders/open-headers-app)
+Developed in the [open-headers](https://github.com/OpenHeaders/open-headers)
 monorepo alongside the apps that consume it.
 
 ## License
