@@ -561,9 +561,6 @@ export const panel = {
   'panel.tour.inspectorTabsHint': '— en-têtes, charge utile, réponse, délais et cookies',
   'panel.tour.inspectorEdit': 'Substituer',
   'panel.tour.inspectorEditHint': '— créez une règle depuis la requête sans quitter le panneau',
-  'panel.tour.matchedTitle': 'Règles de requête',
-  'panel.tour.matchedSubtitle':
-    'Quelles règles ont correspondu à la requête sélectionnée — et lesquelles se déclencheraient sur la prochaine.',
   'panel.tour.layoutTitle': 'Faites-le vôtre',
   'panel.tour.layoutSubtitle': "Les rails latéraux accueillent d'autres fenêtres d'outils.",
   'panel.tour.layoutTools': "Plus d'outils",

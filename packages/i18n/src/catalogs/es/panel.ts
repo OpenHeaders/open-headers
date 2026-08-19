@@ -572,9 +572,6 @@ export const panel = {
   'panel.tour.inspectorTabsHint': '— encabezados, carga útil, respuesta, tiempos y cookies',
   'panel.tour.inspectorEdit': 'Sustituir',
   'panel.tour.inspectorEditHint': '— crea una regla desde la solicitud sin salir del panel',
-  'panel.tour.matchedTitle': 'Reglas de solicitud',
-  'panel.tour.matchedSubtitle':
-    'Qué reglas coincidieron con la solicitud seleccionada — y cuáles se activarían en la siguiente.',
   'panel.tour.layoutTitle': 'Hazlo tuyo',
   'panel.tour.layoutSubtitle': 'Los rieles laterales alojan más ventanas de herramientas.',
   'panel.tour.layoutTools': 'Más herramientas',

@@ -47,7 +47,7 @@ describe('PanelOnboardingTour', () => {
     await waitFor(() => {
       expect(screen.getByText('Unified DevTools Experience')).toBeTruthy();
     });
-    expect(screen.getByText('Step 1 of 7')).toBeTruthy();
+    expect(screen.getByText('Step 1 of 6')).toBeTruthy();
   });
 
   it('stays hidden when the completion flag is already set', async () => {
@@ -82,15 +82,15 @@ describe('PanelOnboardingTour', () => {
   it('advances and retreats with the arrow keys', async () => {
     render(<PanelOnboardingTour open={true} onClose={() => {}} />);
     await waitFor(() => {
-      expect(screen.getByText('Step 1 of 7')).toBeTruthy();
+      expect(screen.getByText('Step 1 of 6')).toBeTruthy();
     });
     window.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight' }));
     await waitFor(() => {
-      expect(screen.getByText('Step 2 of 7')).toBeTruthy();
+      expect(screen.getByText('Step 2 of 6')).toBeTruthy();
     });
     window.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft' }));
     await waitFor(() => {
-      expect(screen.getByText('Step 1 of 7')).toBeTruthy();
+      expect(screen.getByText('Step 1 of 6')).toBeTruthy();
     });
   });
 });

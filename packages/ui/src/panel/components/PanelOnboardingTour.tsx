@@ -27,7 +27,6 @@ import {
 import { hostAssets } from '@openheaders/core/assets';
 import { hostStorage, UI } from '@openheaders/core/storage';
 import { useT } from '@openheaders/ui/context/LocaleContext';
-import { RequestRulesIcon } from '@openheaders/ui/shared/icons';
 import { Space, Tour, type TourProps, Typography } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -36,7 +35,7 @@ const logoUrl = hostAssets.resolveUrl('images/logo-pixel.svg');
 
 const { Text } = Typography;
 
-const TOTAL_STEPS = 7;
+const TOTAL_STEPS = 6;
 
 interface PanelOnboardingTourProps {
   /** null = self-gated auto-show; boolean = controlled (gear-menu replay). */
@@ -247,18 +246,6 @@ const PanelOnboardingTour: React.FC<PanelOnboardingTourProps> = ({ open, onClose
         ),
         target: () => getTarget('.rules-region-editor')!,
         placement: 'left' as const,
-        ...sharedStepProps,
-      },
-      {
-        title: (
-          <Space size={8}>
-            <RequestRulesIcon />
-            <span>{t('panel.tour.matchedTitle')}</span>
-          </Space>
-        ),
-        description: <StepDescription subtitle={t('panel.tour.matchedSubtitle')} />,
-        target: () => getTarget('.rules-dock-body[data-dock-slot="bottom-right"]')!,
-        placement: 'top' as const,
         ...sharedStepProps,
       },
       {

@@ -585,9 +585,6 @@ export const panel = {
   'panel.tour.inspectorTabsHint': '— Header, Payload, Antwort, Zeiten und Cookies',
   'panel.tour.inspectorEdit': 'Überschreiben',
   'panel.tour.inspectorEditHint': '— erstelle eine Regel aus der Anfrage, ohne das Panel zu verlassen',
-  'panel.tour.matchedTitle': 'Anfrage-Regeln',
-  'panel.tour.matchedSubtitle':
-    'Welche deiner Regeln auf die ausgewählte Anfrage gepasst haben — und welche bei der nächsten feuern würden.',
   'panel.tour.layoutTitle': 'Mach es zu deinem',
   'panel.tour.layoutSubtitle': 'Die Seitenleisten tragen weitere Werkzeugfenster.',
   'panel.tour.layoutTools': 'Mehr Werkzeuge',

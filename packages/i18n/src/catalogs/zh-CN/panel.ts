@@ -501,8 +501,6 @@ export const panel = {
   'panel.tour.inspectorTabsHint': '——标头、负载、响应、时序与 Cookie',
   'panel.tour.inspectorEdit': '覆盖',
   'panel.tour.inspectorEditHint': '——不离开面板即可从请求创建规则',
-  'panel.tour.matchedTitle': '请求规则',
-  'panel.tour.matchedSubtitle': '哪些规则匹配了所选请求——以及哪些会在下一个请求上生效。',
   'panel.tour.layoutTitle': '按你的方式布局',
   'panel.tour.layoutSubtitle': '两侧边栏承载更多工具窗口。',
   'panel.tour.layoutTools': '更多工具',

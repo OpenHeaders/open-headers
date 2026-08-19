@@ -537,9 +537,6 @@ export const panel = {
   'panel.tour.inspectorTabsHint': '— headers, payload, response, timing, and cookies',
   'panel.tour.inspectorEdit': 'Override',
   'panel.tour.inspectorEditHint': '— create a rule from the request without leaving the panel',
-  'panel.tour.matchedTitle': 'Request Rules',
-  'panel.tour.matchedSubtitle':
-    'Which of your rules matched the selected request — and which would fire on the next one.',
   'panel.tour.layoutTitle': 'Make it yours',
   'panel.tour.layoutSubtitle': 'The side rails hold more tool windows.',
   'panel.tour.layoutTools': 'More tools',
