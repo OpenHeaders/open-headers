@@ -1,6 +1,6 @@
 {
   "name": "@openheaders/nm-host",
-  "version": "2026.8.1",
+  "version": "2026.8.2",
   "private": true,
   "description": "Open Headers native-messaging bootstrap host — token handoff only, never bulk transport",
   "license": "Apache-2.0",

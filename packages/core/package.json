@@ -1,6 +1,6 @@
 {
   "name": "@openheaders/core",
-  "version": "2026.8.1",
+  "version": "2026.8.2",
   "private": true,
   "description": "OpenHeaders core domain model — types, schemas, protocol, and shared utilities",
   "license": "Apache-2.0",

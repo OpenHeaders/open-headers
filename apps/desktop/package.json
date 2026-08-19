@@ -1,6 +1,6 @@
 {
   "name": "@openheaders/desktop",
-  "version": "2026.8.1",
+  "version": "2026.8.2",
   "private": true,
   "description": "OpenHeaders desktop app",
   "homepage": "https://openheaders.com",
@@ -118,7 +118,6 @@
     "nodeGypRebuild": false,
     "buildDependenciesFromSource": false,
     "nativeRebuilder": "sequential",
-    "includeSubNodeModules": false,
     "extends": null,
     "removePackageScripts": true,
     "nsis": {
@@ -210,11 +209,13 @@
       "executableName": "open-headers",
       "maintainer": "Open Headers <contact@openheaders.com>",
       "desktop": {
-        "Name": "OpenHeaders",
-        "Comment": "OpenHeaders",
-        "Terminal": false,
-        "Categories": "Utility;Development;Network",
-        "MimeType": "x-scheme-handler/openheaders"
+        "entry": {
+          "Name": "OpenHeaders",
+          "Comment": "OpenHeaders",
+          "Terminal": false,
+          "Categories": "Utility;Development;Network",
+          "MimeType": "x-scheme-handler/openheaders"
+        }
       },
       "synopsis": "Record your browser workflow. Modify HTTP Traffic. Team Workspaces. Everything local.",
       "description": "Record your browser workflow. Modify HTTP Traffic. Team Workspaces. Everything local."
@@ -271,9 +272,11 @@
     "appImage": {
       "artifactName": "${productName}-${version}-${arch}.${ext}",
       "desktop": {
-        "Name": "OpenHeaders",
-        "Comment": "OpenHeaders",
-        "Categories": "Utility;Development;Network"
+        "entry": {
+          "Name": "OpenHeaders",
+          "Comment": "OpenHeaders",
+          "Categories": "Utility;Development;Network"
+        }
       }
     },
     "dmg": {
