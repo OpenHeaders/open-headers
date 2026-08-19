@@ -550,7 +550,7 @@ registerSetting({
 registerSetting({
   key: 'devpanelNetwork.waterfallPopoverLayout',
   type: 'enum',
-  default: 'auto',
+  default: 'vertical',
   schema: waterfallPopoverLayoutSchema,
   labelKey: 'workbench.settings.def.devpanelNetwork.waterfallPopoverLayout.label',
   descriptionKey: 'workbench.settings.def.devpanelNetwork.waterfallPopoverLayout.description',
