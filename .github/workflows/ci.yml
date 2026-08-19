@@ -10,10 +10,96 @@ on:
 permissions:
   contents: read
 
-jobs:
-  ci:
-    runs-on: ubuntu-latest
+# A newer push to the same ref supersedes the running sweep — never
+# stack two full runs.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 
+jobs:
+  # Fast tripwires: lint (warn-only until the lint-debt session),
+  # typecheck, and the i18n gates. Fails in minutes when a push is
+  # structurally broken, while the test matrix grinds in parallel.
+  gates:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22.x
+          cache: pnpm
+
+      - name: Cache Electron
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: ~/.cache/electron
+          key: electron-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: electron-${{ runner.os }}-
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint
+        run: pnpm biome check . || echo "::warning::Lint issues found — see output above"
+
+      - name: Typecheck all packages
+        run: pnpm turbo typecheck
+
+      - name: i18n hardcoded-string scan
+        run: pnpm turbo scan:i18n
+
+      - name: i18n locale-catalog lint
+        run: pnpm turbo lint:i18n-locales
+
+  # Plain-node vitest packages, serialized through turbo so suites that
+  # bind ports (daemon, web) never contend on one VM.
+  test-packages:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22.x
+          cache: pnpm
+
+      - name: Cache Electron
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: ~/.cache/electron
+          key: electron-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: electron-${{ runner.os }}-
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Test node packages
+        run: >
+          pnpm turbo test --concurrency=1
+          --filter=@openheaders/core
+          --filter=@openheaders/i18n
+          --filter=@openheaders/oracle
+          --filter=@openheaders/oracle-host-browser
+          --filter=@openheaders/nm-host
+          --filter=@openheaders/cli
+          --filter=@openheaders/daemon
+          --filter=@openheaders/web
+
+  # The two electron-as-node suites, isolated on their own VM and
+  # serialized — Electron suites flake under same-machine contention.
+  test-electron-hosts:
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -40,32 +126,76 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Lint
-        run: pnpm biome check . || echo "::warning::Lint issues found — see output above"
+      - name: Test electron hosts
+        run: >
+          pnpm turbo test --concurrency=1
+          --filter=@openheaders/oracle-host-node
+          --filter=@openheaders/desktop
 
-      - name: Typecheck all packages
-        run: pnpm turbo typecheck
+  # The extension suite's cost is per-file overhead across ~1,400 test
+  # files, so it shards near-linearly.
+  test-extension:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
-      - name: i18n hardcoded-string scan
-        run: pnpm turbo scan:i18n
+      - name: Install pnpm
+        uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
 
-      - name: i18n locale-catalog lint
-        run: pnpm turbo lint:i18n-locales
+      - name: Setup Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22.x
+          cache: pnpm
 
-      - name: Test core
-        run: |
-          echo "### Core" >> $GITHUB_STEP_SUMMARY
-          pnpm --filter @openheaders/core test -- --reporter=default --reporter=github-actions
+      - name: Cache Electron
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: ~/.cache/electron
+          key: electron-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: electron-${{ runner.os }}-
 
-      - name: Test extension
-        run: |
-          echo "### Browser Extension" >> $GITHUB_STEP_SUMMARY
-          pnpm --filter @openheaders/extension test -- --reporter=default --reporter=github-actions
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
 
-      - name: Test desktop
-        run: |
-          echo "### Desktop App" >> $GITHUB_STEP_SUMMARY
-          pnpm --filter @openheaders/desktop test -- --reporter=default --reporter=github-actions
+      - name: Test extension (shard ${{ matrix.shard }}/3)
+        run: >
+          pnpm --filter @openheaders/extension exec vitest run
+          --shard=${{ matrix.shard }}/3
+          --reporter=default --reporter=github-actions
+
+  build-e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22.x
+          cache: pnpm
+
+      - name: Cache Electron
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: ~/.cache/electron
+          key: electron-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: electron-${{ runner.os }}-
+
+      - name: Install Electron system dependencies
+        run: sudo apt-get update && sudo apt-get install -y libgtk-3-0 libnotify4 libnss3 libxss1 libasound2t64 libgbm1
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
 
       - name: Build all packages
         run: pnpm turbo build
@@ -76,9 +206,7 @@ jobs:
         run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
 
       - name: E2E — CLI provisioning (desktop + oh + pty)
-        run: |
-          echo "### E2E — CLI provisioning" >> $GITHUB_STEP_SUMMARY
-          xvfb-run --auto-servernum pnpm --filter @openheaders/desktop exec playwright test --trace retain-on-failure tests/e2e/cli-provision.spec.ts
+        run: xvfb-run --auto-servernum pnpm --filter @openheaders/desktop exec playwright test --trace retain-on-failure tests/e2e/cli-provision.spec.ts
 
       - name: Upload e2e traces on failure
         if: failure()
