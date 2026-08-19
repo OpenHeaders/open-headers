@@ -996,7 +996,12 @@ describe('ref tree (Phase 7 slice 2)', () => {
     await writeIn(repoA, 'rules/block-r0000001/rule.yaml', 'schemaVersion: 5\nuid: r0000001\n');
     await commitIn(repoA, 'Feature edit');
     await raw(repoA, 'checkout', '-q', 'main');
-    await raw(repoA, 'tag', '-a', 'v1', '-m', 'release v1');
+    // The annotated tag needs a tagger identity — the isolated runner has no
+    // config, and a bare-hostname machine (CI) refuses to fabricate one.
+    await run(['--git-dir', path.join(repoA, '.git'), '--work-tree', repoA, 'tag', '-a', 'v1', '-m', 'release v1'], {
+      cwd: repoA,
+      env: IDENTITY_ENV,
+    });
     await raw(repoA, 'remote', 'add', 'origin', bare);
     await raw(repoA, 'push', '--quiet', '-u', 'origin', 'main');
     await raw(repoA, 'push', '--quiet', 'origin', 'feature', 'v1');

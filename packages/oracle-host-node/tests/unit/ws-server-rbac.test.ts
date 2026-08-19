@@ -78,7 +78,7 @@ import {
 } from '@openheaders/oracle/workspace/extension-workspace-store';
 import { queryAuditEntries, SqliteAuditLog } from '@openheaders/oracle-host-node/sync/sqlite-audit-log';
 import type Database from 'better-sqlite3';
-import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { WebSocket } from 'ws';
 import { createAdminChannelHandlers } from '../../src/daemon/admin-channels';
 import { createAwarenessPeerFanOut } from '../../src/daemon/awareness-fan-out';
@@ -787,7 +787,9 @@ describe('peer admin plane — gated oh.daemon.* over real sockets', () => {
     const result = await callOverWire(operator, { type: 'oh.daemon.users.deactivate', userId: viewer.user.id });
     expect(result.payload?.ok).toBe(true);
     await closed;
-    expect(server.connectedCount()).toBe(1);
+    // The client-side close can land before the server's own close
+    // bookkeeping runs — the count converges, it isn't ordered.
+    await vi.waitFor(() => expect(server.connectedCount()).toBe(1));
   });
 
   it('tokens.list projects the ledger to an operator — revoked rows kept, hash excluded; a directory user gets the uniform deny', async () => {

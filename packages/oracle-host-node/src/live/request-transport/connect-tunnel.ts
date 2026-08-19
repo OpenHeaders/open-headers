@@ -161,6 +161,11 @@ export function dialConnectTunnel(target: TunnelTarget, options: TunnelDialOptio
       }
       settled = true;
       cleanup();
+      // The 'data' listener left the socket flowing — pause it, or the
+      // unshifted bytes re-emit next tick with no listener and vanish
+      // (an eager h2c server's SETTINGS frame can ride right behind the
+      // proxy's 200). The caller's target leg resumes the flow.
+      socket.pause();
       // Bytes past the header belong to the tunneled stream — push them
       // back so the caller's target leg reads them first.
       const leftover = buffered.subarray(headerEnd + 4);
