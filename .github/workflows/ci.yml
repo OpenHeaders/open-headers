@@ -191,7 +191,7 @@ jobs:
 
   build-e2e:
     runs-on: ubuntu-latest
-    timeout-minutes: 35
+    timeout-minutes: 25
     steps:
       - name: Checkout code
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -226,13 +226,12 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      # The private-repo runner is 2-core/7GB. The web and extension
-      # builds each peak ~4GB, so no two app builds fit on one box: the
-      # build runs strictly serially, with the heap cap lifted past
-      # Node's ~2GB small-machine default. Once the repo is public
-      # (4-core/16GB runners) the concurrency can come back.
+      # The web, extension, and desktop builds each peak ~4GB, so on the
+      # public 4-core/16GB runner two app builds share the box safely but
+      # three would not — and the heap cap stays lifted past Node's
+      # default so the big builds can reach their real working sets.
       - name: Build all packages
-        run: pnpm turbo build --concurrency=1
+        run: pnpm turbo build --concurrency=2
         env:
           NODE_OPTIONS: --max-old-space-size=6144
 
