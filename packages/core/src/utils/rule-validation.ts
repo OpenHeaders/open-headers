@@ -19,6 +19,7 @@ import {
 import { validateActionValues } from './action-validation';
 import { validateConditionValues, validateDomainValues } from './condition-validation';
 import { getHeaderOperationCapability } from './headers';
+import { logger } from './logger';
 import { type PauseMarkers, resolvePauseState } from './pause';
 
 /**
@@ -183,18 +184,28 @@ export function isRuleResolvable(
   // `Rule` shape in its type; safe because the walker only reads
   // `conditions` + `action.*`. Draft rules (no uid) call the same
   // walker by casting — matches how `isRuleComplete` handles drafts.
-  const strings = collectRuleTemplateStrings(rule as Rule);
+  //
   // `context` isn't consumed by `resolveTemplate` directly — the
   // lookups are expected to already be bound to the relevant context
   // (collection id, env id). We pass it through for future extension
   // where callers prefer context-aware lookups without pre-binding.
   void context;
-  for (const s of strings) {
-    if (!s) continue;
-    const { errors } = resolveTemplate(s, lookup, scopedLookup, env);
-    if (errors.length > 0) return false;
+  // Trust boundary: same contract as `isRequestResolvable` — persisted
+  // rows the renderer reads raw can be malformed (git-edited files,
+  // rows from another version); they answer "not resolvable" instead
+  // of throwing into the render path.
+  try {
+    const strings = collectRuleTemplateStrings(rule as Rule);
+    for (const s of strings) {
+      if (!s) continue;
+      const { errors } = resolveTemplate(s, lookup, scopedLookup, env);
+      if (errors.length > 0) return false;
+    }
+    return true;
+  } catch (err) {
+    logger.debug('RuleValidation', `malformed rule treated as unresolvable: ${(err as Error).message}`);
+    return false;
   }
-  return true;
 }
 
 /**

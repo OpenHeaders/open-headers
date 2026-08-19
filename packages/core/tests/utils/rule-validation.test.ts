@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { RuleCondition } from '../../src/types/rule';
+import type { Rule, RuleCondition } from '../../src/types/rule';
 import type { ResolvedVariable } from '../../src/types/variable';
 import { isRuleComplete, isRuleResolvable } from '../../src/utils/rule-validation';
 
@@ -67,7 +67,10 @@ describe('isRuleComplete', () => {
       isRuleComplete({
         ...base,
         type: 'header',
-        action: { requestHeaders: [{ uid: 'hmd00002', operation: 'override', headerName: '', value: 'true' }], responseHeaders: [] },
+        action: {
+          requestHeaders: [{ uid: 'hmd00002', operation: 'override', headerName: '', value: 'true' }],
+          responseHeaders: [],
+        },
       }),
     ).toBe(false);
   });
@@ -77,7 +80,10 @@ describe('isRuleComplete', () => {
       isRuleComplete({
         ...base,
         type: 'header',
-        action: { requestHeaders: [{ uid: 'hmd00003', operation: 'add', headerName: 'X-Debug', value: '' }], responseHeaders: [] },
+        action: {
+          requestHeaders: [{ uid: 'hmd00003', operation: 'add', headerName: 'X-Debug', value: '' }],
+          responseHeaders: [],
+        },
       }),
     ).toBe(false);
   });
@@ -87,7 +93,10 @@ describe('isRuleComplete', () => {
       isRuleComplete({
         ...base,
         type: 'header',
-        action: { requestHeaders: [{ uid: 'hmd00004', operation: 'remove', headerName: 'X-Debug' }], responseHeaders: [] },
+        action: {
+          requestHeaders: [{ uid: 'hmd00004', operation: 'remove', headerName: 'X-Debug' }],
+          responseHeaders: [],
+        },
       }),
     ).toBe(true);
   });
@@ -252,7 +261,10 @@ describe('isRuleComplete', () => {
       type: 'header' as const,
       enabled: true,
       conditions: [],
-      action: { requestHeaders: [{ uid: 'hmd00006', operation: 'override' as const, headerName: '', value: '' }], responseHeaders: [] },
+      action: {
+        requestHeaders: [{ uid: 'hmd00006', operation: 'override' as const, headerName: '', value: '' }],
+        responseHeaders: [],
+      },
     };
     expect(isRuleComplete(partial)).toBe(false);
   });
@@ -260,7 +272,11 @@ describe('isRuleComplete', () => {
   // ── Exclude conditions are valid ────────────────────────────────
 
   it('exclude condition with values is valid', () => {
-    const excludeCondition: RuleCondition = { uid: 'cnd00005', type: 'exclude-request-domains', values: ['staging.openheaders.io'] };
+    const excludeCondition: RuleCondition = {
+      uid: 'cnd00005',
+      type: 'exclude-request-domains',
+      values: ['staging.openheaders.io'],
+    };
     // Exclude alone is not useful (matches nothing to exclude from), but it's structurally complete.
     // In practice you'd pair it with a non-exclude condition.
     expect(
@@ -277,7 +293,8 @@ describe('isRuleComplete', () => {
 
   it('response-header condition with headerName is valid', () => {
     const headerCondition: RuleCondition = {
-      uid: 'cnd00006', type: 'response-header',
+      uid: 'cnd00006',
+      type: 'response-header',
       values: ['application/json'],
       headerName: 'Content-Type',
     };
@@ -382,7 +399,13 @@ describe('isRuleResolvable', () => {
 
     // `{{dynamic.X}}` with a scoped lookup that misses surfaces
     // `unset-in-scope` (unknown generator) → blocked.
-    expect(isRuleResolvable(headerWithValue('{{dynamic.notAGenerator}}'), () => null, () => null)).toBe(false);
+    expect(
+      isRuleResolvable(
+        headerWithValue('{{dynamic.notAGenerator}}'),
+        () => null,
+        () => null,
+      ),
+    ).toBe(false);
 
     // A scoped lookup that resolves (the real resolver path for a
     // known generator) unblocks the rule.
@@ -418,6 +441,34 @@ describe('isRuleResolvable', () => {
       action: { redirectTo: 'https://{{HOST}}/r' },
     };
     expect(isRuleResolvable(rule, lookupFromMap({ HOST: 'openheaders.io' }))).toBe(true);
+    expect(isRuleResolvable(rule, () => null)).toBe(false);
+  });
+});
+
+// ── isRuleResolvable — malformed persisted entities ────────────────
+//
+// Same trust-boundary contract as `isRequestResolvable`: rows the
+// renderer reads raw from host storage can be malformed (git-edited
+// files, rows from another version) and must answer "not resolvable"
+// instead of throwing into the render path.
+
+describe('isRuleResolvable — malformed entities', () => {
+  it('a rule missing conditions answers false instead of throwing', () => {
+    const rule = {
+      ...base,
+      type: 'header' as const,
+      action: { requestHeaders: [], responseHeaders: [] },
+    } as unknown as Rule;
+    delete (rule as Partial<Rule>).conditions;
+    expect(isRuleResolvable(rule, () => null)).toBe(false);
+  });
+
+  it('a query-param rule missing action.params answers false instead of throwing', () => {
+    const rule = {
+      ...base,
+      type: 'query-param' as const,
+      action: {} as unknown as Extract<Rule, { type: 'query-param' }>['action'],
+    };
     expect(isRuleResolvable(rule, () => null)).toBe(false);
   });
 });

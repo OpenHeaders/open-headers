@@ -1,5 +1,6 @@
 // ── Requests ────────────────────────────────────────────────────────
 
+import { RequestSchema } from '@openheaders/core/schemas';
 import { REQUEST_ENTITY_TYPE } from '@openheaders/core/sync';
 import {
   buildAddBatch,
@@ -21,9 +22,29 @@ import {
   getOracleForCurrentWorkspace,
   nextSwMutatorContext,
 } from '@openheaders/oracle/sync/service/accessors';
+import * as v from 'valibot';
 import { applyRequestMutationOrThrow } from './apply';
 import { deleteResponseExamplesForRequests } from './response-examples';
 import { assertLoaded, collections, loadedWorkspaceId, requests } from './state';
+
+/**
+ * Reject a malformed request at the write boundary. Callers reach this
+ * store through RPC (`createLocalRequest` forwards its seed verbatim),
+ * so an out-of-shape entity — e.g. a `form` body missing `formParts` —
+ * would otherwise persist silently; SW hydration then drops it as
+ * drift while the renderer's raw storage read still renders it, and
+ * the walkers downstream crash on the missing variant field. Mirrors
+ * `assertValidSteps` in `live-workflow-store`.
+ */
+function requestSchemaError(candidate: Request): string | null {
+  const result = v.safeParse(RequestSchema, candidate);
+  if (result.success) return null;
+  const detail = result.issues
+    .slice(0, 3)
+    .map((issue) => `${v.getDotPath(issue) ?? '(root)'}: ${issue.message}`)
+    .join('; ');
+  return `invalid request — ${detail}`;
+}
 
 /** Seed shape for a fresh request — name + minimal defaults. */
 export async function addRequest(
@@ -71,6 +92,8 @@ export async function addRequest(
     ...(seed?.preRequestScript ? { preRequestScript: seed.preRequestScript } : {}),
     ...(seed?.postResponseScript ? { postResponseScript: seed.postResponseScript } : {}),
   };
+  const schemaError = requestSchemaError(created);
+  if (schemaError) throw new Error(`addRequest: ${schemaError}`);
   await applyRequestMutationOrThrow((ctx) => buildAddBatch(created, ctx), 'addRequest');
   return created;
 }
@@ -167,13 +190,21 @@ export async function updateRequest(
   updates: Partial<Omit<Request, 'uid' | 'path' | 'schemaVersion' | 'version'>>,
 ): Promise<RequestWriteResult> {
   assertLoaded();
+  const existing = requests.find((r) => r.uid === uid);
+  if (!existing) return { ok: false, reason: 'not-found' };
+
+  // Same write-boundary schema gate as `addRequest`, applied to the
+  // post-merge shape a successful apply would converge on. Ahead of
+  // the oracle-availability check — a malformed payload is a malformed
+  // payload regardless of whether the sync service is up.
+  const schemaError = requestSchemaError({ ...existing, ...updates } as Request);
+  if (schemaError) return { ok: false, reason: 'other', message: `updateRequest: ${schemaError}` };
+
   const oracle = getOracleForCurrentWorkspace();
   const ctx = nextSwMutatorContext({ surfaceId: 'sw' });
   if (!oracle || !ctx) {
     return { ok: false, reason: 'other', message: 'sync service not initialized' };
   }
-  const existing = requests.find((r) => r.uid === uid);
-  if (!existing) return { ok: false, reason: 'not-found' };
 
   // SW-side oracle exposes `(itemId, item, key)`; adapt to the
   // `LiveSetEntries` shape (`orderKey` rename) so the diff-detect can

@@ -286,3 +286,41 @@ describe('isRequestResolvable', () => {
     ).toBe(false);
   });
 });
+
+// ── isRequestResolvable — malformed persisted entities ─────────────
+//
+// The gate runs over rows the renderer reads raw from host storage
+// (git-synced workspace files, rows written by another version). A
+// malformed row must answer "not resolvable" — never throw into the
+// render path (one bad entity used to blank the whole workbench).
+
+describe('isRequestResolvable — malformed entities', () => {
+  it('a form body missing formParts answers false instead of throwing', () => {
+    const req = makeRequest({ body: { type: 'form' } as unknown as Request['body'] });
+    expect(isRequestResolvable(req, () => null)).toBe(false);
+  });
+
+  it('a multipart body missing multipartParts answers false instead of throwing', () => {
+    const req = makeRequest({ body: { type: 'multipart' } as unknown as Request['body'] });
+    expect(isRequestResolvable(req, () => null)).toBe(false);
+  });
+
+  it('a request missing headers/params arrays answers false instead of throwing', () => {
+    const req = makeRequest();
+    delete (req as Partial<Request>).headers;
+    delete (req as Partial<Request>).params;
+    expect(isRequestResolvable(req, () => null)).toBe(false);
+  });
+
+  it('a request missing auth answers false instead of throwing', () => {
+    const req = makeRequest();
+    delete (req as Partial<Request>).auth;
+    expect(isRequestResolvable(req, () => null)).toBe(false);
+  });
+
+  it('a request missing body answers false instead of throwing', () => {
+    const req = makeRequest();
+    delete (req as Partial<Request>).body;
+    expect(isRequestResolvable(req, () => null)).toBe(false);
+  });
+});

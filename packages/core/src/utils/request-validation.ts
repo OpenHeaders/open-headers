@@ -41,6 +41,7 @@ import { collectRequestTemplateStrings } from '../live/request-scan';
 import type { Request } from '../types/request';
 import type { ResolvedVariable } from '../types/variable';
 import { type ResolutionEnvSnapshot, resolveTemplate, type ScopedLookupFn } from '../variables';
+import { logger } from './logger';
 
 /**
  * Returns `true` when the request has the minimum fields the executor
@@ -137,13 +138,25 @@ export function isRequestResolvable(
   // `collectRequestTemplateStrings` types on the uid/path-bearing Request;
   // safe for drafts since the walker only reads `url` + `params` + `headers`
   // + `auth.*` + `body.*`.
-  const strings = collectRequestTemplateStrings(request as Request);
-  for (const s of strings) {
-    if (!s) continue;
-    const { errors } = resolveTemplate(s, lookup, scopedLookup, env);
-    if (errors.length > 0) return false;
+  //
+  // Trust boundary: this gate runs over PERSISTED entities the renderer
+  // reads raw from host storage (git-synced workspace files, rows
+  // written by another version). A malformed row — e.g. a `form` body
+  // missing `formParts` — must answer "not resolvable" (greyed row,
+  // Send gated), never throw into the render path and take the whole
+  // workbench down with it.
+  try {
+    const strings = collectRequestTemplateStrings(request as Request);
+    for (const s of strings) {
+      if (!s) continue;
+      const { errors } = resolveTemplate(s, lookup, scopedLookup, env);
+      if (errors.length > 0) return false;
+    }
+    return true;
+  } catch (err) {
+    logger.debug('RequestValidation', `malformed request treated as unresolvable: ${(err as Error).message}`);
+    return false;
   }
-  return true;
 }
 
 export function requestIncompleteReason(
