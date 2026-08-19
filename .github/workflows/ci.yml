@@ -203,9 +203,11 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       # The web build peaks ~4GB heap — right at Node's default cap on a
-      # 16GB runner — so give the build processes headroom.
+      # 16GB runner — so the builds get headroom, and the app layer is
+      # capped to two at a time: three headroom-sized builds in parallel
+      # exhaust the VM's physical memory and the runner kills the job.
       - name: Build all packages
-        run: pnpm turbo build
+        run: pnpm turbo build --concurrency=2
         env:
           NODE_OPTIONS: --max-old-space-size=6144
 
