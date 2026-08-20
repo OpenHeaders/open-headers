@@ -225,7 +225,7 @@ jobs:
           OHD_VERSION=$(node -p "require('./apps/daemon/package.json').version")
           IMAGE=ghcr.io/openheaders/ohd
 
-          docker build -t "$IMAGE:$OHD_VERSION" apps/daemon
+          docker build --build-arg OHD_VERSION="$OHD_VERSION" -t "$IMAGE:$OHD_VERSION" apps/daemon
           docker run --rm "$IMAGE:$OHD_VERSION" --version
 
           CONTAINER=$(docker run -d -p 18637:8137 "$IMAGE:$OHD_VERSION")

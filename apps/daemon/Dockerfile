@@ -7,9 +7,12 @@ FROM ubuntu:24.04
 
 # ghcr links the package to this repo (and shows its README) — the
 # public release home, not the repo the workflow ran in.
+ARG OHD_VERSION=dev
 LABEL org.opencontainers.image.source=https://github.com/OpenHeaders/open-headers
 LABEL org.opencontainers.image.description="OpenHeaders - Team Server Daemon (ohd)"
-LABEL org.opencontainers.image.licenses=LicenseRef-Proprietary
+LABEL org.opencontainers.image.licenses=Apache-2.0
+# Without this the label is inherited from the ubuntu base (24.04).
+LABEL org.opencontainers.image.version=$OHD_VERSION
 
 # ca-certificates: the daemon fetches HTTP(S) sources at refresh time.
 RUN apt-get update \
