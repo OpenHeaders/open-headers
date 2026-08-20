@@ -1,3 +1,9 @@
 packages:
   - 'apps/*'
   - 'packages/*'
+
+# Supply-chain cooldown: refuse versions published within the last
+# 7 days — compromised npm releases are typically yanked well inside
+# that window. Adopt a fresher version consciously via
+# minimumReleaseAgeExclude, never by default.
+minimumReleaseAge: 10080
