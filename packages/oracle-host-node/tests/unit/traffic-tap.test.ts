@@ -677,7 +677,7 @@ describe('traffic tap — recording sessions (S7, rebuilt on the C3 archive)', (
       .map((line) => JSON.parse(line));
   }
 
-  it('refuses unknown sources, hosts without an archive, and doubled starts', () => {
+  it('refuses unknown sources, hosts without an archive, and doubled starts', async () => {
     const dialer = installLoopbackLifelineDialer();
     const mirror = createTrafficPartitionMirror({ dialer });
     const store = new RequestLifecycleStore();
@@ -695,6 +695,12 @@ describe('traffic tap — recording sessions (S7, rebuilt on the C3 archive)', (
     const first = tap.captureStart(uid, { name: 'one' });
     expect(first.ok).toBe(true);
     expect(tap.captureStart(uid, { name: 'two' })).toEqual({ ok: false, reason: 'capture-active' });
+
+    // Quiesce before teardown — afterEach removes the archive dir.
+    tap.captureStop(uid);
+    await vi.waitFor(() => {
+      expect(tap.captureSessions()[0]?.state).toBe('sealed');
+    });
 
     tap.dispose();
     relay.uninstall();
@@ -798,7 +804,7 @@ describe('traffic tap — recording sessions (S7, rebuilt on the C3 archive)', (
     proxyHub.dispose();
   });
 
-  it('an active recording holds the arm; the idle clock restarts when the session ends', () => {
+  it('an active recording holds the arm; the idle clock restarts when the session ends', async () => {
     vi.useFakeTimers();
     const dialer = installLoopbackLifelineDialer();
     const mirror = createTrafficPartitionMirror({ dialer });
@@ -822,6 +828,11 @@ describe('traffic tap — recording sessions (S7, rebuilt on the C3 archive)', (
     vi.advanceTimersByTime(5_001 + 30_000);
     expect(tap.status()).toEqual([]);
     expect(relay.disconnects).toEqual([7]);
+
+    // Quiesce before teardown — afterEach removes the archive dir.
+    await vi.waitFor(() => {
+      expect(tap.captureSessions()[0]?.state).toBe('sealed');
+    });
 
     tap.dispose();
     relay.uninstall();
@@ -861,7 +872,7 @@ describe('traffic tap — recording sessions (S7, rebuilt on the C3 archive)', (
     proxyHub.dispose();
   });
 
-  it('pulls every response body at completion on debug-fed partitions — and skips the heuristic plane', () => {
+  it('pulls every response body at completion on debug-fed partitions — and skips the heuristic plane', async () => {
     const dialer = installLoopbackLifelineDialer();
     const mirror = createTrafficPartitionMirror({ dialer });
     const store = new RequestLifecycleStore();
@@ -930,6 +941,12 @@ describe('traffic tap — recording sessions (S7, rebuilt on the C3 archive)', (
       { kind: 'request-body', requestId: 'c-2', hopIndex: 1 },
     ]);
 
+    // Quiesce before teardown — afterEach removes the archive dir.
+    tap.captureStop(uid);
+    await vi.waitFor(() => {
+      expect(tap.captureSessions()[0]?.state).toBe('sealed');
+    });
+
     tap.dispose();
     relay.uninstall();
     proxyHub.dispose();
@@ -951,7 +968,7 @@ describe('traffic tap — status-change invalidation feed', () => {
     fs.rmSync(archiveDir, { recursive: true, force: true });
   });
 
-  it('fires post-commit on arm, capture start/stop, and disarm — never on reads or idempotent re-arms', () => {
+  it('fires post-commit on arm, capture start/stop, and disarm — never on reads or idempotent re-arms', async () => {
     const dialer = installLoopbackLifelineDialer();
     const mirror = createTrafficPartitionMirror({ dialer });
     const store = new RequestLifecycleStore();
@@ -993,6 +1010,13 @@ describe('traffic tap — status-change invalidation feed', () => {
     unsubscribe();
     tap.armProxy();
     expect(ticks).toBe(4);
+
+    // Quiesce before teardown (after unsubscribe — the seal's own
+    // status tick must not enter the count): afterEach removes the
+    // archive dir.
+    await vi.waitFor(() => {
+      expect(tap.captureSessions()[0]?.state).toBe('sealed');
+    });
 
     tap.dispose();
     relay.uninstall();

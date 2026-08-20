@@ -304,9 +304,13 @@ export async function sealSessionLog(
   return framed.byteLength;
 }
 
+/** Concurrent rewrites (the live cadence vs the trailer's) must never
+ *  share a tmp name — the loser's rename would ENOENT. */
+let metaTmpSeq = 0;
+
 export async function writeSessionMeta(dir: string, meta: TrafficSessionMeta): Promise<void> {
   const metaPath = path.join(dir, SESSION_META_FILE);
-  const tmp = `${metaPath}.${process.pid}.tmp`;
+  const tmp = `${metaPath}.${process.pid}.${++metaTmpSeq}.tmp`;
   await fsp.writeFile(tmp, JSON.stringify(meta), 'utf8');
   await fsp.rename(tmp, metaPath);
 }
@@ -570,11 +574,16 @@ export function startTrafficSessionRecording(options: TrafficSessionRecorderOpti
         }
         fs.closeSync(eventsFd);
         fs.closeSync(manifestFd);
-        persistMeta();
+        // Awaited, unlike the live-cadence rewrites: `sealed` below is
+        // the projection's quiescence signal — once a reader observes
+        // it, no write of this session's may still be in flight.
+        await writeSessionMeta(options.dir, currentMeta()).catch((err) => {
+          logger.warn(SCOPE, `session ${options.sessionId} meta write failed: ${(err as Error).message}`);
+        });
         try {
           const sealedBytes = await sealSessionLog(options.dir, options.sealKey, { events, requests });
+          await writeSessionMeta(options.dir, { ...currentMeta(), state: 'sealed', sealedBytes });
           state = 'sealed';
-          await writeSessionMeta(options.dir, { ...currentMeta(), sealedBytes });
         } catch (err) {
           // The plain log stays on disk — nothing recorded is lost; the
           // archive's boot recovery re-attempts the seal.
