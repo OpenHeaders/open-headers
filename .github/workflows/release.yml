@@ -1046,7 +1046,7 @@ jobs:
           REPO="$RELEASE_REPO"
 
           DL="${{ steps.dl_base.outputs.url }}"
-          ICONS="https://raw.githubusercontent.com/${REPO}/main/assets"
+          ICONS="https://raw.githubusercontent.com/${REPO}/main/docs/assets"
           SUMS_LINE="Checksums: [SHA256SUMS.txt](${DL}/SHA256SUMS.txt)"
           if [ -f processed_files/SHA256SUMS.txt.asc ]; then
             SUMS_LINE="${SUMS_LINE} · [GPG signature](${DL}/SHA256SUMS.txt.asc) · [signing key](https://openheaders.com/gpg)"
@@ -1062,7 +1062,7 @@ jobs:
             echo '' >> release_body.md
           fi
 
-          # Brand icons live in the releases repo's assets/ directory —
+          # Brand icons live in this repo's docs/assets/ directory —
           # markdown img tags are the only way GitHub renders svg in a
           # release body.
           icon() { echo "<img src=\"${ICONS}/$1.svg\" width=\"16\" align=\"center\">"; }
