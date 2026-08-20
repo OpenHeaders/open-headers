@@ -14,7 +14,11 @@ Email **security@openheaders.com** with:
 - steps to reproduce (a proof of concept helps but is not required),
 - the affected component and version.
 
-Please use email rather than public issue trackers for anything
+Alternatively, use GitHub's
+[private vulnerability reporting](https://github.com/OpenHeaders/open-headers/security/advisories/new)
+for this repository — both channels reach the maintainer directly.
+
+Please use one of these rather than public issue trackers for anything
 exploitable. If the report contains sensitive details, ask for an
 encrypted channel in a first plain email and we will arrange one.
 
@@ -29,6 +33,12 @@ encrypted channel in a first plain email and we will arrange one.
   never restarted to apply one without your action).
 
 We do not operate a paid bounty program at this time.
+
+## Supported versions
+
+Releases are CalVer (`YYYY.M.PATCH`) and roll forward: security fixes
+ship in the next release rather than as backports, so only the latest
+release of each component is supported.
 
 ## Verifying releases
 
