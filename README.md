@@ -8,7 +8,7 @@
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Windows%20%7C%20Linux-blue)]()
 
-Your existing Web DevToolkit inside a browser extension — modify live
+Open Source DevToolkit inside a browser extension — modify live
 browser requests, manage API collections, collaborate with your team.
 
 Local-first: no account, no cloud, your data stays on your machine.

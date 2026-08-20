@@ -2,7 +2,7 @@
 
 ![Open Headers Logo](./src/assets/images/icon128.png)
 
-Your existing Web DevToolkit inside a browser extension — modify live
+Open Source DevToolkit inside a browser extension — modify live
 browser requests, manage API collections, collaborate with your team.
 
 Local-first: no account, no cloud, your data stays on your machine.

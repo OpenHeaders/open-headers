@@ -4,7 +4,7 @@
     "description": "Extension name shown in the browser and web stores. Brand name — identical in every locale."
   },
   "extDesc": {
-    "message": "Your existing Web DevToolkit, inside a browser extension. Modify live browser requests. Manage API Collections. Team Collaboration.",
+    "message": "Open Source DevToolkit, inside a browser extension. Modify live browser requests. Manage API Collections. Team Collaboration.",
     "description": "Extension description shown in the browser and web stores. Hard limit 132 characters (Chrome)."
   }
 }

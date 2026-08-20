@@ -4,7 +4,7 @@ The [Open Headers](https://openheaders.com) domain model — types, valibot
 schemas, wire protocol, and shared utilities used by every Open Headers
 app (browser extension, desktop app, server, CLI).
 
-Open Headers is your existing Web DevToolkit inside a browser extension —
+Open Headers is an Open Source DevToolkit inside a browser extension —
 modify live browser requests, manage API collections, collaborate with
 your team. Local-first: no account, no cloud, your data stays on your
 machine.
