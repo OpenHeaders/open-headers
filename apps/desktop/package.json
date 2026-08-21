@@ -27,11 +27,11 @@
     "predist": "pnpm run build && node scripts/build/compile-license-bytecode.js && pnpm run build:web-bundle && node ../../scripts/generate-third-party-notices.mjs --out apps/desktop/dist-webpack/THIRD-PARTY-NOTICES.txt apps/desktop apps/web apps/nm-host",
     "dist": "electron-builder --publish never",
     "dist:all": "pnpm run predist && electron-builder -mwl --x64 --arm64 --publish never",
-    "dist:mac": "pnpm run predist && electron-builder --mac --publish never",
+    "dist:mac": "pnpm run predist && electron-builder --mac --x64 --arm64 --publish never",
     "dist:mac:arm64": "pnpm run predist && electron-builder --mac --arm64 --publish never",
     "dist:mac:x64": "pnpm run predist && electron-builder --mac --x64 --publish never",
     "dist:mac:beta": "pnpm run predist && electron-builder --mac dmg zip --arm64 -c.compression=store --publish never",
-    "dist:mac:unsigned": "pnpm run predist && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --mac --publish never",
+    "dist:mac:unsigned": "pnpm run predist && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --mac --x64 --arm64 --publish never",
     "dist:mac:unsigned:arm64": "pnpm run predist && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --mac --arm64 --config.mac.target=dmg --publish never",
     "dist:win": "pnpm run predist && electron-builder --win --publish never",
     "dist:win:unsigned": "pnpm run predist && cross-env WIN_CSC_LINK='' OH_WIN_SETUP_UNSIGNED=1 electron-builder --win --publish never",
@@ -176,27 +176,9 @@
         ]
       },
       "target": [
-        {
-          "target": "dmg",
-          "arch": [
-            "x64",
-            "arm64"
-          ]
-        },
-        {
-          "target": "zip",
-          "arch": [
-            "x64",
-            "arm64"
-          ]
-        },
-        {
-          "target": "pkg",
-          "arch": [
-            "x64",
-            "arm64"
-          ]
-        }
+        "dmg",
+        "zip",
+        "pkg"
       ],
       "artifactName": "${productName}-${version}-mac-${arch}.${ext}"
     },
