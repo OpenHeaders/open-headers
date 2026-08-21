@@ -1,12 +1,16 @@
 #!/bin/bash
-# Removes the apt repository registration the postinst wrote. dpkg
-# invokes postrm on upgrades too — only remove/purge deregister, so an
-# upgrade keeps updates flowing (the new postinst rewrites the entry).
+# Removes the apt repository registration and the /usr/bin symlink the
+# postinst wrote. dpkg invokes postrm on upgrades too — only
+# remove/purge clean up, so an upgrade keeps updates flowing (the new
+# postinst rewrites the entry).
 
 case "$1" in
   remove|purge)
     rm -f /etc/apt/sources.list.d/openheaders.list
     rm -f /usr/share/keyrings/openheaders-archive-keyring.asc
+    if [ "$(readlink /usr/bin/open-headers)" = "/opt/OpenHeaders/open-headers" ]; then
+      rm -f /usr/bin/open-headers
+    fi
     ;;
 esac
 

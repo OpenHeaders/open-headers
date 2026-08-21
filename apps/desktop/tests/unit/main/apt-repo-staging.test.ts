@@ -204,6 +204,7 @@ describe('debian repo registration scripts', () => {
     expect(postinst).toContain('OPENHEADERS_ADD_REPO');
     expect(postrm).toContain('/etc/apt/sources.list.d/openheaders.list');
     expect(postrm).toContain('/usr/share/keyrings/openheaders-archive-keyring.asc');
+    expect(postrm).toContain('rm -f /usr/bin/open-headers');
   });
 
   it('deb scripts carry no dollar-brace tokens (electron-builder fpm templating treats them as macros)', () => {
