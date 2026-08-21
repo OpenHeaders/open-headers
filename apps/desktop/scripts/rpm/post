@@ -8,8 +8,11 @@ if [ -e "/opt/OpenHeaders/chrome-sandbox" ]; then
   echo "Chrome sandbox permissions fixed"
 fi
 
-# Create symlink in /usr/bin for command-line access
-if [ -e "/opt/OpenHeaders/open-headers" ] && [ ! -e "/usr/bin/open-headers" ]; then
+# Create symlink in /usr/bin for command-line access. Unconditional:
+# rpm runs this post BEFORE the outgoing version's postun on upgrades,
+# so guarding on existence skips while the old package's scriptlet
+# still tears its alternatives-managed link down afterwards.
+if [ -e "/opt/OpenHeaders/open-headers" ]; then
   ln -sf "/opt/OpenHeaders/open-headers" "/usr/bin/open-headers"
   echo "Command-line access enabled: created symlink in /usr/bin"
 fi

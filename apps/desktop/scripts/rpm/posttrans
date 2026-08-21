@@ -1,0 +1,14 @@
+#!/bin/bash
+# Runs after the WHOLE rpm transaction — including the outgoing
+# version's postun on upgrades. Packages predating the hand-written
+# scriptlets removed /usr/bin/open-headers via update-alternatives in
+# their postun, which runs after our post; re-asserting the symlink
+# here is the only stage that survives that teardown. Keep this
+# dollar-brace-free: fpm maintainer scripts must never carry brace
+# tokens (guarded by a unit test).
+
+if [ -e "/opt/OpenHeaders/open-headers" ]; then
+  ln -sf "/opt/OpenHeaders/open-headers" "/usr/bin/open-headers"
+fi
+
+exit 0

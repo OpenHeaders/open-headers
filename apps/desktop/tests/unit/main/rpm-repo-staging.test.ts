@@ -187,15 +187,21 @@ describe('rpm repo registration scripts', () => {
   });
 
   it('rpm scripts carry no dollar-brace tokens (electron-builder fpm templating treats them as macros)', () => {
-    for (const script of ['post', 'postun']) {
+    for (const script of ['post', 'postun', 'posttrans']) {
       const text = readFileSync(path.join(RPM_DIR, script), 'utf8');
       expect(text, `${script} would fail FpmTarget macro substitution`).not.toMatch(/\$\{[a-zA-Z]+\}/);
     }
+  });
+
+  it('posttrans re-asserts the symlink after the outgoing postun (crossgrade teardown survives)', () => {
+    const posttrans = readFileSync(path.join(RPM_DIR, 'posttrans'), 'utf8');
+    expect(posttrans).toContain('ln -sf "/opt/OpenHeaders/open-headers" "/usr/bin/open-headers"');
   });
 
   it('electron-builder wires the rpm scripts', () => {
     const pkg = JSON.parse(readFileSync(path.resolve(__dirname, '../../../package.json'), 'utf8'));
     expect(pkg.build.rpm.afterInstall).toBe('./scripts/rpm/post');
     expect(pkg.build.rpm.afterRemove).toBe('./scripts/rpm/postun');
+    expect(pkg.build.rpm.fpm).toContain('--rpm-posttrans=scripts/rpm/posttrans');
   });
 });

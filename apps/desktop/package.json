@@ -255,7 +255,8 @@
         "--rpm-os=linux",
         "--rpm-rpmbuild-define=_binary_payload w2.xzdio",
         "--rpm-rpmbuild-define=_binary_filedigest_algorithm 2",
-        "--rpm-rpmbuild-define=_source_filedigest_algorithm 2"
+        "--rpm-rpmbuild-define=_source_filedigest_algorithm 2",
+        "--rpm-posttrans=scripts/rpm/posttrans"
       ],
       "afterInstall": "./scripts/rpm/post",
       "afterRemove": "./scripts/rpm/postun"
