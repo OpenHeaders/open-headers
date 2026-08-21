@@ -1,0 +1,15 @@
+#!/bin/bash
+# Removes the dnf repository registration and the /usr/bin symlink the
+# post script wrote. rpm runs postun on upgrades too, passing the count
+# of installs left — only 0 (erase) cleans up, so an upgrade keeps
+# updates flowing (the new post rewrites the entry).
+
+if [ "$1" = "0" ]; then
+  rm -f /etc/yum.repos.d/openheaders.repo
+  rm -f /etc/pki/rpm-gpg/RPM-GPG-KEY-openheaders
+  if [ "$(readlink /usr/bin/open-headers)" = "/opt/OpenHeaders/open-headers" ]; then
+    rm -f /usr/bin/open-headers
+  fi
+fi
+
+exit 0

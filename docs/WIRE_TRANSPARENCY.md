@@ -115,19 +115,24 @@ their owning channel updates them.
   and `OH_NO_UPDATE_CHECK`. Daemon: unattended mode stays off unless
   `updates.autoUpdate` is explicitly enabled.
 
-Linux deb installs are the one case where the update traffic is the
-system's, not the app's: installing the deb registers the OpenHeaders
-apt repository (`/etc/apt/sources.list.d/openheaders.list`), so your
-package manager's own `apt update` fetches the signed repository
-indexes (`dists/…/InRelease`, `Packages`) and any upgrade's `.deb` from
-`https://updates.openheaders.com/apt/<channel>/` on the schedule your
-system already uses — the app never downloads or installs an update
-itself there. These are plain `GET`s of static files, verified against
-the archive signing key the package installs to
-`/usr/share/keyrings/openheaders-archive-keyring.asc`. Opt out of the
+Linux deb/rpm installs are the one case where the update traffic is
+the system's, not the app's: installing the package registers the
+OpenHeaders repository — apt via
+`/etc/apt/sources.list.d/openheaders.list`, dnf via
+`/etc/yum.repos.d/openheaders.repo` — so your package manager's own
+`apt update` / `dnf check-update` fetches the signed repository
+indexes (`dists/…/InRelease` and `Packages`, or `repodata/repomd.xml`
+with its detached signature) and any upgrade's package from
+`https://updates.openheaders.com/apt/<channel>/` or `…/rpm/<channel>/`
+on the schedule your system already uses — the app never downloads or
+installs an update itself there. These are plain `GET`s of static
+files, verified against the archive signing key the package installs
+to `/usr/share/keyrings/openheaders-archive-keyring.asc` (deb) or
+`/etc/pki/rpm-gpg/RPM-GPG-KEY-openheaders` (rpm). Opt out of the
 registration by creating `/etc/default/openheaders` with
 `OPENHEADERS_ADD_REPO="false"` before installing, or remove the
-sources entry afterwards; uninstalling the package removes both files.
+repository entry afterwards; uninstalling the package removes both
+files.
 
 The app's own traffic on deb/rpm installs is check-and-notify only:
 the daily check `GET`s the static

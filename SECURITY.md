@@ -57,10 +57,11 @@ gpg --verify SHA256SUMS.txt.asc SHA256SUMS.txt
 shasum -a 256 --check --ignore-missing SHA256SUMS.txt
 ```
 
-The Linux apt repository is signed by a dedicated archive key —
-separate from the release key so neither compromise reaches the other.
-It is served at <https://updates.openheaders.com/apt/key.asc> and
-embedded in the deb package's repository registration:
+The Linux apt and rpm repositories are signed by a dedicated archive
+key — separate from the release key so neither compromise reaches the
+other. It is served at <https://updates.openheaders.com/apt/key.asc>
+(also at `rpm/key.asc`) and embedded in each package's repository
+registration:
 
 - **User ID:** `OpenHeaders APT Archive <security@openheaders.com>`
 - **Fingerprint:** `D30B 4A7D DFD7 EFB4 791F FA83 2FA9 BADD E184 32B0`

@@ -1,0 +1,69 @@
+#!/bin/bash
+# Fixes Chrome sandbox permissions and creates necessary symlinks
+
+# Set the correct permissions for the Chrome sandbox
+if [ -e "/opt/OpenHeaders/chrome-sandbox" ]; then
+  chown root:root "/opt/OpenHeaders/chrome-sandbox"
+  chmod 4755 "/opt/OpenHeaders/chrome-sandbox"
+  echo "Chrome sandbox permissions fixed"
+fi
+
+# Create symlink in /usr/bin for command-line access
+if [ -e "/opt/OpenHeaders/open-headers" ] && [ ! -e "/usr/bin/open-headers" ]; then
+  ln -sf "/opt/OpenHeaders/open-headers" "/usr/bin/open-headers"
+  echo "Command-line access enabled: created symlink in /usr/bin"
+fi
+
+# Update desktop database
+if command -v update-desktop-database >/dev/null 2>&1; then
+  update-desktop-database
+fi
+
+# Register the OpenHeaders dnf repository so updates arrive with the
+# system's regular package updates. Opt out by creating
+# /etc/default/openheaders with OPENHEADERS_ADD_REPO="false" before
+# installing. The embedded key must stay byte-identical to
+# openheaders-archive-keyring.asc in scripts/debian — the repository
+# metadata is signed by that key (guarded by a unit test).
+# electron-builder templates this script at package time and treats
+# every dollar-brace token in the source — comments included — as a
+# macro to substitute, failing the build on unknown names: never write
+# brace-expanded variables here (also guarded by a unit test).
+OPENHEADERS_ADD_REPO="true"
+if [ -f /etc/default/openheaders ]; then
+  . /etc/default/openheaders
+fi
+if [ "$OPENHEADERS_ADD_REPO" != "false" ]; then
+  # During an upgrade both versions sit in the rpm database while this
+  # runs — the newest install is the first --last line.
+  PKG="$(rpm -q --last open-headers 2>/dev/null | head -n 1)"
+  case "$PKG" in
+    *beta*) CHANNEL="beta" ;;
+    *) CHANNEL="stable" ;;
+  esac
+  mkdir -p /etc/pki/rpm-gpg /etc/yum.repos.d
+  cat > /etc/pki/rpm-gpg/RPM-GPG-KEY-openheaders <<'ARCHIVE_KEY'
+-----BEGIN PGP PUBLIC KEY BLOCK-----
+
+mDMEaogaWxYJKwYBBAHaRw8BAQdAP2jozFArXvhNOLwuXBheGyHYmBM/Dzykn8BJ
+TSL3Y0K0Mk9wZW5IZWFkZXJzIEFQVCBBcmNoaXZlIDxzZWN1cml0eUBvcGVuaGVh
+ZGVycy5jb20+iK8EExYKAFcWIQTTC0p939fvtHkf+oMvqbrd4YQysAUCaogaWxsU
+gAAAAAAEAA5tYW51MiwyLjUrMS4xMiwwLDMCGwMFCwkIBwICIgIGFQoJCAsCBBYC
+AwECHgcCF4AACgkQL6m63eGEMrBglAEA/qHLhnnlozecqHMquH1ErvMFbYQwbXL4
+s8kXLLSqbiEBAIX3E4Oqu/o9kCVyh1lpY62GeGCQpNoEcZD67NiG/OcJ
+=UGIp
+-----END PGP PUBLIC KEY BLOCK-----
+ARCHIVE_KEY
+  cat > /etc/yum.repos.d/openheaders.repo <<REPO_FILE
+[openheaders]
+name=OpenHeaders ($CHANNEL)
+baseurl=https://updates.openheaders.com/rpm/$CHANNEL
+enabled=1
+gpgcheck=0
+repo_gpgcheck=1
+gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-openheaders
+REPO_FILE
+  echo "Registered the OpenHeaders dnf repository ($CHANNEL channel)"
+fi
+
+exit 0

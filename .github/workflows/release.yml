@@ -1311,6 +1311,19 @@ jobs:
           APT_GPG_PRIVATE_KEY: ${{ secrets.APT_GPG_PRIVATE_KEY }}
           APT_GPG_PASSPHRASE: ${{ secrets.APT_GPG_PASSPHRASE }}
 
+      # The signed rpm/dnf repository — the second Linux leg, same
+      # posture as apt: staged into the same tree, repomd.xml signed
+      # in-lane with the same DEDICATED archive key, missing secrets or
+      # missing rpm artifacts degrade to "rpm tree unchanged".
+      # createrepo_c reads the rpm headers and writes repodata/.
+      - name: Stage rpm repository
+        run: |
+          sudo apt-get update && sudo apt-get install -y createrepo-c
+          node scripts/generate-rpm-repo.mjs "$GITHUB_REF_NAME" processed_files feed
+        env:
+          APT_GPG_PRIVATE_KEY: ${{ secrets.APT_GPG_PRIVATE_KEY }}
+          APT_GPG_PASSPHRASE: ${{ secrets.APT_GPG_PASSPHRASE }}
+
       # Changelog feed objects (the changelog plan §4.1) stage into the
       # same tree the pointer upload walks. The previously published
       # index is merged in fail-open — it may carry rows for entry-less
@@ -1352,6 +1365,8 @@ jobs:
               *.webp) TYPE="image/webp" ;;
               *.png)  TYPE="image/png" ;;
               *.deb)  TYPE="application/vnd.debian.binary-package" ;;
+              *.rpm)  TYPE="application/x-rpm" ;;
+              *.xml)  TYPE="text/xml; charset=utf-8" ;;
               *.gz)   TYPE="application/gzip" ;;
               *.gpg)  TYPE="application/pgp-signature" ;;
               */Release|*/InRelease|*/Packages) TYPE="text/plain; charset=utf-8" ;;
@@ -1359,10 +1374,15 @@ jobs:
             esac
             # Short cache so a fresh release is visible within minutes
             # of the pointer upload — clients check at most daily.
-            # Changelog assets, per-beta snapshots, and apt pool debs
-            # never change once shipped — those cache as immutable.
+            # Changelog assets, per-beta snapshots, apt pool debs, rpm
+            # pool rpms, and the hash-prefixed repodata indexes never
+            # change once shipped — those cache as immutable. repomd.xml
+            # (and its signature) is the one mutable rpm index name, so
+            # it stays on the short-cache default.
             case "$KEY" in
-              changelog/assets/*|changelog/*-beta.*.json|apt/*/pool/*)
+              rpm/*/repodata/repomd.xml*)
+                CACHE="public, max-age=300, must-revalidate" ;;
+              changelog/assets/*|changelog/*-beta.*.json|apt/*/pool/*|rpm/*/Packages/*|rpm/*/repodata/*)
                 CACHE="public, max-age=31536000, immutable" ;;
               *)
                 CACHE="public, max-age=300, must-revalidate" ;;
