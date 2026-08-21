@@ -57,9 +57,17 @@ gpg --verify SHA256SUMS.txt.asc SHA256SUMS.txt
 shasum -a 256 --check --ignore-missing SHA256SUMS.txt
 ```
 
-The fingerprint here and the one on <https://openheaders.com/gpg> must
-agree; if they ever disagree, trust neither and report it. Installers
-carry platform trust roots on top: Windows artifacts are
+The Linux apt repository is signed by a dedicated archive key —
+separate from the release key so neither compromise reaches the other.
+It is served at <https://updates.openheaders.com/apt/key.asc> and
+embedded in the deb package's repository registration:
+
+- **User ID:** `OpenHeaders APT Archive <security@openheaders.com>`
+- **Fingerprint:** `D30B 4A7D DFD7 EFB4 791F FA83 2FA9 BADD E184 32B0`
+
+The fingerprints here and the ones on <https://openheaders.com/gpg>
+must agree; if they ever disagree, trust neither and report it.
+Installers carry platform trust roots on top: Windows artifacts are
 Authenticode-signed, macOS artifacts are Developer ID-signed and
 notarized, and the browser extensions install only through the official
 stores.

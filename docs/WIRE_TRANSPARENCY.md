@@ -115,6 +115,20 @@ their owning channel updates them.
   and `OH_NO_UPDATE_CHECK`. Daemon: unattended mode stays off unless
   `updates.autoUpdate` is explicitly enabled.
 
+Linux deb installs are the one case where the update traffic is the
+system's, not the app's: installing the deb registers the OpenHeaders
+apt repository (`/etc/apt/sources.list.d/openheaders.list`), so your
+package manager's own `apt update` fetches the signed repository
+indexes (`dists/…/InRelease`, `Packages`) and any upgrade's `.deb` from
+`https://updates.openheaders.com/apt/<channel>/` on the schedule your
+system already uses — the app itself makes no update requests. These
+are plain `GET`s of static files, verified against the archive signing
+key the package installs to
+`/usr/share/keyrings/openheaders-archive-keyring.asc`. Opt out of the
+registration by creating `/etc/default/openheaders` with
+`OPENHEADERS_ADD_REPO="false"` before installing, or remove the
+sources entry afterwards; uninstalling the package removes both files.
+
 ## 3. Severity manifest
 
 A small static severity manifest published to the update feed on each

@@ -1,0 +1,13 @@
+#!/bin/bash
+# Removes the apt repository registration the postinst wrote. dpkg
+# invokes postrm on upgrades too — only remove/purge deregister, so an
+# upgrade keeps updates flowing (the new postinst rewrites the entry).
+
+case "$1" in
+  remove|purge)
+    rm -f /etc/apt/sources.list.d/openheaders.list
+    rm -f /usr/share/keyrings/openheaders-archive-keyring.asc
+    ;;
+esac
+
+exit 0

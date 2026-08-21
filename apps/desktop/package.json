@@ -246,7 +246,8 @@
       "artifactName": "open-headers_${version}_${arch}.${ext}",
       "compression": "xz",
       "priority": "optional",
-      "afterInstall": "./scripts/debian/postinst"
+      "afterInstall": "./scripts/debian/postinst",
+      "afterRemove": "./scripts/debian/postrm"
     },
     "rpm": {
       "artifactName": "open-headers-${version}.${arch}.rpm",

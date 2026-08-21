@@ -1297,6 +1297,20 @@ jobs:
             "${{ steps.dl_base.outputs.url }}" \
             processed_files feed
 
+      # The signed apt repository (the distribution plan §8, Phase 7):
+      # pool + dists staged into the same tree the pointer upload
+      # walks, indexes signed in-lane with the DEDICATED archive key —
+      # never the release GPG key. Missing key secrets or missing deb
+      # artifacts degrade to "apt tree unchanged" instead of failing
+      # the release; a key that does not match the committed keyring
+      # fails hard (the deb postinst pins that keyring).
+      - name: Stage apt repository
+        run: |
+          node scripts/generate-apt-repo.mjs "$GITHUB_REF_NAME" processed_files feed
+        env:
+          APT_GPG_PRIVATE_KEY: ${{ secrets.APT_GPG_PRIVATE_KEY }}
+          APT_GPG_PASSPHRASE: ${{ secrets.APT_GPG_PASSPHRASE }}
+
       # Changelog feed objects (the changelog plan §4.1) stage into the
       # same tree the pointer upload walks. The previously published
       # index is merged in fail-open — it may carry rows for entry-less
@@ -1334,16 +1348,21 @@ jobs:
               *.ps1)  TYPE="text/plain; charset=utf-8" ;;
               *.txt)  TYPE="text/plain; charset=utf-8" ;;
               *.sh)   TYPE="text/x-shellscript; charset=utf-8" ;;
+              *.asc)  TYPE="text/plain; charset=utf-8" ;;
               *.webp) TYPE="image/webp" ;;
               *.png)  TYPE="image/png" ;;
+              *.deb)  TYPE="application/vnd.debian.binary-package" ;;
+              *.gz)   TYPE="application/gzip" ;;
+              *.gpg)  TYPE="application/pgp-signature" ;;
+              */Release|*/InRelease|*/Packages) TYPE="text/plain; charset=utf-8" ;;
               *)      TYPE="application/octet-stream" ;;
             esac
             # Short cache so a fresh release is visible within minutes
             # of the pointer upload — clients check at most daily.
-            # Changelog assets and per-beta snapshots never change once
-            # shipped (plan §3) — those cache as immutable.
+            # Changelog assets, per-beta snapshots, and apt pool debs
+            # never change once shipped — those cache as immutable.
             case "$KEY" in
-              changelog/assets/*|changelog/*-beta.*.json)
+              changelog/assets/*|changelog/*-beta.*.json|apt/*/pool/*)
                 CACHE="public, max-age=31536000, immutable" ;;
               *)
                 CACHE="public, max-age=300, must-revalidate" ;;

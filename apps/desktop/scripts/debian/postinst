@@ -19,4 +19,37 @@ if command -v update-desktop-database >/dev/null 2>&1; then
   update-desktop-database
 fi
 
+# Register the OpenHeaders apt repository so updates arrive with the
+# system's regular package updates. Opt out by creating
+# /etc/default/openheaders with OPENHEADERS_ADD_REPO="false" before
+# installing. The embedded key must stay byte-identical to
+# openheaders-archive-keyring.asc next to this script — the repository
+# indexes are signed by that key (guarded by a unit test).
+OPENHEADERS_ADD_REPO="true"
+if [ -f /etc/default/openheaders ]; then
+  . /etc/default/openheaders
+fi
+if [ "$OPENHEADERS_ADD_REPO" != "false" ]; then
+  VERSION="$(dpkg-query -W -f='${Version}' open-headers 2>/dev/null || true)"
+  case "$VERSION" in
+    *beta*) CHANNEL="beta" ;;
+    *) CHANNEL="stable" ;;
+  esac
+  cat > /usr/share/keyrings/openheaders-archive-keyring.asc <<'ARCHIVE_KEY'
+-----BEGIN PGP PUBLIC KEY BLOCK-----
+
+mDMEaogaWxYJKwYBBAHaRw8BAQdAP2jozFArXvhNOLwuXBheGyHYmBM/Dzykn8BJ
+TSL3Y0K0Mk9wZW5IZWFkZXJzIEFQVCBBcmNoaXZlIDxzZWN1cml0eUBvcGVuaGVh
+ZGVycy5jb20+iK8EExYKAFcWIQTTC0p939fvtHkf+oMvqbrd4YQysAUCaogaWxsU
+gAAAAAAEAA5tYW51MiwyLjUrMS4xMiwwLDMCGwMFCwkIBwICIgIGFQoJCAsCBBYC
+AwECHgcCF4AACgkQL6m63eGEMrBglAEA/qHLhnnlozecqHMquH1ErvMFbYQwbXL4
+s8kXLLSqbiEBAIX3E4Oqu/o9kCVyh1lpY62GeGCQpNoEcZD67NiG/OcJ
+=UGIp
+-----END PGP PUBLIC KEY BLOCK-----
+ARCHIVE_KEY
+  echo "deb [arch=amd64,arm64 signed-by=/usr/share/keyrings/openheaders-archive-keyring.asc] https://updates.openheaders.com/apt/${CHANNEL} ${CHANNEL} main" \
+    > /etc/apt/sources.list.d/openheaders.list
+  echo "Registered the OpenHeaders apt repository (${CHANNEL} channel)"
+fi
+
 exit 0
