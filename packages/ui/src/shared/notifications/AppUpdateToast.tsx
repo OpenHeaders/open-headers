@@ -202,9 +202,11 @@ const AppUpdateToast: React.FC<AppUpdateToastProps> = ({ onOpenUpdateSettings, o
       phase: string;
       currentVersion: string;
       availableVersion: string | null;
+      releaseNotesUrl: string | null;
       progressPercent: number | null;
       errorMessage: string | null;
       lastCheckReason: 'manual' | 'scheduled' | null;
+      installMethod: 'builtin' | 'packageManager';
     }): void => {
       const settledFrom = prevPhase;
       prevPhase = state.phase;
@@ -239,6 +241,26 @@ const AppUpdateToast: React.FC<AppUpdateToastProps> = ({ onOpenUpdateSettings, o
           if (!isOpen && (announcedRef.current.has(marker) || readAck() === version)) return;
           announcedRef.current.add(marker);
           writeAck(version);
+          if (state.installMethod === 'packageManager') {
+            // deb/rpm installs: the package manager owns the install,
+            // so the balloon informs and links the notes — no consent
+            // dialog to open.
+            const notesUrl = state.releaseNotesUrl ?? releasePageUrl(version);
+            show(
+              marker,
+              t('shared.notifications.toast.available', { version }),
+              <>
+                <div>{t('shared.notifications.toast.packageManager')}</div>
+                {updateLink(t('shared.notifications.toast.releaseNotes'), () => {
+                  const openUrl = getCapability('openExternalUrl');
+                  if (openUrl) void openUrl(notesUrl);
+                  else window.open(notesUrl, '_blank', 'noopener');
+                })}
+              </>,
+              version,
+            );
+            break;
+          }
           show(
             marker,
             t('shared.notifications.toast.available', { version }),

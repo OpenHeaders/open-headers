@@ -89,11 +89,12 @@ import { relaunchApp } from './bootstrap/relaunch';
 import { broadcastToAllRenderers } from './bootstrap/renderer-broadcast';
 import { installUpdateMenuActions, updateMenusOnState } from './bootstrap/update-menus';
 import { createCompanionRevealPeerRpc } from './companion-reveal-plane';
-import { createElectronUpdaterPort, updaterSupported } from './electron-updater-port';
+import { createElectronUpdaterPort, updateCapability } from './electron-updater-port';
 import { h3HelperBinaryCandidates } from './h3-helper-install';
 import { installBackendClient } from './install-backend-client';
 import { installHostStorage } from './install-host-storage';
 import { installLifelineServer } from './install-lifeline-server';
+import { createManifestUpdaterPort } from './manifest-updater-port';
 import {
   linuxNmManifestTargets,
   macosNmManifestTargets,
@@ -317,11 +318,16 @@ export async function installRpcHost(): Promise<void> {
   // Check-and-notify updates (the updates plan): the service only
   // ever checks and stages; installing takes the user's explicit
   // restart action (or the next natural quit applying a staged
-  // download). Unsupported where no updater can run — dev builds,
-  // deb/rpm — so it never dials a feed from a test harness. The port
-  // wrap keeps the state machine host-free while a failed feed check
-  // beacons its typed error code.
-  const updaterPort = createElectronUpdaterPort(() => updatePreferences.channel);
+  // download). deb/rpm installs run notify-only over the manifest port
+  // (the package manager owns updates); dev builds get no service at
+  // all, so a test harness never dials a feed. The port wrap keeps the
+  // state machine host-free while a failed feed check beacons its
+  // typed error code.
+  const updateServiceCapability = updateCapability();
+  const updaterPort =
+    updateServiceCapability === 'notify'
+      ? createManifestUpdaterPort(app.getVersion(), () => updatePreferences.channel)
+      : createElectronUpdaterPort(() => updatePreferences.channel);
   const updateService = createUpdateService({
     updater: {
       ...updaterPort,
@@ -336,7 +342,7 @@ export async function installRpcHost(): Promise<void> {
     },
     fetchSeverity: fetchDesktopSeverity,
     currentVersion: app.getVersion(),
-    supported: updaterSupported(),
+    capability: updateServiceCapability,
     getPreferences: () => updatePreferences,
     broadcast: (state) => {
       broadcastToAllRenderers('appUpdateState', state);

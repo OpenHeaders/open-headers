@@ -92,14 +92,20 @@ const AppUpdateRow: React.FC<{ def: SettingDef }> = ({ def }) => {
             ) : (
               <Text>{t('workbench.settings.updatesRow.available', { version: state.availableVersion ?? '' })}</Text>
             )}
-            <Button
-              size="small"
-              type="primary"
-              icon={<ReloadOutlined />}
-              onClick={() => run('oh.updates.updateAndRestart')}
-            >
-              {t('workbench.settings.updatesRow.updateAndRestart')}
-            </Button>
+            {state.installMethod === 'packageManager' ? (
+              // deb/rpm installs: the package manager owns the install —
+              // the row informs instead of offering Update & Restart.
+              <Text type="secondary">{t('workbench.settings.updatesRow.packageManager')}</Text>
+            ) : (
+              <Button
+                size="small"
+                type="primary"
+                icon={<ReloadOutlined />}
+                onClick={() => run('oh.updates.updateAndRestart')}
+              >
+                {t('workbench.settings.updatesRow.updateAndRestart')}
+              </Button>
+            )}
             {releaseNotesLink}
           </>
         );

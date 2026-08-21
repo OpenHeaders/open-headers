@@ -53,11 +53,20 @@ export interface AppUpdateState {
    */
   belowSafeFloor: boolean;
   /**
-   * False where no updater can run: dev builds, unpackaged runs, and
-   * install channels that own updates themselves (Linux deb/rpm). The
-   * UI hides update affordances entirely when unsupported.
+   * False where the update service cannot run at all: dev builds and
+   * unpackaged runs. The UI hides update affordances entirely when
+   * unsupported.
    */
   supported: boolean;
+  /**
+   * How an offered update gets installed. `builtin` — the in-app
+   * updater downloads and applies it. `packageManager` — the install
+   * channel owns updates (Linux deb/rpm): the service only checks and
+   * notifies (never downloads or installs), and the UI points at the
+   * system package manager instead of offering download/install
+   * actions.
+   */
+  installMethod: 'builtin' | 'packageManager';
 }
 
 export interface UpdatesRpc {

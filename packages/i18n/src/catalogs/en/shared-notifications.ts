@@ -70,6 +70,8 @@ export const sharedNotifications = {
   'shared.notifications.toast.downloadFailed': 'Update download failed',
   'shared.notifications.toast.available': '{version} available',
   'shared.notifications.toast.update': 'Update…',
+  'shared.notifications.toast.packageManager': 'Update via your Linux package manager.',
+  'shared.notifications.toast.releaseNotes': 'Release notes',
   'shared.notifications.toast.readyToInstall': '{version} ready to install',
   'shared.notifications.toast.restartToInstall': 'Restart to install',
   'shared.notifications.toast.updatedTo': 'Updated to {version}',

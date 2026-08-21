@@ -4,6 +4,7 @@ import {
   type AvailableUpdate,
   createUpdateService,
   readUpdatePreferences,
+  type UpdateCapability,
   type UpdatePreferences,
   type UpdaterPort,
   type UpdateServiceDeps,
@@ -30,7 +31,7 @@ function makeHarness(
     checkResult?: AvailableUpdate | null | Error;
     downloadResult?: Error;
     severityResult?: SeverityInfo | null;
-    supported?: boolean;
+    capability?: UpdateCapability;
     preferences?: Partial<UpdatePreferences>;
   } = {},
 ): Harness {
@@ -74,7 +75,7 @@ function makeHarness(
       return overrides.severityResult ?? null;
     },
     currentVersion: '2026.7.2',
-    supported: overrides.supported ?? true,
+    capability: overrides.capability ?? 'self',
     getPreferences: () => prefs,
     broadcast: (state) => broadcasts.push(state),
     now: () => 1_752_000_000_000,
@@ -133,6 +134,7 @@ describe('update service state machine', () => {
       availableVersion: null,
       lastCheckReason: null,
       supported: true,
+      installMethod: 'builtin',
     });
   });
 
@@ -283,12 +285,57 @@ describe('update service state machine', () => {
     expect(h.service.state()).toMatchObject({ phase: 'downloaded', availableVersion: '2026.8.0' });
   });
 
-  it('never checks when unsupported, and getState still answers', async () => {
-    const h = makeHarness({ supported: false });
+  it('never checks under the none capability, and getState still answers', async () => {
+    const h = makeHarness({ capability: 'none' });
     const state = await h.service.dispatchRpc('oh.updates.checkNow');
     expect(state?.phase).toBe('idle');
     expect(h.updater.checkCalls).toBe(0);
     expect((await h.service.dispatchRpc('oh.updates.getState'))?.supported).toBe(false);
+  });
+
+  it('notify capability reports supported with the packageManager install method', async () => {
+    const h = makeHarness({ capability: 'notify' });
+    expect((await h.service.dispatchRpc('oh.updates.getState'))?.installMethod).toBe('packageManager');
+    expect((await h.service.dispatchRpc('oh.updates.getState'))?.supported).toBe(true);
+  });
+
+  it('notify capability checks and lands in available but never auto-downloads', async () => {
+    const h = makeHarness({
+      capability: 'notify',
+      checkResult: { version: '2026.8.0', releaseNotesUrl: 'https://github.com/OpenHeaders/open-headers/releases' },
+      preferences: { autoDownload: true },
+    });
+    const state = await h.service.dispatchRpc('oh.updates.checkNow');
+    expect(state).toMatchObject({ phase: 'available', availableVersion: '2026.8.0' });
+    expect(h.updater.downloadCalls).toBe(0);
+  });
+
+  it('notify capability structurally refuses download, install, and updateAndRestart', async () => {
+    const h = makeHarness({
+      capability: 'notify',
+      checkResult: { version: '2026.8.0', releaseNotesUrl: null },
+    });
+    await h.service.dispatchRpc('oh.updates.checkNow');
+    expect((await h.service.dispatchRpc('oh.updates.download'))?.phase).toBe('available');
+    expect((await h.service.dispatchRpc('oh.updates.updateAndRestart'))?.phase).toBe('available');
+    expect((await h.service.dispatchRpc('oh.updates.install'))?.phase).toBe('available');
+    expect(h.updater.downloadCalls).toBe(0);
+    expect(h.updater.installCalls).toBe(0);
+  });
+
+  it('notify capability keeps the scheduled cadence and severity escalation', async () => {
+    const h = makeHarness({
+      capability: 'notify',
+      checkResult: { version: '2026.8.0', releaseNotesUrl: null },
+      severityResult: { latest: '2026.8.0', severity: 'security', minimumSafeVersion: '2026.8.0' },
+    });
+    h.service.start();
+    expect(h.timers).toHaveLength(1);
+    h.timers[0]?.fn();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(h.service.state()).toMatchObject({ phase: 'available', belowSafeFloor: true, severity: 'security' });
+    // The next daily check re-arms.
+    expect(h.timers).toHaveLength(2);
   });
 
   it('start() schedules nothing when checks are off; preferencesChanged arms it later', () => {

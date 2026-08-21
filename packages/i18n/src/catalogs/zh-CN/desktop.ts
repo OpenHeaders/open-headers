@@ -36,6 +36,7 @@ export const desktop = {
   'desktop.update.check': '检查更新…',
   'desktop.update.checking': '正在检查更新…',
   'desktop.update.updateAndRestart': '更新到 {version} 并重启',
+  'desktop.update.availableExternal': '版本 {version} 可用…',
   'desktop.update.downloading': '正在下载更新… {percent}%',
   'desktop.update.downloadingNoProgress': '正在下载更新…',
   'desktop.update.restartToInstall': '重新启动以安装 {version}',

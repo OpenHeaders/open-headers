@@ -70,6 +70,8 @@ export const sharedNotifications = {
   'shared.notifications.toast.downloadFailed': '更新下载失败',
   'shared.notifications.toast.available': '{version} 可用',
   'shared.notifications.toast.update': '更新…',
+  'shared.notifications.toast.packageManager': '请通过你的 Linux 软件包管理器更新。',
+  'shared.notifications.toast.releaseNotes': '发行说明',
   'shared.notifications.toast.readyToInstall': '{version} 已就绪，可以安装',
   'shared.notifications.toast.restartToInstall': '重启以安装',
   'shared.notifications.toast.updatedTo': '已更新到 {version}',

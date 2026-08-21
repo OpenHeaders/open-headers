@@ -165,6 +165,7 @@ export const workbenchSettings = {
   'workbench.settings.updatesRow.checking': '正在检查更新…',
   'workbench.settings.updatesRow.securityFix': '版本 {version} 修复了影响当前版本的一个安全问题。',
   'workbench.settings.updatesRow.available': '版本 {version} 可用。',
+  'workbench.settings.updatesRow.packageManager': '请通过你的 Linux 软件包管理器安装。',
   'workbench.settings.updatesRow.updateAndRestart': '更新并重启',
   'workbench.settings.updatesRow.downloading': '正在下载 {version}…',
   'workbench.settings.updatesRow.readyToInstall': '版本 {version} 已准备好安装。',

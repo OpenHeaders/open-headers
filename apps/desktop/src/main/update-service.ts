@@ -22,6 +22,11 @@
  * (`versions-manifest.ts`): `severity`/`belowSafeFloor` ride the state
  * so the UI can escalate, and the `security-only` tier silences
  * scheduled checks that find no security exposure.
+ *
+ * Linux deb/rpm installs run the same machine under the `notify`
+ * {@link UpdateCapability}: checks, severity, and escalation all work,
+ * but DOWNLOAD/INSTALL structurally refuse — the package manager owns
+ * updates there, so the machine can never leave `available`.
  */
 
 import type { AppUpdateState } from '@openheaders/core/bridge';
@@ -33,6 +38,17 @@ export interface AvailableUpdate {
   version: string;
   releaseNotesUrl: string | null;
 }
+
+/**
+ * What the running install lets the service do (the distribution plan
+ * §5). `self` — full check/download/install (mac/win packaged builds,
+ * AppImage). `notify` — check-and-notify only: Linux deb/rpm installs,
+ * where the package manager owns updates and the machine structurally
+ * refuses download/install. `none` — no service at all (dev/unpackaged
+ * runs, `OH_DISABLE_UPDATE_CHECKS`); notify still dials the feed, so
+ * the escape hatch maps to `none`, never `notify`.
+ */
+export type UpdateCapability = 'self' | 'notify' | 'none';
 
 /**
  * The slice of an updater implementation the machine drives. Matches
@@ -87,8 +103,7 @@ export interface UpdateServiceDeps {
    */
   fetchSeverity(): Promise<SeverityInfo | null>;
   currentVersion: string;
-  /** False on dev/unpackaged builds and channels that own updates (deb/rpm). */
-  supported: boolean;
+  capability: UpdateCapability;
   getPreferences(): UpdatePreferences;
   /** Fan the new state out to every open renderer (`appUpdateState`). */
   broadcast(state: AppUpdateState): void;
@@ -133,7 +148,8 @@ export function createUpdateService(deps: UpdateServiceDeps): UpdateService {
     lastCheckReason: null,
     severity: null,
     belowSafeFloor: false,
-    supported: deps.supported,
+    supported: deps.capability !== 'none',
+    installMethod: deps.capability === 'notify' ? 'packageManager' : 'builtin',
   };
   let timer: NodeJS.Timeout | null = null;
   let disposed = false;
@@ -162,7 +178,7 @@ export function createUpdateService(deps: UpdateServiceDeps): UpdateService {
 
   function scheduleNext(delayMs: number): void {
     cancelTimer();
-    if (disposed || !deps.supported || deps.getPreferences().check === 'off') return;
+    if (disposed || deps.capability === 'none' || deps.getPreferences().check === 'off') return;
     // Jitter is uniform in [-JITTER_MS, +JITTER_MS], floored so the
     // first check can't fire before the app settles.
     const jitter = Math.round((Math.random() * 2 - 1) * JITTER_MS);
@@ -177,7 +193,7 @@ export function createUpdateService(deps: UpdateServiceDeps): UpdateService {
 
   async function check(reason: 'scheduled' | 'manual'): Promise<AppUpdateState> {
     // A running check/download is single-flight; report current state.
-    if (!deps.supported || state.phase === 'checking' || state.phase === 'downloading') return state;
+    if (deps.capability === 'none' || state.phase === 'checking' || state.phase === 'downloading') return state;
     if (reason === 'scheduled' && deps.getPreferences().check === 'off') return state;
     const before = state;
     transition({ phase: 'checking', errorMessage: null, lastCheckReason: reason });
@@ -229,7 +245,9 @@ export function createUpdateService(deps: UpdateServiceDeps): UpdateService {
       });
       if (found && !stillStaged) {
         deps.log.info(`update available: ${found.version} (current ${state.currentVersion})`);
-        if (deps.getPreferences().autoDownload) await download();
+        // Notify capability stops at `available` — the package manager
+        // owns the download, so autoDownload is inert there.
+        if (deps.getPreferences().autoDownload && deps.capability === 'self') await download();
       }
     } catch (err) {
       deps.log.warn('update check failed', err);
@@ -244,7 +262,9 @@ export function createUpdateService(deps: UpdateServiceDeps): UpdateService {
   }
 
   async function download(): Promise<AppUpdateState> {
-    if (state.phase !== 'available') return state;
+    // Never-self-apply on deb/rpm holds structurally: without the
+    // `self` capability the machine can never leave `available`.
+    if (deps.capability !== 'self' || state.phase !== 'available') return state;
     transition({ phase: 'downloading', progressPercent: 0 });
     try {
       await deps.updater.download((percent) => {
@@ -268,6 +288,7 @@ export function createUpdateService(deps: UpdateServiceDeps): UpdateService {
   }
 
   async function updateAndRestart(): Promise<AppUpdateState> {
+    if (deps.capability !== 'self') return state;
     if (state.phase === 'downloaded') return install();
     if (state.phase === 'downloading') {
       // A download (auto or manual) is already running — arm it.
@@ -280,7 +301,7 @@ export function createUpdateService(deps: UpdateServiceDeps): UpdateService {
   }
 
   function install(): AppUpdateState {
-    if (state.phase !== 'downloaded') return state;
+    if (deps.capability !== 'self' || state.phase !== 'downloaded') return state;
     deps.log.info('restarting to install update');
     deps.updater.quitAndInstall();
     return state;

@@ -17,8 +17,8 @@
  */
 
 import type { AppUpdateState } from '@openheaders/core/bridge';
-import type { MenuItemConstructorOptions } from 'electron';
-import { updaterSupported } from '../electron-updater-port';
+import { type MenuItemConstructorOptions, shell } from 'electron';
+import { updateCapability } from '../electron-updater-port';
 import { mainTranslator, onLocaleChange } from './locale';
 import { showMainWindow } from './window-manager';
 
@@ -70,21 +70,37 @@ function runManualCheck(): void {
 
 /**
  * The update menu item for the current state — one entry, or none on
- * builds without an updater (dev runs, deb/rpm channels).
+ * builds without an update service (dev runs). deb/rpm installs get
+ * the notify-only pair: Check for Updates… plus, when one is offered,
+ * an item opening the release notes — the package manager owns the
+ * install, so no Update & Restart ever appears there.
  */
 export function updateMenuItems(): MenuItemConstructorOptions[] {
-  if (!updaterSupported()) return [];
+  if (updateCapability() === 'none') return [];
   const t = mainTranslator();
   switch (state?.phase) {
     case 'checking':
       return [{ label: t('desktop.update.checking'), enabled: false }];
-    case 'available':
+    case 'available': {
+      if (state.installMethod === 'packageManager') {
+        const url = state.releaseNotesUrl;
+        return [
+          {
+            label: t('desktop.update.availableExternal', { version: state.availableVersion ?? '' }),
+            enabled: url !== null,
+            click: () => {
+              if (url !== null) void shell.openExternal(url);
+            },
+          },
+        ];
+      }
       return [
         {
           label: t('desktop.update.updateAndRestart', { version: state.availableVersion ?? '' }),
           click: () => void actions?.updateAndRestart(),
         },
       ];
+    }
     case 'downloading':
       return [
         {

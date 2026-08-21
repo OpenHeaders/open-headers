@@ -115,6 +115,7 @@ export const sharedChrome = {
 
   // ── Settings gear menu ─────────────────────────────────────────────
   'shared.chrome.gearMenu.downloadVersion': '{version} herunterladen',
+  'shared.chrome.gearMenu.versionAvailable': '{version} verfügbar…',
   'shared.chrome.gearMenu.updateAndRestartVersion': 'Auf {version} aktualisieren und neu starten',
   'shared.chrome.gearMenu.downloadingVersion': '{version} wird heruntergeladen…',
   'shared.chrome.gearMenu.restartToInstallVersion': 'Zum Installieren von {version} neu starten',

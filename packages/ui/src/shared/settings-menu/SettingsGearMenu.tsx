@@ -18,6 +18,7 @@
 import {
   CompassOutlined,
   DownloadOutlined,
+  InfoCircleOutlined,
   LogoutOutlined,
   ReloadOutlined,
   SearchOutlined,
@@ -57,6 +58,12 @@ interface PendingUpdate {
   phase: 'available' | 'downloading' | 'downloaded';
   /** Below the published security floor — red badge, ack ignored. */
   security: boolean;
+  /**
+   * The package manager owns the install (deb/rpm): the item announces
+   * the version and `url` opens the release notes instead of a
+   * download page.
+   */
+  external?: boolean;
 }
 
 interface MenuItem {
@@ -97,11 +104,21 @@ const SettingsGearMenu: React.FC<SettingsGearMenuProps> = ({ onOpenSettings, ope
     const applyState = (state: {
       phase: string;
       availableVersion: string | null;
+      releaseNotesUrl?: string | null;
       belowSafeFloor?: boolean;
+      installMethod?: 'builtin' | 'packageManager';
     }): void => {
       const { phase } = state;
       if ((phase === 'available' || phase === 'downloading' || phase === 'downloaded') && state.availableVersion) {
-        setUpdate({ version: state.availableVersion, phase, security: state.belowSafeFloor === true });
+        // Package-manager installs reuse the URL-item mechanics: the
+        // entry opens the release notes, never a download/install verb.
+        const external = state.installMethod === 'packageManager';
+        setUpdate({
+          version: state.availableVersion,
+          phase,
+          security: state.belowSafeFloor === true,
+          ...(external ? { url: state.releaseNotesUrl ?? undefined, external } : {}),
+        });
       } else {
         setUpdate(null);
       }
@@ -151,10 +168,17 @@ const SettingsGearMenu: React.FC<SettingsGearMenuProps> = ({ onOpenSettings, ope
       // Version-only labels — the popover is narrow and the product
       // name adds nothing the surrounding chrome doesn't already say.
       const byPhase = {
-        // A URL-reporting host's item opens a download page — only the
+        // A URL-reporting host's item opens a download page, a
+        // package-manager install's opens the release notes — only the
         // in-app updater can promise the one-click restart.
         available: update.url
-          ? { label: t('shared.chrome.gearMenu.downloadVersion', { version: update.version }), icon: <DownloadOutlined /> }
+          ? {
+              label: t(
+                update.external ? 'shared.chrome.gearMenu.versionAvailable' : 'shared.chrome.gearMenu.downloadVersion',
+                { version: update.version },
+              ),
+              icon: update.external ? <InfoCircleOutlined /> : <DownloadOutlined />,
+            }
           : {
               label: t('shared.chrome.gearMenu.updateAndRestartVersion', { version: update.version }),
               icon: <ReloadOutlined />,

@@ -35,6 +35,7 @@ export const desktop = {
   'desktop.update.check': 'Nach Updates suchen…',
   'desktop.update.checking': 'Suche nach Updates…',
   'desktop.update.updateAndRestart': 'Auf Open Headers {version} aktualisieren und neu starten',
+  'desktop.update.availableExternal': 'Version {version} verfügbar…',
   'desktop.update.downloading': 'Update wird heruntergeladen… {percent} %',
   'desktop.update.downloadingNoProgress': 'Update wird heruntergeladen…',
   'desktop.update.restartToInstall': 'Neu starten, um Open Headers {version} zu installieren',

@@ -192,6 +192,7 @@ export const workbenchSettings = {
   'workbench.settings.updatesRow.securityFix':
     'Version {version} behebt ein Sicherheitsproblem, das diese Version betrifft.',
   'workbench.settings.updatesRow.available': 'Version {version} ist verfügbar.',
+  'workbench.settings.updatesRow.packageManager': 'Installiere sie über deinen Linux-Paketmanager.',
   'workbench.settings.updatesRow.updateAndRestart': 'Aktualisieren und neu starten',
   'workbench.settings.updatesRow.downloading': 'Lade {version} herunter…',
   'workbench.settings.updatesRow.readyToInstall': 'Version {version} ist bereit zur Installation.',

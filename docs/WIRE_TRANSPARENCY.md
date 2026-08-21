@@ -121,13 +121,22 @@ apt repository (`/etc/apt/sources.list.d/openheaders.list`), so your
 package manager's own `apt update` fetches the signed repository
 indexes (`dists/…/InRelease`, `Packages`) and any upgrade's `.deb` from
 `https://updates.openheaders.com/apt/<channel>/` on the schedule your
-system already uses — the app itself makes no update requests. These
-are plain `GET`s of static files, verified against the archive signing
-key the package installs to
+system already uses — the app never downloads or installs an update
+itself there. These are plain `GET`s of static files, verified against
+the archive signing key the package installs to
 `/usr/share/keyrings/openheaders-archive-keyring.asc`. Opt out of the
 registration by creating `/etc/default/openheaders` with
 `OPENHEADERS_ADD_REPO="false"` before installing, or remove the
 sources entry afterwards; uninstalling the package removes both files.
+
+The app's own traffic on deb/rpm installs is check-and-notify only:
+the daily check `GET`s the static
+`https://updates.openheaders.com/versions/<channel>.json` pointer file
+(the same file and posture as the severity manifest, section 3 — no
+identifier, no body, comparison local) so the UI can say a newer
+version exists and point at your package manager. It never fetches an
+artifact. The same off switches apply: `updates.check: off` and
+`OH_DISABLE_UPDATE_CHECKS=1` silence it entirely.
 
 ## 3. Severity manifest
 

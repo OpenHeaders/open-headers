@@ -115,6 +115,7 @@ export const sharedChrome = {
 
   // ── Settings gear menu ─────────────────────────────────────────────
   'shared.chrome.gearMenu.downloadVersion': '下载 {version}',
+  'shared.chrome.gearMenu.versionAvailable': '{version} 可用…',
   'shared.chrome.gearMenu.updateAndRestartVersion': '更新到 {version} 并重启',
   'shared.chrome.gearMenu.downloadingVersion': '正在下载 {version}…',
   'shared.chrome.gearMenu.restartToInstallVersion': '重启以安装 {version}',

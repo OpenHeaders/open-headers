@@ -36,6 +36,7 @@ export const desktop = {
   'desktop.update.check': 'Check for Updates…',
   'desktop.update.checking': 'Checking for Updates…',
   'desktop.update.updateAndRestart': 'Update to {version} & Restart',
+  'desktop.update.availableExternal': 'Version {version} Available…',
   'desktop.update.downloading': 'Downloading Update… {percent}%',
   'desktop.update.downloadingNoProgress': 'Downloading Update…',
   'desktop.update.restartToInstall': 'Restart to Install {version}',

@@ -20,19 +20,24 @@ import { requestQuit } from './bootstrap/lifecycle';
 import { createLogger } from './bootstrap/logger';
 import { getMainWindow } from './bootstrap/window-manager';
 import { desktopFeedUrl, releaseNotesUrl, type UpdateChannel } from './update-feed';
-import type { AvailableUpdate, UpdaterPort } from './update-service';
+import type { AvailableUpdate, UpdateCapability, UpdaterPort } from './update-service';
 
 /**
- * Where an updater can actually run: packaged builds on macOS/Windows,
- * or a Linux AppImage. Dev/unpackaged runs and deb/rpm installs are
- * unsupported (package managers own those updates). The env escape
- * hatch keeps test harnesses and CI from ever dialing a release feed.
+ * What this install lets the update service do. `self` where an
+ * updater can actually run: packaged builds on macOS/Windows, or a
+ * Linux AppImage. Packaged Linux without an AppImage is a deb/rpm
+ * install — the package manager owns updates, so the service only
+ * checks and notifies (`notify`, via `manifest-updater-port.ts`).
+ * Dev/unpackaged runs get `none`; so does the env escape hatch, which
+ * keeps test harnesses and CI from ever dialing a release feed —
+ * notify still dials it, so the hatch must cover it too.
  */
-export function updaterSupported(): boolean {
-  if (process.env.OH_DISABLE_UPDATE_CHECKS === '1') return false;
-  if (!app.isPackaged) return false;
-  if (process.platform === 'darwin' || process.platform === 'win32') return true;
-  return typeof process.env.APPIMAGE === 'string' && process.env.APPIMAGE.length > 0;
+export function updateCapability(): UpdateCapability {
+  if (process.env.OH_DISABLE_UPDATE_CHECKS === '1') return 'none';
+  if (!app.isPackaged) return 'none';
+  if (process.platform === 'darwin' || process.platform === 'win32') return 'self';
+  if (typeof process.env.APPIMAGE === 'string' && process.env.APPIMAGE.length > 0) return 'self';
+  return 'notify';
 }
 
 function toAvailableUpdate(info: UpdateInfo): AvailableUpdate {

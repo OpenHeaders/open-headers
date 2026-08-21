@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { registerUpdateMenuBuilder, updateMenuItems, updateMenusOnState } from '@/main/bootstrap/update-menus';
 
 vi.mock('@/main/electron-updater-port', () => ({
-  updaterSupported: () => true,
+  updateCapability: () => 'self',
 }));
 vi.mock('@/main/bootstrap/window-manager', () => ({
   showMainWindow: vi.fn(),
@@ -22,6 +22,7 @@ function makeState(overrides: Partial<AppUpdateState> = {}): AppUpdateState {
     severity: null,
     belowSafeFloor: false,
     supported: true,
+    installMethod: 'builtin',
     ...overrides,
   };
 }
@@ -51,6 +52,20 @@ describe('updateMenuItems labels', () => {
 
     updateMenusOnState(makeState({ phase: 'error' }));
     expect(labels()).toEqual(['Check for Updates…']);
+  });
+
+  it('package-manager installs announce the version instead of Update & Restart', () => {
+    updateMenusOnState(
+      makeState({
+        phase: 'available',
+        availableVersion: '2026.8.1',
+        releaseNotesUrl: 'https://github.com/OpenHeaders/open-headers/releases/tag/v2026.8.1',
+        installMethod: 'packageManager',
+      }),
+    );
+    expect(labels()).toEqual(['Version 2026.8.1 Available…']);
+    expect(updateMenuItems()[0]?.enabled).toBe(true);
+    updateMenusOnState(makeState());
   });
 
   it('re-runs every registered menu builder on a state transition', () => {
