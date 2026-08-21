@@ -42,11 +42,18 @@ jobs:
       # publishes whatever legs produced artifacts.
       fail-fast: false
       matrix:
+        # macOS and Linux run one leg PER ARCH so the two
+        # electron-builder package+notarize passes go in parallel — the
+        # release job merges the two one-arch latest-mac.yml files into
+        # the single feed pointer (linux update-info files are per-arch
+        # named already, no merge). The matrix is computed from the tag
+        # shape: beta tags spawn only the legs whose targets betas ship
+        # (mac arm64, linux x64); a signing dry-run (workflow_dispatch)
+        # builds the windows leg only.
         # windows-2022 (not -latest): windows-latest ships Visual Studio 2026,
         # which the node-gyp bundled with electron-builder cannot detect, so
         # the native-module rebuild fails. VS 2022 stays detectable here.
-        # A signing dry-run (workflow_dispatch) builds the windows leg only.
-        os: ${{ github.event_name == 'workflow_dispatch' && fromJSON('["windows-2022"]') || fromJSON('["macos-latest", "windows-2022", "ubuntu-latest"]') }}
+        include: ${{ github.event_name == 'workflow_dispatch' && fromJSON('[{"os":"windows-2022"}]') || contains(github.ref_name, '-beta') && fromJSON('[{"os":"macos-latest","arch":"arm64"},{"os":"windows-2022"},{"os":"ubuntu-latest","arch":"x64"}]') || fromJSON('[{"os":"macos-latest","arch":"arm64"},{"os":"macos-latest","arch":"x64"},{"os":"windows-2022"},{"os":"ubuntu-latest","arch":"x64"},{"os":"ubuntu-latest","arch":"arm64"}]') }}
 
     steps:
       - name: Checkout code
@@ -96,6 +103,9 @@ jobs:
             mkdir -p ~/AppData/Local/electron/Cache ~/AppData/Local/electron-builder/Cache ~/.electron
           fi
 
+      # Arch in the key: the per-arch legs of one OS run concurrently
+      # and each caches only its own arch's downloads — a shared key
+      # would race on save and leave the loser cold every release.
       - name: Cache Electron
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
@@ -107,9 +117,9 @@ jobs:
             ~/.electron
             ~/AppData/Local/electron/Cache
             ~/AppData/Local/electron-builder/Cache
-          key: ${{ runner.os }}-electron-cache-${{ hashFiles('pnpm-lock.yaml') }}
+          key: ${{ runner.os }}-${{ matrix.arch || 'x64' }}-electron-cache-${{ hashFiles('pnpm-lock.yaml') }}
           restore-keys: |
-            ${{ runner.os }}-electron-cache-
+            ${{ runner.os }}-${{ matrix.arch || 'x64' }}-electron-cache-
 
       - name: Prepare build directory
         run: |
@@ -140,9 +150,9 @@ jobs:
       # The HTTP/3 helper rides the app under resources/h3-helper (the
       # afterPack per-arch copy) and the ohd SEA payload — without this
       # step the packaged app ships helperless and a '3' send fails
-      # honestly. --platform-all builds every matrix target this OS
-      # covers: mac arm64+x64 (runner is arm64; the script adds the x64
-      # rust target), win x64, linux x64+arm64 (cross-linked below).
+      # honestly. Each per-arch leg builds only its own target (the mac
+      # x64 and linux arm64 targets cross-compile on the arm64/x64
+      # runners; the script adds the rust target itself).
       - name: Cache cargo (HTTP/3 helper)
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
@@ -150,16 +160,22 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             native/h3-helper/target
-          key: ${{ runner.os }}-h3-helper-${{ hashFiles('native/h3-helper/Cargo.lock') }}
+          key: ${{ runner.os }}-${{ matrix.arch || 'x64' }}-h3-helper-${{ hashFiles('native/h3-helper/Cargo.lock') }}
           restore-keys: |
-            ${{ runner.os }}-h3-helper-
+            ${{ runner.os }}-${{ matrix.arch || 'x64' }}-h3-helper-
 
       - name: Install linux arm64 cross linker (HTTP/3 helper)
-        if: matrix.os == 'ubuntu-latest'
+        if: matrix.os == 'ubuntu-latest' && matrix.arch == 'arm64'
         run: sudo apt-get update && sudo apt-get install -y gcc-aarch64-linux-gnu
 
-      - name: Build HTTP/3 helper matrix
-        run: node scripts/build-h3-helper.mjs --platform-all
+      - name: Build HTTP/3 helper
+        run: |
+          case "${{ matrix.os }}" in
+            macos-latest) TARGET="mac-${{ matrix.arch }}" ;;
+            ubuntu-latest) TARGET="linux-${{ matrix.arch }}" ;;
+            *) TARGET="win-x64" ;;
+          esac
+          node scripts/build-h3-helper.mjs "$TARGET"
         shell: bash
 
       - name: Build desktop application
@@ -216,7 +232,9 @@ jobs:
         shell: bash
 
       # Betas skip the enterprise formats (pkg/msi) and mac-x64 — beta
-      # testers use dmg/zip/Setup.exe; stable tags ship everything.
+      # testers use dmg/zip/Setup.exe; stable tags ship everything. The
+      # mac-x64 beta leg never spawns (computed matrix), so the beta
+      # branch here is always the arm64 leg.
       - name: Build macOS
         if: matrix.os == 'macos-latest'
         working-directory: apps/desktop
@@ -224,7 +242,7 @@ jobs:
           if [ "${{ steps.detect_beta.outputs.is_beta }}" == "true" ]; then
             pnpm dist:mac:beta
           else
-            pnpm dist:mac
+            pnpm dist:mac:${{ matrix.arch }}
           fi
         env:
           APPLE_ID: ${{ secrets.APPLE_ID }}
@@ -474,8 +492,9 @@ jobs:
         shell: pwsh
 
       # Betas ship x64 AppImage + deb only, store-compressed — beta
-      # arm64/rpm users ride their previous pointer until stable. The
-      # full six-target build runs on stable tags only.
+      # arm64/rpm users ride their previous pointer until stable; the
+      # linux arm64 beta leg never spawns (computed matrix). Stable
+      # legs build their arch's three targets.
       - name: Build Linux
         if: matrix.os == 'ubuntu-latest'
         working-directory: apps/desktop
@@ -483,103 +502,26 @@ jobs:
           if [ "${{ steps.detect_beta.outputs.is_beta }}" == "true" ]; then
             pnpm dist:linux:beta
           else
-            pnpm dist:linux
+            pnpm dist:linux:${{ matrix.arch }}
 
             if [ $(find dist -name "*.rpm" -type f | wc -l) -eq 0 ]; then
               echo "::warning::RPM packages not found, trying explicit build..."
-              pnpm dist:linux:rpm:x64
-              pnpm dist:linux:rpm:arm64
+              pnpm dist:linux:rpm:${{ matrix.arch }}
             fi
           fi
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      # oh/ohd rider (macOS, stable tags only — betas ship no
-      # standalone binaries): the pair had its own macos job — merged
-      # into this leg because macOS minutes bill at 10× and the second
-      # runner repeated checkout, install, and cert import. Bun, the
-      # signing keychain, and the full-history checkout are all already
-      # set up above. The artifact keeps the binaries-macos-latest name
-      # the release job stages from.
-      - name: Run CLI unit suite under bun (macOS)
-        if: matrix.os == 'macos-latest' && steps.detect_beta.outputs.is_beta != 'true'
-        working-directory: apps/cli
-        run: bun --bun vitest run
-        shell: bash
-
-      - name: Build and verify oh bun binary (macOS)
-        if: matrix.os == 'macos-latest' && steps.detect_beta.outputs.is_beta != 'true'
-        run: pnpm --filter @openheaders/cli run pack:bun
-        shell: bash
-
-      # The daemon binary embeds the built web app when present.
-      - name: Build and verify ohd SEA binary (macOS)
-        if: matrix.os == 'macos-latest' && steps.detect_beta.outputs.is_beta != 'true'
-        run: |
-          pnpm turbo build --filter=@openheaders/daemon --filter=@openheaders/web
-          pnpm --filter @openheaders/daemon run pack:sea
-        shell: bash
-
-      # The pack scripts leave ad-hoc/unsigned binaries; re-sign with
-      # Developer ID (hardened runtime + timestamp, required for
-      # notarization), then notarize both binaries in one submission.
-      # Flat binaries can't be stapled — Gatekeeper resolves the ticket
-      # from Apple's servers on first quarantined run.
-      - name: Sign and notarize binaries (macOS)
-        if: matrix.os == 'macos-latest' && steps.detect_beta.outputs.is_beta != 'true'
-        run: |
-          IDENTITY=$(security find-identity -v -p codesigning | grep "Developer ID Application" | head -1 | sed 's/.*"\(.*\)"/\1/')
-          if [ -z "$IDENTITY" ]; then
-            echo "::error::No Developer ID Application identity in the keychain"
-            exit 1
-          fi
-          mkdir -p notarize-stage
-          # Hardened runtime without the JIT entitlements SIGTRAPs the
-          # JS engine on user machines — V8 for the Node SEA `ohd`, JSC
-          # for the bun-compiled `oh` (the runner's own probe does not
-          # enforce them).
-          for BINARY in apps/cli/dist-bun/oh apps/daemon/dist-sea/ohd; do
-            codesign --force --sign "$IDENTITY" --options runtime --timestamp \
-              --entitlements .github/sea-entitlements.plist "$BINARY"
-            codesign --verify --strict "$BINARY"
-            codesign -d --entitlements - "$BINARY" 2>&1 | grep -q allow-jit
-            # The signed binary must still answer
-            "$BINARY" --version
-            cp "$BINARY" notarize-stage/
-          done
-          ditto -c -k notarize-stage notarize.zip
-          xcrun notarytool submit notarize.zip \
-            --apple-id "$APPLE_ID" \
-            --password "$APPLE_APP_SPECIFIC_PASSWORD" \
-            --team-id "$APPLE_TEAM_ID" \
-            --wait
-        env:
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-
-      - name: Stage binary assets (macOS)
-        if: matrix.os == 'macos-latest' && steps.detect_beta.outputs.is_beta != 'true'
-        run: |
-          mkdir -p release-binaries
-          OH_VERSION=$(node -p "require('./apps/cli/package.json').version")
-          OHD_VERSION=$(node -p "require('./apps/daemon/package.json').version")
-          cp apps/cli/dist-bun/oh "release-binaries/oh-${OH_VERSION}-mac-arm64"
-          cp apps/daemon/dist-sea/ohd "release-binaries/ohd-${OHD_VERSION}-mac-arm64"
-        shell: bash
-
-      - name: Upload binary artifacts (macOS)
-        if: matrix.os == 'macos-latest' && steps.detect_beta.outputs.is_beta != 'true'
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        with:
-          name: binaries-macos-latest
-          path: release-binaries/*
-
+      # The mac oh/ohd pair used to ride this leg (10×-billed macOS
+      # minutes made a second runner the pipeline's most expensive
+      # overhead); that economics died with the move to free public
+      # runners, so the pair lives in build-binaries' macos row again —
+      # off this critical path.
       - name: Upload desktop artifacts
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: desktop-${{ matrix.os }}
+          name: desktop-${{ matrix.os }}${{ matrix.arch && format('-{0}', matrix.arch) || '' }}
           path: |
             apps/desktop/dist/*.dmg
             apps/desktop/dist/*.exe
@@ -596,12 +538,13 @@ jobs:
   # STABLE tags only — betas carry no standalone binaries: the daemon
   # beta testers exercise is the desktop-embedded one, and the beta
   # versions manifest carries cli/daemon forward from the last stable
-  # (release job). The macOS pair rides the desktop macos leg instead
-  # of a matrix row here — a second 10×-billed runner just to repeat
-  # setup was the pipeline's most expensive overhead. Versions come
-  # from each app's own package.json (the extension precedent) — the
-  # tag stays the desktop's version axis. Runtime split:
-  # `oh` is bun-compiled, `ohd` stays Node SEA
+  # (release job). The macOS pair is a matrix row here like the others
+  # — it once rode the desktop macos leg because macOS minutes billed
+  # at 10×, but on free public runners the repeated setup costs
+  # nothing and riding the desktop leg put it on the release's
+  # critical path. Versions come from each app's own package.json (the
+  # extension precedent) — the tag stays the desktop's version axis.
+  # Runtime split: `oh` is bun-compiled, `ohd` stays Node SEA
   # — two toolchains, one leg, no cross-contamination.
   build-binaries:
     if: ${{ github.event_name != 'workflow_dispatch' && !contains(github.ref_name, '-ext') && !contains(github.ref_name, '-cli') && !contains(github.ref_name, '-daemon') && !contains(github.ref_name, '-beta') }}
@@ -609,7 +552,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [windows-2022, ubuntu-latest]
+        os: [macos-latest, windows-2022, ubuntu-latest]
 
     steps:
       - name: Checkout code
@@ -751,6 +694,52 @@ jobs:
           pnpm --filter @openheaders/daemon run pack:sea
         shell: bash
 
+      - name: Setup macOS code signing
+        if: matrix.os == 'macos-latest'
+        uses: apple-actions/import-codesign-certs@63fff01cd422d4b7b855d40ca1e9d34d2de9427d # v3
+        with:
+          p12-file-base64: ${{ secrets.MACOS_CERTIFICATE }}
+          p12-password: ${{ secrets.MACOS_CERTIFICATE_PWD }}
+          keychain-password: ${{ secrets.KEYCHAIN_PASSWORD }}
+
+      # The pack scripts leave ad-hoc/unsigned binaries; re-sign with
+      # Developer ID (hardened runtime + timestamp, required for
+      # notarization), then notarize both binaries in one submission.
+      # Flat binaries can't be stapled — Gatekeeper resolves the ticket
+      # from Apple's servers on first quarantined run.
+      - name: Sign and notarize binaries (macOS)
+        if: matrix.os == 'macos-latest'
+        run: |
+          IDENTITY=$(security find-identity -v -p codesigning | grep "Developer ID Application" | head -1 | sed 's/.*"\(.*\)"/\1/')
+          if [ -z "$IDENTITY" ]; then
+            echo "::error::No Developer ID Application identity in the keychain"
+            exit 1
+          fi
+          mkdir -p notarize-stage
+          # Hardened runtime without the JIT entitlements SIGTRAPs the
+          # JS engine on user machines — V8 for the Node SEA `ohd`, JSC
+          # for the bun-compiled `oh` (the runner's own probe does not
+          # enforce them).
+          for BINARY in apps/cli/dist-bun/oh apps/daemon/dist-sea/ohd; do
+            codesign --force --sign "$IDENTITY" --options runtime --timestamp \
+              --entitlements .github/sea-entitlements.plist "$BINARY"
+            codesign --verify --strict "$BINARY"
+            codesign -d --entitlements - "$BINARY" 2>&1 | grep -q allow-jit
+            # The signed binary must still answer
+            "$BINARY" --version
+            cp "$BINARY" notarize-stage/
+          done
+          ditto -c -k notarize-stage notarize.zip
+          xcrun notarytool submit notarize.zip \
+            --apple-id "$APPLE_ID" \
+            --password "$APPLE_APP_SPECIFIC_PASSWORD" \
+            --team-id "$APPLE_TEAM_ID" \
+            --wait
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+
       # The container is the same verified SEA binary in an LTS base;
       # the probe re-runs boot + /healthz inside it before anything is
       # pushed (glibc drift between runner and base would surface here).
@@ -793,6 +782,7 @@ jobs:
           mkdir -p release-binaries
           OH_VERSION=$(node -p "require('./apps/cli/package.json').version")
           case "${{ matrix.os }}" in
+            macos-latest) OS_ARCH=mac-arm64 ;;
             ubuntu-latest) OS_ARCH=linux-x64 ;;
             windows-2022) OS_ARCH=win-x64 ;;
           esac
@@ -805,9 +795,11 @@ jobs:
             OHD_VERSION=$(node -p "require('./apps/daemon/package.json').version")
             cp apps/cli/dist-bun/oh "release-binaries/oh-${OH_VERSION}-${OS_ARCH}"
             cp apps/daemon/dist-sea/ohd "release-binaries/ohd-${OHD_VERSION}-${OS_ARCH}"
-            # One leg generates the aggregated license texts for the
-            # bundled JS closure — identical across platforms, ships as
-            # a release asset beside the binaries.
+          fi
+          # One leg generates the aggregated license texts for the
+          # bundled JS closure — identical across platforms, ships as
+          # a release asset beside the binaries.
+          if [ "${{ matrix.os }}" == "ubuntu-latest" ]; then
             node scripts/generate-third-party-notices.mjs --out release-binaries/THIRD-PARTY-NOTICES-oh-ohd.txt apps/cli apps/daemon
           fi
         shell: bash
@@ -914,24 +906,42 @@ jobs:
             cp dist/desktop-windows-2022/beta.yml processed_files/ 2>/dev/null || true
           fi
 
-          if [ -d "dist/desktop-macos-latest" ]; then
-            cp dist/desktop-macos-latest/*.dmg processed_files/ 2>/dev/null || true
-            cp dist/desktop-macos-latest/*.pkg processed_files/ 2>/dev/null || true
-            cp dist/desktop-macos-latest/*.zip processed_files/ 2>/dev/null || true
-            cp dist/desktop-macos-latest/*.blockmap processed_files/ 2>/dev/null || true
-            cp dist/desktop-macos-latest/latest-mac.yml processed_files/ 2>/dev/null || true
-            cp dist/desktop-macos-latest/beta-mac.yml processed_files/ 2>/dev/null || true
-          fi
+          # macOS and Linux build as one leg per arch — walk every arch
+          # directory. The mac update-info files are handled by the
+          # merge below, not copied here.
+          for d in dist/desktop-macos-latest-*; do
+            [ -d "$d" ] || continue
+            cp "$d"/*.dmg processed_files/ 2>/dev/null || true
+            cp "$d"/*.pkg processed_files/ 2>/dev/null || true
+            cp "$d"/*.zip processed_files/ 2>/dev/null || true
+            cp "$d"/*.blockmap processed_files/ 2>/dev/null || true
+          done
 
-          if [ -d "dist/desktop-ubuntu-latest" ]; then
-            cp dist/desktop-ubuntu-latest/*.AppImage processed_files/ 2>/dev/null || true
-            cp dist/desktop-ubuntu-latest/*.deb processed_files/ 2>/dev/null || true
-            find dist/desktop-ubuntu-latest -name "*.rpm" -exec cp {} processed_files/ \; 2>/dev/null || true
-            cp dist/desktop-ubuntu-latest/latest-linux.yml processed_files/ 2>/dev/null || true
-            cp dist/desktop-ubuntu-latest/latest-linux-arm64.yml processed_files/ 2>/dev/null || true
-            cp dist/desktop-ubuntu-latest/beta-linux.yml processed_files/ 2>/dev/null || true
-            cp dist/desktop-ubuntu-latest/beta-linux-arm64.yml processed_files/ 2>/dev/null || true
-          fi
+          # Two mac legs write two one-arch update-info files; the feed
+          # serves ONE latest-mac.yml, so union their files lists. A
+          # single input (the arm64-only beta lane, or a failed leg)
+          # passes through unchanged; a merge conflict fails the
+          # release before any pointer is published.
+          for NAME in latest-mac.yml beta-mac.yml; do
+            MAC_YMLS=$(find dist -path "dist/desktop-macos-latest-*" -name "$NAME" | sort)
+            if [ -n "$MAC_YMLS" ]; then
+              node scripts/merge-mac-update-yml.mjs "processed_files/$NAME" $MAC_YMLS
+            fi
+          done
+
+          # The linux update-info files are per-arch NAMED
+          # (latest-linux.yml x64, latest-linux-arm64.yml arm64), so
+          # each leg's copy lands beside the other — no merge.
+          for d in dist/desktop-ubuntu-latest-*; do
+            [ -d "$d" ] || continue
+            cp "$d"/*.AppImage processed_files/ 2>/dev/null || true
+            cp "$d"/*.deb processed_files/ 2>/dev/null || true
+            find "$d" -name "*.rpm" -exec cp {} processed_files/ \; 2>/dev/null || true
+            cp "$d"/latest-linux.yml processed_files/ 2>/dev/null || true
+            cp "$d"/latest-linux-arm64.yml processed_files/ 2>/dev/null || true
+            cp "$d"/beta-linux.yml processed_files/ 2>/dev/null || true
+            cp "$d"/beta-linux-arm64.yml processed_files/ 2>/dev/null || true
+          done
 
           # Standalone oh/ohd binaries + one checksums file over them
           find dist -path 'dist/binaries-*' -type f -exec cp {} processed_files/ \;
