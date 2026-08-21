@@ -199,11 +199,17 @@ describe('debian repo registration scripts', () => {
     const postinst = readFileSync(path.join(DEBIAN_DIR, 'postinst'), 'utf8');
     const postrm = readFileSync(path.join(DEBIAN_DIR, 'postrm'), 'utf8');
     expect(postinst).toContain(
-      // biome-ignore lint/suspicious/noTemplateCurlyInString: the placeholder is shell expansion in postinst, not a template
-      'signed-by=/usr/share/keyrings/openheaders-archive-keyring.asc] https://updates.openheaders.com/apt/${CHANNEL} ${CHANNEL} main',
+      'signed-by=/usr/share/keyrings/openheaders-archive-keyring.asc] https://updates.openheaders.com/apt/$CHANNEL $CHANNEL main',
     );
     expect(postinst).toContain('OPENHEADERS_ADD_REPO');
     expect(postrm).toContain('/etc/apt/sources.list.d/openheaders.list');
     expect(postrm).toContain('/usr/share/keyrings/openheaders-archive-keyring.asc');
+  });
+
+  it('deb scripts carry no dollar-brace tokens (electron-builder fpm templating treats them as macros)', () => {
+    for (const script of ['postinst', 'postrm']) {
+      const text = readFileSync(path.join(DEBIAN_DIR, script), 'utf8');
+      expect(text, `${script} would fail FpmTarget macro substitution`).not.toMatch(/\$\{[a-zA-Z]+\}/);
+    }
   });
 });

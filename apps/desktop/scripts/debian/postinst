@@ -25,12 +25,16 @@ fi
 # installing. The embedded key must stay byte-identical to
 # openheaders-archive-keyring.asc next to this script — the repository
 # indexes are signed by that key (guarded by a unit test).
+# electron-builder templates this script at package time and treats
+# every dollar-brace token in the source — comments included — as a
+# macro to substitute, failing the build on unknown names: never write
+# brace-expanded variables here (also guarded by a unit test).
 OPENHEADERS_ADD_REPO="true"
 if [ -f /etc/default/openheaders ]; then
   . /etc/default/openheaders
 fi
 if [ "$OPENHEADERS_ADD_REPO" != "false" ]; then
-  VERSION="$(dpkg-query -W -f='${Version}' open-headers 2>/dev/null || true)"
+  VERSION="$(dpkg-query -W open-headers 2>/dev/null | cut -f2)"
   case "$VERSION" in
     *beta*) CHANNEL="beta" ;;
     *) CHANNEL="stable" ;;
@@ -47,9 +51,9 @@ s8kXLLSqbiEBAIX3E4Oqu/o9kCVyh1lpY62GeGCQpNoEcZD67NiG/OcJ
 =UGIp
 -----END PGP PUBLIC KEY BLOCK-----
 ARCHIVE_KEY
-  echo "deb [arch=amd64,arm64 signed-by=/usr/share/keyrings/openheaders-archive-keyring.asc] https://updates.openheaders.com/apt/${CHANNEL} ${CHANNEL} main" \
+  echo "deb [arch=amd64,arm64 signed-by=/usr/share/keyrings/openheaders-archive-keyring.asc] https://updates.openheaders.com/apt/$CHANNEL $CHANNEL main" \
     > /etc/apt/sources.list.d/openheaders.list
-  echo "Registered the OpenHeaders apt repository (${CHANNEL} channel)"
+  echo "Registered the OpenHeaders apt repository ($CHANNEL channel)"
 fi
 
 exit 0
