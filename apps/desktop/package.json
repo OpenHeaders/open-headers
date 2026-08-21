@@ -1,8 +1,9 @@
 {
   "name": "@openheaders/desktop",
-  "version": "2026.8.2",
+  "version": "2026.8.3",
   "private": true,
   "description": "OpenHeaders desktop app",
+  "desktopName": "open-headers.desktop",
   "homepage": "https://openheaders.com",
   "author": "Open Headers <contact@openheaders.com>",
   "license": "Apache-2.0",
@@ -207,6 +208,7 @@
       "icon": "build/icon.png",
       "category": "Utility;Development;Network",
       "executableName": "open-headers",
+      "syncDesktopName": true,
       "maintainer": "Open Headers <contact@openheaders.com>",
       "desktop": {
         "entry": {

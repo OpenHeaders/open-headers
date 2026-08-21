@@ -1,6 +1,6 @@
 {
   "name": "@openheaders/i18n",
-  "version": "2026.8.2",
+  "version": "2026.8.3",
   "private": true,
   "description": "OpenHeaders internationalization — locale registry, message catalogs, translation runtime, pseudo-locale",
   "license": "Apache-2.0",

@@ -1,6 +1,6 @@
 {
   "name": "@openheaders/web",
-  "version": "2026.8.2",
+  "version": "2026.8.3",
   "private": true,
   "description": "OpenHeaders web app — the Workbench in a browser tab, served by a daemon",
   "license": "Apache-2.0",

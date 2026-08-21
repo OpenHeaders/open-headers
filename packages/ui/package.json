@@ -1,6 +1,6 @@
 {
   "name": "@openheaders/ui",
-  "version": "2026.8.2",
+  "version": "2026.8.3",
   "private": true,
   "description": "OpenHeaders shared UI — workbench, devtools panel, popup primitives, design-system shared components",
   "license": "Apache-2.0",
