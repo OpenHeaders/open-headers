@@ -1,6 +1,6 @@
 {
   "name": "@openheaders/extension",
-  "version": "2026.8.3",
+  "version": "2026.8.4",
   "private": true,
   "description": "OpenHeaders browser extension for Chrome, Firefox, Edge, and Safari",
   "license": "Apache-2.0",

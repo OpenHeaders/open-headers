@@ -1,6 +1,6 @@
 {
   "name": "@openheaders/daemon",
-  "version": "2026.8.3",
+  "version": "2026.8.4",
   "private": true,
   "description": "Standalone Open Headers daemon — the headless back-end distribution of the shared boot spine",
   "license": "Apache-2.0",
