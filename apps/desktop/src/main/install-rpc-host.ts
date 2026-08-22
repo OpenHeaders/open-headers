@@ -117,6 +117,8 @@ import { readServeWebApp, webAppRootCandidate } from './web-app-root';
 import { fetchWhatsNewEntryBody, fetchWhatsNewHistory } from './whats-new-history';
 
 const SCOPE = 'install-rpc-host';
+/** The update service's own log scope — its rows are not engine-shell rows. */
+const UPDATE_SCOPE = 'UpdateService';
 
 /** Deadline for the engine's quit-time dispose (lifecycle participant). */
 const ENGINE_DISPOSE_DEADLINE_MS = 10_000;
@@ -353,8 +355,8 @@ export async function installRpcHost(): Promise<void> {
     setTimer: (fn, ms) => setTimeout(fn, ms),
     clearTimer: (handle) => clearTimeout(handle),
     log: {
-      info: (msg) => engineLogger.info(SCOPE, msg),
-      warn: (msg, err) => engineLogger.warn(SCOPE, msg, err),
+      info: (msg) => engineLogger.info(UPDATE_SCOPE, msg),
+      warn: (msg, err) => engineLogger.warn(UPDATE_SCOPE, msg, err),
     },
   });
   updateService.start();
