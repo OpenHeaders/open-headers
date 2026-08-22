@@ -64,7 +64,7 @@
       },
       {
         "tab": "Reference",
-        "pages": ["reference/index"]
+        "pages": ["reference/index", "reference/ohd", "reference/oh", "reference/daemon-json"]
       },
       {
         "tab": "API & MCP",

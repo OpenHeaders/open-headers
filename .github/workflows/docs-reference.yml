@@ -1,0 +1,75 @@
+name: Docs reference drift gate
+
+# The docs Reference tab is emitted from source by
+# docs-site/scripts/generate-reference.mjs — committed pages that drift
+# from the source of truth fail here. Path-gated to the generator, its
+# inputs, and the pages it owns; plain Node, no workspace install.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'docs-site/reference/**'
+      - 'docs-site/scripts/**'
+      - 'apps/daemon/src/cli.ts'
+      - 'apps/daemon/src/config.ts'
+      - 'apps/daemon/src/cli/config-flags.ts'
+      - 'apps/daemon/src/cli/config-settings.ts'
+      - 'apps/daemon/src/cli/password-input.ts'
+      - 'apps/daemon/src/cli/vault.ts'
+      - 'apps/cli/src/cli.ts'
+      - 'apps/cli/src/read-commands.ts'
+      - 'apps/cli/src/write-commands.ts'
+      - 'apps/cli/src/exec-commands.ts'
+      - 'apps/cli/src/run-commands.ts'
+      - 'apps/cli/src/connection.ts'
+      - 'packages/core/src/protocol/constants.ts'
+      - 'packages/core/src/licensing/entitlements.ts'
+      - '.github/workflows/docs-reference.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'docs-site/reference/**'
+      - 'docs-site/scripts/**'
+      - 'apps/daemon/src/cli.ts'
+      - 'apps/daemon/src/config.ts'
+      - 'apps/daemon/src/cli/config-flags.ts'
+      - 'apps/daemon/src/cli/config-settings.ts'
+      - 'apps/daemon/src/cli/password-input.ts'
+      - 'apps/daemon/src/cli/vault.ts'
+      - 'apps/cli/src/cli.ts'
+      - 'apps/cli/src/read-commands.ts'
+      - 'apps/cli/src/write-commands.ts'
+      - 'apps/cli/src/exec-commands.ts'
+      - 'apps/cli/src/run-commands.ts'
+      - 'apps/cli/src/connection.ts'
+      - 'packages/core/src/protocol/constants.ts'
+      - 'packages/core/src/licensing/entitlements.ts'
+      - '.github/workflows/docs-reference.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  drift:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22.x
+
+      - name: Regenerate the reference pages
+        run: node docs-site/scripts/generate-reference.mjs
+
+      - name: Fail on drift
+        run: |
+          git diff --exit-code -- docs-site/reference || {
+            echo '::error::docs-site/reference is stale — run: node docs-site/scripts/generate-reference.mjs and commit the result'
+            exit 1
+          }
