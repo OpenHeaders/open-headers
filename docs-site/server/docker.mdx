@@ -22,7 +22,7 @@ Pin a version tag for reproducible deployments — tags match the
 daemon's released versions:
 
 ```sh
-docker run -d -p 8137:8137 -v oh-data:/data ghcr.io/openheaders/ohd:2026.8.3
+docker run -d -p 8137:8137 -v oh-data:/data ghcr.io/openheaders/ohd:2026.8.4
 ```
 
 ## Compose
@@ -30,7 +30,7 @@ docker run -d -p 8137:8137 -v oh-data:/data ghcr.io/openheaders/ohd:2026.8.3
 ```yaml
 services:
   ohd:
-    image: ghcr.io/openheaders/ohd:2026.8.3
+    image: ghcr.io/openheaders/ohd:2026.8.4
     restart: unless-stopped
     ports:
       - "8137:8137"
@@ -48,14 +48,14 @@ volumes:
 
   ```sh
   docker stop <container>
-  docker run --rm -v oh-data:/data ghcr.io/openheaders/ohd:2026.8.3 show-token --data-dir /data
+  docker run --rm -v oh-data:/data ghcr.io/openheaders/ohd:2026.8.4 show-token --data-dir /data
   docker start <container>
   ```
 
 - **Settings** work the same way (stopped daemon, same volume):
 
   ```sh
-  docker run --rm -v oh-data:/data ghcr.io/openheaders/ohd:2026.8.3 config set mcp.enabled true --data-dir /data
+  docker run --rm -v oh-data:/data ghcr.io/openheaders/ohd:2026.8.4 config set mcp.enabled true --data-dir /data
   ```
 
 - **TLS**: the container answers cleartext on its bind; put a
@@ -71,5 +71,5 @@ volumes:
 
   ```sh
   docker run --rm -v oh-data:/data -v "$PWD/backups:/backups" \
-    ghcr.io/openheaders/ohd:2026.8.3 backup /backups/oh-2026-08-22 --data-dir /data
+    ghcr.io/openheaders/ohd:2026.8.4 backup /backups/oh-2026-08-22 --data-dir /data
   ```
