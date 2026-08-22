@@ -41,6 +41,14 @@ export default defineConfig({
     terserOptions: {
       compress: { passes: 2 },
     },
+    // Same as the dist build: keep undici's lazy `require('node:sqlite')`
+    // at its call site instead of hoisting it into a startup require —
+    // otherwise every ohd command prints Node's experimental-SQLite
+    // warning. The CJS output has a native `require` for the rare case
+    // undici's feature detection actually runs.
+    commonjsOptions: {
+      ignore: ['node:sqlite'],
+    },
     rollupOptions: {
       input: { ohd: 'src/cli.ts' },
       output: {

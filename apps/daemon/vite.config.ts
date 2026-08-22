@@ -37,6 +37,16 @@ export default defineConfig({
     outDir: 'dist',
     emptyOutDir: true,
     minify: 'esbuild',
+    // undici's runtime-features map `require('node:sqlite')`s lazily —
+    // for feature detection, on demand. The CJS conversion would hoist
+    // that literal require into a static top-level import, making Node
+    // print its experimental-SQLite warning on every ohd invocation;
+    // ignoring the specifier keeps the require at its call site (the
+    // shim above hands every chunk a real `require`), loaded only if
+    // undici ever actually asks.
+    commonjsOptions: {
+      ignore: ['node:sqlite'],
+    },
     rollupOptions: {
       input: {
         main: 'src/main.ts',
