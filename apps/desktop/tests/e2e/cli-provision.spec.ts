@@ -249,8 +249,13 @@ test('Rotate swaps the secret, revokes the old row, and never accumulates', asyn
     })
     .not.toBe(oldToken);
 
+  // The file gains the new secret BEFORE the old row is revoked
+  // (mint-first: rotation must never leave the machine credential-less),
+  // so the ledger converges only after the poll gate above fires.
+  await expect
+    .poll(async () => (await cliLedgerRows()).filter((row) => row.revokedAt === null).length)
+    .toBe(1);
   const rows = await cliLedgerRows();
-  expect(rows.filter((row) => row.revokedAt === null)).toHaveLength(1);
   expect(rows.find((row) => row.id === oldTokenId)?.revokedAt).not.toBeNull();
 
   const fresh = oh(['status']);
