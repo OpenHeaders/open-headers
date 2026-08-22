@@ -1,0 +1,51 @@
+---
+title: "Backup & restore"
+description: "Take checksummed snapshots of the daemon's state and restore them safely."
+---
+
+By the end of this page you have a verified snapshot of your server's
+state and know exactly how a restore behaves.
+
+A backup is a plain directory snapshot of the daemon's state —
+`storage.json`, `oracle.db` (copied through SQLite's online backup
+API, so the file is consistent even if a crash left an uncheckpointed
+WAL), and `blobs/` — plus a `manifest.json` with sha256 checksums.
+Config (`daemon.json`) and logs are not state and stay out of the
+snapshot.
+
+```sh
+ohd stop
+ohd backup ~/backups/oh-2026-08-22     # defaults to ./openheaders-daemon-backup-<timestamp>
+ohd start
+
+ohd restore ~/backups/oh-2026-08-22    # verifies every checksum first
+ohd restore ~/backups/oh-2026-08-22 --force   # replace existing state
+```
+
+Both commands require the daemon to be stopped — a snapshot copied
+under a live daemon would tear across the three stores. Restore
+verifies the manifest before touching anything, refuses over existing
+state without `--force`, and replaces state wholesale: stale WAL
+sidecars and leftover blobs are dropped. **A restore is a rewind, not
+a merge.**
+
+## What the guardrails look like
+
+- `ohd backup` into a non-empty directory refuses:
+  `destination <dir> already exists and is not empty — back up into a fresh directory.`
+- A directory without a manifest is rejected:
+  `<dir> is not a backup — no manifest.json (torn backup or wrong directory).`
+- A file that fails its checksum stops the restore before anything is
+  touched: `snapshot is corrupt — <path> does not match its manifest checksum.`
+- A never-booted data dir has nothing to snapshot:
+  `nothing to back up — <data dir> holds no storage.json or oracle.db (never booted?).`
+
+## What to back up besides
+
+The snapshot is the daemon's *state*. For a full disaster-recovery
+picture, also keep copies of:
+
+- `daemon.json` — your durable configuration (bind posture, hosts,
+  OIDC provider).
+- Your reverse-proxy config and certificates, if you run
+  [TLS termination](/server/lan-vs-tls).

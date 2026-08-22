@@ -1,0 +1,63 @@
+---
+title: "Observability"
+description: "The audit log, the /metrics snapshot, and the daemon's log format."
+---
+
+By the end of this page you can answer "who did what", "how is the
+server doing", and "what just happened" — from the audit log, the
+metrics route, and the daemon log respectively.
+
+## Audit log
+
+Every permission decision — allowed or denied, over WebSocket sync or
+MCP — is recorded durably in `oracle.db` with the acting user,
+capability, workspace, decision and timestamp. Entries are kept for
+`auditRetentionDays` (default 90; raise it for compliance retention —
+there is no upper cap) and pruned hourly.
+
+```sh
+ohd audit list                             # newest first, 50 rows
+ohd audit list --decision deny --since 7d
+ohd audit list --actor alice@example.com --workspace <id>
+ohd audit export --since 2026-07-01 > audit.jsonl
+```
+
+`list` resolves actor names through the current user directory at
+view time; `export` emits the raw rows as JSONL, oldest first. Both
+work while the daemon runs — reads are lock-free. `--since`/`--until`
+take ISO date-times or relative forms (`30m`, `24h`, `7d`).
+
+## Metrics
+
+`GET /metrics` on the daemon's bind returns a JSON snapshot of
+operational state: version and uptime, bind lifecycle, connected
+peers (same-device vs LAN), workspace count, per-subsystem status,
+stored mutations (total and last 24h), audit decision counts, and the
+observability ring size. The route is read-only and token-gated —
+every request presents a paired token, loopback included, validated
+against the same ledger as WebSocket sync and MCP.
+
+```sh
+ohd status                                  # liveness only (no token)
+ohd status --verbose --token oh_…           # + /metrics, human-formatted
+OH_DAEMON_TOKEN=oh_… ohd status --verbose   # token via environment
+
+curl -H "Authorization: Bearer oh_…" http://127.0.0.1:8137/metrics
+```
+
+Browser-originated requests are refused outright (same posture as
+`/mcp`), and a wrong token counts toward the per-peer rate limit.
+
+## Logs
+
+The daemon appends to `<data dir>/logs/daemon.log`, one line per
+event:
+
+```
+<ISO timestamp> <LEVEL> [scope] message
+```
+
+Authentication rejections include the peer address and reason on a
+single line, so log scanners can match them directly. Tune verbosity
+with `--log-level` (`error`, `warn`, `info`, `debug`; persisted like
+every install flag).

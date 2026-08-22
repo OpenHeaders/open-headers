@@ -1,0 +1,50 @@
+---
+title: "Upgrade"
+description: "Move the server to the newest release with one command, or opt into unattended upgrades."
+---
+
+By the end of this page your server is on the newest release — and,
+if you want, stays there on its own.
+
+## One command
+
+```sh
+ohd upgrade
+```
+
+`upgrade` downloads the newest release of the binary from the update
+feed, verifies its SHA-256 checksum against the release manifest,
+installs it, and restarts the installed service into it. Skip the
+restart with `--no-restart` (the running daemon keeps its old binary
+until `ohd restart`).
+
+`ohd status` also notes when a newer release is available, so a
+routine health check doubles as an update check.
+
+## Unattended upgrades
+
+Opt in with the update setting (daemon stopped, like every offline
+setting change):
+
+```sh
+ohd config set updates.autoUpdate true
+```
+
+Off by default — a self-hosted server never changes its binary
+without you saying so.
+
+## Docker
+
+Container deployments upgrade by pulling a newer image tag instead —
+see [Docker & Compose](/server/docker). `ohd upgrade` is for the
+native binaries.
+
+## If an upgrade goes wrong
+
+- A checksum mismatch aborts cleanly before anything is installed:
+  `checksum mismatch for <asset> — expected <sha256>, got <actual>; not installing`.
+- A feed outage fails the command, not the daemon:
+  `could not reach the update feed at <url> — check your network and try again`.
+- The previous binary keeps running until the restart, and
+  [state is snapshot-able](/server/backup-restore) independently of
+  the binary version.

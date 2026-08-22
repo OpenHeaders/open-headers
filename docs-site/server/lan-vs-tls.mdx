@@ -1,0 +1,126 @@
+---
+title: "LAN vs TLS proxy"
+description: "Decide how connections to the daemon are protected once it leaves loopback — cleartext on a trusted LAN, or TLS terminated at a reverse proxy."
+---
+
+By the end of this page you have made the one decision every
+deployment makes — how the connection is protected — and applied it.
+
+The daemon binds `127.0.0.1:8137` by default: loopback only, nothing
+to decide. The moment you want other machines to reach it, you must
+also say how the traffic is protected. A `0.0.0.0` bind without an
+answer refuses to boot rather than serve auth tokens and pairing
+secrets unencrypted by accident:
+
+```
+bind address 0.0.0.0 without TLS would expose auth tokens and pairing
+secrets as cleartext on the network — front the daemon with a
+TLS-terminating reverse proxy and set --trusted-proxy, or accept
+cleartext on a trusted network with --allow-insecure-lan
+```
+
+## Which one?
+
+| | Cleartext LAN | TLS reverse proxy |
+| --- | --- | --- |
+| Fits | A home network or lab you trust end to end | Anything beyond that: shared offices, VPS, internet-reachable hosts, teams |
+| Traffic | `http://` / `ws://`, readable to anyone on the network path | `https://` / `wss://`, encrypted to the proxy |
+| Extra moving parts | None | A reverse proxy (Caddy or nginx) and a domain name |
+| Daemon bind | `0.0.0.0` | Stays on `127.0.0.1` when the proxy runs on the same machine |
+
+Tokens are required on every non-loopback connection in **both**
+postures — the decision is about encryption on the wire, not about
+whether auth exists.
+
+## Option A — cleartext on a trusted LAN
+
+An explicit acknowledgment that cleartext on a trusted network is
+acceptable:
+
+```sh
+ohd install --bind-address 0.0.0.0 --allow-insecure-lan
+ohd restart        # a running daemon keeps its old bind until restarted
+```
+
+Run `ohd show-token` (daemon stopped) to see the LAN join URLs. If
+clients still cannot connect, check that the host firewall
+(`ufw`/`firewalld`) admits port 8137.
+
+The daemon warns at boot as a standing reminder of the posture:
+
+```
+serving cleartext HTTP/WS on all interfaces (allowInsecureLan) — auth
+tokens and pairing secrets are readable by anyone on the network path;
+use a TLS-terminating reverse proxy for anything beyond a trusted LAN
+```
+
+Undo it any time with `ohd install --no-allow-insecure-lan` and a
+restart.
+
+## Option B — TLS terminated at a reverse proxy
+
+TLS is reverse-proxy-first: terminate `wss://` at Caddy or nginx and
+forward plain `ws://` to the daemon on loopback. The daemon stays
+bound to `127.0.0.1` when the proxy runs on the same machine — only
+the proxy is reachable from outside.
+
+```sh
+ohd install --trusted-proxy --allowed-host oh.example.com
+ohd restart
+```
+
+Two flags, two jobs:
+
+- `--trusted-proxy` makes auth logs and rate limits use the client
+  address the proxy appends to `X-Forwarded-For` instead of the
+  proxy's own. **Never set it without a proxy in front** — clients
+  could then spoof the header.
+- `--allowed-host` admits the proxy's domain on the browser-facing
+  routes. IP addresses, `localhost`, and mDNS `*.local` names always
+  work; any other hostname — a reverse-proxy domain, an intranet
+  name — must be declared, or its requests are refused.
+
+Caddy (automatic certificates; WebSocket upgrades and
+`X-Forwarded-For` are handled by default):
+
+```caddyfile
+oh.example.com {
+    reverse_proxy 127.0.0.1:8137
+}
+```
+
+nginx:
+
+```nginx
+server {
+    listen 443 ssl;
+    server_name oh.example.com;
+    ssl_certificate     /etc/ssl/oh.example.com.crt;
+    ssl_certificate_key /etc/ssl/oh.example.com.key;
+
+    location / {
+        proxy_pass http://127.0.0.1:8137;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_read_timeout 300s;
+    }
+}
+```
+
+Clients then dial `wss://oh.example.com` with a paired token, exactly
+like a LAN join.
+
+## Switching later
+
+Both postures persist through `daemon.json`, so switching is a
+re-install plus restart — for example, from cleartext LAN to a proxy:
+
+```sh
+ohd install --bind-address 127.0.0.1 --no-allow-insecure-lan --trusted-proxy --allowed-host oh.example.com
+ohd restart
+```
+
+Existing tokens keep working; clients just dial the new URL.

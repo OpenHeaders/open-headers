@@ -1,0 +1,76 @@
+---
+title: "Tokens & pairing"
+description: "Mint the first client token, join clients, and understand the admission and rate-limit rules every route enforces."
+---
+
+By the end of this page your clients are joined with tokens and you
+know how the daemon decides which requests it accepts.
+
+## The first token
+
+```sh
+ohd show-token     # daemon stopped; the secret is shown once
+```
+
+`show-token` mints a client auth token against the daemon's data dir
+and prints the join URLs alongside a one-time secret — copy it when it
+appears. It requires the daemon to be stopped (`storage.json` is
+single-writer); while the daemon runs, mint further tokens from a
+connected admin surface instead.
+
+Add the daemon as a backend in any client — extension, desktop app,
+web app — under **Settings → Backends** with a join URL and that
+token. For the CLI:
+
+```sh
+oh connect --daemon http://127.0.0.1:8137 --token <secret>
+```
+
+## What tokens gate
+
+Tokens are required on **every non-loopback connection** — LAN and
+proxied alike. Pairing and token administration beyond the first token
+happen from a connected client. The token-gated surfaces:
+
+- WebSocket sync (every client connection)
+- `/mcp` (bearer token; see the [MCP quick start](/quickstart/mcp))
+- `/metrics` (bearer token, loopback included)
+
+`/healthz` stays open — that is what `ohd status` probes.
+
+## Admission rules
+
+Every route on the bind enforces its own Origin/Host posture:
+
+- `/mcp` refuses any browser-originated request outright.
+- The WebSocket sync route accepts browser-extension origins and the
+  daemon's own served origin.
+- The pairing pages accept only same-origin form posts.
+- The web app pages accept top-level navigations and same-origin
+  fetches; the SSO login routes (`/auth/oidc/*`, active only when
+  configured) behave the same.
+- `/healthz` stays open.
+
+Requests addressed by a hostname the daemon doesn't answer as are
+refused on the browser-facing routes — IP addresses, `localhost`, and
+mDNS `*.local` names always work; anything else (a reverse-proxy
+domain, an intranet name) must be declared with `--allowed-host`.
+Refusals are logged as
+`rejected <route> request: <reason> (origin=… host=… peer=…)`.
+
+## Rate limits
+
+Failed token attempts — pairing-code guesses, WebSocket auth
+rejections, and `/mcp` bearer failures — feed one per-peer budget. A
+peer that crosses it is blocked for a cool-down: HTTP requests answer
+`429` with a `Retry-After` header and the body
+`{"error":"too many failed attempts"}`; upgrades are refused. The
+daemon logs a single line at the transition:
+
+```
+peer throttled: <N> failed <route> attempts in <window>s, blocked for <block>s (peer=<addr>)
+```
+
+Behind a reverse proxy, set `--trusted-proxy` so the budget applies to
+the real client address from `X-Forwarded-For`, not the proxy's own —
+see [LAN vs TLS proxy](/server/lan-vs-tls).

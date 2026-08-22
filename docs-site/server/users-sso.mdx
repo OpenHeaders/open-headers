@@ -1,0 +1,92 @@
+---
+title: "Users, seats & SSO"
+description: "Manage the daemon's user directory, workspace grants, seat limits, local passwords, and OpenID Connect login."
+---
+
+By the end of this page your team has named users with the right
+workspace roles, and — if you run an identity provider — sign-in to
+the served web app through it.
+
+## The user directory
+
+User administration runs offline against the data dir (daemon
+stopped; the daemon must have booted once):
+
+```sh
+ohd user add <name> [--email <address>]
+ohd user list                              # grants included
+ohd user grant <id-or-email> <workspaceId> <owner|editor|viewer>
+ohd user revoke-grant <id-or-email> <workspaceId>
+ohd user deactivate <id-or-email>          # also revokes their tokens
+```
+
+Roles: editors write, viewers read, no grant = no access.
+Deactivation is permanent for that record — reactivation is not
+supported; add the user anew.
+
+### Local passwords
+
+```sh
+ohd user set-password <id-or-email>         # echo-off prompt
+ohd user set-password <id-or-email> --clear
+```
+
+For scripts, supply the password via `OH_DAEMON_USER_PASSWORD` or
+`OH_DAEMON_USER_PASSWORD_FILE` — never a flag.
+
+## Seats & licensing
+
+The free tier includes **6 seats** — active users in the directory.
+Paid plans only add seats above that; the software is otherwise
+identical. At the seat limit, `ohd user add` refuses; an
+individual-seat key matching the user's email admits past it:
+
+```sh
+ohd user add <name> --email <address> --individual-license <key>
+```
+
+Team licenses install as a file:
+
+```sh
+ohd license status                 # licensee, seats, expiry, grace
+ohd license install <file>         # a running daemon picks it up live
+ohd license remove                 # revert to the free tier
+```
+
+Removing a license never touches existing users or data — past-grace
+expiry only stops NEW growth beyond the free tier.
+
+## SSO login (OIDC)
+
+Team deployments can let users sign in to the served web app through
+an OpenID Connect provider instead of pasting a pairing token.
+Configure the provider in `daemon.json`:
+
+```json
+{
+  "oidc": {
+    "issuer": "https://sso.example.com",
+    "clientId": "openheaders-daemon",
+    "redirectOrigin": "https://oh.example.com",
+    "autoProvision": false,
+    "sessionTtlDays": 30,
+    "providerLabel": "Example SSO"
+  }
+}
+```
+
+Register `<redirectOrigin>/auth/oidc/callback` as the client's
+redirect URI with the provider. For confidential clients, put the
+client secret in `daemon.json` as `oidc.clientSecret` or (better) in
+the service environment as `OH_DAEMON_OIDC_CLIENT_SECRET`; public
+clients need no secret — the flow always runs PKCE. `redirectOrigin`
+may be omitted for single-hostname deployments; the daemon then
+derives it from the request.
+
+A successful login maps the provider's verified email onto a daemon
+user (`ohd user add <name> --email <email>`) and mints a session token
+bound to that user, expiring after `sessionTtlDays` (default 30).
+Unknown emails are refused unless `autoProvision` is `true`, which
+creates the user with zero workspace grants — grant access with
+`ohd user grant`. Daemon-local users, pairing, and operator-minted
+tokens keep working unchanged; SSO is additive.

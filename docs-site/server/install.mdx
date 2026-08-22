@@ -1,0 +1,151 @@
+---
+title: "Install & service lifecycle"
+description: "Install ohd, run it as a user service under launchd or systemd, and learn where configuration, state, and logs live."
+---
+
+By the end of this page the daemon runs as a user service that starts
+at boot, survives reboots, and you know exactly which files it reads
+and writes.
+
+## Install the binaries
+
+Each release ships `oh` (the CLI) and `ohd` (the daemon) as
+self-contained executables — the bundled runtime, the daemon, the web
+app, and the compiled SQLite addon are all inside the binary. No
+Node.js required.
+
+<Tabs>
+  <Tab title="macOS" icon="/images/macos.svg">
+    ```sh
+    curl -fsSL https://updates.openheaders.com/install.sh | sh -s -- --with-daemon
+    ```
+
+    The script verifies SHA-256 checksums and installs to
+    `~/.local/bin`. Binaries currently ship for Apple silicon
+    (`mac-arm64`).
+  </Tab>
+  <Tab title="Linux" icon="/images/linux.svg">
+    ```sh
+    curl -fsSL https://updates.openheaders.com/install.sh | sh -s -- --with-daemon
+    ```
+
+    The script verifies SHA-256 checksums and installs to
+    `~/.local/bin`. Binaries currently ship for x64 (`linux-x64`).
+  </Tab>
+  <Tab title="Docker" icon="/images/docker.svg">
+    No binaries to install — the daemon ships as a container image and
+    the container supervises it. See [Docker & Compose](/server/docker);
+    the rest of this page is about the native service lifecycle.
+  </Tab>
+</Tabs>
+
+The same binaries are downloadable from the
+[releases page](https://github.com/OpenHeaders/open-headers/releases).
+On first use the binary unpacks the SQLite addon (and the web app) to
+`<state dir>/sea/<build>/` — a native module can only load from disk —
+with checksum-verified, crash-safe unpacking; set
+`OH_DAEMON_UNPACK_DIR` to move that base.
+
+## The service lifecycle
+
+```sh
+ohd install     # write the user service unit and persist config
+ohd start
+ohd status      # probes /healthz
+ohd stop
+ohd restart     # how a changed config or swapped binary takes effect
+```
+
+`ohd install` writes a **user** service unit — a launchd LaunchAgent
+on macOS, a systemd user unit on Linux — and persists the config flags
+it is given into `daemon.json`. Re-run it with new flags at any time
+to reconfigure: an omitted flag keeps its persisted value
+(`--no-trusted-proxy` / `--no-allow-insecure-lan` clear the booleans),
+and `ohd restart` applies the result. `ohd start` is a no-op while the
+service already runs.
+
+On Linux, `install` also enables the unit for boot and turns on user
+lingering (`systemctl --user enable oh-daemon.service`,
+`loginctl enable-linger`) so the daemon survives reboots and outlives
+the SSH session that installed it; if either command needs privileges,
+the exact manual command is printed instead. On macOS the LaunchAgent
+starts at login.
+
+### Foreground instead
+
+`ohd run` runs the daemon in the foreground — it is exactly what the
+service unit execs. Ctrl-C / SIGTERM shuts it down cleanly. Handy
+under container supervisors and for trying things out before
+installing a service unit.
+
+## Where everything lives
+
+| What | Path |
+| --- | --- |
+| Binaries | `~/.local/bin/oh`, `~/.local/bin/ohd` |
+| Config | `<data dir>/daemon.json` (override with `--config`) |
+| Data dir (macOS) | `~/Library/Application Support/openheaders-daemon` |
+| Data dir (Linux) | `$XDG_STATE_HOME/openheaders-daemon` (default `~/.local/state/openheaders-daemon`) |
+| State | `storage.json`, `oracle.db`, `blobs/` under the data dir |
+| Log file | `<data dir>/logs/daemon.log` |
+| Service unit (macOS) | `~/Library/LaunchAgents/io.openheaders.daemon.plist` |
+| Service unit (Linux) | `~/.config/systemd/user/oh-daemon.service` |
+
+Move the data dir with `--data-dir` (persisted like every install
+flag). Everything the daemon persists lives under it.
+
+## Configuration precedence
+
+Precedence, highest first: **argv → env → `daemon.json` → defaults**.
+`daemon.json` is the durable configuration — `ohd install` writes the
+flags it is given into it, the service unit carries only `--config`,
+and every `ohd` command (`status`, `show-token`, the daemon boot
+itself) reads the same file.
+
+| Flag | Env | `daemon.json` | Default |
+| --- | --- | --- | --- |
+| `--data-dir` | `OH_DAEMON_DATA_DIR` | `dataDir` | platform state dir |
+| `--bind-address` | `OH_DAEMON_BIND_ADDRESS` | `bindAddress` | `127.0.0.1` |
+| `--bind-port` | `OH_DAEMON_BIND_PORT` | `bindPort` | `8137` |
+| `--log-level` | `OH_DAEMON_LOG_LEVEL` | `logLevel` | `info` |
+| `--trusted-proxy` | `OH_DAEMON_TRUSTED_PROXY` | `trustedProxy` | `false` |
+| `--allow-insecure-lan` | `OH_DAEMON_ALLOW_INSECURE_LAN` | `allowInsecureLan` | `false` |
+| `--allowed-host` (repeatable) | `OH_DAEMON_ALLOWED_HOSTS` (comma-separated) | `allowedHosts` | none |
+| `--web-root` | `OH_DAEMON_WEB_ROOT` | `webRoot` | `web/` beside the daemon bundle |
+| `--config` | `OH_DAEMON_CONFIG` | — | `<data dir>/daemon.json` |
+| — | `OH_DAEMON_OIDC_CLIENT_SECRET` | `oidc` (object) | SSO off |
+| — | `OH_DAEMON_AUDIT_RETENTION_DAYS` | `auditRetentionDays` | `90` |
+
+## Runtime settings are separate
+
+Runtime settings live in `storage.json`, not `daemon.json`. The CLI
+exposes the MCP switches and the update switch, all off by default:
+
+```sh
+ohd config set mcp.enabled true   # requires the daemon to be stopped
+ohd config get mcp.enabled
+ohd config list
+```
+
+Settable keys: `mcp.enabled`, `mcp.allowObserve`, `mcp.allowWrite`,
+`mcp.allowExecute`, `mcp.allowSecrets`, `updates.autoUpdate`. Bind and
+network options are **not** settings — they persist through the
+`ohd install` flags above. `config set` refuses while the daemon runs
+(`storage.json` is single-writer); a running daemon takes settings
+changes from a connected admin surface instead. Reads work anytime.
+
+## The web app
+
+The daemon serves the Open Headers web app — the same Workbench UI the
+desktop app and extension run — as static files on its bind: open
+`http://<daemon-host>:8137/` in a browser. Distributions built with
+the web bundle serve it out of the box; point `--web-root` at a
+different built bundle to serve that instead. An explicitly configured
+web root must contain an `index.html`, or the daemon refuses to boot;
+without any web root the daemon runs headless-only and `/` answers 400.
+
+## Next
+
+- Making it reachable beyond loopback is a deliberate step:
+  [LAN vs TLS proxy](/server/lan-vs-tls).
+- Clients join with a token: [Tokens & pairing](/server/tokens-and-pairing).

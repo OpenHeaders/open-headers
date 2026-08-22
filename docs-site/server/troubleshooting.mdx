@@ -1,0 +1,87 @@
+---
+title: "Troubleshooting"
+description: "Symptom → cause → fix for every dead end a self-hosted deployment can hit, with the daemon's error messages quoted verbatim."
+---
+
+Find your symptom, or search this page for the exact error message the
+daemon printed — every message below is quoted verbatim.
+
+## Boot & configuration
+
+| Symptom | Cause | Fix |
+| --- | --- | --- |
+| `bind address 0.0.0.0 without TLS would expose auth tokens and pairing secrets as cleartext on the network — front the daemon with a TLS-terminating reverse proxy and set --trusted-proxy, or accept cleartext on a trusted network with --allow-insecure-lan` | A `0.0.0.0` bind with no declared protection posture | Make the [LAN vs TLS decision](/server/lan-vs-tls): add `--trusted-proxy` (proxy in front) or `--allow-insecure-lan` (trusted network) to `ohd install`, then `ohd restart` |
+| `bind address must be '127.0.0.1' (loopback) or '0.0.0.0' (LAN), got '…'` | A specific interface IP was passed | The daemon binds loopback or all interfaces; scope exposure with a firewall or the port mapping instead |
+| `web root … does not contain an index.html` | `--web-root` points at a directory that is not a built web bundle | Point it at a built bundle, or drop the flag to serve the bundled web app (headless-only if the distribution has none) |
+| `port … is not bindable (privileged or out of range)` | `--bind-port` below 1024 or above 65535 | Pick an unprivileged port; the default is `8137` |
+
+## Reachability
+
+| Symptom | Cause | Fix |
+| --- | --- | --- |
+| Clients on other machines cannot connect; the daemon runs fine locally | The daemon still binds `127.0.0.1` (the default) | `ohd install --bind-address 0.0.0.0` with a protection posture, then `ohd restart` — see [LAN vs TLS](/server/lan-vs-tls) |
+| Bind is `0.0.0.0` but LAN clients still cannot connect | Host firewall | Admit port 8137: `sudo ufw allow 8137` or `sudo firewall-cmd --add-port=8137/tcp --permanent && sudo firewall-cmd --reload` |
+| Config was changed but behavior did not | A running daemon keeps its old bind until restarted | `ohd restart` — `ohd install` persists flags; only a restart applies them |
+| Browser requests via a domain name are refused; log shows `rejected … request: host-forbidden (origin=… host=… peer=…)` | The hostname is not one the daemon answers as | Declare it: `ohd install --allowed-host oh.example.com`, then `ohd restart`; IPs, `localhost`, and `*.local` always work |
+| Log shows `rejected … request: origin-forbidden (…)` | A browser origin the route does not accept (e.g. a cross-origin page calling `/mcp`) | Expected posture — `/mcp` refuses browser-originated requests outright; call it from an agent or CLI instead |
+
+## Tokens & auth
+
+| Symptom | Cause | Fix |
+| --- | --- | --- |
+| `the daemon is running on port 8137 — stop it first (ohd stop).` | `show-token`, `config set`, `user …`, `backup`, or `restore` while the daemon runs — `storage.json` is single-writer | `ohd stop`, run the command, `ohd start`; or do it from a connected admin surface while it runs |
+| HTTP `429` with `Retry-After`; body `{"error":"too many failed attempts"}`; log shows `peer throttled: … (peer=…)` | The per-peer failure budget tripped — repeated bad tokens or pairing-code guesses | Wait out the cool-down and fix the credential; behind a proxy, set `--trusted-proxy` so the budget hits the real client, not the proxy address |
+| `--verbose reads the token-gated /metrics route — pass --token or set OH_DAEMON_TOKEN` | `ohd status --verbose` without a token | Pass `--token oh_…` or export `OH_DAEMON_TOKEN` — `/metrics` requires a paired token even on loopback |
+| The first token was never saved | `show-token` prints the secret once | Run `ohd show-token` again (daemon stopped) to mint a fresh one |
+
+## Settings
+
+| Symptom | Cause | Fix |
+| --- | --- | --- |
+| `bind and network options (--bind-address, --allow-insecure-lan, …) are not settings` | `ohd config set` used for a network option | Network options persist through `ohd install` flags; `config set` is for settings keys (`mcp.*`, `updates.autoUpdate`) |
+| `<key> is a boolean — expected true/false, got '…'` | Non-boolean value for a settings key | All settable keys are booleans: `true` or `false` |
+
+## Service lifecycle
+
+| Symptom | Cause | Fix |
+| --- | --- | --- |
+| `service install is not supported on … yet` | `ohd install` on a platform without service support (e.g. Windows) | Run `ohd run` in the foreground under your own supervisor, or use [Docker](/server/docker) |
+| `systemctl --user … failed: …` / `launchctl failed: …` | The user service manager refused | Read the detail in the message; on Linux over SSH, lingering may need `sudo loginctl enable-linger <user>` — `ohd install` prints the exact command when it cannot run it |
+| Daemon dies when the SSH session ends (Linux) | User lingering is off, so the user manager stops at logout | `sudo loginctl enable-linger <user>`, then `ohd start` |
+| `cannot write … — re-run the install with sufficient permissions` | Unit or log directory not writable | Fix ownership of the printed path, or set `--data-dir` somewhere the user owns |
+
+## Upgrade
+
+| Symptom | Cause | Fix |
+| --- | --- | --- |
+| `checksum mismatch for … — expected …, got …; not installing` | Corrupted or tampered download | Re-run `ohd upgrade`; persistent mismatches mean something on the path rewrites downloads — check proxies |
+| `could not reach the update feed at … — check your network and try again` | No route to the update feed | Restore network access and retry; the running daemon is unaffected |
+| `no published ohd binary for this platform` | The feed has no binary for this OS/arch | Use [Docker](/server/docker) or build from source; native binaries currently ship for `mac-arm64` and `linux-x64` |
+| `this is a development build — ohd upgrade only works on a released binary` | Upgrading a from-source build | Pull and rebuild from source instead |
+
+## Backup & restore
+
+| Symptom | Cause | Fix |
+| --- | --- | --- |
+| `destination … already exists and is not empty — back up into a fresh directory.` | Backing up into a used directory | Point `ohd backup` at a fresh path |
+| `… is not a backup — no manifest.json (torn backup or wrong directory).` | Restore target is not a snapshot | Point `ohd restore` at the directory a backup created |
+| `snapshot is corrupt — … does not match its manifest checksum.` | A snapshot file changed since it was written | Use another snapshot — restore refuses rather than loading torn state |
+| `snapshot is incomplete — … is listed in the manifest but missing.` | A file was lost from the snapshot | Same — use a complete snapshot |
+| `nothing to back up — … holds no storage.json or oracle.db (never booted?).` | The data dir has never been booted | Start the daemon once first, or check `--data-dir` points where you think |
+
+## Users & licensing
+
+| Symptom | Cause | Fix |
+| --- | --- | --- |
+| `ohd user add` refuses at the seat limit | The free tier includes 6 seats | Deactivate an unused user, or add seats — see [Users, seats & SSO](/server/users-sso) |
+| `an individual seat needs the user email to match — add the user with --email.` | `--individual-license` without a matching `--email` | Pass the email the seat key was issued for |
+| `user '…' is deactivated — reactivation is not supported; add anew.` | Operating on a deactivated user | Create a fresh user; deactivation is permanent for that record |
+| `the individual-seat key is not usable (invalid, expired, or not an individual seat).` | Bad or wrong-type key | Check the key; team licenses install via `ohd license install <file>` instead |
+
+## Still stuck?
+
+`ohd status --verbose` (with a token) shows the daemon's own view of
+its subsystems, and `<data dir>/logs/daemon.log` has one line per
+event — auth rejections include the peer address and reason. If the
+answer is not here, [open an issue](https://github.com/OpenHeaders/open-headers/issues)
+with the log lines around the failure.

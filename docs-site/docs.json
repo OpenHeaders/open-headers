@@ -40,7 +40,27 @@
       },
       {
         "tab": "Server",
-        "pages": ["server/index"]
+        "groups": [
+          {
+            "group": "Server",
+            "pages": ["server/index"]
+          },
+          {
+            "group": "Run it",
+            "pages": ["server/install", "server/lan-vs-tls", "server/docker"]
+          },
+          {
+            "group": "Operate it",
+            "pages": [
+              "server/tokens-and-pairing",
+              "server/users-sso",
+              "server/backup-restore",
+              "server/upgrade",
+              "server/observability",
+              "server/troubleshooting"
+            ]
+          }
+        ]
       },
       {
         "tab": "Reference",

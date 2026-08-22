@@ -1,14 +1,57 @@
 ---
-title: "Server"
-description: "The self-hosting book: install and service lifecycle, LAN vs TLS, tokens and pairing, users, backup and restore, upgrades, Docker, troubleshooting."
+title: "Open Headers Server"
+description: "The self-hosted back-end tier: what it is, what it serves, and where to find every operating task."
 ---
 
-This section is being written: the complete self-hosting book —
-install and service lifecycle, the LAN vs TLS-proxy decision, tokens
-and pairing, users, seats and SSO, backup and restore, upgrades,
-Docker and compose, and a troubleshooting matrix.
+This section is the self-hosting book. It takes you from a fresh
+machine to a hardened, backed-up, upgradable Open Headers Server — and
+when something misbehaves, the [troubleshooting matrix](/server/troubleshooting)
+maps symptoms to fixes.
 
-Until then, the [Server quick start](/quickstart/server) covers the
-full happy path — install, first token, LAN reachability, TLS via a
-reverse proxy, and Docker — and the daemon's built-in `ohd help`
-documents every command.
+The server (`ohd`) runs the same sync engine as the desktop app,
+headless: workspaces, rules, and live values served to the browser
+extension, desktop app, web app, and CLI over one WebSocket/HTTP bind.
+Your machine, your LAN, a Raspberry Pi/NAS, or a VM you rent. No
+account, no cloud relay, no telemetry, no phone-home — the daemon makes
+zero outbound connections except ones you configure (an OIDC identity
+provider for SSO login, if you set one up).
+
+## The book
+
+<CardGroup cols={2}>
+  <Card title="Install & lifecycle" href="/server/install">
+    Install the binaries, run the daemon as a user service, and
+    understand where configuration, state, and logs live.
+  </Card>
+  <Card title="LAN vs TLS proxy" href="/server/lan-vs-tls">
+    The one decision every deployment makes: how connections to the
+    daemon are protected once it leaves loopback.
+  </Card>
+  <Card title="Docker & Compose" href="/server/docker">
+    Run the daemon as a container: volumes, ports, version pinning,
+    and a Compose file.
+  </Card>
+  <Card title="Tokens & pairing" href="/server/tokens-and-pairing">
+    Mint the first token, join clients, and understand the admission
+    rules every route enforces.
+  </Card>
+  <Card title="Users, seats & SSO" href="/server/users-sso">
+    The user directory, workspace grants, seat limits, passwords, and
+    OpenID Connect login for the served web app.
+  </Card>
+  <Card title="Backup & restore" href="/server/backup-restore">
+    Checksummed snapshots of the daemon's state, and how a restore
+    behaves.
+  </Card>
+  <Card title="Upgrade" href="/server/upgrade">
+    Move to the newest release with one command, or opt into
+    unattended upgrades.
+  </Card>
+  <Card title="Observability" href="/server/observability">
+    The audit log, the /metrics snapshot, and the daemon's log format.
+  </Card>
+</CardGroup>
+
+Stuck right now? Start at
+[troubleshooting](/server/troubleshooting) — every error message the
+daemon prints is findable there verbatim.
