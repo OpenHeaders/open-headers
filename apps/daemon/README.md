@@ -12,8 +12,8 @@ login, if you set one up).
 
 ## Requirements
 
-- macOS or Linux for the service lifecycle (`oh daemon install/start/stop`);
-  any platform can run `oh daemon run` directly. No Node.js required —
+- macOS or Linux for the service lifecycle (`ohd install/start/stop`);
+  any platform can run `ohd run` directly. No Node.js required —
   the binary is self-contained (Node 22+ only to build from source).
 
 ## Install
@@ -35,8 +35,8 @@ The script verifies SHA-256 checksums and installs `oh` and `ohd` to
 On first use the binary unpacks the addon (and the web app) to
 `<state dir>/sea/<build>/` — a native module can only load from disk — with
 checksum-verified, crash-safe unpacking; set `OH_DAEMON_UNPACK_DIR` to move
-that base. The service unit written by `oh daemon install` execs
-`oh daemon run`, which also works standalone: it runs the daemon in the
+that base. The service unit written by `ohd install` execs
+`ohd run`, which also works standalone: it runs the daemon in the
 foreground (Ctrl-C / SIGTERM shuts it down cleanly), which is handy under
 container supervisors and for trying things out before installing a service
 unit.
@@ -56,24 +56,38 @@ inside the container. Pin a version tag (they match the daemon's
 ## Quick start
 
 ```sh
-oh daemon install                 # write the user service unit (launchd/systemd)
-oh daemon show-token              # mint the first client token (shown once)
-oh daemon start
-oh daemon status                  # probes /healthz
+ohd install                 # write the user service unit (launchd/systemd)
+ohd show-token              # mint the first client token (shown once)
+ohd start
+ohd status                  # probes /healthz
 ```
 
 `show-token` prints the join URLs and a one-time secret. Add the daemon as a
 backend in a client (Settings → Backends) with that token.
 
 The daemon binds `127.0.0.1:8137` by default — loopback only. To make it
-LAN-reachable:
+LAN-reachable you must also say how the connection is protected: either a
+TLS-terminating reverse proxy in front (see below), or an explicit
+acknowledgment that cleartext on a trusted network is acceptable:
 
 ```sh
-oh daemon install --bind-address 0.0.0.0
+ohd install --bind-address 0.0.0.0 --allow-insecure-lan
+ohd restart        # a running daemon keeps its old bind until restarted
 ```
+
+Without one of the two, a `0.0.0.0` bind refuses to boot rather than serve
+auth tokens and pairing secrets unencrypted by accident. Run `ohd show-token`
+(daemon stopped) to see the LAN join URLs; if clients still cannot connect,
+check the host firewall (`ufw`/`firewalld`) admits port 8137.
 
 Tokens are required on every non-loopback connection; pairing and token
 administration beyond the first token happen from a connected client.
+
+`install` persists the given flags into `daemon.json` and may be re-run at
+any time to reconfigure — an omitted flag keeps its persisted value
+(`--no-trusted-proxy` / `--no-allow-insecure-lan` clear the booleans), and
+`ohd restart` applies the result. `ohd start` is a no-op while the service
+already runs.
 
 On Linux, `install` also enables the unit for boot and turns on user
 lingering (`systemctl --user enable oh-daemon.service`,
@@ -84,6 +98,10 @@ manual command is printed instead. On macOS the LaunchAgent starts at login.
 ## Configuration
 
 Precedence, highest first: argv → env → `daemon.json` → defaults.
+`daemon.json` is the durable configuration — `ohd install` writes the flags
+it is given into it, the service unit carries only `--config`, and every
+`ohd` command (`status`, `show-token`, the daemon boot itself) reads the
+same file.
 
 | Flag | Env | `daemon.json` | Default |
 | --- | --- | --- | --- |
@@ -92,6 +110,7 @@ Precedence, highest first: argv → env → `daemon.json` → defaults.
 | `--bind-port` | `OH_DAEMON_BIND_PORT` | `bindPort` | `8137` |
 | `--log-level` | `OH_DAEMON_LOG_LEVEL` | `logLevel` | `info` |
 | `--trusted-proxy` | `OH_DAEMON_TRUSTED_PROXY` | `trustedProxy` | `false` |
+| `--allow-insecure-lan` | `OH_DAEMON_ALLOW_INSECURE_LAN` | `allowInsecureLan` | `false` |
 | `--allowed-host` (repeatable) | `OH_DAEMON_ALLOWED_HOSTS` (comma-separated) | `allowedHosts` | none |
 | `--web-root` | `OH_DAEMON_WEB_ROOT` | `webRoot` | `web/` beside the daemon bundle |
 | `--config` | `OH_DAEMON_CONFIG` | — | `<data dir>/daemon.json` |
@@ -107,13 +126,15 @@ Runtime settings live in `storage.json` (not `daemon.json`). The CLI exposes
 the MCP switches, all off by default:
 
 ```sh
-oh daemon config set mcp.enabled true   # requires the daemon to be stopped
-oh daemon config get mcp.enabled
-oh daemon config list
+ohd config set mcp.enabled true   # requires the daemon to be stopped
+ohd config get mcp.enabled
+ohd config list
 ```
 
-Settable keys: `mcp.enabled`, `mcp.allowWrite`, `mcp.allowExecute`,
-`mcp.allowSecrets`. `config set` refuses while the daemon runs —
+Settable keys: `mcp.enabled`, `mcp.allowObserve`, `mcp.allowWrite`,
+`mcp.allowExecute`, `mcp.allowSecrets`, `updates.autoUpdate`. Bind and
+network options are not settings — they persist through the `ohd install`
+flags above. `config set` refuses while the daemon runs —
 `storage.json` is single-writer, like `show-token`; a running daemon takes
 settings changes from a connected admin surface instead. Reads work anytime.
 
@@ -154,10 +175,10 @@ always runs PKCE. `redirectOrigin` may be omitted for single-hostname
 deployments; the daemon then derives it from the request.
 
 A successful login maps the provider's verified email onto a daemon user
-(`oh daemon user add <name> --email <email>`) and mints a session token bound
+(`ohd user add <name> --email <email>`) and mints a session token bound
 to that user, expiring after `sessionTtlDays` (default 30). Unknown emails are
 refused unless `autoProvision` is `true`, which creates the user with zero
-workspace grants — grant access with `oh daemon user grant`. Daemon-local
+workspace grants — grant access with `ohd user grant`. Daemon-local
 users, pairing, and operator-minted tokens keep working unchanged; SSO is
 additive.
 
@@ -190,7 +211,8 @@ plain `ws://` to the daemon on loopback. The daemon can stay bound to
 reachable from outside.
 
 ```sh
-oh daemon install --trusted-proxy --allowed-host oh.example.com
+ohd install --trusted-proxy --allowed-host oh.example.com
+ohd restart
 ```
 
 `--trusted-proxy` makes auth logs and rate limits use the client address the
@@ -240,10 +262,10 @@ workspace, decision and timestamp. Entries are kept for `auditRetentionDays`
 pruned hourly.
 
 ```sh
-oh daemon audit list                             # newest first, 50 rows
-oh daemon audit list --decision deny --since 7d
-oh daemon audit list --actor alice@openheaders.com --workspace <id>
-oh daemon audit export --since 2026-07-01 > audit.jsonl
+ohd audit list                             # newest first, 50 rows
+ohd audit list --decision deny --since 7d
+ohd audit list --actor alice@openheaders.com --workspace <id>
+ohd audit export --since 2026-07-01 > audit.jsonl
 ```
 
 `list` resolves actor names through the current user directory at view time;
@@ -262,9 +284,9 @@ loopback included, validated against the same ledger as WebSocket sync and
 MCP.
 
 ```sh
-oh daemon status                                  # liveness only (no token)
-oh daemon status --verbose --token oh_…           # + /metrics, human-formatted
-OH_DAEMON_TOKEN=oh_… oh daemon status --verbose   # token via environment
+ohd status                                  # liveness only (no token)
+ohd status --verbose --token oh_…           # + /metrics, human-formatted
+OH_DAEMON_TOKEN=oh_… ohd status --verbose   # token via environment
 
 curl -H "Authorization: Bearer oh_…" http://127.0.0.1:8137/metrics
 ```
@@ -281,12 +303,12 @@ the file is consistent even if a crash left an uncheckpointed WAL), and
 (`daemon.json`) and logs are not state and stay out of the snapshot.
 
 ```sh
-oh daemon stop
-oh daemon backup ~/backups/oh-2026-07-10     # defaults to ./openheaders-daemon-backup-<timestamp>
-oh daemon start
+ohd stop
+ohd backup ~/backups/oh-2026-07-10     # defaults to ./openheaders-daemon-backup-<timestamp>
+ohd start
 
-oh daemon restore ~/backups/oh-2026-07-10    # verifies every checksum first
-oh daemon restore ~/backups/oh-2026-07-10 --force   # replace existing state
+ohd restore ~/backups/oh-2026-07-10    # verifies every checksum first
+ohd restore ~/backups/oh-2026-07-10 --force   # replace existing state
 ```
 
 Both commands require the daemon to be stopped — a snapshot copied under a

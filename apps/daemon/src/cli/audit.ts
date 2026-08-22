@@ -39,7 +39,7 @@ const AUDIT_OPTIONS = {
 export async function commandAudit(argv: readonly string[]): Promise<void> {
   const [sub, ...rest] = argv;
   const { values } = parseArgs({ args: [...rest], options: AUDIT_OPTIONS });
-  const { config } = resolveConfigFlags(values);
+  const config = resolveConfigFlags(values);
   if (sub === 'list') {
     const filter = await buildFilter(config, values, 'desc');
     if (filter.limit === undefined) filter.limit = LIST_DEFAULT_LIMIT;

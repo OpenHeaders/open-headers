@@ -19,7 +19,7 @@ export async function commandVault(argv: readonly string[]): Promise<void> {
   const [sub, ...rest] = argv;
   if (sub !== 'rotate') throw new Error('usage: ohd vault rotate');
   const { values } = parseArgs({ args: [...rest], options: CONFIG_OPTIONS });
-  const { config } = resolveConfigFlags(values);
+  const config = resolveConfigFlags(values);
   await assertDaemonStopped(
     config,
     'storage.json is single-writer; a rotation under a live daemon would be clobbered by its next flush.',

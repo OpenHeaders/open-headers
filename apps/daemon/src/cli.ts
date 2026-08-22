@@ -20,7 +20,7 @@ import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 import { FREE_SEAT_LIMIT } from '@openheaders/core/licensing';
 import { formatBuildStamp, getBuildInfo, resolveAppVersion } from './build-info';
-import { CONFIG_OPTIONS, parseConfigCommand, resolveConfigFlags } from './cli/config-flags';
+import { CONFIG_OPTIONS, configFileUpdateFromFlags, INSTALL_OPTIONS, resolveConfigFlags } from './cli/config-flags';
 import {
   DAEMON_SETTING_KEYS,
   parseDaemonSettingKey,
@@ -39,7 +39,14 @@ import {
 } from './cli/license';
 import { fetchMetrics, formatMetrics } from './cli/metrics-probe';
 import { resolvePasswordInput, USER_PASSWORD_ENV, USER_PASSWORD_FILE_ENV } from './cli/password-input';
-import { installServiceUnit, type ServiceHost, startService, stopService } from './cli/service-manager';
+import {
+  installServiceUnit,
+  isServiceActive,
+  restartService,
+  type ServiceHost,
+  startService,
+  stopService,
+} from './cli/service-manager';
 import { mintBootstrapToken } from './cli/show-token';
 import { fetchAvailabilityLine } from './cli/update-notify';
 import { commandUpgrade } from './cli/upgrade';
@@ -55,7 +62,7 @@ import {
   setUserPassword,
 } from './cli/users';
 import { commandVault } from './cli/vault';
-import type { DaemonConfig } from './config';
+import { type DaemonConfig, resolveConfigPath, resolveDaemonConfig, updateDaemonConfigFile } from './config';
 
 const cliVersion: string = resolveAppVersion();
 
@@ -64,9 +71,15 @@ const USAGE = `ohd v${cliVersion} — Open Headers daemon control
 Usage: ohd <command> [options]
 
 Commands:
-  install       Write the user service unit (launchd/systemd) for the daemon
+  install       Write the user service unit (launchd/systemd) and persist the
+                given config flags into daemon.json — the config file every
+                ohd command and the daemon itself read; re-run with new flags
+                to reconfigure (then apply with: ohd restart)
   start         Start the installed service
   stop          Stop the installed service
+  restart       Restart the installed service — how a changed configuration
+                (or a swapped binary) takes effect; start is a no-op while
+                the service runs
   run           Run the daemon in the foreground (what the service unit
                 execs; Ctrl-C / SIGTERM shuts it down cleanly)
   status        Probe the daemon's /healthz; --verbose reads /metrics
@@ -80,7 +93,9 @@ Commands:
   show-token    Mint a client auth token against the daemon's data dir
                 (first-boot bootstrap; requires the daemon to be stopped)
   config set <key> <true|false>
-                Set a daemon setting offline (requires the daemon to be stopped)
+                Set a daemon setting offline (requires the daemon to be
+                stopped) — settings only; bind and network options persist
+                through the install flags instead
   config get <key>
   config list   Read daemon settings
   user add <name> [--email <address>] [--individual-license <key>]
@@ -140,6 +155,10 @@ Options (install / status / show-token / config):
                            the reverse proxy's domain; IPs/localhost always work
   --allow-insecure-lan     Accept serving cleartext HTTP/WS on 0.0.0.0 without
                            a TLS proxy (tokens ride unencrypted; trusted LANs only)
+  --no-trusted-proxy       install only: clear a --trusted-proxy persisted by an
+                           earlier install
+  --no-allow-insecure-lan  install only: clear an --allow-insecure-lan persisted
+                           by an earlier install
   --web-root <path>        Directory with the built web app to serve at /
                            (default: the web/ dir shipped beside the daemon)
   --proxy-mode <mode>      How the daemon's own egress reaches the network:
@@ -191,23 +210,38 @@ function daemonExecCommand(): string[] {
 }
 
 async function commandInstall(argv: readonly string[]): Promise<void> {
-  const { config, unitArgs } = parseConfigCommand(argv);
+  const { values } = parseArgs({ args: [...argv], options: INSTALL_OPTIONS });
+  // The given flags persist into daemon.json — the single source of
+  // truth every ohd command reads — and the unit carries only the
+  // config pointer, so a status/show-token without flags reports the
+  // same configuration the service boots with.
+  const configPath = resolveConfigPath(values.config, process.env);
+  updateDaemonConfigFile(configPath, configFileUpdateFromFlags(values));
+  const config = resolveDaemonConfig({ argv: ['--config', configPath], env: process.env });
   const command = daemonExecCommand();
-  const { unitPath, notes } = await installServiceUnit(serviceHost(), {
+  const unitArgs = ['--config', configPath];
+  const host = serviceHost();
+  const { unitPath, notes } = await installServiceUnit(host, {
     command,
     args: unitArgs,
     logFile: path.join(config.dataDir, 'logs', 'daemon.log'),
   });
   console.log(`Installed ${unitPath}`);
-  console.log(`  exec: ${command.join(' ')}${unitArgs.length ? ` ${unitArgs.join(' ')}` : ''}`);
+  console.log(`  exec: ${command.join(' ')} ${unitArgs.join(' ')}`);
+  console.log(`  config: ${configPath}`);
   console.log(`  bind: ${config.bindAddress}:${config.bindPort}, data dir: ${config.dataDir}`);
   for (const note of notes) {
     console.log(`  ${note}`);
   }
   console.log('');
-  console.log('Next: mint the first client token, then start the service:');
-  console.log('  ohd show-token');
-  console.log('  ohd start');
+  if (await isServiceActive(host)) {
+    console.log('The service is running with its previous configuration — apply this one with:');
+    console.log('  ohd restart');
+  } else {
+    console.log('Next: mint the first client token, then start the service:');
+    console.log('  ohd show-token');
+    console.log('  ohd start');
+  }
 }
 
 async function commandStatus(argv: readonly string[]): Promise<void> {
@@ -215,7 +249,7 @@ async function commandStatus(argv: readonly string[]): Promise<void> {
     args: [...argv],
     options: { ...CONFIG_OPTIONS, verbose: { type: 'boolean' }, token: { type: 'string' } },
   });
-  const { config } = resolveConfigFlags(values);
+  const config = resolveConfigFlags(values);
   const up = await probeHealthz(config.bindPort);
   if (!up) {
     console.log(`not running — no /healthz on 127.0.0.1:${config.bindPort}`);
@@ -252,7 +286,7 @@ async function commandShowToken(argv: readonly string[]): Promise<void> {
     args: [...argv],
     options: { ...CONFIG_OPTIONS, label: { type: 'string' }, user: { type: 'string' } },
   });
-  const { config } = resolveConfigFlags(values);
+  const config = resolveConfigFlags(values);
   const label = values.label;
   await assertOfflineWrite(config, 'a mint', 'mint');
   const boundUser = values.user !== undefined ? await resolveTokenUserBinding(config, values.user) : undefined;
@@ -277,17 +311,27 @@ function formatSettingValue(value: boolean | undefined): string {
   return value === undefined ? 'false (default)' : String(value);
 }
 
+const CONFIG_SET_USAGE =
+  'usage: ohd config set <key> <true|false>\n' +
+  `settable keys: ${DAEMON_SETTING_KEYS.join(', ')}\n` +
+  'bind and network options (--bind-address, --allow-insecure-lan, …) are not settings — ' +
+  "persist them with 'ohd install <flags>', then apply with 'ohd restart'";
+
 async function commandConfig(argv: readonly string[]): Promise<void> {
   const [sub, ...rest] = argv;
   const { values, positionals } = parseArgs({ args: [...rest], options: CONFIG_OPTIONS, allowPositionals: true });
-  const { config } = resolveConfigFlags(values);
+  // The subcommand's own arguments are validated before the config
+  // flags resolve — a misdirected `config set --bind-address …` must
+  // answer with the usage pointing at install, not with a bind-posture
+  // error about a change this command cannot make.
   if (sub === 'set') {
     const [rawKey, rawValue] = positionals;
     if (rawKey === undefined || rawValue === undefined) {
-      throw new Error('usage: ohd config set <key> <true|false>');
+      throw new Error(CONFIG_SET_USAGE);
     }
     const key = parseDaemonSettingKey(rawKey);
     const value = parseDaemonSettingValue(key, rawValue);
+    const config = resolveConfigFlags(values);
     await assertOfflineWrite(config, 'a setting written', 'change settings');
     await setDaemonSetting(config, key, value);
     console.log(`${key} = ${value}`);
@@ -298,12 +342,12 @@ async function commandConfig(argv: readonly string[]): Promise<void> {
     const [rawKey] = positionals;
     if (rawKey === undefined) throw new Error('usage: ohd config get <key>');
     const key = parseDaemonSettingKey(rawKey);
-    const settings = await readDaemonSettings(config);
+    const settings = await readDaemonSettings(resolveConfigFlags(values));
     console.log(`${key} = ${formatSettingValue(settings[key])}`);
     return;
   }
   if (sub === 'list') {
-    const settings = await readDaemonSettings(config);
+    const settings = await readDaemonSettings(resolveConfigFlags(values));
     for (const key of DAEMON_SETTING_KEYS) {
       console.log(`${key} = ${formatSettingValue(settings[key])}`);
     }
@@ -336,7 +380,7 @@ async function commandUser(argv: readonly string[]): Promise<void> {
     },
     allowPositionals: true,
   });
-  const { config } = resolveConfigFlags(values);
+  const config = resolveConfigFlags(values);
   if (sub === 'add') {
     const [displayName] = positionals;
     if (displayName === undefined) {
@@ -425,7 +469,7 @@ async function commandUser(argv: readonly string[]): Promise<void> {
 async function commandLicense(argv: readonly string[]): Promise<void> {
   const [sub, ...rest] = argv;
   const { values, positionals } = parseArgs({ args: [...rest], options: CONFIG_OPTIONS, allowPositionals: true });
-  const { config } = resolveConfigFlags(values);
+  const config = resolveConfigFlags(values);
   const filePath = resolveLicenseFilePath(config);
   if (sub === 'status') {
     const snapshot = await licenseStatus(config);
@@ -475,6 +519,8 @@ async function main(): Promise<void> {
       return startService(serviceHost()).then(() => console.log('started'));
     case 'stop':
       return stopService(serviceHost()).then(() => console.log('stopped'));
+    case 'restart':
+      return restartService(serviceHost()).then(() => console.log('restarted'));
     case 'run':
       // Lazy like audit/backup: the spine reaches better-sqlite3, and
       // the entry bundle must keep loading on hosts where the native

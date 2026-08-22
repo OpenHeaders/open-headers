@@ -4,7 +4,7 @@
  * channel's manifest, download the release's `ohd` binary for this
  * platform from the immutable `dl/<tag>/` path, verify it against
  * `SHA256SUMS.txt`, atomically replace the executable, and — because
- * ohd owns its service manager — finish with a supervised stop → start
+ * ohd owns its service manager — finish with a supervised restart
  * so the serving process restarts into the new version. The restart
  * only happens when the daemon is actually running under the installed
  * unit; a foreground `ohd run` or a stopped daemon just gets the swap
@@ -33,7 +33,7 @@ import { getBuildInfo, resolveAppVersion } from '../build-info';
 import type { DaemonConfig } from '../config';
 import { CONFIG_OPTIONS, resolveConfigFlags } from './config-flags';
 import { probeHealthz } from './healthz-probe';
-import { serviceUnitPath, startService, stopService } from './service-manager';
+import { restartService, serviceUnitPath } from './service-manager';
 import {
   compareCalVer,
   type DaemonManifestEntry,
@@ -212,7 +212,7 @@ export interface UpgradeCommandDeps extends Partial<StageUpgradeDeps> {
   isRunningFn?: (config: DaemonConfig) => Promise<boolean>;
   /** Whether an installed service unit exists for this host. */
   unitExistsFn?: () => boolean;
-  /** Supervised stop → start; production drives the service manager. */
+  /** Supervised restart; production drives the service manager. */
   restartFn?: () => Promise<void>;
   log?: (line: string) => void;
 }
@@ -243,7 +243,7 @@ export async function commandUpgrade(argv: readonly string[], deps: UpgradeComma
   }
   log(`upgraded ohd ${outcome.from} → ${outcome.to} (${outcome.asset})`);
 
-  const { config } = resolveConfigFlags(values);
+  const config = resolveConfigFlags(values);
   const running = await (deps.isRunningFn ?? ((c: DaemonConfig) => probeHealthz(c.bindPort)))(config);
   if (!running) {
     log('the daemon is not running — the new version applies on the next start');
@@ -259,12 +259,7 @@ export async function commandUpgrade(argv: readonly string[], deps: UpgradeComma
     log('the daemon runs outside the installed service — restart it yourself to apply the new version');
     return;
   }
-  const restart =
-    deps.restartFn ??
-    (async () => {
-      await stopService(host);
-      await startService(host);
-    });
+  const restart = deps.restartFn ?? (() => restartService(host));
   await restart();
   log(`restarted the daemon into ${outcome.to}`);
 }

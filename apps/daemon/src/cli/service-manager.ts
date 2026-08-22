@@ -98,34 +98,74 @@ export async function installServiceUnit(
   return { unitPath, notes };
 }
 
-export async function startService(host: ServiceHost): Promise<void> {
+export async function startService(host: ServiceHost, exec: CommandRunner = run): Promise<void> {
   if (host.platform === 'darwin') {
     const plist = serviceUnitPath(host);
-    const bootstrap = await run('launchctl', ['bootstrap', `gui/${host.uid}`, plist]);
+    const bootstrap = await exec('launchctl', ['bootstrap', `gui/${host.uid}`, plist]);
     if (bootstrap.ok) return;
     // Already bootstrapped — kick the existing registration instead.
-    const kickstart = await run('launchctl', ['kickstart', `gui/${host.uid}/${LAUNCHD_LABEL}`]);
+    const kickstart = await exec('launchctl', ['kickstart', `gui/${host.uid}/${LAUNCHD_LABEL}`]);
     if (kickstart.ok) return;
     throw new Error(`launchctl failed: ${bootstrap.detail || kickstart.detail}`);
   }
   if (host.platform === 'linux') {
-    const start = await run('systemctl', ['--user', 'start', SYSTEMD_UNIT_NAME]);
+    const start = await exec('systemctl', ['--user', 'start', SYSTEMD_UNIT_NAME]);
     if (!start.ok) throw new Error(`systemctl --user start failed: ${start.detail}`);
     return;
   }
   throw new Error(`service control is not supported on ${host.platform} yet`);
 }
 
-export async function stopService(host: ServiceHost): Promise<void> {
+export async function stopService(host: ServiceHost, exec: CommandRunner = run): Promise<void> {
   if (host.platform === 'darwin') {
-    const bootout = await run('launchctl', ['bootout', `gui/${host.uid}/${LAUNCHD_LABEL}`]);
+    const bootout = await exec('launchctl', ['bootout', `gui/${host.uid}/${LAUNCHD_LABEL}`]);
     if (bootout.ok || /No such process/i.test(bootout.detail)) return;
     throw new Error(`launchctl bootout failed: ${bootout.detail}`);
   }
   if (host.platform === 'linux') {
-    const stop = await run('systemctl', ['--user', 'stop', SYSTEMD_UNIT_NAME]);
+    const stop = await exec('systemctl', ['--user', 'stop', SYSTEMD_UNIT_NAME]);
     if (!stop.ok) throw new Error(`systemctl --user stop failed: ${stop.detail}`);
     return;
   }
   throw new Error(`service control is not supported on ${host.platform} yet`);
+}
+
+/**
+ * Restart the installed service in place — how a changed `daemon.json`
+ * or a swapped binary takes effect. A plain `start` on an already-active
+ * service is a no-op under both service managers, so reconfiguration
+ * needs this verb.
+ */
+export async function restartService(host: ServiceHost, exec: CommandRunner = run): Promise<void> {
+  if (host.platform === 'darwin') {
+    // `kickstart -k` kills and relaunches an existing registration; a
+    // service that was never bootstrapped restarts by bootstrapping.
+    const kickstart = await exec('launchctl', ['kickstart', '-k', `gui/${host.uid}/${LAUNCHD_LABEL}`]);
+    if (kickstart.ok) return;
+    const bootstrap = await exec('launchctl', ['bootstrap', `gui/${host.uid}`, serviceUnitPath(host)]);
+    if (bootstrap.ok) return;
+    throw new Error(`launchctl failed: ${kickstart.detail || bootstrap.detail}`);
+  }
+  if (host.platform === 'linux') {
+    const restart = await exec('systemctl', ['--user', 'restart', SYSTEMD_UNIT_NAME]);
+    if (!restart.ok) throw new Error(`systemctl --user restart failed: ${restart.detail}`);
+    return;
+  }
+  throw new Error(`service control is not supported on ${host.platform} yet`);
+}
+
+/**
+ * Whether the installed service is currently active — the install
+ * command's cue to point at `ohd restart` instead of `ohd start`
+ * (which would silently no-op on a running service). Best-effort:
+ * an unsupported platform or a failed probe reads as inactive.
+ */
+export async function isServiceActive(host: ServiceHost, exec: CommandRunner = run): Promise<boolean> {
+  if (host.platform === 'darwin') {
+    return (await exec('launchctl', ['print', `gui/${host.uid}/${LAUNCHD_LABEL}`])).ok;
+  }
+  if (host.platform === 'linux') {
+    return (await exec('systemctl', ['--user', 'is-active', '--quiet', SYSTEMD_UNIT_NAME])).ok;
+  }
+  return false;
 }

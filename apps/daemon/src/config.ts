@@ -11,6 +11,12 @@
  * config file defaults to `daemon.json` inside that dir, so a bare
  * `oh-daemon` run is fully self-contained; pointing `--config` elsewhere
  * suits packaged deployments (`/etc/openheaders/daemon.json`).
+ *
+ * `daemon.json` is also the durable truth `ohd install` writes: the
+ * flags given at install persist here through
+ * {@link updateDaemonConfigFile}, so every ohd command — status,
+ * show-token, the daemon boot itself — resolves the same answer instead
+ * of each reading a different source.
  */
 
 import * as fs from 'node:fs';
@@ -155,7 +161,7 @@ export interface DaemonConfig {
 
 /** The `proxy` object in `daemon.json` — the daemon's own egress
  *  (system plane), not the inbound reverse-proxy posture. */
-interface ProxyConfigFile {
+export interface ProxyConfigFile {
   mode?: string;
   url?: string;
   credentialRef?: string;
@@ -204,9 +210,43 @@ export function defaultDataDir(
   return path.join(env.XDG_STATE_HOME ?? path.join(homedir, '.local', 'state'), 'openheaders-daemon');
 }
 
+/**
+ * Where `daemon.json` lives: explicit `--config` → `OH_DAEMON_CONFIG` →
+ * the default data dir. The file's own `dataDir` may later move the
+ * data — but never the file itself.
+ */
+export function resolveConfigPath(
+  explicit: string | undefined,
+  env: Record<string, string | undefined>,
+  platform?: NodeJS.Platform,
+  homedir?: string,
+): string {
+  const fallbackDataDir = defaultDataDir(platform ?? process.platform, env, homedir ?? os.homedir());
+  return path.resolve(explicit ?? env.OH_DAEMON_CONFIG ?? path.join(fallbackDataDir, 'daemon.json'));
+}
+
 function parseBindAddress(raw: string, source: string): BindAddress {
   if (raw === '127.0.0.1' || raw === '0.0.0.0') return raw;
   throw new Error(`${source}: bind address must be '127.0.0.1' (loopback) or '0.0.0.0' (LAN), got '${raw}'`);
+}
+
+/**
+ * The daemon has no native TLS: a network bind serves tokens, the
+ * pairing secret page, and bearer-gated routes as cleartext HTTP/WS.
+ * Refuse that combination unless the deployment terminates TLS in
+ * front (`trustedProxy`) or explicitly accepts cleartext on a
+ * trusted network (`allowInsecureLan`). Enforced both at resolution
+ * (boot) and before {@link updateDaemonConfigFile} persists anything,
+ * so a config that would refuse to boot never reaches disk.
+ */
+function assertSecureBindPosture(bindAddress: BindAddress, trustedProxy: boolean, allowInsecureLan: boolean): void {
+  if (bindAddress === '0.0.0.0' && !trustedProxy && !allowInsecureLan) {
+    throw new Error(
+      'bind address 0.0.0.0 without TLS would expose auth tokens and pairing secrets as cleartext on the network — ' +
+        'front the daemon with a TLS-terminating reverse proxy and set --trusted-proxy, ' +
+        'or accept cleartext on a trusted network with --allow-insecure-lan',
+    );
+  }
 }
 
 function parseBindPort(raw: number, source: string): number {
@@ -461,7 +501,13 @@ function resolveSystemProxy(
   };
 }
 
-function readConfigFile(configPath: string): ConfigFile {
+/**
+ * The raw `daemon.json` record with every field kept, known or not —
+ * the read half shared by resolution (which types it through
+ * {@link parseConfigRecord}) and {@link updateDaemonConfigFile} (which
+ * must write unknown fields back untouched).
+ */
+function readRawConfigRecord(configPath: string): Record<string, unknown> {
   let text: string;
   try {
     text = fs.readFileSync(configPath, 'utf8');
@@ -472,7 +518,14 @@ function readConfigFile(configPath: string): ConfigFile {
   if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) {
     throw new Error(`${configPath}: expected a JSON object`);
   }
-  const record = parsed as Record<string, unknown>;
+  return parsed as Record<string, unknown>;
+}
+
+function readConfigFile(configPath: string): ConfigFile {
+  return parseConfigRecord(readRawConfigRecord(configPath), configPath);
+}
+
+function parseConfigRecord(record: Record<string, unknown>, configPath: string): ConfigFile {
   const out: ConfigFile = {};
   if (record.dataDir !== undefined) {
     if (typeof record.dataDir !== 'string') throw new Error(`${configPath}: dataDir must be a string`);
@@ -538,6 +591,71 @@ function readConfigFile(configPath: string): ConfigFile {
     out.proxy = parseProxyConfigFile(record.proxy, configPath);
   }
   return out;
+}
+
+/**
+ * The config-flag fields `ohd install` persists into `daemon.json` —
+ * exactly the explicitly-given flags, raw as typed. Absent field =
+ * leave the file's current value alone; the file's non-flag fields
+ * (oidc, auditForwarding, …) are never touched.
+ */
+export interface ConfigFileUpdate {
+  dataDir?: string;
+  bindAddress?: string;
+  bindPort?: number;
+  logLevel?: string;
+  trustedProxy?: boolean;
+  allowedHosts?: string[];
+  allowInsecureLan?: boolean;
+  webRoot?: string;
+  /** Replaces the whole `proxy` object — partial merges could strand a stale URL under a changed mode. */
+  proxy?: ProxyConfigFile;
+}
+
+/**
+ * The value checks a standalone `daemon.json` must pass to boot the
+ * daemon with an empty argv/env — the exact posture of a service unit,
+ * which carries only `--config`. Field parsers plus the cleartext-LAN
+ * invariant; shape errors are {@link parseConfigRecord}'s job.
+ */
+function validateConfigFileValues(file: ConfigFile, source: string): void {
+  const bindAddress = file.bindAddress === undefined ? '127.0.0.1' : parseBindAddress(file.bindAddress, source);
+  if (file.bindPort !== undefined) parseBindPort(file.bindPort, source);
+  if (file.logLevel !== undefined) parseLogLevel(file.logLevel, source);
+  for (const host of file.allowedHosts ?? []) parseAllowedHost(host, source);
+  assertSecureBindPosture(bindAddress, file.trustedProxy ?? false, file.allowInsecureLan ?? false);
+  if (file.proxy !== undefined) {
+    resolveSystemProxy(file.proxy.mode, file.proxy.url, file.proxy.credentialRef, file.proxy.bypassList);
+  }
+}
+
+/**
+ * Persist explicitly-given config flags into `daemon.json` — the write
+ * half of the config chain, used by `ohd install`. Reads the current
+ * file (unknown fields survive untouched), overlays the update, and
+ * refuses invalid values or an insecure bind posture BEFORE writing, so
+ * the file on disk always describes a bootable daemon. The write is a
+ * same-directory rename, atomic on POSIX; the file is created 0600 (it
+ * may carry an OIDC client secret) inside a 0700 dir.
+ */
+export function updateDaemonConfigFile(configPath: string, update: ConfigFileUpdate): void {
+  const merged = { ...readRawConfigRecord(configPath) };
+  if (update.dataDir !== undefined) merged.dataDir = path.resolve(update.dataDir);
+  if (update.bindAddress !== undefined) merged.bindAddress = update.bindAddress;
+  if (update.bindPort !== undefined) merged.bindPort = update.bindPort;
+  if (update.logLevel !== undefined) merged.logLevel = update.logLevel;
+  if (update.trustedProxy !== undefined) merged.trustedProxy = update.trustedProxy;
+  if (update.allowedHosts !== undefined) {
+    merged.allowedHosts = update.allowedHosts.map((host) => parseAllowedHost(host, 'allowed host'));
+  }
+  if (update.allowInsecureLan !== undefined) merged.allowInsecureLan = update.allowInsecureLan;
+  if (update.webRoot !== undefined) merged.webRoot = path.resolve(update.webRoot);
+  if (update.proxy !== undefined) merged.proxy = update.proxy;
+  validateConfigFileValues(parseConfigRecord(merged, configPath), configPath);
+  fs.mkdirSync(path.dirname(configPath), { recursive: true, mode: 0o700 });
+  const tmpPath = path.join(path.dirname(configPath), `.daemon.json.${process.pid}.tmp`);
+  fs.writeFileSync(tmpPath, `${JSON.stringify(merged, null, 2)}\n`, { mode: 0o600 });
+  fs.renameSync(tmpPath, configPath);
 }
 
 /**
@@ -611,13 +729,8 @@ export function resolveDaemonConfig(input: ResolveConfigInput): DaemonConfig {
     },
   });
 
-  // The config file location itself resolves argv → env → default
-  // (inside the default data dir), then the file's own `dataDir` may
-  // move the data — but not the file.
   const fallbackDataDir = defaultDataDir(platform, input.env, homedir);
-  const configPath = path.resolve(
-    values.config ?? input.env.OH_DAEMON_CONFIG ?? path.join(fallbackDataDir, 'daemon.json'),
-  );
+  const configPath = resolveConfigPath(values.config, input.env, platform, homedir);
   const file = readConfigFile(configPath);
 
   const dataDir = path.resolve(values['data-dir'] ?? input.env.OH_DAEMON_DATA_DIR ?? file.dataDir ?? fallbackDataDir);
@@ -654,18 +767,7 @@ export function resolveDaemonConfig(input: ResolveConfigInput): DaemonConfig {
     file.allowInsecureLan ??
     false;
 
-  // The daemon has no native TLS: a network bind serves tokens, the
-  // pairing secret page, and bearer-gated routes as cleartext HTTP/WS.
-  // Refuse that combination unless the deployment terminates TLS in
-  // front (`trustedProxy`) or explicitly accepts cleartext on a
-  // trusted network (`allowInsecureLan`).
-  if (bindAddress === '0.0.0.0' && !trustedProxy && !allowInsecureLan) {
-    throw new Error(
-      'bind address 0.0.0.0 without TLS would expose auth tokens and pairing secrets as cleartext on the network — ' +
-        'front the daemon with a TLS-terminating reverse proxy and set --trusted-proxy, ' +
-        'or accept cleartext on a trusted network with --allow-insecure-lan',
-    );
-  }
+  assertSecureBindPosture(bindAddress, trustedProxy, allowInsecureLan);
 
   const rawWebRoot = values['web-root'] ?? input.env.OH_DAEMON_WEB_ROOT ?? file.webRoot;
   const webRoot = rawWebRoot === undefined ? null : path.resolve(rawWebRoot);

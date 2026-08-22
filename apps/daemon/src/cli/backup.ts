@@ -34,7 +34,7 @@ function defaultDestDir(): string {
 
 export async function commandBackup(argv: readonly string[]): Promise<void> {
   const { values, positionals } = parseArgs({ args: [...argv], options: CONFIG_OPTIONS, allowPositionals: true });
-  const { config } = resolveConfigFlags(values);
+  const config = resolveConfigFlags(values);
   const destDir = path.resolve(positionals[0] ?? defaultDestDir());
   await assertDaemonStopped(
     config,
@@ -60,7 +60,7 @@ export async function commandRestore(argv: readonly string[]): Promise<void> {
     options: { ...CONFIG_OPTIONS, force: { type: 'boolean' } },
     allowPositionals: true,
   });
-  const { config } = resolveConfigFlags(values);
+  const config = resolveConfigFlags(values);
   const snapshotDir = positionals[0];
   if (snapshotDir === undefined) throw new Error('usage: ohd restore <backup-dir> [--force]');
   await assertDaemonStopped(

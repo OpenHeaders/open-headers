@@ -9,7 +9,7 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { defaultDataDir, resolveDaemonConfig } from '../../src/config';
+import { defaultDataDir, resolveConfigPath, resolveDaemonConfig, updateDaemonConfigFile } from '../../src/config';
 
 const HOME = '/home/oh';
 
@@ -396,6 +396,119 @@ describe('resolveDaemonConfig — validation', () => {
     expect(() => resolve(['--allowed-host', 'https://oh.openheaders.io'])).toThrow(/bare hostname/);
     expect(() => resolve(['--allowed-host', 'oh.openheaders.io:443'])).toThrow(/bare hostname/);
     expect(() => resolve(['--allowed-host', '*.openheaders.io'])).toThrow(/bare hostname/);
+  });
+});
+
+describe('resolveConfigPath', () => {
+  it('resolves explicit → env → the default data dir, always absolute', () => {
+    expect(resolveConfigPath('/etc/openheaders/daemon.json', {}, 'linux', HOME)).toBe('/etc/openheaders/daemon.json');
+    expect(resolveConfigPath(undefined, { OH_DAEMON_CONFIG: '/srv/oh/daemon.json' }, 'linux', HOME)).toBe(
+      '/srv/oh/daemon.json',
+    );
+    expect(resolveConfigPath(undefined, {}, 'linux', HOME)).toBe(`${HOME}/.local/state/openheaders-daemon/daemon.json`);
+  });
+});
+
+describe('updateDaemonConfigFile', () => {
+  function tempConfigPath(): string {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'oh-daemon-update-'));
+    tempDirs.push(dir);
+    return path.join(dir, 'nested', 'daemon.json');
+  }
+
+  function readBack(configPath: string): Record<string, unknown> {
+    return JSON.parse(fs.readFileSync(configPath, 'utf8')) as Record<string, unknown>;
+  }
+
+  it('creates the file (and its directory) from the given update', () => {
+    const configPath = tempConfigPath();
+    updateDaemonConfigFile(configPath, { bindAddress: '0.0.0.0', allowInsecureLan: true, bindPort: 9000 });
+    expect(readBack(configPath)).toEqual({ bindAddress: '0.0.0.0', allowInsecureLan: true, bindPort: 9000 });
+  });
+
+  it('the written file resolves on its own — the exact posture of a unit that carries only --config', () => {
+    const configPath = tempConfigPath();
+    updateDaemonConfigFile(configPath, { bindAddress: '0.0.0.0', allowInsecureLan: true });
+    const config = resolveDaemonConfig({ argv: ['--config', configPath], env: {}, platform: 'linux', homedir: HOME });
+    expect(config.bindAddress).toBe('0.0.0.0');
+    expect(config.allowInsecureLan).toBe(true);
+  });
+
+  it('merges over the existing file, leaving omitted and unknown fields untouched', () => {
+    const configPath = tempConfigPath();
+    fs.mkdirSync(path.dirname(configPath), { recursive: true });
+    fs.writeFileSync(
+      configPath,
+      JSON.stringify({
+        bindPort: 9000,
+        oidc: { issuer: 'https://sso.openheaders.io', clientId: 'oh-daemon' },
+        futureField: 'kept',
+      }),
+    );
+    updateDaemonConfigFile(configPath, { bindAddress: '0.0.0.0', trustedProxy: true });
+    expect(readBack(configPath)).toEqual({
+      bindPort: 9000,
+      oidc: { issuer: 'https://sso.openheaders.io', clientId: 'oh-daemon' },
+      futureField: 'kept',
+      bindAddress: '0.0.0.0',
+      trustedProxy: true,
+    });
+  });
+
+  it('an explicit false clears a persisted boolean', () => {
+    const configPath = tempConfigPath();
+    updateDaemonConfigFile(configPath, { trustedProxy: true });
+    updateDaemonConfigFile(configPath, { trustedProxy: false });
+    expect(readBack(configPath)).toEqual({ trustedProxy: false });
+  });
+
+  it('refuses an insecure merged posture BEFORE writing, whichever half arrives second', () => {
+    const configPath = tempConfigPath();
+    expect(() => updateDaemonConfigFile(configPath, { bindAddress: '0.0.0.0' })).toThrow(/cleartext/);
+    expect(fs.existsSync(configPath)).toBe(false);
+
+    updateDaemonConfigFile(configPath, { bindAddress: '0.0.0.0', allowInsecureLan: true });
+    expect(() => updateDaemonConfigFile(configPath, { allowInsecureLan: false })).toThrow(/cleartext/);
+    expect(readBack(configPath)).toEqual({ bindAddress: '0.0.0.0', allowInsecureLan: true });
+  });
+
+  it('refuses invalid values and a malformed existing file rather than persisting them', () => {
+    const configPath = tempConfigPath();
+    expect(() => updateDaemonConfigFile(configPath, { bindAddress: '192.168.1.10' })).toThrow(/bind address/);
+    expect(() => updateDaemonConfigFile(configPath, { bindPort: 80 })).toThrow(/not bindable/);
+    expect(() => updateDaemonConfigFile(configPath, { logLevel: 'verbose' })).toThrow(/log level/);
+    expect(() => updateDaemonConfigFile(configPath, { allowedHosts: ['https://oh.openheaders.io'] })).toThrow(
+      /bare hostname/,
+    );
+    expect(() => updateDaemonConfigFile(configPath, { proxy: { mode: 'pac' } })).toThrow(/not available on this tier/);
+    expect(fs.existsSync(configPath)).toBe(false);
+
+    fs.mkdirSync(path.dirname(configPath), { recursive: true });
+    fs.writeFileSync(configPath, '[1,2,3]');
+    expect(() => updateDaemonConfigFile(configPath, { bindPort: 9000 })).toThrow(/JSON object/);
+  });
+
+  it('normalizes allowed hosts and resolves paths before writing', () => {
+    const configPath = tempConfigPath();
+    updateDaemonConfigFile(configPath, { allowedHosts: [' OH.openheaders.io '], dataDir: 'relative/data' });
+    const written = readBack(configPath);
+    expect(written.allowedHosts).toEqual(['oh.openheaders.io']);
+    expect(path.isAbsolute(written.dataDir as string)).toBe(true);
+  });
+
+  it('replaces the proxy object wholesale — a mode change never strands stale manual fields', () => {
+    const configPath = tempConfigPath();
+    updateDaemonConfigFile(configPath, { proxy: { mode: 'manual', url: 'corp.openheaders.io:8080' } });
+    updateDaemonConfigFile(configPath, { proxy: { mode: 'env' } });
+    expect(readBack(configPath).proxy).toEqual({ mode: 'env' });
+  });
+
+  it('creates the file owner-only — it may carry an OIDC client secret', () => {
+    if (process.platform === 'win32') return;
+    const configPath = tempConfigPath();
+    updateDaemonConfigFile(configPath, { bindPort: 9000 });
+    expect(fs.statSync(configPath).mode & 0o777).toBe(0o600);
+    expect(fs.statSync(path.dirname(configPath)).mode & 0o777).toBe(0o700);
   });
 });
 

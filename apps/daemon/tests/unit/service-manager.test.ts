@@ -10,7 +10,13 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import { type CommandRunner, installServiceUnit, type ServiceHost } from '../../src/cli/service-manager';
+import {
+  type CommandRunner,
+  installServiceUnit,
+  isServiceActive,
+  restartService,
+  type ServiceHost,
+} from '../../src/cli/service-manager';
 import type { ServiceDefinition } from '../../src/cli/service-units';
 
 const tempDirs: string[] = [];
@@ -103,5 +109,67 @@ describe('installServiceUnit', () => {
     expect(fs.readFileSync(unitPath, 'utf-8')).toContain('<key>RunAtLoad</key>');
     expect(calls).toEqual([]);
     expect(notes).toEqual([]);
+  });
+});
+
+describe('restartService', () => {
+  it('linux: one systemctl --user restart', async () => {
+    const host = makeHost('linux');
+    const { calls, exec } = recordingRunner();
+    await restartService(host, exec);
+    expect(calls.map((c) => `${c.command} ${c.args.join(' ')}`)).toEqual([
+      'systemctl --user restart oh-daemon.service',
+    ]);
+  });
+
+  it('linux: a failed restart throws with the detail', async () => {
+    const host = makeHost('linux');
+    const { exec } = recordingRunner(['systemctl --user restart']);
+    await expect(restartService(host, exec)).rejects.toThrow(/restart failed: polkit says no/);
+  });
+
+  it('darwin: kickstart -k restarts a bootstrapped service', async () => {
+    const host = makeHost('darwin');
+    const { calls, exec } = recordingRunner();
+    await restartService(host, exec);
+    expect(calls.map((c) => `${c.command} ${c.args.join(' ')}`)).toEqual([
+      'launchctl kickstart -k gui/501/io.openheaders.daemon',
+    ]);
+  });
+
+  it('darwin: a never-bootstrapped service restarts by bootstrapping the plist', async () => {
+    const host = makeHost('darwin');
+    const { calls, exec } = recordingRunner(['kickstart']);
+    await restartService(host, exec);
+    expect(calls.map((c) => `${c.command} ${c.args[0]}`)).toEqual(['launchctl kickstart', 'launchctl bootstrap']);
+  });
+});
+
+describe('isServiceActive', () => {
+  it('linux: reads systemctl --user is-active', async () => {
+    const host = makeHost('linux');
+    const active = recordingRunner();
+    await expect(isServiceActive(host, active.exec)).resolves.toBe(true);
+    expect(active.calls.map((c) => `${c.command} ${c.args.join(' ')}`)).toEqual([
+      'systemctl --user is-active --quiet oh-daemon.service',
+    ]);
+    const inactive = recordingRunner(['is-active']);
+    await expect(isServiceActive(host, inactive.exec)).resolves.toBe(false);
+  });
+
+  it('darwin: reads launchctl print on the gui domain', async () => {
+    const host = makeHost('darwin');
+    const active = recordingRunner();
+    await expect(isServiceActive(host, active.exec)).resolves.toBe(true);
+    expect(active.calls.map((c) => `${c.command} ${c.args.join(' ')}`)).toEqual([
+      'launchctl print gui/501/io.openheaders.daemon',
+    ]);
+    const inactive = recordingRunner(['print']);
+    await expect(isServiceActive(host, inactive.exec)).resolves.toBe(false);
+  });
+
+  it('an unsupported platform reads as inactive rather than throwing', async () => {
+    const host = makeHost('win32');
+    await expect(isServiceActive(host, recordingRunner().exec)).resolves.toBe(false);
   });
 });

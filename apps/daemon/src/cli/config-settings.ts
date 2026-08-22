@@ -34,7 +34,10 @@ export type DaemonSettingKey = (typeof DAEMON_SETTING_KEYS)[number];
 
 export function parseDaemonSettingKey(raw: string): DaemonSettingKey {
   if ((DAEMON_SETTING_KEYS as readonly string[]).includes(raw)) return raw as DaemonSettingKey;
-  throw new Error(`unknown setting '${raw}' — settable keys: ${DAEMON_SETTING_KEYS.join(', ')}`);
+  throw new Error(
+    `unknown setting '${raw}' — settable keys: ${DAEMON_SETTING_KEYS.join(', ')}; ` +
+      "bind and network options persist through 'ohd install <flags>' instead",
+  );
 }
 
 export function parseDaemonSettingValue(key: DaemonSettingKey, raw: string): boolean {
