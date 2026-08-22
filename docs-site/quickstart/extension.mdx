@@ -1,0 +1,46 @@
+---
+title: "Extension quick start"
+description: "Install the Open Headers extension from your browser's store and put your first rule on live traffic."
+---
+
+By the end of this page the extension is installed and a rule of yours
+is modifying live browser requests. The extension is the full toolkit,
+standalone — no other install required.
+
+## Install
+
+Install from your browser's store:
+
+<CardGroup cols={3}>
+  <Card title="Chrome" icon="/images/chrome.svg" href="https://chromewebstore.google.com/detail/ablaikadpbfblkmhpmbbnbbfjoibeejb" horizontal />
+  <Card title="Edge" icon="/images/edge.svg" href="https://microsoftedge.microsoft.com/addons/detail/open-headers/gnbibobkkddlflknjkgcmokdlpddegpo" horizontal />
+  <Card title="Firefox" icon="/images/firefox.svg" href="https://addons.mozilla.org/en-US/firefox/addon/open-headers/" horizontal />
+</CardGroup>
+
+Pin the extension to your toolbar — the icon is also where the popup
+opens from and where the badge shows rule activity.
+
+## Create your first rule
+
+1. Open the popup and go to **Rules**.
+2. Create a rule — a request-header rule is the classic first one: pick
+   the header name and value, and scope it to the sites it should apply
+   on.
+3. Enable the rule and load a matching page. The **Network** panel shows
+   the request with your modification applied.
+
+Rules cover nine types over live traffic — headers, redirects, response
+overrides, and more — and apply through the browser's own
+`declarativeNetRequest` engine, so they work even while the popup is
+closed.
+
+## What else is in the box
+
+Everything runs locally in your browser: a DevTools-grade network
+panel, a full API client (HTTP, GraphQL, gRPC, WebSocket, OAuth 2.0),
+workflows, an encrypted vault, and multi-workspace collaboration.
+
+Pair it optionally with the [desktop app](/quickstart/desktop) for
+git-backed sync, dynamic value sources, and a local proxy — the
+extension connects to it automatically when both run on the same
+machine.

@@ -1,0 +1,50 @@
+---
+title: "MCP quick start"
+description: "Connect an AI agent to Open Headers over the Model Context Protocol — rules, requests, and workflows as tools."
+---
+
+By the end of this page an MCP-capable agent is connected to your Open
+Headers instance and can work with your rules, requests, and workflows
+as tools. The MCP surface is off by default and permission-tiered — you
+choose what agents may observe, write, or execute.
+
+## Enable the MCP surface
+
+In the desktop app or extension, turn it on under **Settings → MCP**
+and mint an access token there. On a self-hosted server (daemon
+stopped):
+
+```sh
+ohd config set mcp.enabled true
+```
+
+The observe / write / execute / secrets tiers are separate switches,
+all off by default — enable only what your agent needs.
+
+## Connect an agent
+
+The MCP endpoint is streamable HTTP at `/mcp` on the same bind as
+everything else, authenticated with your token as a bearer:
+
+```
+http://127.0.0.1:8137/mcp
+Authorization: Bearer <token>
+```
+
+For Claude Code:
+
+```sh
+claude mcp add --transport http open-headers http://127.0.0.1:8137/mcp \
+  --header "Authorization: Bearer <token>"
+```
+
+Any MCP client that speaks streamable HTTP connects the same way.
+Browser-originated requests to `/mcp` are refused outright, and failed
+token attempts feed the per-peer rate limit.
+
+## What the agent can do
+
+The tool set mirrors the CLI: list and toggle rules, switch
+environments and workspaces, set variables, send saved requests, run
+workflows — always in sync with what the UI shows. The full tool
+reference is coming to the [API & MCP section](/api-mcp).

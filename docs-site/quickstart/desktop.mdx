@@ -1,0 +1,78 @@
+---
+title: "Desktop quick start"
+description: "Install the Open Headers desktop app, understand the tray model, and pair it with the browser extension."
+---
+
+By the end of this page the desktop app is running in your system tray
+and paired with the browser extension. The desktop app is the
+companion tier: it adds dynamic value sources, git-backed workspace
+sync, and a local proxy on top of what the extension does alone.
+
+## Install
+
+Every installer is on the
+[releases page](https://github.com/OpenHeaders/open-headers/releases),
+with SHA-256 checksums. Installers are signed, and the app keeps
+itself current with built-in updates (you stay in control of when it
+restarts).
+
+<Tabs>
+  <Tab title="macOS" icon="/images/macos.svg">
+    Download the `.dmg` for your Mac, open it, and drag Open Headers
+    into Applications:
+
+    - [Apple silicon (`mac-arm64`)](https://updates.openheaders.com/dl/v2026.8.3/OpenHeaders-2026.8.3-mac-arm64.dmg)
+    - [Intel (`mac-x64`)](https://updates.openheaders.com/dl/v2026.8.3/OpenHeaders-2026.8.3-mac-x64.dmg)
+
+    The app is signed and notarized. A `.pkg` installer ships
+    alongside each `.dmg` for managed deployments.
+  </Tab>
+  <Tab title="Windows" icon="/images/windows.svg">
+    Download and run the installer:
+
+    - [Installer (`Setup.exe`)](https://updates.openheaders.com/dl/v2026.8.3/OpenHeaders-2026.8.3-Setup.exe)
+    - [Managed/silent installs (`.msi`)](https://updates.openheaders.com/dl/v2026.8.3/OpenHeaders-2026.8.3.msi)
+  </Tab>
+  <Tab title="Linux" icon="/images/linux.svg">
+    Download the package for your distribution and architecture:
+
+    - Debian/Ubuntu: [`amd64.deb`](https://updates.openheaders.com/dl/v2026.8.3/open-headers_2026.8.3_amd64.deb) · [`arm64.deb`](https://updates.openheaders.com/dl/v2026.8.3/open-headers_2026.8.3_arm64.deb)
+    - Fedora/RHEL/openSUSE: [`x86_64.rpm`](https://updates.openheaders.com/dl/v2026.8.3/open-headers-2026.8.3.x86_64.rpm) · [`aarch64.rpm`](https://updates.openheaders.com/dl/v2026.8.3/open-headers-2026.8.3.aarch64.rpm)
+    - Distro-agnostic: [`x86_64.AppImage`](https://updates.openheaders.com/dl/v2026.8.3/OpenHeaders-2026.8.3-x86_64.AppImage) · [`arm64.AppImage`](https://updates.openheaders.com/dl/v2026.8.3/OpenHeaders-2026.8.3-arm64.AppImage)
+
+    Install it with your package manager:
+
+    ```sh
+    sudo apt install ./open-headers_2026.8.3_amd64.deb
+    # or
+    sudo dnf install ./open-headers-2026.8.3.x86_64.rpm
+    ```
+
+    The first install registers the official Open Headers package
+    repository and its signing key, so later updates arrive through
+    `apt upgrade` / `dnf upgrade` like any other package.
+  </Tab>
+</Tabs>
+
+## The tray model
+
+Open Headers is a background app: after launch it lives in the system
+tray (menu bar on macOS) and does its critical work — serving the
+extension, refreshing sources, syncing workspaces — without any window
+open. Open the workbench window from the tray icon when you want the
+UI; closing the window leaves the app running.
+
+## Pair the extension
+
+Nothing to configure: the desktop app listens on `127.0.0.1:8137` and
+the [extension](/quickstart/extension) connects to it automatically
+when both run on the same machine. The extension's connection indicator
+shows when the pairing is live, and dynamic values from the desktop app
+become available to your rules.
+
+## Next steps
+
+- Put a [rule on live traffic](/quickstart/extension) if you haven't
+  yet — rules author the same way everywhere.
+- Prefer a headless, shared back end? The same engine runs as a
+  [self-hosted server](/quickstart/server).

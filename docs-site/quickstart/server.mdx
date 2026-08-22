@@ -1,0 +1,152 @@
+---
+title: "Server quick start"
+description: "Install the Open Headers Server, mint your first token, and connect a client — on your machine or your LAN — in about ten minutes."
+---
+
+By the end of this page you have `ohd` running as a service, a client
+token in hand, and the browser extension, desktop app, or CLI syncing
+against your own server. No account, no cloud relay — the daemon makes
+zero outbound connections except ones you configure.
+
+## Install
+
+Each release ships `oh` (the CLI) and `ohd` (the daemon) as
+self-contained executables — no Node.js required. The same binaries
+are downloadable from the
+[releases page](https://github.com/OpenHeaders/open-headers/releases).
+
+<Tabs>
+  <Tab title="macOS" icon="/images/macos.svg">
+    The install script verifies SHA-256 checksums and installs `oh`
+    and `ohd` to `~/.local/bin`:
+
+    ```sh
+    curl -fsSL https://updates.openheaders.com/install.sh | sh -s -- --with-daemon
+    ```
+
+    Binaries currently ship for Apple silicon (`mac-arm64`). The
+    service lifecycle below runs on launchd — the LaunchAgent starts
+    at login.
+  </Tab>
+  <Tab title="Linux" icon="/images/linux.svg">
+    The same install script verifies SHA-256 checksums and installs
+    `oh` and `ohd` to `~/.local/bin`:
+
+    ```sh
+    curl -fsSL https://updates.openheaders.com/install.sh | sh -s -- --with-daemon
+    ```
+
+    Binaries currently ship for x64 (`linux-x64`). The service
+    lifecycle below runs as a systemd user unit, enabled for boot with
+    user lingering so the daemon outlives the SSH session that
+    installed it.
+  </Tab>
+  <Tab title="Docker" icon="/images/docker.svg">
+    Each release publishes the daemon as a container image — the way
+    to run the server on Windows hosts and on platforms without a
+    native binary:
+
+    ```sh
+    docker run -d -p 8137:8137 -v oh-data:/data ghcr.io/openheaders/ohd:latest
+    ```
+
+    State lives in the `/data` volume; the daemon listens on
+    `0.0.0.0:8137` inside the container. Pin a version tag for
+    reproducible deployments. Skip the "Start the service" step below —
+    the container supervises the daemon itself.
+  </Tab>
+</Tabs>
+
+## Start the service
+
+```sh
+ohd install                 # write the user service unit (launchd/systemd)
+ohd show-token              # mint the first client token (shown once)
+ohd start
+ohd status                  # probes /healthz
+```
+
+`ohd show-token` prints the join URLs and a one-time secret — copy it
+now; it is shown once. On Linux, `install` also enables the unit for
+boot and turns on user lingering, so the daemon survives reboots and
+outlives the SSH session that installed it; if a step needs privileges,
+the exact manual command is printed instead. On macOS the LaunchAgent
+starts at login.
+
+## Connect a client
+
+Add the server as a backend in any client — extension, desktop app, or
+web app — under **Settings → Backends**, using a join URL and the token
+from `show-token`. For the CLI:
+
+```sh
+oh connect --daemon http://127.0.0.1:8137 --token <secret>
+oh status
+```
+
+The daemon also serves the Open Headers web app on its bind: open
+`http://<daemon-host>:8137/` in a browser.
+
+The CLI installs on any client machine — the same script as above on
+macOS and Linux (without `--with-daemon`), or the PowerShell script on
+Windows:
+
+<CodeGroup>
+
+```sh macOS & Linux
+curl -fsSL https://updates.openheaders.com/install.sh | sh
+```
+
+```powershell Windows
+irm https://updates.openheaders.com/install.ps1 | iex
+```
+
+</CodeGroup>
+
+## Reach it from the LAN
+
+The daemon binds `127.0.0.1:8137` by default — loopback only. To make
+it LAN-reachable you must also say how the connection is protected:
+either a TLS-terminating reverse proxy in front, or an explicit
+acknowledgment that cleartext on a trusted network is acceptable:
+
+```sh
+ohd install --bind-address 0.0.0.0 --allow-insecure-lan
+ohd restart        # a running daemon keeps its old bind until restarted
+```
+
+Without one of the two, a `0.0.0.0` bind refuses to boot rather than
+serve auth tokens and pairing secrets unencrypted by accident.
+
+Run `ohd show-token` (daemon stopped) to see the LAN join URLs. If
+clients still cannot connect, check that the host firewall
+(`ufw`/`firewalld`) admits port 8137.
+
+For anything beyond a trusted LAN, terminate TLS at a reverse proxy —
+Caddy makes it two lines:
+
+```sh
+ohd install --trusted-proxy --allowed-host oh.example.com
+ohd restart
+```
+
+```caddyfile
+oh.example.com {
+    reverse_proxy 127.0.0.1:8137
+}
+```
+
+The full TLS, nginx, and hardening walkthrough lives in the
+[Server section](/server).
+
+## Reconfigure at any time
+
+`daemon.json` is the durable configuration. `ohd install` persists the
+flags it is given into it and may be re-run at any time to reconfigure —
+an omitted flag keeps its persisted value — and `ohd restart` applies
+the result. Runtime settings (like the MCP switches) are separate:
+
+```sh
+ohd config set mcp.enabled true   # requires the daemon to be stopped
+ohd config list
+```

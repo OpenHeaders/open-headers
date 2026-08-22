@@ -1,0 +1,83 @@
+{
+  "$schema": "https://mintlify.com/docs.json",
+  "theme": "mint",
+  "name": "Open Headers",
+  "description": "Documentation for Open Headers — the open-source DevToolkit for live browser traffic: rules, API client, network inspection, workspaces, and self-hosted sync.",
+  "colors": {
+    "primary": "#2563EB",
+    "light": "#3B82F6",
+    "dark": "#2563EB"
+  },
+  "logo": {
+    "light": "/logo/light.svg",
+    "dark": "/logo/dark.svg",
+    "href": "https://openheaders.com"
+  },
+  "favicon": "/favicon.svg",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Get started",
+        "groups": [
+          {
+            "group": "Welcome",
+            "pages": ["index"]
+          },
+          {
+            "group": "Quick starts",
+            "pages": [
+              "quickstart/extension",
+              "quickstart/desktop",
+              "quickstart/server",
+              "quickstart/mcp"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Guides",
+        "pages": ["guides/index"]
+      },
+      {
+        "tab": "Server",
+        "pages": ["server/index"]
+      },
+      {
+        "tab": "Reference",
+        "pages": ["reference/index"]
+      },
+      {
+        "tab": "API & MCP",
+        "pages": ["api-mcp/index"]
+      }
+    ],
+    "global": {
+      "anchors": [
+        {
+          "anchor": "Changelog",
+          "icon": "list",
+          "href": "https://openheaders.com/changelog"
+        },
+        {
+          "anchor": "GitHub",
+          "icon": "github",
+          "href": "https://github.com/OpenHeaders/open-headers"
+        }
+      ]
+    }
+  },
+  "navbar": {
+    "links": [
+      {
+        "type": "github",
+        "href": "https://github.com/OpenHeaders/open-headers"
+      }
+    ]
+  },
+  "footer": {
+    "socials": {
+      "github": "https://github.com/OpenHeaders/open-headers",
+      "website": "https://openheaders.com"
+    }
+  }
+}
