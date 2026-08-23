@@ -77,6 +77,7 @@ export const workbenchSettingsPanes = {
   'workbench.settings.backendPane.connections.blurbApp':
     'Back-ends this app has joined. Their workspaces sync down and stay usable offline.',
   'workbench.settings.backendPane.connections.add': 'Add back-end',
+  'workbench.settings.backendPane.connections.writeFailed': 'Could not save the connection',
   'workbench.settings.backendPane.connections.emptyBrowser':
     'No connections — everything runs in this browser. Add a back-end to sync workspaces from the desktop app or a self-hosted server.',
   'workbench.settings.backendPane.connections.emptyApp':

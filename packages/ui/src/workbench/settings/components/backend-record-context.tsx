@@ -10,6 +10,7 @@ import { type BackendConnectionPatch, updateBackend } from '@openheaders/core/ba
 import type { BackendConnection } from '@openheaders/core/types';
 import { createContext, useContext, useMemo } from 'react';
 import type React from 'react';
+import { useBackendRegistryWrite } from './use-backend-registry-write';
 
 export interface BackendRecordHandle {
   record: BackendConnection;
@@ -22,14 +23,15 @@ export const BackendRecordProvider: React.FC<{ record: BackendConnection; childr
   record,
   children,
 }) => {
+  const write = useBackendRegistryWrite();
   const handle = useMemo<BackendRecordHandle>(
     () => ({
       record,
       patch: async (patch) => {
-        await updateBackend(record.id, patch);
+        await write(() => updateBackend(record.id, patch));
       },
     }),
-    [record],
+    [record, write],
   );
   return <BackendRecordContext.Provider value={handle}>{children}</BackendRecordContext.Provider>;
 };

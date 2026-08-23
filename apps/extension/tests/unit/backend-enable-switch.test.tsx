@@ -17,7 +17,7 @@ import {
   updateBackend,
 } from '@openheaders/core/backends';
 import { type HostBridge, setHostBridge } from '@openheaders/core/bridge';
-import { type HostStorage, setHostStorage } from '@openheaders/core/storage';
+import { type HostStorage, requireHostStorage, setHostStorage } from '@openheaders/core/storage';
 import type { BackendSyncStatusSnapshot } from '@openheaders/core/types';
 import { setCurrentHost } from '@openheaders/ui/shared/host-vocabulary';
 import { SurfaceWorkspaceAdoptProvider } from '@openheaders/ui/workbench/hooks/SurfaceWorkspaceAdoptContext';
@@ -230,6 +230,27 @@ describe('useBackendEnableSwitch.setEnabled', () => {
     });
 
     expect(getBackend(record.id)?.enabled).toBe(true);
+    expect(result.current.busy).toBe(false);
+  });
+
+  it('aborts the flip when the host refuses to store the record', async () => {
+    const record = await createBackend({ url: 'ws://127.0.0.1:8137' });
+    mockProbe.mockResolvedValue({ ok: true, latencyMs: 5, protocolVersion: 1, role: 'extension', agent: 'x' });
+    // A cipher-less host refuses the sensitive registry slot — the probe
+    // passed, but the commit cannot land, so nothing may claim it did.
+    setHostStorage({
+      ...requireHostStorage(),
+      set: () => Promise.reject(new Error('no cipher; refusing to write sensitive slot "oh.backends"')),
+    });
+    const { result } = renderHook(() => useBackendEnableSwitch(), { wrapper });
+
+    let flipped = true;
+    await act(async () => {
+      flipped = await result.current.setEnabled(record, true);
+    });
+
+    expect(flipped).toBe(false);
+    expect(getBackend(record.id)?.enabled).toBe(false);
     expect(result.current.busy).toBe(false);
   });
 

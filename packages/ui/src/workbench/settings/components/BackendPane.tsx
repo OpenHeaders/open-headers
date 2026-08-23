@@ -7,6 +7,9 @@
  *      inbound config (LAN-peers bind + paired devices) rides here.
  *   2. **Connections list** — one row per `OH.backends` record with the
  *      probe-gated enabled toggle, auto-connect, re-pair, edit, remove.
+ *      Only on hosts that dial outward at all (`hostJoinsBackends`): a
+ *      served web tab is served BY its back-end and has no second one to
+ *      manage, so the band is absent there rather than empty.
  *   3. **Global sections** — the reliability / notification knobs that
  *      apply to every connection.
  *
@@ -25,7 +28,7 @@ import { useBackends } from '../../../shared/backend';
 import { getCurrentHost } from '../../../shared/host-vocabulary';
 import { useOptionalInspectorNav } from '../../hooks/useInspectorNav';
 import { useOptionalSettingsHost } from './settings-host-context';
-import { tierZeroMode } from '../schema/backend';
+import { hostJoinsBackends, tierZeroMode } from '../schema/backend';
 import { useSetting } from '../hooks';
 import { resolveLabel } from '../localize';
 import type { CategoryPaneProps } from '../types';
@@ -113,7 +116,7 @@ const BackendPane: React.FC<CategoryPaneProps> = ({ category, defs }) => {
         </div>
       )}
 
-      <BackendConnectionsList host={host} />
+      {hostJoinsBackends(host) && <BackendConnectionsList host={host} />}
 
       <GlobalConfigSections host={host} defs={fieldDefs} category={category} />
     </div>

@@ -37,6 +37,7 @@ import { BackendRemoveButton } from './backend-remove-flow';
 import { BackendWizard, type BackendWizardTarget } from './backend-wizard';
 import { PairPopover } from './pair-popover';
 import { type BackendEnableSwitchHandle, useBackendEnableSwitch } from './use-backend-enable-switch';
+import { useBackendRegistryWrite } from './use-backend-registry-write';
 import { type BackendRowStatus, useBackendRowStatus } from './use-backend-row-status';
 
 export const BackendConnectionsList: React.FC<{ host: Host }> = ({ host }) => {
@@ -45,11 +46,14 @@ export const BackendConnectionsList: React.FC<{ host: Host }> = ({ host }) => {
   const backends = useBackends();
   const orgConflicts = useBackendOrgConflicts();
   const enableSwitch = useBackendEnableSwitch();
+  const write = useBackendRegistryWrite();
   const [wizard, setWizard] = useState<BackendWizardTarget | null>(null);
 
   const add = async (): Promise<void> => {
-    const created = await createBackend();
-    setWizard({ recordId: created.id, mode: 'add' });
+    // A host that cannot store the record refuses here; the wizard must
+    // not open on a record that was never created.
+    const created = await write(() => createBackend());
+    if (created) setWizard({ recordId: created.id, mode: 'add' });
   };
 
   return (
@@ -145,12 +149,13 @@ const ConnectionRow: React.FC<{
   const t = useT();
   const { status, detail } = useBackendRowStatus(record);
   const consumedOrgs = useConsumedOrgs(record.id);
+  const write = useBackendRegistryWrite();
 
   const label = backendDisplayLabel(record);
   const icon = backendModeIcon(deriveBackendMode(getCurrentHost(), { ...record, enabled: true }));
 
   const patch = (next: BackendConnectionPatch): void => {
-    void updateBackend(record.id, next);
+    void write(() => updateBackend(record.id, next));
   };
 
   return (

@@ -107,6 +107,7 @@ export const workbenchSettingsPanes = {
     'Les back-ends que cette application a rejoints. Leurs espaces de travail se synchronisent et restent ' +
     'utilisables hors ligne.',
   'workbench.settings.backendPane.connections.add': 'Ajouter un back-end',
+  'workbench.settings.backendPane.connections.writeFailed': 'Impossible d’enregistrer la connexion',
   'workbench.settings.backendPane.connections.emptyBrowser':
     "Aucune connexion — tout s'exécute dans ce navigateur. Ajoutez un back-end pour synchroniser des espaces " +
     "de travail depuis l'application de bureau ou un serveur auto-hébergé.",

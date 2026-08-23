@@ -35,6 +35,7 @@ import { getCurrentHost } from '../../../shared/host-vocabulary';
 import { useSurfaceWorkspaceAdopt } from '../../hooks/SurfaceWorkspaceAdoptContext';
 import { backendDisplayLabel } from './backend-record-context';
 import SwitchingOverlay from './SwitchingOverlay';
+import { useBackendRegistryWrite } from './use-backend-registry-write';
 
 /** Minimum dwell for the "Connecting to …" overlay so an instant commit doesn't flash. */
 const MIN_OVERLAY_MS = 1_000;
@@ -132,6 +133,7 @@ export interface BackendEnableSwitchHandle {
 export function useBackendEnableSwitch(): BackendEnableSwitchHandle {
   const t = useT();
   const { message, notification } = AntApp.useApp();
+  const write = useBackendRegistryWrite();
   const [overlay, setOverlay] = useState<{ toLabel: string } | null>(null);
   // Re-pin THIS workbench surface to the adopted active workspace once
   // the enable settles. `null` outside the workbench (popup / side-panel
@@ -143,8 +145,7 @@ export function useBackendEnableSwitch(): BackendEnableSwitchHandle {
     if (record.enabled === next) return true;
 
     if (!next) {
-      await updateBackend(record.id, { enabled: false });
-      return true;
+      return (await write(() => updateBackend(record.id, { enabled: false }))) !== null;
     }
 
     const host = getCurrentHost();
@@ -171,7 +172,12 @@ export function useBackendEnableSwitch(): BackendEnableSwitchHandle {
     // workspace, so waiting would just burn the adopt settle timeout.
     const isRejoin = [...getOrgBackendBindings().values()].includes(record.id);
     const flippedAtMs = Date.now();
-    await updateBackend(record.id, { enabled: true });
+    // A refused commit leaves the record disabled — end the overlay here
+    // rather than waiting out a join that will never happen.
+    if ((await write(() => updateBackend(record.id, { enabled: true }))) === null) {
+      setOverlay(null);
+      return false;
+    }
     // First join promotes the backend's active workspace; hold the
     // overlay until this surface has followed onto it so the user never
     // sees the previous workspace flash through. A refused WELCOME

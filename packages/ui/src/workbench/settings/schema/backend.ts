@@ -56,6 +56,20 @@ export function tierZeroMode(host: Host): BackendMode {
 }
 
 /**
+ * Can this host join back-ends of its own choosing? The extension and
+ * the desktop app can: each keeps an `OH.backends` registry and dials
+ * outward from it. A served web tab cannot — it IS served BY its
+ * back-end, over the one wire to the origin it was loaded from, and
+ * holds no client plane to point anywhere else (its storage refuses the
+ * registry's sensitive slot for the same reason: there is nothing there
+ * to keep). So the connections UI stands down on that host instead of
+ * offering a record it could neither hold nor use.
+ */
+export function hostJoinsBackends(host: Host): boolean {
+  return host !== 'web';
+}
+
+/**
  * Derive the presentation mode from the connection registry — "kind" is
  * read off the record, never stored (the multi-backend plan §1). No
  * enabled entry means tier zero; an enabled entry classifies by URL:

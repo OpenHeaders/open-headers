@@ -91,6 +91,7 @@ export const workbenchSettingsPanes = {
     '此浏览器已加入的后端。它们的工作区同步下来，并可离线使用。',
   'workbench.settings.backendPane.connections.blurbApp': '此应用已加入的后端。它们的工作区同步下来，并可离线使用。',
   'workbench.settings.backendPane.connections.add': '添加后端',
+  'workbench.settings.backendPane.connections.writeFailed': '无法保存连接',
   'workbench.settings.backendPane.connections.emptyBrowser':
     '没有连接——一切都运行在此浏览器中。添加后端即可从桌面端应用或自托管服务器同步工作区。',
   'workbench.settings.backendPane.connections.emptyApp':

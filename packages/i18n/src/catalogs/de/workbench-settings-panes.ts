@@ -112,6 +112,7 @@ export const workbenchSettingsPanes = {
     'Back-ends, denen diese App beigetreten ist. Ihre Arbeitsbereiche synchronisieren herunter und bleiben ' +
     'offline nutzbar.',
   'workbench.settings.backendPane.connections.add': 'Back-end hinzufügen',
+  'workbench.settings.backendPane.connections.writeFailed': 'Verbindung konnte nicht gespeichert werden',
   'workbench.settings.backendPane.connections.emptyBrowser':
     'Keine Verbindungen — alles läuft in diesem Browser. Füge ein Back-end hinzu, um Arbeitsbereiche von der ' +
     'Desktop-App oder einem selbst gehosteten Server zu synchronisieren.',
