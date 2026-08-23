@@ -1,35 +1,68 @@
 /**
  * Web namespace — French. Mirrors `catalogs/en/web.ts` key for key;
- * the 'OpenHeaders' brand, « daemon », the `ohd show-token` command,
- * URLs and the `oh-license.` key prefix stay raw.
+ * the 'OpenHeaders' brand, « daemon », URLs and the `oh-license.` key
+ * prefix stay raw. Mints: pairing = association (f.); setup code =
+ * code d'installation (m.).
  */
 
+import { plural } from '../../runtime';
 import type { Catalog } from '../../types';
 
 export const web = {
   'web.gate.titleSignIn': 'Se connecter à ce serveur',
-  'web.gate.titlePair': "S'associer à ce serveur",
-  'web.gate.introSso': "Connectez-vous avec {provider}, ou collez un jeton d'association ci-dessous.",
-  'web.gate.introPassword':
-    "Connectez-vous avec l'email et le mot de passe définis pour vous par l'admin du serveur, ou collez un jeton " +
-    "d'association ci-dessous.",
-  'web.gate.introTokenPrefix':
-    "Ce serveur OpenHeaders exige un jeton d'association. Générez-en un sur la machine qui l'exécute avec",
-  'web.gate.introTokenSuffix': 'et collez-le ci-dessous.',
+  'web.gate.titleSetup': 'Installer ce serveur',
+  'web.gate.introSso': 'Connectez-vous avec {provider} pour accéder à ce serveur OpenHeaders.',
+  'web.gate.introPassword': "Connectez-vous avec l'email et le mot de passe définis pour vous par l'admin du serveur.",
+  'web.gate.introSetup':
+    "Personne n'a encore installé ce serveur OpenHeaders. Créez le premier compte : il administre le serveur et " +
+    "devient propriétaire de tout ce qui s'y trouve déjà.",
+  'web.gate.introNoLogin':
+    "Aucun navigateur ne peut se connecter à ce serveur : l'authentification unique n'est pas configurée et aucun " +
+    'compte ne possède de mot de passe. Demandez-en un à la personne qui gère le serveur.',
   'web.gate.ssoButton': 'Se connecter avec {provider}',
-  'web.gate.or': 'ou',
   'web.gate.emailPlaceholder': 'Email',
   'web.gate.passwordPlaceholder': 'Mot de passe',
   'web.gate.signIn': 'Se connecter',
-  'web.gate.tokenPlaceholder': "Jeton d'association",
-  'web.gate.connect': 'Connecter',
+  'web.gate.setupNamePlaceholder': 'Votre nom',
+  'web.gate.setupConfirmPlaceholder': 'Confirmer le mot de passe',
+  'web.gate.setupPasswordHint':
+    'Au moins {min} caractères. Aucune réinitialisation de mot de passe n’existe — gardez-le en lieu sûr.',
+  'web.gate.setupCodePlaceholder': "Code d'installation (facultatif)",
+  'web.gate.setupCodeHint':
+    "Nécessaire uniquement si ce navigateur ne s'exécute pas sur le serveur lui-même. Le serveur affiche le code " +
+    'au démarrage, et chaque redémarrage le remplace par un nouveau.',
+  'web.gate.setupSubmit': 'Créer le compte',
+  'web.gate.setupDoneTitle': 'Ce serveur est installé',
+  'web.gate.setupDoneRepair': ({ count }, locale) =>
+    plural(locale, Number(count), {
+      one:
+        "L'installation a dissocié {count} appareil, pour qu'il ne continue pas à administrer ce serveur en " +
+        'marge de votre nouveau compte. Réassociez-le depuis les Paramètres.',
+      many:
+        "L'installation a dissocié {count} appareils, pour qu'ils ne continuent pas à administrer ce serveur en " +
+        'marge de votre nouveau compte. Réassociez-les depuis les Paramètres.',
+      other:
+        "L'installation a dissocié {count} appareils, pour qu'ils ne continuent pas à administrer ce serveur en " +
+        'marge de votre nouveau compte. Réassociez-les depuis les Paramètres.',
+    }),
+  'web.gate.setupDoneContinue': 'Continuer',
+  'web.gate.setupDoneReload': 'Recharger',
+  'web.gate.setupErrorDisplayName': 'Saisissez le nom à porter sur le compte.',
+  'web.gate.setupErrorEmail': 'Saisissez l’email de connexion.',
+  'web.gate.setupErrorPasswordShort': 'Utilisez au moins {min} caractères.',
+  'web.gate.setupErrorPasswordMismatch': 'Les deux mots de passe ne correspondent pas.',
+  'web.gate.setupErrorMalformed': "Le serveur n'a pas pu lire le formulaire. Rechargez la page et réessayez.",
+  'web.gate.setupErrorRefused':
+    "Le serveur a refusé l'installation. Il est peut-être déjà installé, ou le code d'installation est erroné ou " +
+    'issu d’un démarrage précédent — le serveur en affiche un nouveau à chaque redémarrage.',
+  'web.gate.setupErrorSessionRefused':
+    "Le compte a été créé, mais cet onglet n'a pas pu ouvrir de session. Rechargez la page et connectez-vous avec.",
   'web.gate.clientsIntro':
-    "Cet onglet n'est pas le seul client. Avec le même jeton d'association, l'extension et l'application de " +
-    'bureau se connectent directement à',
+    "Cet onglet n'est pas le seul client. L'extension et l'application de bureau atteignent ce serveur " +
+    'directement sur',
   'web.gate.clientsExtension': "Obtenir l'extension",
   'web.gate.clientsDesktop': "Obtenir l'application de bureau",
-  'web.gate.errorTokenRejected': 'Le serveur a rejeté ce jeton. Vérifiez-le et réessayez.',
-  'web.gate.errorTokenOffline': "Le serveur n'a pas répondu. Vérifiez qu'il est lancé et réessayez.",
+  'web.gate.errorServerOffline': "Le serveur n'a pas répondu. Vérifiez qu'il est lancé et réessayez.",
   'web.gate.errorPasswordRefused': "Échec de la connexion. Vérifiez l'email et le mot de passe et réessayez.",
   'web.gate.errorSessionRefused': "Le serveur n'a pas accepté la session. Réessayez.",
   'web.gate.seatIntroPrefix':
@@ -61,7 +94,8 @@ export const web = {
   'web.oidcError.personalLicenseNoIdentity':
     "Votre connexion ne portait aucun email à confronter au siège individuel. Voyez avec l'admin du serveur.",
   'web.oidcError.failed':
-    "Échec de l'authentification unique. Réessayez, ou connectez-vous plutôt avec un jeton d'association.",
+    "Échec de l'authentification unique. Réessayez, ou demandez à la personne qui gère le serveur de vérifier le " +
+    'fournisseur.',
   'web.insecure.title': 'Cette page nécessite une connexion sécurisée',
   'web.insecure.intro':
     'Cet onglet exécute tout le Workbench, pas une vue légère du serveur : il doit donc générer une identité pour ' +

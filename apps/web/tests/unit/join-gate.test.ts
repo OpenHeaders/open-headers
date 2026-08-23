@@ -1,8 +1,11 @@
 /**
- * Login-gate decision logic — the mount/gate boot decision and the
- * join-outcome classification the gate UI drives. The wire is faked as
- * a pair of subscriber registries; the token module is mocked so the
- * persist-only-after-WELCOME-accept contract is observable.
+ * Login-gate decision logic — the mount/gate boot decision, which of
+ * the front door's states the card draws, and the join-outcome
+ * classification the gate UI drives. The wire is faked as a pair of
+ * subscriber registries; the token module is mocked so the
+ * persist-only-after-WELCOME-accept contract is observable, and the
+ * three meta probes ride a path-dispatching `fetch` rather than module
+ * mocks so their real JSON-only guards stay in the loop.
  */
 
 import type { HandshakeRejectReason } from '@openheaders/core/protocol';
@@ -18,7 +21,7 @@ const tokenModule = vi.hoisted(() => ({
 vi.mock('@/host/daemon-token', () => tokenModule);
 
 import type { DaemonWire } from '@/host/daemon-wire';
-import { awaitJoinOutcome, decideGate, submitDaemonToken } from '@/host/join-gate';
+import { awaitJoinOutcome, decideGate, resolveGateMode, submitDaemonToken } from '@/host/join-gate';
 
 interface FakeWire {
   wire: DaemonWire;
@@ -98,6 +101,57 @@ describe('decideGate', () => {
       }),
     );
     expect(await decideGate()).toBe('mount');
+  });
+});
+
+describe('resolveGateMode', () => {
+  /** Answer each probe path from one map; anything unlisted is the SPA fallback. */
+  function stubProbes(answers: Record<string, unknown>): void {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: string) => {
+        const body = answers[input];
+        return body === undefined
+          ? new Response('<!doctype html>', { headers: { 'content-type': 'text/html' } })
+          : new Response(JSON.stringify(body), { headers: { 'content-type': 'application/json' } });
+      }),
+    );
+  }
+
+  it('draws the setup form on an unclaimed server, carrying whether the code is asked for', async () => {
+    stubProbes({ '/auth/setup/meta': { unclaimed: true, requiresCode: true } });
+    expect(await resolveGateMode()).toEqual({ kind: 'setup', requiresCode: true });
+  });
+
+  it('draws the password form on a claimed server with a password holder', async () => {
+    stubProbes({
+      '/auth/setup/meta': { unclaimed: false, requiresCode: false },
+      '/auth/password/meta': { enabled: true },
+    });
+    expect(await resolveGateMode()).toEqual({ kind: 'password' });
+  });
+
+  it('draws the provider button when an IdP is configured', async () => {
+    stubProbes({
+      '/auth/oidc/meta': { enabled: true, provider: 'Okta' },
+      '/auth/setup/meta': { unclaimed: false, requiresCode: false },
+    });
+    expect(await resolveGateMode()).toEqual({ kind: 'sso', provider: 'Okta' });
+  });
+
+  it('names the provider generically when the daemon does not', async () => {
+    stubProbes({ '/auth/oidc/meta': { enabled: true }, '/auth/setup/meta': { unclaimed: false } });
+    expect(await resolveGateMode()).toEqual({ kind: 'sso', provider: 'SSO' });
+  });
+
+  it('says so plainly when a claimed server has nothing a browser can sign in with', async () => {
+    stubProbes({ '/auth/setup/meta': { unclaimed: false, requiresCode: false } });
+    expect(await resolveGateMode()).toEqual({ kind: 'no-login' });
+  });
+
+  it('never offers to set up a server whose probes all fall through to the SPA', async () => {
+    stubProbes({});
+    expect(await resolveGateMode()).toEqual({ kind: 'no-login' });
   });
 });
 

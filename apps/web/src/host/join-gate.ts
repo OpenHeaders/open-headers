@@ -5,16 +5,23 @@
  * The daemon requires a paired token on every connection (loopback
  * included — trust-by-process was retired when the token ledger
  * landed), so the gate applies wherever the daemon is reachable and no
- * token is stored yet. A token check is a REAL handshake: the entered
- * token rides a HELLO and only a WELCOME accept persists it. The tab
- * stays offline-first — an unreachable daemon (or an explicit skip)
- * mounts the Workbench on local data alone.
+ * token is stored yet. Whichever way in the visitor takes, the secret
+ * it yields is checked by a REAL handshake: it rides a HELLO and only
+ * a WELCOME accept persists it. The tab stays offline-first — an
+ * unreachable daemon mounts the Workbench on local data alone.
+ *
+ * Once the gate IS showing, WHICH door it draws is a pure function of
+ * the server's own state (the front door plan §4.1), resolved here
+ * from the three meta probes.
  */
 
 import type { InitiatorState } from '@openheaders/oracle/sync/client/sync-handshake-initiator';
 import { peekActiveWorkspaceId } from '@openheaders/oracle/workspace/extension-workspace-store';
 import { hasDaemonToken, persistDaemonToken, setCandidateDaemonToken } from './daemon-token';
 import type { DaemonWire } from './daemon-wire';
+import { fetchOidcMeta } from './oidc-login';
+import { fetchPasswordMeta } from './password-login';
+import { fetchSetupMeta } from './setup-claim';
 
 /** Budget for one join attempt to reach a terminal outcome. */
 const JOIN_OUTCOME_BUDGET_MS = 10_000;
@@ -43,6 +50,32 @@ export async function decideGate(): Promise<GateDecision> {
   } catch {
     return 'mount';
   }
+}
+
+/**
+ * Which front door the server's state asks this browser to draw
+ * (§4.1). `no-login` is the residual: a claimed server with no IdP and
+ * no password holder left in its directory has nothing a browser can
+ * sign in with, and saying so beats offering a way in that isn't one.
+ */
+export type GateMode =
+  | { readonly kind: 'setup'; readonly requiresCode: boolean }
+  | { readonly kind: 'sso'; readonly provider: string }
+  | { readonly kind: 'password' }
+  | { readonly kind: 'no-login' };
+
+/**
+ * Ask the three meta routes at once. Their answers are consistent by
+ * contract — an IdP-fronted server is never unclaimed, an unclaimed
+ * one holds no password — so a single round trip decides the card
+ * instead of three serial ones, and the order below is precedence,
+ * not dependence.
+ */
+export async function resolveGateMode(): Promise<GateMode> {
+  const [oidc, setup, password] = await Promise.all([fetchOidcMeta(), fetchSetupMeta(), fetchPasswordMeta()]);
+  if (oidc.enabled) return { kind: 'sso', provider: oidc.provider ?? 'SSO' };
+  if (setup.unclaimed) return { kind: 'setup', requiresCode: setup.requiresCode };
+  return password.enabled ? { kind: 'password' } : { kind: 'no-login' };
 }
 
 /**

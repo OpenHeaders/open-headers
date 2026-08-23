@@ -5,10 +5,14 @@
  *      isolated data dir, serving the built `apps/web` bundle
  *      (`--web-root`). The token ledger + MCP settings are pre-seeded
  *      in `storage.json` (the offline `ohd show-token`
- *      equivalent, same idiom as the extension T3 gate).
- *   2. A fresh origin renders the LOGIN GATE (no stored token); a bad
- *      token is rejected in-band by a real HELLO; the minted token
- *      joins and mounts the Workbench.
+ *      equivalent, same idiom as the extension T3 gate). That token
+ *      is the OPERATOR plane every wire/MCP probe below rides; the
+ *      browser legs never touch it, because a browser no longer can.
+ *   2. A fresh origin renders the LOGIN GATE (no stored session). On
+ *      the unclaimed server it is the SETUP card — no pairing token is
+ *      ever asked of a browser — and once a directory admin exists it
+ *      is the sign-in card: a wrong password is refused in band, the
+ *      right one joins and mounts the Workbench.
  *   3. A daemon-side rule (seeded via MCP before the join) replicates
  *      DOWN into the tab's origin IDB; an MCP rename lands in the OPEN
  *      tab live.
@@ -25,7 +29,10 @@
  *      it); a directory user joining with a bound token sees no admin
  *      affordance (probe-gated), while the server-side gate stands
  *      regardless.
- *   8. Zero console errors across every leg; SIGTERM exits clean.
+ *   8. The claim itself, on a throwaway daemon of its own: the first
+ *      browser creates the admin from loopback with no setup code,
+ *      hears which paired devices that unpaired, and lands joined.
+ *   9. Zero console errors across every leg; SIGTERM exits clean.
  *
  * Requires builds: `pnpm turbo build --filter=@openheaders/daemon`
  * and `pnpm turbo build --filter=@openheaders/web`. The daemon runs
@@ -35,7 +42,7 @@
 
 import { type ChildProcess, spawn } from 'node:child_process';
 import { createHash, randomBytes } from 'node:crypto';
-import { mkdtemp, readFile, writeFile } from 'node:fs/promises';
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import * as os from 'node:os';
 import path from 'node:path';
@@ -56,6 +63,8 @@ const electronBinary = createRequire(path.join(REPO_ROOT, 'packages/oracle-host-
 // 18537, 18637, 18737, 18747, plus this session's 18937 smoke).
 const DAEMON_PORT = 19037;
 const PROXY_PORT = 19039;
+// The claim leg's throwaway daemon — a box it is allowed to take over.
+const CLAIM_PORT = 19041;
 const ORIGIN = `http://127.0.0.1:${DAEMON_PORT}`;
 const MCP_URL = `${ORIGIN}/mcp`;
 const DAEMON_RIG = path.join(REPO_ROOT, 'playground/daemon-rig');
@@ -66,7 +75,17 @@ const INITIALIZE_PARAMS = {
   clientInfo: { name: 'openheaders-web-join-client', version: '0.0.0' },
 };
 
-const TOKEN_INPUT = 'input[data-testid=login-gate-token], [data-testid=login-gate-token] input';
+const EMAIL_INPUT = 'input[data-testid=login-gate-email], [data-testid=login-gate-email] input';
+const PASSWORD_INPUT = 'input[data-testid=login-gate-password], [data-testid=login-gate-password] input';
+const setupInput = (field: string): string =>
+  `input[data-testid=login-gate-setup-${field}], [data-testid=login-gate-setup-${field}] input`;
+
+// The admin this run signs in as. Admitted over the wire rather than
+// by claiming the box, so the seeded operator token survives to drive
+// every MCP and raw-wire probe; the claim gets a daemon of its own at
+// the end, which it is free to take over.
+const ADMIN_EMAIL = 'john@openheaders.io';
+const ADMIN_PASSWORD = 'web-join-admin-2026';
 
 /** First non-internal IPv4 — the honest non-loopback leg. Null on airgapped machines (leg skips). */
 function lanIpv4(): string | null {
@@ -166,10 +185,46 @@ function ruleInTabIdb(target: Page, name: string): Promise<boolean> {
   );
 }
 
-/** Drive the login gate with `value` and wait for the submit round-trip. */
-async function submitGateToken(target: Page, value: string): Promise<void> {
-  await target.fill(TOKEN_INPUT, value);
-  await target.click('[data-testid=login-gate-submit]');
+/** Drive the gate's sign-in form. */
+async function signInAtGate(target: Page, email: string, password: string): Promise<void> {
+  await target.fill(EMAIL_INPUT, email);
+  await target.fill(PASSWORD_INPUT, password);
+  await target.click('[data-testid=login-gate-password-submit]');
+}
+
+/** Sign a fresh context in and wait for the Workbench to mount. */
+async function openSignedIn(label: string, email: string, password: string): Promise<[BrowserContext, Page]> {
+  const ctx = await browser.newContext();
+  const target = await ctx.newPage();
+  watchConsole(target, label);
+  await target.goto(ORIGIN);
+  await target.waitForSelector(EMAIL_INPUT, { timeout: 30_000 });
+  await signInAtGate(target, email, password);
+  await target.waitForSelector('[aria-label="Settings menu"]', { timeout: 30_000 });
+  return [ctx, target];
+}
+
+/**
+ * Admit a directory user over the operator wire with everything a
+ * browser sign-in needs: an email to key on, a password, and a grant
+ * so join → adopt lands somewhere. Returns the new user's id.
+ */
+async function admitPasswordUser(
+  displayName: string,
+  email: string,
+  password: string,
+  workspaceId: string,
+  role: 'owner' | 'editor' | 'viewer',
+): Promise<string> {
+  const [created] = await adminOverWire([{ type: 'oh.daemon.users.create', displayName, email }]);
+  const userId = (created.payload as { ok: true; userId: string }).userId;
+  const [passworded, granted] = await adminOverWire([
+    { type: 'oh.daemon.users.setPassword', userId, password },
+    { type: 'oh.daemon.users.grant', userId, workspaceId, role },
+  ]);
+  expect((passworded.payload as { ok: boolean }).ok).toBe(true);
+  expect((granted.payload as { ok: boolean }).ok).toBe(true);
+  return userId;
 }
 
 test.describe.configure({ mode: 'serial' });
@@ -301,35 +356,73 @@ test('MCP seeds a daemon-side rule before any tab joins', async () => {
   expect(daemonWorkspaceIds.length).toBeGreaterThan(0);
 });
 
-// ── The login gate + token pairing (a real HELLO both ways) ─────────
+// ── The front door's states (the front door plan §4.1) ──────────────
 
-test('a fresh origin gates; a bad token is rejected in-band; the minted token joins', async () => {
+test('an unclaimed server draws the setup card and asks a browser for no machine credential', async () => {
+  const firstContext = await browser.newContext();
+  const firstPage = await firstContext.newPage();
+  watchConsole(firstPage, 'unclaimed');
+  await firstPage.goto(`${ORIGIN}/`);
+  await firstPage.waitForSelector('[data-testid=login-gate]', { timeout: 15_000 });
+
+  const gate = firstPage.locator('[data-testid=login-gate]');
+  await expect(gate).toContainText('Set up this server');
+  // Signing in is the only way past: no local-only bypass on any
+  // posture, no pairing-token field anywhere, and no `ohd` command
+  // shown to a visitor who has not proved anything yet.
+  expect(await firstPage.$('[data-testid=login-gate-skip]')).toBeNull();
+  expect(await firstPage.$('[data-testid=login-gate-token]')).toBeNull();
+  await expect(gate).not.toContainText('ohd ');
+  // The setup code is offered with its reason, never demanded — this
+  // browser is on the box, and the dominant first run needs no code.
+  await expect(firstPage.locator('[data-testid=login-gate-setup-code]')).toBeVisible();
+  await expect(gate).toContainText('not running on the server itself');
+  // Chromium under Playwright resolves to the Chrome Web Store listing
+  // and one desktop download named for this machine's OS.
+  await expect(firstPage.locator('[data-testid=login-gate-client-extension]')).toHaveCount(1);
+  await expect(firstPage.locator('[data-testid=login-gate-client-extension]')).toContainText('Chrome');
+  await expect(firstPage.locator('[data-testid=login-gate-client-desktop]')).toHaveCount(1);
+
+  // The daemon's own minimum, mirrored client-side: a password too
+  // short to be accepted never leaves the browser.
+  await firstPage.fill(setupInput('name'), 'John Doe');
+  await firstPage.fill(setupInput('email'), ADMIN_EMAIL);
+  await firstPage.fill(setupInput('password'), 'short');
+  await firstPage.fill(setupInput('confirm'), 'short');
+  await expect(firstPage.locator('[data-testid=login-gate-setup-submit]')).toBeDisabled();
+
+  await firstContext.close();
+});
+
+test('a claimed server signs the admin in; a wrong password is refused in band', async () => {
+  await admitPasswordUser('John Doe', ADMIN_EMAIL, ADMIN_PASSWORD, daemonWorkspaceIds[0], 'owner');
+  const [adminIsAdmin] = await adminOverWire([{ type: 'oh.daemon.users.list' }]);
+  const adminRow = (adminIsAdmin.payload as { users: Array<{ userId: string; email?: string }> }).users.find(
+    (u) => u.email === ADMIN_EMAIL,
+  );
+  expect(adminRow).toBeDefined();
+  await adminOverWire([{ type: 'oh.daemon.users.setDaemonAdmin', userId: adminRow?.userId, isAdmin: true }]);
+
   context = await browser.newContext();
   page = await context.newPage();
   watchConsole(page, 'loopback');
   await page.goto(`${ORIGIN}/`);
-
   await page.waitForSelector('[data-testid=login-gate]', { timeout: 15_000 });
+  await expect(page.locator('[data-testid=login-gate]')).toContainText('Sign in to this server');
+  expect(await page.$('[data-testid=login-gate-token]')).toBeNull();
 
-  // Pairing is the only way past the gate — no local-only bypass on any
-  // posture. The native clients are named instead, since they pair with
-  // the same token and need no browser at all.
-  expect(await page.$('[data-testid=login-gate-skip]')).toBeNull();
-  // Chromium under Playwright resolves to the Chrome Web Store listing
-  // and one desktop download named for this machine's OS.
-  await expect(page.locator('[data-testid=login-gate-client-extension]')).toHaveCount(1);
-  await expect(page.locator('[data-testid=login-gate-client-extension]')).toContainText('Chrome');
-  await expect(page.locator('[data-testid=login-gate-client-desktop]')).toHaveCount(1);
-
-  await submitGateToken(page, 'oh_definitely-wrong-token');
+  await signInAtGate(page, ADMIN_EMAIL, 'not-the-password');
   await page.waitForSelector('[data-testid=login-gate-error]', { timeout: 15_000 });
-  await expect(page.locator('[data-testid=login-gate-error]')).toContainText('rejected this token');
+  await expect(page.locator('[data-testid=login-gate-error]')).toContainText('Sign-in failed');
 
-  await submitGateToken(page, token);
+  await signInAtGate(page, ADMIN_EMAIL, ADMIN_PASSWORD);
   await page.waitForSelector('[data-testid=login-gate]', { state: 'detached', timeout: 30_000 });
 
-  // Persisted origin-scoped, only after the WELCOME accepted it.
-  await expect.poll(() => readHostSlot(page, 'oh.webBackendToken')).toBe(token);
+  // A session persisted origin-scoped, only after the WELCOME accepted
+  // it — and it is NOT the operator's bootstrap token.
+  const session = (await readHostSlot(page, 'oh.webBackendToken')) as string | null;
+  expect(session).toBeTruthy();
+  expect(session).not.toBe(token);
   const joined = (await readHostSlot(page, 'oh.joinedOrgs')) as Array<{ backendId: string }> | null;
   expect(joined?.map((row) => row.backendId)).toEqual(['web-serving-daemon']);
 });
@@ -499,15 +592,11 @@ async function openBackendSettings(target: Page): Promise<void> {
   await target.click('.settings-category-nav button:has-text("Backend")');
 }
 
-test('admin console: the operator manages users and devices from the tab; a directory user sees no admin CTA', async () => {
-  // Operator context — fresh storage, gate with the operator token.
-  const operatorContext = await browser.newContext();
-  const operatorPage = await operatorContext.newPage();
-  watchConsole(operatorPage, 'admin-operator');
-  await operatorPage.goto(ORIGIN);
-  await operatorPage.waitForSelector(TOKEN_INPUT, { timeout: 30_000 });
-  await submitGateToken(operatorPage, token);
-  await operatorPage.waitForSelector('[aria-label="Settings menu"]', { timeout: 30_000 });
+test('admin console: the admin manages users and devices from the tab; a directory user sees no admin CTA', async () => {
+  // Admin context — fresh storage, signed in with the password. The
+  // console reaches the gated plane on the `daemon.admin` role, not on
+  // an operator credential the browser never sees.
+  const [operatorContext, operatorPage] = await openSignedIn('admin-console', ADMIN_EMAIL, ADMIN_PASSWORD);
 
   // Settings → Backend → the probe-gated CTA → the console tab.
   await openBackendSettings(operatorPage);
@@ -589,29 +678,18 @@ test('admin console: the operator manages users and devices from the tab; a dire
 
   await operatorContext.close();
 
-  // Grant + bound mint over the RAW wire as the operator — a directory
-  // user needs a granted workspace for a clean join → adopt.
+  // The console admitted Alice by name only, which is all its form
+  // takes; a browser sign-in keys on an email, so the plain-user leg
+  // rides a wire-admitted user carrying one.
   const [listed] = await adminOverWire([{ type: 'oh.daemon.users.list' }]);
   const users = (listed.payload as { users: Array<{ userId: string; displayName: string }> }).users;
-  const alice = users.find((u) => u.displayName === 'Alice');
-  expect(alice).toBeDefined();
-  const [granted, minted] = await adminOverWire([
-    { type: 'oh.daemon.users.grant', userId: alice?.userId, workspaceId: daemonWorkspaceIds[0], role: 'viewer' },
-    { type: 'oh.daemon.tokens.mint', label: 'alice device', userId: alice?.userId },
-  ]);
-  expect((granted.payload as { ok: boolean }).ok).toBe(true);
-  const aliceSecret = (minted.payload as { ok: true; secret: string }).secret;
+  expect(users.some((u) => u.displayName === 'Alice')).toBe(true);
+  await admitPasswordUser('Ada Lovelace', 'ada@openheaders.io', 'ada-first-password', daemonWorkspaceIds[0], 'viewer');
 
-  // Alice's context: her bound token joins, the Workbench mounts on the
-  // granted workspace — and the backend card shows NO admin CTA (the
-  // probe answered false over the same wire).
-  const aliceContext = await browser.newContext();
-  const alicePage = await aliceContext.newPage();
-  watchConsole(alicePage, 'admin-alice');
-  await alicePage.goto(ORIGIN);
-  await alicePage.waitForSelector(TOKEN_INPUT, { timeout: 30_000 });
-  await submitGateToken(alicePage, aliceSecret);
-  await alicePage.waitForSelector('[aria-label="Settings menu"]', { timeout: 30_000 });
+  // A plain directory user: the Workbench mounts on the granted
+  // workspace, and the backend card shows NO admin CTA (the probe
+  // answered false over the same wire).
+  const [aliceContext, alicePage] = await openSignedIn('plain-user', 'ada@openheaders.io', 'ada-first-password');
   await openBackendSettings(alicePage);
   await expect(alicePage.locator('text=Always on').first()).toBeVisible();
   expect(await alicePage.$('[data-testid=open-daemon-admin]')).toBeNull();
@@ -621,19 +699,17 @@ test('admin console: the operator manages users and devices from the tab; a dire
 // ── The zero-grant landing (slice 3) ────────────────────────────────
 
 test('zero-grant landing: the explained notice stands, then a live grant resolves the open tab without a reload', async () => {
-  // A fresh directory user with a bound token and ZERO grants.
-  const [created] = await adminOverWire([{ type: 'oh.daemon.users.create', displayName: 'Zoe' }]);
+  // A fresh directory user who can sign in and holds ZERO grants.
+  const [created] = await adminOverWire([
+    { type: 'oh.daemon.users.create', displayName: 'Zoe', email: 'zoe@openheaders.io' },
+  ]);
   const zoeId = (created.payload as { ok: true; userId: string }).userId;
-  const [minted] = await adminOverWire([{ type: 'oh.daemon.tokens.mint', label: 'zoe device', userId: zoeId }]);
-  const zoeSecret = (minted.payload as { ok: true; secret: string }).secret;
+  const [passworded] = await adminOverWire([
+    { type: 'oh.daemon.users.setPassword', userId: zoeId, password: 'zoe-first-password' },
+  ]);
+  expect((passworded.payload as { ok: boolean }).ok).toBe(true);
 
-  const zoeContext = await browser.newContext();
-  const zoePage = await zoeContext.newPage();
-  watchConsole(zoePage, 'zero-grant-zoe');
-  await zoePage.goto(ORIGIN);
-  await zoePage.waitForSelector(TOKEN_INPUT, { timeout: 30_000 });
-  await submitGateToken(zoePage, zoeSecret);
-  await zoePage.waitForSelector('[aria-label="Settings menu"]', { timeout: 30_000 });
+  const [zoeContext, zoePage] = await openSignedIn('zero-grant-zoe', 'zoe@openheaders.io', 'zoe-first-password');
 
   // Org-joined with nothing granted: the workbench mounts on a usable
   // local workspace and the persistent explained notice stands.
@@ -682,19 +758,14 @@ test('password login: the operator sets a password in the console; a fresh gate 
   ]);
   expect((granted.payload as { ok: boolean }).ok).toBe(true);
 
-  // The gate is token-only while no active user holds a password.
+  // The admin already holds one, so the sign-in card is what the gate
+  // draws — Pia simply has no password of her own yet.
   const meta = (await (await fetch(`${ORIGIN}/auth/password/meta`)).json()) as { enabled: boolean };
-  expect(meta.enabled).toBe(false);
+  expect(meta.enabled).toBe(true);
 
-  // Operator sets Pia's password through the console UI — the whole
+  // The admin sets Pia's password through the console UI — the whole
   // write path runs over the wire into the gated admin plane.
-  const operatorContext = await browser.newContext();
-  const operatorPage = await operatorContext.newPage();
-  watchConsole(operatorPage, 'password-operator');
-  await operatorPage.goto(ORIGIN);
-  await operatorPage.waitForSelector(TOKEN_INPUT, { timeout: 30_000 });
-  await submitGateToken(operatorPage, token);
-  await operatorPage.waitForSelector('[aria-label="Settings menu"]', { timeout: 30_000 });
+  const [operatorContext, operatorPage] = await openSignedIn('password-admin', ADMIN_EMAIL, ADMIN_PASSWORD);
   await openBackendSettings(operatorPage);
   await operatorPage.click('[data-testid=open-daemon-admin]');
   await operatorPage.click(`[data-testid=daemon-admin-password-${piaId}]`);
@@ -715,21 +786,16 @@ test('password login: the operator sets a password in the console; a fresh gate 
   const piaPage = await piaContext.newPage();
   watchConsole(piaPage, 'password-pia');
   await piaPage.goto(ORIGIN);
-  const EMAIL_INPUT = 'input[data-testid=login-gate-email], [data-testid=login-gate-email] input';
-  const PASSWORD_INPUT = 'input[data-testid=login-gate-password], [data-testid=login-gate-password] input';
   await piaPage.waitForSelector(EMAIL_INPUT, { timeout: 30_000 });
   // Managed login (password) — same rule, and the native clients ride
   // along here too.
   expect(await piaPage.$('[data-testid=login-gate-skip]')).toBeNull();
   expect(await piaPage.$('[data-testid=login-gate-native-clients]')).not.toBeNull();
-  await piaPage.fill(EMAIL_INPUT, 'pia@openheaders.io');
-  await piaPage.fill(PASSWORD_INPUT, 'not-her-password');
-  await piaPage.click('[data-testid=login-gate-password-submit]');
+  await signInAtGate(piaPage, 'pia@openheaders.io', 'not-her-password');
   await piaPage.waitForSelector('[data-testid=login-gate-error]', { timeout: 15_000 });
   await expect(piaPage.locator('[data-testid=login-gate-error]')).toContainText('Sign-in failed');
 
-  await piaPage.fill(PASSWORD_INPUT, 'pia-first-password');
-  await piaPage.click('[data-testid=login-gate-password-submit]');
+  await signInAtGate(piaPage, 'pia@openheaders.io', 'pia-first-password');
   await piaPage.waitForSelector('[data-testid=login-gate]', { state: 'detached', timeout: 30_000 });
   await piaPage.waitForSelector('[aria-label="Settings menu"]', { timeout: 30_000 });
 
@@ -785,11 +851,118 @@ test('a TLS non-loopback origin gates and joins over wss through the rig proxy',
   const tlsPage = await tlsContext.newPage();
   watchConsole(tlsPage, 'tls');
   await tlsPage.goto(`https://oh.test:${PROXY_PORT}/`);
-  await tlsPage.waitForSelector('[data-testid=login-gate]', { timeout: 15_000 });
-  await submitGateToken(tlsPage, token);
+  await tlsPage.waitForSelector(EMAIL_INPUT, { timeout: 15_000 });
+  await signInAtGate(tlsPage, ADMIN_EMAIL, ADMIN_PASSWORD);
   await tlsPage.waitForSelector('[data-testid=login-gate]', { state: 'detached', timeout: 30_000 });
   await expect.poll(() => ruleInTabIdb(tlsPage, 'Daemon web rule v2'), { timeout: 30_000 }).toBe(true);
   await tlsBrowser.close();
+});
+
+// ── The claim, on a daemon of its own (§4.2) ────────────────────────
+
+test('the first browser claims an unclaimed server, hears what that unpaired, and lands joined', async () => {
+  // A daemon this leg is free to take over: the claim revokes every
+  // unbound token, which would strand the main run's operator plane.
+  const claimDir = await mkdtemp(path.join(os.tmpdir(), 'oh-daemon-web-claim-'));
+  const claimToken = `oh_${randomBytes(32).toString('base64url')}`;
+  await writeFile(
+    path.join(claimDir, 'storage.json'),
+    JSON.stringify({
+      schemaVersion: 1,
+      values: {
+        'oh.daemonAuthTokens': [
+          {
+            id: 'web-claim-bootstrap-token',
+            tokenHash: createHash('sha256').update(claimToken).digest('hex'),
+            label: 'web-claim e2e',
+            createdAt: Date.now(),
+            lastUsedAt: null,
+            revokedAt: null,
+          },
+        ],
+      },
+      secrets: {},
+    }),
+  );
+  const claimOrigin = `http://127.0.0.1:${CLAIM_PORT}`;
+  const claimDaemon = spawn(
+    electronBinary,
+    [DAEMON_MAIN, '--data-dir', claimDir, '--bind-port', String(CLAIM_PORT), '--web-root', WEB_DIST],
+    { env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' } },
+  );
+  const claimLog: string[] = [];
+  for (const stream of [claimDaemon.stdout, claimDaemon.stderr]) {
+    stream?.on('data', (chunk: Buffer) => claimLog.push(chunk.toString()));
+  }
+  const claimExited = new Promise<number | null>((resolve) => claimDaemon.once('exit', (code) => resolve(code)));
+
+  try {
+    await expect
+      .poll(
+        async () => {
+          try {
+            return (await fetch(`${claimOrigin}/healthz`)).status;
+          } catch {
+            return 0;
+          }
+        },
+        { timeout: 30_000 },
+      )
+      .toBe(200);
+
+    // The probe the gate draws its card from.
+    const meta = (await (await fetch(`${claimOrigin}/auth/setup/meta`)).json()) as {
+      unclaimed: boolean;
+      requiresCode: boolean;
+    };
+    expect(meta).toEqual({ unclaimed: true, requiresCode: true });
+
+    const claimContext = await browser.newContext();
+    const claimPage = await claimContext.newPage();
+    watchConsole(claimPage, 'claim');
+    await claimPage.goto(`${claimOrigin}/`);
+    await claimPage.waitForSelector(setupInput('name'), { timeout: 30_000 });
+
+    // Loopback is the proof: the code field is offered and left empty.
+    await claimPage.fill(setupInput('name'), 'John Doe');
+    await claimPage.fill(setupInput('email'), 'john@openheaders.io');
+    await claimPage.fill(setupInput('password'), 'claim-first-password');
+    await claimPage.fill(setupInput('confirm'), 'claim-first-password');
+    await claimPage.click('[data-testid=login-gate-setup-submit]');
+
+    // The claim revoked the seeded bootstrap token and says which
+    // devices that costs before handing the tab over.
+    await claimPage.waitForSelector('[data-testid=login-gate-setup-done]', { timeout: 30_000 });
+    await expect(claimPage.locator('[data-testid=login-gate-setup-done]')).toContainText('Pair it again');
+    await claimPage.click('[data-testid=login-gate-setup-continue]');
+    await claimPage.waitForSelector('[data-testid=login-gate]', { state: 'detached', timeout: 30_000 });
+    await claimPage.waitForSelector('[aria-label="Settings menu"]', { timeout: 30_000 });
+
+    // The session is an ordinary password-login row, and the claim is
+    // one-shot by state: the route answers its uniform refusal now.
+    expect(await readHostSlot(claimPage, 'oh.webBackendToken')).toBeTruthy();
+    const second = await fetch(`${claimOrigin}/auth/setup/claim`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ displayName: 'Jane Doe', email: 'jane@openheaders.io', password: 'second-attempt-pw' }),
+    });
+    expect(second.status).toBe(403);
+    expect((await (await fetch(`${claimOrigin}/auth/setup/meta`)).json()) as unknown).toEqual({
+      unclaimed: false,
+      requiresCode: false,
+    });
+
+    await claimContext.close();
+  } finally {
+    if (claimDaemon.exitCode === null) {
+      claimDaemon.kill('SIGTERM');
+      await claimExited;
+    }
+    if (test.info().status !== test.info().expectedStatus) {
+      console.log(`claim daemon log:\n${claimLog.join('')}`);
+    }
+    await rm(claimDir, { recursive: true, force: true });
+  }
 });
 
 // ── Hygiene: console silence, ledger stamp, clean shutdown ──────────
@@ -802,9 +975,19 @@ test('token validation stamped the persisted ledger; SIGTERM exits clean', async
   const envelope = JSON.parse(await readFile(path.join(dataDir, 'storage.json'), 'utf-8')) as {
     values: Record<string, unknown>;
   };
-  const ledger = envelope.values['oh.daemonAuthTokens'] as Array<{ id: string; lastUsedAt: number | null }>;
-  expect(ledger[0].id).toBe('web-join-bootstrap-token');
-  expect(ledger[0].lastUsedAt).toBeGreaterThan(0);
+  const ledger = envelope.values['oh.daemonAuthTokens'] as Array<{
+    id: string;
+    kind?: string;
+    label?: string;
+    lastUsedAt: number | null;
+  }>;
+  const bootstrap = ledger.find((row) => row.id === 'web-join-bootstrap-token');
+  expect(bootstrap?.lastUsedAt).toBeGreaterThan(0);
+  // Every browser leg above rode a session minted by a password login,
+  // never the operator's bootstrap secret.
+  const adminSession = ledger.find((row) => row.label === `password:${ADMIN_EMAIL}`);
+  expect(adminSession?.kind).toBe('session');
+  expect(adminSession?.lastUsedAt).toBeGreaterThan(0);
 
   daemon.kill('SIGTERM');
   expect(await daemonExited).toBe(0);

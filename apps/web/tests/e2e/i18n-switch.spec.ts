@@ -7,16 +7,18 @@
  *      real locale shipped, `auto` never resolves to the synthetic
  *      pseudo locale, and the pre-provider beats resolve from
  *      `navigator.languages` the same way;
- *   2. after the token join, switching to pseudo through the real
- *      settings picker re-renders the mounted workbench in place — a
- *      window stamp proves no navigation happened;
+ *   2. after the server is claimed from the gate, switching to pseudo
+ *      through the real settings picker re-renders the mounted
+ *      workbench in place — a window stamp proves no navigation
+ *      happened;
  *   3. the technical plane stays raw under pseudo: locale registry
  *      names ('English') and `<html lang>` (pseudo announces itself
  *      as `en`);
  *   4. the choice persists across a reload (the web app's restart):
  *      the tab rejoins past the gate and paints pseudoized from boot,
  *      while a FRESH profile on the same origin still gates in English
- *      (the setting is origin-profile-scoped, not daemon-global).
+ *      — now on the claimed server's sign-in card (the setting is
+ *      origin-profile-scoped, not daemon-global).
  *
  * Requires builds: `pnpm turbo build --filter=@openheaders/daemon`
  * and `pnpm turbo build --filter=@openheaders/web`. The daemon runs
@@ -46,7 +48,10 @@ const electronBinary = createRequire(path.join(REPO_ROOT, 'packages/oracle-host-
 const DAEMON_PORT = 19137;
 const ORIGIN = `http://127.0.0.1:${DAEMON_PORT}`;
 
-const TOKEN_INPUT = 'input[data-testid=login-gate-token], [data-testid=login-gate-token] input';
+const setupInput = (field: string): string =>
+  `input[data-testid=login-gate-setup-${field}], [data-testid=login-gate-setup-${field}] input`;
+const ADMIN_EMAIL = 'john@openheaders.io';
+const ADMIN_PASSWORD = 'i18n-claim-2026';
 const PSEUDO_NATIVE_NAME = '⟦Þšéûðö⟧';
 
 let daemon: ChildProcess;
@@ -172,14 +177,23 @@ test('the gate renders English under a non-English browser locale', async () => 
   await page.waitForSelector('[data-testid=login-gate]', { timeout: 15_000 });
 
   const gate = page.locator('[data-testid=login-gate]');
-  await expect(gate).toContainText('Pair with this daemon');
+  await expect(gate).toContainText('Set up this server');
   await expect(gate).not.toContainText('⟦');
   expect(await page.evaluate(() => document.documentElement.lang)).toBe('en');
 });
 
 test('the joined workbench switches to pseudo in place', async () => {
-  await page.fill(TOKEN_INPUT, token);
-  await page.click('[data-testid=login-gate-submit]');
+  // This daemon has never been claimed, so the way in is the setup
+  // card — a browser is asked to create the first admin, never to
+  // paste the seeded bootstrap token.
+  await page.fill(setupInput('name'), 'John Doe');
+  await page.fill(setupInput('email'), ADMIN_EMAIL);
+  await page.fill(setupInput('password'), ADMIN_PASSWORD);
+  await page.fill(setupInput('confirm'), ADMIN_PASSWORD);
+  await page.click('[data-testid=login-gate-setup-submit]');
+  // The claim unpaired the seeded bootstrap token and says so before
+  // handing the tab over.
+  await page.click('[data-testid=login-gate-setup-continue]');
   await waitForWorkbench(page);
 
   // A navigation or reload would wipe the stamp — its survival proves
@@ -220,22 +234,23 @@ test('the choice persists across reload; a fresh profile still gates in English'
     })
     .toBe('pseudo');
 
-  // The web app's restart: the token skips the gate and the persisted
-  // locale paints from boot. The workbench chrome is pseudoized now,
+  // The web app's restart: the stored session skips the gate and the
+  // persisted locale paints from boot. The workbench chrome is pseudoized now,
   // so the wait keys on the delimiters, not English accessible names.
   await page.reload();
   await page.waitForSelector('[data-testid=login-gate]', { state: 'detached', timeout: 30_000 });
   await expect(page.locator('#root')).toContainText('⟦', { timeout: 30_000 });
 
   // A fresh profile on the same origin: no stored setting, no stored
-  // token — the gate renders English again (the pseudo choice is
-  // origin-profile-scoped, not daemon-global).
+  // session — the gate renders English again, and now on the claimed
+  // server's sign-in card (the pseudo choice is origin-profile-scoped,
+  // not daemon-global).
   const freshContext = await browser.newContext({ locale: 'fr-FR' });
   const freshPage = await freshContext.newPage();
   await freshPage.goto(`${ORIGIN}/`);
   await freshPage.waitForSelector('[data-testid=login-gate]', { timeout: 15_000 });
   const gate = freshPage.locator('[data-testid=login-gate]');
-  await expect(gate).toContainText('Pair with this daemon');
+  await expect(gate).toContainText('Sign in to this server');
   await expect(gate).not.toContainText('⟦');
   await freshContext.close();
 });

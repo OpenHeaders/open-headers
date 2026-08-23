@@ -17,9 +17,8 @@ import { bootTranslator } from '@/boot-locale';
 import { bootWebHost } from '@/host/boot-web-host';
 import { installDaemonWire } from '@/host/daemon-wire';
 import { watchDaemonScriptPosture } from '@/host/install-script-posture';
-import { awaitPostJoinAdoption, decideGate, submitDaemonToken } from '@/host/join-gate';
-import { claimOidcToken, consumeOidcHash, fetchOidcMeta } from '@/host/oidc-login';
-import { fetchPasswordMeta } from '@/host/password-login';
+import { awaitPostJoinAdoption, decideGate, resolveGateMode, submitDaemonToken } from '@/host/join-gate';
+import { claimOidcToken, consumeOidcHash } from '@/host/oidc-login';
 import { resolveWorkbenchIdentity } from '@/host/surface-identity-resolvers';
 import { InsecureContextNotice } from '@/InsecureContextNotice';
 import { LoginGate } from '@/LoginGate';
@@ -110,28 +109,23 @@ if (!window.isSecureContext) {
     ssoErrorReason = oidcResult.reason;
   }
 
-  // Login gate: a reachable daemon with no stored pairing token gates the
-  // mount; the entered token is validated by a real HELLO/WELCOME before
-  // it persists. An unreachable daemon (or a stored token) mounts
-  // straight away — the tab is offline-first, the wire joins in the
-  // background. Pairing is the only way past a gate that IS showing: a
-  // local-only mount is what an absent daemon degrades to, never a
-  // choice offered while the server is right there answering.
+  // Login gate: a reachable daemon with no stored session gates the
+  // mount, and whichever way in the visitor takes is validated by a real
+  // HELLO/WELCOME before it persists. An unreachable daemon (or a stored
+  // session) mounts straight away — the tab is offline-first, the wire
+  // joins in the background. Signing in is the only way past a gate that
+  // IS showing: a local-only mount is what an absent daemon degrades to,
+  // never a choice offered while the server is right there answering.
   if (ssoJoined) {
     // Mount only after join → adopt promoted the daemon's workspace so
     // the first workbench tab pins to the adopted scope.
     await awaitPostJoinAdoption(wire);
     mountWorkbench();
   } else if (ssoErrorReason !== null || (await decideGate()) === 'gate') {
-    const oidcMeta = await fetchOidcMeta();
-    // Password login is composed daemon-side only when no OIDC provider
-    // is configured, so the probes are mutually exclusive by contract.
-    const passwordMeta = oidcMeta.enabled ? { enabled: false } : await fetchPasswordMeta();
     renderShell(
       <LoginGate
         wire={wire}
-        ssoProvider={oidcMeta.enabled ? (oidcMeta.provider ?? 'SSO') : null}
-        passwordEnabled={passwordMeta.enabled}
+        mode={await resolveGateMode()}
         initialErrorReason={ssoErrorReason}
         onJoined={() => {
           // The gate showed the signing-in overlay before calling in;
