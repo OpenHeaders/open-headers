@@ -75,17 +75,25 @@ starts at login.
 
 ## Connect a client
 
-Add the server as a backend in any client — extension, desktop app, or
-web app — under **Settings → Backends**, using a join URL and the token
-from `show-token`. For the CLI:
+Add the server as a backend in the browser extension or the desktop app
+under **Settings → Backends**, using a join URL and the token from
+`show-token`. Those clients dial `ws://<server>:8137` from any machine
+on the network, with no TLS involved — the normal way to use a headless
+server. For the CLI:
 
 ```sh
 oh connect --daemon http://127.0.0.1:8137 --token <secret>
 oh status
 ```
 
-The daemon also serves the Open Headers web app on its bind: open
-`http://<daemon-host>:8137/` in a browser.
+The daemon also serves the Workbench as a web app on its bind, but a
+browser only runs it from a **secure origin**: `http://127.0.0.1:8137/`
+on the server's own machine, or `https://…` behind a
+[TLS reverse proxy](/server/lan-vs-tls). A plain LAN URL like
+`http://<server>:8137/` loads and then refuses to start — that is a
+browser rule (the Workbench needs `crypto.subtle`, which browsers
+withhold on non-loopback HTTP), and it applies to the web app only, not
+to the extension, desktop, or CLI clients.
 
 The CLI installs on any client machine — the same script as above on
 macOS and Linux (without `--with-daemon`), or the PowerShell script on
@@ -118,8 +126,11 @@ ohd restart        # a running daemon keeps its old bind until restarted
 Without one of the two, a `0.0.0.0` bind refuses to boot rather than
 serve auth tokens and pairing secrets unencrypted by accident.
 
-Run `ohd show-token` (daemon stopped) to see the LAN join URLs. If
-clients still cannot connect, check that the host firewall
+`ohd install` only persists the flags — a service that is already
+running keeps its old bind until `ohd restart`. With the LAN bind in
+effect and clients still unable to connect, they are being stopped
+before the daemon (which logs every connection it refuses, so a failure
+with no log line never reached it): check that the host firewall
 (`ufw`/`firewalld`) admits port 8137.
 
 For anything beyond a trusted LAN, terminate TLS at a reverse proxy —

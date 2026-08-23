@@ -137,12 +137,29 @@ changes from a connected admin surface instead. Reads work anytime.
 ## The web app
 
 The daemon serves the Open Headers web app — the same Workbench UI the
-desktop app and extension run — as static files on its bind: open
-`http://<daemon-host>:8137/` in a browser. Distributions built with
-the web bundle serve it out of the box; point `--web-root` at a
-different built bundle to serve that instead. An explicitly configured
-web root must contain an `index.html`, or the daemon refuses to boot;
-without any web root the daemon runs headless-only and `/` answers 400.
+desktop app and extension run — as static files on its bind. Browsers
+only run it from a **secure origin**, so where you open it depends on
+the machine:
+
+| From | URL | Works |
+| --- | --- | --- |
+| The server itself | `http://127.0.0.1:8137/` | Yes — loopback is a secure origin |
+| Another machine, plain HTTP | `http://<server>:8137/` | No — the page loads and refuses to start |
+| Another machine, behind TLS | `https://<your-host>/` | Yes — see [LAN vs TLS proxy](/server/lan-vs-tls) |
+
+The Workbench needs the browser's cryptography APIs (`crypto.subtle`) to
+mint its identity, and browsers withhold them on any plain-HTTP origin
+that is not loopback. That rule is the browser's and it binds the web
+app only: the **browser extension and the desktop app connect over
+`ws://<server>:8137` from anywhere on the network** without TLS, which
+is how a headless server is normally used — no browser on the server
+required.
+
+Distributions built with the web bundle serve it out of the box; point
+`--web-root` at a different built bundle to serve that instead. An
+explicitly configured web root must contain an `index.html`, or the
+daemon refuses to boot; without any web root the daemon runs
+headless-only and `/` answers 400.
 
 ## Next
 

@@ -27,10 +27,20 @@ cleartext on a trusted network with --allow-insecure-lan
 | Traffic | `http://` / `ws://`, readable to anyone on the network path | `https://` / `wss://`, encrypted to the proxy |
 | Extra moving parts | None | A reverse proxy (Caddy or nginx) and a domain name |
 | Daemon bind | `0.0.0.0` | Stays on `127.0.0.1` when the proxy runs on the same machine |
+| Extension, desktop, CLI clients | Work from any machine on the network | Work from anywhere the domain resolves |
+| The served web app in a browser | Only on the server's own machine, at `http://127.0.0.1:8137/` | From any browser, at `https://<your-host>/` |
 
 Tokens are required on every non-loopback connection in **both**
 postures — the decision is about encryption on the wire, not about
 whether auth exists.
+
+The web-app row is the browser's rule, not the daemon's: the Workbench
+needs `crypto.subtle` to mint its identity, and browsers withhold it on
+plain-HTTP origins that are not loopback, so a LAN URL like
+`http://<server>:8137/` loads and then refuses to start. It binds the
+served web app alone — the extension and desktop app speak
+`ws://<server>:8137` in either posture, which is why a headless server
+with no browser on it is a perfectly ordinary deployment.
 
 ## Option A — cleartext on a trusted LAN
 
@@ -44,7 +54,9 @@ ohd restart        # a running daemon keeps its old bind until restarted
 
 Run `ohd show-token` (daemon stopped) to see the LAN join URLs. If
 clients still cannot connect, check that the host firewall
-(`ufw`/`firewalld`) admits port 8137.
+(`ufw`/`firewalld`) admits port 8137 — the daemon logs every connection
+it refuses, so a client that fails while the log stays silent never
+reached the process at all.
 
 The daemon warns at boot as a standing reminder of the posture:
 

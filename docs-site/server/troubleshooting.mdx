@@ -21,9 +21,18 @@ daemon printed — every message below is quoted verbatim.
 | --- | --- | --- |
 | Clients on other machines cannot connect; the daemon runs fine locally | The daemon still binds `127.0.0.1` (the default) | `ohd install --bind-address 0.0.0.0` with a protection posture, then `ohd restart` — see [LAN vs TLS](/server/lan-vs-tls) |
 | Bind is `0.0.0.0` but LAN clients still cannot connect | Host firewall | Admit port 8137: `sudo ufw allow 8137` or `sudo firewall-cmd --add-port=8137/tcp --permanent && sudo firewall-cmd --reload` |
+| A client shows `Not reachable` / `Could not open WebSocket: WebSocket error before handshake completed.` **and the daemon log has no matching line** | The connection never reached the daemon — it refuses nothing silently, so an absent log line means the packets stopped earlier (firewall, wrong address, wrong port, no route) | From the client machine: `curl http://<server>:8137/healthz` — `{"ok":true}` proves the path, anything else is network. Then check the firewall row above |
+| A client shows `Connection closed before the handshake — back-end likely not running on that port.` | Something answered on the port but is not this daemon (or it is starting) | Confirm the port with `ohd status` on the server; check nothing else holds 8137 |
 | Config was changed but behavior did not | A running daemon keeps its old bind until restarted | `ohd restart` — `ohd install` persists flags; only a restart applies them |
 | Browser requests via a domain name are refused; log shows `rejected … request: host-forbidden (origin=… host=… peer=…)` | The hostname is not one the daemon answers as | Declare it: `ohd install --allowed-host oh.example.com`, then `ohd restart`; IPs, `localhost`, and `*.local` always work |
 | Log shows `rejected … request: origin-forbidden (…)` | A browser origin the route does not accept (e.g. a cross-origin page calling `/mcp`) | Expected posture — `/mcp` refuses browser-originated requests outright; call it from an agent or CLI instead |
+
+## The served web app
+
+| Symptom | Cause | Fix |
+| --- | --- | --- |
+| The page loads and shows `This page needs a secure connection` instead of the Workbench | The tab is on a plain-HTTP origin that is not loopback — browsers withhold `crypto.subtle` there, and the Workbench cannot mint its identity without it | Open it on the server itself at `http://127.0.0.1:8137/`, or put the daemon behind a [TLS reverse proxy](/server/lan-vs-tls) and open `https://<your-host>/`. This binds the web app only — the extension, desktop app, and CLI connect over `ws://<server>:8137` from anywhere on the network |
+| `/` answers `400` and no web app is served | The distribution shipped no web bundle, or `--web-root` points elsewhere | See [The web app](/server/install#the-web-app); a headless-only build is a valid deployment |
 
 ## Tokens & auth
 

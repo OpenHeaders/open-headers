@@ -76,9 +76,14 @@ ohd restart        # a running daemon keeps its old bind until restarted
 ```
 
 Without one of the two, a `0.0.0.0` bind refuses to boot rather than serve
-auth tokens and pairing secrets unencrypted by accident. Run `ohd show-token`
-(daemon stopped) to see the LAN join URLs; if clients still cannot connect,
-check the host firewall (`ufw`/`firewalld`) admits port 8137.
+auth tokens and pairing secrets unencrypted by accident.
+
+`ohd status` then reports the bind the running daemon actually holds and the
+addresses clients join at — if it still shows the loopback bind, the running
+service predates the change and `ohd restart` applies it. Once it reports the
+LAN bind and clients still cannot connect, they are being stopped before the
+daemon (which logs every connection it refuses): check that the host firewall
+(`ufw`/`firewalld`) admits port 8137.
 
 Tokens are required on every non-loopback connection; pairing and token
 administration beyond the first token happen from a connected client.
@@ -140,13 +145,28 @@ settings changes from a connected admin surface instead. Reads work anytime.
 
 ## Web app
 
-The daemon serves the Open Headers web app — the same Workbench UI the
-desktop app and extension run — as static files on its bind: open
-`http://<daemon-host>:8137/` in a browser. Distributions built with the web
-bundle serve it out of the box; point `--web-root` at a different built bundle
-to serve that instead. An explicitly configured web root must contain an
-`index.html`, or the daemon refuses to boot; without any web root the daemon
-runs headless-only and `/` answers 400 as before.
+The daemon also serves the Open Headers web app — the same Workbench UI the
+desktop app and extension run — as static files on its bind. Where you can
+open it depends on the origin, because browsers withhold the cryptography
+APIs the Workbench needs to mint its identity (`crypto.subtle`) on any plain
+HTTP origin that is not loopback:
+
+- **On the daemon's own machine**: `http://127.0.0.1:8137/` — always works.
+- **From another machine**: only over HTTPS, i.e. behind a TLS-terminating
+  reverse proxy (see below) at `https://<your-host>/`. A LAN URL like
+  `http://<daemon-host>:8137/` loads but refuses to start, and says so.
+
+This is a browser rule, not a daemon one, and it applies to the served web
+app alone: **the browser extension and the desktop app connect over
+`ws://<daemon-host>:8137` from any machine on the network** with no TLS
+involved — that is the normal way to use a headless LAN server, and it needs
+no browser on the server at all.
+
+Distributions built with the web bundle serve it out of the box; point
+`--web-root` at a different built bundle to serve that instead. An explicitly
+configured web root must contain an `index.html`, or the daemon refuses to
+boot; without any web root the daemon runs headless-only and `/` answers 400
+as before.
 
 ## SSO login (OIDC)
 

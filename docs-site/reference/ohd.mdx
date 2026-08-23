@@ -21,7 +21,7 @@ The client command line is [`oh`](/reference/oh).
 | `ohd stop` | Stop the installed service |
 | `ohd restart` | Restart the installed service — how a changed configuration (or a swapped binary) takes effect; start is a no-op while the service runs |
 | `ohd run` | Run the daemon in the foreground (what the service unit execs; Ctrl-C / SIGTERM shuts it down cleanly) |
-| `ohd status` | Probe the daemon's /healthz; `--verbose` reads /metrics (peers, throughput, audit counts — needs a paired token via `--token` or OH_DAEMON_TOKEN); also notes when a newer ohd release is available |
+| `ohd status` | Report what the running daemon is doing: the bind it actually holds, the addresses LAN clients join at, and whether the configuration on disk has moved on since it started (which needs: ohd restart); `--verbose` reads /metrics (peers, throughput, audit counts — needs a paired token via `--token` or OH_DAEMON_TOKEN); also notes when a newer ohd release is available |
 | `ohd upgrade` | Download and install the newest release of this binary, then restart the installed service into it (skip the restart with `--no-restart`); unattended upgrades are the opt-in updates.autoUpdate setting |
 | `ohd show-token` | Mint a client auth token against the daemon's data dir (first-boot bootstrap; requires the daemon to be stopped) |
 | `ohd config set <key> <true\|false>` | Set a daemon setting offline (requires the daemon to be stopped) — settings only; bind and network options persist through the install flags instead |
