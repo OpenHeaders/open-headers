@@ -119,6 +119,21 @@ export const workbenchServerAdmin = {
   'workbench.serverAdmin.gitEmail.removedDone': 'Git-E-Mail-Überschreibung entfernt.',
   'workbench.serverAdmin.gitEmail.updateFailed': 'Git-E-Mail konnte nicht aktualisiert werden: {message}',
 
+  // ── Funktionsrollen ────────────────────────────────────────────────
+  'workbench.serverAdmin.roles.daemonAdmin': 'Server-Admin',
+  'workbench.serverAdmin.roles.daemonAdminTooltip':
+    'Verwaltet diesen Server: Benutzer, Rollen, Berechtigungen, Geräte und Berichte. Gewährt für sich genommen keinen Workspace-Zugriff — diese Person sieht weiterhin nur die unten freigegebenen Workspaces.',
+  'workbench.serverAdmin.roles.createWorkspaces': 'Workspaces erstellen',
+  'workbench.serverAdmin.roles.createWorkspacesTooltip':
+    'Erlaubt dieser Person, neue Workspaces auf dem Server anzulegen. Sie besitzt, was sie erstellt; bestehende Workspaces brauchen weiterhin eine Freigabe.',
+  'workbench.serverAdmin.roles.daemonAdminGranted': 'Jetzt Server-Admin.',
+  'workbench.serverAdmin.roles.daemonAdminRevoked': 'Server-Admin-Rolle entzogen.',
+  'workbench.serverAdmin.roles.createWorkspacesGranted': 'Kann jetzt Workspaces erstellen.',
+  'workbench.serverAdmin.roles.createWorkspacesRevoked': 'Kann keine Workspaces mehr erstellen.',
+  'workbench.serverAdmin.roles.lastAdmin':
+    'dies ist der einzige Server-Admin — machen Sie zuerst jemand anderen zum Admin',
+  'workbench.serverAdmin.roles.updateFailed': 'Rolle konnte nicht geändert werden: {message}',
+
   // ── Git section ────────────────────────────────────────────────────
   'workbench.serverAdmin.git.sectionTitle': 'Git',
   'workbench.serverAdmin.git.sectionHint':
@@ -133,6 +148,7 @@ export const workbenchServerAdmin = {
     'Der Export beachtet die aktiven Filter.',
   'workbench.serverAdmin.audit.capAdmission': 'Zulassung (Verbindung)',
   'workbench.serverAdmin.audit.capAdminPlane': 'Verwaltungsebene',
+  'workbench.serverAdmin.audit.capOperatorPlane': 'Nur Betreiber',
   'workbench.serverAdmin.audit.capSsoGrant': 'SSO-Gewährung (Zuordnung)',
   'workbench.serverAdmin.audit.capSsoRevoke': 'SSO-Widerruf (Zuordnung)',
   'workbench.serverAdmin.audit.capWorkspaceRead': 'Arbeitsbereich lesen',

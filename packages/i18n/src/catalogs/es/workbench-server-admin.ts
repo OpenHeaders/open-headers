@@ -118,6 +118,20 @@ export const workbenchServerAdmin = {
   'workbench.serverAdmin.gitEmail.removedDone': 'Invalidación del email de Git eliminada.',
   'workbench.serverAdmin.gitEmail.updateFailed': 'No se pudo actualizar el email de Git: {message}',
 
+  // ── Roles funcionales ──────────────────────────────────────────────
+  'workbench.serverAdmin.roles.daemonAdmin': 'Admin del servidor',
+  'workbench.serverAdmin.roles.daemonAdminTooltip':
+    'Administra este servidor: usuarios, roles, permisos, dispositivos e informes. Por sí solo no concede acceso a ningún espacio de trabajo: esta persona sigue viendo solo los que se le concedan abajo.',
+  'workbench.serverAdmin.roles.createWorkspaces': 'Crear espacios de trabajo',
+  'workbench.serverAdmin.roles.createWorkspacesTooltip':
+    'Permite a esta persona crear espacios de trabajo nuevos en el servidor. Es propietaria de lo que crea; los espacios existentes siguen necesitando un permiso.',
+  'workbench.serverAdmin.roles.daemonAdminGranted': 'Ahora es admin del servidor.',
+  'workbench.serverAdmin.roles.daemonAdminRevoked': 'Rol de admin del servidor revocado.',
+  'workbench.serverAdmin.roles.createWorkspacesGranted': 'Ya puede crear espacios de trabajo.',
+  'workbench.serverAdmin.roles.createWorkspacesRevoked': 'Ya no puede crear espacios de trabajo.',
+  'workbench.serverAdmin.roles.lastAdmin': 'este es el único admin del servidor: nombra admin a otra persona primero',
+  'workbench.serverAdmin.roles.updateFailed': 'No se pudo cambiar el rol: {message}',
+
   // ── Git section ────────────────────────────────────────────────────
   'workbench.serverAdmin.git.sectionTitle': 'Git',
   'workbench.serverAdmin.git.sectionHint':
@@ -132,6 +146,7 @@ export const workbenchServerAdmin = {
     'auditoría filtrable. La exportación respeta los filtros activos.',
   'workbench.serverAdmin.audit.capAdmission': 'Admisión (conexión)',
   'workbench.serverAdmin.audit.capAdminPlane': 'Plano de administración',
+  'workbench.serverAdmin.audit.capOperatorPlane': 'Solo operador',
   'workbench.serverAdmin.audit.capSsoGrant': 'Concesión SSO (mapeo)',
   'workbench.serverAdmin.audit.capSsoRevoke': 'Revocación SSO (mapeo)',
   'workbench.serverAdmin.audit.capWorkspaceRead': 'Lectura de espacio de trabajo',

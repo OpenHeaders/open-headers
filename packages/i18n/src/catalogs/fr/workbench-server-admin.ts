@@ -117,6 +117,20 @@ export const workbenchServerAdmin = {
   'workbench.serverAdmin.gitEmail.removedDone': "Surcharge d'email Git supprimée.",
   'workbench.serverAdmin.gitEmail.updateFailed': "Échec de la mise à jour de l'email Git : {message}",
 
+  // ── Rôles fonctionnels ─────────────────────────────────────────────
+  'workbench.serverAdmin.roles.daemonAdmin': 'Admin du serveur',
+  'workbench.serverAdmin.roles.daemonAdminTooltip':
+    "Administre ce serveur : utilisateurs, rôles, accès, appareils et rapports. N'accorde en soi aucun accès aux espaces de travail — cette personne ne voit toujours que ceux accordés ci-dessous.",
+  'workbench.serverAdmin.roles.createWorkspaces': 'Créer des espaces de travail',
+  'workbench.serverAdmin.roles.createWorkspacesTooltip':
+    "Permet à cette personne de créer de nouveaux espaces de travail sur le serveur. Elle possède ce qu'elle crée ; les espaces existants exigent toujours un accès.",
+  'workbench.serverAdmin.roles.daemonAdminGranted': 'Désormais admin du serveur.',
+  'workbench.serverAdmin.roles.daemonAdminRevoked': "Rôle d'admin du serveur révoqué.",
+  'workbench.serverAdmin.roles.createWorkspacesGranted': 'Peut désormais créer des espaces de travail.',
+  'workbench.serverAdmin.roles.createWorkspacesRevoked': "Ne peut plus créer d'espaces de travail.",
+  'workbench.serverAdmin.roles.lastAdmin': "c'est le seul admin du serveur — nommez d'abord quelqu'un d'autre admin",
+  'workbench.serverAdmin.roles.updateFailed': 'Échec du changement de rôle : {message}',
+
   // ── Git section ────────────────────────────────────────────────────
   'workbench.serverAdmin.git.sectionTitle': 'Git',
   'workbench.serverAdmin.git.sectionHint':
@@ -131,6 +145,7 @@ export const workbenchServerAdmin = {
     "d'audit filtrable. L'export respecte les filtres actifs.",
   'workbench.serverAdmin.audit.capAdmission': 'Admission (connexion)',
   'workbench.serverAdmin.audit.capAdminPlane': "Plan d'administration",
+  'workbench.serverAdmin.audit.capOperatorPlane': 'Opérateur uniquement',
   'workbench.serverAdmin.audit.capSsoGrant': 'Octroi SSO (mappage)',
   'workbench.serverAdmin.audit.capSsoRevoke': 'Révocation SSO (mappage)',
   'workbench.serverAdmin.audit.capWorkspaceRead': "Lecture d'espace de travail",

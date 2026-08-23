@@ -16,6 +16,7 @@
 import {
   absorbPersonalSeat,
   createDaemonUser,
+  DAEMON_ADMIN_FUNCTIONAL_ROLE,
   type DaemonPairingService,
   deactivateDaemonUser,
   grantWorkspaceRole,
@@ -25,6 +26,7 @@ import {
   mintDaemonAuthToken,
   revokeDaemonAuthToken,
   revokeWorkspaceRole,
+  setDaemonUserDaemonAdmin,
   setDaemonUserGitEmail,
   setDaemonUserPassword,
   setDaemonUserWorkspaceCreate,
@@ -642,6 +644,7 @@ export function createAdminChannelHandlers(deps: AdminChannelDeps): ReadonlyMap<
           deactivatedAt: r.deactivatedAt,
           hasPassword: r.passwordVerifier !== undefined,
           mayCreateWorkspaces: r.membership.functionalRoles.includes(WORKSPACE_CREATE_FUNCTIONAL_ROLE),
+          isDaemonAdmin: r.membership.functionalRoles.includes(DAEMON_ADMIN_FUNCTIONAL_ROLE),
           // Seat provenance — status derived at consume by verifying
           // the stored artifact (never cached); an expired personal
           // seat stays visible here but never evicts its user.
@@ -752,6 +755,28 @@ export function createAdminChannelHandlers(deps: AdminChannelDeps): ReadonlyMap<
     try {
       const result = await setDaemonUserWorkspaceCreate(userId, message.allowed);
       if (!result.ok) {
+        return { ok: false, error: result.reason === 'user-deactivated' ? 'user is deactivated' : 'unknown user' };
+      }
+      return { ok: true, updated: result.updated };
+    } catch (err) {
+      return { ok: false, error: (err as Error).message };
+    }
+  });
+
+  handlers.set('oh.daemon.users.setDaemonAdmin', async (message) => {
+    const userId = typeof message.userId === 'string' ? message.userId : '';
+    if (!userId) return { ok: false, error: 'missing userId' };
+    if (typeof message.allowed !== 'boolean') return { ok: false, error: 'missing allowed flag' };
+    try {
+      const result = await setDaemonUserDaemonAdmin(userId, message.allowed);
+      if (!result.ok) {
+        if (result.reason === 'last-daemon-admin') {
+          return {
+            ok: false,
+            reason: result.reason,
+            error: 'this is the only server admin — promote someone else first',
+          };
+        }
         return { ok: false, error: result.reason === 'user-deactivated' ? 'user is deactivated' : 'unknown user' };
       }
       return { ok: true, updated: result.updated };

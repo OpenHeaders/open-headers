@@ -1,5 +1,5 @@
 /**
- * `ohd user add / list / deactivate` — the headless directory
+ * `ohd user add / list / deactivate / set-admin` — the headless directory
  * surface (Phase 5 team tier, slice 1). Thin CLI plumbing over the
  * host-neutral `OH.daemonUsers` helpers in `@openheaders/core/identity`
  * against the daemon's own `storage.json`.
@@ -17,6 +17,7 @@
 import * as path from 'node:path';
 import {
   createDaemonUser,
+  DAEMON_ADMIN_FUNCTIONAL_ROLE,
   deactivateDaemonUser,
   grantWorkspaceRole,
   listDaemonAuthTokens,
@@ -24,6 +25,7 @@ import {
   listWorkspaceRolesForPrincipal,
   revokeDaemonAuthToken,
   revokeWorkspaceRole,
+  setDaemonUserDaemonAdmin,
   setDaemonUserPassword,
 } from '@openheaders/core/identity';
 import { setHostStorage } from '@openheaders/core/storage';
@@ -207,6 +209,45 @@ export async function setUserPassword(
     );
   }
   return record;
+}
+
+/** Whether a directory record holds the server-admin role, for the list projection. */
+export function isDaemonAdminRecord(record: { membership: { functionalRoles: readonly string[] } }): boolean {
+  return record.membership.functionalRoles.includes(DAEMON_ADMIN_FUNCTIONAL_ROLE);
+}
+
+/**
+ * Grant or revoke a directory user's `daemon.admin` role (by id or
+ * unique email) — the offline twin of `oh.daemon.users.setDaemonAdmin`,
+ * and the recovery hatch when a server has no admin who can reach the
+ * console: the operator runs it with the daemon stopped.
+ *
+ * The core toggle's `last-daemon-admin` refusal applies here too. It is
+ * not bypassed: the direction that unstrands a server is GRANTING admin,
+ * and that is never refused.
+ */
+export async function setUserDaemonAdmin(
+  config: DaemonConfig,
+  idOrEmail: string,
+  allowed: boolean,
+): Promise<{ record: DaemonUserRecord; updated: boolean }> {
+  installStorage(config);
+  const record = await findUser(idOrEmail);
+  const result = await setDaemonUserDaemonAdmin(record.user.id, allowed);
+  if (!result.ok) {
+    if (result.reason === 'last-daemon-admin') {
+      throw new Error(
+        `'${record.user.displayName}' is the only server admin — grant the role to someone else first, ` +
+          'or the server would be left with no one who can administer it.',
+      );
+    }
+    throw new Error(
+      result.reason === 'user-deactivated'
+        ? `user '${record.user.displayName}' is deactivated — a deactivated user must not hold admin.`
+        : 'unknown user.',
+    );
+  }
+  return { record, updated: result.updated };
 }
 
 /** Every grant of one directory user, for the list projection. */

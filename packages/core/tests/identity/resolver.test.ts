@@ -11,7 +11,9 @@
  *   - With no LocalAdmin, the WRA gate enforces three-tier role.
  *   - Missing snapshot → DENY with `no-current-user`. Missing workspaceId
  *     on a `workspace.*` capability → DENY.
- *   - `daemon.admin` requires LocalAdmin; `workspaceId` is irrelevant.
+ *   - `daemon.admin` takes LocalAdmin OR the functional role, and grants
+ *     no workspace access either way; `daemon.operator` takes LocalAdmin
+ *     alone. `workspaceId` is irrelevant to both.
  *   - Registry: `installIdentitySnapshot` builds the WRA map; refresher
  *     reads through `HostStorage` and lands the same snapshot.
  */
@@ -22,6 +24,7 @@ import {
   authorizedOrgIds,
   clearIdentitySnapshot,
   consumedOrgIds,
+  DAEMON_ADMIN_FUNCTIONAL_ROLE,
   ensureSyntheticIdentity,
   ensureWorkspaceRoleAssignments,
   getIdentitySnapshot,
@@ -124,6 +127,77 @@ describe('hasCapability', () => {
     expect(hasCapability(snap, 'daemon.admin', {})).toEqual({
       allow: false,
       reason: 'not-daemon-admin',
+    });
+  });
+
+  describe('daemon.admin (the front-door plan §4.4 — a grantable functional role)', () => {
+    it('allows a directory user carrying the daemon.admin functional role', () => {
+      const granted = makeSnapshot({
+        localAdmin: null,
+        membership: { primaryRole: 'member', functionalRoles: [DAEMON_ADMIN_FUNCTIONAL_ROLE] },
+      });
+      expect(hasCapability(granted, 'daemon.admin', {})).toEqual({ allow: true });
+    });
+
+    it('grants NO workspace access with the role alone — admin is not allow-all', () => {
+      const admin = makeSnapshot({
+        localAdmin: null,
+        membership: { primaryRole: 'member', functionalRoles: [DAEMON_ADMIN_FUNCTIONAL_ROLE] },
+        wras: [],
+      });
+      expect(hasCapability(admin, 'workspace.read', { workspaceId: W1 })).toEqual({
+        allow: false,
+        reason: 'no-workspace-role-assignment',
+      });
+      expect(hasCapability(admin, 'workspace.write', { workspaceId: W1 })).toEqual({
+        allow: false,
+        reason: 'no-workspace-role-assignment',
+      });
+      expect(hasCapability(admin, 'workspace.observe', { workspaceId: W1 })).toEqual({
+        allow: false,
+        reason: 'no-workspace-role-assignment',
+      });
+    });
+
+    it('is NOT implied by an owner or admin primary role, unlike workspace.create', () => {
+      const owner = makeSnapshot({ localAdmin: null, membership: { primaryRole: 'owner' } });
+      const admin = makeSnapshot({ localAdmin: null, membership: { primaryRole: 'admin' } });
+      expect(hasCapability(owner, 'daemon.admin', {})).toEqual({ allow: false, reason: 'not-daemon-admin' });
+      expect(hasCapability(admin, 'daemon.admin', {})).toEqual({ allow: false, reason: 'not-daemon-admin' });
+    });
+
+    it('denies when no snapshot is installed — a deactivated user resolves to null', () => {
+      expect(hasCapability(null, 'daemon.admin', {})).toEqual({ allow: false, reason: 'no-current-user' });
+    });
+  });
+
+  describe('daemon.operator (§4.4 / O6 — never widened by a role)', () => {
+    it('allows LocalAdmin', () => {
+      expect(hasCapability(makeSnapshot(), 'daemon.operator', {})).toEqual({ allow: true });
+    });
+
+    it('denies a directory user who IS a daemon admin', () => {
+      const admin = makeSnapshot({
+        localAdmin: null,
+        membership: { primaryRole: 'member', functionalRoles: [DAEMON_ADMIN_FUNCTIONAL_ROLE] },
+      });
+      expect(hasCapability(admin, 'daemon.admin', {})).toEqual({ allow: true });
+      expect(hasCapability(admin, 'daemon.operator', {})).toEqual({
+        allow: false,
+        reason: 'not-daemon-operator',
+      });
+    });
+
+    it('denies an org owner', () => {
+      const owner = makeSnapshot({ localAdmin: null, membership: { primaryRole: 'owner' } });
+      expect(hasCapability(owner, 'daemon.operator', {})).toEqual({
+        allow: false,
+        reason: 'not-daemon-operator',
+      });
+    });
+
+    it('denies when no snapshot is installed', () => {
+      expect(hasCapability(null, 'daemon.operator', {})).toEqual({ allow: false, reason: 'no-current-user' });
     });
   });
 

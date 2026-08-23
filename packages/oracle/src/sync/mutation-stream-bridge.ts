@@ -202,8 +202,10 @@ interface GlobalScopeGateResult {
  * workspace gates on `workspace.create` (there is no WRA to judge yet);
  * a slot write on a known workspace gates on `workspace.write` for that
  * id; subject-less bodies (the `activeId` pointer, unknown global
- * entities) stay operator-only via `daemon.admin`. The batch applies
- * all-or-nothing, so one denied body refuses the batch.
+ * entities) stay operator-only via `daemon.operator` — deliberately not
+ * `daemon.admin`, which became a grantable role in the front-door plan
+ * §4.4 / O6 and would have widened this without anyone asking. The
+ * batch applies all-or-nothing, so one denied body refuses the batch.
  */
 function gateGlobalScopeBatch(batch: MutationBatch, actor: InboundMutationActor): GlobalScopeGateResult {
   const createdWorkspaceIds: string[] = [];
@@ -212,10 +214,10 @@ function gateGlobalScopeBatch(batch: MutationBatch, actor: InboundMutationActor)
     const isCreate = subject !== null && isGlobalScopeCreate(env.body, subject);
     const decision = subject
       ? hasCapability(actor.snapshot, isCreate ? 'workspace.create' : 'workspace.write', { workspaceId: subject })
-      : hasCapability(actor.snapshot, 'daemon.admin');
+      : hasCapability(actor.snapshot, 'daemon.operator');
     emitAuditEntry({
       actorUserId: actor.userId,
-      capability: subject ? (isCreate ? 'workspace.create' : 'workspace.write') : 'daemon.admin',
+      capability: subject ? (isCreate ? 'workspace.create' : 'workspace.write') : 'daemon.operator',
       ...(subject ? { workspaceId: subject } : {}),
       decision,
     });

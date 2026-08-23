@@ -21,10 +21,12 @@ import {
   addUser,
   deactivateUser,
   grantUserRole,
+  isDaemonAdminRecord,
   listUserGrants,
   listUsers,
   resolveTokenUserBinding,
   revokeUserGrant,
+  setUserDaemonAdmin,
   setUserPassword,
 } from '../../src/cli/users';
 import type { DaemonConfig } from '../../src/config';
@@ -232,6 +234,44 @@ describe('ohd user', () => {
     await deactivateUser(config, record.user.id);
     await expect(setUserPassword(config, record.user.id, 's15-cli-pass-1')).rejects.toThrow('deactivated');
     await expect(setUserPassword(config, 'nobody@openheaders.io', 's15-cli-pass-1')).rejects.toThrow('no user');
+  });
+
+  it('set-admin grants the server-admin role by id or email, idempotently', async () => {
+    const config = makeConfig();
+    await seedDaemonIdentity(config);
+    const record = await addUser(config, { displayName: 'Alice', email: 'alice@openheaders.io' });
+
+    const granted = await setUserDaemonAdmin(config, 'alice@openheaders.io', true);
+    expect(granted.record.user.id).toBe(record.user.id);
+    expect(granted.updated).toBe(true);
+    expect(isDaemonAdminRecord((await listUsers(config))[0])).toBe(true);
+
+    expect((await setUserDaemonAdmin(config, record.user.id, true)).updated).toBe(false);
+  });
+
+  it('set-admin --clear refuses to strand the server, and goes through once a second admin exists', async () => {
+    const config = makeConfig();
+    await seedDaemonIdentity(config);
+    const alice = await addUser(config, { displayName: 'Alice', email: 'alice@openheaders.io' });
+    const bob = await addUser(config, { displayName: 'Bob', email: 'bob@openheaders.io' });
+
+    await setUserDaemonAdmin(config, alice.user.id, true);
+    await expect(setUserDaemonAdmin(config, alice.user.id, false)).rejects.toThrow('only server admin');
+
+    // Granting is the unstranding direction and is never refused.
+    await setUserDaemonAdmin(config, bob.user.id, true);
+    expect((await setUserDaemonAdmin(config, alice.user.id, false)).updated).toBe(true);
+    const users = await listUsers(config);
+    expect(users.filter(isDaemonAdminRecord).map((r) => r.user.displayName)).toEqual(['Bob']);
+  });
+
+  it('set-admin refuses deactivated and unknown users', async () => {
+    const config = makeConfig();
+    await seedDaemonIdentity(config);
+    const record = await addUser(config, { displayName: 'Alice', email: 'alice@openheaders.io' });
+    await deactivateUser(config, record.user.id);
+    await expect(setUserDaemonAdmin(config, record.user.id, true)).rejects.toThrow('deactivated');
+    await expect(setUserDaemonAdmin(config, 'nobody@openheaders.io', true)).rejects.toThrow('no user');
   });
 
   it('grant refuses deactivated users; revoke refuses a grant that does not exist', async () => {

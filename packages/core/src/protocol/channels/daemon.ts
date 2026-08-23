@@ -289,6 +289,14 @@ export interface DaemonRpc {
         deactivatedAt: number | null;
         /** The user holds a password credential (never the verifier itself). */
         hasPassword: boolean;
+        /** Holds the `workspace.create` functional role. */
+        mayCreateWorkspaces: boolean;
+        /**
+         * Holds the `daemon.admin` functional role — administers this
+         * server. Deliberately NOT workspace access: an admin still
+         * needs a grant to read a workspace (the front-door plan §4.4).
+         */
+        isDaemonAdmin: boolean;
         /**
          * Personal-seat provenance — present only for users admitted
          * past the pool by their own license. `status` is derived by
@@ -322,6 +330,29 @@ export interface DaemonRpc {
   'oh.daemon.users.setPassword': {
     req: { userId: string; password: string | null };
     res: { ok: true } | { ok: false; error: string };
+  };
+
+  /**
+   * Grant or revoke a directory user's `workspace.create` capability by
+   * toggling its functional role. Idempotent — `updated: false` when
+   * the flag already matched. Refused on deactivated users.
+   */
+  'oh.daemon.users.setCreateWorkspaces': {
+    req: { userId: string; allowed: boolean };
+    res: { ok: true; updated: boolean } | { ok: false; error: string };
+  };
+
+  /**
+   * Grant or revoke a directory user's `daemon.admin` capability —
+   * the claims-mapping seam that lets a directory user administer the
+   * server (the front-door plan §4.4). Idempotent. Refused on
+   * deactivated users, and refused as `last-daemon-admin` when the
+   * revoke would leave the server with no active admin; `ohd user
+   * set-admin` (daemon stopped) is the recovery hatch.
+   */
+  'oh.daemon.users.setDaemonAdmin': {
+    req: { userId: string; allowed: boolean };
+    res: { ok: true; updated: boolean } | { ok: false; error: string; reason?: 'last-daemon-admin' };
   };
 
   /**

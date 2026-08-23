@@ -18,6 +18,7 @@ import {
   resetAuditSink,
   revokeWorkspaceRole,
   setAuditSink,
+  setDaemonUserDaemonAdmin,
 } from '@openheaders/core/identity';
 import { setHostStorage } from '@openheaders/core/storage';
 import type { DaemonUserRecord } from '@openheaders/core/types';
@@ -181,12 +182,23 @@ describe('gateMcpToolCall', () => {
     );
   });
 
-  it('keeps daemon.admin tools operator-only regardless of grants', async () => {
+  it('keeps daemon.operator tools operator-only regardless of grants', async () => {
     const owner = await addUser('Owner', 'owner');
+    const opTool = makeTool({ tier: 'write', capability: 'daemon.operator', resolveWorkspaceId: () => WS_ID });
+    await expect(gateMcpToolCall(opTool, {}, policyOf('write'), ctxOf(operatorUserId))).resolves.toBeUndefined();
+    expect(await reasonOf(gateMcpToolCall(opTool, {}, policyOf('write'), ctxOf(owner.user.id)))).toBe(
+      'not-daemon-operator',
+    );
+  });
+
+  it('a daemon.admin role-holder reaches admin tools but NOT operator-only ones', async () => {
+    const admin = await addUser('Admin', null);
+    await setDaemonUserDaemonAdmin(admin.user.id, true);
     const adminTool = makeTool({ tier: 'write', capability: 'daemon.admin', resolveWorkspaceId: () => WS_ID });
-    await expect(gateMcpToolCall(adminTool, {}, policyOf('write'), ctxOf(operatorUserId))).resolves.toBeUndefined();
-    expect(await reasonOf(gateMcpToolCall(adminTool, {}, policyOf('write'), ctxOf(owner.user.id)))).toBe(
-      'not-daemon-admin',
+    const opTool = makeTool({ tier: 'write', capability: 'daemon.operator', resolveWorkspaceId: () => WS_ID });
+    await expect(gateMcpToolCall(adminTool, {}, policyOf('write'), ctxOf(admin.user.id))).resolves.toBeUndefined();
+    expect(await reasonOf(gateMcpToolCall(opTool, {}, policyOf('write'), ctxOf(admin.user.id)))).toBe(
+      'not-daemon-operator',
     );
   });
 

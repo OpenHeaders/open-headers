@@ -23,7 +23,8 @@ export type Capability =
   | 'workspace.observe'
   | 'workspace.list'
   | 'workspace.create'
-  | 'daemon.admin';
+  | 'daemon.admin'
+  | 'daemon.operator';
 
 /**
  * The `OrgMembership.functionalRoles` entry that grants a directory user
@@ -32,6 +33,20 @@ export type Capability =
  * implicitly.
  */
 export const WORKSPACE_CREATE_FUNCTIONAL_ROLE = 'workspace.create';
+
+/**
+ * The `OrgMembership.functionalRoles` entry that grants a directory user
+ * `daemon.admin` (the front-door plan §4.4 / O5). Toggled per user via
+ * the daemon admin surface, exactly like
+ * {@link WORKSPACE_CREATE_FUNCTIONAL_ROLE}; LocalAdmin holds the
+ * capability implicitly.
+ *
+ * Deliberately NOT implied by an `owner`/`admin` primary role the way
+ * `workspace.create` is: org role is about the Org, daemon admin is
+ * about the box, and every directory user sits in the daemon's single
+ * Org — the implication would make everyone an admin.
+ */
+export const DAEMON_ADMIN_FUNCTIONAL_ROLE = 'daemon.admin';
 
 export interface CapabilityContext {
   /** Required for `workspace.*` capabilities; ignored for `daemon.*`. */
@@ -51,6 +66,7 @@ export type CapabilityDenyReason =
   | 'insufficient-workspace-role'
   | 'workspace-create-not-granted'
   | 'not-daemon-admin'
+  | 'not-daemon-operator'
   | 'unknown-capability'
   | 'auth-required'
   | 'seat-limit-reached'
@@ -97,7 +113,26 @@ export function hasCapability(
   }
 
   if (capability === 'daemon.admin') {
-    return snapshot.localAdmin ? { allow: true } : { allow: false, reason: 'not-daemon-admin' };
+    // Administers the daemon: the operator, plus any directory user
+    // holding the functional role. Note what this deliberately does NOT
+    // do — it does not put `localAdmin` on the snapshot, so an admin
+    // gains no workspace access they lack a WRA for. "Administers the
+    // box" and "can read every workspace" are separable (§4.4 / O5).
+    if (snapshot.localAdmin) {
+      return { allow: true };
+    }
+    return snapshot.membership.functionalRoles.includes(DAEMON_ADMIN_FUNCTIONAL_ROLE)
+      ? { allow: true }
+      : { allow: false, reason: 'not-daemon-admin' };
+  }
+
+  if (capability === 'daemon.operator') {
+    // Strictly the host's own operator — never widened by a functional
+    // role (§4.4 / O6). Gates the powers that are larger than
+    // administration and have no other path to them: vault plaintext
+    // (the vault never syncs, so no grant reaches it), the host-global
+    // runtime-active pointer, and subject-less global-scope writes.
+    return snapshot.localAdmin ? { allow: true } : { allow: false, reason: 'not-daemon-operator' };
   }
 
   if (capability === 'workspace.list') {

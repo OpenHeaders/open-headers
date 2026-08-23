@@ -57,11 +57,13 @@ import {
   addUser,
   deactivateUser,
   grantUserRole,
+  isDaemonAdminRecord,
   isWorkspaceRole,
   listUserGrants,
   listUsers,
   resolveTokenUserBinding,
   revokeUserGrant,
+  setUserDaemonAdmin,
   setUserPassword,
 } from './cli/users';
 import { commandVault } from './cli/vault';
@@ -117,6 +119,10 @@ Commands:
                 viewers read, no grant = no access)
   user revoke-grant <id-or-email> <workspaceId>
                 Drop a user's grant on one workspace (daemon stopped)
+  user set-admin <id-or-email> [--clear]
+                Grant (or --clear) the server-admin role — the offline
+                recovery hatch when no admin can reach the console
+                (daemon stopped)
   user set-password <id-or-email> [--clear]
                 Set a user's password for the local password login
                 (daemon stopped; echo-off prompt on a terminal, or
@@ -188,7 +194,8 @@ Options (install / status / show-token / config):
   --individual-license <key>
                            user add only: individual-seat key redeemed when the
                            daemon is at its seat limit (must match --email)
-  --clear                  user set-password only: remove the password
+  --clear                  user set-password: remove the password;
+                           user set-admin: revoke the server-admin role
   --force                  restore only: replace existing state files in the
                            data dir
 
@@ -381,13 +388,15 @@ async function commandConfig(argv: readonly string[]): Promise<void> {
 function formatUserLine(record: {
   user: { id: string; displayName: string };
   userIdentity: { kind: string; value: string | null };
+  membership: { functionalRoles: readonly string[] };
   deactivatedAt: number | null;
   admission?: { kind: 'personal'; licenseId: string };
 }): string {
   const email = record.userIdentity.kind === 'email' ? record.userIdentity.value : null;
+  const admin = isDaemonAdminRecord(record) ? '  [server admin]' : '';
   const seat = record.admission !== undefined ? `  [individual seat ${record.admission.licenseId}]` : '';
   const state = record.deactivatedAt !== null ? '  [deactivated]' : '';
-  return `${record.user.id}  ${record.user.displayName}${email ? `  <${email}>` : ''}${seat}${state}`;
+  return `${record.user.id}  ${record.user.displayName}${email ? `  <${email}>` : ''}${admin}${seat}${state}`;
 }
 
 async function commandUser(argv: readonly string[]): Promise<void> {
@@ -468,6 +477,29 @@ async function commandUser(argv: readonly string[]): Promise<void> {
     console.log(`Grant revoked: ${record.user.displayName} on ${workspaceId}.`);
     return;
   }
+  if (sub === 'set-admin') {
+    const [idOrEmail] = positionals;
+    if (idOrEmail === undefined) throw new Error('usage: ohd user set-admin <id-or-email> [--clear]');
+    await assertOfflineWrite(config, 'a role change', 'manage roles');
+    const allowed = values.clear !== true;
+    const { record, updated } = await setUserDaemonAdmin(config, idOrEmail, allowed);
+    if (!updated) {
+      console.log(
+        allowed
+          ? `${record.user.displayName} is already a server admin.`
+          : `${record.user.displayName} is not a server admin.`,
+      );
+      return;
+    }
+    console.log(
+      allowed
+        ? `${record.user.displayName} is now a server admin.`
+        : `Server-admin role revoked from ${record.user.displayName}.`,
+    );
+    console.log("Applies from the daemon's next start. Administering the server does not");
+    console.log('grant workspace access — that stays with the per-workspace grants.');
+    return;
+  }
   if (sub === 'set-password') {
     const [idOrEmail] = positionals;
     if (idOrEmail === undefined) throw new Error('usage: ohd user set-password <id-or-email> [--clear]');
@@ -485,7 +517,7 @@ async function commandUser(argv: readonly string[]): Promise<void> {
     console.log('only when no oidc block is configured (one credential story per deployment).');
     return;
   }
-  throw new Error('usage: ohd user <add|list|deactivate|grant|revoke-grant|set-password>');
+  throw new Error('usage: ohd user <add|list|deactivate|grant|revoke-grant|set-admin|set-password>');
 }
 
 async function commandLicense(argv: readonly string[]): Promise<void> {

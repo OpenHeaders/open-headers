@@ -10,6 +10,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
   absorbPersonalSeat,
   createDaemonUser,
+  DAEMON_ADMIN_FUNCTIONAL_ROLE,
   deactivateDaemonUser,
   ensureSyntheticIdentity,
   findDaemonUserByEmail,
@@ -21,6 +22,7 @@ import {
   resolveDaemonPeerUser,
   resolveDaemonUserGitAttribution,
   setAuditSink,
+  setDaemonUserDaemonAdmin,
   setDaemonUserGitEmail,
   setDaemonUserPassword,
   setDaemonUserWorkspaceCreate,
@@ -310,6 +312,91 @@ describe('daemon users', () => {
         ok: false,
         reason: 'user-deactivated',
       });
+    });
+  });
+
+  describe('setDaemonUserDaemonAdmin', () => {
+    it('grants and revokes the functional role, idempotently, and the record keeps validating', async () => {
+      const alice = await createDaemonUser({ displayName: 'Alice', email: 'alice@openheaders.io' });
+      const bob = await createDaemonUser({ displayName: 'Bob', email: 'bob@openheaders.io' });
+      if (!alice.ok || !bob.ok) throw new Error('setup failed');
+
+      expect(await setDaemonUserDaemonAdmin(alice.record.user.id, true)).toEqual({ ok: true, updated: true });
+      let found = await findDaemonUserByEmail('alice@openheaders.io');
+      expect(found?.membership.functionalRoles).toContain(DAEMON_ADMIN_FUNCTIONAL_ROLE);
+      expect(v.safeParse(DaemonUserRecordSchema, found).success).toBe(true);
+
+      // Idempotent: re-granting reports no update and adds no duplicate.
+      expect(await setDaemonUserDaemonAdmin(alice.record.user.id, true)).toEqual({ ok: true, updated: false });
+      found = await findDaemonUserByEmail('alice@openheaders.io');
+      expect(found?.membership.functionalRoles.filter((r) => r === DAEMON_ADMIN_FUNCTIONAL_ROLE)).toHaveLength(1);
+
+      // A second admin lifts the lockout guard, so Alice may step down.
+      expect(await setDaemonUserDaemonAdmin(bob.record.user.id, true)).toEqual({ ok: true, updated: true });
+      expect(await setDaemonUserDaemonAdmin(alice.record.user.id, false)).toEqual({ ok: true, updated: true });
+      found = await findDaemonUserByEmail('alice@openheaders.io');
+      expect(found?.membership.functionalRoles).not.toContain(DAEMON_ADMIN_FUNCTIONAL_ROLE);
+      expect(await setDaemonUserDaemonAdmin(alice.record.user.id, false)).toEqual({ ok: true, updated: false });
+    });
+
+    it('rides its own axis — toggling admin leaves workspace.create untouched', async () => {
+      const created = await createDaemonUser({ displayName: 'Alice', email: 'alice@openheaders.io' });
+      if (!created.ok) throw new Error('setup failed');
+      const userId = created.record.user.id;
+      await setDaemonUserWorkspaceCreate(userId, true);
+      await setDaemonUserDaemonAdmin(userId, true);
+      const found = await findDaemonUserByEmail('alice@openheaders.io');
+      expect(found?.membership.functionalRoles).toEqual([
+        WORKSPACE_CREATE_FUNCTIONAL_ROLE,
+        DAEMON_ADMIN_FUNCTIONAL_ROLE,
+      ]);
+    });
+
+    it('refuses to demote the last active admin (§4.4 / O7)', async () => {
+      const created = await createDaemonUser({ displayName: 'Alice', email: 'alice@openheaders.io' });
+      if (!created.ok) throw new Error('setup failed');
+      const userId = created.record.user.id;
+      await setDaemonUserDaemonAdmin(userId, true);
+      expect(await setDaemonUserDaemonAdmin(userId, false)).toEqual({ ok: false, reason: 'last-daemon-admin' });
+      const found = await findDaemonUserByEmail('alice@openheaders.io');
+      expect(found?.membership.functionalRoles).toContain(DAEMON_ADMIN_FUNCTIONAL_ROLE);
+    });
+
+    it('counts only ACTIVE admins — a deactivated admin does not hold the seat open', async () => {
+      const alice = await createDaemonUser({ displayName: 'Alice', email: 'alice@openheaders.io' });
+      const bob = await createDaemonUser({ displayName: 'Bob', email: 'bob@openheaders.io' });
+      if (!alice.ok || !bob.ok) throw new Error('setup failed');
+      await setDaemonUserDaemonAdmin(alice.record.user.id, true);
+      await setDaemonUserDaemonAdmin(bob.record.user.id, true);
+      // Deactivation is deliberately unguarded, so it can strand the box.
+      expect(await deactivateDaemonUser(bob.record.user.id)).toEqual({ ok: true });
+      expect(await setDaemonUserDaemonAdmin(alice.record.user.id, false)).toEqual({
+        ok: false,
+        reason: 'last-daemon-admin',
+      });
+    });
+
+    it('refuses unknown and deactivated users', async () => {
+      expect(await setDaemonUserDaemonAdmin('nope', true)).toEqual({ ok: false, reason: 'unknown-user' });
+      const created = await createDaemonUser({ displayName: 'Alice' });
+      if (!created.ok) throw new Error('setup failed');
+      await deactivateDaemonUser(created.record.user.id);
+      expect(await setDaemonUserDaemonAdmin(created.record.user.id, true)).toEqual({
+        ok: false,
+        reason: 'user-deactivated',
+      });
+    });
+
+    it('serializes concurrent grants under the user-store lock — no lost write', async () => {
+      const alice = await createDaemonUser({ displayName: 'Alice', email: 'alice@openheaders.io' });
+      const bob = await createDaemonUser({ displayName: 'Bob', email: 'bob@openheaders.io' });
+      if (!alice.ok || !bob.ok) throw new Error('setup failed');
+      await Promise.all([
+        setDaemonUserDaemonAdmin(alice.record.user.id, true),
+        setDaemonUserDaemonAdmin(bob.record.user.id, true),
+      ]);
+      const users = await listDaemonUsers();
+      expect(users.filter((r) => r.membership.functionalRoles.includes(DAEMON_ADMIN_FUNCTIONAL_ROLE))).toHaveLength(2);
     });
   });
 

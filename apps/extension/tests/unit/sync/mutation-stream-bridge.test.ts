@@ -8,6 +8,7 @@
  */
 
 import {
+  DAEMON_ADMIN_FUNCTIONAL_ROLE,
   type IdentitySnapshot,
   type ResolvedAuditEntry,
   resetAuditSink,
@@ -449,8 +450,27 @@ describe('applyInboundMutationBatch', () => {
       try {
         const batch = { batchId: 'b-global-3', mutations: [activeFlip(14_000)] };
         await applyInboundMutationBatch(batch, { snapshot: makePeerSnapshot('editor'), userId: PEER_USER_ID });
-        const gate = audits.find((a) => a.capability === 'daemon.admin');
-        expect(gate?.decision).toEqual({ allow: false, reason: 'not-daemon-admin' });
+        // `daemon.operator`, not `daemon.admin` — the latter became a
+        // grantable role and must not carry this (the front-door plan §4.4 / O6).
+        const gate = audits.find((a) => a.capability === 'daemon.operator');
+        expect(gate?.decision).toEqual({ allow: false, reason: 'not-daemon-operator' });
+        expect(hasRecentlyApplied(batch.mutations[0]!.mutationId)).toBe(false);
+      } finally {
+        resetAuditSink();
+      }
+    });
+
+    it('a daemon.admin role-holder is still refused the activeId flip', async () => {
+      const audits: ResolvedAuditEntry[] = [];
+      setAuditSink((entry) => audits.push(entry));
+      try {
+        const batch = { batchId: 'b-global-3b', mutations: [activeFlip(14_500)] };
+        await applyInboundMutationBatch(batch, {
+          snapshot: makePeerSnapshot('editor', { functionalRoles: [DAEMON_ADMIN_FUNCTIONAL_ROLE] }),
+          userId: PEER_USER_ID,
+        });
+        const gate = audits.find((a) => a.capability === 'daemon.operator');
+        expect(gate?.decision).toEqual({ allow: false, reason: 'not-daemon-operator' });
         expect(hasRecentlyApplied(batch.mutations[0]!.mutationId)).toBe(false);
       } finally {
         resetAuditSink();

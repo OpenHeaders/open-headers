@@ -64,6 +64,7 @@ interface AuditFilters {
 const CAPABILITY_OPTIONS: ReadonlyArray<{ value: string; labelKey: MessageKey }> = [
   { value: 'daemon.admission', labelKey: 'workbench.serverAdmin.audit.capAdmission' },
   { value: 'daemon.admin', labelKey: 'workbench.serverAdmin.audit.capAdminPlane' },
+  { value: 'daemon.operator', labelKey: 'workbench.serverAdmin.audit.capOperatorPlane' },
   { value: 'daemon.sso-grant', labelKey: 'workbench.serverAdmin.audit.capSsoGrant' },
   { value: 'daemon.sso-revoke', labelKey: 'workbench.serverAdmin.audit.capSsoRevoke' },
   { value: 'workspace.read', labelKey: 'workbench.serverAdmin.audit.capWorkspaceRead' },

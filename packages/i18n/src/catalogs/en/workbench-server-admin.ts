@@ -107,6 +107,20 @@ export const workbenchServerAdmin = {
   'workbench.serverAdmin.gitEmail.removedDone': 'Git email override removed.',
   'workbench.serverAdmin.gitEmail.updateFailed': 'Failed to update Git email: {message}',
 
+  // ── Functional roles ───────────────────────────────────────────────
+  'workbench.serverAdmin.roles.daemonAdmin': 'Server admin',
+  'workbench.serverAdmin.roles.daemonAdminTooltip':
+    'Administers this server: users, roles, grants, devices, and reports. It grants no workspace access on its own — this user still sees only the workspaces granted below.',
+  'workbench.serverAdmin.roles.createWorkspaces': 'Create workspaces',
+  'workbench.serverAdmin.roles.createWorkspacesTooltip':
+    'Lets this user create new workspaces on the server. They own what they create; existing workspaces still need a grant.',
+  'workbench.serverAdmin.roles.daemonAdminGranted': 'Now a server admin.',
+  'workbench.serverAdmin.roles.daemonAdminRevoked': 'Server-admin role revoked.',
+  'workbench.serverAdmin.roles.createWorkspacesGranted': 'Can now create workspaces.',
+  'workbench.serverAdmin.roles.createWorkspacesRevoked': 'Can no longer create workspaces.',
+  'workbench.serverAdmin.roles.lastAdmin': 'this is the only server admin — make someone else an admin first',
+  'workbench.serverAdmin.roles.updateFailed': 'Failed to change role: {message}',
+
   // ── Git section ────────────────────────────────────────────────────
   'workbench.serverAdmin.git.sectionTitle': 'Git',
   'workbench.serverAdmin.git.sectionHint':
@@ -119,6 +133,7 @@ export const workbenchServerAdmin = {
     'Every permission decision this server makes, and each device admission, as a filterable audit trail. Export honors the active filters.',
   'workbench.serverAdmin.audit.capAdmission': 'Admission (connect)',
   'workbench.serverAdmin.audit.capAdminPlane': 'Admin plane',
+  'workbench.serverAdmin.audit.capOperatorPlane': 'Operator only',
   'workbench.serverAdmin.audit.capSsoGrant': 'SSO grant (mapping)',
   'workbench.serverAdmin.audit.capSsoRevoke': 'SSO revoke (mapping)',
   'workbench.serverAdmin.audit.capWorkspaceRead': 'Workspace read',

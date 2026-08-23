@@ -105,6 +105,20 @@ export const workbenchServerAdmin = {
   'workbench.serverAdmin.gitEmail.removedDone': 'Git 邮箱覆盖已移除。',
   'workbench.serverAdmin.gitEmail.updateFailed': '更新 Git 邮箱失败：{message}',
 
+  // ── 功能角色 ───────────────────────────────────────────────────────
+  'workbench.serverAdmin.roles.daemonAdmin': '服务器管理员',
+  'workbench.serverAdmin.roles.daemonAdminTooltip':
+    '管理此服务器：用户、角色、授权、设备与报告。本身不授予任何工作区访问权限——该用户仍然只能看到下方授权的工作区。',
+  'workbench.serverAdmin.roles.createWorkspaces': '创建工作区',
+  'workbench.serverAdmin.roles.createWorkspacesTooltip':
+    '允许该用户在服务器上创建新工作区。他们拥有自己创建的工作区；已有工作区仍需单独授权。',
+  'workbench.serverAdmin.roles.daemonAdminGranted': '已成为服务器管理员。',
+  'workbench.serverAdmin.roles.daemonAdminRevoked': '已撤销服务器管理员角色。',
+  'workbench.serverAdmin.roles.createWorkspacesGranted': '现在可以创建工作区。',
+  'workbench.serverAdmin.roles.createWorkspacesRevoked': '不再可以创建工作区。',
+  'workbench.serverAdmin.roles.lastAdmin': '这是唯一的服务器管理员——请先将其他人设为管理员',
+  'workbench.serverAdmin.roles.updateFailed': '更改角色失败：{message}',
+
   // ── Git section ────────────────────────────────────────────────────
   'workbench.serverAdmin.git.sectionTitle': 'Git',
   'workbench.serverAdmin.git.sectionHint':
@@ -117,6 +131,7 @@ export const workbenchServerAdmin = {
     '此服务器做出的每个权限决定和每次设备准入，构成可筛选的审计记录。导出遵循当前生效的筛选条件。',
   'workbench.serverAdmin.audit.capAdmission': '准入（连接）',
   'workbench.serverAdmin.audit.capAdminPlane': '管理平面',
+  'workbench.serverAdmin.audit.capOperatorPlane': '仅限操作员',
   'workbench.serverAdmin.audit.capSsoGrant': 'SSO 授予（映射）',
   'workbench.serverAdmin.audit.capSsoRevoke': 'SSO 撤销（映射）',
   'workbench.serverAdmin.audit.capWorkspaceRead': '工作区读取',

@@ -158,8 +158,10 @@ export function createRuntimeToolDefinitions(): McpToolDefinition[] {
       },
       tier: 'write',
       // The runtime-active pointer is host-global state — operator-only,
-      // the same law the WS plane holds for the `activeId` pointer.
-      capability: 'daemon.admin',
+      // the same law the WS plane holds for the `activeId` pointer. Not
+      // `daemon.admin`: that is grantable now, and moving the host's own
+      // active workspace is not an administrative act (§4.4 / O6).
+      capability: 'daemon.operator',
       resolveWorkspaceId: (args) => {
         const raw = args.workspaceId;
         return typeof raw === 'string' && raw.length > 0 ? raw : undefined;

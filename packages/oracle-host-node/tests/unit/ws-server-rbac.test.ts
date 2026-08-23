@@ -27,11 +27,14 @@ import {
   deactivateDaemonUser,
   ensureSyntheticIdentity,
   grantWorkspaceRole,
+  hasCapability,
   mintDaemonAuthToken,
   type ResolvedAuditEntry,
   refreshIdentitySnapshotFromHostStorage,
   resetAuditSink,
+  resolveDaemonPeerIdentitySnapshot,
   setAuditSink,
+  setDaemonUserDaemonAdmin,
 } from '@openheaders/core/identity';
 import { setHostLogger } from '@openheaders/core/logger';
 import type { AwarenessState } from '@openheaders/core/protocol';
@@ -721,6 +724,75 @@ describe('peer admin plane — gated oh.daemon.* over real sockets', () => {
     const allows = audits.filter((a) => a.capability === 'daemon.admin' && a.decision.allow);
     expect(allows.length).toBe(baseline + 4);
     expect(new Set(allows.map((a) => a.actorUserId))).toEqual(new Set([record.user.id]));
+  });
+
+  it('a directory user granted daemon.admin administers over the wire — and still reads no workspace they lack a grant on', async () => {
+    // The claims-mapping seam (the front-door plan §4.4): the whole
+    // point of the slice is that this peer needs no operator token.
+    const bob = await addUserWithGrant('Bob', null);
+    await setDaemonUserDaemonAdmin(bob.user.id, true);
+    const port = await freePort();
+    server = await startServerWithAdminPlane(port);
+    const client = await connectAs(port, bob, 'ext-bob');
+
+    const probe = await callOverWire(client, { type: 'oh.daemon.admin.status' });
+    expect(probe.payload).toEqual({ admin: true });
+
+    const listed = await callOverWire(client, { type: 'oh.daemon.users.list' });
+    expect(listed.__error).toBeUndefined();
+    const users = listed.payload?.users as Array<{ displayName: string; isDaemonAdmin: boolean }>;
+    expect(users.find((u) => u.displayName === 'Bob')?.isDaemonAdmin).toBe(true);
+
+    // The enforcement row is stamped as Bob, allowed — no operator anywhere.
+    const allow = audits.find((a) => a.capability === 'daemon.admin' && a.decision.allow);
+    expect(allow?.actorUserId).toBe(bob.user.id);
+
+    // …and administering the box is NOT workspace access. Bob holds no
+    // WRA, so the resolver still denies the read (§4.4 / O5).
+    const snapshot = await resolveDaemonPeerIdentitySnapshot(bob.user.id);
+    expect(snapshot?.localAdmin).toBeUndefined();
+    expect(hasCapability(snapshot, 'workspace.read', { workspaceId: WS_ID })).toEqual({
+      allow: false,
+      reason: 'no-workspace-role-assignment',
+    });
+    // Nor is it the operator plane — the vault reveal and the global
+    // `activeId` write stay behind `daemon.operator` (§4.4 / O6).
+    expect(hasCapability(snapshot, 'daemon.operator')).toEqual({ allow: false, reason: 'not-daemon-operator' });
+  });
+
+  it('the setDaemonAdmin channel refuses to demote the last admin, with its typed reason', async () => {
+    const bob = await addUserWithGrant('Bob', null);
+    await setDaemonUserDaemonAdmin(bob.user.id, true);
+    const port = await freePort();
+    server = await startServerWithAdminPlane(port);
+    const client = await connectAs(port, bob, 'ext-bob');
+
+    const refused = await callOverWire(client, {
+      type: 'oh.daemon.users.setDaemonAdmin',
+      userId: bob.user.id,
+      allowed: false,
+    });
+    expect(refused.payload?.ok).toBe(false);
+    expect(refused.payload?.reason).toBe('last-daemon-admin');
+
+    // Promote a second admin and the same call goes through.
+    const carol = await addUserWithGrant('Carol', null);
+    const promoted = await callOverWire(client, {
+      type: 'oh.daemon.users.setDaemonAdmin',
+      userId: carol.user.id,
+      allowed: true,
+    });
+    expect(promoted.payload).toEqual({ ok: true, updated: true });
+    const stepDown = await callOverWire(client, {
+      type: 'oh.daemon.users.setDaemonAdmin',
+      userId: bob.user.id,
+      allowed: false,
+    });
+    expect(stepDown.payload).toEqual({ ok: true, updated: true });
+
+    // Revocation bites the very next frame — no cached snapshot.
+    const after = await callOverWire(client, { type: 'oh.daemon.users.list' });
+    expect(after.__error).toBe(ADMIN_DENIED_MESSAGE);
   });
 
   it("a directory user's admin call is denied in-band with the uniform message, audited, and queryable; the probe answers false silently", async () => {

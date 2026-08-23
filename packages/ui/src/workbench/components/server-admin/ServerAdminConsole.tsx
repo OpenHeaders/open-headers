@@ -14,6 +14,7 @@
 import {
   App as AntApp,
   Button,
+  Checkbox,
   Empty,
   Form,
   Input,
@@ -53,6 +54,8 @@ interface DirectoryUser {
   createdAt: number;
   deactivatedAt: number | null;
   hasPassword: boolean;
+  mayCreateWorkspaces: boolean;
+  isDaemonAdmin: boolean;
   admission?: { licenseId: string; status: 'licensed' | 'grace' | 'expired' | 'invalid' };
   grants: ReadonlyArray<{ workspaceId: string; role: DirectoryRole; origin?: 'idp' }>;
 }
@@ -128,6 +131,58 @@ const SectionHeader: React.FC<{ title: string; hint: string }> = ({ title, hint 
       </h3>
       <div style={{ fontSize: 11, color: token.colorTextTertiary, marginTop: 1 }}>{hint}</div>
     </header>
+  );
+};
+
+/**
+ * The two functional roles the resolver reads off a user's org
+ * membership. Rendered as state beside the grants, not as actions among
+ * them, because that is what they are — and because server-admin is
+ * deliberately NOT workspace access: an admin still needs a grant to
+ * read a workspace (the front-door plan §4.4). Deactivated records show
+ * their roles read-only; the server refuses to change them.
+ */
+const RolesEditor: React.FC<{
+  user: DirectoryUser;
+  onSetDaemonAdmin: (userId: string, allowed: boolean) => Promise<void>;
+  onSetCreateWorkspaces: (userId: string, allowed: boolean) => Promise<void>;
+}> = ({ user, onSetDaemonAdmin, onSetCreateWorkspaces }) => {
+  const t = useT();
+  const [busy, setBusy] = useState(false);
+  const disabled = busy || user.deactivatedAt !== null;
+
+  async function toggle(apply: Promise<void>): Promise<void> {
+    setBusy(true);
+    try {
+      await apply;
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16, alignItems: 'center' }}>
+      <Tooltip title={t('workbench.serverAdmin.roles.daemonAdminTooltip')}>
+        <Checkbox
+          checked={user.isDaemonAdmin}
+          disabled={disabled}
+          onChange={(e) => void toggle(onSetDaemonAdmin(user.userId, e.target.checked))}
+          data-testid={`server-admin-role-admin-${user.userId}`}
+        >
+          <span style={{ fontSize: 11 }}>{t('workbench.serverAdmin.roles.daemonAdmin')}</span>
+        </Checkbox>
+      </Tooltip>
+      <Tooltip title={t('workbench.serverAdmin.roles.createWorkspacesTooltip')}>
+        <Checkbox
+          checked={user.mayCreateWorkspaces}
+          disabled={disabled}
+          onChange={(e) => void toggle(onSetCreateWorkspaces(user.userId, e.target.checked))}
+          data-testid={`server-admin-role-create-${user.userId}`}
+        >
+          <span style={{ fontSize: 11 }}>{t('workbench.serverAdmin.roles.createWorkspaces')}</span>
+        </Checkbox>
+      </Tooltip>
+    </div>
   );
 };
 
@@ -508,6 +563,48 @@ const ServerAdminConsole: React.FC = () => {
     [message, refresh, t],
   );
 
+  const handleSetDaemonAdmin = useCallback(
+    async (userId: string, allowed: boolean): Promise<void> => {
+      try {
+        const resp = await hostBridge.call('oh.daemon.users.setDaemonAdmin', { userId, allowed });
+        if (!resp.ok) {
+          // Branch on the typed reason, never the message — the
+          // lockout refusal deserves its own sentence.
+          throw new Error(
+            resp.reason === 'last-daemon-admin' ? t('workbench.serverAdmin.roles.lastAdmin') : resp.error,
+          );
+        }
+        message.success(
+          allowed
+            ? t('workbench.serverAdmin.roles.daemonAdminGranted')
+            : t('workbench.serverAdmin.roles.daemonAdminRevoked'),
+        );
+        await refresh();
+      } catch (err) {
+        message.error(t('workbench.serverAdmin.roles.updateFailed', { message: (err as Error).message }));
+      }
+    },
+    [message, refresh, t],
+  );
+
+  const handleSetCreateWorkspaces = useCallback(
+    async (userId: string, allowed: boolean): Promise<void> => {
+      try {
+        const resp = await hostBridge.call('oh.daemon.users.setCreateWorkspaces', { userId, allowed });
+        if (!resp.ok) throw new Error(resp.error);
+        message.success(
+          allowed
+            ? t('workbench.serverAdmin.roles.createWorkspacesGranted')
+            : t('workbench.serverAdmin.roles.createWorkspacesRevoked'),
+        );
+        await refresh();
+      } catch (err) {
+        message.error(t('workbench.serverAdmin.roles.updateFailed', { message: (err as Error).message }));
+      }
+    },
+    [message, refresh, t],
+  );
+
   const handleRevokeGrant = useCallback(
     async (userId: string, workspaceId: string): Promise<void> => {
       try {
@@ -705,6 +802,11 @@ const ServerAdminConsole: React.FC = () => {
                           <span style={{ fontSize: 11, color: token.colorTextTertiary }}>
                             {t('workbench.serverAdmin.users.addedOn', { date: formatTimestamp(locale, u.createdAt) })}
                           </span>
+                          <RolesEditor
+                            user={u}
+                            onSetDaemonAdmin={handleSetDaemonAdmin}
+                            onSetCreateWorkspaces={handleSetCreateWorkspaces}
+                          />
                           <GrantsEditor
                             user={u}
                             workspaceName={workspaceName}

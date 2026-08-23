@@ -94,6 +94,9 @@ describe('variables_reveal_secret', () => {
 
   it('declares the secrets tier as operator-only — vault plaintext never crosses to directory users', () => {
     expect(tool.tier).toBe('secrets');
-    expect(tool.capability).toBe('daemon.admin');
+    // `daemon.operator`, never `daemon.admin`: the latter is a grantable
+    // role, and no grant may reach vault plaintext (the front-door plan
+    // §4.4 / O6).
+    expect(tool.capability).toBe('daemon.operator');
   });
 });

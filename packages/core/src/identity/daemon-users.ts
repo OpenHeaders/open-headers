@@ -25,7 +25,7 @@ import type { DaemonUserRecord } from '../types';
 import { createMutex } from '../utils/mutex';
 import { uuidv7 } from '../utils/uuidv7';
 import { emitAuditEntry } from './audit';
-import { WORKSPACE_CREATE_FUNCTIONAL_ROLE } from './resolver';
+import { DAEMON_ADMIN_FUNCTIONAL_ROLE, WORKSPACE_CREATE_FUNCTIONAL_ROLE } from './resolver';
 
 export interface CreateDaemonUserInput {
   displayName: string;
@@ -78,6 +78,10 @@ export type SetDaemonUserPasswordResult =
 export type SetDaemonUserWorkspaceCreateResult =
   | { readonly ok: true; readonly updated: boolean }
   | { readonly ok: false; readonly reason: 'unknown-user' | 'user-deactivated' };
+
+export type SetDaemonUserDaemonAdminResult =
+  | { readonly ok: true; readonly updated: boolean }
+  | { readonly ok: false; readonly reason: 'unknown-user' | 'user-deactivated' | 'last-daemon-admin' };
 
 export type ResolveDaemonPeerUserResult =
   | { readonly ok: true; readonly userId: string; readonly displayName: string }
@@ -400,6 +404,61 @@ export async function setDaemonUserWorkspaceCreate(
     await hostStorage.set(OH.daemonUsers, next);
     return { ok: true, updated: true };
   });
+}
+
+/**
+ * Grant or revoke a directory user's `daemon.admin` capability by
+ * toggling the {@link DAEMON_ADMIN_FUNCTIONAL_ROLE} entry on their org
+ * membership — the twin of {@link setDaemonUserWorkspaceCreate}, same
+ * lock, same idempotence, same refusal on deactivated records.
+ *
+ * One extra refusal: a revoke that would leave the directory with NO
+ * active admin is denied as `last-daemon-admin`. The check is on the
+ * COUNT, not on who is asking — refusing self-demotion specifically
+ * would need the calling peer's identity inside the admin handler
+ * table, and that plane deliberately hands handlers nothing but the
+ * message (the front-door plan §4.4 / O7). Counting subsumes the
+ * dangerous case anyway: a lone admin demoting themselves IS the last
+ * admin being demoted. Deactivation is not guarded — `ohd user
+ * set-admin` (offline) is the recovery hatch for a stranded server.
+ */
+export async function setDaemonUserDaemonAdmin(
+  userId: string,
+  allowed: boolean,
+): Promise<SetDaemonUserDaemonAdminResult> {
+  return withUserStoreLock(async () => {
+    const current = await readUsers();
+    const idx = current.findIndex((r) => r.user.id === userId);
+    if (idx === -1) return { ok: false, reason: 'unknown-user' };
+    if (current[idx].deactivatedAt !== null) return { ok: false, reason: 'user-deactivated' };
+    const roles = current[idx].membership.functionalRoles;
+    const has = roles.includes(DAEMON_ADMIN_FUNCTIONAL_ROLE);
+    if (has === allowed) return { ok: true, updated: false };
+    if (!allowed && countActiveDaemonAdmins(current) <= 1) {
+      return { ok: false, reason: 'last-daemon-admin' };
+    }
+    const nextRoles = allowed
+      ? [...roles, DAEMON_ADMIN_FUNCTIONAL_ROLE]
+      : roles.filter((r) => r !== DAEMON_ADMIN_FUNCTIONAL_ROLE);
+    const next = current.slice();
+    next[idx] = { ...current[idx], membership: { ...current[idx].membership, functionalRoles: nextRoles } };
+    await hostStorage.set(OH.daemonUsers, next);
+    return { ok: true, updated: true };
+  });
+}
+
+/**
+ * Active directory users holding {@link DAEMON_ADMIN_FUNCTIONAL_ROLE}.
+ * The daemon's own operator is NOT counted — it holds `daemon.admin`
+ * through `localAdmin`, never through the directory.
+ */
+function countActiveDaemonAdmins(records: readonly DaemonUserRecord[]): number {
+  let count = 0;
+  for (const record of records) {
+    if (record.deactivatedAt !== null) continue;
+    if (record.membership.functionalRoles.includes(DAEMON_ADMIN_FUNCTIONAL_ROLE)) count += 1;
+  }
+  return count;
 }
 
 /** Git-author identity for daemon-minted commits (the git-sync plan §11.5). */

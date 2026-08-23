@@ -48,7 +48,10 @@ export function createSecretToolDefinitions(): McpToolDefinition[] {
       tier: 'secrets',
       // Vault plaintext never crosses to directory users on any plane
       // (the vault never syncs); a reveal is the operator's own act.
-      capability: 'daemon.admin',
+      // `daemon.operator`, not `daemon.admin`: administering the box is
+      // a grantable role, and no grant reaches vault plaintext — the
+      // reveal must not widen with it (the front-door plan §4.4 / O6).
+      capability: 'daemon.operator',
       resolveWorkspaceId: resolveWorkspaceIdArg,
       handler: async (args, ctx) => {
         const workspaceId = requireWorkspace(args);
