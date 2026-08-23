@@ -5,8 +5,7 @@
  * raw. Mints: seat = Platz (m.), individual seat = Einzelplatz (m.);
  * email = E-Mail-Adresse (f., `E-Mail` on placeholders); pairing token
  * = Kopplungstoken (m.); reverse proxy = Reverse-Proxy raw (m.);
- * Workbench = die Workbench (f.); quoted README section titles stay
- * raw English inside „…“.
+ * Workbench = die Workbench (f.).
  */
 
 import type { Catalog } from '../../types';
@@ -67,13 +66,9 @@ export const web = {
     'Single Sign-on fehlgeschlagen. Versuche es erneut oder verbinde dich stattdessen mit einem Kopplungstoken.',
   'web.insecure.title': 'Diese Seite braucht eine sichere Verbindung',
   'web.insecure.intro':
-    'Die OpenHeaders-Workbench hält alle ihre Daten in diesem Browser-Profil und braucht die Kryptografie-APIs ' +
-    'des Browsers, die nur auf sicheren Origins verfügbar sind.',
-  'web.insecure.waysIn': 'Öffne sie stattdessen auf einem dieser Wege:',
-  'web.insecure.httpsPrefix':
-    'Über HTTPS — stelle den Server hinter einen TLS-Reverse-Proxy (siehe „Behind a reverse proxy“ im README ' +
-    'des Servers) und öffne',
-  'web.insecure.httpsSuffix': '.',
-  'web.insecure.loopbackPrefix': 'Auf der Maschine des Servers selbst unter',
-  'web.insecure.loopbackSuffix': '.',
+    'Dieser Tab führt die gesamte Workbench aus, keine dünne Sicht auf den Server, und muss daher eine Identität ' +
+    'für dieses Gerät erzeugen — was Browser nur auf einem sicheren Origin erlauben.',
+  'web.insecure.optionLocal': 'Auf dem Server selbst:',
+  'web.insecure.optionTls': 'Von hier über HTTPS — stelle einen TLS-terminierenden Reverse-Proxy davor.',
+  'web.insecure.optionClients': 'Von hier ohne TLS — die Erweiterung und die Desktop-App verbinden sich direkt mit',
 } as const satisfies Catalog;

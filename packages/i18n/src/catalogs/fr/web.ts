@@ -60,13 +60,10 @@ export const web = {
     "Échec de l'authentification unique. Réessayez, ou connectez-vous plutôt avec un jeton d'association.",
   'web.insecure.title': 'Cette page nécessite une connexion sécurisée',
   'web.insecure.intro':
-    'Le Workbench OpenHeaders conserve toutes ses données dans ce profil de navigateur et a besoin des API de ' +
-    'cryptographie du navigateur, disponibles uniquement sur les origines sécurisées.',
-  'web.insecure.waysIn': "Ouvrez-la plutôt d'une de ces façons :",
-  'web.insecure.httpsPrefix':
-    'Via HTTPS — placez le serveur derrière un reverse proxy TLS (voir « Behind a reverse proxy » dans le README ' +
-    'du serveur) et ouvrez',
-  'web.insecure.httpsSuffix': '.',
-  'web.insecure.loopbackPrefix': 'Sur la machine du serveur elle-même à',
-  'web.insecure.loopbackSuffix': '.',
+    'Cet onglet exécute tout le Workbench, pas une vue légère du serveur : il doit donc générer une identité pour ' +
+    'cet appareil — ce que les navigateurs autorisent uniquement sur une origine sécurisée.',
+  'web.insecure.optionLocal': 'Sur le serveur lui-même :',
+  'web.insecure.optionTls': 'Depuis ici via HTTPS — placez devant un reverse proxy qui termine TLS.',
+  'web.insecure.optionClients':
+    "Depuis ici sans TLS — l'extension et l'application desktop se connectent directement à",
 } as const satisfies Catalog;

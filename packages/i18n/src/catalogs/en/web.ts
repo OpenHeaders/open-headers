@@ -60,13 +60,9 @@ export const web = {
   'web.oidcError.failed': 'Single sign-on failed. Try again, or connect with a pairing token instead.',
   'web.insecure.title': 'This page needs a secure connection',
   'web.insecure.intro':
-    "The OpenHeaders Workbench keeps all of its data in this browser profile and needs the browser's cryptography " +
-    'APIs, which are only available on secure origins.',
-  'web.insecure.waysIn': 'Open it one of these ways instead:',
-  'web.insecure.httpsPrefix':
-    "Over HTTPS — put the server behind a TLS reverse proxy (see “Behind a reverse proxy” in the server's README) " +
-    'and open',
-  'web.insecure.httpsSuffix': '.',
-  'web.insecure.loopbackPrefix': "On the server's own machine at",
-  'web.insecure.loopbackSuffix': '.',
+    'This tab runs the whole Workbench, not a thin view of the server, so it has to create an identity for this ' +
+    'device — and browsers only allow that on a secure origin.',
+  'web.insecure.optionLocal': 'On the server itself:',
+  'web.insecure.optionTls': 'From here over HTTPS — put a TLS-terminating reverse proxy in front.',
+  'web.insecure.optionClients': 'From here without TLS — the extension and the desktop app connect straight to',
 } as const satisfies Catalog;

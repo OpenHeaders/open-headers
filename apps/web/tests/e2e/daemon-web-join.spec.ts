@@ -750,6 +750,18 @@ test('a plain-http non-loopback origin explains the secure-context requirement',
   watchConsole(lanPage, 'plain-http-lan');
   await lanPage.goto(`http://${lan}:${DAEMON_PORT}/`);
   await lanPage.waitForSelector('[data-testid=insecure-context-notice]', { timeout: 15_000 });
+  // Nothing in the app can resolve this from here, so every way out
+  // must carry the page that explains it — on the docs site, not a
+  // section name in a README the reader would have to go find.
+  const notice = lanPage.locator('[data-testid=insecure-context-notice]');
+  await expect(notice.getByRole('link', { name: 'docs.openheaders.com/server/lan-vs-tls' })).toHaveAttribute(
+    'href',
+    'https://docs.openheaders.com/server/lan-vs-tls',
+  );
+  await expect(notice.getByRole('link', { name: 'docs.openheaders.com/quickstart/server' })).toHaveAttribute(
+    'href',
+    'https://docs.openheaders.com/quickstart/server',
+  );
   await lanContext.close();
 });
 

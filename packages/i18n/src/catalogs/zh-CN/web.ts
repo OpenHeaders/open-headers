@@ -5,8 +5,7 @@
  * 席位 = seat / 个人席位 = individual seat; 邮箱 = email; 配对 token =
  * pairing token (token raw lowercase); 身份提供方 = identity provider;
  * 反向代理 = reverse proxy; 单点登录 = single sign-on; Workbench raw
- * as the surface name; quoted README section titles stay raw English
- * inside “”.
+ * as the surface name.
  */
 
 import type { Catalog } from '../../types';
@@ -50,11 +49,8 @@ export const web = {
   'web.oidcError.failed': '单点登录失败。请重试，或改用配对 token 连接。',
   'web.insecure.title': '此页面需要安全连接',
   'web.insecure.intro':
-    'OpenHeaders Workbench 将其所有数据保存在此浏览器配置文件中，并且需要浏览器的加密 API——它们仅在安全源上可用。',
-  'web.insecure.waysIn': '请改用以下方式之一打开：',
-  'web.insecure.httpsPrefix':
-    '通过 HTTPS——将服务器置于 TLS 反向代理之后（参见服务器 README 中的“Behind a reverse proxy”），然后打开',
-  'web.insecure.httpsSuffix': '.',
-  'web.insecure.loopbackPrefix': '在服务器所在的机器上访问',
-  'web.insecure.loopbackSuffix': '.',
+    '此标签页运行完整的 Workbench，而不是服务器的轻量视图，因此必须为此设备创建身份——浏览器仅在安全源上允许这样做。',
+  'web.insecure.optionLocal': '在服务器本机上：',
+  'web.insecure.optionTls': '从这里通过 HTTPS——在前面放置一个终止 TLS 的反向代理。',
+  'web.insecure.optionClients': '从这里且不使用 TLS——扩展和桌面应用直接连接到',
 } as const satisfies Catalog;

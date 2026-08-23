@@ -34,14 +34,19 @@ describe('bootTranslator', () => {
     expect(t('web.overlay.signingIn')).toBe('Signing you in…');
     expect(t('web.overlay.takingYouTo', { provider: 'ACME SSO' })).toBe('Taking you to ACME SSO…');
     expect(t('web.insecure.title')).toBe('This page needs a secure connection');
+    // The cause is the tab's own identity mint, not where data lives —
+    // this page is the one place a reader learns that, so the wording
+    // is pinned.
     expect(t('web.insecure.intro')).toBe(
-      "The OpenHeaders Workbench keeps all of its data in this browser profile and needs the browser's cryptography APIs, which are only available on secure origins.",
+      'This tab runs the whole Workbench, not a thin view of the server, so it has to create an identity for this device — and browsers only allow that on a secure origin.',
     );
-    expect(t('web.insecure.waysIn')).toBe('Open it one of these ways instead:');
-    expect(t('web.insecure.httpsPrefix')).toBe(
-      "Over HTTPS — put the server behind a TLS reverse proxy (see “Behind a reverse proxy” in the server's README) and open",
+    expect(t('web.insecure.optionLocal')).toBe('On the server itself:');
+    expect(t('web.insecure.optionTls')).toBe(
+      'From here over HTTPS — put a TLS-terminating reverse proxy in front.',
     );
-    expect(t('web.insecure.loopbackPrefix')).toBe("On the server's own machine at");
+    expect(t('web.insecure.optionClients')).toBe(
+      'From here without TLS — the extension and the desktop app connect straight to',
+    );
   });
 
   it('renders gate copy byte-exact, recomposed around the raw islands', () => {

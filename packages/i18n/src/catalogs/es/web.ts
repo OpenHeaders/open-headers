@@ -3,8 +3,7 @@
  * the 'OpenHeaders' brand, `daemon` (m.), the `ohd show-token`
  * command, URLs and the `oh-license.` key prefix stay raw. Mints:
  * seat = plaza (f.); email rides raw (m.); pairing token = token de
- * emparejamiento; reverse proxy = proxy inverso (quoted README
- * section titles stay raw English).
+ * emparejamiento; reverse proxy = proxy inverso.
  */
 
 import type { Catalog } from '../../types';
@@ -66,13 +65,10 @@ export const web = {
     'El inicio de sesión único falló. Vuelve a intentarlo o conéctate con un token de emparejamiento.',
   'web.insecure.title': 'Esta página necesita una conexión segura',
   'web.insecure.intro':
-    'El Workbench de OpenHeaders guarda todos sus datos en este perfil del navegador y necesita las API de ' +
-    'criptografía del navegador, disponibles solo en orígenes seguros.',
-  'web.insecure.waysIn': 'Ábrela de una de estas formas:',
-  'web.insecure.httpsPrefix':
-    'Por HTTPS — pon el servidor detrás de un proxy inverso TLS (consulta «Behind a reverse proxy» en el README ' +
-    'del servidor) y abre',
-  'web.insecure.httpsSuffix': '.',
-  'web.insecure.loopbackPrefix': 'En la propia máquina del servidor en',
-  'web.insecure.loopbackSuffix': '.',
+    'Esta pestaña ejecuta todo el Workbench, no una vista ligera del servidor, así que tiene que generar una ' +
+    'identidad para este dispositivo — algo que los navegadores solo permiten en un origen seguro.',
+  'web.insecure.optionLocal': 'En el propio servidor:',
+  'web.insecure.optionTls': 'Desde aquí por HTTPS — pon delante un proxy inverso que termine TLS.',
+  'web.insecure.optionClients':
+    'Desde aquí sin TLS — la extensión y la aplicación de escritorio se conectan directamente a',
 } as const satisfies Catalog;
