@@ -37,6 +37,12 @@
  *                      POST carries the own served origin; no Origin is
  *                      a native caller (curl). A refused credential
  *                      (401) feeds the brute-force limiter.
+ *   - `/auth/setup/*` — the server claim, active on EVERY deployment
+ *                      (an SSO daemon answers `unclaimed: false` rather
+ *                      than falling through to the SPA). Same origin
+ *                      posture as the password routes; the uniform
+ *                      state refusal (403) feeds the limiter, while a
+ *                      malformed-input 400 deliberately does not.
  *   - web (Phase 4a) — when the daemon serves the web bundle, every
  *                      path not claimed above is the static front door:
  *                      top-level navigations (no Origin) and the own
@@ -84,6 +90,7 @@ export type AdmissionRoute =
   | 'mcp'
   | 'oidc'
   | 'password'
+  | 'setup'
   | 'web'
   | 'default';
 
@@ -126,6 +133,7 @@ export interface RoutePosture {
 const PAIRING_PATH_PREFIX = '/pair/';
 const OIDC_PATH_PREFIX = '/auth/oidc/';
 const PASSWORD_PATH_PREFIX = '/auth/password/';
+const SETUP_PATH_PREFIX = '/auth/setup/';
 const HEALTHZ_PATH = '/healthz';
 const METRICS_PATH = '/metrics';
 
@@ -159,6 +167,12 @@ const ROUTE_POSTURES: Record<AdmissionRoute, RoutePosture> = {
   // 401 = a refused credential — uniform whatever the cause (unknown
   // email, no password set, wrong password), so every guess counts.
   password: { route: 'password', origin: 'own', host: 'known', rateLimited: true, failureStatuses: [401] },
+  // 403 = the claim's uniform state refusal (already claimed, wrong
+  // setup code, an SSO server): every guess at the code counts. A 400
+  // is the caller's own malformed input — it turns on nothing the
+  // server knows, and counting it would let a typo lock an operator
+  // out of claiming their own box.
+  setup: { route: 'setup', origin: 'own', host: 'known', rateLimited: true, failureStatuses: [403] },
   // Static misses are ordinary navigation noise, not auth signals — no
   // failure statuses; the rate limit still holds the front door against
   // peers already blocked for real failures elsewhere.
@@ -175,6 +189,7 @@ export function routePostureFor(facts: AdmissionRequestFacts, options: Admission
   if (facts.path === MCP_HTTP_PATH || facts.path === `${MCP_HTTP_PATH}/`) return ROUTE_POSTURES.mcp;
   if (options.oidcEnabled && facts.path.startsWith(OIDC_PATH_PREFIX)) return ROUTE_POSTURES.oidc;
   if (options.passwordEnabled && facts.path.startsWith(PASSWORD_PATH_PREFIX)) return ROUTE_POSTURES.password;
+  if (facts.path.startsWith(SETUP_PATH_PREFIX)) return ROUTE_POSTURES.setup;
   return options.webEnabled ? ROUTE_POSTURES.web : ROUTE_POSTURES.default;
 }
 

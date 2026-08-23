@@ -87,6 +87,19 @@ describe('startRuntimeManifest', () => {
     expect(readRuntimeManifest(dataDir)?.bind).toEqual({ state: 'failed', host: '0.0.0.0', port: 8137 });
   });
 
+  it("carries this boot's setup code and drops it the moment the server is claimed", () => {
+    const dataDir = makeDataDir();
+    const writer = start(dataDir);
+    // Nothing is claimable until the spine says so.
+    expect(readRuntimeManifest(dataDir)?.setup).toBeNull();
+
+    writer.setSetupCode('4KFP-9QW2-XM31');
+    expect(readRuntimeManifest(dataDir)?.setup).toEqual({ code: '4KFP-9QW2-XM31' });
+
+    writer.setSetupCode(null);
+    expect(readRuntimeManifest(dataDir)?.setup).toBeNull();
+  });
+
   it('removes the file on dispose and ignores writes afterwards', () => {
     const dataDir = makeDataDir();
     const writer = start(dataDir);
@@ -151,6 +164,22 @@ describe('readRuntimeManifest', () => {
 
     fs.writeFileSync(runtimeManifestPath(dataDir), JSON.stringify({ ...raw, bind: { state: 'wandering' } }));
     expect(readRuntimeManifest(dataDir)).toBeNull();
+  });
+
+  it('reads a manifest written before the claim block as nothing to claim', () => {
+    const dataDir = makeDataDir();
+    start(dataDir);
+    const raw = JSON.parse(fs.readFileSync(runtimeManifestPath(dataDir), 'utf8')) as Record<string, unknown>;
+    const { setup: _absent, ...older } = raw;
+
+    // An added optional field is not a breaking shape change: the older
+    // manifest still parses, at the same version, with no claim on offer.
+    fs.writeFileSync(runtimeManifestPath(dataDir), JSON.stringify(older));
+    expect(readRuntimeManifest(dataDir)?.setup).toBeNull();
+
+    // A block that carries no usable code is no block either.
+    fs.writeFileSync(runtimeManifestPath(dataDir), JSON.stringify({ ...raw, setup: { code: '' } }));
+    expect(readRuntimeManifest(dataDir)?.setup).toBeNull();
   });
 });
 

@@ -39,6 +39,7 @@ function makeManifest(overrides: Partial<RuntimeManifest> = {}): RuntimeManifest
     configPath: CONFIG_PATH,
     config: makeSnapshot(),
     bind: { state: 'bound', host: '127.0.0.1', port: 8137 },
+    setup: null,
     ...overrides,
   };
 }
@@ -84,6 +85,37 @@ describe('formatStatus', () => {
     expect(text).toContain('ws://192.168.1.50:8137   (eth0)');
     expect(text).toContain('check the host firewall');
     expect(text).not.toContain('ohd restart');
+  });
+
+  it('says nothing about a claim on a server that has one', () => {
+    const { text } = report();
+    expect(text).not.toContain('unclaimed');
+    expect(text).not.toContain('setup code');
+  });
+
+  it('shows an unclaimed server where to claim it and with which code', () => {
+    const lanConfig = makeSnapshot({ bindAddress: '0.0.0.0', allowInsecureLan: true });
+    const { text } = report({
+      config: lanConfig,
+      runtime: makeManifest({
+        config: lanConfig,
+        bind: { state: 'bound', host: '0.0.0.0', port: 8137 },
+        setup: { code: '4KFP-9QW2-XM31' },
+      }),
+    });
+
+    expect(text).toContain('! this server is unclaimed — the first browser to reach it creates the admin account');
+    // Browsable addresses, not the ws:// join URLs above them.
+    expect(text).toContain('http://127.0.0.1:8137/');
+    expect(text).toContain('http://192.168.1.50:8137/   (eth0)');
+    expect(text).toContain('setup code 4KFP-9QW2-XM31 — needed from any machine but this one');
+    expect(text).toContain('a restart replaces it');
+  });
+
+  it('offers only loopback on a loopback bind — no LAN address is reachable to claim from', () => {
+    const { text } = report({ runtime: makeManifest({ setup: { code: '4KFP-9QW2-XM31' } }) });
+    expect(text).toContain('http://127.0.0.1:8137/');
+    expect(text).not.toContain('192.168.1.50');
   });
 
   it('flags a LAN bind that was configured but never applied', () => {

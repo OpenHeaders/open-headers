@@ -7,10 +7,12 @@
  * The report answers one question — what is the daemon ACTUALLY doing —
  * from the runtime manifest the running process wrote, never from the
  * configuration re-resolved a second time (which describes the next
- * boot, not this one). Three facts follow from that and each earns a
+ * boot, not this one). Four facts follow from that and each earns a
  * line only when it is true: the bind the process holds, the addresses
- * a LAN client can reach it at, and whether the configuration on disk
- * has moved on since it started — the case that needs `ohd restart`.
+ * a LAN client can reach it at, whether nobody has claimed the server
+ * yet (and with which setup code), and whether the configuration on
+ * disk has moved on since it started — the case that needs
+ * `ohd restart`.
  *
  * When no manifest can be trusted (a daemon older than the manifest, or
  * a file left stale by a crash) the report degrades to the probe plus
@@ -92,6 +94,7 @@ export function formatStatus(facts: StatusFacts): StatusReport {
   const uptimeSeconds = Math.max(0, Math.round((facts.nowMs - Date.parse(runtime.startedAt)) / 1000));
   const lines = [`running — pid ${runtime.pid}, v${runtime.appVersion}, up ${formatUptime(uptimeSeconds)}`];
   lines.push(...bindLines(bind, facts));
+  lines.push(...unclaimedLines(runtime, bind, facts));
   lines.push(`  config ${runtime.configPath}`);
   lines.push(...configLines(runtime, facts));
   return { lines, serving: true };
@@ -111,6 +114,34 @@ function bindLines(bind: RuntimeManifest['bind'], facts: StatusFacts): string[] 
   // WITHOUT a log line never reached the process — which is what a
   // closed firewall port looks like from both ends.
   lines.push('  a client that reaches none of these is blocked before the daemon — check the host firewall');
+  return lines;
+}
+
+/**
+ * The server-claim block (the front-door plan §4.3) — printed only
+ * while the running daemon reports itself unclaimed, which is the one
+ * state where an operator needs both a URL to open and the code to
+ * present. The code is per boot, so this block IS the copy of record:
+ * a restart replaces it, and a successful claim clears it mid-run.
+ *
+ * Browsable `http://` addresses, not the `ws://` join URLs above them —
+ * the claim is made in a browser, and the two audiences are different.
+ * Loopback is always offered (the dominant first-run case, and the one
+ * that needs no code); the LAN addresses only mean anything on a
+ * `0.0.0.0` bind, exactly where `lanJoinUrls` already answers.
+ */
+function unclaimedLines(runtime: RuntimeManifest, bind: RuntimeManifest['bind'], facts: StatusFacts): string[] {
+  if (runtime.setup === null) return [];
+  const port = bind !== null && bind.state === 'bound' ? bind.port : runtime.config.bindPort;
+  const lines = ['  ! this server is unclaimed — the first browser to reach it creates the admin account'];
+  lines.push(`      http://127.0.0.1:${port}/`);
+  if (bind !== null && bind.state === 'bound' && bind.host === '0.0.0.0') {
+    for (const join of facts.lanJoinUrls(port)) {
+      lines.push(`      http://${join.host}:${port}/${join.iface ? `   (${join.iface})` : ''}`);
+    }
+  }
+  lines.push(`      setup code ${runtime.setup.code} — needed from any machine but this one`);
+  lines.push('      the code is minted per run: a restart replaces it, and claiming the server retires it');
   return lines;
 }
 

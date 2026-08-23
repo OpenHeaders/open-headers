@@ -36,7 +36,8 @@ import { hashPassword, verifyPassword } from './password-verifier';
 const SCOPE = 'PasswordLogin';
 
 const SESSION_TTL_DAYS = 30;
-const SESSION_TTL_MS = SESSION_TTL_DAYS * 24 * 60 * 60_000;
+/** Shared with the server claim, which terminates in the same session-kind mint. */
+export const SESSION_TTL_MS = SESSION_TTL_DAYS * 24 * 60 * 60_000;
 
 /** Per-account lockout: 5 failures in 10 minutes block the account for 15. */
 const ACCOUNT_LOCKOUT = { maxFailures: 5, windowMs: 10 * 60_000, blockMs: 15 * 60_000 } as const;

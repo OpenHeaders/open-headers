@@ -21,8 +21,8 @@
  * anyway, the same posture as everything else the daemon persists.
  *
  * Lifecycle: written at boot BEFORE the first bind attempt (so a bind
- * failure is still on record), rewritten on every bind-state change,
- * removed on clean shutdown. A file a crash left behind is detected as
+ * failure is still on record), rewritten on every bind-state change and
+ * whenever the server's claim state moves, removed on clean shutdown. A file a crash left behind is detected as
  * stale through its pid and ignored.
  */
 
@@ -42,6 +42,16 @@ export interface RuntimeBind {
   state: 'binding' | 'bound' | 'failed';
   host: string;
   port: number;
+}
+
+/**
+ * This run's server-claim state (the front-door plan §4.3). Present
+ * only while the server is unclaimed; the code is minted per boot and
+ * cleared the moment a claim succeeds, so what `ohd status` prints is
+ * always a code the route still honours.
+ */
+export interface RuntimeSetup {
+  code: string;
 }
 
 /**
@@ -70,11 +80,15 @@ export interface RuntimeManifest {
   config: RuntimeConfigSnapshot;
   /** null until the supervisor's first bind attempt resolves. */
   bind: RuntimeBind | null;
+  /** null once the server is claimed — and on a manifest written before this field existed. */
+  setup: RuntimeSetup | null;
 }
 
 export interface RuntimeManifestWriter {
   /** Record the supervisor's latest bind lifecycle event. */
   setBind(bind: RuntimeBind): void;
+  /** Record this boot's setup code, or `null` once there is nothing left to claim. */
+  setSetupCode(code: string | null): void;
   /** Remove the manifest — this daemon is going down cleanly. */
   dispose(): void;
 }
@@ -112,6 +126,7 @@ export function startRuntimeManifest(input: StartRuntimeManifestInput): RuntimeM
     configPath: input.configPath,
     config: input.config,
     bind: null,
+    setup: null,
   };
   let disposed = false;
 
@@ -132,6 +147,11 @@ export function startRuntimeManifest(input: StartRuntimeManifestInput): RuntimeM
     setBind(bind) {
       if (disposed) return;
       manifest.bind = bind;
+      write();
+    },
+    setSetupCode(code) {
+      if (disposed) return;
+      manifest.setup = code === null ? null : { code };
       write();
     },
     dispose() {
@@ -187,7 +207,20 @@ function parseManifest(parsed: unknown): RuntimeManifest | null {
     configPath: record.configPath,
     config,
     bind,
+    setup: parseSetup(record.setup),
   };
+}
+
+/**
+ * The claim block, absent on every manifest a daemon older than the
+ * claim route wrote — which reads as "nothing to claim", the right
+ * answer for a build with no claim route at all. Not version-bearing:
+ * an added optional field breaks no reader of version 1.
+ */
+function parseSetup(raw: unknown): RuntimeSetup | null {
+  if (raw === null || typeof raw !== 'object' || Array.isArray(raw)) return null;
+  const code = (raw as Record<string, unknown>).code;
+  return typeof code === 'string' && code.length > 0 ? { code } : null;
 }
 
 function parseConfigSnapshot(raw: unknown): RuntimeConfigSnapshot | null {

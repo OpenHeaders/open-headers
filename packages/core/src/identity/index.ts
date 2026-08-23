@@ -64,6 +64,7 @@ export {
   type DeactivateDaemonUserResult,
   deactivateDaemonUser,
   findDaemonUserByEmail,
+  isDaemonDirectoryEmpty,
   listDaemonUsers,
   type PersonalSeatRefusalReason,
   type ResolveDaemonPeerUserResult,

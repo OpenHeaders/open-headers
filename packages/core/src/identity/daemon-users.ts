@@ -39,6 +39,14 @@ export interface CreateDaemonUserInput {
   personalLicense?: string;
   /** Test seam — trust ring for the personal artifact; production uses the compiled ring. */
   ring?: LicenseKeyRing;
+  /**
+   * Admit ONLY against an empty directory — the server-claim guard
+   * (the front-door plan §4.2). Re-checked inside the store lock, so
+   * two browsers racing the claim of one unclaimed server cannot both
+   * win: the loser reads what the winner wrote and is refused
+   * `directory-not-empty`.
+   */
+  requireEmptyDirectory?: boolean;
   /** Test seam — defaults to `Date.now()`. */
   now?: () => number;
 }
@@ -55,7 +63,10 @@ export type PersonalSeatRefusalReason =
 
 export type CreateDaemonUserResult =
   | { readonly ok: true; readonly record: DaemonUserRecord }
-  | { readonly ok: false; readonly reason: 'empty-display-name' | 'duplicate-email' | 'no-daemon-identity' }
+  | {
+      readonly ok: false;
+      readonly reason: 'empty-display-name' | 'duplicate-email' | 'no-daemon-identity' | 'directory-not-empty';
+    }
   | { readonly ok: false; readonly reason: PersonalSeatRefusalReason }
   | {
       readonly ok: false;
@@ -121,6 +132,12 @@ export async function createDaemonUser(input: CreateDaemonUserInput): Promise<Cr
 
   return withUserStoreLock(async () => {
     const current = await readUsers();
+    // The claim's one-shot guard, inside the lock so it is decided
+    // against what the previous writer committed. Counted over EVERY
+    // record, deactivated ones included: a directory whose users were
+    // all deactivated belongs to a server that was claimed once, and a
+    // second claim there would mint a fresh admin around the first.
+    if (input.requireEmptyDirectory && current.length > 0) return { ok: false, reason: 'directory-not-empty' };
     const needle = email?.toLowerCase();
     if (
       needle &&
@@ -272,6 +289,17 @@ export async function replacePersonalSeatArtifact(licenseId: string, licenseKey:
 /** Every directory record, including deactivated ones (forensic shape). */
 export async function listDaemonUsers(): Promise<readonly DaemonUserRecord[]> {
   return readUsers();
+}
+
+/**
+ * Has this daemon ever admitted anyone — the "unclaimed" question the
+ * front door asks (the front-door plan §4.1). Same counting rule as
+ * {@link createDaemonUser}'s `requireEmptyDirectory` guard, and the
+ * same state `ohd user list` renders as "No directory users". Advisory
+ * on its own: the authoritative check runs inside the store lock.
+ */
+export async function isDaemonDirectoryEmpty(): Promise<boolean> {
+  return (await readUsers()).length === 0;
 }
 
 /**

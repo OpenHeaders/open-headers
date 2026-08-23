@@ -14,6 +14,7 @@ import {
   deactivateDaemonUser,
   ensureSyntheticIdentity,
   findDaemonUserByEmail,
+  isDaemonDirectoryEmpty,
   listDaemonUsers,
   mintDaemonAuthToken,
   type ResolvedAuditEntry,
@@ -147,6 +148,51 @@ describe('daemon users', () => {
     const result = await validateDaemonAuthToken(secret);
     expect(result.ok).toBe(true);
     if (result.ok) expect(result.userId).toBeUndefined();
+  });
+
+  describe('the claim guard (the front-door plan §4.2)', () => {
+    it('admits the first user and refuses every later one', async () => {
+      expect(await isDaemonDirectoryEmpty()).toBe(true);
+      const first = await createDaemonUser({
+        displayName: 'John Doe',
+        email: 'john@openheaders.io',
+        requireEmptyDirectory: true,
+      });
+      expect(first.ok).toBe(true);
+      expect(await isDaemonDirectoryEmpty()).toBe(false);
+
+      const second = await createDaemonUser({
+        displayName: 'Jane Doe',
+        email: 'jane@openheaders.io',
+        requireEmptyDirectory: true,
+      });
+      expect(second).toEqual({ ok: false, reason: 'directory-not-empty' });
+      // Without the flag the same call is an ordinary admission.
+      expect((await createDaemonUser({ displayName: 'Jane Doe', email: 'jane@openheaders.io' })).ok).toBe(true);
+    });
+
+    it('lets exactly one of two concurrent claims win', async () => {
+      const [a, b] = await Promise.all([
+        createDaemonUser({ displayName: 'John Doe', email: 'john@openheaders.io', requireEmptyDirectory: true }),
+        createDaemonUser({ displayName: 'Jane Doe', email: 'jane@openheaders.io', requireEmptyDirectory: true }),
+      ]);
+      expect([a.ok, b.ok].filter(Boolean)).toHaveLength(1);
+      const loser = a.ok ? b : a;
+      expect(loser.ok === false && loser.reason).toBe('directory-not-empty');
+      expect(await listDaemonUsers()).toHaveLength(1);
+    });
+
+    it('counts a deactivated record — a claimed server stays claimed', async () => {
+      const first = await createDaemonUser({ displayName: 'John Doe', requireEmptyDirectory: true });
+      expect(first.ok).toBe(true);
+      if (!first.ok) return;
+      await deactivateDaemonUser(first.record.user.id);
+      expect(await isDaemonDirectoryEmpty()).toBe(false);
+      expect(await createDaemonUser({ displayName: 'Jane Doe', requireEmptyDirectory: true })).toEqual({
+        ok: false,
+        reason: 'directory-not-empty',
+      });
+    });
   });
 
   describe('findDaemonUserByEmail', () => {

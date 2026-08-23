@@ -259,6 +259,21 @@ export async function runDaemon(argv: readonly string[]): Promise<void> {
         manifest.setBind({ state: state.kind, host: state.host, port: state.port });
         if (state.kind === 'failed') failBind(state.host, state.port, state.error);
       },
+      // The server claim's front door (the front-door plan §4.3). The
+      // code rides the manifest so `ohd status` can print it beside the
+      // URLs a browser reaches this daemon at — status enumerates every
+      // interface properly, which a log line written before the bind
+      // resolves cannot.
+      onSetupCodeChange: (code) => {
+        manifest.setSetupCode(code);
+        if (code === null) return;
+        log.info(SCOPE, 'this server is unclaimed — the first browser to reach it creates the admin account');
+        log.info(
+          SCOPE,
+          `  setup code ${code} — needed to claim it from any machine but this one; every restart mints a new one`,
+        );
+        log.info(SCOPE, '  where to point that browser: ohd status');
+      },
       ...(config.oidc ? { oidc: config.oidc } : {}),
       auditRetentionDays: config.auditRetentionDays,
       ...(config.auditForwarding ? { auditForwarding: config.auditForwarding } : {}),

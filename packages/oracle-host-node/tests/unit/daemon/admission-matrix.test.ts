@@ -68,6 +68,14 @@ describe('routePostureFor', () => {
     expect(routePostureFor(facts({ path: '/auth/password/login' })).route).toBe('default');
   });
 
+  it('claims /auth/setup/* on every composition — an SSO daemon must not answer the probe with the SPA', () => {
+    expect(routePostureFor(facts({ path: '/auth/setup/meta' })).route).toBe('setup');
+    expect(routePostureFor(facts({ path: '/auth/setup/claim' }), { webEnabled: true }).route).toBe('setup');
+    expect(routePostureFor(facts({ path: '/auth/setup/claim' }), { oidcEnabled: true, webEnabled: true }).route).toBe(
+      'setup',
+    );
+  });
+
   it('marks the brute-force routes and their failure statuses', () => {
     expect(routePostureFor(facts({ path: '/healthz' })).rateLimited).toBe(false);
     expect(routePostureFor(facts({ path: '/pair/1' })).failureStatuses).toEqual([404]);
@@ -203,6 +211,26 @@ describe('origin posture', () => {
     expect(
       evaluateAdmission(facts({ path: '/auth/password/login', host: 'rebound.example.com' }), [], enabled),
     ).toMatchObject({ ok: false, reason: 'host-forbidden' });
+  });
+
+  it('setup route counts the uniform state refusal and deliberately not the malformed-input 400', () => {
+    const posture = routePostureFor(facts({ path: '/auth/setup/claim' }));
+    expect(posture.rateLimited).toBe(true);
+    expect(posture.failureStatuses).toEqual([403]);
+    expect(posture.failureStatuses).not.toContain(400);
+    // Same origin posture as the password routes: curl carries no
+    // Origin, the SPA carries the daemon's own served one.
+    expect(evaluateAdmission(facts({ path: '/auth/setup/claim' }), []).ok).toBe(true);
+    expect(evaluateAdmission(facts({ path: '/auth/setup/claim', origin: 'http://192.168.1.20:8137' }), []).ok).toBe(
+      true,
+    );
+    expect(
+      evaluateAdmission(facts({ path: '/auth/setup/claim', origin: 'https://evil.example.com' }), []),
+    ).toMatchObject({ ok: false, reason: 'origin-forbidden' });
+    expect(evaluateAdmission(facts({ path: '/auth/setup/meta', host: 'rebound.example.com' }), [])).toMatchObject({
+      ok: false,
+      reason: 'host-forbidden',
+    });
   });
 
   it('default routes reject browser origins', () => {

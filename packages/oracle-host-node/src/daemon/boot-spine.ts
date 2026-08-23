@@ -188,6 +188,8 @@ import { installProxyCaptureLifeline } from './proxy/capture-lifeline';
 import { createProxyCaptureService } from './proxy/proxy-capture-service';
 import { createProxyTrustService } from './proxy/proxy-trust';
 import { createProxyRoutingControl } from './proxy/routing-push';
+import { createDaemonSetupClaimService } from './setup/setup-claim-service';
+import { createSetupHttpHandler } from './setup/setup-http';
 import { singleProcessLockRuntime } from './single-process-lock-runtime';
 import { createStaticWebHandler } from './static-web';
 import type { SpineStatusReporter, SpineStatusStore } from './status-seam';
@@ -301,6 +303,16 @@ export interface DaemonSpineConfig {
    * reads the same lifecycle through its status store.
    */
   onBindStateChange?: (state: DaemonBindState) => void;
+  /**
+   * Optional observer of this boot's setup code (the front-door plan
+   * §4.3) — the code a REMOTE browser must present to claim an
+   * unclaimed server, or `null` when there is nothing to claim (a
+   * directory that already holds users, an SSO daemon) and again the
+   * moment a claim succeeds. The headless daemon logs it and carries
+   * it in the runtime manifest so `ohd status` can show the operator
+   * where to point a browser; hosts with their own UI omit it.
+   */
+  onSetupCodeChange?: (code: string | null) => void;
   /**
    * WAN-hardening posture (Phase 3). Absent = defaults: no trusted
    * proxy, no extra allowed hosts — the matrix still admits IP
@@ -1014,6 +1026,26 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
   const passwordHttpHandler =
     config.oidc === undefined ? createPasswordHttpHandler({ service: createDaemonPasswordLoginService() }) : null;
 
+  // 4c'''''. Server claim (the front-door plan §4.2) — `/auth/setup/*`,
+  //          composed on EVERY deployment including SSO, where it
+  //          answers `unclaimed: false` rather than letting the meta
+  //          probe fall through to the SPA (O8). Loopback is decided
+  //          from admission's resolved peer so a same-box reverse proxy
+  //          cannot make every remote client look local.
+  const setupClaimService = createDaemonSetupClaimService({
+    oidcConfigured: config.oidc !== undefined,
+    listWorkspaceIds: () => listWorkspaces().map((ws) => ws.id),
+    closePeersByTokenId: (tokenId) => wsServer?.closePeersByTokenId(tokenId),
+    ...(config.onSetupCodeChange ? { onSetupCodeChange: config.onSetupCodeChange } : {}),
+  });
+  await setupClaimService.ensureSetupCode().catch((err: unknown) => {
+    hostLogger.warn(SCOPE, 'could not determine whether this server is unclaimed', err);
+  });
+  const setupHttpHandler = createSetupHttpHandler({
+    service: setupClaimService,
+    resolvePeer: admission.resolvePeer,
+  });
+
   // 4c'''. Static web bundle (Phase 4a) — the Workbench front door,
   //      composed LAST so every claimed route (healthz, pairing, mcp)
   //      wins its path first. Absent config = no route; the 400
@@ -1377,6 +1409,7 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
           mcpInstall.handler(req, res) ||
           (oidcHttpHandler !== null && oidcHttpHandler(req, res)) ||
           (passwordHttpHandler !== null && passwordHttpHandler(req, res)) ||
+          setupHttpHandler(req, res) ||
           (staticWebHandler !== null && staticWebEnabled() ? staticWebHandler(req, res) : false),
       ),
       admission: admission.wsHooks,
