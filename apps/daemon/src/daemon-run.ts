@@ -211,6 +211,26 @@ export async function runDaemon(argv: readonly string[]): Promise<void> {
     });
     const manifest = runtimeManifest;
 
+    /**
+     * A bind this process cannot hold is fatal HERE, unlike in the
+     * desktop host: the spine keeps the daemon alive "until the setting
+     * is corrected", but a headless daemon whose socket never opened has
+     * no surface left to correct it through — it would sit there deaf
+     * while the service manager reports a healthy unit. Exiting non-zero
+     * names the cause, hands the retry to the service manager's backoff,
+     * and leaves the manifest's `failed` bind behind for `ohd status` to
+     * explain afterwards.
+     */
+    const failBind = (host: string, port: number, err: unknown): never => {
+      log.error(
+        SCOPE,
+        `cannot serve on ${host}:${port} — ${err instanceof Error ? err.message : String(err)}. ` +
+          'Another process (an earlier daemon instance?) may already hold that port; ' +
+          'free it, or choose another with: ohd install --bind-port <port> && ohd restart',
+      );
+      process.exit(1);
+    };
+
     const spine = await bootDaemonSpine({
       dataDir: config.dataDir,
       appVersion,
@@ -235,7 +255,10 @@ export async function runDaemon(argv: readonly string[]): Promise<void> {
         trustedProxy: config.trustedProxy,
         allowedHosts: config.allowedHosts,
       },
-      onBindStateChange: (state) => manifest.setBind({ state: state.kind, host: state.host, port: state.port }),
+      onBindStateChange: (state) => {
+        manifest.setBind({ state: state.kind, host: state.host, port: state.port });
+        if (state.kind === 'failed') failBind(state.host, state.port, state.error);
+      },
       ...(config.oidc ? { oidc: config.oidc } : {}),
       auditRetentionDays: config.auditRetentionDays,
       ...(config.auditForwarding ? { auditForwarding: config.auditForwarding } : {}),

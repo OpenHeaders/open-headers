@@ -184,10 +184,6 @@ export async function startDaemonBindSupervisor(options: SupervisorOptions): Pro
       }
       currentBind = target;
       setServer(next);
-      // The successful bind is a log line of its own: it is the only
-      // record of WHERE the process is actually reachable, and the first
-      // thing anyone diagnosing "the client cannot connect" needs to see.
-      logger.info(SCOPE, `listening on ${describeBind(target)}`);
       emitBindState({ kind: 'bound', host: target.host, port: target.port });
       // If the desired bind flipped again while we were starting, fall
       // through one more reconcile pass so the user-visible state always

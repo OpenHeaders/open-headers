@@ -65,7 +65,16 @@ export function formatStatus(facts: StatusFacts): StatusReport {
   }
 
   if (!facts.healthzOk) {
-    return { lines: [`not running — no /healthz on 127.0.0.1:${facts.config.bindPort}`], serving: false };
+    const lines = [`not running — no /healthz on 127.0.0.1:${facts.config.bindPort}`];
+    // The process is gone, but it left the reason it could not serve.
+    // Without this the operator is told only that nothing answers, and
+    // the cause sits in a log they have no reason to open.
+    const lastBind = facts.runtime?.bind;
+    if (lastBind !== undefined && lastBind !== null && lastBind.state === 'failed') {
+      lines.push(`  the last run failed to bind on ${lastBind.host}:${lastBind.port} — another process may hold it`);
+      lines.push(`  log: ${facts.logFile}`);
+    }
+    return { lines, serving: false };
   }
 
   if (runtime === null) {

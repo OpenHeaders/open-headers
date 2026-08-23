@@ -139,6 +139,19 @@ describe('formatStatus', () => {
     expect(text).toBe('not running — no /healthz on 127.0.0.1:8137');
   });
 
+  it('explains a dead daemon that had failed to bind', () => {
+    const { text, serving } = report({
+      healthzOk: false,
+      runtimeAlive: false,
+      runtime: makeManifest({ bind: { state: 'failed', host: '0.0.0.0', port: 8137 } }),
+    });
+
+    expect(serving).toBe(false);
+    expect(text).toContain('not running');
+    expect(text).toContain('the last run failed to bind on 0.0.0.0:8137');
+    expect(text).toContain('logs/daemon.log');
+  });
+
   it('ignores a manifest whose process is gone', () => {
     const { text } = report({ runtimeAlive: false });
     expect(text).toContain('running — /healthz OK on 127.0.0.1:8137');

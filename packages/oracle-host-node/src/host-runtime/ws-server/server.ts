@@ -110,6 +110,19 @@ export async function startOracleWsServer(options: OracleWsServerOptions): Promi
   httpServer.headersTimeout = 15_000;
   httpServer.requestTimeout = 60_000;
   const wss = new WebSocketServer({ server: httpServer, maxPayload: MAX_INBOUND_FRAME_BYTES });
+  // `ws` re-emits the HTTP server's `error` on the WebSocketServer, and
+  // an emitter with no `error` listener THROWS. Without this handler a
+  // bind conflict (EADDRINUSE) therefore kills the whole process from
+  // inside that re-emit — before the listen guard below ever sees it, so
+  // the promise never settles and the caller can neither report the
+  // conflict nor keep running. Post-bind socket faults would take the
+  // process down the same way. A pre-bind failure stays the promise's
+  // to report (the caller renders it); after that this is the only place
+  // a server-level fault can surface.
+  let bound = false;
+  wss.on('error', (err) => {
+    if (bound) logger.warn(SCOPE, 'websocket server error', err);
+  });
   await new Promise<void>((resolve, reject) => {
     const onListening = (): void => {
       httpServer.off('error', onError);
@@ -123,6 +136,7 @@ export async function startOracleWsServer(options: OracleWsServerOptions): Promi
     httpServer.once('error', onError);
     httpServer.listen({ host, port });
   });
+  bound = true;
 
   logger.info(SCOPE, `listening on ws://${host}:${port}`);
 
