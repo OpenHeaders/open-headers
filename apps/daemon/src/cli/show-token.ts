@@ -17,16 +17,10 @@
 import * as path from 'node:path';
 import { mintDaemonAuthToken } from '@openheaders/core/identity';
 import { setHostStorage } from '@openheaders/core/storage';
-import { listLanIpv4Addresses } from '@openheaders/oracle-host-node/daemon/lan-addresses';
 import { FileBackedHostStorage } from '@openheaders/oracle-host-node/host-storage';
 import type { DaemonConfig } from '../config';
 import { resolveDaemonCipher } from '../vault-cipher';
-
-export interface JoinUrl {
-  readonly host: string;
-  readonly iface?: string;
-  readonly url: string;
-}
+import { type JoinUrl, joinUrlsFor } from './join-urls';
 
 export interface BootstrapTokenResult {
   readonly tokenId: string;
@@ -47,11 +41,5 @@ export async function mintBootstrapToken(
   setHostStorage(storage);
   const { record, secret } = await mintDaemonAuthToken({ label, ...(userId !== undefined ? { userId } : {}) });
 
-  const joinUrls: JoinUrl[] = [{ host: '127.0.0.1', url: `ws://127.0.0.1:${config.bindPort}` }];
-  if (config.bindAddress === '0.0.0.0') {
-    for (const address of listLanIpv4Addresses()) {
-      joinUrls.push({ host: address.host, iface: address.iface, url: `ws://${address.host}:${config.bindPort}` });
-    }
-  }
-  return { tokenId: record.id, secret, joinUrls };
+  return { tokenId: record.id, secret, joinUrls: joinUrlsFor(config.bindAddress, config.bindPort) };
 }

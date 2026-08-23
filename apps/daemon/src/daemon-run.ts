@@ -43,6 +43,7 @@ import { DAEMON_CHANGELOG } from './changelog';
 import { AUDIT_RETENTION_DEFAULT_DAYS, resolveDaemonConfig } from './config';
 import { installH3HelperLocator } from './h3-helper-path';
 import { createDaemonLogger } from './logger';
+import { type RuntimeManifestWriter, runtimeConfigSnapshot, startRuntimeManifest } from './runtime-manifest';
 import { installScriptRuntime } from './script-sandbox/install';
 import { ensureSeaPayload } from './sea/payload';
 import { createDaemonStatusStore } from './status-store';
@@ -108,6 +109,10 @@ export async function runDaemon(argv: readonly string[]): Promise<void> {
   // Boot-failure lines must land somewhere even when config resolution
   // itself throws; the resolved level replaces this default below.
   let log: HostLogger = createDaemonLogger({ level: 'info' });
+  // Declared out here so a boot that fails after the manifest exists
+  // still clears it — a file describing a process that died on the way
+  // up would read as a live daemon to `ohd status`.
+  let runtimeManifest: RuntimeManifestWriter | null = null;
   try {
     const config = resolveDaemonConfig({ argv, env: process.env });
     log = createDaemonLogger({ level: config.logLevel });
@@ -194,6 +199,18 @@ export async function runDaemon(argv: readonly string[]): Promise<void> {
       );
     }
 
+    // What this process is actually doing, on disk for `ohd status` to
+    // read: opened BEFORE the spine so the first bind attempt — success
+    // or failure — is already on record when it resolves.
+    runtimeManifest = startRuntimeManifest({
+      dataDir: config.dataDir,
+      appVersion,
+      configPath: config.configPath,
+      config: runtimeConfigSnapshot(config),
+      onError: (err) => log.warn(SCOPE, 'could not write the runtime manifest; status will report less', err),
+    });
+    const manifest = runtimeManifest;
+
     const spine = await bootDaemonSpine({
       dataDir: config.dataDir,
       appVersion,
@@ -218,6 +235,7 @@ export async function runDaemon(argv: readonly string[]): Promise<void> {
         trustedProxy: config.trustedProxy,
         allowedHosts: config.allowedHosts,
       },
+      onBindStateChange: (state) => manifest.setBind({ state: state.kind, host: state.host, port: state.port }),
       ...(config.oidc ? { oidc: config.oidc } : {}),
       auditRetentionDays: config.auditRetentionDays,
       ...(config.auditForwarding ? { auditForwarding: config.auditForwarding } : {}),
@@ -251,6 +269,7 @@ export async function runDaemon(argv: readonly string[]): Promise<void> {
       if (shuttingDown) return;
       shuttingDown = true;
       log.info(SCOPE, `${signal} — shutting down`);
+      manifest.dispose();
       autoUpdate.dispose();
       scriptRuntime?.dispose();
       void spine
@@ -265,6 +284,7 @@ export async function runDaemon(argv: readonly string[]): Promise<void> {
     process.on('SIGINT', shutdown);
     process.on('SIGTERM', shutdown);
   } catch (err) {
+    runtimeManifest?.dispose();
     log.error(SCOPE, 'boot failed', err);
     process.exit(1);
   }

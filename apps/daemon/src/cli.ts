@@ -30,6 +30,7 @@ import {
 } from './cli/config-settings';
 import { assertDaemonStopped, offlineWriteConsequence } from './cli/daemon-stopped';
 import { probeHealthz } from './cli/healthz-probe';
+import { lanJoinUrls } from './cli/join-urls';
 import {
   formatLicenseSnapshot,
   licenseInstall,
@@ -40,6 +41,7 @@ import {
 import { fetchMetrics, formatMetrics } from './cli/metrics-probe';
 import { resolvePasswordInput, USER_PASSWORD_ENV, USER_PASSWORD_FILE_ENV } from './cli/password-input';
 import {
+  daemonLogFile,
   installServiceUnit,
   isServiceActive,
   restartService,
@@ -48,6 +50,7 @@ import {
   stopService,
 } from './cli/service-manager';
 import { mintBootstrapToken } from './cli/show-token';
+import { formatStatus } from './cli/status';
 import { fetchAvailabilityLine } from './cli/update-notify';
 import { commandUpgrade } from './cli/upgrade';
 import {
@@ -63,6 +66,7 @@ import {
 } from './cli/users';
 import { commandVault } from './cli/vault';
 import { type DaemonConfig, resolveConfigPath, resolveDaemonConfig, updateDaemonConfigFile } from './config';
+import { isProcessAlive, readRuntimeManifest, runtimeConfigSnapshot } from './runtime-manifest';
 
 const cliVersion: string = resolveAppVersion();
 
@@ -82,10 +86,13 @@ Commands:
                 the service runs
   run           Run the daemon in the foreground (what the service unit
                 execs; Ctrl-C / SIGTERM shuts it down cleanly)
-  status        Probe the daemon's /healthz; --verbose reads /metrics
-                (peers, throughput, audit counts — needs a paired token
-                via --token or OH_DAEMON_TOKEN); also notes when a newer
-                ohd release is available
+  status        Report what the running daemon is doing: the bind it
+                actually holds, the addresses LAN clients join at, and
+                whether the configuration on disk has moved on since it
+                started (which needs: ohd restart); --verbose reads
+                /metrics (peers, throughput, audit counts — needs a
+                paired token via --token or OH_DAEMON_TOKEN); also notes
+                when a newer ohd release is available
   upgrade       Download and install the newest release of this binary,
                 then restart the installed service into it (skip the
                 restart with --no-restart); unattended upgrades are the
@@ -224,7 +231,7 @@ async function commandInstall(argv: readonly string[]): Promise<void> {
   const { unitPath, notes } = await installServiceUnit(host, {
     command,
     args: unitArgs,
-    logFile: path.join(config.dataDir, 'logs', 'daemon.log'),
+    logFile: daemonLogFile(config.dataDir),
   });
   console.log(`Installed ${unitPath}`);
   console.log(`  exec: ${command.join(' ')} ${unitArgs.join(' ')}`);
@@ -250,13 +257,28 @@ async function commandStatus(argv: readonly string[]): Promise<void> {
     options: { ...CONFIG_OPTIONS, verbose: { type: 'boolean' }, token: { type: 'string' } },
   });
   const config = resolveConfigFlags(values);
-  const up = await probeHealthz(config.bindPort);
-  if (!up) {
-    console.log(`not running — no /healthz on 127.0.0.1:${config.bindPort}`);
+  // The running daemon's own account of itself (bind, pid, the config it
+  // booted with) — so the report states what IS, and names the gap when
+  // the configuration has moved on since. Absent/stale, the formatter
+  // degrades to the probe plus the configured bind.
+  const runtime = readRuntimeManifest(config.dataDir);
+  const report = formatStatus({
+    config: runtimeConfigSnapshot(config),
+    configPath: config.configPath,
+    healthzOk: await probeHealthz(config.bindPort),
+    runtime,
+    runtimeAlive: runtime !== null && isProcessAlive(runtime.pid),
+    lanJoinUrls,
+    logFile: daemonLogFile(config.dataDir),
+    nowMs: Date.now(),
+  });
+  for (const line of report.lines) {
+    console.log(line);
+  }
+  if (!report.serving) {
     process.exitCode = 1;
     return;
   }
-  console.log(`running — /healthz OK on 127.0.0.1:${config.bindPort} (configured bind ${config.bindAddress})`);
   // Availability notify (the distribution plan §5): one best-effort,
   // abort-capped feed read — silent unless a newer release exists.
   const availability = await fetchAvailabilityLine();

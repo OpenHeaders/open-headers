@@ -37,6 +37,15 @@ export interface InstallResult {
   notes: string[];
 }
 
+/**
+ * Where the service unit appends the daemon's stdout/stderr. One
+ * decision, shared: `install` bakes it into the unit and `status` names
+ * it when it has to point the operator at the log.
+ */
+export function daemonLogFile(dataDir: string): string {
+  return path.join(dataDir, 'logs', 'daemon.log');
+}
+
 export function serviceUnitPath(host: ServiceHost): string {
   if (host.platform === 'darwin') {
     return path.join(host.homedir, 'Library', 'LaunchAgents', `${LAUNCHD_LABEL}.plist`);

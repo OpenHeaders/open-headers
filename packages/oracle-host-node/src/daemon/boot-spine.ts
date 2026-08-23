@@ -293,6 +293,15 @@ export interface DaemonSpineConfig {
    */
   reportSyncStatus?: SpineStatusReporter;
   /**
+   * Optional observer of the bind lifecycle — every state the supervisor
+   * reaches (`binding` → `bound` / `failed`), verbatim. The headless
+   * daemon records it in its runtime manifest so `ohd status` can report
+   * the bind the process actually holds instead of re-resolving the
+   * config and repeating the intent back; the desktop host omits it and
+   * reads the same lifecycle through its status store.
+   */
+  onBindStateChange?: (state: DaemonBindState) => void;
+  /**
    * WAN-hardening posture (Phase 3). Absent = defaults: no trusted
    * proxy, no extra allowed hosts — the matrix still admits IP
    * literals, `localhost`, and `*.local`, which covers every direct
@@ -1387,6 +1396,7 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
         lastBindState = state;
         syncStatusReporter.setBindState(state);
         mdnsAdvertiser.setAdvertisedPort(state.kind === 'bound' && state.host === '0.0.0.0' ? state.port : null);
+        config.onBindStateChange?.(state);
       },
     });
   } catch (err) {
