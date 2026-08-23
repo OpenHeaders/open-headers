@@ -28,7 +28,8 @@ cleartext on a trusted network with --allow-insecure-lan
 | Extra moving parts | None | A reverse proxy (Caddy or nginx) and a domain name |
 | Daemon bind | `0.0.0.0` | Stays on `127.0.0.1` when the proxy runs on the same machine |
 | Extension, desktop, CLI clients | Work from any machine on the network | Work from anywhere the domain resolves |
-| The served web app in a browser | Only on the server's own machine, at `http://127.0.0.1:8137/` | From any browser, at `https://<your-host>/` |
+| The served web app in a browser | Only on the server's own machine, at `http://127.0.0.1:8137/`, or through an SSH tunnel to it | From any browser, at `https://<your-host>/` |
+| [Claiming the server](/server/first-run) | On the server itself, with no setup code | From any browser, with the setup code from `ohd status` |
 
 Tokens are required on every non-loopback connection in **both**
 postures — the decision is about encryption on the wire, not about
@@ -52,11 +53,11 @@ ohd install --bind-address 0.0.0.0 --allow-insecure-lan
 ohd restart        # a running daemon keeps its old bind until restarted
 ```
 
-Run `ohd show-token` (daemon stopped) to see the LAN join URLs. If
-clients still cannot connect, check that the host firewall
-(`ufw`/`firewalld`) admits port 8137 — the daemon logs every connection
-it refuses, so a client that fails while the log stays silent never
-reached the process at all.
+`ohd status` lists the LAN join URLs the running daemon actually
+answers at. If clients still cannot connect, check that the host
+firewall (`ufw`/`firewalld`) admits port 8137 — the daemon logs every
+connection it refuses, so a client that fails while the log stays
+silent never reached the process at all.
 
 The daemon warns at boot as a standing reminder of the posture:
 
@@ -83,10 +84,12 @@ ohd restart
 
 Two flags, two jobs:
 
-- `--trusted-proxy` makes auth logs and rate limits use the client
-  address the proxy appends to `X-Forwarded-For` instead of the
-  proxy's own. **Never set it without a proxy in front** — clients
-  could then spoof the header.
+- `--trusted-proxy` makes auth logs, rate limits, and the
+  [claim](/server/first-run)'s loopback test use the client address the
+  proxy appends to `X-Forwarded-For` instead of the proxy's own —
+  without it a proxy on the same machine would make every remote
+  browser look local and the setup code would gate nothing. **Never set
+  it without a proxy in front** — clients could then spoof the header.
 - `--allowed-host` admits the proxy's domain on the browser-facing
   routes. IP addresses, `localhost`, and mDNS `*.local` names always
   work; any other hostname — a reverse-proxy domain, an intranet

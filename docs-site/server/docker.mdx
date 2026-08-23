@@ -41,10 +41,33 @@ volumes:
   oh-data:
 ```
 
+## Claim it
+
+A fresh container has no administrator — the first browser to reach it
+creates one ([First run](/server/first-run)). The container's bind is
+never loopback from the host's point of view, so the browser presents
+the **setup code** the daemon prints at boot:
+
+```sh
+docker logs <container> | grep -A2 'unclaimed'
+```
+
+And because the claim happens in a browser, the URL must be a secure
+origin: put a TLS reverse proxy in front and claim at
+`https://<your-host>/`, or forward loopback from the container's host
+over SSH (`ssh -L 8137:127.0.0.1:8137 you@dockerhost`) and claim at
+`http://127.0.0.1:8137/` — which the daemon still sees as a bridge
+peer, so bring the code either way.
+
+Each restart mints a new code, so read it from the log of the run you
+are claiming.
+
 ## Operating a containerized daemon
 
-- **First token**: `ohd show-token` needs the daemon stopped and the
-  same data dir. Stop the container, then run it against the volume:
+- **Machine bootstrap token**: `ohd show-token` needs the daemon
+  stopped and the same data dir. Stop the container, then run it
+  against the volume — and note the claim revokes unbound tokens, so
+  mint this after claiming, not before:
 
   ```sh
   docker stop <container>

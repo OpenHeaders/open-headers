@@ -1,36 +1,71 @@
 ---
 title: "Tokens & pairing"
-description: "Mint the first client token, join clients, and understand the admission and rate-limit rules every route enforces."
+description: "Where client credentials come from on a claimed server, what the machine bootstrap is still for, and the admission and rate-limit rules every route enforces."
 ---
 
 By the end of this page your clients are joined with tokens and you
 know how the daemon decides which requests it accepts.
 
-## The first token
+A token is a **device credential** — how a client that cannot hold a
+browser session (the extension, the desktop app, the CLI, an MCP agent)
+proves itself. It is not how a person signs in: a browser
+[claims the server](/server/first-run) or signs in with a password.
 
-```sh
-ohd show-token     # daemon stopped; the secret is shown once
-```
+## Where client tokens come from
 
-`show-token` mints a client auth token against the daemon's data dir
-and prints the join URLs alongside a one-time secret — copy it when it
-appears. It requires the daemon to be stopped (`storage.json` is
-single-writer); while the daemon runs, mint further tokens from a
-connected admin surface instead.
+On a claimed server, from the admin console: sign in at the server's
+URL, open **Settings → Backends → Open admin console**, and use
+**Paired devices** to either
 
-Add the daemon as a backend in any client — extension, desktop app,
-web app — under **Settings → Backends** with a join URL and that
-token. For the CLI:
+- **Generate token** — mint a secret to paste into a client, optionally
+  bound to a directory user, or
+- **Pair a device** — show a short code the device enters under its own
+  **Settings → Backend → Pair with a code**, for when someone else sets
+  the device up.
+
+Both add an entry to the same ledger, and both can be rotated or
+revoked from that list. Revoking disconnects whatever was using the
+token immediately.
+
+Then add the daemon as a backend in the client — extension or desktop
+app, under **Settings → Backends** — with a join URL and that token.
+For the CLI:
 
 ```sh
 oh connect --daemon http://127.0.0.1:8137 --token <secret>
 ```
 
+## The machine bootstrap
+
+```sh
+ohd show-token     # daemon stopped; the secret is shown once
+```
+
+`show-token` mints a token straight against the daemon's data dir and
+prints it with every URL a client might join at. It exists for one
+case: **attaching a native client to a headless box before any browser
+is involved** — no console to open yet, or none you can reach. It is
+not how people get into the server, and it is not the first step of a
+normal install.
+
+It requires the daemon to be stopped (`storage.json` is single-writer)
+and the secret is shown once.
+
+<Warning>
+  A token minted this way with no `--user` is **unbound**: it acts as
+  the server operator, with full administrative power. Claiming the
+  server **revokes every unbound token** and disconnects whatever was
+  using it — that is deliberate, since leaving them alive would be a
+  way around the administrator the claim just created. Bind the token
+  to a directory user with `ohd show-token --user <id-or-email>` if it
+  should survive a later claim, or simply pair the device again from
+  the console afterwards.
+</Warning>
+
 ## What tokens gate
 
 Tokens are required on **every non-loopback connection** — LAN and
-proxied alike. Pairing and token administration beyond the first token
-happen from a connected client. The token-gated surfaces:
+proxied alike. The token-gated surfaces:
 
 - WebSocket sync (every client connection)
 - `/mcp` (bearer token; see the [MCP quick start](/quickstart/mcp))
@@ -47,8 +82,8 @@ Every route on the bind enforces its own Origin/Host posture:
   daemon's own served origin.
 - The pairing pages accept only same-origin form posts.
 - The web app pages accept top-level navigations and same-origin
-  fetches; the SSO login routes (`/auth/oidc/*`, active only when
-  configured) behave the same.
+  fetches; the sign-in and setup routes (`/auth/oidc/*`, active only
+  when configured; `/auth/password/*`; `/auth/setup/*`) behave the same.
 - `/healthz` stays open.
 
 Requests addressed by a hostname the daemon doesn't answer as are
@@ -60,17 +95,23 @@ Refusals are logged as
 
 ## Rate limits
 
-Failed token attempts — pairing-code guesses, WebSocket auth
-rejections, and `/mcp` bearer failures — feed one per-peer budget. A
-peer that crosses it is blocked for a cool-down: HTTP requests answer
-`429` with a `Retry-After` header and the body
-`{"error":"too many failed attempts"}`; upgrades are refused. The
-daemon logs a single line at the transition:
+Failed credential attempts — pairing-code guesses, WebSocket auth
+rejections, `/mcp` bearer failures, refused sign-ins and refused claims
+— feed one per-peer budget. A peer that crosses it is blocked for a
+cool-down: HTTP requests answer `429` with a `Retry-After` header and
+the body `{"error":"too many failed attempts"}`; upgrades are refused.
+The daemon logs a single line at the transition:
 
 ```
 peer throttled: <N> failed <route> attempts in <window>s, blocked for <block>s (peer=<addr>)
 ```
 
+A mistyped name or too-short password on the setup card is **not** a
+failed attempt — it discloses nothing about the server, and a typo must
+not lock out the person claiming their own box.
+
 Behind a reverse proxy, set `--trusted-proxy` so the budget applies to
 the real client address from `X-Forwarded-For`, not the proxy's own —
-see [LAN vs TLS proxy](/server/lan-vs-tls).
+see [LAN vs TLS proxy](/server/lan-vs-tls). The same setting decides
+whether a claim counts as loopback: without it, every client arriving
+through a proxy on the same machine would look local.

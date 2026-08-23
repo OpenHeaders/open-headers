@@ -32,6 +32,7 @@ The client command line is [`oh`](/reference/oh).
 | `ohd user deactivate <id-or-email>` | Deactivate a user + revoke their tokens (daemon stopped) |
 | `ohd user grant <id-or-email> <workspaceId> <owner\|editor\|viewer>` | Grant a workspace role (daemon stopped; editors write, viewers read, no grant = no access) |
 | `ohd user revoke-grant <id-or-email> <workspaceId>` | Drop a user's grant on one workspace (daemon stopped) |
+| `ohd user set-admin <id-or-email> [--clear]` | Grant (or `--clear`) the server-admin role — the offline recovery hatch when no admin can reach the console (daemon stopped) |
 | `ohd user set-password <id-or-email> [--clear]` | Set a user's password for the local password login (daemon stopped; echo-off prompt on a terminal, or OH_DAEMON_USER_PASSWORD / OH_DAEMON_USER_PASSWORD_FILE for scripts — never a flag); `--clear` removes it |
 | `ohd license status` | Show the installed license (licensee, seats, expiry, grace) |
 | `ohd license install <file>` | Verify + install a license key file; a running daemon picks it up live — no restart |
@@ -85,7 +86,7 @@ config flags are shared by every command that reads the data dir).
 | `--user <id-or-email>` | show-token only: bind the token to a directory user (omit for a token that acts as the daemon operator) |
 | `--email <address>` | user add only: contact identity for the new user |
 | `--individual-license <key>` | user add only: individual-seat key redeemed when the daemon is at its seat limit (must match `--email`) |
-| `--clear` | user set-password only: remove the password |
+| `--clear` | user set-password: remove the password; user set-admin: revoke the server-admin role |
 | `--force` | restore only: replace existing state files in the data dir |
 
 ## Audit filter options

@@ -1,0 +1,144 @@
+---
+title: "First run: claim the server"
+description: "A fresh server has no administrator. The first browser to reach it creates one — free from the server's own machine, proved by a setup code from anywhere else."
+---
+
+By the end of this page your server has an administrator account, you
+know how to reach the claim screen from a machine that is not the
+server, and you know what the claim did to the tokens that existed
+before it.
+
+## What the front door asks for
+
+What the served web app asks a browser for is a pure function of the
+server's own state — there is nothing to configure:
+
+| State | When | The browser is asked to |
+| --- | --- | --- |
+| **Unclaimed** | The user directory is empty and no identity provider is configured | **Set up this server** — create the first administrator |
+| **Claimed** | At least one account holds a password | **Sign in** — email and password |
+| **SSO** | An OIDC provider is configured | **Sign in with your provider** |
+| **No login** | Claimed, no provider, and no account left holding a password | Nothing — the card says so plainly and names who to ask |
+
+A browser is never asked to paste a machine credential. `ohd show-token`
+still exists, and it is not part of this flow — see
+[Tokens & pairing](/server/tokens-and-pairing).
+
+## Claim it from the server's own machine
+
+Start the daemon, then open it on the box that runs it:
+
+```
+http://127.0.0.1:8137/
+```
+
+The setup card asks for a name, an email and a password (at least 8
+characters, confirmed twice). Being on the server's own machine is the
+proof that you are its operator, so nothing else is required.
+
+## Claim it from anywhere else
+
+From any other machine the card also asks for a **setup code**. The
+daemon prints it at boot:
+
+```
+this server is unclaimed — the first browser to reach it creates the admin account
+  setup code 4KFP-9QW2-XM31 — needed to claim it from any machine but this one; every restart mints a new one
+  where to point that browser: ohd status
+```
+
+`ohd status` repeats it, with the URLs a browser can actually reach:
+
+```
+! this server is unclaimed — the first browser to reach it creates the admin account
+      http://127.0.0.1:8137/
+      setup code 4KFP-9QW2-XM31 — needed from any machine but this one
+      the code is minted per run: a restart replaces it, and claiming the server retires it
+```
+
+Case and dashes do not matter — `4kfp 9qw2 xm31` claims the same
+server. The code is minted per run and **never written to disk**, so a
+restart replaces it and a successful claim retires it. A stale code is
+refused with the byte-identical answer a wrong one gets, and the
+refusal cannot tell you which it was: if the daemon has restarted since
+you copied the code, read the current one from `ohd status`.
+
+### Claiming a headless server
+
+Most servers have no browser on them. Two ways in, in order of
+preference:
+
+- **Forward loopback over SSH.**
+
+  ```sh
+  ssh -L 8137:127.0.0.1:8137 you@server
+  ```
+
+  Then open `http://127.0.0.1:8137/` on your own machine. The daemon
+  sees a loopback peer and the browser sees a secure origin, so this
+  needs no setup code, no TLS, and no reverse proxy.
+
+- **Put a TLS reverse proxy in front first**, then claim at
+  `https://<your-host>/` with the setup code — see
+  [LAN vs TLS proxy](/server/lan-vs-tls).
+
+A plain LAN URL like `http://<server>:8137/` cannot claim the server at
+all: browsers withhold `crypto.subtle` on non-loopback HTTP origins, so
+the web app loads and then refuses to start. That is a browser rule and
+it binds the web app only — the extension, desktop app and CLI reach
+`ws://<server>:8137` from anywhere on the network.
+
+## What the claim does
+
+In one transaction, against a directory it re-checks is empty:
+
+1. Creates the user and sets its password.
+2. Grants it **owner** on every workspace the server holds.
+3. Gives it the **server-admin** role, so it reaches the admin console
+   ([Users, seats & SSO](/server/users-sso)).
+4. **Revokes every unbound token** — see below.
+5. Signs the new administrator in, with a session valid for 30 days.
+
+The claim is one-shot by state, not by timer: there is no window to
+miss, and once the directory is no longer empty the setup route answers
+the same refusal forever. Two browsers racing one unclaimed server
+produce exactly one administrator.
+
+### The claim unpairs bootstrap devices
+
+A token minted with `ohd show-token` and not bound to a user acts as
+the **server operator** — full administrative power. Leaving those
+alive past a claim would be a standing way around the administrator you
+just created, so the claim revokes all of them and disconnects whatever
+was using them. The setup screen reports how many devices it unpaired;
+pair them again from the admin console under **Paired devices**.
+
+Tokens bound to a directory user (`ohd show-token --user <id-or-email>`)
+are unaffected.
+
+## After the claim
+
+- The setup screen is gone for good. Every later browser is asked to
+  sign in, and a second claim is refused.
+- Further accounts come from the admin console (**Settings → Backends →
+  Open admin console**), from `ohd user add` with the daemon stopped, or
+  from an identity provider — see
+  [Users, seats & SSO](/server/users-sso).
+- There is **no self-service password reset**. If the first
+  administrator's password is lost, reset it on the server:
+
+  ```sh
+  ohd stop
+  ohd user set-password <id-or-email>
+  ohd start
+  ```
+
+- If every administrator is gone, `ohd user set-admin <id-or-email>`
+  (daemon stopped) is the offline recovery hatch.
+
+## Next
+
+- Clients join with tokens minted from the console:
+  [Tokens & pairing](/server/tokens-and-pairing).
+- Named users, grants and SSO:
+  [Users, seats & SSO](/server/users-sso).

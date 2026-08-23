@@ -34,6 +34,19 @@ daemon printed — every message below is quoted verbatim.
 | The page loads and shows `This page needs a secure connection` instead of the Workbench | The tab is on a plain-HTTP origin that is not loopback — browsers withhold `crypto.subtle` there, and the Workbench cannot mint its identity without it | Open it on the server itself at `http://127.0.0.1:8137/`, or put the daemon behind a [TLS reverse proxy](/server/lan-vs-tls) and open `https://<your-host>/`. This binds the web app only — the extension, desktop app, and CLI connect over `ws://<server>:8137` from anywhere on the network |
 | `/` answers `400` and no web app is served | The distribution shipped no web bundle, or `--web-root` points elsewhere | See [The web app](/server/install#the-web-app); a headless-only build is a valid deployment |
 
+## Claiming the server
+
+| Symptom | Cause | Fix |
+| --- | --- | --- |
+| The setup card answers `The server refused the setup. It may already be set up, or the setup code may be wrong or left over from an earlier start — the server prints a new one every time it restarts.` | One refusal covers every state-dependent reason on purpose, so it cannot say which | Read the current code from `ohd status` (a restart replaces it), confirm the server is still unclaimed there, and retry. Case and dashes do not matter |
+| The setup card asks for a code even though the browser IS on the server | The daemon sees the request arriving from a reverse proxy, not from loopback | Set `--trusted-proxy` so the peer is taken from `X-Forwarded-For` — see [LAN vs TLS](/server/lan-vs-tls) — or just enter the code from `ohd status` |
+| A browser reaching a container gets asked for a code | Docker's bridge address is not loopback to the daemon, whatever the host URL says | Expected — use the code from `docker logs <container>` |
+| The card says `Sign in to this server` but nobody ever created an account | The server is already claimed — the setup screen never comes back | `ohd user list` on the server (daemon stopped) shows who holds it; set a password for yourself with `ohd user set-password` |
+| The card says `This server has no way for a browser to sign in: single sign-on is not configured, and no account on it has a password.` | Claimed, no identity provider, and no account left holding a password | `ohd user set-password <id-or-email>` (daemon stopped), then sign in |
+| Paired devices stopped working immediately after the claim | The claim revokes every **unbound** token — they acted as the server operator, which would bypass the new admin | Expected; pair them again from the admin console. Bind future bootstrap tokens with `ohd show-token --user <id-or-email>` |
+| `ohd status` prints no claim block | The server is already claimed (or was claimed mid-run — the block clears without a restart) | Nothing to do; sign in instead |
+| Nobody can administer the server any more | The last admin was deactivated — deactivation is deliberately not guarded, only demotion is | `ohd stop`, `ohd user set-admin <id-or-email>`, `ohd start` |
+
 ## Tokens & auth
 
 | Symptom | Cause | Fix |
@@ -41,7 +54,7 @@ daemon printed — every message below is quoted verbatim.
 | `the daemon is running on port 8137 — stop it first (ohd stop).` | `show-token`, `config set`, `user …`, `backup`, or `restore` while the daemon runs — `storage.json` is single-writer | `ohd stop`, run the command, `ohd start`; or do it from a connected admin surface while it runs |
 | HTTP `429` with `Retry-After`; body `{"error":"too many failed attempts"}`; log shows `peer throttled: … (peer=…)` | The per-peer failure budget tripped — repeated bad tokens or pairing-code guesses | Wait out the cool-down and fix the credential; behind a proxy, set `--trusted-proxy` so the budget hits the real client, not the proxy address |
 | `--verbose reads the token-gated /metrics route — pass --token or set OH_DAEMON_TOKEN` | `ohd status --verbose` without a token | Pass `--token oh_…` or export `OH_DAEMON_TOKEN` — `/metrics` requires a paired token even on loopback |
-| The first token was never saved | `show-token` prints the secret once | Run `ohd show-token` again (daemon stopped) to mint a fresh one |
+| A minted token was never saved | `show-token` and the console both show the secret once | Mint another from the admin console under **Paired devices**, or run `ohd show-token` again (daemon stopped) |
 
 ## Settings
 
@@ -85,6 +98,7 @@ daemon printed — every message below is quoted verbatim.
 | `ohd user add` refuses at the seat limit | The free tier includes 6 seats | Deactivate an unused user, or add seats — see [Users, seats & SSO](/server/users-sso) |
 | `an individual seat needs the user email to match — add the user with --email.` | `--individual-license` without a matching `--email` | Pass the email the seat key was issued for |
 | `user '…' is deactivated — reactivation is not supported; add anew.` | Operating on a deactivated user | Create a fresh user; deactivation is permanent for that record |
+| `'…' is the only server admin — grant the role to someone else first, or the server would be left with no one who can administer it.` | Revoking the last server-admin role | Grant it to another user first; the check counts holders, not who is asking |
 | `the individual-seat key is not usable (invalid, expired, or not an individual seat).` | Bad or wrong-type key | Check the key; team licenses install via `ohd license install <file>` instead |
 
 ## Still stuck?

@@ -57,13 +57,39 @@ inside the container. Pin a version tag (they match the daemon's
 
 ```sh
 ohd install                 # write the user service unit (launchd/systemd)
-ohd show-token              # mint the first client token (shown once)
 ohd start
-ohd status                  # probes /healthz
+ohd status                  # the bind it holds, the join URLs, and the claim block
 ```
 
-`show-token` prints the join URLs and a one-time secret. Add the daemon as a
-backend in a client (Settings → Backends) with that token.
+A fresh server has no users and no administrator. **The first browser to
+reach it creates one** — open `http://127.0.0.1:8137/` on the machine that
+runs it and fill in a name, an email and a password. Being on the server's
+own machine is the proof that you are its operator; nothing is pasted into
+the browser.
+
+From any other machine the claim also asks for a **setup code**, which the
+daemon prints at boot and `ohd status` repeats while the server stays
+unclaimed:
+
+```
+! this server is unclaimed — the first browser to reach it creates the admin account
+      http://127.0.0.1:8137/
+      setup code 4KFP-9QW2-XM31 — needed from any machine but this one
+      the code is minted per run: a restart replaces it, and claiming the server retires it
+```
+
+The code is minted per run and never written to disk, so every restart
+replaces it and a successful claim retires it; a stale code is refused
+exactly like a wrong one. On a headless box, forwarding loopback over SSH
+(`ssh -L 8137:127.0.0.1:8137 you@server`) and claiming at
+`http://127.0.0.1:8137/` needs no code at all — the daemon sees a loopback
+peer and the browser sees a secure origin.
+
+The claim gives that account a password, owner on every workspace the server
+holds, and the server-admin role; it revokes every **unbound** token (see
+below) and signs the new admin in. It is one-shot by state: once the
+directory is non-empty the setup route refuses forever, and further accounts
+come from the admin console or `ohd user add`.
 
 The daemon binds `127.0.0.1:8137` by default — loopback only. To make it
 LAN-reachable you must also say how the connection is protected: either a
@@ -85,8 +111,18 @@ LAN bind and clients still cannot connect, they are being stopped before the
 daemon (which logs every connection it refuses): check that the host firewall
 (`ufw`/`firewalld`) admits port 8137.
 
-Tokens are required on every non-loopback connection; pairing and token
-administration beyond the first token happen from a connected client.
+Tokens are required on every non-loopback connection. On a claimed server,
+client tokens are minted from the admin console (Settings → Backends → Open
+admin console → Paired devices) and pasted into the client's
+Settings → Backends, or handed over as a pairing code.
+
+`ohd show-token` stays for one case: the machine bootstrap for attaching a
+native client to a headless box before any browser is involved. A token
+minted that way with no `--user` is **unbound** — it resolves to the server
+operator, with full administrative power — so claiming the server revokes
+every unbound token and disconnects whatever was using it, rather than
+leaving a standing way around the admin the claim just created. Bind it with
+`ohd show-token --user <id-or-email>` if it should survive a later claim.
 
 `install` persists the given flags into `daemon.json` and may be re-run at
 any time to reconfigure — an omitted flag keeps its persisted value
@@ -155,6 +191,10 @@ HTTP origin that is not loopback:
 - **From another machine**: only over HTTPS, i.e. behind a TLS-terminating
   reverse proxy (see below) at `https://<your-host>/`. A LAN URL like
   `http://<daemon-host>:8137/` loads but refuses to start, and says so.
+- **Over an SSH tunnel** (`ssh -L 8137:127.0.0.1:8137 you@daemon-host`):
+  `http://127.0.0.1:8137/` on the client machine — loopback to both the
+  browser and the daemon, which is also why it can claim an unclaimed server
+  with no setup code.
 
 This is a browser rule, not a daemon one, and it applies to the served web
 app alone: **the browser extension and the desktop app connect over
@@ -171,8 +211,7 @@ as before.
 ## SSO login (OIDC)
 
 Team deployments can let users sign in to the served web app through an
-OpenID Connect provider instead of pasting a pairing token. Configure the
-provider in `daemon.json`:
+OpenID Connect provider. Configure the provider in `daemon.json`:
 
 ```json
 {
@@ -202,16 +241,25 @@ workspace grants — grant access with `ohd user grant`. Daemon-local
 users, pairing, and operator-minted tokens keep working unchanged; SSO is
 additive.
 
+A server with an IdP configured is never "unclaimed" and never shows the
+setup card — configuring the provider is itself an act of administration on
+the box. No login mints the first administrator automatically, so grant it
+once offline with `ohd user set-admin <id-or-email>` (daemon stopped);
+everyone after that is a toggle in the console.
+
 ## Admission and rate limits
 
 Every route on the bind enforces its own Origin/Host posture: `/mcp` refuses
 any browser-originated request outright; the WebSocket sync route accepts
 browser-extension origins and the daemon's own served origin; the pairing
 pages accept only same-origin form posts; the web app pages accept top-level
-navigations and same-origin fetches; the SSO login routes (`/auth/oidc/*`,
-active only when configured) accept top-level navigations and same-origin
-fetches, and claim-code guesses feed the failure budget; `/healthz` stays
-open. Requests
+navigations and same-origin fetches; the sign-in and setup routes
+(`/auth/oidc/*`, active only when configured; `/auth/password/*`;
+`/auth/setup/*`, composed on every deployment) accept top-level navigations
+and same-origin fetches, and their state refusals feed the failure budget —
+a malformed-input 400 on the setup route deliberately does not, so a typo
+cannot lock out the person claiming their own box; `/healthz` stays open.
+Requests
 addressed by a hostname the daemon doesn't answer as are refused on the
 browser-facing routes — IP addresses, `localhost`, and mDNS `*.local` names
 always work; anything else (a reverse-proxy domain, an intranet name) must be

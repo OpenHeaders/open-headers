@@ -1,30 +1,72 @@
 ---
 title: "Users, seats & SSO"
-description: "Manage the daemon's user directory, workspace grants, seat limits, local passwords, and OpenID Connect login."
+description: "Manage the daemon's user directory, the server-admin role, workspace grants, seat limits, local passwords, and OpenID Connect login."
 ---
 
 By the end of this page your team has named users with the right
-workspace roles, and — if you run an identity provider — sign-in to
-the served web app through it.
+workspace roles, someone other than you can administer the server, and
+— if you run an identity provider — sign-in to the served web app goes
+through it.
 
-## The user directory
+The first account comes from the claim, not from this page: see
+[First run](/server/first-run).
 
-User administration runs offline against the data dir (daemon
-stopped; the daemon must have booted once):
+## Two ways to administer
+
+**From the admin console, while the server runs.** Sign in at the
+server's URL and open **Settings → Backends → Open admin console**.
+Users, passwords, workspace grants, the server-admin role, paired
+devices and audit reports are all there, and nothing has to be
+restarted. This is the normal path — adding a colleague costs no
+downtime.
+
+**From the CLI, with the daemon stopped.** `storage.json` is
+single-writer, so the offline verbs refuse while the daemon runs. They
+exist for scripting and for recovery — including the one case the
+console cannot cover, a server with no administrator left.
 
 ```sh
 ohd user add <name> [--email <address>]
-ohd user list                              # grants included
+ohd user list                              # grants and roles included
 ohd user grant <id-or-email> <workspaceId> <owner|editor|viewer>
 ohd user revoke-grant <id-or-email> <workspaceId>
+ohd user set-admin <id-or-email> [--clear]
 ohd user deactivate <id-or-email>          # also revokes their tokens
 ```
 
-Roles: editors write, viewers read, no grant = no access.
 Deactivation is permanent for that record — reactivation is not
 supported; add the user anew.
 
-### Local passwords
+## Two kinds of role
+
+They are deliberately independent.
+
+| | What it means | Where it is set |
+| --- | --- | --- |
+| **Workspace grant** — `owner` / `editor` / `viewer` | May read (viewer), write (editor), or administer (owner) **that one workspace**. No grant, no access. | Console → the user's grants, or `ohd user grant` |
+| **Server admin** | May administer **the box**: the directory, grants, devices, audit. | Console → the user's server-admin toggle, or `ohd user set-admin` |
+
+Administering the server does **not** imply seeing every workspace. A
+server admin with no grants can add users and mint tokens and still
+read nothing — which is the posture an audit reviewer expects, and it
+keeps workspace grants the single answer to "who may read this".
+
+<Note>
+  The server refuses to remove the **last** server admin:
+
+  ```
+  '<name>' is the only server admin — grant the role to someone else first,
+  or the server would be left with no one who can administer it.
+  ```
+
+  Deactivating that user is not blocked, though — if a server ends up
+  with nobody who can administer it, `ohd user set-admin <id-or-email>`
+  with the daemon stopped is the way back in.
+</Note>
+
+## Local passwords
+
+Set from the console, or offline:
 
 ```sh
 ohd user set-password <id-or-email>         # echo-off prompt
@@ -34,11 +76,16 @@ ohd user set-password <id-or-email> --clear
 For scripts, supply the password via `OH_DAEMON_USER_PASSWORD` or
 `OH_DAEMON_USER_PASSWORD_FILE` — never a flag.
 
+A password is what lets a person sign in through a browser. Clearing
+the password of the **only** holder on a server with no identity
+provider leaves nothing a browser can sign in with, and the served web
+app says exactly that rather than pretending to be a door.
+
 ## Seats & licensing
 
 The free tier includes **6 seats** — active users in the directory.
 Paid plans only add seats above that; the software is otherwise
-identical. At the seat limit, `ohd user add` refuses; an
+identical. At the seat limit, adding a user refuses; an
 individual-seat key matching the user's email admits past it:
 
 ```sh
@@ -58,9 +105,8 @@ expiry only stops NEW growth beyond the free tier.
 
 ## SSO login (OIDC)
 
-Team deployments can let users sign in to the served web app through
-an OpenID Connect provider instead of pasting a pairing token.
-Configure the provider in `daemon.json`:
+Team deployments can let users sign in to the served web app through an
+OpenID Connect provider. Configure the provider in `daemon.json`:
 
 ```json
 {
@@ -84,9 +130,28 @@ may be omitted for single-hostname deployments; the daemon then
 derives it from the request.
 
 A successful login maps the provider's verified email onto a daemon
-user (`ohd user add <name> --email <email>`) and mints a session token
-bound to that user, expiring after `sessionTtlDays` (default 30).
-Unknown emails are refused unless `autoProvision` is `true`, which
-creates the user with zero workspace grants — grant access with
-`ohd user grant`. Daemon-local users, pairing, and operator-minted
-tokens keep working unchanged; SSO is additive.
+user and mints a session token bound to that user, expiring after
+`sessionTtlDays` (default 30). Unknown emails are refused unless
+`autoProvision` is `true`, which creates the user with zero workspace
+grants — grant access from the console or with `ohd user grant`.
+
+<Note>
+  **A server with an identity provider is never "unclaimed"** and never
+  shows the setup card: configuring an IdP is itself an act of
+  administration performed on the box, so there is no second ceremony.
+  That also means no login mints the first administrator
+  automatically. Grant it once, offline, to a user who already exists
+  in the directory — one `ohd user add` put there, or one a first SSO
+  login auto-provisioned:
+
+  ```sh
+  ohd stop
+  ohd user set-admin <email>
+  ohd start
+  ```
+
+  Every administrator after that is a toggle in the console.
+</Note>
+
+Pairing and operator-minted tokens keep working unchanged; SSO is
+additive.

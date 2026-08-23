@@ -51,10 +51,14 @@ with checksum-verified, crash-safe unpacking; set
 ```sh
 ohd install     # write the user service unit and persist config
 ohd start
-ohd status      # probes /healthz
+ohd status      # the bind it holds, the join URLs, and the claim block
 ohd stop
 ohd restart     # how a changed config or swapped binary takes effect
 ```
+
+A freshly started daemon has an empty user directory — the first
+browser to reach it creates the administrator, and `ohd status` prints
+where to point that browser. See [First run](/server/first-run).
 
 `ohd install` writes a **user** service unit — a launchd LaunchAgent
 on macOS, a systemd user unit on Linux — and persists the config flags
@@ -146,6 +150,7 @@ the machine:
 | The server itself | `http://127.0.0.1:8137/` | Yes — loopback is a secure origin |
 | Another machine, plain HTTP | `http://<server>:8137/` | No — the page loads and refuses to start |
 | Another machine, behind TLS | `https://<your-host>/` | Yes — see [LAN vs TLS proxy](/server/lan-vs-tls) |
+| Another machine, over an SSH tunnel | `http://127.0.0.1:8137/` after `ssh -L 8137:127.0.0.1:8137 you@server` | Yes — the browser sees loopback, and so does the daemon |
 
 The Workbench needs the browser's cryptography APIs (`crypto.subtle`) to
 mint its identity, and browsers withhold them on any plain-HTTP origin
@@ -163,6 +168,8 @@ headless-only and `/` answers 400.
 
 ## Next
 
+- The server has no administrator until a browser claims it:
+  [First run](/server/first-run).
 - Making it reachable beyond loopback is a deliberate step:
   [LAN vs TLS proxy](/server/lan-vs-tls).
 - Clients join with a token: [Tokens & pairing](/server/tokens-and-pairing).

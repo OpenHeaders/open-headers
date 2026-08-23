@@ -23,6 +23,10 @@ provider for SSO login, if you set one up).
     Install the binaries, run the daemon as a user service, and
     understand where configuration, state, and logs live.
   </Card>
+  <Card title="First run: claim it" href="/server/first-run">
+    A fresh server has no administrator. The first browser to reach it
+    creates one — and what that claim does to existing tokens.
+  </Card>
   <Card title="LAN vs TLS proxy" href="/server/lan-vs-tls">
     The one decision every deployment makes: how connections to the
     daemon are protected once it leaves loopback.
@@ -32,12 +36,12 @@ provider for SSO login, if you set one up).
     and a Compose file.
   </Card>
   <Card title="Tokens & pairing" href="/server/tokens-and-pairing">
-    Mint the first token, join clients, and understand the admission
-    rules every route enforces.
+    Where client credentials come from once the server is claimed, and
+    the admission rules every route enforces.
   </Card>
   <Card title="Users, seats & SSO" href="/server/users-sso">
-    The user directory, workspace grants, seat limits, passwords, and
-    OpenID Connect login for the served web app.
+    The user directory, the server-admin role, workspace grants, seat
+    limits, passwords, and OpenID Connect login.
   </Card>
   <Card title="Backup & restore" href="/server/backup-restore">
     Checksummed snapshots of the daemon's state, and how a restore

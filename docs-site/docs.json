@@ -47,7 +47,7 @@
           },
           {
             "group": "Run it",
-            "pages": ["server/install", "server/lan-vs-tls", "server/docker"]
+            "pages": ["server/install", "server/first-run", "server/lan-vs-tls", "server/docker"]
           },
           {
             "group": "Operate it",

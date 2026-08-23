@@ -1,12 +1,13 @@
 ---
 title: "Server quick start"
-description: "Install the Open Headers Server, mint your first token, and connect a client — on your machine or your LAN — in about ten minutes."
+description: "Install the Open Headers Server, claim it from your browser, and connect a client — on your machine or your LAN — in about ten minutes."
 ---
 
-By the end of this page you have `ohd` running as a service, a client
-token in hand, and the browser extension, desktop app, or CLI syncing
-against your own server. No account, no cloud relay — the daemon makes
-zero outbound connections except ones you configure.
+By the end of this page you have `ohd` running as a service, an
+administrator account you created in the browser, and the browser
+extension, desktop app, or CLI syncing against your own server. No
+account with us, no cloud relay — the daemon makes zero outbound
+connections except ones you configure.
 
 ## Install
 
@@ -61,32 +62,99 @@ are downloadable from the
 
 ```sh
 ohd install                 # write the user service unit (launchd/systemd)
-ohd show-token              # mint the first client token (shown once)
 ohd start
-ohd status                  # probes /healthz
+ohd status                  # the bind it holds, and how to claim it
 ```
 
-`ohd show-token` prints the join URLs and a one-time secret — copy it
-now; it is shown once. On Linux, `install` also enables the unit for
-boot and turns on user lingering, so the daemon survives reboots and
-outlives the SSH session that installed it; if a step needs privileges,
-the exact manual command is printed instead. On macOS the LaunchAgent
-starts at login.
+On Linux, `install` also enables the unit for boot and turns on user
+lingering, so the daemon survives reboots and outlives the SSH session
+that installed it; if a step needs privileges, the exact manual command
+is printed instead. On macOS the LaunchAgent starts at login.
+
+## Claim the server
+
+A fresh server has no users and no administrator. **The first browser
+to reach it creates one** — open it on the machine that runs it:
+
+```
+http://127.0.0.1:8137/
+```
+
+The page asks for a name, an email and a password (at least 8
+characters). That account becomes the server's first administrator: it
+signs in from any browser and it is the one that reaches the admin
+console. Nothing is pasted into the browser — being on the server's own
+machine is proof enough that you are its operator.
+
+From **any other machine** the claim also asks for a **setup code**.
+The daemon prints it at boot, and `ohd status` repeats it for as long
+as the server stays unclaimed:
+
+```
+! this server is unclaimed — the first browser to reach it creates the admin account
+      http://127.0.0.1:8137/
+      setup code 4KFP-9QW2-XM31 — needed from any machine but this one
+      the code is minted per run: a restart replaces it, and claiming the server retires it
+```
+
+The code is minted per run and never written to disk, so **every
+restart replaces it**. A stale code is refused exactly like a wrong
+one and the refusal cannot say which it was — if the daemon has
+restarted since you copied it, read the current one from `ohd status`.
+
+Once the claim succeeds the setup screen is gone for good: every later
+browser is asked to sign in, a second claim is refused, and further
+accounts are created from the admin console or provisioned through
+[SSO](/server/users-sso).
+
+<Note>
+  There is no self-service password reset on the sign-in page. If the
+  first administrator's password is lost, reset it on the server with
+  `ohd user set-password <email>` (daemon stopped).
+</Note>
+
+### Claiming a headless server
+
+Most servers have no browser on them. Two ways in, in order of
+preference:
+
+- **Forward loopback over SSH.** `ssh -L 8137:127.0.0.1:8137 you@server`,
+  then open `http://127.0.0.1:8137/` on your own machine. The daemon
+  sees a loopback peer and the browser sees a secure origin, so this
+  needs no setup code and no TLS.
+- **Put a TLS reverse proxy in front first**, then claim at
+  `https://<your-host>/` with the setup code from `ohd status` — see
+  [LAN vs TLS proxy](/server/lan-vs-tls).
+
+A plain LAN URL like `http://<server>:8137/` cannot claim the server:
+the browser refuses to start the web app on a non-loopback HTTP origin
+at all (see below).
+
+### If the claim unpairs a device
+
+Tokens minted with `ohd show-token` before the claim are **unbound** —
+they act as the server operator, which after a claim would be a way
+around the administrator you just created. So the claim revokes every
+one of them and the setup screen says how many devices it unpaired.
+Pair them again from the admin console.
 
 ## Connect a client
 
+Sign in at the server's URL, then open **Settings → Backends → Open
+admin console** and mint a token under **Paired devices**. That is
+where client credentials come from on a claimed server.
+
 Add the server as a backend in the browser extension or the desktop app
-under **Settings → Backends**, using a join URL and the token from
-`show-token`. Those clients dial `ws://<server>:8137` from any machine
-on the network, with no TLS involved — the normal way to use a headless
-server. For the CLI:
+under **Settings → Backends**, using a join URL and that token. Those
+clients dial `ws://<server>:8137` from any machine on the network, with
+no TLS involved — the normal way to use a headless server. For the CLI:
 
 ```sh
 oh connect --daemon http://127.0.0.1:8137 --token <secret>
 oh status
 ```
 
-The daemon also serves the Workbench as a web app on its bind, but a
+The daemon serves the Workbench as a web app on its bind, but a
 browser only runs it from a **secure origin**: `http://127.0.0.1:8137/`
 on the server's own machine, or `https://…` behind a
 [TLS reverse proxy](/server/lan-vs-tls). A plain LAN URL like
