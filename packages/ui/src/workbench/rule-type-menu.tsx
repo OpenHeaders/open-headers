@@ -23,7 +23,7 @@ import type { ExtensionRuleType } from '@openheaders/core/types';
 import type { MessageKey } from '@openheaders/i18n';
 import type { Translate } from '@openheaders/ui/context/LocaleContext';
 import type React from 'react';
-import { createElement } from 'react';
+import { codeBadge } from './components/shared/code-badge';
 import { RULE_TYPE_CODES } from './components/shared/rule-codes';
 import { TEMPLATES_BY_TYPE } from './rule-templates';
 
@@ -117,33 +117,6 @@ export const ALL_RULE_TYPES: RuleTypeMenuItem[] = [
     desktopOnly: false,
   },
 ];
-
-/** Render a fixed-width monospace code badge — a neutral gradient fill
- *  (no hue) so it never reads as a status/scope color. The fixed slot
- *  keeps menu labels aligned across codes of different length. */
-function codeBadge(code: string): React.ReactNode {
-  return createElement(
-    'span',
-    {
-      style: {
-        display: 'inline-block',
-        width: 48,
-        flexShrink: 0,
-        backgroundImage: 'linear-gradient(180deg, var(--rule-code-from, #6b7689), var(--rule-code-to, #3d4456))',
-        WebkitBackgroundClip: 'text',
-        backgroundClip: 'text',
-        WebkitTextFillColor: 'transparent',
-        color: 'transparent',
-        fontFamily: "ui-monospace, 'SF Mono', Menlo, monospace",
-        fontSize: 11,
-        fontWeight: 700,
-        letterSpacing: '0.03em',
-        lineHeight: 1,
-      },
-    },
-    code,
-  );
-}
 
 /** Render a rule-type code badge (see {@link codeBadge}). */
 export function ruleTypeBadge(type: ExtensionRuleType): React.ReactNode {

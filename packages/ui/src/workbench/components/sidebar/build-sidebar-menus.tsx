@@ -10,6 +10,7 @@
 
 import { FolderOpenOutlined, ImportOutlined, PlusOutlined } from '@ant-design/icons';
 import type { Translate } from '@openheaders/ui/context/LocaleContext';
+import { type RequestKind, buildRequestKindMenuItems } from '../../request-kind-menu';
 import { buildRuleTypeMenuItems } from '../../rule-type-menu';
 
 interface BuildCreateMenuItemsOptions {
@@ -33,13 +34,16 @@ export function buildCreateMenuItems({ onCreateRule, createNewCollection }: Buil
 interface BuildRequestImportMenuItemsOptions {
   createNewRequestCollection: () => Promise<void>;
   onCreateRequest?: (context?: { collectionId?: string; folderPath?: string }) => void;
+  /** Destination-less create per protocol. When wired, "New Request"
+   *  expands into the four kinds instead of minting HTTP outright. */
+  onCreateRequestOfKind?: (kind: RequestKind) => void;
   /** Opens the import hub — curl/URL/HAR/Postman/workspace are
    *  auto-detected there, so the menu carries a single entry. */
   onImport?: (context?: { collectionId?: string }) => void;
 }
 
 export function buildRequestImportMenuItems(
-  { createNewRequestCollection, onCreateRequest, onImport }: BuildRequestImportMenuItemsOptions,
+  { createNewRequestCollection, onCreateRequest, onCreateRequestOfKind, onImport }: BuildRequestImportMenuItemsOptions,
   t: Translate,
 ) {
   return [
@@ -49,15 +53,22 @@ export function buildRequestImportMenuItems(
       label: t('workbench.sidebar.menu.newCollection'),
       onClick: () => void createNewRequestCollection(),
     },
-    ...(onCreateRequest
+    ...(onCreateRequestOfKind || onCreateRequest
       ? [
           { type: 'divider' as const, key: 'div-request' },
-          {
-            key: 'new-request',
-            icon: <PlusOutlined />,
-            label: t('workbench.sidebar.menu.newRequest'),
-            onClick: () => onCreateRequest(),
-          },
+          onCreateRequestOfKind
+            ? {
+                key: 'new-request',
+                icon: <PlusOutlined />,
+                label: t('workbench.sidebar.menu.newRequest'),
+                children: buildRequestKindMenuItems(onCreateRequestOfKind, t),
+              }
+            : {
+                key: 'new-request',
+                icon: <PlusOutlined />,
+                label: t('workbench.sidebar.menu.newRequest'),
+                onClick: () => onCreateRequest?.(),
+              },
         ]
       : []),
     ...(onImport

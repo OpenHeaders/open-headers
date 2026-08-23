@@ -93,5 +93,14 @@ export interface TreeNode {
   // Placeholder empty state
   placeholderTitle?: string;
   placeholderMessage?: string;
-  placeholderActions?: Array<{ label: string; icon: React.ReactNode; onClick: () => void }>;
+  /** CTA buttons under the placeholder copy. A button either acts
+   *  directly (`onClick`) or, when the gesture has kinds to pick from,
+   *  opens `menuItems` — never both, so no button silently picks a
+   *  default kind on the user's behalf. */
+  placeholderActions?: Array<{
+    label: string;
+    icon: React.ReactNode;
+    onClick?: () => void;
+    menuItems?: ItemType[];
+  }>;
 }

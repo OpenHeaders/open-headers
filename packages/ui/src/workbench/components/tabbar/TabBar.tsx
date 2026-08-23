@@ -22,10 +22,11 @@ import type React from 'react';
 import { Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { ShortcutHintTitle } from '@openheaders/ui/components/ShortcutKbd';
 import { useT } from '@openheaders/ui/context/LocaleContext';
-import { ApiRequestsIcon } from '@openheaders/ui/shared/icons';
+import { ApiRequestsIcon, RequestRulesIcon } from '@openheaders/ui/shared/icons';
 import { usePopoverViewportFit } from '@openheaders/ui/shared/popover';
 import { useDragIntent } from '../../drag-intent';
 import { useShortcutLabel } from '../../hooks/useWorkspaceShortcuts';
+import { type RequestKind, buildRequestKindMenuItems } from '../../request-kind-menu';
 import { buildRuleTypeMenuItems } from '../../rule-type-menu';
 import type { ClosedTab, WorkbenchTab } from '../../types';
 import CappedMenuPopup from '../shared/CappedMenuPopup';
@@ -85,8 +86,9 @@ interface TabBarProps {
    *  renders for duplicable modes. */
   onDuplicate?: (tabId: string) => void;
   onCreateRule: (type: string) => void;
-  /** "Create API Request" row at the top of the + create menu. */
-  onCreateRequest: () => void;
+  /** "Create API Request" branch of the + create menu — the picked
+   *  protocol decides which request family the new tab holds. */
+  onCreateRequest: (kind: RequestKind) => void;
   onCloseOther: (tabId: string) => void;
   onCloseAll: () => void;
   onCloseUnmodified: () => void;
@@ -319,21 +321,23 @@ const TabBar: React.FC<TabBarProps> = ({
     setCreateMenuPlacement(window.innerWidth - rect.left >= CREATE_MENU_WIDTH_PX ? 'bottomLeft' : 'bottomRight');
   }, [createMenuOpen, measureCreateMenu, createTriggerRef]);
 
-  // "Create API Request" leads the menu; the fixed-width icon slot
-  // matches the rule rows' 48px code badges so labels stay aligned.
+  // Two layers: the create menu names the two families a new tab can
+  // hold, each expanding into its own kinds. Flattening the rule types
+  // into the top level (as this menu once did) made the API request —
+  // the more common gesture — one row among twelve.
   const createMenuItems: ItemType[] = [
     {
       key: 'api-request',
-      icon: (
-        <span style={{ display: 'inline-flex', width: 48, flexShrink: 0 }}>
-          <ApiRequestsIcon />
-        </span>
-      ),
+      icon: <ApiRequestsIcon />,
       label: t('workbench.tabbar.createApiRequest'),
-      onClick: onCreateRequest,
+      children: buildRequestKindMenuItems(onCreateRequest, t),
     },
-    { type: 'divider' },
-    ...buildRuleTypeMenuItems(onCreateRule, t),
+    {
+      key: 'rule',
+      icon: <RequestRulesIcon />,
+      label: t('workbench.tabbar.createRule'),
+      children: buildRuleTypeMenuItems(onCreateRule, t),
+    },
   ];
   const sortableIds = tabs.map((t) => `${leafId}::${t.id}`);
 

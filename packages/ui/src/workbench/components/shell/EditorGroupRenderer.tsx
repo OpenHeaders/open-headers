@@ -35,6 +35,7 @@ import { type DragIntent, DragIntentContext } from '../../drag-intent';
 import { useFocusedRegion } from '../../stores/focus-region-store';
 import { allLeaves, type EditorLeaf, type EditorNode, findLeaf, findParentSplitLink } from '../../editor-groups';
 import type { UseEditorGroupsApi } from '../../hooks/useEditorGroups';
+import type { RequestKind } from '../../request-kind-menu';
 import type { ClosedTab, WorkbenchTab } from '../../types';
 import TabBar from '../tabbar/TabBar';
 
@@ -248,8 +249,9 @@ export interface EditorGroupRendererProps {
    *  imperative sync hook. See `tab-display.ts`. */
   getDisplayLabel?: (tab: WorkbenchTab) => string;
   onCreateRule: (type: string) => void;
-  /** "Create API Request" row on each leaf's + create menu. */
-  onCreateRequest: () => void;
+  /** "Create API Request" branch on each leaf's + create menu — the
+   *  picked protocol decides which request family the new tab holds. */
+  onCreateRequest: (kind: RequestKind) => void;
   createMenuOpen?: boolean;
   onCreateMenuOpenChange?: (open: boolean) => void;
   /** Forwarded to the focused leaf's TabBar so App.tsx can reach the tab-search toggle. */

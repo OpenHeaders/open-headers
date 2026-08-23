@@ -26,6 +26,7 @@ import { useCopyRequestSnippet } from '../../hooks/useCopyRequestSnippet';
 import type { WorkbenchTab } from '../../types';
 import { exportNodeFields } from './export-fields';
 import { composeBadge, exampleTag, grpcTag, iconEl, methodTag, websocketTag } from './icons';
+import { requestKindAddMenuItems } from '../../request-kind-menu';
 import { containerActionMenuItems, containerAddMenuItems } from './menus';
 import type { TreeNode } from './types';
 import type { SidebarExportEntity } from '../workspace-export/build-export-scope';
@@ -732,7 +733,21 @@ export function useRequestTreeNodes(p: UseRequestTreeNodesParams): TreeNode[] {
               {
                 label: t('workbench.sidebar.placeholder.addRequest'),
                 icon: iconEl(PlusOutlined, 'var(--ant-color-text-tertiary, #999)'),
-                onClick: onAddRequest,
+                // Same four protocols the collection's `+` offers —
+                // the CTA picks nothing on the user's behalf.
+                menuItems: requestKindAddMenuItems(
+                  {
+                    onAddRequest,
+                    ...(p.onCreateGrpcRequest ? { onAddGrpcRequest } : {}),
+                    ...(p.onCreateWebSocketRequest
+                      ? {
+                          onAddWebSocketRequest: () => onAddWebSocketRequest('raw'),
+                          onAddSocketIoRequest: () => onAddWebSocketRequest('socketio'),
+                        }
+                      : {}),
+                  },
+                  t,
+                ),
               },
               {
                 label: t('workbench.sidebar.placeholder.addFolder'),
@@ -758,6 +773,7 @@ export function useRequestTreeNodes(p: UseRequestTreeNodesParams): TreeNode[] {
     p.confirmDelete,
     p.onCreateRequest,
     p.onCreateGrpcRequest,
+    p.onCreateWebSocketRequest,
     p.draftsByLocationRequest,
     p.buildRequestDraftNode,
     p.setExpandedKeys,

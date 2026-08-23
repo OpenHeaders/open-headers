@@ -64,6 +64,7 @@ export const workbenchChrome = {
 
   // ── Tab strip: bar chrome + search overlay ──────────────────────────
   'workbench.tabbar.createApiRequest': '创建 API 请求',
+  'workbench.tabbar.createRule': '创建规则',
   'workbench.tabbar.createItem': '创建条目',
   'workbench.tabbar.searchTabs': '搜索标签页',
   'workbench.tabbar.search.placeholder': '搜索标签页...',
@@ -161,7 +162,7 @@ export const workbenchChrome = {
   'workbench.shell.empty.createVariable': '创建变量',
   'workbench.shell.empty.createVariableDesc': '环境、工作区、Live 等',
   'workbench.shell.empty.createRequest': '创建 API 请求',
-  'workbench.shell.empty.createRequestDesc': '构建、发送并保存 HTTP 请求',
+  'workbench.shell.empty.createRequestDesc': 'HTTP、gRPC、WebSocket 等',
   'workbench.shell.empty.createWorkflow': '创建工作流',
   'workbench.shell.empty.createWorkflowDesc': '串联并调度 API 请求',
   'workbench.shell.empty.import': '导入',

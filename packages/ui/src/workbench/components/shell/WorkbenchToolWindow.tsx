@@ -48,6 +48,7 @@ import type { ImportExportModalsHandle } from '../workspace-export/ImportExportM
 import type { UseEditorGroupsApi } from '../../hooks/useEditorGroups';
 import type { EntityStatusSets } from '../../hooks/useEntityStatusSets';
 import type { UseTabOpenersApi } from '../../hooks/useTabOpeners';
+import type { RequestKind } from '../../request-kind-menu';
 import type { ToolLayoutApi } from '../../hooks/useToolLayout';
 import type { UseWorkbenchSidebarStateApi } from '../../hooks/useWorkbenchSidebarState';
 import { getToolWindowInfo } from '../../tool-window-info';
@@ -90,6 +91,9 @@ interface WorkbenchToolWindowProps {
   openCreateLiveWorkflow: UseTabOpenersApi['openCreateLiveWorkflow'];
   openRequestEditTab: UseTabOpenersApi['openRequestEditTab'];
   openCreateRequestTab: UseTabOpenersApi['openCreateRequestTab'];
+  /** Destination-less request create — the API Requests header `+`
+   *  offers all four protocols and resolves the collection itself. */
+  onCreateRequestOfKind: (kind: RequestKind) => void;
   openGrpcRequestEditTab: UseTabOpenersApi['openGrpcRequestEditTab'];
   openCreateGrpcRequestTab: UseTabOpenersApi['openCreateGrpcRequestTab'];
   openWebSocketRequestEditTab: UseTabOpenersApi['openWebSocketRequestEditTab'];
@@ -158,6 +162,7 @@ const WorkbenchToolWindow: React.FC<WorkbenchToolWindowProps> = ({
   openCreateLiveWorkflow,
   openRequestEditTab,
   openCreateRequestTab,
+  onCreateRequestOfKind,
   openGrpcRequestEditTab,
   openCreateGrpcRequestTab,
   openWebSocketRequestEditTab,
@@ -231,6 +236,7 @@ const WorkbenchToolWindow: React.FC<WorkbenchToolWindowProps> = ({
           onCreateWorkflow={(context) => openCreateLiveWorkflow(context)}
           onSelectRequest={openRequestEditTab}
           onCreateRequest={openCreateRequestTab}
+          onCreateRequestOfKind={onCreateRequestOfKind}
           onSelectGrpcRequest={openGrpcRequestEditTab}
           onCreateGrpcRequest={openCreateGrpcRequestTab}
           onSelectWebSocketRequest={openWebSocketRequestEditTab}

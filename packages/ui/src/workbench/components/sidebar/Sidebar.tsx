@@ -51,6 +51,7 @@ import { useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState 
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { useEnvSwitcher } from '../../services/env-switcher';
 import { useSettingValue } from '../../settings/hooks';
+import type { RequestKind } from '../../request-kind-menu';
 import type { WorkbenchTab, WorkflowSeedStep } from '../../types';
 import CreateWorkflowFromRequestsModal, {
   type WorkflowFromRequestsTarget,
@@ -139,6 +140,10 @@ interface SidebarProps {
   onCreateWorkflow?: (context?: { seedSteps?: WorkflowSeedStep[]; name?: string }) => void;
   onSelectRequest?: (uid: string, name: string, method?: string, autoRename?: boolean) => void;
   onCreateRequest?: (context?: { collectionId?: string; folderPath?: string }) => void;
+  /** Destination-less create for the section header `+` — offers all
+   *  four protocols and resolves the destination collection itself,
+   *  unlike the container-scoped `onCreate*` handlers above. */
+  onCreateRequestOfKind?: (kind: RequestKind) => void;
   /** Open a gRPC request's edit tab (sibling entity in the request tree). */
   onSelectGrpcRequest?: (uid: string, name: string, autoRename?: boolean) => void;
   /** Context-create a gRPC request from a container's "+" menu. */
@@ -215,6 +220,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   onCreateWorkflow,
   onSelectRequest,
   onCreateRequest,
+  onCreateRequestOfKind,
   onSelectGrpcRequest,
   onCreateGrpcRequest,
   onSelectWebSocketRequest,
@@ -930,6 +936,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     {
       createNewRequestCollection,
       onCreateRequest,
+      onCreateRequestOfKind,
       onImport,
     },
     t,

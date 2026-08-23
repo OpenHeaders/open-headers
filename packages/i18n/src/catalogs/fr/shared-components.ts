@@ -286,6 +286,12 @@ export const sharedComponents = {
   'shared.ruleTypes.auth.description':
     "Fournir des identifiants pour un défi d'authentification HTTP/proxy (nécessite le mode débogage)",
 
+  // ── Request-kind registry ──────────────────────────────────────────
+  'shared.requestKinds.http.label': 'Requête HTTP',
+  'shared.requestKinds.grpc.label': 'Requête gRPC',
+  'shared.requestKinds.websocket.label': 'Requête WebSocket',
+  'shared.requestKinds.socketio.label': 'Requête Socket.IO',
+
   // ── System rule-template registry ──────────────────────────────────
   'shared.ruleTemplates.blankRule': 'Règle vierge',
 

@@ -14,6 +14,7 @@ import {
 import type { Translate } from '@openheaders/ui/context/LocaleContext';
 import type { ItemType } from 'antd/es/menu/interface';
 import { createElement } from 'react';
+import { type RequestKindAddMenuOptions, requestKindAddMenuItems } from '../../request-kind-menu';
 import { buildRuleTypeMenuItemsCE } from '../../rule-type-menu';
 
 // Must match the seeded collection name in
@@ -34,31 +35,14 @@ export function ruleTypeSubmenu(onAddRule: (type: string) => void, t: Translate)
  * filtering a single big list per-button, which let modify actions leak
  * into `+` and create actions leak into `⋯`.
  */
-export interface ContainerAddMenuOptions {
+export interface ContainerAddMenuOptions extends RequestKindAddMenuOptions {
   /** Rules side — emits a submenu of rule types. */
   onAddRule?: (type: string) => void;
-  /** Requests side — single "Add Request" item. */
-  onAddRequest?: () => void;
-  /** Requests side — "Add gRPC Request" item (sibling entity kind). */
-  onAddGrpcRequest?: () => void;
-  /** Requests side — "Add WebSocket Request" item (session-shaped
-   *  sibling entity kind, raw flavor). */
-  onAddWebSocketRequest?: () => void;
-  /** Requests side — "Add Socket.IO Request" item (same entity kind,
-   *  socketio flavor — the two-entry family anatomy). */
-  onAddSocketIoRequest?: () => void;
   onAddFolder: () => void;
 }
 
 export function containerAddMenuItems(
-  {
-    onAddRule,
-    onAddRequest,
-    onAddGrpcRequest,
-    onAddWebSocketRequest,
-    onAddSocketIoRequest,
-    onAddFolder,
-  }: ContainerAddMenuOptions,
+  { onAddRule, onAddFolder, ...requestKinds }: ContainerAddMenuOptions,
   t: Translate,
 ): ItemType[] {
   const items: ItemType[] = [];
@@ -70,38 +54,7 @@ export function containerAddMenuItems(
       children: ruleTypeSubmenu(onAddRule, t),
     });
   }
-  if (onAddRequest) {
-    items.push({
-      key: 'add-request',
-      icon: createElement(PlusOutlined),
-      label: t('workbench.sidebar.menu.addRequest'),
-      onClick: onAddRequest,
-    });
-  }
-  if (onAddGrpcRequest) {
-    items.push({
-      key: 'add-grpc-request',
-      icon: createElement(PlusOutlined),
-      label: t('workbench.sidebar.menu.addGrpcRequest'),
-      onClick: onAddGrpcRequest,
-    });
-  }
-  if (onAddWebSocketRequest) {
-    items.push({
-      key: 'add-websocket-request',
-      icon: createElement(PlusOutlined),
-      label: t('workbench.sidebar.menu.addWebSocketRequest'),
-      onClick: onAddWebSocketRequest,
-    });
-  }
-  if (onAddSocketIoRequest) {
-    items.push({
-      key: 'add-socketio-request',
-      icon: createElement(PlusOutlined),
-      label: t('workbench.sidebar.menu.addSocketIoRequest'),
-      onClick: onAddSocketIoRequest,
-    });
-  }
+  items.push(...requestKindAddMenuItems(requestKinds, t));
   items.push({
     key: 'add-folder',
     icon: createElement(FolderOutlined),

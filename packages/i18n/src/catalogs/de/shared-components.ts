@@ -300,6 +300,12 @@ export const sharedComponents = {
   'shared.ruleTypes.auth.description':
     'Anmeldedaten für eine HTTP-/Proxy-Auth-Challenge bereitstellen (erfordert Debug-Modus)',
 
+  // ── Request-kind registry ──────────────────────────────────────────
+  'shared.requestKinds.http.label': 'HTTP-Anfrage',
+  'shared.requestKinds.grpc.label': 'gRPC-Anfrage',
+  'shared.requestKinds.websocket.label': 'WebSocket-Anfrage',
+  'shared.requestKinds.socketio.label': 'Socket.IO-Anfrage',
+
   // ── System rule-template registry (same surfaces as the rule types).
   //    Template keys, icons, conditions, and form values stay raw data;
   //    embedded code/URLs inside descriptions travel inside the value. ──

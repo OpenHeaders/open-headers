@@ -294,6 +294,15 @@ export const sharedComponents = {
   'shared.ruleTypes.auth.label': 'Answer Auth Challenge',
   'shared.ruleTypes.auth.description': 'Provide credentials for an HTTP/proxy auth challenge (requires Debug mode)',
 
+  // ── Request-kind registry (workbench create menus that author a
+  //    request without a destination in hand: tab-strip `+`, editor
+  //    empty state). Labels single-source the four protocol rows; the
+  //    code badges (HTTP / gRPC / WS / S.IO) stay raw. ──
+  'shared.requestKinds.http.label': 'HTTP Request',
+  'shared.requestKinds.grpc.label': 'gRPC Request',
+  'shared.requestKinds.websocket.label': 'WebSocket Request',
+  'shared.requestKinds.socketio.label': 'Socket.IO Request',
+
   // ── System rule-template registry (same surfaces as the rule types).
   //    Template keys, icons, conditions, and form values stay raw data;
   //    embedded code/URLs inside descriptions travel inside the value. ──

@@ -1,10 +1,11 @@
 /**
  * EmptyState — shown in an editor leaf with no open tabs. A minimalist
  * landing: a grayscale brand mark over the primary "create" gestures —
- * rules (all types, via a dropdown), API requests, workflows, and
- * variables (all scopes, via a dropdown) — plus the import hub. Icons
- * mirror the matching sidebar tool windows so the actions read as
- * shortcuts into those surfaces.
+ * rules (all types), API requests (all four protocols), variables
+ * (all scopes), and workflows — each family expanding into its own
+ * kinds from a dropdown — plus the import hub. Icons mirror the
+ * matching sidebar tool windows so the actions read as shortcuts into
+ * those surfaces.
  */
 
 import { ImportOutlined, RightOutlined, SisternodeOutlined, SwapOutlined } from '@ant-design/icons';
@@ -15,6 +16,7 @@ import { Dropdown, type MenuProps, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { forwardRef, useState } from 'react';
 import { type Translate, useT } from '@openheaders/ui/context/LocaleContext';
+import { type RequestKind, buildRequestKindMenuItems } from '../../request-kind-menu';
 import { buildRuleTypeMenuItemsWithTemplates, templatesBadge } from '../../rule-type-menu';
 import { useSettingValue } from '../../settings/hooks';
 import CappedMenuPopup from '../shared/CappedMenuPopup';
@@ -31,7 +33,9 @@ interface EmptyStateProps {
   onCreateRule: (type: string) => void;
   onCreateRuleFromTemplate: (type: string, templateKey: string) => void;
   onBrowseTemplates: () => void;
-  onCreateRequest: () => void;
+  /** Create an API request of the picked protocol — the row expands
+   *  into the four kinds, same as the rules and variables rows. */
+  onCreateRequest: (kind: RequestKind) => void;
   onCreateWorkflow: () => void;
   onCreateVariable: (scope: VariableCreateScope) => void;
   /** Opens the import hub — formats are auto-detected there. */
@@ -167,10 +171,11 @@ const EmptyState: React.FC<EmptyStateProps> = ({
 }) => {
   const showHints = useSettingValue('general.showEmptyStateHints');
   const t = useT();
-  // Viewport fit for the two dropdown menus — caps each menu to the room
+  // Viewport fit for the three dropdown menus — caps each menu to the room
   // below its trigger so it shrinks + scrolls internally (persistent
   // scrollbar) instead of getting clipped on short windows.
   const ruleMenuFit = usePopoverViewportFit<HTMLButtonElement>();
+  const requestMenuFit = usePopoverViewportFit<HTMLButtonElement>();
   const variableMenuFit = usePopoverViewportFit<HTMLButtonElement>();
   // Controlled so the sticky "Browse all templates…" footer — which is
   // not an antd menu item — can close the dropdown when clicked.
@@ -221,6 +226,22 @@ const EmptyState: React.FC<EmptyStateProps> = ({
           />
         </Dropdown>
         <Dropdown
+          menu={{ items: buildRequestKindMenuItems(onCreateRequest, t) }}
+          popupRender={(menu) => <CappedMenuPopup menu={menu} maxHeight={requestMenuFit.maxHeight} />}
+          trigger={['click']}
+          autoAdjustOverflow={false}
+          onOpenChange={requestMenuFit.onOpenChange}
+        >
+          <ActionRow
+            ref={requestMenuFit.triggerRef}
+            icon={<ApiRequestsIcon />}
+            label={t('workbench.shell.empty.createRequest')}
+            description={t('workbench.shell.empty.createRequestDesc')}
+            showDescription={showHints}
+            hasMenu
+          />
+        </Dropdown>
+        <Dropdown
           menu={{ items: buildVariableScopeMenuItems(onCreateVariable, t) }}
           popupRender={(menu) => <CappedMenuPopup menu={menu} maxHeight={variableMenuFit.maxHeight} />}
           trigger={['click']}
@@ -236,13 +257,6 @@ const EmptyState: React.FC<EmptyStateProps> = ({
             hasMenu
           />
         </Dropdown>
-        <ActionRow
-          icon={<ApiRequestsIcon />}
-          label={t('workbench.shell.empty.createRequest')}
-          description={t('workbench.shell.empty.createRequestDesc')}
-          showDescription={showHints}
-          onClick={onCreateRequest}
-        />
         <ActionRow
           icon={<SisternodeOutlined />}
           label={t('workbench.shell.empty.createWorkflow')}

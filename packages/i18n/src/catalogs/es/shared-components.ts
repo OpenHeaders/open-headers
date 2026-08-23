@@ -288,6 +288,12 @@ export const sharedComponents = {
   'shared.ruleTypes.auth.description':
     'Proporcionar credenciales para un desafío de autenticación HTTP/proxy (requiere el modo de depuración)',
 
+  // ── Request-kind registry ──────────────────────────────────────────
+  'shared.requestKinds.http.label': 'Solicitud HTTP',
+  'shared.requestKinds.grpc.label': 'Solicitud gRPC',
+  'shared.requestKinds.websocket.label': 'Solicitud WebSocket',
+  'shared.requestKinds.socketio.label': 'Solicitud Socket.IO',
+
   // ── System rule-template registry ──────────────────────────────────
   'shared.ruleTemplates.blankRule': 'Regla en blanco',
 

@@ -64,6 +64,7 @@ export const workbenchChrome = {
 
   // ── Tab strip: bar chrome + search overlay ──────────────────────────
   'workbench.tabbar.createApiRequest': 'Crear una solicitud API',
+  'workbench.tabbar.createRule': 'Crear una regla',
   'workbench.tabbar.createItem': 'Crear elemento',
   'workbench.tabbar.searchTabs': 'Buscar en las pestañas',
   'workbench.tabbar.search.placeholder': 'Buscar en las pestañas...',
@@ -163,7 +164,7 @@ export const workbenchChrome = {
   'workbench.shell.empty.createVariable': 'Crear variable',
   'workbench.shell.empty.createVariableDesc': 'Entorno, espacio de trabajo, live y más',
   'workbench.shell.empty.createRequest': 'Crear solicitud API',
-  'workbench.shell.empty.createRequestDesc': 'Construye, envía y guarda solicitudes HTTP',
+  'workbench.shell.empty.createRequestDesc': 'HTTP, gRPC, WebSocket y más',
   'workbench.shell.empty.createWorkflow': 'Crear workflow',
   'workbench.shell.empty.createWorkflowDesc': 'Encadena y programa solicitudes API',
   'workbench.shell.empty.import': 'Importar',

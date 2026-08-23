@@ -20,11 +20,12 @@
 import { CodeOutlined, FolderOutlined, LockOutlined, PlusOutlined } from '@ant-design/icons';
 import { useRequests } from '@openheaders/ui/shared/hooks/readers/useRequests';
 import type { CollectionTree, FolderNode, HttpMethod, TreeNode } from '@openheaders/core/types';
-import { Button, Empty, Space, Table, Tag, Tooltip, theme } from 'antd';
+import { Button, Dropdown, Empty, Space, Table, Tag, Tooltip, theme } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import type React from 'react';
 import { useCallback, useMemo } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
+import { requestKindAddMenuItems } from '../../request-kind-menu';
 import CollectionOverviewShell from './CollectionOverviewShell';
 import { GrpcMark, WebSocketMark } from './RequestCollectionOverview';
 
@@ -34,6 +35,15 @@ interface RequestFolderOverviewProps {
   onSelectGrpcRequest: (uid: string, name: string) => void;
   onSelectWebSocketRequest: (uid: string, name: string, flavor?: 'raw' | 'socketio') => void;
   onCreateRequest: (context: { collectionId: string; folderPath?: string }) => void;
+  /** Sibling protocol creates — wired by hosts that author them, so
+   *  "Add request" offers the same four kinds the sidebar's `+` does
+   *  instead of silently minting HTTP. */
+  onCreateGrpcRequest?: (context: { collectionId: string; folderPath?: string }) => void;
+  onCreateWebSocketRequest?: (context: {
+    collectionId: string;
+    folderPath?: string;
+    flavor: 'raw' | 'socketio';
+  }) => void;
   onOpenFolderOverview: (uid: string, name: string) => void;
   onOpenFolderScripts?: (uid: string, name: string) => void;
   onOpenFolderAuth?: (uid: string, name: string) => void;
@@ -105,6 +115,8 @@ const RequestFolderOverview: React.FC<RequestFolderOverviewProps> = ({
   onSelectGrpcRequest,
   onSelectWebSocketRequest,
   onCreateRequest,
+  onCreateGrpcRequest,
+  onCreateWebSocketRequest,
   onOpenFolderOverview,
   onOpenFolderScripts,
   onOpenFolderAuth,
@@ -125,6 +137,33 @@ const RequestFolderOverview: React.FC<RequestFolderOverviewProps> = ({
       folders: countFoldersDeep(folder.children),
     };
   }, [folder]);
+
+  // "Add request" opens the protocol picker rather than acting — the
+  // same four kinds the folder's row offers on its `+`.
+  const addRequestMenuItems = useMemo(() => {
+    const context = { collectionId: collectionUid, folderPath };
+    return requestKindAddMenuItems(
+      {
+        onAddRequest: () => onCreateRequest(context),
+        ...(onCreateGrpcRequest ? { onAddGrpcRequest: () => onCreateGrpcRequest(context) } : {}),
+        ...(onCreateWebSocketRequest
+          ? {
+              onAddWebSocketRequest: () => onCreateWebSocketRequest({ ...context, flavor: 'raw' }),
+              onAddSocketIoRequest: () => onCreateWebSocketRequest({ ...context, flavor: 'socketio' }),
+            }
+          : {}),
+      },
+      t,
+    );
+  }, [collectionUid, folderPath, onCreateRequest, onCreateGrpcRequest, onCreateWebSocketRequest, t]);
+
+  const addRequestButton = (
+    <Dropdown menu={{ items: addRequestMenuItems }} trigger={['click']}>
+      <Button size="small" icon={<PlusOutlined />}>
+        {t('workbench.overview.action.addRequest')}
+      </Button>
+    </Dropdown>
+  );
 
   const rows = useMemo((): ContentRow[] => {
     if (!folder) return [];
@@ -224,13 +263,7 @@ const RequestFolderOverview: React.FC<RequestFolderOverviewProps> = ({
 
   const actions = (
     <>
-      <Button
-        size="small"
-        icon={<PlusOutlined />}
-        onClick={() => onCreateRequest({ collectionId: collectionUid, folderPath })}
-      >
-        {t('workbench.overview.action.addRequest')}
-      </Button>
+      {addRequestButton}
       {onOpenFolderScripts && folder && (
         <Tooltip title={t('workbench.overview.action.scriptsTooltipFolder')}>
           <Button size="small" icon={<CodeOutlined />} onClick={() => onOpenFolderScripts(folderUid, folder.name)}>
@@ -264,13 +297,7 @@ const RequestFolderOverview: React.FC<RequestFolderOverviewProps> = ({
         image={Empty.PRESENTED_IMAGE_SIMPLE}
         style={{ margin: '24px 0' }}
       >
-        <Button
-          size="small"
-          icon={<PlusOutlined />}
-          onClick={() => onCreateRequest({ collectionId: collectionUid, folderPath })}
-        >
-          {t('workbench.overview.action.addRequest')}
-        </Button>
+        {addRequestButton}
       </Empty>
     );
 

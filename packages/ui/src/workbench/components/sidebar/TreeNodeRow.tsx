@@ -19,7 +19,7 @@ import {
 } from '@ant-design/icons';
 import { Dropdown, Tooltip, theme } from 'antd';
 import type React from 'react';
-import { useEffect, useRef, useState } from 'react';
+import { Fragment, useEffect, useRef, useState } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { EntityField } from '@openheaders/ui/shared/awareness';
 import { highlightLabel } from './search-highlight';
@@ -131,20 +131,31 @@ export function TreeNodeRow({
           {node.placeholderTitle}
         </div>
         <div style={{ fontSize: 11, lineHeight: 1.4, marginBottom: 8 }}>{node.placeholderMessage}</div>
-        {node.placeholderActions?.map((action) => (
-          <button
-            key={action.label}
-            type="button"
-            className="rules-sidebar-create-btn"
-            style={{ color: token.colorText, marginBottom: 4, display: 'flex' }}
-            onClick={(e) => {
-              e.stopPropagation();
-              action.onClick();
-            }}
-          >
-            {action.icon} {action.label}
-          </button>
-        ))}
+        {node.placeholderActions?.map((action) => {
+          const button = (
+            <button
+              type="button"
+              className="rules-sidebar-create-btn"
+              style={{ color: token.colorText, marginBottom: 4, display: 'flex' }}
+              onClick={(e) => {
+                e.stopPropagation();
+                action.onClick?.();
+              }}
+            >
+              {action.icon} {action.label}
+            </button>
+          );
+          // A CTA with kinds to pick from opens its menu instead of
+          // acting — same choice the container's `+` offers, so the
+          // empty state isn't the one surface that decides for you.
+          return action.menuItems ? (
+            <Dropdown key={action.label} menu={{ items: action.menuItems }} trigger={['click']}>
+              {button}
+            </Dropdown>
+          ) : (
+            <Fragment key={action.label}>{button}</Fragment>
+          );
+        })}
       </div>
     );
   }

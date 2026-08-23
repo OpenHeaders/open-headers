@@ -80,6 +80,8 @@ interface WorkbenchTabBodyProps {
   openTemplateFolderOverview: UseTabOpenersApi['openTemplateFolderOverview'];
   openCollectionVariables: UseTabOpenersApi['openCollectionVariables'];
   openCreateRequestTab: UseTabOpenersApi['openCreateRequestTab'];
+  openCreateGrpcRequestTab: UseTabOpenersApi['openCreateGrpcRequestTab'];
+  openCreateWebSocketRequestTab: UseTabOpenersApi['openCreateWebSocketRequestTab'];
   openRequestCollectionVariables: UseTabOpenersApi['openRequestCollectionVariables'];
   openRequestCollectionScripts: UseTabOpenersApi['openRequestCollectionScripts'];
   openRequestFolderScripts: UseTabOpenersApi['openRequestFolderScripts'];
@@ -132,6 +134,8 @@ const WorkbenchTabBody: React.FC<WorkbenchTabBodyProps> = ({
   openTemplateFolderOverview,
   openCollectionVariables,
   openCreateRequestTab,
+  openCreateGrpcRequestTab,
+  openCreateWebSocketRequestTab,
   openRequestCollectionVariables,
   openRequestCollectionScripts,
   openRequestFolderScripts,
@@ -193,6 +197,8 @@ const WorkbenchTabBody: React.FC<WorkbenchTabBodyProps> = ({
           onSelectGrpcRequest={openGrpcRequestEditTab}
           onSelectWebSocketRequest={openWebSocketRequestEditTab}
           onCreateRequest={openCreateRequestTab}
+          onCreateGrpcRequest={openCreateGrpcRequestTab}
+          onCreateWebSocketRequest={openCreateWebSocketRequestTab}
           onOpenFolderOverview={openRequestFolderOverview}
           onOpenCollectionVariables={openRequestCollectionVariables}
           onOpenCollectionScripts={openRequestCollectionScripts}
@@ -240,6 +246,8 @@ const WorkbenchTabBody: React.FC<WorkbenchTabBodyProps> = ({
           onSelectGrpcRequest={openGrpcRequestEditTab}
           onSelectWebSocketRequest={openWebSocketRequestEditTab}
           onCreateRequest={openCreateRequestTab}
+          onCreateGrpcRequest={openCreateGrpcRequestTab}
+          onCreateWebSocketRequest={openCreateWebSocketRequestTab}
           onOpenFolderOverview={openRequestFolderOverview}
           onOpenFolderScripts={openRequestFolderScripts}
           onOpenFolderAuth={openRequestFolderAuth}

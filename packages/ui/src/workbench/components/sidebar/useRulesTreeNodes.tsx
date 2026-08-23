@@ -8,7 +8,7 @@ import type { WorkbenchTab } from '../../types';
 import { buildRuleIcon } from '../shared/rule-icon';
 import { exportNodeFields } from './export-fields';
 import { composeBadge, iconEl } from './icons';
-import { containerActionMenuItems, containerAddMenuItems } from './menus';
+import { containerActionMenuItems, containerAddMenuItems, ruleTypeSubmenu } from './menus';
 import type { TreeNode } from './types';
 import type { SidebarExportEntity } from '../workspace-export/build-export-scope';
 
@@ -190,7 +190,9 @@ export function useRulesTreeNodes(p: UseRulesTreeNodesParams): TreeNode[] {
                   {
                     label: t('workbench.sidebar.placeholder.addRule'),
                     icon: iconEl(PlusOutlined, 'var(--ant-color-text-tertiary, #999)'),
-                    onClick: () => onAddRule('header'),
+                    // Same rule types the folder's `+` offers — the CTA
+                    // picks nothing on the user's behalf.
+                    menuItems: ruleTypeSubmenu(onAddRule, t),
                   },
                   {
                     label: t('workbench.sidebar.placeholder.addFolder'),
@@ -413,7 +415,9 @@ export function useRulesTreeNodes(p: UseRulesTreeNodesParams): TreeNode[] {
               {
                 label: t('workbench.sidebar.placeholder.addRule'),
                 icon: iconEl(PlusOutlined, 'var(--ant-color-text-tertiary, #999)'),
-                onClick: () => onAddRule('header'),
+                // Same rule types the collection's `+` offers — the CTA
+                // picks nothing on the user's behalf.
+                menuItems: ruleTypeSubmenu(onAddRule, t),
               },
               {
                 label: t('workbench.sidebar.placeholder.addFolder'),

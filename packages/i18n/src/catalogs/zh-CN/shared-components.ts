@@ -289,6 +289,12 @@ export const sharedComponents = {
   'shared.ruleTypes.auth.label': '应答身份验证质询',
   'shared.ruleTypes.auth.description': '为 HTTP/代理身份验证质询提供凭据（需要调试模式）',
 
+  // ── Request-kind registry ──────────────────────────────────────────
+  'shared.requestKinds.http.label': 'HTTP 请求',
+  'shared.requestKinds.grpc.label': 'gRPC 请求',
+  'shared.requestKinds.websocket.label': 'WebSocket 请求',
+  'shared.requestKinds.socketio.label': 'Socket.IO 请求',
+
   // ── System rule-template registry (same surfaces as the rule types).
   //    Template keys, icons, conditions, and form values stay raw data;
   //    embedded code/URLs inside descriptions travel inside the value. ──

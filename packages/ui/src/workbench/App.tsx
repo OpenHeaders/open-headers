@@ -137,6 +137,7 @@ import {
   useUpdatedNotification,
 } from '@openheaders/ui/shared/notifications';
 import { UpdateDialog } from '@openheaders/ui/shared/updates';
+import type { RequestKind } from './request-kind-menu';
 import { TEMPLATES_BY_TYPE } from './rule-templates';
 import { EnvSwitcherProvider } from './services/env-switcher';
 import { ConnectionProvider } from './settings/ConnectionContext';
@@ -1190,6 +1191,8 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
         openTemplateFolderOverview={openTemplateFolderOverview}
         openCollectionVariables={openCollectionVariables}
         openCreateRequestTab={openCreateRequestTab}
+        openCreateGrpcRequestTab={openCreateGrpcRequestTab}
+        openCreateWebSocketRequestTab={openCreateWebSocketRequestTab}
         openRequestCollectionVariables={openRequestCollectionVariables}
         openRequestCollectionScripts={openRequestCollectionScripts}
         openRequestFolderScripts={openRequestFolderScripts}
@@ -1255,6 +1258,8 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
       handleSwitchWorkspace,
       localCollectionTrees,
       openCreateRequestTab,
+      openCreateGrpcRequestTab,
+      openCreateWebSocketRequestTab,
       openRequestCollectionVariables,
       openRequestCollectionScripts,
       openRequestFolderScripts,
@@ -1302,6 +1307,42 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
   const showMigrationOffer =
     getCurrentHost() !== 'web' && rules.length === 0 && requestsApi.requests.length === 0;
 
+  // Context-less request creates (tab-strip `+`, editor empty state).
+  // HTTP requests open as an unsaved draft and pick their destination
+  // in the save modal; the gRPC / WebSocket families are born
+  // persisted, so they need a home up front — the workspace's first
+  // request collection, minted on the spot when there isn't one yet.
+  // The fresh collection's `path` is handed through directly because
+  // the openers' own collection list is still a render behind.
+  const handleCreateRequestOfKind = useCallback(
+    (kind: RequestKind) => {
+      if (kind === 'http') {
+        openCreateRequestTab();
+        return;
+      }
+      const openIn = (context: { collectionId?: string; folderPath?: string }) => {
+        if (kind === 'grpc') openCreateGrpcRequestTab(context);
+        else openCreateWebSocketRequestTab({ ...context, flavor: kind === 'socketio' ? 'socketio' : 'raw' });
+      };
+      const existing = requestsApi.collections[0];
+      if (existing) {
+        openIn({ collectionId: existing.uid });
+        return;
+      }
+      void requestsApi.createCollection(t('shared.defaults.newRequestsCollection')).then((created) => {
+        if (created) openIn({ folderPath: created.path });
+      });
+    },
+    [
+      openCreateRequestTab,
+      openCreateGrpcRequestTab,
+      openCreateWebSocketRequestTab,
+      requestsApi.collections,
+      requestsApi.createCollection,
+      t,
+    ],
+  );
+
   const renderEmpty = useCallback(
     () => (
       <EmptyState
@@ -1312,7 +1353,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
           openCreateTab(type, undefined, templateKey, undefined, 'empty-state-nudge')
         }
         onBrowseTemplates={handleBrowseTemplates}
-        onCreateRequest={() => openCreateRequestTab()}
+        onCreateRequest={handleCreateRequestOfKind}
         onCreateWorkflow={() => openCreateLiveWorkflow()}
         onCreateVariable={handleCreateVariable}
         onImport={() => importExportRef.current?.openImportSource()}
@@ -1322,7 +1363,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
     [
       openCreateTab,
       handleBrowseTemplates,
-      openCreateRequestTab,
+      handleCreateRequestOfKind,
       openCreateLiveWorkflow,
       handleCreateVariable,
       showMigrationOffer,
@@ -1409,6 +1450,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
         openCreateLiveWorkflow={openCreateLiveWorkflow}
         openRequestEditTab={openRequestEditTab}
         openCreateRequestTab={openCreateRequestTab}
+        onCreateRequestOfKind={handleCreateRequestOfKind}
         openGrpcRequestEditTab={openGrpcRequestEditTab}
         openCreateGrpcRequestTab={openCreateGrpcRequestTab}
         openWebSocketRequestEditTab={openWebSocketRequestEditTab}
@@ -1462,6 +1504,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
       openTemplateCollectionVariables,
       openRequestEditTab,
       openCreateRequestTab,
+      handleCreateRequestOfKind,
       openGrpcRequestEditTab,
       openCreateGrpcRequestTab,
       openWebSocketRequestEditTab,
@@ -1618,7 +1661,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
                 getDisplayLabel={getTabDisplayLabel}
                 renderEmpty={renderEmpty}
                 onCreateRule={openCreateTab}
-                onCreateRequest={() => openCreateRequestTab()}
+                onCreateRequest={handleCreateRequestOfKind}
                 createMenuOpen={createMenuOpen}
                 onCreateMenuOpenChange={setCreateMenuOpen}
                 registerTabSearchToggle={registerTabSearchToggle}
