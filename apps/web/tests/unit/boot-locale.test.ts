@@ -63,7 +63,11 @@ describe('bootTranslator', () => {
     expect(`${t('web.gate.seatIntroPrefix')} openheaders.io/pricing${t('web.gate.seatIntroSuffix')}`).toBe(
       'Have an individual seat? Paste its key to sign in without waiting on a free team seat — it admits the email it was purchased with. Get one at openheaders.io/pricing.',
     );
-    expect(t('web.gate.workLocally')).toBe('Skip — work locally');
+    expect(`${t('web.gate.clientsIntro')} ws://openheaders.io:8137`).toBe(
+      'This tab is not the only client. With the same pairing token, the extension and the desktop app connect straight to ws://openheaders.io:8137',
+    );
+    expect(t('web.gate.clientsExtension')).toBe('Get the extension');
+    expect(t('web.gate.clientsDesktop')).toBe('Get the desktop app');
     expect(t('web.gate.errorTokenRejected')).toBe('The server rejected this token. Check it and try again.');
     expect(t('web.gate.errorTokenOffline')).toBe('The server did not answer. Check that it is running and try again.');
     expect(t('web.gate.errorPasswordRefused')).toBe('Sign-in failed. Check the email and password and try again.');

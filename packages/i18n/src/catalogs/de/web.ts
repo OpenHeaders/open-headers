@@ -27,7 +27,11 @@ export const web = {
   'web.gate.signIn': 'Anmelden',
   'web.gate.tokenPlaceholder': 'Kopplungstoken',
   'web.gate.connect': 'Verbinden',
-  'web.gate.workLocally': 'Überspringen — lokal arbeiten',
+  'web.gate.clientsIntro':
+    'Dieser Tab ist nicht der einzige Client. Mit demselben Kopplungstoken verbinden sich die Erweiterung und ' +
+    'die Desktop-App direkt mit',
+  'web.gate.clientsExtension': 'Erweiterung holen',
+  'web.gate.clientsDesktop': 'Desktop-App holen',
   'web.gate.errorTokenRejected': 'Der Server hat diesen Token abgelehnt. Prüfe ihn und versuche es erneut.',
   'web.gate.errorTokenOffline': 'Der Server hat nicht geantwortet. Prüfe, ob er läuft, und versuche es erneut.',
   'web.gate.errorPasswordRefused':

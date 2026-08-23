@@ -23,7 +23,11 @@ export const web = {
   'web.gate.signIn': 'Se connecter',
   'web.gate.tokenPlaceholder': "Jeton d'association",
   'web.gate.connect': 'Connecter',
-  'web.gate.workLocally': 'Passer — travailler en local',
+  'web.gate.clientsIntro':
+    "Cet onglet n'est pas le seul client. Avec le même jeton d'association, l'extension et l'application de " +
+    'bureau se connectent directement à',
+  'web.gate.clientsExtension': "Obtenir l'extension",
+  'web.gate.clientsDesktop': "Obtenir l'application de bureau",
   'web.gate.errorTokenRejected': 'Le serveur a rejeté ce jeton. Vérifiez-le et réessayez.',
   'web.gate.errorTokenOffline': "Le serveur n'a pas répondu. Vérifiez qu'il est lancé et réessayez.",
   'web.gate.errorPasswordRefused': "Échec de la connexion. Vérifiez l'email et le mot de passe et réessayez.",

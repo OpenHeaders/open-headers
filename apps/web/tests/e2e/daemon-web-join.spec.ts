@@ -311,9 +311,15 @@ test('a fresh origin gates; a bad token is rejected in-band; the minted token jo
 
   await page.waitForSelector('[data-testid=login-gate]', { timeout: 15_000 });
 
-  // Token-only daemon (no managed login) — the local-only escape hatch
-  // is offered.
-  expect(await page.$('[data-testid=login-gate-skip]')).not.toBeNull();
+  // Pairing is the only way past the gate — no local-only bypass on any
+  // posture. The native clients are named instead, since they pair with
+  // the same token and need no browser at all.
+  expect(await page.$('[data-testid=login-gate-skip]')).toBeNull();
+  // Chromium under Playwright resolves to the Chrome Web Store listing
+  // and one desktop download named for this machine's OS.
+  await expect(page.locator('[data-testid=login-gate-client-extension]')).toHaveCount(1);
+  await expect(page.locator('[data-testid=login-gate-client-extension]')).toContainText('Chrome');
+  await expect(page.locator('[data-testid=login-gate-client-desktop]')).toHaveCount(1);
 
   await submitGateToken(page, 'oh_definitely-wrong-token');
   await page.waitForSelector('[data-testid=login-gate-error]', { timeout: 15_000 });
@@ -712,9 +718,10 @@ test('password login: the operator sets a password in the console; a fresh gate 
   const EMAIL_INPUT = 'input[data-testid=login-gate-email], [data-testid=login-gate-email] input';
   const PASSWORD_INPUT = 'input[data-testid=login-gate-password], [data-testid=login-gate-password] input';
   await piaPage.waitForSelector(EMAIL_INPUT, { timeout: 30_000 });
-  // Managed login (password) — the local-only escape hatch is suppressed
-  // so the gate reads as "you sign in to use this", not "skip login".
+  // Managed login (password) — same rule, and the native clients ride
+  // along here too.
   expect(await piaPage.$('[data-testid=login-gate-skip]')).toBeNull();
+  expect(await piaPage.$('[data-testid=login-gate-native-clients]')).not.toBeNull();
   await piaPage.fill(EMAIL_INPUT, 'pia@openheaders.io');
   await piaPage.fill(PASSWORD_INPUT, 'not-her-password');
   await piaPage.click('[data-testid=login-gate-password-submit]');

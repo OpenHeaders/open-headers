@@ -25,7 +25,11 @@ export const web = {
   'web.gate.signIn': 'Iniciar sesión',
   'web.gate.tokenPlaceholder': 'Token de emparejamiento',
   'web.gate.connect': 'Conectar',
-  'web.gate.workLocally': 'Omitir — trabajar en local',
+  'web.gate.clientsIntro':
+    'Esta pestaña no es el único cliente. Con el mismo token de emparejamiento, la extensión y la aplicación ' +
+    'de escritorio se conectan directamente a',
+  'web.gate.clientsExtension': 'Obtener la extensión',
+  'web.gate.clientsDesktop': 'Obtener la aplicación de escritorio',
   'web.gate.errorTokenRejected': 'El servidor rechazó este token. Compruébalo y vuelve a intentarlo.',
   'web.gate.errorTokenOffline': 'El servidor no respondió. Comprueba que está en marcha y vuelve a intentarlo.',
   'web.gate.errorPasswordRefused':

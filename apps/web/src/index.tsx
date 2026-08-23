@@ -114,7 +114,9 @@ if (!window.isSecureContext) {
   // mount; the entered token is validated by a real HELLO/WELCOME before
   // it persists. An unreachable daemon (or a stored token) mounts
   // straight away — the tab is offline-first, the wire joins in the
-  // background. "Skip" keeps the tab local without dialing.
+  // background. Pairing is the only way past a gate that IS showing: a
+  // local-only mount is what an absent daemon degrades to, never a
+  // choice offered while the server is right there answering.
   if (ssoJoined) {
     // Mount only after join → adopt promoted the daemon's workspace so
     // the first workbench tab pins to the adopted scope.
@@ -136,7 +138,6 @@ if (!window.isSecureContext) {
           // it stays up across join → adopt → workspace promote.
           void awaitPostJoinAdoption(wire).then(mountWorkbench);
         }}
-        onSkip={() => renderShell(<Workbench resolveIdentity={resolveWorkbenchIdentity} />)}
       />,
     );
   } else {

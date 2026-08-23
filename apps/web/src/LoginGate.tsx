@@ -4,20 +4,32 @@
  * A submitted token rides a real HELLO; only a WELCOME accept persists
  * it and mounts the Workbench.
  *
- * "Work locally" keeps the tab offline-first without pairing — the
- * escape hatch for a personal/dev daemon you don't have to sign in to.
- * It is suppressed once the daemon carries a managed login (OIDC or
- * local password): an admin declaring "you authenticate to use this"
- * is contradicted by a one-click local bypass, and on a dedicated
- * deployment the affordance only reads as a confusing "skip login".
- * Suppressing it never traps anyone — the gate appears only while the
- * daemon is reachable (`decideGate`); an unreachable managed daemon
- * mounts the local workbench with no gate at all.
+ * The gate is a gate: pairing is the only way past it. It once offered
+ * a "work locally" bypass, which this host cannot honor — the served
+ * tab's one backend is fixed to the serving daemon
+ * (`WEB_DAEMON_BACKEND_ID`), and the tenancy layer withholds the tab's
+ * home-Org data from it structurally, so anything made in a skipped
+ * session could never reach the server, not even after a later pairing.
+ * On the server's own front door that read as a way in and was a
+ * one-way door into a replica stranded at this origin.
+ *
+ * The native clients take its place at the bottom of the card. They
+ * pair with the same token — the point is not a way around the gate but
+ * that this tab is not the only client: they dial `ws://<host>` from any
+ * machine with no browser origin rules in the way, which is the ordinary
+ * shape of a headless deployment.
+ *
+ * Each row is the install the visitor would actually perform, resolved
+ * from this browser and this OS (`gate-clients.ts`) — the extension's
+ * store listing and the desktop download, not a menu of platforms to
+ * pick their own out of.
  */
 
+import { readHostProbe } from '@openheaders/core/utils';
 import { useT } from '@openheaders/ui/context';
 import { Alert, Button, Divider, Input, Typography } from 'antd';
 import { useState } from 'react';
+import { type GateClientTarget, markUrl, resolveDesktopTarget, resolveExtensionTargets } from '@/gate-clients';
 import type { DaemonWire } from '@/host/daemon-wire';
 import { submitDaemonToken } from '@/host/join-gate';
 import { isSeatRefusalReason, oidcErrorKey, startOidcLogin } from '@/host/oidc-login';
@@ -33,12 +45,31 @@ const CARD_STYLE: React.CSSProperties = {
   gap: 16,
 };
 
+const DOCS_QUICKSTART = 'docs.openheaders.com/quickstart/server';
+
+const CLIENTS_STYLE: React.CSSProperties = { display: 'flex', flexDirection: 'column', gap: 8 };
+const CLIENT_ROW_STYLE: React.CSSProperties = { display: 'inline-flex', alignItems: 'center', gap: 8 };
+
+/**
+ * One install row: the mark, what it is, and the brand it resolved to.
+ * The mark repeats the brand name beside it, so it is decorative and a
+ * screen reader reads the row's own words instead.
+ */
+const ClientRow: React.FC<{ label: string; target: GateClientTarget; testId: string }> = ({
+  label,
+  target,
+  testId,
+}) => (
+  <Typography.Link href={target.url} target="_blank" style={CLIENT_ROW_STYLE} data-testid={testId}>
+    <img src={markUrl(target)} width={16} height={16} alt="" aria-hidden="true" />
+    <span style={{ fontSize: 12 }}>{target.name === null ? label : `${label} — ${target.name}`}</span>
+  </Typography.Link>
+);
+
 export interface LoginGateProps {
   wire: DaemonWire;
   /** Called once the daemon accepted the token (already persisted). */
   onJoined: () => void;
-  /** Called when the user chooses to keep working locally. */
-  onSkip: () => void;
   /** SSO provider label when the daemon has OIDC configured; null/absent = token-only gate. */
   ssoProvider?: string | null;
   /** The daemon offers local password login (no OIDC, at least one user holds a password). */
@@ -50,7 +81,6 @@ export interface LoginGateProps {
 export function LoginGate({
   wire,
   onJoined,
-  onSkip,
   ssoProvider,
   passwordEnabled,
   initialErrorReason,
@@ -66,6 +96,11 @@ export function LoginGate({
   );
   // The seat wall is the conversion moment: offer the self-serve way in.
   const seatBlocked = Boolean(ssoProvider) && isSeatRefusalReason(initialErrorReason);
+  // Detection is a constant for the life of the tab — resolve once.
+  const [{ extensionTargets, desktopTarget }] = useState(() => {
+    const probe = readHostProbe(navigator);
+    return { extensionTargets: resolveExtensionTargets(probe), desktopTarget: resolveDesktopTarget(probe) };
+  });
 
   const submit = async (): Promise<void> => {
     if (pending || token.trim().length === 0) return;
@@ -85,7 +120,8 @@ export function LoginGate({
 
   const canSubmitPassword = email.trim().length > 0 && password.length > 0;
   // A managed login (SSO or local password) means an admin controls who
-  // gets in — the local-only escape hatch contradicts that, so hide it.
+  // gets in: the card titles itself "sign in", and the token field drops
+  // to the secondary action behind whichever managed form is offered.
   const managedLogin = Boolean(ssoProvider) || Boolean(passwordEnabled);
 
   const submitPassword = async (): Promise<void> => {
@@ -226,11 +262,25 @@ export function LoginGate({
       >
         {t('web.gate.connect')}
       </Button>
-      {!managedLogin && (
-        <Button type="link" block onClick={onSkip} disabled={pending} data-testid="login-gate-skip">
-          {t('web.gate.workLocally')}
-        </Button>
-      )}
+      <Divider style={{ margin: 0 }} />
+      <div style={CLIENTS_STYLE} data-testid="login-gate-native-clients">
+        <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+          {t('web.gate.clientsIntro')} <Typography.Text code>{`ws://${window.location.host}`}</Typography.Text>
+        </Typography.Text>
+        {extensionTargets.map((target) => (
+          <ClientRow
+            key={target.url}
+            label={t('web.gate.clientsExtension')}
+            target={target}
+            testId="login-gate-client-extension"
+          />
+        ))}
+        <ClientRow label={t('web.gate.clientsDesktop')} target={desktopTarget} testId="login-gate-client-desktop" />
+        {/* Link text IS the URL — a reader may only be able to retype it. */}
+        <Typography.Link href={`https://${DOCS_QUICKSTART}`} target="_blank" style={{ fontSize: 12 }}>
+          {DOCS_QUICKSTART}
+        </Typography.Link>
+      </div>
     </div>
   );
 }

@@ -27,7 +27,11 @@ export const web = {
   'web.gate.signIn': 'Sign in',
   'web.gate.tokenPlaceholder': 'Pairing token',
   'web.gate.connect': 'Connect',
-  'web.gate.workLocally': 'Skip — work locally',
+  'web.gate.clientsIntro':
+    'This tab is not the only client. With the same pairing token, the extension and the desktop app connect ' +
+    'straight to',
+  'web.gate.clientsExtension': 'Get the extension',
+  'web.gate.clientsDesktop': 'Get the desktop app',
   'web.gate.errorTokenRejected': 'The server rejected this token. Check it and try again.',
   'web.gate.errorTokenOffline': 'The server did not answer. Check that it is running and try again.',
   'web.gate.errorPasswordRefused': 'Sign-in failed. Check the email and password and try again.',
