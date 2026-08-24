@@ -23,6 +23,14 @@ export const workbenchChromeWorkspace = {
   'workbench.workspace.deleteOk': 'Supprimer',
   'workbench.workspace.deleteFailed': "Échec de la suppression de l'espace de travail",
   'workbench.workspace.deletedToast': '« {name} » supprimé',
+  'workbench.workspace.leaveTitle': 'Quitter « {name} » ?',
+  'workbench.workspace.leaveBody':
+    'Vous renoncez à votre propre accès à cet espace de travail — il disparaît de tous vos onglets ouverts. ' +
+    "Les autres conservent le leur, et un administrateur peut vous l'accorder de nouveau.",
+  'workbench.workspace.leaveOk': 'Quitter',
+  'workbench.workspace.leaveFailed': "Échec du départ de l'espace de travail",
+  'workbench.workspace.leftToast': '« {name} » quitté',
+  'workbench.workspace.leaveAria': "Quitter l'espace de travail",
   'workbench.workspace.createOk': 'Créer',
   'workbench.workspace.createFailed': "Échec de la création de l'espace de travail",
   'workbench.workspace.createdToastPrefix': 'Espace de travail créé',

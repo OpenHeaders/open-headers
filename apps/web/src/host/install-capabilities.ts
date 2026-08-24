@@ -10,6 +10,7 @@ import { hostBridge } from '@openheaders/core/bridge';
 import { registerCapability } from '@openheaders/core/capabilities';
 import { showTransitionOverlay } from '@/transition-overlay';
 import { signOutWeb } from './sign-out';
+import { callWireRpc, registerWireRpcChannels } from './wire-rpc';
 
 registerCapability('getActiveWorkspaceId', () => hostBridge.call('getActiveWorkspaceId'));
 
@@ -37,4 +38,14 @@ registerCapability('openExternalUrl', (url) => {
 registerCapability('signOut', () => {
   showTransitionOverlay('Signing out…');
   void signOutWeb();
+});
+
+// Give up the caller's own grant on a served workspace (QD). The verb
+// runs on the serving daemon as the authenticated peer; on success the
+// daemon's retraction push evicts the workspace from this tab (and the
+// user's other open tabs), so no local removal step follows the call.
+registerWireRpcChannels(['leaveWorkspace']);
+registerCapability('leaveWorkspace', async (workspaceId) => {
+  const result = await callWireRpc({ type: 'leaveWorkspace', workspaceId });
+  return (result ?? { ok: false }) as { ok: boolean; reason?: string; error?: string };
 });

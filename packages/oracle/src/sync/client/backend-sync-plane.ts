@@ -12,6 +12,7 @@ import {
   type SyncHandshakeHandles,
 } from './backend-wire-handshake';
 import { handleIncomingMutationFrame } from './mutation-receiver';
+import { handleIncomingWorkspaceRetractFrame } from './workspace-retraction-receiver';
 
 export interface HandshakeLifecycleEvent {
   readonly kind: 'created' | 'removed';
@@ -85,6 +86,7 @@ export function installBackendSyncPlane(deps: BackendSyncPlaneDeps): SyncWiring 
     return true;
   });
   registerInboundFrameHandler(handleIncomingMutationFrame);
+  registerInboundFrameHandler(handleIncomingWorkspaceRetractFrame);
   for (const handler of deps.extraInboundHandlers ?? []) {
     registerInboundFrameHandler(handler);
   }

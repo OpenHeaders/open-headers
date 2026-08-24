@@ -25,6 +25,14 @@ export const workbenchChromeWorkspace = {
   'workbench.workspace.deleteOk': 'Löschen',
   'workbench.workspace.deleteFailed': 'Arbeitsbereich konnte nicht gelöscht werden',
   'workbench.workspace.deletedToast': '„{name}“ gelöscht',
+  'workbench.workspace.leaveTitle': '„{name}“ verlassen?',
+  'workbench.workspace.leaveBody':
+    'Sie geben Ihren eigenen Zugriff auf diesen Arbeitsbereich auf — er verschwindet aus all Ihren offenen Tabs. ' +
+    'Alle anderen behalten ihren, und ein Administrator kann ihn Ihnen erneut gewähren.',
+  'workbench.workspace.leaveOk': 'Verlassen',
+  'workbench.workspace.leaveFailed': 'Arbeitsbereich konnte nicht verlassen werden',
+  'workbench.workspace.leftToast': '„{name}“ verlassen',
+  'workbench.workspace.leaveAria': 'Arbeitsbereich verlassen',
   'workbench.workspace.createOk': 'Erstellen',
   'workbench.workspace.createFailed': 'Arbeitsbereich konnte nicht erstellt werden',
   'workbench.workspace.createdToastPrefix': 'Arbeitsbereich erstellt',

@@ -176,6 +176,7 @@ import { handleExecuteMqttRequestRpc } from './execute-mqtt-request-rpc';
 import { handleExecuteRequestRpc } from './execute-request-rpc';
 import { handleExecuteWebSocketRequestRpc } from './execute-websocket-request-rpc';
 import { offerWorkspaceRowsToUserPeers } from './grant-workspace-offer';
+import { retractWorkspaceRowsFromUserPeers } from './grant-workspace-retract';
 import { createHealthzHandler } from './healthz';
 import { detectNodeHostOs } from './host-os';
 import { installLicenseRefreshAgent } from './license-refresh-agent';
@@ -195,6 +196,7 @@ import { createPasswordHttpHandler } from './password/password-http';
 import { createDaemonPasswordLoginService } from './password/password-login-service';
 import { createPeerAdminRpc } from './peer-admin-rpc';
 import { createPeerRequestsRpc } from './peer-requests-rpc';
+import { createPeerWorkspaceLeaveRpc } from './peer-workspace-leave';
 import { installProxyCaptureLifeline } from './proxy/capture-lifeline';
 import { createProxyCaptureService } from './proxy/proxy-capture-service';
 import { createProxyTrustService } from './proxy/proxy-trust';
@@ -1023,6 +1025,10 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
         // admin grant rides, here fed by the IdP claims reconcile.
         offerGrantedWorkspaces: (userId, workspaceIds) =>
           offerWorkspaceRowsToUserPeers(userId, workspaceIds, () => wsServer),
+        // The offer's inverse twin (S5c) — the reconcile's revoke leg
+        // retracts from the user's already-open tabs live.
+        retractRevokedWorkspaces: (userId, workspaceIds) =>
+          retractWorkspaceRowsFromUserPeers(userId, workspaceIds, () => wsServer),
         // The declared-admin promotion's O3 arc evicts revoked unbound
         // tokens' sockets — same persist-before-evict the claim uses.
         closePeersByTokenId: (tokenId) => wsServer?.closePeersByTokenId(tokenId),
@@ -1439,6 +1445,7 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
       peerRpc: composePeerRpc(
         createPeerAdminRpc({ channels: adminChannels }),
         createPeerRequestsRpc({ cliStatus: () => cliProvision.status() }),
+        createPeerWorkspaceLeaveRpc({ getWsServer: () => wsServer }),
       ),
       peerPush: composePeerPush(browserLiveRelay.peerPush, proxyRoutingControl.peerPush, captureFeedbackPush.peerPush),
       httpRequestHandler: admission.wrapHttpHandler(

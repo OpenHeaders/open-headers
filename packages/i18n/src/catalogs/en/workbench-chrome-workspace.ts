@@ -20,6 +20,14 @@ export const workbenchChromeWorkspace = {
   'workbench.workspace.deleteOk': 'Delete',
   'workbench.workspace.deleteFailed': 'Failed to delete workspace',
   'workbench.workspace.deletedToast': 'Deleted "{name}"',
+  'workbench.workspace.leaveTitle': 'Leave "{name}"?',
+  'workbench.workspace.leaveBody':
+    'You give up your own access to this workspace — it disappears from all your open tabs. Everyone else keeps ' +
+    'theirs, and an admin can grant it to you again.',
+  'workbench.workspace.leaveOk': 'Leave',
+  'workbench.workspace.leaveFailed': 'Failed to leave workspace',
+  'workbench.workspace.leftToast': 'Left "{name}"',
+  'workbench.workspace.leaveAria': 'Leave workspace',
   'workbench.workspace.createOk': 'Create',
   'workbench.workspace.createFailed': 'Failed to create workspace',
   'workbench.workspace.createdToastPrefix': 'Created workspace',

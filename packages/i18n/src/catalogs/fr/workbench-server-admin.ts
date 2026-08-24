@@ -47,6 +47,10 @@ export const workbenchServerAdmin = {
     'utilisateur pour ouvrir le palier équipe.',
   'workbench.serverAdmin.users.deactivatedOn': 'Désactivé le {date}',
   'workbench.serverAdmin.users.addedOn': 'ajouté le {date}',
+  'workbench.serverAdmin.users.lastSeenOn': 'vu pour la dernière fois le {date}',
+  'workbench.serverAdmin.users.neverSeen': 'jamais connecté',
+  'workbench.serverAdmin.users.sortByCreated': 'Plus récents',
+  'workbench.serverAdmin.users.sortByLastSeen': 'Dernière activité',
   'workbench.serverAdmin.users.loadFailed': "Échec du chargement de l'annuaire des utilisateurs : {message}",
   'workbench.serverAdmin.users.addFailed': "Échec de l'ajout de l'utilisateur : {message}",
 

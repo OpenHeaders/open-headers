@@ -501,6 +501,23 @@ describe('daemon OIDC service', () => {
       expect(offers).toHaveLength(1);
     });
 
+    it("a re-login whose claims drop a grant retracts it from the user's connected sockets (S5c)", async () => {
+      const created = await createDaemonUser({ displayName: 'Alice', email: 'alice@openheaders.io' });
+      if (!created.ok) throw new Error('setup failed');
+      const retractions: Array<{ userId: string; workspaceIds: readonly string[] }> = [];
+      const retractRevokedWorkspaces = async (userId: string, workspaceIds: readonly string[]) => {
+        retractions.push({ userId, workspaceIds });
+        return workspaceIds.length;
+      };
+      const first = mappingRig({ values: ['eng', 'ops'], deps: { retractRevokedWorkspaces } });
+      expect((await login(first.rig)).ok).toBe(true);
+      expect(retractions).toHaveLength(0);
+
+      const second = mappingRig({ values: ['eng'], deps: { retractRevokedWorkspaces } });
+      expect((await login(second.rig)).ok).toBe(true);
+      expect(retractions).toEqual([{ userId: created.record.user.id, workspaceIds: [W2] }]);
+    });
+
     it('no mapping configured ⇒ the fold still runs with the declared floor as the desired set', async () => {
       await createDaemonUser({ displayName: 'Alice', email: 'alice@openheaders.io' });
       const desiredSets: Array<readonly { workspaceId: string; role: string }[]> = [];

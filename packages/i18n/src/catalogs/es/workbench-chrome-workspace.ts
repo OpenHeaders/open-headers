@@ -23,6 +23,14 @@ export const workbenchChromeWorkspace = {
   'workbench.workspace.deleteOk': 'Eliminar',
   'workbench.workspace.deleteFailed': 'No se pudo eliminar el espacio de trabajo',
   'workbench.workspace.deletedToast': '«{name}» eliminado',
+  'workbench.workspace.leaveTitle': '¿Salir de «{name}»?',
+  'workbench.workspace.leaveBody':
+    'Renuncias a tu propio acceso a este espacio de trabajo: desaparece de todas tus pestañas abiertas. ' +
+    'Los demás conservan el suyo, y un administrador puede concedértelo de nuevo.',
+  'workbench.workspace.leaveOk': 'Salir',
+  'workbench.workspace.leaveFailed': 'No se pudo salir del espacio de trabajo',
+  'workbench.workspace.leftToast': 'Has salido de «{name}»',
+  'workbench.workspace.leaveAria': 'Salir del espacio de trabajo',
   'workbench.workspace.createOk': 'Crear',
   'workbench.workspace.createFailed': 'No se pudo crear el espacio de trabajo',
   'workbench.workspace.createdToastPrefix': 'Espacio de trabajo creado',

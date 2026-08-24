@@ -22,11 +22,13 @@ import {
   DeleteOutlined,
   EditOutlined,
   HolderOutlined,
+  LogoutOutlined,
   PlusOutlined,
 } from '@ant-design/icons';
 import { DndContext, type DragEndEvent, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { arrayMove, SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import { getCapability } from '@openheaders/core/capabilities';
 import { type IdentitySnapshot, type OrgDescriptor, orgCatalogue } from '@openheaders/core/identity';
 import type { BackendReach } from '@openheaders/core/protocol';
 import type { ExtensionWorkspace } from '@openheaders/core/types';
@@ -160,6 +162,29 @@ const WorkspaceManager: React.FC<WorkspaceManagerProps> = ({ api, activeWorkspac
     setDuplicateTarget(workspace);
   }, []);
 
+  // Self-service leave (QD) — registered only by hosts whose listed
+  // workspaces are grant-held (the served web tab). On success the
+  // server's retraction push evicts the workspace from every open tab
+  // of this user, so no local removal follows the call.
+  const leaveWorkspace = getCapability('leaveWorkspace');
+  const handleLeave = useCallback(
+    (workspace: ExtensionWorkspace) => {
+      if (!leaveWorkspace) return;
+      modal.confirm({
+        title: t('workbench.workspace.leaveTitle', { name: workspace.name }),
+        content: t('workbench.workspace.leaveBody'),
+        okText: t('workbench.workspace.leaveOk'),
+        okButtonProps: { danger: true },
+        onOk: async () => {
+          const result = await leaveWorkspace(workspace.id);
+          if (!result.ok) message.error(result.error ?? t('workbench.workspace.leaveFailed'));
+          else message.success(t('workbench.workspace.leftToast', { name: workspace.name }));
+        },
+      });
+    },
+    [leaveWorkspace, modal, message, t],
+  );
+
   const renderRow = (w: ExtensionWorkspace): React.ReactNode => (
     <SortableRow
       key={w.id}
@@ -170,6 +195,7 @@ const WorkspaceManager: React.FC<WorkspaceManagerProps> = ({ api, activeWorkspac
       onDelete={() => handleDelete(w)}
       onDuplicate={() => handleDuplicate(w)}
       onPublish={publishTargetsFor(w).length > 0 ? () => setPublishSource(w) : null}
+      onLeave={leaveWorkspace ? () => handleLeave(w) : null}
       onSwitch={() => onSwitch(w.id)}
       onIdentityChange={(identity) => {
         // Coerce undefined icon → null so the backend's "clear" path
@@ -407,6 +433,8 @@ interface SortableRowProps {
   onDuplicate: () => void;
   /** Null when no publishable target exists — the button doesn't render. */
   onPublish: (() => void) | null;
+  /** Null when the host has no leave verb — the button doesn't render. */
+  onLeave: (() => void) | null;
   onSwitch: () => void;
   onIdentityChange: (next: WorkspaceIdentity) => void;
   tokenColorBorder: string;
@@ -422,6 +450,7 @@ const SortableRow: React.FC<SortableRowProps> = ({
   onDelete,
   onDuplicate,
   onPublish,
+  onLeave,
   onSwitch,
   onIdentityChange,
   tokenColorBorder,
@@ -528,6 +557,15 @@ const SortableRow: React.FC<SortableRowProps> = ({
             icon={<CloudUploadOutlined />}
             onClick={onPublish}
             aria-label={t('workbench.workspace.publishAria')}
+          />
+        )}
+        {onLeave && (
+          <Button
+            size="small"
+            icon={<LogoutOutlined />}
+            danger
+            onClick={onLeave}
+            aria-label={t('workbench.workspace.leaveAria')}
           />
         )}
         <Button

@@ -235,3 +235,5 @@ export {
   PROTOCOL_INCOMPATIBLE_CLOSE_CODE,
   PROTOCOL_VERSION,
 } from './version';
+export type { SyncWorkspaceRetractMessage } from './workspace-retract';
+export { SYNC_WORKSPACE_RETRACT_TYPE, SyncWorkspaceRetractMessageSchema } from './workspace-retract';

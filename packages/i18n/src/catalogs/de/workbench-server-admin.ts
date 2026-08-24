@@ -49,6 +49,10 @@ export const workbenchServerAdmin = {
     'die Team-Stufe zu öffnen.',
   'workbench.serverAdmin.users.deactivatedOn': 'Deaktiviert am {date}',
   'workbench.serverAdmin.users.addedOn': 'hinzugefügt am {date}',
+  'workbench.serverAdmin.users.lastSeenOn': 'zuletzt gesehen am {date}',
+  'workbench.serverAdmin.users.neverSeen': 'nie angemeldet',
+  'workbench.serverAdmin.users.sortByCreated': 'Neueste',
+  'workbench.serverAdmin.users.sortByLastSeen': 'Zuletzt gesehen',
   'workbench.serverAdmin.users.loadFailed': 'Benutzerverzeichnis konnte nicht geladen werden: {message}',
   'workbench.serverAdmin.users.addFailed': 'Benutzer konnte nicht hinzugefügt werden: {message}',
 

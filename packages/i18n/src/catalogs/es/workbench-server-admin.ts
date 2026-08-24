@@ -48,6 +48,10 @@ export const workbenchServerAdmin = {
     'el nivel de equipo.',
   'workbench.serverAdmin.users.deactivatedOn': 'Desactivado el {date}',
   'workbench.serverAdmin.users.addedOn': 'añadido el {date}',
+  'workbench.serverAdmin.users.lastSeenOn': 'visto por última vez el {date}',
+  'workbench.serverAdmin.users.neverSeen': 'nunca ha iniciado sesión',
+  'workbench.serverAdmin.users.sortByCreated': 'Más recientes',
+  'workbench.serverAdmin.users.sortByLastSeen': 'Última actividad',
   'workbench.serverAdmin.users.loadFailed': 'No se pudo cargar el directorio de usuarios: {message}',
   'workbench.serverAdmin.users.addFailed': 'No se pudo añadir el usuario: {message}',
 

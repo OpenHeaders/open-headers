@@ -28,6 +28,7 @@ import {
   ensureSyntheticIdentity,
   grantWorkspaceRole,
   hasCapability,
+  listWorkspaceRolesForPrincipal,
   mintDaemonAuthToken,
   type ResolvedAuditEntry,
   refreshIdentitySnapshotFromHostStorage,
@@ -47,6 +48,7 @@ import {
   SYNC_STATE_VECTOR_TYPE,
   SYNC_SYNCED_TYPE,
   SYNC_WELCOME_TYPE,
+  SYNC_WORKSPACE_RETRACT_TYPE,
 } from '@openheaders/core/protocol';
 import { hostStorage, OH, setHostStorage } from '@openheaders/core/storage';
 import {
@@ -86,9 +88,12 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vite
 import { WebSocket } from 'ws';
 import { createAdminChannelHandlers } from '../../src/daemon/admin-channels';
 import { createAwarenessPeerFanOut } from '../../src/daemon/awareness-fan-out';
+import { composePeerRpc } from '../../src/daemon/compose-peer-rpc';
 import { offerWorkspaceRowsToUserPeers } from '../../src/daemon/grant-workspace-offer';
+import { retractWorkspaceRowsFromUserPeers } from '../../src/daemon/grant-workspace-retract';
 import { ADMIN_DENIED_MESSAGE, createPeerAdminRpc } from '../../src/daemon/peer-admin-rpc';
 import { createFilteredPeerBroadcast, makeWorkspaceReadFilter } from '../../src/daemon/peer-read-filter';
+import { createPeerWorkspaceLeaveRpc } from '../../src/daemon/peer-workspace-leave';
 import { type OracleWsServer, startOracleWsServer } from '../../src/host-runtime/ws-server';
 import { openSqliteDatabase } from '../../src/sync/sqlite-database';
 import { createHostStorageFake } from './_host-storage-fake';
@@ -632,7 +637,9 @@ async function connectOperator(port: number, nodeId: string): Promise<WebSocket>
 }
 
 async function startServerWithAdminPlane(port: number): Promise<OracleWsServer> {
-  const peerRpc = createPeerAdminRpc({
+  // Composed like the boot spine: the gated admin plane plus the
+  // self-service leave verb (QD).
+  const adminRpc = createPeerAdminRpc({
     channels: createAdminChannelHandlers({
       pairing: createDaemonPairingService(),
       getBoundPort: () => port,
@@ -680,6 +687,7 @@ async function startServerWithAdminPlane(port: number): Promise<OracleWsServer> 
       workspaceTreeDispatch: async () => ({ ok: false, error: 'not under test' }),
     }),
   });
+  const peerRpc = composePeerRpc(adminRpc, createPeerWorkspaceLeaveRpc({ getWsServer: () => server }));
   return startOracleWsServer({ host: '127.0.0.1', port, handshakeIdentity: IDENTITY, peerRpc });
 }
 
@@ -1100,6 +1108,165 @@ describe('grant-time workspace offer — a zero-grant peer learns a granted work
     server.broadcastFrame({ type: 'test.sentinel' });
     await sentinel;
     expect(aliceGot).toEqual(['test.sentinel']);
+  });
+});
+
+// ── F2 S5c — revoke retraction to connected sockets ─────────────────
+
+describe('revoke retraction — a revoked user’s open socket evicts the workspace live', () => {
+  afterEach(() => {
+    setWorkspaceOrgResolver(null);
+    disposeGlobal();
+    resetWorkspaceStore();
+  });
+
+  it("an operator revoke over the admin plane pushes the retract frame to the revoked user's socket only", async () => {
+    __initGlobalSyncServiceForTests({ log: new InMemoryMutationLog() });
+    setWorkspaceOrgResolver(() => daemonOrgId);
+    await bootstrapWorkspaceStore({ seedOnEmpty: true });
+    await bridgeExtensionWorkspaceSyncEngine();
+    const team = await createWorkspace({ name: 'Team A', kind: 'team' });
+
+    const alice = await addUserWithGrant('Alice', null);
+    await grantWorkspaceRole({ principalId: alice.principal.id, workspaceId: team.id, role: 'viewer' });
+    const mallory = await addUserWithGrant('Mallory', null);
+    const port = await freePort();
+    server = await startServerWithAdminPlane(port);
+    const operator = await connectOperator(port, 'web-operator');
+    const aliceClient = await connectAs(port, alice, 'ext-alice');
+    const malloryClient = await connectAs(port, mallory, 'ext-mallory');
+
+    const malloryGot: string[] = [];
+    malloryClient.on('message', (raw) => {
+      const msg = JSON.parse(raw.toString());
+      if (msg.type === SYNC_WORKSPACE_RETRACT_TYPE || msg.type === 'test.sentinel') malloryGot.push(msg.type);
+    });
+    const aliceRetract = new Promise<{ workspaceId: string }>((resolve) => {
+      aliceClient.on('message', (raw) => {
+        const msg = JSON.parse(raw.toString());
+        if (msg.type === SYNC_WORKSPACE_RETRACT_TYPE) resolve(msg);
+      });
+    });
+
+    const revoked = await callOverWire(operator, {
+      type: 'oh.daemon.users.revokeGrant',
+      userId: alice.user.id,
+      workspaceId: team.id,
+    });
+    expect(revoked.payload).toEqual({ ok: true });
+
+    expect((await aliceRetract).workspaceId).toBe(team.id);
+    const malSentinel = new Promise<void>((resolve) => {
+      malloryClient.on('message', (raw) => {
+        if (JSON.parse(raw.toString()).type === 'test.sentinel') resolve();
+      });
+    });
+    server.broadcastFrame({ type: 'test.sentinel' });
+    await malSentinel;
+    expect(malloryGot).toEqual(['test.sentinel']);
+  });
+
+  it('the retraction re-judges the fresh snapshot: a still-readable workspace or no connected peer ⇒ nothing rides', async () => {
+    const alice = await addUserWithGrant('Alice', 'viewer');
+    const port = await freePort();
+    server = await startOracleWsServer({ host: '127.0.0.1', port, handshakeIdentity: IDENTITY });
+    const aliceClient = await connectAs(port, alice, 'ext-alice');
+    const aliceGot: string[] = [];
+    aliceClient.on('message', (raw) => {
+      const msg = JSON.parse(raw.toString());
+      if (msg.type === SYNC_WORKSPACE_RETRACT_TYPE || msg.type === 'test.sentinel') aliceGot.push(msg.type);
+    });
+
+    // Alice still reads WS_ID (a racing re-grant's posture) — no retract.
+    expect(await retractWorkspaceRowsFromUserPeers(alice.user.id, [WS_ID], () => server)).toBe(0);
+    // No connected peer for the user — early exit.
+    expect(await retractWorkspaceRowsFromUserPeers('no-such-user', ['ws-a'], () => server)).toBe(0);
+    // A workspace she never read retracts — she cannot read it now.
+    expect(await retractWorkspaceRowsFromUserPeers(alice.user.id, ['ws-other'], () => server)).toBe(1);
+
+    const sentinel = new Promise<void>((resolve) => {
+      aliceClient.on('message', (raw) => {
+        if (JSON.parse(raw.toString()).type === 'test.sentinel') resolve();
+      });
+    });
+    server.broadcastFrame({ type: 'test.sentinel' });
+    await sentinel;
+    expect(aliceGot).toEqual([SYNC_WORKSPACE_RETRACT_TYPE, 'test.sentinel']);
+  });
+});
+
+// ── F2 QD — the self-service leave verb over real sockets ───────────
+
+describe('leaveWorkspace — a granted user drops their own grant', () => {
+  afterEach(() => {
+    resetWorkspaceStore();
+  });
+
+  it('leaving drops the WRA row, audits the act, and retracts from the leaver’s own socket', async () => {
+    const alice = await addUserWithGrant('Alice', 'viewer');
+    await grantWorkspaceRole({ principalId: alice.principal.id, workspaceId: 'ws-idp', role: 'editor', origin: 'idp' });
+    const port = await freePort();
+    server = await startServerWithAdminPlane(port);
+    const aliceClient = await connectAs(port, alice, 'ext-alice');
+
+    const retract = new Promise<{ workspaceId: string }>((resolve) => {
+      aliceClient.on('message', (raw) => {
+        const msg = JSON.parse(raw.toString());
+        if (msg.type === SYNC_WORKSPACE_RETRACT_TYPE) resolve(msg);
+      });
+    });
+    const left = await callOverWire(aliceClient, { type: 'leaveWorkspace', workspaceId: WS_ID });
+    expect(left.payload).toEqual({ ok: true });
+    expect((await retract).workspaceId).toBe(WS_ID);
+
+    const rows = await listWorkspaceRolesForPrincipal(alice.principal.id);
+    expect(rows.map((r) => r.workspaceId)).toEqual(['ws-idp']);
+    const audit = audits.find((a) => a.capability === 'daemon.workspace-leave');
+    expect(audit?.actorUserId).toBe(alice.user.id);
+    expect(audit?.workspaceId).toBe(WS_ID);
+    expect(audit?.decision).toEqual({ allow: true });
+  });
+
+  it('an IdP-managed grant refuses to be left; an unheld workspace answers not-granted', async () => {
+    const alice = await addUserWithGrant('Alice', null);
+    await grantWorkspaceRole({ principalId: alice.principal.id, workspaceId: 'ws-idp', role: 'viewer', origin: 'idp' });
+    const port = await freePort();
+    server = await startServerWithAdminPlane(port);
+    const aliceClient = await connectAs(port, alice, 'ext-alice');
+
+    const managed = await callOverWire(aliceClient, { type: 'leaveWorkspace', workspaceId: 'ws-idp' });
+    expect(managed.payload?.ok).toBe(false);
+    expect(managed.payload?.reason).toBe('managed');
+    expect((await listWorkspaceRolesForPrincipal(alice.principal.id)).map((r) => r.workspaceId)).toEqual(['ws-idp']);
+
+    const unheld = await callOverWire(aliceClient, { type: 'leaveWorkspace', workspaceId: 'ws-nope' });
+    expect(unheld.payload?.ok).toBe(false);
+    expect(unheld.payload?.reason).toBe('not-granted');
+
+    const missing = await callOverWire(aliceClient, { type: 'leaveWorkspace' });
+    expect(missing.payload).toEqual({ ok: false, error: 'missing workspaceId' });
+  });
+});
+
+// ── Decision c — the last-seen projection in users.list ─────────────
+
+describe('users.list last-seen — the per-user max of token lastUsedAt', () => {
+  afterEach(() => {
+    resetWorkspaceStore();
+  });
+
+  it('a connected user projects a numeric lastSeenAt; a never-seen user projects null', async () => {
+    const alice = await addUserWithGrant('Alice', 'viewer');
+    const bob = await addUserWithGrant('Bob', null);
+    const port = await freePort();
+    server = await startServerWithAdminPlane(port);
+    const operator = await connectOperator(port, 'web-operator');
+    await connectAs(port, alice, 'ext-alice');
+
+    const listed = await callOverWire(operator, { type: 'oh.daemon.users.list' });
+    const users = listed.payload?.users as Array<{ userId: string; lastSeenAt: number | null }>;
+    expect(typeof users.find((u) => u.userId === alice.user.id)?.lastSeenAt).toBe('number');
+    expect(users.find((u) => u.userId === bob.user.id)?.lastSeenAt).toBeNull();
   });
 });
 

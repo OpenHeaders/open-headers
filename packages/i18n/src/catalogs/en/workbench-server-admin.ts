@@ -44,6 +44,10 @@ export const workbenchServerAdmin = {
     'No directory users yet — the server runs in its solo tier. Add a user to open the team tier.',
   'workbench.serverAdmin.users.deactivatedOn': 'Deactivated {date}',
   'workbench.serverAdmin.users.addedOn': 'added {date}',
+  'workbench.serverAdmin.users.lastSeenOn': 'last seen {date}',
+  'workbench.serverAdmin.users.neverSeen': 'never signed in',
+  'workbench.serverAdmin.users.sortByCreated': 'Newest',
+  'workbench.serverAdmin.users.sortByLastSeen': 'Last seen',
   'workbench.serverAdmin.users.loadFailed': 'Failed to load the user directory: {message}',
   'workbench.serverAdmin.users.addFailed': 'Failed to add user: {message}',
 

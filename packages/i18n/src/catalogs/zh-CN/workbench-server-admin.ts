@@ -43,6 +43,10 @@ export const workbenchServerAdmin = {
   'workbench.serverAdmin.users.emptyDirectory': '还没有目录用户——服务器运行在单人档。添加一个用户即可开启团队档。',
   'workbench.serverAdmin.users.deactivatedOn': '已于 {date} 停用',
   'workbench.serverAdmin.users.addedOn': '添加于 {date}',
+  'workbench.serverAdmin.users.lastSeenOn': '最后活跃于 {date}',
+  'workbench.serverAdmin.users.neverSeen': '从未登录',
+  'workbench.serverAdmin.users.sortByCreated': '最新',
+  'workbench.serverAdmin.users.sortByLastSeen': '最后活跃',
   'workbench.serverAdmin.users.loadFailed': '加载用户目录失败：{message}',
   'workbench.serverAdmin.users.addFailed': '添加用户失败：{message}',
 

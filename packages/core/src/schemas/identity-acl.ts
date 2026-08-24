@@ -138,6 +138,11 @@ export const DaemonAdminSchema = v.object({
  * when a login's declared-admin match confers `daemon.admin`, stamped
  * with the promoted user as the actor.
  *
+ * `daemon.workspace-leave` is the self-service leave verb's stamp (the
+ * access-foundation plan §8 F2, QD) — one row per workspace a directory
+ * user leaves, stamped with the leaving user as the actor and the left
+ * workspace. Audit-vocabulary only.
+ *
  * `daemon.seat-admit` is the seat gate's stamp (the licensing plan §4)
  * — a deny row per directory-user admission refused at the seat limit
  * (including the personal-seat refusal reasons), and an allow row when
@@ -161,6 +166,7 @@ export const CapabilitySchema = v.picklist([
   'daemon.sso-grant',
   'daemon.sso-revoke',
   'daemon.sso-admin',
+  'daemon.workspace-leave',
   'daemon.seat-admit',
   'daemon.license-install',
   'daemon.license-refresh',

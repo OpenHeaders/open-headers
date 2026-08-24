@@ -18,6 +18,7 @@ import {
 } from '@openheaders/core/protocol';
 import { applyInboundAwarenessFrame, getAwarenessStoreForWorkspace } from '@openheaders/oracle/sync';
 import { handleIncomingMutationFrame, type MutationWirePort } from '@openheaders/oracle/sync/client/mutation-receiver';
+import { handleIncomingWorkspaceRetractFrame } from '@openheaders/oracle/sync/client/workspace-retraction-receiver';
 import * as v from 'valibot';
 import { WEB_DAEMON_BACKEND_ID } from './web-backend-id';
 
@@ -45,6 +46,9 @@ const WEB_WIRE_PORT: MutationWirePort = {
  */
 export async function handleInboundWireFrame(raw: unknown): Promise<boolean> {
   if (await handleIncomingMutationFrame(raw, WEB_WIRE_PORT)) return true;
+  // Revoke-time retraction (S5c): the serving daemon evicts a workspace
+  // this user no longer holds — same org-ownership gate as mutations.
+  if (await handleIncomingWorkspaceRetractFrame(raw, WEB_WIRE_PORT)) return true;
 
   if (!raw || typeof raw !== 'object') return false;
   if ((raw as { type?: unknown }).type !== SYNC_AWARENESS_PRESENCE_TYPE) return false;

@@ -42,6 +42,7 @@ import type { AuditQueryCursor, AuditQueryFilter } from '../sync/sqlite-audit-lo
 import { projectArchivedSession, type TrafficSessionArchive, type TrafficTap } from '../traffic';
 import type { CliProvisionService } from './cli-provision';
 import { offerWorkspaceRowsToUserPeers } from './grant-workspace-offer';
+import { retractWorkspaceRowsFromUserPeers } from './grant-workspace-retract';
 import { listLanIpv4Addresses } from './lan-addresses';
 import type { LicenseSlotHandle } from './license-slot';
 import { hashPassword, PASSWORD_MIN_LENGTH } from './password/password-verifier';
@@ -675,6 +676,16 @@ export function createAdminChannelHandlers(deps: AdminChannelDeps): ReadonlyMap<
 
   handlers.set('oh.daemon.users.list', async () => {
     const users = await listDaemonUsers();
+    // Per-user last-seen (the access-foundation plan decision c): the
+    // max `lastUsedAt` across every token ever bound to the user —
+    // revoked rows included, it is an observation, forensic like the
+    // ledger. Null = never seen through any token.
+    const lastSeenByUser = new Map<string, number>();
+    for (const token of await listDaemonAuthTokens()) {
+      if (token.userId === undefined || token.lastUsedAt === null) continue;
+      const prior = lastSeenByUser.get(token.userId);
+      if (prior === undefined || token.lastUsedAt > prior) lastSeenByUser.set(token.userId, token.lastUsedAt);
+    }
     return {
       users: await Promise.all(
         users.map(async (r) => ({
@@ -684,6 +695,7 @@ export function createAdminChannelHandlers(deps: AdminChannelDeps): ReadonlyMap<
           gitEmail: r.gitEmail ?? null,
           createdAt: r.createdAt,
           deactivatedAt: r.deactivatedAt,
+          lastSeenAt: lastSeenByUser.get(r.user.id) ?? null,
           hasPassword: r.passwordVerifier !== undefined,
           mayCreateWorkspaces: r.membership.functionalRoles.includes(WORKSPACE_CREATE_FUNCTIONAL_ROLE),
           isDaemonAdmin: r.membership.functionalRoles.includes(DAEMON_ADMIN_FUNCTIONAL_ROLE),
@@ -793,7 +805,12 @@ export function createAdminChannelHandlers(deps: AdminChannelDeps): ReadonlyMap<
     if (!record) return { ok: false, error: 'unknown user' };
     try {
       const result = await revokeWorkspaceRole(record.principal.id, workspaceId);
-      return result.ok ? { ok: true } : { ok: false, error: result.reason };
+      if (!result.ok) return { ok: false, error: result.reason };
+      // The revoke's live twin of the grant-side offer (S5c): the
+      // revoked user's already-open tabs evict the workspace now, not
+      // on their next reload-and-re-gate.
+      await retractWorkspaceRowsFromUserPeers(record.user.id, [workspaceId], deps.getWsServer);
+      return { ok: true };
     } catch (err) {
       return { ok: false, error: (err as Error).message };
     }

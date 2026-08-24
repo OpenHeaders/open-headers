@@ -21,6 +21,7 @@ import {
   List,
   Modal,
   Popconfirm,
+  Segmented,
   Select,
   Spin,
   Tag,
@@ -52,6 +53,10 @@ interface DirectoryUser {
   gitEmail: string | null;
   createdAt: number;
   deactivatedAt: number | null;
+  // Per-user max token `lastUsedAt` (the access-foundation plan
+  // decision c) — null = never seen; optional so an older server's
+  // projection (no field) renders nothing rather than refusing.
+  lastSeenAt?: number | null;
   hasPassword: boolean;
   mayCreateWorkspaces: boolean;
   isDaemonAdmin: boolean;
@@ -452,6 +457,10 @@ const ServerAdminConsole: React.FC = () => {
   const [adding, setAdding] = useState(false);
   const [seatBlocked, setSeatBlocked] = useState(false);
   const [passwordUser, setPasswordUser] = useState<DirectoryUser | null>(null);
+  // Directory ordering — newest admission first by default; the
+  // last-seen order puts never-seen users first, then stalest, so the
+  // offboarding review is a glance (decision c).
+  const [sortByLastSeen, setSortByLastSeen] = useState(false);
   const [gitEmailUser, setGitEmailUser] = useState<DirectoryUser | null>(null);
   const [gitWorkspaceId, setGitWorkspaceId] = useState<string | null>(null);
 
@@ -773,9 +782,26 @@ const ServerAdminConsole: React.FC = () => {
               {t('workbench.serverAdmin.users.emptyDirectory')}
             </Typography.Text>
           ) : (
-            <List
-              size="small"
-              dataSource={[...users].sort((a, b) => b.createdAt - a.createdAt)}
+            <>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
+                <Segmented
+                  size="small"
+                  value={sortByLastSeen ? 'lastSeen' : 'created'}
+                  onChange={(value) => setSortByLastSeen(value === 'lastSeen')}
+                  options={[
+                    { value: 'created', label: t('workbench.serverAdmin.users.sortByCreated') },
+                    { value: 'lastSeen', label: t('workbench.serverAdmin.users.sortByLastSeen') },
+                  ]}
+                  data-testid="server-admin-users-sort"
+                />
+              </div>
+              <List
+                size="small"
+                dataSource={[...users].sort((a, b) =>
+                  sortByLastSeen
+                    ? (a.lastSeenAt ?? Number.NEGATIVE_INFINITY) - (b.lastSeenAt ?? Number.NEGATIVE_INFINITY)
+                    : b.createdAt - a.createdAt,
+                )}
               renderItem={(u) => {
                 const deactivated = u.deactivatedAt !== null;
                 return (
@@ -861,6 +887,14 @@ const ServerAdminConsole: React.FC = () => {
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                           <span style={{ fontSize: 11, color: token.colorTextTertiary }}>
                             {t('workbench.serverAdmin.users.addedOn', { date: formatTimestamp(locale, u.createdAt) })}
+                            {u.lastSeenAt !== undefined &&
+                              ` · ${
+                                u.lastSeenAt === null
+                                  ? t('workbench.serverAdmin.users.neverSeen')
+                                  : t('workbench.serverAdmin.users.lastSeenOn', {
+                                      date: formatTimestamp(locale, u.lastSeenAt),
+                                    })
+                              }`}
                           </span>
                           <RolesEditor
                             user={u}
@@ -880,7 +914,8 @@ const ServerAdminConsole: React.FC = () => {
                   </List.Item>
                 );
               }}
-            />
+              />
+            </>
           )}
         </div>
       </section>

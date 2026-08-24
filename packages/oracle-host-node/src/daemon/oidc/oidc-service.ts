@@ -150,6 +150,13 @@ export interface OidcServiceDeps {
    */
   offerGrantedWorkspaces?: (userId: string, workspaceIds: readonly string[]) => Promise<number>;
   /**
+   * Revoke-time workspace retraction from the user's already-connected
+   * sockets (the offer's inverse twin — same function the manual admin
+   * revoke rides, S5c). Absent = no live retraction; open tabs converge
+   * on reload.
+   */
+  retractRevokedWorkspaces?: (userId: string, workspaceIds: readonly string[]) => Promise<number>;
+  /**
    * ID-token verification seam. The default verifies signature + `iss` +
    * `aud` + `exp` against the provider's remote JWKS via jose; unit rows
    * substitute a claims decoder so they don't stand up a signing issuer.
@@ -247,6 +254,7 @@ export function createDaemonOidcService(config: DaemonOidcConfig, deps: OidcServ
   const setDaemonAdmin = deps.setDaemonAdmin ?? setDaemonUserDaemonAdmin;
   const closePeersByTokenId = deps.closePeersByTokenId ?? ((): void => undefined);
   const offerGrantedWorkspaces = deps.offerGrantedWorkspaces;
+  const retractRevokedWorkspaces = deps.retractRevokedWorkspaces;
 
   // The declared floor (A3/A11) is on whenever SSO is — absent config
   // means the sentinel workspace at viewer, never zero grants.
@@ -439,6 +447,14 @@ export function createDaemonOidcService(config: DaemonOidcConfig, deps: OidcServ
         await offerGrantedWorkspaces(
           record.user.id,
           outcome.granted.map((change) => change.workspaceId),
+        );
+      }
+      if (outcome.revoked.length > 0 && retractRevokedWorkspaces) {
+        // The revoke leg's live twin (S5c): tabs already on the wire
+        // evict the workspaces the claims no longer justify.
+        await retractRevokedWorkspaces(
+          record.user.id,
+          outcome.revoked.map((change) => change.workspaceId),
         );
       }
       if (outcome.skippedManual.length > 0) {

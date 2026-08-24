@@ -25,6 +25,13 @@ export const workbenchChromeWorkspace = {
   'workbench.workspace.deleteOk': '删除',
   'workbench.workspace.deleteFailed': '删除工作区失败',
   'workbench.workspace.deletedToast': '已删除“{name}”',
+  'workbench.workspace.leaveTitle': '退出“{name}”？',
+  'workbench.workspace.leaveBody':
+    '你将放弃自己对此工作区的访问权限——它会从你所有打开的标签页中消失。其他人保留各自的权限，管理员可以再次授予你访问权限。',
+  'workbench.workspace.leaveOk': '退出',
+  'workbench.workspace.leaveFailed': '退出工作区失败',
+  'workbench.workspace.leftToast': '已退出“{name}”',
+  'workbench.workspace.leaveAria': '退出工作区',
   'workbench.workspace.createOk': '创建',
   'workbench.workspace.createFailed': '创建工作区失败',
   'workbench.workspace.createdToastPrefix': '已创建工作区',

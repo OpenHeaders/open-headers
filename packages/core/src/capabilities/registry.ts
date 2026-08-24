@@ -398,6 +398,20 @@ export interface Capabilities {
   signOut?: () => void;
 
   /**
+   * Give up the caller's own grant on a server workspace (the
+   * access-foundation plan §8 F2, QD). Registered only by the web
+   * host, where every listed workspace is one the serving daemon
+   * granted; the daemon's `leaveWorkspace` peer verb drops the row and
+   * the retraction push evicts the workspace from the caller's open
+   * tabs — the UI needs no removal step of its own. Resolves the
+   * verb's in-band shape: `ok: false` carries the refusal (`reason:
+   * 'managed'` for an IdP-owned grant, which cannot be left).
+   * Extension / desktop shells never register it — their workspaces
+   * are local or Discard-managed, not grant-held.
+   */
+  leaveWorkspace?: (workspaceId: string) => Promise<{ ok: boolean; reason?: string; error?: string }>;
+
+  /**
    * The network runtime that executes this surface's API requests —
    * what actually answers the workbench Send button. Hosts whose
    * requests run on a Node fetch stack register `'node'`: the desktop
