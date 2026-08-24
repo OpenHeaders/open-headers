@@ -52,6 +52,14 @@ export interface AddUserInput {
   personalLicense?: string;
 }
 
+/**
+ * Admit a user — the offline recovery hatch, and the ONE path that may
+ * admit without workspace access (the server-access plan A2 carve-out):
+ * `oh.daemon.users.create` and the console's invite require an initial
+ * grant, but this command structurally cannot validate a workspace id
+ * against a stopped daemon (workspaces live in `oracle.db`, not
+ * `storage.json`). The caller prints the follow-up `user grant` advisory.
+ */
 export async function addUser(config: DaemonConfig, input: AddUserInput): Promise<DaemonUserRecord> {
   installStorage(config);
   // The seat gate reads the license snapshot through the same provider

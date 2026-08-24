@@ -48,7 +48,7 @@ import {
   SYNC_SYNCED_TYPE,
   SYNC_WELCOME_TYPE,
 } from '@openheaders/core/protocol';
-import { setHostStorage } from '@openheaders/core/storage';
+import { hostStorage, OH, setHostStorage } from '@openheaders/core/storage';
 import {
   EXTENSION_WORKSPACE_ACTIVE_ID_PATH,
   EXTENSION_WORKSPACE_ENTITY_TYPE,
@@ -77,6 +77,7 @@ import {
   bootstrap as bootstrapWorkspaceStore,
   bridgeExtensionWorkspaceSyncEngine,
   createWorkspace,
+  listWorkspaces,
   __resetForTests as resetWorkspaceStore,
 } from '@openheaders/oracle/workspace/extension-workspace-store';
 import { queryAuditEntries, SqliteAuditLog } from '@openheaders/oracle-host-node/sync/sqlite-audit-log';
@@ -683,7 +684,15 @@ async function startServerWithAdminPlane(port: number): Promise<OracleWsServer> 
 }
 
 describe('peer admin plane — gated oh.daemon.* over real sockets', () => {
+  afterEach(() => {
+    resetWorkspaceStore();
+  });
+
   it('an operator peer administers the directory end-to-end; the probe answers admin without an audit row', async () => {
+    // A2: the create channel mandates an initial grant, so the rig
+    // needs a live workspace for the admission to grant against.
+    await bootstrapWorkspaceStore();
+    const seededWorkspaceId = listWorkspaces()[0].id;
     const port = await freePort();
     server = await startServerWithAdminPlane(port);
     const operator = await connectOperator(port, 'web-operator');
@@ -699,7 +708,11 @@ describe('peer admin plane — gated oh.daemon.* over real sockets', () => {
     // The probe is a visibility question, not an enforcement decision.
     expect(audits.filter((a) => a.capability === 'daemon.admin').length).toBe(baseline);
 
-    const created = await callOverWire(operator, { type: 'oh.daemon.users.create', displayName: 'Carol' });
+    const created = await callOverWire(operator, {
+      type: 'oh.daemon.users.create',
+      displayName: 'Carol',
+      grants: [{ workspaceId: seededWorkspaceId, role: 'viewer' }],
+    });
     expect(created.payload?.ok).toBe(true);
     const listed = await callOverWire(operator, { type: 'oh.daemon.users.list' });
     const users = listed.payload?.users as Array<{ displayName: string; userId: string; mayCreateWorkspaces: boolean }>;
@@ -1137,5 +1150,124 @@ describe('server workspace projection — admin surfaces read the server set ove
     const denied = await callOverWire(viewerClient, { type: 'oh.daemon.workspaces.list' });
     expect(denied.__error).toBe(ADMIN_DENIED_MESSAGE);
     expect(denied.payload).toBeUndefined();
+  });
+});
+
+// ── S3 — the invite carries grants (the server-access plan A2) ──────
+
+describe('invite path carries grants — users.create applies initial grants after the seat gate', () => {
+  afterEach(() => {
+    setWorkspaceOrgResolver(null);
+    disposeGlobal();
+    resetWorkspaceStore();
+  });
+
+  async function bootStoreWithTeam(): Promise<{ seededId: string; teamId: string }> {
+    __initGlobalSyncServiceForTests({ log: new InMemoryMutationLog() });
+    setWorkspaceOrgResolver(() => daemonOrgId);
+    await bootstrapWorkspaceStore();
+    await bridgeExtensionWorkspaceSyncEngine();
+    const team = await createWorkspace({ name: 'Team A', kind: 'team' });
+    return { seededId: listWorkspaces()[0].id, teamId: team.id };
+  }
+
+  it('a create with initial grants admits and grants in one act — the projection and the resolver both see the access', async () => {
+    const { seededId, teamId } = await bootStoreWithTeam();
+    const port = await freePort();
+    server = await startServerWithAdminPlane(port);
+    const operator = await connectOperator(port, 'web-operator');
+
+    const created = await callOverWire(operator, {
+      type: 'oh.daemon.users.create',
+      displayName: 'Dana',
+      email: 'dana@openheaders.io',
+      grants: [
+        { workspaceId: teamId, role: 'editor' },
+        { workspaceId: seededId, role: 'viewer' },
+      ],
+    });
+    expect(created.payload?.ok).toBe(true);
+    const userId = String(created.payload?.userId);
+
+    // The directory projection carries the initial grants.
+    const listed = await callOverWire(operator, { type: 'oh.daemon.users.list' });
+    const users = listed.payload?.users as Array<{
+      userId: string;
+      grants: Array<{ workspaceId: string; role: string; origin?: string }>;
+    }>;
+    const dana = users.find((u) => u.userId === userId);
+    expect(dana?.grants).toEqual(
+      expect.arrayContaining([
+        { workspaceId: teamId, role: 'editor' },
+        { workspaceId: seededId, role: 'viewer' },
+      ]),
+    );
+    // Manual provenance: an admission grant is operator-owned, never idp.
+    expect(dana?.grants.every((g) => g.origin === undefined)).toBe(true);
+
+    // And the capability resolver honours them — admission conferred access.
+    const snapshot = await resolveDaemonPeerIdentitySnapshot(userId);
+    expect(hasCapability(snapshot, 'workspace.write', { workspaceId: teamId }).allow).toBe(true);
+    expect(hasCapability(snapshot, 'workspace.read', { workspaceId: seededId }).allow).toBe(true);
+  });
+
+  it('a grant-less or invalid grants list refuses up front — no seat is consumed', async () => {
+    const { teamId } = await bootStoreWithTeam();
+    const port = await freePort();
+    server = await startServerWithAdminPlane(port);
+    const operator = await connectOperator(port, 'web-operator');
+
+    const directorySize = async (): Promise<number> => {
+      const listed = await callOverWire(operator, { type: 'oh.daemon.users.list' });
+      return (listed.payload as { users: unknown[] }).users.length;
+    };
+    const before = await directorySize();
+
+    const empty = await callOverWire(operator, { type: 'oh.daemon.users.create', displayName: 'Eve', grants: [] });
+    expect(empty.payload).toEqual({ ok: false, error: 'at least one workspace grant is required' });
+
+    const missing = await callOverWire(operator, { type: 'oh.daemon.users.create', displayName: 'Eve' });
+    expect(missing.payload?.ok).toBe(false);
+
+    const unknown = await callOverWire(operator, {
+      type: 'oh.daemon.users.create',
+      displayName: 'Eve',
+      grants: [{ workspaceId: 'ws-not-here', role: 'viewer' }],
+    });
+    expect(unknown.payload).toEqual({ ok: false, error: 'unknown workspace' });
+
+    const badRole = await callOverWire(operator, {
+      type: 'oh.daemon.users.create',
+      displayName: 'Eve',
+      grants: [{ workspaceId: teamId, role: 'root' }],
+    });
+    expect(badRole.payload?.ok).toBe(false);
+
+    expect(await directorySize()).toBe(before);
+  });
+
+  it('the seat gate stays first: a seat-blocked create refuses with the seat wall and grants nothing', async () => {
+    const { teamId } = await bootStoreWithTeam();
+    // Fill the free tier (6 seats) directly in the directory.
+    for (let i = 0; i < 6; i++) {
+      const filled = await createDaemonUser({ displayName: `Seat ${i}` });
+      expect(filled.ok).toBe(true);
+    }
+    const port = await freePort();
+    server = await startServerWithAdminPlane(port);
+    const operator = await connectOperator(port, 'web-operator');
+
+    const wraBefore = ((await hostStorage.get(OH.workspaceRoleAssignments)) ?? []).length;
+    const refused = await callOverWire(operator, {
+      type: 'oh.daemon.users.create',
+      displayName: 'Seventh',
+      grants: [{ workspaceId: teamId, role: 'editor' }],
+    });
+    expect(refused.payload?.ok).toBe(false);
+    expect(refused.payload?.reason).toBe('seat-limit-reached');
+    expect(String(refused.payload?.error)).toContain('seat limit reached (6 active users)');
+    // Grants follow admission — the refusal minted no WRA row.
+    const wraAfter = ((await hostStorage.get(OH.workspaceRoleAssignments)) ?? []).length;
+    expect(wraAfter).toBe(wraBefore);
   });
 });

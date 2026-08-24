@@ -268,9 +268,23 @@ export interface DaemonRpc {
    * Admit a user to the directory. `email` optional (local identity).
    * `personalLicense` = a personal-seat key redeemed at the seat limit
    * (admits past the pool when it identity-matches `email`).
+   *
+   * `grants` carries the admission's initial workspace access (the
+   * server-access plan A2): admission confers access, so at least one
+   * workspace + role is required and validated against the server's
+   * live set BEFORE the admission — a refused grants list never
+   * consumes a seat. The seat gate stays first: a seat-blocked create
+   * refuses with the seat wall and grants nothing. The offline `ohd
+   * user add` is the one grant-less path — a recovery hatch that
+   * structurally cannot validate ids against a stopped daemon.
    */
   'oh.daemon.users.create': {
-    req: { displayName: string; email?: string; personalLicense?: string };
+    req: {
+      displayName: string;
+      email?: string;
+      personalLicense?: string;
+      grants: ReadonlyArray<{ workspaceId: string; role: 'owner' | 'editor' | 'viewer' }>;
+    };
     /** Refusals carry the store's typed `reason` beside the message — surfaces branch on it (seat wall, redeem field), never on the string. */
     res: { ok: true; userId: string } | { ok: false; error: string; reason?: CreateDaemonUserRefusalReason };
   };

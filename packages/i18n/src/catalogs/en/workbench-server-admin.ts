@@ -32,6 +32,7 @@ export const workbenchServerAdmin = {
   'workbench.serverAdmin.users.sectionHint':
     'Admit a user, then grant per-workspace roles below. Email joins SSO logins to the record.',
   'workbench.serverAdmin.users.nameRequired': 'Name is required',
+  'workbench.serverAdmin.users.workspaceRequired': 'Grant at least one workspace',
   'workbench.serverAdmin.users.displayNamePlaceholder': 'Display name',
   'workbench.serverAdmin.users.emailPlaceholder': 'Email (optional — required for SSO)',
   'workbench.serverAdmin.users.seatKeyPlaceholder': 'Individual seat key (oh-license.…)',

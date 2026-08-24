@@ -33,6 +33,7 @@ export const workbenchServerAdmin = {
     "Admettez un utilisateur, puis accordez des rôles par espace de travail ci-dessous. L'email relie les " +
     'connexions SSO à la fiche.',
   'workbench.serverAdmin.users.nameRequired': 'Le nom est requis',
+  'workbench.serverAdmin.users.workspaceRequired': 'Accordez au moins un espace de travail',
   'workbench.serverAdmin.users.displayNamePlaceholder': "Nom d'affichage",
   'workbench.serverAdmin.users.emailPlaceholder': 'Email (facultatif — requis pour le SSO)',
   'workbench.serverAdmin.users.seatKeyPlaceholder': 'Clé de siège individuel (oh-license.…)',

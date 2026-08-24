@@ -34,6 +34,7 @@ export const workbenchServerAdmin = {
     'Admite un usuario y luego concédele roles por espacio de trabajo abajo. El email une los inicios de ' +
     'sesión SSO a la ficha.',
   'workbench.serverAdmin.users.nameRequired': 'El nombre es obligatorio',
+  'workbench.serverAdmin.users.workspaceRequired': 'Concede al menos un espacio de trabajo',
   'workbench.serverAdmin.users.displayNamePlaceholder': 'Nombre para mostrar',
   'workbench.serverAdmin.users.emailPlaceholder': 'Email (opcional — obligatorio para SSO)',
   'workbench.serverAdmin.users.seatKeyPlaceholder': 'Clave de plaza individual (oh-license.…)',

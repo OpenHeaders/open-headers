@@ -216,14 +216,14 @@ async function admitPasswordUser(
   workspaceId: string,
   role: 'owner' | 'editor' | 'viewer',
 ): Promise<string> {
-  const [created] = await adminOverWire([{ type: 'oh.daemon.users.create', displayName, email }]);
-  const userId = (created.payload as { ok: true; userId: string }).userId;
-  const [passworded, granted] = await adminOverWire([
-    { type: 'oh.daemon.users.setPassword', userId, password },
-    { type: 'oh.daemon.users.grant', userId, workspaceId, role },
+  // A2: the admission itself carries the grant — one act, no follow-up
+  // users.grant call.
+  const [created] = await adminOverWire([
+    { type: 'oh.daemon.users.create', displayName, email, grants: [{ workspaceId, role }] },
   ]);
+  const userId = (created.payload as { ok: true; userId: string }).userId;
+  const [passworded] = await adminOverWire([{ type: 'oh.daemon.users.setPassword', userId, password }]);
   expect((passworded.payload as { ok: boolean }).ok).toBe(true);
-  expect((granted.payload as { ok: boolean }).ok).toBe(true);
   return userId;
 }
 
@@ -699,15 +699,25 @@ test('admin console: the admin manages users and devices from the tab; a directo
 // ── The zero-grant landing (slice 3) ────────────────────────────────
 
 test('zero-grant landing: the explained notice stands, then a live grant resolves the open tab without a reload', async () => {
-  // A fresh directory user who can sign in and holds ZERO grants.
+  // A fresh directory user who can sign in and holds ZERO grants. The
+  // A2 mandate means the admission carries a grant, so the zero-grant
+  // state is reached the sanctioned way (A7): admit-with-grant, then
+  // the admin revokes everything.
   const [created] = await adminOverWire([
-    { type: 'oh.daemon.users.create', displayName: 'Zoe', email: 'zoe@openheaders.io' },
+    {
+      type: 'oh.daemon.users.create',
+      displayName: 'Zoe',
+      email: 'zoe@openheaders.io',
+      grants: [{ workspaceId: daemonWorkspaceIds[0], role: 'viewer' }],
+    },
   ]);
   const zoeId = (created.payload as { ok: true; userId: string }).userId;
-  const [passworded] = await adminOverWire([
+  const [passworded, revoked] = await adminOverWire([
     { type: 'oh.daemon.users.setPassword', userId: zoeId, password: 'zoe-first-password' },
+    { type: 'oh.daemon.users.revokeGrant', userId: zoeId, workspaceId: daemonWorkspaceIds[0] },
   ]);
   expect((passworded.payload as { ok: boolean }).ok).toBe(true);
+  expect((revoked.payload as { ok: boolean }).ok).toBe(true);
 
   const [zoeContext, zoePage] = await openSignedIn('zero-grant-zoe', 'zoe@openheaders.io', 'zoe-first-password');
 
@@ -750,13 +760,14 @@ test('password login: the operator sets a password in the console; a fresh gate 
   // the join adopts cleanly. No OIDC is configured on this daemon, so
   // the password routes are composed.
   const [created] = await adminOverWire([
-    { type: 'oh.daemon.users.create', displayName: 'Pia', email: 'pia@openheaders.io' },
+    {
+      type: 'oh.daemon.users.create',
+      displayName: 'Pia',
+      email: 'pia@openheaders.io',
+      grants: [{ workspaceId: daemonWorkspaceIds[0], role: 'viewer' }],
+    },
   ]);
   const piaId = (created.payload as { ok: true; userId: string }).userId;
-  const [granted] = await adminOverWire([
-    { type: 'oh.daemon.users.grant', userId: piaId, workspaceId: daemonWorkspaceIds[0], role: 'viewer' },
-  ]);
-  expect((granted.payload as { ok: boolean }).ok).toBe(true);
 
   // The admin already holds one, so the sign-in card is what the gate
   // draws — Pia simply has no password of her own yet.

@@ -34,6 +34,7 @@ export const workbenchServerAdmin = {
     'Lass einen Benutzer zu und gewähre ihm unten Rollen pro Arbeitsbereich. Die E-Mail verbindet ' +
     'SSO-Anmeldungen mit dem Eintrag.',
   'workbench.serverAdmin.users.nameRequired': 'Ein Name ist erforderlich',
+  'workbench.serverAdmin.users.workspaceRequired': 'Mindestens ein Arbeitsbereich muss gewährt werden',
   'workbench.serverAdmin.users.displayNamePlaceholder': 'Anzeigename',
   'workbench.serverAdmin.users.emailPlaceholder': 'E-Mail (optional — erforderlich für SSO)',
   'workbench.serverAdmin.users.seatKeyPlaceholder': 'Einzelplatz-Schlüssel (oh-license.…)',

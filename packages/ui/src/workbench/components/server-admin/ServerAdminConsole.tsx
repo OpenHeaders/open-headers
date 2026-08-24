@@ -432,7 +432,13 @@ const ServerAdminConsole: React.FC = () => {
   // replicates only what THIS user can read.
   const [serverWorkspaces, setServerWorkspaces] = useState<ReadonlyArray<{ id: string; name: string }> | null>(null);
   const [users, setUsers] = useState<readonly DirectoryUser[] | null>(null);
-  const [addForm] = Form.useForm<{ displayName: string; email: string; personalLicense: string }>();
+  const [addForm] = Form.useForm<{
+    displayName: string;
+    email: string;
+    personalLicense: string;
+    workspaceId: string;
+    role: DirectoryRole;
+  }>();
   const [adding, setAdding] = useState(false);
   const [seatBlocked, setSeatBlocked] = useState(false);
   const [passwordUser, setPasswordUser] = useState<DirectoryUser | null>(null);
@@ -478,13 +484,23 @@ const ServerAdminConsole: React.FC = () => {
     if (seatBlocked) noteUpgradeCtaShown('seat-gate');
   }, [seatBlocked]);
 
-  async function handleAddUser(values: { displayName: string; email: string; personalLicense?: string }): Promise<void> {
+  async function handleAddUser(values: {
+    displayName: string;
+    email: string;
+    personalLicense?: string;
+    workspaceId: string;
+    role: DirectoryRole;
+  }): Promise<void> {
     setAdding(true);
     try {
       const resp = await hostBridge.call('oh.daemon.users.create', {
         displayName: values.displayName.trim(),
         email: values.email?.trim() || undefined,
         personalLicense: values.personalLicense?.trim() || undefined,
+        // Admission confers access (the server-access plan A2): the
+        // form refuses to submit without a workspace + role, and the
+        // grant lands in the same act as the admission.
+        grants: [{ workspaceId: values.workspaceId, role: values.role }],
       });
       if (!resp.ok) {
         // The seat wall is the conversion moment: reveal the redeem field
@@ -672,7 +688,7 @@ const ServerAdminConsole: React.FC = () => {
             form={addForm}
             layout="inline"
             onFinish={handleAddUser}
-            initialValues={{ displayName: '', email: '', personalLicense: '' }}
+            initialValues={{ displayName: '', email: '', personalLicense: '', role: 'viewer' }}
             style={{ marginBottom: users && users.length > 0 ? 12 : 0 }}
           >
             <Form.Item
@@ -688,6 +704,28 @@ const ServerAdminConsole: React.FC = () => {
             </Form.Item>
             <Form.Item name="email" style={{ flex: 1 }}>
               <Input placeholder={t('workbench.serverAdmin.users.emailPlaceholder')} maxLength={128} />
+            </Form.Item>
+            {/* Admission confers access (the server-access plan A2): the
+                invite carries at least one workspace + role, offered
+                from the SERVER's projection, never the tab's mirror. */}
+            <Form.Item
+              name="workspaceId"
+              rules={[{ required: true, message: t('workbench.serverAdmin.users.workspaceRequired') }]}
+              style={{ minWidth: 160 }}
+            >
+              <Select
+                placeholder={t('workbench.serverAdmin.grants.workspacePlaceholder')}
+                options={workspaceOptions}
+                showSearch
+                optionFilterProp="label"
+                data-testid="server-admin-add-workspace"
+              />
+            </Form.Item>
+            <Form.Item name="role" style={{ minWidth: 90 }}>
+              <Select
+                options={ROLE_VALUES.map((r) => ({ value: r, label: t(ROLE_LABELS[r]) }))}
+                data-testid="server-admin-add-role"
+              />
             </Form.Item>
             {seatBlocked && (
               <Form.Item name="personalLicense" style={{ flex: 1, minWidth: 220 }}>

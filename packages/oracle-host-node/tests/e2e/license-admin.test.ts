@@ -282,6 +282,12 @@ describe.skipIf(!ENABLED)('licensing enforcement over the admin wire', () => {
     const free = seatLimit - activeCount(before);
     expect(free, `seat probe needs headroom on ${target.label} (limit ${seatLimit})`).toBeGreaterThan(0);
 
+    // A2: the create channel mandates an initial grant — probe against
+    // the server's own first workspace (the S2 projection).
+    const projected = await adminCall({ type: 'oh.daemon.workspaces.list' });
+    const probeWorkspaceId = (projected.workspaces as Array<{ id: string }>)[0].id;
+    const probeGrants = [{ workspaceId: probeWorkspaceId, role: 'viewer' }];
+
     const probeIds: string[] = [];
     try {
       for (let i = 0; i < free; i++) {
@@ -289,6 +295,7 @@ describe.skipIf(!ENABLED)('licensing enforcement over the admin wire', () => {
           type: 'oh.daemon.users.create',
           displayName: `e2e-seat-probe-${RUN}-${i}`,
           email: `seat-probe-${RUN}-${i}@openheaders.io`,
+          grants: probeGrants,
         });
         expect(created.ok, `probe user ${i} admitted (${String(created.error ?? '')})`).toBe(true);
         probeIds.push(String(created.userId));
@@ -298,6 +305,7 @@ describe.skipIf(!ENABLED)('licensing enforcement over the admin wire', () => {
         type: 'oh.daemon.users.create',
         displayName: `e2e-seat-probe-${RUN}-over`,
         email: `seat-probe-${RUN}-over@openheaders.io`,
+        grants: probeGrants,
       });
       expect(refused.ok).toBe(false);
       expect(refused.reason).toBe('seat-limit-reached');
@@ -314,6 +322,7 @@ describe.skipIf(!ENABLED)('licensing enforcement over the admin wire', () => {
       type: 'oh.daemon.users.create',
       displayName: `e2e-seat-probe-${RUN}-refill`,
       email: `seat-probe-${RUN}-refill@openheaders.io`,
+      grants: probeGrants,
     });
     expect(again.ok).toBe(true);
     const cleanup = await adminCall({ type: 'oh.daemon.users.deactivate', userId: String(again.userId) });

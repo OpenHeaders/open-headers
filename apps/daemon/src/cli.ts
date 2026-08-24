@@ -110,7 +110,11 @@ Commands:
   user add <name> [--email <address>] [--individual-license <key>]
                 Admit a user to the daemon's directory (requires the daemon
                 to be stopped; the daemon must have booted once); at the
-                seat limit an individual-seat key matching --email admits past it
+                seat limit an individual-seat key matching --email admits past it.
+                Offline recovery hatch: admits WITHOUT workspace access —
+                workspace ids are not verifiable against a stopped daemon,
+                so follow up with user grant (the admin console's invite
+                requires a grant instead)
   user list     Read the user directory (grants included)
   user deactivate <id-or-email>
                 Deactivate a user + revoke their tokens (daemon stopped)
@@ -425,6 +429,10 @@ async function commandUser(argv: readonly string[]): Promise<void> {
     });
     console.log('User added:');
     console.log(`  ${formatUserLine(record)}`);
+    console.log('');
+    console.log('They hold no workspace access yet — the offline add is a recovery hatch');
+    console.log('that cannot verify workspace ids. Grant before they sign in:');
+    console.log(`  ohd user grant ${values.email ?? record.user.id} <workspaceId> <owner|editor|viewer>`);
     console.log('');
     console.log('Bind a token to them before starting the daemon:');
     console.log(`  ohd show-token --user ${values.email ?? record.user.id}`);

@@ -32,6 +32,7 @@ export const workbenchServerAdmin = {
   'workbench.serverAdmin.users.sectionTitle': '用户',
   'workbench.serverAdmin.users.sectionHint': '先准入用户，再在下方按工作区授予角色。邮箱把 SSO 登录关联到该记录。',
   'workbench.serverAdmin.users.nameRequired': '名称是必填项',
+  'workbench.serverAdmin.users.workspaceRequired': '至少授予一个工作区',
   'workbench.serverAdmin.users.displayNamePlaceholder': '显示名称',
   'workbench.serverAdmin.users.emailPlaceholder': '邮箱（可选——SSO 必填）',
   'workbench.serverAdmin.users.seatKeyPlaceholder': '个人席位密钥（oh-license.…）',

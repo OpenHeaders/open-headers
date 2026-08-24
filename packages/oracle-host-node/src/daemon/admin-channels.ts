@@ -154,6 +154,21 @@ function parseAuditCursor(value: unknown): AuditQueryCursor | undefined {
   return { occurredAt: candidate.occurredAt, orgId: candidate.orgId, seq: candidate.seq };
 }
 
+function parseInitialGrants(
+  value: unknown,
+): Array<{ workspaceId: string; role: 'owner' | 'editor' | 'viewer' }> | null {
+  if (!Array.isArray(value)) return null;
+  const grants: Array<{ workspaceId: string; role: 'owner' | 'editor' | 'viewer' }> = [];
+  for (const entry of value) {
+    if (typeof entry !== 'object' || entry === null) return null;
+    const candidate = entry as { workspaceId?: unknown; role?: unknown };
+    if (typeof candidate.workspaceId !== 'string' || candidate.workspaceId.length === 0) return null;
+    if (candidate.role !== 'owner' && candidate.role !== 'editor' && candidate.role !== 'viewer') return null;
+    grants.push({ workspaceId: candidate.workspaceId, role: candidate.role });
+  }
+  return grants;
+}
+
 function isTelemetryDebugCommand(value: unknown): value is TelemetryDebugCommand {
   if (typeof value !== 'object' || value === null) return false;
   const candidate = value as { kind?: unknown; tabId?: unknown; pinned?: unknown; enabled?: unknown };
@@ -583,6 +598,18 @@ export function createAdminChannelHandlers(deps: AdminChannelDeps): ReadonlyMap<
   handlers.set('oh.daemon.users.create', async (message) => {
     const displayName = typeof message.displayName === 'string' ? message.displayName : '';
     const email = typeof message.email === 'string' ? message.email.trim() || undefined : undefined;
+    // Initial grants (the server-access plan A2): admission confers
+    // access, so this channel requires at least one workspace + role —
+    // validated BEFORE the admission against the same live set
+    // `users.grant` checks, so a refused grants list never consumes a
+    // seat. The offline `ohd user add` stays the grant-less recovery
+    // hatch (it cannot validate ids against a stopped daemon).
+    const grants = parseInitialGrants(message.grants);
+    if (!grants) return { ok: false, error: 'grants must be workspaceId + role (owner, editor or viewer) rows' };
+    if (grants.length === 0) return { ok: false, error: 'at least one workspace grant is required' };
+    for (const grant of grants) {
+      if (!getWorkspace(grant.workspaceId)) return { ok: false, error: 'unknown workspace' };
+    }
     try {
       const personalLicense =
         typeof message.personalLicense === 'string' ? message.personalLicense.trim() || undefined : undefined;
@@ -591,7 +618,22 @@ export function createAdminChannelHandlers(deps: AdminChannelDeps): ReadonlyMap<
         ...(email ? { email } : {}),
         ...(personalLicense ? { personalLicense } : {}),
       });
-      if (created.ok) return { ok: true, userId: created.record.user.id };
+      if (created.ok) {
+        // Admission first, grants second — the seat gate above stays
+        // the one enforcement point, and any refusal grants nothing.
+        // No live workspace offer rides this path: the user id is
+        // minted inside the admission, so no connected socket can be
+        // acting as this user yet — the first sign-in's catch-up
+        // delivers the granted rows.
+        for (const grant of grants) {
+          await grantWorkspaceRole({
+            principalId: created.record.principal.id,
+            workspaceId: grant.workspaceId,
+            role: grant.role,
+          });
+        }
+        return { ok: true, userId: created.record.user.id };
+      }
       if (created.reason === 'seat-limit-reached') {
         return {
           ok: false,
