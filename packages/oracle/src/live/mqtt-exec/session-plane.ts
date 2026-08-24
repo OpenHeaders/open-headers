@@ -36,10 +36,18 @@ const FLUSH_MAX_ITEMS = 256;
 
 export interface MqttStreamEmitter {
   /** Push the accepted CONNACK's facts as soon as they arrive — one
-   *  frame. `clientId` is what the CONNECT actually carried;
-   *  `proxyRoute` carries the transport's route decision so the live
-   *  session strip attributes honestly before the snapshot settles. */
-  open(sessionPresent: boolean, reasonCode: number, clientId: string, proxyRoute?: ExecutedProxyRoute): void;
+   *  frame. `remainingLength` is the CONNACK frame's Remaining Length
+   *  as observed on the wire; `clientId` is what the CONNECT actually
+   *  carried; `proxyRoute` carries the transport's route decision so
+   *  the live session strip attributes honestly before the snapshot
+   *  settles. */
+  open(facts: {
+    sessionPresent: boolean;
+    reasonCode: number;
+    remainingLength: number;
+    clientId: string;
+    proxyRoute?: ExecutedProxyRoute;
+  }): void;
   /** Enqueue one timeline item; flushes by the time window. */
   item(item: MqttStreamItemWire): void;
   /** Settle the emitter (any end path): flush pending items, then
@@ -67,16 +75,17 @@ export function createMqttStreamEmitter(sendId: string, emit: (event: MqttStream
   };
 
   return {
-    open(sessionPresent, reasonCode, clientId, proxyRoute) {
+    open(facts) {
       if (settled) return;
       emit({
         sendId,
         seq: seq++,
         kind: 'open',
-        sessionPresent,
-        reasonCode,
-        clientId,
-        ...(proxyRoute !== undefined ? { proxyRoute } : {}),
+        sessionPresent: facts.sessionPresent,
+        reasonCode: facts.reasonCode,
+        remainingLength: facts.remainingLength,
+        clientId: facts.clientId,
+        ...(facts.proxyRoute !== undefined ? { proxyRoute: facts.proxyRoute } : {}),
       });
     },
     item(item) {

@@ -418,11 +418,13 @@ export async function executeMqttSession(
       return null;
     };
 
-    const handlePacket = (packet: MqttPacket): void => {
+    // `remainingLength` is the frame's Remaining Length as the stream
+    // decoder observed it — a framing fact the CONNACK capture records.
+    const handlePacket = (packet: MqttPacket, remainingLength: number): void => {
       switch (packet.type) {
         case 'connack': {
           if (opened) return;
-          connack = { sessionPresent: packet.sessionPresent, reasonCode: packet.reasonCode };
+          connack = { sessionPresent: packet.sessionPresent, reasonCode: packet.reasonCode, remainingLength };
           const refusal = connackRefusalMessage(packet.reasonCode, version);
           if (refusal !== null) {
             // The refusal reason IS the classified pre-open error —
@@ -432,7 +434,13 @@ export async function executeMqttSession(
             return;
           }
           opened = true;
-          emitter?.open(packet.sessionPresent, packet.reasonCode, clientId, proxyRoute);
+          emitter?.open({
+            sessionPresent: packet.sessionPresent,
+            reasonCode: packet.reasonCode,
+            remainingLength,
+            clientId,
+            ...(proxyRoute !== undefined ? { proxyRoute } : {}),
+          });
           // Open-time subscriptions: rows without a Subscription
           // Identifier ride ONE packet (grants positional per row);
           // each distinct identifier needs its own packet (the 5.0
@@ -579,7 +587,7 @@ export async function executeMqttSession(
               }
               continue;
             }
-            handlePacket(event.packet);
+            handlePacket(event.packet, event.remainingLength);
             if (settled) return;
           }
         },

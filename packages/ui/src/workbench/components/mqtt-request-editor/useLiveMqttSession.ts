@@ -40,10 +40,18 @@ export interface MqttSessionTiming {
 
 export interface LiveMqttSession {
   /** The accepted CONNACK's facts, or null until the open frame
-   *  arrives. `clientId` is what the CONNECT actually carried;
+   *  arrives. `remainingLength` is the CONNACK frame's Remaining
+   *  Length as observed on the wire (absent from hosts that predate
+   *  the fact); `clientId` is what the CONNECT actually carried;
    *  `proxyRoute` is the transport's route decision riding the open
    *  frame. */
-  open: { sessionPresent: boolean; reasonCode: number; clientId: string; proxyRoute?: ExecutedProxyRoute } | null;
+  open: {
+    sessionPresent: boolean;
+    reasonCode: number;
+    remainingLength?: number;
+    clientId: string;
+    proxyRoute?: ExecutedProxyRoute;
+  } | null;
   /** When Connect left — the ticking lifecycle base. */
   startedAt: number;
   /** When the CONNACK accepted — the "Connected" row's time. */
@@ -138,6 +146,7 @@ export function useLiveMqttSession(): {
           acc.open = {
             sessionPresent: event.sessionPresent,
             reasonCode: event.reasonCode,
+            ...(event.remainingLength !== undefined ? { remainingLength: event.remainingLength } : {}),
             clientId: event.clientId,
             ...(event.proxyRoute !== undefined ? { proxyRoute: event.proxyRoute } : {}),
           };

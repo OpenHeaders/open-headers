@@ -105,6 +105,7 @@ const MqttSessionPane: React.FC<MqttSessionPaneProps> = ({
       reasonCode: connack.reasonCode,
       ...(reasonName !== undefined ? { reasonName } : {}),
       sessionPresent: connack.sessionPresent,
+      ...(connack.remainingLength !== undefined ? { remainingLength: connack.remainingLength } : {}),
     };
   }, [connack, v5]);
 

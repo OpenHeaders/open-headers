@@ -51,6 +51,9 @@ const MqttExampleResultPane: React.FC<MqttExampleResultPaneProps> = ({ response,
       reasonCode: response.connack.reasonCode,
       ...(reasonName !== undefined ? { reasonName } : {}),
       sessionPresent: response.connack.sessionPresent,
+      ...(response.connack.remainingLength !== undefined
+        ? { remainingLength: response.connack.remainingLength }
+        : {}),
     };
   }, [response.connack, v5]);
 

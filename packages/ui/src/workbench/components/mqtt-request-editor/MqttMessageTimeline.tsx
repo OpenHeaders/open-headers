@@ -69,10 +69,10 @@ const SINGLE_ROW_PX = 28;
  *  1px divider). */
 const VIEWER_PX = 181;
 /** Pinned height of the Connected row's expanded CONNACK block —
- *  heading (18px) + two fact rows (20px each) + 6px paddings + 1px
+ *  heading (18px) + four fact rows (20px each) + 6px paddings + 1px
  *  divider; the lines carry these heights explicitly so the virtual
  *  window's arithmetic stays exact by construction. */
-const CONNACK_DETAIL_PX = 71;
+const CONNACK_DETAIL_PX = 111;
 
 const cellFont: React.CSSProperties = {
   fontFamily: "'SF Mono', 'Fira Code', monospace",
@@ -107,8 +107,11 @@ export interface MqttTimelineLifecycle {
   connectedAt?: number;
   /** The CONNACK facts behind the Connected row's expandable details —
    *  assembled by the pane (the version knob scopes which numeric
-   *  space names the code); rendered verbatim as key: value rows. */
-  connack?: { reasonCode: number; reasonName?: string; sessionPresent: boolean };
+   *  space names the code); rendered verbatim as key: value rows.
+   *  `remainingLength` is the frame's Remaining Length as observed on
+   *  the wire — absent on captures that predate the fact, rendered as
+   *  the absence it is. */
+  connack?: { reasonCode: number; reasonName?: string; sessionPresent: boolean; remainingLength?: number };
   /** Absent while the session is open — the live phase. */
   endedBy?: MqttTimelineEndedBy;
   endedAt?: number;
@@ -617,6 +620,8 @@ const MqttMessageTimeline: React.FC<MqttMessageTimelineProps> = ({
             <div style={{ ...cellFont, fontSize: 11, lineHeight: '18px', height: 18, color: token.colorTextTertiary }}>
               CONNACK
             </div>
+            {factRow('cmd', 'connack')}
+            {factRow('length', connack.remainingLength !== undefined ? String(connack.remainingLength) : '—')}
             {factRow(
               'reasonCode',
               `${connack.reasonCode}${connack.reasonName !== undefined ? ` (${connack.reasonName})` : ''}`,

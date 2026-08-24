@@ -222,6 +222,10 @@ export type MqttStreamEventWire =
       kind: 'open';
       sessionPresent: boolean;
       reasonCode: number;
+      /** The CONNACK frame's Remaining Length as framed on the wire —
+       *  recorded at decode, never recomputed. Optional for wire
+       *  tolerance toward hosts that predate the fact. */
+      remainingLength?: number;
       clientId: string;
       /** The session's effective proxy route as the transport decided
        *  it (ws-scheme dials only — tcp dials are direct in v1). */

@@ -64,6 +64,11 @@ export type ExecutedMqttEvent = ExecutedMqttMessage | ExecutedMqttSubscribed | E
 export interface ExecutedMqttConnack {
   sessionPresent: boolean;
   reasonCode: number;
+  /** The CONNACK frame's Remaining Length as framed on the wire — an
+   *  observed byte count recorded at decode, never recomputed by
+   *  re-encoding. Optional: captures saved before it was recorded
+   *  carry no value (absence stays absence). */
+  remainingLength?: number;
 }
 
 /**

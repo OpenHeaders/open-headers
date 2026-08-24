@@ -16,7 +16,16 @@ import { decodeMqttPacketBody, type MqttPacket, type MqttProtocolVersion } from 
 import { MqttCodecError } from './wire';
 
 export type MqttStreamEvent =
-  | { ok: true; packet: MqttPacket; wireBytes: number }
+  | {
+      ok: true;
+      packet: MqttPacket;
+      /** Total frame size on the wire — fixed header included. */
+      wireBytes: number;
+      /** The fixed header's Remaining Length as framed on the wire —
+       *  the observed byte count of the packet past the fixed header,
+       *  a framing FACT consumers may record (never recompute). */
+      remainingLength: number;
+    }
   | { ok: false; error: string; fatal: boolean };
 
 export interface MqttStreamDecoder {
@@ -100,6 +109,7 @@ export function createMqttStreamDecoder(
             ok: true,
             packet: decodeMqttPacketBody(typeNibble, joined[at] & 0x0f, body, version),
             wireBytes,
+            remainingLength,
           });
         } catch (error) {
           const message = error instanceof MqttCodecError ? error.message : String(error);

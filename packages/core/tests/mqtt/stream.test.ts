@@ -53,6 +53,13 @@ describe('createMqttStreamDecoder', () => {
       connackBytes.byteLength,
       publishBytes.byteLength,
     ]);
+    // Remaining Length is the observed fixed-header varint — the frame
+    // minus the type byte and the length bytes themselves (single-byte
+    // varints at these sizes).
+    expect(events.flatMap((event) => (event.ok ? [event.remainingLength] : []))).toEqual([
+      connackBytes.byteLength - 2,
+      publishBytes.byteLength - 2,
+    ]);
     expect(decoder.pendingBytes()).toBe(0);
   });
 

@@ -38,7 +38,7 @@ describe('createMqttStreamEmitter', () => {
   it('emits open immediately with the CONNACK facts and pools items until the flush window', () => {
     const events: MqttStreamEventWire[] = [];
     const emitter = createMqttStreamEmitter('send-1', (e) => events.push(e));
-    emitter.open(true, 0, 'oh-abc12345');
+    emitter.open({ sessionPresent: true, reasonCode: 0, remainingLength: 3, clientId: 'oh-abc12345' });
     emitter.item(messageItem('down'));
     emitter.item({ kind: 'subscribed', grants: [{ topicFilter: 'probe/#', reasonCode: 1 }], atMs: 1 });
     expect(events).toHaveLength(1);
@@ -47,6 +47,7 @@ describe('createMqttStreamEmitter', () => {
       seq: 0,
       sessionPresent: true,
       reasonCode: 0,
+      remainingLength: 3,
       clientId: 'oh-abc12345',
     });
     vi.advanceTimersByTime(100);
@@ -73,7 +74,7 @@ describe('createMqttStreamEmitter', () => {
     expect(events.map((e) => e.kind)).toEqual(['items', 'end']);
     expect(events.map((e) => e.seq)).toEqual([0, 1]);
     emitter.item(messageItem('down'));
-    emitter.open(false, 0, 'x');
+    emitter.open({ sessionPresent: false, reasonCode: 0, remainingLength: 3, clientId: 'x' });
     emitter.end();
     expect(events).toHaveLength(2);
   });

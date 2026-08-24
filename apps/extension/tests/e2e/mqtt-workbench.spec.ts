@@ -477,6 +477,10 @@ test('E6 — Connect runs the session in-page: CONNACK row, SUBACK grants, retai
   await connectedRow.click();
   const connackDetails = page.getByTestId('mqtt-timeline-connack-details').filter({ visible: true }).first();
   await connackDetails.waitFor({ state: 'visible', timeout: 10_000 });
+  await expect(connackDetails).toContainText('cmd: connack');
+  // aedes frames the 3.1.1 CONNACK with Remaining Length 2 — recorded
+  // at decode, rendered verbatim.
+  await expect(connackDetails).toContainText('length: 2');
   await expect(connackDetails).toContainText('reasonCode: 0 (Connection Accepted)');
   await expect(connackDetails).toContainText('sessionPresent: false');
   await connectedRow.click();

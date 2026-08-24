@@ -113,8 +113,15 @@ export const CapturedMqttEndSchema = v.nullable(
  *  facts, never rewritten to look well-formed. */
 export const CapturedMqttResponseSchema = v.object({
   /** The CONNACK as the broker answered it — a capture only exists for
-   *  a session that opened, so the facts are always present. */
-  connack: v.object({ sessionPresent: v.boolean(), reasonCode: v.number() }),
+   *  a session that opened, so the facts are always present.
+   *  `remainingLength` is the frame's Remaining Length as observed on
+   *  the wire — optional: captures saved before it was recorded carry
+   *  no value (absence stays absence, never synthesized). */
+  connack: v.object({
+    sessionPresent: v.boolean(),
+    reasonCode: v.number(),
+    remainingLength: v.optional(v.number()),
+  }),
   /** The client id the CONNECT actually carried — the entity's own, or
    *  the per-connect generated one when the field was blank. */
   clientId: v.string(),

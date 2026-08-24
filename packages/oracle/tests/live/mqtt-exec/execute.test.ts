@@ -148,7 +148,9 @@ describe('executeMqttSession — connect gate', () => {
     const snapshot = await settled;
     expect(snapshot.error).toBeNull();
     expect(snapshot.connected).toBe(true);
-    expect(snapshot.connack).toEqual({ sessionPresent: true, reasonCode: 0 });
+    // remainingLength is the frame's Remaining Length as framed by the
+    // broker side (5.0 CONNACK: flags + reason + empty properties = 3).
+    expect(snapshot.connack).toEqual({ sessionPresent: true, reasonCode: 0, remainingLength: 3 });
     expect(snapshot.clientId).toBe(connect.clientId);
     expect(snapshot.end).toEqual({ by: 'client' });
     // The clean Disconnect wrote a DISCONNECT before closing.
@@ -229,7 +231,7 @@ describe('executeMqttSession — connect gate', () => {
     expect(snapshot.connected).toBe(false);
     expect(snapshot.error).toContain('Not authorized');
     expect(snapshot.error).toContain('135');
-    expect(snapshot.connack).toEqual({ sessionPresent: false, reasonCode: 0x87 });
+    expect(snapshot.connack).toEqual({ sessionPresent: false, reasonCode: 0x87, remainingLength: 3 });
   });
 
   it('refuses a 3.1.1-form CONNACK code on a 5.0 session with the 3.1.1 name verbatim', async () => {
@@ -253,7 +255,8 @@ describe('executeMqttSession — connect gate', () => {
     expect(snapshot.connected).toBe(false);
     expect(snapshot.error).toContain('Unacceptable protocol version');
     expect(snapshot.error).toContain('code 1');
-    expect(snapshot.connack).toEqual({ sessionPresent: false, reasonCode: 1 });
+    // The raw wire frame declared Remaining Length 2 — recorded verbatim.
+    expect(snapshot.connack).toEqual({ sessionPresent: false, reasonCode: 1, remainingLength: 2 });
   });
 
   it('gates a foreign scheme and unresolved variables as structured pre-wire errors', async () => {
