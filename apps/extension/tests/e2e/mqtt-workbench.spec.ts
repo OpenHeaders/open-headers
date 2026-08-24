@@ -464,6 +464,12 @@ test('E6 — Connect runs the session in-page: CONNACK row, SUBACK grants, retai
   await connectAndAwaitOpen();
   await expect(connectButton()).toHaveText(/Disconnect/);
 
+  // The version knob locks while the session is in flight — the open
+  // session speaks the version it connected with.
+  await expect(
+    page.getByTestId('mqtt-version-select').filter({ visible: true }).first(),
+  ).toHaveClass(/ant-select-disabled/);
+
   // The Connected lifecycle row reads plain; expanding it shows the
   // verbatim CONNACK facts — the 3.1.1 return-code name beside the
   // code (the version knob from E2; aedes speaks 3.1.1 only) — as

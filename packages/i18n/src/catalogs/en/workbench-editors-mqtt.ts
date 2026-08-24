@@ -14,6 +14,7 @@ export const workbenchEditorsMqtt = {
     'MQTT protocol version the session speaks. 5.0 unlocks properties and subscription options; 3.1.1 targets brokers that refuse 5.0.',
   'workbench.editors.mqtt.version.v5': 'V5',
   'workbench.editors.mqtt.version.v311': 'V3.1.1',
+  'workbench.editors.mqtt.version.lockedWhileConnected': "Can't change version while connected.",
   'workbench.editors.mqtt.scheme.tooltip':
     'The scheme picks the transport: mqtt/mqtts dial a TCP socket on the desktop app or server; ws/wss run MQTT over WebSocket on every host.',
   'workbench.editors.mqtt.connect.label': 'Connect',

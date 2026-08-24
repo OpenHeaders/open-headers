@@ -1001,11 +1001,21 @@ const MqttRequestEditor: React.FC<MqttRequestEditorProps> = ({
   // honest gate copy — never a hidden button.
   const headerTitle = (
     <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, minWidth: 0 }}>
-      <Tooltip title={t('workbench.editors.mqtt.version.tooltip')}>
+      <Tooltip
+        title={
+          inFlight
+            ? t('workbench.editors.mqtt.version.lockedWhileConnected')
+            : t('workbench.editors.mqtt.version.tooltip')
+        }
+      >
+        {/* The knob locks while a session is in flight — the open
+            session speaks the version it connected with, so a live
+            flip could only misstate it. */}
         <Select
           size="small"
           style={{ width: 84, flexShrink: 0 }}
           value={draft.protocolVersion}
+          disabled={inFlight}
           options={[
             { value: '5.0', label: t('workbench.editors.mqtt.version.v5') },
             { value: '3.1.1', label: t('workbench.editors.mqtt.version.v311') },

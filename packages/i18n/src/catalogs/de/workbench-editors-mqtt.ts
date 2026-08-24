@@ -17,6 +17,7 @@ export const workbenchEditorsMqtt = {
     'MQTT-Protokollversion der Sitzung. 5.0 schaltet Eigenschaften und Abonnementoptionen frei; 3.1.1 zielt auf Broker, die 5.0 ablehnen.',
   'workbench.editors.mqtt.version.v5': 'V5',
   'workbench.editors.mqtt.version.v311': 'V3.1.1',
+  'workbench.editors.mqtt.version.lockedWhileConnected': 'Die Version kann nicht geändert werden, solange die Sitzung verbunden ist.',
   'workbench.editors.mqtt.scheme.tooltip':
     'Das Schema wählt den Transport: mqtt/mqtts öffnen einen TCP-Socket in der Desktop-App oder auf dem Server; ws/wss fahren MQTT über WebSocket auf jedem Host.',
   'workbench.editors.mqtt.connect.label': 'Verbinden',
