@@ -5,8 +5,8 @@
  * and the claim-code → session-token swap.
  */
 
-import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { getTranslator } from '@openheaders/i18n';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { claimOidcToken, consumeOidcHash, fetchOidcMeta, oidcErrorKey } from '@/host/oidc-login';
 
 function stubFetch(response: { status?: number; contentType?: string; body?: unknown }): typeof fetch {
@@ -110,6 +110,8 @@ describe('oidcErrorKey', () => {
     expect(t(oidcErrorKey('seat-limit-reached'))).toBe(
       'Signed in, but this server has no free seats for a new user. Ask the server admin — or get in now with your own individual seat.',
     );
-    expect(t(oidcErrorKey('anything-else'))).toBe('Single sign-on failed. Try again, or connect with a pairing token instead.');
+    expect(t(oidcErrorKey('anything-else'))).toBe(
+      'Single sign-on failed. Try again, or ask whoever runs the server to check the provider.',
+    );
   });
 });
