@@ -98,6 +98,8 @@ interface WorkbenchToolWindowProps {
   openCreateGrpcRequestTab: UseTabOpenersApi['openCreateGrpcRequestTab'];
   openWebSocketRequestEditTab: UseTabOpenersApi['openWebSocketRequestEditTab'];
   openCreateWebSocketRequestTab: UseTabOpenersApi['openCreateWebSocketRequestTab'];
+  openMqttRequestEditTab: UseTabOpenersApi['openMqttRequestEditTab'];
+  openCreateMqttRequestTab: UseTabOpenersApi['openCreateMqttRequestTab'];
   openResponseExampleTab: UseTabOpenersApi['openResponseExampleTab'];
   openGrpcResponseExampleTab: UseTabOpenersApi['openGrpcResponseExampleTab'];
   openWsResponseExampleTab: UseTabOpenersApi['openWsResponseExampleTab'];
@@ -167,6 +169,8 @@ const WorkbenchToolWindow: React.FC<WorkbenchToolWindowProps> = ({
   openCreateGrpcRequestTab,
   openWebSocketRequestEditTab,
   openCreateWebSocketRequestTab,
+  openMqttRequestEditTab,
+  openCreateMqttRequestTab,
   openResponseExampleTab,
   openGrpcResponseExampleTab,
   openWsResponseExampleTab,
@@ -241,6 +245,8 @@ const WorkbenchToolWindow: React.FC<WorkbenchToolWindowProps> = ({
           onCreateGrpcRequest={openCreateGrpcRequestTab}
           onSelectWebSocketRequest={openWebSocketRequestEditTab}
           onCreateWebSocketRequest={openCreateWebSocketRequestTab}
+          onSelectMqttRequest={openMqttRequestEditTab}
+          onCreateMqttRequest={openCreateMqttRequestTab}
           onSelectResponseExample={openResponseExampleTab}
           onSelectGrpcResponseExample={openGrpcResponseExampleTab}
           onSelectWsResponseExample={openWsResponseExampleTab}

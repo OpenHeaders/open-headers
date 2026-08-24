@@ -138,6 +138,14 @@ export interface UseTabOpenersApi {
     folderPath?: string;
     flavor: 'raw' | 'socketio';
   }) => void;
+  /** Open an MqttRequest in its dedicated edit tab. */
+  openMqttRequestEditTab: (uid: string, name: string, autoRename?: boolean) => void;
+  /**
+   * Context-create an MQTT request. Same posture as
+   * {@link openCreateGrpcRequestTab} — no draft mode, persisted
+   * immediately, opened as `mqtt-edit` (born clean).
+   */
+  openCreateMqttRequestTab: (context: { collectionId?: string; folderPath?: string }) => void;
   /**
    * Open a fresh `rule-create` scratch seeded with another tab's current
    * rule content ("Duplicate Tab"). The copy is a scratch regardless of

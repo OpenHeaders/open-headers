@@ -30,6 +30,7 @@ const SNAPSHOT_KEY_BY_ENTITY_TYPE: Record<string, string> = {
   request: 'requests',
   grpcRequest: 'grpcRequests',
   websocketRequest: 'websocketRequests',
+  mqttRequest: 'mqttRequests',
   'request-collection': 'requestCollections',
   'request-folder': 'requestFolders',
   'response-example': 'responseExamples',

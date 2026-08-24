@@ -56,6 +56,7 @@ import type {
   SyncLiveValuePostState,
   SyncLiveVariablePostState,
   SyncLiveWorkflowPostState,
+  SyncMqttRequestPostState,
   SyncOAuthBundlePostState,
   SyncPauseMarkersPostState,
   SyncRequestCollectionPostState,
@@ -98,6 +99,7 @@ export interface WorkspaceSnapshot {
   requestFolders: SyncRequestFolderPostState[];
   grpcRequests: SyncGrpcRequestPostState[];
   websocketRequests: SyncWebSocketRequestPostState[];
+  mqttRequests: SyncMqttRequestPostState[];
   responseExamples: SyncResponseExamplePostState[];
   grpcResponseExamples: SyncGrpcResponseExamplePostState[];
   wsResponseExamples: SyncWsResponseExamplePostState[];
@@ -145,6 +147,7 @@ export const WorkspaceSnapshotSchema = v.object({
   // parses; the receiver simply has nothing of those kinds to seed.
   grpcRequests: v.optional(v.array(v.unknown()), []),
   websocketRequests: v.optional(v.array(v.unknown()), []),
+  mqttRequests: v.optional(v.array(v.unknown()), []),
   responseExamples: v.optional(v.array(v.unknown()), []),
   grpcResponseExamples: v.optional(v.array(v.unknown()), []),
   wsResponseExamples: v.optional(v.array(v.unknown()), []),

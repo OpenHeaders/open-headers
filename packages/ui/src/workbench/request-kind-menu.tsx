@@ -21,7 +21,7 @@ import { createElement } from 'react';
 import { codeBadge } from './components/shared/code-badge';
 
 /** Protocol flavors offered by every context-less request create. */
-export type RequestKind = 'http' | 'grpc' | 'websocket' | 'socketio';
+export type RequestKind = 'http' | 'grpc' | 'websocket' | 'socketio' | 'mqtt';
 
 export interface RequestKindMenuItem {
   key: RequestKind;
@@ -37,6 +37,7 @@ export const ALL_REQUEST_KINDS: RequestKindMenuItem[] = [
   { key: 'grpc', code: 'gRPC', labelKey: 'shared.requestKinds.grpc.label' },
   { key: 'websocket', code: 'WS', labelKey: 'shared.requestKinds.websocket.label' },
   { key: 'socketio', code: 'S.IO', labelKey: 'shared.requestKinds.socketio.label' },
+  { key: 'mqtt', code: 'MQTT', labelKey: 'shared.requestKinds.mqtt.label' },
 ];
 
 /**
@@ -62,6 +63,9 @@ export interface RequestKindAddMenuOptions {
   /** Requests side — "Add Socket.IO Request" item (same entity kind,
    *  socketio flavor — the two-entry family anatomy). */
   onAddSocketIoRequest?: () => void;
+  /** Requests side — "Add MQTT Request" item (pub/sub session-shaped
+   *  sibling entity kind). */
+  onAddMqttRequest?: () => void;
 }
 
 /**
@@ -72,7 +76,7 @@ export interface RequestKindAddMenuOptions {
  * behalf.
  */
 export function requestKindAddMenuItems(
-  { onAddRequest, onAddGrpcRequest, onAddWebSocketRequest, onAddSocketIoRequest }: RequestKindAddMenuOptions,
+  { onAddRequest, onAddGrpcRequest, onAddWebSocketRequest, onAddSocketIoRequest, onAddMqttRequest }: RequestKindAddMenuOptions,
   t: Translate,
 ): ItemType[] {
   const items: ItemType[] = [];
@@ -106,6 +110,14 @@ export function requestKindAddMenuItems(
       icon: createElement(PlusOutlined),
       label: t('workbench.sidebar.menu.addSocketIoRequest'),
       onClick: onAddSocketIoRequest,
+    });
+  }
+  if (onAddMqttRequest) {
+    items.push({
+      key: 'add-mqtt-request',
+      icon: createElement(PlusOutlined),
+      label: t('workbench.sidebar.menu.addMqttRequest'),
+      onClick: onAddMqttRequest,
     });
   }
   return items;

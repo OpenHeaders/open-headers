@@ -34,6 +34,7 @@ interface RequestCollectionOverviewProps {
   onSelectRequest: (uid: string, name: string, method: HttpMethod) => void;
   onSelectGrpcRequest: (uid: string, name: string) => void;
   onSelectWebSocketRequest: (uid: string, name: string, flavor?: 'raw' | 'socketio') => void;
+  onSelectMqttRequest: (uid: string, name: string) => void;
   onCreateRequest: (context: { collectionId: string; folderPath?: string }) => void;
   /** Sibling protocol creates — wired by hosts that author them, so
    *  "Add request" offers the same four kinds the sidebar's `+` does
@@ -44,6 +45,7 @@ interface RequestCollectionOverviewProps {
     folderPath?: string;
     flavor: 'raw' | 'socketio';
   }) => void;
+  onCreateMqttRequest?: (context: { collectionId: string; folderPath?: string }) => void;
   onOpenFolderOverview: (uid: string, name: string) => void;
   onOpenCollectionVariables?: (uid: string, name: string) => void;
   onOpenCollectionScripts?: (uid: string, name: string) => void;
@@ -54,7 +56,7 @@ interface ContentRow {
   key: string;
   uid: string;
   name: string;
-  kind: 'folder' | 'request' | 'grpc-request' | 'websocket-request';
+  kind: 'folder' | 'request' | 'grpc-request' | 'websocket-request' | 'mqtt-request';
   method?: HttpMethod;
   flavor?: 'raw' | 'socketio';
   childCount?: number;
@@ -63,7 +65,8 @@ interface ContentRow {
 function countRequestsDeep(nodes: TreeNode[]): number {
   let count = 0;
   for (const n of nodes) {
-    if (n.type === 'request' || n.type === 'grpc-request' || n.type === 'websocket-request') count++;
+    if (n.type === 'request' || n.type === 'grpc-request' || n.type === 'websocket-request' || n.type === 'mqtt-request')
+      count++;
     else if (n.type === 'folder') count += countRequestsDeep(n.children);
   }
   return count;
@@ -105,6 +108,20 @@ export const GrpcMark: React.FC = () => (
   </span>
 );
 
+/** The sidebar leaf's monospace MQTT mark, same footprint as {@link GrpcMark}. */
+export const MqttMark: React.FC = () => (
+  <span
+    style={{
+      fontSize: 9,
+      fontWeight: 700,
+      color: 'var(--oh-method-mqtt, #7c3aed)',
+      fontFamily: "'SF Mono', monospace",
+    }}
+  >
+    MQTT
+  </span>
+);
+
 /** The sidebar leaf's monospace WebSocket mark — flavor-labelled
  *  (WS / S.IO), same footprint as {@link GrpcMark}. */
 export const WebSocketMark: React.FC<{ flavor?: 'raw' | 'socketio' }> = ({ flavor }) => (
@@ -125,9 +142,11 @@ const RequestCollectionOverview: React.FC<RequestCollectionOverviewProps> = ({
   onSelectRequest,
   onSelectGrpcRequest,
   onSelectWebSocketRequest,
+  onSelectMqttRequest,
   onCreateRequest,
   onCreateGrpcRequest,
   onCreateWebSocketRequest,
+  onCreateMqttRequest,
   onOpenFolderOverview,
   onOpenCollectionVariables,
   onOpenCollectionScripts,
@@ -165,10 +184,11 @@ const RequestCollectionOverview: React.FC<RequestCollectionOverviewProps> = ({
                   onCreateWebSocketRequest({ collectionId: collectionUid, flavor: 'socketio' }),
               }
             : {}),
+          ...(onCreateMqttRequest ? { onAddMqttRequest: () => onCreateMqttRequest({ collectionId: collectionUid }) } : {}),
         },
         t,
       ),
-    [collectionUid, onCreateRequest, onCreateGrpcRequest, onCreateWebSocketRequest, t],
+    [collectionUid, onCreateRequest, onCreateGrpcRequest, onCreateWebSocketRequest, onCreateMqttRequest, t],
   );
 
   const addRequestButton = (
@@ -197,6 +217,9 @@ const RequestCollectionOverview: React.FC<RequestCollectionOverviewProps> = ({
       if (node.type === 'websocket-request') {
         return { key: node.uid, uid: node.uid, name: node.name, kind: 'websocket-request', flavor: node.flavor };
       }
+      if (node.type === 'mqtt-request') {
+        return { key: node.uid, uid: node.uid, name: node.name, kind: 'mqtt-request' };
+      }
       // The tree only carries request-family nodes alongside folders
       // for a request collection; defensive fall-through if it doesn't.
       if (node.type !== 'request') return { key: node.uid, uid: node.uid, name: node.name, kind: 'folder' };
@@ -218,11 +241,13 @@ const RequestCollectionOverview: React.FC<RequestCollectionOverviewProps> = ({
         onSelectGrpcRequest(row.uid, row.name);
       } else if (row.kind === 'websocket-request') {
         onSelectWebSocketRequest(row.uid, row.name, row.flavor);
+      } else if (row.kind === 'mqtt-request') {
+        onSelectMqttRequest(row.uid, row.name);
       } else if (row.kind === 'folder') {
         onOpenFolderOverview(row.uid, row.name);
       }
     },
-    [onSelectRequest, onSelectGrpcRequest, onSelectWebSocketRequest, onOpenFolderOverview],
+    [onSelectRequest, onSelectGrpcRequest, onSelectWebSocketRequest, onSelectMqttRequest, onOpenFolderOverview],
   );
 
   const columns: ColumnsType<ContentRow> = useMemo(
@@ -252,6 +277,7 @@ const RequestCollectionOverview: React.FC<RequestCollectionOverviewProps> = ({
           }
           if (row.kind === 'grpc-request') return <GrpcMark />;
           if (row.kind === 'websocket-request') return <WebSocketMark flavor={row.flavor} />;
+          if (row.kind === 'mqtt-request') return <MqttMark />;
           if (!row.method) return null;
           return (
             <Tag color={METHOD_COLOR[row.method] ?? 'default'} style={{ fontSize: 11, margin: 0 }}>

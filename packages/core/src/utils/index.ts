@@ -77,6 +77,8 @@ export { buildEmptyLiveVariable, buildEmptyLiveWorkflow } from './live-defaults'
 export type { LogLevel } from './logger';
 export { isValidLogLevel, logger } from './logger';
 export { buildMessageFilter } from './message-filter';
+export type { BuildEmptyMqttRequestInput } from './mqtt-request-defaults';
+export { buildEmptyMqttRequest } from './mqtt-request-defaults';
 export type { Mutex } from './mutex';
 export { createMutex } from './mutex';
 export type { OrgLogoMimeType, OrgLogoRejectReason, OrgLogoValidation } from './org-logo';

@@ -68,6 +68,7 @@ export const workbenchChromeSidebar = {
   'workbench.sidebar.menu.addGrpcRequest': 'Add gRPC Request',
   'workbench.sidebar.menu.addWebSocketRequest': 'Add WebSocket Request',
   'workbench.sidebar.menu.addSocketIoRequest': 'Add Socket.IO Request',
+  'workbench.sidebar.menu.addMqttRequest': 'Add MQTT Request',
   'workbench.sidebar.menu.addFolder': 'Add Folder',
   'workbench.sidebar.menu.rename': 'Rename',
   'workbench.sidebar.menu.editVariables': 'Edit Variables',

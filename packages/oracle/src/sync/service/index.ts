@@ -75,6 +75,7 @@ export {
   snapshotLiveValuePostStates,
   snapshotLiveVariablePostStates,
   snapshotLiveWorkflowPostStates,
+  snapshotMqttRequestPostStates,
   snapshotOAuthBundlePostStates,
   snapshotPauseMarkersPostStates,
   snapshotRequestCollectionPostStates,

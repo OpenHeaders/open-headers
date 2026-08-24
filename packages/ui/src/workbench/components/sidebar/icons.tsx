@@ -105,6 +105,31 @@ export function websocketTag(flavor: 'raw' | 'socketio', muted = false): React.R
   );
 }
 
+/** Compact MQTT tag used as the leaf "icon" for MQTT request rows —
+ *  same footprint as {@link methodTag} so all kinds align in the tree.
+ *  `muted` greys the tag to signal an incomplete (draft) request. */
+export function mqttTag(muted = false): React.ReactNode {
+  const color = muted ? 'var(--ant-color-text-tertiary, #999)' : 'var(--oh-method-mqtt, #7c3aed)';
+  return createElement(
+    'span',
+    {
+      key: 'mqtt',
+      style: {
+        display: 'inline-block',
+        minWidth: 38,
+        fontSize: 9,
+        fontWeight: 700,
+        color,
+        fontFamily: "'SF Mono', monospace",
+        textAlign: 'right',
+        opacity: muted ? 0.7 : 1,
+        flexShrink: 0,
+      },
+    },
+    'MQTT',
+  );
+}
+
 /** Compact fidelity tag used as the leaf "icon" for archived traffic
  *  sessions — same footprint as {@link methodTag} so session leaves
  *  align with sibling trees. Vocabulary, like GET/POST — not localized. */

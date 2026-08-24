@@ -18,6 +18,7 @@ import type {
   SyncLiveFallbackPriorityPostState,
   SyncLiveVariablePostState,
   SyncLiveWorkflowPostState,
+  SyncMqttRequestPostState,
   SyncOAuthBundlePostState,
   SyncPauseMarkersPostState,
   SyncRequestCollectionPostState,
@@ -144,6 +145,16 @@ export interface SyncEngineRpc {
   'oh.sync.snapshotWebSocketRequests': {
     req: { workspaceId?: string };
     res: { entries: SyncWebSocketRequestPostState[] } | SyncRpcNotReadyResponse;
+  };
+  /**
+   * Snapshot the active workspace's full MqttRequest oracle state.
+   * Same semantics as `oh.sync.snapshotRequests` —
+   * `(mqttRequest, setItemIds)` per uid, matching the broadcast
+   * `mqttRequestPostState` payload.
+   */
+  'oh.sync.snapshotMqttRequests': {
+    req: { workspaceId?: string };
+    res: { entries: SyncMqttRequestPostState[] } | SyncRpcNotReadyResponse;
   };
   /**
    * Snapshot the active workspace's full WebSocket response-example

@@ -44,6 +44,7 @@ import {
   GRPC_REQUEST_ENTITY_TYPE,
   LIVE_VARIABLE_ENTITY_TYPE,
   LIVE_WORKFLOW_ENTITY_TYPE,
+  MQTT_REQUEST_ENTITY_TYPE,
   type MutationBody,
   REQUEST_COLLECTION_ENTITY_TYPE,
   REQUEST_ENTITY_TYPE,
@@ -55,7 +56,14 @@ import {
   TEMPLATE_FOLDER_ENTITY_TYPE,
   WEBSOCKET_REQUEST_ENTITY_TYPE,
 } from '@openheaders/core/sync';
-import type { Collection, Environment, Folder, GrpcRequest, WebSocketRequest } from '@openheaders/core/types';
+import type {
+  Collection,
+  Environment,
+  Folder,
+  GrpcRequest,
+  MqttRequest,
+  WebSocketRequest,
+} from '@openheaders/core/types';
 import type { LocalFolder, PlanEntry } from '@openheaders/core/workspace-export';
 import {
   environmentFilePath,
@@ -69,6 +77,7 @@ import { buildDeleteFolderBatch, buildDeleteFolderEntityBatch } from './folder-m
 import { buildGrpcAddBatch, buildGrpcDeleteBatch, buildGrpcUpdateBatch } from './grpc-request-mutations';
 import { buildDeleteLiveVariableBatch } from './live-variable-mutations';
 import { buildDeleteLiveWorkflowBatch } from './live-workflow-mutations';
+import { buildMqttAddBatch, buildMqttDeleteBatch, buildMqttUpdateBatch } from './mqtt-request-mutations';
 import { buildDeleteRequestCollectionBatch } from './request-collection-mutations';
 import { buildDeleteRequestFolderBatch, buildDeleteRequestFolderEntityBatch } from './request-folder-mutations';
 import { buildDeleteBatch as buildDeleteRequestBatch } from './request-mutations';
@@ -107,6 +116,7 @@ const MANIFEST_OF: ReadonlyMap<string, string> = new Map([
   [REQUEST_ENTITY_TYPE, 'request.yaml'],
   [GRPC_REQUEST_ENTITY_TYPE, 'grpc.yaml'],
   [WEBSOCKET_REQUEST_ENTITY_TYPE, 'websocket.yaml'],
+  [MQTT_REQUEST_ENTITY_TYPE, 'mqtt.yaml'],
   [TEMPLATE_ENTITY_TYPE, 'template.yaml'],
   [SPEC_ENTITY_TYPE, 'spec.yaml'],
   [LIVE_WORKFLOW_ENTITY_TYPE, 'workflow.yaml'],
@@ -147,6 +157,7 @@ export function synthesizeWorkspaceTreeDelta(args: WorkspaceTreeDeltaArgs): Emis
   collect(next.requests);
   collect(next.grpcRequests);
   collect(next.websocketRequests);
+  collect(next.mqttRequests);
   collect(next.templates);
   collect(next.specs);
   collect(next.liveWorkflows);
@@ -266,6 +277,12 @@ export function synthesizeWorkspaceTreeDelta(args: WorkspaceTreeDeltaArgs): Emis
     prev.websocketRequests,
     deps,
   );
+  emitMqttRequests(
+    out,
+    next.mqttRequests.filter((entity) => touched(entity.path)),
+    prev.mqttRequests,
+    deps,
+  );
 
   emitPathMoves(out, prev, next, touched, deps);
   emitDeletions(out, prev, nextUids, removedPaths, deps);
@@ -375,6 +392,55 @@ function emitWebSocketRequests(
   }
 }
 
+function emitMqttRequests(
+  out: EmissionBatch[],
+  entries: readonly MqttRequest[],
+  prevItems: readonly MqttRequest[],
+  deps: ImportEmissionDeps,
+): void {
+  const prevByUid = byUid(prevItems);
+  for (const entity of entries) {
+    const prevEntity = prevByUid.get(entity.uid);
+    if (!prevEntity) {
+      const payload = buildMqttAddBatch(entity, deps.nextCtx());
+      out.push({
+        label: `mqtt-request:${entity.uid} (create)`,
+        batch: payload.batch,
+        sideEffects: payload.sideEffects,
+      });
+      continue;
+    }
+    const { updates, removedKeys } = diffKeys(
+      prevEntity as unknown as Record<string, unknown>,
+      entity as unknown as Record<string, unknown>,
+      LEAF_SKIP,
+    );
+    if (Object.keys(updates).length > 0) {
+      const payload = buildMqttUpdateBatch(
+        entity.uid,
+        updates as Partial<Omit<MqttRequest, 'uid' | 'path'>>,
+        deps.nextCtx(),
+        (id, setPath) => deps.liveSetEntries(MQTT_REQUEST_ENTITY_TYPE, id, setPath),
+        (_id, path) => (prevEntity as unknown as Record<string, unknown>)[path],
+      );
+      out.push({
+        label: `mqtt-request:${entity.uid} (update)`,
+        batch: payload.batch,
+        sideEffects: payload.sideEffects,
+      });
+    }
+    if (removedKeys.length > 0) {
+      const bodies: MutationBody[] = removedKeys.map((key) => ({
+        kind: 'unsetField',
+        type: MQTT_REQUEST_ENTITY_TYPE,
+        id: entity.uid,
+        path: key,
+      }));
+      out.push(bodiesBatch(`mqtt-request:${entity.uid} (unset)`, bodies, deps.nextCtx()));
+    }
+  }
+}
+
 // ── Path moves (directory renames) ──────────────────────────────────
 
 interface MoveFamily {
@@ -409,6 +475,7 @@ function emitPathMoves(
     { entityType: REQUEST_ENTITY_TYPE, nextItems: next.requests, prevItems: prev.requests },
     { entityType: GRPC_REQUEST_ENTITY_TYPE, nextItems: next.grpcRequests, prevItems: prev.grpcRequests },
     { entityType: WEBSOCKET_REQUEST_ENTITY_TYPE, nextItems: next.websocketRequests, prevItems: prev.websocketRequests },
+    { entityType: MQTT_REQUEST_ENTITY_TYPE, nextItems: next.mqttRequests, prevItems: prev.mqttRequests },
     { entityType: TEMPLATE_ENTITY_TYPE, nextItems: next.templates, prevItems: prev.templates },
     { entityType: SPEC_ENTITY_TYPE, nextItems: next.specs, prevItems: prev.specs },
     { entityType: LIVE_WORKFLOW_ENTITY_TYPE, nextItems: next.liveWorkflows, prevItems: prev.liveWorkflows },
@@ -537,6 +604,9 @@ function emitDeletions(
       `websocket-request:${websocketRequest.uid} (delete)`,
       buildWebSocketDeleteBatch(websocketRequest.uid, deps.nextCtx()),
     );
+  }
+  for (const mqttRequest of vanished(prev.mqttRequests, MQTT_REQUEST_ENTITY_TYPE)) {
+    push(`mqtt-request:${mqttRequest.uid} (delete)`, buildMqttDeleteBatch(mqttRequest.uid, deps.nextCtx()));
   }
   for (const template of vanished(prev.templates, TEMPLATE_ENTITY_TYPE)) {
     push(`template:${template.uid} (delete)`, buildDeleteTemplateBatch(template.uid, deps.nextCtx()));

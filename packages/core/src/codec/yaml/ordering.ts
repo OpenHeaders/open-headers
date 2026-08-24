@@ -159,6 +159,40 @@ export const WEBSOCKET_REQUEST_FIELD_ORDER = [
 ] as const;
 
 /**
+ * MQTT request manifest (`mqtt.yaml`): identity + target + version
+ * knob + publish-compose scalars + rows + will + spec binding +
+ * connect knobs. The compose payload never serializes into the
+ * manifest — it fans out into the format-matched payload sibling
+ * (see `mqtt-request.ts`).
+ */
+export const MQTT_REQUEST_FIELD_ORDER = [
+  'schemaVersion',
+  'uid',
+  'name',
+  'description',
+  'url',
+  'protocolVersion',
+  'topic',
+  'payloadFormat',
+  'qos',
+  'retain',
+  'publishProperties',
+  'topics',
+  'savedMessages',
+  'userProperties',
+  'lastWill',
+  'specLink',
+  'clientId',
+  'cleanStart',
+  'sessionExpiryInterval',
+  'keepAlive',
+  'receiveMaximum',
+  'maximumPacketSize',
+  'timeoutMs',
+  'sslVerification',
+] as const;
+
+/**
  * `path` is excluded from persisted YAML on purpose — it's the folder
  * name on disk (slug-uid), derivable from the filesystem. The runtime
  * Rule / Collection / Request value carries `path`; the codec strips it

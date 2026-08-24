@@ -59,6 +59,7 @@ function emptyState(overrides: Partial<WorkspaceTreeState> = {}): WorkspaceTreeS
     requests: [],
     grpcRequests: [],
     websocketRequests: [],
+    mqttRequests: [],
     requestCollections: [],
     requestFolders: [],
     templates: [],

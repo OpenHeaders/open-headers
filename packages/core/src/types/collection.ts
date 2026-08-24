@@ -77,6 +77,13 @@ export interface WebSocketRequestNode {
   flavor: 'raw' | 'socketio';
 }
 
+export interface MqttRequestNode {
+  type: 'mqtt-request';
+  uid: string;
+  name: string;
+  path: string;
+}
+
 export interface RuleNode {
   type: 'rule';
   uid: string;
@@ -95,7 +102,14 @@ export interface TemplateNode {
   icon: string;
 }
 
-export type TreeNode = FolderNode | RequestNode | GrpcRequestNode | WebSocketRequestNode | RuleNode | TemplateNode;
+export type TreeNode =
+  | FolderNode
+  | RequestNode
+  | GrpcRequestNode
+  | WebSocketRequestNode
+  | MqttRequestNode
+  | RuleNode
+  | TemplateNode;
 
 /** Collection with its full sidebar tree loaded. */
 export interface CollectionTree extends Collection {

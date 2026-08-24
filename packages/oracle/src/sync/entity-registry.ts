@@ -34,6 +34,7 @@ import {
   GrpcResponseExampleSchema,
   LiveVariableSchema,
   LiveWorkflowSchema,
+  MqttRequestSchema,
   RequestSchema,
   ResponseExampleSchema,
   RuleSchema,
@@ -66,6 +67,10 @@ import {
   LIVE_VALUE_VALUES_PATH,
   LIVE_VARIABLE_ENTITY_TYPE,
   LIVE_WORKFLOW_ENTITY_TYPE,
+  MQTT_REQUEST_ENTITY_TYPE,
+  MQTT_REQUEST_SAVED_MESSAGES_PATH,
+  MQTT_REQUEST_TOPICS_PATH,
+  MQTT_REQUEST_USER_PROPERTIES_PATH,
   OAUTH_BUNDLE_ENTITY_TYPE,
   OAUTH_CONFIGS_PATH,
   OAUTH_REFRESH_ERRORS_PATH,
@@ -113,6 +118,7 @@ import { createLiveFallbackPriorityCache } from './caches/live-fallback-priority
 import { createLiveValueCache } from './caches/live-value-cache';
 import { createLiveVariableCache } from './caches/live-variable-cache';
 import { createLiveWorkflowCache } from './caches/live-workflow-cache';
+import { createMqttRequestCache } from './caches/mqtt-request-cache';
 import { createOAuthBundleCache } from './caches/oauth-bundle-cache';
 import { createPauseMarkersCache } from './caches/pause-markers-cache';
 import { createRequestCache } from './caches/request-cache';
@@ -151,6 +157,7 @@ import {
 import { projectLiveValuePostState, projectLiveValueSingleton } from './post-state/live-value-post-state';
 import { projectLiveVariableByUid, projectLiveVariablePostState } from './post-state/live-variable-post-state';
 import { projectLiveWorkflowByUid, projectLiveWorkflowPostState } from './post-state/live-workflow-post-state';
+import { projectMqttRequestByUid, projectMqttRequestPostState } from './post-state/mqtt-request-post-state';
 import { projectOAuthBundlePostState, projectOAuthBundleSingleton } from './post-state/oauth-bundle-post-state';
 import { projectPauseMarkersPostState, projectPauseMarkersSingleton } from './post-state/pause-markers-post-state';
 import {
@@ -449,6 +456,16 @@ export const WEBSOCKET_REQUEST_REGISTRATION = flatEntity({
   localWriteSchema: WebSocketRequestSchema,
 });
 
+export const MQTT_REQUEST_REGISTRATION = flatEntity({
+  entityType: MQTT_REQUEST_ENTITY_TYPE,
+  createCache: createMqttRequestCache,
+  postStateKey: 'mqttRequestPostState',
+  projectPostState: projectMqttRequestPostState,
+  projectByUid: projectMqttRequestByUid,
+  setPaths: [MQTT_REQUEST_TOPICS_PATH, MQTT_REQUEST_SAVED_MESSAGES_PATH, MQTT_REQUEST_USER_PROPERTIES_PATH],
+  localWriteSchema: MqttRequestSchema,
+});
+
 export const REQUEST_COLLECTION_REGISTRATION = flatEntity({
   entityType: REQUEST_COLLECTION_ENTITY_TYPE,
   createCache: createRequestCollectionCache,
@@ -647,6 +664,7 @@ export const WORKSPACE_REGISTRY: EntityRegistration[] = [
   REQUEST_REGISTRATION,
   GRPC_REQUEST_REGISTRATION,
   WEBSOCKET_REQUEST_REGISTRATION,
+  MQTT_REQUEST_REGISTRATION,
   REQUEST_COLLECTION_REGISTRATION,
   REQUEST_FOLDER_REGISTRATION,
   RESPONSE_EXAMPLE_REGISTRATION,

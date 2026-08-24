@@ -71,6 +71,22 @@ export {
   StepTimeoutMsSchema,
   WorkflowStepSchema,
 } from './live';
+export {
+  MAX_MQTT_URL_LENGTH,
+  MqttLastWillSchema,
+  MqttMessagePropertiesSchema,
+  MqttPayloadFormatSchema,
+  MqttProtocolVersionSchema,
+  MqttQosSchema,
+  MqttRequestSchema,
+  MqttRequestSeedSchema,
+  MqttRetainHandlingSchema,
+  MqttSavedMessageSchema,
+  MqttSpecLinkSchema,
+  MqttTopicRowSchema,
+  MqttUrlSchema,
+  MqttUserPropertyRowSchema,
+} from './mqtt-request';
 export type { ParseEntityOptions } from './parse';
 export { describeSchemaIssues, parseEntity, parseEntityArray, schemaParseError } from './parse';
 export { ProxyCaptureSettingsSchema } from './proxy-capture';

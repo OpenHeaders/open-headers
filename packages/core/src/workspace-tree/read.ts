@@ -22,6 +22,7 @@ import {
   parseGrpcRequest,
   parseLiveVariable,
   parseLiveWorkflow,
+  parseMqttRequest,
   parseRequest,
   parseRule,
   parseSpec,
@@ -40,6 +41,7 @@ import {
   GRPC_REQUEST_MANIFEST_FILE,
   LIVE_VARIABLE_MANIFEST_FILE,
   LIVE_WORKFLOW_MANIFEST_FILE,
+  MQTT_REQUEST_MANIFEST_FILE,
   OH_SIDECAR_DIR,
   REQUEST_MANIFEST_FILE,
   RULE_MANIFEST_FILE,
@@ -69,6 +71,7 @@ const ENTITY_MANIFEST_FILES: ReadonlySet<string> = new Set([
   REQUEST_MANIFEST_FILE,
   GRPC_REQUEST_MANIFEST_FILE,
   WEBSOCKET_REQUEST_MANIFEST_FILE,
+  MQTT_REQUEST_MANIFEST_FILE,
   TEMPLATE_MANIFEST_FILE,
   SPEC_MANIFEST_FILE,
   LIVE_WORKFLOW_MANIFEST_FILE,
@@ -116,6 +119,7 @@ export function readWorkspaceTree(files: readonly TreeFile[]): TreeReadResult {
     requests: [],
     grpcRequests: [],
     websocketRequests: [],
+    mqttRequests: [],
     requestCollections: [],
     requestFolders: [],
     templates: [],
@@ -268,6 +272,13 @@ export function readWorkspaceTree(files: readonly TreeFile[]): TreeReadResult {
           parseWebSocketRequest(content, { path: dir, siblings: siblingsFor(dir, WEBSOCKET_REQUEST_MANIFEST_FILE) }),
         );
         if (value) state.websocketRequests.push(value);
+        break;
+      }
+      case MQTT_REQUEST_MANIFEST_FILE: {
+        const value = ingest(path, () =>
+          parseMqttRequest(content, { path: dir, siblings: siblingsFor(dir, MQTT_REQUEST_MANIFEST_FILE) }),
+        );
+        if (value) state.mqttRequests.push(value);
         break;
       }
       case TEMPLATE_MANIFEST_FILE: {

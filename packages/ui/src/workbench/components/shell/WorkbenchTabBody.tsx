@@ -29,6 +29,7 @@ import LiveWorkflowEditor from '../live/LiveWorkflowEditor';
 import AncestorAuthEditor from '../auth/AncestorAuthEditor';
 import AncestorScriptsEditor from '../scripts/AncestorScriptsEditor';
 import GrpcRequestEditor from '../grpc-request-editor/GrpcRequestEditor';
+import MqttRequestEditor from '../mqtt-request-editor/MqttRequestEditor';
 import WebSocketRequestEditor from '../websocket-request-editor/WebSocketRequestEditor';
 import RequestCollectionOverview from '../overviews/RequestCollectionOverview';
 import RequestEditor from '../request-editor/RequestEditor';
@@ -82,6 +83,7 @@ interface WorkbenchTabBodyProps {
   openCreateRequestTab: UseTabOpenersApi['openCreateRequestTab'];
   openCreateGrpcRequestTab: UseTabOpenersApi['openCreateGrpcRequestTab'];
   openCreateWebSocketRequestTab: UseTabOpenersApi['openCreateWebSocketRequestTab'];
+  openCreateMqttRequestTab: UseTabOpenersApi['openCreateMqttRequestTab'];
   openRequestCollectionVariables: UseTabOpenersApi['openRequestCollectionVariables'];
   openRequestCollectionScripts: UseTabOpenersApi['openRequestCollectionScripts'];
   openRequestFolderScripts: UseTabOpenersApi['openRequestFolderScripts'];
@@ -101,6 +103,7 @@ interface WorkbenchTabBodyProps {
   openWsResponseExampleTab: UseTabOpenersApi['openWsResponseExampleTab'];
   openGrpcRequestEditTab: UseTabOpenersApi['openGrpcRequestEditTab'];
   openWebSocketRequestEditTab: UseTabOpenersApi['openWebSocketRequestEditTab'];
+  openMqttRequestEditTab: UseTabOpenersApi['openMqttRequestEditTab'];
 
   // Shell-local handlers and slices.
   handleSwitchWorkspace: (targetId: string, opts?: { makeActive?: boolean }) => void;
@@ -136,6 +139,7 @@ const WorkbenchTabBody: React.FC<WorkbenchTabBodyProps> = ({
   openCreateRequestTab,
   openCreateGrpcRequestTab,
   openCreateWebSocketRequestTab,
+  openCreateMqttRequestTab,
   openRequestCollectionVariables,
   openRequestCollectionScripts,
   openRequestFolderScripts,
@@ -155,6 +159,7 @@ const WorkbenchTabBody: React.FC<WorkbenchTabBodyProps> = ({
   openWsResponseExampleTab,
   openGrpcRequestEditTab,
   openWebSocketRequestEditTab,
+  openMqttRequestEditTab,
   handleSwitchWorkspace,
   onRuleSaveDraft,
   onRequestSaveDraft,
@@ -196,9 +201,11 @@ const WorkbenchTabBody: React.FC<WorkbenchTabBodyProps> = ({
           onSelectRequest={openRequestEditTab}
           onSelectGrpcRequest={openGrpcRequestEditTab}
           onSelectWebSocketRequest={openWebSocketRequestEditTab}
+          onSelectMqttRequest={openMqttRequestEditTab}
           onCreateRequest={openCreateRequestTab}
           onCreateGrpcRequest={openCreateGrpcRequestTab}
           onCreateWebSocketRequest={openCreateWebSocketRequestTab}
+          onCreateMqttRequest={openCreateMqttRequestTab}
           onOpenFolderOverview={openRequestFolderOverview}
           onOpenCollectionVariables={openRequestCollectionVariables}
           onOpenCollectionScripts={openRequestCollectionScripts}
@@ -245,9 +252,11 @@ const WorkbenchTabBody: React.FC<WorkbenchTabBodyProps> = ({
           onSelectRequest={openRequestEditTab}
           onSelectGrpcRequest={openGrpcRequestEditTab}
           onSelectWebSocketRequest={openWebSocketRequestEditTab}
+          onSelectMqttRequest={openMqttRequestEditTab}
           onCreateRequest={openCreateRequestTab}
           onCreateGrpcRequest={openCreateGrpcRequestTab}
           onCreateWebSocketRequest={openCreateWebSocketRequestTab}
+          onCreateMqttRequest={openCreateMqttRequestTab}
           onOpenFolderOverview={openRequestFolderOverview}
           onOpenFolderScripts={openRequestFolderScripts}
           onOpenFolderAuth={openRequestFolderAuth}
@@ -516,6 +525,16 @@ const WorkbenchTabBody: React.FC<WorkbenchTabBodyProps> = ({
         websocketRequestUid={tab.websocketRequestUid}
         workspaceId={editingScopeWorkspaceId}
         onOpenWsResponseExample={openWsResponseExampleTab}
+        onDirtyChange={(dirty) => handleDirtyChange(tab.id, dirty)}
+        registerSaveRef={(saveFn) => registerSaveRef(tab.id, saveFn)}
+      />
+    );
+  }
+  if (tab.mode === 'mqtt-edit' && tab.mqttRequestUid) {
+    return (
+      <MqttRequestEditor
+        mqttRequestUid={tab.mqttRequestUid}
+        workspaceId={editingScopeWorkspaceId}
         onDirtyChange={(dirty) => handleDirtyChange(tab.id, dirty)}
         registerSaveRef={(saveFn) => registerSaveRef(tab.id, saveFn)}
       />

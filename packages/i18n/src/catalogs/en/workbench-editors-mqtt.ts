@@ -1,0 +1,136 @@
+/**
+ * Workbench editors — the MQTT client editor. Wire vocabulary
+ * (mqtt/mqtts/ws/wss schemes, CONNECT/PUBLISH/SUBSCRIBE tokens, QoS,
+ * topic filters, AsyncAPI) rides raw inside keyed values.
+ */
+
+import type { Catalog } from '../../types';
+
+export const workbenchEditorsMqtt = {
+  // ── MQTT request editor ─────────────────────────────────────────────
+  'workbench.editors.mqtt.notFound': 'MQTT request not found.',
+  'workbench.editors.mqtt.urlPlaceholder': 'mqtt://broker.openheaders.com:1883',
+  'workbench.editors.mqtt.version.tooltip':
+    'MQTT protocol version the session speaks. 5.0 unlocks properties and subscription options; 3.1.1 targets brokers that refuse 5.0.',
+  'workbench.editors.mqtt.version.v5': 'V5',
+  'workbench.editors.mqtt.version.v311': 'V3.1.1',
+  'workbench.editors.mqtt.scheme.tooltip':
+    'The scheme picks the transport: mqtt/mqtts dial a TCP socket on the desktop app or server; ws/wss run MQTT over WebSocket on every host.',
+  'workbench.editors.mqtt.connect.label': 'Connect',
+  'workbench.editors.mqtt.connect.pending':
+    'Live sessions land in an upcoming update — the request composes, saves, and syncs now.',
+  'workbench.editors.mqtt.tab.docs': 'Docs',
+  'workbench.editors.mqtt.tab.message': 'Message',
+  'workbench.editors.mqtt.tab.topics': 'Topics',
+  'workbench.editors.mqtt.tab.auth': 'Authorization',
+  'workbench.editors.mqtt.tab.properties': 'Properties',
+  'workbench.editors.mqtt.tab.lastWill': 'Last Will',
+  'workbench.editors.mqtt.tab.spec': 'AsyncAPI',
+  'workbench.editors.mqtt.tab.settings': 'Settings',
+  'workbench.editors.mqtt.qos.q0': 'QoS 0 · At most once',
+  'workbench.editors.mqtt.qos.q1': 'QoS 1 · At least once',
+  'workbench.editors.mqtt.qos.q2': 'QoS 2 · Exactly once',
+  'workbench.editors.mqtt.retainLabel': 'Retain',
+  'workbench.editors.mqtt.sendLabel': 'Send',
+  'workbench.editors.mqtt.topicPlaceholder': 'Topic to publish to, e.g. sensors/1/temperature',
+  'workbench.editors.mqtt.payload.formatText': 'Text',
+  'workbench.editors.mqtt.payload.formatJson': 'JSON',
+  'workbench.editors.mqtt.payload.formatBase64': 'Base64',
+  'workbench.editors.mqtt.payload.formatHex': 'Hexadecimal',
+  'workbench.editors.mqtt.payload.invalidGate': 'Fix the payload encoding first.',
+  'workbench.editors.mqtt.payload.invalidBase64': 'Not valid Base64 — the decoded bytes are what would publish.',
+  'workbench.editors.mqtt.payload.invalidHex': 'Not valid hex — pairs of 0-9 a-f digits decode to the published bytes.',
+  'workbench.editors.mqtt.payloadPlaceholder': 'Compose the payload to publish…',
+  'workbench.editors.mqtt.payloadPlaceholderBase64': 'Base64 of the binary payload, e.g. aGVsbG8=…',
+  'workbench.editors.mqtt.payloadPlaceholderHex': 'Hex of the binary payload, e.g. 48656c6c6f…',
+  'workbench.editors.mqtt.props.buttonTooltip': 'Message properties',
+  'workbench.editors.mqtt.props.hint': 'MQTT 5.0 metadata sent with each message.',
+  'workbench.editors.mqtt.props.v311': 'Message properties are an MQTT 5.0 feature — this request targets 3.1.1.',
+  'workbench.editors.mqtt.props.userPropKey': 'Property',
+  'workbench.editors.mqtt.props.userPropValue': 'Value',
+  'workbench.editors.mqtt.props.addUserProp': 'User property',
+  'workbench.editors.mqtt.props.removeUserProp': 'Remove user property',
+  'workbench.editors.mqtt.props.responseTopic': 'Response Topic',
+  'workbench.editors.mqtt.props.correlationData': 'Correlation Data',
+  'workbench.editors.mqtt.props.messageExpiry': 'Message Expiry Interval (s)',
+  'workbench.editors.mqtt.props.contentType': 'Content Type',
+  'workbench.editors.mqtt.props.payloadFormatIndicator': 'Payload Format Indicator — mark the payload UTF-8 text',
+  'workbench.editors.mqtt.saved.title': 'Saved messages',
+  'workbench.editors.mqtt.saved.addTooltip': 'Save the current compose as a reusable message',
+  'workbench.editors.mqtt.saved.emptyHint': 'Save messages to reuse them during an active connection.',
+  'workbench.editors.mqtt.saved.defaultName': 'Message',
+  'workbench.editors.mqtt.saved.rename': 'Rename',
+  'workbench.editors.mqtt.saved.duplicate': 'Duplicate',
+  'workbench.editors.mqtt.saved.delete': 'Delete',
+  'workbench.editors.mqtt.topics.hint':
+    'Subscriptions the session opens with. Wildcards + and # are welcome; toggled-off rows stay saved but do not subscribe.',
+  'workbench.editors.mqtt.topics.filterLabel': 'Topic filter',
+  'workbench.editors.mqtt.topics.filterPlaceholder': 'Topic filter, e.g. sensors/+/temperature',
+  'workbench.editors.mqtt.topics.optionsLabel': 'QoS / Subscribe',
+  'workbench.editors.mqtt.topics.subscribeLabel': 'Subscribe when the session opens',
+  'workbench.editors.mqtt.topics.optionsHint': 'MQTT 5.0 subscription options for this row.',
+  'workbench.editors.mqtt.topics.noLocal': 'No Local — do not echo this client’s own publishes back',
+  'workbench.editors.mqtt.topics.retainAsPublished': 'Retain As Published — forward the RETAIN flag as published',
+  'workbench.editors.mqtt.topics.retainHandling': 'Retain Handling',
+  'workbench.editors.mqtt.topics.retainHandling0': '0 · Send retained messages on subscribe',
+  'workbench.editors.mqtt.topics.retainHandling1': '1 · Send only for a new subscription',
+  'workbench.editors.mqtt.topics.retainHandling2': '2 · Do not send retained messages',
+  'workbench.editors.mqtt.topics.subscriptionId': 'Subscription Identifier',
+  'workbench.editors.mqtt.auth.typeLabel': 'Type',
+  'workbench.editors.mqtt.auth.typeNone': 'No auth',
+  'workbench.editors.mqtt.auth.typeBasic': 'Basic auth',
+  'workbench.editors.mqtt.auth.pending':
+    'Username/password on CONNECT wires up in an upcoming update, together with the session plane.',
+  'workbench.editors.mqtt.userProps.hint':
+    'User properties sent on CONNECT — free-form metadata the broker and other tooling can read.',
+  'workbench.editors.mqtt.userProps.v311':
+    'CONNECT user properties are an MQTT 5.0 feature — this request targets 3.1.1.',
+  'workbench.editors.mqtt.userProps.keyPlaceholder': 'Property',
+  'workbench.editors.mqtt.userProps.valuePlaceholder': 'Value',
+  'workbench.editors.mqtt.will.hint':
+    'Registered with the broker on CONNECT and published for you if the session drops without a clean disconnect. An empty topic means no will.',
+  'workbench.editors.mqtt.will.topicPlaceholder': 'Will topic, e.g. clients/reporter/status',
+  'workbench.editors.mqtt.will.delayHelp': 'Will Delay Interval, seconds — MQTT 5.0.',
+  'workbench.editors.mqtt.will.delayPlaceholder': 'Delay (s)',
+  'workbench.editors.mqtt.will.payloadPlaceholder': 'Compose the will payload…',
+  'workbench.editors.mqtt.spec.selectLabel': 'AsyncAPI spec',
+  'workbench.editors.mqtt.spec.selectPlaceholder': 'Link an AsyncAPI spec',
+  'workbench.editors.mqtt.spec.summary': '{servers} servers · {channels} channels · {operations} operations',
+  'workbench.editors.mqtt.spec.parseFailure': 'Spec did not parse: {message}',
+  'workbench.editors.mqtt.spec.issues': '{count} spec issues',
+  'workbench.editors.mqtt.specFooter.using': 'Using {name}',
+  'workbench.editors.mqtt.specFooter.none': 'No AsyncAPI spec linked',
+  'workbench.editors.mqtt.settings.clientIdLabel': 'Client ID',
+  'workbench.editors.mqtt.settings.clientIdHelp':
+    'Identifier the CONNECT carries. Empty generates a fresh one per connect; resuming a broker session needs a stable ID.',
+  'workbench.editors.mqtt.settings.clientIdPlaceholder': 'Generated per connect',
+  'workbench.editors.mqtt.settings.cleanStartLabel': 'Clean Start',
+  'workbench.editors.mqtt.settings.cleanStartHelp':
+    'Start a fresh broker session on connect. Turn off to resume subscriptions and queued messages from a prior session — that also needs a stable Client ID.',
+  'workbench.editors.mqtt.settings.sessionExpiryLabel': 'Session Expiry Interval (s)',
+  'workbench.editors.mqtt.settings.sessionExpiryHelp':
+    'How long the broker keeps the session after disconnect. With Clean Start on, it applies only if a later connect resumes the session.',
+  'workbench.editors.mqtt.settings.v311Knob': 'An MQTT 5.0 feature — this request targets 3.1.1.',
+  'workbench.editors.mqtt.settings.zeroDefault': '0',
+  'workbench.editors.mqtt.settings.keepAliveLabel': 'Keep Alive (s)',
+  'workbench.editors.mqtt.settings.keepAliveHelp':
+    'Ping interval the session promises the broker — the client answers and emits PINGREQ. Empty uses 60 s; 0 disables keep-alive.',
+  'workbench.editors.mqtt.settings.timeoutLabel': 'Connect timeout (ms)',
+  'workbench.editors.mqtt.settings.timeoutHelp':
+    'Wall-clock ceiling on the connection dial only — an open session has no ceiling. Empty uses the app default.',
+  'workbench.editors.mqtt.settings.timeoutPlaceholder': 'Default',
+  'workbench.editors.mqtt.settings.receiveMaximumLabel': 'Receive Maximum',
+  'workbench.editors.mqtt.settings.receiveMaximumHelp':
+    'How many QoS 1/2 messages may be in flight toward this client at once. Empty leaves it to the broker.',
+  'workbench.editors.mqtt.settings.brokerDefault': 'Broker default',
+  'workbench.editors.mqtt.settings.maxPacketSizeLabel': 'Maximum Packet Size (bytes)',
+  'workbench.editors.mqtt.settings.maxPacketSizeHelp':
+    'Largest packet this client accepts — the broker drops bigger ones. Empty sets no limit.',
+  'workbench.editors.mqtt.settings.noLimit': 'No limit',
+  'workbench.editors.mqtt.settings.sslVerifyLabel': 'SSL certificate verification',
+  'workbench.editors.mqtt.settings.sslVerifyHelp':
+    'Verify the broker certificate against the system roots for mqtts/wss sessions. Turn off for self-signed development brokers.',
+  'workbench.editors.mqtt.toast.deletedOtherTab': 'This MQTT request was deleted in another tab.',
+  'workbench.editors.mqtt.toast.updateFailed': 'Saving the MQTT request failed',
+  'workbench.editors.mqtt.toast.updateFailedDetail': 'Saving the MQTT request failed: {message}',
+} as const satisfies Catalog;

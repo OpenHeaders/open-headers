@@ -1,0 +1,124 @@
+/**
+ * MqttRequest write-site → oracle helpers.
+ *
+ * Parallel to {@link websocket-request-mutations}: write sites produce
+ * `(batch, sideEffects)` pairs as pure transforms — no oracle reads,
+ * no IO. The three set-modeled fields (`topics`, `savedMessages`,
+ * `userProperties`) route through the shared {@link synthesizeSetDiff}
+ * minimum-envelope synthesizer; container-valued scalars
+ * (`publishProperties`, `lastWill`, `specLink`) route through
+ * {@link synthesizeFieldDiff} so edits share create's per-leaf
+ * representation and a cleared object tombstones its leaves.
+ *
+ * No side-effect intents: MQTT requests don't feed DNR or the
+ * variables resolver.
+ */
+
+import {
+  MQTT_REQUEST_ENTITY_TYPE,
+  MQTT_REQUEST_SAVED_MESSAGES_PATH,
+  MQTT_REQUEST_TOPICS_PATH,
+  MQTT_REQUEST_USER_PROPERTIES_PATH,
+  type MutationBatch,
+  type MutationBody,
+  type MutatorContext,
+  mintBatch,
+  type SideEffectIntent,
+} from '@openheaders/core/sync';
+import { type LiveSetEntry, synthesizeFieldDiff, synthesizeSetDiff } from '@openheaders/core/sync-builders';
+import type { MqttRequest } from '@openheaders/core/types';
+import { seedMqttRequest } from '../projections/mqtt-request-projection';
+
+export interface MqttRequestMutationPayload {
+  batch: MutationBatch;
+  sideEffects: SideEffectIntent[];
+}
+
+/** Live-itemId reader for the set paths — see {@link request-mutations}' LiveSetEntries. */
+export type MqttLiveSetEntries = (mqttRequestUid: string, setPath: string) => ReadonlyArray<LiveSetEntry>;
+
+/** Current materialized value reader for container-valued scalar paths
+ *  (`publishProperties`, `lastWill`, `specLink`). */
+export type MqttLiveFieldValue = (mqttRequestUid: string, path: string) => unknown;
+
+/** New MQTT request → seed batch. No side effects. */
+export function buildMqttAddBatch(request: MqttRequest, ctx: MutatorContext): MqttRequestMutationPayload {
+  return { batch: seedMqttRequest(request, ctx), sideEffects: [] };
+}
+
+/** Delete an MQTT request. Tombstone is permanent under §7.2 delete-wins. */
+export function buildMqttDeleteBatch(mqttRequestUid: string, ctx: MutatorContext): MqttRequestMutationPayload {
+  const bodies: MutationBody[] = [{ kind: 'delete', type: MQTT_REQUEST_ENTITY_TYPE, id: mqttRequestUid }];
+  return { batch: mintBatch(ctx, bodies), sideEffects: [] };
+}
+
+const SET_PATHS = [
+  MQTT_REQUEST_TOPICS_PATH,
+  MQTT_REQUEST_SAVED_MESSAGES_PATH,
+  MQTT_REQUEST_USER_PROPERTIES_PATH,
+] as const;
+type SetPath = (typeof SET_PATHS)[number];
+
+const isSetPath = (key: string): SetPath | null =>
+  key === MQTT_REQUEST_TOPICS_PATH
+    ? MQTT_REQUEST_TOPICS_PATH
+    : key === MQTT_REQUEST_SAVED_MESSAGES_PATH
+      ? MQTT_REQUEST_SAVED_MESSAGES_PATH
+      : key === MQTT_REQUEST_USER_PROPERTIES_PATH
+        ? MQTT_REQUEST_USER_PROPERTIES_PATH
+        : null;
+
+/**
+ * Translate a `Partial<Omit<MqttRequest, 'uid'|'path'>>` patch into a
+ * single batch. Scalar fields → one `setField` per leaf; the three set
+ * paths → minimum diff via {@link synthesizeSetDiff};
+ * `publishProperties` / `lastWill` / `specLink` → per-leaf
+ * flatten-diff via {@link synthesizeFieldDiff}.
+ */
+export function buildMqttUpdateBatch(
+  mqttRequestUid: string,
+  updates: Partial<Omit<MqttRequest, 'uid' | 'path'>>,
+  ctx: MutatorContext,
+  liveSetEntries: MqttLiveSetEntries,
+  liveFieldValue: MqttLiveFieldValue,
+): MqttRequestMutationPayload {
+  const bodies: MutationBody[] = [];
+
+  for (const [key, value] of Object.entries(updates)) {
+    if (value === undefined) continue;
+
+    const setPath = isSetPath(key);
+    if (setPath && Array.isArray(value)) {
+      bodies.push(
+        ...synthesizeSetDiff({
+          type: MQTT_REQUEST_ENTITY_TYPE,
+          id: mqttRequestUid,
+          path: setPath,
+          live: liveSetEntries(mqttRequestUid, setPath),
+          newItems: value,
+        }),
+      );
+      continue;
+    }
+
+    // Container-valued scalars (`publishProperties`, `lastWill`,
+    // `specLink`) — emit a per-leaf flatten-diff so the edit shares
+    // create's representation.
+    if (value !== null && typeof value === 'object') {
+      bodies.push(
+        ...synthesizeFieldDiff({
+          type: MQTT_REQUEST_ENTITY_TYPE,
+          id: mqttRequestUid,
+          basePath: key,
+          oldValue: liveFieldValue(mqttRequestUid, key),
+          newValue: value,
+        }),
+      );
+      continue;
+    }
+
+    bodies.push({ kind: 'setField', type: MQTT_REQUEST_ENTITY_TYPE, id: mqttRequestUid, path: key, value });
+  }
+
+  return { batch: mintBatch(ctx, bodies), sideEffects: [] };
+}

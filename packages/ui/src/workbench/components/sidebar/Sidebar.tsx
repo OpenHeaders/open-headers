@@ -157,6 +157,10 @@ interface SidebarProps {
     folderPath?: string;
     flavor: 'raw' | 'socketio';
   }) => void;
+  /** Open an MQTT request's edit tab (pub/sub session-shaped sibling entity). */
+  onSelectMqttRequest?: (uid: string, name: string, autoRename?: boolean) => void;
+  /** Context-create an MQTT request from a container's "+" menu. */
+  onCreateMqttRequest?: (context: { collectionId?: string; folderPath?: string }) => void;
   /** Open a saved response example in its read-only viewer tab. */
   onSelectResponseExample?: (uid: string, name: string, requestUid: string) => void;
   /** Open a saved gRPC response example in its viewer tab. */
@@ -225,6 +229,8 @@ const Sidebar: React.FC<SidebarProps> = ({
   onCreateGrpcRequest,
   onSelectWebSocketRequest,
   onCreateWebSocketRequest,
+  onSelectMqttRequest,
+  onCreateMqttRequest,
   onSelectResponseExample,
   onSelectGrpcResponseExample,
   onSelectWsResponseExample,
@@ -315,6 +321,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     requests: allRequests,
     grpcRequests: allGrpcRequests,
     websocketRequests: allWebSocketRequests,
+    mqttRequests: allMqttRequests,
     collections: requestCollections,
     collectionTrees: requestCollectionTrees,
     updateRequest: updateRequestData,
@@ -323,6 +330,8 @@ const Sidebar: React.FC<SidebarProps> = ({
     deleteGrpcRequest,
     updateWebSocketRequest: updateWebSocketRequestData,
     deleteWebSocketRequest,
+    updateMqttRequest: updateMqttRequestData,
+    deleteMqttRequest,
     createCollection: createRequestCollectionRpc,
     renameCollection: renameRequestCollectionRpc,
     deleteCollection: deleteRequestCollectionRpc,
@@ -678,6 +687,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     allRequests,
     allGrpcRequests,
     allWebSocketRequests,
+    allMqttRequests,
     resolver,
     dirtyRequestUids,
     scriptsReviewPendingUids,
@@ -707,6 +717,8 @@ const Sidebar: React.FC<SidebarProps> = ({
     deleteGrpcRequest,
     updateWebSocketRequestData,
     deleteWebSocketRequest,
+    updateMqttRequestData,
+    deleteMqttRequest,
     createRequestFolderRpc,
     renameRequestFolderRpc,
     deleteRequestFolderRpc,
@@ -718,6 +730,8 @@ const Sidebar: React.FC<SidebarProps> = ({
     onCreateGrpcRequest,
     onSelectWebSocketRequest,
     onCreateWebSocketRequest,
+    onSelectMqttRequest,
+    onCreateMqttRequest,
     onSelectResponseExample,
     onSelectGrpcResponseExample,
     onSelectWsResponseExample,

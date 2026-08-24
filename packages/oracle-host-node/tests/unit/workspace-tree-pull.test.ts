@@ -71,6 +71,7 @@ function emptyState(): WorkspaceTreeState {
     requests: [],
     grpcRequests: [],
     websocketRequests: [],
+    mqttRequests: [],
     requestCollections: [],
     requestFolders: [],
     templates: [],

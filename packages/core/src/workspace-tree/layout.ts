@@ -55,6 +55,7 @@ export const RULE_MANIFEST_FILE = 'rule.yaml';
 export const REQUEST_MANIFEST_FILE = 'request.yaml';
 export const GRPC_REQUEST_MANIFEST_FILE = 'grpc.yaml';
 export const WEBSOCKET_REQUEST_MANIFEST_FILE = 'websocket.yaml';
+export const MQTT_REQUEST_MANIFEST_FILE = 'mqtt.yaml';
 export const TEMPLATE_MANIFEST_FILE = 'template.yaml';
 export const SPEC_MANIFEST_FILE = 'spec.yaml';
 export const LIVE_WORKFLOW_MANIFEST_FILE = 'workflow.yaml';

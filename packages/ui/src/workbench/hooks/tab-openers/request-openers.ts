@@ -7,6 +7,7 @@
 import type { Collection, Request } from '@openheaders/core/types';
 import {
   buildEmptyGrpcRequest,
+  buildEmptyMqttRequest,
   buildEmptyRequest,
   buildEmptyWebSocketRequest,
   generateUid,
@@ -14,6 +15,7 @@ import {
 } from '@openheaders/core/utils';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { applyGrpcRequestCreate } from '@openheaders/ui/shared/sync/grpc-request-write-client';
+import { applyMqttRequestCreate } from '@openheaders/ui/shared/sync/mqtt-request-write-client';
 import { applyRequestCreate } from '@openheaders/ui/shared/sync/request-write-client';
 import { applyWebSocketRequestCreate } from '@openheaders/ui/shared/sync/websocket-request-write-client';
 import { useCallback } from 'react';
@@ -44,6 +46,8 @@ export type RequestOpeners = Pick<
   | 'openCreateGrpcRequestTab'
   | 'openWebSocketRequestEditTab'
   | 'openCreateWebSocketRequestTab'
+  | 'openMqttRequestEditTab'
+  | 'openCreateMqttRequestTab'
   | 'openDuplicateRequestScratch'
   | 'openResponseExampleTab'
   | 'openGrpcResponseExampleTab'
@@ -383,6 +387,68 @@ export function useRequestOpeners(
     [allTabs, addTab, requestCollections, workspaceId, surfaceId, setPendingRenameTabId, t],
   );
 
+  const openMqttRequestEditTab = useCallback(
+    (uid: string, name: string, autoRename = false) => {
+      const id = `mqtt-request-${uid}`;
+      if (allTabs.some((t) => t.id === id)) {
+        switchTab(id);
+        if (autoRename) setPendingRenameTabId(id);
+        return;
+      }
+      addTab({
+        id,
+        label: name,
+        // Tab icon reads `ruleType` as a free-form type hint — the
+        // MQTT tag mirrors the sidebar leaf tag.
+        ruleType: 'MQTT',
+        dirty: false,
+        mode: 'mqtt-edit',
+        mqttRequestUid: uid,
+      });
+      if (autoRename) setPendingRenameTabId(id);
+    },
+    [allTabs, addTab, switchTab, setPendingRenameTabId],
+  );
+
+  const openCreateMqttRequestTab = useCallback(
+    (context: { collectionId?: string; folderPath?: string }) => {
+      // Context-create only — no draft mode: the gesture always comes
+      // from a container's "+" menu, so the destination is known and
+      // the entity persists immediately (born clean, like the gRPC
+      // context-create path).
+      const parentPath = resolveContextParentPath(context, requestCollections);
+      if (!workspaceId || !parentPath) return;
+      const baseName = t('workbench.shell.tabLabel.newMqttRequest');
+      const existingNames = new Set<string>();
+      for (const tab of allTabs) existingNames.add(tab.label);
+      let draftName = baseName;
+      let counter = 2;
+      while (existingNames.has(draftName)) {
+        draftName = `${baseName} (${counter++})`;
+      }
+      const uid = generateUid();
+      const seed = buildEmptyMqttRequest({
+        uid,
+        name: draftName,
+        path: `${parentPath}/${toFolderName(draftName, uid)}`,
+      });
+      const tabId = `mqtt-request-${uid}`;
+      void applyMqttRequestCreate(seed, { workspaceId, surfaceId }).then((result) => {
+        if (!result.ok) return;
+        addTab({
+          id: tabId,
+          label: draftName,
+          ruleType: 'MQTT',
+          dirty: false,
+          mode: 'mqtt-edit',
+          mqttRequestUid: uid,
+        });
+        setPendingRenameTabId(tabId);
+      });
+    },
+    [allTabs, addTab, requestCollections, workspaceId, surfaceId, setPendingRenameTabId, t],
+  );
+
   const openDuplicateRequestScratch = useCallback(
     (
       content: Omit<Request, 'uid' | 'path' | 'schemaVersion'>,
@@ -488,6 +554,8 @@ export function useRequestOpeners(
     openCreateGrpcRequestTab,
     openWebSocketRequestEditTab,
     openCreateWebSocketRequestTab,
+    openMqttRequestEditTab,
+    openCreateMqttRequestTab,
     openDuplicateRequestScratch,
     openResponseExampleTab,
     openGrpcResponseExampleTab,

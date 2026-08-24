@@ -39,6 +39,7 @@ import type {
   LiveVariable,
   LiveWorkflow,
   LogEntry,
+  MqttRequest,
   Org,
   ProxyCaptureSettings,
   ProxyCaRecord,
@@ -561,6 +562,7 @@ export interface WorkspaceKeys {
   requests: StorageKey<Request[]>;
   grpcRequests: StorageKey<GrpcRequest[]>;
   websocketRequests: StorageKey<WebSocketRequest[]>;
+  mqttRequests: StorageKey<MqttRequest[]>;
   requestCollections: StorageKey<Collection[]>;
   requestFolders: StorageKey<PersistedLocalFolder[]>;
   templates: StorageKey<Template[]>;
@@ -749,6 +751,7 @@ export function wsKeys(workspaceId: string): WorkspaceKeys {
     requests: storageKey<Request[]>(`${p}.requests`),
     grpcRequests: storageKey<GrpcRequest[]>(`${p}.grpcRequests`),
     websocketRequests: storageKey<WebSocketRequest[]>(`${p}.websocketRequests`),
+    mqttRequests: storageKey<MqttRequest[]>(`${p}.mqttRequests`),
     requestCollections: storageKey<Collection[]>(`${p}.requestCollections`),
     requestFolders: storageKey<PersistedLocalFolder[]>(`${p}.requestFolders`),
     templates: storageKey<Template[]>(`${p}.templates`),

@@ -32,6 +32,7 @@ function makeSnapshot(overrides: Partial<WorkspaceSnapshot> = {}): WorkspaceSnap
     requestFolders: [],
     grpcRequests: [],
     websocketRequests: [],
+    mqttRequests: [],
     responseExamples: [],
     grpcResponseExamples: [],
     wsResponseExamples: [],
@@ -91,6 +92,7 @@ describe('WorkspaceSnapshotSchema', () => {
     for (const key of [
       'grpcRequests',
       'websocketRequests',
+      'mqttRequests',
       'responseExamples',
       'grpcResponseExamples',
       'wsResponseExamples',
@@ -103,6 +105,7 @@ describe('WorkspaceSnapshotSchema', () => {
     expect(parsed.grpcRequests).toEqual([]);
     expect(parsed.specs).toEqual([]);
     expect(parsed.websocketRequests).toEqual([]);
+    expect(parsed.mqttRequests).toEqual([]);
   });
 
   it('validates an embedded takenAtHlc state vector', () => {

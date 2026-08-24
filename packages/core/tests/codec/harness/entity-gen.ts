@@ -22,6 +22,7 @@ import {
   parseGrpcRequest,
   parseLiveVariable,
   parseLiveWorkflow,
+  parseMqttRequest,
   parseRequest,
   parseRule,
   parseSpec,
@@ -36,6 +37,7 @@ import {
   serializeGrpcRequest,
   serializeLiveVariable,
   serializeLiveWorkflow,
+  serializeMqttRequest,
   serializeRequest,
   serializeRule,
   serializeSpec,
@@ -49,6 +51,7 @@ import { CollectionSchema, FolderSchema } from '../../../src/schemas/collection'
 import { freshDocument, type ParsedDocument, type WriteableDocument } from '../../../src/schemas/document';
 import { GrpcRequestSchema } from '../../../src/schemas/grpc-request';
 import { LiveVariableSchema, LiveWorkflowSchema } from '../../../src/schemas/live';
+import { MqttRequestSchema } from '../../../src/schemas/mqtt-request';
 import { RequestSchema } from '../../../src/schemas/request';
 import { RuleSchema } from '../../../src/schemas/rule';
 import { SpecSchema } from '../../../src/schemas/spec';
@@ -59,6 +62,7 @@ import { WorkspaceManifestSchema } from '../../../src/schemas/workspace';
 import type { Collection, Folder } from '../../../src/types/collection';
 import type { GrpcRequest } from '../../../src/types/grpc-request';
 import type { LiveVariable, LiveWorkflow } from '../../../src/types/live';
+import type { MqttRequest } from '../../../src/types/mqtt-request';
 import type { Request } from '../../../src/types/request';
 import type { Rule } from '../../../src/types/rule';
 import type { Spec } from '../../../src/types/spec';
@@ -658,6 +662,139 @@ export const ENTITY_CASES: readonly EntityCase[] = [
     fresh: freshDocument,
     serialize: (write) => serializeWebSocketRequest(write as WriteableDocument<WebSocketRequest>).websocketYaml,
     parse: (yaml) => parseWebSocketRequest(yaml, { path: 'requests/gen-c0ll0000/gen-ws000000' }),
+    mutate: editName,
+  },
+  {
+    name: 'mqtt-request',
+    schema: MqttRequestSchema,
+    generate: (rng) => ({
+      schemaVersion: 5,
+      uid: uid(rng),
+      path: 'requests/gen-c0ll0000/gen-mqtt0000',
+      name: `Mqtt ${word(rng)}`,
+      url: `mqtt://broker.openheaders.io:1883`,
+      ...opt(
+        'protocolVersion',
+        maybe(rng, 0.4, () => rng.pick(['5.0', '3.1.1'] as const)),
+      ),
+      topic: rng.next() < 0.7 ? `streetlights/${rng.int(10)}/lumens` : '',
+      payload: '',
+      ...opt(
+        'payloadFormat',
+        maybe(rng, 0.5, () => rng.pick(['text', 'json', 'base64', 'hex'] as const)),
+      ),
+      ...opt(
+        'qos',
+        maybe(rng, 0.5, () => rng.pick([0, 1, 2] as const)),
+      ),
+      ...opt(
+        'retain',
+        maybe(rng, 0.3, () => true),
+      ),
+      ...opt(
+        'publishProperties',
+        maybe(rng, 0.3, () => ({
+          userProperties: Array.from({ length: rng.int(2) }, () => keyValueRow(rng)),
+          ...opt(
+            'responseTopic',
+            maybe(rng, 0.5, () => `acks/${word(rng)}`),
+          ),
+          ...opt(
+            'messageExpiryInterval',
+            maybe(rng, 0.5, () => rng.int(3_600)),
+          ),
+        })),
+      ),
+      topics: Array.from({ length: rng.int(3) }, () => ({
+        uid: uid(rng),
+        topicFilter: rng.pick(['streetlights/+/lumens', 'streetlights/#', `alerts/${word(rng)}`] as const),
+        ...opt(
+          'qos',
+          maybe(rng, 0.5, () => rng.pick([0, 1, 2] as const)),
+        ),
+        ...opt(
+          'subscribe',
+          maybe(rng, 0.3, () => false),
+        ),
+        ...opt(
+          'noLocal',
+          maybe(rng, 0.2, () => true),
+        ),
+        ...opt(
+          'retainHandling',
+          maybe(rng, 0.2, () => rng.pick([0, 1, 2] as const)),
+        ),
+      })),
+      savedMessages: Array.from({ length: rng.int(2) }, () => ({
+        uid: uid(rng),
+        name: `Preset ${word(rng)}`,
+        topic: `streetlights/${rng.int(10)}/dim`,
+        payload: `{"level": ${rng.int(100)}}`,
+        ...opt(
+          'format',
+          maybe(rng, 0.5, () => 'json' as const),
+        ),
+        ...opt(
+          'retain',
+          maybe(rng, 0.3, () => true),
+        ),
+      })),
+      userProperties: Array.from({ length: rng.int(2) }, () => keyValueRow(rng)),
+      ...opt(
+        'lastWill',
+        maybe(rng, 0.3, () => ({
+          topic: `status/${word(rng)}`,
+          payload: 'offline',
+          ...opt(
+            'qos',
+            maybe(rng, 0.5, () => 1 as const),
+          ),
+          ...opt(
+            'willDelayInterval',
+            maybe(rng, 0.5, () => rng.int(600)),
+          ),
+        })),
+      ),
+      ...opt(
+        'specLink',
+        maybe(rng, 0.3, () => ({ specUid: uid(rng) })),
+      ),
+      ...opt(
+        'clientId',
+        maybe(rng, 0.3, () => `oh-${word(rng)}`),
+      ),
+      ...opt(
+        'cleanStart',
+        maybe(rng, 0.3, () => false),
+      ),
+      ...opt(
+        'sessionExpiryInterval',
+        maybe(rng, 0.2, () => rng.int(86_400)),
+      ),
+      ...opt(
+        'keepAlive',
+        maybe(rng, 0.3, () => 10 + rng.int(300)),
+      ),
+      ...opt(
+        'receiveMaximum',
+        maybe(rng, 0.2, () => 1 + rng.int(100)),
+      ),
+      ...opt(
+        'maximumPacketSize',
+        maybe(rng, 0.2, () => 1_024 + rng.int(1_000_000)),
+      ),
+      ...opt(
+        'timeoutMs',
+        maybe(rng, 0.3, () => 1_000 + rng.int(30_000)),
+      ),
+      ...opt(
+        'sslVerification',
+        maybe(rng, 0.2, () => false),
+      ),
+    }),
+    fresh: freshDocument,
+    serialize: (write) => serializeMqttRequest(write as WriteableDocument<MqttRequest>).mqttYaml,
+    parse: (yaml) => parseMqttRequest(yaml, { path: 'requests/gen-c0ll0000/gen-mqtt0000' }),
     mutate: editName,
   },
   {

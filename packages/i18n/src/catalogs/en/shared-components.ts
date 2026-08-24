@@ -302,6 +302,7 @@ export const sharedComponents = {
   'shared.requestKinds.grpc.label': 'gRPC Request',
   'shared.requestKinds.websocket.label': 'WebSocket Request',
   'shared.requestKinds.socketio.label': 'Socket.IO Request',
+  'shared.requestKinds.mqtt.label': 'MQTT Request',
 
   // ── System rule-template registry (same surfaces as the rule types).
   //    Template keys, icons, conditions, and form values stay raw data;

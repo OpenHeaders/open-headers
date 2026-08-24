@@ -23,6 +23,7 @@ import type {
   LiveValueRecord,
   LiveVariable,
   LiveWorkflow,
+  MqttRequest,
   Request,
   ResponseExample,
   Rule,
@@ -242,6 +243,21 @@ export interface SyncGrpcRequestPostState {
 export interface SyncWebSocketRequestPostState {
   websocketRequest: WebSocketRequest;
   /** Map keyed by set path (`headers`, `params`, `events`). */
+  setItemIds: Record<string, string[]>;
+  /** Live `(itemId, orderKey)` pairs at each set-modeled path — see
+   *  {@link SyncRequestPostState.setOrderKeys}. */
+  setOrderKeys: Record<string, Array<{ itemId: string; orderKey: string }>>;
+}
+
+/**
+ * Post-commit projection for an MqttRequest envelope. Parallel to
+ * {@link SyncWebSocketRequestPostState} — carries the materialized
+ * {@link MqttRequest} and the live itemIds the oracle holds at the
+ * set-modeled `topics` / `savedMessages` / `userProperties` paths.
+ */
+export interface SyncMqttRequestPostState {
+  mqttRequest: MqttRequest;
+  /** Map keyed by set path (`topics`, `savedMessages`, `userProperties`). */
   setItemIds: Record<string, string[]>;
   /** Live `(itemId, orderKey)` pairs at each set-modeled path — see
    *  {@link SyncRequestPostState.setOrderKeys}. */
@@ -654,6 +670,12 @@ export interface SyncBroadcastEvent {
    * rolled-back batches leave it `undefined`.
    */
   websocketRequestPostState?: SyncWebSocketRequestPostState;
+  /**
+   * Populated for MqttRequest envelopes whose batch left a
+   * materialized MQTT request in place. Tombstoned requests and
+   * rolled-back batches leave it `undefined`.
+   */
+  mqttRequestPostState?: SyncMqttRequestPostState;
   /**
    * Populated for WebSocket response-example envelopes whose batch left
    * a materialized example in place. Tombstoned examples and

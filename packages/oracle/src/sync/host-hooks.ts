@@ -21,6 +21,7 @@ import type {
   SyncLayoutStatePostState,
   SyncLiveVariablePostState,
   SyncLiveWorkflowPostState,
+  SyncMqttRequestPostState,
   SyncOAuthBundlePostState,
   SyncPauseMarkersPostState,
   SyncRequestCollectionPostState,
@@ -66,6 +67,7 @@ export interface OracleSyncBroadcastEvent {
   requestPostState?: SyncRequestPostState;
   grpcRequestPostState?: SyncGrpcRequestPostState;
   websocketRequestPostState?: SyncWebSocketRequestPostState;
+  mqttRequestPostState?: SyncMqttRequestPostState;
   requestCollectionPostState?: SyncRequestCollectionPostState;
   requestFolderPostState?: SyncRequestFolderPostState;
   templatePostState?: SyncTemplatePostState;

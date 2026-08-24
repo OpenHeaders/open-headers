@@ -12,6 +12,7 @@ import type { UnknownField } from '../codec/yaml/unknown-fields';
 import type { Collection, Folder } from '../types/collection';
 import type { GrpcRequest } from '../types/grpc-request';
 import type { LiveVariable, LiveWorkflow } from '../types/live';
+import type { MqttRequest } from '../types/mqtt-request';
 import type { Request } from '../types/request';
 import type { Rule } from '../types/rule';
 import type { Spec } from '../types/spec';
@@ -45,6 +46,7 @@ export interface WorkspaceTreeState {
   requests: Request[];
   grpcRequests: GrpcRequest[];
   websocketRequests: WebSocketRequest[];
+  mqttRequests: MqttRequest[];
   requestCollections: Collection[];
   requestFolders: Folder[];
   templates: Template[];

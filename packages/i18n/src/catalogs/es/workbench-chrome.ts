@@ -258,6 +258,7 @@ export const workbenchChrome = {
   'workbench.shell.tabLabel.newGrpcRequest': 'Nueva solicitud gRPC',
   'workbench.shell.tabLabel.newWebSocketRequest': 'Nueva solicitud WebSocket',
   'workbench.shell.tabLabel.newSocketIoRequest': 'Nueva solicitud Socket.IO',
+  'workbench.shell.tabLabel.newMqttRequest': 'Nueva solicitud MQTT',
   'workbench.shell.tabLabel.newWorkflow': 'Nuevo workflow',
   'workbench.shell.tabLabel.newLiveVariable': 'Nueva variable live',
 

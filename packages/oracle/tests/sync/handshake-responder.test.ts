@@ -61,6 +61,7 @@ function emptySnapshot(): WorkspaceSnapshot {
     requestFolders: [],
     grpcRequests: [],
     websocketRequests: [],
+    mqttRequests: [],
     responseExamples: [],
     grpcResponseExamples: [],
     wsResponseExamples: [],

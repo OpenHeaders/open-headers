@@ -79,6 +79,14 @@ function makeRequestsValue(overrides: Partial<RequestsContextValue> = {}): Reque
       message: 'not wired',
     })),
     deleteWebSocketRequest: vi.fn(async () => false),
+    mqttRequests: [],
+    createMqttRequest: vi.fn(async () => null),
+    updateMqttRequest: vi.fn(async () => ({
+      ok: false as const,
+      reason: 'other' as const,
+      message: 'not wired',
+    })),
+    deleteMqttRequest: vi.fn(async () => false),
     createCollection: vi.fn(async () => null),
     renameCollection: vi.fn(async () => false),
     deleteCollection: vi.fn(async () => false),
@@ -107,6 +115,7 @@ function renderCollectionOverview(): { onSelectGrpcRequest: ReturnType<typeof vi
         onSelectRequest={vi.fn()}
         onSelectGrpcRequest={onSelectGrpcRequest}
         onSelectWebSocketRequest={vi.fn()}
+        onSelectMqttRequest={vi.fn()}
         onCreateRequest={vi.fn()}
         onOpenFolderOverview={vi.fn()}
       />
@@ -124,6 +133,7 @@ function renderFolderOverview(): { onSelectGrpcRequest: ReturnType<typeof vi.fn>
         onSelectRequest={vi.fn()}
         onSelectGrpcRequest={onSelectGrpcRequest}
         onSelectWebSocketRequest={vi.fn()}
+        onSelectMqttRequest={vi.fn()}
         onCreateRequest={vi.fn()}
         onOpenFolderOverview={vi.fn()}
       />

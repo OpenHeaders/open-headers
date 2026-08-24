@@ -33,6 +33,7 @@ import type {
   SyncLiveValuePostState,
   SyncLiveVariablePostState,
   SyncLiveWorkflowPostState,
+  SyncMqttRequestPostState,
   SyncOAuthBundlePostState,
   SyncPauseMarkersPostState,
   SyncRequestCollectionPostState,
@@ -391,6 +392,13 @@ export interface BridgeBroadcastContract {
      * without round-tripping.
      */
     websocketRequestPostState?: SyncWebSocketRequestPostState;
+    /**
+     * Post-commit projection for MqttRequest envelopes. Renderer
+     * mirrors fold this so the MQTT editor sees post-commit shape +
+     * live itemIds for the set-modeled `topics` / `savedMessages` /
+     * `userProperties` paths without round-tripping.
+     */
+    mqttRequestPostState?: SyncMqttRequestPostState;
     /**
      * Post-commit projection for WebSocket response-example envelopes.
      * Frozen flat record — no itemId map.

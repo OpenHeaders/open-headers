@@ -1,0 +1,325 @@
+/**
+ * MQTT request editor draft — the form-local shape plus the
+ * draft ⇄ entity projections. Mirrors the WebSocket editor's `draft.ts`
+ * anatomy: `draftFromMqttRequest` populates the form,
+ * `buildMqttRequestUpdates` emits the save patch, and
+ * `canonicalMqttRequestProjection` projects the live entity into the
+ * same shape so the dirty fingerprint compares apples-to-apples
+ * (derived dirty — never setDirty).
+ *
+ * The per-message property blocks are held concrete in the form (every
+ * field present, '' / undefined = untouched) and collapse back to the
+ * entity's optional block on save — an all-empty block emits
+ * `undefined`, which the update patch skips (the WS `specLink`
+ * posture: clearing the last property field of a previously-saved
+ * block re-primes from the entity rather than silently unsetting it).
+ */
+
+import type {
+  MqttLastWill,
+  MqttMessageProperties,
+  MqttPayloadFormat,
+  MqttRequest,
+  MqttRequestProtocolVersion,
+  MqttRequestQos,
+  MqttSavedMessage,
+  MqttSpecLink,
+  MqttTopicRow,
+  MqttUserPropertyRow,
+} from '@openheaders/core/types';
+import { type KeyValueRow, makeKvRow } from '../request-editor/KeyValueTable';
+
+/** Concrete form shape for one per-message 5.0 property block. */
+export interface MqttMessagePropertiesDraft {
+  userProperties: MqttUserPropertyRow[];
+  responseTopic: string;
+  correlationData: string;
+  messageExpiryInterval: number | undefined;
+  contentType: string;
+  payloadFormatIndicator: boolean;
+}
+
+/** Concrete form shape for the last-will block ('' topic + payload = no will). */
+export interface MqttLastWillDraft {
+  topic: string;
+  payload: string;
+  format: MqttPayloadFormat;
+  qos: MqttRequestQos;
+  retain: boolean;
+  willDelayInterval: number | undefined;
+  properties: MqttMessagePropertiesDraft;
+}
+
+export interface MqttDraft {
+  /** Docs-tab markdown; always concrete in the form (`''` = no docs). */
+  description: string;
+  url: string;
+  /** Concrete in the form — absent on the entity reads as `5.0`. */
+  protocolVersion: MqttRequestProtocolVersion;
+  topic: string;
+  payload: string;
+  /** Concrete — absent on the entity reads as `text`. */
+  payloadFormat: MqttPayloadFormat;
+  /** Concrete — absent on the entity reads as 0. */
+  qos: MqttRequestQos;
+  /** Concrete — absent on the entity reads as off. */
+  retain: boolean;
+  publishProperties: MqttMessagePropertiesDraft;
+  /** Topics-grid rows keep the entity shape; the grid's trailing ghost
+   *  trims away in the save projection like the WS header rows. */
+  topics: MqttTopicRow[];
+  savedMessages: MqttSavedMessage[];
+  /** CONNECT user-property rows ride the shared KeyValueTable shape. */
+  userProperties: KeyValueRow[];
+  lastWill: MqttLastWillDraft;
+  specLink: MqttSpecLink | undefined;
+  clientId: string;
+  /** Concrete — absent on the entity reads as on (the safe default). */
+  cleanStart: boolean;
+  sessionExpiryInterval: number | undefined;
+  keepAlive: number | undefined;
+  receiveMaximum: number | undefined;
+  maximumPacketSize: number | undefined;
+  timeoutMs: number | undefined;
+  /** Concrete — absent on the entity reads as verify-on. */
+  sslVerification: boolean;
+}
+
+export interface MqttRequestUpdates {
+  description: string;
+  url: string;
+  protocolVersion: MqttRequestProtocolVersion;
+  topic: string;
+  payload: string;
+  payloadFormat: MqttPayloadFormat;
+  qos: MqttRequestQos;
+  retain: boolean;
+  publishProperties: MqttMessageProperties | undefined;
+  topics: MqttTopicRow[];
+  savedMessages: MqttSavedMessage[];
+  userProperties: MqttUserPropertyRow[];
+  lastWill: MqttLastWill | undefined;
+  specLink: MqttSpecLink | undefined;
+  clientId: string;
+  cleanStart: boolean;
+  sessionExpiryInterval: number | undefined;
+  keepAlive: number | undefined;
+  receiveMaximum: number | undefined;
+  maximumPacketSize: number | undefined;
+  timeoutMs: number | undefined;
+  sslVerification: boolean;
+}
+
+export function emptyMessagePropertiesDraft(): MqttMessagePropertiesDraft {
+  return {
+    userProperties: [],
+    responseTopic: '',
+    correlationData: '',
+    messageExpiryInterval: undefined,
+    contentType: '',
+    payloadFormatIndicator: false,
+  };
+}
+
+export function propertiesToDraft(props: MqttMessageProperties | undefined): MqttMessagePropertiesDraft {
+  return {
+    userProperties: (props?.userProperties ?? []).map((row) => ({ ...row })),
+    responseTopic: props?.responseTopic ?? '',
+    correlationData: props?.correlationData ?? '',
+    messageExpiryInterval: props?.messageExpiryInterval,
+    contentType: props?.contentType ?? '',
+    payloadFormatIndicator: props?.payloadFormatIndicator ?? false,
+  };
+}
+
+/** Collapse a concrete property-block draft to the persisted optional
+ *  shape — `undefined` when every field is untouched. */
+export function draftToProperties(draft: MqttMessagePropertiesDraft): MqttMessageProperties | undefined {
+  const rows = draft.userProperties.filter((row) => row.key.trim() !== '');
+  const out: MqttMessageProperties = {
+    ...(rows.length > 0 ? { userProperties: rows.map(canonicalUserPropertyRow) } : {}),
+    ...(draft.responseTopic !== '' ? { responseTopic: draft.responseTopic } : {}),
+    ...(draft.correlationData !== '' ? { correlationData: draft.correlationData } : {}),
+    ...(draft.messageExpiryInterval !== undefined ? { messageExpiryInterval: draft.messageExpiryInterval } : {}),
+    ...(draft.contentType !== '' ? { contentType: draft.contentType } : {}),
+    ...(draft.payloadFormatIndicator ? { payloadFormatIndicator: true } : {}),
+  };
+  return Object.keys(out).length > 0 ? out : undefined;
+}
+
+function canonicalUserPropertyRow(row: MqttUserPropertyRow): MqttUserPropertyRow {
+  return {
+    uid: row.uid,
+    key: row.key,
+    value: row.value,
+    ...(row.description?.trim() ? { description: row.description } : {}),
+    ...(row.enabled !== undefined ? { enabled: row.enabled } : {}),
+  };
+}
+
+export function userPropertiesToRows(rows: readonly MqttUserPropertyRow[]): KeyValueRow[] {
+  return rows.map((row) =>
+    makeKvRow({
+      uid: row.uid,
+      key: row.key,
+      value: row.value,
+      description: row.description ?? '',
+      enabled: row.enabled ?? true,
+    }),
+  );
+}
+
+export function rowsToUserProperties(rows: KeyValueRow[]): MqttUserPropertyRow[] {
+  return rows
+    .filter((r) => r.key.trim())
+    .map((r) => ({
+      uid: r.uid,
+      key: r.key,
+      value: r.value,
+      ...(r.description?.trim() ? { description: r.description } : {}),
+      enabled: r.enabled,
+    }));
+}
+
+/** Trim the Topics grid's trailing ghost + unfilled rows away, keeping
+ *  only the fields each row actually carries. */
+export function trimTopicRows(rows: MqttTopicRow[]): MqttTopicRow[] {
+  return rows
+    .filter((row) => row.topicFilter.trim() !== '')
+    .map((row) => ({
+      uid: row.uid,
+      topicFilter: row.topicFilter,
+      ...(row.qos !== undefined ? { qos: row.qos } : {}),
+      ...(row.subscribe !== undefined ? { subscribe: row.subscribe } : {}),
+      ...(row.description?.trim() ? { description: row.description } : {}),
+      ...(row.noLocal !== undefined ? { noLocal: row.noLocal } : {}),
+      ...(row.retainAsPublished !== undefined ? { retainAsPublished: row.retainAsPublished } : {}),
+      ...(row.retainHandling !== undefined ? { retainHandling: row.retainHandling } : {}),
+      ...(row.subscriptionId !== undefined ? { subscriptionId: row.subscriptionId } : {}),
+    }));
+}
+
+export function emptyLastWillDraft(): MqttLastWillDraft {
+  return {
+    topic: '',
+    payload: '',
+    format: 'text',
+    qos: 0,
+    retain: false,
+    willDelayInterval: undefined,
+    properties: emptyMessagePropertiesDraft(),
+  };
+}
+
+export function lastWillToDraft(will: MqttLastWill | undefined): MqttLastWillDraft {
+  if (!will) return emptyLastWillDraft();
+  return {
+    topic: will.topic,
+    payload: will.payload,
+    format: will.format ?? 'text',
+    qos: will.qos ?? 0,
+    retain: will.retain ?? false,
+    willDelayInterval: will.willDelayInterval,
+    properties: propertiesToDraft(will.properties),
+  };
+}
+
+/** A will exists once it has a topic — the wire requires one; an
+ *  empty-topic draft saves as "no will". */
+export function draftToLastWill(draft: MqttLastWillDraft): MqttLastWill | undefined {
+  if (draft.topic.trim() === '') return undefined;
+  const properties = draftToProperties(draft.properties);
+  return {
+    topic: draft.topic,
+    payload: draft.payload,
+    ...(draft.format !== 'text' ? { format: draft.format } : {}),
+    ...(draft.qos !== 0 ? { qos: draft.qos } : {}),
+    ...(draft.retain ? { retain: true } : {}),
+    ...(draft.willDelayInterval !== undefined ? { willDelayInterval: draft.willDelayInterval } : {}),
+    ...(properties !== undefined ? { properties } : {}),
+  };
+}
+
+export function draftFromMqttRequest(req: MqttRequest): MqttDraft {
+  return {
+    description: req.description ?? '',
+    url: req.url,
+    protocolVersion: req.protocolVersion ?? '5.0',
+    topic: req.topic,
+    payload: req.payload,
+    payloadFormat: req.payloadFormat ?? 'text',
+    qos: req.qos ?? 0,
+    retain: req.retain ?? false,
+    publishProperties: propertiesToDraft(req.publishProperties),
+    topics: req.topics.map((row) => ({ ...row })),
+    savedMessages: req.savedMessages.map((row) => ({ ...row })),
+    userProperties: userPropertiesToRows(req.userProperties),
+    lastWill: lastWillToDraft(req.lastWill),
+    specLink: req.specLink,
+    clientId: req.clientId ?? '',
+    cleanStart: req.cleanStart ?? true,
+    sessionExpiryInterval: req.sessionExpiryInterval,
+    keepAlive: req.keepAlive,
+    receiveMaximum: req.receiveMaximum,
+    maximumPacketSize: req.maximumPacketSize,
+    timeoutMs: req.timeoutMs,
+    sslVerification: req.sslVerification ?? true,
+  };
+}
+
+export function buildMqttRequestUpdates(draft: MqttDraft): MqttRequestUpdates {
+  return {
+    description: draft.description,
+    url: draft.url,
+    protocolVersion: draft.protocolVersion,
+    topic: draft.topic,
+    payload: draft.payload,
+    payloadFormat: draft.payloadFormat,
+    qos: draft.qos,
+    retain: draft.retain,
+    publishProperties: draftToProperties(draft.publishProperties),
+    topics: trimTopicRows(draft.topics),
+    savedMessages: draft.savedMessages,
+    userProperties: rowsToUserProperties(draft.userProperties),
+    lastWill: draftToLastWill(draft.lastWill),
+    specLink: draft.specLink,
+    clientId: draft.clientId,
+    cleanStart: draft.cleanStart,
+    sessionExpiryInterval: draft.sessionExpiryInterval,
+    keepAlive: draft.keepAlive,
+    receiveMaximum: draft.receiveMaximum,
+    maximumPacketSize: draft.maximumPacketSize,
+    timeoutMs: draft.timeoutMs,
+    sslVerification: draft.sslVerification,
+  };
+}
+
+/** Project a live `MqttRequest` into the same shape
+ *  `buildMqttRequestUpdates` emits — fingerprint comparison stays
+ *  apples-to-apples. */
+export function canonicalMqttRequestProjection(req: MqttRequest): MqttRequestUpdates {
+  return buildMqttRequestUpdates(draftFromMqttRequest(req));
+}
+
+// ── Compose-payload encoding validation ─────────────────────────────
+
+/** Base64 alphabet with optional padding — whitespace tolerated. */
+const BASE64_PATTERN = /^[A-Za-z0-9+/]*={0,2}$/;
+
+/**
+ * Validate the compose payload against its ENCODING. `base64` / `hex`
+ * author binary payloads, so malformed input gates Send honestly
+ * (Phase C) and shows inline before that. `text` / `json` always pass
+ * — JSON syntax is a display concern, the payload travels verbatim.
+ */
+export function payloadEncodingError(payload: string, format: MqttPayloadFormat): 'base64' | 'hex' | null {
+  if (format === 'base64') {
+    const compact = payload.replace(/\s/g, '');
+    return BASE64_PATTERN.test(compact) && compact.length % 4 === 0 ? null : 'base64';
+  }
+  if (format === 'hex') {
+    const compact = payload.replace(/\s/g, '');
+    return /^[0-9a-fA-F]*$/.test(compact) && compact.length % 2 === 0 ? null : 'hex';
+  }
+  return null;
+}

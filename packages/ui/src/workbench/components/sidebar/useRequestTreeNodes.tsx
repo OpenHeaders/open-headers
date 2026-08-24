@@ -3,6 +3,7 @@ import type { useVariableResolver } from '@openheaders/ui/shared/hooks/variables
 import {
   GRPC_REQUEST_ENTITY_TYPE,
   GRPC_RESPONSE_EXAMPLE_ENTITY_TYPE,
+  MQTT_REQUEST_ENTITY_TYPE,
   REQUEST_COLLECTION_ENTITY_TYPE,
   REQUEST_ENTITY_TYPE,
   REQUEST_FOLDER_ENTITY_TYPE,
@@ -13,6 +14,7 @@ import {
 import type {
   GrpcRequest,
   GrpcResponseExample,
+  MqttRequest,
   Request,
   ResponseExample,
   TreeNode as CoreTreeNode,
@@ -25,7 +27,7 @@ import { useT } from '@openheaders/ui/context/LocaleContext';
 import { useCopyRequestSnippet } from '../../hooks/useCopyRequestSnippet';
 import type { WorkbenchTab } from '../../types';
 import { exportNodeFields } from './export-fields';
-import { composeBadge, exampleTag, grpcTag, iconEl, methodTag, websocketTag } from './icons';
+import { composeBadge, exampleTag, grpcTag, iconEl, methodTag, mqttTag, websocketTag } from './icons';
 import { requestKindAddMenuItems } from '../../request-kind-menu';
 import { containerActionMenuItems, containerAddMenuItems } from './menus';
 import type { TreeNode } from './types';
@@ -37,6 +39,7 @@ interface UseRequestTreeNodesParams {
   allRequests: readonly Request[];
   allGrpcRequests: readonly GrpcRequest[];
   allWebSocketRequests: readonly WebSocketRequest[];
+  allMqttRequests: readonly MqttRequest[];
   resolver: ReturnType<typeof useVariableResolver>;
   dirtyRequestUids?: ReadonlySet<string>;
   /** Post-import: imported request uids whose scripts the user hasn't
@@ -73,6 +76,8 @@ interface UseRequestTreeNodesParams {
   deleteGrpcRequest: (uid: string) => Promise<unknown> | unknown;
   updateWebSocketRequestData: (uid: string, patch: Partial<WebSocketRequest>) => Promise<unknown> | unknown;
   deleteWebSocketRequest: (uid: string) => Promise<unknown> | unknown;
+  updateMqttRequestData: (uid: string, patch: Partial<MqttRequest>) => Promise<unknown> | unknown;
+  deleteMqttRequest: (uid: string) => Promise<unknown> | unknown;
   createRequestFolderRpc: (
     name: string,
     parentPath: string,
@@ -93,6 +98,9 @@ interface UseRequestTreeNodesParams {
     folderPath?: string;
     flavor: 'raw' | 'socketio';
   }) => void;
+  onSelectMqttRequest?: (uid: string, name: string, autoRename?: boolean) => void;
+  /** Context-create an MQTT request from a container's "+" menu. */
+  onCreateMqttRequest?: (context: { collectionId?: string; folderPath?: string }) => void;
   /** Open a saved response example in its read-only viewer tab. */
   onSelectResponseExample?: (uid: string, name: string, requestUid: string) => void;
   /** Open a saved gRPC response example in its viewer tab. */
@@ -119,7 +127,8 @@ interface UseRequestTreeNodesParams {
 function subtreeHasRequestMatch(nodes: CoreTreeNode[], lowerFilter: string): boolean {
   for (const n of nodes) {
     if (
-      (n.type === 'request' || n.type === 'grpc-request' || n.type === 'websocket-request') &&
+      (n.type === 'request' || n.type === 'grpc-request' || n.type === 'websocket-request' ||
+        n.type === 'mqtt-request') &&
       n.name.toLowerCase().includes(lowerFilter)
     ) {
       return true;
@@ -187,6 +196,14 @@ export function useRequestTreeNodes(p: UseRequestTreeNodesParams): TreeNode[] {
             });
             p.onCreateWebSocketRequest?.({ collectionId, folderPath: node.path, flavor });
           };
+          const onAddMqttRequest = () => {
+            p.setExpandedKeys((prev) => {
+              const next = new Set(prev);
+              next.add(fid);
+              return next;
+            });
+            p.onCreateMqttRequest?.({ collectionId, folderPath: node.path });
+          };
           // Post-import ancestor-script review badge — same treatment
           // as request rows: warning chip until the user opens the
           // folder's Scripts editor.
@@ -239,6 +256,7 @@ export function useRequestTreeNodes(p: UseRequestTreeNodesParams): TreeNode[] {
                       onAddSocketIoRequest: () => onAddWebSocketRequest('socketio'),
                     }
                   : {}),
+                ...(p.onCreateMqttRequest ? { onAddMqttRequest } : {}),
                 onAddFolder,
               },
               t,
@@ -418,6 +436,44 @@ export function useRequestTreeNodes(p: UseRequestTreeNodesParams): TreeNode[] {
               });
             }
           }
+        } else if (node.type === 'mqtt-request') {
+          if (lowerFilter && !node.name.toLowerCase().includes(lowerFilter)) continue;
+          const mid = `mqtt-request-${node.uid}`;
+          const fullMqtt = p.allMqttRequests.find((r) => r.uid === node.uid);
+          // An MQTT request is complete once it has a target URL —
+          // until then it renders as a draft, mirroring the sibling
+          // request kinds' completeness treatment.
+          const mqttComplete = !fullMqtt || fullMqtt.url.trim().length > 0;
+          const mqttBadge = composeBadge(
+            mqttComplete ? null : { label: t('workbench.sidebar.badge.draft'), color: 'var(--ant-color-text-tertiary, #999)' },
+            p.dirtyRequestUids?.has(node.uid) ?? false,
+            undefined,
+            t,
+          );
+          items.push({
+            id: mid,
+            kind: 'leaf',
+            label: node.name,
+            depth,
+            expandable: false,
+            parentId,
+            icon: mqttTag(!mqttComplete),
+            badge: mqttBadge,
+            canRename: true,
+            canDelete: true,
+            canAddChild: false,
+            onOpen: () => {
+              p.onSelectMqttRequest?.(node.uid, node.name);
+            },
+            onRename: async (name: string) => {
+              void p.updateMqttRequestData(node.uid, { name });
+            },
+            onDelete: () =>
+              p.confirmDelete(node.name, () => {
+                void p.deleteMqttRequest(node.uid);
+              }),
+            awareness: { entityType: MQTT_REQUEST_ENTITY_TYPE, entityId: node.uid },
+          });
         } else if (node.type === 'request') {
           if (lowerFilter && !node.name.toLowerCase().includes(lowerFilter)) continue;
           const rid = `request-${node.uid}`;
@@ -541,6 +597,11 @@ export function useRequestTreeNodes(p: UseRequestTreeNodesParams): TreeNode[] {
       p.deleteWebSocketRequest,
       p.onSelectWebSocketRequest,
       p.onCreateWebSocketRequest,
+      p.allMqttRequests,
+      p.updateMqttRequestData,
+      p.deleteMqttRequest,
+      p.onSelectMqttRequest,
+      p.onCreateMqttRequest,
       p.requestCollections,
       p.resolver,
       p.isExpandedKey,
@@ -612,6 +673,14 @@ export function useRequestTreeNodes(p: UseRequestTreeNodesParams): TreeNode[] {
         });
         p.onCreateWebSocketRequest?.({ collectionId: collection.uid, flavor });
       };
+      const onAddMqttRequest = () => {
+        p.setExpandedKeys((prev) => {
+          const next = new Set(prev);
+          next.add(colId);
+          return next;
+        });
+        p.onCreateMqttRequest?.({ collectionId: collection.uid });
+      };
       const onAddFolder = () => {
         void p.createRequestFolderRpc(t('workbench.sidebar.defaults.newFolder'), collection.path).then((f) => {
           if (f) {
@@ -677,6 +746,7 @@ export function useRequestTreeNodes(p: UseRequestTreeNodesParams): TreeNode[] {
                   onAddSocketIoRequest: () => onAddWebSocketRequest('socketio'),
                 }
               : {}),
+            ...(p.onCreateMqttRequest ? { onAddMqttRequest } : {}),
             onAddFolder,
           },
           t,
@@ -745,6 +815,7 @@ export function useRequestTreeNodes(p: UseRequestTreeNodesParams): TreeNode[] {
                           onAddSocketIoRequest: () => onAddWebSocketRequest('socketio'),
                         }
                       : {}),
+                    ...(p.onCreateMqttRequest ? { onAddMqttRequest } : {}),
                   },
                   t,
                 ),
@@ -774,6 +845,7 @@ export function useRequestTreeNodes(p: UseRequestTreeNodesParams): TreeNode[] {
     p.onCreateRequest,
     p.onCreateGrpcRequest,
     p.onCreateWebSocketRequest,
+    p.onCreateMqttRequest,
     p.draftsByLocationRequest,
     p.buildRequestDraftNode,
     p.setExpandedKeys,

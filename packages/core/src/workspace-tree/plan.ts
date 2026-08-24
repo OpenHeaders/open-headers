@@ -17,6 +17,7 @@ import {
   serializeGrpcRequest,
   serializeLiveVariable,
   serializeLiveWorkflow,
+  serializeMqttRequest,
   serializeRequest,
   serializeRule,
   serializeSpec,
@@ -40,6 +41,7 @@ import {
   GRPC_REQUEST_MANIFEST_FILE,
   LIVE_VARIABLE_MANIFEST_FILE,
   LIVE_WORKFLOW_MANIFEST_FILE,
+  MQTT_REQUEST_MANIFEST_FILE,
   REQUEST_MANIFEST_FILE,
   RULE_MANIFEST_FILE,
   SPEC_MANIFEST_FILE,
@@ -140,6 +142,12 @@ export function planWorkspaceTree(state: WorkspaceTreeState, unknowns: TreeUnkno
     const out = serializeWebSocketRequest(toWrite(websocketRequest, unknowns[websocketRequest.uid]));
     add(`${websocketRequest.path}/${WEBSOCKET_REQUEST_MANIFEST_FILE}`, out.websocketYaml);
     if (out.messageFile) add(`${websocketRequest.path}/${out.messageFile.fileName}`, out.messageFile.content);
+  }
+
+  for (const mqttRequest of state.mqttRequests) {
+    const out = serializeMqttRequest(toWrite(mqttRequest, unknowns[mqttRequest.uid]));
+    add(`${mqttRequest.path}/${MQTT_REQUEST_MANIFEST_FILE}`, out.mqttYaml);
+    if (out.payloadFile) add(`${mqttRequest.path}/${out.payloadFile.fileName}`, out.payloadFile.content);
   }
 
   for (const template of state.templates) {

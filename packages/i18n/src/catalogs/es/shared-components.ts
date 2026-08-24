@@ -293,6 +293,7 @@ export const sharedComponents = {
   'shared.requestKinds.grpc.label': 'Solicitud gRPC',
   'shared.requestKinds.websocket.label': 'Solicitud WebSocket',
   'shared.requestKinds.socketio.label': 'Solicitud Socket.IO',
+  'shared.requestKinds.mqtt.label': 'Solicitud MQTT',
 
   // ── System rule-template registry ──────────────────────────────────
   'shared.ruleTemplates.blankRule': 'Regla en blanco',

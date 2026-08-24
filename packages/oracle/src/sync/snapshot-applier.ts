@@ -45,6 +45,7 @@ import {
   type SyncLiveValuePostState,
   type SyncLiveVariablePostState,
   type SyncLiveWorkflowPostState,
+  type SyncMqttRequestPostState,
   type SyncOAuthBundlePostState,
   type SyncPauseMarkersPostState,
   type SyncRequestCollectionPostState,
@@ -75,6 +76,7 @@ import { seedLiveFallbackPriority } from '@openheaders/core/sync-builders/projec
 import { seedLiveValues } from '@openheaders/core/sync-builders/projections/live-value-projection';
 import { seedLiveVariable } from '@openheaders/core/sync-builders/projections/live-variable-projection';
 import { seedLiveWorkflow } from '@openheaders/core/sync-builders/projections/live-workflow-projection';
+import { seedMqttRequest } from '@openheaders/core/sync-builders/projections/mqtt-request-projection';
 import { seedOAuthBundle } from '@openheaders/core/sync-builders/projections/oauth-bundle-projection';
 import { seedPauseMarkers } from '@openheaders/core/sync-builders/projections/pause-markers-projection';
 import { seedRequestCollection } from '@openheaders/core/sync-builders/projections/request-collection-projection';
@@ -170,6 +172,9 @@ export async function applyWorkspaceSnapshot(
   );
   await seedEach<SyncWebSocketRequestPostState>('websocketRequests', snapshot.websocketRequests, (p, ctx) =>
     seedWebSocketRequest(p.websocketRequest, ctx),
+  );
+  await seedEach<SyncMqttRequestPostState>('mqttRequests', snapshot.mqttRequests, (p, ctx) =>
+    seedMqttRequest(p.mqttRequest, ctx),
   );
   await seedEach<SyncSpecPostState>('specs', snapshot.specs, (p, ctx) => seedSpec(p.spec, ctx));
   await seedEach<SyncScriptPackagePostState>('scriptPackages', snapshot.scriptPackages, (p, ctx) =>

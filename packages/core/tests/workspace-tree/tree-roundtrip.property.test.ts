@@ -22,6 +22,7 @@ import { describe, expect, it } from 'vitest';
 import type { Collection, Folder } from '../../src/types/collection';
 import type { GrpcRequest } from '../../src/types/grpc-request';
 import type { LiveVariable, LiveWorkflow } from '../../src/types/live';
+import type { MqttRequest } from '../../src/types/mqtt-request';
 import type { Request } from '../../src/types/request';
 import type { Rule } from '../../src/types/rule';
 import type { Spec } from '../../src/types/spec';
@@ -99,6 +100,10 @@ function generateState(rng: Rng): { state: WorkspaceTreeState; unknowns: TreeUnk
     placed(rng, requestCollection.path)(draft);
     if (rng.next() < 0.5) draft.message = `ping-${uid8(rng)}`;
   });
+  const mqttRequest = generateAs<MqttRequest>('mqtt-request', rng, (draft) => {
+    placed(rng, requestCollection.path)(draft);
+    if (rng.next() < 0.5) draft.payload = `{"probe":"${uid8(rng)}"}`;
+  });
 
   const templateCollection = generateAs<Collection>('collection', rng, placed(rng, 'templates'));
   const template = generateAs<Template>('template', rng, placed(rng, templateCollection.path));
@@ -135,6 +140,7 @@ function generateState(rng: Rng): { state: WorkspaceTreeState; unknowns: TreeUnk
       requests: [plainRequest, bodyRequest],
       grpcRequests: [grpcRequest],
       websocketRequests: [websocketRequest],
+      mqttRequests: [mqttRequest],
       requestCollections: [requestCollection],
       requestFolders: [requestFolder],
       templates: [template],

@@ -38,6 +38,7 @@ import type {
   Collection,
   CollectionTree,
   GrpcRequest,
+  MqttRequest,
   Request,
   SpecLink,
   Variable,
@@ -78,6 +79,12 @@ import {
   applyWebSocketRequestUpdate,
   type WebSocketRequestUpdates,
 } from '../shared/sync/websocket-request-write-client';
+import {
+  applyMqttRequestCreate,
+  applyMqttRequestDelete,
+  applyMqttRequestUpdate,
+  type MqttRequestUpdates,
+} from '../shared/sync/mqtt-request-write-client';
 import { applyRequestCreate, applyRequestDelete, applyRequestUpdate } from '../shared/sync/request-write-client';
 import { getRequestCollectionSyncMirrorForWorkspace } from './mirrors/request-collection-sync-mirror';
 import { getRequestFolderSyncMirrorForWorkspace } from './mirrors/request-folder-sync-mirror';
@@ -93,6 +100,9 @@ export type GrpcRequestWriteResult =
 /** Structured ack for WebSocket request writes — same anatomy as {@link GrpcRequestWriteResult}. */
 export type WebSocketRequestWriteResult = GrpcRequestWriteResult;
 
+/** Structured ack for MQTT request writes — same anatomy as {@link GrpcRequestWriteResult}. */
+export type MqttRequestWriteResult = GrpcRequestWriteResult;
+
 export interface RequestsContextValue {
   requests: Request[];
   /**
@@ -107,6 +117,12 @@ export interface RequestsContextValue {
    * {@link grpcRequests}.
    */
   websocketRequests: WebSocketRequest[];
+  /**
+   * MQTT requests — the pub/sub session-shaped sibling entity kind
+   * sharing the collection tree. Same population rules as
+   * {@link grpcRequests}.
+   */
+  mqttRequests: MqttRequest[];
   collections: Collection[];
   /**
    * Flat request-folder list. Populated on the override branch
@@ -162,6 +178,19 @@ export interface RequestsContextValue {
     updates: WebSocketRequestUpdates,
   ) => Promise<WebSocketRequestWriteResult>;
   deleteWebSocketRequest: (webSocketRequestUid: string) => Promise<boolean>;
+
+  /**
+   * MQTT request CRUD — override branch only (the workbench is the
+   * only surface with MQTT gestures); the legacy branch resolves
+   * null/false.
+   */
+  createMqttRequest: (input: {
+    name: string;
+    parentPath: string;
+    seed?: Partial<MqttRequest>;
+  }) => Promise<MqttRequest | null>;
+  updateMqttRequest: (mqttRequestUid: string, updates: MqttRequestUpdates) => Promise<MqttRequestWriteResult>;
+  deleteMqttRequest: (mqttRequestUid: string) => Promise<boolean>;
 
   createCollection: (name: string) => Promise<Collection | null>;
   renameCollection: (collectionUid: string, name: string) => Promise<boolean>;
@@ -245,6 +274,7 @@ const defaultContextValue: RequestsContextValue = {
   requests: [],
   grpcRequests: [],
   websocketRequests: [],
+  mqttRequests: [],
   collections: [],
   folders: [],
   collectionTrees: [],
@@ -259,6 +289,9 @@ const defaultContextValue: RequestsContextValue = {
   createWebSocketRequest: () => Promise.resolve(null),
   updateWebSocketRequest: () => Promise.resolve({ ok: false, reason: 'other', message: 'no provider' }),
   deleteWebSocketRequest: () => Promise.resolve(false),
+  createMqttRequest: () => Promise.resolve(null),
+  updateMqttRequest: () => Promise.resolve({ ok: false, reason: 'other', message: 'no provider' }),
+  deleteMqttRequest: () => Promise.resolve(false),
   createCollection: () => Promise.resolve(null),
   renameCollection: () => Promise.resolve(false),
   deleteCollection: () => Promise.resolve(false),
@@ -299,6 +332,7 @@ export const RequestsProvider: React.FC<RequestsProviderProps> = ({
   const [requests, setRequests] = useState<Request[]>([]);
   const [grpcRequests, setGrpcRequests] = useState<GrpcRequest[]>([]);
   const [websocketRequests, setWebSocketRequests] = useState<WebSocketRequest[]>([]);
+  const [mqttRequests, setMqttRequests] = useState<MqttRequest[]>([]);
   const [collections, setCollections] = useState<Collection[]>([]);
   const [folders, setFolders] = useState<PersistedLocalFolder[]>([]);
   const [collectionTrees, setCollectionTrees] = useState<CollectionTree[]>([]);
@@ -362,6 +396,7 @@ export const RequestsProvider: React.FC<RequestsProviderProps> = ({
       setRequests([]);
       setGrpcRequests([]);
       setWebSocketRequests([]);
+      setMqttRequests([]);
       setCollections([]);
       setFolders([]);
       setCollectionTrees([]);
@@ -373,6 +408,7 @@ export const RequestsProvider: React.FC<RequestsProviderProps> = ({
     let currentRequests: Request[] = [];
     let currentGrpcRequests: GrpcRequest[] = [];
     let currentWebSocketRequests: WebSocketRequest[] = [];
+    let currentMqttRequests: MqttRequest[] = [];
     let currentCollections: Collection[] = [];
     let currentFolders: PersistedLocalFolder[] = [];
 
@@ -384,6 +420,7 @@ export const RequestsProvider: React.FC<RequestsProviderProps> = ({
           currentRequests,
           currentGrpcRequests,
           currentWebSocketRequests,
+          currentMqttRequests,
         ),
       );
     };
@@ -403,6 +440,11 @@ export const RequestsProvider: React.FC<RequestsProviderProps> = ({
       setWebSocketRequests(currentWebSocketRequests);
       recomputeTrees();
     });
+    const unsubMqttRequests = hostStorage.subscribe(wsKeys(wsId).mqttRequests, (record) => {
+      currentMqttRequests = record ?? [];
+      setMqttRequests(currentMqttRequests);
+      recomputeTrees();
+    });
     const unsubCollections = hostStorage.subscribe(wsKeys(wsId).requestCollections, (record) => {
       currentCollections = record ?? [];
       setCollections(currentCollections);
@@ -418,18 +460,21 @@ export const RequestsProvider: React.FC<RequestsProviderProps> = ({
       hostStorage.get(wsKeys(wsId).requests),
       hostStorage.get(wsKeys(wsId).grpcRequests),
       hostStorage.get(wsKeys(wsId).websocketRequests),
+      hostStorage.get(wsKeys(wsId).mqttRequests),
       hostStorage.get(wsKeys(wsId).requestCollections),
       hostStorage.get(wsKeys(wsId).requestFolders),
-    ]).then(([reqRecord, grpcRecord, wsRecord, colRecord, foldersRecord]) => {
+    ]).then(([reqRecord, grpcRecord, wsRecord, mqttRecord, colRecord, foldersRecord]) => {
       if (overrideIdRef.current !== wsId) return;
       currentRequests = reqRecord ?? [];
       currentGrpcRequests = grpcRecord ?? [];
       currentWebSocketRequests = wsRecord ?? [];
+      currentMqttRequests = mqttRecord ?? [];
       currentCollections = colRecord ?? [];
       currentFolders = foldersRecord ?? [];
       setRequests(currentRequests);
       setGrpcRequests(currentGrpcRequests);
       setWebSocketRequests(currentWebSocketRequests);
+      setMqttRequests(currentMqttRequests);
       setCollections(currentCollections);
       setFolders(currentFolders);
       recomputeTrees();
@@ -440,6 +485,7 @@ export const RequestsProvider: React.FC<RequestsProviderProps> = ({
       unsubRequests();
       unsubGrpcRequests();
       unsubWebSocketRequests();
+      unsubMqttRequests();
       unsubCollections();
       unsubFolders();
     };
@@ -659,6 +705,63 @@ export const RequestsProvider: React.FC<RequestsProviderProps> = ({
       const wsId = activeWorkspaceIdOverride ?? null;
       if (!wsId) return false;
       const result = await applyWebSocketRequestDelete(webSocketRequestUid, { workspaceId: wsId, surfaceId });
+      return result.ok;
+    },
+    [isOverridden, activeWorkspaceIdOverride, surfaceId],
+  );
+
+  const createMqttRequest = useCallback<RequestsContextValue['createMqttRequest']>(
+    async (input) => {
+      if (!isOverridden) return null;
+      const wsId = activeWorkspaceIdOverride ?? null;
+      if (!wsId) return null;
+      const uid = generateUid();
+      const created: MqttRequest = {
+        schemaVersion: 5,
+        uid,
+        path: `${input.parentPath}/${toFolderName(input.name, uid)}`,
+        name: input.name,
+        url: input.seed?.url ?? '',
+        topic: input.seed?.topic ?? '',
+        payload: input.seed?.payload ?? '',
+        topics: input.seed?.topics ?? [],
+        savedMessages: input.seed?.savedMessages ?? [],
+        userProperties: input.seed?.userProperties ?? [],
+        ...(input.seed?.description !== undefined ? { description: input.seed.description } : {}),
+        ...(input.seed?.protocolVersion !== undefined ? { protocolVersion: input.seed.protocolVersion } : {}),
+        ...(input.seed?.payloadFormat !== undefined ? { payloadFormat: input.seed.payloadFormat } : {}),
+        ...(input.seed?.qos !== undefined ? { qos: input.seed.qos } : {}),
+        ...(input.seed?.retain !== undefined ? { retain: input.seed.retain } : {}),
+        ...(input.seed?.publishProperties !== undefined ? { publishProperties: input.seed.publishProperties } : {}),
+        ...(input.seed?.lastWill !== undefined ? { lastWill: input.seed.lastWill } : {}),
+        ...(input.seed?.specLink !== undefined ? { specLink: input.seed.specLink } : {}),
+        ...(input.seed?.timeoutMs !== undefined ? { timeoutMs: input.seed.timeoutMs } : {}),
+      };
+      const result = await applyMqttRequestCreate(created, { workspaceId: wsId, surfaceId });
+      return result.ok ? created : null;
+    },
+    [isOverridden, activeWorkspaceIdOverride, surfaceId],
+  );
+
+  const updateMqttRequest = useCallback<RequestsContextValue['updateMqttRequest']>(
+    async (mqttRequestUid, updates) => {
+      if (!isOverridden) return { ok: false, reason: 'other', message: 'no provider' };
+      const wsId = activeWorkspaceIdOverride ?? null;
+      if (!wsId) return { ok: false, reason: 'other', message: 'no workspace' };
+      const result = await applyMqttRequestUpdate(mqttRequestUid, updates, { workspaceId: wsId, surfaceId });
+      if (result.ok) return { ok: true };
+      if (result.reason === 'not-found') return { ok: false, reason: 'not-found' };
+      return { ok: false, reason: 'other', message: result.message ?? '' };
+    },
+    [isOverridden, activeWorkspaceIdOverride, surfaceId],
+  );
+
+  const deleteMqttRequest = useCallback<RequestsContextValue['deleteMqttRequest']>(
+    async (mqttRequestUid) => {
+      if (!isOverridden) return false;
+      const wsId = activeWorkspaceIdOverride ?? null;
+      if (!wsId) return false;
+      const result = await applyMqttRequestDelete(mqttRequestUid, { workspaceId: wsId, surfaceId });
       return result.ok;
     },
     [isOverridden, activeWorkspaceIdOverride, surfaceId],
@@ -891,6 +994,7 @@ export const RequestsProvider: React.FC<RequestsProviderProps> = ({
       requests,
       grpcRequests,
       websocketRequests,
+      mqttRequests,
       collections,
       folders,
       collectionTrees,
@@ -905,6 +1009,9 @@ export const RequestsProvider: React.FC<RequestsProviderProps> = ({
       createWebSocketRequest,
       updateWebSocketRequest,
       deleteWebSocketRequest,
+      createMqttRequest,
+      updateMqttRequest,
+      deleteMqttRequest,
       createCollection,
       renameCollection,
       deleteCollection,
@@ -925,6 +1032,7 @@ export const RequestsProvider: React.FC<RequestsProviderProps> = ({
       requests,
       grpcRequests,
       websocketRequests,
+      mqttRequests,
       collections,
       folders,
       collectionTrees,
@@ -939,6 +1047,9 @@ export const RequestsProvider: React.FC<RequestsProviderProps> = ({
       createWebSocketRequest,
       updateWebSocketRequest,
       deleteWebSocketRequest,
+      createMqttRequest,
+      updateMqttRequest,
+      deleteMqttRequest,
       createCollection,
       renameCollection,
       deleteCollection,

@@ -579,6 +579,8 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
     openCreateGrpcRequestTab,
     openWebSocketRequestEditTab,
     openCreateWebSocketRequestTab,
+    openMqttRequestEditTab,
+    openCreateMqttRequestTab,
     openResponseExampleTab,
     openGrpcResponseExampleTab,
     openWsResponseExampleTab,
@@ -1043,6 +1045,9 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
       } else if (tab.mode === 'websocket-edit' && tab.websocketRequestUid) {
         void requestsApi.updateWebSocketRequest(tab.websocketRequestUid, { name: newName });
         updateTab(tab.id, { label: newName });
+      } else if (tab.mode === 'mqtt-edit' && tab.mqttRequestUid) {
+        void requestsApi.updateMqttRequest(tab.mqttRequestUid, { name: newName });
+        updateTab(tab.id, { label: newName });
       } else if (tab.mode === 'request-create' || tab.mode === 'rule-create' || tab.mode === 'live-workflow-create') {
         // Draft name change — no persistence until Save. Update both
         // the tab label and the `draftName` field so the editor's
@@ -1193,6 +1198,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
         openCreateRequestTab={openCreateRequestTab}
         openCreateGrpcRequestTab={openCreateGrpcRequestTab}
         openCreateWebSocketRequestTab={openCreateWebSocketRequestTab}
+        openCreateMqttRequestTab={openCreateMqttRequestTab}
         openRequestCollectionVariables={openRequestCollectionVariables}
         openRequestCollectionScripts={openRequestCollectionScripts}
         openRequestFolderScripts={openRequestFolderScripts}
@@ -1212,6 +1218,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
         openWsResponseExampleTab={openWsResponseExampleTab}
         openGrpcRequestEditTab={openGrpcRequestEditTab}
         openWebSocketRequestEditTab={openWebSocketRequestEditTab}
+        openMqttRequestEditTab={openMqttRequestEditTab}
         handleSwitchWorkspace={handleSwitchWorkspace}
         onRuleSaveDraft={ruleSaveFlow.handleSaveDraft}
         onRequestSaveDraft={requestSaveFlow.handleSaveDraft}
@@ -1252,6 +1259,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
       openWsResponseExampleTab,
       openGrpcRequestEditTab,
       openWebSocketRequestEditTab,
+      openMqttRequestEditTab,
       liveWorkflowsApi.workflows,
       replaceTab,
       editingScopeWorkspaceId,
@@ -1260,6 +1268,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
       openCreateRequestTab,
       openCreateGrpcRequestTab,
       openCreateWebSocketRequestTab,
+      openCreateMqttRequestTab,
       openRequestCollectionVariables,
       openRequestCollectionScripts,
       openRequestFolderScripts,
@@ -1322,6 +1331,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
       }
       const openIn = (context: { collectionId?: string; folderPath?: string }) => {
         if (kind === 'grpc') openCreateGrpcRequestTab(context);
+        else if (kind === 'mqtt') openCreateMqttRequestTab(context);
         else openCreateWebSocketRequestTab({ ...context, flavor: kind === 'socketio' ? 'socketio' : 'raw' });
       };
       const existing = requestsApi.collections[0];
@@ -1337,6 +1347,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
       openCreateRequestTab,
       openCreateGrpcRequestTab,
       openCreateWebSocketRequestTab,
+      openCreateMqttRequestTab,
       requestsApi.collections,
       requestsApi.createCollection,
       t,
@@ -1455,6 +1466,8 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
         openCreateGrpcRequestTab={openCreateGrpcRequestTab}
         openWebSocketRequestEditTab={openWebSocketRequestEditTab}
         openCreateWebSocketRequestTab={openCreateWebSocketRequestTab}
+        openMqttRequestEditTab={openMqttRequestEditTab}
+        openCreateMqttRequestTab={openCreateMqttRequestTab}
         openResponseExampleTab={openResponseExampleTab}
         openGrpcResponseExampleTab={openGrpcResponseExampleTab}
         openWsResponseExampleTab={openWsResponseExampleTab}
@@ -1509,6 +1522,8 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
       openCreateGrpcRequestTab,
       openWebSocketRequestEditTab,
       openCreateWebSocketRequestTab,
+      openMqttRequestEditTab,
+      openCreateMqttRequestTab,
       openResponseExampleTab,
       openGrpcResponseExampleTab,
       openWsResponseExampleTab,
@@ -1724,6 +1739,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
                 activeTab.mode === 'request-edit' ||
                 activeTab.mode === 'grpc-edit' ||
                 activeTab.mode === 'websocket-edit' ||
+                activeTab.mode === 'mqtt-edit' ||
                 activeTab.mode === 'request-create' ||
                 activeTab.mode === 'rule-create' ||
                 activeTab.mode === 'live-variable-edit' ||

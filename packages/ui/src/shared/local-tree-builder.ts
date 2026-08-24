@@ -21,6 +21,7 @@ import type {
   Collection,
   CollectionTree,
   GrpcRequest,
+  MqttRequest,
   Request,
   Rule,
   Template,
@@ -81,19 +82,22 @@ export function buildRequestCollectionTrees(
   requests: Request[],
   grpcRequests: GrpcRequest[] = [],
   websocketRequests: WebSocketRequest[] = [],
+  mqttRequests: MqttRequest[] = [],
 ): CollectionTree[] {
   // All request kinds share the collection tree (S8 scope law:
   // collections hold every request family). Leaves are merged per
-  // parent — HTTP requests first, then gRPC, then WebSocket, each in
-  // array order.
+  // parent — HTTP requests first, then gRPC, then WebSocket, then
+  // MQTT, each in array order.
   type RequestLeaf =
     | { kind: 'http'; entity: Request }
     | { kind: 'grpc'; entity: GrpcRequest }
-    | { kind: 'websocket'; entity: WebSocketRequest };
+    | { kind: 'websocket'; entity: WebSocketRequest }
+    | { kind: 'mqtt'; entity: MqttRequest };
   const leaves: RequestLeaf[] = [
     ...requests.map((entity): RequestLeaf => ({ kind: 'http', entity })),
     ...grpcRequests.map((entity): RequestLeaf => ({ kind: 'grpc', entity })),
     ...websocketRequests.map((entity): RequestLeaf => ({ kind: 'websocket', entity })),
+    ...mqttRequests.map((entity): RequestLeaf => ({ kind: 'mqtt', entity })),
   ];
   return collections.map((collection) => ({
     ...collection,
@@ -113,13 +117,15 @@ export function buildRequestCollectionTrees(
             }
           : leaf.kind === 'grpc'
             ? { type: 'grpc-request', uid: leaf.entity.uid, name: leaf.entity.name, path: leaf.entity.path }
-            : {
-                type: 'websocket-request',
-                uid: leaf.entity.uid,
-                name: leaf.entity.name,
-                path: leaf.entity.path,
-                flavor: leaf.entity.flavor,
-              },
+            : leaf.kind === 'websocket'
+              ? {
+                  type: 'websocket-request',
+                  uid: leaf.entity.uid,
+                  name: leaf.entity.name,
+                  path: leaf.entity.path,
+                  flavor: leaf.entity.flavor,
+                }
+              : { type: 'mqtt-request', uid: leaf.entity.uid, name: leaf.entity.name, path: leaf.entity.path },
     ),
   }));
 }

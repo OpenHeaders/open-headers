@@ -30,6 +30,7 @@ export type {
   Folder,
   FolderNode,
   GrpcRequestNode,
+  MqttRequestNode,
   RequestNode,
   RuleNode,
   SpecLink,
@@ -152,6 +153,21 @@ export type {
 export type { LiveValueRecord, RefreshHealth, WorkflowRunCache, WorkflowStepOutcome } from './live-cache';
 // ── Offline-fallback priority list (WS-C C14) ──────────────────────
 export type { LiveFallbackPriorityMember, LiveFallbackPrioritySnapshot } from './live-fallback-priority';
+// ── MQTT request ───────────────────────────────────────────────────
+export type {
+  MqttLastWill,
+  MqttMessageProperties,
+  MqttPayloadFormat,
+  MqttRequest,
+  MqttRequestProtocolVersion,
+  MqttRequestQos,
+  MqttRequestSeed,
+  MqttRetainHandling,
+  MqttSavedMessage,
+  MqttSpecLink,
+  MqttTopicRow,
+  MqttUserPropertyRow,
+} from './mqtt-request';
 // ── Observability (local-first log ring) ──────────────────────────
 export type { LogEntry, LogEntryContext, LogLevel, LogSubsystem } from './observability';
 // ── Resource-timing wire projection ────────────────────────────────
