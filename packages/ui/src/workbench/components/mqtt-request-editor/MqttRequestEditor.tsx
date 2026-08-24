@@ -52,8 +52,7 @@
 import {
   ArrowDownOutlined,
   ArrowUpOutlined,
-  DisconnectOutlined,
-  LinkOutlined,
+  CaretRightOutlined,
   MoreOutlined,
   PlusOutlined,
   SendOutlined,
@@ -1045,7 +1044,9 @@ const MqttRequestEditor: React.FC<MqttRequestEditorProps> = ({
   );
 
   // Connect morphs into Disconnect while the session is in flight —
-  // the Invoke→Stop treatment: solid on the darkened error token.
+  // the Invoke→Stop treatment verbatim: solid on the darkened error
+  // token with the square stop glyph; Connect carries the caret the
+  // Invoke button wears.
   const headerActions = inFlight ? (
     <Tooltip
       placement="bottom"
@@ -1058,7 +1059,12 @@ const MqttRequestEditor: React.FC<MqttRequestEditorProps> = ({
           size="small"
           type="primary"
           danger
-          icon={<DisconnectOutlined />}
+          icon={
+            <span
+              aria-hidden="true"
+              style={{ display: 'inline-block', width: 9, height: 9, borderRadius: 2, background: 'currentcolor' }}
+            />
+          }
           onClick={handleDisconnect}
           style={{ fontSize: 11 }}
           data-testid="mqtt-connect-button"
@@ -1080,7 +1086,7 @@ const MqttRequestEditor: React.FC<MqttRequestEditorProps> = ({
         <Button
           size="small"
           type="primary"
-          icon={<LinkOutlined />}
+          icon={<CaretRightOutlined />}
           disabled={connectDisabledReason !== null}
           onClick={() => void handleConnect()}
           style={{ fontSize: 11 }}

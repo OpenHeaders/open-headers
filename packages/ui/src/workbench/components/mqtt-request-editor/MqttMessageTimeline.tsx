@@ -494,6 +494,23 @@ const MqttMessageTimeline: React.FC<MqttMessageTimelineProps> = ({
       </span>
     ) : null;
 
+  // Trailing expand slot — fixed width on EVERY row so the
+  // right-aligned timestamps line up in one column; expandable rows
+  // render their chevron in it, the rest leave it empty.
+  const expandSlot = (expanded: boolean | null): React.ReactNode => (
+    <span
+      aria-hidden
+      style={{ width: 12, flexShrink: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
+    >
+      {expanded !== null &&
+        (expanded ? (
+          <UpOutlined style={{ fontSize: 9, color: token.colorTextTertiary }} />
+        ) : (
+          <DownOutlined style={{ fontSize: 9, color: token.colorTextTertiary }} />
+        ))}
+    </span>
+  );
+
   // Boxed direction badge — ↑ amber, ↓ blue on their tinted
   // backgrounds (the gRPC/WS anatomy).
   const directionBadge = (up: boolean): React.ReactNode => (
@@ -559,6 +576,7 @@ const MqttMessageTimeline: React.FC<MqttMessageTimelineProps> = ({
               {t('workbench.editors.mqtt.timeline.connecting')}
             </span>
             {lifecycleTime(lifecycle.startedAt)}
+            {expandSlot(null)}
           </div>
         );
       case 'connected': {
@@ -589,12 +607,7 @@ const MqttMessageTimeline: React.FC<MqttMessageTimelineProps> = ({
               {t('workbench.editors.mqtt.timeline.connected')}
             </span>
             {lifecycleTime(lifecycle.connectedAt)}
-            {expandable &&
-              (connackExpanded ? (
-                <UpOutlined aria-hidden style={{ fontSize: 9, color: token.colorTextTertiary, flexShrink: 0 }} />
-              ) : (
-                <DownOutlined aria-hidden style={{ fontSize: 9, color: token.colorTextTertiary, flexShrink: 0 }} />
-              ))}
+            {expandSlot(expandable ? connackExpanded : null)}
           </div>
         );
       }
@@ -663,6 +676,7 @@ const MqttMessageTimeline: React.FC<MqttMessageTimelineProps> = ({
               {lifecycle.errorMessage}
             </span>
             {lifecycleTime(lifecycle.endedAt)}
+            {expandSlot(null)}
           </div>
         );
       }
@@ -682,6 +696,7 @@ const MqttMessageTimeline: React.FC<MqttMessageTimelineProps> = ({
               {lifecycle.endedMessage ? ` — ${lifecycle.endedMessage}` : ''}
             </span>
             {lifecycleTime(lifecycle.endedAt)}
+            {expandSlot(null)}
           </div>
         );
       }
@@ -711,6 +726,7 @@ const MqttMessageTimeline: React.FC<MqttMessageTimelineProps> = ({
                 {t('workbench.editors.mqtt.timeline.subscribed', { detail })}
               </span>
               {lifecycleTime(ts)}
+              {expandSlot(null)}
             </div>
           );
         }
@@ -722,6 +738,7 @@ const MqttMessageTimeline: React.FC<MqttMessageTimelineProps> = ({
                 {t('workbench.editors.mqtt.timeline.unsubscribed', { detail: item.topicFilters.join(', ') })}
               </span>
               {lifecycleTime(ts)}
+              {expandSlot(null)}
             </div>
           );
         }
@@ -780,6 +797,7 @@ const MqttMessageTimeline: React.FC<MqttMessageTimelineProps> = ({
                 {formatMessageTime(ts)}
               </span>
             )}
+            {expandSlot(isExpanded)}
           </div>
         );
       }
