@@ -391,6 +391,26 @@ export interface DaemonRpc {
     res: { ok: true } | { ok: false; error: string };
   };
 
+  // ── Server workspace projection (the server-access plan A6/S2) ───
+  //
+  // Admin-only. The SERVER's live workspace set, projected for admin
+  // surfaces the way `users.list` projects the directory. On the
+  // served tab the local store is a replica of what THIS user can
+  // read, so any server-scoped list an admin surface renders — the
+  // grants dropdown, grant tags, the audit filters, the Git card's
+  // target — must come from this projection: the same set
+  // `users.grant` validates against, never the tab's own mirror.
+
+  /**
+   * Every workspace this server holds, in the store's sort order —
+   * id + name, the fields admin surfaces render. The first entry is
+   * the Git card's default target.
+   */
+  'oh.daemon.workspaces.list': {
+    req: Record<string, never>;
+    res: { workspaces: ReadonlyArray<{ id: string; name: string }> };
+  };
+
   // ── Workspace grants (Phase 5 team tier, slice 2) ────────────────
   //
   // Admin-only. Grants are `WorkspaceRoleAssignment` rows for the

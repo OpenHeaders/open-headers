@@ -36,7 +36,7 @@ import { verifyLicense } from '@openheaders/core/licensing';
 import type { TelemetryDebugCommand, TelemetryDebugState, TelemetryStorageMethod } from '@openheaders/core/protocol';
 import { isTelemetryStorageMethod } from '@openheaders/core/protocol';
 import type { AuditLogEntry } from '@openheaders/core/types';
-import { getWorkspace } from '@openheaders/oracle/workspace/extension-workspace-store';
+import { getWorkspace, listWorkspaces } from '@openheaders/oracle/workspace/extension-workspace-store';
 import type { OracleWsServer } from '../host-runtime/ws-server';
 import type { AuditQueryCursor, AuditQueryFilter } from '../sync/sqlite-audit-log';
 import { projectArchivedSession, type TrafficSessionArchive, type TrafficTap } from '../traffic';
@@ -665,6 +665,15 @@ export function createAdminChannelHandlers(deps: AdminChannelDeps): ReadonlyMap<
       ),
     };
   });
+
+  // The server's live workspace set for admin surfaces (the
+  // server-access plan A6/S2) — the same set `users.grant` validates
+  // against below, so a console never offers or labels a workspace
+  // this host does not hold. Pure projection over the store's sorted
+  // list; the first entry doubles as the Git card's default target.
+  handlers.set('oh.daemon.workspaces.list', () => ({
+    workspaces: listWorkspaces().map((w) => ({ id: w.id, name: w.name })),
+  }));
 
   handlers.set('oh.daemon.users.setGitEmail', async (message) => {
     const userId = typeof message.userId === 'string' ? message.userId : '';

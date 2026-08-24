@@ -33,7 +33,6 @@ import type React from 'react';
 import { type BridgeRpcRequest, type BridgeRpcResponse, hostBridge } from '@openheaders/core/bridge';
 import { getDateTimeFormat, type MessageKey } from '@openheaders/i18n';
 import { useLocale, useT } from '@openheaders/ui/context/LocaleContext';
-import { useWorkspaces } from '../../../shared/hooks/readers/useWorkspaces';
 import { noteUpgradeCtaShown, trackProductTelemetryEvent } from '../../../shared/product-telemetry';
 import BackendTokensSection from '../../settings/components/backend-tokens-section';
 import GitWorkspacePane, {
@@ -426,7 +425,12 @@ const ServerAdminConsole: React.FC = () => {
   const { token } = theme.useToken();
   const { message } = AntApp.useApp();
   const adminStatus: ServerAdminStatus = useServerAdminStatus();
-  const { workspaces } = useWorkspaces();
+  // The SERVER's workspace set (the server-access plan A6): every
+  // server-scoped list this console renders — the grants dropdown,
+  // grant/audit labels, the Git card's target — reads this projection,
+  // never the tab's own workspace mirror, which on the served host
+  // replicates only what THIS user can read.
+  const [serverWorkspaces, setServerWorkspaces] = useState<ReadonlyArray<{ id: string; name: string }> | null>(null);
   const [users, setUsers] = useState<readonly DirectoryUser[] | null>(null);
   const [addForm] = Form.useForm<{ displayName: string; email: string; personalLicense: string }>();
   const [adding, setAdding] = useState(false);
@@ -436,18 +440,23 @@ const ServerAdminConsole: React.FC = () => {
   const [gitWorkspaceId, setGitWorkspaceId] = useState<string | null>(null);
 
   const workspaceName = useCallback(
-    (id: string): string => workspaces.find((w) => w.id === id)?.name ?? id,
-    [workspaces],
+    (id: string): string => serverWorkspaces?.find((w) => w.id === id)?.name ?? id,
+    [serverWorkspaces],
   );
-  const workspaceOptions = workspaces.map((w) => ({ value: w.id, label: w.name }));
+  const workspaceOptions = (serverWorkspaces ?? []).map((w) => ({ value: w.id, label: w.name }));
 
   const refresh = useCallback(async (): Promise<void> => {
     try {
-      const resp = await hostBridge.call('oh.daemon.users.list');
-      setUsers(resp.users);
+      const [directory, projected] = await Promise.all([
+        hostBridge.call('oh.daemon.users.list'),
+        hostBridge.call('oh.daemon.workspaces.list'),
+      ]);
+      setUsers(directory.users);
+      setServerWorkspaces(projected.workspaces);
     } catch (err) {
       message.error(t('workbench.serverAdmin.users.loadFailed', { message: (err as Error).message }));
       setUsers([]);
+      setServerWorkspaces([]);
     }
   }, [message, t]);
 
@@ -455,11 +464,14 @@ const ServerAdminConsole: React.FC = () => {
     if (adminStatus === 'admin') void refresh();
   }, [adminStatus, refresh]);
 
-  // Git section default: land on the first workspace so the card shows
-  // real state without a pick; the Select re-targets it.
+  // Git section default: land on the SERVER's first workspace so the
+  // card targets a workspace the daemon's git bindings actually hold;
+  // the Select re-targets it.
   useEffect(() => {
-    if (gitWorkspaceId === null && workspaces.length > 0) setGitWorkspaceId(workspaces[0].id);
-  }, [gitWorkspaceId, workspaces]);
+    if (gitWorkspaceId === null && serverWorkspaces && serverWorkspaces.length > 0) {
+      setGitWorkspaceId(serverWorkspaces[0].id);
+    }
+  }, [gitWorkspaceId, serverWorkspaces]);
 
   // The seat wall's pricing pointer is the seat-gate upgrade CTA.
   useEffect(() => {

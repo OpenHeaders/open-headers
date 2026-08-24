@@ -1086,3 +1086,56 @@ describe('grant-time workspace offer — a zero-grant peer learns a granted work
     expect(aliceGot).toEqual(['test.sentinel']);
   });
 });
+
+// ── S2 — the server workspace projection (the server-access plan A6) ─
+
+describe('server workspace projection — admin surfaces read the server set over the wire', () => {
+  afterEach(() => {
+    setWorkspaceOrgResolver(null);
+    disposeGlobal();
+    resetWorkspaceStore();
+  });
+
+  it("workspaces.list projects the server's live set to a zero-grant admin — every offered id passes the grant gate; a directory user gets the uniform deny", async () => {
+    __initGlobalSyncServiceForTests({ log: new InMemoryMutationLog() });
+    setWorkspaceOrgResolver(() => daemonOrgId);
+    await bootstrapWorkspaceStore();
+    await bridgeExtensionWorkspaceSyncEngine();
+    const team = await createWorkspace({ name: 'Team A', kind: 'team' });
+
+    // The Q2 fixture: a directory admin with NO workspace grants — the
+    // tab-local mirror holds nothing of the server's, so anything this
+    // peer can offer or label must come from the projection.
+    const carol = await addUserWithGrant('Carol', null);
+    await setDaemonUserDaemonAdmin(carol.user.id, true);
+    const viewer = await addUserWithGrant('Bob', 'viewer');
+
+    const port = await freePort();
+    server = await startServerWithAdminPlane(port);
+    const carolClient = await connectAs(port, carol, 'ext-carol');
+    const viewerClient = await connectAs(port, viewer, 'ext-bob');
+
+    const listed = await callOverWire(carolClient, { type: 'oh.daemon.workspaces.list' });
+    const rows = listed.payload?.workspaces as Array<{ id: string; name: string }>;
+    // The daemon's seeded default first (the Git card's default
+    // target), then the created team workspace — store sort order.
+    expect(rows.map((r) => r.name)).toEqual(['Workspace', 'Team A']);
+    expect(rows.map((r) => r.id)).toContain(team.id);
+
+    // Projection–validation coherence: every id the projection offers
+    // is accepted by the same live set `users.grant` validates against.
+    for (const row of rows) {
+      const granted = await callOverWire(carolClient, {
+        type: 'oh.daemon.users.grant',
+        userId: viewer.user.id,
+        workspaceId: row.id,
+        role: 'viewer',
+      });
+      expect(granted.payload?.ok).toBe(true);
+    }
+
+    const denied = await callOverWire(viewerClient, { type: 'oh.daemon.workspaces.list' });
+    expect(denied.__error).toBe(ADMIN_DENIED_MESSAGE);
+    expect(denied.payload).toBeUndefined();
+  });
+});
