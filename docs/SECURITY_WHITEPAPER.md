@@ -99,6 +99,32 @@ SIEM forwarding — all available on the free tier, because security
 features are never upsells. Administrative operations are gated
 per-frame on the wire and audited.
 
+The access-control postures below are deliberate design positions,
+stated here so they can be audited rather than discovered:
+
+- **SSO account linking.** The identity provider's **verified** email
+  claim is the sole join key between a login and a directory user: a
+  token carrying `email_verified: false` is refused outright, matching
+  is case-folded, and auto-provisioning never mints a duplicate of a
+  deactivated user's address. The trust anchor is that the operator
+  configured exactly one issuer — there is no self-service account
+  linking flow to attack, and no way for a second issuer's claims to
+  reach the join.
+- **MFA.** The daemon implements no second factor of its own. Under
+  SSO, multi-factor enforcement is the identity provider's job, applied
+  at the issuer where it belongs; a parallel local factor would create
+  a second, weaker login truth beside the one the operator chose. Local
+  password login exists for non-SSO deployments and is a single factor
+  — teams that need MFA deploy SSO.
+- **Offline replicas.** Revoking access — deactivating a user, revoking
+  a grant — cuts the server off from that user immediately: tokens are
+  revoked, live connections evicted, the next frame refused. Data
+  already replicated to their device before revocation remains on their
+  device, exactly as a git clone outlives revoked repository access.
+  This is a property of every offline-capable sync system; we state it
+  instead of implying otherwise. Offboarding controls what can still be
+  reached, not what was already seen.
+
 ## 6. Disclosure
 
 Vulnerabilities: see `SECURITY.md` (published as our disclosure

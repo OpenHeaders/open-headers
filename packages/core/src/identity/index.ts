@@ -66,6 +66,7 @@ export {
   createDaemonUser,
   type DaemonUserGitAttribution,
   type DeactivateDaemonUserResult,
+  daemonUserPrincipalKind,
   deactivateDaemonUser,
   findDaemonUserByEmail,
   isDaemonDirectoryEmpty,

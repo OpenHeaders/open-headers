@@ -17,12 +17,33 @@ import { UuidV7Schema } from './common';
 /**
  * Primary org-membership role. Functional roles (a future axis) ride on
  * top via the `functionalRoles` array; left empty on synthetic bootstrap.
+ *
+ * `guest` (the access-foundation plan §6) is a KNOWN external — a
+ * contractor or partner admitted to the directory: sees only workspaces
+ * explicitly granted to them, is excluded from `internal` workspace
+ * visibility, and carries NO `workspace.create` implication (the
+ * resolver implies the verb for `owner`/`admin` only; every other role
+ * falls through to the functional-role grant).
+ *
+ * The forward-tolerant decode law (ibid. §6): these picklists are the
+ * AUTHORING vocabulary — what this build mints and enforces. A seam
+ * that DECODES a role string from another build (an RPC projection, a
+ * persisted row, a sync payload) must never refuse an unknown value:
+ * render it verbatim, deny-by-default on enforcement. A strict parse
+ * of a peer-supplied role would force lockstep upgrades the day the
+ * vocabulary grows again.
  */
-export const OrgPrimaryRoleSchema = v.picklist(['owner', 'admin', 'member']);
+export const OrgPrimaryRoleSchema = v.picklist(['owner', 'admin', 'member', 'guest']);
 
 /**
  * Workspace-scoped role granted to a Principal. Mirrors the identity-doc
  * three-tier model; finer functional axes layer on top later.
+ *
+ * `owner` MEANS membership management (the access-foundation plan §6):
+ * a workspace owner manages that workspace's grants — add existing
+ * directory principals, change roles below owner — without holding
+ * `daemon.admin`. The semantic is settled here; the self-service RPC
+ * plane and console surface ship at the epic's F4 slice.
  */
 export const WorkspaceRoleSchema = v.picklist(['owner', 'editor', 'viewer']);
 

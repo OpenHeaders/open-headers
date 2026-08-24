@@ -7,25 +7,26 @@
 import {
   EXTENSION_WORKSPACE_GLOBAL_SCOPE,
   type ExtensionWorkspaceSlot,
-  moveExtensionWorkspaceBefore,
   type MutationEnvelope,
   type MutatorContext,
-  removeExtensionWorkspace,
+  moveExtensionWorkspaceBefore,
   RULE_ENTITY_TYPE,
+  removeExtensionWorkspace,
   setActiveExtensionWorkspace,
   setExtensionWorkspace,
 } from '@openheaders/core/sync';
-import { describe, expect, it } from 'vitest';
+import { seedExtensionWorkspaces } from '@openheaders/core/sync-builders/projections/extension-workspace-projection';
+import type { ExtensionWorkspace } from '@openheaders/core/types';
 import { InMemoryBroadcast } from '@openheaders/oracle/sync/broadcast';
+import { InMemoryMutationLog } from '@openheaders/oracle/sync/mutation-log';
+import { EntityOracle, type LockAcquirer } from '@openheaders/oracle/sync/oracle';
+import { InMemoryPendingIntents } from '@openheaders/oracle/sync/pending-intents';
 import {
   projectExtensionWorkspacePostState,
   projectExtensionWorkspaceSingleton,
 } from '@openheaders/oracle/sync/post-state/extension-workspace-post-state';
-import { InMemoryMutationLog } from '@openheaders/oracle/sync/mutation-log';
-import { type LockAcquirer, EntityOracle } from '@openheaders/oracle/sync/oracle';
-import { InMemoryPendingIntents } from '@openheaders/oracle/sync/pending-intents';
-import { seedExtensionWorkspaces } from '@openheaders/core/sync-builders/projections/extension-workspace-projection';
-import type { ExtensionWorkspace } from '@openheaders/core/types';
+import { describe, expect, it } from 'vitest';
+
 const lock: LockAcquirer = async (_ws, _t, _id, fn) => fn();
 const ctx = (ms: number): MutatorContext => ({
   workspaceId: EXTENSION_WORKSPACE_GLOBAL_SCOPE,
@@ -85,11 +86,7 @@ describe('projectExtensionWorkspacePostState', () => {
   it('drops a workspace after removeExtensionWorkspace', async () => {
     const oracle = newOracle();
     await oracle.apply(
-      seedExtensionWorkspaces(
-        [ws({ id: 'ws-a' }), ws({ id: 'ws-b', sortIndex: 1, name: 'B' })],
-        'ws-a',
-        ctx(1),
-      ),
+      seedExtensionWorkspaces([ws({ id: 'ws-a' }), ws({ id: 'ws-b', sortIndex: 1, name: 'B' })], 'ws-a', ctx(1)),
       [],
     );
     await oracle.apply(removeExtensionWorkspace(ctx(2), { id: 'ws-a' }).batch, []);
@@ -100,11 +97,7 @@ describe('projectExtensionWorkspacePostState', () => {
   it('flips activeWorkspaceId by LWW on setActiveExtensionWorkspace', async () => {
     const oracle = newOracle();
     await oracle.apply(
-      seedExtensionWorkspaces(
-        [ws({ id: 'ws-a' }), ws({ id: 'ws-b', sortIndex: 1, name: 'B' })],
-        'ws-a',
-        ctx(1),
-      ),
+      seedExtensionWorkspaces([ws({ id: 'ws-a' }), ws({ id: 'ws-b', sortIndex: 1, name: 'B' })], 'ws-a', ctx(1)),
       [],
     );
     await oracle.apply(setActiveExtensionWorkspace(ctx(2), { id: 'ws-b' }).batch, []);
@@ -115,19 +108,12 @@ describe('projectExtensionWorkspacePostState', () => {
   it('reorders workspaces by orderKey via moveExtensionWorkspaceBefore', async () => {
     const oracle = newOracle();
     await oracle.apply(
-      seedExtensionWorkspaces(
-        [ws({ id: 'ws-a' }), ws({ id: 'ws-b', sortIndex: 1, name: 'B' })],
-        'ws-a',
-        ctx(1),
-      ),
+      seedExtensionWorkspaces([ws({ id: 'ws-a' }), ws({ id: 'ws-b', sortIndex: 1, name: 'B' })], 'ws-a', ctx(1)),
       [],
     );
     // Seed assigns ascending keys (m, n by walk); moving ws-b before ws-a
     // means giving it a key < 'm'. Use 'a' as a known-low marker.
-    await oracle.apply(
-      moveExtensionWorkspaceBefore(ctx(2), { id: 'ws-b', orderKey: 'a' }).batch,
-      [],
-    );
+    await oracle.apply(moveExtensionWorkspaceBefore(ctx(2), { id: 'ws-b', orderKey: 'a' }).batch, []);
     const post = projectExtensionWorkspaceSingleton(oracle);
     expect(post?.workspaces.map((w) => w.id)).toEqual(['ws-b', 'ws-a']);
     // sortIndex re-emitted from projection-position, not the legacy field
@@ -138,17 +124,36 @@ describe('projectExtensionWorkspacePostState', () => {
     const oracle = newOracle();
     await oracle.apply(seedExtensionWorkspaces([], null, ctx(1)), []);
     await oracle.apply(
-      setExtensionWorkspace(ctx(2), { slot: slot({ id: 'w', name: 'old' }), orderKey: 'm' })
-        .batch,
+      setExtensionWorkspace(ctx(2), { slot: slot({ id: 'w', name: 'old' }), orderKey: 'm' }).batch,
       [],
     );
     await oracle.apply(
-      setExtensionWorkspace(ctx(3), { slot: slot({ id: 'w', name: 'new' }), orderKey: 'm' })
-        .batch,
+      setExtensionWorkspace(ctx(3), { slot: slot({ id: 'w', name: 'new' }), orderKey: 'm' }).batch,
       [],
     );
     const post = projectExtensionWorkspaceSingleton(oracle);
     expect(post?.workspaces[0].name).toBe('new');
+  });
+
+  it('carries visibility through the projection — unknown future values ride verbatim, never drop the slot', async () => {
+    // The forward-tolerant decode law (the access-foundation plan §6):
+    // the sync row keeps visibility a plain string, so a value minted
+    // by a newer build survives this projector unchanged; narrowing to
+    // the known vocabulary happens at enforcement/render sites only.
+    const oracle = newOracle();
+    await oracle.apply(seedExtensionWorkspaces([ws({ id: 'ws-a', visibility: 'internal' })], 'ws-a', ctx(1)), []);
+    await oracle.apply(
+      setExtensionWorkspace(ctx(2), {
+        slot: slot({ id: 'ws-b', name: 'B', visibility: 'org-only-future-value' }),
+        orderKey: 'p',
+      }).batch,
+      [],
+    );
+    const post = projectExtensionWorkspaceSingleton(oracle);
+    expect(post?.workspaces.map((w) => [w.id, w.visibility])).toEqual([
+      ['ws-a', 'internal'],
+      ['ws-b', 'org-only-future-value'],
+    ]);
   });
 
   it('returns null for non-matching envelopes', () => {

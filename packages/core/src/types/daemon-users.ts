@@ -4,6 +4,7 @@
  */
 
 import type * as v from 'valibot';
-import type { DaemonUserRecordSchema } from '../schemas/daemon-users';
+import type { DaemonPrincipalKindSchema, DaemonUserRecordSchema } from '../schemas/daemon-users';
 
 export type DaemonUserRecord = v.InferOutput<typeof DaemonUserRecordSchema>;
+export type DaemonPrincipalKind = v.InferOutput<typeof DaemonPrincipalKindSchema>;

@@ -193,6 +193,9 @@ export async function applyUpdateWorkspace(
   const orderKey = mirror.liveOrderKey(input.id) ?? seedKey();
   const ctx = resolveContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
   const updates = input.updates;
+  // Whole-record replace: every field the patch doesn't touch must be
+  // carried from the pre-image, or the addToSet clears it —
+  // `importedFrom` (re-pull matching) and `visibility` included.
   const next: ExtensionWorkspaceSlot = {
     id: input.id,
     kind: prev.kind,
@@ -203,7 +206,9 @@ export async function applyUpdateWorkspace(
     createdAt: prev.createdAt,
     updatedAt: new Date().toISOString(),
     source: prev.source,
+    importedFrom: prev.importedFrom,
     orgId: prev.orgId,
+    visibility: prev.visibility,
   };
   const payload = buildSetExtensionWorkspaceBatch({ slot: next, orderKey }, ctx);
   const result = await applySyncPayload(payload);
@@ -223,7 +228,9 @@ export async function applyUpdateWorkspace(
     createdAt: next.createdAt,
     updatedAt: next.updatedAt,
     source: next.source,
+    importedFrom: next.importedFrom,
     orgId: next.orgId,
+    visibility: next.visibility,
   };
   return { ok: true, workspace };
 }

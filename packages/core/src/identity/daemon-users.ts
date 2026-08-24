@@ -21,7 +21,7 @@ import { isPersonalSeatRedemptionEnabled, matchPersonalSeatIdentity } from '../l
 import { getLicenseSeatLimit } from '../licensing/seats';
 import { verifyLicense } from '../licensing/verify';
 import { hostStorage, OH } from '../storage';
-import type { DaemonUserRecord } from '../types';
+import type { DaemonPrincipalKind, DaemonUserRecord } from '../types';
 import { createMutex } from '../utils/mutex';
 import { uuidv7 } from '../utils/uuidv7';
 import { emitAuditEntry } from './audit';
@@ -284,6 +284,17 @@ export async function replacePersonalSeatArtifact(licenseId: string, licenseKey:
     if (changed > 0) await hostStorage.set(OH.daemonUsers, next);
     return changed;
   });
+}
+
+/**
+ * The principal kind a record resolves to — absent (every record minted
+ * before the vocabulary existed) reads as `user`, with no migration
+ * pass. Every seam that branches on the kind reads through this helper;
+ * login-shaped paths allow `user` explicitly rather than exclude
+ * `service`, so a future kind degrades to no-login (deny-by-default).
+ */
+export function daemonUserPrincipalKind(record: DaemonUserRecord): DaemonPrincipalKind {
+  return record.kind ?? 'user';
 }
 
 /** Every directory record, including deactivated ones (forensic shape). */

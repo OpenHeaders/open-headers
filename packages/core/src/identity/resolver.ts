@@ -146,6 +146,12 @@ export function hasCapability(
     // Org-scoped, not workspace-scoped — no WRA exists yet for the
     // workspace being minted. LocalAdmin and org owners/admins hold it
     // implicitly; a plain member needs the functional-role grant.
+    //
+    // The implication is a deliberate ALLOWLIST of exactly `owner` and
+    // `admin` (the access-foundation plan §6): `guest` — a known
+    // external who sees only explicit grants and is excluded from
+    // `internal` visibility — and any future role fall through to the
+    // functional-role check and deny by default.
     if (snapshot.localAdmin) {
       return { allow: true };
     }

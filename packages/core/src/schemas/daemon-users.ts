@@ -19,11 +19,31 @@ import * as v from 'valibot';
 import { UserIdentitySchema, UserSchema } from './identity';
 import { OrgMembershipSchema, PrincipalSchema } from './identity-acl';
 
+/**
+ * What kind of principal a directory record embodies (the
+ * access-foundation plan §6):
+ *
+ *   - `user`    — a human: may log in, holds a seat.
+ *   - `service` — a machine identity (built at the epic's F3 slice):
+ *                 holds WRA grants and bound tokens, has NO login and
+ *                 NO operator powers, consumes no human seat.
+ */
+export const DaemonPrincipalKindSchema = v.picklist(['user', 'service']);
+
 export const DaemonUserRecordSchema = v.object({
   user: UserSchema,
   userIdentity: UserIdentitySchema,
   membership: OrgMembershipSchema,
   principal: PrincipalSchema,
+  /**
+   * Principal kind — absent on every pre-vocabulary record, and absent
+   * MUST read as `user` (no migration pass: real directories exist on
+   * dev machines). Read through `daemonUserPrincipalKind`; login-shaped
+   * paths must allow `user` explicitly rather than exclude `service`,
+   * so a future kind degrades to no-login (deny-by-default) instead of
+   * inheriting a human's powers.
+   */
+  kind: v.optional(DaemonPrincipalKindSchema),
   /** ms-since-epoch of directory admission. */
   createdAt: v.pipe(v.number(), v.integer()),
   /** ms-since-epoch of deactivation; null while active. */

@@ -76,4 +76,12 @@ export interface ExtensionWorkspaceSlot {
   importedFrom?: { vendor: string; workspaceId: string };
   /** Org binding stamped at workspace creation (the unified-oracle model §6.1). */
   orgId: string;
+  /**
+   * Read-visibility beyond explicit grants (the access-foundation plan
+   * §6). Plain string on the sync row by the forward-tolerant decode
+   * law: a value minted by a newer build must ride through unchanged,
+   * never drop the slot. Absent = `private`; narrow with
+   * `resolveWorkspaceVisibility` at enforcement and render sites.
+   */
+  visibility?: string;
 }

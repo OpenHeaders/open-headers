@@ -27,9 +27,17 @@ import type {
   ExtensionWorkspaceKindSchema,
   ExtensionWorkspaceSchema,
   ExtensionWorkspaceSourceSchema,
+  WorkspaceVisibilitySchema,
 } from '../schemas/workspace';
 
 export type ExtensionWorkspaceKind = v.InferOutput<typeof ExtensionWorkspaceKindSchema>;
 export type ExtensionWorkspace = v.InferOutput<typeof ExtensionWorkspaceSchema>;
 export type ExtensionWorkspaceSource = v.InferOutput<typeof ExtensionWorkspaceSourceSchema>;
 export type ExtensionWorkspaceImportedFrom = v.InferOutput<typeof ExtensionWorkspaceImportedFromSchema>;
+
+/**
+ * The known visibility vocabulary — the record field itself stays a
+ * plain string (forward-tolerant decode); narrow with
+ * `resolveWorkspaceVisibility` where the distinction is enforced.
+ */
+export type WorkspaceVisibility = v.InferOutput<typeof WorkspaceVisibilitySchema>;

@@ -56,7 +56,11 @@ interface DirectoryUser {
   mayCreateWorkspaces: boolean;
   isDaemonAdmin: boolean;
   admission?: { licenseId: string; status: 'licensed' | 'grace' | 'expired' | 'invalid' };
-  grants: ReadonlyArray<{ workspaceId: string; role: DirectoryRole; origin?: 'idp' }>;
+  // `role` and `origin` are wire strings, wider than the authoring
+  // unions: the server projection passes them through verbatim, and the
+  // forward-tolerant decode law says an unknown value from a newer
+  // server renders verbatim rather than refusing the row.
+  grants: ReadonlyArray<{ workspaceId: string; role: string; origin?: string }>;
 }
 
 /**
@@ -82,6 +86,10 @@ const ROLE_LABELS: Record<DirectoryRole, MessageKey> = {
 };
 
 const ROLE_VALUES: readonly DirectoryRole[] = ['viewer', 'editor', 'owner'];
+
+function isDirectoryRole(value: string): value is DirectoryRole {
+  return (ROLE_VALUES as readonly string[]).includes(value);
+}
 
 /** Provenance tag for a personal-seat admission — status derived server-side at projection time. */
 const PersonalSeatTag: React.FC<{ admission: NonNullable<DirectoryUser['admission']> }> = ({ admission }) => {
@@ -235,7 +243,9 @@ const GrantsEditor: React.FC<{
               color={g.origin === 'idp' ? 'blue' : undefined}
               style={{ marginInlineEnd: 0 }}
             >
-              {workspaceName(g.workspaceId)} · {t(ROLE_LABELS[g.role])}
+              {/* Unknown roles from a newer server render verbatim —
+                  the forward-tolerant decode law, never a refusal. */}
+              {workspaceName(g.workspaceId)} · {isDirectoryRole(g.role) ? t(ROLE_LABELS[g.role]) : g.role}
               {g.origin === 'idp' ? ' · IdP' : ''}
             </Tag>
           </Tooltip>

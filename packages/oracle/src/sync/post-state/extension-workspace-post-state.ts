@@ -23,8 +23,8 @@ import {
   type ExtensionWorkspaceSlot,
 } from '@openheaders/core/sync';
 import type { ExtensionWorkspace } from '@openheaders/core/types';
-import { makeSingletonEntityProjectors } from './flat-entity-post-state';
 import type { EntityOracle } from '../oracle';
+import { makeSingletonEntityProjectors } from './flat-entity-post-state';
 
 type Reads = Pick<EntityOracle, 'materializeOne' | 'liveOrderedSetItems'>;
 
@@ -84,5 +84,6 @@ function toExtensionWorkspace(slot: ExtensionWorkspaceSlot, sortIndex: number): 
     source: slot.source,
     importedFrom: slot.importedFrom,
     orgId: slot.orgId,
+    visibility: slot.visibility,
   };
 }

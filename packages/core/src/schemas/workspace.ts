@@ -50,6 +50,33 @@ export const WorkspaceManifestSchema = v.omit(WorkspaceSchema, ['orgId']);
 
 export const ExtensionWorkspaceKindSchema = v.picklist(['personal', 'team']);
 
+/**
+ * Workspace visibility (the access-foundation plan §6) — the AUTHORING
+ * vocabulary for who may READ a workspace beyond its explicit grants:
+ *
+ *   - `private`  — WRA holders only (the default; today's behavior).
+ *   - `internal` — plus any signed-in directory member of org role
+ *                  `member` or above (guests are excluded).
+ *   - `public`   — plus anyone, via the published snapshot plane.
+ *
+ * Visibility NEVER confers write — write stays WRA-only, forever. The
+ * enforcement branches ship at the epic's F5 slice; the vocabulary is
+ * frozen now so shipped clients decode it tolerantly before any real
+ * directory exists.
+ */
+export const WorkspaceVisibilitySchema = v.picklist(['private', 'internal', 'public']);
+
+/**
+ * Narrow a stored/wire visibility string to the known vocabulary.
+ * Absent (every pre-vocabulary record — no migration pass) and unknown
+ * future values both resolve `private`: deny-by-default is the
+ * forward-tolerant decode law's enforcement posture, and `private` is
+ * the deny.
+ */
+export function resolveWorkspaceVisibility(value: string | undefined): v.InferOutput<typeof WorkspaceVisibilitySchema> {
+  return value === 'internal' || value === 'public' ? value : 'private';
+}
+
 export const ExtensionWorkspaceSourceSchema = v.object({
   desktopWorkspaceId: v.string(),
   displayPath: v.optional(v.string()),
@@ -82,4 +109,15 @@ export const ExtensionWorkspaceSchema = v.object({
   importedFrom: v.optional(ExtensionWorkspaceImportedFromSchema),
   /** Org binding (see {@link WorkspaceSchema.orgId}). */
   orgId: UuidV7Schema,
+  /**
+   * Read-visibility beyond explicit grants — see
+   * {@link WorkspaceVisibilitySchema} for the vocabulary. Deliberately
+   * a plain string here: this schema guards decode seams that DROP
+   * failing records (`getValidatedArray` at the workspace boot seam),
+   * and the forward-tolerant decode law forbids refusing a record over
+   * an enum value a newer build minted. Narrow with
+   * {@link resolveWorkspaceVisibility} at enforcement and render sites;
+   * absent = `private`.
+   */
+  visibility: v.optional(v.string()),
 });

@@ -279,6 +279,25 @@ describe('hasCapability', () => {
       expect(hasCapability(granted, 'workspace.create', {})).toEqual({ allow: true });
     });
 
+    it('denies a guest — the implication is an allowlist of owner/admin, never widened by a new role', () => {
+      // The access-foundation plan §6: a guest is a known external who
+      // carries NO workspace.create implication; like every role outside
+      // the allowlist it falls through to the functional-role check.
+      const guest = makeSnapshot({ localAdmin: null, membership: { primaryRole: 'guest' } });
+      expect(hasCapability(guest, 'workspace.create', {})).toEqual({
+        allow: false,
+        reason: 'workspace-create-not-granted',
+      });
+    });
+
+    it('a guest with an explicit functional-role grant still creates — the axes stay separate', () => {
+      const granted = makeSnapshot({
+        localAdmin: null,
+        membership: { primaryRole: 'guest', functionalRoles: [WORKSPACE_CREATE_FUNCTIONAL_ROLE] },
+      });
+      expect(hasCapability(granted, 'workspace.create', {})).toEqual({ allow: true });
+    });
+
     it('needs no workspaceId — the subject does not exist yet', () => {
       const snap = makeSnapshot({ localAdmin: null, membership: { primaryRole: 'member' } });
       expect(hasCapability(snap, 'workspace.create', { workspaceId: W1 }).allow).toBe(false);
@@ -325,6 +344,19 @@ describe('hasCapability', () => {
         allow: false,
         reason: 'no-current-user',
       });
+    });
+  });
+
+  it('a guest resolves workspace access through explicit WRAs only, like any role', () => {
+    const guest = makeSnapshot({
+      localAdmin: null,
+      membership: { primaryRole: 'guest' },
+      wras: [makeWra(W1, 'viewer')],
+    });
+    expect(hasCapability(guest, 'workspace.read', { workspaceId: W1 })).toEqual({ allow: true });
+    expect(hasCapability(guest, 'workspace.read', { workspaceId: W2 })).toEqual({
+      allow: false,
+      reason: 'no-workspace-role-assignment',
     });
   });
 

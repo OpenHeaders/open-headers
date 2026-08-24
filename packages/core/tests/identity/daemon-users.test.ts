@@ -11,6 +11,7 @@ import {
   absorbPersonalSeat,
   createDaemonUser,
   DAEMON_ADMIN_FUNCTIONAL_ROLE,
+  daemonUserPrincipalKind,
   deactivateDaemonUser,
   ensureSyntheticIdentity,
   findDaemonUserByEmail,
@@ -72,6 +73,20 @@ describe('daemon users', () => {
     expect(record.deactivatedAt).toBeNull();
     // The operator's identity is never duplicated into the directory.
     expect(record.user.id).not.toBe(identity?.user.id);
+  });
+
+  it('reads records without a principal kind as user — no migration pass (the access-foundation plan §6)', async () => {
+    const created = await createDaemonUser({ displayName: 'Alice', email: 'alice@openheaders.io' });
+    if (!created.ok) throw new Error('setup failed');
+    // Admission mints human records with the field absent; both the
+    // fresh record and every pre-vocabulary record on disk resolve
+    // `user` through the one read helper.
+    expect(created.record.kind).toBeUndefined();
+    expect(daemonUserPrincipalKind(created.record)).toBe('user');
+    expect(daemonUserPrincipalKind({ ...created.record, kind: 'service' })).toBe('service');
+    // A kind-less record stays schema-valid — the storage shape never
+    // forces a rewrite of existing directories.
+    expect(v.safeParse(DaemonUserRecordSchema, created.record).success).toBe(true);
   });
 
   it('creates a local-kind identity row when no email is given', async () => {

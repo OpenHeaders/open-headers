@@ -207,6 +207,26 @@ describe('applyUpdateWorkspace / applyRenameWorkspace', () => {
     expect(slot.icon).toBeUndefined();
   });
 
+  it('carries visibility and importedFrom through the whole-record replace — untouched fields never clear', async () => {
+    mockCall.mockResolvedValue({ ok: true, outcomes: [] });
+    // An unknown future visibility value rides through verbatim too —
+    // the forward-tolerant decode law (the access-foundation plan §6).
+    const existing = makeWorkspace('ws-a', 0, {
+      visibility: 'org-only-future-value',
+      importedFrom: { vendor: 'vendor-x', workspaceId: 'vendor-1' },
+    });
+    const mirror = makeMirror([existing], 'ws-a');
+    await applyUpdateWorkspace(
+      { id: 'ws-a', updates: { name: 'Renamed' } },
+      { surfaceId: 'workbench', mirror, context: makeContextHandle('workbench') },
+    );
+    const body = (mockCall.mock.calls[0][1] as { batch: MutationBatch }).batch.mutations[0].body;
+    const slot = (body as { item: { visibility?: string; importedFrom?: { vendor: string; workspaceId: string } } })
+      .item;
+    expect(slot.visibility).toBe('org-only-future-value');
+    expect(slot.importedFrom).toEqual({ vendor: 'vendor-x', workspaceId: 'vendor-1' });
+  });
+
   it('preserves the org binding across every update — workspaces are immutable in their Org', async () => {
     mockCall.mockResolvedValue({ ok: true, outcomes: [] });
     const existing = makeWorkspace('ws-a', 0, { orgId: 'org-old' });

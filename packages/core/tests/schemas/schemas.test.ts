@@ -10,6 +10,7 @@ import {
   parseEntityArray,
   RequestSchema,
   RuleSchema,
+  resolveWorkspaceVisibility,
   TemplateSchema,
   VariableSchema,
   VaultSchema,
@@ -229,6 +230,36 @@ describe('ExtensionWorkspaceSchema', () => {
         orgId: TEST_ORG_ID,
       }),
     ).toBeTruthy();
+  });
+
+  it('accepts every known visibility AND an unknown future value — the forward-tolerant decode law', () => {
+    // This schema guards `getValidatedArray` at the workspace boot
+    // seam, which DROPS failing records: a strict visibility picklist
+    // here would silently delete a workspace the moment a newer build
+    // minted a value this build has not learned yet.
+    const base = {
+      schemaVersion: 5,
+      id: 'abcd1234',
+      kind: 'personal',
+      name: 'mine',
+      sortIndex: 0,
+      createdAt: '2026-04-18T00:00:00Z',
+      updatedAt: '2026-04-18T00:00:00Z',
+      orgId: TEST_ORG_ID,
+    };
+    for (const visibility of ['private', 'internal', 'public', 'org-only-future-value']) {
+      expect(v.safeParse(ExtensionWorkspaceSchema, { ...base, visibility }).success).toBe(true);
+    }
+    expect(v.parse(ExtensionWorkspaceSchema, base).visibility).toBeUndefined();
+  });
+
+  it('narrows visibility with resolveWorkspaceVisibility — absent and unknown both read private', () => {
+    expect(resolveWorkspaceVisibility(undefined)).toBe('private');
+    expect(resolveWorkspaceVisibility('private')).toBe('private');
+    expect(resolveWorkspaceVisibility('internal')).toBe('internal');
+    expect(resolveWorkspaceVisibility('public')).toBe('public');
+    // Deny-by-default: an unenumerated value never widens access.
+    expect(resolveWorkspaceVisibility('org-only-future-value')).toBe('private');
   });
 
   it('rejects an unknown kind', () => {

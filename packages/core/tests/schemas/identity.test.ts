@@ -13,6 +13,7 @@ import * as v from 'valibot';
 import { describe, expect, it } from 'vitest';
 import {
   DaemonConfigSchema,
+  OrgPrimaryRoleSchema,
   OrgSchema,
   SessionSchema,
   UserIdentitySchema,
@@ -37,6 +38,18 @@ describe('UuidV7Schema', () => {
 
   it('rejects a non-UUID string', () => {
     expect(v.safeParse(UuidV7Schema, 'not-a-uuid').success).toBe(false);
+  });
+});
+
+describe('OrgPrimaryRoleSchema — guest landed (the access-foundation plan §6)', () => {
+  it('accepts all four authoring roles', () => {
+    for (const role of ['owner', 'admin', 'member', 'guest']) {
+      expect(v.parse(OrgPrimaryRoleSchema, role)).toBe(role);
+    }
+  });
+
+  it('rejects an unknown role at the AUTHORING seam — decode seams stay tolerant by not parsing', () => {
+    expect(v.safeParse(OrgPrimaryRoleSchema, 'auditor').success).toBe(false);
   });
 });
 
