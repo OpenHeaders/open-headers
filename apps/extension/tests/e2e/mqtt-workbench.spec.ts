@@ -253,6 +253,10 @@ test('E2 — url, version knob, payload, a Topics row and a saved message surviv
 
   await expect(urlInput()).toHaveValue(MQTT_URL);
   await expect(page.getByTestId('mqtt-version-select').filter({ visible: true }).first()).toContainText('V3.1.1');
+  // Doubles as the sliver-regression gate: a fill CodeEditor dropped
+  // straight into a row-flex host renders a few px wide, wraps every
+  // character onto its own virtualized view line, and this readback
+  // truncates — the column-direction host keeps it full width.
   expect(await workbench.monacoText(0)).toContain(MQTT_PAYLOAD);
   await expect(page.getByTestId('mqtt-topic-input').filter({ visible: true }).first()).toHaveValue(MQTT_TOPIC);
   await page

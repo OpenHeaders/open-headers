@@ -994,9 +994,13 @@ const MqttRequestEditor: React.FC<MqttRequestEditorProps> = ({
                   )}
                   <div style={{ flex: 1, minHeight: 100, display: 'flex', gap: 0 }}>
                     {/* Absolute inset host — a fill editor must not
-                      size its own flex parent (the BodyTab discipline). */}
+                      size its own flex parent (the BodyTab discipline).
+                      COLUMN direction: a fill CodeEditor stretches to
+                      full width only on the cross axis — as a row-flex
+                      child it sizes to its content and renders as a
+                      sliver (the WS editor's column-wrapper idiom). */}
                     <div style={{ flex: 1, minWidth: 0, position: 'relative' }}>
-                      <div style={{ position: 'absolute', inset: 0, display: 'flex' }}>
+                      <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column' }}>
                         <CodeEditor
                           value={draft.payload}
                           onChange={(payload) => setDraft((d) => ({ ...d, payload }))}
@@ -1440,7 +1444,8 @@ const MqttRequestEditor: React.FC<MqttRequestEditorProps> = ({
                     />
                   </div>
                   <div style={{ flex: 1, minHeight: 100, position: 'relative' }}>
-                    <div style={{ position: 'absolute', inset: 0, display: 'flex' }}>
+                    {/* Column direction — see the Message-tab host. */}
+                    <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column' }}>
                       <CodeEditor
                         value={draft.lastWill.payload}
                         onChange={(payload) => setDraft((d) => ({ ...d, lastWill: { ...d.lastWill, payload } }))}
