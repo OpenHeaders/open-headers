@@ -204,6 +204,10 @@
       "import": "./src/socketio/index.ts",
       "default": "./dist/socketio/index.js"
     },
+    "./mqtt": {
+      "import": "./src/mqtt/index.ts",
+      "default": "./dist/mqtt/index.js"
+    },
     "./cli-config": {
       "import": "./src/cli-config/index.ts",
       "default": "./dist/cli-config/index.js"
