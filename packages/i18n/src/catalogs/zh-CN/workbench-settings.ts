@@ -122,6 +122,7 @@ export const workbenchSettings = {
   'workbench.settings.category.requests.sub.sse': 'SSE',
   'workbench.settings.category.requests.sub.grpc': 'gRPC',
   'workbench.settings.category.requests.sub.websocket': 'WebSocket',
+  'workbench.settings.category.requests.sub.mqtt': 'MQTT',
   'workbench.settings.category.rulesEngine.label': '规则引擎',
   'workbench.settings.category.rulesEngine.description': '规则如何求值、编译与裁决。',
   'workbench.settings.category.keyboard.label': '键盘',

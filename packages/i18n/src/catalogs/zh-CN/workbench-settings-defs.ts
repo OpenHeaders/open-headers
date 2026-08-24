@@ -433,6 +433,9 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.requests.grpcMessagesGroupRowLimit.label': 'gRPC 消息：每组行数',
   'workbench.settings.def.requests.grpcMessagesGroupRowLimit.description':
     '按消息类型分组时，每组只显示这么多条最新消息——窗口随新消息滑动，多个组可同时观察。0 显示所有消息。时间线工具栏更改的是同一设置。',
+  'workbench.settings.def.requests.mqttMessagesNewestFirst.label': 'MQTT 消息：最新在前',
+  'workbench.settings.def.requests.mqttMessagesNewestFirst.description':
+    'MQTT 消息时间线的顺序——最新消息在顶部。关闭则从最旧开始读。时间线工具栏更改的是同一设置。',
   'workbench.settings.def.requests.wsMessagesNewestFirst.label': 'WebSocket 消息：最新在前',
   'workbench.settings.def.requests.wsMessagesNewestFirst.description':
     'WebSocket 消息时间线的顺序——最新消息在顶部。关闭则从最旧开始读。时间线工具栏更改的是同一设置。',

@@ -569,6 +569,9 @@ export const workbenchSettingsDefs = {
     'Zeigt beim Gruppieren nach Nachrichtentyp nur so viele der neuesten Nachrichten jeder Gruppe — das ' +
     'Fenster wandert mit neuen Nachrichten mit, sodass mehrere Gruppen zugleich beobachtbar bleiben. 0 zeigt ' +
     'jede Nachricht. Die Zeitverlaufs-Toolbar ändert dieselbe Einstellung.',
+  'workbench.settings.def.requests.mqttMessagesNewestFirst.label': 'MQTT-Nachrichten: Neueste zuerst',
+  'workbench.settings.def.requests.mqttMessagesNewestFirst.description':
+    'Reihenfolge des MQTT-Nachrichten-Zeitverlaufs — neueste Nachrichten oben. Ausschalten, um die ältesten zuerst zu lesen. Die Zeitverlaufs-Symbolleiste ändert dieselbe Einstellung.',
   'workbench.settings.def.requests.wsMessagesNewestFirst.label': 'WebSocket-Nachrichten: Neueste zuerst',
   'workbench.settings.def.requests.wsMessagesNewestFirst.description':
     'Reihenfolge des WebSocket-Nachrichten-Zeitverlaufs — neueste Nachrichten oben. Ausschalten, um die ' +

@@ -23,6 +23,7 @@ declare module '@openheaders/ui/workbench/settings/types' {
     'requests.wsMessagesGroupByDirection': boolean;
     'requests.wsMessagesGroupByEvent': boolean;
     'requests.wsMessagesGroupRowLimit': number;
+    'requests.mqttMessagesNewestFirst': boolean;
   }
 }
 
@@ -229,6 +230,24 @@ registerSetting({
   tags: ['websocket', 'ws', 'session', 'messages', 'timeline', 'group', 'limit', 'rows', 'watch'],
   scope: 'user',
   numberRange: { min: 0, max: 100, step: 1 },
+});
+
+// The MQTT message timeline's order — the WS key's sibling (own key:
+// the lists are independent surfaces), written by the timeline's own
+// toolbar too. MQTT rows carry their topic chip and lifecycle facts
+// inline, so the grouping knobs have no MQTT twin (the topic filter
+// is a display-local toolbar control).
+registerSetting({
+  key: 'requests.mqttMessagesNewestFirst',
+  subcategory: 'mqtt',
+  type: 'boolean',
+  default: true,
+  schema: v.boolean(),
+  labelKey: 'workbench.settings.def.requests.mqttMessagesNewestFirst.label',
+  descriptionKey: 'workbench.settings.def.requests.mqttMessagesNewestFirst.description',
+  category: 'requests',
+  tags: ['mqtt', 'session', 'messages', 'timeline', 'sort', 'order', 'newest', 'oldest'],
+  scope: 'user',
 });
 
 // Watch-several-groups-at-once mode: each group shows only its N

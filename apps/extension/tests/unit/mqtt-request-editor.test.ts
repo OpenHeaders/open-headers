@@ -10,6 +10,7 @@
  */
 
 import type { Collection, MqttRequest, Request } from '@openheaders/core/types';
+import type { Translate } from '@openheaders/ui/context/LocaleContext';
 import { buildRequestCollectionTrees } from '@openheaders/ui/shared/local-tree-builder';
 import {
   buildMqttRequestUpdates,
@@ -19,6 +20,7 @@ import {
   rowsToUserProperties,
   userPropertiesToRows,
 } from '@openheaders/ui/workbench/components/mqtt-request-editor/draft';
+import { grantLabel } from '@openheaders/ui/workbench/components/mqtt-request-editor/session-display';
 import { describe, expect, it } from 'vitest';
 
 const mqttRequest = (overrides: Partial<MqttRequest> = {}): MqttRequest => ({
@@ -173,5 +175,19 @@ describe('request collection trees with MQTT leaves', () => {
       { type: 'request', uid: 'req00001', name: 'Ping', path: request.path, method: 'GET' },
       { type: 'mqtt-request', uid: 'mqrq0001', name: 'Lighting', path: mqtt.path },
     ]);
+  });
+});
+
+describe('SUBACK grant labels', () => {
+  // A key-echoing Translate keeps the mapping assertion locale-blind.
+  const t = ((key: string, params?: Record<string, unknown>) =>
+    `${key}${params !== undefined ? `:${Object.values(params).join(',')}` : ''}`) as Translate;
+
+  it('labels granted QoS levels 0-2 and keeps failure codes verbatim with their spec names', () => {
+    expect(grantLabel(1, t)).toBe('workbench.editors.mqtt.timeline.grantedQos:1');
+    // 0x87 Not authorized — the name rides BESIDE the verbatim code.
+    expect(grantLabel(0x87, t)).toBe('workbench.editors.mqtt.timeline.grantFailedNamed:Not authorized,135');
+    // A code the spec does not name renders bare.
+    expect(grantLabel(0xee, t)).toBe('workbench.editors.mqtt.timeline.grantFailed:238');
   });
 });

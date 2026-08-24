@@ -607,6 +607,9 @@ export const workbenchSettingsDefs = {
     'la ventana se desliza a medida que llegan mensajes nuevos, así que varios grupos permanecen observables ' +
     'a la vez. 0 muestra todos los mensajes. La barra de herramientas de la cronología cambia este mismo ' +
     'ajuste.',
+  'workbench.settings.def.requests.mqttMessagesNewestFirst.label': 'Mensajes MQTT: más recientes primero',
+  'workbench.settings.def.requests.mqttMessagesNewestFirst.description':
+    'Orden de la cronología de mensajes MQTT — los mensajes más recientes arriba. Desactívalo para leer del más antiguo al más reciente. La barra de herramientas de la cronología cambia este mismo ajuste.',
   'workbench.settings.def.requests.wsMessagesNewestFirst.label': 'Mensajes WebSocket: más recientes primero',
   'workbench.settings.def.requests.wsMessagesNewestFirst.description':
     'Orden de la cronología de mensajes WebSocket — los mensajes más recientes arriba. Desactívalo para leer ' +

@@ -139,6 +139,7 @@ export const workbenchSettings = {
   'workbench.settings.category.requests.sub.sse': 'SSE',
   'workbench.settings.category.requests.sub.grpc': 'gRPC',
   'workbench.settings.category.requests.sub.websocket': 'WebSocket',
+  'workbench.settings.category.requests.sub.mqtt': 'MQTT',
   'workbench.settings.category.rulesEngine.label': 'Regel-Engine',
   'workbench.settings.category.rulesEngine.description':
     'Wie Regeln ausgewertet, kompiliert und gegeneinander abgewogen werden.',

@@ -1,12 +1,10 @@
 /**
  * MqttRequestEditor — tab body for one MqttRequest entity.
  *
- * Phase B editor shell: version select (V5 default / V3.1.1) + scheme
- * select (mqtt/mqtts/ws/wss string surgery) + URL in the header title
- * slot, Connect as a visible DISABLED affordance until the session
- * plane lands (the CTA-scaffold posture with honest copy). Tabs:
- * Docs / Message / Topics / Authorization (shell — a later phase wires
- * Basic auth) / Properties / Last Will / AsyncAPI / Settings.
+ * Editor shell: version select (V5 default / V3.1.1) + scheme select
+ * (mqtt/mqtts/ws/wss string surgery) + URL in the header title slot.
+ * Tabs: Docs / Message / Topics / Authorization (shell — a later phase
+ * wires Basic auth) / Properties / Last Will / AsyncAPI / Settings.
  *
  * The Message tab is the publish compose: payload editor with the
  * Text / JSON / Base64 / Hexadecimal ENCODING select (base64/hex
@@ -14,7 +12,23 @@
  * the WebSocket display-only format toggle), topic input, QoS menu,
  * Retain, the per-message 5.0 properties popover, and the
  * Saved-messages rail (synced entity rows; clicking one loads the
- * compose — Send-from-row lands with the session plane).
+ * compose; Send-from-row publishes while the session is open).
+ *
+ * Connect opens the live session through the `executeMqttRequest`
+ * channel — answered in-process on node hosts (`requestRuntime`); a
+ * browser surface keeps the honest disabled posture until the
+ * page-realm leg lands. In flight it MORPHS to Disconnect (the clean
+ * DISCONNECT via the `closeMqttSession` rider), the Message tab's
+ * Send publishes the compose through `publishMqttMessage` — enabled
+ * only while the session is open and the payload encoding is valid —
+ * and the Topics grid's Subscribe switches ride the
+ * `setMqttSubscription` rider, marking each row with its SUBACK grant
+ * (QoS downgrades honest): the stored table stays the DRAFT, live
+ * toggles never edit the entity (the ratified publication-gate
+ * idiom). Compose and result stack in a vertical Allotment split (the
+ * WS editor's discipline): the result pane is always attached —
+ * empty-state hint before the first connect, `MqttSessionPane` with
+ * the live timeline while open, the settled snapshot's capture after.
  *
  * 3.1.1 renders every 5.0-only surface disabled-honest (the encode-
  * strict codec law surfaced at the editor): CONNECT user properties,
@@ -26,12 +40,15 @@
  * `updateMqttRequest` (the MQTT write client under the hood).
  */
 
-import { LinkOutlined, MoreOutlined, PlusOutlined } from '@ant-design/icons';
+import { DisconnectOutlined, LinkOutlined, MoreOutlined, PlusOutlined, SendOutlined } from '@ant-design/icons';
 import { AsyncApiParseError, parseAsyncApi, type AsyncApiCensus } from '@openheaders/core/asyncapi';
+import { hostBridge, type MqttPublishWire } from '@openheaders/core/bridge';
+import { getCapability } from '@openheaders/core/capabilities';
 import { topicFilterError } from '@openheaders/core/mqtt';
 import { MAX_REQUEST_TIMEOUT_MS, MIN_REQUEST_TIMEOUT_MS } from '@openheaders/core/schemas';
 import { MQTT_REQUEST_ENTITY_TYPE } from '@openheaders/core/sync';
 import type {
+  ExecutedMqttSnapshot,
   MqttPayloadFormat,
   MqttRequest as MqttRequestEntity,
   MqttRequestQos,
@@ -40,17 +57,21 @@ import type {
   MqttTopicRow,
 } from '@openheaders/core/types';
 import { generateUid } from '@openheaders/core/utils';
+import { ShortcutHintTitle } from '@openheaders/ui/components/ShortcutKbd';
 import { useT, type Translate } from '@openheaders/ui/context/LocaleContext';
 import { EntityScopeProvider } from '@openheaders/ui/shared/awareness';
 import { useEditorShell, useReprime } from '@openheaders/ui/shared/editor-shell';
 import { stableStringify } from '@openheaders/ui/shared/forms';
 import { useRequests } from '@openheaders/ui/shared/hooks/readers/useRequests';
 import { useSpecs } from '@openheaders/ui/shared/hooks/readers/useSpecs';
+import { isMac } from '@openheaders/ui/shared/platform';
+import { Allotment } from 'allotment';
 import {
   App,
   Badge,
   Button,
   Checkbox,
+  ConfigProvider,
   Dropdown,
   Input,
   InputNumber,
@@ -59,12 +80,13 @@ import {
   Select,
   Switch,
   Tabs,
+  Tag,
   Tooltip,
   Typography,
   theme,
 } from 'antd';
 import type React from 'react';
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { LanguageId } from '@openheaders/ui/workbench/languages/registry';
 import CodeEditor from '../shared/CodeEditor';
 import CodeEditorActions, { type CodeEditorActionsTarget } from '../shared/CodeEditorActions';
@@ -78,15 +100,30 @@ import {
   buildMqttRequestUpdates,
   canonicalMqttRequestProjection,
   draftFromMqttRequest,
+  draftToProperties,
   emptyLastWillDraft,
   emptyMessagePropertiesDraft,
   type MqttDraft,
   type MqttMessagePropertiesDraft,
   payloadEncodingError,
   propertiesToDraft,
+  trimTopicRows,
 } from './draft';
+import { grantLabel } from './session-display';
+import MqttSessionPane from './MqttSessionPane';
+import { useLiveMqttSession, type MqttSessionTiming } from './useLiveMqttSession';
 
 const { Text } = Typography;
+
+const CONNECT_SHORTCUT = isMac ? '⌘↵' : 'Ctrl+Enter';
+const SEND_MESSAGE_SHORTCUT = isMac ? '⇧⌘↵' : 'Ctrl+Shift+Enter';
+
+/** One row's live SUBACK/UNSUBACK truth while the session is open —
+ *  the stored table stays the draft; this map marks it. */
+interface LiveSubscriptionMark {
+  subscribed: boolean;
+  grantCode: number | null;
+}
 
 interface MqttRequestEditorProps {
   mqttRequestUid: string;
@@ -329,7 +366,7 @@ const MqttRequestEditor: React.FC<MqttRequestEditorProps> = ({
   const { token } = theme.useToken();
   const { message: toast } = App.useApp();
   const t = useT();
-  const { mqttRequests, updateMqttRequest } = useRequests();
+  const { mqttRequests, updateMqttRequest, executeMqtt } = useRequests();
   const specs = useSpecs(workspaceId);
 
   const entity = useMemo(() => mqttRequests.find((r) => r.uid === mqttRequestUid) ?? null, [mqttRequests, mqttRequestUid]);
@@ -355,6 +392,180 @@ const MqttRequestEditor: React.FC<MqttRequestEditorProps> = ({
   const isDirty = reprime.isDirty;
 
   const v5 = draft.protocolVersion === '5.0';
+
+  // ── Session (node hosts; the page-realm capability lands later) ───
+  const requestRuntimeKind = getCapability('requestRuntime')?.() ?? 'browser';
+  const nodeHost = requestRuntimeKind === 'node';
+  const [inFlight, setInFlight] = useState(false);
+  const [snapshot, setSnapshot] = useState<ExecutedMqttSnapshot | null>(null);
+  const [timing, setTiming] = useState<MqttSessionTiming | null>(null);
+  const activeSendIdRef = useRef<string | null>(null);
+  const liveSession = useLiveMqttSession();
+
+  // Live Subscribe-toggle truth while the session is open — keyed by
+  // row uid; seeded from the open-time SUBACK items (grants positional
+  // over the enabled rows, in the executor's packet order), updated by
+  // each rider's own grant. The stored table stays the DRAFT.
+  const [liveSubs, setLiveSubs] = useState<ReadonlyMap<string, LiveSubscriptionMark>>(new Map());
+  /** The open-time SUBSCRIBE groups' row uids, in the executor's
+   *  packet order: rows without a Subscription Identifier ride one
+   *  packet, each identified row its own. */
+  const openSubGroupsRef = useRef<string[][]>([]);
+  const consumedSubGroupsRef = useRef(0);
+
+  useEffect(() => {
+    const live = liveSession.live;
+    if (live === null) return;
+    const groups = openSubGroupsRef.current;
+    let consumed = consumedSubGroupsRef.current;
+    if (consumed >= groups.length) return;
+    let seen = 0;
+    const marks = new Map<string, LiveSubscriptionMark>();
+    for (let i = 0; i < live.count && consumed < groups.length; i++) {
+      const item = live.items[i];
+      if (item.kind !== 'subscribed') continue;
+      if (seen < consumedSubGroupsRef.current) {
+        seen++;
+        continue;
+      }
+      const uids = groups[consumed];
+      item.grants.forEach((grant, index) => {
+        const uid = uids[index];
+        if (uid !== undefined) marks.set(uid, { subscribed: grant.reasonCode <= 2, grantCode: grant.reasonCode });
+      });
+      consumed++;
+      seen++;
+    }
+    if (marks.size === 0) return;
+    consumedSubGroupsRef.current = consumed;
+    setLiveSubs((prev) => {
+      const next = new Map(prev);
+      for (const [uid, mark] of marks) next.set(uid, mark);
+      return next;
+    });
+  }, [liveSession.live]);
+
+  const handleConnect = useCallback(async () => {
+    if (!entity || inFlight) return;
+    // The CURRENT compose state connects — saved or not (the HTTP
+    // editor's draft-send law); identity fields ride along verbatim.
+    const draftEntity: MqttRequestEntity = {
+      schemaVersion: 5,
+      uid: entity.uid,
+      path: entity.path,
+      name: entity.name,
+      ...buildMqttRequestUpdates(draft),
+    };
+    // The open-time SUBSCRIBE grouping mirrors the executor's: one
+    // packet for the plain rows, one per Subscription Identifier —
+    // grants map back onto rows positionally within each group.
+    const enabledRows = trimTopicRows(draft.topics).filter((row) => row.subscribe !== false);
+    const plainUids = enabledRows.filter((row) => row.subscriptionId === undefined || !v5).map((row) => row.uid);
+    const idUids = v5
+      ? enabledRows.filter((row) => row.subscriptionId !== undefined).map((row) => [row.uid])
+      : [];
+    openSubGroupsRef.current = [...(plainUids.length > 0 ? [plainUids] : []), ...idUids];
+    consumedSubGroupsRef.current = 0;
+    setLiveSubs(new Map());
+    const sendId = crypto.randomUUID();
+    activeSendIdRef.current = sendId;
+    setInFlight(true);
+    setSnapshot(null);
+    setTiming(null);
+    liveSession.beginSession(sendId);
+    const settled = await executeMqtt({ draft: draftEntity, sendId });
+    const session = liveSession.takeSession();
+    setTiming(session === null ? null : { ...session, endedAt: Date.now() });
+    liveSession.endSession();
+    activeSendIdRef.current = null;
+    setInFlight(false);
+    setLiveSubs(new Map());
+    if (settled === null) {
+      toast.error(t('workbench.editors.mqtt.session.connectFailed'));
+      return;
+    }
+    setSnapshot(settled);
+  }, [entity, inFlight, draft, v5, executeMqtt, liveSession, toast, t]);
+
+  // Disconnect morphs from Connect while the session is open — the
+  // clean DISCONNECT; the pending RPC above resolves with the
+  // whole-session snapshot once the connection closes.
+  const handleDisconnect = useCallback(() => {
+    const sendId = activeSendIdRef.current;
+    if (!sendId) return;
+    hostBridge.call('closeMqttSession', { sendId }).catch(() => {});
+  }, []);
+
+  // Publish one compose block — the executor resolves {{refs}} through
+  // the resolver it built at Connect and decodes the payload per its
+  // ENCODING; a failure reports here without touching the open session.
+  const handlePublish = useCallback(
+    async (message: MqttPublishWire) => {
+      const sendId = activeSendIdRef.current;
+      if (!sendId) return;
+      const result = await hostBridge.call('publishMqttMessage', { sendId, message }).catch(() => null);
+      if (result === null || !result.success) {
+        toast.error(result?.error ?? t('workbench.editors.mqtt.session.sendFailed'));
+      }
+    },
+    [toast, t],
+  );
+
+  const composePublishWire = useCallback((): MqttPublishWire => {
+    const properties = draftToProperties(draft.publishProperties);
+    return {
+      topic: draft.topic,
+      payload: draft.payload,
+      ...(draft.payloadFormat !== 'text' ? { format: draft.payloadFormat } : {}),
+      ...(draft.qos !== 0 ? { qos: draft.qos } : {}),
+      ...(draft.retain ? { retain: true } : {}),
+      ...(properties !== undefined ? { properties } : {}),
+    };
+  }, [draft.topic, draft.payload, draft.payloadFormat, draft.qos, draft.retain, draft.publishProperties]);
+
+  // Live Subscribe toggle — rides the rider and marks the row; the
+  // stored table (the draft) is never edited while the session is open.
+  const handleLiveSubscriptionToggle = useCallback(
+    async (row: MqttTopicRow, subscribe: boolean) => {
+      const sendId = activeSendIdRef.current;
+      if (!sendId) return;
+      setLiveSubs((prev) => new Map(prev).set(row.uid, { subscribed: subscribe, grantCode: null }));
+      const result = await hostBridge
+        .call('setMqttSubscription', {
+          sendId,
+          subscription: {
+            topicFilter: row.topicFilter,
+            subscribe,
+            ...(row.qos !== undefined ? { qos: row.qos } : {}),
+            ...(v5 && row.noLocal !== undefined ? { noLocal: row.noLocal } : {}),
+            ...(v5 && row.retainAsPublished !== undefined ? { retainAsPublished: row.retainAsPublished } : {}),
+            ...(v5 && row.retainHandling !== undefined ? { retainHandling: row.retainHandling } : {}),
+            ...(v5 && row.subscriptionId !== undefined ? { subscriptionId: row.subscriptionId } : {}),
+          },
+        })
+        .catch(() => null);
+      if (result === null || !result.success) {
+        toast.error(result?.error ?? t('workbench.editors.mqtt.session.subscribeFailed'));
+        setLiveSubs((prev) => new Map(prev).set(row.uid, { subscribed: !subscribe, grantCode: null }));
+        return;
+      }
+      const grantCode = result.grantCode ?? null;
+      setLiveSubs((prev) =>
+        new Map(prev).set(row.uid, {
+          subscribed: subscribe && (grantCode === null || grantCode <= 2),
+          grantCode,
+        }),
+      );
+    },
+    [v5, toast, t],
+  );
+
+  const handleClearSession = useCallback(() => {
+    setSnapshot(null);
+    setTiming(null);
+  }, []);
+
+  const sessionOpen = inFlight && liveSession.live !== null && liveSession.live.open !== null;
 
   // ── AsyncAPI spec binding (specLink picker + census summary; the
   //   compose aids and channel browser land with a later phase) ──────
@@ -443,6 +654,48 @@ const MqttRequestEditor: React.FC<MqttRequestEditorProps> = ({
 
   const encodingError = payloadEncodingError(draft.payload, draft.payloadFormat);
 
+  const connectDisabledReason = !nodeHost
+    ? t('workbench.editors.mqtt.connect.browserHost')
+    : draft.url.trim() === ''
+      ? t('workbench.editors.mqtt.connect.needsUrl')
+      : null;
+
+  // ⌘/Ctrl+Enter connects from anywhere in the editor — the same gate
+  // as the Connect button, and the same MORPH: while the session is
+  // in flight the chord disconnects. ⌘/Ctrl+Shift+Enter publishes the
+  // compose — a dead key outside an open session or on a malformed
+  // payload. Capture phase so the chords win inside Monaco too.
+  const handleEditorKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLDivElement>) => {
+      if (!(e.metaKey || e.ctrlKey) || e.key !== 'Enter') return;
+      if (e.shiftKey) {
+        if (!sessionOpen || encodingError !== null) return;
+        e.preventDefault();
+        e.stopPropagation();
+        void handlePublish(composePublishWire());
+        return;
+      }
+      e.preventDefault();
+      e.stopPropagation();
+      if (inFlight) {
+        handleDisconnect();
+        return;
+      }
+      if (connectDisabledReason !== null) return;
+      void handleConnect();
+    },
+    [
+      sessionOpen,
+      encodingError,
+      inFlight,
+      connectDisabledReason,
+      handlePublish,
+      composePublishWire,
+      handleDisconnect,
+      handleConnect,
+    ],
+  );
+
   if (!entity) {
     return (
       <div style={{ padding: 24, background: token.colorBgContainer }}>
@@ -493,14 +746,45 @@ const MqttRequestEditor: React.FC<MqttRequestEditorProps> = ({
     </div>
   );
 
-  const headerActions = (
-    <Tooltip placement="bottom" title={t('workbench.editors.mqtt.connect.pending')}>
+  // Connect morphs into Disconnect while the session is in flight —
+  // the Invoke→Stop treatment: solid on the darkened error token.
+  const headerActions = inFlight ? (
+    <Tooltip
+      placement="bottom"
+      title={
+        <ShortcutHintTitle label={CONNECT_SHORTCUT}>{t('workbench.editors.mqtt.connect.disconnect')}</ShortcutHintTitle>
+      }
+    >
+      <ConfigProvider theme={{ token: { colorError: token.colorErrorActive } }}>
+        <Button
+          size="small"
+          type="primary"
+          danger
+          icon={<DisconnectOutlined />}
+          onClick={handleDisconnect}
+          style={{ fontSize: 11 }}
+          data-testid="mqtt-connect-button"
+        >
+          {t('workbench.editors.mqtt.connect.disconnect')}
+        </Button>
+      </ConfigProvider>
+    </Tooltip>
+  ) : (
+    <Tooltip
+      placement="bottom"
+      title={
+        connectDisabledReason ?? (
+          <ShortcutHintTitle label={CONNECT_SHORTCUT}>{t('workbench.editors.mqtt.connect.label')}</ShortcutHintTitle>
+        )
+      }
+    >
       <span style={{ display: 'inline-flex' }}>
         <Button
           size="small"
           type="primary"
           icon={<LinkOutlined />}
-          disabled
+          disabled={connectDisabledReason !== null}
+          onClick={() => void handleConnect()}
           style={{ fontSize: 11 }}
           data-testid="mqtt-connect-button"
         >
@@ -539,7 +823,12 @@ const MqttRequestEditor: React.FC<MqttRequestEditorProps> = ({
 
   return (
     <EntityScopeProvider shell={shell.scopeProps}>
+      {/* tabIndex -1: clicks on non-focusable space inside the editor
+        keep focus within so the ⌘/Ctrl+Enter chord always reaches the
+        capture handler. */}
       <div
+        tabIndex={-1}
+        onKeyDownCapture={handleEditorKeyDown}
         style={{
           display: 'flex',
           flexDirection: 'column',
@@ -550,7 +839,14 @@ const MqttRequestEditor: React.FC<MqttRequestEditorProps> = ({
       >
         <EditorHeader title={headerTitle} actions={headerActions} shell={shell.headerProps} />
 
-        <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+        {/* Compose / session split — the WS editor's stacked Allotment
+          discipline: the sash bounds the compose surface, and the
+          session pane is always attached (empty-state hint before the
+          first connect). */}
+        <div style={{ flex: 1, minHeight: 0 }}>
+          <Allotment vertical proportionalLayout separator>
+            <Allotment.Pane minSize={220} preferredSize="55%">
+        <div style={{ height: '100%', minHeight: 0, display: 'flex', flexDirection: 'column' }}>
           <div style={{ padding: '0 12px' }}>
             <Tabs
               activeKey={activeTab}
@@ -666,11 +962,24 @@ const MqttRequestEditor: React.FC<MqttRequestEditorProps> = ({
                       title={
                         encodingError !== null
                           ? t('workbench.editors.mqtt.payload.invalidGate')
-                          : t('workbench.editors.mqtt.connect.pending')
+                          : sessionOpen ? (
+                              <ShortcutHintTitle label={SEND_MESSAGE_SHORTCUT}>
+                                {t('workbench.editors.mqtt.sendLabel')}
+                              </ShortcutHintTitle>
+                            ) : (
+                              t('workbench.editors.mqtt.session.sendIdle')
+                            )
                       }
                     >
                       <span style={{ display: 'inline-flex' }}>
-                        <Button size="small" type="primary" disabled data-testid="mqtt-send-message">
+                        <Button
+                          size="small"
+                          type="primary"
+                          icon={<SendOutlined />}
+                          disabled={!sessionOpen || encodingError !== null}
+                          onClick={() => void handlePublish(composePublishWire())}
+                          data-testid="mqtt-send-message"
+                        >
                           {t('workbench.editors.mqtt.sendLabel')}
                         </Button>
                       </span>
@@ -782,6 +1091,29 @@ const MqttRequestEditor: React.FC<MqttRequestEditorProps> = ({
                               {row.name}
                             </Button>
                           )}
+                          {/* Send-from-row — publishes the saved
+                            preset AS STORED while the session is open;
+                            the compose surface stays untouched. */}
+                          {sessionOpen && (
+                            <Tooltip title={t('workbench.editors.mqtt.saved.sendTooltip')}>
+                              <Button
+                                size="small"
+                                type="text"
+                                icon={<SendOutlined style={{ fontSize: 11 }} />}
+                                onClick={() =>
+                                  void handlePublish({
+                                    topic: row.topic,
+                                    payload: row.payload,
+                                    ...(row.format !== undefined ? { format: row.format } : {}),
+                                    ...(row.qos !== undefined ? { qos: row.qos } : {}),
+                                    ...(row.retain !== undefined ? { retain: row.retain } : {}),
+                                    ...(row.properties !== undefined ? { properties: row.properties } : {}),
+                                  })
+                                }
+                                data-testid="mqtt-saved-row-send"
+                              />
+                            </Tooltip>
+                          )}
                           <Dropdown
                             trigger={['click']}
                             menu={{
@@ -879,14 +1211,49 @@ const MqttRequestEditor: React.FC<MqttRequestEditorProps> = ({
                             onChange={(qos: MqttRequestQos) => update({ ...row, qos })}
                             data-testid="mqtt-topic-qos"
                           />
-                          <Tooltip title={t('workbench.editors.mqtt.topics.subscribeLabel')}>
+                          {/* While the session is open the switch is
+                            the LIVE toggle — it rides the rider and
+                            marks the row with the SUBACK grant; the
+                            stored draft row stays untouched (the
+                            publication-gate idiom). */}
+                          <Tooltip
+                            title={
+                              sessionOpen
+                                ? t('workbench.editors.mqtt.topics.subscribeLiveLabel')
+                                : t('workbench.editors.mqtt.topics.subscribeLabel')
+                            }
+                          >
                             <Switch
                               size="small"
-                              checked={row.subscribe !== false}
-                              onChange={(subscribe) => update({ ...row, subscribe })}
+                              checked={
+                                sessionOpen
+                                  ? (liveSubs.get(row.uid)?.subscribed ?? row.subscribe !== false)
+                                  : row.subscribe !== false
+                              }
+                              onChange={(subscribe) => {
+                                if (sessionOpen) {
+                                  void handleLiveSubscriptionToggle(row, subscribe);
+                                  return;
+                                }
+                                update({ ...row, subscribe });
+                              }}
                               data-testid="mqtt-topic-subscribe"
                             />
                           </Tooltip>
+                          {sessionOpen &&
+                            (() => {
+                              const grantCode = liveSubs.get(row.uid)?.grantCode;
+                              if (grantCode === undefined || grantCode === null) return null;
+                              return (
+                                <Tag
+                                  color={grantCode <= 2 ? 'success' : 'error'}
+                                  style={{ marginInlineEnd: 0, fontSize: 10, lineHeight: '16px' }}
+                                  data-testid="mqtt-topic-grant"
+                                >
+                                  {grantLabel(grantCode, t)}
+                                </Tag>
+                              );
+                            })()}
                           <Popover
                             trigger="click"
                             placement="left"
@@ -1256,6 +1623,51 @@ const MqttRequestEditor: React.FC<MqttRequestEditorProps> = ({
               )}
             </div>
           </div>
+        </div>
+            </Allotment.Pane>
+            <Allotment.Pane minSize={120}>
+              {liveSession.live !== null || snapshot !== null ? (
+                <MqttSessionPane
+                  live={liveSession.live}
+                  snapshot={snapshot}
+                  timing={timing}
+                  protocolVersion={draft.protocolVersion}
+                  onClear={handleClearSession}
+                />
+              ) : (
+                // Always-attached session pane (the WS editor's
+                // posture): a stable target with the plain title row
+                // and a connect hint before the first session.
+                <div
+                  style={{
+                    height: '100%',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    minHeight: 0,
+                    background: token.colorBgContainer,
+                  }}
+                >
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      padding: '6px 12px',
+                      borderBottom: `1px solid ${token.colorBorderSecondary}`,
+                    }}
+                  >
+                    <Text strong style={{ fontSize: 12 }}>
+                      {t('workbench.editors.mqtt.session.title')}
+                    </Text>
+                  </div>
+                  <div style={{ padding: '16px 12px' }} data-testid="mqtt-session-empty">
+                    <Text type="secondary" style={{ fontSize: 12 }}>
+                      {t('workbench.editors.mqtt.session.emptyHint')}
+                    </Text>
+                  </div>
+                </div>
+              )}
+            </Allotment.Pane>
+          </Allotment>
         </div>
 
         {specFooter}

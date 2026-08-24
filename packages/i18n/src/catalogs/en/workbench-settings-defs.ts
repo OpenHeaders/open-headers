@@ -460,6 +460,9 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.requests.grpcMessagesGroupRowLimit.label': 'gRPC Messages: Rows per Group',
   'workbench.settings.def.requests.grpcMessagesGroupRowLimit.description':
     'When grouping by message type, show only this many of each group’s newest messages — the window slides as new messages arrive, so several groups stay watchable at once. 0 shows every message. The timeline toolbar changes this same setting.',
+  'workbench.settings.def.requests.mqttMessagesNewestFirst.label': 'MQTT Messages: Newest First',
+  'workbench.settings.def.requests.mqttMessagesNewestFirst.description':
+    'Order of the MQTT message timeline — newest messages at the top. Turn off to read oldest first. The timeline toolbar changes this same setting.',
   'workbench.settings.def.requests.wsMessagesNewestFirst.label': 'WebSocket Messages: Newest First',
   'workbench.settings.def.requests.wsMessagesNewestFirst.description':
     'Order of the WebSocket message timeline — newest messages at the top. Turn off to read oldest first. The timeline toolbar changes this same setting.',

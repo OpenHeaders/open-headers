@@ -145,6 +145,7 @@ export const workbenchSettings = {
   'workbench.settings.category.requests.sub.sse': 'SSE',
   'workbench.settings.category.requests.sub.grpc': 'gRPC',
   'workbench.settings.category.requests.sub.websocket': 'WebSocket',
+  'workbench.settings.category.requests.sub.mqtt': 'MQTT',
   'workbench.settings.category.rulesEngine.label': 'Motor de reglas',
   'workbench.settings.category.rulesEngine.description': 'Cómo se evalúan, compilan y arbitran las reglas.',
   'workbench.settings.category.keyboard.label': 'Teclado',

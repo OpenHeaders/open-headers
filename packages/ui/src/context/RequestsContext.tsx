@@ -48,7 +48,13 @@ import { generateUid, toFolderName } from '@openheaders/core/utils';
 import { hostBridge, type BridgeRpcResponse } from '@openheaders/core/bridge';
 import type React from 'react';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import type { AuthConfig, ExecutedGrpcSnapshot, ExecutedRequestSnapshot, ExecutedWsSnapshot } from '@openheaders/core/types';
+import type {
+  AuthConfig,
+  ExecutedGrpcSnapshot,
+  ExecutedMqttSnapshot,
+  ExecutedRequestSnapshot,
+  ExecutedWsSnapshot,
+} from '@openheaders/core/types';
 import { buildRequestCollectionTrees } from '../shared/local-tree-builder';
 import { hostStorage, type PersistedLocalFolder, wsKeys } from '@openheaders/core/storage';
 import {
@@ -268,6 +274,22 @@ export interface RequestsContextValue {
     environmentId?: string;
     sendId: string;
   }) => Promise<ExecutedWsSnapshot | null>;
+
+  /** MQTT Connect — the MqttRequest entity's executor channel, the
+   *  `executeWebSocket` sibling: executed on node-runtime hosts (the
+   *  scheme picks the transport there); browser surfaces keep the
+   *  honest disabled posture until the page-realm leg lands. `sendId`
+   *  is required: it keys the `publishMqttMessage` /
+   *  `setMqttSubscription` / `closeMqttSession` riders and the shared
+   *  active-send registry (`abortRequestSend` = Stop). The promise
+   *  resolves when the SESSION settles, with the whole-session
+   *  snapshot. */
+  executeMqtt: (input: {
+    mqttRequestUid?: string;
+    draft?: MqttRequest;
+    environmentId?: string;
+    sendId: string;
+  }) => Promise<ExecutedMqttSnapshot | null>;
 }
 
 const defaultContextValue: RequestsContextValue = {
@@ -307,6 +329,7 @@ const defaultContextValue: RequestsContextValue = {
   execute: () => Promise.resolve(null),
   executeGrpc: () => Promise.resolve(null),
   executeWebSocket: () => Promise.resolve(null),
+  executeMqtt: () => Promise.resolve(null),
 };
 
 export const RequestsContext = createContext<RequestsContextValue>(defaultContextValue);
@@ -989,6 +1012,11 @@ export const RequestsProvider: React.FC<RequestsProviderProps> = ({
     return resp?.success ? (resp.snapshot ?? null) : null;
   }, []);
 
+  const executeMqtt = useCallback<RequestsContextValue['executeMqtt']>(async (input) => {
+    const resp = await hostBridge.call('executeMqttRequest', input).catch(() => null);
+    return resp?.success ? (resp.snapshot ?? null) : null;
+  }, []);
+
   const value = useMemo<RequestsContextValue>(
     () => ({
       requests,
@@ -1027,6 +1055,7 @@ export const RequestsProvider: React.FC<RequestsProviderProps> = ({
       execute,
       executeGrpc,
       executeWebSocket,
+      executeMqtt,
     }),
     [
       requests,
@@ -1065,6 +1094,7 @@ export const RequestsProvider: React.FC<RequestsProviderProps> = ({
       execute,
       executeGrpc,
       executeWebSocket,
+      executeMqtt,
     ],
   );
 

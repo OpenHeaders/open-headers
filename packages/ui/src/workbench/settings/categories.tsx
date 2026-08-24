@@ -227,6 +227,7 @@ registerCategory({
     { id: 'sse', labelKey: 'workbench.settings.category.requests.sub.sse', order: 20 },
     { id: 'grpc', labelKey: 'workbench.settings.category.requests.sub.grpc', order: 30 },
     { id: 'websocket', labelKey: 'workbench.settings.category.requests.sub.websocket', order: 40 },
+    { id: 'mqtt', labelKey: 'workbench.settings.category.requests.sub.mqtt', order: 50 },
   ],
 });
 
