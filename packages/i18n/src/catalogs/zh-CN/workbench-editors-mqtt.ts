@@ -28,6 +28,8 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.connect.disconnect': '断开连接',
   'workbench.editors.mqtt.connect.browserHost': 'MQTT 会话在桌面应用或服务器上运行。',
   'workbench.editors.mqtt.connect.needsUrl': '输入 broker URL 以连接。',
+  'workbench.editors.mqtt.connect.tcpSchemeBrowser':
+    '{scheme}:// 会话在桌面应用或服务器上运行——切换到 ws:// 或 wss:// 即可在此连接。',
   'workbench.editors.mqtt.tab.docs': 'Docs',
   'workbench.editors.mqtt.tab.message': '消息',
   'workbench.editors.mqtt.tab.topics': '主题',
@@ -147,6 +149,8 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.session.sendIdle': '连接后即可发布消息。',
   'workbench.editors.mqtt.session.sendFailed': '发布消息失败',
   'workbench.editors.mqtt.session.subscribeFailed': '更改订阅失败',
+  'workbench.editors.mqtt.session.hostNotice': '正运行在浏览器 socket 上——{knobs}在此主机上不适用。',
+  'workbench.editors.mqtt.session.knobSslVerify': '关闭 SSL 验证',
   'workbench.editors.mqtt.session.disconnectedTag': '已断开',
   'workbench.editors.mqtt.session.brokerDisconnectedTag': '被 broker 断开',
   'workbench.editors.mqtt.session.severedTag': '连接中断',

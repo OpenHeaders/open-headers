@@ -85,7 +85,14 @@ interface SessionRun {
 function runSession(
   url: string,
   options: { subprotocols?: string[]; timeoutMs?: number },
-  steps: (writer: { send(text: string): void; close(code: number, reason: string): void }, seen: SessionRun) => void,
+  steps: (
+    writer: {
+      send(text: string): void;
+      sendBinary?(data: Uint8Array): void;
+      close(code: number, reason: string): void;
+    },
+    seen: SessionRun,
+  ) => void,
   signal?: AbortSignal,
 ): Promise<SessionRun> {
   const transport = createBrowserWsTransport();
@@ -151,6 +158,20 @@ describe('createBrowserWsTransport — session round trip', () => {
     });
     expect(seen.error).toBeUndefined();
     expect(seen.messages).toEqual([{ text: null, binary: true, byteLength: 3 }]);
+  });
+
+  it('sendBinary writes a BINARY frame verbatim — the byte-riding reuse seam', async () => {
+    const server = await startWsServer();
+    const seen = await runSession(server.url, {}, (writer, s) => {
+      writer.sendBinary?.(Uint8Array.of(0x10, 0x20, 0x30, 0x40));
+      setTimeout(() => {
+        if (s.messages.length > 0) writer.close(1000, '');
+      }, 50);
+    });
+    expect(seen.error).toBeUndefined();
+    // The server echoes binary frames as binary — 4 bytes back proves
+    // the outbound frame rode the wire as binary, not text.
+    expect(seen.messages).toEqual([{ text: null, binary: true, byteLength: 4 }]);
   });
 
   it('delivers the server close code and reason verbatim', async () => {

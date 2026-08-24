@@ -289,7 +289,11 @@ test('url, message and subprotocols survive Save + reload + reopen', async () =>
   await openWebsocketRequest(RAW_NAME);
 
   await expect(urlInput()).toHaveValue(WS_URL);
-  expect(await workbench.monacoText(0)).toContain(WS_MESSAGE);
+  // Poll the readback: a just-reopened Monaco with wrap on first lays
+  // out at collapsed width and renders only the first wrapped char
+  // line — the poll rides out that relayout, while a truly squished
+  // editor (the sliver bug class) never settles to the full text.
+  await expect.poll(async () => workbench.monacoText(0), { timeout: 10_000 }).toContain(WS_MESSAGE);
   await page.getByRole('tab', { name: 'Settings' }).filter({ visible: true }).first().click();
   await expect(
     page.getByTestId('websocket-subprotocols').filter({ visible: true }).first().locator('.ant-select-selection-item'),
@@ -508,8 +512,9 @@ test('B8 — "Use example message" synthesizes the scaffold payload; the channel
     .filter({ hasText: 'subscribe' })
     .first()
     .click();
+  // Poll: Monaco repaints a beat after the pick lands the synthesis.
+  await expect.poll(async () => workbench.monacoText(0), { timeout: 10_000 }).toContain('"topics"');
   const composed = await workbench.monacoText(0);
-  expect(composed).toContain('"topics"');
   expect(composed).toContain('"orders"');
   expect(composed).toContain('"format": "full"');
 

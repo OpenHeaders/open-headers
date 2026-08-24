@@ -15,9 +15,17 @@
  * compose; Send-from-row publishes while the session is open).
  *
  * Connect opens the live session through the `executeMqttRequest`
- * channel — answered in-process on node hosts (`requestRuntime`); a
- * browser surface keeps the honest disabled posture until the
- * page-realm leg lands. In flight it MORPHS to Disconnect (the clean
+ * channel — answered in-process on node hosts (`requestRuntime`), and
+ * IN the page realm on surfaces carrying the `mqttPageSession`
+ * capability (the extension workbench: MQTT-over-WebSocket on the
+ * platform socket, so ws(s):// URLs connect; mqtt(s):// tcp schemes
+ * render the honest named affordance — never a silent downgrade to ws
+ * — and configured node-only knobs (SSL verification off) surface in
+ * the session pane's Connect-side honesty notice). A browser surface
+ * without the capability keeps the honest disabled posture. The editor
+ * publishes a page-session resolution factory while mounted
+ * (`mqtt-page-session.ts`) so the page host resolves {{refs}} from the
+ * renderer scopes. In flight Connect MORPHS to Disconnect (the clean
  * DISCONNECT via the `closeMqttSession` rider), the Message tab's
  * Send publishes the compose through `publishMqttMessage` — enabled
  * only while the session is open and the payload encoding is valid —
@@ -64,6 +72,7 @@ import { useEditorShell, useReprime } from '@openheaders/ui/shared/editor-shell'
 import { stableStringify } from '@openheaders/ui/shared/forms';
 import { useRequests } from '@openheaders/ui/shared/hooks/readers/useRequests';
 import { useSpecs } from '@openheaders/ui/shared/hooks/readers/useSpecs';
+import { useVariableResolverInputs } from '@openheaders/ui/shared/hooks/variables/useVariableResolver';
 import { isMac } from '@openheaders/ui/shared/platform';
 import { Allotment } from 'allotment';
 import {
@@ -110,6 +119,7 @@ import {
   trimTopicRows,
 } from './draft';
 import { grantLabel } from './session-display';
+import { makeMqttPageResolutionFactory, publishMqttPageResolutionFactory } from './mqtt-page-session';
 import MqttSessionPane from './MqttSessionPane';
 import { useLiveMqttSession, type MqttSessionTiming } from './useLiveMqttSession';
 
@@ -393,14 +403,26 @@ const MqttRequestEditor: React.FC<MqttRequestEditorProps> = ({
 
   const v5 = draft.protocolVersion === '5.0';
 
-  // ── Session (node hosts; the page-realm capability lands later) ───
+  // ── Session (node hosts + page-realm capability surfaces) ─────────
   const requestRuntimeKind = getCapability('requestRuntime')?.() ?? 'browser';
   const nodeHost = requestRuntimeKind === 'node';
+  const pageSession = !nodeHost && (getCapability('mqttPageSession')?.() ?? false);
   const [inFlight, setInFlight] = useState(false);
   const [snapshot, setSnapshot] = useState<ExecutedMqttSnapshot | null>(null);
   const [timing, setTiming] = useState<MqttSessionTiming | null>(null);
+  const [hostNotice, setHostNotice] = useState<string | null>(null);
   const activeSendIdRef = useRef<string | null>(null);
   const liveSession = useLiveMqttSession();
+
+  // Page-session resolution publisher — the host executing in this
+  // page realm injects the CURRENT factory into the executor at
+  // Connect, so republish on every renderer-scope change while an
+  // MQTT editor is mounted (nothing can Connect without one).
+  const resolverInputs = useVariableResolverInputs();
+  useEffect(() => {
+    if (!pageSession) return;
+    publishMqttPageResolutionFactory(makeMqttPageResolutionFactory(resolverInputs));
+  }, [pageSession, resolverInputs]);
 
   // Live Subscribe-toggle truth while the session is open — keyed by
   // row uid; seeded from the open-time SUBACK items (grants positional
@@ -467,6 +489,19 @@ const MqttRequestEditor: React.FC<MqttRequestEditorProps> = ({
     openSubGroupsRef.current = [...(plainUids.length > 0 ? [plainUids] : []), ...idUids];
     consumedSubGroupsRef.current = 0;
     setLiveSubs(new Map());
+    // Per-knob honesty on the page-session path: the platform socket
+    // cannot skip TLS verification — a CONFIGURED knob is named for
+    // the session's whole life instead of silently dropping (the
+    // connect deadline DOES apply here).
+    const inapplicableKnobs: string[] = [];
+    if (pageSession && !draft.sslVerification) {
+      inapplicableKnobs.push(t('workbench.editors.mqtt.session.knobSslVerify'));
+    }
+    setHostNotice(
+      inapplicableKnobs.length > 0
+        ? t('workbench.editors.mqtt.session.hostNotice', { knobs: inapplicableKnobs.join(', ') })
+        : null,
+    );
     const sendId = crypto.randomUUID();
     activeSendIdRef.current = sendId;
     setInFlight(true);
@@ -485,7 +520,7 @@ const MqttRequestEditor: React.FC<MqttRequestEditorProps> = ({
       return;
     }
     setSnapshot(settled);
-  }, [entity, inFlight, draft, v5, executeMqtt, liveSession, toast, t]);
+  }, [entity, inFlight, draft, v5, pageSession, executeMqtt, liveSession, toast, t]);
 
   // Disconnect morphs from Connect while the session is open — the
   // clean DISCONNECT; the pending RPC above resolves with the
@@ -563,6 +598,7 @@ const MqttRequestEditor: React.FC<MqttRequestEditorProps> = ({
   const handleClearSession = useCallback(() => {
     setSnapshot(null);
     setTiming(null);
+    setHostNotice(null);
   }, []);
 
   const sessionOpen = inFlight && liveSession.live !== null && liveSession.live.open !== null;
@@ -654,11 +690,19 @@ const MqttRequestEditor: React.FC<MqttRequestEditorProps> = ({
 
   const encodingError = payloadEncodingError(draft.payload, draft.payloadFormat);
 
-  const connectDisabledReason = !nodeHost
-    ? t('workbench.editors.mqtt.connect.browserHost')
-    : draft.url.trim() === ''
-      ? t('workbench.editors.mqtt.connect.needsUrl')
-      : null;
+  // Connect gate: node hosts run every scheme; a page-session surface
+  // runs ws(s):// natively and names the tcp-scheme limit honestly
+  // (mqtt/mqtts dial a raw TCP socket no browser page can open — the
+  // scheme is named, never silently downgraded to ws); a browser
+  // surface without the capability keeps the honest disabled posture.
+  const connectDisabledReason =
+    !nodeHost && !pageSession
+      ? t('workbench.editors.mqtt.connect.browserHost')
+      : draft.url.trim() === ''
+        ? t('workbench.editors.mqtt.connect.needsUrl')
+        : pageSession && /^mqtts?:\/\//i.test(draft.url.trim())
+          ? t('workbench.editors.mqtt.connect.tcpSchemeBrowser', { scheme: schemeOf(draft.url.trim()) })
+          : null;
 
   // ⌘/Ctrl+Enter connects from anywhere in the editor — the same gate
   // as the Connect button, and the same MORPH: while the session is
@@ -708,9 +752,9 @@ const MqttRequestEditor: React.FC<MqttRequestEditorProps> = ({
 
   // Header consolidates the full target row (the WS editor's
   // discipline): version + scheme + URL in the title slot, Connect in
-  // the actions slot next to the standardized Save. Connect is a
-  // visible, DISABLED affordance until the session plane lands — the
-  // CTA-scaffold posture with honest copy, never a hidden button.
+  // the actions slot next to the standardized Save. Where a session
+  // cannot run, Connect stays a visible DISABLED affordance with the
+  // honest gate copy — never a hidden button.
   const headerTitle = (
     <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, minWidth: 0 }}>
       <Tooltip title={t('workbench.editors.mqtt.version.tooltip')}>
@@ -1637,6 +1681,7 @@ const MqttRequestEditor: React.FC<MqttRequestEditorProps> = ({
                   snapshot={snapshot}
                   timing={timing}
                   protocolVersion={draft.protocolVersion}
+                  hostNotice={hostNotice}
                   onClear={handleClearSession}
                 />
               ) : (

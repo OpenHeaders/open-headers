@@ -41,6 +41,10 @@ interface MqttSessionPaneProps {
   /** The session's version knob — scopes the reason-code name space
    *  the display labels ride (codes themselves render verbatim). */
   protocolVersion: MqttRequestProtocolVersion;
+  /** Per-knob honesty notice for a page-realm session — names the
+   *  configured node-only knobs that did not apply on this host.
+   *  Stated inline for the session's whole life, never a gate. */
+  hostNotice?: string | null;
   onClear: () => void;
 }
 
@@ -51,11 +55,34 @@ function connackReasonLabel(reasonCode: number, v5: boolean): string {
   return name !== undefined ? `${name} (${reasonCode})` : String(reasonCode);
 }
 
-const MqttSessionPane: React.FC<MqttSessionPaneProps> = ({ live, snapshot, timing, protocolVersion, onClear }) => {
+const MqttSessionPane: React.FC<MqttSessionPaneProps> = ({
+  live,
+  snapshot,
+  timing,
+  protocolVersion,
+  hostNotice,
+  onClear,
+}) => {
   const { token } = theme.useToken();
   const t = useT();
   const [activeTab, setActiveTab] = useState('timeline');
   const v5 = protocolVersion !== '3.1.1';
+
+  const noticeStrip =
+    hostNotice != null && hostNotice !== '' ? (
+      <div
+        style={{
+          padding: '4px 12px',
+          borderBottom: `1px solid ${token.colorBorderSecondary}`,
+          flexShrink: 0,
+        }}
+        data-testid="mqtt-host-knob-notice"
+      >
+        <Text type="warning" style={{ fontSize: 11 }}>
+          {hostNotice}
+        </Text>
+      </div>
+    ) : null;
 
   const connack = snapshot?.connack ?? live?.open ?? null;
   const clientId = snapshot?.clientId ?? live?.open?.clientId ?? '';
@@ -128,6 +155,7 @@ const MqttSessionPane: React.FC<MqttSessionPaneProps> = ({ live, snapshot, timin
             {t('workbench.editors.mqtt.session.title')}
           </Text>
         </div>
+        {noticeStrip}
         <div style={{ padding: '16px 12px' }}>
           <Text type="danger" style={{ fontSize: 12 }} data-testid="mqtt-session-error-detail">
             {snapshot.error}
@@ -244,6 +272,7 @@ const MqttSessionPane: React.FC<MqttSessionPaneProps> = ({ live, snapshot, timin
       }}
       data-testid="mqtt-session-pane"
     >
+      {noticeStrip}
       <Tabs
         activeKey={activeTab}
         onChange={setActiveTab}

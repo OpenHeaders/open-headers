@@ -16,6 +16,9 @@
  * Wire ceremony owned here:
  *   - Frame types honest: `binaryType = 'arraybuffer'`; a text frame
  *     crosses the seam as its UTF-8 bytes with `binary: false`.
+ *     Outbound, the optional `sendBinary` writes a BINARY frame
+ *     verbatim (the node twin's S3 extension) — the seam's byte-riding
+ *     reuse, the browser MQTT transport's ws(s):// leg.
  *   - The Close event verbatim (`code`, `reason`, `wasClean`) — the
  *     executor maps the platform's 1006 no-Close-frame marker onto
  *     the honest `null` close; nothing is rewritten here.
@@ -179,6 +182,10 @@ export function createBrowserWsTransport(): WsTransport {
         send(text: string): void {
           if (ended || ws.readyState !== WebSocket.OPEN) return;
           ws.send(text);
+        },
+        sendBinary(data: Uint8Array): void {
+          if (ended || ws.readyState !== WebSocket.OPEN) return;
+          ws.send(data);
         },
         close(code: number, reason: string): void {
           if (ended || ws.readyState === WebSocket.CLOSED || ws.readyState === WebSocket.CLOSING) return;

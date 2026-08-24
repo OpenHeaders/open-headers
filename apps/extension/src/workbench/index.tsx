@@ -4,6 +4,10 @@ import '@/host/install-host-bridge';
 // page-realm WebSocket session host (executes sessions in this page
 // over the platform socket) and registers `wsPageSession`.
 import '@/host/install-ws-session-host';
+// AFTER install-ws-session-host: decorates ITS bridge with the MQTT
+// session host (MQTT-over-WebSocket in this page realm) and registers
+// `mqttPageSession`.
+import '@/host/install-mqtt-session-host';
 import '@/host/install-host-logger';
 import '@/host/install-build-info';
 import '@/host/install-awareness-host';

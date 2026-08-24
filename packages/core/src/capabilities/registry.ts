@@ -441,6 +441,21 @@ export interface Capabilities {
   wsPageSession?: () => boolean;
 
   /**
+   * Declares that this surface executes MQTT-over-WebSocket sessions
+   * IN its own page realm — the {@link Capabilities.wsPageSession}
+   * sibling for the MqttRequest plane (same host, same posture: the
+   * extension workbench, browser `WebSocket` with the `mqtt`
+   * subprotocol and binary frames). ws(s):// schemes only — mqtt(s)://
+   * dial a raw TCP socket no browser page can open, so the MQTT
+   * editor's Connect keys off this marker AND the URL scheme: ws(s)://
+   * enables, a tcp scheme renders the honest named affordance (never a
+   * silent downgrade to ws). Node-only knobs configured on a
+   * page-realm session (SSL verification off) surface in the
+   * Connect-side honesty notice, the wsPageSession discipline.
+   */
+  mqttPageSession?: () => boolean;
+
+  /**
    * Declares that the surface's answering host RUNS pre-request /
    * post-response scripts, and names its default posture (`'safe'` —
    * every host defaults secure). Registered only by node-runtime

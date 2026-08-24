@@ -23,6 +23,8 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.connect.disconnect': 'Trennen',
   'workbench.editors.mqtt.connect.browserHost': 'MQTT-Sitzungen laufen in der Desktop-App oder auf dem Server.',
   'workbench.editors.mqtt.connect.needsUrl': 'Geben Sie eine Broker-URL ein, um zu verbinden.',
+  'workbench.editors.mqtt.connect.tcpSchemeBrowser':
+    '{scheme}://-Sitzungen laufen in der Desktop-App oder auf dem Server — wechseln Sie zu ws:// oder wss://, um hier zu verbinden.',
   'workbench.editors.mqtt.tab.docs': 'Docs',
   'workbench.editors.mqtt.tab.message': 'Nachricht',
   'workbench.editors.mqtt.tab.topics': 'Themen',
@@ -153,6 +155,8 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.session.sendIdle': 'Verbinden Sie sich, um Nachrichten zu veröffentlichen.',
   'workbench.editors.mqtt.session.sendFailed': 'Die Nachricht konnte nicht veröffentlicht werden',
   'workbench.editors.mqtt.session.subscribeFailed': 'Das Abonnement konnte nicht geändert werden',
+  'workbench.editors.mqtt.session.hostNotice': 'Läuft auf dem Browser-Socket — {knobs} gelten auf diesem Host nicht.',
+  'workbench.editors.mqtt.session.knobSslVerify': 'die deaktivierte SSL-Prüfung',
   'workbench.editors.mqtt.session.disconnectedTag': 'Getrennt',
   'workbench.editors.mqtt.session.brokerDisconnectedTag': 'Vom Broker getrennt',
   'workbench.editors.mqtt.session.severedTag': 'Verbindung abgerissen',

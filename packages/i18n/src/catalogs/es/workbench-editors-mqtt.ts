@@ -24,6 +24,8 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.connect.browserHost':
     'Las sesiones MQTT se ejecutan en la aplicación de escritorio o el servidor.',
   'workbench.editors.mqtt.connect.needsUrl': 'Introduce una URL de broker para conectar.',
+  'workbench.editors.mqtt.connect.tcpSchemeBrowser':
+    'Las sesiones {scheme}:// se ejecutan en la aplicación de escritorio o el servidor — cambia a ws:// o wss:// para conectar aquí.',
   'workbench.editors.mqtt.tab.docs': 'Docs',
   'workbench.editors.mqtt.tab.message': 'Mensaje',
   'workbench.editors.mqtt.tab.topics': 'Temas',
@@ -153,6 +155,9 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.session.sendIdle': 'Conéctate para publicar mensajes.',
   'workbench.editors.mqtt.session.sendFailed': 'No se pudo publicar el mensaje',
   'workbench.editors.mqtt.session.subscribeFailed': 'No se pudo cambiar la suscripción',
+  'workbench.editors.mqtt.session.hostNotice':
+    'Ejecutando en el socket del navegador — {knobs} no se aplican en este host.',
+  'workbench.editors.mqtt.session.knobSslVerify': 'la verificación SSL desactivada',
   'workbench.editors.mqtt.session.disconnectedTag': 'Desconectado',
   'workbench.editors.mqtt.session.brokerDisconnectedTag': 'Desconectado por el broker',
   'workbench.editors.mqtt.session.severedTag': 'Conexión interrumpida',
