@@ -90,6 +90,16 @@ export interface BridgeBroadcastContract {
    */
   workspaceChanged: WorkspaceSnapshot;
   /**
+   * A consumed workspace was evicted by host-local state surgery
+   * (`workspace-eviction.ts` — a backend Discard, or a server
+   * revoke/leave retraction). The eviction deliberately mints no
+   * mutation envelope (a tombstone's HLC would poison the re-join
+   * state vector), so no `syncBroadcast` fires for it — renderer
+   * workspace mirrors drop the workspace on this signal instead.
+   * Hosts wire the oracle's `broadcastWorkspaceEvicted` hook here.
+   */
+  workspaceEvicted: { workspaceId: string };
+  /**
    * Fires on any environment / workspace-variables / vault / active-env
    * mutation in the active workspace. Carries the full 4-scope snapshot
    * so `useEnvironments` stays in lockstep without per-field broadcasts.

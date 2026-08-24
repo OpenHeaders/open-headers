@@ -606,6 +606,12 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
       // filter and routes by the workspace's Org binding.
       config.forwardAwarenessToBackends?.(event);
     },
+    // Evictions mint no envelope (workspace-eviction.ts), so local
+    // surfaces (the desktop renderer) get this explicit signal instead
+    // of a syncBroadcast. Host-local by design — never fanned to peers.
+    broadcastWorkspaceEvicted: (workspaceId) => {
+      broadcastLocal('workspaceEvicted', { workspaceId });
+    },
   });
 
   // 3. The host process drives writes through the same `hostBridge`

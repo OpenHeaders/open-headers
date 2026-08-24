@@ -265,4 +265,12 @@ describe('evictConsumedWorkspace', () => {
     await boot('ws-home');
     expect(await evictConsumedWorkspace('ws-ghost')).toEqual({ ok: false, reason: 'not-found' });
   });
+
+  it('fires the broadcastWorkspaceEvicted host hook — the only surface signal an envelope-less eviction has', async () => {
+    await boot('ws-home');
+    const evicted: string[] = [];
+    setOracleHostHooks({ getActiveWorkspaceId, broadcastWorkspaceEvicted: (id) => evicted.push(id) });
+    await evictConsumedWorkspace('ws-adopted');
+    expect(evicted).toEqual(['ws-adopted']);
+  });
 });

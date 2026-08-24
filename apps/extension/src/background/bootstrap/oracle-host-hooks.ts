@@ -30,6 +30,11 @@ export function installOracleHostHooks(): void {
       broadcast('awarenessBroadcast', event);
       forwardAwarenessToBackend(event, 'extension');
     },
+    // Evictions mint no envelope (workspace-eviction.ts), so renderer
+    // mirrors get this explicit signal instead of a syncBroadcast.
+    broadcastWorkspaceEvicted: (workspaceId) => {
+      broadcast('workspaceEvicted', { workspaceId });
+    },
     reportStatus: (entry) =>
       reportStatus({
         subsystem: entry.subsystem as Parameters<typeof reportStatus>[0]['subsystem'],

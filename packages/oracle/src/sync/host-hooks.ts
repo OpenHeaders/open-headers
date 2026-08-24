@@ -120,6 +120,15 @@ export interface OracleHostHooks {
    */
   broadcastAwareness?: (event: OracleAwarenessBroadcast) => void;
   /**
+   * Fan a host-local workspace EVICTION out to surfaces. The eviction
+   * (`workspace-eviction.ts`) is deliberate state surgery that mints
+   * no mutation envelope, so `broadcastSyncEvent` never fires for it —
+   * renderer workspace mirrors need this explicit signal to drop the
+   * workspace from their projections. Host wires this to its bridge
+   * `broadcast` with the `workspaceEvicted` channel.
+   */
+  broadcastWorkspaceEvicted?: (workspaceId: string) => void;
+  /**
    * Report a single status entry to the host's status pill subsystem.
    * Hosts wire this to their app-level `Status.report(...)` callable.
    * Subsystem is a free-form string; host validates against its own

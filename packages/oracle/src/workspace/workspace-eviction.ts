@@ -22,7 +22,10 @@
  *   4. Evict the list entity's set item without a tombstone and
  *      forget the purged mutation ids, so the backend's original
  *      `addToSet` re-materializes the workspace on re-join.
- *   5. Refresh the global cache explicitly — nothing was broadcast.
+ *   5. Refresh the global cache explicitly and fire the host's
+ *      `broadcastWorkspaceEvicted` hook — no envelope means no
+ *      `syncBroadcast`, so surfaces need both signals delivered by
+ *      hand.
  *
  * Home-org deletes keep the tombstone path (`deleteWorkspace`)
  * untouched; this module is only for workspaces consumed from a
@@ -37,6 +40,7 @@ import {
 import { logger } from '@openheaders/core/utils';
 import { getActiveExtensionWorkspaceCache } from '../sync/caches/extension-workspace-cache';
 import { getGlobalMutationLog, getGlobalOracle } from '../sync/global-service';
+import { getOracleHostHooks } from '../sync/host-hooks';
 import { forgetRecentlyApplied } from '../sync/mutation-stream-bridge';
 import { acquireScopeLog } from '../sync/scope-log-accessor';
 import { disposeWorkspace } from '../sync/service';
@@ -96,6 +100,7 @@ export async function evictConsumedWorkspace(id: string): Promise<EvictWorkspace
   // envelopes dies at the bridge's early return.
   forgetRecentlyApplied([...scopeForgotten, ...globalForgotten]);
   cache.refresh();
+  getOracleHostHooks().broadcastWorkspaceEvicted?.(id);
 
   logger.info('WorkspaceEviction', `Evicted workspace ${id} "${target.name}" (org=${target.orgId})`);
   return { ok: true };

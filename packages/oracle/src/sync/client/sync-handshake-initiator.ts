@@ -293,7 +293,20 @@ export function createSyncHandshakeInitiator(deps: SyncHandshakeInitiatorDeps): 
 
   function refreshFanOut(): void {
     if (!globalScopeSynced || connection.state() !== 'connected') return;
-    const added = enqueueFanOutScopes(deps.listConsumedWorkspaceIds?.() ?? []);
+    const consumed = deps.listConsumedWorkspaceIds?.() ?? [];
+    // A scope that LEFT the consumed list was evicted mid-socket (a
+    // revoke retraction, a backend discard). Forget it, so a later
+    // re-offer of the same workspace gets a fresh catch-up on this
+    // socket — the per-socket dedup would otherwise re-materialize the
+    // row as an empty shell until the next reconnect.
+    const live = new Set(consumed);
+    for (const scope of [...fannedOutScopes]) {
+      if (!live.has(scope)) {
+        fannedOutScopes.delete(scope);
+        fanOutQueue = fanOutQueue.filter((id) => id !== scope);
+      }
+    }
+    const added = enqueueFanOutScopes(consumed);
     if (added === 0) return;
     logger.info(SCOPE, `fan-out extended by ${added} late consumed workspace(s)`);
     // A running catch-up's SYNCED already drains the (now-larger)

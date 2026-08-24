@@ -17,6 +17,7 @@
  * surface.
  */
 
+import { hostBridge } from '@openheaders/core/bridge';
 import { EXTENSION_WORKSPACE_ENTITY_TYPE, EXTENSION_WORKSPACE_GLOBAL_SCOPE } from '@openheaders/core/sync';
 import type { ExtensionWorkspace } from '@openheaders/core/types';
 import { type CreateSingletonMirrorOptions, createSingletonEntityMirror } from './singleton-entity-mirror';
@@ -82,6 +83,24 @@ export function createExtensionWorkspaceSyncMirror(
     },
     options,
   );
+
+  // A host-local eviction (backend Discard, server revoke/leave
+  // retraction) mints no envelope, so no syncBroadcast reaches the
+  // core — the host fires `workspaceEvicted` instead and the mirror
+  // drops the workspace surgically.
+  const unsubscribeEvicted = hostBridge.subscribe('workspaceEvicted', ({ workspaceId }) => {
+    core.mutateEntry((entry) => {
+      if (!entry?.workspaces.some((w) => w.id === workspaceId)) return entry;
+      const orderKeys = { ...entry.orderKeys };
+      delete orderKeys[workspaceId];
+      return {
+        workspaces: entry.workspaces.filter((w) => w.id !== workspaceId),
+        activeWorkspaceId: entry.activeWorkspaceId === workspaceId ? null : entry.activeWorkspaceId,
+        orderKeys,
+      };
+    });
+  });
+
   return {
     getMirror: core.get,
     liveWorkspaces: () => core.get()?.workspaces ?? [],
@@ -89,7 +108,10 @@ export function createExtensionWorkspaceSyncMirror(
     liveOrderKey: (id) => core.get()?.orderKeys[id],
     subscribeMirror: core.subscribe,
     hydrated: core.hydrated,
-    dispose: core.dispose,
+    dispose: () => {
+      unsubscribeEvicted();
+      core.dispose();
+    },
   };
 }
 

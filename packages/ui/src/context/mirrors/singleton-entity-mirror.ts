@@ -24,8 +24,8 @@
  *      others.
  */
 
+import { type BridgeBroadcastPayload, hostBridge } from '@openheaders/core/bridge';
 import { hostLogger as logger } from '@openheaders/core/logger';
-import { hostBridge, type BridgeBroadcastPayload } from '@openheaders/core/bridge';
 
 /** Bridge payload shape — see {@link ./flat-entity-mirror.ts}. */
 export type SyncBroadcastPayload = BridgeBroadcastPayload<'syncBroadcast'>;
@@ -64,6 +64,15 @@ export type SingletonMirrorListener = () => void;
 
 export interface SingletonMirrorCore<E> {
   get(): E | null;
+  /**
+   * Apply an out-of-band update to the mirrored entry — for host
+   * signals that carry no envelope (e.g. `workspaceEvicted`, whose
+   * eviction deliberately mints none). Marks the mirror as
+   * broadcast-driven so a slower bootstrap snapshot cannot overwrite
+   * the update; notifies subscribers only when the mutator returns a
+   * different reference.
+   */
+  mutateEntry(mutator: (entry: E | null) => E | null): void;
   subscribe(listener: SingletonMirrorListener): () => void;
   /**
    * Resolves once the bootstrap snapshot fetch has settled (success or
@@ -137,6 +146,13 @@ export function createSingletonEntityMirror<E>(
   return {
     get() {
       return entry;
+    },
+    mutateEntry(mutator) {
+      const next = mutator(entry);
+      sawBroadcast = true;
+      if (next === entry) return;
+      entry = next;
+      notify();
     },
     subscribe(listener) {
       listeners.add(listener);

@@ -133,6 +133,13 @@ export async function bootWebHost(): Promise<void> {
       broadcastLocal('awarenessBroadcast', event);
       forwardAwarenessOverWire(event);
     },
+    // Evictions mint no envelope (workspace-eviction.ts), so the
+    // in-tab mirrors get this explicit signal instead of a
+    // syncBroadcast. Nothing goes up the wire — the eviction is
+    // host-local by design.
+    broadcastWorkspaceEvicted: (workspaceId) => {
+      broadcastLocal('workspaceEvicted', { workspaceId });
+    },
     reportStatus: (entry) =>
       report({
         subsystem: entry.subsystem as Parameters<typeof report>[0]['subsystem'],

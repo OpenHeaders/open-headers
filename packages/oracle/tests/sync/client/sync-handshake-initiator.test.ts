@@ -599,6 +599,46 @@ describe('createSyncHandshakeInitiator — consumed-workspace fan-out (U6.4 / U6
     expect(vectorScopes(send)).toEqual([GLOBAL, 'ws-a', 'ws-b']);
   });
 
+  it('re-fans a workspace that left and re-entered the consumed list (revoke retraction → re-grant)', async () => {
+    let consumed = ['ws-a'];
+    const { deps, send } = makeDeps({ listConsumedWorkspaceIds: () => consumed });
+    const initiator = createSyncHandshakeInitiator(deps);
+    await initiator.start();
+    await initiator.handle(welcomeAccept);
+    await initiator.handle(globalSynced());
+    await initiator.handle(wsSynced('ws-a'));
+    expect(vectorScopes(send)).toEqual([GLOBAL, 'ws-a']);
+    // The retraction evicted ws-a from the store — the host's store
+    // change re-runs the fan-out, which must forget the scope.
+    consumed = [];
+    initiator.refreshFanOut();
+    // The re-grant's live offer re-lands the row: a FRESH catch-up
+    // must go out on the same socket, not hit the per-socket dedup.
+    consumed = ['ws-a'];
+    initiator.refreshFanOut();
+    await flush();
+    expect(vectorScopes(send)).toEqual([GLOBAL, 'ws-a', 'ws-a']);
+    await initiator.handle(wsSynced('ws-a'));
+    expect(initiator.state()).toBe('synced');
+  });
+
+  it('a queued scope that leaves the consumed list is dropped from the queue', async () => {
+    let consumed = ['ws-a', 'ws-b'];
+    const { deps, send } = makeDeps({ listConsumedWorkspaceIds: () => consumed });
+    const initiator = createSyncHandshakeInitiator(deps);
+    await initiator.start();
+    await initiator.handle(welcomeAccept);
+    await initiator.handle(globalSynced());
+    // ws-a mid-catch-up, ws-b queued; ws-b is then evicted before its turn.
+    expect(vectorScopes(send)).toEqual([GLOBAL, 'ws-a']);
+    consumed = ['ws-a'];
+    initiator.refreshFanOut();
+    await initiator.handle(wsSynced('ws-a'));
+    // ws-a's SYNCED drains the queue — the evicted ws-b must not run.
+    expect(vectorScopes(send)).toEqual([GLOBAL, 'ws-a']);
+    expect(initiator.state()).toBe('synced');
+  });
+
   it('reset() drops a queued fan-out so the next socket re-enumerates', async () => {
     const { deps, send } = makeDeps({ listConsumedWorkspaceIds: () => ['ws-a', 'ws-b'] });
     const initiator = createSyncHandshakeInitiator(deps);
