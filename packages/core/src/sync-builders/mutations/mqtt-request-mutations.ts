@@ -57,6 +57,12 @@ const SET_PATHS = [
   MQTT_REQUEST_SAVED_MESSAGES_PATH,
   MQTT_REQUEST_USER_PROPERTIES_PATH,
 ] as const;
+
+/** The container-valued scalar paths that ride the per-leaf
+ *  flatten-diff — and whose explicit `undefined` in a patch means
+ *  CLEAR (the editor collapses an all-empty block to `undefined`), not
+ *  "field untouched": the diff tombstones every old leaf. */
+const CONTAINER_SCALAR_PATHS: ReadonlySet<string> = new Set(['publishProperties', 'lastWill', 'specLink']);
 type SetPath = (typeof SET_PATHS)[number];
 
 const isSetPath = (key: string): SetPath | null =>
@@ -85,7 +91,23 @@ export function buildMqttUpdateBatch(
   const bodies: MutationBody[] = [];
 
   for (const [key, value] of Object.entries(updates)) {
-    if (value === undefined) continue;
+    if (value === undefined) {
+      // Only an explicitly-present container-scalar key clears — its
+      // old leaves tombstone (an absent baseline diffs to nothing, so
+      // the editor's always-present keys stay no-ops when untouched).
+      if (CONTAINER_SCALAR_PATHS.has(key)) {
+        bodies.push(
+          ...synthesizeFieldDiff({
+            type: MQTT_REQUEST_ENTITY_TYPE,
+            id: mqttRequestUid,
+            basePath: key,
+            oldValue: liveFieldValue(mqttRequestUid, key),
+            newValue: undefined,
+          }),
+        );
+      }
+      continue;
+    }
 
     const setPath = isSetPath(key);
     if (setPath && Array.isArray(value)) {

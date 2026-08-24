@@ -10,9 +10,10 @@
  * The per-message property blocks are held concrete in the form (every
  * field present, '' / undefined = untouched) and collapse back to the
  * entity's optional block on save — an all-empty block emits
- * `undefined`, which the update patch skips (the WS `specLink`
- * posture: clearing the last property field of a previously-saved
- * block re-primes from the entity rather than silently unsetting it).
+ * `undefined`, which the update builder reads as CLEAR for the
+ * container-scalar paths (publishProperties / lastWill / specLink):
+ * every previously-saved leaf tombstones, so clearing the last field
+ * of a saved block honestly unsets it instead of re-priming.
  */
 
 import type {

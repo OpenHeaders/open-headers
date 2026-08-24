@@ -202,6 +202,73 @@ describe('mqtt request update batches', () => {
     expect(materialized(store, 'mqrq0001').specLink).toEqual({ specUid: 'spec0002' });
   });
 
+  it('clears a previously-saved last will when the patch carries an explicit undefined', () => {
+    const store = new InMemoryDocumentStore(mqttSchemas);
+    applyBatch(
+      store,
+      buildMqttAddBatch(
+        { ...seed, lastWill: { topic: 'streetlights/1/offline', payload: 'gone', qos: 1, retain: true } },
+        ctx(1_000),
+      ),
+    );
+
+    const payload = buildMqttUpdateBatch(
+      'mqrq0001',
+      { lastWill: undefined },
+      ctx(2_000),
+      noSets,
+      liveField(store, 'mqrq0001'),
+    );
+    // The clear rides per-leaf tombstones — every saved leaf unsets.
+    const kinds = payload.batch.mutations.map((m) => m.body.kind);
+    expect(kinds.length).toBeGreaterThan(0);
+    expect(new Set(kinds)).toEqual(new Set(['unsetField']));
+
+    applyBatch(store, payload);
+    expect(materialized(store, 'mqrq0001').lastWill).toBeUndefined();
+  });
+
+  it('clears previously-saved publish properties and the spec link the same way', () => {
+    const store = new InMemoryDocumentStore(mqttSchemas);
+    applyBatch(
+      store,
+      buildMqttAddBatch(
+        { ...seed, publishProperties: { responseTopic: 'streetlights/1/ack', contentType: 'application/json' } },
+        ctx(1_000),
+      ),
+    );
+
+    applyBatch(
+      store,
+      buildMqttUpdateBatch(
+        'mqrq0001',
+        { publishProperties: undefined, specLink: undefined },
+        ctx(2_000),
+        noSets,
+        liveField(store, 'mqrq0001'),
+      ),
+    );
+    const after = materialized(store, 'mqrq0001');
+    expect(after.publishProperties).toBeUndefined();
+    expect(after.specLink).toBeUndefined();
+  });
+
+  it('emits nothing for an undefined container key with no saved baseline', () => {
+    const store = new InMemoryDocumentStore(mqttSchemas);
+    applyBatch(store, buildMqttAddBatch({ ...seed, specLink: undefined }, ctx(1_000)));
+
+    // The editor's save patch always names the container keys — with
+    // nothing saved and nothing composed the update stays a no-op.
+    const payload = buildMqttUpdateBatch(
+      'mqrq0001',
+      { publishProperties: undefined, lastWill: undefined, specLink: undefined },
+      ctx(2_000),
+      noSets,
+      liveField(store, 'mqrq0001'),
+    );
+    expect(payload.batch.mutations).toHaveLength(0);
+  });
+
   it('emits minimum set-diff envelopes for topic row edits', () => {
     const store = new InMemoryDocumentStore(mqttSchemas);
     applyBatch(store, buildMqttAddBatch(seed, ctx(1_000)));
