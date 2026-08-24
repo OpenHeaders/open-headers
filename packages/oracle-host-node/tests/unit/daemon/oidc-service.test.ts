@@ -10,12 +10,14 @@
 import type { AuditEntryInput } from '@openheaders/core/identity';
 import {
   createDaemonUser,
+  DAEMON_ADMIN_FUNCTIONAL_ROLE,
   deactivateDaemonUser,
   ensureSyntheticIdentity,
   grantWorkspaceRole,
   listDaemonAuthTokens,
   listDaemonUsers,
   listWorkspaceRolesForPrincipal,
+  mintDaemonAuthToken,
   validateDaemonAuthToken,
 } from '@openheaders/core/identity';
 import { setLicenseSnapshotProvider } from '@openheaders/core/licensing';
@@ -212,7 +214,7 @@ describe('daemon OIDC service', () => {
     expect(await listDaemonUsers()).toHaveLength(0);
   });
 
-  it('auto-provisions a directory user with zero grants when enabled', async () => {
+  it('auto-provisions a directory user when enabled', async () => {
     const rig = buildRig({ config: { autoProvision: true }, claims: { name: 'Alice A.' } });
     const { state, bindingNonce } = await begin(rig);
     const completed = await rig.service.completeLogin({ code: 'c', state, bindingNonce });
@@ -499,19 +501,181 @@ describe('daemon OIDC service', () => {
       expect(offers).toHaveLength(1);
     });
 
-    it('no mapping configured ⇒ the reconcile never runs', async () => {
+    it('no mapping configured ⇒ the fold still runs with the declared floor as the desired set', async () => {
       await createDaemonUser({ displayName: 'Alice', email: 'alice@openheaders.io' });
-      let reconciled = false;
+      const desiredSets: Array<readonly { workspaceId: string; role: string }[]> = [];
       const rig = buildRig({
         deps: {
-          reconcileGrants: async () => {
-            reconciled = true;
+          firstWorkspaceId: () => W1,
+          reconcileGrants: async (_principalId, desired) => {
+            desiredSets.push(desired);
             return { granted: [], updated: [], revoked: [], skippedManual: [] };
           },
         },
       });
       expect((await login(rig)).ok).toBe(true);
-      expect(reconciled).toBe(false);
+      expect(desiredSets).toEqual([[{ workspaceId: W1, role: 'viewer' }]]);
+    });
+  });
+
+  describe('declared floor + admin declaration (A3/A11)', () => {
+    const W1 = '01900000-cccc-7000-8000-000000000001';
+    const W2 = '01900000-cccc-7000-8000-000000000002';
+
+    function floorRig(
+      options: { config?: Partial<DaemonOidcConfig>; values?: readonly string[]; deps?: Partial<OidcServiceDeps> } = {},
+    ) {
+      const audited: AuditEntryInput[] = [];
+      const rig = buildRig({
+        config: options.config,
+        ...(options.values ? { claims: { mappingValues: options.values } } : {}),
+        deps: {
+          workspaceExists: () => true,
+          firstWorkspaceId: () => W1,
+          emitAudit: (entry) => audited.push(entry),
+          ...options.deps,
+        },
+      });
+      return { rig, audited };
+    }
+
+    async function login(rig: ReturnType<typeof buildRig>) {
+      const { state, bindingNonce } = await begin(rig);
+      return rig.service.completeLogin({ code: 'c', state, bindingNonce });
+    }
+
+    it('the floor lands at login with no config: sentinel-resolved, idp-stamped viewer, one sso-grant audit row', async () => {
+      const created = await createDaemonUser({ displayName: 'Alice', email: 'alice@openheaders.io' });
+      if (!created.ok) throw new Error('setup failed');
+      const { rig, audited } = floorRig();
+      expect((await login(rig)).ok).toBe(true);
+      const rows = await listWorkspaceRolesForPrincipal(created.record.principal.id);
+      expect(rows).toHaveLength(1);
+      expect(rows[0]).toMatchObject({ workspaceId: W1, role: 'viewer', origin: 'idp' });
+      expect(audited).toEqual([
+        expect.objectContaining({ capability: 'daemon.sso-grant', workspaceId: W1, decision: { allow: true } }),
+      ]);
+    });
+
+    it('a by-id defaultGrant lands its role on its workspace; a missing target falls back to the sentinel', async () => {
+      const created = await createDaemonUser({ displayName: 'Alice', email: 'alice@openheaders.io' });
+      if (!created.ok) throw new Error('setup failed');
+      const byId = floorRig({ config: { defaultGrant: { workspace: W2, role: 'editor' } } });
+      expect((await login(byId.rig)).ok).toBe(true);
+      let rows = await listWorkspaceRolesForPrincipal(created.record.principal.id);
+      expect(rows).toHaveLength(1);
+      expect(rows[0]).toMatchObject({ workspaceId: W2, role: 'editor', origin: 'idp' });
+
+      // The target disappears: the floor falls back to the sentinel
+      // resolution, and the reconcile self-heals the stale row.
+      const fallback = floorRig({
+        config: { defaultGrant: { workspace: W2, role: 'editor' } },
+        deps: { workspaceExists: (id) => id !== W2 },
+      });
+      expect((await login(fallback.rig)).ok).toBe(true);
+      rows = await listWorkspaceRolesForPrincipal(created.record.principal.id);
+      expect(rows).toHaveLength(1);
+      expect(rows[0]).toMatchObject({ workspaceId: W1, role: 'editor', origin: 'idp' });
+    });
+
+    it('the floor merges with the claim mapping on one workspace: the higher role wins, one row', async () => {
+      const created = await createDaemonUser({ displayName: 'Alice', email: 'alice@openheaders.io' });
+      if (!created.ok) throw new Error('setup failed');
+      // The mapped editor outranks the floor's viewer on the same workspace.
+      const { rig } = floorRig({
+        config: { claimMappings: { claimPath: 'groups', rules: [{ value: 'eng', workspaceId: W1, role: 'editor' }] } },
+        values: ['eng'],
+      });
+      expect((await login(rig)).ok).toBe(true);
+      const rows = await listWorkspaceRolesForPrincipal(created.record.principal.id);
+      expect(rows).toHaveLength(1);
+      expect(rows[0]).toMatchObject({ workspaceId: W1, role: 'editor', origin: 'idp' });
+    });
+
+    it('a manual grant on the floor workspace stays sticky and emits no audit row', async () => {
+      const created = await createDaemonUser({ displayName: 'Alice', email: 'alice@openheaders.io' });
+      if (!created.ok) throw new Error('setup failed');
+      await grantWorkspaceRole({ principalId: created.record.principal.id, workspaceId: W1, role: 'owner' });
+      const { rig, audited } = floorRig();
+      expect((await login(rig)).ok).toBe(true);
+      const rows = await listWorkspaceRolesForPrincipal(created.record.principal.id);
+      expect(rows).toHaveLength(1);
+      expect(rows[0].role).toBe('owner');
+      expect(rows[0].origin).toBeUndefined();
+      expect(audited).toHaveLength(0);
+    });
+
+    it('a server with no workspaces skips the floor and the login still completes', async () => {
+      const created = await createDaemonUser({ displayName: 'Alice', email: 'alice@openheaders.io' });
+      if (!created.ok) throw new Error('setup failed');
+      const { rig } = floorRig({ deps: { firstWorkspaceId: () => null } });
+      expect((await login(rig)).ok).toBe(true);
+      expect(await listWorkspaceRolesForPrincipal(created.record.principal.id)).toHaveLength(0);
+    });
+
+    it('auto-provision lands the fresh user on the floor in the same login', async () => {
+      const { rig } = floorRig({ config: { autoProvision: true } });
+      expect((await login(rig)).ok).toBe(true);
+      const users = await listDaemonUsers();
+      expect(users).toHaveLength(1);
+      const rows = await listWorkspaceRolesForPrincipal(users[0].principal.id);
+      expect(rows).toHaveLength(1);
+      expect(rows[0]).toMatchObject({ workspaceId: W1, role: 'viewer', origin: 'idp' });
+    });
+
+    it('a declared email is promoted once: sso-admin audit row, unbound tokens revoked, re-login does nothing', async () => {
+      const created = await createDaemonUser({ displayName: 'Alice', email: 'alice@openheaders.io' });
+      if (!created.ok) throw new Error('setup failed');
+      const unbound = await mintDaemonAuthToken({ label: 'bootstrap' });
+      const closed: string[] = [];
+      const config = { adminEmails: ['ALICE@openheaders.io'] };
+      const first = floorRig({ config, deps: { closePeersByTokenId: (tokenId) => closed.push(tokenId) } });
+      expect((await login(first.rig)).ok).toBe(true);
+      const users = await listDaemonUsers();
+      expect(users[0].membership.functionalRoles).toContain(DAEMON_ADMIN_FUNCTIONAL_ROLE);
+      expect(first.audited).toContainEqual(
+        expect.objectContaining({
+          capability: 'daemon.sso-admin',
+          actorUserId: created.record.user.id,
+          decision: { allow: true },
+        }),
+      );
+      const ledgerAfterFirst = await listDaemonAuthTokens();
+      expect(ledgerAfterFirst.find((t) => t.id === unbound.record.id)?.revokedAt).not.toBeNull();
+      expect(closed).toContain(unbound.record.id);
+
+      // One-shot by state: the role is already held, so a later unbound
+      // token (a deliberate operator mint) survives the next login.
+      const survivor = await mintDaemonAuthToken({ label: 'deliberate' });
+      const second = floorRig({ config, deps: { closePeersByTokenId: (tokenId) => closed.push(tokenId) } });
+      expect((await login(second.rig)).ok).toBe(true);
+      expect(second.audited.some((entry) => entry.capability === 'daemon.sso-admin')).toBe(false);
+      const ledgerAfterSecond = await listDaemonAuthTokens();
+      expect(ledgerAfterSecond.find((t) => t.id === survivor.record.id)?.revokedAt).toBeNull();
+    });
+
+    it('a non-declared email is never promoted, and an absent adminEmails promotes nobody', async () => {
+      await createDaemonUser({ displayName: 'Alice', email: 'alice@openheaders.io' });
+      const declaredElsewhere = floorRig({ config: { adminEmails: ['bob@openheaders.io'] } });
+      expect((await login(declaredElsewhere.rig)).ok).toBe(true);
+      const undeclared = floorRig();
+      expect((await login(undeclared.rig)).ok).toBe(true);
+      const users = await listDaemonUsers();
+      expect(users[0].membership.functionalRoles).not.toContain(DAEMON_ADMIN_FUNCTIONAL_ROLE);
+    });
+
+    it('a promotion failure logs and the login still completes', async () => {
+      await createDaemonUser({ displayName: 'Alice', email: 'alice@openheaders.io' });
+      const { rig } = floorRig({
+        config: { adminEmails: ['alice@openheaders.io'] },
+        deps: {
+          setDaemonAdmin: async () => {
+            throw new Error('storage exploded');
+          },
+        },
+      });
+      const completed = await login(rig);
+      expect(completed.ok).toBe(true);
     });
   });
 });

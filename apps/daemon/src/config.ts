@@ -36,6 +36,7 @@ import type {
   DaemonOidcConfig,
   OidcClaimMappingRule,
   OidcClaimMappings,
+  OidcDefaultGrant,
 } from '@openheaders/oracle-host-node/daemon';
 
 /**
@@ -346,7 +347,44 @@ function parseOidcConfig(raw: unknown, source: string): DaemonOidcConfig {
   if (record.claimMappings !== undefined) {
     out.claimMappings = parseClaimMappings(record.claimMappings, source);
   }
+  if (record.defaultGrant !== undefined) {
+    out.defaultGrant = parseDefaultGrant(record.defaultGrant, source);
+  }
+  if (record.adminEmails !== undefined) {
+    if (
+      !Array.isArray(record.adminEmails) ||
+      record.adminEmails.some((email) => typeof email !== 'string' || !email.trim())
+    ) {
+      throw new Error(`${source}: oidc.adminEmails must be an array of non-empty email strings`);
+    }
+    out.adminEmails = record.adminEmails.map((email: string) => email.trim());
+  }
   return out;
+}
+
+/**
+ * The `defaultGrant` object — the declared grant floor (absent = the
+ * sentinel workspace at viewer). `workspace` is the literal sentinel
+ * `default` or a workspace id (discoverable via `oh workspace list` or
+ * the admin console); `role` defaults to viewer.
+ */
+function parseDefaultGrant(raw: unknown, source: string): OidcDefaultGrant {
+  if (raw === null || typeof raw !== 'object' || Array.isArray(raw)) {
+    throw new Error(`${source}: oidc.defaultGrant must be a JSON object`);
+  }
+  const record = raw as Record<string, unknown>;
+  if (typeof record.workspace !== 'string' || !record.workspace.trim()) {
+    // 'default' is OIDC_DEFAULT_WORKSPACE_SENTINEL — spelled literally
+    // here because a value import of the daemon package would pull
+    // better-sqlite3 into the sqlite-free cli.js bundle (see the
+    // AUDIT_RETENTION_DEFAULT_DAYS note above).
+    throw new Error(`${source}: oidc.defaultGrant.workspace must be 'default' or a workspace id`);
+  }
+  const role = record.role ?? 'viewer';
+  if (role !== 'owner' && role !== 'editor' && role !== 'viewer') {
+    throw new Error(`${source}: oidc.defaultGrant.role must be owner, editor or viewer`);
+  }
+  return { workspace: record.workspace.trim(), role };
 }
 
 function parseClaimMappings(raw: unknown, source: string): OidcClaimMappings {

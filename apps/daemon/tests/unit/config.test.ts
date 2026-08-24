@@ -216,6 +216,43 @@ describe('resolveDaemonConfig — precedence', () => {
       ]),
     ).toThrow(/rules\[0\]\.value/);
   });
+
+  it('reads oidc.defaultGrant and oidc.adminEmails, defaulting the floor role to viewer', () => {
+    const file = writeConfigFile({
+      oidc: {
+        issuer: 'https://sso.openheaders.io',
+        clientId: 'oh-daemon',
+        defaultGrant: { workspace: ' 01900000-aaaa-7000-8000-000000000001 ', role: 'editor' },
+        adminEmails: [' Admin@openheaders.io '],
+      },
+    });
+    const parsed = resolve(['--config', file]).oidc;
+    expect(parsed?.defaultGrant).toEqual({ workspace: '01900000-aaaa-7000-8000-000000000001', role: 'editor' });
+    expect(parsed?.adminEmails).toEqual(['Admin@openheaders.io']);
+    const roleless = writeConfigFile({
+      oidc: { issuer: 'https://sso.openheaders.io', clientId: 'oh-daemon', defaultGrant: { workspace: 'default' } },
+    });
+    expect(resolve(['--config', roleless]).oidc?.defaultGrant).toEqual({ workspace: 'default', role: 'viewer' });
+  });
+
+  it('rejects malformed defaultGrant and adminEmails rather than booting a silently floor-less SSO', () => {
+    const oidcWith = (extra: Record<string, unknown>) => ({
+      oidc: { issuer: 'https://sso.openheaders.io', clientId: 'x', ...extra },
+    });
+    expect(() => resolve(['--config', writeConfigFile(oidcWith({ defaultGrant: 'default' }))])).toThrow(
+      /defaultGrant must be/,
+    );
+    expect(() => resolve(['--config', writeConfigFile(oidcWith({ defaultGrant: { workspace: ' ' } }))])).toThrow(
+      /defaultGrant\.workspace/,
+    );
+    expect(() =>
+      resolve(['--config', writeConfigFile(oidcWith({ defaultGrant: { workspace: 'default', role: 'boss' } }))]),
+    ).toThrow(/defaultGrant\.role/);
+    expect(() => resolve(['--config', writeConfigFile(oidcWith({ adminEmails: 'admin@openheaders.io' }))])).toThrow(
+      /adminEmails/,
+    );
+    expect(() => resolve(['--config', writeConfigFile(oidcWith({ adminEmails: [''] }))])).toThrow(/adminEmails/);
+  });
 });
 
 describe('resolveDaemonConfig — vault passphrase', () => {

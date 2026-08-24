@@ -70,3 +70,16 @@ export function desiredGrantsFromClaims(
     unknownWorkspaceIds: [...unknown],
   };
 }
+
+/**
+ * Fold the declared grant floor (the server-access plan A3/A11) into a
+ * desired set: absent workspace = appended; already desired = the
+ * higher role wins, same rank rule several mapping rules use on one
+ * workspace.
+ */
+export function mergeDesiredGrant(desired: readonly DesiredIdpGrant[], floor: DesiredIdpGrant): DesiredIdpGrant[] {
+  const held = desired.find((grant) => grant.workspaceId === floor.workspaceId);
+  if (!held) return [...desired, floor];
+  if (ROLE_RANK[floor.role] <= ROLE_RANK[held.role]) return [...desired];
+  return desired.map((grant) => (grant.workspaceId === floor.workspaceId ? floor : grant));
+}

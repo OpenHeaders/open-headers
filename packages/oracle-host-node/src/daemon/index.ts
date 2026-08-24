@@ -13,7 +13,13 @@ export { bootDaemonSpine, type DaemonSpineConfig, type DaemonSpineHandle } from 
 export { registerPeerRpcPlane } from './compose-peer-rpc';
 export { type ExecuteRequestRpcResult, handleExecuteRequestRpc } from './execute-request-rpc';
 export type { DaemonMetrics } from './metrics';
-export type { DaemonOidcConfig, OidcClaimMappingRule, OidcClaimMappings } from './oidc/oidc-config';
+export type {
+  DaemonOidcConfig,
+  OidcClaimMappingRule,
+  OidcClaimMappings,
+  OidcDefaultGrant,
+} from './oidc/oidc-config';
+export { OIDC_DEFAULT_WORKSPACE_SENTINEL } from './oidc/oidc-config';
 export {
   createScriptBroker,
   type RunScriptOptions,

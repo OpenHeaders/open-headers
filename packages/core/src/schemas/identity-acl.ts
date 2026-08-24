@@ -112,7 +112,10 @@ export const DaemonAdminSchema = v.object({
  * `daemon.sso-grant` / `daemon.sso-revoke` are likewise audit-vocabulary
  * only — one row per workspace grant the OIDC claims→grant mapping adds
  * (or re-roles) / removes at login, stamped with the logging-in user as
- * the actor and the affected workspace.
+ * the actor and the affected workspace. `daemon.sso-admin` is the same
+ * axis for the admin declaration (the server-access plan A3): one row
+ * when a login's declared-admin match confers `daemon.admin`, stamped
+ * with the promoted user as the actor.
  *
  * `daemon.seat-admit` is the seat gate's stamp (the licensing plan §4)
  * — a deny row per directory-user admission refused at the seat limit
@@ -136,6 +139,7 @@ export const CapabilitySchema = v.picklist([
   'daemon.admission',
   'daemon.sso-grant',
   'daemon.sso-revoke',
+  'daemon.sso-admin',
   'daemon.seat-admit',
   'daemon.license-install',
   'daemon.license-refresh',

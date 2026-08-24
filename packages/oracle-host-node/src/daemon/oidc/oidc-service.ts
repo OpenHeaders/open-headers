@@ -29,13 +29,19 @@
  * (signature, `iss`, `aud`, `exp`) plus the flow's own `nonce`; the
  * verified `email` claim is the join key into the daemon-local user
  * directory. No directory record ⇒ refused unless `autoProvision` is
- * on, in which case the user is created with ZERO workspace grants —
- * RBAC deny-by-default makes a fresh SSO user harmless until granted.
+ * on.
  *
- * With `claimMappings` configured, every completed login also folds the
- * token's group/role claims into workspace grants (`claims-mapping.ts`
- * + the core `idp`-origin WRA reconcile): the IdP is authoritative for
- * the grants it maps, manual operator grants stay sticky.
+ * Every completed login runs the grant fold (the server-access plan
+ * A3/A11): the declared floor — `defaultGrant`, or the sentinel
+ * workspace at viewer when absent — merged with whatever
+ * `claimMappings` maps the token's group/role claims to, reconciled as
+ * `idp`-origin WRA rows (the IdP is authoritative for the rows it
+ * minted; manual operator grants stay sticky). Admission confers
+ * access: no SSO login lands with anywhere to work missing. A login
+ * whose email is declared in `adminEmails` is promoted to
+ * `daemon.admin` (confer-only), and the promotion that flips the role
+ * revokes every unbound operator token — the claim's O3 arc, run the
+ * moment a real admin provably exists.
  */
 
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
@@ -47,13 +53,15 @@ import {
   type MintDaemonAuthTokenResult,
   mintDaemonAuthToken,
   reconcileIdpWorkspaceRoles,
+  setDaemonUserDaemonAdmin,
 } from '@openheaders/core/identity';
 import { hostLogger as logger } from '@openheaders/core/logger';
 import type { DaemonUserRecord } from '@openheaders/core/types';
-import { getWorkspace } from '@openheaders/oracle/workspace/extension-workspace-store';
+import { getWorkspace, listWorkspaces } from '@openheaders/oracle/workspace/extension-workspace-store';
 import { createRemoteJWKSet, jwtVerify } from 'jose';
-import { desiredGrantsFromClaims, extractClaimValues } from './claims-mapping';
-import type { DaemonOidcConfig } from './oidc-config';
+import { revokeUnboundTokens } from '../revoke-unbound-tokens';
+import { desiredGrantsFromClaims, extractClaimValues, mergeDesiredGrant } from './claims-mapping';
+import { type DaemonOidcConfig, OIDC_DEFAULT_WORKSPACE_SENTINEL, type OidcDefaultGrant } from './oidc-config';
 
 const SCOPE = 'OidcLogin';
 
@@ -122,6 +130,19 @@ export interface OidcServiceDeps {
   reconcileGrants?: typeof reconcileIdpWorkspaceRoles;
   emitAudit?: typeof emitAuditEntry;
   workspaceExists?: (workspaceId: string) => boolean;
+  /**
+   * The declared floor's sentinel resolution (A11): the first live
+   * workspace in the server's sort order. Defaults to the oracle store.
+   */
+  firstWorkspaceId?: () => string | null;
+  /** Declared-admin promotion seam — defaults to the live directory toggle. */
+  setDaemonAdmin?: typeof setDaemonUserDaemonAdmin;
+  /**
+   * Evict a revoked token's live sockets — threaded into the O3 arc the
+   * first declared-admin promotion runs. Absent = revocations persist
+   * but no socket is evicted until its next validation.
+   */
+  closePeersByTokenId?: (tokenId: string) => void;
   /**
    * Grant-time workspace offer to the user's already-connected sockets
    * (the shared re-fan-out seam — same function the manual admin grant
@@ -222,7 +243,26 @@ export function createDaemonOidcService(config: DaemonOidcConfig, deps: OidcServ
   const reconcileGrants = deps.reconcileGrants ?? reconcileIdpWorkspaceRoles;
   const emitAudit = deps.emitAudit ?? emitAuditEntry;
   const workspaceExists = deps.workspaceExists ?? ((workspaceId: string) => Boolean(getWorkspace(workspaceId)));
+  const firstWorkspaceId = deps.firstWorkspaceId ?? ((): string | null => listWorkspaces()[0]?.id ?? null);
+  const setDaemonAdmin = deps.setDaemonAdmin ?? setDaemonUserDaemonAdmin;
+  const closePeersByTokenId = deps.closePeersByTokenId ?? ((): void => undefined);
   const offerGrantedWorkspaces = deps.offerGrantedWorkspaces;
+
+  // The declared floor (A3/A11) is on whenever SSO is — absent config
+  // means the sentinel workspace at viewer, never zero grants.
+  const defaultGrant: OidcDefaultGrant = config.defaultGrant ?? {
+    workspace: OIDC_DEFAULT_WORKSPACE_SENTINEL,
+    role: 'viewer',
+  };
+  const adminEmails = new Set(
+    (config.adminEmails ?? []).map((email) => email.trim().toLowerCase()).filter((email) => email !== ''),
+  );
+  if (adminEmails.size === 0) {
+    logger.warn(
+      SCOPE,
+      'no adminEmails declared — no IdP login can confer daemon.admin, so unbound operator tokens remain the administrative floor',
+    );
+  }
 
   const scopes = (() => {
     const requested = config.scopes && config.scopes.length > 0 ? [...config.scopes] : [...DEFAULT_SCOPES];
@@ -327,29 +367,55 @@ export function createDaemonOidcService(config: DaemonOidcConfig, deps: OidcServ
           return { ok: false, reason: 'provision-failed' };
       }
     }
-    logger.info(SCOPE, `auto-provisioned directory user for ${email} (zero grants)`);
+    logger.info(SCOPE, `auto-provisioned directory user for ${email} (grant floor applies at the fold)`);
     return { ok: true, record: created.record };
   }
 
   /**
-   * The claims→grant fold, run on EVERY completed login: reconcile the
-   * user's `idp`-origin WRA rows against what the verified claims map
-   * to, audit each applied change with the logging-in user as the
-   * actor. Best-effort by design — a fold failure logs and the login
-   * proceeds (the session is valid; grants keep their pre-login state).
+   * The floor's target workspace (A11): a by-id declaration when the
+   * server still holds it, else the sentinel resolution — the first
+   * live workspace in the server's sort order. `null` only on a server
+   * with no workspaces at all, which the boot seed makes unreachable
+   * today (§1c) but the boot plane may make representable.
    */
-  async function applyClaimMappings(record: DaemonUserRecord, claims: OidcIdTokenClaims): Promise<void> {
-    const mappings = config.claimMappings;
-    if (!mappings) return;
-    try {
-      const { desired, unknownWorkspaceIds } = desiredGrantsFromClaims(
-        claims.mappingValues ?? [],
-        mappings.rules,
-        workspaceExists,
+  function resolveFloorWorkspaceId(): string | null {
+    if (defaultGrant.workspace !== OIDC_DEFAULT_WORKSPACE_SENTINEL) {
+      if (workspaceExists(defaultGrant.workspace)) return defaultGrant.workspace;
+      logger.warn(
+        SCOPE,
+        `defaultGrant workspace ${defaultGrant.workspace} does not exist on this daemon — ` +
+          'falling back to the default workspace',
       );
-      if (unknownWorkspaceIds.length > 0) {
-        logger.warn(SCOPE, `claim mapping skipped unknown workspaces: ${unknownWorkspaceIds.join(', ')}`);
+    }
+    return firstWorkspaceId();
+  }
+
+  /**
+   * The grant fold, run on EVERY completed login: the declared floor
+   * (A3/A11) merged with what the verified claims map to, reconciled
+   * against the user's `idp`-origin WRA rows, each applied change
+   * audited with the logging-in user as the actor. Manual grants always
+   * win their pair. Best-effort by design — a fold failure logs and the
+   * login proceeds (the session is valid; grants keep their pre-login
+   * state).
+   */
+  async function applyLoginGrants(record: DaemonUserRecord, claims: OidcIdTokenClaims): Promise<void> {
+    try {
+      const mappings = config.claimMappings;
+      const mapped = mappings
+        ? desiredGrantsFromClaims(claims.mappingValues ?? [], mappings.rules, workspaceExists)
+        : { desired: [], unknownWorkspaceIds: [] };
+      if (mapped.unknownWorkspaceIds.length > 0) {
+        logger.warn(SCOPE, `claim mapping skipped unknown workspaces: ${mapped.unknownWorkspaceIds.join(', ')}`);
       }
+      const floorWorkspaceId = resolveFloorWorkspaceId();
+      if (floorWorkspaceId === null) {
+        logger.warn(SCOPE, 'declared grant floor skipped: this daemon holds no workspaces');
+      }
+      const desired =
+        floorWorkspaceId === null
+          ? mapped.desired
+          : mergeDesiredGrant(mapped.desired, { workspaceId: floorWorkspaceId, role: defaultGrant.role });
       const outcome = await reconcileGrants(record.principal.id, desired);
       for (const change of [...outcome.granted, ...outcome.updated]) {
         emitAudit({
@@ -377,18 +443,56 @@ export function createDaemonOidcService(config: DaemonOidcConfig, deps: OidcServ
       }
       if (outcome.skippedManual.length > 0) {
         const pairs = outcome.skippedManual.map((s) => s.workspaceId).join(', ');
-        logger.info(SCOPE, `claim mapping deferred to manual grants for user=${record.user.id}: ${pairs}`);
+        logger.info(SCOPE, `grant fold deferred to manual grants for user=${record.user.id}: ${pairs}`);
       }
       const applied = outcome.granted.length + outcome.updated.length + outcome.revoked.length;
       if (applied > 0) {
         logger.info(
           SCOPE,
-          `claim mapping applied for user=${record.user.id}: +${outcome.granted.length} ` +
+          `grant fold applied for user=${record.user.id}: +${outcome.granted.length} ` +
             `~${outcome.updated.length} -${outcome.revoked.length}`,
         );
       }
     } catch (err) {
-      logger.warn(SCOPE, `claim mapping failed for user=${record.user.id}; login proceeds`, err);
+      logger.warn(SCOPE, `grant fold failed for user=${record.user.id}; login proceeds`, err);
+    }
+  }
+
+  /**
+   * The admin declaration (A3, the front door's Q3): a login whose
+   * verified email is declared promotes the user to `daemon.admin` —
+   * confer-only, audited as `daemon.sso-admin` — and the promotion that
+   * actually flips the role runs the O3 arc: every unbound operator
+   * token is revoked, the moment a real admin provably exists. One-shot
+   * by state, like the claim: a later login finds the role already held
+   * and does nothing.
+   */
+  async function conferDeclaredAdmin(record: DaemonUserRecord): Promise<void> {
+    if (adminEmails.size === 0) return;
+    const identity = record.userIdentity.kind === 'email' ? record.userIdentity.value : null;
+    const email = identity === null ? null : identity.trim().toLowerCase();
+    if (email === null || !adminEmails.has(email)) return;
+    try {
+      const result = await setDaemonAdmin(record.user.id, true);
+      if (!result.ok) {
+        logger.warn(SCOPE, `declared admin ${record.user.id} could not be promoted: ${result.reason}`);
+        return;
+      }
+      if (!result.updated) return;
+      emitAudit({
+        actorUserId: record.user.id,
+        capability: 'daemon.sso-admin',
+        decision: { allow: true },
+        orgId: record.membership.orgId,
+      });
+      const revoked = await revokeUnboundTokens(record.user.id, record.membership.orgId, closePeersByTokenId);
+      logger.info(
+        SCOPE,
+        `declared admin ${email} promoted to daemon.admin (user=${record.user.id}), ` +
+          `${revoked} unbound token(s) revoked`,
+      );
+    } catch (err) {
+      logger.warn(SCOPE, `declared-admin promotion failed for user=${record.user.id}; login proceeds`, err);
     }
   }
 
@@ -506,9 +610,10 @@ export function createDaemonOidcService(config: DaemonOidcConfig, deps: OidcServ
         return { ok: false, reason: resolved.reason };
       }
 
-      // Grants land before the mint so the session's first join already
-      // sees what the claims map to.
-      await applyClaimMappings(resolved.record, claims);
+      // Grants and the declared-admin promotion land before the mint so
+      // the session's first join already sees what the login confers.
+      await applyLoginGrants(resolved.record, claims);
+      await conferDeclaredAdmin(resolved.record);
 
       const email = resolved.record.userIdentity.value ?? claims.email ?? '';
       const minted: MintDaemonAuthTokenResult = await mintToken({

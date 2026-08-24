@@ -1008,6 +1008,9 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
         // admin grant rides, here fed by the IdP claims reconcile.
         offerGrantedWorkspaces: (userId, workspaceIds) =>
           offerWorkspaceRowsToUserPeers(userId, workspaceIds, () => wsServer),
+        // The declared-admin promotion's O3 arc evicts revoked unbound
+        // tokens' sockets — same persist-before-evict the claim uses.
+        closePeersByTokenId: (tokenId) => wsServer?.closePeersByTokenId(tokenId),
       })
     : null;
   const oidcHttpHandler =

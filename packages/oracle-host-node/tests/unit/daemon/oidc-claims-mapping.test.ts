@@ -6,7 +6,11 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { desiredGrantsFromClaims, extractClaimValues } from '../../../src/daemon/oidc/claims-mapping';
+import {
+  desiredGrantsFromClaims,
+  extractClaimValues,
+  mergeDesiredGrant,
+} from '../../../src/daemon/oidc/claims-mapping';
 import type { OidcClaimMappingRule } from '../../../src/daemon/oidc/oidc-config';
 
 describe('extractClaimValues', () => {
@@ -59,5 +63,29 @@ describe('desiredGrantsFromClaims', () => {
 
   it('no claim values ⇒ empty desired set (fail-closed)', () => {
     expect(desiredGrantsFromClaims([], RULES, () => true).desired).toEqual([]);
+  });
+});
+
+describe('mergeDesiredGrant', () => {
+  const W1 = '01900000-bbbb-7000-8000-000000000001';
+  const W2 = '01900000-bbbb-7000-8000-000000000002';
+
+  it('appends the floor when its workspace is not desired', () => {
+    expect(mergeDesiredGrant([{ workspaceId: W1, role: 'editor' }], { workspaceId: W2, role: 'viewer' })).toEqual([
+      { workspaceId: W1, role: 'editor' },
+      { workspaceId: W2, role: 'viewer' },
+    ]);
+  });
+
+  it('a higher floor role re-roles the desired pair; an equal or lower one leaves it alone', () => {
+    expect(mergeDesiredGrant([{ workspaceId: W1, role: 'viewer' }], { workspaceId: W1, role: 'editor' })).toEqual([
+      { workspaceId: W1, role: 'editor' },
+    ]);
+    expect(mergeDesiredGrant([{ workspaceId: W1, role: 'owner' }], { workspaceId: W1, role: 'editor' })).toEqual([
+      { workspaceId: W1, role: 'owner' },
+    ]);
+    expect(mergeDesiredGrant([{ workspaceId: W1, role: 'editor' }], { workspaceId: W1, role: 'editor' })).toEqual([
+      { workspaceId: W1, role: 'editor' },
+    ]);
   });
 });

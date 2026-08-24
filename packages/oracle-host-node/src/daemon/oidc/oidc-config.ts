@@ -34,6 +34,35 @@ export interface OidcClaimMappings {
   rules: readonly OidcClaimMappingRule[];
 }
 
+/**
+ * Sentinel accepted where {@link OidcDefaultGrant.workspace} would name
+ * a workspace id: the server's default workspace, resolved on every
+ * login as the first live workspace in the server's sort order — the
+ * one the daemon seeded at first boot on an untouched server, and a
+ * self-healing referent when that one was deleted.
+ */
+export const OIDC_DEFAULT_WORKSPACE_SENTINEL = 'default';
+
+/**
+ * The declared grant floor (the server-access plan A3/A11) — the
+ * workspace role every SSO login is guaranteed to hold. Folded into the
+ * same per-login reconcile the claim mapping rides (`idp`-origin rows,
+ * manual grants always win their pair), so it covers auto-provisioned
+ * AND pre-created users and follows config changes on the next login.
+ */
+export interface OidcDefaultGrant {
+  /**
+   * {@link OIDC_DEFAULT_WORKSPACE_SENTINEL} for the server's default
+   * workspace, or a workspace id for an explicit target. Ids are
+   * discoverable via `oh workspace list` or the admin console's
+   * workspace dropdowns; a by-id target the server no longer holds
+   * falls back to the sentinel resolution with a warning — the floor
+   * holds either way.
+   */
+  workspace: string;
+  role: WorkspaceRole;
+}
+
 export interface DaemonOidcConfig {
   /**
    * The provider's issuer URL — discovery runs against
@@ -81,8 +110,28 @@ export interface DaemonOidcConfig {
   /** Human-readable provider name for the login gate's SSO button. */
   providerLabel?: string;
   /**
-   * Claims→grant mapping. Absent = no automated grants; every grant is
-   * a manual operator act (the pre-mapping behavior, unchanged).
+   * Claims→grant mapping. Absent = no claim-driven grants; the declared
+   * default ({@link defaultGrant}) still applies — the floor and the
+   * mapping are independent axes, and the field ships both.
    */
   claimMappings?: OidcClaimMappings;
+  /**
+   * The declared grant floor. Absent = the floor still applies with the
+   * sentinel workspace and the `viewer` role — admission confers access
+   * (the server-access plan A1) is the law, not an option; gating WHO
+   * may sign in stays {@link autoProvision}'s job.
+   */
+  defaultGrant?: OidcDefaultGrant;
+  /**
+   * Emails that confer `daemon.admin` on login (the front door's Q3,
+   * closed by the server-access plan A3): a listed email that completes
+   * a login without the role is promoted, audited, and — on the first
+   * such promotion — every unbound operator token is revoked (the
+   * claim's O3 arc, run the moment a real admin provably exists).
+   * Confer-only: removal from this list never demotes; revocation stays
+   * the console's manual act. Matched case-insensitively. Absent = no
+   * declared admins — the unbound operator token remains the
+   * administrative floor, and boot says so.
+   */
+  adminEmails?: readonly string[];
 }

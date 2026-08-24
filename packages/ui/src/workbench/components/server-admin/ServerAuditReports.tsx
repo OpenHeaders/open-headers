@@ -67,6 +67,7 @@ const CAPABILITY_OPTIONS: ReadonlyArray<{ value: string; labelKey: MessageKey }>
   { value: 'daemon.operator', labelKey: 'workbench.serverAdmin.audit.capOperatorPlane' },
   { value: 'daemon.sso-grant', labelKey: 'workbench.serverAdmin.audit.capSsoGrant' },
   { value: 'daemon.sso-revoke', labelKey: 'workbench.serverAdmin.audit.capSsoRevoke' },
+  { value: 'daemon.sso-admin', labelKey: 'workbench.serverAdmin.audit.capSsoAdmin' },
   { value: 'workspace.read', labelKey: 'workbench.serverAdmin.audit.capWorkspaceRead' },
   { value: 'workspace.write', labelKey: 'workbench.serverAdmin.audit.capWorkspaceWrite' },
   { value: 'workspace.list', labelKey: 'workbench.serverAdmin.audit.capWorkspaceList' },
@@ -200,6 +201,8 @@ const ServerAuditReports: React.FC<{
           return <Tag color="blue">{t('workbench.serverAdmin.audit.eventSsoGrant')}</Tag>;
         if (row.capability === 'daemon.sso-revoke')
           return <Tag color="purple">{t('workbench.serverAdmin.audit.eventSsoRevoke')}</Tag>;
+        if (row.capability === 'daemon.sso-admin')
+          return <Tag color="gold">{t('workbench.serverAdmin.audit.eventSsoAdmin')}</Tag>;
         return row.decision.allow ? (
           <Tag color="green">{t('workbench.serverAdmin.audit.eventAllow')}</Tag>
         ) : (

@@ -39,18 +39,16 @@
 
 import {
   createDaemonUser,
-  emitAuditEntry,
   grantWorkspaceRole,
   isDaemonDirectoryEmpty,
-  listDaemonAuthTokens,
   mintDaemonAuthToken,
-  revokeDaemonAuthToken,
   setDaemonUserDaemonAdmin,
   setDaemonUserPassword,
 } from '@openheaders/core/identity';
 import { hostLogger as logger } from '@openheaders/core/logger';
 import { SESSION_TTL_MS } from '../password/password-login-service';
 import { hashPassword, PASSWORD_MIN_LENGTH } from '../password/password-verifier';
+import { revokeUnboundTokens } from '../revoke-unbound-tokens';
 import { generateSetupCode, setupCodeMatches } from './setup-code';
 
 const SCOPE = 'SetupClaim';
@@ -215,28 +213,4 @@ export function createDaemonSetupClaimService(options: DaemonSetupClaimServiceOp
       return { ok: true, secret: minted.secret, userId: user.id, revokedTokens };
     },
   };
-}
-
-/**
- * O3 — every unbound token dies with the claim. Persist the revoke
- * BEFORE evicting the socket, the ordering `tokens.revoke` established:
- * a peer racing the eviction re-reads an already-revoked ledger instead
- * of slipping a fresh connection past a not-yet-written revoke. Each
- * revocation is stamped with the same `daemon.admin` allow row an
- * administrative act over the peer plane would carry.
- */
-async function revokeUnboundTokens(
-  actorUserId: string,
-  orgId: string,
-  closePeersByTokenId: (tokenId: string) => void,
-): Promise<number> {
-  let revoked = 0;
-  for (const token of await listDaemonAuthTokens()) {
-    if (token.userId !== undefined || token.revokedAt !== null) continue;
-    await revokeDaemonAuthToken(token.id);
-    closePeersByTokenId(token.id);
-    emitAuditEntry({ actorUserId, capability: 'daemon.admin', decision: { allow: true }, orgId });
-    revoked += 1;
-  }
-  return revoked;
 }
