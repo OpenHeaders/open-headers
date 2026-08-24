@@ -741,6 +741,14 @@ export const ENTITY_CASES: readonly EntityCase[] = [
       })),
       userProperties: Array.from({ length: rng.int(2) }, () => keyValueRow(rng)),
       ...opt(
+        'auth',
+        maybe(rng, 0.4, () =>
+          rng.next() < 0.5
+            ? ({ type: 'none' } as const)
+            : ({ type: 'basic', username: word(rng), password: '{{brokerSecret}}' } as const),
+        ),
+      ),
+      ...opt(
         'lastWill',
         maybe(rng, 0.3, () => ({
           topic: `status/${word(rng)}`,

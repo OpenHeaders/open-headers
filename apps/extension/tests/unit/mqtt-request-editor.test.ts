@@ -116,6 +116,14 @@ describe('mqtt draft projections', () => {
     ]);
   });
 
+  it('reads absent auth as none and round-trips the Basic pair', () => {
+    expect(buildMqttRequestUpdates(draftFromMqttRequest(mqttRequest())).auth).toEqual({ type: 'none' });
+    const entity = mqttRequest({ auth: { type: 'basic', username: 'probe', password: '{{brokerSecret}}' } });
+    const updates = buildMqttRequestUpdates(draftFromMqttRequest(entity));
+    expect(updates.auth).toEqual({ type: 'basic', username: 'probe', password: '{{brokerSecret}}' });
+    expect(canonicalMqttRequestProjection(entity).auth).toEqual(updates.auth);
+  });
+
   it('round-trips CONNECT user-property rows through the KeyValue grid shape', () => {
     const rows = userPropertiesToRows([{ uid: 'mqup0001', key: 'x-tenant', value: 'openheaders', enabled: false }]);
     expect(rows[0].enabled).toBe(false);

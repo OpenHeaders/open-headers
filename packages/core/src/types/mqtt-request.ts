@@ -19,6 +19,7 @@
 
 import type * as v from 'valibot';
 import type {
+  MqttAuthSchema,
   MqttLastWillSchema,
   MqttMessagePropertiesSchema,
   MqttPayloadFormatSchema,
@@ -59,6 +60,9 @@ export type MqttSavedMessage = v.InferOutput<typeof MqttSavedMessageSchema>;
 
 /** Last-will block registered on CONNECT (absent = no will). */
 export type MqttLastWill = v.InferOutput<typeof MqttLastWillSchema>;
+
+/** Session credential on the CONNECT packet (Basic; absent = none). */
+export type MqttAuth = v.InferOutput<typeof MqttAuthSchema>;
 
 /** Ids-only binding to the AsyncAPI spec feeding compose aids. */
 export type MqttSpecLink = v.InferOutput<typeof MqttSpecLinkSchema>;

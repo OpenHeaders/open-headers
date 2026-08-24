@@ -180,6 +180,7 @@ export const MQTT_REQUEST_FIELD_ORDER = [
   'topics',
   'savedMessages',
   'userProperties',
+  'auth',
   'lastWill',
   'specLink',
   'clientId',

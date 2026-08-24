@@ -503,7 +503,13 @@ function decodeConnack(reader: MqttReader, version: MqttProtocolVersion): MqttCo
   const ackFlags = reader.byte();
   if ((ackFlags & 0xfe) !== 0) throw new MqttCodecError('CONNACK reserved flag bits are set.');
   const reasonCode = reader.byte();
-  const properties = version === MQTT_PROTOCOL_VERSIONS.v5 ? decodeProperties(reader) : undefined;
+  // Read-tolerance: a 3.1.1-only broker refusing a 5.0 CONNECT answers
+  // in 3.1.1 form — two bytes, no properties field (aedes does exactly
+  // this, return code 0x01). Properties absent at end-of-body read as
+  // none so the refusal reason surfaces VERBATIM instead of dying as a
+  // malformed packet (the stock MQTT.js client tolerates it the same
+  // way).
+  const properties = version === MQTT_PROTOCOL_VERSIONS.v5 && !reader.atEnd ? decodeProperties(reader) : undefined;
   return {
     type: 'connack',
     sessionPresent: (ackFlags & 0x01) !== 0,

@@ -3,8 +3,9 @@
  *
  * Editor shell: version select (V5 default / V3.1.1) + scheme select
  * (mqtt/mqtts/ws/wss string surgery) + URL in the header title slot.
- * Tabs: Docs / Message / Topics / Authorization (shell — a later phase
- * wires Basic auth) / Properties / Last Will / AsyncAPI / Settings.
+ * Tabs: Docs / Message / Topics / Authorization (Basic — the
+ * username/password pair on the CONNECT packet, `{{refs}}` resolved at
+ * Connect) / Properties / Last Will / AsyncAPI / Settings.
  *
  * The Message tab is the publish compose: payload editor with the
  * Text / JSON / Base64 / Hexadecimal ENCODING select (base64/hex
@@ -183,6 +184,7 @@ const emptyMqttDraft = (): MqttDraft => ({
   topics: [],
   savedMessages: [],
   userProperties: [],
+  auth: { type: 'none' },
   lastWill: emptyLastWillDraft(),
   specLink: undefined,
   clientId: '',
@@ -1624,27 +1626,82 @@ const MqttRequestEditor: React.FC<MqttRequestEditorProps> = ({
               )}
               {activeTab === 'auth' && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 12, maxWidth: 560 }}>
-                  {/* Shell only — Basic auth (username/password on
-                    CONNECT) wires up in a later phase; the disabled
-                    select is the honest scaffold, never a hidden tab. */}
                   <div>
                     <Text type="secondary" style={{ display: 'block', fontSize: 11, marginBottom: 4 }}>
                       {t('workbench.editors.mqtt.auth.typeLabel')}
                     </Text>
                     <Select
                       style={{ width: 220 }}
-                      value="none"
-                      disabled
+                      value={draft.auth.type}
                       options={[
                         { value: 'none', label: t('workbench.editors.mqtt.auth.typeNone') },
                         { value: 'basic', label: t('workbench.editors.mqtt.auth.typeBasic') },
                       ]}
+                      onChange={(type: 'none' | 'basic') =>
+                        setDraft((d) => ({
+                          ...d,
+                          auth:
+                            type === 'basic'
+                              ? {
+                                  type: 'basic',
+                                  username: d.auth.type === 'basic' ? d.auth.username : '',
+                                  password: d.auth.type === 'basic' ? d.auth.password : '',
+                                }
+                              : { type: 'none' },
+                        }))
+                      }
                       data-testid="mqtt-auth-type"
                     />
                   </div>
-                  <Text type="secondary" style={{ fontSize: 11 }}>
-                    {t('workbench.editors.mqtt.auth.pending')}
-                  </Text>
+                  {draft.auth.type === 'basic' && (
+                    <>
+                      <div>
+                        <Text type="secondary" style={{ display: 'block', fontSize: 11, marginBottom: 4 }}>
+                          {t('workbench.editors.mqtt.auth.usernameLabel')}
+                        </Text>
+                        <Input
+                          style={{ fontFamily: "'SF Mono', monospace", fontSize: 12 }}
+                          placeholder={t('workbench.editors.mqtt.auth.usernamePlaceholder')}
+                          value={draft.auth.username}
+                          onChange={(e) =>
+                            setDraft((d) => ({
+                              ...d,
+                              auth: {
+                                type: 'basic',
+                                username: e.target.value,
+                                password: d.auth.type === 'basic' ? d.auth.password : '',
+                              },
+                            }))
+                          }
+                          data-testid="mqtt-auth-username"
+                        />
+                      </div>
+                      <div>
+                        <Text type="secondary" style={{ display: 'block', fontSize: 11, marginBottom: 4 }}>
+                          {t('workbench.editors.mqtt.auth.passwordLabel')}
+                        </Text>
+                        <Input.Password
+                          style={{ fontFamily: "'SF Mono', monospace", fontSize: 12 }}
+                          placeholder={t('workbench.editors.mqtt.auth.passwordPlaceholder')}
+                          value={draft.auth.password}
+                          onChange={(e) =>
+                            setDraft((d) => ({
+                              ...d,
+                              auth: {
+                                type: 'basic',
+                                username: d.auth.type === 'basic' ? d.auth.username : '',
+                                password: e.target.value,
+                              },
+                            }))
+                          }
+                          data-testid="mqtt-auth-password"
+                        />
+                        <Text type="secondary" style={{ display: 'block', fontSize: 11, marginTop: 6 }}>
+                          {t('workbench.editors.mqtt.auth.help')}
+                        </Text>
+                      </div>
+                    </>
+                  )}
                 </div>
               )}
               {activeTab === 'properties' && (

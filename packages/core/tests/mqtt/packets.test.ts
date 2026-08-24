@@ -272,6 +272,15 @@ describe('3.1.1 round-trips', () => {
     expect(reDecode(packet, V4)).toEqual(packet);
   });
 
+  it('tolerates a 3.1.1-form CONNACK under the 5.0 decoder — the refusal code reads verbatim', () => {
+    // A 3.1.1-only broker refusing a 5.0 CONNECT (aedes: return code
+    // 0x01) answers in 3.1.1 form — no properties field. The decoder
+    // reads absent-at-end properties as none instead of malformed.
+    const decoded = decodeMqttPacket(new Uint8Array([0x20, 0x02, 0x00, 0x01]), V5);
+    if (!decoded.ok) throw new Error(`decode failed: ${decoded.error}`);
+    expect(decoded.packet).toEqual({ type: 'connack', sessionPresent: false, reasonCode: 1 });
+  });
+
   it('round-trips acks and DISCONNECT with reasonCode null', () => {
     expect(reDecode({ type: 'puback', packetId: 2, reasonCode: null }, V4)).toEqual({
       type: 'puback',

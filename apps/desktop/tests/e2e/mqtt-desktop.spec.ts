@@ -34,6 +34,13 @@
  *       MqttResponseExample — viewer tab with the captured end pill,
  *       sidebar example leaf under the parent request, "Open in
  *       Request" returns to the parent editor.
+ *   M8  Basic auth (Phase F): the probe identity on CONNECT opens the
+ *       session; a wrong password settles as the verbatim CONNACK
+ *       refusal (Bad user name or password, code 4).
+ *   M9  the 5.0 knob against the 3.1.1-only broker: aedes answers a
+ *       3.1.1-form CONNACK return code 0x01 — the refusal reads
+ *       verbatim (Unacceptable protocol version), never an open
+ *       session the broker is closing.
  *
  * Deliberately NOT here (covered elsewhere): the entity/editor
  * lifecycle + honest browser posture (extension
@@ -423,5 +430,35 @@ test('M7 — Save Response mints the example: viewer end pill, sidebar leaf, Ope
   await connectButton().waitFor({ state: 'visible', timeout: 10_000 });
   await expect(workbench.getByTestId('mqtt-url-input').filter({ visible: true }).first()).toHaveValue(
     new RegExp(`mqtt://127\\.0\\.0\\.1:${MQTT_PROBE_PORT}`),
+  );
+});
+
+// ── M8: Basic auth on CONNECT ───────────────────────────────────────
+
+test('M8 — the probe identity opens the session; a wrong password refuses with the verbatim CONNACK code', async () => {
+  await openMqttRequest('e2emqd07');
+  await connectAndAwaitOpen();
+  await disconnectAndAwaitClose('Disconnected');
+
+  await openMqttRequest('e2emqd08');
+  await expect.poll(async () => connectButton().isEnabled(), { timeout: 15_000 }).toBe(true);
+  await connectButton().click();
+  const errorState = workbench.getByTestId('mqtt-session-error').filter({ visible: true }).first();
+  await errorState.waitFor({ state: 'visible', timeout: 20_000 });
+  await expect(workbench.getByTestId('mqtt-session-error-detail').filter({ visible: true }).first()).toContainText(
+    'Bad user name or password (code 4)',
+  );
+});
+
+// ── M9: the 5.0 knob against the 3.1.1-only broker ──────────────────
+
+test('M9 — a 5.0 CONNECT is refused with the 3.1.1-form return code verbatim', async () => {
+  await openMqttRequest('e2emqd09');
+  await expect.poll(async () => connectButton().isEnabled(), { timeout: 15_000 }).toBe(true);
+  await connectButton().click();
+  const errorState = workbench.getByTestId('mqtt-session-error').filter({ visible: true }).first();
+  await errorState.waitFor({ state: 'visible', timeout: 20_000 });
+  await expect(workbench.getByTestId('mqtt-session-error-detail').filter({ visible: true }).first()).toContainText(
+    'Unacceptable protocol version (code 1)',
   );
 });

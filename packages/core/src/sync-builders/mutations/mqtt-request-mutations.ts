@@ -6,7 +6,7 @@
  * no IO. The three set-modeled fields (`topics`, `savedMessages`,
  * `userProperties`) route through the shared {@link synthesizeSetDiff}
  * minimum-envelope synthesizer; container-valued scalars
- * (`publishProperties`, `lastWill`, `specLink`) route through
+ * (`publishProperties`, `lastWill`, `specLink`, `auth`) route through
  * {@link synthesizeFieldDiff} so edits share create's per-leaf
  * representation and a cleared object tombstones its leaves.
  *
@@ -38,7 +38,7 @@ export interface MqttRequestMutationPayload {
 export type MqttLiveSetEntries = (mqttRequestUid: string, setPath: string) => ReadonlyArray<LiveSetEntry>;
 
 /** Current materialized value reader for container-valued scalar paths
- *  (`publishProperties`, `lastWill`, `specLink`). */
+ *  (`publishProperties`, `lastWill`, `specLink`, `auth`). */
 export type MqttLiveFieldValue = (mqttRequestUid: string, path: string) => unknown;
 
 /** New MQTT request → seed batch. No side effects. */
@@ -62,7 +62,7 @@ const SET_PATHS = [
  *  flatten-diff — and whose explicit `undefined` in a patch means
  *  CLEAR (the editor collapses an all-empty block to `undefined`), not
  *  "field untouched": the diff tombstones every old leaf. */
-const CONTAINER_SCALAR_PATHS: ReadonlySet<string> = new Set(['publishProperties', 'lastWill', 'specLink']);
+const CONTAINER_SCALAR_PATHS: ReadonlySet<string> = new Set(['publishProperties', 'lastWill', 'specLink', 'auth']);
 type SetPath = (typeof SET_PATHS)[number];
 
 const isSetPath = (key: string): SetPath | null =>
@@ -78,7 +78,7 @@ const isSetPath = (key: string): SetPath | null =>
  * Translate a `Partial<Omit<MqttRequest, 'uid'|'path'>>` patch into a
  * single batch. Scalar fields → one `setField` per leaf; the three set
  * paths → minimum diff via {@link synthesizeSetDiff};
- * `publishProperties` / `lastWill` / `specLink` → per-leaf
+ * `publishProperties` / `lastWill` / `specLink` / `auth` → per-leaf
  * flatten-diff via {@link synthesizeFieldDiff}.
  */
 export function buildMqttUpdateBatch(
@@ -124,8 +124,8 @@ export function buildMqttUpdateBatch(
     }
 
     // Container-valued scalars (`publishProperties`, `lastWill`,
-    // `specLink`) — emit a per-leaf flatten-diff so the edit shares
-    // create's representation.
+    // `specLink`, `auth`) — emit a per-leaf flatten-diff so the edit
+    // shares create's representation.
     if (value !== null && typeof value === 'object') {
       bodies.push(
         ...synthesizeFieldDiff({

@@ -73,6 +73,7 @@ export {
 } from './live';
 export {
   MAX_MQTT_URL_LENGTH,
+  MqttAuthSchema,
   MqttLastWillSchema,
   MqttMessagePropertiesSchema,
   MqttPayloadFormatSchema,

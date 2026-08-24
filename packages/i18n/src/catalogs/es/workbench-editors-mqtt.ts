@@ -92,8 +92,12 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.auth.typeLabel': 'Tipo',
   'workbench.editors.mqtt.auth.typeNone': 'Sin autenticación',
   'workbench.editors.mqtt.auth.typeBasic': 'Autenticación Basic',
-  'workbench.editors.mqtt.auth.pending':
-    'El usuario/contraseña en CONNECT llega en una próxima actualización, junto con el plano de sesión.',
+  'workbench.editors.mqtt.auth.usernameLabel': 'Usuario',
+  'workbench.editors.mqtt.auth.usernamePlaceholder': 'Usuario o {{variable}}',
+  'workbench.editors.mqtt.auth.passwordLabel': 'Contraseña',
+  'workbench.editors.mqtt.auth.passwordPlaceholder': 'Contraseña o {{variable}}',
+  'workbench.editors.mqtt.auth.help':
+    'Se envían como User Name y Password del paquete CONNECT en todos los hosts — ambas versiones de MQTT los transportan. Las variables se resuelven al conectar; los ejemplos guardados nunca capturan la credencial.',
   'workbench.editors.mqtt.userProps.hint':
     'Propiedades de usuario enviadas en CONNECT: metadatos libres que el bróker y otras herramientas pueden leer.',
   'workbench.editors.mqtt.userProps.v311':

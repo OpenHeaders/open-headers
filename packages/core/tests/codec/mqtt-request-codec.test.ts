@@ -139,6 +139,21 @@ describe('parseMqttRequest', () => {
     expect(parsed.value).toEqual(entity);
   });
 
+  it('round-trips the auth block — both variants, templates intact', () => {
+    for (const auth of [
+      { type: 'none' } as const,
+      { type: 'basic', username: 'probe', password: '{{brokerSecret}}' } as const,
+    ]) {
+      const entity = mqttRequest({ auth });
+      const out = serializeMqttRequest(freshDocument(entity));
+      const parsed = parseMqttRequest(out.mqttYaml, {
+        path: entity.path,
+        siblings: out.payloadFile ? [out.payloadFile] : [],
+      });
+      expect(parsed.value).toEqual(entity);
+    }
+  });
+
   it('round-trips the per-message properties block with nested user properties', () => {
     const entity = mqttRequest({
       publishProperties: {

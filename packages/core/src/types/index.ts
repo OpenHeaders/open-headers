@@ -165,6 +165,7 @@ export type {
 } from './mqtt-execution';
 // ── MQTT request ───────────────────────────────────────────────────
 export type {
+  MqttAuth,
   MqttLastWill,
   MqttMessageProperties,
   MqttPayloadFormat,

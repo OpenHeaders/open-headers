@@ -97,6 +97,19 @@ const mqttRequests: MqttRequest[] = [
     topic: 'probe/close',
     payload: 'sever',
   }),
+  // M8: Basic auth (Phase F) — the probe identity on CONNECT opens the
+  // session; its wrong-password sibling refuses with return code 4.
+  mqttRequest('e2emqd07', 'Probe Auth', {
+    auth: { type: 'basic', username: 'probe', password: 'probe-secret' },
+  }),
+  mqttRequest('e2emqd08', 'Probe Auth Refused', {
+    auth: { type: 'basic', username: 'probe', password: 'wrong-secret' },
+  }),
+  // M9: the 5.0 knob against the 3.1.1-only broker — aedes answers a
+  // 3.1.1-form CONNACK return code 0x01; the refusal reads verbatim.
+  mqttRequest('e2emqd09', 'Probe V5 Refused', {
+    protocolVersion: '5.0',
+  }),
 ];
 
 const values: Record<string, unknown> = {

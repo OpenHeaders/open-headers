@@ -153,6 +153,27 @@ export const MqttLastWillSchema = v.object({
 });
 
 /**
+ * Session credential — MQTT-native Basic auth: the username/password
+ * pair the CONNECT packet carries (both protocol versions speak it;
+ * the reference client's exact scope). Templates welcome — the
+ * executor resolves both fields at Connect, an empty resolved field
+ * reads as absent (partial configs stay saveable — the WS bearer
+ * posture), and the capture never carries the credential (the
+ * volatile/secret law). Absent = `none`. 5.0 enhanced AUTH is
+ * demand-gated.
+ */
+export const MqttAuthSchema = v.variant('type', [
+  v.object({ type: v.literal('none') }),
+  v.object({
+    type: v.literal('basic'),
+    /** CONNECT User Name; templates resolve at Connect. */
+    username: v.string(),
+    /** CONNECT Password, authored as text (travels as its UTF-8 bytes). */
+    password: v.string(),
+  }),
+]);
+
+/**
  * Binding to the AsyncAPI spec that feeds compose aids — ids-only
  * identity, same posture as `WebSocketSpecLinkSchema`: the census is
  * rebuilt from the spec's live files at consume, nothing cached.
@@ -193,6 +214,8 @@ export const MqttRequestSchema = v.object({
   savedMessages: v.array(MqttSavedMessageSchema),
   /** CONNECT-level user properties (set-modeled; 5.0, the Properties tab). */
   userProperties: v.array(MqttUserPropertyRowSchema),
+  /** Session credential on the CONNECT packet. Absent = none. */
+  auth: v.optional(MqttAuthSchema),
   lastWill: v.optional(MqttLastWillSchema),
   specLink: v.optional(MqttSpecLinkSchema),
   /**

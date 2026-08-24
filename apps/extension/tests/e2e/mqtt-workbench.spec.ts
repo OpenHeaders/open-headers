@@ -56,6 +56,10 @@
  *       MqttResponseExample — viewer tab with the captured end pill,
  *       sidebar example leaf under the parent request, and "Open in
  *       Request" returns to the parent editor.
+ *   E11 Basic auth (Phase F): the Auth tab's probe identity rides the
+ *       CONNECT packet and opens the session; a wrong password settles
+ *       as the verbatim CONNACK refusal (Bad user name or password,
+ *       code 4).
  *
  * Requires the extension `dist/chrome` build.
  *
@@ -637,4 +641,38 @@ test('E10 — Save Response mints the example: viewer end pill, sidebar leaf, Op
   await page.getByTestId('mqtt-example-open-in-request').filter({ visible: true }).first().click();
   await urlInput().waitFor({ state: 'visible', timeout: 10_000 });
   await expect(urlInput()).toHaveValue(MQTT_WS_PROBE_URL);
+});
+
+// ── E11: Basic auth on CONNECT (Phase F) ────────────────────────────
+
+test('E11 — the probe identity opens the session; a wrong password refuses with the verbatim CONNACK code', async () => {
+  // The draft still points at the probe (E10's prefill) — configure
+  // the Auth tab's Basic pair; the credential rides the CONNECT
+  // packet, resolved at Connect.
+  await expect(urlInput()).toHaveValue(MQTT_WS_PROBE_URL);
+  await page.getByRole('tab', { name: 'Authorization', exact: true }).filter({ visible: true }).first().click();
+  await page.getByTestId('mqtt-auth-type').filter({ visible: true }).first().click();
+  await page
+    .locator('.ant-select-dropdown')
+    .filter({ visible: true })
+    .locator('.ant-select-item-option')
+    .filter({ hasText: 'Basic auth' })
+    .first()
+    .click();
+  await page.getByTestId('mqtt-auth-username').filter({ visible: true }).first().fill('probe');
+  await page.getByTestId('mqtt-auth-password').filter({ visible: true }).first().fill('probe-secret');
+
+  await connectAndAwaitOpen();
+  await disconnectAndAwaitClose();
+
+  // The wrong password settles as the verbatim CONNACK refusal — the
+  // classified pre-open error, never a synthesized status.
+  await page.getByTestId('mqtt-auth-password').filter({ visible: true }).first().fill('wrong-secret');
+  await expect(connectButton()).toBeEnabled();
+  await connectButton().click();
+  const errorState = page.getByTestId('mqtt-session-error').filter({ visible: true }).first();
+  await errorState.waitFor({ state: 'visible', timeout: 20_000 });
+  await expect(page.getByTestId('mqtt-session-error-detail').filter({ visible: true }).first()).toContainText(
+    'Bad user name or password (code 4)',
+  );
 });

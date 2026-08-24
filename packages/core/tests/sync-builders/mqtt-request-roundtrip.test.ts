@@ -1,8 +1,8 @@
 /**
  * MqttRequest sync round-trip: seed → materialize → project, plus the
  * update-batch shapes — scalar `setField` leaves, per-leaf flatten-diff
- * for `publishProperties` / `lastWill` / `specLink`, and minimum
- * set-diff envelopes for the three set-modeled row paths.
+ * for `publishProperties` / `lastWill` / `specLink` / `auth`, and
+ * minimum set-diff envelopes for the three set-modeled row paths.
  */
 
 import { describe, expect, it } from 'vitest';
@@ -52,6 +52,7 @@ function liveField(store: InMemoryDocumentStore, uid: string): MqttLiveFieldValu
     if (path === 'publishProperties') return r.publishProperties;
     if (path === 'lastWill') return r.lastWill;
     if (path === 'specLink') return r.specLink;
+    if (path === 'auth') return r.auth;
     return undefined;
   };
 }
@@ -183,6 +184,53 @@ describe('mqtt request update batches', () => {
       qos: 1,
       retain: true,
     });
+  });
+
+  it('routes an auth edit through the per-leaf flatten-diff and tombstones the pair on the switch back to none', () => {
+    const store = new InMemoryDocumentStore(mqttSchemas);
+    applyBatch(
+      store,
+      buildMqttAddBatch({ ...seed, auth: { type: 'basic', username: 'probe', password: '{{secret}}' } }, ctx(1_000)),
+    );
+
+    const edit = buildMqttUpdateBatch(
+      'mqrq0001',
+      { auth: { type: 'basic', username: 'probe', password: '{{rotated}}' } },
+      ctx(2_000),
+      noSets,
+      liveField(store, 'mqrq0001'),
+    );
+    const editPaths = edit.batch.mutations.map((m) => (m.body.kind === 'setField' ? m.body.path : m.body.kind));
+    expect(editPaths).not.toContain('auth');
+    expect(editPaths).toContain('auth.password');
+    applyBatch(store, edit);
+    expect(materialized(store, 'mqrq0001').auth).toEqual({
+      type: 'basic',
+      username: 'probe',
+      password: '{{rotated}}',
+    });
+
+    // Switching back to none tombstones the credential leaves — the
+    // pair never lingers on the entity behind a none-typed block.
+    applyBatch(
+      store,
+      buildMqttUpdateBatch('mqrq0001', { auth: { type: 'none' } }, ctx(3_000), noSets, liveField(store, 'mqrq0001')),
+    );
+    expect(materialized(store, 'mqrq0001').auth).toEqual({ type: 'none' });
+  });
+
+  it('clears saved auth entirely when the patch carries an explicit undefined', () => {
+    const store = new InMemoryDocumentStore(mqttSchemas);
+    applyBatch(
+      store,
+      buildMqttAddBatch({ ...seed, auth: { type: 'basic', username: 'probe', password: 'pw' } }, ctx(1_000)),
+    );
+
+    applyBatch(
+      store,
+      buildMqttUpdateBatch('mqrq0001', { auth: undefined }, ctx(2_000), noSets, liveField(store, 'mqrq0001')),
+    );
+    expect(materialized(store, 'mqrq0001').auth).toBeUndefined();
   });
 
   it('persists a spec re-link through the per-leaf flatten-diff', () => {

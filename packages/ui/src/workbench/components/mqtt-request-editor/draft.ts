@@ -17,6 +17,7 @@
  */
 
 import type {
+  MqttAuth,
   MqttLastWill,
   MqttMessageProperties,
   MqttPayloadFormat,
@@ -72,6 +73,8 @@ export interface MqttDraft {
   savedMessages: MqttSavedMessage[];
   /** CONNECT user-property rows ride the shared KeyValueTable shape. */
   userProperties: KeyValueRow[];
+  /** Concrete in the form — absent on the entity reads as none. */
+  auth: MqttAuth;
   lastWill: MqttLastWillDraft;
   specLink: MqttSpecLink | undefined;
   clientId: string;
@@ -99,6 +102,7 @@ export interface MqttRequestUpdates {
   topics: MqttTopicRow[];
   savedMessages: MqttSavedMessage[];
   userProperties: MqttUserPropertyRow[];
+  auth: MqttAuth;
   lastWill: MqttLastWill | undefined;
   specLink: MqttSpecLink | undefined;
   clientId: string;
@@ -255,6 +259,7 @@ export function draftFromMqttRequest(req: MqttRequest): MqttDraft {
     topics: req.topics.map((row) => ({ ...row })),
     savedMessages: req.savedMessages.map((row) => ({ ...row })),
     userProperties: userPropertiesToRows(req.userProperties),
+    auth: req.auth ?? { type: 'none' },
     lastWill: lastWillToDraft(req.lastWill),
     specLink: req.specLink,
     clientId: req.clientId ?? '',
@@ -282,6 +287,7 @@ export function buildMqttRequestUpdates(draft: MqttDraft): MqttRequestUpdates {
     topics: trimTopicRows(draft.topics),
     savedMessages: draft.savedMessages,
     userProperties: rowsToUserProperties(draft.userProperties),
+    auth: draft.auth,
     lastWill: draftToLastWill(draft.lastWill),
     specLink: draft.specLink,
     clientId: draft.clientId,

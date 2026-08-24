@@ -155,6 +155,64 @@ describe('executeMqttSession — connect gate', () => {
     expect(rig.written.at(-1)?.type).toBe('disconnect');
   });
 
+  it('carries the resolved Basic pair on CONNECT and keeps it off an auth-less session', async () => {
+    const rig = scriptedTransport(MQTT_PROTOCOL_VERSIONS.v5);
+    const settled = executeMqttSession(
+      makeMqttRequest({ auth: { type: 'basic', username: 'probe-{{team}}', password: 'secret pass' } }),
+      {
+        workspaceId: null,
+        environmentId: undefined,
+        transport: rig.transport,
+        sendId: 'send-mqtt-auth',
+        resolution: scopedResolution,
+      },
+    );
+    await settleTick();
+    rig.establish();
+    const connect = rig.written[0];
+    if (connect.type !== 'connect') throw new Error('expected CONNECT first');
+    expect(connect.username).toBe('probe-alpha');
+    if (connect.password === undefined) throw new Error('expected the CONNECT password');
+    expect(new TextDecoder().decode(connect.password)).toBe('secret pass');
+    rig.push(acceptedConnack);
+    closeActiveMqttSession('send-mqtt-auth');
+    await settled;
+
+    const bareRig = scriptedTransport(MQTT_PROTOCOL_VERSIONS.v5);
+    const bareSettled = executeMqttSession(makeMqttRequest({ auth: { type: 'none' } }), {
+      workspaceId: null,
+      environmentId: undefined,
+      transport: bareRig.transport,
+      sendId: 'send-mqtt-noauth',
+      resolution: scopedResolution,
+    });
+    await settleTick();
+    bareRig.establish();
+    const bareConnect = bareRig.written[0];
+    if (bareConnect.type !== 'connect') throw new Error('expected CONNECT first');
+    expect(bareConnect.username).toBeUndefined();
+    expect(bareConnect.password).toBeUndefined();
+    bareRig.push(acceptedConnack);
+    closeActiveMqttSession('send-mqtt-noauth');
+    await bareSettled;
+  });
+
+  it('gates unresolved auth references as the structured pre-wire error', async () => {
+    const rig = scriptedTransport(MQTT_PROTOCOL_VERSIONS.v5);
+    const snapshot = await executeMqttSession(
+      makeMqttRequest({ auth: { type: 'basic', username: 'probe', password: '{{vault.brokerSecret}}' } }),
+      {
+        workspaceId: null,
+        environmentId: undefined,
+        transport: rig.transport,
+        sendId: 'send-mqtt-auth-unresolved',
+        resolution: scopedResolution,
+      },
+    );
+    expect(snapshot.connected).toBe(false);
+    expect(snapshot.error).toContain('vault.brokerSecret');
+  });
+
   it('surfaces a CONNACK refusal verbatim as the classified pre-open error', async () => {
     const rig = scriptedTransport(MQTT_PROTOCOL_VERSIONS.v5);
     const settled = executeMqttSession(makeMqttRequest(), {
@@ -172,6 +230,30 @@ describe('executeMqttSession — connect gate', () => {
     expect(snapshot.error).toContain('Not authorized');
     expect(snapshot.error).toContain('135');
     expect(snapshot.connack).toEqual({ sessionPresent: false, reasonCode: 0x87 });
+  });
+
+  it('refuses a 3.1.1-form CONNACK code on a 5.0 session with the 3.1.1 name verbatim', async () => {
+    // A 3.1.1-only broker answering a 5.0 CONNECT (the aedes probe
+    // fact): 3.1.1-form CONNACK, return code 0x01 — a refusal, never
+    // an open session the broker is already closing.
+    const rig = scriptedTransport(MQTT_PROTOCOL_VERSIONS.v311);
+    const settled = executeMqttSession(makeMqttRequest(), {
+      workspaceId: null,
+      environmentId: undefined,
+      transport: rig.transport,
+      sendId: 'send-mqtt-v5-refused',
+      resolution: scopedResolution,
+    });
+    await settleTick();
+    rig.establish();
+    // The broker side emits the two-byte 3.1.1 CONNACK verbatim; the
+    // 5.0 request's decoder must read it tolerantly.
+    rig.pushBytes(new Uint8Array([0x20, 0x02, 0x00, 0x01]));
+    const snapshot = await settled;
+    expect(snapshot.connected).toBe(false);
+    expect(snapshot.error).toContain('Unacceptable protocol version');
+    expect(snapshot.error).toContain('code 1');
+    expect(snapshot.connack).toEqual({ sessionPresent: false, reasonCode: 1 });
   });
 
   it('gates a foreign scheme and unresolved variables as structured pre-wire errors', async () => {

@@ -1,8 +1,8 @@
 /**
  * MQTT session executor — host-neutral orchestration of one live
  * session: resolve `{{ref}}` templates through the SAME 4-scope
- * pipeline HTTP sends ride (url / client id / will / user properties /
- * subscription filters at Connect; every rider's fields per send
+ * pipeline HTTP sends ride (url / client id / auth / will / user
+ * properties / subscription filters at Connect; every rider's fields per send
  * through the retained resolver — or through a host-injected
  * {@link ExecuteMqttSessionOptions.resolution} closure), drive the
  * MQTT protocol over the injected byte-stream
@@ -157,12 +157,16 @@ function wireMessageProperties(
   return Object.keys(out).length > 0 ? out : undefined;
 }
 
-/** The CONNACK refusal set — the version scopes the numeric space. */
+/** The CONNACK refusal set — the version scopes the numeric space.
+ *  Any nonzero code refuses: 5.0 refusals are >= 0x80, and a nonzero
+ *  code BELOW that on a 5.0 session is a 3.1.1-form answer from a
+ *  3.1.1-only broker (aedes: 0x01 Unacceptable protocol version) —
+ *  named from the 3.1.1 table rather than opening a session the
+ *  broker is already closing. */
 function connackRefusalMessage(reasonCode: number, version: MqttProtocolVersion): string | null {
-  const refused = version === MQTT_PROTOCOL_VERSIONS.v5 ? reasonCode >= 0x80 : reasonCode !== 0;
-  if (!refused) return null;
+  if (reasonCode === 0) return null;
   const name =
-    version === MQTT_PROTOCOL_VERSIONS.v5
+    version === MQTT_PROTOCOL_VERSIONS.v5 && reasonCode >= 0x80
       ? mqttReasonCodeName(reasonCode, 'connack')
       : MQTT_CONNACK_RETURN_CODE_NAMES[reasonCode];
   return name !== undefined
@@ -210,6 +214,16 @@ export async function executeMqttSession(
   // a stable one — the Settings help copy carries that interaction).
   const configuredClientId = resolveStr(request.clientId ?? '').trim();
   const clientId = configuredClientId !== '' ? configuredClientId : `oh-${generateUid()}${generateUid()}`;
+
+  // Session credential (Basic) — resolved with the other Connect-time
+  // templates; an empty resolved field reads as absent (partial
+  // configs stay saveable — the WS bearer posture). The password
+  // travels verbatim (no trim — spaces are legal); a 3.1.1
+  // password-sans-username is rejected by the encode-strict codec and
+  // surfaces as the CONNECT compose error.
+  const basicAuth = request.auth?.type === 'basic' ? request.auth : null;
+  const authUsername = basicAuth !== null ? resolveStr(basicAuth.username).trim() : '';
+  const authPassword = basicAuth !== null ? resolveStr(basicAuth.password) : '';
 
   // CONNECT-level user properties + the 5.0 connect knobs — applied on
   // 5.0 sessions only (the disabled-honest lens; the editor keeps the
@@ -542,6 +556,8 @@ export async function executeMqttSession(
             clientId,
             cleanStart: request.cleanStart ?? true,
             keepAlive,
+            ...(authUsername !== '' ? { username: authUsername } : {}),
+            ...(authPassword !== '' ? { password: new TextEncoder().encode(authPassword) } : {}),
             ...(will !== undefined ? { will } : {}),
             ...(Object.keys(connectProperties).length > 0 ? { properties: connectProperties } : {}),
           });
