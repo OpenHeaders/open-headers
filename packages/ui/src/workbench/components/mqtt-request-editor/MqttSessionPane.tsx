@@ -53,10 +53,15 @@ interface MqttSessionPaneProps {
   onSaveResponse?: () => void;
 }
 
-/** CONNACK reason display: the spec name beside the verbatim code —
- *  the version scopes which numeric space names it. */
+/** CONNACK reason name — the version scopes which numeric space names
+ *  the verbatim code. */
+function connackReasonName(reasonCode: number, v5: boolean): string | undefined {
+  return v5 ? mqttReasonCodeName(reasonCode, 'connack') : MQTT_CONNACK_RETURN_CODE_NAMES[reasonCode];
+}
+
+/** CONNACK reason display: the spec name beside the verbatim code. */
 function connackReasonLabel(reasonCode: number, v5: boolean): string {
-  const name = v5 ? mqttReasonCodeName(reasonCode, 'connack') : MQTT_CONNACK_RETURN_CODE_NAMES[reasonCode];
+  const name = connackReasonName(reasonCode, v5);
   return name !== undefined ? `${name} (${reasonCode})` : String(reasonCode);
 }
 
@@ -93,13 +98,15 @@ const MqttSessionPane: React.FC<MqttSessionPaneProps> = ({
   const connack = snapshot?.connack ?? live?.open ?? null;
   const clientId = snapshot?.clientId ?? live?.open?.clientId ?? '';
 
-  const connectedDetail = useMemo(() => {
-    if (connack === null) return '';
-    const reason = connackReasonLabel(connack.reasonCode, v5);
-    return connack.sessionPresent
-      ? t('workbench.editors.mqtt.session.connackSessionPresent', { reason })
-      : t('workbench.editors.mqtt.session.connackDetail', { reason });
-  }, [connack, v5, t]);
+  const connackFacts = useMemo((): MqttTimelineLifecycle['connack'] => {
+    if (connack === null) return undefined;
+    const reasonName = connackReasonName(connack.reasonCode, v5);
+    return {
+      reasonCode: connack.reasonCode,
+      ...(reasonName !== undefined ? { reasonName } : {}),
+      sessionPresent: connack.sessionPresent,
+    };
+  }, [connack, v5]);
 
   const endedMessage = useMemo(() => {
     if (snapshot === null) return undefined;
@@ -120,19 +127,19 @@ const MqttSessionPane: React.FC<MqttSessionPaneProps> = ({
         ...(live !== null ? { startedAt: live.startedAt } : {}),
         connected: live !== null && live.open !== null,
         ...(live?.connectedAt !== undefined ? { connectedAt: live.connectedAt } : {}),
-        ...(connectedDetail !== '' ? { connectedDetail } : {}),
+        ...(connackFacts !== undefined ? { connack: connackFacts } : {}),
       };
     }
     return {
       ...(timing?.startedAt !== undefined ? { startedAt: timing.startedAt } : {}),
       connected: snapshot.connected,
       ...(timing?.connectedAt !== undefined ? { connectedAt: timing.connectedAt } : {}),
-      ...(connectedDetail !== '' ? { connectedDetail } : {}),
+      ...(connackFacts !== undefined ? { connack: connackFacts } : {}),
       endedBy: snapshot.stopped === true ? 'stop' : 'close',
       ...(timing?.endedAt !== undefined ? { endedAt: timing.endedAt } : {}),
       ...(endedMessage !== undefined ? { endedMessage } : {}),
     };
-  }, [snapshot, live, timing, connectedDetail, endedMessage]);
+  }, [snapshot, live, timing, connackFacts, endedMessage]);
 
   // Pre-open failures render the classified message under the plain
   // title row — there was never a session to timeline. A CONNACK

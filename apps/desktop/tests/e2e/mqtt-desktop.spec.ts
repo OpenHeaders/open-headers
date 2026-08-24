@@ -12,7 +12,7 @@
  * codec/driver matrices.
  *
  *   M1  full session walk: Connect morphs to Disconnect, the Connected
- *       row carries the verbatim CONNACK detail, the enabled topic row
+ *       row expands to the verbatim CONNACK facts, the enabled topic row
  *       subscribes at open (Subscribed row with the SUBACK grant),
  *       Send publishes the echo topic and the probe's republish lands
  *       on the subscribed reply topic (↑ then ↓ with topic chips),
@@ -247,14 +247,22 @@ test('M1 — Connect carries CONNACK, open-time SUBACK grant, echo publishes lan
   // Connect has morphed into Disconnect while the session is open.
   await expect(connectButton()).toHaveText(/Disconnect/);
 
-  // The Connected lifecycle row carries the verbatim CONNACK detail —
-  // the 3.1.1 return-code name beside the code.
-  await workbench
+  // The Connected lifecycle row reads plain; expanding it shows the
+  // verbatim CONNACK facts — the 3.1.1 return-code name beside the
+  // code — as key: value rows.
+  const connectedRow = workbench
     .getByTestId('mqtt-timeline-connected-row')
     .filter({ visible: true })
-    .filter({ hasText: 'Connected — CONNACK Connection Accepted (0)' })
-    .first()
-    .waitFor({ state: 'visible', timeout: 10_000 });
+    .filter({ hasText: 'Connected' })
+    .first();
+  await connectedRow.waitFor({ state: 'visible', timeout: 10_000 });
+  await connectedRow.click();
+  const connackDetails = workbench.getByTestId('mqtt-timeline-connack-details').filter({ visible: true }).first();
+  await connackDetails.waitFor({ state: 'visible', timeout: 10_000 });
+  await expect(connackDetails).toContainText('reasonCode: 0 (Connection Accepted)');
+  await expect(connackDetails).toContainText('sessionPresent: false');
+  await connectedRow.click();
+  await connackDetails.waitFor({ state: 'hidden', timeout: 10_000 });
 
   // The enabled topic row subscribed at open: the Subscribed lifecycle
   // row records the SUBACK grant verbatim.

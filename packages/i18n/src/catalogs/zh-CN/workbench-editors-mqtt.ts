@@ -170,8 +170,6 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.session.brokerDisconnect': '代理发送了 DISCONNECT：{reason}',
   'workbench.editors.mqtt.session.brokerDisconnectBare': '代理发送了 DISCONNECT',
   'workbench.editors.mqtt.session.severed': '连接在没有 DISCONNECT 的情况下结束',
-  'workbench.editors.mqtt.session.connackDetail': 'CONNACK {reason}',
-  'workbench.editors.mqtt.session.connackSessionPresent': 'CONNACK {reason}，会话存在',
   'workbench.editors.mqtt.session.connectionClientId': '客户端 ID',
   'workbench.editors.mqtt.session.connectionReason': 'CONNACK 原因',
   'workbench.editors.mqtt.session.connectionSessionPresent': '会话存在',
@@ -181,7 +179,6 @@ export const workbenchEditorsMqtt = {
   // ── 消息时间线 ──────────────────────────────────────────────────────
   'workbench.editors.mqtt.timeline.connecting': '连接中',
   'workbench.editors.mqtt.timeline.connected': '已连接',
-  'workbench.editors.mqtt.timeline.connectedDetail': '已连接——{detail}',
   'workbench.editors.mqtt.timeline.disconnected': '已断开',
   'workbench.editors.mqtt.timeline.stopped': '已停止',
   'workbench.editors.mqtt.timeline.subscribed': '已订阅——{detail}',

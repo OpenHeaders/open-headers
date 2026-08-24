@@ -177,8 +177,6 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.session.brokerDisconnect': 'el broker envió DISCONNECT: {reason}',
   'workbench.editors.mqtt.session.brokerDisconnectBare': 'el broker envió DISCONNECT',
   'workbench.editors.mqtt.session.severed': 'la conexión terminó sin DISCONNECT',
-  'workbench.editors.mqtt.session.connackDetail': 'CONNACK {reason}',
-  'workbench.editors.mqtt.session.connackSessionPresent': 'CONNACK {reason}, sesión presente',
   'workbench.editors.mqtt.session.connectionClientId': 'ID de cliente',
   'workbench.editors.mqtt.session.connectionReason': 'Razón CONNACK',
   'workbench.editors.mqtt.session.connectionSessionPresent': 'Sesión presente',
@@ -189,7 +187,6 @@ export const workbenchEditorsMqtt = {
   // ── Cronología de mensajes ──────────────────────────────────────────
   'workbench.editors.mqtt.timeline.connecting': 'Conectando',
   'workbench.editors.mqtt.timeline.connected': 'Conectado',
-  'workbench.editors.mqtt.timeline.connectedDetail': 'Conectado — {detail}',
   'workbench.editors.mqtt.timeline.disconnected': 'Desconectado',
   'workbench.editors.mqtt.timeline.stopped': 'Detenido',
   'workbench.editors.mqtt.timeline.subscribed': 'Suscrito — {detail}',

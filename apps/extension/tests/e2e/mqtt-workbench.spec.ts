@@ -32,7 +32,7 @@
  *       the Send scaffold's gate copy names the fix.
  *   E6  page-realm session walk (Phase D): a ws:// URL enables
  *       Connect; the session opens against the aedes probe (Connected
- *       row with the verbatim 3.1.1 CONNACK), the open-time SUBACK
+ *       row expanding to the verbatim 3.1.1 CONNACK), the open-time SUBACK
  *       grants both topic rows, the pre-seeded retained message lands
  *       with its Retained fact tag, Send echoes through the probe's
  *       reply topic (↑ then ↓ with topic chips), no node-only knob is
@@ -464,15 +464,23 @@ test('E6 — Connect runs the session in-page: CONNACK row, SUBACK grants, retai
   await connectAndAwaitOpen();
   await expect(connectButton()).toHaveText(/Disconnect/);
 
-  // The Connected lifecycle row carries the verbatim CONNACK detail —
-  // the 3.1.1 return-code name beside the code (the version knob from
-  // E2; aedes speaks 3.1.1 only).
-  await page
+  // The Connected lifecycle row reads plain; expanding it shows the
+  // verbatim CONNACK facts — the 3.1.1 return-code name beside the
+  // code (the version knob from E2; aedes speaks 3.1.1 only) — as
+  // key: value rows.
+  const connectedRow = page
     .getByTestId('mqtt-timeline-connected-row')
     .filter({ visible: true })
-    .filter({ hasText: 'Connected — CONNACK Connection Accepted (0)' })
-    .first()
-    .waitFor({ state: 'visible', timeout: 10_000 });
+    .filter({ hasText: 'Connected' })
+    .first();
+  await connectedRow.waitFor({ state: 'visible', timeout: 10_000 });
+  await connectedRow.click();
+  const connackDetails = page.getByTestId('mqtt-timeline-connack-details').filter({ visible: true }).first();
+  await connackDetails.waitFor({ state: 'visible', timeout: 10_000 });
+  await expect(connackDetails).toContainText('reasonCode: 0 (Connection Accepted)');
+  await expect(connackDetails).toContainText('sessionPresent: false');
+  await connectedRow.click();
+  await connackDetails.waitFor({ state: 'hidden', timeout: 10_000 });
 
   // Both rows subscribed at open in ONE packet — the Subscribed
   // lifecycle row records each SUBACK grant verbatim.

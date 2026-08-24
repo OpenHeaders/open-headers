@@ -27,10 +27,15 @@ interface MqttExampleResultPaneProps {
   capturedAt: string;
 }
 
-/** CONNACK reason display: the spec name beside the verbatim code —
- *  the version scopes which numeric space names it. */
+/** CONNACK reason name — the version scopes which numeric space names
+ *  the verbatim code. */
+function connackReasonName(reasonCode: number, v5: boolean): string | undefined {
+  return v5 ? mqttReasonCodeName(reasonCode, 'connack') : MQTT_CONNACK_RETURN_CODE_NAMES[reasonCode];
+}
+
+/** CONNACK reason display: the spec name beside the verbatim code. */
 function connackReasonLabel(reasonCode: number, v5: boolean): string {
-  const name = v5 ? mqttReasonCodeName(reasonCode, 'connack') : MQTT_CONNACK_RETURN_CODE_NAMES[reasonCode];
+  const name = connackReasonName(reasonCode, v5);
   return name !== undefined ? `${name} (${reasonCode})` : String(reasonCode);
 }
 
@@ -40,12 +45,14 @@ const MqttExampleResultPane: React.FC<MqttExampleResultPaneProps> = ({ response,
   const [activeTab, setActiveTab] = useState('timeline');
   const v5 = protocolVersion !== '3.1.1';
 
-  const connectedDetail = useMemo(() => {
-    const reason = connackReasonLabel(response.connack.reasonCode, v5);
-    return response.connack.sessionPresent
-      ? t('workbench.editors.mqtt.session.connackSessionPresent', { reason })
-      : t('workbench.editors.mqtt.session.connackDetail', { reason });
-  }, [response.connack, v5, t]);
+  const connackFacts = useMemo((): MqttTimelineLifecycle['connack'] => {
+    const reasonName = connackReasonName(response.connack.reasonCode, v5);
+    return {
+      reasonCode: response.connack.reasonCode,
+      ...(reasonName !== undefined ? { reasonName } : {}),
+      sessionPresent: response.connack.sessionPresent,
+    };
+  }, [response.connack, v5]);
 
   const endedMessage = useMemo(() => {
     if (response.stopped === true) return undefined;
@@ -62,11 +69,11 @@ const MqttExampleResultPane: React.FC<MqttExampleResultPaneProps> = ({ response,
   const lifecycle = useMemo(
     (): MqttTimelineLifecycle => ({
       connected: true,
-      connectedDetail,
+      ...(connackFacts !== undefined ? { connack: connackFacts } : {}),
       endedBy: response.stopped === true ? 'stop' : 'close',
       ...(endedMessage !== undefined ? { endedMessage } : {}),
     }),
-    [connectedDetail, endedMessage, response.stopped],
+    [connackFacts, endedMessage, response.stopped],
   );
 
   // End pill honesty — the MqttSessionPane's settled vocabulary.

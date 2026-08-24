@@ -10,7 +10,8 @@
  *
  * The timeline is ONE event log in packet order: "Connecting" and
  * "Disconnected / Stopped" sit at the chronological edges, "Connected"
- * (with the CONNACK detail) sits before the first item, and the
+ * (expandable to the CONNACK facts as key: value rows) sits before the
+ * first item, and the
  * subscription lifecycle facts — Subscribed-with-grant /
  * Unsubscribed — render at their TRUE chronological positions because
  * they ride the same item log as the messages (live Subscribe toggles
@@ -35,12 +36,14 @@ import {
   CheckOutlined,
   ClearOutlined,
   DisconnectOutlined,
+  DownOutlined,
   InfoCircleOutlined,
   LinkOutlined,
   MinusCircleOutlined,
   PlusCircleOutlined,
   SearchOutlined,
   SortAscendingOutlined,
+  UpOutlined,
 } from '@ant-design/icons';
 import { decodeBase64Bytes } from '@openheaders/core/utils';
 import { Button, ConfigProvider, Dropdown, Input, Segmented, Select, Tag, Tooltip, Typography, theme } from 'antd';
@@ -65,6 +68,11 @@ const SINGLE_ROW_PX = 28;
 /** Pinned height of an expanded row's mini viewer (180px editor +
  *  1px divider). */
 const VIEWER_PX = 181;
+/** Pinned height of the Connected row's expanded CONNACK block —
+ *  heading (18px) + two fact rows (20px each) + 6px paddings + 1px
+ *  divider; the lines carry these heights explicitly so the virtual
+ *  window's arithmetic stays exact by construction. */
+const CONNACK_DETAIL_PX = 71;
 
 const cellFont: React.CSSProperties = {
   fontFamily: "'SF Mono', 'Fira Code', monospace",
@@ -97,9 +105,10 @@ export interface MqttTimelineLifecycle {
   connected: boolean;
   /** Session-only CONNACK-accepted time. */
   connectedAt?: number;
-  /** The CONNACK facts riding the Connected row — assembled by the
-   *  pane; rendered verbatim. */
-  connectedDetail?: string;
+  /** The CONNACK facts behind the Connected row's expandable details —
+   *  assembled by the pane (the version knob scopes which numeric
+   *  space names the code); rendered verbatim as key: value rows. */
+  connack?: { reasonCode: number; reasonName?: string; sessionPresent: boolean };
   /** Absent while the session is open — the live phase. */
   endedBy?: MqttTimelineEndedBy;
   endedAt?: number;
@@ -126,7 +135,7 @@ interface MqttMessageTimelineProps {
 /** One display slot of the virtual list — heights are a closed
  *  function of `kind`, so windowing never measures. */
 type ListEntry =
-  | { key: string; kind: 'sent' | 'connected' | 'ended' | 'waiting' | 'noMatches' }
+  | { key: string; kind: 'sent' | 'connected' | 'connackDetail' | 'ended' | 'waiting' | 'noMatches' }
   | { key: string; kind: 'row'; index: number }
   | { key: string; kind: 'viewer'; index: number };
 
@@ -239,6 +248,7 @@ const MqttMessageTimeline: React.FC<MqttMessageTimelineProps> = ({
   // the lifecycle rows) stay untouched.
   const [clearedCount, setClearedCount] = useState(0);
   const [expanded, setExpanded] = useState<ReadonlySet<number>>(new Set<number>());
+  const [connackExpanded, setConnackExpanded] = useState(false);
   const [wrapLines, setWrapLines] = useState(true);
   // Sort direction is a SETTING — global, user-owned, written by this
   // toolbar and the Settings page alike; a Connect/Disconnect remount
@@ -271,6 +281,7 @@ const MqttMessageTimeline: React.FC<MqttMessageTimelineProps> = ({
     setTopicFilter(null);
     setClearedCount(0);
     setExpanded(new Set<number>());
+    setConnackExpanded(false);
     setHasNewMessages(false);
     awayFromNewEdgeRef.current = false;
     anchorRef.current = null;
@@ -362,8 +373,16 @@ const MqttMessageTimeline: React.FC<MqttMessageTimelineProps> = ({
       out.push({ key: 'sent', kind: 'sent' });
     }
     for (const entry of tokens) {
-      if (entry === 'connected') out.push({ key: 'connected', kind: 'connected' });
-      else pushRow(entry);
+      if (entry === 'connected') {
+        out.push({ key: 'connected', kind: 'connected' });
+        // The details block always sits directly under its row — the
+        // expanded message-viewer discipline, both sort orders.
+        if (connackExpanded && lifecycle.connack !== undefined) {
+          out.push({ key: 'connackDetail', kind: 'connackDetail' });
+        }
+      } else {
+        pushRow(entry);
+      }
     }
     if (newestFirst) {
       out.push({ key: 'sent', kind: 'sent' });
@@ -372,9 +391,27 @@ const MqttMessageTimeline: React.FC<MqttMessageTimelineProps> = ({
       if (lifecycle.endedBy !== undefined) out.push({ key: 'ended', kind: 'ended' });
     }
     return out;
-  }, [newestFirst, lifecycle.connected, lifecycle.endedBy, live, count, clearedCount, filtering, visibleRows, expanded]);
+  }, [
+    newestFirst,
+    lifecycle.connected,
+    lifecycle.connack,
+    lifecycle.endedBy,
+    live,
+    count,
+    clearedCount,
+    filtering,
+    visibleRows,
+    expanded,
+    connackExpanded,
+  ]);
 
-  const heights = useMemo(() => entries.map((e) => (e.kind === 'viewer' ? VIEWER_PX : SINGLE_ROW_PX)), [entries]);
+  const heights = useMemo(
+    () =>
+      entries.map((e) =>
+        e.kind === 'viewer' ? VIEWER_PX : e.kind === 'connackDetail' ? CONNACK_DETAIL_PX : SINGLE_ROW_PX,
+      ),
+    [entries],
+  );
 
   const { onScroll: onWindowScroll, start, end, topPadPx, bottomPadPx, prefix } = useVirtualRowWindow(
     scrollerRef,
@@ -507,18 +544,87 @@ const MqttMessageTimeline: React.FC<MqttMessageTimelineProps> = ({
             {lifecycleTime(lifecycle.startedAt)}
           </div>
         );
-      case 'connected':
+      case 'connected': {
+        const expandable = lifecycle.connack !== undefined;
         return (
-          <div key={entry.key} data-testid="mqtt-timeline-connected-row" style={lifecycleRowStyle}>
+          <div
+            key={entry.key}
+            data-testid="mqtt-timeline-connected-row"
+            {...(expandable
+              ? {
+                  role: 'button',
+                  tabIndex: 0,
+                  'aria-expanded': connackExpanded,
+                  className: 'oh-stream-row',
+                  onClick: () => setConnackExpanded((prev) => !prev),
+                  onKeyDown: (event: React.KeyboardEvent) => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault();
+                      setConnackExpanded((prev) => !prev);
+                    }
+                  },
+                }
+              : {})}
+            style={{ ...lifecycleRowStyle, ...(expandable ? { cursor: 'pointer' } : {}) }}
+          >
             <LinkOutlined aria-hidden style={{ fontSize: 11, color: token.colorTextTertiary }} />
             <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {lifecycle.connectedDetail !== undefined && lifecycle.connectedDetail !== ''
-                ? t('workbench.editors.mqtt.timeline.connectedDetail', { detail: lifecycle.connectedDetail })
-                : t('workbench.editors.mqtt.timeline.connected')}
+              {t('workbench.editors.mqtt.timeline.connected')}
             </span>
             {lifecycleTime(lifecycle.connectedAt)}
+            {expandable &&
+              (connackExpanded ? (
+                <UpOutlined aria-hidden style={{ fontSize: 9, color: token.colorTextTertiary, flexShrink: 0 }} />
+              ) : (
+                <DownOutlined aria-hidden style={{ fontSize: 9, color: token.colorTextTertiary, flexShrink: 0 }} />
+              ))}
           </div>
         );
+      }
+      case 'connackDetail': {
+        const connack = lifecycle.connack;
+        if (connack === undefined) return null;
+        // The CONNACK facts as key: value rows — wire field names raw,
+        // the reason code verbatim with its spec name beside it.
+        const factRow = (label: string, value: string): React.ReactNode => (
+          <div
+            key={label}
+            style={{
+              ...cellFont,
+              lineHeight: '20px',
+              height: 20,
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+            }}
+          >
+            <span style={{ color: token.colorTextSecondary }}>{label}: </span>
+            <span style={{ color: token.colorText }}>{value}</span>
+          </div>
+        );
+        return (
+          <div
+            key={entry.key}
+            data-testid="mqtt-timeline-connack-details"
+            style={{
+              height: CONNACK_DETAIL_PX,
+              boxSizing: 'border-box',
+              padding: '6px 10px 6px 37px',
+              borderBottom: `1px solid ${token.colorBorderSecondary}`,
+              overflow: 'hidden',
+            }}
+          >
+            <div style={{ ...cellFont, fontSize: 11, lineHeight: '18px', height: 18, color: token.colorTextTertiary }}>
+              CONNACK
+            </div>
+            {factRow(
+              'reasonCode',
+              `${connack.reasonCode}${connack.reasonName !== undefined ? ` (${connack.reasonName})` : ''}`,
+            )}
+            {factRow('sessionPresent', connack.sessionPresent ? 'true' : 'false')}
+          </div>
+        );
+      }
       case 'ended': {
         if (lifecycle.endedBy === undefined) return null;
         return (
