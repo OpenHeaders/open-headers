@@ -24,7 +24,7 @@
  * `pong` and anything else drop.
  */
 
-import { getOrgBackendBindings, recordJoinedOrg } from '@openheaders/core/identity';
+import { recordJoinedOrg } from '@openheaders/core/identity';
 import { hostLogger as logger } from '@openheaders/core/logger';
 import { HANDSHAKE_ROLES, type HandshakeRejectReason } from '@openheaders/core/protocol';
 import { EXTENSION_WORKSPACE_GLOBAL_SCOPE } from '@openheaders/core/sync';
@@ -35,16 +35,11 @@ import type { TransportState } from '@openheaders/oracle/sync/client/transport-c
 import { createTransportConnection } from '@openheaders/oracle/sync/client/transport-connection';
 import { getGlobalNodeId } from '@openheaders/oracle/sync/global-service';
 import { getOrCreateWorkspaceService, releaseWorkspaceService } from '@openheaders/oracle/sync/service';
-import {
-  getWorkspace,
-  listWorkspaces,
-  onWorkspaceStoreChange,
-  peekActiveWorkspaceId,
-  setActiveWorkspaceById,
-} from '@openheaders/oracle/workspace/extension-workspace-store';
+import { onWorkspaceStoreChange, peekActiveWorkspaceId } from '@openheaders/oracle/workspace/extension-workspace-store';
 import { report } from '@openheaders/ui/shared/status';
 import { peekDaemonToken } from './daemon-token';
 import { WEB_DAEMON_BACKEND_ID } from './web-backend-id';
+import { consumedWorkspaceIds, createWireAdoption } from './wire-adoption';
 import { handleIncomingGrpcStreamFrame } from './wire-grpc-stream';
 import { handleInboundWireFrame } from './wire-inbound';
 import { handleIncomingMigrationPullFrame } from './wire-migration-mirror';
@@ -163,23 +158,20 @@ export function installDaemonWire(): DaemonWire {
       }
     },
     // Only workspaces whose Org is bound to the serving daemon; the
-    // adopted workspace is sequenced first so an interrupted fan-out
+    // adoption target is sequenced first so an interrupted fan-out
     // still leaves the user on a synced workspace.
     listConsumedWorkspaceIds: () => {
-      const bindings = getOrgBackendBindings();
-      const ids = listWorkspaces()
-        .filter((ws) => bindings.get(ws.orgId) === WEB_DAEMON_BACKEND_ID)
-        .map((ws) => ws.id);
-      if (pendingAdoptWorkspaceId && ids.includes(pendingAdoptWorkspaceId)) {
-        const adopt = pendingAdoptWorkspaceId;
-        return [adopt, ...ids.filter((id) => id !== adopt)];
+      const ids = consumedWorkspaceIds();
+      const priority = adoption.priorityWorkspaceId();
+      if (priority && ids.includes(priority)) {
+        return [priority, ...ids.filter((id) => id !== priority)];
       }
       return ids;
     },
-    onSynced: async (_scope, peerVector) => {
+    onSynced: async (scope, peerVector) => {
       await applyPeerVectorToPendingOut(peerVector);
       await flushPendingOut();
-      tryAdoptPendingWorkspace();
+      if (scope === EXTENSION_WORKSPACE_GLOBAL_SCOPE) adoption.markGlobalSynced();
       // Push the current presence snapshot so the daemon folds this
       // tab's surfaces immediately rather than on next activity.
       const workspaceId = peekActiveWorkspaceId();
@@ -191,29 +183,18 @@ export function installDaemonWire(): DaemonWire {
       logger.warn(SCOPE, `handshake rejected: ${reason}${detail ? ` — ${detail}` : ''}`);
     },
     // First-join only — a reconnect must not re-adopt over a local
-    // active-workspace switch the user made since.
+    // active-workspace switch the user made since. The WELCOME pointer
+    // is the operator's host-global active — a HINT, not the target
+    // (A10): the adoption controller prefers it when it syncs down and
+    // falls back to the first workspace the user can read.
     onJoinedOrg: async (org, backendActiveWorkspaceId) => {
       const result = await recordJoinedOrg(org, WEB_DAEMON_BACKEND_ID);
-      if (result.firstJoin && backendActiveWorkspaceId) {
-        pendingAdoptWorkspaceId = backendActiveWorkspaceId;
-        tryAdoptPendingWorkspace();
-      }
+      if (result.firstJoin) adoption.arm(backendActiveWorkspaceId ?? null);
       logger.info(SCOPE, `joined the daemon's Org ${org.id} — its workspaces will sync down`);
     },
   });
 
-  // The daemon's active workspace from WELCOME, held until it syncs
-  // down (the join fires before the joined Org's workspaces arrive).
-  let pendingAdoptWorkspaceId: string | null = null;
-  const tryAdoptPendingWorkspace = (): void => {
-    if (!pendingAdoptWorkspaceId) return;
-    if (!getWorkspace(pendingAdoptWorkspaceId)) return;
-    const id = pendingAdoptWorkspaceId;
-    pendingAdoptWorkspaceId = null;
-    void setActiveWorkspaceById(id).catch((err: unknown) => {
-      logger.warn(SCOPE, 'join → adopt: could not promote the daemon workspace to active', err);
-    });
-  };
+  const adoption = createWireAdoption();
 
   // Tail of the inbound processing chain — see onMessage below.
   let inboundTail: Promise<void> = Promise.resolve();
@@ -300,7 +281,7 @@ export function installDaemonWire(): DaemonWire {
   // deferred adoption) on every store change so a late-arriving
   // workspace still gets its catch-up on the current socket.
   onWorkspaceStoreChange(() => {
-    tryAdoptPendingWorkspace();
+    adoption.recheck();
     initiator.refreshFanOut();
   });
 

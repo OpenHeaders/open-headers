@@ -31,7 +31,6 @@ import {
   invalidateAllWorkspaceOrgCache,
   setWorkspaceOrgResolver,
 } from '@openheaders/core/sync';
-import { BROWSER_DISPLAY_NAME, detectBrowser, readHostProbe } from '@openheaders/core/utils';
 import { setBlobBackend } from '@openheaders/oracle/files';
 import { bootSyncEngine } from '@openheaders/oracle/host-runtime';
 import {
@@ -63,6 +62,12 @@ import { forwardAwarenessOverWire, forwardMutationOverWire, setWirePendingOutQue
 
 const SCOPE = 'boot-web-host';
 
+// The home Org's name (the access plan A9, as gated S12): neutral and
+// data-honest — the browser is incidental on this surface, so no brand
+// name. Visible only on the never-joined offline mount once A4 keeps
+// the home Org off a joined tab.
+const WEB_HOME_ORG_NAME = 'Browser';
+
 export async function bootWebHost(): Promise<void> {
   // 1. Cross-host seams. Logger, host storage, bridge, and lifeline
   //    are installed by the import-time `install-*` modules the entry
@@ -91,7 +96,7 @@ export async function bootWebHost(): Promise<void> {
   // while the snapshot is absent and the next boot re-runs this.
   await ensureSyntheticIdentity({
     hostKind: 'browser',
-    orgName: BROWSER_DISPLAY_NAME[detectBrowser(readHostProbe(navigator))],
+    orgName: WEB_HOME_ORG_NAME,
   }).catch((err: unknown) => {
     logger.warn(SCOPE, 'ensureSyntheticIdentity failed', err);
   });

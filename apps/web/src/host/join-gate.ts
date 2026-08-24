@@ -16,7 +16,7 @@
  */
 
 import type { InitiatorState } from '@openheaders/oracle/sync/client/sync-handshake-initiator';
-import { peekActiveWorkspaceId } from '@openheaders/oracle/workspace/extension-workspace-store';
+import { listWorkspaces, peekActiveWorkspaceId } from '@openheaders/oracle/workspace/extension-workspace-store';
 import { hasDaemonToken, persistDaemonToken, setCandidateDaemonToken } from './daemon-token';
 import type { DaemonWire } from './daemon-wire';
 import { fetchOidcMeta } from './oidc-login';
@@ -131,9 +131,10 @@ export function awaitJoinOutcome(wire: DaemonWire, budgetMs: number = JOIN_OUTCO
  * at WELCOME would pin the first tab to the pre-join local workspace a
  * beat before the daemon's workspace is promoted. The `__global__`
  * catch-up reaching `synced` means the daemon's workspace rows have
- * applied; the short grace covers the async promotion that follows. A
- * daemon with no active workspace (nothing to adopt) just runs the
- * budget out and mounts on the local workspace.
+ * applied; the short grace covers the async promotion that follows.
+ * SYNCED with zero workspaces means zero grants — no flip is coming,
+ * so return at once and let the mount decision draw the
+ * awaiting-access screen instead of burning the grace (A10).
  */
 export async function awaitPostJoinAdoption(wire: DaemonWire, budgetMs = 5000): Promise<void> {
   const before = peekActiveWorkspaceId();
@@ -141,6 +142,7 @@ export async function awaitPostJoinAdoption(wire: DaemonWire, budgetMs = 5000): 
   while (Date.now() < deadline) {
     if (peekActiveWorkspaceId() !== before) return;
     if (wire.handshakeState() === 'synced') {
+      if (listWorkspaces().length === 0) return;
       // Rows are applied — give the promotion one short grace window.
       const graceDeadline = Math.min(deadline, Date.now() + 1000);
       while (Date.now() < graceDeadline) {

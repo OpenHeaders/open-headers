@@ -241,7 +241,11 @@ export async function runDaemon(argv: readonly string[]): Promise<void> {
       identity: {
         hostKind: 'daemon',
         displayName: safeOsUsername(),
-        orgName: safeOsHostname(),
+        // The configured server name when the deployment declares one
+        // (A9) — the OS hostname is the container id inside a
+        // container, and this Org name is what the served tab's
+        // awaiting-access screen reads out.
+        orgName: config.serverName ?? safeOsHostname(),
       },
       handshakeIdentity: {
         role: 'daemon',

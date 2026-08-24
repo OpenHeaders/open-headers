@@ -127,6 +127,12 @@ describe('resolveDaemonConfig — precedence', () => {
     expect(path.isAbsolute(resolve(['--web-root', 'relative/web']).webRoot ?? '')).toBe(true);
   });
 
+  it('reads serverName from the config file, trimmed, defaulting to null', () => {
+    expect(resolve().serverName).toBeNull();
+    const file = writeConfigFile({ serverName: '  Team Server  ' });
+    expect(resolve(['--config', file]).serverName).toBe('Team Server');
+  });
+
   it('resolves licenseFile through the chain as an absolute path, defaulting to null', () => {
     expect(resolve().licenseFile).toBeNull();
     const file = writeConfigFile({ licenseFile: '/etc/openheaders/license.key' });
@@ -396,6 +402,11 @@ describe('resolveDaemonConfig — validation', () => {
   it('rejects a non-string webRoot in the config file', () => {
     const file = writeConfigFile({ webRoot: 42 });
     expect(() => resolve(['--config', file])).toThrow(/webRoot/);
+  });
+
+  it('rejects a non-string or blank serverName in the config file', () => {
+    expect(() => resolve(['--config', writeConfigFile({ serverName: 42 })])).toThrow(/serverName/);
+    expect(() => resolve(['--config', writeConfigFile({ serverName: '   ' })])).toThrow(/serverName/);
   });
 
   it('rejects a non-string licenseFile in the config file', () => {

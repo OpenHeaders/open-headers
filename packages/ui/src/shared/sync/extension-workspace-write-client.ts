@@ -18,7 +18,7 @@
  * and are the authoritative path used by `useWorkspaces.ts`.
  */
 
-import { defaultNewWorkspaceOrgId, getIdentitySnapshot } from '@openheaders/core/identity';
+import { getIdentitySnapshot } from '@openheaders/core/identity';
 import { getHostStorage, OH } from '@openheaders/core/storage';
 import {
   type ExtensionWorkspaceSlot,
@@ -42,6 +42,7 @@ import {
   getActiveExtensionWorkspaceSyncMirror,
 } from '../../context/mirrors/extension-workspace-sync-mirror';
 import { ensureGlobalRendererContext, type RendererContextHandle } from '../../context/renderer-mutator-context';
+import { resolveNewWorkspaceOrgId } from '../workspace-org/org-choice';
 import { applySyncPayload, type SyncMutationPayload, type SyncSimpleResult } from './apply-payload';
 
 export type ExtensionWorkspaceSimpleResult = SyncSimpleResult;
@@ -108,12 +109,13 @@ export async function applyCreateWorkspace(
   const mirror = opts.mirror ?? getActiveExtensionWorkspaceSyncMirror();
   // Org binding for the new workspace (the unified-oracle model §6.2):
   // the user's stored "default for new workspaces" preference when it
-  // still names an authorized Org, else the home-org. Falls back to the
-  // `PRE_BOOTSTRAP_ORG_ID` sentinel when the identity snapshot isn't
-  // installed yet (boot race / test harness) — same convention the audit
-  // emitter and envelope mint helpers use.
+  // still names an authorized Org, else the home-org — with the joined
+  // web host's server-Orgs-only clamp applied (org-choice.ts). Falls
+  // back to the `PRE_BOOTSTRAP_ORG_ID` sentinel when the identity
+  // snapshot isn't installed yet (boot race / test harness) — same
+  // convention the audit emitter and envelope mint helpers use.
   const storedDefaultOrgId = (await getHostStorage()?.get(OH.orgBindingPrefs))?.defaultNewWorkspaceOrgId ?? null;
-  const orgId = defaultNewWorkspaceOrgId(getIdentitySnapshot(), storedDefaultOrgId) ?? PRE_BOOTSTRAP_ORG_ID;
+  const orgId = resolveNewWorkspaceOrgId(getIdentitySnapshot(), storedDefaultOrgId) ?? PRE_BOOTSTRAP_ORG_ID;
   const ctx = resolveContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
   const now = new Date().toISOString();
   const id = generateWorkspaceId();

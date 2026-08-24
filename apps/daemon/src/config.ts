@@ -87,6 +87,13 @@ export interface DaemonConfig {
    */
   webRoot: string | null;
   /**
+   * Human-readable name for this server (the server access plan A9) —
+   * what the served tab's Org chip and the awaiting-access screen read
+   * out. `null` = the OS hostname, which inside a container is the
+   * container id; naming the deployment here is the fix.
+   */
+  serverName: string | null;
+  /**
    * OIDC/SSO login provider (Phase 5 team tier). `null` = SSO off; the
    * token/pairing login paths work either way. Configured via the
    * `oidc` object in `daemon.json`; the client secret may instead ride
@@ -179,6 +186,7 @@ interface ConfigFile {
   allowedHosts?: string[];
   allowInsecureLan?: boolean;
   webRoot?: string;
+  serverName?: string;
   oidc?: DaemonOidcConfig;
   auditRetentionDays?: number;
   auditForwarding?: DaemonAuditForwardingConfig;
@@ -601,6 +609,12 @@ function parseConfigRecord(record: Record<string, unknown>, configPath: string):
     if (typeof record.webRoot !== 'string') throw new Error(`${configPath}: webRoot must be a string`);
     out.webRoot = record.webRoot;
   }
+  if (record.serverName !== undefined) {
+    if (typeof record.serverName !== 'string' || !record.serverName.trim()) {
+      throw new Error(`${configPath}: serverName must be a non-empty string`);
+    }
+    out.serverName = record.serverName.trim();
+  }
   if (record.oidc !== undefined) {
     out.oidc = parseOidcConfig(record.oidc, configPath);
   }
@@ -810,6 +824,8 @@ export function resolveDaemonConfig(input: ResolveConfigInput): DaemonConfig {
   const rawWebRoot = values['web-root'] ?? input.env.OH_DAEMON_WEB_ROOT ?? file.webRoot;
   const webRoot = rawWebRoot === undefined ? null : path.resolve(rawWebRoot);
 
+  const serverName = file.serverName ?? null;
+
   // The secret env override rides ON TOP of the file's oidc block —
   // deployments keep issuer/clientId in daemon.json and the secret in
   // the service unit's environment. The env var without an oidc block
@@ -867,6 +883,7 @@ export function resolveDaemonConfig(input: ResolveConfigInput): DaemonConfig {
     allowedHosts,
     allowInsecureLan,
     webRoot,
+    serverName,
     oidc,
     vaultPassphrase,
     auditRetentionDays,

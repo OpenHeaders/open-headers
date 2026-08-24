@@ -19,6 +19,7 @@
  * honest error; vault-free exports work end to end.
  */
 
+import { getOrgBackendBindings } from '@openheaders/core/identity';
 import { detectBrowser, readHostProbe } from '@openheaders/core/utils';
 import {
   buildWorkspaceExport,
@@ -34,11 +35,12 @@ import { type ExportGatherScope, gatherWorkspaceExport } from '@openheaders/orac
 import { getActiveWorkspaceId } from '@openheaders/oracle/workspace/extension-workspace-store';
 import { findExportImportMatches } from '@openheaders/oracle/workspace/import-dedup';
 import {
-  importWorkspace,
   type ImportWorkspaceArgs,
+  importWorkspace,
   previewWorkspaceImport,
 } from '@openheaders/oracle/workspace/import-orchestrator';
 import { getBuildInfo } from '@openheaders/ui/shared/build-info';
+import { WEB_DAEMON_BACKEND_ID } from './web-backend-id';
 
 const NO_VAULT_EXPORT_ERROR =
   'This surface has no vault storage, so a vault-inclusive export would carry no secrets. ' +
@@ -70,6 +72,23 @@ function exportPlatform(): 'chrome' | 'firefox' | 'edge' | 'safari' {
   const kind = detectBrowser(readHostProbe(navigator));
   if (kind === 'firefox' || kind === 'edge' || kind === 'safari') return kind;
   return 'chrome';
+}
+
+/**
+ * Import-into-new lands on the server (the access plan A5, as gated
+ * S12): with the daemon's Org joined, an absent or non-server `orgId`
+ * would mint exactly the unsyncable home-Org island A4 removed. The
+ * never-joined offline tab has no bound Org and passes through — the
+ * local Org is the only honest target there (A8).
+ */
+function clampImportTargetToServer(target: ImportWorkspaceArgs['target']): ImportWorkspaceArgs['target'] {
+  if (target.mode !== 'new') return target;
+  const serverOrgIds = [...getOrgBackendBindings().entries()]
+    .filter(([, backendId]) => backendId === WEB_DAEMON_BACKEND_ID)
+    .map(([orgId]) => orgId);
+  if (serverOrgIds.length === 0) return target;
+  if (target.orgId !== undefined && serverOrgIds.includes(target.orgId)) return target;
+  return { ...target, orgId: serverOrgIds[0] };
 }
 
 export async function dispatchExportImportRpc(
@@ -134,7 +153,7 @@ export async function dispatchExportImportRpc(
         omitOAuthConfigs: message.omitOAuthConfigs as boolean | undefined,
         keepTargetCollectionOrder: message.keepTargetCollectionOrder as boolean | undefined,
         refuseUidCollision: message.refuseUidCollision as boolean | undefined,
-        target: message.target as ImportWorkspaceArgs['target'],
+        target: clampImportTargetToServer(message.target as ImportWorkspaceArgs['target']),
         sourceHash: message.sourceHash as string,
       });
       return { success: true, report: res.report, targetWorkspaceId: res.targetWorkspaceId };

@@ -20,8 +20,20 @@ const tokenModule = vi.hoisted(() => ({
 }));
 vi.mock('@/host/daemon-token', () => tokenModule);
 
+const storeModule = vi.hoisted(() => ({
+  peekActiveWorkspaceId: vi.fn((): string | null => null),
+  listWorkspaces: vi.fn((): Array<{ id: string }> => []),
+}));
+vi.mock('@openheaders/oracle/workspace/extension-workspace-store', () => storeModule);
+
 import type { DaemonWire } from '@/host/daemon-wire';
-import { awaitJoinOutcome, decideGate, resolveGateMode, submitDaemonToken } from '@/host/join-gate';
+import {
+  awaitJoinOutcome,
+  awaitPostJoinAdoption,
+  decideGate,
+  resolveGateMode,
+  submitDaemonToken,
+} from '@/host/join-gate';
 
 interface FakeWire {
   wire: DaemonWire;
@@ -74,6 +86,8 @@ beforeEach(() => {
   tokenModule.hasDaemonToken.mockReturnValue(false);
   tokenModule.setCandidateDaemonToken.mockClear();
   tokenModule.persistDaemonToken.mockClear();
+  storeModule.peekActiveWorkspaceId.mockReturnValue(null);
+  storeModule.listWorkspaces.mockReturnValue([]);
 });
 
 describe('decideGate', () => {
@@ -191,6 +205,37 @@ describe('awaitJoinOutcome', () => {
       const outcome = awaitJoinOutcome(fake.wire, 5000);
       await vi.advanceTimersByTimeAsync(5001);
       expect(await outcome).toBe('offline');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
+
+describe('awaitPostJoinAdoption', () => {
+  it('returns at once on synced-with-zero — zero grants means no flip is coming', async () => {
+    const fake = makeFakeWire('synced');
+    const started = Date.now();
+    await awaitPostJoinAdoption(fake.wire, 5000);
+    expect(Date.now() - started).toBeLessThan(500);
+  });
+
+  it('returns when the adoption flips the active pointer', async () => {
+    storeModule.listWorkspaces.mockReturnValue([{ id: 'ws-a' }]);
+    storeModule.peekActiveWorkspaceId.mockReturnValueOnce(null).mockReturnValue('ws-a');
+    const fake = makeFakeWire();
+    await awaitPostJoinAdoption(fake.wire, 5000);
+    expect(storeModule.peekActiveWorkspaceId).toHaveBeenCalled();
+  });
+
+  it('runs out the grace when synced with workspaces but no flip arrives', async () => {
+    vi.useFakeTimers();
+    try {
+      storeModule.listWorkspaces.mockReturnValue([{ id: 'ws-a' }]);
+      storeModule.peekActiveWorkspaceId.mockReturnValue('ws-a');
+      const fake = makeFakeWire('synced');
+      const wait = awaitPostJoinAdoption(fake.wire, 5000);
+      await vi.advanceTimersByTimeAsync(1100);
+      await wait;
     } finally {
       vi.useRealTimers();
     }

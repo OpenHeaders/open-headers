@@ -27,12 +27,7 @@ import {
 import { DndContext, type DragEndEvent, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { arrayMove, SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import {
-  defaultNewWorkspaceOrgId,
-  type IdentitySnapshot,
-  type OrgDescriptor,
-  orgCatalogue,
-} from '@openheaders/core/identity';
+import { type IdentitySnapshot, type OrgDescriptor, orgCatalogue } from '@openheaders/core/identity';
 import type { BackendReach } from '@openheaders/core/protocol';
 import type { ExtensionWorkspace } from '@openheaders/core/types';
 import { usePublishTargets } from '@openheaders/ui/shared/backend';
@@ -40,6 +35,7 @@ import { useBackendReach } from '@openheaders/ui/shared/hooks/useBackendReach';
 import { useIdentitySnapshot } from '@openheaders/ui/shared/hooks/useIdentitySnapshot';
 import { useOrgBindingPrefs } from '@openheaders/ui/shared/hooks/useOrgBindingPrefs';
 import type { UseWorkspacesApi } from '@openheaders/ui/shared/hooks/readers/useWorkspaces';
+import { orgChoiceCatalogue, resolveNewWorkspaceOrgId } from '@openheaders/ui/shared/workspace-org/org-choice';
 import { orgFullLabelText } from '@openheaders/ui/shared/workspace-org/org-copy';
 import { OrgIcon } from '@openheaders/ui/shared/workspace-org/OrgIcon';
 import { App as AntApp, Button, Checkbox, Form, Input, Modal, Select, Space, Typography, theme } from 'antd';
@@ -88,6 +84,11 @@ const WorkspaceManager: React.FC<WorkspaceManagerProps> = ({ api, activeWorkspac
   // host's OWN bind tier (self entry).
   const { self: reach } = useBackendReach();
   const catalogue = useMemo(() => orgCatalogue(snapshot), [snapshot]);
+  // Org-choice surfaces (the new-workspace preference, Duplicate-into)
+  // offer the clamped set — server Orgs only on the joined web host;
+  // the grouped LIST below keeps the full catalogue, since a workspace
+  // that exists still needs its Org section rendered.
+  const orgChoices = useMemo(() => orgChoiceCatalogue(catalogue), [catalogue]);
 
   // Publish = Duplicate-into pointed at a joined Org. A workspace's own
   // Org is not a target (that's plain Duplicate); with no joined Orgs
@@ -198,7 +199,7 @@ const WorkspaceManager: React.FC<WorkspaceManagerProps> = ({ api, activeWorkspac
 
       <HomeOrgIdentityCard />
 
-      <NewWorkspaceOrgPreference snapshot={snapshot} catalogue={catalogue} reach={reach} />
+      <NewWorkspaceOrgPreference snapshot={snapshot} catalogue={orgChoices} reach={reach} />
 
       <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
         <SortableContext items={orderedIds} strategy={verticalListSortingStrategy}>
@@ -241,7 +242,7 @@ const WorkspaceManager: React.FC<WorkspaceManagerProps> = ({ api, activeWorkspac
 
       <DuplicateWorkspaceModal
         source={duplicateTarget}
-        catalogue={catalogue}
+        catalogue={orgChoices}
         reach={reach}
         onCancel={() => setDuplicateTarget(null)}
         onSubmit={async (values) => {
@@ -330,7 +331,7 @@ const NewWorkspaceOrgPreference: React.FC<{
   const { prefs, isReady, setDefaultNewWorkspaceOrgId } = useOrgBindingPrefs();
 
   if (catalogue.length <= 1) return null;
-  const resolved = prefs.defaultNewWorkspaceOrgId ?? defaultNewWorkspaceOrgId(snapshot, null);
+  const resolved = resolveNewWorkspaceOrgId(snapshot, prefs.defaultNewWorkspaceOrgId);
 
   return (
     <div
@@ -726,7 +727,9 @@ const DuplicateWorkspaceModal: React.FC<DuplicateWorkspaceModalProps> = ({
           preserve={false}
           initialValues={{
             name: t('workbench.workspace.copyOfName', { name: source.name }),
-            targetOrgId: source.orgId,
+            // The source's own Org unless the choice clamp excludes it
+            // (a local workspace duplicated on a joined web tab).
+            targetOrgId: catalogue.some((d) => d.id === source.orgId) ? source.orgId : catalogue[0]?.id,
             includeSecrets: false,
           }}
           onFinish={handleOk}

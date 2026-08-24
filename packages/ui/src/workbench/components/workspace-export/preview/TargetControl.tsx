@@ -10,7 +10,7 @@
  *   - Pick    → workspace dropdown
  */
 
-import { defaultNewWorkspaceOrgId, orgCatalogue } from '@openheaders/core/identity';
+import { orgCatalogue } from '@openheaders/core/identity';
 import type { ExtensionWorkspace } from '@openheaders/core/types';
 import type { WorkspaceExport } from '@openheaders/core/workspace-export';
 import { Input, Segmented, Select, Space, Typography } from 'antd';
@@ -19,6 +19,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { useIdentitySnapshot } from '@openheaders/ui/shared/hooks/useIdentitySnapshot';
 import { useOrgBindingPrefs } from '@openheaders/ui/shared/hooks/useOrgBindingPrefs';
+import { orgChoiceCatalogue, resolveNewWorkspaceOrgId } from '@openheaders/ui/shared/workspace-org/org-choice';
 import { OrgIcon } from '@openheaders/ui/shared/workspace-org/OrgIcon';
 
 const { Text } = Typography;
@@ -51,12 +52,13 @@ const TargetControl: React.FC<{
 
   // Org binding for the new workspace — same source of truth as the
   // Workspace Manager's create flow: the identity's Org catalogue with
-  // the stored new-workspace preference as the default. With a single
-  // Org there is nothing to choose and `orgId` stays absent.
+  // the stored new-workspace preference as the default, both through
+  // the joined-web-host clamp (org-choice.ts). With a single offered
+  // Org there is nothing to choose and the select stays hidden.
   const snapshot = useIdentitySnapshot();
-  const catalogue = useMemo(() => orgCatalogue(snapshot), [snapshot]);
+  const catalogue = useMemo(() => orgChoiceCatalogue(orgCatalogue(snapshot)), [snapshot]);
   const { prefs } = useOrgBindingPrefs();
-  const defaultOrgId = prefs.defaultNewWorkspaceOrgId ?? defaultNewWorkspaceOrgId(snapshot, null);
+  const defaultOrgId = resolveNewWorkspaceOrgId(snapshot, prefs.defaultNewWorkspaceOrgId);
   const selectedOrgId = target.mode === 'new' ? (target.orgId ?? defaultOrgId ?? undefined) : undefined;
   const selectedOrg = catalogue.find((d) => d.id === selectedOrgId);
 
