@@ -110,16 +110,51 @@ describe('SW lifecycle — persisted stores reconstruct from storage alone', () 
     });
 
     const first = await import('@/background/modules/workspace/workspace-store');
-    await first.bootstrap();
+    await first.bootstrap({ seedOnEmpty: true });
     expect(first.listWorkspaces()).toHaveLength(2);
     expect(first.getActiveWorkspaceId()).toBe('ws-b');
 
     vi.resetModules();
     await installHostStorage();
     const second = await import('@/background/modules/workspace/workspace-store');
-    await second.bootstrap();
+    await second.bootstrap({ seedOnEmpty: true });
     expect(second.listWorkspaces()).toHaveLength(2);
     expect(second.getActiveWorkspaceId()).toBe('ws-b');
+  });
+
+  // Seed-as-policy (the server access plan A4): the extension SW and
+  // the daemon spine declare seedOnEmpty: true — an empty store boots
+  // into a usable default workspace, byte-identical to the classic
+  // bootstrap. The web host's seedOnEmpty: false makes zero workspaces
+  // representable: empty list, null active, throwing read still throws.
+
+  it('workspace-store: seedOnEmpty: true seeds a default workspace on an empty store', async () => {
+    const ws = await import('@/background/modules/workspace/workspace-store');
+    await ws.bootstrap({ seedOnEmpty: true });
+    const seeded = ws.listWorkspaces();
+    expect(seeded).toHaveLength(1);
+    expect(seeded[0].name).toBe('Workspace');
+    expect(seeded[0].kind).toBe('personal');
+    expect(ws.getActiveWorkspaceId()).toBe(seeded[0].id);
+  });
+
+  it('workspace-store: seedOnEmpty: false boots empty — no list, null active, throwing read throws', async () => {
+    const ws = await import('@/background/modules/workspace/workspace-store');
+    await ws.bootstrap({ seedOnEmpty: false });
+    expect(ws.listWorkspaces()).toEqual([]);
+    expect(ws.peekActiveWorkspaceId()).toBeNull();
+    expect(() => ws.getActiveWorkspaceId()).toThrow('read before bootstrap');
+  });
+
+  it('workspace-store: seedOnEmpty: false still restores a non-empty store', async () => {
+    seedStorageMany({
+      'oh.workspaces': [workspace('ws-a', { name: 'Home' })],
+      'oh.runtimeActive.active': 'ws-a',
+    });
+    const ws = await import('@/background/modules/workspace/workspace-store');
+    await ws.bootstrap({ seedOnEmpty: false });
+    expect(ws.listWorkspaces()).toHaveLength(1);
+    expect(ws.getActiveWorkspaceId()).toBe('ws-a');
   });
 
   // ── environment-store ──────────────────────────────────────────────
@@ -148,7 +183,7 @@ describe('SW lifecycle — persisted stores reconstruct from storage alone', () 
     });
 
     let ws = await import('@/background/modules/workspace/workspace-store');
-    await ws.bootstrap();
+    await ws.bootstrap({ seedOnEmpty: true });
     let oracleSync = await import('@openheaders/oracle/sync');
     oracleSync.setOracleHostHooks({ getActiveWorkspaceId: ws.getActiveWorkspaceId });
     let env = await import('@openheaders/oracle/entity/environment-store');
@@ -160,7 +195,7 @@ describe('SW lifecycle — persisted stores reconstruct from storage alone', () 
     vi.resetModules();
     await installHostStorage();
     ws = await import('@/background/modules/workspace/workspace-store');
-    await ws.bootstrap();
+    await ws.bootstrap({ seedOnEmpty: true });
     oracleSync = await import('@openheaders/oracle/sync');
     oracleSync.setOracleHostHooks({ getActiveWorkspaceId: ws.getActiveWorkspaceId });
     env = await import('@openheaders/oracle/entity/environment-store');
@@ -206,7 +241,7 @@ describe('SW lifecycle — persisted stores reconstruct from storage alone', () 
     });
 
     let ws = await import('@/background/modules/workspace/workspace-store');
-    await ws.bootstrap();
+    await ws.bootstrap({ seedOnEmpty: true });
     let oracleSync = await import('@openheaders/oracle/sync');
     oracleSync.setOracleHostHooks({ getActiveWorkspaceId: ws.getActiveWorkspaceId });
     let store = await import('@openheaders/oracle/entity/rule-store');
@@ -217,7 +252,7 @@ describe('SW lifecycle — persisted stores reconstruct from storage alone', () 
     vi.resetModules();
     await installHostStorage();
     ws = await import('@/background/modules/workspace/workspace-store');
-    await ws.bootstrap();
+    await ws.bootstrap({ seedOnEmpty: true });
     oracleSync = await import('@openheaders/oracle/sync');
     oracleSync.setOracleHostHooks({ getActiveWorkspaceId: ws.getActiveWorkspaceId });
     store = await import('@openheaders/oracle/entity/rule-store');
@@ -277,7 +312,7 @@ describe('SW lifecycle — persisted stores reconstruct from storage alone', () 
     });
 
     const ws = await import('@/background/modules/workspace/workspace-store');
-    await ws.bootstrap();
+    await ws.bootstrap({ seedOnEmpty: true });
     const { setOracleHostHooks } = await import('@openheaders/oracle/sync');
     setOracleHostHooks({ getActiveWorkspaceId: ws.getActiveWorkspaceId });
     const orchestrator = await import('@/background/modules/workspace/workspace-orchestrator');

@@ -98,6 +98,17 @@ export const web = {
   'web.oidcError.failed':
     'Single Sign-on fehlgeschlagen. Versuche es erneut oder bitte die Person, die den Server betreibt, den ' +
     'Anbieter zu prüfen.',
+  'web.access.title': 'Noch kein Workspace zugewiesen',
+  'web.access.intro':
+    'Du bist bei {org} angemeldet, aber dir wurde dort noch kein Workspace zugewiesen. Ein Administrator muss ' +
+    'dir Zugriff auf einen Workspace geben.',
+  'web.access.introNoOrg':
+    'Du bist bei diesem Server angemeldet, aber dir wurde dort noch kein Workspace zugewiesen. Ein Administrator ' +
+    'muss dir Zugriff auf einen Workspace geben.',
+  'web.access.signedInAs': 'Angemeldet als {name}',
+  'web.access.signedInAsWithEmail': 'Angemeldet als {name} ({email})',
+  'web.access.waiting': 'Diese Ansicht aktualisiert sich, sobald der Zugriff erteilt wird — kein Neuladen nötig.',
+  'web.access.signOut': 'Abmelden',
   'web.insecure.title': 'Diese Seite braucht eine sichere Verbindung',
   'web.insecure.intro':
     'Dieser Tab führt die gesamte Workbench aus, keine dünne Sicht auf den Server, und muss daher eine Identität ' +

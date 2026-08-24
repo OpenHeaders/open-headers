@@ -146,8 +146,10 @@ startProxyRoutingHost();
 startUpdateDeferral();
 
 // Workspaces are bootstrapped first because every per-workspace store
-// keys its reads off the active workspace id.
-const workspacesReady = bootstrapWorkspaces();
+// keys its reads off the active workspace id. The extension declares
+// seed-on-empty: the local host IS the product here, so a fresh
+// profile always boots into a usable home-Org workspace.
+const workspacesReady = bootstrapWorkspaces({ seedOnEmpty: true });
 
 // Settings load before the rule engine compiles so persisted knobs
 // (`rulesEngine.paused`, `maxActiveRules`, `evaluationStrategy`) are live

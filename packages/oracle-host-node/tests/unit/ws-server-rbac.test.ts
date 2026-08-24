@@ -691,7 +691,7 @@ describe('peer admin plane — gated oh.daemon.* over real sockets', () => {
   it('an operator peer administers the directory end-to-end; the probe answers admin without an audit row', async () => {
     // A2: the create channel mandates an initial grant, so the rig
     // needs a live workspace for the admission to grant against.
-    await bootstrapWorkspaceStore();
+    await bootstrapWorkspaceStore({ seedOnEmpty: true });
     const seededWorkspaceId = listWorkspaces()[0].id;
     const port = await freePort();
     server = await startServerWithAdminPlane(port);
@@ -704,7 +704,10 @@ describe('peer admin plane — gated oh.daemon.* over real sockets', () => {
     const baseline = audits.filter((a) => a.capability === 'daemon.admin').length;
     expect(baseline).toBe(0);
     const probe = await callOverWire(operator, { type: 'oh.daemon.admin.status' });
-    expect(probe.payload).toEqual({ admin: true });
+    // The probe names the calling subject — here the operator's own
+    // synthetic identity — so the served tab can say who is signed in.
+    expect(probe.payload?.admin).toBe(true);
+    expect((probe.payload?.user as { displayName?: string } | undefined)?.displayName).toBeTruthy();
     // The probe is a visibility question, not an enforcement decision.
     expect(audits.filter((a) => a.capability === 'daemon.admin').length).toBe(baseline);
 
@@ -749,7 +752,7 @@ describe('peer admin plane — gated oh.daemon.* over real sockets', () => {
     const client = await connectAs(port, bob, 'ext-bob');
 
     const probe = await callOverWire(client, { type: 'oh.daemon.admin.status' });
-    expect(probe.payload).toEqual({ admin: true });
+    expect(probe.payload).toEqual({ admin: true, user: { displayName: 'Bob', email: null } });
 
     const listed = await callOverWire(client, { type: 'oh.daemon.users.list' });
     expect(listed.__error).toBeUndefined();
@@ -816,7 +819,7 @@ describe('peer admin plane — gated oh.daemon.* over real sockets', () => {
 
     const baseline = audits.filter((a) => a.capability === 'daemon.admin').length;
     const probe = await callOverWire(client, { type: 'oh.daemon.admin.status' });
-    expect(probe.payload).toEqual({ admin: false });
+    expect(probe.payload).toEqual({ admin: false, user: { displayName: 'Bob', email: null } });
     // Probe deny is silent — a directory user's every connect would
     // otherwise bury real deny rows in noise.
     expect(audits.filter((a) => a.capability === 'daemon.admin').length).toBe(baseline);
@@ -1000,7 +1003,7 @@ describe('peer admin plane — gated oh.daemon.* over real sockets', () => {
     });
     operator.send(JSON.stringify({ type: 'oh.daemon.nonexistent' }));
     const probe = await callOverWire(operator, { type: 'oh.daemon.admin.status' });
-    expect(probe.payload).toEqual({ admin: true });
+    expect(probe.payload?.admin).toBe(true);
     expect(got).toEqual(['oh.daemon.admin.status:response']);
   });
 });
@@ -1020,7 +1023,7 @@ describe('grant-time workspace offer — a zero-grant peer learns a granted work
     // `__global__` envelopes stamp the pre-bootstrap sentinel org and
     // the delta stream's org filter drops them.
     setWorkspaceOrgResolver(() => daemonOrgId);
-    await bootstrapWorkspaceStore();
+    await bootstrapWorkspaceStore({ seedOnEmpty: true });
     await bridgeExtensionWorkspaceSyncEngine();
     const team = await createWorkspace({ name: 'Team A', kind: 'team' });
 
@@ -1112,7 +1115,7 @@ describe('server workspace projection — admin surfaces read the server set ove
   it("workspaces.list projects the server's live set to a zero-grant admin — every offered id passes the grant gate; a directory user gets the uniform deny", async () => {
     __initGlobalSyncServiceForTests({ log: new InMemoryMutationLog() });
     setWorkspaceOrgResolver(() => daemonOrgId);
-    await bootstrapWorkspaceStore();
+    await bootstrapWorkspaceStore({ seedOnEmpty: true });
     await bridgeExtensionWorkspaceSyncEngine();
     const team = await createWorkspace({ name: 'Team A', kind: 'team' });
 
@@ -1165,7 +1168,7 @@ describe('invite path carries grants — users.create applies initial grants aft
   async function bootStoreWithTeam(): Promise<{ seededId: string; teamId: string }> {
     __initGlobalSyncServiceForTests({ log: new InMemoryMutationLog() });
     setWorkspaceOrgResolver(() => daemonOrgId);
-    await bootstrapWorkspaceStore();
+    await bootstrapWorkspaceStore({ seedOnEmpty: true });
     await bridgeExtensionWorkspaceSyncEngine();
     const team = await createWorkspace({ name: 'Team A', kind: 'team' });
     return { seededId: listWorkspaces()[0].id, teamId: team.id };

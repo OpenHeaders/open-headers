@@ -96,6 +96,17 @@ export const web = {
   'web.oidcError.failed':
     "Échec de l'authentification unique. Réessayez, ou demandez à la personne qui gère le serveur de vérifier le " +
     'fournisseur.',
+  'web.access.title': 'Aucun workspace accordé pour le moment',
+  'web.access.intro':
+    'Vous êtes connecté à {org}, mais aucun workspace ne vous y a encore été accordé. Un administrateur doit ' +
+    'vous donner accès à un workspace.',
+  'web.access.introNoOrg':
+    'Vous êtes connecté à ce serveur, mais aucun workspace ne vous y a encore été accordé. Un administrateur ' +
+    'doit vous donner accès à un workspace.',
+  'web.access.signedInAs': 'Connecté en tant que {name}',
+  'web.access.signedInAsWithEmail': 'Connecté en tant que {name} ({email})',
+  'web.access.waiting': "Cet écran se met à jour dès que l'accès est accordé — sans recharger.",
+  'web.access.signOut': 'Se déconnecter',
   'web.insecure.title': 'Cette page nécessite une connexion sécurisée',
   'web.insecure.intro':
     'Cet onglet exécute tout le Workbench, pas une vue légère du serveur : il doit donc générer une identité pour ' +

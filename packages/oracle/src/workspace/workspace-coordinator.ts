@@ -68,7 +68,11 @@ import { getOracleHostHooks } from '../sync';
 import { getOrCreateWorkspaceService, releaseWorkspaceService } from '../sync/service';
 import { applyWorkspaceSnapshot } from '../sync/snapshot-applier';
 import { buildSnapshotForWorkspace } from '../sync/snapshot-builder';
-import { createWorkspace as createWorkspaceMeta, getWorkspace } from './extension-workspace-store';
+import {
+  createWorkspace as createWorkspaceMeta,
+  getWorkspace,
+  peekActiveWorkspaceId,
+} from './extension-workspace-store';
 
 // ── Storage key helpers ─────────────────────────────────────────────
 
@@ -113,8 +117,15 @@ function perWorkspaceDataKeys(workspaceId: string): StorageKey<unknown>[] {
 /**
  * Hydrate every per-workspace store from the active workspace's keys.
  * Called once at SW bootstrap after `workspace-store.bootstrap()`.
+ * A no-op on an empty boot (null active pointer — a `seedOnEmpty:
+ * false` host with nothing synced down yet): there is no workspace to
+ * hydrate, and the first adoption's store swap hydrates the target.
  */
 export async function hydrateActiveWorkspaceStores(): Promise<void> {
+  if (peekActiveWorkspaceId() === null) {
+    logger.info('WorkspaceOrchestrator', 'hydrateActiveWorkspaceStores: no active workspace — skipping');
+    return;
+  }
   await Promise.all([
     hydrateEnvironmentsFromStorage(),
     hydrateTemplatesFromStorage(),

@@ -74,7 +74,7 @@ beforeEach(async () => {
 
   // Same boot spine as `bootSyncEngine`, on in-memory test deps.
   __initGlobalSyncServiceForTests();
-  await bootstrapWorkspaces();
+  await bootstrapWorkspaces({ seedOnEmpty: true });
   await bridgeExtensionWorkspaceSyncEngine();
   __initSyncServiceForTests(getActiveWorkspaceId());
   await hydrateEnvironmentsFromStorage();

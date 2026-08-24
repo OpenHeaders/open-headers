@@ -133,7 +133,7 @@ async function boot(activeWorkspaceId: string): Promise<void> {
     'oh.workspaces': [workspace('ws-home', HOME_ORG_ID), workspace('ws-adopted', CONSUMED_ORG.id)],
     'oh.runtimeActive.active': activeWorkspaceId,
   });
-  await bootstrapWorkspaces();
+  await bootstrapWorkspaces({ seedOnEmpty: true });
   setOracleHostHooks({ getActiveWorkspaceId });
 
   globalLog = new InMemoryMutationLog();

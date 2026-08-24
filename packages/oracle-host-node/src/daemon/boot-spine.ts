@@ -619,8 +619,12 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
   });
 
   // 4. Boot sequence — workspace bootstrap, hydrate active workspace,
-  //    init sync engine + bridges + coord runner + lifeline.
-  await bootstrapWorkspaces();
+  //    init sync engine + bridges + coord runner + lifeline. The spine
+  //    declares seed-on-empty for the desktop AND the daemon: a server
+  //    always holds at least one workspace, which is the premise the
+  //    access epic's grant floor rests on ("nothing to give them" is
+  //    never the reason a user has nothing).
+  await bootstrapWorkspaces({ seedOnEmpty: true });
   // U1.8 — every workspace owns an owner-role WRA for the synthetic
   // principal. Reconcile once after `bootstrapWorkspaces` resolves
   // the list; the subscription below covers creates / deletes during

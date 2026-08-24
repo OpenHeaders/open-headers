@@ -43,10 +43,16 @@ export interface DaemonRpc {
    * resolution. Deliberately NOT audited — it is a visibility
    * question the UI asks on every connect, not an enforcement
    * decision; auditing it would bury real deny rows in noise.
+   *
+   * `user` is how the CALLING subject reads out to a human — their own
+   * identity, never anyone else's, which is why it rides the ungated
+   * probe. The served tab's awaiting-access screen names who is signed
+   * in from it. Present on the peer plane; the desktop's local handler
+   * (the operator by construction) omits it.
    */
   'oh.daemon.admin.status': {
     req: Record<string, never>;
-    res: { admin: boolean };
+    res: { admin: boolean; user?: { displayName: string; email: string | null } };
   };
 
   /**

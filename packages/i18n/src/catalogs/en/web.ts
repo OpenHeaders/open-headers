@@ -91,6 +91,17 @@ export const web = {
   'web.oidcError.personalLicenseNoIdentity':
     'Your sign-in carried no email to match the individual seat against. Ask the server admin.',
   'web.oidcError.failed': 'Single sign-on failed. Try again, or ask whoever runs the server to check the provider.',
+  'web.access.title': 'No workspace granted yet',
+  'web.access.intro':
+    "You're signed in to {org}, but no workspace on it has been granted to you yet. An administrator must grant " +
+    'you access to a workspace.',
+  'web.access.introNoOrg':
+    "You're signed in to this server, but no workspace on it has been granted to you yet. An administrator must " +
+    'grant you access to a workspace.',
+  'web.access.signedInAs': 'Signed in as {name}',
+  'web.access.signedInAsWithEmail': 'Signed in as {name} ({email})',
+  'web.access.waiting': 'This screen updates the moment access is granted — no reload needed.',
+  'web.access.signOut': 'Sign out',
   'web.insecure.title': 'This page needs a secure connection',
   'web.insecure.intro':
     'This tab runs the whole Workbench, not a thin view of the server, so it has to create an identity for this ' +

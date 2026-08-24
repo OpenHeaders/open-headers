@@ -138,8 +138,16 @@ export async function bootWebHost(): Promise<void> {
   });
 
   // 3. Boot sequence — workspace bootstrap, identity reconcile,
-  //    Org resolver, hydrate active workspace, init sync engine.
-  await bootstrapWorkspaces();
+  //    Org resolver, hydrate active workspace, init sync engine. The
+  //    web host declares seedOnEmpty: false — the served tab is a
+  //    replica, and its workspaces are the server workspaces it has
+  //    been granted. A never-joined browser (the offline-first A8
+  //    mount) seeds at the MOUNT DECISION instead, through the
+  //    ordinary SW-internal create against the then-live oracle — see
+  //    `mount-decision.ts`. Empty store ⇒ empty list + null active;
+  //    the boot below runs its global half and defers the
+  //    per-workspace steps to the first adoption.
+  await bootstrapWorkspaces({ seedOnEmpty: false });
   await ensureWorkspaceRoleAssignments(listWorkspaces().map((ws) => ws.id)).catch((err: unknown) => {
     logger.warn(SCOPE, 'ensureWorkspaceRoleAssignments failed', err);
   });

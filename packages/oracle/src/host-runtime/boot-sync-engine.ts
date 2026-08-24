@@ -11,8 +11,15 @@
  *
  * Pre-conditions (caller's responsibility):
  *   - `OracleHostHooks` already installed via `setOracleHostHooks`.
- *   - `bootstrapWorkspaces()` already resolved (the active id must be
- *     readable via `getActiveWorkspaceId()`).
+ *   - `bootstrapWorkspaces()` already resolved. A null active pointer
+ *     (a host that declared `seedOnEmpty: false` booting an empty
+ *     store) is a supported state: steps 1–2 and 6–7 still run — the
+ *     daemon's workspace LIST arrives as global-scope rows, so the
+ *     global oracle must be live — while the per-workspace steps 3–5
+ *     are skipped. The first `setActiveExtensionWorkspace` flip routes
+ *     through the coord runner below, which performs exactly the
+ *     hydration boot skipped (swap + setRuntimeActive + reseed +
+ *     template ensure).
  *   - `hydrateActiveWorkspaceStores()` already resolved (the per-workspace
  *     stores must be populated for the active workspace).
  *   - For browser hosts: any chrome adapters that the sync engine relies
@@ -34,18 +41,19 @@ import {
   removeAwarenessByInstanceId,
   setRuntimeActive,
 } from '../sync/service';
-import {
-  bridgeExtensionWorkspaceSyncEngine,
-  getActiveWorkspaceId,
-  peekActiveWorkspaceId,
-} from '../workspace/extension-workspace-store';
+import { bridgeExtensionWorkspaceSyncEngine, peekActiveWorkspaceId } from '../workspace/extension-workspace-store';
 import { purgeWorkspaceData, swapPerWorkspaceStores } from '../workspace/workspace-coordinator';
 import { reseedAllPerWorkspaceBridges } from './reseed-bridges';
 
 export interface BootSyncEngineResult {
-  /** The active workspace at the moment the boot sequence finished. */
-  activeWorkspaceId: string;
-  /** Whether `setRuntimeActive` succeeded; logged-not-thrown on failure. */
+  /**
+   * The active workspace at the moment the boot sequence finished.
+   * Null on an empty boot (a `seedOnEmpty: false` host with an empty
+   * store) — the per-workspace steps were skipped and the first
+   * adoption hydrates them through the coord runner.
+   */
+  activeWorkspaceId: string | null;
+  /** Whether `setRuntimeActive` succeeded; logged-not-thrown on failure. True when skipped on a null active. */
   setActiveOk: boolean;
 }
 
@@ -56,36 +64,46 @@ export async function bootSyncEngine(): Promise<BootSyncEngineResult> {
   initGlobalSyncService();
 
   // 2. Seed the global oracle from the in-memory workspace-store
-  //    populated by `bootstrapWorkspaces()`.
+  //    populated by `bootstrapWorkspaces()`. On an empty boot this
+  //    still creates the (empty) workspace catalog, so inbound
+  //    global-scope rows have an oracle to apply against.
   await bridgeExtensionWorkspaceSyncEngine();
 
-  // 3. Make the persisted-active workspace current. `workspace-store`
-  //    bootstrap walked Active → Default → first valid, so the read
-  //    here always resolves to a real workspace id.
-  const activeId = getActiveWorkspaceId();
-  const bootSetActive = await setRuntimeActive(activeId);
-  if (!bootSetActive.ok) {
-    // Recoverable: the next extensionWorkspace mutation routes through
-    // the workspace-coord runner which will re-attempt setRuntimeActive.
-    // Bridge handlers tolerate a brief null-Active via the snapshot
-    // fallback in `service.ts`.
-    logger.warn('HostRuntime', `boot setRuntimeActive failed: ${bootSetActive.reason}`);
+  // 3. Make the persisted-active workspace current. On a non-empty
+  //    store bootstrap walked Active → first valid, so the pointer
+  //    always names a real workspace; on an empty boot it is null and
+  //    steps 3–5 are skipped — the first adoption's coord-runner pass
+  //    performs them.
+  const activeId = peekActiveWorkspaceId();
+  let bootSetActiveOk = true;
+  if (activeId !== null) {
+    const bootSetActive = await setRuntimeActive(activeId);
+    bootSetActiveOk = bootSetActive.ok;
+    if (!bootSetActive.ok) {
+      // Recoverable: the next extensionWorkspace mutation routes through
+      // the workspace-coord runner which will re-attempt setRuntimeActive.
+      // Bridge handlers tolerate a brief null-Active via the snapshot
+      // fallback in `service.ts`.
+      logger.warn('HostRuntime', `boot setRuntimeActive failed: ${bootSetActive.reason}`);
+    }
+
+    // 4. Re-point every per-workspace bridge at the active workspace.
+    //    Entity caches were already seeded by the service's `hydrated`
+    //    gate inside `setRuntimeActive`; this pass wires the store
+    //    mirrors (and seeds the cheap singletons). After this call,
+    //    per-workspace entity writes route through the oracle; reads
+    //    stay synchronous off the local mirror.
+    await reseedAllPerWorkspaceBridges();
+
+    // 5. Seed the default "User Templates" collection so the Templates
+    //    section is non-empty on first run. Idempotent; a consumed
+    //    workspace is skipped — its backend owns the default.
+    await ensureDefaultTemplateCollection('initialization').catch((err: unknown) => {
+      logger.warn('HostRuntime', 'ensureDefaultTemplateCollection at boot failed', err);
+    });
+  } else {
+    logger.info('HostRuntime', 'boot with no active workspace — per-workspace steps deferred to first adoption');
   }
-
-  // 4. Re-point every per-workspace bridge at the active workspace.
-  //    Entity caches were already seeded by the service's `hydrated`
-  //    gate inside `setRuntimeActive`; this pass wires the store
-  //    mirrors (and seeds the cheap singletons). After this call,
-  //    per-workspace entity writes route through the oracle; reads
-  //    stay synchronous off the local mirror.
-  await reseedAllPerWorkspaceBridges();
-
-  // 5. Seed the default "User Templates" collection so the Templates
-  //    section is non-empty on first run. Idempotent; a consumed
-  //    workspace is skipped — its backend owns the default.
-  await ensureDefaultTemplateCollection('initialization').catch((err: unknown) => {
-    logger.warn('HostRuntime', 'ensureDefaultTemplateCollection at boot failed', err);
-  });
 
   // 6. Workspace coordination runner — drains SWAP_PER_WORKSPACE_STORES
   //    + PURGE_WORKSPACE_DATA intents on every `extensionWorkspace`
@@ -129,5 +147,5 @@ export async function bootSyncEngine(): Promise<BootSyncEngineResult> {
     },
   });
 
-  return { activeWorkspaceId: activeId, setActiveOk: bootSetActive.ok };
+  return { activeWorkspaceId: activeId, setActiveOk: bootSetActiveOk };
 }

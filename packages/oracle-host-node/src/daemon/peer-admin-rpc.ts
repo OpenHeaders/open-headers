@@ -16,7 +16,12 @@
  * it would bury real deny rows in noise.
  */
 
-import { emitAuditEntry, hasCapability, resolveDaemonPeerIdentitySnapshot } from '@openheaders/core/identity';
+import {
+  emitAuditEntry,
+  hasCapability,
+  resolveDaemonPeerDisplayIdentity,
+  resolveDaemonPeerIdentitySnapshot,
+} from '@openheaders/core/identity';
 import type { WsPeerRpcContext, WsPeerRpcHooks } from '../host-runtime/ws-server';
 import { ADMIN_STATUS_CHANNEL, type AdminChannelHandler } from './admin-channels';
 
@@ -40,7 +45,11 @@ export function createPeerAdminRpc(options: PeerAdminRpcOptions): WsPeerRpcHooks
 
       const type = message.type as string;
       if (type === ADMIN_STATUS_CHANNEL) {
-        return { admin: decision.allow };
+        // The probe also names the CALLING subject — its own identity,
+        // never anyone else's — so the served tab's awaiting-access
+        // screen can say who is signed in without an admin channel.
+        const user = await resolveDaemonPeerDisplayIdentity(peer.userId);
+        return { admin: decision.allow, ...(user ? { user } : {}) };
       }
 
       emitAuditEntry({ actorUserId: peer.userId, capability: 'daemon.admin', decision });

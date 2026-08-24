@@ -374,7 +374,7 @@ describe('applyInboundMutationBatch', () => {
         ],
         'oh.runtimeActive.active': wsId,
       });
-      await bootstrapWorkspaces();
+      await bootstrapWorkspaces({ seedOnEmpty: true });
       __initGlobalSyncServiceForTests({ log: new InMemoryMutationLog() });
       await bridgeExtensionWorkspaceSyncEngine();
     });

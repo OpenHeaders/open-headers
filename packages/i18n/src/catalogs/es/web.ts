@@ -100,6 +100,17 @@ export const web = {
   'web.oidcError.failed':
     'El inicio de sesión único falló. Vuelve a intentarlo o pide a quien administra el servidor que revise el ' +
     'proveedor.',
+  'web.access.title': 'Aún sin workspace concedido',
+  'web.access.intro':
+    'Has iniciado sesión en {org}, pero todavía no se te ha concedido ningún workspace allí. Un administrador ' +
+    'debe darte acceso a un workspace.',
+  'web.access.introNoOrg':
+    'Has iniciado sesión en este servidor, pero todavía no se te ha concedido ningún workspace allí. Un ' +
+    'administrador debe darte acceso a un workspace.',
+  'web.access.signedInAs': 'Sesión iniciada como {name}',
+  'web.access.signedInAsWithEmail': 'Sesión iniciada como {name} ({email})',
+  'web.access.waiting': 'Esta pantalla se actualiza en cuanto se concede el acceso — sin recargar.',
+  'web.access.signOut': 'Cerrar sesión',
   'web.insecure.title': 'Esta página necesita una conexión segura',
   'web.insecure.intro':
     'Esta pestaña ejecuta todo el Workbench, no una vista ligera del servidor, así que tiene que generar una ' +

@@ -22,7 +22,12 @@
  *   - `oh.preferences.defaultWorkspace` — user preference for new-tab seed (independent)
  *
  * Invariants:
- *   - list is non-empty after bootstrap (default workspace seeded)
+ *   - seeding on an empty store is HOST POLICY, not a store invariant:
+ *     {@link bootstrap} takes a required `seedOnEmpty` and every host
+ *     declares its position at the boot seam. Hosts that declare `true`
+ *     (extension SW, the shared daemon spine) keep the classic
+ *     "non-empty after bootstrap"; the web host declares `false`, so an
+ *     empty list + null active is a representable boot state there
  *   - list cannot shrink below 1 entry (renderer's
  *     `applyDeleteWorkspace` rejects last-workspace deletes; UI gates
  *     the delete button when the mirror reports a single workspace)
@@ -69,8 +74,11 @@ import {
 import { getGlobalOracle, nextGlobalSwContext } from '../sync/global-service';
 import { driftRecorder } from '../sync/storage-drift';
 
-const DEFAULT_WORKSPACE_NAME = 'Workspace';
-const DEFAULT_WORKSPACE_COLOR = 'neutral';
+// Exported for the web host's mount-time seed (the A8 offline-first
+// mount creates the same default workspace through the ordinary
+// `createWorkspace` path instead of the bootstrap seed).
+export const DEFAULT_WORKSPACE_NAME = 'Workspace';
+export const DEFAULT_WORKSPACE_COLOR = 'neutral';
 
 // ── In-memory state ───────────────────────────────────────────────────
 
@@ -364,9 +372,22 @@ function nextOrderKey(): string {
 
 // ── Bootstrap ─────────────────────────────────────────────────────────
 
+export interface BootstrapOptions {
+  /**
+   * The host's seed policy for an empty store — REQUIRED, no default,
+   * so every host states its position explicitly at the boot seam.
+   * `true` (extension SW, the shared daemon spine) seeds a default
+   * home-Org workspace and sets it active; `false` (the web host)
+   * resolves with an empty list and a null active pointer — the served
+   * tab's workspaces are the server workspaces it is granted, and the
+   * mount decision answers "is there anywhere to work".
+   */
+  seedOnEmpty: boolean;
+}
+
 /**
- * Load the workspace list from storage. If absent, seed a default
- * workspace and set it active. Call exactly once at SW boot, before any
+ * Load the workspace list from storage. If absent, apply the host's
+ * declared seed policy. Call exactly once at SW boot, before any
  * per-workspace store is hydrated — the stores key their reads off the
  * active workspace id.
  *
@@ -376,7 +397,7 @@ function nextOrderKey(): string {
  * authoritative state in memory; bridge replays it through the global
  * oracle, and the cache.onChange listener writes back.
  */
-export async function bootstrap(): Promise<void> {
+export async function bootstrap(options: BootstrapOptions): Promise<void> {
   const [storedList, storedActive] = await Promise.all([
     hostStorage.getValidatedArray(OH.workspaces, ExtensionWorkspaceSchema, {
       onError: driftRecorder({ subsystem: 'workspace', storageKey: OH.workspaces.key }),
@@ -395,6 +416,17 @@ export async function bootstrap(): Promise<void> {
       typeof candidate === 'string' && workspaces.some((w) => w.id === candidate) ? candidate : null;
     activeWorkspaceId = validFor(storedActive) ?? [...workspaces].sort(compareWorkspaces)[0].id;
     logger.info('WorkspaceStore', `Loaded ${workspaces.length} workspace(s), active=${activeWorkspaceId}`);
+    return;
+  }
+
+  if (!options.seedOnEmpty) {
+    // Empty boot, declared by the host: zero workspaces is a
+    // representable state of the boot plane. Readers use
+    // `peekActiveWorkspaceId()`; the throwing `getActiveWorkspaceId()`
+    // stays the contract for paths that require an active workspace.
+    workspaces = [];
+    activeWorkspaceId = null;
+    logger.info('WorkspaceStore', 'Empty store, host declared seedOnEmpty=false — booting with no workspaces');
     return;
   }
 

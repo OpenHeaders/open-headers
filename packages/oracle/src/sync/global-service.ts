@@ -143,6 +143,17 @@ export function getGlobalMutationLog(): MutationLog | null {
   return state?.log ?? null;
 }
 
+/**
+ * The global scope's HLC writer identity. The web wire's HELLO reads
+ * this when the tab holds zero workspaces (an empty boot): with no
+ * active workspace there is no per-workspace nodeId to announce, and
+ * the connection's only certain scope is `__global__`. Returns null
+ * before the service is initialized.
+ */
+export function getGlobalNodeId(): string | null {
+  return state?.context.nodeId ?? null;
+}
+
 /** Mint a `MutatorContext` for SW-internal global-scope emissions. */
 export function nextGlobalSwContext(opts?: Parameters<SwContextHandle['next']>[0]) {
   if (!state) {

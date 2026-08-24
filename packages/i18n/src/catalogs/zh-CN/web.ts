@@ -67,6 +67,13 @@ export const web = {
   'web.oidcError.personalLicenseIdentityMismatch': '该个人席位属于另一个邮箱。它只允许购买时使用的地址。',
   'web.oidcError.personalLicenseNoIdentity': '你的登录没有携带可与个人席位匹配的邮箱。请联系服务器管理员。',
   'web.oidcError.failed': '单点登录失败。请重试，或请运行该服务器的人检查身份提供方。',
+  'web.access.title': '尚未获得工作区授权',
+  'web.access.intro': '你已登录 {org}，但尚未获得其中任何工作区的访问权限。需要管理员为你授予一个工作区。',
+  'web.access.introNoOrg': '你已登录此服务器，但尚未获得其中任何工作区的访问权限。需要管理员为你授予一个工作区。',
+  'web.access.signedInAs': '已登录：{name}',
+  'web.access.signedInAsWithEmail': '已登录：{name}（{email}）',
+  'web.access.waiting': '访问权限授予后此界面会立即更新——无需刷新。',
+  'web.access.signOut': '退出登录',
   'web.insecure.title': '此页面需要安全连接',
   'web.insecure.intro':
     '此标签页运行完整的 Workbench，而不是服务器的轻量视图，因此必须为此设备创建身份——浏览器仅在安全源上允许这样做。',

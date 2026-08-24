@@ -54,3 +54,35 @@ export async function resolveDaemonPeerIdentitySnapshot(userId: string): Promise
     orgs: new Map([[identity.org.id, identity.org]]),
   };
 }
+
+/**
+ * How the user a peer acts as reads out to a human — consumed by the
+ * ungated `oh.daemon.admin.status` visibility probe so the served
+ * tab's awaiting-access screen can say who is signed in. Answers only
+ * the caller's OWN identity; `email` is the primary identity row's
+ * value when it is an email, null otherwise (the operator's synthetic
+ * `local` row, an SSO subject). `null` for an unknown or deactivated
+ * user — the same fail-closed line the capability snapshot draws.
+ */
+export interface DaemonPeerDisplayIdentity {
+  readonly displayName: string;
+  readonly email: string | null;
+}
+
+export async function resolveDaemonPeerDisplayIdentity(userId: string): Promise<DaemonPeerDisplayIdentity | null> {
+  const identity = await hostStorage.get(OH.syntheticIdentity);
+  if (!identity) return null;
+  if (identity.user.id === userId) {
+    return {
+      displayName: identity.user.displayName,
+      email: identity.userIdentity.kind === 'email' ? identity.userIdentity.value : null,
+    };
+  }
+  const users = (await hostStorage.get(OH.daemonUsers)) ?? [];
+  const record = users.find((r) => r.user.id === userId);
+  if (!record || record.deactivatedAt !== null) return null;
+  return {
+    displayName: record.user.displayName,
+    email: record.userIdentity.kind === 'email' ? record.userIdentity.value : null,
+  };
+}

@@ -9,7 +9,6 @@ import '@/host/install-assets-host';
 import '@/host/install-capabilities';
 import { eagerInitRendererMirrors, LocaleProvider, ThemeProvider } from '@openheaders/ui/context';
 import { setCurrentHost } from '@openheaders/ui/shared/host-vocabulary';
-import Workbench from '@openheaders/ui/workbench/App';
 import { SettingsProvider } from '@openheaders/ui/workbench/settings';
 import { App as AntApp } from 'antd';
 import { createRoot } from 'react-dom/client';
@@ -18,12 +17,13 @@ import { bootWebHost } from '@/host/boot-web-host';
 import { installDaemonWire } from '@/host/daemon-wire';
 import { watchDaemonScriptPosture } from '@/host/install-script-posture';
 import { awaitPostJoinAdoption, decideGate, resolveGateMode, submitDaemonToken } from '@/host/join-gate';
+import { seedLocalWorkspaceIfNeverJoined } from '@/host/mount-decision';
 import { claimOidcToken, consumeOidcHash } from '@/host/oidc-login';
-import { resolveWorkbenchIdentity } from '@/host/surface-identity-resolvers';
 import { InsecureContextNotice } from '@/InsecureContextNotice';
 import { LoginGate } from '@/LoginGate';
 import { registerServiceWorker } from '@/register-sw';
 import { hideTransitionOverlay, showTransitionOverlay } from '@/transition-overlay';
+import { WorkbenchMount } from '@/WorkbenchMount';
 import '@openheaders/ui/shared/dock-layout/dock-layout.css';
 import '@openheaders/ui/workbench/styles/rules.less';
 
@@ -79,11 +79,19 @@ if (!window.isSecureContext) {
   const wire = installDaemonWire();
   watchDaemonScriptPosture(wire);
 
-  const mountWorkbench = (): void => {
+  const mountWorkbench = async (): Promise<void> => {
     // Latch the wire on (idempotent — the gate's accepted handshake is
-    // already this same connection) and mount.
+    // already this same connection). A NEVER-JOINED browser with an
+    // empty store seeds its local workspace here, at the mount
+    // decision (the A8 case — an ordinary first mutation against the
+    // live oracle, not a bootstrap replay); a joined tab never seeds.
+    // `WorkbenchMount` then derives Workbench-vs-awaiting-access from
+    // the LIVE workspace list — a joined tab holding zero granted
+    // workspaces gets the explained screen, which resolves in place
+    // when the first grant syncs down.
     wire.start();
-    renderShell(<Workbench resolveIdentity={resolveWorkbenchIdentity} />);
+    await seedLocalWorkspaceIfNeverJoined();
+    renderShell(<WorkbenchMount wire={wire} />);
   };
 
   // SSO callback landing: pull the one-shot fragment result out of the
@@ -120,7 +128,7 @@ if (!window.isSecureContext) {
     // Mount only after join → adopt promoted the daemon's workspace so
     // the first workbench tab pins to the adopted scope.
     await awaitPostJoinAdoption(wire);
-    mountWorkbench();
+    await mountWorkbench();
   } else if (ssoErrorReason !== null || (await decideGate()) === 'gate') {
     renderShell(
       <LoginGate
@@ -135,6 +143,6 @@ if (!window.isSecureContext) {
       />,
     );
   } else {
-    mountWorkbench();
+    await mountWorkbench();
   }
 }

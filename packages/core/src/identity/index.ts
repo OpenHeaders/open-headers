@@ -52,7 +52,11 @@ export {
   type StartPairInput,
   type StartPairResult,
 } from './daemon-pairing';
-export { resolveDaemonPeerIdentitySnapshot } from './daemon-peer-snapshot';
+export {
+  type DaemonPeerDisplayIdentity,
+  resolveDaemonPeerDisplayIdentity,
+  resolveDaemonPeerIdentitySnapshot,
+} from './daemon-peer-snapshot';
 export {
   type AbsorbPersonalSeatResult,
   absorbPersonalSeat,

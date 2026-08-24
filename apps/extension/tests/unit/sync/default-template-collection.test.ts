@@ -56,7 +56,7 @@ async function bootWith(activeWorkspaceId: string): Promise<void> {
     'oh.workspaces': [workspace('ws-home', HOME_ORG_ID), workspace('ws-adopted', CONSUMED_ORG.id)],
     'oh.runtimeActive.active': activeWorkspaceId,
   });
-  await bootstrapWorkspaces();
+  await bootstrapWorkspaces({ seedOnEmpty: true });
   setOracleHostHooks({ getActiveWorkspaceId });
   __initSyncServiceForTests(activeWorkspaceId);
   await hydrateTemplatesFromStorage();

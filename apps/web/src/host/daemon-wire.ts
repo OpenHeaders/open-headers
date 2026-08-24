@@ -27,11 +27,13 @@
 import { getOrgBackendBindings, recordJoinedOrg } from '@openheaders/core/identity';
 import { hostLogger as logger } from '@openheaders/core/logger';
 import { HANDSHAKE_ROLES, type HandshakeRejectReason } from '@openheaders/core/protocol';
+import { EXTENSION_WORKSPACE_GLOBAL_SCOPE } from '@openheaders/core/sync';
 import { applyWorkspaceSnapshot, readWorkspaceStateVector, snapshotAwarenessPresence } from '@openheaders/oracle/sync';
 import type { InitiatorState } from '@openheaders/oracle/sync/client/sync-handshake-initiator';
 import { createSyncHandshakeInitiator } from '@openheaders/oracle/sync/client/sync-handshake-initiator';
 import type { TransportState } from '@openheaders/oracle/sync/client/transport-connection';
 import { createTransportConnection } from '@openheaders/oracle/sync/client/transport-connection';
+import { getGlobalNodeId } from '@openheaders/oracle/sync/global-service';
 import { getOrCreateWorkspaceService, releaseWorkspaceService } from '@openheaders/oracle/sync/service';
 import {
   getWorkspace,
@@ -43,10 +45,10 @@ import {
 import { report } from '@openheaders/ui/shared/status';
 import { peekDaemonToken } from './daemon-token';
 import { WEB_DAEMON_BACKEND_ID } from './web-backend-id';
+import { handleIncomingGrpcStreamFrame } from './wire-grpc-stream';
 import { handleInboundWireFrame } from './wire-inbound';
 import { handleIncomingMigrationPullFrame } from './wire-migration-mirror';
 import { applyPeerVectorToPendingOut, flushPendingOut, forwardAwarenessOverWire, setWireSender } from './wire-outbound';
-import { handleIncomingGrpcStreamFrame } from './wire-grpc-stream';
 import { handleIncomingRequestStreamFrame } from './wire-request-stream';
 import { handleWireRpcResponseFrame, setWireRpcSender } from './wire-rpc';
 
@@ -126,8 +128,21 @@ export function installDaemonWire(): DaemonWire {
   const initiator = createSyncHandshakeInitiator({
     send: (frame) => transport.send(frame as Record<string, unknown>),
     role: HANDSHAKE_ROLES.WEB,
-    getActiveWorkspaceId: () => peekActiveWorkspaceId(),
+    // An empty boot (seedOnEmpty: false, nothing synced yet) still
+    // joins: the HELLO announces the `__global__` scope — the
+    // connection's only certain scope, and the one whose catch-up
+    // delivers the workspace list a granted user is waiting on. The
+    // daemon binds the connection to the HELLO workspace for
+    // diagnostics only; catch-up is per-STATE_VECTOR scope.
+    getActiveWorkspaceId: () => peekActiveWorkspaceId() ?? EXTENSION_WORKSPACE_GLOBAL_SCOPE,
     getNodeId: (workspaceId) => {
+      if (workspaceId === EXTENSION_WORKSPACE_GLOBAL_SCOPE) {
+        const nodeId = getGlobalNodeId();
+        if (nodeId === null) {
+          throw new Error('DaemonWire: global sync service not initialized before HELLO');
+        }
+        return nodeId;
+      }
       const svc = getOrCreateWorkspaceService(workspaceId);
       try {
         return svc.context.nodeId;
