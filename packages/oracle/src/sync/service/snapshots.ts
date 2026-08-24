@@ -16,6 +16,7 @@ import type {
   SyncLiveVariablePostState,
   SyncLiveWorkflowPostState,
   SyncMqttRequestPostState,
+  SyncMqttResponseExamplePostState,
   SyncOAuthBundlePostState,
   SyncPauseMarkersPostState,
   SyncRequestCollectionPostState,
@@ -47,6 +48,7 @@ import {
   LIVE_VARIABLE_REGISTRATION,
   LIVE_WORKFLOW_REGISTRATION,
   MQTT_REQUEST_REGISTRATION,
+  MQTT_RESPONSE_EXAMPLE_REGISTRATION,
   OAUTH_BUNDLE_REGISTRATION,
   PAUSE_MARKERS_REGISTRATION,
   REQUEST_COLLECTION_REGISTRATION,
@@ -190,6 +192,11 @@ export function snapshotGrpcResponseExamplePostStates(workspaceId?: string): Syn
 export function snapshotWsResponseExamplePostStates(workspaceId?: string): SyncWsResponseExamplePostState[] {
   const o = oracleForWorkspace(workspaceId);
   return o ? flatSnapshot(o, WS_RESPONSE_EXAMPLE_REGISTRATION) : [];
+}
+
+export function snapshotMqttResponseExamplePostStates(workspaceId?: string): SyncMqttResponseExamplePostState[] {
+  const o = oracleForWorkspace(workspaceId);
+  return o ? flatSnapshot(o, MQTT_RESPONSE_EXAMPLE_REGISTRATION) : [];
 }
 
 export function snapshotSpecPostStates(workspaceId?: string): SyncSpecPostState[] {

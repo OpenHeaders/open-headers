@@ -36,6 +36,7 @@ const SNAPSHOT_KEY_BY_ENTITY_TYPE: Record<string, string> = {
   'response-example': 'responseExamples',
   grpcResponseExample: 'grpcResponseExamples',
   wsResponseExample: 'wsResponseExamples',
+  mqttResponseExample: 'mqttResponseExamples',
   template: 'templates',
   'template-collection': 'templateCollections',
   'template-folder': 'templateFolders',

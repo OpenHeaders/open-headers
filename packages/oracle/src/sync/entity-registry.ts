@@ -35,6 +35,7 @@ import {
   LiveVariableSchema,
   LiveWorkflowSchema,
   MqttRequestSchema,
+  MqttResponseExampleSchema,
   RequestSchema,
   ResponseExampleSchema,
   RuleSchema,
@@ -71,6 +72,7 @@ import {
   MQTT_REQUEST_SAVED_MESSAGES_PATH,
   MQTT_REQUEST_TOPICS_PATH,
   MQTT_REQUEST_USER_PROPERTIES_PATH,
+  MQTT_RESPONSE_EXAMPLE_ENTITY_TYPE,
   OAUTH_BUNDLE_ENTITY_TYPE,
   OAUTH_CONFIGS_PATH,
   OAUTH_REFRESH_ERRORS_PATH,
@@ -119,6 +121,7 @@ import { createLiveValueCache } from './caches/live-value-cache';
 import { createLiveVariableCache } from './caches/live-variable-cache';
 import { createLiveWorkflowCache } from './caches/live-workflow-cache';
 import { createMqttRequestCache } from './caches/mqtt-request-cache';
+import { createMqttResponseExampleCache } from './caches/mqtt-response-example-cache';
 import { createOAuthBundleCache } from './caches/oauth-bundle-cache';
 import { createPauseMarkersCache } from './caches/pause-markers-cache';
 import { createRequestCache } from './caches/request-cache';
@@ -158,6 +161,10 @@ import { projectLiveValuePostState, projectLiveValueSingleton } from './post-sta
 import { projectLiveVariableByUid, projectLiveVariablePostState } from './post-state/live-variable-post-state';
 import { projectLiveWorkflowByUid, projectLiveWorkflowPostState } from './post-state/live-workflow-post-state';
 import { projectMqttRequestByUid, projectMqttRequestPostState } from './post-state/mqtt-request-post-state';
+import {
+  projectMqttResponseExampleByUid,
+  projectMqttResponseExamplePostState,
+} from './post-state/mqtt-response-example-post-state';
 import { projectOAuthBundlePostState, projectOAuthBundleSingleton } from './post-state/oauth-bundle-post-state';
 import { projectPauseMarkersPostState, projectPauseMarkersSingleton } from './post-state/pause-markers-post-state';
 import {
@@ -560,6 +567,15 @@ export const WS_RESPONSE_EXAMPLE_REGISTRATION = flatEntity({
   localWriteSchema: WsResponseExampleSchema,
 });
 
+export const MQTT_RESPONSE_EXAMPLE_REGISTRATION = flatEntity({
+  entityType: MQTT_RESPONSE_EXAMPLE_ENTITY_TYPE,
+  createCache: createMqttResponseExampleCache,
+  postStateKey: 'mqttResponseExamplePostState',
+  projectPostState: projectMqttResponseExamplePostState,
+  projectByUid: projectMqttResponseExampleByUid,
+  localWriteSchema: MqttResponseExampleSchema,
+});
+
 export const RESPONSE_EXAMPLE_REGISTRATION = flatEntity({
   entityType: RESPONSE_EXAMPLE_ENTITY_TYPE,
   createCache: createResponseExampleCache,
@@ -670,6 +686,7 @@ export const WORKSPACE_REGISTRY: EntityRegistration[] = [
   RESPONSE_EXAMPLE_REGISTRATION,
   GRPC_RESPONSE_EXAMPLE_REGISTRATION,
   WS_RESPONSE_EXAMPLE_REGISTRATION,
+  MQTT_RESPONSE_EXAMPLE_REGISTRATION,
   TEMPLATE_REGISTRATION,
   TEMPLATE_COLLECTION_REGISTRATION,
   TEMPLATE_FOLDER_REGISTRATION,

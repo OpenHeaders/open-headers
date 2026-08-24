@@ -61,6 +61,7 @@ export type TabMode =
   | 'response-example'
   | 'grpc-response-example'
   | 'ws-response-example'
+  | 'mqtt-response-example'
   | 'rule-create'
   | 'live-variable-edit'
   | 'live-variable-create'
@@ -177,6 +178,8 @@ export interface WorkbenchTab {
   grpcResponseExampleUid?: string;
   /** For ws-response-example tabs: the captured session being viewed. */
   wsResponseExampleUid?: string;
+  /** For mqtt-response-example tabs: the captured session being viewed. */
+  mqttResponseExampleUid?: string;
   /**
    * For request-create tabs minted by an example's "Try" action: the
    * source example's name at fork time. Chrome-only provenance — it

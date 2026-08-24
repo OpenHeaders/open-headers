@@ -30,6 +30,7 @@ import type {
   GrpcResponseExample,
   LiveVariable,
   LiveWorkflow,
+  MqttResponseExample,
   Request,
   ResponseExample,
   Rule,
@@ -54,6 +55,7 @@ export interface TabDisplayLookups {
   responseExamples: readonly ResponseExample[];
   grpcResponseExamples: readonly GrpcResponseExample[];
   wsResponseExamples: readonly WsResponseExample[];
+  mqttResponseExamples: readonly MqttResponseExample[];
   specs: readonly Spec[];
 }
 
@@ -110,6 +112,11 @@ export function tabDisplayLabel(tab: WorkbenchTab, lookups: TabDisplayLookups, t
     case 'ws-response-example': {
       if (!tab.wsResponseExampleUid) return tab.label;
       const example = lookups.wsResponseExamples.find((e) => e.uid === tab.wsResponseExampleUid);
+      return example ? example.name : tab.label;
+    }
+    case 'mqtt-response-example': {
+      if (!tab.mqttResponseExampleUid) return tab.label;
+      const example = lookups.mqttResponseExamples.find((e) => e.uid === tab.mqttResponseExampleUid);
       return example ? example.name : tab.label;
     }
     case 'live-variable-edit': {

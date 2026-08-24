@@ -103,6 +103,7 @@ interface WorkbenchToolWindowProps {
   openResponseExampleTab: UseTabOpenersApi['openResponseExampleTab'];
   openGrpcResponseExampleTab: UseTabOpenersApi['openGrpcResponseExampleTab'];
   openWsResponseExampleTab: UseTabOpenersApi['openWsResponseExampleTab'];
+  openMqttResponseExampleTab: UseTabOpenersApi['openMqttResponseExampleTab'];
   openLiveVariableEdit: UseTabOpenersApi['openLiveVariableEdit'];
   openProxyRequestInspect: UseTabOpenersApi['openProxyRequestInspect'];
   openLiveNetworkRequestInspect: UseTabOpenersApi['openLiveNetworkRequestInspect'];
@@ -174,6 +175,7 @@ const WorkbenchToolWindow: React.FC<WorkbenchToolWindowProps> = ({
   openResponseExampleTab,
   openGrpcResponseExampleTab,
   openWsResponseExampleTab,
+  openMqttResponseExampleTab,
   openLiveVariableEdit,
   openProxyRequestInspect,
   openLiveNetworkRequestInspect,
@@ -250,6 +252,7 @@ const WorkbenchToolWindow: React.FC<WorkbenchToolWindowProps> = ({
           onSelectResponseExample={openResponseExampleTab}
           onSelectGrpcResponseExample={openGrpcResponseExampleTab}
           onSelectWsResponseExample={openWsResponseExampleTab}
+          onSelectMqttResponseExample={openMqttResponseExampleTab}
           onImport={(ctx) => importExportRef.current?.openImportSource(ctx)}
           searchRef={(handle: SidebarSearchHandle | null) => {
             if (handle) sidebarSearchRefs.current.set(id as SidebarView, handle);

@@ -51,6 +51,8 @@ interface UseSidebarInteractionParams {
   resolveGrpcResponseExampleParent?: (exampleUid: string) => string | null;
   /** Parent WebSocket request uid for a WebSocket response-example uid. */
   resolveWsResponseExampleParent?: (exampleUid: string) => string | null;
+  /** Parent MQTT request uid for an MQTT response-example uid. */
+  resolveMqttResponseExampleParent?: (exampleUid: string) => string | null;
   containerRef: React.RefObject<HTMLDivElement | null>;
   toggleExpand: (key: string) => void;
   setRenamingId: React.Dispatch<React.SetStateAction<string | null>>;
@@ -90,6 +92,7 @@ export function useSidebarInteraction({
   resolveResponseExampleParent,
   resolveGrpcResponseExampleParent,
   resolveWsResponseExampleParent,
+  resolveMqttResponseExampleParent,
   containerRef,
   toggleExpand,
   setRenamingId,
@@ -212,6 +215,7 @@ export function useSidebarInteraction({
     resolveResponseExampleParent,
     resolveGrpcResponseExampleParent,
     resolveWsResponseExampleParent,
+    resolveMqttResponseExampleParent,
     containerRef,
     setExpandedKeys,
     setSectionsExpanded,

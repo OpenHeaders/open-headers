@@ -30,6 +30,7 @@ const TAB_MODE_FEATURES: Partial<Record<TabMode, TelemetryFeatureId>> = {
   'response-example': 'response-examples',
   'grpc-response-example': 'response-examples',
   'ws-response-example': 'response-examples',
+  'mqtt-response-example': 'response-examples',
   'grpc-edit': 'grpc-client',
   'websocket-edit': 'ws-client',
   'whats-new': 'whats-new',

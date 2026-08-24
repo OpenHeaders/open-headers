@@ -178,6 +178,7 @@ export interface UseTabOpenersApi {
    */
   openGrpcResponseExampleTab: (uid: string, name: string, grpcRequestUid: string) => void;
   openWsResponseExampleTab: (uid: string, name: string, websocketRequestUid: string) => void;
+  openMqttResponseExampleTab: (uid: string, name: string, mqttRequestUid: string) => void;
   /**
    * Open a captured proxy request's read-only inspector tab. Tab id
    * `proxy-req-<requestId>` — reopening the same capture switches to

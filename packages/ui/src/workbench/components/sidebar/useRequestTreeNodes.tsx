@@ -4,6 +4,7 @@ import {
   GRPC_REQUEST_ENTITY_TYPE,
   GRPC_RESPONSE_EXAMPLE_ENTITY_TYPE,
   MQTT_REQUEST_ENTITY_TYPE,
+  MQTT_RESPONSE_EXAMPLE_ENTITY_TYPE,
   REQUEST_COLLECTION_ENTITY_TYPE,
   REQUEST_ENTITY_TYPE,
   REQUEST_FOLDER_ENTITY_TYPE,
@@ -19,6 +20,7 @@ import type {
   ResponseExample,
   TreeNode as CoreTreeNode,
   WebSocketRequest,
+  MqttResponseExample,
   WsResponseExample,
 } from '@openheaders/core/types';
 import { isRequestComplete, isRequestResolvable } from '@openheaders/core/utils';
@@ -61,6 +63,11 @@ interface UseRequestTreeNodesParams {
   renameWsResponseExample: (uid: string, name: string) => Promise<unknown> | unknown;
   duplicateWsResponseExample: (uid: string) => Promise<unknown> | unknown;
   deleteWsResponseExample: (uid: string) => Promise<unknown> | unknown;
+  /** Saved MQTT examples grouped by parent MQTT request uid, capture order. */
+  mqttResponseExamplesByRequest: ReadonlyMap<string, MqttResponseExample[]>;
+  renameMqttResponseExample: (uid: string, name: string) => Promise<unknown> | unknown;
+  duplicateMqttResponseExample: (uid: string) => Promise<unknown> | unknown;
+  deleteMqttResponseExample: (uid: string) => Promise<unknown> | unknown;
   draftsByLocationRequest: Map<string, WorkbenchTab[]>;
   buildRequestDraftNode: (tab: WorkbenchTab, depth: number, parentId: string) => TreeNode;
   /** Reveal-aware expansion predicate — see `useRulesTreeNodes`. */
@@ -107,6 +114,8 @@ interface UseRequestTreeNodesParams {
   onSelectGrpcResponseExample?: (uid: string, name: string, grpcRequestUid: string) => void;
   /** Open a saved WebSocket response example in its viewer tab. */
   onSelectWsResponseExample?: (uid: string, name: string, websocketRequestUid: string) => void;
+  /** Open a saved MQTT response example in its viewer tab. */
+  onSelectMqttResponseExample?: (uid: string, name: string, mqttRequestUid: string) => void;
   onExportEntity?: (entity: SidebarExportEntity) => void;
   /** Open the request-collection variables editor tab. */
   onOpenCollectionVariables?: (uid: string, name: string) => void;
@@ -450,19 +459,24 @@ export function useRequestTreeNodes(p: UseRequestTreeNodesParams): TreeNode[] {
             undefined,
             t,
           );
+          const mqttExamples = p.mqttResponseExamplesByRequest.get(node.uid) ?? [];
+          const hasMqttExamples = mqttExamples.length > 0;
           items.push({
             id: mid,
             kind: 'leaf',
             label: node.name,
             depth,
-            expandable: false,
+            expandable: hasMqttExamples,
             parentId,
             icon: mqttTag(!mqttComplete),
             badge: mqttBadge,
             canRename: true,
             canDelete: true,
             canAddChild: false,
+            // Same idiom as request rows: opening also toggles the
+            // example children when the request has any.
             onOpen: () => {
+              if (hasMqttExamples) p.toggleExpand(mid);
               p.onSelectMqttRequest?.(node.uid, node.name);
             },
             onRename: async (name: string) => {
@@ -474,6 +488,36 @@ export function useRequestTreeNodes(p: UseRequestTreeNodesParams): TreeNode[] {
               }),
             awareness: { entityType: MQTT_REQUEST_ENTITY_TYPE, entityId: node.uid },
           });
+          if (hasMqttExamples && p.isExpandedKey(mid)) {
+            for (const example of mqttExamples) {
+              items.push({
+                id: `mqtt-example-${example.uid}`,
+                kind: 'leaf',
+                label: example.name,
+                depth: depth + 1,
+                expandable: false,
+                parentId: mid,
+                icon: exampleTag(),
+                canRename: true,
+                canDelete: true,
+                canAddChild: false,
+                onOpen: () => {
+                  p.onSelectMqttResponseExample?.(example.uid, example.name, example.mqttRequestUid);
+                },
+                onRename: async (name: string) => {
+                  void p.renameMqttResponseExample(example.uid, name);
+                },
+                onDuplicate: () => {
+                  void p.duplicateMqttResponseExample(example.uid);
+                },
+                onDelete: () =>
+                  p.confirmDelete(example.name, () => {
+                    void p.deleteMqttResponseExample(example.uid);
+                  }),
+                awareness: { entityType: MQTT_RESPONSE_EXAMPLE_ENTITY_TYPE, entityId: example.uid },
+              });
+            }
+          }
         } else if (node.type === 'request') {
           if (lowerFilter && !node.name.toLowerCase().includes(lowerFilter)) continue;
           const rid = `request-${node.uid}`;

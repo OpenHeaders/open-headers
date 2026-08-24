@@ -48,8 +48,22 @@
  * `updateMqttRequest` (the MQTT write client under the hood).
  */
 
-import { DisconnectOutlined, LinkOutlined, MoreOutlined, PlusOutlined, SendOutlined } from '@ant-design/icons';
-import { AsyncApiParseError, parseAsyncApi, type AsyncApiCensus } from '@openheaders/core/asyncapi';
+import {
+  ArrowDownOutlined,
+  ArrowUpOutlined,
+  DisconnectOutlined,
+  LinkOutlined,
+  MoreOutlined,
+  PlusOutlined,
+  SendOutlined,
+} from '@ant-design/icons';
+import {
+  AsyncApiParseError,
+  parseAsyncApi,
+  synthesizeExamplePayload,
+  type AsyncApiCensus,
+  type AsyncApiMessage,
+} from '@openheaders/core/asyncapi';
 import { hostBridge, type MqttPublishWire } from '@openheaders/core/bridge';
 import { getCapability } from '@openheaders/core/capabilities';
 import { topicFilterError } from '@openheaders/core/mqtt';
@@ -74,6 +88,11 @@ import { useRequests } from '@openheaders/ui/shared/hooks/readers/useRequests';
 import { useSpecs } from '@openheaders/ui/shared/hooks/readers/useSpecs';
 import { useVariableResolverInputs } from '@openheaders/ui/shared/hooks/variables/useVariableResolver';
 import { isMac } from '@openheaders/ui/shared/platform';
+import { getMqttResponseExampleSyncMirrorForWorkspace } from '@openheaders/ui/context/mirrors/mqtt-response-example-sync-mirror';
+import {
+  applyMqttResponseExampleCreate,
+  nextMqttExampleName,
+} from '@openheaders/ui/shared/sync/mqtt-response-example-write-client';
 import { Allotment } from 'allotment';
 import {
   App,
@@ -91,6 +110,8 @@ import {
   Tabs,
   Tag,
   Tooltip,
+  Tree,
+  type TreeDataNode,
   Typography,
   theme,
 } from 'antd';
@@ -106,6 +127,10 @@ import type { EditableRowAdapter } from '../request-editor/editable-grid-types';
 import KeyValueTable from '../request-editor/KeyValueTable';
 import EditorHeader from '../shell/EditorHeader';
 import {
+  capturedMqttRequestFromDraft,
+  capturedMqttResponseFromSnapshot,
+} from '../mqtt-response-example/mqtt-example-draft';
+import {
   buildMqttRequestUpdates,
   canonicalMqttRequestProjection,
   draftFromMqttRequest,
@@ -118,6 +143,7 @@ import {
   propertiesToDraft,
   trimTopicRows,
 } from './draft';
+import { subscribeMqttPrefill } from './mqtt-prefill-bus';
 import { grantLabel } from './session-display';
 import { makeMqttPageResolutionFactory, publishMqttPageResolutionFactory } from './mqtt-page-session';
 import MqttSessionPane from './MqttSessionPane';
@@ -138,6 +164,8 @@ interface LiveSubscriptionMark {
 interface MqttRequestEditorProps {
   mqttRequestUid: string;
   workspaceId: string | null;
+  /** "Save Response" landed — open the minted example's viewer tab. */
+  onOpenMqttResponseExample?: (uid: string, name: string, mqttRequestUid: string) => void;
   onDirtyChange?: (dirty: boolean) => void;
   registerSaveRef?: (save: () => void) => void;
 }
@@ -370,6 +398,7 @@ const MessagePropertiesPopover: React.FC<{
 const MqttRequestEditor: React.FC<MqttRequestEditorProps> = ({
   mqttRequestUid,
   workspaceId,
+  onOpenMqttResponseExample,
   onDirtyChange,
   registerSaveRef,
 }) => {
@@ -402,6 +431,30 @@ const MqttRequestEditor: React.FC<MqttRequestEditorProps> = ({
   const isDirty = reprime.isDirty;
 
   const v5 = draft.protocolVersion === '5.0';
+
+  // "Open in Request" prefill — a saved example's captured request
+  // block lands as unsaved draft edits (the gRPC prefill flow; the
+  // version knob rides along as the capture's fact).
+  useEffect(() => {
+    if (!entity) return;
+    return subscribeMqttPrefill(entity.uid, (captured) => {
+      setDraft((d) => ({
+        ...d,
+        url: captured.url,
+        protocolVersion: captured.protocolVersion,
+        topic: captured.topic,
+        payload: captured.payload,
+        payloadFormat: captured.payloadFormat,
+        qos: captured.qos,
+        retain: captured.retain,
+        publishProperties: propertiesToDraft(captured.publishProperties),
+        topics: captured.topics.map((row) => ({ ...row })),
+        clientId: captured.clientId ?? '',
+        sslVerification: captured.sslVerification,
+        timeoutMs: captured.timeoutMs,
+      }));
+    });
+  }, [entity]);
 
   // ── Session (node hosts + page-realm capability surfaces) ─────────
   const requestRuntimeKind = getCapability('requestRuntime')?.() ?? 'browser';
@@ -601,10 +654,49 @@ const MqttRequestEditor: React.FC<MqttRequestEditorProps> = ({
     setHostNotice(null);
   }, []);
 
+  // Save Response — freeze the settled session as an example under
+  // this request. Captures the AUTHORED compose state (draft fields as
+  // edited, variable refs unresolved) plus the settled snapshot's
+  // facts; only a session that opened can be captured (the gRPC
+  // example's law).
+  const handleSaveResponse = useCallback(async () => {
+    if (!entity || !workspaceId || !snapshot || snapshot.error !== null || !snapshot.connected) return;
+    const response = capturedMqttResponseFromSnapshot(snapshot);
+    if (response === null) return;
+    const mirror = getMqttResponseExampleSyncMirrorForWorkspace(workspaceId);
+    await mirror.hydrated;
+    const name = nextMqttExampleName(mirror, entity.uid, entity.name);
+    const result = await applyMqttResponseExampleCreate(
+      {
+        mqttRequestPath: entity.path,
+        example: {
+          mqttRequestUid: entity.uid,
+          name,
+          capturedAt: new Date().toISOString(),
+          request: capturedMqttRequestFromDraft(draft),
+          response,
+        },
+      },
+      { workspaceId, surfaceId: 'workbench' },
+    );
+    if (result.ok) {
+      toast.success(t('workbench.editors.mqtt.toast.savedExample', { name }));
+      onOpenMqttResponseExample?.(result.mqttResponseExample.uid, name, entity.uid);
+    } else {
+      toast.error(
+        'message' in result && result.message
+          ? t('workbench.editors.mqtt.toast.saveExampleFailedDetail', { message: result.message })
+          : t('workbench.editors.mqtt.toast.saveExampleFailed'),
+      );
+    }
+  }, [entity, workspaceId, snapshot, draft, toast, onOpenMqttResponseExample, t]);
+
+  const canSaveResponse =
+    workspaceId !== null && snapshot !== null && snapshot.error === null && snapshot.connected;
+
   const sessionOpen = inFlight && liveSession.live !== null && liveSession.live.open !== null;
 
-  // ── AsyncAPI spec binding (specLink picker + census summary; the
-  //   compose aids and channel browser land with a later phase) ──────
+  // ── AsyncAPI spec binding ─────────────────────────────────────────
   const asyncapiSpecs = useMemo(() => specs.filter((s) => s.format === 'asyncapi'), [specs]);
   const linkedSpec = useMemo(
     () => (draft.specLink ? (asyncapiSpecs.find((s) => s.uid === draft.specLink?.specUid) ?? null) : null),
@@ -623,6 +715,138 @@ const MqttRequestEditor: React.FC<MqttRequestEditorProps> = ({
       return { census: null, parseError: err instanceof AsyncApiParseError ? err.message : String(err) };
     }
   }, [linkedSpec]);
+
+  // ── Compose aids off the specLink census (the WS Phase F recipe) ──
+  // Channel messages first (channel-local keys — the vendor outline
+  // shape), then reusable component messages not shadowed by a channel
+  // entry. Each option pre-computes its synthesis over the ratified
+  // subset so unsupported payloads (no schema, combinators) render
+  // disabled instead of failing on pick. The channel's ADDRESS rides
+  // along — on MQTT it IS the publish topic, an affordance the WS
+  // editor has no seat for.
+  const exampleMessages = useMemo(() => {
+    const c = census.census;
+    if (!c) return [];
+    const seen = new Set<string>();
+    const out: {
+      key: string;
+      label: string;
+      message: AsyncApiMessage;
+      topicAddress: string | null;
+      synth: { value: unknown } | null;
+    }[] = [];
+    const add = (scope: string, message: AsyncApiMessage, topicAddress: string | null) => {
+      const key = `${scope}:${message.name}`;
+      if (seen.has(key)) return;
+      seen.add(key);
+      out.push({
+        key,
+        label: message.name,
+        message,
+        topicAddress,
+        synth: synthesizeExamplePayload(message.payload, c.componentSchemas),
+      });
+    };
+    for (const channel of c.channels) for (const message of channel.messages) add(channel.name, message, channel.address);
+    for (const message of c.componentMessages) add('components', message, null);
+    return out;
+  }, [census]);
+
+  // Apply one censused message to the compose surface: the synthesized
+  // payload lands in the payload editor as pretty JSON, the ENCODING
+  // flips to JSON, and a channel-scoped pick prefills the publish topic
+  // with the channel address (the mqtt-only affordance).
+  const applyExampleMessage = useCallback(
+    (key: string) => {
+      const option = exampleMessages.find((m) => m.key === key);
+      if (!option || option.synth === null) return;
+      const text = JSON.stringify(option.synth.value, null, 2);
+      setDraft((d) => ({
+        ...d,
+        payload: text,
+        payloadFormat: 'json' as const,
+        ...(option.topicAddress !== null ? { topic: option.topicAddress } : {}),
+      }));
+      setActiveTab('message');
+    },
+    [exampleMessages],
+  );
+
+  // ── Channel browser (AsyncAPI tab) — the WS `browserTree` recipe ──
+  // The census rendered for pick-and-prefill: channels nest their
+  // messages (channel-local keys), operations carry direction glyphs,
+  // components list the reusable messages. Message rows are the only
+  // selectable nodes — selecting one applies its example to the
+  // compose surface (the Message-tab picker's twin gesture).
+  const browserTree = useMemo((): TreeDataNode[] => {
+    const c = census.census;
+    if (!c) return [];
+    const nodes: TreeDataNode[] = [];
+    if (c.servers.length > 0) {
+      nodes.push({
+        key: 'g:servers',
+        selectable: false,
+        title: t('workbench.editors.mqtt.spec.browser.servers'),
+        children: c.servers.map((s) => ({
+          key: `srv:${s.name}`,
+          selectable: false,
+          title: [s.name, s.protocol, s.host].filter((part) => part !== null && part !== undefined).join(' · '),
+        })),
+      });
+    }
+    if (c.channels.length > 0) {
+      nodes.push({
+        key: 'g:channels',
+        selectable: false,
+        title: t('workbench.editors.mqtt.spec.browser.channels'),
+        children: c.channels.map((channel) => ({
+          key: `ch:${channel.name}`,
+          selectable: false,
+          title: channel.address !== null && channel.address !== channel.name
+            ? `${channel.name} · ${channel.address}`
+            : channel.name,
+          children: channel.messages.map((message) => ({
+            key: `msg:${channel.name}:${message.name}`,
+            title: message.name,
+          })),
+        })),
+      });
+    }
+    if (c.operations.length > 0) {
+      nodes.push({
+        key: 'g:operations',
+        selectable: false,
+        title: t('workbench.editors.mqtt.spec.browser.operations'),
+        children: c.operations.map((op) => ({
+          key: `op:${op.name}`,
+          selectable: false,
+          icon: op.action === 'send' ? <ArrowUpOutlined /> : <ArrowDownOutlined />,
+          title: op.channelName !== null ? `${op.name} · ${op.channelName}` : op.name,
+        })),
+      });
+    }
+    if (c.componentMessages.length > 0) {
+      nodes.push({
+        key: 'g:components',
+        selectable: false,
+        title: t('workbench.editors.mqtt.spec.browser.components'),
+        children: c.componentMessages.map((message) => ({
+          key: `msg:components:${message.name}`,
+          title: message.name,
+        })),
+      });
+    }
+    return nodes;
+  }, [census, t]);
+
+  const handleBrowserSelect = useCallback(
+    (keys: React.Key[]) => {
+      const key = keys[0];
+      if (typeof key !== 'string' || !key.startsWith('msg:')) return;
+      applyExampleMessage(key.slice('msg:'.length));
+    },
+    [applyExampleMessage],
+  );
 
   // ── Save ─────────────────────────────────────────────────────────
   const handleSave = useCallback(async () => {
@@ -749,6 +973,24 @@ const MqttRequestEditor: React.FC<MqttRequestEditorProps> = ({
   }
 
   const scheme = schemeOf(draft.url);
+
+  // "Use example message" — the compose aid off the specLink census.
+  // A command picker, not a value: picking synthesizes the payload
+  // into the editor and resets to the placeholder. Options without a
+  // synthesizable payload (no schema, combinators) stay visible but
+  // disabled — the census is shown honestly, never filtered silently.
+  const exampleSelect =
+    exampleMessages.length > 0 ? (
+      <Select
+        size="small"
+        style={{ minWidth: 190 }}
+        placeholder={t('workbench.editors.mqtt.spec.useExample')}
+        value={null}
+        options={exampleMessages.map((m) => ({ value: m.key, label: m.label, disabled: m.synth === null }))}
+        onChange={(key: string) => applyExampleMessage(key)}
+        data-testid="mqtt-use-example-message"
+      />
+    ) : null;
 
   // Header consolidates the full target row (the WS editor's
   // discipline): version + scheme + URL in the title slot, Connect in
@@ -940,20 +1182,23 @@ const MqttRequestEditor: React.FC<MqttRequestEditorProps> = ({
                     wire choice, not a display toggle. Find / Replace /
                     Beautify cluster on the right (a JSON affordance). */}
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
-                    <Segmented
-                      size="small"
-                      value={draft.payloadFormat}
-                      onChange={(payloadFormat) =>
-                        setDraft((d) => ({ ...d, payloadFormat: payloadFormat as MqttPayloadFormat }))
-                      }
-                      options={[
-                        { value: 'text', label: t('workbench.editors.mqtt.payload.formatText') },
-                        { value: 'json', label: t('workbench.editors.mqtt.payload.formatJson') },
-                        { value: 'base64', label: t('workbench.editors.mqtt.payload.formatBase64') },
-                        { value: 'hex', label: t('workbench.editors.mqtt.payload.formatHex') },
-                      ]}
-                      data-testid="mqtt-payload-format"
-                    />
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <Segmented
+                        size="small"
+                        value={draft.payloadFormat}
+                        onChange={(payloadFormat) =>
+                          setDraft((d) => ({ ...d, payloadFormat: payloadFormat as MqttPayloadFormat }))
+                        }
+                        options={[
+                          { value: 'text', label: t('workbench.editors.mqtt.payload.formatText') },
+                          { value: 'json', label: t('workbench.editors.mqtt.payload.formatJson') },
+                          { value: 'base64', label: t('workbench.editors.mqtt.payload.formatBase64') },
+                          { value: 'hex', label: t('workbench.editors.mqtt.payload.formatHex') },
+                        ]}
+                        data-testid="mqtt-payload-format"
+                      />
+                      {exampleSelect}
+                    </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                       {draft.payloadFormat === 'json' && (
                         <CodeEditorActions
@@ -1503,9 +1748,6 @@ const MqttRequestEditor: React.FC<MqttRequestEditorProps> = ({
               )}
               {activeTab === 'spec' && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 12, maxWidth: 560 }}>
-                  {/* specLink picker + census summary only — the
-                    compose aids and channel browser point at the mqtt
-                    census in a later phase. */}
                   <div>
                     <Text type="secondary" style={{ display: 'block', fontSize: 11, marginBottom: 4 }}>
                       {t('workbench.editors.mqtt.spec.selectLabel')}
@@ -1527,6 +1769,25 @@ const MqttRequestEditor: React.FC<MqttRequestEditorProps> = ({
                         operations: census.census.operations.length,
                       })}
                     </Text>
+                  )}
+                  {browserTree.length > 0 && (
+                    <div data-testid="mqtt-asyncapi-browser">
+                      {/* Pick a message row to land its synthesized
+                        example on the compose surface (a channel-scoped
+                        pick also prefills the publish topic with the
+                        channel address). */}
+                      <Text type="secondary" style={{ display: 'block', fontSize: 11, marginBottom: 4 }}>
+                        {t('workbench.editors.mqtt.spec.browser.hint')}
+                      </Text>
+                      <Tree
+                        treeData={browserTree}
+                        showIcon
+                        defaultExpandAll
+                        selectedKeys={[]}
+                        onSelect={handleBrowserSelect}
+                        blockNode
+                      />
+                    </div>
                   )}
                   {census.parseError !== null && (
                     <Text type="warning" style={{ fontSize: 11 }}>
@@ -1683,6 +1944,7 @@ const MqttRequestEditor: React.FC<MqttRequestEditorProps> = ({
                   protocolVersion={draft.protocolVersion}
                   hostNotice={hostNotice}
                   onClear={handleClearSession}
+                  {...(canSaveResponse ? { onSaveResponse: () => void handleSaveResponse() } : {})}
                 />
               ) : (
                 // Always-attached session pane (the WS editor's

@@ -34,6 +34,7 @@ import type {
   SyncLiveVariablePostState,
   SyncLiveWorkflowPostState,
   SyncMqttRequestPostState,
+  SyncMqttResponseExamplePostState,
   SyncOAuthBundlePostState,
   SyncPauseMarkersPostState,
   SyncRequestCollectionPostState,
@@ -413,6 +414,11 @@ export interface BridgeBroadcastContract {
      * Frozen flat record — no itemId map.
      */
     wsResponseExamplePostState?: SyncWsResponseExamplePostState;
+    /**
+     * Post-commit projection for MQTT response-example envelopes.
+     * Frozen flat record — no itemId map.
+     */
+    mqttResponseExamplePostState?: SyncMqttResponseExamplePostState;
     /**
      * Post-commit projection for request-collection envelopes (Phase B).
      * Mirrors fold this so the request sidebar sees post-commit shape

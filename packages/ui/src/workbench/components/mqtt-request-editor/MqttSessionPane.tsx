@@ -26,6 +26,7 @@ import { Button, Dropdown, Tabs, Tag, Typography, theme } from 'antd';
 import type React from 'react';
 import { useMemo, useState } from 'react';
 import ProxyRouteTag, { proxyRouteHasBadge } from '../request-editor/response/ProxyRouteTag';
+import { ExampleChip } from '../shared/ExampleChip';
 import MqttMessageTimeline, { type MqttTimelineLifecycle } from './MqttMessageTimeline';
 import type { LiveMqttSession, MqttSessionTiming } from './useLiveMqttSession';
 
@@ -46,6 +47,10 @@ interface MqttSessionPaneProps {
    *  Stated inline for the session's whole life, never a gate. */
   hostNotice?: string | null;
   onClear: () => void;
+  /** "Save Response" — present only when the settled session can be
+   *  captured as an example (connected, non-error). First item of the
+   *  ⋯ actions menu. */
+  onSaveResponse?: () => void;
 }
 
 /** CONNACK reason display: the spec name beside the verbatim code —
@@ -62,6 +67,7 @@ const MqttSessionPane: React.FC<MqttSessionPaneProps> = ({
   protocolVersion,
   hostNotice,
   onClear,
+  onSaveResponse,
 }) => {
   const { token } = theme.useToken();
   const t = useT();
@@ -225,6 +231,22 @@ const MqttSessionPane: React.FC<MqttSessionPaneProps> = ({
             overlayStyle={{ minWidth: 180 }}
             menu={{
               items: [
+                // Save Response leads — the HTTP ResponsePanel's menu order.
+                ...(onSaveResponse
+                  ? [
+                      {
+                        key: 'save-response',
+                        icon: <ExampleChip />,
+                        label: (
+                          <span data-testid="mqtt-save-response">
+                            {t('workbench.editors.mqtt.session.saveResponse')}
+                          </span>
+                        ),
+                        onClick: onSaveResponse,
+                      },
+                      { type: 'divider' as const },
+                    ]
+                  : []),
                 {
                   key: 'clear',
                   icon: <ClearOutlined />,

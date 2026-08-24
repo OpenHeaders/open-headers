@@ -30,6 +30,10 @@
  *   M6  severed end: publishing the probe's close topic makes the
  *       broker destroy the connection — the session settles on the
  *       error-tinted severed tag, never a synthesized close.
+ *   M7  Save Response (Phase E): a settled session freezes into an
+ *       MqttResponseExample — viewer tab with the captured end pill,
+ *       sidebar example leaf under the parent request, "Open in
+ *       Request" returns to the parent editor.
  *
  * Deliberately NOT here (covered elsewhere): the entity/editor
  * lifecycle + honest browser posture (extension
@@ -379,4 +383,45 @@ test('M6 — publishing the close topic severs the connection: the error-tinted 
   await expect(sendButton()).toBeEnabled();
   await sendButton().click();
   await endTag().filter({ hasText: 'Connection severed' }).waitFor({ state: 'visible', timeout: 20_000 });
+});
+
+// ── M7: Save Response — the settled session freezes into an example ──
+
+test('M7 — Save Response mints the example: viewer end pill, sidebar leaf, Open in Request returns', async () => {
+  // A fresh settled session on the M1 request — the capture target.
+  await openMqttRequest('e2emqd01');
+  await connectAndAwaitOpen();
+  await disconnectAndAwaitClose('Disconnected');
+
+  // Save Response lives in the session pane's ⋯ actions menu (first item).
+  await workbench.getByTestId('mqtt-session-actions').filter({ visible: true }).first().click();
+  await workbench.getByTestId('mqtt-save-response').filter({ visible: true }).first().click();
+
+  // The minted example opens in its viewer tab: the captured end pill
+  // + the read-only result pane.
+  await workbench.getByTestId('mqtt-example-result-pane').filter({ visible: true }).first().waitFor({
+    state: 'visible',
+    timeout: 15_000,
+  });
+  await workbench
+    .getByTestId('mqtt-example-end-tag')
+    .filter({ visible: true })
+    .filter({ hasText: 'Disconnected' })
+    .first()
+    .waitFor({ state: 'visible' });
+
+  // The sidebar nests the example leaf under its parent request row.
+  await workbench
+    .locator('[data-item-id^="mqtt-example-"]')
+    .filter({ visible: true })
+    .first()
+    .waitFor({ state: 'visible', timeout: 10_000 });
+
+  // "Open in Request" returns to the parent editor with the captured
+  // shape riding the prefill bus as unsaved draft edits.
+  await workbench.getByTestId('mqtt-example-open-in-request').filter({ visible: true }).first().click();
+  await connectButton().waitFor({ state: 'visible', timeout: 10_000 });
+  await expect(workbench.getByTestId('mqtt-url-input').filter({ visible: true }).first()).toHaveValue(
+    new RegExp(`mqtt://127\\.0\\.0\\.1:${MQTT_PROBE_PORT}`),
+  );
 });

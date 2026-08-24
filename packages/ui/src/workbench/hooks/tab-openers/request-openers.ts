@@ -52,6 +52,7 @@ export type RequestOpeners = Pick<
   | 'openResponseExampleTab'
   | 'openGrpcResponseExampleTab'
   | 'openWsResponseExampleTab'
+  | 'openMqttResponseExampleTab'
 >;
 
 export function useRequestOpeners(
@@ -540,6 +541,28 @@ export function useRequestOpeners(
     [allTabs, addTab, switchTab],
   );
 
+  const openMqttResponseExampleTab = useCallback(
+    (uid: string, name: string, mqttRequestUid: string) => {
+      // Matches the sidebar example-node id so the active tab drives
+      // the row highlight without extra selection plumbing.
+      const id = `mqtt-example-${uid}`;
+      if (allTabs.some((t) => t.id === id)) {
+        switchTab(id);
+        return;
+      }
+      addTab({
+        id,
+        label: name,
+        ruleType: '',
+        dirty: false,
+        mode: 'mqtt-response-example',
+        mqttResponseExampleUid: uid,
+        mqttRequestUid,
+      });
+    },
+    [allTabs, addTab, switchTab],
+  );
+
   return {
     openRequestCollectionOverview,
     openRequestFolderOverview,
@@ -560,5 +583,6 @@ export function useRequestOpeners(
     openResponseExampleTab,
     openGrpcResponseExampleTab,
     openWsResponseExampleTab,
+    openMqttResponseExampleTab,
   };
 }

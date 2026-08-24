@@ -57,6 +57,7 @@ import type {
   SyncLiveVariablePostState,
   SyncLiveWorkflowPostState,
   SyncMqttRequestPostState,
+  SyncMqttResponseExamplePostState,
   SyncOAuthBundlePostState,
   SyncPauseMarkersPostState,
   SyncRequestCollectionPostState,
@@ -103,6 +104,7 @@ export interface WorkspaceSnapshot {
   responseExamples: SyncResponseExamplePostState[];
   grpcResponseExamples: SyncGrpcResponseExamplePostState[];
   wsResponseExamples: SyncWsResponseExamplePostState[];
+  mqttResponseExamples: SyncMqttResponseExamplePostState[];
   scriptPackages: SyncScriptPackagePostState[];
   specs: SyncSpecPostState[];
   templates: SyncTemplatePostState[];
@@ -151,6 +153,7 @@ export const WorkspaceSnapshotSchema = v.object({
   responseExamples: v.optional(v.array(v.unknown()), []),
   grpcResponseExamples: v.optional(v.array(v.unknown()), []),
   wsResponseExamples: v.optional(v.array(v.unknown()), []),
+  mqttResponseExamples: v.optional(v.array(v.unknown()), []),
   scriptPackages: v.optional(v.array(v.unknown()), []),
   specs: v.optional(v.array(v.unknown()), []),
   templates: v.array(v.unknown()),

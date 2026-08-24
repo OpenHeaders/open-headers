@@ -19,6 +19,7 @@ import type {
   SyncLiveVariablePostState,
   SyncLiveWorkflowPostState,
   SyncMqttRequestPostState,
+  SyncMqttResponseExamplePostState,
   SyncOAuthBundlePostState,
   SyncPauseMarkersPostState,
   SyncRequestCollectionPostState,
@@ -164,6 +165,15 @@ export interface SyncEngineRpc {
   'oh.sync.snapshotWsResponseExamples': {
     req: { workspaceId?: string };
     res: { entries: SyncWsResponseExamplePostState[] } | SyncRpcNotReadyResponse;
+  };
+  /**
+   * Snapshot the active workspace's full MQTT response-example oracle
+   * state. Each entry carries `{ mqttResponseExample }` — frozen flat
+   * record so no itemId map rides along.
+   */
+  'oh.sync.snapshotMqttResponseExamples': {
+    req: { workspaceId?: string };
+    res: { entries: SyncMqttResponseExamplePostState[] } | SyncRpcNotReadyResponse;
   };
   /**
    * Snapshot the active workspace's full request-collection oracle

@@ -87,6 +87,16 @@ export {
   MqttUrlSchema,
   MqttUserPropertyRowSchema,
 } from './mqtt-request';
+export {
+  CapturedMqttEndSchema,
+  CapturedMqttEventSchema,
+  CapturedMqttMessageSchema,
+  CapturedMqttRequestSchema,
+  CapturedMqttResponseSchema,
+  CapturedMqttSubscribedSchema,
+  CapturedMqttUnsubscribedSchema,
+  MqttResponseExampleSchema,
+} from './mqtt-response-example';
 export type { ParseEntityOptions } from './parse';
 export { describeSchemaIssues, parseEntity, parseEntityArray, schemaParseError } from './parse';
 export { ProxyCaptureSettingsSchema } from './proxy-capture';

@@ -23,6 +23,7 @@ import { useRequests } from '@openheaders/ui/shared/hooks/readers/useRequests';
 import { useGrpcResponseExamplesByRequest } from '@openheaders/ui/shared/hooks/readers/useGrpcResponseExamples';
 import { useResponseExamplesByRequest } from '@openheaders/ui/shared/hooks/readers/useResponseExamples';
 import { useWsResponseExamplesByRequest } from '@openheaders/ui/shared/hooks/readers/useWsResponseExamples';
+import { useMqttResponseExamplesByRequest } from '@openheaders/ui/shared/hooks/readers/useMqttResponseExamples';
 import { useRules } from '@openheaders/ui/shared/hooks/readers/useRules';
 import { useSpecs } from '@openheaders/ui/shared/hooks/readers/useSpecs';
 import { useDriftedSpecUids } from '../specs/use-spec-drift';
@@ -42,6 +43,11 @@ import {
   applyWsResponseExampleDuplicate,
   applyWsResponseExampleRename,
 } from '@openheaders/ui/shared/sync/ws-response-example-write-client';
+import {
+  applyMqttResponseExampleDelete,
+  applyMqttResponseExampleDuplicate,
+  applyMqttResponseExampleRename,
+} from '@openheaders/ui/shared/sync/mqtt-response-example-write-client';
 import { applySpecCreate, applySpecDelete, applySpecUpdate } from '@openheaders/ui/shared/sync/spec-write-client';
 import { useVariableResolver } from '@openheaders/ui/shared/hooks/variables/useVariableResolver';
 import { isRuleResolvable } from '@openheaders/core/utils';
@@ -167,6 +173,7 @@ interface SidebarProps {
   onSelectGrpcResponseExample?: (uid: string, name: string, grpcRequestUid: string) => void;
   /** Open a saved WebSocket response example in its viewer tab. */
   onSelectWsResponseExample?: (uid: string, name: string, websocketRequestUid: string) => void;
+  onSelectMqttResponseExample?: (uid: string, name: string, mqttRequestUid: string) => void;
   /** Opens the import hub (single "Import…" entry; formats auto-detected). */
   onImport?: (context?: { collectionId?: string }) => void;
   /** Imperative speed-search handle — the host's focus-sidebar-filter
@@ -234,6 +241,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   onSelectResponseExample,
   onSelectGrpcResponseExample,
   onSelectWsResponseExample,
+  onSelectMqttResponseExample,
   onImport,
   searchRef,
   dirtyRuleUids,
@@ -579,6 +587,51 @@ const Sidebar: React.FC<SidebarProps> = ({
     [wsResponseExamplesByRequest],
   );
 
+  // ── MQTT response examples (child nodes under MQTT request rows) ──
+  const mqttResponseExamplesByRequest = useMqttResponseExamplesByRequest(activeWorkspaceId);
+  const renameMqttResponseExample = useCallback(
+    async (uid: string, name: string) => {
+      if (!activeWorkspaceId) return;
+      const result = await applyMqttResponseExampleRename(uid, name, {
+        workspaceId: activeWorkspaceId,
+        surfaceId: 'workbench',
+      });
+      if (!result.ok) void message.error(t('workbench.sidebar.toast.renameExampleFailed'));
+    },
+    [activeWorkspaceId, message, t],
+  );
+  const duplicateMqttResponseExample = useCallback(
+    async (uid: string) => {
+      if (!activeWorkspaceId) return;
+      const result = await applyMqttResponseExampleDuplicate(uid, {
+        workspaceId: activeWorkspaceId,
+        surfaceId: 'workbench',
+      });
+      if (!result.ok) void message.error(t('workbench.sidebar.toast.duplicateExampleFailed'));
+    },
+    [activeWorkspaceId, message, t],
+  );
+  const deleteMqttResponseExample = useCallback(
+    async (uid: string) => {
+      if (!activeWorkspaceId) return;
+      const result = await applyMqttResponseExampleDelete(uid, {
+        workspaceId: activeWorkspaceId,
+        surfaceId: 'workbench',
+      });
+      if (!result.ok) void message.error(t('workbench.sidebar.toast.deleteExampleFailed'));
+    },
+    [activeWorkspaceId, message, t],
+  );
+  const resolveMqttResponseExampleParent = useCallback(
+    (exampleUid: string): string | null => {
+      for (const [mqttRequestUid, examples] of mqttResponseExamplesByRequest) {
+        if (examples.some((e) => e.uid === exampleUid)) return mqttRequestUid;
+      }
+      return null;
+    },
+    [mqttResponseExamplesByRequest],
+  );
+
   // ── Specs (workspace-level API specification documents) ──────────
   const specs = useSpecs(activeWorkspaceId);
   const createSpecEntity = useCallback(
@@ -703,6 +756,10 @@ const Sidebar: React.FC<SidebarProps> = ({
     renameWsResponseExample,
     duplicateWsResponseExample,
     deleteWsResponseExample,
+    mqttResponseExamplesByRequest,
+    renameMqttResponseExample,
+    duplicateMqttResponseExample,
+    deleteMqttResponseExample,
     draftsByLocationRequest: draftsByLocation.request,
     buildRequestDraftNode,
     isExpandedKey,
@@ -735,6 +792,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     onSelectResponseExample,
     onSelectGrpcResponseExample,
     onSelectWsResponseExample,
+    onSelectMqttResponseExample,
     onExportEntity,
     onOpenCollectionVariables: onOpenRequestCollectionVariables,
     onOpenRequestCollectionOverview,
@@ -883,6 +941,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     resolveResponseExampleParent,
     resolveGrpcResponseExampleParent,
     resolveWsResponseExampleParent,
+    resolveMqttResponseExampleParent,
     containerRef,
     toggleExpand,
     setRenamingId,

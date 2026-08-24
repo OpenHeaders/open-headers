@@ -78,6 +78,7 @@ function emptySnapshot(workspaceId: string): WorkspaceSnapshot {
     responseExamples: [],
     grpcResponseExamples: [],
     wsResponseExamples: [],
+    mqttResponseExamples: [],
     scriptPackages: [],
     specs: [],
     templates: [],

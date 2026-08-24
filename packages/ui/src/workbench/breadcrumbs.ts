@@ -12,7 +12,15 @@
  * tab strip and the breadcrumb so they can never disagree.
  */
 
-import type { CollectionTree, GrpcRequest, Request, Rule, TreeNode, WebSocketRequest } from '@openheaders/core/types';
+import type {
+  CollectionTree,
+  GrpcRequest,
+  MqttRequest,
+  Request,
+  Rule,
+  TreeNode,
+  WebSocketRequest,
+} from '@openheaders/core/types';
 import type { Translate } from '@openheaders/ui/context/LocaleContext';
 import type { WorkbenchTab } from './types';
 
@@ -49,6 +57,7 @@ export function computeBreadcrumbs(
   t: Translate,
   grpcRequests: readonly GrpcRequest[] = [],
   websocketRequests: readonly WebSocketRequest[] = [],
+  mqttRequests: readonly MqttRequest[] = [],
 ): string[] {
   if (!tab) return [];
 
@@ -165,6 +174,27 @@ export function computeBreadcrumbs(
     // grpc-response-example treatment applied to the third family.
     if (tab.websocketRequestUid) {
       const req = websocketRequests.find((r) => r.uid === tab.websocketRequestUid);
+      if (req) {
+        const hit = computeRequestTrail(req.uid, requestCollectionTrees);
+        if (hit) {
+          return [
+            t('workbench.shell.breadcrumbs.apiRequests'),
+            hit.collectionName,
+            ...hit.folderTrail,
+            req.name,
+            displayLabel,
+          ];
+        }
+        return [t('workbench.shell.breadcrumbs.apiRequests'), req.name, displayLabel];
+      }
+    }
+    return [t('workbench.shell.breadcrumbs.apiRequests'), displayLabel];
+  }
+  if (tab.mode === 'mqtt-response-example') {
+    // Captured MQTT session under an MQTT request — the same treatment
+    // applied to the fourth family.
+    if (tab.mqttRequestUid) {
+      const req = mqttRequests.find((r) => r.uid === tab.mqttRequestUid);
       if (req) {
         const hit = computeRequestTrail(req.uid, requestCollectionTrees);
         if (hit) {

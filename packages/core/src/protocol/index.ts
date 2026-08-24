@@ -128,6 +128,7 @@ export type {
   SyncLiveVariablePostState,
   SyncLiveWorkflowPostState,
   SyncMqttRequestPostState,
+  SyncMqttResponseExamplePostState,
   SyncOAuthBundlePostState,
   SyncPauseMarkersPostState,
   SyncRequestCollectionPostState,

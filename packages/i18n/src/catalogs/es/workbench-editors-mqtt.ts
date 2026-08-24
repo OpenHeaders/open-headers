@@ -111,6 +111,13 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.spec.summary': '{servers} servidores · {channels} canales · {operations} operaciones',
   'workbench.editors.mqtt.spec.parseFailure': 'La especificación no se pudo analizar: {message}',
   'workbench.editors.mqtt.spec.issues': '{count} problemas de especificación',
+  'workbench.editors.mqtt.spec.useExample': 'Usar un mensaje de ejemplo…',
+  'workbench.editors.mqtt.spec.browser.hint':
+    'Elige un mensaje para componer su carga de ejemplo; un mensaje de canal también rellena el tema de publicación.',
+  'workbench.editors.mqtt.spec.browser.servers': 'Servers',
+  'workbench.editors.mqtt.spec.browser.channels': 'Channels',
+  'workbench.editors.mqtt.spec.browser.operations': 'Operations',
+  'workbench.editors.mqtt.spec.browser.components': 'Components',
   'workbench.editors.mqtt.specFooter.using': 'Usando {name}',
   'workbench.editors.mqtt.specFooter.none': 'Sin especificación AsyncAPI vinculada',
   'workbench.editors.mqtt.settings.clientIdLabel': 'Client ID',
@@ -208,4 +215,18 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.toast.deletedOtherTab': 'Esta solicitud MQTT se eliminó en otra pestaña.',
   'workbench.editors.mqtt.toast.updateFailed': 'No se pudo guardar la solicitud MQTT',
   'workbench.editors.mqtt.toast.updateFailedDetail': 'No se pudo guardar la solicitud MQTT: {message}',
+  'workbench.editors.mqtt.session.saveResponse': 'Guardar la respuesta',
+  'workbench.editors.mqtt.toast.savedExample': 'Ejemplo {name} guardado',
+  'workbench.editors.mqtt.toast.saveExampleFailed': 'No se pudo guardar el ejemplo',
+  'workbench.editors.mqtt.toast.saveExampleFailedDetail': 'No se pudo guardar el ejemplo: {message}',
+  'workbench.editors.mqttExample.loading': 'Cargando el ejemplo…',
+  'workbench.editors.mqttExample.notFound':
+    'Este ejemplo ya no existe — puede que se haya eliminado desde otra pestaña.',
+  'workbench.editors.mqttExample.openInRequest': 'Abrir en la solicitud',
+  'workbench.editors.mqttExample.openInRequestTooltip':
+    'Abre la solicitud MQTT padre con esta forma capturada como cambios sin guardar.',
+  'workbench.editors.mqttExample.capturedTooltip': 'Capturado el {date}',
+  'workbench.editors.mqttExample.toast.deletedOtherTab': 'Este ejemplo se eliminó desde otra pestaña.',
+  'workbench.editors.mqttExample.toast.saveFailed': 'No se pudo guardar el ejemplo',
+  'workbench.editors.mqttExample.toast.saveFailedDetail': 'No se pudo guardar el ejemplo: {message}',
 } as const satisfies Catalog;

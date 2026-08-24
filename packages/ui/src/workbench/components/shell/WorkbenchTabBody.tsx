@@ -36,6 +36,7 @@ import RequestEditor from '../request-editor/RequestEditor';
 import RequestFolderOverview from '../overviews/RequestFolderOverview';
 import GrpcResponseExampleView from '../grpc-response-example/GrpcResponseExampleView';
 import WsResponseExampleView from '../ws-response-example/WsResponseExampleView';
+import MqttResponseExampleView from '../mqtt-response-example/MqttResponseExampleView';
 import ResponseExampleView from '../response-example/ResponseExampleView';
 import RuleEditor from '../rule/RuleEditor';
 // Lazy: pulls the panel-package network detail — browser workbenches
@@ -101,6 +102,7 @@ interface WorkbenchTabBodyProps {
   openResponseExampleTab: UseTabOpenersApi['openResponseExampleTab'];
   openGrpcResponseExampleTab: UseTabOpenersApi['openGrpcResponseExampleTab'];
   openWsResponseExampleTab: UseTabOpenersApi['openWsResponseExampleTab'];
+  openMqttResponseExampleTab: UseTabOpenersApi['openMqttResponseExampleTab'];
   openGrpcRequestEditTab: UseTabOpenersApi['openGrpcRequestEditTab'];
   openWebSocketRequestEditTab: UseTabOpenersApi['openWebSocketRequestEditTab'];
   openMqttRequestEditTab: UseTabOpenersApi['openMqttRequestEditTab'];
@@ -157,6 +159,7 @@ const WorkbenchTabBody: React.FC<WorkbenchTabBodyProps> = ({
   openResponseExampleTab,
   openGrpcResponseExampleTab,
   openWsResponseExampleTab,
+  openMqttResponseExampleTab,
   openGrpcRequestEditTab,
   openWebSocketRequestEditTab,
   openMqttRequestEditTab,
@@ -535,6 +538,7 @@ const WorkbenchTabBody: React.FC<WorkbenchTabBodyProps> = ({
       <MqttRequestEditor
         mqttRequestUid={tab.mqttRequestUid}
         workspaceId={editingScopeWorkspaceId}
+        onOpenMqttResponseExample={openMqttResponseExampleTab}
         onDirtyChange={(dirty) => handleDirtyChange(tab.id, dirty)}
         registerSaveRef={(saveFn) => registerSaveRef(tab.id, saveFn)}
       />
@@ -594,6 +598,17 @@ const WorkbenchTabBody: React.FC<WorkbenchTabBodyProps> = ({
         exampleUid={tab.wsResponseExampleUid}
         workspaceId={editingScopeWorkspaceId}
         onOpenWebSocketRequest={openWebSocketRequestEditTab}
+        onDirtyChange={(dirty) => handleDirtyChange(tab.id, dirty)}
+        registerSaveRef={(saveFn) => registerSaveRef(tab.id, saveFn)}
+      />
+    );
+  }
+  if (tab.mode === 'mqtt-response-example' && tab.mqttResponseExampleUid) {
+    return (
+      <MqttResponseExampleView
+        exampleUid={tab.mqttResponseExampleUid}
+        workspaceId={editingScopeWorkspaceId}
+        onOpenMqttRequest={openMqttRequestEditTab}
         onDirtyChange={(dirty) => handleDirtyChange(tab.id, dirty)}
         registerSaveRef={(saveFn) => registerSaveRef(tab.id, saveFn)}
       />

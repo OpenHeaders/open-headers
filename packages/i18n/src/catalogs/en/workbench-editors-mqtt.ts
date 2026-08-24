@@ -104,6 +104,13 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.spec.summary': '{servers} servers · {channels} channels · {operations} operations',
   'workbench.editors.mqtt.spec.parseFailure': 'Spec did not parse: {message}',
   'workbench.editors.mqtt.spec.issues': '{count} spec issues',
+  'workbench.editors.mqtt.spec.useExample': 'Use example message…',
+  'workbench.editors.mqtt.spec.browser.hint':
+    'Pick a message to compose its example payload; a channel message also fills the publish topic.',
+  'workbench.editors.mqtt.spec.browser.servers': 'Servers',
+  'workbench.editors.mqtt.spec.browser.channels': 'Channels',
+  'workbench.editors.mqtt.spec.browser.operations': 'Operations',
+  'workbench.editors.mqtt.spec.browser.components': 'Components',
   'workbench.editors.mqtt.specFooter.using': 'Using {name}',
   'workbench.editors.mqtt.specFooter.none': 'No AsyncAPI spec linked',
   'workbench.editors.mqtt.settings.clientIdLabel': 'Client ID',
@@ -200,4 +207,18 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.toast.deletedOtherTab': 'This MQTT request was deleted in another tab.',
   'workbench.editors.mqtt.toast.updateFailed': 'Saving the MQTT request failed',
   'workbench.editors.mqtt.toast.updateFailedDetail': 'Saving the MQTT request failed: {message}',
+  'workbench.editors.mqtt.session.saveResponse': 'Save Response',
+  'workbench.editors.mqtt.toast.savedExample': 'Saved example {name}',
+  'workbench.editors.mqtt.toast.saveExampleFailed': 'Saving the example failed',
+  'workbench.editors.mqtt.toast.saveExampleFailedDetail': 'Saving the example failed: {message}',
+  // ── Response example viewer ─────────────────────────────────────────
+  'workbench.editors.mqttExample.loading': 'Loading example…',
+  'workbench.editors.mqttExample.notFound': 'This example is gone — it may have been deleted in another tab.',
+  'workbench.editors.mqttExample.openInRequest': 'Open in Request',
+  'workbench.editors.mqttExample.openInRequestTooltip':
+    'Open the parent MQTT request with this captured shape as unsaved edits.',
+  'workbench.editors.mqttExample.capturedTooltip': 'Captured {date}',
+  'workbench.editors.mqttExample.toast.deletedOtherTab': 'This example was deleted in another tab.',
+  'workbench.editors.mqttExample.toast.saveFailed': 'Saving the example failed',
+  'workbench.editors.mqttExample.toast.saveFailedDetail': 'Saving the example failed: {message}',
 } as const satisfies Catalog;

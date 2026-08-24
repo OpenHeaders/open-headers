@@ -62,7 +62,65 @@ import { workbenchSettingsDefsKeyboard } from './workbench-settings-defs-keyboar
 import { workbenchSettingsPanes } from './workbench-settings-panes';
 import { workbenchVariables } from './workbench-variables';
 
-export const fr = {
+// Explicit intersection annotation: the merged literal's inferred type
+// outgrew tsc's declaration-emit ceiling (TS7056) — the en catalog's
+// idiom applied to this locale.
+type FrCatalog = typeof desktop &
+  typeof extension &
+  typeof panel &
+  typeof panelConsole &
+  typeof panelDocs &
+  typeof panelInspector &
+  typeof panelInspectorCookies &
+  typeof panelInspectorHeaders &
+  typeof panelInspectorStreams &
+  typeof panelNetwork &
+  typeof panelQuickEditor &
+  typeof panelStorage &
+  typeof popup &
+  typeof shared &
+  typeof sharedAwareness &
+  typeof sharedChrome &
+  typeof sharedComponents &
+  typeof sharedConflicts &
+  typeof sharedHeaderValidation &
+  typeof sharedInfoCookies &
+  typeof sharedInfoHeaders &
+  typeof sharedInfoStatus &
+  typeof sharedMergeEditor &
+  typeof sharedNotifications &
+  typeof sharedResolutionHints &
+  typeof sharedWorkspace &
+  typeof tui &
+  typeof web &
+  typeof workbench &
+  typeof workbenchChrome &
+  typeof workbenchChromeSidebar &
+  typeof workbenchChromeWorkspace &
+  typeof workbenchDocs &
+  typeof workbenchDocsDebugMode &
+  typeof workbenchDocsDiagrams &
+  typeof workbenchDocsSystemStatus &
+  typeof workbenchDocsVariables &
+  typeof workbenchEditors &
+  typeof workbenchEditorsGrpc &
+  typeof workbenchEditorsMqtt &
+  typeof workbenchEditorsRequest &
+  typeof workbenchEditorsRule &
+  typeof workbenchEditorsSpec &
+  typeof workbenchEditorsWebsocket &
+  typeof workbenchImportExport &
+  typeof workbenchLive &
+  typeof workbenchScriptPackages &
+  typeof workbenchServerAdmin &
+  typeof workbenchSettings &
+  typeof workbenchSettingsDefs &
+  typeof workbenchSettingsDefsDevpanel &
+  typeof workbenchSettingsDefsKeyboard &
+  typeof workbenchSettingsPanes &
+  typeof workbenchVariables;
+
+export const fr: FrCatalog = {
   ...desktop,
   ...extension,
   ...panel,

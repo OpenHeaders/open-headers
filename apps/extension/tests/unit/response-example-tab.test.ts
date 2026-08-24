@@ -111,6 +111,7 @@ const emptyLookups: TabDisplayLookups = {
   responseExamples: [],
   grpcResponseExamples: [],
   wsResponseExamples: [],
+  mqttResponseExamples: [],
   specs: [],
 };
 

@@ -178,6 +178,14 @@ export type {
   MqttTopicRow,
   MqttUserPropertyRow,
 } from './mqtt-request';
+// ── MQTT response example ──────────────────────────────────────────
+export type {
+  CapturedMqttEnd,
+  CapturedMqttEvent,
+  CapturedMqttRequest,
+  CapturedMqttResponse,
+  MqttResponseExample,
+} from './mqtt-response-example';
 // ── Observability (local-first log ring) ──────────────────────────
 export type { LogEntry, LogEntryContext, LogLevel, LogSubsystem } from './observability';
 // ── Resource-timing wire projection ────────────────────────────────

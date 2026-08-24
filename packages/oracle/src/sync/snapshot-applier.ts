@@ -46,6 +46,7 @@ import {
   type SyncLiveVariablePostState,
   type SyncLiveWorkflowPostState,
   type SyncMqttRequestPostState,
+  type SyncMqttResponseExamplePostState,
   type SyncOAuthBundlePostState,
   type SyncPauseMarkersPostState,
   type SyncRequestCollectionPostState,
@@ -77,6 +78,7 @@ import { seedLiveValues } from '@openheaders/core/sync-builders/projections/live
 import { seedLiveVariable } from '@openheaders/core/sync-builders/projections/live-variable-projection';
 import { seedLiveWorkflow } from '@openheaders/core/sync-builders/projections/live-workflow-projection';
 import { seedMqttRequest } from '@openheaders/core/sync-builders/projections/mqtt-request-projection';
+import { seedMqttResponseExample } from '@openheaders/core/sync-builders/projections/mqtt-response-example-projection';
 import { seedOAuthBundle } from '@openheaders/core/sync-builders/projections/oauth-bundle-projection';
 import { seedPauseMarkers } from '@openheaders/core/sync-builders/projections/pause-markers-projection';
 import { seedRequestCollection } from '@openheaders/core/sync-builders/projections/request-collection-projection';
@@ -188,6 +190,9 @@ export async function applyWorkspaceSnapshot(
   );
   await seedEach<SyncWsResponseExamplePostState>('wsResponseExamples', snapshot.wsResponseExamples, (p, ctx) =>
     seedWsResponseExample(p.wsResponseExample, ctx),
+  );
+  await seedEach<SyncMqttResponseExamplePostState>('mqttResponseExamples', snapshot.mqttResponseExamples, (p, ctx) =>
+    seedMqttResponseExample(p.mqttResponseExample, ctx),
   );
   await seedEach<SyncTemplateCollectionPostState>('templateCollections', snapshot.templateCollections, (p, ctx) =>
     seedTemplateCollection(p.collection, ctx),

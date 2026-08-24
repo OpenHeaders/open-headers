@@ -94,11 +94,13 @@ export const workbenchEditorsSpec = {
   'workbench.editors.spec.generateProto.empty': '文档未声明可供生成的服务方法。',
   'workbench.editors.spec.generateProto.partial': '生成时有缺口——{created} 个已创建，{failed} 个失败。',
   'workbench.editors.spec.generateWs.blurb':
-    '从此规范生成一个集合。操作变成指向文档 ws/wss 服务器的 WebSocket 请求，并根据频道的模式预填充一条示例消息。集合会与此规范保持关联。',
+    '从此规范生成一个集合。操作变成指向文档 ws/wss 服务器的 WebSocket 请求，或指向其 mqtt 服务器的 MQTT 请求，并根据频道的模式预填充一条示例消息。集合会与此规范保持关联。',
   'workbench.editors.spec.generateWs.requestsCount': ({ count }, locale) =>
     plural(locale, Number(count), { other: '{count} 个 WebSocket 请求' }),
+  'workbench.editors.spec.generateWs.mqttRequestsCount': ({ count }, locale) =>
+    plural(locale, Number(count), { other: '{count} 个 MQTT 请求' }),
   'workbench.editors.spec.generateWs.empty': '文档未声明可供生成的操作。',
-  'workbench.editors.spec.generateWs.noWsServer': '文档未声明可连接的 ws 或 wss 服务器。',
+  'workbench.editors.spec.generateWs.noServer': '文档未声明可连接的 ws、wss 或 mqtt 服务器。',
   'workbench.editors.spec.generateWs.partial': '生成时有缺口——{created} 个已创建，{failed} 个失败。',
   'workbench.editors.spec.generateWs.skipped': '已跳过 {operation}：{reason}。',
   'workbench.editors.spec.update.button': '更新',

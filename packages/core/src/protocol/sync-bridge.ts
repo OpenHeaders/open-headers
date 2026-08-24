@@ -24,6 +24,7 @@ import type {
   LiveVariable,
   LiveWorkflow,
   MqttRequest,
+  MqttResponseExample,
   Request,
   ResponseExample,
   Rule,
@@ -273,6 +274,17 @@ export interface SyncMqttRequestPostState {
  */
 export interface SyncWsResponseExamplePostState {
   wsResponseExample: WsResponseExample;
+}
+
+/**
+ * Post-commit projection for an MQTT response-example envelope. The
+ * example is a frozen flat record (no set-modeled paths), so the
+ * payload carries only the projected entity — the
+ * {@link SyncWsResponseExamplePostState} sibling for the MqttRequest
+ * family.
+ */
+export interface SyncMqttResponseExamplePostState {
+  mqttResponseExample: MqttResponseExample;
 }
 
 /**
@@ -682,6 +694,12 @@ export interface SyncBroadcastEvent {
    * rolled-back batches leave it `undefined`.
    */
   wsResponseExamplePostState?: SyncWsResponseExamplePostState;
+  /**
+   * Populated for MQTT response-example envelopes whose batch left a
+   * materialized example in place. Tombstoned examples and
+   * rolled-back batches leave it `undefined`.
+   */
+  mqttResponseExamplePostState?: SyncMqttResponseExamplePostState;
   /**
    * Populated for request-collection envelopes whose batch left a
    * materialized collection in place. Tombstoned collections and

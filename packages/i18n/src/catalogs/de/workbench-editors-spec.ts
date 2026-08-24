@@ -105,14 +105,16 @@ export const workbenchEditorsSpec = {
   'workbench.editors.spec.generateProto.partial': 'Mit Lücken generiert — {created} erstellt, {failed} fehlgeschlagen.',
   'workbench.editors.spec.generateWs.blurb':
     'Generiere eine Sammlung aus dieser Spezifikation. Operationen werden zu WebSocket-Anfragen an den ' +
-    'ws/wss-Server des Dokuments, mit einer aus dem Schema des Kanals vorausgefüllten Beispielnachricht. Die ' +
-    'Sammlung bleibt mit dieser Spezifikation verknüpft.',
+    'ws/wss-Server des Dokuments oder zu MQTT-Anfragen an dessen mqtt-Server, mit einer aus dem Schema des ' +
+    'Kanals vorausgefüllten Beispielnachricht. Die Sammlung bleibt mit dieser Spezifikation verknüpft.',
   'workbench.editors.spec.generateWs.requestsCount': ({ count }, locale) =>
     plural(locale, Number(count), { one: '{count} WebSocket-Anfrage', other: '{count} WebSocket-Anfragen' }),
+  'workbench.editors.spec.generateWs.mqttRequestsCount': ({ count }, locale) =>
+    plural(locale, Number(count), { one: '{count} MQTT-Anfrage', other: '{count} MQTT-Anfragen' }),
   'workbench.editors.spec.generateWs.empty':
     'Das Dokument deklariert keine Operationen, aus denen generiert werden könnte.',
-  'workbench.editors.spec.generateWs.noWsServer':
-    'Das Dokument deklariert keinen ws- oder wss-Server für die Verbindung.',
+  'workbench.editors.spec.generateWs.noServer':
+    'Das Dokument deklariert keinen ws-, wss- oder mqtt-Server für die Verbindung.',
   'workbench.editors.spec.generateWs.partial': 'Mit Lücken generiert — {created} erstellt, {failed} fehlgeschlagen.',
   'workbench.editors.spec.generateWs.skipped': '{operation} übersprungen: {reason}.',
   'workbench.editors.spec.update.button': 'Aktualisieren',

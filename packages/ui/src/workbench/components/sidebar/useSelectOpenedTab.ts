@@ -50,6 +50,8 @@ interface UseSelectOpenedTabParams {
   resolveGrpcResponseExampleParent?: (exampleUid: string) => string | null;
   /** Parent WebSocket request uid for a WebSocket response-example uid. */
   resolveWsResponseExampleParent?: (exampleUid: string) => string | null;
+  /** Parent MQTT request uid for an MQTT response-example uid. */
+  resolveMqttResponseExampleParent?: (exampleUid: string) => string | null;
   containerRef: React.RefObject<HTMLDivElement | null>;
   setExpandedKeys: React.Dispatch<React.SetStateAction<Set<string>>>;
   setSectionsExpanded: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
@@ -82,6 +84,7 @@ export function useSelectOpenedTab({
   resolveResponseExampleParent,
   resolveGrpcResponseExampleParent,
   resolveWsResponseExampleParent,
+  resolveMqttResponseExampleParent,
   containerRef,
   setExpandedKeys,
   setSectionsExpanded,
@@ -139,7 +142,9 @@ export function useSelectOpenedTab({
         activeTabId.startsWith('grpc-request-') ||
         activeTabId.startsWith('grpc-example-') ||
         activeTabId.startsWith('websocket-request-') ||
-        activeTabId.startsWith('ws-example-')) &&
+        activeTabId.startsWith('ws-example-') ||
+        activeTabId.startsWith('mqtt-request-') ||
+        activeTabId.startsWith('mqtt-example-')) &&
       view === 'api-requests'
     ) {
       nodeId = activeTabId;
@@ -151,19 +156,24 @@ export function useSelectOpenedTab({
       const isExample =
         activeTabId.startsWith('resp-example-') ||
         activeTabId.startsWith('grpc-example-') ||
-        activeTabId.startsWith('ws-example-');
+        activeTabId.startsWith('ws-example-') ||
+        activeTabId.startsWith('mqtt-example-');
       const parentPrefix = activeTabId.startsWith('grpc-')
         ? 'grpc-request-'
         : activeTabId.startsWith('websocket-request-') || activeTabId.startsWith('ws-example-')
           ? 'websocket-request-'
-          : 'request-';
+          : activeTabId.startsWith('mqtt-request-') || activeTabId.startsWith('mqtt-example-')
+            ? 'mqtt-request-'
+            : 'request-';
       const targetUid = activeTabId.startsWith('resp-example-')
         ? (resolveResponseExampleParent?.(activeTabId.replace('resp-example-', '')) ?? null)
         : activeTabId.startsWith('grpc-example-')
           ? (resolveGrpcResponseExampleParent?.(activeTabId.replace('grpc-example-', '')) ?? null)
           : activeTabId.startsWith('ws-example-')
             ? (resolveWsResponseExampleParent?.(activeTabId.replace('ws-example-', '')) ?? null)
-            : activeTabId.replace(parentPrefix, '');
+            : activeTabId.startsWith('mqtt-example-')
+              ? (resolveMqttResponseExampleParent?.(activeTabId.replace('mqtt-example-', '')) ?? null)
+              : activeTabId.replace(parentPrefix, '');
       if (!targetUid) return false;
       let found: { ancestors: string[] } | null = null;
       for (const col of requestCollectionTrees) {
@@ -171,7 +181,10 @@ export function useSelectOpenedTab({
         const walk = (nodes: TreeNode[], trail: string[]): string[] | null => {
           for (const n of nodes) {
             if (
-              (n.type === 'request' || n.type === 'grpc-request' || n.type === 'websocket-request') &&
+              (n.type === 'request' ||
+                n.type === 'grpc-request' ||
+                n.type === 'websocket-request' ||
+                n.type === 'mqtt-request') &&
               n.uid === targetUid
             )
               return trail;
@@ -306,6 +319,7 @@ export function useSelectOpenedTab({
     resolveResponseExampleParent,
     resolveGrpcResponseExampleParent,
     resolveWsResponseExampleParent,
+    resolveMqttResponseExampleParent,
     view,
     containerRef,
     setExpandedKeys,

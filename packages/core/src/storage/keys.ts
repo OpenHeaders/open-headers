@@ -40,6 +40,7 @@ import type {
   LiveWorkflow,
   LogEntry,
   MqttRequest,
+  MqttResponseExample,
   Org,
   ProxyCaptureSettings,
   ProxyCaRecord,
@@ -631,6 +632,12 @@ export interface WorkspaceKeys {
    */
   wsResponseExamples: StorageKey<WsResponseExample[]>;
   /**
+   * MQTT response examples — captured session snapshots saved under an
+   * MqttRequest via "Save Response" (the `responseExamples` sibling
+   * for the MQTT entity family).
+   */
+  mqttResponseExamples: StorageKey<MqttResponseExample[]>;
+  /**
    * Specs — first-class API specification documents (name + verbatim
    * source-file set) a collection can be generated from.
    */
@@ -775,6 +782,7 @@ export function wsKeys(workspaceId: string): WorkspaceKeys {
     responseExamples: storageKey<ResponseExample[]>(`${p}.responseExamples`),
     grpcResponseExamples: storageKey<GrpcResponseExample[]>(`${p}.grpcResponseExamples`),
     wsResponseExamples: storageKey<WsResponseExample[]>(`${p}.wsResponseExamples`),
+    mqttResponseExamples: storageKey<MqttResponseExample[]>(`${p}.mqttResponseExamples`),
     specs: storageKey<Spec[]>(`${p}.specs`),
     liveCache: storageKey<unknown>(`${p}.liveCache`),
     liveFallbackPriority: storageKey<LiveFallbackPrioritySnapshot>(`${p}.liveFallbackPriority`),

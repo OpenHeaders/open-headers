@@ -4,6 +4,7 @@ import {
   GRPC_RESPONSE_EXAMPLE_ENTITY_TYPE,
   LIVE_VARIABLE_ENTITY_TYPE,
   LIVE_WORKFLOW_ENTITY_TYPE,
+  MQTT_RESPONSE_EXAMPLE_ENTITY_TYPE,
   REQUEST_COLLECTION_ENTITY_TYPE,
   REQUEST_ENTITY_TYPE,
   RESPONSE_EXAMPLE_ENTITY_TYPE,
@@ -26,6 +27,8 @@ import type {
   GrpcResponseExample,
   LiveVariable,
   LiveWorkflow,
+  MqttRequest,
+  MqttResponseExample,
   Request,
   ResponseExample,
   Rule,
@@ -64,6 +67,8 @@ interface UseWorkbenchActiveTabOptions {
   grpcResponseExamples: readonly GrpcResponseExample[];
   websocketRequests: readonly WebSocketRequest[];
   wsResponseExamples: readonly WsResponseExample[];
+  mqttRequests: readonly MqttRequest[];
+  mqttResponseExamples: readonly MqttResponseExample[];
   specs: readonly Spec[];
   workspaces: ExtensionWorkspace[];
   editingScopeWorkspaceId: string | null;
@@ -110,6 +115,8 @@ export function useWorkbenchActiveTab({
   grpcResponseExamples,
   websocketRequests,
   wsResponseExamples,
+  mqttRequests,
+  mqttResponseExamples,
   specs,
   workspaces,
   editingScopeWorkspaceId,
@@ -149,6 +156,10 @@ export function useWorkbenchActiveTab({
       case 'ws-response-example':
         return activeTab.wsResponseExampleUid
           ? { entityType: WS_RESPONSE_EXAMPLE_ENTITY_TYPE, entityId: activeTab.wsResponseExampleUid }
+          : null;
+      case 'mqtt-response-example':
+        return activeTab.mqttResponseExampleUid
+          ? { entityType: MQTT_RESPONSE_EXAMPLE_ENTITY_TYPE, entityId: activeTab.mqttResponseExampleUid }
           : null;
       case 'template-edit':
         return activeTab.templateUid ? { entityType: TEMPLATE_ENTITY_TYPE, entityId: activeTab.templateUid } : null;
@@ -218,6 +229,7 @@ export function useWorkbenchActiveTab({
       responseExamples,
       grpcResponseExamples,
       wsResponseExamples,
+      mqttResponseExamples,
       specs,
     }),
     [
@@ -233,6 +245,7 @@ export function useWorkbenchActiveTab({
       responseExamples,
       grpcResponseExamples,
       wsResponseExamples,
+      mqttResponseExamples,
       specs,
     ],
   );
@@ -254,6 +267,7 @@ export function useWorkbenchActiveTab({
       t,
       grpcRequests,
       websocketRequests,
+      mqttRequests,
     );
     const scratchLabel = scratchLabelForMode(activeTab.mode, t);
     if (scratchLabel && base.length >= 2) {
@@ -269,6 +283,7 @@ export function useWorkbenchActiveTab({
     requests,
     grpcRequests,
     websocketRequests,
+    mqttRequests,
     templateCollectionTrees,
     t,
   ]);

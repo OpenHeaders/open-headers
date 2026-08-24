@@ -112,6 +112,13 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.spec.summary': '{servers} serveurs · {channels} canaux · {operations} opérations',
   'workbench.editors.mqtt.spec.parseFailure': 'La spécification ne s’est pas analysée : {message}',
   'workbench.editors.mqtt.spec.issues': '{count} problèmes de spécification',
+  'workbench.editors.mqtt.spec.useExample': "Utiliser un message d'exemple…",
+  'workbench.editors.mqtt.spec.browser.hint':
+    "Choisissez un message pour en composer la charge utile d'exemple ; un message de canal remplit aussi le sujet de publication.",
+  'workbench.editors.mqtt.spec.browser.servers': 'Servers',
+  'workbench.editors.mqtt.spec.browser.channels': 'Channels',
+  'workbench.editors.mqtt.spec.browser.operations': 'Operations',
+  'workbench.editors.mqtt.spec.browser.components': 'Components',
   'workbench.editors.mqtt.specFooter.using': 'Utilise {name}',
   'workbench.editors.mqtt.specFooter.none': 'Aucune spécification AsyncAPI liée',
   'workbench.editors.mqtt.settings.clientIdLabel': 'Client ID',
@@ -210,4 +217,18 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.toast.deletedOtherTab': 'Cette requête MQTT a été supprimée dans un autre onglet.',
   'workbench.editors.mqtt.toast.updateFailed': 'L’enregistrement de la requête MQTT a échoué',
   'workbench.editors.mqtt.toast.updateFailedDetail': 'L’enregistrement de la requête MQTT a échoué : {message}',
+  'workbench.editors.mqtt.session.saveResponse': 'Enregistrer la réponse',
+  'workbench.editors.mqtt.toast.savedExample': 'Exemple {name} enregistré',
+  'workbench.editors.mqtt.toast.saveExampleFailed': "Échec de l'enregistrement de l'exemple",
+  'workbench.editors.mqtt.toast.saveExampleFailedDetail': "Échec de l'enregistrement de l'exemple : {message}",
+  'workbench.editors.mqttExample.loading': "Chargement de l'exemple…",
+  'workbench.editors.mqttExample.notFound':
+    "Cet exemple n'existe plus — il a peut-être été supprimé depuis un autre onglet.",
+  'workbench.editors.mqttExample.openInRequest': 'Ouvrir dans la requête',
+  'workbench.editors.mqttExample.openInRequestTooltip':
+    'Ouvre la requête MQTT parente avec cette forme capturée comme modifications non enregistrées.',
+  'workbench.editors.mqttExample.capturedTooltip': 'Capturé le {date}',
+  'workbench.editors.mqttExample.toast.deletedOtherTab': 'Cet exemple a été supprimé depuis un autre onglet.',
+  'workbench.editors.mqttExample.toast.saveFailed': "Échec de l'enregistrement de l'exemple",
+  'workbench.editors.mqttExample.toast.saveFailedDetail': "Échec de l'enregistrement de l'exemple : {message}",
 } as const satisfies Catalog;

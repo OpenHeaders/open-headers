@@ -45,6 +45,17 @@
  *       surfaces the Connect-side notice naming the knob for the
  *       session's whole life — the session still runs and settles
  *       clean, and the notice persists on the settled capture.
+ *   E9  compose aids (Phase E): the linked spec's census feeds the
+ *       Message-tab "Use example message" picker (synthesized payload
+ *       lands in the payload editor, the ENCODING flips to JSON, and
+ *       the channel address prefills the publish topic — the
+ *       mqtt-only affordance) and the AsyncAPI tab's channel browser
+ *       (picking a message row composes its example and switches to
+ *       the Message tab).
+ *   E10 Save Response (Phase E): a settled session freezes into an
+ *       MqttResponseExample — viewer tab with the captured end pill,
+ *       sidebar example leaf under the parent request, and "Open in
+ *       Request" returns to the parent editor.
  *
  * Requires the extension `dist/chrome` build.
  *
@@ -545,4 +556,85 @@ test('E8 — SSL verification off rides the honesty notice for the session’s w
   // The notice persists on the settled capture — honesty for the
   // session's whole life, not a transient toast.
   await expect(notice).toBeVisible();
+});
+
+// ── E9: compose aids off the linked spec's census ───────────────────
+
+test('E9 — "Use example message" synthesizes the scaffold payload and prefills the topic; the channel browser composes on pick', async () => {
+  await page.getByRole('tab', { name: 'Message', exact: true }).filter({ visible: true }).first().click();
+
+  // The Message-tab picker lists the census's messages; `subscribe`
+  // synthesizes from the scaffold's authored examples + default, and
+  // its channel's ADDRESS lands as the publish topic (the mqtt-only
+  // affordance — on MQTT the address IS the topic).
+  await page.getByTestId('mqtt-use-example-message').filter({ visible: true }).first().click();
+  await page
+    .locator('.ant-select-dropdown')
+    .filter({ visible: true })
+    .locator('.ant-select-item-option')
+    .filter({ hasText: 'subscribe' })
+    .first()
+    .click();
+  // Poll: Monaco repaints a beat after the pick lands the synthesis.
+  await expect.poll(async () => workbench.monacoText(0), { timeout: 10_000 }).toContain('"topics"');
+  const composed = await workbench.monacoText(0);
+  expect(composed).toContain('"orders"');
+  expect(composed).toContain('"format": "full"');
+  await expect(page.getByTestId('mqtt-topic-input').filter({ visible: true }).first()).toHaveValue('/ws/events');
+
+  // The AsyncAPI tab's channel browser: picking the `ping` message row
+  // composes its example (const op), prefills the topic with its own
+  // channel address, and switches back to Message.
+  await page.getByRole('tab', { name: 'AsyncAPI', exact: true }).filter({ visible: true }).first().click();
+  const browser = page.getByTestId('mqtt-asyncapi-browser').filter({ visible: true }).first();
+  await browser.waitFor({ state: 'visible', timeout: 10_000 });
+  await browser.getByText('ping', { exact: true }).first().click();
+  await page
+    .getByRole('tab', { name: 'Message', exact: true })
+    .filter({ visible: true })
+    .first()
+    .waitFor({ state: 'visible' });
+  // Poll: Monaco repaints a beat after the tab switch lands the text.
+  await expect.poll(async () => workbench.monacoText(0), { timeout: 10_000 }).toContain('"op": "ping"');
+  await expect(page.getByTestId('mqtt-topic-input').filter({ visible: true }).first()).toHaveValue('/ws/control');
+});
+
+// ── E10: Save Response — the settled session freezes into an example ─
+
+test('E10 — Save Response mints the example: viewer end pill, sidebar leaf, Open in Request returns', async () => {
+  // The draft still points at the probe (E8's ws scheme) — run a
+  // fresh session and settle it clean.
+  await expect(urlInput()).toHaveValue(MQTT_WS_PROBE_URL);
+  await connectAndAwaitOpen();
+  await disconnectAndAwaitClose();
+
+  // Save Response lives in the session pane's ⋯ actions menu (first item).
+  await page.getByTestId('mqtt-session-actions').filter({ visible: true }).first().click();
+  await page.getByTestId('mqtt-save-response').filter({ visible: true }).first().click();
+
+  // The minted example opens in its viewer tab: the captured end pill
+  // + the read-only result pane.
+  await page.getByTestId('mqtt-example-result-pane').filter({ visible: true }).first().waitFor({
+    state: 'visible',
+    timeout: 15_000,
+  });
+  await page
+    .getByTestId('mqtt-example-end-tag')
+    .filter({ visible: true })
+    .filter({ hasText: 'Disconnected' })
+    .first()
+    .waitFor({ state: 'visible' });
+
+  // The sidebar nests the example leaf under its parent request row.
+  await page
+    .locator('[data-item-id^="mqtt-example-"]')
+    .filter({ visible: true })
+    .first()
+    .waitFor({ state: 'visible', timeout: 10_000 });
+
+  // "Open in Request" returns to the parent editor with the captured
+  // shape riding the prefill bus as unsaved draft edits.
+  await page.getByTestId('mqtt-example-open-in-request').filter({ visible: true }).first().click();
+  await urlInput().waitFor({ state: 'visible', timeout: 10_000 });
+  await expect(urlInput()).toHaveValue(MQTT_WS_PROBE_URL);
 });

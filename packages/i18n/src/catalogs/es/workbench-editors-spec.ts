@@ -115,16 +115,24 @@ export const workbenchEditorsSpec = {
   'workbench.editors.spec.generateProto.partial': 'Generación incompleta — {created} creadas, {failed} fallidas.',
   'workbench.editors.spec.generateWs.blurb':
     'Genera una colección a partir de esta especificación. Las operaciones se convierten en solicitudes ' +
-    'WebSocket dirigidas al servidor ws/wss del documento, con un mensaje de ejemplo prerrellenado a partir del ' +
-    'esquema del canal. La colección permanece vinculada a esta especificación.',
+    'WebSocket dirigidas al servidor ws/wss del documento, o en solicitudes MQTT dirigidas a su servidor mqtt, ' +
+    'con un mensaje de ejemplo prerrellenado a partir del esquema del canal. La colección permanece vinculada a ' +
+    'esta especificación.',
   'workbench.editors.spec.generateWs.requestsCount': ({ count }, locale) =>
     plural(locale, Number(count), {
       one: '{count} solicitud WebSocket',
       many: '{count} solicitudes WebSocket',
       other: '{count} solicitudes WebSocket',
     }),
+  'workbench.editors.spec.generateWs.mqttRequestsCount': ({ count }, locale) =>
+    plural(locale, Number(count), {
+      one: '{count} solicitud MQTT',
+      many: '{count} solicitudes MQTT',
+      other: '{count} solicitudes MQTT',
+    }),
   'workbench.editors.spec.generateWs.empty': 'El documento no declara operaciones a partir de las cuales generar.',
-  'workbench.editors.spec.generateWs.noWsServer': 'El documento no declara ningún servidor ws o wss al que conectarse.',
+  'workbench.editors.spec.generateWs.noServer':
+    'El documento no declara ningún servidor ws, wss o mqtt al que conectarse.',
   'workbench.editors.spec.generateWs.partial': 'Generación incompleta — {created} creadas, {failed} fallidas.',
   'workbench.editors.spec.generateWs.skipped': 'Se omitió {operation}: {reason}.',
   'workbench.editors.spec.update.button': 'Actualizar',

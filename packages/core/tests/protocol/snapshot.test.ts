@@ -36,6 +36,7 @@ function makeSnapshot(overrides: Partial<WorkspaceSnapshot> = {}): WorkspaceSnap
     responseExamples: [],
     grpcResponseExamples: [],
     wsResponseExamples: [],
+    mqttResponseExamples: [],
     scriptPackages: [],
     specs: [],
     templates: [],
@@ -96,6 +97,7 @@ describe('WorkspaceSnapshotSchema', () => {
       'responseExamples',
       'grpcResponseExamples',
       'wsResponseExamples',
+      'mqttResponseExamples',
       'scriptPackages',
       'specs',
     ] as const) {

@@ -84,11 +84,13 @@ export const workbenchEditorsSpec = {
   'workbench.editors.spec.generateProto.empty': 'The document declares no service methods to generate from.',
   'workbench.editors.spec.generateProto.partial': 'Generated with gaps — {created} created, {failed} failed.',
   'workbench.editors.spec.generateWs.blurb':
-    'Generate a collection from this specification. Operations become WebSocket requests targeting the document’s ws/wss server, with an example message pre-filled from the channel’s schema. The collection stays linked to this spec.',
+    'Generate a collection from this specification. Operations become WebSocket requests targeting the document’s ws/wss server, or MQTT requests targeting its mqtt server, with an example message pre-filled from the channel’s schema. The collection stays linked to this spec.',
   'workbench.editors.spec.generateWs.requestsCount': ({ count }, locale) =>
     plural(locale, Number(count), { one: '{count} WebSocket request', other: '{count} WebSocket requests' }),
+  'workbench.editors.spec.generateWs.mqttRequestsCount': ({ count }, locale) =>
+    plural(locale, Number(count), { one: '{count} MQTT request', other: '{count} MQTT requests' }),
   'workbench.editors.spec.generateWs.empty': 'The document declares no operations to generate from.',
-  'workbench.editors.spec.generateWs.noWsServer': 'The document declares no ws or wss server to connect to.',
+  'workbench.editors.spec.generateWs.noServer': 'The document declares no ws, wss, or mqtt server to connect to.',
   'workbench.editors.spec.generateWs.partial': 'Generated with gaps — {created} created, {failed} failed.',
   'workbench.editors.spec.generateWs.skipped': 'Skipped {operation}: {reason}.',
   'workbench.editors.spec.update.button': 'Update',

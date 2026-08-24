@@ -52,6 +52,7 @@ export type EntityPostState = Partial<
     | 'responseExamplePostState'
     | 'grpcResponseExamplePostState'
     | 'wsResponseExamplePostState'
+    | 'mqttResponseExamplePostState'
     | 'specPostState'
     | 'liveValuePostState'
     | 'liveFallbackPriorityPostState'
