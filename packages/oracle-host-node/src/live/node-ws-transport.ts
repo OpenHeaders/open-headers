@@ -441,6 +441,10 @@ export function createNodeWsTransport(options: NodeWsTransportOptions = {}): WsT
           if (ended || active === null || active.readyState !== UndiciWebSocket.OPEN) return;
           active.send(text);
         },
+        sendBinary(data: Uint8Array): void {
+          if (ended || active === null || active.readyState !== UndiciWebSocket.OPEN) return;
+          active.send(data);
+        },
         close(code: number, reason: string): void {
           if (
             ended ||

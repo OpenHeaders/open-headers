@@ -136,6 +136,13 @@ export interface WsSessionCallbacks {
 export interface WsSessionWriter {
   /** Write one text message verbatim (v1 composes text only). */
   send(text: string): void;
+  /**
+   * Write one BINARY frame verbatim. Optional — the WS editor composes
+   * text only, so only transports a byte-riding protocol reuses (the
+   * MQTT plane's ws-scheme dial) need it; a transport without it
+   * cannot carry such a session.
+   */
+  sendBinary?(data: Uint8Array): void;
   /** Start the Close handshake — Disconnect sends the clean 1000. */
   close(code: number, reason: string): void;
 }

@@ -9,10 +9,16 @@ import type {
   Collection,
   CollectionTree,
   ExecutedGrpcSnapshot,
+  ExecutedMqttSnapshot,
   ExecutedProxyRoute,
   ExecutedRequestSnapshot,
   ExecutedWsSnapshot,
   GrpcRequest,
+  MqttMessageProperties,
+  MqttPayloadFormat,
+  MqttRequest,
+  MqttRequestQos,
+  MqttRetainHandling,
   Request,
   RequestSeed,
   WebSocketRequest,
@@ -172,6 +178,93 @@ export type WsStreamEventWire =
     }
   | { sendId: string; seq: number; kind: 'messages'; items: WsStreamMessageWire[] }
   | { sendId: string; seq: number; kind: 'end' };
+
+/**
+ * One live item of an open MQTT session — the timeline's row unit, a
+ * UNION because the MQTT timeline interleaves subscription lifecycle
+ * facts with the PUBLISH messages at their true chronological
+ * positions (SUBACK grants arrive mid-session on live Subscribe
+ * toggles). Payloads ride base64 (the wire carries bytes); `atMs` is
+ * the executing host's arrival (↓) / write (↑) wall-clock —
+ * SESSION-ONLY display data riding the wire event, never persisted
+ * (the SSE timestamps law). The snapshot's `events` array carries the
+ * same items minus `atMs`, so materialized times join positionally.
+ */
+export type MqttStreamItemWire =
+  | {
+      kind: 'message';
+      direction: 'up' | 'down';
+      topic: string;
+      payloadBase64: string;
+      qos: 0 | 1 | 2;
+      retain: boolean;
+      dup: boolean;
+      atMs: number;
+    }
+  | { kind: 'subscribed'; grants: Array<{ topicFilter: string; reasonCode: number }>; atMs: number }
+  | { kind: 'unsubscribed'; topicFilters: string[]; atMs: number };
+
+/**
+ * One live frame of an open MQTT session — the `mqttStreamEvent`
+ * broadcast's payload, the `wsStreamEvent` sibling for the MqttRequest
+ * executor plane (own channel; no sibling contract changes). Same
+ * discipline: display-only hints superseded by the resolving
+ * `executeMqttRequest` snapshot, `seq` per-send monotonic, item frames
+ * flush-batched by the executing host; `open` and `end` emit
+ * immediately (single and load-bearing). The open frame carries the
+ * CONNACK facts verbatim plus the client id the CONNECT actually sent
+ * (generated per connect when the entity's field is blank).
+ */
+export type MqttStreamEventWire =
+  | {
+      sendId: string;
+      seq: number;
+      kind: 'open';
+      sessionPresent: boolean;
+      reasonCode: number;
+      clientId: string;
+      /** The session's effective proxy route as the transport decided
+       *  it (ws-scheme dials only — tcp dials are direct in v1). */
+      proxyRoute?: ExecutedProxyRoute;
+    }
+  | { sendId: string; seq: number; kind: 'items'; items: MqttStreamItemWire[] }
+  | { sendId: string; seq: number; kind: 'end' };
+
+/**
+ * One publish compose crossing the `publishMqttMessage` rider — the
+ * editor's compose block (or a saved-message row) as authored:
+ * templates unresolved (the EXECUTOR resolves them through the
+ * resolver it built at Connect — the per-send rider-resolution law),
+ * payload in its authored ENCODING (`base64`/`hex` decode to the
+ * published bytes; a malformed payload fails this rider alone).
+ * `properties` applies on 5.0 sessions only — the driver keeps 3.1.1
+ * disabled-honest.
+ */
+export interface MqttPublishWire {
+  topic: string;
+  payload: string;
+  format?: MqttPayloadFormat;
+  qos?: MqttRequestQos;
+  retain?: boolean;
+  properties?: MqttMessageProperties;
+}
+
+/**
+ * One live Subscribe-toggle crossing the `setMqttSubscription` rider.
+ * `subscribe: true` SUBSCRIBEs the filter (the 5.0 options apply on
+ * 5.0 sessions only), `false` UNSUBSCRIBEs it. The stored Topics table
+ * stays the draft — this rider never edits the entity (the ratified
+ * publication-gate idiom); the row's filter resolves per send.
+ */
+export interface MqttSubscriptionWire {
+  topicFilter: string;
+  subscribe: boolean;
+  qos?: MqttRequestQos;
+  noLocal?: boolean;
+  retainAsPublished?: boolean;
+  retainHandling?: MqttRetainHandling;
+  subscriptionId?: number;
+}
 
 export interface RequestRpc {
   getLocalRequests: {
@@ -415,6 +508,74 @@ export interface RequestRpc {
    * = no such session.
    */
   closeWsSession: {
+    req: { sendId: string };
+    res: { success: boolean };
+  };
+  /**
+   * Open an MQTT session for an MqttRequest — the entity's executor
+   * plane, a sibling of `executeWebSocketRequest` keyed off the entity
+   * kind. EXECUTED by hosts with a node network stack (the desktop main
+   * process, the daemon) — the scheme picks the transport there
+   * (mqtt/mqtts dial `node:net`/`node:tls`, ws/wss ride the platform
+   * WebSocket with the `mqtt` subprotocol); browser surfaces keep the
+   * honest disabled posture until the page-realm leg lands (its
+   * `mqttPageSession` capability marker — the ws-scheme sibling of
+   * `wsPageSession`). `mqttRequestUid` takes precedence over `draft`;
+   * the `workspaceId` / `environmentId` semantics are
+   * `executeRequest`'s verbatim. `sendId` is REQUIRED: it keys the open
+   * session for the `publishMqttMessage` / `setMqttSubscription` /
+   * `closeMqttSession` riders, registers with the SAME active-send
+   * registry (`abortRequestSend` = Stop-abort, materializes what
+   * arrived), and tags the live `mqttStreamEvent` frames. The RPC
+   * resolves when the session SETTLES (broker close or DISCONNECT,
+   * Disconnect, Stop, or a pre-open failure — a CONNACK refusal
+   * carries its reason verbatim as the classified error) — with the
+   * whole-session snapshot.
+   */
+  executeMqttRequest: {
+    req: {
+      mqttRequestUid?: string;
+      draft?: MqttRequest;
+      environmentId?: string | null;
+      workspaceId?: string;
+      sendId: string;
+    };
+    res: { success: boolean; snapshot?: ExecutedMqttSnapshot; error?: string };
+  };
+  /**
+   * Publish one message into an open MQTT session, keyed by the
+   * connect's `sendId`. The EXECUTOR resolves {{variables}} through
+   * the resolver it built at Connect and decodes the payload per its
+   * ENCODING, so an unresolved reference, a malformed base64/hex
+   * payload, or an invalid topic fails this RPC alone and never closes
+   * the session. QoS 1/2 publishes run their ack flows driver-side.
+   * `success: false` names the reason.
+   */
+  publishMqttMessage: {
+    req: { sendId: string; message: MqttPublishWire };
+    res: { success: boolean; error?: string };
+  };
+  /**
+   * Toggle one live subscription on an open MQTT session — SUBSCRIBE
+   * or UNSUBSCRIBE, resolving when the broker's ack arrives.
+   * `grantCode` carries the SUBACK grant (granted QoS or the 5.0
+   * failure code) or the UNSUBACK reason code VERBATIM — a broker
+   * downgrading the QoS shows honestly on the toggled row; absent on a
+   * 3.1.1 UNSUBACK (that wire acknowledges without codes). The stored
+   * Topics table stays the draft — this rider never edits the entity.
+   * `success: false` = no such session, a resolve error, or the
+   * session ended before the ack.
+   */
+  setMqttSubscription: {
+    req: { sendId: string; subscription: MqttSubscriptionWire };
+    res: { success: boolean; grantCode?: number; error?: string };
+  };
+  /**
+   * Disconnect an open MQTT session — the clean DISCONNECT then close.
+   * The resolving `executeMqttRequest` RPC settles with the snapshot
+   * once the connection closes. `success: false` = no such session.
+   */
+  closeMqttSession: {
     req: { sendId: string };
     res: { success: boolean };
   };

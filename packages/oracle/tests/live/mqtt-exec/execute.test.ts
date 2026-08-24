@@ -1,0 +1,462 @@
+/**
+ * MQTT executor — the session driver above the protocol-blind
+ * byte-stream seam, exercised against a SCRIPTED transport whose
+ * broker side speaks through the same `@openheaders/core/mqtt` codec:
+ * the CONNACK-gated open (refusal reasons verbatim), open-time
+ * subscriptions with SUBACK grants per row, the QoS 1/2 ack flows both
+ * directions (inbound QoS 2 exactly-once), the publish / subscription
+ * riders with per-send resolution and payload-ENCODING decode, the
+ * 3.1.1 version lens (5.0 surfaces honestly inert), keep-alive
+ * PINGREQ, the broker DISCONNECT reason verbatim, and the clean
+ * Disconnect.
+ */
+
+import {
+  decodeMqttPacket,
+  encodeMqttPacket,
+  MQTT_PROTOCOL_VERSIONS,
+  type MqttPacket,
+  type MqttProtocolVersion,
+} from '@openheaders/core/mqtt';
+import type { MqttRequest } from '@openheaders/core/types';
+import { executeMqttSession } from '@openheaders/oracle/live/mqtt-exec/execute';
+import {
+  closeActiveMqttSession,
+  publishActiveMqttMessage,
+  setActiveMqttSubscription,
+} from '@openheaders/oracle/live/mqtt-exec/session-plane';
+import type {
+  MqttByteTransport,
+  MqttStreamCallbacks,
+  MqttTransportRequest,
+} from '@openheaders/oracle/live/mqtt-exec/transport';
+import { describe, expect, it } from 'vitest';
+
+function makeMqttRequest(overrides: Partial<MqttRequest> = {}): MqttRequest {
+  return {
+    schemaVersion: 5,
+    uid: 'mqtt0001',
+    path: 'requests/suite-col1/probe-mqtt1',
+    name: 'Probe MQTT',
+    url: 'mqtt://{{host}}',
+    topic: 'probe/echo',
+    payload: 'hello',
+    topics: [],
+    savedMessages: [],
+    userProperties: [],
+    ...overrides,
+  };
+}
+
+const SCOPE: Record<string, string> = {
+  host: 'broker.openheaders.io:1883',
+  team: 'alpha',
+};
+
+function scopedResolution(template: string, unresolved: Set<string>): string {
+  return template.replace(/\{\{([^}]+)\}\}/g, (whole, name: string) => {
+    const value = SCOPE[name.trim()];
+    if (value === undefined) {
+      unresolved.add(name.trim());
+      return whole;
+    }
+    return value;
+  });
+}
+
+/** Scripted byte transport — the broker side of the rig. `written`
+ *  holds every client packet DECODED through the real codec (each
+ *  executor write is exactly one packet); `push` answers with
+ *  broker-encoded packets. `end()` closes like a socket: onEnd on a
+ *  microtask, exactly once. */
+function scriptedTransport(version: MqttProtocolVersion) {
+  let seenRequest: MqttTransportRequest | null = null;
+  let seenCallbacks: MqttStreamCallbacks | null = null;
+  let ended = false;
+  const written: MqttPacket[] = [];
+  const transport: MqttByteTransport = {
+    connect(request, callbacks, signal) {
+      seenRequest = request;
+      seenCallbacks = callbacks;
+      const finish = (): void => {
+        if (ended) return;
+        ended = true;
+        queueMicrotask(() => callbacks.onEnd());
+      };
+      signal?.addEventListener('abort', finish);
+      return {
+        write: (bytes) => {
+          const decoded = decodeMqttPacket(bytes, version);
+          if (!decoded.ok) throw new Error(`client wrote a malformed packet: ${decoded.error}`);
+          written.push(decoded.packet);
+        },
+        end: finish,
+      };
+    },
+  };
+  return {
+    transport,
+    written,
+    wire: () => {
+      if (seenRequest === null) throw new Error('connect never reached the transport');
+      return seenRequest;
+    },
+    establish: () => {
+      if (seenCallbacks === null) throw new Error('connect never reached the transport');
+      seenCallbacks.onConnect();
+    },
+    push: (packet: MqttPacket) => {
+      if (seenCallbacks === null) throw new Error('connect never reached the transport');
+      const encoded = encodeMqttPacket(packet, version);
+      if (!encoded.ok) throw new Error(`broker packet did not encode: ${encoded.error}`);
+      seenCallbacks.onData(encoded.bytes);
+    },
+    pushBytes: (bytes: Uint8Array) => {
+      if (seenCallbacks === null) throw new Error('connect never reached the transport');
+      seenCallbacks.onData(bytes);
+    },
+  };
+}
+
+async function settleTick(): Promise<void> {
+  await new Promise((resolve) => setTimeout(resolve, 0));
+}
+
+const acceptedConnack: MqttPacket = { type: 'connack', sessionPresent: false, reasonCode: 0 };
+
+describe('executeMqttSession — connect gate', () => {
+  it('sends CONNECT on the established stream (generated client id, defaults) and opens on the accepting CONNACK', async () => {
+    const rig = scriptedTransport(MQTT_PROTOCOL_VERSIONS.v5);
+    const settled = executeMqttSession(makeMqttRequest(), {
+      workspaceId: null,
+      environmentId: undefined,
+      transport: rig.transport,
+      sendId: 'send-mqtt-open',
+      resolution: scopedResolution,
+    });
+    await settleTick();
+    expect(rig.wire().url).toBe('mqtt://broker.openheaders.io:1883');
+    rig.establish();
+    expect(rig.written).toHaveLength(1);
+    const connect = rig.written[0];
+    if (connect.type !== 'connect') throw new Error('expected CONNECT first');
+    expect(connect.clientId).toMatch(/^oh-/);
+    expect(connect.cleanStart).toBe(true);
+    expect(connect.keepAlive).toBe(60);
+    rig.push({ type: 'connack', sessionPresent: true, reasonCode: 0 });
+    closeActiveMqttSession('send-mqtt-open');
+    const snapshot = await settled;
+    expect(snapshot.error).toBeNull();
+    expect(snapshot.connected).toBe(true);
+    expect(snapshot.connack).toEqual({ sessionPresent: true, reasonCode: 0 });
+    expect(snapshot.clientId).toBe(connect.clientId);
+    expect(snapshot.end).toEqual({ by: 'client' });
+    // The clean Disconnect wrote a DISCONNECT before closing.
+    expect(rig.written.at(-1)?.type).toBe('disconnect');
+  });
+
+  it('surfaces a CONNACK refusal verbatim as the classified pre-open error', async () => {
+    const rig = scriptedTransport(MQTT_PROTOCOL_VERSIONS.v5);
+    const settled = executeMqttSession(makeMqttRequest(), {
+      workspaceId: null,
+      environmentId: undefined,
+      transport: rig.transport,
+      sendId: 'send-mqtt-refused',
+      resolution: scopedResolution,
+    });
+    await settleTick();
+    rig.establish();
+    rig.push({ type: 'connack', sessionPresent: false, reasonCode: 0x87 });
+    const snapshot = await settled;
+    expect(snapshot.connected).toBe(false);
+    expect(snapshot.error).toContain('Not authorized');
+    expect(snapshot.error).toContain('135');
+    expect(snapshot.connack).toEqual({ sessionPresent: false, reasonCode: 0x87 });
+  });
+
+  it('gates a foreign scheme and unresolved variables as structured pre-wire errors', async () => {
+    const rig = scriptedTransport(MQTT_PROTOCOL_VERSIONS.v5);
+    const base = {
+      workspaceId: null,
+      environmentId: undefined,
+      transport: rig.transport,
+      resolution: scopedResolution,
+    };
+    const scheme = await executeMqttSession(makeMqttRequest({ url: 'https://openheaders.io' }), {
+      ...base,
+      sendId: 's1',
+    });
+    expect(scheme.error).toContain('mqtt://');
+    const vars = await executeMqttSession(makeMqttRequest({ url: 'mqtt://{{missing}}' }), { ...base, sendId: 's2' });
+    expect(vars.error).toContain('missing');
+  });
+});
+
+describe('executeMqttSession — subscriptions', () => {
+  it('subscribes enabled rows at open and records SUBACK grants per row (downgrades honest)', async () => {
+    const rig = scriptedTransport(MQTT_PROTOCOL_VERSIONS.v5);
+    const settled = executeMqttSession(
+      makeMqttRequest({
+        topics: [
+          { uid: 'row00001', topicFilter: 'probe/{{team}}/#', qos: 2 },
+          { uid: 'row00002', topicFilter: 'probe/off', subscribe: false },
+          { uid: 'row00003', topicFilter: 'probe/opts', qos: 1, noLocal: true, retainHandling: 2 },
+        ],
+      }),
+      {
+        workspaceId: null,
+        environmentId: undefined,
+        transport: rig.transport,
+        sendId: 'send-mqtt-subs',
+        resolution: scopedResolution,
+      },
+    );
+    await settleTick();
+    rig.establish();
+    rig.push(acceptedConnack);
+    const subscribe = rig.written[1];
+    if (subscribe.type !== 'subscribe') throw new Error('expected SUBSCRIBE after CONNACK');
+    expect(subscribe.subscriptions.map((s) => s.topicFilter)).toEqual(['probe/alpha/#', 'probe/opts']);
+    expect(subscribe.subscriptions[1]).toMatchObject({ noLocal: true, retainHandling: 2 });
+    // Grants verbatim, positional — the broker downgrades row 1 to QoS 1.
+    rig.push({ type: 'suback', packetId: subscribe.packetId, reasonCodes: [1, 0x80] });
+    closeActiveMqttSession('send-mqtt-subs');
+    const snapshot = await settled;
+    expect(snapshot.events[0]).toEqual({
+      kind: 'subscribed',
+      grants: [
+        { topicFilter: 'probe/alpha/#', reasonCode: 1 },
+        { topicFilter: 'probe/opts', reasonCode: 0x80 },
+      ],
+    });
+  });
+
+  it('rides the live toggle riders: SUBSCRIBE resolves the grant, UNSUBSCRIBE records the row', async () => {
+    const rig = scriptedTransport(MQTT_PROTOCOL_VERSIONS.v5);
+    const settled = executeMqttSession(makeMqttRequest(), {
+      workspaceId: null,
+      environmentId: undefined,
+      transport: rig.transport,
+      sendId: 'send-mqtt-toggle',
+      resolution: scopedResolution,
+    });
+    await settleTick();
+    rig.establish();
+    rig.push(acceptedConnack);
+
+    const subscribing = setActiveMqttSubscription('send-mqtt-toggle', {
+      topicFilter: 'probe/{{team}}/live',
+      subscribe: true,
+      qos: 1,
+    });
+    const subscribePacket = rig.written.at(-1);
+    if (subscribePacket?.type !== 'subscribe') throw new Error('expected SUBSCRIBE');
+    expect(subscribePacket.subscriptions[0].topicFilter).toBe('probe/alpha/live');
+    rig.push({ type: 'suback', packetId: subscribePacket.packetId, reasonCodes: [1] });
+    await expect(subscribing).resolves.toEqual({ success: true, grantCode: 1 });
+
+    const unsubscribing = setActiveMqttSubscription('send-mqtt-toggle', {
+      topicFilter: 'probe/alpha/live',
+      subscribe: false,
+    });
+    const unsubscribePacket = rig.written.at(-1);
+    if (unsubscribePacket?.type !== 'unsubscribe') throw new Error('expected UNSUBSCRIBE');
+    rig.push({ type: 'unsuback', packetId: unsubscribePacket.packetId, reasonCodes: [0] });
+    await expect(unsubscribing).resolves.toEqual({ success: true, grantCode: 0 });
+
+    closeActiveMqttSession('send-mqtt-toggle');
+    const snapshot = await settled;
+    expect(snapshot.events.map((e) => e.kind)).toEqual(['subscribed', 'unsubscribed']);
+  });
+
+  it('settles a rider still waiting on its ack when the session ends', async () => {
+    const rig = scriptedTransport(MQTT_PROTOCOL_VERSIONS.v5);
+    const settled = executeMqttSession(makeMqttRequest(), {
+      workspaceId: null,
+      environmentId: undefined,
+      transport: rig.transport,
+      sendId: 'send-mqtt-hang',
+      resolution: scopedResolution,
+    });
+    await settleTick();
+    rig.establish();
+    rig.push(acceptedConnack);
+    const waiting = setActiveMqttSubscription('send-mqtt-hang', { topicFilter: 'probe/never', subscribe: true });
+    closeActiveMqttSession('send-mqtt-hang');
+    await settled;
+    const result = await waiting;
+    expect(result.success).toBe(false);
+    expect(result.error).toContain('session ended');
+  });
+});
+
+describe('executeMqttSession — messages and QoS flows', () => {
+  it('captures inbound publishes with flags verbatim and answers the QoS 1/2 acks', async () => {
+    const rig = scriptedTransport(MQTT_PROTOCOL_VERSIONS.v5);
+    const settled = executeMqttSession(makeMqttRequest(), {
+      workspaceId: null,
+      environmentId: undefined,
+      transport: rig.transport,
+      sendId: 'send-mqtt-inbound',
+      resolution: scopedResolution,
+    });
+    await settleTick();
+    rig.establish();
+    rig.push(acceptedConnack);
+
+    const payload = new TextEncoder().encode('tick');
+    rig.push({ type: 'publish', topic: 'probe/retained', payload, qos: 0, retain: true, dup: false, packetId: null });
+    rig.push({ type: 'publish', topic: 'probe/q1', payload, qos: 1, retain: false, dup: false, packetId: 41 });
+    rig.push({ type: 'publish', topic: 'probe/q2', payload, qos: 2, retain: false, dup: false, packetId: 42 });
+    // Redelivery of the same QoS 2 id before PUBREL: PUBREC answers
+    // again, the capture records ONCE (exactly-once display truth).
+    rig.push({ type: 'publish', topic: 'probe/q2', payload, qos: 2, retain: false, dup: true, packetId: 42 });
+    rig.push({ type: 'pubrel', packetId: 42, reasonCode: 0 });
+
+    const ackTypes = rig.written.slice(1).map((p) => p.type);
+    expect(ackTypes).toEqual(['puback', 'pubrec', 'pubrec', 'pubcomp']);
+
+    closeActiveMqttSession('send-mqtt-inbound');
+    const snapshot = await settled;
+    const messages = snapshot.events.filter((e) => e.kind === 'message');
+    expect(messages.map((m) => m.topic)).toEqual(['probe/retained', 'probe/q1', 'probe/q2']);
+    expect(messages[0]).toMatchObject({ retain: true, qos: 0, direction: 'down' });
+  });
+
+  it('publishes through the rider — per-send resolution, ENCODING decode, the outbound QoS 2 flow', async () => {
+    const rig = scriptedTransport(MQTT_PROTOCOL_VERSIONS.v5);
+    const settled = executeMqttSession(makeMqttRequest(), {
+      workspaceId: null,
+      environmentId: undefined,
+      transport: rig.transport,
+      sendId: 'send-mqtt-publish',
+      resolution: scopedResolution,
+    });
+    await settleTick();
+    rig.establish();
+    rig.push(acceptedConnack);
+
+    const bad = publishActiveMqttMessage('send-mqtt-publish', { topic: 'probe/bin', payload: '!!!', format: 'base64' });
+    expect(bad.success).toBe(false);
+    expect(bad.error).toContain('Base64');
+
+    const ok = publishActiveMqttMessage('send-mqtt-publish', {
+      topic: 'probe/{{team}}/out',
+      payload: '48656c6c6f',
+      format: 'hex',
+      qos: 2,
+      retain: true,
+      properties: { contentType: 'text/plain', userProperties: [{ uid: 'up000001', key: 'k', value: '{{team}}' }] },
+    });
+    expect(ok).toEqual({ success: true });
+    const publish = rig.written.at(-1);
+    if (publish?.type !== 'publish') throw new Error('expected PUBLISH');
+    expect(publish.topic).toBe('probe/alpha/out');
+    expect(new TextDecoder().decode(publish.payload)).toBe('Hello');
+    expect(publish.qos).toBe(2);
+    expect(publish.retain).toBe(true);
+    expect(publish.properties?.contentType).toBe('text/plain');
+    expect(publish.properties?.userProperties).toEqual([{ key: 'k', value: 'alpha' }]);
+    if (publish.packetId === null) throw new Error('QoS 2 publish needs a packet id');
+    rig.push({ type: 'pubrec', packetId: publish.packetId, reasonCode: 0 });
+    expect(rig.written.at(-1)?.type).toBe('pubrel');
+    rig.push({ type: 'pubcomp', packetId: publish.packetId, reasonCode: 0 });
+
+    const unresolvedSend = publishActiveMqttMessage('send-mqtt-publish', { topic: 'probe/{{nope}}', payload: 'x' });
+    expect(unresolvedSend.success).toBe(false);
+    expect(unresolvedSend.error).toContain('nope');
+
+    closeActiveMqttSession('send-mqtt-publish');
+    const snapshot = await settled;
+    const up = snapshot.events.filter((e) => e.kind === 'message' && e.direction === 'up');
+    expect(up).toHaveLength(1);
+  });
+});
+
+describe('executeMqttSession — version lens and session end', () => {
+  it('keeps every 5.0 surface off a 3.1.1 session (properties, options, DISCONNECT body)', async () => {
+    const rig = scriptedTransport(MQTT_PROTOCOL_VERSIONS.v311);
+    const settled = executeMqttSession(
+      makeMqttRequest({
+        protocolVersion: '3.1.1',
+        sessionExpiryInterval: 300,
+        receiveMaximum: 20,
+        userProperties: [{ uid: 'up000001', key: 'k', value: 'v' }],
+        topics: [{ uid: 'row00001', topicFilter: 'probe/#', qos: 1, noLocal: true, retainHandling: 2 }],
+        lastWill: { topic: 'clients/reporter/status', payload: 'gone', properties: { contentType: 'text/plain' } },
+      }),
+      {
+        workspaceId: null,
+        environmentId: undefined,
+        transport: rig.transport,
+        sendId: 'send-mqtt-v311',
+        resolution: scopedResolution,
+      },
+    );
+    await settleTick();
+    rig.establish();
+    const connect = rig.written[0];
+    if (connect.type !== 'connect') throw new Error('expected CONNECT');
+    expect(connect.properties).toBeUndefined();
+    expect(connect.will?.properties).toBeUndefined();
+    rig.push(acceptedConnack);
+    const subscribe = rig.written[1];
+    if (subscribe.type !== 'subscribe') throw new Error('expected SUBSCRIBE');
+    expect(subscribe.subscriptions[0]).toEqual({ topicFilter: 'probe/#', qos: 1 });
+
+    const publish = publishActiveMqttMessage('send-mqtt-v311', {
+      topic: 'probe/out',
+      payload: 'x',
+      properties: { contentType: 'text/plain' },
+    });
+    expect(publish.success).toBe(true);
+    const published = rig.written.at(-1);
+    if (published?.type !== 'publish') throw new Error('expected PUBLISH');
+    expect(published.properties).toBeUndefined();
+
+    closeActiveMqttSession('send-mqtt-v311');
+    const snapshot = await settled;
+    expect(snapshot.end).toEqual({ by: 'client' });
+    expect(rig.written.at(-1)).toEqual({ type: 'disconnect', reasonCode: null });
+  });
+
+  it('records a broker DISCONNECT reason verbatim and settles', async () => {
+    const rig = scriptedTransport(MQTT_PROTOCOL_VERSIONS.v5);
+    const settled = executeMqttSession(makeMqttRequest(), {
+      workspaceId: null,
+      environmentId: undefined,
+      transport: rig.transport,
+      sendId: 'send-mqtt-brokerbye',
+      resolution: scopedResolution,
+    });
+    await settleTick();
+    rig.establish();
+    rig.push(acceptedConnack);
+    rig.push({ type: 'disconnect', reasonCode: 0x8b });
+    const snapshot = await settled;
+    expect(snapshot.connected).toBe(true);
+    expect(snapshot.end).toEqual({ by: 'broker', reasonCode: 0x8b });
+    expect(snapshot.error).toBeNull();
+  });
+
+  it('reassembles packets split across wire chunks — the incremental decoder feeds the driver', async () => {
+    const rig = scriptedTransport(MQTT_PROTOCOL_VERSIONS.v5);
+    const settled = executeMqttSession(makeMqttRequest(), {
+      workspaceId: null,
+      environmentId: undefined,
+      transport: rig.transport,
+      sendId: 'send-mqtt-split',
+      resolution: scopedResolution,
+    });
+    await settleTick();
+    rig.establish();
+    const encoded = encodeMqttPacket(acceptedConnack, MQTT_PROTOCOL_VERSIONS.v5);
+    if (!encoded.ok) throw new Error(encoded.error);
+    // Byte-by-byte delivery — no chunk boundary carries meaning.
+    for (const byte of encoded.bytes) rig.pushBytes(new Uint8Array([byte]));
+    expect(rig.written.length).toBeGreaterThanOrEqual(1);
+    closeActiveMqttSession('send-mqtt-split');
+    const snapshot = await settled;
+    expect(snapshot.connected).toBe(true);
+  });
+});

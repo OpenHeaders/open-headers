@@ -53,7 +53,7 @@ import type {
 } from '../sync-bridge';
 import type { WorkspaceSnapshot } from './common';
 import type { EnvironmentsSnapshot } from './environments';
-import type { GrpcStreamEventWire, RequestStreamEventWire, WsStreamEventWire } from './requests';
+import type { GrpcStreamEventWire, MqttStreamEventWire, RequestStreamEventWire, WsStreamEventWire } from './requests';
 import type { SecretsStorageState } from './secrets';
 import type { AppUpdateState } from './updates';
 import type { WorkspaceTreeGitStatusWire } from './workspace';
@@ -181,6 +181,15 @@ export interface BridgeBroadcastContract {
    * only hints superseded by the resolving RPC's snapshot.
    */
   wsStreamEvent: WsStreamEventWire;
+  /**
+   * Live frames of an open MQTT session (open with the CONNACK facts,
+   * batched timeline items — PUBLISH messages both directions plus
+   * subscription lifecycle facts — and end) — the message timeline's
+   * feed, the `wsStreamEvent` sibling for the MqttRequest executor
+   * plane. Same discipline: tagged with the caller-minted `sendId`,
+   * display-only hints superseded by the resolving RPC's snapshot.
+   */
+  mqttStreamEvent: MqttStreamEventWire;
   /**
    * Host-shell navigation request: open the Settings surface, optionally
    * at a category or a specific setting. Emitted by the desktop main

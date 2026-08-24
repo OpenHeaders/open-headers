@@ -153,6 +153,16 @@ export type {
 export type { LiveValueRecord, RefreshHealth, WorkflowRunCache, WorkflowStepOutcome } from './live-cache';
 // ── Offline-fallback priority list (WS-C C14) ──────────────────────
 export type { LiveFallbackPriorityMember, LiveFallbackPrioritySnapshot } from './live-fallback-priority';
+export type {
+  ExecutedMqttConnack,
+  ExecutedMqttEnd,
+  ExecutedMqttEvent,
+  ExecutedMqttGrant,
+  ExecutedMqttMessage,
+  ExecutedMqttSnapshot,
+  ExecutedMqttSubscribed,
+  ExecutedMqttUnsubscribed,
+} from './mqtt-execution';
 // ── MQTT request ───────────────────────────────────────────────────
 export type {
   MqttLastWill,

@@ -43,7 +43,12 @@
  */
 
 import * as path from 'node:path';
-import { setHostBridge, type WsSendSocketIoWire } from '@openheaders/core/bridge';
+import {
+  type MqttPublishWire,
+  type MqttSubscriptionWire,
+  setHostBridge,
+  type WsSendSocketIoWire,
+} from '@openheaders/core/bridge';
 import {
   createDaemonPairingService,
   ensureSyntheticIdentity,
@@ -88,6 +93,11 @@ import {
   endActiveGrpcClientStream,
   sendActiveGrpcStreamMessage,
 } from '@openheaders/oracle/live/grpc-exec/stream-plane';
+import {
+  closeActiveMqttSession,
+  publishActiveMqttMessage,
+  setActiveMqttSubscription,
+} from '@openheaders/oracle/live/mqtt-exec/session-plane';
 import { buildRefreshOAuthHook } from '@openheaders/oracle/live/request-exec/oauth-refresh';
 import { handleResolveRequestWireRpc } from '@openheaders/oracle/live/request-exec/resolve-wire-rpc';
 import { stopActiveSend } from '@openheaders/oracle/live/request-exec/send-stream';
@@ -162,6 +172,7 @@ import { createCliProvisionService } from './cli-provision';
 import { composePeerPush } from './compose-peer-push';
 import { composePeerRpc } from './compose-peer-rpc';
 import { handleExecuteGrpcRequestRpc } from './execute-grpc-request-rpc';
+import { handleExecuteMqttRequestRpc } from './execute-mqtt-request-rpc';
 import { handleExecuteRequestRpc } from './execute-request-rpc';
 import { handleExecuteWebSocketRequestRpc } from './execute-websocket-request-rpc';
 import { offerWorkspaceRowsToUserPeers } from './grant-workspace-offer';
@@ -1178,6 +1189,29 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
     }
     if (type === 'closeWsSession') {
       return { success: typeof message.sendId === 'string' && closeActiveWsSession(message.sendId) };
+    }
+    // Workbench MQTT Connect — the MqttRequest entity's executor
+    // plane, same in-process answer posture; the RPC resolves when the
+    // session settles.
+    if (type === 'executeMqttRequest') {
+      return await handleExecuteMqttRequestRpc(message);
+    }
+    // Riders for an open MQTT session — the executor's active-session
+    // registry resolves, decodes and writes; the subscription toggle
+    // resolves when the broker's ack arrives; a settled or unknown id
+    // answers `success: false`.
+    if (type === 'publishMqttMessage') {
+      return typeof message.sendId === 'string' && message.message !== undefined
+        ? publishActiveMqttMessage(message.sendId, message.message as MqttPublishWire)
+        : { success: false, error: 'No session id or message provided' };
+    }
+    if (type === 'setMqttSubscription') {
+      return typeof message.sendId === 'string' && message.subscription !== undefined
+        ? await setActiveMqttSubscription(message.sendId, message.subscription as MqttSubscriptionWire)
+        : { success: false, error: 'No session id or subscription provided' };
+    }
+    if (type === 'closeMqttSession') {
+      return { success: typeof message.sendId === 'string' && closeActiveMqttSession(message.sendId) };
     }
     // Workspace-export import — the host-neutral orchestrator (the
     // extension SW answers the same channels). Local surface = the
