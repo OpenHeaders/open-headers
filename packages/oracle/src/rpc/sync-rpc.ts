@@ -51,8 +51,12 @@ import {
   SYNC_MUTATION_TYPE,
   type SyncAwarenessPresenceMessage,
 } from '@openheaders/core/protocol';
-import type { InverseEnvelopeContext } from '@openheaders/core/sync';
-import { resolveWorkspaceOrgId } from '@openheaders/core/sync';
+import type { InverseEnvelopeContext, MutationEnvelope } from '@openheaders/core/sync';
+import {
+  EXTENSION_WORKSPACE_ENTITY_TYPE,
+  EXTENSION_WORKSPACES_SET_PATH,
+  resolveWorkspaceOrgId,
+} from '@openheaders/core/sync';
 import { logger } from '@openheaders/core/utils';
 import { getOracleHostHooks, peekActiveWorkspaceId } from '../sync';
 import {
@@ -316,10 +320,38 @@ export function restampApplyOrgIds(request: SyncApplyRequest): SyncApplyRequest 
       ...request.batch,
       mutations: request.batch.mutations.map((env) => ({
         ...env,
-        orgId: resolveWorkspaceOrgId(env.workspaceId),
+        orgId: applyEnvelopeOrgId(env),
       })),
     },
   };
+}
+
+/**
+ * The Org channel one `oh.sync.apply` envelope rides. A global-scope
+ * workspace-SLOT write resolves its SUBJECT workspace — a create
+ * carries the binding on the slot itself, a write on a known workspace
+ * resolves the stored binding — because the slot's Org decides which
+ * backend must gate and hold the row (the server-access plan A5):
+ * resolving the blanket global channel would pin every slot write to
+ * the home Org, and the outbound tenancy gate would then withhold a
+ * server-bound create from the one backend able to accept it.
+ * Subject-less global bodies (the active pointer) and per-workspace
+ * envelopes keep the scope resolution.
+ */
+function applyEnvelopeOrgId(env: MutationEnvelope): string {
+  const body = env.body;
+  if (
+    body.type === EXTENSION_WORKSPACE_ENTITY_TYPE &&
+    (body.kind === 'addToSet' || body.kind === 'removeFromSet' || body.kind === 'moveBefore') &&
+    body.path === EXTENSION_WORKSPACES_SET_PATH
+  ) {
+    if (body.kind === 'addToSet') {
+      const slotOrgId = (body.item as { orgId?: unknown }).orgId;
+      if (typeof slotOrgId === 'string' && slotOrgId.length > 0) return slotOrgId;
+    }
+    return resolveWorkspaceOrgId(body.itemId);
+  }
+  return resolveWorkspaceOrgId(env.workspaceId);
 }
 
 const SYNC_SNAPSHOT_DISPATCH: Record<string, (workspaceId?: string) => { entries: unknown[] }> = {

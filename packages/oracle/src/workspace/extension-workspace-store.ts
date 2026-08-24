@@ -236,8 +236,13 @@ export async function createWorkspace(
     orgId,
   };
   const orderKey = nextOrderKey();
+  // The create envelope rides the channel of the Org the workspace
+  // binds to, not the blanket home-Org channel the global scope
+  // resolves — the outbound tenancy gate forwards consumed-Org
+  // envelopes only, so a server-bound create (the access plan A5)
+  // could otherwise never reach the backend that must gate and hold it.
   await applyExtensionWorkspaceMutationOrThrow(
-    (ctx) => buildSetExtensionWorkspaceBatch({ slot, orderKey }, ctx),
+    (ctx) => buildSetExtensionWorkspaceBatch({ slot, orderKey }, { ...ctx, orgId }),
     'createWorkspace',
     opts.surfaceId,
   );

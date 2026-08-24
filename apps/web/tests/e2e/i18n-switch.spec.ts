@@ -2,11 +2,11 @@
  * i18n locale-switch e2e (Phase H) — the web tab against its serving
  * daemon:
  *
- *   1. the login gate and boot beats render ENGLISH even under a
- *      non-English browser locale BY DESIGN (S44): English is the only
- *      real locale shipped, `auto` never resolves to the synthetic
- *      pseudo locale, and the pre-provider beats resolve from
- *      `navigator.languages` the same way;
+ *   1. the login gate and boot beats follow the BROWSER locale (the
+ *      i18n epic ships fr as a real locale): a fr-FR profile gates in
+ *      French — `auto` resolves it, pre-provider beats included — an
+ *      en-US profile gates in English, and `auto` never resolves to
+ *      the synthetic pseudo locale;
  *   2. after the server is claimed from the gate, switching to pseudo
  *      through the real settings picker re-renders the mounted
  *      workbench in place — a window stamp proves no navigation
@@ -16,9 +16,9 @@
  *      as `en`);
  *   4. the choice persists across a reload (the web app's restart):
  *      the tab rejoins past the gate and paints pseudoized from boot,
- *      while a FRESH profile on the same origin still gates in English
- *      — now on the claimed server's sign-in card (the setting is
- *      origin-profile-scoped, not daemon-global).
+ *      while a FRESH fr-FR profile on the same origin gates in French
+ *      — now on the claimed server's sign-in card (the pseudo choice
+ *      is origin-profile-scoped, not daemon-global).
  *
  * Requires builds: `pnpm turbo build --filter=@openheaders/daemon`
  * and `pnpm turbo build --filter=@openheaders/web`. The daemon runs
@@ -154,9 +154,9 @@ test.beforeAll(async () => {
     .toBe(200);
 
   browser = await chromium.launch();
-  // A non-English browser locale — the gate/boot beats must ignore it
-  // in favor of the shipped-English resolution.
-  context = await browser.newContext({ locale: 'fr-FR' });
+  // The main flow runs in English — the pseudo switch below drives the
+  // real settings picker, whose path is pinned by its English labels.
+  context = await browser.newContext({ locale: 'en-US' });
   page = await context.newPage();
 });
 
@@ -172,10 +172,22 @@ test.afterAll(async () => {
   await rm(dataDir, { recursive: true, force: true });
 });
 
-test('the gate renders English under a non-English browser locale', async () => {
+test('the gate follows the browser locale and never resolves pseudo', async () => {
+  // A fr-FR profile: `auto` resolves the shipped French catalog for the
+  // gate and the pre-provider boot beats — and never the pseudo locale.
+  const frContext = await browser.newContext({ locale: 'fr-FR' });
+  const frPage = await frContext.newPage();
+  await frPage.goto(`${ORIGIN}/`);
+  await frPage.waitForSelector('[data-testid=login-gate]', { timeout: 15_000 });
+  const frGate = frPage.locator('[data-testid=login-gate]');
+  await expect(frGate).toContainText('Installer ce serveur');
+  await expect(frGate).not.toContainText('⟦');
+  expect(await frPage.evaluate(() => document.documentElement.lang)).toBe('fr');
+  await frContext.close();
+
+  // The en-US profile the rest of the suite rides: English gate.
   await page.goto(`${ORIGIN}/`);
   await page.waitForSelector('[data-testid=login-gate]', { timeout: 15_000 });
-
   const gate = page.locator('[data-testid=login-gate]');
   await expect(gate).toContainText('Set up this server');
   await expect(gate).not.toContainText('⟦');
@@ -207,7 +219,10 @@ test('the joined workbench switches to pseudo in place', async () => {
   await page.locator('.settings-category-nav').getByText('General', { exact: true }).click();
   const row = languageRow(page);
   await expect(row).toBeVisible();
-  await row.getByText(PSEUDO_NATIVE_NAME).click();
+  // The language enum outgrew the inline radio row (five real locales +
+  // auto + pseudo) — it renders as a Select now.
+  await row.locator('.ant-select').click();
+  await page.locator('.ant-select-item-option', { hasText: PSEUDO_NATIVE_NAME }).first().click();
 
   await expect(row).toContainText('⟦');
   const stamp = await page.evaluate(
@@ -217,13 +232,19 @@ test('the joined workbench switches to pseudo in place', async () => {
 });
 
 test('technical plane vocabulary stays raw under pseudo', async () => {
+  // The locale registry names never translate: the picker's options
+  // still read 'English' and the pseudo native name even while the
+  // chrome around them is pseudoized.
   const row = languageRow(page);
-  await expect(row.getByText('English', { exact: true })).toBeVisible();
-  await expect(row.getByText(PSEUDO_NATIVE_NAME)).toBeVisible();
+  await row.locator('.ant-select').click();
+  const options = page.locator('.ant-select-item-option');
+  await expect(options.filter({ hasText: 'English' }).first()).toBeVisible();
+  await expect(options.filter({ hasText: PSEUDO_NATIVE_NAME }).first()).toBeVisible();
+  await page.keyboard.press('Escape');
   expect(await page.evaluate(() => document.documentElement.lang)).toBe('en');
 });
 
-test('the choice persists across reload; a fresh profile still gates in English', async () => {
+test('the choice persists across reload; a fresh profile gates in its own locale', async () => {
   // The settings store debounces persistence (150ms) — wait for the
   // choice to land in the origin IDB before tearing the page down, or
   // the reload can race the flush.
@@ -241,16 +262,16 @@ test('the choice persists across reload; a fresh profile still gates in English'
   await page.waitForSelector('[data-testid=login-gate]', { state: 'detached', timeout: 30_000 });
   await expect(page.locator('#root')).toContainText('⟦', { timeout: 30_000 });
 
-  // A fresh profile on the same origin: no stored setting, no stored
-  // session — the gate renders English again, and now on the claimed
-  // server's sign-in card (the pseudo choice is origin-profile-scoped,
-  // not daemon-global).
+  // A fresh fr-FR profile on the same origin: no stored setting, no
+  // stored session — the gate renders that browser's own French, and
+  // now on the claimed server's sign-in card (the pseudo choice is
+  // origin-profile-scoped, not daemon-global).
   const freshContext = await browser.newContext({ locale: 'fr-FR' });
   const freshPage = await freshContext.newPage();
   await freshPage.goto(`${ORIGIN}/`);
   await freshPage.waitForSelector('[data-testid=login-gate]', { timeout: 15_000 });
   const gate = freshPage.locator('[data-testid=login-gate]');
-  await expect(gate).toContainText('Sign in to this server');
+  await expect(gate).toContainText('Se connecter à ce serveur');
   await expect(gate).not.toContainText('⟦');
   await freshContext.close();
 });

@@ -76,4 +76,70 @@ describe('restampApplyOrgIds', () => {
     const request = { type: 'oh.sync.apply' as const, batch: { batchId: 'b', mutations: [] }, sideEffects: [] };
     expect(restampApplyOrgIds(request)).toBe(request);
   });
+
+  it('stamps a global-scope workspace-slot create with the slot Org, not the global channel', () => {
+    // A server-bound create rides the consumed Org's channel (the
+    // server-access plan A5) — resolving the '__global__' scope would
+    // pin it to the home Org and the outbound tenancy gate would
+    // withhold it from the one backend able to accept it.
+    const HOME_ORG = '0193a8ff-0000-7000-8000-0000000000cc';
+    setWorkspaceOrgResolver((id) => (id === '__global__' ? HOME_ORG : undefined));
+    const out = restampApplyOrgIds({
+      type: 'oh.sync.apply',
+      batch: {
+        batchId: '01900000-cccc-7000-8000-000000000002',
+        mutations: [
+          {
+            mutationId: '01900000-dddd-7000-8000-000000000002',
+            hlc: { physicalMs: 0, logical: 0, nodeId: 'dev' },
+            origin: { surfaceId: 'workbench', deviceId: 'dev' },
+            workspaceId: '__global__',
+            orgId: PRE_BOOTSTRAP_ORG_ID,
+            mutatorVersion: 1,
+            body: {
+              kind: 'addToSet',
+              type: 'extensionWorkspace',
+              id: 'global',
+              path: 'workspaces',
+              itemId: WS,
+              item: { id: WS, name: 'Server Bound', orgId: REAL_ORG },
+              orderKey: 'm',
+            },
+          },
+        ],
+      },
+      sideEffects: [],
+    });
+    expect(out.batch.mutations[0].orgId).toBe(REAL_ORG);
+  });
+
+  it('stamps a global-scope workspace-slot remove with the subject workspace binding', () => {
+    const HOME_ORG = '0193a8ff-0000-7000-8000-0000000000cc';
+    setWorkspaceOrgResolver((id) => (id === WS ? REAL_ORG : HOME_ORG));
+    const out = restampApplyOrgIds({
+      type: 'oh.sync.apply',
+      batch: {
+        batchId: '01900000-cccc-7000-8000-000000000003',
+        mutations: [
+          {
+            mutationId: '01900000-dddd-7000-8000-000000000003',
+            hlc: { physicalMs: 0, logical: 0, nodeId: 'dev' },
+            origin: { surfaceId: 'workbench', deviceId: 'dev' },
+            workspaceId: '__global__',
+            orgId: PRE_BOOTSTRAP_ORG_ID,
+            mutatorVersion: 1,
+            body: {
+              kind: 'removeFromSet',
+              type: 'extensionWorkspace',
+              id: 'global',
+              path: 'workspaces',
+              itemId: WS,
+            },
+          },
+        ],
+      },
+      sideEffects: [],
+    });
+    expect(out.batch.mutations[0].orgId).toBe(REAL_ORG);
+  });
 });

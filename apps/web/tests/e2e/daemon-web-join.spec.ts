@@ -1,5 +1,6 @@
 /**
- * Phase 4b B2 acceptance — the web tab joins its serving daemon:
+ * Phase 4b B2 acceptance + the server access epic (S2–S5) — the web
+ * tab joins its serving daemon:
  *
  *   1. Spawn the built `apps/daemon` bundle on `0.0.0.0` with an
  *      isolated data dir, serving the built `apps/web` bundle
@@ -8,31 +9,45 @@
  *      equivalent, same idiom as the extension T3 gate). That token
  *      is the OPERATOR plane every wire/MCP probe below rides; the
  *      browser legs never touch it, because a browser no longer can.
+ *      `daemon.json` (passed via `--config` — `--data-dir` never moves
+ *      the config file) names the server; the awaiting-access screen
+ *      reads that name back out.
  *   2. A fresh origin renders the LOGIN GATE (no stored session). On
  *      the unclaimed server it is the SETUP card — no pairing token is
  *      ever asked of a browser — and once a directory admin exists it
  *      is the sign-in card: a wrong password is refused in band, the
  *      right one joins and mounts the Workbench.
- *   3. A daemon-side rule (seeded via MCP before the join) replicates
+ *   3. Admission confers access (A2): `users.create` refuses a
+ *      grant-less admission in band, and every admitted user below
+ *      carries a workspace grant in the same act.
+ *   4. A daemon-side rule (seeded via MCP before the join) replicates
  *      DOWN into the tab's origin IDB; an MCP rename lands in the OPEN
  *      tab live.
- *   4. Join → adopt promotes the daemon's workspace before the first
- *      mount, so a rule created through the real editor flow syncs UP
- *      (visible via MCP `rules_list`).
- *   5. Consume-only: the tab's local workspace never appears on the
- *      daemon.
- *   6. A reload skips the gate (token persisted origin-scoped) and
+ *   5. Join → adopt is the WIRE's decision (A10): the daemon's active
+ *      pointer is a hint, adopted when it syncs down; a rule created
+ *      through the real editor flow then syncs UP (visible via MCP
+ *      `rules_list`). A user whose grant is NOT the operator's pointer
+ *      is adopted onto the first workspace they can read instead.
+ *   6. Consume-only: the served tab boots EMPTY (seed-as-policy, A4) —
+ *      no tab-invented workspace ever appears on the daemon; a
+ *      workspace created from the joined tab lands ON the server (the
+ *      Org-choice clamp).
+ *   7. A reload skips the gate (token persisted origin-scoped) and
  *      rejoins; a non-loopback (LAN IP) origin gates and joins too.
- *   7. The operator administers the daemon FROM the tab (settings CTA →
- *      admin console → user admitted; token minted in the UI with its
- *      show-once secret, then revoked — evicting the live peer riding
- *      it); a directory user joining with a bound token sees no admin
- *      affordance (probe-gated), while the server-side gate stands
- *      regardless.
- *   8. The claim itself, on a throwaway daemon of its own: the first
+ *   8. The operator administers the daemon FROM the tab (settings CTA →
+ *      admin console reading the SERVER's workspace projection, A6 —
+ *      the invite form requires a workspace + role; token minted in
+ *      the UI with its show-once secret, then revoked — evicting the
+ *      live peer riding it); a directory user joining with a bound
+ *      token sees no admin affordance (probe-gated), while the
+ *      server-side gate stands regardless.
+ *   9. Zero grants gets the explained awaiting-access screen (A7) —
+ *      identity line, server name, NO invented workspace — and a live
+ *      grant resolves it in place through the ARMED wire adoption.
+ *  10. The claim itself, on a throwaway daemon of its own: the first
  *      browser creates the admin from loopback with no setup code,
  *      hears which paired devices that unpaired, and lands joined.
- *   9. Zero console errors across every leg; SIGTERM exits clean.
+ *  11. Zero console errors across every leg; SIGTERM exits clean.
  *
  * Requires builds: `pnpm turbo build --filter=@openheaders/daemon`
  * and `pnpm turbo build --filter=@openheaders/web`. The daemon runs
@@ -42,7 +57,7 @@
 
 import { type ChildProcess, spawn } from 'node:child_process';
 import { createHash, randomBytes } from 'node:crypto';
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import * as os from 'node:os';
 import path from 'node:path';
@@ -87,6 +102,10 @@ const setupInput = (field: string): string =>
 const ADMIN_EMAIL = 'john@openheaders.io';
 const ADMIN_PASSWORD = 'web-join-admin-2026';
 
+// `daemon.json` names the server (A9); the awaiting-access screen and
+// the daemon's Org carry this name instead of the OS hostname.
+const SERVER_NAME = 'Web Join Server';
+
 /** First non-internal IPv4 — the honest non-loopback leg. Null on airgapped machines (leg skips). */
 function lanIpv4(): string | null {
   for (const addrs of Object.values(os.networkInterfaces())) {
@@ -107,6 +126,9 @@ let context: BrowserContext;
 let page: Page;
 const daemonLog: string[] = [];
 const consoleErrors: string[] = [];
+// Every console line from every watched page — the wire-adoption
+// assert reads the `join → adopt` INFO line out of this.
+const consoleLines: string[] = [];
 
 async function rpc(
   method: string,
@@ -135,6 +157,7 @@ async function callTool(name: string, args: Record<string, unknown>): Promise<Re
 
 function watchConsole(target: Page, label: string): void {
   target.on('console', (msg) => {
+    consoleLines.push(`[${label}] ${msg.text()}`);
     // The browser logs every non-2xx resource load; the password leg's
     // deliberate wrong-credential probe answers a uniform 401 by design.
     if (msg.type() === 'error' && !msg.text().includes('status of 401')) {
@@ -143,6 +166,10 @@ function watchConsole(target: Page, label: string): void {
   });
   target.on('pageerror', (err) => consoleErrors.push(`[${label}] pageerror: ${err.message}`));
 }
+
+/** Whether `label`'s page logged the wire's one adoption of `workspaceId` (A10). */
+const wireAdopted = (label: string, workspaceId: string): boolean =>
+  consoleLines.some((line) => line.startsWith(`[${label}]`) && line.includes(`join → adopt ${workspaceId}`));
 
 /** Read one `oh.host-storage` kv slot from the page's origin IDB. */
 function readHostSlot(target: Page, key: string): Promise<unknown> {
@@ -192,17 +219,26 @@ async function signInAtGate(target: Page, email: string, password: string): Prom
   await target.click('[data-testid=login-gate-password-submit]');
 }
 
-/** Sign a fresh context in and wait for the Workbench to mount. */
-async function openSignedIn(label: string, email: string, password: string): Promise<[BrowserContext, Page]> {
+/** Sign a fresh context in and wait for `readySelector` to land. */
+async function openSignedInUntil(
+  label: string,
+  email: string,
+  password: string,
+  readySelector: string,
+): Promise<[BrowserContext, Page]> {
   const ctx = await browser.newContext();
   const target = await ctx.newPage();
   watchConsole(target, label);
   await target.goto(ORIGIN);
   await target.waitForSelector(EMAIL_INPUT, { timeout: 30_000 });
   await signInAtGate(target, email, password);
-  await target.waitForSelector('[aria-label="Settings menu"]', { timeout: 30_000 });
+  await target.waitForSelector(readySelector, { timeout: 30_000 });
   return [ctx, target];
 }
+
+/** Sign a fresh context in and wait for the Workbench to mount. */
+const openSignedIn = (label: string, email: string, password: string): Promise<[BrowserContext, Page]> =>
+  openSignedInUntil(label, email, password, '[aria-label="Settings menu"]');
 
 /**
  * Admit a directory user over the operator wire with everything a
@@ -257,10 +293,16 @@ test.beforeAll(async () => {
     }),
   );
 
+  // The server's name (A9). `--data-dir` does not move the config
+  // file, so the file is passed explicitly.
+  await writeFile(path.join(dataDir, 'daemon.json'), JSON.stringify({ serverName: SERVER_NAME }));
+
   daemon = spawn(
     electronBinary,
     [
       DAEMON_MAIN,
+      '--config',
+      path.join(dataDir, 'daemon.json'),
       '--data-dir',
       dataDir,
       '--bind-address',
@@ -299,7 +341,10 @@ test.beforeAll(async () => {
   // upgrade forwarding) — the same fixture the WAN gate uses. It gives
   // the non-loopback leg a SECURE origin, which the web app requires
   // (crypto is withheld on plain-http origins off loopback).
-  proxy = spawn(process.execPath, [path.join(DAEMON_RIG, 'tls-proxy.mjs')], {
+  // `playground/` is a symlink since the repo split; Node canonicalizes
+  // `import.meta.url` to the realpath, so the fixture's run-as-main
+  // guard only fires when argv carries the realpath too.
+  proxy = spawn(process.execPath, [await realpath(path.join(DAEMON_RIG, 'tls-proxy.mjs'))], {
     env: { ...process.env, PROXY_PORT: String(PROXY_PORT), DAEMON_PORT: String(DAEMON_PORT) },
   });
   let proxyOut = '';
@@ -330,6 +375,7 @@ test.afterAll(async () => {
 
 let ruleUid: string;
 let daemonWorkspaceIds: string[];
+let daemonWorkspaceNames: Map<string, string>;
 
 test('MCP seeds a daemon-side rule before any tab joins', async () => {
   const { status } = await rpc('initialize', INITIALIZE_PARAMS);
@@ -352,8 +398,33 @@ test('MCP seeds a daemon-side rule before any tab joins', async () => {
   expect(ruleUid).toBeTruthy();
 
   const workspaces = await callTool('workspaces_list', {});
-  daemonWorkspaceIds = (workspaces.workspaces as Array<{ id: string }>).map((ws) => ws.id);
+  const rows = workspaces.workspaces as Array<{ id: string; name: string }>;
+  daemonWorkspaceIds = rows.map((ws) => ws.id);
+  daemonWorkspaceNames = new Map(rows.map((ws) => [ws.id, ws.name]));
   expect(daemonWorkspaceIds.length).toBeGreaterThan(0);
+});
+
+// ── Admission confers access (the server access plan A2) ────────────
+
+test('admission without a workspace grant is refused in band', async () => {
+  const [bare, unknownWorkspace] = await adminOverWire([
+    { type: 'oh.daemon.users.create', displayName: 'No Grant', email: 'nogrant@openheaders.io', grants: [] },
+    {
+      type: 'oh.daemon.users.create',
+      displayName: 'Bad Grant',
+      email: 'badgrant@openheaders.io',
+      grants: [{ workspaceId: 'not-a-workspace', role: 'viewer' }],
+    },
+  ]);
+  // The refusal happens BEFORE the admission, so neither consumed a
+  // seat and neither user exists.
+  expect((bare.payload as { ok: boolean; error?: string }).ok).toBe(false);
+  expect((bare.payload as { error?: string }).error).toContain('grant');
+  expect((unknownWorkspace.payload as { ok: boolean; error?: string }).ok).toBe(false);
+  expect((unknownWorkspace.payload as { error?: string }).error).toContain('unknown workspace');
+  const [listed] = await adminOverWire([{ type: 'oh.daemon.users.list' }]);
+  const users = (listed.payload as { users: Array<{ displayName: string }> }).users;
+  expect(users.some((u) => u.displayName === 'No Grant' || u.displayName === 'Bad Grant')).toBe(false);
 });
 
 // ── The front door's states (the front door plan §4.1) ──────────────
@@ -401,7 +472,10 @@ test('a claimed server signs the admin in; a wrong password is refused in band',
     (u) => u.email === ADMIN_EMAIL,
   );
   expect(adminRow).toBeDefined();
-  await adminOverWire([{ type: 'oh.daemon.users.setDaemonAdmin', userId: adminRow?.userId, isAdmin: true }]);
+  const [promoted] = await adminOverWire([
+    { type: 'oh.daemon.users.setDaemonAdmin', userId: adminRow?.userId, allowed: true },
+  ]);
+  expect((promoted.payload as { ok: boolean }).ok).toBe(true);
 
   context = await browser.newContext();
   page = await context.newPage();
@@ -469,11 +543,23 @@ test('join adopted the daemon workspace and a tab-created rule syncs up', async 
     })
     .toBe(true);
 
-  await page.getByRole('button', { name: 'Create rule', exact: false }).first().click();
+  // The promotion was the WIRE's one adoption (A10), not the
+  // mount-plane safety net — the controller logs the decision.
+  const adopted = (await readHostSlot(page, 'oh.runtimeActive.active')) as string;
+  expect(wireAdopted('loopback', adopted), consoleLines.join('\n')).toBe(true);
+
   // 'Block Requests' expands a template submenu; 'Blank Rule' is the
-  // plain editor flow this leg drives.
-  await page.getByText('Block Requests', { exact: false }).first().click();
-  await page.getByRole('menuitem', { name: 'Blank Rule' }).click();
+  // plain editor flow this leg drives. The two-level dropdown animates,
+  // so retry the whole gesture (Escape resets a half-open menu) rather
+  // than racing one click against the submenu settling.
+  await expect(async () => {
+    await page.keyboard.press('Escape');
+    await page.getByRole('button', { name: 'Create rule', exact: false }).first().click();
+    await page.getByText('Block Requests', { exact: false }).first().hover();
+    // force: the animating popup's hit-test loses to the empty-state
+    // host it overlaps mid-fade; the item itself is resolved + visible.
+    await page.getByRole('menuitem', { name: 'Blank Rule' }).click({ timeout: 2000, force: true });
+  }).toPass({ timeout: 30_000 });
   await page.waitForSelector('input[value="New Block Rule"]', { timeout: 10_000 });
   await page
     .locator('button:visible')
@@ -513,7 +599,10 @@ test('join adopted the daemon workspace and a tab-created rule syncs up', async 
 
 // ── Consume-only upward semantics ───────────────────────────────────
 
-test('the tab local workspace never pollutes the daemon', async () => {
+test('the joined tab invents no workspace on the daemon', async () => {
+  // Seed-as-policy (A4): the served tab boots EMPTY — the gate flow
+  // never minted a local workspace, so there is nothing local to leak
+  // and the daemon's set is exactly what it seeded itself.
   const workspaces = await callTool('workspaces_list', {});
   const ids = (workspaces.workspaces as Array<{ id: string }>).map((ws) => ws.id);
   expect(ids.sort()).toEqual([...daemonWorkspaceIds].sort());
@@ -592,7 +681,7 @@ async function openBackendSettings(target: Page): Promise<void> {
   await target.click('.settings-category-nav button:has-text("Backend")');
 }
 
-test('admin console: the admin manages users and devices from the tab; a directory user sees no admin CTA', async () => {
+test('admin console: the server projection feeds the invite, and users and devices are managed from the tab; a directory user sees no admin CTA', async () => {
   // Admin context — fresh storage, signed in with the password. The
   // console reaches the gated plane on the `daemon.admin` role, not on
   // an operator credential the browser never sees.
@@ -601,30 +690,49 @@ test('admin console: the admin manages users and devices from the tab; a directo
   // Settings → Backend → the probe-gated CTA → the console tab.
   await openBackendSettings(operatorPage);
   await operatorPage.click('[data-testid=open-daemon-admin]');
-  await expect(operatorPage.locator('[data-testid=daemon-admin-console]')).toBeVisible();
+  await expect(operatorPage.locator('[data-testid=server-admin-console]')).toBeVisible();
+
+  const seededName = daemonWorkspaceNames.get(daemonWorkspaceIds[0]) ?? '';
+  expect(seededName).not.toBe('');
 
   // Admit Alice through the console UI — the whole write path runs
-  // over the wire into the daemon's gated plane.
+  // over the wire into the daemon's gated plane, and the invite
+  // carries the mandatory workspace + role (A2). The workspace select
+  // offers the SERVER's projection by name (A6), never the tab's own
+  // mirror.
   await operatorPage.fill(
-    'input[data-testid=daemon-admin-add-name], [data-testid=daemon-admin-add-name] input',
+    'input[data-testid=server-admin-add-name], [data-testid=server-admin-add-name] input',
     'Alice',
   );
-  await operatorPage.click('[data-testid=daemon-admin-add-user]');
-  await expect(operatorPage.locator('[data-testid=daemon-admin-console]')).toContainText('Alice');
+  await operatorPage.click('[data-testid=server-admin-add-workspace]');
+  const workspaceOption = operatorPage.locator('.ant-select-item-option', { hasText: seededName }).first();
+  await expect(workspaceOption).toBeVisible();
+  await workspaceOption.click();
+  await operatorPage.click('[data-testid=server-admin-add-user]');
+  const aliceRow = operatorPage.locator('[data-testid^=server-admin-user-]', { hasText: 'Alice' });
+  await expect(aliceRow).toBeVisible();
+  // The grant tag resolves the workspace NAME through the projection —
+  // the raw-uuid symptom (Q2) stays closed.
+  await expect(aliceRow).toContainText(seededName);
+  await expect(aliceRow).not.toContainText(daemonWorkspaceIds[0]);
+
+  // The Git card targets the server's workspace set too (A6): its
+  // select lands on the server's first workspace by name.
+  await expect(operatorPage.locator('[data-testid=server-admin-git-workspace]')).toContainText(seededName);
 
   // Device management in the same console: mint a token in the UI —
   // the secret surfaces exactly once — then revoke it and watch the
   // daemon evict the live peer riding it.
   await operatorPage.fill(
-    'input[data-testid=daemon-tokens-mint-label], [data-testid=daemon-tokens-mint-label] input',
+    'input[data-testid=backend-tokens-mint-label], [data-testid=backend-tokens-mint-label] input',
     'console device',
   );
-  await operatorPage.click('[data-testid=daemon-tokens-mint]');
-  const secretField = operatorPage.locator('[data-testid=daemon-tokens-secret]');
+  await operatorPage.click('[data-testid=backend-tokens-mint]');
+  const secretField = operatorPage.locator('[data-testid=backend-tokens-secret]');
   await expect(secretField).toBeVisible();
   const consoleSecret = await secretField.inputValue();
   expect(consoleSecret.length).toBeGreaterThan(0);
-  await operatorPage.click('[data-testid=daemon-tokens-secret-saved]');
+  await operatorPage.click('[data-testid=backend-tokens-secret-saved]');
   await expect(secretField).not.toBeVisible();
 
   // The UI-minted secret admits a real peer over a raw wire.
@@ -662,10 +770,10 @@ test('admin console: the admin manages users and devices from the tab; a directo
 
   // Revoke from the console — the row flips to Revoked and the live
   // socket is evicted (persist-before-evict on the daemon side).
-  await operatorPage.click(`[data-testid=daemon-token-revoke-${consoleRow?.id}]`);
+  await operatorPage.click(`[data-testid=backend-token-revoke-${consoleRow?.id}]`);
   await operatorPage.click('.ant-popconfirm button:has-text("Revoke")');
   await deviceClosed;
-  await expect(operatorPage.locator(`[data-testid=daemon-token-row-${consoleRow?.id}]`)).toContainText('Revoked');
+  await expect(operatorPage.locator(`[data-testid=backend-token-row-${consoleRow?.id}]`)).toContainText('Revoked');
 
   // Reports below tokens: the operator's own admin calls above are
   // enforcement rows, and each gated connect (this tab's join included)
@@ -678,8 +786,8 @@ test('admin console: the admin manages users and devices from the tab; a directo
 
   await operatorContext.close();
 
-  // The console admitted Alice by name only, which is all its form
-  // takes; a browser sign-in keys on an email, so the plain-user leg
+  // The console admitted Alice without an email (its one optional
+  // field); a browser sign-in keys on an email, so the plain-user leg
   // rides a wire-admitted user carrying one.
   const [listed] = await adminOverWire([{ type: 'oh.daemon.users.list' }]);
   const users = (listed.payload as { users: Array<{ userId: string; displayName: string }> }).users;
@@ -696,61 +804,132 @@ test('admin console: the admin manages users and devices from the tab; a directo
   await aliceContext.close();
 });
 
-// ── The zero-grant landing (slice 3) ────────────────────────────────
+// ── The zero-grant landing (A7 + A10) ───────────────────────────────
 
-test('zero-grant landing: the explained notice stands, then a live grant resolves the open tab without a reload', async () => {
+test('zero grants: the awaiting-access screen stands, then a live grant resolves it through the wire adoption', async () => {
   // A fresh directory user who can sign in and holds ZERO grants. The
   // A2 mandate means the admission carries a grant, so the zero-grant
   // state is reached the sanctioned way (A7): admit-with-grant, then
   // the admin revokes everything.
-  const [created] = await adminOverWire([
-    {
-      type: 'oh.daemon.users.create',
-      displayName: 'Zoe',
-      email: 'zoe@openheaders.io',
-      grants: [{ workspaceId: daemonWorkspaceIds[0], role: 'viewer' }],
-    },
-  ]);
-  const zoeId = (created.payload as { ok: true; userId: string }).userId;
-  const [passworded, revoked] = await adminOverWire([
-    { type: 'oh.daemon.users.setPassword', userId: zoeId, password: 'zoe-first-password' },
+  const zoeId = await admitPasswordUser(
+    'Zoe',
+    'zoe@openheaders.io',
+    'zoe-first-password',
+    daemonWorkspaceIds[0],
+    'viewer',
+  );
+  const [revoked] = await adminOverWire([
     { type: 'oh.daemon.users.revokeGrant', userId: zoeId, workspaceId: daemonWorkspaceIds[0] },
   ]);
-  expect((passworded.payload as { ok: boolean }).ok).toBe(true);
   expect((revoked.payload as { ok: boolean }).ok).toBe(true);
 
-  const [zoeContext, zoePage] = await openSignedIn('zero-grant-zoe', 'zoe@openheaders.io', 'zoe-first-password');
+  // The served tab is a replica (A4): with nothing granted there is
+  // nothing to invent, so the sign-in lands on the explained screen,
+  // not a Workbench over a fabricated workspace.
+  const [zoeContext, zoePage] = await openSignedInUntil(
+    'zero-grant-zoe',
+    'zoe@openheaders.io',
+    'zoe-first-password',
+    '[data-testid=awaiting-access-screen]',
+  );
 
-  // Org-joined with nothing granted: the workbench mounts on a usable
-  // local workspace and the persistent explained notice stands.
-  await expect(zoePage.locator('[data-testid=org-zero-grant-notice]')).toBeVisible({ timeout: 30_000 });
+  // The screen names the configured server (A9) and who is signed in —
+  // the ungated `admin.status` probe answers the caller's own identity.
+  await expect(zoePage.locator('[data-testid=awaiting-access-screen]')).toContainText(SERVER_NAME);
+  const identity = zoePage.locator('[data-testid=awaiting-access-identity]');
+  await expect(identity).toContainText('Zoe');
+  await expect(identity).toContainText('zoe@openheaders.io');
+  await expect(zoePage.locator('[data-testid=awaiting-access-sign-out]')).toBeVisible();
+
+  // The empty boot is honest: no workspace exists in the tab store and
+  // no active pointer was set (the A8 seed fires only on a
+  // NEVER-JOINED offline mount, and this tab is joined).
+  expect(await readHostSlot(zoePage, 'oh.runtimeActive.active')).toBeNull();
+  const tabWorkspaces = (await readHostSlot(zoePage, 'oh.workspaces')) as unknown[] | null;
+  expect(tabWorkspaces ?? []).toEqual([]);
 
   // Grant viewer while her tab stays open — the daemon's grant-time
-  // offer re-fans the workspace row down the already-connected wire.
+  // offer re-fans the workspace row down the already-connected wire,
+  // and the STILL-ARMED wire adoption (a zero-grant join never
+  // disarms) promotes it the moment it syncs.
   const grantedWorkspaceId = daemonWorkspaceIds[0];
   const [granted] = await adminOverWire([
     { type: 'oh.daemon.users.grant', userId: zoeId, workspaceId: grantedWorkspaceId, role: 'viewer' },
   ]);
   expect((granted.payload as { ok: boolean }).ok).toBe(true);
 
-  // The open tab resolves live: notice gone, arrival announced.
-  await expect(zoePage.locator('[data-testid=org-zero-grant-notice]')).toHaveCount(0, { timeout: 30_000 });
-  const openButton = zoePage.locator(`[data-testid=org-workspace-arrival-open-${grantedWorkspaceId}]`);
-  await expect(openButton).toBeVisible({ timeout: 30_000 });
-
-  // No auto-switch happened; the announcement's action switches THIS
-  // tab, and the navigator now carries the granted workspace.
-  const listed = await callTool('workspaces_list', {});
-  const grantedName = (listed.workspaces as Array<{ id: string; name: string }>).find(
-    (ws) => ws.id === grantedWorkspaceId,
-  )?.name;
-  expect(grantedName).toBeTruthy();
-  await openButton.click();
-  await expect(zoePage.locator(`[aria-label*="editing workspace: ${grantedName}"]`)).toBeVisible({
-    timeout: 30_000,
-  });
+  // The screen resolves in place — no reload — onto an active pointer
+  // set by the WIRE adoption, not the mount-plane safety net.
+  await zoePage.waitForSelector('[data-testid=awaiting-access-screen]', { state: 'detached', timeout: 30_000 });
+  await zoePage.waitForSelector('[aria-label="Settings menu"]', { timeout: 30_000 });
+  await expect.poll(() => readHostSlot(zoePage, 'oh.runtimeActive.active')).toBe(grantedWorkspaceId);
+  await expect.poll(() => wireAdopted('zero-grant-zoe', grantedWorkspaceId)).toBe(true);
 
   await zoeContext.close();
+});
+
+// ── Adoption targets the user's access, not the operator's pointer ──
+
+test('a user granted only a non-active workspace is adopted onto it, never the daemon hint', async () => {
+  // A second daemon workspace the operator never switches to: the
+  // daemon's active pointer (the WELCOME hint) stays the seeded one.
+  const created = await callTool('workspaces_create', { name: 'Wire Adoption Target' });
+  const targetId = (created.workspace as { id: string }).id;
+  expect(targetId).toBeTruthy();
+  expect(daemonWorkspaceIds).not.toContain(targetId);
+
+  await admitPasswordUser('Bob', 'bob@openheaders.io', 'bob-first-password', targetId, 'editor');
+
+  // Bob's hint never syncs down — he holds no grant on it — so once
+  // the `__global__` catch-up SYNCED, the wire adopts the first
+  // workspace HE can read (A10).
+  const [bobContext, bobPage] = await openSignedIn('grant-not-pointer', 'bob@openheaders.io', 'bob-first-password');
+  await expect.poll(() => readHostSlot(bobPage, 'oh.runtimeActive.active')).toBe(targetId);
+  await expect.poll(() => wireAdopted('grant-not-pointer', targetId)).toBe(true);
+  const adoptionLine = consoleLines.find(
+    (line) => line.startsWith('[grant-not-pointer]') && line.includes(`join → adopt ${targetId}`),
+  );
+  expect(adoptionLine).toContain('first in sort order');
+  await bobContext.close();
+});
+
+// ── The served create path lands on the server (the Org clamp) ──────
+
+test('a workspace created from the joined tab is created on the server', async () => {
+  // Workspace creation is role-gated server-side — confer it on the
+  // admin first.
+  const [listed] = await adminOverWire([{ type: 'oh.daemon.users.list' }]);
+  const adminRow = (listed.payload as { users: Array<{ userId: string; email?: string }> }).users.find(
+    (u) => u.email === ADMIN_EMAIL,
+  );
+  const [allowed] = await adminOverWire([
+    { type: 'oh.daemon.users.setCreateWorkspaces', userId: adminRow?.userId, allowed: true },
+  ]);
+  expect((allowed.payload as { ok: boolean }).ok).toBe(true);
+
+  // Drive the real create flow: switcher → Manage workspaces → New
+  // workspace. On the joined web host the Org choice is clamped to the
+  // server (S5b), so the create syncs UP and the daemon's own list
+  // gains the workspace — never an unsyncable browser-Org island.
+  const [creatorContext, creatorPage] = await openSignedIn('served-create', ADMIN_EMAIL, ADMIN_PASSWORD);
+  await creatorPage.click('[aria-label*="editing workspace:"]');
+  await creatorPage.getByText('Manage workspaces', { exact: true }).click();
+  await creatorPage.getByRole('button', { name: 'New workspace' }).click();
+  await creatorPage.locator('.ant-modal').getByLabel('Name').fill('Tab Created');
+  await creatorPage
+    .locator('.ant-modal button:visible')
+    .filter({ hasText: /^Create$/ })
+    .click();
+  await expect
+    .poll(
+      async () => {
+        const rows = await callTool('workspaces_list', {});
+        return (rows.workspaces as Array<{ name: string }>).some((ws) => ws.name === 'Tab Created');
+      },
+      { timeout: 30_000 },
+    )
+    .toBe(true);
+  await creatorContext.close();
 });
 
 // ── Local password login (enterprise Phase 3) ───────────────────────
@@ -779,14 +958,14 @@ test('password login: the operator sets a password in the console; a fresh gate 
   const [operatorContext, operatorPage] = await openSignedIn('password-admin', ADMIN_EMAIL, ADMIN_PASSWORD);
   await openBackendSettings(operatorPage);
   await operatorPage.click('[data-testid=open-daemon-admin]');
-  await operatorPage.click(`[data-testid=daemon-admin-password-${piaId}]`);
+  await operatorPage.click(`[data-testid=server-admin-password-${piaId}]`);
   await operatorPage.fill(
-    'input[data-testid=daemon-admin-password-input], [data-testid=daemon-admin-password-input] input',
+    'input[data-testid=server-admin-password-input], [data-testid=server-admin-password-input] input',
     'pia-first-password',
   );
-  await operatorPage.click('[data-testid=daemon-admin-password-save]');
+  await operatorPage.click('[data-testid=server-admin-password-save]');
   // The projection refreshes: the row's action now offers a reset.
-  await expect(operatorPage.locator(`[data-testid=daemon-admin-password-${piaId}]`)).toContainText('Reset password', {
+  await expect(operatorPage.locator(`[data-testid=server-admin-password-${piaId}]`)).toContainText('Reset password', {
     timeout: 15_000,
   });
   await operatorContext.close();
