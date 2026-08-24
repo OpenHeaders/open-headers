@@ -22,8 +22,8 @@
  *       subscribe carrying the Retained fact tag.
  *   M3  ticker live batches: subscribing starts 5 deterministic timed
  *       publishes that land in the live timeline.
- *   M4  refused dial: a dead port settles as a classified pre-open
- *       error state, not a timeline.
+ *   M4  refused dial: a dead port settles as the classified error row
+ *       at the timeline's edge with the Connect failed pill.
  *   M5  live Subscribe toggle: a row seeded OFF subscribes mid-session
  *       through the rider — the SUBACK grant marks the row and the
  *       Subscribed lifecycle row lands at its position.
@@ -360,11 +360,13 @@ test('M4 — a dead port settles as the classified refused-dial error state', as
   await expect.poll(async () => connectButton().isEnabled(), { timeout: 15_000 }).toBe(true);
   await connectButton().click();
 
-  const errorState = workbench.getByTestId('mqtt-session-error').filter({ visible: true }).first();
+  const errorState = workbench.getByTestId('mqtt-timeline-error-row').filter({ visible: true }).first();
   await errorState.waitFor({ state: 'visible', timeout: 20_000 });
   await expect(workbench.getByTestId('mqtt-session-error-detail').filter({ visible: true }).first()).toContainText(
     `Connection refused by 127.0.0.1:${MQTT_DEAD_PORT}`,
   );
+  // The meta strip pills the failed open on the error tint.
+  await expect(endTag()).toHaveText('Connect failed');
 });
 
 // ── M5: live Subscribe toggle mid-session ───────────────────────────
@@ -461,7 +463,7 @@ test('M8 — the probe identity opens the session; a wrong password refuses with
   await openMqttRequest('e2emqd08');
   await expect.poll(async () => connectButton().isEnabled(), { timeout: 15_000 }).toBe(true);
   await connectButton().click();
-  const errorState = workbench.getByTestId('mqtt-session-error').filter({ visible: true }).first();
+  const errorState = workbench.getByTestId('mqtt-timeline-error-row').filter({ visible: true }).first();
   await errorState.waitFor({ state: 'visible', timeout: 20_000 });
   await expect(workbench.getByTestId('mqtt-session-error-detail').filter({ visible: true }).first()).toContainText(
     'Bad user name or password (code 4)',
@@ -474,7 +476,7 @@ test('M9 — a 5.0 CONNECT is refused with the 3.1.1-form return code verbatim',
   await openMqttRequest('e2emqd09');
   await expect.poll(async () => connectButton().isEnabled(), { timeout: 15_000 }).toBe(true);
   await connectButton().click();
-  const errorState = workbench.getByTestId('mqtt-session-error').filter({ visible: true }).first();
+  const errorState = workbench.getByTestId('mqtt-timeline-error-row').filter({ visible: true }).first();
   await errorState.waitFor({ state: 'visible', timeout: 20_000 });
   await expect(workbench.getByTestId('mqtt-session-error-detail').filter({ visible: true }).first()).toContainText(
     'Unacceptable protocol version (code 1)',

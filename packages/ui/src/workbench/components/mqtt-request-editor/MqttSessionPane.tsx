@@ -9,8 +9,9 @@
  * positionally). The header is ONE row in the HTTP ResponsePanel's
  * format: tabs left, meta strip right-aligned in the tab bar.
  * Pre-open failures (the session never opened — a CONNACK refusal
- * included, its reason verbatim) render the classified message under
- * the plain title row.
+ * included, its reason verbatim) render through the SAME pane: the
+ * classified message rides the timeline as its error row and the meta
+ * strip pills Connect failed — never a bare error wall.
  *
  * The Connection tab states the CONNACK facts — session present,
  * reason code (spec name BESIDE the verbatim number), and the client
@@ -131,6 +132,18 @@ const MqttSessionPane: React.FC<MqttSessionPaneProps> = ({
         ...(connackFacts !== undefined ? { connack: connackFacts } : {}),
       };
     }
+    // A pre-open failure (a CONNACK refusal included) settles as the
+    // timeline's error row — the classified message verbatim at the
+    // new edge; never an opened-session end row.
+    if (snapshot.error !== null) {
+      return {
+        ...(timing?.startedAt !== undefined ? { startedAt: timing.startedAt } : {}),
+        connected: false,
+        ...(connackFacts !== undefined ? { connack: connackFacts } : {}),
+        errorMessage: snapshot.error,
+        ...(timing?.endedAt !== undefined ? { endedAt: timing.endedAt } : {}),
+      };
+    }
     return {
       ...(timing?.startedAt !== undefined ? { startedAt: timing.startedAt } : {}),
       connected: snapshot.connected,
@@ -142,49 +155,20 @@ const MqttSessionPane: React.FC<MqttSessionPaneProps> = ({
     };
   }, [snapshot, live, timing, connackFacts, endedMessage]);
 
-  // Pre-open failures render the classified message under the plain
-  // title row — there was never a session to timeline. A CONNACK
-  // refusal reason rides the message verbatim.
-  if (snapshot !== null && snapshot.error !== null) {
-    return (
-      <div
-        style={{
-          height: '100%',
-          display: 'flex',
-          flexDirection: 'column',
-          minHeight: 0,
-          background: token.colorBgContainer,
-        }}
-        data-testid="mqtt-session-error"
-      >
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            padding: '6px 12px',
-            borderBottom: `1px solid ${token.colorBorderSecondary}`,
-          }}
-        >
-          <Text strong style={{ fontSize: 12 }}>
-            {t('workbench.editors.mqtt.session.title')}
-          </Text>
-        </div>
-        {noticeStrip}
-        <div style={{ padding: '16px 12px' }}>
-          <Text type="danger" style={{ fontSize: 12 }} data-testid="mqtt-session-error-detail">
-            {snapshot.error}
-          </Text>
-        </div>
-      </div>
-    );
-  }
-
-  // End pill honesty: the clean client Disconnect reads success-green;
+  // End pill honesty: a pre-open failure reads as Connect failed on
+  // the error tint; the clean client Disconnect reads success-green;
   // a broker DISCONNECT renders on the warning tint with its verbatim
   // reason; a severed connection is named as the absence it is;
   // Stopped is its own state.
   const endTag = (() => {
     if (snapshot === null) return null;
+    if (snapshot.error !== null) {
+      return (
+        <Tag color="error" style={{ marginInlineEnd: 0 }} data-testid="mqtt-session-end-tag">
+          {t('workbench.editors.mqtt.session.connectFailedTag')}
+        </Tag>
+      );
+    }
     if (snapshot.stopped === true) {
       return (
         <Tag color="warning" style={{ marginInlineEnd: 0 }} data-testid="mqtt-session-end-tag">

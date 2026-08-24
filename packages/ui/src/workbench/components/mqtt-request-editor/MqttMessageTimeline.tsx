@@ -9,7 +9,9 @@
  * parameterization of any (the ratified sibling law).
  *
  * The timeline is ONE event log in packet order: "Connecting" and
- * "Disconnected / Stopped" sit at the chronological edges, "Connected"
+ * "Disconnected / Stopped" sit at the chronological edges (a settled
+ * pre-open failure renders its classified error row at the new edge
+ * instead), "Connected"
  * (expandable to the CONNACK facts as key: value rows) sits before the
  * first item, and the
  * subscription lifecycle facts — Subscribed-with-grant /
@@ -35,6 +37,7 @@ import {
   CheckCircleOutlined,
   CheckOutlined,
   ClearOutlined,
+  CloseCircleOutlined,
   DisconnectOutlined,
   DownOutlined,
   InfoCircleOutlined,
@@ -112,6 +115,10 @@ export interface MqttTimelineLifecycle {
    *  the wire — absent on captures that predate the fact, rendered as
    *  the absence it is. */
   connack?: { reasonCode: number; reasonName?: string; sessionPresent: boolean; remainingLength?: number };
+  /** Classified pre-open failure — the session never opened (a CONNACK
+   *  refusal included, its reason verbatim). Rendered as an error row
+   *  at the timeline's new edge; never set beside `endedBy`. */
+  errorMessage?: string;
   /** Absent while the session is open — the live phase. */
   endedBy?: MqttTimelineEndedBy;
   endedAt?: number;
@@ -138,7 +145,7 @@ interface MqttMessageTimelineProps {
 /** One display slot of the virtual list — heights are a closed
  *  function of `kind`, so windowing never measures. */
 type ListEntry =
-  | { key: string; kind: 'sent' | 'connected' | 'connackDetail' | 'ended' | 'waiting' | 'noMatches' }
+  | { key: string; kind: 'sent' | 'connected' | 'connackDetail' | 'error' | 'ended' | 'waiting' | 'noMatches' }
   | { key: string; kind: 'row'; index: number }
   | { key: string; kind: 'viewer'; index: number };
 
@@ -344,7 +351,9 @@ const MqttMessageTimeline: React.FC<MqttMessageTimelineProps> = ({
   }, [items, count, clearedCount, search, directionFilter, topicFilter, derive]);
 
   const filtering = search.trim() !== '' || directionFilter !== 'all' || topicFilter !== null;
-  const live = lifecycle.endedBy === undefined;
+  // A settled pre-open failure is not live either — the error row is
+  // the story's end, so the waiting notice never shows beside it.
+  const live = lifecycle.endedBy === undefined && lifecycle.errorMessage === undefined;
 
   // The flat display list the virtual window runs over — ONE event
   // log: Connecting at one chronological edge, Connected (with the
@@ -369,8 +378,11 @@ const MqttMessageTimeline: React.FC<MqttMessageTimelineProps> = ({
     for (const index of visibleRows) tokens.push(index);
     if (newestFirst) tokens.reverse();
 
+    // The error row sits at the ended row's chronological slot — the
+    // two never coexist (a pre-open failure has no opened-session end).
     if (newestFirst) {
       if (lifecycle.endedBy !== undefined) out.push({ key: 'ended', kind: 'ended' });
+      if (lifecycle.errorMessage !== undefined) out.push({ key: 'error', kind: 'error' });
       if (notice) out.push(notice);
     } else {
       out.push({ key: 'sent', kind: 'sent' });
@@ -391,6 +403,7 @@ const MqttMessageTimeline: React.FC<MqttMessageTimelineProps> = ({
       out.push({ key: 'sent', kind: 'sent' });
     } else {
       if (notice) out.push(notice);
+      if (lifecycle.errorMessage !== undefined) out.push({ key: 'error', kind: 'error' });
       if (lifecycle.endedBy !== undefined) out.push({ key: 'ended', kind: 'ended' });
     }
     return out;
@@ -398,6 +411,7 @@ const MqttMessageTimeline: React.FC<MqttMessageTimelineProps> = ({
     newestFirst,
     lifecycle.connected,
     lifecycle.connack,
+    lifecycle.errorMessage,
     lifecycle.endedBy,
     live,
     count,
@@ -627,6 +641,28 @@ const MqttMessageTimeline: React.FC<MqttMessageTimelineProps> = ({
               `${connack.reasonCode}${connack.reasonName !== undefined ? ` (${connack.reasonName})` : ''}`,
             )}
             {factRow('sessionPresent', connack.sessionPresent ? 'true' : 'false')}
+          </div>
+        );
+      }
+      case 'error': {
+        if (lifecycle.errorMessage === undefined) return null;
+        return (
+          <div key={entry.key} data-testid="mqtt-timeline-error-row" style={lifecycleRowStyle}>
+            <CloseCircleOutlined aria-hidden style={{ fontSize: 11, color: token.colorError }} />
+            <span
+              title={lifecycle.errorMessage}
+              data-testid="mqtt-session-error-detail"
+              style={{
+                minWidth: 0,
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+                color: token.colorError,
+              }}
+            >
+              {lifecycle.errorMessage}
+            </span>
+            {lifecycleTime(lifecycle.endedAt)}
           </div>
         );
       }

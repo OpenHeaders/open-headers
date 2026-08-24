@@ -688,7 +688,7 @@ test('E11 — the probe identity opens the session; a wrong password refuses wit
   await page.getByTestId('mqtt-auth-password').filter({ visible: true }).first().fill('wrong-secret');
   await expect(connectButton()).toBeEnabled();
   await connectButton().click();
-  const errorState = page.getByTestId('mqtt-session-error').filter({ visible: true }).first();
+  const errorState = page.getByTestId('mqtt-timeline-error-row').filter({ visible: true }).first();
   await errorState.waitFor({ state: 'visible', timeout: 20_000 });
   await expect(page.getByTestId('mqtt-session-error-detail').filter({ visible: true }).first()).toContainText(
     'Bad user name or password (code 4)',
