@@ -439,7 +439,7 @@ export async function applyInboundMutationBatch(input: MutationBatch, actor?: In
     // flip narrowed out (the widening direction rides the slot
     // mutation's own read-filtered broadcast).
     for (const workspaceId of visibilityChangedWorkspaceIds) {
-      getOracleHostHooks().onWorkspaceVisibilityChanged?.(workspaceId);
+      getOracleHostHooks().onWorkspaceVisibilityChanged?.(workspaceId, actor?.userId);
     }
   } finally {
     for (const env of batch.mutations) INBOUND_IN_FLIGHT.delete(env.mutationId);

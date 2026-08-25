@@ -89,6 +89,25 @@ export {
   PROXY_ROUTING_STATE_TYPE,
 } from './proxy-routing';
 export type {
+  ParsedPublicWorkspacePath,
+  PublicSnapshotVariableRow,
+  PublicWorkspaceMeta,
+  PublicWorkspacePublication,
+  PublicWorkspaceSnapshotBuildResult,
+  PublicWorkspaceSnapshotSummary,
+} from './public-workspace-snapshot';
+export {
+  buildPublicWorkspaceSnapshot,
+  PUBLIC_WORKSPACE_PATH_PREFIX,
+  PUBLIC_WORKSPACE_PUBLICATION_SCHEMA_VERSION,
+  PublicWorkspaceMetaSchema,
+  PublicWorkspacePublicationSchema,
+  parsePublicWorkspacePath,
+  publicWorkspacePagePath,
+  publicWorkspaceSnapshotPath,
+  summarizePublicWorkspaceSnapshot,
+} from './public-workspace-snapshot';
+export type {
   HostLocalSnapshotKey,
   SameDeviceOnlySnapshotKey,
   SensitiveSnapshotKey,

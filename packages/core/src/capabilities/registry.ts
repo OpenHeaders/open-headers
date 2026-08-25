@@ -46,6 +46,7 @@
 
 import type { ChangelogIndexRow } from '../changelog-feed';
 import type { CompanionRevealTarget } from '../protocol/messages';
+import type { PublicWorkspaceSnapshotSummary } from '../protocol/public-workspace-snapshot';
 import type { ScriptExecutionMode } from '../scripts';
 import type { SecretProviderProbe } from '../secret-providers/types';
 import type { SecretProviderId } from '../types';
@@ -244,6 +245,50 @@ export interface WorkspaceMembersApi {
   list(workspaceId: string): Promise<WorkspaceMembersListResult>;
   grant(workspaceId: string, userId: string, role: 'editor' | 'viewer'): Promise<WorkspaceMembersMutationResult>;
   revoke(workspaceId: string, userId: string): Promise<WorkspaceMembersMutationResult>;
+}
+
+export interface WorkspacePublicShareStatus {
+  readonly ok: boolean;
+  /** The server's `publicWorkspaces` master switch. */
+  readonly enabled?: boolean;
+  /** ISO timestamp of the standing publication; null = none. */
+  readonly publishedAt?: string | null;
+  /** The stable page path (`/public/<id>`) — present when published. */
+  readonly path?: string;
+  readonly reason?: string;
+  readonly error?: string;
+}
+
+export interface WorkspacePublicSharePreview {
+  readonly ok: boolean;
+  /** The review-moment summary (`PublicWorkspaceSnapshotSummary` from `@openheaders/core/protocol`). */
+  readonly summary?: PublicWorkspaceSnapshotSummary;
+  readonly reason?: string;
+  readonly error?: string;
+}
+
+export interface WorkspacePublicShareMutationResult {
+  readonly ok: boolean;
+  readonly publishedAt?: string;
+  readonly path?: string;
+  readonly reason?: string;
+  readonly error?: string;
+}
+
+/**
+ * The public snapshot plane behind
+ * {@link Capabilities.workspacePublicShare} (the access-foundation plan
+ * §8 F5b). All four verbs are OWNER-gated by the server; `publish`
+ * additionally refuses when the `publicWorkspaces` master switch is off
+ * or the workspace's visibility is not `public`. `preview` returns the
+ * review-moment summary computed from the exact projection a publish
+ * would store.
+ */
+export interface WorkspacePublicShareApi {
+  status(workspaceId: string): Promise<WorkspacePublicShareStatus>;
+  preview(workspaceId: string): Promise<WorkspacePublicSharePreview>;
+  publish(workspaceId: string): Promise<WorkspacePublicShareMutationResult>;
+  unpublish(workspaceId: string): Promise<WorkspacePublicShareMutationResult>;
 }
 
 /**
@@ -479,6 +524,17 @@ export interface Capabilities {
    * register it, which hides the Members affordance in shared UI.
    */
   workspaceMembers?: () => WorkspaceMembersApi;
+
+  /**
+   * The public snapshot plane on a server workspace (the
+   * access-foundation plan §8 F5b) — owner-gated publish / re-publish /
+   * unpublish of the read-only anonymous copy at `/public/<id>`.
+   * Registered only by the web host, where the serving daemon answers;
+   * absent elsewhere, which hides every public-share affordance in
+   * shared UI. The user-facing wording is "Share publicly" — "Publish"
+   * is taken by the duplicate-into-Org flow.
+   */
+  workspacePublicShare?: () => WorkspacePublicShareApi;
 
   /**
    * The network runtime that executes this surface's API requests —

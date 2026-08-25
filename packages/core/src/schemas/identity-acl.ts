@@ -158,6 +158,14 @@ export const DaemonAdminSchema = v.object({
  * deny otherwise — with the actor and the flipped workspace.
  * Audit-vocabulary only.
  *
+ * `daemon.workspace-publish` / `daemon.workspace-unpublish` are the
+ * public snapshot plane's stamps (the access-foundation plan §8 F5b):
+ * one row per publish / unpublish frame, carrying the OWNER-gate
+ * decision with the caller as the actor and the workspace — plus one
+ * `daemon.workspace-unpublish` allow row when a visibility flip away
+ * from `public` cascades the stored snapshot away. Audit-vocabulary
+ * only.
+ *
  * `daemon.seat-admit` is the seat gate's stamp (the licensing plan §4)
  * — a deny row per directory-user admission refused at the seat limit
  * (including the personal-seat refusal reasons), and an allow row when
@@ -189,6 +197,8 @@ export const CapabilitySchema = v.picklist([
   'daemon.workspace-grant',
   'daemon.workspace-revoke',
   'daemon.workspace-visibility',
+  'daemon.workspace-publish',
+  'daemon.workspace-unpublish',
   'daemon.seat-admit',
   'daemon.service-admit',
   'daemon.license-install',

@@ -18,6 +18,10 @@ export type {
   WorkspaceMembersApi,
   WorkspaceMembersListResult,
   WorkspaceMembersMutationResult,
+  WorkspacePublicShareApi,
+  WorkspacePublicShareMutationResult,
+  WorkspacePublicSharePreview,
+  WorkspacePublicShareStatus,
 } from './registry';
 export {
   getCapability,

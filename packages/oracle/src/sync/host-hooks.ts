@@ -136,8 +136,11 @@ export interface OracleHostHooks {
    * connected tabs that only read it through visibility; the widening
    * direction needs no hook — the slot mutation itself fans to
    * newly-readable peers through the per-frame read filter.
+   * `actorUserId` is the authenticated peer the flip was ingested from
+   * (F5b: the cascade-unpublish audit stamp's actor); absent on paths
+   * with no gated actor.
    */
-  onWorkspaceVisibilityChanged?: (workspaceId: string) => void;
+  onWorkspaceVisibilityChanged?: (workspaceId: string, actorUserId?: string) => void;
   /**
    * Report a single status entry to the host's status pill subsystem.
    * Hosts wire this to their app-level `Status.report(...)` callable.
