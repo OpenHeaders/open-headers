@@ -194,7 +194,7 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.session.connectionNote': 'CONNACK 事实按代理的应答原样呈现——原因码逐字显示，名称列在旁边。',
   // ── 消息时间线 ──────────────────────────────────────────────────────
   'workbench.editors.mqtt.timeline.connecting': '连接中',
-  'workbench.editors.mqtt.timeline.connected': '已连接',
+  'workbench.editors.mqtt.timeline.connected': '已连接到代理',
   'workbench.editors.mqtt.timeline.disconnected': '已断开',
   'workbench.editors.mqtt.timeline.stopped': '已停止',
   'workbench.editors.mqtt.timeline.subscribed': '已订阅',

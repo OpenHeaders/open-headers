@@ -203,7 +203,7 @@ export const workbenchEditorsMqtt = {
     'Los hechos del CONNACK tal como los respondió el broker: códigos de razón literales, con sus nombres al lado.',
   // ── Cronología de mensajes ──────────────────────────────────────────
   'workbench.editors.mqtt.timeline.connecting': 'Conectando',
-  'workbench.editors.mqtt.timeline.connected': 'Conectado',
+  'workbench.editors.mqtt.timeline.connected': 'Conectado al broker',
   'workbench.editors.mqtt.timeline.disconnected': 'Desconectado',
   'workbench.editors.mqtt.timeline.stopped': 'Detenido',
   'workbench.editors.mqtt.timeline.subscribed': 'Suscrito a',

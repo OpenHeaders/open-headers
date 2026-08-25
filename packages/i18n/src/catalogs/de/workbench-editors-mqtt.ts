@@ -202,7 +202,7 @@ export const workbenchEditorsMqtt = {
     'Die CONNACK-Fakten, wie der Broker sie beantwortet hat — Grundcodes wortgetreu, Namen daneben.',
   // ── Nachrichten-Zeitverlauf ─────────────────────────────────────────
   'workbench.editors.mqtt.timeline.connecting': 'Verbindet',
-  'workbench.editors.mqtt.timeline.connected': 'Verbunden',
+  'workbench.editors.mqtt.timeline.connected': 'Mit dem Broker verbunden',
   'workbench.editors.mqtt.timeline.disconnected': 'Getrennt',
   'workbench.editors.mqtt.timeline.stopped': 'Gestoppt',
   'workbench.editors.mqtt.timeline.subscribed': 'Abonniert:',
