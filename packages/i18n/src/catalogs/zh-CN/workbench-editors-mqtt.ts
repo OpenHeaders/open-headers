@@ -73,6 +73,8 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.props.payloadFormatIndicator': 'Payload Format Indicator——将载荷标记为 UTF-8 文本',
   'workbench.editors.mqtt.saved.title': '已保存消息',
   'workbench.editors.mqtt.saved.addTooltip': '将当前编写内容保存为可复用消息',
+  'workbench.editors.mqtt.saved.showRail': '显示已保存消息',
+  'workbench.editors.mqtt.saved.hideRail': '隐藏已保存消息',
   'workbench.editors.mqtt.saved.emptyHint': '保存消息，以便在活动连接期间复用。',
   'workbench.editors.mqtt.saved.defaultName': '消息',
   'workbench.editors.mqtt.saved.sendTooltip': '按已保存内容发布此消息',

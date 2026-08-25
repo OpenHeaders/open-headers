@@ -65,6 +65,8 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.props.payloadFormatIndicator': 'Payload Format Indicator — mark the payload UTF-8 text',
   'workbench.editors.mqtt.saved.title': 'Saved messages',
   'workbench.editors.mqtt.saved.addTooltip': 'Save the current compose as a reusable message',
+  'workbench.editors.mqtt.saved.showRail': 'Show saved messages',
+  'workbench.editors.mqtt.saved.hideRail': 'Hide saved messages',
   'workbench.editors.mqtt.saved.emptyHint': 'Save messages to reuse them during an active connection.',
   'workbench.editors.mqtt.saved.defaultName': 'Message',
   'workbench.editors.mqtt.saved.sendTooltip': 'Publish this saved message as stored',

@@ -70,6 +70,8 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.props.payloadFormatIndicator': 'Payload Format Indicator — Nutzlast als UTF-8-Text markieren',
   'workbench.editors.mqtt.saved.title': 'Gespeicherte Nachrichten',
   'workbench.editors.mqtt.saved.addTooltip': 'Aktuellen Entwurf als wiederverwendbare Nachricht speichern',
+  'workbench.editors.mqtt.saved.showRail': 'Gespeicherte Nachrichten anzeigen',
+  'workbench.editors.mqtt.saved.hideRail': 'Gespeicherte Nachrichten ausblenden',
   'workbench.editors.mqtt.saved.emptyHint':
     'Speichere Nachrichten, um sie während einer aktiven Verbindung wiederzuverwenden.',
   'workbench.editors.mqtt.saved.defaultName': 'Nachricht',

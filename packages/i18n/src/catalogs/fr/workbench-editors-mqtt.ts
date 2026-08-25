@@ -72,6 +72,8 @@ export const workbenchEditorsMqtt = {
     'Payload Format Indicator — marquer la charge utile comme texte UTF-8',
   'workbench.editors.mqtt.saved.title': 'Messages enregistrés',
   'workbench.editors.mqtt.saved.addTooltip': 'Enregistrer la composition actuelle comme message réutilisable',
+  'workbench.editors.mqtt.saved.showRail': 'Afficher les messages enregistrés',
+  'workbench.editors.mqtt.saved.hideRail': 'Masquer les messages enregistrés',
   'workbench.editors.mqtt.saved.emptyHint':
     'Enregistrez des messages pour les réutiliser pendant une connexion active.',
   'workbench.editors.mqtt.saved.defaultName': 'Message',
