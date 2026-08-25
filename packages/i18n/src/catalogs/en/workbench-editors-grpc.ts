@@ -146,6 +146,7 @@ export const workbenchEditorsGrpc = {
   'workbench.editors.grpc.stream.controlsIdle': 'Invoke the call to open the stream first',
   'workbench.editors.grpc.stream.sendFailed': 'The message did not send',
   'workbench.editors.grpc.timeline.requestSent': 'Request sent',
+  'workbench.editors.grpc.timeline.noMetadataSent': 'No metadata sent.',
   'workbench.editors.grpc.timeline.responseReceived': 'Response received',
   'workbench.editors.grpc.timeline.completed': 'Call completed',
   'workbench.editors.grpc.timeline.stopped': 'Call stopped',

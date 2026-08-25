@@ -148,6 +148,7 @@ export const workbenchEditorsGrpc = {
   'workbench.editors.grpc.stream.controlsIdle': '先调用以打开流',
   'workbench.editors.grpc.stream.sendFailed': '消息未发送',
   'workbench.editors.grpc.timeline.requestSent': '请求已发送',
+  'workbench.editors.grpc.timeline.noMetadataSent': '未发送元数据。',
   'workbench.editors.grpc.timeline.responseReceived': '响应已接收',
   'workbench.editors.grpc.timeline.completed': '调用已完成',
   'workbench.editors.grpc.timeline.stopped': '调用已停止',

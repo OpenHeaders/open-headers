@@ -235,13 +235,19 @@ describe('GrpcMessageTimeline lifecycle rows', () => {
     fireEvent.click(sent);
     expect(screen.queryByTestId('grpc-timeline-metadata-details')).toBeNull();
     unmount();
-    // No recorded metadata — the row is not expandable (no empty
-    // detail shells, no dead chevron).
+    // Recorded as NONE sent — the row still expands, to the honest
+    // empty line.
+    const { unmount: unmountEmpty } = renderTimeline({ lifecycle: { ...LIVE_LIFECYCLE, requestMetadata: [] } });
+    fireEvent.click(screen.getByTestId('grpc-timeline-sent-row'));
+    expect(screen.getByTestId('grpc-timeline-metadata-details').textContent).toContain('No metadata sent.');
+    unmountEmpty();
+    // UNRECORDED (the live phase, older hosts) — the row is not
+    // expandable: no fabricated empty state.
     renderTimeline();
     expect(screen.getByTestId('grpc-timeline-sent-row').getAttribute('aria-expanded')).toBeNull();
   });
 
-  it('renders a pre-head failure as the error-flavored ended row with the classified message and its instant', () => {
+  it('renders a pre-head failure as the plain-labeled error row expanding to the explanation', () => {
     renderTimeline({
       items: [],
       count: 0,
@@ -254,11 +260,21 @@ describe('GrpcMessageTimeline lifecycle rows', () => {
       },
     });
     expect(screen.queryByTestId('grpc-timeline-connected-row')).toBeNull();
+    // Collapsed: the plain label alone — the explanation lives behind
+    // the chevron.
+    const row = screen.getByTestId('grpc-timeline-ended-row');
+    expect(row.textContent).toContain('Call failed');
+    expect(row.textContent).not.toContain('Connection refused');
+    expect(screen.queryByTestId('grpc-timeline-error-details')).toBeNull();
+    fireEvent.click(row);
+    const details = screen.getByTestId('grpc-timeline-error-details');
+    expect(details.textContent).toContain('The call never reached a reply.');
     const detail = screen.getByTestId('grpc-session-error-detail');
-    expect(detail.textContent).toContain('Call failed');
     expect(detail.textContent).toContain('Connection refused by 127.0.0.1:3130');
     // The full classified message survives ellipsis on hover.
     expect(detail.getAttribute('title')).toContain('Connection refused by 127.0.0.1:3130');
+    fireEvent.click(row);
+    expect(screen.queryByTestId('grpc-timeline-error-details')).toBeNull();
     // The failure instant rides the row — newest-first puts it above
     // the Request sent row.
     expect(rowSequence()).toEqual(['ended', 'sent']);

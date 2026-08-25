@@ -99,10 +99,15 @@ const SINGLE_ROW_PX = 28;
  *  1px divider). */
 const VIEWER_PX = 181;
 /** Pinned height of the sent row's expanded metadata block — heading
- *  (18px) + one 20px line per pair + 6px paddings + 1px divider (the
- *  MQTT CONNACK details' metrics); a closed function of the pair
+ *  (18px) + one 20px line per pair (the recorded-empty state's "No
+ *  metadata sent." line counts as one) + 6px paddings + 1px divider
+ *  (the MQTT CONNACK details' metrics); a closed function of the line
  *  count, so the virtual window's arithmetic stays exact. */
-const sentDetailPx = (pairs: number): number => 18 + pairs * 20 + 13;
+const sentDetailPx = (pairs: number): number => 18 + Math.max(1, pairs) * 20 + 13;
+/** Pinned height of the error row's expanded explanation — the
+ *  guidance line + the classified message line (20px each) + 6px
+ *  paddings + 1px divider. */
+const ERROR_DETAIL_PX = 53;
 
 const cellFont: React.CSSProperties = {
   fontFamily: "'SF Mono', 'Fira Code', monospace",
@@ -126,7 +131,10 @@ export interface GrpcTimelineLifecycle {
   startedAt?: number;
   /** The metadata pairs the call actually carried (the snapshot's
    *  `requestMetadata`) — the "Request sent" row expands to them.
-   *  Absent (or empty) = the row reads plain, no chevron. */
+   *  Empty = recorded as none: the row still expands, to the honest
+   *  "No metadata sent." line. Absent = UNKNOWN (the live phase, a
+   *  host that predates the record): the row reads plain, no chevron —
+   *  never a fabricated empty state. */
   requestMetadata?: ReadonlyArray<{ key: string; value: string }>;
   /** True once the response head arrived. */
   headArrived: boolean;
@@ -174,7 +182,7 @@ interface GrpcGroupIdentity {
 }
 
 type ListEntry =
-  | { key: string; kind: 'sent' | 'sentDetail' | 'connected' | 'ended' | 'waiting' | 'noMatches' }
+  | { key: string; kind: 'sent' | 'sentDetail' | 'connected' | 'ended' | 'errorDetail' | 'waiting' | 'noMatches' }
   | { key: string; kind: 'header'; group: GrpcGroupIdentity; count: number; collapsed: boolean }
   /** "Show N older" at a windowed group's older edge; the un-windowed
    *  state's re-window action lives on the group header. */
@@ -305,6 +313,8 @@ const GrpcMessageTimeline: React.FC<GrpcMessageTimelineProps> = ({
   const [expanded, setExpanded] = useState<ReadonlySet<number>>(new Set<number>());
   /** The "Request sent" row's metadata details are open. */
   const [sentExpanded, setSentExpanded] = useState(false);
+  /** The error row's explanation details are open. */
+  const [errorExpanded, setErrorExpanded] = useState(false);
   const [wrapLines, setWrapLines] = useState(true);
   // Sort direction and grouping are SETTINGS — global, user-owned,
   // written by this toolbar and the Settings page alike; an Invoke/
@@ -474,7 +484,10 @@ const GrpcMessageTimeline: React.FC<GrpcMessageTimelineProps> = ({
   const filtering = search.trim() !== '' || directionFilter !== 'all';
   const live = lifecycle.endedBy === undefined;
   const sentMetadata = lifecycle.requestMetadata ?? [];
-  const sentDetailOpen = sentExpanded && sentMetadata.length > 0;
+  const sentRecorded = lifecycle.requestMetadata !== undefined;
+  const sentDetailOpen = sentExpanded && sentRecorded;
+  const errorExpandable = lifecycle.endedBy === 'error' && lifecycle.endedMessage !== undefined;
+  const errorDetailOpen = errorExpanded && errorExpandable;
 
   // The flat display list the virtual window runs over. The timeline
   // is ONE event log: ungrouped, "Response received" interleaves at
@@ -501,6 +514,7 @@ const GrpcMessageTimeline: React.FC<GrpcMessageTimelineProps> = ({
     // Top chronological edge.
     if (newestFirst) {
       if (lifecycle.endedBy !== undefined) out.push({ key: 'ended', kind: 'ended' });
+      if (errorDetailOpen) out.push({ key: 'errorDetail', kind: 'errorDetail' });
       if (notice) out.push(notice);
     } else {
       out.push({ key: 'sent', kind: 'sent' });
@@ -566,6 +580,7 @@ const GrpcMessageTimeline: React.FC<GrpcMessageTimelineProps> = ({
     } else {
       if (notice) out.push(notice);
       if (lifecycle.endedBy !== undefined) out.push({ key: 'ended', kind: 'ended' });
+      if (errorDetailOpen) out.push({ key: 'errorDetail', kind: 'errorDetail' });
     }
     return { entries: out, groupRanges: ranges };
   }, [
@@ -582,6 +597,7 @@ const GrpcMessageTimeline: React.FC<GrpcMessageTimelineProps> = ({
     groups,
     expanded,
     sentDetailOpen,
+    errorDetailOpen,
     collapsedGroups,
     groupRowLimit,
     unwindowedGroups,
@@ -590,7 +606,13 @@ const GrpcMessageTimeline: React.FC<GrpcMessageTimelineProps> = ({
   const heights = useMemo(
     () =>
       entries.map((e) =>
-        e.kind === 'viewer' ? VIEWER_PX : e.kind === 'sentDetail' ? sentDetailPx(sentMetadata.length) : SINGLE_ROW_PX,
+        e.kind === 'viewer'
+          ? VIEWER_PX
+          : e.kind === 'sentDetail'
+            ? sentDetailPx(sentMetadata.length)
+            : e.kind === 'errorDetail'
+              ? ERROR_DETAIL_PX
+              : SINGLE_ROW_PX,
       ),
     [entries, sentMetadata.length],
   );
@@ -840,9 +862,11 @@ const GrpcMessageTimeline: React.FC<GrpcMessageTimelineProps> = ({
   const renderEntry = (entry: ListEntry): React.ReactNode => {
     switch (entry.kind) {
       case 'sent': {
-        // With recorded request metadata the row expands to the pairs
-        // the call actually carried (the MQTT Connected row's anatomy).
-        const expandable = sentMetadata.length > 0;
+        // With a recorded metadata truth the row expands to the pairs
+        // the call actually carried — or to the honest "No metadata
+        // sent." line (the MQTT Connected row's anatomy). Unrecorded
+        // (live phase, older hosts) reads plain.
+        const expandable = sentRecorded;
         return (
           <div
             key={entry.key}
@@ -889,22 +913,75 @@ const GrpcMessageTimeline: React.FC<GrpcMessageTimelineProps> = ({
             <div style={{ ...cellFont, fontSize: 11, lineHeight: '18px', height: 18, color: token.colorTextTertiary }}>
               {t('workbench.editors.grpc.response.tab.metadata')}
             </div>
-            {sentMetadata.map((pair, index) => (
-              <div
-                key={`${String(index)}:${pair.key}`}
-                style={{
-                  ...cellFont,
-                  lineHeight: '20px',
-                  height: 20,
-                  whiteSpace: 'nowrap',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                }}
-              >
-                <span style={{ color: token.colorTextSecondary }}>{pair.key}: </span>
-                <span style={{ color: token.colorText }}>{pair.value}</span>
+            {sentMetadata.length === 0 ? (
+              <div style={{ ...cellFont, lineHeight: '20px', height: 20, color: token.colorTextSecondary }}>
+                {t('workbench.editors.grpc.timeline.noMetadataSent')}
               </div>
-            ))}
+            ) : (
+              sentMetadata.map((pair, index) => (
+                <div
+                  key={`${String(index)}:${pair.key}`}
+                  style={{
+                    ...cellFont,
+                    lineHeight: '20px',
+                    height: 20,
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                  }}
+                >
+                  <span style={{ color: token.colorTextSecondary }}>{pair.key}: </span>
+                  <span style={{ color: token.colorText }}>{pair.value}</span>
+                </div>
+              ))
+            )}
+          </div>
+        );
+      case 'errorDetail':
+        if (lifecycle.endedMessage === undefined) return null;
+        // The failure explained — the shared guidance line, then the
+        // classified message verbatim on the error tint (full text on
+        // hover).
+        return (
+          <div
+            key={entry.key}
+            data-testid="grpc-timeline-error-details"
+            style={{
+              height: ERROR_DETAIL_PX,
+              boxSizing: 'border-box',
+              padding: '6px 10px 6px 37px',
+              borderBottom: `1px solid ${token.colorBorderSecondary}`,
+              overflow: 'hidden',
+            }}
+          >
+            <div
+              style={{
+                fontSize: 12,
+                lineHeight: '20px',
+                height: 20,
+                color: token.colorTextSecondary,
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+              }}
+            >
+              {t('workbench.editors.grpc.response.error.localGuidance')}
+            </div>
+            <div
+              title={lifecycle.endedMessage}
+              data-testid="grpc-session-error-detail"
+              style={{
+                fontSize: 12,
+                lineHeight: '20px',
+                height: 20,
+                color: token.colorError,
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+              }}
+            >
+              {lifecycle.endedMessage}
+            </div>
           </div>
         );
       case 'connected':
@@ -920,29 +997,37 @@ const GrpcMessageTimeline: React.FC<GrpcMessageTimelineProps> = ({
         );
       case 'ended': {
         if (lifecycle.endedBy === undefined) return null;
-        // A pre-head failure reads on the error tint — red icon, the
-        // classified message verbatim (full text on hover) — the WS
-        // timeline error row's anatomy.
+        // A pre-head failure reads as the red-iconed row with the
+        // PLAIN label — the classified explanation lives behind the
+        // chevron (the sent row's expansion anatomy).
         if (lifecycle.endedBy === 'error') {
           return (
-            <div key={entry.key} data-testid="grpc-timeline-ended-row" style={lifecycleRowStyle}>
+            <div
+              key={entry.key}
+              data-testid="grpc-timeline-ended-row"
+              {...(errorExpandable
+                ? {
+                    role: 'button',
+                    tabIndex: 0,
+                    'aria-expanded': errorExpanded,
+                    className: 'oh-stream-row',
+                    onClick: () => setErrorExpanded((open) => !open),
+                    onKeyDown: (event: React.KeyboardEvent) => {
+                      if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault();
+                        setErrorExpanded((open) => !open);
+                      }
+                    },
+                  }
+                : {})}
+              style={{ ...lifecycleRowStyle, ...(errorExpandable ? { cursor: 'pointer' } : {}) }}
+            >
               <CloseCircleOutlined aria-hidden style={{ fontSize: 11, color: token.colorError }} />
-              <span
-                {...(lifecycle.endedMessage !== undefined ? { title: lifecycle.endedMessage } : {})}
-                data-testid="grpc-session-error-detail"
-                style={{
-                  minWidth: 0,
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap',
-                  color: token.colorError,
-                }}
-              >
+              <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {endedLabel(lifecycle.endedBy, t)}
-                {lifecycle.endedMessage ? ` — ${lifecycle.endedMessage}` : ''}
               </span>
               {lifecycleTime(lifecycle.endedAt)}
-              {expandSlot(null)}
+              {expandSlot(errorExpandable ? errorExpanded : null)}
             </div>
           );
         }

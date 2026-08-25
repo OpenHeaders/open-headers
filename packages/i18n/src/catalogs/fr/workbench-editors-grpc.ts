@@ -175,6 +175,7 @@ export const workbenchEditorsGrpc = {
   'workbench.editors.grpc.stream.controlsIdle': "Invoquez d'abord l'appel pour ouvrir le flux",
   'workbench.editors.grpc.stream.sendFailed': "Le message n'est pas parti",
   'workbench.editors.grpc.timeline.requestSent': 'Requête envoyée',
+  'workbench.editors.grpc.timeline.noMetadataSent': 'Aucune métadonnée envoyée.',
   'workbench.editors.grpc.timeline.responseReceived': 'Réponse reçue',
   'workbench.editors.grpc.timeline.completed': 'Appel terminé',
   'workbench.editors.grpc.timeline.stopped': 'Appel arrêté',

@@ -191,6 +191,7 @@ export const workbenchEditorsGrpc = {
   'workbench.editors.grpc.stream.controlsIdle': 'Starte zuerst den Aufruf, um den Stream zu öffnen',
   'workbench.editors.grpc.stream.sendFailed': 'Die Nachricht wurde nicht gesendet',
   'workbench.editors.grpc.timeline.requestSent': 'Anfrage gesendet',
+  'workbench.editors.grpc.timeline.noMetadataSent': 'Keine Metadaten gesendet.',
   'workbench.editors.grpc.timeline.responseReceived': 'Antwort empfangen',
   'workbench.editors.grpc.timeline.completed': 'Aufruf abgeschlossen',
   'workbench.editors.grpc.timeline.stopped': 'Aufruf gestoppt',

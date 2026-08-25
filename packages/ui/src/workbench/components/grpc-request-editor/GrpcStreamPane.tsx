@@ -86,11 +86,9 @@ const GrpcStreamPane: React.FC<GrpcStreamPaneProps> = ({
     // wall (the WS/MQTT session panes' law).
     // The sent row expands to the metadata the call actually carried —
     // recorded by the executor at dispatch, so it exists on failures
-    // too (empty stays absent: no empty detail shells).
-    const requestMetadata =
-      snapshot.requestMetadata !== undefined && snapshot.requestMetadata.length > 0
-        ? snapshot.requestMetadata
-        : undefined;
+    // too. Recorded-empty passes through: the row expands to the
+    // honest "No metadata sent." line.
+    const requestMetadata = snapshot.requestMetadata;
     if (snapshot.error !== null) {
       return {
         ...(session?.startedAt !== undefined ? { startedAt: session.startedAt } : {}),

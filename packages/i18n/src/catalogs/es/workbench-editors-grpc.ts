@@ -183,6 +183,7 @@ export const workbenchEditorsGrpc = {
   'workbench.editors.grpc.stream.controlsIdle': 'Invoca primero la llamada para abrir el flujo',
   'workbench.editors.grpc.stream.sendFailed': 'El mensaje no se envió',
   'workbench.editors.grpc.timeline.requestSent': 'Solicitud enviada',
+  'workbench.editors.grpc.timeline.noMetadataSent': 'No se enviaron metadatos.',
   'workbench.editors.grpc.timeline.responseReceived': 'Respuesta recibida',
   'workbench.editors.grpc.timeline.completed': 'Llamada completada',
   'workbench.editors.grpc.timeline.stopped': 'Llamada detenida',
