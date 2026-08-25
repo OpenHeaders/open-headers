@@ -41,7 +41,12 @@ const TOPIC_ROW_ADAPTER: EditableRowAdapter<MqttTopicRow> = {
   setKey: (r, v) => ({ ...r, topicFilter: v }),
   getDescription: (r) => r.description ?? '',
   setDescription: (r, v) => ({ ...r, description: v }),
-  makeEmpty: () => ({ uid: generateUid(), topicFilter: '' }),
+  // A minted row starts UNSUBSCRIBED (explicit false — absent still
+  // reads as on for rows saved before this default): the user enables
+  // the switch once the filter and options are written, and a row
+  // typed mid-session never wears an ON switch no live subscription
+  // backs.
+  makeEmpty: () => ({ uid: generateUid(), topicFilter: '', subscribe: false }),
   isEmpty: (r) => !r.topicFilter && !r.description,
 };
 

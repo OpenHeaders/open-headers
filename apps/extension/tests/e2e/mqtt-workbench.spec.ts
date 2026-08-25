@@ -470,6 +470,11 @@ test('E6 — Connect runs the session in-page: CONNACK row, SUBACK grants, retai
   await page.getByRole('tab', { name: 'Topics', exact: true }).filter({ visible: true }).first().click();
   await page.getByTestId('mqtt-topic-filter-input').filter({ visible: true }).nth(0).fill('probe/echo/reply');
   await page.getByTestId('mqtt-topic-filter-input').filter({ visible: true }).nth(1).fill('probe/retained');
+  // Minted rows start UNSUBSCRIBED — enable both switches so the
+  // session subscribes at open (the ghost row's disabled switch
+  // carries no testid, so nth() targets the real rows).
+  await page.getByTestId('mqtt-topic-subscribe').filter({ visible: true }).nth(0).click();
+  await page.getByTestId('mqtt-topic-subscribe').filter({ visible: true }).nth(1).click();
 
   // A ws:// URL ENABLES Connect — the session executes IN this page.
   await connectAndAwaitOpen();

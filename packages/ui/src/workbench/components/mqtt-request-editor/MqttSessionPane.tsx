@@ -52,6 +52,11 @@ interface MqttSessionPaneProps {
    *  captured as an example (connected, non-error). First item of the
    *  ⋯ actions menu. */
   onSaveResponse?: () => void;
+  /** Live subscribed-topics count for the meta strip's summary
+   *  affordance (rendered only while the session is open). */
+  subscribedTopicsCount?: number;
+  /** Clicking the summary jumps to the compose Topics tab. */
+  onShowTopics?: () => void;
 }
 
 /** CONNACK reason name — the version scopes which numeric space names
@@ -74,10 +79,13 @@ const MqttSessionPane: React.FC<MqttSessionPaneProps> = ({
   hostNotice,
   onClear,
   onSaveResponse,
+  subscribedTopicsCount,
+  onShowTopics,
 }) => {
   const { token } = theme.useToken();
   const t = useT();
   const [activeTab, setActiveTab] = useState('timeline');
+  const [subsHovered, setSubsHovered] = useState(false);
   const v5 = protocolVersion !== '3.1.1';
 
   const noticeStrip =
@@ -196,10 +204,47 @@ const MqttSessionPane: React.FC<MqttSessionPaneProps> = ({
     );
   })();
 
+  // The subscribed-topics summary — the affordance left of the
+  // Connected badge: hover-tinted, clicking jumps to the compose
+  // Topics tab. Live sessions only (a settled snapshot's subscription
+  // state is history, not a fact to summarize).
+  const subsSummary =
+    live !== null && live.open !== null && snapshot === null && subscribedTopicsCount !== undefined && onShowTopics ? (
+      <>
+        <button
+          type="button"
+          onClick={onShowTopics}
+          onMouseEnter={() => setSubsHovered(true)}
+          onMouseLeave={() => setSubsHovered(false)}
+          style={{
+            border: 'none',
+            background: subsHovered ? token.colorFillTertiary : 'transparent',
+            borderRadius: token.borderRadiusSM,
+            padding: '2px 6px',
+            fontSize: 11,
+            color: token.colorTextSecondary,
+            cursor: 'pointer',
+            whiteSpace: 'nowrap',
+          }}
+          data-testid="mqtt-session-subs-summary"
+        >
+          {subscribedTopicsCount === 0
+            ? t('workbench.editors.mqtt.session.notSubscribed')
+            : subscribedTopicsCount === 1
+              ? t('workbench.editors.mqtt.session.subscribedOne')
+              : t('workbench.editors.mqtt.session.subscribedMany', { count: subscribedTopicsCount })}
+        </button>
+        <Text type="secondary" style={{ fontSize: 10 }}>
+          •
+        </Text>
+      </>
+    ) : null;
+
   const metaStrip = (
     <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, paddingLeft: 12 }}>
       {snapshot === null ? (
         <>
+          {subsSummary}
           <Tag
             color={live?.open !== null ? 'processing' : 'default'}
             style={{ marginInlineEnd: 0 }}

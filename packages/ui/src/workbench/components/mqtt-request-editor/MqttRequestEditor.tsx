@@ -181,6 +181,16 @@ const MqttRequestEditor: React.FC<MqttRequestEditorProps> = ({
 
   const encodingError = payloadEncodingError(draft.payload, draft.payloadFormat);
 
+  // Live subscribed-topics count for the session pane's summary
+  // affordance — SUBACK-granted rows plus live toggles, the honest
+  // live state (never the draft's switch positions).
+  const subscribedTopicsCount = useMemo(() => {
+    let count = 0;
+    for (const mark of session.liveSubs.values()) if (mark.subscribed) count++;
+    return count;
+  }, [session.liveSubs]);
+  const handleShowTopics = useCallback(() => setActiveTab('topics'), []);
+
   // ⌘/Ctrl+Enter connects from anywhere in the editor — the same gate
   // as the Connect button, and the same MORPH: while the session is
   // in flight the chord disconnects. ⌘/Ctrl+Shift+Enter publishes the
@@ -466,6 +476,8 @@ const MqttRequestEditor: React.FC<MqttRequestEditorProps> = ({
                   protocolVersion={draft.protocolVersion}
                   hostNotice={session.hostNotice}
                   onClear={session.handleClearSession}
+                  subscribedTopicsCount={subscribedTopicsCount}
+                  onShowTopics={handleShowTopics}
                   {...(session.canSaveResponse ? { onSaveResponse: () => void session.handleSaveResponse() } : {})}
                 />
               ) : (
