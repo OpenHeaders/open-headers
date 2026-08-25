@@ -161,15 +161,15 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.settings.cleanStartLabel': 'Clean Start',
   'workbench.editors.mqtt.settings.cleanStartHelp':
     'Beim Verbinden eine frische Broker-Sitzung beginnen. Ausschalten setzt Abonnements und wartende Nachrichten einer früheren Sitzung fort — das braucht ebenfalls eine stabile Client ID.',
-  'workbench.editors.mqtt.settings.sessionExpiryLabel': 'Session Expiry Interval (s)',
+  'workbench.editors.mqtt.settings.sessionExpiryLabel': 'Session Expiry Interval',
   'workbench.editors.mqtt.settings.sessionExpiryHelp':
     'Wie lange der Broker die Sitzung nach dem Trennen behält. Mit aktivem Clean Start greift es nur, wenn eine spätere Verbindung die Sitzung fortsetzt.',
-  'workbench.editors.mqtt.settings.v311Knob': 'Ein MQTT-5.0-Feature — diese Anfrage zielt auf 3.1.1.',
-  'workbench.editors.mqtt.settings.zeroDefault': '0',
-  'workbench.editors.mqtt.settings.keepAliveLabel': 'Keep Alive (s)',
+  'workbench.editors.mqtt.settings.zeroDefault': '0 s',
+  'workbench.editors.mqtt.settings.keepAliveLabel': 'Keep Alive',
   'workbench.editors.mqtt.settings.keepAliveHelp':
     'Herzschlag-Intervall, das die Sitzung dem Broker zusagt — der Client antwortet und sendet PINGREQ. Leer verwendet 60 s; 0 schaltet ab.',
-  'workbench.editors.mqtt.settings.timeoutLabel': 'Verbindungs-Timeout (ms)',
+  'workbench.editors.mqtt.settings.keepAlivePlaceholder': '60 s',
+  'workbench.editors.mqtt.settings.timeoutLabel': 'Verbindungs-Timeout',
   'workbench.editors.mqtt.settings.timeoutHelp':
     'Wanduhr-Obergrenze nur für den Verbindungsaufbau — eine offene Sitzung hat keine Obergrenze. Leer verwendet den App-Standard.',
   'workbench.editors.mqtt.settings.timeoutPlaceholder': 'Standard',
@@ -177,13 +177,29 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.settings.receiveMaximumHelp':
     'Wie viele QoS-1/2-Nachrichten gleichzeitig zu diesem Client unterwegs sein dürfen. Leer überlässt es dem Broker.',
   'workbench.editors.mqtt.settings.brokerDefault': 'Broker-Standard',
-  'workbench.editors.mqtt.settings.maxPacketSizeLabel': 'Maximum Packet Size (Bytes)',
+  'workbench.editors.mqtt.settings.maxPacketSizeLabel': 'Maximum Packet Size',
   'workbench.editors.mqtt.settings.maxPacketSizeHelp':
     'Größtes Paket, das dieser Client annimmt — größere verwirft der Broker. Leer setzt kein Limit.',
   'workbench.editors.mqtt.settings.noLimit': 'Kein Limit',
   'workbench.editors.mqtt.settings.sslVerifyLabel': 'SSL-Zertifikatsprüfung',
   'workbench.editors.mqtt.settings.sslVerifyHelp':
     'Das Broker-Zertifikat für mqtts/wss-Sitzungen gegen die Systemwurzeln prüfen. Für selbstsignierte Entwicklungs-Broker ausschalten.',
+  'workbench.editors.mqtt.settings.sslVerifyWarning':
+    'Sitzungen überspringen die Prüfung der Broker-Identität — jedes Zertifikat wird akzeptiert, auch ' +
+    'selbstsignierte und abgelaufene.',
+  'workbench.editors.mqtt.settings.clientIdExample': 'z. B. reporter-1',
+  'workbench.editors.mqtt.settings.group.connection': 'Verbindung',
+  'workbench.editors.mqtt.settings.group.session': 'Sitzung — MQTT 5.0',
+  'workbench.editors.mqtt.settings.group.tls': 'TLS & Vertrauen',
+  'workbench.editors.mqtt.settings.groupInfo.connection':
+    'Wie CONNECT die Sitzung öffnet: die präsentierte Identität, ob sie frisch startet, und die zugesagten ' +
+    'Herzschlag- und Aufbaufristen.',
+  'workbench.editors.mqtt.settings.groupInfo.session':
+    'MQTT-5.0-Bedingungen, die CONNECT dem Broker anbietet: wie lange die Sitzung eine Trennung überlebt, plus ' +
+    'die Obergrenzen für gleichzeitige Nachrichten und Paketgröße, die dieser Client akzeptiert.',
+  'workbench.editors.mqtt.settings.groupInfo.tls':
+    'Ob mqtts/wss-Sitzungen das Broker-Zertifikat gegen die Systemwurzeln prüfen.',
+  'workbench.editors.mqtt.settings.sessionV311': 'MQTT-5.0-Regler — diese Anfrage zielt auf 3.1.1.',
   // ── Sitzungsbereich ─────────────────────────────────────────────────
   'workbench.editors.mqtt.session.emptyTitle': 'Antwort',
   'workbench.editors.mqtt.session.emptyHint': 'Verbinden, um Nachrichten zu senden und zu empfangen.',

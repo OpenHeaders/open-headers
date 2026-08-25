@@ -149,27 +149,38 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.settings.cleanStartLabel': 'Clean Start',
   'workbench.editors.mqtt.settings.cleanStartHelp':
     '连接时开始全新的代理会话。关闭可恢复上一会话的订阅与排队消息——这同样需要稳定的 Client ID。',
-  'workbench.editors.mqtt.settings.sessionExpiryLabel': 'Session Expiry Interval（秒）',
+  'workbench.editors.mqtt.settings.sessionExpiryLabel': 'Session Expiry Interval',
   'workbench.editors.mqtt.settings.sessionExpiryHelp':
     '断开后代理保留会话的时长。开启 Clean Start 时，仅当后续连接恢复该会话才生效。',
-  'workbench.editors.mqtt.settings.v311Knob': 'MQTT 5.0 特性——此请求面向 3.1.1。',
-  'workbench.editors.mqtt.settings.zeroDefault': '0',
-  'workbench.editors.mqtt.settings.keepAliveLabel': 'Keep Alive（秒）',
+  'workbench.editors.mqtt.settings.zeroDefault': '0 s',
+  'workbench.editors.mqtt.settings.keepAliveLabel': 'Keep Alive',
   'workbench.editors.mqtt.settings.keepAliveHelp':
     '会话向代理承诺的心跳间隔——客户端应答并发出 PINGREQ。留空使用 60 秒；0 关闭心跳。',
-  'workbench.editors.mqtt.settings.timeoutLabel': '连接超时（ms）',
+  'workbench.editors.mqtt.settings.keepAlivePlaceholder': '60 s',
+  'workbench.editors.mqtt.settings.timeoutLabel': '连接超时',
   'workbench.editors.mqtt.settings.timeoutHelp': '仅限连接拨号的墙钟上限——已打开的会话没有上限。留空使用应用默认值。',
   'workbench.editors.mqtt.settings.timeoutPlaceholder': '默认',
   'workbench.editors.mqtt.settings.receiveMaximumLabel': 'Receive Maximum',
   'workbench.editors.mqtt.settings.receiveMaximumHelp': '同时向此客户端在途的 QoS 1/2 消息数量上限。留空交由代理决定。',
   'workbench.editors.mqtt.settings.brokerDefault': '代理默认',
-  'workbench.editors.mqtt.settings.maxPacketSizeLabel': 'Maximum Packet Size（字节）',
+  'workbench.editors.mqtt.settings.maxPacketSizeLabel': 'Maximum Packet Size',
   'workbench.editors.mqtt.settings.maxPacketSizeHelp':
     '此客户端接受的最大数据包——超过的包会被代理丢弃。留空表示不设上限。',
   'workbench.editors.mqtt.settings.noLimit': '不限制',
   'workbench.editors.mqtt.settings.sslVerifyLabel': 'SSL 证书验证',
   'workbench.editors.mqtt.settings.sslVerifyHelp':
     '对 mqtts/wss 会话按系统根证书验证代理证书。开发中的自签名代理可关闭。',
+  'workbench.editors.mqtt.settings.sslVerifyWarning': '会话跳过代理身份检查——接受任何证书，包括自签名和已过期的。',
+  'workbench.editors.mqtt.settings.clientIdExample': '例如 reporter-1',
+  'workbench.editors.mqtt.settings.group.connection': '连接',
+  'workbench.editors.mqtt.settings.group.session': '会话 — MQTT 5.0',
+  'workbench.editors.mqtt.settings.group.tls': 'TLS 与信任',
+  'workbench.editors.mqtt.settings.groupInfo.connection':
+    'CONNECT 如何打开会话：呈现的身份、是否全新开始，以及承诺的心跳和连接建立时限。',
+  'workbench.editors.mqtt.settings.groupInfo.session':
+    'CONNECT 向代理提出的 MQTT 5.0 条款：断开后会话保留多久，以及此客户端接受的在途消息和数据包大小上限。',
+  'workbench.editors.mqtt.settings.groupInfo.tls': 'mqtts/wss 会话是否根据系统根证书验证代理证书。',
+  'workbench.editors.mqtt.settings.sessionV311': 'MQTT 5.0 设置——此请求面向 3.1.1。',
   // ── 会话面板 ────────────────────────────────────────────────────────
   'workbench.editors.mqtt.session.emptyTitle': '响应',
   'workbench.editors.mqtt.session.emptyHint': '连接以发送和接收消息。',

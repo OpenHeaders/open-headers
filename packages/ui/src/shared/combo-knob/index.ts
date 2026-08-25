@@ -1,11 +1,13 @@
-export { default as ComboKnob } from './ComboKnob';
 export type { ComboKnobOption, ComboKnobProps } from './ComboKnob';
+export { default as ComboKnob } from './ComboKnob';
 export {
   byteSizeInterpreter,
   countInterpreter,
   durationMsInterpreter,
+  durationSecondsInterpreter,
   formatByteSize,
   formatDurationMs,
-  numericPresets,
+  formatDurationSeconds,
   type NumericBounds,
+  numericPresets,
 } from './interpreters';

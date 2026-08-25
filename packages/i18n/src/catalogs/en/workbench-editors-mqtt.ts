@@ -152,15 +152,15 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.settings.cleanStartLabel': 'Clean Start',
   'workbench.editors.mqtt.settings.cleanStartHelp':
     'Start a fresh broker session on connect. Turn off to resume subscriptions and queued messages from a prior session — that also needs a stable Client ID.',
-  'workbench.editors.mqtt.settings.sessionExpiryLabel': 'Session Expiry Interval (s)',
+  'workbench.editors.mqtt.settings.sessionExpiryLabel': 'Session Expiry Interval',
   'workbench.editors.mqtt.settings.sessionExpiryHelp':
     'How long the broker keeps the session after disconnect. With Clean Start on, it applies only if a later connect resumes the session.',
-  'workbench.editors.mqtt.settings.v311Knob': 'An MQTT 5.0 feature — this request targets 3.1.1.',
-  'workbench.editors.mqtt.settings.zeroDefault': '0',
-  'workbench.editors.mqtt.settings.keepAliveLabel': 'Keep Alive (s)',
+  'workbench.editors.mqtt.settings.zeroDefault': '0 s',
+  'workbench.editors.mqtt.settings.keepAliveLabel': 'Keep Alive',
   'workbench.editors.mqtt.settings.keepAliveHelp':
     'Ping interval the session promises the broker — the client answers and emits PINGREQ. Empty uses 60 s; 0 disables keep-alive.',
-  'workbench.editors.mqtt.settings.timeoutLabel': 'Connect timeout (ms)',
+  'workbench.editors.mqtt.settings.keepAlivePlaceholder': '60 s',
+  'workbench.editors.mqtt.settings.timeoutLabel': 'Connect timeout',
   'workbench.editors.mqtt.settings.timeoutHelp':
     'Wall-clock ceiling on the connection dial only — an open session has no ceiling. Empty uses the app default.',
   'workbench.editors.mqtt.settings.timeoutPlaceholder': 'Default',
@@ -168,13 +168,26 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.settings.receiveMaximumHelp':
     'How many QoS 1/2 messages may be in flight toward this client at once. Empty leaves it to the broker.',
   'workbench.editors.mqtt.settings.brokerDefault': 'Broker default',
-  'workbench.editors.mqtt.settings.maxPacketSizeLabel': 'Maximum Packet Size (bytes)',
+  'workbench.editors.mqtt.settings.maxPacketSizeLabel': 'Maximum Packet Size',
   'workbench.editors.mqtt.settings.maxPacketSizeHelp':
     'Largest packet this client accepts — the broker drops bigger ones. Empty sets no limit.',
   'workbench.editors.mqtt.settings.noLimit': 'No limit',
   'workbench.editors.mqtt.settings.sslVerifyLabel': 'SSL certificate verification',
   'workbench.editors.mqtt.settings.sslVerifyHelp':
     'Verify the broker certificate against the system roots for mqtts/wss sessions. Turn off for self-signed development brokers.',
+  'workbench.editors.mqtt.settings.sslVerifyWarning':
+    'Sessions skip the broker identity check — any certificate is accepted, including self-signed and expired ones.',
+  'workbench.editors.mqtt.settings.clientIdExample': 'e.g. reporter-1',
+  'workbench.editors.mqtt.settings.group.connection': 'Connection',
+  'workbench.editors.mqtt.settings.group.session': 'Session — MQTT 5.0',
+  'workbench.editors.mqtt.settings.group.tls': 'TLS & trust',
+  'workbench.editors.mqtt.settings.groupInfo.connection':
+    'How the CONNECT opens the session: the identity it presents, whether it starts fresh, and the ping and dial ceilings it promises.',
+  'workbench.editors.mqtt.settings.groupInfo.session':
+    'MQTT 5.0 terms the CONNECT offers the broker: how long the session outlives a disconnect, plus the in-flight and packet-size ceilings this client accepts.',
+  'workbench.editors.mqtt.settings.groupInfo.tls':
+    'Whether mqtts/wss sessions verify the broker certificate against the system roots.',
+  'workbench.editors.mqtt.settings.sessionV311': 'MQTT 5.0 knobs — this request targets 3.1.1.',
   // ── Session pane ────────────────────────────────────────────────────
   'workbench.editors.mqtt.session.emptyTitle': 'Response',
   'workbench.editors.mqtt.session.emptyHint': 'Connect to send and receive messages.',

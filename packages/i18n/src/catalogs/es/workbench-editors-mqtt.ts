@@ -108,8 +108,7 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.topics.retainHandling1Desc':
     'El broker envía los mensajes retenidos solo si la suscripción no existe ya.',
   'workbench.editors.mqtt.topics.retainHandling2': '2 · No recibir',
-  'workbench.editors.mqtt.topics.retainHandling2Desc':
-    'El broker no envía mensajes retenidos para esta suscripción.',
+  'workbench.editors.mqtt.topics.retainHandling2Desc': 'El broker no envía mensajes retenidos para esta suscripción.',
   'workbench.editors.mqtt.topics.subscriptionId': 'Subscription Identifier',
   'workbench.editors.mqtt.topics.subscriptionIdDesc':
     'Identificador numérico que el broker adjunta a los mensajes entregados por esta suscripción.',
@@ -160,15 +159,15 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.settings.cleanStartLabel': 'Clean Start',
   'workbench.editors.mqtt.settings.cleanStartHelp':
     'Iniciar una sesión de bróker nueva al conectar. Desactívalo para reanudar suscripciones y mensajes en cola de una sesión anterior; eso también necesita un Client ID estable.',
-  'workbench.editors.mqtt.settings.sessionExpiryLabel': 'Session Expiry Interval (s)',
+  'workbench.editors.mqtt.settings.sessionExpiryLabel': 'Session Expiry Interval',
   'workbench.editors.mqtt.settings.sessionExpiryHelp':
     'Cuánto conserva el bróker la sesión tras la desconexión. Con Clean Start activado, solo aplica si una conexión posterior reanuda la sesión.',
-  'workbench.editors.mqtt.settings.v311Knob': 'Una función de MQTT 5.0; esta solicitud apunta a 3.1.1.',
-  'workbench.editors.mqtt.settings.zeroDefault': '0',
-  'workbench.editors.mqtt.settings.keepAliveLabel': 'Keep Alive (s)',
+  'workbench.editors.mqtt.settings.zeroDefault': '0 s',
+  'workbench.editors.mqtt.settings.keepAliveLabel': 'Keep Alive',
   'workbench.editors.mqtt.settings.keepAliveHelp':
     'Intervalo de latido prometido al bróker: el cliente responde y emite PINGREQ. Vacío usa 60 s; 0 lo desactiva.',
-  'workbench.editors.mqtt.settings.timeoutLabel': 'Tiempo de espera de conexión (ms)',
+  'workbench.editors.mqtt.settings.keepAlivePlaceholder': '60 s',
+  'workbench.editors.mqtt.settings.timeoutLabel': 'Tiempo de espera de conexión',
   'workbench.editors.mqtt.settings.timeoutHelp':
     'Techo de reloj solo para la marcación de la conexión; una sesión abierta no tiene techo. Vacío usa el valor por defecto de la aplicación.',
   'workbench.editors.mqtt.settings.timeoutPlaceholder': 'Predeterminado',
@@ -176,13 +175,29 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.settings.receiveMaximumHelp':
     'Cuántos mensajes QoS 1/2 pueden estar en vuelo hacia este cliente a la vez. Vacío lo deja al bróker.',
   'workbench.editors.mqtt.settings.brokerDefault': 'Predeterminado del bróker',
-  'workbench.editors.mqtt.settings.maxPacketSizeLabel': 'Maximum Packet Size (bytes)',
+  'workbench.editors.mqtt.settings.maxPacketSizeLabel': 'Maximum Packet Size',
   'workbench.editors.mqtt.settings.maxPacketSizeHelp':
     'Paquete más grande que acepta este cliente; el bróker descarta los mayores. Vacío no impone límite.',
   'workbench.editors.mqtt.settings.noLimit': 'Sin límite',
   'workbench.editors.mqtt.settings.sslVerifyLabel': 'Verificación del certificado SSL',
   'workbench.editors.mqtt.settings.sslVerifyHelp':
     'Verificar el certificado del bróker contra las raíces del sistema en sesiones mqtts/wss. Desactívalo para brókers de desarrollo autofirmados.',
+  'workbench.editors.mqtt.settings.sslVerifyWarning':
+    'Las sesiones omiten la comprobación de identidad del bróker — se acepta cualquier certificado, incluidos ' +
+    'los autofirmados y caducados.',
+  'workbench.editors.mqtt.settings.clientIdExample': 'p. ej. reporter-1',
+  'workbench.editors.mqtt.settings.group.connection': 'Conexión',
+  'workbench.editors.mqtt.settings.group.session': 'Sesión — MQTT 5.0',
+  'workbench.editors.mqtt.settings.group.tls': 'TLS y confianza',
+  'workbench.editors.mqtt.settings.groupInfo.connection':
+    'Cómo CONNECT abre la sesión: la identidad que presenta, si empieza de cero, y los techos de latido y de ' +
+    'apertura que promete.',
+  'workbench.editors.mqtt.settings.groupInfo.session':
+    'Condiciones MQTT 5.0 que CONNECT ofrece al bróker: cuánto sobrevive la sesión a una desconexión, más los ' +
+    'techos de mensajes en vuelo y de tamaño de paquete que acepta este cliente.',
+  'workbench.editors.mqtt.settings.groupInfo.tls':
+    'Si las sesiones mqtts/wss verifican el certificado del bróker contra las raíces del sistema.',
+  'workbench.editors.mqtt.settings.sessionV311': 'Ajustes de MQTT 5.0; esta solicitud apunta a 3.1.1.',
   // ── Panel de sesión ─────────────────────────────────────────────────
   'workbench.editors.mqtt.session.emptyTitle': 'Respuesta',
   'workbench.editors.mqtt.session.emptyHint': 'Conéctate para enviar y recibir mensajes.',

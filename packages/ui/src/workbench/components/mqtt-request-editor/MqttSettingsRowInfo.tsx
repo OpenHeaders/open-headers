@@ -20,6 +20,7 @@
 import type { MessageKey } from '@openheaders/i18n';
 import { type Translate, useT } from '@openheaders/ui/context/LocaleContext';
 import type { InfoPopoverContent } from '@openheaders/ui/shared/info-popover';
+import { MQTT_GROUP_LABEL_KEY, type MqttSettingsGroupKey } from './settings-groups';
 
 /** One key per knob that opens a popover with the card — the Settings
  *  tab rows plus the topic-row subscription options (the two section
@@ -64,6 +65,15 @@ const EX = {
 } as const;
 
 type TokenId = keyof typeof EX;
+
+/** Which slice of the example each Settings-tab group lights — the
+ * group headers partition the CONNECT leg their rows itemize, the
+ * options popover's section-header idiom. */
+const GROUP_TOKENS: Record<MqttSettingsGroupKey, readonly TokenId[]> = {
+  connection: ['clientId', 'cleanStart', 'keepAlive', 'dial'],
+  session: ['sessionExpiry', 'receiveMax', 'maxPacket'],
+  tls: ['verify'],
+};
 
 /** Which slice of the example each knob lights. Rows light their
  * single token; the two options-popover section headers light their
@@ -168,17 +178,18 @@ const SUMMARY_KEY: Record<Exclude<MqttInfoKey, 'retainHandling'>, MessageKey> = 
   subscribeSettings: 'workbench.editors.mqtt.topics.optionsHint',
 };
 
-/** The Settings-tab rows carry the tab name; the option rows carry
- * their section's header; the section headers carry the Topics tab. */
+/** The Settings-tab rows carry their group's label (the group headers
+ * carry the tab name); the option rows carry their section's header;
+ * the section headers carry the Topics tab. */
 const KICKER_KEY: Record<MqttInfoKey, MessageKey> = {
-  clientId: 'workbench.editors.mqtt.tab.settings',
-  cleanStart: 'workbench.editors.mqtt.tab.settings',
-  sessionExpiry: 'workbench.editors.mqtt.tab.settings',
-  keepAlive: 'workbench.editors.mqtt.tab.settings',
-  timeout: 'workbench.editors.mqtt.tab.settings',
-  receiveMaximum: 'workbench.editors.mqtt.tab.settings',
-  maxPacketSize: 'workbench.editors.mqtt.tab.settings',
-  sslVerification: 'workbench.editors.mqtt.tab.settings',
+  clientId: MQTT_GROUP_LABEL_KEY.connection,
+  cleanStart: MQTT_GROUP_LABEL_KEY.connection,
+  sessionExpiry: MQTT_GROUP_LABEL_KEY.session,
+  keepAlive: MQTT_GROUP_LABEL_KEY.connection,
+  timeout: MQTT_GROUP_LABEL_KEY.connection,
+  receiveMaximum: MQTT_GROUP_LABEL_KEY.session,
+  maxPacketSize: MQTT_GROUP_LABEL_KEY.session,
+  sslVerification: MQTT_GROUP_LABEL_KEY.tls,
   noLocal: 'workbench.editors.mqtt.topics.subscribeSettings',
   retainAsPublished: 'workbench.editors.mqtt.topics.subscribeSettings',
   retainHandling: 'workbench.editors.mqtt.topics.subscribeSettings',
@@ -186,6 +197,23 @@ const KICKER_KEY: Record<MqttInfoKey, MessageKey> = {
   subscribeProperties: 'workbench.editors.mqtt.tab.topics',
   subscribeSettings: 'workbench.editors.mqtt.tab.topics',
 };
+
+const GROUP_SUMMARY_KEY: Record<MqttSettingsGroupKey, MessageKey> = {
+  connection: 'workbench.editors.mqtt.settings.groupInfo.connection',
+  session: 'workbench.editors.mqtt.settings.groupInfo.session',
+  tls: 'workbench.editors.mqtt.settings.groupInfo.tls',
+};
+
+/** Popover content for a Settings-tab group header: the group's whole
+ * sub-slice of the shared example lit at once. */
+export function mqttSettingsGroupInfo(t: Translate, group: MqttSettingsGroupKey): InfoPopoverContent {
+  return {
+    title: t(MQTT_GROUP_LABEL_KEY[group]),
+    kicker: t('workbench.editors.mqtt.tab.settings'),
+    diagram: <MqttExampleCard lit={new Set(GROUP_TOKENS[group])} />,
+    summary: t(GROUP_SUMMARY_KEY[group]),
+  };
+}
 
 /** Popover content for one MQTT knob. */
 export function mqttSettingsRowInfo(t: Translate, infoKey: MqttInfoKey): InfoPopoverContent {

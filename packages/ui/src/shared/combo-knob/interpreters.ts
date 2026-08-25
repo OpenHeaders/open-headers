@@ -74,6 +74,40 @@ export const durationMsInterpreter =
     return boundedOptions(readings.map(Math.round), bounds, formatDurationMs);
   };
 
+// ── Durations (whole seconds) ────────────────────────────────────────
+
+export const formatDurationSeconds = (s: number): string => {
+  if (s === 0) return '0 s';
+  if (s % 3_600 === 0) return `${groupedNumber.format(s / 3_600)} h`;
+  if (s % 60 === 0) return `${groupedNumber.format(s / 60)} min`;
+  return `${groupedNumber.format(s)} s`;
+};
+
+const DURATION_SECONDS_PATTERN =
+  /^(\d+(?:[.,]\d+)?)\s*(s|sec|secs|second|seconds|m|min|mins|minute|minutes|h|hr|hrs|hour|hours)?$/i;
+
+/** "10" → 10 s / 10 min readings (out-of-bounds ones stay as disabled
+ *  explanations); an explicit unit yields the one reading. For wire
+ *  fields quoted in whole seconds (MQTT keep-alive, session expiry). */
+export const durationSecondsInterpreter =
+  (bounds: NumericBounds) =>
+  (input: string): ComboKnobOption<number>[] => {
+    const match = DURATION_SECONDS_PATTERN.exec(input.trim());
+    if (!match) return [];
+    const n = Number(match[1].replace(',', '.'));
+    if (!Number.isFinite(n)) return [];
+    const unit = match[2]?.toLowerCase();
+    const readings =
+      unit === undefined
+        ? [n, n * 60]
+        : unit.startsWith('h')
+          ? [n * 3_600]
+          : unit === 'm' || unit.startsWith('min')
+            ? [n * 60]
+            : [n];
+    return boundedOptions(readings.map(Math.round), bounds, formatDurationSeconds);
+  };
+
 // ── Byte sizes ───────────────────────────────────────────────────────
 
 const KB = 1024;
