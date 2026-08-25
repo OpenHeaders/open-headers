@@ -7,8 +7,11 @@
  * timeline fed from the snapshot's capture with the session's
  * timestamps joined positionally). The header is ONE row in the HTTP
  * ResponsePanel's format: tabs left, meta strip right-aligned in the
- * tab bar. Pre-open failures (the session never opened) render the
- * classified message under the plain title row.
+ * tab bar. Pre-open failures (the session never opened) render
+ * through the SAME pane: the classified message rides the timeline as
+ * its error row and the meta strip pills Connect failed — never a
+ * bare error wall. A user abort renders the neutral
+ * stopped-before-connect note under the plain title row.
  *
  * The Handshake tab states what the platform socket exposes — the
  * negotiated subprotocol and extensions — and nothing more: undici
@@ -91,6 +94,17 @@ const WsSessionPane: React.FC<WsSessionPaneProps> = ({
         ...(live?.open?.protocol !== undefined && live.open.protocol !== '' ? { protocol: live.open.protocol } : {}),
       };
     }
+    // A pre-open failure settles as the timeline's error row — the
+    // classified message verbatim at the new edge; never an
+    // opened-session end row.
+    if (snapshot.outcome.kind === 'failed') {
+      return {
+        ...(timing?.startedAt !== undefined ? { startedAt: timing.startedAt } : {}),
+        connected: false,
+        errorMessage: snapshot.outcome.error,
+        ...(timing?.endedAt !== undefined ? { endedAt: timing.endedAt } : {}),
+      };
+    }
     const endedMessage =
       snapshot.close !== null
         ? `${snapshot.close.code}${snapshot.close.reason !== '' ? ` ${snapshot.close.reason}` : ''}`
@@ -108,10 +122,9 @@ const WsSessionPane: React.FC<WsSessionPaneProps> = ({
     };
   }, [snapshot, live, timing, t]);
 
-  // Pre-open ends render under the plain title row — there was never a
-  // session to timeline: a failure shows its classified message, a
-  // user abort the neutral stopped-before-connect note.
-  if (snapshot !== null && snapshot.outcome.kind !== 'connected') {
+  // A user abort renders under the plain title row — there was never
+  // a session to timeline: the neutral stopped-before-connect note.
+  if (snapshot !== null && snapshot.outcome.kind === 'aborted') {
     return (
       <div
         style={{
@@ -137,25 +150,27 @@ const WsSessionPane: React.FC<WsSessionPaneProps> = ({
         </div>
         {noticeStrip}
         <div style={{ padding: '16px 12px' }}>
-          {snapshot.outcome.kind === 'failed' ? (
-            <Text type="danger" style={{ fontSize: 12 }} data-testid="ws-session-error-detail">
-              {snapshot.outcome.error}
-            </Text>
-          ) : (
-            <Text type="secondary" style={{ fontSize: 12 }} data-testid="ws-session-error-detail">
-              {t('workbench.editors.websocket.session.abortedBeforeConnect')}
-            </Text>
-          )}
+          <Text type="secondary" style={{ fontSize: 12 }} data-testid="ws-session-error-detail">
+            {t('workbench.editors.websocket.session.abortedBeforeConnect')}
+          </Text>
         </div>
       </div>
     );
   }
 
-  // Close pill honesty: the clean 1000 reads success-green; any other
+  // Close pill honesty: a pre-open failure reads as Connect failed on
+  // the error tint; the clean 1000 reads success-green; any other
   // code renders verbatim on the warning tint; a missing Close frame
   // is named as the absence it is; Stopped is its own state.
   const closeTag = (() => {
     if (snapshot === null) return null;
+    if (snapshot.outcome.kind === 'failed') {
+      return (
+        <Tag color="error" style={{ marginInlineEnd: 0 }} data-testid="ws-session-close-tag">
+          {t('workbench.editors.websocket.session.connectFailedTag')}
+        </Tag>
+      );
+    }
     if (snapshot.stopped === true) {
       return (
         <Tag color="warning" style={{ marginInlineEnd: 0 }} data-testid="ws-session-close-tag">

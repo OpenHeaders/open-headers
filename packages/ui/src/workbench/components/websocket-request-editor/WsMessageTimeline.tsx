@@ -9,8 +9,9 @@
  * never a parameterization of either (the ratified sibling law).
  *
  * The timeline is ONE event log in call order: "Connecting" and
- * "Disconnected / Stopped / Failed" sit at the chronological edges,
- * and "Connected" sits before the first message — a WebSocket client
+ * "Disconnected / Stopped" sit at the chronological edges (a settled
+ * pre-open failure renders its classified error row at the new edge
+ * instead), and "Connected" sits before the first message — a WebSocket client
  * cannot write before the handshake settles, so no interleave
  * arithmetic exists (the gRPC `headAtMessage` machinery has no WS
  * twin by construction). Rows read direction glyph · payload preview
@@ -46,6 +47,7 @@ import {
   CheckCircleOutlined,
   CheckOutlined,
   ClearOutlined,
+  CloseCircleOutlined,
   DisconnectOutlined,
   InfoCircleOutlined,
   LinkOutlined,
@@ -92,7 +94,7 @@ export interface WsTimelineItem {
 }
 
 /** How the session ended — drives the ended lifecycle row. */
-export type WsTimelineEndedBy = 'close' | 'stop' | 'error';
+export type WsTimelineEndedBy = 'close' | 'stop';
 
 export interface WsTimelineLifecycle {
   /** Session-only Connect-departure time. */
@@ -103,6 +105,10 @@ export interface WsTimelineLifecycle {
   connectedAt?: number;
   /** The negotiated subprotocol, named on the Connected row. */
   protocol?: string;
+  /** Classified pre-open failure — the session never opened. Rendered
+   *  as an error row at the timeline's new edge; never set beside
+   *  `endedBy`. */
+  errorMessage?: string;
   /** Absent while the session is open — the live phase. */
   endedBy?: WsTimelineEndedBy;
   endedAt?: number;
@@ -148,7 +154,7 @@ interface WsGroupIdentity {
 /** One display slot of the virtual list — heights are a closed
  *  function of `kind`, so windowing never measures. */
 type ListEntry =
-  | { key: string; kind: 'sent' | 'connected' | 'ended' | 'waiting' | 'noMatches' }
+  | { key: string; kind: 'sent' | 'connected' | 'error' | 'ended' | 'waiting' | 'noMatches' }
   | { key: string; kind: 'header'; group: WsGroupIdentity; count: number; collapsed: boolean }
   /** "Show N older messages" at a windowed group's older edge; the
    *  un-windowed state's re-window action lives on the group header. */
@@ -182,8 +188,6 @@ function endedLabel(endedBy: WsTimelineEndedBy, t: Translate): string {
       return t('workbench.editors.websocket.timeline.disconnected');
     case 'stop':
       return t('workbench.editors.websocket.timeline.stopped');
-    case 'error':
-      return t('workbench.editors.websocket.timeline.failed');
     default: {
       const _exhaustive: never = endedBy;
       void _exhaustive;
@@ -591,7 +595,7 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
   }, [displayRows, groupByDirection, groupByEventActive, items, count, clearedCount, newestFirst, derive]);
 
   const filtering = search.trim() !== '' || directionFilter !== 'all';
-  const live = lifecycle.endedBy === undefined;
+  const live = lifecycle.endedBy === undefined && lifecycle.errorMessage === undefined;
 
   // The flat display list the virtual window runs over — ONE event
   // log: Connecting at one chronological edge, Connected before the
@@ -615,9 +619,14 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
           ? { key: 'none', kind: 'noMatches' }
           : null;
 
+    // The error row sits at the ended row's chronological slot — the
+    // two never coexist (a pre-open failure has no opened-session end).
+    const preOpenEnd = lifecycle.errorMessage !== undefined;
+
     // Top chronological edge.
     if (newestFirst) {
       if (lifecycle.endedBy !== undefined) out.push({ key: 'ended', kind: 'ended' });
+      if (preOpenEnd) out.push({ key: 'error', kind: 'error' });
       if (notice) out.push(notice);
     } else {
       out.push({ key: 'sent', kind: 'sent' });
@@ -670,12 +679,14 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
       out.push({ key: 'sent', kind: 'sent' });
     } else {
       if (notice) out.push(notice);
+      if (preOpenEnd) out.push({ key: 'error', kind: 'error' });
       if (lifecycle.endedBy !== undefined) out.push({ key: 'ended', kind: 'ended' });
     }
     return { entries: out, groupRanges: ranges };
   }, [
     newestFirst,
     lifecycle.connected,
+    lifecycle.errorMessage,
     lifecycle.endedBy,
     live,
     count,
@@ -934,6 +945,28 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
             {lifecycleTime(lifecycle.connectedAt)}
           </div>
         );
+      case 'error': {
+        if (lifecycle.errorMessage === undefined) return null;
+        return (
+          <div key={entry.key} data-testid="ws-timeline-error-row" style={lifecycleRowStyle}>
+            <CloseCircleOutlined aria-hidden style={{ fontSize: 11, color: token.colorError }} />
+            <span
+              title={lifecycle.errorMessage}
+              data-testid="ws-session-error-detail"
+              style={{
+                minWidth: 0,
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+                color: token.colorError,
+              }}
+            >
+              {lifecycle.errorMessage}
+            </span>
+            {lifecycleTime(lifecycle.endedAt)}
+          </div>
+        );
+      }
       case 'ended': {
         if (lifecycle.endedBy === undefined) return null;
         return (

@@ -18,8 +18,8 @@
  *   W3  close-code menu: a server close with a foreign code renders
  *       VERBATIM — code + reason on the warning tint, never
  *       synthesized (the capture law's display twin).
- *   W4  refused dial: a dead port settles as a classified pre-open
- *       error state, not a timeline.
+ *   W4  refused dial: a dead port settles as the classified error row
+ *       at the timeline's edge with the Connect failed pill.
  *   W5  socketio flavor (Phase E): the hand-rolled engine.io/socket.io
  *       framing against the REAL socket.io server at `/net/sio-probe` —
  *       namespace CONNECT, decoded event rows (greeting), an acked
@@ -331,11 +331,13 @@ test('W4 — a dead port settles as the classified refused-dial error state', as
   await expect.poll(async () => connectButton().isEnabled(), { timeout: 15_000 }).toBe(true);
   await connectButton().click();
 
-  const errorState = workbench.getByTestId('ws-session-error').filter({ visible: true }).first();
+  const errorState = workbench.getByTestId('ws-timeline-error-row').filter({ visible: true }).first();
   await errorState.waitFor({ state: 'visible', timeout: 20_000 });
   await expect(workbench.getByTestId('ws-session-error-detail').filter({ visible: true }).first()).toContainText(
     `Connection refused by 127.0.0.1:${WS_DEAD_PORT}`,
   );
+  // The meta strip pills the failed open on the error tint.
+  await expect(closeTag()).toHaveText('Connect failed');
 });
 
 // ── W5: socketio flavor against the real socket.io server ───────────

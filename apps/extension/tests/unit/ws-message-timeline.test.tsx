@@ -127,6 +127,29 @@ describe('WsMessageTimeline — rows and lifecycle order', () => {
     expect(screen.getByTestId('ws-timeline-ended-row').textContent).toContain('4444 menu-reason');
   });
 
+  it('renders a settled pre-open failure as the error row at the ended slot', () => {
+    renderTimeline({
+      items: [],
+      count: 0,
+      lifecycle: {
+        startedAt: 1_700_000_000_000,
+        connected: false,
+        errorMessage: 'Connection refused by 127.0.0.1:9',
+        endedAt: 1_700_000_000_200,
+      },
+    });
+    expect(screen.getByTestId('ws-session-error-detail').textContent).toBe('Connection refused by 127.0.0.1:9');
+    // Newest-first: the error row sits at the new edge, Connecting at
+    // the old one — never beside an opened-session end row, and the
+    // settled failure shows no waiting notice.
+    const errorRow = screen.getByTestId('ws-timeline-error-row');
+    const sentRow = screen.getByTestId('ws-timeline-sent-row');
+    expect(errorRow.compareDocumentPosition(sentRow) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.queryByTestId('ws-timeline-ended-row')).toBeNull();
+    expect(screen.queryByTestId('ws-timeline-connected-row')).toBeNull();
+    expect(screen.queryByText('Waiting for messages…')).toBeNull();
+  });
+
   it('renders session times only when provided', () => {
     const { unmount } = renderTimeline({ timestamps: [1_700_000_000_100, 1_700_000_000_200, 1_700_000_000_300] });
     expect(screen.getAllByTestId('ws-timeline-message-time')).toHaveLength(3);
