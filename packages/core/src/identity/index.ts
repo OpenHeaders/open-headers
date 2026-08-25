@@ -145,6 +145,7 @@ export {
   type GrantWorkspaceRoleResult,
   grantWorkspaceRole,
   listWorkspaceRolesForPrincipal,
+  listWorkspaceRolesForWorkspace,
   type ReconcileIdpWorkspaceRolesResult,
   type RevokeWorkspaceRoleResult,
   reconcileIdpWorkspaceRoles,

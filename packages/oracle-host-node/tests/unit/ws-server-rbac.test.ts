@@ -26,6 +26,7 @@ import {
   createDaemonUser,
   deactivateDaemonUser,
   ensureSyntheticIdentity,
+  ensureWorkspaceRoleAssignments,
   grantWorkspaceRole,
   hasCapability,
   listWorkspaceRolesForPrincipal,
@@ -94,6 +95,7 @@ import { retractWorkspaceRowsFromUserPeers } from '../../src/daemon/grant-worksp
 import { ADMIN_DENIED_MESSAGE, createPeerAdminRpc } from '../../src/daemon/peer-admin-rpc';
 import { createFilteredPeerBroadcast, makeWorkspaceReadFilter } from '../../src/daemon/peer-read-filter';
 import { createPeerWorkspaceLeaveRpc } from '../../src/daemon/peer-workspace-leave';
+import { createPeerWorkspaceMembersRpc } from '../../src/daemon/peer-workspace-members';
 import { type OracleWsServer, startOracleWsServer } from '../../src/host-runtime/ws-server';
 import { openSqliteDatabase } from '../../src/sync/sqlite-database';
 import { createHostStorageFake } from './_host-storage-fake';
@@ -687,7 +689,11 @@ async function startServerWithAdminPlane(port: number): Promise<OracleWsServer> 
       workspaceTreeDispatch: async () => ({ ok: false, error: 'not under test' }),
     }),
   });
-  const peerRpc = composePeerRpc(adminRpc, createPeerWorkspaceLeaveRpc({ getWsServer: () => server }));
+  const peerRpc = composePeerRpc(
+    adminRpc,
+    createPeerWorkspaceLeaveRpc({ getWsServer: () => server }),
+    createPeerWorkspaceMembersRpc({ getWsServer: () => server }),
+  );
   return startOracleWsServer({ host: '127.0.0.1', port, handshakeIdentity: IDENTITY, peerRpc });
 }
 
@@ -1439,5 +1445,221 @@ describe('invite path carries grants — users.create applies initial grants aft
     // Grants follow admission — the refusal minted no WRA row.
     const wraAfter = ((await hostStorage.get(OH.workspaceRoleAssignments)) ?? []).length;
     expect(wraAfter).toBe(wraBefore);
+  });
+});
+
+// ── F4 — the owner self-service members plane over real sockets ─────
+
+describe('workspace members plane — owners manage grants without daemon.admin', () => {
+  afterEach(() => {
+    setWorkspaceOrgResolver(null);
+    disposeGlobal();
+    resetWorkspaceStore();
+  });
+
+  async function bootTeamWorkspace(): Promise<string> {
+    __initGlobalSyncServiceForTests({ log: new InMemoryMutationLog() });
+    setWorkspaceOrgResolver(() => daemonOrgId);
+    await bootstrapWorkspaceStore({ seedOnEmpty: true });
+    await bridgeExtensionWorkspaceSyncEngine();
+    const team = await createWorkspace({ name: 'Team A', kind: 'team' });
+    return team.id;
+  }
+
+  it('any granted user lists members; only the owner also gets the grantable candidates', async () => {
+    const teamId = await bootTeamWorkspace();
+    // The boot reconcile's synthetic owner rows, so the operator
+    // projects as a member like production.
+    await ensureWorkspaceRoleAssignments(listWorkspaces().map((w) => w.id));
+    const alice = await addUserWithGrant('Alice', null);
+    await grantWorkspaceRole({ principalId: alice.principal.id, workspaceId: teamId, role: 'owner' });
+    const bob = await addUserWithGrant('Bob', null);
+    await grantWorkspaceRole({ principalId: bob.principal.id, workspaceId: teamId, role: 'editor' });
+    const carol = await addUserWithGrant('Carol', null);
+    const port = await freePort();
+    server = await startServerWithAdminPlane(port);
+    const aliceClient = await connectAs(port, alice, 'ext-alice');
+    const bobClient = await connectAs(port, bob, 'ext-bob');
+    const carolClient = await connectAs(port, carol, 'ext-carol');
+
+    const ownerView = await callOverWire(aliceClient, { type: 'listWorkspaceMembers', workspaceId: teamId });
+    expect(ownerView.payload?.ok).toBe(true);
+    expect(ownerView.payload?.callerRole).toBe('owner');
+    const members = ownerView.payload?.members as Array<Record<string, unknown>>;
+    const operatorRow = members.find((m) => m.operator === true);
+    expect(operatorRow?.role).toBe('owner');
+    expect(members.find((m) => m.displayName === 'Alice')?.role).toBe('owner');
+    expect(members.find((m) => m.displayName === 'Bob')?.role).toBe('editor');
+    // Candidates are the active, not-yet-granted principals only —
+    // minimally projected (no roles, grants, or last-seen).
+    const candidates = ownerView.payload?.candidates as Array<Record<string, unknown>>;
+    expect(candidates.map((c) => c.displayName)).toEqual(['Carol']);
+    expect(Object.keys(candidates[0]).sort()).toEqual(['displayName', 'email', 'kind', 'userId']);
+
+    const editorView = await callOverWire(bobClient, { type: 'listWorkspaceMembers', workspaceId: teamId });
+    expect(editorView.payload?.ok).toBe(true);
+    expect(editorView.payload?.callerRole).toBe('editor');
+    expect(editorView.payload?.candidates).toBeUndefined();
+
+    const strangerView = await callOverWire(carolClient, { type: 'listWorkspaceMembers', workspaceId: teamId });
+    expect(strangerView.payload?.ok).toBe(false);
+    expect(strangerView.payload?.reason).toBe('not-granted');
+  });
+
+  it('an owner grants a member live, re-roles below owner, and can touch neither owner rows nor unknown targets', async () => {
+    const teamId = await bootTeamWorkspace();
+    const alice = await addUserWithGrant('Alice', null);
+    await grantWorkspaceRole({ principalId: alice.principal.id, workspaceId: teamId, role: 'owner' });
+    const carol = await addUserWithGrant('Carol', null);
+    const port = await freePort();
+    server = await startServerWithAdminPlane(port);
+    const aliceClient = await connectAs(port, alice, 'ext-alice');
+    const carolClient = await connectAs(port, carol, 'ext-carol');
+
+    const carolRow = new Promise<MutationEnvelope>((resolve) => {
+      carolClient.on('message', (raw) => {
+        const msg = JSON.parse(raw.toString());
+        if (msg.type === SYNC_MUTATION_TYPE && msg.workspaceId === EXTENSION_WORKSPACE_GLOBAL_SCOPE) {
+          resolve(msg.envelope);
+        }
+      });
+    });
+    const granted = await callOverWire(aliceClient, {
+      type: 'grantWorkspaceMember',
+      workspaceId: teamId,
+      userId: carol.user.id,
+      role: 'viewer',
+    });
+    expect(granted.payload).toEqual({ ok: true, updated: false });
+    // The fresh grant rides the live offer to the member's open socket.
+    expect(workspaceListRowIdForMutation(await carolRow)).toBe(teamId);
+    expect((await listWorkspaceRolesForPrincipal(carol.principal.id)).map((r) => r.role)).toEqual(['viewer']);
+
+    const reroled = await callOverWire(aliceClient, {
+      type: 'grantWorkspaceMember',
+      workspaceId: teamId,
+      userId: carol.user.id,
+      role: 'editor',
+    });
+    expect(reroled.payload).toEqual({ ok: true, updated: true });
+
+    // The plane assigns below owner only, never mutates an owner row,
+    // and refuses an unknown target.
+    const asOwner = await callOverWire(aliceClient, {
+      type: 'grantWorkspaceMember',
+      workspaceId: teamId,
+      userId: carol.user.id,
+      role: 'owner',
+    });
+    expect(asOwner.payload).toEqual({ ok: false, error: 'role must be editor or viewer' });
+    const selfDemote = await callOverWire(aliceClient, {
+      type: 'grantWorkspaceMember',
+      workspaceId: teamId,
+      userId: alice.user.id,
+      role: 'editor',
+    });
+    expect(selfDemote.payload?.reason).toBe('owner-managed');
+    const unknownUser = await callOverWire(aliceClient, {
+      type: 'grantWorkspaceMember',
+      workspaceId: teamId,
+      userId: 'no-such-user',
+      role: 'viewer',
+    });
+    expect(unknownUser.payload).toEqual({ ok: false, error: 'unknown user' });
+
+    // Every gated frame stamped the owner-gate allow under the
+    // dedicated vocabulary, with the workspace as the subject.
+    const allows = audits.filter((a) => a.capability === 'daemon.workspace-grant' && a.decision.allow);
+    expect(allows.length).toBe(5);
+    expect(new Set(allows.map((a) => a.workspaceId))).toEqual(new Set([teamId]));
+    expect(new Set(allows.map((a) => a.actorUserId))).toEqual(new Set([alice.user.id]));
+  });
+
+  it('a non-owner mutation refuses in-band with a deny audit row; managed rows refuse on any caller', async () => {
+    const teamId = await bootTeamWorkspace();
+    const alice = await addUserWithGrant('Alice', null);
+    await grantWorkspaceRole({ principalId: alice.principal.id, workspaceId: teamId, role: 'owner' });
+    const bob = await addUserWithGrant('Bob', null);
+    await grantWorkspaceRole({ principalId: bob.principal.id, workspaceId: teamId, role: 'editor' });
+    const dana = await addUserWithGrant('Dana', null);
+    await grantWorkspaceRole({ principalId: dana.principal.id, workspaceId: teamId, role: 'viewer', origin: 'idp' });
+    const port = await freePort();
+    server = await startServerWithAdminPlane(port);
+    const aliceClient = await connectAs(port, alice, 'ext-alice');
+    const bobClient = await connectAs(port, bob, 'ext-bob');
+
+    const grantDenied = await callOverWire(bobClient, {
+      type: 'grantWorkspaceMember',
+      workspaceId: teamId,
+      userId: dana.user.id,
+      role: 'editor',
+    });
+    expect(grantDenied.payload?.ok).toBe(false);
+    expect(grantDenied.payload?.reason).toBe('not-owner');
+    const revokeDenied = await callOverWire(bobClient, {
+      type: 'revokeWorkspaceMember',
+      workspaceId: teamId,
+      userId: dana.user.id,
+    });
+    expect(revokeDenied.payload?.reason).toBe('not-owner');
+    // Deny never tears the socket down; both denies are audit rows.
+    expect(bobClient.readyState).toBe(WebSocket.OPEN);
+    const grantDeny = audits.find((a) => a.capability === 'daemon.workspace-grant' && !a.decision.allow);
+    expect(grantDeny?.actorUserId).toBe(bob.user.id);
+    expect(grantDeny?.decision.reason).toBe('insufficient-workspace-role');
+    expect(audits.find((a) => a.capability === 'daemon.workspace-revoke' && !a.decision.allow)).toBeDefined();
+
+    // An IdP-managed row refuses mutation even from a real owner.
+    const managedGrant = await callOverWire(aliceClient, {
+      type: 'grantWorkspaceMember',
+      workspaceId: teamId,
+      userId: dana.user.id,
+      role: 'editor',
+    });
+    expect(managedGrant.payload?.reason).toBe('managed');
+    const managedRevoke = await callOverWire(aliceClient, {
+      type: 'revokeWorkspaceMember',
+      workspaceId: teamId,
+      userId: dana.user.id,
+    });
+    expect(managedRevoke.payload?.reason).toBe('managed');
+    expect((await listWorkspaceRolesForPrincipal(dana.principal.id)).map((r) => r.origin)).toEqual(['idp']);
+  });
+
+  it('an owner revokes a member live — the row drops and the retract frame reaches the member only', async () => {
+    const teamId = await bootTeamWorkspace();
+    const alice = await addUserWithGrant('Alice', null);
+    await grantWorkspaceRole({ principalId: alice.principal.id, workspaceId: teamId, role: 'owner' });
+    const carol = await addUserWithGrant('Carol', null);
+    await grantWorkspaceRole({ principalId: carol.principal.id, workspaceId: teamId, role: 'viewer' });
+    const port = await freePort();
+    server = await startServerWithAdminPlane(port);
+    const aliceClient = await connectAs(port, alice, 'ext-alice');
+    const carolClient = await connectAs(port, carol, 'ext-carol');
+
+    const retract = new Promise<{ workspaceId: string }>((resolve) => {
+      carolClient.on('message', (raw) => {
+        const msg = JSON.parse(raw.toString());
+        if (msg.type === SYNC_WORKSPACE_RETRACT_TYPE) resolve(msg);
+      });
+    });
+    const revoked = await callOverWire(aliceClient, {
+      type: 'revokeWorkspaceMember',
+      workspaceId: teamId,
+      userId: carol.user.id,
+    });
+    expect(revoked.payload).toEqual({ ok: true });
+    expect((await retract).workspaceId).toBe(teamId);
+    expect(await listWorkspaceRolesForPrincipal(carol.principal.id)).toEqual([]);
+    const allow = audits.find((a) => a.capability === 'daemon.workspace-revoke' && a.decision.allow);
+    expect(allow?.actorUserId).toBe(alice.user.id);
+    expect(allow?.workspaceId).toBe(teamId);
+
+    const notGranted = await callOverWire(aliceClient, {
+      type: 'revokeWorkspaceMember',
+      workspaceId: teamId,
+      userId: carol.user.id,
+    });
+    expect(notGranted.payload?.reason).toBe('not-granted');
   });
 });

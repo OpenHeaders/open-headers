@@ -143,6 +143,13 @@ export const DaemonAdminSchema = v.object({
  * user leaves, stamped with the leaving user as the actor and the left
  * workspace. Audit-vocabulary only.
  *
+ * `daemon.workspace-grant` / `daemon.workspace-revoke` are the owner
+ * self-service member plane's stamps (the access-foundation plan §8
+ * F4): one row per grant/revoke frame on the peer members plane,
+ * carrying the OWNER-gate decision — allow when the caller holds the
+ * owner role on the named workspace, deny otherwise — with the caller
+ * as the actor and the managed workspace. Audit-vocabulary only.
+ *
  * `daemon.seat-admit` is the seat gate's stamp (the licensing plan §4)
  * — a deny row per directory-user admission refused at the seat limit
  * (including the personal-seat refusal reasons), and an allow row when
@@ -171,6 +178,8 @@ export const CapabilitySchema = v.picklist([
   'daemon.sso-revoke',
   'daemon.sso-admin',
   'daemon.workspace-leave',
+  'daemon.workspace-grant',
+  'daemon.workspace-revoke',
   'daemon.seat-admit',
   'daemon.service-admit',
   'daemon.license-install',

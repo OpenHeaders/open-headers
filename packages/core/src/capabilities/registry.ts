@@ -188,6 +188,65 @@ export interface TerminalHostApi {
 }
 
 /**
+ * One grant on a server workspace as the members plane projects it —
+ * the owner self-service surface (the access-foundation plan §8 F4).
+ * `kind`, `role`, and `origin` are wire strings wider than the
+ * authoring unions: unknown values from a newer server render verbatim
+ * (the forward-tolerant decode law), and the UI treats any role it
+ * doesn't recognize — and any `origin` at all — as immutable.
+ */
+export interface WorkspaceMemberRow {
+  readonly userId: string;
+  readonly displayName: string;
+  readonly email: string | null;
+  readonly kind: string;
+  readonly role: string;
+  /** Provenance when the grant is managed (`'idp'` today); absent = manual. */
+  readonly origin?: string;
+  /** True for the serving host's own operator identity. */
+  readonly operator?: boolean;
+}
+
+/** An active directory principal the caller may grant — the add picker's row. */
+export interface WorkspaceMemberCandidate {
+  readonly userId: string;
+  readonly displayName: string;
+  readonly email: string | null;
+  readonly kind: string;
+}
+
+export interface WorkspaceMembersListResult {
+  readonly ok: boolean;
+  /** The caller's own role on the workspace, verbatim; null when role-less (a server admin). */
+  readonly callerRole?: string | null;
+  readonly members?: readonly WorkspaceMemberRow[];
+  /** Grantable principals — present only when the caller is an owner. */
+  readonly candidates?: readonly WorkspaceMemberCandidate[];
+  readonly reason?: string;
+  readonly error?: string;
+}
+
+export interface WorkspaceMembersMutationResult {
+  readonly ok: boolean;
+  readonly reason?: string;
+  readonly error?: string;
+}
+
+/**
+ * The owner self-service member plane behind
+ * {@link Capabilities.workspaceMembers}. `grant` is an upsert (add a
+ * principal or change a non-owner role); both mutations are refused
+ * in-band by the server unless the caller owns the workspace, and
+ * owner rows / managed (`origin`-stamped) rows refuse mutation on any
+ * caller — those stay on the admin plane.
+ */
+export interface WorkspaceMembersApi {
+  list(workspaceId: string): Promise<WorkspaceMembersListResult>;
+  grant(workspaceId: string, userId: string, role: 'editor' | 'viewer'): Promise<WorkspaceMembersMutationResult>;
+  revoke(workspaceId: string, userId: string): Promise<WorkspaceMembersMutationResult>;
+}
+
+/**
  * The network stack that executes this surface's API requests (the
  * workbench `executeRequest` channel). `'browser'` = the browser's
  * fetch inside an extension context; `'node'` = a Node fetch stack —
@@ -410,6 +469,16 @@ export interface Capabilities {
    * are local or Discard-managed, not grant-held.
    */
   leaveWorkspace?: (workspaceId: string) => Promise<{ ok: boolean; reason?: string; error?: string }>;
+
+  /**
+   * Owner self-service member management on a server workspace (the
+   * access-foundation plan §8 F4). Registered only by the web host,
+   * where the serving daemon's members plane answers; the daemon gates
+   * every mutation on the CALLER's owner role — never `daemon.admin` —
+   * and any granted user may list. Extension / desktop shells never
+   * register it, which hides the Members affordance in shared UI.
+   */
+  workspaceMembers?: () => WorkspaceMembersApi;
 
   /**
    * The network runtime that executes this surface's API requests —

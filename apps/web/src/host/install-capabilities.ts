@@ -7,7 +7,12 @@
  */
 
 import { hostBridge } from '@openheaders/core/bridge';
-import { registerCapability } from '@openheaders/core/capabilities';
+import {
+  registerCapability,
+  type WorkspaceMembersApi,
+  type WorkspaceMembersListResult,
+  type WorkspaceMembersMutationResult,
+} from '@openheaders/core/capabilities';
 import { showTransitionOverlay } from '@/transition-overlay';
 import { signOutWeb } from './sign-out';
 import { callWireRpc, registerWireRpcChannels } from './wire-rpc';
@@ -49,3 +54,25 @@ registerCapability('leaveWorkspace', async (workspaceId) => {
   const result = await callWireRpc({ type: 'leaveWorkspace', workspaceId });
   return (result ?? { ok: false }) as { ok: boolean; reason?: string; error?: string };
 });
+
+// Owner self-service member management (F4). Every verb runs on the
+// serving daemon as the authenticated peer — the daemon gates
+// mutations on the CALLER's owner role and answers refusals in-band;
+// a grant/revoke's live offer/retract push updates the member's open
+// tabs, so the modal only re-lists after a mutation.
+registerWireRpcChannels(['listWorkspaceMembers', 'grantWorkspaceMember', 'revokeWorkspaceMember']);
+const workspaceMembersApi: WorkspaceMembersApi = {
+  async list(workspaceId) {
+    const result = await callWireRpc({ type: 'listWorkspaceMembers', workspaceId });
+    return (result ?? { ok: false }) as WorkspaceMembersListResult;
+  },
+  async grant(workspaceId, userId, role) {
+    const result = await callWireRpc({ type: 'grantWorkspaceMember', workspaceId, userId, role });
+    return (result ?? { ok: false }) as WorkspaceMembersMutationResult;
+  },
+  async revoke(workspaceId, userId) {
+    const result = await callWireRpc({ type: 'revokeWorkspaceMember', workspaceId, userId });
+    return (result ?? { ok: false }) as WorkspaceMembersMutationResult;
+  },
+};
+registerCapability('workspaceMembers', () => workspaceMembersApi);

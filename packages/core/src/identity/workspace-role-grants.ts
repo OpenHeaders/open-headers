@@ -101,6 +101,17 @@ export async function listWorkspaceRolesForPrincipal(principalId: string): Promi
   return persisted.filter((wra) => wra.principalId === principalId);
 }
 
+/**
+ * Every principal's persisted grant on one workspace — the member view
+ * the owner self-service plane projects (the access-foundation plan §8
+ * F4). Same slot, read-only; the synthetic operator's owner row is
+ * included like any other principal's.
+ */
+export async function listWorkspaceRolesForWorkspace(workspaceId: string): Promise<WorkspaceRoleAssignment[]> {
+  const persisted = (await hostStorage.get(OH.workspaceRoleAssignments)) ?? [];
+  return persisted.filter((wra) => wra.workspaceId === workspaceId);
+}
+
 export interface DesiredIdpGrant {
   workspaceId: string;
   role: WorkspaceRole;

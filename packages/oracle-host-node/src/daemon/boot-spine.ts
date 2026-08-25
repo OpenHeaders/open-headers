@@ -197,6 +197,7 @@ import { createDaemonPasswordLoginService } from './password/password-login-serv
 import { createPeerAdminRpc } from './peer-admin-rpc';
 import { createPeerRequestsRpc } from './peer-requests-rpc';
 import { createPeerWorkspaceLeaveRpc } from './peer-workspace-leave';
+import { createPeerWorkspaceMembersRpc } from './peer-workspace-members';
 import { installProxyCaptureLifeline } from './proxy/capture-lifeline';
 import { createProxyCaptureService } from './proxy/proxy-capture-service';
 import { createProxyTrustService } from './proxy/proxy-trust';
@@ -1452,6 +1453,7 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
         createPeerAdminRpc({ channels: adminChannels }),
         createPeerRequestsRpc({ cliStatus: () => cliProvision.status() }),
         createPeerWorkspaceLeaveRpc({ getWsServer: () => wsServer }),
+        createPeerWorkspaceMembersRpc({ getWsServer: () => wsServer }),
       ),
       peerPush: composePeerPush(browserLiveRelay.peerPush, proxyRoutingControl.peerPush, captureFeedbackPush.peerPush),
       httpRequestHandler: admission.wrapHttpHandler(

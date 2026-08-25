@@ -13,6 +13,11 @@ export type {
   TerminalSpawnOptions,
   TerminalSpawnProfile,
   WhatsNewHistoryApi,
+  WorkspaceMemberCandidate,
+  WorkspaceMemberRow,
+  WorkspaceMembersApi,
+  WorkspaceMembersListResult,
+  WorkspaceMembersMutationResult,
 } from './registry';
 export {
   getCapability,

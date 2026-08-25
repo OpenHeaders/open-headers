@@ -24,6 +24,7 @@ import {
   HolderOutlined,
   LogoutOutlined,
   PlusOutlined,
+  TeamOutlined,
 } from '@ant-design/icons';
 import { DndContext, type DragEndEvent, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { arrayMove, SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
@@ -47,6 +48,7 @@ import { useT } from '@openheaders/ui/context/LocaleContext';
 import HomeOrgIdentityCard from './HomeOrgIdentityCard';
 import PublishWorkspaceModal from './PublishWorkspaceModal';
 import WorkspaceIdentityPicker, { type WorkspaceIdentity } from './WorkspaceIdentityPicker';
+import WorkspaceMembersModal from './WorkspaceMembersModal';
 import { DEFAULT_WORKSPACE_ICON } from './workspace-colors';
 import { renderWorkspacePrefix } from './workspace-prefix';
 
@@ -77,6 +79,7 @@ const WorkspaceManager: React.FC<WorkspaceManagerProps> = ({ api, activeWorkspac
   const [editTarget, setEditTarget] = useState<ExtensionWorkspace | null>(null);
   const [duplicateTarget, setDuplicateTarget] = useState<ExtensionWorkspace | null>(null);
   const [publishSource, setPublishSource] = useState<ExtensionWorkspace | null>(null);
+  const [membersTarget, setMembersTarget] = useState<ExtensionWorkspace | null>(null);
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
 
   const canDelete = api.workspaces.length > 1;
@@ -167,6 +170,11 @@ const WorkspaceManager: React.FC<WorkspaceManagerProps> = ({ api, activeWorkspac
   // server's retraction push evicts the workspace from every open tab
   // of this user, so no local removal follows the call.
   const leaveWorkspace = getCapability('leaveWorkspace');
+  // Owner self-service member management (F4) — same host posture; the
+  // server gates mutations on the caller's owner role per call, so the
+  // affordance renders for every row and the modal is honest about
+  // what the caller may change.
+  const workspaceMembers = getCapability('workspaceMembers');
   const handleLeave = useCallback(
     (workspace: ExtensionWorkspace) => {
       if (!leaveWorkspace) return;
@@ -195,6 +203,7 @@ const WorkspaceManager: React.FC<WorkspaceManagerProps> = ({ api, activeWorkspac
       onDelete={() => handleDelete(w)}
       onDuplicate={() => handleDuplicate(w)}
       onPublish={publishTargetsFor(w).length > 0 ? () => setPublishSource(w) : null}
+      onMembers={workspaceMembers ? () => setMembersTarget(w) : null}
       onLeave={leaveWorkspace ? () => handleLeave(w) : null}
       onSwitch={() => onSwitch(w.id)}
       onIdentityChange={(identity) => {
@@ -282,6 +291,8 @@ const WorkspaceManager: React.FC<WorkspaceManagerProps> = ({ api, activeWorkspac
           return true;
         }}
       />
+
+      <WorkspaceMembersModal workspace={membersTarget} onClose={() => setMembersTarget(null)} />
 
       <PublishWorkspaceModal
         source={publishSource}
@@ -433,6 +444,8 @@ interface SortableRowProps {
   onDuplicate: () => void;
   /** Null when no publishable target exists — the button doesn't render. */
   onPublish: (() => void) | null;
+  /** Null when the host has no members plane — the button doesn't render. */
+  onMembers: (() => void) | null;
   /** Null when the host has no leave verb — the button doesn't render. */
   onLeave: (() => void) | null;
   onSwitch: () => void;
@@ -450,6 +463,7 @@ const SortableRow: React.FC<SortableRowProps> = ({
   onDelete,
   onDuplicate,
   onPublish,
+  onMembers,
   onLeave,
   onSwitch,
   onIdentityChange,
@@ -557,6 +571,15 @@ const SortableRow: React.FC<SortableRowProps> = ({
             icon={<CloudUploadOutlined />}
             onClick={onPublish}
             aria-label={t('workbench.workspace.publishAria')}
+          />
+        )}
+        {onMembers && (
+          <Button
+            size="small"
+            icon={<TeamOutlined />}
+            onClick={onMembers}
+            data-testid={`workspace-members-open-${workspace.id}`}
+            aria-label={t('workbench.workspace.members.openAria')}
           />
         )}
         {onLeave && (

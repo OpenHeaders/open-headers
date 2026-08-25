@@ -13,6 +13,7 @@ import {
   ensureWorkspaceRoleAssignments,
   grantWorkspaceRole,
   listWorkspaceRolesForPrincipal,
+  listWorkspaceRolesForWorkspace,
   reconcileIdpWorkspaceRoles,
   revokeWorkspaceRole,
 } from '../../src/identity';
@@ -102,6 +103,18 @@ describe('workspace role grants', () => {
     const alices = await listWorkspaceRolesForPrincipal(alicePrincipalId);
     expect(alices).toHaveLength(1);
     expect(alices[0].role).toBe('viewer');
+  });
+
+  it('the workspace-scoped list crosses principals — synthetic owner row included — and stays workspace-exact', async () => {
+    const bob = await createDaemonUser({ displayName: 'Bob' });
+    if (!bob.ok) throw new Error('setup failed');
+    await ensureWorkspaceRoleAssignments([W1]);
+    await grantWorkspaceRole({ principalId: alicePrincipalId, workspaceId: W1, role: 'viewer' });
+    await grantWorkspaceRole({ principalId: bob.record.principal.id, workspaceId: W2, role: 'editor' });
+    const rows = await listWorkspaceRolesForWorkspace(W1);
+    expect(rows).toHaveLength(2);
+    expect(rows.map((r) => r.workspaceId)).toEqual([W1, W1]);
+    expect(rows.map((r) => r.role).sort()).toEqual(['owner', 'viewer']);
   });
 
   it('concurrent grants for distinct pairs both persist (shared writer lock)', async () => {
