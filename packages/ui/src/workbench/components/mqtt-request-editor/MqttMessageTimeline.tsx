@@ -17,12 +17,14 @@
  * subscription lifecycle facts — Subscribed-with-grant /
  * Unsubscribed — render at their TRUE chronological positions because
  * they ride the same item log as the messages (live Subscribe toggles
- * land mid-session). Message rows read direction glyph · topic chip
- * (color DERIVED from the topic string — display-side, never stored) ·
- * QoS / Retained / DUP tags · payload preview · byte count ·
- * right-aligned session time; payloads that do not decode as text
- * render an honest byte label with their base64 in the expanded viewer
- * (payloads verbatim — decode is display-side).
+ * land mid-session).
+ *
+ * DECOMPOSED orchestrator: the model plane (item/lifecycle/entry
+ * shapes, pinned heights, display derivations) lives in
+ * `mqtt-timeline-model.ts`, each entry renders through
+ * `MqttTimelineEntryRow`, and the control strip is
+ * `MqttTimelineToolbar` — this file owns the display state, the
+ * filter/entry assembly, and the virtual-window scroll plumbing.
  *
  * Sort rides the `requests.mqttMessagesNewestFirst` SETTING (global,
  * toolbar-written — the choice survives Connect/Disconnect remounts).
@@ -31,111 +33,26 @@
  * session-only (the ratified law): absent rows simply render no time.
  */
 
-import {
-  ArrowDownOutlined,
-  ArrowUpOutlined,
-  CheckCircleOutlined,
-  CheckOutlined,
-  ClearOutlined,
-  CloseCircleOutlined,
-  DisconnectOutlined,
-  DownOutlined,
-  InfoCircleOutlined,
-  MinusCircleOutlined,
-  PlusCircleOutlined,
-  SearchOutlined,
-  SortAscendingOutlined,
-  UpOutlined,
-} from '@ant-design/icons';
-import { decodeBase64Bytes } from '@openheaders/core/utils';
-import { Button, ConfigProvider, Dropdown, Input, Segmented, Select, Tag, Tooltip, Typography, theme } from 'antd';
+import { ArrowDownOutlined, ArrowUpOutlined } from '@ant-design/icons';
+import { Button, theme } from 'antd';
 import type React from 'react';
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { useT } from '@openheaders/ui/context/LocaleContext';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useVirtualRowWindow } from '@openheaders/ui/shared/virtual-window';
 import { useSetting } from '@openheaders/ui/workbench/settings/hooks';
-import CodeEditor from '../shared/CodeEditor';
-import { grantLabel } from './session-display';
-import { WrapLinesIcon } from '../request-editor/response/ViewPickerIcons';
-
-const { Text } = Typography;
-
-/** Inline preview cap — plenty for a row; the expanded viewer has the
- *  full payload. */
-const PREVIEW_MAX_CHARS = 400;
-
-/** Pinned border-box height of every single-line row — the virtual
- *  window's arithmetic depends on heights being exact by construction. */
-const SINGLE_ROW_PX = 28;
-/** Pinned height of an expanded row's mini viewer (180px editor +
- *  1px divider). */
-const VIEWER_PX = 181;
-/** Pinned height of the Connected row's expanded CONNACK block —
- *  heading (18px) + four fact rows (20px each) + 6px paddings + 1px
- *  divider; the lines carry these heights explicitly so the virtual
- *  window's arithmetic stays exact by construction. */
-const CONNACK_DETAIL_PX = 111;
-
-const cellFont: React.CSSProperties = {
-  fontFamily: "'SF Mono', 'Fira Code', monospace",
-  fontSize: 12,
-};
-
-/** One timeline item — the live wire item and the snapshot event share
- *  this shape (atMs rides only the live one; materialized times join
- *  via `timestamps`). */
-export type MqttTimelineItem =
-  | {
-      kind: 'message';
-      direction: 'up' | 'down';
-      topic: string;
-      payloadBase64: string;
-      qos: 0 | 1 | 2;
-      retain: boolean;
-      dup: boolean;
-    }
-  | { kind: 'subscribed'; grants: Array<{ topicFilter: string; reasonCode: number }> }
-  | { kind: 'unsubscribed'; topicFilters: string[] };
-
-/** How the session ended — drives the ended lifecycle row. */
-export type MqttTimelineEndedBy = 'close' | 'stop';
-
-export interface MqttTimelineLifecycle {
-  /** Session-only Connect-departure time. */
-  startedAt?: number;
-  /** True once the CONNACK accepted. */
-  connected: boolean;
-  /** Session-only CONNACK-accepted time. */
-  connectedAt?: number;
-  /** The CONNACK facts behind the Connected row's expandable details —
-   *  assembled by the pane (the version knob scopes which numeric
-   *  space names the code); rendered verbatim as key: value rows.
-   *  `remainingLength` is the frame's Remaining Length as observed on
-   *  the wire — absent on captures that predate the fact, rendered as
-   *  the absence it is. */
-  connack?: { reasonCode: number; reasonName?: string; sessionPresent: boolean; remainingLength?: number };
-  /** Classified pre-open failure — the session never opened (a CONNACK
-   *  refusal included, its reason verbatim). Rendered as an error row
-   *  at the timeline's new edge; never set beside `endedBy` or
-   *  `aborted`. */
-  errorMessage?: string;
-  /** The pre-open end was USER-initiated (Cancel / Stop) — the neutral
-   *  "Connection aborted" info row renders at the error row's slot
-   *  instead of the error tint. Never set beside `errorMessage` (an
-   *  abort carries no message) or `endedBy`. */
-  aborted?: true;
-  /** The abort tore down an ESTABLISHED broker socket — a
-   *  "Disconnected from broker" info row follows the aborted row.
-   *  Never set without `aborted` (no fabricated disconnects). */
-  abortedDisconnected?: true;
-  /** Absent while the session is open — the live phase. */
-  endedBy?: MqttTimelineEndedBy;
-  endedAt?: number;
-  /** The end detail riding the ended row — the clean Disconnect, the
-   *  broker's verbatim reason, or the severed-connection note.
-   *  Assembled by the pane; rendered verbatim. */
-  endedMessage?: string;
-}
+import { useT } from '@openheaders/ui/context/LocaleContext';
+import {
+  CONNACK_DETAIL_PX,
+  entryIndexAt,
+  makeMqttFrameDerivations,
+  type MqttDirectionFilter,
+  type MqttTimelineEntry,
+  type MqttTimelineItem,
+  type MqttTimelineLifecycle,
+  SINGLE_ROW_PX,
+  VIEWER_PX,
+} from './mqtt-timeline-model';
+import MqttTimelineEntryRow from './MqttTimelineEntryRow';
+import MqttTimelineToolbar from './MqttTimelineToolbar';
 
 interface MqttMessageTimelineProps {
   /** Item log — append-only during the live phase (the array reference
@@ -151,105 +68,6 @@ interface MqttMessageTimelineProps {
   droppedMessages?: number;
 }
 
-/** One display slot of the virtual list — heights are a closed
- *  function of `kind`, so windowing never measures. */
-type ListEntry =
-  | { key: string; kind: 'sent' | 'connected' | 'connackDetail' | 'error' | 'abortedEnd' | 'ended' | 'noMatches' }
-  | { key: string; kind: 'row'; index: number }
-  | { key: string; kind: 'viewer'; index: number };
-
-type DirectionFilter = 'all' | 'up' | 'down';
-
-/** Stable per-topic chip palette — the same topic always lands on the
- *  same color (DISPLAY-derived from the string, never stored). */
-const TOPIC_BADGE_COLORS = ['blue', 'green', 'purple', 'magenta', 'cyan', 'volcano', 'geekblue', 'orange'] as const;
-
-function topicBadgeColor(topic: string): string {
-  let hash = 0;
-  for (let i = 0; i < topic.length; i++) hash = (hash * 31 + topic.charCodeAt(i)) >>> 0;
-  return TOPIC_BADGE_COLORS[hash % TOPIC_BADGE_COLORS.length];
-}
-
-/** Session timestamps are wall-clock local times — HH:MM:SS.mmm. */
-function formatMessageTime(ts: number): string {
-  const d = new Date(ts);
-  const pad = (n: number, width = 2) => String(n).padStart(width, '0');
-  return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}.${pad(d.getMilliseconds(), 3)}`;
-}
-
-/** Last entry index whose top offset is at or above `scrollTop`. */
-function entryIndexAt(prefix: readonly number[], scrollTop: number): number {
-  let lo = 0;
-  let hi = prefix.length - 2;
-  while (lo < hi) {
-    const mid = (lo + hi + 1) >> 1;
-    if (prefix[mid] <= scrollTop) lo = mid;
-    else hi = mid - 1;
-  }
-  return lo;
-}
-
-/** A message's display view — text payloads decode display-side (json
- *  highlighting when the payload parses), binary payloads stay base64
- *  (the wire carries no text/binary marker, so the split is an honest
- *  display heuristic over the decoded bytes). */
-export interface MqttMessageView {
-  kind: 'text' | 'json' | 'binary';
-  /** Decoded text (text/json) or the base64 payload (binary). */
-  text: string;
-  byteLength: number;
-}
-
-/** Control characters outside \t \n \r mark a payload as binary for
- *  DISPLAY — so does a UTF-8 decode that needed replacement chars. */
-// biome-ignore lint/suspicious/noControlCharactersInRegex: the binary display heuristic inspects control bytes by design.
-const BINARY_MARKS = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\uFFFD]/;
-
-/** Per-item view/preview caches — item identity is append-only, so a
- *  WeakMap never serves a stale decode. */
-function makeMqttFrameDerivations(): {
-  viewOf: (item: MqttTimelineItem & { kind: 'message' }) => MqttMessageView;
-  previewOf: (item: MqttTimelineItem & { kind: 'message' }) => string;
-} {
-  const viewCache = new WeakMap<MqttTimelineItem, MqttMessageView>();
-  const previewCache = new WeakMap<MqttTimelineItem, string>();
-  const viewOf = (item: MqttTimelineItem & { kind: 'message' }): MqttMessageView => {
-    const hit = viewCache.get(item);
-    if (hit !== undefined) return hit;
-    // A malformed payload string decodes to nothing — the row still
-    // renders (empty text / zero bytes) rather than throwing.
-    const bytes = decodeBase64Bytes(item.payloadBase64) ?? new Uint8Array(0);
-    const text = new TextDecoder().decode(bytes);
-    let view: MqttMessageView;
-    if (BINARY_MARKS.test(text)) {
-      view = { kind: 'binary', text: item.payloadBase64, byteLength: bytes.byteLength };
-    } else {
-      const trimmed = text.trimStart();
-      let kind: 'text' | 'json' = 'text';
-      if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
-        try {
-          JSON.parse(text);
-          kind = 'json';
-        } catch {
-          kind = 'text';
-        }
-      }
-      view = { kind, text, byteLength: bytes.byteLength };
-    }
-    viewCache.set(item, view);
-    return view;
-  };
-  const previewOf = (item: MqttTimelineItem & { kind: 'message' }): string => {
-    const hit = previewCache.get(item);
-    if (hit !== undefined) return hit;
-    const view = viewOf(item);
-    const preview = view.kind === 'binary' ? '' : view.text.replace(/\n\s*/g, ' ').slice(0, PREVIEW_MAX_CHARS);
-    previewCache.set(item, preview);
-    return preview;
-  };
-  return { viewOf, previewOf };
-}
-
 const MqttMessageTimeline: React.FC<MqttMessageTimelineProps> = ({
   items,
   count,
@@ -260,9 +78,8 @@ const MqttMessageTimeline: React.FC<MqttMessageTimelineProps> = ({
   const { token } = theme.useToken();
   const t = useT();
   const [search, setSearch] = useState('');
-  const [directionFilter, setDirectionFilter] = useState<DirectionFilter>('all');
+  const [directionFilter, setDirectionFilter] = useState<MqttDirectionFilter>('all');
   const [topicFilter, setTopicFilter] = useState<string | null>(null);
-  const [sortMenuOpen, setSortMenuOpen] = useState(false);
   // Display-only clear: rows below this index hide; the capture (and
   // the lifecycle rows) stay untouched.
   const [clearedCount, setClearedCount] = useState(0);
@@ -368,13 +185,13 @@ const MqttMessageTimeline: React.FC<MqttMessageTimelineProps> = ({
   // idle open session shows no placeholder — the lifecycle rows are
   // the whole honest story.
   const entries = useMemo(() => {
-    const out: ListEntry[] = [];
+    const out: MqttTimelineEntry[] = [];
     const pushRow = (index: number) => {
       out.push({ key: `r${index}`, kind: 'row', index });
       if (expanded.has(index)) out.push({ key: `v${index}`, kind: 'viewer', index });
     };
     const messageCount = visibleRows.length;
-    const notice: ListEntry | null =
+    const notice: MqttTimelineEntry | null =
       filtering && messageCount === 0 && count > clearedCount ? { key: 'none', kind: 'noMatches' } : null;
 
     const tokens: Array<number | 'connected'> = [];
@@ -476,426 +293,18 @@ const MqttMessageTimeline: React.FC<MqttMessageTimelineProps> = ({
     }
   }, [entries, prefix, newestFirst, onWindowScroll]);
 
-  const toggleRow = (index: number) => {
+  const toggleRow = useCallback((index: number) => {
     setExpanded((prev) => {
       const next = new Set(prev);
       if (next.has(index)) next.delete(index);
       else next.add(index);
       return next;
     });
-  };
+  }, []);
 
-  const singleRowStyle: React.CSSProperties = {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 8,
-    height: SINGLE_ROW_PX,
-    boxSizing: 'border-box',
-    padding: '0 10px',
-    borderBottom: `1px solid ${token.colorBorderSecondary}`,
-    overflow: 'hidden',
-  };
-
-  const lifecycleRowStyle: React.CSSProperties = {
-    ...singleRowStyle,
-    color: token.colorTextSecondary,
-    fontSize: 12,
-  };
-
-  const lifecycleTime = (ts: number | undefined): React.ReactNode =>
-    ts !== undefined ? (
-      <span style={{ ...cellFont, fontSize: 11, marginLeft: 'auto', color: token.colorTextTertiary }}>
-        {formatMessageTime(ts)}
-      </span>
-    ) : null;
-
-  // Trailing expand slot — fixed width on EVERY row so the
-  // right-aligned timestamps line up in one column; expandable rows
-  // render their chevron in it, the rest leave it empty.
-  const expandSlot = (expanded: boolean | null): React.ReactNode => (
-    <span
-      aria-hidden
-      style={{ width: 12, flexShrink: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
-    >
-      {expanded !== null &&
-        (expanded ? (
-          <UpOutlined style={{ fontSize: 9, color: token.colorTextTertiary }} />
-        ) : (
-          <DownOutlined style={{ fontSize: 9, color: token.colorTextTertiary }} />
-        ))}
-    </span>
-  );
-
-  // Boxed direction badge — ↑ amber, ↓ blue on their tinted
-  // backgrounds (the gRPC/WS anatomy).
-  const directionBadge = (up: boolean): React.ReactNode => (
-    <span
-      style={{
-        display: 'inline-flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        width: 18,
-        height: 18,
-        borderRadius: 4,
-        flexShrink: 0,
-        background: up ? token.colorWarningBgHover : token.colorPrimaryBg,
-      }}
-    >
-      {up ? (
-        <ArrowUpOutlined
-          aria-label={t('workbench.editors.mqtt.timeline.sentAria')}
-          style={{ fontSize: 11, color: token.colorTextSecondary }}
-        />
-      ) : (
-        <ArrowDownOutlined
-          aria-label={t('workbench.editors.mqtt.timeline.receivedAria')}
-          style={{ fontSize: 11, color: token.colorTextSecondary }}
-        />
-      )}
-    </span>
-  );
-
-  const topicChip = (topic: string): React.ReactNode => (
-    <Tag
-      data-testid="mqtt-timeline-topic-chip"
-      color={topicBadgeColor(topic)}
-      style={{
-        marginInlineEnd: 0,
-        fontSize: 11,
-        lineHeight: '18px',
-        flexShrink: 1,
-        minWidth: 0,
-        maxWidth: 220,
-        overflow: 'hidden',
-        textOverflow: 'ellipsis',
-        whiteSpace: 'nowrap',
-      }}
-    >
-      {topic}
-    </Tag>
-  );
-
-  const factTag = (label: string, testid: string): React.ReactNode => (
-    <Tag style={{ marginInlineEnd: 0, fontSize: 10, lineHeight: '16px', flexShrink: 0 }} data-testid={testid}>
-      {label}
-    </Tag>
-  );
-
-  const renderEntry = (entry: ListEntry): React.ReactNode => {
-    switch (entry.kind) {
-      case 'sent':
-        return (
-          <div key={entry.key} data-testid="mqtt-timeline-sent-row" style={lifecycleRowStyle}>
-            <InfoCircleOutlined aria-hidden style={{ fontSize: 11, color: token.colorTextTertiary }} />
-            <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {t('workbench.editors.mqtt.timeline.connecting')}
-            </span>
-            {lifecycleTime(lifecycle.startedAt)}
-            {expandSlot(null)}
-          </div>
-        );
-      case 'connected': {
-        const expandable = lifecycle.connack !== undefined;
-        return (
-          <div
-            key={entry.key}
-            data-testid="mqtt-timeline-connected-row"
-            {...(expandable
-              ? {
-                  role: 'button',
-                  tabIndex: 0,
-                  'aria-expanded': connackExpanded,
-                  className: 'oh-stream-row',
-                  onClick: () => setConnackExpanded((prev) => !prev),
-                  onKeyDown: (event: React.KeyboardEvent) => {
-                    if (event.key === 'Enter' || event.key === ' ') {
-                      event.preventDefault();
-                      setConnackExpanded((prev) => !prev);
-                    }
-                  },
-                }
-              : {})}
-            style={{ ...lifecycleRowStyle, ...(expandable ? { cursor: 'pointer' } : {}) }}
-          >
-            <CheckCircleOutlined aria-hidden style={{ fontSize: 11, color: token.colorSuccess }} />
-            <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {t('workbench.editors.mqtt.timeline.connected')}
-            </span>
-            {lifecycleTime(lifecycle.connectedAt)}
-            {expandSlot(expandable ? connackExpanded : null)}
-          </div>
-        );
-      }
-      case 'connackDetail': {
-        const connack = lifecycle.connack;
-        if (connack === undefined) return null;
-        // The CONNACK facts as key: value rows — wire field names raw,
-        // the reason code verbatim with its spec name beside it.
-        const factRow = (label: string, value: string): React.ReactNode => (
-          <div
-            key={label}
-            style={{
-              ...cellFont,
-              lineHeight: '20px',
-              height: 20,
-              whiteSpace: 'nowrap',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-            }}
-          >
-            <span style={{ color: token.colorTextSecondary }}>{label}: </span>
-            <span style={{ color: token.colorText }}>{value}</span>
-          </div>
-        );
-        return (
-          <div
-            key={entry.key}
-            data-testid="mqtt-timeline-connack-details"
-            style={{
-              height: CONNACK_DETAIL_PX,
-              boxSizing: 'border-box',
-              padding: '6px 10px 6px 37px',
-              borderBottom: `1px solid ${token.colorBorderSecondary}`,
-              overflow: 'hidden',
-            }}
-          >
-            <div style={{ ...cellFont, fontSize: 11, lineHeight: '18px', height: 18, color: token.colorTextTertiary }}>
-              CONNACK
-            </div>
-            {factRow('cmd', 'connack')}
-            {factRow('length', connack.remainingLength !== undefined ? String(connack.remainingLength) : '—')}
-            {factRow(
-              'reasonCode',
-              `${connack.reasonCode}${connack.reasonName !== undefined ? ` (${connack.reasonName})` : ''}`,
-            )}
-            {factRow('sessionPresent', connack.sessionPresent ? 'true' : 'false')}
-          </div>
-        );
-      }
-      case 'abortedEnd':
-        // The socket the abort tore down was really up — its close is
-        // an event of its own (no captured time of its own: the settle
-        // instant rides the aborted row).
-        return (
-          <div key={entry.key} data-testid="mqtt-timeline-aborted-end-row" style={lifecycleRowStyle}>
-            <InfoCircleOutlined aria-hidden style={{ fontSize: 11, color: token.colorTextTertiary }} />
-            <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {t('workbench.editors.mqtt.timeline.abortedDisconnected')}
-            </span>
-            {lifecycleTime(undefined)}
-            {expandSlot(null)}
-          </div>
-        );
-      case 'error': {
-        // A user abort is not a failure — the neutral info row.
-        if (lifecycle.aborted === true) {
-          return (
-            <div key={entry.key} data-testid="mqtt-timeline-aborted-row" style={lifecycleRowStyle}>
-              <InfoCircleOutlined aria-hidden style={{ fontSize: 11, color: token.colorTextTertiary }} />
-              <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {t('workbench.editors.mqtt.timeline.aborted')}
-              </span>
-              {lifecycleTime(lifecycle.endedAt)}
-              {expandSlot(null)}
-            </div>
-          );
-        }
-        if (lifecycle.errorMessage === undefined) return null;
-        return (
-          <div key={entry.key} data-testid="mqtt-timeline-error-row" style={lifecycleRowStyle}>
-            <CloseCircleOutlined aria-hidden style={{ fontSize: 11, color: token.colorError }} />
-            <span
-              title={lifecycle.errorMessage}
-              data-testid="mqtt-session-error-detail"
-              style={{
-                minWidth: 0,
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap',
-                color: token.colorError,
-              }}
-            >
-              {lifecycle.errorMessage}
-            </span>
-            {lifecycleTime(lifecycle.endedAt)}
-            {expandSlot(null)}
-          </div>
-        );
-      }
-      case 'ended': {
-        if (lifecycle.endedBy === undefined) return null;
-        return (
-          <div key={entry.key} data-testid="mqtt-timeline-ended-row" style={lifecycleRowStyle}>
-            {lifecycle.endedBy === 'close' ? (
-              <CheckCircleOutlined aria-hidden style={{ fontSize: 11, color: token.colorTextTertiary }} />
-            ) : (
-              <DisconnectOutlined aria-hidden style={{ fontSize: 11, color: token.colorTextTertiary }} />
-            )}
-            <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {lifecycle.endedBy === 'close'
-                ? t('workbench.editors.mqtt.timeline.disconnected')
-                : t('workbench.editors.mqtt.timeline.stopped')}
-              {lifecycle.endedMessage ? ` — ${lifecycle.endedMessage}` : ''}
-            </span>
-            {lifecycleTime(lifecycle.endedAt)}
-            {expandSlot(null)}
-          </div>
-        );
-      }
-      case 'noMatches':
-        return (
-          <div key={entry.key} style={lifecycleRowStyle}>
-            <span>{t('workbench.editors.mqtt.timeline.noMatches')}</span>
-          </div>
-        );
-      case 'row': {
-        const item = items[entry.index];
-        const ts = timestamps?.[entry.index];
-        if (item.kind === 'subscribed') {
-          // Prefix + the topic as its colored chip (the message rows'
-          // palette — equal topic, equal color) + the SUBACK grant
-          // verbatim beside it, failure codes on the error tint.
-          return (
-            <div key={entry.key} data-testid="mqtt-timeline-subscribed-row" style={lifecycleRowStyle}>
-              <PlusCircleOutlined aria-hidden style={{ fontSize: 11, color: token.colorTextTertiary }} />
-              <span style={{ flexShrink: 0 }}>{t('workbench.editors.mqtt.timeline.subscribed')}</span>
-              <span style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0, overflow: 'hidden' }}>
-                {item.grants.map((grant, grantIndex) => (
-                  <span
-                    key={`${String(grantIndex)}:${grant.topicFilter}`}
-                    style={{ display: 'inline-flex', alignItems: 'center', gap: 4, minWidth: 0 }}
-                  >
-                    {topicChip(grant.topicFilter)}
-                    <span
-                      style={{
-                        fontSize: 11,
-                        flexShrink: 0,
-                        color: grant.reasonCode > 2 ? token.colorError : token.colorTextTertiary,
-                      }}
-                    >
-                      {` (${grantLabel(grant.reasonCode, t)})`}
-                    </span>
-                  </span>
-                ))}
-              </span>
-              {lifecycleTime(ts)}
-              {expandSlot(null)}
-            </div>
-          );
-        }
-        if (item.kind === 'unsubscribed') {
-          return (
-            <div key={entry.key} data-testid="mqtt-timeline-unsubscribed-row" style={lifecycleRowStyle}>
-              <MinusCircleOutlined aria-hidden style={{ fontSize: 11, color: token.colorTextTertiary }} />
-              <span style={{ flexShrink: 0 }}>{t('workbench.editors.mqtt.timeline.unsubscribed')}</span>
-              <span style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0, overflow: 'hidden' }}>
-                {item.topicFilters.map((topicFilter, filterIndex) => (
-                  <span key={`${String(filterIndex)}:${topicFilter}`} style={{ display: 'inline-flex', minWidth: 0 }}>
-                    {topicChip(topicFilter)}
-                  </span>
-                ))}
-              </span>
-              {lifecycleTime(ts)}
-              {expandSlot(null)}
-            </div>
-          );
-        }
-        const up = item.direction === 'up';
-        const isExpanded = expanded.has(entry.index);
-        const view = derive.viewOf(item);
-        return (
-          <div
-            key={entry.key}
-            role="button"
-            tabIndex={0}
-            aria-expanded={isExpanded}
-            className="oh-stream-row"
-            data-testid="mqtt-timeline-message-row"
-            onClick={() => toggleRow(entry.index)}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter' || event.key === ' ') {
-                event.preventDefault();
-                toggleRow(entry.index);
-              }
-            }}
-            style={{ ...singleRowStyle, cursor: 'pointer' }}
-          >
-            {directionBadge(up)}
-            {topicChip(item.topic)}
-            {item.qos > 0 && factTag(`QoS ${item.qos}`, 'mqtt-timeline-qos-tag')}
-            {item.retain && factTag(t('workbench.editors.mqtt.timeline.retainedTag'), 'mqtt-timeline-retained-tag')}
-            {item.dup && factTag('DUP', 'mqtt-timeline-dup-tag')}
-            <span
-              style={{
-                ...cellFont,
-                color: token.colorTextSecondary,
-                flex: 1,
-                minWidth: 0,
-                whiteSpace: 'nowrap',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                ...(view.kind === 'binary' ? { fontStyle: 'italic', color: token.colorTextTertiary } : {}),
-              }}
-            >
-              {view.kind === 'binary'
-                ? t('workbench.editors.mqtt.timeline.binaryMessage', { bytes: view.byteLength })
-                : derive.previewOf(item)}
-            </span>
-            <span
-              style={{ ...cellFont, fontSize: 11, color: token.colorTextTertiary, flexShrink: 0 }}
-              data-testid="mqtt-timeline-byte-count"
-            >
-              {t('workbench.editors.mqtt.timeline.byteCount', { bytes: view.byteLength })}
-            </span>
-            {ts !== undefined && (
-              <span
-                data-testid="mqtt-timeline-message-time"
-                style={{ ...cellFont, fontSize: 11, color: token.colorTextTertiary, flexShrink: 0 }}
-              >
-                {formatMessageTime(ts)}
-              </span>
-            )}
-            {expandSlot(isExpanded)}
-          </div>
-        );
-      }
-      case 'viewer': {
-        const item = items[entry.index];
-        if (item.kind !== 'message') return null;
-        const view = derive.viewOf(item);
-        return (
-          <div
-            key={entry.key}
-            data-testid="mqtt-timeline-message-viewer"
-            onClick={(event) => event.stopPropagation()}
-            onKeyDown={(event) => event.stopPropagation()}
-            style={{ height: VIEWER_PX - 1, borderBottom: `1px solid ${token.colorBorderSecondary}` }}
-          >
-            <CodeEditor
-              value={view.text}
-              language={view.kind === 'json' ? 'json' : 'text'}
-              readOnly
-              fill
-              variableAutoComplete={false}
-              wordWrapOverride={wrapLines ? 'on' : 'off'}
-            />
-          </div>
-        );
-      }
-      default: {
-        const _exhaustive: never = entry;
-        void _exhaustive;
-        return null;
-      }
-    }
-  };
-
-  const menuOptionLabel = (label: string, checked: boolean): React.ReactNode => (
-    <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
-      {label}
-      {checked && <CheckOutlined style={{ color: token.colorPrimary }} />}
-    </span>
-  );
+  const toggleConnack = useCallback(() => {
+    setConnackExpanded((prev) => !prev);
+  }, []);
 
   const messageTotal = useMemo(() => {
     let total = 0;
@@ -908,116 +317,22 @@ const MqttMessageTimeline: React.FC<MqttMessageTimelineProps> = ({
       data-testid="mqtt-message-timeline"
       style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', gap: 6 }}
     >
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        <Input
-          size="small"
-          allowClear
-          prefix={<SearchOutlined style={{ color: token.colorTextTertiary }} />}
-          placeholder={t('workbench.editors.mqtt.timeline.searchMessages')}
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          data-testid="mqtt-timeline-search"
-          style={{ maxWidth: 220 }}
-        />
-        <Text type="secondary" style={{ fontSize: 11, whiteSpace: 'nowrap' }}>
-          {t('workbench.editors.mqtt.timeline.messageCount', { count: messageTotal })}
-        </Text>
-        {droppedMessages > 0 && (
-          <Text type="warning" style={{ fontSize: 11, whiteSpace: 'nowrap' }} data-testid="mqtt-timeline-dropped">
-            {t('workbench.editors.mqtt.timeline.dropped', { count: droppedMessages })}
-          </Text>
-        )}
-        <span style={{ marginLeft: 'auto' }} />
-        {seenTopics.length > 0 && (
-          <Select
-            size="small"
-            allowClear
-            placeholder={t('workbench.editors.mqtt.timeline.topicFilterAll')}
-            value={topicFilter}
-            options={seenTopics.map((topic) => ({ value: topic, label: topic }))}
-            onChange={(next: string | undefined) => setTopicFilter(next ?? null)}
-            style={{ minWidth: 140, maxWidth: 220 }}
-            data-testid="mqtt-timeline-topic-filter"
-          />
-        )}
-        <ConfigProvider theme={{ token: { motion: false } }}>
-          <Segmented
-            size="small"
-            value={directionFilter}
-            onChange={(value) => setDirectionFilter(value as DirectionFilter)}
-            data-testid="mqtt-timeline-direction-filter"
-            options={[
-              { value: 'all', label: t('workbench.editors.mqtt.timeline.filterAll') },
-              { value: 'up', label: `↑ ${t('workbench.editors.mqtt.timeline.filterSent')}` },
-              { value: 'down', label: `↓ ${t('workbench.editors.mqtt.timeline.filterReceived')}` },
-            ]}
-          />
-        </ConfigProvider>
-        <Dropdown
-          trigger={['click']}
-          placement="bottomRight"
-          open={sortMenuOpen}
-          onOpenChange={(open, info) => {
-            if (info.source === 'menu') return;
-            setSortMenuOpen(open);
-          }}
-          menu={{
-            items: [
-              {
-                key: 'newest',
-                label: menuOptionLabel(t('workbench.editors.mqtt.timeline.newestFirst'), newestFirst),
-                onClick: () => setNewestFirst(true),
-              },
-              {
-                key: 'oldest',
-                label: menuOptionLabel(t('workbench.editors.mqtt.timeline.oldestFirst'), !newestFirst),
-                onClick: () => setNewestFirst(false),
-              },
-            ],
-          }}
-        >
-          <Tooltip
-            title={t('workbench.editors.mqtt.timeline.sortOrder')}
-            placement="bottom"
-            open={sortMenuOpen ? false : undefined}
-          >
-            <Button
-              size="small"
-              type="text"
-              icon={<SortAscendingOutlined />}
-              data-testid="mqtt-timeline-sort"
-              aria-label={t('workbench.editors.mqtt.timeline.sortOrder')}
-            />
-          </Tooltip>
-        </Dropdown>
-        <Tooltip
-          title={
-            wrapLines
-              ? t('workbench.editors.request.response.body.unwrapLines')
-              : t('workbench.editors.request.response.body.wrapLines')
-          }
-          placement="bottom"
-        >
-          <Button
-            size="small"
-            type="text"
-            icon={<WrapLinesIcon />}
-            onClick={() => setWrapLines((prev) => !prev)}
-            aria-label={t('workbench.editors.request.response.body.wrapLines')}
-            style={wrapLines ? { background: token.colorBgTextActive } : undefined}
-          />
-        </Tooltip>
-        <Tooltip title={t('workbench.editors.mqtt.timeline.clearMessages')} placement="bottom">
-          <Button
-            size="small"
-            type="text"
-            icon={<ClearOutlined />}
-            data-testid="mqtt-timeline-clear"
-            onClick={() => setClearedCount(count)}
-            aria-label={t('workbench.editors.mqtt.timeline.clearMessages')}
-          />
-        </Tooltip>
-      </div>
+      <MqttTimelineToolbar
+        search={search}
+        onSearchChange={setSearch}
+        messageTotal={messageTotal}
+        droppedMessages={droppedMessages}
+        seenTopics={seenTopics}
+        topicFilter={topicFilter}
+        onTopicFilterChange={setTopicFilter}
+        directionFilter={directionFilter}
+        onDirectionFilterChange={setDirectionFilter}
+        newestFirst={newestFirst}
+        onNewestFirstChange={setNewestFirst}
+        wrapLines={wrapLines}
+        onWrapLinesChange={setWrapLines}
+        onClear={() => setClearedCount(count)}
+      />
       <div style={{ flex: 1, minHeight: 0, position: 'relative', display: 'flex', flexDirection: 'column' }}>
         {hasNewMessages && (
           <Button
@@ -1067,7 +382,21 @@ const MqttMessageTimeline: React.FC<MqttMessageTimelineProps> = ({
           }}
         >
           <div aria-hidden style={{ height: topPadPx }} />
-          {entries.slice(start, end).map(renderEntry)}
+          {entries.slice(start, end).map((entry) => (
+            <MqttTimelineEntryRow
+              key={entry.key}
+              entry={entry}
+              items={items}
+              timestamps={timestamps}
+              lifecycle={lifecycle}
+              derive={derive}
+              expanded={expanded}
+              connackExpanded={connackExpanded}
+              onToggleRow={toggleRow}
+              onToggleConnack={toggleConnack}
+              wrapLines={wrapLines}
+            />
+          ))}
           <div aria-hidden style={{ height: bottomPadPx }} />
         </div>
       </div>

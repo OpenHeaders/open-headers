@@ -28,7 +28,8 @@ import type React from 'react';
 import { useMemo, useState } from 'react';
 import ProxyRouteTag, { proxyRouteHasBadge } from '../request-editor/response/ProxyRouteTag';
 import { ExampleChip } from '../shared/ExampleChip';
-import MqttMessageTimeline, { type MqttTimelineLifecycle } from './MqttMessageTimeline';
+import MqttMessageTimeline from './MqttMessageTimeline';
+import type { MqttTimelineLifecycle } from './mqtt-timeline-model';
 import type { LiveMqttSession, MqttSessionTiming } from './useLiveMqttSession';
 
 const { Text } = Typography;

@@ -14,7 +14,8 @@ import { useT } from '@openheaders/ui/context/LocaleContext';
 import { Tabs, Tag, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useMemo, useState } from 'react';
-import MqttMessageTimeline, { type MqttTimelineLifecycle } from '../mqtt-request-editor/MqttMessageTimeline';
+import MqttMessageTimeline from '../mqtt-request-editor/MqttMessageTimeline';
+import type { MqttTimelineLifecycle } from '../mqtt-request-editor/mqtt-timeline-model';
 
 const { Text } = Typography;
 
