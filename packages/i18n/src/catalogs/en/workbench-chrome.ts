@@ -158,7 +158,7 @@ export const workbenchChrome = {
   'workbench.shell.empty.varCollectionTooltip': 'Collection variables are created from within a collection.',
   'workbench.shell.empty.adminNoWorkspace':
     'You are signed in as a server admin with no workspace granted. Workspace data stays out of reach until a grant exists — including one you give yourself.',
-  'workbench.shell.empty.adminOpenServerAdmin': 'Open Server admin',
+  'workbench.shell.empty.adminOpenServerAdmin': 'Open Server Admin',
   'workbench.shell.empty.adminOpenServerAdminDesc': 'Manage users, grants, and the server',
 
   // ── Shell: environment selector ─────────────────────────────────────
@@ -208,7 +208,7 @@ export const workbenchChrome = {
   'workbench.shell.breadcrumbs.settings': 'Settings',
   'workbench.shell.breadcrumbs.whatsNew': "What's New",
   'workbench.shell.breadcrumbs.workspaces': 'Workspaces',
-  'workbench.shell.breadcrumbs.serverAdmin': 'Server admin',
+  'workbench.shell.breadcrumbs.serverAdmin': 'Server Admin',
   'workbench.shell.breadcrumbs.environments': 'Environments',
   'workbench.shell.breadcrumbs.specs': 'Specs',
   'workbench.shell.breadcrumbs.workspaceVariables': 'Workspace Variables',
@@ -331,7 +331,7 @@ export const workbenchChrome = {
 
   // ── Tool-window registry (activity bars, dock tab strips, restore
   //    rows, drag previews) ───────────────────────────────────────────
-  'workbench.toolWindows.serverAdmin': 'Server admin',
+  'workbench.toolWindows.serverAdmin': 'Server Admin',
   'workbench.toolWindows.httpRules': 'Interceptor',
   'workbench.toolWindows.apiRequests': 'API Requests',
   'workbench.toolWindows.workflows': 'Workflows',
