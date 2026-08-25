@@ -1202,16 +1202,17 @@ const MqttRequestEditor: React.FC<MqttRequestEditorProps> = ({
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>{exampleSelect}</div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      {draft.payloadFormat === 'json' && (
-                        <CodeEditorActions
-                          target={payloadActionsRef}
-                          language="json"
-                          labels
-                          findText={t('workbench.editors.scriptEditor.find')}
-                          replaceText={t('workbench.editors.scriptEditor.replace')}
-                          formatText={t('workbench.editors.scriptEditor.beautify')}
-                        />
-                      )}
+                      {/* Find/Replace ride every encoding; the cluster
+                        itself keeps Beautify to formattable languages
+                        (json here — text/base64/hex are plaintext). */}
+                      <CodeEditorActions
+                        target={payloadActionsRef}
+                        language={PAYLOAD_FORMAT_LANGUAGE[draft.payloadFormat]}
+                        labels
+                        findText={t('workbench.editors.scriptEditor.find')}
+                        replaceText={t('workbench.editors.scriptEditor.replace')}
+                        formatText={t('workbench.editors.scriptEditor.beautify')}
+                      />
                       <EditorViewMenu wrap={wrapPayload} onWrapChange={setWrapPayload} data-testid="mqtt-editor-menu" />
                     </div>
                   </div>
