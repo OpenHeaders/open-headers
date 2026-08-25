@@ -92,13 +92,24 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.topics.subscribeLiveLabel':
     'Suscribirse / cancelar la suscripción en la sesión abierta — la fila guardada no se modifica',
   'workbench.editors.mqtt.topics.optionsHint': 'Opciones de suscripción MQTT 5.0 para esta fila.',
-  'workbench.editors.mqtt.topics.noLocal': 'No Local: no devolver las publicaciones de este cliente',
-  'workbench.editors.mqtt.topics.retainAsPublished': 'Retain As Published: reenviar el indicador RETAIN tal cual',
+  'workbench.editors.mqtt.topics.noLocal': 'No Local',
+  'workbench.editors.mqtt.topics.noLocalDesc': 'El broker no devuelve a este cliente sus propias publicaciones.',
+  'workbench.editors.mqtt.topics.retainAsPublished': 'Retain As Published',
+  'workbench.editors.mqtt.topics.retainAsPublishedDesc':
+    'Los mensajes conservan el indicador RETAIN tal como se publicaron.',
   'workbench.editors.mqtt.topics.retainHandling': 'Retain Handling',
-  'workbench.editors.mqtt.topics.retainHandling0': '0 · Enviar mensajes retenidos al suscribirse',
-  'workbench.editors.mqtt.topics.retainHandling1': '1 · Enviar solo para una suscripción nueva',
-  'workbench.editors.mqtt.topics.retainHandling2': '2 · No enviar mensajes retenidos',
+  'workbench.editors.mqtt.topics.retainHandling0': '0 · Recibir al suscribirse',
+  'workbench.editors.mqtt.topics.retainHandling0Desc':
+    'El broker envía los mensajes retenidos cada vez que se realiza esta suscripción.',
+  'workbench.editors.mqtt.topics.retainHandling1': '1 · Solo suscripciones nuevas',
+  'workbench.editors.mqtt.topics.retainHandling1Desc':
+    'El broker envía los mensajes retenidos solo si la suscripción no existe ya.',
+  'workbench.editors.mqtt.topics.retainHandling2': '2 · No recibir',
+  'workbench.editors.mqtt.topics.retainHandling2Desc':
+    'El broker no envía mensajes retenidos para esta suscripción.',
   'workbench.editors.mqtt.topics.subscriptionId': 'Subscription Identifier',
+  'workbench.editors.mqtt.topics.subscriptionIdDesc':
+    'Identificador numérico que el broker adjunta a los mensajes entregados por esta suscripción.',
   'workbench.editors.mqtt.auth.typeLabel': 'Tipo',
   'workbench.editors.mqtt.auth.typeNone': 'Sin autenticación',
   'workbench.editors.mqtt.auth.typeBasic': 'Autenticación Basic',

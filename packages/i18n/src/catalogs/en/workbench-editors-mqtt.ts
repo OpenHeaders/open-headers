@@ -85,13 +85,23 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.topics.subscribeLiveLabel':
     'Subscribe / unsubscribe on the open session — the saved row is not edited',
   'workbench.editors.mqtt.topics.optionsHint': 'MQTT 5.0 subscription options for this row.',
-  'workbench.editors.mqtt.topics.noLocal': 'No Local — do not echo this client’s own publishes back',
-  'workbench.editors.mqtt.topics.retainAsPublished': 'Retain As Published — forward the RETAIN flag as published',
+  'workbench.editors.mqtt.topics.noLocal': 'No Local',
+  'workbench.editors.mqtt.topics.noLocalDesc': 'The broker does not echo this client’s own publishes back to it.',
+  'workbench.editors.mqtt.topics.retainAsPublished': 'Retain As Published',
+  'workbench.editors.mqtt.topics.retainAsPublishedDesc':
+    'Messages keep the RETAIN flag exactly as they were published.',
   'workbench.editors.mqtt.topics.retainHandling': 'Retain Handling',
-  'workbench.editors.mqtt.topics.retainHandling0': '0 · Send retained messages on subscribe',
-  'workbench.editors.mqtt.topics.retainHandling1': '1 · Send only for a new subscription',
-  'workbench.editors.mqtt.topics.retainHandling2': '2 · Do not send retained messages',
+  'workbench.editors.mqtt.topics.retainHandling0': '0 · Receive on subscribe',
+  'workbench.editors.mqtt.topics.retainHandling0Desc':
+    'The broker sends the retained messages every time this subscription is made.',
+  'workbench.editors.mqtt.topics.retainHandling1': '1 · New subscriptions only',
+  'workbench.editors.mqtt.topics.retainHandling1Desc':
+    'The broker sends the retained messages only if this subscription does not already exist.',
+  'workbench.editors.mqtt.topics.retainHandling2': '2 · Don’t receive',
+  'workbench.editors.mqtt.topics.retainHandling2Desc': 'The broker sends no retained messages for this subscription.',
   'workbench.editors.mqtt.topics.subscriptionId': 'Subscription Identifier',
+  'workbench.editors.mqtt.topics.subscriptionIdDesc':
+    'A numeric id the broker attaches to messages delivered through this subscription.',
   'workbench.editors.mqtt.auth.typeLabel': 'Type',
   'workbench.editors.mqtt.auth.typeNone': 'No auth',
   'workbench.editors.mqtt.auth.typeBasic': 'Basic auth',

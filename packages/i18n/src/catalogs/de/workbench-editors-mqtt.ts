@@ -92,13 +92,25 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.topics.subscribeLiveLabel':
     'In der offenen Sitzung abonnieren / abbestellen — die gespeicherte Zeile bleibt unverändert',
   'workbench.editors.mqtt.topics.optionsHint': 'MQTT-5.0-Abonnementoptionen für diese Zeile.',
-  'workbench.editors.mqtt.topics.noLocal': 'No Local — eigene Veröffentlichungen dieses Clients nicht zurücksenden',
-  'workbench.editors.mqtt.topics.retainAsPublished': 'Retain As Published — RETAIN-Flag unverändert weiterreichen',
+  'workbench.editors.mqtt.topics.noLocal': 'No Local',
+  'workbench.editors.mqtt.topics.noLocalDesc':
+    'Der Broker sendet die eigenen Veröffentlichungen dieses Clients nicht an ihn zurück.',
+  'workbench.editors.mqtt.topics.retainAsPublished': 'Retain As Published',
+  'workbench.editors.mqtt.topics.retainAsPublishedDesc':
+    'Nachrichten behalten das RETAIN-Flag genau wie veröffentlicht.',
   'workbench.editors.mqtt.topics.retainHandling': 'Retain Handling',
-  'workbench.editors.mqtt.topics.retainHandling0': '0 · Zurückgehaltene Nachrichten beim Abonnieren senden',
-  'workbench.editors.mqtt.topics.retainHandling1': '1 · Nur bei einem neuen Abonnement senden',
-  'workbench.editors.mqtt.topics.retainHandling2': '2 · Keine zurückgehaltenen Nachrichten senden',
+  'workbench.editors.mqtt.topics.retainHandling0': '0 · Beim Abonnieren empfangen',
+  'workbench.editors.mqtt.topics.retainHandling0Desc':
+    'Der Broker sendet die zurückgehaltenen Nachrichten bei jedem Abonnieren.',
+  'workbench.editors.mqtt.topics.retainHandling1': '1 · Nur neue Abonnements',
+  'workbench.editors.mqtt.topics.retainHandling1Desc':
+    'Der Broker sendet die zurückgehaltenen Nachrichten nur, wenn das Abonnement noch nicht besteht.',
+  'workbench.editors.mqtt.topics.retainHandling2': '2 · Nicht empfangen',
+  'workbench.editors.mqtt.topics.retainHandling2Desc':
+    'Der Broker sendet für dieses Abonnement keine zurückgehaltenen Nachrichten.',
   'workbench.editors.mqtt.topics.subscriptionId': 'Subscription Identifier',
+  'workbench.editors.mqtt.topics.subscriptionIdDesc':
+    'Numerische Kennung, die der Broker an über dieses Abonnement zugestellte Nachrichten anhängt.',
   'workbench.editors.mqtt.auth.typeLabel': 'Typ',
   'workbench.editors.mqtt.auth.typeNone': 'Keine Authentifizierung',
   'workbench.editors.mqtt.auth.typeBasic': 'Basic-Authentifizierung',

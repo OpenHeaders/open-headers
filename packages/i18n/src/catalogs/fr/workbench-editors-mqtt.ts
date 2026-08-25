@@ -94,13 +94,24 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.topics.subscribeLiveLabel':
     'S’abonner / se désabonner sur la session ouverte — la ligne enregistrée n’est pas modifiée',
   'workbench.editors.mqtt.topics.optionsHint': 'Options d’abonnement MQTT 5.0 pour cette ligne.',
-  'workbench.editors.mqtt.topics.noLocal': 'No Local — ne pas renvoyer les publications de ce client',
-  'workbench.editors.mqtt.topics.retainAsPublished': 'Retain As Published — transmettre le drapeau RETAIN tel quel',
+  'workbench.editors.mqtt.topics.noLocal': 'No Local',
+  'workbench.editors.mqtt.topics.noLocalDesc': 'Le broker ne renvoie pas à ce client ses propres publications.',
+  'workbench.editors.mqtt.topics.retainAsPublished': 'Retain As Published',
+  'workbench.editors.mqtt.topics.retainAsPublishedDesc':
+    'Les messages conservent le drapeau RETAIN tel qu’il a été publié.',
   'workbench.editors.mqtt.topics.retainHandling': 'Retain Handling',
-  'workbench.editors.mqtt.topics.retainHandling0': '0 · Envoyer les messages retenus à l’abonnement',
-  'workbench.editors.mqtt.topics.retainHandling1': '1 · Envoyer seulement pour un nouvel abonnement',
-  'workbench.editors.mqtt.topics.retainHandling2': '2 · Ne pas envoyer les messages retenus',
+  'workbench.editors.mqtt.topics.retainHandling0': '0 · Recevoir à l’abonnement',
+  'workbench.editors.mqtt.topics.retainHandling0Desc':
+    'Le broker envoie les messages retenus à chaque souscription de cet abonnement.',
+  'workbench.editors.mqtt.topics.retainHandling1': '1 · Nouveaux abonnements seulement',
+  'workbench.editors.mqtt.topics.retainHandling1Desc':
+    'Le broker n’envoie les messages retenus que si l’abonnement n’existe pas déjà.',
+  'workbench.editors.mqtt.topics.retainHandling2': '2 · Ne pas recevoir',
+  'workbench.editors.mqtt.topics.retainHandling2Desc':
+    'Le broker n’envoie aucun message retenu pour cet abonnement.',
   'workbench.editors.mqtt.topics.subscriptionId': 'Subscription Identifier',
+  'workbench.editors.mqtt.topics.subscriptionIdDesc':
+    'Identifiant numérique que le broker joint aux messages livrés via cet abonnement.',
   'workbench.editors.mqtt.auth.typeLabel': 'Type',
   'workbench.editors.mqtt.auth.typeNone': 'Aucune authentification',
   'workbench.editors.mqtt.auth.typeBasic': 'Authentification Basic',

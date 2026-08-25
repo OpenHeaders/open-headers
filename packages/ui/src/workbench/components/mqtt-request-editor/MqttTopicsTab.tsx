@@ -10,7 +10,7 @@
  * QoS knob, Subscribe, Description.
  */
 
-import { MoreOutlined } from '@ant-design/icons';
+import { InfoCircleOutlined, MoreOutlined } from '@ant-design/icons';
 import { topicFilterError } from '@openheaders/core/mqtt';
 import type { MqttRequestQos, MqttRetainHandling, MqttTopicRow } from '@openheaders/core/types';
 import { generateUid } from '@openheaders/core/utils';
@@ -30,6 +30,24 @@ const { Text } = Typography;
 // cell with symmetric padding (see `KeyValueTable`).
 const CELL_LINE_PX = 12 * TEMPLATE_INPUT_LINE_HEIGHT;
 const CELL_VERTICAL_PADDING = (32 - CELL_LINE_PX) / 2;
+
+/** Label cell of the options grid — the short protocol name; the
+ *  explanation lives behind the ⓘ hover, never inline. */
+const OptionLabel: React.FC<{ text: string; info?: string }> = ({ text, info }) => {
+  const { token } = theme.useToken();
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+      <Text type="secondary" style={{ fontSize: 11, whiteSpace: 'nowrap' }}>
+        {text}
+      </Text>
+      {info !== undefined && (
+        <Tooltip title={info}>
+          <InfoCircleOutlined style={{ fontSize: 11, color: token.colorTextTertiary, cursor: 'help' }} />
+        </Tooltip>
+      )}
+    </span>
+  );
+};
 
 /** Topics-grid row adapter — the topic filter rides the key track; the
  *  ⋯ options slot, QoS and Subscribe each own an aux/value track. */
@@ -174,54 +192,90 @@ const MqttTopicsTab: React.FC<MqttTopicsTabProps> = ({ rows, onChange, v5, sessi
                   trigger="click"
                   placement="left"
                   content={
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, width: 280 }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, width: 'max-content', maxWidth: 420 }}>
                       <Text type="secondary" style={{ fontSize: 11 }}>
                         {v5 ? t('workbench.editors.mqtt.topics.optionsHint') : t('workbench.editors.mqtt.props.v311')}
                       </Text>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      {/* One anatomy for every row: the label column left,
+                        the control column right — explanations live behind
+                        the ⓘ hovers, never inline in the labels. */}
+                      <div
+                        style={{
+                          display: 'grid',
+                          gridTemplateColumns: 'auto 1fr',
+                          columnGap: 12,
+                          rowGap: 8,
+                          alignItems: 'center',
+                        }}
+                      >
+                        <OptionLabel
+                          text={t('workbench.editors.mqtt.topics.noLocal')}
+                          info={t('workbench.editors.mqtt.topics.noLocalDesc')}
+                        />
                         <Switch
                           size="small"
+                          style={{ justifySelf: 'start' }}
                           disabled={!v5}
                           checked={row.noLocal === true}
                           onChange={(noLocal) => update({ ...row, noLocal })}
                           data-testid="mqtt-topic-nolocal"
                         />
-                        <Text type="secondary" style={{ fontSize: 11 }}>
-                          {t('workbench.editors.mqtt.topics.noLocal')}
-                        </Text>
-                      </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <OptionLabel
+                          text={t('workbench.editors.mqtt.topics.retainAsPublished')}
+                          info={t('workbench.editors.mqtt.topics.retainAsPublishedDesc')}
+                        />
                         <Switch
                           size="small"
+                          style={{ justifySelf: 'start' }}
                           disabled={!v5}
                           checked={row.retainAsPublished === true}
                           onChange={(retainAsPublished) => update({ ...row, retainAsPublished })}
                         />
-                        <Text type="secondary" style={{ fontSize: 11 }}>
-                          {t('workbench.editors.mqtt.topics.retainAsPublished')}
-                        </Text>
-                      </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <Text type="secondary" style={{ fontSize: 11, whiteSpace: 'nowrap' }}>
-                          {t('workbench.editors.mqtt.topics.retainHandling')}
-                        </Text>
+                        <OptionLabel text={t('workbench.editors.mqtt.topics.retainHandling')} />
                         <Select
                           size="small"
-                          style={{ flex: 1 }}
                           disabled={!v5}
+                          popupMatchSelectWidth={false}
                           value={row.retainHandling ?? 0}
                           options={[
-                            { value: 0, label: t('workbench.editors.mqtt.topics.retainHandling0') },
-                            { value: 1, label: t('workbench.editors.mqtt.topics.retainHandling1') },
-                            { value: 2, label: t('workbench.editors.mqtt.topics.retainHandling2') },
+                            // title stays empty — the ⓘ tooltip is the one
+                            // explainer; the native label-title would double
+                            // it on hover.
+                            {
+                              value: 0,
+                              title: '',
+                              label: t('workbench.editors.mqtt.topics.retainHandling0'),
+                              desc: t('workbench.editors.mqtt.topics.retainHandling0Desc'),
+                            },
+                            {
+                              value: 1,
+                              title: '',
+                              label: t('workbench.editors.mqtt.topics.retainHandling1'),
+                              desc: t('workbench.editors.mqtt.topics.retainHandling1Desc'),
+                            },
+                            {
+                              value: 2,
+                              title: '',
+                              label: t('workbench.editors.mqtt.topics.retainHandling2'),
+                              desc: t('workbench.editors.mqtt.topics.retainHandling2Desc'),
+                            },
                           ]}
+                          optionRender={(option) => (
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                              <span>{option.data.label}</span>
+                              <Tooltip title={option.data.desc} placement="right">
+                                <InfoCircleOutlined
+                                  style={{ fontSize: 11, color: token.colorTextTertiary, cursor: 'help' }}
+                                />
+                              </Tooltip>
+                            </span>
+                          )}
                           onChange={(retainHandling: MqttRetainHandling) => update({ ...row, retainHandling })}
                         />
-                      </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <Text type="secondary" style={{ fontSize: 11, whiteSpace: 'nowrap' }}>
-                          {t('workbench.editors.mqtt.topics.subscriptionId')}
-                        </Text>
+                        <OptionLabel
+                          text={t('workbench.editors.mqtt.topics.subscriptionId')}
+                          info={t('workbench.editors.mqtt.topics.subscriptionIdDesc')}
+                        />
                         <InputNumber
                           size="small"
                           min={1}
