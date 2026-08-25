@@ -157,8 +157,8 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.settings.sslVerifyHelp':
     '对 mqtts/wss 会话按系统根证书验证代理证书。开发中的自签名代理可关闭。',
   // ── 会话面板 ────────────────────────────────────────────────────────
-  'workbench.editors.mqtt.session.title': '会话',
-  'workbench.editors.mqtt.session.emptyHint': '连接以开始会话——消息会实时显示在这里。',
+  'workbench.editors.mqtt.session.emptyTitle': '响应',
+  'workbench.editors.mqtt.session.emptyHint': '连接以发送和接收消息。',
   'workbench.editors.mqtt.session.connectFailed': '打开会话失败',
   'workbench.editors.mqtt.session.connectingBadge': '连接中',
   'workbench.editors.mqtt.session.connectedBadge': '已连接',

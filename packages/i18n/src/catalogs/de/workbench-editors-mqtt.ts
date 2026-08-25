@@ -164,9 +164,8 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.settings.sslVerifyHelp':
     'Das Broker-Zertifikat für mqtts/wss-Sitzungen gegen die Systemwurzeln prüfen. Für selbstsignierte Entwicklungs-Broker ausschalten.',
   // ── Sitzungsbereich ─────────────────────────────────────────────────
-  'workbench.editors.mqtt.session.title': 'Sitzung',
-  'workbench.editors.mqtt.session.emptyHint':
-    'Verbinden Sie sich, um die Sitzung zu starten — Nachrichten erscheinen hier live.',
+  'workbench.editors.mqtt.session.emptyTitle': 'Antwort',
+  'workbench.editors.mqtt.session.emptyHint': 'Verbinden, um Nachrichten zu senden und zu empfangen.',
   'workbench.editors.mqtt.session.connectFailed': 'Die Sitzung konnte nicht geöffnet werden',
   'workbench.editors.mqtt.session.connectingBadge': 'VERBINDET',
   'workbench.editors.mqtt.session.connectedBadge': 'VERBUNDEN',

@@ -166,9 +166,8 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.settings.sslVerifyHelp':
     'Vérifier le certificat du courtier contre les racines système pour les sessions mqtts/wss. Désactivez pour les courtiers auto-signés de développement.',
   // ── Volet de session ────────────────────────────────────────────────
-  'workbench.editors.mqtt.session.title': 'Session',
-  'workbench.editors.mqtt.session.emptyHint':
-    'Connectez-vous pour démarrer la session — les messages apparaissent ici en direct.',
+  'workbench.editors.mqtt.session.emptyTitle': 'Réponse',
+  'workbench.editors.mqtt.session.emptyHint': 'Connectez-vous pour envoyer et recevoir des messages.',
   'workbench.editors.mqtt.session.connectFailed': 'L’ouverture de la session a échoué',
   'workbench.editors.mqtt.session.connectingBadge': 'CONNEXION',
   'workbench.editors.mqtt.session.connectedBadge': 'CONNECTÉ',

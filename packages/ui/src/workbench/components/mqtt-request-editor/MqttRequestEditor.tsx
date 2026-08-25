@@ -35,7 +35,7 @@
 import { CaretRightOutlined } from '@ant-design/icons';
 import { MQTT_REQUEST_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { MqttRequest as MqttRequestEntity } from '@openheaders/core/types';
-import { ShortcutHintTitle } from '@openheaders/ui/components/ShortcutKbd';
+import { ShortcutHintTitle, ShortcutKbd } from '@openheaders/ui/components/ShortcutKbd';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { EntityScopeProvider } from '@openheaders/ui/shared/awareness';
 import { useEditorShell, useReprime } from '@openheaders/ui/shared/editor-shell';
@@ -481,9 +481,10 @@ const MqttRequestEditor: React.FC<MqttRequestEditorProps> = ({
                   {...(session.canSaveResponse ? { onSaveResponse: () => void session.handleSaveResponse() } : {})}
                 />
               ) : (
-                // Always-attached session pane (the WS editor's
-                // posture): a stable target with the plain title row
-                // and a connect hint before the first session.
+                // Always-attached response pane before the first
+                // session — the gRPC empty-state posture verbatim:
+                // Response title row, centered caret + hint + the
+                // Connect chord.
                 <div
                   style={{
                     height: '100%',
@@ -502,13 +503,28 @@ const MqttRequestEditor: React.FC<MqttRequestEditorProps> = ({
                     }}
                   >
                     <Text strong style={{ fontSize: 12 }}>
-                      {t('workbench.editors.mqtt.session.title')}
+                      {t('workbench.editors.mqtt.session.emptyTitle')}
                     </Text>
                   </div>
-                  <div style={{ padding: '16px 12px' }} data-testid="mqtt-session-empty">
+                  <div
+                    style={{
+                      flex: 1,
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: 8,
+                      minHeight: 0,
+                      padding: 24,
+                      textAlign: 'center',
+                    }}
+                    data-testid="mqtt-session-empty"
+                  >
+                    <CaretRightOutlined style={{ fontSize: 20, color: token.colorTextQuaternary }} />
                     <Text type="secondary" style={{ fontSize: 12 }}>
                       {t('workbench.editors.mqtt.session.emptyHint')}
                     </Text>
+                    <ShortcutKbd label={CONNECT_SHORTCUT} surface="page" size={22} />
                   </div>
                 </div>
               )}
