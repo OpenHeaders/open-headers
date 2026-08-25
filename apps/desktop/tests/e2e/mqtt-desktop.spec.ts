@@ -279,7 +279,8 @@ test('M1 — Connect carries CONNACK, open-time SUBACK grant, echo publishes lan
   await workbench
     .getByTestId('mqtt-timeline-subscribed-row')
     .filter({ visible: true })
-    .filter({ hasText: 'Subscribed — probe/echo/reply (Granted QoS 1)' })
+    .filter({ hasText: 'Subscribed to' })
+    .filter({ hasText: 'probe/echo/reply (Granted QoS 1)' })
     .first()
     .waitFor({ state: 'visible', timeout: 10_000 });
 
@@ -392,7 +393,8 @@ test('M5 — a row seeded OFF subscribes mid-session: grant mark on the row, Sub
   await workbench
     .getByTestId('mqtt-timeline-subscribed-row')
     .filter({ visible: true })
-    .filter({ hasText: 'Subscribed — probe/echo/reply (Granted QoS 1)' })
+    .filter({ hasText: 'Subscribed to' })
+    .filter({ hasText: 'probe/echo/reply (Granted QoS 1)' })
     .first()
     .waitFor({ state: 'visible', timeout: 10_000 });
 

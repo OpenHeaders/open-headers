@@ -41,7 +41,6 @@ import {
   DisconnectOutlined,
   DownOutlined,
   InfoCircleOutlined,
-  LinkOutlined,
   MinusCircleOutlined,
   PlusCircleOutlined,
   SearchOutlined,
@@ -602,7 +601,7 @@ const MqttMessageTimeline: React.FC<MqttMessageTimelineProps> = ({
               : {})}
             style={{ ...lifecycleRowStyle, ...(expandable ? { cursor: 'pointer' } : {}) }}
           >
-            <LinkOutlined aria-hidden style={{ fontSize: 11, color: token.colorTextTertiary }} />
+            <CheckCircleOutlined aria-hidden style={{ fontSize: 11, color: token.colorSuccess }} />
             <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {t('workbench.editors.mqtt.timeline.connected')}
             </span>
@@ -716,14 +715,31 @@ const MqttMessageTimeline: React.FC<MqttMessageTimelineProps> = ({
         const item = items[entry.index];
         const ts = timestamps?.[entry.index];
         if (item.kind === 'subscribed') {
-          const detail = item.grants
-            .map((grant) => `${grant.topicFilter} (${grantLabel(grant.reasonCode, t)})`)
-            .join(', ');
+          // Prefix + the topic as its colored chip (the message rows'
+          // palette — equal topic, equal color) + the SUBACK grant
+          // verbatim beside it, failure codes on the error tint.
           return (
             <div key={entry.key} data-testid="mqtt-timeline-subscribed-row" style={lifecycleRowStyle}>
               <PlusCircleOutlined aria-hidden style={{ fontSize: 11, color: token.colorTextTertiary }} />
-              <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {t('workbench.editors.mqtt.timeline.subscribed', { detail })}
+              <span style={{ flexShrink: 0 }}>{t('workbench.editors.mqtt.timeline.subscribed')}</span>
+              <span style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0, overflow: 'hidden' }}>
+                {item.grants.map((grant, grantIndex) => (
+                  <span
+                    key={`${String(grantIndex)}:${grant.topicFilter}`}
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: 4, minWidth: 0 }}
+                  >
+                    {topicChip(grant.topicFilter)}
+                    <span
+                      style={{
+                        fontSize: 11,
+                        flexShrink: 0,
+                        color: grant.reasonCode > 2 ? token.colorError : token.colorTextTertiary,
+                      }}
+                    >
+                      {` (${grantLabel(grant.reasonCode, t)})`}
+                    </span>
+                  </span>
+                ))}
               </span>
               {lifecycleTime(ts)}
               {expandSlot(null)}
@@ -734,8 +750,13 @@ const MqttMessageTimeline: React.FC<MqttMessageTimelineProps> = ({
           return (
             <div key={entry.key} data-testid="mqtt-timeline-unsubscribed-row" style={lifecycleRowStyle}>
               <MinusCircleOutlined aria-hidden style={{ fontSize: 11, color: token.colorTextTertiary }} />
-              <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {t('workbench.editors.mqtt.timeline.unsubscribed', { detail: item.topicFilters.join(', ') })}
+              <span style={{ flexShrink: 0 }}>{t('workbench.editors.mqtt.timeline.unsubscribed')}</span>
+              <span style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0, overflow: 'hidden' }}>
+                {item.topicFilters.map((topicFilter, filterIndex) => (
+                  <span key={`${String(filterIndex)}:${topicFilter}`} style={{ display: 'inline-flex', minWidth: 0 }}>
+                    {topicChip(topicFilter)}
+                  </span>
+                ))}
               </span>
               {lifecycleTime(ts)}
               {expandSlot(null)}
