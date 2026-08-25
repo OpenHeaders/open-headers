@@ -79,6 +79,24 @@ export interface BulkEditConfig<Row> {
   placeholder?: string;
 }
 
+/** One auxiliary grid column — see `EditableGridTableProps.auxColumns`. */
+export interface AuxColumn<Row> {
+  /** Header label — omit for a blank header cell (icon-only tracks). */
+  label?: string;
+  /** Fixed CSS track width, e.g. `'92px'`. */
+  width: string;
+  /** Track placement relative to the shared Key / Value columns. */
+  position: 'after-key' | 'after-value';
+  /** Paint the shared column divider at this track's left edge. Leave
+   *  off for a track that reads as part of the column to its left. */
+  divider?: boolean;
+  render: (
+    row: Row,
+    update: (next: Row) => void,
+    context: { isPlaceholder: boolean; dim: boolean; expanded: boolean },
+  ) => React.ReactNode;
+}
+
 export interface EditableGridTableProps<Row> {
   rows: Row[];
   onChange: (rows: Row[]) => void;
@@ -111,21 +129,13 @@ export interface EditableGridTableProps<Row> {
     update: (next: Row) => void,
     context: { isPlaceholder: boolean; dim: boolean; expanded: boolean },
   ) => React.ReactNode;
-  /** Optional narrow auxiliary column between Value and Description —
-   *  its own header label over a FIXED-width track (each row is its own
-   *  grid, so a content-sized track would misalign across rows; no
-   *  resize divider either). Shows/hides together with the Value
-   *  column. Used by the MQTT Topics table's Subscribe column. */
-  auxColumn?: {
-    label: string;
-    /** Fixed CSS track width, e.g. `'92px'`. */
-    width: string;
-    render: (
-      row: Row,
-      update: (next: Row) => void,
-      context: { isPlaceholder: boolean; dim: boolean; expanded: boolean },
-    ) => React.ReactNode;
-  };
+  /** Optional narrow auxiliary columns over FIXED-width tracks (each
+   *  row is its own grid, so a content-sized track would misalign
+   *  across rows; no resize divider either). `after-key` tracks always
+   *  show (an icon slot riding the Key column, e.g. the MQTT Topics
+   *  table's ⋯ options column); `after-value` tracks show/hide with
+   *  the Value column (e.g. its Subscribe column). */
+  auxColumns?: AuxColumn<Row>[];
   keyPlaceholder?: string;
   /** Override the Key / Value column header labels — for tables whose
    *  columns aren't literally key/value (e.g. the WebSocket Events tab's

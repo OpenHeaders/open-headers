@@ -76,7 +76,7 @@ export function EditableGridTable<Row>({
   renderValueCell,
   renderKeyCell,
   renderDescriptionCell,
-  auxColumn,
+  auxColumns,
   keyPlaceholder,
   headerLabels,
   hideEnabled = false,
@@ -117,6 +117,12 @@ export function EditableGridTable<Row>({
     });
   }, []);
 
+  // Auxiliary fixed-width tracks split by placement — `after-key` rides
+  // the always-visible Key column; `after-value` follows Value's
+  // visibility (see `AuxColumn`).
+  const auxAfterKey = useMemo(() => (auxColumns ?? []).filter((c) => c.position === 'after-key'), [auxColumns]);
+  const auxAfterValue = useMemo(() => (auxColumns ?? []).filter((c) => c.position === 'after-value'), [auxColumns]);
+
   // Draggable column widths + full-height dividers — the whole concern
   // lives in this hook; we just attach its container/header refs, read px
   // overrides into the grid template, and render the dividers it reports.
@@ -152,12 +158,15 @@ export function EditableGridTable<Row>({
     const parts: string[] = ['20px'];
     if (!hideEnabled) parts.push('28px');
     parts.push(trackFor('key'));
-    if (showValueColumn) parts.push(trackFor('value'));
-    if (showValueColumn && auxColumn) parts.push(auxColumn.width);
+    for (const aux of auxAfterKey) parts.push(aux.width);
+    if (showValueColumn) {
+      parts.push(trackFor('value'));
+      for (const aux of auxAfterValue) parts.push(aux.width);
+    }
     if (showDescriptionColumn) parts.push(trackFor('description'));
     parts.push('32px');
     return parts.join(' ');
-  }, [hideEnabled, showValueColumn, showDescriptionColumn, columnWidths, resize.columnPxWidth, auxColumn]);
+  }, [hideEnabled, showValueColumn, showDescriptionColumn, columnWidths, resize.columnPxWidth, auxAfterKey, auxAfterValue]);
 
   // Persistent empty ghost row: materializes as soon as the user types
   // into any cell and a fresh ghost appears below.
@@ -409,13 +418,31 @@ export function EditableGridTable<Row>({
             <span />
           ))}
         {renderHeaderLabel('key', headerLabels?.key ?? t('workbench.editors.grid.key'), false)}
-        {showValueColumn && renderHeaderLabel('value', headerLabels?.value ?? t('workbench.editors.grid.value'), true)}
-        {/* Aux header — fixed track, no resize ref (no divider). */}
-        {showValueColumn && auxColumn && (
-          <span style={{ ...headerLabelStyle, borderLeft: `1px solid ${token.colorBorderSecondary}` }}>
-            {auxColumn.label}
+        {/* Aux headers — fixed tracks, no resize refs (no dividers). */}
+        {auxAfterKey.map((aux, i) => (
+          <span
+            key={`aux-key-${String(i)}`}
+            style={{
+              ...headerLabelStyle,
+              ...(aux.divider ? { borderLeft: `1px solid ${token.colorBorderSecondary}` } : null),
+            }}
+          >
+            {aux.label ?? ''}
           </span>
-        )}
+        ))}
+        {showValueColumn && renderHeaderLabel('value', headerLabels?.value ?? t('workbench.editors.grid.value'), true)}
+        {showValueColumn &&
+          auxAfterValue.map((aux, i) => (
+            <span
+              key={`aux-value-${String(i)}`}
+              style={{
+                ...headerLabelStyle,
+                ...(aux.divider ? { borderLeft: `1px solid ${token.colorBorderSecondary}` } : null),
+              }}
+            >
+              {aux.label ?? ''}
+            </span>
+          ))}
         {showDescriptionColumn && renderHeaderLabel('description', t('workbench.editors.grid.description'), true)}
         {trailingActionsCell}
       </div>
@@ -524,6 +551,14 @@ export function EditableGridTable<Row>({
                     </Tooltip>
                   )}
                 </span>
+                {/* Suggestion rows carry no aux controls — empty cells
+                  keep the tracks and dividers continuous. */}
+                {auxAfterKey.map((aux, i) => (
+                  <span
+                    key={`aux-key-${String(i)}`}
+                    style={aux.divider ? { borderLeft: `1px solid ${token.colorBorderSecondary}` } : undefined}
+                  />
+                ))}
                 {showValueColumn && (
                   <span
                     style={{
@@ -611,11 +646,13 @@ export function EditableGridTable<Row>({
                     {!showDescriptionColumn && actionNode}
                   </span>
                 )}
-                {/* Suggestion rows carry no aux control — an empty cell
-                  keeps the divider continuous. */}
-                {showValueColumn && auxColumn && (
-                  <span style={{ borderLeft: `1px solid ${token.colorBorderSecondary}` }} />
-                )}
+                {showValueColumn &&
+                  auxAfterValue.map((aux, i) => (
+                    <span
+                      key={`aux-value-${String(i)}`}
+                      style={aux.divider ? { borderLeft: `1px solid ${token.colorBorderSecondary}` } : undefined}
+                    />
+                  ))}
                 {showDescriptionColumn && (
                   <span
                     style={{
@@ -658,7 +695,8 @@ export function EditableGridTable<Row>({
                     keyPlaceholder={effectiveKeyPlaceholder}
                     renderValueCell={renderValueCell}
                     renderKeyCell={renderKeyCell}
-                    renderAuxCell={showValueColumn && auxColumn ? auxColumn.render : undefined}
+                    auxAfterKey={auxAfterKey}
+                    auxAfterValue={showValueColumn ? auxAfterValue : []}
                     renderDescriptionCell={renderDescriptionCell}
                     rowPath={rowPath}
                     conflictBridge={conflictBridge}

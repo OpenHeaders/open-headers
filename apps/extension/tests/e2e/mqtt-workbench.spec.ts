@@ -344,7 +344,9 @@ test('E2 — url, version knob, payload, a Topics row and a saved message surviv
     .first()
     .waitFor({ state: 'visible' });
   await page.getByRole('tab', { name: 'Topics', exact: true }).filter({ visible: true }).first().click();
-  await expect(page.getByTestId('mqtt-topic-filter-input').filter({ visible: true }).first()).toHaveValue(
+  // The filter cell is a TemplateInput (contentEditable) — assert its
+  // text, not an input value.
+  await expect(page.getByTestId('mqtt-topic-filter-input').filter({ visible: true }).first()).toHaveText(
     MQTT_TOPIC_FILTER,
   );
 });

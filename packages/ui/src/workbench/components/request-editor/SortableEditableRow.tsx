@@ -16,6 +16,7 @@ import { ConflictDiffChip, SetRowConflictChip } from '@openheaders/ui/shared/awa
 import type { GripResizeXHandler } from '../template-input';
 import { cellFont, ROW_CONTROL_HEIGHT } from './editable-grid-styles';
 import type {
+  AuxColumn,
   EditableGridTableProps,
   EditableRowAdapter,
   KeyValueRowConflictBridge,
@@ -32,9 +33,10 @@ interface SortableEditableRowProps<Row> {
   keyPlaceholder: string;
   renderValueCell: EditableGridTableProps<Row>['renderValueCell'];
   renderKeyCell?: EditableGridTableProps<Row>['renderKeyCell'];
-  /** Auxiliary-column cell — present only when the shell shows the
-   *  aux track (its `auxColumn` prop, gated on the Value column). */
-  renderAuxCell?: NonNullable<EditableGridTableProps<Row>['auxColumn']>['render'];
+  /** Auxiliary-column cells by placement — the shell passes only the
+   *  tracks the current grid template actually contains. */
+  auxAfterKey?: AuxColumn<Row>[];
+  auxAfterValue?: AuxColumn<Row>[];
   renderDescriptionCell?: EditableGridTableProps<Row>['renderDescriptionCell'];
   rowPath?: EditableGridTableProps<Row>['rowPath'];
   conflictBridge?: KeyValueRowConflictBridge;
@@ -60,7 +62,8 @@ export function SortableEditableRow<Row>({
   keyPlaceholder,
   renderValueCell,
   renderKeyCell,
-  renderAuxCell,
+  auxAfterKey = [],
+  auxAfterValue = [],
   renderDescriptionCell,
   rowPath,
   conflictBridge,
@@ -216,6 +219,21 @@ export function SortableEditableRow<Row>({
           />
         )}
       </div>
+      {auxAfterKey.map((aux, i) => (
+        <div
+          key={`aux-key-${String(i)}`}
+          style={{
+            ...(aux.divider ? { borderLeft: `1px solid ${token.colorBorderSecondary}` } : null),
+            display: 'flex',
+            alignItems: 'center',
+            alignSelf: 'stretch',
+            minWidth: 0,
+            minHeight: ROW_CONTROL_HEIGHT,
+          }}
+        >
+          {aux.render(row, onUpdate, { isPlaceholder, dim, expanded: rowFocused })}
+        </div>
+      ))}
       {showValueColumn && (
         <div
           data-field-path={rowPath ? rowPath(id, 'value') : undefined}
@@ -263,11 +281,11 @@ export function SortableEditableRow<Row>({
           )}
         </div>
       )}
-      {showValueColumn && renderAuxCell && (
+      {auxAfterValue.map((aux, i) => (
         <div
+          key={`aux-value-${String(i)}`}
           style={{
-            borderLeft: `1px solid ${token.colorBorderSecondary}`,
-            padding: '0 4px',
+            ...(aux.divider ? { borderLeft: `1px solid ${token.colorBorderSecondary}` } : null),
             display: 'flex',
             alignItems: 'center',
             alignSelf: 'stretch',
@@ -275,9 +293,9 @@ export function SortableEditableRow<Row>({
             minHeight: ROW_CONTROL_HEIGHT,
           }}
         >
-          {renderAuxCell(row, onUpdate, { isPlaceholder, dim, expanded: rowFocused })}
+          {aux.render(row, onUpdate, { isPlaceholder, dim, expanded: rowFocused })}
         </div>
-      )}
+      ))}
       {showDescriptionColumn && (
         <div
           data-field-path={rowPath ? rowPath(id, 'description') : undefined}

@@ -70,6 +70,7 @@ const TemplateInput = forwardRef<HTMLDivElement, TemplateInputProps>(
       autoFocus,
       id,
       'aria-label': ariaLabel,
+      'data-testid': dataTestId,
       status,
       secret = false,
       onSecretToggle,
@@ -314,6 +315,7 @@ const TemplateInput = forwardRef<HTMLDivElement, TemplateInputProps>(
           aria-label={ariaLabel}
           spellCheck={false}
           id={id}
+          data-testid={dataTestId}
           data-placeholder={placeholder}
           style={editableStyle}
           onInput={handleInput}

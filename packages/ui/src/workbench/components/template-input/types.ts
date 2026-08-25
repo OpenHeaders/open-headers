@@ -117,6 +117,9 @@ export interface TemplateInputProps {
   id?: string;
   /** Forwarded to the editable. */
   'aria-label'?: string;
+  /** Forwarded to the editable (the contentEditable surface), so e2e
+   *  fills/reads target the element that actually holds the text. */
+  'data-testid'?: string;
   /** AntD-compatible status override. `'error'` paints the border red
    *  regardless of focus state — use for unresolved-ref signalling. */
   status?: 'error';

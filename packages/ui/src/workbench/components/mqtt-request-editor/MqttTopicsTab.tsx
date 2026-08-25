@@ -4,8 +4,10 @@
  * the Subscribe switch is the LIVE toggle — it rides the
  * `setMqttSubscription` rider and marks the row with its SUBACK grant
  * (QoS downgrades honest), never editing the stored row (the ratified
- * publication-gate idiom). The per-row "⋯" popover carries the 5.0
- * subscription options, disabled-honest on 3.1.1.
+ * publication-gate idiom). Columns: Topic filter (the Params tables'
+ * borderless `TemplateInput` cell), the ⋯ options slot (the 5.0
+ * subscription options popover, disabled-honest on 3.1.1), the compact
+ * QoS knob, Subscribe, Description.
  */
 
 import { MoreOutlined } from '@ant-design/icons';
@@ -13,18 +15,24 @@ import { topicFilterError } from '@openheaders/core/mqtt';
 import type { MqttRequestQos, MqttRetainHandling, MqttTopicRow } from '@openheaders/core/types';
 import { generateUid } from '@openheaders/core/utils';
 import { useT } from '@openheaders/ui/context/LocaleContext';
-import { Button, Input, InputNumber, Popover, Select, Switch, Tag, Tooltip, Typography } from 'antd';
+import { Button, InputNumber, Popover, Select, Switch, Tag, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
+import { cellFont } from '../request-editor/editable-grid-styles';
 import { EditableGridTable } from '../request-editor/EditableGridTable';
 import type { EditableRowAdapter } from '../request-editor/editable-grid-types';
+import { TEMPLATE_INPUT_LINE_HEIGHT, TemplateInput } from '../template-input';
 import { grantLabel } from './session-display';
 import type { LiveSubscriptionMark } from './useMqttSessionPlane';
 
 const { Text } = Typography;
 
-/** Topics-grid row adapter — the topic filter rides the key track
- *  (with the ⋯ options trigger at its right edge); QoS and Subscribe
- *  each own a column (value + aux tracks). */
+// The Params-cell metrics: center the collapsed line inside the 32px
+// cell with symmetric padding (see `KeyValueTable`).
+const CELL_LINE_PX = 12 * TEMPLATE_INPUT_LINE_HEIGHT;
+const CELL_VERTICAL_PADDING = (32 - CELL_LINE_PX) / 2;
+
+/** Topics-grid row adapter — the topic filter rides the key track; the
+ *  ⋯ options slot, QoS and Subscribe each own an aux/value track. */
 const TOPIC_ROW_ADAPTER: EditableRowAdapter<MqttTopicRow> = {
   getId: (r) => r.uid,
   getEnabled: () => true,
@@ -47,6 +55,7 @@ interface MqttTopicsTabProps {
 }
 
 const MqttTopicsTab: React.FC<MqttTopicsTabProps> = ({ rows, onChange, v5, sessionOpen, liveSubs, onLiveToggle }) => {
+  const { token } = theme.useToken();
   const t = useT();
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }} data-testid="mqtt-topics-table">
@@ -73,13 +82,20 @@ const MqttTopicsTab: React.FC<MqttTopicsTabProps> = ({ rows, onChange, v5, sessi
           return (
             <>
               <Tooltip title={filterError ?? undefined} open={filterError ? undefined : false}>
-                <Input
+                <TemplateInput
                   variant="borderless"
-                  style={{ fontFamily: "'SF Mono', monospace", fontSize: 12, padding: '4px 10px', flex: 1, minWidth: 0 }}
-                  placeholder={t('workbench.editors.mqtt.topics.filterPlaceholder')}
+                  expandOnFocus
+                  expanded={ctx.expanded}
                   value={row.topicFilter}
+                  placeholder={t('workbench.editors.mqtt.topics.filterPlaceholder')}
                   status={filterError ? 'error' : undefined}
-                  onChange={(e) => update({ ...row, topicFilter: e.target.value })}
+                  onChange={(topicFilter) => update({ ...row, topicFilter })}
+                  style={{
+                    ...cellFont,
+                    flex: 1,
+                    padding: `${CELL_VERTICAL_PADDING}px 6px`,
+                    color: ctx.dim ? token.colorTextQuaternary : token.colorText,
+                  }}
                   data-testid="mqtt-topic-filter-input"
                 />
               </Tooltip>
@@ -94,7 +110,44 @@ const MqttTopicsTab: React.FC<MqttTopicsTabProps> = ({ rows, onChange, v5, sessi
                   {grantLabel(grantCode, t)}
                 </Tag>
               )}
-              {!ctx.isPlaceholder && (
+            </>
+          );
+        }}
+        renderValueCell={(row, update, ctx) => (
+          // The compact QoS knob (the compose bar's idiom): the value
+          // shows the bare integer; the opened menu explains the levels.
+          <Select
+            size="small"
+            style={{ width: 46, marginLeft: 6 }}
+            suffixIcon={null}
+            popupMatchSelectWidth={false}
+            disabled={ctx.isPlaceholder}
+            value={row.qos ?? 0}
+            options={[
+              { value: 0, label: '0', meaning: t('workbench.editors.mqtt.qos.meaning0') },
+              { value: 1, label: '1', meaning: t('workbench.editors.mqtt.qos.meaning1') },
+              { value: 2, label: '2', meaning: t('workbench.editors.mqtt.qos.meaning2') },
+            ]}
+            optionRender={(option) => (
+              <span style={{ display: 'inline-flex', alignItems: 'baseline', gap: 16 }}>
+                <span>{option.data.label}</span>
+                <Text type="secondary" style={{ fontSize: 12 }}>
+                  {option.data.meaning}
+                </Text>
+              </span>
+            )}
+            onChange={(qos: MqttRequestQos) => update({ ...row, qos })}
+            data-testid="mqtt-topic-qos"
+          />
+        )}
+        auxColumns={[
+          {
+            // The ⋯ subscription-options slot — its own track riding
+            // the Topic column (blank header, no divider of its own).
+            position: 'after-key',
+            width: '28px',
+            render: (row, update, ctx) =>
+              ctx.isPlaceholder ? null : (
                 <Popover
                   trigger="click"
                   placement="left"
@@ -160,83 +213,67 @@ const MqttTopicsTab: React.FC<MqttTopicsTabProps> = ({ rows, onChange, v5, sessi
                     </div>
                   }
                 >
-                  <Button
-                    size="small"
-                    type="text"
-                    icon={<MoreOutlined />}
-                    style={{ flexShrink: 0 }}
-                    data-testid="mqtt-topic-options"
-                  />
+                  <Button size="small" type="text" icon={<MoreOutlined />} data-testid="mqtt-topic-options" />
                 </Popover>
-              )}
-            </>
-          );
-        }}
-        renderValueCell={(row, update, ctx) => (
-          // The compact QoS knob (the compose bar's idiom): the value
-          // shows the bare integer; the opened menu explains the levels.
-          <Select
-            size="small"
-            style={{ width: 46, marginLeft: 6 }}
-            suffixIcon={null}
-            popupMatchSelectWidth={false}
-            disabled={ctx.isPlaceholder}
-            value={row.qos ?? 0}
-            options={[
-              { value: 0, label: '0', meaning: t('workbench.editors.mqtt.qos.meaning0') },
-              { value: 1, label: '1', meaning: t('workbench.editors.mqtt.qos.meaning1') },
-              { value: 2, label: '2', meaning: t('workbench.editors.mqtt.qos.meaning2') },
-            ]}
-            optionRender={(option) => (
-              <span style={{ display: 'inline-flex', alignItems: 'baseline', gap: 16 }}>
-                <span>{option.data.label}</span>
-                <Text type="secondary" style={{ fontSize: 12 }}>
-                  {option.data.meaning}
-                </Text>
-              </span>
-            )}
-            onChange={(qos: MqttRequestQos) => update({ ...row, qos })}
-            data-testid="mqtt-topic-qos"
+              ),
+          },
+          {
+            label: t('workbench.editors.mqtt.topics.subscribeColLabel'),
+            position: 'after-value',
+            width: '96px',
+            divider: true,
+            render: (row, update, ctx) =>
+              ctx.isPlaceholder ? (
+                <Switch size="small" disabled checked={false} style={{ marginLeft: 10 }} />
+              ) : (
+                // While the session is open the switch is the LIVE
+                // toggle — it rides the rider and marks the row with
+                // the SUBACK grant; the stored draft row stays
+                // untouched (the publication-gate idiom).
+                <Tooltip
+                  title={
+                    sessionOpen
+                      ? t('workbench.editors.mqtt.topics.subscribeLiveLabel')
+                      : t('workbench.editors.mqtt.topics.subscribeLabel')
+                  }
+                >
+                  <Switch
+                    size="small"
+                    style={{ marginLeft: 10 }}
+                    checked={
+                      sessionOpen
+                        ? (liveSubs.get(row.uid)?.subscribed ?? row.subscribe !== false)
+                        : row.subscribe !== false
+                    }
+                    onChange={(subscribe) => {
+                      if (sessionOpen) {
+                        onLiveToggle(row, subscribe);
+                        return;
+                      }
+                      update({ ...row, subscribe });
+                    }}
+                    data-testid="mqtt-topic-subscribe"
+                  />
+                </Tooltip>
+              ),
+          },
+        ]}
+        renderDescriptionCell={(row, update, ctx) => (
+          <TemplateInput
+            variant="borderless"
+            expandOnFocus
+            expanded={ctx.expanded}
+            value={row.description ?? ''}
+            placeholder={t('workbench.editors.grid.description')}
+            onChange={(description) => update({ ...row, description })}
+            style={{
+              ...cellFont,
+              flex: 1,
+              padding: `${CELL_VERTICAL_PADDING}px 6px`,
+              color: ctx.dim ? token.colorTextQuaternary : token.colorText,
+            }}
           />
         )}
-        auxColumn={{
-          label: t('workbench.editors.mqtt.topics.subscribeColLabel'),
-          width: '96px',
-          render: (row, update, ctx) =>
-            ctx.isPlaceholder ? (
-              <Switch size="small" disabled checked={false} style={{ marginLeft: 6 }} />
-            ) : (
-              // While the session is open the switch is the LIVE
-              // toggle — it rides the rider and marks the row with the
-              // SUBACK grant; the stored draft row stays untouched
-              // (the publication-gate idiom).
-              <Tooltip
-                title={
-                  sessionOpen
-                    ? t('workbench.editors.mqtt.topics.subscribeLiveLabel')
-                    : t('workbench.editors.mqtt.topics.subscribeLabel')
-                }
-              >
-                <Switch
-                  size="small"
-                  style={{ marginLeft: 6 }}
-                  checked={
-                    sessionOpen
-                      ? (liveSubs.get(row.uid)?.subscribed ?? row.subscribe !== false)
-                      : row.subscribe !== false
-                  }
-                  onChange={(subscribe) => {
-                    if (sessionOpen) {
-                      onLiveToggle(row, subscribe);
-                      return;
-                    }
-                    update({ ...row, subscribe });
-                  }}
-                  data-testid="mqtt-topic-subscribe"
-                />
-              </Tooltip>
-            ),
-        }}
       />
     </div>
   );
