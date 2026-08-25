@@ -62,7 +62,10 @@ import { workbenchSettingsDefsKeyboard } from './workbench-settings-defs-keyboar
 import { workbenchSettingsPanes } from './workbench-settings-panes';
 import { workbenchVariables } from './workbench-variables';
 
-export const es = {
+// Explicit annotation (not `as const satisfies`): the merged literal
+// type crossed tsc's declaration-serialization ceiling (TS7056), and
+// nothing narrows on this export — `en` alone carries the key type.
+export const es: Catalog = {
   ...desktop,
   ...extension,
   ...panel,
@@ -117,4 +120,4 @@ export const es = {
   ...workbenchSettingsDefsKeyboard,
   ...workbenchSettingsPanes,
   ...workbenchVariables,
-} as const satisfies Catalog;
+};

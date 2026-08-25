@@ -125,7 +125,7 @@ describe('WorkspaceMembersModal', () => {
   });
 
   describe('visibility section (F5)', () => {
-    const onVisibilityChange = vi.fn<(visibility: 'private' | 'internal') => Promise<boolean>>();
+    const onVisibilityChange = vi.fn<(visibility: 'private' | 'internal' | 'public') => Promise<boolean>>();
 
     it('renders nothing without the onVisibilityChange wiring', async () => {
       mockList.mockResolvedValue(membersFixture());
