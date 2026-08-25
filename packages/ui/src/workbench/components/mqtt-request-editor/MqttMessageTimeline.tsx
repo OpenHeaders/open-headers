@@ -144,7 +144,7 @@ interface MqttMessageTimelineProps {
 /** One display slot of the virtual list — heights are a closed
  *  function of `kind`, so windowing never measures. */
 type ListEntry =
-  | { key: string; kind: 'sent' | 'connected' | 'connackDetail' | 'error' | 'ended' | 'waiting' | 'noMatches' }
+  | { key: string; kind: 'sent' | 'connected' | 'connackDetail' | 'error' | 'ended' | 'noMatches' }
   | { key: string; kind: 'row'; index: number }
   | { key: string; kind: 'viewer'; index: number };
 
@@ -350,14 +350,13 @@ const MqttMessageTimeline: React.FC<MqttMessageTimelineProps> = ({
   }, [items, count, clearedCount, search, directionFilter, topicFilter, derive]);
 
   const filtering = search.trim() !== '' || directionFilter !== 'all' || topicFilter !== null;
-  // A settled pre-open failure is not live either — the error row is
-  // the story's end, so the waiting notice never shows beside it.
-  const live = lifecycle.endedBy === undefined && lifecycle.errorMessage === undefined;
 
   // The flat display list the virtual window runs over — ONE event
   // log: Connecting at one chronological edge, Connected (with the
   // CONNACK detail) before the first item, the ended row at the other
-  // edge; subscription facts sit wherever the log recorded them.
+  // edge; subscription facts sit wherever the log recorded them. An
+  // idle open session shows no placeholder — the lifecycle rows are
+  // the whole honest story.
   const entries = useMemo(() => {
     const out: ListEntry[] = [];
     const pushRow = (index: number) => {
@@ -366,11 +365,7 @@ const MqttMessageTimeline: React.FC<MqttMessageTimelineProps> = ({
     };
     const messageCount = visibleRows.length;
     const notice: ListEntry | null =
-      live && count === 0
-        ? { key: 'waiting', kind: 'waiting' }
-        : filtering && messageCount === 0 && count > clearedCount
-          ? { key: 'none', kind: 'noMatches' }
-          : null;
+      filtering && messageCount === 0 && count > clearedCount ? { key: 'none', kind: 'noMatches' } : null;
 
     const tokens: Array<number | 'connected'> = [];
     if (lifecycle.connected) tokens.push('connected');
@@ -412,7 +407,6 @@ const MqttMessageTimeline: React.FC<MqttMessageTimelineProps> = ({
     lifecycle.connack,
     lifecycle.errorMessage,
     lifecycle.endedBy,
-    live,
     count,
     clearedCount,
     filtering,
@@ -699,12 +693,6 @@ const MqttMessageTimeline: React.FC<MqttMessageTimelineProps> = ({
           </div>
         );
       }
-      case 'waiting':
-        return (
-          <div key={entry.key} style={lifecycleRowStyle}>
-            <span>{t('workbench.editors.mqtt.timeline.waiting')}</span>
-          </div>
-        );
       case 'noMatches':
         return (
           <div key={entry.key} style={lifecycleRowStyle}>

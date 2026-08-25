@@ -198,7 +198,6 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.timeline.grantedQos': '已授予 QoS {qos}',
   'workbench.editors.mqtt.timeline.grantFailed': '被拒绝，代码 {code}',
   'workbench.editors.mqtt.timeline.grantFailedNamed': '{name}（{code}）',
-  'workbench.editors.mqtt.timeline.waiting': '等待消息…',
   'workbench.editors.mqtt.timeline.noMatches': '没有消息与过滤条件匹配。',
   'workbench.editors.mqtt.timeline.searchMessages': '搜索消息',
   'workbench.editors.mqtt.timeline.messageCount': '{count} 条消息',

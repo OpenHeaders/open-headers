@@ -207,7 +207,6 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.timeline.grantedQos': 'QoS {qos} gewährt',
   'workbench.editors.mqtt.timeline.grantFailed': 'Abgelehnt, Code {code}',
   'workbench.editors.mqtt.timeline.grantFailedNamed': '{name} ({code})',
-  'workbench.editors.mqtt.timeline.waiting': 'Warten auf Nachrichten…',
   'workbench.editors.mqtt.timeline.noMatches': 'Keine Nachrichten entsprechen dem Filter.',
   'workbench.editors.mqtt.timeline.searchMessages': 'Nachrichten durchsuchen',
   'workbench.editors.mqtt.timeline.messageCount': '{count} Nachrichten',
