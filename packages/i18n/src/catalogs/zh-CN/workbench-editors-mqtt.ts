@@ -19,12 +19,12 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.notFound': '未找到 MQTT 请求。',
   'workbench.editors.mqtt.urlPlaceholder': 'mqtt://broker.openheaders.com:1883',
   'workbench.editors.mqtt.version.tooltip':
-    '会话使用的 MQTT 协议版本。5.0 解锁属性与订阅选项；3.1.1 面向拒绝 5.0 的代理。',
+    '会话使用的 MQTT 协议版本。\n5.0 · 属性与订阅选项\n3.1.1 · 拒绝 5.0 的代理',
   'workbench.editors.mqtt.version.v5': 'V5',
   'workbench.editors.mqtt.version.v311': 'V3.1.1',
   'workbench.editors.mqtt.version.lockedWhileConnected': '已连接时无法更改版本。',
   'workbench.editors.mqtt.scheme.tooltip':
-    '协议方案决定传输方式：mqtt/mqtts 在桌面应用或服务器上拨号 TCP 套接字；ws/wss 在任何主机上通过 WebSocket 运行 MQTT。',
+    '协议方案决定传输方式。\nmqtt/mqtts · 桌面应用或服务器上的 TCP 套接字\nws/wss · 任何主机上的 MQTT over WebSocket',
   'workbench.editors.mqtt.connect.label': '连接',
   'workbench.editors.mqtt.connect.disconnect': '断开连接',
   'workbench.editors.mqtt.connect.browserHost': 'MQTT 会话在桌面应用或服务器上运行。',

@@ -14,12 +14,12 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.notFound': 'MQTT-Anfrage nicht gefunden.',
   'workbench.editors.mqtt.urlPlaceholder': 'mqtt://broker.openheaders.com:1883',
   'workbench.editors.mqtt.version.tooltip':
-    'MQTT-Protokollversion der Sitzung. 5.0 schaltet Eigenschaften und Abonnementoptionen frei; 3.1.1 zielt auf Broker, die 5.0 ablehnen.',
+    'MQTT-Protokollversion der Sitzung.\n5.0 · Eigenschaften und Abonnementoptionen\n3.1.1 · Broker, die 5.0 ablehnen',
   'workbench.editors.mqtt.version.v5': 'V5',
   'workbench.editors.mqtt.version.v311': 'V3.1.1',
   'workbench.editors.mqtt.version.lockedWhileConnected': 'Die Version kann nicht geändert werden, solange die Sitzung verbunden ist.',
   'workbench.editors.mqtt.scheme.tooltip':
-    'Das Schema wählt den Transport: mqtt/mqtts öffnen einen TCP-Socket in der Desktop-App oder auf dem Server; ws/wss fahren MQTT über WebSocket auf jedem Host.',
+    'Das Schema wählt den Transport.\nmqtt/mqtts · TCP-Socket in der Desktop-App oder auf dem Server\nws/wss · MQTT über WebSocket auf jedem Host',
   'workbench.editors.mqtt.connect.label': 'Verbinden',
   'workbench.editors.mqtt.connect.disconnect': 'Trennen',
   'workbench.editors.mqtt.connect.browserHost': 'MQTT-Sitzungen laufen in der Desktop-App oder auf dem Server.',
