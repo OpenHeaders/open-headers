@@ -82,6 +82,9 @@ export function executeGrpcStream(params: GrpcStreamExecuteParams): Promise<Exec
       params.sendId !== undefined && params.emitEvent !== undefined
         ? createGrpcStreamEmitter(params.sendId, params.emitEvent)
         : null;
+    // The dispatched metadata truth, live — the sent row's expansion
+    // needs no settle to be honest.
+    emitter?.sent(params.metadata);
     const reader = createGrpcFrameReader();
     const controller = new AbortController();
     let stopped = false;

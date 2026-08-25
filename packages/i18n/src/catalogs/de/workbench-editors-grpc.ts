@@ -192,6 +192,8 @@ export const workbenchEditorsGrpc = {
   'workbench.editors.grpc.stream.sendFailed': 'Die Nachricht wurde nicht gesendet',
   'workbench.editors.grpc.timeline.requestSent': 'Anfrage gesendet',
   'workbench.editors.grpc.timeline.noMetadataSent': 'Keine Metadaten gesendet.',
+  'workbench.editors.grpc.timeline.receivedMetadata': 'Metadaten empfangen.',
+  'workbench.editors.grpc.timeline.noMetadataReceived': 'Keine Metadaten empfangen.',
   'workbench.editors.grpc.timeline.responseReceived': 'Antwort empfangen',
   'workbench.editors.grpc.timeline.completed': 'Aufruf abgeschlossen',
   'workbench.editors.grpc.timeline.stopped': 'Aufruf gestoppt',

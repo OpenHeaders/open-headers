@@ -270,7 +270,7 @@ describe('executeGrpcStream — settle paths', () => {
 });
 
 describe('executeGrpcStream — live event feed', () => {
-  it('emits head, direction-tagged message batches, and end with monotonic seq', async () => {
+  it('emits sent, head, direction-tagged message batches, and end with monotonic seq', async () => {
     const fake = streamTransport();
     const events: GrpcStreamEventWire[] = [];
     const pending = executeGrpcStream(
@@ -283,14 +283,14 @@ describe('executeGrpcStream — live event feed', () => {
     cb.onTrailers(okTrailers);
     cb.onEnd();
     await pending;
-    expect(events.map((e) => e.kind)).toEqual(['head', 'messages', 'end']);
-    expect(events.map((e) => e.seq)).toEqual([0, 1, 2]);
-    if (events[0].kind !== 'head') throw new Error('expected head frame');
+    expect(events.map((e) => e.kind)).toEqual(['sent', 'head', 'messages', 'end']);
+    expect(events.map((e) => e.seq)).toEqual([0, 1, 2, 3]);
+    if (events[1].kind !== 'head') throw new Error('expected head frame');
     // The ↑ rider preceded the head; the position rides the wire event
     // so pooled messages can't distort the interleave order.
-    expect(events[0].afterMessages).toBe(1);
-    if (events[1].kind !== 'messages') throw new Error('expected messages frame');
-    expect(events[1].items.map((m) => m.direction)).toEqual(['up', 'down']);
-    expect(events[1].items.every((m) => m.atMs > 0)).toBe(true);
+    expect(events[1].afterMessages).toBe(1);
+    if (events[2].kind !== 'messages') throw new Error('expected messages frame');
+    expect(events[2].items.map((m) => m.direction)).toEqual(['up', 'down']);
+    expect(events[2].items.every((m) => m.atMs > 0)).toBe(true);
   });
 });

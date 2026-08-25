@@ -125,6 +125,17 @@ export type GrpcStreamEventWire =
        *  tolerance toward hosts that predate the stamp. */
       atMs?: number;
     }
+  | {
+      sendId: string;
+      seq: number;
+      kind: 'sent';
+      /** The metadata pairs the call actually carried — user rows
+       *  template-resolved plus the auth-composed pair, emitted at
+       *  dispatch (the snapshot `requestMetadata`'s live twin) so the
+       *  timeline's sent row expands to the truth WHILE the call is
+       *  open. Session-only display data, never persisted. */
+      metadata: Array<{ key: string; value: string }>;
+    }
   | { sendId: string; seq: number; kind: 'messages'; items: GrpcStreamMessageWire[] }
   | {
       sendId: string;

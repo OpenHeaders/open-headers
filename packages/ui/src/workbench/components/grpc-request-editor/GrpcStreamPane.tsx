@@ -74,6 +74,7 @@ const GrpcStreamPane: React.FC<GrpcStreamPaneProps> = ({
         headArrived: live !== null && live.head !== null,
         ...(live?.connectedAt !== undefined ? { connectedAt: live.connectedAt } : {}),
         ...(live?.headAtMessage !== undefined ? { headAtMessage: live.headAtMessage } : {}),
+        ...(live?.sentMetadata !== undefined ? { requestMetadata: live.sentMetadata } : {}),
       };
     }
     // Terminal instants prefer the observed truth — the end frame's
@@ -244,6 +245,8 @@ const GrpcStreamPane: React.FC<GrpcStreamPaneProps> = ({
                     registry={registry}
                     inputType={inputType}
                     outputType={outputType}
+                    responseMetadataCount={headers.length}
+                    onShowMetadata={() => setActiveTab('metadata')}
                   />
                 </div>
               </div>

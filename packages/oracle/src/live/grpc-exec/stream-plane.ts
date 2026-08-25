@@ -41,6 +41,11 @@ export interface GrpcStreamEmitter {
     afterMessages: number,
     proxyRoute?: ExecutedProxyRoute,
   ): void;
+  /** Push the dispatched request metadata — one immediate frame at
+   *  call start, so the timeline's sent row expands to the truth
+   *  while the call is open (the snapshot `requestMetadata`'s live
+   *  twin). */
+  sent(metadata: ReadonlyArray<{ key: string; value: string }>): void;
   /** Enqueue one direction-tagged message; flushes by the time window. */
   message(message: GrpcStreamMessageWire): void;
   /** Settle the emitter (any end path): flush pending messages, then
@@ -82,6 +87,10 @@ export function createGrpcStreamEmitter(sendId: string, emit: (event: GrpcStream
         ...(proxyRoute !== undefined ? { proxyRoute } : {}),
         atMs: Date.now(),
       });
+    },
+    sent(metadata) {
+      if (settled) return;
+      emit({ sendId, seq: seq++, kind: 'sent', metadata: metadata.map((m) => ({ ...m })) });
     },
     message(message) {
       if (settled) return;

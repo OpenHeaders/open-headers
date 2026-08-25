@@ -81,6 +81,16 @@ describe('createGrpcStreamEmitter', () => {
     expect(events).toHaveLength(2);
   });
 
+  it('emits the dispatched metadata immediately as the sent frame', () => {
+    const events: GrpcStreamEventWire[] = [];
+    const emitter = createGrpcStreamEmitter('send-1', (e) => events.push(e));
+    emitter.sent([{ key: 'wat', value: 'wat' }]);
+    emitter.head(200, [], 0);
+    expect(events.map((e) => e.kind)).toEqual(['sent', 'head']);
+    if (events[0].kind !== 'sent') throw new Error('expected sent frame');
+    expect(events[0].metadata).toEqual([{ key: 'wat', value: 'wat' }]);
+  });
+
   it('stamps the lifecycle frames with the host wall-clock — the message frames atMs law', () => {
     vi.setSystemTime(1_700_000_111_222);
     const events: GrpcStreamEventWire[] = [];

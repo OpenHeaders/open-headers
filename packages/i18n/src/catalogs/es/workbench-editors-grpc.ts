@@ -184,6 +184,8 @@ export const workbenchEditorsGrpc = {
   'workbench.editors.grpc.stream.sendFailed': 'El mensaje no se envió',
   'workbench.editors.grpc.timeline.requestSent': 'Solicitud enviada',
   'workbench.editors.grpc.timeline.noMetadataSent': 'No se enviaron metadatos.',
+  'workbench.editors.grpc.timeline.receivedMetadata': 'Metadatos recibidos.',
+  'workbench.editors.grpc.timeline.noMetadataReceived': 'No se recibieron metadatos.',
   'workbench.editors.grpc.timeline.responseReceived': 'Respuesta recibida',
   'workbench.editors.grpc.timeline.completed': 'Llamada completada',
   'workbench.editors.grpc.timeline.stopped': 'Llamada detenida',

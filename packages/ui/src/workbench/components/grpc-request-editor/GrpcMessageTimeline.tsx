@@ -108,6 +108,9 @@ const sentDetailPx = (pairs: number): number => 18 + Math.max(1, pairs) * 20 + 1
  *  guidance line + the classified message line (20px each) + 6px
  *  paddings + 1px divider. */
 const ERROR_DETAIL_PX = 53;
+/** Pinned height of the connected row's expanded received-metadata
+ *  line — one 20px line + 6px paddings + 1px divider. */
+const CONNECTED_DETAIL_PX = 33;
 
 const cellFont: React.CSSProperties = {
   fontFamily: "'SF Mono', 'Fira Code', monospace",
@@ -167,6 +170,13 @@ interface GrpcMessageTimelineProps {
   inputType: string | null;
   /** The rpc's resolved response type — ↓ frames decode as it. */
   outputType: string | null;
+  /** Response metadata pair count — the "Response received" row
+   *  expands to the received-metadata line (or the honest "No
+   *  metadata received." one). Absent = unknown: the row reads plain. */
+  responseMetadataCount?: number;
+  /** Clicking the received-metadata line jumps to the pane's Metadata
+   *  tab. */
+  onShowMetadata?: () => void;
 }
 
 /** One display slot of the virtual list — heights are a closed
@@ -182,7 +192,10 @@ interface GrpcGroupIdentity {
 }
 
 type ListEntry =
-  | { key: string; kind: 'sent' | 'sentDetail' | 'connected' | 'ended' | 'errorDetail' | 'waiting' | 'noMatches' }
+  | {
+      key: string;
+      kind: 'sent' | 'sentDetail' | 'connected' | 'connectedDetail' | 'ended' | 'errorDetail' | 'waiting' | 'noMatches';
+    }
   | { key: string; kind: 'header'; group: GrpcGroupIdentity; count: number; collapsed: boolean }
   /** "Show N older" at a windowed group's older edge; the un-windowed
    *  state's re-window action lives on the group header. */
@@ -297,6 +310,8 @@ const GrpcMessageTimeline: React.FC<GrpcMessageTimelineProps> = ({
   registry,
   inputType,
   outputType,
+  responseMetadataCount,
+  onShowMetadata,
 }) => {
   const { token } = theme.useToken();
   const t = useT();
@@ -313,6 +328,8 @@ const GrpcMessageTimeline: React.FC<GrpcMessageTimelineProps> = ({
   const [expanded, setExpanded] = useState<ReadonlySet<number>>(new Set<number>());
   /** The "Request sent" row's metadata details are open. */
   const [sentExpanded, setSentExpanded] = useState(false);
+  /** The "Response received" row's metadata line is open. */
+  const [connectedExpanded, setConnectedExpanded] = useState(false);
   /** The error row's explanation details are open. */
   const [errorExpanded, setErrorExpanded] = useState(false);
   const [wrapLines, setWrapLines] = useState(true);
@@ -488,6 +505,8 @@ const GrpcMessageTimeline: React.FC<GrpcMessageTimelineProps> = ({
   const sentDetailOpen = sentExpanded && sentRecorded;
   const errorExpandable = lifecycle.endedBy === 'error' && lifecycle.endedMessage !== undefined;
   const errorDetailOpen = errorExpanded && errorExpandable;
+  const connectedExpandable = responseMetadataCount !== undefined;
+  const connectedDetailOpen = connectedExpanded && connectedExpandable;
 
   // The flat display list the virtual window runs over. The timeline
   // is ONE event log: ungrouped, "Response received" interleaves at
@@ -502,6 +521,10 @@ const GrpcMessageTimeline: React.FC<GrpcMessageTimelineProps> = ({
     const pushRow = (index: number) => {
       out.push({ key: `r${index}`, kind: 'row', index });
       if (expanded.has(index)) out.push({ key: `v${index}`, kind: 'viewer', index });
+    };
+    const pushConnected = () => {
+      out.push({ key: 'connected', kind: 'connected' });
+      if (connectedDetailOpen) out.push({ key: 'connectedDetail', kind: 'connectedDetail' });
     };
     const headAt = lifecycle.headArrived ? (lifecycle.headAtMessage ?? 0) : null;
     const notice: ListEntry | null =
@@ -519,7 +542,7 @@ const GrpcMessageTimeline: React.FC<GrpcMessageTimelineProps> = ({
     } else {
       out.push({ key: 'sent', kind: 'sent' });
       if (sentDetailOpen) out.push({ key: 'sentDetail', kind: 'sentDetail' });
-      if (groups !== null && headAt !== null) out.push({ key: 'connected', kind: 'connected' });
+      if (groups !== null && headAt !== null) pushConnected();
     }
 
     if (groups !== null) {
@@ -567,14 +590,14 @@ const GrpcMessageTimeline: React.FC<GrpcMessageTimelineProps> = ({
       if (headAt !== null && !connectedPushed) tokens.push('connected');
       if (newestFirst) tokens.reverse();
       for (const token of tokens) {
-        if (token === 'connected') out.push({ key: 'connected', kind: 'connected' });
+        if (token === 'connected') pushConnected();
         else pushRow(token);
       }
     }
 
     // Bottom chronological edge.
     if (newestFirst) {
-      if (groups !== null && headAt !== null) out.push({ key: 'connected', kind: 'connected' });
+      if (groups !== null && headAt !== null) pushConnected();
       out.push({ key: 'sent', kind: 'sent' });
       if (sentDetailOpen) out.push({ key: 'sentDetail', kind: 'sentDetail' });
     } else {
@@ -597,6 +620,7 @@ const GrpcMessageTimeline: React.FC<GrpcMessageTimelineProps> = ({
     groups,
     expanded,
     sentDetailOpen,
+    connectedDetailOpen,
     errorDetailOpen,
     collapsedGroups,
     groupRowLimit,
@@ -612,7 +636,9 @@ const GrpcMessageTimeline: React.FC<GrpcMessageTimelineProps> = ({
             ? sentDetailPx(sentMetadata.length)
             : e.kind === 'errorDetail'
               ? ERROR_DETAIL_PX
-              : SINGLE_ROW_PX,
+              : e.kind === 'connectedDetail'
+                ? CONNECTED_DETAIL_PX
+                : SINGLE_ROW_PX,
       ),
     [entries, sentMetadata.length],
   );
@@ -985,14 +1011,77 @@ const GrpcMessageTimeline: React.FC<GrpcMessageTimelineProps> = ({
           </div>
         );
       case 'connected':
+        // Expands to the received-metadata line — a jump to the
+        // Metadata tab, or the honest "No metadata received." one.
         return (
-          <div key={entry.key} data-testid="grpc-timeline-connected-row" style={lifecycleRowStyle}>
+          <div
+            key={entry.key}
+            data-testid="grpc-timeline-connected-row"
+            {...(connectedExpandable
+              ? {
+                  role: 'button',
+                  tabIndex: 0,
+                  'aria-expanded': connectedExpanded,
+                  className: 'oh-stream-row',
+                  onClick: () => setConnectedExpanded((open) => !open),
+                  onKeyDown: (event: React.KeyboardEvent) => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault();
+                      setConnectedExpanded((open) => !open);
+                    }
+                  },
+                }
+              : {})}
+            style={{ ...lifecycleRowStyle, ...(connectedExpandable ? { cursor: 'pointer' } : {}) }}
+          >
             <InfoCircleOutlined aria-hidden style={{ fontSize: 11, color: token.colorTextTertiary }} />
             <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {t('workbench.editors.grpc.timeline.responseReceived')}
             </span>
             {lifecycleTime(lifecycle.connectedAt)}
-            {expandSlot(null)}
+            {expandSlot(connectedExpandable ? connectedExpanded : null)}
+          </div>
+        );
+      case 'connectedDetail':
+        return (
+          <div
+            key={entry.key}
+            data-testid="grpc-timeline-connected-details"
+            style={{
+              height: CONNECTED_DETAIL_PX,
+              boxSizing: 'border-box',
+              padding: '6px 10px 6px 37px',
+              borderBottom: `1px solid ${token.colorBorderSecondary}`,
+              overflow: 'hidden',
+            }}
+          >
+            {(responseMetadataCount ?? 0) > 0 ? (
+              <button
+                type="button"
+                data-testid="grpc-timeline-received-metadata-link"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onShowMetadata?.();
+                }}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  padding: 0,
+                  fontSize: 12,
+                  lineHeight: '20px',
+                  height: 20,
+                  color: token.colorText,
+                  textDecoration: 'underline',
+                  cursor: 'pointer',
+                }}
+              >
+                {t('workbench.editors.grpc.timeline.receivedMetadata')}
+              </button>
+            ) : (
+              <div style={{ fontSize: 12, lineHeight: '20px', height: 20, color: token.colorTextSecondary }}>
+                {t('workbench.editors.grpc.timeline.noMetadataReceived')}
+              </div>
+            )}
           </div>
         );
       case 'ended': {

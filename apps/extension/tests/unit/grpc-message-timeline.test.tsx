@@ -247,6 +247,26 @@ describe('GrpcMessageTimeline lifecycle rows', () => {
     expect(screen.getByTestId('grpc-timeline-sent-row').getAttribute('aria-expanded')).toBeNull();
   });
 
+  it('expands the connected row to the received-metadata jump or the honest empty line', () => {
+    const onShowMetadata = vi.fn();
+    const { unmount } = renderTimeline({ responseMetadataCount: 4, onShowMetadata });
+    const row = screen.getByTestId('grpc-timeline-connected-row');
+    expect(row.getAttribute('aria-expanded')).toBe('false');
+    fireEvent.click(row);
+    const link = screen.getByTestId('grpc-timeline-received-metadata-link');
+    expect(link.textContent).toBe('Received metadata.');
+    fireEvent.click(link);
+    expect(onShowMetadata).toHaveBeenCalledTimes(1);
+    unmount();
+    const { unmount: unmountEmpty } = renderTimeline({ responseMetadataCount: 0 });
+    fireEvent.click(screen.getByTestId('grpc-timeline-connected-row'));
+    expect(screen.getByTestId('grpc-timeline-connected-details').textContent).toBe('No metadata received.');
+    unmountEmpty();
+    // Without a known count the row reads plain.
+    renderTimeline();
+    expect(screen.getByTestId('grpc-timeline-connected-row').getAttribute('aria-expanded')).toBeNull();
+  });
+
   it('renders a pre-head failure as the plain-labeled error row expanding to the explanation', () => {
     renderTimeline({
       items: [],

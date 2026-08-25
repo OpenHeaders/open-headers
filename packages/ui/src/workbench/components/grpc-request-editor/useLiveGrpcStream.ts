@@ -54,6 +54,10 @@ export interface LiveGrpcStream {
   /** Messages that preceded the head in CALL order — the executor's
    *  stamp off the head event, immune to message-batch pooling. */
   headAtMessage?: number;
+  /** The dispatched request metadata off the sent frame — the sent
+   *  row's live expansion truth (the snapshot `requestMetadata`'s
+   *  twin). Absent toward hosts that predate the frame. */
+  sentMetadata?: Array<{ key: string; value: string }>;
   /** Append-only message log; reference-stable, `count` committed. */
   items: GrpcStreamMessageWire[];
   count: number;
@@ -68,6 +72,7 @@ interface GrpcStreamAccumulator {
   head: LiveGrpcStream['head'];
   connectedAt?: number;
   headAtMessage?: number;
+  sentMetadata?: Array<{ key: string; value: string }>;
   settledAt?: number;
   items: GrpcStreamMessageWire[];
   timestamps: number[];
@@ -100,6 +105,7 @@ export function useLiveGrpcStream(): {
       startedAt: acc.startedAt,
       ...(acc.connectedAt !== undefined ? { connectedAt: acc.connectedAt } : {}),
       ...(acc.headAtMessage !== undefined ? { headAtMessage: acc.headAtMessage } : {}),
+      ...(acc.sentMetadata !== undefined ? { sentMetadata: acc.sentMetadata } : {}),
       items: acc.items,
       count: acc.items.length,
       timestamps: acc.timestamps,
@@ -153,12 +159,14 @@ export function useLiveGrpcStream(): {
           };
           acc.connectedAt = event.atMs ?? Date.now();
           acc.headAtMessage = event.afterMessages;
+        } else if (event.kind === 'sent') {
+          acc.sentMetadata = event.metadata;
         } else if (event.kind === 'messages') {
           for (const item of event.items) {
             acc.items.push(item);
             acc.timestamps.push(item.atMs);
           }
-        } else {
+        } else if (event.kind === 'end') {
           // The end frame carries the host's call-settled instant; the
           // resolving RPC still ends the stream.
           acc.settledAt = event.atMs ?? Date.now();
