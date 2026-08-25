@@ -300,9 +300,12 @@ test('D4 — timeoutMs below the probe delay aborts with the classified deadline
   // server-side, so the LOCAL abort wins pre-head — a classified error
   // snapshot, never a synthetic status (missing status stays null by
   // the S4 capture law; a 4 DEADLINE_EXCEEDED pill would only render
-  // if the server itself sent one).
-  const errorState = workbench.getByTestId('grpc-response-error').filter({ visible: true }).first();
-  await errorState.waitFor({ state: 'visible', timeout: 20_000 });
+  // if the server itself sent one). The failure renders INSIDE the
+  // pane's chrome: the Call failed pill in the meta strip, the
+  // classified message in the Response tab's friendly error state.
+  const failedTag = workbench.getByTestId('grpc-call-failed-tag').filter({ visible: true }).first();
+  await failedTag.waitFor({ state: 'visible', timeout: 20_000 });
+  const errorState = workbench.getByTestId('grpc-response-error-state').filter({ visible: true }).first();
   await expect(errorState).toContainText('Call deadline of 1000 ms elapsed before a response arrived.');
 });
 

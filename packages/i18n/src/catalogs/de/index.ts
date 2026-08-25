@@ -62,7 +62,7 @@ import { workbenchSettingsDefsKeyboard } from './workbench-settings-defs-keyboar
 import { workbenchSettingsPanes } from './workbench-settings-panes';
 import { workbenchVariables } from './workbench-variables';
 
-export const de = {
+export const de: Catalog = {
   ...desktop,
   ...extension,
   ...panel,

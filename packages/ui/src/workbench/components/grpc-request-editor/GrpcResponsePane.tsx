@@ -7,10 +7,13 @@
  * display-side decode over the captured frames (see
  * `response-decode.ts`); Metadata and Trailers render the reply's
  * fields in the shared filterable name/value grid
- * (`ResponseHeadersView`), counts on the tab labels. A non-OK status with no reply message renders the friendly
- * `GrpcResponseErrorState` in the Response tab; error snapshots (the
- * call never produced a response head) render the same state's local
- * flavor under the plain Response title row.
+ * (`ResponseHeadersView`), counts on the tab labels. A non-OK status
+ * with no reply message renders the friendly `GrpcResponseErrorState`
+ * in the Response tab; error snapshots (the call never produced a
+ * response head) render the same state's local flavor as the Response
+ * tab's body INSIDE the pane's chrome — the meta strip pills Call
+ * failed with the classified message on hover, never a bare error
+ * wall (the WS/MQTT session panes' law).
  */
 
 import { ClearOutlined, EllipsisOutlined } from '@ant-design/icons';
@@ -56,43 +59,16 @@ const GrpcResponsePane: React.FC<GrpcResponsePaneProps> = ({ snapshot, registry,
   const metadataRows = useMemo(() => withoutGrpcStatusPair(snapshot.headers), [snapshot.headers]);
   const trailerRows = useMemo(() => withoutGrpcStatusPair(snapshot.trailers), [snapshot.trailers]);
 
-  if (snapshot.error !== null) {
-    return (
-      <div
-        style={{
-          height: '100%',
-          display: 'flex',
-          flexDirection: 'column',
-          minHeight: 0,
-          background: token.colorBgContainer,
-        }}
-        data-testid="grpc-response-error"
-      >
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            padding: '6px 12px',
-            borderBottom: `1px solid ${token.colorBorderSecondary}`,
-          }}
-        >
-          <Text strong style={{ fontSize: 12 }}>
-            {t('workbench.editors.grpc.response.title')}
-          </Text>
-        </div>
-        <GrpcResponseErrorState status={null} detail={snapshot.error} />
-      </div>
-    );
-  }
-
   // Right-aligned meta strip in the tab bar — the HTTP ResponsePanel's
   // one-row header format: status pill (hover popover with the code's
-  // meaning) · duration, then the ⋯ actions menu.
+  // meaning; the error-tinted Call failed pill on a local failure) ·
+  // duration, then the ⋯ actions menu.
   const metaStrip = (
     <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, paddingLeft: 12 }}>
       <GrpcMetaStrip
         status={snapshot.grpcStatus}
         durationMs={snapshot.durationMs}
+        {...(snapshot.error !== null ? { error: snapshot.error } : {})}
         {...(snapshot.proxyRoute !== undefined ? { proxyRoute: snapshot.proxyRoute } : {})}
       />
       <Dropdown
@@ -146,7 +122,13 @@ const GrpcResponsePane: React.FC<GrpcResponsePaneProps> = ({ snapshot, registry,
   if (view.kind === 'structural') notices.push(t('workbench.editors.grpc.response.structuralNotice'));
 
   const messageBody =
-    view.kind === 'none' ? (
+    snapshot.error !== null ? (
+      // A local failure (the call never produced a response head) —
+      // the friendly error state IS the Response tab's body, inside
+      // the pane's chrome (pill + duration + tabs stay; never a bare
+      // error wall).
+      <GrpcResponseErrorState status={null} detail={snapshot.error} />
+    ) : view.kind === 'none' ? (
       snapshot.grpcStatus !== null && snapshot.grpcStatus !== 0 ? (
         // A non-OK status with no reply message — the friendly error
         // state carries the status + server message instead of a bare

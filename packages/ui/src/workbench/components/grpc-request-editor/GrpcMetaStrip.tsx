@@ -60,11 +60,16 @@ const GrpcMetaStrip: React.FC<{
   durationMs: number;
   /** Cancelled mid-stream — the Stopped badge. */
   stopped?: boolean;
+  /** The classified LOCAL failure — the call never produced a response
+   *  head. Renders the error-tinted "Call failed" pill (hover: the
+   *  classified message) in the status pill's slot; the capture's
+   *  status stays its honest null, never a synthesized code. */
+  error?: string;
   /** The capture's proxy-routing wire truth — the shared attribution
    *  tag when a plane proxied (or stood down for) the dial. Examples
    *  strip it with the other volatile internals, so they omit it. */
   proxyRoute?: ExecutedProxyRoute;
-}> = ({ status, durationMs, stopped, proxyRoute }) => {
+}> = ({ status, durationMs, stopped, error, proxyRoute }) => {
   const { token } = theme.useToken();
   const t = useT();
   // A caller-stopped call whose reply carried no status reads as
@@ -74,7 +79,16 @@ const GrpcMetaStrip: React.FC<{
   const statusColor = displayStatus === 0 ? token.colorSuccess : token.colorError;
   return (
     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7, minWidth: 0 }}>
-      {displayStatus === null ? (
+      {error !== undefined ? (
+        <InfoPopover
+          content={{ title: t('workbench.editors.grpc.response.error.title'), summary: error }}
+          trigger="hover"
+        >
+          <Tag color="error" style={{ marginInlineEnd: 0, cursor: 'help' }} data-testid="grpc-call-failed-tag">
+            {t('workbench.editors.grpc.response.error.title')}
+          </Tag>
+        </InfoPopover>
+      ) : displayStatus === null ? (
         <Tag color="default" style={{ marginInlineEnd: 0 }} data-testid="grpc-status-tag">
           {t('workbench.editors.grpc.response.noStatus')}
         </Tag>

@@ -29,10 +29,15 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 export interface GrpcStreamSession {
   /** When the invoke left — the "Request sent" lifecycle row. */
   startedAt: number;
-  /** When the response head arrived; absent = it never did. */
+  /** When the response head arrived; absent = it never did. Host-
+   *  stamped from the head frame's `atMs`; observation-stamped toward
+   *  hosts that predate the lifecycle stamps. */
   connectedAt?: number;
   /** Per-message host stamps in capture order. */
   messageTimestamps: number[];
+  /** When the call settled on the executing host — the end frame's
+   *  host stamp, on every settle path. Absent = no end frame arrived. */
+  settledAt?: number;
   /** Stamped by the editor when the invoke settles. */
   endedAt?: number;
 }
@@ -63,6 +68,7 @@ interface GrpcStreamAccumulator {
   head: LiveGrpcStream['head'];
   connectedAt?: number;
   headAtMessage?: number;
+  settledAt?: number;
   items: GrpcStreamMessageWire[];
   timestamps: number[];
   lastSeq: number;
@@ -120,6 +126,7 @@ export function useLiveGrpcStream(): {
       startedAt: acc.startedAt,
       ...(acc.connectedAt !== undefined ? { connectedAt: acc.connectedAt } : {}),
       messageTimestamps: [...acc.timestamps],
+      ...(acc.settledAt !== undefined ? { settledAt: acc.settledAt } : {}),
     };
   }, []);
 
@@ -144,15 +151,18 @@ export function useLiveGrpcStream(): {
             headers: event.headers,
             ...(event.proxyRoute !== undefined ? { proxyRoute: event.proxyRoute } : {}),
           };
-          acc.connectedAt = Date.now();
+          acc.connectedAt = event.atMs ?? Date.now();
           acc.headAtMessage = event.afterMessages;
         } else if (event.kind === 'messages') {
           for (const item of event.items) {
             acc.items.push(item);
             acc.timestamps.push(item.atMs);
           }
+        } else {
+          // The end frame carries the host's call-settled instant; the
+          // resolving RPC still ends the stream.
+          acc.settledAt = event.atMs ?? Date.now();
         }
-        // `end` needs no handling — the resolving RPC ends the stream.
         scheduleCommit();
       });
     },

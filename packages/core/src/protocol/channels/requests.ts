@@ -119,9 +119,22 @@ export type GrpcStreamEventWire =
        *  attribution from the record's live twin, so the streaming meta
        *  strip is honest BEFORE the snapshot settles. Absent = direct. */
       proxyRoute?: ExecutedProxyRoute;
+      /** The executing host's head-arrival wall-clock — the message
+       *  frames' `atMs` law extended to the lifecycle frames (SESSION-
+       *  ONLY display data, never persisted). Optional for wire
+       *  tolerance toward hosts that predate the stamp. */
+      atMs?: number;
     }
   | { sendId: string; seq: number; kind: 'messages'; items: GrpcStreamMessageWire[] }
-  | { sendId: string; seq: number; kind: 'end' };
+  | {
+      sendId: string;
+      seq: number;
+      kind: 'end';
+      /** The executing host's call-settled wall-clock — when the call
+       *  ended on the host, on EVERY settle path (completion, failure,
+       *  stop). Same session-only law as the message stamps. */
+      atMs?: number;
+    };
 
 /**
  * One live message of an open WebSocket session, direction-tagged: the

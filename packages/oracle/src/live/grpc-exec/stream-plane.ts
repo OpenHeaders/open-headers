@@ -70,6 +70,8 @@ export function createGrpcStreamEmitter(sendId: string, emit: (event: GrpcStream
   return {
     head(httpStatus, headers, afterMessages, proxyRoute) {
       if (settled) return;
+      // Head emits immediately, so the emit instant IS the observed
+      // head-arrival instant — the message frames' atMs law.
       emit({
         sendId,
         seq: seq++,
@@ -78,6 +80,7 @@ export function createGrpcStreamEmitter(sendId: string, emit: (event: GrpcStream
         headers: headers.map((h) => ({ ...h })),
         afterMessages,
         ...(proxyRoute !== undefined ? { proxyRoute } : {}),
+        atMs: Date.now(),
       });
     },
     message(message) {
@@ -93,7 +96,9 @@ export function createGrpcStreamEmitter(sendId: string, emit: (event: GrpcStream
       if (settled) return;
       flush();
       settled = true;
-      emit({ sendId, seq: seq++, kind: 'end' });
+      // End emits immediately on every settle path — its instant is
+      // the observed end of the call.
+      emit({ sendId, seq: seq++, kind: 'end', atMs: Date.now() });
     },
   };
 }

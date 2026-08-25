@@ -9,8 +9,10 @@
  * capture with the session's timestamps joined positionally). The
  * header is ONE row in the HTTP ResponsePanel's format: tabs left,
  * meta strip right-aligned in the tab bar. Error snapshots (the call
- * never produced a response head) render the classified message under
- * the plain Response title row, the unary pane's shape.
+ * never produced a response head) render through the SAME pane — the
+ * classified message rides the timeline as its error-flavored ended
+ * row and the meta strip pills Call failed — never a bare error wall
+ * (the WS/MQTT session panes' law).
  */
 
 import { ClearOutlined, EllipsisOutlined } from '@ant-design/icons';
@@ -25,7 +27,6 @@ import ResponseHeadersView from '../request-editor/response/ResponseHeadersView'
 import { ExampleChip } from '../shared/ExampleChip';
 import GrpcMessageTimeline, { type GrpcTimelineLifecycle } from './GrpcMessageTimeline';
 import GrpcMetaStrip from './GrpcMetaStrip';
-import GrpcResponseErrorState from './GrpcResponseErrorState';
 import { grpcInputTypeOf, grpcOutputTypeOf, withoutGrpcStatusPair } from './response-decode';
 import type { GrpcStreamSession, LiveGrpcStream } from './useLiveGrpcStream';
 
@@ -75,50 +76,35 @@ const GrpcStreamPane: React.FC<GrpcStreamPaneProps> = ({
         ...(live?.headAtMessage !== undefined ? { headAtMessage: live.headAtMessage } : {}),
       };
     }
+    // Terminal instants prefer the observed truth — the end frame's
+    // host stamp; the editor's settle stamp stays the fallback toward
+    // hosts that predate the lifecycle stamps.
+    const settledAt = session?.settledAt ?? session?.endedAt;
+    // A pre-head failure (the call never produced a response head)
+    // settles as the timeline's error-flavored ended row — the
+    // classified message verbatim at the new edge; never a bare error
+    // wall (the WS/MQTT session panes' law).
+    if (snapshot.error !== null) {
+      return {
+        ...(session?.startedAt !== undefined ? { startedAt: session.startedAt } : {}),
+        headArrived: false,
+        endedBy: 'error',
+        ...(settledAt !== undefined ? { endedAt: settledAt } : {}),
+        endedMessage: snapshot.error,
+      };
+    }
     return {
       ...(session?.startedAt !== undefined ? { startedAt: session.startedAt } : {}),
-      headArrived: snapshot.error === null,
+      headArrived: true,
       ...(session?.connectedAt !== undefined ? { connectedAt: session.connectedAt } : {}),
       ...(snapshot.headAtMessage !== undefined ? { headAtMessage: snapshot.headAtMessage } : {}),
       endedBy: snapshot.stopped === true ? 'stop' : 'complete',
-      ...(session?.endedAt !== undefined ? { endedAt: session.endedAt } : {}),
+      ...(settledAt !== undefined ? { endedAt: settledAt } : {}),
       ...(snapshot.grpcMessage !== undefined && snapshot.grpcStatus !== 0 && snapshot.grpcMessage !== ''
         ? { endedMessage: snapshot.grpcMessage }
         : {}),
     };
   }, [snapshot, live, session]);
-
-  // Pre-head failures render the classified message under the plain
-  // Response title row — the unary pane's shape; there was never a
-  // call to timeline.
-  if (snapshot !== null && snapshot.error !== null) {
-    return (
-      <div
-        style={{
-          height: '100%',
-          display: 'flex',
-          flexDirection: 'column',
-          minHeight: 0,
-          background: token.colorBgContainer,
-        }}
-        data-testid="grpc-response-error"
-      >
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            padding: '6px 12px',
-            borderBottom: `1px solid ${token.colorBorderSecondary}`,
-          }}
-        >
-          <Text strong style={{ fontSize: 12 }}>
-            {t('workbench.editors.grpc.response.title')}
-          </Text>
-        </div>
-        <GrpcResponseErrorState status={null} detail={snapshot.error} />
-      </div>
-    );
-  }
 
   // Right-aligned meta strip in the tab bar — the HTTP ResponsePanel's
   // one-row header format: STREAMING while live; the shared strip
@@ -139,6 +125,7 @@ const GrpcStreamPane: React.FC<GrpcStreamPaneProps> = ({
             status={snapshot.grpcStatus}
             durationMs={snapshot.durationMs}
             stopped={snapshot.stopped === true}
+            {...(snapshot.error !== null ? { error: snapshot.error } : {})}
             {...(snapshot.proxyRoute !== undefined ? { proxyRoute: snapshot.proxyRoute } : {})}
           />
           <Dropdown

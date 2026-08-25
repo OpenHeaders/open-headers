@@ -80,6 +80,19 @@ describe('createGrpcStreamEmitter', () => {
     emitter.end();
     expect(events).toHaveLength(2);
   });
+
+  it('stamps the lifecycle frames with the host wall-clock — the message frames atMs law', () => {
+    vi.setSystemTime(1_700_000_111_222);
+    const events: GrpcStreamEventWire[] = [];
+    const emitter = createGrpcStreamEmitter('send-1', (e) => events.push(e));
+    emitter.head(200, [], 0);
+    vi.setSystemTime(1_700_000_333_444);
+    emitter.end();
+    expect(events.map((e) => e.kind)).toEqual(['head', 'end']);
+    if (events[0].kind !== 'head' || events[1].kind !== 'end') throw new Error('expected head then end');
+    expect(events[0].atMs).toBe(1_700_000_111_222);
+    expect(events[1].atMs).toBe(1_700_000_333_444);
+  });
 });
 
 describe('active gRPC stream registry', () => {

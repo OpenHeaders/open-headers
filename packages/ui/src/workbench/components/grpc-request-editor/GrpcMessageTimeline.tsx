@@ -66,6 +66,7 @@ import {
   CheckCircleOutlined,
   CheckOutlined,
   ClearOutlined,
+  CloseCircleOutlined,
   DisconnectOutlined,
   InfoCircleOutlined,
   SearchOutlined,
@@ -818,6 +819,31 @@ const GrpcMessageTimeline: React.FC<GrpcMessageTimelineProps> = ({
         );
       case 'ended': {
         if (lifecycle.endedBy === undefined) return null;
+        // A pre-head failure reads on the error tint — red icon, the
+        // classified message verbatim (full text on hover) — the WS
+        // timeline error row's anatomy.
+        if (lifecycle.endedBy === 'error') {
+          return (
+            <div key={entry.key} data-testid="grpc-timeline-ended-row" style={lifecycleRowStyle}>
+              <CloseCircleOutlined aria-hidden style={{ fontSize: 11, color: token.colorError }} />
+              <span
+                {...(lifecycle.endedMessage !== undefined ? { title: lifecycle.endedMessage } : {})}
+                data-testid="grpc-session-error-detail"
+                style={{
+                  minWidth: 0,
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                  color: token.colorError,
+                }}
+              >
+                {endedLabel(lifecycle.endedBy, t)}
+                {lifecycle.endedMessage ? ` — ${lifecycle.endedMessage}` : ''}
+              </span>
+              {lifecycleTime(lifecycle.endedAt)}
+            </div>
+          );
+        }
         return (
           <div key={entry.key} data-testid="grpc-timeline-ended-row" style={lifecycleRowStyle}>
             {lifecycle.endedBy === 'complete' ? (

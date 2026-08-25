@@ -214,6 +214,29 @@ describe('GrpcMessageTimeline lifecycle rows', () => {
     expect(screen.queryByTestId('grpc-timeline-connected-row')).toBeNull();
     expect(screen.getByTestId('grpc-timeline-ended-row').textContent).toContain('Call stopped');
   });
+
+  it('renders a pre-head failure as the error-flavored ended row with the classified message and its instant', () => {
+    renderTimeline({
+      items: [],
+      count: 0,
+      lifecycle: {
+        startedAt: 1_700_000_000_000,
+        headArrived: false,
+        endedBy: 'error',
+        endedAt: 1_700_000_000_120,
+        endedMessage: 'Connection refused by 127.0.0.1:3130. Is the gRPC server running on that host/port?',
+      },
+    });
+    expect(screen.queryByTestId('grpc-timeline-connected-row')).toBeNull();
+    const detail = screen.getByTestId('grpc-session-error-detail');
+    expect(detail.textContent).toContain('Call failed');
+    expect(detail.textContent).toContain('Connection refused by 127.0.0.1:3130');
+    // The full classified message survives ellipsis on hover.
+    expect(detail.getAttribute('title')).toContain('Connection refused by 127.0.0.1:3130');
+    // The failure instant rides the row — newest-first puts it above
+    // the Request sent row.
+    expect(rowSequence()).toEqual(['ended', 'sent']);
+  });
 });
 
 describe('GrpcMessageTimeline toolbar', () => {
