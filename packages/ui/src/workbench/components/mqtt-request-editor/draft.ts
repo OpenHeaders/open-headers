@@ -192,17 +192,21 @@ export function rowsToUserProperties(rows: KeyValueRow[]): MqttUserPropertyRow[]
 export function trimTopicRows(rows: MqttTopicRow[]): MqttTopicRow[] {
   return rows
     .filter((row) => row.topicFilter.trim() !== '')
-    .map((row) => ({
-      uid: row.uid,
-      topicFilter: row.topicFilter,
-      ...(row.qos !== undefined ? { qos: row.qos } : {}),
-      ...(row.subscribe !== undefined ? { subscribe: row.subscribe } : {}),
-      ...(row.description?.trim() ? { description: row.description } : {}),
-      ...(row.noLocal !== undefined ? { noLocal: row.noLocal } : {}),
-      ...(row.retainAsPublished !== undefined ? { retainAsPublished: row.retainAsPublished } : {}),
-      ...(row.retainHandling !== undefined ? { retainHandling: row.retainHandling } : {}),
-      ...(row.subscriptionId !== undefined ? { subscriptionId: row.subscriptionId } : {}),
-    }));
+    .map((row) => {
+      const userProperties = (row.userProperties ?? []).filter((p) => p.key.trim() !== '');
+      return {
+        uid: row.uid,
+        topicFilter: row.topicFilter,
+        ...(row.qos !== undefined ? { qos: row.qos } : {}),
+        ...(row.subscribe !== undefined ? { subscribe: row.subscribe } : {}),
+        ...(row.description?.trim() ? { description: row.description } : {}),
+        ...(row.noLocal !== undefined ? { noLocal: row.noLocal } : {}),
+        ...(row.retainAsPublished !== undefined ? { retainAsPublished: row.retainAsPublished } : {}),
+        ...(row.retainHandling !== undefined ? { retainHandling: row.retainHandling } : {}),
+        ...(row.subscriptionId !== undefined ? { subscriptionId: row.subscriptionId } : {}),
+        ...(userProperties.length > 0 ? { userProperties: userProperties.map(canonicalUserPropertyRow) } : {}),
+      };
+    });
 }
 
 export function emptyLastWillDraft(): MqttLastWillDraft {

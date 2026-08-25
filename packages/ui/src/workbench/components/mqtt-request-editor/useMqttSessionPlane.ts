@@ -266,6 +266,9 @@ export function useMqttSessionPlane({
             ...(v5 && row.retainAsPublished !== undefined ? { retainAsPublished: row.retainAsPublished } : {}),
             ...(v5 && row.retainHandling !== undefined ? { retainHandling: row.retainHandling } : {}),
             ...(v5 && row.subscriptionId !== undefined ? { subscriptionId: row.subscriptionId } : {}),
+            ...(v5 && row.userProperties !== undefined && row.userProperties.length > 0
+              ? { userProperties: row.userProperties }
+              : {}),
           },
         })
         .catch(() => null);

@@ -51,6 +51,7 @@ import {
   type MqttProperties,
   type MqttProtocolVersion,
   type MqttSubscription,
+  type MqttUserProperty,
   type MqttWill,
   mqttReasonCodeName,
 } from '@openheaders/core/mqtt';
@@ -62,6 +63,7 @@ import type {
   MqttMessageProperties,
   MqttPayloadFormat,
   MqttRequest,
+  MqttUserPropertyRow,
 } from '@openheaders/core/types';
 import { decodeBase64Bytes, encodeBase64Bytes, generateUid } from '@openheaders/core/utils';
 import { resolveTemplate } from '@openheaders/core/variables';
@@ -155,6 +157,27 @@ function wireMessageProperties(
     ...(props.payloadFormatIndicator === true ? { payloadFormatIndicator: 1 } : {}),
   };
   return Object.keys(out).length > 0 ? out : undefined;
+}
+
+/** Map subscription-row user properties onto the SUBSCRIBE property
+ *  pairs — enabled rows with a key, both sides resolved. 5.0 sessions
+ *  only (the caller holds the version lens); the pairs ride ONCE on
+ *  the row's SUBSCRIBE packet, never on delivered messages. */
+function wireSubscribeUserProps(
+  rows: MqttUserPropertyRow[] | undefined,
+  resolveStr: (s: string) => string,
+): MqttUserProperty[] | undefined {
+  const kept = (rows ?? []).filter((row) => row.enabled !== false && row.key.trim() !== '');
+  return kept.length > 0 ? kept.map((row) => ({ key: resolveStr(row.key), value: resolveStr(row.value) })) : undefined;
+}
+
+/** One SUBSCRIBE unit: the per-row options plus the packet-level 5.0
+ *  properties (Subscription Identifier, User Properties) — those are
+ *  per-SUBSCRIBE, so an entry carrying either needs its own packet. */
+interface SubscribeEntry {
+  subscription: MqttSubscription;
+  subscriptionId?: number;
+  userProperties?: MqttUserProperty[];
 }
 
 /** The CONNACK refusal set — the version scopes the numeric space.
@@ -266,16 +289,20 @@ export async function executeMqttSession(
   // Enabled subscription rows SUBSCRIBE at open — filters resolved at
   // Connect; the 5.0 per-row options apply on 5.0 sessions only.
   const openRows = request.topics.filter((row) => row.subscribe !== false && row.topicFilter.trim() !== '');
-  const openSubscriptions = openRows.map((row): { subscription: MqttSubscription; subscriptionId?: number } => ({
-    subscription: {
-      topicFilter: resolveStr(row.topicFilter).trim(),
-      qos: row.qos ?? 0,
-      ...(v5 && row.noLocal !== undefined ? { noLocal: row.noLocal } : {}),
-      ...(v5 && row.retainAsPublished !== undefined ? { retainAsPublished: row.retainAsPublished } : {}),
-      ...(v5 && row.retainHandling !== undefined ? { retainHandling: row.retainHandling } : {}),
-    },
-    ...(v5 && row.subscriptionId !== undefined ? { subscriptionId: row.subscriptionId } : {}),
-  }));
+  const openSubscriptions = openRows.map((row): SubscribeEntry => {
+    const userProperties = v5 ? wireSubscribeUserProps(row.userProperties, resolveStr) : undefined;
+    return {
+      subscription: {
+        topicFilter: resolveStr(row.topicFilter).trim(),
+        qos: row.qos ?? 0,
+        ...(v5 && row.noLocal !== undefined ? { noLocal: row.noLocal } : {}),
+        ...(v5 && row.retainAsPublished !== undefined ? { retainAsPublished: row.retainAsPublished } : {}),
+        ...(v5 && row.retainHandling !== undefined ? { retainHandling: row.retainHandling } : {}),
+      },
+      ...(v5 && row.subscriptionId !== undefined ? { subscriptionId: row.subscriptionId } : {}),
+      ...(userProperties !== undefined ? { userProperties } : {}),
+    };
+  });
 
   if (unresolved.size > 0) {
     return errorMqttSnapshot(
@@ -409,17 +436,22 @@ export async function executeMqttSession(
     };
 
     const subscribeBatch = (
-      batch: Array<{ subscription: MqttSubscription; subscriptionId?: number }>,
+      batch: SubscribeEntry[],
       resolveAck?: (reasonCode: number | null) => void,
     ): string | null => {
       if (batch.length === 0) return null;
       const packetId = allocPacketId();
-      const subscriptionId = batch[0].subscriptionId;
+      // Packet-level 5.0 properties come off the batch head — the
+      // open-time split guarantees an entry carrying any is alone.
+      const properties: MqttProperties = {
+        ...(batch[0].subscriptionId !== undefined ? { subscriptionIdentifiers: [batch[0].subscriptionId] } : {}),
+        ...(batch[0].userProperties !== undefined ? { userProperties: batch[0].userProperties } : {}),
+      };
       const error = sendPacket({
         type: 'subscribe',
         packetId,
         subscriptions: batch.map((entry) => entry.subscription),
-        ...(subscriptionId !== undefined ? { properties: { subscriptionIdentifiers: [subscriptionId] } } : {}),
+        ...(Object.keys(properties).length > 0 ? { properties } : {}),
       });
       if (error !== null) return error;
       pendingSubAcks.set(`s${packetId}`, {
@@ -452,13 +484,15 @@ export async function executeMqttSession(
             clientId,
             ...(proxyRoute !== undefined ? { proxyRoute } : {}),
           });
-          // Open-time subscriptions: rows without a Subscription
-          // Identifier ride ONE packet (grants positional per row);
-          // each distinct identifier needs its own packet (the 5.0
-          // property is per-SUBSCRIBE, not per-row).
-          const plain = openSubscriptions.filter((entry) => entry.subscriptionId === undefined);
-          subscribeBatch(plain);
-          for (const entry of openSubscriptions.filter((e) => e.subscriptionId !== undefined)) {
+          // Open-time subscriptions: rows without packet-level 5.0
+          // properties ride ONE packet (grants positional per row);
+          // a row carrying a Subscription Identifier or User
+          // Properties needs its own packet (those are per-SUBSCRIBE,
+          // not per-row).
+          const ridesAlone = (entry: SubscribeEntry): boolean =>
+            entry.subscriptionId !== undefined || entry.userProperties !== undefined;
+          subscribeBatch(openSubscriptions.filter((entry) => !ridesAlone(entry)));
+          for (const entry of openSubscriptions.filter(ridesAlone)) {
             subscribeBatch([entry]);
           }
           if (keepAlive > 0) {
@@ -657,11 +691,14 @@ export async function executeMqttSession(
           return Promise.resolve({ success: false, error: 'The session is not open.' });
         }
         const sendUnresolved = new Set<string>();
-        const topicFilter = resolveWith(subscription.topicFilter, sendUnresolved).trim();
+        const riderResolve = (s: string): string => resolveWith(s, sendUnresolved);
+        const topicFilter = riderResolve(subscription.topicFilter).trim();
+        const userProperties =
+          v5 && subscription.subscribe ? wireSubscribeUserProps(subscription.userProperties, riderResolve) : undefined;
         if (sendUnresolved.size > 0) {
           return Promise.resolve({
             success: false,
-            error: `Topic filter has unresolved variables (${[...sendUnresolved].join(', ')}).`,
+            error: `Subscription has unresolved variables (${[...sendUnresolved].join(', ')}).`,
           });
         }
         return new Promise((resolveRider) => {
@@ -690,6 +727,7 @@ export async function executeMqttSession(
                   ...(v5 && subscription.subscriptionId !== undefined
                     ? { subscriptionId: subscription.subscriptionId }
                     : {}),
+                  ...(userProperties !== undefined ? { userProperties } : {}),
                 },
               ],
               resolveAck,

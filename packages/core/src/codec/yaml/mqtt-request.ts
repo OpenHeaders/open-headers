@@ -147,6 +147,7 @@ function canonicalTopicRow(row: MqttTopicRow): MqttTopicRow {
   if (row.retainAsPublished !== undefined) out.retainAsPublished = row.retainAsPublished;
   if (row.retainHandling !== undefined) out.retainHandling = row.retainHandling;
   if (row.subscriptionId !== undefined) out.subscriptionId = row.subscriptionId;
+  if (row.userProperties !== undefined) out.userProperties = row.userProperties.map(canonicalUserPropertyRow);
   return out;
 }
 

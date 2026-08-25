@@ -110,6 +110,10 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.topics.subscriptionId': 'Subscription Identifier',
   'workbench.editors.mqtt.topics.subscriptionIdDesc':
     'Identificador numérico que el broker adjunta a los mensajes entregados por esta suscripción.',
+  'workbench.editors.mqtt.topics.subscribeProperties': 'Propiedades',
+  'workbench.editors.mqtt.topics.subscribePropertiesDesc':
+    'User Properties enviadas una vez con el paquete SUBSCRIBE de esta fila. El broker define su significado; no se adjuntan a los mensajes entregados.',
+  'workbench.editors.mqtt.topics.subscribeSettings': 'Ajustes',
   'workbench.editors.mqtt.auth.typeLabel': 'Tipo',
   'workbench.editors.mqtt.auth.typeNone': 'Sin autenticación',
   'workbench.editors.mqtt.auth.typeBasic': 'Autenticación Basic',

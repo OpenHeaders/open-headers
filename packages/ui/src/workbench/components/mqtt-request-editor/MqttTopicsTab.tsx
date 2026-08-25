@@ -10,12 +10,12 @@
  * QoS knob, Subscribe, Description.
  */
 
-import { InfoCircleOutlined, MoreOutlined } from '@ant-design/icons';
+import { InfoCircleOutlined, MoreOutlined, PlusOutlined } from '@ant-design/icons';
 import { topicFilterError } from '@openheaders/core/mqtt';
 import type { MqttRequestQos, MqttRetainHandling, MqttTopicRow } from '@openheaders/core/types';
 import { generateUid } from '@openheaders/core/utils';
 import { useT } from '@openheaders/ui/context/LocaleContext';
-import { Button, InputNumber, Popover, Select, Switch, Tag, Tooltip, Typography, theme } from 'antd';
+import { Button, Input, InputNumber, Popover, Select, Switch, Tag, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { cellFont } from '../request-editor/editable-grid-styles';
 import { EditableGridTable } from '../request-editor/EditableGridTable';
@@ -32,12 +32,17 @@ const CELL_LINE_PX = 12 * TEMPLATE_INPUT_LINE_HEIGHT;
 const CELL_VERTICAL_PADDING = (32 - CELL_LINE_PX) / 2;
 
 /** Label cell of the options grid — the short protocol name; the
- *  explanation lives behind the ⓘ hover, never inline. */
-const OptionLabel: React.FC<{ text: string; info?: string }> = ({ text, info }) => {
+ *  explanation lives behind the ⓘ hover, never inline. `strong` makes
+ *  it a section title. */
+const OptionLabel: React.FC<{ text: string; info?: string; strong?: boolean }> = ({ text, info, strong }) => {
   const { token } = theme.useToken();
   return (
     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-      <Text type="secondary" style={{ fontSize: 11, whiteSpace: 'nowrap' }}>
+      <Text
+        type={strong === true ? undefined : 'secondary'}
+        strong={strong}
+        style={{ fontSize: 11, whiteSpace: 'nowrap' }}
+      >
         {text}
       </Text>
       {info !== undefined && (
@@ -196,6 +201,72 @@ const MqttTopicsTab: React.FC<MqttTopicsTabProps> = ({ rows, onChange, v5, sessi
                       <Text type="secondary" style={{ fontSize: 11 }}>
                         {v5 ? t('workbench.editors.mqtt.topics.optionsHint') : t('workbench.editors.mqtt.props.v311')}
                       </Text>
+                      {/* User Properties ride ONCE on this row's
+                        SUBSCRIBE packet — broker-defined metadata,
+                        never echoed on delivered messages (the ⓘ
+                        carries that honestly). */}
+                      <OptionLabel
+                        strong
+                        text={t('workbench.editors.mqtt.topics.subscribeProperties')}
+                        info={t('workbench.editors.mqtt.topics.subscribePropertiesDesc')}
+                      />
+                      {(row.userProperties ?? []).map((prop, index) => (
+                        <div key={prop.uid} style={{ display: 'flex', gap: 4 }}>
+                          <Input
+                            size="small"
+                            placeholder={t('workbench.editors.mqtt.props.userPropKey')}
+                            value={prop.key}
+                            disabled={!v5}
+                            onChange={(e) => {
+                              const next = [...(row.userProperties ?? [])];
+                              next[index] = { ...prop, key: e.target.value };
+                              update({ ...row, userProperties: next });
+                            }}
+                            data-testid="mqtt-topic-userprop-key"
+                          />
+                          <Input
+                            size="small"
+                            placeholder={t('workbench.editors.mqtt.props.userPropValue')}
+                            value={prop.value}
+                            disabled={!v5}
+                            onChange={(e) => {
+                              const next = [...(row.userProperties ?? [])];
+                              next[index] = { ...prop, value: e.target.value };
+                              update({ ...row, userProperties: next });
+                            }}
+                            data-testid="mqtt-topic-userprop-value"
+                          />
+                          <Button
+                            size="small"
+                            type="text"
+                            disabled={!v5}
+                            aria-label={t('workbench.editors.mqtt.props.removeUserProp')}
+                            onClick={() => {
+                              const next = (row.userProperties ?? []).filter((r) => r.uid !== prop.uid);
+                              update({ ...row, userProperties: next.length > 0 ? next : undefined });
+                            }}
+                          >
+                            ×
+                          </Button>
+                        </div>
+                      ))}
+                      <Button
+                        size="small"
+                        type="dashed"
+                        icon={<PlusOutlined style={{ fontSize: 10 }} />}
+                        disabled={!v5}
+                        style={{ fontSize: 11, alignSelf: 'flex-start' }}
+                        onClick={() =>
+                          update({
+                            ...row,
+                            userProperties: [...(row.userProperties ?? []), { uid: generateUid(), key: '', value: '' }],
+                          })
+                        }
+                        data-testid="mqtt-topic-add-userprop"
+                      >
+                        {t('workbench.editors.mqtt.props.addUserProp')}
+                      </Button>
+                      <OptionLabel strong text={t('workbench.editors.mqtt.topics.subscribeSettings')} />
                       {/* One anatomy for every row: the label column left,
                         the control column right — explanations live behind
                         the ⓘ hovers, never inline in the labels. */}

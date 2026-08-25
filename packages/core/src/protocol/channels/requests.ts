@@ -19,6 +19,7 @@ import type {
   MqttRequest,
   MqttRequestQos,
   MqttRetainHandling,
+  MqttUserPropertyRow,
   Request,
   RequestSeed,
   WebSocketRequest,
@@ -319,6 +320,10 @@ export interface MqttSubscriptionWire {
   retainAsPublished?: boolean;
   retainHandling?: MqttRetainHandling;
   subscriptionId?: number;
+  /** 5.0 User Properties for the SUBSCRIBE packet — entity rows
+   *  verbatim; the executor filters/resolves them (the publish rider's
+   *  `properties` posture). */
+  userProperties?: MqttUserPropertyRow[];
 }
 
 export interface RequestRpc {

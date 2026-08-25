@@ -328,6 +328,15 @@ describe('executeMqttSession — subscriptions', () => {
           { uid: 'row00001', topicFilter: 'probe/{{team}}/#', qos: 2 },
           { uid: 'row00002', topicFilter: 'probe/off', subscribe: false },
           { uid: 'row00003', topicFilter: 'probe/opts', qos: 1, noLocal: true, retainHandling: 2 },
+          {
+            uid: 'row00004',
+            topicFilter: 'probe/meta',
+            userProperties: [
+              { uid: 'up000001', key: 'trace', value: '{{team}}' },
+              { uid: 'up000002', key: 'off', value: 'x', enabled: false },
+              { uid: 'up000003', key: '  ', value: 'blank' },
+            ],
+          },
         ],
       }),
       {
@@ -345,6 +354,12 @@ describe('executeMqttSession — subscriptions', () => {
     if (subscribe.type !== 'subscribe') throw new Error('expected SUBSCRIBE after CONNACK');
     expect(subscribe.subscriptions.map((s) => s.topicFilter)).toEqual(['probe/alpha/#', 'probe/opts']);
     expect(subscribe.subscriptions[1]).toMatchObject({ noLocal: true, retainHandling: 2 });
+    // A row carrying User Properties rides its OWN packet — the pairs
+    // are per-SUBSCRIBE; enabled rows with a key, values resolved.
+    const metaSubscribe = rig.written[2];
+    if (metaSubscribe.type !== 'subscribe') throw new Error('expected the properties row on its own SUBSCRIBE');
+    expect(metaSubscribe.subscriptions.map((s) => s.topicFilter)).toEqual(['probe/meta']);
+    expect(metaSubscribe.properties?.userProperties).toEqual([{ key: 'trace', value: 'alpha' }]);
     // Grants verbatim, positional — the broker downgrades row 1 to QoS 1.
     rig.push({ type: 'suback', packetId: subscribe.packetId, reasonCodes: [1, 0x80] });
     closeActiveMqttSession('send-mqtt-subs');
@@ -375,10 +390,15 @@ describe('executeMqttSession — subscriptions', () => {
       topicFilter: 'probe/{{team}}/live',
       subscribe: true,
       qos: 1,
+      userProperties: [
+        { uid: 'up000001', key: 'trace', value: '{{team}}' },
+        { uid: 'up000002', key: 'off', value: 'x', enabled: false },
+      ],
     });
     const subscribePacket = rig.written.at(-1);
     if (subscribePacket?.type !== 'subscribe') throw new Error('expected SUBSCRIBE');
     expect(subscribePacket.subscriptions[0].topicFilter).toBe('probe/alpha/live');
+    expect(subscribePacket.properties?.userProperties).toEqual([{ key: 'trace', value: 'alpha' }]);
     rig.push({ type: 'suback', packetId: subscribePacket.packetId, reasonCodes: [1] });
     await expect(subscribing).resolves.toEqual({ success: true, grantCode: 1 });
 
@@ -509,7 +529,16 @@ describe('executeMqttSession — version lens and session end', () => {
         sessionExpiryInterval: 300,
         receiveMaximum: 20,
         userProperties: [{ uid: 'up000001', key: 'k', value: 'v' }],
-        topics: [{ uid: 'row00001', topicFilter: 'probe/#', qos: 1, noLocal: true, retainHandling: 2 }],
+        topics: [
+          {
+            uid: 'row00001',
+            topicFilter: 'probe/#',
+            qos: 1,
+            noLocal: true,
+            retainHandling: 2,
+            userProperties: [{ uid: 'up000002', key: 'k', value: 'v' }],
+          },
+        ],
         lastWill: { topic: 'clients/reporter/status', payload: 'gone', properties: { contentType: 'text/plain' } },
       }),
       {
@@ -530,6 +559,7 @@ describe('executeMqttSession — version lens and session end', () => {
     const subscribe = rig.written[1];
     if (subscribe.type !== 'subscribe') throw new Error('expected SUBSCRIBE');
     expect(subscribe.subscriptions[0]).toEqual({ topicFilter: 'probe/#', qos: 1 });
+    expect(subscribe.properties).toBeUndefined();
 
     const publish = publishActiveMqttMessage('send-mqtt-v311', {
       topic: 'probe/out',

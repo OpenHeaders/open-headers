@@ -56,6 +56,7 @@ export interface MqttTopicRowRow {
   retainAsPublished?: boolean;
   retainHandling?: 0 | 1 | 2;
   subscriptionId?: number;
+  userProperties?: MqttUserPropertyRowRow[];
 }
 
 /** Wire shape for a Saved-messages rail row. See {@link MqttUserPropertyRowRow}. */

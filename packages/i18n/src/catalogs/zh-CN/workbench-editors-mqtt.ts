@@ -103,6 +103,10 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.topics.retainHandling2Desc': '代理不为此订阅发送保留消息。',
   'workbench.editors.mqtt.topics.subscriptionId': 'Subscription Identifier',
   'workbench.editors.mqtt.topics.subscriptionIdDesc': '代理会将该数字标识附加到经此订阅投递的消息上。',
+  'workbench.editors.mqtt.topics.subscribeProperties': '属性',
+  'workbench.editors.mqtt.topics.subscribePropertiesDesc':
+    '随此行的 SUBSCRIBE 报文一次性发送的 User Properties。其含义由代理定义；不会附加到投递的消息上。',
+  'workbench.editors.mqtt.topics.subscribeSettings': '设置',
   'workbench.editors.mqtt.auth.typeLabel': '类型',
   'workbench.editors.mqtt.auth.typeNone': '无授权',
   'workbench.editors.mqtt.auth.typeBasic': 'Basic 授权',

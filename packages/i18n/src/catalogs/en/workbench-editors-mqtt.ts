@@ -102,6 +102,10 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.topics.subscriptionId': 'Subscription Identifier',
   'workbench.editors.mqtt.topics.subscriptionIdDesc':
     'A numeric id the broker attaches to messages delivered through this subscription.',
+  'workbench.editors.mqtt.topics.subscribeProperties': 'Properties',
+  'workbench.editors.mqtt.topics.subscribePropertiesDesc':
+    'User Properties sent once with this row’s SUBSCRIBE packet. The broker defines their meaning; they are not attached to delivered messages.',
+  'workbench.editors.mqtt.topics.subscribeSettings': 'Settings',
   'workbench.editors.mqtt.auth.typeLabel': 'Type',
   'workbench.editors.mqtt.auth.typeNone': 'No auth',
   'workbench.editors.mqtt.auth.typeBasic': 'Basic auth',

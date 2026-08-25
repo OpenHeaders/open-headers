@@ -19,7 +19,15 @@ const mqttRequest = (overrides: Partial<MqttRequest> = {}): MqttRequest => ({
   retain: true,
   topics: [
     { uid: 'mqtp0001', topicFilter: 'streetlights/+/lumens', qos: 1 },
-    { uid: 'mqtp0002', topicFilter: 'streetlights/#', qos: 0, subscribe: false, noLocal: true, retainHandling: 2 },
+    {
+      uid: 'mqtp0002',
+      topicFilter: 'streetlights/#',
+      qos: 0,
+      subscribe: false,
+      noLocal: true,
+      retainHandling: 2,
+      userProperties: [{ uid: 'mqup0002', key: 'trace', value: 'on', enabled: true }],
+    },
   ],
   savedMessages: [
     { uid: 'mqsm0001', name: 'Dim', topic: 'streetlights/1/dim', payload: '{"level": 30}', format: 'json' },
@@ -205,6 +213,7 @@ describe('parseMqttRequest', () => {
       topics: [
         {
           retainHandling: 1,
+          userProperties: [{ value: 'on', uid: 'mqup0003', key: 'trace' }],
           subscribe: true,
           topicFilter: 'a/b',
           qos: 2,
@@ -235,6 +244,12 @@ describe('parseMqttRequest', () => {
       'subscribe',
       'description',
       'retainHandling',
+      'userProperties',
+    ]);
+    expect(Object.keys((parsed.topics[0].userProperties as Array<Record<string, unknown>>)[0])).toEqual([
+      'uid',
+      'key',
+      'value',
     ]);
     expect(Object.keys(parsed.savedMessages[0])).toEqual(['uid', 'name', 'topic', 'payload', 'qos', 'retain']);
   });

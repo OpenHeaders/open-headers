@@ -127,6 +127,29 @@ describe('mqtt draft projections', () => {
     ]);
   });
 
+  it('keeps subscribe user-property rows on a topic row and drops keyless ones', () => {
+    const draft = draftFromMqttRequest(mqttRequest({ topics: [] }));
+    draft.topics = [
+      {
+        uid: 'mqtp0002',
+        topicFilter: 'alerts/#',
+        userProperties: [
+          { uid: 'mqup0001', key: 'x-tenant', value: 'openheaders', enabled: false },
+          { uid: 'mqup0002', key: '  ', value: 'ghost' },
+        ],
+      },
+      { uid: 'mqtp0003', topicFilter: 'metrics/#', userProperties: [{ uid: 'mqup0003', key: '', value: '' }] },
+    ];
+    expect(buildMqttRequestUpdates(draft).topics).toEqual([
+      {
+        uid: 'mqtp0002',
+        topicFilter: 'alerts/#',
+        userProperties: [{ uid: 'mqup0001', key: 'x-tenant', value: 'openheaders', enabled: false }],
+      },
+      { uid: 'mqtp0003', topicFilter: 'metrics/#' },
+    ]);
+  });
+
   it('reads absent auth as none and round-trips the Basic pair', () => {
     expect(buildMqttRequestUpdates(draftFromMqttRequest(mqttRequest())).auth).toEqual({ type: 'none' });
     const entity = mqttRequest({ auth: { type: 'basic', username: 'probe', password: '{{brokerSecret}}' } });

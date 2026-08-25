@@ -114,6 +114,12 @@ export const MqttTopicRowSchema = v.object({
   retainHandling: v.optional(MqttRetainHandlingSchema),
   /** 5.0 Subscription Identifier (varint range, min 1). */
   subscriptionId: v.optional(v.pipe(v.number(), v.integer(), v.minValue(1), v.maxValue(268_435_455))),
+  /**
+   * 5.0 User Properties carried ONCE on this row's SUBSCRIBE packet —
+   * metadata to the broker at subscribe time (the spec leaves their
+   * meaning to the broker); never echoed on delivered messages.
+   */
+  userProperties: v.optional(v.array(MqttUserPropertyRowSchema)),
 });
 
 /**
