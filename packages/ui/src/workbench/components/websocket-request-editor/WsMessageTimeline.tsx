@@ -107,8 +107,13 @@ export interface WsTimelineLifecycle {
   protocol?: string;
   /** Classified pre-open failure — the session never opened. Rendered
    *  as an error row at the timeline's new edge; never set beside
-   *  `endedBy`. */
+   *  `endedBy` or `aborted`. */
   errorMessage?: string;
+  /** The pre-open end was USER-initiated (Cancel / Stop) — the neutral
+   *  "Connection aborted" info row renders at the error row's slot
+   *  instead of the error tint. Never set beside `errorMessage` (an
+   *  abort carries no message) or `endedBy`. */
+  aborted?: true;
   /** Absent while the session is open — the live phase. */
   endedBy?: WsTimelineEndedBy;
   endedAt?: number;
@@ -595,7 +600,7 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
   }, [displayRows, groupByDirection, groupByEventActive, items, count, clearedCount, newestFirst, derive]);
 
   const filtering = search.trim() !== '' || directionFilter !== 'all';
-  const live = lifecycle.endedBy === undefined && lifecycle.errorMessage === undefined;
+  const live = lifecycle.endedBy === undefined && lifecycle.errorMessage === undefined && lifecycle.aborted !== true;
 
   // The flat display list the virtual window runs over — ONE event
   // log: Connecting at one chronological edge, Connected before the
@@ -619,9 +624,10 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
           ? { key: 'none', kind: 'noMatches' }
           : null;
 
-    // The error row sits at the ended row's chronological slot — the
-    // two never coexist (a pre-open failure has no opened-session end).
-    const preOpenEnd = lifecycle.errorMessage !== undefined;
+    // The error/aborted row sits at the ended row's chronological slot
+    // — the two never coexist (a pre-open end has no opened-session
+    // end).
+    const preOpenEnd = lifecycle.errorMessage !== undefined || lifecycle.aborted === true;
 
     // Top chronological edge.
     if (newestFirst) {
@@ -687,6 +693,7 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
     newestFirst,
     lifecycle.connected,
     lifecycle.errorMessage,
+    lifecycle.aborted,
     lifecycle.endedBy,
     live,
     count,
@@ -946,6 +953,18 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
           </div>
         );
       case 'error': {
+        // A user abort is not a failure — the neutral info row.
+        if (lifecycle.aborted === true) {
+          return (
+            <div key={entry.key} data-testid="ws-timeline-aborted-row" style={lifecycleRowStyle}>
+              <InfoCircleOutlined aria-hidden style={{ fontSize: 11, color: token.colorTextTertiary }} />
+              <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {t('workbench.editors.websocket.timeline.aborted')}
+              </span>
+              {lifecycleTime(lifecycle.endedAt)}
+            </div>
+          );
+        }
         if (lifecycle.errorMessage === undefined) return null;
         return (
           <div key={entry.key} data-testid="ws-timeline-error-row" style={lifecycleRowStyle}>

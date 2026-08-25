@@ -150,6 +150,24 @@ describe('WsMessageTimeline — rows and lifecycle order', () => {
     expect(screen.queryByText('Waiting for messages…')).toBeNull();
   });
 
+  it('renders a pre-open user abort as the neutral aborted row, never the error row', () => {
+    renderTimeline({
+      items: [],
+      count: 0,
+      lifecycle: {
+        startedAt: 1_700_000_000_000,
+        connected: false,
+        aborted: true,
+        endedAt: 1_700_000_000_200,
+      },
+    });
+    expect(screen.getByTestId('ws-timeline-aborted-row').textContent).toContain('Connection aborted');
+    expect(screen.queryByTestId('ws-timeline-error-row')).toBeNull();
+    expect(screen.queryByTestId('ws-session-error-detail')).toBeNull();
+    expect(screen.queryByTestId('ws-timeline-ended-row')).toBeNull();
+    expect(screen.queryByText('Waiting for messages…')).toBeNull();
+  });
+
   it('renders session times only when provided', () => {
     const { unmount } = renderTimeline({ timestamps: [1_700_000_000_100, 1_700_000_000_200, 1_700_000_000_300] });
     expect(screen.getAllByTestId('ws-timeline-message-time')).toHaveLength(3);
