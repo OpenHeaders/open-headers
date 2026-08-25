@@ -12,12 +12,12 @@
  */
 
 import { List, theme } from 'antd';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import type React from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { createPanelHeaderWiring, PanelHeader } from '@openheaders/ui/shared/dock-layout';
 import type { InfoPopoverContent } from '@openheaders/ui/shared/info-popover';
-import { SERVER_ADMIN_SECTIONS, type ServerAdminSection } from './sections';
+import { SERVER_ADMIN_SECTIONS, type ServerAdminSection, type ServerAdminSectionDef } from './sections';
 
 interface ServerAdminPanelProps {
   /** Title-bar `(i)` popover copy. */
@@ -26,9 +26,38 @@ interface ServerAdminPanelProps {
   onOpenSection: (section: ServerAdminSection) => void;
 }
 
-const ServerAdminPanel: React.FC<ServerAdminPanelProps> = ({ info, onClose, onOpenSection }) => {
+/** One nav row — hover fills the row so it reads as clickable, the
+ *  same `colorBgTextHover` treatment the shell's other row lists use. */
+const ServerAdminNavRow: React.FC<{
+  def: ServerAdminSectionDef;
+  onOpenSection: (section: ServerAdminSection) => void;
+}> = ({ def, onOpenSection }) => {
   const t = useT();
   const { token } = theme.useToken();
+  const [hovered, setHovered] = useState(false);
+  return (
+    <List.Item
+      onClick={() => onOpenSection(def.id)}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        cursor: 'pointer',
+        padding: '6px 12px',
+        background: hovered ? token.colorBgTextHover : 'transparent',
+      }}
+      data-testid={`server-admin-panel-${def.id}`}
+    >
+      <List.Item.Meta
+        avatar={<span style={{ fontSize: 14, color: token.colorTextSecondary }}>{def.icon}</span>}
+        title={<span style={{ fontSize: 12.5 }}>{t(def.labelKey)}</span>}
+        description={<span style={{ fontSize: 11, color: token.colorTextTertiary }}>{t(def.hintKey)}</span>}
+      />
+    </List.Item>
+  );
+};
+
+const ServerAdminPanel: React.FC<ServerAdminPanelProps> = ({ info, onClose, onOpenSection }) => {
+  const t = useT();
   const wiring = useMemo(() => createPanelHeaderWiring({ onHide: onClose }), [onClose]);
 
   return (
@@ -39,21 +68,7 @@ const ServerAdminPanel: React.FC<ServerAdminPanelProps> = ({ info, onClose, onOp
           size="small"
           split={false}
           dataSource={[...SERVER_ADMIN_SECTIONS]}
-          renderItem={(def) => (
-            <List.Item
-              onClick={() => onOpenSection(def.id)}
-              style={{ cursor: 'pointer', padding: '6px 12px' }}
-              data-testid={`server-admin-panel-${def.id}`}
-            >
-              <List.Item.Meta
-                avatar={<span style={{ fontSize: 14, color: token.colorTextSecondary }}>{def.icon}</span>}
-                title={<span style={{ fontSize: 12.5 }}>{t(def.labelKey)}</span>}
-                description={
-                  <span style={{ fontSize: 11, color: token.colorTextTertiary }}>{t(def.hintKey)}</span>
-                }
-              />
-            </List.Item>
-          )}
+          renderItem={(def) => <ServerAdminNavRow def={def} onOpenSection={onOpenSection} />}
         />
       </div>
     </div>
