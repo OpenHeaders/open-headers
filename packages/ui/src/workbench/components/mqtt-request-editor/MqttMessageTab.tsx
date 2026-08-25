@@ -16,6 +16,7 @@ import type { MqttPayloadFormat, MqttRequestQos } from '@openheaders/core/types'
 import { ShortcutHintTitle } from '@openheaders/ui/components/ShortcutKbd';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { isMac } from '@openheaders/ui/shared/platform';
+import { Allotment } from 'allotment';
 import { Button, Checkbox, Input, Select, Tooltip, Typography } from 'antd';
 import type React from 'react';
 import { type Dispatch, type SetStateAction, useRef, useState } from 'react';
@@ -25,7 +26,7 @@ import EditorViewMenu from '../shared/EditorViewMenu';
 import { composePublishWire, PAYLOAD_FORMAT_LANGUAGE } from './compose';
 import type { MqttDraft } from './draft';
 import MessagePropertiesPopover from './MessagePropertiesPopover';
-import MqttSavedMessagesRail from './MqttSavedMessagesRail';
+import MqttSavedMessagesRail, { MqttSavedMessagesStrip } from './MqttSavedMessagesRail';
 import type { MqttComposeAids } from './useMqttComposeAids';
 
 const { Text } = Typography;
@@ -57,6 +58,10 @@ const MqttMessageTab: React.FC<MqttMessageTabProps> = ({
   // ON by default (payloads are prose-like; scrolling hides the tail).
   const [wrapPayload, setWrapPayload] = useState(true);
   const payloadActionsRef = useRef<CodeEditorActionsTarget | null>(null);
+  // Saved-messages rail collapse — editor-local display state; the
+  // expanded rail rides its own Allotment pane (resizable, the sash
+  // its only divider), the collapsed strip sits flush by the editor.
+  const [railCollapsed, setRailCollapsed] = useState(false);
 
   // "Use example message" — the compose aid off the specLink census.
   // A command picker, not a value: picking synthesizes the payload
@@ -99,40 +104,80 @@ const MqttMessageTab: React.FC<MqttMessageTabProps> = ({
           <EditorViewMenu wrap={wrapPayload} onWrapChange={setWrapPayload} data-testid="mqtt-editor-menu" />
         </div>
       </div>
-      <div style={{ flex: 1, minHeight: 100, display: 'flex', gap: 0 }}>
-        <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 6 }}>
-          {/* Absolute inset host — a fill editor must not size its own
-            flex parent (the BodyTab discipline). COLUMN direction: a
-            fill CodeEditor stretches to full width only on the cross
-            axis — as a row-flex child it sizes to its content and
-            renders as a sliver (the WS editor's column-wrapper idiom). */}
-          <div style={{ flex: 1, minHeight: 0, position: 'relative' }}>
-            <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column' }}>
-              <CodeEditor
-                value={draft.payload}
-                onChange={(payload) => setDraft((d) => ({ ...d, payload }))}
-                language={PAYLOAD_FORMAT_LANGUAGE[draft.payloadFormat]}
-                fill
-                actions="external"
-                actionsRef={payloadActionsRef}
-                wordWrapOverride={wrapPayload ? 'on' : 'off'}
-                placeholder={
-                  draft.payloadFormat === 'base64'
-                    ? t('workbench.editors.mqtt.payloadPlaceholderBase64')
-                    : draft.payloadFormat === 'hex'
-                      ? t('workbench.editors.mqtt.payloadPlaceholderHex')
-                      : t('workbench.editors.mqtt.payloadPlaceholder')
-                }
-              />
+      {/* Editor beside the Saved-messages rail. Expanded, the rail is
+        its own Allotment pane (resizable within min/max; the sash is
+        the ONLY divider — the rail carries no border). Collapsed, the
+        vertical strip sits flush beside the editor. */}
+      <div style={{ flex: 1, minHeight: 100 }}>
+        {railCollapsed ? (
+          <div style={{ height: '100%', display: 'flex' }}>
+            <div style={{ flex: 1, minWidth: 0, position: 'relative' }}>
+              <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column' }}>
+                <CodeEditor
+                  value={draft.payload}
+                  onChange={(payload) => setDraft((d) => ({ ...d, payload }))}
+                  language={PAYLOAD_FORMAT_LANGUAGE[draft.payloadFormat]}
+                  fill
+                  actions="external"
+                  actionsRef={payloadActionsRef}
+                  wordWrapOverride={wrapPayload ? 'on' : 'off'}
+                  placeholder={
+                    draft.payloadFormat === 'base64'
+                      ? t('workbench.editors.mqtt.payloadPlaceholderBase64')
+                      : draft.payloadFormat === 'hex'
+                        ? t('workbench.editors.mqtt.payloadPlaceholderHex')
+                        : t('workbench.editors.mqtt.payloadPlaceholder')
+                  }
+                />
+              </div>
             </div>
+            <MqttSavedMessagesStrip onExpand={() => setRailCollapsed(false)} />
           </div>
-          {/* Compose bar BELOW the editor, inside the message panel:
-            ENCODING dropdown left; publish controls right —
-            properties, Retain, the compact QoS (integer; the menu
-            explains the levels only when opened), the narrow topic
-            input, Send (disabled scaffold — enables with the session
-            plane; invalid base64/hex is the other honest gate). */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        ) : (
+          <Allotment proportionalLayout={false} separator>
+            <Allotment.Pane minSize={280}>
+              {/* Absolute inset host — a fill editor must not size its
+                own flex parent (the BodyTab discipline). */}
+              <div style={{ height: '100%', position: 'relative' }}>
+                <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column' }}>
+                  <CodeEditor
+                    value={draft.payload}
+                    onChange={(payload) => setDraft((d) => ({ ...d, payload }))}
+                    language={PAYLOAD_FORMAT_LANGUAGE[draft.payloadFormat]}
+                    fill
+                    actions="external"
+                    actionsRef={payloadActionsRef}
+                    wordWrapOverride={wrapPayload ? 'on' : 'off'}
+                    placeholder={
+                      draft.payloadFormat === 'base64'
+                        ? t('workbench.editors.mqtt.payloadPlaceholderBase64')
+                        : draft.payloadFormat === 'hex'
+                          ? t('workbench.editors.mqtt.payloadPlaceholderHex')
+                          : t('workbench.editors.mqtt.payloadPlaceholder')
+                    }
+                  />
+                </div>
+              </div>
+            </Allotment.Pane>
+            <Allotment.Pane minSize={160} maxSize={420} preferredSize={208}>
+              <MqttSavedMessagesRail
+                draft={draft}
+                setDraft={setDraft}
+                sessionOpen={sessionOpen}
+                onPublish={onPublish}
+                onHide={() => setRailCollapsed(true)}
+              />
+            </Allotment.Pane>
+          </Allotment>
+        )}
+      </div>
+      {/* Compose bar BELOW the editor+rail row, full width (the
+        message panel's own bottom band): ENCODING dropdown left;
+        publish controls right — properties, Retain, the compact QoS
+        (integer; the menu explains the levels only when opened), the
+        narrow topic input, Send (disabled scaffold — enables with the
+        session plane; invalid base64/hex is the other honest gate). */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <Select
               size="small"
               style={{ width: 120 }}
@@ -220,16 +265,13 @@ const MqttMessageTab: React.FC<MqttMessageTabProps> = ({
               </span>
             </Tooltip>
           </div>
-          {encodingError !== null && (
-            <Text type="danger" style={{ fontSize: 11 }} data-testid="mqtt-encoding-error">
-              {encodingError === 'base64'
-                ? t('workbench.editors.mqtt.payload.invalidBase64')
-                : t('workbench.editors.mqtt.payload.invalidHex')}
-            </Text>
-          )}
-        </div>
-        <MqttSavedMessagesRail draft={draft} setDraft={setDraft} sessionOpen={sessionOpen} onPublish={onPublish} />
-      </div>
+      {encodingError !== null && (
+        <Text type="danger" style={{ fontSize: 11 }} data-testid="mqtt-encoding-error">
+          {encodingError === 'base64'
+            ? t('workbench.editors.mqtt.payload.invalidBase64')
+            : t('workbench.editors.mqtt.payload.invalidHex')}
+        </Text>
+      )}
     </div>
   );
 };

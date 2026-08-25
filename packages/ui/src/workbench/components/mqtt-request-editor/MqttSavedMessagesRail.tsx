@@ -6,9 +6,12 @@
  * duplicate/delete ride the row's ⋯ menu.
  *
  * COLLAPSIBLE (the git log's Branches-rail gesture, mirrored to the
- * right edge): hidden, the rail swaps for a narrow vertical strip
- * carrying a `<` chevron and the rotated title — the whole strip is
- * one button that brings the rail back. Editor-local display state.
+ * right edge): hidden, the rail swaps for the narrow vertical
+ * `MqttSavedMessagesStrip` — a `<` chevron and the rotated title, the
+ * whole strip one button that brings the rail back. The collapse
+ * state lives on the Message tab, which mounts the EXPANDED rail in
+ * its own Allotment pane (the sash is the only divider — no border of
+ * its own) and the strip flush beside the editor otherwise.
  */
 
 import { LeftOutlined, MoreOutlined, PlusOutlined, RightOutlined, SendOutlined } from '@ant-design/icons';
@@ -23,19 +26,69 @@ import { buildMqttRequestUpdates, type MqttDraft, propertiesToDraft } from './dr
 
 const { Text } = Typography;
 
+/** The rail's collapsed state — a narrow vertical strip, flush beside
+ *  the editor (no fill, no border of its own — the smooth edge), the
+ *  whole strip one button that brings the rail back. */
+export const MqttSavedMessagesStrip: React.FC<{ onExpand: () => void }> = ({ onExpand }) => {
+  const { token } = theme.useToken();
+  const t = useT();
+  const [hovered, setHovered] = useState(false);
+  return (
+    <Tooltip placement="left" title={t('workbench.editors.mqtt.saved.showRail')}>
+      <button
+        type="button"
+        aria-label={t('workbench.editors.mqtt.saved.showRail')}
+        onClick={onExpand}
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
+        data-testid="mqtt-saved-rail-strip"
+        style={{
+          flex: '0 0 auto',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          gap: 8,
+          width: 26,
+          padding: '8px 0',
+          border: 'none',
+          background: hovered ? token.colorFillTertiary : 'transparent',
+          cursor: 'pointer',
+          color: token.colorTextSecondary,
+        }}
+      >
+        <LeftOutlined style={{ fontSize: 10, flexShrink: 0 }} />
+        <span
+          style={{
+            writingMode: 'vertical-lr',
+            fontSize: 12,
+            letterSpacing: 0.3,
+            whiteSpace: 'nowrap',
+          }}
+        >
+          {t('workbench.editors.mqtt.saved.title')}
+        </span>
+      </button>
+    </Tooltip>
+  );
+};
+
 interface MqttSavedMessagesRailProps {
   draft: MqttDraft;
   setDraft: Dispatch<SetStateAction<MqttDraft>>;
   sessionOpen: boolean;
   onPublish: (message: MqttPublishWire) => void;
+  onHide: () => void;
 }
 
-const MqttSavedMessagesRail: React.FC<MqttSavedMessagesRailProps> = ({ draft, setDraft, sessionOpen, onPublish }) => {
-  const { token } = theme.useToken();
+const MqttSavedMessagesRail: React.FC<MqttSavedMessagesRailProps> = ({
+  draft,
+  setDraft,
+  sessionOpen,
+  onPublish,
+  onHide,
+}) => {
   const t = useT();
   const [renamingSavedUid, setRenamingSavedUid] = useState<string | null>(null);
-  const [collapsed, setCollapsed] = useState(false);
-  const [stripHovered, setStripHovered] = useState(false);
 
   const addSavedMessageFromCompose = () => {
     setDraft((d) => {
@@ -71,59 +124,15 @@ const MqttSavedMessagesRail: React.FC<MqttSavedMessagesRailProps> = ({ draft, se
     }));
   };
 
-  if (collapsed) {
-    return (
-      <Tooltip placement="left" title={t('workbench.editors.mqtt.saved.showRail')}>
-        <button
-          type="button"
-          aria-label={t('workbench.editors.mqtt.saved.showRail')}
-          onClick={() => setCollapsed(false)}
-          onMouseEnter={() => setStripHovered(true)}
-          onMouseLeave={() => setStripHovered(false)}
-          data-testid="mqtt-saved-rail-strip"
-          style={{
-            flex: '0 0 auto',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            gap: 8,
-            width: 26,
-            padding: '8px 0',
-            marginLeft: 8,
-            border: 'none',
-            borderLeft: `1px solid ${token.colorBorderSecondary}`,
-            background: stripHovered ? token.colorFillTertiary : token.colorFillQuaternary,
-            cursor: 'pointer',
-            color: token.colorTextSecondary,
-          }}
-        >
-          <LeftOutlined style={{ fontSize: 10, flexShrink: 0 }} />
-          <span
-            style={{
-              writingMode: 'vertical-lr',
-              fontSize: 12,
-              letterSpacing: 0.3,
-              whiteSpace: 'nowrap',
-            }}
-          >
-            {t('workbench.editors.mqtt.saved.title')}
-          </span>
-        </button>
-      </Tooltip>
-    );
-  }
-
   return (
     <div
       style={{
-        width: 208,
-        flexShrink: 0,
+        width: '100%',
+        height: '100%',
         display: 'flex',
         flexDirection: 'column',
         gap: 4,
-        borderLeft: `1px solid ${token.colorBorderSecondary}`,
         paddingLeft: 8,
-        marginLeft: 8,
         overflow: 'auto',
       }}
       data-testid="mqtt-saved-rail"
@@ -147,7 +156,7 @@ const MqttSavedMessagesRail: React.FC<MqttSavedMessagesRailProps> = ({ draft, se
               size="small"
               type="text"
               icon={<RightOutlined style={{ fontSize: 10 }} />}
-              onClick={() => setCollapsed(true)}
+              onClick={onHide}
               aria-label={t('workbench.editors.mqtt.saved.hideRail')}
               data-testid="mqtt-saved-rail-hide"
             />
