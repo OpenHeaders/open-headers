@@ -26,6 +26,7 @@ export const workbenchEditorsMqtt = {
     '协议方案决定传输方式。\nmqtt/mqtts · 桌面应用或服务器上的 TCP 套接字\nws/wss · 任何主机上的 MQTT over WebSocket',
   'workbench.editors.mqtt.connect.label': '连接',
   'workbench.editors.mqtt.connect.disconnect': '断开连接',
+  'workbench.editors.mqtt.connect.cancel': '取消',
   'workbench.editors.mqtt.connect.browserHost': 'MQTT 会话在桌面应用或服务器上运行。',
   'workbench.editors.mqtt.connect.needsUrl': '输入代理 URL 以连接。',
   'workbench.editors.mqtt.connect.tcpSchemeBrowser':

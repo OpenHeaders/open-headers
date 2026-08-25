@@ -262,16 +262,19 @@ const MqttRequestEditor: React.FC<MqttRequestEditorProps> = ({
   // honest gate copy — never a hidden button.
   const headerTitle = <MqttTargetRow draft={draft} setDraft={setDraft} inFlight={session.inFlight} />;
 
-  // Connect morphs into Disconnect while the session is in flight —
-  // the Invoke→Stop treatment verbatim: solid on the darkened error
-  // token with the square stop glyph; Connect carries the caret the
-  // Invoke button wears.
+  // Connect morphs while the session is in flight — the Invoke→Stop
+  // treatment verbatim: solid on the darkened error token with the
+  // square stop glyph; Connect carries the caret the Invoke button
+  // wears. The label stays HONEST across the phases: Cancel while the
+  // attempt is still connecting, Disconnect only once the session is
+  // actually open (both close the same send).
+  const inFlightLabel = session.sessionOpen
+    ? t('workbench.editors.mqtt.connect.disconnect')
+    : t('workbench.editors.mqtt.connect.cancel');
   const headerActions = session.inFlight ? (
     <Tooltip
       placement="bottom"
-      title={
-        <ShortcutHintTitle label={CONNECT_SHORTCUT}>{t('workbench.editors.mqtt.connect.disconnect')}</ShortcutHintTitle>
-      }
+      title={<ShortcutHintTitle label={CONNECT_SHORTCUT}>{inFlightLabel}</ShortcutHintTitle>}
     >
       <ConfigProvider theme={{ token: { colorError: token.colorErrorActive } }}>
         <Button
@@ -288,7 +291,7 @@ const MqttRequestEditor: React.FC<MqttRequestEditorProps> = ({
           style={{ fontSize: 11 }}
           data-testid="mqtt-connect-button"
         >
-          {t('workbench.editors.mqtt.connect.disconnect')}
+          {inFlightLabel}
         </Button>
       </ConfigProvider>
     </Tooltip>

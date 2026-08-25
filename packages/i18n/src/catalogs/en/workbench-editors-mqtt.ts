@@ -19,6 +19,7 @@ export const workbenchEditorsMqtt = {
     'The scheme picks the transport.\nmqtt/mqtts · TCP socket on the desktop app or server\nws/wss · MQTT over WebSocket on every host',
   'workbench.editors.mqtt.connect.label': 'Connect',
   'workbench.editors.mqtt.connect.disconnect': 'Disconnect',
+  'workbench.editors.mqtt.connect.cancel': 'Cancel',
   'workbench.editors.mqtt.connect.browserHost': 'MQTT sessions run on the desktop app or server.',
   'workbench.editors.mqtt.connect.needsUrl': 'Enter a broker URL to connect.',
   'workbench.editors.mqtt.connect.tcpSchemeBrowser':
