@@ -126,6 +126,7 @@ const GrpcStreamPane: React.FC<GrpcStreamPaneProps> = ({
             durationMs={snapshot.durationMs}
             stopped={snapshot.stopped === true}
             {...(snapshot.error !== null ? { error: snapshot.error } : {})}
+            {...(snapshot.localStatus !== undefined ? { localStatus: snapshot.localStatus } : {})}
             {...(snapshot.proxyRoute !== undefined ? { proxyRoute: snapshot.proxyRoute } : {})}
           />
           <Dropdown

@@ -109,18 +109,32 @@ export interface GrpcTransportResponse {
   proxyRoute?: GrpcProxyRoute;
 }
 
+/** Canonical codes a gRPC CLIENT runtime assigns local failures — the
+ *  spec's client-side mapping, mirrored by every gRPC runtime. */
+export const GRPC_CANONICAL_CANCELLED = 1;
+export const GRPC_CANONICAL_DEADLINE_EXCEEDED = 4;
+export const GRPC_CANONICAL_UNAVAILABLE = 14;
+
 /**
  * Thrown when the call never produced a response head (DNS/connect
  * failure, TLS handshake, deadline or abort before headers). `message`
  * is the host's classified, user-actionable string — the executor
- * surfaces it verbatim on the snapshot's `error`. A reply carrying a
- * non-zero `grpc-status` is NOT an error here: the transport resolves
- * normally and the status renders honestly on the response surface.
+ * surfaces it verbatim on the snapshot's `error`. `canonicalStatus`
+ * is the canonical code the CLIENT runtime assigns that failure kind
+ * (14 UNAVAILABLE for an unreachable target, 4 DEADLINE_EXCEEDED for
+ * an elapsed deadline, 1 CANCELLED for a pre-head abort) — the
+ * client-runtime semantic, never wire truth; absent where no canonical
+ * mapping exists (a malformed target, a compose error). A reply
+ * carrying a non-zero `grpc-status` is NOT an error here: the
+ * transport resolves normally and the status renders honestly on the
+ * response surface.
  */
 export class GrpcTransportError extends Error {
-  constructor(message: string) {
+  readonly canonicalStatus: number | undefined;
+  constructor(message: string, canonicalStatus?: number) {
     super(message);
     this.name = 'GrpcTransportError';
+    this.canonicalStatus = canonicalStatus;
   }
 }
 

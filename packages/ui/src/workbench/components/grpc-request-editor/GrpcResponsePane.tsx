@@ -69,6 +69,7 @@ const GrpcResponsePane: React.FC<GrpcResponsePaneProps> = ({ snapshot, registry,
         status={snapshot.grpcStatus}
         durationMs={snapshot.durationMs}
         {...(snapshot.error !== null ? { error: snapshot.error } : {})}
+        {...(snapshot.localStatus !== undefined ? { localStatus: snapshot.localStatus } : {})}
         {...(snapshot.proxyRoute !== undefined ? { proxyRoute: snapshot.proxyRoute } : {})}
       />
       <Dropdown

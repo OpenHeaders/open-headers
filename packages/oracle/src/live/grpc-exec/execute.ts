@@ -44,7 +44,12 @@ import { getRequestCollections, getRequestCollectionsForWorkspace } from '../../
 import { buildResolver } from '../request-exec/resolver-scope';
 import { registerActiveSend } from '../request-exec/send-stream';
 import { executeGrpcStream } from './execute-stream';
-import { type GrpcTransport, GrpcTransportError, type GrpcTransportHeader } from './transport';
+import {
+  GRPC_CANONICAL_CANCELLED,
+  type GrpcTransport,
+  GrpcTransportError,
+  type GrpcTransportHeader,
+} from './transport';
 
 /** Response-body cap — the HTTP executor's default, same memory law. */
 const MAX_BODY_BYTES = 2 * 1024 * 1024;
@@ -270,7 +275,14 @@ export async function executeGrpcInvoke(
         : err instanceof Error
           ? err.message
           : String(err);
-    return { ...errorGrpcSnapshot(message), durationMs };
+    // The client-runtime canonical code for the failure — a user stop
+    // is the local cancel semantic (1 CANCELLED).
+    const localStatus = stopped
+      ? GRPC_CANONICAL_CANCELLED
+      : err instanceof GrpcTransportError
+        ? err.canonicalStatus
+        : undefined;
+    return { ...errorGrpcSnapshot(message), ...(localStatus !== undefined ? { localStatus } : {}), durationMs };
   } finally {
     unregister?.();
   }

@@ -35,7 +35,13 @@ import type { ExecutedGrpcMessageFrame, ExecutedGrpcSnapshot, ExecutedProxyRoute
 import { encodeBase64Bytes } from '@openheaders/core/utils';
 import { registerActiveSend } from '../request-exec/send-stream';
 import { createGrpcStreamEmitter, registerActiveGrpcStream } from './stream-plane';
-import type { GrpcStreamWriter, GrpcTransport, GrpcTransportHeader } from './transport';
+import {
+  GRPC_CANONICAL_CANCELLED,
+  type GrpcStreamWriter,
+  type GrpcTransport,
+  GrpcTransportError,
+  type GrpcTransportHeader,
+} from './transport';
 
 export interface GrpcStreamExecuteParams {
   /** Host transport whose `openStream` presence the caller already gated. */
@@ -118,6 +124,13 @@ export function executeGrpcStream(params: GrpcStreamExecuteParams): Promise<Exec
         const message = stopped
           ? 'Call stopped before a response arrived.'
           : (error?.message ?? 'The call ended before a response arrived.');
+        // The client-runtime canonical code for the failure — a user
+        // stop is the local cancel semantic (1 CANCELLED).
+        const localStatus = stopped
+          ? GRPC_CANONICAL_CANCELLED
+          : error instanceof GrpcTransportError
+            ? error.canonicalStatus
+            : undefined;
         resolve({
           httpStatus: 0,
           headers: [],
@@ -129,6 +142,7 @@ export function executeGrpcStream(params: GrpcStreamExecuteParams): Promise<Exec
           bodyBytes: 0,
           durationMs,
           error: message,
+          ...(localStatus !== undefined ? { localStatus } : {}),
         });
         return;
       }

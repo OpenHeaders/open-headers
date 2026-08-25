@@ -218,23 +218,36 @@ describe('executeGrpcStream — settle paths', () => {
     expect(snapshot.grpcStatus).toBeNull();
   });
 
-  it('maps a pre-head failure onto an error snapshot', async () => {
+  it('maps a pre-head failure onto an error snapshot with its client-runtime canonical status', async () => {
     const fake = streamTransport();
     const pending = executeGrpcStream(params(fake.transport));
-    fake.cb().onEnd(new GrpcTransportError('Connection refused by grpc.openheaders.io:443.'));
+    fake.cb().onEnd(new GrpcTransportError('Connection refused by grpc.openheaders.io:443.', 14));
     const snapshot = await pending;
     expect(snapshot.error).toBe('Connection refused by grpc.openheaders.io:443.');
     expect(snapshot.httpStatus).toBe(0);
     expect(snapshot.headAtMessage).toBeUndefined();
+    // The canonical code rides `localStatus`; the wire status stays
+    // its honest null.
+    expect(snapshot.localStatus).toBe(14);
+    expect(snapshot.grpcStatus).toBeNull();
   });
 
-  it('a stop before the head maps onto the stopped error message', async () => {
+  it('a failure without a canonical mapping carries no localStatus', async () => {
+    const fake = streamTransport();
+    const pending = executeGrpcStream(params(fake.transport));
+    fake.cb().onEnd(new GrpcTransportError('The target must be host or host:port — got "nope".'));
+    const snapshot = await pending;
+    expect(snapshot.localStatus).toBeUndefined();
+  });
+
+  it('a stop before the head maps onto the stopped error message as the local cancel', async () => {
     const fake = streamTransport();
     const pending = executeGrpcStream(params(fake.transport, { sendId: 'send-early' }));
     expect(stopActiveSend('send-early')).toBe(true);
     fake.cb().onEnd(new GrpcTransportError('aborted'));
     const snapshot = await pending;
     expect(snapshot.error).toBe('Call stopped before a response arrived.');
+    expect(snapshot.localStatus).toBe(1);
   });
 
   it('aborts past the response byte cap and records the truncated truth', async () => {

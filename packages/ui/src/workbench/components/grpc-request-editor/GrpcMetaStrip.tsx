@@ -61,25 +61,31 @@ const GrpcMetaStrip: React.FC<{
   /** Cancelled mid-stream — the Stopped badge. */
   stopped?: boolean;
   /** The classified LOCAL failure — the call never produced a response
-   *  head. Renders the error-tinted "Call failed" pill (hover: the
-   *  classified message) in the status pill's slot; the capture's
-   *  status stays its honest null, never a synthesized code. */
+   *  head. With `localStatus` the pill reads the canonical code the
+   *  client runtime assigned (e.g. 14 UNAVAILABLE, the status popover
+   *  explaining it); without one it reads the error-tinted "Call
+   *  failed" pill with the classified message on hover. The capture's
+   *  wire status stays its honest null either way. */
   error?: string;
+  /** The failure's client-runtime canonical status (see
+   *  `ExecutedGrpcSnapshot.localStatus`); rides only beside `error`. */
+  localStatus?: number;
   /** The capture's proxy-routing wire truth — the shared attribution
    *  tag when a plane proxied (or stood down for) the dial. Examples
    *  strip it with the other volatile internals, so they omit it. */
   proxyRoute?: ExecutedProxyRoute;
-}> = ({ status, durationMs, stopped, error, proxyRoute }) => {
+}> = ({ status, durationMs, stopped, error, localStatus, proxyRoute }) => {
   const { token } = theme.useToken();
   const t = useT();
   // A caller-stopped call whose reply carried no status reads as
-  // 1 CANCELLED — the gRPC client-runtime semantic for a local cancel
-  // (display-side only; the capture keeps its honest null).
-  const displayStatus = status ?? (stopped === true ? 1 : null);
+  // 1 CANCELLED, and a local failure reads its canonical code — the
+  // gRPC client-runtime semantics (display-side only; the capture
+  // keeps its honest null).
+  const displayStatus = status ?? localStatus ?? (stopped === true ? 1 : null);
   const statusColor = displayStatus === 0 ? token.colorSuccess : token.colorError;
   return (
     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7, minWidth: 0 }}>
-      {error !== undefined ? (
+      {error !== undefined && displayStatus === null ? (
         <InfoPopover
           content={{ title: t('workbench.editors.grpc.response.error.title'), summary: error }}
           trigger="hover"

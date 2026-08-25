@@ -91,4 +91,13 @@ export interface ExecutedGrpcSnapshot {
   };
   /** Non-null when the call failed before producing a response. */
   error: string | null;
+  /** The canonical gRPC status the CLIENT runtime assigned a LOCAL
+   *  failure — 14 UNAVAILABLE for an unreachable target, 4
+   *  DEADLINE_EXCEEDED for an elapsed deadline, 1 CANCELLED for a
+   *  pre-head stop (the client-runtime semantic every gRPC runtime
+   *  surfaces; the meta strip's status pill renders it). Never wire
+   *  truth — `grpcStatus` keeps its honest null. Present only beside
+   *  `error`, and absent where no canonical mapping exists (a
+   *  malformed target, a compose error). */
+  localStatus?: number;
 }

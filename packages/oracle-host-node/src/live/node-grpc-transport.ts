@@ -67,6 +67,9 @@ import * as net from 'node:net';
 import * as tls from 'node:tls';
 import { encodeGrpcTimeout, writeGrpcFrame } from '@openheaders/core/proto';
 import {
+  GRPC_CANONICAL_CANCELLED,
+  GRPC_CANONICAL_DEADLINE_EXCEEDED,
+  GRPC_CANONICAL_UNAVAILABLE,
   type GrpcProxyRoute,
   type GrpcStreamCallbacks,
   type GrpcStreamWriter,
@@ -410,17 +413,21 @@ export function createNodeGrpcTransport(options: NodeGrpcTransportOptions = {}):
             cleanup();
             if (deadlineExpired) {
               reject(
-                new GrpcTransportError(`Call deadline of ${request.timeoutMs} ms elapsed before a response arrived.`),
+                new GrpcTransportError(
+                  `Call deadline of ${request.timeoutMs} ms elapsed before a response arrived.`,
+                  GRPC_CANONICAL_DEADLINE_EXCEEDED,
+                ),
               );
               return;
             }
             if (signal?.aborted) {
-              reject(new GrpcTransportError('Call aborted before a response arrived.'));
+              reject(new GrpcTransportError('Call aborted before a response arrived.', GRPC_CANONICAL_CANCELLED));
               return;
             }
             reject(
               new GrpcTransportError(
                 classifyGrpcFailure(request.authority, request.tls, err, request.unixSocketPath, attempt.proxy?.url),
+                GRPC_CANONICAL_UNAVAILABLE,
               ),
             );
           };
@@ -494,7 +501,7 @@ export function createNodeGrpcTransport(options: NodeGrpcTransportOptions = {}):
 
       const runInvoke = async (): Promise<GrpcTransportResponse> => {
         const resolved = await resolveCallAttempts(target, request.unixSocketPath);
-        if ('errorMessage' in resolved) throw new GrpcTransportError(resolved.errorMessage);
+        if ('errorMessage' in resolved) throw new GrpcTransportError(resolved.errorMessage, GRPC_CANONICAL_UNAVAILABLE);
         const attempts = resolved.attempts;
         const timer =
           request.timeoutMs !== undefined
@@ -534,13 +541,15 @@ export function createNodeGrpcTransport(options: NodeGrpcTransportOptions = {}):
                 if (deadlineExpired) {
                   throw new GrpcTransportError(
                     `Call deadline of ${request.timeoutMs} ms elapsed before a response arrived.`,
+                    GRPC_CANONICAL_DEADLINE_EXCEEDED,
                   );
                 }
                 if (signal?.aborted) {
-                  throw new GrpcTransportError('Call aborted before a response arrived.');
+                  throw new GrpcTransportError('Call aborted before a response arrived.', GRPC_CANONICAL_CANCELLED);
                 }
                 throw new GrpcTransportError(
                   classifyGrpcFailure(request.authority, request.tls, err, request.unixSocketPath, attempt.proxy.url),
+                  GRPC_CANONICAL_UNAVAILABLE,
                 );
               }
             }
@@ -610,25 +619,31 @@ export function createNodeGrpcTransport(options: NodeGrpcTransportOptions = {}):
         cleanup();
         if (deadlineExpired) {
           callbacks.onEnd(
-            new GrpcTransportError(`Call deadline of ${request.timeoutMs} ms elapsed before a response arrived.`),
+            new GrpcTransportError(
+              `Call deadline of ${request.timeoutMs} ms elapsed before a response arrived.`,
+              GRPC_CANONICAL_DEADLINE_EXCEEDED,
+            ),
           );
           return;
         }
         if (signal?.aborted) {
-          callbacks.onEnd(new GrpcTransportError('Call aborted before a response arrived.'));
+          callbacks.onEnd(new GrpcTransportError('Call aborted before a response arrived.', GRPC_CANONICAL_CANCELLED));
           return;
         }
         callbacks.onEnd(
           new GrpcTransportError(
             classifyGrpcFailure(request.authority, request.tls, err, request.unixSocketPath, activeProxyUrl),
+            GRPC_CANONICAL_UNAVAILABLE,
           ),
         );
       };
+      // Proxy-plane resolution failures — the call never reached the
+      // service, the unavailability semantic.
       const endMessage = (message: string): void => {
         if (ended) return;
         ended = true;
         cleanup();
-        callbacks.onEnd(new GrpcTransportError(message));
+        callbacks.onEnd(new GrpcTransportError(message, GRPC_CANONICAL_UNAVAILABLE));
       };
       const endComplete = (): void => {
         if (ended) return;
