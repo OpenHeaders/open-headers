@@ -43,6 +43,10 @@ interface UseCommandPaletteDataOptions {
   onToggleActivityFeed: () => void;
   onShowShortcuts: () => void;
   onOpenSettings: (target?: { settingKey?: string; categoryId?: string }) => void;
+  /** The zero-workspace admin posture — every workspace-scoped command
+   *  (creates, variables, templates, the activity toggle) drops; the
+   *  layout and settings commands stay. */
+  zeroWorkspaces?: boolean;
 }
 
 export interface CommandPaletteData {
@@ -72,6 +76,7 @@ export function useCommandPaletteData(opts: UseCommandPaletteDataOptions): Comma
     onToggleActivityFeed,
     onShowShortcuts,
     onOpenSettings,
+    zeroWorkspaces = false,
   } = opts;
 
   const t = useT();
@@ -112,27 +117,32 @@ export function useCommandPaletteData(opts: UseCommandPaletteDataOptions): Comma
       });
     }
 
-    const systemSections: CommandPaletteSection[] = [];
-    for (const [ruleType, tpls] of Object.entries(TEMPLATES_BY_TYPE)) {
-      if (tpls.length === 0) continue;
-      systemSections.push({
-        id: `sys-tpl-${ruleType}`,
-        title: getRuleTypeLabel(ruleType, t),
-        items: tpls.map((tpl) => ({
-          id: `sys-tpl-${tpl.key}`,
-          icon: <span style={{ fontSize: 12 }}>{tpl.icon}</span>,
-          label: t(tpl.nameKey),
-          scope: t(tpl.descriptionKey),
-          onSelect: () => openCreateTab(ruleType, undefined, tpl.key),
-        })),
+    // The system-templates group is the one static entity group — with
+    // zero workspaces a templated create has nowhere to land, so it
+    // drops with the rest (the data-driven groups are empty already).
+    if (!zeroWorkspaces) {
+      const systemSections: CommandPaletteSection[] = [];
+      for (const [ruleType, tpls] of Object.entries(TEMPLATES_BY_TYPE)) {
+        if (tpls.length === 0) continue;
+        systemSections.push({
+          id: `sys-tpl-${ruleType}`,
+          title: getRuleTypeLabel(ruleType, t),
+          items: tpls.map((tpl) => ({
+            id: `sys-tpl-${tpl.key}`,
+            icon: <span style={{ fontSize: 12 }}>{tpl.icon}</span>,
+            label: t(tpl.nameKey),
+            scope: t(tpl.descriptionKey),
+            onSelect: () => openCreateTab(ruleType, undefined, tpl.key),
+          })),
+        });
+      }
+      result.push({
+        id: 'sys-templates',
+        icon: <FolderOutlined style={{ fontSize: 12 }} />,
+        label: t('workbench.shell.commandPalette.group.systemTemplates'),
+        children: systemSections,
       });
     }
-    result.push({
-      id: 'sys-templates',
-      icon: <FolderOutlined style={{ fontSize: 12 }} />,
-      label: t('workbench.shell.commandPalette.group.systemTemplates'),
-      children: systemSections,
-    });
 
     for (const col of templateCollectionTrees) {
       const tplItems: CommandPaletteItem[] = [];
@@ -237,6 +247,7 @@ export function useCommandPaletteData(opts: UseCommandPaletteDataOptions): Comma
     openRequestEditTab,
     openTemplateEditTab,
     onOpenSettings,
+    zeroWorkspaces,
     t,
   ]);
 
@@ -262,24 +273,26 @@ export function useCommandPaletteData(opts: UseCommandPaletteDataOptions): Comma
       'ws',
       'sse',
     ] as const;
-    result.push({
-      id: 'create',
-      title: t('workbench.shell.commandPalette.section.create'),
-      items: [
-        {
-          id: 'cmd-create-rule',
-          label: t('workbench.shell.commandPalette.cmd.createItem'),
-          shortcut: newRuleLabel,
-          onSelect: onOpenCreateMenu,
-        },
-        ...ruleTypes.map((type) => ({
-          id: `cmd-new-${type}`,
-          icon: buildRuleIcon({ ruleType: type, isActive: true }),
-          label: t('workbench.shell.commandPalette.cmd.newRuleType', { type: getRuleTypeLabel(type, t) }),
-          onSelect: () => openCreateTab(type),
-        })),
-      ],
-    });
+    if (!zeroWorkspaces) {
+      result.push({
+        id: 'create',
+        title: t('workbench.shell.commandPalette.section.create'),
+        items: [
+          {
+            id: 'cmd-create-rule',
+            label: t('workbench.shell.commandPalette.cmd.createItem'),
+            shortcut: newRuleLabel,
+            onSelect: onOpenCreateMenu,
+          },
+          ...ruleTypes.map((type) => ({
+            id: `cmd-new-${type}`,
+            icon: buildRuleIcon({ ruleType: type, isActive: true }),
+            label: t('workbench.shell.commandPalette.cmd.newRuleType', { type: getRuleTypeLabel(type, t) }),
+            onSelect: () => openCreateTab(type),
+          })),
+        ],
+      });
+    }
 
     result.push({
       id: 'commands',
@@ -303,12 +316,18 @@ export function useCommandPaletteData(opts: UseCommandPaletteDataOptions): Comma
           shortcut: toggleBottomPanelLabel,
           onSelect: () => onTogglePanel('bottomPanel'),
         },
-        {
-          id: 'cmd-toggle-activity-feed',
-          label: t('workbench.shell.commandPalette.cmd.toggleActivityFeed'),
-          shortcut: toggleActivityFeedLabel,
-          onSelect: onToggleActivityFeed,
-        },
+        // The Activity window itself drops in the zero-workspace
+        // posture — so does its toggle.
+        ...(zeroWorkspaces
+          ? []
+          : [
+              {
+                id: 'cmd-toggle-activity-feed',
+                label: t('workbench.shell.commandPalette.cmd.toggleActivityFeed'),
+                shortcut: toggleActivityFeedLabel,
+                onSelect: onToggleActivityFeed,
+              },
+            ]),
         {
           id: 'cmd-shortcuts',
           label: t('workbench.shell.commandPalette.cmd.keyboardShortcuts'),
@@ -356,15 +375,18 @@ export function useCommandPaletteData(opts: UseCommandPaletteDataOptions): Comma
         onSelect: () => openEnvironmentEdit(env.uid, env.name),
       })),
     ];
-    result.push({
-      id: 'variables',
-      title: t('workbench.shell.commandPalette.section.variables'),
-      items: variableItems,
-    });
+    if (!zeroWorkspaces) {
+      result.push({
+        id: 'variables',
+        title: t('workbench.shell.commandPalette.section.variables'),
+        items: variableItems,
+      });
+    }
 
     return result;
   }, [
     t,
+    zeroWorkspaces,
     openCreateTab,
     onOpenCreateMenu,
     onTogglePanel,

@@ -17,6 +17,7 @@
  */
 
 import { hostStorage, type PersistedTabSession, wsKeys } from '@openheaders/core/storage';
+import { getActiveExtensionWorkspaceSyncMirror } from '@openheaders/ui/context';
 import type { DockLayoutApi, ToolLayoutState } from '@openheaders/ui/shared/dock-layout';
 import { normalizeDockLayout, useDockLayout } from '@openheaders/ui/shared/dock-layout';
 import type { EditingScopeViewStateApi, WorkspaceSlice } from '@openheaders/ui/shared/editing-scope-view-state';
@@ -24,11 +25,12 @@ import {
   createWorkspaceAwareResolver,
   useEditingScopeViewState,
 } from '@openheaders/ui/shared/editing-scope-view-state';
+import { useSyncExternalStore } from 'react';
 import { useServerAdminStatus } from '../components/server-admin/use-server-admin-status';
 import type { SidebarView } from '../components/sidebar/types';
 import { get as getSetting } from '../settings/store';
 import { focusStore } from '../stores/focus-region-store';
-import { availableToolWindowMap, availableToolWindows } from '../tool-windows';
+import { availableToolWindowMap, availableToolWindows, hasAnyWorkspace } from '../tool-windows';
 import type { ToolWindowId, WorkbenchTab } from '../types';
 import { readGlobalActiveWorkspaceId, readUrlWorkspaceId } from './readBootIdentity';
 
@@ -236,6 +238,12 @@ export function useToolLayout(perTab: EditingScopeViewStateApi<WorkbenchViewStat
   // `availableToolWindows()` and `useDockLayout`'s defs-change effect
   // reconciles the window into the layout.
   useServerAdminStatus();
+  // Same contract for workspace presence: the zero-workspace admin
+  // posture drops the workspace-bound windows, and a grant syncing
+  // down (or the last revoke) flips `hasAnyWorkspace()` — this
+  // subscription drives the re-render that lets the same defs-change
+  // effect reconcile the window set.
+  useSyncExternalStore(getActiveExtensionWorkspaceSyncMirror().subscribeMirror, hasAnyWorkspace, hasAnyWorkspace);
   return useDockLayout<ToolWindowId>({
     windowDefs: availableToolWindows(),
     windowMap: availableToolWindowMap(),

@@ -43,7 +43,9 @@ vi.mock('@openheaders/oracle/workspace/extension-workspace-store', () => store);
 
 import {
   hasUsableActiveWorkspace,
+  type MountSurfaceInput,
   promoteFirstWorkspaceWhenUnset,
+  resolveMountSurface,
   seedLocalWorkspaceIfNeverJoined,
 } from '@/host/mount-decision';
 
@@ -117,5 +119,62 @@ describe('hasUsableActiveWorkspace', () => {
     expect(hasUsableActiveWorkspace()).toBe(false);
     store.state.active = 'ws-a';
     expect(hasUsableActiveWorkspace()).toBe(true);
+  });
+});
+
+describe('resolveMountSurface — the zero-workspace admin posture', () => {
+  const base: MountSurfaceInput = {
+    hasWorkspaces: false,
+    activeUsable: false,
+    adminSettled: false,
+    adminStatus: 'unknown',
+    graceElapsed: false,
+    workspaceMirrorHydrated: true,
+  };
+
+  it('mounts the workbench when workspaces exist and the pointer is usable', () => {
+    expect(resolveMountSurface({ ...base, hasWorkspaces: true, activeUsable: true })).toBe('workbench');
+  });
+
+  it('holds the null beat while a promotion is in flight', () => {
+    expect(resolveMountSurface({ ...base, hasWorkspaces: true })).toBe('pending');
+  });
+
+  it('waits for the admin answer instead of flashing the awaiting-access screen', () => {
+    expect(resolveMountSurface(base)).toBe('pending');
+    // A transient transport rejection reads denied but is NOT settled —
+    // still no A7 flash for what may be an admin.
+    expect(resolveMountSurface({ ...base, adminStatus: 'denied' })).toBe('pending');
+  });
+
+  it('mounts the admin posture for a settled admin with zero workspaces', () => {
+    expect(resolveMountSurface({ ...base, adminSettled: true, adminStatus: 'admin' })).toBe('workbench-admin');
+  });
+
+  it('holds the admin posture until the workspace mirror hydrates', () => {
+    expect(
+      resolveMountSurface({ ...base, adminSettled: true, adminStatus: 'admin', workspaceMirrorHydrated: false }),
+    ).toBe('pending');
+  });
+
+  it('keeps the awaiting-access dead end for settled non-admins', () => {
+    expect(resolveMountSurface({ ...base, adminSettled: true, adminStatus: 'denied' })).toBe('awaiting-access');
+  });
+
+  it('falls back to awaiting-access when the probe never settles within the grace window', () => {
+    expect(resolveMountSurface({ ...base, graceElapsed: true })).toBe('awaiting-access');
+  });
+
+  it('never routes a workspace-holding tab through the admin branch', () => {
+    // A settled admin WITH workspaces gets the ordinary workbench.
+    expect(
+      resolveMountSurface({
+        ...base,
+        hasWorkspaces: true,
+        activeUsable: true,
+        adminSettled: true,
+        adminStatus: 'admin',
+      }),
+    ).toBe('workbench');
   });
 });

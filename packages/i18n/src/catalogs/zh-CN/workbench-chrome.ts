@@ -176,6 +176,10 @@ export const workbenchChrome = {
   'workbench.shell.empty.varVault': 'Vault 机密',
   'workbench.shell.empty.varCollection': '集合变量',
   'workbench.shell.empty.varCollectionTooltip': '集合变量需在集合内部创建。',
+  'workbench.shell.empty.adminNoWorkspace':
+    '您以服务器管理员身份登录，但尚未获授任何工作区。在授权存在之前（包括您自己授予自己的授权），工作区数据不可访问。',
+  'workbench.shell.empty.adminOpenServerAdmin': '打开服务器管理',
+  'workbench.shell.empty.adminOpenServerAdminDesc': '管理用户、授权和服务器',
 
   // ── Shell: environment selector ─────────────────────────────────────
   'workbench.shell.envSelector.noEnvironment': '无环境',

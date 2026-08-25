@@ -68,7 +68,7 @@ import { useT } from '@openheaders/ui/context/LocaleContext';
 import { computeBreadcrumbs } from './breadcrumbs';
 import CommandPalette from './components/shell/CommandPalette';
 import EditorGroupRenderer, { type RenderLeafHeaderContext } from './components/shell/EditorGroupRenderer';
-import EmptyState, { type VariableCreateScope } from './components/shell/EmptyState';
+import EmptyState, { type VariableCreateScope, ZeroWorkspaceAdminEmptyState } from './components/shell/EmptyState';
 import { viewActivityEntity } from './components/panels/activity-view-router';
 import { getWorkbenchTerminalTabs } from './components/panels/terminal/terminal-instance';
 import { toggleTerminalTabSearch } from './components/panels/terminal/terminal-tab-search-toggle';
@@ -329,6 +329,13 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
     templateCollectionTrees,
   } = useRules();
   const workspacesApi = useWorkspaces();
+  // The zero-workspace (admin) posture: the shell is mounted with
+  // NOTHING granted — only the role/system surfaces render, and every
+  // workspace-bound affordance (creates, env selector, the org notice)
+  // hides rather than erroring into a missing workspace. Only the web
+  // admin mount reaches this; hosts with a workspace never flip it
+  // (`isReady` keeps the pre-hydration beat on the normal path).
+  const zeroWorkspaces = workspacesApi.isReady && workspacesApi.workspaces.length === 0;
   const envApi = useEnvironments();
   const requestsApi = useRequests();
   const liveVarsApi = useLiveVariables();
@@ -800,12 +807,15 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
   useEffect(
     () =>
       hostBridge.subscribe('menuCommand', ({ command }) => {
-        if (command === 'newItem') openCreateMenu();
-        else if (command === 'newTab') openCreateRequestTab();
-        else if (command === 'import') importExportRef.current?.openImportSource();
+        // Create/import have no workspace to land in on the
+        // zero-workspace admin posture — the gestures go quiet, like
+        // their hidden in-app affordances.
+        if (command === 'newItem' && !zeroWorkspaces) openCreateMenu();
+        else if (command === 'newTab' && !zeroWorkspaces) openCreateRequestTab();
+        else if (command === 'import' && !zeroWorkspaces) importExportRef.current?.openImportSource();
         else if (command === 'closeTab') handleCloseActiveTab();
       }),
-    [openCreateMenu, openCreateRequestTab, handleCloseActiveTab],
+    [openCreateMenu, openCreateRequestTab, handleCloseActiveTab, zeroWorkspaces],
   );
 
   // Host-shell navigation: a connected browser surface asked this app
@@ -1111,6 +1121,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
     onToggleActivityFeed: () => tl.toggleWindow('activity'),
     onShowShortcuts: handleShowShortcuts,
     onOpenSettings: openSettings,
+    zeroWorkspaces,
   });
 
   // TabBar publishes its tab-search toggle function here on mount so
@@ -1128,8 +1139,14 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
     onToggleInspector: () => togglePanel('inspector'),
     onToggleActivityFeed: () => tl.toggleWindow('activity'),
     onCloseTab: handleCloseActiveTab,
-    onNewTab: () => openCreateRequestTab(),
-    onImport: () => importExportRef.current?.openImportSource(),
+    // Create/import chords go quiet on the zero-workspace admin
+    // posture — same rule as their hidden affordances.
+    onNewTab: () => {
+      if (!zeroWorkspaces) openCreateRequestTab();
+    },
+    onImport: () => {
+      if (!zeroWorkspaces) importExportRef.current?.openImportSource();
+    },
     onPrevTab: handlePrevTab,
     onNextTab: handleNextTab,
     onGoToTab: handleGoToTab,
@@ -1144,7 +1161,9 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
       tabSearchToggleRef.current?.();
     },
     onSave: handleSave,
-    onNewRule: openCreateMenu,
+    onNewRule: () => {
+      if (!zeroWorkspaces) openCreateMenu();
+    },
     onFocusFilter: () => {
       // Scope to whatever panel the user is currently focused in.
       // Look up the active tool window in the focused dock, open its
@@ -1170,7 +1189,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
         terminalTabs.createTab();
         return;
       }
-      openCreateRequestTab();
+      if (!zeroWorkspaces) openCreateRequestTab();
     },
     onCommandPalette: () => setCommandPaletteOpen(true),
     onShowShortcuts: handleShowShortcuts,
@@ -1362,7 +1381,10 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
   );
 
   const renderEmpty = useCallback(
-    () => (
+    () =>
+      zeroWorkspaces ? (
+        <ZeroWorkspaceAdminEmptyState onOpenServerAdmin={openServerAdmin} />
+      ) : (
       <EmptyState
         // Empty-state creates carry their own rule_created origin — the
         // zero-rules onboarding lever is measured from birth (S16).
@@ -1377,8 +1399,10 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
         onImport={() => importExportRef.current?.openImportSource()}
         onMigrate={showMigrationOffer ? () => importExportRef.current?.openMigrateTool() : undefined}
       />
-    ),
+      ),
     [
+      zeroWorkspaces,
+      openServerAdmin,
       openCreateTab,
       handleBrowseTemplates,
       handleCreateRequestOfKind,
@@ -1638,15 +1662,21 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
             activeCollectionId={activeTabCollectionId}
             allCollections={allCollectionsForEnv}
             onSetCollectionPinnedEnvs={setCollectionPinnedEnvsByFamily}
+            zeroWorkspaces={zeroWorkspaces}
           />
 
           <SecurityUpdateBanner onOpenUpdates={() => openSettings({ categoryId: 'updates' })} />
 
-          <OrgWorkspaceAccessNotice
-            workspaces={workspacesApi.workspaces}
-            activeWorkspaceId={workspacesApi.activeWorkspaceId}
-            onSwitchWorkspace={handleSwitchWorkspace}
-          />
+          {/* The zero-grant banner is redundant in the zero-workspace
+              admin posture — the editor's admin empty state owns that
+              message (and names the self-grant path the banner can't). */}
+          {!zeroWorkspaces && (
+            <OrgWorkspaceAccessNotice
+              workspaces={workspacesApi.workspaces}
+              activeWorkspaceId={workspacesApi.activeWorkspaceId}
+              onSwitchWorkspace={handleSwitchWorkspace}
+            />
+          )}
 
           <AppUpdateToast
             onOpenUpdateSettings={() => openSettings({ categoryId: 'updates' })}
@@ -1687,6 +1717,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
                 renderEmpty={renderEmpty}
                 onCreateRule={openCreateTab}
                 onCreateRequest={handleCreateRequestOfKind}
+                showCreateAction={!zeroWorkspaces}
                 createMenuOpen={createMenuOpen}
                 onCreateMenuOpenChange={setCreateMenuOpen}
                 registerTabSearchToggle={registerTabSearchToggle}

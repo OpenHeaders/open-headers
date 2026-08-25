@@ -18,6 +18,7 @@ import {
   ToolOutlined,
 } from '@ant-design/icons';
 import { hasCapability } from '@openheaders/core/capabilities';
+import { getActiveExtensionWorkspaceSyncMirror } from '@openheaders/ui/context';
 import { getServerAdminStatus } from './components/server-admin/use-server-admin-status';
 import type { DesktopFeature } from '@openheaders/ui/shared/desktop-teaser';
 import type { ToolWindowDef as GenericToolWindowDef } from '@openheaders/ui/shared/dock-layout';
@@ -64,6 +65,7 @@ export const TOOL_WINDOWS: readonly ToolWindowDef[] = [
     icon: <RequestRulesIcon />,
     core: true,
     defaultSlot: 'left-top',
+    requiresWorkspace: true,
   },
   // The Commit tool window (S22) — the IDE-style companion Commit tab,
   // directly under the Interceptor in the left activity bar: the
@@ -79,6 +81,7 @@ export const TOOL_WINDOWS: readonly ToolWindowDef[] = [
     defaultSlot: 'left-top',
     openByDefault: false,
     requiresCapability: 'workspaceGit',
+    requiresWorkspace: true,
     teaserWhenUnavailable: 'commit',
   },
   {
@@ -87,6 +90,7 @@ export const TOOL_WINDOWS: readonly ToolWindowDef[] = [
     icon: <ApiRequestsIcon />,
     core: false,
     defaultSlot: 'left-bottom',
+    requiresWorkspace: true,
   },
   // A Workflow is the scheduled-refresh variable producer: a request
   // chain + extraction rule. Its output surfaces as a `{{live.X}}`
@@ -99,6 +103,7 @@ export const TOOL_WINDOWS: readonly ToolWindowDef[] = [
     icon: <SisternodeOutlined />,
     core: false,
     defaultSlot: 'left-bottom',
+    requiresWorkspace: true,
   },
   // Registry order within a slot is the slot's tab order on first
   // open. `right-top` runs `notifications` then `docs`; `right-bottom`
@@ -119,6 +124,7 @@ export const TOOL_WINDOWS: readonly ToolWindowDef[] = [
     icon: <ScanOutlined />,
     core: false,
     defaultSlot: 'right-bottom',
+    requiresWorkspace: true,
   },
   {
     id: 'variables',
@@ -126,6 +132,7 @@ export const TOOL_WINDOWS: readonly ToolWindowDef[] = [
     icon: <VariablesIcon />,
     core: false,
     defaultSlot: 'right-bottom',
+    requiresWorkspace: true,
   },
   // Bottom dock, left pane: the working surfaces (a shell, the
   // workspace tree's git plane, the live traffic monitor). Bottom dock,
@@ -162,6 +169,7 @@ export const TOOL_WINDOWS: readonly ToolWindowDef[] = [
     defaultSlot: 'bottom-left',
     openByDefault: false,
     requiresCapability: 'workspaceGit',
+    requiresWorkspace: true,
     teaserWhenUnavailable: 'git',
   },
   // The unified observability surface (Observability epic): every
@@ -181,6 +189,7 @@ export const TOOL_WINDOWS: readonly ToolWindowDef[] = [
     defaultSlot: 'bottom-left',
     openByDefault: false,
     requiresCapability: 'liveNetwork',
+    requiresWorkspace: true,
     teaserWhenUnavailable: 'liveNetwork',
   },
   // Per-workflow circuit-breaker dashboard (state, consecutive
@@ -192,6 +201,7 @@ export const TOOL_WINDOWS: readonly ToolWindowDef[] = [
     icon: <WorkflowStatusIcon />,
     core: false,
     defaultSlot: 'bottom-right',
+    requiresWorkspace: true,
   },
   // Workspace-wide Activity Feed — inbound mutation log with classifier
   // highlights (sensitive-field rotations, permission-scope expansions,
@@ -206,6 +216,7 @@ export const TOOL_WINDOWS: readonly ToolWindowDef[] = [
     core: false,
     defaultSlot: 'bottom-right',
     openByDefault: false,
+    requiresWorkspace: true,
   },
 ];
 
@@ -218,6 +229,19 @@ export const TOOL_WINDOW_MAP: Record<ToolWindowId, ToolWindowDef> = TOOL_WINDOWS
 );
 
 /**
+ * Whether this host currently holds ANY workspace, off the shared
+ * workspace sync mirror. Pre-hydration reads `true` — a cold boot must
+ * never drop (and later re-enter) the workspace surfaces while the
+ * mirror's bootstrap snapshot is in flight; the only mount that truly
+ * has zero workspaces (the web admin posture) awaits hydration before
+ * mounting.
+ */
+export function hasAnyWorkspace(): boolean {
+  const entry = getActiveExtensionWorkspaceSyncMirror().getMirror();
+  return entry === null || entry.workspaces.length > 0;
+}
+
+/**
  * The registry as seen by THIS host — capability-gated windows drop
  * out when their capability isn't registered, unless they declare
  * `teaserWhenUnavailable` (then the tab stays and the panel body
@@ -226,6 +250,7 @@ export const TOOL_WINDOW_MAP: Record<ToolWindowId, ToolWindowDef> = TOOL_WINDOWS
  * during boot, after module graphs evaluate.
  */
 export function availableToolWindows(): readonly ToolWindowDef[] {
+  const anyWorkspace = hasAnyWorkspace();
   return TOOL_WINDOWS.filter((def) => {
     // Server administration is a per-user fact, not a host capability:
     // the window exists only once the admin-status probe answers
@@ -233,6 +258,11 @@ export function availableToolWindows(): readonly ToolWindowDef[] {
     // layout in via its defs-change effect). No teaser — a non-admin
     // has nothing to be teased toward.
     if (def.id === 'server-admin') return getServerAdminStatus() === 'admin';
+    // The zero-workspace admin posture: windows whose subject is
+    // workspace data have nothing to bind to — they drop outright,
+    // teaser or not. A grant syncing down flips the mirror and the
+    // dock layout reconciles them back in.
+    if (def.requiresWorkspace && !anyWorkspace) return false;
     return !def.requiresCapability || hasCapability(def.requiresCapability) || def.teaserWhenUnavailable !== undefined;
   });
 }

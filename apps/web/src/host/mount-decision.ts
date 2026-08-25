@@ -43,6 +43,45 @@ export function hasUsableActiveWorkspace(): boolean {
 }
 
 /**
+ * Which surface the mount renders — the pure core of `WorkbenchMount`,
+ * separated so the zero-workspace branching (the access-foundation
+ * admin posture) is pinnable without a DOM.
+ *
+ *   - `workbench` — workspaces exist and the active pointer is usable.
+ *   - `workbench-admin` — ZERO workspaces but the caller is a settled
+ *     server admin: the Workbench mounts in the admin posture (only
+ *     the role/system tool windows; the registry drops the
+ *     workspace-bound ones off the hydrated mirror).
+ *   - `awaiting-access` — ZERO workspaces and the admin probe settled
+ *     non-admin (A7 stays the non-admin dead end), or the probe never
+ *     settled within the grace window (daemon unreachable — A7 is the
+ *     honest fallback and resolves in place if an answer lands later).
+ *   - `pending` — render the existing null beat: a promotion is in
+ *     flight, the admin answer is still owed inside the grace window
+ *     (no A7 flash for admins), or the admin posture is waiting for
+ *     the workspace mirror to hydrate.
+ */
+export type MountSurface = 'workbench' | 'workbench-admin' | 'awaiting-access' | 'pending';
+
+export interface MountSurfaceInput {
+  hasWorkspaces: boolean;
+  activeUsable: boolean;
+  adminSettled: boolean;
+  adminStatus: 'unknown' | 'admin' | 'denied';
+  /** The unsettled-probe grace window elapsed without an answer. */
+  graceElapsed: boolean;
+  /** The ui workspace sync mirror finished its bootstrap snapshot. */
+  workspaceMirrorHydrated: boolean;
+}
+
+export function resolveMountSurface(input: MountSurfaceInput): MountSurface {
+  if (input.hasWorkspaces) return input.activeUsable ? 'workbench' : 'pending';
+  if (!input.adminSettled) return input.graceElapsed ? 'awaiting-access' : 'pending';
+  if (input.adminStatus !== 'admin') return 'awaiting-access';
+  return input.workspaceMirrorHydrated ? 'workbench-admin' : 'pending';
+}
+
+/**
  * A8 — seed the local workspace on a never-joined browser with an
  * empty store, through the ordinary SW-internal create (home Org — the
  * identity snapshot is installed by mount time) plus the ordinary

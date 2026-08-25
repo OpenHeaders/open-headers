@@ -254,6 +254,9 @@ export interface EditorGroupRendererProps {
   onCreateRequest: (kind: RequestKind) => void;
   createMenuOpen?: boolean;
   onCreateMenuOpenChange?: (open: boolean) => void;
+  /** Hide every leaf's + create trigger (the zero-workspace admin
+   *  posture). Defaults to shown. */
+  showCreateAction?: boolean;
   /** Forwarded to the focused leaf's TabBar so App.tsx can reach the tab-search toggle. */
   registerTabSearchToggle?: (toggle: () => void) => void;
   onTabDoubleClick?: (tabId: string) => void;
@@ -290,6 +293,7 @@ export const EditorGroupRenderer: React.FC<EditorGroupRendererProps> = ({
   onCreateRequest,
   createMenuOpen,
   onCreateMenuOpenChange,
+  showCreateAction,
   registerTabSearchToggle,
   onTabDoubleClick,
   onDuplicate,
@@ -545,6 +549,7 @@ export const EditorGroupRenderer: React.FC<EditorGroupRendererProps> = ({
           canUnsplitAll={canUnsplitAll}
           createMenuOpen={isFocused ? createMenuOpen : false}
           onCreateMenuOpenChange={isFocused ? onCreateMenuOpenChange : undefined}
+          showCreateAction={showCreateAction}
           registerTabSearchToggle={isFocused ? registerTabSearchToggle : undefined}
         />
         {/* Everything below the tab bar — breadcrumb + content — lives

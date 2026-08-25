@@ -85,6 +85,16 @@ export type ToolWindowDef<TWindowId extends string = string> = {
    */
   requiresCapability?: CapabilityName;
   /**
+   * The window's subject is workspace data. With ZERO workspaces on
+   * the host (the zero-workspace admin posture: a server admin signed
+   * in with nothing granted) the window doesn't exist — no rail icon,
+   * no tab, no teaser; there is no workspace to be teased toward. Any
+   * host holding a workspace passes unconditionally. Omit for
+   * role/system surfaces (server-admin, notifications, docs,
+   * terminal) that stand on their own.
+   */
+  requiresWorkspace?: boolean;
+  /**
    * Keep the window visible when `requiresCapability` is missing and
    * render a desktop teaser (explainer + download CTA) for the named
    * feature instead of the real panel. Omitted → the hard drop

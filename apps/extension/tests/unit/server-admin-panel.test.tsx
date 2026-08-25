@@ -1,14 +1,20 @@
 /**
  * Server admin dock panel — one nav row per administration domain, a
- * click opens that domain's tab; and the tool-window registry exposes
- * the window ONLY once the admin-status probe answers `admin`
- * (affordance honesty — the server re-gates every call regardless).
+ * click opens that domain's tab; the tool-window registry exposes the
+ * window ONLY once the admin-status probe answers `admin` (affordance
+ * honesty — the server re-gates every call regardless); and the
+ * zero-workspace admin posture drops the workspace-bound windows off
+ * the hydrated workspace mirror while the role/system ones stay.
  */
 
-import { availableToolWindows } from '@openheaders/ui/workbench/tool-windows';
+import {
+  disposeActiveExtensionWorkspaceSyncMirror,
+  getActiveExtensionWorkspaceSyncMirror,
+} from '@openheaders/ui/context';
 import ServerAdminPanel from '@openheaders/ui/workbench/components/server-admin/ServerAdminPanel';
 import { SERVER_ADMIN_SECTIONS } from '@openheaders/ui/workbench/components/server-admin/sections';
 import { __resetServerAdminStatusForTests } from '@openheaders/ui/workbench/components/server-admin/use-server-admin-status';
+import { availableToolWindows } from '@openheaders/ui/workbench/tool-windows';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -38,6 +44,7 @@ const PANEL_INFO = { title: 'Server admin', summary: 'test' };
 
 beforeEach(() => {
   __resetServerAdminStatusForTests();
+  disposeActiveExtensionWorkspaceSyncMirror();
   mockCall.mockReset();
 });
 
@@ -87,5 +94,60 @@ describe('availableToolWindows server-admin gating', () => {
     availableToolWindows();
     await flushProbe();
     expect(availableToolWindows().some((def) => def.id === 'server-admin')).toBe(false);
+  });
+});
+
+describe('availableToolWindows requiresWorkspace gating — the zero-workspace admin posture', () => {
+  const WORKSPACE_BOUND = [
+    'http-rules',
+    'commit',
+    'api-requests',
+    'workflows',
+    'variables',
+    'var-scope',
+    'workflow-status',
+    'git',
+    'traffic-monitor',
+    'activity',
+  ];
+
+  /** Route both probes: the admin status and the workspace mirror's
+   *  bootstrap snapshot, seeded with the given workspace list. */
+  function mockProbes(workspaces: Array<{ id: string; name: string }>): void {
+    mockCall.mockImplementation((type: string) => {
+      if (type === 'oh.sync.snapshotExtensionWorkspaces') {
+        return Promise.resolve({
+          entries: [{ workspaces, activeWorkspaceId: workspaces[0]?.id ?? null, orderKeys: {} }],
+        });
+      }
+      return Promise.resolve({ admin: true });
+    });
+  }
+
+  it('keeps every workspace-bound window while the mirror is unhydrated — a cold boot never drops surfaces', () => {
+    mockProbes([]);
+    const ids = availableToolWindows().map((def) => def.id);
+    for (const id of WORKSPACE_BOUND) expect(ids).toContain(id);
+  });
+
+  it('drops the workspace-bound windows once the mirror hydrates empty; role/system windows stay', async () => {
+    mockProbes([]);
+    availableToolWindows(); // fires the admin probe and creates the mirror
+    await getActiveExtensionWorkspaceSyncMirror().hydrated;
+    await flushProbe();
+    const ids = availableToolWindows().map((def) => def.id);
+    for (const id of WORKSPACE_BOUND) expect(ids).not.toContain(id);
+    expect(ids).toContain('server-admin');
+    expect(ids).toContain('notifications');
+    expect(ids).toContain('docs');
+  });
+
+  it('keeps the workspace-bound windows when the hydrated mirror holds a workspace', async () => {
+    mockProbes([{ id: 'ws-1', name: 'Workspace' }]);
+    availableToolWindows();
+    await getActiveExtensionWorkspaceSyncMirror().hydrated;
+    await flushProbe();
+    const ids = availableToolWindows().map((def) => def.id);
+    for (const id of WORKSPACE_BOUND) expect(ids).toContain(id);
   });
 });

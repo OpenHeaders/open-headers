@@ -177,6 +177,10 @@ export const workbenchChrome = {
   'workbench.shell.empty.varVault': 'Vault-Secret',
   'workbench.shell.empty.varCollection': 'Sammlungsvariable',
   'workbench.shell.empty.varCollectionTooltip': 'Sammlungsvariablen werden innerhalb einer Sammlung erstellt.',
+  'workbench.shell.empty.adminNoWorkspace':
+    'Sie sind als Server-Administrator angemeldet, ohne dass Ihnen ein Workspace gewährt wurde. Workspace-Daten bleiben unerreichbar, bis eine Gewährung existiert — auch eine, die Sie sich selbst erteilen.',
+  'workbench.shell.empty.adminOpenServerAdmin': 'Server-Administration öffnen',
+  'workbench.shell.empty.adminOpenServerAdminDesc': 'Benutzer, Gewährungen und den Server verwalten',
 
   // ── Shell: environment selector ─────────────────────────────────────
   'workbench.shell.envSelector.noEnvironment': 'Keine Umgebung',

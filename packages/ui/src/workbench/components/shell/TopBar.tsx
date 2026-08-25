@@ -61,6 +61,10 @@ interface TopBarProps {
   activeCollectionId: string | null;
   allCollections: Collection[];
   onSetCollectionPinnedEnvs: (collectionUid: string, pinnedIds: string[], defaultId: string | null) => Promise<boolean>;
+  /** The zero-workspace admin posture — the workspace-scoped chrome
+   *  (env selector; the switcher already self-hides with no selection)
+   *  drops instead of offering gestures with nowhere to land. */
+  zeroWorkspaces?: boolean;
 }
 
 const TopBar: React.FC<TopBarProps> = ({
@@ -87,6 +91,7 @@ const TopBar: React.FC<TopBarProps> = ({
   activeCollectionId,
   allCollections,
   onSetCollectionPinnedEnvs,
+  zeroWorkspaces,
 }) => {
   const { token } = theme.useToken();
   const t = useT();
@@ -371,6 +376,7 @@ const TopBar: React.FC<TopBarProps> = ({
       <div aria-hidden />
 
       <div className="rules-topbar-right">
+        {!zeroWorkspaces && (
         <EnvironmentSelector
           environments={environments}
           activeEnvironmentId={activeEnvironmentId}
@@ -390,6 +396,7 @@ const TopBar: React.FC<TopBarProps> = ({
           }
           onSetCollectionPinnedEnvs={onSetCollectionPinnedEnvs}
         />
+        )}
         {showPanelToggles && (
           <>
             <div

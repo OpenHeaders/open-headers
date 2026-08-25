@@ -120,6 +120,9 @@ interface TabBarProps {
   /** Controlled open state for the + create menu (e.g. triggered by ⌥N). */
   createMenuOpen?: boolean;
   onCreateMenuOpenChange?: (open: boolean) => void;
+  /** Hide the + create trigger — the zero-workspace admin posture has
+   *  no workspace for a created entity to land in. Defaults to shown. */
+  showCreateAction?: boolean;
   /**
    * Registers the tab-search toggle function with the host (App.tsx)
    * so the workspace shortcut registry can invoke it via the
@@ -173,6 +176,7 @@ const TabBar: React.FC<TabBarProps> = ({
   canUnsplitAll,
   createMenuOpen,
   onCreateMenuOpenChange,
+  showCreateAction = true,
   registerTabSearchToggle,
 }) => {
   const { token } = theme.useToken();
@@ -441,29 +445,31 @@ const TabBar: React.FC<TabBarProps> = ({
           fit, the strip is content-sized so + sits right after the
           last tab; when tabs overflow, the strip shrinks and + stays
           anchored at the strip's right edge (visually "sticky"). */}
-      <Dropdown
-        menu={{ items: createMenuItems }}
-        popupRender={(menu) => <CappedMenuPopup menu={menu} maxHeight={createMenuMaxHeight} />}
-        trigger={['click']}
-        placement={createMenuPlacement}
-        autoAdjustOverflow={false}
-        open={createMenuOpen}
-        onOpenChange={(v) => onCreateMenuOpenChange?.(v)}
-      >
-        <Tooltip
-          title={<ShortcutHintTitle label={newRuleLabel}>{t('workbench.tabbar.createItem')}</ShortcutHintTitle>}
-          placement="bottom"
-          open={createMenuOpen ? false : undefined}
+      {showCreateAction && (
+        <Dropdown
+          menu={{ items: createMenuItems }}
+          popupRender={(menu) => <CappedMenuPopup menu={menu} maxHeight={createMenuMaxHeight} />}
+          trigger={['click']}
+          placement={createMenuPlacement}
+          autoAdjustOverflow={false}
+          open={createMenuOpen}
+          onOpenChange={(v) => onCreateMenuOpenChange?.(v)}
         >
-          <div
-            className="rules-tab-action rules-tab-action-create"
-            ref={createTriggerRef}
-            style={{ color: token.colorTextSecondary }}
+          <Tooltip
+            title={<ShortcutHintTitle label={newRuleLabel}>{t('workbench.tabbar.createItem')}</ShortcutHintTitle>}
+            placement="bottom"
+            open={createMenuOpen ? false : undefined}
           >
-            <PlusOutlined style={{ fontSize: 12 }} />
-          </div>
-        </Tooltip>
-      </Dropdown>
+            <div
+              className="rules-tab-action rules-tab-action-create"
+              ref={createTriggerRef}
+              style={{ color: token.colorTextSecondary }}
+            >
+              <PlusOutlined style={{ fontSize: 12 }} />
+            </div>
+          </Tooltip>
+        </Dropdown>
+      )}
 
       {/* Tab search chevron (always visible, outside scroll). The
           `marginLeft: auto` pushes the chevron to the bar's right

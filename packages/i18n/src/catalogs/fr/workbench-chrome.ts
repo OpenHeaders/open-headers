@@ -172,6 +172,10 @@ export const workbenchChrome = {
   'workbench.shell.empty.varCollection': 'Variable de collection',
   'workbench.shell.empty.varCollectionTooltip':
     "Les variables de collection se créent depuis l'intérieur d'une collection.",
+  'workbench.shell.empty.adminNoWorkspace':
+    "Vous êtes connecté en tant qu'administrateur du serveur sans aucun workspace accordé. Les données de workspace restent hors de portée tant qu'aucun accès n'existe — y compris un accès que vous vous accordez vous-même.",
+  'workbench.shell.empty.adminOpenServerAdmin': "Ouvrir l'administration du serveur",
+  'workbench.shell.empty.adminOpenServerAdminDesc': 'Gérer les utilisateurs, les accès et le serveur',
 
   // ── Shell: environment selector ─────────────────────────────────────
   'workbench.shell.envSelector.noEnvironment': 'Aucun environnement',

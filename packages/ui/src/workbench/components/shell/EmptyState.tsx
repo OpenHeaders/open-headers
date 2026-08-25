@@ -8,7 +8,7 @@
  * those surfaces.
  */
 
-import { ImportOutlined, RightOutlined, SisternodeOutlined, SwapOutlined } from '@ant-design/icons';
+import { ImportOutlined, RightOutlined, SisternodeOutlined, SwapOutlined, ToolOutlined } from '@ant-design/icons';
 import { hostAssets } from '@openheaders/core/assets';
 import { ApiRequestsIcon, RequestRulesIcon, VariablesIcon } from '@openheaders/ui/shared/icons';
 import { usePopoverViewportFit } from '@openheaders/ui/shared/popover';
@@ -156,6 +156,35 @@ const BrowseTemplatesRow: React.FC<{ onClick: () => void }> = ({ onClick }) => {
       {templatesBadge()}
       <span>{t('workbench.shell.empty.browseTemplates')}</span>
     </button>
+  );
+};
+
+/**
+ * The zero-workspace admin posture's editor landing (the
+ * access-foundation epic): a server admin is signed in with NOTHING
+ * granted, so the create/import gestures have no workspace to land in.
+ * Names the situation and routes to the one surface the role carries —
+ * the Server admin panel, where the audited self-grant lives.
+ */
+export const ZeroWorkspaceAdminEmptyState: React.FC<{ onOpenServerAdmin: () => void }> = ({ onOpenServerAdmin }) => {
+  const t = useT();
+  return (
+    <div className="oh-empty-state" data-testid="zero-workspace-admin-empty">
+      <img src={hostAssets.resolveUrl('images/logo-pixel.svg')} alt="" aria-hidden="true" className="oh-empty-logo" />
+      <div className="oh-empty-heading-spacer" aria-hidden="true" />
+      <Text type="secondary" style={{ textAlign: 'center', maxWidth: 360 }}>
+        {t('workbench.shell.empty.adminNoWorkspace')}
+      </Text>
+      <div className="oh-empty-actions">
+        <ActionRow
+          icon={<ToolOutlined />}
+          label={t('workbench.shell.empty.adminOpenServerAdmin')}
+          description={t('workbench.shell.empty.adminOpenServerAdminDesc')}
+          showDescription
+          onClick={onOpenServerAdmin}
+        />
+      </div>
+    </div>
   );
 };
 

@@ -34,10 +34,14 @@ const listeners = new Set<() => void>();
  *  retries it once the cooldown passes. */
 const RETRY_COOLDOWN_MS = 2_000;
 
+function notify(): void {
+  for (const listener of listeners) listener();
+}
+
 function setStatus(next: ServerAdminStatus): void {
   if (status === next) return;
   status = next;
-  for (const listener of listeners) listener();
+  notify();
 }
 
 /**
@@ -56,8 +60,13 @@ function ensureProbe(): void {
   void hostBridge
     .call('oh.daemon.admin.status')
     .then((resp) => {
+      // Settling is itself a state change even when the value stands
+      // (transient denied → settled denied): the web mount decision
+      // waits on `settled` before choosing a surface, so notify
+      // unconditionally.
       definitive = true;
-      setStatus(resp.admin ? 'admin' : 'denied');
+      status = resp.admin ? 'admin' : 'denied';
+      notify();
     })
     .catch(() => setStatus('denied'))
     .finally(() => {
@@ -69,6 +78,24 @@ function ensureProbe(): void {
 export function getServerAdminStatus(): ServerAdminStatus {
   ensureProbe();
   return status;
+}
+
+/** True once a real server answer landed — `denied` before this point
+ *  is a transient transport rejection, not a verdict. */
+export function getServerAdminStatusSettled(): boolean {
+  return definitive;
+}
+
+/**
+ * Re-ask NOW, skipping the retry cooldown. For hosts that observe a
+ * transport-level readiness signal — the web tab's wire handshake
+ * completing — where the pre-join probe's rejection is known stale.
+ * A settled answer stays settled; this never re-opens it.
+ */
+export function reprobeServerAdminStatus(): void {
+  if (definitive || inFlight) return;
+  lastAttemptAt = 0;
+  ensureProbe();
 }
 
 export function subscribeServerAdminStatus(listener: () => void): () => void {
@@ -90,4 +117,8 @@ export function __resetServerAdminStatusForTests(): void {
 
 export function useServerAdminStatus(): ServerAdminStatus {
   return useSyncExternalStore(subscribeServerAdminStatus, getServerAdminStatus, getServerAdminStatus);
+}
+
+export function useServerAdminStatusSettled(): boolean {
+  return useSyncExternalStore(subscribeServerAdminStatus, getServerAdminStatusSettled, getServerAdminStatusSettled);
 }
