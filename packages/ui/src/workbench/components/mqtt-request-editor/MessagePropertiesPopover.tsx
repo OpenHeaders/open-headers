@@ -10,6 +10,7 @@ import { generateUid } from '@openheaders/core/utils';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { Badge, Button, Input, InputNumber, Popover, Switch, Tooltip, Typography } from 'antd';
 import type React from 'react';
+import { useState } from 'react';
 import type { MqttMessagePropertiesDraft } from './draft';
 
 const { Text } = Typography;
@@ -21,6 +22,7 @@ const MessagePropertiesPopover: React.FC<{
   testId: string;
 }> = ({ value, onChange, v5, testId }) => {
   const t = useT();
+  const [open, setOpen] = useState(false);
   const configured =
     value.userProperties.some((row) => row.key.trim() !== '') ||
     value.responseTopic !== '' ||
@@ -132,8 +134,10 @@ const MessagePropertiesPopover: React.FC<{
     </div>
   );
   return (
-    <Popover content={content} trigger="click" placement="topRight">
-      <Tooltip title={t('workbench.editors.mqtt.props.buttonTooltip')}>
+    <Popover content={content} trigger="click" placement="topRight" open={open} onOpenChange={setOpen}>
+      {/* The hover tooltip yields INSTANTLY once the popover opens —
+        open suppresses it (the timeline sort-menu discipline). */}
+      <Tooltip title={t('workbench.editors.mqtt.props.buttonTooltip')} open={open ? false : undefined}>
         <Badge dot={configured} offset={[-2, 2]}>
           <Button size="small" icon={<MoreOutlined />} data-testid={testId} />
         </Badge>

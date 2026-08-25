@@ -234,7 +234,7 @@ const MqttMessageTab: React.FC<MqttMessageTabProps> = ({
             />
             <Input
               size="small"
-              style={{ width: 220, fontFamily: "'SF Mono', monospace", fontSize: 12 }}
+              style={{ width: 360, fontFamily: "'SF Mono', monospace", fontSize: 12 }}
               placeholder={t('workbench.editors.mqtt.topicPlaceholder')}
               value={draft.topic}
               onChange={(e) => setDraft((d) => ({ ...d, topic: e.target.value }))}
