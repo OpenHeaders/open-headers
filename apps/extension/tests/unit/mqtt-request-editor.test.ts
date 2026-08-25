@@ -31,7 +31,7 @@ import {
   savedRowMatchesCompose,
   userPropertiesToRows,
 } from '@openheaders/ui/workbench/components/mqtt-request-editor/draft';
-import { grantLabel } from '@openheaders/ui/workbench/components/mqtt-request-editor/session-display';
+import { grantFailureLabel } from '@openheaders/ui/workbench/components/mqtt-request-editor/session-display';
 import { describe, expect, it } from 'vitest';
 
 const mqttRequest = (overrides: Partial<MqttRequest> = {}): MqttRequest => ({
@@ -202,12 +202,13 @@ describe('SUBACK grant labels', () => {
   const t = ((key: string, params?: Record<string, unknown>) =>
     `${key}${params !== undefined ? `:${Object.values(params).join(',')}` : ''}`) as Translate;
 
-  it('labels granted QoS levels 0-2 and keeps failure codes verbatim with their spec names', () => {
-    expect(grantLabel(1, t)).toBe('workbench.editors.mqtt.timeline.grantedQos:1');
+  it('renders success grants as silence and keeps failure codes verbatim with their spec names', () => {
+    // Success (0-2) is silence — the subscribed state itself answers.
+    expect(grantFailureLabel(1, t)).toBeNull();
     // 0x87 Not authorized — the name rides BESIDE the verbatim code.
-    expect(grantLabel(0x87, t)).toBe('workbench.editors.mqtt.timeline.grantFailedNamed:Not authorized,135');
+    expect(grantFailureLabel(0x87, t)).toBe('workbench.editors.mqtt.timeline.grantFailedNamed:Not authorized,135');
     // A code the spec does not name renders bare.
-    expect(grantLabel(0xee, t)).toBe('workbench.editors.mqtt.timeline.grantFailed:238');
+    expect(grantFailureLabel(0xee, t)).toBe('workbench.editors.mqtt.timeline.grantFailed:238');
   });
 });
 

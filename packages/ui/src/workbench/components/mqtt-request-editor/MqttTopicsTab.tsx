@@ -21,7 +21,7 @@ import { cellFont } from '../request-editor/editable-grid-styles';
 import { EditableGridTable } from '../request-editor/EditableGridTable';
 import type { EditableRowAdapter } from '../request-editor/editable-grid-types';
 import { TEMPLATE_INPUT_LINE_HEIGHT, TemplateInput } from '../template-input';
-import { grantLabel } from './session-display';
+import { grantFailureLabel } from './session-display';
 import type { LiveSubscriptionMark } from './useMqttSessionPlane';
 
 const { Text } = Typography;
@@ -84,6 +84,9 @@ const MqttTopicsTab: React.FC<MqttTopicsTabProps> = ({ rows, onChange, v5, sessi
         renderKeyCell={(row, update, ctx) => {
           const filterError = !ctx.isPlaceholder && row.topicFilter.trim() ? topicFilterError(row.topicFilter) : null;
           const grantCode = sessionOpen ? liveSubs.get(row.uid)?.grantCode : undefined;
+          // Success grants render as silence — the ON switch is the
+          // answer; only a FAILED grant marks the row.
+          const grantFailure = grantCode !== undefined && grantCode !== null ? grantFailureLabel(grantCode, t) : null;
           return (
             <>
               <Tooltip title={filterError ?? undefined} open={filterError ? undefined : false}>
@@ -104,15 +107,15 @@ const MqttTopicsTab: React.FC<MqttTopicsTabProps> = ({ rows, onChange, v5, sessi
                   data-testid="mqtt-topic-filter-input"
                 />
               </Tooltip>
-              {/* The SUBACK grant mark rides the row's filter — the
-                fixed QoS/Subscribe tracks have no room for it. */}
-              {grantCode !== undefined && grantCode !== null && (
+              {/* A FAILED grant marks the row's filter — the fixed
+                QoS/Subscribe tracks have no room for it. */}
+              {grantFailure !== null && (
                 <Tag
-                  color={grantCode <= 2 ? 'success' : 'error'}
+                  color="error"
                   style={{ marginInlineEnd: 0, fontSize: 10, lineHeight: '16px', flexShrink: 0 }}
                   data-testid="mqtt-topic-grant"
                 >
-                  {grantLabel(grantCode, t)}
+                  {grantFailure}
                 </Tag>
               )}
             </>
@@ -141,7 +144,17 @@ const MqttTopicsTab: React.FC<MqttTopicsTabProps> = ({ rows, onChange, v5, sessi
                 </Text>
               </span>
             )}
-            onChange={(qos: MqttRequestQos) => update({ ...row, qos })}
+            onChange={(qos: MqttRequestQos) => {
+              update({ ...row, qos });
+              // Changing the QoS of a LIVE-subscribed row unsubscribes
+              // it — the old grant no longer describes the row, and
+              // re-subscribing is the honest way to the new level. The
+              // check mirrors the switch's own truth (mark, or the
+              // draft for open-time rows the seed has not marked yet).
+              if (sessionOpen && (liveSubs.get(row.uid)?.subscribed ?? row.subscribe !== false)) {
+                onLiveToggle({ ...row, qos }, false);
+              }
+            }}
             data-testid="mqtt-topic-qos"
           />
         )}

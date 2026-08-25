@@ -513,8 +513,8 @@ test('E6 — Connect runs the session in-page: CONNACK row, SUBACK grants, retai
   await page
     .getByTestId('mqtt-timeline-subscribed-row')
     .filter({ visible: true })
-    .filter({ hasText: 'probe/echo/reply (Granted QoS 0)' })
-    .filter({ hasText: 'probe/retained (Granted QoS 0)' })
+    .filter({ hasText: 'probe/echo/reply' })
+    .filter({ hasText: 'probe/retained' })
     .first()
     .waitFor({ state: 'visible', timeout: 10_000 });
 

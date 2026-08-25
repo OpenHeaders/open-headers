@@ -38,7 +38,7 @@ import {
   topicBadgeColor,
   VIEWER_PX,
 } from './mqtt-timeline-model';
-import { grantLabel } from './session-display';
+import { grantFailureLabel } from './session-display';
 
 interface MqttTimelineEntryRowProps {
   entry: MqttTimelineEntry;
@@ -336,30 +336,28 @@ const MqttTimelineEntryRow: React.FC<MqttTimelineEntryRowProps> = ({
       const ts = timestamps?.[entry.index];
       if (item.kind === 'subscribed') {
         // Prefix + the topic as its colored chip (the message rows'
-        // palette — equal topic, equal color) + the SUBACK grant
-        // verbatim beside it, failure codes on the error tint.
+        // palette — equal topic, equal color). A SUCCESS grant renders
+        // as silence — the subscribed row itself is the answer; only
+        // failure codes surface, on the error tint.
         return (
           <div data-testid="mqtt-timeline-subscribed-row" style={lifecycleRowStyle}>
             <PlusCircleOutlined aria-hidden style={{ fontSize: 11, color: token.colorTextTertiary }} />
             <span style={{ flexShrink: 0 }}>{t('workbench.editors.mqtt.timeline.subscribed')}</span>
             <span style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0, overflow: 'hidden' }}>
-              {item.grants.map((grant, grantIndex) => (
-                <span
-                  key={`${String(grantIndex)}:${grant.topicFilter}`}
-                  style={{ display: 'inline-flex', alignItems: 'center', gap: 4, minWidth: 0 }}
-                >
-                  {topicChip(grant.topicFilter)}
+              {item.grants.map((grant, grantIndex) => {
+                const failure = grantFailureLabel(grant.reasonCode, t);
+                return (
                   <span
-                    style={{
-                      fontSize: 11,
-                      flexShrink: 0,
-                      color: grant.reasonCode > 2 ? token.colorError : token.colorTextTertiary,
-                    }}
+                    key={`${String(grantIndex)}:${grant.topicFilter}`}
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: 4, minWidth: 0 }}
                   >
-                    {` (${grantLabel(grant.reasonCode, t)})`}
+                    {topicChip(grant.topicFilter)}
+                    {failure !== null && (
+                      <span style={{ fontSize: 11, flexShrink: 0, color: token.colorError }}>{` (${failure})`}</span>
+                    )}
                   </span>
-                </span>
-              ))}
+                );
+              })}
             </span>
             {lifecycleTime(ts)}
             {expandSlot(null)}

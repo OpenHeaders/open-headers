@@ -199,7 +199,6 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.timeline.stopped': '已停止',
   'workbench.editors.mqtt.timeline.subscribed': '已订阅',
   'workbench.editors.mqtt.timeline.unsubscribed': '已退订',
-  'workbench.editors.mqtt.timeline.grantedQos': '已授予 QoS {qos}',
   'workbench.editors.mqtt.timeline.grantFailed': '被拒绝，代码 {code}',
   'workbench.editors.mqtt.timeline.grantFailedNamed': '{name}（{code}）',
   'workbench.editors.mqtt.timeline.noMatches': '没有消息与过滤条件匹配。',

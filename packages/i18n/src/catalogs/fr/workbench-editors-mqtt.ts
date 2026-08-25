@@ -210,7 +210,6 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.timeline.stopped': 'Arrêté',
   'workbench.editors.mqtt.timeline.subscribed': 'Abonné à',
   'workbench.editors.mqtt.timeline.unsubscribed': 'Désabonné de',
-  'workbench.editors.mqtt.timeline.grantedQos': 'QoS {qos} accordée',
   'workbench.editors.mqtt.timeline.grantFailed': 'Refusé, code {code}',
   'workbench.editors.mqtt.timeline.grantFailedNamed': '{name} ({code})',
   'workbench.editors.mqtt.timeline.noMatches': 'Aucun message ne correspond au filtre.',
