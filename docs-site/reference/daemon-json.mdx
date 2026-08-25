@@ -42,6 +42,7 @@ being second-guessed; the exact messages are quoted in
 | `oidc` | object | not set (SSO off) | OpenID Connect login provider — see the fields below and [Users, seats & SSO](/server/users-sso). The client secret can ride the environment variable so it stays out of the file. |
 | `auditRetentionDays` | number | `90` | Audit-log retention window in days. One number for every entry; uncapped upward for compliance deployments. |
 | `auditForwarding` | object | not set (no outbound) | Audit→SIEM streaming destination — audit rows POST to this collector as JSON batches behind a durable cursor. See the fields below and [Observability](/server/observability). |
+| `publicWorkspaces` | boolean | `false` | Public snapshot plane master switch. On, owners of `public`-visibility workspaces can publish a read-only snapshot served anonymously at `/public/<workspaceId>`. Off gates both publishing and serving — standing publications go dark, nothing is deleted. |
 | `licenseFile` | string | `<dataDir>/license.key` | License key file location. The file holds the pasteable `oh-license.` artifact as plain text. |
 | `licenseRefresh` | boolean | `true` | Self-serve license renewal loop. `false` disables the refresh agent — the air-gapped/no-outbound posture; offline licenses stand it down on their own either way. |
 | `personalSeats` | boolean | `true` | Personal-seat redemption. `false` refuses user-held individual seat keys at the seat gate, keeping seat growth on the procurement path. |
@@ -64,6 +65,7 @@ environment variable, where one exists.
 | `webRoot` | `--web-root` | `OH_DAEMON_WEB_ROOT` |
 | `oidc` | — | `OH_DAEMON_OIDC_CLIENT_SECRET` (secret only) |
 | `auditRetentionDays` | — | `OH_DAEMON_AUDIT_RETENTION_DAYS` |
+| `publicWorkspaces` | — | `OH_PUBLIC_WORKSPACES` |
 | `licenseFile` | — | `OH_LICENSE_FILE` |
 | `licenseRefresh` | — | `OH_LICENSE_REFRESH` |
 | `personalSeats` | — | `OH_PERSONAL_SEATS` |
@@ -129,6 +131,7 @@ config file.
 | `OH_LICENSE_FILE` | License key file location. |
 | `OH_LICENSE_REFRESH` | `1`/`0` — license renewal loop. |
 | `OH_PERSONAL_SEATS` | `1`/`0` — personal-seat redemption. |
+| `OH_PUBLIC_WORKSPACES` | `1`/`0` — public snapshot plane master switch. |
 | `OH_DAEMON_PROXY_MODE` | Egress proxy mode (`off`, `env`, `manual`). |
 | `OH_DAEMON_PROXY_URL` | Egress proxy URL (manual mode). |
 | `OH_DAEMON_PROXY_CREDENTIAL_REF` | Vault entry for the egress proxy credential (manual mode). |
