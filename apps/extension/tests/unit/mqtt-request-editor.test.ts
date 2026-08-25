@@ -7,11 +7,17 @@
  *     base64/hex encoding validation that gates Send honestly.
  *   - `local-tree-builder.ts` — all four request kinds sharing the
  *     collection tree, MQTT leaves alongside the WebSocket ones.
+ *   - `compose.ts` — the saved-row topic-tag color derivation (equal
+ *     text, equal color, palette membership).
  */
 
 import type { Collection, MqttRequest, Request } from '@openheaders/core/types';
 import type { Translate } from '@openheaders/ui/context/LocaleContext';
 import { buildRequestCollectionTrees } from '@openheaders/ui/shared/local-tree-builder';
+import {
+  SAVED_TOPIC_TAG_COLORS,
+  savedTopicTagColor,
+} from '@openheaders/ui/workbench/components/mqtt-request-editor/compose';
 import {
   buildMqttRequestUpdates,
   canonicalMqttRequestProjection,
@@ -197,5 +203,24 @@ describe('SUBACK grant labels', () => {
     expect(grantLabel(0x87, t)).toBe('workbench.editors.mqtt.timeline.grantFailedNamed:Not authorized,135');
     // A code the spec does not name renders bare.
     expect(grantLabel(0xee, t)).toBe('workbench.editors.mqtt.timeline.grantFailed:238');
+  });
+});
+
+describe('saved-row topic tag colors', () => {
+  it('derives the color from the tag text deterministically — equal text, equal color', () => {
+    for (const text of ['streetlights/1/dim', 'sensors/+/temperature', 'topic', '主题']) {
+      const color = savedTopicTagColor(text);
+      expect(SAVED_TOPIC_TAG_COLORS).toContain(color);
+      expect(savedTopicTagColor(text)).toBe(color);
+    }
+  });
+
+  it('spreads distinct topics across the palette', () => {
+    const colors = new Set(
+      ['streetlights/1/dim', 'streetlights/1/lumens', 'sensors/+/temperature', 'clients/reporter/status', 'topic'].map(
+        savedTopicTagColor,
+      ),
+    );
+    expect(colors.size).toBeGreaterThan(1);
   });
 });

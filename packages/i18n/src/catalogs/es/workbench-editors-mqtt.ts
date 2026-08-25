@@ -72,6 +72,7 @@ export const workbenchEditorsMqtt = {
     'Payload Format Indicator: marcar la carga útil como texto UTF-8',
   'workbench.editors.mqtt.saved.title': 'Mensajes guardados',
   'workbench.editors.mqtt.saved.addTooltip': 'Guardar la composición actual como mensaje reutilizable',
+  'workbench.editors.mqtt.saved.topicTagPlaceholder': 'tema',
   'workbench.editors.mqtt.saved.showRail': 'Mostrar mensajes guardados',
   'workbench.editors.mqtt.saved.hideRail': 'Ocultar mensajes guardados',
   'workbench.editors.mqtt.saved.emptyHint': 'Guarda mensajes para reutilizarlos durante una conexión activa.',

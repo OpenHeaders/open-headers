@@ -17,7 +17,8 @@ export const workbenchEditorsMqtt = {
     'MQTT-Protokollversion der Sitzung.\n5.0 · Eigenschaften und Abonnementoptionen\n3.1.1 · Broker, die 5.0 ablehnen',
   'workbench.editors.mqtt.version.v5': 'V5',
   'workbench.editors.mqtt.version.v311': 'V3.1.1',
-  'workbench.editors.mqtt.version.lockedWhileConnected': 'Die Version kann nicht geändert werden, solange die Sitzung verbunden ist.',
+  'workbench.editors.mqtt.version.lockedWhileConnected':
+    'Die Version kann nicht geändert werden, solange die Sitzung verbunden ist.',
   'workbench.editors.mqtt.scheme.tooltip':
     'Das Schema wählt den Transport.\nmqtt/mqtts · TCP-Socket in der Desktop-App oder auf dem Server\nws/wss · MQTT über WebSocket auf jedem Host',
   'workbench.editors.mqtt.connect.label': 'Verbinden',
@@ -70,6 +71,7 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.props.payloadFormatIndicator': 'Payload Format Indicator — Nutzlast als UTF-8-Text markieren',
   'workbench.editors.mqtt.saved.title': 'Gespeicherte Nachrichten',
   'workbench.editors.mqtt.saved.addTooltip': 'Aktuellen Entwurf als wiederverwendbare Nachricht speichern',
+  'workbench.editors.mqtt.saved.topicTagPlaceholder': 'Thema',
   'workbench.editors.mqtt.saved.showRail': 'Gespeicherte Nachrichten anzeigen',
   'workbench.editors.mqtt.saved.hideRail': 'Gespeicherte Nachrichten ausblenden',
   'workbench.editors.mqtt.saved.emptyHint':

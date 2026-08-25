@@ -17,7 +17,8 @@ export const workbenchEditorsMqtt = {
     'Version du protocole MQTT utilisée par la session.\n5.0 · propriétés et options d’abonnement\n3.1.1 · courtiers qui refusent 5.0',
   'workbench.editors.mqtt.version.v5': 'V5',
   'workbench.editors.mqtt.version.v311': 'V3.1.1',
-  'workbench.editors.mqtt.version.lockedWhileConnected': 'Impossible de changer de version pendant une session connectée.',
+  'workbench.editors.mqtt.version.lockedWhileConnected':
+    'Impossible de changer de version pendant une session connectée.',
   'workbench.editors.mqtt.scheme.tooltip':
     'Le schéma choisit le transport.\nmqtt/mqtts · socket TCP sur l’application de bureau ou le serveur\nws/wss · MQTT sur WebSocket sur tous les hôtes',
   'workbench.editors.mqtt.connect.label': 'Se connecter',
@@ -72,6 +73,7 @@ export const workbenchEditorsMqtt = {
     'Payload Format Indicator — marquer la charge utile comme texte UTF-8',
   'workbench.editors.mqtt.saved.title': 'Messages enregistrés',
   'workbench.editors.mqtt.saved.addTooltip': 'Enregistrer la composition actuelle comme message réutilisable',
+  'workbench.editors.mqtt.saved.topicTagPlaceholder': 'sujet',
   'workbench.editors.mqtt.saved.showRail': 'Afficher les messages enregistrés',
   'workbench.editors.mqtt.saved.hideRail': 'Masquer les messages enregistrés',
   'workbench.editors.mqtt.saved.emptyHint':

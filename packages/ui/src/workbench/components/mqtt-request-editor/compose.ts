@@ -39,6 +39,29 @@ export const withScheme = (url: string, scheme: MqttScheme): string => {
   return `${scheme}://${url}`;
 };
 
+/** Preset antd Tag palette the saved-row topic tags draw from. */
+export const SAVED_TOPIC_TAG_COLORS = [
+  'magenta',
+  'red',
+  'volcano',
+  'orange',
+  'gold',
+  'lime',
+  'green',
+  'cyan',
+  'blue',
+  'geekblue',
+  'purple',
+] as const;
+
+/** Deterministic tag color from the tag's TEXT — equal text always
+ *  wears equal color, across rows, reloads, and surfaces. */
+export const savedTopicTagColor = (text: string): (typeof SAVED_TOPIC_TAG_COLORS)[number] => {
+  let hash = 5381;
+  for (let i = 0; i < text.length; i++) hash = (hash * 33) ^ text.charCodeAt(i);
+  return SAVED_TOPIC_TAG_COLORS[(hash >>> 0) % SAVED_TOPIC_TAG_COLORS.length];
+};
+
 /** The compose block as one publish wire — templates unresolved (the
  *  executor resolves per send), optional fields absent at defaults. */
 export const composePublishWire = (draft: MqttDraft): MqttPublishWire => {
