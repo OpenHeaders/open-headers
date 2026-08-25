@@ -101,6 +101,7 @@ const MqttSavedMessagesRail: React.FC<MqttSavedMessagesRailProps> = ({
   const { token } = theme.useToken();
   const t = useT();
   const [renamingSavedUid, setRenamingSavedUid] = useState<string | null>(null);
+  const [hoveredUid, setHoveredUid] = useState<string | null>(null);
 
   // `+` captures the compose as a new row, SELECTS it (the compose is
   // already its content — the binding starts live), and opens the
@@ -142,12 +143,13 @@ const MqttSavedMessagesRail: React.FC<MqttSavedMessagesRailProps> = ({
         display: 'flex',
         flexDirection: 'column',
         gap: 4,
-        paddingLeft: 8,
         overflow: 'auto',
       }}
       data-testid="mqtt-saved-rail"
     >
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+      {/* The rail's left indent lives on the header and hint, not the
+        container — selection/hover bands bleed the full row width. */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingLeft: 8 }}>
         <Text strong style={{ fontSize: 11 }}>
           {t('workbench.editors.mqtt.saved.title')}
         </Text>
@@ -174,7 +176,7 @@ const MqttSavedMessagesRail: React.FC<MqttSavedMessagesRailProps> = ({
         </span>
       </div>
       {draft.savedMessages.length === 0 && (
-        <Text type="secondary" style={{ fontSize: 11 }}>
+        <Text type="secondary" style={{ fontSize: 11, paddingLeft: 8 }}>
           {t('workbench.editors.mqtt.saved.emptyHint')}
         </Text>
       )}
@@ -191,9 +193,15 @@ const MqttSavedMessagesRail: React.FC<MqttSavedMessagesRailProps> = ({
               display: 'flex',
               alignItems: 'center',
               gap: 4,
-              borderRadius: token.borderRadiusSM,
-              background: selected ? token.colorFillSecondary : 'transparent',
+              padding: '1px 2px 1px 8px',
+              background: selected
+                ? token.colorFillSecondary
+                : hoveredUid === row.uid
+                  ? token.colorFillTertiary
+                  : 'transparent',
             }}
+            onMouseEnter={() => setHoveredUid(row.uid)}
+            onMouseLeave={() => setHoveredUid((uid) => (uid === row.uid ? null : uid))}
             data-testid="mqtt-saved-row"
             data-selected={selected ? 'true' : undefined}
           >
