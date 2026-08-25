@@ -10,17 +10,23 @@
  * QoS knob, Subscribe, Description.
  */
 
-import { InfoCircleOutlined, MoreOutlined, PlusOutlined } from '@ant-design/icons';
+import { MoreOutlined, PlusOutlined } from '@ant-design/icons';
 import { topicFilterError } from '@openheaders/core/mqtt';
 import type { MqttRequestQos, MqttRetainHandling, MqttTopicRow } from '@openheaders/core/types';
 import { generateUid } from '@openheaders/core/utils';
 import { useT } from '@openheaders/ui/context/LocaleContext';
+import {
+  InfoPopoverContainerProvider,
+  InfoTrigger,
+  type InfoPopoverContent,
+} from '@openheaders/ui/shared/info-popover';
 import { Button, Input, InputNumber, Popover, Select, Switch, Tag, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { cellFont } from '../request-editor/editable-grid-styles';
 import { EditableGridTable } from '../request-editor/EditableGridTable';
 import type { EditableRowAdapter } from '../request-editor/editable-grid-types';
 import { TEMPLATE_INPUT_LINE_HEIGHT, TemplateInput } from '../template-input';
+import { mqttSettingsRowInfo } from './MqttSettingsRowInfo';
 import { grantFailureLabel } from './session-display';
 import type { LiveSubscriptionMark } from './useMqttSessionPlane';
 
@@ -32,27 +38,29 @@ const CELL_LINE_PX = 12 * TEMPLATE_INPUT_LINE_HEIGHT;
 const CELL_VERTICAL_PADDING = (32 - CELL_LINE_PX) / 2;
 
 /** Label cell of the options grid — the short protocol name; the
- *  explanation lives behind the ⓘ hover, never inline. `strong` makes
- *  it a section title. */
-const OptionLabel: React.FC<{ text: string; info?: string; strong?: boolean }> = ({ text, info, strong }) => {
-  const { token } = theme.useToken();
-  return (
-    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-      <Text
-        type={strong === true ? undefined : 'secondary'}
-        strong={strong}
-        style={{ fontSize: 11, whiteSpace: 'nowrap' }}
-      >
-        {text}
-      </Text>
-      {info !== undefined && (
-        <Tooltip title={info}>
-          <InfoCircleOutlined style={{ fontSize: 11, color: token.colorTextTertiary, cursor: 'help' }} />
-        </Tooltip>
-      )}
-    </span>
-  );
-};
+ *  explanation lives behind the standard (i) popover with the shared
+ *  example session, never inline. `strong` makes it a section title. */
+const OptionLabel: React.FC<{ text: string; info: InfoPopoverContent; strong?: boolean }> = ({
+  text,
+  info,
+  strong,
+}) => (
+  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+    <Text
+      type={strong === true ? undefined : 'secondary'}
+      strong={strong}
+      style={{ fontSize: 11, whiteSpace: 'nowrap' }}
+    >
+      {text}
+    </Text>
+    <InfoTrigger content={info} />
+  </span>
+);
+
+/** The (i) popovers portal INSIDE the options popover — portaled to
+ *  body they would count as an outside click and close it. */
+const resolveOptionsPopover = (node: HTMLElement): HTMLElement | null =>
+  node.closest<HTMLElement>('.oh-mqtt-topic-options');
 
 /** Topics-grid row adapter — the topic filter rides the key track; the
  *  ⋯ options slot, QoS and Subscribe each own an aux/value track. */
@@ -197,18 +205,33 @@ const MqttTopicsTab: React.FC<MqttTopicsTabProps> = ({ rows, onChange, v5, sessi
                   trigger="click"
                   placement="left"
                   content={
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, width: 'max-content', maxWidth: 420 }}>
+                    // The (i) popovers must portal inside this popover
+                    // (see resolveOptionsPopover) — the marker class is
+                    // the resolver's anchor, position: relative its
+                    // positioning context.
+                    <InfoPopoverContainerProvider resolver={resolveOptionsPopover}>
+                      <div
+                        className="oh-mqtt-topic-options"
+                        style={{
+                          position: 'relative',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: 8,
+                          width: 'max-content',
+                          maxWidth: 420,
+                        }}
+                      >
                       <Text type="secondary" style={{ fontSize: 11 }}>
                         {v5 ? t('workbench.editors.mqtt.topics.optionsHint') : t('workbench.editors.mqtt.props.v311')}
                       </Text>
                       {/* User Properties ride ONCE on this row's
                         SUBSCRIBE packet — broker-defined metadata,
-                        never echoed on delivered messages (the ⓘ
+                        never echoed on delivered messages (the (i)
                         carries that honestly). */}
                       <OptionLabel
                         strong
                         text={t('workbench.editors.mqtt.topics.subscribeProperties')}
-                        info={t('workbench.editors.mqtt.topics.subscribePropertiesDesc')}
+                        info={mqttSettingsRowInfo(t, 'subscribeProperties')}
                       />
                       {(row.userProperties ?? []).map((prop, index) => (
                         <div key={prop.uid} style={{ display: 'flex', gap: 4 }}>
@@ -266,10 +289,14 @@ const MqttTopicsTab: React.FC<MqttTopicsTabProps> = ({ rows, onChange, v5, sessi
                       >
                         {t('workbench.editors.mqtt.props.addUserProp')}
                       </Button>
-                      <OptionLabel strong text={t('workbench.editors.mqtt.topics.subscribeSettings')} />
+                      <OptionLabel
+                        strong
+                        text={t('workbench.editors.mqtt.topics.subscribeSettings')}
+                        info={mqttSettingsRowInfo(t, 'subscribeSettings')}
+                      />
                       {/* One anatomy for every row: the label column left,
                         the control column right — explanations live behind
-                        the ⓘ hovers, never inline in the labels. */}
+                        the (i) popovers, never inline in the labels. */}
                       <div
                         style={{
                           display: 'grid',
@@ -281,7 +308,7 @@ const MqttTopicsTab: React.FC<MqttTopicsTabProps> = ({ rows, onChange, v5, sessi
                       >
                         <OptionLabel
                           text={t('workbench.editors.mqtt.topics.noLocal')}
-                          info={t('workbench.editors.mqtt.topics.noLocalDesc')}
+                          info={mqttSettingsRowInfo(t, 'noLocal')}
                         />
                         <Switch
                           size="small"
@@ -293,7 +320,7 @@ const MqttTopicsTab: React.FC<MqttTopicsTabProps> = ({ rows, onChange, v5, sessi
                         />
                         <OptionLabel
                           text={t('workbench.editors.mqtt.topics.retainAsPublished')}
-                          info={t('workbench.editors.mqtt.topics.retainAsPublishedDesc')}
+                          info={mqttSettingsRowInfo(t, 'retainAsPublished')}
                         />
                         <Switch
                           size="small"
@@ -304,7 +331,7 @@ const MqttTopicsTab: React.FC<MqttTopicsTabProps> = ({ rows, onChange, v5, sessi
                         />
                         <OptionLabel
                           text={t('workbench.editors.mqtt.topics.retainHandling')}
-                          info={t('workbench.editors.mqtt.topics.retainHandlingDesc')}
+                          info={mqttSettingsRowInfo(t, 'retainHandling')}
                         />
                         <Select
                           size="small"
@@ -312,43 +339,18 @@ const MqttTopicsTab: React.FC<MqttTopicsTabProps> = ({ rows, onChange, v5, sessi
                           popupMatchSelectWidth={false}
                           value={row.retainHandling ?? 0}
                           options={[
-                            // title stays empty — the ⓘ tooltip is the one
-                            // explainer; the native label-title would double
-                            // it on hover.
-                            {
-                              value: 0,
-                              title: '',
-                              label: t('workbench.editors.mqtt.topics.retainHandling0'),
-                              desc: t('workbench.editors.mqtt.topics.retainHandling0Desc'),
-                            },
-                            {
-                              value: 1,
-                              title: '',
-                              label: t('workbench.editors.mqtt.topics.retainHandling1'),
-                              desc: t('workbench.editors.mqtt.topics.retainHandling1Desc'),
-                            },
-                            {
-                              value: 2,
-                              title: '',
-                              label: t('workbench.editors.mqtt.topics.retainHandling2'),
-                              desc: t('workbench.editors.mqtt.topics.retainHandling2Desc'),
-                            },
+                            // title stays empty — the label's (i) popover
+                            // carries the values; the native label-title
+                            // would double the hover.
+                            { value: 0, title: '', label: t('workbench.editors.mqtt.topics.retainHandling0') },
+                            { value: 1, title: '', label: t('workbench.editors.mqtt.topics.retainHandling1') },
+                            { value: 2, title: '', label: t('workbench.editors.mqtt.topics.retainHandling2') },
                           ]}
-                          optionRender={(option) => (
-                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                              <span>{option.data.label}</span>
-                              <Tooltip title={option.data.desc} placement="right">
-                                <InfoCircleOutlined
-                                  style={{ fontSize: 11, color: token.colorTextTertiary, cursor: 'help' }}
-                                />
-                              </Tooltip>
-                            </span>
-                          )}
                           onChange={(retainHandling: MqttRetainHandling) => update({ ...row, retainHandling })}
                         />
                         <OptionLabel
                           text={t('workbench.editors.mqtt.topics.subscriptionId')}
-                          info={t('workbench.editors.mqtt.topics.subscriptionIdDesc')}
+                          info={mqttSettingsRowInfo(t, 'subscriptionId')}
                         />
                         <InputNumber
                           size="small"
@@ -360,7 +362,8 @@ const MqttTopicsTab: React.FC<MqttTopicsTabProps> = ({ rows, onChange, v5, sessi
                           style={{ width: 120 }}
                         />
                       </div>
-                    </div>
+                      </div>
+                    </InfoPopoverContainerProvider>
                   }
                 >
                   <Button size="small" type="text" icon={<MoreOutlined />} data-testid="mqtt-topic-options" />

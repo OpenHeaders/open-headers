@@ -101,6 +101,7 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.topics.retainHandling': 'Retain Handling',
   'workbench.editors.mqtt.topics.retainHandlingDesc':
     'Ob der Broker beim Einrichten dieses Abonnements vorhandene zurückgehaltene Nachrichten sendet.',
+  'workbench.editors.mqtt.topics.retainHandlingValuesHeading': 'Werte',
   'workbench.editors.mqtt.topics.retainHandling0': '0 · Beim Abonnieren empfangen',
   'workbench.editors.mqtt.topics.retainHandling0Desc':
     'Der Broker sendet die zurückgehaltenen Nachrichten bei jedem Abonnieren.',
@@ -152,6 +153,7 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.spec.browser.components': 'Components',
   'workbench.editors.mqtt.specFooter.using': 'Verwendet {name}',
   'workbench.editors.mqtt.specFooter.none': 'Keine AsyncAPI-Spezifikation verknüpft',
+  'workbench.editors.mqtt.settings.exampleCaption': 'Beispielsitzung',
   'workbench.editors.mqtt.settings.clientIdLabel': 'Client ID',
   'workbench.editors.mqtt.settings.clientIdHelp':
     'Kennung, die CONNECT trägt. Leer erzeugt bei jeder Verbindung eine neue; das Fortsetzen einer Broker-Sitzung braucht eine stabile ID.',

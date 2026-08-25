@@ -7,24 +7,31 @@
 
 import { MAX_REQUEST_TIMEOUT_MS, MIN_REQUEST_TIMEOUT_MS } from '@openheaders/core/schemas';
 import { useT } from '@openheaders/ui/context/LocaleContext';
+import { InfoTrigger, type InfoPopoverContent } from '@openheaders/ui/shared/info-popover';
 import { Input, InputNumber, Switch, Typography } from 'antd';
 import type React from 'react';
 import type { Dispatch, SetStateAction } from 'react';
 import type { MqttDraft } from './draft';
+import { mqttSettingsRowInfo } from './MqttSettingsRowInfo';
 
 const { Text } = Typography;
 
-/** One Settings-tab row — the gRPC editor's SettingRow vocabulary. */
-const SettingRow: React.FC<{ label: string; description: string; control: React.ReactNode }> = ({
-  label,
-  description,
-  control,
-}) => (
+/** One Settings-tab row — the gRPC editor's SettingRow vocabulary; the
+ *  (i) opens the shared example-session popover for the knob. */
+const SettingRow: React.FC<{
+  label: string;
+  description: string;
+  control: React.ReactNode;
+  info: InfoPopoverContent;
+}> = ({ label, description, control, info }) => (
   <div style={{ display: 'flex', alignItems: 'flex-start', gap: 24, padding: '10px 0' }}>
     <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2 }}>
-      <Text strong style={{ fontSize: 12 }}>
-        {label}
-      </Text>
+      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+        <Text strong style={{ fontSize: 12 }}>
+          {label}
+        </Text>
+        <InfoTrigger content={info} />
+      </span>
       <Text type="secondary" style={{ fontSize: 11 }}>
         {description}
       </Text>
@@ -46,6 +53,7 @@ const MqttSettingsTab: React.FC<MqttSettingsTabProps> = ({ draft, setDraft, v5 }
       <SettingRow
         label={t('workbench.editors.mqtt.settings.clientIdLabel')}
         description={t('workbench.editors.mqtt.settings.clientIdHelp')}
+        info={mqttSettingsRowInfo(t, 'clientId')}
         control={
           <Input
             style={{ width: 260, fontFamily: "'SF Mono', monospace", fontSize: 12 }}
@@ -59,6 +67,7 @@ const MqttSettingsTab: React.FC<MqttSettingsTabProps> = ({ draft, setDraft, v5 }
       <SettingRow
         label={t('workbench.editors.mqtt.settings.cleanStartLabel')}
         description={t('workbench.editors.mqtt.settings.cleanStartHelp')}
+        info={mqttSettingsRowInfo(t, 'cleanStart')}
         control={
           <Switch
             checked={draft.cleanStart}
@@ -72,6 +81,7 @@ const MqttSettingsTab: React.FC<MqttSettingsTabProps> = ({ draft, setDraft, v5 }
         description={
           v5 ? t('workbench.editors.mqtt.settings.sessionExpiryHelp') : t('workbench.editors.mqtt.settings.v311Knob')
         }
+        info={mqttSettingsRowInfo(t, 'sessionExpiry')}
         control={
           <InputNumber
             min={0}
@@ -88,6 +98,7 @@ const MqttSettingsTab: React.FC<MqttSettingsTabProps> = ({ draft, setDraft, v5 }
       <SettingRow
         label={t('workbench.editors.mqtt.settings.keepAliveLabel')}
         description={t('workbench.editors.mqtt.settings.keepAliveHelp')}
+        info={mqttSettingsRowInfo(t, 'keepAlive')}
         control={
           <InputNumber
             min={0}
@@ -103,6 +114,7 @@ const MqttSettingsTab: React.FC<MqttSettingsTabProps> = ({ draft, setDraft, v5 }
       <SettingRow
         label={t('workbench.editors.mqtt.settings.timeoutLabel')}
         description={t('workbench.editors.mqtt.settings.timeoutHelp')}
+        info={mqttSettingsRowInfo(t, 'timeout')}
         control={
           <InputNumber
             min={MIN_REQUEST_TIMEOUT_MS}
@@ -121,6 +133,7 @@ const MqttSettingsTab: React.FC<MqttSettingsTabProps> = ({ draft, setDraft, v5 }
         description={
           v5 ? t('workbench.editors.mqtt.settings.receiveMaximumHelp') : t('workbench.editors.mqtt.settings.v311Knob')
         }
+        info={mqttSettingsRowInfo(t, 'receiveMaximum')}
         control={
           <InputNumber
             min={1}
@@ -139,6 +152,7 @@ const MqttSettingsTab: React.FC<MqttSettingsTabProps> = ({ draft, setDraft, v5 }
         description={
           v5 ? t('workbench.editors.mqtt.settings.maxPacketSizeHelp') : t('workbench.editors.mqtt.settings.v311Knob')
         }
+        info={mqttSettingsRowInfo(t, 'maxPacketSize')}
         control={
           <InputNumber
             min={1}
@@ -155,6 +169,7 @@ const MqttSettingsTab: React.FC<MqttSettingsTabProps> = ({ draft, setDraft, v5 }
       <SettingRow
         label={t('workbench.editors.mqtt.settings.sslVerifyLabel')}
         description={t('workbench.editors.mqtt.settings.sslVerifyHelp')}
+        info={mqttSettingsRowInfo(t, 'sslVerification')}
         control={
           <Switch
             checked={draft.sslVerification}

@@ -100,6 +100,7 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.topics.retainHandling': 'Retain Handling',
   'workbench.editors.mqtt.topics.retainHandlingDesc':
     'Si el broker envía los mensajes retenidos existentes al realizar esta suscripción.',
+  'workbench.editors.mqtt.topics.retainHandlingValuesHeading': 'Valores',
   'workbench.editors.mqtt.topics.retainHandling0': '0 · Recibir al suscribirse',
   'workbench.editors.mqtt.topics.retainHandling0Desc':
     'El broker envía los mensajes retenidos cada vez que se realiza esta suscripción.',
@@ -151,6 +152,7 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.spec.browser.components': 'Components',
   'workbench.editors.mqtt.specFooter.using': 'Usando {name}',
   'workbench.editors.mqtt.specFooter.none': 'Sin especificación AsyncAPI vinculada',
+  'workbench.editors.mqtt.settings.exampleCaption': 'Sesión de ejemplo',
   'workbench.editors.mqtt.settings.clientIdLabel': 'Client ID',
   'workbench.editors.mqtt.settings.clientIdHelp':
     'Identificador que lleva CONNECT. Vacío genera uno nuevo por conexión; reanudar una sesión del bróker necesita un ID estable.',

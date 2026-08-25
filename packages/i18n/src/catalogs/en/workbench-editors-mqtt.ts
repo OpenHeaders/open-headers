@@ -93,6 +93,7 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.topics.retainHandling': 'Retain Handling',
   'workbench.editors.mqtt.topics.retainHandlingDesc':
     'Whether the broker sends existing retained messages when this subscription is made.',
+  'workbench.editors.mqtt.topics.retainHandlingValuesHeading': 'Values',
   'workbench.editors.mqtt.topics.retainHandling0': '0 · Receive on subscribe',
   'workbench.editors.mqtt.topics.retainHandling0Desc':
     'The broker sends the retained messages every time this subscription is made.',
@@ -143,6 +144,7 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.spec.browser.components': 'Components',
   'workbench.editors.mqtt.specFooter.using': 'Using {name}',
   'workbench.editors.mqtt.specFooter.none': 'No AsyncAPI spec linked',
+  'workbench.editors.mqtt.settings.exampleCaption': 'Example session',
   'workbench.editors.mqtt.settings.clientIdLabel': 'Client ID',
   'workbench.editors.mqtt.settings.clientIdHelp':
     'Identifier the CONNECT carries. Empty generates a fresh one per connect; resuming a broker session needs a stable ID.',

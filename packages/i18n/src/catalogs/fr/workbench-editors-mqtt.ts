@@ -102,6 +102,7 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.topics.retainHandling': 'Retain Handling',
   'workbench.editors.mqtt.topics.retainHandlingDesc':
     'Indique si le broker envoie les messages retenus existants lors de la souscription de cet abonnement.',
+  'workbench.editors.mqtt.topics.retainHandlingValuesHeading': 'Valeurs',
   'workbench.editors.mqtt.topics.retainHandling0': '0 · Recevoir à l’abonnement',
   'workbench.editors.mqtt.topics.retainHandling0Desc':
     'Le broker envoie les messages retenus à chaque souscription de cet abonnement.',
@@ -153,6 +154,7 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.spec.browser.components': 'Components',
   'workbench.editors.mqtt.specFooter.using': 'Utilise {name}',
   'workbench.editors.mqtt.specFooter.none': 'Aucune spécification AsyncAPI liée',
+  'workbench.editors.mqtt.settings.exampleCaption': 'Exemple de session',
   'workbench.editors.mqtt.settings.clientIdLabel': 'Client ID',
   'workbench.editors.mqtt.settings.clientIdHelp':
     'Identifiant porté par CONNECT. Vide en génère un nouveau à chaque connexion ; reprendre une session du courtier demande un ID stable.',

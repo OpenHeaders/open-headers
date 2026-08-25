@@ -96,6 +96,7 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.topics.retainAsPublishedDesc': '消息保持发布时的 RETAIN 标志不变。',
   'workbench.editors.mqtt.topics.retainHandling': 'Retain Handling',
   'workbench.editors.mqtt.topics.retainHandlingDesc': '建立此订阅时，代理是否发送已有的保留消息。',
+  'workbench.editors.mqtt.topics.retainHandlingValuesHeading': '取值',
   'workbench.editors.mqtt.topics.retainHandling0': '0 · 订阅时接收',
   'workbench.editors.mqtt.topics.retainHandling0Desc': '每次建立此订阅时，代理都会发送保留消息。',
   'workbench.editors.mqtt.topics.retainHandling1': '1 · 仅新订阅时接收',
@@ -140,6 +141,7 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.spec.browser.components': 'Components',
   'workbench.editors.mqtt.specFooter.using': '正在使用 {name}',
   'workbench.editors.mqtt.specFooter.none': '未关联 AsyncAPI 规范',
+  'workbench.editors.mqtt.settings.exampleCaption': '示例会话',
   'workbench.editors.mqtt.settings.clientIdLabel': 'Client ID',
   'workbench.editors.mqtt.settings.clientIdHelp':
     'CONNECT 携带的标识符。留空则每次连接生成新的；恢复代理会话需要稳定的 ID。',
