@@ -13,14 +13,17 @@ import { SettingsProvider } from '@openheaders/ui/workbench/settings';
 import { App as AntApp } from 'antd';
 import { createRoot } from 'react-dom/client';
 import { bootTranslator } from '@/boot-locale';
+import { bootPublicViewer } from '@/host/boot-public-viewer';
 import { bootWebHost } from '@/host/boot-web-host';
 import { installDaemonWire } from '@/host/daemon-wire';
 import { watchDaemonScriptPosture } from '@/host/install-script-posture';
 import { awaitPostJoinAdoption, decideGate, resolveGateMode, submitDaemonToken } from '@/host/join-gate';
 import { seedLocalWorkspaceIfNeverJoined } from '@/host/mount-decision';
 import { claimOidcToken, consumeOidcHash } from '@/host/oidc-login';
+import { publicViewWorkspaceId } from '@/host/public-view';
 import { InsecureContextNotice } from '@/InsecureContextNotice';
 import { LoginGate } from '@/LoginGate';
+import { PublicWorkspaceViewer } from '@/PublicWorkspaceViewer';
 import { registerServiceWorker } from '@/register-sw';
 import { hideTransitionOverlay, showTransitionOverlay } from '@/transition-overlay';
 import { WorkbenchMount } from '@/WorkbenchMount';
@@ -48,11 +51,24 @@ function renderShell(children: React.ReactNode): void {
   hideTransitionOverlay();
 }
 
+const publicWorkspace = publicViewWorkspaceId();
+
 if (!window.isSecureContext) {
   // A plain-http origin off loopback: the platform withholds
   // `crypto.subtle` / `crypto.randomUUID`, so the tab oracle cannot
   // boot. Explain the supported ways in instead of dying blank.
   root.render(<InsecureContextNotice />);
+} else if (publicWorkspace !== null) {
+  // F5b — the anonymous public viewer. A wholly separate mount: no
+  // service worker, no login gate, no wire; the boot hydrates the
+  // published snapshot into a throwaway in-memory oracle (the memory
+  // host storage was installed at import time), then the ordinary
+  // mirrors seed off it and the Workbench mounts behind an honest
+  // read-only banner.
+  showTransitionOverlay();
+  const booted = await bootPublicViewer(publicWorkspace);
+  if (booted.ok) eagerInitRendererMirrors();
+  renderShell(<PublicWorkspaceViewer publication={booted.ok ? booted.publication : null} />);
 } else {
   // Instant feedback: the boot runs several awaits (oracle boot, gate
   // probes, SSO claim + adopt) before anything renders. Paint a spinner

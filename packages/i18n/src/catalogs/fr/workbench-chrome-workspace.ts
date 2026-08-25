@@ -51,11 +51,68 @@ export const workbenchChromeWorkspace = {
   'workbench.workspace.members.visibilityLabel': 'Accès',
   'workbench.workspace.members.visibilityPrivate': 'Privé',
   'workbench.workspace.members.visibilityInternal': 'Interne',
-  'workbench.workspace.members.visibilityPrivateHint':
-    'Seuls les membres invités peuvent voir cet espace de travail.',
+  'workbench.workspace.members.visibilityPrivateHint': 'Seuls les membres invités peuvent voir cet espace de travail.',
   'workbench.workspace.members.visibilityInternalHint':
     'Chaque membre de ce serveur peut consulter cet espace de travail. Seuls les membres ajoutés peuvent le modifier.',
   'workbench.workspace.members.visibilityUpdatedToast': "Accès à l'espace de travail mis à jour",
+  'workbench.workspace.members.visibilityPublic': 'Public',
+  'workbench.workspace.members.visibilityPublicHint':
+    'Toute personne disposant du lien peut consulter un instantané partagé en lecture seule de cet espace de ' +
+    'travail. Seuls les membres que vous ajoutez peuvent modifier.',
+  'workbench.workspace.publicShare.heading': 'Lien public',
+  'workbench.workspace.publicShare.loadFailed': "Impossible de charger l'état du partage public",
+  'workbench.workspace.publicShare.disabledHint':
+    'Les espaces de travail publics sont désactivés sur ce serveur. Un opérateur peut les activer avec ' +
+    'publicWorkspaces dans daemon.json.',
+  'workbench.workspace.publicShare.notShared':
+    "Aucun instantané partagé pour l'instant — le lien s'active dès que vous en partagez un.",
+  'workbench.workspace.publicShare.sharedAt': 'Instantané partagé {when}',
+  'workbench.workspace.publicShare.shareButton': 'Partager publiquement…',
+  'workbench.workspace.publicShare.updateButton': 'Mettre à jour la copie publique…',
+  'workbench.workspace.publicShare.stopButton': 'Arrêter le partage',
+  'workbench.workspace.publicShare.stopConfirm':
+    'Arrêter de partager cet espace de travail ? Le lien public cesse de fonctionner immédiatement.',
+  'workbench.workspace.publicShare.stopOk': 'Arrêter le partage',
+  'workbench.workspace.publicShare.stoppedToast': 'Lien public supprimé',
+  'workbench.workspace.publicShare.sharedToast': 'Instantané public partagé',
+  'workbench.workspace.publicShare.copyLink': 'Copier le lien',
+  'workbench.workspace.publicShare.copiedToast': 'Lien copié',
+  'workbench.workspace.publicShare.reviewTitle': 'Partager « {name} » publiquement',
+  'workbench.workspace.publicShare.reviewIntro':
+    "Toute personne disposant du lien voit un instantané en lecture seule de cet espace de travail tel qu'il " +
+    'est maintenant. Vérifiez ce qui sera publié avant de confirmer :',
+  'workbench.workspace.publicShare.reviewUpdateNote': 'Partager à nouveau remplace la copie publique au même lien.',
+  'workbench.workspace.publicShare.reviewStripped':
+    'Jamais inclus : entrées du coffre, jetons OAuth, valeurs live, contenus de fichiers et valeurs des ' +
+    'variables secrètes.',
+  'workbench.workspace.publicShare.reviewStrippedCount':
+    '{count} valeurs de variables secrètes restent masquées — leurs noms restent visibles.',
+  'workbench.workspace.publicShare.reviewContents': 'Contenu',
+  'workbench.workspace.publicShare.reviewEmpty': "Cet espace de travail est vide — l'instantané publié le sera aussi.",
+  'workbench.workspace.publicShare.reviewVariables': 'Variables ({count})',
+  'workbench.workspace.publicShare.reviewNoVariables': 'Aucune variable.',
+  'workbench.workspace.publicShare.reviewValueHidden': 'masquée',
+  'workbench.workspace.publicShare.confirmShare': "Partager l'instantané",
+  'workbench.workspace.publicShare.previewFailed': "Impossible de préparer l'aperçu de l'instantané",
+  'workbench.workspace.publicShare.shareFailed': "Impossible de partager l'instantané",
+  'workbench.workspace.publicShare.scope.workspace': 'Espace de travail',
+  'workbench.workspace.publicShare.scope.environment': 'Environnement',
+  'workbench.workspace.publicShare.scope.collection': 'Collection',
+  'workbench.workspace.publicShare.cat.requests': '{count} requêtes',
+  'workbench.workspace.publicShare.cat.collections': '{count} collections',
+  'workbench.workspace.publicShare.cat.folders': '{count} dossiers',
+  'workbench.workspace.publicShare.cat.rules': '{count} règles',
+  'workbench.workspace.publicShare.cat.environments': '{count} environnements',
+  'workbench.workspace.publicShare.cat.examples': '{count} exemples de réponse',
+  'workbench.workspace.publicShare.cat.specs': '{count} spécifications API',
+  'workbench.workspace.publicShare.cat.scripts': '{count} paquets de scripts',
+  'workbench.workspace.publicShare.cat.templates': '{count} modèles',
+  'workbench.workspace.publicShare.cat.live': '{count} workflows live',
+  'workbench.workspace.publicShare.cat.files': '{count} fichiers',
+  'workbench.workspace.publicView.bannerTag': 'Instantané public',
+  'workbench.workspace.publicView.banner':
+    'Copie publique en lecture seule de « {name} ». Les modifications faites ici ne sont enregistrées nulle part.',
+  'workbench.workspace.publicView.loadFailed': "Ce lien d'espace de travail public n'est pas disponible.",
   'workbench.workspace.createOk': 'Créer',
   'workbench.workspace.createFailed': "Échec de la création de l'espace de travail",
   'workbench.workspace.createdToastPrefix': 'Espace de travail créé',

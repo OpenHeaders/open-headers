@@ -53,11 +53,69 @@ export const workbenchChromeWorkspace = {
   'workbench.workspace.members.visibilityLabel': 'Zugriff',
   'workbench.workspace.members.visibilityPrivate': 'Privat',
   'workbench.workspace.members.visibilityInternal': 'Intern',
-  'workbench.workspace.members.visibilityPrivateHint':
-    'Nur eingeladene Mitglieder können diesen Arbeitsbereich sehen.',
+  'workbench.workspace.members.visibilityPrivateHint': 'Nur eingeladene Mitglieder können diesen Arbeitsbereich sehen.',
   'workbench.workspace.members.visibilityInternalHint':
     'Jedes Mitglied dieses Servers kann diesen Arbeitsbereich ansehen. Bearbeiten können nur hinzugefügte Mitglieder.',
   'workbench.workspace.members.visibilityUpdatedToast': 'Arbeitsbereichszugriff aktualisiert',
+  'workbench.workspace.members.visibilityPublic': 'Öffentlich',
+  'workbench.workspace.members.visibilityPublicHint':
+    'Jeder mit dem Link kann einen geteilten, schreibgeschützten Schnappschuss dieses Arbeitsbereichs ansehen. ' +
+    'Bearbeiten können nur Mitglieder, die Sie hinzufügen.',
+  'workbench.workspace.publicShare.heading': 'Öffentlicher Link',
+  'workbench.workspace.publicShare.loadFailed': 'Status der öffentlichen Freigabe konnte nicht geladen werden',
+  'workbench.workspace.publicShare.disabledHint':
+    'Öffentliche Arbeitsbereiche sind auf diesem Server deaktiviert. Ein Operator kann sie mit publicWorkspaces ' +
+    'in daemon.json aktivieren.',
+  'workbench.workspace.publicShare.notShared':
+    'Noch kein Schnappschuss geteilt — der Link wird aktiv, sobald Sie einen teilen.',
+  'workbench.workspace.publicShare.sharedAt': 'Schnappschuss geteilt {when}',
+  'workbench.workspace.publicShare.shareButton': 'Öffentlich teilen…',
+  'workbench.workspace.publicShare.updateButton': 'Öffentliche Kopie aktualisieren…',
+  'workbench.workspace.publicShare.stopButton': 'Teilen beenden',
+  'workbench.workspace.publicShare.stopConfirm':
+    'Diesen Arbeitsbereich nicht mehr teilen? Der öffentliche Link funktioniert sofort nicht mehr.',
+  'workbench.workspace.publicShare.stopOk': 'Teilen beenden',
+  'workbench.workspace.publicShare.stoppedToast': 'Öffentlicher Link entfernt',
+  'workbench.workspace.publicShare.sharedToast': 'Öffentlicher Schnappschuss geteilt',
+  'workbench.workspace.publicShare.copyLink': 'Link kopieren',
+  'workbench.workspace.publicShare.copiedToast': 'Link kopiert',
+  'workbench.workspace.publicShare.reviewTitle': '„{name}“ öffentlich teilen',
+  'workbench.workspace.publicShare.reviewIntro':
+    'Jeder mit dem Link sieht einen schreibgeschützten Schnappschuss dieses Arbeitsbereichs im jetzigen Stand. ' +
+    'Prüfen Sie vor dem Bestätigen, was enthalten ist:',
+  'workbench.workspace.publicShare.reviewUpdateNote':
+    'Erneutes Teilen ersetzt die öffentliche Kopie unter demselben Link.',
+  'workbench.workspace.publicShare.reviewStripped':
+    'Nie enthalten: Vault-Einträge, OAuth-Tokens, Live-Werte, Dateiinhalte und die Werte geheimer Variablen.',
+  'workbench.workspace.publicShare.reviewStrippedCount':
+    '{count} geheime Variablenwerte bleiben verborgen — ihre Namen bleiben sichtbar.',
+  'workbench.workspace.publicShare.reviewContents': 'Inhalt',
+  'workbench.workspace.publicShare.reviewEmpty':
+    'Dieser Arbeitsbereich ist leer — der veröffentlichte Schnappschuss wäre es auch.',
+  'workbench.workspace.publicShare.reviewVariables': 'Variablen ({count})',
+  'workbench.workspace.publicShare.reviewNoVariables': 'Keine Variablen.',
+  'workbench.workspace.publicShare.reviewValueHidden': 'verborgen',
+  'workbench.workspace.publicShare.confirmShare': 'Schnappschuss teilen',
+  'workbench.workspace.publicShare.previewFailed': 'Schnappschuss-Vorschau konnte nicht erstellt werden',
+  'workbench.workspace.publicShare.shareFailed': 'Schnappschuss konnte nicht geteilt werden',
+  'workbench.workspace.publicShare.scope.workspace': 'Arbeitsbereich',
+  'workbench.workspace.publicShare.scope.environment': 'Umgebung',
+  'workbench.workspace.publicShare.scope.collection': 'Sammlung',
+  'workbench.workspace.publicShare.cat.requests': '{count} Requests',
+  'workbench.workspace.publicShare.cat.collections': '{count} Sammlungen',
+  'workbench.workspace.publicShare.cat.folders': '{count} Ordner',
+  'workbench.workspace.publicShare.cat.rules': '{count} Regeln',
+  'workbench.workspace.publicShare.cat.environments': '{count} Umgebungen',
+  'workbench.workspace.publicShare.cat.examples': '{count} Antwortbeispiele',
+  'workbench.workspace.publicShare.cat.specs': '{count} API-Spezifikationen',
+  'workbench.workspace.publicShare.cat.scripts': '{count} Skriptpakete',
+  'workbench.workspace.publicShare.cat.templates': '{count} Vorlagen',
+  'workbench.workspace.publicShare.cat.live': '{count} Live-Workflows',
+  'workbench.workspace.publicShare.cat.files': '{count} Dateien',
+  'workbench.workspace.publicView.bannerTag': 'Öffentlicher Schnappschuss',
+  'workbench.workspace.publicView.banner':
+    'Schreibgeschützte öffentliche Kopie von „{name}“. Änderungen hier werden nirgends gespeichert.',
+  'workbench.workspace.publicView.loadFailed': 'Dieser öffentliche Arbeitsbereichs-Link ist nicht verfügbar.',
   'workbench.workspace.createOk': 'Erstellen',
   'workbench.workspace.createFailed': 'Arbeitsbereich konnte nicht erstellt werden',
   'workbench.workspace.createdToastPrefix': 'Arbeitsbereich erstellt',
