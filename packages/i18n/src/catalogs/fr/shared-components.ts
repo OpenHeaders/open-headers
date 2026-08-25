@@ -480,4 +480,9 @@ export const sharedComponents = {
   'shared.desktopTeaser.liveNetwork.body':
     'Suivez en direct le trafic d’un onglet du navigateur dans l’application de bureau, diffusé par l’extension — ' +
     'sans DevTools.',
+
+  // ── Settings rows ──────────────────────────────────────────────────
+  'shared.settingsRows.enabled': 'Activé',
+  'shared.settingsRows.disabled': 'Désactivé',
+  'shared.settingsRows.reset': 'Rétablir la valeur par défaut de {label}',
 } as const satisfies Catalog;

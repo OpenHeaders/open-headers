@@ -387,8 +387,6 @@ export const workbenchEditorsRequest = {
     'Utilisez JavaScript pour tester et lire cette réponse après son arrivée.',
 
   // ── Settings tab — wired knobs ─────────────────────────────────────
-  'workbench.editors.request.settings.enabled': 'Activé',
-  'workbench.editors.request.settings.disabled': 'Désactivé',
   'workbench.editors.request.settings.followRedirects': 'Suivre automatiquement les redirections',
   'workbench.editors.request.settings.followRedirectsInfo':
     'Suivre les réponses HTTP 3xx vers leur cible. Désactivez pour vous arrêter à la redirection elle-même — ' +
@@ -471,7 +469,6 @@ export const workbenchEditorsRequest = {
     plural(locale, Number(count), { one: '{count} saut', many: '{count} sauts', other: '{count} sauts' }),
   'workbench.editors.request.settings.responseSizeLimitPlaceholder': '2 MB (défaut)',
   'workbench.editors.request.settings.resetToDefault': 'Rétablir les valeurs par défaut',
-  'workbench.editors.request.settings.resetRow': 'Rétablir la valeur par défaut de {label}',
   'workbench.editors.request.settings.group.redirects': 'Redirections',
   'workbench.editors.request.settings.group.tls': 'TLS et confiance',
   'workbench.editors.request.settings.group.connection': 'Connexion',

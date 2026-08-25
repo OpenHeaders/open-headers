@@ -504,4 +504,9 @@ export const sharedComponents = {
   'shared.desktopTeaser.liveNetwork.body':
     'Beobachte den Verkehr eines Browser-Tabs live in der Desktop-App, gestreamt von der Erweiterung — ganz ohne ' +
     'DevTools.',
+
+  // ── Settings rows ──────────────────────────────────────────────────
+  'shared.settingsRows.enabled': 'Aktiviert',
+  'shared.settingsRows.disabled': 'Deaktiviert',
+  'shared.settingsRows.reset': '{label} auf Standard zurücksetzen',
 } as const satisfies Catalog;

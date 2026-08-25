@@ -500,4 +500,9 @@ export const sharedComponents = {
   'shared.desktopTeaser.liveNetwork.title': 'Live Network',
   'shared.desktopTeaser.liveNetwork.body':
     'Watch a browser tab’s traffic live in the desktop app, streamed from the extension — no DevTools needed.',
+
+  // ── Settings rows ──────────────────────────────────────────────────
+  'shared.settingsRows.enabled': 'Enabled',
+  'shared.settingsRows.disabled': 'Disabled',
+  'shared.settingsRows.reset': 'Reset {label} to default',
 } as const satisfies Catalog;

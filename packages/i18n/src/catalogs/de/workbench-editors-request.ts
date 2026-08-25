@@ -396,8 +396,6 @@ export const workbenchEditorsRequest = {
     'Nutze JavaScript, um diese Antwort nach dem Eintreffen zu testen und zu lesen.',
 
   // ── Settings tab — wired knobs ─────────────────────────────────────
-  'workbench.editors.request.settings.enabled': 'Aktiviert',
-  'workbench.editors.request.settings.disabled': 'Deaktiviert',
   'workbench.editors.request.settings.followRedirects': 'Umleitungen automatisch folgen',
   'workbench.editors.request.settings.followRedirectsInfo':
     'Folgt HTTP-3xx-Antworten zu ihrem Ziel. Schalte es aus, um bei der Umleitung selbst anzuhalten — die ' +
@@ -481,7 +479,6 @@ export const workbenchEditorsRequest = {
     plural(locale, Number(count), { one: '{count} Hop', other: '{count} Hops' }),
   'workbench.editors.request.settings.responseSizeLimitPlaceholder': '2 MB (Standard)',
   'workbench.editors.request.settings.resetToDefault': 'Auf Standard zurücksetzen',
-  'workbench.editors.request.settings.resetRow': '{label} auf Standard zurücksetzen',
   'workbench.editors.request.settings.group.redirects': 'Umleitungen',
   'workbench.editors.request.settings.group.tls': 'TLS & Vertrauen',
   'workbench.editors.request.settings.group.connection': 'Verbindung',

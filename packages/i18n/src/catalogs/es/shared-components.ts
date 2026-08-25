@@ -483,4 +483,9 @@ export const sharedComponents = {
   'shared.desktopTeaser.liveNetwork.body':
     'Observa en vivo el tráfico de una pestaña del navegador en la aplicación de escritorio, transmitido desde la ' +
     'extensión, sin DevTools.',
+
+  // ── Settings rows ──────────────────────────────────────────────────
+  'shared.settingsRows.enabled': 'Activado',
+  'shared.settingsRows.disabled': 'Desactivado',
+  'shared.settingsRows.reset': 'Restablecer {label} al valor por defecto',
 } as const satisfies Catalog;

@@ -167,9 +167,9 @@
  * own slice highlighted, the network column-popover idiom.
  */
 
-import { EyeInvisibleOutlined, EyeOutlined, UndoOutlined } from '@ant-design/icons';
+import { EyeInvisibleOutlined, EyeOutlined } from '@ant-design/icons';
 import type { MessageKey } from '@openheaders/i18n';
-import { Button, ConfigProvider, Input, Select, Switch, Tooltip, Typography, theme } from 'antd';
+import { Button, ConfigProvider, Typography, theme } from 'antd';
 import type React from 'react';
 import { useState } from 'react';
 import { getCapability, type RequestRuntimeKind } from '@openheaders/core/capabilities';
@@ -195,15 +195,20 @@ import { useVaultContext } from '@openheaders/ui/context';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import {
   byteSizeInterpreter,
-  ComboKnob,
-  type ComboKnobOption,
   countInterpreter,
   durationMsInterpreter,
   formatByteSize,
   formatDurationMs,
   numericPresets,
 } from '@openheaders/ui/shared/combo-knob';
-import { InfoTrigger, type InfoPopoverContent } from '@openheaders/ui/shared/info-popover';
+import { InfoTrigger } from '@openheaders/ui/shared/info-popover';
+import {
+  ComboKnobRow,
+  GroupSection,
+  KnobRow,
+  SelectKnobRow,
+  TextKnobRow,
+} from '@openheaders/ui/shared/settings-rows';
 import VaultSelectFooter from '../variables/VaultSelectFooter';
 import CookieJarRow from './CookieJarRow';
 import { GROUP_LABEL_KEY, GROUP_ORDER, type SettingsGroupKey } from './settings-groups';
@@ -465,96 +470,11 @@ const MANAGED_SHEETS: Record<RequestRuntimeKind, RuntimeManagedSheet> = {
   },
 };
 
-/** One width for every field control (selects, combo knobs, text
- *  inputs), so the control column keeps a straight left edge — only
- *  the intrinsically-sized switches sit outside it. */
-const CONTROL_WIDTH = 220;
-
 /** Session-scoped memory of the group folds: the tab unmounts on
  *  every editor tab switch, and a fold choice must survive that.
  *  Shared by every request editor — a fold is a reading preference,
  *  not per-request state — and deliberately not persisted to disk. */
 const sessionCollapsed: Record<string, boolean> = {};
-
-/** Per-row undo shown while the row's knob is off its default — the
- *  app Settings page's FieldRow reset idiom, so one experiment can be
- *  undone in place. */
-const RowReset: React.FC<{ label: string; onReset: () => void }> = ({ label, onReset }) => {
-  const t = useT();
-  const title = t('workbench.editors.request.settings.resetRow', { label });
-  return (
-    <Tooltip title={title}>
-      <Button
-        size="small"
-        type="text"
-        aria-label={title}
-        icon={<UndoOutlined style={{ fontSize: 11 }} />}
-        onClick={onReset}
-        style={{ width: 20, height: 20, minWidth: 20 }}
-      />
-    </Tooltip>
-  );
-};
-
-/** Fixed-width slot to the right of every field control, holding the
- *  per-row undo while the knob is off its default. Always rendered —
- *  the control column's edges stay straight whether or not a row is
- *  modified. */
-const ResetSlot: React.FC<{ children?: React.ReactNode }> = ({ children }) => (
-  <span
-    style={{ width: 20, flexShrink: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
-  >
-    {children}
-  </span>
-);
-
-/** Horizontal inset that lines a below-row line up with the control
- *  column's right edge: the row gap (6) plus the {@link ResetSlot}. */
-const CONTROL_RIGHT_INSET = 26;
-
-/** Compact wired-knob row: label + (i) left-aligned, the switch
- *  right-aligned with Enabled/Disabled state text inside the track.
- *  `warning` renders under the row while the knob sits in its risky
- *  position — off by default (verification-style knobs), the checked
- *  state when `warningWhenChecked` (opt-in trust-relaxing knobs) — so
- *  the risk is stated in place, not only behind the popover. */
-const KnobRow: React.FC<{
-  label: string;
-  checked: boolean;
-  onChange: (checked: boolean) => void;
-  info: InfoPopoverContent;
-  warning?: string;
-  warningWhenChecked?: boolean;
-  modified?: boolean;
-  unsaved?: boolean;
-  onReset?: () => void;
-}> = ({ label, checked, onChange, info, warning, warningWhenChecked, modified, unsaved, onReset }) => {
-  const t = useT();
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column' }}>
-      <div className="rules-settings-row" style={{ display: 'flex', alignItems: 'center', gap: 6, minHeight: 28 }}>
-        <Text style={{ fontSize: 13 }}>{label}</Text>
-        <InfoTrigger content={info} />
-        {(unsaved === true || modified === true) && <ModifiedDot unsaved={unsaved} />}
-        <span style={{ flex: 1 }} />
-        <Switch
-          size="small"
-          aria-label={label}
-          checked={checked}
-          onChange={onChange}
-          checkedChildren={t('workbench.editors.request.settings.enabled')}
-          unCheckedChildren={t('workbench.editors.request.settings.disabled')}
-        />
-        <ResetSlot>{modified === true && onReset !== undefined && <RowReset label={label} onReset={onReset} />}</ResetSlot>
-      </div>
-      {checked === (warningWhenChecked ?? false) && warning !== undefined && (
-        <Text type="warning" style={{ fontSize: 11, marginBottom: 4 }}>
-          {warning}
-        </Text>
-      )}
-    </div>
-  );
-};
 
 /** Bounded interpreters + preset lists for the numeric combo knobs —
  *  free text becomes concrete candidates ("10" → "10 s" / "10 min");
@@ -569,221 +489,6 @@ const SIZE_PRESETS = numericPresets(
 );
 const REDIRECT_BOUNDS = { min: MIN_MAX_REDIRECTS, max: MAX_MAX_REDIRECTS };
 const REDIRECT_PRESET_VALUES = [5, 10, 20, 50];
-
-/** Compact numeric-knob row: same `label · (i) · control` geometry as
- *  {@link KnobRow}, with a {@link ComboKnob} (curated presets +
- *  interpreted free entry) instead of a switch. An empty field means
- *  "no explicit value" — the placeholder states the effective behavior
- *  ("No limit", the default cap) so the empty state is never
- *  ambiguous. */
-const ComboKnobRow: React.FC<{
-  label: string;
-  value: number | undefined;
-  onChange: (value: number | undefined) => void;
-  info: InfoPopoverContent;
-  presets: ReadonlyArray<ComboKnobOption<number>>;
-  interpret: (input: string) => ComboKnobOption<number>[];
-  format: (value: number) => string;
-  placeholder: string;
-  unsaved?: boolean;
-}> = ({ label, value, onChange, info, presets, interpret, format, placeholder, unsaved }) => (
-  <div className="rules-settings-row" style={{ display: 'flex', alignItems: 'center', gap: 6, minHeight: 28 }}>
-    <Text style={{ fontSize: 13 }}>{label}</Text>
-    <InfoTrigger content={info} />
-    {(unsaved === true || value !== undefined) && <ModifiedDot unsaved={unsaved} />}
-    <span style={{ flex: 1 }} />
-    <ComboKnob
-      value={value}
-      onChange={onChange}
-      presets={presets}
-      interpret={interpret}
-      format={format}
-      placeholder={placeholder}
-      ariaLabel={label}
-      style={{ width: CONTROL_WIDTH }}
-    />
-    <ResetSlot>
-      {value !== undefined && <RowReset label={label} onReset={() => onChange(undefined)} />}
-    </ResetSlot>
-  </div>
-);
-
-/** Compact picklist-knob row: same `label · (i) · control` geometry as
- *  {@link KnobRow}, with a clearable Select. An empty select means "no
- *  explicit value" — the placeholder states the runtime default so the
- *  empty state is never ambiguous. `warning` renders under the row
- *  while the selected value is a risky one (the caller decides). */
-const SelectKnobRow: React.FC<{
-  label: string;
-  value: string | undefined;
-  onChange: (value: string | undefined) => void;
-  info: InfoPopoverContent;
-  options: Array<{ value: string; label: string; disabled?: boolean }>;
-  placeholder?: string;
-  warning?: string;
-  /** Off for always-set knobs (a cleared field would be meaningless). */
-  allowClear?: boolean;
-  /** Type-to-filter by option label — for open-ended lists (vault
-   *  entries), not fixed mode picklists. */
-  searchable?: boolean;
-  /** Custom empty state, e.g. naming where the options come from. */
-  notFoundContent?: React.ReactNode;
-  /** Sticky row under the option list, e.g. a manage-source action.
-   *  Receives a closer — a footer click is not a selection, so the
-   *  popup must be dismissed explicitly before navigating away. */
-  popupFooter?: (close: () => void) => React.ReactNode;
-  testId?: string;
-  modified?: boolean;
-  unsaved?: boolean;
-  /** Row undo; defaults to clearing the value back to undefined. */
-  onReset?: () => void;
-}> = ({
-  label,
-  value,
-  onChange,
-  info,
-  options,
-  placeholder,
-  warning,
-  allowClear = true,
-  searchable = false,
-  notFoundContent,
-  popupFooter,
-  testId,
-  modified,
-  unsaved,
-  onReset,
-}) => {
-  // Controlled only when a footer needs to dismiss the popup itself;
-  // motion off so the navigate-away dismissal is instant, no leave
-  // transition lingering over the surface it navigated to.
-  const [open, setOpen] = useState(false);
-  const select = (
-    <Select
-      size="small"
-      aria-label={label}
-      data-testid={testId}
-      value={value}
-      onChange={(v) => onChange(v)}
-      options={options}
-      allowClear={allowClear}
-      showSearch={searchable}
-      optionFilterProp="label"
-      placeholder={placeholder}
-      popupMatchSelectWidth={false}
-      notFoundContent={notFoundContent}
-      open={popupFooter !== undefined ? open : undefined}
-      onOpenChange={popupFooter !== undefined ? setOpen : undefined}
-      popupRender={
-        popupFooter !== undefined
-          ? (menu) => (
-              <>
-                {menu}
-                {popupFooter(() => setOpen(false))}
-              </>
-            )
-          : undefined
-      }
-      style={{ width: CONTROL_WIDTH }}
-    />
-  );
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column' }}>
-      <div className="rules-settings-row" style={{ display: 'flex', alignItems: 'center', gap: 6, minHeight: 28 }}>
-        <Text style={{ fontSize: 13 }}>{label}</Text>
-        <InfoTrigger content={info} />
-        {(unsaved === true || (modified ?? value !== undefined)) && <ModifiedDot unsaved={unsaved} />}
-        <span style={{ flex: 1 }} />
-        {popupFooter !== undefined ? (
-          <ConfigProvider theme={{ token: { motion: false } }}>{select}</ConfigProvider>
-        ) : (
-          select
-        )}
-        <ResetSlot>
-          {(modified ?? value !== undefined) && (
-            <RowReset label={label} onReset={onReset ?? (() => onChange(undefined))} />
-          )}
-        </ResetSlot>
-      </div>
-      {warning !== undefined && (
-        <Text type="warning" style={{ fontSize: 11, marginBottom: 4 }}>
-          {warning}
-        </Text>
-      )}
-    </div>
-  );
-};
-
-/** Compact text-knob row: same geometry, with a wider free-text input.
- *  Empty means "no explicit value" — the placeholder states the
- *  effective default. One line renders under the row at a time, by
- *  priority: `error` (also tints the field) while the current text is
- *  malformed; `warning` while the value is well-formed but conflicts
- *  with another setting; otherwise `example`, a muted format sample
- *  ("e.g. …") aligned under the control column. */
-const TextKnobRow: React.FC<{
-  label: string;
-  value: string | undefined;
-  onChange: (value: string | undefined) => void;
-  info: InfoPopoverContent;
-  placeholder: string;
-  maxLength: number;
-  error?: string;
-  warning?: string;
-  example?: string;
-  testId?: string;
-  unsaved?: boolean;
-  /** Row undo; defaults to clearing the value back to undefined. */
-  onReset?: () => void;
-}> = ({ label, value, onChange, info, placeholder, maxLength, error, warning, example, testId, unsaved, onReset }) => (
-  <div style={{ display: 'flex', flexDirection: 'column' }}>
-    <div className="rules-settings-row" style={{ display: 'flex', alignItems: 'center', gap: 6, minHeight: 28 }}>
-      <Text style={{ fontSize: 13 }}>{label}</Text>
-      <InfoTrigger content={info} />
-      {(unsaved === true || value !== undefined) && <ModifiedDot unsaved={unsaved} />}
-      <span style={{ flex: 1 }} />
-      <Input
-        size="small"
-        aria-label={label}
-        data-testid={testId}
-        value={value ?? ''}
-        onChange={(e) => onChange(e.target.value === '' ? undefined : e.target.value)}
-        placeholder={placeholder}
-        maxLength={maxLength}
-        status={error !== undefined ? 'error' : undefined}
-        style={{ width: CONTROL_WIDTH }}
-      />
-      <ResetSlot>
-        {value !== undefined && <RowReset label={label} onReset={onReset ?? (() => onChange(undefined))} />}
-      </ResetSlot>
-    </div>
-    {error !== undefined && (
-      <Text type="danger" style={{ fontSize: 11, marginBottom: 4 }}>
-        {error}
-      </Text>
-    )}
-    {error === undefined && warning !== undefined && (
-      <Text type="warning" style={{ fontSize: 11, marginBottom: 4 }}>
-        {warning}
-      </Text>
-    )}
-    {error === undefined && warning === undefined && example !== undefined && (
-      <Text
-        type="secondary"
-        style={{
-          fontSize: 11,
-          marginBottom: 4,
-          alignSelf: 'flex-end',
-          width: CONTROL_WIDTH,
-          marginRight: CONTROL_RIGHT_INSET,
-          overflowWrap: 'anywhere',
-        }}
-      >
-        {example}
-      </Text>
-    )}
-  </div>
-);
 
 const RuntimeManagedRow: React.FC<RuntimeManagedDef & { kicker: string }> = ({
   labelKey,
@@ -813,104 +518,6 @@ const RuntimeManagedRow: React.FC<RuntimeManagedDef & { kicker: string }> = ({
       <span style={{ flex: 1 }} />
       <Text style={{ fontSize: 12, color: token.colorTextTertiary }}>{t(valueKey)}</Text>
     </div>
-  );
-};
-
-/** Accent dot after a row label: blue while the knob differs from its
- *  default — the same affordance as the panel view-menu dots and the
- *  Settings tab's own label dot, so "what did I change here" reads at
- *  a glance — and the sidebar/tab-bar dirty salmon while it differs
- *  from the SAVED request, so "what haven't I saved yet" reads the
- *  same way. Unsaved wins while both hold. */
-const ModifiedDot: React.FC<{ unsaved?: boolean }> = ({ unsaved }) => {
-  const { token } = theme.useToken();
-  return (
-    <span
-      data-testid={unsaved === true ? 'oh-setting-unsaved-dot' : 'oh-setting-modified-dot'}
-      style={{
-        display: 'inline-block',
-        width: 6,
-        height: 6,
-        borderRadius: '50%',
-        background: unsaved === true ? '#ff7875' : token.colorPrimary,
-        flexShrink: 0,
-      }}
-    />
-  );
-};
-
-/** Collapsible section between the logical knob groups (connection ·
- *  TLS & trust · redirects · cookies · execution) — the sidebar
- *  section idiom: rotating caret + uppercase title + rail, rows as
- *  children. A collapsed header carries the accent dot while any of
- *  its hidden knobs is off its default (orange while any is unsaved),
- *  so customizations never disappear behind a fold. */
-const GroupSection: React.FC<{
-  label: string;
-  expanded: boolean;
-  onToggle: () => void;
-  /** Header (i) popover — the group's slice of the shared example. */
-  info?: InfoPopoverContent;
-  modified?: boolean;
-  unsaved?: boolean;
-  children: React.ReactNode;
-}> = ({ label, expanded, onToggle, info, modified, unsaved, children }) => {
-  const { token } = theme.useToken();
-  return (
-    <>
-      <div
-        role="button"
-        tabIndex={0}
-        aria-label={label}
-        aria-expanded={expanded}
-        onClick={onToggle}
-        onKeyDown={(e) => {
-          // Space must not scroll the pane — it activates, like Enter.
-          // Keys landing on the inner (i) trigger stay its own: they
-          // must open the popover, not also toggle the fold.
-          if ((e.key === 'Enter' || e.key === ' ') && e.target === e.currentTarget) {
-            e.preventDefault();
-            onToggle();
-          }
-        }}
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 6,
-          margin: '6px 0 2px',
-          cursor: 'pointer',
-          userSelect: 'none',
-        }}
-      >
-        <span
-          style={{
-            display: 'inline-block',
-            fontSize: 10,
-            color: token.colorTextTertiary,
-            transition: 'transform 0.2s ease',
-            transform: expanded ? 'rotate(90deg)' : 'rotate(0deg)',
-          }}
-        >
-          &#9654;
-        </span>
-        <Text
-          style={{
-            fontSize: 11,
-            fontWeight: 500,
-            color: token.colorTextTertiary,
-            textTransform: 'uppercase',
-            letterSpacing: '.06em',
-            whiteSpace: 'nowrap',
-          }}
-        >
-          {label}
-        </Text>
-        {info !== undefined && <InfoTrigger content={info} />}
-        {(unsaved === true || modified === true) && !expanded && <ModifiedDot unsaved={unsaved} />}
-        <div style={{ flex: 1, height: 1, background: token.colorSplit }} />
-      </div>
-      {expanded && children}
-    </>
   );
 };
 

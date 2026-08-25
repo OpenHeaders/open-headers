@@ -322,8 +322,6 @@ export const workbenchEditorsRequest = {
     'Use JavaScript to test and read this response after it arrives.',
 
   // ── Settings tab — wired knobs ─────────────────────────────────────
-  'workbench.editors.request.settings.enabled': 'Enabled',
-  'workbench.editors.request.settings.disabled': 'Disabled',
   'workbench.editors.request.settings.followRedirects': 'Automatically follow redirects',
   'workbench.editors.request.settings.followRedirectsInfo':
     'Follow HTTP 3xx responses to their target. Switch off to stop at the redirect itself — the response shows as an opaque redirect with no headers or body, useful to confirm that a redirect happens at all.',
@@ -385,7 +383,6 @@ export const workbenchEditorsRequest = {
     plural(locale, Number(count), { one: '{count} hop', other: '{count} hops' }),
   'workbench.editors.request.settings.responseSizeLimitPlaceholder': '2 MB (default)',
   'workbench.editors.request.settings.resetToDefault': 'Reset to default',
-  'workbench.editors.request.settings.resetRow': 'Reset {label} to default',
   'workbench.editors.request.settings.group.redirects': 'Redirects',
   'workbench.editors.request.settings.group.tls': 'TLS & trust',
   'workbench.editors.request.settings.group.connection': 'Connection',

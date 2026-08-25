@@ -476,4 +476,9 @@ export const sharedComponents = {
   'shared.desktopTeaser.mcp.body': '通过内置的 MCP 服务器，把 AI 助手连接到你的工作区。',
   'shared.desktopTeaser.liveNetwork.title': '实时网络',
   'shared.desktopTeaser.liveNetwork.body': '在桌面应用中实时查看浏览器标签页的流量，由扩展流式传输——无需 DevTools。',
+
+  // ── Settings rows ──────────────────────────────────────────────────
+  'shared.settingsRows.enabled': '已启用',
+  'shared.settingsRows.disabled': '已禁用',
+  'shared.settingsRows.reset': '将{label}重置为默认值',
 } as const satisfies Catalog;

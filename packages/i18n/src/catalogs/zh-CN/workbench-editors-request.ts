@@ -327,8 +327,6 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.scripts.postPlaceholder': '用 JavaScript 在响应到达后测试并读取它。',
 
   // ── Settings tab — wired knobs ─────────────────────────────────────
-  'workbench.editors.request.settings.enabled': '已启用',
-  'workbench.editors.request.settings.disabled': '已禁用',
   'workbench.editors.request.settings.followRedirects': '自动跟随重定向',
   'workbench.editors.request.settings.followRedirectsInfo':
     '跟随 HTTP 3xx 响应到其目标。关闭后停在重定向本身——响应显示为不带标头和正文的不透明重定向，可用来确认重定向确实发生。',
@@ -389,7 +387,6 @@ export const workbenchEditorsRequest = {
     plural(locale, Number(count), { other: '{count} 跳' }),
   'workbench.editors.request.settings.responseSizeLimitPlaceholder': '2 MB（默认）',
   'workbench.editors.request.settings.resetToDefault': '重置为默认值',
-  'workbench.editors.request.settings.resetRow': '将{label}重置为默认值',
   'workbench.editors.request.settings.group.redirects': '重定向',
   'workbench.editors.request.settings.group.tls': 'TLS 与信任',
   'workbench.editors.request.settings.group.connection': '连接',
