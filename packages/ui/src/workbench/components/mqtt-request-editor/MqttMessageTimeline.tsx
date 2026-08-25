@@ -118,6 +118,10 @@ export interface MqttTimelineLifecycle {
    *  refusal included, its reason verbatim). Rendered as an error row
    *  at the timeline's new edge; never set beside `endedBy`. */
   errorMessage?: string;
+  /** The pre-open end was USER-initiated (Cancel / Stop) — the row at
+   *  the error slot renders as the neutral "Connection aborted" info
+   *  row instead of the error tint. Only set beside `errorMessage`. */
+  aborted?: true;
   /** Absent while the session is open — the live phase. */
   endedBy?: MqttTimelineEndedBy;
   endedAt?: number;
@@ -652,6 +656,19 @@ const MqttMessageTimeline: React.FC<MqttMessageTimelineProps> = ({
       }
       case 'error': {
         if (lifecycle.errorMessage === undefined) return null;
+        // A user abort is not a failure — the neutral info row.
+        if (lifecycle.aborted === true) {
+          return (
+            <div key={entry.key} data-testid="mqtt-timeline-aborted-row" style={lifecycleRowStyle}>
+              <InfoCircleOutlined aria-hidden style={{ fontSize: 11, color: token.colorTextTertiary }} />
+              <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {t('workbench.editors.mqtt.timeline.aborted')}
+              </span>
+              {lifecycleTime(lifecycle.endedAt)}
+              {expandSlot(null)}
+            </div>
+          );
+        }
         return (
           <div key={entry.key} data-testid="mqtt-timeline-error-row" style={lifecycleRowStyle}>
             <CloseCircleOutlined aria-hidden style={{ fontSize: 11, color: token.colorError }} />

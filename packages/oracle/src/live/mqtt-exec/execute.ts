@@ -360,12 +360,20 @@ export async function executeMqttSession(
       emitter?.end();
       const durationMs = Math.round(performance.now() - startedAt);
       if (!opened) {
+        // A user-initiated end (Stop-abort, or the header's Cancel
+        // riding the clean-close rider — the pre-open close() stamps
+        // `end.by = 'client'`) is an ABORT, not a failure: the
+        // snapshot carries the stopped mark so surfaces render it
+        // neutrally. A broker refusal stays a refusal even when the
+        // user also cancelled.
+        const aborted = refusalMessage === null && (stopped || end?.by === 'client');
         resolve({
           ...errorMqttSnapshot(
-            stopped
+            aborted
               ? 'Session stopped before it connected.'
               : (refusalMessage ?? errorMessage ?? 'The session ended before it opened.'),
           ),
+          ...(aborted ? { stopped: true } : {}),
           connack,
           clientId,
           durationMs,

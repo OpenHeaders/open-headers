@@ -179,6 +179,8 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.session.severedTag': '连接中断',
   'workbench.editors.mqtt.session.stoppedTag': '已停止',
   'workbench.editors.mqtt.session.connectFailedTag': '连接失败',
+  'workbench.editors.mqtt.session.abortedTag': '已中止',
+  'workbench.editors.mqtt.timeline.aborted': '连接已中止',
   'workbench.editors.mqtt.session.cleanDisconnect': '正常断开',
   'workbench.editors.mqtt.session.brokerDisconnect': '代理发送了 DISCONNECT：{reason}',
   'workbench.editors.mqtt.session.brokerDisconnectBare': '代理发送了 DISCONNECT',

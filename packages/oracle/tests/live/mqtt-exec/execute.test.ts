@@ -157,6 +157,25 @@ describe('executeMqttSession — connect gate', () => {
     expect(rig.written.at(-1)?.type).toBe('disconnect');
   });
 
+  it('a close before the CONNACK settles as a user abort — stopped mark, not a bare failure', async () => {
+    const rig = scriptedTransport(MQTT_PROTOCOL_VERSIONS.v5);
+    const settled = executeMqttSession(makeMqttRequest(), {
+      workspaceId: null,
+      environmentId: undefined,
+      transport: rig.transport,
+      sendId: 'send-mqtt-abort',
+      resolution: scopedResolution,
+    });
+    await settleTick();
+    rig.establish();
+    // Cancel while still connecting — no CONNACK ever arrives.
+    closeActiveMqttSession('send-mqtt-abort');
+    const snapshot = await settled;
+    expect(snapshot.connected).toBe(false);
+    expect(snapshot.stopped).toBe(true);
+    expect(snapshot.error).toBe('Session stopped before it connected.');
+  });
+
   it('carries the resolved Basic pair on CONNECT and keeps it off an auth-less session', async () => {
     const rig = scriptedTransport(MQTT_PROTOCOL_VERSIONS.v5);
     const settled = executeMqttSession(
