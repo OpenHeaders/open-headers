@@ -91,9 +91,10 @@ function memberEmail(record: DaemonUserRecord): string | null {
  * The owner gate for a mutation frame: the caller's OWN row on the
  * workspace must carry the owner role — `localAdmin` deliberately
  * confers nothing here (admin ≠ data-access; the operator holds real
- * owner rows via the boot reconcile, so no bypass is needed).
+ * owner rows via the boot reconcile, so no bypass is needed). Shared
+ * with the public snapshot plane (F5b), which gates on the same rule.
  */
-function ownerGateDecision(
+export function ownerGateDecision(
   snapshot: IdentitySnapshot | null,
   workspaceId: string,
 ): { allow: boolean; reason?: 'no-current-user' | 'no-workspace-role-assignment' | 'insufficient-workspace-role' } {

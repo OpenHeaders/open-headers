@@ -55,6 +55,7 @@ function makeConfig(overrides: Partial<DaemonConfig> = {}): DaemonConfig {
     vaultPassphrase: null,
     auditRetentionDays: 90,
     auditForwarding: null,
+    publicWorkspaces: false,
     licenseFile: null,
     licenseRefresh: true,
     personalSeats: true,

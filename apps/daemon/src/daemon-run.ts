@@ -180,6 +180,7 @@ export async function runDaemon(argv: readonly string[]): Promise<void> {
         ? `, audit retention ${config.auditRetentionDays}d`
         : '';
     const forwardNote = config.auditForwarding ? `, audit stream to ${new URL(config.auditForwarding.url).host}` : '';
+    const publicNote = config.publicWorkspaces ? ', public workspaces on' : '';
     const licenseNote = config.licenseRefresh ? '' : ', license refresh off';
     const egressNote =
       systemProxy.mode === 'off'
@@ -189,7 +190,7 @@ export async function runDaemon(argv: readonly string[]): Promise<void> {
           : '';
     log.info(
       SCOPE,
-      `starting v${appVersion}${formatBuildStamp(getBuildInfo())} — data dir ${config.dataDir}, bind ${config.bindAddress}:${config.bindPort}${proxyNote}${hostsNote}${webNote}${oidcNote}${vaultNote}${auditNote}${forwardNote}${licenseNote}${egressNote}`,
+      `starting v${appVersion}${formatBuildStamp(getBuildInfo())} — data dir ${config.dataDir}, bind ${config.bindAddress}:${config.bindPort}${proxyNote}${hostsNote}${webNote}${oidcNote}${vaultNote}${auditNote}${forwardNote}${publicNote}${licenseNote}${egressNote}`,
     );
     if (config.bindAddress === '0.0.0.0' && !config.trustedProxy) {
       log.warn(
@@ -284,6 +285,7 @@ export async function runDaemon(argv: readonly string[]): Promise<void> {
       ...(config.licenseFile !== null ? { licenseFilePath: config.licenseFile } : {}),
       licenseRefresh: config.licenseRefresh,
       personalSeats: config.personalSeats,
+      publicWorkspaces: config.publicWorkspaces,
       staticWeb,
       broadcastLocal: () => {
         // No same-process surfaces yet — the served web app (Phase 4)

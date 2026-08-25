@@ -76,6 +76,14 @@ describe('routePostureFor', () => {
     );
   });
 
+  it('claims /public/* on every composition — the plane owner answers 404 when off, never the SPA', () => {
+    expect(routePostureFor(facts({ path: '/public/ws-1' })).route).toBe('public');
+    expect(routePostureFor(facts({ path: '/public/ws-1/snapshot.json' }), { webEnabled: true }).route).toBe('public');
+    expect(routePostureFor(facts({ path: '/public/ws-1' }), { webEnabled: true, oidcEnabled: true }).route).toBe(
+      'public',
+    );
+  });
+
   it('marks the brute-force routes and their failure statuses', () => {
     expect(routePostureFor(facts({ path: '/healthz' })).rateLimited).toBe(false);
     expect(routePostureFor(facts({ path: '/pair/1' })).failureStatuses).toEqual([404]);
@@ -228,6 +236,25 @@ describe('origin posture', () => {
       evaluateAdmission(facts({ path: '/auth/setup/claim', origin: 'https://evil.example.com' }), []),
     ).toMatchObject({ ok: false, reason: 'origin-forbidden' });
     expect(evaluateAdmission(facts({ path: '/auth/setup/meta', host: 'rebound.example.com' }), [])).toMatchObject({
+      ok: false,
+      reason: 'host-forbidden',
+    });
+  });
+
+  it('public route accepts navigations and the own origin, rejects foreign pages, counts id guesses', () => {
+    const posture = routePostureFor(facts({ path: '/public/ws-1' }));
+    expect(posture.rateLimited).toBe(true);
+    expect(posture.failureStatuses).toEqual([404]);
+    // A shared link opens as a top-level navigation (no Origin); the
+    // viewer's payload fetch carries the daemon's own served origin.
+    expect(evaluateAdmission(facts({ path: '/public/ws-1' }), []).ok).toBe(true);
+    expect(evaluateAdmission(facts({ path: '/public/ws-1', origin: 'http://192.168.1.20:8137' }), []).ok).toBe(true);
+    expect(evaluateAdmission(facts({ path: '/public/ws-1', origin: 'https://evil.example.com' }), [])).toMatchObject({
+      ok: false,
+      reason: 'origin-forbidden',
+    });
+    // DNS-rebinding guard holds like every browser-facing route.
+    expect(evaluateAdmission(facts({ path: '/public/ws-1', host: 'rebound.example.com' }), [])).toMatchObject({
       ok: false,
       reason: 'host-forbidden',
     });

@@ -308,6 +308,21 @@ describe('resolveDaemonConfig — audit retention', () => {
   });
 });
 
+describe('resolveDaemonConfig — public workspaces', () => {
+  it('defaults off, reading the file value and the env on top', () => {
+    expect(resolve().publicWorkspaces).toBe(false);
+    const file = writeConfigFile({ publicWorkspaces: true });
+    expect(resolve(['--config', file]).publicWorkspaces).toBe(true);
+    expect(resolve(['--config', file], { OH_PUBLIC_WORKSPACES: '0' }).publicWorkspaces).toBe(false);
+    expect(resolve([], { OH_PUBLIC_WORKSPACES: 'true' }).publicWorkspaces).toBe(true);
+  });
+
+  it('refuses a non-boolean value', () => {
+    expect(() => resolve(['--config', writeConfigFile({ publicWorkspaces: 'yes' })])).toThrow(/must be a boolean/);
+    expect(() => resolve([], { OH_PUBLIC_WORKSPACES: 'maybe' })).toThrow(/expected 1\/0\/true\/false/);
+  });
+});
+
 describe('resolveDaemonConfig — audit forwarding', () => {
   it('defaults to null and reads a full block from the file', () => {
     expect(resolve().auditForwarding).toBeNull();

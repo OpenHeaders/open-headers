@@ -43,6 +43,14 @@
  *                      posture as the password routes; the uniform
  *                      state refusal (403) feeds the limiter, while a
  *                      malformed-input 400 deliberately does not.
+ *   - `/public/*`    — the anonymous public snapshot plane (the
+ *                      access-foundation plan §8 F5b): top-level
+ *                      navigations to a shared link carry no Origin;
+ *                      the viewer's payload fetch carries the own
+ *                      served origin. A 404 is a workspace-id guess
+ *                      and feeds the limiter. Reserved whether or not
+ *                      `publicWorkspaces` is on — the route owner
+ *                      answers 404 when it is off (dark, not deleted).
  *   - web (Phase 4a) — when the daemon serves the web bundle, every
  *                      path not claimed above is the static front door:
  *                      top-level navigations (no Origin) and the own
@@ -66,7 +74,7 @@
  */
 
 import { isIP } from 'node:net';
-import { CHROMIUM_EXTENSION_IDS, MCP_HTTP_PATH } from '@openheaders/core/protocol';
+import { CHROMIUM_EXTENSION_IDS, MCP_HTTP_PATH, PUBLIC_WORKSPACE_PATH_PREFIX } from '@openheaders/core/protocol';
 import { NM_BOOTSTRAP_PATH } from './nm/nm-bootstrap-http';
 
 /** The header facts admission is decided on, extracted from one request. */
@@ -91,6 +99,7 @@ export type AdmissionRoute =
   | 'oidc'
   | 'password'
   | 'setup'
+  | 'public'
   | 'web'
   | 'default';
 
@@ -173,6 +182,13 @@ const ROUTE_POSTURES: Record<AdmissionRoute, RoutePosture> = {
   // server knows, and counting it would let a typo lock an operator
   // out of claiming their own box.
   setup: { route: 'setup', origin: 'own', host: 'known', rateLimited: true, failureStatuses: [403] },
+  // The anonymous public snapshot plane (the access-foundation plan §8
+  // F5b) — reserved unconditionally so `/public/*` never falls through
+  // to the SPA fallback. Browser posture like `web`; a 404 is a
+  // workspace-id guess (enumeration probing) and feeds the limiter,
+  // same reasoning as pairing-code 404s — an unpublished link answers
+  // one honest 404, a scanner sweeping ids gets throttled.
+  public: { route: 'public', origin: 'own', host: 'known', rateLimited: true, failureStatuses: [404] },
   // Static misses are ordinary navigation noise, not auth signals — no
   // failure statuses; the rate limit still holds the front door against
   // peers already blocked for real failures elsewhere.
@@ -190,6 +206,7 @@ export function routePostureFor(facts: AdmissionRequestFacts, options: Admission
   if (options.oidcEnabled && facts.path.startsWith(OIDC_PATH_PREFIX)) return ROUTE_POSTURES.oidc;
   if (options.passwordEnabled && facts.path.startsWith(PASSWORD_PATH_PREFIX)) return ROUTE_POSTURES.password;
   if (facts.path.startsWith(SETUP_PATH_PREFIX)) return ROUTE_POSTURES.setup;
+  if (facts.path.startsWith(PUBLIC_WORKSPACE_PATH_PREFIX)) return ROUTE_POSTURES.public;
   return options.webEnabled ? ROUTE_POSTURES.web : ROUTE_POSTURES.default;
 }
 

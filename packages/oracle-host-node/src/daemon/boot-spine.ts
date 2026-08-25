@@ -51,6 +51,7 @@ import {
 } from '@openheaders/core/bridge';
 import {
   createDaemonPairingService,
+  emitAuditEntry,
   ensureSyntheticIdentity,
   ensureWorkspaceRoleAssignments,
   getIdentitySnapshot,
@@ -64,6 +65,7 @@ import { setLicenseSnapshotProvider, setPersonalSeatRedemptionProvider } from '@
 import { type HostLogger, hostLogger, setHostLogger } from '@openheaders/core/logger';
 import type { AwarenessState } from '@openheaders/core/protocol';
 import { WS_PORT } from '@openheaders/core/protocol';
+import { resolveWorkspaceVisibility } from '@openheaders/core/schemas';
 import type { HostStorage } from '@openheaders/core/storage';
 import { setHostStorage } from '@openheaders/core/storage';
 import {
@@ -137,6 +139,7 @@ import type { OracleWsServer, OracleWsServerOptions } from '../host-runtime/ws-s
 import { peekCookieJar } from '../live/cookie-jar';
 import { createNodeRequestTransport } from '../live/node-request-transport';
 import { queryAuditEntries, SqliteAuditLog } from '../sync/sqlite-audit-log';
+import { SqlitePublishedSnapshotStore } from '../sync/sqlite-published-snapshots';
 import { createSqliteSyncPersistence } from '../sync/sqlite-sync-persistence';
 import {
   createTrafficPartitionMirror,
@@ -199,10 +202,12 @@ import { createPeerAdminRpc } from './peer-admin-rpc';
 import { createPeerRequestsRpc } from './peer-requests-rpc';
 import { createPeerWorkspaceLeaveRpc } from './peer-workspace-leave';
 import { createPeerWorkspaceMembersRpc } from './peer-workspace-members';
+import { createPeerWorkspacePublicRpc } from './peer-workspace-public';
 import { installProxyCaptureLifeline } from './proxy/capture-lifeline';
 import { createProxyCaptureService } from './proxy/proxy-capture-service';
 import { createProxyTrustService } from './proxy/proxy-trust';
 import { createProxyRoutingControl } from './proxy/routing-push';
+import { createPublicWorkspaceHttpHandler } from './public-workspace-http';
 import { createDaemonSetupClaimService } from './setup/setup-claim-service';
 import { createSetupHttpHandler } from './setup/setup-http';
 import { singleProcessLockRuntime } from './single-process-lock-runtime';
@@ -413,6 +418,13 @@ export interface DaemonSpineConfig {
      */
     enabled?: () => boolean;
   };
+  /**
+   * Public snapshot plane master switch (the access-foundation plan §8
+   * F5b) — config-as-code like `auditForwarding`, default OFF. Gates
+   * BOTH publishing (the owner verb refuses) and serving (`/public/*`
+   * answers 404 — standing publications go dark, nothing is deleted).
+   */
+  publicWorkspaces?: boolean;
 }
 
 export interface DaemonSpineHandle {
@@ -512,6 +524,11 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
         hostLogger.warn(SCOPE, 'audit log append failed', err);
       });
   });
+  // F5b — published public snapshots, same shared SQLite handle. The
+  // store exists whether or not the master switch is on: OFF gates
+  // publishing and serving, never deletes what an owner published.
+  const publishedSnapshots = new SqlitePublishedSnapshotStore(syncPersistence.db);
+  const publicWorkspacesEnabled = config.publicWorkspaces === true;
   // §9.1 retention — hourly sweep drops rows older than the window.
   const stopAuditPruneScheduler = installAuditPruneScheduler({
     db: syncPersistence.db,
@@ -620,7 +637,21 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
     // wide enough) — so firing it for everyone is the correct no-op for
     // the unaffected. The widening direction needs nothing here: the
     // slot mutation fans to newly-readable peers via the read filter.
-    onWorkspaceVisibilityChanged: (workspaceId) => {
+    onWorkspaceVisibilityChanged: (workspaceId, actorUserId) => {
+      // F5b cascade: a flip AWAY from `public` also drops the stored
+      // publication — the URL 404s from the next request rather than
+      // relying on serving gates alone. Audited like an explicit
+      // unpublish, stamped with the flip's authenticated actor.
+      if (resolveWorkspaceVisibility(getWorkspace(workspaceId)?.visibility) !== 'public') {
+        if (publishedSnapshots.delete(workspaceId)) {
+          emitAuditEntry({
+            actorUserId: actorUserId ?? getIdentitySnapshot()?.user.id ?? 'unknown',
+            capability: 'daemon.workspace-unpublish',
+            workspaceId,
+            decision: { allow: true },
+          });
+        }
+      }
       const server = wsServer;
       if (!server) return;
       const userIds = new Set<string>();
@@ -1100,6 +1131,16 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
     resolvePeer: admission.resolvePeer,
   });
 
+  // 4c''''''. Public snapshot plane (F5b) — `/public/*`, composed
+  //      before the static handler so a shared link never falls into
+  //      the SPA fallback: page + payload answer only for a standing
+  //      publication with the master switch on, 404 otherwise.
+  const publicWorkspaceHttpHandler = createPublicWorkspaceHttpHandler({
+    store: publishedSnapshots,
+    enabled: publicWorkspacesEnabled,
+    webRootDir: staticWebConfig?.rootDir ?? null,
+  });
+
   // 4c'''. Static web bundle (Phase 4a) — the Workbench front door,
   //      composed LAST so every claimed route (healthz, pairing, mcp)
   //      wins its path first. Absent config = no route; the 400
@@ -1477,6 +1518,7 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
         createPeerRequestsRpc({ cliStatus: () => cliProvision.status() }),
         createPeerWorkspaceLeaveRpc({ getWsServer: () => wsServer }),
         createPeerWorkspaceMembersRpc({ getWsServer: () => wsServer }),
+        createPeerWorkspacePublicRpc({ store: publishedSnapshots, publicWorkspacesEnabled }),
       ),
       peerPush: composePeerPush(browserLiveRelay.peerPush, proxyRoutingControl.peerPush, captureFeedbackPush.peerPush),
       httpRequestHandler: admission.wrapHttpHandler(
@@ -1489,6 +1531,7 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
           (oidcHttpHandler !== null && oidcHttpHandler(req, res)) ||
           (passwordHttpHandler !== null && passwordHttpHandler(req, res)) ||
           setupHttpHandler(req, res) ||
+          publicWorkspaceHttpHandler(req, res) ||
           (staticWebHandler !== null && staticWebEnabled() ? staticWebHandler(req, res) : false),
       ),
       admission: admission.wsHooks,

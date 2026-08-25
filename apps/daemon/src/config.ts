@@ -151,6 +151,16 @@ export interface DaemonConfig {
    */
   auditForwarding: DaemonAuditForwardingConfig | null;
   /**
+   * Public snapshot plane master switch (the access-foundation plan §8
+   * F5b). Default false; on, owners of `public`-visibility workspaces
+   * can publish a read-only snapshot served anonymously at
+   * `/public/<workspaceId>`. Off gates both publishing and serving —
+   * standing publications go dark, nothing is deleted. Config-as-code
+   * (`publicWorkspaces` in `daemon.json` or `OH_PUBLIC_WORKSPACES=1`),
+   * the `auditForwarding` posture.
+   */
+  publicWorkspaces: boolean;
+  /**
    * System-plane egress proxy — how THIS daemon's own sends reach
    * the network (the request-engine proxy design; distinct from
    * `trustedProxy`, the inbound reverse-proxy posture). `null` = no
@@ -190,6 +200,7 @@ interface ConfigFile {
   oidc?: DaemonOidcConfig;
   auditRetentionDays?: number;
   auditForwarding?: DaemonAuditForwardingConfig;
+  publicWorkspaces?: boolean;
   licenseFile?: string;
   licenseRefresh?: boolean;
   personalSeats?: boolean;
@@ -627,6 +638,12 @@ function parseConfigRecord(record: Record<string, unknown>, configPath: string):
   if (record.auditForwarding !== undefined) {
     out.auditForwarding = parseAuditForwarding(record.auditForwarding, configPath);
   }
+  if (record.publicWorkspaces !== undefined) {
+    if (typeof record.publicWorkspaces !== 'boolean') {
+      throw new Error(`${configPath}: publicWorkspaces must be a boolean`);
+    }
+    out.publicWorkspaces = record.publicWorkspaces;
+  }
   if (record.licenseFile !== undefined) {
     if (typeof record.licenseFile !== 'string') throw new Error(`${configPath}: licenseFile must be a string`);
     out.licenseFile = record.licenseFile;
@@ -852,6 +869,12 @@ export function resolveDaemonConfig(input: ResolveConfigInput): DaemonConfig {
       ? AUDIT_RETENTION_DEFAULT_DAYS
       : parseAuditRetentionDays(rawRetention, 'audit retention days');
 
+  const envPublicWorkspaces = input.env.OH_PUBLIC_WORKSPACES;
+  const publicWorkspaces =
+    (envPublicWorkspaces !== undefined ? parseBooleanEnv(envPublicWorkspaces, 'public workspaces') : undefined) ??
+    file.publicWorkspaces ??
+    false;
+
   const rawLicenseFile = values['license-file'] ?? input.env.OH_LICENSE_FILE ?? file.licenseFile;
   const licenseFile = rawLicenseFile === undefined ? null : path.resolve(rawLicenseFile);
 
@@ -888,6 +911,7 @@ export function resolveDaemonConfig(input: ResolveConfigInput): DaemonConfig {
     vaultPassphrase,
     auditRetentionDays,
     auditForwarding: file.auditForwarding ?? null,
+    publicWorkspaces,
     licenseFile,
     licenseRefresh,
     personalSeats,
