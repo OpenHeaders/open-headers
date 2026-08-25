@@ -143,24 +143,24 @@ const MqttSessionPane: React.FC<MqttSessionPaneProps> = ({
     // A pre-open failure (a CONNACK refusal included) settles as the
     // timeline's error row — the classified message verbatim at the
     // new edge; never an opened-session end row. A USER abort (the
-    // Cancel click / Stop) carries the stopped mark and renders as the
-    // neutral aborted row instead.
-    if (snapshot.error !== null) {
+    // Cancel click / Stop) renders as the neutral aborted row instead.
+    if (snapshot.outcome.kind !== 'connected') {
       return {
         ...(timing?.startedAt !== undefined ? { startedAt: timing.startedAt } : {}),
         connected: false,
         ...(connackFacts !== undefined ? { connack: connackFacts } : {}),
-        errorMessage: snapshot.error,
-        ...(snapshot.stopped === true ? { aborted: true as const } : {}),
+        ...(snapshot.outcome.kind === 'failed'
+          ? { errorMessage: snapshot.outcome.error }
+          : { aborted: true as const }),
         // The abort tore down an established broker socket — the
         // disconnect logs as its own row.
-        ...(snapshot.stopped === true && snapshot.end !== null ? { abortedDisconnected: true as const } : {}),
+        ...(snapshot.outcome.kind === 'aborted' && snapshot.end !== null ? { abortedDisconnected: true as const } : {}),
         ...(timing?.endedAt !== undefined ? { endedAt: timing.endedAt } : {}),
       };
     }
     return {
       ...(timing?.startedAt !== undefined ? { startedAt: timing.startedAt } : {}),
-      connected: snapshot.connected,
+      connected: true,
       ...(timing?.connectedAt !== undefined ? { connectedAt: timing.connectedAt } : {}),
       ...(connackFacts !== undefined ? { connack: connackFacts } : {}),
       endedBy: snapshot.stopped === true ? 'stop' : 'close',
@@ -176,15 +176,15 @@ const MqttSessionPane: React.FC<MqttSessionPaneProps> = ({
   // Stopped is its own state.
   const endTag = (() => {
     if (snapshot === null) return null;
-    if (snapshot.error !== null) {
-      // A user abort pills neutrally — Connect failed is for failures.
-      if (snapshot.stopped === true) {
-        return (
-          <Tag style={{ marginInlineEnd: 0 }} data-testid="mqtt-session-end-tag">
-            {t('workbench.editors.mqtt.session.abortedTag')}
-          </Tag>
-        );
-      }
+    // A user abort pills neutrally — Connect failed is for failures.
+    if (snapshot.outcome.kind === 'aborted') {
+      return (
+        <Tag style={{ marginInlineEnd: 0 }} data-testid="mqtt-session-end-tag">
+          {t('workbench.editors.mqtt.session.abortedTag')}
+        </Tag>
+      );
+    }
+    if (snapshot.outcome.kind === 'failed') {
       return (
         <Tag color="error" style={{ marginInlineEnd: 0 }} data-testid="mqtt-session-end-tag">
           {t('workbench.editors.mqtt.session.connectFailedTag')}

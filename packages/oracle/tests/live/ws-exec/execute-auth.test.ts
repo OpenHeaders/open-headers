@@ -144,8 +144,8 @@ describe('executeWsSession — session credential', () => {
       sendId: 'send-auth-3b',
       resolution: scopedResolution,
     });
-    expect(snapshot.connected).toBe(false);
-    expect(snapshot.error).toContain('missing');
+    if (snapshot.outcome.kind !== 'failed') throw new Error('expected a failed outcome');
+    expect(snapshot.outcome.error).toContain('missing');
   });
 
   it('lands the token as the socketio CONNECT auth payload alongside the header', async () => {

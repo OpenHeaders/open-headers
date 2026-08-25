@@ -146,8 +146,7 @@ describe('executeMqttSession — connect gate', () => {
     rig.push({ type: 'connack', sessionPresent: true, reasonCode: 0 });
     closeActiveMqttSession('send-mqtt-open');
     const snapshot = await settled;
-    expect(snapshot.error).toBeNull();
-    expect(snapshot.connected).toBe(true);
+    expect(snapshot.outcome).toEqual({ kind: 'connected' });
     // remainingLength is the frame's Remaining Length as framed by the
     // broker side (5.0 CONNACK: flags + reason + empty properties = 3).
     expect(snapshot.connack).toEqual({ sessionPresent: true, reasonCode: 0, remainingLength: 3 });
@@ -157,7 +156,7 @@ describe('executeMqttSession — connect gate', () => {
     expect(rig.written.at(-1)?.type).toBe('disconnect');
   });
 
-  it('a close before the CONNACK settles as a user abort — stopped mark, not a bare failure', async () => {
+  it('a close before the CONNACK settles as the aborted outcome, not a failure', async () => {
     const rig = scriptedTransport(MQTT_PROTOCOL_VERSIONS.v5);
     const settled = executeMqttSession(makeMqttRequest(), {
       workspaceId: null,
@@ -171,9 +170,10 @@ describe('executeMqttSession — connect gate', () => {
     // Cancel while still connecting — no CONNACK ever arrives.
     closeActiveMqttSession('send-mqtt-abort');
     const snapshot = await settled;
-    expect(snapshot.connected).toBe(false);
-    expect(snapshot.stopped).toBe(true);
-    expect(snapshot.error).toBe('Session stopped before it connected.');
+    expect(snapshot.outcome).toEqual({ kind: 'aborted' });
+    // `stopped` keeps its open-session meaning only — the aborted
+    // outcome IS the pre-open mark.
+    expect(snapshot.stopped).toBeUndefined();
     // The socket HAD been established — the torn-down connection keeps
     // its end record (the timeline's "Disconnected from broker" row).
     expect(snapshot.end).toEqual({ by: 'client' });
@@ -192,8 +192,8 @@ describe('executeMqttSession — connect gate', () => {
     // Cancel mid-dial — the transport never reported onConnect.
     closeActiveMqttSession('send-mqtt-abort-dial');
     const snapshot = await settled;
-    expect(snapshot.connected).toBe(false);
-    expect(snapshot.stopped).toBe(true);
+    expect(snapshot.outcome).toEqual({ kind: 'aborted' });
+    expect(snapshot.stopped).toBeUndefined();
     expect(snapshot.end).toBeNull();
   });
 
@@ -251,8 +251,8 @@ describe('executeMqttSession — connect gate', () => {
         resolution: scopedResolution,
       },
     );
-    expect(snapshot.connected).toBe(false);
-    expect(snapshot.error).toContain('vault.brokerSecret');
+    if (snapshot.outcome.kind !== 'failed') throw new Error('expected a failed outcome');
+    expect(snapshot.outcome.error).toContain('vault.brokerSecret');
   });
 
   it('surfaces a CONNACK refusal verbatim as the classified pre-open error', async () => {
@@ -268,9 +268,9 @@ describe('executeMqttSession — connect gate', () => {
     rig.establish();
     rig.push({ type: 'connack', sessionPresent: false, reasonCode: 0x87 });
     const snapshot = await settled;
-    expect(snapshot.connected).toBe(false);
-    expect(snapshot.error).toContain('Not authorized');
-    expect(snapshot.error).toContain('135');
+    if (snapshot.outcome.kind !== 'failed') throw new Error('expected a failed outcome');
+    expect(snapshot.outcome.error).toContain('Not authorized');
+    expect(snapshot.outcome.error).toContain('135');
     expect(snapshot.connack).toEqual({ sessionPresent: false, reasonCode: 0x87, remainingLength: 3 });
   });
 
@@ -292,9 +292,9 @@ describe('executeMqttSession — connect gate', () => {
     // 5.0 request's decoder must read it tolerantly.
     rig.pushBytes(new Uint8Array([0x20, 0x02, 0x00, 0x01]));
     const snapshot = await settled;
-    expect(snapshot.connected).toBe(false);
-    expect(snapshot.error).toContain('Unacceptable protocol version');
-    expect(snapshot.error).toContain('code 1');
+    if (snapshot.outcome.kind !== 'failed') throw new Error('expected a failed outcome');
+    expect(snapshot.outcome.error).toContain('Unacceptable protocol version');
+    expect(snapshot.outcome.error).toContain('code 1');
     // The raw wire frame declared Remaining Length 2 — recorded verbatim.
     expect(snapshot.connack).toEqual({ sessionPresent: false, reasonCode: 1, remainingLength: 2 });
   });
@@ -311,9 +311,11 @@ describe('executeMqttSession — connect gate', () => {
       ...base,
       sendId: 's1',
     });
-    expect(scheme.error).toContain('mqtt://');
+    if (scheme.outcome.kind !== 'failed') throw new Error('expected a failed outcome');
+    expect(scheme.outcome.error).toContain('mqtt://');
     const vars = await executeMqttSession(makeMqttRequest({ url: 'mqtt://{{missing}}' }), { ...base, sendId: 's2' });
-    expect(vars.error).toContain('missing');
+    if (vars.outcome.kind !== 'failed') throw new Error('expected a failed outcome');
+    expect(vars.outcome.error).toContain('missing');
   });
 });
 
@@ -559,9 +561,8 @@ describe('executeMqttSession — version lens and session end', () => {
     rig.push(acceptedConnack);
     rig.push({ type: 'disconnect', reasonCode: 0x8b });
     const snapshot = await settled;
-    expect(snapshot.connected).toBe(true);
+    expect(snapshot.outcome).toEqual({ kind: 'connected' });
     expect(snapshot.end).toEqual({ by: 'broker', reasonCode: 0x8b });
-    expect(snapshot.error).toBeNull();
   });
 
   it('reassembles packets split across wire chunks — the incremental decoder feeds the driver', async () => {
@@ -582,6 +583,6 @@ describe('executeMqttSession — version lens and session end', () => {
     expect(rig.written.length).toBeGreaterThanOrEqual(1);
     closeActiveMqttSession('send-mqtt-split');
     const snapshot = await settled;
-    expect(snapshot.connected).toBe(true);
+    expect(snapshot.outcome).toEqual({ kind: 'connected' });
   });
 });

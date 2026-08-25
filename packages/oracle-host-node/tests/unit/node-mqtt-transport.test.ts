@@ -167,8 +167,7 @@ describe('createNodeMqttTransport', () => {
     await until(() => items.filter((k) => k === 'message').length >= 2);
     closeActiveMqttSession('node-mqtt-tcp');
     const snapshot = await settled;
-    expect(snapshot.error).toBeNull();
-    expect(snapshot.connected).toBe(true);
+    expect(snapshot.outcome).toEqual({ kind: 'connected' });
     expect(snapshot.end).toEqual({ by: 'client' });
     const subscribed = snapshot.events.find((e) => e.kind === 'subscribed');
     expect(subscribed).toEqual({ kind: 'subscribed', grants: [{ topicFilter: 'probe/#', reasonCode: 1 }] });
@@ -192,8 +191,8 @@ describe('createNodeMqttTransport', () => {
       sendId: 'node-mqtt-refused',
       resolution: passthroughResolution,
     });
-    expect(snapshot.connected).toBe(false);
-    expect(snapshot.error).toContain(`Connection refused by 127.0.0.1:${deadPort}`);
+    if (snapshot.outcome.kind !== 'failed') throw new Error('expected a failed outcome');
+    expect(snapshot.outcome.error).toContain(`Connection refused by 127.0.0.1:${deadPort}`);
   });
 
   it('rides MQTT-over-WebSocket: the mqtt subprotocol offered, packets on binary frames both ways', async () => {
@@ -216,8 +215,7 @@ describe('createNodeMqttTransport', () => {
     await until(() => items.filter((k) => k === 'message').length >= 2);
     closeActiveMqttSession('node-mqtt-ws');
     const snapshot = await settled;
-    expect(snapshot.error).toBeNull();
-    expect(snapshot.connected).toBe(true);
+    expect(snapshot.outcome).toEqual({ kind: 'connected' });
     const messages = snapshot.events.filter((e) => e.kind === 'message');
     expect(messages.map((m) => `${m.direction}:${Buffer.from(m.payloadBase64, 'base64').toString('utf8')}`)).toEqual([
       'up:over-ws',

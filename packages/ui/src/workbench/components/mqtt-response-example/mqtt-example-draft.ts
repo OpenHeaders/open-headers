@@ -99,9 +99,9 @@ export function capturedMqttRequestFromDraft(draft: MqttExampleDraft): CapturedM
 /**
  * The persisted response block from a settled session snapshot — the
  * CONNACK facts, the event log, and the end record verbatim. Volatile
- * execution internals (`connected`, `executedOn`, `proxyRoute`,
- * `error`) stay behind; callers only capture sessions that opened, so
- * the CONNACK is always present.
+ * execution internals (`outcome`, `executedOn`, `proxyRoute`) stay
+ * behind; callers only capture sessions that opened, so the CONNACK
+ * is always present.
  */
 export function capturedMqttResponseFromSnapshot(snapshot: ExecutedMqttSnapshot): CapturedMqttResponse | null {
   if (snapshot.connack === null) return null;

@@ -147,8 +147,7 @@ describe('createBrowserMqttTransport', () => {
     await until(() => items.filter((k) => k === 'message').length >= 2);
     closeActiveMqttSession('browser-mqtt-ws');
     const snapshot = await settled;
-    expect(snapshot.error).toBeNull();
-    expect(snapshot.connected).toBe(true);
+    expect(snapshot.outcome).toEqual({ kind: 'connected' });
     expect(snapshot.end).toEqual({ by: 'client' });
     const subscribed = snapshot.events.find((e) => e.kind === 'subscribed');
     expect(subscribed).toEqual({ kind: 'subscribed', grants: [{ topicFilter: 'probe/#', reasonCode: 1 }] });
@@ -167,9 +166,9 @@ describe('createBrowserMqttTransport', () => {
       sendId: 'browser-mqtt-tcp',
       resolution: passthroughResolution,
     });
-    expect(snapshot.connected).toBe(false);
-    expect(snapshot.error).toContain('raw TCP socket, which a browser page cannot open');
-    expect(snapshot.error).toContain('ws:// or wss://');
+    if (snapshot.outcome.kind !== 'failed') throw new Error('expected a failed outcome');
+    expect(snapshot.outcome.error).toContain('raw TCP socket, which a browser page cannot open');
+    expect(snapshot.outcome.error).toContain('ws:// or wss://');
   });
 
   it('classifies a refused dial with the platform-honest no-detail message', async () => {
@@ -180,7 +179,7 @@ describe('createBrowserMqttTransport', () => {
       sendId: 'browser-mqtt-refused',
       resolution: passthroughResolution,
     });
-    expect(snapshot.connected).toBe(false);
-    expect(snapshot.error).toContain('Could not open a WebSocket session to 127.0.0.1:59996');
+    if (snapshot.outcome.kind !== 'failed') throw new Error('expected a failed outcome');
+    expect(snapshot.outcome.error).toContain('Could not open a WebSocket session to 127.0.0.1:59996');
   });
 });

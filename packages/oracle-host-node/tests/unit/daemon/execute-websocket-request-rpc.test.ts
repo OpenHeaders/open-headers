@@ -193,8 +193,7 @@ describe('handleExecuteWebSocketRequestRpc — happy path', () => {
     expect(result.success).toBe(true);
     const snapshot = result.snapshot;
     if (!snapshot) throw new Error('no snapshot');
-    expect(snapshot.error).toBeNull();
-    expect(snapshot.connected).toBe(true);
+    expect(snapshot.outcome).toEqual({ kind: 'connected' });
     expect(snapshot.protocol).toBe('chat.v2');
     expect(snapshot.messages.map((m) => m.direction)).toEqual(['down', 'up']);
     expect(snapshot.messages[1]).toEqual({ direction: 'up', dataBase64: b64('hello'), binary: false });
@@ -336,7 +335,7 @@ describe('handleExecuteWebSocketRequestRpc — rider plane', () => {
       closeActiveWsSession(sendId);
     });
     expect(writes).toEqual(['still-open']);
-    expect(result.snapshot?.error).toBeNull();
+    expect(result.snapshot?.outcome).toEqual({ kind: 'connected' });
   });
 
   it('unregisters the session once settled', async () => {
@@ -359,8 +358,9 @@ describe('handleExecuteWebSocketRequestRpc — pre-wire gates', () => {
       transport,
     );
     expect(result.success).toBe(true);
-    expect(result.snapshot?.error).toContain('env.missing_host');
-    expect(result.snapshot?.connected).toBe(false);
+    const outcome = result.snapshot?.outcome;
+    if (outcome?.kind !== 'failed') throw new Error('expected a failed outcome');
+    expect(outcome.error).toContain('env.missing_host');
     expect(calls()).toBe(0);
   });
 
@@ -371,13 +371,15 @@ describe('handleExecuteWebSocketRequestRpc — pre-wire gates', () => {
       { draft: makeWsRequest({ url: '  ' }), sendId: 's-10' },
       empty.transport,
     );
-    expect(emptyResult.snapshot?.error).toBe('URL is empty');
+    expect(emptyResult.snapshot?.outcome).toEqual({ kind: 'failed', error: 'URL is empty' });
     const scheme = scriptedTransport();
     const schemeResult = await handleExecuteWebSocketRequestRpc(
       { draft: makeWsRequest({ url: 'https://events.openheaders.io' }), sendId: 's-11' },
       scheme.transport,
     );
-    expect(schemeResult.snapshot?.error).toContain('ws:// or wss://');
+    const schemeOutcome = schemeResult.snapshot?.outcome;
+    if (schemeOutcome?.kind !== 'failed') throw new Error('expected a failed outcome');
+    expect(schemeOutcome.error).toContain('ws:// or wss://');
   });
 
   it('requires a sendId and answers missing input with success: false', async () => {
@@ -398,7 +400,9 @@ describe('handleExecuteWebSocketRequestRpc — pre-wire gates', () => {
       () => {},
     );
     expect(result.success).toBe(true);
-    expect(result.snapshot?.error).toContain('gone1234 not found');
+    const outcome = result.snapshot?.outcome;
+    if (outcome?.kind !== 'failed') throw new Error('expected a failed outcome');
+    expect(outcome.error).toContain('gone1234 not found');
   });
 });
 
@@ -412,8 +416,9 @@ describe('handleExecuteWebSocketRequestRpc — settle shapes', () => {
       () => {},
     );
     expect(result.success).toBe(true);
-    expect(result.snapshot?.connected).toBe(false);
-    expect(result.snapshot?.error).toContain('Connection refused');
+    const outcome = result.snapshot?.outcome;
+    if (outcome?.kind !== 'failed') throw new Error('expected a failed outcome');
+    expect(outcome.error).toContain('Connection refused');
   });
 
   it('records the platform 1006 no-Close-frame marker as the null close it is', async () => {
@@ -431,9 +436,8 @@ describe('handleExecuteWebSocketRequestRpc — settle shapes', () => {
     sessionCallbacks?.onClose({ code: 1006, reason: '', wasClean: false });
     sessionCallbacks?.onEnd();
     const result = await pending;
-    expect(result.snapshot?.connected).toBe(true);
+    expect(result.snapshot?.outcome).toEqual({ kind: 'connected' });
     expect(result.snapshot?.close).toBeNull();
-    expect(result.snapshot?.error).toBeNull();
   });
 
   it('keeps a real server close verbatim, wasClean included', async () => {
@@ -461,14 +465,13 @@ describe('handleExecuteWebSocketRequestRpc — settle shapes', () => {
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(stopActiveSend('s-17')).toBe(true);
     const result = await pending;
-    expect(result.snapshot?.connected).toBe(true);
+    expect(result.snapshot?.outcome).toEqual({ kind: 'connected' });
     expect(result.snapshot?.stopped).toBe(true);
     expect(result.snapshot?.messages.map((m) => m.direction)).toEqual(['down']);
     expect(result.snapshot?.close).toBeNull();
-    expect(result.snapshot?.error).toBeNull();
   });
 
-  it('Stop before the handshake settles as the classified stop error', async () => {
+  it('Stop before the handshake settles as the aborted outcome', async () => {
     seedStorage([]);
     let abortSignal: AbortSignal | undefined;
     const transport: WsTransport = {
@@ -485,8 +488,8 @@ describe('handleExecuteWebSocketRequestRpc — settle shapes', () => {
     expect(abortSignal).toBeDefined();
     expect(stopActiveSend('s-18')).toBe(true);
     const result = await pending;
-    expect(result.snapshot?.connected).toBe(false);
-    expect(result.snapshot?.error).toBe('Session stopped before it connected.');
+    expect(result.snapshot?.outcome).toEqual({ kind: 'aborted' });
+    expect(result.snapshot?.stopped).toBeUndefined();
   });
 });
 

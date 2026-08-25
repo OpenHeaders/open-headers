@@ -106,8 +106,7 @@ describe('executeWsSession — injected resolution', () => {
     rig.callbacks().onClose({ code: 1000, reason: '', wasClean: true });
     rig.callbacks().onEnd();
     const snapshot = await settled;
-    expect(snapshot.error).toBeNull();
-    expect(snapshot.connected).toBe(true);
+    expect(snapshot.outcome).toEqual({ kind: 'connected' });
   });
 
   it('gates an unresolved Connect-time reference as a structured error snapshot', async () => {
@@ -119,8 +118,8 @@ describe('executeWsSession — injected resolution', () => {
       sendId: 'send-inject-2',
       resolution: scopedResolution,
     });
-    expect(snapshot.connected).toBe(false);
-    expect(snapshot.error).toContain('missing_host');
+    if (snapshot.outcome.kind !== 'failed') throw new Error('expected a failed outcome');
+    expect(snapshot.outcome.error).toContain('missing_host');
   });
 
   it("stamps a transport-reported route as the system plane's wire truth", async () => {
@@ -169,7 +168,7 @@ describe('executeWsSession — injected resolution', () => {
     rig.callbacks().onClose({ code: 1000, reason: '', wasClean: true });
     rig.callbacks().onEnd();
     const snapshot = await settled;
-    expect(snapshot.error).toBeNull();
+    expect(snapshot.outcome).toEqual({ kind: 'connected' });
     expect(snapshot.messages.map((m) => m.direction)).toEqual(['up']);
   });
 });

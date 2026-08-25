@@ -283,7 +283,7 @@ export function useMqttSessionPlane({
   // facts; only a session that opened can be captured (the gRPC
   // example's law).
   const handleSaveResponse = useCallback(async () => {
-    if (!entity || !workspaceId || !snapshot || snapshot.error !== null || !snapshot.connected) return;
+    if (!entity || !workspaceId || !snapshot || snapshot.outcome.kind !== 'connected') return;
     const response = capturedMqttResponseFromSnapshot(snapshot);
     if (response === null) return;
     const mirror = getMqttResponseExampleSyncMirrorForWorkspace(workspaceId);
@@ -314,8 +314,7 @@ export function useMqttSessionPlane({
     }
   }, [entity, workspaceId, snapshot, draft, toast, onOpenMqttResponseExample, t]);
 
-  const canSaveResponse =
-    workspaceId !== null && snapshot !== null && snapshot.error === null && snapshot.connected;
+  const canSaveResponse = workspaceId !== null && snapshot !== null && snapshot.outcome.kind === 'connected';
 
   const sessionOpen = inFlight && liveSession.live !== null && liveSession.live.open !== null;
 

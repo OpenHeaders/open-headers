@@ -34,10 +34,19 @@ export interface ExecutedWsClose {
   wasClean: boolean;
 }
 
+/**
+ * How the session settled, first-class: `connected` = the handshake
+ * completed and the session opened (however it later ended — `close`
+ * and `stopped` carry that story); `failed` = a pre-open failure with
+ * the host's classified, user-actionable message; `aborted` = the
+ * user cancelled before the session opened — a neutral outcome
+ * carrying no synthesized message.
+ */
+export type ExecutedWsOutcome = { kind: 'connected' } | { kind: 'failed'; error: string } | { kind: 'aborted' };
+
 export interface ExecutedWsSnapshot {
-  /** True when the handshake completed and the session opened; false =
-   *  the connect failed pre-open (`error` names why). */
-  connected: boolean;
+  /** How the session settled (see {@link ExecutedWsOutcome}). */
+  outcome: ExecutedWsOutcome;
   /** The subprotocol the server selected; empty when none negotiated. */
   protocol: string;
   /** The extensions the handshake negotiated; empty when none. The
@@ -57,8 +66,9 @@ export interface ExecutedWsSnapshot {
   /** The Close frame as received (or locally initiated); `null` when
    *  the connection severed without one — never synthesized. */
   close: ExecutedWsClose | null;
-  /** True when the user stopped the session via Stop-abort rather than
-   *  a Disconnect close — the capture holds what arrived. */
+  /** True when the user stopped the OPEN session via Stop-abort rather
+   *  than a Disconnect close — the capture holds what arrived. Never
+   *  set on a pre-open abort: the `aborted` outcome IS that mark. */
   stopped?: boolean;
   /** Whole-session wall time (connect start → settle), display-only. */
   durationMs: number;
@@ -82,7 +92,4 @@ export interface ExecutedWsSnapshot {
     kind: 'backend';
     name: string;
   };
-  /** Non-null when the connect failed before the session opened —
-   *  the host's classified, user-actionable message. */
-  error: string | null;
 }

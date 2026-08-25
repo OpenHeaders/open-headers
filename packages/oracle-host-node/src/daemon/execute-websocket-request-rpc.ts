@@ -3,8 +3,9 @@
  * user-facing Connect, the `execute-grpc-request-rpc.ts` sibling for
  * the WebSocketRequest entity kind. Same result discipline: a session
  * that fails before or on the wire still resolves `success: true`
- * with an error SNAPSHOT (the session pane renders `snapshot.error`);
- * `success: false` is reserved for missing input and unexpected
+ * with a failed-outcome SNAPSHOT (the session pane renders the
+ * outcome's error); `success: false` is reserved for missing input
+ * and unexpected
  * throws. The RPC resolves when the session SETTLES — server close,
  * Disconnect rider, Stop-abort, or a pre-open failure.
  *

@@ -80,11 +80,20 @@ export interface ExecutedMqttConnack {
  */
 export type ExecutedMqttEnd = { by: 'client' } | { by: 'broker'; reasonCode: number | null } | null;
 
+/**
+ * How the session settled, first-class: `connected` = the broker
+ * accepted the CONNECT and the session opened (however it later ended
+ * — `end` and `stopped` carry that story); `failed` = a pre-open
+ * failure with the host's classified, user-actionable message (a
+ * CONNACK refusal reason rides here verbatim); `aborted` = the user
+ * cancelled before the session opened — a neutral outcome carrying no
+ * synthesized message.
+ */
+export type ExecutedMqttOutcome = { kind: 'connected' } | { kind: 'failed'; error: string } | { kind: 'aborted' };
+
 export interface ExecutedMqttSnapshot {
-  /** True when the broker accepted the CONNECT and the session opened;
-   *  false = the connect failed pre-open (`error` names why — a CONNACK
-   *  refusal carries its reason code verbatim in the message). */
-  connected: boolean;
+  /** How the session settled (see {@link ExecutedMqttOutcome}). */
+  outcome: ExecutedMqttOutcome;
   /** The CONNACK facts; `null` when no CONNACK ever arrived. */
   connack: ExecutedMqttConnack | null;
   /** The client id the CONNECT actually carried — the entity's own, or
@@ -101,12 +110,13 @@ export interface ExecutedMqttSnapshot {
   /** Events that rolled off the retention window, 0 when none did. */
   droppedMessages: number;
   /** How the open session ended (see {@link ExecutedMqttEnd}). On an
-   *  ABORTED pre-open snapshot (`stopped` beside `error`) it is
-   *  present only when a broker socket had actually been established —
-   *  the torn-down connection is a real event the timeline logs. */
+   *  ABORTED pre-open snapshot it is present only when a broker socket
+   *  had actually been established — the torn-down connection is a
+   *  real event the timeline logs. */
   end: ExecutedMqttEnd;
-  /** True when the user stopped the session via Stop-abort rather than
-   *  a Disconnect — the capture holds what arrived. */
+  /** True when the user stopped the OPEN session via Stop-abort rather
+   *  than a Disconnect — the capture holds what arrived. Never set on
+   *  a pre-open abort: the `aborted` outcome IS that mark. */
   stopped?: boolean;
   /** Whole-session wall time (connect start → settle), display-only. */
   durationMs: number;
@@ -124,8 +134,4 @@ export interface ExecutedMqttSnapshot {
     kind: 'backend';
     name: string;
   };
-  /** Non-null when the connect failed before the session opened —
-   *  the host's classified, user-actionable message (a CONNACK refusal
-   *  reason rides here verbatim). */
-  error: string | null;
 }

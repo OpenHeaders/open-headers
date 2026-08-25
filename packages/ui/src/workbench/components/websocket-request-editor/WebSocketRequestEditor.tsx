@@ -574,7 +574,7 @@ const WebSocketRequestEditor: React.FC<WebSocketRequestEditorProps> = ({
   // facts; only a session that opened can be captured (the gRPC
   // example's law).
   const handleSaveResponse = useCallback(async () => {
-    if (!entity || !workspaceId || !snapshot || snapshot.error !== null || !snapshot.connected) return;
+    if (!entity || !workspaceId || !snapshot || snapshot.outcome.kind !== 'connected') return;
     const mirror = getWsResponseExampleSyncMirrorForWorkspace(workspaceId);
     await mirror.hydrated;
     const name = nextWsExampleName(mirror, entity.uid, entity.name);
@@ -603,8 +603,7 @@ const WebSocketRequestEditor: React.FC<WebSocketRequestEditorProps> = ({
     }
   }, [entity, workspaceId, snapshot, draft, toast, onOpenWsResponseExample, t]);
 
-  const canSaveResponse =
-    workspaceId !== null && snapshot !== null && snapshot.error === null && snapshot.connected;
+  const canSaveResponse = workspaceId !== null && snapshot !== null && snapshot.outcome.kind === 'connected';
 
   // Events-tab display filter: with at least one NAMED row, the
   // timeline shows only the listened incoming events (rows compare by

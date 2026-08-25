@@ -99,7 +99,7 @@ const WsSessionPane: React.FC<WsSessionPaneProps> = ({
           : t('workbench.editors.websocket.session.noCloseFrame');
     return {
       ...(timing?.startedAt !== undefined ? { startedAt: timing.startedAt } : {}),
-      connected: snapshot.connected,
+      connected: snapshot.outcome.kind === 'connected',
       ...(timing?.connectedAt !== undefined ? { connectedAt: timing.connectedAt } : {}),
       ...(snapshot.protocol !== '' ? { protocol: snapshot.protocol } : {}),
       endedBy: snapshot.stopped === true ? 'stop' : 'close',
@@ -108,9 +108,10 @@ const WsSessionPane: React.FC<WsSessionPaneProps> = ({
     };
   }, [snapshot, live, timing, t]);
 
-  // Pre-open failures render the classified message under the plain
-  // title row — there was never a session to timeline.
-  if (snapshot !== null && snapshot.error !== null) {
+  // Pre-open ends render under the plain title row — there was never a
+  // session to timeline: a failure shows its classified message, a
+  // user abort the neutral stopped-before-connect note.
+  if (snapshot !== null && snapshot.outcome.kind !== 'connected') {
     return (
       <div
         style={{
@@ -136,9 +137,15 @@ const WsSessionPane: React.FC<WsSessionPaneProps> = ({
         </div>
         {noticeStrip}
         <div style={{ padding: '16px 12px' }}>
-          <Text type="danger" style={{ fontSize: 12 }} data-testid="ws-session-error-detail">
-            {snapshot.error}
-          </Text>
+          {snapshot.outcome.kind === 'failed' ? (
+            <Text type="danger" style={{ fontSize: 12 }} data-testid="ws-session-error-detail">
+              {snapshot.outcome.error}
+            </Text>
+          ) : (
+            <Text type="secondary" style={{ fontSize: 12 }} data-testid="ws-session-error-detail">
+              {t('workbench.editors.websocket.session.abortedBeforeConnect')}
+            </Text>
+          )}
         </div>
       </div>
     );

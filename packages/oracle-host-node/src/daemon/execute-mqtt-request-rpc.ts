@@ -2,9 +2,10 @@
  * Workbench `executeMqttRequest` route — the node host's user-facing
  * Connect, the `execute-websocket-request-rpc.ts` sibling for the
  * MqttRequest entity kind. Same result discipline: a session that
- * fails before or on the wire still resolves `success: true` with an
- * error SNAPSHOT (the session pane renders `snapshot.error` — a
- * CONNACK refusal reason rides it verbatim); `success: false` is
+ * fails before or on the wire still resolves `success: true` with a
+ * failed-outcome SNAPSHOT (the session pane renders the outcome's
+ * error — a CONNACK refusal reason rides it verbatim); `success:
+ * false` is
  * reserved for missing input and unexpected throws. The RPC resolves
  * when the session SETTLES — broker close or DISCONNECT, Disconnect
  * rider, Stop-abort, or a pre-open failure.

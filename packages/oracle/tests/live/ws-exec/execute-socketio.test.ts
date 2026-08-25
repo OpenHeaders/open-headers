@@ -122,7 +122,7 @@ describe('executeWsSession — socketio flavor', () => {
     rig.callbacks().onClose({ code: 1000, reason: '', wasClean: true });
     rig.callbacks().onEnd();
     const snapshot = await settled;
-    expect(snapshot.error).toBeNull();
+    expect(snapshot.outcome).toEqual({ kind: 'connected' });
     // Both directions in call order, protocol frames included verbatim.
     const decode = (b64: string): string => Buffer.from(b64, 'base64').toString('utf8');
     expect(snapshot.messages.map((m) => `${m.direction}:${decode(m.dataBase64)}`)).toEqual([
@@ -198,8 +198,8 @@ describe('executeWsSession — socketio flavor', () => {
       sendId: 'send-sio-badns',
       resolution: scopedResolution,
     });
-    expect(snapshot.connected).toBe(false);
-    expect(snapshot.error).toContain('namespace');
+    if (snapshot.outcome.kind !== 'failed') throw new Error('expected a failed outcome');
+    expect(snapshot.outcome.error).toContain('namespace');
   });
 
   it('rejects the socketio rider addendum on a raw-flavor session', async () => {

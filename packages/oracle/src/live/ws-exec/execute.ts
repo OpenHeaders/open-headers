@@ -11,9 +11,10 @@
  *
  * Failure discipline: everything that can go wrong before the wire —
  * an empty or non-ws(s) URL, unresolved variables — returns a
- * STRUCTURED error snapshot naming the gap, never a throw. On the
- * wire, only a session that never opened maps onto `error`; once open,
- * the close record (or its honest `null`) is the story.
+ * STRUCTURED failed-outcome snapshot naming the gap, never a throw.
+ * On the wire, only a session that never opened settles `failed` (or
+ * `aborted` on a user stop); once open, the close record (or its
+ * honest `null`) is the story.
  *
  * The sendId spine is the HTTP executor's: the caller-minted id
  * registers a Stop hook on the shared active-send registry
@@ -200,16 +201,17 @@ export async function executeWsSession(
       emitter?.end();
       const durationMs = Math.round(performance.now() - startedAt);
       if (!opened) {
+        // A user Stop-abort before the handshake completed settles as
+        // the ABORTED outcome, not a failure.
         resolve({
-          ...errorWsSnapshot(
-            stopped ? 'Session stopped before it connected.' : (errorMessage ?? 'The session ended before it opened.'),
-          ),
+          ...errorWsSnapshot(errorMessage ?? 'The session ended before it opened.'),
+          ...(stopped ? { outcome: { kind: 'aborted' as const } } : {}),
           durationMs,
         });
         return;
       }
       resolve({
-        connected: true,
+        outcome: { kind: 'connected' },
         protocol,
         extensions,
         messages,
@@ -218,7 +220,6 @@ export async function executeWsSession(
         ...(stopped ? { stopped: true } : {}),
         durationMs,
         ...(proxyRoute !== undefined ? { proxyRoute } : {}),
-        error: null,
       });
     };
 
@@ -366,13 +367,12 @@ function byteLengthOfBase64(base64: string): number {
 
 export function errorWsSnapshot(message: string): ExecutedWsSnapshot {
   return {
-    connected: false,
+    outcome: { kind: 'failed', error: message },
     protocol: '',
     extensions: '',
     messages: [],
     droppedMessages: 0,
     close: null,
     durationMs: 0,
-    error: message,
   };
 }

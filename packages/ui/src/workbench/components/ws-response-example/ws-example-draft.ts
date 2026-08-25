@@ -82,8 +82,8 @@ export function capturedWsRequestFromDraft(draft: WsExampleDraft, flavor: WebSoc
 /**
  * The persisted response block from a settled session snapshot — the
  * handshake facts, the direction-tagged capture, and the close record
- * verbatim. Volatile execution internals (`connected`, `executedOn`,
- * `error`) stay behind; callers only capture sessions that opened.
+ * verbatim. Volatile execution internals (`outcome`, `executedOn`)
+ * stay behind; callers only capture sessions that opened.
  */
 export function capturedWsResponseFromSnapshot(snapshot: ExecutedWsSnapshot): CapturedWsResponse {
   return {

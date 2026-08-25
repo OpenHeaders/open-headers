@@ -116,11 +116,13 @@ export interface MqttTimelineLifecycle {
   connack?: { reasonCode: number; reasonName?: string; sessionPresent: boolean; remainingLength?: number };
   /** Classified pre-open failure — the session never opened (a CONNACK
    *  refusal included, its reason verbatim). Rendered as an error row
-   *  at the timeline's new edge; never set beside `endedBy`. */
+   *  at the timeline's new edge; never set beside `endedBy` or
+   *  `aborted`. */
   errorMessage?: string;
-  /** The pre-open end was USER-initiated (Cancel / Stop) — the row at
-   *  the error slot renders as the neutral "Connection aborted" info
-   *  row instead of the error tint. Only set beside `errorMessage`. */
+  /** The pre-open end was USER-initiated (Cancel / Stop) — the neutral
+   *  "Connection aborted" info row renders at the error row's slot
+   *  instead of the error tint. Never set beside `errorMessage` (an
+   *  abort carries no message) or `endedBy`. */
   aborted?: true;
   /** The abort tore down an ESTABLISHED broker socket — a
    *  "Disconnected from broker" info row follows the aborted row.
@@ -380,14 +382,15 @@ const MqttMessageTimeline: React.FC<MqttMessageTimelineProps> = ({
     for (const index of visibleRows) tokens.push(index);
     if (newestFirst) tokens.reverse();
 
-    // The error row sits at the ended row's chronological slot — the
-    // two never coexist (a pre-open failure has no opened-session end).
-    // An abort that closed an established broker socket logs the
+    // The error/aborted row sits at the ended row's chronological slot
+    // — the two never coexist (a pre-open end has no opened-session
+    // end). An abort that closed an established broker socket logs the
     // disconnect as its own row — chronologically AFTER the abort.
+    const preOpenEnd = lifecycle.errorMessage !== undefined || lifecycle.aborted === true;
     const abortedEnd = lifecycle.aborted === true && lifecycle.abortedDisconnected === true;
     if (newestFirst) {
       if (lifecycle.endedBy !== undefined) out.push({ key: 'ended', kind: 'ended' });
-      if (lifecycle.errorMessage !== undefined) {
+      if (preOpenEnd) {
         if (abortedEnd) out.push({ key: 'abortedEnd', kind: 'abortedEnd' });
         out.push({ key: 'error', kind: 'error' });
       }
@@ -411,7 +414,7 @@ const MqttMessageTimeline: React.FC<MqttMessageTimelineProps> = ({
       out.push({ key: 'sent', kind: 'sent' });
     } else {
       if (notice) out.push(notice);
-      if (lifecycle.errorMessage !== undefined) {
+      if (preOpenEnd) {
         out.push({ key: 'error', kind: 'error' });
         if (abortedEnd) out.push({ key: 'abortedEnd', kind: 'abortedEnd' });
       }
@@ -684,7 +687,6 @@ const MqttMessageTimeline: React.FC<MqttMessageTimelineProps> = ({
           </div>
         );
       case 'error': {
-        if (lifecycle.errorMessage === undefined) return null;
         // A user abort is not a failure — the neutral info row.
         if (lifecycle.aborted === true) {
           return (
@@ -698,6 +700,7 @@ const MqttMessageTimeline: React.FC<MqttMessageTimelineProps> = ({
             </div>
           );
         }
+        if (lifecycle.errorMessage === undefined) return null;
         return (
           <div key={entry.key} data-testid="mqtt-timeline-error-row" style={lifecycleRowStyle}>
             <CloseCircleOutlined aria-hidden style={{ fontSize: 11, color: token.colorError }} />

@@ -30,8 +30,8 @@
  *
  * Failure discipline: everything that can go wrong before the wire —
  * an empty or foreign-scheme URL, unresolved variables, a malformed
- * base64/hex payload — returns a STRUCTURED error snapshot naming the
- * gap, never a throw. Once open, the end record (client DISCONNECT,
+ * base64/hex payload — returns a STRUCTURED failed-outcome snapshot
+ * naming the gap, never a throw. Once open, the end record (client DISCONNECT,
  * broker DISCONNECT with reason, or the honest `null` for a severed
  * connection) is the story.
  *
@@ -184,14 +184,13 @@ function byteLengthOfBase64(base64: string): number {
 
 export function errorMqttSnapshot(message: string): ExecutedMqttSnapshot {
   return {
-    connected: false,
+    outcome: { kind: 'failed', error: message },
     connack: null,
     clientId: '',
     events: [],
     droppedMessages: 0,
     end: null,
     durationMs: 0,
-    error: message,
   };
 }
 
@@ -365,30 +364,28 @@ export async function executeMqttSession(
       if (!opened) {
         // A user-initiated end (Stop-abort, or the header's Cancel
         // riding the clean-close rider — the pre-open close() stamps
-        // `end.by = 'client'`) is an ABORT, not a failure: the
-        // snapshot carries the stopped mark so surfaces render it
-        // neutrally. A broker refusal stays a refusal even when the
+        // `end.by = 'client'`) settles as the ABORTED outcome, not a
+        // failure. A broker refusal stays a refusal even when the
         // user also cancelled.
         const aborted = refusalMessage === null && (stopped || end?.by === 'client');
         resolve({
-          ...errorMqttSnapshot(
-            aborted
-              ? 'Session stopped before it connected.'
-              : (refusalMessage ?? errorMessage ?? 'The session ended before it opened.'),
-          ),
-          ...(aborted ? { stopped: true } : {}),
+          outcome: aborted
+            ? { kind: 'aborted' }
+            : { kind: 'failed', error: refusalMessage ?? errorMessage ?? 'The session ended before it opened.' },
+          connack,
+          clientId,
+          events: [],
+          droppedMessages: 0,
           // An abort that tore down an ESTABLISHED broker socket keeps
           // its end record — the disconnect is a real event to log; a
           // cancel before the socket ever came up carries none.
-          ...(aborted && socketConnected && end !== null ? { end } : {}),
-          connack,
-          clientId,
+          end: aborted && socketConnected && end !== null ? end : null,
           durationMs,
         });
         return;
       }
       resolve({
-        connected: true,
+        outcome: { kind: 'connected' },
         connack,
         clientId,
         events,
@@ -397,7 +394,6 @@ export async function executeMqttSession(
         ...(stopped ? { stopped: true } : {}),
         durationMs,
         ...(proxyRoute !== undefined ? { proxyRoute } : {}),
-        error: null,
       });
     };
 

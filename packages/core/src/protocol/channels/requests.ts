@@ -533,8 +533,8 @@ export interface RequestRpc {
    * arrived), and tags the live `mqttStreamEvent` frames. The RPC
    * resolves when the session SETTLES (broker close or DISCONNECT,
    * Disconnect, Stop, or a pre-open failure — a CONNACK refusal
-   * carries its reason verbatim as the classified error) — with the
-   * whole-session snapshot.
+   * carries its reason verbatim as the failed outcome's error) — with
+   * the whole-session snapshot.
    */
   executeMqttRequest: {
     req: {
