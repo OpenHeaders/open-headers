@@ -346,6 +346,7 @@ export const workbenchChrome = {
 
   // ── Tool-window registry (activity bars, dock tab strips, restore
   //    rows, drag previews) ───────────────────────────────────────────
+  'workbench.toolWindows.serverAdmin': 'Admin du serveur',
   'workbench.toolWindows.httpRules': 'Intercepteur',
   'workbench.toolWindows.apiRequests': 'Requêtes API',
   'workbench.toolWindows.workflows': 'Workflows',
@@ -365,6 +366,10 @@ export const workbenchChrome = {
   //    reference chips compose raw in JSX between the keyed prefix/
   //    suffix fragments; the Notifications entry stays on the shared
   //    NOTIFICATIONS_PANEL_INFO corpus (panel co-consumer, Phase D). ───
+  'workbench.toolWindows.info.serverAdmin.summary':
+    'Administrer ce serveur : les utilisateurs et leurs accès, les appareils appairés, les liaisons de ' +
+    "dépôts et le journal d'audit. Chaque ligne ouvre son propre onglet.",
+  'workbench.toolWindows.info.serverAdmin.domainsHeading': "Domaines d'administration",
   'workbench.toolWindows.info.httpRules.summary':
     'Créez des règles qui réécrivent les requêtes sortantes et les réponses entrantes. Les règles vivent dans ' +
     'des collections et peuvent injecter des valeurs depuis les variables, le vault et les workflows Live.',

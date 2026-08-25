@@ -17,6 +17,7 @@
 import type { InfoPopoverContent } from '@openheaders/ui/shared/info-popover';
 import { getNotificationsPanelInfo } from '@openheaders/ui/shared/notifications';
 import type { Translate } from '@openheaders/ui/context/LocaleContext';
+import { SERVER_ADMIN_SECTIONS } from './components/server-admin/sections';
 import { buildRuleIcon } from './components/shared/rule-icon';
 import { scopeBadge } from './components/shared/scope-colors';
 import { ALL_RULE_TYPES } from './rule-type-menu';
@@ -41,6 +42,21 @@ const Code = ({ children }: { children: string }) => (
 
 function buildToolWindowInfo(t: Translate): Record<ToolWindowId, InfoPopoverContent> {
   return {
+    'server-admin': {
+      title: t('workbench.toolWindows.serverAdmin'),
+      summary: t('workbench.toolWindows.info.serverAdmin.summary'),
+      sections: [
+        {
+          heading: t('workbench.toolWindows.info.serverAdmin.domainsHeading'),
+          layout: 'stacked',
+          items: SERVER_ADMIN_SECTIONS.map((def) => ({
+            icon: def.icon,
+            label: t(def.labelKey),
+            desc: t(def.hintKey),
+          })),
+        },
+      ],
+    },
     'http-rules': {
       title: t('workbench.toolWindows.httpRules'),
       summary: t('workbench.toolWindows.info.httpRules.summary'),

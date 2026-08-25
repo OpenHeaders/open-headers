@@ -1,11 +1,12 @@
 /**
- * ServerAdminConsole grants rendering — the forward-tolerant decode law
+ * The server-admin Users tab grants rendering — the forward-tolerant decode law
  * (the access-foundation plan §6): a grant role outside the console's
  * authoring vocabulary (a newer server's value) renders VERBATIM beside
  * the translated known roles — the row is never refused or blanked.
  */
 
-import ServerAdminConsole from '@openheaders/ui/workbench/components/server-admin/ServerAdminConsole';
+import ServerAdminTab from '@openheaders/ui/workbench/components/server-admin/ServerAdminTab';
+import { __resetServerAdminStatusForTests } from '@openheaders/ui/workbench/components/server-admin/use-server-admin-status';
 import { cleanup, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -64,6 +65,7 @@ const DIRECTORY = {
 };
 
 beforeEach(() => {
+  __resetServerAdminStatusForTests();
   mockCall.mockReset();
   mockSubscribe.mockReset();
   mockSubscribe.mockReturnValue(() => {});
@@ -91,9 +93,9 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-describe('ServerAdminConsole grant role labels', () => {
+describe('server-admin Users tab grant role labels', () => {
   it('renders an unknown role verbatim and a known role through its label', async () => {
-    render(<ServerAdminConsole />);
+    render(<ServerAdminTab section="users" />);
     // The unknown role from a newer server rides through untranslated —
     // never a blank tag, never a dropped row.
     expect(await screen.findByText('Alpha · publisher')).toBeTruthy();

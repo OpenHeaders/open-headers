@@ -345,6 +345,7 @@ export const workbenchChrome = {
 
   // ── Tool-window registry (activity bars, dock tab strips, restore
   //    rows, drag previews) ───────────────────────────────────────────
+  'workbench.toolWindows.serverAdmin': '服务器管理',
   'workbench.toolWindows.httpRules': '拦截器',
   'workbench.toolWindows.apiRequests': 'API 请求',
   'workbench.toolWindows.workflows': '工作流',
@@ -364,6 +365,9 @@ export const workbenchChrome = {
   //    reference chips compose raw in JSX between the keyed prefix/
   //    suffix fragments; the Notifications entry stays on the shared
   //    NOTIFICATIONS_PANEL_INFO corpus (panel co-consumer, Phase D). ───
+  'workbench.toolWindows.info.serverAdmin.summary':
+    '管理此服务器：用户及其访问权限、配对设备、仓库绑定和审计日志。每一行打开各自的标签页。',
+  'workbench.toolWindows.info.serverAdmin.domainsHeading': '管理域',
   'workbench.toolWindows.info.httpRules.summary':
     '创建用于改写传出请求和传入响应的规则。规则存放在集合中，并能注入来自变量、vault 和 live 工作流的值。',
   'workbench.toolWindows.info.httpRules.ruleTypesHeading': '规则类型',

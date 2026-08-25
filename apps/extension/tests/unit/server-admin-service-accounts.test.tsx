@@ -1,5 +1,5 @@
 /**
- * ServerAdminConsole service-account rows (the access-foundation plan
+ * The server-admin Users tab service-account rows (the access-foundation plan
  * §8 F3) — a `kind: 'service'` row renders the Service tag with the
  * machine wording and hides the human-only affordances (password,
  * server roles); a kind-less row from an older server and an unknown
@@ -7,7 +7,8 @@
  * decode law — never a refusal).
  */
 
-import ServerAdminConsole from '@openheaders/ui/workbench/components/server-admin/ServerAdminConsole';
+import ServerAdminTab from '@openheaders/ui/workbench/components/server-admin/ServerAdminTab';
+import { __resetServerAdminStatusForTests } from '@openheaders/ui/workbench/components/server-admin/use-server-admin-status';
 import { cleanup, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -70,6 +71,7 @@ const DIRECTORY = {
 };
 
 beforeEach(() => {
+  __resetServerAdminStatusForTests();
   mockCall.mockReset();
   mockSubscribe.mockReset();
   mockSubscribe.mockReturnValue(() => {});
@@ -92,9 +94,9 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-describe('ServerAdminConsole service-account rows', () => {
+describe('server-admin Users tab service-account rows', () => {
   it('renders the Service tag and machine last-seen wording, hides password and server roles', async () => {
-    render(<ServerAdminConsole />);
+    render(<ServerAdminTab section="users" />);
     expect(await screen.findByText('Service')).toBeTruthy();
     // The lastSeen line uses the machine wording for a never-connected bot.
     expect(screen.getByText(/never used/)).toBeTruthy();
@@ -106,7 +108,7 @@ describe('ServerAdminConsole service-account rows', () => {
   });
 
   it('renders kind-less and unknown-kind rows as human rows (forward-tolerant)', async () => {
-    render(<ServerAdminConsole />);
+    render(<ServerAdminTab section="users" />);
     expect(await screen.findByTestId('server-admin-password-u-legacy')).toBeTruthy();
     expect(screen.getByTestId('server-admin-role-admin-u-legacy')).toBeTruthy();
     expect(screen.getByTestId('server-admin-password-u-future')).toBeTruthy();

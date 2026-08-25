@@ -21,6 +21,19 @@ export const workbenchServerAdmin = {
   'workbench.serverAdmin.deniedDescription': 'Administrer ce serveur requiert la capacité daemon.admin.',
   'workbench.serverAdmin.cancel': 'Annuler',
 
+  // ── Server admin panel (the administration nav — one row per
+  //    domain, each opening its own slim tab) ─────────────────────────
+  'workbench.serverAdmin.panel.users': 'Utilisateurs',
+  'workbench.serverAdmin.panel.usersHint': 'Annuaire, rôles et accès aux espaces de travail',
+  'workbench.serverAdmin.panel.devices': 'Appareils appairés',
+  'workbench.serverAdmin.panel.devicesHint': 'Jetons, appairage et sessions connectées',
+  'workbench.serverAdmin.panel.git': 'Git',
+  'workbench.serverAdmin.panel.gitHint': 'Lier les espaces de travail du serveur à des dépôts',
+  'workbench.serverAdmin.panel.audit': 'Audit',
+  'workbench.serverAdmin.panel.auditHint': "Interroger le journal d'audit du serveur",
+  'workbench.serverAdmin.panel.server': 'Serveur',
+  'workbench.serverAdmin.panel.serverHint': 'Build, version et notes de version',
+
   // ── Release-notes card ─────────────────────────────────────────────
   'workbench.serverAdmin.notes.sectionTitle': 'Notes de version',
   'workbench.serverAdmin.notes.sectionHint':

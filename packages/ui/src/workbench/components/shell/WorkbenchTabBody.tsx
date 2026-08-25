@@ -20,7 +20,7 @@ import { findFolderByUid } from '@openheaders/ui/shared/variables';
 import type { UseWorkspacesApi } from '@openheaders/ui/shared/hooks/readers/useWorkspaces';
 import CollectionOverview from '../overviews/CollectionOverview';
 import CollectionVariablesEditor from '../variables/CollectionVariablesEditor';
-import ServerAdminConsole from '../server-admin/ServerAdminConsole';
+import ServerAdminTab from '../server-admin/ServerAdminTab';
 import EnvironmentEditor from '../variables/EnvironmentEditor';
 import FolderOverview from '../overviews/FolderOverview';
 import LiveVariablesEditor from '../variables/LiveVariablesEditor';
@@ -305,7 +305,7 @@ const WorkbenchTabBody: React.FC<WorkbenchTabBodyProps> = ({
     );
   }
   if (tab.mode === 'server-admin') {
-    return <ServerAdminConsole />;
+    return <ServerAdminTab section={tab.serverAdminSection ?? 'users'} />;
   }
   if (tab.mode === 'proxy-request-inspect' && tab.proxyRequestId) {
     return (

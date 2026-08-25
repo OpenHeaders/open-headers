@@ -23,6 +23,19 @@ export const workbenchServerAdmin = {
   'workbench.serverAdmin.deniedDescription': '管理此服务器需要 daemon.admin 能力。',
   'workbench.serverAdmin.cancel': '取消',
 
+  // ── Server admin panel (the administration nav — one row per
+  //    domain, each opening its own slim tab) ─────────────────────────
+  'workbench.serverAdmin.panel.users': '用户',
+  'workbench.serverAdmin.panel.usersHint': '目录、角色与工作区访问',
+  'workbench.serverAdmin.panel.devices': '配对设备',
+  'workbench.serverAdmin.panel.devicesHint': '令牌、配对与已登录会话',
+  'workbench.serverAdmin.panel.git': 'Git',
+  'workbench.serverAdmin.panel.gitHint': '将服务器工作区绑定到仓库',
+  'workbench.serverAdmin.panel.audit': '审计',
+  'workbench.serverAdmin.panel.auditHint': '查询服务器的审计日志',
+  'workbench.serverAdmin.panel.server': '服务器',
+  'workbench.serverAdmin.panel.serverHint': '构建、版本与更新日志',
+
   // ── Release-notes card ─────────────────────────────────────────────
   'workbench.serverAdmin.notes.sectionTitle': '版本说明',
   'workbench.serverAdmin.notes.sectionHint': '此控制台所管理服务器构建版本的更新内容。',

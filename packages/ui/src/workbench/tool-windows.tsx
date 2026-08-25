@@ -15,8 +15,10 @@ import {
   FundViewOutlined,
   ScanOutlined,
   SisternodeOutlined,
+  ToolOutlined,
 } from '@ant-design/icons';
 import { hasCapability } from '@openheaders/core/capabilities';
+import { getServerAdminStatus } from './components/server-admin/use-server-admin-status';
 import type { DesktopFeature } from '@openheaders/ui/shared/desktop-teaser';
 import type { ToolWindowDef as GenericToolWindowDef } from '@openheaders/ui/shared/dock-layout';
 import ActivityFeedIcon from './components/panels/ActivityFeedIcon';
@@ -42,6 +44,20 @@ export type ToolWindowDef = GenericToolWindowDef<ToolWindowId>;
  * Variable Scope is what's actually in scope for the current tab.
  */
 export const TOOL_WINDOWS: readonly ToolWindowDef[] = [
+  // Server administration nav (the access-foundation epic) — FIRST in
+  // left-top so its activity-bar icon sits above the Interceptor. The
+  // window exists only for server admins: `availableToolWindows`
+  // filters it on the shared admin-status store, so non-admin rails
+  // never show it (affordance honesty — the server re-gates every
+  // admin call regardless). Dormant until opened.
+  {
+    id: 'server-admin',
+    labelKey: 'workbench.toolWindows.serverAdmin',
+    icon: <ToolOutlined />,
+    core: false,
+    defaultSlot: 'left-top',
+    openByDefault: false,
+  },
   {
     id: 'http-rules',
     labelKey: 'workbench.toolWindows.httpRules',
@@ -210,10 +226,15 @@ export const TOOL_WINDOW_MAP: Record<ToolWindowId, ToolWindowDef> = TOOL_WINDOWS
  * during boot, after module graphs evaluate.
  */
 export function availableToolWindows(): readonly ToolWindowDef[] {
-  return TOOL_WINDOWS.filter(
-    (def) =>
-      !def.requiresCapability || hasCapability(def.requiresCapability) || def.teaserWhenUnavailable !== undefined,
-  );
+  return TOOL_WINDOWS.filter((def) => {
+    // Server administration is a per-user fact, not a host capability:
+    // the window exists only once the admin-status probe answers
+    // `admin` (the shared store; a late answer reconciles the dock
+    // layout in via its defs-change effect). No teaser — a non-admin
+    // has nothing to be teased toward.
+    if (def.id === 'server-admin') return getServerAdminStatus() === 'admin';
+    return !def.requiresCapability || hasCapability(def.requiresCapability) || def.teaserWhenUnavailable !== undefined;
+  });
 }
 
 /** Whether this host renders `def` as a desktop teaser instead of the

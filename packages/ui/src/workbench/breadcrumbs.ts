@@ -22,6 +22,7 @@ import type {
   WebSocketRequest,
 } from '@openheaders/core/types';
 import type { Translate } from '@openheaders/ui/context/LocaleContext';
+import { SERVER_ADMIN_SECTION_MAP } from './components/server-admin/sections';
 import type { WorkbenchTab } from './types';
 
 /**
@@ -65,7 +66,13 @@ export function computeBreadcrumbs(
   if (tab.mode === 'whats-new') return [t('workbench.shell.breadcrumbs.whatsNew')];
 
   if (tab.mode === 'workspace-manager') return [t('workbench.shell.breadcrumbs.workspaces')];
-  if (tab.mode === 'server-admin') return [t('workbench.shell.breadcrumbs.serverAdmin')];
+  if (tab.mode === 'server-admin') {
+    // Root noun + the administration domain — one trail per domain tab.
+    const def = SERVER_ADMIN_SECTION_MAP.get(tab.serverAdminSection ?? 'users');
+    return def
+      ? [t('workbench.shell.breadcrumbs.serverAdmin'), t(def.labelKey)]
+      : [t('workbench.shell.breadcrumbs.serverAdmin')];
+  }
   if (tab.mode === 'env-edit') return [t('workbench.shell.breadcrumbs.environments'), displayLabel];
   if (tab.mode === 'spec-edit') return [t('workbench.shell.breadcrumbs.specs'), displayLabel];
   if (tab.mode === 'workspace-vars') return [t('workbench.shell.breadcrumbs.workspaceVariables')];

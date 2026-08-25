@@ -1,21 +1,20 @@
 /**
- * Daemon administration console — the workbench surface for the
- * daemon's team tier: the user directory, per-workspace grants, device
- * management (tokens + pairing), and audit reports.
+ * Users domain tab body — the daemon's user directory: admission (users
+ * + service accounts, with the seat and service-cap walls), the two
+ * functional roles, per-workspace grants, passwords, git author email,
+ * and deactivation.
  *
- * Every read and mutation rides the `oh.daemon.*` bridge channels:
- * the desktop renderer reaches its own spine over IPC, the served web
- * tab forwards the same calls up its wire to the daemon's gated peer
- * admin plane. Rendering is probe-gated for honesty of affordance
- * only — the server re-gates every call as the caller per frame, so a
- * revoked admin sees in-band errors here, never a bypass.
+ * Every read and mutation rides the `oh.daemon.*` bridge channels: the
+ * desktop renderer reaches its own spine over IPC, the served web tab
+ * forwards the same calls up its wire to the daemon's gated peer admin
+ * plane. Rendering is probe-gated for honesty of affordance only — the
+ * server re-gates every call as the caller per frame.
  */
 
 import {
   App as AntApp,
   Button,
   Checkbox,
-  Empty,
   Form,
   Input,
   List,
@@ -31,64 +30,15 @@ import {
 } from 'antd';
 import { useCallback, useEffect, useState } from 'react';
 import type React from 'react';
-import { type BridgeRpcRequest, type BridgeRpcResponse, hostBridge } from '@openheaders/core/bridge';
+import { hostBridge } from '@openheaders/core/bridge';
 import { FREE_SERVICE_ACCOUNT_LIMIT } from '@openheaders/core/licensing';
-import { getDateTimeFormat, type MessageKey } from '@openheaders/i18n';
+import type { MessageKey } from '@openheaders/i18n';
 import { useLocale, useT } from '@openheaders/ui/context/LocaleContext';
 import { noteUpgradeCtaShown, trackProductTelemetryEvent } from '../../../shared/product-telemetry';
-import BackendTokensSection from '../../settings/components/backend-tokens-section';
-import GitWorkspacePane, {
-  type WorkspaceTreeRpcType,
-  type WorkspaceTreeTransport,
-} from '../../settings/components/git-workspace-pane';
-import ServerAuditReports from './ServerAuditReports';
-import ServerReleaseNotesCard from './ServerReleaseNotesCard';
-import { type ServerAdminStatus, useServerAdminStatus } from './use-server-admin-status';
+import { formatTimestamp, SectionHeader } from './section-chrome';
+import { type DirectoryUser, useServerDirectory } from './use-server-directory';
 
 type DirectoryRole = 'owner' | 'editor' | 'viewer';
-
-interface DirectoryUser {
-  userId: string;
-  // Principal kind as a wire string (the access-foundation plan §8 F3):
-  // 'service' marks a machine identity; absent (older server) and any
-  // unknown value render as a human row — forward-tolerant, never a
-  // refusal, and nothing here enforces.
-  kind?: string;
-  displayName: string;
-  email: string | null;
-  gitEmail: string | null;
-  createdAt: number;
-  deactivatedAt: number | null;
-  // Per-user max token `lastUsedAt` (the access-foundation plan
-  // decision c) — null = never seen; optional so an older server's
-  // projection (no field) renders nothing rather than refusing.
-  lastSeenAt?: number | null;
-  hasPassword: boolean;
-  mayCreateWorkspaces: boolean;
-  isDaemonAdmin: boolean;
-  admission?: { licenseId: string; status: 'licensed' | 'grace' | 'expired' | 'invalid' };
-  // `role` and `origin` are wire strings, wider than the authoring
-  // unions: the server projection passes them through verbatim, and the
-  // forward-tolerant decode law says an unknown value from a newer
-  // server renders verbatim rather than refusing the row.
-  grants: ReadonlyArray<{ workspaceId: string; role: string; origin?: string }>;
-}
-
-/**
- * The Git card's call seam over the admin wire: every workspace-tree
- * verb rides `oh.daemon.workspaceTree.dispatch` to the daemon spine's
- * shared verb table (the git-sync plan §11.5). The dispatch channel's wire
- * response is untyped by construction (one channel, many ops), so the
- * op's own response shape is asserted here — the one narrowing seam.
- */
-const adminGitTransport: WorkspaceTreeTransport = async <K extends WorkspaceTreeRpcType>(
-  type: K,
-  ...args: BridgeRpcRequest<K> extends Record<string, never> ? [] : [payload: BridgeRpcRequest<K>]
-): Promise<BridgeRpcResponse<K>> =>
-  (await hostBridge.call('oh.daemon.workspaceTree.dispatch', {
-    op: type,
-    ...(args[0] !== undefined ? { payload: args[0] as Record<string, unknown> } : {}),
-  })) as BridgeRpcResponse<K>;
 
 const ROLE_LABELS: Record<DirectoryRole, MessageKey> = {
   viewer: 'workbench.serverAdmin.grants.roleViewer',
@@ -119,36 +69,6 @@ const PersonalSeatTag: React.FC<{ admission: NonNullable<DirectoryUser['admissio
         {healthy ? '' : ` · ${admission.status}`}
       </Tag>
     </Tooltip>
-  );
-};
-
-function formatTimestamp(locale: string, ms: number | null | undefined): string {
-  if (!ms) return '—';
-  try {
-    return getDateTimeFormat(locale, { dateStyle: 'short', timeStyle: 'medium' }).format(new Date(ms));
-  } catch {
-    return '—';
-  }
-}
-
-const SectionHeader: React.FC<{ title: string; hint: string }> = ({ title, hint }) => {
-  const { token } = theme.useToken();
-  return (
-    <header style={{ marginBottom: 6, padding: '0 2px' }}>
-      <h3
-        style={{
-          margin: 0,
-          fontSize: 11,
-          fontWeight: 700,
-          letterSpacing: 0.3,
-          textTransform: 'uppercase',
-          color: token.colorTextSecondary,
-        }}
-      >
-        {title}
-      </h3>
-      <div style={{ fontSize: 11, color: token.colorTextTertiary, marginTop: 1 }}>{hint}</div>
-    </header>
   );
 };
 
@@ -441,18 +361,11 @@ const GitEmailModal: React.FC<{
   );
 };
 
-const ServerAdminConsole: React.FC = () => {
+const ServerAdminUsersSection: React.FC = () => {
   const { t, locale } = useLocale();
   const { token } = theme.useToken();
   const { message } = AntApp.useApp();
-  const adminStatus: ServerAdminStatus = useServerAdminStatus();
-  // The SERVER's workspace set (the server-access plan A6): every
-  // server-scoped list this console renders — the grants dropdown,
-  // grant/audit labels, the Git card's target — reads this projection,
-  // never the tab's own workspace mirror, which on the served host
-  // replicates only what THIS user can read.
-  const [serverWorkspaces, setServerWorkspaces] = useState<ReadonlyArray<{ id: string; name: string }> | null>(null);
-  const [users, setUsers] = useState<readonly DirectoryUser[] | null>(null);
+  const { users, refresh, workspaceName, workspaceOptions } = useServerDirectory(true);
   const [addForm] = Form.useForm<{
     displayName: string;
     email: string;
@@ -473,41 +386,6 @@ const ServerAdminConsole: React.FC = () => {
   // offboarding review is a glance (decision c).
   const [sortByLastSeen, setSortByLastSeen] = useState(false);
   const [gitEmailUser, setGitEmailUser] = useState<DirectoryUser | null>(null);
-  const [gitWorkspaceId, setGitWorkspaceId] = useState<string | null>(null);
-
-  const workspaceName = useCallback(
-    (id: string): string => serverWorkspaces?.find((w) => w.id === id)?.name ?? id,
-    [serverWorkspaces],
-  );
-  const workspaceOptions = (serverWorkspaces ?? []).map((w) => ({ value: w.id, label: w.name }));
-
-  const refresh = useCallback(async (): Promise<void> => {
-    try {
-      const [directory, projected] = await Promise.all([
-        hostBridge.call('oh.daemon.users.list'),
-        hostBridge.call('oh.daemon.workspaces.list'),
-      ]);
-      setUsers(directory.users);
-      setServerWorkspaces(projected.workspaces);
-    } catch (err) {
-      message.error(t('workbench.serverAdmin.users.loadFailed', { message: (err as Error).message }));
-      setUsers([]);
-      setServerWorkspaces([]);
-    }
-  }, [message, t]);
-
-  useEffect(() => {
-    if (adminStatus === 'admin') void refresh();
-  }, [adminStatus, refresh]);
-
-  // Git section default: land on the SERVER's first workspace so the
-  // card targets a workspace the daemon's git bindings actually hold;
-  // the Select re-targets it.
-  useEffect(() => {
-    if (gitWorkspaceId === null && serverWorkspaces && serverWorkspaces.length > 0) {
-      setGitWorkspaceId(serverWorkspaces[0].id);
-    }
-  }, [gitWorkspaceId, serverWorkspaces]);
 
   // The seat wall's pricing pointer is the seat-gate upgrade CTA.
   useEffect(() => {
@@ -692,184 +570,161 @@ const ServerAdminConsole: React.FC = () => {
     [message, refresh, t],
   );
 
-  if (adminStatus === 'unknown') {
-    return (
-      <div style={{ display: 'flex', justifyContent: 'center', padding: 48 }}>
-        <Spin />
-      </div>
-    );
-  }
-  if (adminStatus === 'denied') {
-    return (
-      <div style={{ padding: 48 }}>
-        <Empty description={t('workbench.serverAdmin.deniedDescription')} />
-      </div>
-    );
-  }
-
   return (
-    <div style={{ maxWidth: 760, margin: '0 auto', padding: '16px 20px 32px' }} data-testid="server-admin-console">
-      <Typography.Title level={4} style={{ marginTop: 0, marginBottom: 2 }}>
-        {t('workbench.serverAdmin.title')}
-      </Typography.Title>
-      <div style={{ fontSize: 12, color: token.colorTextSecondary, marginBottom: 16 }}>
-        {t('workbench.serverAdmin.intro')}
-      </div>
-
-      <section style={{ marginBottom: 12 }}>
-        <SectionHeader
-          title={t('workbench.serverAdmin.users.sectionTitle')}
-          hint={t('workbench.serverAdmin.users.sectionHint')}
+    <section style={{ marginBottom: 12 }}>
+      <SectionHeader
+        title={t('workbench.serverAdmin.users.sectionTitle')}
+        hint={t('workbench.serverAdmin.users.sectionHint')}
+      />
+      <div
+        className="settings-card"
+        style={{
+          background: token.colorBgContainer,
+          border: `1px solid ${token.colorBorderSecondary}`,
+          borderRadius: 10,
+          padding: 12,
+        }}
+      >
+        {/* Which principal kind the admission mints (the
+            access-foundation plan §8 F3) — service mode drops the
+            email and seat-key fields entirely. */}
+        <Segmented
+          size="small"
+          value={addKind}
+          onChange={(value) => setAddKind(value === 'service' ? 'service' : 'user')}
+          options={[
+            { value: 'user', label: t('workbench.serverAdmin.users.kindUser') },
+            { value: 'service', label: t('workbench.serverAdmin.users.kindService') },
+          ]}
+          style={{ marginBottom: 8 }}
+          data-testid="server-admin-add-kind"
         />
-        <div
-          className="settings-card"
-          style={{
-            background: token.colorBgContainer,
-            border: `1px solid ${token.colorBorderSecondary}`,
-            borderRadius: 10,
-            padding: 12,
-          }}
+        {addKind === 'service' && (
+          <div style={{ fontSize: 11, color: token.colorTextTertiary, marginBottom: 8 }}>
+            {t('workbench.serverAdmin.users.serviceExplainer')}
+          </div>
+        )}
+        <Form
+          form={addForm}
+          layout="inline"
+          onFinish={handleAddUser}
+          initialValues={{ displayName: '', email: '', personalLicense: '', role: 'viewer' }}
+          style={{ marginBottom: users && users.length > 0 ? 12 : 0 }}
         >
-          {/* Which principal kind the admission mints (the
-              access-foundation plan §8 F3) — service mode drops the
-              email and seat-key fields entirely. */}
-          <Segmented
-            size="small"
-            value={addKind}
-            onChange={(value) => setAddKind(value === 'service' ? 'service' : 'user')}
-            options={[
-              { value: 'user', label: t('workbench.serverAdmin.users.kindUser') },
-              { value: 'service', label: t('workbench.serverAdmin.users.kindService') },
-            ]}
-            style={{ marginBottom: 8 }}
-            data-testid="server-admin-add-kind"
-          />
-          {addKind === 'service' && (
-            <div style={{ fontSize: 11, color: token.colorTextTertiary, marginBottom: 8 }}>
-              {t('workbench.serverAdmin.users.serviceExplainer')}
-            </div>
-          )}
-          <Form
-            form={addForm}
-            layout="inline"
-            onFinish={handleAddUser}
-            initialValues={{ displayName: '', email: '', personalLicense: '', role: 'viewer' }}
-            style={{ marginBottom: users && users.length > 0 ? 12 : 0 }}
+          <Form.Item
+            name="displayName"
+            rules={[{ required: true, message: t('workbench.serverAdmin.users.nameRequired') }]}
+            style={{ flex: 1 }}
           >
-            <Form.Item
-              name="displayName"
-              rules={[{ required: true, message: t('workbench.serverAdmin.users.nameRequired') }]}
-              style={{ flex: 1 }}
-            >
+            <Input
+              placeholder={
+                addKind === 'service'
+                  ? t('workbench.serverAdmin.users.serviceNamePlaceholder')
+                  : t('workbench.serverAdmin.users.displayNamePlaceholder')
+              }
+              maxLength={64}
+              data-testid="server-admin-add-name"
+            />
+          </Form.Item>
+          {addKind === 'user' && (
+            <Form.Item name="email" style={{ flex: 1 }}>
+              <Input placeholder={t('workbench.serverAdmin.users.emailPlaceholder')} maxLength={128} />
+            </Form.Item>
+          )}
+          {/* Admission confers access (the server-access plan A2): the
+              invite carries at least one workspace + role, offered
+              from the SERVER's projection, never the tab's mirror. */}
+          <Form.Item
+            name="workspaceId"
+            rules={[{ required: true, message: t('workbench.serverAdmin.users.workspaceRequired') }]}
+            style={{ minWidth: 160 }}
+          >
+            <Select
+              placeholder={t('workbench.serverAdmin.grants.workspacePlaceholder')}
+              options={[...workspaceOptions]}
+              showSearch
+              optionFilterProp="label"
+              data-testid="server-admin-add-workspace"
+            />
+          </Form.Item>
+          <Form.Item name="role" style={{ minWidth: 90 }}>
+            <Select
+              options={ROLE_VALUES.map((r) => ({ value: r, label: t(ROLE_LABELS[r]) }))}
+              data-testid="server-admin-add-role"
+            />
+          </Form.Item>
+          {seatBlocked && addKind === 'user' && (
+            <Form.Item name="personalLicense" style={{ flex: 1, minWidth: 220 }}>
               <Input
-                placeholder={
-                  addKind === 'service'
-                    ? t('workbench.serverAdmin.users.serviceNamePlaceholder')
-                    : t('workbench.serverAdmin.users.displayNamePlaceholder')
-                }
-                maxLength={64}
-                data-testid="server-admin-add-name"
+                placeholder={t('workbench.serverAdmin.users.seatKeyPlaceholder')}
+                data-testid="server-admin-personal-license"
               />
             </Form.Item>
-            {addKind === 'user' && (
-              <Form.Item name="email" style={{ flex: 1 }}>
-                <Input placeholder={t('workbench.serverAdmin.users.emailPlaceholder')} maxLength={128} />
-              </Form.Item>
-            )}
-            {/* Admission confers access (the server-access plan A2): the
-                invite carries at least one workspace + role, offered
-                from the SERVER's projection, never the tab's mirror. */}
-            <Form.Item
-              name="workspaceId"
-              rules={[{ required: true, message: t('workbench.serverAdmin.users.workspaceRequired') }]}
-              style={{ minWidth: 160 }}
+          )}
+          <Form.Item style={{ marginBottom: 0 }}>
+            <Button type="primary" htmlType="submit" loading={adding} data-testid="server-admin-add-user">
+              {addKind === 'service'
+                ? t('workbench.serverAdmin.users.addService')
+                : t('workbench.serverAdmin.users.addUser')}
+            </Button>
+          </Form.Item>
+        </Form>
+        {serviceBlocked && addKind === 'service' && (
+          <div style={{ fontSize: 11, color: token.colorTextTertiary, marginBottom: 12 }}>
+            {t('workbench.serverAdmin.users.serviceLimit', { limit: FREE_SERVICE_ACCOUNT_LIMIT })}{' '}
+            {t('workbench.serverAdmin.users.licensesSoldAt')}{' '}
+            <Typography.Link
+              href="https://openheaders.com/pricing"
+              target="_blank"
+              onClick={() => trackProductTelemetryEvent({ name: 'upgrade_cta_clicked', surface: 'service-gate' })}
             >
-              <Select
-                placeholder={t('workbench.serverAdmin.grants.workspacePlaceholder')}
-                options={workspaceOptions}
-                showSearch
-                optionFilterProp="label"
-                data-testid="server-admin-add-workspace"
-              />
-            </Form.Item>
-            <Form.Item name="role" style={{ minWidth: 90 }}>
-              <Select
-                options={ROLE_VALUES.map((r) => ({ value: r, label: t(ROLE_LABELS[r]) }))}
-                data-testid="server-admin-add-role"
-              />
-            </Form.Item>
-            {seatBlocked && addKind === 'user' && (
-              <Form.Item name="personalLicense" style={{ flex: 1, minWidth: 220 }}>
-                <Input
-                  placeholder={t('workbench.serverAdmin.users.seatKeyPlaceholder')}
-                  data-testid="server-admin-personal-license"
-                />
-              </Form.Item>
-            )}
-            <Form.Item style={{ marginBottom: 0 }}>
-              <Button type="primary" htmlType="submit" loading={adding} data-testid="server-admin-add-user">
-                {addKind === 'service'
-                  ? t('workbench.serverAdmin.users.addService')
-                  : t('workbench.serverAdmin.users.addUser')}
-              </Button>
-            </Form.Item>
-          </Form>
-          {serviceBlocked && addKind === 'service' && (
-            <div style={{ fontSize: 11, color: token.colorTextTertiary, marginBottom: 12 }}>
-              {t('workbench.serverAdmin.users.serviceLimit', { limit: FREE_SERVICE_ACCOUNT_LIMIT })}{' '}
-              {t('workbench.serverAdmin.users.licensesSoldAt')}{' '}
-              <Typography.Link
-                href="https://openheaders.com/pricing"
-                target="_blank"
-                onClick={() => trackProductTelemetryEvent({ name: 'upgrade_cta_clicked', surface: 'service-gate' })}
-              >
-                openheaders.com/pricing
-              </Typography.Link>
-              .
-            </div>
-          )}
-          {seatBlocked && (
-            <div style={{ fontSize: 11, color: token.colorTextTertiary, marginBottom: 12 }}>
-              {t('workbench.serverAdmin.users.seatLimit')} {t('workbench.serverAdmin.users.seatsSoldAt')}{' '}
-              <Typography.Link
-                href="https://openheaders.com/pricing"
-                target="_blank"
-                onClick={() => trackProductTelemetryEvent({ name: 'upgrade_cta_clicked', surface: 'seat-gate' })}
-              >
-                openheaders.com/pricing
-              </Typography.Link>
-              .
-            </div>
-          )}
-          {users === null ? (
-            <div style={{ display: 'flex', justifyContent: 'center', padding: 24 }}>
-              <Spin size="small" />
-            </div>
-          ) : users.length === 0 ? (
-            <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-              {t('workbench.serverAdmin.users.emptyDirectory')}
-            </Typography.Text>
-          ) : (
-            <>
-              <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
-                <Segmented
-                  size="small"
-                  value={sortByLastSeen ? 'lastSeen' : 'created'}
-                  onChange={(value) => setSortByLastSeen(value === 'lastSeen')}
-                  options={[
-                    { value: 'created', label: t('workbench.serverAdmin.users.sortByCreated') },
-                    { value: 'lastSeen', label: t('workbench.serverAdmin.users.sortByLastSeen') },
-                  ]}
-                  data-testid="server-admin-users-sort"
-                />
-              </div>
-              <List
+              openheaders.com/pricing
+            </Typography.Link>
+            .
+          </div>
+        )}
+        {seatBlocked && (
+          <div style={{ fontSize: 11, color: token.colorTextTertiary, marginBottom: 12 }}>
+            {t('workbench.serverAdmin.users.seatLimit')} {t('workbench.serverAdmin.users.seatsSoldAt')}{' '}
+            <Typography.Link
+              href="https://openheaders.com/pricing"
+              target="_blank"
+              onClick={() => trackProductTelemetryEvent({ name: 'upgrade_cta_clicked', surface: 'seat-gate' })}
+            >
+              openheaders.com/pricing
+            </Typography.Link>
+            .
+          </div>
+        )}
+        {users === null ? (
+          <div style={{ display: 'flex', justifyContent: 'center', padding: 24 }}>
+            <Spin size="small" />
+          </div>
+        ) : users.length === 0 ? (
+          <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+            {t('workbench.serverAdmin.users.emptyDirectory')}
+          </Typography.Text>
+        ) : (
+          <>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
+              <Segmented
                 size="small"
-                dataSource={[...users].sort((a, b) =>
-                  sortByLastSeen
-                    ? (a.lastSeenAt ?? Number.NEGATIVE_INFINITY) - (b.lastSeenAt ?? Number.NEGATIVE_INFINITY)
-                    : b.createdAt - a.createdAt,
-                )}
+                value={sortByLastSeen ? 'lastSeen' : 'created'}
+                onChange={(value) => setSortByLastSeen(value === 'lastSeen')}
+                options={[
+                  { value: 'created', label: t('workbench.serverAdmin.users.sortByCreated') },
+                  { value: 'lastSeen', label: t('workbench.serverAdmin.users.sortByLastSeen') },
+                ]}
+                data-testid="server-admin-users-sort"
+              />
+            </div>
+            <List
+              size="small"
+              dataSource={[...users].sort((a, b) =>
+                sortByLastSeen
+                  ? (a.lastSeenAt ?? Number.NEGATIVE_INFINITY) - (b.lastSeenAt ?? Number.NEGATIVE_INFINITY)
+                  : b.createdAt - a.createdAt,
+              )}
               renderItem={(u) => {
                 const deactivated = u.deactivatedAt !== null;
                 // Machine identity: no password, no server roles — data
@@ -1003,11 +858,10 @@ const ServerAdminConsole: React.FC = () => {
                   </List.Item>
                 );
               }}
-              />
-            </>
-          )}
-        </div>
-      </section>
+            />
+          </>
+        )}
+      </div>
 
       {passwordUser && (
         <PasswordModal user={passwordUser} onClose={() => setPasswordUser(null)} onSetPassword={handleSetPassword} />
@@ -1015,52 +869,8 @@ const ServerAdminConsole: React.FC = () => {
       {gitEmailUser && (
         <GitEmailModal user={gitEmailUser} onClose={() => setGitEmailUser(null)} onSetGitEmail={handleSetGitEmail} />
       )}
-
-      {/* Git bindings (the git-sync plan §11.5) — the settings Git card over
-          the gated dispatch wire; paths and repos live on the daemon.
-          No native picker here: binds go through the path input. */}
-      <section style={{ marginBottom: 12 }}>
-        <SectionHeader
-          title={t('workbench.serverAdmin.git.sectionTitle')}
-          hint={t('workbench.serverAdmin.git.sectionHint')}
-        />
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4, padding: '0 2px' }}>
-          <span style={{ fontSize: 11.5, color: token.colorTextSecondary }}>
-            {t('workbench.serverAdmin.git.workspaceLabel')}
-          </span>
-          <Select
-            size="small"
-            value={gitWorkspaceId}
-            onChange={(value) => setGitWorkspaceId(value)}
-            style={{ minWidth: 220 }}
-            options={workspaceOptions}
-            data-testid="server-admin-git-workspace"
-          />
-        </div>
-        {gitWorkspaceId !== null && (
-          <GitWorkspacePane transport={adminGitTransport} workspaceId={gitWorkspaceId} allowFolderPicker={false} />
-        )}
-      </section>
-
-      {/* Tokens + pairing — the settings section rides the same
-          oh.daemon.* channels, so it works here over the wire unchanged
-          (its Pair-a-device modal included). */}
-      <BackendTokensSection />
-
-      {/* Audit reports — actor names resolve through the directory
-          loaded above, at view time (§9.3). */}
-      <ServerAuditReports
-        users={(users ?? []).map((u) => ({ userId: u.userId, displayName: u.displayName }))}
-        workspaceName={workspaceName}
-        workspaceOptions={workspaceOptions}
-      />
-
-      {/* The server build's own release notes — served by the daemon
-          from its build-embedded entry; hidden on entry-less builds and
-          hosts that embed none (the desktop). */}
-      <ServerReleaseNotesCard />
-    </div>
+    </section>
   );
 };
 
-export default ServerAdminConsole;
+export default ServerAdminUsersSection;

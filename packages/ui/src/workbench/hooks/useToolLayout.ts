@@ -24,6 +24,7 @@ import {
   createWorkspaceAwareResolver,
   useEditingScopeViewState,
 } from '@openheaders/ui/shared/editing-scope-view-state';
+import { useServerAdminStatus } from '../components/server-admin/use-server-admin-status';
 import type { SidebarView } from '../components/sidebar/types';
 import { get as getSetting } from '../settings/store';
 import { focusStore } from '../stores/focus-region-store';
@@ -229,6 +230,12 @@ export function useWorkbenchEditingScopeViewState(): EditingScopeViewStateApi<Wo
 }
 
 export function useToolLayout(perTab: EditingScopeViewStateApi<WorkbenchViewState>): ToolLayoutApi {
+  // Subscribed for the re-render, not the value: the Server admin
+  // window's availability is this status, and the web tab's probe
+  // answers only after the wire handshake — the flip recomputes
+  // `availableToolWindows()` and `useDockLayout`'s defs-change effect
+  // reconciles the window into the layout.
+  useServerAdminStatus();
   return useDockLayout<ToolWindowId>({
     windowDefs: availableToolWindows(),
     windowMap: availableToolWindowMap(),

@@ -31,6 +31,14 @@ export interface WorkflowSeedStep {
   method: string;
 }
 
+/**
+ * The server-admin domains — one per section row of the Server admin
+ * dock panel, each with its own slim singleton tab. The presentation
+ * registry (icons, copy keys) lives in
+ * `components/server-admin/sections.tsx`.
+ */
+export type ServerAdminSection = 'users' | 'devices' | 'git' | 'audit' | 'server';
+
 export type TabMode =
   | 'edit'
   | 'collection-overview'
@@ -145,6 +153,13 @@ export interface WorkbenchTab {
   entityId?: string;
   /** For template-edit tabs: the template uid. */
   templateUid?: string;
+  /**
+   * For server-admin tabs: which administration domain this tab shows
+   * (the section registry in `components/server-admin/sections.tsx`).
+   * Absent — a layout persisted before the console decomposed into
+   * per-domain tabs — reads as the Users domain.
+   */
+  serverAdminSection?: ServerAdminSection;
   /** For settings tabs: optional deep-link target key to scroll to on mount. */
   settingsInitialKey?: string;
   /** For settings tabs: optional deep-link target category to scroll to on mount. */
@@ -318,6 +333,7 @@ import type {
 
 /** Identifiers for every tool window known to the extension shell. */
 export type ToolWindowId =
+  | 'server-admin'
   | 'http-rules'
   | 'commit'
   | 'api-requests'

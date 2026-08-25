@@ -24,6 +24,7 @@ import { useT } from '@openheaders/ui/context/LocaleContext';
 import WorkflowStatusPanel from '../live/WorkflowStatusPanel';
 import ActivityFeedPanel from '../panels/ActivityFeedPanel';
 import DocsPanel from '../panels/DocsPanel';
+import ServerAdminPanel from '../server-admin/ServerAdminPanel';
 import { NotificationsPanel } from '@openheaders/ui/shared/notifications';
 import VariablesPanel from '../panels/variables-panel';
 import Sidebar from '../sidebar/Sidebar';
@@ -110,6 +111,7 @@ interface WorkbenchToolWindowProps {
   openLiveStorageDocInspect: UseTabOpenersApi['openLiveStorageDocInspect'];
   openSessionReplayRequestInspect: UseTabOpenersApi['openSessionReplayRequestInspect'];
   openSettingsTab: UseTabOpenersApi['openSettingsTab'];
+  openServerAdmin: UseTabOpenersApi['openServerAdmin'];
 
   // Shell-local handlers.
   handleDeleteRule: (uid: string) => void;
@@ -182,6 +184,7 @@ const WorkbenchToolWindow: React.FC<WorkbenchToolWindowProps> = ({
   openLiveStorageDocInspect,
   openSessionReplayRequestInspect,
   openSettingsTab,
+  openServerAdmin,
   handleDeleteRule,
   handleCloseTab,
   handleViewActivityEntity,
@@ -206,6 +209,14 @@ const WorkbenchToolWindow: React.FC<WorkbenchToolWindowProps> = ({
     return <DesktopTeaser feature={def.teaserWhenUnavailable} icon={def.icon} />;
   }
   switch (id) {
+    case 'server-admin':
+      return (
+        <ServerAdminPanel
+          info={getToolWindowInfo('server-admin', t)}
+          onClose={() => tl.closeDock(slot)}
+          onOpenSection={(section) => openServerAdmin(section)}
+        />
+      );
     case 'http-rules':
     case 'api-requests':
     case 'variables':

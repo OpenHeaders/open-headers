@@ -8,7 +8,7 @@ import type { TelemetryRuleCreatedOrigin } from '@openheaders/core/telemetry';
 import type { Collection, Request, Rule, RuleDraft } from '@openheaders/core/types';
 import type { MessageKey } from '@openheaders/i18n';
 import type { Translate } from '@openheaders/ui/context/LocaleContext';
-import type { LiveStorageDocRef, WorkbenchTab, WorkflowSeedStep } from '../../types';
+import type { LiveStorageDocRef, ServerAdminSection, WorkbenchTab, WorkflowSeedStep } from '../../types';
 
 /** Tab plumbing every opener family closes over. */
 export interface TabOpenerContext {
@@ -88,7 +88,7 @@ export interface UseTabOpenersApi {
   openWorkspaceManager: () => void;
   /** Open the daemon administration console (singleton tab; the CTA is
    *  probe-gated, the server gates every call regardless). */
-  openServerAdmin: () => void;
+  openServerAdmin: (section?: ServerAdminSection) => void;
   openEnvironmentEdit: (uid: string, name: string, autoRename?: boolean) => void;
   /** Open a spec document's editor tab (Specs sidebar section). */
   openSpecEdit: (uid: string, name: string, autoRename?: boolean) => void;

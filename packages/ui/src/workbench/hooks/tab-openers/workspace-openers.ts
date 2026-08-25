@@ -6,6 +6,8 @@
 
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { useCallback } from 'react';
+import { SERVER_ADMIN_SECTION_MAP, serverAdminTabId } from '../../components/server-admin/sections';
+import type { ServerAdminSection } from '../../types';
 import type { TabOpenerContext, UseTabOpenersApi } from './shared';
 
 export type WorkspaceOpeners = Pick<
@@ -78,20 +80,29 @@ export function useWorkspaceOpeners({
     });
   }, [allTabs, addTab, switchTab, t]);
 
-  const openServerAdmin = useCallback(() => {
-    const id = 'server-admin';
-    if (allTabs.some((t) => t.id === id)) {
-      switchTab(id);
-      return;
-    }
-    addTab({
-      id,
-      label: t('workbench.shell.breadcrumbs.serverAdmin'),
-      ruleType: '',
-      dirty: false,
-      mode: 'server-admin',
-    });
-  }, [allTabs, addTab, switchTab, t]);
+  const openServerAdmin = useCallback(
+    (section: ServerAdminSection = 'users') => {
+      // One singleton tab per administration domain — the Server admin
+      // panel's rows land here. The Users tab keeps the historic
+      // `server-admin` id (see `serverAdminTabId`) so pre-decomposition
+      // layouts restore onto the directory surface.
+      const id = serverAdminTabId(section);
+      if (allTabs.some((t) => t.id === id)) {
+        switchTab(id);
+        return;
+      }
+      const def = SERVER_ADMIN_SECTION_MAP.get(section);
+      addTab({
+        id,
+        label: def ? t(def.labelKey) : t('workbench.shell.breadcrumbs.serverAdmin'),
+        ruleType: '',
+        dirty: false,
+        mode: 'server-admin',
+        serverAdminSection: section,
+      });
+    },
+    [allTabs, addTab, switchTab, t],
+  );
 
   const openEnvironmentEdit = useCallback(
     (uid: string, name: string, autoRename = false) => {

@@ -40,6 +40,7 @@ import type {
   WsResponseExample,
 } from '@openheaders/core/types';
 import type { Translate } from '@openheaders/ui/context/LocaleContext';
+import { SERVER_ADMIN_SECTION_MAP } from './components/server-admin/sections';
 import type { WorkbenchTab } from './types';
 
 export interface TabDisplayLookups {
@@ -167,8 +168,12 @@ export function tabDisplayLabel(tab: WorkbenchTab, lookups: TabDisplayLookups, t
       return t('workbench.shell.breadcrumbs.whatsNew');
     case 'workspace-manager':
       return t('workbench.shell.breadcrumbs.workspaces');
-    case 'server-admin':
-      return t('workbench.shell.breadcrumbs.serverAdmin');
+    case 'server-admin': {
+      // One label per administration domain — the section registry's
+      // noun; the sectionless legacy tab reads as the Users domain.
+      const def = SERVER_ADMIN_SECTION_MAP.get(tab.serverAdminSection ?? 'users');
+      return def ? t(def.labelKey) : t('workbench.shell.breadcrumbs.serverAdmin');
+    }
     case 'workspace-vars':
       return t('workbench.shell.breadcrumbs.workspaceVariables');
     case 'vault':

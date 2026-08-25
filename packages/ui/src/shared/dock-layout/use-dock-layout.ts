@@ -188,6 +188,22 @@ export function useDockLayout<T extends string>({
 }: UseDockLayoutOptions<T>): DockLayoutApi<T> {
   const [state, setState] = useState<ToolLayoutState<T>>(() => normalizeDockLayout(initial, windowDefs, windowMap));
 
+  // Reconcile when the AVAILABLE window set changes after mount — a
+  // window whose visibility resolves asynchronously (the server-admin
+  // probe answering post-handshake, a capability installing late)
+  // enters the layout at its registry position, and one that left is
+  // dropped. Keyed on the id signature: the defs array is rebuilt every
+  // render, and re-normalizing an unchanged set would churn state.
+  const defsSignature = windowDefs.map((d) => d.id).join('|');
+  const defsRef = useRef({ windowDefs, windowMap });
+  defsRef.current = { windowDefs, windowMap };
+  const appliedSignatureRef = useRef(defsSignature);
+  useEffect(() => {
+    if (appliedSignatureRef.current === defsSignature) return;
+    appliedSignatureRef.current = defsSignature;
+    setState((prev) => normalizeDockLayout(prev, defsRef.current.windowDefs, defsRef.current.windowMap));
+  }, [defsSignature]);
+
   const persistRef = useRef(onPersist);
   persistRef.current = onPersist;
   useEffect(() => {

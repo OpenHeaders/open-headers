@@ -1485,6 +1485,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
         openLiveStorageDocInspect={openLiveStorageDocInspect}
         openSessionReplayRequestInspect={openSessionReplayRequestInspect}
         openSettingsTab={openSettingsTab}
+        openServerAdmin={openServerAdmin}
         handleDeleteRule={handleDeleteRule}
         handleCloseTab={handleCloseTab}
         handleViewActivityEntity={handleViewActivityEntity}

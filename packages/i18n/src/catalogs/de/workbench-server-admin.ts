@@ -23,6 +23,19 @@ export const workbenchServerAdmin = {
   'workbench.serverAdmin.deniedDescription': 'Die Verwaltung dieses Servers erfordert die Capability daemon.admin.',
   'workbench.serverAdmin.cancel': 'Abbrechen',
 
+  // ── Server admin panel (the administration nav — one row per
+  //    domain, each opening its own slim tab) ─────────────────────────
+  'workbench.serverAdmin.panel.users': 'Benutzer',
+  'workbench.serverAdmin.panel.usersHint': 'Verzeichnis, Rollen und Workspace-Zugriff',
+  'workbench.serverAdmin.panel.devices': 'Gekoppelte Geräte',
+  'workbench.serverAdmin.panel.devicesHint': 'Tokens, Kopplung und angemeldete Sitzungen',
+  'workbench.serverAdmin.panel.git': 'Git',
+  'workbench.serverAdmin.panel.gitHint': 'Server-Workspaces an Repositories binden',
+  'workbench.serverAdmin.panel.audit': 'Audit',
+  'workbench.serverAdmin.panel.auditHint': 'Das Audit-Protokoll des Servers abfragen',
+  'workbench.serverAdmin.panel.server': 'Server',
+  'workbench.serverAdmin.panel.serverHint': 'Build, Version und Release Notes',
+
   // ── Release-notes card ─────────────────────────────────────────────
   'workbench.serverAdmin.notes.sectionTitle': 'Versionshinweise',
   'workbench.serverAdmin.notes.sectionHint': 'Was im Server-Build enthalten ist, das diese Konsole verwaltet.',
