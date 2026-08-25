@@ -8,6 +8,9 @@
  *     feed, publish + live Subscribe riders, Save Response.
  *   - `useMqttComposeAids` — the AsyncAPI specLink census and its
  *     compose aids (example picker, channel browser).
+ *   - `useMqttSavedSelection` — the Saved-messages selection plane:
+ *     the compose is the selected row's editor and user edits write
+ *     through to it (the bound draft setter every tab rides).
  *   - `MqttTargetRow` — version + scheme + URL header title (the
  *     version knob locks while a session is in flight).
  *   - `MqttMessageTab` (compose bar + collapsible Saved-messages
@@ -67,6 +70,7 @@ import MqttSpecTab from './MqttSpecTab';
 import MqttTargetRow from './MqttTargetRow';
 import MqttTopicsTab from './MqttTopicsTab';
 import { useMqttComposeAids } from './useMqttComposeAids';
+import { useMqttSavedSelection } from './useMqttSavedSelection';
 import { useMqttSessionPlane } from './useMqttSessionPlane';
 
 const { Text } = Typography;
@@ -122,8 +126,15 @@ const MqttRequestEditor: React.FC<MqttRequestEditorProps> = ({
 
   const entity = useMemo(() => mqttRequests.find((r) => r.uid === mqttRequestUid) ?? null, [mqttRequests, mqttRequestUid]);
 
-  const [draft, setDraft] = useState<MqttDraft>(() => (entity ? draftFromMqttRequest(entity) : emptyMqttDraft()));
+  const [draft, rawSetDraft] = useState<MqttDraft>(() => (entity ? draftFromMqttRequest(entity) : emptyMqttDraft()));
   const [activeTab, setActiveTab] = useState('message');
+
+  // Saved-messages selection plane: the compose is the selected row's
+  // editor. Every USER edit below rides the bound setter (compose
+  // edits write through to the selected row); sync repopulates stay
+  // RAW — reprime must never fabricate edits.
+  const savedSelection = useMqttSavedSelection(draft, rawSetDraft);
+  const setDraft = savedSelection.setBoundDraft;
 
   const formFingerprint = useMemo(() => stableStringify(buildMqttRequestUpdates(draft)), [draft]);
 
@@ -133,7 +144,7 @@ const MqttRequestEditor: React.FC<MqttRequestEditorProps> = ({
     enabled: entity !== null,
     formFingerprint,
     signature: (e: MqttRequestEntity) => stableStringify(canonicalMqttRequestProjection(e)),
-    populate: (e: MqttRequestEntity) => setDraft(draftFromMqttRequest(e)),
+    populate: (e: MqttRequestEntity) => rawSetDraft(draftFromMqttRequest(e)),
   });
   const isDirty = reprime.isDirty;
 
@@ -400,6 +411,8 @@ const MqttRequestEditor: React.FC<MqttRequestEditorProps> = ({
                         v5={v5}
                         sessionOpen={session.sessionOpen}
                         encodingError={encodingError}
+                        selectedSavedUid={savedSelection.selectedSavedUid}
+                        onSelectSavedMessage={savedSelection.selectSavedMessage}
                         aids={aids}
                         onPublish={(message) => void session.handlePublish(message)}
                       />

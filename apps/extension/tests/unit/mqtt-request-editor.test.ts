@@ -3,8 +3,9 @@
  *
  *   - `draft.ts` — draft ⇄ entity projections whose fingerprints drive
  *     derived dirty (form-vs-canonical equality), including the
- *     property-block collapse, the last-will topic gate, and the
- *     base64/hex encoding validation that gates Send honestly.
+ *     property-block collapse, the last-will topic gate, the base64/hex
+ *     encoding validation that gates Send honestly, and the
+ *     saved-message compose binding (capture / load / match / mirror).
  *   - `local-tree-builder.ts` — all four request kinds sharing the
  *     collection tree, MQTT leaves alongside the WebSocket ones.
  *   - `compose.ts` — the saved-row topic-tag color derivation (equal
@@ -21,9 +22,13 @@ import {
 import {
   buildMqttRequestUpdates,
   canonicalMqttRequestProjection,
+  composeAsSavedMessage,
   draftFromMqttRequest,
+  loadSavedMessageIntoCompose,
+  mirrorComposeIntoSaved,
   payloadEncodingError,
   rowsToUserProperties,
+  savedRowMatchesCompose,
   userPropertiesToRows,
 } from '@openheaders/ui/workbench/components/mqtt-request-editor/draft';
 import { grantLabel } from '@openheaders/ui/workbench/components/mqtt-request-editor/session-display';
@@ -203,6 +208,59 @@ describe('SUBACK grant labels', () => {
     expect(grantLabel(0x87, t)).toBe('workbench.editors.mqtt.timeline.grantFailedNamed:Not authorized,135');
     // A code the spec does not name renders bare.
     expect(grantLabel(0xee, t)).toBe('workbench.editors.mqtt.timeline.grantFailed:238');
+  });
+});
+
+describe('saved-message compose binding', () => {
+  const draft = () => draftFromMqttRequest(mqttRequest());
+
+  it('captures the compose as a saved row with optional fields absent at defaults', () => {
+    const captured = composeAsSavedMessage(draft(), 'mqsm0002', 'Bright');
+    expect(captured).toEqual({
+      uid: 'mqsm0002',
+      name: 'Bright',
+      topic: 'streetlights/1/lumens',
+      payload: '{"lumens": 1200}',
+      format: 'json',
+      qos: 1,
+      retain: true,
+    });
+    const plain = composeAsSavedMessage(
+      { ...draft(), payloadFormat: 'text', qos: 0, retain: false },
+      'mqsm0003',
+      'Plain',
+    );
+    expect(plain).toEqual({ uid: 'mqsm0003', name: 'Plain', topic: 'streetlights/1/lumens', payload: '{"lumens": 1200}' });
+  });
+
+  it('loads a row into the compose and the loaded compose matches the row', () => {
+    const d = draft();
+    const row = d.savedMessages[0];
+    expect(savedRowMatchesCompose(d, row)).toBe(false);
+    const loaded = loadSavedMessageIntoCompose(d, row);
+    expect(loaded.topic).toBe('streetlights/1/dim');
+    expect(loaded.payload).toBe('{"level": 30}');
+    expect(loaded.payloadFormat).toBe('text');
+    expect(loaded.qos).toBe(0);
+    expect(loaded.retain).toBe(false);
+    expect(savedRowMatchesCompose(loaded, row)).toBe(true);
+  });
+
+  it('mirror is identity-stable with no selection, a vanished row, or an already-matching row', () => {
+    const d = draft();
+    expect(mirrorComposeIntoSaved(d, null)).toBe(d);
+    expect(mirrorComposeIntoSaved(d, 'mqsm-gone')).toBe(d);
+    const loaded = loadSavedMessageIntoCompose(d, d.savedMessages[0]);
+    expect(mirrorComposeIntoSaved(loaded, 'mqsm0001')).toBe(loaded);
+  });
+
+  it('mirror writes the compose through to the selected row, keeping its uid and name', () => {
+    const loaded = loadSavedMessageIntoCompose(draft(), draft().savedMessages[0]);
+    const edited = { ...loaded, payload: '{"level": 55}', qos: 2 as const, retain: true };
+    const mirrored = mirrorComposeIntoSaved(edited, 'mqsm0001');
+    expect(mirrored.savedMessages).toEqual([
+      { uid: 'mqsm0001', name: 'Dim', topic: 'streetlights/1/dim', payload: '{"level": 55}', qos: 2, retain: true },
+    ]);
   });
 });
 

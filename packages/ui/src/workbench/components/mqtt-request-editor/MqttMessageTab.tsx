@@ -40,6 +40,9 @@ interface MqttMessageTabProps {
   sessionOpen: boolean;
   /** Which encoding gate bites, or null when the payload is valid. */
   encodingError: 'base64' | 'hex' | null;
+  /** Saved-row the compose is bound to (the rail's selection plane). */
+  selectedSavedUid: string | null;
+  onSelectSavedMessage: (uid: string | null) => void;
   aids: MqttComposeAids;
   onPublish: (message: MqttPublishWire) => void;
 }
@@ -50,6 +53,8 @@ const MqttMessageTab: React.FC<MqttMessageTabProps> = ({
   v5,
   sessionOpen,
   encodingError,
+  selectedSavedUid,
+  onSelectSavedMessage,
   aids,
   onPublish,
 }) => {
@@ -166,6 +171,8 @@ const MqttMessageTab: React.FC<MqttMessageTabProps> = ({
                 draft={draft}
                 setDraft={setDraft}
                 sessionOpen={sessionOpen}
+                selectedUid={selectedSavedUid}
+                onSelect={onSelectSavedMessage}
                 onPublish={onPublish}
                 onHide={() => setRailCollapsed(true)}
               />

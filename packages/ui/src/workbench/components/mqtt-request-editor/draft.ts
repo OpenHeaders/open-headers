@@ -29,6 +29,7 @@ import type {
   MqttTopicRow,
   MqttUserPropertyRow,
 } from '@openheaders/core/types';
+import { stableStringify } from '@openheaders/ui/shared/forms';
 import { type KeyValueRow, makeKvRow } from '../request-editor/KeyValueTable';
 
 /** Concrete form shape for one per-message 5.0 property block. */
@@ -306,6 +307,74 @@ export function buildMqttRequestUpdates(draft: MqttDraft): MqttRequestUpdates {
  *  apples-to-apples. */
 export function canonicalMqttRequestProjection(req: MqttRequest): MqttRequestUpdates {
   return buildMqttRequestUpdates(draftFromMqttRequest(req));
+}
+
+// ── Saved-message compose binding ───────────────────────────────────
+//
+// The compose surface is the SELECTED saved row's editor (the
+// reference client's model): loading fills the whole compose, and
+// every compose edit mirrors back into the selected row within the
+// same draft update. All four helpers are pure projections over the
+// same field set: topic, payload, encoding, qos, retain, properties.
+
+/** The compose block captured as one saved row — optional fields
+ *  absent at their defaults (the `+` capture and the mirror share it). */
+export function composeAsSavedMessage(draft: MqttDraft, uid: string, name: string): MqttSavedMessage {
+  const properties = draftToProperties(draft.publishProperties);
+  return {
+    uid,
+    name,
+    topic: draft.topic,
+    payload: draft.payload,
+    ...(draft.payloadFormat !== 'text' ? { format: draft.payloadFormat } : {}),
+    ...(draft.qos !== 0 ? { qos: draft.qos } : {}),
+    ...(draft.retain ? { retain: true } : {}),
+    ...(properties !== undefined ? { properties } : {}),
+  };
+}
+
+/** One saved row filling the whole compose — the click-to-load leg. */
+export function loadSavedMessageIntoCompose(draft: MqttDraft, row: MqttSavedMessage): MqttDraft {
+  return {
+    ...draft,
+    topic: row.topic,
+    payload: row.payload,
+    payloadFormat: row.format ?? 'text',
+    qos: row.qos ?? 0,
+    retain: row.retain ?? false,
+    publishProperties: propertiesToDraft(row.properties),
+  };
+}
+
+/** Does the row hold exactly what the compose shows? Stored optional
+ *  fields read at their defaults; properties compare canonicalized. */
+export function savedRowMatchesCompose(draft: MqttDraft, row: MqttSavedMessage): boolean {
+  if (
+    row.topic !== draft.topic ||
+    row.payload !== draft.payload ||
+    (row.format ?? 'text') !== draft.payloadFormat ||
+    (row.qos ?? 0) !== draft.qos ||
+    (row.retain ?? false) !== draft.retain
+  ) {
+    return false;
+  }
+  const rowProperties = draftToProperties(propertiesToDraft(row.properties));
+  const composeProperties = draftToProperties(draft.publishProperties);
+  return stableStringify(rowProperties ?? null) === stableStringify(composeProperties ?? null);
+}
+
+/** Mirror the compose into the selected saved row — the write-through
+ *  leg. Identity-stable: no selection, a vanished row, or an already-
+ *  matching row returns the SAME draft object (no render churn). */
+export function mirrorComposeIntoSaved(draft: MqttDraft, selectedUid: string | null): MqttDraft {
+  if (selectedUid === null) return draft;
+  const index = draft.savedMessages.findIndex((row) => row.uid === selectedUid);
+  if (index === -1) return draft;
+  const row = draft.savedMessages[index];
+  if (savedRowMatchesCompose(draft, row)) return draft;
+  const savedMessages = draft.savedMessages.slice();
+  savedMessages[index] = composeAsSavedMessage(draft, row.uid, row.name);
+  return { ...draft, savedMessages };
 }
 
 // ── Compose-payload encoding validation ─────────────────────────────

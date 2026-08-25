@@ -1,7 +1,11 @@
 /**
  * MqttSavedMessagesRail — the Saved-messages rail beside the payload
  * editor: synced entity rows, not local state (they travel with the
- * workspace and git-sync). Clicking a row loads the compose;
+ * workspace and git-sync). Clicking a row SELECTS it — the compose
+ * loads its content and every compose edit writes through to it (the
+ * `useMqttSavedSelection` binding); `+` captures the compose as a new
+ * selected row and opens the inline rename with the name pre-selected;
+ * deleting the selected row hands the selection to its neighbor.
  * Send-from-row publishes AS STORED while the session is open; rename/
  * duplicate/delete ride the row's ⋯ menu.
  *
@@ -23,7 +27,7 @@ import { Button, Dropdown, Input, Tag, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { type Dispatch, type SetStateAction, useState } from 'react';
 import { savedTopicTagColor } from './compose';
-import { buildMqttRequestUpdates, type MqttDraft, propertiesToDraft } from './draft';
+import { composeAsSavedMessage, type MqttDraft } from './draft';
 
 const { Text } = Typography;
 
@@ -77,6 +81,10 @@ interface MqttSavedMessagesRailProps {
   draft: MqttDraft;
   setDraft: Dispatch<SetStateAction<MqttDraft>>;
   sessionOpen: boolean;
+  /** The row the compose is BOUND to — edits write through to it. */
+  selectedUid: string | null;
+  /** Select a row (loading it into the compose); `null` clears. */
+  onSelect: (uid: string | null) => void;
   onPublish: (message: MqttPublishWire) => void;
   onHide: () => void;
 }
@@ -85,44 +93,45 @@ const MqttSavedMessagesRail: React.FC<MqttSavedMessagesRailProps> = ({
   draft,
   setDraft,
   sessionOpen,
+  selectedUid,
+  onSelect,
   onPublish,
   onHide,
 }) => {
+  const { token } = theme.useToken();
   const t = useT();
   const [renamingSavedUid, setRenamingSavedUid] = useState<string | null>(null);
 
+  // `+` captures the compose as a new row, SELECTS it (the compose is
+  // already its content — the binding starts live), and opens the
+  // inline rename with the name pre-selected.
   const addSavedMessageFromCompose = () => {
+    const uid = generateUid();
     setDraft((d) => {
       const baseName = t('workbench.editors.mqtt.saved.defaultName');
       const names = new Set(d.savedMessages.map((m) => m.name));
       let name = baseName;
       let counter = 2;
       while (names.has(name)) name = `${baseName} (${counter++})`;
-      const properties = buildMqttRequestUpdates(d).publishProperties;
-      const row: MqttSavedMessage = {
-        uid: generateUid(),
-        name,
-        topic: d.topic,
-        payload: d.payload,
-        ...(d.payloadFormat !== 'text' ? { format: d.payloadFormat } : {}),
-        ...(d.qos !== 0 ? { qos: d.qos } : {}),
-        ...(d.retain ? { retain: true } : {}),
-        ...(properties !== undefined ? { properties } : {}),
-      };
-      return { ...d, savedMessages: [...d.savedMessages, row] };
+      return { ...d, savedMessages: [...d.savedMessages, composeAsSavedMessage(d, uid, name)] };
     });
+    onSelect(uid);
+    setRenamingSavedUid(uid);
   };
 
-  const loadSavedMessage = (row: MqttSavedMessage) => {
-    setDraft((d) => ({
-      ...d,
-      topic: row.topic,
-      payload: row.payload,
-      payloadFormat: row.format ?? 'text',
-      qos: row.qos ?? 0,
-      retain: row.retain ?? false,
-      publishProperties: propertiesToDraft(row.properties),
-    }));
+  const deleteSavedMessage = (row: MqttSavedMessage) => {
+    // The neighbor inherits the selection — next row first, else the
+    // previous one — so one row stays selected while any exist.
+    const rows = draft.savedMessages;
+    const index = rows.findIndex((m) => m.uid === row.uid);
+    setDraft((d) => ({ ...d, savedMessages: d.savedMessages.filter((m) => m.uid !== row.uid) }));
+    if (row.uid === selectedUid) onSelect(rows[index + 1]?.uid ?? rows[index - 1]?.uid ?? null);
+  };
+
+  const duplicateSavedMessage = (row: MqttSavedMessage) => {
+    const uid = generateUid();
+    setDraft((d) => ({ ...d, savedMessages: [...d.savedMessages, { ...row, uid }] }));
+    onSelect(uid);
   };
 
   return (
@@ -174,8 +183,20 @@ const MqttSavedMessagesRail: React.FC<MqttSavedMessagesRailProps> = ({
            placeholder word when empty; color derives from the tag TEXT
            so equal topics wear equal colors. */
         const tagText = row.topic.trim() !== '' ? row.topic : t('workbench.editors.mqtt.saved.topicTagPlaceholder');
+        const selected = row.uid === selectedUid;
         return (
-          <div key={row.uid} style={{ display: 'flex', alignItems: 'center', gap: 4 }} data-testid="mqtt-saved-row">
+          <div
+            key={row.uid}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 4,
+              borderRadius: token.borderRadiusSM,
+              background: selected ? token.colorFillSecondary : 'transparent',
+            }}
+            data-testid="mqtt-saved-row"
+            data-selected={selected ? 'true' : undefined}
+          >
             <Tag
               color={savedTopicTagColor(tagText)}
               title={row.topic.trim() !== '' ? row.topic : undefined}
@@ -197,6 +218,7 @@ const MqttSavedMessagesRail: React.FC<MqttSavedMessagesRailProps> = ({
               <Input
                 size="small"
                 autoFocus
+                onFocus={(e) => e.target.select()}
                 defaultValue={row.name}
                 onBlur={(e) => {
                   const name = e.target.value.trim();
@@ -220,7 +242,7 @@ const MqttSavedMessagesRail: React.FC<MqttSavedMessagesRailProps> = ({
                   fontSize: 11,
                   overflow: 'hidden',
                 }}
-                onClick={() => loadSavedMessage(row)}
+                onClick={() => onSelect(row.uid)}
               >
                 {row.name}
               </Button>
@@ -259,21 +281,13 @@ const MqttSavedMessagesRail: React.FC<MqttSavedMessagesRailProps> = ({
                   {
                     key: 'duplicate',
                     label: t('workbench.editors.mqtt.saved.duplicate'),
-                    onClick: () =>
-                      setDraft((d) => ({
-                        ...d,
-                        savedMessages: [...d.savedMessages, { ...row, uid: generateUid() }],
-                      })),
+                    onClick: () => duplicateSavedMessage(row),
                   },
                   {
                     key: 'delete',
                     label: t('workbench.editors.mqtt.saved.delete'),
                     danger: true,
-                    onClick: () =>
-                      setDraft((d) => ({
-                        ...d,
-                        savedMessages: d.savedMessages.filter((m) => m.uid !== row.uid),
-                      })),
+                    onClick: () => deleteSavedMessage(row),
                   },
                 ],
               }}
