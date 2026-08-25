@@ -386,12 +386,17 @@ test('B5 — Connect runs the session in-page: greeting subprotocol, Send echo, 
     .filter({ hasText: `"protocol":"${WS_SUBPROTOCOL}"` })
     .first()
     .waitFor({ state: 'visible', timeout: 15_000 });
-  await page
+  const connectedRow = page
     .getByTestId('ws-timeline-connected-row')
     .filter({ visible: true })
-    .filter({ hasText: `Connected — subprotocol ${WS_SUBPROTOCOL}` })
-    .first()
-    .waitFor({ state: 'visible', timeout: 10_000 });
+    .filter({ hasText: 'Connected' })
+    .first();
+  await connectedRow.waitFor({ state: 'visible', timeout: 10_000 });
+  await connectedRow.click();
+  await expect(page.getByTestId('ws-timeline-handshake-details').filter({ visible: true }).first()).toContainText(
+    WS_SUBPROTOCOL,
+  );
+  await connectedRow.click();
 
   // Send the compose text: the ↑ frame and the probe's echo ↓ land.
   await expect(sendButton()).toBeEnabled();

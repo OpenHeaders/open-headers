@@ -244,13 +244,19 @@ test('W1 — Connect morphs, the greeting proves subprotocol + header, Send echo
   const greetingRow = timelineMessageRows().filter({ hasText: 'oh-desktop-e2e' }).first();
   await greetingRow.waitFor({ state: 'visible', timeout: 15_000 });
 
-  // The Connected lifecycle row names the negotiated subprotocol.
-  await workbench
+  // The Connected lifecycle row reads plain; expanding it shows the
+  // negotiated subprotocol among the handshake facts.
+  const connectedRow = workbench
     .getByTestId('ws-timeline-connected-row')
     .filter({ visible: true })
-    .filter({ hasText: 'Connected — subprotocol oh-e2e-proto' })
-    .first()
-    .waitFor({ state: 'visible', timeout: 10_000 });
+    .filter({ hasText: 'Connected' })
+    .first();
+  await connectedRow.waitFor({ state: 'visible', timeout: 10_000 });
+  await connectedRow.click();
+  await expect(
+    workbench.getByTestId('ws-timeline-handshake-details').filter({ visible: true }).first(),
+  ).toContainText('oh-e2e-proto');
+  await connectedRow.click();
 
   // Send the compose text: the ↑ frame and the probe's echo ↓ land.
   await expect(sendButton()).toBeEnabled();

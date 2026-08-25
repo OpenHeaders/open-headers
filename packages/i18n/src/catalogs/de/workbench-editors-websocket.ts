@@ -157,7 +157,6 @@ export const workbenchEditorsWebsocket = {
   // ── Message timeline ────────────────────────────────────────────────
   'workbench.editors.websocket.timeline.connecting': 'Verbindet',
   'workbench.editors.websocket.timeline.connected': 'Verbunden',
-  'workbench.editors.websocket.timeline.connectedProtocol': 'Verbunden — Subprotokoll {protocol}',
   'workbench.editors.websocket.timeline.disconnected': 'Getrennt',
   'workbench.editors.websocket.timeline.stopped': 'Gestoppt',
   'workbench.editors.websocket.timeline.aborted': 'Verbindung abgebrochen',

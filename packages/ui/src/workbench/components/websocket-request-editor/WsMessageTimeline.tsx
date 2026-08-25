@@ -11,7 +11,8 @@
  * The timeline is ONE event log in call order: "Connecting" and
  * "Disconnected / Stopped" sit at the chronological edges (a settled
  * pre-open failure renders its classified error row at the new edge
- * instead), and "Connected" sits before the first message — a WebSocket client
+ * instead), and "Connected" (expandable to the handshake facts as
+ * key: value rows) sits before the first message — a WebSocket client
  * cannot write before the handshake settles, so no interleave
  * arithmetic exists (the gRPC `headAtMessage` machinery has no WS
  * twin by construction). Rows read direction glyph · payload preview
@@ -49,10 +50,11 @@ import {
   ClearOutlined,
   CloseCircleOutlined,
   DisconnectOutlined,
+  DownOutlined,
   InfoCircleOutlined,
-  LinkOutlined,
   SearchOutlined,
   SortAscendingOutlined,
+  UpOutlined,
 } from '@ant-design/icons';
 import { parseEngineIoFrame, SOCKET_IO_PACKET_TYPES } from '@openheaders/core/socketio';
 import type { WebSocketFlavor } from '@openheaders/core/types';
@@ -78,6 +80,11 @@ const SINGLE_ROW_PX = 28;
 /** Pinned height of an expanded row's mini viewer (180px editor +
  *  1px divider). */
 const VIEWER_PX = 181;
+/** Pinned height of the Connected row's expanded handshake block —
+ *  heading (18px) + two fact rows (20px each) + 6px paddings + 1px
+ *  divider; the lines carry these heights explicitly so the virtual
+ *  window's arithmetic stays exact by construction. */
+const HANDSHAKE_DETAIL_PX = 71;
 
 const cellFont: React.CSSProperties = {
   fontFamily: "'SF Mono', 'Fira Code', monospace",
@@ -103,8 +110,11 @@ export interface WsTimelineLifecycle {
   connected: boolean;
   /** Session-only handshake-settled time. */
   connectedAt?: number;
-  /** The negotiated subprotocol, named on the Connected row. */
-  protocol?: string;
+  /** The handshake facts behind the Connected row's expandable
+   *  details — what the platform socket exposes (the negotiated
+   *  subprotocol and extensions), assembled by the pane; rendered
+   *  verbatim as key: value rows, absence as absence. */
+  handshake?: { protocol: string; extensions: string };
   /** Classified pre-open failure — the session never opened. Rendered
    *  as an error row at the timeline's new edge; never set beside
    *  `endedBy` or `aborted`. */
@@ -159,7 +169,7 @@ interface WsGroupIdentity {
 /** One display slot of the virtual list — heights are a closed
  *  function of `kind`, so windowing never measures. */
 type ListEntry =
-  | { key: string; kind: 'sent' | 'connected' | 'error' | 'ended' | 'waiting' | 'noMatches' }
+  | { key: string; kind: 'sent' | 'connected' | 'handshakeDetail' | 'error' | 'ended' | 'waiting' | 'noMatches' }
   | { key: string; kind: 'header'; group: WsGroupIdentity; count: number; collapsed: boolean }
   /** "Show N older messages" at a windowed group's older edge; the
    *  un-windowed state's re-window action lives on the group header. */
@@ -423,6 +433,7 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
   // the lifecycle rows) stay untouched.
   const [clearedCount, setClearedCount] = useState(0);
   const [expanded, setExpanded] = useState<ReadonlySet<number>>(new Set<number>());
+  const [handshakeExpanded, setHandshakeExpanded] = useState(false);
   const [wrapLines, setWrapLines] = useState(true);
   // Sort direction and grouping are SETTINGS — global, user-owned,
   // written by this toolbar and the Settings page alike; a Connect/
@@ -475,6 +486,7 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
     setDirectionFilter('all');
     setClearedCount(0);
     setExpanded(new Set<number>());
+    setHandshakeExpanded(false);
     setCollapsedGroups(new Set<string>());
     setUnwindowedGroups(new Set<string>());
     setHasNewMessages(false);
@@ -617,6 +629,14 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
       out.push({ key: `r${index}`, kind: 'row', index });
       if (expanded.has(index)) out.push({ key: `v${index}`, kind: 'viewer', index });
     };
+    const pushConnected = () => {
+      out.push({ key: 'connected', kind: 'connected' });
+      // The details block always sits directly under its row — the
+      // expanded message-viewer discipline, both sort orders.
+      if (handshakeExpanded && lifecycle.handshake !== undefined) {
+        out.push({ key: 'handshakeDetail', kind: 'handshakeDetail' });
+      }
+    };
     const notice: ListEntry | null =
       live && count === 0
         ? { key: 'waiting', kind: 'waiting' }
@@ -636,7 +656,7 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
       if (notice) out.push(notice);
     } else {
       out.push({ key: 'sent', kind: 'sent' });
-      if (groups !== null && lifecycle.connected) out.push({ key: 'connected', kind: 'connected' });
+      if (groups !== null && lifecycle.connected) pushConnected();
     }
 
     if (groups !== null) {
@@ -674,14 +694,14 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
       for (const index of visibleRows) tokens.push(index);
       if (newestFirst) tokens.reverse();
       for (const token of tokens) {
-        if (token === 'connected') out.push({ key: 'connected', kind: 'connected' });
+        if (token === 'connected') pushConnected();
         else pushRow(token);
       }
     }
 
     // Bottom chronological edge.
     if (newestFirst) {
-      if (groups !== null && lifecycle.connected) out.push({ key: 'connected', kind: 'connected' });
+      if (groups !== null && lifecycle.connected) pushConnected();
       out.push({ key: 'sent', kind: 'sent' });
     } else {
       if (notice) out.push(notice);
@@ -692,6 +712,7 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
   }, [
     newestFirst,
     lifecycle.connected,
+    lifecycle.handshake,
     lifecycle.errorMessage,
     lifecycle.aborted,
     lifecycle.endedBy,
@@ -702,12 +723,19 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
     visibleRows,
     groups,
     expanded,
+    handshakeExpanded,
     collapsedGroups,
     groupRowLimit,
     unwindowedGroups,
   ]);
 
-  const heights = useMemo(() => entries.map((e) => (e.kind === 'viewer' ? VIEWER_PX : SINGLE_ROW_PX)), [entries]);
+  const heights = useMemo(
+    () =>
+      entries.map((e) =>
+        e.kind === 'viewer' ? VIEWER_PX : e.kind === 'handshakeDetail' ? HANDSHAKE_DETAIL_PX : SINGLE_ROW_PX,
+      ),
+    [entries],
+  );
 
   const { onScroll: onWindowScroll, start, end, topPadPx, bottomPadPx, prefix } = useVirtualRowWindow(
     scrollerRef,
@@ -812,6 +840,23 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
         {formatMessageTime(ts)}
       </span>
     ) : null;
+
+  // Trailing expand slot — fixed width on EVERY row so the
+  // right-aligned timestamps line up in one column; expandable rows
+  // render their chevron in it, the rest leave it empty.
+  const expandSlot = (expanded: boolean | null): React.ReactNode => (
+    <span
+      aria-hidden
+      style={{ width: 12, flexShrink: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
+    >
+      {expanded !== null &&
+        (expanded ? (
+          <UpOutlined style={{ fontSize: 9, color: token.colorTextTertiary }} />
+        ) : (
+          <DownOutlined style={{ fontSize: 9, color: token.colorTextTertiary }} />
+        ))}
+    </span>
+  );
 
   // Boxed direction badge — ↑ amber, ↓ blue on their tinted
   // backgrounds (the gRPC list's anatomy), shared by message rows and
@@ -938,20 +983,82 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
               {t('workbench.editors.websocket.timeline.connecting')}
             </span>
             {lifecycleTime(lifecycle.startedAt)}
+            {expandSlot(null)}
           </div>
         );
-      case 'connected':
+      case 'connected': {
+        const expandable = lifecycle.handshake !== undefined;
         return (
-          <div key={entry.key} data-testid="ws-timeline-connected-row" style={lifecycleRowStyle}>
-            <LinkOutlined aria-hidden style={{ fontSize: 11, color: token.colorTextTertiary }} />
+          <div
+            key={entry.key}
+            data-testid="ws-timeline-connected-row"
+            {...(expandable
+              ? {
+                  role: 'button',
+                  tabIndex: 0,
+                  'aria-expanded': handshakeExpanded,
+                  className: 'oh-stream-row',
+                  onClick: () => setHandshakeExpanded((prev) => !prev),
+                  onKeyDown: (event: React.KeyboardEvent) => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault();
+                      setHandshakeExpanded((prev) => !prev);
+                    }
+                  },
+                }
+              : {})}
+            style={{ ...lifecycleRowStyle, ...(expandable ? { cursor: 'pointer' } : {}) }}
+          >
+            <CheckCircleOutlined aria-hidden style={{ fontSize: 11, color: token.colorSuccess }} />
             <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {lifecycle.protocol !== undefined && lifecycle.protocol !== ''
-                ? t('workbench.editors.websocket.timeline.connectedProtocol', { protocol: lifecycle.protocol })
-                : t('workbench.editors.websocket.timeline.connected')}
+              {t('workbench.editors.websocket.timeline.connected')}
             </span>
             {lifecycleTime(lifecycle.connectedAt)}
+            {expandSlot(expandable ? handshakeExpanded : null)}
           </div>
         );
+      }
+      case 'handshakeDetail': {
+        const handshake = lifecycle.handshake;
+        if (handshake === undefined) return null;
+        // The handshake facts as key: value rows — wire field names
+        // raw, values verbatim, absence rendered as the absence it is.
+        const factRow = (label: string, value: string): React.ReactNode => (
+          <div
+            key={label}
+            style={{
+              ...cellFont,
+              lineHeight: '20px',
+              height: 20,
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+            }}
+          >
+            <span style={{ color: token.colorTextSecondary }}>{label}: </span>
+            <span style={{ color: token.colorText }}>{value}</span>
+          </div>
+        );
+        return (
+          <div
+            key={entry.key}
+            data-testid="ws-timeline-handshake-details"
+            style={{
+              height: HANDSHAKE_DETAIL_PX,
+              boxSizing: 'border-box',
+              padding: '6px 10px 6px 37px',
+              borderBottom: `1px solid ${token.colorBorderSecondary}`,
+              overflow: 'hidden',
+            }}
+          >
+            <div style={{ ...cellFont, fontSize: 11, lineHeight: '18px', height: 18, color: token.colorTextTertiary }}>
+              {t('workbench.editors.websocket.session.tab.handshake')}
+            </div>
+            {factRow('protocol', handshake.protocol !== '' ? handshake.protocol : '—')}
+            {factRow('extensions', handshake.extensions !== '' ? handshake.extensions : '—')}
+          </div>
+        );
+      }
       case 'error': {
         // A user abort is not a failure — the neutral info row.
         if (lifecycle.aborted === true) {
@@ -962,6 +1069,7 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
                 {t('workbench.editors.websocket.timeline.aborted')}
               </span>
               {lifecycleTime(lifecycle.endedAt)}
+              {expandSlot(null)}
             </div>
           );
         }
@@ -983,6 +1091,7 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
               {lifecycle.errorMessage}
             </span>
             {lifecycleTime(lifecycle.endedAt)}
+            {expandSlot(null)}
           </div>
         );
       }
@@ -1000,6 +1109,7 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
               {lifecycle.endedMessage ? ` — ${lifecycle.endedMessage}` : ''}
             </span>
             {lifecycleTime(lifecycle.endedAt)}
+            {expandSlot(null)}
           </div>
         );
       }
@@ -1144,6 +1254,7 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
                 {formatMessageTime(ts)}
               </span>
             )}
+            {expandSlot(isExpanded)}
           </div>
         );
       }

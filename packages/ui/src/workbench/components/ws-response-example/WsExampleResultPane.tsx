@@ -40,7 +40,7 @@ const WsExampleResultPane: React.FC<WsExampleResultPaneProps> = ({ response, fla
           : t('workbench.editors.websocket.session.noCloseFrame');
     return {
       connected: true,
-      ...(response.protocol !== '' ? { protocol: response.protocol } : {}),
+      handshake: { protocol: response.protocol, extensions: response.extensions },
       endedBy: response.stopped === true ? 'stop' : 'close',
       ...(endedMessage !== undefined ? { endedMessage } : {}),
     };

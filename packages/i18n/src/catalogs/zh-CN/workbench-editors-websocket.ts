@@ -139,7 +139,6 @@ export const workbenchEditorsWebsocket = {
   // ── Message timeline ────────────────────────────────────────────────
   'workbench.editors.websocket.timeline.connecting': '连接中',
   'workbench.editors.websocket.timeline.connected': '已连接',
-  'workbench.editors.websocket.timeline.connectedProtocol': '已连接——子协议 {protocol}',
   'workbench.editors.websocket.timeline.disconnected': '已断开',
   'workbench.editors.websocket.timeline.stopped': '已停止',
   'workbench.editors.websocket.timeline.aborted': '连接已中止',

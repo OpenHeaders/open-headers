@@ -91,7 +91,9 @@ const WsSessionPane: React.FC<WsSessionPaneProps> = ({
         ...(live !== null ? { startedAt: live.startedAt } : {}),
         connected: live !== null && live.open !== null,
         ...(live?.connectedAt !== undefined ? { connectedAt: live.connectedAt } : {}),
-        ...(live?.open?.protocol !== undefined && live.open.protocol !== '' ? { protocol: live.open.protocol } : {}),
+        ...(live?.open != null
+          ? { handshake: { protocol: live.open.protocol, extensions: live.open.extensions } }
+          : {}),
       };
     }
     // A pre-open failure settles as the timeline's error row — the
@@ -118,7 +120,7 @@ const WsSessionPane: React.FC<WsSessionPaneProps> = ({
       ...(timing?.startedAt !== undefined ? { startedAt: timing.startedAt } : {}),
       connected: true,
       ...(timing?.connectedAt !== undefined ? { connectedAt: timing.connectedAt } : {}),
-      ...(snapshot.protocol !== '' ? { protocol: snapshot.protocol } : {}),
+      handshake: { protocol: snapshot.protocol, extensions: snapshot.extensions },
       endedBy: snapshot.stopped === true ? 'stop' : 'close',
       ...(timing?.endedAt !== undefined ? { endedAt: timing.endedAt } : {}),
       ...(endedMessage !== undefined ? { endedMessage } : {}),

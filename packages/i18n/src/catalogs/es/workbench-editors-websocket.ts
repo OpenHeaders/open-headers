@@ -154,7 +154,6 @@ export const workbenchEditorsWebsocket = {
   // ── Message timeline ────────────────────────────────────────────────
   'workbench.editors.websocket.timeline.connecting': 'Conectando',
   'workbench.editors.websocket.timeline.connected': 'Conectado',
-  'workbench.editors.websocket.timeline.connectedProtocol': 'Conectado — subprotocolo {protocol}',
   'workbench.editors.websocket.timeline.disconnected': 'Desconectado',
   'workbench.editors.websocket.timeline.stopped': 'Detenido',
   'workbench.editors.websocket.timeline.aborted': 'Conexión cancelada',

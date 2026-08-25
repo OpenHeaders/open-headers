@@ -69,7 +69,7 @@ const LIVE_LIFECYCLE: WsTimelineLifecycle = {
   startedAt: 1_700_000_000_000,
   connected: true,
   connectedAt: 1_700_000_000_050,
-  protocol: 'chat.v2',
+  handshake: { protocol: 'chat.v2', extensions: '' },
 };
 
 /** Document order of the timeline's lifecycle + message rows. */
@@ -115,9 +115,19 @@ describe('WsMessageTimeline — rows and lifecycle order', () => {
     expect(rowSequence()).toEqual(['connecting', 'connected', 'ping', 'pong', 'done', 'ended']);
   });
 
-  it('names the Connected row with the negotiated subprotocol', () => {
+  it('reads plain Connected collapsed and expands to the handshake facts', () => {
     renderTimeline();
-    expect(screen.getByTestId('ws-timeline-connected-row').textContent).toContain('chat.v2');
+    const row = screen.getByTestId('ws-timeline-connected-row');
+    expect(row.textContent).toContain('Connected');
+    expect(row.textContent).not.toContain('chat.v2');
+    expect(screen.queryByTestId('ws-timeline-handshake-details')).toBeNull();
+    fireEvent.click(row);
+    const details = screen.getByTestId('ws-timeline-handshake-details');
+    expect(details.textContent).toContain('protocol: chat.v2');
+    // The empty extensions fact renders as the absence it is.
+    expect(details.textContent).toContain('extensions: —');
+    fireEvent.click(row);
+    expect(screen.queryByTestId('ws-timeline-handshake-details')).toBeNull();
   });
 
   it('renders the ended row detail verbatim (close code, stop, failure)', () => {
