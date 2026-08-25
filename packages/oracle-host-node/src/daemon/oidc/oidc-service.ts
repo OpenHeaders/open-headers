@@ -48,6 +48,7 @@ import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 import {
   type CreateDaemonUserResult,
   createDaemonUser,
+  daemonUserPrincipalKind,
   emitAuditEntry,
   findDaemonUserByEmail,
   type MintDaemonAuthTokenResult,
@@ -104,6 +105,7 @@ export type OidcLoginFailureReason =
   | 'email-unverified'
   | 'unknown-user'
   | 'user-deactivated'
+  | 'service-account'
   | 'provision-failed'
   | 'seat-limit-reached'
   | 'personal-seats-disabled'
@@ -350,6 +352,11 @@ export function createDaemonOidcService(config: DaemonOidcConfig, deps: OidcServ
     const existing = await findUserByEmail(email);
     if (existing) {
       if (existing.deactivatedAt !== null) return { ok: false, reason: 'user-deactivated' };
+      // Only `user`-kind principals may log in (the access-foundation
+      // plan §8 F3) — structurally unreachable (service accounts are
+      // email-less, so the join can never land on one), pinned so any
+      // future kind degrades to no-login rather than minting a session.
+      if (daemonUserPrincipalKind(existing) !== 'user') return { ok: false, reason: 'service-account' };
       return { ok: true, record: existing };
     }
     if (!config.autoProvision) return { ok: false, reason: 'unknown-user' };

@@ -1,8 +1,10 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import {
   FREE_SEAT_LIMIT,
+  FREE_SERVICE_ACCOUNT_LIMIT,
   getLicenseSeatLimit,
   getLicenseSnapshot,
+  getServiceAccountLimit,
   type LicensedSnapshot,
   type LicenseSnapshot,
   setLicenseSnapshotProvider,
@@ -59,5 +61,37 @@ describe('license seat seam', () => {
     expect(getLicenseSeatLimit()).toBe(40);
     snapshot = { status: 'expired', ...LICENSED_BASE };
     expect(getLicenseSeatLimit()).toBe(FREE_SEAT_LIMIT);
+  });
+});
+
+describe('service account cap seam (the access-foundation plan decision e)', () => {
+  it('holds the free bound with no provider installed', () => {
+    expect(getServiceAccountLimit()).toBe(FREE_SERVICE_ACCOUNT_LIMIT);
+  });
+
+  it('ANY paid org license — licensed or grace — lifts the cap entirely', () => {
+    for (const status of ['licensed', 'grace'] as const) {
+      setLicenseSnapshotProvider(() => ({ status, ...LICENSED_BASE }));
+      expect(getServiceAccountLimit()).toBe(Number.POSITIVE_INFINITY);
+    }
+  });
+
+  it('reverts to the free bound on expired, invalid, and unlicensed', () => {
+    const cases: LicenseSnapshot[] = [
+      { status: 'expired', ...LICENSED_BASE },
+      { status: 'invalid', reason: 'unknown-kid' },
+      { status: 'unlicensed' },
+    ];
+    for (const snapshot of cases) {
+      setLicenseSnapshotProvider(() => snapshot);
+      expect(getServiceAccountLimit()).toBe(FREE_SERVICE_ACCOUNT_LIMIT);
+    }
+  });
+
+  it('a personal seat lifts nothing — same posture as the pool limit', () => {
+    for (const status of ['licensed', 'grace'] as const) {
+      setLicenseSnapshotProvider(() => ({ status, ...LICENSED_BASE, kind: 'personal-seat', seats: 1 }));
+      expect(getServiceAccountLimit()).toBe(FREE_SERVICE_ACCOUNT_LIMIT);
+    }
   });
 });

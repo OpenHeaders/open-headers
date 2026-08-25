@@ -22,3 +22,13 @@ export type ReservedEntitlement = (typeof RESERVED_ENTITLEMENTS)[number];
  * to this limit for NEW user creation only.
  */
 export const FREE_SEAT_LIMIT = 6;
+
+/**
+ * Active service accounts an unlicensed daemon admits (the
+ * access-foundation plan decision e). Purely an abuse bound so an
+ * unlicensed server cannot mint unlimited token-holding identities —
+ * ANY paid org license lifts the cap entirely (no per-account pricing,
+ * no SKU, no override field); a personal seat never feeds it. Same gate
+ * posture as human seats: refuses NEW creates only.
+ */
+export const FREE_SERVICE_ACCOUNT_LIMIT = 6;

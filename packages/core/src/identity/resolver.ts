@@ -70,6 +70,7 @@ export type CapabilityDenyReason =
   | 'unknown-capability'
   | 'auth-required'
   | 'seat-limit-reached'
+  | 'service-limit-reached'
   | 'personal-seats-disabled'
   | 'personal-license-invalid'
   | 'personal-license-identity-mismatch'

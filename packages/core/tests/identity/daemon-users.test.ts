@@ -33,6 +33,7 @@ import {
 } from '../../src/identity';
 import {
   FREE_SEAT_LIMIT,
+  FREE_SERVICE_ACCOUNT_LIMIT,
   type LicensedSnapshot,
   type LicenseSnapshot,
   setLicenseSnapshotProvider,
@@ -560,6 +561,147 @@ describe('daemon users', () => {
       expect(refused).toEqual({ ok: false, reason: 'seat-limit-reached', seatLimit: FREE_SEAT_LIMIT });
       // The wall only faces new growth: every existing record is intact.
       expect((await listDaemonUsers()).filter((r) => r.deactivatedAt === null).length).toBe(12);
+    });
+  });
+
+  describe('service accounts (the access-foundation plan §8 F3)', () => {
+    const LICENSED_BASE: Omit<LicensedSnapshot, 'status' | 'seats'> = {
+      licenseId: 'lic-0001',
+      licensee: { name: 'Ada Example', org: 'OpenHeaders', email: 'ada@openheaders.io' },
+      entitlements: [],
+      validUntil: Date.UTC(2026, 6, 1),
+      graceEndsAt: Date.UTC(2026, 6, 22),
+    };
+
+    afterEach(() => {
+      setLicenseSnapshotProvider(null);
+      resetAuditSink();
+    });
+
+    async function fillServiceCap(): Promise<void> {
+      for (let i = 0; i < FREE_SERVICE_ACCOUNT_LIMIT; i++) {
+        const created = await createDaemonUser({ displayName: `Bot ${i}`, kind: 'service' });
+        if (!created.ok) throw new Error(`service setup failed at ${i}: ${created.reason}`);
+      }
+    }
+
+    it('mints an email-less service record — kind stamped, identity local, member role, no functional roles', async () => {
+      const created = await createDaemonUser({ displayName: 'CI deployer', kind: 'service' });
+      expect(created.ok).toBe(true);
+      if (!created.ok) return;
+      expect(created.record.kind).toBe('service');
+      expect(daemonUserPrincipalKind(created.record)).toBe('service');
+      // Email-less by construction — no-login is structural, not checked.
+      expect(created.record.userIdentity.kind).toBe('local');
+      expect(created.record.userIdentity.value).toBeNull();
+      expect(created.record.membership.primaryRole).toBe('member');
+      expect(created.record.membership.functionalRoles).toEqual([]);
+      expect(created.record.admission).toBeUndefined();
+      expect(v.safeParse(DaemonUserRecordSchema, created.record).success).toBe(true);
+    });
+
+    it('refuses an email on a service admission', async () => {
+      expect(await createDaemonUser({ displayName: 'Bot', kind: 'service', email: 'bot@openheaders.io' })).toEqual({
+        ok: false,
+        reason: 'service-account-email',
+      });
+    });
+
+    it('admits up to the free cap unlicensed, then refuses with an audit row', async () => {
+      const auditRows: ResolvedAuditEntry[] = [];
+      setAuditSink((entry) => auditRows.push(entry));
+      await fillServiceCap();
+      const refused = await createDaemonUser({ displayName: 'One Bot Too Many', kind: 'service' });
+      expect(refused).toEqual({
+        ok: false,
+        reason: 'service-limit-reached',
+        serviceLimit: FREE_SERVICE_ACCOUNT_LIMIT,
+      });
+      const identity = await hostStorage.get(OH.syntheticIdentity);
+      expect(auditRows).toEqual([
+        expect.objectContaining({
+          actorUserId: identity?.user.id,
+          capability: 'daemon.service-admit',
+          decision: { allow: false, reason: 'service-limit-reached' },
+          orgId: identity?.org.id,
+        }),
+      ]);
+    });
+
+    it('ANY paid license lifts the cap entirely; a personal seat lifts nothing', async () => {
+      setLicenseSnapshotProvider(() => ({ status: 'licensed', seats: 1, ...LICENSED_BASE }));
+      await fillServiceCap();
+      expect((await createDaemonUser({ displayName: 'Bot Beyond', kind: 'service' })).ok).toBe(true);
+      setLicenseSnapshotProvider(() => ({ status: 'licensed', seats: 1, kind: 'personal-seat', ...LICENSED_BASE }));
+      expect(await createDaemonUser({ displayName: 'Bot Refused', kind: 'service' })).toMatchObject({
+        ok: false,
+        reason: 'service-limit-reached',
+      });
+    });
+
+    it('the two gates count their own kind — services hold no human seat and vice versa', async () => {
+      await fillServiceCap();
+      // Every human seat is still free.
+      for (let i = 0; i < FREE_SEAT_LIMIT; i++) {
+        const created = await createDaemonUser({ displayName: `User ${i}`, email: `user${i}@openheaders.io` });
+        expect(created.ok).toBe(true);
+      }
+      // And the exhausted human pool never blocks... a human refusal
+      // here proves the human gate saw only user-kind records.
+      expect(await createDaemonUser({ displayName: 'One Too Many' })).toMatchObject({
+        reason: 'seat-limit-reached',
+      });
+    });
+
+    it('deactivating a service account frees its slot immediately', async () => {
+      await fillServiceCap();
+      const bot = (await listDaemonUsers()).find((r) => daemonUserPrincipalKind(r) === 'service');
+      if (!bot) throw new Error('setup failed');
+      await deactivateDaemonUser(bot.user.id);
+      expect((await createDaemonUser({ displayName: 'Replacement Bot', kind: 'service' })).ok).toBe(true);
+    });
+
+    it('binds tokens and resolves peer admission like any directory record', async () => {
+      const created = await createDaemonUser({ displayName: 'CI deployer', kind: 'service' });
+      if (!created.ok) throw new Error('setup failed');
+      const { secret } = await mintDaemonAuthToken({ label: 'ci token', userId: created.record.user.id });
+      const validated = await validateDaemonAuthToken(secret);
+      expect(validated.ok && validated.userId).toBe(created.record.user.id);
+      expect(await resolveDaemonPeerUser(created.record.user.id)).toEqual({
+        ok: true,
+        userId: created.record.user.id,
+        displayName: 'CI deployer',
+      });
+      await deactivateDaemonUser(created.record.user.id);
+      expect(await resolveDaemonPeerUser(created.record.user.id)).toEqual({
+        ok: false,
+        reason: 'user-deactivated',
+      });
+    });
+
+    it('refuses the password credential and both functional-role toggles — data-plane only', async () => {
+      const created = await createDaemonUser({ displayName: 'CI deployer', kind: 'service' });
+      if (!created.ok) throw new Error('setup failed');
+      const userId = created.record.user.id;
+      expect(await setDaemonUserPassword(userId, 'scrypt$1$1$1$salt$hash')).toEqual({
+        ok: false,
+        reason: 'service-account',
+      });
+      expect(await setDaemonUserWorkspaceCreate(userId, true)).toEqual({ ok: false, reason: 'service-account' });
+      expect(await setDaemonUserDaemonAdmin(userId, true)).toEqual({ ok: false, reason: 'service-account' });
+      const found = (await listDaemonUsers()).find((r) => r.user.id === userId);
+      expect(found?.passwordVerifier).toBeUndefined();
+      expect(found?.membership.functionalRoles).toEqual([]);
+    });
+
+    it('gitEmail stays allowed — attribution is not a credential', async () => {
+      const created = await createDaemonUser({ displayName: 'CI deployer', kind: 'service' });
+      if (!created.ok) throw new Error('setup failed');
+      expect(await setDaemonUserGitEmail(created.record.user.id, 'ci@commits.openheaders.io')).toEqual({ ok: true });
+      expect(await resolveDaemonUserGitAttribution(created.record.user.id)).toEqual({
+        name: 'CI deployer',
+        email: 'ci@commits.openheaders.io',
+      });
     });
   });
 

@@ -234,9 +234,16 @@ export function activatedPlanFromLicenseSnapshot(snapshot: LicenseSnapshot): Tel
  * Where a monetization moment happened (S20) — one unified list across
  * `paywall_hit` and the upgrade-CTA pair so the stored column keeps a
  * single meaning: `seat-gate` is the seat-limit refusal, `license-pane`
- * is Settings → License, `grace-banner` is the grace/expired alerts.
+ * is Settings → License, `grace-banner` is the grace/expired alerts,
+ * `service-gate` is the service-account cap refusal (the
+ * access-foundation plan decision e).
  */
-export const TelemetryMonetizationSurfaceSchema = v.picklist(['seat-gate', 'license-pane', 'grace-banner']);
+export const TelemetryMonetizationSurfaceSchema = v.picklist([
+  'seat-gate',
+  'license-pane',
+  'grace-banner',
+  'service-gate',
+]);
 
 /**
  * AI clients observed on the MCP `initialize` handshake (plan §3, MCP

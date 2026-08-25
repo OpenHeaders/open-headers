@@ -12,7 +12,7 @@
  * are never touched by this number; only create/re-admit consults it.
  */
 
-import { FREE_SEAT_LIMIT } from './entitlements';
+import { FREE_SEAT_LIMIT, FREE_SERVICE_ACCOUNT_LIMIT } from './entitlements';
 import type { LicenseSnapshot } from './types';
 
 let provider: (() => LicenseSnapshot) | null = null;
@@ -38,4 +38,19 @@ export function getLicenseSeatLimit(): number {
     return snapshot.seats;
   }
   return FREE_SEAT_LIMIT;
+}
+
+/**
+ * Active service accounts the admission gate admits right now (the
+ * access-foundation plan decision e): ANY paid org license — licensed
+ * or in grace — lifts the cap entirely; unlicensed (and past grace)
+ * holds the free abuse bound. A personal seat is one human's admission
+ * ticket and lifts nothing here, same posture as the pool limit above.
+ */
+export function getServiceAccountLimit(): number {
+  const snapshot = getLicenseSnapshot();
+  if ((snapshot.status === 'licensed' || snapshot.status === 'grace') && snapshot.kind !== 'personal-seat') {
+    return Number.POSITIVE_INFINITY;
+  }
+  return FREE_SERVICE_ACCOUNT_LIMIT;
 }

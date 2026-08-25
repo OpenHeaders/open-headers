@@ -32,6 +32,7 @@ import {
 import { useCallback, useEffect, useState } from 'react';
 import type React from 'react';
 import { type BridgeRpcRequest, type BridgeRpcResponse, hostBridge } from '@openheaders/core/bridge';
+import { FREE_SERVICE_ACCOUNT_LIMIT } from '@openheaders/core/licensing';
 import { getDateTimeFormat, type MessageKey } from '@openheaders/i18n';
 import { useLocale, useT } from '@openheaders/ui/context/LocaleContext';
 import { noteUpgradeCtaShown, trackProductTelemetryEvent } from '../../../shared/product-telemetry';
@@ -48,6 +49,11 @@ type DirectoryRole = 'owner' | 'editor' | 'viewer';
 
 interface DirectoryUser {
   userId: string;
+  // Principal kind as a wire string (the access-foundation plan §8 F3):
+  // 'service' marks a machine identity; absent (older server) and any
+  // unknown value render as a human row — forward-tolerant, never a
+  // refusal, and nothing here enforces.
+  kind?: string;
   displayName: string;
   email: string | null;
   gitEmail: string | null;
@@ -456,6 +462,11 @@ const ServerAdminConsole: React.FC = () => {
   }>();
   const [adding, setAdding] = useState(false);
   const [seatBlocked, setSeatBlocked] = useState(false);
+  // Which principal kind the add form admits — service mode drops the
+  // email and seat-key fields (a service account is email-less by
+  // construction and holds no seat).
+  const [addKind, setAddKind] = useState<'user' | 'service'>('user');
+  const [serviceBlocked, setServiceBlocked] = useState(false);
   const [passwordUser, setPasswordUser] = useState<DirectoryUser | null>(null);
   // Directory ordering — newest admission first by default; the
   // last-seen order puts never-seen users first, then stalest, so the
@@ -503,6 +514,10 @@ const ServerAdminConsole: React.FC = () => {
     if (seatBlocked) noteUpgradeCtaShown('seat-gate');
   }, [seatBlocked]);
 
+  useEffect(() => {
+    if (serviceBlocked) noteUpgradeCtaShown('service-gate');
+  }, [serviceBlocked]);
+
   async function handleAddUser(values: {
     displayName: string;
     email: string;
@@ -512,10 +527,15 @@ const ServerAdminConsole: React.FC = () => {
   }): Promise<void> {
     setAdding(true);
     try {
+      const service = addKind === 'service';
       const resp = await hostBridge.call('oh.daemon.users.create', {
         displayName: values.displayName.trim(),
-        email: values.email?.trim() || undefined,
-        personalLicense: values.personalLicense?.trim() || undefined,
+        // A service account is email-less (no-login) and holds no seat
+        // — the form hides both fields in service mode, and any value a
+        // mode switch left behind in the form store is dropped here.
+        email: service ? undefined : values.email?.trim() || undefined,
+        personalLicense: service ? undefined : values.personalLicense?.trim() || undefined,
+        ...(service ? { kind: 'service' } : {}),
         // Admission confers access (the server-access plan A2): the
         // form refuses to submit without a workspace + role, and the
         // grant lands in the same act as the admission.
@@ -528,11 +548,18 @@ const ServerAdminConsole: React.FC = () => {
           setSeatBlocked(true);
           trackProductTelemetryEvent({ name: 'paywall_hit', surface: 'seat-gate' });
         }
+        // The service cap's wall has no redeem path — the one lift is
+        // the org license (decision e).
+        if (resp.reason === 'service-limit-reached') {
+          setServiceBlocked(true);
+          trackProductTelemetryEvent({ name: 'paywall_hit', surface: 'service-gate' });
+        }
         message.error(t('workbench.serverAdmin.users.addFailed', { message: resp.error }));
         return;
       }
       addForm.resetFields();
       setSeatBlocked(false);
+      setServiceBlocked(false);
       await refresh();
     } catch (err) {
       message.error(t('workbench.serverAdmin.users.addFailed', { message: (err as Error).message }));
@@ -703,6 +730,25 @@ const ServerAdminConsole: React.FC = () => {
             padding: 12,
           }}
         >
+          {/* Which principal kind the admission mints (the
+              access-foundation plan §8 F3) — service mode drops the
+              email and seat-key fields entirely. */}
+          <Segmented
+            size="small"
+            value={addKind}
+            onChange={(value) => setAddKind(value === 'service' ? 'service' : 'user')}
+            options={[
+              { value: 'user', label: t('workbench.serverAdmin.users.kindUser') },
+              { value: 'service', label: t('workbench.serverAdmin.users.kindService') },
+            ]}
+            style={{ marginBottom: 8 }}
+            data-testid="server-admin-add-kind"
+          />
+          {addKind === 'service' && (
+            <div style={{ fontSize: 11, color: token.colorTextTertiary, marginBottom: 8 }}>
+              {t('workbench.serverAdmin.users.serviceExplainer')}
+            </div>
+          )}
           <Form
             form={addForm}
             layout="inline"
@@ -716,14 +762,20 @@ const ServerAdminConsole: React.FC = () => {
               style={{ flex: 1 }}
             >
               <Input
-                placeholder={t('workbench.serverAdmin.users.displayNamePlaceholder')}
+                placeholder={
+                  addKind === 'service'
+                    ? t('workbench.serverAdmin.users.serviceNamePlaceholder')
+                    : t('workbench.serverAdmin.users.displayNamePlaceholder')
+                }
                 maxLength={64}
                 data-testid="server-admin-add-name"
               />
             </Form.Item>
-            <Form.Item name="email" style={{ flex: 1 }}>
-              <Input placeholder={t('workbench.serverAdmin.users.emailPlaceholder')} maxLength={128} />
-            </Form.Item>
+            {addKind === 'user' && (
+              <Form.Item name="email" style={{ flex: 1 }}>
+                <Input placeholder={t('workbench.serverAdmin.users.emailPlaceholder')} maxLength={128} />
+              </Form.Item>
+            )}
             {/* Admission confers access (the server-access plan A2): the
                 invite carries at least one workspace + role, offered
                 from the SERVER's projection, never the tab's mirror. */}
@@ -746,7 +798,7 @@ const ServerAdminConsole: React.FC = () => {
                 data-testid="server-admin-add-role"
               />
             </Form.Item>
-            {seatBlocked && (
+            {seatBlocked && addKind === 'user' && (
               <Form.Item name="personalLicense" style={{ flex: 1, minWidth: 220 }}>
                 <Input
                   placeholder={t('workbench.serverAdmin.users.seatKeyPlaceholder')}
@@ -756,10 +808,26 @@ const ServerAdminConsole: React.FC = () => {
             )}
             <Form.Item style={{ marginBottom: 0 }}>
               <Button type="primary" htmlType="submit" loading={adding} data-testid="server-admin-add-user">
-                {t('workbench.serverAdmin.users.addUser')}
+                {addKind === 'service'
+                  ? t('workbench.serverAdmin.users.addService')
+                  : t('workbench.serverAdmin.users.addUser')}
               </Button>
             </Form.Item>
           </Form>
+          {serviceBlocked && addKind === 'service' && (
+            <div style={{ fontSize: 11, color: token.colorTextTertiary, marginBottom: 12 }}>
+              {t('workbench.serverAdmin.users.serviceLimit', { limit: FREE_SERVICE_ACCOUNT_LIMIT })}{' '}
+              {t('workbench.serverAdmin.users.licensesSoldAt')}{' '}
+              <Typography.Link
+                href="https://openheaders.com/pricing"
+                target="_blank"
+                onClick={() => trackProductTelemetryEvent({ name: 'upgrade_cta_clicked', surface: 'service-gate' })}
+              >
+                openheaders.com/pricing
+              </Typography.Link>
+              .
+            </div>
+          )}
           {seatBlocked && (
             <div style={{ fontSize: 11, color: token.colorTextTertiary, marginBottom: 12 }}>
               {t('workbench.serverAdmin.users.seatLimit')} {t('workbench.serverAdmin.users.seatsSoldAt')}{' '}
@@ -804,6 +872,10 @@ const ServerAdminConsole: React.FC = () => {
                 )}
               renderItem={(u) => {
                 const deactivated = u.deactivatedAt !== null;
+                // Machine identity: no password, no server roles — data
+                // plane only. Unknown kinds render as human rows (the
+                // forward-tolerant law); the server refuses regardless.
+                const isService = u.kind === 'service';
                 return (
                   <List.Item
                     data-testid={`server-admin-user-${u.userId}`}
@@ -833,17 +905,21 @@ const ServerAdminConsole: React.FC = () => {
                                   </Popconfirm>,
                                 ]
                               : []),
-                            <Button
-                              key="password"
-                              type="link"
-                              size="small"
-                              onClick={() => setPasswordUser(u)}
-                              data-testid={`server-admin-password-${u.userId}`}
-                            >
-                              {u.hasPassword
-                                ? t('workbench.serverAdmin.password.resetCta')
-                                : t('workbench.serverAdmin.password.setCta')}
-                            </Button>,
+                            ...(isService
+                              ? []
+                              : [
+                                  <Button
+                                    key="password"
+                                    type="link"
+                                    size="small"
+                                    onClick={() => setPasswordUser(u)}
+                                    data-testid={`server-admin-password-${u.userId}`}
+                                  >
+                                    {u.hasPassword
+                                      ? t('workbench.serverAdmin.password.resetCta')
+                                      : t('workbench.serverAdmin.password.setCta')}
+                                  </Button>,
+                                ]),
                             <Button
                               key="gitEmail"
                               type="link"
@@ -875,6 +951,13 @@ const ServerAdminConsole: React.FC = () => {
                       title={
                         <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                           <span style={{ fontSize: 13 }}>{u.displayName}</span>
+                          {isService && (
+                            <Tooltip title={t('workbench.serverAdmin.users.serviceExplainer')}>
+                              <Tag color="geekblue" style={{ marginInlineEnd: 0 }}>
+                                {t('workbench.serverAdmin.users.serviceTag')}
+                              </Tag>
+                            </Tooltip>
+                          )}
                           {u.email && (
                             <Typography.Text type="secondary" style={{ fontSize: 11 }}>
                               {u.email}
@@ -890,17 +973,23 @@ const ServerAdminConsole: React.FC = () => {
                             {u.lastSeenAt !== undefined &&
                               ` · ${
                                 u.lastSeenAt === null
-                                  ? t('workbench.serverAdmin.users.neverSeen')
+                                  ? t(
+                                      isService
+                                        ? 'workbench.serverAdmin.users.neverSeenService'
+                                        : 'workbench.serverAdmin.users.neverSeen',
+                                    )
                                   : t('workbench.serverAdmin.users.lastSeenOn', {
                                       date: formatTimestamp(locale, u.lastSeenAt),
                                     })
                               }`}
                           </span>
-                          <RolesEditor
-                            user={u}
-                            onSetDaemonAdmin={handleSetDaemonAdmin}
-                            onSetCreateWorkspaces={handleSetCreateWorkspaces}
-                          />
+                          {!isService && (
+                            <RolesEditor
+                              user={u}
+                              onSetDaemonAdmin={handleSetDaemonAdmin}
+                              onSetCreateWorkspaces={handleSetCreateWorkspaces}
+                            />
+                          )}
                           <GrantsEditor
                             user={u}
                             workspaceName={workspaceName}

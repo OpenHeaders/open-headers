@@ -18,7 +18,7 @@
 
 import type { LicenseKeyRing } from '../licensing/keys';
 import { isPersonalSeatRedemptionEnabled, matchPersonalSeatIdentity } from '../licensing/personal';
-import { getLicenseSeatLimit } from '../licensing/seats';
+import { getLicenseSeatLimit, getServiceAccountLimit } from '../licensing/seats';
 import { verifyLicense } from '../licensing/verify';
 import { hostStorage, OH } from '../storage';
 import type { DaemonPrincipalKind, DaemonUserRecord } from '../types';
@@ -31,6 +31,15 @@ export interface CreateDaemonUserInput {
   displayName: string;
   /** Verified contact identity; omitted → a `local`-kind identity row. */
   email?: string;
+  /**
+   * Principal kind to admit (the access-foundation plan §8 F3); absent
+   * = `user`. A `service` admission refuses an email outright — the
+   * email-less identity row is what makes no-login structural (both
+   * credential routes join on email) — rides its own cap
+   * ({@link getServiceAccountLimit}) instead of the human seat gate,
+   * and never consults a personal license (nothing to identity-match).
+   */
+  kind?: DaemonPrincipalKind;
   /**
    * Personal-seat artifact presented at admission (paste-at-refusal).
    * Consulted only when the pool is exhausted — under capacity the
@@ -65,7 +74,12 @@ export type CreateDaemonUserResult =
   | { readonly ok: true; readonly record: DaemonUserRecord }
   | {
       readonly ok: false;
-      readonly reason: 'empty-display-name' | 'duplicate-email' | 'no-daemon-identity' | 'directory-not-empty';
+      readonly reason:
+        | 'empty-display-name'
+        | 'duplicate-email'
+        | 'no-daemon-identity'
+        | 'directory-not-empty'
+        | 'service-account-email';
     }
   | { readonly ok: false; readonly reason: PersonalSeatRefusalReason }
   | {
@@ -73,6 +87,12 @@ export type CreateDaemonUserResult =
       readonly reason: 'seat-limit-reached';
       /** The limit that refused: licensed seats, or `FREE_SEAT_LIMIT`. */
       readonly seatLimit: number;
+    }
+  | {
+      readonly ok: false;
+      readonly reason: 'service-limit-reached';
+      /** Always `FREE_SERVICE_ACCOUNT_LIMIT` — a paid license lifts the cap entirely, so no finite paid limit exists. */
+      readonly serviceLimit: number;
     };
 
 /** The refusal vocabulary, as the `users.create` channel's typed `reason` (admin surfaces branch on it, never the message). */
@@ -84,15 +104,18 @@ export type DeactivateDaemonUserResult =
 
 export type SetDaemonUserPasswordResult =
   | { readonly ok: true }
-  | { readonly ok: false; readonly reason: 'unknown-user' | 'user-deactivated' };
+  | { readonly ok: false; readonly reason: 'unknown-user' | 'user-deactivated' | 'service-account' };
 
 export type SetDaemonUserWorkspaceCreateResult =
   | { readonly ok: true; readonly updated: boolean }
-  | { readonly ok: false; readonly reason: 'unknown-user' | 'user-deactivated' };
+  | { readonly ok: false; readonly reason: 'unknown-user' | 'user-deactivated' | 'service-account' };
 
 export type SetDaemonUserDaemonAdminResult =
   | { readonly ok: true; readonly updated: boolean }
-  | { readonly ok: false; readonly reason: 'unknown-user' | 'user-deactivated' | 'last-daemon-admin' };
+  | {
+      readonly ok: false;
+      readonly reason: 'unknown-user' | 'user-deactivated' | 'last-daemon-admin' | 'service-account';
+    };
 
 export type ResolveDaemonPeerUserResult =
   | { readonly ok: true; readonly userId: string; readonly displayName: string }
@@ -125,6 +148,13 @@ export async function createDaemonUser(input: CreateDaemonUserInput): Promise<Cr
   const displayName = input.displayName.trim();
   if (!displayName) return { ok: false, reason: 'empty-display-name' };
   const email = input.email?.trim() || undefined;
+  const kind = input.kind ?? 'user';
+  // Email-less by construction: both credential routes (password, the
+  // OIDC verified-email claim) join the directory on email, so a
+  // service record without one is unreachable from every login for its
+  // whole lifetime — no setEmail verb exists. The route-side kind
+  // refusals are belt-and-braces over this.
+  if (kind === 'service' && email !== undefined) return { ok: false, reason: 'service-account-email' };
   const identity = await hostStorage.get(OH.syntheticIdentity);
   if (!identity) return { ok: false, reason: 'no-daemon-identity' };
   const orgId = identity.org.id;
@@ -148,17 +178,33 @@ export async function createDaemonUser(input: CreateDaemonUserInput): Promise<Cr
     ) {
       return { ok: false, reason: 'duplicate-email' };
     }
-    // The seat gate (the licensing plan §4) — the ONE enforcement point
-    // every user-adding path funnels through: admin console RPC, CLI
-    // `user add`, OIDC auto-provision. Counted against ACTIVE records
-    // only, so deactivating a user frees their seat immediately; the
-    // limit derives from the license snapshot at this moment (grace
-    // still admits the licensed seats; past grace reverts new growth
-    // to the free tier). Existing users are never re-checked.
-    const seatLimit = getLicenseSeatLimit();
-    const activeUsers = current.filter((r) => r.deactivatedAt === null).length;
     let admission: DaemonUserRecord['admission'];
-    if (activeUsers >= seatLimit) {
+    if (kind === 'service') {
+      // The service cap (the access-foundation plan decision e) — the
+      // same one admission point, its own gate: counted over ACTIVE
+      // service records only, so a service account never consumes a
+      // human seat and vice versa. Any paid org license lifts the cap
+      // entirely; the free bound refuses NEW creates only.
+      const serviceLimit = getServiceAccountLimit();
+      if (countActiveDaemonUsersOfKind(current, 'service') >= serviceLimit) {
+        emitAuditEntry({
+          actorUserId: identity.user.id,
+          capability: 'daemon.service-admit',
+          decision: { allow: false, reason: 'service-limit-reached' },
+          orgId,
+        });
+        return { ok: false, reason: 'service-limit-reached', serviceLimit };
+      }
+    } else if (countActiveDaemonUsersOfKind(current, 'user') >= getLicenseSeatLimit()) {
+      // The seat gate (the licensing plan §4) — the ONE enforcement
+      // point every human admission funnels through: admin console RPC,
+      // CLI `user add`, OIDC auto-provision. Counted against ACTIVE
+      // user-kind records only (a service account holds no human seat),
+      // so deactivating a user frees their seat immediately; the limit
+      // derives from the license snapshot at this moment (grace still
+      // admits the licensed seats; past grace reverts new growth to the
+      // free tier). Existing users are never re-checked.
+      const seatLimit = getLicenseSeatLimit();
       const refuse = (
         reason: 'seat-limit-reached' | PersonalSeatRefusalReason,
       ): Extract<CreateDaemonUserResult, { ok: false }> => {
@@ -233,6 +279,9 @@ export async function createDaemonUser(input: CreateDaemonUserInput): Promise<Cr
       },
       createdAt: now,
       deactivatedAt: null,
+      // Human records keep the field absent (the pre-vocabulary shape);
+      // only a service admission stamps it.
+      ...(kind === 'service' ? { kind } : {}),
       ...(admission ? { admission } : {}),
     };
     await hostStorage.set(OH.daemonUsers, [...current, record]);
@@ -372,6 +421,10 @@ export async function setDaemonUserPassword(
     const idx = current.findIndex((r) => r.user.id === userId);
     if (idx === -1) return { ok: false, reason: 'unknown-user' };
     if (current[idx].deactivatedAt !== null) return { ok: false, reason: 'user-deactivated' };
+    // No-login is structural for service accounts (email-less), but a
+    // dormant verifier on one would still be a landmine — only `user`
+    // kind may hold the credential (deny-by-default over future kinds).
+    if (daemonUserPrincipalKind(current[idx]) !== 'user') return { ok: false, reason: 'service-account' };
     const next = current.slice();
     if (verifier === null) {
       const { passwordVerifier: _cleared, ...rest } = current[idx];
@@ -432,6 +485,9 @@ export async function setDaemonUserWorkspaceCreate(
     const idx = current.findIndex((r) => r.user.id === userId);
     if (idx === -1) return { ok: false, reason: 'unknown-user' };
     if (current[idx].deactivatedAt !== null) return { ok: false, reason: 'user-deactivated' };
+    // Service accounts are data-plane only (the access-foundation plan
+    // §8 F3): WRA grants and bound tokens, never functional roles.
+    if (daemonUserPrincipalKind(current[idx]) !== 'user') return { ok: false, reason: 'service-account' };
     const roles = current[idx].membership.functionalRoles;
     const has = roles.includes(WORKSPACE_CREATE_FUNCTIONAL_ROLE);
     if (has === allowed) return { ok: true, updated: false };
@@ -470,6 +526,8 @@ export async function setDaemonUserDaemonAdmin(
     const idx = current.findIndex((r) => r.user.id === userId);
     if (idx === -1) return { ok: false, reason: 'unknown-user' };
     if (current[idx].deactivatedAt !== null) return { ok: false, reason: 'user-deactivated' };
+    // Same data-plane-only refusal as the workspace.create toggle.
+    if (daemonUserPrincipalKind(current[idx]) !== 'user') return { ok: false, reason: 'service-account' };
     const roles = current[idx].membership.functionalRoles;
     const has = roles.includes(DAEMON_ADMIN_FUNCTIONAL_ROLE);
     if (has === allowed) return { ok: true, updated: false };
@@ -484,6 +542,15 @@ export async function setDaemonUserDaemonAdmin(
     await hostStorage.set(OH.daemonUsers, next);
     return { ok: true, updated: true };
   });
+}
+
+/** Active records of one principal kind — the two admission gates count through this. */
+function countActiveDaemonUsersOfKind(records: readonly DaemonUserRecord[], kind: DaemonPrincipalKind): number {
+  let count = 0;
+  for (const record of records) {
+    if (record.deactivatedAt === null && daemonUserPrincipalKind(record) === kind) count += 1;
+  }
+  return count;
 }
 
 /**

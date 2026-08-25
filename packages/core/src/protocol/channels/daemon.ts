@@ -283,12 +283,18 @@ export interface DaemonRpc {
    * refuses with the seat wall and grants nothing. The offline `ohd
    * user add` is the one grant-less path — a recovery hatch that
    * structurally cannot validate ids against a stopped daemon.
+   *
+   * `kind: 'service'` admits a machine identity instead (the
+   * access-foundation plan §8 F3): email-less (no-login is structural),
+   * no personal license, its own free-tier cap that any paid license
+   * lifts. Absent = `user`.
    */
   'oh.daemon.users.create': {
     req: {
       displayName: string;
       email?: string;
       personalLicense?: string;
+      kind?: 'user' | 'service';
       grants: ReadonlyArray<{ workspaceId: string; role: 'owner' | 'editor' | 'viewer' }>;
     };
     /** Refusals carry the store's typed `reason` beside the message — surfaces branch on it (seat wall, redeem field), never on the string. */

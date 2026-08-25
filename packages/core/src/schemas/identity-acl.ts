@@ -148,6 +148,10 @@ export const DaemonAdminSchema = v.object({
  * (including the personal-seat refusal reasons), and an allow row when
  * a personal-seat license admits past it (the exceptional admission is
  * the forensic event; pool admissions under the limit stay unstamped).
+ * `daemon.service-admit` is the service-account cap's twin (the
+ * access-foundation plan decision e): a deny row per service-account
+ * admission refused at the free cap; admissions under it stay
+ * unstamped, and no allow row exists — nothing admits past this cap.
  * `daemon.license-install` / `daemon.license-remove` are the
  * license slot's lifecycle stamps; `daemon.license-refresh` is the
  * refresh agent's automatic-renewal stamp, distinct so operator
@@ -168,6 +172,7 @@ export const CapabilitySchema = v.picklist([
   'daemon.sso-admin',
   'daemon.workspace-leave',
   'daemon.seat-admit',
+  'daemon.service-admit',
   'daemon.license-install',
   'daemon.license-refresh',
   'daemon.license-remove',
@@ -184,6 +189,7 @@ export const CapabilityDenyReasonSchema = v.picklist([
   'unknown-capability',
   'auth-required',
   'seat-limit-reached',
+  'service-limit-reached',
   'personal-seats-disabled',
   'personal-license-invalid',
   'personal-license-identity-mismatch',

@@ -39,6 +39,18 @@ export const workbenchServerAdmin = {
   'workbench.serverAdmin.users.emailPlaceholder': 'E-Mail (optional — erforderlich für SSO)',
   'workbench.serverAdmin.users.seatKeyPlaceholder': 'Einzelplatz-Schlüssel (oh-license.…)',
   'workbench.serverAdmin.users.addUser': 'Benutzer hinzufügen',
+  'workbench.serverAdmin.users.kindUser': 'Benutzer',
+  'workbench.serverAdmin.users.kindService': 'Dienstkonto',
+  'workbench.serverAdmin.users.serviceExplainer':
+    'Ein Dienstkonto hält Arbeitsbereichs-Berechtigungen und gebundene Token für Automatisierung — es kann ' +
+    'sich nie anmelden und belegt keinen Platz. Sein Token wird unten im Geräte-Abschnitt erstellt.',
+  'workbench.serverAdmin.users.serviceNamePlaceholder': 'Name des Dienstkontos (z. B. CI-Deploy)',
+  'workbench.serverAdmin.users.addService': 'Dienstkonto hinzufügen',
+  'workbench.serverAdmin.users.serviceTag': 'Dienst',
+  'workbench.serverAdmin.users.serviceLimit':
+    'Der kostenlose Plan erlaubt {limit} Dienstkonten; jede bezahlte Lizenz hebt das Limit auf.',
+  'workbench.serverAdmin.users.licensesSoldAt': 'Lizenzen gibt es unter',
+  'workbench.serverAdmin.users.neverSeenService': 'nie verwendet',
   'workbench.serverAdmin.users.seatLimit':
     'Dieser Server ist an seinem Platzlimit. Erweitere deine Team-Lizenz um Plätze, oder füge oben den ' +
     'eigenen Einzelplatz-Schlüssel der neuen Person ein — er lässt sie zu, ohne einen Platz aus dem Pool zu ' +

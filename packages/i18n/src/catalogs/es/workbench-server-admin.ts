@@ -39,6 +39,18 @@ export const workbenchServerAdmin = {
   'workbench.serverAdmin.users.emailPlaceholder': 'Email (opcional — obligatorio para SSO)',
   'workbench.serverAdmin.users.seatKeyPlaceholder': 'Clave de plaza individual (oh-license.…)',
   'workbench.serverAdmin.users.addUser': 'Añadir usuario',
+  'workbench.serverAdmin.users.kindUser': 'Usuario',
+  'workbench.serverAdmin.users.kindService': 'Cuenta de servicio',
+  'workbench.serverAdmin.users.serviceExplainer':
+    'Una cuenta de servicio posee permisos de espacios de trabajo y tokens vinculados para automatización — ' +
+    'nunca puede iniciar sesión y no ocupa ningún asiento. Crea su token en la sección de dispositivos de abajo.',
+  'workbench.serverAdmin.users.serviceNamePlaceholder': 'Nombre de la cuenta de servicio (p. ej. CI deploy)',
+  'workbench.serverAdmin.users.addService': 'Añadir cuenta de servicio',
+  'workbench.serverAdmin.users.serviceTag': 'Servicio',
+  'workbench.serverAdmin.users.serviceLimit':
+    'El plan gratuito permite {limit} cuentas de servicio; cualquier licencia de pago elimina el límite.',
+  'workbench.serverAdmin.users.licensesSoldAt': 'Las licencias se venden en',
+  'workbench.serverAdmin.users.neverSeenService': 'nunca usada',
   'workbench.serverAdmin.users.seatLimit':
     'Este servidor está en su límite de plazas. Añade plazas a tu licencia de equipo, o pega arriba la clave de ' +
     'plaza individual del usuario que se incorpora — lo admite sin consumir una plaza de la reserva.',

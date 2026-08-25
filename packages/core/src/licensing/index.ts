@@ -6,7 +6,12 @@
  */
 
 export { decodeBase64Url, encodeBase64Url } from './encoding';
-export { FREE_SEAT_LIMIT, RESERVED_ENTITLEMENTS, type ReservedEntitlement } from './entitlements';
+export {
+  FREE_SEAT_LIMIT,
+  FREE_SERVICE_ACCOUNT_LIMIT,
+  RESERVED_ENTITLEMENTS,
+  type ReservedEntitlement,
+} from './entitlements';
 export { LICENSE_PUBLIC_KEYS, type LicenseKeyRing } from './keys';
 export {
   foldLicenseEmail,
@@ -17,7 +22,7 @@ export {
   setPersonalSeatRedemptionProvider,
 } from './personal';
 export { type License, type Licensee, LicenseeSchema, LicenseSchema } from './schema';
-export { getLicenseSeatLimit, getLicenseSnapshot, setLicenseSnapshotProvider } from './seats';
+export { getLicenseSeatLimit, getLicenseSnapshot, getServiceAccountLimit, setLicenseSnapshotProvider } from './seats';
 export {
   exportLicenseSigningKey,
   generateLicenseSigningKeys,

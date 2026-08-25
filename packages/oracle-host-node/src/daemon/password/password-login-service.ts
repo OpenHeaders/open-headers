@@ -24,6 +24,7 @@
  */
 
 import {
+  daemonUserPrincipalKind,
   findDaemonUserByEmail,
   listDaemonUsers,
   type MintDaemonAuthTokenResult,
@@ -46,6 +47,7 @@ export type PasswordLoginFailureReason =
   | 'account-locked'
   | 'unknown-user'
   | 'user-deactivated'
+  | 'service-account'
   | 'no-password'
   | 'bad-password';
 
@@ -111,6 +113,12 @@ export function createDaemonPasswordLoginService(deps: PasswordLoginServiceDeps 
       const record = await findUserByEmail(normalized);
       if (!record) return refuse(normalized, password, 'unknown-user');
       if (record.deactivatedAt !== null) return refuse(normalized, password, 'user-deactivated');
+      // Only `user`-kind principals may log in (the access-foundation
+      // plan §8 F3). Structurally unreachable — a service account is
+      // email-less so the lookup above can never find one — but the
+      // login path allows `user` explicitly rather than excluding
+      // `service`, so any future kind degrades to no-login.
+      if (daemonUserPrincipalKind(record) !== 'user') return refuse(normalized, password, 'service-account');
       if (record.passwordVerifier === undefined) return refuse(normalized, password, 'no-password');
       if (!(await verify(password, record.passwordVerifier))) {
         accountLimiter.recordFailure(normalized);

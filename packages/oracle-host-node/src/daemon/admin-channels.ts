@@ -18,6 +18,7 @@ import {
   createDaemonUser,
   DAEMON_ADMIN_FUNCTIONAL_ROLE,
   type DaemonPairingService,
+  daemonUserPrincipalKind,
   deactivateDaemonUser,
   grantWorkspaceRole,
   listDaemonAuthTokens,
@@ -168,6 +169,13 @@ function parseInitialGrants(
     grants.push({ workspaceId: candidate.workspaceId, role: candidate.role });
   }
   return grants;
+}
+
+/** Shared refusal → sentence mapping for the two functional-role toggles. */
+function functionalRoleRefusalError(reason: 'unknown-user' | 'user-deactivated' | 'service-account'): string {
+  if (reason === 'user-deactivated') return 'user is deactivated';
+  if (reason === 'service-account') return 'a service account holds workspace grants only — no server roles';
+  return 'unknown user';
 }
 
 function isTelemetryDebugCommand(value: unknown): value is TelemetryDebugCommand {
@@ -599,6 +607,22 @@ export function createAdminChannelHandlers(deps: AdminChannelDeps): ReadonlyMap<
   handlers.set('oh.daemon.users.create', async (message) => {
     const displayName = typeof message.displayName === 'string' ? message.displayName : '';
     const email = typeof message.email === 'string' ? message.email.trim() || undefined : undefined;
+    // Principal kind (the access-foundation plan §8 F3): absent = a
+    // human admission; only the two known kinds are expressible over
+    // the wire — anything else refuses rather than degrading to human.
+    if (message.kind !== undefined && message.kind !== 'user' && message.kind !== 'service') {
+      return { ok: false, error: 'kind must be user or service' };
+    }
+    const kind = message.kind === 'service' ? 'service' : 'user';
+    // A service account is email-less by construction (no-login) and
+    // holds no human seat (no personal license to redeem) — refuse the
+    // inputs up front so nothing is silently dropped.
+    if (kind === 'service' && email !== undefined) {
+      return { ok: false, error: 'a service account cannot have an email — it never logs in' };
+    }
+    if (kind === 'service' && typeof message.personalLicense === 'string' && message.personalLicense.trim() !== '') {
+      return { ok: false, error: 'a service account holds no seat — an individual-seat key does not apply' };
+    }
     // Initial grants (the server-access plan A2): admission confers
     // access, so this channel requires at least one workspace + role —
     // validated BEFORE the admission against the same live set
@@ -618,6 +642,7 @@ export function createAdminChannelHandlers(deps: AdminChannelDeps): ReadonlyMap<
         displayName,
         ...(email ? { email } : {}),
         ...(personalLicense ? { personalLicense } : {}),
+        ...(kind === 'service' ? { kind } : {}),
       });
       if (created.ok) {
         // Admission first, grants second — the seat gate above stays
@@ -642,6 +667,15 @@ export function createAdminChannelHandlers(deps: AdminChannelDeps): ReadonlyMap<
           error:
             `seat limit reached (${created.seatLimit} active users) — deactivate a user to free a seat, ` +
             "add seats via a license, or redeem the joining user's individual seat",
+        };
+      }
+      if (created.reason === 'service-limit-reached') {
+        // Decision e's remedy wording, confirmed at F3's gate: the free
+        // bound has exactly one lift — any paid org license.
+        return {
+          ok: false,
+          reason: created.reason,
+          error: `service account limit reached (${created.serviceLimit} on the free plan) — any paid license lifts the cap`,
         };
       }
       if (created.reason === 'personal-license-identity-mismatch') {
@@ -691,6 +725,9 @@ export function createAdminChannelHandlers(deps: AdminChannelDeps): ReadonlyMap<
         users.map(async (r) => ({
           userId: r.user.id,
           displayName: r.user.displayName,
+          // Resolved principal kind as a plain wire string (absent on
+          // disk reads as user) — consoles branch forward-tolerantly.
+          kind: daemonUserPrincipalKind(r),
           email: r.userIdentity.kind === 'email' ? r.userIdentity.value : null,
           gitEmail: r.gitEmail ?? null,
           createdAt: r.createdAt,
@@ -823,7 +860,7 @@ export function createAdminChannelHandlers(deps: AdminChannelDeps): ReadonlyMap<
     try {
       const result = await setDaemonUserWorkspaceCreate(userId, message.allowed);
       if (!result.ok) {
-        return { ok: false, error: result.reason === 'user-deactivated' ? 'user is deactivated' : 'unknown user' };
+        return { ok: false, error: functionalRoleRefusalError(result.reason) };
       }
       return { ok: true, updated: result.updated };
     } catch (err) {
@@ -845,7 +882,7 @@ export function createAdminChannelHandlers(deps: AdminChannelDeps): ReadonlyMap<
             error: 'this is the only server admin — promote someone else first',
           };
         }
-        return { ok: false, error: result.reason === 'user-deactivated' ? 'user is deactivated' : 'unknown user' };
+        return { ok: false, error: functionalRoleRefusalError(result.reason) };
       }
       return { ok: true, updated: result.updated };
     } catch (err) {

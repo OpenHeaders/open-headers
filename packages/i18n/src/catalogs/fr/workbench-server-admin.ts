@@ -38,6 +38,19 @@ export const workbenchServerAdmin = {
   'workbench.serverAdmin.users.emailPlaceholder': 'Email (facultatif — requis pour le SSO)',
   'workbench.serverAdmin.users.seatKeyPlaceholder': 'Clé de siège individuel (oh-license.…)',
   'workbench.serverAdmin.users.addUser': 'Ajouter un utilisateur',
+  'workbench.serverAdmin.users.kindUser': 'Utilisateur',
+  'workbench.serverAdmin.users.kindService': 'Compte de service',
+  'workbench.serverAdmin.users.serviceExplainer':
+    "Un compte de service détient des autorisations d'espace de travail et des jetons liés pour " +
+    "l'automatisation — il ne peut jamais se connecter et n'occupe aucun siège. Créez son jeton dans la " +
+    'section Appareils ci-dessous.',
+  'workbench.serverAdmin.users.serviceNamePlaceholder': 'Nom du compte de service (p. ex. déploiement CI)',
+  'workbench.serverAdmin.users.addService': 'Ajouter un compte de service',
+  'workbench.serverAdmin.users.serviceTag': 'Service',
+  'workbench.serverAdmin.users.serviceLimit':
+    'Le plan gratuit autorise {limit} comptes de service ; toute licence payante supprime la limite.',
+  'workbench.serverAdmin.users.licensesSoldAt': 'Les licences sont vendues sur',
+  'workbench.serverAdmin.users.neverSeenService': 'jamais utilisé',
   'workbench.serverAdmin.users.seatLimit':
     "Ce serveur est à sa limite de sièges. Ajoutez des sièges à votre licence d'équipe, ou collez ci-dessus la clé " +
     "de siège individuel de l'utilisateur qui rejoint — elle l'admet sans consommer un siège de la réserve.",

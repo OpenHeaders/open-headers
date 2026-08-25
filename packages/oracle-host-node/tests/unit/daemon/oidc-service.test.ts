@@ -239,6 +239,19 @@ describe('daemon OIDC service', () => {
     expect(await listDaemonUsers()).toHaveLength(1);
   });
 
+  it('refuses a service-kind principal instead of minting a session (the allow-user-explicitly law)', async () => {
+    const created = await createDaemonUser({ displayName: 'CI deployer', kind: 'service' });
+    if (!created.ok) throw new Error(`setup failed: ${created.reason}`);
+    // A service account is email-less, so the real join can never land
+    // on one — the seam hands one back to pin the deny-by-default leg.
+    const rig = buildRig({ deps: { findUserByEmail: async () => (created.ok ? created.record : null) } });
+    const { state, bindingNonce } = await begin(rig);
+    expect(await rig.service.completeLogin({ code: 'c', state, bindingNonce })).toMatchObject({
+      ok: false,
+      reason: 'service-account',
+    });
+  });
+
   it('surfaces the seat gate as its own login-failure reason on auto-provision', async () => {
     setLicenseSnapshotProvider(() => ({
       status: 'licensed',

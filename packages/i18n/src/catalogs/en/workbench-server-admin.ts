@@ -37,6 +37,17 @@ export const workbenchServerAdmin = {
   'workbench.serverAdmin.users.emailPlaceholder': 'Email (optional — required for SSO)',
   'workbench.serverAdmin.users.seatKeyPlaceholder': 'Individual seat key (oh-license.…)',
   'workbench.serverAdmin.users.addUser': 'Add user',
+  'workbench.serverAdmin.users.kindUser': 'User',
+  'workbench.serverAdmin.users.kindService': 'Service account',
+  'workbench.serverAdmin.users.serviceExplainer':
+    'A service account holds workspace grants and bound tokens for automation — it can never sign in and takes no seat. Mint its token in the devices section below.',
+  'workbench.serverAdmin.users.serviceNamePlaceholder': 'Service account name (e.g. CI deploy)',
+  'workbench.serverAdmin.users.addService': 'Add service account',
+  'workbench.serverAdmin.users.serviceTag': 'Service',
+  'workbench.serverAdmin.users.serviceLimit':
+    'The free plan allows {limit} service accounts; any paid license removes the limit.',
+  'workbench.serverAdmin.users.licensesSoldAt': 'Licenses are sold at',
+  'workbench.serverAdmin.users.neverSeenService': 'never used',
   'workbench.serverAdmin.users.seatLimit':
     "This server is at its seat limit. Add seats to your team license, or paste the joining user's own individual seat key above — it admits them without using a pool seat.",
   'workbench.serverAdmin.users.seatsSoldAt': 'Individual seats are sold at',

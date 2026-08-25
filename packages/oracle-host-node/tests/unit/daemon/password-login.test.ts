@@ -9,7 +9,6 @@
 
 import { createServer, type Server } from 'node:http';
 import {
-  createDaemonPairingService,
   createDaemonUser,
   deactivateDaemonUser,
   ensureSyntheticIdentity,
@@ -22,12 +21,13 @@ import { setHostLogger } from '@openheaders/core/logger';
 import { setHostStorage } from '@openheaders/core/storage';
 import { logger as consoleLogger } from '@openheaders/core/utils';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { createAdminChannelHandlers, PASSWORD_MIN_LENGTH } from '../../../src/daemon/admin-channels';
+import { PASSWORD_MIN_LENGTH } from '../../../src/daemon/admin-channels';
 import { createAdmissionControl } from '../../../src/daemon/admission-control';
 import { createPasswordHttpHandler } from '../../../src/daemon/password/password-http';
 import { createDaemonPasswordLoginService } from '../../../src/daemon/password/password-login-service';
 import { hashPassword, verifyPassword } from '../../../src/daemon/password/password-verifier';
 import { createHostStorageFake } from '../_host-storage-fake';
+import { buildAdminChannels } from './_admin-channels-rig';
 
 async function addUser(email: string, displayName = 'Alice'): Promise<string> {
   const created = await createDaemonUser({ displayName, email });
@@ -118,6 +118,23 @@ describe('password login service', () => {
     expect(await listDaemonAuthTokens()).toHaveLength(0);
   });
 
+  it('never reaches a service account — email-less structurally, and the kind refusal pins the law', async () => {
+    const created = await createDaemonUser({ displayName: 'CI deployer', kind: 'service' });
+    if (!created.ok) throw new Error(`setup failed: ${created.reason}`);
+    // The real lookup cannot land on a service record at all — it has
+    // no email identity to join on.
+    expect(await findDaemonUserByEmail('ci@openheaders.io')).toBeNull();
+    // Belt-and-braces: were a lookup ever to hand one back, the login
+    // path allows `user` explicitly and refuses everything else.
+    const record = { ...created.record, passwordVerifier: await hashPassword('bot-password-1') };
+    const service = createDaemonPasswordLoginService({ findUserByEmail: async () => record });
+    expect(await service.login('ci@openheaders.io', 'bot-password-1')).toEqual({
+      ok: false,
+      reason: 'service-account',
+    });
+    expect(await listDaemonAuthTokens()).toHaveLength(0);
+  });
+
   it('locks the account after repeated failures — even the correct password is refused until the block expires', async () => {
     let clock = 1_000_000;
     const now = () => clock;
@@ -159,54 +176,7 @@ describe('users.setPassword admin channel', () => {
     await ensureSyntheticIdentity({ hostKind: 'daemon' });
   });
 
-  function channels() {
-    return createAdminChannelHandlers({
-      pairing: createDaemonPairingService(),
-      getBoundPort: () => 0,
-      getWsServer: () => null,
-      queryAudit: () => [],
-      license: {
-        getSnapshot: () => ({ status: 'unlicensed' as const }),
-        getInstalledText: async () => null,
-        install: async () => ({ ok: false as const, error: 'not under test' }),
-        remove: async () => ({ ok: true as const, snapshot: { status: 'unlicensed' as const } }),
-        reload: async () => ({ status: 'unlicensed' as const }),
-        dispose: () => undefined,
-      },
-      cliProvision: {
-        status: async () => ({
-          configPath: '/dev/null',
-          state: 'unconfigured' as const,
-          binaryInstalled: false,
-          hostPlatform: 'linux',
-        }),
-        provision: async () => ({ ok: false as const, error: 'not under test' }),
-      },
-      proxyTrust: {
-        status: async () => ({ ca: null, stores: [], changes: [], systemKeychainTrustSupported: false }),
-        install: async () => ({ ok: false as const, error: 'not under test' }),
-        remove: async () => ({ ok: true, results: [] }),
-        helperState: async () => ({ present: false, available: false, registration: null }),
-        helperRegister: async () => ({ ok: false as const, error: 'not under test' }),
-        helperUnregister: async () => ({ ok: false as const, error: 'not under test' }),
-        helperOpenLoginItems: async () => ({ ok: false as const, error: 'not under test' }),
-      },
-      proxyCapture: {
-        status: async () => ({
-          running: false,
-          boundPort: null,
-          port: 8138,
-          scopePatterns: [],
-          caPresent: false,
-          lastError: null,
-        }),
-        start: async () => ({ ok: false as const, error: 'not under test' }),
-        stop: async () => ({ ok: true as const }),
-        setScope: async () => ({ ok: false as const, error: 'not under test' }),
-      },
-      workspaceTreeDispatch: async () => ({ ok: false, error: 'not under test' }),
-    });
-  }
+  const channels = buildAdminChannels;
 
   it('sets and clears a password; the projection carries hasPassword, never the verifier', async () => {
     const userId = await addUser('alice@openheaders.io');

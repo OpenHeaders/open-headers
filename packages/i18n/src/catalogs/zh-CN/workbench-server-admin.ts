@@ -37,6 +37,16 @@ export const workbenchServerAdmin = {
   'workbench.serverAdmin.users.emailPlaceholder': '邮箱（可选——SSO 必填）',
   'workbench.serverAdmin.users.seatKeyPlaceholder': '个人席位密钥（oh-license.…）',
   'workbench.serverAdmin.users.addUser': '添加用户',
+  'workbench.serverAdmin.users.kindUser': '用户',
+  'workbench.serverAdmin.users.kindService': '服务账号',
+  'workbench.serverAdmin.users.serviceExplainer':
+    '服务账号持有工作区权限和绑定令牌，用于自动化 — 它永远无法登录，也不占用席位。请在下方设备区创建其令牌。',
+  'workbench.serverAdmin.users.serviceNamePlaceholder': '服务账号名称（例如 CI 部署）',
+  'workbench.serverAdmin.users.addService': '添加服务账号',
+  'workbench.serverAdmin.users.serviceTag': '服务',
+  'workbench.serverAdmin.users.serviceLimit': '免费版最多允许 {limit} 个服务账号；任何付费许可证都会解除该上限。',
+  'workbench.serverAdmin.users.licensesSoldAt': '许可证购买地址：',
+  'workbench.serverAdmin.users.neverSeenService': '从未使用',
   'workbench.serverAdmin.users.seatLimit':
     '此服务器已达席位上限。为你的团队许可证增加席位，或在上方粘贴加入用户自己的个人席位密钥——这样准入不占用池中席位。',
   'workbench.serverAdmin.users.seatsSoldAt': '个人席位的购买地址：',
