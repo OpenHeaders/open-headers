@@ -6,7 +6,7 @@
  * unknown / deactivated → null (fail-closed as `no-current-user`).
  */
 
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
   createDaemonUser,
   deactivateDaemonUser,
@@ -16,6 +16,7 @@ import {
   hasCapability,
   refreshIdentitySnapshotFromHostStorage,
   resolveDaemonPeerIdentitySnapshot,
+  setWorkspaceVisibilityProvider,
 } from '../../src/identity';
 import { hostStorage, setHostStorage } from '../../src/storage/host-storage';
 import { OH } from '../../src/storage/keys';
@@ -108,6 +109,59 @@ describe('resolveDaemonPeerIdentitySnapshot', () => {
     expect(hasCapability(snapshot, 'workspace.read', { workspaceId: W1 })).toEqual({
       allow: false,
       reason: 'no-current-user',
+    });
+  });
+
+  describe('internal visibility (F5 — provider → builder → resolver)', () => {
+    afterEach(() => {
+      setWorkspaceVisibilityProvider(null);
+    });
+
+    it('stamps the resolved principal kind on directory snapshots', async () => {
+      const bot = await createDaemonUser({ displayName: 'CI deploy', kind: 'service' });
+      if (!bot.ok) throw new Error('setup failed');
+      expect((await resolveDaemonPeerIdentitySnapshot(aliceUserId))?.principalKind).toBe('user');
+      expect((await resolveDaemonPeerIdentitySnapshot(bot.record.user.id))?.principalKind).toBe('service');
+    });
+
+    it('a member reads an internal workspace with no WRA, and a flip back bites the next resolution', async () => {
+      const visibilities = new Map<string, string | undefined>([
+        [W1, 'internal'],
+        [W2, undefined],
+      ]);
+      setWorkspaceVisibilityProvider(() => visibilities);
+      const snapshot = await resolveDaemonPeerIdentitySnapshot(aliceUserId);
+      expect(hasCapability(snapshot, 'workspace.read', { workspaceId: W1 })).toEqual({ allow: true });
+      expect(hasCapability(snapshot, 'workspace.write', { workspaceId: W1 }).allow).toBe(false);
+      expect(hasCapability(snapshot, 'workspace.read', { workspaceId: W2 }).allow).toBe(false);
+      // Provider is consulted per resolution — no cache to invalidate.
+      visibilities.set(W1, 'private');
+      const after = await resolveDaemonPeerIdentitySnapshot(aliceUserId);
+      expect(hasCapability(after, 'workspace.read', { workspaceId: W1 }).allow).toBe(false);
+    });
+
+    it('a service principal never inherits internal read', async () => {
+      const bot = await createDaemonUser({ displayName: 'CI deploy', kind: 'service' });
+      if (!bot.ok) throw new Error('setup failed');
+      setWorkspaceVisibilityProvider(() => new Map([[W1, 'internal']]));
+      const snapshot = await resolveDaemonPeerIdentitySnapshot(bot.record.user.id);
+      expect(hasCapability(snapshot, 'workspace.read', { workspaceId: W1 })).toEqual({
+        allow: false,
+        reason: 'no-workspace-role-assignment',
+      });
+    });
+
+    it('unknown visibility values never widen the internal set — deny-by-default', async () => {
+      setWorkspaceVisibilityProvider(
+        () =>
+          new Map([
+            [W1, 'public'],
+            [W2, 'from-the-future'],
+          ]),
+      );
+      const snapshot = await resolveDaemonPeerIdentitySnapshot(aliceUserId);
+      expect(hasCapability(snapshot, 'workspace.read', { workspaceId: W1 }).allow).toBe(false);
+      expect(hasCapability(snapshot, 'workspace.read', { workspaceId: W2 }).allow).toBe(false);
     });
   });
 });

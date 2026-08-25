@@ -37,6 +37,7 @@ import {
   resolveDaemonPeerIdentitySnapshot,
   setAuditSink,
   setDaemonUserDaemonAdmin,
+  setWorkspaceVisibilityProvider,
 } from '@openheaders/core/identity';
 import { setHostLogger } from '@openheaders/core/logger';
 import type { AwarenessState } from '@openheaders/core/protocol';
@@ -67,7 +68,7 @@ import {
 } from '@openheaders/core/sync';
 import { seedRule } from '@openheaders/core/sync-builders/projections/rule-projection';
 import type { DaemonUserRecord, Rule } from '@openheaders/core/types';
-import { __resetMutationStreamBridgeForTests } from '@openheaders/oracle/sync';
+import { __resetMutationStreamBridgeForTests, setOracleHostHooks } from '@openheaders/oracle/sync';
 import { __initGlobalSyncServiceForTests, disposeGlobal } from '@openheaders/oracle/sync/global-service';
 import { InMemoryMutationLog } from '@openheaders/oracle/sync/mutation-log';
 import {
@@ -92,6 +93,7 @@ import { createAwarenessPeerFanOut } from '../../src/daemon/awareness-fan-out';
 import { composePeerRpc } from '../../src/daemon/compose-peer-rpc';
 import { offerWorkspaceRowsToUserPeers } from '../../src/daemon/grant-workspace-offer';
 import { retractWorkspaceRowsFromUserPeers } from '../../src/daemon/grant-workspace-retract';
+import { forwardMutationToWsPeers, setMutationForwarderWsServer } from '../../src/daemon/mutation-forwarder';
 import { ADMIN_DENIED_MESSAGE, createPeerAdminRpc } from '../../src/daemon/peer-admin-rpc';
 import { createFilteredPeerBroadcast, makeWorkspaceReadFilter } from '../../src/daemon/peer-read-filter';
 import { createPeerWorkspaceLeaveRpc } from '../../src/daemon/peer-workspace-leave';
@@ -1661,5 +1663,163 @@ describe('workspace members plane — owners manage grants without daemon.admin'
       userId: carol.user.id,
     });
     expect(notGranted.payload?.reason).toBe('not-granted');
+  });
+});
+
+// ── F5 — internal visibility over real sockets ──────────────────────
+
+describe('internal visibility — members read without a WRA, machines and flips stay gated', () => {
+  afterEach(() => {
+    setWorkspaceVisibilityProvider(null);
+    setMutationForwarderWsServer(null);
+    setOracleHostHooks({});
+    setWorkspaceOrgResolver(null);
+    disposeGlobal();
+    resetWorkspaceStore();
+  });
+
+  it("a member's __global__ catch-up streams an internal workspace's row; a service account's streams nothing", async () => {
+    const globalLog = new InMemoryMutationLog();
+    await globalLog.appendAll([makeGlobalRowEnvelope('m-row-int', 'ws-int', 1_000)]);
+    __initGlobalSyncServiceForTests({ log: globalLog });
+    setWorkspaceVisibilityProvider(() => new Map([['ws-int', 'internal']]));
+
+    const nora = await createDaemonUser({ displayName: 'Nora' });
+    const bot = await createDaemonUser({ displayName: 'CI deploy', kind: 'service' });
+    if (!nora.ok || !bot.ok) throw new Error('directory create failed');
+
+    const port = await freePort();
+    server = await startOracleWsServer({ host: '127.0.0.1', port, handshakeIdentity: IDENTITY });
+    const noraClient = await connectAs(port, nora.record, 'ext-nora');
+    const botClient = await connectAs(port, bot.record, 'ext-bot');
+
+    expect(await catchUpGlobalRows(noraClient)).toEqual(['ws-int']);
+    expect(await catchUpGlobalRows(botClient)).toEqual([]);
+  });
+
+  it('internal admits a no-WRA member through the per-scope read gate, and write stays refused', async () => {
+    setWorkspaceVisibilityProvider(() => new Map([[WS_ID, 'internal']]));
+    const nora = await createDaemonUser({ displayName: 'Nora' });
+    if (!nora.ok) throw new Error('directory create failed');
+    const port = await freePort();
+    server = await startOracleWsServer({ host: '127.0.0.1', port, handshakeIdentity: IDENTITY });
+    const client = await connectAs(port, nora.record, 'ext-nora');
+
+    const synced = new Promise<void>((resolve) => {
+      client.on('message', (raw) => {
+        if (JSON.parse(raw.toString()).type === SYNC_SYNCED_TYPE) resolve();
+      });
+    });
+    client.send(JSON.stringify({ type: SYNC_STATE_VECTOR_TYPE, workspaceId: WS_ID, perNodeMaxHlc: {} }));
+    await synced;
+    const readGate = audits.find((a) => a.capability === 'workspace.read' && a.actorUserId === nora.record.user.id);
+    expect(readGate?.decision).toEqual({ allow: true });
+
+    // Visibility never confers write — the same member's batch drops.
+    await sendBatch(client, makeBatch('ffffffff', 6_000));
+    expect(getOracleForCurrentWorkspace()?.materializeOne(RULE_ENTITY_TYPE, 'ffffffff')).toBeFalsy();
+    const writeGate = audits.find((a) => a.capability === 'workspace.write' && a.actorUserId === nora.record.user.id);
+    expect(writeGate?.decision).toEqual({ allow: false, reason: 'no-workspace-role-assignment' });
+  });
+
+  it('an operator flip widens live (the slot mutation reaches the member) and narrows live (the retract evicts)', async () => {
+    __initGlobalSyncServiceForTests({ log: new InMemoryMutationLog() });
+    setWorkspaceOrgResolver(() => daemonOrgId);
+    await bootstrapWorkspaceStore({ seedOnEmpty: true });
+    await bridgeExtensionWorkspaceSyncEngine();
+    const team = await createWorkspace({ name: 'Team A', kind: 'team' });
+    // The boot spine's two F5 wirings, mirrored: the identity layer
+    // reads visibility from the live store, and an applied flip runs
+    // the retract fan-out over every connected directory user.
+    setWorkspaceVisibilityProvider(() => new Map(listWorkspaces().map((w) => [w.id, w.visibility])));
+    setOracleHostHooks({
+      broadcastSyncEvent: (event) => forwardMutationToWsPeers(event),
+      onWorkspaceVisibilityChanged: (workspaceId) => {
+        const srv = server;
+        if (!srv) return;
+        const userIds = new Set<string>();
+        for (const peer of srv.listConnectedPeers()) {
+          if (peer.userId !== null) userIds.add(peer.userId);
+        }
+        for (const userId of userIds) {
+          void retractWorkspaceRowsFromUserPeers(userId, [workspaceId], () => server);
+        }
+      },
+    });
+
+    const nora = await createDaemonUser({ displayName: 'Nora' });
+    if (!nora.ok) throw new Error('directory create failed');
+    const port = await freePort();
+    server = await startOracleWsServer({ host: '127.0.0.1', port, handshakeIdentity: IDENTITY });
+    setMutationForwarderWsServer(server);
+    const operator = await connectOperator(port, 'web-operator');
+    const noraClient = await connectAs(port, nora.record, 'ext-nora');
+
+    const flipEnvelope = (mutationId: string, ms: number, visibility: string): MutationEnvelope => ({
+      mutationId,
+      hlc: { physicalMs: ms, logical: 0, nodeId: 'web-operator' },
+      origin: { surfaceId: 'workbench', deviceId: 'operator-device' },
+      workspaceId: EXTENSION_WORKSPACE_GLOBAL_SCOPE,
+      orgId: daemonOrgId,
+      mutatorVersion: 1,
+      body: {
+        kind: 'addToSet',
+        type: EXTENSION_WORKSPACE_ENTITY_TYPE,
+        id: EXTENSION_WORKSPACE_ID,
+        path: EXTENSION_WORKSPACES_SET_PATH,
+        itemId: team.id,
+        item: {
+          id: team.id,
+          kind: 'team',
+          name: team.name,
+          createdAt: team.createdAt,
+          updatedAt: team.updatedAt,
+          orgId: daemonOrgId,
+          visibility,
+        },
+      },
+    });
+    const sendFlip = async (mutationId: string, ms: number, visibility: string): Promise<void> => {
+      const responded = new Promise<void>((resolve) => {
+        operator.on('message', (raw) => {
+          if (JSON.parse(raw.toString()).type === `${SYNC_MUTATION_BATCH_TYPE}:response`) resolve();
+        });
+      });
+      operator.send(
+        JSON.stringify({
+          type: SYNC_MUTATION_BATCH_TYPE,
+          workspaceId: EXTENSION_WORKSPACE_GLOBAL_SCOPE,
+          batch: { batchId: `b-${mutationId}`, mutations: [flipEnvelope(mutationId, ms, visibility)] },
+        }),
+      );
+      await responded;
+    };
+
+    // Widening: the flip's own slot mutation is the offer — the member
+    // reads the row live through the per-frame read filter. The flip
+    // HLCs must outrank createWorkspace's wall-clock mint or the
+    // whole-record LWW keeps the old slot.
+    const noraRow = new Promise<MutationEnvelope>((resolve) => {
+      noraClient.on('message', (raw) => {
+        const msg = JSON.parse(raw.toString());
+        if (msg.type === SYNC_MUTATION_TYPE && msg.workspaceId === EXTENSION_WORKSPACE_GLOBAL_SCOPE) {
+          resolve(msg.envelope);
+        }
+      });
+    });
+    await sendFlip('m-flip-internal', Date.now() + 60_000, 'internal');
+    expect(workspaceListRowIdForMutation(await noraRow)).toBe(team.id);
+    const flipAllow = audits.find((a) => a.capability === 'daemon.workspace-visibility' && a.decision.allow);
+    expect(flipAllow?.workspaceId).toBe(team.id);
+
+    // Narrowing: the retract fan-out evicts the visibility-only reader.
+    const noraRetract = new Promise<{ workspaceId: string }>((resolve) => {
+      noraClient.on('message', (raw) => {
+        const msg = JSON.parse(raw.toString());
+        if (msg.type === SYNC_WORKSPACE_RETRACT_TYPE) resolve(msg);
+      });
+    });
+    await sendFlip('m-flip-private', Date.now() + 120_000, 'private');
+    expect((await noraRetract).workspaceId).toBe(team.id);
   });
 });

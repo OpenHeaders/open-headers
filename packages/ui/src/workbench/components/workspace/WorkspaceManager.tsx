@@ -292,7 +292,18 @@ const WorkspaceManager: React.FC<WorkspaceManagerProps> = ({ api, activeWorkspac
         }}
       />
 
-      <WorkspaceMembersModal workspace={membersTarget} onClose={() => setMembersTarget(null)} />
+      <WorkspaceMembersModal
+        // Live row lookup: a visibility flip lands through the mirror,
+        // and the open modal must show the post-write value rather than
+        // the record captured when the modal opened.
+        workspace={membersTarget ? (api.workspaces.find((w) => w.id === membersTarget.id) ?? membersTarget) : null}
+        onClose={() => setMembersTarget(null)}
+        onVisibilityChange={async (visibility) => {
+          if (!membersTarget) return false;
+          const result = await api.updateWorkspace(membersTarget.id, { visibility });
+          return result.success;
+        }}
+      />
 
       <PublishWorkspaceModal
         source={publishSource}

@@ -48,6 +48,14 @@ export const workbenchChromeWorkspace = {
   'workbench.workspace.members.addButton': 'Añadir',
   'workbench.workspace.members.noneToAdd': 'Todos en este servidor ya tienen acceso.',
   'workbench.workspace.members.readOnlyHint': 'Solo un propietario del espacio de trabajo puede cambiar los miembros.',
+  'workbench.workspace.members.visibilityLabel': 'Acceso',
+  'workbench.workspace.members.visibilityPrivate': 'Privado',
+  'workbench.workspace.members.visibilityInternal': 'Interno',
+  'workbench.workspace.members.visibilityPrivateHint':
+    'Solo los miembros invitados pueden ver este espacio de trabajo.',
+  'workbench.workspace.members.visibilityInternalHint':
+    'Todos los miembros de este servidor pueden ver este espacio de trabajo. Solo los miembros añadidos pueden editarlo.',
+  'workbench.workspace.members.visibilityUpdatedToast': 'Acceso al espacio de trabajo actualizado',
   'workbench.workspace.createOk': 'Crear',
   'workbench.workspace.createFailed': 'No se pudo crear el espacio de trabajo',
   'workbench.workspace.createdToastPrefix': 'Espacio de trabajo creado',

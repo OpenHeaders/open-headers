@@ -129,6 +129,16 @@ export interface OracleHostHooks {
    */
   broadcastWorkspaceEvicted?: (workspaceId: string) => void;
   /**
+   * A peer-applied workspace-list slot write changed the workspace's
+   * visibility (the access-foundation plan §8 F5). Fired AFTER the
+   * batch applied. Serving hosts wire this to the retraction fan-out so
+   * a restrictive flip (internal → private) evicts the workspace from
+   * connected tabs that only read it through visibility; the widening
+   * direction needs no hook — the slot mutation itself fans to
+   * newly-readable peers through the per-frame read filter.
+   */
+  onWorkspaceVisibilityChanged?: (workspaceId: string) => void;
+  /**
    * Report a single status entry to the host's status pill subsystem.
    * Hosts wire this to their app-level `Status.report(...)` callable.
    * Subsystem is a free-form string; host validates against its own

@@ -123,4 +123,69 @@ describe('WorkspaceMembersModal', () => {
     );
     expect(await screen.findByText('you hold no grant on this workspace')).toBeTruthy();
   });
+
+  describe('visibility section (F5)', () => {
+    const onVisibilityChange = vi.fn<(visibility: 'private' | 'internal') => Promise<boolean>>();
+
+    it('renders nothing without the onVisibilityChange wiring', async () => {
+      mockList.mockResolvedValue(membersFixture());
+      render(
+        <AntApp>
+          <WorkspaceMembersModal workspace={WORKSPACE} onClose={() => undefined} />
+        </AntApp>,
+      );
+      await screen.findByTestId('workspace-members-row-u-editor');
+      expect(screen.queryByTestId('workspace-members-visibility')).toBeNull();
+    });
+
+    it('an owner gets the Private|Internal control with the matching hint', async () => {
+      mockList.mockResolvedValue(membersFixture());
+      render(
+        <AntApp>
+          <WorkspaceMembersModal
+            workspace={{ ...WORKSPACE, visibility: 'internal' } as ExtensionWorkspace}
+            onClose={() => undefined}
+            onVisibilityChange={onVisibilityChange}
+          />
+        </AntApp>,
+      );
+      expect(await screen.findByTestId('workspace-members-visibility-segmented')).toBeTruthy();
+      expect(
+        screen.getByText('Every member of this server can view this workspace. Only members you add can edit.'),
+      ).toBeTruthy();
+    });
+
+    it('a non-owner sees the current visibility as a static tag', async () => {
+      mockList.mockResolvedValue({ ...membersFixture(), callerRole: 'editor', candidates: undefined });
+      render(
+        <AntApp>
+          <WorkspaceMembersModal
+            workspace={WORKSPACE}
+            onClose={() => undefined}
+            onVisibilityChange={onVisibilityChange}
+          />
+        </AntApp>,
+      );
+      await screen.findByTestId('workspace-members-row-u-editor');
+      expect(screen.queryByTestId('workspace-members-visibility-segmented')).toBeNull();
+      expect(screen.getByTestId('workspace-members-visibility-tag').textContent).toBe('Private');
+      expect(screen.getByText('Only invited members can see this workspace.')).toBeTruthy();
+    });
+
+    it('an unknown visibility value renders verbatim as an immutable tag even for the owner', async () => {
+      mockList.mockResolvedValue(membersFixture());
+      render(
+        <AntApp>
+          <WorkspaceMembersModal
+            workspace={{ ...WORKSPACE, visibility: 'public' } as ExtensionWorkspace}
+            onClose={() => undefined}
+            onVisibilityChange={onVisibilityChange}
+          />
+        </AntApp>,
+      );
+      await screen.findByTestId('workspace-members-row-u-editor');
+      expect(screen.queryByTestId('workspace-members-visibility-segmented')).toBeNull();
+      expect(screen.getByTestId('workspace-members-visibility-tag').textContent).toBe('public');
+    });
+  });
 });

@@ -58,6 +58,7 @@ import {
   resetAuditSink,
   resolveDaemonUserGitAttribution,
   setAuditSink,
+  setWorkspaceVisibilityProvider,
 } from '@openheaders/core/identity';
 import { setLicenseSnapshotProvider, setPersonalSeatRedemptionProvider } from '@openheaders/core/licensing';
 import { type HostLogger, hostLogger, setHostLogger } from '@openheaders/core/logger';
@@ -613,6 +614,23 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
     broadcastWorkspaceEvicted: (workspaceId) => {
       broadcastLocal('workspaceEvicted', { workspaceId });
     },
+    // F5: a visibility flip re-judges every connected directory user
+    // through the retraction fan-out, which itself skips anyone who
+    // still reads the workspace (a WRA row, or visibility that stayed
+    // wide enough) — so firing it for everyone is the correct no-op for
+    // the unaffected. The widening direction needs nothing here: the
+    // slot mutation fans to newly-readable peers via the read filter.
+    onWorkspaceVisibilityChanged: (workspaceId) => {
+      const server = wsServer;
+      if (!server) return;
+      const userIds = new Set<string>();
+      for (const peer of server.listConnectedPeers()) {
+        if (peer.userId !== null) userIds.add(peer.userId);
+      }
+      for (const userId of userIds) {
+        void retractWorkspaceRowsFromUserPeers(userId, [workspaceId], () => wsServer);
+      }
+    },
   });
 
   // 3. The host process drives writes through the same `hostBridge`
@@ -660,6 +678,11 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
     }
     return getWorkspace(workspaceId)?.orgId ?? snapshot?.user.homeOrgId;
   });
+  // F5 — the identity layer's window onto workspace visibility: the
+  // per-peer snapshot builder folds "which workspaces are internal"
+  // from this live read (no cache; consulted per snapshot build, and
+  // the store walk is in-memory).
+  setWorkspaceVisibilityProvider(() => new Map(listWorkspaces().map((ws) => [ws.id, ws.visibility])));
   const unsubscribeWorkspaceStore = onWorkspaceStoreChange(() => {
     void ensureWorkspaceRoleAssignments(listWorkspaces().map((ws) => ws.id))
       .then(() => refreshIdentitySnapshotFromHostStorage())

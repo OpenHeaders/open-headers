@@ -50,6 +50,10 @@ function makeSnapshot(
     membership?: Partial<OrgMembership>;
     /** Extra Org ids folded into `snapshot.orgs` — the multi-org / joined-backend case (Phase U5). */
     extraOrgIds?: ReadonlyArray<string>;
+    /** F5 — the acting principal's resolved kind (absent = the pre-F5 shape). */
+    principalKind?: string;
+    /** F5 — workspace ids whose visibility resolves `internal`. */
+    internalWorkspaceIds?: ReadonlyArray<string>;
   } = {},
 ): IdentitySnapshot {
   const user: User = {
@@ -87,7 +91,18 @@ function makeSnapshot(
   for (const orgId of overrides.extraOrgIds ?? []) {
     orgs.set(orgId, { id: orgId, name: `Joined ${orgId}`, hostKind: 'desktop', isPrivate: false });
   }
-  return { user, principal, membership, localAdmin, wraByWorkspaceId, orgs };
+  return {
+    user,
+    principal,
+    membership,
+    localAdmin,
+    wraByWorkspaceId,
+    orgs,
+    ...(overrides.principalKind !== undefined ? { principalKind: overrides.principalKind } : {}),
+    ...(overrides.internalWorkspaceIds !== undefined
+      ? { internalReadWorkspaceIds: new Set(overrides.internalWorkspaceIds) }
+      : {}),
+  };
 }
 
 function makeWra(workspaceId: string, role: WorkspaceRoleAssignment['role']): WorkspaceRoleAssignment {
@@ -344,6 +359,113 @@ describe('hasCapability', () => {
         allow: false,
         reason: 'no-current-user',
       });
+    });
+  });
+
+  describe('internal visibility (the access-foundation plan §8 F5 — read-only, member AND human)', () => {
+    it('admits a member to READ an internal workspace without a WRA row', () => {
+      const member = makeSnapshot({
+        localAdmin: null,
+        membership: { primaryRole: 'member' },
+        principalKind: 'user',
+        internalWorkspaceIds: [W1],
+      });
+      expect(hasCapability(member, 'workspace.read', { workspaceId: W1 })).toEqual({ allow: true });
+    });
+
+    it('admits org owner and admin roles through the same arm', () => {
+      for (const primaryRole of ['owner', 'admin'] as const) {
+        const snap = makeSnapshot({
+          localAdmin: null,
+          membership: { primaryRole },
+          principalKind: 'user',
+          internalWorkspaceIds: [W1],
+        });
+        expect(hasCapability(snap, 'workspace.read', { workspaceId: W1 })).toEqual({ allow: true });
+      }
+    });
+
+    it('NEVER confers write or observe — visibility is read-only forever', () => {
+      const member = makeSnapshot({
+        localAdmin: null,
+        membership: { primaryRole: 'member' },
+        principalKind: 'user',
+        internalWorkspaceIds: [W1],
+      });
+      expect(hasCapability(member, 'workspace.write', { workspaceId: W1 })).toEqual({
+        allow: false,
+        reason: 'no-workspace-role-assignment',
+      });
+      expect(hasCapability(member, 'workspace.observe', { workspaceId: W1 })).toEqual({
+        allow: false,
+        reason: 'no-workspace-role-assignment',
+      });
+    });
+
+    it('excludes a guest — the arm is an allowlist of owner/admin/member, never widened by a new role', () => {
+      const guest = makeSnapshot({
+        localAdmin: null,
+        membership: { primaryRole: 'guest' },
+        principalKind: 'user',
+        internalWorkspaceIds: [W1],
+      });
+      expect(hasCapability(guest, 'workspace.read', { workspaceId: W1 })).toEqual({
+        allow: false,
+        reason: 'no-workspace-role-assignment',
+      });
+    });
+
+    it('excludes a service principal — and any unknown future kind (F3 gate law)', () => {
+      for (const principalKind of ['service', 'robot-from-the-future']) {
+        const snap = makeSnapshot({
+          localAdmin: null,
+          membership: { primaryRole: 'member' },
+          principalKind,
+          internalWorkspaceIds: [W1],
+        });
+        expect(hasCapability(snap, 'workspace.read', { workspaceId: W1 })).toEqual({
+          allow: false,
+          reason: 'no-workspace-role-assignment',
+        });
+      }
+    });
+
+    it('an absent principalKind reads as user — the directory defaulting law', () => {
+      const member = makeSnapshot({
+        localAdmin: null,
+        membership: { primaryRole: 'member' },
+        internalWorkspaceIds: [W1],
+      });
+      expect(hasCapability(member, 'workspace.read', { workspaceId: W1 })).toEqual({ allow: true });
+    });
+
+    it('admits nothing outside the internal set, and nothing when the set is absent (client hosts)', () => {
+      const withSet = makeSnapshot({
+        localAdmin: null,
+        membership: { primaryRole: 'member' },
+        principalKind: 'user',
+        internalWorkspaceIds: [W1],
+      });
+      expect(hasCapability(withSet, 'workspace.read', { workspaceId: W2 })).toEqual({
+        allow: false,
+        reason: 'no-workspace-role-assignment',
+      });
+      const withoutSet = makeSnapshot({ localAdmin: null, membership: { primaryRole: 'member' } });
+      expect(hasCapability(withoutSet, 'workspace.read', { workspaceId: W1 })).toEqual({
+        allow: false,
+        reason: 'no-workspace-role-assignment',
+      });
+    });
+
+    it('a WRA row still resolves first — an editor keeps write on an internal workspace', () => {
+      const editor = makeSnapshot({
+        localAdmin: null,
+        membership: { primaryRole: 'member' },
+        principalKind: 'user',
+        internalWorkspaceIds: [W1],
+        wras: [makeWra(W1, 'editor')],
+      });
+      expect(hasCapability(editor, 'workspace.write', { workspaceId: W1 })).toEqual({ allow: true });
     });
   });
 

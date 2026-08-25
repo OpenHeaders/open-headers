@@ -227,6 +227,20 @@ describe('applyUpdateWorkspace / applyRenameWorkspace', () => {
     expect(slot.importedFrom).toEqual({ vendor: 'vendor-x', workspaceId: 'vendor-1' });
   });
 
+  it('a visibility patch sets the field on the emitted slot (the F5 flip write)', async () => {
+    mockCall.mockResolvedValue({ ok: true, outcomes: [] });
+    const existing = makeWorkspace('ws-a', 0);
+    const mirror = makeMirror([existing], 'ws-a');
+    await applyUpdateWorkspace(
+      { id: 'ws-a', updates: { visibility: 'internal' } },
+      { surfaceId: 'workbench', mirror, context: makeContextHandle('workbench') },
+    );
+    const body = (mockCall.mock.calls[0][1] as { batch: MutationBatch }).batch.mutations[0].body;
+    const slot = (body as { item: { visibility?: string; name: string } }).item;
+    expect(slot.visibility).toBe('internal');
+    expect(slot.name).toBe(existing.name);
+  });
+
   it('preserves the org binding across every update — workspaces are immutable in their Org', async () => {
     mockCall.mockResolvedValue({ ok: true, outcomes: [] });
     const existing = makeWorkspace('ws-a', 0, { orgId: 'org-old' });

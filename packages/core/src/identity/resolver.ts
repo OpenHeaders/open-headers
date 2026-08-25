@@ -91,6 +91,20 @@ export interface IdentitySnapshot {
   /** Workspace-id → WRA for this user's principal. */
   wraByWorkspaceId: ReadonlyMap<string, WorkspaceRoleAssignment>;
   /**
+   * The acting principal's resolved kind (`user` | `service`, plus any
+   * future value verbatim). Stamped by the daemon peer-snapshot builder;
+   * absent (local hosts, pre-F5 constructions) reads as `user` — the
+   * directory's own defaulting law (`daemonUserPrincipalKind`).
+   */
+  principalKind?: string;
+  /**
+   * Ids of workspaces whose visibility resolves `internal` (the
+   * access-foundation plan §8 F5), folded in by the daemon peer-snapshot
+   * builder from the host's visibility provider. Absent = empty set —
+   * hosts that never serve directory peers grant nothing through it.
+   */
+  internalReadWorkspaceIds?: ReadonlySet<string>;
+  /**
    * Org-id → Org row for every Org this identity belongs to. V5 ships a
    * single private home Org; multi-org membership (real team Orgs
    * joined via a daemon) folds more rows in without changing the shape.
@@ -175,6 +189,21 @@ export function hasCapability(
     }
     const wra = snapshot.wraByWorkspaceId.get(workspaceId);
     if (!wra) {
+      // `internal` visibility (the access-foundation plan §8 F5): a
+      // signed-in directory member reads WITHOUT a WRA row — read ONLY,
+      // never write/observe (visibility never confers write). The arm
+      // is a double allowlist: org role must be member-or-above
+      // (`guest` and unknown future roles fall through — F1's guest
+      // semantics) and the principal must be a human (`kind: 'user'`
+      // exactly — service principals and unknown kinds never inherit
+      // internal read, F3's gate law).
+      if (capability === 'workspace.read' && snapshot.internalReadWorkspaceIds?.has(workspaceId)) {
+        const { primaryRole } = snapshot.membership;
+        const memberOrAbove = primaryRole === 'owner' || primaryRole === 'admin' || primaryRole === 'member';
+        if (memberOrAbove && (snapshot.principalKind ?? 'user') === 'user') {
+          return { allow: true };
+        }
+      }
       return { allow: false, reason: 'no-workspace-role-assignment' };
     }
     if (capability === 'workspace.read') {

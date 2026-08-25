@@ -17,9 +17,23 @@
 import { DeleteOutlined, UserAddOutlined } from '@ant-design/icons';
 import { getCapability } from '@openheaders/core/capabilities';
 import type { WorkspaceMemberCandidate, WorkspaceMemberRow } from '@openheaders/core/capabilities';
+import { resolveWorkspaceVisibility } from '@openheaders/core/schemas';
 import type { ExtensionWorkspace } from '@openheaders/core/types';
 import type { MessageKey } from '@openheaders/i18n';
-import { App as AntApp, Button, Modal, Popconfirm, Select, Space, Spin, Tag, Tooltip, Typography, theme } from 'antd';
+import {
+  App as AntApp,
+  Button,
+  Modal,
+  Popconfirm,
+  Segmented,
+  Select,
+  Space,
+  Spin,
+  Tag,
+  Tooltip,
+  Typography,
+  theme,
+} from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
@@ -44,6 +58,13 @@ interface WorkspaceMembersModalProps {
   /** Null closes the modal. */
   workspace: ExtensionWorkspace | null;
   onClose: () => void;
+  /**
+   * Write the workspace's visibility (the access-foundation plan §8
+   * F5). Absent = no access section renders. The server owner-gates
+   * the flip regardless; the control renders mutable only when the
+   * members list says the caller is an owner.
+   */
+  onVisibilityChange?: (visibility: 'private' | 'internal') => Promise<boolean>;
 }
 
 interface MembersState {
@@ -56,7 +77,7 @@ interface MembersState {
 
 const EMPTY_STATE: MembersState = { loading: true, error: null, callerRole: null, members: [], candidates: [] };
 
-const WorkspaceMembersModal: React.FC<WorkspaceMembersModalProps> = ({ workspace, onClose }) => {
+const WorkspaceMembersModal: React.FC<WorkspaceMembersModalProps> = ({ workspace, onClose, onVisibilityChange }) => {
   const t = useT();
   const { token } = theme.useToken();
   const { message } = AntApp.useApp();
@@ -125,6 +146,66 @@ const WorkspaceMembersModal: React.FC<WorkspaceMembersModalProps> = ({ workspace
 
   const roleTag = (role: string): string =>
     role === 'owner' || role === 'editor' || role === 'viewer' ? t(ROLE_LABELS[role]) : role;
+
+  // Access section (F5). The stored value is a plain string (the
+  // forward-tolerant decode law): the two known authoring values get
+  // the owner Segmented; anything else — including `public` until its
+  // slice ships a control — renders verbatim as an immutable tag.
+  const rawVisibility = workspace?.visibility;
+  // `null` = a value this control does not know (`public` until its
+  // slice, any future string) — rendered verbatim, never coerced.
+  const knownVisibility: 'private' | 'internal' | null =
+    rawVisibility === undefined || rawVisibility === 'private' || rawVisibility === 'internal'
+      ? resolveWorkspaceVisibility(rawVisibility) === 'internal'
+        ? 'internal'
+        : 'private'
+      : null;
+  const visibilityLabel = (value: 'private' | 'internal'): string =>
+    value === 'internal'
+      ? t('workbench.workspace.members.visibilityInternal')
+      : t('workbench.workspace.members.visibilityPrivate');
+
+  const renderVisibilitySection = (): React.ReactNode => {
+    if (!onVisibilityChange) return null;
+    return (
+      <div
+        data-testid="workspace-members-visibility"
+        style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}
+      >
+        <Text strong style={{ fontSize: 13 }}>
+          {t('workbench.workspace.members.visibilityLabel')}
+        </Text>
+        {isOwner && knownVisibility !== null ? (
+          <Segmented
+            size="small"
+            value={knownVisibility}
+            disabled={busy}
+            data-testid="workspace-members-visibility-segmented"
+            onChange={(value) => {
+              const next = value === 'internal' ? 'internal' : 'private';
+              if (next === knownVisibility) return;
+              void runMutation(
+                () => onVisibilityChange(next).then((ok) => ({ ok })),
+                t('workbench.workspace.members.visibilityUpdatedToast'),
+              );
+            }}
+            options={(['private', 'internal'] as const).map((value) => ({ value, label: visibilityLabel(value) }))}
+          />
+        ) : (
+          <Tag data-testid="workspace-members-visibility-tag">
+            {knownVisibility !== null ? visibilityLabel(knownVisibility) : rawVisibility}
+          </Tag>
+        )}
+        {knownVisibility !== null && (
+          <Text type="secondary" style={{ fontSize: 12, width: '100%' }}>
+            {knownVisibility === 'internal'
+              ? t('workbench.workspace.members.visibilityInternalHint')
+              : t('workbench.workspace.members.visibilityPrivateHint')}
+          </Text>
+        )}
+      </div>
+    );
+  };
 
   const renderMember = (member: WorkspaceMemberRow): React.ReactNode => {
     // The plane touches only manual editor/viewer rows of directory
@@ -230,6 +311,7 @@ const WorkspaceMembersModal: React.FC<WorkspaceMembersModalProps> = ({ workspace
         <Text type="danger">{state.error}</Text>
       ) : (
         <>
+          {renderVisibilitySection()}
           <div>{state.members.map(renderMember)}</div>
           {isOwner ? (
             <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>

@@ -560,6 +560,102 @@ describe('applyInboundMutationBatch', () => {
       const wras = (await hostStorage.get(OH.workspaceRoleAssignments)) ?? [];
       expect(wras.some((w) => w.principalId === PEER_PRINCIPAL_ID && w.workspaceId === 'ws-created-c')).toBe(false);
     });
+
+    describe('visibility flip gate (the access-foundation plan §8 F5 — owner-flipped, audited)', () => {
+      const slotFlip = (ms: number, visibility?: string): MutationEnvelope =>
+        globalEnvelope(ms, {
+          kind: 'addToSet',
+          type: EXTENSION_WORKSPACE_ENTITY_TYPE,
+          id: EXTENSION_WORKSPACE_ID,
+          path: EXTENSION_WORKSPACES_SET_PATH,
+          itemId: wsId,
+          item: {
+            id: wsId,
+            kind: 'personal',
+            name: wsId,
+            createdAt: '2026-07-14T00:00:00.000Z',
+            updatedAt: '2026-07-14T00:00:00.000Z',
+            orgId: TEST_ORG_ID,
+            ...(visibility !== undefined ? { visibility } : {}),
+          },
+        });
+
+      it('an editor slot write that flips visibility is refused — write is not enough', async () => {
+        const audits: ResolvedAuditEntry[] = [];
+        setAuditSink((entry) => audits.push(entry));
+        const flipped: string[] = [];
+        setOracleHostHooks({ onWorkspaceVisibilityChanged: (id) => flipped.push(id) });
+        try {
+          const batch = { batchId: 'b-vis-1', mutations: [slotFlip(20_000, 'internal')] };
+          await applyInboundMutationBatch(batch, { snapshot: makePeerSnapshot('editor'), userId: PEER_USER_ID });
+          const gate = audits.find((a) => a.capability === 'daemon.workspace-visibility');
+          expect(gate?.decision).toEqual({ allow: false, reason: 'insufficient-workspace-role' });
+          expect(gate?.workspaceId).toBe(wsId);
+          expect(gate?.actorUserId).toBe(PEER_USER_ID);
+          expect(hasRecentlyApplied(batch.mutations[0]!.mutationId)).toBe(false);
+          expect(flipped).toEqual([]);
+        } finally {
+          setOracleHostHooks({});
+          resetAuditSink();
+        }
+      });
+
+      it('an owner flip applies, stamps the allow row, and fires the post-apply hook', async () => {
+        const audits: ResolvedAuditEntry[] = [];
+        setAuditSink((entry) => audits.push(entry));
+        const flipped: string[] = [];
+        setOracleHostHooks({ onWorkspaceVisibilityChanged: (id) => flipped.push(id) });
+        try {
+          const batch = { batchId: 'b-vis-2', mutations: [slotFlip(21_000, 'internal')] };
+          await applyInboundMutationBatch(batch, { snapshot: makePeerSnapshot('owner'), userId: PEER_USER_ID });
+          const gate = audits.find((a) => a.capability === 'daemon.workspace-visibility');
+          expect(gate?.decision).toEqual({ allow: true });
+          expect(gate?.workspaceId).toBe(wsId);
+          expect(hasRecentlyApplied(batch.mutations[0]!.mutationId)).toBe(true);
+          expect(flipped).toEqual([wsId]);
+        } finally {
+          setOracleHostHooks({});
+          resetAuditSink();
+        }
+      });
+
+      it('a LocalAdmin actor flips without a WRA row (the operator holds the boot-reconcile owner rows anyway)', async () => {
+        const flipped: string[] = [];
+        setOracleHostHooks({ onWorkspaceVisibilityChanged: (id) => flipped.push(id) });
+        try {
+          const batch = { batchId: 'b-vis-3', mutations: [slotFlip(22_000, 'internal')] };
+          await applyInboundMutationBatch(batch, {
+            snapshot: makePeerSnapshot(null, { localAdmin: true }),
+            userId: PEER_USER_ID,
+          });
+          expect(hasRecentlyApplied(batch.mutations[0]!.mutationId)).toBe(true);
+          expect(flipped).toEqual([wsId]);
+        } finally {
+          setOracleHostHooks({});
+        }
+      });
+
+      it('an unknown incoming value resolves private — no flip is judged and an editor slot write rides', async () => {
+        // Both sides narrow through resolveWorkspaceVisibility: a stored
+        // record with no visibility and an incoming 'from-the-future'
+        // both mean private, so the tolerance law keeps the rename
+        // working instead of refusing the payload.
+        const audits: ResolvedAuditEntry[] = [];
+        setAuditSink((entry) => audits.push(entry));
+        const flipped: string[] = [];
+        setOracleHostHooks({ onWorkspaceVisibilityChanged: (id) => flipped.push(id) });
+        try {
+          const batch = { batchId: 'b-vis-4', mutations: [slotFlip(23_000, 'from-the-future')] };
+          await applyInboundMutationBatch(batch, { snapshot: makePeerSnapshot('editor'), userId: PEER_USER_ID });
+          expect(audits.find((a) => a.capability === 'daemon.workspace-visibility')).toBeUndefined();
+          expect(hasRecentlyApplied(batch.mutations[0]!.mutationId)).toBe(true);
+          expect(flipped).toEqual([]);
+        } finally {
+          setOracleHostHooks({});
+          resetAuditSink();
+        }
+      });
+    });
   });
 
   it('runs the receiver-side workspace.write gate and audits the decision', async () => {

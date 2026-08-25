@@ -150,6 +150,14 @@ export const DaemonAdminSchema = v.object({
  * owner role on the named workspace, deny otherwise — with the caller
  * as the actor and the managed workspace. Audit-vocabulary only.
  *
+ * `daemon.workspace-visibility` is the visibility flip's stamp (the
+ * access-foundation plan §8 F5): one row per inbound workspace-list
+ * slot write whose visibility differs from the stored record — allow
+ * when the acting peer holds the OWNER role on that workspace (flips
+ * are owner-gated on top of the slot's ordinary `workspace.write`),
+ * deny otherwise — with the actor and the flipped workspace.
+ * Audit-vocabulary only.
+ *
  * `daemon.seat-admit` is the seat gate's stamp (the licensing plan §4)
  * — a deny row per directory-user admission refused at the seat limit
  * (including the personal-seat refusal reasons), and an allow row when
@@ -180,6 +188,7 @@ export const CapabilitySchema = v.picklist([
   'daemon.workspace-leave',
   'daemon.workspace-grant',
   'daemon.workspace-revoke',
+  'daemon.workspace-visibility',
   'daemon.seat-admit',
   'daemon.service-admit',
   'daemon.license-install',

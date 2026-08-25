@@ -22,8 +22,10 @@
 import { hostStorage } from '../storage/host-storage';
 import { OH } from '../storage/keys';
 import type { WorkspaceRoleAssignment } from '../types';
+import { daemonUserPrincipalKind } from './daemon-users';
 import { getIdentitySnapshot } from './registry';
 import type { IdentitySnapshot } from './resolver';
+import { resolveInternalWorkspaceIds } from './visibility-provider';
 
 /**
  * Build the capability snapshot for the user a peer acts as. `null` when
@@ -52,6 +54,11 @@ export async function resolveDaemonPeerIdentitySnapshot(userId: string): Promise
     membership: record.membership,
     wraByWorkspaceId,
     orgs: new Map([[identity.org.id, identity.org]]),
+    // F5: the resolved kind + the live internal-visibility set — what
+    // lets the resolver's internal read arm judge "member AND human"
+    // without the seams threading workspace records themselves.
+    principalKind: daemonUserPrincipalKind(record),
+    internalReadWorkspaceIds: resolveInternalWorkspaceIds(),
   };
 }
 

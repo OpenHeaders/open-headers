@@ -168,12 +168,18 @@ export interface ApplyUpdateWorkspaceInput {
    * at create time and never changes. Moving entities across Orgs is
    * the Duplicate-into gesture, which mints a new workspace under the
    * target Org rather than re-homing the existing one.
+   *
+   * `visibility` (the access-foundation plan §8 F5) rides the same
+   * whole-slot write; on a serving backend the flip is OWNER-gated at
+   * the inbound global-scope gate on top of the slot's ordinary
+   * `workspace.write`, so the UI offers the control to owners only.
    */
   updates: {
     name?: string;
     description?: string;
     color?: string;
     icon?: string | null;
+    visibility?: string;
   };
 }
 
@@ -208,7 +214,7 @@ export async function applyUpdateWorkspace(
     source: prev.source,
     importedFrom: prev.importedFrom,
     orgId: prev.orgId,
-    visibility: prev.visibility,
+    visibility: updates.visibility !== undefined ? updates.visibility : prev.visibility,
   };
   const payload = buildSetExtensionWorkspaceBatch({ slot: next, orderKey }, ctx);
   const result = await applySyncPayload(payload);

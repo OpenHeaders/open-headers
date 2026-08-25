@@ -193,9 +193,11 @@ export function __initGlobalSyncServiceForTests(deps: GlobalSyncTestDeps = {}): 
     log: deps.log ?? new InMemoryMutationLog(),
     intents: deps.intents ?? new InMemoryPendingIntents(),
     lock: deps.lock ?? ((_ws, _type, _id, fn) => fn()),
-    // Tests don't drive chrome.runtime; the in-memory broadcast +
-    // cache subscription cover the SW-side observable surface.
-    sink: () => {},
+    // Same sink as production and as `service.__initSyncServiceForTests`:
+    // route through the host hooks, which are a no-op unless a test
+    // installs `broadcastSyncEvent` — rigs exercising the fan-out
+    // (e.g. the F5 visibility-flip socket test) need the real seam.
+    sink: (event) => getOracleHostHooks().broadcastSyncEvent?.(event),
   });
 }
 

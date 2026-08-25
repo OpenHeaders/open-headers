@@ -140,6 +140,11 @@ export {
   WORKSPACE_CREATE_FUNCTIONAL_ROLE,
 } from './resolver';
 export {
+  resolveInternalWorkspaceIds,
+  setWorkspaceVisibilityProvider,
+  type WorkspaceVisibilityProvider,
+} from './visibility-provider';
+export {
   type DesiredIdpGrant,
   type GrantWorkspaceRoleInput,
   type GrantWorkspaceRoleResult,

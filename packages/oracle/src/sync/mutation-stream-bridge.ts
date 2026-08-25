@@ -54,6 +54,7 @@ import {
   hasCapability,
   type IdentitySnapshot,
 } from '@openheaders/core/identity';
+import { resolveWorkspaceVisibility } from '@openheaders/core/schemas';
 import {
   compareHlc,
   computeInverseSpec,
@@ -72,6 +73,7 @@ import { logger } from '@openheaders/core/utils';
 import { getWorkspace } from '../workspace/extension-workspace-store';
 import { makeOracleInverseAccess } from './activity/activity-inverse-builder';
 import { rememberPriorForMutation } from './activity/activity-priors';
+import { getOracleHostHooks } from './host-hooks';
 import { applySyncRequest, getOrCreateWorkspaceService, releaseWorkspaceService } from './service';
 import { getOracleForWorkspace } from './service/accessors';
 
@@ -191,6 +193,15 @@ interface GlobalScopeGateResult {
   readonly allowed: boolean;
   /** Workspace ids this batch mints — the post-apply owner-WRA subjects. */
   readonly createdWorkspaceIds: readonly string[];
+  /** Workspace ids whose visibility this batch flips — the post-apply hook subjects. */
+  readonly visibilityChangedWorkspaceIds: readonly string[];
+}
+
+/** The `visibility` string a workspace-list slot payload carries, if any. */
+function slotVisibility(item: unknown): string | undefined {
+  if (item === null || typeof item !== 'object') return undefined;
+  const value = (item as Record<string, unknown>).visibility;
+  return typeof value === 'string' ? value : undefined;
 }
 
 /**
@@ -209,6 +220,7 @@ interface GlobalScopeGateResult {
  */
 function gateGlobalScopeBatch(batch: MutationBatch, actor: InboundMutationActor): GlobalScopeGateResult {
   const createdWorkspaceIds: string[] = [];
+  const visibilityChangedWorkspaceIds: string[] = [];
   for (const env of batch.mutations) {
     const subject = globalScopeWriteSubject(env.body);
     const isCreate = subject !== null && isGlobalScopeCreate(env.body, subject);
@@ -226,11 +238,44 @@ function gateGlobalScopeBatch(batch: MutationBatch, actor: InboundMutationActor)
         'MutationStreamBridge',
         `inbound global-scope batch dropped: ${decision.reason ?? 'denied'} (subject=${subject ?? 'operator-only'})`,
       );
-      return { allowed: false, createdWorkspaceIds: [] };
+      return { allowed: false, createdWorkspaceIds: [], visibilityChangedWorkspaceIds: [] };
+    }
+    // Visibility flips are OWNER-gated on top of the slot's ordinary
+    // `workspace.write` (the access-foundation plan §8 F5, "owner-
+    // flipped, audited"): an editor's rename must keep working while an
+    // editor's crafted slot write cannot widen who reads the workspace.
+    // Both sides narrow through `resolveWorkspaceVisibility`, so an
+    // unknown future value neither slips a flip through unjudged nor
+    // trips the gate when the resolved meaning is unchanged.
+    if (!isCreate && subject && env.body.kind === 'addToSet') {
+      const next = resolveWorkspaceVisibility(slotVisibility(env.body.item));
+      const prev = resolveWorkspaceVisibility(getWorkspace(subject)?.visibility);
+      if (next !== prev) {
+        const isOwner =
+          actor.snapshot !== null &&
+          (actor.snapshot.localAdmin !== undefined || actor.snapshot.wraByWorkspaceId.get(subject)?.role === 'owner');
+        const flip = isOwner
+          ? ({ allow: true } as const)
+          : ({ allow: false, reason: 'insufficient-workspace-role' } as const);
+        emitAuditEntry({
+          actorUserId: actor.userId,
+          capability: 'daemon.workspace-visibility',
+          workspaceId: subject,
+          decision: flip,
+        });
+        if (!flip.allow) {
+          logger.info(
+            'MutationStreamBridge',
+            `inbound global-scope batch dropped: visibility flip requires owner (subject=${subject})`,
+          );
+          return { allowed: false, createdWorkspaceIds: [], visibilityChangedWorkspaceIds: [] };
+        }
+        if (!visibilityChangedWorkspaceIds.includes(subject)) visibilityChangedWorkspaceIds.push(subject);
+      }
     }
     if (isCreate && subject && !createdWorkspaceIds.includes(subject)) createdWorkspaceIds.push(subject);
   }
-  return { allowed: true, createdWorkspaceIds };
+  return { allowed: true, createdWorkspaceIds, visibilityChangedWorkspaceIds };
 }
 
 /**
@@ -355,10 +400,12 @@ export async function applyInboundMutationBatch(input: MutationBatch, actor?: In
   // local user's LocalAdmin covers the scope as before.
   const ws = batch.mutations[0]?.workspaceId;
   let createdWorkspaceIds: readonly string[] = [];
+  let visibilityChangedWorkspaceIds: readonly string[] = [];
   if (ws && actor && ws === EXTENSION_WORKSPACE_GLOBAL_SCOPE) {
     const gate = gateGlobalScopeBatch(batch, actor);
     if (!gate.allowed) return;
     createdWorkspaceIds = gate.createdWorkspaceIds;
+    visibilityChangedWorkspaceIds = gate.visibilityChangedWorkspaceIds;
   } else if (ws && !isReceiveAllowed(ws, actor)) {
     return;
   }
@@ -386,6 +433,13 @@ export async function applyInboundMutationBatch(input: MutationBatch, actor?: In
     observeHighestPerWorkspace(batch);
     if (actor && createdWorkspaceIds.length > 0) {
       await grantOwnerOnCreatedWorkspaces(actor, createdWorkspaceIds);
+    }
+    // F5: an applied visibility flip re-judges connected tabs — the
+    // serving host's hook runs the retraction fan-out for peers the
+    // flip narrowed out (the widening direction rides the slot
+    // mutation's own read-filtered broadcast).
+    for (const workspaceId of visibilityChangedWorkspaceIds) {
+      getOracleHostHooks().onWorkspaceVisibilityChanged?.(workspaceId);
     }
   } finally {
     for (const env of batch.mutations) INBOUND_IN_FLIGHT.delete(env.mutationId);
