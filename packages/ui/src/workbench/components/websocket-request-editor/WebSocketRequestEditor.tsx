@@ -747,16 +747,18 @@ const WebSocketRequestEditor: React.FC<WebSocketRequestEditorProps> = ({
     </div>
   );
 
-  // Connect morphs into Disconnect while the session is in flight —
-  // the Invoke→Stop treatment: solid on the darkened error token.
+  // Connect morphs while the session is in flight — the Invoke→Stop
+  // treatment: solid on the darkened error token. The label stays
+  // HONEST across the phases: Cancel while the attempt is still
+  // connecting, Disconnect only once the session is actually open
+  // (both close the same send).
+  const inFlightLabel = sessionOpen
+    ? t('workbench.editors.websocket.connect.disconnect')
+    : t('workbench.editors.websocket.connect.cancel');
   const headerActions = inFlight ? (
     <Tooltip
       placement="bottom"
-      title={
-        <ShortcutHintTitle label={CONNECT_SHORTCUT}>
-          {t('workbench.editors.websocket.connect.disconnect')}
-        </ShortcutHintTitle>
-      }
+      title={<ShortcutHintTitle label={CONNECT_SHORTCUT}>{inFlightLabel}</ShortcutHintTitle>}
     >
       <ConfigProvider theme={{ token: { colorError: token.colorErrorActive } }}>
         <Button
@@ -768,7 +770,7 @@ const WebSocketRequestEditor: React.FC<WebSocketRequestEditorProps> = ({
           style={{ fontSize: 11 }}
           data-testid="websocket-connect-button"
         >
-          {t('workbench.editors.websocket.connect.disconnect')}
+          {inFlightLabel}
         </Button>
       </ConfigProvider>
     </Tooltip>

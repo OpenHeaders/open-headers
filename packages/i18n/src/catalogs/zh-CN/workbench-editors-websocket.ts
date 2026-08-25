@@ -28,6 +28,7 @@ export const workbenchEditorsWebsocket = {
   'workbench.editors.websocket.flavor.socketio': 'Socket.IO',
   'workbench.editors.websocket.connect.label': '连接',
   'workbench.editors.websocket.connect.disconnect': '断开连接',
+  'workbench.editors.websocket.connect.cancel': '取消',
   'workbench.editors.websocket.connect.browserHost': 'WebSocket 会话在桌面端应用或服务器上运行。',
   'workbench.editors.websocket.connect.needsUrl': '输入 ws:// 或 wss:// URL 以连接。',
   'workbench.editors.websocket.tab.docs': 'Docs',
