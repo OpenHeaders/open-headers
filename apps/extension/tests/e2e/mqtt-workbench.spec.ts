@@ -406,11 +406,13 @@ test('E4 — an AsyncAPI spec binds through the picker and the specLink persists
 
 test('E5 — invalid Base64 shows the inline error and the Send gate names the fix', async () => {
   await page.getByRole('tab', { name: 'Message', exact: true }).filter({ visible: true }).first().click();
+  await page.getByTestId('mqtt-payload-format').filter({ visible: true }).first().click();
   await page
-    .getByTestId('mqtt-payload-format')
+    .locator('.ant-select-dropdown')
     .filter({ visible: true })
+    .locator('.ant-select-item-option')
+    .filter({ hasText: 'Base64' })
     .first()
-    .getByText('Base64', { exact: true })
     .click();
   await workbench.fillMonaco(0, 'not base64 !!!');
 
@@ -444,11 +446,13 @@ test('E6 — Connect runs the session in-page: CONNACK row, SUBACK grants, retai
   // compose the echo publish (topic probe/echo → the probe republishes
   // on probe/echo/reply, same QoS).
   await page.getByRole('tab', { name: 'Message', exact: true }).filter({ visible: true }).first().click();
+  await page.getByTestId('mqtt-payload-format').filter({ visible: true }).first().click();
   await page
-    .getByTestId('mqtt-payload-format')
+    .locator('.ant-select-dropdown')
     .filter({ visible: true })
+    .locator('.ant-select-item-option')
+    .filter({ hasText: 'Text' })
     .first()
-    .getByText('Text', { exact: true })
     .click();
   await workbench.fillMonaco(0, ECHO_PAYLOAD);
   await page.getByTestId('mqtt-topic-input').filter({ visible: true }).first().fill('probe/echo');

@@ -1195,28 +1195,12 @@ const MqttRequestEditor: React.FC<MqttRequestEditorProps> = ({
               {activeTab === 'message' && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flex: 1, minHeight: 0 }}>
                   {/* Toolbar row ABOVE the editor (the ScriptsTab
-                    discipline): the ENCODING select on the left —
-                    base64/hex compose binary payloads, so this is a
-                    wire choice, not a display toggle. Find / Replace /
-                    Beautify cluster on the right (a JSON affordance). */}
+                    discipline): the spec's example picker on the left;
+                    Find / Replace / Beautify cluster on the right (a
+                    JSON affordance). The ENCODING choice lives on the
+                    compose bar BELOW the editor. */}
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <Segmented
-                        size="small"
-                        value={draft.payloadFormat}
-                        onChange={(payloadFormat) =>
-                          setDraft((d) => ({ ...d, payloadFormat: payloadFormat as MqttPayloadFormat }))
-                        }
-                        options={[
-                          { value: 'text', label: t('workbench.editors.mqtt.payload.formatText') },
-                          { value: 'json', label: t('workbench.editors.mqtt.payload.formatJson') },
-                          { value: 'base64', label: t('workbench.editors.mqtt.payload.formatBase64') },
-                          { value: 'hex', label: t('workbench.editors.mqtt.payload.formatHex') },
-                        ]}
-                        data-testid="mqtt-payload-format"
-                      />
-                      {exampleSelect}
-                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>{exampleSelect}</div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                       {draft.payloadFormat === 'json' && (
                         <CodeEditorActions
@@ -1231,100 +1215,136 @@ const MqttRequestEditor: React.FC<MqttRequestEditorProps> = ({
                       <EditorViewMenu wrap={wrapPayload} onWrapChange={setWrapPayload} data-testid="mqtt-editor-menu" />
                     </div>
                   </div>
-                  {/* Publish row: topic + QoS + Retain + per-message
-                    properties + the disabled Send scaffold (enables
-                    with the session plane; invalid base64/hex is the
-                    other honest gate). */}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <Input
-                      size="small"
-                      style={{ flex: 1, minWidth: 0, fontFamily: "'SF Mono', monospace", fontSize: 12 }}
-                      placeholder={t('workbench.editors.mqtt.topicPlaceholder')}
-                      value={draft.topic}
-                      onChange={(e) => setDraft((d) => ({ ...d, topic: e.target.value }))}
-                      data-testid="mqtt-topic-input"
-                    />
-                    <Select
-                      size="small"
-                      style={{ width: 150 }}
-                      value={draft.qos}
-                      options={QOS_OPTIONS(t)}
-                      onChange={(qos: MqttRequestQos) => setDraft((d) => ({ ...d, qos }))}
-                      data-testid="mqtt-qos-select"
-                    />
-                    <Checkbox
-                      checked={draft.retain}
-                      onChange={(e) => setDraft((d) => ({ ...d, retain: e.target.checked }))}
-                      data-testid="mqtt-retain"
-                    >
-                      {t('workbench.editors.mqtt.retainLabel')}
-                    </Checkbox>
-                    <MessagePropertiesPopover
-                      value={draft.publishProperties}
-                      onChange={(publishProperties) => setDraft((d) => ({ ...d, publishProperties }))}
-                      v5={v5}
-                      testId="mqtt-publish-props"
-                    />
-                    <Tooltip
-                      title={
-                        encodingError !== null
-                          ? t('workbench.editors.mqtt.payload.invalidGate')
-                          : sessionOpen ? (
-                              <ShortcutHintTitle label={SEND_MESSAGE_SHORTCUT}>
-                                {t('workbench.editors.mqtt.sendLabel')}
-                              </ShortcutHintTitle>
-                            ) : (
-                              t('workbench.editors.mqtt.session.sendIdle')
-                            )
-                      }
-                    >
-                      <span style={{ display: 'inline-flex' }}>
-                        <Button
-                          size="small"
-                          type="primary"
-                          icon={<SendOutlined />}
-                          disabled={!sessionOpen || encodingError !== null}
-                          onClick={() => void handlePublish(composePublishWire())}
-                          data-testid="mqtt-send-message"
-                        >
-                          {t('workbench.editors.mqtt.sendLabel')}
-                        </Button>
-                      </span>
-                    </Tooltip>
-                  </div>
-                  {encodingError !== null && (
-                    <Text type="danger" style={{ fontSize: 11 }} data-testid="mqtt-encoding-error">
-                      {encodingError === 'base64'
-                        ? t('workbench.editors.mqtt.payload.invalidBase64')
-                        : t('workbench.editors.mqtt.payload.invalidHex')}
-                    </Text>
-                  )}
                   <div style={{ flex: 1, minHeight: 100, display: 'flex', gap: 0 }}>
-                    {/* Absolute inset host — a fill editor must not
-                      size its own flex parent (the BodyTab discipline).
-                      COLUMN direction: a fill CodeEditor stretches to
-                      full width only on the cross axis — as a row-flex
-                      child it sizes to its content and renders as a
-                      sliver (the WS editor's column-wrapper idiom). */}
-                    <div style={{ flex: 1, minWidth: 0, position: 'relative' }}>
-                      <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column' }}>
-                        <CodeEditor
-                          value={draft.payload}
-                          onChange={(payload) => setDraft((d) => ({ ...d, payload }))}
-                          language={PAYLOAD_FORMAT_LANGUAGE[draft.payloadFormat]}
-                          fill
-                          actions="external"
-                          actionsRef={payloadActionsRef}
-                          wordWrapOverride={wrapPayload ? 'on' : 'off'}
-                          placeholder={
-                            draft.payloadFormat === 'base64'
-                              ? t('workbench.editors.mqtt.payloadPlaceholderBase64')
-                              : draft.payloadFormat === 'hex'
-                                ? t('workbench.editors.mqtt.payloadPlaceholderHex')
-                                : t('workbench.editors.mqtt.payloadPlaceholder')
-                          }
-                        />
+                    <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                      {/* Absolute inset host — a fill editor must not
+                        size its own flex parent (the BodyTab discipline).
+                        COLUMN direction: a fill CodeEditor stretches to
+                        full width only on the cross axis — as a row-flex
+                        child it sizes to its content and renders as a
+                        sliver (the WS editor's column-wrapper idiom). */}
+                      <div style={{ flex: 1, minHeight: 0, position: 'relative' }}>
+                        <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column' }}>
+                          <CodeEditor
+                            value={draft.payload}
+                            onChange={(payload) => setDraft((d) => ({ ...d, payload }))}
+                            language={PAYLOAD_FORMAT_LANGUAGE[draft.payloadFormat]}
+                            fill
+                            actions="external"
+                            actionsRef={payloadActionsRef}
+                            wordWrapOverride={wrapPayload ? 'on' : 'off'}
+                            placeholder={
+                              draft.payloadFormat === 'base64'
+                                ? t('workbench.editors.mqtt.payloadPlaceholderBase64')
+                                : draft.payloadFormat === 'hex'
+                                  ? t('workbench.editors.mqtt.payloadPlaceholderHex')
+                                  : t('workbench.editors.mqtt.payloadPlaceholder')
+                            }
+                          />
+                        </div>
                       </div>
+                      {/* Compose bar BELOW the editor, inside the message
+                        panel: ENCODING dropdown left; publish controls
+                        right — properties, Retain, the compact QoS
+                        (integer; the menu explains the levels only when
+                        opened), the narrow topic input, Send (disabled
+                        scaffold — enables with the session plane; invalid
+                        base64/hex is the other honest gate). */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <Select
+                          size="small"
+                          style={{ width: 120 }}
+                          value={draft.payloadFormat}
+                          onChange={(payloadFormat: MqttPayloadFormat) => setDraft((d) => ({ ...d, payloadFormat }))}
+                          options={[
+                            { value: 'text', label: t('workbench.editors.mqtt.payload.formatText') },
+                            { value: 'json', label: t('workbench.editors.mqtt.payload.formatJson') },
+                            { value: 'base64', label: t('workbench.editors.mqtt.payload.formatBase64') },
+                            { value: 'hex', label: t('workbench.editors.mqtt.payload.formatHex') },
+                          ]}
+                          data-testid="mqtt-payload-format"
+                        />
+                        <span style={{ flex: 1 }} />
+                        <MessagePropertiesPopover
+                          value={draft.publishProperties}
+                          onChange={(publishProperties) => setDraft((d) => ({ ...d, publishProperties }))}
+                          v5={v5}
+                          testId="mqtt-publish-props"
+                        />
+                        <Checkbox
+                          checked={draft.retain}
+                          onChange={(e) => setDraft((d) => ({ ...d, retain: e.target.checked }))}
+                          data-testid="mqtt-retain"
+                        >
+                          {t('workbench.editors.mqtt.retainLabel')}
+                        </Checkbox>
+                        <Text type="secondary" style={{ fontSize: 12, whiteSpace: 'nowrap' }}>
+                          {t('workbench.editors.mqtt.qos.compactLabel')}
+                        </Text>
+                        <Select
+                          size="small"
+                          style={{ width: 46 }}
+                          suffixIcon={null}
+                          popupMatchSelectWidth={false}
+                          value={draft.qos}
+                          onChange={(qos: MqttRequestQos) => setDraft((d) => ({ ...d, qos }))}
+                          options={[
+                            { value: 0, label: '0', meaning: t('workbench.editors.mqtt.qos.meaning0') },
+                            { value: 1, label: '1', meaning: t('workbench.editors.mqtt.qos.meaning1') },
+                            { value: 2, label: '2', meaning: t('workbench.editors.mqtt.qos.meaning2') },
+                          ]}
+                          optionRender={(option) => (
+                            <span style={{ display: 'inline-flex', alignItems: 'baseline', gap: 16 }}>
+                              <span>{option.data.label}</span>
+                              <Text type="secondary" style={{ fontSize: 12 }}>
+                                {option.data.meaning}
+                              </Text>
+                            </span>
+                          )}
+                          data-testid="mqtt-qos-select"
+                        />
+                        <Input
+                          size="small"
+                          style={{ width: 220, fontFamily: "'SF Mono', monospace", fontSize: 12 }}
+                          placeholder={t('workbench.editors.mqtt.topicPlaceholder')}
+                          value={draft.topic}
+                          onChange={(e) => setDraft((d) => ({ ...d, topic: e.target.value }))}
+                          data-testid="mqtt-topic-input"
+                        />
+                        <Tooltip
+                          title={
+                            encodingError !== null
+                              ? t('workbench.editors.mqtt.payload.invalidGate')
+                              : sessionOpen ? (
+                                  <ShortcutHintTitle label={SEND_MESSAGE_SHORTCUT}>
+                                    {t('workbench.editors.mqtt.sendLabel')}
+                                  </ShortcutHintTitle>
+                                ) : (
+                                  t('workbench.editors.mqtt.session.sendIdle')
+                                )
+                          }
+                        >
+                          <span style={{ display: 'inline-flex' }}>
+                            <Button
+                              size="small"
+                              type="primary"
+                              icon={<SendOutlined />}
+                              disabled={!sessionOpen || encodingError !== null}
+                              onClick={() => void handlePublish(composePublishWire())}
+                              data-testid="mqtt-send-message"
+                            >
+                              {t('workbench.editors.mqtt.sendLabel')}
+                            </Button>
+                          </span>
+                        </Tooltip>
+                      </div>
+                      {encodingError !== null && (
+                        <Text type="danger" style={{ fontSize: 11 }} data-testid="mqtt-encoding-error">
+                          {encodingError === 'base64'
+                            ? t('workbench.editors.mqtt.payload.invalidBase64')
+                            : t('workbench.editors.mqtt.payload.invalidHex')}
+                        </Text>
+                      )}
                     </div>
                     {/* Saved-messages rail — synced entity rows, not
                       local state: they travel with the workspace and
