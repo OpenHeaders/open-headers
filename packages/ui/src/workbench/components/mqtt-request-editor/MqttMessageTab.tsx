@@ -58,10 +58,12 @@ const MqttMessageTab: React.FC<MqttMessageTabProps> = ({
   // ON by default (payloads are prose-like; scrolling hides the tail).
   const [wrapPayload, setWrapPayload] = useState(true);
   const payloadActionsRef = useRef<CodeEditorActionsTarget | null>(null);
-  // Saved-messages rail collapse — editor-local display state; the
-  // expanded rail rides its own Allotment pane (resizable, the sash
-  // its only divider), the collapsed strip sits flush by the editor.
-  const [railCollapsed, setRailCollapsed] = useState(false);
+  // Saved-messages rail collapse — editor-local display state,
+  // COLLAPSED by default (the compose editor gets the full width; the
+  // strip is the affordance in). The expanded rail rides its own
+  // Allotment pane (resizable, the sash its only divider), the
+  // collapsed strip sits flush by the editor.
+  const [railCollapsed, setRailCollapsed] = useState(true);
 
   // "Use example message" — the compose aid off the specLink census.
   // A command picker, not a value: picking synthesizes the payload

@@ -288,8 +288,10 @@ test('E2 — url, version knob, payload, a Topics row and a saved message surviv
 
   // The Message tab is the default-active compose surface: payload +
   // publish topic, then the compose freezes into a saved-rail preset.
+  // The rail starts COLLAPSED — the vertical strip expands it.
   await workbench.fillMonaco(0, MQTT_PAYLOAD);
   await page.getByTestId('mqtt-topic-input').filter({ visible: true }).first().fill(MQTT_TOPIC);
+  await page.getByTestId('mqtt-saved-rail-strip').filter({ visible: true }).first().click();
   await page.getByTestId('mqtt-saved-add').filter({ visible: true }).first().click();
   await page
     .getByTestId('mqtt-saved-row')
@@ -332,6 +334,9 @@ test('E2 — url, version knob, payload, a Topics row and a saved message surviv
   // settles to the full text.
   await expect.poll(async () => workbench.monacoText(0), { timeout: 10_000 }).toContain(MQTT_PAYLOAD);
   await expect(page.getByTestId('mqtt-topic-input').filter({ visible: true }).first()).toHaveValue(MQTT_TOPIC);
+  // The reload remounts the editor, so the rail is back to its
+  // collapsed default — expand it to see the persisted row.
+  await page.getByTestId('mqtt-saved-rail-strip').filter({ visible: true }).first().click();
   await page
     .getByTestId('mqtt-saved-row')
     .filter({ visible: true })
