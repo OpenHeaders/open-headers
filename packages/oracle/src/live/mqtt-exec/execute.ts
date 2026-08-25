@@ -297,6 +297,9 @@ export async function executeMqttSession(
     const controller = new AbortController();
     let stopped = false;
     let opened = false;
+    /** The transport reached the broker (socket up, CONNECT sent) —
+     *  even when no CONNACK ever arrived. */
+    let socketConnected = false;
     let connack: ExecutedMqttSnapshot['connack'] = null;
     let refusalMessage: string | null = null;
     let end: ExecutedMqttEnd = null;
@@ -374,6 +377,10 @@ export async function executeMqttSession(
               : (refusalMessage ?? errorMessage ?? 'The session ended before it opened.'),
           ),
           ...(aborted ? { stopped: true } : {}),
+          // An abort that tore down an ESTABLISHED broker socket keeps
+          // its end record — the disconnect is a real event to log; a
+          // cancel before the socket ever came up carries none.
+          ...(aborted && socketConnected && end !== null ? { end } : {}),
           connack,
           clientId,
           durationMs,
@@ -566,6 +573,7 @@ export async function executeMqttSession(
       },
       {
         onConnect: (route) => {
+          socketConnected = true;
           if (route !== undefined) proxyRoute = { plane: 'system', ...route };
           const error = sendPacket({
             type: 'connect',

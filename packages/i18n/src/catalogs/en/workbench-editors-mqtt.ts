@@ -181,6 +181,7 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.session.connectFailedTag': 'Connect failed',
   'workbench.editors.mqtt.session.abortedTag': 'Aborted',
   'workbench.editors.mqtt.timeline.aborted': 'Connection aborted',
+  'workbench.editors.mqtt.timeline.abortedDisconnected': 'Disconnected from broker',
   'workbench.editors.mqtt.session.cleanDisconnect': 'clean disconnect',
   'workbench.editors.mqtt.session.brokerDisconnect': 'broker sent DISCONNECT: {reason}',
   'workbench.editors.mqtt.session.brokerDisconnectBare': 'broker sent DISCONNECT',

@@ -100,7 +100,10 @@ export interface ExecutedMqttSnapshot {
   events: ExecutedMqttEvent[];
   /** Events that rolled off the retention window, 0 when none did. */
   droppedMessages: number;
-  /** How the open session ended (see {@link ExecutedMqttEnd}). */
+  /** How the open session ended (see {@link ExecutedMqttEnd}). On an
+   *  ABORTED pre-open snapshot (`stopped` beside `error`) it is
+   *  present only when a broker socket had actually been established —
+   *  the torn-down connection is a real event the timeline logs. */
   end: ExecutedMqttEnd;
   /** True when the user stopped the session via Stop-abort rather than
    *  a Disconnect — the capture holds what arrived. */

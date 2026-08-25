@@ -174,6 +174,27 @@ describe('executeMqttSession — connect gate', () => {
     expect(snapshot.connected).toBe(false);
     expect(snapshot.stopped).toBe(true);
     expect(snapshot.error).toBe('Session stopped before it connected.');
+    // The socket HAD been established — the torn-down connection keeps
+    // its end record (the timeline's "Disconnected from broker" row).
+    expect(snapshot.end).toEqual({ by: 'client' });
+  });
+
+  it('a close before the socket ever establishes aborts with NO end record — no fabricated disconnect', async () => {
+    const rig = scriptedTransport(MQTT_PROTOCOL_VERSIONS.v5);
+    const settled = executeMqttSession(makeMqttRequest(), {
+      workspaceId: null,
+      environmentId: undefined,
+      transport: rig.transport,
+      sendId: 'send-mqtt-abort-dial',
+      resolution: scopedResolution,
+    });
+    await settleTick();
+    // Cancel mid-dial — the transport never reported onConnect.
+    closeActiveMqttSession('send-mqtt-abort-dial');
+    const snapshot = await settled;
+    expect(snapshot.connected).toBe(false);
+    expect(snapshot.stopped).toBe(true);
+    expect(snapshot.end).toBeNull();
   });
 
   it('carries the resolved Basic pair on CONNECT and keeps it off an auth-less session', async () => {
