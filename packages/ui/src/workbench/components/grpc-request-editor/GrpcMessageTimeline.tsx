@@ -330,6 +330,8 @@ const GrpcMessageTimeline: React.FC<GrpcMessageTimelineProps> = ({
   const [sentExpanded, setSentExpanded] = useState(false);
   /** The "Response received" row's metadata line is open. */
   const [connectedExpanded, setConnectedExpanded] = useState(false);
+  /** The received-metadata link word is hovered — the blue tint. */
+  const [metadataLinkHovered, setMetadataLinkHovered] = useState(false);
   /** The error row's explanation details are open. */
   const [errorExpanded, setErrorExpanded] = useState(false);
   const [wrapLines, setWrapLines] = useState(true);
@@ -1056,27 +1058,42 @@ const GrpcMessageTimeline: React.FC<GrpcMessageTimelineProps> = ({
             }}
           >
             {(responseMetadataCount ?? 0) > 0 ? (
-              <button
-                type="button"
-                data-testid="grpc-timeline-received-metadata-link"
-                onClick={(event) => {
-                  event.stopPropagation();
-                  onShowMetadata?.();
-                }}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  padding: 0,
-                  fontSize: 12,
-                  lineHeight: '20px',
-                  height: 20,
-                  color: token.colorText,
-                  textDecoration: 'underline',
-                  cursor: 'pointer',
-                }}
-              >
-                {t('workbench.editors.grpc.timeline.receivedMetadata')}
-              </button>
+              (() => {
+                // The sentence splits on the {metadata} marker so only
+                // the linked WORD carries the affordance — word order
+                // stays each locale's own.
+                const [before = '', after = ''] = t('workbench.editors.grpc.timeline.receivedMetadata').split(
+                  '{metadata}',
+                );
+                return (
+                  <div style={{ fontSize: 12, lineHeight: '20px', height: 20, color: token.colorTextSecondary }}>
+                    {before}
+                    <button
+                      type="button"
+                      data-testid="grpc-timeline-received-metadata-link"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        onShowMetadata?.();
+                      }}
+                      onMouseEnter={() => setMetadataLinkHovered(true)}
+                      onMouseLeave={() => setMetadataLinkHovered(false)}
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        padding: 0,
+                        fontSize: 12,
+                        lineHeight: '20px',
+                        color: metadataLinkHovered ? token.colorPrimary : token.colorText,
+                        textDecoration: 'underline',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      {t('workbench.editors.grpc.timeline.receivedMetadataLink')}
+                    </button>
+                    {after}
+                  </div>
+                );
+              })()
             ) : (
               <div style={{ fontSize: 12, lineHeight: '20px', height: 20, color: token.colorTextSecondary }}>
                 {t('workbench.editors.grpc.timeline.noMetadataReceived')}

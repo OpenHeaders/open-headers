@@ -253,8 +253,11 @@ describe('GrpcMessageTimeline lifecycle rows', () => {
     const row = screen.getByTestId('grpc-timeline-connected-row');
     expect(row.getAttribute('aria-expanded')).toBe('false');
     fireEvent.click(row);
+    // The full sentence renders with only the WORD carrying the link.
+    const details = screen.getByTestId('grpc-timeline-connected-details');
+    expect(details.textContent).toBe('Received metadata.');
     const link = screen.getByTestId('grpc-timeline-received-metadata-link');
-    expect(link.textContent).toBe('Received metadata.');
+    expect(link.textContent).toBe('metadata');
     fireEvent.click(link);
     expect(onShowMetadata).toHaveBeenCalledTimes(1);
     unmount();

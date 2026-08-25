@@ -147,7 +147,10 @@ export const workbenchEditorsGrpc = {
   'workbench.editors.grpc.stream.sendFailed': 'The message did not send',
   'workbench.editors.grpc.timeline.requestSent': 'Request sent',
   'workbench.editors.grpc.timeline.noMetadataSent': 'No metadata sent.',
-  'workbench.editors.grpc.timeline.receivedMetadata': 'Received metadata.',
+  // {metadata} marks where the linked word (receivedMetadataLink)
+  // renders — the display splits on it, so word order stays free.
+  'workbench.editors.grpc.timeline.receivedMetadata': 'Received {metadata}.',
+  'workbench.editors.grpc.timeline.receivedMetadataLink': 'metadata',
   'workbench.editors.grpc.timeline.noMetadataReceived': 'No metadata received.',
   'workbench.editors.grpc.timeline.responseReceived': 'Response received',
   'workbench.editors.grpc.timeline.completed': 'Call completed',
