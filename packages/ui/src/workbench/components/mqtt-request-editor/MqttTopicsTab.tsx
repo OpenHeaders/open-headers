@@ -22,8 +22,9 @@ import type { LiveSubscriptionMark } from './useMqttSessionPlane';
 
 const { Text } = Typography;
 
-/** Topics-grid row adapter — the topic filter rides the key track; the
- *  QoS / Subscribe / options cluster lives in the value cell. */
+/** Topics-grid row adapter — the topic filter rides the key track
+ *  (with the ⋯ options trigger at its right edge); QoS and Subscribe
+ *  each own a column (value + aux tracks). */
 const TOPIC_ROW_ADAPTER: EditableRowAdapter<MqttTopicRow> = {
   getId: (r) => r.uid,
   getEnabled: () => true,
@@ -62,48 +63,153 @@ const MqttTopicsTab: React.FC<MqttTopicsTabProps> = ({ rows, onChange, v5, sessi
         keyPlaceholder={t('workbench.editors.mqtt.topics.filterPlaceholder')}
         headerLabels={{
           key: t('workbench.editors.mqtt.topics.filterLabel'),
-          value: t('workbench.editors.mqtt.topics.optionsLabel'),
+          value: t('workbench.editors.mqtt.topics.qosColLabel'),
         }}
         hideEnabled
-        columnWidths={{ value: '210px' }}
+        columnWidths={{ value: '64px' }}
         renderKeyCell={(row, update, ctx) => {
           const filterError = !ctx.isPlaceholder && row.topicFilter.trim() ? topicFilterError(row.topicFilter) : null;
+          const grantCode = sessionOpen ? liveSubs.get(row.uid)?.grantCode : undefined;
           return (
-            <Tooltip title={filterError ?? undefined} open={filterError ? undefined : false}>
-              <Input
-                size="small"
-                variant="borderless"
-                style={{ fontFamily: "'SF Mono', monospace", fontSize: 12 }}
-                placeholder={t('workbench.editors.mqtt.topics.filterPlaceholder')}
-                value={row.topicFilter}
-                status={filterError ? 'error' : undefined}
-                onChange={(e) => update({ ...row, topicFilter: e.target.value })}
-                data-testid="mqtt-topic-filter-input"
-              />
-            </Tooltip>
+            <>
+              <Tooltip title={filterError ?? undefined} open={filterError ? undefined : false}>
+                <Input
+                  variant="borderless"
+                  style={{ fontFamily: "'SF Mono', monospace", fontSize: 12, padding: '4px 10px', flex: 1, minWidth: 0 }}
+                  placeholder={t('workbench.editors.mqtt.topics.filterPlaceholder')}
+                  value={row.topicFilter}
+                  status={filterError ? 'error' : undefined}
+                  onChange={(e) => update({ ...row, topicFilter: e.target.value })}
+                  data-testid="mqtt-topic-filter-input"
+                />
+              </Tooltip>
+              {/* The SUBACK grant mark rides the row's filter — the
+                fixed QoS/Subscribe tracks have no room for it. */}
+              {grantCode !== undefined && grantCode !== null && (
+                <Tag
+                  color={grantCode <= 2 ? 'success' : 'error'}
+                  style={{ marginInlineEnd: 0, fontSize: 10, lineHeight: '16px', flexShrink: 0 }}
+                  data-testid="mqtt-topic-grant"
+                >
+                  {grantLabel(grantCode, t)}
+                </Tag>
+              )}
+              {!ctx.isPlaceholder && (
+                <Popover
+                  trigger="click"
+                  placement="left"
+                  content={
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, width: 280 }}>
+                      <Text type="secondary" style={{ fontSize: 11 }}>
+                        {v5 ? t('workbench.editors.mqtt.topics.optionsHint') : t('workbench.editors.mqtt.props.v311')}
+                      </Text>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <Switch
+                          size="small"
+                          disabled={!v5}
+                          checked={row.noLocal === true}
+                          onChange={(noLocal) => update({ ...row, noLocal })}
+                          data-testid="mqtt-topic-nolocal"
+                        />
+                        <Text type="secondary" style={{ fontSize: 11 }}>
+                          {t('workbench.editors.mqtt.topics.noLocal')}
+                        </Text>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <Switch
+                          size="small"
+                          disabled={!v5}
+                          checked={row.retainAsPublished === true}
+                          onChange={(retainAsPublished) => update({ ...row, retainAsPublished })}
+                        />
+                        <Text type="secondary" style={{ fontSize: 11 }}>
+                          {t('workbench.editors.mqtt.topics.retainAsPublished')}
+                        </Text>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <Text type="secondary" style={{ fontSize: 11, whiteSpace: 'nowrap' }}>
+                          {t('workbench.editors.mqtt.topics.retainHandling')}
+                        </Text>
+                        <Select
+                          size="small"
+                          style={{ flex: 1 }}
+                          disabled={!v5}
+                          value={row.retainHandling ?? 0}
+                          options={[
+                            { value: 0, label: t('workbench.editors.mqtt.topics.retainHandling0') },
+                            { value: 1, label: t('workbench.editors.mqtt.topics.retainHandling1') },
+                            { value: 2, label: t('workbench.editors.mqtt.topics.retainHandling2') },
+                          ]}
+                          onChange={(retainHandling: MqttRetainHandling) => update({ ...row, retainHandling })}
+                        />
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <Text type="secondary" style={{ fontSize: 11, whiteSpace: 'nowrap' }}>
+                          {t('workbench.editors.mqtt.topics.subscriptionId')}
+                        </Text>
+                        <InputNumber
+                          size="small"
+                          min={1}
+                          max={268_435_455}
+                          disabled={!v5}
+                          value={row.subscriptionId}
+                          onChange={(next) => update({ ...row, subscriptionId: next ?? undefined })}
+                          style={{ width: 120 }}
+                        />
+                      </div>
+                    </div>
+                  }
+                >
+                  <Button
+                    size="small"
+                    type="text"
+                    icon={<MoreOutlined />}
+                    style={{ flexShrink: 0 }}
+                    data-testid="mqtt-topic-options"
+                  />
+                </Popover>
+              )}
+            </>
           );
         }}
-        renderValueCell={(row, update, ctx) =>
-          ctx.isPlaceholder ? (
-            <span />
-          ) : (
-            <span style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1, paddingLeft: 4 }}>
-              <Select
-                size="small"
-                style={{ width: 74 }}
-                value={row.qos ?? 0}
-                options={[
-                  { value: 0, label: 'QoS 0' },
-                  { value: 1, label: 'QoS 1' },
-                  { value: 2, label: 'QoS 2' },
-                ]}
-                onChange={(qos: MqttRequestQos) => update({ ...row, qos })}
-                data-testid="mqtt-topic-qos"
-              />
-              {/* While the session is open the switch is the LIVE
-                toggle — it rides the rider and marks the row with the
-                SUBACK grant; the stored draft row stays untouched (the
-                publication-gate idiom). */}
+        renderValueCell={(row, update, ctx) => (
+          // The compact QoS knob (the compose bar's idiom): the value
+          // shows the bare integer; the opened menu explains the levels.
+          <Select
+            size="small"
+            style={{ width: 46, marginLeft: 6 }}
+            suffixIcon={null}
+            popupMatchSelectWidth={false}
+            disabled={ctx.isPlaceholder}
+            value={row.qos ?? 0}
+            options={[
+              { value: 0, label: '0', meaning: t('workbench.editors.mqtt.qos.meaning0') },
+              { value: 1, label: '1', meaning: t('workbench.editors.mqtt.qos.meaning1') },
+              { value: 2, label: '2', meaning: t('workbench.editors.mqtt.qos.meaning2') },
+            ]}
+            optionRender={(option) => (
+              <span style={{ display: 'inline-flex', alignItems: 'baseline', gap: 16 }}>
+                <span>{option.data.label}</span>
+                <Text type="secondary" style={{ fontSize: 12 }}>
+                  {option.data.meaning}
+                </Text>
+              </span>
+            )}
+            onChange={(qos: MqttRequestQos) => update({ ...row, qos })}
+            data-testid="mqtt-topic-qos"
+          />
+        )}
+        auxColumn={{
+          label: t('workbench.editors.mqtt.topics.subscribeColLabel'),
+          width: '96px',
+          render: (row, update, ctx) =>
+            ctx.isPlaceholder ? (
+              <Switch size="small" disabled checked={false} style={{ marginLeft: 6 }} />
+            ) : (
+              // While the session is open the switch is the LIVE
+              // toggle — it rides the rider and marks the row with the
+              // SUBACK grant; the stored draft row stays untouched
+              // (the publication-gate idiom).
               <Tooltip
                 title={
                   sessionOpen
@@ -113,6 +219,7 @@ const MqttTopicsTab: React.FC<MqttTopicsTabProps> = ({ rows, onChange, v5, sessi
               >
                 <Switch
                   size="small"
+                  style={{ marginLeft: 6 }}
                   checked={
                     sessionOpen
                       ? (liveSubs.get(row.uid)?.subscribed ?? row.subscribe !== false)
@@ -128,90 +235,8 @@ const MqttTopicsTab: React.FC<MqttTopicsTabProps> = ({ rows, onChange, v5, sessi
                   data-testid="mqtt-topic-subscribe"
                 />
               </Tooltip>
-              {sessionOpen &&
-                (() => {
-                  const grantCode = liveSubs.get(row.uid)?.grantCode;
-                  if (grantCode === undefined || grantCode === null) return null;
-                  return (
-                    <Tag
-                      color={grantCode <= 2 ? 'success' : 'error'}
-                      style={{ marginInlineEnd: 0, fontSize: 10, lineHeight: '16px' }}
-                      data-testid="mqtt-topic-grant"
-                    >
-                      {grantLabel(grantCode, t)}
-                    </Tag>
-                  );
-                })()}
-              <Popover
-                trigger="click"
-                placement="left"
-                content={
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8, width: 280 }}>
-                    <Text type="secondary" style={{ fontSize: 11 }}>
-                      {v5 ? t('workbench.editors.mqtt.topics.optionsHint') : t('workbench.editors.mqtt.props.v311')}
-                    </Text>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <Switch
-                        size="small"
-                        disabled={!v5}
-                        checked={row.noLocal === true}
-                        onChange={(noLocal) => update({ ...row, noLocal })}
-                        data-testid="mqtt-topic-nolocal"
-                      />
-                      <Text type="secondary" style={{ fontSize: 11 }}>
-                        {t('workbench.editors.mqtt.topics.noLocal')}
-                      </Text>
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <Switch
-                        size="small"
-                        disabled={!v5}
-                        checked={row.retainAsPublished === true}
-                        onChange={(retainAsPublished) => update({ ...row, retainAsPublished })}
-                      />
-                      <Text type="secondary" style={{ fontSize: 11 }}>
-                        {t('workbench.editors.mqtt.topics.retainAsPublished')}
-                      </Text>
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <Text type="secondary" style={{ fontSize: 11, whiteSpace: 'nowrap' }}>
-                        {t('workbench.editors.mqtt.topics.retainHandling')}
-                      </Text>
-                      <Select
-                        size="small"
-                        style={{ flex: 1 }}
-                        disabled={!v5}
-                        value={row.retainHandling ?? 0}
-                        options={[
-                          { value: 0, label: t('workbench.editors.mqtt.topics.retainHandling0') },
-                          { value: 1, label: t('workbench.editors.mqtt.topics.retainHandling1') },
-                          { value: 2, label: t('workbench.editors.mqtt.topics.retainHandling2') },
-                        ]}
-                        onChange={(retainHandling: MqttRetainHandling) => update({ ...row, retainHandling })}
-                      />
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <Text type="secondary" style={{ fontSize: 11, whiteSpace: 'nowrap' }}>
-                        {t('workbench.editors.mqtt.topics.subscriptionId')}
-                      </Text>
-                      <InputNumber
-                        size="small"
-                        min={1}
-                        max={268_435_455}
-                        disabled={!v5}
-                        value={row.subscriptionId}
-                        onChange={(next) => update({ ...row, subscriptionId: next ?? undefined })}
-                        style={{ width: 120 }}
-                      />
-                    </div>
-                  </div>
-                }
-              >
-                <Button size="small" type="text" icon={<MoreOutlined />} data-testid="mqtt-topic-options" />
-              </Popover>
-            </span>
-          )
-        }
+            ),
+        }}
       />
     </div>
   );

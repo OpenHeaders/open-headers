@@ -78,7 +78,8 @@ export const workbenchEditorsMqtt = {
     'Subscriptions the session opens with. Wildcards + and # are welcome; toggled-off rows stay saved but do not subscribe.',
   'workbench.editors.mqtt.topics.filterLabel': 'Topic filter',
   'workbench.editors.mqtt.topics.filterPlaceholder': 'Topic filter, e.g. sensors/+/temperature',
-  'workbench.editors.mqtt.topics.optionsLabel': 'QoS / Subscribe',
+  'workbench.editors.mqtt.topics.qosColLabel': 'QoS',
+  'workbench.editors.mqtt.topics.subscribeColLabel': 'Subscribe',
   'workbench.editors.mqtt.topics.subscribeLabel': 'Subscribe when the session opens',
   'workbench.editors.mqtt.topics.subscribeLiveLabel':
     'Subscribe / unsubscribe on the open session — the saved row is not edited',

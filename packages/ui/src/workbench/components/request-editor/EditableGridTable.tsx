@@ -76,6 +76,7 @@ export function EditableGridTable<Row>({
   renderValueCell,
   renderKeyCell,
   renderDescriptionCell,
+  auxColumn,
   keyPlaceholder,
   headerLabels,
   hideEnabled = false,
@@ -152,10 +153,11 @@ export function EditableGridTable<Row>({
     if (!hideEnabled) parts.push('28px');
     parts.push(trackFor('key'));
     if (showValueColumn) parts.push(trackFor('value'));
+    if (showValueColumn && auxColumn) parts.push(auxColumn.width);
     if (showDescriptionColumn) parts.push(trackFor('description'));
     parts.push('32px');
     return parts.join(' ');
-  }, [hideEnabled, showValueColumn, showDescriptionColumn, columnWidths, resize.columnPxWidth]);
+  }, [hideEnabled, showValueColumn, showDescriptionColumn, columnWidths, resize.columnPxWidth, auxColumn]);
 
   // Persistent empty ghost row: materializes as soon as the user types
   // into any cell and a fresh ghost appears below.
@@ -408,6 +410,12 @@ export function EditableGridTable<Row>({
           ))}
         {renderHeaderLabel('key', headerLabels?.key ?? t('workbench.editors.grid.key'), false)}
         {showValueColumn && renderHeaderLabel('value', headerLabels?.value ?? t('workbench.editors.grid.value'), true)}
+        {/* Aux header — fixed track, no resize ref (no divider). */}
+        {showValueColumn && auxColumn && (
+          <span style={{ ...headerLabelStyle, borderLeft: `1px solid ${token.colorBorderSecondary}` }}>
+            {auxColumn.label}
+          </span>
+        )}
         {showDescriptionColumn && renderHeaderLabel('description', t('workbench.editors.grid.description'), true)}
         {trailingActionsCell}
       </div>
@@ -603,6 +611,11 @@ export function EditableGridTable<Row>({
                     {!showDescriptionColumn && actionNode}
                   </span>
                 )}
+                {/* Suggestion rows carry no aux control — an empty cell
+                  keeps the divider continuous. */}
+                {showValueColumn && auxColumn && (
+                  <span style={{ borderLeft: `1px solid ${token.colorBorderSecondary}` }} />
+                )}
                 {showDescriptionColumn && (
                   <span
                     style={{
@@ -645,6 +658,7 @@ export function EditableGridTable<Row>({
                     keyPlaceholder={effectiveKeyPlaceholder}
                     renderValueCell={renderValueCell}
                     renderKeyCell={renderKeyCell}
+                    renderAuxCell={showValueColumn && auxColumn ? auxColumn.render : undefined}
                     renderDescriptionCell={renderDescriptionCell}
                     rowPath={rowPath}
                     conflictBridge={conflictBridge}

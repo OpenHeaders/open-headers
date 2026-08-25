@@ -85,7 +85,8 @@ export const workbenchEditorsMqtt = {
     'Suscripciones con las que abre la sesión. Los comodines + y # son bienvenidos; las filas desactivadas se guardan pero no se suscriben.',
   'workbench.editors.mqtt.topics.filterLabel': 'Filtro de tema',
   'workbench.editors.mqtt.topics.filterPlaceholder': 'Filtro de tema, p. ej. sensors/+/temperature',
-  'workbench.editors.mqtt.topics.optionsLabel': 'QoS / Suscripción',
+  'workbench.editors.mqtt.topics.qosColLabel': 'QoS',
+  'workbench.editors.mqtt.topics.subscribeColLabel': 'Suscripción',
   'workbench.editors.mqtt.topics.subscribeLabel': 'Suscribirse al abrir la sesión',
   'workbench.editors.mqtt.topics.subscribeLiveLabel':
     'Suscribirse / cancelar la suscripción en la sesión abierta — la fila guardada no se modifica',

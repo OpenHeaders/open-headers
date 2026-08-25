@@ -85,7 +85,8 @@ export const workbenchEditorsMqtt = {
     'Abonnements, mit denen die Sitzung öffnet. Wildcards + und # sind willkommen; abgeschaltete Zeilen bleiben gespeichert, abonnieren aber nicht.',
   'workbench.editors.mqtt.topics.filterLabel': 'Themenfilter',
   'workbench.editors.mqtt.topics.filterPlaceholder': 'Themenfilter, z. B. sensors/+/temperature',
-  'workbench.editors.mqtt.topics.optionsLabel': 'QoS / Abonnement',
+  'workbench.editors.mqtt.topics.qosColLabel': 'QoS',
+  'workbench.editors.mqtt.topics.subscribeColLabel': 'Abonnement',
   'workbench.editors.mqtt.topics.subscribeLabel': 'Beim Öffnen der Sitzung abonnieren',
   'workbench.editors.mqtt.topics.subscribeLiveLabel':
     'In der offenen Sitzung abonnieren / abbestellen — die gespeicherte Zeile bleibt unverändert',

@@ -111,6 +111,21 @@ export interface EditableGridTableProps<Row> {
     update: (next: Row) => void,
     context: { isPlaceholder: boolean; dim: boolean; expanded: boolean },
   ) => React.ReactNode;
+  /** Optional narrow auxiliary column between Value and Description —
+   *  its own header label over a FIXED-width track (each row is its own
+   *  grid, so a content-sized track would misalign across rows; no
+   *  resize divider either). Shows/hides together with the Value
+   *  column. Used by the MQTT Topics table's Subscribe column. */
+  auxColumn?: {
+    label: string;
+    /** Fixed CSS track width, e.g. `'92px'`. */
+    width: string;
+    render: (
+      row: Row,
+      update: (next: Row) => void,
+      context: { isPlaceholder: boolean; dim: boolean; expanded: boolean },
+    ) => React.ReactNode;
+  };
   keyPlaceholder?: string;
   /** Override the Key / Value column header labels — for tables whose
    *  columns aren't literally key/value (e.g. the WebSocket Events tab's

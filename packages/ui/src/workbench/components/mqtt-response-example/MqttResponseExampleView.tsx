@@ -320,29 +320,36 @@ const MqttResponseExampleView: React.FC<MqttResponseExampleViewProps> = ({
                         keyPlaceholder={t('workbench.editors.mqtt.topics.filterPlaceholder')}
                         headerLabels={{
                           key: t('workbench.editors.mqtt.topics.filterLabel'),
-                          value: t('workbench.editors.mqtt.topics.optionsLabel'),
+                          value: t('workbench.editors.mqtt.topics.qosColLabel'),
                         }}
                         hideEnabled
-                        columnWidths={{ value: '150px' }}
-                        renderValueCell={(row, update, ctx) =>
-                          ctx.isPlaceholder ? (
-                            <span />
-                          ) : (
-                            <span style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1, paddingLeft: 4 }}>
-                              <Select
-                                size="small"
-                                style={{ width: 74 }}
-                                value={row.qos ?? 0}
-                                options={[
-                                  { value: 0, label: 'QoS 0' },
-                                  { value: 1, label: 'QoS 1' },
-                                  { value: 2, label: 'QoS 2' },
-                                ]}
-                                onChange={(qos: MqttRequestQos) => update({ ...row, qos })}
-                              />
-                            </span>
-                          )
-                        }
+                        columnWidths={{ value: '64px' }}
+                        renderValueCell={(row, update, ctx) => (
+                          // The compact QoS knob (the Topics tab's
+                          // idiom): bare integer, the menu explains.
+                          <Select
+                            size="small"
+                            style={{ width: 46, marginLeft: 6 }}
+                            suffixIcon={null}
+                            popupMatchSelectWidth={false}
+                            disabled={ctx.isPlaceholder}
+                            value={row.qos ?? 0}
+                            options={[
+                              { value: 0, label: '0', meaning: t('workbench.editors.mqtt.qos.meaning0') },
+                              { value: 1, label: '1', meaning: t('workbench.editors.mqtt.qos.meaning1') },
+                              { value: 2, label: '2', meaning: t('workbench.editors.mqtt.qos.meaning2') },
+                            ]}
+                            optionRender={(option) => (
+                              <span style={{ display: 'inline-flex', alignItems: 'baseline', gap: 16 }}>
+                                <span>{option.data.label}</span>
+                                <Text type="secondary" style={{ fontSize: 12 }}>
+                                  {option.data.meaning}
+                                </Text>
+                              </span>
+                            )}
+                            onChange={(qos: MqttRequestQos) => update({ ...row, qos })}
+                          />
+                        )}
                       />
                     )}
                   </div>

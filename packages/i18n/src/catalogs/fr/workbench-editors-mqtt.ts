@@ -87,7 +87,8 @@ export const workbenchEditorsMqtt = {
     'Abonnements ouverts avec la session. Les jokers + et # sont bienvenus ; les lignes désactivées restent enregistrées mais ne s’abonnent pas.',
   'workbench.editors.mqtt.topics.filterLabel': 'Filtre de sujet',
   'workbench.editors.mqtt.topics.filterPlaceholder': 'Filtre de sujet, p. ex. sensors/+/temperature',
-  'workbench.editors.mqtt.topics.optionsLabel': 'QoS / Abonnement',
+  'workbench.editors.mqtt.topics.qosColLabel': 'QoS',
+  'workbench.editors.mqtt.topics.subscribeColLabel': 'Abonnement',
   'workbench.editors.mqtt.topics.subscribeLabel': 'S’abonner à l’ouverture de la session',
   'workbench.editors.mqtt.topics.subscribeLiveLabel':
     'S’abonner / se désabonner sur la session ouverte — la ligne enregistrée n’est pas modifiée',

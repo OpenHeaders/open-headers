@@ -32,6 +32,9 @@ interface SortableEditableRowProps<Row> {
   keyPlaceholder: string;
   renderValueCell: EditableGridTableProps<Row>['renderValueCell'];
   renderKeyCell?: EditableGridTableProps<Row>['renderKeyCell'];
+  /** Auxiliary-column cell — present only when the shell shows the
+   *  aux track (its `auxColumn` prop, gated on the Value column). */
+  renderAuxCell?: NonNullable<EditableGridTableProps<Row>['auxColumn']>['render'];
   renderDescriptionCell?: EditableGridTableProps<Row>['renderDescriptionCell'];
   rowPath?: EditableGridTableProps<Row>['rowPath'];
   conflictBridge?: KeyValueRowConflictBridge;
@@ -57,6 +60,7 @@ export function SortableEditableRow<Row>({
   keyPlaceholder,
   renderValueCell,
   renderKeyCell,
+  renderAuxCell,
   renderDescriptionCell,
   rowPath,
   conflictBridge,
@@ -257,6 +261,21 @@ export function SortableEditableRow<Row>({
               onKeepMine={() => conflictBridge.onDismiss(valuePath)}
             />
           )}
+        </div>
+      )}
+      {showValueColumn && renderAuxCell && (
+        <div
+          style={{
+            borderLeft: `1px solid ${token.colorBorderSecondary}`,
+            padding: '0 4px',
+            display: 'flex',
+            alignItems: 'center',
+            alignSelf: 'stretch',
+            minWidth: 0,
+            minHeight: ROW_CONTROL_HEIGHT,
+          }}
+        >
+          {renderAuxCell(row, onUpdate, { isPlaceholder, dim, expanded: rowFocused })}
         </div>
       )}
       {showDescriptionColumn && (
