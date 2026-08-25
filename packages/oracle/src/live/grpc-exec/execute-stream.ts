@@ -141,6 +141,7 @@ export function executeGrpcStream(params: GrpcStreamExecuteParams): Promise<Exec
           bodyTruncated: false,
           bodyBytes: 0,
           durationMs,
+          requestMetadata: params.metadata.map((m) => ({ key: m.key, value: m.value })),
           error: message,
           ...(localStatus !== undefined ? { localStatus } : {}),
         });
@@ -163,6 +164,7 @@ export function executeGrpcStream(params: GrpcStreamExecuteParams): Promise<Exec
         durationMs,
         ...(stopped ? { stopped: true } : {}),
         ...(proxyRoute !== undefined ? { proxyRoute } : {}),
+        requestMetadata: params.metadata.map((m) => ({ key: m.key, value: m.value })),
         error: null,
       });
     };

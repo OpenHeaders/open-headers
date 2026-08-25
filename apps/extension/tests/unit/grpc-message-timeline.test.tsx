@@ -215,6 +215,32 @@ describe('GrpcMessageTimeline lifecycle rows', () => {
     expect(screen.getByTestId('grpc-timeline-ended-row').textContent).toContain('Call stopped');
   });
 
+  it('expands the sent row to the recorded request metadata and reads plain without any', () => {
+    const { unmount } = renderTimeline({
+      lifecycle: {
+        ...LIVE_LIFECYCLE,
+        requestMetadata: [
+          { key: 'wat', value: 'wat' },
+          { key: 'wat1', value: 'wat2' },
+        ],
+      },
+    });
+    const sent = screen.getByTestId('grpc-timeline-sent-row');
+    expect(sent.getAttribute('aria-expanded')).toBe('false');
+    expect(screen.queryByTestId('grpc-timeline-metadata-details')).toBeNull();
+    fireEvent.click(sent);
+    const details = screen.getByTestId('grpc-timeline-metadata-details');
+    expect(details.textContent).toContain('wat: wat');
+    expect(details.textContent).toContain('wat1: wat2');
+    fireEvent.click(sent);
+    expect(screen.queryByTestId('grpc-timeline-metadata-details')).toBeNull();
+    unmount();
+    // No recorded metadata — the row is not expandable (no empty
+    // detail shells, no dead chevron).
+    renderTimeline();
+    expect(screen.getByTestId('grpc-timeline-sent-row').getAttribute('aria-expanded')).toBeNull();
+  });
+
   it('renders a pre-head failure as the error-flavored ended row with the classified message and its instant', () => {
     renderTimeline({
       items: [],

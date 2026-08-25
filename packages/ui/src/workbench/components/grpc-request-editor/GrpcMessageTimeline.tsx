@@ -68,9 +68,11 @@ import {
   ClearOutlined,
   CloseCircleOutlined,
   DisconnectOutlined,
+  DownOutlined,
   InfoCircleOutlined,
   SearchOutlined,
   SortAscendingOutlined,
+  UpOutlined,
 } from '@ant-design/icons';
 import type { ProtoRegistry } from '@openheaders/core/proto';
 import { Button, ConfigProvider, Dropdown, Input, Segmented, Tag, Tooltip, Typography, theme } from 'antd';
@@ -96,6 +98,11 @@ const SINGLE_ROW_PX = 28;
 /** Pinned height of an expanded row's mini viewer (180px editor +
  *  1px divider). */
 const VIEWER_PX = 181;
+/** Pinned height of the sent row's expanded metadata block — heading
+ *  (18px) + one 20px line per pair + 6px paddings + 1px divider (the
+ *  MQTT CONNACK details' metrics); a closed function of the pair
+ *  count, so the virtual window's arithmetic stays exact. */
+const sentDetailPx = (pairs: number): number => 18 + pairs * 20 + 13;
 
 const cellFont: React.CSSProperties = {
   fontFamily: "'SF Mono', 'Fira Code', monospace",
@@ -117,6 +124,10 @@ export type GrpcTimelineEndedBy = 'complete' | 'stop' | 'error';
 export interface GrpcTimelineLifecycle {
   /** Session-only invoke-departure time. */
   startedAt?: number;
+  /** The metadata pairs the call actually carried (the snapshot's
+   *  `requestMetadata`) — the "Request sent" row expands to them.
+   *  Absent (or empty) = the row reads plain, no chevron. */
+  requestMetadata?: ReadonlyArray<{ key: string; value: string }>;
   /** True once the response head arrived. */
   headArrived: boolean;
   /** Session-only head-arrival time. */
@@ -163,7 +174,7 @@ interface GrpcGroupIdentity {
 }
 
 type ListEntry =
-  | { key: string; kind: 'sent' | 'connected' | 'ended' | 'waiting' | 'noMatches' }
+  | { key: string; kind: 'sent' | 'sentDetail' | 'connected' | 'ended' | 'waiting' | 'noMatches' }
   | { key: string; kind: 'header'; group: GrpcGroupIdentity; count: number; collapsed: boolean }
   /** "Show N older" at a windowed group's older edge; the un-windowed
    *  state's re-window action lives on the group header. */
@@ -292,6 +303,8 @@ const GrpcMessageTimeline: React.FC<GrpcMessageTimelineProps> = ({
   // the lifecycle rows) stay untouched.
   const [clearedCount, setClearedCount] = useState(0);
   const [expanded, setExpanded] = useState<ReadonlySet<number>>(new Set<number>());
+  /** The "Request sent" row's metadata details are open. */
+  const [sentExpanded, setSentExpanded] = useState(false);
   const [wrapLines, setWrapLines] = useState(true);
   // Sort direction and grouping are SETTINGS — global, user-owned,
   // written by this toolbar and the Settings page alike; an Invoke/
@@ -460,6 +473,8 @@ const GrpcMessageTimeline: React.FC<GrpcMessageTimelineProps> = ({
 
   const filtering = search.trim() !== '' || directionFilter !== 'all';
   const live = lifecycle.endedBy === undefined;
+  const sentMetadata = lifecycle.requestMetadata ?? [];
+  const sentDetailOpen = sentExpanded && sentMetadata.length > 0;
 
   // The flat display list the virtual window runs over. The timeline
   // is ONE event log: ungrouped, "Response received" interleaves at
@@ -489,6 +504,7 @@ const GrpcMessageTimeline: React.FC<GrpcMessageTimelineProps> = ({
       if (notice) out.push(notice);
     } else {
       out.push({ key: 'sent', kind: 'sent' });
+      if (sentDetailOpen) out.push({ key: 'sentDetail', kind: 'sentDetail' });
       if (groups !== null && headAt !== null) out.push({ key: 'connected', kind: 'connected' });
     }
 
@@ -546,6 +562,7 @@ const GrpcMessageTimeline: React.FC<GrpcMessageTimelineProps> = ({
     if (newestFirst) {
       if (groups !== null && headAt !== null) out.push({ key: 'connected', kind: 'connected' });
       out.push({ key: 'sent', kind: 'sent' });
+      if (sentDetailOpen) out.push({ key: 'sentDetail', kind: 'sentDetail' });
     } else {
       if (notice) out.push(notice);
       if (lifecycle.endedBy !== undefined) out.push({ key: 'ended', kind: 'ended' });
@@ -564,12 +581,19 @@ const GrpcMessageTimeline: React.FC<GrpcMessageTimelineProps> = ({
     displayRows,
     groups,
     expanded,
+    sentDetailOpen,
     collapsedGroups,
     groupRowLimit,
     unwindowedGroups,
   ]);
 
-  const heights = useMemo(() => entries.map((e) => (e.kind === 'viewer' ? VIEWER_PX : SINGLE_ROW_PX)), [entries]);
+  const heights = useMemo(
+    () =>
+      entries.map((e) =>
+        e.kind === 'viewer' ? VIEWER_PX : e.kind === 'sentDetail' ? sentDetailPx(sentMetadata.length) : SINGLE_ROW_PX,
+      ),
+    [entries, sentMetadata.length],
+  );
 
   const { onScroll: onWindowScroll, start, end, topPadPx, bottomPadPx, prefix } = useVirtualRowWindow(
     scrollerRef,
@@ -676,6 +700,24 @@ const GrpcMessageTimeline: React.FC<GrpcMessageTimelineProps> = ({
         {formatMessageTime(ts)}
       </span>
     ) : null;
+
+  // Trailing expand slot — fixed width on the timestamped rows so the
+  // right-aligned times line up in one column; expandable rows render
+  // their chevron in it, the rest leave it empty (the WS/MQTT
+  // timelines' anatomy).
+  const expandSlot = (isExpanded: boolean | null): React.ReactNode => (
+    <span
+      aria-hidden
+      style={{ width: 12, flexShrink: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
+    >
+      {isExpanded !== null &&
+        (isExpanded ? (
+          <UpOutlined style={{ fontSize: 9, color: token.colorTextTertiary }} />
+        ) : (
+          <DownOutlined style={{ fontSize: 9, color: token.colorTextTertiary }} />
+        ))}
+    </span>
+  );
 
   const chipTag = (chip: DirectionChip, testid: string): React.ReactNode => (
     <Tag
@@ -797,14 +839,72 @@ const GrpcMessageTimeline: React.FC<GrpcMessageTimelineProps> = ({
 
   const renderEntry = (entry: ListEntry): React.ReactNode => {
     switch (entry.kind) {
-      case 'sent':
+      case 'sent': {
+        // With recorded request metadata the row expands to the pairs
+        // the call actually carried (the MQTT Connected row's anatomy).
+        const expandable = sentMetadata.length > 0;
         return (
-          <div key={entry.key} data-testid="grpc-timeline-sent-row" style={lifecycleRowStyle}>
+          <div
+            key={entry.key}
+            data-testid="grpc-timeline-sent-row"
+            {...(expandable
+              ? {
+                  role: 'button',
+                  tabIndex: 0,
+                  'aria-expanded': sentExpanded,
+                  className: 'oh-stream-row',
+                  onClick: () => setSentExpanded((open) => !open),
+                  onKeyDown: (event: React.KeyboardEvent) => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault();
+                      setSentExpanded((open) => !open);
+                    }
+                  },
+                }
+              : {})}
+            style={{ ...lifecycleRowStyle, ...(expandable ? { cursor: 'pointer' } : {}) }}
+          >
             <InfoCircleOutlined aria-hidden style={{ fontSize: 11, color: token.colorTextTertiary }} />
             <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {t('workbench.editors.grpc.timeline.requestSent')}
             </span>
             {lifecycleTime(lifecycle.startedAt)}
+            {expandSlot(expandable ? sentExpanded : null)}
+          </div>
+        );
+      }
+      case 'sentDetail':
+        return (
+          <div
+            key={entry.key}
+            data-testid="grpc-timeline-metadata-details"
+            style={{
+              height: sentDetailPx(sentMetadata.length),
+              boxSizing: 'border-box',
+              padding: '6px 10px 6px 37px',
+              borderBottom: `1px solid ${token.colorBorderSecondary}`,
+              overflow: 'hidden',
+            }}
+          >
+            <div style={{ ...cellFont, fontSize: 11, lineHeight: '18px', height: 18, color: token.colorTextTertiary }}>
+              {t('workbench.editors.grpc.response.tab.metadata')}
+            </div>
+            {sentMetadata.map((pair, index) => (
+              <div
+                key={`${String(index)}:${pair.key}`}
+                style={{
+                  ...cellFont,
+                  lineHeight: '20px',
+                  height: 20,
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                }}
+              >
+                <span style={{ color: token.colorTextSecondary }}>{pair.key}: </span>
+                <span style={{ color: token.colorText }}>{pair.value}</span>
+              </div>
+            ))}
           </div>
         );
       case 'connected':
@@ -815,6 +915,7 @@ const GrpcMessageTimeline: React.FC<GrpcMessageTimelineProps> = ({
               {t('workbench.editors.grpc.timeline.responseReceived')}
             </span>
             {lifecycleTime(lifecycle.connectedAt)}
+            {expandSlot(null)}
           </div>
         );
       case 'ended': {
@@ -841,6 +942,7 @@ const GrpcMessageTimeline: React.FC<GrpcMessageTimelineProps> = ({
                 {lifecycle.endedMessage ? ` — ${lifecycle.endedMessage}` : ''}
               </span>
               {lifecycleTime(lifecycle.endedAt)}
+              {expandSlot(null)}
             </div>
           );
         }
@@ -856,6 +958,7 @@ const GrpcMessageTimeline: React.FC<GrpcMessageTimelineProps> = ({
               {lifecycle.endedMessage ? ` — ${lifecycle.endedMessage}` : ''}
             </span>
             {lifecycleTime(lifecycle.endedAt)}
+            {expandSlot(null)}
           </div>
         );
       }
@@ -941,6 +1044,7 @@ const GrpcMessageTimeline: React.FC<GrpcMessageTimelineProps> = ({
                 {formatMessageTime(ts)}
               </span>
             )}
+            {expandSlot(isExpanded)}
           </div>
         );
       }

@@ -84,9 +84,17 @@ const GrpcStreamPane: React.FC<GrpcStreamPaneProps> = ({
     // settles as the timeline's error-flavored ended row — the
     // classified message verbatim at the new edge; never a bare error
     // wall (the WS/MQTT session panes' law).
+    // The sent row expands to the metadata the call actually carried —
+    // recorded by the executor at dispatch, so it exists on failures
+    // too (empty stays absent: no empty detail shells).
+    const requestMetadata =
+      snapshot.requestMetadata !== undefined && snapshot.requestMetadata.length > 0
+        ? snapshot.requestMetadata
+        : undefined;
     if (snapshot.error !== null) {
       return {
         ...(session?.startedAt !== undefined ? { startedAt: session.startedAt } : {}),
+        ...(requestMetadata !== undefined ? { requestMetadata } : {}),
         headArrived: false,
         endedBy: 'error',
         ...(settledAt !== undefined ? { endedAt: settledAt } : {}),
@@ -95,6 +103,7 @@ const GrpcStreamPane: React.FC<GrpcStreamPaneProps> = ({
     }
     return {
       ...(session?.startedAt !== undefined ? { startedAt: session.startedAt } : {}),
+      ...(requestMetadata !== undefined ? { requestMetadata } : {}),
       headArrived: true,
       ...(session?.connectedAt !== undefined ? { connectedAt: session.connectedAt } : {}),
       ...(snapshot.headAtMessage !== undefined ? { headAtMessage: snapshot.headAtMessage } : {}),

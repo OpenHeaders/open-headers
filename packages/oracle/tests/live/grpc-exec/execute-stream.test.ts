@@ -220,7 +220,7 @@ describe('executeGrpcStream — settle paths', () => {
 
   it('maps a pre-head failure onto an error snapshot with its client-runtime canonical status', async () => {
     const fake = streamTransport();
-    const pending = executeGrpcStream(params(fake.transport));
+    const pending = executeGrpcStream(params(fake.transport, { metadata: [{ key: 'wat', value: 'wat' }] }));
     fake.cb().onEnd(new GrpcTransportError('Connection refused by grpc.openheaders.io:443.', 14));
     const snapshot = await pending;
     expect(snapshot.error).toBe('Connection refused by grpc.openheaders.io:443.');
@@ -230,6 +230,9 @@ describe('executeGrpcStream — settle paths', () => {
     // its honest null.
     expect(snapshot.localStatus).toBe(14);
     expect(snapshot.grpcStatus).toBeNull();
+    // The dispatched metadata is recorded even on a failed dial — the
+    // sent row's expandable truth.
+    expect(snapshot.requestMetadata).toEqual([{ key: 'wat', value: 'wat' }]);
   });
 
   it('a failure without a canonical mapping carries no localStatus', async () => {

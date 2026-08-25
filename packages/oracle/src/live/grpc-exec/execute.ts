@@ -264,6 +264,7 @@ export async function executeGrpcInvoke(
       // system plane decided — H5 leaves gRPC no request plane,
       // so the plane is always the executing device's.
       ...(response.proxyRoute !== undefined ? { proxyRoute: { plane: 'system', ...response.proxyRoute } } : {}),
+      requestMetadata: metadata.map((m) => ({ key: m.key, value: m.value })),
       error: null,
     };
   } catch (err) {
@@ -282,7 +283,12 @@ export async function executeGrpcInvoke(
       : err instanceof GrpcTransportError
         ? err.canonicalStatus
         : undefined;
-    return { ...errorGrpcSnapshot(message), ...(localStatus !== undefined ? { localStatus } : {}), durationMs };
+    return {
+      ...errorGrpcSnapshot(message),
+      requestMetadata: metadata.map((m) => ({ key: m.key, value: m.value })),
+      ...(localStatus !== undefined ? { localStatus } : {}),
+      durationMs,
+    };
   } finally {
     unregister?.();
   }

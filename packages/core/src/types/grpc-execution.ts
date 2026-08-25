@@ -89,6 +89,14 @@ export interface ExecutedGrpcSnapshot {
     /** The executing machine's hostname label. */
     name: string;
   };
+  /** The metadata pairs the call actually carried, in send order —
+   *  user rows template-resolved plus the auth-composed
+   *  `authorization` pair, recorded by the executor at dispatch (the
+   *  ↑ twin of `headers`). Present iff the wire exchange was
+   *  attempted: a compose/resolve failure that never dispatched
+   *  carries none. Session display truth — examples never persist it
+   *  (resolved values are volatile). */
+  requestMetadata?: Array<{ key: string; value: string }>;
   /** Non-null when the call failed before producing a response. */
   error: string | null;
   /** The canonical gRPC status the CLIENT runtime assigned a LOCAL
