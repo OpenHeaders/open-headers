@@ -117,4 +117,4 @@ export const de: Catalog = {
   ...workbenchSettingsDefsKeyboard,
   ...workbenchSettingsPanes,
   ...workbenchVariables,
-} as const satisfies Catalog;
+};

@@ -60,7 +60,7 @@ import { workbenchSettingsDefsKeyboard } from './workbench-settings-defs-keyboar
 import { workbenchSettingsPanes } from './workbench-settings-panes';
 import { workbenchVariables } from './workbench-variables';
 
-export const zhCN = {
+export const zhCN: Catalog = {
   ...desktop,
   ...extension,
   ...panel,
@@ -115,4 +115,4 @@ export const zhCN = {
   ...workbenchSettingsDefsKeyboard,
   ...workbenchSettingsPanes,
   ...workbenchVariables,
-} as const satisfies Catalog;
+};
