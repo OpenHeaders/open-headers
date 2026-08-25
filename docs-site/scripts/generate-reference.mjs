@@ -341,6 +341,7 @@ const FIELD_ROWS = {
   allowedHosts: ['string[]', '`[]`', '`OH_DAEMON_ALLOWED_HOSTS` (comma-separated)', '`--allowed-host` (repeatable)', 'Hostnames the daemon answers as, beyond the always-allowed IP literals, `localhost`, and `*.local` — e.g. the reverse proxy\'s domain. Bare hostnames only. Anything else on browser-facing routes is refused (DNS-rebinding guard).'],
   allowInsecureLan: ['boolean', '`false`', '`OH_DAEMON_ALLOW_INSECURE_LAN`', '`--allow-insecure-lan`', 'Explicit acknowledgment that a `0.0.0.0` bind without a TLS proxy serves tokens and pairing secrets as cleartext. Without it (and without `trustedProxy`) a LAN bind refuses to boot.'],
   webRoot: ['string', 'the `web/` dir beside the daemon', '`OH_DAEMON_WEB_ROOT`', '`--web-root`', 'Directory holding the built web app the daemon serves at `/`. Headless-only when neither is present.'],
+  serverName: ['string', 'the OS hostname', '—', '—', 'Human-readable name for this deployment — what the served tab\'s Org chip and the awaiting-access screen show. Set it in containers, where the hostname is just the container id.'],
   oidc: ['object', 'not set (SSO off)', '`OH_DAEMON_OIDC_CLIENT_SECRET` (secret only)', '—', 'OpenID Connect login provider — see the fields below and [Users, seats & SSO](/server/users-sso). The client secret can ride the environment variable so it stays out of the file.'],
   auditRetentionDays: ['number', `\`${AUDIT_RETENTION_DEFAULT_DAYS}\``, '`OH_DAEMON_AUDIT_RETENTION_DAYS`', '—', 'Audit-log retention window in days. One number for every entry; uncapped upward for compliance deployments.'],
   auditForwarding: ['object', 'not set (no outbound)', '—', '—', 'Audit→SIEM streaming destination — audit rows POST to this collector as JSON batches behind a durable cursor. See the fields below and [Observability](/server/observability).'],
@@ -371,6 +372,8 @@ const OIDC_ROWS = {
   redirectOrigin: ['string', 'Origin the provider redirects back to, when it differs from the request origin (e.g. behind a proxy).'],
   providerLabel: ['string', 'Label shown on the login button.'],
   claimMappings: ['object', 'Map an ID-token claim to workspace grants: `claimPath` plus `rules` of `{ value, workspaceId, role }` (role: `owner`, `editor`, or `viewer`).'],
+  defaultGrant: ['object', 'The grant floor every SSO login lands on: `{ workspace, role }` — `workspace` is the literal `default` or a workspace id, `role` defaults to `viewer`. Absent, the floor still applies as the default workspace at `viewer`.'],
+  adminEmails: ['string[]', 'Emails (matched case-insensitively) promoted to server admin on login. Confer-only: removing an email never demotes — revoking the role stays a manual act in the admin console.'],
 };
 const AUDIT_FWD_ROWS = {
   url: ['string (required)', 'The collector endpoint audit batches POST to.'],

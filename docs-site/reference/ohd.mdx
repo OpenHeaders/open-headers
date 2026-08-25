@@ -27,7 +27,7 @@ The client command line is [`oh`](/reference/oh).
 | `ohd config set <key> <true\|false>` | Set a daemon setting offline (requires the daemon to be stopped) — settings only; bind and network options persist through the install flags instead |
 | `ohd config get <key>` | — |
 | `ohd config list` | Read daemon settings |
-| `ohd user add <name> [--email <address>] [--individual-license <key>]` | Admit a user to the daemon's directory (requires the daemon to be stopped; the daemon must have booted once); at the seat limit an individual-seat key matching `--email` admits past it |
+| `ohd user add <name> [--email <address>] [--individual-license <key>]` | Admit a user to the daemon's directory (requires the daemon to be stopped; the daemon must have booted once); at the seat limit an individual-seat key matching `--email` admits past it. Offline recovery hatch: admits WITHOUT workspace access — workspace ids are not verifiable against a stopped daemon, so follow up with user grant (the admin console's invite requires a grant instead) |
 | `ohd user list` | Read the user directory (grants included) |
 | `ohd user deactivate <id-or-email>` | Deactivate a user + revoke their tokens (daemon stopped) |
 | `ohd user grant <id-or-email> <workspaceId> <owner\|editor\|viewer>` | Grant a workspace role (daemon stopped; editors write, viewers read, no grant = no access) |
