@@ -13,7 +13,12 @@ import {
 } from '@openheaders/ui/context';
 import ServerAdminPanel from '@openheaders/ui/workbench/components/server-admin/ServerAdminPanel';
 import { SERVER_ADMIN_SECTIONS } from '@openheaders/ui/workbench/components/server-admin/sections';
-import { __resetServerAdminStatusForTests } from '@openheaders/ui/workbench/components/server-admin/use-server-admin-status';
+import {
+  __resetServerAdminStatusForTests,
+  getServerAdminStatus,
+  getServerAdminStatusSettled,
+  reprobeServerAdminStatus,
+} from '@openheaders/ui/workbench/components/server-admin/use-server-admin-status';
 import { availableToolWindows } from '@openheaders/ui/workbench/tool-windows';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -94,6 +99,32 @@ describe('availableToolWindows server-admin gating', () => {
     availableToolWindows();
     await flushProbe();
     expect(availableToolWindows().some((def) => def.id === 'server-admin')).toBe(false);
+  });
+});
+
+describe('reprobeServerAdminStatus', () => {
+  it('queues behind a stuck in-flight probe and re-asks the moment it settles', async () => {
+    // A probe that raced the wire handshake hangs until its response
+    // timeout; the handshake-completed reprobe must not be swallowed
+    // by that stuck attempt.
+    let rejectFirst: (err: Error) => void = () => {};
+    let calls = 0;
+    mockCall.mockImplementation(() => {
+      calls += 1;
+      if (calls === 1) {
+        return new Promise((_resolve, reject) => {
+          rejectFirst = reject;
+        });
+      }
+      return Promise.resolve({ admin: true });
+    });
+    expect(getServerAdminStatus()).toBe('unknown'); // fires the stuck probe
+    reprobeServerAdminStatus(); // the handshake completed while stuck — queued
+    rejectFirst(new Error('daemon did not answer'));
+    await flushProbe();
+    await flushProbe();
+    expect(getServerAdminStatusSettled()).toBe(true);
+    expect(getServerAdminStatus()).toBe('admin');
   });
 });
 

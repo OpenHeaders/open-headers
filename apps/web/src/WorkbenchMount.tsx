@@ -63,12 +63,17 @@ export function WorkbenchMount({ wire }: WorkbenchMountProps): React.JSX.Element
   // The store's own probe may fire before the wire joins and read a
   // transient denied — a completed handshake is the signal that a real
   // answer is now reachable, so re-ask immediately (the store's
-  // cooldown would otherwise sit on the stale rejection).
+  // cooldown would otherwise sit on the stale rejection). Subscribe
+  // does NOT replay the current state, so a handshake that completed
+  // before this effect ran gets the same immediate re-ask by hand.
   useEffect(() => {
     if (adminSettled) return;
-    return wire.subscribeHandshake((state) => {
+    const reprobeIfReady = (state: ReturnType<DaemonWire['handshakeState']>): void => {
       if (state === 'welcomed' || state === 'catching-up' || state === 'synced') reprobeServerAdminStatus();
-    });
+    };
+    const unsubscribe = wire.subscribeHandshake(reprobeIfReady);
+    reprobeIfReady(wire.handshakeState());
+    return unsubscribe;
   }, [wire, adminSettled]);
 
   const [graceElapsed, setGraceElapsed] = useState(false);

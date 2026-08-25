@@ -270,7 +270,17 @@ export function installDaemonWire(): DaemonWire {
   });
 
   setWireSender((frame) => transport.send(frame));
-  setWireRpcSender((frame) => transport.send(frame));
+  // A wire RPC must never ride a pre-welcome socket: the daemon closes
+  // any non-HELLO frame that beats the handshake (1002), taking the
+  // whole wire down with the errant probe — which then also holds its
+  // caller hostage until the response timeout. Refusing here turns the
+  // race into the fast 'daemon wire is not connected' rejection, and
+  // callers re-ask off the handshake signal.
+  setWireRpcSender((frame) => {
+    const state = initiator.state();
+    if (state !== 'welcomed' && state !== 'catching-up' && state !== 'synced') return false;
+    return transport.send(frame);
+  });
 
   initiator.subscribe((state) => {
     reportWireStatus(state, initiator.rejectReason());

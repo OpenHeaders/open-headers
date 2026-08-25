@@ -26,6 +26,9 @@ let status: ServerAdminStatus = 'unknown';
 /** A real server answer landed — the fact is settled for this session. */
 let definitive = false;
 let inFlight = false;
+/** A reprobe asked while a (likely stale) probe was still in flight —
+ *  honored the moment that attempt settles without an answer. */
+let reprobeQueued = false;
 let lastAttemptAt = 0;
 const listeners = new Set<() => void>();
 
@@ -71,6 +74,15 @@ function ensureProbe(): void {
     .catch(() => setStatus('denied'))
     .finally(() => {
       inFlight = false;
+      // A queued reprobe means a readiness signal arrived while this
+      // attempt was stuck (a probe that raced the wire handshake waits
+      // out its full response timeout) — re-ask immediately instead of
+      // leaving the transient denied to stand with nothing to retry it.
+      if (!definitive && reprobeQueued) {
+        reprobeQueued = false;
+        lastAttemptAt = 0;
+        ensureProbe();
+      }
     });
 }
 
@@ -93,7 +105,11 @@ export function getServerAdminStatusSettled(): boolean {
  * A settled answer stays settled; this never re-opens it.
  */
 export function reprobeServerAdminStatus(): void {
-  if (definitive || inFlight) return;
+  if (definitive) return;
+  if (inFlight) {
+    reprobeQueued = true;
+    return;
+  }
   lastAttemptAt = 0;
   ensureProbe();
 }
@@ -111,6 +127,7 @@ export function __resetServerAdminStatusForTests(): void {
   status = 'unknown';
   definitive = false;
   inFlight = false;
+  reprobeQueued = false;
   lastAttemptAt = 0;
   listeners.clear();
 }
