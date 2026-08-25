@@ -98,6 +98,8 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.topics.retainAsPublishedDesc':
     'Los mensajes conservan el indicador RETAIN tal como se publicaron.',
   'workbench.editors.mqtt.topics.retainHandling': 'Retain Handling',
+  'workbench.editors.mqtt.topics.retainHandlingDesc':
+    'Si el broker envía los mensajes retenidos existentes al realizar esta suscripción.',
   'workbench.editors.mqtt.topics.retainHandling0': '0 · Recibir al suscribirse',
   'workbench.editors.mqtt.topics.retainHandling0Desc':
     'El broker envía los mensajes retenidos cada vez que se realiza esta suscripción.',

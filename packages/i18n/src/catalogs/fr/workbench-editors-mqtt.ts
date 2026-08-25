@@ -100,6 +100,8 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.topics.retainAsPublishedDesc':
     'Les messages conservent le drapeau RETAIN tel qu’il a été publié.',
   'workbench.editors.mqtt.topics.retainHandling': 'Retain Handling',
+  'workbench.editors.mqtt.topics.retainHandlingDesc':
+    'Indique si le broker envoie les messages retenus existants lors de la souscription de cet abonnement.',
   'workbench.editors.mqtt.topics.retainHandling0': '0 · Recevoir à l’abonnement',
   'workbench.editors.mqtt.topics.retainHandling0Desc':
     'Le broker envoie les messages retenus à chaque souscription de cet abonnement.',

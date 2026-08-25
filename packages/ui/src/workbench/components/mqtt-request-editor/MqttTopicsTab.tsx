@@ -302,7 +302,10 @@ const MqttTopicsTab: React.FC<MqttTopicsTabProps> = ({ rows, onChange, v5, sessi
                           checked={row.retainAsPublished === true}
                           onChange={(retainAsPublished) => update({ ...row, retainAsPublished })}
                         />
-                        <OptionLabel text={t('workbench.editors.mqtt.topics.retainHandling')} />
+                        <OptionLabel
+                          text={t('workbench.editors.mqtt.topics.retainHandling')}
+                          info={t('workbench.editors.mqtt.topics.retainHandlingDesc')}
+                        />
                         <Select
                           size="small"
                           disabled={!v5}

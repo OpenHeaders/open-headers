@@ -99,6 +99,8 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.topics.retainAsPublishedDesc':
     'Nachrichten behalten das RETAIN-Flag genau wie veröffentlicht.',
   'workbench.editors.mqtt.topics.retainHandling': 'Retain Handling',
+  'workbench.editors.mqtt.topics.retainHandlingDesc':
+    'Ob der Broker beim Einrichten dieses Abonnements vorhandene zurückgehaltene Nachrichten sendet.',
   'workbench.editors.mqtt.topics.retainHandling0': '0 · Beim Abonnieren empfangen',
   'workbench.editors.mqtt.topics.retainHandling0Desc':
     'Der Broker sendet die zurückgehaltenen Nachrichten bei jedem Abonnieren.',

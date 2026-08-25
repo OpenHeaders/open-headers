@@ -91,6 +91,8 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.topics.retainAsPublishedDesc':
     'Messages keep the RETAIN flag exactly as they were published.',
   'workbench.editors.mqtt.topics.retainHandling': 'Retain Handling',
+  'workbench.editors.mqtt.topics.retainHandlingDesc':
+    'Whether the broker sends existing retained messages when this subscription is made.',
   'workbench.editors.mqtt.topics.retainHandling0': '0 · Receive on subscribe',
   'workbench.editors.mqtt.topics.retainHandling0Desc':
     'The broker sends the retained messages every time this subscription is made.',
