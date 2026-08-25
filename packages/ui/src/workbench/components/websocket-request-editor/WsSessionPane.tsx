@@ -26,6 +26,7 @@ import { Button, Dropdown, Tabs, Tag, Typography, theme } from 'antd';
 import type React from 'react';
 import { useMemo, useState } from 'react';
 import ProxyRouteTag, { proxyRouteHasBadge } from '../request-editor/response/ProxyRouteTag';
+import ConnectionDetailsTooltip, { type ConnectionDetailsRow } from '../shared/ConnectionDetailsTooltip';
 import { ExampleChip } from '../shared/ExampleChip';
 import WsMessageTimeline, { type WsTimelineLifecycle } from './WsMessageTimeline';
 import type { LiveWsSession, WsSessionTiming } from './useLiveWsSession';
@@ -99,15 +100,22 @@ const WsSessionPane: React.FC<WsSessionPaneProps> = ({
     // A pre-open failure settles as the timeline's error row — the
     // classified message verbatim at the new edge; never an
     // opened-session end row. A USER abort (the Cancel click / Stop)
-    // renders as the neutral aborted row instead.
+    // renders as the neutral aborted row instead. Terminal instants
+    // prefer the observed truth: the end frame's host stamp for the
+    // teardown, the Cancel click for the abort; the editor's settle
+    // stamp stays the fallback toward hosts that predate the
+    // lifecycle stamps.
+    const teardownAt = timing?.disconnectedAt ?? timing?.endedAt;
     if (snapshot.outcome.kind !== 'connected') {
+      const terminalAt =
+        snapshot.outcome.kind === 'aborted' ? (timing?.closeRequestedAt ?? timing?.endedAt) : teardownAt;
       return {
         ...(timing?.startedAt !== undefined ? { startedAt: timing.startedAt } : {}),
         connected: false,
         ...(snapshot.outcome.kind === 'failed'
           ? { errorMessage: snapshot.outcome.error }
           : { aborted: true as const }),
-        ...(timing?.endedAt !== undefined ? { endedAt: timing.endedAt } : {}),
+        ...(terminalAt !== undefined ? { endedAt: terminalAt } : {}),
       };
     }
     const endedMessage =
@@ -122,7 +130,7 @@ const WsSessionPane: React.FC<WsSessionPaneProps> = ({
       ...(timing?.connectedAt !== undefined ? { connectedAt: timing.connectedAt } : {}),
       handshake: { protocol: snapshot.protocol, extensions: snapshot.extensions },
       endedBy: snapshot.stopped === true ? 'stop' : 'close',
-      ...(timing?.endedAt !== undefined ? { endedAt: timing.endedAt } : {}),
+      ...(teardownAt !== undefined ? { endedAt: teardownAt } : {}),
       ...(endedMessage !== undefined ? { endedMessage } : {}),
     };
   }, [snapshot, live, timing, t]);
@@ -173,24 +181,69 @@ const WsSessionPane: React.FC<WsSessionPaneProps> = ({
     );
   })();
 
+  // The state pill's hover details — the session's lifecycle
+  // transitions with their observed instants, newest first (the
+  // timeline's order, the pill vocabulary); rows without an observed
+  // instant stay absent, never fabricated.
+  const detailRows = useMemo((): ConnectionDetailsRow[] => {
+    const rows: ConnectionDetailsRow[] = [];
+    if (snapshot === null) {
+      if (live === null) return rows;
+      if (live.open !== null && live.connectedAt !== undefined) {
+        rows.push({ label: t('workbench.editors.websocket.timeline.connected'), atMs: live.connectedAt });
+      }
+      rows.push({ label: t('workbench.editors.websocket.timeline.connecting'), atMs: live.startedAt });
+      return rows;
+    }
+    if (timing === null) return rows;
+    const teardownAt = timing.disconnectedAt ?? timing.endedAt;
+    if (snapshot.outcome.kind === 'aborted') {
+      const abortAt = timing.closeRequestedAt ?? timing.endedAt;
+      if (abortAt !== undefined) {
+        rows.push({ label: t('workbench.editors.websocket.session.abortedTag'), atMs: abortAt });
+      }
+    } else if (snapshot.outcome.kind === 'failed') {
+      if (teardownAt !== undefined) {
+        rows.push({ label: t('workbench.editors.websocket.session.connectFailedTag'), atMs: teardownAt });
+      }
+    } else {
+      if (teardownAt !== undefined) {
+        const label =
+          snapshot.stopped === true
+            ? t('workbench.editors.websocket.session.stoppedTag')
+            : snapshot.close === null
+              ? t('workbench.editors.websocket.session.noCloseFrame')
+              : t('workbench.editors.websocket.session.closedTag', { code: snapshot.close.code });
+        rows.push({ label, atMs: teardownAt });
+      }
+      if (timing.connectedAt !== undefined) {
+        rows.push({ label: t('workbench.editors.websocket.timeline.connected'), atMs: timing.connectedAt });
+      }
+    }
+    rows.push({ label: t('workbench.editors.websocket.timeline.connecting'), atMs: timing.startedAt });
+    return rows;
+  }, [snapshot, live, timing, t]);
+
   const metaStrip = (
     <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, paddingLeft: 12 }}>
       {snapshot === null ? (
         <>
-          <Tag
-            color={live?.open !== null ? 'processing' : 'default'}
-            style={{ marginInlineEnd: 0 }}
-            data-testid="ws-session-live-badge"
-          >
-            {live?.open !== null
-              ? t('workbench.editors.websocket.session.connectedBadge')
-              : t('workbench.editors.websocket.session.connectingBadge')}
-          </Tag>
+          <ConnectionDetailsTooltip rows={detailRows}>
+            <Tag
+              color={live?.open !== null ? 'processing' : 'default'}
+              style={{ marginInlineEnd: 0 }}
+              data-testid="ws-session-live-badge"
+            >
+              {live?.open !== null
+                ? t('workbench.editors.websocket.session.connectedBadge')
+                : t('workbench.editors.websocket.session.connectingBadge')}
+            </Tag>
+          </ConnectionDetailsTooltip>
           {proxyRouteHasBadge(live?.open?.proxyRoute) && <ProxyRouteTag route={live?.open?.proxyRoute} />}
         </>
       ) : (
         <>
-          {closeTag}
+          {closeTag !== null && <ConnectionDetailsTooltip rows={detailRows}>{closeTag}</ConnectionDetailsTooltip>}
           {proxyRouteHasBadge(snapshot.proxyRoute) && <ProxyRouteTag route={snapshot.proxyRoute} />}
           <Text type="secondary" style={{ fontSize: 11 }} data-testid="ws-session-duration">
             {t('workbench.editors.websocket.session.duration', { ms: snapshot.durationMs })}

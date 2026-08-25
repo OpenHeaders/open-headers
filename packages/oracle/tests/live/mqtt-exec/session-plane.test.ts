@@ -78,6 +78,19 @@ describe('createMqttStreamEmitter', () => {
     emitter.end();
     expect(events).toHaveLength(2);
   });
+
+  it('stamps the lifecycle frames with the host wall-clock — the item frames atMs law', () => {
+    vi.setSystemTime(1_700_000_111_222);
+    const events: MqttStreamEventWire[] = [];
+    const emitter = createMqttStreamEmitter('send-1', (e) => events.push(e));
+    emitter.open({ sessionPresent: true, reasonCode: 0, remainingLength: 3, clientId: 'oh-abc12345' });
+    vi.setSystemTime(1_700_000_333_444);
+    emitter.end();
+    expect(events.map((e) => e.kind)).toEqual(['open', 'end']);
+    if (events[0].kind !== 'open' || events[1].kind !== 'end') throw new Error('expected open then end');
+    expect(events[0].atMs).toBe(1_700_000_111_222);
+    expect(events[1].atMs).toBe(1_700_000_333_444);
+  });
 });
 
 describe('active MQTT session registry', () => {

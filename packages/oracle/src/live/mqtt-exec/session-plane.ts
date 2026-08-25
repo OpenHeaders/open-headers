@@ -77,6 +77,8 @@ export function createMqttStreamEmitter(sendId: string, emit: (event: MqttStream
   return {
     open(facts) {
       if (settled) return;
+      // Open emits immediately, so the emit instant IS the observed
+      // CONNACK-accepted instant — the item frames' atMs law.
       emit({
         sendId,
         seq: seq++,
@@ -86,6 +88,7 @@ export function createMqttStreamEmitter(sendId: string, emit: (event: MqttStream
         remainingLength: facts.remainingLength,
         clientId: facts.clientId,
         ...(facts.proxyRoute !== undefined ? { proxyRoute: facts.proxyRoute } : {}),
+        atMs: Date.now(),
       });
     },
     item(item) {
@@ -101,7 +104,9 @@ export function createMqttStreamEmitter(sendId: string, emit: (event: MqttStream
       if (settled) return;
       flush();
       settled = true;
-      emit({ sendId, seq: seq++, kind: 'end' });
+      // End emits immediately on every settle path — its instant is
+      // the observed teardown of the broker socket.
+      emit({ sendId, seq: seq++, kind: 'end', atMs: Date.now() });
     },
   };
 }

@@ -61,6 +61,8 @@ export function createWsStreamEmitter(sendId: string, emit: (event: WsStreamEven
   return {
     open(protocol, extensions, proxyRoute) {
       if (settled) return;
+      // Open emits immediately, so the emit instant IS the observed
+      // handshake-settled instant — the message frames' atMs law.
       emit({
         sendId,
         seq: seq++,
@@ -68,6 +70,7 @@ export function createWsStreamEmitter(sendId: string, emit: (event: WsStreamEven
         protocol,
         extensions,
         ...(proxyRoute !== undefined ? { proxyRoute } : {}),
+        atMs: Date.now(),
       });
     },
     message(message) {
@@ -83,7 +86,9 @@ export function createWsStreamEmitter(sendId: string, emit: (event: WsStreamEven
       if (settled) return;
       flush();
       settled = true;
-      emit({ sendId, seq: seq++, kind: 'end' });
+      // End emits immediately on every settle path — its instant is
+      // the observed teardown of the socket.
+      emit({ sendId, seq: seq++, kind: 'end', atMs: Date.now() });
     },
   };
 }

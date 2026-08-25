@@ -30,10 +30,19 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 export interface WsSessionTiming {
   /** When Connect left — the "Connecting" lifecycle row. */
   startedAt: number;
-  /** When the handshake settled; absent = it never did. */
+  /** When the handshake settled; absent = it never did. Host-stamped
+   *  from the open frame's `atMs`; observation-stamped toward hosts
+   *  that predate the lifecycle stamps. */
   connectedAt?: number;
   /** Per-message host stamps in capture order. */
   messageTimestamps: number[];
+  /** When the socket's teardown was observed — the end frame's host
+   *  stamp, on every settle path. Absent = no end frame arrived (a
+   *  session that never dialed). */
+  disconnectedAt?: number;
+  /** Stamped by the editor at the user's Disconnect/Cancel click;
+   *  absent = the session ended without one. */
+  closeRequestedAt?: number;
   /** Stamped by the editor when the session settles. */
   endedAt?: number;
 }
@@ -60,6 +69,7 @@ interface WsSessionAccumulator {
   startedAt: number;
   open: LiveWsSession['open'];
   connectedAt?: number;
+  disconnectedAt?: number;
   items: WsStreamMessageWire[];
   timestamps: number[];
   lastSeq: number;
@@ -116,6 +126,7 @@ export function useLiveWsSession(): {
       startedAt: acc.startedAt,
       ...(acc.connectedAt !== undefined ? { connectedAt: acc.connectedAt } : {}),
       messageTimestamps: [...acc.timestamps],
+      ...(acc.disconnectedAt !== undefined ? { disconnectedAt: acc.disconnectedAt } : {}),
     };
   }, []);
 
@@ -139,14 +150,17 @@ export function useLiveWsSession(): {
             extensions: event.extensions,
             ...(event.proxyRoute !== undefined ? { proxyRoute: event.proxyRoute } : {}),
           };
-          acc.connectedAt = Date.now();
+          acc.connectedAt = event.atMs ?? Date.now();
         } else if (event.kind === 'messages') {
           for (const item of event.items) {
             acc.items.push(item);
             acc.timestamps.push(item.atMs);
           }
+        } else {
+          // The end frame carries the host's teardown instant; the
+          // resolving RPC still ends the session.
+          acc.disconnectedAt = event.atMs ?? Date.now();
         }
-        // `end` needs no handling — the resolving RPC ends the session.
         scheduleCommit();
       });
     },

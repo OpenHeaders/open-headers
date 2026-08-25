@@ -30,10 +30,19 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 export interface MqttSessionTiming {
   /** When Connect left — the "Connecting" lifecycle row. */
   startedAt: number;
-  /** When the CONNACK accepted; absent = it never did. */
+  /** When the CONNACK accepted; absent = it never did. Host-stamped
+   *  from the open frame's `atMs`; observation-stamped toward hosts
+   *  that predate the lifecycle stamps. */
   connectedAt?: number;
   /** Per-item host stamps in capture order. */
   itemTimestamps: number[];
+  /** When the broker socket's teardown was observed — the end frame's
+   *  host stamp, on every settle path. Absent = no end frame arrived
+   *  (a session that never dialed). */
+  disconnectedAt?: number;
+  /** Stamped by the editor at the user's Disconnect/Cancel click;
+   *  absent = the session ended without one. */
+  closeRequestedAt?: number;
   /** Stamped by the editor when the session settles. */
   endedAt?: number;
 }
@@ -69,6 +78,7 @@ interface MqttSessionAccumulator {
   startedAt: number;
   open: LiveMqttSession['open'];
   connectedAt?: number;
+  disconnectedAt?: number;
   items: MqttStreamItemWire[];
   timestamps: number[];
   lastSeq: number;
@@ -125,6 +135,7 @@ export function useLiveMqttSession(): {
       startedAt: acc.startedAt,
       ...(acc.connectedAt !== undefined ? { connectedAt: acc.connectedAt } : {}),
       itemTimestamps: [...acc.timestamps],
+      ...(acc.disconnectedAt !== undefined ? { disconnectedAt: acc.disconnectedAt } : {}),
     };
   }, []);
 
@@ -150,14 +161,17 @@ export function useLiveMqttSession(): {
             clientId: event.clientId,
             ...(event.proxyRoute !== undefined ? { proxyRoute: event.proxyRoute } : {}),
           };
-          acc.connectedAt = Date.now();
+          acc.connectedAt = event.atMs ?? Date.now();
         } else if (event.kind === 'items') {
           for (const item of event.items) {
             acc.items.push(item);
             acc.timestamps.push(item.atMs);
           }
+        } else {
+          // The end frame carries the host's teardown instant; the
+          // resolving RPC still ends the session.
+          acc.disconnectedAt = event.atMs ?? Date.now();
         }
-        // `end` needs no handling — the resolving RPC ends the session.
         scheduleCommit();
       });
     },

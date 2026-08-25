@@ -175,9 +175,22 @@ export type WsStreamEventWire =
        *  it — attribution from the record's live twin, so the session
        *  strip is honest WHILE the session is open. Absent = direct. */
       proxyRoute?: ExecutedProxyRoute;
+      /** The executing host's handshake-settled wall-clock — the item
+       *  frames' `atMs` law extended to the lifecycle frames (SESSION-
+       *  ONLY display data, never persisted). Optional for wire
+       *  tolerance toward hosts that predate the stamp. */
+      atMs?: number;
     }
   | { sendId: string; seq: number; kind: 'messages'; items: WsStreamMessageWire[] }
-  | { sendId: string; seq: number; kind: 'end' };
+  | {
+      sendId: string;
+      seq: number;
+      kind: 'end';
+      /** The executing host's session-end wall-clock — when the socket
+       *  teardown was observed, on EVERY settle path (close, failure,
+       *  abort). Same session-only law as the item stamps. */
+      atMs?: number;
+    };
 
 /**
  * One live item of an open MQTT session — the timeline's row unit, a
@@ -230,9 +243,23 @@ export type MqttStreamEventWire =
       /** The session's effective proxy route as the transport decided
        *  it (ws-scheme dials only — tcp dials are direct in v1). */
       proxyRoute?: ExecutedProxyRoute;
+      /** The executing host's CONNACK-accepted wall-clock — the item
+       *  frames' `atMs` law extended to the lifecycle frames (SESSION-
+       *  ONLY display data, never persisted). Optional for wire
+       *  tolerance toward hosts that predate the stamp. */
+      atMs?: number;
     }
   | { sendId: string; seq: number; kind: 'items'; items: MqttStreamItemWire[] }
-  | { sendId: string; seq: number; kind: 'end' };
+  | {
+      sendId: string;
+      seq: number;
+      kind: 'end';
+      /** The executing host's session-end wall-clock — when the broker
+       *  socket's teardown was observed, on EVERY settle path (clean
+       *  close, broker DISCONNECT, failure, abort). Same session-only
+       *  law as the item stamps. */
+      atMs?: number;
+    };
 
 /**
  * One publish compose crossing the `publishMqttMessage` rider — the

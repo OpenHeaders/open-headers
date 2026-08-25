@@ -79,6 +79,11 @@ export interface MqttTimelineLifecycle {
    *  "Disconnected from broker" info row follows the aborted row.
    *  Never set without `aborted` (no fabricated disconnects). */
   abortedDisconnected?: true;
+  /** The torn-down socket's observed close instant — the end frame's
+   *  host stamp. Rides only beside `abortedDisconnected`; absent
+   *  toward hosts that predate the lifecycle stamps (the row renders
+   *  timeless, never a fabricated instant). */
+  abortedDisconnectedAt?: number;
   /** Absent while the session is open — the live phase. */
   endedBy?: MqttTimelineEndedBy;
   endedAt?: number;

@@ -1,0 +1,78 @@
+// @vitest-environment jsdom
+/**
+ * MqttMessageTimeline — the MQTT session's lifecycle-row times. Pins
+ * the lifecycle-instants law: the aborted row carries the abort
+ * instant, the "Disconnected from broker" row carries its OWN observed
+ * teardown instant (the end frame's host stamp) and renders timeless —
+ * never a fabricated time — when a host predates the stamp. The shared
+ * Monaco CodeEditor is mocked to a <textarea> — the contract under
+ * test is the row list, not Monaco.
+ */
+
+import MqttMessageTimeline from '@openheaders/ui/workbench/components/mqtt-request-editor/MqttMessageTimeline';
+import {
+  formatMessageTime,
+  type MqttTimelineLifecycle,
+} from '@openheaders/ui/workbench/components/mqtt-request-editor/mqtt-timeline-model';
+// Registers the requests.* settings the timeline's toolbar reads/writes.
+import '@openheaders/ui/workbench/settings/schema/requests';
+import { reset as resetSetting } from '@openheaders/ui/workbench/settings/store';
+import { cleanup, render, screen } from '@testing-library/react';
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+
+vi.mock('@openheaders/ui/workbench/components/shared/CodeEditor', () => ({
+  default: ({ value, readOnly }: { value?: string; readOnly?: boolean }) => (
+    <textarea data-testid="code-editor" value={value} readOnly={readOnly} onChange={() => {}} />
+  ),
+}));
+
+// antd's Segmented measures via rc-resize-observer — jsdom has none.
+beforeAll(() => {
+  class ResizeObserverStub implements ResizeObserver {
+    observe(): void {}
+    unobserve(): void {}
+    disconnect(): void {}
+  }
+  const scope = globalThis as unknown as { ResizeObserver?: typeof ResizeObserver };
+  if (typeof scope.ResizeObserver === 'undefined') {
+    scope.ResizeObserver = ResizeObserverStub as unknown as typeof ResizeObserver;
+  }
+});
+
+afterEach(() => {
+  cleanup();
+  // The sort choice is a GLOBAL setting — reset between tests.
+  resetSetting('requests.mqttMessagesNewestFirst');
+});
+
+const STARTED_AT = 1_700_000_000_000;
+const ABORT_AT = 1_700_000_000_700;
+const TEARDOWN_AT = 1_700_000_000_745;
+
+const ABORTED_LIFECYCLE: MqttTimelineLifecycle = {
+  startedAt: STARTED_AT,
+  connected: false,
+  aborted: true,
+  abortedDisconnected: true,
+  endedAt: ABORT_AT,
+};
+
+function renderAborted(lifecycle: MqttTimelineLifecycle) {
+  return render(<MqttMessageTimeline items={[]} count={0} lifecycle={lifecycle} />);
+}
+
+describe('MqttMessageTimeline — aborted lifecycle instants', () => {
+  it('times the aborted row and gives the teardown row its own observed instant', () => {
+    renderAborted({ ...ABORTED_LIFECYCLE, abortedDisconnectedAt: TEARDOWN_AT });
+    expect(screen.getByTestId('mqtt-timeline-aborted-row').textContent).toContain(formatMessageTime(ABORT_AT));
+    const teardownRow = screen.getByTestId('mqtt-timeline-aborted-end-row');
+    expect(teardownRow.textContent).toContain('Disconnected from broker');
+    expect(teardownRow.textContent).toContain(formatMessageTime(TEARDOWN_AT));
+  });
+
+  it('renders the teardown row timeless when the host predates the lifecycle stamps', () => {
+    renderAborted(ABORTED_LIFECYCLE);
+    const teardownRow = screen.getByTestId('mqtt-timeline-aborted-end-row');
+    expect(teardownRow.textContent).toBe('Disconnected from broker');
+  });
+});

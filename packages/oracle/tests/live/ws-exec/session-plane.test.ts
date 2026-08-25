@@ -81,6 +81,19 @@ describe('createWsStreamEmitter', () => {
     emitter.end();
     expect(events).toHaveLength(2);
   });
+
+  it('stamps the lifecycle frames with the host wall-clock — the message frames atMs law', () => {
+    vi.setSystemTime(1_700_000_111_222);
+    const events: WsStreamEventWire[] = [];
+    const emitter = createWsStreamEmitter('send-1', (e) => events.push(e));
+    emitter.open('chat.v2', '');
+    vi.setSystemTime(1_700_000_333_444);
+    emitter.end();
+    expect(events.map((e) => e.kind)).toEqual(['open', 'end']);
+    if (events[0].kind !== 'open' || events[1].kind !== 'end') throw new Error('expected open then end');
+    expect(events[0].atMs).toBe(1_700_000_111_222);
+    expect(events[1].atMs).toBe(1_700_000_333_444);
+  });
 });
 
 describe('active WS session registry', () => {

@@ -27,6 +27,7 @@ import { Button, Dropdown, Tabs, Tag, Typography, theme } from 'antd';
 import type React from 'react';
 import { useMemo, useState } from 'react';
 import ProxyRouteTag, { proxyRouteHasBadge } from '../request-editor/response/ProxyRouteTag';
+import ConnectionDetailsTooltip, { type ConnectionDetailsRow } from '../shared/ConnectionDetailsTooltip';
 import { ExampleChip } from '../shared/ExampleChip';
 import MqttMessageTimeline from './MqttMessageTimeline';
 import type { MqttTimelineLifecycle } from './mqtt-timeline-model';
@@ -145,7 +146,14 @@ const MqttSessionPane: React.FC<MqttSessionPaneProps> = ({
     // timeline's error row — the classified message verbatim at the
     // new edge; never an opened-session end row. A USER abort (the
     // Cancel click / Stop) renders as the neutral aborted row instead.
+    // Terminal instants prefer the observed truth: the end frame's
+    // host stamp for the teardown, the Cancel click for the abort;
+    // the editor's settle stamp stays the fallback toward hosts that
+    // predate the lifecycle stamps.
+    const teardownAt = timing?.disconnectedAt ?? timing?.endedAt;
     if (snapshot.outcome.kind !== 'connected') {
+      const aborted = snapshot.outcome.kind === 'aborted';
+      const terminalAt = aborted ? (timing?.closeRequestedAt ?? timing?.endedAt) : teardownAt;
       return {
         ...(timing?.startedAt !== undefined ? { startedAt: timing.startedAt } : {}),
         connected: false,
@@ -154,9 +162,14 @@ const MqttSessionPane: React.FC<MqttSessionPaneProps> = ({
           ? { errorMessage: snapshot.outcome.error }
           : { aborted: true as const }),
         // The abort tore down an established broker socket — the
-        // disconnect logs as its own row.
-        ...(snapshot.outcome.kind === 'aborted' && snapshot.end !== null ? { abortedDisconnected: true as const } : {}),
-        ...(timing?.endedAt !== undefined ? { endedAt: timing.endedAt } : {}),
+        // disconnect logs as its own row with its observed instant.
+        ...(aborted && snapshot.end !== null
+          ? {
+              abortedDisconnected: true as const,
+              ...(timing?.disconnectedAt !== undefined ? { abortedDisconnectedAt: timing.disconnectedAt } : {}),
+            }
+          : {}),
+        ...(terminalAt !== undefined ? { endedAt: terminalAt } : {}),
       };
     }
     return {
@@ -165,7 +178,7 @@ const MqttSessionPane: React.FC<MqttSessionPaneProps> = ({
       ...(timing?.connectedAt !== undefined ? { connectedAt: timing.connectedAt } : {}),
       ...(connackFacts !== undefined ? { connack: connackFacts } : {}),
       endedBy: snapshot.stopped === true ? 'stop' : 'close',
-      ...(timing?.endedAt !== undefined ? { endedAt: timing.endedAt } : {}),
+      ...(teardownAt !== undefined ? { endedAt: teardownAt } : {}),
       ...(endedMessage !== undefined ? { endedMessage } : {}),
     };
   }, [snapshot, live, timing, connackFacts, endedMessage]);
@@ -219,6 +232,52 @@ const MqttSessionPane: React.FC<MqttSessionPaneProps> = ({
     );
   })();
 
+  // The state pill's hover details — the session's lifecycle
+  // transitions with their observed instants, newest first (the
+  // timeline's order, the pill vocabulary); rows without an observed
+  // instant stay absent, never fabricated.
+  const detailRows = useMemo((): ConnectionDetailsRow[] => {
+    const rows: ConnectionDetailsRow[] = [];
+    if (snapshot === null) {
+      if (live === null) return rows;
+      if (live.open !== null && live.connectedAt !== undefined) {
+        rows.push({ label: t('workbench.editors.mqtt.timeline.connected'), atMs: live.connectedAt });
+      }
+      rows.push({ label: t('workbench.editors.mqtt.timeline.connecting'), atMs: live.startedAt });
+      return rows;
+    }
+    if (timing === null) return rows;
+    const teardownAt = timing.disconnectedAt ?? timing.endedAt;
+    if (snapshot.outcome.kind === 'aborted') {
+      if (snapshot.end !== null && timing.disconnectedAt !== undefined) {
+        rows.push({ label: t('workbench.editors.mqtt.timeline.abortedDisconnected'), atMs: timing.disconnectedAt });
+      }
+      const abortAt = timing.closeRequestedAt ?? timing.endedAt;
+      if (abortAt !== undefined) rows.push({ label: t('workbench.editors.mqtt.session.abortedTag'), atMs: abortAt });
+    } else if (snapshot.outcome.kind === 'failed') {
+      if (teardownAt !== undefined) {
+        rows.push({ label: t('workbench.editors.mqtt.session.connectFailedTag'), atMs: teardownAt });
+      }
+    } else {
+      if (teardownAt !== undefined) {
+        const label =
+          snapshot.stopped === true
+            ? t('workbench.editors.mqtt.session.stoppedTag')
+            : snapshot.end === null
+              ? t('workbench.editors.mqtt.session.severedTag')
+              : snapshot.end.by === 'client'
+                ? t('workbench.editors.mqtt.session.disconnectedTag')
+                : t('workbench.editors.mqtt.session.brokerDisconnectedTag');
+        rows.push({ label, atMs: teardownAt });
+      }
+      if (timing.connectedAt !== undefined) {
+        rows.push({ label: t('workbench.editors.mqtt.timeline.connected'), atMs: timing.connectedAt });
+      }
+    }
+    rows.push({ label: t('workbench.editors.mqtt.timeline.connecting'), atMs: timing.startedAt });
+    return rows;
+  }, [snapshot, live, timing, t]);
+
   // The subscribed-topics summary — the affordance left of the
   // Connected badge: hover-tinted, clicking jumps to the compose
   // Topics tab. Live sessions only (a settled snapshot's subscription
@@ -260,20 +319,22 @@ const MqttSessionPane: React.FC<MqttSessionPaneProps> = ({
       {snapshot === null ? (
         <>
           {subsSummary}
-          <Tag
-            color={live?.open !== null ? 'processing' : 'default'}
-            style={{ marginInlineEnd: 0 }}
-            data-testid="mqtt-session-live-badge"
-          >
-            {live?.open !== null
-              ? t('workbench.editors.mqtt.session.connectedBadge')
-              : t('workbench.editors.mqtt.session.connectingBadge')}
-          </Tag>
+          <ConnectionDetailsTooltip rows={detailRows}>
+            <Tag
+              color={live?.open !== null ? 'processing' : 'default'}
+              style={{ marginInlineEnd: 0 }}
+              data-testid="mqtt-session-live-badge"
+            >
+              {live?.open !== null
+                ? t('workbench.editors.mqtt.session.connectedBadge')
+                : t('workbench.editors.mqtt.session.connectingBadge')}
+            </Tag>
+          </ConnectionDetailsTooltip>
           {proxyRouteHasBadge(live?.open?.proxyRoute) && <ProxyRouteTag route={live?.open?.proxyRoute} />}
         </>
       ) : (
         <>
-          {endTag}
+          {endTag !== null && <ConnectionDetailsTooltip rows={detailRows}>{endTag}</ConnectionDetailsTooltip>}
           {proxyRouteHasBadge(snapshot.proxyRoute) && <ProxyRouteTag route={snapshot.proxyRoute} />}
           <Text type="secondary" style={{ fontSize: 11 }} data-testid="mqtt-session-duration">
             {t('workbench.editors.mqtt.session.duration', { ms: snapshot.durationMs })}

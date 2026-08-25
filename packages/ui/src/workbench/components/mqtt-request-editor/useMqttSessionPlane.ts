@@ -100,6 +100,9 @@ export function useMqttSessionPlane({
   const [timing, setTiming] = useState<MqttSessionTiming | null>(null);
   const [hostNotice, setHostNotice] = useState<string | null>(null);
   const activeSendIdRef = useRef<string | null>(null);
+  /** The user's Disconnect/Cancel click instant — the aborted row's
+   *  honest time (the teardown itself rides the end frame's stamp). */
+  const closeRequestedAtRef = useRef<number | null>(null);
   const liveSession = useLiveMqttSession();
 
   // Page-session resolution publisher — the host executing in this
@@ -192,13 +195,23 @@ export function useMqttSessionPlane({
     );
     const sendId = crypto.randomUUID();
     activeSendIdRef.current = sendId;
+    closeRequestedAtRef.current = null;
     setInFlight(true);
     setSnapshot(null);
     setTiming(null);
     liveSession.beginSession(sendId);
     const settled = await executeMqtt({ draft: draftEntity, sendId });
     const session = liveSession.takeSession();
-    setTiming(session === null ? null : { ...session, endedAt: Date.now() });
+    const closeRequestedAt = closeRequestedAtRef.current;
+    setTiming(
+      session === null
+        ? null
+        : {
+            ...session,
+            ...(closeRequestedAt !== null ? { closeRequestedAt } : {}),
+            endedAt: Date.now(),
+          },
+    );
     liveSession.endSession();
     activeSendIdRef.current = null;
     setInFlight(false);
@@ -216,6 +229,7 @@ export function useMqttSessionPlane({
   const handleDisconnect = useCallback(() => {
     const sendId = activeSendIdRef.current;
     if (!sendId) return;
+    if (closeRequestedAtRef.current === null) closeRequestedAtRef.current = Date.now();
     hostBridge.call('closeMqttSession', { sendId }).catch(() => {});
   }, []);
 

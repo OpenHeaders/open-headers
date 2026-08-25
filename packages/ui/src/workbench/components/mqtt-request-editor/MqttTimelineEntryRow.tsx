@@ -257,15 +257,15 @@ const MqttTimelineEntryRow: React.FC<MqttTimelineEntryRowProps> = ({
     }
     case 'abortedEnd':
       // The socket the abort tore down was really up — its close is
-      // an event of its own (no captured time of its own: the settle
-      // instant rides the aborted row).
+      // an event of its own, timed by the end frame's host stamp
+      // (absent toward hosts that predate the lifecycle stamps).
       return (
         <div data-testid="mqtt-timeline-aborted-end-row" style={lifecycleRowStyle}>
           <InfoCircleOutlined aria-hidden style={{ fontSize: 11, color: token.colorTextTertiary }} />
           <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {t('workbench.editors.mqtt.timeline.abortedDisconnected')}
           </span>
-          {lifecycleTime(undefined)}
+          {lifecycleTime(lifecycle.abortedDisconnectedAt)}
           {expandSlot(null)}
         </div>
       );

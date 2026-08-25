@@ -15,6 +15,9 @@ import type { Catalog } from '../../types';
 export const workbenchEditors = {
   'workbench.editors.sectionInfo.moreInformation': "Plus d'informations",
 
+  // ── Session chrome (shared: WS/MQTT session panes) ─────────────────
+  'workbench.editors.session.connectionDetails': 'Détails de la connexion',
+
   // ── Editable-grid chrome (shared: request editor + response-example) ─
   'workbench.editors.grid.key': 'Clé',
   'workbench.editors.grid.value': 'Valeur',
