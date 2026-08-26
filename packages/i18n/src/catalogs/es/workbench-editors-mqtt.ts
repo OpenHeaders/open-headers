@@ -182,8 +182,8 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.settings.keepAlivePlaceholder': '60 s (por defecto)',
   'workbench.editors.mqtt.settings.timeoutLabel': 'Tiempo de espera de conexión',
   'workbench.editors.mqtt.settings.timeoutHelp':
-    'Techo de reloj solo para la marcación de la conexión; una sesión abierta no tiene techo. Vacío no impone plazo de apertura.',
-  'workbench.editors.mqtt.settings.timeoutPlaceholder': 'Sin límite (por defecto)',
+    'Techo de reloj solo para la marcación de la conexión; una sesión abierta no tiene techo. Vacío aplica el plazo por defecto de 30 s.',
+  'workbench.editors.mqtt.settings.timeoutPlaceholder': '30 s (por defecto)',
   'workbench.editors.mqtt.settings.receiveMaximumLabel': 'Receive Maximum',
   'workbench.editors.mqtt.settings.receiveMaximumHelp':
     'Cuántos mensajes QoS 1/2 pueden estar en vuelo hacia este cliente a la vez. Vacío aplica el valor por defecto de la especificación, 65.535.',

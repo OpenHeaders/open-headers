@@ -84,6 +84,11 @@ const MAX_CAPTURE_EVENTS = 10_000;
  *  default; 0 disables the contract. */
 const DEFAULT_KEEP_ALIVE_S = 60;
 
+/** Connect deadline when the entity leaves the knob empty — the
+ *  reference default across MQTT clients; spans the dial + TLS
+ *  handshake only, an OPEN session has no ceiling. */
+export const DEFAULT_CONNECT_TIMEOUT_MS = 30_000;
+
 export interface ExecuteMqttSessionOptions {
   /** `null` = the runtime-Active workspace via the module mirrors;
    *  a string pins that workspace's scopes (forwarded sends). */
@@ -599,7 +604,7 @@ export async function executeMqttSession(
       {
         url,
         ...(request.sslVerification !== undefined ? { sslVerification: request.sslVerification } : {}),
-        ...(request.timeoutMs !== undefined ? { timeoutMs: request.timeoutMs } : {}),
+        timeoutMs: request.timeoutMs ?? DEFAULT_CONNECT_TIMEOUT_MS,
       },
       {
         onConnect: (route) => {

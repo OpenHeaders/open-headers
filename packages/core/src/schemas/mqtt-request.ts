@@ -243,8 +243,9 @@ export const MqttRequestSchema = v.object({
   maximumPacketSize: v.optional(v.pipe(v.number(), v.integer(), v.minValue(1), v.maxValue(0xffff_ffff))),
   /**
    * Wall-clock ceiling (ms) on the connection dial — the transport's
-   * open deadline only; an OPEN session has no ceiling. Same bounds as
-   * the HTTP request's timeout knob.
+   * open deadline only; an OPEN session has no ceiling. Absent = the
+   * runtime's 30 s reference default. Same bounds as the HTTP
+   * request's timeout knob.
    */
   timeoutMs: v.optional(RequestTimeoutMsSchema),
   /**

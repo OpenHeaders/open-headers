@@ -185,8 +185,8 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.settings.keepAlivePlaceholder': '60 s (Standard)',
   'workbench.editors.mqtt.settings.timeoutLabel': 'Verbindungs-Timeout',
   'workbench.editors.mqtt.settings.timeoutHelp':
-    'Wanduhr-Obergrenze nur für den Verbindungsaufbau — eine offene Sitzung hat keine Obergrenze. Leer setzt keine Aufbaufrist.',
-  'workbench.editors.mqtt.settings.timeoutPlaceholder': 'Kein Limit (Standard)',
+    'Wanduhr-Obergrenze nur für den Verbindungsaufbau — eine offene Sitzung hat keine Obergrenze. Leer nutzt die Standardfrist von 30 s.',
+  'workbench.editors.mqtt.settings.timeoutPlaceholder': '30 s (Standard)',
   'workbench.editors.mqtt.settings.receiveMaximumLabel': 'Receive Maximum',
   'workbench.editors.mqtt.settings.receiveMaximumHelp':
     'Wie viele QoS-1/2-Nachrichten gleichzeitig zu diesem Client unterwegs sein dürfen. Leer erlaubt den Spezifikations-Standard von 65.535.',

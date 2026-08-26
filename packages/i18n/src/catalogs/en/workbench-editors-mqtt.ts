@@ -176,8 +176,8 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.settings.keepAlivePlaceholder': '60 s (default)',
   'workbench.editors.mqtt.settings.timeoutLabel': 'Connect timeout',
   'workbench.editors.mqtt.settings.timeoutHelp':
-    'Wall-clock ceiling on the connection dial only — an open session has no ceiling. Empty sets no dial deadline.',
-  'workbench.editors.mqtt.settings.timeoutPlaceholder': 'No limit (default)',
+    'Wall-clock ceiling on the connection dial only — an open session has no ceiling. Empty uses the 30 s default.',
+  'workbench.editors.mqtt.settings.timeoutPlaceholder': '30 s (default)',
   'workbench.editors.mqtt.settings.receiveMaximumLabel': 'Receive Maximum',
   'workbench.editors.mqtt.settings.receiveMaximumHelp':
     'How many QoS 1/2 messages may be in flight toward this client at once. Empty allows the spec default of 65,535.',

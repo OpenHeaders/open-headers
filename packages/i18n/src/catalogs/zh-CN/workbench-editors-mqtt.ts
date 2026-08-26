@@ -170,8 +170,8 @@ export const workbenchEditorsMqtt = {
     '会话向代理承诺的心跳间隔——客户端应答并发出 PINGREQ。留空使用 60 秒；0 关闭心跳。',
   'workbench.editors.mqtt.settings.keepAlivePlaceholder': '60 s（默认）',
   'workbench.editors.mqtt.settings.timeoutLabel': '连接超时',
-  'workbench.editors.mqtt.settings.timeoutHelp': '仅限连接拨号的墙钟上限——已打开的会话没有上限。留空不设置建立时限。',
-  'workbench.editors.mqtt.settings.timeoutPlaceholder': '无限制（默认）',
+  'workbench.editors.mqtt.settings.timeoutHelp': '仅限连接拨号的墙钟上限——已打开的会话没有上限。留空使用默认的 30 s。',
+  'workbench.editors.mqtt.settings.timeoutPlaceholder': '30 s（默认）',
   'workbench.editors.mqtt.settings.receiveMaximumLabel': 'Receive Maximum',
   'workbench.editors.mqtt.settings.receiveMaximumHelp':
     '同时向此客户端在途的 QoS 1/2 消息数量上限。留空采用规范默认值 65535。',

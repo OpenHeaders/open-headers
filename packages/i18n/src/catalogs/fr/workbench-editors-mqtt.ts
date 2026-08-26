@@ -184,8 +184,8 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.settings.keepAlivePlaceholder': '60 s (défaut)',
   'workbench.editors.mqtt.settings.timeoutLabel': 'Délai de connexion',
   'workbench.editors.mqtt.settings.timeoutHelp':
-    'Plafond horloge sur l’ouverture de connexion seulement — une session ouverte n’a pas de plafond. Vide n’impose aucun délai d’ouverture.',
-  'workbench.editors.mqtt.settings.timeoutPlaceholder': 'Sans limite (défaut)',
+    'Plafond horloge sur l’ouverture de connexion seulement — une session ouverte n’a pas de plafond. Vide applique le délai par défaut de 30 s.',
+  'workbench.editors.mqtt.settings.timeoutPlaceholder': '30 s (défaut)',
   'workbench.editors.mqtt.settings.receiveMaximumLabel': 'Receive Maximum',
   'workbench.editors.mqtt.settings.receiveMaximumHelp':
     'Nombre de messages QoS 1/2 pouvant être en vol vers ce client à la fois. Vide applique le défaut de la spécification, 65 535.',

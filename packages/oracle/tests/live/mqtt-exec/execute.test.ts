@@ -136,6 +136,8 @@ describe('executeMqttSession — connect gate', () => {
     });
     await settleTick();
     expect(rig.wire().url).toBe('mqtt://broker.openheaders.io:1883');
+    // An empty knob dials under the 30 s reference deadline.
+    expect(rig.wire().timeoutMs).toBe(30_000);
     rig.establish();
     expect(rig.written).toHaveLength(1);
     const connect = rig.written[0];
