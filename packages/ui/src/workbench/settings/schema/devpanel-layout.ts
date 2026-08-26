@@ -57,7 +57,7 @@ registerSetting({
   labelKey: 'workbench.settings.def.devpanelLayout.footerShowVersion.label',
   descriptionKey: 'workbench.settings.def.devpanelLayout.footerShowVersion.description',
   category: 'devpanelLayout',
-  subcategory: 'Footer',
+  subcategory: 'footer',
   tags: ['statusbar', 'footer', 'version', 'devtools'],
   scope: 'user',
 });
@@ -70,7 +70,7 @@ registerSetting({
   labelKey: 'workbench.settings.def.devpanelLayout.footerShowThemeSwitcher.label',
   descriptionKey: 'workbench.settings.def.devpanelLayout.footerShowThemeSwitcher.description',
   category: 'devpanelLayout',
-  subcategory: 'Footer',
+  subcategory: 'footer',
   tags: ['statusbar', 'footer', 'theme', 'dark mode', 'devtools'],
   scope: 'user',
 });
@@ -83,7 +83,7 @@ registerSetting({
   labelKey: 'workbench.settings.def.devpanelLayout.footerShowModified.label',
   descriptionKey: 'workbench.settings.def.devpanelLayout.footerShowModified.description',
   category: 'devpanelLayout',
-  subcategory: 'Footer',
+  subcategory: 'footer',
   tags: ['statusbar', 'footer', 'modified', 'rules', 'devtools'],
   scope: 'user',
 });
@@ -96,7 +96,7 @@ registerSetting({
   labelKey: 'workbench.settings.def.devpanelLayout.footerShowFailed.label',
   descriptionKey: 'workbench.settings.def.devpanelLayout.footerShowFailed.description',
   category: 'devpanelLayout',
-  subcategory: 'Footer',
+  subcategory: 'footer',
   tags: ['statusbar', 'footer', 'failed', 'errors', 'devtools'],
   scope: 'user',
 });
@@ -109,7 +109,7 @@ registerSetting({
   labelKey: 'workbench.settings.def.devpanelLayout.footerShowCached.label',
   descriptionKey: 'workbench.settings.def.devpanelLayout.footerShowCached.description',
   category: 'devpanelLayout',
-  subcategory: 'Footer',
+  subcategory: 'footer',
   tags: ['statusbar', 'footer', 'cache', 'devtools'],
   scope: 'user',
 });
@@ -122,7 +122,7 @@ registerSetting({
   labelKey: 'workbench.settings.def.devpanelLayout.footerShowPageContext.label',
   descriptionKey: 'workbench.settings.def.devpanelLayout.footerShowPageContext.description',
   category: 'devpanelLayout',
-  subcategory: 'Footer',
+  subcategory: 'footer',
   tags: ['statusbar', 'footer', 'page', 'navigation', 'preserve log', 'devtools'],
   scope: 'user',
 });
@@ -135,7 +135,7 @@ registerSetting({
   labelKey: 'workbench.settings.def.devpanelLayout.footerTimingMode.label',
   descriptionKey: 'workbench.settings.def.devpanelLayout.footerTimingMode.description',
   category: 'devpanelLayout',
-  subcategory: 'Footer',
+  subcategory: 'footer',
   tags: ['statusbar', 'footer', 'finish', 'load', 'navigation', 'preserve log', 'devtools'],
   scope: 'user',
   enumOptions: [
@@ -160,7 +160,7 @@ registerSetting({
   labelKey: 'workbench.settings.def.devpanelLayout.footerScope.label',
   descriptionKey: 'workbench.settings.def.devpanelLayout.footerScope.description',
   category: 'devpanelLayout',
-  subcategory: 'Footer',
+  subcategory: 'footer',
   tags: ['statusbar', 'footer', 'focus', 'tool window', 'storage', 'console', 'search', 'devtools'],
   scope: 'user',
   enumOptions: [
@@ -185,7 +185,7 @@ registerSetting({
   labelKey: 'workbench.settings.def.devpanelLayout.topbarShowPanelToggles.label',
   descriptionKey: 'workbench.settings.def.devpanelLayout.topbarShowPanelToggles.description',
   category: 'devpanelLayout',
-  subcategory: 'Top Bar',
+  subcategory: 'topbar',
   tags: ['topbar', 'panels', 'toggle', 'devtools'],
   scope: 'user',
 });
@@ -198,7 +198,7 @@ registerSetting({
   labelKey: 'workbench.settings.def.devpanelLayout.topbarShowLayoutMenu.label',
   descriptionKey: 'workbench.settings.def.devpanelLayout.topbarShowLayoutMenu.description',
   category: 'devpanelLayout',
-  subcategory: 'Top Bar',
+  subcategory: 'topbar',
   tags: ['topbar', 'layout', 'menu', 'devtools'],
   scope: 'user',
 });
@@ -213,7 +213,7 @@ registerSetting({
   labelKey: 'workbench.settings.def.devpanelLayout.bottomPanelAlignment.label',
   descriptionKey: 'workbench.settings.def.devpanelLayout.bottomPanelAlignment.description',
   category: 'devpanelLayout',
-  subcategory: 'Shell',
+  subcategory: 'shell',
   tags: ['bottom', 'panel', 'layout', 'align', 'wide', 'devtools'],
   scope: 'user',
   enumOptions: [
@@ -248,7 +248,7 @@ registerSetting({
   labelKey: 'workbench.settings.def.devpanelLayout.bottomPanelSplit.label',
   descriptionKey: 'workbench.settings.def.devpanelLayout.bottomPanelSplit.description',
   category: 'devpanelLayout',
-  subcategory: 'Shell',
+  subcategory: 'shell',
   tags: ['bottom', 'panel', 'layout', 'split', 'stack', 'rows', 'columns', 'devtools'],
   scope: 'user',
   enumOptions: [
@@ -273,7 +273,7 @@ registerSetting({
   labelKey: 'workbench.settings.def.devpanelLayout.showToolWindowLabels.label',
   descriptionKey: 'workbench.settings.def.devpanelLayout.showToolWindowLabels.description',
   category: 'devpanelLayout',
-  subcategory: 'Shell',
+  subcategory: 'shell',
   tags: ['activity bar', 'tool window', 'labels', 'compact', 'devtools'],
   scope: 'user',
 });
@@ -286,7 +286,7 @@ registerSetting({
   labelKey: 'workbench.settings.def.devpanelLayout.activityBarWidthLeft.label',
   descriptionKey: 'workbench.settings.def.devpanelLayout.activityBarWidthLeft.description',
   category: 'devpanelLayout',
-  subcategory: 'Shell',
+  subcategory: 'shell',
   tags: ['activity bar', 'sidebar', 'width', 'left', 'devtools'],
   scope: 'user',
 });
@@ -299,7 +299,7 @@ registerSetting({
   labelKey: 'workbench.settings.def.devpanelLayout.activityBarWidthRight.label',
   descriptionKey: 'workbench.settings.def.devpanelLayout.activityBarWidthRight.description',
   category: 'devpanelLayout',
-  subcategory: 'Shell',
+  subcategory: 'shell',
   tags: ['activity bar', 'sidebar', 'width', 'right', 'devtools'],
   scope: 'user',
 });
@@ -312,7 +312,7 @@ registerSetting({
   labelKey: 'workbench.settings.def.devpanelLayout.sidebarLayout.label',
   descriptionKey: 'workbench.settings.def.devpanelLayout.sidebarLayout.description',
   category: 'devpanelLayout',
-  subcategory: 'Shell',
+  subcategory: 'shell',
   tags: ['sidebar', 'activity bar', 'split', 'layout', 'devtools'],
   scope: 'user',
   enumOptions: [

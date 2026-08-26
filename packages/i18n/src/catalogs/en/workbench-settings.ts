@@ -90,6 +90,9 @@ export const workbenchSettings = {
   'workbench.settings.category.devpanelLayout.navLabel': 'Layout',
   'workbench.settings.category.devpanelLayout.description':
     'Tool-window shell behavior for the browser DevTools panel.',
+  'workbench.settings.category.devpanelLayout.sub.shell': 'Shell',
+  'workbench.settings.category.devpanelLayout.sub.topbar': 'Top Bar',
+  'workbench.settings.category.devpanelLayout.sub.footer': 'Footer',
   'workbench.settings.category.devpanelNetwork.label': 'DevTools Panel · Network',
   'workbench.settings.category.devpanelNetwork.navLabel': 'Network',
   'workbench.settings.category.devpanelNetwork.description':

@@ -23,28 +23,27 @@ import type { Catalog } from '../../types';
 
 export const workbenchSettingsDefsDevpanel = {
   // ── DevTools Panel · Layout category defs ──────────────────────────
-  'workbench.settings.def.devpanelLayout.footerShowVersion.label': 'Version in der Fußzeile anzeigen',
+  'workbench.settings.def.devpanelLayout.footerShowVersion.label': 'Version anzeigen',
   'workbench.settings.def.devpanelLayout.footerShowVersion.description':
     'Zeigt die Versionsnummer der Erweiterung in der Statusleiste des DevTools-Panels.',
-  'workbench.settings.def.devpanelLayout.footerShowThemeSwitcher.label': 'Theme-Umschalter in der Fußzeile anzeigen',
+  'workbench.settings.def.devpanelLayout.footerShowThemeSwitcher.label': 'Theme-Umschalter anzeigen',
   'workbench.settings.def.devpanelLayout.footerShowThemeSwitcher.description':
     'Zeigt das Dropdown für das helle/dunkle/automatische Theme in der Statusleiste des DevTools-Panels.',
-  'workbench.settings.def.devpanelLayout.footerShowModified.label': 'Zähler der Veränderten in der Fußzeile anzeigen',
+  'workbench.settings.def.devpanelLayout.footerShowModified.label': 'Zähler der Veränderten anzeigen',
   'workbench.settings.def.devpanelLayout.footerShowModified.description':
     'Zeigt in der Statusleiste des DevTools-Panels, wie viele Anfragen deine Regeln tatsächlich verändert haben.',
-  'workbench.settings.def.devpanelLayout.footerShowFailed.label':
-    'Zähler der Fehlgeschlagenen in der Fußzeile anzeigen',
+  'workbench.settings.def.devpanelLayout.footerShowFailed.label': 'Zähler der Fehlgeschlagenen anzeigen',
   'workbench.settings.def.devpanelLayout.footerShowFailed.description':
     'Zeigt in der Statusleiste des DevTools-Panels, wie viele Anfragen fehlgeschlagen sind oder einen ' +
     'Fehlerstatus zurückgegeben haben.',
-  'workbench.settings.def.devpanelLayout.footerShowCached.label': 'Cache-Zähler in der Fußzeile anzeigen',
+  'workbench.settings.def.devpanelLayout.footerShowCached.label': 'Cache-Zähler anzeigen',
   'workbench.settings.def.devpanelLayout.footerShowCached.description':
     'Zeigt in der Statusleiste des DevTools-Panels, wie viele Anfragen aus dem Cache bedient wurden.',
-  'workbench.settings.def.devpanelLayout.footerShowPageContext.label': 'Aktuelle Seite in der Fußzeile anzeigen',
+  'workbench.settings.def.devpanelLayout.footerShowPageContext.label': 'Aktuelle Seite anzeigen',
   'workbench.settings.def.devpanelLayout.footerShowPageContext.description':
     'Beschriftet die Timing-Meilensteine in der Statusleiste des DevTools-Panels mit der Seite, die sie ' +
     'beschreiben — nützlich, wenn das Protokoll über mehrere Navigationen hinweg beibehalten wird.',
-  'workbench.settings.def.devpanelLayout.footerTimingMode.label': 'Timing-Umfang der Fußzeile',
+  'workbench.settings.def.devpanelLayout.footerTimingMode.label': 'Timing-Umfang',
   'workbench.settings.def.devpanelLayout.footerTimingMode.description':
     'Welche Navigation die Meilensteine Finish / DOMContentLoaded / Load in der Statusleiste des ' +
     'DevTools-Panels beschreiben. Aggregiert umspannt die ganze Zeitleiste des beibehaltenen Protokolls seit ' +
@@ -55,7 +54,7 @@ export const workbenchSettingsDefsDevpanel = {
   'workbench.settings.def.devpanelLayout.footerTimingMode.option.lastNav.label': 'Nur die aktuelle Seite',
   'workbench.settings.def.devpanelLayout.footerTimingMode.option.lastNav.description':
     'Finish / DCL / Load melden nur die letzte Navigation, verankert an ihrem Start.',
-  'workbench.settings.def.devpanelLayout.footerScope.label': 'Zusammenfassungs-Umfang der Fußzeile',
+  'workbench.settings.def.devpanelLayout.footerScope.label': 'Zusammenfassungs-Umfang',
   'workbench.settings.def.devpanelLayout.footerScope.description':
     'Was die Statusleiste des DevTools-Panels zusammenfasst. Fokussiertes Tool folgt dem Werkzeugfenster, in ' +
     'dem du arbeitest (Storage, Console und die Suche haben eigene Zusammenfassungszeilen); Nur das ' +
@@ -67,11 +66,10 @@ export const workbenchSettingsDefsDevpanel = {
   'workbench.settings.def.devpanelLayout.footerScope.option.network.label': 'Nur das Network-Tool',
   'workbench.settings.def.devpanelLayout.footerScope.option.network.description':
     'Die Fußzeile zeigt immer die Network-Zahlen, egal welches Werkzeugfenster den Fokus hat.',
-  'workbench.settings.def.devpanelLayout.topbarShowPanelToggles.label':
-    'Panel-Umschalter in der oberen Leiste anzeigen',
+  'workbench.settings.def.devpanelLayout.topbarShowPanelToggles.label': 'Panel-Umschalter anzeigen',
   'workbench.settings.def.devpanelLayout.topbarShowPanelToggles.description':
     'Zeigt die Umschalt-Icons für das linke / untere / rechte Panel in der oberen Leiste des DevTools-Panels.',
-  'workbench.settings.def.devpanelLayout.topbarShowLayoutMenu.label': 'Layout-Menü in der oberen Leiste anzeigen',
+  'workbench.settings.def.devpanelLayout.topbarShowLayoutMenu.label': 'Layout-Menü anzeigen',
   'workbench.settings.def.devpanelLayout.topbarShowLayoutMenu.description':
     'Zeigt das Layout-Dropdown (unteres Panel in voller Breite, Werkzeugfenster-Namen, Layout der ' +
     'Aktivitätsleiste) in der oberen Leiste des DevTools-Panels.',

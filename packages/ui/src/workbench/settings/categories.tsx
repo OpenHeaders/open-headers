@@ -139,6 +139,11 @@ registerCategory({
   icon: <DevPanelGlyph letter="L" />,
   order: 15,
   descriptionKey: 'workbench.settings.category.devpanelLayout.description',
+  subcategories: [
+    { id: 'shell', labelKey: 'workbench.settings.category.devpanelLayout.sub.shell', order: 10 },
+    { id: 'topbar', labelKey: 'workbench.settings.category.devpanelLayout.sub.topbar', order: 20 },
+    { id: 'footer', labelKey: 'workbench.settings.category.devpanelLayout.sub.footer', order: 30 },
+  ],
 });
 
 registerCategory({

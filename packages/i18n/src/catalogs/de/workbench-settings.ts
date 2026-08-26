@@ -107,6 +107,9 @@ export const workbenchSettings = {
   'workbench.settings.category.devpanelLayout.navLabel': 'Layout',
   'workbench.settings.category.devpanelLayout.description':
     'Shell-Verhalten der Werkzeugfenster für das DevTools-Panel des Browsers.',
+  'workbench.settings.category.devpanelLayout.sub.shell': 'Shell',
+  'workbench.settings.category.devpanelLayout.sub.topbar': 'Obere Leiste',
+  'workbench.settings.category.devpanelLayout.sub.footer': 'Fußzeile',
   'workbench.settings.category.devpanelNetwork.label': 'DevTools-Panel · Network',
   'workbench.settings.category.devpanelNetwork.navLabel': 'Network',
   'workbench.settings.category.devpanelNetwork.description':

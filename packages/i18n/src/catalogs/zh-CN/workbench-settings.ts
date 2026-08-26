@@ -94,6 +94,9 @@ export const workbenchSettings = {
   'workbench.settings.category.devpanelLayout.label': 'DevTools 面板 · 布局',
   'workbench.settings.category.devpanelLayout.navLabel': '布局',
   'workbench.settings.category.devpanelLayout.description': '浏览器 DevTools 面板的工具窗口外壳行为。',
+  'workbench.settings.category.devpanelLayout.sub.shell': 'Shell',
+  'workbench.settings.category.devpanelLayout.sub.topbar': '顶栏',
+  'workbench.settings.category.devpanelLayout.sub.footer': '底栏',
   'workbench.settings.category.devpanelNetwork.label': 'DevTools 面板 · Network',
   'workbench.settings.category.devpanelNetwork.navLabel': 'Network',
   'workbench.settings.category.devpanelNetwork.description':

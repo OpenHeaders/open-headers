@@ -22,29 +22,27 @@ import type { Catalog } from '../../types';
 
 export const workbenchSettingsDefsDevpanel = {
   // ── DevTools Panel · Layout category defs ──────────────────────────
-  'workbench.settings.def.devpanelLayout.footerShowVersion.label': 'Mostrar la versión en el pie de página',
+  'workbench.settings.def.devpanelLayout.footerShowVersion.label': 'Mostrar la versión',
   'workbench.settings.def.devpanelLayout.footerShowVersion.description':
     'Muestra el número de versión de la extensión en la barra de estado del panel de DevTools.',
-  'workbench.settings.def.devpanelLayout.footerShowThemeSwitcher.label':
-    'Mostrar el selector de tema en el pie de página',
+  'workbench.settings.def.devpanelLayout.footerShowThemeSwitcher.label': 'Mostrar el selector de tema',
   'workbench.settings.def.devpanelLayout.footerShowThemeSwitcher.description':
     'Muestra el desplegable de tema claro/oscuro/auto en la barra de estado del panel de DevTools.',
-  'workbench.settings.def.devpanelLayout.footerShowModified.label':
-    'Mostrar el recuento de modificadas en el pie de página',
+  'workbench.settings.def.devpanelLayout.footerShowModified.label': 'Mostrar el recuento de modificadas',
   'workbench.settings.def.devpanelLayout.footerShowModified.description':
     'Muestra cuántas solicitudes modificaron realmente tus reglas en la barra de estado del panel de DevTools.',
-  'workbench.settings.def.devpanelLayout.footerShowFailed.label': 'Mostrar el recuento de fallidas en el pie de página',
+  'workbench.settings.def.devpanelLayout.footerShowFailed.label': 'Mostrar el recuento de fallidas',
   'workbench.settings.def.devpanelLayout.footerShowFailed.description':
     'Muestra cuántas solicitudes fallaron o devolvieron un estado de error en la barra de estado del panel de ' +
     'DevTools.',
-  'workbench.settings.def.devpanelLayout.footerShowCached.label': 'Mostrar el recuento de en caché en el pie de página',
+  'workbench.settings.def.devpanelLayout.footerShowCached.label': 'Mostrar el recuento de en caché',
   'workbench.settings.def.devpanelLayout.footerShowCached.description':
     'Muestra cuántas solicitudes se sirvieron desde la caché en la barra de estado del panel de DevTools.',
-  'workbench.settings.def.devpanelLayout.footerShowPageContext.label': 'Mostrar la página actual en el pie de página',
+  'workbench.settings.def.devpanelLayout.footerShowPageContext.label': 'Mostrar la página actual',
   'workbench.settings.def.devpanelLayout.footerShowPageContext.description':
     'Etiqueta los hitos de timing con la página que describen en la barra de estado del panel de DevTools — ' +
     'útil cuando el registro se conserva a lo largo de varias navegaciones.',
-  'workbench.settings.def.devpanelLayout.footerTimingMode.label': 'Alcance del timing del pie de página',
+  'workbench.settings.def.devpanelLayout.footerTimingMode.label': 'Alcance del timing',
   'workbench.settings.def.devpanelLayout.footerTimingMode.description':
     'Qué navegación describen los hitos Finish / DOMContentLoaded / Load de la barra de estado del panel de ' +
     'DevTools. Agregado abarca toda la cronología del registro conservado desde la primera navegación (como el ' +
@@ -56,7 +54,7 @@ export const workbenchSettingsDefsDevpanel = {
   'workbench.settings.def.devpanelLayout.footerTimingMode.option.lastNav.label': 'Solo la página actual',
   'workbench.settings.def.devpanelLayout.footerTimingMode.option.lastNav.description':
     'Finish / DCL / Load informan solo de la última navegación, anclados a su inicio.',
-  'workbench.settings.def.devpanelLayout.footerScope.label': 'Alcance del resumen del pie de página',
+  'workbench.settings.def.devpanelLayout.footerScope.label': 'Alcance del resumen',
   'workbench.settings.def.devpanelLayout.footerScope.description':
     'Qué resume la barra de estado del panel de DevTools. Herramienta enfocada sigue la ventana de herramienta ' +
     'en la que trabajas (Storage, Console y la búsqueda tienen sus propias líneas de resumen); Solo la ' +
@@ -68,13 +66,11 @@ export const workbenchSettingsDefsDevpanel = {
   'workbench.settings.def.devpanelLayout.footerScope.option.network.label': 'Solo la herramienta Network',
   'workbench.settings.def.devpanelLayout.footerScope.option.network.description':
     'El pie de página muestra siempre las cifras de Network, sea cual sea la ventana de herramienta enfocada.',
-  'workbench.settings.def.devpanelLayout.topbarShowPanelToggles.label':
-    'Mostrar los botones de paneles en la barra superior',
+  'workbench.settings.def.devpanelLayout.topbarShowPanelToggles.label': 'Mostrar los botones de paneles',
   'workbench.settings.def.devpanelLayout.topbarShowPanelToggles.description':
     'Muestra los iconos de alternancia de los paneles izquierdo / inferior / derecho en la barra superior del ' +
     'panel de DevTools.',
-  'workbench.settings.def.devpanelLayout.topbarShowLayoutMenu.label':
-    'Mostrar el menú de disposición en la barra superior',
+  'workbench.settings.def.devpanelLayout.topbarShowLayoutMenu.label': 'Mostrar el menú de disposición',
   'workbench.settings.def.devpanelLayout.topbarShowLayoutMenu.description':
     'Muestra el menú de disposición (panel inferior a ancho completo, nombres de las ventanas de herramientas, ' +
     'disposición de la barra de actividad) en la barra superior del panel de DevTools.',

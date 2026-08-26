@@ -9,25 +9,25 @@ import type { Catalog } from '../../types';
 
 export const workbenchSettingsDefsDevpanel = {
   // ── DevTools Panel · Layout category defs ──────────────────────────
-  'workbench.settings.def.devpanelLayout.footerShowVersion.label': 'Show Version in Footer',
+  'workbench.settings.def.devpanelLayout.footerShowVersion.label': 'Show Version',
   'workbench.settings.def.devpanelLayout.footerShowVersion.description':
     'Display the extension version number in the DevTools panel status bar.',
-  'workbench.settings.def.devpanelLayout.footerShowThemeSwitcher.label': 'Show Theme Switcher in Footer',
+  'workbench.settings.def.devpanelLayout.footerShowThemeSwitcher.label': 'Show Theme Switcher',
   'workbench.settings.def.devpanelLayout.footerShowThemeSwitcher.description':
     'Display the light/dark/auto theme dropdown in the DevTools panel status bar.',
-  'workbench.settings.def.devpanelLayout.footerShowModified.label': 'Show Modified Count in Footer',
+  'workbench.settings.def.devpanelLayout.footerShowModified.label': 'Show Modified Count',
   'workbench.settings.def.devpanelLayout.footerShowModified.description':
     'Display how many requests your rules actually modified in the DevTools panel status bar.',
-  'workbench.settings.def.devpanelLayout.footerShowFailed.label': 'Show Failed Count in Footer',
+  'workbench.settings.def.devpanelLayout.footerShowFailed.label': 'Show Failed Count',
   'workbench.settings.def.devpanelLayout.footerShowFailed.description':
     'Display how many requests failed or returned an error status in the DevTools panel status bar.',
-  'workbench.settings.def.devpanelLayout.footerShowCached.label': 'Show Cached Count in Footer',
+  'workbench.settings.def.devpanelLayout.footerShowCached.label': 'Show Cached Count',
   'workbench.settings.def.devpanelLayout.footerShowCached.description':
     'Display how many requests were served from cache in the DevTools panel status bar.',
-  'workbench.settings.def.devpanelLayout.footerShowPageContext.label': 'Show Current Page in Footer',
+  'workbench.settings.def.devpanelLayout.footerShowPageContext.label': 'Show Current Page',
   'workbench.settings.def.devpanelLayout.footerShowPageContext.description':
     'Label the timing milestones with the page they describe in the DevTools panel status bar — useful with Preserve log across multiple navigations.',
-  'workbench.settings.def.devpanelLayout.footerTimingMode.label': 'Footer Timing Scope',
+  'workbench.settings.def.devpanelLayout.footerTimingMode.label': 'Timing Scope',
   'workbench.settings.def.devpanelLayout.footerTimingMode.description':
     'Which navigation the Finish / DOMContentLoaded / Load milestones in the DevTools panel status bar describe. Aggregate spans the whole preserve-log timeline from the first navigation (matches the browser); Current page reports only the latest navigation.',
   'workbench.settings.def.devpanelLayout.footerTimingMode.option.aggregate.label': 'Aggregate (all navigations)',
@@ -36,7 +36,7 @@ export const workbenchSettingsDefsDevpanel = {
   'workbench.settings.def.devpanelLayout.footerTimingMode.option.lastNav.label': 'Current page only',
   'workbench.settings.def.devpanelLayout.footerTimingMode.option.lastNav.description':
     'Finish / DCL / Load report only the latest navigation, anchored to when it started.',
-  'workbench.settings.def.devpanelLayout.footerScope.label': 'Footer Summary Scope',
+  'workbench.settings.def.devpanelLayout.footerScope.label': 'Summary Scope',
   'workbench.settings.def.devpanelLayout.footerScope.description':
     'What the DevTools panel status bar summarizes. Focused tool follows the tool window you are working in (Storage, Console, and Search get their own summary lines); Network tool only always shows the Network figures.',
   'workbench.settings.def.devpanelLayout.footerScope.option.focused.label': 'Focused tool',
@@ -45,10 +45,10 @@ export const workbenchSettingsDefsDevpanel = {
   'workbench.settings.def.devpanelLayout.footerScope.option.network.label': 'Network tool only',
   'workbench.settings.def.devpanelLayout.footerScope.option.network.description':
     'The footer always shows the Network figures, whichever tool window has focus.',
-  'workbench.settings.def.devpanelLayout.topbarShowPanelToggles.label': 'Show Panel Toggles in Top Bar',
+  'workbench.settings.def.devpanelLayout.topbarShowPanelToggles.label': 'Show Panel Toggles',
   'workbench.settings.def.devpanelLayout.topbarShowPanelToggles.description':
     'Display the left / bottom / right panel toggle icons in the DevTools panel top bar.',
-  'workbench.settings.def.devpanelLayout.topbarShowLayoutMenu.label': 'Show Layout Menu in Top Bar',
+  'workbench.settings.def.devpanelLayout.topbarShowLayoutMenu.label': 'Show Layout Menu',
   'workbench.settings.def.devpanelLayout.topbarShowLayoutMenu.description':
     'Display the layout dropdown (bottom full-width, tool-window labels, sidebar layout) in the DevTools panel top bar.',
   'workbench.settings.def.devpanelLayout.bottomPanelAlignment.label': 'Bottom Panel Alignment',

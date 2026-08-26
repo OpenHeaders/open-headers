@@ -104,6 +104,9 @@ export const workbenchSettings = {
   'workbench.settings.category.devpanelLayout.navLabel': 'Disposition',
   'workbench.settings.category.devpanelLayout.description':
     "Comportement du shell des fenêtres d'outils pour le panneau DevTools du navigateur.",
+  'workbench.settings.category.devpanelLayout.sub.shell': 'Shell',
+  'workbench.settings.category.devpanelLayout.sub.topbar': 'Barre supérieure',
+  'workbench.settings.category.devpanelLayout.sub.footer': 'Pied de page',
   'workbench.settings.category.devpanelNetwork.label': 'Panneau DevTools · Network',
   'workbench.settings.category.devpanelNetwork.navLabel': 'Network',
   'workbench.settings.category.devpanelNetwork.description':

@@ -18,31 +18,27 @@ import type { Catalog } from '../../types';
 
 export const workbenchSettingsDefsDevpanel = {
   // ── DevTools Panel · Layout category defs ──────────────────────────
-  'workbench.settings.def.devpanelLayout.footerShowVersion.label': 'Afficher la version dans le pied de page',
+  'workbench.settings.def.devpanelLayout.footerShowVersion.label': 'Afficher la version',
   'workbench.settings.def.devpanelLayout.footerShowVersion.description':
     "Affiche le numéro de version de l'extension dans la barre d'état du panneau DevTools.",
-  'workbench.settings.def.devpanelLayout.footerShowThemeSwitcher.label':
-    'Afficher le sélecteur de thème dans le pied de page',
+  'workbench.settings.def.devpanelLayout.footerShowThemeSwitcher.label': 'Afficher le sélecteur de thème',
   'workbench.settings.def.devpanelLayout.footerShowThemeSwitcher.description':
     "Affiche le menu de thème clair/sombre/auto dans la barre d'état du panneau DevTools.",
-  'workbench.settings.def.devpanelLayout.footerShowModified.label':
-    'Afficher le compte des modifiées dans le pied de page',
+  'workbench.settings.def.devpanelLayout.footerShowModified.label': 'Afficher le compte des modifiées',
   'workbench.settings.def.devpanelLayout.footerShowModified.description':
     "Affiche combien de requêtes vos règles ont réellement modifiées dans la barre d'état du panneau DevTools.",
-  'workbench.settings.def.devpanelLayout.footerShowFailed.label':
-    'Afficher le compte des échouées dans le pied de page',
+  'workbench.settings.def.devpanelLayout.footerShowFailed.label': 'Afficher le compte des échouées',
   'workbench.settings.def.devpanelLayout.footerShowFailed.description':
     "Affiche combien de requêtes ont échoué ou renvoyé un statut d'erreur dans la barre d'état du panneau " +
     'DevTools.',
-  'workbench.settings.def.devpanelLayout.footerShowCached.label':
-    'Afficher le compte des en cache dans le pied de page',
+  'workbench.settings.def.devpanelLayout.footerShowCached.label': 'Afficher le compte des en cache',
   'workbench.settings.def.devpanelLayout.footerShowCached.description':
     "Affiche combien de requêtes ont été servies depuis le cache dans la barre d'état du panneau DevTools.",
-  'workbench.settings.def.devpanelLayout.footerShowPageContext.label': 'Afficher la page actuelle dans le pied de page',
+  'workbench.settings.def.devpanelLayout.footerShowPageContext.label': 'Afficher la page actuelle',
   'workbench.settings.def.devpanelLayout.footerShowPageContext.description':
     "Étiquette les jalons de timing avec la page qu'ils décrivent dans la barre d'état du panneau DevTools — " +
     'utile quand le journal est conservé sur plusieurs navigations.',
-  'workbench.settings.def.devpanelLayout.footerTimingMode.label': 'Portée du timing du pied de page',
+  'workbench.settings.def.devpanelLayout.footerTimingMode.label': 'Portée du timing',
   'workbench.settings.def.devpanelLayout.footerTimingMode.description':
     "Quelle navigation les jalons Finish / DOMContentLoaded / Load de la barre d'état du panneau DevTools " +
     'décrivent. Agrégé couvre toute la chronologie du journal conservé depuis la première navigation ' +
@@ -53,7 +49,7 @@ export const workbenchSettingsDefsDevpanel = {
   'workbench.settings.def.devpanelLayout.footerTimingMode.option.lastNav.label': 'Page actuelle uniquement',
   'workbench.settings.def.devpanelLayout.footerTimingMode.option.lastNav.description':
     'Finish / DCL / Load ne rapportent que la dernière navigation, ancrée à son démarrage.',
-  'workbench.settings.def.devpanelLayout.footerScope.label': 'Portée du résumé du pied de page',
+  'workbench.settings.def.devpanelLayout.footerScope.label': 'Portée du résumé',
   'workbench.settings.def.devpanelLayout.footerScope.description':
     "Ce que la barre d'état du panneau DevTools résume. Outil sélectionné suit la fenêtre d'outil dans " +
     'laquelle vous travaillez (Storage, Console et la recherche ont leurs propres lignes de résumé) ; Outil ' +
@@ -65,13 +61,11 @@ export const workbenchSettingsDefsDevpanel = {
   'workbench.settings.def.devpanelLayout.footerScope.option.network.label': 'Outil Network uniquement',
   'workbench.settings.def.devpanelLayout.footerScope.option.network.description':
     "Le pied de page affiche toujours les chiffres Network, quelle que soit la fenêtre d'outil sélectionnée.",
-  'workbench.settings.def.devpanelLayout.topbarShowPanelToggles.label':
-    'Afficher les boutons de panneaux dans la barre supérieure',
+  'workbench.settings.def.devpanelLayout.topbarShowPanelToggles.label': 'Afficher les boutons de panneaux',
   'workbench.settings.def.devpanelLayout.topbarShowPanelToggles.description':
     'Affiche les icônes de bascule des panneaux gauche / inférieur / droit dans la barre supérieure du panneau ' +
     'DevTools.',
-  'workbench.settings.def.devpanelLayout.topbarShowLayoutMenu.label':
-    'Afficher le menu de disposition dans la barre supérieure',
+  'workbench.settings.def.devpanelLayout.topbarShowLayoutMenu.label': 'Afficher le menu de disposition',
   'workbench.settings.def.devpanelLayout.topbarShowLayoutMenu.description':
     "Affiche le menu de disposition (panneau inférieur pleine largeur, noms des fenêtres d'outils, " +
     "disposition de la barre d'activité) dans la barre supérieure du panneau DevTools.",

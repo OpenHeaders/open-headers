@@ -23,24 +23,24 @@ import type { Catalog } from '../../types';
 
 export const workbenchSettingsDefsDevpanel = {
   // ── DevTools Panel · Layout category defs ──────────────────────────
-  'workbench.settings.def.devpanelLayout.footerShowVersion.label': '在底栏显示版本',
+  'workbench.settings.def.devpanelLayout.footerShowVersion.label': '显示版本',
   'workbench.settings.def.devpanelLayout.footerShowVersion.description': '在 DevTools 面板的底栏显示扩展的版本号。',
-  'workbench.settings.def.devpanelLayout.footerShowThemeSwitcher.label': '在底栏显示主题切换器',
+  'workbench.settings.def.devpanelLayout.footerShowThemeSwitcher.label': '显示主题切换器',
   'workbench.settings.def.devpanelLayout.footerShowThemeSwitcher.description':
     '在 DevTools 面板的底栏显示浅色/深色/自动主题下拉菜单。',
-  'workbench.settings.def.devpanelLayout.footerShowModified.label': '在底栏显示已修改数',
+  'workbench.settings.def.devpanelLayout.footerShowModified.label': '显示已修改数',
   'workbench.settings.def.devpanelLayout.footerShowModified.description':
     '在 DevTools 面板的底栏显示你的规则实际修改了多少个请求。',
-  'workbench.settings.def.devpanelLayout.footerShowFailed.label': '在底栏显示失败数',
+  'workbench.settings.def.devpanelLayout.footerShowFailed.label': '显示失败数',
   'workbench.settings.def.devpanelLayout.footerShowFailed.description':
     '在 DevTools 面板的底栏显示有多少个请求失败或返回了错误状态。',
-  'workbench.settings.def.devpanelLayout.footerShowCached.label': '在底栏显示缓存数',
+  'workbench.settings.def.devpanelLayout.footerShowCached.label': '显示缓存数',
   'workbench.settings.def.devpanelLayout.footerShowCached.description':
     '在 DevTools 面板的底栏显示有多少个请求由缓存提供服务。',
-  'workbench.settings.def.devpanelLayout.footerShowPageContext.label': '在底栏显示当前页面',
+  'workbench.settings.def.devpanelLayout.footerShowPageContext.label': '显示当前页面',
   'workbench.settings.def.devpanelLayout.footerShowPageContext.description':
     '在 DevTools 面板的底栏为计时里程碑标明它们描述的页面——在跨多次导航保留日志时很有用。',
-  'workbench.settings.def.devpanelLayout.footerTimingMode.label': '底栏计时范围',
+  'workbench.settings.def.devpanelLayout.footerTimingMode.label': '计时范围',
   'workbench.settings.def.devpanelLayout.footerTimingMode.description':
     '底栏中的 Finish / DOMContentLoaded / Load 里程碑描述哪一次导航。聚合覆盖从第一次导航起的整个保留日志时间线（与浏览器一致）；仅当前页面只报告最近一次导航。',
   'workbench.settings.def.devpanelLayout.footerTimingMode.option.aggregate.label': '聚合（所有导航）',
@@ -49,7 +49,7 @@ export const workbenchSettingsDefsDevpanel = {
   'workbench.settings.def.devpanelLayout.footerTimingMode.option.lastNav.label': '仅当前页面',
   'workbench.settings.def.devpanelLayout.footerTimingMode.option.lastNav.description':
     'Finish / DCL / Load 只报告最近一次导航，以其开始时刻为零点。',
-  'workbench.settings.def.devpanelLayout.footerScope.label': '底栏摘要范围',
+  'workbench.settings.def.devpanelLayout.footerScope.label': '摘要范围',
   'workbench.settings.def.devpanelLayout.footerScope.description':
     '底栏汇总什么内容。聚焦的工具跟随你正在使用的工具窗口（Storage、Console 和搜索有各自的摘要行）；仅 Network 工具则始终显示 Network 数据。',
   'workbench.settings.def.devpanelLayout.footerScope.option.focused.label': '聚焦的工具',
@@ -58,10 +58,10 @@ export const workbenchSettingsDefsDevpanel = {
   'workbench.settings.def.devpanelLayout.footerScope.option.network.label': '仅 Network 工具',
   'workbench.settings.def.devpanelLayout.footerScope.option.network.description':
     '无论哪个工具窗口获得焦点，底栏始终显示 Network 数据。',
-  'workbench.settings.def.devpanelLayout.topbarShowPanelToggles.label': '在顶栏显示面板开关',
+  'workbench.settings.def.devpanelLayout.topbarShowPanelToggles.label': '显示面板开关',
   'workbench.settings.def.devpanelLayout.topbarShowPanelToggles.description':
     '在 DevTools 面板的顶栏显示左侧/底部/右侧面板的启停图标。',
-  'workbench.settings.def.devpanelLayout.topbarShowLayoutMenu.label': '在顶栏显示布局菜单',
+  'workbench.settings.def.devpanelLayout.topbarShowLayoutMenu.label': '显示布局菜单',
   'workbench.settings.def.devpanelLayout.topbarShowLayoutMenu.description':
     '在 DevTools 面板的顶栏显示布局下拉菜单（底部全宽、工具窗口名称、活动栏布局）。',
   'workbench.settings.def.devpanelLayout.bottomPanelAlignment.label': '底部面板对齐',
