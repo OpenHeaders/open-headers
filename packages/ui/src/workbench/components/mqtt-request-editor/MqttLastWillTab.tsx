@@ -11,7 +11,7 @@
 
 import type { MqttPayloadFormat, MqttRequestQos } from '@openheaders/core/types';
 import { useT } from '@openheaders/ui/context/LocaleContext';
-import { Checkbox, Input, InputNumber, Select, Tooltip, Typography } from 'antd';
+import { Checkbox, ConfigProvider, Input, InputNumber, Select, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { type Dispatch, type SetStateAction, useRef, useState } from 'react';
 import CodeEditor from '../shared/CodeEditor';
@@ -30,6 +30,7 @@ interface MqttLastWillTabProps {
 }
 
 const MqttLastWillTab: React.FC<MqttLastWillTabProps> = ({ draft, setDraft, v5 }) => {
+  const { token } = theme.useToken();
   const t = useT();
   // Will-editor wrap — the compose-editor default carries over (ON;
   // payloads are prose-like, scrolling hides the tail).
@@ -97,21 +98,26 @@ const MqttLastWillTab: React.FC<MqttLastWillTabProps> = ({ draft, setDraft, v5 }
         <Text type="secondary" style={{ fontSize: 12, whiteSpace: 'nowrap', lineHeight: '24px' }}>
           {t('workbench.editors.mqtt.will.delayLabel')}
         </Text>
-        <Tooltip title={v5 ? undefined : t('workbench.editors.mqtt.will.delayHelp')}>
-          <InputNumber
-            size="small"
-            min={0}
-            max={0xffff_ffff}
-            disabled={!v5}
-            value={draft.lastWill.willDelayInterval}
-            onChange={(next) =>
-              setDraft((d) => ({ ...d, lastWill: { ...d.lastWill, willDelayInterval: next ?? undefined } }))
-            }
-            placeholder={t('workbench.editors.mqtt.will.delayPlaceholder')}
-            style={{ width: 120 }}
-            data-testid="mqtt-will-delay"
-          />
-        </Tooltip>
+        {/* The empty knob means the default in effect — its stated
+          default reads at full text contrast, the Settings-tab
+          discipline. */}
+        <ConfigProvider theme={{ components: { InputNumber: { colorTextPlaceholder: token.colorText } } }}>
+          <Tooltip title={v5 ? undefined : t('workbench.editors.mqtt.will.delayHelp')}>
+            <InputNumber
+              size="small"
+              min={0}
+              max={0xffff_ffff}
+              disabled={!v5}
+              value={draft.lastWill.willDelayInterval}
+              onChange={(next) =>
+                setDraft((d) => ({ ...d, lastWill: { ...d.lastWill, willDelayInterval: next ?? undefined } }))
+              }
+              placeholder={t('workbench.editors.mqtt.will.delayPlaceholder')}
+              style={{ width: 120 }}
+              data-testid="mqtt-will-delay"
+            />
+          </Tooltip>
+        </ConfigProvider>
         <Checkbox
           checked={draft.lastWill.retain}
           onChange={(e) => setDraft((d) => ({ ...d, lastWill: { ...d.lastWill, retain: e.target.checked } }))}

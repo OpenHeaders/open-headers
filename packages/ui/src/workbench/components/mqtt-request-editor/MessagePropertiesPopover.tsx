@@ -11,7 +11,7 @@ import { PlusOutlined, SettingOutlined } from '@ant-design/icons';
 import { generateUid } from '@openheaders/core/utils';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { InfoPopoverContainerProvider } from '@openheaders/ui/shared/info-popover';
-import { Badge, Button, Input, InputNumber, Popover, Switch, Tooltip, Typography, theme } from 'antd';
+import { Badge, Button, ConfigProvider, Input, InputNumber, Popover, Switch, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useRef, useState } from 'react';
 import type { MqttMessagePropertiesDraft } from './draft';
@@ -141,79 +141,90 @@ const MessagePropertiesPopover: React.FC<{
         />
         {/* One anatomy for every row: the label column left, the
           control column right — explanations live behind the (i)
-          popovers, never inline in the labels. */}
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'auto 1fr',
-            columnGap: 12,
-            rowGap: 8,
-            alignItems: 'center',
+          popovers, never inline in the labels. An empty knob means the
+          default in effect — its stated default reads at full text
+          contrast, the Settings-tab discipline. */}
+        <ConfigProvider
+          theme={{
+            components: {
+              Input: { colorTextPlaceholder: token.colorText },
+              InputNumber: { colorTextPlaceholder: token.colorText },
+            },
           }}
         >
-          <OptionLabel
-            text={t('workbench.editors.mqtt.props.responseTopic')}
-            info={mqttSettingsRowInfo(t, 'responseTopic')}
-          />
-          <Input
-            size="small"
-            style={{ width: 200 }}
-            placeholder={t('workbench.editors.mqtt.props.nonePlaceholder')}
-            value={value.responseTopic}
-            disabled={!v5}
-            onChange={(e) => set({ responseTopic: e.target.value })}
-            data-testid={`${testId}-response-topic`}
-          />
-          <OptionLabel
-            text={t('workbench.editors.mqtt.props.correlationData')}
-            info={mqttSettingsRowInfo(t, 'correlationData')}
-          />
-          <Input
-            size="small"
-            style={{ width: 200 }}
-            placeholder={t('workbench.editors.mqtt.props.nonePlaceholder')}
-            value={value.correlationData}
-            disabled={!v5}
-            onChange={(e) => set({ correlationData: e.target.value })}
-          />
-          <OptionLabel
-            text={t('workbench.editors.mqtt.props.messageExpiry')}
-            info={mqttSettingsRowInfo(t, 'messageExpiry')}
-          />
-          <InputNumber
-            size="small"
-            min={0}
-            max={0xffff_ffff}
-            value={value.messageExpiryInterval}
-            disabled={!v5}
-            onChange={(next) => set({ messageExpiryInterval: next ?? undefined })}
-            placeholder={t('workbench.editors.mqtt.props.messageExpiryPlaceholder')}
-            style={{ width: 120 }}
-          />
-          <OptionLabel
-            text={t('workbench.editors.mqtt.props.contentType')}
-            info={mqttSettingsRowInfo(t, 'contentType')}
-          />
-          <Input
-            size="small"
-            style={{ width: 200 }}
-            placeholder={t('workbench.editors.mqtt.props.nonePlaceholder')}
-            value={value.contentType}
-            disabled={!v5}
-            onChange={(e) => set({ contentType: e.target.value })}
-          />
-          <OptionLabel
-            text={t('workbench.editors.mqtt.props.payloadFormatIndicator')}
-            info={mqttSettingsRowInfo(t, 'payloadFormatIndicator')}
-          />
-          <Switch
-            size="small"
-            style={{ justifySelf: 'start' }}
-            checked={value.payloadFormatIndicator}
-            disabled={!v5}
-            onChange={(payloadFormatIndicator) => set({ payloadFormatIndicator })}
-          />
-        </div>
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'auto 1fr',
+              columnGap: 12,
+              rowGap: 8,
+              alignItems: 'center',
+            }}
+          >
+            <OptionLabel
+              text={t('workbench.editors.mqtt.props.responseTopic')}
+              info={mqttSettingsRowInfo(t, 'responseTopic')}
+            />
+            <Input
+              size="small"
+              style={{ width: 200 }}
+              placeholder={t('workbench.editors.mqtt.props.nonePlaceholder')}
+              value={value.responseTopic}
+              disabled={!v5}
+              onChange={(e) => set({ responseTopic: e.target.value })}
+              data-testid={`${testId}-response-topic`}
+            />
+            <OptionLabel
+              text={t('workbench.editors.mqtt.props.correlationData')}
+              info={mqttSettingsRowInfo(t, 'correlationData')}
+            />
+            <Input
+              size="small"
+              style={{ width: 200 }}
+              placeholder={t('workbench.editors.mqtt.props.nonePlaceholder')}
+              value={value.correlationData}
+              disabled={!v5}
+              onChange={(e) => set({ correlationData: e.target.value })}
+            />
+            <OptionLabel
+              text={t('workbench.editors.mqtt.props.messageExpiry')}
+              info={mqttSettingsRowInfo(t, 'messageExpiry')}
+            />
+            <InputNumber
+              size="small"
+              min={0}
+              max={0xffff_ffff}
+              value={value.messageExpiryInterval}
+              disabled={!v5}
+              onChange={(next) => set({ messageExpiryInterval: next ?? undefined })}
+              placeholder={t('workbench.editors.mqtt.props.messageExpiryPlaceholder')}
+              style={{ width: 120 }}
+            />
+            <OptionLabel
+              text={t('workbench.editors.mqtt.props.contentType')}
+              info={mqttSettingsRowInfo(t, 'contentType')}
+            />
+            <Input
+              size="small"
+              style={{ width: 200 }}
+              placeholder={t('workbench.editors.mqtt.props.nonePlaceholder')}
+              value={value.contentType}
+              disabled={!v5}
+              onChange={(e) => set({ contentType: e.target.value })}
+            />
+            <OptionLabel
+              text={t('workbench.editors.mqtt.props.payloadFormatIndicator')}
+              info={mqttSettingsRowInfo(t, 'payloadFormatIndicator')}
+            />
+            <Switch
+              size="small"
+              style={{ justifySelf: 'start' }}
+              checked={value.payloadFormatIndicator}
+              disabled={!v5}
+              onChange={(payloadFormatIndicator) => set({ payloadFormatIndicator })}
+            />
+          </div>
+        </ConfigProvider>
       </div>
     </InfoPopoverContainerProvider>
   );
