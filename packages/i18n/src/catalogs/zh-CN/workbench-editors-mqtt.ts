@@ -121,7 +121,7 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.topics.retainHandling2Desc': '代理不为此订阅发送保留消息。',
   'workbench.editors.mqtt.topics.subscriptionId': 'Subscription Identifier',
   'workbench.editors.mqtt.topics.subscriptionIdDesc': '代理会将该数字标识附加到经此订阅投递的消息上。',
-  'workbench.editors.mqtt.topics.subscriptionIdPlaceholder': '无',
+  'workbench.editors.mqtt.topics.subscriptionIdPlaceholder': '无（默认）',
   'workbench.editors.mqtt.topics.subscribeProperties': '属性',
   'workbench.editors.mqtt.topics.subscribePropertiesDesc':
     '随此行的 SUBSCRIBE 报文一次性发送的 User Properties。其含义由代理定义；不会附加到投递的消息上。',
@@ -178,7 +178,7 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.settings.keepAlivePlaceholder': '60 s（默认）',
   'workbench.editors.mqtt.settings.timeoutLabel': '连接超时',
   'workbench.editors.mqtt.settings.timeoutHelp': '仅限连接拨号的墙钟上限——已打开的会话没有上限。留空不设置建立时限。',
-  'workbench.editors.mqtt.settings.timeoutPlaceholder': '无限制',
+  'workbench.editors.mqtt.settings.timeoutPlaceholder': '无限制（默认）',
   'workbench.editors.mqtt.settings.receiveMaximumLabel': 'Receive Maximum',
   'workbench.editors.mqtt.settings.receiveMaximumHelp':
     '同时向此客户端在途的 QoS 1/2 消息数量上限。留空采用规范默认值 65535。',
@@ -186,7 +186,7 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.settings.maxPacketSizeLabel': 'Maximum Packet Size',
   'workbench.editors.mqtt.settings.maxPacketSizeHelp':
     '此客户端接受的最大数据包——超过的包会被代理丢弃。留空表示不设上限。',
-  'workbench.editors.mqtt.settings.noLimit': '不限制',
+  'workbench.editors.mqtt.settings.noLimit': '不限制（默认）',
   'workbench.editors.mqtt.settings.sslVerifyLabel': 'SSL 证书验证',
   'workbench.editors.mqtt.settings.sslVerifyHelp':
     '对 mqtts/wss 会话按系统根证书验证代理证书。开发中的自签名代理可关闭。',

@@ -129,7 +129,7 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.topics.subscriptionId': 'Subscription Identifier',
   'workbench.editors.mqtt.topics.subscriptionIdDesc':
     'Identificador numérico que el broker adjunta a los mensajes entregados por esta suscripción.',
-  'workbench.editors.mqtt.topics.subscriptionIdPlaceholder': 'Ninguno',
+  'workbench.editors.mqtt.topics.subscriptionIdPlaceholder': 'Ninguno (por defecto)',
   'workbench.editors.mqtt.topics.subscribeProperties': 'Propiedades',
   'workbench.editors.mqtt.topics.subscribePropertiesDesc':
     'User Properties enviadas una vez con el paquete SUBSCRIBE de esta fila. El broker define su significado; no se adjuntan a los mensajes entregados.',
@@ -190,7 +190,7 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.settings.timeoutLabel': 'Tiempo de espera de conexión',
   'workbench.editors.mqtt.settings.timeoutHelp':
     'Techo de reloj solo para la marcación de la conexión; una sesión abierta no tiene techo. Vacío no impone plazo de apertura.',
-  'workbench.editors.mqtt.settings.timeoutPlaceholder': 'Sin límite',
+  'workbench.editors.mqtt.settings.timeoutPlaceholder': 'Sin límite (por defecto)',
   'workbench.editors.mqtt.settings.receiveMaximumLabel': 'Receive Maximum',
   'workbench.editors.mqtt.settings.receiveMaximumHelp':
     'Cuántos mensajes QoS 1/2 pueden estar en vuelo hacia este cliente a la vez. Vacío aplica el valor por defecto de la especificación, 65.535.',
@@ -198,7 +198,7 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.settings.maxPacketSizeLabel': 'Maximum Packet Size',
   'workbench.editors.mqtt.settings.maxPacketSizeHelp':
     'Paquete más grande que acepta este cliente; el bróker descarta los mayores. Vacío no impone límite.',
-  'workbench.editors.mqtt.settings.noLimit': 'Sin límite',
+  'workbench.editors.mqtt.settings.noLimit': 'Sin límite (por defecto)',
   'workbench.editors.mqtt.settings.sslVerifyLabel': 'Verificación del certificado SSL',
   'workbench.editors.mqtt.settings.sslVerifyHelp':
     'Verificar el certificado del bróker contra las raíces del sistema en sesiones mqtts/wss. Desactívalo para brókers de desarrollo autofirmados.',

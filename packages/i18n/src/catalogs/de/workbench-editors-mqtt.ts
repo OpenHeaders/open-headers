@@ -132,7 +132,7 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.topics.subscriptionId': 'Subscription Identifier',
   'workbench.editors.mqtt.topics.subscriptionIdDesc':
     'Numerische Kennung, die der Broker an über dieses Abonnement zugestellte Nachrichten anhängt.',
-  'workbench.editors.mqtt.topics.subscriptionIdPlaceholder': 'Keine',
+  'workbench.editors.mqtt.topics.subscriptionIdPlaceholder': 'Keine (Standard)',
   'workbench.editors.mqtt.topics.subscribeProperties': 'Eigenschaften',
   'workbench.editors.mqtt.topics.subscribePropertiesDesc':
     'User Properties, die einmal mit dem SUBSCRIBE-Paket dieser Zeile gesendet werden. Ihre Bedeutung bestimmt der Broker; zugestellten Nachrichten werden sie nicht angehängt.',
@@ -193,7 +193,7 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.settings.timeoutLabel': 'Verbindungs-Timeout',
   'workbench.editors.mqtt.settings.timeoutHelp':
     'Wanduhr-Obergrenze nur für den Verbindungsaufbau — eine offene Sitzung hat keine Obergrenze. Leer setzt keine Aufbaufrist.',
-  'workbench.editors.mqtt.settings.timeoutPlaceholder': 'Kein Limit',
+  'workbench.editors.mqtt.settings.timeoutPlaceholder': 'Kein Limit (Standard)',
   'workbench.editors.mqtt.settings.receiveMaximumLabel': 'Receive Maximum',
   'workbench.editors.mqtt.settings.receiveMaximumHelp':
     'Wie viele QoS-1/2-Nachrichten gleichzeitig zu diesem Client unterwegs sein dürfen. Leer erlaubt den Spezifikations-Standard von 65.535.',
@@ -201,7 +201,7 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.settings.maxPacketSizeLabel': 'Maximum Packet Size',
   'workbench.editors.mqtt.settings.maxPacketSizeHelp':
     'Größtes Paket, das dieser Client annimmt — größere verwirft der Broker. Leer setzt kein Limit.',
-  'workbench.editors.mqtt.settings.noLimit': 'Kein Limit',
+  'workbench.editors.mqtt.settings.noLimit': 'Kein Limit (Standard)',
   'workbench.editors.mqtt.settings.sslVerifyLabel': 'SSL-Zertifikatsprüfung',
   'workbench.editors.mqtt.settings.sslVerifyHelp':
     'Das Broker-Zertifikat für mqtts/wss-Sitzungen gegen die Systemwurzeln prüfen. Für selbstsignierte Entwicklungs-Broker ausschalten.',

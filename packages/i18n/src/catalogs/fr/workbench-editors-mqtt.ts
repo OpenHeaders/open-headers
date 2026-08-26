@@ -131,7 +131,7 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.topics.subscriptionId': 'Subscription Identifier',
   'workbench.editors.mqtt.topics.subscriptionIdDesc':
     'Identifiant numérique que le broker joint aux messages livrés via cet abonnement.',
-  'workbench.editors.mqtt.topics.subscriptionIdPlaceholder': 'Aucun',
+  'workbench.editors.mqtt.topics.subscriptionIdPlaceholder': 'Aucun (défaut)',
   'workbench.editors.mqtt.topics.subscribeProperties': 'Propriétés',
   'workbench.editors.mqtt.topics.subscribePropertiesDesc':
     'User Properties envoyées une fois avec le paquet SUBSCRIBE de cette ligne. Le broker définit leur signification ; elles ne sont pas jointes aux messages livrés.',
@@ -192,7 +192,7 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.settings.timeoutLabel': 'Délai de connexion',
   'workbench.editors.mqtt.settings.timeoutHelp':
     'Plafond horloge sur l’ouverture de connexion seulement — une session ouverte n’a pas de plafond. Vide n’impose aucun délai d’ouverture.',
-  'workbench.editors.mqtt.settings.timeoutPlaceholder': 'Sans limite',
+  'workbench.editors.mqtt.settings.timeoutPlaceholder': 'Sans limite (défaut)',
   'workbench.editors.mqtt.settings.receiveMaximumLabel': 'Receive Maximum',
   'workbench.editors.mqtt.settings.receiveMaximumHelp':
     'Nombre de messages QoS 1/2 pouvant être en vol vers ce client à la fois. Vide applique le défaut de la spécification, 65 535.',
@@ -200,7 +200,7 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.settings.maxPacketSizeLabel': 'Maximum Packet Size',
   'workbench.editors.mqtt.settings.maxPacketSizeHelp':
     'Plus grand paquet accepté par ce client — le courtier abandonne les plus gros. Vide n’impose aucune limite.',
-  'workbench.editors.mqtt.settings.noLimit': 'Aucune limite',
+  'workbench.editors.mqtt.settings.noLimit': 'Aucune limite (défaut)',
   'workbench.editors.mqtt.settings.sslVerifyLabel': 'Vérification du certificat SSL',
   'workbench.editors.mqtt.settings.sslVerifyHelp':
     'Vérifier le certificat du courtier contre les racines système pour les sessions mqtts/wss. Désactivez pour les courtiers auto-signés de développement.',

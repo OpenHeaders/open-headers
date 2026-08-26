@@ -123,7 +123,7 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.topics.subscriptionId': 'Subscription Identifier',
   'workbench.editors.mqtt.topics.subscriptionIdDesc':
     'A numeric id the broker attaches to messages delivered through this subscription.',
-  'workbench.editors.mqtt.topics.subscriptionIdPlaceholder': 'None',
+  'workbench.editors.mqtt.topics.subscriptionIdPlaceholder': 'None (default)',
   'workbench.editors.mqtt.topics.subscribeProperties': 'Properties',
   'workbench.editors.mqtt.topics.subscribePropertiesDesc':
     'User Properties sent once with this row’s SUBSCRIBE packet. The broker defines their meaning; they are not attached to delivered messages.',
@@ -184,7 +184,7 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.settings.timeoutLabel': 'Connect timeout',
   'workbench.editors.mqtt.settings.timeoutHelp':
     'Wall-clock ceiling on the connection dial only — an open session has no ceiling. Empty sets no dial deadline.',
-  'workbench.editors.mqtt.settings.timeoutPlaceholder': 'No limit',
+  'workbench.editors.mqtt.settings.timeoutPlaceholder': 'No limit (default)',
   'workbench.editors.mqtt.settings.receiveMaximumLabel': 'Receive Maximum',
   'workbench.editors.mqtt.settings.receiveMaximumHelp':
     'How many QoS 1/2 messages may be in flight toward this client at once. Empty allows the spec default of 65,535.',
@@ -192,7 +192,7 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.settings.maxPacketSizeLabel': 'Maximum Packet Size',
   'workbench.editors.mqtt.settings.maxPacketSizeHelp':
     'Largest packet this client accepts — the broker drops bigger ones. Empty sets no limit.',
-  'workbench.editors.mqtt.settings.noLimit': 'No limit',
+  'workbench.editors.mqtt.settings.noLimit': 'No limit (default)',
   'workbench.editors.mqtt.settings.sslVerifyLabel': 'SSL certificate verification',
   'workbench.editors.mqtt.settings.sslVerifyHelp':
     'Verify the broker certificate against the system roots for mqtts/wss sessions. Turn off for self-signed development brokers.',
