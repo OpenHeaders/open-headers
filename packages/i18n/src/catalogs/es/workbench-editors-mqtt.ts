@@ -67,11 +67,26 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.props.addUserProp': 'Propiedad de usuario',
   'workbench.editors.mqtt.props.removeUserProp': 'Quitar propiedad de usuario',
   'workbench.editors.mqtt.props.responseTopic': 'Response Topic',
+  'workbench.editors.mqtt.props.responseTopicDesc':
+    'Tema en el que se pide al receptor que responda: petición/respuesta sobre pub/sub. Vacío significa que la propiedad no se envía.',
   'workbench.editors.mqtt.props.correlationData': 'Correlation Data',
-  'workbench.editors.mqtt.props.messageExpiry': 'Message Expiry Interval (s)',
+  'workbench.editors.mqtt.props.correlationDataDesc':
+    'Token opaco que el receptor copia en su respuesta para que pueda emparejarse con este mensaje. Vacío significa que la propiedad no se envía.',
+  'workbench.editors.mqtt.props.messageExpiry': 'Message Expiry Interval',
+  'workbench.editors.mqtt.props.messageExpiryDesc':
+    'Segundos durante los que el bróker mantiene el mensaje entregable; transcurridos, se descarta en lugar de entregarse. Vacío significa que el mensaje nunca expira.',
+  'workbench.editors.mqtt.props.messageExpiryPlaceholder': 'Sin expiración',
   'workbench.editors.mqtt.props.contentType': 'Content Type',
-  'workbench.editors.mqtt.props.payloadFormatIndicator':
-    'Payload Format Indicator: marcar la carga útil como texto UTF-8',
+  'workbench.editors.mqtt.props.contentTypeDesc':
+    'Tipo MIME que describe la carga útil, transmitido tal cual a los receptores. Vacío significa que la propiedad no se envía.',
+  'workbench.editors.mqtt.props.payloadFormatIndicator': 'Payload Format Indicator',
+  'workbench.editors.mqtt.props.payloadFormatIndicatorDesc':
+    'Marca la carga útil como texto UTF-8 en lugar de bytes sin especificar; el bróker y los receptores pueden validarla.',
+  'workbench.editors.mqtt.props.nonePlaceholder': 'Ninguno',
+  'workbench.editors.mqtt.props.sectionProperties': 'Propiedades',
+  'workbench.editors.mqtt.props.sectionPropertiesDesc':
+    'Pares clave-valor libres que viajan con el mensaje: metadatos de aplicación que el bróker transmite tal cual.',
+  'workbench.editors.mqtt.props.sectionSettings': 'Ajustes',
   'workbench.editors.mqtt.saved.title': 'Mensajes guardados',
   'workbench.editors.mqtt.saved.addTooltip': 'Guardar la composición actual como mensaje reutilizable',
   'workbench.editors.mqtt.saved.topicTagPlaceholder': 'tema',

@@ -67,10 +67,26 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.props.addUserProp': 'Benutzereigenschaft',
   'workbench.editors.mqtt.props.removeUserProp': 'Benutzereigenschaft entfernen',
   'workbench.editors.mqtt.props.responseTopic': 'Response Topic',
+  'workbench.editors.mqtt.props.responseTopicDesc':
+    'Thema, auf dem der Empfänger antworten soll — Request/Response über Pub/Sub. Leer bedeutet, die Eigenschaft wird nicht gesendet.',
   'workbench.editors.mqtt.props.correlationData': 'Correlation Data',
-  'workbench.editors.mqtt.props.messageExpiry': 'Message Expiry Interval (s)',
+  'workbench.editors.mqtt.props.correlationDataDesc':
+    'Opakes Token, das der Empfänger auf seine Antwort übernimmt, damit sie dieser Nachricht zugeordnet werden kann. Leer bedeutet, die Eigenschaft wird nicht gesendet.',
+  'workbench.editors.mqtt.props.messageExpiry': 'Message Expiry Interval',
+  'workbench.editors.mqtt.props.messageExpiryDesc':
+    'Sekunden, die der Broker die Nachricht zustellbar hält; danach wird sie verworfen statt zugestellt. Leer bedeutet, die Nachricht läuft nie ab.',
+  'workbench.editors.mqtt.props.messageExpiryPlaceholder': 'Kein Ablauf',
   'workbench.editors.mqtt.props.contentType': 'Content Type',
-  'workbench.editors.mqtt.props.payloadFormatIndicator': 'Payload Format Indicator — Nutzlast als UTF-8-Text markieren',
+  'workbench.editors.mqtt.props.contentTypeDesc':
+    'MIME-Typ, der die Nutzlast beschreibt, unverändert an die Empfänger weitergereicht. Leer bedeutet, die Eigenschaft wird nicht gesendet.',
+  'workbench.editors.mqtt.props.payloadFormatIndicator': 'Payload Format Indicator',
+  'workbench.editors.mqtt.props.payloadFormatIndicatorDesc':
+    'Markiert die Nutzlast als UTF-8-Text statt unspezifizierter Bytes; Broker und Empfänger dürfen das validieren.',
+  'workbench.editors.mqtt.props.nonePlaceholder': 'Keine',
+  'workbench.editors.mqtt.props.sectionProperties': 'Eigenschaften',
+  'workbench.editors.mqtt.props.sectionPropertiesDesc':
+    'Freie Schlüssel-Wert-Paare, die mit der Nachricht reisen — Anwendungsmetadaten, die der Broker unverändert durchreicht.',
+  'workbench.editors.mqtt.props.sectionSettings': 'Einstellungen',
   'workbench.editors.mqtt.saved.title': 'Gespeicherte Nachrichten',
   'workbench.editors.mqtt.saved.addTooltip': 'Aktuellen Entwurf als wiederverwendbare Nachricht speichern',
   'workbench.editors.mqtt.saved.topicTagPlaceholder': 'Thema',

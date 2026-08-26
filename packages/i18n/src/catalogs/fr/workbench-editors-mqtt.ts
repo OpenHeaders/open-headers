@@ -68,11 +68,26 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.props.addUserProp': 'Propriété utilisateur',
   'workbench.editors.mqtt.props.removeUserProp': 'Supprimer la propriété utilisateur',
   'workbench.editors.mqtt.props.responseTopic': 'Response Topic',
+  'workbench.editors.mqtt.props.responseTopicDesc':
+    'Sujet sur lequel le destinataire est invité à répondre — requête/réponse par-dessus pub/sub. Vide signifie que la propriété n’est pas envoyée.',
   'workbench.editors.mqtt.props.correlationData': 'Correlation Data',
-  'workbench.editors.mqtt.props.messageExpiry': 'Message Expiry Interval (s)',
+  'workbench.editors.mqtt.props.correlationDataDesc':
+    'Jeton opaque que le destinataire recopie sur sa réponse afin qu’elle puisse être rattachée à ce message. Vide signifie que la propriété n’est pas envoyée.',
+  'workbench.editors.mqtt.props.messageExpiry': 'Message Expiry Interval',
+  'workbench.editors.mqtt.props.messageExpiryDesc':
+    'Secondes pendant lesquelles le courtier garde le message livrable ; passé ce délai il est abandonné au lieu d’être livré. Vide signifie que le message n’expire jamais.',
+  'workbench.editors.mqtt.props.messageExpiryPlaceholder': 'Sans expiration',
   'workbench.editors.mqtt.props.contentType': 'Content Type',
-  'workbench.editors.mqtt.props.payloadFormatIndicator':
-    'Payload Format Indicator — marquer la charge utile comme texte UTF-8',
+  'workbench.editors.mqtt.props.contentTypeDesc':
+    'Type MIME décrivant la charge utile, transmis tel quel aux destinataires. Vide signifie que la propriété n’est pas envoyée.',
+  'workbench.editors.mqtt.props.payloadFormatIndicator': 'Payload Format Indicator',
+  'workbench.editors.mqtt.props.payloadFormatIndicatorDesc':
+    'Marque la charge utile comme texte UTF-8 plutôt que comme octets non spécifiés ; le courtier et les destinataires peuvent la valider.',
+  'workbench.editors.mqtt.props.nonePlaceholder': 'Aucun',
+  'workbench.editors.mqtt.props.sectionProperties': 'Propriétés',
+  'workbench.editors.mqtt.props.sectionPropertiesDesc':
+    'Paires clé-valeur libres transportées avec le message — des métadonnées applicatives que le courtier transmet telles quelles.',
+  'workbench.editors.mqtt.props.sectionSettings': 'Paramètres',
   'workbench.editors.mqtt.saved.title': 'Messages enregistrés',
   'workbench.editors.mqtt.saved.addTooltip': 'Enregistrer la composition actuelle comme message réutilisable',
   'workbench.editors.mqtt.saved.topicTagPlaceholder': 'sujet',

@@ -15,11 +15,7 @@ import { topicFilterError } from '@openheaders/core/mqtt';
 import type { MqttRequestQos, MqttRetainHandling, MqttTopicRow } from '@openheaders/core/types';
 import { generateUid } from '@openheaders/core/utils';
 import { useT } from '@openheaders/ui/context/LocaleContext';
-import {
-  InfoPopoverContainerProvider,
-  InfoTrigger,
-  type InfoPopoverContent,
-} from '@openheaders/ui/shared/info-popover';
+import { InfoPopoverContainerProvider } from '@openheaders/ui/shared/info-popover';
 import { Button, Input, InputNumber, Popover, Select, Switch, Tag, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { cellFont } from '../request-editor/editable-grid-styles';
@@ -27,6 +23,7 @@ import { EditableGridTable } from '../request-editor/EditableGridTable';
 import type { EditableRowAdapter } from '../request-editor/editable-grid-types';
 import { TEMPLATE_INPUT_LINE_HEIGHT, TemplateInput } from '../template-input';
 import { mqttSettingsRowInfo } from './MqttSettingsRowInfo';
+import OptionLabel from './OptionLabel';
 import { grantFailureLabel } from './session-display';
 import type { LiveSubscriptionMark } from './useMqttSessionPlane';
 
@@ -36,26 +33,6 @@ const { Text } = Typography;
 // cell with symmetric padding (see `KeyValueTable`).
 const CELL_LINE_PX = 12 * TEMPLATE_INPUT_LINE_HEIGHT;
 const CELL_VERTICAL_PADDING = (32 - CELL_LINE_PX) / 2;
-
-/** Label cell of the options grid — the short protocol name; the
- *  explanation lives behind the standard (i) popover with the shared
- *  example session, never inline. `strong` makes it a section title. */
-const OptionLabel: React.FC<{ text: string; info: InfoPopoverContent; strong?: boolean }> = ({
-  text,
-  info,
-  strong,
-}) => (
-  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-    <Text
-      type={strong === true ? undefined : 'secondary'}
-      strong={strong}
-      style={{ fontSize: 11, whiteSpace: 'nowrap' }}
-    >
-      {text}
-    </Text>
-    <InfoTrigger content={info} />
-  </span>
-);
 
 /** The (i) popovers portal INSIDE the options popover — portaled to
  *  body they would count as an outside click and close it. */

@@ -68,10 +68,24 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.props.addUserProp': '用户属性',
   'workbench.editors.mqtt.props.removeUserProp': '移除用户属性',
   'workbench.editors.mqtt.props.responseTopic': 'Response Topic',
+  'workbench.editors.mqtt.props.responseTopicDesc':
+    '请求接收方回复所用的主题——在发布/订阅之上实现请求/响应。留空表示不发送该属性。',
   'workbench.editors.mqtt.props.correlationData': 'Correlation Data',
-  'workbench.editors.mqtt.props.messageExpiry': 'Message Expiry Interval（秒）',
+  'workbench.editors.mqtt.props.correlationDataDesc':
+    '接收方原样复制到回复上的不透明令牌，用于把响应对应到这条消息。留空表示不发送该属性。',
+  'workbench.editors.mqtt.props.messageExpiry': 'Message Expiry Interval',
+  'workbench.editors.mqtt.props.messageExpiryDesc':
+    '代理保持消息可投递的秒数；超时后消息被丢弃而不再投递。留空表示消息永不过期。',
+  'workbench.editors.mqtt.props.messageExpiryPlaceholder': '不过期',
   'workbench.editors.mqtt.props.contentType': 'Content Type',
-  'workbench.editors.mqtt.props.payloadFormatIndicator': 'Payload Format Indicator——将载荷标记为 UTF-8 文本',
+  'workbench.editors.mqtt.props.contentTypeDesc': '描述载荷的 MIME 类型，原样传递给接收方。留空表示不发送该属性。',
+  'workbench.editors.mqtt.props.payloadFormatIndicator': 'Payload Format Indicator',
+  'workbench.editors.mqtt.props.payloadFormatIndicatorDesc':
+    '将载荷标记为 UTF-8 文本而非未指定的字节；代理和接收方可以据此校验。',
+  'workbench.editors.mqtt.props.nonePlaceholder': '无',
+  'workbench.editors.mqtt.props.sectionProperties': '属性',
+  'workbench.editors.mqtt.props.sectionPropertiesDesc': '随消息传递的自由键值对——代理原样透传的应用元数据。',
+  'workbench.editors.mqtt.props.sectionSettings': '设置',
   'workbench.editors.mqtt.saved.title': '已保存消息',
   'workbench.editors.mqtt.saved.addTooltip': '将当前编写内容保存为可复用消息',
   'workbench.editors.mqtt.saved.topicTagPlaceholder': '主题',

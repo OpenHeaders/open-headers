@@ -61,10 +61,26 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.props.addUserProp': 'User property',
   'workbench.editors.mqtt.props.removeUserProp': 'Remove user property',
   'workbench.editors.mqtt.props.responseTopic': 'Response Topic',
+  'workbench.editors.mqtt.props.responseTopicDesc':
+    'Topic the receiver is asked to reply on — request/response over pub/sub. Empty means the property is not sent.',
   'workbench.editors.mqtt.props.correlationData': 'Correlation Data',
-  'workbench.editors.mqtt.props.messageExpiry': 'Message Expiry Interval (s)',
+  'workbench.editors.mqtt.props.correlationDataDesc':
+    'Opaque token the receiver copies onto its reply so the response can be matched to this message. Empty means the property is not sent.',
+  'workbench.editors.mqtt.props.messageExpiry': 'Message Expiry Interval',
+  'workbench.editors.mqtt.props.messageExpiryDesc':
+    'Seconds the broker keeps the message deliverable; once elapsed it is dropped instead of delivered. Empty means the message never expires.',
+  'workbench.editors.mqtt.props.messageExpiryPlaceholder': 'No expiry',
   'workbench.editors.mqtt.props.contentType': 'Content Type',
-  'workbench.editors.mqtt.props.payloadFormatIndicator': 'Payload Format Indicator — mark the payload UTF-8 text',
+  'workbench.editors.mqtt.props.contentTypeDesc':
+    'MIME type describing the payload, passed to receivers verbatim. Empty means the property is not sent.',
+  'workbench.editors.mqtt.props.payloadFormatIndicator': 'Payload Format Indicator',
+  'workbench.editors.mqtt.props.payloadFormatIndicatorDesc':
+    'Marks the payload as UTF-8 text rather than unspecified bytes; the broker and receivers may validate it.',
+  'workbench.editors.mqtt.props.nonePlaceholder': 'None',
+  'workbench.editors.mqtt.props.sectionProperties': 'Properties',
+  'workbench.editors.mqtt.props.sectionPropertiesDesc':
+    'Free-form key–value pairs carried with the message — application metadata the broker passes through verbatim.',
+  'workbench.editors.mqtt.props.sectionSettings': 'Settings',
   'workbench.editors.mqtt.saved.title': 'Saved messages',
   'workbench.editors.mqtt.saved.addTooltip': 'Save the current compose as a reusable message',
   'workbench.editors.mqtt.saved.topicTagPlaceholder': 'topic',

@@ -5,13 +5,15 @@
  * then the knob's own copy.
  *
  * Every popover leads with the SAME canonical example session — one
- * CONNECT and one SUBSCRIBE — and lights its own token, so reading
- * across the Settings rows and the topic-row subscription options
- * builds one coherent picture of a single session seen knob by knob.
- * The Settings-tab rows partition the CONNECT tokens; the topic-row
- * options partition the SUBSCRIBE tokens; the options popover's two
- * section headers light their whole sub-slice (the group-header
- * idiom), so the headers partition the leg the rows itemize.
+ * CONNECT, one SUBSCRIBE, one PUBLISH — and lights its own token, so
+ * reading across the Settings rows, the topic-row subscription options
+ * and the message-properties popover builds one coherent picture of a
+ * single session seen knob by knob. The Settings-tab rows partition
+ * the CONNECT tokens; the topic-row options partition the SUBSCRIBE
+ * tokens; the message-properties rows partition the PUBLISH tokens;
+ * each popover's section headers light their whole sub-slice (the
+ * group-header idiom), so the headers partition the leg the rows
+ * itemize.
  *
  * Card tokens ride raw (wire vocabulary — the column-card precedent);
  * only the caption is localized.
@@ -23,8 +25,8 @@ import type { InfoPopoverContent } from '@openheaders/ui/shared/info-popover';
 import { MQTT_GROUP_LABEL_KEY, type MqttSettingsGroupKey } from './settings-groups';
 
 /** One key per knob that opens a popover with the card — the Settings
- *  tab rows plus the topic-row subscription options (the two section
- *  headers included). */
+ *  tab rows, the topic-row subscription options and the
+ *  message-properties rows (section headers included). */
 export type MqttInfoKey =
   | 'clientId'
   | 'cleanStart'
@@ -39,7 +41,14 @@ export type MqttInfoKey =
   | 'retainHandling'
   | 'subscriptionId'
   | 'subscribeProperties'
-  | 'subscribeSettings';
+  | 'subscribeSettings'
+  | 'responseTopic'
+  | 'correlationData'
+  | 'messageExpiry'
+  | 'contentType'
+  | 'payloadFormatIndicator'
+  | 'publishProperties'
+  | 'publishSettings';
 
 /** The single session every popover illustrates. Holding one example
  * fixed across all popovers lets the user map each knob onto the same
@@ -62,6 +71,13 @@ const EX = {
   retained: 'retained: on subscribe',
   subId: 'sub id: 7',
   props: 'props: trace=on',
+  pubTopic: 'sensors/1/temp',
+  respTopic: 'reply to: sensors/1/ack',
+  corr: 'corr: 42',
+  msgExpiry: 'expires: 60 s',
+  contentType: 'type: application/json',
+  pfi: 'utf-8 ✓',
+  pubProps: 'props: trace=on',
 } as const;
 
 type TokenId = keyof typeof EX;
@@ -93,6 +109,13 @@ const HIGHLIGHT: Record<MqttInfoKey, readonly TokenId[]> = {
   subscriptionId: ['subId'],
   subscribeProperties: ['props'],
   subscribeSettings: ['noLocal', 'rap', 'retained', 'subId'],
+  responseTopic: ['respTopic'],
+  correlationData: ['corr'],
+  messageExpiry: ['msgExpiry'],
+  contentType: ['contentType'],
+  payloadFormatIndicator: ['pfi'],
+  publishProperties: ['pubProps'],
+  publishSettings: ['respTopic', 'corr', 'msgExpiry', 'contentType', 'pfi'],
 };
 
 function MqttExampleCard({ lit }: { lit: ReadonlySet<TokenId> }) {
@@ -140,6 +163,22 @@ function MqttExampleCard({ lit }: { lit: ReadonlySet<TokenId> }) {
           {' · '}
           {tok('props')}
         </div>
+        <div className="oh-info-eg-line">
+          <span className="oh-info-eg-method">PUBLISH</span> {tok('pubTopic')}
+        </div>
+        <div className="oh-info-eg-line">
+          {tok('respTopic')}
+          {' · '}
+          {tok('corr')}
+          {' · '}
+          {tok('msgExpiry')}
+          {' · '}
+          {tok('contentType')}
+          {' · '}
+          {tok('pfi')}
+          {' · '}
+          {tok('pubProps')}
+        </div>
       </div>
     </div>
   );
@@ -160,6 +199,13 @@ const TITLE_KEY: Record<MqttInfoKey, MessageKey> = {
   subscriptionId: 'workbench.editors.mqtt.topics.subscriptionId',
   subscribeProperties: 'workbench.editors.mqtt.topics.subscribeProperties',
   subscribeSettings: 'workbench.editors.mqtt.topics.subscribeSettings',
+  responseTopic: 'workbench.editors.mqtt.props.responseTopic',
+  correlationData: 'workbench.editors.mqtt.props.correlationData',
+  messageExpiry: 'workbench.editors.mqtt.props.messageExpiry',
+  contentType: 'workbench.editors.mqtt.props.contentType',
+  payloadFormatIndicator: 'workbench.editors.mqtt.props.payloadFormatIndicator',
+  publishProperties: 'workbench.editors.mqtt.props.sectionProperties',
+  publishSettings: 'workbench.editors.mqtt.props.sectionSettings',
 };
 
 const SUMMARY_KEY: Record<Exclude<MqttInfoKey, 'retainHandling'>, MessageKey> = {
@@ -176,11 +222,19 @@ const SUMMARY_KEY: Record<Exclude<MqttInfoKey, 'retainHandling'>, MessageKey> = 
   subscriptionId: 'workbench.editors.mqtt.topics.subscriptionIdDesc',
   subscribeProperties: 'workbench.editors.mqtt.topics.subscribePropertiesDesc',
   subscribeSettings: 'workbench.editors.mqtt.topics.optionsHint',
+  responseTopic: 'workbench.editors.mqtt.props.responseTopicDesc',
+  correlationData: 'workbench.editors.mqtt.props.correlationDataDesc',
+  messageExpiry: 'workbench.editors.mqtt.props.messageExpiryDesc',
+  contentType: 'workbench.editors.mqtt.props.contentTypeDesc',
+  payloadFormatIndicator: 'workbench.editors.mqtt.props.payloadFormatIndicatorDesc',
+  publishProperties: 'workbench.editors.mqtt.props.sectionPropertiesDesc',
+  publishSettings: 'workbench.editors.mqtt.props.hint',
 };
 
 /** The Settings-tab rows carry their group's label (the group headers
- * carry the tab name); the option rows carry their section's header;
- * the section headers carry the Topics tab. */
+ * carry the tab name); the option and message-properties rows carry
+ * their section's header; the topic-options section headers carry the
+ * Topics tab, the message-properties ones the trigger's own name. */
 const KICKER_KEY: Record<MqttInfoKey, MessageKey> = {
   clientId: MQTT_GROUP_LABEL_KEY.connection,
   cleanStart: MQTT_GROUP_LABEL_KEY.connection,
@@ -196,6 +250,13 @@ const KICKER_KEY: Record<MqttInfoKey, MessageKey> = {
   subscriptionId: 'workbench.editors.mqtt.topics.subscribeSettings',
   subscribeProperties: 'workbench.editors.mqtt.tab.topics',
   subscribeSettings: 'workbench.editors.mqtt.tab.topics',
+  responseTopic: 'workbench.editors.mqtt.props.sectionSettings',
+  correlationData: 'workbench.editors.mqtt.props.sectionSettings',
+  messageExpiry: 'workbench.editors.mqtt.props.sectionSettings',
+  contentType: 'workbench.editors.mqtt.props.sectionSettings',
+  payloadFormatIndicator: 'workbench.editors.mqtt.props.sectionSettings',
+  publishProperties: 'workbench.editors.mqtt.props.buttonTooltip',
+  publishSettings: 'workbench.editors.mqtt.props.buttonTooltip',
 };
 
 const GROUP_SUMMARY_KEY: Record<MqttSettingsGroupKey, MessageKey> = {
