@@ -126,13 +126,6 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.topics.subscribePropertiesDesc':
     '随此行的 SUBSCRIBE 报文一次性发送的 User Properties。其含义由代理定义；不会附加到投递的消息上。',
   'workbench.editors.mqtt.topics.subscribeSettings': '设置',
-  'workbench.editors.mqtt.auth.typeLabel': '类型',
-  'workbench.editors.mqtt.auth.typeNone': '无授权',
-  'workbench.editors.mqtt.auth.typeBasic': 'Basic 授权',
-  'workbench.editors.mqtt.auth.usernameLabel': '用户名',
-  'workbench.editors.mqtt.auth.usernamePlaceholder': '用户名或 {{variable}}',
-  'workbench.editors.mqtt.auth.passwordLabel': '密码',
-  'workbench.editors.mqtt.auth.passwordPlaceholder': '密码或 {{variable}}',
   'workbench.editors.mqtt.auth.help':
     '作为 CONNECT 报文的 User Name 与 Password 在所有主机上发送——两个 MQTT 版本均支持。变量在连接时解析；保存的示例绝不捕获凭据。',
   'workbench.editors.mqtt.userProps.hint': '随 CONNECT 发送的用户属性——代理与其他工具可读取的自由元数据。',

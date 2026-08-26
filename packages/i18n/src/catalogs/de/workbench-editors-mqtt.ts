@@ -137,13 +137,6 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.topics.subscribePropertiesDesc':
     'User Properties, die einmal mit dem SUBSCRIBE-Paket dieser Zeile gesendet werden. Ihre Bedeutung bestimmt der Broker; zugestellten Nachrichten werden sie nicht angehängt.',
   'workbench.editors.mqtt.topics.subscribeSettings': 'Einstellungen',
-  'workbench.editors.mqtt.auth.typeLabel': 'Typ',
-  'workbench.editors.mqtt.auth.typeNone': 'Keine Authentifizierung',
-  'workbench.editors.mqtt.auth.typeBasic': 'Basic-Authentifizierung',
-  'workbench.editors.mqtt.auth.usernameLabel': 'Benutzername',
-  'workbench.editors.mqtt.auth.usernamePlaceholder': 'Benutzername oder {{variable}}',
-  'workbench.editors.mqtt.auth.passwordLabel': 'Passwort',
-  'workbench.editors.mqtt.auth.passwordPlaceholder': 'Passwort oder {{variable}}',
   'workbench.editors.mqtt.auth.help':
     'Werden als User Name und Password des CONNECT-Pakets auf jedem Host gesendet — beide MQTT-Versionen tragen sie. Variablen werden beim Verbinden aufgelöst; gespeicherte Beispiele erfassen die Zugangsdaten nie.',
   'workbench.editors.mqtt.userProps.hint':

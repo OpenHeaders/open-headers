@@ -1,6 +1,7 @@
 /**
- * AuthorizationTab — two-column layout. Left rail: auth-type picker +
- * contextual note. Right pane: auth-type-specific form.
+ * AuthorizationTab — the HTTP request's auth block on the shared
+ * `auth-layout` anatomy: left rail auth-type picker + contextual note,
+ * right pane the type's form.
  *
  * The wire-level `credentialsMode` (cookie-jar policy) lives under
  * the Settings tab now — this tab focuses purely on how the
@@ -11,14 +12,23 @@ import { getCapability } from '@openheaders/core/capabilities';
 import { findOAuth2Preset, OAUTH2_PROVIDER_PRESETS } from '@openheaders/core/oauth';
 import type { AuthConfig } from '@openheaders/core/types';
 import type { MessageKey } from '@openheaders/i18n';
-import { Select, Typography, theme } from 'antd';
+import { Select, Typography } from 'antd';
 import type React from 'react';
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { InfoTrigger } from '@openheaders/ui/shared/info-popover';
+import {
+  AUTH_FIELD_DEFAULT_MAX_WIDTH as FIELD_DEFAULT_MAX_WIDTH,
+  AuthEmptyState,
+  AuthForm,
+  AuthLabeledRow as LabeledRow,
+  AuthRailNote,
+  AuthSecretField as SecretField,
+  AuthTabShell,
+  AuthTypeLabel,
+} from './auth-layout';
 import OAuth2AuthEditor from './OAuth2AuthEditor';
-import { type GripResizeXEvent, TemplateInput } from '../template-input';
-import { useValueEditAction } from '../value-editors';
+import { TemplateInput } from '../template-input';
 
 const { Text } = Typography;
 
@@ -46,17 +56,8 @@ interface AuthorizationTabProps {
   onChange: (auth: AuthConfig) => void;
 }
 
-// Draggable rail bounds — narrow enough to reclaim space for long
-// credentials, wide enough that every auth-type label stays readable.
-const RAIL_MIN = 160;
-const RAIL_MAX = 420;
-const RAIL_DEFAULT = 210;
-
 const AuthorizationTab: React.FC<AuthorizationTabProps> = ({ auth, onChange }) => {
-  const { token } = theme.useToken();
   const t = useT();
-  const [railWidth, setRailWidth] = useState(RAIL_DEFAULT);
-  const dragRef = useRef<{ startX: number; startWidth: number } | null>(null);
   const authOptions = useMemo(() => AUTH_OPTIONS.map((o) => ({ value: o.value, label: t(o.labelKey) })), [t]);
 
   const switchType = (type: AuthKind) => {
@@ -94,228 +95,118 @@ const AuthorizationTab: React.FC<AuthorizationTabProps> = ({ auth, onChange }) =
   };
 
   return (
-    <div style={{ display: 'flex', minHeight: 320 }}>
-      {/* Left rail — sticks to the top of the scroll container so the
-          auth-type picker stays visible while the right pane's long
-          OAuth 2.0 form scrolls past it. `align-self: start` keeps
-          the rail content-sized so `position: sticky` has something
-          to anchor against; without it the flex item stretches to the
-          row's full height and sticky collapses to a no-op. */}
-      <div
-        style={{
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 8,
-          width: railWidth,
-          flexShrink: 0,
-          position: 'sticky',
-          top: 0,
-          alignSelf: 'start',
-        }}
-      >
-        <Text strong style={{ fontSize: 12 }}>
-          {t('workbench.editors.request.auth.typeLabel')}
-        </Text>
-        <Select
-          size="middle"
-          data-testid="oh-auth-type"
-          value={auth.type}
-          onChange={switchType}
-          options={authOptions}
-          style={{ width: '100%' }}
+    <AuthTabShell
+      rail={
+        <>
+          <AuthTypeLabel>{t('workbench.editors.request.auth.typeLabel')}</AuthTypeLabel>
+          <Select
+            size="middle"
+            data-testid="oh-auth-type"
+            value={auth.type}
+            onChange={switchType}
+            options={authOptions}
+            style={{ width: '100%' }}
+          />
+          {auth.type === 'inherit' && <AuthRailNote>{t('workbench.editors.request.auth.inheritNote')}</AuthRailNote>}
+          {auth.type === 'none' && <AuthRailNote>{t('workbench.editors.request.auth.noneNote')}</AuthRailNote>}
+          {auth.type === 'oauth2' && <OAuth2LeftRailControls auth={auth} onChange={onChange} />}
+        </>
+      }
+    >
+      {auth.type === 'none' && (
+        <AuthEmptyState
+          glyph="—"
+          title={t('workbench.editors.request.auth.type.none')}
+          note={t('workbench.editors.request.auth.noneNote')}
         />
-        {auth.type === 'inherit' && (
-          <Text type="secondary" style={{ fontSize: 12, marginTop: 4 }}>
-            {t('workbench.editors.request.auth.inheritNote')}
-          </Text>
-        )}
-        {auth.type === 'none' && (
-          <Text type="secondary" style={{ fontSize: 12, marginTop: 4 }}>
-            {t('workbench.editors.request.auth.noneNote')}
-          </Text>
-        )}
-        {auth.type === 'oauth2' && <OAuth2LeftRailControls auth={auth} onChange={onChange} />}
-      </div>
+      )}
 
-      {/* Draggable divider — resizes the rail within [RAIL_MIN, RAIL_MAX];
-          double-click resets. */}
-      {/* biome-ignore lint/a11y/noStaticElementInteractions: pointer-drag-only resize affordance */}
-      <div
-        role="separator"
-        aria-orientation="vertical"
-        aria-label={t('workbench.editors.request.auth.resizeRailAria')}
-        onPointerDown={(e) => {
-          e.preventDefault();
-          e.currentTarget.setPointerCapture(e.pointerId);
-          dragRef.current = { startX: e.clientX, startWidth: railWidth };
-        }}
-        onPointerMove={(e) => {
-          const drag = dragRef.current;
-          if (!drag) return;
-          const next = drag.startWidth + (e.clientX - drag.startX);
-          setRailWidth(Math.min(RAIL_MAX, Math.max(RAIL_MIN, next)));
-        }}
-        onPointerUp={() => {
-          dragRef.current = null;
-        }}
-        onDoubleClick={() => setRailWidth(RAIL_DEFAULT)}
-        style={{
-          width: 9,
-          margin: '0 6px',
-          flexShrink: 0,
-          cursor: 'col-resize',
-          display: 'flex',
-          justifyContent: 'center',
-          touchAction: 'none',
-        }}
-      >
-        <span style={{ width: 1, background: token.colorBorderSecondary }} />
-      </div>
+      {auth.type === 'inherit' && (
+        <AuthEmptyState
+          title={t('workbench.editors.request.auth.type.inherit')}
+          note={t('workbench.editors.request.auth.inheritDetail')}
+        />
+      )}
 
-      {/* Right pane */}
-      <div
-        style={{
-          flex: 1,
-          minWidth: 0,
-        }}
-      >
-        {auth.type === 'none' && (
-          <div
-            style={{
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-              height: '100%',
-              color: token.colorTextTertiary,
-              gap: 8,
-            }}
-          >
-            <div
-              style={{
-                width: 56,
-                height: 56,
-                borderRadius: 8,
-                background: token.colorFillTertiary,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: 22,
-                color: token.colorTextSecondary,
-              }}
-            >
-              —
-            </div>
-            <Text strong style={{ fontSize: 14 }}>
-              {t('workbench.editors.request.auth.type.none')}
-            </Text>
-            <Text type="secondary" style={{ fontSize: 12 }}>
-              {t('workbench.editors.request.auth.noneNote')}
-            </Text>
-          </div>
-        )}
+      {auth.type === 'basic' && (
+        <AuthForm>
+          <LabeledRow label={t('workbench.editors.request.auth.username')}>
+            <TemplateInput
+              size="small"
+              value={auth.username}
+              onChange={(next) => onChange({ ...auth, username: next })}
+              placeholder={t('workbench.editors.request.auth.usernamePlaceholder')}
+              style={{ maxWidth: FIELD_DEFAULT_MAX_WIDTH }}
+            />
+          </LabeledRow>
+          <LabeledRow label={t('workbench.editors.request.auth.password')}>
+            <SecretField
+              value={auth.password}
+              onChange={(next) => onChange({ ...auth, password: next })}
+              placeholder={t('workbench.editors.request.auth.passwordPlaceholder')}
+            />
+          </LabeledRow>
+        </AuthForm>
+      )}
 
-        {auth.type === 'inherit' && (
-          <div
-            style={{
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-              height: '100%',
-              color: token.colorTextTertiary,
-              gap: 8,
-            }}
-          >
-            <Text strong style={{ fontSize: 14 }}>
-              {t('workbench.editors.request.auth.type.inherit')}
-            </Text>
-            <Text type="secondary" style={{ fontSize: 12, textAlign: 'center', maxWidth: 360 }}>
-              {t('workbench.editors.request.auth.inheritDetail')}
-            </Text>
-          </div>
-        )}
+      {auth.type === 'bearer' && (
+        <AuthForm>
+          <LabeledRow label={t('workbench.editors.request.auth.token')}>
+            <SecretField
+              value={auth.token}
+              // The executor prepends the scheme — a pasted
+              // `Bearer <token>` sheds its prefix here so the wire
+              // header never reads `Bearer Bearer …` (same rule as
+              // the Headers tab's inline auth row).
+              onChange={(next) => onChange({ ...auth, token: next.replace(/^Bearer\s+/i, '') })}
+              placeholder={t('workbench.editors.request.auth.tokenPlaceholder')}
+            />
+          </LabeledRow>
+        </AuthForm>
+      )}
 
-        {auth.type === 'basic' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            <LabeledRow label={t('workbench.editors.request.auth.username')}>
-              <TemplateInput
-                size="small"
-                value={auth.username}
-                onChange={(next) => onChange({ ...auth, username: next })}
-                placeholder={t('workbench.editors.request.auth.usernamePlaceholder')}
-                style={{ maxWidth: FIELD_DEFAULT_MAX_WIDTH }}
-              />
-            </LabeledRow>
-            <LabeledRow label={t('workbench.editors.request.auth.password')}>
-              <SecretField
-                value={auth.password}
-                onChange={(next) => onChange({ ...auth, password: next })}
-                placeholder={t('workbench.editors.request.auth.passwordPlaceholder')}
-              />
-            </LabeledRow>
-          </div>
-        )}
+      {auth.type === 'api-key' && (
+        <AuthForm>
+          <LabeledRow label={t('workbench.editors.request.auth.key')}>
+            <TemplateInput
+              size="small"
+              value={auth.key}
+              onChange={(next) => onChange({ ...auth, key: next })}
+              placeholder={t('workbench.editors.request.auth.keyPlaceholder')}
+              style={{ maxWidth: FIELD_DEFAULT_MAX_WIDTH }}
+            />
+          </LabeledRow>
+          <LabeledRow label={t('workbench.editors.request.auth.value')}>
+            <SecretField
+              value={auth.value}
+              onChange={(next) => onChange({ ...auth, value: next })}
+              placeholder={t('workbench.editors.request.auth.valuePlaceholder')}
+            />
+          </LabeledRow>
+          <LabeledRow label={t('workbench.editors.request.auth.addTo')}>
+            <Select
+              size="small"
+              data-testid="oh-auth-apikey-in"
+              value={auth.in}
+              onChange={(next: 'header' | 'query') => onChange({ ...auth, in: next })}
+              options={[
+                { value: 'header', label: t('workbench.editors.request.auth.addToHeader') },
+                { value: 'query', label: t('workbench.editors.request.auth.addToQuery') },
+              ]}
+              style={{ width: '100%', maxWidth: FIELD_DEFAULT_MAX_WIDTH }}
+            />
+          </LabeledRow>
+        </AuthForm>
+      )}
 
-        {auth.type === 'bearer' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            <LabeledRow label={t('workbench.editors.request.auth.token')}>
-              <SecretField
-                value={auth.token}
-                // The executor prepends the scheme — a pasted
-                // `Bearer <token>` sheds its prefix here so the wire
-                // header never reads `Bearer Bearer …` (same rule as
-                // the Headers tab's inline auth row).
-                onChange={(next) => onChange({ ...auth, token: next.replace(/^Bearer\s+/i, '') })}
-                placeholder={t('workbench.editors.request.auth.tokenPlaceholder')}
-              />
-            </LabeledRow>
-          </div>
-        )}
+      {auth.type === 'aws-sigv4' && <AwsSigV4Editor auth={auth} onChange={onChange} />}
 
-        {auth.type === 'api-key' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            <LabeledRow label={t('workbench.editors.request.auth.key')}>
-              <TemplateInput
-                size="small"
-                value={auth.key}
-                onChange={(next) => onChange({ ...auth, key: next })}
-                placeholder={t('workbench.editors.request.auth.keyPlaceholder')}
-                style={{ maxWidth: FIELD_DEFAULT_MAX_WIDTH }}
-              />
-            </LabeledRow>
-            <LabeledRow label={t('workbench.editors.request.auth.value')}>
-              <SecretField
-                value={auth.value}
-                onChange={(next) => onChange({ ...auth, value: next })}
-                placeholder={t('workbench.editors.request.auth.valuePlaceholder')}
-              />
-            </LabeledRow>
-            <LabeledRow label={t('workbench.editors.request.auth.addTo')}>
-              <Select
-                size="small"
-                data-testid="oh-auth-apikey-in"
-                value={auth.in}
-                onChange={(next: 'header' | 'query') => onChange({ ...auth, in: next })}
-                options={[
-                  { value: 'header', label: t('workbench.editors.request.auth.addToHeader') },
-                  { value: 'query', label: t('workbench.editors.request.auth.addToQuery') },
-                ]}
-                style={{ width: '100%', maxWidth: FIELD_DEFAULT_MAX_WIDTH }}
-              />
-            </LabeledRow>
-          </div>
-        )}
+      {auth.type === 'digest' && <DigestEditor auth={auth} onChange={onChange} />}
 
-        {auth.type === 'aws-sigv4' && <AwsSigV4Editor auth={auth} onChange={onChange} />}
+      {auth.type === 'oauth1' && <OAuth1Editor auth={auth} onChange={onChange} />}
 
-        {auth.type === 'digest' && <DigestEditor auth={auth} onChange={onChange} />}
-
-        {auth.type === 'oauth1' && <OAuth1Editor auth={auth} onChange={onChange} />}
-
-        {auth.type === 'oauth2' && <OAuth2AuthEditor auth={auth} onChange={onChange} />}
-      </div>
-    </div>
+      {auth.type === 'oauth2' && <OAuth2AuthEditor auth={auth} onChange={onChange} />}
+    </AuthTabShell>
   );
 };
 
@@ -340,7 +231,7 @@ const AwsSigV4Editor: React.FC<{
     }
   };
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+    <AuthForm>
       <LabeledRow label={t('workbench.editors.request.auth.awsAccessKey')}>
         <TemplateInput
           size="small"
@@ -382,7 +273,7 @@ const AwsSigV4Editor: React.FC<{
           style={{ maxWidth: FIELD_DEFAULT_MAX_WIDTH }}
         />
       </LabeledRow>
-    </div>
+    </AuthForm>
   );
 };
 
@@ -402,7 +293,7 @@ const DigestEditor: React.FC<{
   const t = useT();
   const browserRuntime = (getCapability('requestRuntime')?.() ?? 'browser') === 'browser';
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+    <AuthForm>
       {browserRuntime && (
         <Text type="secondary" style={{ fontSize: 12, maxWidth: FIELD_DEFAULT_MAX_WIDTH }}>
           {t('workbench.editors.request.auth.digestBrowserNote')}
@@ -424,7 +315,7 @@ const DigestEditor: React.FC<{
           placeholder={t('workbench.editors.request.auth.passwordPlaceholder')}
         />
       </LabeledRow>
-    </div>
+    </AuthForm>
   );
 };
 
@@ -451,7 +342,7 @@ const OAuth1Editor: React.FC<{
     }
   };
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+    <AuthForm>
       <LabeledRow label={t('workbench.editors.request.auth.oauth1ConsumerKey')}>
         <TemplateInput
           size="small"
@@ -521,7 +412,7 @@ const OAuth1Editor: React.FC<{
           />
         </LabeledRow>
       )}
-    </div>
+    </AuthForm>
   );
 };
 
@@ -603,86 +494,6 @@ const OAuth2LeftRailControls: React.FC<{
         />
       </div>
     </div>
-  );
-};
-
-// ── Shared row ─────────────────────────────────────────────────────
-
-const LabeledRow: React.FC<{ label: string; children: React.ReactNode }> = ({ label, children }) => (
-  <div style={{ display: 'grid', gridTemplateColumns: '90px 1fr', alignItems: 'start', gap: 12 }}>
-    <Text style={{ fontSize: 13, lineHeight: '24px' }}>{label}</Text>
-    <div style={{ minWidth: 0 }}>{children}</div>
-  </div>
-);
-
-// ── Secret credential field ────────────────────────────────────────
-//
-// Long secrets (a 500-char JWT) must never force the tab to scroll
-// horizontally: collapsed, the field is one masked line with an
-// ellipsis; focusing it expands to a textarea-style surface that
-// wraps, grows to ~7 lines, then inner-scrolls. The in-field eye
-// reveals/masks the literal characters (`{{ref}}` spans are always
-// readable either way). The 2D corner grip resizes both axes — the
-// field owns its width here (no column split to feed), so X travel
-// sets an explicit width; double-click restores the default.
-
-const SECRET_FIELD_MIN_WIDTH = 160;
-// Untouched fields cap at the classic form width (the row containers
-// are full-pane so a grip drag has room to grow); a manual width
-// escapes the cap up to the pane edge.
-const FIELD_DEFAULT_MAX_WIDTH = 438;
-
-const SecretField: React.FC<{
-  value: string;
-  onChange: (next: string) => void;
-  placeholder: string;
-}> = ({ value, onChange, placeholder }) => {
-  const [revealed, setRevealed] = useState(false);
-  const [manualWidth, setManualWidth] = useState<number | null>(null);
-  const widthDragRef = useRef<{ startWidth: number } | null>(null);
-  const handleResizeX = useCallback((e: GripResizeXEvent) => {
-    if (e.phase === 'reset') {
-      widthDragRef.current = null;
-      setManualWidth(null);
-      return;
-    }
-    if (e.phase === 'start') {
-      const wrapper = e.gripEl.closest('.oh-template-input-wrapper');
-      widthDragRef.current = wrapper instanceof HTMLElement ? { startWidth: wrapper.offsetWidth } : null;
-      return;
-    }
-    if (e.phase === 'end') {
-      widthDragRef.current = null;
-      return;
-    }
-    const drag = widthDragRef.current;
-    if (!drag) return;
-    setManualWidth(Math.max(SECRET_FIELD_MIN_WIDTH, drag.startWidth + e.deltaX));
-  }, []);
-  const { editProps, editorModal } = useValueEditAction(value, onChange);
-  return (
-    <>
-      <TemplateInput
-        size="small"
-        secret={!revealed}
-        onSecretToggle={() => setRevealed((v) => !v)}
-        {...editProps}
-        expandOnFocus
-        maxRows={7}
-        resizable
-        onResizeX={handleResizeX}
-        allowClear
-        value={value}
-        onChange={onChange}
-        placeholder={placeholder}
-        // Default caps at the classic form width; a grip-dragged width
-        // lifts the cap and the field grows into the pane's free space.
-        style={
-          manualWidth != null ? { width: manualWidth, minWidth: 0 } : { minWidth: 0, maxWidth: FIELD_DEFAULT_MAX_WIDTH }
-        }
-      />
-      {editorModal}
-    </>
   );
 };
 
