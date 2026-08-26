@@ -62,6 +62,7 @@ export const workbenchSettings = {
   'workbench.settings.row.managedBadge': '受管理',
   'workbench.settings.row.disabledManagedAria': '已禁用——由你的组织管理',
   'workbench.settings.row.run': '运行',
+  'workbench.settings.row.presetsHeading': '预设',
 
   // ── Categories ─────────────────────────────────────────────────────
   'workbench.settings.category.backend.label': '后端',

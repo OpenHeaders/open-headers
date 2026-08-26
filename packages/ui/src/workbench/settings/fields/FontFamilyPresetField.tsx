@@ -2,10 +2,10 @@
  * FontFamilyPresetField — radio picker for any font-family preset
  * setting (`editor.fontFamilyPreset`, `appearance.fontFamilyPreset`).
  *
- * Each option renders as: bold label rendered in its own font on the
- * first line, secondary description text on the second line. The label
- * doubles as a live preview — users see how the font actually looks
- * before selecting it.
+ * The options lay out as a compact grid; each label renders in its own
+ * font so it doubles as a live preview. The per-preset descriptions
+ * live in the row's `(i)` popover as a glossary section instead of
+ * inline, so the row stays a few lines tall.
  *
  * The field is preset-table-agnostic — it picks the right table by
  * setting key. Editor presets are monospace; appearance presets are
@@ -18,9 +18,11 @@
  * there is nothing to discover.
  */
 
-import { Radio, theme } from 'antd';
+import { Radio } from 'antd';
 import type React from 'react';
+import { useMemo } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
+import type { InfoPopoverSection } from '@openheaders/ui/shared/info-popover';
 import { useUntypedSetting } from '../hooks';
 import { resolveOptionalDescription } from '../localize';
 import { APPEARANCE_FONT_PRESETS } from '../schema/appearance';
@@ -49,10 +51,17 @@ interface FontFamilyPresetFieldProps {
 }
 
 const FontFamilyPresetField: React.FC<FontFamilyPresetFieldProps> = ({ def }) => {
-  const { token } = theme.useToken();
   const t = useT();
   const [value, setValue] = useUntypedSetting(def.key);
   const presets = PRESET_TABLES.get(def.key) ?? [];
+
+  const infoSections = useMemo<ReadonlyArray<InfoPopoverSection>>(() => {
+    const items = presets.flatMap((preset) => {
+      const desc = resolveOptionalDescription(preset, t);
+      return desc ? [{ label: preset.label, desc, labelStyle: { fontFamily: preset.stack } }] : [];
+    });
+    return items.length > 0 ? [{ heading: t('workbench.settings.row.presetsHeading'), layout: 'stacked', items }] : [];
+  }, [presets, t]);
 
   return (
     <FieldRow
@@ -61,26 +70,19 @@ const FontFamilyPresetField: React.FC<FontFamilyPresetFieldProps> = ({ def }) =>
       description={def.description}
       experimental={def.experimental}
       requiresConnection={def.requiresConnection}
+      infoSections={infoSections}
       block
     >
       <Radio.Group
         value={value}
         onChange={(e) => setValue(e.target.value)}
-        style={{ display: 'flex', flexDirection: 'column', gap: 8 }}
+        style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '4px 16px' }}
       >
-        {presets.map((preset) => {
-          const description = resolveOptionalDescription(preset, t);
-          return (
-            <Radio key={preset.id} value={preset.id} style={{ alignItems: 'flex-start' }}>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 2, lineHeight: 1.4 }}>
-                <span style={{ fontFamily: preset.stack, fontWeight: 500 }}>{preset.label}</span>
-                {description ? (
-                  <span style={{ color: token.colorTextSecondary, fontSize: 12 }}>{description}</span>
-                ) : null}
-              </div>
-            </Radio>
-          );
-        })}
+        {presets.map((preset) => (
+          <Radio key={preset.id} value={preset.id}>
+            <span style={{ fontFamily: preset.stack }}>{preset.label}</span>
+          </Radio>
+        ))}
       </Radio.Group>
     </FieldRow>
   );

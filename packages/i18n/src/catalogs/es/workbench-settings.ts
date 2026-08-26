@@ -72,6 +72,7 @@ export const workbenchSettings = {
   'workbench.settings.row.managedBadge': 'Gestionado',
   'workbench.settings.row.disabledManagedAria': 'Desactivado — gestionado por tu organización',
   'workbench.settings.row.run': 'Ejecutar',
+  'workbench.settings.row.presetsHeading': 'Preajustes',
 
   // ── Categories ─────────────────────────────────────────────────────
   'workbench.settings.category.backend.label': 'Backend',

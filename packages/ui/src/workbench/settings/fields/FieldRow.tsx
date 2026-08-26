@@ -15,7 +15,7 @@ import { DisconnectOutlined, LockOutlined, UndoOutlined } from '@ant-design/icon
 import { Button, Tooltip, theme } from 'antd';
 import type React from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
-import { type InfoPopoverAction, InfoTrigger } from '@openheaders/ui/shared/info-popover';
+import { type InfoPopoverAction, type InfoPopoverSection, InfoTrigger } from '@openheaders/ui/shared/info-popover';
 import { useSettingsConnection } from '../ConnectionContext';
 import { useIsManaged, useIsModified, useResetSetting } from '../hooks';
 import type { SettingKey } from '../types';
@@ -67,6 +67,8 @@ interface FieldRowProps {
    * "View events"). Clicking one dismisses the popover before it runs.
    */
   infoActions?: ReadonlyArray<InfoPopoverAction>;
+  /** Structured sub-blocks for the `(i)` popover (e.g. a field's option glossary). */
+  infoSections?: ReadonlyArray<InfoPopoverSection>;
 }
 
 const FieldRow: React.FC<FieldRowProps> = ({
@@ -85,6 +87,7 @@ const FieldRow: React.FC<FieldRowProps> = ({
   onReset,
   resetTooltip,
   infoActions,
+  infoSections,
 }) => {
   const { token } = theme.useToken();
   const t = useT();
@@ -123,7 +126,7 @@ const FieldRow: React.FC<FieldRowProps> = ({
 
   const info = description ? (
     <InfoTrigger
-      content={{ title: label, summary: description, actions: infoActions }}
+      content={{ title: label, summary: description, sections: infoSections, actions: infoActions }}
       ariaLabel={t('workbench.settings.row.aboutAria', { label })}
     />
   ) : null;
