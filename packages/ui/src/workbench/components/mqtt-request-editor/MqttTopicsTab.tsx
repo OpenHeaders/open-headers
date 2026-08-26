@@ -298,6 +298,7 @@ const MqttTopicsTab: React.FC<MqttTopicsTabProps> = ({ rows, onChange, v5, sessi
                       >
                         {t('workbench.editors.mqtt.props.addUserProp')}
                       </Button>
+                      <div style={{ height: 1, background: token.colorSplit }} />
                       <OptionLabel
                         strong
                         text={t('workbench.editors.mqtt.topics.subscribeSettings')}
