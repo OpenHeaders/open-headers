@@ -237,6 +237,13 @@ registerCategory({
   icon: <FunctionOutlined />,
   order: 30,
   descriptionKey: 'workbench.settings.category.rulesEngine.description',
+  subcategories: [
+    { id: 'engine', labelKey: 'workbench.settings.category.rulesEngine.sub.engine', order: 10 },
+    { id: 'caching', labelKey: 'workbench.settings.category.rulesEngine.sub.caching', order: 20 },
+    { id: 'warnings', labelKey: 'workbench.settings.category.rulesEngine.sub.warnings', order: 30 },
+    { id: 'drafting', labelKey: 'workbench.settings.category.rulesEngine.sub.drafting', order: 40 },
+    { id: 'display', labelKey: 'workbench.settings.category.rulesEngine.sub.display', order: 50 },
+  ],
 });
 
 registerCategory({

@@ -67,6 +67,7 @@ declare module '@openheaders/ui/workbench/settings/types' {
 
 registerSetting({
   key: 'rulesEngine.paused',
+  subcategory: 'engine',
   type: 'boolean',
   default: false,
   schema: v.boolean(),
@@ -79,6 +80,7 @@ registerSetting({
 
 registerSetting({
   key: 'rulesEngine.evaluationStrategy',
+  subcategory: 'engine',
   type: 'enum',
   default: 'closest-match',
   schema: evaluationStrategySchema,
@@ -108,6 +110,7 @@ registerSetting({
 
 registerSetting({
   key: 'rulesEngine.updateDebounceMs',
+  subcategory: 'engine',
   type: 'number',
   default: 150,
   schema: v.pipe(v.number(), v.integer(), v.minValue(0), v.maxValue(2000)),
@@ -121,6 +124,7 @@ registerSetting({
 
 registerSetting({
   key: 'rulesEngine.maxActiveRules',
+  subcategory: 'engine',
   type: 'number',
   default: 5000,
   schema: v.pipe(v.number(), v.integer(), v.minValue(100), v.maxValue(30000)),
@@ -134,6 +138,7 @@ registerSetting({
 
 registerSetting({
   key: 'rulesEngine.visibleResourceTypes',
+  subcategory: 'display',
   type: 'multi-select',
   default: DEFAULT_VISIBLE_RESOURCE_TYPES,
   schema: v.array(resourceTypeSchema),
@@ -161,6 +166,7 @@ registerSetting({
 
 registerSetting({
   key: 'rulesEngine.showShadowWarnings',
+  subcategory: 'warnings',
   type: 'boolean',
   default: false,
   schema: v.boolean(),
@@ -174,6 +180,7 @@ registerSetting({
 
 registerSetting({
   key: 'rulesEngine.warnOnLargeRuleSets',
+  subcategory: 'warnings',
   type: 'boolean',
   default: true,
   schema: v.boolean(),
@@ -186,6 +193,7 @@ registerSetting({
 
 registerSetting({
   key: 'rulesEngine.largeRuleSetThreshold',
+  subcategory: 'warnings',
   type: 'number',
   default: 4000,
   schema: v.pipe(v.number(), v.integer(), v.minValue(100), v.maxValue(30000)),
@@ -200,6 +208,7 @@ registerSetting({
 
 registerSetting({
   key: 'rulesEngine.liveRulesMode',
+  subcategory: 'caching',
   type: 'boolean',
   default: true,
   schema: v.boolean(),
@@ -212,6 +221,7 @@ registerSetting({
 
 registerSetting({
   key: 'rulesEngine.bypassHttpCache',
+  subcategory: 'caching',
   type: 'boolean',
   default: false,
   schema: v.boolean(),
@@ -224,6 +234,7 @@ registerSetting({
 
 registerSetting({
   key: 'rulesEngine.variableAutocomplete',
+  subcategory: 'drafting',
   type: 'boolean',
   default: true,
   schema: v.boolean(),
@@ -236,6 +247,7 @@ registerSetting({
 
 registerSetting({
   key: 'rulesEngine.draftUrlStrategy',
+  subcategory: 'drafting',
   type: 'enum',
   default: 'exact',
   schema: draftUrlStrategySchema,

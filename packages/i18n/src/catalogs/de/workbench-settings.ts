@@ -143,6 +143,11 @@ export const workbenchSettings = {
   'workbench.settings.category.rulesEngine.label': 'Regel-Engine',
   'workbench.settings.category.rulesEngine.description':
     'Wie Regeln ausgewertet, kompiliert und gegeneinander abgewogen werden.',
+  'workbench.settings.category.rulesEngine.sub.engine': 'Engine',
+  'workbench.settings.category.rulesEngine.sub.caching': 'Caching',
+  'workbench.settings.category.rulesEngine.sub.warnings': 'Warnungen',
+  'workbench.settings.category.rulesEngine.sub.drafting': 'Regelentwürfe',
+  'workbench.settings.category.rulesEngine.sub.display': 'Anzeige',
   'workbench.settings.category.keyboard.label': 'Tastatur',
   'workbench.settings.category.keyboard.description': 'Passe Tastenkürzel an.',
   'workbench.settings.category.keyboard.sub.global': 'Alle Oberflächen',
