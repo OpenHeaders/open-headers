@@ -137,65 +137,77 @@
   flex: 1;
   min-height: 0;
   display: grid;
-  grid-template-columns:
-    var(--oh-bar-l, 36px)
-    minmax(var(--oh-sidebar-min), var(--oh-sidebar))
-    minmax(var(--oh-editor-min, 0px), 1fr)
-    minmax(var(--oh-inspector-min), var(--oh-inspector))
-    var(--oh-bar-r, 36px);
-  grid-template-rows: minmax(var(--oh-main-min), 1fr) minmax(var(--oh-bottom-min), var(--oh-bottom));
-}
-
-.rules-shell-grid--align-center {
-  grid-template-areas:
-    'bar-l sidebar editor inspector bar-r'
-    'bar-l sidebar bottom inspector bar-r';
-}
-
-.rules-shell-grid--align-left {
-  grid-template-areas:
-    'bar-l sidebar editor inspector bar-r'
-    'bar-l bottom bottom inspector bar-r';
-}
-
-.rules-shell-grid--align-right {
-  grid-template-areas:
-    'bar-l sidebar editor inspector bar-r'
-    'bar-l sidebar bottom bottom bar-r';
-}
-
-.rules-shell-grid--align-justify {
-  grid-template-areas:
-    'bar-l sidebar editor inspector bar-r'
-    'bar-l bottom bottom bottom bar-r';
-}
-
-.rules-shell-grid--left-closed {
-  --oh-sidebar: 0px;
-  --oh-sidebar-min: 0px;
-}
-
-.rules-shell-grid--right-closed {
-  --oh-inspector: 0px;
-  --oh-inspector-min: 0px;
-}
-
-.rules-shell-grid--bottom-closed {
-  --oh-bottom: 0px;
-  --oh-bottom-min: 0px;
-}
-
-/* Narrow single-surface mode: one center area between the rails; every
-   surface cell maps onto it and ShellLayout display-toggles all but the
-   chosen one. */
-.rules-shell-grid--single {
+  /* Outer grid: rail | center | rail. The rails are chrome and stay on
+     screen at any window width; the center column is minmax(0, 1fr)
+     and CLIPS, so a window narrower than the panes' minimums overflows
+     inside the center instead of pushing the right rail off screen. */
   grid-template-columns: var(--oh-bar-l, 36px) minmax(0, 1fr) var(--oh-bar-r, 36px);
   grid-template-rows: minmax(0, 1fr);
   grid-template-areas: 'bar-l center bar-r';
 }
 
-.rules-shell-grid--single > .rules-shell-cell {
+.rules-shell-center {
   grid-area: center;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  display: grid;
+  grid-template-columns:
+    minmax(var(--oh-sidebar-min), var(--oh-sidebar))
+    minmax(var(--oh-editor-min, 0px), 1fr)
+    minmax(var(--oh-inspector-min), var(--oh-inspector));
+  grid-template-rows: minmax(var(--oh-main-min), 1fr) minmax(var(--oh-bottom-min), var(--oh-bottom));
+}
+
+.rules-shell-center--align-center {
+  grid-template-areas:
+    'sidebar editor inspector'
+    'sidebar bottom inspector';
+}
+
+.rules-shell-center--align-left {
+  grid-template-areas:
+    'sidebar editor inspector'
+    'bottom bottom inspector';
+}
+
+.rules-shell-center--align-right {
+  grid-template-areas:
+    'sidebar editor inspector'
+    'sidebar bottom bottom';
+}
+
+.rules-shell-center--align-justify {
+  grid-template-areas:
+    'sidebar editor inspector'
+    'bottom bottom bottom';
+}
+
+.rules-shell-center--left-closed {
+  --oh-sidebar: 0px;
+  --oh-sidebar-min: 0px;
+}
+
+.rules-shell-center--right-closed {
+  --oh-inspector: 0px;
+  --oh-inspector-min: 0px;
+}
+
+.rules-shell-center--bottom-closed {
+  --oh-bottom: 0px;
+  --oh-bottom-min: 0px;
+}
+
+/* Narrow single-surface mode: one area; every surface cell maps onto it
+   and ShellLayout display-toggles all but the chosen one. */
+.rules-shell-center--single {
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+  grid-template-areas: 'single';
+}
+
+.rules-shell-center--single > .rules-shell-cell {
+  grid-area: single;
 }
 
 .rules-shell-bar,

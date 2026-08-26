@@ -81,6 +81,13 @@ const Harness: React.FC<HarnessProps> = ({ alignment, onHorizontalResize, expose
   );
 };
 
+/** The pane grid inside the outer rail | center | rail grid. */
+function center(grid: HTMLElement): HTMLElement {
+  const el = grid.querySelector<HTMLElement>('.rules-shell-center');
+  if (!el) throw new Error('shell center missing');
+  return el;
+}
+
 function mount(alignment: BottomPanelAlignment = 'center') {
   const onHorizontalResize = vi.fn();
   let tl: DockLayoutApi<Id> | null = null;
@@ -101,7 +108,7 @@ function mount(alignment: BottomPanelAlignment = 'center') {
 describe('ShellLayout — CSS-track shell', () => {
   it('renders one grid carrying the host sizes as custom properties', () => {
     const { grid } = mount();
-    expect(grid.classList.contains('rules-shell-grid--align-center')).toBe(true);
+    expect(center(grid).classList.contains('rules-shell-center--align-center')).toBe(true);
     expect(grid.style.getPropertyValue(SHELL_TRACK_VARS.barLeft)).toBe('78px');
     expect(grid.style.getPropertyValue(SHELL_TRACK_VARS.sidebar)).toBe('300px');
     expect(grid.style.getPropertyValue(SHELL_TRACK_VARS.inspector)).toBe('320px');
@@ -117,19 +124,19 @@ describe('ShellLayout — CSS-track shell', () => {
     act(() => tl().activateWindow('tree'));
     const before = container.querySelector('[data-body="tree"]');
     expect(before).toBeTruthy();
-    expect(grid.classList.contains('rules-shell-grid--left-closed')).toBe(false);
+    expect(center(grid).classList.contains('rules-shell-center--left-closed')).toBe(false);
 
     act(() => tl().toggleRegion('left'));
     const leftCell = grid.querySelector<HTMLElement>('.rules-shell-cell--left');
     expect(leftCell?.style.display).toBe('none');
-    expect(grid.classList.contains('rules-shell-grid--left-closed')).toBe(true);
+    expect(center(grid).classList.contains('rules-shell-center--left-closed')).toBe(true);
     expect(container.querySelector('[data-body="tree"]')).toBe(before);
     // The remembered size survives the close.
     expect(grid.style.getPropertyValue(SHELL_TRACK_VARS.sidebar)).toBe('300px');
 
     act(() => tl().toggleRegion('left'));
     expect(leftCell?.style.display).toBe('');
-    expect(grid.classList.contains('rules-shell-grid--left-closed')).toBe(false);
+    expect(center(grid).classList.contains('rules-shell-center--left-closed')).toBe(false);
   });
 
   it('an alignment change swaps grid areas without remounting the editor', () => {
@@ -139,7 +146,8 @@ describe('ShellLayout — CSS-track shell', () => {
     const editor = api.container.querySelector('[data-editor]');
     api.rerender(<Harness alignment="justify" onHorizontalResize={onHorizontalResize} expose={expose} />);
     const grid = api.container.querySelector<HTMLElement>('.rules-shell-grid');
-    expect(grid?.classList.contains('rules-shell-grid--align-justify')).toBe(true);
+    if (!grid) throw new Error('shell grid missing');
+    expect(center(grid).classList.contains('rules-shell-center--align-justify')).toBe(true);
     expect(api.container.querySelector('[data-editor]')).toBe(editor);
   });
 

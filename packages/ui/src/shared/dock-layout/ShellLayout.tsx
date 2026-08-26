@@ -378,73 +378,78 @@ function ShellLayoutInner<T extends string>({
     />
   );
 
-  const gridClass = [
-    'rules-shell-grid',
-    `rules-shell-grid--align-${bottomPanelAlignment}`,
-    single ? 'rules-shell-grid--single' : '',
-    leftOpen ? '' : 'rules-shell-grid--left-closed',
-    rightOpen ? '' : 'rules-shell-grid--right-closed',
-    bottomOpen ? '' : 'rules-shell-grid--bottom-closed',
+  // The rails are chrome: an outer `rail | center | rail` grid keeps them
+  // on screen at any window width, and the pane grid inside the center
+  // column clips when the window is narrower than the panes' minimums.
+  const centerClass = [
+    'rules-shell-center',
+    `rules-shell-center--align-${bottomPanelAlignment}`,
+    single ? 'rules-shell-center--single' : '',
+    leftOpen ? '' : 'rules-shell-center--left-closed',
+    rightOpen ? '' : 'rules-shell-center--right-closed',
+    bottomOpen ? '' : 'rules-shell-center--bottom-closed',
   ]
     .filter(Boolean)
     .join(' ');
 
   const grid = (
-    <div className={gridClass} style={trackStyle} ref={gridRef}>
+    <div className="rules-shell-grid" style={trackStyle} ref={gridRef}>
       <div className="rules-shell-bar rules-shell-bar--left" ref={barLeftRef}>
         {activityBar('left')}
         {!compactBars && <Sash axis="x" edge="end" begin={beginBarLeft} onReset={resetBars} />}
       </div>
 
-      <div
-        className="rules-shell-cell rules-shell-cell--left"
-        ref={leftCellRef}
-        style={cellStyle(cellVisible('left', leftOpen))}
-      >
-        <SideRegion<T>
-          region="left"
-          tl={tl}
-          renderToolWindow={renderToolWindow}
-          topSize={SIDE_SEED.left.top}
-          bottomSize={SIDE_SEED.left.bottom}
-          focusStore={focusStore}
-        />
-        {!single && <Sash axis="x" edge="end" begin={beginSidebar} onReset={resetSidebar} />}
-      </div>
-
-      <div
-        className="rules-shell-cell rules-shell-cell--editor"
-        ref={editorCellRef}
-        style={cellStyle(cellVisible('editor', true))}
-      >
-        <div className="rules-region rules-region-editor" data-region="editor" tabIndex={-1}>
-          {renderEditor()}
+      <div className={centerClass}>
+        <div
+          className="rules-shell-cell rules-shell-cell--left"
+          ref={leftCellRef}
+          style={cellStyle(cellVisible('left', leftOpen))}
+        >
+          <SideRegion<T>
+            region="left"
+            tl={tl}
+            renderToolWindow={renderToolWindow}
+            topSize={SIDE_SEED.left.top}
+            bottomSize={SIDE_SEED.left.bottom}
+            focusStore={focusStore}
+          />
+          {!single && <Sash axis="x" edge="end" begin={beginSidebar} onReset={resetSidebar} />}
         </div>
-      </div>
 
-      <div
-        className="rules-shell-cell rules-shell-cell--right"
-        ref={rightCellRef}
-        style={cellStyle(cellVisible('right', rightOpen))}
-      >
-        {!single && <Sash axis="x" edge="start" begin={beginInspector} onReset={resetInspector} />}
-        <SideRegion<T>
-          region="right"
-          tl={tl}
-          renderToolWindow={renderToolWindow}
-          topSize={SIDE_SEED.right.top}
-          bottomSize={SIDE_SEED.right.bottom}
-          focusStore={focusStore}
-        />
-      </div>
+        <div
+          className="rules-shell-cell rules-shell-cell--editor"
+          ref={editorCellRef}
+          style={cellStyle(cellVisible('editor', true))}
+        >
+          <div className="rules-region rules-region-editor" data-region="editor" tabIndex={-1}>
+            {renderEditor()}
+          </div>
+        </div>
 
-      <div
-        className="rules-shell-cell rules-shell-cell--bottom"
-        ref={bottomCellRef}
-        style={cellStyle(cellVisible('bottom', bottomOpen))}
-      >
-        {!single && <Sash axis="y" edge="start" begin={beginBottom} onReset={resetBottom} />}
-        <BottomRegion tl={tl} renderToolWindow={renderToolWindow} focusStore={focusStore} split={bottomPanelSplit} />
+        <div
+          className="rules-shell-cell rules-shell-cell--right"
+          ref={rightCellRef}
+          style={cellStyle(cellVisible('right', rightOpen))}
+        >
+          {!single && <Sash axis="x" edge="start" begin={beginInspector} onReset={resetInspector} />}
+          <SideRegion<T>
+            region="right"
+            tl={tl}
+            renderToolWindow={renderToolWindow}
+            topSize={SIDE_SEED.right.top}
+            bottomSize={SIDE_SEED.right.bottom}
+            focusStore={focusStore}
+          />
+        </div>
+
+        <div
+          className="rules-shell-cell rules-shell-cell--bottom"
+          ref={bottomCellRef}
+          style={cellStyle(cellVisible('bottom', bottomOpen))}
+        >
+          {!single && <Sash axis="y" edge="start" begin={beginBottom} onReset={resetBottom} />}
+          <BottomRegion tl={tl} renderToolWindow={renderToolWindow} focusStore={focusStore} split={bottomPanelSplit} />
+        </div>
       </div>
 
       <div className="rules-shell-bar rules-shell-bar--right" ref={barRightRef}>
