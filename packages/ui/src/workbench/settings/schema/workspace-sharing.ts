@@ -25,6 +25,7 @@ declare module '@openheaders/ui/workbench/settings/types' {
 
 registerSetting({
   key: 'workspaceSharing.importPreviewShowMergeStrategy',
+  subcategory: 'importPreview',
   type: 'boolean',
   default: true,
   schema: v.boolean(),
@@ -37,6 +38,7 @@ registerSetting({
 
 registerSetting({
   key: 'workspaceSharing.importPreviewDiffViewer',
+  subcategory: 'diffViewer',
   type: 'enum',
   default: 'side-by-side',
   schema: v.picklist(['side-by-side', 'unified']),
@@ -59,6 +61,7 @@ registerSetting({
 
 registerSetting({
   key: 'workspaceSharing.importPreviewDiffWhitespace',
+  subcategory: 'diffViewer',
   type: 'enum',
   default: 'none',
   schema: v.picklist(['none', 'ignore']),
@@ -81,6 +84,7 @@ registerSetting({
 
 registerSetting({
   key: 'workspaceSharing.importPreviewDiffCollapseUnchanged',
+  subcategory: 'diffViewer',
   type: 'boolean',
   default: true,
   schema: v.boolean(),
@@ -93,6 +97,7 @@ registerSetting({
 
 registerSetting({
   key: 'workspaceSharing.importPreviewDiffShowWhitespaces',
+  subcategory: 'diffViewer',
   type: 'boolean',
   default: false,
   schema: v.boolean(),
@@ -105,6 +110,7 @@ registerSetting({
 
 registerSetting({
   key: 'workspaceSharing.importPreviewDiffShowLineNumbers',
+  subcategory: 'diffViewer',
   type: 'boolean',
   default: true,
   schema: v.boolean(),
@@ -117,6 +123,7 @@ registerSetting({
 
 registerSetting({
   key: 'workspaceSharing.importPreviewDiffShowIndentGuides',
+  subcategory: 'diffViewer',
   type: 'boolean',
   default: true,
   schema: v.boolean(),
@@ -129,6 +136,7 @@ registerSetting({
 
 registerSetting({
   key: 'workspaceSharing.importPreviewDiffSoftWrap',
+  subcategory: 'diffViewer',
   type: 'boolean',
   default: false,
   schema: v.boolean(),

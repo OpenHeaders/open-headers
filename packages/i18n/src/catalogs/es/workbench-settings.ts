@@ -164,6 +164,8 @@ export const workbenchSettings = {
   'workbench.settings.category.workspaceSharing.description':
     'Preferencias de visualización para la vista previa de importación de las exportaciones de espacio de ' +
     'trabajo.',
+  'workbench.settings.category.workspaceSharing.sub.importPreview': 'Vista previa de importación',
+  'workbench.settings.category.workspaceSharing.sub.diffViewer': 'Visor de diff',
   'workbench.settings.category.git.label': 'Git',
   'workbench.settings.category.git.description':
     'Vincula este espacio de trabajo a una carpeta en disco — un árbol YAML vivo y compatible con git.',

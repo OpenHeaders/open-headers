@@ -674,41 +674,36 @@ export const workbenchSettingsDefs = {
 
   // ── Workspace Sharing category defs ────────────────────────────────
   'workbench.settings.def.workspaceSharing.importPreviewShowMergeStrategy.label':
-    'Merge-Strategie auf Importvorschau-Zeilen anzeigen',
+    'Merge-Strategie auf Zeilen anzeigen',
   'workbench.settings.def.workspaceSharing.importPreviewShowMergeStrategy.description':
     'Wenn an, zeigt jede Entitätszeile in der linken Seitenleiste der Importvorschau die gewählte ' +
     'Merge-Strategie (als neu hinzufügen, Ersetzen, Überspringen, …) neben den Zeilenzählern. Ausschalten, ' +
     'um auf schmalen Bereichen Zeilenbreite freizugeben.',
-  'workbench.settings.def.workspaceSharing.importPreviewDiffViewer.label': 'Diff-Ansicht der Importvorschau',
+  'workbench.settings.def.workspaceSharing.importPreviewDiffViewer.label': 'Anordnung',
   'workbench.settings.def.workspaceSharing.importPreviewDiffViewer.description':
     'Rendert Ziel und Eingehendes nebeneinander oder gestapelt in einer Spalte. Wechselt automatisch auf ' +
     'vereinheitlicht, wenn der Diff-Bereich zu schmal ist.',
   'workbench.settings.def.workspaceSharing.importPreviewDiffViewer.option.side-by-side.label': 'Nebeneinander',
   'workbench.settings.def.workspaceSharing.importPreviewDiffViewer.option.unified.label': 'Vereinheitlicht',
-  'workbench.settings.def.workspaceSharing.importPreviewDiffWhitespace.label':
-    'Leerraum-Behandlung im Importvorschau-Diff',
+  'workbench.settings.def.workspaceSharing.importPreviewDiffWhitespace.label': 'Leerraum-Behandlung',
   'workbench.settings.def.workspaceSharing.importPreviewDiffWhitespace.description':
     'Ob der Diff reine Leerraum-Änderungen als Änderungen behandelt oder ausblendet.',
   'workbench.settings.def.workspaceSharing.importPreviewDiffWhitespace.option.none.label': 'Nicht ignorieren',
   'workbench.settings.def.workspaceSharing.importPreviewDiffWhitespace.option.ignore.label': 'Leerzeichen ignorieren',
   'workbench.settings.def.workspaceSharing.importPreviewDiffCollapseUnchanged.label':
-    'Unveränderte Bereiche im Importvorschau-Diff einklappen',
+    'Unveränderte Bereiche einklappen',
   'workbench.settings.def.workspaceSharing.importPreviewDiffCollapseUnchanged.description':
     'Blendet Läufe unveränderter Zeilen aus und ersetzt sie durch einen Zum-Ausklappen-Stub.',
-  'workbench.settings.def.workspaceSharing.importPreviewDiffShowWhitespaces.label':
-    'Leerraumzeichen im Importvorschau-Diff anzeigen',
+  'workbench.settings.def.workspaceSharing.importPreviewDiffShowWhitespaces.label': 'Leerraumzeichen anzeigen',
   'workbench.settings.def.workspaceSharing.importPreviewDiffShowWhitespaces.description':
     'Stellt Leerzeichen und Tabulatoren als sichtbare Glyphen (·, →) im Diff dar.',
-  'workbench.settings.def.workspaceSharing.importPreviewDiffShowLineNumbers.label':
-    'Zeilennummern im Importvorschau-Diff anzeigen',
+  'workbench.settings.def.workspaceSharing.importPreviewDiffShowLineNumbers.label': 'Zeilennummern anzeigen',
   'workbench.settings.def.workspaceSharing.importPreviewDiffShowLineNumbers.description':
     'Zeigt die Zeilennummern-Spalte neben jeder Seite des Diffs.',
-  'workbench.settings.def.workspaceSharing.importPreviewDiffShowIndentGuides.label':
-    'Einzugshilfen im Importvorschau-Diff anzeigen',
+  'workbench.settings.def.workspaceSharing.importPreviewDiffShowIndentGuides.label': 'Einzugshilfen anzeigen',
   'workbench.settings.def.workspaceSharing.importPreviewDiffShowIndentGuides.description':
     'Rendert vertikale Einzugshilfen, damit sich YAML-Verschachtelung leichter überfliegen lässt.',
-  'workbench.settings.def.workspaceSharing.importPreviewDiffSoftWrap.label':
-    'Lange Zeilen im Importvorschau-Diff weich umbrechen',
+  'workbench.settings.def.workspaceSharing.importPreviewDiffSoftWrap.label': 'Lange Zeilen weich umbrechen',
   'workbench.settings.def.workspaceSharing.importPreviewDiffSoftWrap.description':
     'Bricht lange Zeilen in die nächste sichtbare Zeile um, statt horizontal zu scrollen.',
 

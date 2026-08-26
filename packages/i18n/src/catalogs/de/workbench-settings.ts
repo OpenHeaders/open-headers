@@ -158,6 +158,8 @@ export const workbenchSettings = {
   'workbench.settings.category.workspaceSharing.label': 'Arbeitsbereich-Freigabe',
   'workbench.settings.category.workspaceSharing.description':
     'Anzeigeeinstellungen für die Import-Vorschau von Arbeitsbereich-Exporten.',
+  'workbench.settings.category.workspaceSharing.sub.importPreview': 'Import-Vorschau',
+  'workbench.settings.category.workspaceSharing.sub.diffViewer': 'Diff-Ansicht',
   'workbench.settings.category.git.label': 'Git',
   'workbench.settings.category.git.description':
     'Binde diesen Arbeitsbereich an einen Ordner auf der Festplatte — einen lebendigen, git-freundlichen ' +

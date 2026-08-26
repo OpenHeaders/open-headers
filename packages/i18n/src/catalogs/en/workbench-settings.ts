@@ -137,6 +137,8 @@ export const workbenchSettings = {
   'workbench.settings.category.workspaceSharing.label': 'Workspace Sharing',
   'workbench.settings.category.workspaceSharing.description':
     'Display preferences for the workspace-export import preview.',
+  'workbench.settings.category.workspaceSharing.sub.importPreview': 'Import Preview',
+  'workbench.settings.category.workspaceSharing.sub.diffViewer': 'Diff Viewer',
   'workbench.settings.category.git.label': 'Git',
   'workbench.settings.category.git.description':
     'Bind this workspace to an on-disk folder — a live, git-friendly YAML tree.',

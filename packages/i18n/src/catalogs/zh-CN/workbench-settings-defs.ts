@@ -501,31 +501,31 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.rulesEngine.draftUrlStrategy.option.raw.description': '不规范化，按原文匹配此 URL',
 
   // ── Workspace Sharing category defs ────────────────────────────────
-  'workbench.settings.def.workspaceSharing.importPreviewShowMergeStrategy.label': '在导入预览行上显示合并策略',
+  'workbench.settings.def.workspaceSharing.importPreviewShowMergeStrategy.label': '在行上显示合并策略',
   'workbench.settings.def.workspaceSharing.importPreviewShowMergeStrategy.description':
     '开启后，导入预览左侧边栏中的每个实体行都会在行计数旁内联显示所选合并策略（添加为新项、替换、跳过、…）。关闭可在窄窗格中释放行宽。',
-  'workbench.settings.def.workspaceSharing.importPreviewDiffViewer.label': '导入预览差异查看器',
+  'workbench.settings.def.workspaceSharing.importPreviewDiffViewer.label': '布局',
   'workbench.settings.def.workspaceSharing.importPreviewDiffViewer.description':
     '并排渲染目标与传入内容，或以内联堆叠渲染。差异窗格太窄时自动切换为统一视图。',
   'workbench.settings.def.workspaceSharing.importPreviewDiffViewer.option.side-by-side.label': '并排',
   'workbench.settings.def.workspaceSharing.importPreviewDiffViewer.option.unified.label': '统一',
-  'workbench.settings.def.workspaceSharing.importPreviewDiffWhitespace.label': '导入预览差异的空白字符处理',
+  'workbench.settings.def.workspaceSharing.importPreviewDiffWhitespace.label': '空白字符处理',
   'workbench.settings.def.workspaceSharing.importPreviewDiffWhitespace.description':
     '差异是把仅空白字符的更改视为编辑，还是将其隐藏。',
   'workbench.settings.def.workspaceSharing.importPreviewDiffWhitespace.option.none.label': '不忽略',
   'workbench.settings.def.workspaceSharing.importPreviewDiffWhitespace.option.ignore.label': '忽略空白字符',
-  'workbench.settings.def.workspaceSharing.importPreviewDiffCollapseUnchanged.label': '折叠导入预览差异中未更改的区域',
+  'workbench.settings.def.workspaceSharing.importPreviewDiffCollapseUnchanged.label': '折叠未更改的区域',
   'workbench.settings.def.workspaceSharing.importPreviewDiffCollapseUnchanged.description':
     '隐藏连续未更改的行，代之以点击展开的占位。',
-  'workbench.settings.def.workspaceSharing.importPreviewDiffShowWhitespaces.label': '在导入预览差异中显示空白字符',
+  'workbench.settings.def.workspaceSharing.importPreviewDiffShowWhitespaces.label': '显示空白字符',
   'workbench.settings.def.workspaceSharing.importPreviewDiffShowWhitespaces.description':
     '在差异中把空格和制表符渲染为可见字形（·、→）。',
-  'workbench.settings.def.workspaceSharing.importPreviewDiffShowLineNumbers.label': '在导入预览差异中显示行号',
+  'workbench.settings.def.workspaceSharing.importPreviewDiffShowLineNumbers.label': '显示行号',
   'workbench.settings.def.workspaceSharing.importPreviewDiffShowLineNumbers.description': '在差异两侧显示侧栏行号列。',
-  'workbench.settings.def.workspaceSharing.importPreviewDiffShowIndentGuides.label': '在导入预览差异中显示缩进参考线',
+  'workbench.settings.def.workspaceSharing.importPreviewDiffShowIndentGuides.label': '显示缩进参考线',
   'workbench.settings.def.workspaceSharing.importPreviewDiffShowIndentGuides.description':
     '渲染垂直缩进参考线，让 YAML 嵌套更易扫读。',
-  'workbench.settings.def.workspaceSharing.importPreviewDiffSoftWrap.label': '在导入预览差异中软换行长行',
+  'workbench.settings.def.workspaceSharing.importPreviewDiffSoftWrap.label': '软换行长行',
   'workbench.settings.def.workspaceSharing.importPreviewDiffSoftWrap.description':
     '把长行折到下一可视行，而不是水平滚动。',
 

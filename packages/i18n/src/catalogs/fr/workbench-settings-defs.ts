@@ -690,41 +690,39 @@ export const workbenchSettingsDefs = {
 
   // ── Workspace Sharing category defs ────────────────────────────────
   'workbench.settings.def.workspaceSharing.importPreviewShowMergeStrategy.label':
-    "Afficher la stratégie de fusion sur les lignes de l'aperçu d'import",
+    'Afficher la stratégie de fusion sur les lignes',
   'workbench.settings.def.workspaceSharing.importPreviewShowMergeStrategy.description':
     "Quand activé, chaque ligne d'entité dans la barre latérale gauche de l'aperçu d'import affiche la " +
     'stratégie de fusion choisie (Ajouter comme nouveau, Remplacer, Ignorer, …) à côté des comptes de ' +
     'lignes. Désactivez pour libérer de la largeur sur les volets étroits.',
-  'workbench.settings.def.workspaceSharing.importPreviewDiffViewer.label': "Visionneuse de diff de l'aperçu d'import",
+  'workbench.settings.def.workspaceSharing.importPreviewDiffViewer.label': 'Disposition',
   'workbench.settings.def.workspaceSharing.importPreviewDiffViewer.description':
     'Rend cible et entrant côte à côte ou empilés en ligne. Bascule automatiquement en unifié quand le volet ' +
     'de diff est trop étroit.',
   'workbench.settings.def.workspaceSharing.importPreviewDiffViewer.option.side-by-side.label': 'Côte à côte',
   'workbench.settings.def.workspaceSharing.importPreviewDiffViewer.option.unified.label': 'Unifié',
-  'workbench.settings.def.workspaceSharing.importPreviewDiffWhitespace.label':
-    "Traitement des espaces dans le diff de l'aperçu d'import",
+  'workbench.settings.def.workspaceSharing.importPreviewDiffWhitespace.label': 'Traitement des espaces',
   'workbench.settings.def.workspaceSharing.importPreviewDiffWhitespace.description':
     'Si le diff traite les changements limités aux espaces comme des modifications ou les masque.',
   'workbench.settings.def.workspaceSharing.importPreviewDiffWhitespace.option.none.label': 'Ne pas ignorer',
   'workbench.settings.def.workspaceSharing.importPreviewDiffWhitespace.option.ignore.label': 'Ignorer les espaces',
   'workbench.settings.def.workspaceSharing.importPreviewDiffCollapseUnchanged.label':
-    "Replier les régions inchangées dans le diff de l'aperçu d'import",
+    'Replier les régions inchangées',
   'workbench.settings.def.workspaceSharing.importPreviewDiffCollapseUnchanged.description':
     'Masque les suites de lignes inchangées et les remplace par un talon cliquable pour développer.',
   'workbench.settings.def.workspaceSharing.importPreviewDiffShowWhitespaces.label':
-    "Afficher les caractères d'espacement dans le diff de l'aperçu d'import",
+    "Afficher les caractères d'espacement",
   'workbench.settings.def.workspaceSharing.importPreviewDiffShowWhitespaces.description':
     'Rend les espaces et tabulations comme des glyphes visibles (·, →) dans le diff.',
   'workbench.settings.def.workspaceSharing.importPreviewDiffShowLineNumbers.label':
-    "Afficher les numéros de ligne dans le diff de l'aperçu d'import",
+    'Afficher les numéros de ligne',
   'workbench.settings.def.workspaceSharing.importPreviewDiffShowLineNumbers.description':
     'Affiche la colonne des numéros de ligne à côté de chaque côté du diff.',
   'workbench.settings.def.workspaceSharing.importPreviewDiffShowIndentGuides.label':
-    "Afficher les guides d'indentation dans le diff de l'aperçu d'import",
+    "Afficher les guides d'indentation",
   'workbench.settings.def.workspaceSharing.importPreviewDiffShowIndentGuides.description':
     "Rend des guides d'indentation verticaux pour parcourir plus facilement l'imbrication YAML.",
-  'workbench.settings.def.workspaceSharing.importPreviewDiffSoftWrap.label':
-    "Replier les lignes longues dans le diff de l'aperçu d'import",
+  'workbench.settings.def.workspaceSharing.importPreviewDiffSoftWrap.label': 'Replier les lignes longues',
   'workbench.settings.def.workspaceSharing.importPreviewDiffSoftWrap.description':
     'Replie les lignes longues sur la ligne visuelle suivante au lieu de défiler horizontalement.',
 

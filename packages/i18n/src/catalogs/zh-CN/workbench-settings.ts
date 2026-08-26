@@ -139,6 +139,8 @@ export const workbenchSettings = {
   'workbench.settings.category.keyboard.sub.popup-tabs': '弹窗和侧边栏 · 标签页',
   'workbench.settings.category.workspaceSharing.label': '工作区共享',
   'workbench.settings.category.workspaceSharing.description': '工作区导出的导入预览的显示偏好。',
+  'workbench.settings.category.workspaceSharing.sub.importPreview': '导入预览',
+  'workbench.settings.category.workspaceSharing.sub.diffViewer': '差异查看器',
   'workbench.settings.category.git.label': 'Git',
   'workbench.settings.category.git.description': '把此工作区绑定到磁盘上的文件夹——一棵实时的、对 git 友好的 YAML 树。',
   'workbench.settings.category.proxy.label': '代理',

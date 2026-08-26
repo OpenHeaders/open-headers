@@ -713,43 +713,40 @@ export const workbenchSettingsDefs = {
 
   // ── Workspace Sharing category defs ────────────────────────────────
   'workbench.settings.def.workspaceSharing.importPreviewShowMergeStrategy.label':
-    'Mostrar la estrategia de fusión en las filas de la vista previa de importación',
+    'Mostrar la estrategia de fusión en las filas',
   'workbench.settings.def.workspaceSharing.importPreviewShowMergeStrategy.description':
     'Cuando está activado, cada fila de entidad en la barra lateral izquierda de la vista previa de ' +
     'importación muestra la estrategia de fusión elegida (Añadir como nuevo, Reemplazar el existente, ' +
     'Omitir, …) junto a los recuentos de líneas. Desactívalo para liberar ancho de fila en los paneles ' +
     'estrechos.',
-  'workbench.settings.def.workspaceSharing.importPreviewDiffViewer.label':
-    'Visor de diff de la vista previa de importación',
+  'workbench.settings.def.workspaceSharing.importPreviewDiffViewer.label': 'Disposición',
   'workbench.settings.def.workspaceSharing.importPreviewDiffViewer.description':
     'Muestra destino y entrante lado a lado o apilados en línea. Cambia automáticamente a unificado cuando ' +
     'el panel del diff es demasiado estrecho.',
   'workbench.settings.def.workspaceSharing.importPreviewDiffViewer.option.side-by-side.label': 'Lado a lado',
   'workbench.settings.def.workspaceSharing.importPreviewDiffViewer.option.unified.label': 'Unificado',
-  'workbench.settings.def.workspaceSharing.importPreviewDiffWhitespace.label':
-    'Tratamiento de los espacios en el diff de la vista previa de importación',
+  'workbench.settings.def.workspaceSharing.importPreviewDiffWhitespace.label': 'Tratamiento de los espacios',
   'workbench.settings.def.workspaceSharing.importPreviewDiffWhitespace.description':
     'Si el diff trata los cambios de solo espacios como ediciones o los oculta.',
   'workbench.settings.def.workspaceSharing.importPreviewDiffWhitespace.option.none.label': 'No ignorar',
   'workbench.settings.def.workspaceSharing.importPreviewDiffWhitespace.option.ignore.label': 'Ignorar los espacios',
   'workbench.settings.def.workspaceSharing.importPreviewDiffCollapseUnchanged.label':
-    'Plegar las regiones sin cambios en el diff de la vista previa de importación',
+    'Plegar las regiones sin cambios',
   'workbench.settings.def.workspaceSharing.importPreviewDiffCollapseUnchanged.description':
     'Oculta las series de líneas sin cambios y las reemplaza por un tramo que se expande al hacer clic.',
   'workbench.settings.def.workspaceSharing.importPreviewDiffShowWhitespaces.label':
-    'Mostrar los caracteres de espacio en el diff de la vista previa de importación',
+    'Mostrar los caracteres de espacio',
   'workbench.settings.def.workspaceSharing.importPreviewDiffShowWhitespaces.description':
     'Muestra los espacios y tabulaciones como glifos visibles (·, →) en el diff.',
   'workbench.settings.def.workspaceSharing.importPreviewDiffShowLineNumbers.label':
-    'Mostrar los números de línea en el diff de la vista previa de importación',
+    'Mostrar los números de línea',
   'workbench.settings.def.workspaceSharing.importPreviewDiffShowLineNumbers.description':
     'Muestra la columna de números de línea junto a cada lado del diff.',
   'workbench.settings.def.workspaceSharing.importPreviewDiffShowIndentGuides.label':
-    'Mostrar las guías de sangría en el diff de la vista previa de importación',
+    'Mostrar las guías de sangría',
   'workbench.settings.def.workspaceSharing.importPreviewDiffShowIndentGuides.description':
     'Muestra guías de sangría verticales para recorrer más fácilmente el anidamiento YAML.',
-  'workbench.settings.def.workspaceSharing.importPreviewDiffSoftWrap.label':
-    'Ajustar las líneas largas en el diff de la vista previa de importación',
+  'workbench.settings.def.workspaceSharing.importPreviewDiffSoftWrap.label': 'Ajustar las líneas largas',
   'workbench.settings.def.workspaceSharing.importPreviewDiffSoftWrap.description':
     'Ajusta las líneas largas a la siguiente línea visual en lugar de desplazarse horizontalmente.',
 

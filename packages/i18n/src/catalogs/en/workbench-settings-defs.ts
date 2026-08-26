@@ -538,39 +538,32 @@ export const workbenchSettingsDefs = {
     'Match this URL verbatim without normalization',
 
   // ── Workspace Sharing category defs ────────────────────────────────
-  'workbench.settings.def.workspaceSharing.importPreviewShowMergeStrategy.label':
-    'Show merge strategy on import-preview rows',
+  'workbench.settings.def.workspaceSharing.importPreviewShowMergeStrategy.label': 'Show merge strategy on rows',
   'workbench.settings.def.workspaceSharing.importPreviewShowMergeStrategy.description':
     "When on, each entity row in the import-preview's left sidebar shows the chosen merge strategy (Add as new, Replace, Skip, …) inline next to the line counts. Toggle off to free up row width on narrow panes.",
-  'workbench.settings.def.workspaceSharing.importPreviewDiffViewer.label': 'Import-preview diff viewer',
+  'workbench.settings.def.workspaceSharing.importPreviewDiffViewer.label': 'Layout',
   'workbench.settings.def.workspaceSharing.importPreviewDiffViewer.description':
     'Render target vs incoming side by side or stacked inline. Auto-flips to unified when the diff pane is too narrow.',
   'workbench.settings.def.workspaceSharing.importPreviewDiffViewer.option.side-by-side.label': 'Side-by-side',
   'workbench.settings.def.workspaceSharing.importPreviewDiffViewer.option.unified.label': 'Unified',
-  'workbench.settings.def.workspaceSharing.importPreviewDiffWhitespace.label':
-    'Import-preview diff whitespace handling',
+  'workbench.settings.def.workspaceSharing.importPreviewDiffWhitespace.label': 'Whitespace handling',
   'workbench.settings.def.workspaceSharing.importPreviewDiffWhitespace.description':
     'Whether the diff treats whitespace-only changes as edits or hides them.',
   'workbench.settings.def.workspaceSharing.importPreviewDiffWhitespace.option.none.label': 'Do not ignore',
   'workbench.settings.def.workspaceSharing.importPreviewDiffWhitespace.option.ignore.label': 'Ignore whitespaces',
-  'workbench.settings.def.workspaceSharing.importPreviewDiffCollapseUnchanged.label':
-    'Collapse unchanged regions in import-preview diff',
+  'workbench.settings.def.workspaceSharing.importPreviewDiffCollapseUnchanged.label': 'Collapse unchanged regions',
   'workbench.settings.def.workspaceSharing.importPreviewDiffCollapseUnchanged.description':
     'Hide runs of unchanged lines and replace them with a click-to-expand stub.',
-  'workbench.settings.def.workspaceSharing.importPreviewDiffShowWhitespaces.label':
-    'Show whitespace characters in import-preview diff',
+  'workbench.settings.def.workspaceSharing.importPreviewDiffShowWhitespaces.label': 'Show whitespace characters',
   'workbench.settings.def.workspaceSharing.importPreviewDiffShowWhitespaces.description':
     'Render spaces and tabs as visible glyphs (·, →) in the diff.',
-  'workbench.settings.def.workspaceSharing.importPreviewDiffShowLineNumbers.label':
-    'Show line numbers in import-preview diff',
+  'workbench.settings.def.workspaceSharing.importPreviewDiffShowLineNumbers.label': 'Show line numbers',
   'workbench.settings.def.workspaceSharing.importPreviewDiffShowLineNumbers.description':
     'Show the gutter line-number column next to each side of the diff.',
-  'workbench.settings.def.workspaceSharing.importPreviewDiffShowIndentGuides.label':
-    'Show indent guides in import-preview diff',
+  'workbench.settings.def.workspaceSharing.importPreviewDiffShowIndentGuides.label': 'Show indent guides',
   'workbench.settings.def.workspaceSharing.importPreviewDiffShowIndentGuides.description':
     'Render vertical indent guides to make YAML nesting easier to scan.',
-  'workbench.settings.def.workspaceSharing.importPreviewDiffSoftWrap.label':
-    'Soft-wrap long lines in import-preview diff',
+  'workbench.settings.def.workspaceSharing.importPreviewDiffSoftWrap.label': 'Soft-wrap long lines',
   'workbench.settings.def.workspaceSharing.importPreviewDiffSoftWrap.description':
     'Wrap long lines onto the next visual line instead of horizontal scrolling.',
 

@@ -266,6 +266,10 @@ registerCategory({
   icon: <CloudDownloadOutlined />,
   order: 85,
   descriptionKey: 'workbench.settings.category.workspaceSharing.description',
+  subcategories: [
+    { id: 'importPreview', labelKey: 'workbench.settings.category.workspaceSharing.sub.importPreview', order: 10 },
+    { id: 'diffViewer', labelKey: 'workbench.settings.category.workspaceSharing.sub.diffViewer', order: 20 },
+  ],
 });
 
 registerCategory({
