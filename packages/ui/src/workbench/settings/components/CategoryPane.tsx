@@ -76,7 +76,7 @@ const CategoryPane: React.FC<CategoryPaneProps> = ({ category, defs }) => {
               <div style={{ flex: 1, height: 1, background: token.colorBorderSecondary }} />
             </div>
           )}
-          <div>
+          <div style={group.sub ? { paddingLeft: 16 } : undefined}>
             {group.defs.map((def) => (
               <SettingRow key={def.key} def={def} />
             ))}
