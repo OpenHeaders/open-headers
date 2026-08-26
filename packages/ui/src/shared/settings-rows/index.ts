@@ -13,4 +13,5 @@ export { default as KnobRow } from './KnobRow';
 export { default as ModifiedDot } from './ModifiedDot';
 export { ResetSlot, RowReset } from './RowReset';
 export { default as SelectKnobRow } from './SelectKnobRow';
+export { default as TagsKnobRow } from './TagsKnobRow';
 export { default as TextKnobRow } from './TextKnobRow';

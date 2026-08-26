@@ -80,30 +80,47 @@ export const workbenchEditorsWebsocket = {
   'workbench.editors.websocket.spec.browser.components': 'Components',
   'workbench.editors.websocket.specFooter.using': 'Utilise {name}',
   'workbench.editors.websocket.specFooter.none': 'Aucune spécification AsyncAPI liée',
-  'workbench.editors.websocket.settings.sslVerifyLabel': 'Vérification du certificat SSL',
-  'workbench.editors.websocket.settings.sslVerifyHelp':
-    'Vérifie le certificat du serveur contre les racines du système pour les sessions wss:. Désactivez pour ' +
-    "les serveurs de développement auto-signés. S'applique sur l'application de bureau ou le serveur.",
+  'workbench.editors.websocket.settings.group.connection': 'Connexion',
+  'workbench.editors.websocket.settings.group.socketio': 'Socket.IO',
+  'workbench.editors.websocket.settings.group.tls': 'TLS et confiance',
+  'workbench.editors.websocket.settings.groupInfo.connection':
+    'Comment le handshake ouvre la session : les sous-protocoles proposés, la destination de la connexion et ' +
+    'le plafond sur l’ouverture.',
+  'workbench.editors.websocket.settings.groupInfo.socketio':
+    'Comment le CONNECT Socket.IO adresse le serveur : l’espace de noms que la session rejoint.',
+  'workbench.editors.websocket.settings.groupInfo.tls':
+    'Comment les sessions wss: établissent la confiance : vérification ou non du certificat du serveur contre ' +
+    'les racines du système.',
   'workbench.editors.websocket.settings.subprotocolsLabel': 'Sous-protocoles',
   'workbench.editors.websocket.settings.subprotocolsHelp':
     "Liste d'offres Sec-WebSocket-Protocol, par ordre de préférence — le serveur en choisit un pendant le handshake.",
-  'workbench.editors.websocket.settings.subprotocolsPlaceholder': 'Ajouter un sous-protocole…',
+  'workbench.editors.websocket.settings.subprotocolsPlaceholder': 'Aucun (défaut)',
+  'workbench.editors.websocket.settings.subprotocolsExample': 'p. ex. graphql-transport-ws',
   'workbench.editors.websocket.settings.unixSocketLabel': 'Socket Unix',
   'workbench.editors.websocket.settings.unixSocketHelp':
     'Se connecte à cette socket locale — un chemin absolu de socket Unix, ou un tube nommé Windows comme ' +
     "\\\\.\\pipe\\nom — au lieu d'ouvrir une connexion TCP. L'URL continue de déterminer le Host du " +
     'handshake, le nom de serveur TLS et la vérification du certificat ; seule la destination de la ' +
     'connexion change. Laissez vide pour une connexion TCP normale.',
-  'workbench.editors.websocket.settings.unixSocketPlaceholder': 'Pas de socket — connexion TCP',
-  'workbench.editors.websocket.settings.timeoutLabel': 'Délai de connexion (ms)',
+  'workbench.editors.websocket.settings.unixSocketPlaceholder': 'Connexion TCP (défaut)',
+  'workbench.editors.websocket.settings.timeoutLabel': 'Délai de connexion',
   'workbench.editors.websocket.settings.timeoutHelp':
-    "Plafond en temps réel sur le handshake de connexion. Vide, la valeur par défaut de l'application s'applique.",
-  'workbench.editors.websocket.settings.timeoutPlaceholder': 'Par défaut',
-  'workbench.editors.websocket.settings.namespaceLabel': 'Espace de noms Socket.IO',
+    'Plafond horloge sur le handshake de connexion seulement — une session ouverte n’a pas de plafond. Vide ' +
+    'ne fixe aucun délai.',
+  'workbench.editors.websocket.settings.timeoutPlaceholder': 'Aucune limite (défaut)',
+  'workbench.editors.websocket.settings.namespaceLabel': 'Espace de noms',
   'workbench.editors.websocket.settings.namespaceHelp':
     "L'espace de noms auquel la session se connecte — vide, elle se connecte à la racine /. Les sessions " +
     "composent directement le transport websocket ; il n'y a pas de repli long-polling.",
-  'workbench.editors.websocket.settings.namespacePlaceholder': '/',
+  'workbench.editors.websocket.settings.namespacePlaceholder': '/ (défaut)',
+  'workbench.editors.websocket.settings.namespaceExample': 'p. ex. /admin',
+  'workbench.editors.websocket.settings.sslVerifyLabel': 'Vérification du certificat SSL',
+  'workbench.editors.websocket.settings.sslVerifyHelp':
+    'Vérifie le certificat du serveur contre les racines du système pour les sessions wss:. Désactivez pour ' +
+    "les serveurs de développement auto-signés. S'applique sur l'application de bureau ou le serveur.",
+  'workbench.editors.websocket.settings.sslVerifyWarning':
+    'Les sessions sautent la vérification d’identité du serveur — tout certificat est accepté, y compris ' +
+    'auto-signés et expirés.',
   'workbench.editors.websocket.toast.deletedOtherTab':
     'Cette requête WebSocket a été supprimée depuis un autre onglet.',
   'workbench.editors.websocket.toast.updateFailed': "Échec de l'enregistrement de la requête WebSocket",

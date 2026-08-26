@@ -68,25 +68,38 @@ export const workbenchEditorsWebsocket = {
   'workbench.editors.websocket.spec.browser.components': 'Components',
   'workbench.editors.websocket.specFooter.using': 'Using {name}',
   'workbench.editors.websocket.specFooter.none': 'No AsyncAPI spec linked',
-  'workbench.editors.websocket.settings.sslVerifyLabel': 'SSL certificate verification',
-  'workbench.editors.websocket.settings.sslVerifyHelp':
-    'Verify the server certificate against the system roots for wss: sessions. Turn off for self-signed development servers. Applies on the desktop app or server.',
+  'workbench.editors.websocket.settings.group.connection': 'Connection',
+  'workbench.editors.websocket.settings.group.socketio': 'Socket.IO',
+  'workbench.editors.websocket.settings.group.tls': 'TLS & trust',
+  'workbench.editors.websocket.settings.groupInfo.connection':
+    'How the handshake opens the session: the subprotocols it offers, where the connection dials, and the ceiling on the open.',
+  'workbench.editors.websocket.settings.groupInfo.socketio':
+    'How the Socket.IO CONNECT addresses the server: the namespace the session joins.',
+  'workbench.editors.websocket.settings.groupInfo.tls':
+    'How wss: sessions establish trust: whether the server certificate is verified against the system roots.',
   'workbench.editors.websocket.settings.subprotocolsLabel': 'Subprotocols',
   'workbench.editors.websocket.settings.subprotocolsHelp':
     'Sec-WebSocket-Protocol offer list, in preference order — the server picks one during the handshake.',
-  'workbench.editors.websocket.settings.subprotocolsPlaceholder': 'Add a subprotocol…',
+  'workbench.editors.websocket.settings.subprotocolsPlaceholder': 'None (default)',
+  'workbench.editors.websocket.settings.subprotocolsExample': 'e.g. graphql-transport-ws',
   'workbench.editors.websocket.settings.unixSocketLabel': 'Unix socket',
   'workbench.editors.websocket.settings.unixSocketHelp':
     'Dial this local socket — an absolute Unix socket path, or a Windows named pipe like \\\\.\\pipe\\name — instead of opening a TCP connection. The URL keeps deciding the handshake Host, TLS server name, and certificate verification; only where the connection goes changes. Leave empty for a normal TCP connection.',
-  'workbench.editors.websocket.settings.unixSocketPlaceholder': 'No socket — TCP connection',
-  'workbench.editors.websocket.settings.timeoutLabel': 'Connect timeout (ms)',
+  'workbench.editors.websocket.settings.unixSocketPlaceholder': 'TCP connection (default)',
+  'workbench.editors.websocket.settings.timeoutLabel': 'Connect timeout',
   'workbench.editors.websocket.settings.timeoutHelp':
-    'Wall-clock ceiling on the connection handshake. Empty uses the app default.',
-  'workbench.editors.websocket.settings.timeoutPlaceholder': 'Default',
-  'workbench.editors.websocket.settings.namespaceLabel': 'Socket.IO namespace',
+    'Wall-clock ceiling on the connection handshake only — an open session has no ceiling. Empty sets no deadline.',
+  'workbench.editors.websocket.settings.timeoutPlaceholder': 'No limit (default)',
+  'workbench.editors.websocket.settings.namespaceLabel': 'Namespace',
   'workbench.editors.websocket.settings.namespaceHelp':
     'The namespace the session connects to — empty connects to the root /. Sessions dial the websocket transport directly; there is no long-polling fallback.',
-  'workbench.editors.websocket.settings.namespacePlaceholder': '/',
+  'workbench.editors.websocket.settings.namespacePlaceholder': '/ (default)',
+  'workbench.editors.websocket.settings.namespaceExample': 'e.g. /admin',
+  'workbench.editors.websocket.settings.sslVerifyLabel': 'SSL certificate verification',
+  'workbench.editors.websocket.settings.sslVerifyHelp':
+    'Verify the server certificate against the system roots for wss: sessions. Turn off for self-signed development servers. Applies on the desktop app or server.',
+  'workbench.editors.websocket.settings.sslVerifyWarning':
+    'Sessions skip the server identity check — any certificate is accepted, including self-signed and expired ones.',
   'workbench.editors.websocket.toast.deletedOtherTab': 'This WebSocket request was deleted in another tab.',
   'workbench.editors.websocket.toast.updateFailed': 'Saving the WebSocket request failed',
   'workbench.editors.websocket.toast.updateFailedDetail': 'Saving the WebSocket request failed: {message}',

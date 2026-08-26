@@ -88,31 +88,47 @@ export const workbenchEditorsWebsocket = {
   'workbench.editors.websocket.spec.browser.components': 'Components',
   'workbench.editors.websocket.specFooter.using': 'Verwendet {name}',
   'workbench.editors.websocket.specFooter.none': 'Keine AsyncAPI-Spezifikation verknüpft',
-  'workbench.editors.websocket.settings.sslVerifyLabel': 'SSL-Zertifikatsprüfung',
-  'workbench.editors.websocket.settings.sslVerifyHelp':
-    'Prüft das Serverzertifikat für wss:-Sitzungen gegen die Systemwurzeln. Schalte es für selbstsignierte ' +
-    'Entwicklungsserver aus. Gilt in der Desktop-App oder im Server.',
+  'workbench.editors.websocket.settings.group.connection': 'Verbindung',
+  'workbench.editors.websocket.settings.group.socketio': 'Socket.IO',
+  'workbench.editors.websocket.settings.group.tls': 'TLS & Vertrauen',
+  'workbench.editors.websocket.settings.groupInfo.connection':
+    'Wie der Handshake die Sitzung öffnet: die angebotenen Subprotokolle, wohin die Verbindung wählt und die ' +
+    'Obergrenze für den Aufbau.',
+  'workbench.editors.websocket.settings.groupInfo.socketio':
+    'Wie das Socket.IO-CONNECT den Server adressiert: der Namespace, dem die Sitzung beitritt.',
+  'workbench.editors.websocket.settings.groupInfo.tls':
+    'Wie wss:-Sitzungen Vertrauen herstellen: ob das Serverzertifikat gegen die Systemwurzeln geprüft wird.',
   'workbench.editors.websocket.settings.subprotocolsLabel': 'Subprotokolle',
   'workbench.editors.websocket.settings.subprotocolsHelp':
     'Die Sec-WebSocket-Protocol-Angebotsliste, in bevorzugter Reihenfolge — der Server wählt eines während ' +
     'des Handshakes.',
-  'workbench.editors.websocket.settings.subprotocolsPlaceholder': 'Subprotokoll hinzufügen…',
+  'workbench.editors.websocket.settings.subprotocolsPlaceholder': 'Keine (Standard)',
+  'workbench.editors.websocket.settings.subprotocolsExample': 'z. B. graphql-transport-ws',
   'workbench.editors.websocket.settings.unixSocketLabel': 'Unix-Socket',
   'workbench.editors.websocket.settings.unixSocketHelp':
     'Wählt dieses lokale Socket an — einen absoluten Unix-Socket-Pfad oder eine benannte Windows-Pipe wie ' +
     '\\\\.\\pipe\\name — statt eine TCP-Verbindung zu öffnen. Die URL bestimmt weiterhin den ' +
     'Handshake-Host, den TLS-Servernamen und die Zertifikatsprüfung; nur wohin die Verbindung geht, ändert ' +
     'sich. Leer lassen für eine normale TCP-Verbindung.',
-  'workbench.editors.websocket.settings.unixSocketPlaceholder': 'Kein Socket — TCP-Verbindung',
-  'workbench.editors.websocket.settings.timeoutLabel': 'Verbindungs-Zeitlimit (ms)',
+  'workbench.editors.websocket.settings.unixSocketPlaceholder': 'TCP-Verbindung (Standard)',
+  'workbench.editors.websocket.settings.timeoutLabel': 'Verbindungs-Zeitlimit',
   'workbench.editors.websocket.settings.timeoutHelp':
-    'Obergrenze der realen Zeit für den Verbindungs-Handshake. Leer verwendet den App-Standard.',
-  'workbench.editors.websocket.settings.timeoutPlaceholder': 'Standard',
-  'workbench.editors.websocket.settings.namespaceLabel': 'Socket.IO-Namespace',
+    'Wanduhr-Obergrenze nur für den Verbindungs-Handshake — eine offene Sitzung hat keine Obergrenze. Leer ' +
+    'setzt keine Frist.',
+  'workbench.editors.websocket.settings.timeoutPlaceholder': 'Kein Limit (Standard)',
+  'workbench.editors.websocket.settings.namespaceLabel': 'Namespace',
   'workbench.editors.websocket.settings.namespaceHelp':
     'Der Namespace, mit dem sich die Sitzung verbindet — leer verbindet mit der Wurzel /. Sitzungen wählen ' +
     'direkt den websocket-Transport; es gibt keinen Fallback auf long-polling.',
-  'workbench.editors.websocket.settings.namespacePlaceholder': '/',
+  'workbench.editors.websocket.settings.namespacePlaceholder': '/ (Standard)',
+  'workbench.editors.websocket.settings.namespaceExample': 'z. B. /admin',
+  'workbench.editors.websocket.settings.sslVerifyLabel': 'SSL-Zertifikatsprüfung',
+  'workbench.editors.websocket.settings.sslVerifyHelp':
+    'Prüft das Serverzertifikat für wss:-Sitzungen gegen die Systemwurzeln. Schalte es für selbstsignierte ' +
+    'Entwicklungsserver aus. Gilt in der Desktop-App oder im Server.',
+  'workbench.editors.websocket.settings.sslVerifyWarning':
+    'Sitzungen überspringen die Prüfung der Server-Identität — jedes Zertifikat wird akzeptiert, auch ' +
+    'selbstsignierte und abgelaufene.',
   'workbench.editors.websocket.toast.deletedOtherTab': 'Diese WebSocket-Anfrage wurde in einem anderen Tab gelöscht.',
   'workbench.editors.websocket.toast.updateFailed': 'WebSocket-Anfrage konnte nicht gespeichert werden',
   'workbench.editors.websocket.toast.updateFailedDetail':
