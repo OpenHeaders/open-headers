@@ -70,7 +70,7 @@ const CategoryPane: React.FC<CategoryPaneProps> = ({ category, defs }) => {
         <section key={group.sub?.id ?? `_orphans_${i}`} style={{ marginBottom: 14 }}>
           {group.sub && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '0 0 4px' }}>
-              <h3 style={{ margin: 0, fontSize: 12, fontWeight: 600, color: token.colorText, flex: 'none' }}>
+              <h3 style={{ margin: 0, fontSize: 13, fontWeight: 400, color: token.colorText, flex: 'none' }}>
                 {resolveLabel(group.sub, t)}
               </h3>
               <div style={{ flex: 1, height: 1, background: token.colorBorderSecondary }} />
