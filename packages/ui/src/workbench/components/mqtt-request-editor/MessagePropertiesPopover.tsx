@@ -209,7 +209,7 @@ const MessagePropertiesPopover: React.FC<{
               placeholder={t('workbench.editors.mqtt.props.messageExpiryPlaceholder')}
               disabled={!v5}
               ariaLabel={t('workbench.editors.mqtt.props.messageExpiry')}
-              style={{ width: 130 }}
+              style={{ width: 200 }}
             />
             <OptionLabel
               text={t('workbench.editors.mqtt.props.contentType')}
