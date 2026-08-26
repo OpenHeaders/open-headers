@@ -192,11 +192,14 @@ const MqttTopicsTab: React.FC<MqttTopicsTabProps> = ({ rows, onChange, v5, sessi
         auxColumns={[
           {
             // The ⋯ subscription-options slot — its own track riding
-            // the Topic column (blank header, no divider of its own).
-            // The ghost row keeps the dimmed disabled dots so the
-            // column reads as a column before any row is minted.
+            // the Topic column (blank header, persistent hairline on
+            // its left edge so the track reads as a column even before
+            // any row hover). The ghost row keeps the dimmed disabled
+            // dots so the column reads as a column before any row is
+            // minted.
             position: 'after-key',
             width: '28px',
+            divider: true,
             render: (row, update, ctx) =>
               ctx.isPlaceholder ? (
                 <Button size="small" type="text" icon={<MoreOutlined />} disabled data-testid="mqtt-topic-options" />
