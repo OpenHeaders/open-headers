@@ -108,6 +108,7 @@ export const workbenchSettings = {
   'workbench.settings.category.inspection.label': 'Debug mode',
   'workbench.settings.category.inspection.description':
     'The opt-in path that attaches your browser’s debugging protocol — inspect and modify requests with the same depth as the built-in developer tools.',
+  'workbench.settings.category.inspection.sub.protocol': 'Debugging Protocol',
   'workbench.settings.category.trafficMonitor.label': 'Traffic',
   'workbench.settings.category.trafficMonitor.description':
     'Defaults for the start-observing gesture in the Traffic panel, and the disk budget of the session archive.',

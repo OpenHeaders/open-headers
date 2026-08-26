@@ -16,6 +16,7 @@ import { registerSetting } from '../registry';
 
 registerSetting({
   key: 'inspection.cdpEnabled',
+  subcategory: 'protocol',
   type: 'boolean',
   // OFF by default everywhere: attaching the debugging protocol shows the
   // browser's "started debugging this browser" banner on every inspected
@@ -35,6 +36,7 @@ registerSetting({
 
 registerSetting({
   key: 'inspection.cdpScope',
+  subcategory: 'protocol',
   type: 'enum',
   default: 'devtools',
   schema: cdpScopeModeSchema,

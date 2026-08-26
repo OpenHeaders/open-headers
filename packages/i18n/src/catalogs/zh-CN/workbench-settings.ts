@@ -111,6 +111,7 @@ export const workbenchSettings = {
   'workbench.settings.category.inspection.label': '调试模式',
   'workbench.settings.category.inspection.description':
     '自愿开启的路径，附加浏览器的调试协议——以内置开发者工具同等的深度检查并修改请求。',
+  'workbench.settings.category.inspection.sub.protocol': '调试协议',
   'workbench.settings.category.trafficMonitor.label': '流量',
   'workbench.settings.category.trafficMonitor.description':
     '流量面板“开始观察”手势的默认选项，以及会话归档的磁盘预算。',

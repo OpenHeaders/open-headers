@@ -124,6 +124,7 @@ export const workbenchSettings = {
   'workbench.settings.category.inspection.description':
     'La voie opt-in qui attache le protocole de débogage de votre navigateur — inspectez et modifiez les ' +
     'requêtes avec la même profondeur que les outils de développement intégrés.',
+  'workbench.settings.category.inspection.sub.protocol': 'Protocole de débogage',
   'workbench.settings.category.trafficMonitor.label': 'Trafic',
   'workbench.settings.category.trafficMonitor.description':
     'Valeurs par défaut du geste « Démarrer l’observation » du panneau Trafic, et budget disque de ' +

@@ -132,6 +132,7 @@ export const workbenchSettings = {
   'workbench.settings.category.inspection.description':
     'La vía opt-in que adjunta el protocolo de depuración de tu navegador — inspecciona y modifica solicitudes ' +
     'con la misma profundidad que las herramientas de desarrollo integradas.',
+  'workbench.settings.category.inspection.sub.protocol': 'Protocolo de depuración',
   'workbench.settings.category.trafficMonitor.label': 'Tráfico',
   'workbench.settings.category.trafficMonitor.description':
     'Valores predeterminados del gesto «Empezar a observar» del panel de Tráfico y presupuesto de disco del ' +

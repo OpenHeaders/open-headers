@@ -191,6 +191,7 @@ registerCategory({
   icon: <BugOutlined />,
   order: 21,
   descriptionKey: 'workbench.settings.category.inspection.description',
+  subcategories: [{ id: 'protocol', labelKey: 'workbench.settings.category.inspection.sub.protocol', order: 10 }],
 });
 
 registerCategory({

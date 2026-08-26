@@ -126,6 +126,7 @@ export const workbenchSettings = {
   'workbench.settings.category.inspection.description':
     'Der Opt-in-Pfad, der das Debugging-Protokoll deines Browsers anbindet — untersuche und verändere ' +
     'Anfragen mit derselben Tiefe wie die eingebauten Entwicklerwerkzeuge.',
+  'workbench.settings.category.inspection.sub.protocol': 'Debugging-Protokoll',
   'workbench.settings.category.trafficMonitor.label': 'Traffic',
   'workbench.settings.category.trafficMonitor.description':
     'Voreinstellungen der Geste „Beobachtung starten“ im Traffic-Panel und das Speicherbudget des ' +
