@@ -44,11 +44,6 @@ export const workbenchEditorsWebsocket = {
   'workbench.editors.websocket.message.formatJson': 'JSON',
   'workbench.editors.websocket.message.formatXml': 'XML',
   'workbench.editors.websocket.message.formatHtml': 'HTML',
-  'workbench.editors.websocket.auth.typeLabel': '类型',
-  'workbench.editors.websocket.auth.typeNone': '无授权',
-  'workbench.editors.websocket.auth.typeBearer': 'Bearer token',
-  'workbench.editors.websocket.auth.tokenLabel': 'Token',
-  'workbench.editors.websocket.auth.tokenPlaceholder': 'Token 或 {{variable}}',
   'workbench.editors.websocket.auth.helpRaw':
     '在握手时作为 Authorization: Bearer 标头发送——适用于桌面端应用或服务器；浏览器无法在 WebSocket 上设置它。' +
     '显式的 Authorization 标头行优先。',

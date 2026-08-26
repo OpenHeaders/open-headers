@@ -37,11 +37,6 @@ export const workbenchEditorsWebsocket = {
   'workbench.editors.websocket.message.formatJson': 'JSON',
   'workbench.editors.websocket.message.formatXml': 'XML',
   'workbench.editors.websocket.message.formatHtml': 'HTML',
-  'workbench.editors.websocket.auth.typeLabel': 'Type',
-  'workbench.editors.websocket.auth.typeNone': 'Aucune authentification',
-  'workbench.editors.websocket.auth.typeBearer': 'Bearer token',
-  'workbench.editors.websocket.auth.tokenLabel': 'Token',
-  'workbench.editors.websocket.auth.tokenPlaceholder': 'Token ou {{variable}}',
   'workbench.editors.websocket.auth.helpRaw':
     "Envoyé comme en-tête Authorization: Bearer sur le handshake — s'applique sur l'application de bureau ou " +
     "le serveur ; les navigateurs ne peuvent pas le définir sur un WebSocket. Une ligne d'en-tête " +

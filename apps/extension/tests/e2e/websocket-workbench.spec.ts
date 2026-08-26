@@ -598,7 +598,7 @@ test('B10 — the bearer credential rides the CONNECT auth payload in-page and t
     .locator('.ant-select-dropdown')
     .filter({ visible: true })
     .locator('.ant-select-item-option')
-    .filter({ hasText: 'Bearer token' })
+    .filter({ hasText: 'Bearer Token' })
     .first()
     .click();
   await page.getByTestId('ws-auth-token').filter({ visible: true }).first().fill('sio-page-tok');

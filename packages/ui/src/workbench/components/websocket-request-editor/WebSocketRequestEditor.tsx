@@ -124,6 +124,7 @@ import {
 import { useLiveWsSession, type WsSessionTiming } from './useLiveWsSession';
 import { makeWsPageResolutionFactory, publishWsPageResolutionFactory } from './ws-page-session';
 import { subscribeWsPrefill } from './ws-prefill-bus';
+import WebSocketAuthTab from './WebSocketAuthTab';
 import WsSessionPane from './WsSessionPane';
 
 const { Text } = Typography;
@@ -1144,50 +1145,11 @@ const WebSocketRequestEditor: React.FC<WebSocketRequestEditorProps> = ({
                 </div>
               )}
               {activeTab === 'auth' && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 12, maxWidth: 560 }}>
-                  <div>
-                    <Text type="secondary" style={{ display: 'block', fontSize: 11, marginBottom: 4 }}>
-                      {t('workbench.editors.websocket.auth.typeLabel')}
-                    </Text>
-                    <Select
-                      style={{ width: 220 }}
-                      value={draft.auth.type}
-                      options={[
-                        { value: 'none', label: t('workbench.editors.websocket.auth.typeNone') },
-                        { value: 'bearer', label: t('workbench.editors.websocket.auth.typeBearer') },
-                      ]}
-                      onChange={(type: 'none' | 'bearer') =>
-                        setDraft((d) => ({
-                          ...d,
-                          auth:
-                            type === 'bearer'
-                              ? { type: 'bearer', token: d.auth.type === 'bearer' ? d.auth.token : '' }
-                              : { type: 'none' },
-                        }))
-                      }
-                      data-testid="ws-auth-type"
-                    />
-                  </div>
-                  {draft.auth.type === 'bearer' && (
-                    <div>
-                      <Text type="secondary" style={{ display: 'block', fontSize: 11, marginBottom: 4 }}>
-                        {t('workbench.editors.websocket.auth.tokenLabel')}
-                      </Text>
-                      <Input
-                        style={{ fontFamily: "'SF Mono', monospace", fontSize: 12 }}
-                        placeholder={t('workbench.editors.websocket.auth.tokenPlaceholder')}
-                        value={draft.auth.token}
-                        onChange={(e) => setDraft((d) => ({ ...d, auth: { type: 'bearer', token: e.target.value } }))}
-                        data-testid="ws-auth-token"
-                      />
-                      <Text type="secondary" style={{ display: 'block', fontSize: 11, marginTop: 6 }}>
-                        {socketioFlavor
-                          ? t('workbench.editors.websocket.auth.helpSocketio')
-                          : t('workbench.editors.websocket.auth.helpRaw')}
-                      </Text>
-                    </div>
-                  )}
-                </div>
+                <WebSocketAuthTab
+                  auth={draft.auth}
+                  socketioFlavor={socketioFlavor}
+                  onChange={(auth) => setDraft((d) => ({ ...d, auth }))}
+                />
               )}
               {activeTab === 'headers' && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>

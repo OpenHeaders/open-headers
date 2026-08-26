@@ -690,7 +690,7 @@ test('E11 — the probe identity opens the session; a wrong password refuses wit
     .locator('.ant-select-dropdown')
     .filter({ visible: true })
     .locator('.ant-select-item-option')
-    .filter({ hasText: 'Basic auth' })
+    .filter({ hasText: 'Basic Auth' })
     .first()
     .click();
   await page.getByTestId('mqtt-auth-username').filter({ visible: true }).first().fill('probe');

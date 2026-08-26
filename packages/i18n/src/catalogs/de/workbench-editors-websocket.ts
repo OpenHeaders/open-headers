@@ -45,11 +45,6 @@ export const workbenchEditorsWebsocket = {
   'workbench.editors.websocket.message.formatJson': 'JSON',
   'workbench.editors.websocket.message.formatXml': 'XML',
   'workbench.editors.websocket.message.formatHtml': 'HTML',
-  'workbench.editors.websocket.auth.typeLabel': 'Typ',
-  'workbench.editors.websocket.auth.typeNone': 'Keine Auth',
-  'workbench.editors.websocket.auth.typeBearer': 'Bearer-Token',
-  'workbench.editors.websocket.auth.tokenLabel': 'Token',
-  'workbench.editors.websocket.auth.tokenPlaceholder': 'Token oder {{variable}}',
   'workbench.editors.websocket.auth.helpRaw':
     'Wird beim Handshake als Header Authorization: Bearer gesendet — gilt in der Desktop-App oder im Server; ' +
     'Browser können ihn auf einem WebSocket nicht setzen. Eine explizite Authorization-Header-Zeile hat Vorrang.',
