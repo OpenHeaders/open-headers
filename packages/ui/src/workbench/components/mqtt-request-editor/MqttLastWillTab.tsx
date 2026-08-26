@@ -11,7 +11,13 @@
 
 import type { MqttPayloadFormat, MqttRequestQos } from '@openheaders/core/types';
 import { useT } from '@openheaders/ui/context/LocaleContext';
-import { Checkbox, ConfigProvider, Input, InputNumber, Select, Tooltip, Typography, theme } from 'antd';
+import {
+  ComboKnob,
+  durationSecondsInterpreter,
+  formatDurationSeconds,
+  numericPresets,
+} from '@openheaders/ui/shared/combo-knob';
+import { Checkbox, ConfigProvider, Input, Select, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { type Dispatch, type SetStateAction, useRef, useState } from 'react';
 import CodeEditor from '../shared/CodeEditor';
@@ -22,6 +28,11 @@ import { type MqttDraft, payloadEncodingError } from './draft';
 import MessagePropertiesPopover from './MessagePropertiesPopover';
 
 const { Text } = Typography;
+
+// Wire = whole seconds (§3.1.3.2.2); the spec default 0 publishes the
+// will as soon as the session ends.
+const interpretWillDelay = durationSecondsInterpreter({ min: 0, max: 0xffff_ffff });
+const WILL_DELAY_PRESETS = numericPresets([10, 30, 60, 300], formatDurationSeconds);
 
 interface MqttLastWillTabProps {
   draft: MqttDraft;
@@ -101,21 +112,24 @@ const MqttLastWillTab: React.FC<MqttLastWillTabProps> = ({ draft, setDraft, v5 }
         {/* The empty knob means the default in effect — its stated
           default reads at full text contrast, the Settings-tab
           discipline. */}
-        <ConfigProvider theme={{ components: { InputNumber: { colorTextPlaceholder: token.colorText } } }}>
+        <ConfigProvider theme={{ components: { Select: { colorTextPlaceholder: token.colorText } } }}>
           <Tooltip title={v5 ? undefined : t('workbench.editors.mqtt.will.delayHelp')}>
-            <InputNumber
-              size="small"
-              min={0}
-              max={0xffff_ffff}
-              disabled={!v5}
-              value={draft.lastWill.willDelayInterval}
-              onChange={(next) =>
-                setDraft((d) => ({ ...d, lastWill: { ...d.lastWill, willDelayInterval: next ?? undefined } }))
-              }
-              placeholder={t('workbench.editors.mqtt.will.delayPlaceholder')}
-              style={{ width: 120 }}
-              data-testid="mqtt-will-delay"
-            />
+            <span style={{ display: 'inline-flex' }}>
+              <ComboKnob
+                value={draft.lastWill.willDelayInterval}
+                onChange={(willDelayInterval) =>
+                  setDraft((d) => ({ ...d, lastWill: { ...d.lastWill, willDelayInterval } }))
+                }
+                presets={WILL_DELAY_PRESETS}
+                interpret={interpretWillDelay}
+                format={formatDurationSeconds}
+                placeholder={t('workbench.editors.mqtt.will.delayPlaceholder')}
+                disabled={!v5}
+                ariaLabel={t('workbench.editors.mqtt.will.delayLabel')}
+                style={{ width: 130 }}
+                testId="mqtt-will-delay"
+              />
+            </span>
           </Tooltip>
         </ConfigProvider>
         <Checkbox
