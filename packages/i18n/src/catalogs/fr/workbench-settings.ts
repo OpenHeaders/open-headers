@@ -87,6 +87,8 @@ export const workbenchSettings = {
   'workbench.settings.category.general.description': "Comportement global de l'application, démarrage et locale.",
   'workbench.settings.category.appearance.label': 'Apparence',
   'workbench.settings.category.appearance.description': 'Thème, densité et présentation visuelle.',
+  'workbench.settings.category.appearance.sub.theme': 'Thème',
+  'workbench.settings.category.appearance.sub.interface': 'Interface',
   'workbench.settings.category.workspaceLayout.label': "Disposition de l'espace de travail",
   'workbench.settings.category.workspaceLayout.description':
     "Affordances du pied de page et comportement du shell des fenêtres d'outils.",

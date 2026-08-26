@@ -80,6 +80,8 @@ export const workbenchSettings = {
   'workbench.settings.category.general.description': '应用级行为、启动和区域设置。',
   'workbench.settings.category.appearance.label': '外观',
   'workbench.settings.category.appearance.description': '主题、密度和视觉呈现。',
+  'workbench.settings.category.appearance.sub.theme': '主题',
+  'workbench.settings.category.appearance.sub.interface': '界面',
   'workbench.settings.category.workspaceLayout.label': '工作区布局',
   'workbench.settings.category.workspaceLayout.description': '页脚功能与工具窗口外壳的行为。',
   'workbench.settings.category.workspaceLayout.sub.shell': 'Shell',

@@ -75,6 +75,8 @@ export const workbenchSettings = {
   'workbench.settings.category.general.description': 'App-wide behavior, startup, and locale.',
   'workbench.settings.category.appearance.label': 'Appearance',
   'workbench.settings.category.appearance.description': 'Theme, density and visual presentation.',
+  'workbench.settings.category.appearance.sub.theme': 'Theme',
+  'workbench.settings.category.appearance.sub.interface': 'Interface',
   'workbench.settings.category.workspaceLayout.label': 'Workspace Layout',
   'workbench.settings.category.workspaceLayout.description': 'Footer affordances and tool-window shell behavior.',
   'workbench.settings.category.workspaceLayout.sub.shell': 'Shell',

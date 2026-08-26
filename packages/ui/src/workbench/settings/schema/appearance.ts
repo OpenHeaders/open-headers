@@ -145,6 +145,7 @@ declare module '@openheaders/ui/workbench/settings/types' {
 
 registerSetting({
   key: 'appearance.theme',
+  subcategory: 'theme',
   type: 'enum',
   default: 'auto',
   schema: themeSchema,
@@ -166,6 +167,7 @@ registerSetting({
 
 registerSetting({
   key: 'appearance.lightVariant',
+  subcategory: 'theme',
   type: 'enum',
   default: 'default',
   schema: lightVariantSchema,
@@ -182,6 +184,7 @@ registerSetting({
 
 registerSetting({
   key: 'appearance.darkVariant',
+  subcategory: 'theme',
   type: 'enum',
   default: 'default',
   schema: darkVariantSchema,
@@ -198,6 +201,7 @@ registerSetting({
 
 registerSetting({
   key: 'appearance.uiScale',
+  subcategory: 'interface',
   type: 'enum',
   default: 1,
   schema: uiScaleSchema,
@@ -242,6 +246,7 @@ registerSetting({
 
 registerSetting({
   key: 'appearance.fontFamilyPreset',
+  subcategory: 'interface',
   type: 'enum',
   default: defaultFontFamilyPreset(),
   schema: fontFamilyPresetSchema,
@@ -260,6 +265,7 @@ registerSetting({
 
 registerSetting({
   key: 'appearance.density',
+  subcategory: 'interface',
   type: 'enum',
   default: 'comfortable',
   schema: densitySchema,
@@ -276,6 +282,7 @@ registerSetting({
 
 registerSetting({
   key: 'appearance.editorHeaderPosition',
+  subcategory: 'interface',
   type: 'enum',
   default: 'top',
   schema: editorHeaderPositionSchema,
@@ -300,6 +307,7 @@ registerSetting({
 
 registerSetting({
   key: 'appearance.clockFormat',
+  subcategory: 'interface',
   type: 'enum',
   default: '24h',
   schema: clockFormatSchema,
@@ -322,6 +330,7 @@ registerSetting({
 
 registerSetting({
   key: 'appearance.accentColor',
+  subcategory: 'theme',
   type: 'color',
   default: '#1677ff',
   schema: accentSchema,

@@ -93,6 +93,10 @@ registerCategory({
   icon: <BgColorsOutlined />,
   order: 10,
   descriptionKey: 'workbench.settings.category.appearance.description',
+  subcategories: [
+    { id: 'theme', labelKey: 'workbench.settings.category.appearance.sub.theme', order: 10 },
+    { id: 'interface', labelKey: 'workbench.settings.category.appearance.sub.interface', order: 20 },
+  ],
 });
 
 registerCategory({

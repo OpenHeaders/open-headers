@@ -250,7 +250,7 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.appearance.theme.option.dark.label': 'Oscuro',
   'workbench.settings.def.appearance.theme.option.auto.label': 'Seguir el sistema',
   'workbench.settings.def.appearance.theme.option.auto.description': 'Sigue tu sistema operativo',
-  'workbench.settings.def.appearance.lightVariant.label': 'Variante del tema claro',
+  'workbench.settings.def.appearance.lightVariant.label': 'Variante clara',
   'workbench.settings.def.appearance.lightVariant.description':
     'Paleta usada cuando el tema de color resuelto es claro.',
   'workbench.settings.def.appearance.lightVariant.option.default.label': 'Por defecto',
@@ -273,7 +273,7 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.appearance.lightVariant.option.sepia.description':
     'Paleta pergamino saturada con texto marrón profundo — la variante clara más teñida, ideal para la ' +
     'lectura prolongada.',
-  'workbench.settings.def.appearance.darkVariant.label': 'Variante del tema oscuro',
+  'workbench.settings.def.appearance.darkVariant.label': 'Variante oscura',
   'workbench.settings.def.appearance.darkVariant.description':
     'Paleta usada cuando el tema de color resuelto es oscuro.',
   'workbench.settings.def.appearance.darkVariant.option.default.label': 'Por defecto',
@@ -296,7 +296,7 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.appearance.darkVariant.option.arctic.description':
     'Tema oscuro gris azulado frío con un acento cian escarchado — más plano y menos saturado que Atenuado o ' +
     'Medianoche.',
-  'workbench.settings.def.appearance.uiScale.label': 'Escala de la interfaz',
+  'workbench.settings.def.appearance.uiScale.label': 'Escala',
   'workbench.settings.def.appearance.uiScale.description':
     'Escala todo el chrome — botones, texto, márgenes, controles — sin cambiar el tamaño de fuente del editor.',
   'workbench.settings.def.appearance.uiScale.option.0.7.label': 'Diminuta (70%)',
@@ -317,7 +317,7 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.appearance.uiScale.option.1.25.label': 'Muy grande (125%)',
   'workbench.settings.def.appearance.uiScale.option.1.25.description':
     'Escala máxima del chrome — la mejor para la accesibilidad.',
-  'workbench.settings.def.appearance.fontFamilyPreset.label': 'Familia de fuente de la interfaz',
+  'workbench.settings.def.appearance.fontFamilyPreset.label': 'Familia de fuente',
   'workbench.settings.def.appearance.fontFamilyPreset.description':
     'Pilas sans-serif seleccionadas para el chrome de la aplicación. Por defecto Inter en Windows / Linux ' +
     'por coherencia multiplataforma, y System Sans en macOS para conservar el dimensionado óptico nativo de ' +
@@ -338,7 +338,7 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.appearance.fontFamilyPreset.option.press-start-2p.description':
     'La fuente de estilo píxel que incluimos con la aplicación. Empaquetada — siempre disponible. Una ' +
     'elección lúdica: legible pero alta y ancha; los márgenes del chrome parecerán generosos.',
-  'workbench.settings.def.appearance.density.label': 'Densidad de la interfaz',
+  'workbench.settings.def.appearance.density.label': 'Densidad',
   'workbench.settings.def.appearance.density.description':
     'El modo compacto reduce los márgenes en listas, tablas y formularios.',
   'workbench.settings.def.appearance.density.option.comfortable.label': 'Cómoda',

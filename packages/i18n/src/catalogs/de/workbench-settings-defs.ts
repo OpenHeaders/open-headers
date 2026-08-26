@@ -229,7 +229,7 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.appearance.theme.option.dark.label': 'Dunkel',
   'workbench.settings.def.appearance.theme.option.auto.label': 'System folgen',
   'workbench.settings.def.appearance.theme.option.auto.description': 'Deinem Betriebssystem entsprechen',
-  'workbench.settings.def.appearance.lightVariant.label': 'Variante des hellen Themes',
+  'workbench.settings.def.appearance.lightVariant.label': 'Helle Variante',
   'workbench.settings.def.appearance.lightVariant.description': 'Palette, wenn das aufgelöste Farb-Theme hell ist.',
   'workbench.settings.def.appearance.lightVariant.option.default.label': 'Standard',
   'workbench.settings.def.appearance.lightVariant.option.default.description':
@@ -250,7 +250,7 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.appearance.lightVariant.option.sepia.description':
     'Gesättigte Pergament-Palette mit tiefbraunem Text — die am stärksten getönte helle Variante, ideal für ' +
     'langes Lesen.',
-  'workbench.settings.def.appearance.darkVariant.label': 'Variante des dunklen Themes',
+  'workbench.settings.def.appearance.darkVariant.label': 'Dunkle Variante',
   'workbench.settings.def.appearance.darkVariant.description': 'Palette, wenn das aufgelöste Farb-Theme dunkel ist.',
   'workbench.settings.def.appearance.darkVariant.option.default.label': 'Standard',
   'workbench.settings.def.appearance.darkVariant.option.default.description':
@@ -271,7 +271,7 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.appearance.darkVariant.option.arctic.description':
     'Kühles blaugraues dunkles Theme mit frostigem Cyan-Akzent — flacher und weniger gesättigt als Dim oder ' +
     'Midnight.',
-  'workbench.settings.def.appearance.uiScale.label': 'UI-Skalierung',
+  'workbench.settings.def.appearance.uiScale.label': 'Skalierung',
   'workbench.settings.def.appearance.uiScale.description':
     'Skaliert das gesamte Chrome — Buttons, Text, Abstände, Bedienelemente — ohne die Schriftgröße des ' +
     'Editors zu ändern.',
@@ -292,7 +292,7 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.appearance.uiScale.option.1.25.label': 'Sehr groß (125 %)',
   'workbench.settings.def.appearance.uiScale.option.1.25.description':
     'Maximale Chrome-Skalierung — am besten für Barrierefreiheit.',
-  'workbench.settings.def.appearance.fontFamilyPreset.label': 'UI-Schriftfamilie',
+  'workbench.settings.def.appearance.fontFamilyPreset.label': 'Schriftfamilie',
   'workbench.settings.def.appearance.fontFamilyPreset.description':
     'Kuratierte Sans-Serif-Stapel für das App-Chrome. Standard ist Inter auf Windows / Linux für ' +
     'plattformübergreifende Einheitlichkeit und System Sans auf macOS, um das native optische Sizing von SF ' +
@@ -313,7 +313,7 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.appearance.fontFamilyPreset.option.press-start-2p.description':
     'Die Pixel-Display-Schrift, die wir mit der App ausliefern. Mitgeliefert — immer verfügbar. Eine ' +
     'Spielerei: lesbar, aber hoch und breit; Chrome-Abstände wirken großzügig.',
-  'workbench.settings.def.appearance.density.label': 'UI-Dichte',
+  'workbench.settings.def.appearance.density.label': 'Dichte',
   'workbench.settings.def.appearance.density.description':
     'Der Kompaktmodus verringert die Abstände in Listen, Tabellen und Formularen.',
   'workbench.settings.def.appearance.density.option.comfortable.label': 'Komfortabel',

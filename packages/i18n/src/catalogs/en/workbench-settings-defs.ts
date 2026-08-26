@@ -181,7 +181,7 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.appearance.theme.option.dark.label': 'Dark',
   'workbench.settings.def.appearance.theme.option.auto.label': 'Follow system',
   'workbench.settings.def.appearance.theme.option.auto.description': 'Match your operating system',
-  'workbench.settings.def.appearance.lightVariant.label': 'Light Theme Variant',
+  'workbench.settings.def.appearance.lightVariant.label': 'Light Variant',
   'workbench.settings.def.appearance.lightVariant.description': 'Palette used when the resolved color theme is light.',
   'workbench.settings.def.appearance.lightVariant.option.default.label': 'Default',
   'workbench.settings.def.appearance.lightVariant.option.default.description':
@@ -201,7 +201,7 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.appearance.lightVariant.option.sepia.label': 'Sepia',
   'workbench.settings.def.appearance.lightVariant.option.sepia.description':
     'Saturated parchment palette with deep brown text — heaviest tinted light variant, ideal for prolonged reading.',
-  'workbench.settings.def.appearance.darkVariant.label': 'Dark Theme Variant',
+  'workbench.settings.def.appearance.darkVariant.label': 'Dark Variant',
   'workbench.settings.def.appearance.darkVariant.description': 'Palette used when the resolved color theme is dark.',
   'workbench.settings.def.appearance.darkVariant.option.default.label': 'Default',
   'workbench.settings.def.appearance.darkVariant.option.default.description':
@@ -221,7 +221,7 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.appearance.darkVariant.option.arctic.label': 'Arctic',
   'workbench.settings.def.appearance.darkVariant.option.arctic.description':
     'Cool blue-gray dark theme with a frosty cyan accent — flatter and less saturated than Dim or Midnight.',
-  'workbench.settings.def.appearance.uiScale.label': 'UI Scale',
+  'workbench.settings.def.appearance.uiScale.label': 'Scale',
   'workbench.settings.def.appearance.uiScale.description':
     'Scales the entire chrome — buttons, text, paddings, controls — without changing the editor font size.',
   'workbench.settings.def.appearance.uiScale.option.0.7.label': 'Tiny (70%)',
@@ -239,7 +239,7 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.appearance.uiScale.option.1.1.description': 'Slightly enlarged for easier reading.',
   'workbench.settings.def.appearance.uiScale.option.1.25.label': 'Extra Large (125%)',
   'workbench.settings.def.appearance.uiScale.option.1.25.description': 'Maximum chrome scale — best for accessibility.',
-  'workbench.settings.def.appearance.fontFamilyPreset.label': 'UI Font Family',
+  'workbench.settings.def.appearance.fontFamilyPreset.label': 'Font Family',
   'workbench.settings.def.appearance.fontFamilyPreset.description':
     "Curated sans-serif stacks for the app chrome. Default is Inter on Windows / Linux for cross-platform consistency, and System Sans on macOS to keep SF Pro's native optical sizing. Every option is bundled with the extension. Editor surfaces have their own font setting.",
   'workbench.settings.def.appearance.fontFamilyPreset.option.inter.description':
@@ -252,7 +252,7 @@ export const workbenchSettingsDefs = {
     'Monospace UI matching the built-in terminal font — a developer-tool look throughout the chrome. Bundled — always available.',
   'workbench.settings.def.appearance.fontFamilyPreset.option.press-start-2p.description':
     'The pixel-style display font we ship with the app. Bundled — always available. A novelty pick: legible but tall and wide; chrome paddings will look generous.',
-  'workbench.settings.def.appearance.density.label': 'UI Density',
+  'workbench.settings.def.appearance.density.label': 'Density',
   'workbench.settings.def.appearance.density.description': 'Compact mode reduces padding in lists, tables and forms.',
   'workbench.settings.def.appearance.density.option.comfortable.label': 'Comfortable',
   'workbench.settings.def.appearance.density.option.compact.label': 'Compact',

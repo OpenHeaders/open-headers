@@ -90,6 +90,8 @@ export const workbenchSettings = {
   'workbench.settings.category.general.description': 'App-weites Verhalten, Start und Locale.',
   'workbench.settings.category.appearance.label': 'Darstellung',
   'workbench.settings.category.appearance.description': 'Design, Dichte und visuelle Präsentation.',
+  'workbench.settings.category.appearance.sub.theme': 'Theme',
+  'workbench.settings.category.appearance.sub.interface': 'Oberfläche',
   'workbench.settings.category.workspaceLayout.label': 'Arbeitsbereich-Layout',
   'workbench.settings.category.workspaceLayout.description':
     'Affordances der Fußzeile und Shell-Verhalten der Werkzeugfenster.',

@@ -175,7 +175,7 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.appearance.theme.option.dark.label': '深色',
   'workbench.settings.def.appearance.theme.option.auto.label': '跟随系统',
   'workbench.settings.def.appearance.theme.option.auto.description': '匹配你的操作系统',
-  'workbench.settings.def.appearance.lightVariant.label': '浅色主题变体',
+  'workbench.settings.def.appearance.lightVariant.label': '浅色变体',
   'workbench.settings.def.appearance.lightVariant.description': '解析出的颜色主题为浅色时使用的调色板。',
   'workbench.settings.def.appearance.lightVariant.option.default.label': '默认',
   'workbench.settings.def.appearance.lightVariant.option.default.description': '均衡中性的浅色主题，适合日常使用。',
@@ -194,7 +194,7 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.appearance.lightVariant.option.sepia.label': 'Sepia',
   'workbench.settings.def.appearance.lightVariant.option.sepia.description':
     '饱和的羊皮纸调色板配深棕文本——着色最重的浅色变体，适合长时间阅读。',
-  'workbench.settings.def.appearance.darkVariant.label': '深色主题变体',
+  'workbench.settings.def.appearance.darkVariant.label': '深色变体',
   'workbench.settings.def.appearance.darkVariant.description': '解析出的颜色主题为深色时使用的调色板。',
   'workbench.settings.def.appearance.darkVariant.option.default.label': '默认',
   'workbench.settings.def.appearance.darkVariant.option.default.description': '均衡中性的深色主题，适合日常使用。',
@@ -213,7 +213,7 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.appearance.darkVariant.option.arctic.label': 'Arctic',
   'workbench.settings.def.appearance.darkVariant.option.arctic.description':
     '冷蓝灰的深色主题配霜青色强调——比 Dim 或 Midnight 更平、饱和度更低。',
-  'workbench.settings.def.appearance.uiScale.label': 'UI 缩放',
+  'workbench.settings.def.appearance.uiScale.label': '缩放',
   'workbench.settings.def.appearance.uiScale.description':
     '缩放整个界面外壳——按钮、文本、内边距、控件——而不改变编辑器字号。',
   'workbench.settings.def.appearance.uiScale.option.0.7.label': '极小（70%）',
@@ -229,7 +229,7 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.appearance.uiScale.option.1.1.description': '略微放大，更易阅读。',
   'workbench.settings.def.appearance.uiScale.option.1.25.label': '特大（125%）',
   'workbench.settings.def.appearance.uiScale.option.1.25.description': '最大外壳缩放——最适合无障碍。',
-  'workbench.settings.def.appearance.fontFamilyPreset.label': 'UI 字体族',
+  'workbench.settings.def.appearance.fontFamilyPreset.label': '字体族',
   'workbench.settings.def.appearance.fontFamilyPreset.description':
     '为应用外壳精选的无衬线字体栈。默认在 Windows / Linux 上为 Inter 以保证跨平台一致，在 macOS 上为 System Sans 以保留 SF Pro 的原生光学字号。每个选项都随扩展打包。编辑器界面有自己的字体设置。',
   'workbench.settings.def.appearance.fontFamilyPreset.option.inter.description':
@@ -242,7 +242,7 @@ export const workbenchSettingsDefs = {
     '与内置终端字体一致的等宽 UI——让整个外壳呈现开发者工具的观感。已打包——始终可用。',
   'workbench.settings.def.appearance.fontFamilyPreset.option.press-start-2p.description':
     '随应用附带的像素风展示字体。已打包——始终可用。趣味之选：清晰可读但又高又宽；外壳内边距会显得很宽裕。',
-  'workbench.settings.def.appearance.density.label': 'UI 密度',
+  'workbench.settings.def.appearance.density.label': '密度',
   'workbench.settings.def.appearance.density.description': '紧凑模式减少列表、表格和表单的内边距。',
   'workbench.settings.def.appearance.density.option.comfortable.label': '舒适',
   'workbench.settings.def.appearance.density.option.compact.label': '紧凑',
