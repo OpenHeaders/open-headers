@@ -241,7 +241,7 @@ const MqttMessageTab: React.FC<MqttMessageTabProps> = ({
             />
             {/* Statement placeholder + the muted example below — the
               settings-row TextKnob discipline. */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 2, width: 360 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 2, width: 240 }}>
               <Input
                 size="small"
                 style={{ fontFamily: "'SF Mono', monospace", fontSize: 12 }}
