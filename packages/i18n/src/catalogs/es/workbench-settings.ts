@@ -189,6 +189,8 @@ export const workbenchSettings = {
     'plazas de equipo. El nivel gratuito admite hasta 6 usuarios activos por servidor.',
   'workbench.settings.category.updates.label': 'Actualizaciones',
   'workbench.settings.category.updates.description': 'Búsqueda de actualizaciones, canal y comportamiento de descarga.',
+  'workbench.settings.category.updates.sub.status': 'Estado',
+  'workbench.settings.category.updates.sub.behavior': 'Comportamiento',
   'workbench.settings.category.about.label': 'Acerca de',
   'workbench.settings.category.about.description': 'Versión, licencias e información del build.',
   'workbench.settings.category.about.sub.application': 'Aplicación',

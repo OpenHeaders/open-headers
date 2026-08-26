@@ -158,6 +158,8 @@ export const workbenchSettings = {
     'Everything in Open Headers today is included on every tier — paid plans cover team seats. The free tier admits up to 6 active users per server.',
   'workbench.settings.category.updates.label': 'Updates',
   'workbench.settings.category.updates.description': 'Update checks, channel, and download behavior.',
+  'workbench.settings.category.updates.sub.status': 'Status',
+  'workbench.settings.category.updates.sub.behavior': 'Behavior',
   'workbench.settings.category.about.label': 'About',
   'workbench.settings.category.about.description': 'Version, licenses and build information.',
   'workbench.settings.category.about.sub.application': 'Application',

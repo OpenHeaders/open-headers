@@ -361,6 +361,10 @@ registerCategory({
   // Only the desktop app self-updates: the store updates the extension
   // and a served web tab updates with the daemon behind it.
   when: () => getCurrentHost() === 'desktop',
+  subcategories: [
+    { id: 'status', labelKey: 'workbench.settings.category.updates.sub.status', order: 10 },
+    { id: 'behavior', labelKey: 'workbench.settings.category.updates.sub.behavior', order: 20 },
+  ],
 });
 
 registerCategory({

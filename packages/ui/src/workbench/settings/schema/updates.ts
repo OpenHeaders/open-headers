@@ -42,6 +42,7 @@ declare module '@openheaders/ui/workbench/settings/types' {
 
 registerSetting({
   key: 'updates.state',
+  subcategory: 'status',
   type: 'info',
   default: '',
   schema: v.string(),
@@ -56,6 +57,7 @@ registerSetting({
 
 registerSetting({
   key: 'updates.check',
+  subcategory: 'behavior',
   type: 'enum',
   default: 'all',
   schema: checkTierSchema,
@@ -74,6 +76,7 @@ registerSetting({
 
 registerSetting({
   key: 'updates.channel',
+  subcategory: 'behavior',
   type: 'enum',
   default: 'stable',
   schema: channelSchema,
@@ -91,6 +94,7 @@ registerSetting({
 
 registerSetting({
   key: 'updates.showWhatsNew',
+  subcategory: 'behavior',
   type: 'boolean',
   default: true,
   schema: v.boolean(),
@@ -104,6 +108,7 @@ registerSetting({
 
 registerSetting({
   key: 'updates.autoDownload',
+  subcategory: 'behavior',
   type: 'boolean',
   default: true,
   schema: v.boolean(),

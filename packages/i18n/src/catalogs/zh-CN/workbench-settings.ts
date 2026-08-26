@@ -158,6 +158,8 @@ export const workbenchSettings = {
     '今天 Open Headers 的一切在每个档位都包含——付费方案覆盖的是团队席位。免费档每个服务器最多准入 6 位' + '活跃用户。',
   'workbench.settings.category.updates.label': '更新',
   'workbench.settings.category.updates.description': '更新检查、通道与下载行为。',
+  'workbench.settings.category.updates.sub.status': '状态',
+  'workbench.settings.category.updates.sub.behavior': '行为',
   'workbench.settings.category.about.label': '关于',
   'workbench.settings.category.about.description': '版本、许可与构建信息。',
   'workbench.settings.category.about.sub.application': '应用程序',

@@ -184,6 +184,8 @@ export const workbenchSettings = {
     'ab. Die kostenlose Stufe erlaubt bis zu 6 aktive Nutzer pro Server.',
   'workbench.settings.category.updates.label': 'Updates',
   'workbench.settings.category.updates.description': 'Update-Prüfungen, Kanal und Download-Verhalten.',
+  'workbench.settings.category.updates.sub.status': 'Status',
+  'workbench.settings.category.updates.sub.behavior': 'Verhalten',
   'workbench.settings.category.about.label': 'Über',
   'workbench.settings.category.about.description': 'Version, Lizenzen und Build-Informationen.',
   'workbench.settings.category.about.sub.application': 'Anwendung',
