@@ -195,7 +195,7 @@ const MessagePropertiesPopover: React.FC<{
     </InfoPopoverContainerProvider>
   );
   return (
-    <Popover content={content} trigger="click" placement="topRight" open={open} onOpenChange={setOpen}>
+    <Popover content={content} trigger="click" placement="bottom" open={open} onOpenChange={setOpen}>
       {/* The hover tooltip yields INSTANTLY once the popover opens —
         open suppresses it (the timeline sort-menu discipline). */}
       <Tooltip title={t('workbench.editors.mqtt.props.buttonTooltip')} open={open ? false : undefined}>
