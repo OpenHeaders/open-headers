@@ -163,6 +163,7 @@ const MessagePropertiesPopover: React.FC<{
           }}
         >
           <div
+            className="oh-stated-default"
             style={{
               display: 'grid',
               gridTemplateColumns: 'auto 1fr',

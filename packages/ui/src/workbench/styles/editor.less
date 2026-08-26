@@ -323,6 +323,25 @@
  * Negative side margins keep the text column aligned while the band
  * bleeds past it.
  */
+/*
+ * Stated-default placeholders render at full text contrast (an empty
+ * knob states its effective default as live behavior), so unlike a
+ * normal dim placeholder they would read as content to delete once
+ * the caret is in the field — hide them while the field has focus;
+ * the example line under a row keeps the format visible. Native
+ * inputs carry a real placeholder; the combo knobs (AutoComplete)
+ * paint theirs as a Select placeholder element.
+ */
+.stated-default-hides-on-focus() {
+  input:focus::placeholder {
+    color: transparent;
+  }
+
+  .ant-select-focused .ant-select-placeholder {
+    visibility: hidden;
+  }
+}
+
 .rules-settings-row {
   padding: 0 8px;
   margin: 0 -8px;
@@ -332,15 +351,12 @@
     background: var(--ant-color-fill-tertiary);
   }
 
-  /*
-   * Settings-tab placeholders render at full text contrast (an empty
-   * knob states its effective default as live behavior), so unlike a
-   * normal dim placeholder they would read as content to delete once
-   * the caret is in the field — hide them while the input has focus;
-   * the example line under the row keeps the format visible.
-   */
-  input:focus::placeholder {
-    color: transparent;
-  }
+  .stated-default-hides-on-focus();
+}
+
+/* Stated-default fields outside a settings row — compose bars and
+ * option popovers. */
+.oh-stated-default {
+  .stated-default-hides-on-focus();
 }
 

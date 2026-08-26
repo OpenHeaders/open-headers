@@ -114,7 +114,7 @@ const MqttLastWillTab: React.FC<MqttLastWillTabProps> = ({ draft, setDraft, v5 }
           discipline. */}
         <ConfigProvider theme={{ components: { Select: { colorTextPlaceholder: token.colorText } } }}>
           <Tooltip title={v5 ? undefined : t('workbench.editors.mqtt.will.delayHelp')}>
-            <span style={{ display: 'inline-flex' }}>
+            <span className="oh-stated-default" style={{ display: 'inline-flex' }}>
               <ComboKnob
                 value={draft.lastWill.willDelayInterval}
                 onChange={(willDelayInterval) =>

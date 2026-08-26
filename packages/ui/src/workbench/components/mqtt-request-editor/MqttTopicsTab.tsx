@@ -320,6 +320,7 @@ const MqttTopicsTab: React.FC<MqttTopicsTabProps> = ({ rows, onChange, v5, sessi
                         the control column right — explanations live behind
                         the (i) popovers, never inline in the labels. */}
                       <div
+                        className="oh-stated-default"
                         style={{
                           display: 'grid',
                           gridTemplateColumns: 'auto 1fr',
