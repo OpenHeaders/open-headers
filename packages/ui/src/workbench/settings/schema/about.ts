@@ -6,6 +6,7 @@
 import { MIN_COMPATIBLE_PROTOCOL, PROTOCOL_VERSION } from '@openheaders/core/protocol';
 import { getBuildInfo } from '@openheaders/ui/shared/build-info';
 import * as v from 'valibot';
+import ThirdPartySoftwareRow from '../components/third-party-software-row';
 import { registerSetting } from '../registry';
 
 // valibot schema for info fields is a no-op string — the value is
@@ -20,11 +21,13 @@ declare module '@openheaders/ui/workbench/settings/types' {
     'about.commit': string;
     'about.protocol': string;
     'about.browser': string;
+    'about.openSource': string;
   }
 }
 
 registerSetting({
   key: 'about.version',
+  subcategory: 'application',
   type: 'info',
   default: '',
   schema: infoSchema,
@@ -41,6 +44,7 @@ registerSetting({
 
 registerSetting({
   key: 'about.build',
+  subcategory: 'application',
   type: 'info',
   default: '',
   schema: infoSchema,
@@ -58,6 +62,7 @@ registerSetting({
 
 registerSetting({
   key: 'about.commit',
+  subcategory: 'application',
   type: 'info',
   default: '',
   schema: infoSchema,
@@ -71,6 +76,7 @@ registerSetting({
 
 registerSetting({
   key: 'about.protocol',
+  subcategory: 'application',
   type: 'info',
   default: '',
   schema: infoSchema,
@@ -90,6 +96,7 @@ registerSetting({
 
 registerSetting({
   key: 'about.browser',
+  subcategory: 'environment',
   type: 'info',
   default: '',
   schema: infoSchema,
@@ -101,4 +108,18 @@ registerSetting({
     if (typeof navigator === 'undefined') return '—';
     return navigator.userAgent;
   },
+});
+
+registerSetting({
+  key: 'about.openSource',
+  subcategory: 'openSource',
+  type: 'info',
+  default: '',
+  schema: infoSchema,
+  labelKey: 'workbench.settings.def.about.openSource.label',
+  descriptionKey: 'workbench.settings.def.about.openSource.description',
+  category: 'about',
+  tags: ['license', 'open source', 'third party', 'oss', 'packages'],
+  scope: 'user',
+  customEditor: ThirdPartySoftwareRow,
 });

@@ -669,4 +669,7 @@ export const workbenchSettingsDefs = {
     'Wire-protocol version this extension speaks with the desktop app. Mismatched peers are rejected with a clear update prompt.',
   'workbench.settings.def.about.browser.label': 'Browser',
   'workbench.settings.def.about.browser.description': 'Detected browser and platform.',
+  'workbench.settings.def.about.openSource.label': 'Bundled packages',
+  'workbench.settings.def.about.openSource.description':
+    "Open-source software bundled in this build, with each package's license.",
 } as const satisfies Catalog;

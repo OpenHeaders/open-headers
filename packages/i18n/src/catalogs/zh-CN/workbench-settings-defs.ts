@@ -619,4 +619,6 @@ export const workbenchSettingsDefs = {
     '此扩展与桌面端应用通信的线路协议版本。版本不匹配的对端会被拒绝，并给出明确的更新提示。',
   'workbench.settings.def.about.browser.label': '浏览器',
   'workbench.settings.def.about.browser.description': '检测到的浏览器和平台。',
+  'workbench.settings.def.about.openSource.label': '捆绑的软件包',
+  'workbench.settings.def.about.openSource.description': '此构建中捆绑的开源软件及各软件包的许可证。',
 } as const satisfies Catalog;

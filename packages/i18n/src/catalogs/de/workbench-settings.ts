@@ -186,6 +186,11 @@ export const workbenchSettings = {
   'workbench.settings.category.updates.description': 'Update-Prüfungen, Kanal und Download-Verhalten.',
   'workbench.settings.category.about.label': 'Über',
   'workbench.settings.category.about.description': 'Version, Lizenzen und Build-Informationen.',
+  'workbench.settings.category.about.sub.application': 'Anwendung',
+  'workbench.settings.category.about.sub.environment': 'Umgebung',
+  'workbench.settings.category.about.sub.openSource': 'Open-Source-Software',
+  'workbench.settings.thirdParty.software': 'Software',
+  'workbench.settings.thirdParty.license': 'Lizenz',
 
   // ── App-update row (updates.state custom editor) ───────────────────
   'workbench.settings.updatesRow.unsupported': 'In diesem Build übernimmt dein Installationskanal die Updates.',

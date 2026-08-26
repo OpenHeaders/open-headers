@@ -160,6 +160,11 @@ export const workbenchSettings = {
   'workbench.settings.category.updates.description': '更新检查、通道与下载行为。',
   'workbench.settings.category.about.label': '关于',
   'workbench.settings.category.about.description': '版本、许可与构建信息。',
+  'workbench.settings.category.about.sub.application': '应用程序',
+  'workbench.settings.category.about.sub.environment': '环境',
+  'workbench.settings.category.about.sub.openSource': '开源软件',
+  'workbench.settings.thirdParty.software': '软件',
+  'workbench.settings.thirdParty.license': '许可证',
 
   // ── App-update row (updates.state custom editor) ───────────────────
   'workbench.settings.updatesRow.unsupported': '此构建的更新由你的安装通道处理。',

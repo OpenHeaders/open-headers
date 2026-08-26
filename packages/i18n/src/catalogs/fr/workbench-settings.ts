@@ -183,6 +183,11 @@ export const workbenchSettings = {
     'Recherche de mises à jour, canal et comportement de téléchargement.',
   'workbench.settings.category.about.label': 'À propos',
   'workbench.settings.category.about.description': 'Version, licences et informations de build.',
+  'workbench.settings.category.about.sub.application': 'Application',
+  'workbench.settings.category.about.sub.environment': 'Environnement',
+  'workbench.settings.category.about.sub.openSource': 'Logiciels open source',
+  'workbench.settings.thirdParty.software': 'Logiciel',
+  'workbench.settings.thirdParty.license': 'Licence',
 
   // ── App-update row (updates.state custom editor) ───────────────────
   'workbench.settings.updatesRow.unsupported':

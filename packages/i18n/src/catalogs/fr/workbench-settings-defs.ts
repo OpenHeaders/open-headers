@@ -853,4 +853,7 @@ export const workbenchSettingsDefs = {
     'désaccordés sont rejetés avec une invite de mise à jour claire.',
   'workbench.settings.def.about.browser.label': 'Navigateur',
   'workbench.settings.def.about.browser.description': 'Navigateur et plateforme détectés.',
+  'workbench.settings.def.about.openSource.label': 'Paquets inclus',
+  'workbench.settings.def.about.openSource.description':
+    'Logiciels open source inclus dans ce build, avec la licence de chaque paquet.',
 } as const satisfies Catalog;

@@ -21,6 +21,12 @@
  *
  * Usage: node scripts/generate-third-party-notices.mjs --out <file> <appDir...>
  * App dirs resolve against the repo root.
+ *
+ * A second mode feeds the in-app About page:
+ *   node scripts/generate-third-party-notices.mjs --ui-manifest
+ * walks the per-host closures (desktop / extension / web) and writes a
+ * deduplicated name/version/license manifest with host membership to
+ * packages/ui — checked in; regenerate after dependency changes.
  */
 
 import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
@@ -31,17 +37,30 @@ import { fileURLToPath } from 'node:url';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
+const UI_MANIFEST_FILE = 'packages/ui/src/workbench/settings/components/third-party-manifest.json';
+/** Per-host bundle closures, mirroring the artifact NOTICES invocations. */
+const UI_CLOSURES = [
+  { host: 'desktop', appDirs: ['apps/desktop', 'apps/web', 'apps/nm-host'] },
+  { host: 'extension', appDirs: ['apps/extension'] },
+  { host: 'web', appDirs: ['apps/web'] },
+];
+
 const args = process.argv.slice(2);
-const outIndex = args.indexOf('--out');
-if (outIndex === -1 || outIndex + 1 >= args.length) {
-  console.error('Usage: node scripts/generate-third-party-notices.mjs --out <file> <appDir...>');
-  process.exit(1);
-}
-const outFile = path.resolve(repoRoot, args[outIndex + 1]);
-const appDirs = args.filter((_, i) => i !== outIndex && i !== outIndex + 1);
-if (appDirs.length === 0) {
-  console.error('generate-third-party-notices: at least one app dir is required');
-  process.exit(1);
+const uiManifestMode = args.includes('--ui-manifest');
+let outFile = null;
+let appDirs = [];
+if (!uiManifestMode) {
+  const outIndex = args.indexOf('--out');
+  if (outIndex === -1 || outIndex + 1 >= args.length) {
+    console.error('Usage: node scripts/generate-third-party-notices.mjs --out <file> <appDir...> | --ui-manifest');
+    process.exit(1);
+  }
+  outFile = path.resolve(repoRoot, args[outIndex + 1]);
+  appDirs = args.filter((_, i) => i !== outIndex && i !== outIndex + 1);
+  if (appDirs.length === 0) {
+    console.error('generate-third-party-notices: at least one app dir is required');
+    process.exit(1);
+  }
 }
 
 const LICENSE_FILE_PATTERN = /^(license|licence|copying)(\.(txt|md|markdown))?$/i;
@@ -74,12 +93,15 @@ function authorLine(manifest) {
   return null;
 }
 
-/** name@version → { name, version, license, text } for external packages. */
-const collected = new Map();
-/** Workspace package names seen during traversal (drives the vendored-font entry). */
-const workspaceSeen = new Set();
-/** realpath dirs already traversed, so shared deps walk once. */
-const visitedDirs = new Set();
+/**
+ * One closure walk's state: `collected` maps name@version → entry for
+ * external packages, `workspaceSeen` holds workspace names (drives the
+ * vendored-font entry), `visitedDirs` holds traversed realpaths so
+ * shared deps walk once per closure.
+ */
+function newClosureState() {
+  return { collected: new Map(), workspaceSeen: new Set(), visitedDirs: new Set() };
+}
 
 function depNames(manifest) {
   const names = new Set([
@@ -92,7 +114,7 @@ function depNames(manifest) {
   return names;
 }
 
-function walk(fromDir, manifest) {
+function walk(fromDir, manifest, state) {
   const require = createRequire(path.join(fromDir, 'noop.js'));
   for (const name of depNames(manifest)) {
     let depDir;
@@ -113,14 +135,14 @@ function walk(fromDir, manifest) {
       if (!depDir) continue;
       depManifest = readManifest(depDir);
     }
-    if (visitedDirs.has(depDir)) continue;
-    visitedDirs.add(depDir);
+    if (state.visitedDirs.has(depDir)) continue;
+    state.visitedDirs.add(depDir);
     if (name.startsWith(WORKSPACE_SCOPE)) {
-      workspaceSeen.add(name);
+      state.workspaceSeen.add(name);
     } else {
       const key = `${depManifest.name}@${depManifest.version}`;
-      if (!collected.has(key)) {
-        collected.set(key, {
+      if (!state.collected.has(key)) {
+        state.collected.set(key, {
           name: depManifest.name,
           version: depManifest.version,
           license: licenseId(depManifest),
@@ -129,7 +151,7 @@ function walk(fromDir, manifest) {
         });
       }
     }
-    walk(depDir, depManifest);
+    walk(depDir, depManifest, state);
   }
 }
 
@@ -144,10 +166,46 @@ function resolvePackageRoot(fromDir, name) {
   }
 }
 
-for (const appDir of appDirs) {
-  const dir = path.resolve(repoRoot, appDir);
-  walk(dir, readManifest(dir));
+function collectClosure(dirs) {
+  const state = newClosureState();
+  for (const appDir of dirs) {
+    const dir = path.resolve(repoRoot, appDir);
+    walk(dir, readManifest(dir), state);
+  }
+  return state;
 }
+
+if (uiManifestMode) {
+  const byKey = new Map();
+  const fontHosts = [];
+  for (const { host, appDirs: dirs } of UI_CLOSURES) {
+    const closure = collectClosure(dirs);
+    for (const entry of closure.collected.values()) {
+      const key = `${entry.name}@${entry.version}`;
+      const existing = byKey.get(key);
+      if (existing) existing.hosts.push(host);
+      else byKey.set(key, { name: entry.name, version: entry.version, license: entry.license, hosts: [host] });
+    }
+    if (closure.workspaceSeen.has('@openheaders/ui')) fontHosts.push(host);
+  }
+  if (fontHosts.length > 0) {
+    byKey.set('press-start-2p', {
+      name: 'Press Start 2P (vendored font)',
+      version: '',
+      license: 'OFL-1.1',
+      hosts: fontHosts,
+    });
+  }
+  const manifestEntries = [...byKey.values()].sort(
+    (a, b) => a.name.localeCompare(b.name) || a.version.localeCompare(b.version),
+  );
+  const file = path.resolve(repoRoot, UI_MANIFEST_FILE);
+  writeFileSync(file, `${JSON.stringify({ entries: manifestEntries }, null, 2)}\n`);
+  console.log(`third-party ui manifest: ${manifestEntries.length} packages → ${UI_MANIFEST_FILE}`);
+  process.exit(0);
+}
+
+const { collected, workspaceSeen } = collectClosure(appDirs);
 
 const entries = [...collected.values()].sort((a, b) => a.name.localeCompare(b.name));
 

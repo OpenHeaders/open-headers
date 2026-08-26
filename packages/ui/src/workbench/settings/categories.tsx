@@ -369,4 +369,9 @@ registerCategory({
   icon: <InfoCircleOutlined />,
   order: 900,
   descriptionKey: 'workbench.settings.category.about.description',
+  subcategories: [
+    { id: 'application', labelKey: 'workbench.settings.category.about.sub.application', order: 10 },
+    { id: 'environment', labelKey: 'workbench.settings.category.about.sub.environment', order: 20 },
+    { id: 'openSource', labelKey: 'workbench.settings.category.about.sub.openSource', order: 30 },
+  ],
 });

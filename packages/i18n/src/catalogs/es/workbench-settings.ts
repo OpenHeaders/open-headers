@@ -191,6 +191,11 @@ export const workbenchSettings = {
   'workbench.settings.category.updates.description': 'Búsqueda de actualizaciones, canal y comportamiento de descarga.',
   'workbench.settings.category.about.label': 'Acerca de',
   'workbench.settings.category.about.description': 'Versión, licencias e información del build.',
+  'workbench.settings.category.about.sub.application': 'Aplicación',
+  'workbench.settings.category.about.sub.environment': 'Entorno',
+  'workbench.settings.category.about.sub.openSource': 'Software de código abierto',
+  'workbench.settings.thirdParty.software': 'Software',
+  'workbench.settings.thirdParty.license': 'Licencia',
 
   // ── App-update row (updates.state custom editor) ───────────────────
   'workbench.settings.updatesRow.unsupported':

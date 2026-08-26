@@ -878,4 +878,7 @@ export const workbenchSettingsDefs = {
     'versiones desacompasadas se rechazan con un aviso claro de actualización.',
   'workbench.settings.def.about.browser.label': 'Navegador',
   'workbench.settings.def.about.browser.description': 'Navegador y plataforma detectados.',
+  'workbench.settings.def.about.openSource.label': 'Paquetes incluidos',
+  'workbench.settings.def.about.openSource.description':
+    'Software de código abierto incluido en este build, con la licencia de cada paquete.',
 } as const satisfies Catalog;

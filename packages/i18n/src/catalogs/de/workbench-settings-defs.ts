@@ -836,4 +836,7 @@ export const workbenchSettingsDefs = {
     'werden mit einer klaren Update-Aufforderung abgewiesen.',
   'workbench.settings.def.about.browser.label': 'Browser',
   'workbench.settings.def.about.browser.description': 'Erkannter Browser und Plattform.',
+  'workbench.settings.def.about.openSource.label': 'Enthaltene Pakete',
+  'workbench.settings.def.about.openSource.description':
+    'In diesem Build enthaltene Open-Source-Software mit der Lizenz jedes Pakets.',
 } as const satisfies Catalog;
