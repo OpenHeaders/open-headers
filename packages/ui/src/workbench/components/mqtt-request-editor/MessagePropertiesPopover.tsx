@@ -65,12 +65,20 @@ const MessagePropertiesPopover: React.FC<{
           text={t('workbench.editors.mqtt.props.sectionProperties')}
           info={mqttSettingsRowInfo(t, 'publishProperties')}
         />
-        {/* The list caps its height and scrolls instead of growing the
-          popover row by row. */}
+        {/* The list shows four rows and scrolls instead of growing the
+          popover row by row; the right gutter keeps the scrollbar off
+          the remove buttons. */}
         {value.userProperties.length > 0 && (
           <div
             ref={userPropsRef}
-            style={{ display: 'flex', flexDirection: 'column', gap: 4, maxHeight: 140, overflowY: 'auto' }}
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 4,
+              maxHeight: 108,
+              overflowY: 'auto',
+              paddingRight: 10,
+            }}
           >
             {value.userProperties.map((row, index) => (
               <div key={row.uid} style={{ display: 'flex', gap: 4 }}>
