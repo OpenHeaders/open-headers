@@ -145,7 +145,7 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.userProps.valuePlaceholder': 'Value',
   'workbench.editors.mqtt.will.hint':
     'Registered with the broker on CONNECT and published for you if the session drops without a clean disconnect. An empty topic means no will.',
-  'workbench.editors.mqtt.will.topicPlaceholder': 'Will topic',
+  'workbench.editors.mqtt.will.topicPlaceholder': 'Topic for the will',
   'workbench.editors.mqtt.will.topicExample': 'e.g. clients/reporter/status',
   'workbench.editors.mqtt.will.delayHelp': 'Will Delay Interval, seconds — MQTT 5.0.',
   'workbench.editors.mqtt.will.delayLabel': 'Will delay',

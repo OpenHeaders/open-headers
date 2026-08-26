@@ -141,7 +141,7 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.userProps.valuePlaceholder': '值',
   'workbench.editors.mqtt.will.hint':
     '随 CONNECT 向代理注册；若会话在没有干净断开的情况下中断，代理会代为发布。主题为空表示没有遗嘱。',
-  'workbench.editors.mqtt.will.topicPlaceholder': '遗嘱主题',
+  'workbench.editors.mqtt.will.topicPlaceholder': '遗嘱发布主题',
   'workbench.editors.mqtt.will.topicExample': '例如 clients/reporter/status',
   'workbench.editors.mqtt.will.delayHelp': 'Will Delay Interval，秒——MQTT 5.0。',
   'workbench.editors.mqtt.will.delayLabel': '遗嘱延迟',

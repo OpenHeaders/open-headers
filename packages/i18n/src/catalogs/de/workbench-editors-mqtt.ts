@@ -154,7 +154,7 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.userProps.valuePlaceholder': 'Wert',
   'workbench.editors.mqtt.will.hint':
     'Wird mit CONNECT beim Broker hinterlegt und von ihm veröffentlicht, falls die Sitzung ohne sauberes Trennen abbricht. Ein leeres Thema bedeutet kein Testament.',
-  'workbench.editors.mqtt.will.topicPlaceholder': 'Testament-Thema',
+  'workbench.editors.mqtt.will.topicPlaceholder': 'Thema für das Testament',
   'workbench.editors.mqtt.will.topicExample': 'z. B. clients/reporter/status',
   'workbench.editors.mqtt.will.delayHelp': 'Will Delay Interval, in Sekunden — MQTT 5.0.',
   'workbench.editors.mqtt.will.delayLabel': 'Testament-Verzögerung',
