@@ -119,23 +119,33 @@ export const workbenchSettings = {
   'workbench.settings.category.devpanelNetwork.description':
     'Valores por defecto de la tabla de solicitudes Network en el panel de DevTools — disposición, orden, ' +
     'columna de puntos.',
+  'workbench.settings.category.devpanelNetwork.sub.table': 'Tabla',
+  'workbench.settings.category.devpanelNetwork.sub.sorting': 'Ordenación',
+  'workbench.settings.category.devpanelNetwork.sub.waterfall': 'Waterfall',
   'workbench.settings.category.devpanelHeaders.label': 'Panel de DevTools · Headers',
   'workbench.settings.category.devpanelHeaders.navLabel': 'Headers',
   'workbench.settings.category.devpanelHeaders.description':
     'Valores por defecto de la pestaña Headers en el panel de DevTools — disposición, orden, filtros, ' +
     'sugerencias.',
+  'workbench.settings.category.devpanelHeaders.sub.view': 'Vista',
+  'workbench.settings.category.devpanelHeaders.sub.filters': 'Filtros',
   'workbench.settings.category.devpanelInitiator.label': 'Panel de DevTools · Initiator',
   'workbench.settings.category.devpanelInitiator.navLabel': 'Initiator',
   'workbench.settings.category.devpanelInitiator.description':
     'Valores por defecto de la pestaña Initiator en el panel de DevTools — orden, filtros, sugerencias.',
+  'workbench.settings.category.devpanelInitiator.sub.view': 'Vista',
+  'workbench.settings.category.devpanelInitiator.sub.filters': 'Filtros',
   'workbench.settings.category.devpanelCookies.label': 'Panel de DevTools · Cookies',
   'workbench.settings.category.devpanelCookies.navLabel': 'Cookies',
   'workbench.settings.category.devpanelCookies.description':
     'Valores por defecto de la pestaña Cookies en el panel de DevTools — columnas, orden, filtros, sugerencias.',
+  'workbench.settings.category.devpanelCookies.sub.view': 'Vista',
+  'workbench.settings.category.devpanelCookies.sub.filters': 'Filtros',
   'workbench.settings.category.devpanelTiming.label': 'Panel de DevTools · Timing',
   'workbench.settings.category.devpanelTiming.navLabel': 'Timing',
   'workbench.settings.category.devpanelTiming.description':
     'Valores por defecto de la pestaña Timing en el panel de DevTools — qué bandas son visibles.',
+  'workbench.settings.category.devpanelTiming.sub.view': 'Vista',
   'workbench.settings.category.inspection.label': 'Modo de depuración',
   'workbench.settings.category.inspection.description':
     'La vía opt-in que adjunta el protocolo de depuración de tu navegador — inspecciona y modifica solicitudes ' +

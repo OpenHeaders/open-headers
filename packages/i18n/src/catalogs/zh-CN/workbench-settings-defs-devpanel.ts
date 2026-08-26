@@ -108,7 +108,7 @@ export const workbenchSettingsDefsDevpanel = {
     '图标分组镜像相邻面板的高度。关闭的停靠区收缩到内容大小，活动的邻居吸收空出的空间。',
 
   // ── DevTools Panel · Network category defs ─────────────────────────
-  'workbench.settings.def.devpanelNetwork.layout.label': 'Network 布局',
+  'workbench.settings.def.devpanelNetwork.layout.label': '布局',
   'workbench.settings.def.devpanelNetwork.layout.description':
     'Network 表格如何吸收水平空间。紧凑让可伸缩列（Name、Waterfall）弹性适配面板宽度，表格永不水平滚动；宽则为这些列设上限，其余部分水平滚动。',
   'workbench.settings.def.devpanelNetwork.layout.option.compact.label': '紧凑',
@@ -125,7 +125,7 @@ export const workbenchSettingsDefsDevpanel = {
   'workbench.settings.def.devpanelNetwork.messagesShowPreview.label': '显示负载预览',
   'workbench.settings.def.devpanelNetwork.messagesShowPreview.description':
     '在 Messages / EventStream 网格下方显示负载预览窗格——即可调大小的拆分区域，选中的帧或事件在其中渲染为 JSON 树、原始文本或二进制查看器。关闭后网格占据整个窗格。',
-  'workbench.settings.def.devpanelNetwork.sortKind.label': 'Network 排序来源',
+  'workbench.settings.def.devpanelNetwork.sortKind.label': '排序来源',
   'workbench.settings.def.devpanelNetwork.sortKind.description':
     '排序状态的哪一侧处于活动。`mode` 运行某个具名的复合排序模式（失败优先 / 最慢优先 / …）。`column` 运行用户点击列头选出的单列排序。面板会自动切换——点击列头把它设为 `column`；在“视图”菜单选择模式则设为 `mode`。',
   'workbench.settings.def.devpanelNetwork.sortKind.option.mode.label': '模式',
@@ -134,7 +134,7 @@ export const workbenchSettingsDefsDevpanel = {
   'workbench.settings.def.devpanelNetwork.sortKind.option.column.description': '使用用户点击的单列排序。',
   'workbench.settings.def.devpanelNetwork.sortKind.option.customNested.label': '自定义（嵌套）',
   'workbench.settings.def.devpanelNetwork.sortKind.option.customNested.description': '使用用户自建的多键排序链。',
-  'workbench.settings.def.devpanelNetwork.sortMode.label': 'Network 排序模式',
+  'workbench.settings.def.devpanelNetwork.sortMode.label': '排序模式',
   'workbench.settings.def.devpanelNetwork.sortMode.description':
     '具名的复合排序顺序——先按主轴，平局时按到达顺序。当排序来源 = `mode` 时生效。',
   'workbench.settings.def.devpanelNetwork.sortMode.option.failures.label': '失败优先',
@@ -153,7 +153,7 @@ export const workbenchSettingsDefsDevpanel = {
   'workbench.settings.def.devpanelNetwork.sortMode.option.ruleModified.label': '规则修改过的优先',
   'workbench.settings.def.devpanelNetwork.sortMode.option.ruleModified.description':
     '已应用规则的在前，组内按到达顺序。',
-  'workbench.settings.def.devpanelNetwork.sortBy.label': 'Network 排序依据',
+  'workbench.settings.def.devpanelNetwork.sortBy.label': '排序依据',
   'workbench.settings.def.devpanelNetwork.sortBy.description':
     '哪一列驱动列点击排序。当排序来源 = `column` 时生效。点击列头会更新此值。',
   'workbench.settings.def.devpanelNetwork.sortBy.option.waterfall.label': 'Waterfall',
@@ -193,13 +193,13 @@ export const workbenchSettingsDefsDevpanel = {
   'workbench.settings.def.devpanelNetwork.sortBy.option.time.description': '请求的总时长。',
   'workbench.settings.def.devpanelNetwork.sortBy.option.priority.label': 'Priority',
   'workbench.settings.def.devpanelNetwork.sortBy.option.priority.description': '浏览器分配的优先级。',
-  'workbench.settings.def.devpanelNetwork.sortDir.label': 'Network 排序方向',
+  'workbench.settings.def.devpanelNetwork.sortDir.label': '排序方向',
   'workbench.settings.def.devpanelNetwork.sortDir.description': '当前 Network 排序列的升序或降序。',
   'workbench.settings.def.devpanelNetwork.sortDir.option.asc.label': '升序',
   'workbench.settings.def.devpanelNetwork.sortDir.option.asc.description': '最小的在前。',
   'workbench.settings.def.devpanelNetwork.sortDir.option.desc.label': '降序',
   'workbench.settings.def.devpanelNetwork.sortDir.option.desc.description': '最大的在前。',
-  'workbench.settings.def.devpanelNetwork.waterfallMetric.label': 'Waterfall 指标',
+  'workbench.settings.def.devpanelNetwork.waterfallMetric.label': '指标',
   'workbench.settings.def.devpanelNetwork.waterfallMetric.description':
     'Waterfall 列按哪个时间排序和绘制。Start / Response / End time 把条形放在绝对时间线上；Total duration 和 Latency 把条形零点对齐，长度可直接比较。',
   'workbench.settings.def.devpanelNetwork.waterfallMetric.option.startTime.label': 'Start time',
@@ -216,7 +216,7 @@ export const workbenchSettingsDefsDevpanel = {
   'workbench.settings.def.devpanelNetwork.showFireDots.label': '显示规则触发圆点',
   'workbench.settings.def.devpanelNetwork.showFireDots.description':
     '显示带彩色圆点的前导 14px 列，圆点标记规则匹配（实心 = 规则实际已应用，空心 = 推断）。关闭可在密集窗格中收回这些水平像素。',
-  'workbench.settings.def.devpanelNetwork.waterfallValues.label': 'Waterfall 数值',
+  'workbench.settings.def.devpanelNetwork.waterfallValues.label': '数值',
   'workbench.settings.def.devpanelNetwork.waterfallValues.description':
     '何时把活动 Waterfall 指标的数值印在条形上——时间线指标显示 Start / Response / End time 数值块，Total duration 和 Latency 显示等待/下载标签。',
   'workbench.settings.def.devpanelNetwork.waterfallValues.option.always.label': '始终',
@@ -225,7 +225,7 @@ export const workbenchSettingsDefsDevpanel = {
   'workbench.settings.def.devpanelNetwork.waterfallValues.option.hover.description': '悬停行时显示数值块。',
   'workbench.settings.def.devpanelNetwork.waterfallValues.option.off.label': '关',
   'workbench.settings.def.devpanelNetwork.waterfallValues.option.off.description': '隐藏数值块。',
-  'workbench.settings.def.devpanelNetwork.waterfallValueFormat.label': 'Waterfall 数值格式',
+  'workbench.settings.def.devpanelNetwork.waterfallValueFormat.label': '数值格式',
   'workbench.settings.def.devpanelNetwork.waterfallValueFormat.description':
     '时间线指标的数值如何呈现：相对是与视图中第一个请求的偏移；时间戳是绝对的真实时刻。Total duration 和 Latency 始终是时长，不受此影响。',
   'workbench.settings.def.devpanelNetwork.waterfallValueFormat.option.relative.label': '相对',
@@ -233,17 +233,17 @@ export const workbenchSettingsDefsDevpanel = {
     '与视图中第一个请求的偏移。',
   'workbench.settings.def.devpanelNetwork.waterfallValueFormat.option.timestamp.label': '时间戳',
   'workbench.settings.def.devpanelNetwork.waterfallValueFormat.option.timestamp.description': '绝对的真实时刻。',
-  'workbench.settings.def.devpanelNetwork.waterfallTimestampTz.label': 'Waterfall 时间戳时区',
+  'workbench.settings.def.devpanelNetwork.waterfallTimestampTz.label': '时间戳时区',
   'workbench.settings.def.devpanelNetwork.waterfallTimestampTz.description':
     '时间戳数值格式使用的时区——本地时间或 UTC。',
   'workbench.settings.def.devpanelNetwork.waterfallTimestampTz.option.local.label': '本地',
   'workbench.settings.def.devpanelNetwork.waterfallTimestampTz.option.local.description': '你的本地时区。',
   'workbench.settings.def.devpanelNetwork.waterfallTimestampTz.option.utc.label': 'UTC',
   'workbench.settings.def.devpanelNetwork.waterfallTimestampTz.option.utc.description': '协调世界时。',
-  'workbench.settings.def.devpanelNetwork.waterfallExplainValue.label': '解释 Waterfall 数值',
+  'workbench.settings.def.devpanelNetwork.waterfallExplainValue.label': '解释数值',
   'workbench.settings.def.devpanelNetwork.waterfallExplainValue.description':
     '在 Waterfall 的悬停弹出框中，为构成总值的阶段行加徽标并高亮，同时把它们的和以公式形式显示。纯视觉辅助——不会改变任何数值。',
-  'workbench.settings.def.devpanelNetwork.waterfallPopoverLayout.label': 'Waterfall 弹出框布局',
+  'workbench.settings.def.devpanelNetwork.waterfallPopoverLayout.label': '弹出框布局',
   'workbench.settings.def.devpanelNetwork.waterfallPopoverLayout.description':
     'Waterfall 悬停计时明细的方向。紧凑把各步骤沿弹出框纵向堆叠；宽把同一阶梯放在时间轴上；自动按面板宽度选择——底部停靠的面板用宽，窄的（侧向停靠的）用紧凑。',
   'workbench.settings.def.devpanelNetwork.waterfallPopoverLayout.option.vertical.label': '紧凑',
@@ -255,14 +255,14 @@ export const workbenchSettingsDefsDevpanel = {
   'workbench.settings.def.devpanelNetwork.waterfallPopoverLayout.option.auto.description': '面板宽时用宽，否则用紧凑。',
 
   // ── DevTools Panel · Headers category defs ─────────────────────────
-  'workbench.settings.def.devpanelHeaders.layout.label': 'Headers 布局',
+  'workbench.settings.def.devpanelHeaders.layout.label': '布局',
   'workbench.settings.def.devpanelHeaders.layout.description':
     '标头行在请求/响应区块内如何组织。分组按类别（Auth、CORS、Caching、…）归拢行；平铺按选定的排序渲染单一列表。',
   'workbench.settings.def.devpanelHeaders.layout.option.grouped.label': '分组',
   'workbench.settings.def.devpanelHeaders.layout.option.grouped.description': '行按类别归拢。',
   'workbench.settings.def.devpanelHeaders.layout.option.flat.label': '平铺',
   'workbench.settings.def.devpanelHeaders.layout.option.flat.description': '单一列表，无类别标题（Chrome 风格）。',
-  'workbench.settings.def.devpanelHeaders.sortMode.label': 'Headers 排序',
+  'workbench.settings.def.devpanelHeaders.sortMode.label': '排序',
   'workbench.settings.def.devpanelHeaders.sortMode.description':
     '每个列表内（分组时为每组内）的行顺序。原始顺序保留服务器发送标头的顺序（HAR 顺序）；A → Z 按名称排序；规则修改过的优先把规则修改过的行浮到顶部。',
   'workbench.settings.def.devpanelHeaders.sortMode.option.original.label': '原始顺序',
@@ -295,7 +295,7 @@ export const workbenchSettingsDefsDevpanel = {
     '隐藏浏览器不允许规则覆盖的受保护标头（host、content-length、sec-ch-ua、…）。',
 
   // ── DevTools Panel · Initiator category defs ───────────────────────
-  'workbench.settings.def.devpanelInitiator.sortMode.label': 'Initiator 子级排序',
+  'workbench.settings.def.devpanelInitiator.sortMode.label': '子级排序',
   'workbench.settings.def.devpanelInitiator.sortMode.description':
     '发起者链内子请求的排序方式。发起者顺序保留原始的发起者图遍历顺序；按时间顺序按请求时间排序；最大子树把最重的子树放在最前。',
   'workbench.settings.def.devpanelInitiator.sortMode.option.initiator.label': '发起者顺序',
@@ -313,7 +313,7 @@ export const workbenchSettingsDefsDevpanel = {
   'workbench.settings.def.devpanelInitiator.thirdPartyOnly.description': '只显示来自与页面源不同的源的行。',
 
   // ── DevTools Panel · Cookies category defs ─────────────────────────
-  'workbench.settings.def.devpanelCookies.sortMode.label': 'Cookies 排序',
+  'workbench.settings.def.devpanelCookies.sortMode.label': '排序',
   'workbench.settings.def.devpanelCookies.sortMode.description':
     '每个 Cookie 区块内的行顺序。原始顺序保留服务器/请求使用的顺序；A → Z 按名称排序；Size 按序列化后的 Cookie 大小排序；Expires 把最早过期的排在最前（Session 排最后）。',
   'workbench.settings.def.devpanelCookies.sortMode.option.original.label': '原始顺序',

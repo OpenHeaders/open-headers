@@ -101,7 +101,7 @@ export const workbenchSettingsDefsDevpanel = {
     'Chip groups mirror their adjacent panel heights. Closed docks collapse to content and live neighbors absorb the space.',
 
   // ── DevTools Panel · Network category defs ─────────────────────────
-  'workbench.settings.def.devpanelNetwork.layout.label': 'Network Layout',
+  'workbench.settings.def.devpanelNetwork.layout.label': 'Layout',
   'workbench.settings.def.devpanelNetwork.layout.description':
     'How the Network table absorbs horizontal space. Compact lets stretchy columns (Name, Waterfall) flex to fit the panel width so the table never scrolls horizontally; Wide caps those columns and scrolls horizontally for the rest.',
   'workbench.settings.def.devpanelNetwork.layout.option.compact.label': 'Compact',
@@ -121,7 +121,7 @@ export const workbenchSettingsDefsDevpanel = {
   'workbench.settings.def.devpanelNetwork.messagesShowPreview.label': 'Show Payload Preview',
   'workbench.settings.def.devpanelNetwork.messagesShowPreview.description':
     'Show the payload preview pane under the Messages / EventStream grids — the resizable split where the selected frame or event renders as a JSON tree, raw text, or binary viewer. Turn off to give the grid the whole pane.',
-  'workbench.settings.def.devpanelNetwork.sortKind.label': 'Network Sort Source',
+  'workbench.settings.def.devpanelNetwork.sortKind.label': 'Sort Source',
   'workbench.settings.def.devpanelNetwork.sortKind.description':
     'Which side of the sort state is active. `mode` runs one of the named compound sort modes (Failures first / Slowest first / …). `column` runs the single-column sort the user picked by clicking a column header. The panel switches automatically — clicking a column header sets this to `column`; picking a mode in the View menu sets it to `mode`.',
   'workbench.settings.def.devpanelNetwork.sortKind.option.mode.label': 'Mode',
@@ -132,7 +132,7 @@ export const workbenchSettingsDefsDevpanel = {
   'workbench.settings.def.devpanelNetwork.sortKind.option.customNested.label': 'Custom (nested)',
   'workbench.settings.def.devpanelNetwork.sortKind.option.customNested.description':
     'Use the user-built multi-key sort chain.',
-  'workbench.settings.def.devpanelNetwork.sortMode.label': 'Network Sort Mode',
+  'workbench.settings.def.devpanelNetwork.sortMode.label': 'Sort Mode',
   'workbench.settings.def.devpanelNetwork.sortMode.description':
     'Named compound sort order — primary axis then arrival as tiebreak. Active when sort source = `mode`.',
   'workbench.settings.def.devpanelNetwork.sortMode.option.failures.label': 'Failures first',
@@ -153,7 +153,7 @@ export const workbenchSettingsDefsDevpanel = {
   'workbench.settings.def.devpanelNetwork.sortMode.option.ruleModified.label': 'Rule-modified first',
   'workbench.settings.def.devpanelNetwork.sortMode.option.ruleModified.description':
     'Applied rules first, arrival within.',
-  'workbench.settings.def.devpanelNetwork.sortBy.label': 'Network Sort By',
+  'workbench.settings.def.devpanelNetwork.sortBy.label': 'Sort By',
   'workbench.settings.def.devpanelNetwork.sortBy.description':
     'Which column drives the column-click sort. Active when sort source = `column`. Clicking a column header updates this value.',
   'workbench.settings.def.devpanelNetwork.sortBy.option.waterfall.label': 'Waterfall',
@@ -194,14 +194,14 @@ export const workbenchSettingsDefsDevpanel = {
   'workbench.settings.def.devpanelNetwork.sortBy.option.time.description': 'Total request duration.',
   'workbench.settings.def.devpanelNetwork.sortBy.option.priority.label': 'Priority',
   'workbench.settings.def.devpanelNetwork.sortBy.option.priority.description': 'Browser-assigned priority.',
-  'workbench.settings.def.devpanelNetwork.sortDir.label': 'Network Sort Direction',
+  'workbench.settings.def.devpanelNetwork.sortDir.label': 'Sort Direction',
   'workbench.settings.def.devpanelNetwork.sortDir.description':
     'Ascending or descending order for the current Network sort column.',
   'workbench.settings.def.devpanelNetwork.sortDir.option.asc.label': 'Ascending',
   'workbench.settings.def.devpanelNetwork.sortDir.option.asc.description': 'Lowest first.',
   'workbench.settings.def.devpanelNetwork.sortDir.option.desc.label': 'Descending',
   'workbench.settings.def.devpanelNetwork.sortDir.option.desc.description': 'Highest first.',
-  'workbench.settings.def.devpanelNetwork.waterfallMetric.label': 'Waterfall Metric',
+  'workbench.settings.def.devpanelNetwork.waterfallMetric.label': 'Metric',
   'workbench.settings.def.devpanelNetwork.waterfallMetric.description':
     'Which time the Waterfall column sorts and draws by. Start / Response / End time place bars on an absolute timeline; Total duration and Latency zero-align the bars so lengths compare directly.',
   'workbench.settings.def.devpanelNetwork.waterfallMetric.option.startTime.label': 'Start time',
@@ -220,7 +220,7 @@ export const workbenchSettingsDefsDevpanel = {
   'workbench.settings.def.devpanelNetwork.showFireDots.label': 'Show Rule-fire Dots',
   'workbench.settings.def.devpanelNetwork.showFireDots.description':
     'Show the leading 14px column carrying the colored dot that marks rule matches (filled = a rule actually applied, hollow = inferred). Turn off to reclaim the horizontal pixels on dense panes.',
-  'workbench.settings.def.devpanelNetwork.waterfallValues.label': 'Waterfall Values',
+  'workbench.settings.def.devpanelNetwork.waterfallValues.label': 'Values',
   'workbench.settings.def.devpanelNetwork.waterfallValues.description':
     'When to print the active Waterfall metric’s value(s) on the bar — the Start / Response / End time chip for the timeline metrics, or the waiting / download labels for Total duration and Latency.',
   'workbench.settings.def.devpanelNetwork.waterfallValues.option.always.label': 'Always',
@@ -230,7 +230,7 @@ export const workbenchSettingsDefsDevpanel = {
     'Reveal the value chip on row hover.',
   'workbench.settings.def.devpanelNetwork.waterfallValues.option.off.label': 'Off',
   'workbench.settings.def.devpanelNetwork.waterfallValues.option.off.description': 'Hide the value chip.',
-  'workbench.settings.def.devpanelNetwork.waterfallValueFormat.label': 'Waterfall Value Format',
+  'workbench.settings.def.devpanelNetwork.waterfallValueFormat.label': 'Value Format',
   'workbench.settings.def.devpanelNetwork.waterfallValueFormat.description':
     'How a timeline metric’s value reads: Relative is the offset from the first request in view; Timestamp is the absolute wall-clock instant. Total duration and Latency are always durations regardless.',
   'workbench.settings.def.devpanelNetwork.waterfallValueFormat.option.relative.label': 'Relative',
@@ -239,17 +239,17 @@ export const workbenchSettingsDefsDevpanel = {
   'workbench.settings.def.devpanelNetwork.waterfallValueFormat.option.timestamp.label': 'Timestamp',
   'workbench.settings.def.devpanelNetwork.waterfallValueFormat.option.timestamp.description':
     'Absolute wall-clock instant.',
-  'workbench.settings.def.devpanelNetwork.waterfallTimestampTz.label': 'Waterfall Timestamp Timezone',
+  'workbench.settings.def.devpanelNetwork.waterfallTimestampTz.label': 'Timestamp Timezone',
   'workbench.settings.def.devpanelNetwork.waterfallTimestampTz.description':
     'Timezone for the Timestamp value format — local time or UTC.',
   'workbench.settings.def.devpanelNetwork.waterfallTimestampTz.option.local.label': 'Local',
   'workbench.settings.def.devpanelNetwork.waterfallTimestampTz.option.local.description': 'Your local timezone.',
   'workbench.settings.def.devpanelNetwork.waterfallTimestampTz.option.utc.label': 'UTC',
   'workbench.settings.def.devpanelNetwork.waterfallTimestampTz.option.utc.description': 'Coordinated Universal Time.',
-  'workbench.settings.def.devpanelNetwork.waterfallExplainValue.label': 'Explain Waterfall Value',
+  'workbench.settings.def.devpanelNetwork.waterfallExplainValue.label': 'Explain Value',
   'workbench.settings.def.devpanelNetwork.waterfallExplainValue.description':
     'In the Waterfall hover popover, badge and highlight the phase rows that make up the total and show their sum as a formula. Purely a visual aid — it changes no values.',
-  'workbench.settings.def.devpanelNetwork.waterfallPopoverLayout.label': 'Waterfall Popover Layout',
+  'workbench.settings.def.devpanelNetwork.waterfallPopoverLayout.label': 'Popover Layout',
   'workbench.settings.def.devpanelNetwork.waterfallPopoverLayout.description':
     'Orientation of the Waterfall hover timing breakdown. Compact stacks the steps down the popover; Wide lays the same ladder on a time axis; Auto picks by panel width — wide on a bottom-docked panel, compact on a narrow (side-docked) one.',
   'workbench.settings.def.devpanelNetwork.waterfallPopoverLayout.option.vertical.label': 'Compact',
@@ -263,7 +263,7 @@ export const workbenchSettingsDefsDevpanel = {
     'Wide when the panel is wide, else compact.',
 
   // ── DevTools Panel · Headers category defs ─────────────────────────
-  'workbench.settings.def.devpanelHeaders.layout.label': 'Headers Layout',
+  'workbench.settings.def.devpanelHeaders.layout.label': 'Layout',
   'workbench.settings.def.devpanelHeaders.layout.description':
     'How header rows are organised inside Request/Response sections. Grouped buckets rows by category (Auth, CORS, Caching, …); Flat renders one list in the chosen sort order.',
   'workbench.settings.def.devpanelHeaders.layout.option.grouped.label': 'Grouped',
@@ -271,7 +271,7 @@ export const workbenchSettingsDefsDevpanel = {
   'workbench.settings.def.devpanelHeaders.layout.option.flat.label': 'Flat',
   'workbench.settings.def.devpanelHeaders.layout.option.flat.description':
     'Single list, no category headings (Chrome-style).',
-  'workbench.settings.def.devpanelHeaders.sortMode.label': 'Headers Sort',
+  'workbench.settings.def.devpanelHeaders.sortMode.label': 'Sort',
   'workbench.settings.def.devpanelHeaders.sortMode.description':
     'Row ordering within each list (and within each group, when grouped). Original preserves the order the server sent the headers (HAR order); A → Z sorts by name; Rule-modified first floats rule-modified rows to the top.',
   'workbench.settings.def.devpanelHeaders.sortMode.option.original.label': 'Original',
@@ -305,7 +305,7 @@ export const workbenchSettingsDefsDevpanel = {
     'Hide protected headers the browser will not let rules override (host, content-length, sec-ch-ua, …).',
 
   // ── DevTools Panel · Initiator category defs ───────────────────────
-  'workbench.settings.def.devpanelInitiator.sortMode.label': 'Initiator Children Sort',
+  'workbench.settings.def.devpanelInitiator.sortMode.label': 'Children Sort',
   'workbench.settings.def.devpanelInitiator.sortMode.description':
     'How child requests are ordered inside the initiator chain. Initiator order preserves the original initiator-graph traversal; Chronological orders by request time; Largest subtree puts the heaviest subtree first.',
   'workbench.settings.def.devpanelInitiator.sortMode.option.initiator.label': 'Initiator order',
@@ -325,7 +325,7 @@ export const workbenchSettingsDefsDevpanel = {
     'Show only rows from origins different than the page origin.',
 
   // ── DevTools Panel · Cookies category defs ─────────────────────────
-  'workbench.settings.def.devpanelCookies.sortMode.label': 'Cookies Sort',
+  'workbench.settings.def.devpanelCookies.sortMode.label': 'Sort',
   'workbench.settings.def.devpanelCookies.sortMode.description':
     'Row ordering inside each cookies section. Original preserves the order the server / request used; A → Z sorts by name; Size sorts by serialized cookie size; Expires sorts soonest-expiring first (Session last).',
   'workbench.settings.def.devpanelCookies.sortMode.option.original.label': 'Original',

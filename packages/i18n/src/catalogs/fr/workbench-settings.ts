@@ -112,22 +112,32 @@ export const workbenchSettings = {
   'workbench.settings.category.devpanelNetwork.description':
     'Réglages par défaut du tableau des requêtes Network dans le panneau DevTools — disposition, tri, colonne ' +
     'de points.',
+  'workbench.settings.category.devpanelNetwork.sub.table': 'Tableau',
+  'workbench.settings.category.devpanelNetwork.sub.sorting': 'Tri',
+  'workbench.settings.category.devpanelNetwork.sub.waterfall': 'Waterfall',
   'workbench.settings.category.devpanelHeaders.label': 'Panneau DevTools · Headers',
   'workbench.settings.category.devpanelHeaders.navLabel': 'Headers',
   'workbench.settings.category.devpanelHeaders.description':
     "Réglages par défaut de l'onglet Headers dans le panneau DevTools — disposition, tri, filtres, suggestions.",
+  'workbench.settings.category.devpanelHeaders.sub.view': 'Vue',
+  'workbench.settings.category.devpanelHeaders.sub.filters': 'Filtres',
   'workbench.settings.category.devpanelInitiator.label': 'Panneau DevTools · Initiator',
   'workbench.settings.category.devpanelInitiator.navLabel': 'Initiator',
   'workbench.settings.category.devpanelInitiator.description':
     "Réglages par défaut de l'onglet Initiator dans le panneau DevTools — tri, filtres, suggestions.",
+  'workbench.settings.category.devpanelInitiator.sub.view': 'Vue',
+  'workbench.settings.category.devpanelInitiator.sub.filters': 'Filtres',
   'workbench.settings.category.devpanelCookies.label': 'Panneau DevTools · Cookies',
   'workbench.settings.category.devpanelCookies.navLabel': 'Cookies',
   'workbench.settings.category.devpanelCookies.description':
     "Réglages par défaut de l'onglet Cookies dans le panneau DevTools — colonnes, tri, filtres, suggestions.",
+  'workbench.settings.category.devpanelCookies.sub.view': 'Vue',
+  'workbench.settings.category.devpanelCookies.sub.filters': 'Filtres',
   'workbench.settings.category.devpanelTiming.label': 'Panneau DevTools · Timing',
   'workbench.settings.category.devpanelTiming.navLabel': 'Timing',
   'workbench.settings.category.devpanelTiming.description':
     "Réglages par défaut de l'onglet Timing dans le panneau DevTools — quelles bandes sont visibles.",
+  'workbench.settings.category.devpanelTiming.sub.view': 'Vue',
   'workbench.settings.category.inspection.label': 'Mode débogage',
   'workbench.settings.category.inspection.description':
     'La voie opt-in qui attache le protocole de débogage de votre navigateur — inspectez et modifiez les ' +

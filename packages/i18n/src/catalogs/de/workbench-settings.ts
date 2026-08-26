@@ -114,22 +114,32 @@ export const workbenchSettings = {
   'workbench.settings.category.devpanelNetwork.navLabel': 'Network',
   'workbench.settings.category.devpanelNetwork.description':
     'Standardwerte für die Anfragen-Tabelle Network im DevTools-Panel — Layout, Sortierung, Punktspalte.',
+  'workbench.settings.category.devpanelNetwork.sub.table': 'Tabelle',
+  'workbench.settings.category.devpanelNetwork.sub.sorting': 'Sortierung',
+  'workbench.settings.category.devpanelNetwork.sub.waterfall': 'Waterfall',
   'workbench.settings.category.devpanelHeaders.label': 'DevTools-Panel · Headers',
   'workbench.settings.category.devpanelHeaders.navLabel': 'Headers',
   'workbench.settings.category.devpanelHeaders.description':
     'Standardwerte für den Tab Headers im DevTools-Panel — Layout, Sortierung, Filter, Vorschläge.',
+  'workbench.settings.category.devpanelHeaders.sub.view': 'Ansicht',
+  'workbench.settings.category.devpanelHeaders.sub.filters': 'Filter',
   'workbench.settings.category.devpanelInitiator.label': 'DevTools-Panel · Initiator',
   'workbench.settings.category.devpanelInitiator.navLabel': 'Initiator',
   'workbench.settings.category.devpanelInitiator.description':
     'Standardwerte für den Tab Initiator im DevTools-Panel — Sortierung, Filter, Vorschläge.',
+  'workbench.settings.category.devpanelInitiator.sub.view': 'Ansicht',
+  'workbench.settings.category.devpanelInitiator.sub.filters': 'Filter',
   'workbench.settings.category.devpanelCookies.label': 'DevTools-Panel · Cookies',
   'workbench.settings.category.devpanelCookies.navLabel': 'Cookies',
   'workbench.settings.category.devpanelCookies.description':
     'Standardwerte für den Tab Cookies im DevTools-Panel — Spalten, Sortierung, Filter, Vorschläge.',
+  'workbench.settings.category.devpanelCookies.sub.view': 'Ansicht',
+  'workbench.settings.category.devpanelCookies.sub.filters': 'Filter',
   'workbench.settings.category.devpanelTiming.label': 'DevTools-Panel · Timing',
   'workbench.settings.category.devpanelTiming.navLabel': 'Timing',
   'workbench.settings.category.devpanelTiming.description':
     'Standardwerte für den Tab Timing im DevTools-Panel — welche Bänder sichtbar sind.',
+  'workbench.settings.category.devpanelTiming.sub.view': 'Ansicht',
   'workbench.settings.category.inspection.label': 'Debug-Modus',
   'workbench.settings.category.inspection.description':
     'Der Opt-in-Pfad, der das Debugging-Protokoll deines Browsers anbindet — untersuche und verändere ' +

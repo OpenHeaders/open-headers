@@ -97,22 +97,32 @@ export const workbenchSettings = {
   'workbench.settings.category.devpanelNetwork.navLabel': 'Network',
   'workbench.settings.category.devpanelNetwork.description':
     'Defaults for the Network requests table in the DevTools panel — layout, sort, dot column.',
+  'workbench.settings.category.devpanelNetwork.sub.table': 'Table',
+  'workbench.settings.category.devpanelNetwork.sub.sorting': 'Sorting',
+  'workbench.settings.category.devpanelNetwork.sub.waterfall': 'Waterfall',
   'workbench.settings.category.devpanelHeaders.label': 'DevTools Panel · Headers',
   'workbench.settings.category.devpanelHeaders.navLabel': 'Headers',
   'workbench.settings.category.devpanelHeaders.description':
     'Defaults for the Headers tab in the DevTools panel — layout, sort, filters, suggestions.',
+  'workbench.settings.category.devpanelHeaders.sub.view': 'View',
+  'workbench.settings.category.devpanelHeaders.sub.filters': 'Filters',
   'workbench.settings.category.devpanelInitiator.label': 'DevTools Panel · Initiator',
   'workbench.settings.category.devpanelInitiator.navLabel': 'Initiator',
   'workbench.settings.category.devpanelInitiator.description':
     'Defaults for the Initiator tab in the DevTools panel — sort, filters, suggestions.',
+  'workbench.settings.category.devpanelInitiator.sub.view': 'View',
+  'workbench.settings.category.devpanelInitiator.sub.filters': 'Filters',
   'workbench.settings.category.devpanelCookies.label': 'DevTools Panel · Cookies',
   'workbench.settings.category.devpanelCookies.navLabel': 'Cookies',
   'workbench.settings.category.devpanelCookies.description':
     'Defaults for the Cookies tab in the DevTools panel — columns, sort, filters, suggestions.',
+  'workbench.settings.category.devpanelCookies.sub.view': 'View',
+  'workbench.settings.category.devpanelCookies.sub.filters': 'Filters',
   'workbench.settings.category.devpanelTiming.label': 'DevTools Panel · Timing',
   'workbench.settings.category.devpanelTiming.navLabel': 'Timing',
   'workbench.settings.category.devpanelTiming.description':
     'Defaults for the Timing tab in the DevTools panel — which bands are visible.',
+  'workbench.settings.category.devpanelTiming.sub.view': 'View',
   'workbench.settings.category.inspection.label': 'Debug mode',
   'workbench.settings.category.inspection.description':
     'The opt-in path that attaches your browser’s debugging protocol — inspect and modify requests with the same depth as the built-in developer tools.',

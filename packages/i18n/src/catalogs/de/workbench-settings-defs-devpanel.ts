@@ -127,7 +127,7 @@ export const workbenchSettingsDefsDevpanel = {
     'und aktive Nachbarn nehmen den Platz auf.',
 
   // ── DevTools Panel · Network category defs ─────────────────────────
-  'workbench.settings.def.devpanelNetwork.layout.label': 'Network-Layout',
+  'workbench.settings.def.devpanelNetwork.layout.label': 'Layout',
   'workbench.settings.def.devpanelNetwork.layout.description':
     'Wie die Network-Tabelle den horizontalen Platz aufnimmt. Kompakt lässt dehnbare Spalten (Name, Waterfall) ' +
     'auf die Panelbreite flexen, sodass die Tabelle nie horizontal scrollt; Breit deckelt diese Spalten und ' +
@@ -154,7 +154,7 @@ export const workbenchSettingsDefsDevpanel = {
     'Zeigt den Payload-Vorschaubereich unter den Rastern Messages / EventStream — die größenverstellbare ' +
     'Teilung, in der der ausgewählte Frame oder das Ereignis als JSON-Baum, Rohtext oder Binär-Viewer ' +
     'gerendert wird. Schalte sie aus, um dem Raster den ganzen Bereich zu geben.',
-  'workbench.settings.def.devpanelNetwork.sortKind.label': 'Quelle der Network-Sortierung',
+  'workbench.settings.def.devpanelNetwork.sortKind.label': 'Quelle der Sortierung',
   'workbench.settings.def.devpanelNetwork.sortKind.description':
     'Welche Seite des Sortierzustands aktiv ist. `mode` führt einen der benannten zusammengesetzten ' +
     'Sortiermodi aus (Fehlschläge zuerst / Langsamste zuerst / …). `column` führt die Einspalten-Sortierung ' +
@@ -170,7 +170,7 @@ export const workbenchSettingsDefsDevpanel = {
   'workbench.settings.def.devpanelNetwork.sortKind.option.customNested.label': 'Benutzerdefiniert (verschachtelt)',
   'workbench.settings.def.devpanelNetwork.sortKind.option.customNested.description':
     'Die selbst gebaute Mehrschlüssel-Sortierkette verwenden.',
-  'workbench.settings.def.devpanelNetwork.sortMode.label': 'Network-Sortiermodus',
+  'workbench.settings.def.devpanelNetwork.sortMode.label': 'Sortiermodus',
   'workbench.settings.def.devpanelNetwork.sortMode.description':
     'Benannte zusammengesetzte Sortierreihenfolge — Hauptachse, dann Ankunft als Gleichstand. Aktiv, wenn die ' +
     'Sortierquelle = `mode` ist.',
@@ -193,7 +193,7 @@ export const workbenchSettingsDefsDevpanel = {
   'workbench.settings.def.devpanelNetwork.sortMode.option.ruleModified.label': 'Regelverändert zuerst',
   'workbench.settings.def.devpanelNetwork.sortMode.option.ruleModified.description':
     'Angewendete Regeln zuerst, Ankunft innerhalb der Gruppe.',
-  'workbench.settings.def.devpanelNetwork.sortBy.label': 'Network-Sortierspalte',
+  'workbench.settings.def.devpanelNetwork.sortBy.label': 'Sortierspalte',
   'workbench.settings.def.devpanelNetwork.sortBy.description':
     'Welche Spalte die Spaltenklick-Sortierung antreibt. Aktiv, wenn die Sortierquelle = `column` ist. Ein ' +
     'Klick auf eine Spaltenüberschrift aktualisiert diesen Wert.',
@@ -235,14 +235,14 @@ export const workbenchSettingsDefsDevpanel = {
   'workbench.settings.def.devpanelNetwork.sortBy.option.time.description': 'Gesamtdauer der Anfrage.',
   'workbench.settings.def.devpanelNetwork.sortBy.option.priority.label': 'Priority',
   'workbench.settings.def.devpanelNetwork.sortBy.option.priority.description': 'Vom Browser zugewiesene Priorität.',
-  'workbench.settings.def.devpanelNetwork.sortDir.label': 'Network-Sortierrichtung',
+  'workbench.settings.def.devpanelNetwork.sortDir.label': 'Sortierrichtung',
   'workbench.settings.def.devpanelNetwork.sortDir.description':
     'Auf- oder absteigende Reihenfolge für die aktuelle Network-Sortierspalte.',
   'workbench.settings.def.devpanelNetwork.sortDir.option.asc.label': 'Aufsteigend',
   'workbench.settings.def.devpanelNetwork.sortDir.option.asc.description': 'Niedrigste zuerst.',
   'workbench.settings.def.devpanelNetwork.sortDir.option.desc.label': 'Absteigend',
   'workbench.settings.def.devpanelNetwork.sortDir.option.desc.description': 'Höchste zuerst.',
-  'workbench.settings.def.devpanelNetwork.waterfallMetric.label': 'Waterfall-Metrik',
+  'workbench.settings.def.devpanelNetwork.waterfallMetric.label': 'Metrik',
   'workbench.settings.def.devpanelNetwork.waterfallMetric.description':
     'Nach welcher Zeit die Waterfall-Spalte sortiert und zeichnet. Start / Response / End time setzen die ' +
     'Balken auf eine absolute Zeitleiste; Total duration und Latency richten die Balken auf null aus, damit ' +
@@ -265,7 +265,7 @@ export const workbenchSettingsDefsDevpanel = {
     'Zeigt die führende 14px-Spalte mit dem farbigen Punkt, der Regeltreffer markiert (gefüllt = eine Regel ' +
     'wurde tatsächlich angewendet, hohl = abgeleitet). Schalte sie aus, um die horizontalen Pixel in dichten ' +
     'Bereichen zurückzugewinnen.',
-  'workbench.settings.def.devpanelNetwork.waterfallValues.label': 'Waterfall-Werte',
+  'workbench.settings.def.devpanelNetwork.waterfallValues.label': 'Werte',
   'workbench.settings.def.devpanelNetwork.waterfallValues.description':
     'Wann die Werte der aktiven Waterfall-Metrik auf dem Balken stehen — der Chip mit Start / Response / End ' +
     'time bei den Zeitleisten-Metriken oder die Warte-/Download-Beschriftungen bei Total duration und Latency.',
@@ -276,7 +276,7 @@ export const workbenchSettingsDefsDevpanel = {
     'Den Wert-Chip beim Überfahren der Zeile einblenden.',
   'workbench.settings.def.devpanelNetwork.waterfallValues.option.off.label': 'Aus',
   'workbench.settings.def.devpanelNetwork.waterfallValues.option.off.description': 'Den Wert-Chip ausblenden.',
-  'workbench.settings.def.devpanelNetwork.waterfallValueFormat.label': 'Waterfall-Wertformat',
+  'workbench.settings.def.devpanelNetwork.waterfallValueFormat.label': 'Wertformat',
   'workbench.settings.def.devpanelNetwork.waterfallValueFormat.description':
     'Wie sich der Wert einer Zeitleisten-Metrik liest: Relativ ist der Versatz zur ersten sichtbaren Anfrage; ' +
     'Zeitstempel ist der absolute Uhrzeit-Moment. Total duration und Latency sind unabhängig davon immer ' +
@@ -287,18 +287,18 @@ export const workbenchSettingsDefsDevpanel = {
   'workbench.settings.def.devpanelNetwork.waterfallValueFormat.option.timestamp.label': 'Zeitstempel',
   'workbench.settings.def.devpanelNetwork.waterfallValueFormat.option.timestamp.description':
     'Absoluter Uhrzeit-Moment.',
-  'workbench.settings.def.devpanelNetwork.waterfallTimestampTz.label': 'Zeitzone der Waterfall-Zeitstempel',
+  'workbench.settings.def.devpanelNetwork.waterfallTimestampTz.label': 'Zeitzone der Zeitstempel',
   'workbench.settings.def.devpanelNetwork.waterfallTimestampTz.description':
     'Zeitzone für das Wertformat Zeitstempel — lokale Zeit oder UTC.',
   'workbench.settings.def.devpanelNetwork.waterfallTimestampTz.option.local.label': 'Lokal',
   'workbench.settings.def.devpanelNetwork.waterfallTimestampTz.option.local.description': 'Deine lokale Zeitzone.',
   'workbench.settings.def.devpanelNetwork.waterfallTimestampTz.option.utc.label': 'UTC',
   'workbench.settings.def.devpanelNetwork.waterfallTimestampTz.option.utc.description': 'Koordinierte Weltzeit.',
-  'workbench.settings.def.devpanelNetwork.waterfallExplainValue.label': 'Waterfall-Wert erklären',
+  'workbench.settings.def.devpanelNetwork.waterfallExplainValue.label': 'Wert erklären',
   'workbench.settings.def.devpanelNetwork.waterfallExplainValue.description':
     'Markiert im Hover-Popover der Waterfall die Phasenzeilen, aus denen sich der Gesamtwert zusammensetzt, ' +
     'hebt sie hervor und zeigt ihre Summe als Formel. Reine visuelle Hilfe — es ändert keine Werte.',
-  'workbench.settings.def.devpanelNetwork.waterfallPopoverLayout.label': 'Layout des Waterfall-Popovers',
+  'workbench.settings.def.devpanelNetwork.waterfallPopoverLayout.label': 'Layout des Popovers',
   'workbench.settings.def.devpanelNetwork.waterfallPopoverLayout.description':
     'Ausrichtung der Timing-Aufschlüsselung beim Überfahren der Waterfall. Kompakt stapelt die Schritte im ' +
     'Popover untereinander; Breit legt dieselbe Leiter auf eine Zeitachse; Auto wählt nach Panelbreite — ' +
@@ -314,7 +314,7 @@ export const workbenchSettingsDefsDevpanel = {
     'Breit bei breitem Panel, sonst kompakt.',
 
   // ── DevTools Panel · Headers category defs ─────────────────────────
-  'workbench.settings.def.devpanelHeaders.layout.label': 'Headers-Layout',
+  'workbench.settings.def.devpanelHeaders.layout.label': 'Layout',
   'workbench.settings.def.devpanelHeaders.layout.description':
     'Wie die Header-Zeilen in den Anfrage-/Antwort-Abschnitten organisiert sind. Gruppiert bündelt die Zeilen ' +
     'nach Kategorie (Auth, CORS, Caching, …); Flach rendert eine einzige Liste in der gewählten ' +
@@ -324,7 +324,7 @@ export const workbenchSettingsDefsDevpanel = {
   'workbench.settings.def.devpanelHeaders.layout.option.flat.label': 'Flach',
   'workbench.settings.def.devpanelHeaders.layout.option.flat.description':
     'Eine einzige Liste, ohne Kategorie-Überschriften (im Stil von Chrome).',
-  'workbench.settings.def.devpanelHeaders.sortMode.label': 'Headers-Sortierung',
+  'workbench.settings.def.devpanelHeaders.sortMode.label': 'Sortierung',
   'workbench.settings.def.devpanelHeaders.sortMode.description':
     'Zeilenreihenfolge innerhalb jeder Liste (und jeder Gruppe, wenn gruppiert). Original bewahrt die ' +
     'Reihenfolge, in der der Server die Header gesendet hat (HAR-Reihenfolge); A → Z sortiert nach Name; ' +
@@ -366,7 +366,7 @@ export const workbenchSettingsDefsDevpanel = {
     'sec-ch-ua, …).',
 
   // ── DevTools Panel · Initiator category defs ───────────────────────
-  'workbench.settings.def.devpanelInitiator.sortMode.label': 'Sortierung der Initiator-Kinder',
+  'workbench.settings.def.devpanelInitiator.sortMode.label': 'Sortierung der Kinder',
   'workbench.settings.def.devpanelInitiator.sortMode.description':
     'Wie Kind-Anfragen innerhalb der Initiator-Kette geordnet werden. Initiator-Reihenfolge bewahrt den ' +
     'ursprünglichen Durchlauf des Initiator-Graphen; Chronologisch ordnet nach Anfragezeit; Größter Teilbaum ' +
@@ -389,7 +389,7 @@ export const workbenchSettingsDefsDevpanel = {
     'Zeigt nur Zeilen von Origins, die sich von der Origin der Seite unterscheiden.',
 
   // ── DevTools Panel · Cookies category defs ─────────────────────────
-  'workbench.settings.def.devpanelCookies.sortMode.label': 'Cookies-Sortierung',
+  'workbench.settings.def.devpanelCookies.sortMode.label': 'Sortierung',
   'workbench.settings.def.devpanelCookies.sortMode.description':
     'Zeilenreihenfolge innerhalb jedes Cookies-Abschnitts. Original bewahrt die Reihenfolge, die Server / ' +
     'Anfrage verwendet haben; A → Z sortiert nach Name; Size sortiert nach serialisierter Cookie-Größe; ' +

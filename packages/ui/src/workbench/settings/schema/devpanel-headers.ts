@@ -44,7 +44,7 @@ registerSetting({
   labelKey: 'workbench.settings.def.devpanelHeaders.layout.label',
   descriptionKey: 'workbench.settings.def.devpanelHeaders.layout.description',
   category: 'devpanelHeaders',
-  subcategory: 'View',
+  subcategory: 'view',
   tags: ['headers', 'layout', 'grouped', 'flat', 'devtools'],
   scope: 'user',
   enumOptions: [
@@ -69,7 +69,7 @@ registerSetting({
   labelKey: 'workbench.settings.def.devpanelHeaders.sortMode.label',
   descriptionKey: 'workbench.settings.def.devpanelHeaders.sortMode.description',
   category: 'devpanelHeaders',
-  subcategory: 'View',
+  subcategory: 'view',
   tags: ['headers', 'sort', 'order', 'devtools'],
   scope: 'user',
   // The `A → Z` label is a literal glyph pair, not translatable text.
@@ -100,7 +100,7 @@ registerSetting({
   labelKey: 'workbench.settings.def.devpanelHeaders.nameCase.label',
   descriptionKey: 'workbench.settings.def.devpanelHeaders.nameCase.description',
   category: 'devpanelHeaders',
-  subcategory: 'View',
+  subcategory: 'view',
   tags: ['headers', 'case', 'train-case', 'display', 'devtools'],
   scope: 'user',
   // Train-Case option stays literal: its label names the casing style
@@ -123,7 +123,7 @@ registerSetting({
   labelKey: 'workbench.settings.def.devpanelHeaders.showChips.label',
   descriptionKey: 'workbench.settings.def.devpanelHeaders.showChips.description',
   category: 'devpanelHeaders',
-  subcategory: 'View',
+  subcategory: 'view',
   tags: ['headers', 'tags', 'chips', 'view', 'devtools'],
   scope: 'user',
 });
@@ -136,7 +136,7 @@ registerSetting({
   labelKey: 'workbench.settings.def.devpanelHeaders.showInsights.label',
   descriptionKey: 'workbench.settings.def.devpanelHeaders.showInsights.description',
   category: 'devpanelHeaders',
-  subcategory: 'View',
+  subcategory: 'view',
   tags: ['headers', 'insights', 'suggestions', 'warnings', 'devtools'],
   scope: 'user',
 });
@@ -151,7 +151,7 @@ registerSetting({
   labelKey: 'workbench.settings.def.devpanelHeaders.hideNoise.label',
   descriptionKey: 'workbench.settings.def.devpanelHeaders.hideNoise.description',
   category: 'devpanelHeaders',
-  subcategory: 'Filters',
+  subcategory: 'filters',
   tags: ['headers', 'noise', 'filter', 'devtools'],
   scope: 'user',
 });
@@ -164,7 +164,7 @@ registerSetting({
   labelKey: 'workbench.settings.def.devpanelHeaders.ruleOnly.label',
   descriptionKey: 'workbench.settings.def.devpanelHeaders.ruleOnly.description',
   category: 'devpanelHeaders',
-  subcategory: 'Filters',
+  subcategory: 'filters',
   tags: ['headers', 'rule', 'filter', 'devtools'],
   scope: 'user',
 });
@@ -177,7 +177,7 @@ registerSetting({
   labelKey: 'workbench.settings.def.devpanelHeaders.securityOnly.label',
   descriptionKey: 'workbench.settings.def.devpanelHeaders.securityOnly.description',
   category: 'devpanelHeaders',
-  subcategory: 'Filters',
+  subcategory: 'filters',
   tags: ['headers', 'security', 'filter', 'devtools'],
   scope: 'user',
 });
@@ -190,7 +190,7 @@ registerSetting({
   labelKey: 'workbench.settings.def.devpanelHeaders.overridableOnly.label',
   descriptionKey: 'workbench.settings.def.devpanelHeaders.overridableOnly.description',
   category: 'devpanelHeaders',
-  subcategory: 'Filters',
+  subcategory: 'filters',
   tags: ['headers', 'overridable', 'protected', 'filter', 'devtools'],
   scope: 'user',
 });

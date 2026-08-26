@@ -131,7 +131,7 @@ export const workbenchSettingsDefsDevpanel = {
     'contenido y los vecinos activos absorben el espacio.',
 
   // ── DevTools Panel · Network category defs ─────────────────────────
-  'workbench.settings.def.devpanelNetwork.layout.label': 'Disposición de Network',
+  'workbench.settings.def.devpanelNetwork.layout.label': 'Disposición',
   'workbench.settings.def.devpanelNetwork.layout.description':
     'Cómo absorbe la tabla Network el espacio horizontal. Compacta deja que las columnas extensibles (Name, ' +
     'Waterfall) se flexionen para caber en el ancho del panel, de modo que la tabla nunca se desplaza ' +
@@ -158,7 +158,7 @@ export const workbenchSettingsDefsDevpanel = {
     'Muestra el panel de vista previa de la carga útil bajo las cuadrículas Messages / EventStream — la ' +
     'división redimensionable donde el frame o el evento seleccionado se representa como árbol JSON, texto sin ' +
     'procesar o visor binario. Desactívalo para darle todo el panel a la cuadrícula.',
-  'workbench.settings.def.devpanelNetwork.sortKind.label': 'Fuente del orden de Network',
+  'workbench.settings.def.devpanelNetwork.sortKind.label': 'Fuente del orden',
   'workbench.settings.def.devpanelNetwork.sortKind.description':
     'Qué lado del estado de orden está activo. `mode` ejecuta uno de los modos de orden compuestos con nombre ' +
     '(Fallos primero / Más lentas primero / …). `column` ejecuta el orden de una sola columna que el usuario ' +
@@ -173,7 +173,7 @@ export const workbenchSettingsDefsDevpanel = {
   'workbench.settings.def.devpanelNetwork.sortKind.option.customNested.label': 'Personalizado (anidado)',
   'workbench.settings.def.devpanelNetwork.sortKind.option.customNested.description':
     'Usar la cadena de orden multiclave construida por el usuario.',
-  'workbench.settings.def.devpanelNetwork.sortMode.label': 'Modo de orden de Network',
+  'workbench.settings.def.devpanelNetwork.sortMode.label': 'Modo de orden',
   'workbench.settings.def.devpanelNetwork.sortMode.description':
     'Orden compuesto con nombre — eje principal y llegada como desempate. Activo cuando la fuente del orden = ' +
     '`mode`.',
@@ -197,7 +197,7 @@ export const workbenchSettingsDefsDevpanel = {
   'workbench.settings.def.devpanelNetwork.sortMode.option.ruleModified.label': 'Modificadas por regla primero',
   'workbench.settings.def.devpanelNetwork.sortMode.option.ruleModified.description':
     'Reglas aplicadas primero, llegada dentro de cada grupo.',
-  'workbench.settings.def.devpanelNetwork.sortBy.label': 'Columna de orden de Network',
+  'workbench.settings.def.devpanelNetwork.sortBy.label': 'Columna de orden',
   'workbench.settings.def.devpanelNetwork.sortBy.description':
     'Qué columna dirige el orden por clic de columna. Activo cuando la fuente del orden = `column`. Hacer clic ' +
     'en un encabezado de columna actualiza este valor.',
@@ -240,14 +240,14 @@ export const workbenchSettingsDefsDevpanel = {
   'workbench.settings.def.devpanelNetwork.sortBy.option.time.description': 'Duración total de la solicitud.',
   'workbench.settings.def.devpanelNetwork.sortBy.option.priority.label': 'Priority',
   'workbench.settings.def.devpanelNetwork.sortBy.option.priority.description': 'Prioridad asignada por el navegador.',
-  'workbench.settings.def.devpanelNetwork.sortDir.label': 'Sentido del orden de Network',
+  'workbench.settings.def.devpanelNetwork.sortDir.label': 'Sentido del orden',
   'workbench.settings.def.devpanelNetwork.sortDir.description':
     'Orden ascendente o descendente para la columna de orden de Network actual.',
   'workbench.settings.def.devpanelNetwork.sortDir.option.asc.label': 'Ascendente',
   'workbench.settings.def.devpanelNetwork.sortDir.option.asc.description': 'El más bajo primero.',
   'workbench.settings.def.devpanelNetwork.sortDir.option.desc.label': 'Descendente',
   'workbench.settings.def.devpanelNetwork.sortDir.option.desc.description': 'El más alto primero.',
-  'workbench.settings.def.devpanelNetwork.waterfallMetric.label': 'Métrica de Waterfall',
+  'workbench.settings.def.devpanelNetwork.waterfallMetric.label': 'Métrica',
   'workbench.settings.def.devpanelNetwork.waterfallMetric.description':
     'Según qué tiempo ordena y dibuja la columna Waterfall. Start / Response / End time colocan las barras en ' +
     'una cronología absoluta; Total duration y Latency alinean las barras en cero para comparar las longitudes ' +
@@ -270,7 +270,7 @@ export const workbenchSettingsDefsDevpanel = {
     'Muestra la columna inicial de 14px con el punto de color que marca las coincidencias de reglas (relleno = ' +
     'una regla se aplicó realmente, hueco = inferido). Desactívalo para recuperar los píxeles horizontales en ' +
     'paneles densos.',
-  'workbench.settings.def.devpanelNetwork.waterfallValues.label': 'Valores de Waterfall',
+  'workbench.settings.def.devpanelNetwork.waterfallValues.label': 'Valores',
   'workbench.settings.def.devpanelNetwork.waterfallValues.description':
     'Cuándo imprimir en la barra el valor o los valores de la métrica Waterfall activa — el chip de Start / ' +
     'Response / End time para las métricas de cronología, o las etiquetas de espera / descarga para Total ' +
@@ -283,7 +283,7 @@ export const workbenchSettingsDefsDevpanel = {
     'Revelar el chip de valor al pasar el cursor por la fila.',
   'workbench.settings.def.devpanelNetwork.waterfallValues.option.off.label': 'Desactivado',
   'workbench.settings.def.devpanelNetwork.waterfallValues.option.off.description': 'Ocultar el chip de valor.',
-  'workbench.settings.def.devpanelNetwork.waterfallValueFormat.label': 'Formato del valor de Waterfall',
+  'workbench.settings.def.devpanelNetwork.waterfallValueFormat.label': 'Formato del valor',
   'workbench.settings.def.devpanelNetwork.waterfallValueFormat.description':
     'Cómo se lee el valor de una métrica de cronología: Relativo es el desplazamiento desde la primera ' +
     'solicitud a la vista; Marca de tiempo es el instante absoluto de reloj. Total duration y Latency son ' +
@@ -294,19 +294,18 @@ export const workbenchSettingsDefsDevpanel = {
   'workbench.settings.def.devpanelNetwork.waterfallValueFormat.option.timestamp.label': 'Marca de tiempo',
   'workbench.settings.def.devpanelNetwork.waterfallValueFormat.option.timestamp.description':
     'Instante absoluto de reloj.',
-  'workbench.settings.def.devpanelNetwork.waterfallTimestampTz.label':
-    'Zona horaria de las marcas de tiempo de Waterfall',
+  'workbench.settings.def.devpanelNetwork.waterfallTimestampTz.label': 'Zona horaria de las marcas de tiempo',
   'workbench.settings.def.devpanelNetwork.waterfallTimestampTz.description':
     'Zona horaria del formato de valor Marca de tiempo — hora local o UTC.',
   'workbench.settings.def.devpanelNetwork.waterfallTimestampTz.option.local.label': 'Local',
   'workbench.settings.def.devpanelNetwork.waterfallTimestampTz.option.local.description': 'Tu zona horaria local.',
   'workbench.settings.def.devpanelNetwork.waterfallTimestampTz.option.utc.label': 'UTC',
   'workbench.settings.def.devpanelNetwork.waterfallTimestampTz.option.utc.description': 'Tiempo universal coordinado.',
-  'workbench.settings.def.devpanelNetwork.waterfallExplainValue.label': 'Explicar el valor de Waterfall',
+  'workbench.settings.def.devpanelNetwork.waterfallExplainValue.label': 'Explicar el valor',
   'workbench.settings.def.devpanelNetwork.waterfallExplainValue.description':
     'En el popover al pasar el cursor por la Waterfall, señala con una insignia y resalta las filas de fase ' +
     'que componen el total y muestra su suma como fórmula. Ayuda puramente visual — no cambia ningún valor.',
-  'workbench.settings.def.devpanelNetwork.waterfallPopoverLayout.label': 'Disposición del popover de Waterfall',
+  'workbench.settings.def.devpanelNetwork.waterfallPopoverLayout.label': 'Disposición del popover',
   'workbench.settings.def.devpanelNetwork.waterfallPopoverLayout.description':
     'Orientación del desglose de timing al pasar el cursor por la Waterfall. Compacto apila los pasos a lo ' +
     'largo del popover; Amplio coloca la misma escalera sobre un eje de tiempo; Auto elige según el ancho del ' +
@@ -322,7 +321,7 @@ export const workbenchSettingsDefsDevpanel = {
     'Amplio cuando el panel es ancho; si no, compacto.',
 
   // ── DevTools Panel · Headers category defs ─────────────────────────
-  'workbench.settings.def.devpanelHeaders.layout.label': 'Disposición de Headers',
+  'workbench.settings.def.devpanelHeaders.layout.label': 'Disposición',
   'workbench.settings.def.devpanelHeaders.layout.description':
     'Cómo se organizan las filas de encabezados dentro de las secciones de solicitud/respuesta. Agrupada ' +
     'agrupa las filas por categoría (Auth, CORS, Caching, …); Plana representa una sola lista en el orden ' +
@@ -332,7 +331,7 @@ export const workbenchSettingsDefsDevpanel = {
   'workbench.settings.def.devpanelHeaders.layout.option.flat.label': 'Plana',
   'workbench.settings.def.devpanelHeaders.layout.option.flat.description':
     'Lista única, sin títulos de categoría (al estilo de Chrome).',
-  'workbench.settings.def.devpanelHeaders.sortMode.label': 'Orden de Headers',
+  'workbench.settings.def.devpanelHeaders.sortMode.label': 'Orden',
   'workbench.settings.def.devpanelHeaders.sortMode.description':
     'Orden de las filas dentro de cada lista (y dentro de cada grupo, en disposición agrupada). Original ' +
     'conserva el orden en que el servidor envió los encabezados (orden HAR); A → Z ordena por nombre; ' +
@@ -376,7 +375,7 @@ export const workbenchSettingsDefsDevpanel = {
     'sec-ch-ua, …).',
 
   // ── DevTools Panel · Initiator category defs ───────────────────────
-  'workbench.settings.def.devpanelInitiator.sortMode.label': 'Orden de los hijos de Initiator',
+  'workbench.settings.def.devpanelInitiator.sortMode.label': 'Orden de los hijos',
   'workbench.settings.def.devpanelInitiator.sortMode.description':
     'Cómo se ordenan las solicitudes hijas dentro de la cadena de iniciadores. Orden de iniciador conserva el ' +
     'recorrido original del grafo de iniciadores; Cronológico ordena por hora de solicitud; Subárbol más ' +
@@ -399,7 +398,7 @@ export const workbenchSettingsDefsDevpanel = {
     'Muestra solo las filas de orígenes distintos del origen de la página.',
 
   // ── DevTools Panel · Cookies category defs ─────────────────────────
-  'workbench.settings.def.devpanelCookies.sortMode.label': 'Orden de Cookies',
+  'workbench.settings.def.devpanelCookies.sortMode.label': 'Orden',
   'workbench.settings.def.devpanelCookies.sortMode.description':
     'Orden de las filas dentro de cada sección de cookies. Original conserva el orden que usaron el servidor / ' +
     'la solicitud; A → Z ordena por nombre; Size ordena por tamaño de cookie serializada; Expires coloca ' +

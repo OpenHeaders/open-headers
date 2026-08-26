@@ -32,7 +32,7 @@ registerSetting({
   labelKey: 'workbench.settings.def.devpanelTiming.showInsights.label',
   descriptionKey: 'workbench.settings.def.devpanelTiming.showInsights.description',
   category: 'devpanelTiming',
-  subcategory: 'View',
+  subcategory: 'view',
   tags: ['timing', 'insights', 'suggestions', 'warnings', 'devtools'],
   scope: 'user',
 });
@@ -45,7 +45,7 @@ registerSetting({
   labelKey: 'workbench.settings.def.devpanelTiming.showContextStrip.label',
   descriptionKey: 'workbench.settings.def.devpanelTiming.showContextStrip.description',
   category: 'devpanelTiming',
-  subcategory: 'View',
+  subcategory: 'view',
   tags: ['timing', 'context', 'chips', 'devtools'],
   scope: 'user',
 });
@@ -58,7 +58,7 @@ registerSetting({
   labelKey: 'workbench.settings.def.devpanelTiming.showPhaseGroups.label',
   descriptionKey: 'workbench.settings.def.devpanelTiming.showPhaseGroups.description',
   category: 'devpanelTiming',
-  subcategory: 'View',
+  subcategory: 'view',
   tags: ['timing', 'phases', 'breakdown', 'devtools'],
   scope: 'user',
 });
@@ -71,7 +71,7 @@ registerSetting({
   labelKey: 'workbench.settings.def.devpanelTiming.showTimingBar.label',
   descriptionKey: 'workbench.settings.def.devpanelTiming.showTimingBar.description',
   category: 'devpanelTiming',
-  subcategory: 'View',
+  subcategory: 'view',
   tags: ['timing', 'bar', 'waterfall', 'devtools'],
   scope: 'user',
 });
@@ -84,7 +84,7 @@ registerSetting({
   labelKey: 'workbench.settings.def.devpanelTiming.showServerTiming.label',
   descriptionKey: 'workbench.settings.def.devpanelTiming.showServerTiming.description',
   category: 'devpanelTiming',
-  subcategory: 'View',
+  subcategory: 'view',
   tags: ['timing', 'server-timing', 'devtools'],
   scope: 'user',
 });
@@ -97,7 +97,7 @@ registerSetting({
   labelKey: 'workbench.settings.def.devpanelTiming.showRepeats.label',
   descriptionKey: 'workbench.settings.def.devpanelTiming.showRepeats.description',
   category: 'devpanelTiming',
-  subcategory: 'View',
+  subcategory: 'view',
   tags: ['timing', 'repeats', 'session', 'devtools'],
   scope: 'user',
 });
@@ -110,7 +110,7 @@ registerSetting({
   labelKey: 'workbench.settings.def.devpanelTiming.showTransferRate.label',
   descriptionKey: 'workbench.settings.def.devpanelTiming.showTransferRate.description',
   category: 'devpanelTiming',
-  subcategory: 'View',
+  subcategory: 'view',
   tags: ['timing', 'transfer', 'throughput', 'devtools'],
   scope: 'user',
 });

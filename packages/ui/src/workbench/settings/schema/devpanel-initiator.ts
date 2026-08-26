@@ -33,7 +33,7 @@ registerSetting({
   labelKey: 'workbench.settings.def.devpanelInitiator.sortMode.label',
   descriptionKey: 'workbench.settings.def.devpanelInitiator.sortMode.description',
   category: 'devpanelInitiator',
-  subcategory: 'View',
+  subcategory: 'view',
   tags: ['initiator', 'sort', 'order', 'devtools'],
   scope: 'user',
   enumOptions: [
@@ -63,7 +63,7 @@ registerSetting({
   labelKey: 'workbench.settings.def.devpanelInitiator.showInsights.label',
   descriptionKey: 'workbench.settings.def.devpanelInitiator.showInsights.description',
   category: 'devpanelInitiator',
-  subcategory: 'View',
+  subcategory: 'view',
   tags: ['initiator', 'insights', 'suggestions', 'devtools'],
   scope: 'user',
 });
@@ -78,7 +78,7 @@ registerSetting({
   labelKey: 'workbench.settings.def.devpanelInitiator.failuresOnly.label',
   descriptionKey: 'workbench.settings.def.devpanelInitiator.failuresOnly.description',
   category: 'devpanelInitiator',
-  subcategory: 'Filters',
+  subcategory: 'filters',
   tags: ['initiator', 'failures', 'filter', 'devtools'],
   scope: 'user',
 });
@@ -91,7 +91,7 @@ registerSetting({
   labelKey: 'workbench.settings.def.devpanelInitiator.thirdPartyOnly.label',
   descriptionKey: 'workbench.settings.def.devpanelInitiator.thirdPartyOnly.description',
   category: 'devpanelInitiator',
-  subcategory: 'Filters',
+  subcategory: 'filters',
   tags: ['initiator', 'third-party', 'filter', 'devtools'],
   scope: 'user',
 });

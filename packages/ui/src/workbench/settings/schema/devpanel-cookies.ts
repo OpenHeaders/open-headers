@@ -42,7 +42,7 @@ registerSetting({
   labelKey: 'workbench.settings.def.devpanelCookies.sortMode.label',
   descriptionKey: 'workbench.settings.def.devpanelCookies.sortMode.description',
   category: 'devpanelCookies',
-  subcategory: 'View',
+  subcategory: 'view',
   tags: ['cookies', 'sort', 'order', 'devtools'],
   scope: 'user',
   // The `A → Z` label is a literal glyph pair, not translatable text.
@@ -78,7 +78,7 @@ registerSetting({
   labelKey: 'workbench.settings.def.devpanelCookies.expiresFormat.label',
   descriptionKey: 'workbench.settings.def.devpanelCookies.expiresFormat.description',
   category: 'devpanelCookies',
-  subcategory: 'View',
+  subcategory: 'view',
   tags: ['cookies', 'expires', 'format', 'devtools'],
   scope: 'user',
   // The relative-format description is a literal format example
@@ -105,7 +105,7 @@ registerSetting({
   labelKey: 'workbench.settings.def.devpanelCookies.showChips.label',
   descriptionKey: 'workbench.settings.def.devpanelCookies.showChips.description',
   category: 'devpanelCookies',
-  subcategory: 'View',
+  subcategory: 'view',
   tags: ['cookies', 'tags', 'chips', 'view', 'devtools'],
   scope: 'user',
 });
@@ -118,7 +118,7 @@ registerSetting({
   labelKey: 'workbench.settings.def.devpanelCookies.showInsights.label',
   descriptionKey: 'workbench.settings.def.devpanelCookies.showInsights.description',
   category: 'devpanelCookies',
-  subcategory: 'View',
+  subcategory: 'view',
   tags: ['cookies', 'insights', 'suggestions', 'warnings', 'devtools'],
   scope: 'user',
 });
@@ -131,7 +131,7 @@ registerSetting({
   labelKey: 'workbench.settings.def.devpanelCookies.decodeValues.label',
   descriptionKey: 'workbench.settings.def.devpanelCookies.decodeValues.description',
   category: 'devpanelCookies',
-  subcategory: 'View',
+  subcategory: 'view',
   tags: ['cookies', 'decode', 'url-encoding', 'devtools'],
   scope: 'user',
 });
@@ -144,7 +144,7 @@ registerSetting({
   labelKey: 'workbench.settings.def.devpanelCookies.groupByRole.label',
   descriptionKey: 'workbench.settings.def.devpanelCookies.groupByRole.description',
   category: 'devpanelCookies',
-  subcategory: 'View',
+  subcategory: 'view',
   tags: ['cookies', 'group', 'role', 'auth', 'tracking', 'devtools'],
   scope: 'user',
 });
@@ -159,7 +159,7 @@ registerSetting({
   labelKey: 'workbench.settings.def.devpanelCookies.showFilteredOut.label',
   descriptionKey: 'workbench.settings.def.devpanelCookies.showFilteredOut.description',
   category: 'devpanelCookies',
-  subcategory: 'Filters',
+  subcategory: 'filters',
   tags: ['cookies', 'filtered-out', 'jar', 'devtools'],
   scope: 'user',
 });
@@ -172,7 +172,7 @@ registerSetting({
   labelKey: 'workbench.settings.def.devpanelCookies.problemsOnly.label',
   descriptionKey: 'workbench.settings.def.devpanelCookies.problemsOnly.description',
   category: 'devpanelCookies',
-  subcategory: 'Filters',
+  subcategory: 'filters',
   tags: ['cookies', 'problems', 'filter', 'devtools'],
   scope: 'user',
 });
@@ -185,7 +185,7 @@ registerSetting({
   labelKey: 'workbench.settings.def.devpanelCookies.thirdPartyOnly.label',
   descriptionKey: 'workbench.settings.def.devpanelCookies.thirdPartyOnly.description',
   category: 'devpanelCookies',
-  subcategory: 'Filters',
+  subcategory: 'filters',
   tags: ['cookies', 'third-party', 'filter', 'devtools'],
   scope: 'user',
 });
@@ -198,7 +198,7 @@ registerSetting({
   labelKey: 'workbench.settings.def.devpanelCookies.ruleOnly.label',
   descriptionKey: 'workbench.settings.def.devpanelCookies.ruleOnly.description',
   category: 'devpanelCookies',
-  subcategory: 'Filters',
+  subcategory: 'filters',
   tags: ['cookies', 'rule', 'filter', 'devtools'],
   scope: 'user',
 });

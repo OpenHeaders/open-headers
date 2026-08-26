@@ -101,21 +101,31 @@ export const workbenchSettings = {
   'workbench.settings.category.devpanelNetwork.navLabel': 'Network',
   'workbench.settings.category.devpanelNetwork.description':
     'DevTools 面板中 Network 请求表格的默认值——布局、排序、圆点列。',
+  'workbench.settings.category.devpanelNetwork.sub.table': '表格',
+  'workbench.settings.category.devpanelNetwork.sub.sorting': '排序',
+  'workbench.settings.category.devpanelNetwork.sub.waterfall': 'Waterfall',
   'workbench.settings.category.devpanelHeaders.label': 'DevTools 面板 · Headers',
   'workbench.settings.category.devpanelHeaders.navLabel': 'Headers',
   'workbench.settings.category.devpanelHeaders.description':
     'DevTools 面板中 Headers 标签页的默认值——布局、排序、筛选、建议。',
+  'workbench.settings.category.devpanelHeaders.sub.view': '视图',
+  'workbench.settings.category.devpanelHeaders.sub.filters': '筛选',
   'workbench.settings.category.devpanelInitiator.label': 'DevTools 面板 · Initiator',
   'workbench.settings.category.devpanelInitiator.navLabel': 'Initiator',
   'workbench.settings.category.devpanelInitiator.description':
     'DevTools 面板中 Initiator 标签页的默认值——排序、筛选、建议。',
+  'workbench.settings.category.devpanelInitiator.sub.view': '视图',
+  'workbench.settings.category.devpanelInitiator.sub.filters': '筛选',
   'workbench.settings.category.devpanelCookies.label': 'DevTools 面板 · Cookies',
   'workbench.settings.category.devpanelCookies.navLabel': 'Cookies',
   'workbench.settings.category.devpanelCookies.description':
     'DevTools 面板中 Cookies 标签页的默认值——列、排序、筛选、建议。',
+  'workbench.settings.category.devpanelCookies.sub.view': '视图',
+  'workbench.settings.category.devpanelCookies.sub.filters': '筛选',
   'workbench.settings.category.devpanelTiming.label': 'DevTools 面板 · Timing',
   'workbench.settings.category.devpanelTiming.navLabel': 'Timing',
   'workbench.settings.category.devpanelTiming.description': 'DevTools 面板中 Timing 标签页的默认值——哪些区段可见。',
+  'workbench.settings.category.devpanelTiming.sub.view': '视图',
   'workbench.settings.category.inspection.label': '调试模式',
   'workbench.settings.category.inspection.description':
     '自愿开启的路径，附加浏览器的调试协议——以内置开发者工具同等的深度检查并修改请求。',

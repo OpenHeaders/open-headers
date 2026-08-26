@@ -154,6 +154,11 @@ registerCategory({
   icon: <DevPanelGlyph letter="N" />,
   order: 16,
   descriptionKey: 'workbench.settings.category.devpanelNetwork.description',
+  subcategories: [
+    { id: 'table', labelKey: 'workbench.settings.category.devpanelNetwork.sub.table', order: 10 },
+    { id: 'sorting', labelKey: 'workbench.settings.category.devpanelNetwork.sub.sorting', order: 20 },
+    { id: 'waterfall', labelKey: 'workbench.settings.category.devpanelNetwork.sub.waterfall', order: 30 },
+  ],
 });
 
 registerCategory({
@@ -164,6 +169,10 @@ registerCategory({
   icon: <DevPanelGlyph letter="H" />,
   order: 17,
   descriptionKey: 'workbench.settings.category.devpanelHeaders.description',
+  subcategories: [
+    { id: 'view', labelKey: 'workbench.settings.category.devpanelHeaders.sub.view', order: 10 },
+    { id: 'filters', labelKey: 'workbench.settings.category.devpanelHeaders.sub.filters', order: 20 },
+  ],
 });
 
 registerCategory({
@@ -174,6 +183,10 @@ registerCategory({
   icon: <DevPanelGlyph letter="I" />,
   order: 18,
   descriptionKey: 'workbench.settings.category.devpanelInitiator.description',
+  subcategories: [
+    { id: 'view', labelKey: 'workbench.settings.category.devpanelInitiator.sub.view', order: 10 },
+    { id: 'filters', labelKey: 'workbench.settings.category.devpanelInitiator.sub.filters', order: 20 },
+  ],
 });
 
 registerCategory({
@@ -184,6 +197,10 @@ registerCategory({
   icon: <DevPanelGlyph letter="C" />,
   order: 19,
   descriptionKey: 'workbench.settings.category.devpanelCookies.description',
+  subcategories: [
+    { id: 'view', labelKey: 'workbench.settings.category.devpanelCookies.sub.view', order: 10 },
+    { id: 'filters', labelKey: 'workbench.settings.category.devpanelCookies.sub.filters', order: 20 },
+  ],
 });
 
 registerCategory({
@@ -194,6 +211,9 @@ registerCategory({
   icon: <DevPanelGlyph letter="T" />,
   order: 20,
   descriptionKey: 'workbench.settings.category.devpanelTiming.description',
+  subcategories: [
+    { id: 'view', labelKey: 'workbench.settings.category.devpanelTiming.sub.view', order: 10 },
+  ],
 });
 
 registerCategory({

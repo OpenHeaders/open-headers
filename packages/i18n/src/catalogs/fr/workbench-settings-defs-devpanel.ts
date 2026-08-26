@@ -125,7 +125,7 @@ export const workbenchSettingsDefsDevpanel = {
     "contenu et les voisins actifs absorbent l'espace.",
 
   // ── DevTools Panel · Network category defs ─────────────────────────
-  'workbench.settings.def.devpanelNetwork.layout.label': 'Disposition Network',
+  'workbench.settings.def.devpanelNetwork.layout.label': 'Disposition',
   'workbench.settings.def.devpanelNetwork.layout.description':
     "Comment le tableau Network absorbe l'espace horizontal. Compacte laisse les colonnes extensibles (Name, " +
     'Waterfall) fléchir pour tenir dans la largeur du panneau, si bien que le tableau ne défile jamais ' +
@@ -152,7 +152,7 @@ export const workbenchSettingsDefsDevpanel = {
     "Affiche le volet d'aperçu de la charge utile sous les grilles Messages / EventStream — la division " +
     "redimensionnable où le frame ou l'événement sélectionné se rend en arbre JSON, texte brut ou visionneuse " +
     'binaire. Désactivez pour donner tout le volet à la grille.',
-  'workbench.settings.def.devpanelNetwork.sortKind.label': 'Source du tri Network',
+  'workbench.settings.def.devpanelNetwork.sortKind.label': 'Source du tri',
   'workbench.settings.def.devpanelNetwork.sortKind.description':
     "Quel côté de l'état de tri est actif. `mode` exécute un des modes de tri composés nommés (Échecs en " +
     "premier / Plus lentes en premier / …). `column` exécute le tri mono-colonne que l'utilisateur a choisi " +
@@ -166,7 +166,7 @@ export const workbenchSettingsDefsDevpanel = {
   'workbench.settings.def.devpanelNetwork.sortKind.option.customNested.label': 'Personnalisé (imbriqué)',
   'workbench.settings.def.devpanelNetwork.sortKind.option.customNested.description':
     "Utiliser la chaîne de tri multi-clés construite par l'utilisateur.",
-  'workbench.settings.def.devpanelNetwork.sortMode.label': 'Mode de tri Network',
+  'workbench.settings.def.devpanelNetwork.sortMode.label': 'Mode de tri',
   'workbench.settings.def.devpanelNetwork.sortMode.description':
     'Ordre de tri composé nommé — axe principal puis arrivée en départage. Actif quand la source du tri = ' + '`mode`.',
   'workbench.settings.def.devpanelNetwork.sortMode.option.failures.label': 'Échecs en premier',
@@ -189,7 +189,7 @@ export const workbenchSettingsDefsDevpanel = {
   'workbench.settings.def.devpanelNetwork.sortMode.option.ruleModified.label': 'Modifiées par une règle en premier',
   'workbench.settings.def.devpanelNetwork.sortMode.option.ruleModified.description':
     'Règles appliquées en premier, arrivée au sein de chaque groupe.',
-  'workbench.settings.def.devpanelNetwork.sortBy.label': 'Colonne de tri Network',
+  'workbench.settings.def.devpanelNetwork.sortBy.label': 'Colonne de tri',
   'workbench.settings.def.devpanelNetwork.sortBy.description':
     'Quelle colonne pilote le tri par clic de colonne. Actif quand la source du tri = `column`. Cliquer un ' +
     'en-tête de colonne met cette valeur à jour.',
@@ -231,14 +231,14 @@ export const workbenchSettingsDefsDevpanel = {
   'workbench.settings.def.devpanelNetwork.sortBy.option.time.description': 'Durée totale de la requête.',
   'workbench.settings.def.devpanelNetwork.sortBy.option.priority.label': 'Priority',
   'workbench.settings.def.devpanelNetwork.sortBy.option.priority.description': 'Priorité attribuée par le navigateur.',
-  'workbench.settings.def.devpanelNetwork.sortDir.label': 'Sens du tri Network',
+  'workbench.settings.def.devpanelNetwork.sortDir.label': 'Sens du tri',
   'workbench.settings.def.devpanelNetwork.sortDir.description':
     'Ordre croissant ou décroissant pour la colonne de tri Network actuelle.',
   'workbench.settings.def.devpanelNetwork.sortDir.option.asc.label': 'Croissant',
   'workbench.settings.def.devpanelNetwork.sortDir.option.asc.description': 'Plus petit en premier.',
   'workbench.settings.def.devpanelNetwork.sortDir.option.desc.label': 'Décroissant',
   'workbench.settings.def.devpanelNetwork.sortDir.option.desc.description': 'Plus grand en premier.',
-  'workbench.settings.def.devpanelNetwork.waterfallMetric.label': 'Métrique Waterfall',
+  'workbench.settings.def.devpanelNetwork.waterfallMetric.label': 'Métrique',
   'workbench.settings.def.devpanelNetwork.waterfallMetric.description':
     'Quel temps la colonne Waterfall trie et dessine. Start / Response / End time placent les barres sur une ' +
     'chronologie absolue ; Total duration et Latency alignent les barres sur zéro pour comparer directement ' +
@@ -262,7 +262,7 @@ export const workbenchSettingsDefsDevpanel = {
     'Affiche la colonne de tête de 14px portant le point coloré qui marque les correspondances de règles ' +
     "(plein = une règle s'est réellement appliquée, creux = inféré). Désactivez pour récupérer les pixels " +
     'horizontaux sur les volets denses.',
-  'workbench.settings.def.devpanelNetwork.waterfallValues.label': 'Valeurs Waterfall',
+  'workbench.settings.def.devpanelNetwork.waterfallValues.label': 'Valeurs',
   'workbench.settings.def.devpanelNetwork.waterfallValues.description':
     'Quand imprimer la ou les valeurs de la métrique Waterfall active sur la barre — la puce Start / Response ' +
     '/ End time pour les métriques de chronologie, ou les libellés attente / téléchargement pour Total ' +
@@ -275,7 +275,7 @@ export const workbenchSettingsDefsDevpanel = {
     'Révéler la puce de valeur au survol de la ligne.',
   'workbench.settings.def.devpanelNetwork.waterfallValues.option.off.label': 'Désactivé',
   'workbench.settings.def.devpanelNetwork.waterfallValues.option.off.description': 'Masquer la puce de valeur.',
-  'workbench.settings.def.devpanelNetwork.waterfallValueFormat.label': 'Format des valeurs Waterfall',
+  'workbench.settings.def.devpanelNetwork.waterfallValueFormat.label': 'Format des valeurs',
   'workbench.settings.def.devpanelNetwork.waterfallValueFormat.description':
     "Comment la valeur d'une métrique de chronologie se lit : Relatif est le décalage depuis la première " +
     "requête en vue ; Horodatage est l'instant absolu à l'horloge. Total duration et Latency restent des " +
@@ -286,18 +286,18 @@ export const workbenchSettingsDefsDevpanel = {
   'workbench.settings.def.devpanelNetwork.waterfallValueFormat.option.timestamp.label': 'Horodatage',
   'workbench.settings.def.devpanelNetwork.waterfallValueFormat.option.timestamp.description':
     "Instant absolu à l'horloge.",
-  'workbench.settings.def.devpanelNetwork.waterfallTimestampTz.label': 'Fuseau horaire des horodatages Waterfall',
+  'workbench.settings.def.devpanelNetwork.waterfallTimestampTz.label': 'Fuseau horaire des horodatages',
   'workbench.settings.def.devpanelNetwork.waterfallTimestampTz.description':
     'Fuseau horaire du format de valeur Horodatage — heure locale ou UTC.',
   'workbench.settings.def.devpanelNetwork.waterfallTimestampTz.option.local.label': 'Local',
   'workbench.settings.def.devpanelNetwork.waterfallTimestampTz.option.local.description': 'Votre fuseau horaire local.',
   'workbench.settings.def.devpanelNetwork.waterfallTimestampTz.option.utc.label': 'UTC',
   'workbench.settings.def.devpanelNetwork.waterfallTimestampTz.option.utc.description': 'Temps universel coordonné.',
-  'workbench.settings.def.devpanelNetwork.waterfallExplainValue.label': 'Expliquer la valeur Waterfall',
+  'workbench.settings.def.devpanelNetwork.waterfallExplainValue.label': 'Expliquer la valeur',
   'workbench.settings.def.devpanelNetwork.waterfallExplainValue.description':
     'Dans le popover de survol de la Waterfall, badge et met en évidence les lignes de phase qui composent le ' +
     'total et affiche leur somme en formule. Aide purement visuelle — ne change aucune valeur.',
-  'workbench.settings.def.devpanelNetwork.waterfallPopoverLayout.label': 'Disposition du popover Waterfall',
+  'workbench.settings.def.devpanelNetwork.waterfallPopoverLayout.label': 'Disposition du popover',
   'workbench.settings.def.devpanelNetwork.waterfallPopoverLayout.description':
     'Orientation du détail de timing au survol de la Waterfall. Compact empile les étapes le long du popover ' +
     '; Large pose la même échelle sur un axe de temps ; Auto choisit selon la largeur du panneau — large sur ' +
@@ -313,7 +313,7 @@ export const workbenchSettingsDefsDevpanel = {
     'Large quand le panneau est large, sinon compact.',
 
   // ── DevTools Panel · Headers category defs ─────────────────────────
-  'workbench.settings.def.devpanelHeaders.layout.label': 'Disposition Headers',
+  'workbench.settings.def.devpanelHeaders.layout.label': 'Disposition',
   'workbench.settings.def.devpanelHeaders.layout.description':
     "Comment les lignes d'en-têtes sont organisées dans les sections Requête/Réponse. Groupée range les " +
     "lignes par catégorie (Auth, CORS, Caching, …) ; À plat rend une seule liste dans l'ordre de tri choisi.",
@@ -322,7 +322,7 @@ export const workbenchSettingsDefsDevpanel = {
   'workbench.settings.def.devpanelHeaders.layout.option.flat.label': 'À plat',
   'workbench.settings.def.devpanelHeaders.layout.option.flat.description':
     'Liste unique, sans titres de catégorie (style Chrome).',
-  'workbench.settings.def.devpanelHeaders.sortMode.label': 'Tri Headers',
+  'workbench.settings.def.devpanelHeaders.sortMode.label': 'Tri',
   'workbench.settings.def.devpanelHeaders.sortMode.description':
     'Ordre des lignes dans chaque liste (et dans chaque groupe, en disposition groupée). Original préserve ' +
     "l'ordre dans lequel le serveur a envoyé les en-têtes (ordre HAR) ; A → Z trie par nom ; Modifiés par une " +
@@ -365,7 +365,7 @@ export const workbenchSettingsDefsDevpanel = {
     'content-length, sec-ch-ua, …).',
 
   // ── DevTools Panel · Initiator category defs ───────────────────────
-  'workbench.settings.def.devpanelInitiator.sortMode.label': 'Tri des enfants Initiator',
+  'workbench.settings.def.devpanelInitiator.sortMode.label': 'Tri des enfants',
   'workbench.settings.def.devpanelInitiator.sortMode.description':
     "Comment les requêtes enfants sont ordonnées dans la chaîne d'initiateurs. Ordre d'initiateur préserve le " +
     "parcours original du graphe d'initiateurs ; Chronologique ordonne par heure de requête ; Plus grand " +
@@ -389,7 +389,7 @@ export const workbenchSettingsDefsDevpanel = {
     "Affiche uniquement les lignes d'origines différentes de l'origine de la page.",
 
   // ── DevTools Panel · Cookies category defs ─────────────────────────
-  'workbench.settings.def.devpanelCookies.sortMode.label': 'Tri Cookies',
+  'workbench.settings.def.devpanelCookies.sortMode.label': 'Tri',
   'workbench.settings.def.devpanelCookies.sortMode.description':
     "Ordre des lignes dans chaque section de cookies. Original préserve l'ordre utilisé par le serveur / la " +
     'requête ; A → Z trie par nom ; Size trie par taille de cookie sérialisé ; Expires place les expirations ' +

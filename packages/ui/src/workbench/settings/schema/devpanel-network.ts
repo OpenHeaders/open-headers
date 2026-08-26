@@ -136,7 +136,7 @@ registerSetting({
   labelKey: 'workbench.settings.def.devpanelNetwork.layout.label',
   descriptionKey: 'workbench.settings.def.devpanelNetwork.layout.description',
   category: 'devpanelNetwork',
-  subcategory: 'View',
+  subcategory: 'table',
   tags: ['network', 'layout', 'compact', 'fit', 'devtools'],
   scope: 'user',
   enumOptions: [
@@ -161,7 +161,7 @@ registerSetting({
   labelKey: 'workbench.settings.def.devpanelNetwork.messagesLayout.label',
   descriptionKey: 'workbench.settings.def.devpanelNetwork.messagesLayout.description',
   category: 'devpanelNetwork',
-  subcategory: 'View',
+  subcategory: 'table',
   tags: ['messages', 'websocket', 'layout', 'compact', 'fit', 'devtools'],
   scope: 'user',
   enumOptions: [
@@ -186,7 +186,7 @@ registerSetting({
   labelKey: 'workbench.settings.def.devpanelNetwork.messagesShowPreview.label',
   descriptionKey: 'workbench.settings.def.devpanelNetwork.messagesShowPreview.description',
   category: 'devpanelNetwork',
-  subcategory: 'View',
+  subcategory: 'table',
   tags: ['messages', 'websocket', 'sse', 'preview', 'payload', 'split', 'devtools'],
   scope: 'user',
 });
@@ -199,7 +199,7 @@ registerSetting({
   labelKey: 'workbench.settings.def.devpanelNetwork.sortKind.label',
   descriptionKey: 'workbench.settings.def.devpanelNetwork.sortKind.description',
   category: 'devpanelNetwork',
-  subcategory: 'View',
+  subcategory: 'sorting',
   tags: ['network', 'sort', 'mode', 'devtools'],
   scope: 'user',
   enumOptions: [
@@ -229,7 +229,7 @@ registerSetting({
   labelKey: 'workbench.settings.def.devpanelNetwork.sortMode.label',
   descriptionKey: 'workbench.settings.def.devpanelNetwork.sortMode.description',
   category: 'devpanelNetwork',
-  subcategory: 'View',
+  subcategory: 'sorting',
   tags: ['network', 'sort', 'mode', 'devtools'],
   scope: 'user',
   enumOptions: [
@@ -279,7 +279,7 @@ registerSetting({
   labelKey: 'workbench.settings.def.devpanelNetwork.sortBy.label',
   descriptionKey: 'workbench.settings.def.devpanelNetwork.sortBy.description',
   category: 'devpanelNetwork',
-  subcategory: 'View',
+  subcategory: 'sorting',
   tags: ['network', 'sort', 'order', 'devtools'],
   scope: 'user',
   enumOptions: [
@@ -384,7 +384,7 @@ registerSetting({
   labelKey: 'workbench.settings.def.devpanelNetwork.sortDir.label',
   descriptionKey: 'workbench.settings.def.devpanelNetwork.sortDir.description',
   category: 'devpanelNetwork',
-  subcategory: 'View',
+  subcategory: 'sorting',
   tags: ['network', 'sort', 'direction', 'devtools'],
   scope: 'user',
   enumOptions: [
@@ -409,7 +409,7 @@ registerSetting({
   labelKey: 'workbench.settings.def.devpanelNetwork.waterfallMetric.label',
   descriptionKey: 'workbench.settings.def.devpanelNetwork.waterfallMetric.description',
   category: 'devpanelNetwork',
-  subcategory: 'View',
+  subcategory: 'waterfall',
   tags: ['network', 'waterfall', 'timing', 'sort', 'devtools'],
   scope: 'user',
   enumOptions: [
@@ -449,7 +449,7 @@ registerSetting({
   labelKey: 'workbench.settings.def.devpanelNetwork.showFireDots.label',
   descriptionKey: 'workbench.settings.def.devpanelNetwork.showFireDots.description',
   category: 'devpanelNetwork',
-  subcategory: 'View',
+  subcategory: 'waterfall',
   tags: ['network', 'rules', 'dot', 'indicator', 'devtools'],
   scope: 'user',
 });
@@ -462,7 +462,7 @@ registerSetting({
   labelKey: 'workbench.settings.def.devpanelNetwork.waterfallValues.label',
   descriptionKey: 'workbench.settings.def.devpanelNetwork.waterfallValues.description',
   category: 'devpanelNetwork',
-  subcategory: 'View',
+  subcategory: 'waterfall',
   tags: ['network', 'waterfall', 'timing', 'label', 'devtools'],
   scope: 'user',
   enumOptions: [
@@ -492,7 +492,7 @@ registerSetting({
   labelKey: 'workbench.settings.def.devpanelNetwork.waterfallValueFormat.label',
   descriptionKey: 'workbench.settings.def.devpanelNetwork.waterfallValueFormat.description',
   category: 'devpanelNetwork',
-  subcategory: 'View',
+  subcategory: 'waterfall',
   tags: ['network', 'waterfall', 'timing', 'timestamp', 'devtools'],
   scope: 'user',
   enumOptions: [
@@ -517,7 +517,7 @@ registerSetting({
   labelKey: 'workbench.settings.def.devpanelNetwork.waterfallTimestampTz.label',
   descriptionKey: 'workbench.settings.def.devpanelNetwork.waterfallTimestampTz.description',
   category: 'devpanelNetwork',
-  subcategory: 'View',
+  subcategory: 'waterfall',
   tags: ['network', 'waterfall', 'timestamp', 'timezone', 'devtools'],
   scope: 'user',
   enumOptions: [
@@ -542,7 +542,7 @@ registerSetting({
   labelKey: 'workbench.settings.def.devpanelNetwork.waterfallExplainValue.label',
   descriptionKey: 'workbench.settings.def.devpanelNetwork.waterfallExplainValue.description',
   category: 'devpanelNetwork',
-  subcategory: 'View',
+  subcategory: 'waterfall',
   tags: ['network', 'waterfall', 'timing', 'breakdown', 'devtools'],
   scope: 'user',
 });
@@ -555,7 +555,7 @@ registerSetting({
   labelKey: 'workbench.settings.def.devpanelNetwork.waterfallPopoverLayout.label',
   descriptionKey: 'workbench.settings.def.devpanelNetwork.waterfallPopoverLayout.description',
   category: 'devpanelNetwork',
-  subcategory: 'View',
+  subcategory: 'waterfall',
   tags: ['network', 'waterfall', 'timing', 'popover', 'layout', 'devtools'],
   scope: 'user',
   enumOptions: [
