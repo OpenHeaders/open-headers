@@ -76,7 +76,14 @@ const FontFamilyPresetField: React.FC<FontFamilyPresetFieldProps> = ({ def }) =>
       <Radio.Group
         value={value}
         onChange={(e) => setValue(e.target.value)}
-        style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '4px 16px' }}
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(2, minmax(220px, max-content))',
+          gridTemplateRows: `repeat(${Math.ceil(presets.length / 2)}, auto)`,
+          gridAutoFlow: 'column',
+          gap: '4px 48px',
+          width: 'fit-content',
+        }}
       >
         {presets.map((preset) => (
           <Radio key={preset.id} value={preset.id}>
