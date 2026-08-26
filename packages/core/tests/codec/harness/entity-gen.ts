@@ -808,6 +808,18 @@ export const ENTITY_CASES: readonly EntityCase[] = [
         maybe(rng, 0.3, () => 1_000 + rng.int(30_000)),
       ),
       ...opt(
+        'clientCertificateRef',
+        maybe(rng, 0.2, () => `cert-${word(rng)}`),
+      ),
+      ...opt(
+        'sniServerName',
+        maybe(rng, 0.2, () => `${word(rng)}.openheaders.io`),
+      ),
+      ...opt(
+        'alpnProtocol',
+        maybe(rng, 0.2, () => 'mqtt'),
+      ),
+      ...opt(
         'sslVerification',
         maybe(rng, 0.2, () => false),
       ),

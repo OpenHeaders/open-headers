@@ -61,6 +61,12 @@ export interface WsTransportRequest {
    *  verify (the safe default); `false` accepts self-signed servers.
    *  Meaningful only for `wss:`. */
   sslVerification?: boolean;
+  /** Client certificate pair presented in the `wss:` handshake, PEM
+   *  form — already resolved by the executor (MQTT-over-WebSocket
+   *  sessions ride it; the WS editor has no knob yet). */
+  clientCertificatePem?: string;
+  clientCertificateKeyPem?: string;
+  clientCertificatePassphrase?: string;
   /**
    * Dial this local socket — an absolute Unix domain socket path or a
    * Windows named pipe — instead of opening a TCP connection. The

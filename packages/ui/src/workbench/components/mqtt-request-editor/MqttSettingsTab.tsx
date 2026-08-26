@@ -14,7 +14,13 @@
  * visible, disabled, values intact.
  */
 
-import { MAX_REQUEST_TIMEOUT_MS, MIN_REQUEST_TIMEOUT_MS } from '@openheaders/core/schemas';
+import {
+  MAX_ALPN_PROTOCOL_LENGTH,
+  MAX_REQUEST_TIMEOUT_MS,
+  MAX_SNI_SERVER_NAME_LENGTH,
+  MIN_REQUEST_TIMEOUT_MS,
+} from '@openheaders/core/schemas';
+import { useVaultContext } from '@openheaders/ui/context';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import {
   byteSizeInterpreter,
@@ -26,11 +32,12 @@ import {
   formatDurationSeconds,
   numericPresets,
 } from '@openheaders/ui/shared/combo-knob';
-import { ComboKnobRow, GroupSection, KnobRow, TextKnobRow } from '@openheaders/ui/shared/settings-rows';
+import { ComboKnobRow, GroupSection, KnobRow, SelectKnobRow, TextKnobRow } from '@openheaders/ui/shared/settings-rows';
 import { ConfigProvider, Typography, theme } from 'antd';
 import type React from 'react';
 import { useState } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
+import VaultSelectFooter from '../variables/VaultSelectFooter';
 import type { MqttDraft } from './draft';
 import { mqttSettingsGroupInfo, mqttSettingsRowInfo } from './MqttSettingsRowInfo';
 import { MQTT_GROUP_LABEL_KEY } from './settings-groups';
@@ -99,7 +106,22 @@ const MqttSettingsTab: React.FC<MqttSettingsTabProps> = ({ draft, setDraft, v5 }
     draft.topicAliasMaximum !== undefined ||
     draft.requestResponseInformation ||
     !draft.requestProblemInformation;
-  const tlsModified = !draft.sslVerification;
+  const tlsModified =
+    !draft.sslVerification ||
+    draft.clientCertificateRef !== undefined ||
+    draft.sniServerName !== undefined ||
+    draft.alpnProtocol !== undefined;
+  // The client-certificate knob picks over THIS device's vault entries
+  // by name — the request stores the name, each device resolves its
+  // own entry; a ref with no entry here warns in place (the HTTP
+  // Settings tab's contract).
+  const { vault } = useVaultContext();
+  const clientCertificateOptions = vault.secrets
+    .filter((s) => s.kind === 'client-certificate')
+    .map((s) => ({ value: s.name, label: s.name }));
+  const clientCertificateRefDangling =
+    draft.clientCertificateRef !== undefined &&
+    !clientCertificateOptions.some((o) => o.value === draft.clientCertificateRef);
 
   return (
     <ConfigProvider
@@ -267,6 +289,56 @@ const MqttSettingsTab: React.FC<MqttSettingsTabProps> = ({ draft, setDraft, v5 }
             info={mqttSettingsRowInfo(t, 'sslVerification')}
             warning={t('workbench.editors.mqtt.settings.sslVerifyWarning')}
             testId="mqtt-ssl-verify"
+          />
+          <SelectKnobRow
+            label={t('workbench.editors.request.settings.clientCertificate')}
+            value={draft.clientCertificateRef}
+            onChange={(clientCertificateRef) => setDraft((d) => ({ ...d, clientCertificateRef }))}
+            info={mqttSettingsRowInfo(t, 'clientCertificate')}
+            options={clientCertificateOptions}
+            placeholder={t('workbench.editors.request.settings.clientCertificatePlaceholder')}
+            searchable
+            notFoundContent={
+              <Text type="secondary" style={{ fontSize: 12, padding: '6px 8px' }}>
+                {t('workbench.editors.request.settings.clientCertificateEmpty')}
+              </Text>
+            }
+            popupFooter={(close) => (
+              <VaultSelectFooter
+                label={t('workbench.editors.request.settings.vaultManageCertificates')}
+                testId="mqtt-client-certificate-manage"
+                onNavigate={close}
+              />
+            )}
+            modified={draft.clientCertificateRef !== undefined}
+            warning={
+              clientCertificateRefDangling
+                ? t('workbench.editors.request.settings.clientCertificateDangling', {
+                    name: draft.clientCertificateRef ?? '',
+                  })
+                : undefined
+            }
+            testId="mqtt-client-certificate"
+          />
+          <TextKnobRow
+            label={t('workbench.editors.mqtt.settings.sniLabel')}
+            value={draft.sniServerName}
+            onChange={(sniServerName) => setDraft((d) => ({ ...d, sniServerName }))}
+            info={mqttSettingsRowInfo(t, 'sni')}
+            placeholder={t('workbench.editors.mqtt.settings.sniPlaceholder')}
+            maxLength={MAX_SNI_SERVER_NAME_LENGTH}
+            example={t('workbench.editors.mqtt.settings.sniExample')}
+            testId="mqtt-sni-server-name"
+          />
+          <TextKnobRow
+            label={t('workbench.editors.mqtt.settings.alpnLabel')}
+            value={draft.alpnProtocol}
+            onChange={(alpnProtocol) => setDraft((d) => ({ ...d, alpnProtocol }))}
+            info={mqttSettingsRowInfo(t, 'alpn')}
+            placeholder={t('workbench.editors.mqtt.settings.alpnPlaceholder')}
+            maxLength={MAX_ALPN_PROTOCOL_LENGTH}
+            example={t('workbench.editors.mqtt.settings.alpnExample')}
+            testId="mqtt-alpn-protocol"
           />
         </GroupSection>
       </div>

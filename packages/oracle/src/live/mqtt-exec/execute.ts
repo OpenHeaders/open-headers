@@ -64,6 +64,7 @@ import type {
   MqttPayloadFormat,
   MqttRequest,
   MqttUserPropertyRow,
+  Vault,
 } from '@openheaders/core/types';
 import { decodeBase64Bytes, encodeBase64Bytes, generateUid } from '@openheaders/core/utils';
 import { resolveTemplate } from '@openheaders/core/variables';
@@ -71,7 +72,7 @@ import { getRequestCollections, getRequestCollectionsForWorkspace } from '../../
 import { buildResolver } from '../request-exec/resolver-scope';
 import { registerActiveSend } from '../request-exec/send-stream';
 import { createMqttStreamEmitter, registerActiveMqttSession } from './session-plane';
-import type { MqttByteTransport, MqttStreamWriter } from './transport';
+import type { MqttByteTransport, MqttStreamWriter, MqttTransportRequest } from './transport';
 
 /** Rolling-retention caps on the captured payload bytes / event count
  *  — the always-on host never buffers unbounded, and the session is
@@ -227,7 +228,13 @@ export async function executeMqttSession(
   options: ExecuteMqttSessionOptions,
 ): Promise<ExecutedMqttSnapshot> {
   // ── Variable resolution (the HTTP sends' exact pipeline) ──
-  const resolveWith = options.resolution ?? (await buildOracleResolution(request, options));
+  const oracleResolution = options.resolution === undefined ? await buildOracleResolution(request, options) : null;
+  const resolveWith = options.resolution ?? oracleResolution?.resolve;
+  if (resolveWith === undefined) return errorMqttSnapshot('No template resolution available for this session.');
+  // The client-certificate pair resolves against the vault the oracle
+  // scope carries; a host-injected resolution has no vault, so the ref
+  // passes through bare and the transport fails the dial loudly.
+  const clientCertificate = resolveClientCertificate(request.clientCertificateRef, oracleResolution?.vault);
 
   const unresolved = new Set<string>();
   const resolveStr = (s: string): string => resolveWith(s, unresolved);
@@ -323,6 +330,8 @@ export async function executeMqttSession(
   }
 
   const keepAlive = request.keepAlive ?? DEFAULT_KEEP_ALIVE_S;
+  const sniServerName = request.sniServerName !== undefined ? resolveStr(request.sniServerName).trim() : '';
+  const alpnProtocol = request.alpnProtocol !== undefined ? resolveStr(request.alpnProtocol).trim() : '';
 
   // ── The live session on the sendId spine ──
   return new Promise<ExecutedMqttSnapshot>((resolve) => {
@@ -618,6 +627,9 @@ export async function executeMqttSession(
         url,
         ...(request.sslVerification !== undefined ? { sslVerification: request.sslVerification } : {}),
         timeoutMs: request.timeoutMs ?? DEFAULT_CONNECT_TIMEOUT_MS,
+        ...clientCertificate,
+        ...(sniServerName !== '' ? { sniServerName } : {}),
+        ...(alpnProtocol !== '' ? { alpnProtocol } : {}),
       },
       {
         onConnect: (route) => {
@@ -778,13 +790,13 @@ export async function executeMqttSession(
 async function buildOracleResolution(
   request: MqttRequest,
   options: ExecuteMqttSessionOptions,
-): Promise<(template: string, unresolved: Set<string>) => string> {
+): Promise<{ resolve: (template: string, unresolved: Set<string>) => string; vault: Vault }> {
   const { resolver, context: scope } = await buildResolver(options.workspaceId ?? undefined);
   const context = {
     collectionId: collectionIdForPath(request.path, scope.workspaceId),
     environmentId: options.environmentId,
   };
-  return (template, unresolved) => {
+  const resolve = (template: string, unresolved: Set<string>): string => {
     const result = resolveTemplate(
       template,
       (name) => resolver.resolve(name, context),
@@ -794,6 +806,28 @@ async function buildOracleResolution(
       if (!v.resolved) unresolved.add(v.name);
     }
     return result.result;
+  };
+  return { resolve, vault: scope.vault };
+}
+
+/** Resolve the request's `clientCertificateRef` against the vault —
+ *  the HTTP executor's contract: the ref always passes through when
+ *  set, the PEM pair attaches only when the named entry exists here. */
+function resolveClientCertificate(
+  ref: string | undefined,
+  vault: Vault | undefined,
+): Pick<
+  MqttTransportRequest,
+  'clientCertificateRef' | 'clientCertificatePem' | 'clientCertificateKeyPem' | 'clientCertificatePassphrase'
+> {
+  if (ref === undefined) return {};
+  const entry = vault?.secrets.find((s) => s.kind === 'client-certificate' && s.name === ref);
+  if (entry?.kind !== 'client-certificate') return { clientCertificateRef: ref };
+  return {
+    clientCertificateRef: ref,
+    clientCertificatePem: entry.cert,
+    clientCertificateKeyPem: entry.key,
+    ...(entry.passphrase !== undefined ? { clientCertificatePassphrase: entry.passphrase } : {}),
   };
 }
 

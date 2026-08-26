@@ -572,6 +572,35 @@ describe('executeMqttSession — 5.0 connect knobs and topic aliases', () => {
     expect(topics).toEqual(['sensors/1/temp', 'sensors/1/temp']);
   });
 
+  it('hands the TLS trust knobs to the transport — the cert ref passes through bare without a vault', async () => {
+    const rig = scriptedTransport(MQTT_PROTOCOL_VERSIONS.v5);
+    const settled = executeMqttSession(
+      makeMqttRequest({
+        url: 'mqtts://{{host}}',
+        clientCertificateRef: 'iot-device',
+        sniServerName: 'edge-{{team}}.openheaders.io',
+        alpnProtocol: 'mqtt',
+      }),
+      {
+        workspaceId: null,
+        environmentId: undefined,
+        transport: rig.transport,
+        sendId: 'send-mqtt-tls',
+        resolution: scopedResolution,
+      },
+    );
+    await settleTick();
+    expect(rig.wire()).toMatchObject({
+      clientCertificateRef: 'iot-device',
+      sniServerName: 'edge-alpha.openheaders.io',
+      alpnProtocol: 'mqtt',
+    });
+    expect(rig.wire().clientCertificatePem).toBeUndefined();
+    rig.establish();
+    closeActiveMqttSession('send-mqtt-tls');
+    await settled;
+  });
+
   it('keeps the flags off CONNECT at their spec defaults', async () => {
     const rig = scriptedTransport(MQTT_PROTOCOL_VERSIONS.v5);
     const settled = executeMqttSession(

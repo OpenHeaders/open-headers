@@ -8,7 +8,10 @@
  *     ceremony owned here: the TLS verification policy (`mqtts:`
  *     verifies against the system roots unless the request's
  *     `sslVerification: false` opts out — the self-signed dev-broker
- *     knob), the dial deadline (`timeoutMs` spans connect + TLS
+ *     knob), the client certificate pair a mutual-TLS broker demands
+ *     (a ref that resolved to no vault entry fails the dial loudly),
+ *     the SNI name and ALPN offer on the `mqtts:` handshake, the dial
+ *     deadline (`timeoutMs` spans connect + TLS
  *     handshake with a local timer — an OPEN session has no ceiling),
  *     and dial-error truth captured at the socket, classified into
  *     user-actionable messages. Raw TCP dials are DIRECT in v1 — no
@@ -51,7 +54,7 @@ function hostLabelOf(url: string): string {
 
 /** Classify a pre-connect dial failure into a user-actionable message
  *  — the WS transport's classifier vocabulary on the tcp leg. */
-function classifyMqttDialFailure(url: string, err: unknown): string {
+function classifyMqttDialFailure(url: string, err: unknown, certRef: string | undefined): string {
   const host = hostLabelOf(url);
   const code =
     err !== null && typeof err === 'object' && typeof (err as { code?: unknown }).code === 'string'
@@ -76,6 +79,9 @@ function classifyMqttDialFailure(url: string, err: unknown): string {
     case 'UNABLE_TO_VERIFY_LEAF_SIGNATURE':
       return `TLS certificate error reaching ${host} (${code}).`;
     default: {
+      if (certRef !== undefined && code?.startsWith('ERR_OSSL_')) {
+        return `The client certificate from vault entry "${certRef}" could not be loaded (${code}). Check that the entry's certificate and key are valid PEM, belong together, and that the passphrase is right.`;
+      }
       if (code !== undefined && (code.startsWith('ERR_SSL_') || code === 'EPROTO')) {
         return `TLS handshake with ${host} failed (${code}). If the broker is plaintext, use mqtt:// instead of mqtts://.`;
       }
@@ -83,6 +89,13 @@ function classifyMqttDialFailure(url: string, err: unknown): string {
       return `Could not open an MQTT connection to ${host}: ${message}`;
     }
   }
+}
+
+/** A client-certificate ref that resolved to no vault entry on this
+ *  device — the dial must not silently proceed without the pair. */
+function danglingClientCertificateError(request: MqttTransportRequest): string | null {
+  if (request.clientCertificateRef === undefined || request.clientCertificatePem !== undefined) return null;
+  return `No vault certificate entry named "${request.clientCertificateRef}" on this device — add it to the vault or clear the request's client certificate setting.`;
 }
 
 function connectTcp(
@@ -129,7 +142,13 @@ function connectTcp(
       settleError('Session stopped before it connected.');
       return;
     }
-    settleError(classifyMqttDialFailure(request.url, lastError ?? new Error('the connection closed during the dial')));
+    settleError(
+      classifyMqttDialFailure(
+        request.url,
+        lastError ?? new Error('the connection closed during the dial'),
+        request.clientCertificateRef,
+      ),
+    );
   };
   const onAbort = (): void => {
     // Stop-abort: tear down and settle NOW — after connect the arrived
@@ -154,6 +173,11 @@ function connectTcp(
     queueMicrotask(() => settleError('Session stopped before it connected.'));
     return { write: () => {}, end: () => {} };
   }
+  const danglingCertificate = danglingClientCertificateError(request);
+  if (danglingCertificate !== null) {
+    queueMicrotask(() => settleError(danglingCertificate));
+    return { write: () => {}, end: () => {} };
+  }
   signal?.addEventListener('abort', onAbort);
 
   if (request.timeoutMs !== undefined) {
@@ -176,8 +200,14 @@ function connectTcp(
     ? tls.connect({
         host,
         port,
-        servername: host,
+        servername: request.sniServerName ?? host,
         ...(request.sslVerification === false ? { rejectUnauthorized: false } : {}),
+        ...(request.alpnProtocol !== undefined ? { ALPNProtocols: [request.alpnProtocol] } : {}),
+        ...(request.clientCertificatePem !== undefined ? { cert: request.clientCertificatePem } : {}),
+        ...(request.clientCertificateKeyPem !== undefined ? { key: request.clientCertificateKeyPem } : {}),
+        ...(request.clientCertificatePassphrase !== undefined
+          ? { passphrase: request.clientCertificatePassphrase }
+          : {}),
       })
     : net.connect({ host, port });
   socket = sock;
@@ -212,6 +242,11 @@ function connectWs(
   signal?: AbortSignal,
 ): MqttStreamWriter {
   const wsTransport = createNodeWsTransport();
+  const danglingCertificate = danglingClientCertificateError(request);
+  if (danglingCertificate !== null) {
+    queueMicrotask(() => callbacks.onEnd(new MqttTransportError(danglingCertificate)));
+    return { write: () => {}, end: () => {} };
+  }
   const writer = wsTransport.connect(
     {
       url: request.url,
@@ -221,6 +256,13 @@ function connectWs(
       subprotocols: ['mqtt'],
       ...(request.sslVerification !== undefined ? { sslVerification: request.sslVerification } : {}),
       ...(request.timeoutMs !== undefined ? { timeoutMs: request.timeoutMs } : {}),
+      ...(request.clientCertificatePem !== undefined ? { clientCertificatePem: request.clientCertificatePem } : {}),
+      ...(request.clientCertificateKeyPem !== undefined
+        ? { clientCertificateKeyPem: request.clientCertificateKeyPem }
+        : {}),
+      ...(request.clientCertificatePassphrase !== undefined
+        ? { clientCertificatePassphrase: request.clientCertificatePassphrase }
+        : {}),
     },
     {
       onOpen: (_protocol, _extensions, proxyRoute) => callbacks.onConnect(proxyRoute),

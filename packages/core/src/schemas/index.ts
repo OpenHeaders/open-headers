@@ -72,7 +72,9 @@ export {
   WorkflowStepSchema,
 } from './live';
 export {
+  MAX_ALPN_PROTOCOL_LENGTH,
   MAX_MQTT_URL_LENGTH,
+  MAX_SNI_SERVER_NAME_LENGTH,
   MqttAuthSchema,
   MqttLastWillSchema,
   MqttMessagePropertiesSchema,

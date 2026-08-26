@@ -102,6 +102,22 @@ describe('mqtt draft projections', () => {
     expect(updates.requestProblemInformation).toBe(false);
   });
 
+  it('carries the TLS trust knobs — client certificate ref, SNI name, ALPN — through the round-trip', () => {
+    const entity = mqttRequest({
+      clientCertificateRef: 'iot-device',
+      sniServerName: 'broker.openheaders.io',
+      alpnProtocol: 'mqtt',
+    });
+    const updates = buildMqttRequestUpdates(draftFromMqttRequest(entity));
+    expect(updates.clientCertificateRef).toBe('iot-device');
+    expect(updates.sniServerName).toBe('broker.openheaders.io');
+    expect(updates.alpnProtocol).toBe('mqtt');
+    const bare = buildMqttRequestUpdates(draftFromMqttRequest(mqttRequest()));
+    expect(bare.clientCertificateRef).toBeUndefined();
+    expect(bare.sniServerName).toBeUndefined();
+    expect(bare.alpnProtocol).toBeUndefined();
+  });
+
   it('keeps the canonical projection fingerprint-stable across a round-trip', () => {
     const entity = mqttRequest({
       protocolVersion: '3.1.1',

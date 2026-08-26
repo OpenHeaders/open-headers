@@ -93,6 +93,9 @@ export interface MqttDraft {
   timeoutMs: number | undefined;
   /** Concrete — absent on the entity reads as verify-on. */
   sslVerification: boolean;
+  clientCertificateRef: string | undefined;
+  sniServerName: string | undefined;
+  alpnProtocol: string | undefined;
 }
 
 export interface MqttRequestUpdates {
@@ -122,6 +125,9 @@ export interface MqttRequestUpdates {
   requestProblemInformation: boolean;
   timeoutMs: number | undefined;
   sslVerification: boolean;
+  clientCertificateRef: string | undefined;
+  sniServerName: string | undefined;
+  alpnProtocol: string | undefined;
 }
 
 export function emptyMessagePropertiesDraft(): MqttMessagePropertiesDraft {
@@ -286,6 +292,9 @@ export function draftFromMqttRequest(req: MqttRequest): MqttDraft {
     requestProblemInformation: req.requestProblemInformation ?? true,
     timeoutMs: req.timeoutMs,
     sslVerification: req.sslVerification ?? true,
+    clientCertificateRef: req.clientCertificateRef,
+    sniServerName: req.sniServerName,
+    alpnProtocol: req.alpnProtocol,
   };
 }
 
@@ -317,6 +326,9 @@ export function buildMqttRequestUpdates(draft: MqttDraft): MqttRequestUpdates {
     requestProblemInformation: draft.requestProblemInformation,
     timeoutMs: draft.timeoutMs,
     sslVerification: draft.sslVerification,
+    clientCertificateRef: draft.clientCertificateRef,
+    sniServerName: draft.sniServerName,
+    alpnProtocol: draft.alpnProtocol,
   };
 }
 

@@ -40,6 +40,9 @@ export type MqttInfoKey =
   | 'requestResponseInformation'
   | 'requestProblemInformation'
   | 'sslVerification'
+  | 'clientCertificate'
+  | 'sni'
+  | 'alpn'
   | 'noLocal'
   | 'retainAsPublished'
   | 'retainHandling'
@@ -66,6 +69,9 @@ const EX = {
   keepAlive: 'keep-alive: 60 s',
   dial: 'dial ≤ 30 s',
   verify: 'verify ✓',
+  clientCert: 'client cert: reporter-1',
+  sni: 'sni: broker.openheaders.com',
+  alpn: 'alpn: mqtt',
   receiveMax: 'in-flight ≤ 20',
   maxPacket: 'packet ≤ 1 MB',
   topicAlias: 'aliases ≤ 10',
@@ -95,7 +101,7 @@ type TokenId = keyof typeof EX;
 const GROUP_TOKENS: Record<MqttSettingsGroupKey, readonly TokenId[]> = {
   connection: ['clientId', 'cleanStart', 'keepAlive', 'dial'],
   session: ['sessionExpiry', 'receiveMax', 'maxPacket', 'topicAlias', 'rri', 'rpi'],
-  tls: ['verify'],
+  tls: ['verify', 'clientCert', 'sni', 'alpn'],
 };
 
 /** Which slice of the example each knob lights. Rows light their
@@ -114,6 +120,9 @@ const HIGHLIGHT: Record<MqttInfoKey, readonly TokenId[]> = {
   requestResponseInformation: ['rri'],
   requestProblemInformation: ['rpi'],
   sslVerification: ['verify'],
+  clientCertificate: ['clientCert'],
+  sni: ['sni'],
+  alpn: ['alpn'],
   noLocal: ['noLocal'],
   retainAsPublished: ['rap'],
   retainHandling: ['retained'],
@@ -165,6 +174,13 @@ function MqttExampleCard({ lit }: { lit: ReadonlySet<TokenId> }) {
           {tok('rpi')}
         </div>
         <div className="oh-info-eg-line">
+          {tok('clientCert')}
+          {' · '}
+          {tok('sni')}
+          {' · '}
+          {tok('alpn')}
+        </div>
+        <div className="oh-info-eg-line">
           <span className="oh-info-eg-method">SUBSCRIBE</span> {tok('filter')}
           {' · '}
           {tok('qos')}
@@ -214,6 +230,9 @@ const TITLE_KEY: Record<MqttInfoKey, MessageKey> = {
   requestResponseInformation: 'workbench.editors.mqtt.settings.requestResponseInfoLabel',
   requestProblemInformation: 'workbench.editors.mqtt.settings.requestProblemInfoLabel',
   sslVerification: 'workbench.editors.mqtt.settings.sslVerifyLabel',
+  clientCertificate: 'workbench.editors.request.settings.clientCertificate',
+  sni: 'workbench.editors.mqtt.settings.sniLabel',
+  alpn: 'workbench.editors.mqtt.settings.alpnLabel',
   noLocal: 'workbench.editors.mqtt.topics.noLocal',
   retainAsPublished: 'workbench.editors.mqtt.topics.retainAsPublished',
   retainHandling: 'workbench.editors.mqtt.topics.retainHandling',
@@ -242,6 +261,9 @@ const SUMMARY_KEY: Record<Exclude<MqttInfoKey, 'retainHandling'>, MessageKey> = 
   requestResponseInformation: 'workbench.editors.mqtt.settings.requestResponseInfoHelp',
   requestProblemInformation: 'workbench.editors.mqtt.settings.requestProblemInfoHelp',
   sslVerification: 'workbench.editors.mqtt.settings.sslVerifyHelp',
+  clientCertificate: 'workbench.editors.mqtt.settings.clientCertificateHelp',
+  sni: 'workbench.editors.mqtt.settings.sniHelp',
+  alpn: 'workbench.editors.mqtt.settings.alpnHelp',
   noLocal: 'workbench.editors.mqtt.topics.noLocalDesc',
   retainAsPublished: 'workbench.editors.mqtt.topics.retainAsPublishedDesc',
   subscriptionId: 'workbench.editors.mqtt.topics.subscriptionIdDesc',
@@ -273,6 +295,9 @@ const KICKER_KEY: Record<MqttInfoKey, MessageKey> = {
   requestResponseInformation: MQTT_GROUP_LABEL_KEY.session,
   requestProblemInformation: MQTT_GROUP_LABEL_KEY.session,
   sslVerification: MQTT_GROUP_LABEL_KEY.tls,
+  clientCertificate: MQTT_GROUP_LABEL_KEY.tls,
+  sni: MQTT_GROUP_LABEL_KEY.tls,
+  alpn: MQTT_GROUP_LABEL_KEY.tls,
   noLocal: 'workbench.editors.mqtt.topics.subscribeSettings',
   retainAsPublished: 'workbench.editors.mqtt.topics.subscribeSettings',
   retainHandling: 'workbench.editors.mqtt.topics.subscribeSettings',

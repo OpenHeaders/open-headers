@@ -13,7 +13,7 @@
 
 import * as v from 'valibot';
 import { RelativePathSchema, SchemaVersionSchema, UidSchema } from './common';
-import { RequestTimeoutMsSchema } from './request';
+import { ClientCertificateRefSchema, RequestTimeoutMsSchema } from './request';
 
 /**
  * Session target: full `mqtt://` / `mqtts://` / `ws://` / `wss://` URL.
@@ -188,6 +188,9 @@ export const MqttSpecLinkSchema = v.object({
   specUid: UidSchema,
 });
 
+export const MAX_SNI_SERVER_NAME_LENGTH = 253;
+export const MAX_ALPN_PROTOCOL_LENGTH = 255;
+
 export const MqttRequestSchema = v.object({
   schemaVersion: SchemaVersionSchema,
   uid: UidSchema,
@@ -264,6 +267,24 @@ export const MqttRequestSchema = v.object({
    * self-signed development brokers.
    */
   sslVerification: v.optional(v.boolean()),
+  /**
+   * Vault `client-certificate` entry NAME presented in the TLS
+   * handshake (mqtts/wss) — mutual-TLS brokers. The PEM pair never
+   * rides the request; the executor resolves the ref at connect (the
+   * HTTP request's contract). Node runtimes only.
+   */
+  clientCertificateRef: v.optional(ClientCertificateRefSchema),
+  /**
+   * SNI server name override for `mqtts:` dials. Absent = the URL's
+   * host. Templates welcome. Node runtimes only.
+   */
+  sniServerName: v.optional(v.pipe(v.string(), v.maxLength(MAX_SNI_SERVER_NAME_LENGTH))),
+  /**
+   * ALPN protocol offered on `mqtts:` dials — brokers multiplexing
+   * MQTT on a shared TLS port select on it. Absent = no ALPN offer.
+   * Templates welcome. Node runtimes only.
+   */
+  alpnProtocol: v.optional(v.pipe(v.string(), v.maxLength(MAX_ALPN_PROTOCOL_LENGTH))),
 });
 
 /**

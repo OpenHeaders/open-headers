@@ -291,6 +291,11 @@ export function createNodeWsTransport(options: NodeWsTransportOptions = {}): WsT
       const mintDispatcher = (attempt: SessionProxyAttempt, onDialError: (err: unknown) => void): Dispatcher => {
         const connectBag: ConnectOptions = {
           ...(request.sslVerification === false ? { rejectUnauthorized: false } : {}),
+          ...(request.clientCertificatePem !== undefined ? { cert: request.clientCertificatePem } : {}),
+          ...(request.clientCertificateKeyPem !== undefined ? { key: request.clientCertificateKeyPem } : {}),
+          ...(request.clientCertificatePassphrase !== undefined
+            ? { passphrase: request.clientCertificatePassphrase }
+            : {}),
         };
         if (attempt.proxy !== undefined && isSocks5ProxyUrl(attempt.proxy.url)) {
           return buildSocks5Agent(attempt.proxy, connectBag);

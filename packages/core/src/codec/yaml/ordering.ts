@@ -194,6 +194,9 @@ export const MQTT_REQUEST_FIELD_ORDER = [
   'requestProblemInformation',
   'timeoutMs',
   'sslVerification',
+  'clientCertificateRef',
+  'sniServerName',
+  'alpnProtocol',
 ] as const;
 
 /**

@@ -210,6 +210,18 @@ export const workbenchEditorsMqtt = {
     'Las sesiones omiten la comprobación de identidad del bróker — se acepta cualquier certificado, incluidos ' +
     'los autofirmados y caducados.',
   'workbench.editors.mqtt.settings.clientIdExample': 'p. ej. reporter-1',
+  'workbench.editors.mqtt.settings.clientCertificateHelp':
+    'Presentar una entrada de certificado de cliente de la bóveda en el saludo mqtts/wss; para brókeres que autentican dispositivos por certificado. La petición guarda solo el nombre de la entrada; cada dispositivo presenta su propia entrada con ese nombre.',
+  'workbench.editors.mqtt.settings.sniLabel': 'Nombre de servidor SNI',
+  'workbench.editors.mqtt.settings.sniHelp':
+    'Nombre de servidor enviado en el saludo TLS de las sesiones mqtts; los brókeres tras un punto compartido eligen su certificado con él. Vacío envía el host de la URL.',
+  'workbench.editors.mqtt.settings.sniPlaceholder': 'Auto: el host de la URL',
+  'workbench.editors.mqtt.settings.sniExample': 'p. ej. broker.openheaders.com',
+  'workbench.editors.mqtt.settings.alpnLabel': 'Protocolo ALPN',
+  'workbench.editors.mqtt.settings.alpnHelp':
+    'Protocolo de aplicación ofrecido en el saludo TLS de las sesiones mqtts; los brókeres que multiplexan MQTT en un puerto TLS compartido eligen con él. Vacío no ofrece ninguno.',
+  'workbench.editors.mqtt.settings.alpnPlaceholder': 'Ninguno (por defecto)',
+  'workbench.editors.mqtt.settings.alpnExample': 'p. ej. mqtt',
   'workbench.editors.mqtt.settings.group.connection': 'Conexión',
   'workbench.editors.mqtt.settings.group.session': 'Sesión — MQTT 5.0',
   'workbench.editors.mqtt.settings.group.tls': 'TLS y confianza',
@@ -220,7 +232,7 @@ export const workbenchEditorsMqtt = {
     'Condiciones MQTT 5.0 que CONNECT ofrece al bróker: cuánto sobrevive la sesión a una desconexión, más los ' +
     'techos de mensajes en vuelo y de tamaño de paquete que acepta este cliente.',
   'workbench.editors.mqtt.settings.groupInfo.tls':
-    'Si las sesiones mqtts/wss verifican el certificado del bróker contra las raíces del sistema.',
+    'Cómo establecen confianza las sesiones mqtts/wss: si se verifica el certificado del bróker contra las raíces del sistema, el certificado de cliente que presenta este dispositivo, y el nombre SNI y la oferta ALPN del saludo.',
   'workbench.editors.mqtt.settings.sessionV311': 'Ajustes de MQTT 5.0; esta solicitud apunta a 3.1.1.',
   // ── Panel de sesión ─────────────────────────────────────────────────
   'workbench.editors.mqtt.session.emptyTitle': 'Respuesta',

@@ -131,6 +131,9 @@ describe('parseMqttRequest', () => {
       requestResponseInformation: true,
       requestProblemInformation: false,
       sslVerification: false,
+      clientCertificateRef: 'iot-device',
+      sniServerName: 'broker.openheaders.io',
+      alpnProtocol: 'x-amzn-mqtt-ca',
       lastWill: {
         topic: 'streetlights/1/offline',
         payload: 'gone',

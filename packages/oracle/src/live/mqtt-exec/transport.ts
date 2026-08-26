@@ -38,6 +38,19 @@ export interface MqttTransportRequest {
    * exchange above the byte stream is the EXECUTOR's concern.
    */
   timeoutMs?: number;
+  /** Vault `client-certificate` entry NAME the request asks to present
+   *  (mqtts/wss). Always passes through when set — even unresolved —
+   *  so the host fails the dial loudly instead of silently connecting
+   *  without a certificate; the PEM pair rides only when the entry
+   *  resolved on this device. */
+  clientCertificateRef?: string;
+  clientCertificatePem?: string;
+  clientCertificateKeyPem?: string;
+  clientCertificatePassphrase?: string;
+  /** SNI server name for `mqtts:` dials. Absent = the URL host. */
+  sniServerName?: string;
+  /** ALPN protocol offered on `mqtts:` dials. Absent = no offer. */
+  alpnProtocol?: string;
 }
 
 /**

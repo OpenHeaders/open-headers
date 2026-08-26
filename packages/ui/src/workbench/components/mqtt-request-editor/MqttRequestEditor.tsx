@@ -113,6 +113,9 @@ const emptyMqttDraft = (): MqttDraft => ({
   requestProblemInformation: true,
   timeoutMs: undefined,
   sslVerification: true,
+  clientCertificateRef: undefined,
+  sniServerName: undefined,
+  alpnProtocol: undefined,
 });
 
 const MqttRequestEditor: React.FC<MqttRequestEditorProps> = ({
