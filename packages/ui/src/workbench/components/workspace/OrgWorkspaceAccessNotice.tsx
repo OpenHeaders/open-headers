@@ -140,7 +140,7 @@ const OrgWorkspaceAccessNotice: React.FC<OrgWorkspaceAccessNoticeProps> = ({
             data-testid={`org-workspace-arrival-${ws.id}`}
           >
             {renderWorkspacePrefix({ icon: ws.icon, color: ws.color }, token, { size: 16 })}
-            <span style={TOAST_DESC_STYLE}>{`"${ws.name}"`}</span>
+            <span style={TOAST_DESC_STYLE}>{ws.name}</span>
           </span>
         ),
         btn: alreadyActive ? undefined : (
