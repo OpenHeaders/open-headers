@@ -153,6 +153,10 @@ export const workbenchSettings = {
     'The certificate authority and trust stores that let HTTPS traffic be decrypted for inspection — created on this machine, removable here.',
   'workbench.settings.category.data.label': 'Data',
   'workbench.settings.category.data.description': 'Diagnostics, import/export, and destructive maintenance.',
+  'workbench.settings.category.data.sub.settings': 'Settings',
+  'workbench.settings.category.data.sub.diagnostics': 'Diagnostics',
+  'workbench.settings.category.data.sub.importReports': 'Import Reports',
+  'workbench.settings.category.data.sub.files': 'Files',
   'workbench.settings.category.license.label': 'License',
   'workbench.settings.category.license.description':
     'Everything in Open Headers today is included on every tier — paid plans cover team seats. The free tier admits up to 6 active users per server.',

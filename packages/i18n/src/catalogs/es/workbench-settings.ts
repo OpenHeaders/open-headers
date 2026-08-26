@@ -183,6 +183,10 @@ export const workbenchSettings = {
     'para inspección — creada en esta máquina, eliminable aquí.',
   'workbench.settings.category.data.label': 'Datos',
   'workbench.settings.category.data.description': 'Diagnósticos, importación/exportación y mantenimiento destructivo.',
+  'workbench.settings.category.data.sub.settings': 'Configuración',
+  'workbench.settings.category.data.sub.diagnostics': 'Diagnósticos',
+  'workbench.settings.category.data.sub.importReports': 'Informes de importación',
+  'workbench.settings.category.data.sub.files': 'Archivos',
   'workbench.settings.category.license.label': 'Licencia',
   'workbench.settings.category.license.description':
     'Todo lo que Open Headers ofrece hoy está incluido en todos los niveles — los planes de pago cubren las ' +

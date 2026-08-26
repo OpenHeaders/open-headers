@@ -153,6 +153,10 @@ export const workbenchSettings = {
     '让 HTTPS 流量可被解密检查的证书颁发机构与信任存储——在本机创建,也可在此移除。',
   'workbench.settings.category.data.label': '数据',
   'workbench.settings.category.data.description': '诊断、导入/导出，以及破坏性维护。',
+  'workbench.settings.category.data.sub.settings': '设置',
+  'workbench.settings.category.data.sub.diagnostics': '诊断',
+  'workbench.settings.category.data.sub.importReports': '导入报告',
+  'workbench.settings.category.data.sub.files': '文件',
   'workbench.settings.category.license.label': '许可证',
   'workbench.settings.category.license.description':
     '今天 Open Headers 的一切在每个档位都包含——付费方案覆盖的是团队席位。免费档每个服务器最多准入 6 位' + '活跃用户。',

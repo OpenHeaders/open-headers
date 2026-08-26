@@ -335,6 +335,12 @@ registerCategory({
   icon: <DatabaseOutlined />,
   order: 90,
   descriptionKey: 'workbench.settings.category.data.description',
+  subcategories: [
+    { id: 'settings', labelKey: 'workbench.settings.category.data.sub.settings', order: 10 },
+    { id: 'diagnostics', labelKey: 'workbench.settings.category.data.sub.diagnostics', order: 20 },
+    { id: 'importReports', labelKey: 'workbench.settings.category.data.sub.importReports', order: 30 },
+    { id: 'files', labelKey: 'workbench.settings.category.data.sub.files', order: 40 },
+  ],
 });
 
 registerCategory({

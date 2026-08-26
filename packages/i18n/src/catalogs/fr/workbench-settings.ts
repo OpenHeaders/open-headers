@@ -174,6 +174,10 @@ export const workbenchSettings = {
     'HTTPS pour inspection — créée sur cette machine, révocable ici.',
   'workbench.settings.category.data.label': 'Données',
   'workbench.settings.category.data.description': 'Diagnostics, import/export et maintenance destructive.',
+  'workbench.settings.category.data.sub.settings': 'Paramètres',
+  'workbench.settings.category.data.sub.diagnostics': 'Diagnostics',
+  'workbench.settings.category.data.sub.importReports': "Rapports d'importation",
+  'workbench.settings.category.data.sub.files': 'Fichiers',
   'workbench.settings.category.license.label': 'Licence',
   'workbench.settings.category.license.description':
     "Tout ce qu'Open Headers propose aujourd'hui est inclus dans chaque palier — les offres payantes couvrent " +

@@ -37,6 +37,7 @@ declare module '@openheaders/ui/workbench/settings/types' {
 
 registerSetting({
   key: 'data.logLevel',
+  subcategory: 'diagnostics',
   type: 'enum',
   default: 'info',
   schema: logLevelSchema,
@@ -125,6 +126,7 @@ function pickJsonFile(): Promise<unknown | null> {
 
 registerSetting({
   key: 'data.exportSettings',
+  subcategory: 'settings',
   type: 'action',
   default: '',
   schema: actionSchema,
@@ -143,6 +145,7 @@ registerSetting({
 
 registerSetting({
   key: 'data.importSettings',
+  subcategory: 'settings',
   type: 'action',
   default: '',
   schema: actionSchema,
@@ -171,6 +174,7 @@ registerSetting({
 
 registerSetting({
   key: 'data.exportObservabilityLog',
+  subcategory: 'diagnostics',
   type: 'action',
   default: '',
   schema: actionSchema,
@@ -194,6 +198,7 @@ registerSetting({
 
 registerSetting({
   key: 'data.clearObservabilityLog',
+  subcategory: 'diagnostics',
   type: 'action',
   default: '',
   schema: actionSchema,
@@ -214,6 +219,7 @@ registerSetting({
 
 registerSetting({
   key: 'data.exportImportReports',
+  subcategory: 'importReports',
   type: 'action',
   default: '',
   schema: actionSchema,
@@ -237,6 +243,7 @@ registerSetting({
 
 registerSetting({
   key: 'data.clearImportReports',
+  subcategory: 'importReports',
   type: 'action',
   default: '',
   schema: actionSchema,
@@ -257,6 +264,7 @@ registerSetting({
 
 registerSetting({
   key: 'data.uploadFile',
+  subcategory: 'files',
   type: 'action',
   default: '',
   schema: actionSchema,
@@ -302,6 +310,7 @@ registerSetting({
 
 registerSetting({
   key: 'data.exportFilesManifest',
+  subcategory: 'files',
   type: 'action',
   default: '',
   schema: actionSchema,
@@ -325,6 +334,7 @@ registerSetting({
 
 registerSetting({
   key: 'data.filesBrowser',
+  subcategory: 'files',
   type: 'files-browser',
   default: '',
   schema: actionSchema,
@@ -337,6 +347,7 @@ registerSetting({
 
 registerSetting({
   key: 'data.clearAllFiles',
+  subcategory: 'files',
   type: 'action',
   default: '',
   schema: actionSchema,
@@ -361,6 +372,7 @@ registerSetting({
 
 registerSetting({
   key: 'data.resetAllSettings',
+  subcategory: 'settings',
   type: 'action',
   default: '',
   schema: actionSchema,
