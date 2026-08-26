@@ -16,7 +16,19 @@ import type { MqttRequestQos, MqttRetainHandling, MqttTopicRow } from '@openhead
 import { generateUid } from '@openheaders/core/utils';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { InfoPopoverContainerProvider } from '@openheaders/ui/shared/info-popover';
-import { Button, Input, InputNumber, Popover, Select, Switch, Tag, Tooltip, Typography, theme } from 'antd';
+import {
+  Button,
+  ConfigProvider,
+  Input,
+  InputNumber,
+  Popover,
+  Select,
+  Switch,
+  Tag,
+  Tooltip,
+  Typography,
+  theme,
+} from 'antd';
 import type React from 'react';
 import { cellFont } from '../request-editor/editable-grid-styles';
 import { EditableGridTable } from '../request-editor/EditableGridTable';
@@ -362,16 +374,23 @@ const MqttTopicsTab: React.FC<MqttTopicsTabProps> = ({ rows, onChange, v5, sessi
                           text={t('workbench.editors.mqtt.topics.subscriptionId')}
                           info={mqttSettingsRowInfo(t, 'subscriptionId')}
                         />
-                        <InputNumber
-                          size="small"
-                          min={1}
-                          max={268_435_455}
-                          disabled={!v5}
-                          value={row.subscriptionId}
-                          onChange={(next) => update({ ...row, subscriptionId: next ?? undefined })}
-                          placeholder={t('workbench.editors.mqtt.topics.subscriptionIdPlaceholder')}
-                          style={{ width: 120 }}
-                        />
+                        {/* The empty knob means the default in effect —
+                          its stated default reads at full text
+                          contrast, the Settings-tab discipline. */}
+                        <ConfigProvider
+                          theme={{ components: { InputNumber: { colorTextPlaceholder: token.colorText } } }}
+                        >
+                          <InputNumber
+                            size="small"
+                            min={1}
+                            max={268_435_455}
+                            disabled={!v5}
+                            value={row.subscriptionId}
+                            onChange={(next) => update({ ...row, subscriptionId: next ?? undefined })}
+                            placeholder={t('workbench.editors.mqtt.topics.subscriptionIdPlaceholder')}
+                            style={{ width: 120 }}
+                          />
+                        </ConfigProvider>
                       </div>
                       </div>
                     </InfoPopoverContainerProvider>
