@@ -76,13 +76,13 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.props.messageExpiry': 'Message Expiry Interval',
   'workbench.editors.mqtt.props.messageExpiryDesc':
     '代理保持消息可投递的秒数；超时后消息被丢弃而不再投递。留空表示消息永不过期。',
-  'workbench.editors.mqtt.props.messageExpiryPlaceholder': '不过期',
+  'workbench.editors.mqtt.props.messageExpiryPlaceholder': '不过期（默认）',
   'workbench.editors.mqtt.props.contentType': 'Content Type',
   'workbench.editors.mqtt.props.contentTypeDesc': '描述载荷的 MIME 类型，原样传递给接收方。留空表示不发送该属性。',
   'workbench.editors.mqtt.props.payloadFormatIndicator': 'Payload Format Indicator',
   'workbench.editors.mqtt.props.payloadFormatIndicatorDesc':
     '将载荷标记为 UTF-8 文本而非未指定的字节；代理和接收方可以据此校验。',
-  'workbench.editors.mqtt.props.nonePlaceholder': '无',
+  'workbench.editors.mqtt.props.nonePlaceholder': '无（默认）',
   'workbench.editors.mqtt.props.sectionProperties': '属性',
   'workbench.editors.mqtt.props.sectionPropertiesDesc': '随消息传递的自由键值对——代理原样透传的应用元数据。',
   'workbench.editors.mqtt.props.sectionSettings': '设置',

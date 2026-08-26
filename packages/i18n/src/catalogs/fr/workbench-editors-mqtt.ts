@@ -76,14 +76,14 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.props.messageExpiry': 'Message Expiry Interval',
   'workbench.editors.mqtt.props.messageExpiryDesc':
     'Secondes pendant lesquelles le courtier garde le message livrable ; passé ce délai il est abandonné au lieu d’être livré. Vide signifie que le message n’expire jamais.',
-  'workbench.editors.mqtt.props.messageExpiryPlaceholder': 'Sans expiration',
+  'workbench.editors.mqtt.props.messageExpiryPlaceholder': 'Sans expiration (défaut)',
   'workbench.editors.mqtt.props.contentType': 'Content Type',
   'workbench.editors.mqtt.props.contentTypeDesc':
     'Type MIME décrivant la charge utile, transmis tel quel aux destinataires. Vide signifie que la propriété n’est pas envoyée.',
   'workbench.editors.mqtt.props.payloadFormatIndicator': 'Payload Format Indicator',
   'workbench.editors.mqtt.props.payloadFormatIndicatorDesc':
     'Marque la charge utile comme texte UTF-8 plutôt que comme octets non spécifiés ; le courtier et les destinataires peuvent la valider.',
-  'workbench.editors.mqtt.props.nonePlaceholder': 'Aucun',
+  'workbench.editors.mqtt.props.nonePlaceholder': 'Aucun (défaut)',
   'workbench.editors.mqtt.props.sectionProperties': 'Propriétés',
   'workbench.editors.mqtt.props.sectionPropertiesDesc':
     'Paires clé-valeur libres transportées avec le message — des métadonnées applicatives que le courtier transmet telles quelles.',

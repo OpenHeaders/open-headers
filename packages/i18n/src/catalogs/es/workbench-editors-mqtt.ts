@@ -75,14 +75,14 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.props.messageExpiry': 'Message Expiry Interval',
   'workbench.editors.mqtt.props.messageExpiryDesc':
     'Segundos durante los que el bróker mantiene el mensaje entregable; transcurridos, se descarta en lugar de entregarse. Vacío significa que el mensaje nunca expira.',
-  'workbench.editors.mqtt.props.messageExpiryPlaceholder': 'Sin expiración',
+  'workbench.editors.mqtt.props.messageExpiryPlaceholder': 'Sin expiración (por defecto)',
   'workbench.editors.mqtt.props.contentType': 'Content Type',
   'workbench.editors.mqtt.props.contentTypeDesc':
     'Tipo MIME que describe la carga útil, transmitido tal cual a los receptores. Vacío significa que la propiedad no se envía.',
   'workbench.editors.mqtt.props.payloadFormatIndicator': 'Payload Format Indicator',
   'workbench.editors.mqtt.props.payloadFormatIndicatorDesc':
     'Marca la carga útil como texto UTF-8 en lugar de bytes sin especificar; el bróker y los receptores pueden validarla.',
-  'workbench.editors.mqtt.props.nonePlaceholder': 'Ninguno',
+  'workbench.editors.mqtt.props.nonePlaceholder': 'Ninguno (por defecto)',
   'workbench.editors.mqtt.props.sectionProperties': 'Propiedades',
   'workbench.editors.mqtt.props.sectionPropertiesDesc':
     'Pares clave-valor libres que viajan con el mensaje: metadatos de aplicación que el bróker transmite tal cual.',
