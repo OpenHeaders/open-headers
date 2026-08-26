@@ -186,7 +186,7 @@ const MqttMessageTab: React.FC<MqttMessageTabProps> = ({
         (integer; the menu explains the levels only when opened), the
         narrow topic input, Send (disabled scaffold — enables with the
         session plane; invalid base64/hex is the other honest gate). */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
             <Select
               size="small"
               style={{ width: 120 }}
@@ -214,7 +214,7 @@ const MqttMessageTab: React.FC<MqttMessageTabProps> = ({
             >
               {t('workbench.editors.mqtt.retainLabel')}
             </Checkbox>
-            <Text type="secondary" style={{ fontSize: 12, whiteSpace: 'nowrap' }}>
+            <Text type="secondary" style={{ fontSize: 12, whiteSpace: 'nowrap', lineHeight: '24px' }}>
               {t('workbench.editors.mqtt.qos.compactLabel')}
             </Text>
             <Select
@@ -239,14 +239,21 @@ const MqttMessageTab: React.FC<MqttMessageTabProps> = ({
               )}
               data-testid="mqtt-qos-select"
             />
-            <Input
-              size="small"
-              style={{ width: 360, fontFamily: "'SF Mono', monospace", fontSize: 12 }}
-              placeholder={t('workbench.editors.mqtt.topicPlaceholder')}
-              value={draft.topic}
-              onChange={(e) => setDraft((d) => ({ ...d, topic: e.target.value }))}
-              data-testid="mqtt-topic-input"
-            />
+            {/* Statement placeholder + the muted example below — the
+              settings-row TextKnob discipline. */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 2, width: 360 }}>
+              <Input
+                size="small"
+                style={{ fontFamily: "'SF Mono', monospace", fontSize: 12 }}
+                placeholder={t('workbench.editors.mqtt.topicPlaceholder')}
+                value={draft.topic}
+                onChange={(e) => setDraft((d) => ({ ...d, topic: e.target.value }))}
+                data-testid="mqtt-topic-input"
+              />
+              <Text type="secondary" style={{ fontSize: 11 }}>
+                {t('workbench.editors.mqtt.topicExample')}
+              </Text>
+            </div>
             <Tooltip
               title={
                 encodingError !== null
