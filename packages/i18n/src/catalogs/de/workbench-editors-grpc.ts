@@ -171,11 +171,6 @@ export const workbenchEditorsGrpc = {
   'workbench.editors.grpc.settings.sslVerifyHelp':
     'Das Serverzertifikat gegen die Systemwurzeln prüfen. Schalte es für selbstsignierte Entwicklungsserver aus.',
   'workbench.editors.grpc.tab.auth': 'Autorisierung',
-  'workbench.editors.grpc.auth.typeLabel': 'Typ',
-  'workbench.editors.grpc.auth.typeNone': 'Keine Auth',
-  'workbench.editors.grpc.auth.typeBearer': 'Bearer-Token',
-  'workbench.editors.grpc.auth.tokenLabel': 'Token',
-  'workbench.editors.grpc.auth.tokenPlaceholder': 'Token oder {{variable}}',
   'workbench.editors.grpc.auth.help':
     'Wird als Metadata authorization: Bearer <token> am Aufruf gesendet. Eine explizite ' +
     'authorization-Metadata-Zeile hat Vorrang.',

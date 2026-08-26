@@ -1,15 +1,23 @@
 /**
- * GrpcAuthTab — the request's auth block: none, or a Bearer token sent
- * as the `authorization` metadata pair at invoke (templates resolve
- * then; the help copy names the exclusions).
+ * GrpcAuthTab — the request's auth block on the shared `auth-layout`
+ * anatomy: none, or a Bearer token sent as the `authorization`
+ * metadata pair at invoke (templates resolve then; the rail note names
+ * the exclusions).
  */
 
 import type { GrpcAuth } from '@openheaders/core/types';
 import { useT } from '@openheaders/ui/context/LocaleContext';
-import { Input, Select, Typography } from 'antd';
+import { Select } from 'antd';
 import type React from 'react';
-
-const { Text } = Typography;
+import {
+  AuthEmptyState,
+  AuthForm,
+  AuthLabeledRow,
+  AuthRailNote,
+  AuthSecretField,
+  AuthTabShell,
+  AuthTypeLabel,
+} from '../request-editor/auth-layout';
 
 interface GrpcAuthTabProps {
   auth: GrpcAuth;
@@ -19,42 +27,52 @@ interface GrpcAuthTabProps {
 const GrpcAuthTab: React.FC<GrpcAuthTabProps> = ({ auth, onChange }) => {
   const t = useT();
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 12, maxWidth: 560 }}>
-      <div>
-        <Text type="secondary" style={{ display: 'block', fontSize: 11, marginBottom: 4 }}>
-          {t('workbench.editors.grpc.auth.typeLabel')}
-        </Text>
-        <Select
-          style={{ width: 220 }}
-          value={auth.type}
-          options={[
-            { value: 'none', label: t('workbench.editors.grpc.auth.typeNone') },
-            { value: 'bearer', label: t('workbench.editors.grpc.auth.typeBearer') },
-          ]}
-          onChange={(type: 'none' | 'bearer') =>
-            onChange(type === 'bearer' ? { type: 'bearer', token: auth.type === 'bearer' ? auth.token : '' } : { type: 'none' })
-          }
-          data-testid="grpc-auth-type"
-        />
-      </div>
-      {auth.type === 'bearer' && (
-        <div>
-          <Text type="secondary" style={{ display: 'block', fontSize: 11, marginBottom: 4 }}>
-            {t('workbench.editors.grpc.auth.tokenLabel')}
-          </Text>
-          <Input
-            style={{ fontFamily: "'SF Mono', monospace", fontSize: 12 }}
-            placeholder={t('workbench.editors.grpc.auth.tokenPlaceholder')}
-            value={auth.token}
-            onChange={(e) => onChange({ type: 'bearer', token: e.target.value })}
-            data-testid="grpc-auth-token"
+    <AuthTabShell
+      rail={
+        <>
+          <AuthTypeLabel>{t('workbench.editors.request.auth.typeLabel')}</AuthTypeLabel>
+          <Select
+            size="middle"
+            data-testid="grpc-auth-type"
+            value={auth.type}
+            options={[
+              { value: 'none', label: t('workbench.editors.request.auth.type.none') },
+              { value: 'bearer', label: t('workbench.editors.request.auth.type.bearer') },
+            ]}
+            onChange={(type: 'none' | 'bearer') =>
+              onChange(
+                type === 'bearer'
+                  ? { type: 'bearer', token: auth.type === 'bearer' ? auth.token : '' }
+                  : { type: 'none' },
+              )
+            }
+            style={{ width: '100%' }}
           />
-          <Text type="secondary" style={{ display: 'block', fontSize: 11, marginTop: 6 }}>
-            {t('workbench.editors.grpc.auth.help')}
-          </Text>
-        </div>
+          {auth.type === 'none' && <AuthRailNote>{t('workbench.editors.request.auth.noneNote')}</AuthRailNote>}
+          {auth.type === 'bearer' && <AuthRailNote>{t('workbench.editors.grpc.auth.help')}</AuthRailNote>}
+        </>
+      }
+    >
+      {auth.type === 'none' && (
+        <AuthEmptyState
+          glyph="—"
+          title={t('workbench.editors.request.auth.type.none')}
+          note={t('workbench.editors.request.auth.noneNote')}
+        />
       )}
-    </div>
+      {auth.type === 'bearer' && (
+        <AuthForm>
+          <AuthLabeledRow label={t('workbench.editors.request.auth.token')}>
+            <AuthSecretField
+              value={auth.token}
+              onChange={(next) => onChange({ type: 'bearer', token: next })}
+              placeholder={t('workbench.editors.request.auth.tokenPlaceholder')}
+              data-testid="grpc-auth-token"
+            />
+          </AuthLabeledRow>
+        </AuthForm>
+      )}
+    </AuthTabShell>
   );
 };
 

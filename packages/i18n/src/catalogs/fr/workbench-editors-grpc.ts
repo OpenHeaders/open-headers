@@ -155,11 +155,6 @@ export const workbenchEditorsGrpc = {
     'Vérifier le certificat du serveur contre les racines du système. Désactivez pour les serveurs de ' +
     'développement auto-signés.',
   'workbench.editors.grpc.tab.auth': 'Autorisation',
-  'workbench.editors.grpc.auth.typeLabel': 'Type',
-  'workbench.editors.grpc.auth.typeNone': 'Aucune auth',
-  'workbench.editors.grpc.auth.typeBearer': 'Jeton Bearer',
-  'workbench.editors.grpc.auth.tokenLabel': 'Jeton',
-  'workbench.editors.grpc.auth.tokenPlaceholder': 'Jeton ou {{variable}}',
   'workbench.editors.grpc.auth.help':
     "Envoyé comme metadata authorization: Bearer <token> sur l'appel. Une ligne de metadata authorization " +
     'explicite prend le pas.',

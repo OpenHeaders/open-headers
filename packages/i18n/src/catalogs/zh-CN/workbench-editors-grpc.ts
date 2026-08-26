@@ -130,11 +130,6 @@ export const workbenchEditorsGrpc = {
   'workbench.editors.grpc.settings.sslVerifyLabel': 'SSL 证书验证',
   'workbench.editors.grpc.settings.sslVerifyHelp': '按系统根证书验证服务器证书。对自签名的开发服务器可关闭。',
   'workbench.editors.grpc.tab.auth': '授权',
-  'workbench.editors.grpc.auth.typeLabel': '类型',
-  'workbench.editors.grpc.auth.typeNone': '无授权',
-  'workbench.editors.grpc.auth.typeBearer': 'Bearer token',
-  'workbench.editors.grpc.auth.tokenLabel': 'Token',
-  'workbench.editors.grpc.auth.tokenPlaceholder': 'Token 或 {{variable}}',
   'workbench.editors.grpc.auth.help':
     '作为 authorization: Bearer <token> metadata 随调用发送。显式的 authorization metadata 行优先。',
   'workbench.editors.grpc.invoke.connectCompanion': '连接桌面端应用以调用——编写和保存在这里可用。',
