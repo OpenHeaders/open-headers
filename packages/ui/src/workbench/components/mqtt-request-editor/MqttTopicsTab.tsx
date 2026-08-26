@@ -369,6 +369,7 @@ const MqttTopicsTab: React.FC<MqttTopicsTabProps> = ({ rows, onChange, v5, sessi
                           disabled={!v5}
                           value={row.subscriptionId}
                           onChange={(next) => update({ ...row, subscriptionId: next ?? undefined })}
+                          placeholder={t('workbench.editors.mqtt.topics.subscriptionIdPlaceholder')}
                           style={{ width: 120 }}
                         />
                       </div>
