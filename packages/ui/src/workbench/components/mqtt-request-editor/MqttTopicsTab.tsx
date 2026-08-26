@@ -219,58 +219,81 @@ const MqttTopicsTab: React.FC<MqttTopicsTabProps> = ({ rows, onChange, v5, sessi
                         text={t('workbench.editors.mqtt.topics.subscribeProperties')}
                         info={mqttSettingsRowInfo(t, 'subscribeProperties')}
                       />
-                      {(row.userProperties ?? []).map((prop, index) => (
-                        <div key={prop.uid} style={{ display: 'flex', gap: 4 }}>
-                          <Input
-                            size="small"
-                            placeholder={t('workbench.editors.mqtt.props.userPropKey')}
-                            value={prop.key}
-                            disabled={!v5}
-                            onChange={(e) => {
-                              const next = [...(row.userProperties ?? [])];
-                              next[index] = { ...prop, key: e.target.value };
-                              update({ ...row, userProperties: next });
-                            }}
-                            data-testid="mqtt-topic-userprop-key"
-                          />
-                          <Input
-                            size="small"
-                            placeholder={t('workbench.editors.mqtt.props.userPropValue')}
-                            value={prop.value}
-                            disabled={!v5}
-                            onChange={(e) => {
-                              const next = [...(row.userProperties ?? [])];
-                              next[index] = { ...prop, value: e.target.value };
-                              update({ ...row, userProperties: next });
-                            }}
-                            data-testid="mqtt-topic-userprop-value"
-                          />
-                          <Button
-                            size="small"
-                            type="text"
-                            disabled={!v5}
-                            aria-label={t('workbench.editors.mqtt.props.removeUserProp')}
-                            onClick={() => {
-                              const next = (row.userProperties ?? []).filter((r) => r.uid !== prop.uid);
-                              update({ ...row, userProperties: next.length > 0 ? next : undefined });
-                            }}
-                          >
-                            ×
-                          </Button>
+                      {/* The list shows four rows and scrolls instead of
+                        growing the popover row by row; the right gutter
+                        keeps the scrollbar off the remove buttons. */}
+                      {(row.userProperties ?? []).length > 0 && (
+                        <div
+                          className="oh-mqtt-topic-userprops"
+                          style={{
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: 4,
+                            maxHeight: 108,
+                            overflowY: 'auto',
+                            paddingRight: 10,
+                          }}
+                        >
+                          {(row.userProperties ?? []).map((prop, index) => (
+                            <div key={prop.uid} style={{ display: 'flex', gap: 4 }}>
+                              <Input
+                                size="small"
+                                placeholder={t('workbench.editors.mqtt.props.userPropKey')}
+                                value={prop.key}
+                                disabled={!v5}
+                                onChange={(e) => {
+                                  const next = [...(row.userProperties ?? [])];
+                                  next[index] = { ...prop, key: e.target.value };
+                                  update({ ...row, userProperties: next });
+                                }}
+                                data-testid="mqtt-topic-userprop-key"
+                              />
+                              <Input
+                                size="small"
+                                placeholder={t('workbench.editors.mqtt.props.userPropValue')}
+                                value={prop.value}
+                                disabled={!v5}
+                                onChange={(e) => {
+                                  const next = [...(row.userProperties ?? [])];
+                                  next[index] = { ...prop, value: e.target.value };
+                                  update({ ...row, userProperties: next });
+                                }}
+                                data-testid="mqtt-topic-userprop-value"
+                              />
+                              <Button
+                                size="small"
+                                type="text"
+                                disabled={!v5}
+                                aria-label={t('workbench.editors.mqtt.props.removeUserProp')}
+                                onClick={() => {
+                                  const next = (row.userProperties ?? []).filter((r) => r.uid !== prop.uid);
+                                  update({ ...row, userProperties: next.length > 0 ? next : undefined });
+                                }}
+                              >
+                                ×
+                              </Button>
+                            </div>
+                          ))}
                         </div>
-                      ))}
+                      )}
                       <Button
                         size="small"
                         type="dashed"
                         icon={<PlusOutlined style={{ fontSize: 10 }} />}
                         disabled={!v5}
                         style={{ fontSize: 11, alignSelf: 'flex-start' }}
-                        onClick={() =>
+                        onClick={(e) => {
                           update({
                             ...row,
                             userProperties: [...(row.userProperties ?? []), { uid: generateUid(), key: '', value: '' }],
-                          })
-                        }
+                          });
+                          // No hook slot inside a cell renderer — the list
+                          // resolves off the popover marker instead.
+                          const list = e.currentTarget
+                            .closest('.oh-mqtt-topic-options')
+                            ?.querySelector<HTMLElement>('.oh-mqtt-topic-userprops');
+                          requestAnimationFrame(() => list?.scrollTo({ top: list.scrollHeight }));
+                        }}
                         data-testid="mqtt-topic-add-userprop"
                       >
                         {t('workbench.editors.mqtt.props.addUserProp')}
