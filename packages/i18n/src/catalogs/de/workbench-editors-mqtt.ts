@@ -157,26 +157,26 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.settings.clientIdLabel': 'Client ID',
   'workbench.editors.mqtt.settings.clientIdHelp':
     'Kennung, die CONNECT trägt. Leer erzeugt bei jeder Verbindung eine neue; das Fortsetzen einer Broker-Sitzung braucht eine stabile ID.',
-  'workbench.editors.mqtt.settings.clientIdPlaceholder': 'Pro Verbindung erzeugt',
+  'workbench.editors.mqtt.settings.clientIdPlaceholder': 'Auto — pro Verbindung erzeugt',
   'workbench.editors.mqtt.settings.cleanStartLabel': 'Clean Start',
   'workbench.editors.mqtt.settings.cleanStartHelp':
     'Beim Verbinden eine frische Broker-Sitzung beginnen. Ausschalten setzt Abonnements und wartende Nachrichten einer früheren Sitzung fort — das braucht ebenfalls eine stabile Client ID.',
   'workbench.editors.mqtt.settings.sessionExpiryLabel': 'Session Expiry Interval',
   'workbench.editors.mqtt.settings.sessionExpiryHelp':
     'Wie lange der Broker die Sitzung nach dem Trennen behält. Mit aktivem Clean Start greift es nur, wenn eine spätere Verbindung die Sitzung fortsetzt.',
-  'workbench.editors.mqtt.settings.zeroDefault': '0 s',
+  'workbench.editors.mqtt.settings.zeroDefault': '0 s (Standard)',
   'workbench.editors.mqtt.settings.keepAliveLabel': 'Keep Alive',
   'workbench.editors.mqtt.settings.keepAliveHelp':
     'Herzschlag-Intervall, das die Sitzung dem Broker zusagt — der Client antwortet und sendet PINGREQ. Leer verwendet 60 s; 0 schaltet ab.',
-  'workbench.editors.mqtt.settings.keepAlivePlaceholder': '60 s',
+  'workbench.editors.mqtt.settings.keepAlivePlaceholder': '60 s (Standard)',
   'workbench.editors.mqtt.settings.timeoutLabel': 'Verbindungs-Timeout',
   'workbench.editors.mqtt.settings.timeoutHelp':
-    'Wanduhr-Obergrenze nur für den Verbindungsaufbau — eine offene Sitzung hat keine Obergrenze. Leer verwendet den App-Standard.',
-  'workbench.editors.mqtt.settings.timeoutPlaceholder': 'Standard',
+    'Wanduhr-Obergrenze nur für den Verbindungsaufbau — eine offene Sitzung hat keine Obergrenze. Leer setzt keine Aufbaufrist.',
+  'workbench.editors.mqtt.settings.timeoutPlaceholder': 'Kein Limit',
   'workbench.editors.mqtt.settings.receiveMaximumLabel': 'Receive Maximum',
   'workbench.editors.mqtt.settings.receiveMaximumHelp':
-    'Wie viele QoS-1/2-Nachrichten gleichzeitig zu diesem Client unterwegs sein dürfen. Leer überlässt es dem Broker.',
-  'workbench.editors.mqtt.settings.brokerDefault': 'Broker-Standard',
+    'Wie viele QoS-1/2-Nachrichten gleichzeitig zu diesem Client unterwegs sein dürfen. Leer erlaubt den Spezifikations-Standard von 65.535.',
+  'workbench.editors.mqtt.settings.receiveMaximumPlaceholder': '65.535 (Standard)',
   'workbench.editors.mqtt.settings.maxPacketSizeLabel': 'Maximum Packet Size',
   'workbench.editors.mqtt.settings.maxPacketSizeHelp':
     'Größtes Paket, das dieser Client annimmt — größere verwirft der Broker. Leer setzt kein Limit.',

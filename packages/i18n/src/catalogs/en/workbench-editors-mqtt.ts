@@ -148,26 +148,26 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.settings.clientIdLabel': 'Client ID',
   'workbench.editors.mqtt.settings.clientIdHelp':
     'Identifier the CONNECT carries. Empty generates a fresh one per connect; resuming a broker session needs a stable ID.',
-  'workbench.editors.mqtt.settings.clientIdPlaceholder': 'Generated per connect',
+  'workbench.editors.mqtt.settings.clientIdPlaceholder': 'Auto — generated on connect',
   'workbench.editors.mqtt.settings.cleanStartLabel': 'Clean Start',
   'workbench.editors.mqtt.settings.cleanStartHelp':
     'Start a fresh broker session on connect. Turn off to resume subscriptions and queued messages from a prior session — that also needs a stable Client ID.',
   'workbench.editors.mqtt.settings.sessionExpiryLabel': 'Session Expiry Interval',
   'workbench.editors.mqtt.settings.sessionExpiryHelp':
     'How long the broker keeps the session after disconnect. With Clean Start on, it applies only if a later connect resumes the session.',
-  'workbench.editors.mqtt.settings.zeroDefault': '0 s',
+  'workbench.editors.mqtt.settings.zeroDefault': '0 s (default)',
   'workbench.editors.mqtt.settings.keepAliveLabel': 'Keep Alive',
   'workbench.editors.mqtt.settings.keepAliveHelp':
     'Ping interval the session promises the broker — the client answers and emits PINGREQ. Empty uses 60 s; 0 disables keep-alive.',
-  'workbench.editors.mqtt.settings.keepAlivePlaceholder': '60 s',
+  'workbench.editors.mqtt.settings.keepAlivePlaceholder': '60 s (default)',
   'workbench.editors.mqtt.settings.timeoutLabel': 'Connect timeout',
   'workbench.editors.mqtt.settings.timeoutHelp':
-    'Wall-clock ceiling on the connection dial only — an open session has no ceiling. Empty uses the app default.',
-  'workbench.editors.mqtt.settings.timeoutPlaceholder': 'Default',
+    'Wall-clock ceiling on the connection dial only — an open session has no ceiling. Empty sets no dial deadline.',
+  'workbench.editors.mqtt.settings.timeoutPlaceholder': 'No limit',
   'workbench.editors.mqtt.settings.receiveMaximumLabel': 'Receive Maximum',
   'workbench.editors.mqtt.settings.receiveMaximumHelp':
-    'How many QoS 1/2 messages may be in flight toward this client at once. Empty leaves it to the broker.',
-  'workbench.editors.mqtt.settings.brokerDefault': 'Broker default',
+    'How many QoS 1/2 messages may be in flight toward this client at once. Empty allows the spec default of 65,535.',
+  'workbench.editors.mqtt.settings.receiveMaximumPlaceholder': '65,535 (default)',
   'workbench.editors.mqtt.settings.maxPacketSizeLabel': 'Maximum Packet Size',
   'workbench.editors.mqtt.settings.maxPacketSizeHelp':
     'Largest packet this client accepts — the broker drops bigger ones. Empty sets no limit.',

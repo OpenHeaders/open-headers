@@ -157,26 +157,26 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.settings.clientIdLabel': 'Client ID',
   'workbench.editors.mqtt.settings.clientIdHelp':
     'Identifiant porté par CONNECT. Vide en génère un nouveau à chaque connexion ; reprendre une session du courtier demande un ID stable.',
-  'workbench.editors.mqtt.settings.clientIdPlaceholder': 'Généré à chaque connexion',
+  'workbench.editors.mqtt.settings.clientIdPlaceholder': 'Auto — généré à la connexion',
   'workbench.editors.mqtt.settings.cleanStartLabel': 'Clean Start',
   'workbench.editors.mqtt.settings.cleanStartHelp':
     'Démarrer une session de courtier neuve à la connexion. Désactivez pour reprendre les abonnements et messages en file d’une session précédente — cela demande aussi un Client ID stable.',
   'workbench.editors.mqtt.settings.sessionExpiryLabel': 'Session Expiry Interval',
   'workbench.editors.mqtt.settings.sessionExpiryHelp':
     'Durée pendant laquelle le courtier conserve la session après déconnexion. Avec Clean Start activé, ne s’applique que si une connexion ultérieure reprend la session.',
-  'workbench.editors.mqtt.settings.zeroDefault': '0 s',
+  'workbench.editors.mqtt.settings.zeroDefault': '0 s (défaut)',
   'workbench.editors.mqtt.settings.keepAliveLabel': 'Keep Alive',
   'workbench.editors.mqtt.settings.keepAliveHelp':
     'Intervalle de battement promis au courtier — le client répond et émet PINGREQ. Vide utilise 60 s ; 0 le désactive.',
-  'workbench.editors.mqtt.settings.keepAlivePlaceholder': '60 s',
+  'workbench.editors.mqtt.settings.keepAlivePlaceholder': '60 s (défaut)',
   'workbench.editors.mqtt.settings.timeoutLabel': 'Délai de connexion',
   'workbench.editors.mqtt.settings.timeoutHelp':
-    'Plafond horloge sur l’ouverture de connexion seulement — une session ouverte n’a pas de plafond. Vide utilise la valeur par défaut de l’application.',
-  'workbench.editors.mqtt.settings.timeoutPlaceholder': 'Par défaut',
+    'Plafond horloge sur l’ouverture de connexion seulement — une session ouverte n’a pas de plafond. Vide n’impose aucun délai d’ouverture.',
+  'workbench.editors.mqtt.settings.timeoutPlaceholder': 'Sans limite',
   'workbench.editors.mqtt.settings.receiveMaximumLabel': 'Receive Maximum',
   'workbench.editors.mqtt.settings.receiveMaximumHelp':
-    'Nombre de messages QoS 1/2 pouvant être en vol vers ce client à la fois. Vide laisse le courtier décider.',
-  'workbench.editors.mqtt.settings.brokerDefault': 'Défaut du courtier',
+    'Nombre de messages QoS 1/2 pouvant être en vol vers ce client à la fois. Vide applique le défaut de la spécification, 65 535.',
+  'workbench.editors.mqtt.settings.receiveMaximumPlaceholder': '65 535 (défaut)',
   'workbench.editors.mqtt.settings.maxPacketSizeLabel': 'Maximum Packet Size',
   'workbench.editors.mqtt.settings.maxPacketSizeHelp':
     'Plus grand paquet accepté par ce client — le courtier abandonne les plus gros. Vide n’impose aucune limite.',

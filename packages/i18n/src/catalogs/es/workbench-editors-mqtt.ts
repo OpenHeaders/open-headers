@@ -155,26 +155,26 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.settings.clientIdLabel': 'Client ID',
   'workbench.editors.mqtt.settings.clientIdHelp':
     'Identificador que lleva CONNECT. Vacío genera uno nuevo por conexión; reanudar una sesión del bróker necesita un ID estable.',
-  'workbench.editors.mqtt.settings.clientIdPlaceholder': 'Generado en cada conexión',
+  'workbench.editors.mqtt.settings.clientIdPlaceholder': 'Auto — generado al conectar',
   'workbench.editors.mqtt.settings.cleanStartLabel': 'Clean Start',
   'workbench.editors.mqtt.settings.cleanStartHelp':
     'Iniciar una sesión de bróker nueva al conectar. Desactívalo para reanudar suscripciones y mensajes en cola de una sesión anterior; eso también necesita un Client ID estable.',
   'workbench.editors.mqtt.settings.sessionExpiryLabel': 'Session Expiry Interval',
   'workbench.editors.mqtt.settings.sessionExpiryHelp':
     'Cuánto conserva el bróker la sesión tras la desconexión. Con Clean Start activado, solo aplica si una conexión posterior reanuda la sesión.',
-  'workbench.editors.mqtt.settings.zeroDefault': '0 s',
+  'workbench.editors.mqtt.settings.zeroDefault': '0 s (por defecto)',
   'workbench.editors.mqtt.settings.keepAliveLabel': 'Keep Alive',
   'workbench.editors.mqtt.settings.keepAliveHelp':
     'Intervalo de latido prometido al bróker: el cliente responde y emite PINGREQ. Vacío usa 60 s; 0 lo desactiva.',
-  'workbench.editors.mqtt.settings.keepAlivePlaceholder': '60 s',
+  'workbench.editors.mqtt.settings.keepAlivePlaceholder': '60 s (por defecto)',
   'workbench.editors.mqtt.settings.timeoutLabel': 'Tiempo de espera de conexión',
   'workbench.editors.mqtt.settings.timeoutHelp':
-    'Techo de reloj solo para la marcación de la conexión; una sesión abierta no tiene techo. Vacío usa el valor por defecto de la aplicación.',
-  'workbench.editors.mqtt.settings.timeoutPlaceholder': 'Predeterminado',
+    'Techo de reloj solo para la marcación de la conexión; una sesión abierta no tiene techo. Vacío no impone plazo de apertura.',
+  'workbench.editors.mqtt.settings.timeoutPlaceholder': 'Sin límite',
   'workbench.editors.mqtt.settings.receiveMaximumLabel': 'Receive Maximum',
   'workbench.editors.mqtt.settings.receiveMaximumHelp':
-    'Cuántos mensajes QoS 1/2 pueden estar en vuelo hacia este cliente a la vez. Vacío lo deja al bróker.',
-  'workbench.editors.mqtt.settings.brokerDefault': 'Predeterminado del bróker',
+    'Cuántos mensajes QoS 1/2 pueden estar en vuelo hacia este cliente a la vez. Vacío aplica el valor por defecto de la especificación, 65.535.',
+  'workbench.editors.mqtt.settings.receiveMaximumPlaceholder': '65.535 (por defecto)',
   'workbench.editors.mqtt.settings.maxPacketSizeLabel': 'Maximum Packet Size',
   'workbench.editors.mqtt.settings.maxPacketSizeHelp':
     'Paquete más grande que acepta este cliente; el bróker descarta los mayores. Vacío no impone límite.',

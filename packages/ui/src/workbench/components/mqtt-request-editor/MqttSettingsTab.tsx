@@ -193,7 +193,7 @@ const MqttSettingsTab: React.FC<MqttSettingsTabProps> = ({ draft, setDraft, v5 }
             presets={RECEIVE_MAXIMUM_PRESETS}
             interpret={interpretReceiveMaximum}
             format={String}
-            placeholder={t('workbench.editors.mqtt.settings.brokerDefault')}
+            placeholder={t('workbench.editors.mqtt.settings.receiveMaximumPlaceholder')}
             disabled={!v5}
             testId="mqtt-receive-maximum"
           />
