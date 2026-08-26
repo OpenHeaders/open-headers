@@ -792,6 +792,18 @@ export const ENTITY_CASES: readonly EntityCase[] = [
         maybe(rng, 0.2, () => 1_024 + rng.int(1_000_000)),
       ),
       ...opt(
+        'topicAliasMaximum',
+        maybe(rng, 0.2, () => rng.int(100)),
+      ),
+      ...opt(
+        'requestResponseInformation',
+        maybe(rng, 0.2, () => true),
+      ),
+      ...opt(
+        'requestProblemInformation',
+        maybe(rng, 0.2, () => false),
+      ),
+      ...opt(
         'timeoutMs',
         maybe(rng, 0.3, () => 1_000 + rng.int(30_000)),
       ),

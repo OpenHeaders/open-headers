@@ -522,6 +522,78 @@ describe('executeMqttSession — messages and QoS flows', () => {
   });
 });
 
+describe('executeMqttSession — 5.0 connect knobs and topic aliases', () => {
+  it('offers the alias maximum + request-information flags on CONNECT and resolves aliased inbound topics', async () => {
+    const rig = scriptedTransport(MQTT_PROTOCOL_VERSIONS.v5);
+    const settled = executeMqttSession(
+      makeMqttRequest({ topicAliasMaximum: 10, requestResponseInformation: true, requestProblemInformation: false }),
+      {
+        workspaceId: null,
+        environmentId: undefined,
+        transport: rig.transport,
+        sendId: 'send-mqtt-alias',
+        resolution: scopedResolution,
+      },
+    );
+    await settleTick();
+    rig.establish();
+    const connect = rig.written[0];
+    if (connect.type !== 'connect') throw new Error('expected CONNECT');
+    expect(connect.properties).toEqual({
+      topicAliasMaximum: 10,
+      requestResponseInformation: 1,
+      requestProblemInformation: 0,
+    });
+    rig.push(acceptedConnack);
+    // A PUBLISH naming topic + alias binds them; the alias-only one resolves.
+    rig.push({
+      type: 'publish',
+      topic: 'sensors/1/temp',
+      payload: new TextEncoder().encode('21'),
+      qos: 0,
+      retain: false,
+      dup: false,
+      packetId: null,
+      properties: { topicAlias: 2 },
+    });
+    rig.push({
+      type: 'publish',
+      topic: '',
+      payload: new TextEncoder().encode('22'),
+      qos: 0,
+      retain: false,
+      dup: false,
+      packetId: null,
+      properties: { topicAlias: 2 },
+    });
+    closeActiveMqttSession('send-mqtt-alias');
+    const snapshot = await settled;
+    const topics = snapshot.events.flatMap((e) => (e.kind === 'message' ? [e.topic] : []));
+    expect(topics).toEqual(['sensors/1/temp', 'sensors/1/temp']);
+  });
+
+  it('keeps the flags off CONNECT at their spec defaults', async () => {
+    const rig = scriptedTransport(MQTT_PROTOCOL_VERSIONS.v5);
+    const settled = executeMqttSession(
+      makeMqttRequest({ requestResponseInformation: false, requestProblemInformation: true }),
+      {
+        workspaceId: null,
+        environmentId: undefined,
+        transport: rig.transport,
+        sendId: 'send-mqtt-alias-default',
+        resolution: scopedResolution,
+      },
+    );
+    await settleTick();
+    rig.establish();
+    const connect = rig.written[0];
+    if (connect.type !== 'connect') throw new Error('expected CONNECT');
+    expect(connect.properties).toEqual({});
+    closeActiveMqttSession('send-mqtt-alias-default');
+    await settled;
+  });
+});
+
 describe('executeMqttSession — version lens and session end', () => {
   it('keeps every 5.0 surface off a 3.1.1 session (properties, options, DISCONNECT body)', async () => {
     const rig = scriptedTransport(MQTT_PROTOCOL_VERSIONS.v311);

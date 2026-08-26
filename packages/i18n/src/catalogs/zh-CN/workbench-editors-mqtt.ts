@@ -163,7 +163,7 @@ export const workbenchEditorsMqtt = {
     '连接时开始全新的代理会话。关闭可恢复上一会话的订阅与排队消息——这同样需要稳定的 Client ID。',
   'workbench.editors.mqtt.settings.sessionExpiryLabel': 'Session Expiry Interval',
   'workbench.editors.mqtt.settings.sessionExpiryHelp':
-    '断开后代理保留会话的时长。开启 Clean Start 时，仅当后续连接恢复该会话才生效。',
+    '断开后代理保留会话的时长——0 表示断开即结束。Clean Start 只在连接时丢弃上一会话；无论如何，该间隔都决定新会话的保留时长。',
   'workbench.editors.mqtt.settings.zeroDefault': '0 s（默认）',
   'workbench.editors.mqtt.settings.keepAliveLabel': 'Keep Alive',
   'workbench.editors.mqtt.settings.keepAliveHelp':
@@ -180,6 +180,17 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.settings.maxPacketSizeHelp':
     '此客户端接受的最大数据包——超过的包会被代理丢弃。留空表示不设上限。',
   'workbench.editors.mqtt.settings.noLimit': '不限制（默认）',
+  'workbench.editors.mqtt.settings.cleanSessionLabel': 'Clean Session',
+  'workbench.editors.mqtt.settings.topicAliasMaximumLabel': 'Topic Alias Maximum',
+  'workbench.editors.mqtt.settings.topicAliasMaximumHelp':
+    '代理可对此客户端使用的主题别名数量——带别名的发布以数字代替主题。留空不允许别名，即规范默认值。',
+  'workbench.editors.mqtt.settings.topicAliasMaximumPlaceholder': '0（默认）',
+  'workbench.editors.mqtt.settings.requestResponseInfoLabel': 'Request Response Information',
+  'workbench.editors.mqtt.settings.requestResponseInfoHelp':
+    '请求代理在 CONNACK 中返回 Response Information——请求/响应交互的基础主题。默认关闭。',
+  'workbench.editors.mqtt.settings.requestProblemInfoLabel': 'Request Problem Information',
+  'workbench.editors.mqtt.settings.requestProblemInfoHelp':
+    '允许代理在失败数据包中附带 Reason String 与用户属性。默认开启。',
   'workbench.editors.mqtt.settings.sslVerifyLabel': 'SSL 证书验证',
   'workbench.editors.mqtt.settings.sslVerifyHelp':
     '对 mqtts/wss 会话按系统根证书验证代理证书。开发中的自签名代理可关闭。',

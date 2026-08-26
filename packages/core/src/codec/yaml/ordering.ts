@@ -189,6 +189,9 @@ export const MQTT_REQUEST_FIELD_ORDER = [
   'keepAlive',
   'receiveMaximum',
   'maximumPacketSize',
+  'topicAliasMaximum',
+  'requestResponseInformation',
+  'requestProblemInformation',
   'timeoutMs',
   'sslVerification',
 ] as const;

@@ -127,6 +127,9 @@ describe('parseMqttRequest', () => {
       keepAlive: 30,
       receiveMaximum: 20,
       maximumPacketSize: 268_435_456,
+      topicAliasMaximum: 10,
+      requestResponseInformation: true,
+      requestProblemInformation: false,
       sslVerification: false,
       lastWill: {
         topic: 'streetlights/1/offline',

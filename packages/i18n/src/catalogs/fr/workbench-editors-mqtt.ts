@@ -176,7 +176,7 @@ export const workbenchEditorsMqtt = {
     'Démarrer une session de courtier neuve à la connexion. Désactivez pour reprendre les abonnements et messages en file d’une session précédente — cela demande aussi un Client ID stable.',
   'workbench.editors.mqtt.settings.sessionExpiryLabel': 'Session Expiry Interval',
   'workbench.editors.mqtt.settings.sessionExpiryHelp':
-    'Durée pendant laquelle le courtier conserve la session après déconnexion. Avec Clean Start activé, ne s’applique que si une connexion ultérieure reprend la session.',
+    'Durée pendant laquelle le courtier conserve la session après déconnexion — 0 la termine à la déconnexion. Clean Start ne fait qu’écarter la session précédente à la connexion ; l’intervalle régit la nouvelle dans tous les cas.',
   'workbench.editors.mqtt.settings.zeroDefault': '0 s (défaut)',
   'workbench.editors.mqtt.settings.keepAliveLabel': 'Keep Alive',
   'workbench.editors.mqtt.settings.keepAliveHelp':
@@ -194,6 +194,17 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.settings.maxPacketSizeHelp':
     'Plus grand paquet accepté par ce client — le courtier abandonne les plus gros. Vide n’impose aucune limite.',
   'workbench.editors.mqtt.settings.noLimit': 'Aucune limite (défaut)',
+  'workbench.editors.mqtt.settings.cleanSessionLabel': 'Clean Session',
+  'workbench.editors.mqtt.settings.topicAliasMaximumLabel': 'Topic Alias Maximum',
+  'workbench.editors.mqtt.settings.topicAliasMaximumHelp':
+    'Nombre d’alias de topic que le courtier peut employer vers ce client — les publications aliasées portent un numéro au lieu du topic. Vide n’en autorise aucun, le défaut de la spécification.',
+  'workbench.editors.mqtt.settings.topicAliasMaximumPlaceholder': '0 (défaut)',
+  'workbench.editors.mqtt.settings.requestResponseInfoLabel': 'Request Response Information',
+  'workbench.editors.mqtt.settings.requestResponseInfoHelp':
+    'Demander au courtier une Response Information dans CONNACK — le topic de base des échanges requête/réponse. Désactivé par défaut.',
+  'workbench.editors.mqtt.settings.requestProblemInfoLabel': 'Request Problem Information',
+  'workbench.editors.mqtt.settings.requestProblemInfoHelp':
+    'Autoriser le courtier à joindre des Reason Strings et des propriétés utilisateur aux paquets d’échec. Activé par défaut.',
   'workbench.editors.mqtt.settings.sslVerifyLabel': 'Vérification du certificat SSL',
   'workbench.editors.mqtt.settings.sslVerifyHelp':
     'Vérifier le certificat du courtier contre les racines système pour les sessions mqtts/wss. Désactivez pour les courtiers auto-signés de développement.',

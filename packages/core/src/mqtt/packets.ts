@@ -259,7 +259,9 @@ function encodeConnack(body: MqttWriter, packet: MqttConnackPacket, version: Mqt
 }
 
 function encodePublish(body: MqttWriter, packet: MqttPublishPacket, version: MqttProtocolVersion): number {
-  assertTopicName(packet.topic, 'Topic');
+  // 5.0: a PUBLISH riding a Topic Alias may leave the topic empty.
+  const aliased = version === MQTT_PROTOCOL_VERSIONS.v5 && packet.properties?.topicAlias !== undefined;
+  if (!(aliased && packet.topic === '')) assertTopicName(packet.topic, 'Topic');
   if (packet.qos === 0) {
     if (packet.dup) throw new MqttCodecError('DUP must be 0 on a QoS 0 publish.');
     if (packet.packetId !== null) throw new MqttCodecError('A QoS 0 publish carries no packet identifier.');

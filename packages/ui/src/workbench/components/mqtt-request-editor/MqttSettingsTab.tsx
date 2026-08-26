@@ -57,6 +57,8 @@ const TIMEOUT_PRESETS = numericPresets([1_000, 5_000, 10_000, 30_000, 60_000], f
 const interpretReceiveMaximum = countInterpreter({ min: 1, max: 65_535 });
 const RECEIVE_MAXIMUM_PRESETS = numericPresets([1, 5, 20, 100], String);
 const interpretMaxPacketSize = byteSizeInterpreter({ min: 1, max: 0xffff_ffff });
+const interpretTopicAliasMaximum = countInterpreter({ min: 0, max: 65_535 });
+const TOPIC_ALIAS_MAXIMUM_PRESETS = numericPresets([10, 50, 100], String);
 const MAX_PACKET_SIZE_PRESETS = numericPresets(
   [64, 256, 1024, 10_240].map((kb) => kb * 1024),
   formatByteSize,
@@ -93,7 +95,10 @@ const MqttSettingsTab: React.FC<MqttSettingsTabProps> = ({ draft, setDraft, v5 }
   const sessionModified =
     draft.sessionExpiryInterval !== undefined ||
     draft.receiveMaximum !== undefined ||
-    draft.maximumPacketSize !== undefined;
+    draft.maximumPacketSize !== undefined ||
+    draft.topicAliasMaximum !== undefined ||
+    draft.requestResponseInformation ||
+    !draft.requestProblemInformation;
   const tlsModified = !draft.sslVerification;
 
   return (
@@ -130,12 +135,16 @@ const MqttSettingsTab: React.FC<MqttSettingsTabProps> = ({ draft, setDraft, v5 }
             testId="mqtt-client-id"
           />
           <KnobRow
-            label={t('workbench.editors.mqtt.settings.cleanStartLabel')}
+            label={t(
+              v5
+                ? 'workbench.editors.mqtt.settings.cleanStartLabel'
+                : 'workbench.editors.mqtt.settings.cleanSessionLabel',
+            )}
             checked={draft.cleanStart}
             modified={!draft.cleanStart}
             onReset={() => setDraft((d) => ({ ...d, cleanStart: true }))}
             onChange={(cleanStart) => setDraft((d) => ({ ...d, cleanStart }))}
-            info={mqttSettingsRowInfo(t, 'cleanStart')}
+            info={mqttSettingsRowInfo(t, v5 ? 'cleanStart' : 'cleanSession')}
             testId="mqtt-clean-start"
           />
           <ComboKnobRow
@@ -208,6 +217,38 @@ const MqttSettingsTab: React.FC<MqttSettingsTabProps> = ({ draft, setDraft, v5 }
             placeholder={t('workbench.editors.mqtt.settings.noLimit')}
             disabled={!v5}
             testId="mqtt-max-packet-size"
+          />
+          <ComboKnobRow
+            label={t('workbench.editors.mqtt.settings.topicAliasMaximumLabel')}
+            value={draft.topicAliasMaximum}
+            onChange={(topicAliasMaximum) => setDraft((d) => ({ ...d, topicAliasMaximum }))}
+            info={mqttSettingsRowInfo(t, 'topicAliasMaximum')}
+            presets={TOPIC_ALIAS_MAXIMUM_PRESETS}
+            interpret={interpretTopicAliasMaximum}
+            format={String}
+            placeholder={t('workbench.editors.mqtt.settings.topicAliasMaximumPlaceholder')}
+            disabled={!v5}
+            testId="mqtt-topic-alias-maximum"
+          />
+          <KnobRow
+            label={t('workbench.editors.mqtt.settings.requestResponseInfoLabel')}
+            checked={draft.requestResponseInformation}
+            modified={draft.requestResponseInformation}
+            onReset={() => setDraft((d) => ({ ...d, requestResponseInformation: false }))}
+            onChange={(requestResponseInformation) => setDraft((d) => ({ ...d, requestResponseInformation }))}
+            info={mqttSettingsRowInfo(t, 'requestResponseInformation')}
+            disabled={!v5}
+            testId="mqtt-request-response-info"
+          />
+          <KnobRow
+            label={t('workbench.editors.mqtt.settings.requestProblemInfoLabel')}
+            checked={draft.requestProblemInformation}
+            modified={!draft.requestProblemInformation}
+            onReset={() => setDraft((d) => ({ ...d, requestProblemInformation: true }))}
+            onChange={(requestProblemInformation) => setDraft((d) => ({ ...d, requestProblemInformation }))}
+            info={mqttSettingsRowInfo(t, 'requestProblemInformation')}
+            disabled={!v5}
+            testId="mqtt-request-problem-info"
           />
         </GroupSection>
         <GroupSection

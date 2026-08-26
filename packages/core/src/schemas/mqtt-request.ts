@@ -241,6 +241,16 @@ export const MqttRequestSchema = v.object({
   receiveMaximum: v.optional(v.pipe(v.number(), v.integer(), v.minValue(1), v.maxValue(65_535))),
   /** 5.0 Maximum Packet Size this client accepts, bytes. */
   maximumPacketSize: v.optional(v.pipe(v.number(), v.integer(), v.minValue(1), v.maxValue(0xffff_ffff))),
+  /** 5.0 Topic Alias Maximum — how many topic aliases the broker may
+   *  address this client with. Absent = 0 (the broker sends none). */
+  topicAliasMaximum: v.optional(v.pipe(v.number(), v.integer(), v.minValue(0), v.maxValue(65_535))),
+  /** 5.0 Request Response Information — asks the broker for Response
+   *  Information on CONNACK (the request/response pattern's base
+   *  topic). Absent = off (the spec default). */
+  requestResponseInformation: v.optional(v.boolean()),
+  /** 5.0 Request Problem Information — allows Reason Strings and user
+   *  properties on failure packets. Absent = on (the spec default). */
+  requestProblemInformation: v.optional(v.boolean()),
   /**
    * Wall-clock ceiling (ms) on the connection dial — the transport's
    * open deadline only; an OPEN session has no ceiling. Absent = the

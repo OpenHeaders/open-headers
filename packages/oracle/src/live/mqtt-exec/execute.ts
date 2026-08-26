@@ -266,6 +266,9 @@ export async function executeMqttSession(
       : {}),
     ...(v5 && request.receiveMaximum !== undefined ? { receiveMaximum: request.receiveMaximum } : {}),
     ...(v5 && request.maximumPacketSize !== undefined ? { maximumPacketSize: request.maximumPacketSize } : {}),
+    ...(v5 && request.topicAliasMaximum !== undefined ? { topicAliasMaximum: request.topicAliasMaximum } : {}),
+    ...(v5 && request.requestResponseInformation === true ? { requestResponseInformation: 1 } : {}),
+    ...(v5 && request.requestProblemInformation === false ? { requestProblemInformation: 0 } : {}),
     ...(connectUserProps.length > 0 ? { userProperties: connectUserProps } : {}),
   };
 
@@ -352,6 +355,10 @@ export async function executeMqttSession(
     const pendingSubAcks = new Map<string, { filters: string[]; resolveAck?: (reasonCode: number | null) => void }>();
     const outboundQos = new Map<number, 1 | 2>();
     const inboundQos2 = new Set<number>();
+    // Inbound topic aliases (5.0): a PUBLISH naming both a topic and an
+    // alias binds them; a later alias-only PUBLISH resolves through the
+    // binding so the capture records the real topic, never the number.
+    const inboundTopicAliases = new Map<number, string>();
     const allocPacketId = (): number => {
       do {
         nextPacketId = (nextPacketId % 0xffff) + 1;
@@ -519,12 +526,18 @@ export async function executeMqttSession(
           } else if (packet.qos === 1 && packet.packetId !== null) {
             sendPacket({ type: 'puback', packetId: packet.packetId, reasonCode: null });
           }
+          const alias = packet.properties?.topicAlias;
+          let topic = packet.topic;
+          if (alias !== undefined) {
+            if (topic !== '') inboundTopicAliases.set(alias, topic);
+            else topic = inboundTopicAliases.get(alias) ?? '';
+          }
           const payloadBase64 = encodeBase64Bytes(packet.payload);
           record(
             {
               kind: 'message',
               direction: 'down',
-              topic: packet.topic,
+              topic,
               payloadBase64,
               qos: packet.qos,
               retain: packet.retain,
@@ -535,7 +548,7 @@ export async function executeMqttSession(
           emitter?.item({
             kind: 'message',
             direction: 'down',
-            topic: packet.topic,
+            topic,
             payloadBase64,
             qos: packet.qos,
             retain: packet.retain,

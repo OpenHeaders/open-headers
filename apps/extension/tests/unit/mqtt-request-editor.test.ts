@@ -84,6 +84,22 @@ describe('mqtt draft projections', () => {
     expect(updates.retain).toBe(false);
     expect(updates.cleanStart).toBe(true);
     expect(updates.sslVerification).toBe(true);
+    // The 5.0 CONNECT request flags read at their spec defaults.
+    expect(updates.requestResponseInformation).toBe(false);
+    expect(updates.requestProblemInformation).toBe(true);
+    expect(updates.topicAliasMaximum).toBeUndefined();
+  });
+
+  it('carries the 5.0 topic-alias and request-information knobs through the round-trip', () => {
+    const entity = mqttRequest({
+      topicAliasMaximum: 10,
+      requestResponseInformation: true,
+      requestProblemInformation: false,
+    });
+    const updates = buildMqttRequestUpdates(draftFromMqttRequest(entity));
+    expect(updates.topicAliasMaximum).toBe(10);
+    expect(updates.requestResponseInformation).toBe(true);
+    expect(updates.requestProblemInformation).toBe(false);
   });
 
   it('keeps the canonical projection fingerprint-stable across a round-trip', () => {

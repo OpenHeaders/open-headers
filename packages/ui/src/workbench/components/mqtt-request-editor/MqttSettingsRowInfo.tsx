@@ -30,11 +30,15 @@ import { MQTT_GROUP_LABEL_KEY, type MqttSettingsGroupKey } from './settings-grou
 export type MqttInfoKey =
   | 'clientId'
   | 'cleanStart'
+  | 'cleanSession'
   | 'sessionExpiry'
   | 'keepAlive'
   | 'timeout'
   | 'receiveMaximum'
   | 'maxPacketSize'
+  | 'topicAliasMaximum'
+  | 'requestResponseInformation'
+  | 'requestProblemInformation'
   | 'sslVerification'
   | 'noLocal'
   | 'retainAsPublished'
@@ -64,6 +68,9 @@ const EX = {
   verify: 'verify ✓',
   receiveMax: 'in-flight ≤ 20',
   maxPacket: 'packet ≤ 1 MB',
+  topicAlias: 'aliases ≤ 10',
+  rri: 'response info ✓',
+  rpi: 'problem info ✓',
   filter: 'sensors/+/temp',
   qos: 'QoS 1',
   noLocal: 'no local ✓',
@@ -87,7 +94,7 @@ type TokenId = keyof typeof EX;
  * options popover's section-header idiom. */
 const GROUP_TOKENS: Record<MqttSettingsGroupKey, readonly TokenId[]> = {
   connection: ['clientId', 'cleanStart', 'keepAlive', 'dial'],
-  session: ['sessionExpiry', 'receiveMax', 'maxPacket'],
+  session: ['sessionExpiry', 'receiveMax', 'maxPacket', 'topicAlias', 'rri', 'rpi'],
   tls: ['verify'],
 };
 
@@ -97,11 +104,15 @@ const GROUP_TOKENS: Record<MqttSettingsGroupKey, readonly TokenId[]> = {
 const HIGHLIGHT: Record<MqttInfoKey, readonly TokenId[]> = {
   clientId: ['clientId'],
   cleanStart: ['cleanStart'],
+  cleanSession: ['cleanStart'],
   sessionExpiry: ['sessionExpiry'],
   keepAlive: ['keepAlive'],
   timeout: ['dial'],
   receiveMaximum: ['receiveMax'],
   maxPacketSize: ['maxPacket'],
+  topicAliasMaximum: ['topicAlias'],
+  requestResponseInformation: ['rri'],
+  requestProblemInformation: ['rpi'],
   sslVerification: ['verify'],
   noLocal: ['noLocal'],
   retainAsPublished: ['rap'],
@@ -146,6 +157,12 @@ function MqttExampleCard({ lit }: { lit: ReadonlySet<TokenId> }) {
           {tok('receiveMax')}
           {' · '}
           {tok('maxPacket')}
+          {' · '}
+          {tok('topicAlias')}
+          {' · '}
+          {tok('rri')}
+          {' · '}
+          {tok('rpi')}
         </div>
         <div className="oh-info-eg-line">
           <span className="oh-info-eg-method">SUBSCRIBE</span> {tok('filter')}
@@ -187,11 +204,15 @@ function MqttExampleCard({ lit }: { lit: ReadonlySet<TokenId> }) {
 const TITLE_KEY: Record<MqttInfoKey, MessageKey> = {
   clientId: 'workbench.editors.mqtt.settings.clientIdLabel',
   cleanStart: 'workbench.editors.mqtt.settings.cleanStartLabel',
+  cleanSession: 'workbench.editors.mqtt.settings.cleanSessionLabel',
   sessionExpiry: 'workbench.editors.mqtt.settings.sessionExpiryLabel',
   keepAlive: 'workbench.editors.mqtt.settings.keepAliveLabel',
   timeout: 'workbench.editors.mqtt.settings.timeoutLabel',
   receiveMaximum: 'workbench.editors.mqtt.settings.receiveMaximumLabel',
   maxPacketSize: 'workbench.editors.mqtt.settings.maxPacketSizeLabel',
+  topicAliasMaximum: 'workbench.editors.mqtt.settings.topicAliasMaximumLabel',
+  requestResponseInformation: 'workbench.editors.mqtt.settings.requestResponseInfoLabel',
+  requestProblemInformation: 'workbench.editors.mqtt.settings.requestProblemInfoLabel',
   sslVerification: 'workbench.editors.mqtt.settings.sslVerifyLabel',
   noLocal: 'workbench.editors.mqtt.topics.noLocal',
   retainAsPublished: 'workbench.editors.mqtt.topics.retainAsPublished',
@@ -211,11 +232,15 @@ const TITLE_KEY: Record<MqttInfoKey, MessageKey> = {
 const SUMMARY_KEY: Record<Exclude<MqttInfoKey, 'retainHandling'>, MessageKey> = {
   clientId: 'workbench.editors.mqtt.settings.clientIdHelp',
   cleanStart: 'workbench.editors.mqtt.settings.cleanStartHelp',
+  cleanSession: 'workbench.editors.mqtt.settings.cleanStartHelp',
   sessionExpiry: 'workbench.editors.mqtt.settings.sessionExpiryHelp',
   keepAlive: 'workbench.editors.mqtt.settings.keepAliveHelp',
   timeout: 'workbench.editors.mqtt.settings.timeoutHelp',
   receiveMaximum: 'workbench.editors.mqtt.settings.receiveMaximumHelp',
   maxPacketSize: 'workbench.editors.mqtt.settings.maxPacketSizeHelp',
+  topicAliasMaximum: 'workbench.editors.mqtt.settings.topicAliasMaximumHelp',
+  requestResponseInformation: 'workbench.editors.mqtt.settings.requestResponseInfoHelp',
+  requestProblemInformation: 'workbench.editors.mqtt.settings.requestProblemInfoHelp',
   sslVerification: 'workbench.editors.mqtt.settings.sslVerifyHelp',
   noLocal: 'workbench.editors.mqtt.topics.noLocalDesc',
   retainAsPublished: 'workbench.editors.mqtt.topics.retainAsPublishedDesc',
@@ -238,11 +263,15 @@ const SUMMARY_KEY: Record<Exclude<MqttInfoKey, 'retainHandling'>, MessageKey> = 
 const KICKER_KEY: Record<MqttInfoKey, MessageKey> = {
   clientId: MQTT_GROUP_LABEL_KEY.connection,
   cleanStart: MQTT_GROUP_LABEL_KEY.connection,
+  cleanSession: MQTT_GROUP_LABEL_KEY.connection,
   sessionExpiry: MQTT_GROUP_LABEL_KEY.session,
   keepAlive: MQTT_GROUP_LABEL_KEY.connection,
   timeout: MQTT_GROUP_LABEL_KEY.connection,
   receiveMaximum: MQTT_GROUP_LABEL_KEY.session,
   maxPacketSize: MQTT_GROUP_LABEL_KEY.session,
+  topicAliasMaximum: MQTT_GROUP_LABEL_KEY.session,
+  requestResponseInformation: MQTT_GROUP_LABEL_KEY.session,
+  requestProblemInformation: MQTT_GROUP_LABEL_KEY.session,
   sslVerification: MQTT_GROUP_LABEL_KEY.tls,
   noLocal: 'workbench.editors.mqtt.topics.subscribeSettings',
   retainAsPublished: 'workbench.editors.mqtt.topics.subscribeSettings',

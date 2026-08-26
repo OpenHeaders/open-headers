@@ -85,6 +85,11 @@ export interface MqttDraft {
   keepAlive: number | undefined;
   receiveMaximum: number | undefined;
   maximumPacketSize: number | undefined;
+  topicAliasMaximum: number | undefined;
+  /** Concrete — absent on the entity reads as off (the spec default). */
+  requestResponseInformation: boolean;
+  /** Concrete — absent on the entity reads as on (the spec default). */
+  requestProblemInformation: boolean;
   timeoutMs: number | undefined;
   /** Concrete — absent on the entity reads as verify-on. */
   sslVerification: boolean;
@@ -112,6 +117,9 @@ export interface MqttRequestUpdates {
   keepAlive: number | undefined;
   receiveMaximum: number | undefined;
   maximumPacketSize: number | undefined;
+  topicAliasMaximum: number | undefined;
+  requestResponseInformation: boolean;
+  requestProblemInformation: boolean;
   timeoutMs: number | undefined;
   sslVerification: boolean;
 }
@@ -273,6 +281,9 @@ export function draftFromMqttRequest(req: MqttRequest): MqttDraft {
     keepAlive: req.keepAlive,
     receiveMaximum: req.receiveMaximum,
     maximumPacketSize: req.maximumPacketSize,
+    topicAliasMaximum: req.topicAliasMaximum,
+    requestResponseInformation: req.requestResponseInformation ?? false,
+    requestProblemInformation: req.requestProblemInformation ?? true,
     timeoutMs: req.timeoutMs,
     sslVerification: req.sslVerification ?? true,
   };
@@ -301,6 +312,9 @@ export function buildMqttRequestUpdates(draft: MqttDraft): MqttRequestUpdates {
     keepAlive: draft.keepAlive,
     receiveMaximum: draft.receiveMaximum,
     maximumPacketSize: draft.maximumPacketSize,
+    topicAliasMaximum: draft.topicAliasMaximum,
+    requestResponseInformation: draft.requestResponseInformation,
+    requestProblemInformation: draft.requestProblemInformation,
     timeoutMs: draft.timeoutMs,
     sslVerification: draft.sslVerification,
   };

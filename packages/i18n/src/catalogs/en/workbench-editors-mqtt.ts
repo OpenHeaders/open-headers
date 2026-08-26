@@ -168,7 +168,7 @@ export const workbenchEditorsMqtt = {
     'Start a fresh broker session on connect. Turn off to resume subscriptions and queued messages from a prior session — that also needs a stable Client ID.',
   'workbench.editors.mqtt.settings.sessionExpiryLabel': 'Session Expiry Interval',
   'workbench.editors.mqtt.settings.sessionExpiryHelp':
-    'How long the broker keeps the session after disconnect. With Clean Start on, it applies only if a later connect resumes the session.',
+    'How long the broker keeps the session after disconnect — 0 ends it at disconnect. Clean Start only discards the previous session at connect; the interval governs the new one either way.',
   'workbench.editors.mqtt.settings.zeroDefault': '0 s (default)',
   'workbench.editors.mqtt.settings.keepAliveLabel': 'Keep Alive',
   'workbench.editors.mqtt.settings.keepAliveHelp':
@@ -186,6 +186,17 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.settings.maxPacketSizeHelp':
     'Largest packet this client accepts — the broker drops bigger ones. Empty sets no limit.',
   'workbench.editors.mqtt.settings.noLimit': 'No limit (default)',
+  'workbench.editors.mqtt.settings.cleanSessionLabel': 'Clean Session',
+  'workbench.editors.mqtt.settings.topicAliasMaximumLabel': 'Topic Alias Maximum',
+  'workbench.editors.mqtt.settings.topicAliasMaximumHelp':
+    'How many topic aliases the broker may address this client with — aliased publishes carry a number instead of the topic. Empty allows none, the spec default.',
+  'workbench.editors.mqtt.settings.topicAliasMaximumPlaceholder': '0 (default)',
+  'workbench.editors.mqtt.settings.requestResponseInfoLabel': 'Request Response Information',
+  'workbench.editors.mqtt.settings.requestResponseInfoHelp':
+    'Ask the broker for Response Information on CONNACK — the base topic for request/response exchanges. Off by default.',
+  'workbench.editors.mqtt.settings.requestProblemInfoLabel': 'Request Problem Information',
+  'workbench.editors.mqtt.settings.requestProblemInfoHelp':
+    'Allow the broker to attach Reason Strings and user properties to failure packets. On by default.',
   'workbench.editors.mqtt.settings.sslVerifyLabel': 'SSL certificate verification',
   'workbench.editors.mqtt.settings.sslVerifyHelp':
     'Verify the broker certificate against the system roots for mqtts/wss sessions. Turn off for self-signed development brokers.',

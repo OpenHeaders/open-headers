@@ -173,6 +173,20 @@ describe('5.0 round-trips', () => {
     expect(reDecode(packet, V5)).toEqual(packet);
   });
 
+  it('round-trips an alias-only PUBLISH — the empty topic is legal beside a Topic Alias', () => {
+    const packet: MqttPacket = {
+      type: 'publish',
+      topic: '',
+      payload: new Uint8Array([1]),
+      qos: 0,
+      retain: false,
+      dup: false,
+      packetId: null,
+      properties: { topicAlias: 2 },
+    };
+    expect(reDecode(packet, V5)).toEqual(packet);
+  });
+
   it('round-trips a QoS 2 PUBLISH with the DUP flag', () => {
     const packet: MqttPacket = {
       type: 'publish',

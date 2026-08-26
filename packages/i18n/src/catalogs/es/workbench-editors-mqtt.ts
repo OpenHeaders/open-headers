@@ -174,7 +174,7 @@ export const workbenchEditorsMqtt = {
     'Iniciar una sesión de bróker nueva al conectar. Desactívalo para reanudar suscripciones y mensajes en cola de una sesión anterior; eso también necesita un Client ID estable.',
   'workbench.editors.mqtt.settings.sessionExpiryLabel': 'Session Expiry Interval',
   'workbench.editors.mqtt.settings.sessionExpiryHelp':
-    'Cuánto conserva el bróker la sesión tras la desconexión. Con Clean Start activado, solo aplica si una conexión posterior reanuda la sesión.',
+    'Cuánto conserva el bróker la sesión tras la desconexión; 0 la termina al desconectar. Clean Start solo descarta la sesión anterior al conectar; el intervalo rige la nueva en cualquier caso.',
   'workbench.editors.mqtt.settings.zeroDefault': '0 s (por defecto)',
   'workbench.editors.mqtt.settings.keepAliveLabel': 'Keep Alive',
   'workbench.editors.mqtt.settings.keepAliveHelp':
@@ -192,6 +192,17 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.settings.maxPacketSizeHelp':
     'Paquete más grande que acepta este cliente; el bróker descarta los mayores. Vacío no impone límite.',
   'workbench.editors.mqtt.settings.noLimit': 'Sin límite (por defecto)',
+  'workbench.editors.mqtt.settings.cleanSessionLabel': 'Clean Session',
+  'workbench.editors.mqtt.settings.topicAliasMaximumLabel': 'Topic Alias Maximum',
+  'workbench.editors.mqtt.settings.topicAliasMaximumHelp':
+    'Cuántos alias de topic puede usar el bróker hacia este cliente; las publicaciones con alias llevan un número en lugar del topic. Vacío no permite ninguno, el valor por defecto de la especificación.',
+  'workbench.editors.mqtt.settings.topicAliasMaximumPlaceholder': '0 (por defecto)',
+  'workbench.editors.mqtt.settings.requestResponseInfoLabel': 'Request Response Information',
+  'workbench.editors.mqtt.settings.requestResponseInfoHelp':
+    'Pedir al bróker una Response Information en CONNACK: el topic base de los intercambios petición/respuesta. Desactivado por defecto.',
+  'workbench.editors.mqtt.settings.requestProblemInfoLabel': 'Request Problem Information',
+  'workbench.editors.mqtt.settings.requestProblemInfoHelp':
+    'Permitir que el bróker adjunte Reason Strings y propiedades de usuario a los paquetes de fallo. Activado por defecto.',
   'workbench.editors.mqtt.settings.sslVerifyLabel': 'Verificación del certificado SSL',
   'workbench.editors.mqtt.settings.sslVerifyHelp':
     'Verificar el certificado del bróker contra las raíces del sistema en sesiones mqtts/wss. Desactívalo para brókers de desarrollo autofirmados.',

@@ -108,6 +108,9 @@ const emptyMqttDraft = (): MqttDraft => ({
   keepAlive: undefined,
   receiveMaximum: undefined,
   maximumPacketSize: undefined,
+  topicAliasMaximum: undefined,
+  requestResponseInformation: false,
+  requestProblemInformation: true,
   timeoutMs: undefined,
   sslVerification: true,
 });

@@ -26,8 +26,22 @@ const KnobRow: React.FC<{
   modified?: boolean;
   unsaved?: boolean;
   onReset?: () => void;
+  /** Disabled-honest: the knob stays visible with its value, inert. */
+  disabled?: boolean;
   testId?: string;
-}> = ({ label, checked, onChange, info, warning, warningWhenChecked, modified, unsaved, onReset, testId }) => {
+}> = ({
+  label,
+  checked,
+  onChange,
+  info,
+  warning,
+  warningWhenChecked,
+  modified,
+  unsaved,
+  onReset,
+  disabled,
+  testId,
+}) => {
   const t = useT();
   return (
     <div style={{ display: 'flex', flexDirection: 'column' }}>
@@ -42,11 +56,14 @@ const KnobRow: React.FC<{
           data-testid={testId}
           checked={checked}
           onChange={onChange}
+          disabled={disabled}
           checkedChildren={t('shared.settingsRows.enabled')}
           unCheckedChildren={t('shared.settingsRows.disabled')}
         />
         <ResetSlot>
-          {modified === true && onReset !== undefined && <RowReset label={label} onReset={onReset} />}
+          {modified === true && disabled !== true && onReset !== undefined && (
+            <RowReset label={label} onReset={onReset} />
+          )}
         </ResetSlot>
       </div>
       {checked === (warningWhenChecked ?? false) && warning !== undefined && (

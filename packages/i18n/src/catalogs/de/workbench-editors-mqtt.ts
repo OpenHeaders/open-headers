@@ -177,7 +177,7 @@ export const workbenchEditorsMqtt = {
     'Beim Verbinden eine frische Broker-Sitzung beginnen. Ausschalten setzt Abonnements und wartende Nachrichten einer früheren Sitzung fort — das braucht ebenfalls eine stabile Client ID.',
   'workbench.editors.mqtt.settings.sessionExpiryLabel': 'Session Expiry Interval',
   'workbench.editors.mqtt.settings.sessionExpiryHelp':
-    'Wie lange der Broker die Sitzung nach dem Trennen behält. Mit aktivem Clean Start greift es nur, wenn eine spätere Verbindung die Sitzung fortsetzt.',
+    'Wie lange der Broker die Sitzung nach dem Trennen behält — 0 beendet sie beim Trennen. Clean Start verwirft nur die vorige Sitzung beim Verbinden; das Intervall gilt für die neue in jedem Fall.',
   'workbench.editors.mqtt.settings.zeroDefault': '0 s (Standard)',
   'workbench.editors.mqtt.settings.keepAliveLabel': 'Keep Alive',
   'workbench.editors.mqtt.settings.keepAliveHelp':
@@ -195,6 +195,17 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.settings.maxPacketSizeHelp':
     'Größtes Paket, das dieser Client annimmt — größere verwirft der Broker. Leer setzt kein Limit.',
   'workbench.editors.mqtt.settings.noLimit': 'Kein Limit (Standard)',
+  'workbench.editors.mqtt.settings.cleanSessionLabel': 'Clean Session',
+  'workbench.editors.mqtt.settings.topicAliasMaximumLabel': 'Topic Alias Maximum',
+  'workbench.editors.mqtt.settings.topicAliasMaximumHelp':
+    'Wie viele Topic-Aliase der Broker gegenüber diesem Client verwenden darf — aliasierte Publishes tragen eine Nummer statt des Topics. Leer erlaubt keine, der Standard der Spezifikation.',
+  'workbench.editors.mqtt.settings.topicAliasMaximumPlaceholder': '0 (Standard)',
+  'workbench.editors.mqtt.settings.requestResponseInfoLabel': 'Request Response Information',
+  'workbench.editors.mqtt.settings.requestResponseInfoHelp':
+    'Den Broker um Response Information im CONNACK bitten — das Basis-Topic für Anfrage/Antwort-Austausch. Standardmäßig aus.',
+  'workbench.editors.mqtt.settings.requestProblemInfoLabel': 'Request Problem Information',
+  'workbench.editors.mqtt.settings.requestProblemInfoHelp':
+    'Dem Broker erlauben, Reason Strings und User Properties an Fehlerpakete anzuhängen. Standardmäßig an.',
   'workbench.editors.mqtt.settings.sslVerifyLabel': 'SSL-Zertifikatsprüfung',
   'workbench.editors.mqtt.settings.sslVerifyHelp':
     'Das Broker-Zertifikat für mqtts/wss-Sitzungen gegen die Systemwurzeln prüfen. Für selbstsignierte Entwicklungs-Broker ausschalten.',
