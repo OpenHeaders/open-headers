@@ -10,8 +10,14 @@
 import { PlusOutlined, SettingOutlined } from '@ant-design/icons';
 import { generateUid } from '@openheaders/core/utils';
 import { useT } from '@openheaders/ui/context/LocaleContext';
+import {
+  ComboKnob,
+  durationSecondsInterpreter,
+  formatDurationSeconds,
+  numericPresets,
+} from '@openheaders/ui/shared/combo-knob';
 import { InfoPopoverContainerProvider } from '@openheaders/ui/shared/info-popover';
-import { Badge, Button, ConfigProvider, Input, InputNumber, Popover, Switch, Tooltip, Typography, theme } from 'antd';
+import { Badge, Button, ConfigProvider, Input, Popover, Switch, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useRef, useState } from 'react';
 import type { MqttMessagePropertiesDraft } from './draft';
@@ -19,6 +25,10 @@ import { mqttSettingsRowInfo } from './MqttSettingsRowInfo';
 import OptionLabel from './OptionLabel';
 
 const { Text } = Typography;
+
+// Wire = whole seconds (§3.3.2.3.3); absent = the message never expires.
+const interpretMessageExpiry = durationSecondsInterpreter({ min: 0, max: 0xffff_ffff });
+const MESSAGE_EXPIRY_PRESETS = numericPresets([60, 300, 3_600, 86_400], formatDurationSeconds);
 
 /** The (i) popovers portal INSIDE this popover — portaled to body
  *  they would count as an outside click and close it. */
@@ -148,7 +158,7 @@ const MessagePropertiesPopover: React.FC<{
           theme={{
             components: {
               Input: { colorTextPlaceholder: token.colorText },
-              InputNumber: { colorTextPlaceholder: token.colorText },
+              Select: { colorTextPlaceholder: token.colorText },
             },
           }}
         >
@@ -190,15 +200,16 @@ const MessagePropertiesPopover: React.FC<{
               text={t('workbench.editors.mqtt.props.messageExpiry')}
               info={mqttSettingsRowInfo(t, 'messageExpiry')}
             />
-            <InputNumber
-              size="small"
-              min={0}
-              max={0xffff_ffff}
+            <ComboKnob
               value={value.messageExpiryInterval}
-              disabled={!v5}
-              onChange={(next) => set({ messageExpiryInterval: next ?? undefined })}
+              onChange={(messageExpiryInterval) => set({ messageExpiryInterval })}
+              presets={MESSAGE_EXPIRY_PRESETS}
+              interpret={interpretMessageExpiry}
+              format={formatDurationSeconds}
               placeholder={t('workbench.editors.mqtt.props.messageExpiryPlaceholder')}
-              style={{ width: 120 }}
+              disabled={!v5}
+              ariaLabel={t('workbench.editors.mqtt.props.messageExpiry')}
+              style={{ width: 130 }}
             />
             <OptionLabel
               text={t('workbench.editors.mqtt.props.contentType')}
