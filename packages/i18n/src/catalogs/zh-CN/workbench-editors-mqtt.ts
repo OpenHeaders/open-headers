@@ -128,7 +128,8 @@ export const workbenchEditorsMqtt = {
     '随 CONNECT 向代理注册；若会话在没有干净断开的情况下中断，代理会代为发布。主题为空表示没有遗嘱。',
   'workbench.editors.mqtt.will.topicPlaceholder': '遗嘱主题，例如 clients/reporter/status',
   'workbench.editors.mqtt.will.delayHelp': 'Will Delay Interval，秒——MQTT 5.0。',
-  'workbench.editors.mqtt.will.delayPlaceholder': '延迟（秒）',
+  'workbench.editors.mqtt.will.delayLabel': '遗嘱延迟',
+  'workbench.editors.mqtt.will.delayPlaceholder': '0 s（默认）',
   'workbench.editors.mqtt.will.payloadPlaceholder': '编写遗嘱载荷…',
   'workbench.editors.mqtt.spec.selectLabel': 'AsyncAPI 规范',
   'workbench.editors.mqtt.spec.selectPlaceholder': '关联一个 AsyncAPI 规范',
@@ -163,7 +164,8 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.settings.timeoutHelp': '仅限连接拨号的墙钟上限——已打开的会话没有上限。留空不设置建立时限。',
   'workbench.editors.mqtt.settings.timeoutPlaceholder': '无限制',
   'workbench.editors.mqtt.settings.receiveMaximumLabel': 'Receive Maximum',
-  'workbench.editors.mqtt.settings.receiveMaximumHelp': '同时向此客户端在途的 QoS 1/2 消息数量上限。留空采用规范默认值 65535。',
+  'workbench.editors.mqtt.settings.receiveMaximumHelp':
+    '同时向此客户端在途的 QoS 1/2 消息数量上限。留空采用规范默认值 65535。',
   'workbench.editors.mqtt.settings.receiveMaximumPlaceholder': '65535（默认）',
   'workbench.editors.mqtt.settings.maxPacketSizeLabel': 'Maximum Packet Size',
   'workbench.editors.mqtt.settings.maxPacketSizeHelp':
