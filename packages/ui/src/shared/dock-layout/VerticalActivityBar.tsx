@@ -60,7 +60,8 @@ function FocusAwareStrip<T extends string>({
  * - If a dock is closed (`active === null`), there is no dock-body element
  *   in the DOM; the corresponding subslot carries `--empty` (which flips
  *   to `flex: 0 0 auto` in CSS) and no grow weight is written.
- * - Runs on a rAF to coalesce multiple RO callbacks during a drag.
+ * - Writes synchronously inside the RO delivery (pre-paint) so the mirror
+ *   never trails the docks by a frame.
  */
 function useDynamicActivityMirror(
   enabled: boolean,
@@ -110,9 +111,7 @@ function useDynamicActivityMirror(
       return;
     }
 
-    let raf = 0;
     const sync = () => {
-      raf = 0;
       // Only pin exact subslot heights when BOTH side-panes are live.
       // If one side is empty (active === null), the CSS empty-migration
       // (flex: 0 0 auto on the live subslot via :has) keeps both
@@ -173,13 +172,16 @@ function useDynamicActivityMirror(
       }
     };
 
-    const schedule = () => {
-      if (raf) return;
-      raf = requestAnimationFrame(sync);
-    };
-
     sync();
-    const ro = new ResizeObserver(schedule);
+    // sync runs directly in the observer callback — deliveries land
+    // before paint, so the mirrored heights update in the SAME frame as
+    // the pane change. A rAF deferral here pushed the writes to the next
+    // frame (the current frame's rAF callbacks have already run when RO
+    // delivers), which made the rail icons trail the docks by one frame
+    // during a window resize. The observer batches all observed elements
+    // into one delivery, and none of sync's writes resize an observed
+    // element, so there's no notification loop.
+    const ro = new ResizeObserver(sync);
     if (topDock) ro.observe(topDock);
     if (bottomDock) ro.observe(bottomDock);
     if (sideRegion) ro.observe(sideRegion);
@@ -189,7 +191,6 @@ function useDynamicActivityMirror(
 
     return () => {
       ro.disconnect();
-      if (raf) cancelAnimationFrame(raf);
       clear();
     };
   }, [enabled, side, barRef, activeSignal]);

@@ -178,21 +178,38 @@ function ShellLayoutInner<T extends string>({
 
   const shellRef = useRef<HTMLDivElement>(null);
   useNativeDragGuard(shellRef);
-  const [shellSize, setShellSize] = useState<{ width: number; height: number }>({ width: 0, height: 0 });
+  // The live shell size lives in a ref, NOT state. The observer fires on
+  // every tick of a window resize, and a state mirror re-rendered the
+  // entire shell per tick — render props included, so every keep-alive
+  // editor tab body — saturating the main thread until frames dropped
+  // and the fixed-px rails visibly juddered against the moving window
+  // edge (same law as the sash-drag handlers above). Nothing consumes
+  // the size as a render trigger: Allotment captures defaultSizes at
+  // mount, so only renders that REMOUNT a tree (alignment toggles) read
+  // it, and those renders are triggered by their own state changes and
+  // pick up the current ref value then. The one-shot `shellMeasured`
+  // flip below is the only measurement-driven render.
+  const shellSizeRef = useRef<{ width: number; height: number }>({ width: 0, height: 0 });
+  const [shellMeasured, setShellMeasured] = useState(false);
   // Measured live from the DOM — left and right rails can be sized
   // independently (per-rail user setting in labeled mode), so we
   // track each width separately. The drop-zone overlay math below
   // reads these to position the dock-half rectangles flush with the
   // real bar edges, no matter what the user has resized them to.
   const [barWidths, setBarWidths] = useState<{ left: number; right: number }>({ left: 64, right: 64 });
-  const shellMeasured = shellSize.height > 0 && shellSize.width > 0;
 
   useLayoutEffect(() => {
     const el = shellRef.current;
     if (!el) return;
+    let measured = false;
     const ro = new ResizeObserver((entries) => {
       const r = entries[0]?.contentRect;
-      if (r) setShellSize({ width: r.width, height: r.height });
+      if (!r) return;
+      shellSizeRef.current = { width: r.width, height: r.height };
+      if (!measured && r.width > 0 && r.height > 0) {
+        measured = true;
+        setShellMeasured(true);
+      }
     });
     ro.observe(el);
     return () => ro.disconnect();
@@ -329,32 +346,33 @@ function ShellLayoutInner<T extends string>({
   // the shell has been measured (`shellMeasured` below) — one
   // pre-paint frame on the very first render, and already live by the
   // time any alignment toggle remounts a keyed variant.
+  const { width: shellWidth, height: shellHeight } = shellSizeRef.current;
   const verticalDefaults: [number, number] = [
-    Math.max(0, shellSize.height - sizes.bottom.preferred),
+    Math.max(0, shellHeight - sizes.bottom.preferred),
     sizes.bottom.preferred,
   ];
   const innerHorizDefaults: [number, number, number] = [
     sizes.sidebar.preferred,
     Math.max(
       sizes.editorMin,
-      shellSize.width - sizes.sidebar.preferred - sizes.inspector.preferred - 2 * BAR_LABELED_MIN,
+      shellWidth - sizes.sidebar.preferred - sizes.inspector.preferred - 2 * BAR_LABELED_MIN,
     ),
     sizes.inspector.preferred,
   ];
   const leftAlignOuterDefaults: [number, number] = [
-    Math.max(sizes.editorMin, shellSize.width - sizes.inspector.preferred - 2 * BAR_LABELED_MIN),
+    Math.max(sizes.editorMin, shellWidth - sizes.inspector.preferred - 2 * BAR_LABELED_MIN),
     sizes.inspector.preferred,
   ];
   const leftAlignInnerHorizDefaults: [number, number] = [
     sizes.sidebar.preferred,
-    Math.max(sizes.editorMin, shellSize.width - sizes.sidebar.preferred - sizes.inspector.preferred),
+    Math.max(sizes.editorMin, shellWidth - sizes.sidebar.preferred - sizes.inspector.preferred),
   ];
   const rightAlignOuterDefaults: [number, number] = [
     sizes.sidebar.preferred,
-    Math.max(sizes.editorMin, shellSize.width - sizes.sidebar.preferred - 2 * BAR_LABELED_MIN),
+    Math.max(sizes.editorMin, shellWidth - sizes.sidebar.preferred - 2 * BAR_LABELED_MIN),
   ];
   const rightAlignInnerHorizDefaults: [number, number] = [
-    Math.max(sizes.editorMin, shellSize.width - sizes.sidebar.preferred - sizes.inspector.preferred),
+    Math.max(sizes.editorMin, shellWidth - sizes.sidebar.preferred - sizes.inspector.preferred),
     sizes.inspector.preferred,
   ];
 
@@ -543,10 +561,21 @@ function ShellLayoutInner<T extends string>({
     );
   }
 
+  // Computed when a drag starts, against the shell size at that moment —
+  // matching the DndContext measuring strategy below, which also freezes
+  // droppable rects at drag start.
   const dropZoneRects = useMemo<Record<DockSlot, DropZoneRect> | null>(
     () =>
-      dragging ? computeDropZoneRects({ shellSize, sizes, bottomPanelAlignment, bottomPanelSplit, barWidths }) : null,
-    [dragging, shellSize, sizes, bottomPanelAlignment, bottomPanelSplit, barWidths.left, barWidths.right],
+      dragging
+        ? computeDropZoneRects({
+            shellSize: shellSizeRef.current,
+            sizes,
+            bottomPanelAlignment,
+            bottomPanelSplit,
+            barWidths,
+          })
+        : null,
+    [dragging, sizes, bottomPanelAlignment, bottomPanelSplit, barWidths],
   );
 
   const { barMin, barMax, leftBarPreferred, rightBarPreferred, barsAllotmentRef, barsRowRef, handleBarsReset } =
