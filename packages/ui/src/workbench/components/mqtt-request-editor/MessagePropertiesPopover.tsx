@@ -13,7 +13,7 @@ import { useT } from '@openheaders/ui/context/LocaleContext';
 import { InfoPopoverContainerProvider } from '@openheaders/ui/shared/info-popover';
 import { Badge, Button, Input, InputNumber, Popover, Switch, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import type { MqttMessagePropertiesDraft } from './draft';
 import { mqttSettingsRowInfo } from './MqttSettingsRowInfo';
 import OptionLabel from './OptionLabel';
@@ -34,6 +34,7 @@ const MessagePropertiesPopover: React.FC<{
   const { token } = theme.useToken();
   const t = useT();
   const [open, setOpen] = useState(false);
+  const userPropsRef = useRef<HTMLDivElement | null>(null);
   const configured =
     value.userProperties.some((row) => row.key.trim() !== '') ||
     value.responseTopic !== '' ||
@@ -64,48 +65,62 @@ const MessagePropertiesPopover: React.FC<{
           text={t('workbench.editors.mqtt.props.sectionProperties')}
           info={mqttSettingsRowInfo(t, 'publishProperties')}
         />
-        {value.userProperties.map((row, index) => (
-          <div key={row.uid} style={{ display: 'flex', gap: 4 }}>
-            <Input
-              size="small"
-              placeholder={t('workbench.editors.mqtt.props.userPropKey')}
-              value={row.key}
-              disabled={!v5}
-              onChange={(e) => {
-                const next = [...value.userProperties];
-                next[index] = { ...row, key: e.target.value };
-                set({ userProperties: next });
-              }}
-            />
-            <Input
-              size="small"
-              placeholder={t('workbench.editors.mqtt.props.userPropValue')}
-              value={row.value}
-              disabled={!v5}
-              onChange={(e) => {
-                const next = [...value.userProperties];
-                next[index] = { ...row, value: e.target.value };
-                set({ userProperties: next });
-              }}
-            />
-            <Button
-              size="small"
-              type="text"
-              disabled={!v5}
-              aria-label={t('workbench.editors.mqtt.props.removeUserProp')}
-              onClick={() => set({ userProperties: value.userProperties.filter((r) => r.uid !== row.uid) })}
-            >
-              ×
-            </Button>
+        {/* The list caps its height and scrolls instead of growing the
+          popover row by row. */}
+        {value.userProperties.length > 0 && (
+          <div
+            ref={userPropsRef}
+            style={{ display: 'flex', flexDirection: 'column', gap: 4, maxHeight: 140, overflowY: 'auto' }}
+          >
+            {value.userProperties.map((row, index) => (
+              <div key={row.uid} style={{ display: 'flex', gap: 4 }}>
+                <Input
+                  size="small"
+                  placeholder={t('workbench.editors.mqtt.props.userPropKey')}
+                  value={row.key}
+                  disabled={!v5}
+                  onChange={(e) => {
+                    const next = [...value.userProperties];
+                    next[index] = { ...row, key: e.target.value };
+                    set({ userProperties: next });
+                  }}
+                />
+                <Input
+                  size="small"
+                  placeholder={t('workbench.editors.mqtt.props.userPropValue')}
+                  value={row.value}
+                  disabled={!v5}
+                  onChange={(e) => {
+                    const next = [...value.userProperties];
+                    next[index] = { ...row, value: e.target.value };
+                    set({ userProperties: next });
+                  }}
+                />
+                <Button
+                  size="small"
+                  type="text"
+                  disabled={!v5}
+                  aria-label={t('workbench.editors.mqtt.props.removeUserProp')}
+                  onClick={() => set({ userProperties: value.userProperties.filter((r) => r.uid !== row.uid) })}
+                >
+                  ×
+                </Button>
+              </div>
+            ))}
           </div>
-        ))}
+        )}
         <Button
           size="small"
           type="dashed"
           icon={<PlusOutlined style={{ fontSize: 10 }} />}
           disabled={!v5}
           style={{ fontSize: 11, alignSelf: 'flex-start' }}
-          onClick={() => set({ userProperties: [...value.userProperties, { uid: generateUid(), key: '', value: '' }] })}
+          onClick={() => {
+            set({ userProperties: [...value.userProperties, { uid: generateUid(), key: '', value: '' }] });
+            requestAnimationFrame(() => {
+              userPropsRef.current?.scrollTo({ top: userPropsRef.current.scrollHeight });
+            });
+          }}
           data-testid={`${testId}-add-user-prop`}
         >
           {t('workbench.editors.mqtt.props.addUserProp')}
