@@ -51,7 +51,7 @@ registerSetting({
   labelKey: 'workbench.settings.def.workspaceLayout.footerShowVersion.label',
   descriptionKey: 'workbench.settings.def.workspaceLayout.footerShowVersion.description',
   category: 'workspaceLayout',
-  subcategory: 'Footer',
+  subcategory: 'footer',
   tags: ['statusbar', 'footer', 'version'],
   scope: 'user',
 });
@@ -64,7 +64,7 @@ registerSetting({
   labelKey: 'workbench.settings.def.workspaceLayout.footerShowThemeSwitcher.label',
   descriptionKey: 'workbench.settings.def.workspaceLayout.footerShowThemeSwitcher.description',
   category: 'workspaceLayout',
-  subcategory: 'Footer',
+  subcategory: 'footer',
   tags: ['statusbar', 'footer', 'theme', 'dark mode'],
   scope: 'user',
 });
@@ -77,7 +77,7 @@ registerSetting({
   labelKey: 'workbench.settings.def.workspaceLayout.topbarShowPanelToggles.label',
   descriptionKey: 'workbench.settings.def.workspaceLayout.topbarShowPanelToggles.description',
   category: 'workspaceLayout',
-  subcategory: 'Top Bar',
+  subcategory: 'topbar',
   tags: ['topbar', 'panels', 'toggle'],
   scope: 'user',
 });
@@ -90,7 +90,7 @@ registerSetting({
   labelKey: 'workbench.settings.def.workspaceLayout.topbarShowLayoutMenu.label',
   descriptionKey: 'workbench.settings.def.workspaceLayout.topbarShowLayoutMenu.description',
   category: 'workspaceLayout',
-  subcategory: 'Top Bar',
+  subcategory: 'topbar',
   tags: ['topbar', 'layout', 'menu'],
   scope: 'user',
 });
@@ -109,7 +109,7 @@ registerSetting({
   labelKey: 'workbench.settings.def.workspaceLayout.bottomPanelAlignment.label',
   descriptionKey: 'workbench.settings.def.workspaceLayout.bottomPanelAlignment.description',
   category: 'workspaceLayout',
-  subcategory: 'Shell',
+  subcategory: 'shell',
   tags: ['bottom', 'panel', 'layout', 'align', 'wide'],
   scope: 'user',
   enumOptions: [
@@ -144,7 +144,7 @@ registerSetting({
   labelKey: 'workbench.settings.def.workspaceLayout.bottomPanelSplit.label',
   descriptionKey: 'workbench.settings.def.workspaceLayout.bottomPanelSplit.description',
   category: 'workspaceLayout',
-  subcategory: 'Shell',
+  subcategory: 'shell',
   tags: ['bottom', 'panel', 'layout', 'split', 'stack', 'rows', 'columns'],
   scope: 'user',
   enumOptions: [
@@ -169,7 +169,7 @@ registerSetting({
   labelKey: 'workbench.settings.def.workspaceLayout.showToolWindowLabels.label',
   descriptionKey: 'workbench.settings.def.workspaceLayout.showToolWindowLabels.description',
   category: 'workspaceLayout',
-  subcategory: 'Shell',
+  subcategory: 'shell',
   tags: ['activity bar', 'tool window', 'labels', 'compact'],
   scope: 'user',
 });
@@ -182,7 +182,7 @@ registerSetting({
   labelKey: 'workbench.settings.def.workspaceLayout.activityBarWidthLeft.label',
   descriptionKey: 'workbench.settings.def.workspaceLayout.activityBarWidthLeft.description',
   category: 'workspaceLayout',
-  subcategory: 'Shell',
+  subcategory: 'shell',
   tags: ['activity bar', 'sidebar', 'width', 'left'],
   scope: 'user',
 });
@@ -195,7 +195,7 @@ registerSetting({
   labelKey: 'workbench.settings.def.workspaceLayout.activityBarWidthRight.label',
   descriptionKey: 'workbench.settings.def.workspaceLayout.activityBarWidthRight.description',
   category: 'workspaceLayout',
-  subcategory: 'Shell',
+  subcategory: 'shell',
   tags: ['activity bar', 'sidebar', 'width', 'right'],
   scope: 'user',
 });
@@ -208,7 +208,7 @@ registerSetting({
   labelKey: 'workbench.settings.def.workspaceLayout.sidebarLayout.label',
   descriptionKey: 'workbench.settings.def.workspaceLayout.sidebarLayout.description',
   category: 'workspaceLayout',
-  subcategory: 'Shell',
+  subcategory: 'shell',
   tags: ['sidebar', 'activity bar', 'split', 'layout'],
   scope: 'user',
   enumOptions: [

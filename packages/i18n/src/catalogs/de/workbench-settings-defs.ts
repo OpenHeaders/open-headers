@@ -340,17 +340,16 @@ export const workbenchSettingsDefs = {
     'Hochkontrast- und getönte Varianten legen ihren eigenen Akzent fest.',
 
   // ── Workspace Layout category defs ─────────────────────────────────
-  'workbench.settings.def.workspaceLayout.footerShowVersion.label': 'Version in der Fußzeile anzeigen',
+  'workbench.settings.def.workspaceLayout.footerShowVersion.label': 'Version anzeigen',
   'workbench.settings.def.workspaceLayout.footerShowVersion.description':
     'Zeigt die Versionsnummer der Erweiterung in der Statusleiste des Arbeitsbereichs.',
-  'workbench.settings.def.workspaceLayout.footerShowThemeSwitcher.label': 'Theme-Umschalter in der Fußzeile anzeigen',
+  'workbench.settings.def.workspaceLayout.footerShowThemeSwitcher.label': 'Theme-Umschalter anzeigen',
   'workbench.settings.def.workspaceLayout.footerShowThemeSwitcher.description':
     'Zeigt das Dropdown für das helle/dunkle/automatische Theme in der Statusleiste des Arbeitsbereichs.',
-  'workbench.settings.def.workspaceLayout.topbarShowPanelToggles.label':
-    'Panel-Umschalter in der oberen Leiste anzeigen',
+  'workbench.settings.def.workspaceLayout.topbarShowPanelToggles.label': 'Panel-Umschalter anzeigen',
   'workbench.settings.def.workspaceLayout.topbarShowPanelToggles.description':
     'Zeigt die Umschalt-Icons für das linke / untere / rechte Panel in der oberen Leiste des ' + 'Arbeitsbereichs.',
-  'workbench.settings.def.workspaceLayout.topbarShowLayoutMenu.label': 'Layout-Menü in der oberen Leiste anzeigen',
+  'workbench.settings.def.workspaceLayout.topbarShowLayoutMenu.label': 'Layout-Menü anzeigen',
   'workbench.settings.def.workspaceLayout.topbarShowLayoutMenu.description':
     'Zeigt das Layout-Dropdown (unteres Panel in voller Breite, Werkzeugfenster-Namen, Layout der ' +
     'Aktivitätsleiste) in der oberen Leiste des Arbeitsbereichs.',

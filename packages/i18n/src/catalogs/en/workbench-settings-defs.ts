@@ -275,16 +275,16 @@ export const workbenchSettingsDefs = {
     'The primary color used for buttons, links, and active highlights. Applies only to the Default theme variants — high-contrast and tinted variants pin their own accent.',
 
   // ── Workspace Layout category defs ─────────────────────────────────
-  'workbench.settings.def.workspaceLayout.footerShowVersion.label': 'Show Version in Footer',
+  'workbench.settings.def.workspaceLayout.footerShowVersion.label': 'Show Version',
   'workbench.settings.def.workspaceLayout.footerShowVersion.description':
     'Display the extension version number in the workspace status bar.',
-  'workbench.settings.def.workspaceLayout.footerShowThemeSwitcher.label': 'Show Theme Switcher in Footer',
+  'workbench.settings.def.workspaceLayout.footerShowThemeSwitcher.label': 'Show Theme Switcher',
   'workbench.settings.def.workspaceLayout.footerShowThemeSwitcher.description':
     'Display the light/dark/auto theme dropdown in the workspace status bar.',
-  'workbench.settings.def.workspaceLayout.topbarShowPanelToggles.label': 'Show Panel Toggles in Top Bar',
+  'workbench.settings.def.workspaceLayout.topbarShowPanelToggles.label': 'Show Panel Toggles',
   'workbench.settings.def.workspaceLayout.topbarShowPanelToggles.description':
     'Display the left / bottom / right panel toggle icons in the workspace top bar.',
-  'workbench.settings.def.workspaceLayout.topbarShowLayoutMenu.label': 'Show Layout Menu in Top Bar',
+  'workbench.settings.def.workspaceLayout.topbarShowLayoutMenu.label': 'Show Layout Menu',
   'workbench.settings.def.workspaceLayout.topbarShowLayoutMenu.description':
     'Display the layout dropdown (bottom full-width, tool-window labels, sidebar layout) in the workspace top bar.',
   'workbench.settings.def.workspaceLayout.bottomPanelAlignment.label': 'Bottom Panel Alignment',

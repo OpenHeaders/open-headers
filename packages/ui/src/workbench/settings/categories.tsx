@@ -101,6 +101,11 @@ registerCategory({
   icon: <LayoutOutlined />,
   order: 15,
   descriptionKey: 'workbench.settings.category.workspaceLayout.description',
+  subcategories: [
+    { id: 'shell', labelKey: 'workbench.settings.category.workspaceLayout.sub.shell', order: 10 },
+    { id: 'topbar', labelKey: 'workbench.settings.category.workspaceLayout.sub.topbar', order: 20 },
+    { id: 'footer', labelKey: 'workbench.settings.category.workspaceLayout.sub.footer', order: 30 },
+  ],
 });
 
 registerCategory({

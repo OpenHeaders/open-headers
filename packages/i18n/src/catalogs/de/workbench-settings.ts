@@ -93,6 +93,9 @@ export const workbenchSettings = {
   'workbench.settings.category.workspaceLayout.label': 'Arbeitsbereich-Layout',
   'workbench.settings.category.workspaceLayout.description':
     'Affordances der Fußzeile und Shell-Verhalten der Werkzeugfenster.',
+  'workbench.settings.category.workspaceLayout.sub.shell': 'Shell',
+  'workbench.settings.category.workspaceLayout.sub.topbar': 'Obere Leiste',
+  'workbench.settings.category.workspaceLayout.sub.footer': 'Fußzeile',
   'workbench.settings.category.terminal.label': 'Terminal',
   'workbench.settings.category.terminal.description': 'Verhalten des integrierten Werkzeugfensters Terminal.',
   'workbench.settings.category.terminal.sub.shell': 'Shell',

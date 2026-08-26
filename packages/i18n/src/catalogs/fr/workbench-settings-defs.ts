@@ -347,20 +347,17 @@ export const workbenchSettingsDefs = {
     'défaut — les variantes à contraste élevé et teintées fixent leur propre accent.',
 
   // ── Workspace Layout category defs ─────────────────────────────────
-  'workbench.settings.def.workspaceLayout.footerShowVersion.label': 'Afficher la version dans le pied de page',
+  'workbench.settings.def.workspaceLayout.footerShowVersion.label': 'Afficher la version',
   'workbench.settings.def.workspaceLayout.footerShowVersion.description':
     "Affiche le numéro de version de l'extension dans la barre d'état de l'espace de travail.",
-  'workbench.settings.def.workspaceLayout.footerShowThemeSwitcher.label':
-    'Afficher le sélecteur de thème dans le pied de page',
+  'workbench.settings.def.workspaceLayout.footerShowThemeSwitcher.label': 'Afficher le sélecteur de thème',
   'workbench.settings.def.workspaceLayout.footerShowThemeSwitcher.description':
     "Affiche le menu de thème clair/sombre/auto dans la barre d'état de l'espace de travail.",
-  'workbench.settings.def.workspaceLayout.topbarShowPanelToggles.label':
-    'Afficher les boutons de panneaux dans la barre supérieure',
+  'workbench.settings.def.workspaceLayout.topbarShowPanelToggles.label': 'Afficher les boutons de panneaux',
   'workbench.settings.def.workspaceLayout.topbarShowPanelToggles.description':
     'Affiche les icônes de bascule des panneaux gauche / inférieur / droit dans la barre supérieure de ' +
     "l'espace de travail.",
-  'workbench.settings.def.workspaceLayout.topbarShowLayoutMenu.label':
-    'Afficher le menu de disposition dans la barre supérieure',
+  'workbench.settings.def.workspaceLayout.topbarShowLayoutMenu.label': 'Afficher le menu de disposition',
   'workbench.settings.def.workspaceLayout.topbarShowLayoutMenu.description':
     "Affiche le menu de disposition (panneau inférieur pleine largeur, noms des fenêtres d'outils, " +
     "disposition de la barre d'activité) dans la barre supérieure de l'espace de travail.",

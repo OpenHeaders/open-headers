@@ -90,6 +90,9 @@ export const workbenchSettings = {
   'workbench.settings.category.workspaceLayout.label': "Disposition de l'espace de travail",
   'workbench.settings.category.workspaceLayout.description':
     "Affordances du pied de page et comportement du shell des fenêtres d'outils.",
+  'workbench.settings.category.workspaceLayout.sub.shell': 'Shell',
+  'workbench.settings.category.workspaceLayout.sub.topbar': 'Barre supérieure',
+  'workbench.settings.category.workspaceLayout.sub.footer': 'Pied de page',
   'workbench.settings.category.terminal.label': 'Terminal',
   'workbench.settings.category.terminal.description': "Comportement de la fenêtre d'outils Terminal intégrée.",
   'workbench.settings.category.terminal.sub.shell': 'Shell',

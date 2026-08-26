@@ -264,15 +264,15 @@ export const workbenchSettingsDefs = {
     '用于按钮、链接和活动高亮的主色。仅适用于默认主题变体——高对比度和着色变体固定自己的强调色。',
 
   // ── Workspace Layout category defs ─────────────────────────────────
-  'workbench.settings.def.workspaceLayout.footerShowVersion.label': '在底栏显示版本',
+  'workbench.settings.def.workspaceLayout.footerShowVersion.label': '显示版本',
   'workbench.settings.def.workspaceLayout.footerShowVersion.description': '在工作区的底栏显示扩展的版本号。',
-  'workbench.settings.def.workspaceLayout.footerShowThemeSwitcher.label': '在底栏显示主题切换器',
+  'workbench.settings.def.workspaceLayout.footerShowThemeSwitcher.label': '显示主题切换器',
   'workbench.settings.def.workspaceLayout.footerShowThemeSwitcher.description':
     '在工作区的底栏显示浅色/深色/自动主题下拉菜单。',
-  'workbench.settings.def.workspaceLayout.topbarShowPanelToggles.label': '在顶栏显示面板开关',
+  'workbench.settings.def.workspaceLayout.topbarShowPanelToggles.label': '显示面板开关',
   'workbench.settings.def.workspaceLayout.topbarShowPanelToggles.description':
     '在工作区的顶栏显示左侧/底部/右侧面板的启停图标。',
-  'workbench.settings.def.workspaceLayout.topbarShowLayoutMenu.label': '在顶栏显示布局菜单',
+  'workbench.settings.def.workspaceLayout.topbarShowLayoutMenu.label': '显示布局菜单',
   'workbench.settings.def.workspaceLayout.topbarShowLayoutMenu.description':
     '在工作区的顶栏显示布局下拉菜单（底部全宽、工具窗口名称、活动栏布局）。',
   'workbench.settings.def.workspaceLayout.bottomPanelAlignment.label': '底部面板对齐',
