@@ -151,7 +151,8 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.userProps.valuePlaceholder': 'Valor',
   'workbench.editors.mqtt.will.hint':
     'Se registra en el bróker con CONNECT y se publica por ti si la sesión cae sin una desconexión limpia. Un tema vacío significa sin testamento.',
-  'workbench.editors.mqtt.will.topicPlaceholder': 'Tema del testamento, p. ej. clients/reporter/status',
+  'workbench.editors.mqtt.will.topicPlaceholder': 'Tema del testamento',
+  'workbench.editors.mqtt.will.topicExample': 'p. ej. clients/reporter/status',
   'workbench.editors.mqtt.will.delayHelp': 'Will Delay Interval, en segundos — MQTT 5.0.',
   'workbench.editors.mqtt.will.delayLabel': 'Retraso del testamento',
   'workbench.editors.mqtt.will.delayPlaceholder': '0 s (por defecto)',

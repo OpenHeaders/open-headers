@@ -73,7 +73,7 @@ const MqttLastWillTab: React.FC<MqttLastWillTabProps> = ({ draft, setDraft, v5 }
           />
         </div>
       </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
         <Select
           size="small"
           style={{ width: 120 }}
@@ -94,7 +94,7 @@ const MqttLastWillTab: React.FC<MqttLastWillTabProps> = ({ draft, setDraft, v5 }
           v5={v5}
           testId="mqtt-will-props"
         />
-        <Text type="secondary" style={{ fontSize: 12, whiteSpace: 'nowrap' }}>
+        <Text type="secondary" style={{ fontSize: 12, whiteSpace: 'nowrap', lineHeight: '24px' }}>
           {t('workbench.editors.mqtt.will.delayLabel')}
         </Text>
         <Tooltip title={v5 ? undefined : t('workbench.editors.mqtt.will.delayHelp')}>
@@ -119,7 +119,7 @@ const MqttLastWillTab: React.FC<MqttLastWillTabProps> = ({ draft, setDraft, v5 }
         >
           {t('workbench.editors.mqtt.retainLabel')}
         </Checkbox>
-        <Text type="secondary" style={{ fontSize: 12, whiteSpace: 'nowrap' }}>
+        <Text type="secondary" style={{ fontSize: 12, whiteSpace: 'nowrap', lineHeight: '24px' }}>
           {t('workbench.editors.mqtt.qos.compactLabel')}
         </Text>
         <Select
@@ -144,14 +144,21 @@ const MqttLastWillTab: React.FC<MqttLastWillTabProps> = ({ draft, setDraft, v5 }
           )}
           data-testid="mqtt-will-qos"
         />
-        <Input
-          size="small"
-          style={{ width: 360, fontFamily: "'SF Mono', monospace", fontSize: 12 }}
-          placeholder={t('workbench.editors.mqtt.will.topicPlaceholder')}
-          value={draft.lastWill.topic}
-          onChange={(e) => setDraft((d) => ({ ...d, lastWill: { ...d.lastWill, topic: e.target.value } }))}
-          data-testid="mqtt-will-topic"
-        />
+        {/* Statement placeholder + the muted example below — the
+          settings-row TextKnob discipline. */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 2, width: 200 }}>
+          <Input
+            size="small"
+            style={{ fontFamily: "'SF Mono', monospace", fontSize: 12 }}
+            placeholder={t('workbench.editors.mqtt.will.topicPlaceholder')}
+            value={draft.lastWill.topic}
+            onChange={(e) => setDraft((d) => ({ ...d, lastWill: { ...d.lastWill, topic: e.target.value } }))}
+            data-testid="mqtt-will-topic"
+          />
+          <Text type="secondary" style={{ fontSize: 11 }}>
+            {t('workbench.editors.mqtt.will.topicExample')}
+          </Text>
+        </div>
       </div>
       {encodingError !== null && (
         <Text type="danger" style={{ fontSize: 11 }} data-testid="mqtt-will-encoding-error">
