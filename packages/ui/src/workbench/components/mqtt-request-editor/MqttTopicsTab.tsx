@@ -10,7 +10,7 @@
  * QoS knob, Subscribe, Description.
  */
 
-import { MoreOutlined, PlusOutlined } from '@ant-design/icons';
+import { PlusOutlined, SettingOutlined } from '@ant-design/icons';
 import { topicFilterError } from '@openheaders/core/mqtt';
 import type { MqttRequestQos, MqttRetainHandling, MqttTopicRow } from '@openheaders/core/types';
 import { generateUid } from '@openheaders/core/utils';
@@ -191,18 +191,24 @@ const MqttTopicsTab: React.FC<MqttTopicsTabProps> = ({ rows, onChange, v5, sessi
         )}
         auxColumns={[
           {
-            // The ⋯ subscription-options slot — its own track riding
-            // the Topic column (blank header, persistent hairline on
-            // its left edge so the track reads as a column even before
-            // any row hover). The ghost row keeps the dimmed disabled
-            // dots so the column reads as a column before any row is
-            // minted.
+            // The subscription-options slot — its own labeled track
+            // riding the Topic column, persistent hairline on its left
+            // edge. The ghost row keeps the dimmed disabled gear so
+            // the column reads as a column before any row is minted.
+            label: t('workbench.editors.mqtt.topics.optionsColLabel'),
             position: 'after-key',
-            width: '28px',
+            width: '76px',
             divider: true,
             render: (row, update, ctx) =>
               ctx.isPlaceholder ? (
-                <Button size="small" type="text" icon={<MoreOutlined />} disabled data-testid="mqtt-topic-options" />
+                <Button
+                  size="small"
+                  type="text"
+                  icon={<SettingOutlined />}
+                  disabled
+                  style={{ marginLeft: 4 }}
+                  data-testid="mqtt-topic-options"
+                />
               ) : (
                 <Popover
                   trigger="click"
@@ -369,7 +375,13 @@ const MqttTopicsTab: React.FC<MqttTopicsTabProps> = ({ rows, onChange, v5, sessi
                     </InfoPopoverContainerProvider>
                   }
                 >
-                  <Button size="small" type="text" icon={<MoreOutlined />} data-testid="mqtt-topic-options" />
+                  <Button
+                    size="small"
+                    type="text"
+                    icon={<SettingOutlined />}
+                    style={{ marginLeft: 4 }}
+                    data-testid="mqtt-topic-options"
+                  />
                 </Popover>
               ),
           },
@@ -380,7 +392,14 @@ const MqttTopicsTab: React.FC<MqttTopicsTabProps> = ({ rows, onChange, v5, sessi
             divider: true,
             render: (row, update, ctx) =>
               ctx.isPlaceholder ? (
-                <Switch size="small" disabled checked={false} style={{ marginLeft: 10 }} />
+                <Switch
+                  size="small"
+                  disabled
+                  checked={false}
+                  checkedChildren={t('shared.settingsRows.enabled')}
+                  unCheckedChildren={t('shared.settingsRows.disabled')}
+                  style={{ marginLeft: 10 }}
+                />
               ) : (
                 // While the session is open the switch is the LIVE
                 // toggle — it rides the rider and marks the row with
@@ -396,6 +415,8 @@ const MqttTopicsTab: React.FC<MqttTopicsTabProps> = ({ rows, onChange, v5, sessi
                   <Switch
                     size="small"
                     style={{ marginLeft: 10 }}
+                    checkedChildren={t('shared.settingsRows.enabled')}
+                    unCheckedChildren={t('shared.settingsRows.disabled')}
                     checked={
                       sessionOpen
                         ? (liveSubs.get(row.uid)?.subscribed ?? row.subscribe !== false)
