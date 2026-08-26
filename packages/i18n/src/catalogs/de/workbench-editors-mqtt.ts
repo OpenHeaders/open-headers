@@ -58,7 +58,7 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.payloadPlaceholder': 'Nutzlast zum Veröffentlichen verfassen…',
   'workbench.editors.mqtt.payloadPlaceholderBase64': 'Base64 der binären Nutzlast, z. B. aGVsbG8=…',
   'workbench.editors.mqtt.payloadPlaceholderHex': 'Hex der binären Nutzlast, z. B. 48656c6c6f…',
-  'workbench.editors.mqtt.props.buttonTooltip': 'Nachrichteneigenschaften',
+  'workbench.editors.mqtt.props.buttonTooltip': 'Nachrichtenoptionen',
   'workbench.editors.mqtt.props.hint': 'MQTT-5.0-Metadaten, die mit jeder Nachricht gesendet werden.',
   'workbench.editors.mqtt.props.v311':
     'Nachrichteneigenschaften sind ein MQTT-5.0-Feature — diese Anfrage zielt auf 3.1.1.',

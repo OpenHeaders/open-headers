@@ -53,7 +53,7 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.payloadPlaceholder': 'Compose the payload to publish…',
   'workbench.editors.mqtt.payloadPlaceholderBase64': 'Base64 of the binary payload, e.g. aGVsbG8=…',
   'workbench.editors.mqtt.payloadPlaceholderHex': 'Hex of the binary payload, e.g. 48656c6c6f…',
-  'workbench.editors.mqtt.props.buttonTooltip': 'Message properties',
+  'workbench.editors.mqtt.props.buttonTooltip': 'Message options',
   'workbench.editors.mqtt.props.hint': 'MQTT 5.0 metadata sent with each message.',
   'workbench.editors.mqtt.props.v311': 'Message properties are an MQTT 5.0 feature — this request targets 3.1.1.',
   'workbench.editors.mqtt.props.userPropKey': 'Property',

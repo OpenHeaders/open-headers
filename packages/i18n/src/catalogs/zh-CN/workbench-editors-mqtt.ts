@@ -60,7 +60,7 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.payloadPlaceholder': '编写要发布的载荷…',
   'workbench.editors.mqtt.payloadPlaceholderBase64': '二进制载荷的 Base64，例如 aGVsbG8=…',
   'workbench.editors.mqtt.payloadPlaceholderHex': '二进制载荷的十六进制，例如 48656c6c6f…',
-  'workbench.editors.mqtt.props.buttonTooltip': '消息属性',
+  'workbench.editors.mqtt.props.buttonTooltip': '消息选项',
   'workbench.editors.mqtt.props.hint': '随每条消息发送的 MQTT 5.0 元数据。',
   'workbench.editors.mqtt.props.v311': '消息属性是 MQTT 5.0 特性——此请求面向 3.1.1。',
   'workbench.editors.mqtt.props.userPropKey': '属性',

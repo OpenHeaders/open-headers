@@ -59,7 +59,7 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.payloadPlaceholder': 'Composez la charge utile à publier…',
   'workbench.editors.mqtt.payloadPlaceholderBase64': 'Base64 de la charge utile binaire, p. ex. aGVsbG8=…',
   'workbench.editors.mqtt.payloadPlaceholderHex': 'Hexadécimal de la charge utile binaire, p. ex. 48656c6c6f…',
-  'workbench.editors.mqtt.props.buttonTooltip': 'Propriétés du message',
+  'workbench.editors.mqtt.props.buttonTooltip': 'Options du message',
   'workbench.editors.mqtt.props.hint': 'Métadonnées MQTT 5.0 envoyées avec chaque message.',
   'workbench.editors.mqtt.props.v311':
     'Les propriétés de message sont une fonctionnalité MQTT 5.0 — cette requête cible 3.1.1.',

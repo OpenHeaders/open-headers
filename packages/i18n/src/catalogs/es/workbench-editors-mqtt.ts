@@ -58,7 +58,7 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.payloadPlaceholder': 'Compón la carga útil a publicar…',
   'workbench.editors.mqtt.payloadPlaceholderBase64': 'Base64 de la carga útil binaria, p. ej. aGVsbG8=…',
   'workbench.editors.mqtt.payloadPlaceholderHex': 'Hexadecimal de la carga útil binaria, p. ej. 48656c6c6f…',
-  'workbench.editors.mqtt.props.buttonTooltip': 'Propiedades del mensaje',
+  'workbench.editors.mqtt.props.buttonTooltip': 'Opciones del mensaje',
   'workbench.editors.mqtt.props.hint': 'Metadatos MQTT 5.0 enviados con cada mensaje.',
   'workbench.editors.mqtt.props.v311':
     'Las propiedades de mensaje son una función de MQTT 5.0; esta solicitud apunta a 3.1.1.',
