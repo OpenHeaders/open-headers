@@ -1,11 +1,11 @@
 /**
- * Per-message 5.0 properties popover — the "⋯" on the publish compose
- * and the Last Will tab. 3.1.1 renders the controls disabled with the
+ * Per-message 5.0 properties popover — the gear on the publish compose
+ * and the Last Will tab (the topics-grid options trigger). 3.1.1 renders the controls disabled with the
  * honest version line (never a silent drop — the codec is
  * encode-strict either way).
  */
 
-import { MoreOutlined, PlusOutlined } from '@ant-design/icons';
+import { PlusOutlined, SettingOutlined } from '@ant-design/icons';
 import { generateUid } from '@openheaders/core/utils';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { Badge, Button, Input, InputNumber, Popover, Switch, Tooltip, Typography } from 'antd';
@@ -139,7 +139,7 @@ const MessagePropertiesPopover: React.FC<{
         open suppresses it (the timeline sort-menu discipline). */}
       <Tooltip title={t('workbench.editors.mqtt.props.buttonTooltip')} open={open ? false : undefined}>
         <Badge dot={configured} offset={[-2, 2]}>
-          <Button size="small" icon={<MoreOutlined />} data-testid={testId} />
+          <Button size="small" icon={<SettingOutlined />} data-testid={testId} />
         </Badge>
       </Tooltip>
     </Popover>
