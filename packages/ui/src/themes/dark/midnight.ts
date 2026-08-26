@@ -1,4 +1,5 @@
 import type { ThemeVariant } from '../types';
+import { DARK_SHADOW_TOKENS } from './shadows';
 
 export const darkMidnight: ThemeVariant = {
   id: 'midnight',
@@ -7,6 +8,7 @@ export const darkMidnight: ThemeVariant = {
   descriptionKey: 'workbench.settings.def.appearance.darkVariant.option.midnight.description',
   honorsAccentColor: false,
   antdTokens: {
+    ...DARK_SHADOW_TOKENS,
     borderRadius: 6,
     fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
     colorBgBase: '#0b1020',
