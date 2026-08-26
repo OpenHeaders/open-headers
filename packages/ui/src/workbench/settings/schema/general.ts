@@ -34,6 +34,7 @@ declare module '@openheaders/ui/workbench/settings/types' {
 
 registerSetting({
   key: 'general.language',
+  subcategory: 'locale',
   type: 'enum',
   default: 'auto',
   schema: languageSchema,
@@ -66,6 +67,7 @@ registerSetting({
 
 registerSetting({
   key: 'general.confirmOnDelete',
+  subcategory: 'behavior',
   type: 'boolean',
   default: true,
   schema: v.boolean(),
@@ -78,6 +80,7 @@ registerSetting({
 
 registerSetting({
   key: 'general.showEmptyStateHints',
+  subcategory: 'behavior',
   type: 'boolean',
   default: true,
   schema: v.boolean(),
@@ -90,6 +93,7 @@ registerSetting({
 
 registerSetting({
   key: 'general.restoreTabsOnStartup',
+  subcategory: 'behavior',
   type: 'boolean',
   default: true,
   schema: v.boolean(),
@@ -102,6 +106,7 @@ registerSetting({
 
 registerSetting({
   key: 'general.collectionEnvAutoSwitch',
+  subcategory: 'behavior',
   type: 'enum',
   default: 'apply-defaults',
   schema: collectionEnvAutoSwitchSchema,
@@ -131,6 +136,7 @@ registerSetting({
 
 registerSetting({
   key: 'general.settingsOpenMode',
+  subcategory: 'settings',
   type: 'enum',
   default: 'modal-maximized',
   schema: settingsOpenModeSchema,
@@ -160,6 +166,7 @@ registerSetting({
 
 registerSetting({
   key: 'general.settingsShowCategoryLabels',
+  subcategory: 'settings',
   type: 'boolean',
   default: true,
   schema: v.boolean(),

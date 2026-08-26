@@ -147,7 +147,7 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.general.restoreTabsOnStartup.label': 'Restore Tabs on Startup',
   'workbench.settings.def.general.restoreTabsOnStartup.description':
     'Re-open the editor tabs that were open at the end of the previous session.',
-  'workbench.settings.def.general.collectionEnvAutoSwitch.label': 'Collection Environment Switching',
+  'workbench.settings.def.general.collectionEnvAutoSwitch.label': 'Environment Auto-Switch',
   'workbench.settings.def.general.collectionEnvAutoSwitch.description':
     'How the active environment changes as you move between collections and the entities inside them (rules, requests, folders). Applies to both rule collections and API request collections. Collections can carry a default environment and pin a short list of recommended environments; this setting controls whether those defaults take over automatically.',
   'workbench.settings.def.general.collectionEnvAutoSwitch.option.keep-selection.label': 'Keep selected environment',
@@ -159,7 +159,7 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.general.collectionEnvAutoSwitch.option.follow-collection.label': 'Follow each collection',
   'workbench.settings.def.general.collectionEnvAutoSwitch.option.follow-collection.description':
     "Opening a collection (or any subfolder, rule, or request inside it) with a default environment switches to that default. Picks you make inside a collection are remembered for that collection. Collections without a default don't auto-switch.",
-  'workbench.settings.def.general.settingsOpenMode.label': 'Settings Open Mode',
+  'workbench.settings.def.general.settingsOpenMode.label': 'Open Mode',
   'workbench.settings.def.general.settingsOpenMode.description':
     'How the Settings page opens when launched from the toolbar, popup, or command palette.',
   'workbench.settings.def.general.settingsOpenMode.option.modal.label': 'Modal',
@@ -170,7 +170,7 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.general.settingsOpenMode.option.tab.label': 'Editor tab',
   'workbench.settings.def.general.settingsOpenMode.option.tab.description':
     'Open as a full editor tab in the workspace',
-  'workbench.settings.def.general.settingsShowCategoryLabels.label': 'Show Category Names in Settings Sidebar',
+  'workbench.settings.def.general.settingsShowCategoryLabels.label': 'Show Category Names in Sidebar',
   'workbench.settings.def.general.settingsShowCategoryLabels.description':
     'Render text labels next to category icons in the Settings sidebar. Right-click the sidebar to toggle. Disable for an icon-only compact rail.',
 

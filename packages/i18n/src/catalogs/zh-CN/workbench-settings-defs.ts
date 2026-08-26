@@ -144,7 +144,7 @@ export const workbenchSettingsDefs = {
     'shell 一退出就关闭其终端标签页。关闭此项时，标签页保持打开并显示“重启”按钮。',
   'workbench.settings.def.general.restoreTabsOnStartup.label': '启动时恢复标签页',
   'workbench.settings.def.general.restoreTabsOnStartup.description': '重新打开上次会话结束时打开的编辑器标签页。',
-  'workbench.settings.def.general.collectionEnvAutoSwitch.label': '集合环境切换',
+  'workbench.settings.def.general.collectionEnvAutoSwitch.label': '环境自动切换',
   'workbench.settings.def.general.collectionEnvAutoSwitch.description':
     '当你在集合及其内部实体（规则、请求、文件夹）之间移动时，活动环境如何变化。适用于规则集合和 API 请求集合。集合可以携带默认环境并固定一小组推荐环境；此设置控制这些默认值是否自动接管。',
   'workbench.settings.def.general.collectionEnvAutoSwitch.option.keep-selection.label': '保持所选环境',
@@ -156,7 +156,7 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.general.collectionEnvAutoSwitch.option.follow-collection.label': '跟随各个集合',
   'workbench.settings.def.general.collectionEnvAutoSwitch.option.follow-collection.description':
     '打开带默认环境的集合（或其中任何子文件夹、规则或请求）会切换到该默认环境。你在集合内做出的选择会为该集合记住。没有默认值的集合不会自动切换。',
-  'workbench.settings.def.general.settingsOpenMode.label': '设置打开方式',
+  'workbench.settings.def.general.settingsOpenMode.label': '打开方式',
   'workbench.settings.def.general.settingsOpenMode.description': '从工具栏、弹窗或命令面板启动时，设置页面的打开方式。',
   'workbench.settings.def.general.settingsOpenMode.option.modal.label': '模态',
   'workbench.settings.def.general.settingsOpenMode.option.modal.description': '居中于当前页面的浮层',
@@ -164,7 +164,7 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.general.settingsOpenMode.option.modal-maximized.description': '几乎填满视口的浮层',
   'workbench.settings.def.general.settingsOpenMode.option.tab.label': '编辑器标签页',
   'workbench.settings.def.general.settingsOpenMode.option.tab.description': '在工作区中作为完整的编辑器标签页打开',
-  'workbench.settings.def.general.settingsShowCategoryLabels.label': '在设置侧边栏显示类别名称',
+  'workbench.settings.def.general.settingsShowCategoryLabels.label': '在侧边栏显示类别名称',
   'workbench.settings.def.general.settingsShowCategoryLabels.description':
     '在设置侧边栏的类别图标旁渲染文字名称。右键侧边栏可切换。禁用后为仅图标的紧凑栏。',
 

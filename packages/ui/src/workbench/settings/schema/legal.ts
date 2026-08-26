@@ -18,6 +18,7 @@ declare module '@openheaders/ui/workbench/settings/types' {
 
 registerSetting({
   key: 'legal.firstRunAcknowledged',
+  subcategory: 'privacy',
   type: 'boolean',
   default: false,
   schema: v.boolean(),

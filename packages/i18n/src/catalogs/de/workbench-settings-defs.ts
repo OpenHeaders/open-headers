@@ -183,7 +183,7 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.general.restoreTabsOnStartup.label': 'Tabs beim Start wiederherstellen',
   'workbench.settings.def.general.restoreTabsOnStartup.description':
     'Öffnet die Editor-Tabs wieder, die am Ende der vorherigen Sitzung offen waren.',
-  'workbench.settings.def.general.collectionEnvAutoSwitch.label': 'Umgebungswechsel bei Sammlungen',
+  'workbench.settings.def.general.collectionEnvAutoSwitch.label': 'Umgebungswechsel',
   'workbench.settings.def.general.collectionEnvAutoSwitch.description':
     'Wie sich die aktive Umgebung ändert, während du dich zwischen Sammlungen und den Entitäten darin ' +
     '(Regeln, Anfragen, Ordnern) bewegst. Gilt für Regel-Sammlungen wie für API-Anfrage-Sammlungen. ' +
@@ -204,7 +204,7 @@ export const workbenchSettingsDefs = {
     'Das Öffnen einer Sammlung (oder eines Unterordners, einer Regel oder Anfrage darin) mit ' +
     'Standard-Umgebung wechselt zu diesem Standard. Deine Auswahl innerhalb einer Sammlung wird für diese ' +
     'Sammlung gemerkt. Sammlungen ohne Standard wechseln nicht automatisch.',
-  'workbench.settings.def.general.settingsOpenMode.label': 'Öffnungsmodus der Einstellungen',
+  'workbench.settings.def.general.settingsOpenMode.label': 'Öffnungsmodus',
   'workbench.settings.def.general.settingsOpenMode.description':
     'Wie sich die Einstellungsseite öffnet, wenn sie aus Toolbar, Popup oder Befehlspalette gestartet wird.',
   'workbench.settings.def.general.settingsOpenMode.option.modal.label': 'Modal',
@@ -216,8 +216,7 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.general.settingsOpenMode.option.tab.label': 'Editor-Tab',
   'workbench.settings.def.general.settingsOpenMode.option.tab.description':
     'Als vollwertiger Editor-Tab im Arbeitsbereich öffnen',
-  'workbench.settings.def.general.settingsShowCategoryLabels.label':
-    'Kategorienamen in der Einstellungs-Seitenleiste anzeigen',
+  'workbench.settings.def.general.settingsShowCategoryLabels.label': 'Kategorienamen in der Seitenleiste anzeigen',
   'workbench.settings.def.general.settingsShowCategoryLabels.description':
     'Rendert Textbeschriftungen neben den Kategorie-Icons in der Einstellungs-Seitenleiste. Rechtsklick auf ' +
     'die Seitenleiste schaltet um. Deaktivieren für eine kompakte Leiste nur mit Icons.',

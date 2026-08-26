@@ -184,7 +184,7 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.general.restoreTabsOnStartup.label': 'Restaurer les onglets au démarrage',
   'workbench.settings.def.general.restoreTabsOnStartup.description':
     "Rouvre les onglets d'éditeur qui étaient ouverts à la fin de la session précédente.",
-  'workbench.settings.def.general.collectionEnvAutoSwitch.label': "Changement d'environnement par collection",
+  'workbench.settings.def.general.collectionEnvAutoSwitch.label': "Changement d'environnement",
   'workbench.settings.def.general.collectionEnvAutoSwitch.description':
     "Comment l'environnement actif change quand vous vous déplacez entre les collections et les entités " +
     "qu'elles contiennent (règles, requêtes, dossiers). S'applique aux collections de règles comme aux " +
@@ -208,7 +208,7 @@ export const workbenchSettingsDefs = {
     "Ouvrir une collection (ou un sous-dossier, une règle ou une requête à l'intérieur) dotée d'un " +
     'environnement par défaut bascule vers ce défaut. Les choix faits dans une collection sont mémorisés pour ' +
     'cette collection. Les collections sans défaut ne basculent pas automatiquement.',
-  'workbench.settings.def.general.settingsOpenMode.label': "Mode d'ouverture des réglages",
+  'workbench.settings.def.general.settingsOpenMode.label': "Mode d'ouverture",
   'workbench.settings.def.general.settingsOpenMode.description':
     "Comment la page Paramètres s'ouvre depuis la barre d'outils, le popup ou la palette de commandes.",
   'workbench.settings.def.general.settingsOpenMode.option.modal.label': 'Modale',
@@ -221,7 +221,7 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.general.settingsOpenMode.option.tab.description':
     "Ouvre comme un onglet d'éditeur plein dans l'espace de travail",
   'workbench.settings.def.general.settingsShowCategoryLabels.label':
-    'Afficher les noms de catégories dans la barre latérale des réglages',
+    'Afficher les noms de catégories dans la barre latérale',
   'workbench.settings.def.general.settingsShowCategoryLabels.description':
     'Affiche des libellés texte à côté des icônes de catégories dans la barre latérale des Paramètres. Clic ' +
     'droit sur la barre latérale pour basculer. Désactivez pour un rail compact, icônes seules.',

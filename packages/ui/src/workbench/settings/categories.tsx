@@ -85,6 +85,12 @@ registerCategory({
   icon: <SettingOutlined />,
   order: 5,
   descriptionKey: 'workbench.settings.category.general.description',
+  subcategories: [
+    { id: 'locale', labelKey: 'workbench.settings.category.general.sub.locale', order: 10 },
+    { id: 'behavior', labelKey: 'workbench.settings.category.general.sub.behavior', order: 20 },
+    { id: 'settings', labelKey: 'workbench.settings.category.general.sub.settings', order: 30 },
+    { id: 'privacy', labelKey: 'workbench.settings.category.general.sub.privacy', order: 40 },
+  ],
 });
 
 registerCategory({

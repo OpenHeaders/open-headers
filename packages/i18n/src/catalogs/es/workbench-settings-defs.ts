@@ -202,7 +202,7 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.general.restoreTabsOnStartup.label': 'Restaurar las pestañas al iniciar',
   'workbench.settings.def.general.restoreTabsOnStartup.description':
     'Reabre las pestañas de editor que estaban abiertas al final de la sesión anterior.',
-  'workbench.settings.def.general.collectionEnvAutoSwitch.label': 'Cambio de entorno por colección',
+  'workbench.settings.def.general.collectionEnvAutoSwitch.label': 'Cambio de entorno',
   'workbench.settings.def.general.collectionEnvAutoSwitch.description':
     'Cómo cambia el entorno activo cuando te mueves entre las colecciones y las entidades que contienen ' +
     '(reglas, solicitudes, carpetas). Se aplica tanto a las colecciones de reglas como a las colecciones de ' +
@@ -225,7 +225,7 @@ export const workbenchSettingsDefs = {
     'Abrir una colección (o cualquier subcarpeta, regla o solicitud de su interior) con un entorno por ' +
     'defecto cambia a ese valor por defecto. Las elecciones que hagas dentro de una colección se recuerdan ' +
     'para esa colección. Las colecciones sin valor por defecto no cambian automáticamente.',
-  'workbench.settings.def.general.settingsOpenMode.label': 'Modo de apertura de la configuración',
+  'workbench.settings.def.general.settingsOpenMode.label': 'Modo de apertura',
   'workbench.settings.def.general.settingsOpenMode.description':
     'Cómo se abre la página de Configuración desde la barra de herramientas, el popup o la paleta de comandos.',
   'workbench.settings.def.general.settingsOpenMode.option.modal.label': 'Modal',
@@ -238,7 +238,7 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.general.settingsOpenMode.option.tab.description':
     'Se abre como una pestaña de editor completa en el espacio de trabajo',
   'workbench.settings.def.general.settingsShowCategoryLabels.label':
-    'Mostrar los nombres de categoría en la barra lateral de la configuración',
+    'Mostrar los nombres de categoría en la barra lateral',
   'workbench.settings.def.general.settingsShowCategoryLabels.description':
     'Muestra etiquetas de texto junto a los iconos de categoría en la barra lateral de Configuración. Haz ' +
     'clic derecho en la barra lateral para alternar. Desactívalo para un riel compacto de solo iconos.',

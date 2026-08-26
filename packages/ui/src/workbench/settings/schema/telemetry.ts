@@ -28,6 +28,7 @@ declare module '@openheaders/ui/workbench/settings/types' {
 
 registerSetting({
   key: 'telemetry.enabled',
+  subcategory: 'privacy',
   type: 'boolean',
   default: true,
   schema: v.boolean(),

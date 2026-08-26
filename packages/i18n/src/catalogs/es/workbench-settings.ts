@@ -91,6 +91,10 @@ export const workbenchSettings = {
   'workbench.settings.category.general.label': 'General',
   'workbench.settings.category.general.description':
     'Comportamiento global de la aplicación, arranque y configuración regional.',
+  'workbench.settings.category.general.sub.locale': 'Idioma',
+  'workbench.settings.category.general.sub.behavior': 'Comportamiento',
+  'workbench.settings.category.general.sub.settings': 'Configuración',
+  'workbench.settings.category.general.sub.privacy': 'Privacidad',
   'workbench.settings.category.appearance.label': 'Apariencia',
   'workbench.settings.category.appearance.description': 'Tema, densidad y presentación visual.',
   'workbench.settings.category.appearance.sub.theme': 'Tema',
