@@ -84,6 +84,10 @@ export const workbenchSettings = {
   'workbench.settings.category.workspaceLayout.description': '页脚功能与工具窗口外壳的行为。',
   'workbench.settings.category.terminal.label': '终端',
   'workbench.settings.category.terminal.description': '集成终端工具窗口的行为。',
+  'workbench.settings.category.terminal.sub.shell': 'Shell',
+  'workbench.settings.category.terminal.sub.appearance': '外观',
+  'workbench.settings.category.terminal.sub.behavior': '行为',
+  'workbench.settings.category.terminal.sub.tabs': '标签页',
   'workbench.settings.category.devpanel.label': 'DevTools 面板',
   'workbench.settings.category.devpanel.description':
     '浏览器 DevTools 面板的默认值——工具窗口外壳和请求界面的每个标签页。',

@@ -99,6 +99,10 @@ export const workbenchSettings = {
   'workbench.settings.category.terminal.label': 'Terminal',
   'workbench.settings.category.terminal.description':
     'Comportamiento de la ventana de herramientas Terminal integrada.',
+  'workbench.settings.category.terminal.sub.shell': 'Shell',
+  'workbench.settings.category.terminal.sub.appearance': 'Apariencia',
+  'workbench.settings.category.terminal.sub.behavior': 'Comportamiento',
+  'workbench.settings.category.terminal.sub.tabs': 'Pestañas',
   'workbench.settings.category.devpanel.label': 'Panel de DevTools',
   'workbench.settings.category.devpanel.description':
     'Valores por defecto del panel de DevTools del navegador — el shell de las ventanas de herramientas y cada ' +

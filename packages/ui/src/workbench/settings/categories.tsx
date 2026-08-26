@@ -109,6 +109,12 @@ registerCategory({
   icon: <CodeOutlined />,
   order: 17,
   descriptionKey: 'workbench.settings.category.terminal.description',
+  subcategories: [
+    { id: 'shell', labelKey: 'workbench.settings.category.terminal.sub.shell', order: 10 },
+    { id: 'appearance', labelKey: 'workbench.settings.category.terminal.sub.appearance', order: 20 },
+    { id: 'behavior', labelKey: 'workbench.settings.category.terminal.sub.behavior', order: 30 },
+    { id: 'tabs', labelKey: 'workbench.settings.category.terminal.sub.tabs', order: 40 },
+  ],
   // The Terminal tool window rides the `terminal` capability, which
   // only the desktop host installs. Browser hosts keep the nav entry
   // and render the desktop teaser.

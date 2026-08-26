@@ -92,6 +92,10 @@ export const workbenchSettings = {
     "Affordances du pied de page et comportement du shell des fenêtres d'outils.",
   'workbench.settings.category.terminal.label': 'Terminal',
   'workbench.settings.category.terminal.description': "Comportement de la fenêtre d'outils Terminal intégrée.",
+  'workbench.settings.category.terminal.sub.shell': 'Shell',
+  'workbench.settings.category.terminal.sub.appearance': 'Apparence',
+  'workbench.settings.category.terminal.sub.behavior': 'Comportement',
+  'workbench.settings.category.terminal.sub.tabs': 'Onglets',
   'workbench.settings.category.devpanel.label': 'Panneau DevTools',
   'workbench.settings.category.devpanel.description':
     "Réglages par défaut du panneau DevTools du navigateur — le shell des fenêtres d'outils et chaque onglet " +

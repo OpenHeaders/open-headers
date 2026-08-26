@@ -67,6 +67,7 @@ declare module '@openheaders/ui/workbench/settings/types' {
 
 registerSetting({
   key: 'terminal.profiles',
+  subcategory: 'shell',
   type: 'info',
   default: { profiles: [], defaultProfileId: null },
   getDefault: () => ({ profiles: [], defaultProfileId: null }),
@@ -81,6 +82,7 @@ registerSetting({
 
 registerSetting({
   key: 'terminal.startDirectory',
+  subcategory: 'shell',
   type: 'string',
   default: '',
   schema: v.string(),
@@ -93,6 +95,7 @@ registerSetting({
 
 registerSetting({
   key: 'terminal.defaultTabName',
+  subcategory: 'shell',
   type: 'string',
   default: '',
   schema: v.string(),
@@ -105,6 +108,7 @@ registerSetting({
 
 registerSetting({
   key: 'terminal.fontFamilyPreset',
+  subcategory: 'appearance',
   type: 'enum',
   default: 'jetbrains-mono',
   schema: terminalFontPresetSchema,
@@ -123,6 +127,7 @@ registerSetting({
 
 registerSetting({
   key: 'terminal.fontSize',
+  subcategory: 'appearance',
   type: 'number',
   default: 13,
   schema: v.pipe(v.number(), v.integer(), v.minValue(8), v.maxValue(32)),
@@ -136,6 +141,7 @@ registerSetting({
 
 registerSetting({
   key: 'terminal.lineHeight',
+  subcategory: 'appearance',
   type: 'number',
   default: 1,
   schema: v.pipe(v.number(), v.minValue(1), v.maxValue(2)),
@@ -149,6 +155,7 @@ registerSetting({
 
 registerSetting({
   key: 'terminal.cursorStyle',
+  subcategory: 'appearance',
   type: 'enum',
   default: 'block',
   schema: cursorStyleSchema,
@@ -166,6 +173,7 @@ registerSetting({
 
 registerSetting({
   key: 'terminal.cursorBlink',
+  subcategory: 'appearance',
   type: 'boolean',
   default: true,
   schema: v.boolean(),
@@ -178,6 +186,7 @@ registerSetting({
 
 registerSetting({
   key: 'terminal.minimumContrastRatio',
+  subcategory: 'appearance',
   type: 'number',
   default: 1,
   schema: v.pipe(v.number(), v.minValue(1), v.maxValue(21)),
@@ -191,6 +200,7 @@ registerSetting({
 
 registerSetting({
   key: 'terminal.scrollback',
+  subcategory: 'behavior',
   type: 'number',
   default: 5000,
   schema: v.pipe(v.number(), v.integer(), v.minValue(0), v.maxValue(100000)),
@@ -204,6 +214,7 @@ registerSetting({
 
 registerSetting({
   key: 'terminal.macOptionIsMeta',
+  subcategory: 'behavior',
   type: 'boolean',
   default: false,
   schema: v.boolean(),
@@ -216,6 +227,7 @@ registerSetting({
 
 registerSetting({
   key: 'terminal.copyOnSelect',
+  subcategory: 'behavior',
   type: 'boolean',
   default: false,
   schema: v.boolean(),
@@ -228,6 +240,7 @@ registerSetting({
 
 registerSetting({
   key: 'terminal.hyperlinks',
+  subcategory: 'behavior',
   type: 'boolean',
   default: true,
   schema: v.boolean(),
@@ -240,6 +253,7 @@ registerSetting({
 
 registerSetting({
   key: 'terminal.audibleBell',
+  subcategory: 'behavior',
   type: 'boolean',
   default: false,
   schema: v.boolean(),
@@ -252,6 +266,7 @@ registerSetting({
 
 registerSetting({
   key: 'terminal.closeTabOnExit',
+  subcategory: 'tabs',
   type: 'boolean',
   default: false,
   schema: v.boolean(),
@@ -264,6 +279,7 @@ registerSetting({
 
 registerSetting({
   key: 'terminal.confirmCloseRunningProcess',
+  subcategory: 'tabs',
   type: 'boolean',
   default: true,
   schema: v.boolean(),

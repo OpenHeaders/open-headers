@@ -95,6 +95,10 @@ export const workbenchSettings = {
     'Affordances der Fußzeile und Shell-Verhalten der Werkzeugfenster.',
   'workbench.settings.category.terminal.label': 'Terminal',
   'workbench.settings.category.terminal.description': 'Verhalten des integrierten Werkzeugfensters Terminal.',
+  'workbench.settings.category.terminal.sub.shell': 'Shell',
+  'workbench.settings.category.terminal.sub.appearance': 'Darstellung',
+  'workbench.settings.category.terminal.sub.behavior': 'Verhalten',
+  'workbench.settings.category.terminal.sub.tabs': 'Tabs',
   'workbench.settings.category.devpanel.label': 'DevTools-Panel',
   'workbench.settings.category.devpanel.description':
     'Standardwerte für das DevTools-Panel des Browsers — die Werkzeugfenster-Shell und jeder Tab der ' +

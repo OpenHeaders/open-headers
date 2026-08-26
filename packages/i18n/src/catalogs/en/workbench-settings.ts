@@ -79,6 +79,10 @@ export const workbenchSettings = {
   'workbench.settings.category.workspaceLayout.description': 'Footer affordances and tool-window shell behavior.',
   'workbench.settings.category.terminal.label': 'Terminal',
   'workbench.settings.category.terminal.description': 'Behavior of the integrated Terminal tool window.',
+  'workbench.settings.category.terminal.sub.shell': 'Shell',
+  'workbench.settings.category.terminal.sub.appearance': 'Appearance',
+  'workbench.settings.category.terminal.sub.behavior': 'Behavior',
+  'workbench.settings.category.terminal.sub.tabs': 'Tabs',
   'workbench.settings.category.devpanel.label': 'DevTools Panel',
   'workbench.settings.category.devpanel.description':
     'Defaults for the browser DevTools panel — the tool-window shell and each tab of the requests surface.',
