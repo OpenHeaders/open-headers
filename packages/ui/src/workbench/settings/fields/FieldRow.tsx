@@ -284,10 +284,26 @@ const FieldRow: React.FC<FieldRowProps> = ({
     >
       {modifiedDot}
       {!labelInControl && (
-        <span style={{ fontSize: 13, color: token.colorText, flex: 'none' }}>{label}:</span>
+        // The shared minimum keeps the control column aligned across a
+        // page's rows; a longer label simply pushes its own control out.
+        // The info trigger belongs to the label, not the value.
+        <span
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 4,
+            fontSize: 13,
+            color: token.colorText,
+            flex: 'none',
+            minWidth: 180,
+          }}
+        >
+          {`${label}:`}
+          {info}
+        </span>
       )}
       {gatedControl}
-      {info}
+      {labelInControl && info}
       {badges}
       {resetButton}
     </div>
