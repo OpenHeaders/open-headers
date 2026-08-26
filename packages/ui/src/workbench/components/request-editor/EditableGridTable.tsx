@@ -333,7 +333,10 @@ export function EditableGridTable<Row>({
       ref={resize.registerHeaderRef(col)}
       style={{
         ...headerLabelStyle,
-        ...(withBorder ? { borderLeft: `1px solid ${token.colorBorderSecondary}` } : null),
+        // Bordered cells stretch to the header strip so the divider
+        // spans its full height — the centered default would shrink an
+        // empty or short cell's border to a floating tick.
+        ...(withBorder ? { borderLeft: `1px solid ${token.colorBorderSecondary}`, alignSelf: 'stretch' } : null),
         ...(col === lastVisibleColumn && bulkToggleButton
           ? { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '3px 4px 3px 10px' }
           : null),
@@ -424,7 +427,7 @@ export function EditableGridTable<Row>({
             key={`aux-key-${String(i)}`}
             style={{
               ...headerLabelStyle,
-              ...(aux.divider ? { borderLeft: `1px solid ${token.colorBorderSecondary}` } : null),
+              ...(aux.divider ? { borderLeft: `1px solid ${token.colorBorderSecondary}`, alignSelf: 'stretch' } : null),
             }}
           >
             {aux.label ?? ''}
@@ -437,7 +440,7 @@ export function EditableGridTable<Row>({
               key={`aux-value-${String(i)}`}
               style={{
                 ...headerLabelStyle,
-                ...(aux.divider ? { borderLeft: `1px solid ${token.colorBorderSecondary}` } : null),
+                ...(aux.divider ? { borderLeft: `1px solid ${token.colorBorderSecondary}`, alignSelf: 'stretch' } : null),
               }}
             >
               {aux.label ?? ''}
