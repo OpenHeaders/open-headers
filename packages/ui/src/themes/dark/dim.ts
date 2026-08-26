@@ -1,5 +1,5 @@
 import type { ThemeVariant } from '../types';
-import { NO_SHADOW_TOKENS } from '../shadows';
+import { DARK_SHADOW_TOKENS } from './shadows';
 
 export const darkDim: ThemeVariant = {
   id: 'dim',
@@ -8,7 +8,7 @@ export const darkDim: ThemeVariant = {
   descriptionKey: 'workbench.settings.def.appearance.darkVariant.option.dim.description',
   honorsAccentColor: false,
   antdTokens: {
-    ...NO_SHADOW_TOKENS,
+    ...DARK_SHADOW_TOKENS,
     borderRadius: 6,
     fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
     colorBgBase: '#1a1f2e',

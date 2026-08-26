@@ -1,5 +1,5 @@
 import type { ThemeVariant } from '../types';
-import { NO_SHADOW_TOKENS } from '../shadows';
+import { DARK_SHADOW_TOKENS } from './shadows';
 
 export const darkDefault: ThemeVariant = {
   id: 'default',
@@ -8,7 +8,7 @@ export const darkDefault: ThemeVariant = {
   descriptionKey: 'workbench.settings.def.appearance.darkVariant.option.default.description',
   honorsAccentColor: true,
   antdTokens: {
-    ...NO_SHADOW_TOKENS,
+    ...DARK_SHADOW_TOKENS,
     borderRadius: 6,
     fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
     // Pinned so the layout/container relationship doesn't drift if
