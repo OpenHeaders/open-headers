@@ -203,7 +203,7 @@ const MqttTopicsTab: React.FC<MqttTopicsTabProps> = ({ rows, onChange, v5, sessi
               ) : (
                 <Popover
                   trigger="click"
-                  placement="left"
+                  placement="bottom"
                   content={
                     // The (i) popovers must portal inside this popover
                     // (see resolveOptionsPopover) — the marker class is
