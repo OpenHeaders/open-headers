@@ -130,6 +130,9 @@ export const workbenchSettings = {
   'workbench.settings.category.trafficMonitor.description':
     'Voreinstellungen der Geste „Beobachtung starten“ im Traffic-Panel und das Speicherbudget des ' +
     'Sitzungsarchivs.',
+  'workbench.settings.category.trafficMonitor.sub.layout': 'Layout',
+  'workbench.settings.category.trafficMonitor.sub.capture': 'Aufzeichnung',
+  'workbench.settings.category.trafficMonitor.sub.sessions': 'Sitzungen',
   'workbench.settings.category.editor.label': 'Code-Editor',
   'workbench.settings.category.editor.description':
     'Schrift, Einrückung und Ansichtsoptionen für Code-Bearbeitungsflächen.',

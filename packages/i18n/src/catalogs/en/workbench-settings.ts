@@ -111,6 +111,9 @@ export const workbenchSettings = {
   'workbench.settings.category.trafficMonitor.label': 'Traffic',
   'workbench.settings.category.trafficMonitor.description':
     'Defaults for the start-observing gesture in the Traffic panel, and the disk budget of the session archive.',
+  'workbench.settings.category.trafficMonitor.sub.layout': 'Layout',
+  'workbench.settings.category.trafficMonitor.sub.capture': 'Capture',
+  'workbench.settings.category.trafficMonitor.sub.sessions': 'Sessions',
   'workbench.settings.category.editor.label': 'Code Editor',
   'workbench.settings.category.editor.description': 'Font, indentation, and view options for code editing surfaces.',
   'workbench.settings.category.requests.label': 'API Requests',

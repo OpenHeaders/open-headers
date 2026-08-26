@@ -450,7 +450,7 @@ export const workbenchSettingsDefs = {
     'Verbundene Agenten lesen archivierte Sitzungen mit echten Werten statt Schwärzungsmarkern — einschließlich ' +
     'Authentifizierungs-Headern, Cookies und token-förmigen Werten. Standardmäßig aus; solange es aktiv ist, wird ' +
     'jeder ungeschwärzte Lesezugriff im Aktivitäts-Feed protokolliert.',
-  'workbench.settings.def.trafficMonitor.sessionRetentionGiB.label': 'Größenbudget des Sitzungsarchivs (GiB)',
+  'workbench.settings.def.trafficMonitor.sessionRetentionGiB.label': 'Größenbudget des Archivs (GiB)',
   'workbench.settings.def.trafficMonitor.sessionRetentionGiB.description':
     'Gesamter Speicherplatz für archivierte Sitzungen. Wird das Budget überschritten, werden zuerst die ältesten ' +
     'versiegelten Sitzungen entfernt; eine noch aufzeichnende Sitzung wird nie entfernt.',
@@ -673,8 +673,7 @@ export const workbenchSettingsDefs = {
     'Diese URL wörtlich abgleichen, ohne Normalisierung',
 
   // ── Workspace Sharing category defs ────────────────────────────────
-  'workbench.settings.def.workspaceSharing.importPreviewShowMergeStrategy.label':
-    'Merge-Strategie auf Zeilen anzeigen',
+  'workbench.settings.def.workspaceSharing.importPreviewShowMergeStrategy.label': 'Merge-Strategie auf Zeilen anzeigen',
   'workbench.settings.def.workspaceSharing.importPreviewShowMergeStrategy.description':
     'Wenn an, zeigt jede Entitätszeile in der linken Seitenleiste der Importvorschau die gewählte ' +
     'Merge-Strategie (als neu hinzufügen, Ersetzen, Überspringen, …) neben den Zeilenzählern. Ausschalten, ' +

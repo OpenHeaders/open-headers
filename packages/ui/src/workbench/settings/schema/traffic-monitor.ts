@@ -38,6 +38,7 @@ const desktopOnly = (): boolean => getCurrentHost() === 'desktop';
 // button are the same preference.
 registerSetting({
   key: 'trafficMonitor.railSide',
+  subcategory: 'layout',
   type: 'enum',
   default: 'left',
   schema: railSideSchema,
@@ -63,6 +64,7 @@ registerSetting({
 
 registerSetting({
   key: 'trafficMonitor.captureDebugDefault',
+  subcategory: 'capture',
   type: 'boolean',
   default: true,
   schema: v.boolean(),
@@ -76,6 +78,7 @@ registerSetting({
 
 registerSetting({
   key: 'trafficMonitor.captureSaveDefault',
+  subcategory: 'capture',
   type: 'boolean',
   default: true,
   schema: v.boolean(),
@@ -89,6 +92,7 @@ registerSetting({
 
 registerSetting({
   key: 'trafficMonitor.sessionAgentRawReads',
+  subcategory: 'sessions',
   type: 'boolean',
   default: false,
   schema: v.boolean(),
@@ -102,6 +106,7 @@ registerSetting({
 
 registerSetting({
   key: 'trafficMonitor.sessionRetentionGiB',
+  subcategory: 'sessions',
   type: 'number',
   default: 2,
   schema: v.pipe(v.number(), v.integer(), v.minValue(1), v.maxValue(256)),

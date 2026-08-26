@@ -114,6 +114,9 @@ export const workbenchSettings = {
   'workbench.settings.category.trafficMonitor.label': '流量',
   'workbench.settings.category.trafficMonitor.description':
     '流量面板“开始观察”手势的默认选项，以及会话归档的磁盘预算。',
+  'workbench.settings.category.trafficMonitor.sub.layout': '布局',
+  'workbench.settings.category.trafficMonitor.sub.capture': '捕获',
+  'workbench.settings.category.trafficMonitor.sub.sessions': '会话',
   'workbench.settings.category.editor.label': '代码编辑器',
   'workbench.settings.category.editor.description': '代码编辑界面的字体、缩进和视图选项。',
   'workbench.settings.category.requests.label': 'API 请求',

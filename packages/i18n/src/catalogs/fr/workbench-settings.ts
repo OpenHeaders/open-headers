@@ -128,6 +128,9 @@ export const workbenchSettings = {
   'workbench.settings.category.trafficMonitor.description':
     'Valeurs par défaut du geste « Démarrer l’observation » du panneau Trafic, et budget disque de ' +
     'l’archive de sessions.',
+  'workbench.settings.category.trafficMonitor.sub.layout': 'Disposition',
+  'workbench.settings.category.trafficMonitor.sub.capture': 'Capture',
+  'workbench.settings.category.trafficMonitor.sub.sessions': 'Sessions',
   'workbench.settings.category.editor.label': 'Éditeur de code',
   'workbench.settings.category.editor.description':
     "Police, indentation et options d'affichage des surfaces d'édition de code.",

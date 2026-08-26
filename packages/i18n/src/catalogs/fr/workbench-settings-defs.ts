@@ -461,7 +461,7 @@ export const workbenchSettingsDefs = {
     'Les agents connectés lisent les sessions archivées avec les valeurs réelles au lieu des marqueurs de ' +
     'caviardage — en-têtes d’authentification, cookies et valeurs de type jeton compris. Désactivé par défaut ; ' +
     'tant que c’est activé, chaque lecture non caviardée est consignée dans le fil d’activité.',
-  'workbench.settings.def.trafficMonitor.sessionRetentionGiB.label': 'Budget de taille de l’archive de sessions (Gio)',
+  'workbench.settings.def.trafficMonitor.sessionRetentionGiB.label': 'Budget de taille de l’archive (Gio)',
   'workbench.settings.def.trafficMonitor.sessionRetentionGiB.description':
     'Espace disque total des sessions archivées. Une fois le budget dépassé, les sessions scellées les plus ' +
     'anciennes sont supprimées en premier ; une session en cours d’enregistrement n’est jamais supprimée.',
@@ -706,16 +706,14 @@ export const workbenchSettingsDefs = {
     'Si le diff traite les changements limités aux espaces comme des modifications ou les masque.',
   'workbench.settings.def.workspaceSharing.importPreviewDiffWhitespace.option.none.label': 'Ne pas ignorer',
   'workbench.settings.def.workspaceSharing.importPreviewDiffWhitespace.option.ignore.label': 'Ignorer les espaces',
-  'workbench.settings.def.workspaceSharing.importPreviewDiffCollapseUnchanged.label':
-    'Replier les régions inchangées',
+  'workbench.settings.def.workspaceSharing.importPreviewDiffCollapseUnchanged.label': 'Replier les régions inchangées',
   'workbench.settings.def.workspaceSharing.importPreviewDiffCollapseUnchanged.description':
     'Masque les suites de lignes inchangées et les remplace par un talon cliquable pour développer.',
   'workbench.settings.def.workspaceSharing.importPreviewDiffShowWhitespaces.label':
     "Afficher les caractères d'espacement",
   'workbench.settings.def.workspaceSharing.importPreviewDiffShowWhitespaces.description':
     'Rend les espaces et tabulations comme des glyphes visibles (·, →) dans le diff.',
-  'workbench.settings.def.workspaceSharing.importPreviewDiffShowLineNumbers.label':
-    'Afficher les numéros de ligne',
+  'workbench.settings.def.workspaceSharing.importPreviewDiffShowLineNumbers.label': 'Afficher les numéros de ligne',
   'workbench.settings.def.workspaceSharing.importPreviewDiffShowLineNumbers.description':
     'Affiche la colonne des numéros de ligne à côté de chaque côté du diff.',
   'workbench.settings.def.workspaceSharing.importPreviewDiffShowIndentGuides.label':

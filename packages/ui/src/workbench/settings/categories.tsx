@@ -199,6 +199,11 @@ registerCategory({
   icon: <FundViewOutlined />,
   order: 22,
   descriptionKey: 'workbench.settings.category.trafficMonitor.description',
+  subcategories: [
+    { id: 'layout', labelKey: 'workbench.settings.category.trafficMonitor.sub.layout', order: 10 },
+    { id: 'capture', labelKey: 'workbench.settings.category.trafficMonitor.sub.capture', order: 20 },
+    { id: 'sessions', labelKey: 'workbench.settings.category.trafficMonitor.sub.sessions', order: 30 },
+  ],
   // Only the desktop host runs the Traffic Monitor tool window (the
   // `liveNetwork` capability); browser hosts keep the nav entry and
   // render the desktop teaser, same as the tool window itself.

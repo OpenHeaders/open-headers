@@ -365,7 +365,7 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.trafficMonitor.sessionAgentRawReads.label': 'Agents read archived sessions unredacted',
   'workbench.settings.def.trafficMonitor.sessionAgentRawReads.description':
     'Connected agents read archived sessions with real values instead of redaction markers — authentication headers, cookies, and token-shaped values included. Off by default; every unredacted read is logged to the Activity Feed while this is on.',
-  'workbench.settings.def.trafficMonitor.sessionRetentionGiB.label': 'Session archive size budget (GiB)',
+  'workbench.settings.def.trafficMonitor.sessionRetentionGiB.label': 'Archive size budget (GiB)',
   'workbench.settings.def.trafficMonitor.sessionRetentionGiB.description':
     'Total disk space for archived sessions. Once the archive exceeds the budget, the oldest sealed sessions are removed first; a session that is still recording is never removed.',
   'workbench.settings.def.trafficMonitor.railSide.label': 'Sources side',

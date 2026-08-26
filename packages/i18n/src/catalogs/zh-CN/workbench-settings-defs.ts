@@ -344,7 +344,7 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.trafficMonitor.sessionAgentRawReads.label': '智能体以未脱敏方式读取归档会话',
   'workbench.settings.def.trafficMonitor.sessionAgentRawReads.description':
     '已连接的智能体读取归档会话时会看到真实值而非脱敏标记——包括身份验证标头、Cookie 和 token 形态的值。默认关闭；开启期间，每次未脱敏读取都会记录到活动信息流。',
-  'workbench.settings.def.trafficMonitor.sessionRetentionGiB.label': '会话归档大小预算（GiB）',
+  'workbench.settings.def.trafficMonitor.sessionRetentionGiB.label': '归档大小预算（GiB）',
   'workbench.settings.def.trafficMonitor.sessionRetentionGiB.description':
     '归档会话占用的磁盘空间总额。超出预算后，最旧的已封存会话会最先被删除；正在录制的会话永远不会被删除。',
   'workbench.settings.def.trafficMonitor.railSide.label': '来源列表位置',

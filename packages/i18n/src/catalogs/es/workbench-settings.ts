@@ -136,6 +136,9 @@ export const workbenchSettings = {
   'workbench.settings.category.trafficMonitor.description':
     'Valores predeterminados del gesto «Empezar a observar» del panel de Tráfico y presupuesto de disco del ' +
     'archivo de sesiones.',
+  'workbench.settings.category.trafficMonitor.sub.layout': 'Disposición',
+  'workbench.settings.category.trafficMonitor.sub.capture': 'Captura',
+  'workbench.settings.category.trafficMonitor.sub.sessions': 'Sesiones',
   'workbench.settings.category.editor.label': 'Editor de código',
   'workbench.settings.category.editor.description':
     'Fuente, sangría y opciones de vista para las superficies de edición de código.',

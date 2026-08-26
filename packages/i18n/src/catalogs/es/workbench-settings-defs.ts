@@ -482,8 +482,7 @@ export const workbenchSettingsDefs = {
     'Los agentes conectados leen las sesiones archivadas con los valores reales en lugar de los marcadores de ' +
     'censura — incluidos encabezados de autenticación, cookies y valores con forma de token. Desactivado por ' +
     'defecto; mientras está activado, cada lectura sin censura se registra en el feed de actividad.',
-  'workbench.settings.def.trafficMonitor.sessionRetentionGiB.label':
-    'Presupuesto de tamaño del archivo de sesiones (GiB)',
+  'workbench.settings.def.trafficMonitor.sessionRetentionGiB.label': 'Presupuesto de tamaño del archivo (GiB)',
   'workbench.settings.def.trafficMonitor.sessionRetentionGiB.description':
     'Espacio en disco total para las sesiones archivadas. Al superar el presupuesto, se eliminan primero las ' +
     'sesiones selladas más antiguas; una sesión que aún graba nunca se elimina.',
@@ -730,20 +729,16 @@ export const workbenchSettingsDefs = {
     'Si el diff trata los cambios de solo espacios como ediciones o los oculta.',
   'workbench.settings.def.workspaceSharing.importPreviewDiffWhitespace.option.none.label': 'No ignorar',
   'workbench.settings.def.workspaceSharing.importPreviewDiffWhitespace.option.ignore.label': 'Ignorar los espacios',
-  'workbench.settings.def.workspaceSharing.importPreviewDiffCollapseUnchanged.label':
-    'Plegar las regiones sin cambios',
+  'workbench.settings.def.workspaceSharing.importPreviewDiffCollapseUnchanged.label': 'Plegar las regiones sin cambios',
   'workbench.settings.def.workspaceSharing.importPreviewDiffCollapseUnchanged.description':
     'Oculta las series de líneas sin cambios y las reemplaza por un tramo que se expande al hacer clic.',
-  'workbench.settings.def.workspaceSharing.importPreviewDiffShowWhitespaces.label':
-    'Mostrar los caracteres de espacio',
+  'workbench.settings.def.workspaceSharing.importPreviewDiffShowWhitespaces.label': 'Mostrar los caracteres de espacio',
   'workbench.settings.def.workspaceSharing.importPreviewDiffShowWhitespaces.description':
     'Muestra los espacios y tabulaciones como glifos visibles (·, →) en el diff.',
-  'workbench.settings.def.workspaceSharing.importPreviewDiffShowLineNumbers.label':
-    'Mostrar los números de línea',
+  'workbench.settings.def.workspaceSharing.importPreviewDiffShowLineNumbers.label': 'Mostrar los números de línea',
   'workbench.settings.def.workspaceSharing.importPreviewDiffShowLineNumbers.description':
     'Muestra la columna de números de línea junto a cada lado del diff.',
-  'workbench.settings.def.workspaceSharing.importPreviewDiffShowIndentGuides.label':
-    'Mostrar las guías de sangría',
+  'workbench.settings.def.workspaceSharing.importPreviewDiffShowIndentGuides.label': 'Mostrar las guías de sangría',
   'workbench.settings.def.workspaceSharing.importPreviewDiffShowIndentGuides.description':
     'Muestra guías de sangría verticales para recorrer más fácilmente el anidamiento YAML.',
   'workbench.settings.def.workspaceSharing.importPreviewDiffSoftWrap.label': 'Ajustar las líneas largas',
