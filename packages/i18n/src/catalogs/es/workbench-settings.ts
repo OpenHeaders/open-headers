@@ -143,6 +143,11 @@ export const workbenchSettings = {
   'workbench.settings.category.editor.label': 'Editor de código',
   'workbench.settings.category.editor.description':
     'Fuente, sangría y opciones de vista para las superficies de edición de código.',
+  'workbench.settings.category.editor.sub.font': 'Fuente',
+  'workbench.settings.category.editor.sub.indentation': 'Sangría',
+  'workbench.settings.category.editor.sub.wrapping': 'Ajuste de línea',
+  'workbench.settings.category.editor.sub.display': 'Visualización',
+  'workbench.settings.category.editor.sub.editing': 'Edición',
   'workbench.settings.category.requests.label': 'Solicitudes API',
   'workbench.settings.category.requests.description': 'Envío de solicitudes HTTP y tratamiento de las respuestas.',
   'workbench.settings.category.requests.sub.http': 'HTTP',

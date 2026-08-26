@@ -105,6 +105,7 @@ declare module '@openheaders/ui/workbench/settings/types' {
 
 registerSetting({
   key: 'editor.fontSize',
+  subcategory: 'font',
   type: 'number',
   default: 13,
   schema: v.pipe(v.number(), v.integer(), v.minValue(8), v.maxValue(32)),
@@ -118,6 +119,7 @@ registerSetting({
 
 registerSetting({
   key: 'editor.fontFamilyPreset',
+  subcategory: 'font',
   type: 'enum',
   default: defaultEditorFontPreset(),
   schema: fontFamilyPresetSchema,
@@ -136,6 +138,7 @@ registerSetting({
 
 registerSetting({
   key: 'editor.fontLigatures',
+  subcategory: 'font',
   type: 'boolean',
   default: false,
   schema: v.boolean(),
@@ -148,6 +151,7 @@ registerSetting({
 
 registerSetting({
   key: 'editor.lineHeight',
+  subcategory: 'font',
   type: 'number',
   default: 0,
   schema: v.pipe(v.number(), v.minValue(0), v.maxValue(40)),
@@ -161,6 +165,7 @@ registerSetting({
 
 registerSetting({
   key: 'editor.tabSize',
+  subcategory: 'indentation',
   type: 'number',
   default: 2,
   schema: v.pipe(v.number(), v.integer(), v.minValue(1), v.maxValue(8)),
@@ -174,6 +179,7 @@ registerSetting({
 
 registerSetting({
   key: 'editor.insertSpaces',
+  subcategory: 'indentation',
   type: 'boolean',
   default: true,
   schema: v.boolean(),
@@ -186,6 +192,7 @@ registerSetting({
 
 registerSetting({
   key: 'editor.wordWrap',
+  subcategory: 'wrapping',
   type: 'enum',
   default: 'off',
   schema: wordWrapSchema,
@@ -203,6 +210,7 @@ registerSetting({
 
 registerSetting({
   key: 'editor.wordWrapColumn',
+  subcategory: 'wrapping',
   type: 'number',
   default: 120,
   schema: v.pipe(v.number(), v.integer(), v.minValue(40), v.maxValue(240)),
@@ -217,6 +225,7 @@ registerSetting({
 
 registerSetting({
   key: 'editor.lineNumbers',
+  subcategory: 'display',
   type: 'boolean',
   default: true,
   schema: v.boolean(),
@@ -229,6 +238,7 @@ registerSetting({
 
 registerSetting({
   key: 'editor.renderWhitespace',
+  subcategory: 'display',
   type: 'enum',
   default: 'none',
   schema: renderWhitespaceSchema,
@@ -250,6 +260,7 @@ registerSetting({
 // decoration text: never selectable, never copied, never sent.
 registerSetting({
   key: 'editor.renderLineEnds',
+  subcategory: 'display',
   type: 'boolean',
   default: false,
   schema: v.boolean(),
@@ -262,6 +273,7 @@ registerSetting({
 
 registerSetting({
   key: 'editor.formatOnSave',
+  subcategory: 'editing',
   type: 'boolean',
   default: false,
   schema: v.boolean(),
@@ -274,6 +286,7 @@ registerSetting({
 
 registerSetting({
   key: 'editor.bracketPairColorization',
+  subcategory: 'display',
   type: 'boolean',
   default: true,
   schema: v.boolean(),

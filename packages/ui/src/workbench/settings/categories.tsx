@@ -218,6 +218,13 @@ registerCategory({
   icon: <EditOutlined />,
   order: 20,
   descriptionKey: 'workbench.settings.category.editor.description',
+  subcategories: [
+    { id: 'font', labelKey: 'workbench.settings.category.editor.sub.font', order: 10 },
+    { id: 'indentation', labelKey: 'workbench.settings.category.editor.sub.indentation', order: 20 },
+    { id: 'wrapping', labelKey: 'workbench.settings.category.editor.sub.wrapping', order: 30 },
+    { id: 'display', labelKey: 'workbench.settings.category.editor.sub.display', order: 40 },
+    { id: 'editing', labelKey: 'workbench.settings.category.editor.sub.editing', order: 50 },
+  ],
 });
 
 registerCategory({

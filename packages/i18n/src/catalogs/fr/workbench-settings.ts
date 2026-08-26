@@ -135,6 +135,11 @@ export const workbenchSettings = {
   'workbench.settings.category.editor.label': 'Éditeur de code',
   'workbench.settings.category.editor.description':
     "Police, indentation et options d'affichage des surfaces d'édition de code.",
+  'workbench.settings.category.editor.sub.font': 'Police',
+  'workbench.settings.category.editor.sub.indentation': 'Indentation',
+  'workbench.settings.category.editor.sub.wrapping': 'Retour à la ligne',
+  'workbench.settings.category.editor.sub.display': 'Affichage',
+  'workbench.settings.category.editor.sub.editing': 'Édition',
   'workbench.settings.category.requests.label': 'Requêtes API',
   'workbench.settings.category.requests.description': 'Envoi des requêtes HTTP et traitement des réponses.',
   'workbench.settings.category.requests.sub.http': 'HTTP',

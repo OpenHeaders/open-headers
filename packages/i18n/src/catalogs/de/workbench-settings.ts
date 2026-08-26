@@ -137,6 +137,11 @@ export const workbenchSettings = {
   'workbench.settings.category.editor.label': 'Code-Editor',
   'workbench.settings.category.editor.description':
     'Schrift, Einrückung und Ansichtsoptionen für Code-Bearbeitungsflächen.',
+  'workbench.settings.category.editor.sub.font': 'Schrift',
+  'workbench.settings.category.editor.sub.indentation': 'Einrückung',
+  'workbench.settings.category.editor.sub.wrapping': 'Zeilenumbruch',
+  'workbench.settings.category.editor.sub.display': 'Anzeige',
+  'workbench.settings.category.editor.sub.editing': 'Bearbeitung',
   'workbench.settings.category.requests.label': 'API-Anfragen',
   'workbench.settings.category.requests.description': 'Senden von HTTP-Anfragen und Verarbeitung der Antworten.',
   'workbench.settings.category.requests.sub.http': 'HTTP',
