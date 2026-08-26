@@ -1,4 +1,5 @@
 import type { ThemeVariant } from '../types';
+import { NO_SHADOW_TOKENS } from '../shadows';
 
 export const lightCool: ThemeVariant = {
   id: 'cool',
@@ -7,6 +8,7 @@ export const lightCool: ThemeVariant = {
   descriptionKey: 'workbench.settings.def.appearance.lightVariant.option.cool.description',
   honorsAccentColor: false,
   antdTokens: {
+    ...NO_SHADOW_TOKENS,
     borderRadius: 6,
     fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
     colorBgBase: '#f5f7fa',

@@ -1,4 +1,5 @@
 import type { ThemeVariant } from '../types';
+import { NO_SHADOW_TOKENS } from '../shadows';
 
 export const lightDefault: ThemeVariant = {
   id: 'default',
@@ -7,6 +8,7 @@ export const lightDefault: ThemeVariant = {
   descriptionKey: 'workbench.settings.def.appearance.lightVariant.option.default.description',
   honorsAccentColor: true,
   antdTokens: {
+    ...NO_SHADOW_TOKENS,
     borderRadius: 6,
     fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
     // Darker than antd's default so the gutter between the dock and

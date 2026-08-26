@@ -1,4 +1,5 @@
 import type { ThemeVariant } from '../types';
+import { NO_SHADOW_TOKENS } from '../shadows';
 
 export const lightHighContrast: ThemeVariant = {
   id: 'highContrast',
@@ -7,6 +8,7 @@ export const lightHighContrast: ThemeVariant = {
   descriptionKey: 'workbench.settings.def.appearance.lightVariant.option.highContrast.description',
   honorsAccentColor: false,
   antdTokens: {
+    ...NO_SHADOW_TOKENS,
     borderRadius: 4,
     fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
     colorBgBase: '#ffffff',
