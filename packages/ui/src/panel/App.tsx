@@ -162,15 +162,47 @@ const editorTabCollisionDetection = makeEditorTabCollisionDetection('.dt-editor-
 
 // ── Panel sizes ──────────────────────────────────────────────────────
 
-function getPanelSizes() {
-  const half = Math.round(window.innerWidth * 0.5);
+/** The user's seam drags as shares of the panel document — null until
+    dragged, so the seed applies. Session-local: the panel never persists
+    pane sizes, but the shell reports each drag end here so a later size
+    recompute (a settled re-dock width) re-applies the user's split
+    instead of the seed. */
+interface PanelPaneShares {
+  sidebar: number | null;
+  inspector: number | null;
+  bottom: number | null;
+}
+
+const NO_PANE_SHARES: PanelPaneShares = { sidebar: null, inspector: null, bottom: null };
+
+const clampPx = (px: number, min: number, max: number) => Math.max(min, Math.min(max, px));
+
+function getPanelSizes(shares: PanelPaneShares) {
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+  const half = Math.round(vw * 0.5);
+  const sidebarMax = Math.round(vw * 0.65);
   return {
     // `resetTarget` = the seed, so a sash double-click restores the
     // default split (50/50 sidebar, seed-width inspector) instead of
     // the workbench's reset-to-min behavior.
-    sidebar: { preferred: half, min: 180, max: Math.round(window.innerWidth * 0.65), resetTarget: half },
-    inspector: { preferred: 400, min: 180, max: 500, resetTarget: 400 },
-    bottom: { preferred: 160, min: 80, max: 400 },
+    sidebar: {
+      preferred: clampPx(shares.sidebar !== null ? Math.round(shares.sidebar * vw) : half, 180, sidebarMax),
+      min: 180,
+      max: sidebarMax,
+      resetTarget: half,
+    },
+    inspector: {
+      preferred: clampPx(shares.inspector !== null ? Math.round(shares.inspector * vw) : 400, 180, 500),
+      min: 180,
+      max: 500,
+      resetTarget: 400,
+    },
+    bottom: {
+      preferred: clampPx(shares.bottom !== null ? Math.round(shares.bottom * vh) : 160, 80, 400),
+      min: 80,
+      max: 400,
+    },
     editorMin: 120,
   };
 }
@@ -437,11 +469,27 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
   // DevTools re-docks (right ↔ bottom) resize this document in place —
   // sizes derived from the mount-time innerWidth would keep clamping
   // the sidebar to the old geometry's max. The memo's real input — the
-  // settled viewport width — now lives in PanelResponsiveProvider
+  // settled viewport width — lives in PanelResponsiveProvider
   // (trailing-edge updates, so a window drag never re-renders the
-  // whole shell per frame); Allotment applies min/max changes live.
+  // whole shell per frame). Seam drags flow back as shares so the
+  // recompute preserves the user's split.
+  const [paneShares, setPaneShares] = useState<PanelPaneShares>(NO_PANE_SHARES);
   // biome-ignore lint/correctness/useExhaustiveDependencies: responsive.width IS getPanelSizes's input (window.innerWidth), read at call time
-  const panelSizes = useMemo(getPanelSizes, [responsive.width]);
+  const panelSizes = useMemo(() => getPanelSizes(paneShares), [responsive.width, paneShares]);
+  const handleHorizontalResize = useCallback((px: number[]) => {
+    const vw = window.innerWidth;
+    if (vw <= 0) return;
+    setPaneShares((prev) => ({
+      ...prev,
+      sidebar: px[0] > 0 ? px[0] / vw : prev.sidebar,
+      inspector: px[2] > 0 ? px[2] / vw : prev.inspector,
+    }));
+  }, []);
+  const handleVerticalResize = useCallback((px: number[]) => {
+    const vh = window.innerHeight;
+    if (vh <= 0) return;
+    setPaneShares((prev) => ({ ...prev, bottom: px[1] > 0 ? px[1] / vh : prev.bottom }));
+  }, []);
   // Search session lives at the panel level — SearchPanel itself
   // mounts/unmounts as the user toggles the Search tool window, and
   // we don't want that to discard the user's query and results.
@@ -1155,9 +1203,6 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
 
   const rulesVisible = iconState('rules') !== undefined;
 
-  // ── No-op resize handlers (panel doesn't persist sizes) ────
-  const noopResize = useCallback((_sizes: number[]) => {}, []);
-
   // ── Layout ─────────────────────────────────────────────────
 
   return (
@@ -1194,8 +1239,8 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
         windowMap={PANEL_TOOL_WINDOW_MAP}
         renderToolWindow={renderToolWindow}
         renderEditor={renderEditor}
-        onHorizontalResize={noopResize}
-        onVerticalResize={noopResize}
+        onHorizontalResize={handleHorizontalResize}
+        onVerticalResize={handleVerticalResize}
         renderEditorTabDragPreview={renderEditorTabDragPreview}
         bottomPanelAlignment={bottomPanelAlignment as BottomPanelAlignment}
         bottomPanelSplit={bottomPanelSplit as BottomPanelSplit}
@@ -1210,8 +1255,7 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
         // The panel's container flips geometry on every DevTools
         // re-dock (right ↔ bottom ↔ undocked), so its horizontal
         // splits are fraction-stable: a 50/50 split is 50/50 in every
-        // dock, and Allotment carries drags over as proportions during
-        // its own container-resize layout — no detection needed.
+        // dock, and drags carry over as shares of the grid.
         proportionalHorizontal
         singleSurface={narrowApi.surface}
       />

@@ -1,18 +1,24 @@
 /**
  * Dock region containers — the side columns (SideRegion) and the bottom
- * bar (BottomRegion) that host the dock bodies inside their Allotment
- * splits. Both restore the user's last sash drag on visibility flips,
- * which Allotment forgets on its own. Generic over the tool-window ID
- * type; extracted from ShellLayout.
+ * bar (BottomRegion), each hosting a pair of dock bodies.
+ *
+ * A pair is a flex container whose two panes carry grow WEIGHTS in
+ * custom properties (see track-model.ts). The split is proportional by
+ * construction, so it follows any container resize with no JavaScript,
+ * and a hidden pane leaves its weight in place so the split comes back
+ * intact when the dock reopens. Dragging the seam rewrites the two
+ * weights; double-click equalizes them. Generic over the tool-window
+ * ID type.
  */
 
-import { Allotment, type AllotmentHandle } from 'allotment';
 import { theme } from 'antd';
 import type React from 'react';
-import { useEffect, useMemo, useRef } from 'react';
+import { type RefObject, useCallback, useEffect, useRef } from 'react';
 import { regionDocks } from './constants';
 import { DockBodyStack } from './DockBodyStack';
 import type { FocusStore } from './focus-store';
+import Sash, { type SashSession } from './Sash';
+import { PANE_WEIGHT_VARS } from './track-model';
 import type { BottomPanelSplit, DockSlot } from './types';
 import type { DockLayoutApi } from './use-dock-layout';
 
@@ -39,10 +45,63 @@ function FocusAwareDockBody({ slot, focusStore, baseClass, children }: FocusAwar
   );
 }
 
+/**
+ * Drag + reset wiring for a two-pane pair. The sash sits on the START
+ * edge of the second pane, so the session resizes the second pane and
+ * the first takes the complement — both written as px weights, which
+ * keeps the pair proportional from then on.
+ */
+function usePaneSash(
+  rootRef: RefObject<HTMLDivElement | null>,
+  firstRef: RefObject<HTMLDivElement | null>,
+  secondRef: RefObject<HTMLDivElement | null>,
+  axis: 'x' | 'y',
+  firstMin: number,
+  secondMin: number,
+) {
+  const begin = useCallback((): SashSession | null => {
+    const root = rootRef.current;
+    const first = firstRef.current;
+    const second = secondRef.current;
+    if (!root || !first || !second) return null;
+    const a = axis === 'x' ? first.offsetWidth : first.offsetHeight;
+    const b = axis === 'x' ? second.offsetWidth : second.offsetHeight;
+    if (a <= 0 || b <= 0) return null;
+    const total = a + b;
+    return {
+      start: b,
+      min: secondMin,
+      max: Math.max(secondMin, total - firstMin),
+      apply: (px) => {
+        root.style.setProperty(PANE_WEIGHT_VARS.second, String(px));
+        root.style.setProperty(PANE_WEIGHT_VARS.first, String(total - px));
+      },
+      commit: () => {},
+    };
+  }, [rootRef, firstRef, secondRef, axis, firstMin, secondMin]);
+
+  const reset = useCallback(() => {
+    const root = rootRef.current;
+    if (!root) return;
+    root.style.setProperty(PANE_WEIGHT_VARS.first, '1');
+    root.style.setProperty(PANE_WEIGHT_VARS.second, '1');
+  }, [rootRef]);
+
+  return { begin, reset };
+}
+
+const paneStyle = (visible: boolean, min: number): React.CSSProperties =>
+  ({
+    display: visible ? undefined : 'none',
+    [PANE_WEIGHT_VARS.min]: `${min}px`,
+  }) as React.CSSProperties;
+
 interface SideRegionProps<T extends string> {
   region: 'left' | 'right';
   tl: DockLayoutApi<T>;
   renderToolWindow: (id: T, slot: DockSlot) => React.ReactNode;
+  /** Seed split as weights (the region's first-open px halves) plus
+      per-pane minimum heights. */
   topSize: { preferred: number; min: number };
   bottomSize: { preferred: number; min: number };
   focusStore: FocusStore;
@@ -63,68 +122,48 @@ export function SideRegion<T extends string>({
   const topActive = topDock.active;
   const bottomActive = bottomDock.active;
 
-  // Allotment forgets the user-dragged split when one pane goes
-  // invisible — on re-show it falls back to minimumSize. We snapshot
-  // sizes only on the user's sash-drag end (so visibility-flip-induced
-  // onChange events don't overwrite the user's intent) and replay them
-  // via the imperative `resize` handle when both panes come back visible.
-  const allotmentRef = useRef<AllotmentHandle>(null);
-  const lastBothVisibleSizesRef = useRef<number[] | null>(null);
-  const handleDragEnd = (sizes: number[]) => {
-    if (topActive !== null && bottomActive !== null) {
-      lastBothVisibleSizesRef.current = sizes;
-    }
-  };
-  useEffect(() => {
-    if (topActive !== null && bottomActive !== null && lastBothVisibleSizesRef.current) {
-      allotmentRef.current?.resize(lastBothVisibleSizesRef.current);
-    }
-  }, [topActive, bottomActive]);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const topRef = useRef<HTMLDivElement>(null);
+  const bottomRef = useRef<HTMLDivElement>(null);
+  const { begin, reset } = usePaneSash(rootRef, topRef, bottomRef, 'y', topSize.min, bottomSize.min);
 
-  // Initial 60/40 (right region) / 50/50 (left region) via `defaultSizes`.
-  // We deliberately do NOT pass per-pane `preferredSize` here: Allotment's
-  // native sashreset would resize the left-adjacent pane to its
-  // preferredSize first, snapping back to the seed split. Omitting it
-  // makes sashreset fall through to `distributeViewSizes()` — equalize
-  // to 50/50 — which is the reset behavior the user asked for.
-  const sideDefaultSizes = useMemo(
-    () => [topSize.preferred, bottomSize.preferred],
-    [topSize.preferred, bottomSize.preferred],
-  );
+  const rootStyle = {
+    background: token.colorBgLayout,
+    [PANE_WEIGHT_VARS.first]: topSize.preferred,
+    [PANE_WEIGHT_VARS.second]: bottomSize.preferred,
+  } as React.CSSProperties;
 
   return (
     <div
-      className={`rules-region rules-region-${region}`}
+      ref={rootRef}
+      className={`rules-region rules-region-${region} rules-dock-pair rules-dock-pair--rows`}
       data-region={region}
       tabIndex={-1}
-      style={{ height: '100%', background: token.colorBgLayout }}
+      style={rootStyle}
     >
-      <Allotment
-        ref={allotmentRef}
-        vertical
-        proportionalLayout
-        onDragEnd={handleDragEnd}
-        defaultSizes={sideDefaultSizes}
+      {/* Bodies render unconditionally (the pane hides the whole dock):
+          DockBodyStack keeps activated windows mounted so their state
+          survives tab switches and dock close/reopen. */}
+      <div ref={topRef} className="rules-dock-pane rules-dock-pane--first" style={paneStyle(topActive !== null, topSize.min)}>
+        <FocusAwareDockBody slot={topSlot} focusStore={focusStore} baseClass="rules-dock-body">
+          <DockBodyStack windows={topDock.windows} active={topActive} slot={topSlot} renderToolWindow={renderToolWindow} />
+        </FocusAwareDockBody>
+      </div>
+      <div
+        ref={bottomRef}
+        className="rules-dock-pane rules-dock-pane--second"
+        style={paneStyle(bottomActive !== null, bottomSize.min)}
       >
-        {/* Bodies render unconditionally (the pane's `visible` hides the
-            whole dock): DockBodyStack keeps activated windows mounted so
-            their state survives tab switches and dock close/reopen. */}
-        <Allotment.Pane minSize={topSize.min} visible={topActive !== null}>
-          <FocusAwareDockBody slot={topSlot} focusStore={focusStore} baseClass="rules-dock-body">
-            <DockBodyStack windows={topDock.windows} active={topActive} slot={topSlot} renderToolWindow={renderToolWindow} />
-          </FocusAwareDockBody>
-        </Allotment.Pane>
-        <Allotment.Pane minSize={bottomSize.min} visible={bottomActive !== null}>
-          <FocusAwareDockBody slot={bottomSlot} focusStore={focusStore} baseClass="rules-dock-body">
-            <DockBodyStack
-              windows={bottomDock.windows}
-              active={bottomActive}
-              slot={bottomSlot}
-              renderToolWindow={renderToolWindow}
-            />
-          </FocusAwareDockBody>
-        </Allotment.Pane>
-      </Allotment>
+        {topActive !== null && bottomActive !== null && <Sash axis="y" edge="start" begin={begin} onReset={reset} />}
+        <FocusAwareDockBody slot={bottomSlot} focusStore={focusStore} baseClass="rules-dock-body">
+          <DockBodyStack
+            windows={bottomDock.windows}
+            active={bottomActive}
+            slot={bottomSlot}
+            renderToolWindow={renderToolWindow}
+          />
+        </FocusAwareDockBody>
+      </div>
     </div>
   );
 }
@@ -143,34 +182,24 @@ export function BottomRegion<T extends string>({ tl, renderToolWindow, focusStor
   const leftActive = leftDock.active;
   const rightActive = rightDock.active;
 
-  const allotmentRef = useRef<AllotmentHandle>(null);
-  const lastBothVisibleSizesRef = useRef<number[] | null>(null);
-  const handleDragEnd = (sizes: number[]) => {
-    if (leftActive !== null && rightActive !== null) {
-      lastBothVisibleSizesRef.current = sizes;
-    }
-  };
-  // A remembered sash drag is meaningless across an axis flip (widths
-  // vs heights) — drop it so the re-keyed Allotment seeds 50/50.
-  useEffect(() => {
-    lastBothVisibleSizesRef.current = null;
-  }, [split]);
-  useEffect(() => {
-    if (leftActive === null || rightActive === null) return;
-    // Restore the user's last drag if we have one, otherwise fall back
-    // to an equal split. Allotment doesn't apply preferredSize on
-    // visibility transitions — it uses minimumSize — so the first time
-    // both panes become visible we have to nudge the split ourselves.
-    if (lastBothVisibleSizesRef.current) {
-      allotmentRef.current?.resize(lastBothVisibleSizesRef.current);
-    } else {
-      allotmentRef.current?.reset();
-    }
-  }, [leftActive, rightActive]);
+  // Stacked rows take a smaller minimum than the side-by-side columns:
+  // 200px of height would forbid two rows inside typical bottom-panel
+  // heights, while 84px still fits a panel header plus a usable
+  // content strip.
+  const stacked = split === 'rows';
+  const paneMin = stacked ? 84 : 200;
 
-  // Bodies render unconditionally (the pane's `visible` hides the whole
-  // dock): DockBodyStack keeps activated windows mounted so their state
-  // survives tab switches and dock close/reopen.
+  const rootRef = useRef<HTMLDivElement>(null);
+  const firstRef = useRef<HTMLDivElement>(null);
+  const secondRef = useRef<HTMLDivElement>(null);
+  const { begin, reset } = usePaneSash(rootRef, firstRef, secondRef, stacked ? 'y' : 'x', paneMin, paneMin);
+
+  // A remembered seam drag is meaningless across an axis flip (widths
+  // vs heights) — equalize on a split change.
+  useEffect(() => {
+    reset();
+  }, [split, reset]);
+
   const renderBottomSub = (slot: DockSlot) => {
     const dock = tl.state.docks[slot];
     return (
@@ -182,25 +211,28 @@ export function BottomRegion<T extends string>({ tl, renderToolWindow, focusStor
     );
   };
 
-  // Keyed by split so an axis flip cleanly remounts the Allotment —
-  // its internal pane sizes are per-axis and don't survive a `vertical`
-  // prop change in place. Stacked rows take a smaller minimum than the
-  // side-by-side columns: 200px of height would forbid two rows inside
-  // typical bottom-panel heights, while 84px still fits a panel header
-  // plus a usable content strip.
-  const stacked = split === 'rows';
-  const paneMin = stacked ? 84 : 200;
+  const rootStyle = {
+    [PANE_WEIGHT_VARS.first]: 1,
+    [PANE_WEIGHT_VARS.second]: 1,
+  } as React.CSSProperties;
 
   return (
-    <div className="rules-region rules-region-bottom" data-region="bottom" tabIndex={-1} style={{ height: '100%' }}>
-      <Allotment key={split} ref={allotmentRef} vertical={stacked} proportionalLayout onDragEnd={handleDragEnd}>
-        <Allotment.Pane preferredSize="50%" visible={leftActive !== null} minSize={paneMin}>
-          {renderBottomSub('bottom-left')}
-        </Allotment.Pane>
-        <Allotment.Pane preferredSize="50%" visible={rightActive !== null} minSize={paneMin}>
-          {renderBottomSub('bottom-right')}
-        </Allotment.Pane>
-      </Allotment>
+    <div
+      ref={rootRef}
+      className={`rules-region rules-region-bottom rules-dock-pair rules-dock-pair--${stacked ? 'rows' : 'columns'}`}
+      data-region="bottom"
+      tabIndex={-1}
+      style={rootStyle}
+    >
+      <div ref={firstRef} className="rules-dock-pane rules-dock-pane--first" style={paneStyle(leftActive !== null, paneMin)}>
+        {renderBottomSub('bottom-left')}
+      </div>
+      <div ref={secondRef} className="rules-dock-pane rules-dock-pane--second" style={paneStyle(rightActive !== null, paneMin)}>
+        {leftActive !== null && rightActive !== null && (
+          <Sash axis={stacked ? 'y' : 'x'} edge="start" begin={begin} onReset={reset} />
+        )}
+        {renderBottomSub('bottom-right')}
+      </div>
     </div>
   );
 }

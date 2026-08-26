@@ -18,6 +18,8 @@ export { default as PanelHeader } from './PanelHeader';
 export type { CreatePanelHeaderWiringInput, PanelHeaderWiring } from './panel-header-wiring';
 export { createPanelHeaderWiring } from './panel-header-wiring';
 export { default as RegionToggle } from './RegionToggle';
+export type { SashProps, SashSession } from './Sash';
+export { default as Sash } from './Sash';
 export type { ShellLayoutProps } from './ShellLayout';
 export { default as ShellLayout } from './ShellLayout';
 export { default as SidebarLayoutIcon } from './SidebarLayoutIcon';
@@ -36,6 +38,7 @@ export {
   resolveToolWindowLabel,
   resolveToolWindowTooltip,
 } from './tool-window-copy';
+export { clampTrack, PANE_WEIGHT_VARS, SHELL_TRACK_VARS, trackValue } from './track-model';
 export type {
   BottomPanelAlignment,
   BottomPanelSplit,

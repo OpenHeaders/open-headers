@@ -105,39 +105,16 @@
   background: transparent !important;
 }
 
-/* Wrapper around each `bottomPanelAlignment` variant. The variants
-   render fundamentally different Allotment trees, so React must
-   unmount the old tree and mount the new one. Allotment's pane
-   sizing happens inside its own useEffect (after the first paint),
-   so the freshly-mounted tree paints one or two frames at zero size
-   before laying out — that's the visible flash.
-   We mask it by holding the new wrapper at opacity 0 across the
-   layout-settling window (`animation-fill-mode: backwards` makes
-   the `from` keyframe apply from the moment the element mounts,
-   even before the animation tick), keeping it invisible while
-   Allotment's effect runs and the inner panes register. The 0%→40%
-   plateau covers ~3 frames of layout work; the remaining 60%
-   eases up to full opacity. Total duration sits at the perception
-   threshold so the swap reads as "instant" without any visible
-   intermediate state. */
-.rules-center-mount {
-  animation: rules-center-paint-mask 130ms ease-out backwards;
-  will-change: opacity;
-}
-
-@keyframes rules-center-paint-mask {
-  0% {
-    opacity: 0;
-  }
-  40% {
-    opacity: 0;
-  }
-  100% {
-    opacity: 1;
-  }
-}
-
-/* ── Main row (activity bar | content | activity bar) ─────────────── */
+/* ── Shell grid ───────────────────────────────────────────────────── */
+/* ONE grid for the whole shell (track-model.ts). Column and row tracks
+   are custom properties: the `*-size` ones are written by ShellLayout
+   (host sizes) and by a sash drag; the derived `--oh-<pane>` track is
+   what the template reads, so a closed region can zero its track from
+   a class without touching the remembered size. Pane tracks are
+   `minmax(min, size)` and the editor is `1fr` — the editor absorbs
+   every delta first, a side pane holds its size until the editor is
+   at its minimum, then compresses toward its own. A window resize is
+   resolved by the layout engine alone; no script runs on that path. */
 
 .rules-main {
   flex: 1;
@@ -147,36 +124,234 @@
   position: relative;
 }
 
-.rules-main-row {
-  /* Hosts the outer Allotment that splits [leftBar | center | rightBar].
-     Allotment fills its container, so we just give the row definite
-     dimensions and stay out of the way. */
+.rules-shell-grid {
+  --oh-sidebar: var(--oh-sidebar-size, 0px);
+  --oh-sidebar-min: var(--oh-sidebar-min-size, 0px);
+  --oh-inspector: var(--oh-inspector-size, 0px);
+  --oh-inspector-min: var(--oh-inspector-min-size, 0px);
+  --oh-bottom: var(--oh-bottom-size, 0px);
+  --oh-bottom-min: var(--oh-bottom-min-size, 0px);
+  /* Mirrors MAIN_ROW_MIN in ShellLayout.tsx. */
+  --oh-main-min: 120px;
+
   flex: 1;
   min-height: 0;
-  position: relative;
+  display: grid;
+  grid-template-columns:
+    var(--oh-bar-l, 36px)
+    minmax(var(--oh-sidebar-min), var(--oh-sidebar))
+    minmax(var(--oh-editor-min, 0px), 1fr)
+    minmax(var(--oh-inspector-min), var(--oh-inspector))
+    var(--oh-bar-r, 36px);
+  grid-template-rows: minmax(var(--oh-main-min), 1fr) minmax(var(--oh-bottom-min), var(--oh-bottom));
 }
 
-.rules-main-horizontal {
-  /* Sits inside the center Allotment.Pane and must fill it so the
-     nested per-alignment Allotment can size against a real box. */
+.rules-shell-grid--align-center {
+  grid-template-areas:
+    'bar-l sidebar editor inspector bar-r'
+    'bar-l sidebar bottom inspector bar-r';
+}
+
+.rules-shell-grid--align-left {
+  grid-template-areas:
+    'bar-l sidebar editor inspector bar-r'
+    'bar-l bottom bottom inspector bar-r';
+}
+
+.rules-shell-grid--align-right {
+  grid-template-areas:
+    'bar-l sidebar editor inspector bar-r'
+    'bar-l sidebar bottom bottom bar-r';
+}
+
+.rules-shell-grid--align-justify {
+  grid-template-areas:
+    'bar-l sidebar editor inspector bar-r'
+    'bar-l bottom bottom bottom bar-r';
+}
+
+.rules-shell-grid--left-closed {
+  --oh-sidebar: 0px;
+  --oh-sidebar-min: 0px;
+}
+
+.rules-shell-grid--right-closed {
+  --oh-inspector: 0px;
+  --oh-inspector-min: 0px;
+}
+
+.rules-shell-grid--bottom-closed {
+  --oh-bottom: 0px;
+  --oh-bottom-min: 0px;
+}
+
+/* Narrow single-surface mode: one center area between the rails; every
+   surface cell maps onto it and ShellLayout display-toggles all but the
+   chosen one. */
+.rules-shell-grid--single {
+  grid-template-columns: var(--oh-bar-l, 36px) minmax(0, 1fr) var(--oh-bar-r, 36px);
+  grid-template-rows: minmax(0, 1fr);
+  grid-template-areas: 'bar-l center bar-r';
+}
+
+.rules-shell-grid--single > .rules-shell-cell {
+  grid-area: center;
+}
+
+.rules-shell-bar,
+.rules-shell-cell {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+}
+
+.rules-shell-bar--left {
+  grid-area: bar-l;
+}
+
+.rules-shell-bar--right {
+  grid-area: bar-r;
+}
+
+.rules-shell-cell--left {
+  grid-area: sidebar;
+}
+
+.rules-shell-cell--editor {
+  grid-area: editor;
+}
+
+.rules-shell-cell--right {
+  grid-area: inspector;
+}
+
+.rules-shell-cell--bottom {
+  grid-area: bottom;
+}
+
+.rules-shell-cell > .rules-region {
   width: 100%;
   height: 100%;
+}
+
+/* ── Dock pair (two panes sharing a region) ───────────────────────── */
+/* Flex weights in custom properties (PANE_WEIGHT_VARS): proportional by
+   construction, so the split follows any container resize with no
+   script, and a hidden pane keeps its weight for when it reopens. */
+
+.rules-dock-pair {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+}
+
+.rules-dock-pair--rows {
+  flex-direction: column;
+}
+
+.rules-dock-pair--columns {
+  flex-direction: row;
+}
+
+.rules-dock-pane {
   position: relative;
+  flex: var(--oh-pane-grow, 1) 1 0px;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.rules-dock-pane--first {
+  --oh-pane-grow: var(--oh-pane-a, 1);
+}
+
+.rules-dock-pane--second {
+  --oh-pane-grow: var(--oh-pane-b, 1);
+}
+
+.rules-dock-pair--rows > .rules-dock-pane {
+  min-height: var(--oh-pane-min, 0px);
+}
+
+.rules-dock-pair--columns > .rules-dock-pane {
+  min-width: var(--oh-pane-min, 0px);
+}
+
+/* ── Sash ─────────────────────────────────────────────────────────── */
+/* A 6px handle centered on the seam between two tracks — exactly the
+   gutter the two 3px card insets leave — overlaid on the edge of the
+   cell it resizes so it follows the grid line for free. Invisible: the
+   gutter itself is the affordance, the cursor the feedback. */
+
+.oh-sash {
+  position: absolute;
+  z-index: 20;
+  user-select: none;
+  touch-action: none;
+}
+
+.oh-sash--x {
+  top: 0;
+  bottom: 0;
+  width: 6px;
+  cursor: col-resize;
+}
+
+.oh-sash--x.oh-sash--end {
+  right: -3px;
+}
+
+.oh-sash--x.oh-sash--start {
+  left: -3px;
+}
+
+.oh-sash--y {
+  left: 0;
+  right: 0;
+  height: 6px;
+  cursor: row-resize;
+}
+
+.oh-sash--y.oh-sash--end {
+  bottom: -3px;
+}
+
+.oh-sash--y.oh-sash--start {
+  top: -3px;
+}
+
+/* While a sash is held: the resize cursor everywhere (the pointer is
+   captured, but the cursor would otherwise flip over hovered content),
+   no text selection, and iframes (PDF previews) can't swallow moves. */
+.oh-sash-dragging-x,
+.oh-sash-dragging-x * {
+  cursor: col-resize !important;
+}
+
+.oh-sash-dragging-y,
+.oh-sash-dragging-y * {
+  cursor: row-resize !important;
+}
+
+.oh-sash-dragging-x,
+.oh-sash-dragging-y {
+  user-select: none;
+}
+
+.oh-sash-dragging-x iframe,
+.oh-sash-dragging-y iframe {
+  pointer-events: none;
 }
 
 /* ── Activity bar ─────────────────────────────────────────────────── */
 
 .rules-activity-bar {
-  /* Bar width is driven by the outer Allotment.Pane (per-rail user
-     setting in labeled mode, locked at 36px in icon-only mode), so
-     the bar fills its pane horizontally. Height fills the pane too —
-     Allotment uses absolute positioning for panes, so explicit 100%
-     height is needed. `box-sizing: border-box` keeps the padding
-     inside that 100% box; without it the padding-bottom would push
-     the bar past the pane's `overflow: hidden` clip and crop the
-     absolutely-positioned bottom chip group. ShellLayout reads the
-     bar's offsetWidth at runtime to size the drop-zone overlay,
-     picking up drags automatically. */
+  /* Bar width is the rail's grid track (per-rail user setting in
+     labeled mode, locked at 36px in icon-only mode), so the bar fills
+     its cell. `box-sizing: border-box` keeps the padding inside that
+     100% box; without it the padding-bottom would push the bar past
+     the cell and crop the absolutely-positioned bottom chip group. */
   box-sizing: border-box;
   width: 100%;
   height: 100%;

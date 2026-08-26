@@ -2,8 +2,8 @@
  * useNativeDragGuard — suppresses accidental native HTML5 drags inside
  * the shell.
  *
- * Double-clicking an Allotment sash (the snap-to-preferred gesture)
- * leaves a browser text selection behind: the sash is non-selectable,
+ * Double-clicking a sash (the snap-to-preferred gesture) leaves a
+ * browser text selection behind: the sash is non-selectable,
  * so the double-click's word-selection walks into the adjacent pane and
  * selects whatever content sits next to the divider. The next
  * press-and-hold on the sash then lands inside that live selection and
@@ -41,7 +41,7 @@ export function useNativeDragGuard(shellRef: RefObject<HTMLElement | null>): voi
     const onMouseDown = (e: MouseEvent) => {
       if (e.detail < 2) return;
       const target = e.target instanceof Element ? e.target : null;
-      if (target?.closest('.sash')) e.preventDefault();
+      if (target?.closest('.oh-sash, .sash')) e.preventDefault();
     };
 
     shell.addEventListener('dragstart', onDragStart, true);

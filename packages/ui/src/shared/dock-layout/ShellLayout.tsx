@@ -2,9 +2,11 @@
  * ShellLayout — generic tool-window shell shared between workbench.html
  * and the DevTools Inspector panel.
  *
- * Renders the six tool-window docks across three visual regions (left
- * column, right column, bottom bar) plus a central editor area. Four
- * bottom-panel alignments switch at runtime:
+ * ONE CSS grid (see track-model.ts) places the six tool-window docks
+ * across three visual regions (left column, right column, bottom bar),
+ * the central editor area, and the two activity bars. The four bottom-
+ * panel alignments are four `grid-template-areas` strings, selected by
+ * a class — no tree is remounted when the user switches:
  *
  *   - center  — bottom nested inside the middle column only (sidebars
  *               run full height; this is the classic IDE look)
@@ -14,6 +16,10 @@
  *               runs full height
  *   - justify — bottom spans the full viewport width (below both
  *               sidebars + editor)
+ *
+ * A window resize is resolved by the layout engine alone. JavaScript
+ * runs only during a sash drag (one custom-property write per pointer
+ * move) and reports the resulting sizes to the host on release.
  *
  * Drag-and-drop is wired through dnd-kit: DockTabStrip tabs are draggable,
  * DropZoneOverlay renders six drop targets during a drag, and onDragEnd
@@ -26,14 +32,15 @@
 
 import { type CollisionDetection, closestCenter, DndContext, DragOverlay, MeasuringStrategy } from '@dnd-kit/core';
 import { useT } from '@openheaders/ui/context/LocaleContext';
-import { Allotment, LayoutPriority } from 'allotment';
 import type React from 'react';
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { BAR_LABELED_MIN } from './constants';
+import { useCallback, useLayoutEffect, useMemo, useRef } from 'react';
+import { BAR_COMPACT_WIDTH, BAR_LABELED_MAX, BAR_LABELED_MIN } from './constants';
 import { BottomRegion, SideRegion } from './DockRegions';
 import { computeDropZoneRects } from './drop-zone-rects';
 import DropZoneOverlay from './DropZoneOverlay';
 import type { FocusStore } from './focus-store';
+import Sash, { type SashSession } from './Sash';
+import { SHELL_TRACK_VARS, trackValue } from './track-model';
 import type {
   BottomPanelAlignment,
   BottomPanelSplit,
@@ -44,7 +51,6 @@ import type {
   ToolWindowDef,
 } from './types';
 import { resolveToolWindowLabel } from './tool-window-copy';
-import { useActivityBarSizing } from './use-activity-bar-sizing';
 import { useDockDrag } from './use-dock-drag';
 import type { DockLayoutApi } from './use-dock-layout';
 import { useNativeDragGuard } from './use-native-drag-guard';
@@ -61,8 +67,11 @@ export interface ShellLayoutProps<T extends string> {
   renderToolWindow: (id: T, slot: DockSlot) => React.ReactNode;
   /** Renders the central editor area (tabs + breadcrumb + active tab body). */
   renderEditor: () => React.ReactNode;
-  /** Called when a dock pane is resized so the host can persist ratios. */
+  /** Called when a sash drag ends with the live px widths
+      `[sidebar, editor, inspector]` (a closed pane reports 0) so the
+      host can persist ratios. */
   onHorizontalResize: (sizes: number[]) => void;
+  /** Called when the bottom sash drag ends with `[main, bottom]` px. */
   onVerticalResize: (sizes: number[]) => void;
   /** Render the floating drag preview for an editor tab (owned by the host). */
   renderEditorTabDragPreview?: (tabId: string) => React.ReactNode;
@@ -83,9 +92,9 @@ export interface ShellLayoutProps<T extends string> {
       handle. Called with the next pixel width for both rails. */
   onActivityBarResize: (sizes: { left: number; right: number }) => void;
   /** Responsive sizing. `resetTarget` is the width a side pane snaps to
-   *  on sash double-click (Allotment's native reset); it defaults to
-   *  `min` — the workbench's reset-to-narrow behavior — while the panel
-   *  passes its seed so reset restores the default split. */
+   *  on sash double-click; it defaults to `min` — the workbench's
+   *  reset-to-narrow behavior — while the panel passes its seed so
+   *  reset restores the default split. */
   sizes: {
     sidebar: { preferred: number; min: number; max: number; resetTarget?: number };
     inspector: { preferred: number; min: number; max: number; resetTarget?: number };
@@ -112,15 +121,19 @@ export interface ShellLayoutProps<T extends string> {
   /**
    * Narrow single-surface mode. When set, the center area shows ONLY
    * this surface (the editor or one tool region) instead of the
-   * multi-column Allotment trees — for hosts whose container can get
-   * too narrow for side-by-side panes (the DevTools panel docked
-   * left/right). All surfaces stay mounted (display-toggled) so
-   * editor tab bodies and region state survive switching. The
-   * activity bars remain visible as the switcher. Null/omitted →
-   * normal layout.
+   * multi-column grid — for hosts whose container can get too narrow
+   * for side-by-side panes (the DevTools panel docked left/right).
+   * All surfaces stay mounted (display-toggled) so editor tab bodies
+   * and region state survive switching. The activity bars remain
+   * visible as the switcher. Null/omitted → normal layout.
    */
   singleSurface?: ShellSurface | null;
 }
+
+// ── Helpers ───────────────────────────────────────────────────────────
+
+const widthOf = (el: HTMLElement | null): number => el?.offsetWidth ?? 0;
+const heightOf = (el: HTMLElement | null): number => el?.offsetHeight ?? 0;
 
 // ── ShellLayout ───────────────────────────────────────────────────────
 
@@ -163,461 +176,281 @@ function ShellLayoutInner<T extends string>({
   const rightOpen = tl.isRegionOpen('right');
   const bottomOpen = tl.isRegionOpen('bottom');
 
-  // Defer alignment-driven tree changes until the bottom region is
-  // actually open. With no active bottom tool window the bottom pane
-  // is `visible={false}`, so the four variants render identically;
-  // remounting the entire center tree (and replaying the paint mask)
-  // when the user picks a different alignment from a menu would just
-  // be cost. The setting still persists — we apply it the next time
-  // the bottom region opens, which itself causes a layout change so
-  // the swap blends into that transition.
-  const [effectiveAlignment, setEffectiveAlignment] = useState<BottomPanelAlignment>(bottomPanelAlignment);
-  useEffect(() => {
-    if (bottomOpen) setEffectiveAlignment(bottomPanelAlignment);
-  }, [bottomOpen, bottomPanelAlignment]);
-
   const shellRef = useRef<HTMLDivElement>(null);
   useNativeDragGuard(shellRef);
-  // The live shell size lives in a ref, NOT state. The observer fires on
-  // every tick of a window resize, and a state mirror re-rendered the
-  // entire shell per tick — render props included, so every keep-alive
-  // editor tab body — saturating the main thread until frames dropped
-  // and the fixed-px rails visibly juddered against the moving window
-  // edge (same law as the sash-drag handlers above). Nothing consumes
-  // the size as a render trigger: Allotment captures defaultSizes at
-  // mount, so only renders that REMOUNT a tree (alignment toggles) read
-  // it, and those renders are triggered by their own state changes and
-  // pick up the current ref value then. The one-shot `shellMeasured`
-  // flip below is the only measurement-driven render.
-  const shellSizeRef = useRef<{ width: number; height: number }>({ width: 0, height: 0 });
-  const [shellMeasured, setShellMeasured] = useState(false);
-  // Measured live from the DOM — left and right rails can be sized
-  // independently (per-rail user setting in labeled mode), so we
-  // track each width separately. The drop-zone overlay math below
-  // reads these to position the dock-half rectangles flush with the
-  // real bar edges, no matter what the user has resized them to.
-  const [barWidths, setBarWidths] = useState<{ left: number; right: number }>({ left: 64, right: 64 });
+  const gridRef = useRef<HTMLDivElement>(null);
+  const barLeftRef = useRef<HTMLDivElement>(null);
+  const barRightRef = useRef<HTMLDivElement>(null);
+  const leftCellRef = useRef<HTMLDivElement>(null);
+  const editorCellRef = useRef<HTMLDivElement>(null);
+  const rightCellRef = useRef<HTMLDivElement>(null);
+  const bottomCellRef = useRef<HTMLDivElement>(null);
 
-  useLayoutEffect(() => {
-    const el = shellRef.current;
-    if (!el) return;
-    let measured = false;
-    const ro = new ResizeObserver((entries) => {
-      const r = entries[0]?.contentRect;
-      if (!r) return;
-      shellSizeRef.current = { width: r.width, height: r.height };
-      if (!measured && r.width > 0 && r.height > 0) {
-        measured = true;
-        setShellMeasured(true);
-      }
-    });
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, []);
+  // ── Tracks ────────────────────────────────────────────────────────
 
-  // `shellMeasured` is a dependency because the main row (and with it
-  // the activity bars) only mounts after the shell has been measured —
-  // on the very first run the bars aren't in the DOM yet and the query
-  // finds nothing; the flip to true re-runs this effect against the
-  // now-mounted bars. Without it, barWidths would silently stay at its
-  // 64px seed and every drop zone would sit offset from the real rails.
-  useLayoutEffect(() => {
-    const shell = shellRef.current;
-    if (!shell) return;
-    const leftBar = shell.querySelector<HTMLElement>('.rules-activity-bar--left');
-    const rightBar = shell.querySelector<HTMLElement>('.rules-activity-bar--right');
-    if (!leftBar || !rightBar) return;
+  // In icon-only (compact) mode both rails are locked to
+  // BAR_COMPACT_WIDTH and their sashes aren't rendered; with labels the
+  // user drags between BAR_LABELED_MIN and BAR_LABELED_MAX, persisted
+  // per rail via the host settings.
+  const compactBars = !showToolWindowLabels;
+  const barLeft = compactBars ? BAR_COMPACT_WIDTH : activityBarWidths.left;
+  const barRight = compactBars ? BAR_COMPACT_WIDTH : activityBarWidths.right;
 
-    const measure = () => {
-      const nextLeft = leftBar.offsetWidth;
-      const nextRight = rightBar.offsetWidth;
-      setBarWidths((prev) => (prev.left === nextLeft && prev.right === nextRight ? prev : { left: nextLeft, right: nextRight }));
-    };
-    measure();
-    const ro = new ResizeObserver(measure);
-    ro.observe(leftBar);
-    ro.observe(rightBar);
-    return () => ro.disconnect();
-  }, [showToolWindowLabels, sidebarLayout, shellMeasured]);
-
-  // Sash-drag onChange handlers forward straight to the host — no React
-  // state per drag tick. Allotment owns the live pane sizes in the DOM;
-  // mirroring them into state here re-rendered the entire shell (and
-  // with it every keep-alive editor tab body) on every pointer move,
-  // which made a divider drag lag proportionally to open-tab count.
-  const handleHorizontalChange = onHorizontalResize;
-  const handleVerticalChange = onVerticalResize;
-
-  const topBottomHalves = useMemo(() => {
-    const vh = window.innerHeight;
-    // Equal ratios (both = half of viewport) paired with
-    // `proportionalLayout` on the side-region Allotment produce a
-    // 50/50 split on first open that stays balanced on window resize.
-    // Previously 0.35 each left ~30% slack, which the first pane
-    // absorbed — making the top pane visibly taller than the bottom.
-    return {
-      left: {
-        top: { preferred: Math.round(vh * 0.5), min: 120 },
-        bottom: { preferred: Math.round(vh * 0.5), min: 120 },
-      },
-      // Right region opens with a 60/40 split on a fresh profile:
-      // Docs (right-top) gets the larger pane for reading width, Scope
-      // (right-bottom) sits beneath at the smaller height that suits
-      // its inspector density. Drag-to-resize persists per-workspace
-      // via the side-region's onDragEnd path.
-      right: {
-        top: { preferred: Math.round(vh * 0.6), min: 120 },
-        bottom: { preferred: Math.round(vh * 0.4), min: 120 },
-      },
-    };
-  }, []);
-
-  // ── Editor pane ───────────────────────────────────────────────────
-
-  const editorPane = (
-    <div className="rules-region rules-region-editor" data-region="editor" tabIndex={-1}>
-      {renderEditor()}
-    </div>
-  );
-
-  // Reusable Allotment.Pane factories so each alignment variant stays
-  // readable. They're plain JSX returns (not components) — Allotment
-  // only inspects React.Children for direct Pane elements, which these
-  // still are.
-  const leftSidebarPane = (
-    <Allotment.Pane
-      preferredSize={sizes.sidebar.resetTarget ?? sizes.sidebar.min}
-      minSize={sizes.sidebar.min}
-      maxSize={sizes.sidebar.max}
-      visible={leftOpen}
-      priority={LayoutPriority.Low}
-    >
-      <SideRegion<T>
-        region="left"
-        tl={tl}
-        renderToolWindow={renderToolWindow}
-        topSize={topBottomHalves.left.top}
-        bottomSize={topBottomHalves.left.bottom}
-        focusStore={focusStore}
-
-      />
-    </Allotment.Pane>
-  );
-
-  const rightSidebarPane = (
-    <Allotment.Pane
-      preferredSize={sizes.inspector.resetTarget ?? sizes.inspector.min}
-      minSize={sizes.inspector.min}
-      maxSize={sizes.inspector.max}
-      visible={rightOpen}
-    >
-      <SideRegion<T>
-        region="right"
-        tl={tl}
-        renderToolWindow={renderToolWindow}
-        topSize={topBottomHalves.right.top}
-        bottomSize={topBottomHalves.right.bottom}
-        focusStore={focusStore}
-       
-      />
-    </Allotment.Pane>
-  );
-
-  const bottomPane = (
-    <Allotment.Pane
-      preferredSize={sizes.bottom.preferred}
-      minSize={sizes.bottom.min}
-      maxSize={sizes.bottom.max}
-      visible={bottomOpen}
-    >
-      <BottomRegion tl={tl} renderToolWindow={renderToolWindow} focusStore={focusStore} split={bottomPanelSplit} />
-    </Allotment.Pane>
-  );
-
-  // Default sizes provided to each alignment-variant Allotment so its
-  // first paint is laid out at the correct sizes — without these,
-  // Allotment renders panes at 0 until its internal ResizeObserver
-  // fires (one frame later), which is the source of the alignment-
-  // toggle flash. ALWAYS computed from the live shell measurement:
-  // Allotment captures defaultSizes once at mount and derives a hidden
-  // pane's visibility-restore size from them, so defaults minted
-  // against a guessed container permanently warp the bottom panel's
-  // first-open height. The alignment trees therefore mount only after
-  // the shell has been measured (`shellMeasured` below) — one
-  // pre-paint frame on the very first render, and already live by the
-  // time any alignment toggle remounts a keyed variant.
-  const { width: shellWidth, height: shellHeight } = shellSizeRef.current;
-  const verticalDefaults: [number, number] = [
-    Math.max(0, shellHeight - sizes.bottom.preferred),
-    sizes.bottom.preferred,
-  ];
-  const innerHorizDefaults: [number, number, number] = [
-    sizes.sidebar.preferred,
-    Math.max(
-      sizes.editorMin,
-      shellWidth - sizes.sidebar.preferred - sizes.inspector.preferred - 2 * BAR_LABELED_MIN,
-    ),
-    sizes.inspector.preferred,
-  ];
-  const leftAlignOuterDefaults: [number, number] = [
-    Math.max(sizes.editorMin, shellWidth - sizes.inspector.preferred - 2 * BAR_LABELED_MIN),
-    sizes.inspector.preferred,
-  ];
-  const leftAlignInnerHorizDefaults: [number, number] = [
-    sizes.sidebar.preferred,
-    Math.max(sizes.editorMin, shellWidth - sizes.sidebar.preferred - sizes.inspector.preferred),
-  ];
-  const rightAlignOuterDefaults: [number, number] = [
-    sizes.sidebar.preferred,
-    Math.max(sizes.editorMin, shellWidth - sizes.sidebar.preferred - 2 * BAR_LABELED_MIN),
-  ];
-  const rightAlignInnerHorizDefaults: [number, number] = [
-    Math.max(sizes.editorMin, shellWidth - sizes.sidebar.preferred - sizes.inspector.preferred),
-    sizes.inspector.preferred,
-  ];
-
-  // Editor stacked over bottom — used by the `center` alignment only.
-  const editorOverBottom = (
-    <Allotment
-      vertical
-      proportionalLayout={false}
-      onChange={handleVerticalChange}
-      defaultSizes={verticalDefaults}
-    >
-      <Allotment.Pane>{editorPane}</Allotment.Pane>
-      {bottomPane}
-    </Allotment>
-  );
-
-  // No `onReset` on the inner horizontal Allotments. Allotment's native
-  // sashreset handler (allotment.tsx:289-303) already does the right
-  // thing: on sash double-click it calls `resizeToPreferredSize` on the
-  // left-adjacent pane first, then the right-adjacent pane, falling
-  // back to `distributeViewSizes` only if neither has a `preferredSize`.
-  // Since the side panes carry `preferredSize={sideResetTargetPx}` and
-  // the editor pane has none, every sash (sidebar↔editor and
-  // editor↔inspector) natively snaps the SIDE pane to the symmetric
-  // target — exactly the behavior we want.
-
-  // Three-column row — sidebar | middle | inspector. The `middle` slot
-  // differs per alignment (e.g. center stacks editor+bottom in middle).
-  const threeColumnRow = (middle: React.ReactNode) => (
-    <Allotment
-      proportionalLayout={proportionalHorizontal}
-      onChange={handleHorizontalChange}
-      defaultSizes={innerHorizDefaults}
-    >
-      {leftSidebarPane}
-      <Allotment.Pane priority={LayoutPriority.High} minSize={sizes.editorMin}>
-        {middle}
-      </Allotment.Pane>
-      {rightSidebarPane}
-    </Allotment>
-  );
-
-  // Four alignment variants. Each gets its own React key so toggling
-  // the setting cleanly remounts the Allotment tree (sizing state
-  // resets). The `rules-center-mount` class on each wrapper masks any
-  // residual single-frame paint flicker behind a sub-perceptual
-  // opacity fade so the swap reads as instant in both light and dark.
-  let centerContent: React.ReactNode;
-  if (effectiveAlignment === 'center') {
-    // H[ left | V[editor | bottom] | right ]
-    centerContent = (
-      <div key="center" className="rules-center-mount" style={{ height: '100%', width: '100%' }}>
-        {threeColumnRow(editorOverBottom)}
-      </div>
-    );
-  } else if (effectiveAlignment === 'justify') {
-    // V[ H[left | editor | right] | bottom ]
-    centerContent = (
-      <div key="justify" className="rules-center-mount" style={{ height: '100%', width: '100%' }}>
-        <Allotment
-          vertical
-          proportionalLayout={false}
-          onChange={handleVerticalChange}
-          defaultSizes={verticalDefaults}
-        >
-          <Allotment.Pane>{threeColumnRow(editorPane)}</Allotment.Pane>
-          {bottomPane}
-        </Allotment>
-      </div>
-    );
-  } else if (effectiveAlignment === 'left') {
-    // H[ V[ H[left | editor] | bottom(left+editor) ] | right ]
-    centerContent = (
-      <div key="left" className="rules-center-mount" style={{ height: '100%', width: '100%' }}>
-        <Allotment
-          proportionalLayout={proportionalHorizontal}
-          onChange={handleHorizontalChange}
-          defaultSizes={leftAlignOuterDefaults}
-        >
-          <Allotment.Pane priority={LayoutPriority.High} minSize={sizes.editorMin}>
-            <Allotment
-              vertical
-              proportionalLayout={false}
-              onChange={handleVerticalChange}
-              defaultSizes={verticalDefaults}
-            >
-              <Allotment.Pane>
-                <Allotment
-                  proportionalLayout={proportionalHorizontal}
-                  defaultSizes={leftAlignInnerHorizDefaults}
-                >
-                  {leftSidebarPane}
-                  <Allotment.Pane priority={LayoutPriority.High} minSize={sizes.editorMin}>
-                    {editorPane}
-                  </Allotment.Pane>
-                </Allotment>
-              </Allotment.Pane>
-              {bottomPane}
-            </Allotment>
-          </Allotment.Pane>
-          {rightSidebarPane}
-        </Allotment>
-      </div>
-    );
-  } else {
-    // 'right' — H[ left | V[ H[editor | right] | bottom(editor+right) ] ]
-    centerContent = (
-      <div key="right" className="rules-center-mount" style={{ height: '100%', width: '100%' }}>
-        <Allotment
-          proportionalLayout={proportionalHorizontal}
-          onChange={handleHorizontalChange}
-          defaultSizes={rightAlignOuterDefaults}
-        >
-          {leftSidebarPane}
-          <Allotment.Pane priority={LayoutPriority.High} minSize={sizes.editorMin}>
-            <Allotment
-              vertical
-              proportionalLayout={false}
-              onChange={handleVerticalChange}
-              defaultSizes={verticalDefaults}
-            >
-              <Allotment.Pane>
-                <Allotment
-                  proportionalLayout={proportionalHorizontal}
-                  defaultSizes={rightAlignInnerHorizDefaults}
-                >
-                  <Allotment.Pane priority={LayoutPriority.High} minSize={sizes.editorMin}>
-                    {editorPane}
-                  </Allotment.Pane>
-                  {rightSidebarPane}
-                </Allotment>
-              </Allotment.Pane>
-              {bottomPane}
-            </Allotment>
-          </Allotment.Pane>
-        </Allotment>
-      </div>
-    );
-  }
-
-  // Narrow single-surface mode replaces the alignment trees entirely:
-  // one surface fills the center, the rest stay mounted but hidden so
-  // their state (editor tab bodies, region sash drags) survives
-  // switching. No Allotment, no sashes, no pixel minimums — the whole
-  // point is that nothing can be crushed below usability.
-  if (singleSurface !== null) {
-    const surfaceItem = (surface: ShellSurface, content: React.ReactNode) => (
-      <div
-        className="rules-single-surface-item"
-        data-surface={surface}
-        style={{ display: singleSurface === surface ? 'block' : 'none' }}
-      >
-        {content}
-      </div>
-    );
-    centerContent = (
-      <div className="rules-single-surface">
-        {surfaceItem('editor', editorPane)}
-        {surfaceItem(
-          'left',
-          <SideRegion<T>
-            region="left"
-            tl={tl}
-            renderToolWindow={renderToolWindow}
-            topSize={topBottomHalves.left.top}
-            bottomSize={topBottomHalves.left.bottom}
-            focusStore={focusStore}
-          />,
-        )}
-        {surfaceItem(
-          'right',
-          <SideRegion<T>
-            region="right"
-            tl={tl}
-            renderToolWindow={renderToolWindow}
-            topSize={topBottomHalves.right.top}
-            bottomSize={topBottomHalves.right.bottom}
-            focusStore={focusStore}
-          />,
-        )}
-        {surfaceItem(
-          'bottom',
-          <BottomRegion tl={tl} renderToolWindow={renderToolWindow} focusStore={focusStore} split={bottomPanelSplit} />,
-        )}
-      </div>
-    );
-  }
-
-  // Computed when a drag starts, against the shell size at that moment —
-  // matching the DndContext measuring strategy below, which also freezes
-  // droppable rects at drag start.
-  const dropZoneRects = useMemo<Record<DockSlot, DropZoneRect> | null>(
+  // Fixed px inputs go straight onto the grid as custom properties.
+  const trackStyle = useMemo(
     () =>
-      dragging
-        ? computeDropZoneRects({
-            shellSize: shellSizeRef.current,
-            sizes,
-            bottomPanelAlignment,
-            bottomPanelSplit,
-            barWidths,
-          })
-        : null,
-    [dragging, sizes, bottomPanelAlignment, bottomPanelSplit, barWidths],
+      ({
+        [SHELL_TRACK_VARS.barLeft]: `${barLeft}px`,
+        [SHELL_TRACK_VARS.barRight]: `${barRight}px`,
+        [SHELL_TRACK_VARS.sidebarMin]: `${sizes.sidebar.min}px`,
+        [SHELL_TRACK_VARS.inspectorMin]: `${sizes.inspector.min}px`,
+        [SHELL_TRACK_VARS.editorMin]: `${sizes.editorMin}px`,
+        [SHELL_TRACK_VARS.bottomMin]: `${sizes.bottom.min}px`,
+      }) as React.CSSProperties,
+    [barLeft, barRight, sizes],
   );
 
-  const { barMin, barMax, leftBarPreferred, rightBarPreferred, barsAllotmentRef, barsRowRef, handleBarsReset } =
-    useActivityBarSizing({ showToolWindowLabels, activityBarWidths, onActivityBarResize, shellMeasured });
+  // The three pane sizes are written from a layout effect (pre-paint)
+  // rather than the style prop: in the proportional model a px seed
+  // becomes a share of the grid, which needs the grid measured. The
+  // host owns these values — whenever `sizes` changes (persisted drag
+  // flowing back, workspace switch, panel re-dock) they're re-applied;
+  // a drag in progress writes the same properties directly.
+  useLayoutEffect(() => {
+    const grid = gridRef.current;
+    if (!grid) return;
+    const gridW = grid.clientWidth;
+    grid.style.setProperty(SHELL_TRACK_VARS.sidebar, trackValue(sizes.sidebar.preferred, proportionalHorizontal, gridW));
+    grid.style.setProperty(
+      SHELL_TRACK_VARS.inspector,
+      trackValue(sizes.inspector.preferred, proportionalHorizontal, gridW),
+    );
+    grid.style.setProperty(SHELL_TRACK_VARS.bottom, trackValue(sizes.bottom.preferred, false, 0));
+  }, [sizes, proportionalHorizontal]);
 
-  const mainRow = (
-    <div className="rules-main-row" ref={barsRowRef}>
-      <Allotment ref={barsAllotmentRef} proportionalLayout={false} onReset={handleBarsReset}>
-        <Allotment.Pane preferredSize={leftBarPreferred} minSize={barMin} maxSize={barMax}>
-          <VerticalActivityBar<T>
-            side="left"
-            tl={tl}
-            windowMap={windowMap}
-            getWindows={getWindows}
-            dragging={dragging}
-            showLabels={showToolWindowLabels}
-            sidebarLayout={sidebarLayout}
-            bottomSplit={bottomPanelSplit}
-            onToggleLabels={onToggleLabels}
-            focusStore={focusStore}
-            layoutRevision={effectiveAlignment}
-          />
-        </Allotment.Pane>
-        <Allotment.Pane priority={LayoutPriority.High}>
-          <div className="rules-main-horizontal">{centerContent}</div>
-        </Allotment.Pane>
-        <Allotment.Pane preferredSize={rightBarPreferred} minSize={barMin} maxSize={barMax}>
-          <VerticalActivityBar<T>
-            side="right"
-            tl={tl}
-            windowMap={windowMap}
-            getWindows={getWindows}
-            dragging={dragging}
-            showLabels={showToolWindowLabels}
-            sidebarLayout={sidebarLayout}
-            bottomSplit={bottomPanelSplit}
-            onToggleLabels={onToggleLabels}
-            focusStore={focusStore}
-            layoutRevision={effectiveAlignment}
-          />
-        </Allotment.Pane>
-      </Allotment>
+  // ── Sash sessions ─────────────────────────────────────────────────
+
+  const reportColumns = useCallback(() => {
+    onHorizontalResize([widthOf(leftCellRef.current), widthOf(editorCellRef.current), widthOf(rightCellRef.current)]);
+  }, [onHorizontalResize]);
+
+  const reportRows = useCallback(() => {
+    const bottom = heightOf(bottomCellRef.current);
+    onVerticalResize([heightOf(gridRef.current) - bottom, bottom]);
+  }, [onVerticalResize]);
+
+  // Side panes: the editor must keep `editorMin`, so the drag ceiling
+  // is the pane's max or the editor's current slack, whichever is
+  // smaller. The value is written in the host's sizing model.
+  const beginSide = useCallback(
+    (cellRef: React.RefObject<HTMLDivElement | null>, pane: 'sidebar' | 'inspector'): SashSession | null => {
+      const grid = gridRef.current;
+      const cell = cellRef.current;
+      if (!grid || !cell) return null;
+      const start = widthOf(cell);
+      const slack = widthOf(editorCellRef.current) - sizes.editorMin;
+      const gridW = grid.clientWidth;
+      const varName = SHELL_TRACK_VARS[pane];
+      return {
+        start,
+        min: sizes[pane].min,
+        max: Math.max(sizes[pane].min, Math.min(sizes[pane].max, start + slack)),
+        apply: (px) => grid.style.setProperty(varName, trackValue(px, proportionalHorizontal, gridW)),
+        commit: reportColumns,
+      };
+    },
+    [sizes, proportionalHorizontal, reportColumns],
+  );
+  const beginSidebar = useCallback(() => beginSide(leftCellRef, 'sidebar'), [beginSide]);
+  const beginInspector = useCallback(() => beginSide(rightCellRef, 'inspector'), [beginSide]);
+
+  const resetSide = useCallback(
+    (pane: 'sidebar' | 'inspector') => {
+      const grid = gridRef.current;
+      if (!grid) return;
+      const target = sizes[pane].resetTarget ?? sizes[pane].min;
+      grid.style.setProperty(SHELL_TRACK_VARS[pane], trackValue(target, proportionalHorizontal, grid.clientWidth));
+      reportColumns();
+    },
+    [sizes, proportionalHorizontal, reportColumns],
+  );
+  const resetSidebar = useCallback(() => resetSide('sidebar'), [resetSide]);
+  const resetInspector = useCallback(() => resetSide('inspector'), [resetSide]);
+
+  const beginBottom = useCallback((): SashSession | null => {
+    const grid = gridRef.current;
+    const cell = bottomCellRef.current;
+    if (!grid || !cell) return null;
+    const start = heightOf(cell);
+    const slack = heightOf(grid) - start - MAIN_ROW_MIN;
+    return {
+      start,
+      min: sizes.bottom.min,
+      max: Math.max(sizes.bottom.min, Math.min(sizes.bottom.max, start + slack)),
+      apply: (px) => grid.style.setProperty(SHELL_TRACK_VARS.bottom, `${px}px`),
+      commit: reportRows,
+    };
+  }, [sizes, reportRows]);
+
+  const resetBottom = useCallback(() => {
+    const grid = gridRef.current;
+    if (!grid) return;
+    grid.style.setProperty(SHELL_TRACK_VARS.bottom, `${sizes.bottom.preferred}px`);
+    reportRows();
+  }, [sizes, reportRows]);
+
+  // Activity bars: persisted only on release, never from layout
+  // events, so nothing can drift the stored widths.
+  const reportBars = useCallback(() => {
+    onActivityBarResize({ left: widthOf(barLeftRef.current), right: widthOf(barRightRef.current) });
+  }, [onActivityBarResize]);
+
+  const beginBar = useCallback(
+    (side: 'left' | 'right'): SashSession | null => {
+      const grid = gridRef.current;
+      const cell = side === 'left' ? barLeftRef.current : barRightRef.current;
+      if (!grid || !cell) return null;
+      const start = widthOf(cell);
+      const slack = widthOf(editorCellRef.current) - sizes.editorMin;
+      const varName = side === 'left' ? SHELL_TRACK_VARS.barLeft : SHELL_TRACK_VARS.barRight;
+      return {
+        start,
+        min: BAR_LABELED_MIN,
+        max: Math.max(BAR_LABELED_MIN, Math.min(BAR_LABELED_MAX, start + slack)),
+        apply: (px) => grid.style.setProperty(varName, `${px}px`),
+        commit: reportBars,
+      };
+    },
+    [sizes.editorMin, reportBars],
+  );
+  const beginBarLeft = useCallback(() => beginBar('left'), [beginBar]);
+  const beginBarRight = useCallback(() => beginBar('right'), [beginBar]);
+
+  // Double-click on either rail's sash snaps BOTH rails to the labeled
+  // minimum; the middle column absorbs the slack.
+  const resetBars = useCallback(() => {
+    const grid = gridRef.current;
+    if (!grid) return;
+    grid.style.setProperty(SHELL_TRACK_VARS.barLeft, `${BAR_LABELED_MIN}px`);
+    grid.style.setProperty(SHELL_TRACK_VARS.barRight, `${BAR_LABELED_MIN}px`);
+    reportBars();
+  }, [reportBars]);
+
+  // ── Drop zones ────────────────────────────────────────────────────
+
+  // Measured once when a drag starts — matching the DndContext measuring
+  // strategy below, which also freezes droppable rects at drag start.
+  const dropGeometry = useMemo<{ rects: Record<DockSlot, DropZoneRect> | null; bars: { left: number; right: number } } | null>(() => {
+    if (!dragging) return null;
+    const grid = gridRef.current;
+    if (!grid) return null;
+    const bars = { left: widthOf(barLeftRef.current), right: widthOf(barRightRef.current) };
+    return {
+      rects: computeDropZoneRects({
+        shellSize: { width: grid.clientWidth, height: grid.clientHeight },
+        sizes,
+        bottomPanelAlignment,
+        bottomPanelSplit,
+        barWidths: bars,
+      }),
+      bars,
+    };
+  }, [dragging, sizes, bottomPanelAlignment, bottomPanelSplit]);
+
+  // ── Cells ─────────────────────────────────────────────────────────
+
+  const single = singleSurface !== null;
+  const cellVisible = (surface: ShellSurface, open: boolean) => (single ? singleSurface === surface : open);
+  const cellStyle = (visible: boolean): React.CSSProperties | undefined => (visible ? undefined : { display: 'none' });
+
+  const activityBar = (side: 'left' | 'right') => (
+    <VerticalActivityBar<T>
+      side={side}
+      tl={tl}
+      windowMap={windowMap}
+      getWindows={getWindows}
+      dragging={dragging}
+      showLabels={showToolWindowLabels}
+      sidebarLayout={sidebarLayout}
+      bottomSplit={bottomPanelSplit}
+      onToggleLabels={onToggleLabels}
+      focusStore={focusStore}
+    />
+  );
+
+  const gridClass = [
+    'rules-shell-grid',
+    `rules-shell-grid--align-${bottomPanelAlignment}`,
+    single ? 'rules-shell-grid--single' : '',
+    leftOpen ? '' : 'rules-shell-grid--left-closed',
+    rightOpen ? '' : 'rules-shell-grid--right-closed',
+    bottomOpen ? '' : 'rules-shell-grid--bottom-closed',
+  ]
+    .filter(Boolean)
+    .join(' ');
+
+  const grid = (
+    <div className={gridClass} style={trackStyle} ref={gridRef}>
+      <div className="rules-shell-bar rules-shell-bar--left" ref={barLeftRef}>
+        {activityBar('left')}
+        {!compactBars && <Sash axis="x" edge="end" begin={beginBarLeft} onReset={resetBars} />}
+      </div>
+
+      <div
+        className="rules-shell-cell rules-shell-cell--left"
+        ref={leftCellRef}
+        style={cellStyle(cellVisible('left', leftOpen))}
+      >
+        <SideRegion<T>
+          region="left"
+          tl={tl}
+          renderToolWindow={renderToolWindow}
+          topSize={SIDE_SEED.left.top}
+          bottomSize={SIDE_SEED.left.bottom}
+          focusStore={focusStore}
+        />
+        {!single && <Sash axis="x" edge="end" begin={beginSidebar} onReset={resetSidebar} />}
+      </div>
+
+      <div
+        className="rules-shell-cell rules-shell-cell--editor"
+        ref={editorCellRef}
+        style={cellStyle(cellVisible('editor', true))}
+      >
+        <div className="rules-region rules-region-editor" data-region="editor" tabIndex={-1}>
+          {renderEditor()}
+        </div>
+      </div>
+
+      <div
+        className="rules-shell-cell rules-shell-cell--right"
+        ref={rightCellRef}
+        style={cellStyle(cellVisible('right', rightOpen))}
+      >
+        {!single && <Sash axis="x" edge="start" begin={beginInspector} onReset={resetInspector} />}
+        <SideRegion<T>
+          region="right"
+          tl={tl}
+          renderToolWindow={renderToolWindow}
+          topSize={SIDE_SEED.right.top}
+          bottomSize={SIDE_SEED.right.bottom}
+          focusStore={focusStore}
+        />
+      </div>
+
+      <div
+        className="rules-shell-cell rules-shell-cell--bottom"
+        ref={bottomCellRef}
+        style={cellStyle(cellVisible('bottom', bottomOpen))}
+      >
+        {!single && <Sash axis="y" edge="start" begin={beginBottom} onReset={resetBottom} />}
+        <BottomRegion tl={tl} renderToolWindow={renderToolWindow} focusStore={focusStore} split={bottomPanelSplit} />
+      </div>
+
+      <div className="rules-shell-bar rules-shell-bar--right" ref={barRightRef}>
+        {!compactBars && <Sash axis="x" edge="start" begin={beginBarRight} onReset={resetBars} />}
+        {activityBar('right')}
+      </div>
     </div>
   );
 
@@ -643,16 +476,16 @@ function ShellLayoutInner<T extends string>({
       onDragCancel={handleDragCancel}
     >
       <div
-        className={`rules-main rules-main--layout-${sidebarLayout} rules-main--bottom-${effectiveAlignment}`}
+        className={`rules-main rules-main--layout-${sidebarLayout} rules-main--bottom-${bottomPanelAlignment}`}
         ref={shellRef}
       >
-        {shellMeasured ? mainRow : null}
+        {grid}
         <DropZoneOverlay
           visible={draggingId !== null}
-          rects={dropZoneRects}
+          rects={dropGeometry?.rects ?? null}
           highlightedSlot={highlightedSlot}
-          leftBarWidth={barWidths.left}
-          rightBarWidth={barWidths.right}
+          leftBarWidth={dropGeometry?.bars.left ?? barLeft}
+          rightBarWidth={dropGeometry?.bars.right ?? barRight}
           bottomSplit={bottomPanelSplit}
         />
       </div>
@@ -669,5 +502,25 @@ function ShellLayoutInner<T extends string>({
     </DndContext>
   );
 }
+
+// The editor row never drops below this; the bottom sash's ceiling is
+// derived from it. Mirrors `--oh-main-min` in dock-layout.css.
+const MAIN_ROW_MIN = 120;
+
+// Seed splits of the side regions as flex weights. Left opens 50/50;
+// right opens 60/40 — Docs (right-top) gets the larger pane for
+// reading width, Scope (right-bottom) sits beneath at the smaller
+// height that suits its inspector density. Both panes keep a 120px
+// floor.
+const SIDE_SEED = {
+  left: {
+    top: { preferred: 1, min: 120 },
+    bottom: { preferred: 1, min: 120 },
+  },
+  right: {
+    top: { preferred: 3, min: 120 },
+    bottom: { preferred: 2, min: 120 },
+  },
+} as const;
 
 export default ShellLayoutInner;

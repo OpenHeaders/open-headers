@@ -4,7 +4,7 @@
  * Renders the three tab strips on a side (two upper subslots + the lower
  * bottom-panel strip) and, in `dynamic` sidebar mode, mirrors the live
  * dock-body heights onto the subslot flex weights via ResizeObserver so
- * the bar's dividers track Allotment's own drag updates. Generic over the
+ * the bar's dividers track the region's seam drags. Generic over the
  * tool-window ID type.
  */
 
@@ -30,10 +30,6 @@ interface VerticalBarProps<T extends string> {
   bottomSplit: BottomPanelSplit;
   onToggleLabels: () => void;
   focusStore: FocusStore;
-  /** Passed into the Dynamic height-mirror hook so it re-runs — and
-      re-binds its ResizeObserver — whenever the layout restructures and
-      the dock-body DOM nodes remount under a new subtree. */
-  layoutRevision: string;
 }
 
 /**
@@ -53,8 +49,7 @@ function FocusAwareStrip<T extends string>({
  * Dynamic mode — mirror the heights of the two adjacent docks on this
  * side onto the upper subslots' flex-grow weights. Uses ResizeObserver on
  * the live `.rules-dock-body` elements (located via `data-dock-slot`) so
- * the mirror tracks Allotment's own drag updates without us having to tap
- * into Allotment's internals.
+ * the mirror tracks seam drags and container resizes alike.
  *
  * - Only attaches when `enabled` (sidebarLayout === 'dynamic').
  * - If a dock is closed (`active === null`), there is no dock-body element
@@ -207,7 +202,6 @@ function VerticalActivityBar<T extends string>({
   bottomSplit,
   onToggleLabels,
   focusStore,
-  layoutRevision,
 }: VerticalBarProps<T>) {
   const { token } = theme.useToken();
   const t = useT();
@@ -228,10 +222,9 @@ function VerticalActivityBar<T extends string>({
 
   // Encoded dock activity across this side — whenever any of the three
   // docks opens/closes the mirror hook re-runs and re-binds to the newly
-  // mounted / unmounted `.rules-dock-body` nodes. `layoutRevision` covers
-  // layout restructures (e.g. toggling bottomPanelAlignment) that remount
-  // the dock bodies under a new subtree without changing active ids.
-  const activeSignal = `${tl.state.docks[upperFirstSlot].active ?? ''}|${tl.state.docks[upperSecondSlot].active ?? ''}|${tl.state.docks[lowerSlot].active ?? ''}|${layoutRevision}`;
+  // mounted / unmounted `.rules-dock-body` nodes. The dock bodies never
+  // remount otherwise (an alignment change only swaps the grid's areas).
+  const activeSignal = `${tl.state.docks[upperFirstSlot].active ?? ''}|${tl.state.docks[upperSecondSlot].active ?? ''}|${tl.state.docks[lowerSlot].active ?? ''}`;
 
   const barRef = useRef<HTMLDivElement | null>(null);
   useDynamicActivityMirror(sidebarLayout === 'dynamic', side, barRef, activeSignal);
