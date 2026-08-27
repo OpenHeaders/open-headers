@@ -119,12 +119,6 @@ describe('searchSettings', () => {
     expect(keys).toContain('search.density');
   });
 
-  it('@experimental filter restricts to experimental defs', () => {
-    const results = searchSettings('@experimental');
-    expect(results).toHaveLength(1);
-    expect(results[0].def.key).toBe('search.experimentalFlag');
-  });
-
   it('@modified filter restricts to modified defs', () => {
     storeSet('search.density', 'compact');
     const results = searchSettings('@modified');

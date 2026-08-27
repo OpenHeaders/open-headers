@@ -13,6 +13,7 @@ import { useServerAdminStatus } from '../../components/server-admin/use-server-a
 import { categoryNavLabel, resolveOptionalDescription } from '../localize';
 import { allCategories } from '../registry';
 import type { CategoryPaneProps } from '../types';
+import { PaneTitle } from './pane-chrome';
 
 const GroupLandingPane: React.FC<CategoryPaneProps> = ({ category, onSelectCategory }) => {
   const { token } = theme.useToken();
@@ -29,10 +30,8 @@ const GroupLandingPane: React.FC<CategoryPaneProps> = ({ category, onSelectCateg
 
   return (
     <div style={{ padding: '14px 18px 20px' }}>
-      <header style={{ marginBottom: 12 }}>
-        <h2 style={{ margin: 0, fontSize: 13, fontWeight: 600, color: token.colorText, letterSpacing: -0.1 }}>
-          {categoryNavLabel(category, t)}
-        </h2>
+      <header style={{ marginBottom: 20 }}>
+        <PaneTitle category={category} />
         {description && (
           <p style={{ margin: '4px 0 0', fontSize: 12, color: token.colorTextSecondary, lineHeight: 1.5 }}>
             {description}

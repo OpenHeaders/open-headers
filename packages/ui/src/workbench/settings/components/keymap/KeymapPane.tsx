@@ -36,7 +36,8 @@ import { getCurrentHost } from '../../../../shared/host-vocabulary';
 import { formatChord } from '../../../hooks/useWorkspaceShortcuts';
 import { useChordCapture } from '../../fields/use-chord-capture';
 import { useModifiedSettings, useSettingValue, useSettingsReady } from '../../hooks';
-import { resolveLabel, resolveOptionalDescription } from '../../localize';
+import { resolveLabel } from '../../localize';
+import { PaneHeader } from '../pane-chrome';
 import type { CategoryPaneProps } from '../../types';
 import { buildKeymapConflicts } from './keymap-conflicts';
 import { buildKeymapGroups } from './keymap-groups';
@@ -118,7 +119,6 @@ const KeymapPane: React.FC<CategoryPaneProps> = ({ category, defs }) => {
   // Any restriction counts as searching: hits must not hide inside
   // collapsed sections.
   const isSearching = query.trim().length > 0 || restrictTo !== null;
-  const description = resolveOptionalDescription(category, t);
 
   const armLookup = (): void => {
     if (lookup.recording) {
@@ -141,14 +141,7 @@ const KeymapPane: React.FC<CategoryPaneProps> = ({ category, defs }) => {
 
   return (
     <div style={{ padding: '14px 18px 20px' }}>
-      <header style={{ marginBottom: 10 }}>
-        <h2 style={{ margin: 0, fontSize: 13, fontWeight: 600, color: token.colorText, letterSpacing: -0.1 }}>
-          {resolveLabel(category, t)}
-        </h2>
-        {description && (
-          <p style={{ margin: '1px 0 0', fontSize: 11.5, color: token.colorTextSecondary }}>{description}</p>
-        )}
-      </header>
+      <PaneHeader category={category} />
 
       <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
         <Input

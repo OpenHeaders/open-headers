@@ -28,12 +28,12 @@ import { useOptionalInspectorNav } from '../../hooks/useInspectorNav';
 import { useOptionalSettingsHost } from './settings-host-context';
 import { hostJoinsBackends, tierZeroMode } from '../schema/backend';
 import { useSetting } from '../hooks';
-import { resolveLabel } from '../localize';
 import type { CategoryPaneProps } from '../types';
 import { BackendConnectionsList } from './backend-connections-list';
 import { BackendDetailDiagram } from './backend-details';
 import { BackendTierCard } from './backend-tier-card';
 import { BackendTierZeroCard } from './backend-tier-zero-card';
+import { PaneTitle } from './pane-chrome';
 
 const Intro: React.FC = () => {
   const t = useT();
@@ -67,9 +67,7 @@ const BackendPane: React.FC<CategoryPaneProps> = ({ category }) => {
           margin: '8px 0',
         }}
       >
-        <h2 style={{ margin: 0, fontSize: 13, fontWeight: 600, color: token.colorText, letterSpacing: -0.1 }}>
-          {resolveLabel(category, t)}
-        </h2>
+        <PaneTitle category={category} />
         <div style={{ fontSize: 12, color: token.colorTextSecondary }}>
           <Intro /> <DocsLink />
         </div>

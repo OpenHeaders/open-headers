@@ -10,28 +10,56 @@ import { theme } from 'antd';
 import type React from 'react';
 import type { ReactNode } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
-import { resolveLabel, resolveOptionalDescription } from '../localize';
+import { categoryPath } from '../localize';
 import type { CategoryDef } from '../types';
 
 export const Pane: React.FC<{ children: ReactNode }> = ({ children }) => (
   <div style={{ padding: '14px 18px 20px' }}>{children}</div>
 );
 
-export const PaneHeader: React.FC<{ category: CategoryDef }> = ({ category }) => {
+/** The page title: the category's path from its root, `›`-separated. */
+export const PaneTitle: React.FC<{ category: CategoryDef }> = ({ category }) => {
   const { token } = theme.useToken();
   const t = useT();
-  const description = resolveOptionalDescription(category, t);
+  const segments = categoryPath(category, t);
   return (
-    <header style={{ marginBottom: 10 }}>
-      <h2 style={{ margin: 0, fontSize: 13, fontWeight: 600, color: token.colorText, letterSpacing: -0.1 }}>
-        {resolveLabel(category, t)}
-      </h2>
-      {description && (
-        <p style={{ margin: '1px 0 0', fontSize: 11.5, color: token.colorTextSecondary }}>{description}</p>
-      )}
-    </header>
+    <h2
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        flexWrap: 'wrap',
+        gap: '0 8px',
+        margin: 0,
+        fontSize: 13,
+        fontWeight: 600,
+        color: token.colorText,
+        letterSpacing: -0.1,
+      }}
+    >
+      {segments.map((segment, i) => (
+        <span key={segment} style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+          {i > 0 && (
+            <span aria-hidden style={{ fontSize: 11, fontWeight: 400, color: token.colorTextTertiary }}>
+              ›
+            </span>
+          )}
+          {segment}
+        </span>
+      ))}
+    </h2>
   );
 };
+
+/**
+ * The header of a page that carries settings: title only, then a blank
+ * row. The category description belongs to landing pages (children,
+ * no settings of their own — `GroupLandingPane`), IntelliJ-style.
+ */
+export const PaneHeader: React.FC<{ category: CategoryDef }> = ({ category }) => (
+  <header style={{ marginBottom: 20 }}>
+    <PaneTitle category={category} />
+  </header>
+);
 
 /** One section: a row-label-styled header over a rule, rows indented beneath. No title → rows flush. */
 export const PaneSection: React.FC<{ title?: string; children: ReactNode }> = ({ title, children }) => {

@@ -18,7 +18,7 @@
  * it is what the user sees on screen. Duplicate tokens between the two
  * are collapsed before scoring so English defaults aren't counted twice.
  *
- * Filter tokens `@modified` / `@experimental` / `@deprecated` filter
+ * Filter tokens `@modified` / `@deprecated` filter
  * the result set before scoring. Empty query returns all defs sorted
  * by category order + label.
  */
@@ -30,7 +30,6 @@ import { isModified } from './store';
 import type { SettingDef } from './types';
 
 const FILTER_MODIFIED = '@modified';
-const FILTER_EXPERIMENTAL = '@experimental';
 const FILTER_DEPRECATED = '@deprecated';
 
 function normalize(input: string): string {
@@ -77,7 +76,6 @@ export function searchSettings(query: string, translate: Translate = translateEn
   const trimmed = query.trim();
   const filters = {
     modified: false,
-    experimental: false,
     deprecated: false,
   };
 
@@ -87,10 +85,6 @@ export function searchSettings(query: string, translate: Translate = translateEn
       const lower = token.toLowerCase();
       if (lower === FILTER_MODIFIED) {
         filters.modified = true;
-        return false;
-      }
-      if (lower === FILTER_EXPERIMENTAL) {
-        filters.experimental = true;
         return false;
       }
       if (lower === FILTER_DEPRECATED) {
@@ -119,7 +113,6 @@ export function searchSettings(query: string, translate: Translate = translateEn
 
   const filtered = allDefs().filter((def) => {
     if (filters.modified && !isModified(def.key)) return false;
-    if (filters.experimental && !def.experimental) return false;
     if (filters.deprecated && !def.deprecated) return false;
     return true;
   });

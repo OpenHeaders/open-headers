@@ -1,5 +1,6 @@
 /**
- * CategoryNav — left rail in page-swap mode.
+ * CategoryNav — the category tree in page-swap mode. The shell owns the
+ * sidebar column (width, divider, the search box above); this fills it.
  *
  * Labeled mode renders the category tree at any depth: top-level
  * categories in registry order, child categories (`CategoryDef.parent`)
@@ -197,7 +198,7 @@ const CategoryNav = forwardRef<CategoryNavHandle, CategoryNavProps>(function Cat
           alignItems: 'center',
           justifyContent: showLabels ? 'flex-start' : 'center',
           width: '100%',
-          padding: showLabels ? `4px 8px 4px ${8 + depth * CARET_SLOT}px` : '6px 0',
+          padding: showLabels ? `5px 8px 5px ${6 + depth * CARET_SLOT}px` : '6px 0',
           marginBottom: 1,
           border: 'none',
           borderRadius: 5,
@@ -205,8 +206,8 @@ const CategoryNav = forwardRef<CategoryNavHandle, CategoryNavProps>(function Cat
           color: dimmed ? token.colorTextTertiary : active ? token.colorTextLightSolid : token.colorTextSecondary,
           cursor: 'pointer',
           textAlign: 'left',
-          fontSize: 12,
-          fontWeight: active ? 500 : 400,
+          fontSize: showLabels ? 13 : 12,
+          fontWeight: depth === 0 && showLabels ? 600 : active ? 500 : 400,
           transition: 'background 80ms ease, color 80ms ease',
         }}
         onMouseEnter={(e) => {
@@ -301,13 +302,11 @@ const CategoryNav = forwardRef<CategoryNavHandle, CategoryNavProps>(function Cat
         className="settings-category-nav"
         aria-label={t('workbench.settings.shell.navAria')}
         style={{
-          width: showLabels ? 190 : 38,
-          flexShrink: 0,
-          padding: showLabels ? 6 : 4,
-          borderRight: `1px solid ${token.colorBorderSecondary}`,
-          overflowY: 'auto', overscrollBehavior: 'none',
-          background: token.colorBgContainer,
-          transition: 'width 120ms ease, padding 120ms ease',
+          flex: 1,
+          minHeight: 0,
+          padding: showLabels ? '2px 6px 6px' : 4,
+          overflowY: 'auto',
+          overscrollBehavior: 'none',
         }}
       >
         {rows.map((cat) => renderRow(cat, 0))}

@@ -7,7 +7,6 @@
 import type { Catalog } from '../../types';
 
 export const workbench = {
-  'workbench.settings.search.placeholder': 'Buscar en la configuración (prueba @modified)',
+  'workbench.settings.search.placeholder': 'Buscar en la configuración',
   'workbench.settings.search.filter.modified': 'Modificados',
-  'workbench.settings.search.filter.experimental': 'Experimentales',
 } as const satisfies Catalog;

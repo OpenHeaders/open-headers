@@ -14,7 +14,7 @@ import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'rea
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { DesktopTeaser } from '@openheaders/ui/shared/desktop-teaser';
 import { useServerAdminStatus } from '../../components/server-admin/use-server-admin-status';
-import { useModifiedCount, useResetAllSettings } from '../hooks';
+import { useModifiedCount, useResetAllSettings, useSetting } from '../hooks';
 import { SettingsNavigationProvider } from '../NavigationContext';
 import { allCategories, getDef } from '../registry';
 import { searchSettings } from '../search';
@@ -33,6 +33,7 @@ const SettingsShell: React.FC<SettingsShellProps> = ({ initialSettingKey, initia
   const { token } = theme.useToken();
   const t = useT();
   const [query, setQuery] = useState('');
+  const [showLabels] = useSetting('general.settingsShowCategoryLabels');
   const paneRef = useRef<HTMLDivElement>(null);
   const rootRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<InputRef>(null);
@@ -228,63 +229,84 @@ const SettingsShell: React.FC<SettingsShellProps> = ({ initialSettingKey, initia
           .settings-card .settings-field-row { border-bottom: none !important; padding-left: 12px !important; padding-right: 12px !important; }
           .settings-card .settings-field-row + .settings-field-row { border-top: 1px solid ${token.colorBorderSecondary}; }
         `}</style>
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 8,
-            padding: '6px 12px',
-            borderBottom: `1px solid ${token.colorBorderSecondary}`,
-            background: token.colorBgContainer,
-          }}
-        >
-          <SettingsSearch
-            query={query}
-            onQueryChange={setQuery}
-            inputRef={searchRef}
-            autoFocus
-            onArrowDown={focusSidebar}
-          />
-        </div>
         <div style={{ display: 'flex', flex: 1, minHeight: 0 }}>
-          <CategoryNav
-            ref={navRef}
-            categories={orderedCategories.all}
-            activeCategoryId={isSearching ? null : activeId}
-            onSelect={handleSelectCategory}
-            matchCount={matchCount}
-            isSearching={isSearching}
-            onLeaveTop={focusSearch}
-          />
-          <div ref={paneRef} style={{ flex: 1, overflowY: 'auto', overscrollBehavior: 'none', background: token.colorBgContainer }}>
-            {isSearching ? (
-              <SearchResultsPane results={results} query={query} onJumpToCategory={handleSelectCategory} />
-            ) : activeCategory && orderedCategories.teased.has(activeCategory.id) ? (
-              // `teased` only admits categories with `teaserWhenUnavailable`.
-              activeCategory.teaserWhenUnavailable && (
-                <DesktopTeaser feature={activeCategory.teaserWhenUnavailable} icon={activeCategory.icon} />
-              )
-            ) : activeCategory ? (
-              (() => {
-                const Pane = activeCategory.renderPane ?? CategoryPane;
-                // `renderPane` may be a React.lazy component — categories
-                // that need heavy UI (Monaco / large form trees) defer
-                // their pane import so the settings-bootstrap path stays
-                // light. Wrap unconditionally; the default `CategoryPane`
-                // resolves synchronously and Suspense is a no-op for it.
-                return (
-                  <Suspense fallback={<CategoryPaneSkeleton />}>
-                    <SettingsNavigationProvider selectCategory={handleSelectCategory}>
-                      <Pane category={activeCategory} defs={activeDefs} onSelectCategory={handleSelectCategory} />
-                    </SettingsNavigationProvider>
-                  </Suspense>
-                );
-              })()
-            ) : (
-              <div style={{ padding: 64, textAlign: 'center', color: token.colorTextSecondary, fontSize: 13 }}>
-                {t('workbench.settings.shell.noneRegistered')}
+          <div
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              width: showLabels ? 260 : 38,
+              flexShrink: 0,
+              borderRight: `1px solid ${token.colorBorderSecondary}`,
+              background: token.colorBgContainer,
+              transition: 'width 120ms ease',
+            }}
+          >
+            {showLabels && (
+              <div style={{ padding: '10px 10px 6px' }}>
+                <SettingsSearch
+                  query={query}
+                  onQueryChange={setQuery}
+                  inputRef={searchRef}
+                  autoFocus
+                  onArrowDown={focusSidebar}
+                />
               </div>
             )}
+            <CategoryNav
+              ref={navRef}
+              categories={orderedCategories.all}
+              activeCategoryId={isSearching ? null : activeId}
+              onSelect={handleSelectCategory}
+              matchCount={matchCount}
+              isSearching={isSearching}
+              onLeaveTop={focusSearch}
+            />
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0 }}>
+            {!showLabels && (
+              <div style={{ padding: '6px 12px', borderBottom: `1px solid ${token.colorBorderSecondary}` }}>
+                <SettingsSearch
+                  query={query}
+                  onQueryChange={setQuery}
+                  inputRef={searchRef}
+                  autoFocus
+                  onArrowDown={focusSidebar}
+                />
+              </div>
+            )}
+            <div
+              ref={paneRef}
+              style={{ flex: 1, overflowY: 'auto', overscrollBehavior: 'none', background: token.colorBgContainer }}
+            >
+              {isSearching ? (
+                <SearchResultsPane results={results} query={query} onJumpToCategory={handleSelectCategory} />
+              ) : activeCategory && orderedCategories.teased.has(activeCategory.id) ? (
+                // `teased` only admits categories with `teaserWhenUnavailable`.
+                activeCategory.teaserWhenUnavailable && (
+                  <DesktopTeaser feature={activeCategory.teaserWhenUnavailable} icon={activeCategory.icon} />
+                )
+              ) : activeCategory ? (
+                (() => {
+                  const Pane = activeCategory.renderPane ?? CategoryPane;
+                  // `renderPane` may be a React.lazy component — categories
+                  // that need heavy UI (Monaco / large form trees) defer
+                  // their pane import so the settings-bootstrap path stays
+                  // light. Wrap unconditionally; the default `CategoryPane`
+                  // resolves synchronously and Suspense is a no-op for it.
+                  return (
+                    <Suspense fallback={<CategoryPaneSkeleton />}>
+                      <SettingsNavigationProvider selectCategory={handleSelectCategory}>
+                        <Pane category={activeCategory} defs={activeDefs} onSelectCategory={handleSelectCategory} />
+                      </SettingsNavigationProvider>
+                    </Suspense>
+                  );
+                })()
+              ) : (
+                <div style={{ padding: 64, textAlign: 'center', color: token.colorTextSecondary, fontSize: 13 }}>
+                  {t('workbench.settings.shell.noneRegistered')}
+                </div>
+              )}
+            </div>
           </div>
         </div>
         <footer

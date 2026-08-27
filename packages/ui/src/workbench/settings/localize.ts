@@ -15,6 +15,7 @@
 
 import { DEFAULT_LOCALE, getTranslator } from '@openheaders/i18n';
 import type { Translate } from '@openheaders/ui/context/LocaleContext';
+import { getCategory } from './registry';
 import type {
   ActionSpec,
   CategoryDef,
@@ -56,6 +57,20 @@ export function categoryNavLabel(category: CategoryDef, t: Translate): string {
   if (category.navLabelKey !== undefined) return t(category.navLabelKey);
   if (category.navLabel !== undefined) return category.navLabel;
   return resolveLabel(category, t);
+}
+
+/**
+ * Nav labels from the root down to this category — the page title's
+ * segments (rendered with `›` separators, IntelliJ-style).
+ */
+export function categoryPath(category: CategoryDef, t: Translate): string[] {
+  const segments: string[] = [];
+  let node: CategoryDef | undefined = category;
+  while (node) {
+    segments.unshift(categoryNavLabel(node, t));
+    node = node.parent !== undefined ? getCategory(node.parent) : undefined;
+  }
+  return segments;
 }
 
 /** Hint shown on a capability-gated row, in the active locale. */

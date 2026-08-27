@@ -154,10 +154,7 @@ export interface SettingDefBase<K extends SettingKey = SettingKey> {
    */
   when?: (get: <GK extends SettingKey>(k: GK) => SettingsMap[GK]) => boolean;
 
-  /**
-   * Mark as experimental. The shell renders a flask icon and the search
-   * supports `@experimental` to filter for these.
-   */
+  /** Mark as experimental. The shell renders a flask icon beside the row. */
   experimental?: boolean;
 
   requiresConnection?: boolean;

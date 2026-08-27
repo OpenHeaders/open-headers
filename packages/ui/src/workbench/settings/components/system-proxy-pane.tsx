@@ -10,25 +10,17 @@
 import { theme } from 'antd';
 import type React from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
-import { resolveLabel, resolveOptionalDescription } from '../localize';
+import { PaneHeader } from './pane-chrome';
 import type { CategoryPaneProps } from '../types';
 import SystemProxySection from './system-proxy-section';
 
 const SystemProxyPane: React.FC<CategoryPaneProps> = ({ category }) => {
   const { token } = theme.useToken();
   const t = useT();
-  const description = resolveOptionalDescription(category, t);
 
   return (
     <div style={{ padding: '14px 18px 20px' }}>
-      <header style={{ marginBottom: 10 }}>
-        <h2 style={{ margin: 0, fontSize: 13, fontWeight: 600, color: token.colorText, letterSpacing: -0.1 }}>
-          {resolveLabel(category, t)}
-        </h2>
-        {description && (
-          <p style={{ margin: '1px 0 0', fontSize: 11.5, color: token.colorTextSecondary }}>{description}</p>
-        )}
-      </header>
+      <PaneHeader category={category} />
       <SystemProxySection />
     </div>
   );

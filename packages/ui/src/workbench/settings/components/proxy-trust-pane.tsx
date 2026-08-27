@@ -18,7 +18,7 @@ import type React from 'react';
 import { useCallback, useEffect, useState } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { trackProductTelemetryEvent } from '@openheaders/ui/shared/product-telemetry';
-import { resolveLabel, resolveOptionalDescription } from '../localize';
+import { PaneHeader } from './pane-chrome';
 import type { CategoryPaneProps } from '../types';
 
 interface TrustStatus {
@@ -310,16 +310,7 @@ const ProxyTrustPane: React.FC<CategoryPaneProps> = ({ category }) => {
 
   return (
     <div style={{ padding: '14px 18px 20px', maxWidth: 760 }}>
-      <header style={{ marginBottom: 10 }}>
-        <h2 style={{ margin: 0, fontSize: 13, fontWeight: 600, color: token.colorText, letterSpacing: -0.1 }}>
-          {resolveLabel(category, t)}
-        </h2>
-        {resolveOptionalDescription(category, t) && (
-          <p style={{ margin: '1px 0 0', fontSize: 11.5, color: token.colorTextSecondary }}>
-            {resolveOptionalDescription(category, t)}
-          </p>
-        )}
-      </header>
+      <PaneHeader category={category} />
 
       <p style={{ margin: '0 0 12px', fontSize: 12, color: token.colorTextSecondary }}>
         {t('workbench.settings.proxyTrustPane.intro')}

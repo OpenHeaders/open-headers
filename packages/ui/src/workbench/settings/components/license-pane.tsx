@@ -18,7 +18,7 @@ import { useEffect, useState } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { getCurrentHost } from '../../../shared/host-vocabulary';
 import { noteUpgradeCtaShown, trackProductTelemetryEvent } from '../../../shared/product-telemetry';
-import { resolveLabel, resolveOptionalDescription } from '../localize';
+import { PaneHeader } from './pane-chrome';
 import type { CategoryPaneProps } from '../types';
 
 const INVALID_REASON_TEXT: Record<LicenseInvalidReason, MessageKey> = {
@@ -128,16 +128,7 @@ const LicensePane: React.FC<CategoryPaneProps> = ({ category }) => {
 
   return (
     <div style={{ padding: '14px 18px 20px', maxWidth: 760 }}>
-      <header style={{ marginBottom: 10 }}>
-        <h2 style={{ margin: 0, fontSize: 13, fontWeight: 600, color: token.colorText, letterSpacing: -0.1 }}>
-          {resolveLabel(category, t)}
-        </h2>
-        {resolveOptionalDescription(category, t) && (
-          <p style={{ margin: '1px 0 0', fontSize: 11.5, color: token.colorTextSecondary }}>
-            {resolveOptionalDescription(category, t)}
-          </p>
-        )}
-      </header>
+      <PaneHeader category={category} />
 
       {snapshot === null ? null : (
         <>
