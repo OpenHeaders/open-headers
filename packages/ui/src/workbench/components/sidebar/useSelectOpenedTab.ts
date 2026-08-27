@@ -223,6 +223,11 @@ export function useSelectOpenedTab({
         containerRef.current?.querySelector(`[data-item-id="vault-row"]`)?.scrollIntoView({ block: 'nearest' });
       }, 50);
       return true;
+    } else if (activeTabId === 'trusted-roots' && view === 'variables') {
+      setTimeout(() => {
+        containerRef.current?.querySelector(`[data-item-id="trusted-roots-row"]`)?.scrollIntoView({ block: 'nearest' });
+      }, 50);
+      return true;
     } else if (activeTabId === 'workspace-vars' && view === 'variables') {
       setTimeout(() => {
         containerRef.current

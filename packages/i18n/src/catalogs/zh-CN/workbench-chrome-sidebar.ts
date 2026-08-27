@@ -25,6 +25,7 @@ export const workbenchChromeSidebar = {
   'workbench.sidebar.section.workflows': '工作流',
   'workbench.sidebar.section.environments': '环境',
   'workbench.sidebar.section.vault': 'VAULT',
+  'workbench.sidebar.section.trustedRoots': '受信任的证书',
   'workbench.sidebar.section.workspaceVariables': '工作区变量',
   'workbench.sidebar.section.liveVariables': 'LIVE 变量',
   'workbench.sidebar.section.packageLibrary': '包库',
@@ -146,6 +147,7 @@ export const workbenchChromeSidebar = {
 
   // ── Sidebar: variables-view singleton rows ──────────────────────────
   'workbench.sidebar.singleton.vault': 'Vault',
+  'workbench.sidebar.singleton.trustedRoots': '受信任的证书',
   'workbench.sidebar.singleton.workspaceVariables': '工作区变量',
   'workbench.sidebar.singleton.liveVariables': 'Live 变量',
   'workbench.sidebar.singleton.packageLibrary': '包库',

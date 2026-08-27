@@ -16,6 +16,7 @@ export const workbenchChromeSidebar = {
   'workbench.sidebar.section.workflows': 'WORKFLOWS',
   'workbench.sidebar.section.environments': 'ENVIRONMENTS',
   'workbench.sidebar.section.vault': 'VAULT',
+  'workbench.sidebar.section.trustedRoots': 'TRUSTED CERTIFICATES',
   'workbench.sidebar.section.workspaceVariables': 'WORKSPACE VARIABLES',
   'workbench.sidebar.section.liveVariables': 'LIVE VARIABLES',
   'workbench.sidebar.section.packageLibrary': 'PACKAGE LIBRARY',
@@ -144,6 +145,7 @@ export const workbenchChromeSidebar = {
 
   // ── Sidebar: variables-view singleton rows ──────────────────────────
   'workbench.sidebar.singleton.vault': 'Vault',
+  'workbench.sidebar.singleton.trustedRoots': 'Trusted Certificates',
   'workbench.sidebar.singleton.workspaceVariables': 'Workspace Variables',
   'workbench.sidebar.singleton.liveVariables': 'Live Variables',
   'workbench.sidebar.singleton.packageLibrary': 'Package Library',

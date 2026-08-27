@@ -59,6 +59,7 @@ import { workbenchSettingsDefs } from './workbench-settings-defs';
 import { workbenchSettingsDefsDevpanel } from './workbench-settings-defs-devpanel';
 import { workbenchSettingsDefsKeyboard } from './workbench-settings-defs-keyboard';
 import { workbenchSettingsPanes } from './workbench-settings-panes';
+import { workbenchTrustedRoots } from './workbench-trusted-roots';
 import { workbenchVariables } from './workbench-variables';
 
 // Explicit intersection annotation: the merged literal's inferred type
@@ -118,6 +119,7 @@ type EnCatalog = typeof shared &
   typeof workbenchSettingsDefsDevpanel &
   typeof workbenchSettingsDefsKeyboard &
   typeof workbenchSettingsPanes &
+  typeof workbenchTrustedRoots &
   typeof workbenchVariables;
 
 export const en: EnCatalog = {
@@ -174,6 +176,7 @@ export const en: EnCatalog = {
   ...workbenchSettingsDefsDevpanel,
   ...workbenchSettingsDefsKeyboard,
   ...workbenchSettingsPanes,
+  ...workbenchTrustedRoots,
   ...workbenchVariables,
 } satisfies Catalog;
 

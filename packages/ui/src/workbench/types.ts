@@ -52,6 +52,7 @@ export type TabMode =
   | 'spec-edit'
   | 'workspace-vars'
   | 'vault'
+  | 'trusted-roots'
   | 'script-packages'
   | 'live-vars'
   | 'collection-vars'

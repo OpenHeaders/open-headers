@@ -573,6 +573,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
     openSpecEdit,
     openWorkspaceVariables,
     openVault,
+    openTrustedRoots,
     openScriptPackages,
     openLiveVariables,
     openCollectionVariables,
@@ -1114,6 +1115,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
     openEnvironmentEdit,
     openWorkspaceVariables,
     openVault,
+    openTrustedRoots,
     openScriptPackages,
     openLiveVariables,
     onOpenCreateMenu: openCreateMenu,
@@ -1483,6 +1485,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
         }}
         openWorkspaceVariables={openWorkspaceVariables}
         openVault={openVault}
+        openTrustedRoots={openTrustedRoots}
         openScriptPackages={openScriptPackages}
         openLiveVariables={openLiveVariables}
         openCollectionVariables={openCollectionVariables}

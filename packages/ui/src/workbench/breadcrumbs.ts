@@ -77,6 +77,7 @@ export function computeBreadcrumbs(
   if (tab.mode === 'spec-edit') return [t('workbench.shell.breadcrumbs.specs'), displayLabel];
   if (tab.mode === 'workspace-vars') return [t('workbench.shell.breadcrumbs.workspaceVariables')];
   if (tab.mode === 'vault') return [t('workbench.shell.breadcrumbs.vault')];
+  if (tab.mode === 'trusted-roots') return [t('workbench.shell.breadcrumbs.trustedRoots')];
   if (tab.mode === 'script-packages') return [t('workbench.shell.breadcrumbs.packageLibrary')];
   if (tab.mode === 'collection-vars') {
     const col = tab.collectionUid ? localCollectionTrees.find((c) => c.uid === tab.collectionUid) : null;

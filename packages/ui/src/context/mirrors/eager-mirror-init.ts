@@ -67,6 +67,7 @@ import { getSpecSyncMirrorForWorkspace } from './spec-sync-mirror';
 import { getTemplateCollectionSyncMirrorForWorkspace } from './template-collection-sync-mirror';
 import { getTemplateFolderSyncMirrorForWorkspace } from './template-folder-sync-mirror';
 import { getTemplateSyncMirrorForWorkspace } from './template-sync-mirror';
+import { getTrustedRootsSyncMirrorForWorkspace } from './trusted-roots-sync-mirror';
 import { getVaultSyncMirrorForWorkspace } from './vault-sync-mirror';
 import { getWorkspaceVariablesSyncMirrorForWorkspace } from './workspace-variables-sync-mirror';
 
@@ -93,6 +94,7 @@ function instantiateMirrorsForWorkspace(workspaceId: string): void {
   getTemplateCollectionSyncMirrorForWorkspace(workspaceId);
   getTemplateFolderSyncMirrorForWorkspace(workspaceId);
   getTemplateSyncMirrorForWorkspace(workspaceId);
+  getTrustedRootsSyncMirrorForWorkspace(workspaceId);
   getVaultSyncMirrorForWorkspace(workspaceId);
   getWorkspaceVariablesSyncMirrorForWorkspace(workspaceId);
 }

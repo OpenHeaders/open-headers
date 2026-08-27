@@ -60,6 +60,7 @@ import { workbenchSettingsDefs } from './workbench-settings-defs';
 import { workbenchSettingsDefsDevpanel } from './workbench-settings-defs-devpanel';
 import { workbenchSettingsDefsKeyboard } from './workbench-settings-defs-keyboard';
 import { workbenchSettingsPanes } from './workbench-settings-panes';
+import { workbenchTrustedRoots } from './workbench-trusted-roots';
 import { workbenchVariables } from './workbench-variables';
 
 export const de: Catalog = {
@@ -116,5 +117,6 @@ export const de: Catalog = {
   ...workbenchSettingsDefsDevpanel,
   ...workbenchSettingsDefsKeyboard,
   ...workbenchSettingsPanes,
+  ...workbenchTrustedRoots,
   ...workbenchVariables,
 };

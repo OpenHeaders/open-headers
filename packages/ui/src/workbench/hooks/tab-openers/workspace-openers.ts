@@ -20,6 +20,7 @@ export type WorkspaceOpeners = Pick<
   | 'openSpecEdit'
   | 'openWorkspaceVariables'
   | 'openVault'
+  | 'openTrustedRoots'
   | 'openScriptPackages'
 >;
 
@@ -176,6 +177,21 @@ export function useWorkspaceOpeners({
     });
   }, [allTabs, addTab, switchTab, t]);
 
+  const openTrustedRoots = useCallback(() => {
+    const id = 'trusted-roots';
+    if (allTabs.some((t) => t.id === id)) {
+      switchTab(id);
+      return;
+    }
+    addTab({
+      id,
+      label: t('workbench.shell.breadcrumbs.trustedRoots'),
+      ruleType: '',
+      dirty: false,
+      mode: 'trusted-roots',
+    });
+  }, [allTabs, addTab, switchTab, t]);
+
   const openScriptPackages = useCallback(() => {
     const id = 'script-packages';
     if (allTabs.some((t) => t.id === id)) {
@@ -200,6 +216,7 @@ export function useWorkspaceOpeners({
     openSpecEdit,
     openWorkspaceVariables,
     openVault,
+    openTrustedRoots,
     openScriptPackages,
   };
 }

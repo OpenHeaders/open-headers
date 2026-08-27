@@ -1,6 +1,6 @@
 /**
- * VariablesSection — the `variables` view's VAULT / WORKSPACE VARIABLES /
- * LIVE VARIABLES rows. Each singleton is a `SectionOpenerRow`: scope badge
+ * VariablesSection — the `variables` view's VAULT / TRUSTED CERTIFICATES /
+ * WORKSPACE VARIABLES / LIVE VARIABLES rows. Each singleton is a `SectionOpenerRow`: scope badge
  * + section-title typography, and clicking opens the editor tab directly
  * (the old caret header wrapping one nested leaf was redundant).
  * ENVIRONMENTS keeps the collapsible section shape — it lists many
@@ -16,6 +16,7 @@ import type { TreeNode } from './types';
 interface VariablesSectionProps {
   filterText: string;
   vaultNode: TreeNode;
+  trustedRootsNode: TreeNode;
   workspaceVarsNode: TreeNode;
   liveVarsNode: TreeNode;
   isSelected: (id: string) => boolean;
@@ -24,6 +25,7 @@ interface VariablesSectionProps {
 const VariablesSection: React.FC<VariablesSectionProps> = ({
   filterText,
   vaultNode,
+  trustedRootsNode,
   workspaceVarsNode,
   liveVarsNode,
   isSelected,
@@ -32,11 +34,19 @@ const VariablesSection: React.FC<VariablesSectionProps> = ({
   const lower = filterText.toLowerCase();
   const matches = (label: string) => !lower || label.toLowerCase().includes(lower);
   const vaultTitle = t('workbench.sidebar.section.vault');
+  const trustedRootsTitle = t('workbench.sidebar.section.trustedRoots');
   const workspaceVarsTitle = t('workbench.sidebar.section.workspaceVariables');
   const liveVarsTitle = t('workbench.sidebar.section.liveVariables');
   return (
     <>
       {matches(vaultTitle) && <SectionOpenerRow title={vaultTitle} node={vaultNode} selected={isSelected(vaultNode.id)} />}
+      {matches(trustedRootsTitle) && (
+        <SectionOpenerRow
+          title={trustedRootsTitle}
+          node={trustedRootsNode}
+          selected={isSelected(trustedRootsNode.id)}
+        />
+      )}
       {matches(workspaceVarsTitle) && (
         <SectionOpenerRow
           title={workspaceVarsTitle}

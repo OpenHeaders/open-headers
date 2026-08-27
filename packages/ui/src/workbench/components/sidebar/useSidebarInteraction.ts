@@ -127,6 +127,7 @@ export function useSidebarInteraction({
       if (id.startsWith('workflow-') && activeTabId === `live-wf-${id.replace('workflow-', '')}`) return true;
       return (
         (id === 'vault-row' && activeTabId === 'vault') ||
+        (id === 'trusted-roots-row' && activeTabId === 'trusted-roots') ||
         (id === 'workspace-vars-row' && activeTabId === 'workspace-vars') ||
         (id === 'live-vars-row' && activeTabId === 'live-vars') ||
         (id === 'script-packages-row' && activeTabId === 'script-packages')

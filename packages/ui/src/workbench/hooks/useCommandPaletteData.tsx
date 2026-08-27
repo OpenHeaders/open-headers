@@ -6,7 +6,7 @@
  * workspace component.
  */
 
-import { CodeSandboxOutlined, FolderOutlined, SettingOutlined } from '@ant-design/icons';
+import { CodeSandboxOutlined, FolderOutlined, SafetyCertificateOutlined, SettingOutlined } from '@ant-design/icons';
 import { ApiRequestsIcon } from '@openheaders/ui/shared/icons';
 import type { CollectionTree, Environment, Rule, Template, TreeNode } from '@openheaders/core/types';
 import { useMemo } from 'react';
@@ -36,6 +36,7 @@ interface UseCommandPaletteDataOptions {
   openEnvironmentEdit: (uid: string, name: string) => void;
   openWorkspaceVariables: () => void;
   openVault: () => void;
+  openTrustedRoots: () => void;
   openScriptPackages: () => void;
   openLiveVariables: () => void;
   onOpenCreateMenu: () => void;
@@ -69,6 +70,7 @@ export function useCommandPaletteData(opts: UseCommandPaletteDataOptions): Comma
     openEnvironmentEdit,
     openWorkspaceVariables,
     openVault,
+    openTrustedRoots,
     openScriptPackages,
     openLiveVariables,
     onOpenCreateMenu,
@@ -357,6 +359,12 @@ export function useCommandPaletteData(opts: UseCommandPaletteDataOptions): Comma
         onSelect: openVault,
       },
       {
+        id: 'cmd-open-trusted-roots',
+        icon: <SafetyCertificateOutlined />,
+        label: t('workbench.shell.commandPalette.cmd.openTrustedRoots'),
+        onSelect: openTrustedRoots,
+      },
+      {
         id: 'cmd-open-live-vars',
         icon: scopeBadge('live'),
         label: t('workbench.shell.commandPalette.cmd.openLiveVariables'),
@@ -404,6 +412,7 @@ export function useCommandPaletteData(opts: UseCommandPaletteDataOptions): Comma
     openEnvironmentEdit,
     openWorkspaceVariables,
     openVault,
+    openTrustedRoots,
     openScriptPackages,
     openLiveVariables,
   ]);

@@ -49,6 +49,7 @@ export * from './mirrors/snapshot-rpc';
 export * from './mirrors/template-collection-sync-mirror';
 export * from './mirrors/template-folder-sync-mirror';
 export * from './mirrors/template-sync-mirror';
+export * from './mirrors/trusted-roots-sync-mirror';
 export * from './mirrors/vault-sync-mirror';
 export * from './mirrors/workspace-variables-sync-mirror';
 export * from './OAuthBundlesContext';

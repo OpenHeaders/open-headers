@@ -60,6 +60,7 @@ import { workbenchSettingsDefs } from './workbench-settings-defs';
 import { workbenchSettingsDefsDevpanel } from './workbench-settings-defs-devpanel';
 import { workbenchSettingsDefsKeyboard } from './workbench-settings-defs-keyboard';
 import { workbenchSettingsPanes } from './workbench-settings-panes';
+import { workbenchTrustedRoots } from './workbench-trusted-roots';
 import { workbenchVariables } from './workbench-variables';
 
 // Explicit intersection annotation: the merged literal's inferred type
@@ -118,6 +119,7 @@ type FrCatalog = typeof desktop &
   typeof workbenchSettingsDefsDevpanel &
   typeof workbenchSettingsDefsKeyboard &
   typeof workbenchSettingsPanes &
+  typeof workbenchTrustedRoots &
   typeof workbenchVariables;
 
 export const fr: FrCatalog = {
@@ -174,5 +176,6 @@ export const fr: FrCatalog = {
   ...workbenchSettingsDefsDevpanel,
   ...workbenchSettingsDefsKeyboard,
   ...workbenchSettingsPanes,
+  ...workbenchTrustedRoots,
   ...workbenchVariables,
 } as const satisfies Catalog;
