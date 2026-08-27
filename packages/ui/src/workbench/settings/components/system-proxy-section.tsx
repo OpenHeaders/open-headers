@@ -33,13 +33,14 @@ import type {
   SystemProxySettings,
 } from '@openheaders/core/types';
 import type { MessageKey } from '@openheaders/i18n';
-import { Button, ConfigProvider, Divider, Input, Radio, Segmented, Select, theme } from 'antd';
+import { Button, ConfigProvider, Input, Radio, Segmented, Select, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useState } from 'react';
 import { useVaultContext } from '@openheaders/ui/context';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { InfoTrigger, type InfoPopoverContent } from '@openheaders/ui/shared/info-popover';
 import VaultSelectFooter from '../../components/variables/VaultSelectFooter';
+import { PaneSection } from './pane-chrome';
 
 /** The preview's canonical default target — schemeless (the resolve
  *  handler assumes https), auto-resolved when the pane opens. */
@@ -101,11 +102,24 @@ function chainText(resolution: SystemProxyResolution | null): string {
   return `${parts.join(' ; ')} (${resolution.source})`;
 }
 
-const FieldLabel: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+/** The FieldRow key column: 180px shared minimum, row label style, `(i)` on the key. */
+const FieldLabel: React.FC<{ children: React.ReactNode; info?: React.ReactNode }> = ({ children, info }) => {
   const { token } = theme.useToken();
   return (
-    <span style={{ width: 150, flex: 'none', fontSize: 12, color: token.colorTextSecondary, paddingTop: 4 }}>
-      {children}
+    <span
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 4,
+        minWidth: 180,
+        flex: 'none',
+        fontSize: 13,
+        color: token.colorText,
+        paddingTop: 2,
+      }}
+    >
+      {`${children}:`}
+      {info}
     </span>
   );
 };
@@ -123,7 +137,7 @@ const FieldHint: React.FC<{ error: string | null; example: string; testId?: stri
     <div
       data-testid={testId}
       style={{
-        marginLeft: 162,
+        marginLeft: 186,
         maxWidth: 420,
         fontSize: 11,
         color: error !== null ? token.colorError : token.colorTextSecondary,
@@ -255,7 +269,7 @@ const SystemProxySection: React.FC = () => {
 
   const modeInfo: InfoPopoverContent = {
     title: t('workbench.settings.systemProxy.mode.infoTitle'),
-    summary: t('workbench.settings.systemProxy.mode.infoSummary'),
+    summary: `${t('workbench.settings.systemProxy.mode.infoSummary')} ${t('workbench.settings.systemProxy.introNote')}`,
     sections: [
       {
         heading: t('workbench.settings.systemProxy.mode.infoHeading'),
@@ -269,20 +283,12 @@ const SystemProxySection: React.FC = () => {
   };
 
   return (
-    <section style={{ marginBottom: 14 }}>
-      <div className="settings-card" style={{ padding: '8px 14px 12px' }}>
-        <div style={{ fontSize: 12, fontWeight: 600, color: token.colorText, padding: '4px 0 2px' }}>
-          {t('workbench.settings.systemProxy.title')}
-        </div>
-        <p style={{ margin: '2px 0 0', fontSize: 12, color: token.colorTextSecondary }}>
-          {t('workbench.settings.systemProxy.intro')}
-        </p>
-        <p style={{ margin: '0 0 8px', fontSize: 12, color: token.colorTextSecondary }}>
-          {t('workbench.settings.systemProxy.introNote')}
-        </p>
-
-        <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-          <FieldLabel>{t('workbench.settings.systemProxy.mode.label')}</FieldLabel>
+    <>
+      <PaneSection title={t('workbench.settings.systemProxy.section')}>
+        <div style={{ display: 'flex', gap: 12, alignItems: 'center', padding: '3px 0' }}>
+          <FieldLabel info={<InfoTrigger content={modeInfo} />}>
+            {t('workbench.settings.systemProxy.mode.label')}
+          </FieldLabel>
           <Radio.Group
             data-testid="oh-sysproxy-mode"
             value={settings.mode}
@@ -294,13 +300,12 @@ const SystemProxySection: React.FC = () => {
               </Radio>
             ))}
           </Radio.Group>
-          <InfoTrigger content={modeInfo} />
         </div>
 
         {/* Fixed-height slot sized to the tallest mode (Manual's
             capability row, three fields, and two hint lines) so
             switching modes never bounces the rows below. */}
-        <div style={{ minHeight: 160, margin: '10px 0 2px' }}>
+        <div style={{ minHeight: 160, margin: '6px 0 2px' }}>
           {settings.mode === 'system' && (
             <div style={{ display: 'flex', gap: 12 }}>
               <FieldLabel>{t('workbench.settings.systemProxy.system.valuesLabel')}</FieldLabel>
@@ -545,8 +550,10 @@ const SystemProxySection: React.FC = () => {
           </p>
         )}
 
+      </PaneSection>
+
+      <PaneSection title={t('workbench.settings.systemProxy.previewSection')}>
         <div>
-          <Divider style={{ margin: '14px 0 12px' }} />
           <div style={{ display: 'flex', gap: 8 }}>
             <Input
               size="small"
@@ -581,8 +588,8 @@ const SystemProxySection: React.FC = () => {
             {preview !== null && `${preview.url} → ${preview.text}`}
           </div>
         </div>
-      </div>
-    </section>
+      </PaneSection>
+    </>
   );
 };
 

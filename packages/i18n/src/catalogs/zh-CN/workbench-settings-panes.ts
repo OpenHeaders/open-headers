@@ -511,8 +511,8 @@ export const workbenchSettingsPanes = {
   'workbench.settings.licensePane.loadFromFile': '从文件加载…',
 
   // ── System-plane proxy section (the request-engine proxy design P3) ─
-  'workbench.settings.systemProxy.title': '出站代理——此设备',
-  'workbench.settings.systemProxy.intro': '从这台机器发出的请求、WebSocket 会话和 gRPC 调用如何抵达网络。',
+  'workbench.settings.systemProxy.section': '代理',
+  'workbench.settings.systemProxy.previewSection': '路由预览',
   'workbench.settings.systemProxy.introNote': '设备本地、永不同步——除非请求自己设置了代理模式，否则都遵循此处配置。',
   'workbench.settings.systemProxy.mode.label': '模式',
   'workbench.settings.systemProxy.mode.infoTitle': '代理模式',

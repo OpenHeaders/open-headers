@@ -529,9 +529,8 @@ export const workbenchSettingsPanes = {
   'workbench.settings.licensePane.loadFromFile': 'Load from file…',
 
   // ── System-plane proxy section (the request-engine proxy design P3) ─
-  'workbench.settings.systemProxy.title': 'Outbound proxy — this device',
-  'workbench.settings.systemProxy.intro':
-    'How requests, WebSocket sessions, and gRPC calls from this machine reach the network.',
+  'workbench.settings.systemProxy.section': 'Proxy',
+  'workbench.settings.systemProxy.previewSection': 'Route Preview',
   'workbench.settings.systemProxy.introNote':
     'Device-local and never synced — everything follows it unless a request sets its own proxy mode.',
   'workbench.settings.systemProxy.mode.label': 'Mode',
