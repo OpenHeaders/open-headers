@@ -844,23 +844,16 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.response.meta.noteNoIp':
     "Adresse distante indisponible : la capture réseau n'a rien vu pour ce fetch.",
   'workbench.editors.request.response.meta.tlsProtocol': 'Protocole TLS',
-  'workbench.editors.request.response.meta.tlsCipher': 'Suite de chiffrement',
-  'workbench.editors.request.response.meta.tlsCertificate': 'Certificat',
-  'workbench.editors.request.response.meta.tlsIssuer': 'Émetteur',
+  'workbench.editors.request.response.meta.tlsCipher': 'Nom du chiffrement',
+  'workbench.editors.request.response.meta.tlsCertificate': 'CN du certificat',
+  'workbench.editors.request.response.meta.tlsIssuer': 'CN de l’émetteur',
   'workbench.editors.request.response.meta.tlsValidUntil': 'Valide jusqu’au',
-  'workbench.editors.request.response.meta.tlsFingerprint': 'SHA-256',
   'workbench.editors.request.response.meta.tlsUnverifiedVerdict': 'Certificat non vérifié ({code})',
-  'workbench.editors.request.response.meta.tagTrusted': 'Certificats de confiance',
-  'workbench.editors.request.response.meta.trustedTitle': 'Certificats de confiance appliqués',
-  'workbench.editors.request.response.meta.trustedSummary':
-    'Au-delà des racines intégrées, cet envoi a fait confiance à {workspace} certificat(s) de l’espace de travail et {device} épinglé(s) sur cet appareil.',
   'workbench.editors.request.response.meta.trustPinned': 'Certificat épinglé sur cet appareil — renvoyez pour vérifier.',
   'workbench.editors.request.response.meta.noteNoTls':
     "L'adresse locale, les détails TLS et de certificat ne sont pas exposés au code d'extension " + 'sur Chromium.',
-  'workbench.editors.request.response.meta.unverifiedTlsSummary':
-    'Cette requête a été envoyée avec la vérification du certificat désactivée dans ses Paramètres. La ' +
-    "connexion était chiffrée, mais l'identité du serveur n'a pas été vérifiée — tout certificat était " +
-    'accepté, y compris auto-signés et expirés.',
+  'workbench.editors.request.response.meta.tlsSelfSigned': 'Certificat auto-signé',
+  'workbench.editors.request.response.meta.tlsUnverified': 'Certificat non vérifié',
   'workbench.editors.request.response.meta.tlsFloorLowered': 'Plancher TLS abaissé',
   'workbench.editors.request.response.meta.tlsFloorLoweredSummary':
     'Cette requête a été envoyée avec sa version TLS minimum réglée sous 1.2 dans ses Paramètres, la ' +

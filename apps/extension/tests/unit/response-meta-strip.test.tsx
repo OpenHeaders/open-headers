@@ -325,31 +325,28 @@ describe('ResponseMetaStrip TLS facts and trust attribution', () => {
     fireEvent.mouseEnter(screen.getByTestId('oh-response-network'));
     expect(await screen.findByText('TLSv1.3')).toBeTruthy();
     expect(screen.getByTestId('oh-response-tls-subject').textContent).toBe('localhost');
-    expect(screen.getByTestId('oh-response-tls-verdict').textContent).toBe(
-      'Certificate not verified (DEPTH_ZERO_SELF_SIGNED_CERT)',
-    );
+    expect(screen.getByTestId('oh-response-tls-verdict').textContent).toBe('Self-signed certificate');
     expect(screen.getByRole('button', { name: 'Trust on this device' })).toBeTruthy();
   });
 
-  it('an unverified send turns the network icon red instead of adding a tag, and the popover says why', async () => {
+  it('an unverified send tints the globe red instead of adding a tag, and the popover says why', async () => {
     renderStrip({ sslVerificationDisabled: true });
     const icon = screen.getByTestId('oh-response-network');
-    expect(icon.getAttribute('data-unverified')).toBe('true');
-    expect(icon.querySelector('.anticon-warning')).toBeTruthy();
+    expect(icon.getAttribute('data-tls')).toBe('unverified');
     expect(screen.queryByText('Unverified TLS')).toBeNull();
     fireEvent.mouseEnter(icon);
-    expect((await screen.findByTestId('oh-response-tls-unverified')).textContent).toContain(
-      'certificate verification switched off',
-    );
+    expect((await screen.findByTestId('oh-response-tls-verdict')).textContent).toBe('Certificate not verified');
   });
 
-  it('a verified send keeps the globe and shows no verdict and no trust action', async () => {
+  it('a verified https send tints the globe green, a plain http send keeps it grey', () => {
     renderStrip();
-    const icon = screen.getByTestId('oh-response-network');
-    expect(icon.getAttribute('data-unverified')).toBeNull();
-    expect(icon.querySelector('.anticon-global')).toBeTruthy();
+    expect(screen.getByTestId('oh-response-network').getAttribute('data-tls')).toBe('verified');
     cleanup();
+    renderStrip({ url: 'http://api.openheaders.io/v1/ping' });
+    expect(screen.getByTestId('oh-response-network').getAttribute('data-tls')).toBeNull();
+  });
 
+  it('a verified send shows no verdict and no trust action', async () => {
     registerCapability('requestRuntime', () => 'node');
     renderStrip({
       network: { httpVersion: 'h2', tls: { ...tls, authorized: true, authorizationError: undefined } },
@@ -360,14 +357,11 @@ describe('ResponseMetaStrip TLS facts and trust attribution', () => {
     expect(screen.queryByRole('button', { name: 'Trust on this device' })).toBeNull();
   });
 
-  it('tags a successful run that trusted workspace or device certificates, never a failed one', () => {
+  it('a run that trusted workspace or device certificates reads like any other verified send', async () => {
     renderStrip({ trustedRootsApplied: 1, deviceTrustApplied: 2 });
-    expect(screen.getByTestId('oh-response-tls-trusted').textContent).toBe('Trusted certificates');
-    cleanup();
-    renderStrip({ deviceTrustApplied: 1, error: 'TLS certificate error', status: 0 });
-    expect(screen.queryByTestId('oh-response-tls-trusted')).toBeNull();
-    cleanup();
-    renderStrip();
+    expect(screen.queryByText('Trusted certificates')).toBeNull();
+    fireEvent.mouseEnter(screen.getByTestId('oh-response-network'));
+    expect(await screen.findByTestId('oh-response-http-version')).toBeTruthy();
     expect(screen.queryByTestId('oh-response-tls-trusted')).toBeNull();
   });
 });

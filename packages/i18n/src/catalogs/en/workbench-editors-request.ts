@@ -664,22 +664,17 @@ export const workbenchEditorsRequest = {
     'HTTP version hidden: the platform recorded no timing entry for this request.',
   'workbench.editors.request.response.meta.noteNoIp':
     'Remote address unavailable: the wire capture saw nothing for this fetch.',
-  'workbench.editors.request.response.meta.tlsProtocol': 'TLS protocol',
-  'workbench.editors.request.response.meta.tlsCipher': 'Cipher',
-  'workbench.editors.request.response.meta.tlsCertificate': 'Certificate',
-  'workbench.editors.request.response.meta.tlsIssuer': 'Issuer',
-  'workbench.editors.request.response.meta.tlsValidUntil': 'Valid until',
-  'workbench.editors.request.response.meta.tlsFingerprint': 'SHA-256',
+  'workbench.editors.request.response.meta.tlsProtocol': 'TLS Protocol',
+  'workbench.editors.request.response.meta.tlsCipher': 'Cipher Name',
+  'workbench.editors.request.response.meta.tlsCertificate': 'Certificate CN',
+  'workbench.editors.request.response.meta.tlsIssuer': 'Issuer CN',
+  'workbench.editors.request.response.meta.tlsValidUntil': 'Valid Until',
   'workbench.editors.request.response.meta.tlsUnverifiedVerdict': 'Certificate not verified ({code})',
-  'workbench.editors.request.response.meta.tagTrusted': 'Trusted certificates',
-  'workbench.editors.request.response.meta.trustedTitle': 'Trusted certificates applied',
-  'workbench.editors.request.response.meta.trustedSummary':
-    'Beyond the built-in roots, this send trusted {workspace} from the workspace and {device} pinned on this device.',
   'workbench.editors.request.response.meta.trustPinned': 'Certificate pinned on this device — send again to verify.',
   'workbench.editors.request.response.meta.noteNoTls':
     'Local address, TLS and certificate details are not exposed to extension code on Chromium.',
-  'workbench.editors.request.response.meta.unverifiedTlsSummary':
-    'This request was sent with certificate verification switched off in its Settings. The connection was encrypted, but the server’s identity was not checked — any certificate was accepted, including self-signed and expired ones.',
+  'workbench.editors.request.response.meta.tlsSelfSigned': 'Self-signed certificate',
+  'workbench.editors.request.response.meta.tlsUnverified': 'Certificate not verified',
   'workbench.editors.request.response.meta.tlsFloorLowered': 'TLS floor lowered',
   'workbench.editors.request.response.meta.tlsFloorLoweredSummary':
     'This request was sent with its minimum TLS version set below 1.2 in its Settings, so the connection was allowed to negotiate TLS 1.0 or 1.1 — protocol versions with known weaknesses that runtimes disable by default.',

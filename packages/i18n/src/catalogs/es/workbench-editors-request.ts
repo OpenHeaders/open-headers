@@ -832,24 +832,17 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.response.meta.noteNoIp':
     'Dirección remota no disponible: la captura del cable no vio nada para este fetch.',
   'workbench.editors.request.response.meta.tlsProtocol': 'Protocolo TLS',
-  'workbench.editors.request.response.meta.tlsCipher': 'Cifrado',
-  'workbench.editors.request.response.meta.tlsCertificate': 'Certificado',
-  'workbench.editors.request.response.meta.tlsIssuer': 'Emisor',
+  'workbench.editors.request.response.meta.tlsCipher': 'Nombre del cifrado',
+  'workbench.editors.request.response.meta.tlsCertificate': 'CN del certificado',
+  'workbench.editors.request.response.meta.tlsIssuer': 'CN del emisor',
   'workbench.editors.request.response.meta.tlsValidUntil': 'Válido hasta',
-  'workbench.editors.request.response.meta.tlsFingerprint': 'SHA-256',
   'workbench.editors.request.response.meta.tlsUnverifiedVerdict': 'Certificado no verificado ({code})',
-  'workbench.editors.request.response.meta.tagTrusted': 'Certificados de confianza',
-  'workbench.editors.request.response.meta.trustedTitle': 'Certificados de confianza aplicados',
-  'workbench.editors.request.response.meta.trustedSummary':
-    'Además de las raíces integradas, este envío confió en {workspace} del espacio de trabajo y {device} fijado(s) en este dispositivo.',
   'workbench.editors.request.response.meta.trustPinned': 'Certificado fijado en este dispositivo — vuelve a enviar para verificar.',
   'workbench.editors.request.response.meta.noteNoTls':
     'La dirección local y los detalles de TLS y del certificado no se exponen al código de extensiones en ' +
     'Chromium.',
-  'workbench.editors.request.response.meta.unverifiedTlsSummary':
-    'Esta solicitud se envió con la verificación del certificado desactivada en su Configuración. La ' +
-    'conexión iba cifrada, pero la identidad del servidor no se comprobó — se aceptó cualquier certificado, ' +
-    'incluidos los autofirmados y caducados.',
+  'workbench.editors.request.response.meta.tlsSelfSigned': 'Certificado autofirmado',
+  'workbench.editors.request.response.meta.tlsUnverified': 'Certificado no verificado',
   'workbench.editors.request.response.meta.tlsFloorLowered': 'Suelo de TLS bajado',
   'workbench.editors.request.response.meta.tlsFloorLoweredSummary':
     'Esta solicitud se envió con su versión mínima de TLS por debajo de 1.2 en su Configuración, así que a ' +

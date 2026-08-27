@@ -848,23 +848,16 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.response.meta.noteNoIp':
     'Remote-Adresse nicht verfügbar: Die Erfassung auf der Leitung hat für diesen fetch nichts gesehen.',
   'workbench.editors.request.response.meta.tlsProtocol': 'TLS-Protokoll',
-  'workbench.editors.request.response.meta.tlsCipher': 'Cipher',
-  'workbench.editors.request.response.meta.tlsCertificate': 'Zertifikat',
-  'workbench.editors.request.response.meta.tlsIssuer': 'Aussteller',
+  'workbench.editors.request.response.meta.tlsCipher': 'Cipher-Name',
+  'workbench.editors.request.response.meta.tlsCertificate': 'Zertifikat-CN',
+  'workbench.editors.request.response.meta.tlsIssuer': 'Aussteller-CN',
   'workbench.editors.request.response.meta.tlsValidUntil': 'Gültig bis',
-  'workbench.editors.request.response.meta.tlsFingerprint': 'SHA-256',
   'workbench.editors.request.response.meta.tlsUnverifiedVerdict': 'Zertifikat nicht geprüft ({code})',
-  'workbench.editors.request.response.meta.tagTrusted': 'Vertrauenswürdige Zertifikate',
-  'workbench.editors.request.response.meta.trustedTitle': 'Vertrauenswürdige Zertifikate angewendet',
-  'workbench.editors.request.response.meta.trustedSummary':
-    'Über die eingebauten Wurzeln hinaus vertraute dieses Senden {workspace} aus dem Arbeitsbereich und {device} auf diesem Gerät angeheftete(n).',
   'workbench.editors.request.response.meta.trustPinned': 'Zertifikat auf diesem Gerät angeheftet — erneut senden, um zu prüfen.',
   'workbench.editors.request.response.meta.noteNoTls':
     'Lokale Adresse, TLS- und Zertifikatsdetails werden Erweiterungscode auf Chromium nicht offengelegt.',
-  'workbench.editors.request.response.meta.unverifiedTlsSummary':
-    'Diese Anfrage wurde mit in ihren Einstellungen deaktivierter Zertifikatsprüfung gesendet. Die ' +
-    'Verbindung war verschlüsselt, aber die Identität des Servers wurde nicht geprüft — jedes Zertifikat ' +
-    'wurde akzeptiert, auch selbstsignierte und abgelaufene.',
+  'workbench.editors.request.response.meta.tlsSelfSigned': 'Selbstsigniertes Zertifikat',
+  'workbench.editors.request.response.meta.tlsUnverified': 'Zertifikat nicht geprüft',
   'workbench.editors.request.response.meta.tlsFloorLowered': 'TLS-Untergrenze gesenkt',
   'workbench.editors.request.response.meta.tlsFloorLoweredSummary':
     'Diese Anfrage wurde mit einer TLS-Mindestversion unter 1.2 in ihren Einstellungen gesendet, die ' +

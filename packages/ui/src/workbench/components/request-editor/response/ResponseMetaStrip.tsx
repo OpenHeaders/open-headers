@@ -21,7 +21,7 @@ import { useCallback } from 'react';
 import { addDeviceTrustedCertificate, isNodeRequestRuntime } from '@openheaders/ui/shared/device-trust';
 import { type Translate, useT } from '@openheaders/ui/context/LocaleContext';
 import { useOpenSettings } from '../../../hooks/OpenSettingsContext';
-import { formatFingerprint, subjectCommonName } from '../../trusted-roots/add-gate';
+import { subjectCommonName } from '../../trusted-roots/add-gate';
 import { TRUSTED_ROOTS_SETTING_KEY } from '../../trusted-roots/TrustedRootsPicker';
 import ProxyRouteTag, { proxyRouteHasBadge } from './ProxyRouteTag';
 import { formatBytes } from './response-format';
@@ -349,10 +349,25 @@ function sizeContent(response: ExecutedRequestSnapshot, t: Translate): InfoPopov
   };
 }
 
+/** The certificate's expiry the way certificate tooling prints it
+ *  (`Sep 17 19:37:38 2026 GMT`), so the value reads the same here as in
+ *  a browser's certificate viewer or `openssl x509 -enddate`. */
+export function formatCertificateDate(iso: string): string {
+  const [, day, month, year, time] = new Date(iso).toUTCString().split(' ');
+  return `${month} ${day} ${time} ${year} GMT`;
+}
+
+interface NetworkFactRow {
+  label: string;
+  value: string;
+  testId?: string;
+}
+
 /** The globe popover's body: connection-level facts we can honestly
- *  hold, with per-fact absence explained in footnotes. An instrumented
- *  node send carries its own socket facts (`snapshot.network`); the
- *  browser runtime reads its timing entry + wire capture instead. */
+ *  hold in three groups — the hop, the TLS session, the certificate —
+ *  with per-fact absence explained in footnotes. An instrumented node
+ *  send carries its own socket facts (`snapshot.network`); the browser
+ *  runtime reads its timing entry + wire capture instead. */
 function NetworkFacts({ response }: { response: ExecutedRequestSnapshot }) {
   const { token } = theme.useToken();
   const t = useT();
@@ -368,12 +383,11 @@ function NetworkFacts({ response }: { response: ExecutedRequestSnapshot }) {
         : response.timing
           ? httpVersionLabel(response.timing.nextHopProtocol)
           : null;
-  const endpoint = (address: string | undefined, port: number | undefined): string | undefined =>
-    address !== undefined ? (port !== undefined ? `${address}:${port}` : address) : undefined;
-  const remote = endpoint(network?.remoteAddress, network?.remotePort) ?? response.wire?.ip;
-  const local = endpoint(network?.localAddress, network?.localPort);
+  const remote = network?.remoteAddress ?? response.wire?.ip;
+  const local = network?.localAddress;
+  const tls = network?.tls;
 
-  const rows: Array<{ label: string; value: string; testId?: string }> = [
+  const hop: NetworkFactRow[] = [
     {
       label: t('workbench.editors.request.response.meta.httpVersion'),
       value: versionLabel ?? '—',
@@ -382,36 +396,34 @@ function NetworkFacts({ response }: { response: ExecutedRequestSnapshot }) {
     ...(local !== undefined ? [{ label: t('workbench.editors.request.response.meta.localAddress'), value: local }] : []),
     { label: t('workbench.editors.request.response.meta.remoteAddress'), value: remote ?? '—' },
   ];
-  const tls = network?.tls;
-  if (tls !== undefined) {
-    if (tls.protocol !== undefined) {
-      rows.push({ label: t('workbench.editors.request.response.meta.tlsProtocol'), value: tls.protocol });
-    }
-    if (tls.cipher !== undefined) {
-      rows.push({ label: t('workbench.editors.request.response.meta.tlsCipher'), value: tls.cipher });
-    }
-    if (tls.certificate !== undefined) {
-      rows.push(
-        {
-          label: t('workbench.editors.request.response.meta.tlsCertificate'),
-          value: subjectCommonName(tls.certificate.subject),
-          testId: 'oh-response-tls-subject',
-        },
-        {
-          label: t('workbench.editors.request.response.meta.tlsIssuer'),
-          value: subjectCommonName(tls.certificate.issuer),
-        },
-        {
-          label: t('workbench.editors.request.response.meta.tlsValidUntil'),
-          value: new Date(tls.certificate.notAfter).toLocaleString(),
-        },
-        {
-          label: t('workbench.editors.request.response.meta.tlsFingerprint'),
-          value: formatFingerprint(tls.certificate.fingerprintSha256),
-        },
-      );
-    }
+  const session: NetworkFactRow[] = [];
+  if (tls?.protocol !== undefined) {
+    session.push({ label: t('workbench.editors.request.response.meta.tlsProtocol'), value: tls.protocol });
   }
+  if (tls?.cipher !== undefined) {
+    session.push({ label: t('workbench.editors.request.response.meta.tlsCipher'), value: tls.cipher });
+  }
+  const certificate: NetworkFactRow[] =
+    tls?.certificate === undefined
+      ? []
+      : [
+          {
+            label: t('workbench.editors.request.response.meta.tlsCertificate'),
+            value: subjectCommonName(tls.certificate.subject),
+            testId: 'oh-response-tls-subject',
+          },
+          {
+            label: t('workbench.editors.request.response.meta.tlsIssuer'),
+            value: subjectCommonName(tls.certificate.issuer),
+          },
+          {
+            label: t('workbench.editors.request.response.meta.tlsValidUntil'),
+            value: formatCertificateDate(tls.certificate.notAfter),
+            testId: 'oh-response-tls-valid-until',
+          },
+        ];
+  const groups = [hop, session, certificate].filter((group) => group.length > 0);
+
   const notes: string[] = [];
   if (!versionLabel) {
     // Absence reads differently per runtime: the browser withheld a
@@ -425,44 +437,63 @@ function NetworkFacts({ response }: { response: ExecutedRequestSnapshot }) {
   }
   if (remote === undefined) notes.push(t('workbench.editors.request.response.meta.noteNoIp'));
   if (network === undefined) notes.push(t('workbench.editors.request.response.meta.noteNoTls'));
+  // One compact verdict row for an unverified send: the self-signed
+  // case by name, otherwise the runtime's rejection code, or the bare
+  // fact when the socket exposed no certificate.
+  const verdict =
+    tls?.authorizationError !== undefined
+      ? tls.certificate?.selfSigned
+        ? t('workbench.editors.request.response.meta.tlsSelfSigned')
+        : t('workbench.editors.request.response.meta.tlsUnverifiedVerdict', { code: tls.authorizationError })
+      : response.sslVerificationDisabled
+        ? t('workbench.editors.request.response.meta.tlsUnverified')
+        : undefined;
+  const divider: React.CSSProperties = { borderTop: `1px solid ${token.colorBorderSecondary}`, paddingTop: 8 };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 10, minWidth: 220 }}>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-        {rows.map((row) => (
-          <div key={row.label} style={{ display: 'flex', alignItems: 'baseline', gap: 12, fontSize: 12 }}>
-            <span style={{ width: 110, flexShrink: 0, color: token.colorTextSecondary }}>{row.label}</span>
-            <span data-testid={row.testId} style={{ fontVariantNumeric: 'tabular-nums', wordBreak: 'break-all' }}>
-              {row.value}
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, minWidth: 220 }}>
+      {groups.map((group, index) => (
+        <div
+          key={group[0].label}
+          style={{ display: 'flex', flexDirection: 'column', gap: 6, ...(index > 0 ? divider : {}) }}
+        >
+          {group.map((row) => (
+            <div key={row.label} style={{ display: 'flex', alignItems: 'baseline', gap: 12, fontSize: 12 }}>
+              <span style={{ width: 110, flexShrink: 0, color: token.colorTextSecondary }}>{row.label}</span>
+              <span data-testid={row.testId} style={{ fontVariantNumeric: 'tabular-nums', wordBreak: 'break-all' }}>
+                {row.value}
+              </span>
+            </div>
+          ))}
+        </div>
+      ))}
+      {notes.length > 0 && (
+        <div style={{ ...divider, display: 'flex', flexDirection: 'column', gap: 3 }}>
+          {notes.map((note) => (
+            <span key={note} style={{ fontSize: 11, color: token.colorTextTertiary }}>
+              {note}
             </span>
-          </div>
-        ))}
-      </div>
-      <div
-        style={{
-          borderTop: `1px solid ${token.colorBorderSecondary}`,
-          paddingTop: 8,
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 3,
-        }}
-      >
-        {notes.map((note) => (
-          <span key={note} style={{ fontSize: 11, color: token.colorTextTertiary }}>
-            {note}
-          </span>
-        ))}
-        {response.sslVerificationDisabled && (
-          <span style={{ fontSize: 11, color: token.colorError }} data-testid="oh-response-tls-unverified">
-            {t('workbench.editors.request.response.meta.unverifiedTlsSummary')}
-          </span>
-        )}
-        {tls?.authorizationError !== undefined && (
-          <span style={{ fontSize: 11, color: token.colorError }} data-testid="oh-response-tls-verdict">
-            {t('workbench.editors.request.response.meta.tlsUnverifiedVerdict', { code: tls.authorizationError })}
-          </span>
-        )}
-      </div>
+          ))}
+        </div>
+      )}
+      {verdict !== undefined && (
+        <div
+          data-testid="oh-response-tls-verdict"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+            padding: '5px 8px',
+            fontSize: 12,
+            color: token.colorErrorTextHover,
+            border: `1px solid ${token.colorErrorBorder}`,
+            borderRadius: token.borderRadiusSM,
+          }}
+        >
+          <WarningOutlined />
+          <span>{verdict}</span>
+        </div>
+      )}
     </div>
   );
 }
@@ -678,17 +709,6 @@ function networkContent(
   };
 }
 
-/** Popover for the tag on a run whose dial trusted certificates beyond
- *  the runtime bundle — the workspace list and/or this device's pins,
- *  counted per scope on the snapshot. */
-function trustedAnchorsContent(t: Translate, workspace: number, device: number): InfoPopoverContent {
-  return {
-    title: t('workbench.editors.request.response.meta.trustedTitle'),
-    kicker: t('workbench.editors.request.response.meta.kicker'),
-    summary: t('workbench.editors.request.response.meta.trustedSummary', { workspace, device }),
-  };
-}
-
 interface ResponseMetaStripProps {
   response: ExecutedRequestSnapshot;
 }
@@ -746,8 +766,14 @@ const ResponseMetaStrip: React.FC<ResponseMetaStripProps> = ({ response }) => {
                 onClick: () => openSettings({ settingKey: TRUSTED_ROOTS_SETTING_KEY }),
               },
             ];
-  const trustedWorkspace = response.trustedRootsApplied ?? 0;
-  const trustedDevice = response.deviceTrustApplied ?? 0;
+  // The globe's tint tells the TLS story at a glance: a deep green for
+  // a verified HTTPS send, a deep red for one that skipped verification,
+  // the plain secondary grey for HTTP.
+  const tlsTone: 'verified' | 'unverified' | undefined = !response.url.startsWith('https:')
+    ? undefined
+    : response.sslVerificationDisabled
+      ? 'unverified'
+      : 'verified';
   const statusPill = useStatusPillStyle(response.status);
   const factStyle: React.CSSProperties = { fontSize: 11, whiteSpace: 'nowrap', cursor: 'help' };
   // The strip leads with the on-wire size when the server exposes it
@@ -784,16 +810,6 @@ const ResponseMetaStrip: React.FC<ResponseMetaStripProps> = ({ response }) => {
           {formatBytes(stripBytes)}
         </Text>
       </InfoPopover>
-      {trustedWorkspace + trustedDevice > 0 && response.error === null && (
-        <>
-          <MetaDot />
-          <InfoPopover content={trustedAnchorsContent(t, trustedWorkspace, trustedDevice)} trigger="hover">
-            <Tag color="success" data-testid="oh-response-tls-trusted" style={{ marginInlineEnd: 0, cursor: 'help' }}>
-              {t('workbench.editors.request.response.meta.tagTrusted')}
-            </Tag>
-          </InfoPopover>
-        </>
-      )}
       {response.tlsFloorLowered && (
         <>
           <MetaDot />
@@ -883,16 +899,21 @@ const ResponseMetaStrip: React.FC<ResponseMetaStripProps> = ({ response }) => {
       <InfoPopover content={networkContent(response, t, trustActions)} trigger="hover">
         <span
           data-testid="oh-response-network"
-          data-unverified={response.sslVerificationDisabled ? 'true' : undefined}
+          data-tls={tlsTone}
           style={{
             display: 'inline-flex',
             alignItems: 'center',
             cursor: 'help',
-            color: response.sslVerificationDisabled ? token.colorError : token.colorTextSecondary,
-            fontSize: 13,
+            color:
+              tlsTone === 'unverified'
+                ? token.colorErrorTextActive
+                : tlsTone === 'verified'
+                  ? token.colorSuccessTextActive
+                  : token.colorTextSecondary,
+            fontSize: 14,
           }}
         >
-          {response.sslVerificationDisabled ? <WarningOutlined /> : <GlobalOutlined />}
+          <GlobalOutlined />
         </span>
       </InfoPopover>
     </span>
