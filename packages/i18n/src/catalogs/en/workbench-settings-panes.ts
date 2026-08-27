@@ -587,7 +587,7 @@ export const workbenchSettingsPanes = {
     'Decrypting HTTPS traffic needs a certificate authority created on this machine. Nothing is installed until you set up trust here, and everything installed here can be removed here.',
   'workbench.settings.proxyTrustPane.refresh': 'Re-check',
   'workbench.settings.proxyTrustPane.loadFailed': 'Trust state could not be read: {message}',
-  'workbench.settings.proxyTrustPane.ca.title': 'Certificate authority',
+  'workbench.settings.proxyTrustPane.ca.title': 'Certificate Authority',
   'workbench.settings.proxyTrustPane.ca.none':
     'No certificate authority exists yet. One is created on this machine the first time you set up trust — it is never shipped with the app and its private key never leaves this computer.',
   'workbench.settings.proxyTrustPane.ca.subject': 'Subject',
@@ -601,7 +601,7 @@ export const workbenchSettingsPanes = {
   'workbench.settings.proxyTrustPane.ca.deleteConfirm.ok': 'Delete',
   'workbench.settings.proxyTrustPane.ca.deleted': 'Certificate authority deleted',
   'workbench.settings.proxyTrustPane.ca.deleteFailed': 'Could not delete the certificate authority: {message}',
-  'workbench.settings.proxyTrustPane.stores.title': 'Trust stores',
+  'workbench.settings.proxyTrustPane.stores.title': 'Trust Stores',
   'workbench.settings.proxyTrustPane.stores.loginKeychain': 'Login keychain',
   'workbench.settings.proxyTrustPane.stores.systemKeychain': 'System keychain',
   'workbench.settings.proxyTrustPane.stores.firefoxProfile': 'Firefox profile',
@@ -670,7 +670,7 @@ export const workbenchSettingsPanes = {
   'workbench.settings.proxyTrustPane.removePartial':
     'Some stores could not be verified clean. Their records are kept — run removal again once the cause is fixed.',
   'workbench.settings.proxyTrustPane.removeFailed': 'Removal failed: {message}',
-  'workbench.settings.proxyTrustPane.helper.title': 'Privileged helper',
+  'workbench.settings.proxyTrustPane.helper.title': 'Privileged Helper',
   'workbench.settings.proxyTrustPane.helper.blurb':
     'System-keychain trust rides a signed helper registered with macOS as a background item. It only moves certificate bytes — every trust decision still goes through the macOS admin dialog.',
   'workbench.settings.proxyTrustPane.helper.notPresent': 'Not included in this build — packaged macOS builds only.',

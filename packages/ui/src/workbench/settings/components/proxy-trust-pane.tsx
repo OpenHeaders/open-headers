@@ -1,6 +1,7 @@
 /**
  * ProxyTrustPane — right-pane renderer for the Proxy · HTTPS Trust
- * child category (desktop + served web admin). The consent surface over the
+ * child category (desktop + served web admin): three pane sections —
+ * Certificate Authority, Trust Stores, Privileged Helper. The consent surface over the
  * `oh.daemon.proxy.trust.*` admin RPCs (the proxy-security design §2.3): a
  * wizard that names what is installed, what it enables, and how it is
  * removed — nothing is installed before the explicit commit; per-store
@@ -18,7 +19,7 @@ import type React from 'react';
 import { useCallback, useEffect, useState } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { trackProductTelemetryEvent } from '@openheaders/ui/shared/product-telemetry';
-import { PaneHeader } from './pane-chrome';
+import { Pane, PaneHeader, PaneSection } from './pane-chrome';
 import type { CategoryPaneProps } from '../types';
 
 interface TrustStatus {
@@ -106,11 +107,12 @@ function formatDay(iso: string): string {
   return new Date(iso).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' });
 }
 
+/** One `Label: value` line on the FieldRow grid — the 180px shared key column. */
 const DetailRow: React.FC<{ label: string; children: React.ReactNode }> = ({ label, children }) => {
   const { token } = theme.useToken();
   return (
-    <div style={{ display: 'flex', gap: 12, padding: '5px 0', fontSize: 12 }}>
-      <span style={{ width: 130, flex: 'none', color: token.colorTextSecondary }}>{label}</span>
+    <div style={{ display: 'flex', alignItems: 'baseline', columnGap: 6, padding: '3px 0', fontSize: 12 }}>
+      <span style={{ minWidth: 180, flex: 'none', fontSize: 13, color: token.colorText }}>{`${label}:`}</span>
       <span style={{ color: token.colorText, wordBreak: 'break-all' }}>{children}</span>
     </div>
   );
@@ -309,12 +311,8 @@ const ProxyTrustPane: React.FC<CategoryPaneProps> = ({ category }) => {
   );
 
   return (
-    <div style={{ padding: '14px 18px 20px', maxWidth: 760 }}>
+    <Pane>
       <PaneHeader category={category} />
-
-      <p style={{ margin: '0 0 12px', fontSize: 12, color: token.colorTextSecondary }}>
-        {t('workbench.settings.proxyTrustPane.intro')}
-      </p>
 
       {loadError !== null && (
         <Alert
@@ -349,194 +347,182 @@ const ProxyTrustPane: React.FC<CategoryPaneProps> = ({ category }) => {
         />
       )}
 
-      <section style={{ marginBottom: 14 }}>
-        <div className="settings-card" style={{ padding: '8px 14px 10px' }}>
-          <div style={{ fontSize: 12, fontWeight: 600, color: token.colorText, padding: '4px 0 2px' }}>
-            {t('workbench.settings.proxyTrustPane.ca.title')}
-          </div>
-          {status !== null && status.ca === null && (
-            <p style={{ margin: '4px 0', fontSize: 12, color: token.colorTextSecondary }}>
-              {t('workbench.settings.proxyTrustPane.ca.none')}
-            </p>
-          )}
-          {status?.ca && (
-            <>
-              <DetailRow label={t('workbench.settings.proxyTrustPane.ca.subject')}>{status.ca.subject}</DetailRow>
-              <DetailRow label={t('workbench.settings.proxyTrustPane.ca.fingerprint')}>
-                <span style={{ fontFamily: token.fontFamilyCode, fontSize: 11 }}>{status.ca.fingerprintSha256}</span>
-              </DetailRow>
-              <DetailRow label={t('workbench.settings.proxyTrustPane.ca.validity')}>
-                {t('workbench.settings.proxyTrustPane.ca.validityRange', {
-                  from: formatDay(status.ca.notBeforeIso),
-                  until: formatDay(status.ca.notAfterIso),
-                })}
-              </DetailRow>
-            </>
-          )}
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center', padding: '8px 0 4px' }}>
-            <Button data-testid="proxy-trust-setup" type="primary" size="small" onClick={openWizard}>
-              {t('workbench.settings.proxyTrustPane.installButton')}
-            </Button>
-            {changes.length > 0 && (
-              <Popconfirm
-                title={t('workbench.settings.proxyTrustPane.removeConfirm.title')}
-                description={t('workbench.settings.proxyTrustPane.removeConfirm.body')}
-                okText={t('workbench.settings.proxyTrustPane.removeConfirm.ok')}
-                okButtonProps={{ danger: true }}
-                styles={{ root: { maxWidth: 380 } }}
-                onConfirm={() => void remove()}
-              >
-                <Button data-testid="proxy-trust-remove" danger size="small" loading={removing}>
-                  {t('workbench.settings.proxyTrustPane.removeButton')}
-                </Button>
-              </Popconfirm>
-            )}
-            {status?.ca && changes.length === 0 && (
-              <Popconfirm
-                title={t('workbench.settings.proxyTrustPane.ca.deleteConfirm.title')}
-                description={t('workbench.settings.proxyTrustPane.ca.deleteConfirm.body')}
-                okText={t('workbench.settings.proxyTrustPane.ca.deleteConfirm.ok')}
-                okButtonProps={{ danger: true }}
-                styles={{ root: { maxWidth: 380 } }}
-                onConfirm={() => void deleteCa()}
-              >
-                <Button data-testid="proxy-trust-delete-ca" danger size="small">
-                  {t('workbench.settings.proxyTrustPane.ca.deleteButton')}
-                </Button>
-              </Popconfirm>
-            )}
-            {changes.length > 0 && (
-              <span style={{ fontSize: 11.5, color: token.colorTextSecondary }}>
-                {t('workbench.settings.proxyTrustPane.recordedCount', { count: changes.length })}
-              </span>
-            )}
-          </div>
-        </div>
-      </section>
-
-      <section>
-        <div className="settings-card" style={{ padding: '8px 14px 10px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 0 2px' }}>
-            <span style={{ fontSize: 12, fontWeight: 600, color: token.colorText, flex: 1 }}>
-              {t('workbench.settings.proxyTrustPane.stores.title')}
-            </span>
-            <Button data-testid="proxy-trust-refresh" size="small" onClick={() => void reload()}>
-              {t('workbench.settings.proxyTrustPane.refresh')}
-            </Button>
-          </div>
-          {status !== null && stores.length === 0 && (
-            <p style={{ margin: '4px 0', fontSize: 12, color: token.colorTextSecondary }}>
-              {t('workbench.settings.proxyTrustPane.stores.empty')}
-            </p>
-          )}
-          {stores.map((s) => (
-            <div
-              key={`${s.store}:${s.ref}`}
-              data-testid={`proxy-trust-store-${s.store}`}
-              style={{ display: 'flex', gap: 10, alignItems: 'baseline', padding: '5px 0', fontSize: 12 }}
+      <PaneSection title={t('workbench.settings.proxyTrustPane.ca.title')}>
+        <p style={{ margin: '3px 0 6px', fontSize: 12, color: token.colorTextSecondary }}>
+          {t('workbench.settings.proxyTrustPane.intro')}
+        </p>
+        {status !== null && status.ca === null && (
+          <p style={{ margin: '4px 0', fontSize: 12, color: token.colorTextSecondary }}>
+            {t('workbench.settings.proxyTrustPane.ca.none')}
+          </p>
+        )}
+        {status?.ca && (
+          <>
+            <DetailRow label={t('workbench.settings.proxyTrustPane.ca.subject')}>{status.ca.subject}</DetailRow>
+            <DetailRow label={t('workbench.settings.proxyTrustPane.ca.fingerprint')}>
+              <span style={{ fontFamily: token.fontFamilyCode, fontSize: 11 }}>{status.ca.fingerprintSha256}</span>
+            </DetailRow>
+            <DetailRow label={t('workbench.settings.proxyTrustPane.ca.validity')}>
+              {t('workbench.settings.proxyTrustPane.ca.validityRange', {
+                from: formatDay(status.ca.notBeforeIso),
+                until: formatDay(status.ca.notAfterIso),
+              })}
+            </DetailRow>
+          </>
+        )}
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', padding: '8px 0 4px' }}>
+          <Button data-testid="proxy-trust-setup" type="primary" size="small" onClick={openWizard}>
+            {t('workbench.settings.proxyTrustPane.installButton')}
+          </Button>
+          {changes.length > 0 && (
+            <Popconfirm
+              title={t('workbench.settings.proxyTrustPane.removeConfirm.title')}
+              description={t('workbench.settings.proxyTrustPane.removeConfirm.body')}
+              okText={t('workbench.settings.proxyTrustPane.removeConfirm.ok')}
+              okButtonProps={{ danger: true }}
+              styles={{ root: { maxWidth: 380 } }}
+              onConfirm={() => void remove()}
             >
-              <span style={{ width: 130, flex: 'none', color: token.colorText, fontWeight: 500 }}>
-                {t(STORE_LABEL[s.store])}
-              </span>
-              <Tag color={STATE_COLOR[s.state]} style={{ fontSize: 11, flex: 'none' }}>
-                {t(STATE_TEXT[s.state])}
-              </Tag>
-              <span
-                title={s.detail !== undefined ? `${s.ref} — ${s.detail}` : s.ref}
-                style={{
-                  color: token.colorTextSecondary,
-                  fontSize: 11.5,
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap',
-                }}
-              >
-                {s.detail !== undefined ? `${storeRefName(s.store, s.ref)} — ${s.detail}` : storeRefName(s.store, s.ref)}
-              </span>
-            </div>
-          ))}
+              <Button data-testid="proxy-trust-remove" danger size="small" loading={removing}>
+                {t('workbench.settings.proxyTrustPane.removeButton')}
+              </Button>
+            </Popconfirm>
+          )}
+          {status?.ca && changes.length === 0 && (
+            <Popconfirm
+              title={t('workbench.settings.proxyTrustPane.ca.deleteConfirm.title')}
+              description={t('workbench.settings.proxyTrustPane.ca.deleteConfirm.body')}
+              okText={t('workbench.settings.proxyTrustPane.ca.deleteConfirm.ok')}
+              okButtonProps={{ danger: true }}
+              styles={{ root: { maxWidth: 380 } }}
+              onConfirm={() => void deleteCa()}
+            >
+              <Button data-testid="proxy-trust-delete-ca" danger size="small">
+                {t('workbench.settings.proxyTrustPane.ca.deleteButton')}
+              </Button>
+            </Popconfirm>
+          )}
+          {changes.length > 0 && (
+            <span style={{ fontSize: 11.5, color: token.colorTextSecondary }}>
+              {t('workbench.settings.proxyTrustPane.recordedCount', { count: changes.length })}
+            </span>
+          )}
         </div>
-      </section>
+      </PaneSection>
+
+      <PaneSection title={t('workbench.settings.proxyTrustPane.stores.title')}>
+        {status !== null && stores.length === 0 && (
+          <p style={{ margin: '4px 0', fontSize: 12, color: token.colorTextSecondary }}>
+            {t('workbench.settings.proxyTrustPane.stores.empty')}
+          </p>
+        )}
+        {stores.map((s) => (
+          <div
+            key={`${s.store}:${s.ref}`}
+            data-testid={`proxy-trust-store-${s.store}`}
+            style={{ display: 'flex', columnGap: 6, alignItems: 'baseline', padding: '3px 0', fontSize: 12 }}
+          >
+            <span style={{ minWidth: 180, flex: 'none', fontSize: 13, color: token.colorText }}>
+              {`${t(STORE_LABEL[s.store])}:`}
+            </span>
+            <Tag color={STATE_COLOR[s.state]} style={{ fontSize: 11, flex: 'none' }}>
+              {t(STATE_TEXT[s.state])}
+            </Tag>
+            <span
+              title={s.detail !== undefined ? `${s.ref} — ${s.detail}` : s.ref}
+              style={{
+                color: token.colorTextSecondary,
+                fontSize: 11.5,
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {s.detail !== undefined ? `${storeRefName(s.store, s.ref)} — ${s.detail}` : storeRefName(s.store, s.ref)}
+            </span>
+          </div>
+        ))}
+        <div style={{ padding: '8px 0 4px' }}>
+          <Button data-testid="proxy-trust-refresh" size="small" onClick={() => void reload()}>
+            {t('workbench.settings.proxyTrustPane.refresh')}
+          </Button>
+        </div>
+      </PaneSection>
 
       {helperInfo !== null && hasKeychains && (
-        <section style={{ marginTop: 14 }}>
-          <div className="settings-card" style={{ padding: '8px 14px 10px' }}>
-            <div style={{ fontSize: 12, fontWeight: 600, color: token.colorText, padding: '4px 0 2px' }}>
-              {t('workbench.settings.proxyTrustPane.helper.title')}
-            </div>
-            <p style={{ margin: '2px 0 4px', fontSize: 12, color: token.colorTextSecondary }}>
-              {t('workbench.settings.proxyTrustPane.helper.blurb')}
+        <PaneSection title={t('workbench.settings.proxyTrustPane.helper.title')}>
+          <p style={{ margin: '3px 0 4px', fontSize: 12, color: token.colorTextSecondary }}>
+            {t('workbench.settings.proxyTrustPane.helper.blurb')}
+          </p>
+          {!helperInfo.present && (
+            <p style={{ margin: '4px 0', fontSize: 12, color: token.colorTextSecondary }}>
+              {t('workbench.settings.proxyTrustPane.helper.notPresent')}
             </p>
-            {!helperInfo.present && (
-              <p style={{ margin: '4px 0', fontSize: 12, color: token.colorTextSecondary }}>
-                {t('workbench.settings.proxyTrustPane.helper.notPresent')}
-              </p>
-            )}
-            {helperInfo.present && (
-              <>
-                <DetailRow label={t('workbench.settings.proxyTrustPane.helper.registrationLabel')}>
-                  <Tag
-                    color={helperInfo.registration !== null ? HELPER_STATE_COLOR[helperInfo.registration] : undefined}
-                    style={{ fontSize: 11 }}
-                  >
-                    {helperInfo.registration !== null
-                      ? t(HELPER_STATE_TEXT[helperInfo.registration])
-                      : t('workbench.settings.proxyTrustPane.helper.state.unknown')}
-                  </Tag>
-                </DetailRow>
-                <DetailRow label={t('workbench.settings.proxyTrustPane.helper.serverLabel')}>
-                  <Tag color={helperInfo.available ? 'green' : 'orange'} style={{ fontSize: 11 }}>
-                    {helperInfo.available
-                      ? t('workbench.settings.proxyTrustPane.helper.probe.ok')
-                      : t('workbench.settings.proxyTrustPane.helper.probe.down')}
-                  </Tag>
-                  {!helperInfo.available && helperInfo.reason !== undefined && (
-                    <span style={{ color: token.colorTextSecondary }}>({helperInfo.reason})</span>
-                  )}
-                </DetailRow>
-                {helperInfo.registration === 'requiresApproval' && (
-                  <p style={{ margin: '4px 0', fontSize: 12, color: token.colorTextSecondary }}>
-                    {t('workbench.settings.proxyTrustPane.helper.approvalHint')}
-                  </p>
+          )}
+          {helperInfo.present && (
+            <>
+              <DetailRow label={t('workbench.settings.proxyTrustPane.helper.registrationLabel')}>
+                <Tag
+                  color={helperInfo.registration !== null ? HELPER_STATE_COLOR[helperInfo.registration] : undefined}
+                  style={{ fontSize: 11 }}
+                >
+                  {helperInfo.registration !== null
+                    ? t(HELPER_STATE_TEXT[helperInfo.registration])
+                    : t('workbench.settings.proxyTrustPane.helper.state.unknown')}
+                </Tag>
+              </DetailRow>
+              <DetailRow label={t('workbench.settings.proxyTrustPane.helper.serverLabel')}>
+                <Tag color={helperInfo.available ? 'green' : 'orange'} style={{ fontSize: 11 }}>
+                  {helperInfo.available
+                    ? t('workbench.settings.proxyTrustPane.helper.probe.ok')
+                    : t('workbench.settings.proxyTrustPane.helper.probe.down')}
+                </Tag>
+                {!helperInfo.available && helperInfo.reason !== undefined && (
+                  <span style={{ color: token.colorTextSecondary }}>({helperInfo.reason})</span>
                 )}
-                <div style={{ display: 'flex', gap: 8, alignItems: 'center', padding: '8px 0 4px' }}>
-                  {helperInfo.registration !== 'enabled' && helperInfo.registration !== 'requiresApproval' && (
-                    <Button
-                      data-testid="proxy-trust-helper-register"
-                      type="primary"
-                      size="small"
-                      loading={helperBusy}
-                      onClick={() => void runHelperVerb('oh.daemon.proxy.trust.helperRegister')}
-                    >
-                      {t('workbench.settings.proxyTrustPane.helper.registerButton')}
-                    </Button>
-                  )}
-                  {helperInfo.registration === 'requiresApproval' && (
-                    <Button
-                      data-testid="proxy-trust-helper-login-items"
-                      type="primary"
-                      size="small"
-                      onClick={() => void openLoginItems()}
-                    >
-                      {t('workbench.settings.proxyTrustPane.helper.loginItemsButton')}
-                    </Button>
-                  )}
-                  {(helperInfo.registration === 'enabled' || helperInfo.registration === 'requiresApproval') && (
-                    <Button
-                      data-testid="proxy-trust-helper-unregister"
-                      danger
-                      size="small"
-                      loading={helperBusy}
-                      onClick={() => void runHelperVerb('oh.daemon.proxy.trust.helperUnregister')}
-                    >
-                      {t('workbench.settings.proxyTrustPane.helper.unregisterButton')}
-                    </Button>
-                  )}
-                </div>
-              </>
-            )}
-          </div>
-        </section>
+              </DetailRow>
+              {helperInfo.registration === 'requiresApproval' && (
+                <p style={{ margin: '4px 0', fontSize: 12, color: token.colorTextSecondary }}>
+                  {t('workbench.settings.proxyTrustPane.helper.approvalHint')}
+                </p>
+              )}
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center', padding: '8px 0 4px' }}>
+                {helperInfo.registration !== 'enabled' && helperInfo.registration !== 'requiresApproval' && (
+                  <Button
+                    data-testid="proxy-trust-helper-register"
+                    type="primary"
+                    size="small"
+                    loading={helperBusy}
+                    onClick={() => void runHelperVerb('oh.daemon.proxy.trust.helperRegister')}
+                  >
+                    {t('workbench.settings.proxyTrustPane.helper.registerButton')}
+                  </Button>
+                )}
+                {helperInfo.registration === 'requiresApproval' && (
+                  <Button
+                    data-testid="proxy-trust-helper-login-items"
+                    type="primary"
+                    size="small"
+                    onClick={() => void openLoginItems()}
+                  >
+                    {t('workbench.settings.proxyTrustPane.helper.loginItemsButton')}
+                  </Button>
+                )}
+                {(helperInfo.registration === 'enabled' || helperInfo.registration === 'requiresApproval') && (
+                  <Button
+                    data-testid="proxy-trust-helper-unregister"
+                    danger
+                    size="small"
+                    loading={helperBusy}
+                    onClick={() => void runHelperVerb('oh.daemon.proxy.trust.helperUnregister')}
+                  >
+                    {t('workbench.settings.proxyTrustPane.helper.unregisterButton')}
+                  </Button>
+                )}
+              </div>
+            </>
+          )}
+        </PaneSection>
       )}
 
       <Modal
@@ -641,7 +627,7 @@ const ProxyTrustPane: React.FC<CategoryPaneProps> = ({ category }) => {
           </div>
         )}
       </Modal>
-    </div>
+    </Pane>
   );
 };
 
