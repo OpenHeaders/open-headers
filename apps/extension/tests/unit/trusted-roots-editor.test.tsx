@@ -7,11 +7,14 @@
  * pasted CA root joins the draft as a row (no write fires), lights
  * dirty and the Save button; Save commits the draft against the
  * canonical list through the replacement in ONE call; remove edits
- * the draft without a confirm; a clean tab reports not dirty.
+ * the draft without a confirm; a clean tab reports not dirty; the
+ * dirty draft's PEM list is published to the draft registry (the
+ * draft-aware dial) and cleared when the tab is clean or unmounts.
  */
 
 import type { TrustedRoot } from '@openheaders/core/types';
 import { AwarenessIdentityProvider } from '@openheaders/ui/shared/awareness';
+import { __resetTrustedRootsDraftsForTests, getTrustedRootsDraft } from '@openheaders/ui/shared/trusted-roots-draft';
 import TrustedRootsEditor from '@openheaders/ui/workbench/components/trusted-roots/TrustedRootsEditor';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { resolveWorkbenchIdentity } from '@/host/surface-identity-resolvers';
@@ -76,6 +79,7 @@ beforeEach(() => {
 
 afterEach(() => {
   cleanup();
+  __resetTrustedRootsDraftsForTests();
 });
 
 const testIdentity = resolveWorkbenchIdentity();
@@ -152,5 +156,24 @@ describe('TrustedRootsEditor', () => {
     expect(screen.getByText('CERTIFICATES (1)')).toBeTruthy();
     expect(onDirtyChange).toHaveBeenLastCalledWith(true);
     expect(mockReplaceRoots).not.toHaveBeenCalled();
+  });
+
+  it('publishes the dirty draft’s PEM list to the registry and clears it on unmount', async () => {
+    liveRoots = [makeRoot('r1')];
+    const { unmount } = renderEditor();
+    expect(getTrustedRootsDraft('ws-1')).toBeUndefined();
+    await pasteAndAdd();
+    expect(getTrustedRootsDraft('ws-1')).toEqual([liveRoots[0].certPem, caPem]);
+    fireEvent.click(screen.getAllByRole('button', { name: 'Remove' })[0]);
+    expect(getTrustedRootsDraft('ws-1')).toEqual([caPem]);
+    unmount();
+    expect(getTrustedRootsDraft('ws-1')).toBeUndefined();
+  });
+
+  it('removing every root publishes an empty draft that withholds the saved roots until Save', () => {
+    liveRoots = [makeRoot('r1')];
+    renderEditor();
+    fireEvent.click(screen.getByRole('button', { name: 'Remove' }));
+    expect(getTrustedRootsDraft('ws-1')).toEqual([]);
   });
 });

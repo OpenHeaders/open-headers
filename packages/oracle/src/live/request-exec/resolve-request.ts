@@ -170,6 +170,14 @@ export interface ResolveRequestOptions {
   stepCaptures?: ReadonlyMap<string, ReadonlyMap<string, string>>;
   /** Host hook to refresh an expired OAuth token before attaching it. */
   refreshOAuth?: OAuthRefreshFn;
+  /**
+   * The caller's UNSAVED trust list — the Trusted Certificates tab's
+   * draft riding an interactive frame. Present, it replaces the
+   * workspace list for this dial (added rows apply, removed rows are
+   * withheld, an empty draft applies nothing); absent, the workspace
+   * list applies. Never stored, never synced.
+   */
+  trustedRootsDraft?: readonly string[];
 }
 
 /** Thrown when any `{{ref}}` in the request can't be resolved against
@@ -314,7 +322,10 @@ export async function resolveRequest(
   // ── Trusted roots (the workspace the run resolved against) ──
   // Same workspace pin the cookie jar keys on: an unpinned send
   // resolved against the runtime-Active workspace.
-  const trustedRootsPem = getTrustedRootPemsForSend(scope.workspaceId ?? peekActiveWorkspaceId());
+  const trustedRootsPem = getTrustedRootPemsForSend(
+    scope.workspaceId ?? peekActiveWorkspaceId(),
+    options.trustedRootsDraft,
+  );
 
   // ── Body ──
   const resolvedBody = buildResolvedBody(request.body, resolveStr);

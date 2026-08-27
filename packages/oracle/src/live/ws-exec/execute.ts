@@ -79,6 +79,14 @@ export interface ExecuteWsSessionOptions {
   environmentId: string | null | undefined;
   /** Host wire capability. */
   transport: WsTransport;
+  /**
+   * The caller's UNSAVED trust list — the Trusted Certificates tab's
+   * draft riding an interactive frame. Present, it replaces the
+   * workspace list for this dial (added rows apply, removed rows are
+   * withheld, an empty draft applies nothing); absent, the workspace
+   * list applies. Never stored, never synced.
+   */
+  trustedRootsDraft?: readonly string[];
   /** Caller-minted id — Stop hook on the shared active-send registry
    *  + the rider registry key. REQUIRED: a session is interactive by
    *  nature, there is no fire-and-forget leg. */
@@ -109,7 +117,10 @@ export async function executeWsSession(
   const resolveWith = options.resolution ?? (await buildOracleResolution(request, options));
   // The workspace trust list rides every dial — the pin the scope
   // resolved against, else the runtime-Active one.
-  const trustedRootsPem = getTrustedRootPemsForSend(options.workspaceId ?? peekActiveWorkspaceId());
+  const trustedRootsPem = getTrustedRootPemsForSend(
+    options.workspaceId ?? peekActiveWorkspaceId(),
+    options.trustedRootsDraft,
+  );
 
   const unresolved = new Set<string>();
   const resolveStr = (s: string): string => resolveWith(s, unresolved);

@@ -50,6 +50,7 @@ export const workbenchTrustedRoots = {
   'workbench.trustedRoots.settings.label': 'Certificados de confianza',
   'workbench.trustedRoots.settings.count': '{count} de este espacio de trabajo',
   'workbench.trustedRoots.settings.none': 'Ninguno de este espacio de trabajo',
+  'workbench.trustedRoots.settings.unsaved': '(cambios sin guardar)',
   'workbench.trustedRoots.settings.manage': 'Gestionar certificados de confianza',
   'workbench.trustedRoots.settings.empty': 'Todavía no hay certificados de confianza en este espacio de trabajo.',
   'workbench.trustedRoots.settings.browserStore': 'Almacén del navegador',

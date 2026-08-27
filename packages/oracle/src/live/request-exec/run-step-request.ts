@@ -51,6 +51,14 @@ export interface RunStepRequestOptions {
   transport: RequestTransport;
   /** Optional host hook to refresh an expired OAuth token before send. */
   refreshOAuth?: OAuthRefreshFn;
+  /**
+   * The caller's UNSAVED trust list — the Trusted Certificates tab's
+   * draft riding an interactive frame. Present, it replaces the
+   * workspace list for this dial (added rows apply, removed rows are
+   * withheld, an empty draft applies nothing); absent, the workspace
+   * list applies. Never stored, never synced.
+   */
+  trustedRootsDraft?: readonly string[];
   /** Per-attempt timeout the transport enforces on the wire round-trip. */
   timeoutMs?: number;
   /**
@@ -85,6 +93,7 @@ export async function runStepRequest(
       environmentId: options.environmentId,
       stepCaptures: options.stepCaptures,
       refreshOAuth: options.refreshOAuth,
+      trustedRootsDraft: options.trustedRootsDraft,
     });
   } catch (err) {
     if (err instanceof UnresolvedRequestError) return errorSnapshot(err.message);

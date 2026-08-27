@@ -9,7 +9,10 @@
  * line, and its footer opens the editor through
  * {@link OpenTrustedRootsContext}. Never a knob (trust is workspace
  * data, applied to every TLS dial; the locked law), so it carries no
- * dot, no reset, and contributes to no tab dot.
+ * dot, no reset, and contributes to no tab dot. While the editor tab
+ * holds an unsaved draft the face gains an "(unsaved changes)" suffix:
+ * the count stays canonical, the suffix says this device dials with
+ * the draft.
  *
  * On a non-node host the control is disabled and the caption beneath
  * states the honest note: the browser dials with its own trust store
@@ -22,6 +25,7 @@ import type { TrustedRoot } from '@openheaders/core/types';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { useTrustedRoots } from '@openheaders/ui/shared/hooks/readers/useTrustedRoots';
 import { InfoTrigger } from '@openheaders/ui/shared/info-popover';
+import { useTrustedRootsDraft } from '@openheaders/ui/shared/trusted-roots-draft';
 import { CONTROL_WIDTH, ResetSlot } from '@openheaders/ui/shared/settings-rows';
 import { Button, ConfigProvider, Select, Typography, theme } from 'antd';
 import type React from 'react';
@@ -56,14 +60,22 @@ const TrustedRootsSettingsRow: React.FC<{
   const nodeHost = getCapability('requestRuntime')?.() === 'node';
   const workspaceId = useWorkbenchEditingScopeWorkspaceId();
   const roots = useTrustedRoots(nodeHost ? workspaceId : null);
+  const draft = useTrustedRootsDraft(nodeHost ? workspaceId : null);
   const openTrustedRoots = useOpenTrustedRoots();
   const [open, setOpen] = useState(false);
   const label = t('workbench.trustedRoots.settings.label');
-  const face = !nodeHost
-    ? t('workbench.trustedRoots.settings.browserStore')
-    : roots.length === 0
+  const savedFace =
+    roots.length === 0
       ? t('workbench.trustedRoots.settings.none')
       : t('workbench.trustedRoots.settings.count', { count: roots.length });
+  // The face counts the CANONICAL list (workspace data); a live draft
+  // on the editor tab only adds the honest suffix — this device's
+  // sends dial with the unsaved list until Save.
+  const face = !nodeHost
+    ? t('workbench.trustedRoots.settings.browserStore')
+    : draft === undefined
+      ? savedFace
+      : `${savedFace} ${t('workbench.trustedRoots.settings.unsaved')}`;
   return (
     <div style={{ display: 'flex', flexDirection: 'column' }}>
       <div

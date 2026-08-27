@@ -31,8 +31,16 @@ export function getTrustedRootPemsForWorkspace(workspaceId: string): string[] {
  * there is no workspace to read from or the list is empty, so the
  * transport's runtime-default trust path stays untouched. Takes the
  * executor's resolved workspace pin (`null` = none).
+ *
+ * `draft` is the caller's UNSAVED trust list — the Trusted Certificates
+ * tab's draft riding an interactive Send frame (the unsaved-request-
+ * body precedent). Present, it replaces the workspace list wholesale
+ * for this dial: added rows apply, removed rows are withheld, and an
+ * empty draft applies nothing even when the workspace holds roots.
+ * The draft never reaches a store, a peer, or a persisted record.
  */
-export function getTrustedRootPemsForSend(workspaceId: string | null): string[] | undefined {
+export function getTrustedRootPemsForSend(workspaceId: string | null, draft?: readonly string[]): string[] | undefined {
+  if (draft !== undefined) return draft.length > 0 ? [...draft] : undefined;
   if (workspaceId === null) return undefined;
   const roots = getTrustedRootPemsForWorkspace(workspaceId);
   return roots.length > 0 ? roots : undefined;

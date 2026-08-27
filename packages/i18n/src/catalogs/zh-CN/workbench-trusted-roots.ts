@@ -49,6 +49,7 @@ export const workbenchTrustedRoots = {
   'workbench.trustedRoots.settings.label': '受信任证书',
   'workbench.trustedRoots.settings.count': '来自此工作区 {count} 个',
   'workbench.trustedRoots.settings.none': '此工作区暂无',
+  'workbench.trustedRoots.settings.unsaved': '（未保存的更改）',
   'workbench.trustedRoots.settings.manage': '管理受信任的证书',
   'workbench.trustedRoots.settings.empty': '此工作区暂无受信任的证书。',
   'workbench.trustedRoots.settings.browserStore': '浏览器证书库',

@@ -102,6 +102,9 @@ export async function handleExecuteRequestRpc(
   const environmentId =
     typeof message.environmentId === 'string' || message.environmentId === null ? message.environmentId : undefined;
   const requestedWorkspaceId = typeof message.workspaceId === 'string' ? message.workspaceId : undefined;
+  const trustedRootsDraft = Array.isArray(message.trustedRootsDraft)
+    ? message.trustedRootsDraft.filter((pem): pem is string => typeof pem === 'string')
+    : undefined;
   const workspaceId =
     requestedWorkspaceId !== undefined && requestedWorkspaceId !== getActiveWorkspaceId()
       ? requestedWorkspaceId
@@ -151,6 +154,7 @@ export async function handleExecuteRequestRpc(
           transport,
           scriptRunner: resolved.runner,
           refreshOAuth,
+          trustedRootsDraft,
           ...(stream !== undefined ? { stream } : {}),
         })
       : await runStepRequest(request, {
@@ -158,6 +162,7 @@ export async function handleExecuteRequestRpc(
           environmentId,
           transport,
           refreshOAuth,
+          trustedRootsDraft,
           ...(stream !== undefined ? { stream } : {}),
         });
     // Stamp the mode the scripted portion actually ran under — snapshot

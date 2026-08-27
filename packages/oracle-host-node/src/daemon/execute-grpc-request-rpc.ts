@@ -62,6 +62,9 @@ export async function handleExecuteGrpcRequestRpc(
   const environmentId =
     typeof message.environmentId === 'string' || message.environmentId === null ? message.environmentId : undefined;
   const requestedWorkspaceId = typeof message.workspaceId === 'string' ? message.workspaceId : undefined;
+  const trustedRootsDraft = Array.isArray(message.trustedRootsDraft)
+    ? message.trustedRootsDraft.filter((pem): pem is string => typeof pem === 'string')
+    : undefined;
 
   try {
     const activeWorkspaceId = getActiveWorkspaceId();
@@ -102,6 +105,7 @@ export async function handleExecuteGrpcRequestRpc(
       environmentId,
       transport,
       spec,
+      trustedRootsDraft,
       ...(sendId !== undefined ? { sendId } : {}),
       emitStreamEvent,
     });

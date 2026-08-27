@@ -17,7 +17,14 @@ import { describe, expect, it, vi } from 'vitest';
 
 const TRUSTED_ROOT = '-----BEGIN CERTIFICATE-----\nROOT\n-----END CERTIFICATE-----\n';
 vi.mock('../../../src/entity/trusted-roots-store', () => ({
-  getTrustedRootPemsForSend: (workspaceId: string | null) => (workspaceId === 'ws-1' ? [TRUSTED_ROOT] : undefined),
+  getTrustedRootPemsForSend: (workspaceId: string | null, draft?: readonly string[]) =>
+    draft !== undefined
+      ? draft.length > 0
+        ? [...draft]
+        : undefined
+      : workspaceId === 'ws-1'
+        ? [TRUSTED_ROOT]
+        : undefined,
 }));
 
 function makeWsRequest(overrides: Partial<WebSocketRequest> = {}): WebSocketRequest {
@@ -114,6 +121,37 @@ describe('executeWsSession — injected resolution', () => {
     expect(bare.wire().trustedRootsPem).toBeUndefined();
     bare.callbacks().onEnd();
     await bareRun;
+  });
+
+  it('a draft on the session dials with the unsaved list; an empty draft withholds the saved roots', async () => {
+    const unsaved = '-----BEGIN CERTIFICATE-----\nUNSAVED\n-----END CERTIFICATE-----\n';
+    const drafted = scriptedTransport();
+    const draftedRun = executeWsSession(makeWsRequest(), {
+      workspaceId: 'ws-1',
+      environmentId: undefined,
+      transport: drafted.transport,
+      sendId: 'send-draft-roots',
+      resolution: scopedResolution,
+      trustedRootsDraft: [TRUSTED_ROOT, unsaved],
+    });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(drafted.wire().trustedRootsPem).toEqual([TRUSTED_ROOT, unsaved]);
+    drafted.callbacks().onEnd();
+    await draftedRun;
+
+    const withheld = scriptedTransport();
+    const withheldRun = executeWsSession(makeWsRequest(), {
+      workspaceId: 'ws-1',
+      environmentId: undefined,
+      transport: withheld.transport,
+      sendId: 'send-draft-none',
+      resolution: scopedResolution,
+      trustedRootsDraft: [],
+    });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(withheld.wire().trustedRootsPem).toBeUndefined();
+    withheld.callbacks().onEnd();
+    await withheldRun;
   });
 
   it('resolves url, headers and params through the injected closure — no oracle resolver', async () => {

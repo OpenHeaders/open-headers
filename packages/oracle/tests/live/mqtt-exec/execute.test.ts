@@ -36,7 +36,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const TRUSTED_ROOT = '-----BEGIN CERTIFICATE-----\nROOT\n-----END CERTIFICATE-----\n';
 vi.mock('../../../src/entity/trusted-roots-store', () => ({
-  getTrustedRootPemsForSend: (workspaceId: string | null) => (workspaceId === 'ws-1' ? [TRUSTED_ROOT] : undefined),
+  getTrustedRootPemsForSend: (workspaceId: string | null, draft?: readonly string[]) =>
+    draft !== undefined
+      ? draft.length > 0
+        ? [...draft]
+        : undefined
+      : workspaceId === 'ws-1'
+        ? [TRUSTED_ROOT]
+        : undefined,
 }));
 
 function makeMqttRequest(overrides: Partial<MqttRequest> = {}): MqttRequest {
@@ -592,6 +599,24 @@ describe('executeMqttSession — 5.0 connect knobs and topic aliases', () => {
     expect(rig.wire().trustedRootsPem).toEqual([TRUSTED_ROOT]);
     rig.establish();
     closeActiveMqttSession('send-mqtt-roots');
+    await settled;
+  });
+
+  it('a draft on the session dials with the unsaved list instead of the workspace roots', async () => {
+    const unsaved = '-----BEGIN CERTIFICATE-----\nUNSAVED\n-----END CERTIFICATE-----\n';
+    const rig = scriptedTransport(MQTT_PROTOCOL_VERSIONS.v5);
+    const settled = executeMqttSession(makeMqttRequest({ url: 'mqtts://{{host}}' }), {
+      workspaceId: 'ws-1',
+      environmentId: undefined,
+      transport: rig.transport,
+      sendId: 'send-mqtt-draft-roots',
+      resolution: scopedResolution,
+      trustedRootsDraft: [unsaved],
+    });
+    await settleTick();
+    expect(rig.wire().trustedRootsPem).toEqual([unsaved]);
+    rig.establish();
+    closeActiveMqttSession('send-mqtt-draft-roots');
     await settled;
   });
 

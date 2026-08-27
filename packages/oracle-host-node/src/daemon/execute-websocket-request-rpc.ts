@@ -65,6 +65,9 @@ export async function handleExecuteWebSocketRequestRpc(
   const environmentId =
     typeof message.environmentId === 'string' || message.environmentId === null ? message.environmentId : undefined;
   const requestedWorkspaceId = typeof message.workspaceId === 'string' ? message.workspaceId : undefined;
+  const trustedRootsDraft = Array.isArray(message.trustedRootsDraft)
+    ? message.trustedRootsDraft.filter((pem): pem is string => typeof pem === 'string')
+    : undefined;
 
   if (sendId === undefined) return { success: false, error: 'No sendId provided — a session needs one' };
 
@@ -84,7 +87,10 @@ export async function handleExecuteWebSocketRequestRpc(
 
     let request: WebSocketRequest | undefined;
     if (webSocketRequestUid) {
-      const all = await hostStorage.getValidatedArray(wsKeys(readWorkspaceId).websocketRequests, WebSocketRequestSchema);
+      const all = await hostStorage.getValidatedArray(
+        wsKeys(readWorkspaceId).websocketRequests,
+        WebSocketRequestSchema,
+      );
       const loaded = all.find((r) => r.uid === webSocketRequestUid);
       if (!loaded) {
         return { success: true, snapshot: errorWsSnapshot(`WebSocket request ${webSocketRequestUid} not found`) };
@@ -99,6 +105,7 @@ export async function handleExecuteWebSocketRequestRpc(
       workspaceId,
       environmentId,
       transport,
+      trustedRootsDraft,
       sendId,
       emitStreamEvent,
     });

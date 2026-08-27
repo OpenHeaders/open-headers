@@ -51,6 +51,7 @@ export const workbenchTrustedRoots = {
   'workbench.trustedRoots.settings.label': 'Vertrauenswürdige Zertifikate',
   'workbench.trustedRoots.settings.count': '{count} aus diesem Arbeitsbereich',
   'workbench.trustedRoots.settings.none': 'Keine aus diesem Arbeitsbereich',
+  'workbench.trustedRoots.settings.unsaved': '(ungespeicherte Änderungen)',
   'workbench.trustedRoots.settings.manage': 'Vertrauenswürdige Zertifikate verwalten',
   'workbench.trustedRoots.settings.empty': 'Noch keine vertrauenswürdigen Zertifikate in diesem Arbeitsbereich.',
   'workbench.trustedRoots.settings.browserStore': 'Browser-Speicher',

@@ -11,6 +11,10 @@
  * boundary — a root under test dials from this device only until
  * Save publishes it to every peer of the workspace.
  *
+ * While dirty the draft's PEM list is published to the trusted-roots
+ * draft registry, which the workbench Send / Connect frames carry to
+ * the executing host — the draft-aware dial.
+ *
  * Awareness through `useEditorShell` pinned to the singleton id; no
  * per-field focus (rows are opaque PEM blobs).
  */
@@ -23,9 +27,10 @@ import { EntityScopeProvider, PresenceBadge, useLocalInstanceId } from '@openhea
 import { useEditorShell, useReprime } from '@openheaders/ui/shared/editor-shell';
 import { stableStringify } from '@openheaders/ui/shared/forms';
 import { mintTrustedRoot } from '@openheaders/ui/shared/sync/trusted-roots-write-client';
+import { publishTrustedRootsDraft } from '@openheaders/ui/shared/trusted-roots-draft';
 import { Alert, App, Button, Typography, theme } from 'antd';
 import type React from 'react';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTrustedRootsMutator } from '../../../shared/hooks/mutators/useTrustedRootsMutator';
 import { useTrustedRoots } from '../../../shared/hooks/readers/useTrustedRoots';
 import EditorHeader from '../shell/EditorHeader';
@@ -71,6 +76,19 @@ const TrustedRootsEditor: React.FC<TrustedRootsEditorProps> = ({ workspaceId, on
     populate: (e) => setDraft(e.roots),
   });
   const isDirty = reprime.isDirty;
+
+  // Draft = local: while dirty, the unsaved list is published for this
+  // surface's Send / Connect frames, so a root under test dials from
+  // this device before Save hands it to the peers. A clean tab (Save,
+  // discard, re-prime) and unmount clear it.
+  useEffect(() => {
+    if (workspaceId === null) return;
+    publishTrustedRootsDraft(workspaceId, isDirty ? draft.map((root) => root.certPem) : null);
+  }, [workspaceId, isDirty, draft]);
+  useEffect(() => {
+    if (workspaceId === null) return;
+    return () => publishTrustedRootsDraft(workspaceId, null);
+  }, [workspaceId]);
 
   const handleAdd = useCallback((input: { name: string; certPem: string }) => {
     setDraft((prev) => [...prev, mintTrustedRoot(input)]);

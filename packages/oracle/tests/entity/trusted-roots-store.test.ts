@@ -49,4 +49,13 @@ describe('trusted-roots-store', () => {
     expect(getTrustedRootPemsForSend('ws-none')).toBeUndefined();
     expect(getTrustedRootPemsForSend('ws-empty')).toBeUndefined();
   });
+
+  it('a draft on the send replaces the workspace list: added rows apply, an empty draft withholds', () => {
+    caches.set('ws-1', { schemaVersion: 5, roots: [root('a', ROOT_A)] });
+    expect(getTrustedRootPemsForSend('ws-1', [ROOT_A, ROOT_B])).toEqual([ROOT_A, ROOT_B]);
+    expect(getTrustedRootPemsForSend('ws-1', [ROOT_B])).toEqual([ROOT_B]);
+    expect(getTrustedRootPemsForSend('ws-1', [])).toBeUndefined();
+    expect(getTrustedRootPemsForSend(null, [ROOT_B])).toEqual([ROOT_B]);
+    expect(getTrustedRootPemsForSend('ws-1', undefined)).toEqual([ROOT_A]);
+  });
 });

@@ -62,6 +62,7 @@ vi.mock('@openheaders/oracle/rule-engine/variables-resolver', () => ({
 }));
 vi.mock('@openheaders/oracle/workspace/extension-workspace-store', () => ({
   getActiveWorkspaceId: () => 'ws-active',
+  peekActiveWorkspaceId: () => 'ws-active',
 }));
 vi.mock('@openheaders/oracle/storage', () => ({
   wsKeys: (ws: string) => ({
@@ -301,6 +302,18 @@ describe('handleExecuteWebSocketRequestRpc — happy path', () => {
     expect(sent().subprotocols).toEqual(['graphql-ws', 'chat.v2']);
     expect(sent().sslVerification).toBe(false);
     expect(sent().timeoutMs).toBe(15_000);
+  });
+
+  it('dials with the frame’s unsaved trust draft', async () => {
+    const root = '-----BEGIN CERTIFICATE-----\nDRAFT\n-----END CERTIFICATE-----\n';
+    seedStorage([]);
+    const { transport, sent } = scriptedTransport();
+    await runSession(
+      { draft: makeWsRequest(), sendId: 's-roots', trustedRootsDraft: [root] },
+      transport,
+      (sendId) => void closeActiveWsSession(sendId),
+    );
+    expect(sent().trustedRootsPem).toEqual([root]);
   });
 });
 

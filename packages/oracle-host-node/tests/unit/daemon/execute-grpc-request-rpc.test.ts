@@ -62,6 +62,7 @@ vi.mock('@openheaders/oracle/rule-engine/variables-resolver', () => ({
 }));
 vi.mock('@openheaders/oracle/workspace/extension-workspace-store', () => ({
   getActiveWorkspaceId: () => 'ws-active',
+  peekActiveWorkspaceId: () => 'ws-active',
 }));
 vi.mock('@openheaders/oracle/storage', () => ({
   wsKeys: (ws: string) => ({

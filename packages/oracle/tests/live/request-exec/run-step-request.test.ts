@@ -74,7 +74,8 @@ vi.mock('../../../src/workspace/extension-workspace-store', () => ({
 const trustedRootPems = vi.fn<(workspaceId: string) => string[]>(() => []);
 vi.mock('../../../src/entity/trusted-roots-store', () => ({
   getTrustedRootPemsForWorkspace: (workspaceId: string) => trustedRootPems(workspaceId),
-  getTrustedRootPemsForSend: (workspaceId: string | null) => {
+  getTrustedRootPemsForSend: (workspaceId: string | null, draft?: readonly string[]) => {
+    if (draft !== undefined) return draft.length > 0 ? [...draft] : undefined;
     if (workspaceId === null) return undefined;
     const roots = trustedRootPems(workspaceId);
     return roots.length > 0 ? roots : undefined;
@@ -151,6 +152,21 @@ describe('runStepRequest (integration over the real resolver + executor)', () =>
     const snap = await runStepRequest(makeRequest(), opts(transport));
     expect(sent().trustedRootsPem).toEqual([root]);
     expect(snap.trustedRootsApplied).toBe(1);
+  });
+
+  it('a draft on the run dials with the unsaved list and counts it; an empty draft withholds the saved roots', async () => {
+    const saved = '-----BEGIN CERTIFICATE-----\nSAVED\n-----END CERTIFICATE-----\n';
+    const unsaved = '-----BEGIN CERTIFICATE-----\nUNSAVED\n-----END CERTIFICATE-----\n';
+    trustedRootPems.mockImplementation((workspaceId) => (workspaceId === 'ws-1' ? [saved] : []));
+    const added = captureTransport();
+    const snap = await runStepRequest(makeRequest(), { ...opts(added.transport), trustedRootsDraft: [saved, unsaved] });
+    expect(added.sent().trustedRootsPem).toEqual([saved, unsaved]);
+    expect(snap.trustedRootsApplied).toBe(2);
+
+    const withheld = captureTransport();
+    const bare = await runStepRequest(makeRequest(), { ...opts(withheld.transport), trustedRootsDraft: [] });
+    expect(withheld.sent().trustedRootsPem).toBeUndefined();
+    expect(bare.trustedRootsApplied).toBeUndefined();
   });
 
   it('an empty trust list leaves the transport request and the snapshot untouched', async () => {
