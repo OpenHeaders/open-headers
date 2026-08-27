@@ -131,6 +131,7 @@ export function capturedMqttResponseFromSnapshot(snapshot: ExecutedMqttSnapshot)
         return {
           kind: 'reconnecting' as const,
           attempt: event.attempt,
+          delayMs: event.delayMs,
           ...(event.error === undefined ? {} : { error: event.error }),
         };
       }
@@ -146,6 +147,7 @@ export function capturedMqttResponseFromSnapshot(snapshot: ExecutedMqttSnapshot)
     end: snapshot.end === null ? null : { ...snapshot.end },
     ...(snapshot.stopped === undefined ? {} : { stopped: snapshot.stopped }),
     ...(snapshot.reconnectRefused === undefined ? {} : { reconnectRefused: { ...snapshot.reconnectRefused } }),
+    ...(snapshot.reconnectExhausted === undefined ? {} : { reconnectExhausted: { ...snapshot.reconnectExhausted } }),
     durationMs: snapshot.durationMs,
   };
 }

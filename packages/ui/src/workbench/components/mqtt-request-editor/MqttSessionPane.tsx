@@ -37,7 +37,7 @@ import {
   type MqttTimelineLifecycle,
   reconnectingAt,
 } from './mqtt-timeline-model';
-import { connackReasonLabel, connackReasonName, sessionEndedMessage } from './session-display';
+import { connackReasonLabel, connackReasonName, reconnectLoopEndTagKey, sessionEndedMessage } from './session-display';
 import type { LiveMqttSession, MqttSessionTiming } from './useLiveMqttSession';
 
 const { Text } = Typography;
@@ -178,14 +178,15 @@ const MqttSessionPane: React.FC<MqttSessionPaneProps> = ({
   // the error tint; the clean client Disconnect reads success-green;
   // a broker DISCONNECT renders on the warning tint with its verbatim
   // reason; a severed connection is named as the absence it is;
-  // Stopped is its own state; a reconnect the broker refused ended
-  // the auto-reconnect loop — its own error-tint state.
+  // Stopped is its own state; a reconnect the broker refused, or a
+  // spent attempt cap, ended the auto-reconnect loop — their own
+  // error-tint states.
   const endTag = (() => {
     if (snapshot === null) return null;
-    if (snapshot.reconnectRefused !== undefined) {
+    if (snapshot.reconnectRefused !== undefined || snapshot.reconnectExhausted !== undefined) {
       return (
         <Tag color="error" style={{ marginInlineEnd: 0 }} data-testid="mqtt-session-end-tag">
-          {t('workbench.editors.mqtt.session.reconnectRefusedTag')}
+          {t(reconnectLoopEndTagKey(snapshot))}
         </Tag>
       );
     }
@@ -283,8 +284,8 @@ const MqttSessionPane: React.FC<MqttSessionPaneProps> = ({
     } else {
       if (teardownAt !== undefined) {
         const label =
-          snapshot.reconnectRefused !== undefined
-            ? t('workbench.editors.mqtt.session.reconnectRefusedTag')
+          snapshot.reconnectRefused !== undefined || snapshot.reconnectExhausted !== undefined
+            ? t(reconnectLoopEndTagKey(snapshot))
             : snapshot.stopped === true
               ? t('workbench.editors.mqtt.session.stoppedTag')
               : snapshot.end === null

@@ -27,6 +27,7 @@ import {
 import { Tag, theme } from 'antd';
 import type React from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
+import { formatDurationMs } from '@openheaders/ui/shared/combo-knob';
 import CodeEditor from '../shared/CodeEditor';
 import {
   CONNACK_DETAIL_PX,
@@ -410,7 +411,12 @@ const MqttTimelineEntryRow: React.FC<MqttTimelineEntryRowProps> = ({
               {...(item.error !== undefined ? { title: item.error } : {})}
               style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
             >
-              {t('workbench.editors.mqtt.timeline.reconnecting', { attempt: item.attempt })}
+              {item.delayMs === undefined
+                ? t('workbench.editors.mqtt.timeline.reconnecting', { attempt: item.attempt })
+                : t('workbench.editors.mqtt.timeline.reconnectingAfter', {
+                    attempt: item.attempt,
+                    delay: formatDurationMs(item.delayMs),
+                  })}
               {item.error !== undefined ? ` — ${item.error}` : ''}
             </span>
             {lifecycleTime(ts)}

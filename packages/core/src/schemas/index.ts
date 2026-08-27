@@ -74,6 +74,7 @@ export {
 export {
   MAX_ALPN_PROTOCOL_LENGTH,
   MAX_MQTT_URL_LENGTH,
+  MAX_RECONNECT_ATTEMPTS,
   MAX_SNI_SERVER_NAME_LENGTH,
   MqttAuthSchema,
   MqttLastWillSchema,
@@ -89,6 +90,7 @@ export {
   MqttTopicRowSchema,
   MqttUrlSchema,
   MqttUserPropertyRowSchema,
+  ReconnectMaxAttemptsSchema,
 } from './mqtt-request';
 export {
   CapturedMqttEndSchema,

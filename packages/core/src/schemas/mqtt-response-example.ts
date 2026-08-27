@@ -114,6 +114,9 @@ export const CapturedMqttLostSchema = v.object({
 export const CapturedMqttReconnectingSchema = v.object({
   kind: v.literal('reconnecting'),
   attempt: v.number(),
+  /** The wait before the attempt — optional: captures saved before it
+   *  was recorded carry no value. */
+  delayMs: v.optional(v.number()),
   error: v.optional(v.string()),
 });
 
@@ -164,6 +167,9 @@ export const CapturedMqttResponseSchema = v.object({
   /** Auto-reconnect gave up on a CONNACK refusal — the reason verbatim
    *  with the attempt it answered. */
   reconnectRefused: v.optional(v.object({ attempt: v.number(), error: v.string() })),
+  /** Auto-reconnect gave up on a spent attempt cap — the attempts
+   *  dialed, the last failure verbatim when there was one. */
+  reconnectExhausted: v.optional(v.object({ attempts: v.number(), error: v.optional(v.string()) })),
   /** Whole-session wall time (connect start → settle). */
   durationMs: v.number(),
 });

@@ -15,7 +15,12 @@ import type React from 'react';
 import { useMemo, useState } from 'react';
 import MqttMessageTimeline from '../mqtt-request-editor/MqttMessageTimeline';
 import type { MqttTimelineLifecycle } from '../mqtt-request-editor/mqtt-timeline-model';
-import { connackReasonLabel, connackReasonName, sessionEndedMessage } from '../mqtt-request-editor/session-display';
+import {
+  connackReasonLabel,
+  connackReasonName,
+  reconnectLoopEndTagKey,
+  sessionEndedMessage,
+} from '../mqtt-request-editor/session-display';
 
 const { Text } = Typography;
 
@@ -60,9 +65,9 @@ const MqttExampleResultPane: React.FC<MqttExampleResultPaneProps> = ({ response,
 
   // End pill honesty — the MqttSessionPane's settled vocabulary.
   const endTag =
-    response.reconnectRefused !== undefined ? (
+    response.reconnectRefused !== undefined || response.reconnectExhausted !== undefined ? (
       <Tag color="error" style={{ marginInlineEnd: 0 }} data-testid="mqtt-example-end-tag">
-        {t('workbench.editors.mqtt.session.reconnectRefusedTag')}
+        {t(reconnectLoopEndTagKey(response))}
       </Tag>
     ) : response.stopped === true ? (
       <Tag color="warning" style={{ marginInlineEnd: 0 }} data-testid="mqtt-example-end-tag">

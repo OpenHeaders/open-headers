@@ -120,13 +120,19 @@ describe('mqtt draft projections', () => {
 
   it('carries the auto-reconnect knobs through the round-trip and reads them off by default', () => {
     const updates = buildMqttRequestUpdates(
-      draftFromMqttRequest(mqttRequest({ autoReconnect: true, reconnectPeriodMs: 2_000 })),
+      draftFromMqttRequest(
+        mqttRequest({ autoReconnect: true, reconnectPeriodMs: 2_000, reconnectMaxAttempts: 5, reconnectBackoff: true }),
+      ),
     );
     expect(updates.autoReconnect).toBe(true);
     expect(updates.reconnectPeriodMs).toBe(2_000);
+    expect(updates.reconnectMaxAttempts).toBe(5);
+    expect(updates.reconnectBackoff).toBe(true);
     const bare = buildMqttRequestUpdates(draftFromMqttRequest(mqttRequest()));
     expect(bare.autoReconnect).toBe(false);
     expect(bare.reconnectPeriodMs).toBeUndefined();
+    expect(bare.reconnectMaxAttempts).toBeUndefined();
+    expect(bare.reconnectBackoff).toBe(false);
   });
 
   it('keeps the canonical projection fingerprint-stable across a round-trip', () => {
@@ -297,7 +303,12 @@ describe('saved-message compose binding', () => {
       'mqsm0003',
       'Plain',
     );
-    expect(plain).toEqual({ uid: 'mqsm0003', name: 'Plain', topic: 'streetlights/1/lumens', payload: '{"lumens": 1200}' });
+    expect(plain).toEqual({
+      uid: 'mqsm0003',
+      name: 'Plain',
+      topic: 'streetlights/1/lumens',
+      payload: '{"lumens": 1200}',
+    });
   });
 
   it('loads a row into the compose and the loaded compose matches the row', () => {

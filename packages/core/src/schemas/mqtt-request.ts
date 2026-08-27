@@ -15,6 +15,16 @@ import * as v from 'valibot';
 import { RelativePathSchema, SchemaVersionSchema, UidSchema } from './common';
 import { ClientCertificateRefSchema, RequestTimeoutMsSchema } from './request';
 
+/** Whole attempts, one to a thousand — enough for a day of 60 s
+ *  backoff waits without inviting an unbounded loop by another name. */
+export const MAX_RECONNECT_ATTEMPTS = 1_000;
+export const ReconnectMaxAttemptsSchema = v.pipe(
+  v.number(),
+  v.integer(),
+  v.minValue(1),
+  v.maxValue(MAX_RECONNECT_ATTEMPTS),
+);
+
 /**
  * Session target: full `mqtt://` / `mqtts://` / `ws://` / `wss://` URL.
  * Kept a plain bounded string (templates welcome — `{{host}}` is the
@@ -274,6 +284,19 @@ export const MqttRequestSchema = v.object({
    * reference default. Same bounds as the connect timeout knob.
    */
   reconnectPeriodMs: v.optional(RequestTimeoutMsSchema),
+  /**
+   * Cap on consecutive reconnect attempts after one drop — a successful
+   * reconnect resets the count. Absent = unlimited: the loop runs until
+   * the broker is back or the user disconnects. When the cap is spent
+   * the session settles as Reconnect gave up.
+   */
+  reconnectMaxAttempts: v.optional(ReconnectMaxAttemptsSchema),
+  /**
+   * Double the wait after every failed attempt (period, 2×, 4× …)
+   * up to the runtime's 60 s ceiling, instead of a fixed period.
+   * Absent = off: every attempt waits the reconnect period.
+   */
+  reconnectBackoff: v.optional(v.boolean()),
   /**
    * Verify the server certificate against the system roots
    * (mqtts/wss). Absent = verify (the safe default); `false` accepts

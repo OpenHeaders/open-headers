@@ -29,10 +29,13 @@
  * accepts again (`reconnected`, the new connection's facts; the
  * subscriptions the session wants replay when the broker kept no
  * session) or refuses (the loop ends, the refusal verbatim on the
- * snapshot), or the user ends the session. One send id, one snapshot,
- * one event log across every connection; in-flight QoS 1/2 acks of a
- * dropped connection are not retransmitted. A first connect that
- * fails never retries.
+ * snapshot), the attempt cap is spent (the loop ends, `reconnectExhausted`
+ * on the snapshot), or the user ends the session. The wait is the
+ * reconnect period, or doubles per failed attempt up to the backoff
+ * ceiling when the entity asks. One send id, one snapshot, one event
+ * log across every connection; in-flight QoS 1/2 acks of a dropped
+ * connection are not retransmitted. A first connect that fails never
+ * retries.
  *
  * Version lens: the entity's `protocolVersion` KNOB maps onto the wire
  * level once, here — and every 5.0-only surface (properties,
@@ -106,6 +109,18 @@ export const DEFAULT_CONNECT_TIMEOUT_MS = 30_000;
  *  knob empty — the reference clients' order of magnitude; the loop
  *  runs until the broker is back or the user ends the session. */
 export const DEFAULT_RECONNECT_PERIOD_MS = 5_000;
+
+/** Ceiling on the doubled wait under exponential backoff — a period
+ *  above it holds constant (never shrinks the entity's own wait). */
+export const MAX_RECONNECT_BACKOFF_MS = 60_000;
+
+/** The wait before reconnect attempt `attempt` (1-based): the period,
+ *  or under backoff the period doubled per attempt already failed. */
+export function reconnectDelayMs(periodMs: number, attempt: number, backoff: boolean): number {
+  if (!backoff) return periodMs;
+  const ceiling = Math.max(periodMs, MAX_RECONNECT_BACKOFF_MS);
+  return Math.min(periodMs * 2 ** (attempt - 1), ceiling);
+}
 
 export interface ExecuteMqttSessionOptions {
   /** `null` = the runtime-Active workspace via the module mirrors;
@@ -349,6 +364,8 @@ export async function executeMqttSession(
   const keepAlive = request.keepAlive ?? DEFAULT_KEEP_ALIVE_S;
   const autoReconnect = request.autoReconnect === true;
   const reconnectPeriodMs = request.reconnectPeriodMs ?? DEFAULT_RECONNECT_PERIOD_MS;
+  const reconnectMaxAttempts = request.reconnectMaxAttempts;
+  const reconnectBackoff = request.reconnectBackoff === true;
   const sniServerName = request.sniServerName !== undefined ? resolveStr(request.sniServerName).trim() : '';
   const alpnProtocol = request.alpnProtocol !== undefined ? resolveStr(request.alpnProtocol).trim() : '';
 
@@ -369,6 +386,7 @@ export async function executeMqttSession(
     let end: ExecutedMqttEnd = null;
     let proxyRoute: ExecutedProxyRoute | undefined;
     let reconnectRefused: ExecutedMqttSnapshot['reconnectRefused'];
+    let reconnectExhausted: ExecutedMqttSnapshot['reconnectExhausted'];
     let settled = false;
     const events: ExecutedMqttEvent[] = [];
     let capturedBytes = 0;
@@ -518,6 +536,7 @@ export async function executeMqttSession(
         end,
         ...(stopped ? { stopped: true } : {}),
         ...(reconnectRefused !== undefined ? { reconnectRefused } : {}),
+        ...(reconnectExhausted !== undefined ? { reconnectExhausted } : {}),
         durationMs,
         ...(proxyRoute !== undefined ? { proxyRoute } : {}),
       });
@@ -734,15 +753,23 @@ export async function executeMqttSession(
     };
 
     /** Arm the wait before the next attempt; `error` is the attempt
-     *  just failed, carried onto the next attempt's row. */
+     *  just failed, carried onto the next attempt's row. A spent
+     *  attempt cap ends the loop instead — the session settles with
+     *  the attempts dialed and that last failure. */
     const scheduleReconnect = (attempt: number, error?: string): void => {
+      if (reconnectMaxAttempts !== undefined && attempt > reconnectMaxAttempts) {
+        reconnectExhausted = { attempts: attempt - 1, ...(error !== undefined ? { error } : {}) };
+        settle();
+        return;
+      }
       reconnectAttempt = attempt;
+      const delayMs = reconnectDelayMs(reconnectPeriodMs, attempt, reconnectBackoff);
       reconnectTimer = setTimeout(() => {
         reconnectTimer = null;
         if (settled) return;
-        recordFact({ kind: 'reconnecting', attempt, ...(error !== undefined ? { error } : {}) });
+        recordFact({ kind: 'reconnecting', attempt, delayMs, ...(error !== undefined ? { error } : {}) });
         dial();
-      }, reconnectPeriodMs);
+      }, delayMs);
     };
 
     /** The byte stream ended — decide between the reconnect loop and

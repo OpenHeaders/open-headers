@@ -16,6 +16,7 @@
 
 import {
   MAX_ALPN_PROTOCOL_LENGTH,
+  MAX_RECONNECT_ATTEMPTS,
   MAX_REQUEST_TIMEOUT_MS,
   MAX_SNI_SERVER_NAME_LENGTH,
   MIN_REQUEST_TIMEOUT_MS,
@@ -63,6 +64,8 @@ const interpretTimeout = durationMsInterpreter({ min: MIN_REQUEST_TIMEOUT_MS, ma
 const TIMEOUT_PRESETS = numericPresets([1_000, 5_000, 10_000, 30_000, 60_000], formatDurationMs);
 const interpretReconnectPeriod = durationMsInterpreter({ min: MIN_REQUEST_TIMEOUT_MS, max: MAX_REQUEST_TIMEOUT_MS });
 const RECONNECT_PERIOD_PRESETS = numericPresets([1_000, 2_000, 5_000, 10_000, 30_000], formatDurationMs);
+const interpretReconnectMaxAttempts = countInterpreter({ min: 1, max: MAX_RECONNECT_ATTEMPTS });
+const RECONNECT_MAX_ATTEMPTS_PRESETS = numericPresets([3, 5, 10, 50], String);
 const interpretReceiveMaximum = countInterpreter({ min: 1, max: 65_535 });
 const RECEIVE_MAXIMUM_PRESETS = numericPresets([1, 5, 20, 100], String);
 const interpretMaxPacketSize = byteSizeInterpreter({ min: 1, max: 0xffff_ffff });
@@ -105,7 +108,9 @@ const MqttSettingsTab: React.FC<MqttSettingsTabProps> = ({ draft, setDraft, v5 }
     draft.keepAlive !== undefined ||
     draft.timeoutMs !== undefined ||
     draft.autoReconnect ||
-    draft.reconnectPeriodMs !== undefined;
+    draft.reconnectPeriodMs !== undefined ||
+    draft.reconnectMaxAttempts !== undefined ||
+    draft.reconnectBackoff;
   const sessionModified =
     draft.sessionExpiryInterval !== undefined ||
     draft.receiveMaximum !== undefined ||
@@ -218,6 +223,28 @@ const MqttSettingsTab: React.FC<MqttSettingsTabProps> = ({ draft, setDraft, v5 }
             placeholder={t('workbench.editors.mqtt.settings.reconnectPeriodPlaceholder')}
             disabled={!draft.autoReconnect}
             testId="mqtt-reconnect-period"
+          />
+          <ComboKnobRow
+            label={t('workbench.editors.mqtt.settings.reconnectMaxAttemptsLabel')}
+            value={draft.reconnectMaxAttempts}
+            onChange={(reconnectMaxAttempts) => setDraft((d) => ({ ...d, reconnectMaxAttempts }))}
+            info={mqttSettingsRowInfo(t, 'reconnectMaxAttempts')}
+            presets={RECONNECT_MAX_ATTEMPTS_PRESETS}
+            interpret={interpretReconnectMaxAttempts}
+            format={String}
+            placeholder={t('workbench.editors.mqtt.settings.reconnectMaxAttemptsPlaceholder')}
+            disabled={!draft.autoReconnect}
+            testId="mqtt-reconnect-max-attempts"
+          />
+          <KnobRow
+            label={t('workbench.editors.mqtt.settings.reconnectBackoffLabel')}
+            checked={draft.reconnectBackoff}
+            modified={draft.reconnectBackoff}
+            onReset={() => setDraft((d) => ({ ...d, reconnectBackoff: false }))}
+            onChange={(reconnectBackoff) => setDraft((d) => ({ ...d, reconnectBackoff }))}
+            info={mqttSettingsRowInfo(t, 'reconnectBackoff')}
+            disabled={!draft.autoReconnect}
+            testId="mqtt-reconnect-backoff"
           />
         </GroupSection>
         <GroupSection

@@ -94,6 +94,9 @@ export interface MqttDraft {
   /** Concrete — absent on the entity reads as off. */
   autoReconnect: boolean;
   reconnectPeriodMs: number | undefined;
+  reconnectMaxAttempts: number | undefined;
+  /** Concrete — absent on the entity reads as a fixed period. */
+  reconnectBackoff: boolean;
   /** Concrete — absent on the entity reads as verify-on. */
   sslVerification: boolean;
   clientCertificateRef: string | undefined;
@@ -129,6 +132,8 @@ export interface MqttRequestUpdates {
   timeoutMs: number | undefined;
   autoReconnect: boolean;
   reconnectPeriodMs: number | undefined;
+  reconnectMaxAttempts: number | undefined;
+  reconnectBackoff: boolean;
   sslVerification: boolean;
   clientCertificateRef: string | undefined;
   sniServerName: string | undefined;
@@ -298,6 +303,8 @@ export function draftFromMqttRequest(req: MqttRequest): MqttDraft {
     timeoutMs: req.timeoutMs,
     autoReconnect: req.autoReconnect ?? false,
     reconnectPeriodMs: req.reconnectPeriodMs,
+    reconnectMaxAttempts: req.reconnectMaxAttempts,
+    reconnectBackoff: req.reconnectBackoff ?? false,
     sslVerification: req.sslVerification ?? true,
     clientCertificateRef: req.clientCertificateRef,
     sniServerName: req.sniServerName,
@@ -334,6 +341,8 @@ export function buildMqttRequestUpdates(draft: MqttDraft): MqttRequestUpdates {
     timeoutMs: draft.timeoutMs,
     autoReconnect: draft.autoReconnect,
     reconnectPeriodMs: draft.reconnectPeriodMs,
+    reconnectMaxAttempts: draft.reconnectMaxAttempts,
+    reconnectBackoff: draft.reconnectBackoff,
     sslVerification: draft.sslVerification,
     clientCertificateRef: draft.clientCertificateRef,
     sniServerName: draft.sniServerName,

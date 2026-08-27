@@ -48,7 +48,7 @@ export type MqttTimelineItem =
   | { kind: 'subscribed'; grants: Array<{ topicFilter: string; reasonCode: number }> }
   | { kind: 'unsubscribed'; topicFilters: string[] }
   | { kind: 'lost'; end: { by: 'broker'; reasonCode: number | null } | null }
-  | { kind: 'reconnecting'; attempt: number; error?: string }
+  | { kind: 'reconnecting'; attempt: number; delayMs?: number; error?: string }
   | { kind: 'reconnected'; attempt: number; sessionPresent: boolean; reasonCode: number; remainingLength: number };
 
 /** The reconnect-cycle facts — the lifecycle rows that ride the item

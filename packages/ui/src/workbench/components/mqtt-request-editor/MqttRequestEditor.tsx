@@ -114,6 +114,8 @@ const emptyMqttDraft = (): MqttDraft => ({
   timeoutMs: undefined,
   autoReconnect: false,
   reconnectPeriodMs: undefined,
+  reconnectMaxAttempts: undefined,
+  reconnectBackoff: false,
   sslVerification: true,
   clientCertificateRef: undefined,
   sniServerName: undefined,

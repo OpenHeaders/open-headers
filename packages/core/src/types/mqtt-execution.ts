@@ -71,12 +71,15 @@ export interface ExecutedMqttLost {
   end: Exclude<ExecutedMqttEnd, { by: 'client' }>;
 }
 
-/** One reconnect attempt dialed (1-based). `error` is the PREVIOUS
- *  attempt's classified dial failure when there was one — the reason
- *  this attempt exists; absent on the first attempt after a drop. */
+/** One reconnect attempt dialed (1-based). `delayMs` is the wait the
+ *  attempt sat through (the period, or the backoff step). `error` is
+ *  the PREVIOUS attempt's classified dial failure when there was one
+ *  — the reason this attempt exists; absent on the first attempt
+ *  after a drop. */
 export interface ExecutedMqttReconnecting {
   kind: 'reconnecting';
   attempt: number;
+  delayMs: number;
   error?: string;
 }
 
@@ -163,6 +166,11 @@ export interface ExecutedMqttSnapshot {
    *  verbatim, with the attempt it answered; the session settles with
    *  the LOST connection's end record. */
   reconnectRefused?: { attempt: number; error: string };
+  /** Auto-reconnect gave up: the attempt cap was spent without a
+   *  connection opening. `attempts` is how many were dialed; `error`
+   *  the last attempt's classified failure when there was one. The
+   *  session settles with the LOST connection's end record. */
+  reconnectExhausted?: { attempts: number; error?: string };
   /** Whole-session wall time (connect start → settle), display-only. */
   durationMs: number;
   /**

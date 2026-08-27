@@ -184,6 +184,13 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.settings.reconnectPeriodLabel': 'Reconnect period',
   'workbench.editors.mqtt.settings.reconnectPeriodHelp': 'Wait between reconnect attempts. Empty uses the 5 s default.',
   'workbench.editors.mqtt.settings.reconnectPeriodPlaceholder': '5 s (default)',
+  'workbench.editors.mqtt.settings.reconnectMaxAttemptsLabel': 'Reconnect attempts',
+  'workbench.editors.mqtt.settings.reconnectMaxAttemptsHelp':
+    'Cap on consecutive reconnect attempts after one drop — a reconnect that opens resets the count; a spent cap ends the session as Reconnect gave up. Empty keeps trying until the broker is back or you disconnect.',
+  'workbench.editors.mqtt.settings.reconnectMaxAttemptsPlaceholder': 'Unlimited (default)',
+  'workbench.editors.mqtt.settings.reconnectBackoffLabel': 'Exponential backoff',
+  'workbench.editors.mqtt.settings.reconnectBackoffHelp':
+    'Double the wait after every failed attempt — the period, then 2×, 4× … up to 60 s — instead of a fixed period. Off by default.',
   'workbench.editors.mqtt.settings.receiveMaximumLabel': 'Receive Maximum',
   'workbench.editors.mqtt.settings.receiveMaximumHelp':
     'How many QoS 1/2 messages may be in flight toward this client at once. Empty allows the spec default of 65,535.',
@@ -262,6 +269,12 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.session.reconnectingBadge': 'RECONNECTING',
   'workbench.editors.mqtt.session.reconnectRefusedTag': 'Reconnect refused',
   'workbench.editors.mqtt.session.reconnectRefused': 'reconnect refused: {reason}',
+  'workbench.editors.mqtt.timeline.reconnectingAfter': 'Reconnect attempt {attempt} after {delay}',
+  'workbench.editors.mqtt.session.reconnectExhaustedTag': 'Reconnect gave up',
+  'workbench.editors.mqtt.session.reconnectExhausted': 'reconnect gave up after {attempts}',
+  'workbench.editors.mqtt.session.reconnectExhaustedReason': 'reconnect gave up after {attempts}: {reason}',
+  'workbench.editors.mqtt.session.reconnectAttemptsOne': 'one attempt',
+  'workbench.editors.mqtt.session.reconnectAttemptsMany': '{count} attempts',
   'workbench.editors.mqtt.session.cleanDisconnect': 'clean disconnect',
   'workbench.editors.mqtt.session.brokerDisconnect': 'broker sent DISCONNECT: {reason}',
   'workbench.editors.mqtt.session.brokerDisconnectBare': 'broker sent DISCONNECT',

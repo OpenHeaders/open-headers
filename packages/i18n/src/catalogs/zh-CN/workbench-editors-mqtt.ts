@@ -178,6 +178,13 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.settings.reconnectPeriodLabel': '重连周期',
   'workbench.editors.mqtt.settings.reconnectPeriodHelp': '两次重连尝试之间的等待时间。留空使用默认的 5 s。',
   'workbench.editors.mqtt.settings.reconnectPeriodPlaceholder': '5 s（默认）',
+  'workbench.editors.mqtt.settings.reconnectMaxAttemptsLabel': '重连次数上限',
+  'workbench.editors.mqtt.settings.reconnectMaxAttemptsHelp':
+    '一次断开后连续重连尝试的上限——重连成功后计数归零；上限用尽时会话以“重连已放弃”结束。留空则持续尝试，直到代理恢复或你手动断开。',
+  'workbench.editors.mqtt.settings.reconnectMaxAttemptsPlaceholder': '不限（默认）',
+  'workbench.editors.mqtt.settings.reconnectBackoffLabel': '指数退避',
+  'workbench.editors.mqtt.settings.reconnectBackoffHelp':
+    '每次尝试失败后等待时间翻倍——先是重连周期，然后 2×、4×……最长 60 s——而不是固定周期。默认关闭。',
   'workbench.editors.mqtt.settings.receiveMaximumLabel': 'Receive Maximum',
   'workbench.editors.mqtt.settings.receiveMaximumHelp':
     '同时向此客户端在途的 QoS 1/2 消息数量上限。留空采用规范默认值 65535。',
@@ -255,6 +262,12 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.session.reconnectingBadge': '重连中',
   'workbench.editors.mqtt.session.reconnectRefusedTag': '重连被拒绝',
   'workbench.editors.mqtt.session.reconnectRefused': '重连被拒绝：{reason}',
+  'workbench.editors.mqtt.timeline.reconnectingAfter': '第 {attempt} 次重连尝试，等待 {delay} 后',
+  'workbench.editors.mqtt.session.reconnectExhaustedTag': '重连已放弃',
+  'workbench.editors.mqtt.session.reconnectExhausted': '重连已放弃，共 {attempts}',
+  'workbench.editors.mqtt.session.reconnectExhaustedReason': '重连已放弃，共 {attempts}：{reason}',
+  'workbench.editors.mqtt.session.reconnectAttemptsOne': '1 次尝试',
+  'workbench.editors.mqtt.session.reconnectAttemptsMany': '{count} 次尝试',
   'workbench.editors.mqtt.session.cleanDisconnect': '正常断开',
   'workbench.editors.mqtt.session.brokerDisconnect': '代理发送了 DISCONNECT：{reason}',
   'workbench.editors.mqtt.session.brokerDisconnectBare': '代理发送了 DISCONNECT',

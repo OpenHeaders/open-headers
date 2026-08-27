@@ -859,7 +859,7 @@ describe('executeMqttSession — auto-reconnect', () => {
       'message',
     ]);
     expect(snapshot.events[2]).toEqual({ kind: 'lost', end: null });
-    expect(snapshot.events[3]).toEqual({ kind: 'reconnecting', attempt: 1 });
+    expect(snapshot.events[3]).toEqual({ kind: 'reconnecting', attempt: 1, delayMs: 2_000 });
     expect(snapshot.events[4]).toEqual({
       kind: 'reconnected',
       attempt: 1,
@@ -911,6 +911,7 @@ describe('executeMqttSession — auto-reconnect', () => {
     expect(snapshot.events[3]).toEqual({
       kind: 'reconnecting',
       attempt: 2,
+      delayMs: 5_000,
       error: 'Connection refused by broker.openheaders.io:1883. Is the MQTT broker running on that host/port?',
     });
     expect(snapshot.end).toEqual({ by: 'client' });
@@ -982,6 +983,97 @@ describe('executeMqttSession — auto-reconnect', () => {
       error: 'The broker refused the connection: Not authorized (code 135).',
     });
     expect(snapshot.events.map((event) => event.kind)).toEqual(['lost', 'reconnecting']);
+  });
+
+  it('doubles the wait under backoff up to the ceiling and settles Reconnect gave up when the attempt cap is spent', async () => {
+    const rig = reconnectRig(MQTT_PROTOCOL_VERSIONS.v5);
+    const settled = executeMqttSession(
+      makeMqttRequest({
+        autoReconnect: true,
+        reconnectPeriodMs: 40_000,
+        reconnectBackoff: true,
+        reconnectMaxAttempts: 3,
+      }),
+      {
+        workspaceId: null,
+        environmentId: undefined,
+        transport: rig.transport,
+        sendId: 'send-mqtt-reconnect-backoff',
+        resolution: scopedResolution,
+      },
+    );
+    await tick();
+    rig.establish(0);
+    rig.push(0, acceptedConnack);
+    rig.sever(0);
+    await tick();
+    // Attempt 1 waits the period; attempt 2 doubles it; attempt 3
+    // would quadruple but the 60 s ceiling holds.
+    await vi.advanceTimersByTimeAsync(39_999);
+    expect(rig.dialCount()).toBe(1);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(rig.dialCount()).toBe(2);
+    rig.fail(1, 'Connection refused by broker.openheaders.io:1883.');
+    await tick();
+    await vi.advanceTimersByTimeAsync(59_999);
+    expect(rig.dialCount()).toBe(2);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(rig.dialCount()).toBe(3);
+    rig.fail(2, 'Connection refused by broker.openheaders.io:1883.');
+    await tick();
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(rig.dialCount()).toBe(4);
+    rig.fail(3, 'Connection timed out.');
+    await tick();
+    const snapshot = await settled;
+    await vi.advanceTimersByTimeAsync(120_000);
+    expect(rig.dialCount()).toBe(4);
+    expect(snapshot.outcome).toEqual({ kind: 'connected' });
+    expect(snapshot.end).toBeNull();
+    expect(snapshot.reconnectExhausted).toEqual({ attempts: 3, error: 'Connection timed out.' });
+    expect(snapshot.events).toEqual([
+      { kind: 'lost', end: null },
+      { kind: 'reconnecting', attempt: 1, delayMs: 40_000 },
+      { kind: 'reconnecting', attempt: 2, delayMs: 60_000, error: 'Connection refused by broker.openheaders.io:1883.' },
+      { kind: 'reconnecting', attempt: 3, delayMs: 60_000, error: 'Connection refused by broker.openheaders.io:1883.' },
+    ]);
+  });
+
+  it('a reconnect that opens resets the attempt count for the next drop', async () => {
+    const rig = reconnectRig(MQTT_PROTOCOL_VERSIONS.v5);
+    const settled = executeMqttSession(
+      makeMqttRequest({ autoReconnect: true, reconnectPeriodMs: 1_000, reconnectMaxAttempts: 1 }),
+      {
+        workspaceId: null,
+        environmentId: undefined,
+        transport: rig.transport,
+        sendId: 'send-mqtt-reconnect-reset',
+        resolution: scopedResolution,
+      },
+    );
+    await tick();
+    rig.establish(0);
+    rig.push(0, acceptedConnack);
+    rig.sever(0);
+    await tick();
+    await vi.advanceTimersByTimeAsync(1_000);
+    rig.establish(1);
+    rig.push(1, { type: 'connack', sessionPresent: true, reasonCode: 0 });
+    rig.sever(1);
+    await tick();
+    await vi.advanceTimersByTimeAsync(1_000);
+    expect(rig.dialCount()).toBe(3);
+    rig.fail(2, 'Connection timed out.');
+    await tick();
+    const snapshot = await settled;
+    expect(snapshot.reconnectExhausted).toEqual({ attempts: 1, error: 'Connection timed out.' });
+    expect(snapshot.events.map((event) => event.kind)).toEqual([
+      'lost',
+      'reconnecting',
+      'reconnected',
+      'lost',
+      'reconnecting',
+    ]);
   });
 
   it('a Disconnect between attempts cancels the loop and settles Stopped with the lost end', async () => {

@@ -194,6 +194,13 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.settings.reconnectPeriodHelp':
     'Wartezeit zwischen zwei Wiederverbindungsversuchen. Leer nutzt den Standard von 5 s.',
   'workbench.editors.mqtt.settings.reconnectPeriodPlaceholder': '5 s (Standard)',
+  'workbench.editors.mqtt.settings.reconnectMaxAttemptsLabel': 'Wiederverbindungsversuche',
+  'workbench.editors.mqtt.settings.reconnectMaxAttemptsHelp':
+    'Obergrenze aufeinanderfolgender Wiederverbindungsversuche nach einem Abbruch — eine gelungene Wiederverbindung setzt den Zähler zurück; eine erschöpfte Obergrenze beendet die Sitzung als Wiederverbindung aufgegeben. Leer versucht es weiter, bis der Broker zurück ist oder du trennst.',
+  'workbench.editors.mqtt.settings.reconnectMaxAttemptsPlaceholder': 'Unbegrenzt (Standard)',
+  'workbench.editors.mqtt.settings.reconnectBackoffLabel': 'Exponentielles Warten',
+  'workbench.editors.mqtt.settings.reconnectBackoffHelp':
+    'Verdoppelt die Wartezeit nach jedem fehlgeschlagenen Versuch — das Intervall, dann 2×, 4× … bis 60 s — statt eines festen Intervalls. Standardmäßig aus.',
   'workbench.editors.mqtt.settings.receiveMaximumLabel': 'Receive Maximum',
   'workbench.editors.mqtt.settings.receiveMaximumHelp':
     'Wie viele QoS-1/2-Nachrichten gleichzeitig zu diesem Client unterwegs sein dürfen. Leer erlaubt den Spezifikations-Standard von 65.535.',
@@ -275,6 +282,12 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.session.reconnectingBadge': 'VERBINDE NEU',
   'workbench.editors.mqtt.session.reconnectRefusedTag': 'Wiederverbindung abgelehnt',
   'workbench.editors.mqtt.session.reconnectRefused': 'Wiederverbindung abgelehnt: {reason}',
+  'workbench.editors.mqtt.timeline.reconnectingAfter': 'Wiederverbindungsversuch {attempt} nach {delay}',
+  'workbench.editors.mqtt.session.reconnectExhaustedTag': 'Wiederverbindung aufgegeben',
+  'workbench.editors.mqtt.session.reconnectExhausted': 'Wiederverbindung aufgegeben nach {attempts}',
+  'workbench.editors.mqtt.session.reconnectExhaustedReason': 'Wiederverbindung aufgegeben nach {attempts}: {reason}',
+  'workbench.editors.mqtt.session.reconnectAttemptsOne': 'einem Versuch',
+  'workbench.editors.mqtt.session.reconnectAttemptsMany': '{count} Versuchen',
   'workbench.editors.mqtt.session.cleanDisconnect': 'saubere Trennung',
   'workbench.editors.mqtt.session.brokerDisconnect': 'der Broker sendete DISCONNECT: {reason}',
   'workbench.editors.mqtt.session.brokerDisconnectBare': 'der Broker sendete DISCONNECT',

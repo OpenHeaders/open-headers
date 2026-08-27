@@ -244,9 +244,9 @@ export type MqttStreamItemWire =
   /** An open connection dropped and auto-reconnect took over — how it
    *  ended (broker DISCONNECT reason verbatim, or the severed null). */
   | { kind: 'lost'; end: { by: 'broker'; reasonCode: number | null } | null; atMs: number }
-  /** One reconnect attempt dialed; `error` = the previous attempt's
-   *  classified failure when there was one. */
-  | { kind: 'reconnecting'; attempt: number; error?: string; atMs: number }
+  /** One reconnect attempt dialed after `delayMs` of waiting; `error`
+   *  = the previous attempt's classified failure when there was one. */
+  | { kind: 'reconnecting'; attempt: number; delayMs: number; error?: string; atMs: number }
   /** A reconnect attempt's CONNACK accepted — the new connection's facts. */
   | {
       kind: 'reconnected';
