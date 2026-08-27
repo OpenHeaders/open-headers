@@ -123,11 +123,29 @@ export function capturedMqttResponseFromSnapshot(snapshot: ExecutedMqttSnapshot)
       if (event.kind === 'subscribed') {
         return { kind: 'subscribed' as const, grants: event.grants.map((g) => ({ ...g })) };
       }
-      return { kind: 'unsubscribed' as const, topicFilters: [...event.topicFilters] };
+      if (event.kind === 'unsubscribed') {
+        return { kind: 'unsubscribed' as const, topicFilters: [...event.topicFilters] };
+      }
+      if (event.kind === 'lost') return { kind: 'lost' as const, end: event.end === null ? null : { ...event.end } };
+      if (event.kind === 'reconnecting') {
+        return {
+          kind: 'reconnecting' as const,
+          attempt: event.attempt,
+          ...(event.error === undefined ? {} : { error: event.error }),
+        };
+      }
+      return {
+        kind: 'reconnected' as const,
+        attempt: event.attempt,
+        sessionPresent: event.sessionPresent,
+        reasonCode: event.reasonCode,
+        remainingLength: event.remainingLength,
+      };
     }),
     droppedMessages: snapshot.droppedMessages,
     end: snapshot.end === null ? null : { ...snapshot.end },
     ...(snapshot.stopped === undefined ? {} : { stopped: snapshot.stopped }),
+    ...(snapshot.reconnectRefused === undefined ? {} : { reconnectRefused: { ...snapshot.reconnectRefused } }),
     durationMs: snapshot.durationMs,
   };
 }

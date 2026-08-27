@@ -118,6 +118,17 @@ describe('mqtt draft projections', () => {
     expect(bare.alpnProtocol).toBeUndefined();
   });
 
+  it('carries the auto-reconnect knobs through the round-trip and reads them off by default', () => {
+    const updates = buildMqttRequestUpdates(
+      draftFromMqttRequest(mqttRequest({ autoReconnect: true, reconnectPeriodMs: 2_000 })),
+    );
+    expect(updates.autoReconnect).toBe(true);
+    expect(updates.reconnectPeriodMs).toBe(2_000);
+    const bare = buildMqttRequestUpdates(draftFromMqttRequest(mqttRequest()));
+    expect(bare.autoReconnect).toBe(false);
+    expect(bare.reconnectPeriodMs).toBeUndefined();
+  });
+
   it('keeps the canonical projection fingerprint-stable across a round-trip', () => {
     const entity = mqttRequest({
       protocolVersion: '3.1.1',

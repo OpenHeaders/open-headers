@@ -22,6 +22,18 @@
  * Disconnect, a broker DISCONNECT records its reason verbatim, and
  * Stop-abort materializes what arrived.
  *
+ * Auto-reconnect (opt-in): once a session OPENED, a connection that
+ * drops without the client asking — severed socket, keep-alive death,
+ * a broker DISCONNECT other than Session taken over — logs a `lost`
+ * fact and the driver redials on the reconnect period until a CONNACK
+ * accepts again (`reconnected`, the new connection's facts; the
+ * subscriptions the session wants replay when the broker kept no
+ * session) or refuses (the loop ends, the refusal verbatim on the
+ * snapshot), or the user ends the session. One send id, one snapshot,
+ * one event log across every connection; in-flight QoS 1/2 acks of a
+ * dropped connection are not retransmitted. A first connect that
+ * fails never retries.
+ *
  * Version lens: the entity's `protocolVersion` KNOB maps onto the wire
  * level once, here — and every 5.0-only surface (properties,
  * subscription options, reason codes) is simply NOT APPLIED on a
@@ -89,6 +101,11 @@ const DEFAULT_KEEP_ALIVE_S = 60;
  *  reference default across MQTT clients; spans the dial + TLS
  *  handshake only, an OPEN session has no ceiling. */
 export const DEFAULT_CONNECT_TIMEOUT_MS = 30_000;
+
+/** Wait between auto-reconnect attempts when the entity leaves the
+ *  knob empty — the reference clients' order of magnitude; the loop
+ *  runs until the broker is back or the user ends the session. */
+export const DEFAULT_RECONNECT_PERIOD_MS = 5_000;
 
 export interface ExecuteMqttSessionOptions {
   /** `null` = the runtime-Active workspace via the module mirrors;
@@ -330,6 +347,8 @@ export async function executeMqttSession(
   }
 
   const keepAlive = request.keepAlive ?? DEFAULT_KEEP_ALIVE_S;
+  const autoReconnect = request.autoReconnect === true;
+  const reconnectPeriodMs = request.reconnectPeriodMs ?? DEFAULT_RECONNECT_PERIOD_MS;
   const sniServerName = request.sniServerName !== undefined ? resolveStr(request.sniServerName).trim() : '';
   const alpnProtocol = request.alpnProtocol !== undefined ? resolveStr(request.alpnProtocol).trim() : '';
 
@@ -339,6 +358,8 @@ export async function executeMqttSession(
       options.emitStreamEvent !== undefined ? createMqttStreamEmitter(options.sendId, options.emitStreamEvent) : null;
     const controller = new AbortController();
     let stopped = false;
+    /** The session opened at least once — the outcome is `connected`
+     *  however the (last) connection later ended. */
     let opened = false;
     /** The transport reached the broker (socket up, CONNECT sent) —
      *  even when no CONNACK ever arrived. */
@@ -347,27 +368,75 @@ export async function executeMqttSession(
     let refusalMessage: string | null = null;
     let end: ExecutedMqttEnd = null;
     let proxyRoute: ExecutedProxyRoute | undefined;
+    let reconnectRefused: ExecutedMqttSnapshot['reconnectRefused'];
     let settled = false;
     const events: ExecutedMqttEvent[] = [];
     let capturedBytes = 0;
     let droppedMessages = 0;
     const startedAt = performance.now();
-    let keepAliveTimer: ReturnType<typeof setInterval> | null = null;
 
+    // ── Reconnect plane ──
+    // 0 while the first connection is up; the attempt number once a
+    // dropped connection put auto-reconnect in charge. The wait timer
+    // is armed between attempts; Stop / Disconnect clear it and settle
+    // — nothing is on the wire then, so the end reads Stopped.
+    let reconnectAttempt = 0;
+    let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+    /** The filters the session wants subscribed RIGHT NOW — the open
+     *  rows, then every live toggle applied in order — replayed onto a
+     *  reconnected connection whose CONNACK kept no session. */
+    const desiredSubscriptions = new Map<string, SubscribeEntry>();
+    for (const entry of openSubscriptions) desiredSubscriptions.set(entry.subscription.topicFilter, entry);
+
+    // ── Per-connection state — reset on every (re)dial ──
+    /** THIS connection's CONNACK accepted. */
+    let attemptOpened = false;
+    let writer: MqttStreamWriter | null = null;
+    let keepAliveTimer: ReturnType<typeof setInterval> | null = null;
     // The incremental decoder both wire families feed — packets span
     // TCP chunks AND WebSocket frames (the ratified fork-2 posture).
-    const decoder = createMqttStreamDecoder(version);
-
+    let decoder = createMqttStreamDecoder(version);
     // Packet-id space shared across PUBLISH/SUBSCRIBE/UNSUBSCRIBE —
     // one 16-bit allocator skipping ids still awaiting an ack.
     let nextPacketId = 0;
-    const pendingSubAcks = new Map<string, { filters: string[]; resolveAck?: (reasonCode: number | null) => void }>();
-    const outboundQos = new Map<number, 1 | 2>();
-    const inboundQos2 = new Set<number>();
+    let pendingSubAcks = new Map<
+      string,
+      { filters: string[]; resolveAck?: (reasonCode: number | null, failure?: string) => void }
+    >();
+    let outboundQos = new Map<number, 1 | 2>();
+    let inboundQos2 = new Set<number>();
     // Inbound topic aliases (5.0): a PUBLISH naming both a topic and an
     // alias binds them; a later alias-only PUBLISH resolves through the
     // binding so the capture records the real topic, never the number.
-    const inboundTopicAliases = new Map<number, string>();
+    let inboundTopicAliases = new Map<number, string>();
+
+    const clearConnectionTimers = (): void => {
+      if (keepAliveTimer !== null) clearInterval(keepAliveTimer);
+      keepAliveTimer = null;
+    };
+    const clearReconnectTimer = (): void => {
+      if (reconnectTimer !== null) clearTimeout(reconnectTimer);
+      reconnectTimer = null;
+    };
+    /** A rider still waiting on a broker ack settles honestly instead
+     *  of hanging past the connection — `failure` names why when the
+     *  session itself goes on (a dropped connection). */
+    const failPendingAcks = (failure?: string): void => {
+      for (const pending of pendingSubAcks.values()) pending.resolveAck?.(null, failure);
+      pendingSubAcks.clear();
+    };
+    const resetConnectionState = (): void => {
+      attemptOpened = false;
+      writer = null;
+      clearConnectionTimers();
+      decoder = createMqttStreamDecoder(version);
+      nextPacketId = 0;
+      pendingSubAcks = new Map();
+      outboundQos = new Map();
+      inboundQos2 = new Set();
+      inboundTopicAliases = new Map();
+    };
+
     const allocPacketId = (): number => {
       do {
         nextPacketId = (nextPacketId % 0xffff) + 1;
@@ -389,24 +458,32 @@ export async function executeMqttSession(
         droppedMessages += 1;
       }
     };
+    /** Record a byte-less lifecycle fact and emit it live. */
+    const recordFact = (event: Exclude<ExecutedMqttEvent, { kind: 'message' }>): void => {
+      record(event, 0);
+      emitter?.item({ ...event, atMs: Date.now() });
+    };
 
     const unregisterSend = registerActiveSend(options.sendId, () => {
       stopped = true;
       controller.abort();
+      // Between attempts nothing is dialing — the abort has no socket
+      // to settle through, so settle here.
+      if (reconnectTimer !== null) {
+        clearReconnectTimer();
+        settle();
+      }
     });
     let unregisterSession: (() => void) | null = null;
 
     const settle = (errorMessage?: string): void => {
       if (settled) return;
       settled = true;
-      if (keepAliveTimer !== null) clearInterval(keepAliveTimer);
-      keepAliveTimer = null;
+      clearConnectionTimers();
+      clearReconnectTimer();
       unregisterSend();
       unregisterSession?.();
-      // A rider still waiting on a broker ack settles honestly instead
-      // of hanging past the session.
-      for (const pending of pendingSubAcks.values()) pending.resolveAck?.(null);
-      pendingSubAcks.clear();
+      failPendingAcks();
       emitter?.end();
       const durationMs = Math.round(performance.now() - startedAt);
       if (!opened) {
@@ -440,12 +517,12 @@ export async function executeMqttSession(
         droppedMessages,
         end,
         ...(stopped ? { stopped: true } : {}),
+        ...(reconnectRefused !== undefined ? { reconnectRefused } : {}),
         durationMs,
         ...(proxyRoute !== undefined ? { proxyRoute } : {}),
       });
     };
 
-    let writer: MqttStreamWriter | null = null;
     /** Encode one packet against the session's version and write it —
      *  a failure reports as the returned string, never a throw. */
     const sendPacket = (packet: MqttPacket): string | null => {
@@ -458,7 +535,7 @@ export async function executeMqttSession(
 
     const subscribeBatch = (
       batch: SubscribeEntry[],
-      resolveAck?: (reasonCode: number | null) => void,
+      resolveAck?: (reasonCode: number | null, failure?: string) => void,
     ): string | null => {
       if (batch.length === 0) return null;
       const packetId = allocPacketId();
@@ -482,14 +559,63 @@ export async function executeMqttSession(
       return null;
     };
 
+    /** SUBSCRIBE a set of entries the way the open-time rows ride:
+     *  rows without packet-level 5.0 properties share ONE packet
+     *  (grants positional per row); a row carrying a Subscription
+     *  Identifier or User Properties needs its own packet (those are
+     *  per-SUBSCRIBE, not per-row). */
+    const subscribeEntries = (entries: SubscribeEntry[]): void => {
+      const ridesAlone = (entry: SubscribeEntry): boolean =>
+        entry.subscriptionId !== undefined || entry.userProperties !== undefined;
+      subscribeBatch(entries.filter((entry) => !ridesAlone(entry)));
+      for (const entry of entries.filter(ridesAlone)) subscribeBatch([entry]);
+    };
+
+    const startKeepAlive = (): void => {
+      if (keepAlive <= 0) return;
+      keepAliveTimer = setInterval(() => {
+        sendPacket({ type: 'pingreq' });
+      }, keepAlive * 1000);
+    };
+
+    /** A dropped connection auto-reconnect may heal: a severed socket,
+     *  a keep-alive death, or a broker DISCONNECT — except Session
+     *  taken over (0x8E), where redialing would only fight the other
+     *  client for the id. */
+    const reconnectable = (endRecord: ExecutedMqttEnd): endRecord is Exclude<ExecutedMqttEnd, { by: 'client' }> =>
+      endRecord === null || (endRecord.by === 'broker' && endRecord.reasonCode !== 0x8e);
+
     // `remainingLength` is the frame's Remaining Length as the stream
     // decoder observed it — a framing fact the CONNACK capture records.
     const handlePacket = (packet: MqttPacket, remainingLength: number): void => {
       switch (packet.type) {
         case 'connack': {
-          if (opened) return;
-          connack = { sessionPresent: packet.sessionPresent, reasonCode: packet.reasonCode, remainingLength };
+          if (attemptOpened) return;
           const refusal = connackRefusalMessage(packet.reasonCode, version);
+          if (reconnectAttempt > 0) {
+            // A reconnect attempt's CONNACK — a refusal ends the loop
+            // (an auth or protocol refusal never heals by redialing);
+            // an acceptance is the new connection's fact row, and the
+            // broker says whether it kept the subscriptions.
+            if (refusal !== null) {
+              reconnectRefused = { attempt: reconnectAttempt, error: refusal };
+              writer?.end();
+              return;
+            }
+            attemptOpened = true;
+            end = null;
+            recordFact({
+              kind: 'reconnected',
+              attempt: reconnectAttempt,
+              sessionPresent: packet.sessionPresent,
+              reasonCode: packet.reasonCode,
+              remainingLength,
+            });
+            if (!packet.sessionPresent) subscribeEntries([...desiredSubscriptions.values()]);
+            startKeepAlive();
+            return;
+          }
+          connack = { sessionPresent: packet.sessionPresent, reasonCode: packet.reasonCode, remainingLength };
           if (refusal !== null) {
             // The refusal reason IS the classified pre-open error —
             // verbatim; the broker closes, and so do we.
@@ -498,6 +624,7 @@ export async function executeMqttSession(
             return;
           }
           opened = true;
+          attemptOpened = true;
           emitter?.open({
             sessionPresent: packet.sessionPresent,
             reasonCode: packet.reasonCode,
@@ -505,22 +632,8 @@ export async function executeMqttSession(
             clientId,
             ...(proxyRoute !== undefined ? { proxyRoute } : {}),
           });
-          // Open-time subscriptions: rows without packet-level 5.0
-          // properties ride ONE packet (grants positional per row);
-          // a row carrying a Subscription Identifier or User
-          // Properties needs its own packet (those are per-SUBSCRIBE,
-          // not per-row).
-          const ridesAlone = (entry: SubscribeEntry): boolean =>
-            entry.subscriptionId !== undefined || entry.userProperties !== undefined;
-          subscribeBatch(openSubscriptions.filter((entry) => !ridesAlone(entry)));
-          for (const entry of openSubscriptions.filter(ridesAlone)) {
-            subscribeBatch([entry]);
-          }
-          if (keepAlive > 0) {
-            keepAliveTimer = setInterval(() => {
-              sendPacket({ type: 'pingreq' });
-            }, keepAlive * 1000);
-          }
+          subscribeEntries(openSubscriptions);
+          startKeepAlive();
           return;
         }
         case 'publish': {
@@ -593,8 +706,7 @@ export async function executeMqttSession(
             topicFilter,
             reasonCode: packet.reasonCodes[index] ?? 0x80,
           }));
-          record({ kind: 'subscribed', grants }, 0);
-          emitter?.item({ kind: 'subscribed', grants, atMs: Date.now() });
+          recordFact({ kind: 'subscribed', grants });
           pending.resolveAck?.(grants[0]?.reasonCode ?? null);
           return;
         }
@@ -602,8 +714,7 @@ export async function executeMqttSession(
           const pending = pendingSubAcks.get(`u${packet.packetId}`);
           if (pending === undefined) return;
           pendingSubAcks.delete(`u${packet.packetId}`);
-          record({ kind: 'unsubscribed', topicFilters: pending.filters }, 0);
-          emitter?.item({ kind: 'unsubscribed', topicFilters: pending.filters, atMs: Date.now() });
+          recordFact({ kind: 'unsubscribed', topicFilters: pending.filters });
           pending.resolveAck?.(packet.reasonCodes[0] ?? null);
           return;
         }
@@ -622,59 +733,105 @@ export async function executeMqttSession(
       }
     };
 
-    writer = options.transport.connect(
-      {
-        url,
-        ...(request.sslVerification !== undefined ? { sslVerification: request.sslVerification } : {}),
-        timeoutMs: request.timeoutMs ?? DEFAULT_CONNECT_TIMEOUT_MS,
-        ...clientCertificate,
-        ...(sniServerName !== '' ? { sniServerName } : {}),
-        ...(alpnProtocol !== '' ? { alpnProtocol } : {}),
-      },
-      {
-        onConnect: (route) => {
-          socketConnected = true;
-          if (route !== undefined) proxyRoute = { plane: 'system', ...route };
-          const error = sendPacket({
-            type: 'connect',
-            clientId,
-            cleanStart: request.cleanStart ?? true,
-            keepAlive,
-            ...(authUsername !== '' ? { username: authUsername } : {}),
-            ...(authPassword !== '' ? { password: new TextEncoder().encode(authPassword) } : {}),
-            ...(will !== undefined ? { will } : {}),
-            ...(Object.keys(connectProperties).length > 0 ? { properties: connectProperties } : {}),
-          });
-          if (error !== null) {
-            refusalMessage = `The CONNECT packet did not compose: ${error}`;
-            controller.abort();
-          }
+    /** Arm the wait before the next attempt; `error` is the attempt
+     *  just failed, carried onto the next attempt's row. */
+    const scheduleReconnect = (attempt: number, error?: string): void => {
+      reconnectAttempt = attempt;
+      reconnectTimer = setTimeout(() => {
+        reconnectTimer = null;
+        if (settled) return;
+        recordFact({ kind: 'reconnecting', attempt, ...(error !== undefined ? { error } : {}) });
+        dial();
+      }, reconnectPeriodMs);
+    };
+
+    /** The byte stream ended — decide between the reconnect loop and
+     *  the settle. */
+    const onStreamEnd = (error?: Error): void => {
+      if (settled) return;
+      const wasOpen = attemptOpened;
+      const dialingAgain = reconnectAttempt > 0;
+      if (stopped) {
+        settle(error?.message);
+        return;
+      }
+      if (wasOpen && autoReconnect && reconnectable(end)) {
+        // The connection dropped under an open session without the
+        // client asking — its end is a fact row, then the loop starts.
+        failPendingAcks('The connection dropped before the broker answered.');
+        resetConnectionState();
+        recordFact({ kind: 'lost', end });
+        scheduleReconnect(1);
+        return;
+      }
+      if (dialingAgain && !wasOpen && reconnectRefused === undefined) {
+        // A reconnect attempt failed before it opened — the classified
+        // dial failure rides the next attempt's row; the loop goes on
+        // until the broker is back or the user ends the session.
+        resetConnectionState();
+        scheduleReconnect(reconnectAttempt + 1, error?.message ?? 'The connection closed before the session opened.');
+        return;
+      }
+      settle(error?.message);
+    };
+
+    const dial = (): void => {
+      writer = options.transport.connect(
+        {
+          url,
+          ...(request.sslVerification !== undefined ? { sslVerification: request.sslVerification } : {}),
+          timeoutMs: request.timeoutMs ?? DEFAULT_CONNECT_TIMEOUT_MS,
+          ...clientCertificate,
+          ...(sniServerName !== '' ? { sniServerName } : {}),
+          ...(alpnProtocol !== '' ? { alpnProtocol } : {}),
         },
-        onData: (chunk) => {
-          for (const event of decoder.push(chunk)) {
-            if (!event.ok) {
-              // A malformed BODY resynchronizes at the next boundary;
-              // an untrustworthy FIXED HEADER poisons the framing —
-              // nothing more can be read, so the session tears down.
-              if (event.fatal) {
-                if (!opened) refusalMessage = `The broker sent unreadable data: ${event.error}`;
-                writer?.end();
-                return;
-              }
-              continue;
+        {
+          onConnect: (route) => {
+            socketConnected = true;
+            if (route !== undefined) proxyRoute = { plane: 'system', ...route };
+            const error = sendPacket({
+              type: 'connect',
+              clientId,
+              cleanStart: request.cleanStart ?? true,
+              keepAlive,
+              ...(authUsername !== '' ? { username: authUsername } : {}),
+              ...(authPassword !== '' ? { password: new TextEncoder().encode(authPassword) } : {}),
+              ...(will !== undefined ? { will } : {}),
+              ...(Object.keys(connectProperties).length > 0 ? { properties: connectProperties } : {}),
+            });
+            if (error !== null) {
+              refusalMessage = `The CONNECT packet did not compose: ${error}`;
+              controller.abort();
             }
-            handlePacket(event.packet, event.remainingLength);
-            if (settled) return;
-          }
+          },
+          onData: (chunk) => {
+            for (const event of decoder.push(chunk)) {
+              if (!event.ok) {
+                // A malformed BODY resynchronizes at the next boundary;
+                // an untrustworthy FIXED HEADER poisons the framing —
+                // nothing more can be read, so the connection tears down.
+                if (event.fatal) {
+                  if (!opened) refusalMessage = `The broker sent unreadable data: ${event.error}`;
+                  writer?.end();
+                  return;
+                }
+                continue;
+              }
+              handlePacket(event.packet, event.remainingLength);
+              if (settled) return;
+            }
+          },
+          onEnd: onStreamEnd,
         },
-        onEnd: (error) => settle(error?.message),
-      },
-      controller.signal,
-    );
+        controller.signal,
+      );
+    };
+
+    dial();
 
     unregisterSession = registerActiveMqttSession(options.sendId, {
       publish: (message: MqttPublishWire) => {
-        if (settled || !opened) return { success: false, error: 'The session is not open.' };
+        if (settled || !attemptOpened) return { success: false, error: 'The session is not open.' };
         const sendUnresolved = new Set<string>();
         const riderResolve = (s: string): string => resolveWith(s, sendUnresolved);
         const topic = riderResolve(message.topic).trim();
@@ -717,7 +874,7 @@ export async function executeMqttSession(
         return { success: true };
       },
       setSubscription: (subscription: MqttSubscriptionWire) => {
-        if (settled || !opened) {
+        if (settled || !attemptOpened) {
           return Promise.resolve({ success: false, error: 'The session is not open.' });
         }
         const sendUnresolved = new Set<string>();
@@ -732,37 +889,37 @@ export async function executeMqttSession(
           });
         }
         return new Promise((resolveRider) => {
-          const resolveAck = (reasonCode: number | null): void => {
-            if (settled) {
-              resolveRider({ success: false, error: 'The session ended before the broker answered.' });
+          const resolveAck = (reasonCode: number | null, failure?: string): void => {
+            if (settled || failure !== undefined) {
+              resolveRider({ success: false, error: failure ?? 'The session ended before the broker answered.' });
               return;
             }
             resolveRider({ success: true, ...(reasonCode !== null ? { grantCode: reasonCode } : {}) });
           };
           if (subscription.subscribe) {
-            const error = subscribeBatch(
-              [
-                {
-                  subscription: {
-                    topicFilter,
-                    qos: subscription.qos ?? 0,
-                    ...(v5 && subscription.noLocal !== undefined ? { noLocal: subscription.noLocal } : {}),
-                    ...(v5 && subscription.retainAsPublished !== undefined
-                      ? { retainAsPublished: subscription.retainAsPublished }
-                      : {}),
-                    ...(v5 && subscription.retainHandling !== undefined
-                      ? { retainHandling: subscription.retainHandling }
-                      : {}),
-                  },
-                  ...(v5 && subscription.subscriptionId !== undefined
-                    ? { subscriptionId: subscription.subscriptionId }
-                    : {}),
-                  ...(userProperties !== undefined ? { userProperties } : {}),
-                },
-              ],
-              resolveAck,
-            );
-            if (error !== null) resolveRider({ success: false, error });
+            const entry: SubscribeEntry = {
+              subscription: {
+                topicFilter,
+                qos: subscription.qos ?? 0,
+                ...(v5 && subscription.noLocal !== undefined ? { noLocal: subscription.noLocal } : {}),
+                ...(v5 && subscription.retainAsPublished !== undefined
+                  ? { retainAsPublished: subscription.retainAsPublished }
+                  : {}),
+                ...(v5 && subscription.retainHandling !== undefined
+                  ? { retainHandling: subscription.retainHandling }
+                  : {}),
+              },
+              ...(v5 && subscription.subscriptionId !== undefined
+                ? { subscriptionId: subscription.subscriptionId }
+                : {}),
+              ...(userProperties !== undefined ? { userProperties } : {}),
+            };
+            const error = subscribeBatch([entry], resolveAck);
+            if (error !== null) {
+              resolveRider({ success: false, error });
+              return;
+            }
+            desiredSubscriptions.set(topicFilter, entry);
             return;
           }
           const packetId = allocPacketId();
@@ -771,11 +928,26 @@ export async function executeMqttSession(
             resolveRider({ success: false, error });
             return;
           }
+          desiredSubscriptions.delete(topicFilter);
           pendingSubAcks.set(`u${packetId}`, { filters: [topicFilter], resolveAck });
         });
       },
       close: () => {
         if (settled) return;
+        if (reconnectAttempt > 0 && !attemptOpened) {
+          // Disconnect while auto-reconnect is between attempts or
+          // mid-redial: no connection is up to DISCONNECT cleanly, so
+          // the loop ends and the session settles Stopped — the last
+          // connection's end record stays the honest end.
+          stopped = true;
+          if (reconnectTimer !== null) {
+            clearReconnectTimer();
+            settle();
+          } else {
+            controller.abort();
+          }
+          return;
+        }
         if (end === null) end = { by: 'client' };
         sendPacket({ type: 'disconnect', reasonCode: v5 ? 0 : null });
         writer?.end();

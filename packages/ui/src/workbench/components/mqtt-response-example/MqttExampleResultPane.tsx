@@ -8,7 +8,6 @@
  * Read-only — the capture is a record, so there is no Clear.
  */
 
-import { MQTT_CONNACK_RETURN_CODE_NAMES, mqttReasonCodeName } from '@openheaders/core/mqtt';
 import type { CapturedMqttResponse, MqttRequestProtocolVersion } from '@openheaders/core/types';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { Tabs, Tag, Tooltip, Typography, theme } from 'antd';
@@ -16,6 +15,7 @@ import type React from 'react';
 import { useMemo, useState } from 'react';
 import MqttMessageTimeline from '../mqtt-request-editor/MqttMessageTimeline';
 import type { MqttTimelineLifecycle } from '../mqtt-request-editor/mqtt-timeline-model';
+import { connackReasonLabel, connackReasonName, sessionEndedMessage } from '../mqtt-request-editor/session-display';
 
 const { Text } = Typography;
 
@@ -26,18 +26,6 @@ interface MqttExampleResultPaneProps {
   protocolVersion: MqttRequestProtocolVersion;
   /** ISO capture moment — the strip's hover provenance. */
   capturedAt: string;
-}
-
-/** CONNACK reason name — the version scopes which numeric space names
- *  the verbatim code. */
-function connackReasonName(reasonCode: number, v5: boolean): string | undefined {
-  return v5 ? mqttReasonCodeName(reasonCode, 'connack') : MQTT_CONNACK_RETURN_CODE_NAMES[reasonCode];
-}
-
-/** CONNACK reason display: the spec name beside the verbatim code. */
-function connackReasonLabel(reasonCode: number, v5: boolean): string {
-  const name = connackReasonName(reasonCode, v5);
-  return name !== undefined ? `${name} (${reasonCode})` : String(reasonCode);
 }
 
 const MqttExampleResultPane: React.FC<MqttExampleResultPaneProps> = ({ response, protocolVersion, capturedAt }) => {
@@ -58,17 +46,7 @@ const MqttExampleResultPane: React.FC<MqttExampleResultPaneProps> = ({ response,
     };
   }, [response.connack, v5]);
 
-  const endedMessage = useMemo(() => {
-    if (response.stopped === true) return undefined;
-    if (response.end === null) return t('workbench.editors.mqtt.session.severed');
-    if (response.end.by === 'client') return t('workbench.editors.mqtt.session.cleanDisconnect');
-    const reasonCode = response.end.reasonCode;
-    if (reasonCode === null) return t('workbench.editors.mqtt.session.brokerDisconnectBare');
-    const name = mqttReasonCodeName(reasonCode, 'disconnect');
-    return t('workbench.editors.mqtt.session.brokerDisconnect', {
-      reason: name !== undefined ? `${name} (${reasonCode})` : String(reasonCode),
-    });
-  }, [response, t]);
+  const endedMessage = useMemo(() => sessionEndedMessage(response, t), [response, t]);
 
   const lifecycle = useMemo(
     (): MqttTimelineLifecycle => ({
@@ -82,7 +60,11 @@ const MqttExampleResultPane: React.FC<MqttExampleResultPaneProps> = ({ response,
 
   // End pill honesty — the MqttSessionPane's settled vocabulary.
   const endTag =
-    response.stopped === true ? (
+    response.reconnectRefused !== undefined ? (
+      <Tag color="error" style={{ marginInlineEnd: 0 }} data-testid="mqtt-example-end-tag">
+        {t('workbench.editors.mqtt.session.reconnectRefusedTag')}
+      </Tag>
+    ) : response.stopped === true ? (
       <Tag color="warning" style={{ marginInlineEnd: 0 }} data-testid="mqtt-example-end-tag">
         {t('workbench.editors.mqtt.session.stoppedTag')}
       </Tag>
@@ -162,6 +144,7 @@ const MqttExampleResultPane: React.FC<MqttExampleResultPaneProps> = ({ response,
                     items={response.events}
                     count={response.events.length}
                     lifecycle={lifecycle}
+                    v5={v5}
                     droppedMessages={response.droppedMessages}
                   />
                 </div>

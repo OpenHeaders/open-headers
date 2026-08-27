@@ -178,6 +178,12 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.settings.timeoutHelp':
     'Wall-clock ceiling on the connection dial only — an open session has no ceiling. Empty uses the 30 s default.',
   'workbench.editors.mqtt.settings.timeoutPlaceholder': '30 s (default)',
+  'workbench.editors.mqtt.settings.autoReconnectLabel': 'Reconnect automatically',
+  'workbench.editors.mqtt.settings.autoReconnectHelp':
+    'Reopen the session when an open connection drops — a severed socket or a broker DISCONNECT — redialing on the reconnect period until it opens again or you disconnect. A first connect that fails never retries. Off by default.',
+  'workbench.editors.mqtt.settings.reconnectPeriodLabel': 'Reconnect period',
+  'workbench.editors.mqtt.settings.reconnectPeriodHelp': 'Wait between reconnect attempts. Empty uses the 5 s default.',
+  'workbench.editors.mqtt.settings.reconnectPeriodPlaceholder': '5 s (default)',
   'workbench.editors.mqtt.settings.receiveMaximumLabel': 'Receive Maximum',
   'workbench.editors.mqtt.settings.receiveMaximumHelp':
     'How many QoS 1/2 messages may be in flight toward this client at once. Empty allows the spec default of 65,535.',
@@ -219,7 +225,7 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.settings.group.session': 'Session — MQTT 5.0',
   'workbench.editors.mqtt.settings.group.tls': 'TLS & trust',
   'workbench.editors.mqtt.settings.groupInfo.connection':
-    'How the CONNECT opens the session: the identity it presents, whether it starts fresh, and the ping and dial ceilings it promises.',
+    'How the CONNECT opens the session: the identity it presents, whether it starts fresh, the ping and dial ceilings it promises, and whether a dropped connection reopens.',
   'workbench.editors.mqtt.settings.groupInfo.session':
     'MQTT 5.0 terms the CONNECT offers the broker: how long the session outlives a disconnect, plus the in-flight and packet-size ceilings this client accepts.',
   'workbench.editors.mqtt.settings.groupInfo.tls':
@@ -250,6 +256,12 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.session.abortedTag': 'Aborted',
   'workbench.editors.mqtt.timeline.aborted': 'Connection aborted',
   'workbench.editors.mqtt.timeline.abortedDisconnected': 'Disconnected from broker',
+  'workbench.editors.mqtt.timeline.lost': 'Connection lost',
+  'workbench.editors.mqtt.timeline.reconnecting': 'Reconnect attempt {attempt}',
+  'workbench.editors.mqtt.timeline.reconnected': 'Reconnected to broker',
+  'workbench.editors.mqtt.session.reconnectingBadge': 'RECONNECTING',
+  'workbench.editors.mqtt.session.reconnectRefusedTag': 'Reconnect refused',
+  'workbench.editors.mqtt.session.reconnectRefused': 'reconnect refused: {reason}',
   'workbench.editors.mqtt.session.cleanDisconnect': 'clean disconnect',
   'workbench.editors.mqtt.session.brokerDisconnect': 'broker sent DISCONNECT: {reason}',
   'workbench.editors.mqtt.session.brokerDisconnectBare': 'broker sent DISCONNECT',

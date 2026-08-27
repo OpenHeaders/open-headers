@@ -15,8 +15,10 @@
  * (expandable to the CONNACK facts as key: value rows) sits before the
  * first item, and the
  * subscription lifecycle facts — Subscribed-with-grant /
- * Unsubscribed — render at their TRUE chronological positions because
- * they ride the same item log as the messages (live Subscribe toggles
+ * Unsubscribed — and the reconnect-cycle facts — Connection lost /
+ * Reconnect attempt / Reconnected with its own CONNACK block — render
+ * at their TRUE chronological positions because they ride the same
+ * item log as the messages (live Subscribe toggles and auto-reconnect
  * land mid-session).
  *
  * DECOMPOSED orchestrator: the model plane (item/lifecycle/entry
@@ -63,6 +65,9 @@ interface MqttMessageTimelineProps {
   /** Session-only positional times (items[i] ↔ timestamps[i]). */
   timestamps?: readonly number[];
   lifecycle: MqttTimelineLifecycle;
+  /** The session's version lens — scopes the reason-code name space
+   *  a reconnected row's CONNACK block renders. */
+  v5: boolean;
   /** Events that rolled off the retention window — an honest notice
    *  above the list when non-zero. */
   droppedMessages?: number;
@@ -73,6 +78,7 @@ const MqttMessageTimeline: React.FC<MqttMessageTimelineProps> = ({
   count,
   timestamps,
   lifecycle,
+  v5,
   droppedMessages = 0,
 }) => {
   const { token } = theme.useToken();
@@ -186,9 +192,13 @@ const MqttMessageTimeline: React.FC<MqttMessageTimelineProps> = ({
   // the whole honest story.
   const entries = useMemo(() => {
     const out: MqttTimelineEntry[] = [];
+    // An expanded message row trails its viewer; an expanded
+    // reconnected row trails its attempt's own CONNACK block.
     const pushRow = (index: number) => {
       out.push({ key: `r${index}`, kind: 'row', index });
-      if (expanded.has(index)) out.push({ key: `v${index}`, kind: 'viewer', index });
+      if (!expanded.has(index)) return;
+      if (items[index].kind === 'reconnected') out.push({ key: `c${index}`, kind: 'connackDetail', index });
+      else out.push({ key: `v${index}`, kind: 'viewer', index });
     };
     const messageCount = visibleRows.length;
     const notice: MqttTimelineEntry | null =
@@ -252,6 +262,7 @@ const MqttMessageTimeline: React.FC<MqttMessageTimelineProps> = ({
     visibleRows,
     expanded,
     connackExpanded,
+    items,
   ]);
 
   const heights = useMemo(
@@ -389,6 +400,7 @@ const MqttMessageTimeline: React.FC<MqttMessageTimelineProps> = ({
               items={items}
               timestamps={timestamps}
               lifecycle={lifecycle}
+              v5={v5}
               derive={derive}
               expanded={expanded}
               connackExpanded={connackExpanded}

@@ -187,6 +187,13 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.settings.timeoutHelp':
     'Wanduhr-Obergrenze nur für den Verbindungsaufbau — eine offene Sitzung hat keine Obergrenze. Leer nutzt die Standardfrist von 30 s.',
   'workbench.editors.mqtt.settings.timeoutPlaceholder': '30 s (Standard)',
+  'workbench.editors.mqtt.settings.autoReconnectLabel': 'Automatisch neu verbinden',
+  'workbench.editors.mqtt.settings.autoReconnectHelp':
+    'Öffnet die Sitzung erneut, wenn eine offene Verbindung abbricht — Socket getrennt oder DISCONNECT vom Broker — und wählt im Wiederverbindungsintervall neu, bis sie wieder offen ist oder du trennst. Ein fehlgeschlagener Erstverbindungsversuch wird nie wiederholt. Standardmäßig aus.',
+  'workbench.editors.mqtt.settings.reconnectPeriodLabel': 'Wiederverbindungsintervall',
+  'workbench.editors.mqtt.settings.reconnectPeriodHelp':
+    'Wartezeit zwischen zwei Wiederverbindungsversuchen. Leer nutzt den Standard von 5 s.',
+  'workbench.editors.mqtt.settings.reconnectPeriodPlaceholder': '5 s (Standard)',
   'workbench.editors.mqtt.settings.receiveMaximumLabel': 'Receive Maximum',
   'workbench.editors.mqtt.settings.receiveMaximumHelp':
     'Wie viele QoS-1/2-Nachrichten gleichzeitig zu diesem Client unterwegs sein dürfen. Leer erlaubt den Spezifikations-Standard von 65.535.',
@@ -229,8 +236,8 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.settings.group.session': 'Sitzung — MQTT 5.0',
   'workbench.editors.mqtt.settings.group.tls': 'TLS & Vertrauen',
   'workbench.editors.mqtt.settings.groupInfo.connection':
-    'Wie CONNECT die Sitzung öffnet: die präsentierte Identität, ob sie frisch startet, und die zugesagten ' +
-    'Herzschlag- und Aufbaufristen.',
+    'Wie CONNECT die Sitzung öffnet: die präsentierte Identität, ob sie frisch startet, die zugesagten ' +
+    'Herzschlag- und Aufbaufristen, und ob eine abgebrochene Verbindung wieder geöffnet wird.',
   'workbench.editors.mqtt.settings.groupInfo.session':
     'MQTT-5.0-Bedingungen, die CONNECT dem Broker anbietet: wie lange die Sitzung eine Trennung überlebt, plus ' +
     'die Obergrenzen für gleichzeitige Nachrichten und Paketgröße, die dieser Client akzeptiert.',
@@ -262,6 +269,12 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.session.abortedTag': 'Abgebrochen',
   'workbench.editors.mqtt.timeline.aborted': 'Verbindung abgebrochen',
   'workbench.editors.mqtt.timeline.abortedDisconnected': 'Vom Broker getrennt',
+  'workbench.editors.mqtt.timeline.lost': 'Verbindung verloren',
+  'workbench.editors.mqtt.timeline.reconnecting': 'Wiederverbindungsversuch {attempt}',
+  'workbench.editors.mqtt.timeline.reconnected': 'Wieder mit dem Broker verbunden',
+  'workbench.editors.mqtt.session.reconnectingBadge': 'VERBINDE NEU',
+  'workbench.editors.mqtt.session.reconnectRefusedTag': 'Wiederverbindung abgelehnt',
+  'workbench.editors.mqtt.session.reconnectRefused': 'Wiederverbindung abgelehnt: {reason}',
   'workbench.editors.mqtt.session.cleanDisconnect': 'saubere Trennung',
   'workbench.editors.mqtt.session.brokerDisconnect': 'der Broker sendete DISCONNECT: {reason}',
   'workbench.editors.mqtt.session.brokerDisconnectBare': 'der Broker sendete DISCONNECT',

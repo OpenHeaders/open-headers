@@ -2,11 +2,12 @@
  * MqttTimelineEntryRow — one display entry of the MQTT timeline,
  * rendered from the model plane's `MqttTimelineEntry` vocabulary: the
  * lifecycle rows (Connecting / Connected with its expandable CONNACK
- * facts / error / aborted / ended), the subscription facts at their
- * true chronological positions, the message rows (direction glyph ·
- * topic chip · QoS / Retained / DUP tags · payload preview · byte
- * count · session time · expand slot), and the expanded payload
- * viewer. Purely presentational — expansion state and its toggles
+ * facts / error / aborted / ended), the subscription and reconnect-
+ * cycle facts (lost / reconnect attempt / reconnected with its own
+ * CONNACK block) at their true chronological positions, the message
+ * rows (direction glyph · topic chip · QoS / Retained / DUP tags ·
+ * payload preview · byte count · session time · expand slot), and the
+ * expanded payload viewer. Purely presentational — expansion state and its toggles
  * belong to the orchestrator (`MqttMessageTimeline.tsx`).
  */
 
@@ -20,6 +21,7 @@ import {
   InfoCircleOutlined,
   MinusCircleOutlined,
   PlusCircleOutlined,
+  ReloadOutlined,
   UpOutlined,
 } from '@ant-design/icons';
 import { Tag, theme } from 'antd';
@@ -38,7 +40,7 @@ import {
   topicBadgeColor,
   VIEWER_PX,
 } from './mqtt-timeline-model';
-import { grantFailureLabel } from './session-display';
+import { connackReasonName, connectionEndMessage, grantFailureLabel } from './session-display';
 
 interface MqttTimelineEntryRowProps {
   entry: MqttTimelineEntry;
@@ -46,8 +48,12 @@ interface MqttTimelineEntryRowProps {
   /** Session-only positional times (items[i] ↔ timestamps[i]). */
   timestamps?: readonly number[] | undefined;
   lifecycle: MqttTimelineLifecycle;
+  /** The session's version lens — names a reconnected row's CONNACK
+   *  code in the right numeric space. */
+  v5: boolean;
   derive: MqttFrameDerivations;
-  /** Expanded message-row indexes — the viewer entry follows each. */
+  /** Expanded row indexes — a message row's viewer / a reconnected
+   *  row's CONNACK block follows each. */
   expanded: ReadonlySet<number>;
   /** The Connected row's CONNACK details are open. */
   connackExpanded: boolean;
@@ -61,6 +67,7 @@ const MqttTimelineEntryRow: React.FC<MqttTimelineEntryRowProps> = ({
   items,
   timestamps,
   lifecycle,
+  v5,
   derive,
   expanded,
   connackExpanded,
@@ -211,7 +218,22 @@ const MqttTimelineEntryRow: React.FC<MqttTimelineEntryRowProps> = ({
       );
     }
     case 'connackDetail': {
-      const connack = lifecycle.connack;
+      // The first connection's CONNACK, or — with an index — the
+      // CONNACK a reconnected row's attempt received.
+      let connack: MqttTimelineLifecycle['connack'];
+      if ('index' in entry) {
+        const item = items[entry.index];
+        if (item.kind !== 'reconnected') return null;
+        const reasonName = connackReasonName(item.reasonCode, v5);
+        connack = {
+          reasonCode: item.reasonCode,
+          ...(reasonName !== undefined ? { reasonName } : {}),
+          sessionPresent: item.sessionPresent,
+          remainingLength: item.remainingLength,
+        };
+      } else {
+        connack = lifecycle.connack;
+      }
       if (connack === undefined) return null;
       // The CONNACK facts as key: value rows — wire field names raw,
       // the reason code verbatim with its spec name beside it.
@@ -361,6 +383,67 @@ const MqttTimelineEntryRow: React.FC<MqttTimelineEntryRowProps> = ({
             </span>
             {lifecycleTime(ts)}
             {expandSlot(null)}
+          </div>
+        );
+      }
+      if (item.kind === 'lost') {
+        // The connection dropped under the open session — how it
+        // ended, verbatim; auto-reconnect's rows follow.
+        return (
+          <div data-testid="mqtt-timeline-lost-row" style={lifecycleRowStyle}>
+            <DisconnectOutlined aria-hidden style={{ fontSize: 11, color: token.colorWarning }} />
+            <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {`${t('workbench.editors.mqtt.timeline.lost')} — ${connectionEndMessage(item.end, t)}`}
+            </span>
+            {lifecycleTime(ts)}
+            {expandSlot(null)}
+          </div>
+        );
+      }
+      if (item.kind === 'reconnecting') {
+        // One redial; the previous attempt's classified failure rides
+        // beside it when there was one.
+        return (
+          <div data-testid="mqtt-timeline-reconnecting-row" style={lifecycleRowStyle}>
+            <ReloadOutlined aria-hidden style={{ fontSize: 11, color: token.colorTextTertiary }} />
+            <span
+              {...(item.error !== undefined ? { title: item.error } : {})}
+              style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+            >
+              {t('workbench.editors.mqtt.timeline.reconnecting', { attempt: item.attempt })}
+              {item.error !== undefined ? ` — ${item.error}` : ''}
+            </span>
+            {lifecycleTime(ts)}
+            {expandSlot(null)}
+          </div>
+        );
+      }
+      if (item.kind === 'reconnected') {
+        // The Connected row's twin for a reconnect attempt that took —
+        // expandable to that connection's own CONNACK facts.
+        const isExpanded = expanded.has(entry.index);
+        return (
+          <div
+            role="button"
+            tabIndex={0}
+            aria-expanded={isExpanded}
+            className="oh-stream-row"
+            data-testid="mqtt-timeline-reconnected-row"
+            onClick={() => onToggleRow(entry.index)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                onToggleRow(entry.index);
+              }
+            }}
+            style={{ ...lifecycleRowStyle, cursor: 'pointer' }}
+          >
+            <CheckCircleOutlined aria-hidden style={{ fontSize: 11, color: token.colorSuccess }} />
+            <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {t('workbench.editors.mqtt.timeline.reconnected')}
+            </span>
+            {lifecycleTime(ts)}
+            {expandSlot(isExpanded)}
           </div>
         );
       }

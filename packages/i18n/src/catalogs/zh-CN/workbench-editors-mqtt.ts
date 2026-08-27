@@ -172,6 +172,12 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.settings.timeoutLabel': '连接超时',
   'workbench.editors.mqtt.settings.timeoutHelp': '仅限连接拨号的墙钟上限——已打开的会话没有上限。留空使用默认的 30 s。',
   'workbench.editors.mqtt.settings.timeoutPlaceholder': '30 s（默认）',
+  'workbench.editors.mqtt.settings.autoReconnectLabel': '自动重连',
+  'workbench.editors.mqtt.settings.autoReconnectHelp':
+    '已打开的连接断开时（套接字中断或代理发送 DISCONNECT）重新打开会话，按重连周期反复拨号，直到再次打开或你手动断开。首次连接失败不会重试。默认关闭。',
+  'workbench.editors.mqtt.settings.reconnectPeriodLabel': '重连周期',
+  'workbench.editors.mqtt.settings.reconnectPeriodHelp': '两次重连尝试之间的等待时间。留空使用默认的 5 s。',
+  'workbench.editors.mqtt.settings.reconnectPeriodPlaceholder': '5 s（默认）',
   'workbench.editors.mqtt.settings.receiveMaximumLabel': 'Receive Maximum',
   'workbench.editors.mqtt.settings.receiveMaximumHelp':
     '同时向此客户端在途的 QoS 1/2 消息数量上限。留空采用规范默认值 65535。',
@@ -212,7 +218,7 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.settings.group.session': '会话 — MQTT 5.0',
   'workbench.editors.mqtt.settings.group.tls': 'TLS 与信任',
   'workbench.editors.mqtt.settings.groupInfo.connection':
-    'CONNECT 如何打开会话：呈现的身份、是否全新开始，以及承诺的心跳和连接建立时限。',
+    'CONNECT 如何打开会话：呈现的身份、是否全新开始、承诺的心跳和连接建立时限，以及断开的连接是否重新打开。',
   'workbench.editors.mqtt.settings.groupInfo.session':
     'CONNECT 向代理提出的 MQTT 5.0 条款：断开后会话保留多久，以及此客户端接受的在途消息和数据包大小上限。',
   'workbench.editors.mqtt.settings.groupInfo.tls':
@@ -243,6 +249,12 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.session.abortedTag': '已中止',
   'workbench.editors.mqtt.timeline.aborted': '连接已中止',
   'workbench.editors.mqtt.timeline.abortedDisconnected': '已与代理断开',
+  'workbench.editors.mqtt.timeline.lost': '连接丢失',
+  'workbench.editors.mqtt.timeline.reconnecting': '第 {attempt} 次重连尝试',
+  'workbench.editors.mqtt.timeline.reconnected': '已重新连接到代理',
+  'workbench.editors.mqtt.session.reconnectingBadge': '重连中',
+  'workbench.editors.mqtt.session.reconnectRefusedTag': '重连被拒绝',
+  'workbench.editors.mqtt.session.reconnectRefused': '重连被拒绝：{reason}',
   'workbench.editors.mqtt.session.cleanDisconnect': '正常断开',
   'workbench.editors.mqtt.session.brokerDisconnect': '代理发送了 DISCONNECT：{reason}',
   'workbench.editors.mqtt.session.brokerDisconnectBare': '代理发送了 DISCONNECT',

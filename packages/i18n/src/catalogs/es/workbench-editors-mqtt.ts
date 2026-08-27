@@ -184,6 +184,13 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.settings.timeoutHelp':
     'Techo de reloj solo para la marcación de la conexión; una sesión abierta no tiene techo. Vacío aplica el plazo por defecto de 30 s.',
   'workbench.editors.mqtt.settings.timeoutPlaceholder': '30 s (por defecto)',
+  'workbench.editors.mqtt.settings.autoReconnectLabel': 'Reconectar automáticamente',
+  'workbench.editors.mqtt.settings.autoReconnectHelp':
+    'Reabre la sesión cuando una conexión abierta se cae — socket cortado o DISCONNECT del broker — volviendo a marcar cada periodo de reconexión hasta que abra de nuevo o desconectes. Una primera conexión que falla nunca reintenta. Desactivado por defecto.',
+  'workbench.editors.mqtt.settings.reconnectPeriodLabel': 'Periodo de reconexión',
+  'workbench.editors.mqtt.settings.reconnectPeriodHelp':
+    'Espera entre intentos de reconexión. Vacío usa los 5 s por defecto.',
+  'workbench.editors.mqtt.settings.reconnectPeriodPlaceholder': '5 s (por defecto)',
   'workbench.editors.mqtt.settings.receiveMaximumLabel': 'Receive Maximum',
   'workbench.editors.mqtt.settings.receiveMaximumHelp':
     'Cuántos mensajes QoS 1/2 pueden estar en vuelo hacia este cliente a la vez. Vacío aplica el valor por defecto de la especificación, 65.535.',
@@ -226,8 +233,8 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.settings.group.session': 'Sesión — MQTT 5.0',
   'workbench.editors.mqtt.settings.group.tls': 'TLS y confianza',
   'workbench.editors.mqtt.settings.groupInfo.connection':
-    'Cómo CONNECT abre la sesión: la identidad que presenta, si empieza de cero, y los techos de latido y de ' +
-    'apertura que promete.',
+    'Cómo CONNECT abre la sesión: la identidad que presenta, si empieza de cero, los techos de latido y de ' +
+    'apertura que promete, y si una conexión caída se reabre.',
   'workbench.editors.mqtt.settings.groupInfo.session':
     'Condiciones MQTT 5.0 que CONNECT ofrece al bróker: cuánto sobrevive la sesión a una desconexión, más los ' +
     'techos de mensajes en vuelo y de tamaño de paquete que acepta este cliente.',
@@ -260,6 +267,12 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.session.abortedTag': 'Cancelada',
   'workbench.editors.mqtt.timeline.aborted': 'Conexión cancelada',
   'workbench.editors.mqtt.timeline.abortedDisconnected': 'Desconectado del broker',
+  'workbench.editors.mqtt.timeline.lost': 'Conexión perdida',
+  'workbench.editors.mqtt.timeline.reconnecting': 'Intento de reconexión {attempt}',
+  'workbench.editors.mqtt.timeline.reconnected': 'Reconectado al broker',
+  'workbench.editors.mqtt.session.reconnectingBadge': 'RECONECTANDO',
+  'workbench.editors.mqtt.session.reconnectRefusedTag': 'Reconexión rechazada',
+  'workbench.editors.mqtt.session.reconnectRefused': 'reconexión rechazada: {reason}',
   'workbench.editors.mqtt.session.cleanDisconnect': 'desconexión limpia',
   'workbench.editors.mqtt.session.brokerDisconnect': 'el broker envió DISCONNECT: {reason}',
   'workbench.editors.mqtt.session.brokerDisconnectBare': 'el broker envió DISCONNECT',

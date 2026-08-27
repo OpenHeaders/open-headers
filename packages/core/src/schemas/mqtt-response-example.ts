@@ -91,13 +91,6 @@ export const CapturedMqttUnsubscribedSchema = v.object({
   topicFilters: v.array(v.string()),
 });
 
-/** One captured event of the session's log, in packet order. */
-export const CapturedMqttEventSchema = v.variant('kind', [
-  CapturedMqttMessageSchema,
-  CapturedMqttSubscribedSchema,
-  CapturedMqttUnsubscribedSchema,
-]);
-
 /** How the captured session ended — the tri-state end record verbatim:
  *  the clean client DISCONNECT, a broker DISCONNECT with its reason
  *  (`null` = the 3.1.1 wire, which carries none), or `null` when the
@@ -108,6 +101,40 @@ export const CapturedMqttEndSchema = v.nullable(
     v.object({ by: v.literal('broker'), reasonCode: v.nullable(v.number()) }),
   ]),
 );
+
+/** An open connection dropped and auto-reconnect took over — how that
+ *  connection ended (never a client DISCONNECT). */
+export const CapturedMqttLostSchema = v.object({
+  kind: v.literal('lost'),
+  end: v.nullable(v.object({ by: v.literal('broker'), reasonCode: v.nullable(v.number()) })),
+});
+
+/** One reconnect attempt dialed; `error` is the previous attempt's
+ *  classified failure when there was one. */
+export const CapturedMqttReconnectingSchema = v.object({
+  kind: v.literal('reconnecting'),
+  attempt: v.number(),
+  error: v.optional(v.string()),
+});
+
+/** A reconnect attempt's CONNACK accepted — the new connection's facts. */
+export const CapturedMqttReconnectedSchema = v.object({
+  kind: v.literal('reconnected'),
+  attempt: v.number(),
+  sessionPresent: v.boolean(),
+  reasonCode: v.number(),
+  remainingLength: v.number(),
+});
+
+/** One captured event of the session's log, in packet order. */
+export const CapturedMqttEventSchema = v.variant('kind', [
+  CapturedMqttMessageSchema,
+  CapturedMqttSubscribedSchema,
+  CapturedMqttUnsubscribedSchema,
+  CapturedMqttLostSchema,
+  CapturedMqttReconnectingSchema,
+  CapturedMqttReconnectedSchema,
+]);
 
 /** Response side of the captured session — the settled snapshot's
  *  facts, never rewritten to look well-formed. */
@@ -134,6 +161,9 @@ export const CapturedMqttResponseSchema = v.object({
   /** True when the user stopped the session via Stop-abort rather than
    *  a Disconnect — the capture holds what arrived. */
   stopped: v.optional(v.boolean()),
+  /** Auto-reconnect gave up on a CONNACK refusal — the reason verbatim
+   *  with the attempt it answered. */
+  reconnectRefused: v.optional(v.object({ attempt: v.number(), error: v.string() })),
   /** Whole-session wall time (connect start → settle). */
   durationMs: v.number(),
 });

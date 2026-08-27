@@ -34,6 +34,8 @@ export type MqttInfoKey =
   | 'sessionExpiry'
   | 'keepAlive'
   | 'timeout'
+  | 'autoReconnect'
+  | 'reconnectPeriod'
   | 'receiveMaximum'
   | 'maxPacketSize'
   | 'topicAliasMaximum'
@@ -68,6 +70,7 @@ const EX = {
   sessionExpiry: 'expiry: 300 s',
   keepAlive: 'keep-alive: 60 s',
   dial: 'dial ≤ 30 s',
+  reconnect: 'reconnect: every 5 s',
   verify: 'verify ✓',
   clientCert: 'client cert: reporter-1',
   sni: 'sni: broker.openheaders.com',
@@ -99,7 +102,7 @@ type TokenId = keyof typeof EX;
  * group headers partition the CONNECT leg their rows itemize, the
  * options popover's section-header idiom. */
 const GROUP_TOKENS: Record<MqttSettingsGroupKey, readonly TokenId[]> = {
-  connection: ['clientId', 'cleanStart', 'keepAlive', 'dial'],
+  connection: ['clientId', 'cleanStart', 'keepAlive', 'dial', 'reconnect'],
   session: ['sessionExpiry', 'receiveMax', 'maxPacket', 'topicAlias', 'rri', 'rpi'],
   tls: ['verify', 'clientCert', 'sni', 'alpn'],
 };
@@ -114,6 +117,8 @@ const HIGHLIGHT: Record<MqttInfoKey, readonly TokenId[]> = {
   sessionExpiry: ['sessionExpiry'],
   keepAlive: ['keepAlive'],
   timeout: ['dial'],
+  autoReconnect: ['reconnect'],
+  reconnectPeriod: ['reconnect'],
   receiveMaximum: ['receiveMax'],
   maxPacketSize: ['maxPacket'],
   topicAliasMaximum: ['topicAlias'],
@@ -160,6 +165,8 @@ function MqttExampleCard({ lit }: { lit: ReadonlySet<TokenId> }) {
           {tok('keepAlive')}
           {' · '}
           {tok('dial')}
+          {' · '}
+          {tok('reconnect')}
           {' · '}
           {tok('verify')}
           {' · '}
@@ -224,6 +231,8 @@ const TITLE_KEY: Record<MqttInfoKey, MessageKey> = {
   sessionExpiry: 'workbench.editors.mqtt.settings.sessionExpiryLabel',
   keepAlive: 'workbench.editors.mqtt.settings.keepAliveLabel',
   timeout: 'workbench.editors.mqtt.settings.timeoutLabel',
+  autoReconnect: 'workbench.editors.mqtt.settings.autoReconnectLabel',
+  reconnectPeriod: 'workbench.editors.mqtt.settings.reconnectPeriodLabel',
   receiveMaximum: 'workbench.editors.mqtt.settings.receiveMaximumLabel',
   maxPacketSize: 'workbench.editors.mqtt.settings.maxPacketSizeLabel',
   topicAliasMaximum: 'workbench.editors.mqtt.settings.topicAliasMaximumLabel',
@@ -255,6 +264,8 @@ const SUMMARY_KEY: Record<Exclude<MqttInfoKey, 'retainHandling'>, MessageKey> = 
   sessionExpiry: 'workbench.editors.mqtt.settings.sessionExpiryHelp',
   keepAlive: 'workbench.editors.mqtt.settings.keepAliveHelp',
   timeout: 'workbench.editors.mqtt.settings.timeoutHelp',
+  autoReconnect: 'workbench.editors.mqtt.settings.autoReconnectHelp',
+  reconnectPeriod: 'workbench.editors.mqtt.settings.reconnectPeriodHelp',
   receiveMaximum: 'workbench.editors.mqtt.settings.receiveMaximumHelp',
   maxPacketSize: 'workbench.editors.mqtt.settings.maxPacketSizeHelp',
   topicAliasMaximum: 'workbench.editors.mqtt.settings.topicAliasMaximumHelp',
@@ -289,6 +300,8 @@ const KICKER_KEY: Record<MqttInfoKey, MessageKey> = {
   sessionExpiry: MQTT_GROUP_LABEL_KEY.session,
   keepAlive: MQTT_GROUP_LABEL_KEY.connection,
   timeout: MQTT_GROUP_LABEL_KEY.connection,
+  autoReconnect: MQTT_GROUP_LABEL_KEY.connection,
+  reconnectPeriod: MQTT_GROUP_LABEL_KEY.connection,
   receiveMaximum: MQTT_GROUP_LABEL_KEY.session,
   maxPacketSize: MQTT_GROUP_LABEL_KEY.session,
   topicAliasMaximum: MQTT_GROUP_LABEL_KEY.session,

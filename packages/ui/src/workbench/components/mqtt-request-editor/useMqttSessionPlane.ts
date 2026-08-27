@@ -16,8 +16,11 @@
  * switches ride `setMqttSubscription`, marking each row with its
  * SUBACK grant (QoS downgrades honest): the stored table stays the
  * DRAFT — live toggles never edit the entity (the ratified
- * publication-gate idiom). Save Response freezes a settled session
- * that opened into an MqttResponseExample.
+ * publication-gate idiom). Between auto-reconnect attempts the
+ * session stays in flight with `sessionOpen` false — Send and the
+ * toggles disable honestly until a CONNACK takes again (the replayed
+ * SUBACKs re-mark the rows by filter). Save Response freezes a
+ * settled session that opened into an MqttResponseExample.
  */
 
 import { hostBridge, type MqttPublishWire } from '@openheaders/core/bridge';
@@ -40,6 +43,7 @@ import {
 import { schemeOf } from './compose';
 import { buildMqttRequestUpdates, type MqttDraft, trimTopicRows } from './draft';
 import { makeMqttPageResolutionFactory, publishMqttPageResolutionFactory } from './mqtt-page-session';
+import { reconnectingAt } from './mqtt-timeline-model';
 import { type LiveMqttSession, type MqttSessionTiming, useLiveMqttSession } from './useLiveMqttSession';
 
 /** One row's live SUBACK/UNSUBACK truth while the session is open —
@@ -60,8 +64,12 @@ interface UseMqttSessionPlaneInput {
 
 export interface MqttSessionPlane {
   inFlight: boolean;
-  /** True while the session is open (CONNACK accepted, not settled). */
+  /** True while a connection is up (CONNACK accepted, not settled,
+   *  not between auto-reconnect attempts). */
   sessionOpen: boolean;
+  /** True while auto-reconnect is between connections — the session
+   *  goes on, nothing is on the wire. */
+  reconnecting: boolean;
   snapshot: ExecutedMqttSnapshot | null;
   timing: MqttSessionTiming | null;
   /** The open session's live feed; null outside one. */
@@ -126,29 +134,52 @@ export function useMqttSessionPlane({
   const openSubGroupsRef = useRef<string[][]>([]);
   const consumedSubGroupsRef = useRef(0);
 
+  /** Items already read for marks — the open-time groups consume
+   *  SUBACKs positionally; past them, a reconnect's replayed SUBACKs
+   *  mark rows by filter. */
+  const consumedItemsRef = useRef(0);
+  const topicRows = draft.topics;
+
   useEffect(() => {
     const live = liveSession.live;
     if (live === null) return;
     const groups = openSubGroupsRef.current;
     let consumed = consumedSubGroupsRef.current;
-    if (consumed >= groups.length) return;
     let seen = 0;
+    let reconnected = false;
     const marks = new Map<string, LiveSubscriptionMark>();
-    for (let i = 0; i < live.count && consumed < groups.length; i++) {
+    for (let i = 0; i < live.count; i++) {
       const item = live.items[i];
+      if (item.kind === 'reconnected' && i >= consumedItemsRef.current) reconnected = true;
       if (item.kind !== 'subscribed') continue;
       if (seen < consumedSubGroupsRef.current) {
         seen++;
         continue;
       }
-      const uids = groups[consumed];
-      item.grants.forEach((grant, index) => {
-        const uid = uids[index];
-        if (uid !== undefined) marks.set(uid, { subscribed: grant.reasonCode <= 2, grantCode: grant.reasonCode });
-      });
-      consumed++;
-      seen++;
+      if (consumed < groups.length) {
+        const uids = groups[consumed];
+        item.grants.forEach((grant, index) => {
+          const uid = uids[index];
+          if (uid !== undefined) marks.set(uid, { subscribed: grant.reasonCode <= 2, grantCode: grant.reasonCode });
+        });
+        consumed++;
+        seen++;
+        continue;
+      }
+      // Past the open-time groups only a reconnect replays SUBSCRIBEs
+      // the editor did not send itself — its grants mark the rows
+      // whose filter they name (a templated filter resolves executor-
+      // side and stays unmatched: its mark is left as it was).
+      if (!reconnected || i < consumedItemsRef.current) continue;
+      for (const grant of item.grants) {
+        for (const row of topicRows) {
+          if (row.topicFilter === grant.topicFilter) {
+            marks.set(row.uid, { subscribed: grant.reasonCode <= 2, grantCode: grant.reasonCode });
+          }
+        }
+      }
     }
+    consumedItemsRef.current = live.count;
     if (marks.size === 0) return;
     consumedSubGroupsRef.current = consumed;
     setLiveSubs((prev) => {
@@ -156,7 +187,7 @@ export function useMqttSessionPlane({
       for (const [uid, mark] of marks) next.set(uid, mark);
       return next;
     });
-  }, [liveSession.live]);
+  }, [liveSession.live, topicRows]);
 
   const handleConnect = useCallback(async () => {
     if (!entity || inFlight) return;
@@ -174,11 +205,10 @@ export function useMqttSessionPlane({
     // grants map back onto rows positionally within each group.
     const enabledRows = trimTopicRows(draft.topics).filter((row) => row.subscribe !== false);
     const plainUids = enabledRows.filter((row) => row.subscriptionId === undefined || !v5).map((row) => row.uid);
-    const idUids = v5
-      ? enabledRows.filter((row) => row.subscriptionId !== undefined).map((row) => [row.uid])
-      : [];
+    const idUids = v5 ? enabledRows.filter((row) => row.subscriptionId !== undefined).map((row) => [row.uid]) : [];
     openSubGroupsRef.current = [...(plainUids.length > 0 ? [plainUids] : []), ...idUids];
     consumedSubGroupsRef.current = 0;
+    consumedItemsRef.current = 0;
     setLiveSubs(new Map());
     // Per-knob honesty on the page-session path: the platform socket
     // cannot skip TLS verification — a CONFIGURED knob is named for
@@ -333,7 +363,9 @@ export function useMqttSessionPlane({
 
   const canSaveResponse = workspaceId !== null && snapshot !== null && snapshot.outcome.kind === 'connected';
 
-  const sessionOpen = inFlight && liveSession.live !== null && liveSession.live.open !== null;
+  const live = liveSession.live;
+  const reconnecting = inFlight && live !== null && live.open !== null && reconnectingAt(live.items, live.count);
+  const sessionOpen = inFlight && live !== null && live.open !== null && !reconnecting;
 
   // Connect gate: node hosts run every scheme; a page-session surface
   // runs ws(s):// natively and names the tcp-scheme limit honestly
@@ -352,6 +384,7 @@ export function useMqttSessionPlane({
   return {
     inFlight,
     sessionOpen,
+    reconnecting,
     snapshot,
     timing,
     live: liveSession.live,

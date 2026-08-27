@@ -25,12 +25,13 @@ import {
   publishActiveMqttMessage,
   setActiveMqttSubscription,
 } from '@openheaders/oracle/live/mqtt-exec/session-plane';
-import type {
-  MqttByteTransport,
-  MqttStreamCallbacks,
-  MqttTransportRequest,
+import {
+  type MqttByteTransport,
+  type MqttStreamCallbacks,
+  MqttTransportError,
+  type MqttTransportRequest,
 } from '@openheaders/oracle/live/mqtt-exec/transport';
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 function makeMqttRequest(overrides: Partial<MqttRequest> = {}): MqttRequest {
   return {
@@ -717,5 +718,294 @@ describe('executeMqttSession — version lens and session end', () => {
     closeActiveMqttSession('send-mqtt-split');
     const snapshot = await settled;
     expect(snapshot.outcome).toEqual({ kind: 'connected' });
+  });
+});
+
+/** Multi-dial scripted transport for the auto-reconnect loop — every
+ *  `connect` is one numbered dial with its own broker side; the rig
+ *  severs, fails or answers any of them. */
+function reconnectRig(version: MqttProtocolVersion) {
+  const dials: Array<{ request: MqttTransportRequest; callbacks: MqttStreamCallbacks; ended: boolean }> = [];
+  const written: MqttPacket[][] = [];
+  const transport: MqttByteTransport = {
+    connect(request, callbacks, signal) {
+      const dial = { request, callbacks, ended: false };
+      const index = dials.push(dial) - 1;
+      written.push([]);
+      const finish = (): void => {
+        if (dial.ended) return;
+        dial.ended = true;
+        queueMicrotask(() => callbacks.onEnd());
+      };
+      signal?.addEventListener('abort', finish);
+      return {
+        write: (bytes) => {
+          const decoded = decodeMqttPacket(bytes, version);
+          if (!decoded.ok) throw new Error(`client wrote a malformed packet: ${decoded.error}`);
+          written[index].push(decoded.packet);
+        },
+        end: finish,
+      };
+    },
+  };
+  const dialAt = (n: number) => {
+    const dial = dials[n];
+    if (dial === undefined) throw new Error(`dial ${n} never happened`);
+    return dial;
+  };
+  return {
+    transport,
+    written,
+    dialCount: () => dials.length,
+    establish: (n: number) => dialAt(n).callbacks.onConnect(),
+    push: (n: number, packet: MqttPacket) => {
+      const encoded = encodeMqttPacket(packet, version);
+      if (!encoded.ok) throw new Error(`broker packet did not encode: ${encoded.error}`);
+      dialAt(n).callbacks.onData(encoded.bytes);
+    },
+    /** The socket dropped without a DISCONNECT. */
+    sever: (n: number) => {
+      const dial = dialAt(n);
+      dial.ended = true;
+      dial.callbacks.onEnd();
+    },
+    /** The dial failed before it established. */
+    fail: (n: number, message: string) => {
+      const dial = dialAt(n);
+      dial.ended = true;
+      dial.callbacks.onEnd(new MqttTransportError(message));
+    },
+  };
+}
+
+describe('executeMqttSession — auto-reconnect', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+  const tick = () => vi.advanceTimersByTimeAsync(0);
+
+  it('logs the lost connection, redials on the period, replays the wanted subscriptions when the broker kept no session', async () => {
+    const rig = reconnectRig(MQTT_PROTOCOL_VERSIONS.v5);
+    const settled = executeMqttSession(
+      makeMqttRequest({
+        autoReconnect: true,
+        reconnectPeriodMs: 2_000,
+        clientId: 'reporter-1',
+        topics: [
+          { uid: 'row1', topicFilter: 'sensors/+/temp', qos: 1 },
+          { uid: 'row2', topicFilter: 'alerts/#', qos: 0 },
+        ],
+      }),
+      {
+        workspaceId: null,
+        environmentId: undefined,
+        transport: rig.transport,
+        sendId: 'send-mqtt-reconnect',
+        resolution: scopedResolution,
+      },
+    );
+    await tick();
+    rig.establish(0);
+    rig.push(0, acceptedConnack);
+    rig.push(0, { type: 'suback', packetId: 1, reasonCodes: [1, 0] });
+    // A live toggle turns one open row off — the replay must not bring it back.
+    const off = setActiveMqttSubscription('send-mqtt-reconnect', { topicFilter: 'alerts/#', subscribe: false });
+    rig.push(0, { type: 'unsuback', packetId: 2, reasonCodes: [0] });
+    expect((await off).success).toBe(true);
+
+    rig.sever(0);
+    await tick();
+    expect(rig.dialCount()).toBe(1);
+    await vi.advanceTimersByTimeAsync(1_999);
+    expect(rig.dialCount()).toBe(1);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(rig.dialCount()).toBe(2);
+    // Publishing between connections reports honestly instead of writing into the void.
+    expect(publishActiveMqttMessage('send-mqtt-reconnect', { topic: 'x', payload: 'y' }).success).toBe(false);
+
+    rig.establish(1);
+    const connect = rig.written[1][0];
+    expect(connect.type).toBe('connect');
+    if (connect.type === 'connect') expect(connect.clientId).toBe('reporter-1');
+    rig.push(1, { type: 'connack', sessionPresent: false, reasonCode: 0 });
+    const replay = rig.written[1][1];
+    expect(replay.type).toBe('subscribe');
+    if (replay.type === 'subscribe') {
+      expect(replay.subscriptions.map((sub) => sub.topicFilter)).toEqual(['sensors/+/temp']);
+    }
+    rig.push(1, { type: 'suback', packetId: 1, reasonCodes: [1] });
+    // The new connection publishes again.
+    expect(publishActiveMqttMessage('send-mqtt-reconnect', { topic: 'sensors/1/temp', payload: '21' }).success).toBe(
+      true,
+    );
+    closeActiveMqttSession('send-mqtt-reconnect');
+    await tick();
+    const snapshot = await settled;
+    expect(snapshot.outcome).toEqual({ kind: 'connected' });
+    expect(snapshot.connack).toEqual({ sessionPresent: false, reasonCode: 0, remainingLength: 3 });
+    expect(snapshot.end).toEqual({ by: 'client' });
+    expect(snapshot.stopped).toBeUndefined();
+    expect(snapshot.reconnectRefused).toBeUndefined();
+    expect(snapshot.events.map((event) => event.kind)).toEqual([
+      'subscribed',
+      'unsubscribed',
+      'lost',
+      'reconnecting',
+      'reconnected',
+      'subscribed',
+      'message',
+    ]);
+    expect(snapshot.events[2]).toEqual({ kind: 'lost', end: null });
+    expect(snapshot.events[3]).toEqual({ kind: 'reconnecting', attempt: 1 });
+    expect(snapshot.events[4]).toEqual({
+      kind: 'reconnected',
+      attempt: 1,
+      sessionPresent: false,
+      reasonCode: 0,
+      remainingLength: 3,
+    });
+  });
+
+  it('skips the replay when the reconnect CONNACK kept the session, and carries a failed dial onto the next attempt', async () => {
+    const rig = reconnectRig(MQTT_PROTOCOL_VERSIONS.v5);
+    const settled = executeMqttSession(
+      makeMqttRequest({ autoReconnect: true, topics: [{ uid: 'row1', topicFilter: 'sensors/+/temp', qos: 1 }] }),
+      {
+        workspaceId: null,
+        environmentId: undefined,
+        transport: rig.transport,
+        sendId: 'send-mqtt-reconnect-kept',
+        resolution: scopedResolution,
+      },
+    );
+    await tick();
+    rig.establish(0);
+    rig.push(0, acceptedConnack);
+    rig.push(0, { type: 'suback', packetId: 1, reasonCodes: [1] });
+    rig.push(0, { type: 'disconnect', reasonCode: 0x8b });
+    await tick();
+    // The empty knob waits the 5 s reference default.
+    await vi.advanceTimersByTimeAsync(5_000);
+    expect(rig.dialCount()).toBe(2);
+    rig.fail(1, 'Connection refused by broker.openheaders.io:1883. Is the MQTT broker running on that host/port?');
+    await tick();
+    await vi.advanceTimersByTimeAsync(5_000);
+    expect(rig.dialCount()).toBe(3);
+    rig.establish(2);
+    rig.push(2, { type: 'connack', sessionPresent: true, reasonCode: 0 });
+    expect(rig.written[2].map((packet) => packet.type)).toEqual(['connect']);
+    closeActiveMqttSession('send-mqtt-reconnect-kept');
+    await tick();
+    const snapshot = await settled;
+    expect(snapshot.events.map((event) => event.kind)).toEqual([
+      'subscribed',
+      'lost',
+      'reconnecting',
+      'reconnecting',
+      'reconnected',
+    ]);
+    expect(snapshot.events[1]).toEqual({ kind: 'lost', end: { by: 'broker', reasonCode: 0x8b } });
+    expect(snapshot.events[3]).toEqual({
+      kind: 'reconnecting',
+      attempt: 2,
+      error: 'Connection refused by broker.openheaders.io:1883. Is the MQTT broker running on that host/port?',
+    });
+    expect(snapshot.end).toEqual({ by: 'client' });
+  });
+
+  it('never reconnects a session the broker took over, nor a session with the knob off', async () => {
+    const taken = reconnectRig(MQTT_PROTOCOL_VERSIONS.v5);
+    const takenSettled = executeMqttSession(makeMqttRequest({ autoReconnect: true }), {
+      workspaceId: null,
+      environmentId: undefined,
+      transport: taken.transport,
+      sendId: 'send-mqtt-taken-over',
+      resolution: scopedResolution,
+    });
+    await tick();
+    taken.establish(0);
+    taken.push(0, acceptedConnack);
+    taken.push(0, { type: 'disconnect', reasonCode: 0x8e });
+    await tick();
+    const takenSnapshot = await takenSettled;
+    expect(taken.dialCount()).toBe(1);
+    expect(takenSnapshot.end).toEqual({ by: 'broker', reasonCode: 0x8e });
+    expect(takenSnapshot.events).toEqual([]);
+
+    const off = reconnectRig(MQTT_PROTOCOL_VERSIONS.v5);
+    const offSettled = executeMqttSession(makeMqttRequest(), {
+      workspaceId: null,
+      environmentId: undefined,
+      transport: off.transport,
+      sendId: 'send-mqtt-reconnect-off',
+      resolution: scopedResolution,
+    });
+    await tick();
+    off.establish(0);
+    off.push(0, acceptedConnack);
+    off.sever(0);
+    await tick();
+    const offSnapshot = await offSettled;
+    expect(off.dialCount()).toBe(1);
+    expect(offSnapshot.outcome).toEqual({ kind: 'connected' });
+    expect(offSnapshot.end).toBeNull();
+    expect(offSnapshot.events).toEqual([]);
+  });
+
+  it('ends the loop on a refused reconnect CONNACK — the refusal verbatim, the lost end kept', async () => {
+    const rig = reconnectRig(MQTT_PROTOCOL_VERSIONS.v5);
+    const settled = executeMqttSession(makeMqttRequest({ autoReconnect: true, reconnectPeriodMs: 1_000 }), {
+      workspaceId: null,
+      environmentId: undefined,
+      transport: rig.transport,
+      sendId: 'send-mqtt-reconnect-refused',
+      resolution: scopedResolution,
+    });
+    await tick();
+    rig.establish(0);
+    rig.push(0, acceptedConnack);
+    rig.sever(0);
+    await tick();
+    await vi.advanceTimersByTimeAsync(1_000);
+    rig.establish(1);
+    rig.push(1, { type: 'connack', sessionPresent: false, reasonCode: 0x87 });
+    await tick();
+    const snapshot = await settled;
+    expect(rig.dialCount()).toBe(2);
+    expect(snapshot.outcome).toEqual({ kind: 'connected' });
+    expect(snapshot.end).toBeNull();
+    expect(snapshot.reconnectRefused).toEqual({
+      attempt: 1,
+      error: 'The broker refused the connection: Not authorized (code 135).',
+    });
+    expect(snapshot.events.map((event) => event.kind)).toEqual(['lost', 'reconnecting']);
+  });
+
+  it('a Disconnect between attempts cancels the loop and settles Stopped with the lost end', async () => {
+    const rig = reconnectRig(MQTT_PROTOCOL_VERSIONS.v5);
+    const settled = executeMqttSession(makeMqttRequest({ autoReconnect: true }), {
+      workspaceId: null,
+      environmentId: undefined,
+      transport: rig.transport,
+      sendId: 'send-mqtt-reconnect-cancel',
+      resolution: scopedResolution,
+    });
+    await tick();
+    rig.establish(0);
+    rig.push(0, acceptedConnack);
+    rig.sever(0);
+    await tick();
+    await vi.advanceTimersByTimeAsync(1_000);
+    expect(closeActiveMqttSession('send-mqtt-reconnect-cancel')).toBe(true);
+    const snapshot = await settled;
+    await vi.advanceTimersByTimeAsync(10_000);
+    expect(rig.dialCount()).toBe(1);
+    expect(snapshot.outcome).toEqual({ kind: 'connected' });
+    expect(snapshot.stopped).toBe(true);
+    expect(snapshot.end).toBeNull();
+    expect(snapshot.events).toEqual([{ kind: 'lost', end: null }]);
   });
 });

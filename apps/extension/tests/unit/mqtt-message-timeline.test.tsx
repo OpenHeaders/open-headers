@@ -58,7 +58,7 @@ const ABORTED_LIFECYCLE: MqttTimelineLifecycle = {
 };
 
 function renderAborted(lifecycle: MqttTimelineLifecycle) {
-  return render(<MqttMessageTimeline items={[]} count={0} lifecycle={lifecycle} />);
+  return render(<MqttMessageTimeline items={[]} count={0} lifecycle={lifecycle} v5 />);
 }
 
 describe('MqttMessageTimeline — aborted lifecycle instants', () => {

@@ -46,7 +46,29 @@ export type MqttTimelineItem =
       dup: boolean;
     }
   | { kind: 'subscribed'; grants: Array<{ topicFilter: string; reasonCode: number }> }
-  | { kind: 'unsubscribed'; topicFilters: string[] };
+  | { kind: 'unsubscribed'; topicFilters: string[] }
+  | { kind: 'lost'; end: { by: 'broker'; reasonCode: number | null } | null }
+  | { kind: 'reconnecting'; attempt: number; error?: string }
+  | { kind: 'reconnected'; attempt: number; sessionPresent: boolean; reasonCode: number; remainingLength: number };
+
+/** The reconnect-cycle facts — the lifecycle rows that ride the item
+ *  log (a dropped connection, each redial, the CONNACK that took). */
+export type MqttReconnectItem = MqttTimelineItem & { kind: 'lost' | 'reconnecting' | 'reconnected' };
+
+export function isReconnectItem(item: MqttTimelineItem): item is MqttReconnectItem {
+  return item.kind === 'lost' || item.kind === 'reconnecting' || item.kind === 'reconnected';
+}
+
+/** The connection's live phase read off the item log: the LAST
+ *  reconnect-cycle fact decides — a `lost` or `reconnecting` tail
+ *  means the session is between connections. */
+export function reconnectingAt(items: readonly MqttTimelineItem[], count: number): boolean {
+  for (let i = count - 1; i >= 0; i--) {
+    const item = items[i];
+    if (isReconnectItem(item)) return item.kind !== 'reconnected';
+  }
+  return false;
+}
 
 /** How the session ended — drives the ended lifecycle row. */
 export type MqttTimelineEndedBy = 'close' | 'stop';
@@ -94,11 +116,14 @@ export interface MqttTimelineLifecycle {
 }
 
 /** One display slot of the virtual list — heights are a closed
- *  function of `kind`, so windowing never measures. */
+ *  function of `kind`, so windowing never measures. A `connackDetail`
+ *  with an `index` is a reconnected row's own CONNACK block; without
+ *  one it is the first connection's. */
 export type MqttTimelineEntry =
   | { key: string; kind: 'sent' | 'connected' | 'connackDetail' | 'error' | 'abortedEnd' | 'ended' | 'noMatches' }
   | { key: string; kind: 'row'; index: number }
-  | { key: string; kind: 'viewer'; index: number };
+  | { key: string; kind: 'viewer'; index: number }
+  | { key: string; kind: 'connackDetail'; index: number };
 
 export type MqttDirectionFilter = 'all' | 'up' | 'down';
 

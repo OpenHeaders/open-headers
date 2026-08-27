@@ -53,14 +53,16 @@ const MAX_CLIENT_ID_LENGTH = 256;
  *  free text becomes concrete candidates ("30" → "30 s" / "30 min");
  *  readings outside the wire field's range stay visible as disabled
  *  entries naming the violated bound. Keep-alive and session expiry
- *  are whole seconds on the wire; the connect timeout is app
- *  milliseconds; packet size is bytes. */
+ *  are whole seconds on the wire; the connect timeout and the
+ *  reconnect period are app milliseconds; packet size is bytes. */
 const interpretKeepAlive = durationSecondsInterpreter({ min: 0, max: 65_535 });
 const KEEP_ALIVE_PRESETS = numericPresets([15, 30, 60, 300], formatDurationSeconds);
 const interpretSessionExpiry = durationSecondsInterpreter({ min: 0, max: 0xffff_ffff });
 const SESSION_EXPIRY_PRESETS = numericPresets([300, 3_600, 86_400], formatDurationSeconds);
 const interpretTimeout = durationMsInterpreter({ min: MIN_REQUEST_TIMEOUT_MS, max: MAX_REQUEST_TIMEOUT_MS });
 const TIMEOUT_PRESETS = numericPresets([1_000, 5_000, 10_000, 30_000, 60_000], formatDurationMs);
+const interpretReconnectPeriod = durationMsInterpreter({ min: MIN_REQUEST_TIMEOUT_MS, max: MAX_REQUEST_TIMEOUT_MS });
+const RECONNECT_PERIOD_PRESETS = numericPresets([1_000, 2_000, 5_000, 10_000, 30_000], formatDurationMs);
 const interpretReceiveMaximum = countInterpreter({ min: 1, max: 65_535 });
 const RECEIVE_MAXIMUM_PRESETS = numericPresets([1, 5, 20, 100], String);
 const interpretMaxPacketSize = byteSizeInterpreter({ min: 1, max: 0xffff_ffff });
@@ -98,7 +100,12 @@ const MqttSettingsTab: React.FC<MqttSettingsTabProps> = ({ draft, setDraft, v5 }
       return { ...c, [key]: next };
     });
   const connectionModified =
-    draft.clientId !== '' || !draft.cleanStart || draft.keepAlive !== undefined || draft.timeoutMs !== undefined;
+    draft.clientId !== '' ||
+    !draft.cleanStart ||
+    draft.keepAlive !== undefined ||
+    draft.timeoutMs !== undefined ||
+    draft.autoReconnect ||
+    draft.reconnectPeriodMs !== undefined;
   const sessionModified =
     draft.sessionExpiryInterval !== undefined ||
     draft.receiveMaximum !== undefined ||
@@ -190,6 +197,27 @@ const MqttSettingsTab: React.FC<MqttSettingsTabProps> = ({ draft, setDraft, v5 }
             format={formatDurationMs}
             placeholder={t('workbench.editors.mqtt.settings.timeoutPlaceholder')}
             testId="mqtt-timeout"
+          />
+          <KnobRow
+            label={t('workbench.editors.mqtt.settings.autoReconnectLabel')}
+            checked={draft.autoReconnect}
+            modified={draft.autoReconnect}
+            onReset={() => setDraft((d) => ({ ...d, autoReconnect: false }))}
+            onChange={(autoReconnect) => setDraft((d) => ({ ...d, autoReconnect }))}
+            info={mqttSettingsRowInfo(t, 'autoReconnect')}
+            testId="mqtt-auto-reconnect"
+          />
+          <ComboKnobRow
+            label={t('workbench.editors.mqtt.settings.reconnectPeriodLabel')}
+            value={draft.reconnectPeriodMs}
+            onChange={(reconnectPeriodMs) => setDraft((d) => ({ ...d, reconnectPeriodMs }))}
+            info={mqttSettingsRowInfo(t, 'reconnectPeriod')}
+            presets={RECONNECT_PERIOD_PRESETS}
+            interpret={interpretReconnectPeriod}
+            format={formatDurationMs}
+            placeholder={t('workbench.editors.mqtt.settings.reconnectPeriodPlaceholder')}
+            disabled={!draft.autoReconnect}
+            testId="mqtt-reconnect-period"
           />
         </GroupSection>
         <GroupSection

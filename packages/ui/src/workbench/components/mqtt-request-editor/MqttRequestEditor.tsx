@@ -112,6 +112,8 @@ const emptyMqttDraft = (): MqttDraft => ({
   requestResponseInformation: false,
   requestProblemInformation: true,
   timeoutMs: undefined,
+  autoReconnect: false,
+  reconnectPeriodMs: undefined,
   sslVerification: true,
   clientCertificateRef: undefined,
   sniServerName: undefined,
@@ -272,11 +274,13 @@ const MqttRequestEditor: React.FC<MqttRequestEditorProps> = ({
   // treatment verbatim: solid on the darkened error token with the
   // square stop glyph; Connect carries the caret the Invoke button
   // wears. The label stays HONEST across the phases: Cancel while the
-  // attempt is still connecting, Disconnect only once the session is
-  // actually open (both close the same send).
-  const inFlightLabel = session.sessionOpen
-    ? t('workbench.editors.mqtt.connect.disconnect')
-    : t('workbench.editors.mqtt.connect.cancel');
+  // attempt is still connecting, Disconnect once the session is
+  // actually open — and between auto-reconnect attempts, where a
+  // session is being resumed (all close the same send).
+  const inFlightLabel =
+    session.sessionOpen || session.reconnecting
+      ? t('workbench.editors.mqtt.connect.disconnect')
+      : t('workbench.editors.mqtt.connect.cancel');
   const headerActions = session.inFlight ? (
     <Tooltip
       placement="bottom"

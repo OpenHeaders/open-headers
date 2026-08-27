@@ -53,10 +53,56 @@ export interface ExecutedMqttUnsubscribed {
   topicFilters: string[];
 }
 
+/**
+ * How an open connection ended once it was open: the clean client
+ * DISCONNECT (the Disconnect button), a broker-initiated DISCONNECT
+ * with its verbatim reason (`null` = the 3.1.1 wire, which carries
+ * none), or `null` when the connection severed without a DISCONNECT
+ * packet — that absence is recorded, never synthesized into a reason.
+ */
+export type ExecutedMqttEnd = { by: 'client' } | { by: 'broker'; reasonCode: number | null } | null;
+
+/** An OPEN connection dropped without the client asking and the
+ *  session's auto-reconnect took over — `end` is how that connection
+ *  ended (a broker DISCONNECT's reason verbatim, or the severed
+ *  `null`). Never recorded for a client Disconnect. */
+export interface ExecutedMqttLost {
+  kind: 'lost';
+  end: Exclude<ExecutedMqttEnd, { by: 'client' }>;
+}
+
+/** One reconnect attempt dialed (1-based). `error` is the PREVIOUS
+ *  attempt's classified dial failure when there was one — the reason
+ *  this attempt exists; absent on the first attempt after a drop. */
+export interface ExecutedMqttReconnecting {
+  kind: 'reconnecting';
+  attempt: number;
+  error?: string;
+}
+
+/** A reconnect attempt's CONNACK accepted — the new connection's
+ *  facts verbatim (`sessionPresent` says whether the broker kept the
+ *  subscriptions; when it did not, the driver resubscribes and the
+ *  SUBACK rows follow at their true positions). */
+export interface ExecutedMqttReconnected {
+  kind: 'reconnected';
+  attempt: number;
+  sessionPresent: boolean;
+  reasonCode: number;
+  remainingLength: number;
+}
+
 /** The session's event log in packet order — PUBLISH messages both
- *  directions plus the subscription lifecycle facts, one array so the
+ *  directions, the subscription lifecycle facts, and the reconnect
+ *  cycle facts (lost / reconnecting / reconnected), one array so the
  *  timeline renders every row at its true chronological position. */
-export type ExecutedMqttEvent = ExecutedMqttMessage | ExecutedMqttSubscribed | ExecutedMqttUnsubscribed;
+export type ExecutedMqttEvent =
+  | ExecutedMqttMessage
+  | ExecutedMqttSubscribed
+  | ExecutedMqttUnsubscribed
+  | ExecutedMqttLost
+  | ExecutedMqttReconnecting
+  | ExecutedMqttReconnected;
 
 /** The CONNACK as the broker answered it — reason code verbatim (the
  *  5.0 space, or the separate 3.1.1 return-code space; the request's
@@ -70,15 +116,6 @@ export interface ExecutedMqttConnack {
    *  carry no value (absence stays absence). */
   remainingLength?: number;
 }
-
-/**
- * How the session ended once it was open: the clean client DISCONNECT
- * (the Disconnect button), a broker-initiated DISCONNECT with its
- * verbatim reason (`null` = the 3.1.1 wire, which carries none), or
- * `null` when the connection severed without a DISCONNECT packet —
- * that absence is recorded, never synthesized into a reason.
- */
-export type ExecutedMqttEnd = { by: 'client' } | { by: 'broker'; reasonCode: number | null } | null;
 
 /**
  * How the session settled, first-class: `connected` = the broker
@@ -109,15 +146,23 @@ export interface ExecutedMqttSnapshot {
   events: ExecutedMqttEvent[];
   /** Events that rolled off the retention window, 0 when none did. */
   droppedMessages: number;
-  /** How the open session ended (see {@link ExecutedMqttEnd}). On an
+  /** How the open session ended (see {@link ExecutedMqttEnd}) — on a
+   *  session that reconnected, how its LAST connection ended. On an
    *  ABORTED pre-open snapshot it is present only when a broker socket
    *  had actually been established — the torn-down connection is a
    *  real event the timeline logs. */
   end: ExecutedMqttEnd;
   /** True when the user stopped the OPEN session via Stop-abort rather
-   *  than a Disconnect — the capture holds what arrived. Never set on
-   *  a pre-open abort: the `aborted` outcome IS that mark. */
+   *  than a Disconnect — the capture holds what arrived — or ended it
+   *  with Disconnect while auto-reconnect was between attempts (no
+   *  connection was up to DISCONNECT cleanly). Never set on a pre-open
+   *  abort: the `aborted` outcome IS that mark. */
   stopped?: boolean;
+  /** Auto-reconnect gave up: a reconnect attempt's CONNACK REFUSED the
+   *  session (a refusal does not heal by redialing). The refusal reason
+   *  verbatim, with the attempt it answered; the session settles with
+   *  the LOST connection's end record. */
+  reconnectRefused?: { attempt: number; error: string };
   /** Whole-session wall time (connect start → settle), display-only. */
   durationMs: number;
   /**

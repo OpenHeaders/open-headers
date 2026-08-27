@@ -186,6 +186,13 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.settings.timeoutHelp':
     'Plafond horloge sur l’ouverture de connexion seulement — une session ouverte n’a pas de plafond. Vide applique le délai par défaut de 30 s.',
   'workbench.editors.mqtt.settings.timeoutPlaceholder': '30 s (défaut)',
+  'workbench.editors.mqtt.settings.autoReconnectLabel': 'Reconnexion automatique',
+  'workbench.editors.mqtt.settings.autoReconnectHelp':
+    'Rouvre la session quand une connexion ouverte tombe — socket coupé ou DISCONNECT du broker — en recomposant à la période de reconnexion jusqu’à réouverture ou déconnexion manuelle. Une première connexion qui échoue ne réessaie jamais. Désactivé par défaut.',
+  'workbench.editors.mqtt.settings.reconnectPeriodLabel': 'Période de reconnexion',
+  'workbench.editors.mqtt.settings.reconnectPeriodHelp':
+    'Attente entre deux tentatives de reconnexion. Vide utilise les 5 s par défaut.',
+  'workbench.editors.mqtt.settings.reconnectPeriodPlaceholder': '5 s (défaut)',
   'workbench.editors.mqtt.settings.receiveMaximumLabel': 'Receive Maximum',
   'workbench.editors.mqtt.settings.receiveMaximumHelp':
     'Nombre de messages QoS 1/2 pouvant être en vol vers ce client à la fois. Vide applique le défaut de la spécification, 65 535.',
@@ -228,8 +235,8 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.settings.group.session': 'Session — MQTT 5.0',
   'workbench.editors.mqtt.settings.group.tls': 'TLS et confiance',
   'workbench.editors.mqtt.settings.groupInfo.connection':
-    'Comment CONNECT ouvre la session : l’identité présentée, s’il repart de zéro, et les plafonds de battement ' +
-    'et d’ouverture promis.',
+    'Comment CONNECT ouvre la session : l’identité présentée, s’il repart de zéro, les plafonds de battement ' +
+    'et d’ouverture promis, et si une connexion tombée se rouvre.',
   'workbench.editors.mqtt.settings.groupInfo.session':
     'Conditions MQTT 5.0 que CONNECT propose au courtier : combien de temps la session survit à une déconnexion, ' +
     'plus les plafonds de messages en vol et de taille de paquet acceptés par ce client.',
@@ -262,6 +269,12 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.session.abortedTag': 'Interrompue',
   'workbench.editors.mqtt.timeline.aborted': 'Connexion interrompue',
   'workbench.editors.mqtt.timeline.abortedDisconnected': 'Déconnecté du broker',
+  'workbench.editors.mqtt.timeline.lost': 'Connexion perdue',
+  'workbench.editors.mqtt.timeline.reconnecting': 'Tentative de reconnexion {attempt}',
+  'workbench.editors.mqtt.timeline.reconnected': 'Reconnecté au broker',
+  'workbench.editors.mqtt.session.reconnectingBadge': 'RECONNEXION',
+  'workbench.editors.mqtt.session.reconnectRefusedTag': 'Reconnexion refusée',
+  'workbench.editors.mqtt.session.reconnectRefused': 'reconnexion refusée : {reason}',
   'workbench.editors.mqtt.session.cleanDisconnect': 'déconnexion propre',
   'workbench.editors.mqtt.session.brokerDisconnect': 'le broker a envoyé DISCONNECT : {reason}',
   'workbench.editors.mqtt.session.brokerDisconnectBare': 'le broker a envoyé DISCONNECT',

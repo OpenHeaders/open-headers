@@ -262,6 +262,19 @@ export const MqttRequestSchema = v.object({
    */
   timeoutMs: v.optional(RequestTimeoutMsSchema),
   /**
+   * Reopen the session after an OPEN connection drops without the
+   * client asking (severed socket, broker DISCONNECT) — redial on the
+   * reconnect period until it opens again or the user disconnects.
+   * Absent = off: nothing reconnects silently. A first connect that
+   * fails never retries.
+   */
+  autoReconnect: v.optional(v.boolean()),
+  /**
+   * Wait (ms) between reconnect attempts. Absent = the runtime's 5 s
+   * reference default. Same bounds as the connect timeout knob.
+   */
+  reconnectPeriodMs: v.optional(RequestTimeoutMsSchema),
+  /**
    * Verify the server certificate against the system roots
    * (mqtts/wss). Absent = verify (the safe default); `false` accepts
    * self-signed development brokers.

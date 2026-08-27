@@ -4,10 +4,12 @@
  * (CONNECTED badge, timeline fed from the `mqttStreamEvent` feed) and
  * materialized (the end record rendered honestly — the clean
  * Disconnect, a broker DISCONNECT with its verbatim reason, the
- * severed-connection absence, or Stopped — timeline fed from the
- * snapshot's capture with the session's timestamps joined
- * positionally). The header is ONE row in the HTTP ResponsePanel's
- * format: tabs left, meta strip right-aligned in the tab bar.
+ * severed-connection absence, Stopped, or the reconnect the broker
+ * refused — timeline fed from the snapshot's capture with the
+ * session's timestamps joined positionally). Between connections of
+ * an auto-reconnecting session the badge reads RECONNECTING. The
+ * header is ONE row in the HTTP ResponsePanel's format: tabs left,
+ * meta strip right-aligned in the tab bar.
  * Pre-open failures (the session never opened — a CONNACK refusal
  * included, its reason verbatim) render through the SAME pane: the
  * classified message rides the timeline as its error row and the meta
@@ -20,7 +22,6 @@
  */
 
 import { ClearOutlined, EllipsisOutlined } from '@ant-design/icons';
-import { MQTT_CONNACK_RETURN_CODE_NAMES, mqttReasonCodeName } from '@openheaders/core/mqtt';
 import type { ExecutedMqttSnapshot, MqttRequestProtocolVersion } from '@openheaders/core/types';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { Button, Dropdown, Tabs, Tag, Typography, theme } from 'antd';
@@ -30,7 +31,13 @@ import ProxyRouteTag, { proxyRouteHasBadge } from '../request-editor/response/Pr
 import ConnectionDetailsTooltip, { type ConnectionDetailsRow } from '../shared/ConnectionDetailsTooltip';
 import { ExampleChip } from '../shared/ExampleChip';
 import MqttMessageTimeline from './MqttMessageTimeline';
-import type { MqttTimelineLifecycle } from './mqtt-timeline-model';
+import {
+  isReconnectItem,
+  type MqttTimelineItem,
+  type MqttTimelineLifecycle,
+  reconnectingAt,
+} from './mqtt-timeline-model';
+import { connackReasonLabel, connackReasonName, sessionEndedMessage } from './session-display';
 import type { LiveMqttSession, MqttSessionTiming } from './useLiveMqttSession';
 
 const { Text } = Typography;
@@ -59,18 +66,6 @@ interface MqttSessionPaneProps {
   subscribedTopicsCount?: number;
   /** Clicking the summary jumps to the compose Topics tab. */
   onShowTopics?: () => void;
-}
-
-/** CONNACK reason name — the version scopes which numeric space names
- *  the verbatim code. */
-function connackReasonName(reasonCode: number, v5: boolean): string | undefined {
-  return v5 ? mqttReasonCodeName(reasonCode, 'connack') : MQTT_CONNACK_RETURN_CODE_NAMES[reasonCode];
-}
-
-/** CONNACK reason display: the spec name beside the verbatim code. */
-function connackReasonLabel(reasonCode: number, v5: boolean): string {
-  const name = connackReasonName(reasonCode, v5);
-  return name !== undefined ? `${name} (${reasonCode})` : String(reasonCode);
 }
 
 const MqttSessionPane: React.FC<MqttSessionPaneProps> = ({
@@ -120,18 +115,14 @@ const MqttSessionPane: React.FC<MqttSessionPaneProps> = ({
     };
   }, [connack, v5]);
 
-  const endedMessage = useMemo(() => {
-    if (snapshot === null) return undefined;
-    if (snapshot.stopped === true) return undefined;
-    if (snapshot.end === null) return t('workbench.editors.mqtt.session.severed');
-    if (snapshot.end.by === 'client') return t('workbench.editors.mqtt.session.cleanDisconnect');
-    const reasonCode = snapshot.end.reasonCode;
-    if (reasonCode === null) return t('workbench.editors.mqtt.session.brokerDisconnectBare');
-    const name = mqttReasonCodeName(reasonCode, 'disconnect');
-    return t('workbench.editors.mqtt.session.brokerDisconnect', {
-      reason: name !== undefined ? `${name} (${reasonCode})` : String(reasonCode),
-    });
-  }, [snapshot, t]);
+  const endedMessage = useMemo(
+    () => (snapshot === null ? undefined : sessionEndedMessage(snapshot, t)),
+    [snapshot, t],
+  );
+
+  // The live phase between connections — auto-reconnect is redialing;
+  // read off the item log's last reconnect-cycle fact.
+  const reconnecting = live !== null && snapshot === null && reconnectingAt(live.items, live.count);
 
   const lifecycle = useMemo((): MqttTimelineLifecycle => {
     if (snapshot === null) {
@@ -187,9 +178,17 @@ const MqttSessionPane: React.FC<MqttSessionPaneProps> = ({
   // the error tint; the clean client Disconnect reads success-green;
   // a broker DISCONNECT renders on the warning tint with its verbatim
   // reason; a severed connection is named as the absence it is;
-  // Stopped is its own state.
+  // Stopped is its own state; a reconnect the broker refused ended
+  // the auto-reconnect loop — its own error-tint state.
   const endTag = (() => {
     if (snapshot === null) return null;
+    if (snapshot.reconnectRefused !== undefined) {
+      return (
+        <Tag color="error" style={{ marginInlineEnd: 0 }} data-testid="mqtt-session-end-tag">
+          {t('workbench.editors.mqtt.session.reconnectRefusedTag')}
+        </Tag>
+      );
+    }
     // A user abort pills neutrally — Connect failed is for failures.
     if (snapshot.outcome.kind === 'aborted') {
       return (
@@ -238,8 +237,31 @@ const MqttSessionPane: React.FC<MqttSessionPaneProps> = ({
   // instant stay absent, never fabricated.
   const detailRows = useMemo((): ConnectionDetailsRow[] => {
     const rows: ConnectionDetailsRow[] = [];
+    // The reconnect-cycle facts ride the item log with their stamps —
+    // newest first, between the end and the first Connected.
+    const reconnectRows = (
+      items: readonly MqttTimelineItem[],
+      count: number,
+      stamps: readonly number[] | undefined,
+    ): ConnectionDetailsRow[] => {
+      const out: ConnectionDetailsRow[] = [];
+      for (let i = count - 1; i >= 0; i--) {
+        const item = items[i];
+        const atMs = stamps?.[i];
+        if (!isReconnectItem(item) || atMs === undefined) continue;
+        const label =
+          item.kind === 'lost'
+            ? t('workbench.editors.mqtt.timeline.lost')
+            : item.kind === 'reconnecting'
+              ? t('workbench.editors.mqtt.timeline.reconnecting', { attempt: item.attempt })
+              : t('workbench.editors.mqtt.timeline.reconnected');
+        out.push({ label, atMs });
+      }
+      return out;
+    };
     if (snapshot === null) {
       if (live === null) return rows;
+      rows.push(...reconnectRows(live.items, live.count, live.timestamps));
       if (live.open !== null && live.connectedAt !== undefined) {
         rows.push({ label: t('workbench.editors.mqtt.timeline.connected'), atMs: live.connectedAt });
       }
@@ -261,15 +283,18 @@ const MqttSessionPane: React.FC<MqttSessionPaneProps> = ({
     } else {
       if (teardownAt !== undefined) {
         const label =
-          snapshot.stopped === true
-            ? t('workbench.editors.mqtt.session.stoppedTag')
-            : snapshot.end === null
-              ? t('workbench.editors.mqtt.session.severedTag')
-              : snapshot.end.by === 'client'
-                ? t('workbench.editors.mqtt.session.disconnectedTag')
-                : t('workbench.editors.mqtt.session.brokerDisconnectedTag');
+          snapshot.reconnectRefused !== undefined
+            ? t('workbench.editors.mqtt.session.reconnectRefusedTag')
+            : snapshot.stopped === true
+              ? t('workbench.editors.mqtt.session.stoppedTag')
+              : snapshot.end === null
+                ? t('workbench.editors.mqtt.session.severedTag')
+                : snapshot.end.by === 'client'
+                  ? t('workbench.editors.mqtt.session.disconnectedTag')
+                  : t('workbench.editors.mqtt.session.brokerDisconnectedTag');
         rows.push({ label, atMs: teardownAt });
       }
+      rows.push(...reconnectRows(snapshot.events, snapshot.events.length, timing.itemTimestamps));
       if (timing.connectedAt !== undefined) {
         rows.push({ label: t('workbench.editors.mqtt.timeline.connected'), atMs: timing.connectedAt });
       }
@@ -321,13 +346,15 @@ const MqttSessionPane: React.FC<MqttSessionPaneProps> = ({
           {subsSummary}
           <ConnectionDetailsTooltip rows={detailRows}>
             <Tag
-              color={live?.open !== null ? 'processing' : 'default'}
+              color={reconnecting ? 'warning' : live?.open !== null ? 'processing' : 'default'}
               style={{ marginInlineEnd: 0 }}
               data-testid="mqtt-session-live-badge"
             >
-              {live?.open !== null
-                ? t('workbench.editors.mqtt.session.connectedBadge')
-                : t('workbench.editors.mqtt.session.connectingBadge')}
+              {reconnecting
+                ? t('workbench.editors.mqtt.session.reconnectingBadge')
+                : live?.open !== null
+                  ? t('workbench.editors.mqtt.session.connectedBadge')
+                  : t('workbench.editors.mqtt.session.connectingBadge')}
             </Tag>
           </ConnectionDetailsTooltip>
           {proxyRouteHasBadge(live?.open?.proxyRoute) && <ProxyRouteTag route={live?.open?.proxyRoute} />}
@@ -437,6 +464,7 @@ const MqttSessionPane: React.FC<MqttSessionPaneProps> = ({
                     count={count}
                     {...(timestamps !== undefined ? { timestamps } : {})}
                     lifecycle={lifecycle}
+                    v5={v5}
                     droppedMessages={snapshot?.droppedMessages ?? 0}
                   />
                 </div>
