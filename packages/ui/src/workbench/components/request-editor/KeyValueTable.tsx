@@ -206,7 +206,10 @@ const KeyValueTable: React.FC<KeyValueTableProps> = ({
         // handlers — TemplateInput doesn't spread unknown props, so
         // wrap in a layout-neutral span.
         return (
-          <span style={{ display: 'flex', flex: 1, minWidth: 0, alignItems: 'center', gap: 4 }}>
+          <span
+            data-testid="oh-kv-row-warning"
+            style={{ display: 'flex', flex: 1, minWidth: 0, alignItems: 'center', gap: 4 }}
+          >
             <Tooltip title={warning.message}>
               <span style={{ display: 'flex', flex: 1, minWidth: 0 }}>{cell}</span>
             </Tooltip>

@@ -4,10 +4,15 @@
  * same "N hidden" toggle the HTTP editor uses, and reveals them as
  * read-only rows in wire order — Host, Connection, Upgrade, the
  * Sec-WebSocket-* trio — with the calculated placeholder where the
- * value only exists at connect time.
+ * value only exists at connect time. The set follows the dialing host:
+ * the node `ws` six on the desktop app and server, Chromium's longer
+ * list on a browser host — where custom rows also carry a not-sent
+ * warning since the page's WebSocket API refuses handshake headers.
  */
 
+import { registerCapability, unregisterCapability } from '@openheaders/core/capabilities';
 import type { KeyValueRow } from '@openheaders/ui/workbench/components/request-editor/KeyValueTable';
+import { makeKvRow } from '@openheaders/ui/workbench/components/request-editor/KeyValueTable';
 import WsHeadersTab from '@openheaders/ui/workbench/components/websocket-request-editor/WsHeadersTab';
 import '@openheaders/ui/workbench/settings/schema';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
@@ -27,10 +32,12 @@ beforeAll(() => {
 
 afterEach(() => {
   cleanup();
+  unregisterCapability('requestRuntime');
 });
 
 describe('WsHeadersTab — auto-generated handshake headers', () => {
   it('counts the six handshake headers as hidden and shows none of them by default', () => {
+    registerCapability('requestRuntime', () => 'node');
     const { container } = render(<WsHeadersTab rows={[] as KeyValueRow[]} onChange={vi.fn()} />);
     const text = container.textContent ?? '';
     expect(text).toContain('6 hidden');
@@ -39,6 +46,7 @@ describe('WsHeadersTab — auto-generated handshake headers', () => {
   });
 
   it('reveals the handshake rows in wire order with the calculated placeholder on connect-time values', () => {
+    registerCapability('requestRuntime', () => 'node');
     const { container } = render(<WsHeadersTab rows={[] as KeyValueRow[]} onChange={vi.fn()} />);
     fireEvent.click(screen.getByText('6 hidden'));
     const text = container.textContent ?? '';
@@ -57,5 +65,27 @@ describe('WsHeadersTab — auto-generated handshake headers', () => {
     expect(text).toContain('13');
     expect(text).toContain('permessage-deflate; client_max_window_bits');
     expect(text).toContain('<calculated when request is sent>');
+  });
+
+  it('on a node host a custom row carries no warning', () => {
+    registerCapability('requestRuntime', () => 'node');
+    render(<WsHeadersTab rows={[makeKvRow({ key: 'X-Token', value: 'abc', enabled: true })]} onChange={vi.fn()} />);
+    expect(screen.queryByTestId('oh-kv-row-warning')).toBeNull();
+  });
+
+  it("on a browser host the hidden set is the browser's twelve and a custom row is marked not sent", async () => {
+    registerCapability('requestRuntime', () => 'browser');
+    const { container } = render(
+      <WsHeadersTab rows={[makeKvRow({ key: 'X-Token', value: 'abc', enabled: true })]} onChange={vi.fn()} />,
+    );
+    expect(container.textContent ?? '').toContain('12 hidden');
+    const [hoverTarget] = screen.getByTestId('oh-kv-row-warning').children;
+    fireEvent.mouseEnter(hoverTarget);
+    expect(await screen.findByText(/^Not sent/)).toBeTruthy();
+    fireEvent.click(screen.getByText('12 hidden'));
+    const text = container.textContent ?? '';
+    expect(text).toContain('Origin');
+    expect(text).toContain('User-Agent');
+    expect(text).toContain('Accept-Language');
   });
 });

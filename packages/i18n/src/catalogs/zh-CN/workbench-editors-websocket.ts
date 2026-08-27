@@ -73,6 +73,14 @@ export const workbenchEditorsWebsocket = {
     '每次连接生成的随机 nonce；服务器通过在 Sec-WebSocket-Accept 中回传其哈希来证明已读取握手。',
   'workbench.editors.websocket.headers.hint.version': 'WebSocket 协议版本（RFC 6455）；13 是唯一在用的版本。',
   'workbench.editors.websocket.headers.hint.extensions': '提议按消息压缩；服务器可在握手响应中接受、缩减或忽略该提议。',
+  'workbench.editors.websocket.headers.hint.origin':
+    '浏览器在每次 WebSocket 握手上附加的页面来源；服务器据此拒绝跨站连接。',
+  'workbench.editors.websocket.headers.hint.userAgent': '浏览器在握手中标识自身；页面代码无法更改。',
+  'workbench.editors.websocket.headers.hint.cacheControl': '浏览器将升级请求标记为不可缓存。',
+  'workbench.editors.websocket.headers.hint.acceptEncoding': '浏览器在握手响应中接受的内容编码。',
+  'workbench.editors.websocket.headers.hint.acceptLanguage': '浏览器的首选语言，取自其设置。',
+  'workbench.editors.websocket.headers.browserNotSent':
+    '未发送——浏览器自行设置握手标头。自定义标头在会话运行于桌面应用或服务器时生效。',
   'workbench.editors.websocket.params.keyPlaceholder': '参数名称',
   'workbench.editors.websocket.params.valuePlaceholder': '值',
   'workbench.editors.websocket.spec.selectLabel': 'AsyncAPI 规范',

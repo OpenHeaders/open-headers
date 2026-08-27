@@ -79,6 +79,18 @@ export const workbenchEditorsWebsocket = {
     'La versión del protocolo WebSocket (RFC 6455); 13 es la única versión en uso.',
   'workbench.editors.websocket.headers.hint.extensions':
     'Ofrece compresión por mensaje; el servidor puede aceptar, acotar o ignorar la oferta en su respuesta.',
+  'workbench.editors.websocket.headers.hint.origin':
+    'El origen de la página que el navegador añade a cada saludo WebSocket; los servidores lo usan para rechazar conexiones entre sitios.',
+  'workbench.editors.websocket.headers.hint.userAgent':
+    'El navegador se identifica en el saludo; el código de la página no puede cambiarlo.',
+  'workbench.editors.websocket.headers.hint.cacheControl':
+    'El navegador marca la solicitud de upgrade como no cacheable.',
+  'workbench.editors.websocket.headers.hint.acceptEncoding':
+    'Las codificaciones de contenido que el navegador acepta en la respuesta del saludo.',
+  'workbench.editors.websocket.headers.hint.acceptLanguage':
+    'Los idiomas preferidos del navegador, tomados de su configuración.',
+  'workbench.editors.websocket.headers.browserNotSent':
+    'No se envía — el navegador fija por sí mismo las cabeceras del saludo. Las cabeceras personalizadas se aplican cuando la sesión se ejecuta en la aplicación de escritorio o el servidor.',
   'workbench.editors.websocket.params.keyPlaceholder': 'Nombre del parámetro',
   'workbench.editors.websocket.params.valuePlaceholder': 'Valor',
   'workbench.editors.websocket.spec.selectLabel': 'Especificación AsyncAPI',

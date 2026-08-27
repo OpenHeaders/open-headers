@@ -63,6 +63,17 @@ export const workbenchEditorsWebsocket = {
     'The WebSocket protocol version (RFC 6455); 13 is the only version in use.',
   'workbench.editors.websocket.headers.hint.extensions':
     'Offers per-message compression; the server may accept, narrow or ignore the offer in its handshake response.',
+  'workbench.editors.websocket.headers.hint.origin':
+    'The page origin the browser stamps on every WebSocket handshake; servers use it to refuse cross-site connections.',
+  'workbench.editors.websocket.headers.hint.userAgent':
+    'The browser identifies itself on the handshake; page code cannot change it.',
+  'workbench.editors.websocket.headers.hint.cacheControl': 'The browser marks the upgrade request uncacheable.',
+  'workbench.editors.websocket.headers.hint.acceptEncoding':
+    'The content encodings the browser accepts on the handshake response.',
+  'workbench.editors.websocket.headers.hint.acceptLanguage':
+    'The browser’s preferred languages, taken from its settings.',
+  'workbench.editors.websocket.headers.browserNotSent':
+    'Not sent — the browser sets the handshake headers itself. Custom headers apply when the session runs on the desktop app or server.',
   'workbench.editors.websocket.params.keyPlaceholder': 'Parameter name',
   'workbench.editors.websocket.params.valuePlaceholder': 'Value',
   'workbench.editors.websocket.spec.selectLabel': 'AsyncAPI spec',

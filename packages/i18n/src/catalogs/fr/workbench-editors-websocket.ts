@@ -74,6 +74,18 @@ export const workbenchEditorsWebsocket = {
     'La version du protocole WebSocket (RFC 6455) ; 13 est la seule version en usage.',
   'workbench.editors.websocket.headers.hint.extensions':
     'Propose la compression par message ; le serveur peut accepter, restreindre ou ignorer l’offre dans sa réponse.',
+  'workbench.editors.websocket.headers.hint.origin':
+    'L’origine de la page que le navigateur appose sur chaque poignée de main WebSocket ; les serveurs s’en servent pour refuser les connexions inter-sites.',
+  'workbench.editors.websocket.headers.hint.userAgent':
+    'Le navigateur s’identifie sur la poignée de main ; le code de la page ne peut pas le changer.',
+  'workbench.editors.websocket.headers.hint.cacheControl':
+    'Le navigateur marque la requête d’upgrade comme non mise en cache.',
+  'workbench.editors.websocket.headers.hint.acceptEncoding':
+    'Les encodages de contenu acceptés par le navigateur sur la réponse de la poignée de main.',
+  'workbench.editors.websocket.headers.hint.acceptLanguage':
+    'Les langues préférées du navigateur, tirées de ses réglages.',
+  'workbench.editors.websocket.headers.browserNotSent':
+    'Non envoyé — le navigateur définit lui-même les en-têtes de la poignée de main. Les en-têtes personnalisés s’appliquent quand la session s’exécute sur l’application de bureau ou le serveur.',
   'workbench.editors.websocket.params.keyPlaceholder': 'Nom du paramètre',
   'workbench.editors.websocket.params.valuePlaceholder': 'Valeur',
   'workbench.editors.websocket.spec.selectLabel': 'Spécification AsyncAPI',
