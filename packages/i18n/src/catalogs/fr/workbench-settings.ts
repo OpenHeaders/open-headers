@@ -70,7 +70,11 @@ export const workbenchSettings = {
   'workbench.settings.row.presetsHeading': 'Préréglages',
 
   // ── Categories ─────────────────────────────────────────────────────
-  'workbench.settings.category.backend.label': 'Backend',
+  'workbench.settings.category.connectivity.label': 'Connectivité',
+  'workbench.settings.category.connectivity.description':
+    'Comment cet hôte atteint le reste : les back-ends auxquels il se connecte et les proxys entre les deux.',
+  'workbench.settings.category.backend.label': 'Connectivité · Backend',
+  'workbench.settings.category.backend.navLabel': 'Backend',
   'workbench.settings.category.backend.description':
     "Où vivent vos espaces de travail, règles, vault et historique. Choisissez l'hôte qui correspond à votre " +
     'portée — local uniquement dans tous les cas.',
@@ -267,7 +271,8 @@ export const workbenchSettings = {
   'workbench.settings.category.gitAutomation.description': 'Ce que le moteur valide et pousse de lui-même.',
   'workbench.settings.category.gitAutomation.sub.commits': 'Commits',
   'workbench.settings.category.gitAutomation.sub.remote': 'Distant',
-  'workbench.settings.category.proxy.label': 'Proxy',
+  'workbench.settings.category.proxy.label': 'Connectivité · Proxy',
+  'workbench.settings.category.proxy.navLabel': 'Proxy',
   'workbench.settings.category.proxy.description':
     'Le proxy sortant de cet appareil — comment les requêtes atteignent le réseau — et la mise en place ' +
     'de la confiance pour le proxy de capture.',

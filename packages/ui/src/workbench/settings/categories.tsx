@@ -55,10 +55,24 @@ const SystemProxyPane = lazy(() => import('./components/system-proxy-pane'));
 const KeymapPane = lazy(() => import('./components/keymap/KeymapPane'));
 
 registerCategory({
+  id: 'connectivity',
+  labelKey: 'workbench.settings.category.connectivity.label',
+  icon: <GlobalOutlined />,
+  order: 80,
+  descriptionKey: 'workbench.settings.category.connectivity.description',
+  // Group node over how this host reaches other things: the Backend
+  // group (every host) and the Proxy group (desktop / daemon admin,
+  // teasered elsewhere). The group itself stays ungated.
+  renderPane: GroupLandingPane,
+});
+
+registerCategory({
   id: 'backend',
   labelKey: 'workbench.settings.category.backend.label',
+  navLabelKey: 'workbench.settings.category.backend.navLabel',
+  parent: 'connectivity',
   icon: <CloudServerOutlined />,
-  order: 3,
+  order: 10,
   descriptionKey: 'workbench.settings.category.backend.description',
   // Group node over the back-end pages: Connections (every host), Desktop
   // Pairing (extension), Server (desktop) and Reliability (every host).
@@ -566,8 +580,10 @@ registerCategory({
 registerCategory({
   id: 'proxy',
   labelKey: 'workbench.settings.category.proxy.label',
+  navLabelKey: 'workbench.settings.category.proxy.navLabel',
+  parent: 'connectivity',
   icon: <GlobalOutlined />,
-  order: 87,
+  order: 20,
   descriptionKey: 'workbench.settings.category.proxy.description',
   renderPane: GroupLandingPane,
   // Group node over the two proxy planes — outbound egress and capture

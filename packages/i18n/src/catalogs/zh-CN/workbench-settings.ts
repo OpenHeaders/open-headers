@@ -65,7 +65,10 @@ export const workbenchSettings = {
   'workbench.settings.row.presetsHeading': '预设',
 
   // ── Categories ─────────────────────────────────────────────────────
-  'workbench.settings.category.backend.label': '后端',
+  'workbench.settings.category.connectivity.label': '连接',
+  'workbench.settings.category.connectivity.description': '此主机如何连接外部：它所连接的后端，以及中间的代理。',
+  'workbench.settings.category.backend.label': '连接 · 后端',
+  'workbench.settings.category.backend.navLabel': '后端',
   'workbench.settings.category.backend.description':
     '你的工作区、规则、vault 和历史所在之处。按你的覆盖面挑选主机——无论哪种都仅限本地。',
   'workbench.settings.category.backendConnections.label': '后端 · 连接',
@@ -244,7 +247,8 @@ export const workbenchSettings = {
   'workbench.settings.category.gitAutomation.description': '引擎自行提交和推送的内容。',
   'workbench.settings.category.gitAutomation.sub.commits': '提交',
   'workbench.settings.category.gitAutomation.sub.remote': '远程',
-  'workbench.settings.category.proxy.label': '代理',
+  'workbench.settings.category.proxy.label': '连接 · 代理',
+  'workbench.settings.category.proxy.navLabel': '代理',
   'workbench.settings.category.proxy.description': '此设备的出站代理——请求如何抵达网络——以及捕获代理的信任设置。',
   'workbench.settings.category.proxyOutbound.label': '代理 · 出站请求',
   'workbench.settings.category.proxyOutbound.navLabel': '出站请求',

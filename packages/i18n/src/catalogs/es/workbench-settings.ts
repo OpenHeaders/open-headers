@@ -75,7 +75,11 @@ export const workbenchSettings = {
   'workbench.settings.row.presetsHeading': 'Preajustes',
 
   // ── Categories ─────────────────────────────────────────────────────
-  'workbench.settings.category.backend.label': 'Backend',
+  'workbench.settings.category.connectivity.label': 'Conectividad',
+  'workbench.settings.category.connectivity.description':
+    'Cómo este host llega a los demás: los back-ends a los que se conecta y los proxies intermedios.',
+  'workbench.settings.category.backend.label': 'Conectividad · Backend',
+  'workbench.settings.category.backend.navLabel': 'Backend',
   'workbench.settings.category.backend.description':
     'Donde viven tus espacios de trabajo, reglas, vault e historial. Elige el host que llegue tan lejos como ' +
     'necesites — solo local en cualquier caso.',
@@ -278,7 +282,8 @@ export const workbenchSettings = {
   'workbench.settings.category.gitAutomation.description': 'Lo que el motor confirma y envía por su cuenta.',
   'workbench.settings.category.gitAutomation.sub.commits': 'Commits',
   'workbench.settings.category.gitAutomation.sub.remote': 'Remoto',
-  'workbench.settings.category.proxy.label': 'Proxy',
+  'workbench.settings.category.proxy.label': 'Conectividad · Proxy',
+  'workbench.settings.category.proxy.navLabel': 'Proxy',
   'workbench.settings.category.proxy.description':
     'El proxy de salida de este dispositivo — cómo alcanzan la red las solicitudes — y la configuración ' +
     'de confianza para el proxy de captura.',

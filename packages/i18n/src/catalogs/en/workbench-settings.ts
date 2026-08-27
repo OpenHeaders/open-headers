@@ -61,7 +61,11 @@ export const workbenchSettings = {
   'workbench.settings.row.presetsHeading': 'Presets',
 
   // ── Categories ─────────────────────────────────────────────────────
-  'workbench.settings.category.backend.label': 'Backend',
+  'workbench.settings.category.connectivity.label': 'Connectivity',
+  'workbench.settings.category.connectivity.description':
+    'How this host reaches other things — the back-ends it connects to and the proxies in between.',
+  'workbench.settings.category.backend.label': 'Connectivity · Backend',
+  'workbench.settings.category.backend.navLabel': 'Backend',
   'workbench.settings.category.backend.description':
     'Where your workspaces, rules, vault, and history live. Pick the host that matches your reach — local-only either way.',
   'workbench.settings.category.backendConnections.label': 'Backend · Connections',
@@ -248,7 +252,8 @@ export const workbenchSettings = {
   'workbench.settings.category.gitAutomation.description': 'What the engine commits and pushes on its own.',
   'workbench.settings.category.gitAutomation.sub.commits': 'Commits',
   'workbench.settings.category.gitAutomation.sub.remote': 'Remote',
-  'workbench.settings.category.proxy.label': 'Proxy',
+  'workbench.settings.category.proxy.label': 'Connectivity · Proxy',
+  'workbench.settings.category.proxy.navLabel': 'Proxy',
   'workbench.settings.category.proxy.description':
     'This device’s outbound proxy — how requests reach the network — and trust setup for the capture proxy.',
   'workbench.settings.category.proxyOutbound.label': 'Proxy · Outbound Requests',

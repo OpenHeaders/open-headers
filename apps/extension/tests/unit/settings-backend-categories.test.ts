@@ -23,7 +23,7 @@ function expectDefsTagDeclaredSubcategories(categoryId: string): void {
 describe('backend settings group', () => {
   it('backend is a group node with no defs of its own; connections is its first child', () => {
     const backend = getCategory('backend');
-    expect(backend?.parent).toBeUndefined();
+    expect(backend?.parent).toBe('connectivity');
     expect(backend?.renderPane).toBeDefined();
     expect(backend?.subcategories).toBeUndefined();
     expect(byCategory('backend')).toHaveLength(0);
