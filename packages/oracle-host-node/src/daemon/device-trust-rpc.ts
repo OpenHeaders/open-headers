@@ -1,7 +1,8 @@
 /**
  * Device-trust bridge routes — the node host's answers for
  * `oh.deviceTrust.*` (the Trusted Roots plan, device scope): the
- * pinned list, pin / unpin, and the presented-chain probe behind the
+ * pinned list with the system-store posture, pin / unpin, the
+ * system-store switch, and the presented-chain probe behind the
  * response surface's trust-on-failure gesture.
  *
  * Mutations go through the oracle store (persist-first, then the
@@ -11,27 +12,46 @@
  * the `ca` option.
  */
 
-import type { BridgeRpcResponse } from '@openheaders/core/bridge';
+import type { BridgeRpcResponse, SystemTrustWire } from '@openheaders/core/bridge';
 import { hostBridge } from '@openheaders/core/bridge';
 import { summarizeCertificatePem } from '@openheaders/core/utils';
 import {
   addDeviceTrustedCertificate,
+  isSystemTrustEnabled,
   listDeviceTrustedCertificates,
   removeDeviceTrustedCertificate,
+  setSystemTrustEnabled,
 } from '@openheaders/oracle/entity/device-trust-store';
 import { probeServerCertificate } from '../live/probe-server-certificate';
+import { getSystemCaCertificates, isSystemTrustSupported, refreshSystemCaCertificates } from '../live/system-trust';
 
 const DEVICE_TRUST_TYPES = new Set([
   'oh.deviceTrust.list',
   'oh.deviceTrust.add',
   'oh.deviceTrust.remove',
   'oh.deviceTrust.probe',
+  'oh.deviceTrust.setSystemTrust',
 ]);
 
-export function isDeviceTrustRpc(
-  type: unknown,
-): type is 'oh.deviceTrust.list' | 'oh.deviceTrust.add' | 'oh.deviceTrust.remove' | 'oh.deviceTrust.probe' {
+export type DeviceTrustRpcType =
+  | 'oh.deviceTrust.list'
+  | 'oh.deviceTrust.add'
+  | 'oh.deviceTrust.remove'
+  | 'oh.deviceTrust.probe'
+  | 'oh.deviceTrust.setSystemTrust';
+
+export function isDeviceTrustRpc(type: unknown): type is DeviceTrustRpcType {
   return typeof type === 'string' && DEVICE_TRUST_TYPES.has(type);
+}
+
+/** The system store as the runtime sees it now — the count is read only when the device opted in. */
+function systemTrustWire(): SystemTrustWire {
+  const enabled = isSystemTrustEnabled();
+  return {
+    supported: isSystemTrustSupported(),
+    enabled,
+    count: enabled ? getSystemCaCertificates().length : 0,
+  };
 }
 
 function broadcastChanged(): void {
@@ -39,7 +59,21 @@ function broadcastChanged(): void {
 }
 
 export async function handleDeviceTrustList(): Promise<BridgeRpcResponse<'oh.deviceTrust.list'>> {
-  return { certificates: listDeviceTrustedCertificates() };
+  return { certificates: listDeviceTrustedCertificates(), systemTrust: systemTrustWire() };
+}
+
+export async function handleDeviceTrustSetSystemTrust(
+  message: Record<string, unknown>,
+): Promise<BridgeRpcResponse<'oh.deviceTrust.setSystemTrust'>> {
+  const enabled = message.enabled === true;
+  if (enabled && !isSystemTrustSupported()) {
+    return { ok: false, error: 'This runtime cannot read the system trust store (Node 22.15 or later is required).' };
+  }
+  // Opting in re-reads the store so a root installed since boot counts.
+  if (enabled) refreshSystemCaCertificates();
+  await setSystemTrustEnabled(enabled);
+  broadcastChanged();
+  return { ok: true, systemTrust: systemTrustWire() };
 }
 
 export async function handleDeviceTrustAdd(
@@ -102,6 +136,8 @@ export async function handleDeviceTrustRpc(type: string, message: Record<string,
       return handleDeviceTrustRemove(message);
     case 'oh.deviceTrust.probe':
       return handleDeviceTrustProbe(message);
+    case 'oh.deviceTrust.setSystemTrust':
+      return handleDeviceTrustSetSystemTrust(message);
     default:
       return undefined;
   }

@@ -33,6 +33,11 @@ describe('configFileUpdateFromFlags', () => {
   it('negations write an explicit false, and conflicting halves refuse', () => {
     expect(configFileUpdateFromFlags({ 'no-trusted-proxy': true })).toEqual({ trustedProxy: false });
     expect(configFileUpdateFromFlags({ 'no-allow-insecure-lan': true })).toEqual({ allowInsecureLan: false });
+    expect(configFileUpdateFromFlags({ 'use-system-ca': true })).toEqual({ useSystemCa: true });
+    expect(configFileUpdateFromFlags({ 'no-use-system-ca': true })).toEqual({ useSystemCa: false });
+    expect(() => configFileUpdateFromFlags({ 'use-system-ca': true, 'no-use-system-ca': true })).toThrow(
+      /mutually exclusive/,
+    );
     expect(() => configFileUpdateFromFlags({ 'trusted-proxy': true, 'no-trusted-proxy': true })).toThrow(
       /mutually exclusive/,
     );

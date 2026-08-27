@@ -12,9 +12,11 @@ import {
   addDeviceTrustedCertificate,
   getDeviceTrustPems,
   isDeviceTrustLoaded,
+  isSystemTrustEnabled,
   listDeviceTrustedCertificates,
   loadDeviceTrust,
   removeDeviceTrustedCertificate,
+  setSystemTrustEnabled,
 } from '../../src/entity/device-trust-store';
 
 const PIN = '-----BEGIN CERTIFICATE-----\nPIN\n-----END CERTIFICATE-----';
@@ -112,5 +114,22 @@ describe('device-trust-store', () => {
     expect(await removeDeviceTrustedCertificate(added.certificate.uid)).toBe(true);
     expect(getDeviceTrustPems()).toEqual([]);
     expect((storage.store.get(OH.deviceTrust.key) as { certificates: unknown[] }).certificates).toEqual([]);
+  });
+
+  it('the system-store opt-in defaults off, persists with the pins, and survives a pin mutation', async () => {
+    storage.store.set(OH.deviceTrust.key, { certificates: [] });
+    await loadDeviceTrust();
+    expect(isSystemTrustEnabled()).toBe(false);
+    await setSystemTrustEnabled(true);
+    expect(isSystemTrustEnabled()).toBe(true);
+    expect((storage.store.get(OH.deviceTrust.key) as { useSystemCa: boolean }).useSystemCa).toBe(true);
+    const added = await addDeviceTrustedCertificate({ certPem: PIN, name: 'a' });
+    if (!added.ok) throw new Error('add failed');
+    expect(isSystemTrustEnabled()).toBe(true);
+    await removeDeviceTrustedCertificate(added.certificate.uid);
+    const persisted = storage.store.get(OH.deviceTrust.key) as { certificates: unknown[]; useSystemCa: boolean };
+    expect(persisted).toEqual({ certificates: [], useSystemCa: true });
+    await setSystemTrustEnabled(false);
+    expect(isSystemTrustEnabled()).toBe(false);
   });
 });

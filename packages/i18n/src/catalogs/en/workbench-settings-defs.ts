@@ -442,6 +442,9 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.requests.deviceTrust.label': 'Device Certificates',
   'workbench.settings.def.requests.deviceTrust.description':
     'Certificates this machine pins beside the workspace list — a self-signed localhost, a staging box. Never synced or exported; applied to every TLS connection the app’s runtime dials from this device.',
+  'workbench.settings.def.requests.systemTrust.label': 'System Trust Store',
+  'workbench.settings.def.requests.systemTrust.description':
+    'Also trust the certificates this machine’s operating system store holds — the root an IT profile installed for a corporate proxy. Added beside the built-in roots, the workspace list and the device pins; never synced or exported.',
   'workbench.settings.def.requests.responseBodyCapMB.label': 'Response Body Limit (MB)',
   'workbench.settings.def.requests.responseBodyCapMB.description':
     'How much of a response body the executor keeps for display. Larger bodies are truncated at this limit — the full size is still measured and reported. Raising the limit increases memory use per open request tab.',

@@ -23,6 +23,7 @@ export const CONFIG_OPTIONS = {
   'proxy-url': { type: 'string' },
   'proxy-credential-ref': { type: 'string' },
   'proxy-bypass': { type: 'string' },
+  'use-system-ca': { type: 'boolean' },
 } as const;
 
 /**
@@ -34,6 +35,7 @@ export const INSTALL_OPTIONS = {
   ...CONFIG_OPTIONS,
   'no-trusted-proxy': { type: 'boolean' },
   'no-allow-insecure-lan': { type: 'boolean' },
+  'no-use-system-ca': { type: 'boolean' },
 } as const;
 
 export interface ConfigFlagValues {
@@ -50,11 +52,13 @@ export interface ConfigFlagValues {
   'proxy-url'?: string;
   'proxy-credential-ref'?: string;
   'proxy-bypass'?: string;
+  'use-system-ca'?: boolean;
 }
 
 export interface InstallFlagValues extends ConfigFlagValues {
   'no-trusted-proxy'?: boolean;
   'no-allow-insecure-lan'?: boolean;
+  'no-use-system-ca'?: boolean;
 }
 
 export function resolveConfigFlags(values: ConfigFlagValues): DaemonConfig {
@@ -79,6 +83,7 @@ export function resolveConfigFlags(values: ConfigFlagValues): DaemonConfig {
   if (values['trusted-proxy']) configArgv.push('--trusted-proxy');
   for (const host of values['allowed-host'] ?? []) configArgv.push('--allowed-host', host);
   if (values['allow-insecure-lan']) configArgv.push('--allow-insecure-lan');
+  if (values['use-system-ca']) configArgv.push('--use-system-ca');
   return resolveDaemonConfig({ argv: configArgv, env: process.env });
 }
 
@@ -111,6 +116,8 @@ export function configFileUpdateFromFlags(values: InstallFlagValues): ConfigFile
   );
   if (allowInsecureLan !== undefined) update.allowInsecureLan = allowInsecureLan;
   if (values['web-root'] !== undefined) update.webRoot = values['web-root'];
+  const useSystemCa = resolveBooleanPair(values['use-system-ca'], values['no-use-system-ca'], 'use-system-ca');
+  if (useSystemCa !== undefined) update.useSystemCa = useSystemCa;
   if (
     values['proxy-mode'] !== undefined ||
     values['proxy-url'] !== undefined ||

@@ -64,4 +64,10 @@ export const workbenchTrustedRoots = {
     'Las fijaciones suelen añadirse desde un envío fallido — confiar en el certificado que presentó el servidor, solo en esta máquina. Pega uno aquí para fijarlo a mano.',
   'workbench.trustedRoots.settings.browserNote':
     'El navegador verifica con su propio almacén de confianza; los certificados añadidos a este espacio de trabajo solo se aplican cuando envía el runtime de la app.',
+  'workbench.trustedRoots.systemTrust.count':
+    '{count} certificados del almacén de confianza de esta máquina se aplican a cada conexión TLS que establece el runtime de la aplicación',
+  'workbench.trustedRoots.systemTrust.off': 'Solo se confía en las raíces integradas y en los certificados anteriores',
+  'workbench.trustedRoots.systemTrust.unsupported':
+    'Este runtime no puede leer el almacén de confianza del sistema — se requiere Node 22.15 o posterior',
+  'workbench.trustedRoots.systemTrust.browser': 'El navegador verifica con su propio almacén de confianza',
 } as const satisfies Catalog;

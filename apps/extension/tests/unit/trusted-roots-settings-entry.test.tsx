@@ -18,6 +18,7 @@ import type { DeviceTrustedCertificate, TrustedRoot } from '@openheaders/core/ty
 import { useVariableSingletonNodes } from '@openheaders/ui/workbench/components/sidebar/useVariableSingletonNodes';
 import { EditingScopeWorkspaceProvider } from '@openheaders/ui/workbench/hooks/EditingScopeWorkspaceContext';
 import DeviceTrustRow from '@openheaders/ui/workbench/settings/components/device-trust-row';
+import SystemTrustRow from '@openheaders/ui/workbench/settings/components/system-trust-row';
 import TrustedRootsRow from '@openheaders/ui/workbench/settings/components/trusted-roots-row';
 import { byCategory, getCategory, getDef } from '@openheaders/ui/workbench/settings/registry';
 import type { DictStorage, SettingScope } from '@openheaders/ui/workbench/settings/storage/adapter';
@@ -37,9 +38,14 @@ const { mockUseTrustedRoots, mockAddRoot, mockRemoveRoot, mockReplaceRoots, mock
   mockRemoveRoot: vi.fn(),
   mockReplaceRoots: vi.fn(),
   mockDevice: {
-    useDeviceTrust: vi.fn(() => ({ certificates: [] as DeviceTrustedCertificate[], ready: true })),
+    useDeviceTrust: vi.fn(() => ({
+      certificates: [] as DeviceTrustedCertificate[],
+      systemTrust: { supported: true, enabled: false, count: 0 },
+      ready: true,
+    })),
     add: vi.fn(),
     remove: vi.fn(),
+    setSystemTrust: vi.fn(),
   },
 }));
 
@@ -56,6 +62,7 @@ vi.mock('@openheaders/ui/shared/device-trust', async (importOriginal) => ({
   useDeviceTrust: () => mockDevice.useDeviceTrust(),
   addDeviceTrustedCertificate: (input: unknown) => mockDevice.add(input),
   removeDeviceTrustedCertificate: (uid: string) => mockDevice.remove(uid),
+  setSystemTrustEnabled: (enabled: boolean) => mockDevice.setSystemTrust(enabled),
 }));
 
 class NoopDictStorage implements DictStorage {
@@ -98,10 +105,12 @@ function makeRoot(uid: string): TrustedRoot {
 
 let liveRoots: TrustedRoot[] = [];
 let livePins: DeviceTrustedCertificate[] = [];
+let liveSystemTrust = { supported: true, enabled: false, count: 0 };
 
 beforeEach(async () => {
   liveRoots = [];
   livePins = [];
+  liveSystemTrust = { supported: true, enabled: false, count: 0 };
   mockUseTrustedRoots.mockReset();
   mockUseTrustedRoots.mockImplementation(() => liveRoots);
   mockAddRoot.mockReset();
@@ -110,7 +119,13 @@ beforeEach(async () => {
   mockRemoveRoot.mockResolvedValue({ ok: true });
   mockReplaceRoots.mockReset();
   mockReplaceRoots.mockResolvedValue({ ok: true });
-  mockDevice.useDeviceTrust.mockImplementation(() => ({ certificates: livePins, ready: true }));
+  mockDevice.useDeviceTrust.mockImplementation(() => ({
+    certificates: livePins,
+    systemTrust: liveSystemTrust,
+    ready: true,
+  }));
+  mockDevice.setSystemTrust.mockReset();
+  mockDevice.setSystemTrust.mockResolvedValue({ ok: true });
   mockDevice.add.mockReset();
   mockDevice.add.mockResolvedValue({ ok: true, certificate: { uid: 'pin00001', name: 'localhost', certPem: caPem } });
   mockDevice.remove.mockReset();
@@ -126,7 +141,7 @@ afterEach(() => {
   __resetStoreForTests();
 });
 
-function requireDef(key: 'requests.trustedRoots' | 'requests.deviceTrust') {
+function requireDef(key: 'requests.trustedRoots' | 'requests.deviceTrust' | 'requests.systemTrust') {
   const def = getDef(key);
   if (!def) throw new Error(`${key} not registered`);
   return def;
@@ -158,6 +173,10 @@ describe('requests › tls — registry', () => {
     expect(device.type).toBe('info');
     expect(device.subcategory).toBe('tls');
     expect(device.customEditor).toBe(DeviceTrustRow);
+    const system = requireDef('requests.systemTrust');
+    expect(system.type).toBe('info');
+    expect(system.subcategory).toBe('tls');
+    expect(system.customEditor).toBe(SystemTrustRow);
     const subcategories = getCategory('requests')?.subcategories ?? [];
     expect(subcategories[0]?.id).toBe('tls');
     const declared = new Set(subcategories.map((s) => s.id));
@@ -226,6 +245,42 @@ describe('device certificates block', () => {
     await pasteAndAdd('device-trust-add', caPem);
     await waitFor(() => expect(mockDevice.add).toHaveBeenCalledTimes(1));
     expect(mockDevice.add.mock.calls[0]?.[0]).toEqual({ name: 'OpenHeaders Test Root', certPem: caPem });
+  });
+});
+
+describe('system trust store row', () => {
+  it('flips the opt-in through the device-trust client and names the store’s count once on', async () => {
+    registerCapability('requestRuntime', () => 'node');
+    renderBlock(<SystemTrustRow def={requireDef('requests.systemTrust')} />);
+    expect(screen.getByText('System Trust Store:')).toBeTruthy();
+    expect(screen.getByTestId('system-trust-caption').textContent).toBe(
+      'Only the built-in roots and the certificates above are trusted',
+    );
+    const toggle = screen.getByTestId('system-trust-switch');
+    expect(toggle.getAttribute('aria-checked')).toBe('false');
+    fireEvent.click(toggle);
+    await waitFor(() => expect(mockDevice.setSystemTrust).toHaveBeenCalledWith(true));
+    cleanup();
+    liveSystemTrust = { supported: true, enabled: true, count: 7 };
+    renderBlock(<SystemTrustRow def={requireDef('requests.systemTrust')} />);
+    expect(screen.getByTestId('system-trust-switch').getAttribute('aria-checked')).toBe('true');
+    expect(screen.getByTestId('system-trust-caption').textContent).toMatch(/^7 certificates from this machine/);
+  });
+
+  it('is disabled with the honest caption on a runtime that cannot read the store, and on a browser host', () => {
+    registerCapability('requestRuntime', () => 'node');
+    liveSystemTrust = { supported: false, enabled: false, count: 0 };
+    renderBlock(<SystemTrustRow def={requireDef('requests.systemTrust')} />);
+    expect(screen.getByTestId('system-trust-switch').hasAttribute('disabled')).toBe(true);
+    expect(screen.getByTestId('system-trust-caption').textContent).toMatch(/Node 22\.15/);
+    cleanup();
+    unregisterCapability('requestRuntime');
+    registerCapability('requestRuntime', () => 'browser');
+    renderBlock(<SystemTrustRow def={requireDef('requests.systemTrust')} />);
+    expect(screen.getByTestId('system-trust-switch').hasAttribute('disabled')).toBe(true);
+    expect(screen.getByTestId('system-trust-caption').textContent).toBe(
+      'The browser verifies with its own trust store',
+    );
   });
 });
 

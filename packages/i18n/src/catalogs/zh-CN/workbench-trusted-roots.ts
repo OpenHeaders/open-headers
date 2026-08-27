@@ -62,4 +62,10 @@ export const workbenchTrustedRoots = {
   'workbench.trustedRoots.device.emptyHint': '固定通常来自一次失败的发送——仅在本机信任服务器出示的证书。也可以在此粘贴一个手动固定。',
   'workbench.trustedRoots.settings.browserNote':
     '浏览器使用自己的信任库进行验证；添加到此工作区的证书仅在应用运行时发送时生效。',
+  'workbench.trustedRoots.systemTrust.count':
+    '本机信任库中的 {count} 个证书将应用于应用运行时建立的每个 TLS 连接',
+  'workbench.trustedRoots.systemTrust.off': '仅信任内置根证书和上方列出的证书',
+  'workbench.trustedRoots.systemTrust.unsupported':
+    '此运行时无法读取系统信任库——需要 Node 22.15 或更高版本',
+  'workbench.trustedRoots.systemTrust.browser': '浏览器使用其自身的信任库进行验证',
 } as const satisfies Catalog;

@@ -24,11 +24,31 @@ export interface PresentedCertificateWire {
   selfSigned: boolean;
 }
 
+/**
+ * The operating system's trust store as this host's runtime sees it:
+ * whether the runtime can read it at all (Node ≥ 22.15), whether the
+ * device opted in, and how many certificates it holds right now.
+ */
+export interface SystemTrustWire {
+  supported: boolean;
+  enabled: boolean;
+  count: number;
+}
+
 export interface DeviceTrustRpc {
-  /** Every certificate this device pins, in trust order. */
+  /** Every certificate this device pins, in trust order, plus the system-store posture. */
   'oh.deviceTrust.list': {
     req: Record<string, never>;
-    res: { certificates: DeviceTrustedCertificate[] };
+    res: { certificates: DeviceTrustedCertificate[]; systemTrust: SystemTrustWire };
+  };
+  /**
+   * Flip the system trust store on or off for this device. Applied
+   * to the next dial — no restart; refused on a runtime that cannot
+   * read the store.
+   */
+  'oh.deviceTrust.setSystemTrust': {
+    req: { enabled: boolean };
+    res: { ok: true; systemTrust: SystemTrustWire } | { ok: false; error: string };
   };
   /**
    * Pin one certificate (or chain, one row) on this device. Validated

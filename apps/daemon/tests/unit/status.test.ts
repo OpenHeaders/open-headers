@@ -26,6 +26,7 @@ function makeSnapshot(overrides: Partial<RuntimeConfigSnapshot> = {}): RuntimeCo
     allowedHosts: [],
     allowInsecureLan: false,
     webRoot: null,
+    useSystemCa: null,
     ...overrides,
   };
 }
@@ -211,6 +212,7 @@ describe('formatStatus', () => {
         trustedProxy: true,
         allowedHosts: ['oh.openheaders.io'],
         webRoot: '/srv/web',
+        useSystemCa: true,
       }),
     });
 
@@ -219,5 +221,6 @@ describe('formatStatus', () => {
     expect(text).toContain('trusted proxy off → on');
     expect(text).toContain('allowed hosts none → oh.openheaders.io');
     expect(text).toContain('web root none → /srv/web');
+    expect(text).toContain('system trust store device → on');
   });
 });

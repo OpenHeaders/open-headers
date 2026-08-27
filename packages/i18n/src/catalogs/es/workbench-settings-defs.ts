@@ -566,6 +566,9 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.requests.deviceTrust.label': 'Certificados del dispositivo',
   'workbench.settings.def.requests.deviceTrust.description':
     'Certificados que esta máquina fija además de la lista del espacio de trabajo — un localhost autofirmado, un servidor de staging. Nunca se sincronizan ni exportan; se aplican a cada conexión TLS establecida desde este dispositivo.',
+  'workbench.settings.def.requests.systemTrust.label': 'Almacén de confianza del sistema',
+  'workbench.settings.def.requests.systemTrust.description':
+    'Confiar también en los certificados del almacén del sistema operativo de esta máquina — la raíz que un perfil de TI instaló para un proxy corporativo. Se añaden junto a las raíces integradas, la lista del espacio de trabajo y los certificados fijados del dispositivo; nunca se sincronizan ni exportan.',
   'workbench.settings.def.requests.responseBodyCapMB.label': 'Límite del cuerpo de respuesta (MB)',
   'workbench.settings.def.requests.responseBodyCapMB.description':
     'Cuánto de un cuerpo de respuesta conserva el ejecutor para mostrarlo. Los cuerpos más grandes se ' +

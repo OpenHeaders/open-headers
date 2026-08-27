@@ -28,4 +28,11 @@ export const DeviceTrustedCertificateSchema = v.object({
 
 export const DeviceTrustSchema = v.object({
   certificates: v.array(DeviceTrustedCertificateSchema),
+  /**
+   * Also trust the operating system's certificate store on this
+   * machine (the corporate root an IT profile installed) — read from
+   * the runtime at dial time, never copied into the record. Opt-in,
+   * device posture like the pins above.
+   */
+  useSystemCa: v.optional(v.boolean(), false),
 });

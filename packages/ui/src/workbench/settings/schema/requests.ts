@@ -6,6 +6,7 @@
 import * as v from 'valibot';
 import { getCurrentHost } from '../../../shared/host-vocabulary';
 import DeviceTrustRow from '../components/device-trust-row';
+import SystemTrustRow from '../components/system-trust-row';
 import TrustedRootsRow from '../components/trusted-roots-row';
 import { registerSetting } from '../registry';
 
@@ -28,6 +29,7 @@ declare module '@openheaders/ui/workbench/settings/types' {
     'requests.mqttMessagesNewestFirst': boolean;
     'requests.trustedRoots': string;
     'requests.deviceTrust': string;
+    'requests.systemTrust': string;
   }
 }
 
@@ -300,4 +302,18 @@ registerSetting({
   tags: ['tls', 'ssl', 'certificate', 'self-signed', 'localhost', 'pin', 'trust', 'device'],
   scope: 'user',
   customEditor: DeviceTrustRow,
+});
+
+registerSetting({
+  key: 'requests.systemTrust',
+  subcategory: 'tls',
+  type: 'info',
+  default: '',
+  schema: v.string(),
+  labelKey: 'workbench.settings.def.requests.systemTrust.label',
+  descriptionKey: 'workbench.settings.def.requests.systemTrust.description',
+  category: 'requests',
+  tags: ['tls', 'ssl', 'certificate', 'trust', 'system', 'keychain', 'corporate', 'device'],
+  scope: 'user',
+  customEditor: SystemTrustRow,
 });

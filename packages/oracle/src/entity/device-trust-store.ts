@@ -41,6 +41,16 @@ export function getDeviceTrustPems(): string[] {
   return snapshot.certificates.map((certificate) => certificate.certPem);
 }
 
+/** Whether this device opted into the operating system's trust store. */
+export function isSystemTrustEnabled(): boolean {
+  return snapshot.useSystemCa;
+}
+
+export async function setSystemTrustEnabled(enabled: boolean): Promise<void> {
+  if (snapshot.useSystemCa === enabled) return;
+  await commit({ ...snapshot, useSystemCa: enabled });
+}
+
 export interface AddDeviceTrustInput {
   certPem: string;
   name: string;
@@ -70,14 +80,14 @@ export async function addDeviceTrustedCertificate(input: AddDeviceTrustInput): P
     addedAt: new Date().toISOString(),
     ...(input.origin !== undefined ? { origin: input.origin } : {}),
   };
-  await commit({ certificates: [...snapshot.certificates, certificate] });
+  await commit({ ...snapshot, certificates: [...snapshot.certificates, certificate] });
   return { ok: true, certificate };
 }
 
 export async function removeDeviceTrustedCertificate(uid: string): Promise<boolean> {
   const next = snapshot.certificates.filter((certificate) => certificate.uid !== uid);
   if (next.length === snapshot.certificates.length) return false;
-  await commit({ certificates: next });
+  await commit({ ...snapshot, certificates: next });
   return true;
 }
 

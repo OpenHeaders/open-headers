@@ -37,6 +37,7 @@ function makeSnapshot(overrides: Partial<RuntimeConfigSnapshot> = {}): RuntimeCo
     allowedHosts: [],
     allowInsecureLan: false,
     webRoot: null,
+    useSystemCa: null,
     ...overrides,
   };
 }

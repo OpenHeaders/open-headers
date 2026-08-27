@@ -173,6 +173,15 @@ export interface DaemonConfig {
    * a config error naming Env/Manual.
    */
   systemProxy: SystemProxySettings | null;
+  /**
+   * Seed for the device's system-trust-store opt-in (the Trusted Roots
+   * plan, S9): `true` / `false` writes the host-local posture at boot
+   * (`useSystemCa` in `daemon.json`, `OH_DAEMON_USE_SYSTEM_CA`, or
+   * `--use-system-ca`); `null` = not configured, the device's stored
+   * answer stands. Machine-scoped and additive — the OS store's roots
+   * ride beside the bundled ones, never replacing them.
+   */
+  useSystemCa: boolean | null;
   /** The `daemon.json` path that was consulted (whether or not it existed). */
   configPath: string;
 }
@@ -205,6 +214,7 @@ interface ConfigFile {
   licenseRefresh?: boolean;
   personalSeats?: boolean;
   proxy?: ProxyConfigFile;
+  useSystemCa?: boolean;
 }
 
 export interface ResolveConfigInput {
@@ -644,6 +654,10 @@ function parseConfigRecord(record: Record<string, unknown>, configPath: string):
     }
     out.publicWorkspaces = record.publicWorkspaces;
   }
+  if (record.useSystemCa !== undefined) {
+    if (typeof record.useSystemCa !== 'boolean') throw new Error(`${configPath}: useSystemCa must be a boolean`);
+    out.useSystemCa = record.useSystemCa;
+  }
   if (record.licenseFile !== undefined) {
     if (typeof record.licenseFile !== 'string') throw new Error(`${configPath}: licenseFile must be a string`);
     out.licenseFile = record.licenseFile;
@@ -679,6 +693,7 @@ export interface ConfigFileUpdate {
   webRoot?: string;
   /** Replaces the whole `proxy` object — partial merges could strand a stale URL under a changed mode. */
   proxy?: ProxyConfigFile;
+  useSystemCa?: boolean;
 }
 
 /**
@@ -720,6 +735,7 @@ export function updateDaemonConfigFile(configPath: string, update: ConfigFileUpd
   if (update.allowInsecureLan !== undefined) merged.allowInsecureLan = update.allowInsecureLan;
   if (update.webRoot !== undefined) merged.webRoot = path.resolve(update.webRoot);
   if (update.proxy !== undefined) merged.proxy = update.proxy;
+  if (update.useSystemCa !== undefined) merged.useSystemCa = update.useSystemCa;
   validateConfigFileValues(parseConfigRecord(merged, configPath), configPath);
   fs.mkdirSync(path.dirname(configPath), { recursive: true, mode: 0o700 });
   const tmpPath = path.join(path.dirname(configPath), `.daemon.json.${process.pid}.tmp`);
@@ -795,6 +811,7 @@ export function resolveDaemonConfig(input: ResolveConfigInput): DaemonConfig {
       'proxy-url': { type: 'string' },
       'proxy-credential-ref': { type: 'string' },
       'proxy-bypass': { type: 'string' },
+      'use-system-ca': { type: 'boolean' },
     },
   });
 
@@ -897,6 +914,13 @@ export function resolveDaemonConfig(input: ResolveConfigInput): DaemonConfig {
     values['proxy-bypass'] ?? input.env.OH_DAEMON_PROXY_BYPASS ?? file.proxy?.bypassList,
   );
 
+  const envUseSystemCa = input.env.OH_DAEMON_USE_SYSTEM_CA;
+  const useSystemCa =
+    values['use-system-ca'] ??
+    (envUseSystemCa !== undefined ? parseBooleanEnv(envUseSystemCa, 'use system ca') : undefined) ??
+    file.useSystemCa ??
+    null;
+
   return {
     dataDir,
     bindAddress,
@@ -916,6 +940,7 @@ export function resolveDaemonConfig(input: ResolveConfigInput): DaemonConfig {
     licenseRefresh,
     personalSeats,
     systemProxy,
+    useSystemCa,
     configPath,
   };
 }

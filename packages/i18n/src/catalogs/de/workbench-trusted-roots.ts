@@ -65,4 +65,10 @@ export const workbenchTrustedRoots = {
     'Anheftungen entstehen meist aus einem fehlgeschlagenen Senden — dem vom Server vorgelegten Zertifikat vertrauen, nur auf dieser Maschine. Hier eines einfügen, um es von Hand anzuheften.',
   'workbench.trustedRoots.settings.browserNote':
     'Der Browser prüft mit seinem eigenen Vertrauensspeicher; in diesem Arbeitsbereich hinzugefügte Zertifikate gelten nur, wenn die App-Laufzeit sendet.',
+  'workbench.trustedRoots.systemTrust.count':
+    '{count} Zertifikate aus dem Vertrauensspeicher dieses Rechners gelten für jede TLS-Verbindung, die die App-Laufzeit aufbaut',
+  'workbench.trustedRoots.systemTrust.off': 'Nur die eingebauten Roots und die Zertifikate oben werden als vertrauenswürdig behandelt',
+  'workbench.trustedRoots.systemTrust.unsupported':
+    'Diese Laufzeit kann den System-Vertrauensspeicher nicht lesen — Node 22.15 oder neuer ist erforderlich',
+  'workbench.trustedRoots.systemTrust.browser': 'Der Browser prüft mit seinem eigenen Vertrauensspeicher',
 } as const satisfies Catalog;

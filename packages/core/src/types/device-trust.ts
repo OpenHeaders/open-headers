@@ -5,4 +5,4 @@ export type DeviceTrustedCertificate = v.InferOutput<typeof DeviceTrustedCertifi
 
 export type DeviceTrust = v.InferOutput<typeof DeviceTrustSchema>;
 
-export const EMPTY_DEVICE_TRUST: DeviceTrust = { certificates: [] };
+export const EMPTY_DEVICE_TRUST: DeviceTrust = { certificates: [], useSystemCa: false };

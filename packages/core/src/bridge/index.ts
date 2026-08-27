@@ -57,6 +57,7 @@ export type {
   StorageQuotaBreakdownWire,
   StorageQuotaWire,
   StorageScopeWire,
+  SystemTrustWire,
   WorkspaceSnapshot,
   WorkspaceTreeChangesWire,
   WorkspaceTreeCommitCadence,

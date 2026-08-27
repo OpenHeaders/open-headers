@@ -30,7 +30,7 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { type HostLogger, setHostLogger } from '@openheaders/core/logger';
 import { OH } from '@openheaders/core/storage';
-import { bootDaemonSpine, installNodeSystemProxy } from '@openheaders/oracle-host-node/daemon';
+import { bootDaemonSpine, installNodeSystemProxy, seedDeviceTrustPosture } from '@openheaders/oracle-host-node/daemon';
 import { FileBackedHostStorage } from '@openheaders/oracle-host-node/host-storage';
 import {
   loadOrCreateSealKeyFile,
@@ -150,6 +150,13 @@ export async function runDaemon(argv: readonly string[]): Promise<void> {
       ...(config.systemProxy !== null ? { configured: config.systemProxy } : {}),
     });
 
+    // System trust store (the Trusted Roots plan, S9): a configured
+    // answer seeds the device's opt-in before the spine loads it; the
+    // dials read the OS store additively from then on.
+    if (config.useSystemCa !== null) {
+      await seedDeviceTrustPosture({ hostStorage, useSystemCa: config.useSystemCa });
+    }
+
     const staticWeb = resolveStaticWebRoot(config.webRoot);
 
     // Traffic-session seal key (the agent-traffic plan §9.5): the
@@ -182,6 +189,7 @@ export async function runDaemon(argv: readonly string[]): Promise<void> {
     const forwardNote = config.auditForwarding ? `, audit stream to ${new URL(config.auditForwarding.url).host}` : '';
     const publicNote = config.publicWorkspaces ? ', public workspaces on' : '';
     const licenseNote = config.licenseRefresh ? '' : ', license refresh off';
+    const systemCaNote = config.useSystemCa === true ? ', system trust store on' : '';
     const egressNote =
       systemProxy.mode === 'off'
         ? ', egress proxy off'
@@ -190,7 +198,7 @@ export async function runDaemon(argv: readonly string[]): Promise<void> {
           : '';
     log.info(
       SCOPE,
-      `starting v${appVersion}${formatBuildStamp(getBuildInfo())} — data dir ${config.dataDir}, bind ${config.bindAddress}:${config.bindPort}${proxyNote}${hostsNote}${webNote}${oidcNote}${vaultNote}${auditNote}${forwardNote}${publicNote}${licenseNote}${egressNote}`,
+      `starting v${appVersion}${formatBuildStamp(getBuildInfo())} — data dir ${config.dataDir}, bind ${config.bindAddress}:${config.bindPort}${proxyNote}${hostsNote}${webNote}${oidcNote}${vaultNote}${auditNote}${forwardNote}${publicNote}${licenseNote}${systemCaNote}${egressNote}`,
     );
     if (config.bindAddress === '0.0.0.0' && !config.trustedProxy) {
       log.warn(

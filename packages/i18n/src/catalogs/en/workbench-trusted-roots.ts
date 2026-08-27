@@ -64,4 +64,10 @@ export const workbenchTrustedRoots = {
     'Pins are usually added from a failed send — trust the certificate the server presented, on this machine only. Paste one here to pin it by hand.',
   'workbench.trustedRoots.settings.browserNote':
     'The browser verifies with its own trust store; certificates added to this workspace apply only when the app’s runtime sends.',
+  'workbench.trustedRoots.systemTrust.count':
+    '{count} certificates from this machine’s trust store apply to every TLS connection the app’s runtime dials',
+  'workbench.trustedRoots.systemTrust.off': 'Only the built-in roots and the certificates above are trusted',
+  'workbench.trustedRoots.systemTrust.unsupported':
+    'This runtime cannot read the system trust store — Node 22.15 or later is required',
+  'workbench.trustedRoots.systemTrust.browser': 'The browser verifies with its own trust store',
 } as const satisfies Catalog;

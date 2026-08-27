@@ -31,6 +31,7 @@ function makeConfig(): DaemonConfig {
     allowedHosts: [],
     allowInsecureLan: false,
     webRoot: null,
+    useSystemCa: null,
     serverName: null,
     oidc: null,
     vaultPassphrase: null,

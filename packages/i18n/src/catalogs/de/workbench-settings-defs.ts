@@ -533,6 +533,9 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.requests.deviceTrust.label': 'Geräte-Zertifikate',
   'workbench.settings.def.requests.deviceTrust.description':
     'Zertifikate, die diese Maschine zusätzlich zur Arbeitsbereichsliste anheftet — ein selbstsigniertes localhost, ein Staging-Server. Nie synchronisiert oder exportiert; angewendet auf jede TLS-Verbindung von diesem Gerät.',
+  'workbench.settings.def.requests.systemTrust.label': 'System-Vertrauensspeicher',
+  'workbench.settings.def.requests.systemTrust.description':
+    'Zusätzlich den Zertifikaten im Betriebssystem-Speicher dieses Rechners vertrauen — dem Root, das ein IT-Profil für einen Unternehmens-Proxy installiert hat. Ergänzend zu den eingebauten Roots, der Workspace-Liste und den Geräte-Pins; nie synchronisiert oder exportiert.',
   'workbench.settings.def.requests.responseBodyCapMB.label': 'Antwort-Body-Grenze (MB)',
   'workbench.settings.def.requests.responseBodyCapMB.description':
     'Wie viel von einem Antwort-Body der Executor für die Anzeige behält. Größere Bodys werden an dieser ' +

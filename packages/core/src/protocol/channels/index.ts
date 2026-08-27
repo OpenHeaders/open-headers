@@ -51,7 +51,7 @@ import type { WorkspaceRpc } from './workspace';
 
 export type { BridgeBroadcastContract, StorageInvalidationKind } from './broadcast';
 export type { FolderDescriptor, WorkspaceSnapshot } from './common';
-export type { DeviceTrustRpc, PresentedCertificateWire } from './device-trust';
+export type { DeviceTrustRpc, PresentedCertificateWire, SystemTrustWire } from './device-trust';
 export type {
   CacheEntryDocumentWire,
   CacheEntryHeaderWire,

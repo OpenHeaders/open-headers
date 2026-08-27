@@ -68,6 +68,8 @@ export interface RuntimeConfigSnapshot {
   allowedHosts: readonly string[];
   allowInsecureLan: boolean;
   webRoot: string | null;
+  /** The system-trust-store seed the config carried; `null` = the device's own answer stands. */
+  useSystemCa: boolean | null;
 }
 
 export interface RuntimeManifest {
@@ -113,6 +115,7 @@ export function runtimeConfigSnapshot(config: DaemonConfig): RuntimeConfigSnapsh
     allowedHosts: [...config.allowedHosts],
     allowInsecureLan: config.allowInsecureLan,
     webRoot: config.webRoot,
+    useSystemCa: config.useSystemCa,
   };
 }
 
@@ -231,6 +234,8 @@ function parseConfigSnapshot(raw: unknown): RuntimeConfigSnapshot | null {
   if (typeof record.trustedProxy !== 'boolean' || typeof record.allowInsecureLan !== 'boolean') return null;
   if (!Array.isArray(record.allowedHosts) || record.allowedHosts.some((host) => typeof host !== 'string')) return null;
   if (record.webRoot !== null && typeof record.webRoot !== 'string') return null;
+  // Absent on manifests written before the field existed — reads as not configured.
+  const useSystemCa = typeof record.useSystemCa === 'boolean' ? record.useSystemCa : null;
   return {
     dataDir: record.dataDir,
     bindAddress: record.bindAddress,
@@ -240,6 +245,7 @@ function parseConfigSnapshot(raw: unknown): RuntimeConfigSnapshot | null {
     allowedHosts: record.allowedHosts as string[],
     allowInsecureLan: record.allowInsecureLan,
     webRoot: record.webRoot,
+    useSystemCa,
   };
 }
 

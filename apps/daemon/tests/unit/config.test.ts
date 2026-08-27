@@ -323,6 +323,22 @@ describe('resolveDaemonConfig — public workspaces', () => {
   });
 });
 
+describe('resolveDaemonConfig — system trust store', () => {
+  it('defaults to null (not configured) and reads argv → env → file', () => {
+    expect(resolve().useSystemCa).toBeNull();
+    const file = writeConfigFile({ useSystemCa: true });
+    expect(resolve(['--config', file]).useSystemCa).toBe(true);
+    expect(resolve(['--config', file], { OH_DAEMON_USE_SYSTEM_CA: '0' }).useSystemCa).toBe(false);
+    expect(resolve(['--config', file, '--use-system-ca'], { OH_DAEMON_USE_SYSTEM_CA: '0' }).useSystemCa).toBe(true);
+    expect(resolve([], { OH_DAEMON_USE_SYSTEM_CA: 'true' }).useSystemCa).toBe(true);
+  });
+
+  it('refuses a non-boolean value', () => {
+    expect(() => resolve(['--config', writeConfigFile({ useSystemCa: 'yes' })])).toThrow(/must be a boolean/);
+    expect(() => resolve([], { OH_DAEMON_USE_SYSTEM_CA: 'maybe' })).toThrow(/expected 1\/0\/true\/false/);
+  });
+});
+
 describe('resolveDaemonConfig — audit forwarding', () => {
   it('defaults to null and reads a full block from the file', () => {
     expect(resolve().auditForwarding).toBeNull();

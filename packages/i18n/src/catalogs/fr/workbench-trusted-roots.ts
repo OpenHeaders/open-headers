@@ -64,4 +64,10 @@ export const workbenchTrustedRoots = {
     'Les épingles viennent en général d’un envoi échoué — faire confiance au certificat présenté par le serveur, sur cette machine seulement. Collez-en un ici pour l’épingler à la main.',
   'workbench.trustedRoots.settings.browserNote':
     'Le navigateur vérifie avec son propre magasin de confiance ; les certificats ajoutés à cet espace de travail ne s’appliquent que lorsque le runtime de l’application envoie.',
+  'workbench.trustedRoots.systemTrust.count':
+    '{count} certificats du magasin de confiance de cette machine s’appliquent à chaque connexion TLS établie par le runtime de l’application',
+  'workbench.trustedRoots.systemTrust.off': 'Seules les racines intégrées et les certificats ci-dessus sont approuvés',
+  'workbench.trustedRoots.systemTrust.unsupported':
+    'Ce runtime ne peut pas lire le magasin de confiance du système — Node 22.15 ou plus récent est requis',
+  'workbench.trustedRoots.systemTrust.browser': 'Le navigateur vérifie avec son propre magasin de confiance',
 } as const satisfies Catalog;

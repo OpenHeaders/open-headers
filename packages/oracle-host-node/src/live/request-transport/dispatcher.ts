@@ -10,6 +10,7 @@
 import { createHash } from 'node:crypto';
 import { isIP, type LookupFunction } from 'node:net';
 import { createSecureContext, type SecureVersion } from 'node:tls';
+import { isSystemTrustEnabled } from '@openheaders/oracle/entity/device-trust-store';
 import type { TransportRequest } from '@openheaders/oracle/live/request-exec/transport';
 import { Agent, type Dispatcher, ProxyAgent, Socks5ProxyAgent } from 'undici';
 import { type AlpnPolicy, createDialConnector, createRecordingConnector } from '../instrumented-connector';
@@ -143,11 +144,14 @@ function proxyCredKeySegment(request: TransportRequest): string {
  * workspace list, so editing the list (add, remove, rotate) mints a
  * fresh agent instead of reusing one whose sockets were verified
  * against the old trust. Not a secret, but the PEMs are long — the
- * hash keeps the key small.
+ * hash keeps the key small. The device's system-store opt-in rides
+ * the same segment: flipping it must not reuse an agent verified
+ * under the other posture.
  */
 function trustedRootsKeySegment(request: TransportRequest): string {
-  if (request.trustedRootsPem === undefined || request.trustedRootsPem.length === 0) return '';
-  return createHash('sha256').update(request.trustedRootsPem.join('\n')).digest('hex').slice(0, 16);
+  const system = isSystemTrustEnabled() ? 'sys|' : '';
+  if (request.trustedRootsPem === undefined || request.trustedRootsPem.length === 0) return system;
+  return `${system}${createHash('sha256').update(request.trustedRootsPem.join('\n')).digest('hex').slice(0, 16)}`;
 }
 
 /**

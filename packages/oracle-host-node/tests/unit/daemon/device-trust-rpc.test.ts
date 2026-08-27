@@ -15,6 +15,17 @@ import { handleDeviceTrustRpc, isDeviceTrustRpc } from '../../../src/daemon/devi
 import { mintLeafCertificate, mintProxyCa } from '../../../src/daemon/proxy/ca-store';
 import { createHostStorageFake } from '../_host-storage-fake';
 
+const { systemTrust } = vi.hoisted(() => ({
+  systemTrust: { supported: true, certs: ['SYS-A', 'SYS-B'], refreshed: 0 },
+}));
+vi.mock('../../../src/live/system-trust', () => ({
+  isSystemTrustSupported: () => systemTrust.supported,
+  getSystemCaCertificates: () => systemTrust.certs,
+  refreshSystemCaCertificates: () => {
+    systemTrust.refreshed += 1;
+  },
+}));
+
 const broadcast = vi.fn();
 const bridge: HostBridge = {
   call: () => Promise.reject(new Error('unused')),
@@ -45,6 +56,7 @@ afterEach(() => {
 describe('device-trust rpc', () => {
   it('routes only its own family', () => {
     expect(isDeviceTrustRpc('oh.deviceTrust.list')).toBe(true);
+    expect(isDeviceTrustRpc('oh.deviceTrust.setSystemTrust')).toBe(true);
     expect(isDeviceTrustRpc('executeRequest')).toBe(false);
     expect(isDeviceTrustRpc(42)).toBe(false);
   });
@@ -108,5 +120,52 @@ describe('device-trust rpc', () => {
       ok: false,
     });
     expect(await handleDeviceTrustRpc('oh.deviceTrust.nope', {})).toBeUndefined();
+  });
+});
+
+describe('device-trust rpc — system trust store', () => {
+  beforeEach(() => {
+    systemTrust.supported = true;
+    systemTrust.refreshed = 0;
+  });
+
+  it('lists the posture off by default with a zero count, flips it on with a re-read and a broadcast, then off', async () => {
+    const before = (await handleDeviceTrustRpc('oh.deviceTrust.list', {})) as {
+      systemTrust: { supported: boolean; enabled: boolean; count: number };
+    };
+    expect(before.systemTrust).toEqual({ supported: true, enabled: false, count: 0 });
+
+    const on = (await handleDeviceTrustRpc('oh.deviceTrust.setSystemTrust', { enabled: true })) as {
+      ok: boolean;
+      systemTrust?: { enabled: boolean; count: number };
+    };
+    expect(on.ok).toBe(true);
+    expect(on.systemTrust).toEqual({ supported: true, enabled: true, count: 2 });
+    expect(systemTrust.refreshed).toBe(1);
+    expect(broadcast).toHaveBeenCalledWith('deviceTrustChanged', { count: 0 });
+
+    const off = (await handleDeviceTrustRpc('oh.deviceTrust.setSystemTrust', { enabled: false })) as {
+      ok: boolean;
+      systemTrust?: { enabled: boolean; count: number };
+    };
+    expect(off.ok).toBe(true);
+    expect(off.systemTrust?.enabled).toBe(false);
+    expect(off.systemTrust?.count).toBe(0);
+    expect(systemTrust.refreshed).toBe(1);
+  });
+
+  it('refuses to opt in on a runtime that cannot read the store, and says so', async () => {
+    systemTrust.supported = false;
+    const result = (await handleDeviceTrustRpc('oh.deviceTrust.setSystemTrust', { enabled: true })) as {
+      ok: boolean;
+      error?: string;
+    };
+    expect(result.ok).toBe(false);
+    expect(result.error).toMatch(/22\.15/);
+    expect(broadcast).not.toHaveBeenCalled();
+    const listed = (await handleDeviceTrustRpc('oh.deviceTrust.list', {})) as {
+      systemTrust: { supported: boolean; enabled: boolean };
+    };
+    expect(listed.systemTrust).toEqual({ supported: false, enabled: false, count: 0 });
   });
 });

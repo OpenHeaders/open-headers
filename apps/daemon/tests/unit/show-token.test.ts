@@ -28,6 +28,7 @@ function makeConfig(overrides: Partial<DaemonConfig> = {}): DaemonConfig {
     allowedHosts: [],
     allowInsecureLan: false,
     webRoot: null,
+    useSystemCa: null,
     serverName: null,
     oidc: null,
     vaultPassphrase: null,

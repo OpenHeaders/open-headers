@@ -7,20 +7,27 @@
  * material, so the hook reads empty and the writes never fire there.
  */
 
-import { hostBridge, type PresentedCertificateWire } from '@openheaders/core/bridge';
+import { hostBridge, type PresentedCertificateWire, type SystemTrustWire } from '@openheaders/core/bridge';
 import { getCapability } from '@openheaders/core/capabilities';
 import type { DeviceTrustedCertificate } from '@openheaders/core/types';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 const NONE: DeviceTrustedCertificate[] = [];
+/** A browser host: the runtime cannot read the OS store, so the switch has nothing to flip. */
+const NO_SYSTEM_TRUST: SystemTrustWire = { supported: false, enabled: false, count: 0 };
 
 /** Whether the request runtime on this host can apply trust material. */
 export function isNodeRequestRuntime(): boolean {
   return getCapability('requestRuntime')?.() === 'node';
 }
 
-export function useDeviceTrust(): { certificates: DeviceTrustedCertificate[]; ready: boolean } {
+export function useDeviceTrust(): {
+  certificates: DeviceTrustedCertificate[];
+  systemTrust: SystemTrustWire;
+  ready: boolean;
+} {
   const [certificates, setCertificates] = useState<DeviceTrustedCertificate[]>(NONE);
+  const [systemTrust, setSystemTrust] = useState<SystemTrustWire>(NO_SYSTEM_TRUST);
   const [ready, setReady] = useState(false);
   useEffect(() => {
     if (!isNodeRequestRuntime()) {
@@ -33,6 +40,7 @@ export function useDeviceTrust(): { certificates: DeviceTrustedCertificate[]; re
       const resp = await hostBridge.call('oh.deviceTrust.list').catch(() => null);
       if (!alive) return;
       setCertificates(resp?.certificates ?? NONE);
+      setSystemTrust(resp?.systemTrust ?? NO_SYSTEM_TRUST);
       setReady(true);
     };
     void load();
@@ -42,7 +50,15 @@ export function useDeviceTrust(): { certificates: DeviceTrustedCertificate[]; re
       unsubscribe();
     };
   }, []);
-  return { certificates, ready };
+  return { certificates, systemTrust, ready };
+}
+
+export async function setSystemTrustEnabled(enabled: boolean): Promise<{ ok: boolean; error?: string }> {
+  const resp = await hostBridge.call('oh.deviceTrust.setSystemTrust', { enabled }).catch((err: unknown) => ({
+    ok: false as const,
+    error: err instanceof Error ? err.message : String(err),
+  }));
+  return resp;
 }
 
 export type DeviceTrustAddResult = { ok: true; certificate: DeviceTrustedCertificate } | { ok: false; error: string };

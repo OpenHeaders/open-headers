@@ -192,11 +192,19 @@ function describeConfigDrift(runtime: RuntimeManifest, resolved: RuntimeConfigSn
   if (running.webRoot !== resolved.webRoot) {
     out.push(`web root ${running.webRoot ?? 'none'} → ${resolved.webRoot ?? 'none'}`);
   }
+  if (running.useSystemCa !== resolved.useSystemCa) {
+    out.push(`system trust store ${seed(running.useSystemCa)} → ${seed(resolved.useSystemCa)}`);
+  }
   return out;
 }
 
 function flag(value: boolean): string {
   return value ? 'on' : 'off';
+}
+
+/** A config seed: `null` = the device's own answer stands. */
+function seed(value: boolean | null): string {
+  return value === null ? 'device' : flag(value);
 }
 
 function hostList(hosts: readonly string[]): string {
