@@ -24,6 +24,9 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.connect.label': 'Verbinden',
   'workbench.editors.mqtt.connect.disconnect': 'Trennen',
   'workbench.editors.mqtt.connect.cancel': 'Abbrechen',
+  'workbench.editors.mqtt.connect.reconnectNow': 'Jetzt neu verbinden',
+  'workbench.editors.mqtt.connect.reconnectNowHint':
+    'Den nächsten Wiederverbindungsversuch ohne Ablauf der Wartezeit starten',
   'workbench.editors.mqtt.connect.browserHost': 'MQTT-Sitzungen laufen in der Desktop-App oder auf dem Server.',
   'workbench.editors.mqtt.connect.needsUrl': 'Geben Sie eine Broker-URL ein, um zu verbinden.',
   'workbench.editors.mqtt.connect.tcpSchemeBrowser':
@@ -283,6 +286,7 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.session.reconnectRefusedTag': 'Wiederverbindung abgelehnt',
   'workbench.editors.mqtt.session.reconnectRefused': 'Wiederverbindung abgelehnt: {reason}',
   'workbench.editors.mqtt.timeline.reconnectingAfter': 'Wiederverbindungsversuch {attempt} nach {delay}',
+  'workbench.editors.mqtt.timeline.reconnectingNow': 'Wiederverbindungsversuch {attempt} jetzt',
   'workbench.editors.mqtt.session.reconnectExhaustedTag': 'Wiederverbindung aufgegeben',
   'workbench.editors.mqtt.session.reconnectExhausted': 'Wiederverbindung aufgegeben nach {attempts}',
   'workbench.editors.mqtt.session.reconnectExhaustedReason': 'Wiederverbindung aufgegeben nach {attempts}: {reason}',

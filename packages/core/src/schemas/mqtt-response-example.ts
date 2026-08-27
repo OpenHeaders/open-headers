@@ -118,6 +118,7 @@ export const CapturedMqttReconnectingSchema = v.object({
    *  was recorded carry no value. */
   delayMs: v.optional(v.number()),
   error: v.optional(v.string()),
+  forced: v.optional(v.literal(true)),
 });
 
 /** A reconnect attempt's CONNACK accepted — the new connection's facts. */

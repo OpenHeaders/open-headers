@@ -81,6 +81,9 @@ export interface ExecutedMqttReconnecting {
   attempt: number;
   delayMs: number;
   error?: string;
+  /** The user asked for the attempt before its wait ran out —
+   *  `delayMs` is then the wait actually sat through. */
+  forced?: true;
 }
 
 /** A reconnect attempt's CONNACK accepted — the new connection's

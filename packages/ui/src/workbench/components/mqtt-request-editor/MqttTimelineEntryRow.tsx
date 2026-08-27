@@ -402,8 +402,9 @@ const MqttTimelineEntryRow: React.FC<MqttTimelineEntryRowProps> = ({
         );
       }
       if (item.kind === 'reconnecting') {
-        // One redial; the previous attempt's classified failure rides
-        // beside it when there was one.
+        // One redial — asked for, on its wait, or (an older capture)
+        // without a stated wait; the previous attempt's classified
+        // failure rides beside it when there was one.
         return (
           <div data-testid="mqtt-timeline-reconnecting-row" style={lifecycleRowStyle}>
             <ReloadOutlined aria-hidden style={{ fontSize: 11, color: token.colorTextTertiary }} />
@@ -411,12 +412,14 @@ const MqttTimelineEntryRow: React.FC<MqttTimelineEntryRowProps> = ({
               {...(item.error !== undefined ? { title: item.error } : {})}
               style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
             >
-              {item.delayMs === undefined
-                ? t('workbench.editors.mqtt.timeline.reconnecting', { attempt: item.attempt })
-                : t('workbench.editors.mqtt.timeline.reconnectingAfter', {
-                    attempt: item.attempt,
-                    delay: formatDurationMs(item.delayMs),
-                  })}
+              {item.forced
+                ? t('workbench.editors.mqtt.timeline.reconnectingNow', { attempt: item.attempt })
+                : item.delayMs === undefined
+                  ? t('workbench.editors.mqtt.timeline.reconnecting', { attempt: item.attempt })
+                  : t('workbench.editors.mqtt.timeline.reconnectingAfter', {
+                      attempt: item.attempt,
+                      delay: formatDurationMs(item.delayMs),
+                    })}
               {item.error !== undefined ? ` — ${item.error}` : ''}
             </span>
             {lifecycleTime(ts)}

@@ -3,7 +3,8 @@
  * `ws-exec/session-plane.ts` sibling for the MQTT executor plane: the
  * flush-batched `mqttStreamEvent` emitter behind the message timeline,
  * and the active-session registry behind the `publishMqttMessage` /
- * `setMqttSubscription` / `closeMqttSession` riders (the Stop hook
+ * `setMqttSubscription` / `closeMqttSession` /
+ * `reconnectMqttSessionNow` riders (the Stop hook
  * itself stays on the shared HTTP active-send registry — one abort
  * plane for every interactive send).
  *
@@ -131,6 +132,9 @@ export interface ActiveMqttSessionHandle {
   ): Promise<{ success: boolean; grantCode?: number; error?: string }>;
   /** Start the clean close — DISCONNECT then the socket close. */
   close(): void;
+  /** Dial the armed reconnect attempt now instead of after its wait.
+   *  False = nothing is waiting. */
+  reconnectNow(): boolean;
 }
 
 const activeSessions = new Map<string, ActiveMqttSessionHandle>();
@@ -164,6 +168,14 @@ export async function setActiveMqttSubscription(
   const handle = activeSessions.get(sendId);
   if (!handle) return { success: false, error: 'No open MQTT session with this id.' };
   return handle.setSubscription(subscription);
+}
+
+/** Cut a session's auto-reconnect wait short. False = no such
+ *  session, or nothing is waiting. */
+export function reconnectActiveMqttSessionNow(sendId: string): boolean {
+  const handle = activeSessions.get(sendId);
+  if (!handle) return false;
+  return handle.reconnectNow();
 }
 
 /** Start an open session's clean close. False = no such session. */

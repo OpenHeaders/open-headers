@@ -76,3 +76,25 @@ describe('MqttMessageTimeline — aborted lifecycle instants', () => {
     expect(teardownRow.textContent).toBe('Disconnected from broker');
   });
 });
+
+describe('MqttMessageTimeline — reconnect attempt rows', () => {
+  const lifecycle: MqttTimelineLifecycle = { startedAt: STARTED_AT, connected: true };
+
+  it('states the wait an attempt sat through, and reads "now" for an attempt the user asked for', () => {
+    render(
+      <MqttMessageTimeline
+        items={[
+          { kind: 'lost', end: null },
+          { kind: 'reconnecting', attempt: 1, delayMs: 5_000 },
+          { kind: 'reconnecting', attempt: 2, delayMs: 1_250, forced: true, error: 'Connection refused.' },
+        ]}
+        count={3}
+        lifecycle={lifecycle}
+        v5
+      />,
+    );
+    const rows = screen.getAllByTestId('mqtt-timeline-reconnecting-row').map((row) => row.textContent);
+    expect(rows.some((text) => text?.includes('Reconnect attempt 1 after 5 s'))).toBe(true);
+    expect(rows.some((text) => text?.includes('Reconnect attempt 2 now — Connection refused.'))).toBe(true);
+  });
+});

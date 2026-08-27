@@ -400,6 +400,9 @@ export async function executeMqttSession(
     // — nothing is on the wire then, so the end reads Stopped.
     let reconnectAttempt = 0;
     let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+    /** Fire the armed attempt ahead of its wait — set while the timer
+     *  is armed, the `reconnectMqttSessionNow` rider's hook. */
+    let fireReconnectNow: (() => void) | null = null;
     /** The filters the session wants subscribed RIGHT NOW — the open
      *  rows, then every live toggle applied in order — replayed onto a
      *  reconnected connection whose CONNACK kept no session. */
@@ -435,6 +438,7 @@ export async function executeMqttSession(
     const clearReconnectTimer = (): void => {
       if (reconnectTimer !== null) clearTimeout(reconnectTimer);
       reconnectTimer = null;
+      fireReconnectNow = null;
     };
     /** A rider still waiting on a broker ack settles honestly instead
      *  of hanging past the connection — `failure` names why when the
@@ -764,12 +768,25 @@ export async function executeMqttSession(
       }
       reconnectAttempt = attempt;
       const delayMs = reconnectDelayMs(reconnectPeriodMs, attempt, reconnectBackoff);
-      reconnectTimer = setTimeout(() => {
-        reconnectTimer = null;
+      const armedAt = Date.now();
+      // The wait ran out, or the user cut it short: the same attempt
+      // dials either way — the row states the wait actually sat
+      // through, and the cap is only consulted when a NEXT attempt is
+      // armed.
+      const fire = (forced: boolean): void => {
+        clearReconnectTimer();
         if (settled) return;
-        recordFact({ kind: 'reconnecting', attempt, delayMs, ...(error !== undefined ? { error } : {}) });
+        recordFact({
+          kind: 'reconnecting',
+          attempt,
+          delayMs: forced ? Math.max(0, Date.now() - armedAt) : delayMs,
+          ...(error !== undefined ? { error } : {}),
+          ...(forced ? { forced: true } : {}),
+        });
         dial();
-      }, delayMs);
+      };
+      reconnectTimer = setTimeout(() => fire(false), delayMs);
+      fireReconnectNow = () => fire(true);
     };
 
     /** The byte stream ended — decide between the reconnect loop and
@@ -958,6 +975,11 @@ export async function executeMqttSession(
           desiredSubscriptions.delete(topicFilter);
           pendingSubAcks.set(`u${packetId}`, { filters: [topicFilter], resolveAck });
         });
+      },
+      reconnectNow: () => {
+        if (settled || fireReconnectNow === null) return false;
+        fireReconnectNow();
+        return true;
       },
       close: () => {
         if (settled) return;

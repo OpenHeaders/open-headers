@@ -11,7 +11,8 @@
  * The hook publishes the page-session resolution factory while a
  * page-capability editor is mounted so the page host resolves {{refs}}
  * from the renderer scopes. In flight Connect MORPHS to Disconnect
- * (the clean DISCONNECT via `closeMqttSession`), Send publishes
+ * (the clean DISCONNECT via `closeMqttSession`; Reconnect now cuts
+ * the auto-reconnect wait short via `reconnectMqttSessionNow`), Send publishes
  * through `publishMqttMessage`, and the Topics grid's live Subscribe
  * switches ride `setMqttSubscription`, marking each row with its
  * SUBACK grant (QoS downgrades honest): the stored table stays the
@@ -82,6 +83,8 @@ export interface MqttSessionPlane {
   liveSubs: ReadonlyMap<string, LiveSubscriptionMark>;
   handleConnect: () => Promise<void>;
   handleDisconnect: () => void;
+  /** Cut the auto-reconnect wait short — the armed attempt dials now. */
+  handleReconnectNow: () => void;
   handlePublish: (message: MqttPublishWire) => Promise<void>;
   handleLiveSubscriptionToggle: (row: MqttTopicRow, subscribe: boolean) => Promise<void>;
   handleClearSession: () => void;
@@ -263,6 +266,14 @@ export function useMqttSessionPlane({
     hostBridge.call('closeMqttSession', { sendId }).catch(() => {});
   }, []);
 
+  // Reconnect now — only meaningful between auto-reconnect attempts;
+  // the executor answers false when nothing is waiting.
+  const handleReconnectNow = useCallback(() => {
+    const sendId = activeSendIdRef.current;
+    if (!sendId) return;
+    hostBridge.call('reconnectMqttSessionNow', { sendId }).catch(() => {});
+  }, []);
+
   // Publish one compose block — the executor resolves {{refs}} through
   // the resolver it built at Connect and decodes the payload per its
   // ENCODING; a failure reports here without touching the open session.
@@ -393,6 +404,7 @@ export function useMqttSessionPlane({
     liveSubs,
     handleConnect,
     handleDisconnect,
+    handleReconnectNow,
     handlePublish,
     handleLiveSubscriptionToggle,
     handleClearSession,

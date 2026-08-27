@@ -20,6 +20,8 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.connect.label': 'Connect',
   'workbench.editors.mqtt.connect.disconnect': 'Disconnect',
   'workbench.editors.mqtt.connect.cancel': 'Cancel',
+  'workbench.editors.mqtt.connect.reconnectNow': 'Reconnect now',
+  'workbench.editors.mqtt.connect.reconnectNowHint': 'Dial the next reconnect attempt without waiting out the period',
   'workbench.editors.mqtt.connect.browserHost': 'MQTT sessions run on the desktop app or server.',
   'workbench.editors.mqtt.connect.needsUrl': 'Enter a broker URL to connect.',
   'workbench.editors.mqtt.connect.tcpSchemeBrowser':
@@ -270,6 +272,7 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.session.reconnectRefusedTag': 'Reconnect refused',
   'workbench.editors.mqtt.session.reconnectRefused': 'reconnect refused: {reason}',
   'workbench.editors.mqtt.timeline.reconnectingAfter': 'Reconnect attempt {attempt} after {delay}',
+  'workbench.editors.mqtt.timeline.reconnectingNow': 'Reconnect attempt {attempt} now',
   'workbench.editors.mqtt.session.reconnectExhaustedTag': 'Reconnect gave up',
   'workbench.editors.mqtt.session.reconnectExhausted': 'reconnect gave up after {attempts}',
   'workbench.editors.mqtt.session.reconnectExhaustedReason': 'reconnect gave up after {attempts}: {reason}',

@@ -17,7 +17,8 @@
  * chain keeps its channels (and its `abortRequestSend` leg, whose
  * shared active-send registry already covers MQTT Stops). The four
  * MQTT channels (`executeMqttRequest` draft path, `publishMqttMessage`,
- * `setMqttSubscription`, `closeMqttSession`) answer locally, and
+ * `setMqttSubscription`, `closeMqttSession`, `reconnectMqttSessionNow`)
+ * answer locally, and
  * `mqttStreamEvent` subscribers are fed synchronously from the in-page
  * emitter — no broadcast hop, so the editor and `useLiveMqttSession`
  * ride the exact code paths the node hosts answer. Every other channel
@@ -45,6 +46,7 @@ import { errorMqttSnapshot, executeMqttSession } from '@openheaders/oracle/live/
 import {
   closeActiveMqttSession,
   publishActiveMqttMessage,
+  reconnectActiveMqttSessionNow,
   setActiveMqttSubscription,
 } from '@openheaders/oracle/live/mqtt-exec/session-plane';
 import { createBrowserMqttTransport } from '@openheaders/oracle-host-browser/live/browser-mqtt-transport';
@@ -126,6 +128,12 @@ const mqttSessionHostBridge: HostBridge = {
     if (type === 'closeMqttSession') {
       const payload = args[0] as BridgeRpcRequest<'closeMqttSession'>;
       return Promise.resolve({ success: closeActiveMqttSession(payload.sendId) }) as Promise<BridgeRpcResponse<K>>;
+    }
+    if (type === 'reconnectMqttSessionNow') {
+      const payload = args[0] as BridgeRpcRequest<'reconnectMqttSessionNow'>;
+      return Promise.resolve({ success: reconnectActiveMqttSessionNow(payload.sendId) }) as Promise<
+        BridgeRpcResponse<K>
+      >;
     }
     return base.call(type, ...args);
   },

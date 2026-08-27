@@ -23,6 +23,7 @@ import { executeMqttSession } from '@openheaders/oracle/live/mqtt-exec/execute';
 import {
   closeActiveMqttSession,
   publishActiveMqttMessage,
+  reconnectActiveMqttSessionNow,
   setActiveMqttSubscription,
 } from '@openheaders/oracle/live/mqtt-exec/session-plane';
 import {
@@ -1099,5 +1100,52 @@ describe('executeMqttSession — auto-reconnect', () => {
     expect(snapshot.stopped).toBe(true);
     expect(snapshot.end).toBeNull();
     expect(snapshot.events).toEqual([{ kind: 'lost', end: null }]);
+  });
+
+  it('Reconnect now dials the armed attempt at once with the same number — no extra attempt against the cap', async () => {
+    const rig = reconnectRig(MQTT_PROTOCOL_VERSIONS.v5);
+    const settled = executeMqttSession(
+      makeMqttRequest({ autoReconnect: true, reconnectPeriodMs: 10_000, reconnectMaxAttempts: 2 }),
+      {
+        workspaceId: null,
+        environmentId: undefined,
+        transport: rig.transport,
+        sendId: 'send-mqtt-reconnect-now',
+        resolution: scopedResolution,
+      },
+    );
+    await tick();
+    // Nothing waits while the connection is up.
+    expect(reconnectActiveMqttSessionNow('send-mqtt-reconnect-now')).toBe(false);
+    rig.establish(0);
+    rig.push(0, acceptedConnack);
+    expect(reconnectActiveMqttSessionNow('send-mqtt-reconnect-now')).toBe(false);
+    rig.sever(0);
+    await tick();
+    await vi.advanceTimersByTimeAsync(3_000);
+    expect(rig.dialCount()).toBe(1);
+    expect(reconnectActiveMqttSessionNow('send-mqtt-reconnect-now')).toBe(true);
+    expect(rig.dialCount()).toBe(2);
+    // Mid-redial there is nothing to hurry; the cleared timer never fires a second dial.
+    expect(reconnectActiveMqttSessionNow('send-mqtt-reconnect-now')).toBe(false);
+    await vi.advanceTimersByTimeAsync(10_000);
+    expect(rig.dialCount()).toBe(2);
+    rig.fail(1, 'Connection refused by broker.openheaders.io:1883.');
+    await tick();
+    await vi.advanceTimersByTimeAsync(10_000);
+    expect(rig.dialCount()).toBe(3);
+    rig.fail(2, 'Connection refused by broker.openheaders.io:1883.');
+    await tick();
+    const snapshot = await settled;
+    expect(reconnectActiveMqttSessionNow('send-mqtt-reconnect-now')).toBe(false);
+    expect(snapshot.reconnectExhausted).toEqual({
+      attempts: 2,
+      error: 'Connection refused by broker.openheaders.io:1883.',
+    });
+    expect(snapshot.events).toEqual([
+      { kind: 'lost', end: null },
+      { kind: 'reconnecting', attempt: 1, delayMs: 3_000, forced: true },
+      { kind: 'reconnecting', attempt: 2, delayMs: 10_000, error: 'Connection refused by broker.openheaders.io:1883.' },
+    ]);
   });
 });

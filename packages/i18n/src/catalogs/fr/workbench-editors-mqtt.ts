@@ -24,6 +24,9 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.connect.label': 'Se connecter',
   'workbench.editors.mqtt.connect.disconnect': 'Se déconnecter',
   'workbench.editors.mqtt.connect.cancel': 'Annuler',
+  'workbench.editors.mqtt.connect.reconnectNow': 'Reconnecter maintenant',
+  'workbench.editors.mqtt.connect.reconnectNowHint':
+    'Lancer la prochaine tentative de reconnexion sans attendre la fin du délai',
   'workbench.editors.mqtt.connect.browserHost':
     'Les sessions MQTT s’exécutent sur l’application de bureau ou le serveur.',
   'workbench.editors.mqtt.connect.needsUrl': 'Saisissez une URL de broker pour vous connecter.',
@@ -283,6 +286,7 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.session.reconnectRefusedTag': 'Reconnexion refusée',
   'workbench.editors.mqtt.session.reconnectRefused': 'reconnexion refusée : {reason}',
   'workbench.editors.mqtt.timeline.reconnectingAfter': 'Tentative de reconnexion {attempt} après {delay}',
+  'workbench.editors.mqtt.timeline.reconnectingNow': 'Tentative de reconnexion {attempt} maintenant',
   'workbench.editors.mqtt.session.reconnectExhaustedTag': 'Reconnexion abandonnée',
   'workbench.editors.mqtt.session.reconnectExhausted': 'reconnexion abandonnée après {attempts}',
   'workbench.editors.mqtt.session.reconnectExhaustedReason': 'reconnexion abandonnée après {attempts} : {reason}',

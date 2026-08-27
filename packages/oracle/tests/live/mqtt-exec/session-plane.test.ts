@@ -11,6 +11,7 @@ import {
   closeActiveMqttSession,
   createMqttStreamEmitter,
   publishActiveMqttMessage,
+  reconnectActiveMqttSessionNow,
   registerActiveMqttSession,
   setActiveMqttSubscription,
 } from '@openheaders/oracle/live/mqtt-exec/session-plane';
@@ -94,9 +95,10 @@ describe('createMqttStreamEmitter', () => {
 });
 
 describe('active MQTT session registry', () => {
-  it('routes publish, subscription toggles and close to the registered handle until unregistered', async () => {
+  it('routes publish, subscription toggles, reconnect-now and close to the registered handle until unregistered', async () => {
     const published: string[] = [];
     let closedCount = 0;
+    let reconnectNowCount = 0;
     const unregister = registerActiveMqttSession('send-2', {
       publish: (message) => {
         published.push(message.topic);
@@ -106,6 +108,10 @@ describe('active MQTT session registry', () => {
       close: () => {
         closedCount++;
       },
+      reconnectNow: () => {
+        reconnectNowCount++;
+        return true;
+      },
     });
     expect(publishActiveMqttMessage('send-2', { topic: 'probe/echo', payload: 'x' })).toEqual({ success: true });
     expect(published).toEqual(['probe/echo']);
@@ -113,9 +119,12 @@ describe('active MQTT session registry', () => {
       success: true,
       grantCode: 1,
     });
+    expect(reconnectActiveMqttSessionNow('send-2')).toBe(true);
+    expect(reconnectNowCount).toBe(1);
     expect(closeActiveMqttSession('send-2')).toBe(true);
     expect(closedCount).toBe(1);
     unregister();
+    expect(reconnectActiveMqttSessionNow('send-2')).toBe(false);
     expect(publishActiveMqttMessage('send-2', { topic: 'late', payload: '' }).success).toBe(false);
     expect(closeActiveMqttSession('send-2')).toBe(false);
   });

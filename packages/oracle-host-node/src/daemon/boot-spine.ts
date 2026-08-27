@@ -99,6 +99,7 @@ import {
 import {
   closeActiveMqttSession,
   publishActiveMqttMessage,
+  reconnectActiveMqttSessionNow,
   setActiveMqttSubscription,
 } from '@openheaders/oracle/live/mqtt-exec/session-plane';
 import { buildRefreshOAuthHook } from '@openheaders/oracle/live/request-exec/oauth-refresh';
@@ -1293,6 +1294,9 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
     }
     if (type === 'closeMqttSession') {
       return { success: typeof message.sendId === 'string' && closeActiveMqttSession(message.sendId) };
+    }
+    if (type === 'reconnectMqttSessionNow') {
+      return { success: typeof message.sendId === 'string' && reconnectActiveMqttSessionNow(message.sendId) };
     }
     // Workspace-export import — the host-neutral orchestrator (the
     // extension SW answers the same channels). Local surface = the

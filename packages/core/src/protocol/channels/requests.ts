@@ -245,8 +245,10 @@ export type MqttStreamItemWire =
    *  ended (broker DISCONNECT reason verbatim, or the severed null). */
   | { kind: 'lost'; end: { by: 'broker'; reasonCode: number | null } | null; atMs: number }
   /** One reconnect attempt dialed after `delayMs` of waiting; `error`
-   *  = the previous attempt's classified failure when there was one. */
-  | { kind: 'reconnecting'; attempt: number; delayMs: number; error?: string; atMs: number }
+   *  = the previous attempt's classified failure when there was one;
+   *  `forced` = the user cut the wait short (`delayMs` is then the
+   *  wait actually sat through). */
+  | { kind: 'reconnecting'; attempt: number; delayMs: number; error?: string; forced?: true; atMs: number }
   /** A reconnect attempt's CONNACK accepted — the new connection's facts. */
   | {
       kind: 'reconnected';
@@ -651,6 +653,16 @@ export interface RequestRpc {
    * once the connection closes. `success: false` = no such session.
    */
   closeMqttSession: {
+    req: { sendId: string };
+    res: { success: boolean };
+  };
+  /**
+   * Cut the auto-reconnect wait short — the armed attempt dials now,
+   * with the SAME attempt number (no extra attempt against the cap).
+   * `success: false` = no such session, or nothing is waiting (a
+   * connection is up, or a redial is already on the wire).
+   */
+  reconnectMqttSessionNow: {
     req: { sendId: string };
     res: { success: boolean };
   };

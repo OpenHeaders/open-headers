@@ -32,7 +32,7 @@
  * flow through the RequestsContext's `updateMqttRequest`.
  */
 
-import { CaretRightOutlined } from '@ant-design/icons';
+import { CaretRightOutlined, ReloadOutlined } from '@ant-design/icons';
 import { MQTT_REQUEST_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { MqttRequest as MqttRequestEntity } from '@openheaders/core/types';
 import { ShortcutHintTitle, ShortcutKbd } from '@openheaders/ui/components/ShortcutKbd';
@@ -284,29 +284,44 @@ const MqttRequestEditor: React.FC<MqttRequestEditorProps> = ({
       ? t('workbench.editors.mqtt.connect.disconnect')
       : t('workbench.editors.mqtt.connect.cancel');
   const headerActions = session.inFlight ? (
-    <Tooltip
-      placement="bottom"
-      title={<ShortcutHintTitle label={CONNECT_SHORTCUT}>{inFlightLabel}</ShortcutHintTitle>}
-    >
-      <ConfigProvider theme={{ token: { colorError: token.colorErrorActive } }}>
-        <Button
-          size="small"
-          type="primary"
-          danger
-          icon={
-            <span
-              aria-hidden="true"
-              style={{ display: 'inline-block', width: 9, height: 9, borderRadius: 2, background: 'currentcolor' }}
-            />
-          }
-          onClick={session.handleDisconnect}
-          style={{ fontSize: 11 }}
-          data-testid="mqtt-connect-button"
-        >
-          {inFlightLabel}
-        </Button>
-      </ConfigProvider>
-    </Tooltip>
+    <>
+      {session.reconnecting ? (
+        <Tooltip placement="bottom" title={t('workbench.editors.mqtt.connect.reconnectNowHint')}>
+          <Button
+            size="small"
+            icon={<ReloadOutlined />}
+            onClick={session.handleReconnectNow}
+            style={{ fontSize: 11 }}
+            data-testid="mqtt-reconnect-now-button"
+          >
+            {t('workbench.editors.mqtt.connect.reconnectNow')}
+          </Button>
+        </Tooltip>
+      ) : null}
+      <Tooltip
+        placement="bottom"
+        title={<ShortcutHintTitle label={CONNECT_SHORTCUT}>{inFlightLabel}</ShortcutHintTitle>}
+      >
+        <ConfigProvider theme={{ token: { colorError: token.colorErrorActive } }}>
+          <Button
+            size="small"
+            type="primary"
+            danger
+            icon={
+              <span
+                aria-hidden="true"
+                style={{ display: 'inline-block', width: 9, height: 9, borderRadius: 2, background: 'currentcolor' }}
+              />
+            }
+            onClick={session.handleDisconnect}
+            style={{ fontSize: 11 }}
+            data-testid="mqtt-connect-button"
+          >
+            {inFlightLabel}
+          </Button>
+        </ConfigProvider>
+      </Tooltip>
+    </>
   ) : (
     <Tooltip
       placement="bottom"

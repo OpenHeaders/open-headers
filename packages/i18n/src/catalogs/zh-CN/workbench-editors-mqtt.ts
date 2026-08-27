@@ -27,6 +27,8 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.connect.label': '连接',
   'workbench.editors.mqtt.connect.disconnect': '断开连接',
   'workbench.editors.mqtt.connect.cancel': '取消',
+  'workbench.editors.mqtt.connect.reconnectNow': '立即重连',
+  'workbench.editors.mqtt.connect.reconnectNowHint': '不等待重连周期，立即发起下一次重连尝试',
   'workbench.editors.mqtt.connect.browserHost': 'MQTT 会话在桌面应用或服务器上运行。',
   'workbench.editors.mqtt.connect.needsUrl': '输入代理 URL 以连接。',
   'workbench.editors.mqtt.connect.tcpSchemeBrowser':
@@ -263,6 +265,7 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.session.reconnectRefusedTag': '重连被拒绝',
   'workbench.editors.mqtt.session.reconnectRefused': '重连被拒绝：{reason}',
   'workbench.editors.mqtt.timeline.reconnectingAfter': '第 {attempt} 次重连尝试，等待 {delay} 后',
+  'workbench.editors.mqtt.timeline.reconnectingNow': '第 {attempt} 次重连尝试，立即',
   'workbench.editors.mqtt.session.reconnectExhaustedTag': '重连已放弃',
   'workbench.editors.mqtt.session.reconnectExhausted': '重连已放弃，共 {attempts}',
   'workbench.editors.mqtt.session.reconnectExhaustedReason': '重连已放弃，共 {attempts}：{reason}',
