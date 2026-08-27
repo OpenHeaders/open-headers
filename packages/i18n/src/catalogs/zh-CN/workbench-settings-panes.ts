@@ -492,6 +492,7 @@ export const workbenchSettingsPanes = {
     '新用户创建和重新激活现在遵循 {limit} 个活跃用户的免费上限。现有用户照常登录，现有工作区照常工作，任何数据都绝不受影响。安装续期后的密钥可恢复许可的席位数量。',
   'workbench.settings.licensePane.getLicenseCta': '获取许可证',
   'workbench.settings.licensePane.renewLicenseCta': '续期许可证',
+  'workbench.settings.licensePane.detailsSection': '许可证',
   'workbench.settings.licensePane.detail.licensedTo': '授权给',
   'workbench.settings.licensePane.detail.contact': '联系人',
   'workbench.settings.licensePane.detail.seats': '席位',

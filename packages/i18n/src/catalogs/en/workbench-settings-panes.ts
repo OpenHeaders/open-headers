@@ -510,6 +510,7 @@ export const workbenchSettingsPanes = {
     'New user creation and reactivation now follow the free limit of {limit} active users. Existing users keep logging in, existing workspaces keep working, and no data is ever affected. Install a renewed key to restore the licensed seat count.',
   'workbench.settings.licensePane.getLicenseCta': 'Get a license',
   'workbench.settings.licensePane.renewLicenseCta': 'Renew license',
+  'workbench.settings.licensePane.detailsSection': 'License',
   'workbench.settings.licensePane.detail.licensedTo': 'Licensed to',
   'workbench.settings.licensePane.detail.contact': 'Contact',
   'workbench.settings.licensePane.detail.seats': 'Seats',

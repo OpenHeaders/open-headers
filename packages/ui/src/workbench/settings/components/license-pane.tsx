@@ -18,7 +18,7 @@ import { useEffect, useState } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { getCurrentHost } from '../../../shared/host-vocabulary';
 import { noteUpgradeCtaShown, trackProductTelemetryEvent } from '../../../shared/product-telemetry';
-import { PaneHeader } from './pane-chrome';
+import { Pane, PaneHeader, PaneSection } from './pane-chrome';
 import type { CategoryPaneProps } from '../types';
 
 const INVALID_REASON_TEXT: Record<LicenseInvalidReason, MessageKey> = {
@@ -58,11 +58,12 @@ const UpgradeCta: React.FC<{ surface: TelemetryMonetizationSurface; label: strin
   );
 };
 
+/** One `Label: value` line on the FieldRow grid — the 180px shared key column. */
 const DetailRow: React.FC<{ label: string; children: React.ReactNode }> = ({ label, children }) => {
   const { token } = theme.useToken();
   return (
-    <div style={{ display: 'flex', gap: 12, padding: '5px 0', fontSize: 12 }}>
-      <span style={{ width: 110, flex: 'none', color: token.colorTextSecondary }}>{label}</span>
+    <div style={{ display: 'flex', alignItems: 'baseline', columnGap: 6, padding: '3px 0', fontSize: 12 }}>
+      <span style={{ minWidth: 180, flex: 'none', fontSize: 13, color: token.colorText }}>{`${label}:`}</span>
       <span style={{ color: token.colorText }}>{children}</span>
     </div>
   );
@@ -127,7 +128,7 @@ const LicensePane: React.FC<CategoryPaneProps> = ({ category }) => {
   const upgradeCtaHost = getCurrentHost() === 'desktop';
 
   return (
-    <div style={{ padding: '14px 18px 20px', maxWidth: 760 }}>
+    <Pane>
       <PaneHeader category={category} />
 
       {snapshot === null ? null : (
@@ -209,98 +210,95 @@ const LicensePane: React.FC<CategoryPaneProps> = ({ category }) => {
           )}
 
           {licensed && (
-            <section style={{ marginBottom: 14 }}>
-              <div className="settings-card" style={{ padding: '8px 14px' }}>
-                <DetailRow label={t('workbench.settings.licensePane.detail.licensedTo')}>
-                  {snapshot.licensee.name}
-                  {snapshot.licensee.org ? ` — ${snapshot.licensee.org}` : ''}
+            <PaneSection title={t('workbench.settings.licensePane.detailsSection')}>
+              <DetailRow label={t('workbench.settings.licensePane.detail.licensedTo')}>
+                {snapshot.licensee.name}
+                {snapshot.licensee.org ? ` — ${snapshot.licensee.org}` : ''}
+              </DetailRow>
+              {snapshot.licensee.email && (
+                <DetailRow label={t('workbench.settings.licensePane.detail.contact')}>
+                  {snapshot.licensee.email}
                 </DetailRow>
-                {snapshot.licensee.email && (
-                  <DetailRow label={t('workbench.settings.licensePane.detail.contact')}>
-                    {snapshot.licensee.email}
-                  </DetailRow>
+              )}
+              <DetailRow label={t('workbench.settings.licensePane.detail.seats')}>{snapshot.seats}</DetailRow>
+              <DetailRow label={t('workbench.settings.licensePane.detail.validUntil')}>
+                {formatDay(snapshot.validUntil)}
+                {snapshot.status === 'licensed' && (
+                  <Tag color="green" style={{ marginLeft: 8, fontSize: 11 }}>
+                    {t('workbench.settings.licensePane.tag.active')}
+                  </Tag>
                 )}
-                <DetailRow label={t('workbench.settings.licensePane.detail.seats')}>{snapshot.seats}</DetailRow>
-                <DetailRow label={t('workbench.settings.licensePane.detail.validUntil')}>
-                  {formatDay(snapshot.validUntil)}
-                  {snapshot.status === 'licensed' && (
-                    <Tag color="green" style={{ marginLeft: 8, fontSize: 11 }}>
-                      {t('workbench.settings.licensePane.tag.active')}
-                    </Tag>
-                  )}
-                  {snapshot.offline && (
-                    <Tag style={{ marginLeft: 8, fontSize: 11 }}>{t('workbench.settings.licensePane.tag.offline')}</Tag>
-                  )}
-                </DetailRow>
-                <DetailRow label={t('workbench.settings.licensePane.detail.licenseId')}>
-                  <span style={{ fontFamily: token.fontFamilyCode, fontSize: 11.5 }}>{snapshot.licenseId}</span>
-                </DetailRow>
-                <div style={{ padding: '8px 0 4px' }}>
-                  <Popconfirm
-                    title={t('workbench.settings.licensePane.removeConfirm.title')}
-                    description={t('workbench.settings.licensePane.removeConfirm.body', { limit: FREE_SEAT_LIMIT })}
-                    okText={t('workbench.settings.licensePane.removeConfirm.ok')}
-                    okButtonProps={{ danger: true }}
-                    onConfirm={() => void remove()}
-                  >
-                    <Button danger size="small">
-                      {t('workbench.settings.licensePane.removeButton')}
-                    </Button>
-                  </Popconfirm>
-                </div>
+                {snapshot.offline && (
+                  <Tag style={{ marginLeft: 8, fontSize: 11 }}>{t('workbench.settings.licensePane.tag.offline')}</Tag>
+                )}
+              </DetailRow>
+              <DetailRow label={t('workbench.settings.licensePane.detail.licenseId')}>
+                <span style={{ fontFamily: token.fontFamilyCode, fontSize: 11.5 }}>{snapshot.licenseId}</span>
+              </DetailRow>
+              <div style={{ padding: '8px 0 4px' }}>
+                <Popconfirm
+                  title={t('workbench.settings.licensePane.removeConfirm.title')}
+                  description={t('workbench.settings.licensePane.removeConfirm.body', { limit: FREE_SEAT_LIMIT })}
+                  okText={t('workbench.settings.licensePane.removeConfirm.ok')}
+                  okButtonProps={{ danger: true }}
+                  onConfirm={() => void remove()}
+                >
+                  <Button danger size="small">
+                    {t('workbench.settings.licensePane.removeButton')}
+                  </Button>
+                </Popconfirm>
               </div>
-            </section>
+            </PaneSection>
           )}
 
-          <section>
-            <div className="settings-card" style={{ padding: '10px 14px 12px' }}>
-              <div style={{ fontSize: 12, fontWeight: 600, color: token.colorText, marginBottom: 6 }}>
-                {licensed
-                  ? t('workbench.settings.licensePane.replaceTitle')
-                  : t('workbench.settings.licensePane.installTitle')}
-              </div>
-              <Input.TextArea
-                value={draft}
-                onChange={(e) => {
-                  setDraft(e.target.value);
-                  setInstallError(null);
+          <PaneSection
+            title={
+              licensed
+                ? t('workbench.settings.licensePane.replaceTitle')
+                : t('workbench.settings.licensePane.installTitle')
+            }
+          >
+            <Input.TextArea
+              value={draft}
+              onChange={(e) => {
+                setDraft(e.target.value);
+                setInstallError(null);
+              }}
+              placeholder={t('workbench.settings.licensePane.pastePlaceholder')}
+              autoSize={{ minRows: 3, maxRows: 6 }}
+              style={{ fontFamily: token.fontFamilyCode, fontSize: 11.5 }}
+            />
+            {installError && (
+              <div style={{ marginTop: 6, fontSize: 12, color: token.colorError }}>{installError}</div>
+            )}
+            <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+              <Button
+                type="primary"
+                size="small"
+                loading={installing}
+                disabled={draft.trim() === ''}
+                onClick={() => void install(draft)}
+              >
+                {t('workbench.settings.licensePane.installButton')}
+              </Button>
+              <Upload
+                accept=".key,.txt,text/plain"
+                showUploadList={false}
+                beforeUpload={(file) => {
+                  void file.text().then((text) => {
+                    setDraft(text.trim());
+                    setInstallError(null);
+                  });
+                  return false;
                 }}
-                placeholder={t('workbench.settings.licensePane.pastePlaceholder')}
-                autoSize={{ minRows: 3, maxRows: 6 }}
-                style={{ fontFamily: token.fontFamilyCode, fontSize: 11.5 }}
-              />
-              {installError && (
-                <div style={{ marginTop: 6, fontSize: 12, color: token.colorError }}>{installError}</div>
-              )}
-              <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-                <Button
-                  type="primary"
-                  size="small"
-                  loading={installing}
-                  disabled={draft.trim() === ''}
-                  onClick={() => void install(draft)}
-                >
-                  {t('workbench.settings.licensePane.installButton')}
-                </Button>
-                <Upload
-                  accept=".key,.txt,text/plain"
-                  showUploadList={false}
-                  beforeUpload={(file) => {
-                    void file.text().then((text) => {
-                      setDraft(text.trim());
-                      setInstallError(null);
-                    });
-                    return false;
-                  }}
-                >
-                  <Button size="small">{t('workbench.settings.licensePane.loadFromFile')}</Button>
-                </Upload>
-              </div>
+              >
+                <Button size="small">{t('workbench.settings.licensePane.loadFromFile')}</Button>
+              </Upload>
             </div>
-          </section>
+          </PaneSection>
         </>
       )}
-    </div>
+    </Pane>
   );
 };
 

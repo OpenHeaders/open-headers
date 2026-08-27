@@ -589,6 +589,7 @@ export const workbenchSettingsPanes = {
     'renouvelée pour restaurer le nombre de sièges sous licence.',
   'workbench.settings.licensePane.getLicenseCta': 'Obtenir une licence',
   'workbench.settings.licensePane.renewLicenseCta': 'Renouveler la licence',
+  'workbench.settings.licensePane.detailsSection': 'Licence',
   'workbench.settings.licensePane.detail.licensedTo': 'Titulaire',
   'workbench.settings.licensePane.detail.contact': 'Contact',
   'workbench.settings.licensePane.detail.seats': 'Sièges',

@@ -588,6 +588,7 @@ export const workbenchSettingsPanes = {
     'se ve afectado jamás. Instala una clave renovada para restaurar el número de plazas con licencia.',
   'workbench.settings.licensePane.getLicenseCta': 'Obtener una licencia',
   'workbench.settings.licensePane.renewLicenseCta': 'Renovar la licencia',
+  'workbench.settings.licensePane.detailsSection': 'Licencia',
   'workbench.settings.licensePane.detail.licensedTo': 'Titular',
   'workbench.settings.licensePane.detail.contact': 'Contacto',
   'workbench.settings.licensePane.detail.seats': 'Plazas',
