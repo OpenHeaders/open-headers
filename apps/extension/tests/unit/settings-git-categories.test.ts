@@ -1,6 +1,6 @@
 /**
  * Git settings group — pins the split of the old single Git page into
- * child categories under the `git` node. The pages carry no settings
+ * child categories under the `git` group node. The pages carry no settings
  * defs (every value lives on the daemon's binding record), so the pins
  * are structural: parent, nav label, declared subcategories, host gate,
  * and the group's teaser staying on the parent alone.
@@ -11,9 +11,11 @@ import { allCategories, byCategory, getCategory } from '@openheaders/ui/workbenc
 import { describe, expect, it } from 'vitest';
 
 describe('git settings group', () => {
-  it('git is desktop-gated with the teaser and no defs of its own', () => {
+  it('git is a desktop-gated group node with the teaser and no defs of its own', () => {
     const git = getCategory('git');
     expect(git?.parent).toBeUndefined();
+    expect(git?.renderPane).toBeDefined();
+    expect(git?.subcategories).toBeUndefined();
     expect(git?.when).toBeDefined();
     expect(git?.teaserWhenUnavailable).toBe('git');
     expect(byCategory('git')).toHaveLength(0);

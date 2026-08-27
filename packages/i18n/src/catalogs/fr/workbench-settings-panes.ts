@@ -833,7 +833,6 @@ export const workbenchSettingsPanes = {
   'workbench.settings.gitPane.bindButton': 'Lier le dossier',
   'workbench.settings.gitPane.bound': 'Dossier lié.',
   'workbench.settings.gitPane.boundInitialized': 'Dossier initialisé comme nouvelle arborescence d’espace de travail.',
-  'workbench.settings.gitPane.boundTitle': 'Dossier lié',
   'workbench.settings.gitPane.boundBody':
     'Les modifications se matérialisent en continu dans ce dossier ; les changements apportés aux fichiers reviennent dans l’application.',
   'workbench.settings.gitPane.unbindButton': 'Délier',
@@ -856,7 +855,6 @@ export const workbenchSettingsPanes = {
   'workbench.settings.gitPane.refusal.invalidManifest': 'Le workspace.yaml du dossier n’a pas pu être lu : {message}',
   'workbench.settings.gitPane.refusal.alreadyBound': 'Cet espace de travail est déjà lié à un dossier.',
   'workbench.settings.gitPane.refusal.unknownWorkspace': 'Aucun espace de travail actif à lier.',
-  'workbench.settings.gitPane.git.title': 'Git',
   'workbench.settings.gitPane.git.available': 'Git {version} détecté',
   'workbench.settings.gitPane.needsRepo': 'Cette page nécessite un dossier lié avec un dépôt — liez-en un sous',
   'workbench.settings.gitPane.git.missing.title': 'Git n’est pas installé',
@@ -913,7 +911,6 @@ export const workbenchSettingsPanes = {
   'workbench.settings.gitPane.git.autoPushLabel': 'Pousser après chaque commit',
   'workbench.settings.gitPane.git.autoPushDescription':
     'Pousser la branche courante vers son upstream juste après chaque commit enregistré par le moteur.',
-  'workbench.settings.gitPane.git.branch.title': 'Branches',
   'workbench.settings.gitPane.git.branch.current': 'Sur la branche {branch}',
   'workbench.settings.gitPane.git.branch.detached': 'HEAD détaché — créez une branche pour conserver cet historique.',
   'workbench.settings.gitPane.git.branch.switchLabel': 'Basculer vers',
@@ -958,7 +955,6 @@ export const workbenchSettingsPanes = {
   'workbench.settings.gitPane.git.forcePush.resolved': 'Historique réécrit accepté ({sha}).',
   'workbench.settings.gitPane.git.forcePush.rescued': 'Historique local préservé sur {branch}.',
   'workbench.settings.gitPane.git.forcePush.failed': 'Résolution impossible : {detail}',
-  'workbench.settings.gitPane.git.history.title': 'Historique',
   'workbench.settings.gitPane.git.history.show': 'Afficher l’historique',
   'workbench.settings.gitPane.git.history.hide': 'Masquer',
   'workbench.settings.gitPane.git.history.empty': 'Aucun commit pour l’instant.',

@@ -830,7 +830,6 @@ export const workbenchSettingsPanes = {
   'workbench.settings.gitPane.bindButton': 'Vincular carpeta',
   'workbench.settings.gitPane.bound': 'Carpeta vinculada.',
   'workbench.settings.gitPane.boundInitialized': 'Carpeta inicializada como un nuevo árbol de espacio de trabajo.',
-  'workbench.settings.gitPane.boundTitle': 'Carpeta vinculada',
   'workbench.settings.gitPane.boundBody':
     'Las ediciones se materializan continuamente en esta carpeta; los cambios hechos en los archivos vuelven a ' +
     'la aplicación.',
@@ -855,7 +854,6 @@ export const workbenchSettingsPanes = {
   'workbench.settings.gitPane.refusal.invalidManifest': 'No se pudo leer el workspace.yaml de la carpeta: {message}',
   'workbench.settings.gitPane.refusal.alreadyBound': 'Este espacio de trabajo ya está vinculado a una carpeta.',
   'workbench.settings.gitPane.refusal.unknownWorkspace': 'No hay ningún espacio de trabajo activo que vincular.',
-  'workbench.settings.gitPane.git.title': 'Git',
   'workbench.settings.gitPane.git.available': 'Git {version} encontrado',
   'workbench.settings.gitPane.needsRepo': 'Esta página necesita una carpeta vinculada con repositorio — vincula una en',
   'workbench.settings.gitPane.git.missing.title': 'Git no está instalado',
@@ -912,7 +910,6 @@ export const workbenchSettingsPanes = {
   'workbench.settings.gitPane.git.autoPushLabel': 'Hacer push tras cada commit',
   'workbench.settings.gitPane.git.autoPushDescription':
     'Hacer push de la rama actual a su upstream justo después de cada commit que registre el motor.',
-  'workbench.settings.gitPane.git.branch.title': 'Ramas',
   'workbench.settings.gitPane.git.branch.current': 'En la rama {branch}',
   'workbench.settings.gitPane.git.branch.detached': 'HEAD separado — crea una rama para conservar este historial.',
   'workbench.settings.gitPane.git.branch.switchLabel': 'Cambiar a',
@@ -957,7 +954,6 @@ export const workbenchSettingsPanes = {
   'workbench.settings.gitPane.git.forcePush.resolved': 'Historial reescrito aceptado ({sha}).',
   'workbench.settings.gitPane.git.forcePush.rescued': 'Historial local preservado en {branch}.',
   'workbench.settings.gitPane.git.forcePush.failed': 'No se pudo resolver: {detail}',
-  'workbench.settings.gitPane.git.history.title': 'Historial',
   'workbench.settings.gitPane.git.history.show': 'Mostrar historial',
   'workbench.settings.gitPane.git.history.hide': 'Ocultar',
   'workbench.settings.gitPane.git.history.empty': 'Aún no hay commits.',

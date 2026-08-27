@@ -726,7 +726,6 @@ export const workbenchSettingsPanes = {
   'workbench.settings.gitPane.bindButton': 'Bind Folder',
   'workbench.settings.gitPane.bound': 'Folder bound.',
   'workbench.settings.gitPane.boundInitialized': 'Folder initialized as a new workspace tree.',
-  'workbench.settings.gitPane.boundTitle': 'Bound folder',
   'workbench.settings.gitPane.boundBody':
     'Edits materialize to this folder continuously; changes made to the files land back in the app.',
   'workbench.settings.gitPane.unbindButton': 'Unbind',
@@ -748,7 +747,6 @@ export const workbenchSettingsPanes = {
   'workbench.settings.gitPane.refusal.invalidManifest': 'The folder’s workspace.yaml could not be read: {message}',
   'workbench.settings.gitPane.refusal.alreadyBound': 'This workspace is already bound to a folder.',
   'workbench.settings.gitPane.refusal.unknownWorkspace': 'No active workspace to bind.',
-  'workbench.settings.gitPane.git.title': 'Git',
   'workbench.settings.gitPane.git.available': 'Git {version} found',
   'workbench.settings.gitPane.needsRepo': 'This page needs a bound folder with a repository — bind one under',
   'workbench.settings.gitPane.git.missing.title': 'Git is not installed',
@@ -802,7 +800,6 @@ export const workbenchSettingsPanes = {
   'workbench.settings.gitPane.git.autoPushLabel': 'Push after every commit',
   'workbench.settings.gitPane.git.autoPushDescription':
     'Push the current branch to its upstream right after every commit the engine records.',
-  'workbench.settings.gitPane.git.branch.title': 'Branches',
   'workbench.settings.gitPane.git.branch.current': 'On branch {branch}',
   'workbench.settings.gitPane.git.branch.detached': 'Detached HEAD — create a branch to keep this history.',
   'workbench.settings.gitPane.git.branch.switchLabel': 'Switch to',
@@ -846,7 +843,6 @@ export const workbenchSettingsPanes = {
   'workbench.settings.gitPane.git.forcePush.resolved': 'Rewritten history accepted ({sha}).',
   'workbench.settings.gitPane.git.forcePush.rescued': 'Local history preserved on {branch}.',
   'workbench.settings.gitPane.git.forcePush.failed': 'Could not resolve: {detail}',
-  'workbench.settings.gitPane.git.history.title': 'History',
   'workbench.settings.gitPane.git.history.show': 'Show History',
   'workbench.settings.gitPane.git.history.hide': 'Hide',
   'workbench.settings.gitPane.git.history.empty': 'No commits yet.',

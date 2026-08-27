@@ -834,7 +834,6 @@ export const workbenchSettingsPanes = {
   'workbench.settings.gitPane.bindButton': 'Ordner binden',
   'workbench.settings.gitPane.bound': 'Ordner gebunden.',
   'workbench.settings.gitPane.boundInitialized': 'Ordner als neuer Arbeitsbereich-Baum initialisiert.',
-  'workbench.settings.gitPane.boundTitle': 'Gebundener Ordner',
   'workbench.settings.gitPane.boundBody':
     'Änderungen materialisieren fortlaufend in diesen Ordner; Änderungen an den Dateien landen zurück in der ' + 'App.',
   'workbench.settings.gitPane.unbindButton': 'Lösen',
@@ -859,7 +858,6 @@ export const workbenchSettingsPanes = {
     'Die workspace.yaml des Ordners ließ sich nicht lesen: {message}',
   'workbench.settings.gitPane.refusal.alreadyBound': 'Dieser Arbeitsbereich ist bereits an einen Ordner gebunden.',
   'workbench.settings.gitPane.refusal.unknownWorkspace': 'Kein aktiver Arbeitsbereich zum Binden.',
-  'workbench.settings.gitPane.git.title': 'Git',
   'workbench.settings.gitPane.git.available': 'Git {version} gefunden',
   'workbench.settings.gitPane.needsRepo':
     'Diese Seite braucht einen gebundenen Ordner mit Repository — binde einen unter',
@@ -917,7 +915,6 @@ export const workbenchSettingsPanes = {
   'workbench.settings.gitPane.git.autoPushLabel': 'Nach jedem Commit pushen',
   'workbench.settings.gitPane.git.autoPushDescription':
     'Den aktuellen Branch direkt nach jedem Commit der Engine zu seinem Upstream pushen.',
-  'workbench.settings.gitPane.git.branch.title': 'Branches',
   'workbench.settings.gitPane.git.branch.current': 'Auf Branch {branch}',
   'workbench.settings.gitPane.git.branch.detached':
     'Detached HEAD — lege einen Branch an, um diese Historie zu behalten.',
@@ -965,7 +962,6 @@ export const workbenchSettingsPanes = {
   'workbench.settings.gitPane.git.forcePush.resolved': 'Umgeschriebene Historie übernommen ({sha}).',
   'workbench.settings.gitPane.git.forcePush.rescued': 'Lokale Historie auf {branch} bewahrt.',
   'workbench.settings.gitPane.git.forcePush.failed': 'Ließ sich nicht auflösen: {detail}',
-  'workbench.settings.gitPane.git.history.title': 'Verlauf',
   'workbench.settings.gitPane.git.history.show': 'Verlauf anzeigen',
   'workbench.settings.gitPane.git.history.hide': 'Ausblenden',
   'workbench.settings.gitPane.git.history.empty': 'Noch keine Commits.',

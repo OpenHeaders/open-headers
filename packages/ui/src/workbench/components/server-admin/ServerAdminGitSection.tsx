@@ -1,8 +1,8 @@
 /**
  * Git domain tab body — server workspace ↔ repository bindings (the
- * git-sync plan §11.5): the settings Git card over the gated dispatch
- * wire; paths and repos live on the daemon. No native picker here:
- * binds go through the path input.
+ * git-sync plan §11.5): the settings Git pages stacked as one card over
+ * the gated dispatch wire; paths and repos live on the daemon. No
+ * native picker here: binds go through the path input.
  */
 
 import { Select, theme } from 'antd';
@@ -10,10 +10,8 @@ import { useEffect, useState } from 'react';
 import type React from 'react';
 import { type BridgeRpcRequest, type BridgeRpcResponse, hostBridge } from '@openheaders/core/bridge';
 import { useT } from '@openheaders/ui/context/LocaleContext';
-import GitWorkspacePane, {
-  type WorkspaceTreeRpcType,
-  type WorkspaceTreeTransport,
-} from '../../settings/components/git-workspace-pane';
+import type { WorkspaceTreeRpcType, WorkspaceTreeTransport } from '../../components/git/transport';
+import GitWorkspaceCard from '../../settings/components/git/git-workspace-card';
 import { SectionHeader } from './section-chrome';
 import { useServerDirectory } from './use-server-directory';
 
@@ -68,7 +66,7 @@ const ServerAdminGitSection: React.FC = () => {
         />
       </div>
       {gitWorkspaceId !== null && (
-        <GitWorkspacePane transport={adminGitTransport} workspaceId={gitWorkspaceId} allowFolderPicker={false} />
+        <GitWorkspaceCard transport={adminGitTransport} workspaceId={gitWorkspaceId} />
       )}
     </section>
   );

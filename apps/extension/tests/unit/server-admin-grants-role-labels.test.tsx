@@ -39,7 +39,7 @@ vi.mock('@openheaders/core/bridge', async (importOriginal) => {
 // drive their own channels; the grants seam under test needs none of
 // them mounted.
 vi.mock('@openheaders/ui/workbench/settings/components/backend-tokens-section', () => ({ default: () => null }));
-vi.mock('@openheaders/ui/workbench/settings/components/git-workspace-pane', () => ({ default: () => null }));
+vi.mock('@openheaders/ui/workbench/settings/components/git/git-workspace-card', () => ({ default: () => null }));
 vi.mock('@openheaders/ui/workbench/components/server-admin/ServerAuditReports', () => ({ default: () => null }));
 vi.mock('@openheaders/ui/workbench/components/server-admin/ServerReleaseNotesCard', () => ({ default: () => null }));
 

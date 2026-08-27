@@ -47,7 +47,6 @@ import { registerCategory } from './registry';
 // suites on `document.queryCommandSupported`.
 const BackendPane = lazy(() => import('./components/BackendPane'));
 const LicensePane = lazy(() => import('./components/license-pane'));
-const GitWorkspacePane = lazy(() => import('./components/git-workspace-pane'));
 const GitFolderPane = lazy(() => import('./components/git/git-folder-pane'));
 const GitAutomationPane = lazy(() => import('./components/git/git-automation-pane'));
 const GitRepositoryPane = lazy(() => import('./components/git/git-repository-pane'));
@@ -448,11 +447,14 @@ registerCategory({
   icon: <BranchesOutlined />,
   order: 86,
   descriptionKey: 'workbench.settings.category.git.description',
-  renderPane: GitWorkspacePane,
-  // Only Node hosts have a filesystem to bind (the git-sync plan §12): the
-  // desktop is Phase 2's host; the daemon's served web tab follows
+  // Group node over the Git pages: Folder (the binding), Automation
+  // (cadence, hooks, auto-push) and Repository (operating the repo).
+  // Only Node hosts have a filesystem to bind (the git-sync plan §12):
+  // the desktop is Phase 2's host; the daemon's served web tab follows
   // with the admin console work, and the extension never qualifies.
-  // Browser hosts keep the nav entry and render the desktop teaser.
+  // Browser hosts keep the nav entry and render the desktop teaser
+  // here while the children hide.
+  renderPane: GroupLandingPane,
   when: () => getCurrentHost() === 'desktop',
   teaserWhenUnavailable: 'git',
 });
