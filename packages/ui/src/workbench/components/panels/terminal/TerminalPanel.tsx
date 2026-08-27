@@ -321,7 +321,7 @@ const TerminalPanel: React.FC<TerminalPanelProps> = ({ info, dockSlot, active, o
             okText: t('workbench.terminal.cliGate.openSettings'),
             okButtonProps: { size: 'small' },
             cancelButtonProps: { size: 'small' },
-            onOk: () => openSettings?.({ categoryId: 'mcp' }),
+            onOk: () => openSettings?.({ categoryId: 'mcpClients' }),
           });
           return;
         }

@@ -45,7 +45,6 @@ import { registerCategory } from './registry';
 // every test that touches the settings registry, breaking jsdom-based
 // suites on `document.queryCommandSupported`.
 const BackendPane = lazy(() => import('./components/BackendPane'));
-const McpPane = lazy(() => import('./components/mcp-pane'));
 const LicensePane = lazy(() => import('./components/license-pane'));
 const GitWorkspacePane = lazy(() => import('./components/git-workspace-pane'));
 const ProxyTrustPane = lazy(() => import('./components/proxy-trust-pane'));
@@ -138,10 +137,12 @@ registerCategory({
   icon: <RobotOutlined />,
   order: 4,
   descriptionKey: 'workbench.settings.category.mcp.description',
-  renderPane: McpPane,
-  // The desktop app is the only host that runs the MCP server; the
-  // `when` is read at render time, after the host seam is installed.
-  // Browser hosts keep the nav entry and render the desktop teaser.
+  // Group node over the MCP pages: Access (the switches) and Clients
+  // (CLI provisioning, config snippets). The desktop app is the only
+  // host that runs the MCP server; the `when` is read at render time,
+  // after the host seam is installed. Browser hosts keep the nav entry
+  // and render the desktop teaser here while the children hide.
+  renderPane: GroupLandingPane,
   when: () => getCurrentHost() === 'desktop',
   teaserWhenUnavailable: 'mcp',
 });

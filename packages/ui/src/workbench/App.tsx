@@ -827,7 +827,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
     () =>
       hostBridge.subscribe('revealToolWindow', ({ target }) => {
         if (target === 'mcp') {
-          openSettings({ categoryId: 'mcp' });
+          openSettings({ categoryId: 'mcpAccess' });
           return;
         }
         // The peer-execute refusal hand-off: land on the exact opt-in

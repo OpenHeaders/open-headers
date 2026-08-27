@@ -529,8 +529,6 @@ export const workbenchSettingsPanes = {
   'workbench.settings.cliAccess.provisionFailed': 'CLI-Einrichtung fehlgeschlagen: {message}',
 
   // ── MCP pane body ──────────────────────────────────────────────────
-  'workbench.settings.mcpPane.serverOff':
-    'Der MCP-Server ist aus — Clients können sich erst verbinden, wenn du ihn aktivierst.',
   'workbench.settings.mcpPane.connect.title': 'Client verbinden',
   'workbench.settings.mcpPane.connect.blurb':
     'Wähle deinen Client, ersetze den Token-Platzhalter durch einen Zugriffstoken und passe den App-Pfad an, ' +

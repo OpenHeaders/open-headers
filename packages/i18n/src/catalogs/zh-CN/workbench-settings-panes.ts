@@ -449,7 +449,6 @@ export const workbenchSettingsPanes = {
   'workbench.settings.cliAccess.provisionFailed': 'CLI 设置失败：{message}',
 
   // ── MCP pane body ──────────────────────────────────────────────────
-  'workbench.settings.mcpPane.serverOff': 'MCP 服务器已关闭——启用之前客户端无法连接。',
   'workbench.settings.mcpPane.connect.title': '连接客户端',
   'workbench.settings.mcpPane.connect.blurb':
     '选择你的客户端，把 token 占位符替换为访问 token，如果安装在别处再调整应用路径。客户端连接时应用必须在运行。',

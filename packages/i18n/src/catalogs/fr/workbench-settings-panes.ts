@@ -529,8 +529,6 @@ export const workbenchSettingsPanes = {
   'workbench.settings.cliAccess.provisionFailed': 'Échec de la configuration CLI : {message}',
 
   // ── MCP pane body ──────────────────────────────────────────────────
-  'workbench.settings.mcpPane.serverOff':
-    "Le serveur MCP est désactivé — les clients ne peuvent pas se connecter tant que vous ne l'activez pas.",
   'workbench.settings.mcpPane.connect.title': 'Connecter un client',
   'workbench.settings.mcpPane.connect.blurb':
     "Choisissez votre client, remplacez l'espace réservé du jeton par un jeton d'accès, et ajustez le chemin " +
