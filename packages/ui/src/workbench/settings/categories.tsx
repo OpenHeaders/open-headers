@@ -49,7 +49,6 @@ const BackendPane = lazy(() => import('./components/BackendPane'));
 const LicensePane = lazy(() => import('./components/license-pane'));
 const GitFolderPane = lazy(() => import('./components/git/git-folder-pane'));
 const GitAutomationPane = lazy(() => import('./components/git/git-automation-pane'));
-const GitRepositoryPane = lazy(() => import('./components/git/git-repository-pane'));
 const ProxyTrustPane = lazy(() => import('./components/proxy-trust-pane'));
 const SystemProxyPane = lazy(() => import('./components/system-proxy-pane'));
 const KeymapPane = lazy(() => import('./components/keymap/KeymapPane'));
@@ -447,8 +446,9 @@ registerCategory({
   icon: <BranchesOutlined />,
   order: 86,
   descriptionKey: 'workbench.settings.category.git.description',
-  // Group node over the Git pages: Folder (the binding), Automation
-  // (cadence, hooks, auto-push) and Repository (operating the repo).
+  // Group node over the Git pages: Folder (the binding) and Automation
+  // (cadence, hooks, auto-push). Operating the repository is the Git
+  // tool window's job; the Server Admin console keeps the full card.
   // Only Node hosts have a filesystem to bind (the git-sync plan §12):
   // the desktop is Phase 2's host; the daemon's served web tab follows
   // with the admin console work, and the extension never qualifies.
@@ -490,24 +490,6 @@ registerCategory({
     { id: 'remote', labelKey: 'workbench.settings.category.gitAutomation.sub.remote', order: 20 },
   ],
   renderPane: GitAutomationPane,
-  when: () => getCurrentHost() === 'desktop',
-});
-
-registerCategory({
-  id: 'gitRepository',
-  labelKey: 'workbench.settings.category.gitRepository.label',
-  navLabelKey: 'workbench.settings.category.gitRepository.navLabel',
-  parent: 'git',
-  icon: <DatabaseOutlined />,
-  order: 30,
-  descriptionKey: 'workbench.settings.category.gitRepository.description',
-  subcategories: [
-    { id: 'working-tree', labelKey: 'workbench.settings.category.gitRepository.sub.working-tree', order: 10 },
-    { id: 'branches', labelKey: 'workbench.settings.category.gitRepository.sub.branches', order: 20 },
-    { id: 'commit', labelKey: 'workbench.settings.category.gitRepository.sub.commit', order: 30 },
-    { id: 'history', labelKey: 'workbench.settings.category.gitRepository.sub.history', order: 40 },
-  ],
-  renderPane: GitRepositoryPane,
   when: () => getCurrentHost() === 'desktop',
 });
 

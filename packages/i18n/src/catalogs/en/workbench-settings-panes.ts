@@ -749,6 +749,10 @@ export const workbenchSettingsPanes = {
   'workbench.settings.gitPane.refusal.unknownWorkspace': 'No active workspace to bind.',
   'workbench.settings.gitPane.git.available': 'Git {version} found',
   'workbench.settings.gitPane.needsRepo': 'This page needs a bound folder with a repository — bind one under',
+  'workbench.settings.gitPane.section.workingTree': 'Working tree',
+  'workbench.settings.gitPane.section.branches': 'Branches',
+  'workbench.settings.gitPane.section.commit': 'Commit',
+  'workbench.settings.gitPane.section.history': 'History',
   'workbench.settings.gitPane.git.missing.title': 'Git is not installed',
   'workbench.settings.gitPane.git.missing.body':
     'Install git to commit this folder’s history. Everything else keeps working without it.',

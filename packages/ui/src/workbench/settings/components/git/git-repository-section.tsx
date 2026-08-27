@@ -4,9 +4,10 @@
  * with Pull / Push and their typed failures), Branches (switch with the
  * dirty prompt, create, merge), Commit (the explicit gesture with its
  * semantic draft) and History (the recent log with per-file history).
- * Shared by the Repository page and the Server Admin git card; without
- * a bound repository the sections give way to a pointer at the Folder
- * page.
+ * Lives on the Server Admin git card only — against a remote daemon
+ * there is no Git tool window; on the desktop the tool windows own
+ * these gestures. Without a bound repository the sections give way to
+ * a pointer at the Folder page.
  */
 
 import type { WorkspaceTreeLogEntryWire } from '@openheaders/core/bridge';
@@ -333,7 +334,7 @@ const GitRepositorySection: React.FC<{ git: WorkspaceGit }> = ({ git }) => {
 
   return (
     <>
-      <PaneSection title={t('workbench.settings.category.gitRepository.sub.working-tree')}>
+      <PaneSection title={t('workbench.settings.gitPane.section.workingTree')}>
         {gitStatus.forcePush !== null && (
           <Alert
             type="error"
@@ -493,7 +494,7 @@ const GitRepositorySection: React.FC<{ git: WorkspaceGit }> = ({ git }) => {
         )}
       </PaneSection>
 
-      <PaneSection title={t('workbench.settings.category.gitRepository.sub.branches')}>
+      <PaneSection title={t('workbench.settings.gitPane.section.branches')}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '3px 0' }}>
           <span
             style={{ fontSize: 11.5, color: token.colorTextSecondary, flex: 1 }}
@@ -630,7 +631,7 @@ const GitRepositorySection: React.FC<{ git: WorkspaceGit }> = ({ git }) => {
         </Modal>
       </PaneSection>
 
-      <PaneSection title={t('workbench.settings.category.gitRepository.sub.commit')}>
+      <PaneSection title={t('workbench.settings.gitPane.section.commit')}>
         <div style={{ display: 'flex', gap: 8, padding: '3px 0' }}>
           <Input
             value={commitMessage}
@@ -661,7 +662,7 @@ const GitRepositorySection: React.FC<{ git: WorkspaceGit }> = ({ git }) => {
         )}
       </PaneSection>
 
-      <PaneSection title={t('workbench.settings.category.gitRepository.sub.history')}>
+      <PaneSection title={t('workbench.settings.gitPane.section.history')}>
         <div style={{ padding: '3px 0' }}>
           <Button
             size="small"

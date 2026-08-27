@@ -857,6 +857,10 @@ export const workbenchSettingsPanes = {
   'workbench.settings.gitPane.refusal.unknownWorkspace': 'Aucun espace de travail actif à lier.',
   'workbench.settings.gitPane.git.available': 'Git {version} détecté',
   'workbench.settings.gitPane.needsRepo': 'Cette page nécessite un dossier lié avec un dépôt — liez-en un sous',
+  'workbench.settings.gitPane.section.workingTree': 'Arbre de travail',
+  'workbench.settings.gitPane.section.branches': 'Branches',
+  'workbench.settings.gitPane.section.commit': 'Commit',
+  'workbench.settings.gitPane.section.history': 'Historique',
   'workbench.settings.gitPane.git.missing.title': 'Git n’est pas installé',
   'workbench.settings.gitPane.git.missing.body':
     'Installez git pour valider l’historique de ce dossier. Tout le reste continue de fonctionner sans lui.',
