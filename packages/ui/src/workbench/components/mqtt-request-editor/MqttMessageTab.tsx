@@ -12,24 +12,22 @@
 
 import { SendOutlined } from '@ant-design/icons';
 import type { MqttPublishWire } from '@openheaders/core/bridge';
-import type { MqttPayloadFormat, MqttRequestQos } from '@openheaders/core/types';
 import { ShortcutHintTitle } from '@openheaders/ui/components/ShortcutKbd';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { isMac } from '@openheaders/ui/shared/platform';
 import { Allotment } from 'allotment';
-import { Button, Checkbox, Input, Select, Tooltip, Typography } from 'antd';
+import { Button, Checkbox, Select, Tooltip } from 'antd';
 import type React from 'react';
 import { type Dispatch, type SetStateAction, useRef, useState } from 'react';
 import CodeEditor from '../shared/CodeEditor';
 import CodeEditorActions, { type CodeEditorActionsTarget } from '../shared/CodeEditorActions';
 import EditorViewMenu from '../shared/EditorViewMenu';
 import { composePublishWire, PAYLOAD_FORMAT_LANGUAGE } from './compose';
+import { CompactQosSelect, EncodingErrorLine, EncodingSelect, payloadPlaceholder, TopicField } from './compose-parts';
 import type { MqttDraft } from './draft';
 import MessagePropertiesPopover from './MessagePropertiesPopover';
 import MqttSavedMessagesRail, { MqttSavedMessagesStrip } from './MqttSavedMessagesRail';
 import type { MqttComposeAids } from './useMqttComposeAids';
-
-const { Text } = Typography;
 
 const SEND_MESSAGE_SHORTCUT = isMac ? '⇧⌘↵' : 'Ctrl+Shift+Enter';
 
@@ -69,6 +67,7 @@ const MqttMessageTab: React.FC<MqttMessageTabProps> = ({
   // Allotment pane (resizable, the sash its only divider), the
   // collapsed strip sits flush by the editor.
   const [railCollapsed, setRailCollapsed] = useState(true);
+  const editorPlaceholder = payloadPlaceholder(t, draft.payloadFormat, t('workbench.editors.mqtt.payloadPlaceholder'));
 
   // "Use example message" — the compose aid off the specLink census.
   // A command picker, not a value: picking synthesizes the payload
@@ -128,13 +127,7 @@ const MqttMessageTab: React.FC<MqttMessageTabProps> = ({
                   actions="external"
                   actionsRef={payloadActionsRef}
                   wordWrapOverride={wrapPayload ? 'on' : 'off'}
-                  placeholder={
-                    draft.payloadFormat === 'base64'
-                      ? t('workbench.editors.mqtt.payloadPlaceholderBase64')
-                      : draft.payloadFormat === 'hex'
-                        ? t('workbench.editors.mqtt.payloadPlaceholderHex')
-                        : t('workbench.editors.mqtt.payloadPlaceholder')
-                  }
+                  placeholder={editorPlaceholder}
                 />
               </div>
             </div>
@@ -155,13 +148,7 @@ const MqttMessageTab: React.FC<MqttMessageTabProps> = ({
                     actions="external"
                     actionsRef={payloadActionsRef}
                     wordWrapOverride={wrapPayload ? 'on' : 'off'}
-                    placeholder={
-                      draft.payloadFormat === 'base64'
-                        ? t('workbench.editors.mqtt.payloadPlaceholderBase64')
-                        : draft.payloadFormat === 'hex'
-                          ? t('workbench.editors.mqtt.payloadPlaceholderHex')
-                          : t('workbench.editors.mqtt.payloadPlaceholder')
-                    }
+                    placeholder={editorPlaceholder}
                   />
                 </div>
               </div>
@@ -187,107 +174,65 @@ const MqttMessageTab: React.FC<MqttMessageTabProps> = ({
         narrow topic input, Send (disabled scaffold — enables with the
         session plane; invalid base64/hex is the other honest gate). */}
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
-            <Select
+        <EncodingSelect
+          value={draft.payloadFormat}
+          onChange={(payloadFormat) => setDraft((d) => ({ ...d, payloadFormat }))}
+          testId="mqtt-payload-format"
+        />
+        <span style={{ flex: 1 }} />
+        <MessagePropertiesPopover
+          value={draft.publishProperties}
+          onChange={(publishProperties) => setDraft((d) => ({ ...d, publishProperties }))}
+          v5={v5}
+          testId="mqtt-publish-props"
+        />
+        <Checkbox
+          checked={draft.retain}
+          onChange={(e) => setDraft((d) => ({ ...d, retain: e.target.checked }))}
+          data-testid="mqtt-retain"
+        >
+          {t('workbench.editors.mqtt.retainLabel')}
+        </Checkbox>
+        <CompactQosSelect
+          value={draft.qos}
+          onChange={(qos) => setDraft((d) => ({ ...d, qos }))}
+          testId="mqtt-qos-select"
+        />
+        <TopicField
+          value={draft.topic}
+          onChange={(topic) => setDraft((d) => ({ ...d, topic }))}
+          placeholder={t('workbench.editors.mqtt.topicPlaceholder')}
+          example={t('workbench.editors.mqtt.topicExample')}
+          testId="mqtt-topic-input"
+        />
+        <Tooltip
+          title={
+            encodingError !== null
+              ? t('workbench.editors.mqtt.payload.invalidGate')
+              : sessionOpen ? (
+                  <ShortcutHintTitle label={SEND_MESSAGE_SHORTCUT}>
+                    {t('workbench.editors.mqtt.sendLabel')}
+                  </ShortcutHintTitle>
+                ) : (
+                  t('workbench.editors.mqtt.session.sendIdle')
+                )
+          }
+        >
+          <span style={{ display: 'inline-flex' }}>
+            <Button
               size="small"
-              style={{ width: 120 }}
-              value={draft.payloadFormat}
-              onChange={(payloadFormat: MqttPayloadFormat) => setDraft((d) => ({ ...d, payloadFormat }))}
-              options={[
-                { value: 'text', label: t('workbench.editors.mqtt.payload.formatText') },
-                { value: 'json', label: t('workbench.editors.mqtt.payload.formatJson') },
-                { value: 'base64', label: t('workbench.editors.mqtt.payload.formatBase64') },
-                { value: 'hex', label: t('workbench.editors.mqtt.payload.formatHex') },
-              ]}
-              data-testid="mqtt-payload-format"
-            />
-            <span style={{ flex: 1 }} />
-            <MessagePropertiesPopover
-              value={draft.publishProperties}
-              onChange={(publishProperties) => setDraft((d) => ({ ...d, publishProperties }))}
-              v5={v5}
-              testId="mqtt-publish-props"
-            />
-            <Checkbox
-              checked={draft.retain}
-              onChange={(e) => setDraft((d) => ({ ...d, retain: e.target.checked }))}
-              data-testid="mqtt-retain"
+              type="primary"
+              icon={<SendOutlined />}
+              disabled={!sessionOpen || encodingError !== null}
+              onClick={() => onPublish(composePublishWire(draft))}
+              data-testid="mqtt-send-message"
             >
-              {t('workbench.editors.mqtt.retainLabel')}
-            </Checkbox>
-            <Text type="secondary" style={{ fontSize: 12, whiteSpace: 'nowrap', lineHeight: '24px' }}>
-              {t('workbench.editors.mqtt.qos.compactLabel')}
-            </Text>
-            <Select
-              size="small"
-              style={{ width: 46 }}
-              suffixIcon={null}
-              popupMatchSelectWidth={false}
-              value={draft.qos}
-              onChange={(qos: MqttRequestQos) => setDraft((d) => ({ ...d, qos }))}
-              options={[
-                { value: 0, label: '0', meaning: t('workbench.editors.mqtt.qos.meaning0') },
-                { value: 1, label: '1', meaning: t('workbench.editors.mqtt.qos.meaning1') },
-                { value: 2, label: '2', meaning: t('workbench.editors.mqtt.qos.meaning2') },
-              ]}
-              optionRender={(option) => (
-                <span style={{ display: 'inline-flex', alignItems: 'baseline', gap: 16 }}>
-                  <span>{option.data.label}</span>
-                  <Text type="secondary" style={{ fontSize: 12 }}>
-                    {option.data.meaning}
-                  </Text>
-                </span>
-              )}
-              data-testid="mqtt-qos-select"
-            />
-            {/* Statement placeholder + the muted example below — the
-              settings-row TextKnob discipline. */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 2, width: 200 }}>
-              <Input
-                size="small"
-                style={{ fontFamily: "'SF Mono', monospace", fontSize: 12 }}
-                placeholder={t('workbench.editors.mqtt.topicPlaceholder')}
-                value={draft.topic}
-                onChange={(e) => setDraft((d) => ({ ...d, topic: e.target.value }))}
-                data-testid="mqtt-topic-input"
-              />
-              <Text type="secondary" style={{ fontSize: 11 }}>
-                {t('workbench.editors.mqtt.topicExample')}
-              </Text>
-            </div>
-            <Tooltip
-              title={
-                encodingError !== null
-                  ? t('workbench.editors.mqtt.payload.invalidGate')
-                  : sessionOpen ? (
-                      <ShortcutHintTitle label={SEND_MESSAGE_SHORTCUT}>
-                        {t('workbench.editors.mqtt.sendLabel')}
-                      </ShortcutHintTitle>
-                    ) : (
-                      t('workbench.editors.mqtt.session.sendIdle')
-                    )
-              }
-            >
-              <span style={{ display: 'inline-flex' }}>
-                <Button
-                  size="small"
-                  type="primary"
-                  icon={<SendOutlined />}
-                  disabled={!sessionOpen || encodingError !== null}
-                  onClick={() => onPublish(composePublishWire(draft))}
-                  data-testid="mqtt-send-message"
-                >
-                  {t('workbench.editors.mqtt.sendLabel')}
-                </Button>
-              </span>
-            </Tooltip>
-          </div>
-      {encodingError !== null && (
-        <Text type="danger" style={{ fontSize: 11 }} data-testid="mqtt-encoding-error">
-          {encodingError === 'base64'
-            ? t('workbench.editors.mqtt.payload.invalidBase64')
-            : t('workbench.editors.mqtt.payload.invalidHex')}
-        </Text>
-      )}
+              {t('workbench.editors.mqtt.sendLabel')}
+            </Button>
+          </span>
+        </Tooltip>
+      </div>
+      <EncodingErrorLine error={encodingError} testId="mqtt-encoding-error" />
     </div>
   );
 };

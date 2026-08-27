@@ -12,6 +12,8 @@
  *     text, equal color, palette membership).
  *   - `TopicOptionsPopover.tsx` — the gear's configured dot: lit once
  *     any subscription option leaves its default.
+ *   - `compose-parts.tsx` — the editor placeholder per ENCODING shared
+ *     by the Message, Last Will and example compose surfaces.
  */
 
 import type { Collection, MqttRequest, MqttTopicRow, Request } from '@openheaders/core/types';
@@ -21,6 +23,7 @@ import {
   SAVED_TOPIC_TAG_COLORS,
   savedTopicTagColor,
 } from '@openheaders/ui/workbench/components/mqtt-request-editor/compose';
+import { payloadPlaceholder } from '@openheaders/ui/workbench/components/mqtt-request-editor/compose-parts';
 import {
   buildMqttRequestUpdates,
   canonicalMqttRequestProjection,
@@ -386,5 +389,16 @@ describe('topic options — the configured dot', () => {
     expect(topicOptionsConfigured(row({ userProperties: [{ uid: 'mqup0001', key: 'x-tenant', value: '' }] }))).toBe(
       true,
     );
+  });
+});
+
+describe('compose parts — the editor placeholder per encoding', () => {
+  const t = ((key: string) => key) as Translate;
+
+  it('states the binary contract for base64 and hex, the surface prompt otherwise', () => {
+    expect(payloadPlaceholder(t, 'base64', 'prompt')).toBe('workbench.editors.mqtt.payloadPlaceholderBase64');
+    expect(payloadPlaceholder(t, 'hex', 'prompt')).toBe('workbench.editors.mqtt.payloadPlaceholderHex');
+    expect(payloadPlaceholder(t, 'text', 'prompt')).toBe('prompt');
+    expect(payloadPlaceholder(t, 'json', 'prompt')).toBe('prompt');
   });
 });

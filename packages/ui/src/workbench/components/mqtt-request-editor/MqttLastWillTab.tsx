@@ -9,7 +9,6 @@
  * disabled-honest on 3.1.1.
  */
 
-import type { MqttPayloadFormat, MqttRequestQos } from '@openheaders/core/types';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import {
   ComboKnob,
@@ -17,13 +16,14 @@ import {
   formatDurationSeconds,
   numericPresets,
 } from '@openheaders/ui/shared/combo-knob';
-import { Checkbox, ConfigProvider, Input, Select, Tooltip, Typography, theme } from 'antd';
+import { Checkbox, ConfigProvider, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { type Dispatch, type SetStateAction, useRef, useState } from 'react';
 import CodeEditor from '../shared/CodeEditor';
 import CodeEditorActions, { type CodeEditorActionsTarget } from '../shared/CodeEditorActions';
 import EditorViewMenu from '../shared/EditorViewMenu';
 import { PAYLOAD_FORMAT_LANGUAGE } from './compose';
+import { CompactQosSelect, EncodingErrorLine, EncodingSelect, payloadPlaceholder, TopicField } from './compose-parts';
 import { type MqttDraft, payloadEncodingError } from './draft';
 import MessagePropertiesPopover from './MessagePropertiesPopover';
 
@@ -49,6 +49,11 @@ const MqttLastWillTab: React.FC<MqttLastWillTabProps> = ({ draft, setDraft, v5 }
   const payloadActionsRef = useRef<CodeEditorActionsTarget | null>(null);
   // No Send gates the will, so the encoding gate surfaces inline only.
   const encodingError = payloadEncodingError(draft.lastWill.payload, draft.lastWill.format);
+  const editorPlaceholder = payloadPlaceholder(
+    t,
+    draft.lastWill.format,
+    t('workbench.editors.mqtt.will.payloadPlaceholder'),
+  );
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flex: 1, minHeight: 0 }}>
       <Text type="secondary" style={{ fontSize: 11 }}>
@@ -75,29 +80,15 @@ const MqttLastWillTab: React.FC<MqttLastWillTabProps> = ({ draft, setDraft, v5 }
             actions="external"
             actionsRef={payloadActionsRef}
             wordWrapOverride={wrapPayload ? 'on' : 'off'}
-            placeholder={
-              draft.lastWill.format === 'base64'
-                ? t('workbench.editors.mqtt.payloadPlaceholderBase64')
-                : draft.lastWill.format === 'hex'
-                  ? t('workbench.editors.mqtt.payloadPlaceholderHex')
-                  : t('workbench.editors.mqtt.will.payloadPlaceholder')
-            }
+            placeholder={editorPlaceholder}
           />
         </div>
       </div>
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
-        <Select
-          size="small"
-          style={{ width: 120 }}
+        <EncodingSelect
           value={draft.lastWill.format}
-          onChange={(format: MqttPayloadFormat) => setDraft((d) => ({ ...d, lastWill: { ...d.lastWill, format } }))}
-          options={[
-            { value: 'text', label: t('workbench.editors.mqtt.payload.formatText') },
-            { value: 'json', label: t('workbench.editors.mqtt.payload.formatJson') },
-            { value: 'base64', label: t('workbench.editors.mqtt.payload.formatBase64') },
-            { value: 'hex', label: t('workbench.editors.mqtt.payload.formatHex') },
-          ]}
-          data-testid="mqtt-will-format"
+          onChange={(format) => setDraft((d) => ({ ...d, lastWill: { ...d.lastWill, format } }))}
+          testId="mqtt-will-format"
         />
         <span style={{ flex: 1 }} />
         <MessagePropertiesPopover
@@ -139,54 +130,20 @@ const MqttLastWillTab: React.FC<MqttLastWillTabProps> = ({ draft, setDraft, v5 }
         >
           {t('workbench.editors.mqtt.retainLabel')}
         </Checkbox>
-        <Text type="secondary" style={{ fontSize: 12, whiteSpace: 'nowrap', lineHeight: '24px' }}>
-          {t('workbench.editors.mqtt.qos.compactLabel')}
-        </Text>
-        <Select
-          size="small"
-          style={{ width: 46 }}
-          suffixIcon={null}
-          popupMatchSelectWidth={false}
+        <CompactQosSelect
           value={draft.lastWill.qos}
-          onChange={(qos: MqttRequestQos) => setDraft((d) => ({ ...d, lastWill: { ...d.lastWill, qos } }))}
-          options={[
-            { value: 0, label: '0', meaning: t('workbench.editors.mqtt.qos.meaning0') },
-            { value: 1, label: '1', meaning: t('workbench.editors.mqtt.qos.meaning1') },
-            { value: 2, label: '2', meaning: t('workbench.editors.mqtt.qos.meaning2') },
-          ]}
-          optionRender={(option) => (
-            <span style={{ display: 'inline-flex', alignItems: 'baseline', gap: 16 }}>
-              <span>{option.data.label}</span>
-              <Text type="secondary" style={{ fontSize: 12 }}>
-                {option.data.meaning}
-              </Text>
-            </span>
-          )}
-          data-testid="mqtt-will-qos"
+          onChange={(qos) => setDraft((d) => ({ ...d, lastWill: { ...d.lastWill, qos } }))}
+          testId="mqtt-will-qos"
         />
-        {/* Statement placeholder + the muted example below — the
-          settings-row TextKnob discipline. */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 2, width: 200 }}>
-          <Input
-            size="small"
-            style={{ fontFamily: "'SF Mono', monospace", fontSize: 12 }}
-            placeholder={t('workbench.editors.mqtt.will.topicPlaceholder')}
-            value={draft.lastWill.topic}
-            onChange={(e) => setDraft((d) => ({ ...d, lastWill: { ...d.lastWill, topic: e.target.value } }))}
-            data-testid="mqtt-will-topic"
-          />
-          <Text type="secondary" style={{ fontSize: 11 }}>
-            {t('workbench.editors.mqtt.will.topicExample')}
-          </Text>
-        </div>
+        <TopicField
+          value={draft.lastWill.topic}
+          onChange={(topic) => setDraft((d) => ({ ...d, lastWill: { ...d.lastWill, topic } }))}
+          placeholder={t('workbench.editors.mqtt.will.topicPlaceholder')}
+          example={t('workbench.editors.mqtt.will.topicExample')}
+          testId="mqtt-will-topic"
+        />
       </div>
-      {encodingError !== null && (
-        <Text type="danger" style={{ fontSize: 11 }} data-testid="mqtt-will-encoding-error">
-          {encodingError === 'base64'
-            ? t('workbench.editors.mqtt.payload.invalidBase64')
-            : t('workbench.editors.mqtt.payload.invalidHex')}
-        </Text>
-      )}
+      <EncodingErrorLine error={encodingError} testId="mqtt-will-encoding-error" />
     </div>
   );
 };

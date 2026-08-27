@@ -4,7 +4,9 @@
  * family. The captured request half stays editable (an example doubles
  * as an authored record): version chip + URL in the header (the
  * version knob is the capture's fact — a static chip, never a select),
- * Message / Topics compose tabs below. The captured session half
+ * Message / Topics compose tabs below — the Message tab on the
+ * request editor's own compose anatomy (actions cluster, compose bar,
+ * message options) minus Send and the saved-messages rail. The captured session half
  * renders read-only through `MqttExampleResultPane` in the
  * compose/result Allotment split.
  *
@@ -20,28 +22,34 @@
 
 import { ExportOutlined, LoadingOutlined } from '@ant-design/icons';
 import { MQTT_RESPONSE_EXAMPLE_ENTITY_TYPE } from '@openheaders/core/sync';
-import type {
-  MqttPayloadFormat,
-  MqttRequestQos,
-  MqttResponseExample,
-  MqttTopicRow,
-} from '@openheaders/core/types';
+import type { MqttRequestQos, MqttResponseExample, MqttTopicRow } from '@openheaders/core/types';
 import { generateUid } from '@openheaders/core/utils';
 import { Allotment } from 'allotment';
-import { App, Button, Checkbox, Input, Segmented, Select, Tabs, Tag, Tooltip, Typography, theme } from 'antd';
+import { App, Button, Checkbox, Input, Select, Tabs, Tag, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
-import { useCallback, useMemo, useState } from 'react';
-import { useT, type Translate } from '@openheaders/ui/context/LocaleContext';
+import { useCallback, useMemo, useRef, useState } from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { EntityScopeProvider } from '@openheaders/ui/shared/awareness';
 import { useEditorShell, useReprime } from '@openheaders/ui/shared/editor-shell';
 import { useRequests } from '@openheaders/ui/shared/hooks/readers/useRequests';
 import { useMqttResponseExample } from '@openheaders/ui/shared/hooks/readers/useMqttResponseExamples';
 import { applyMqttResponseExampleUpdate } from '@openheaders/ui/shared/sync/mqtt-response-example-write-client';
-import type { LanguageId } from '@openheaders/ui/workbench/languages/registry';
 import EditorHeader from '../shell/EditorHeader';
 import CodeEditor from '../shared/CodeEditor';
+import CodeEditorActions, { type CodeEditorActionsTarget } from '../shared/CodeEditorActions';
+import EditorViewMenu from '../shared/EditorViewMenu';
 import { EditableGridTable } from '../request-editor/EditableGridTable';
 import type { EditableRowAdapter } from '../request-editor/editable-grid-types';
+import { PAYLOAD_FORMAT_LANGUAGE } from '../mqtt-request-editor/compose';
+import {
+  CompactQosSelect,
+  EncodingErrorLine,
+  EncodingSelect,
+  payloadPlaceholder,
+  TopicField,
+} from '../mqtt-request-editor/compose-parts';
+import { payloadEncodingError } from '../mqtt-request-editor/draft';
+import MessagePropertiesPopover from '../mqtt-request-editor/MessagePropertiesPopover';
 import { publishMqttPrefill } from '../mqtt-request-editor/mqtt-prefill-bus';
 import MqttExampleResultPane from './MqttExampleResultPane';
 import {
@@ -53,14 +61,6 @@ import {
 } from './mqtt-example-draft';
 
 const { Text } = Typography;
-
-/** Monaco language per compose ENCODING — base64/hex author plain text. */
-const PAYLOAD_FORMAT_LANGUAGE = {
-  text: 'text',
-  json: 'json',
-  base64: 'text',
-  hex: 'text',
-} as const satisfies Record<MqttPayloadFormat, LanguageId>;
 
 /** Topics-grid row adapter — the topic filter rides the key track;
  *  QoS + Subscribe live in the value cell (the capture keeps the 5.0
@@ -76,12 +76,6 @@ const TOPIC_ROW_ADAPTER: EditableRowAdapter<MqttTopicRow> = {
   makeEmpty: () => ({ uid: generateUid(), topicFilter: '' }),
   isEmpty: (r) => !r.topicFilter && !r.description,
 };
-
-const QOS_OPTIONS = (t: Translate) => [
-  { value: 0, label: t('workbench.editors.mqtt.qos.q0') },
-  { value: 1, label: t('workbench.editors.mqtt.qos.q1') },
-  { value: 2, label: t('workbench.editors.mqtt.qos.q2') },
-];
 
 interface MqttResponseExampleViewProps {
   exampleUid: string;
@@ -113,6 +107,10 @@ const MqttResponseExampleView: React.FC<MqttResponseExampleViewProps> = ({
 
   const [draft, setDraft] = useState<MqttExampleDraft | null>(null);
   const [activeTab, setActiveTab] = useState('message');
+  // Compose-editor wrap — the Message tab's default carries over (ON;
+  // payloads are prose-like, scrolling hides the tail).
+  const [wrapPayload, setWrapPayload] = useState(true);
+  const payloadActionsRef = useRef<CodeEditorActionsTarget | null>(null);
 
   const reprime = useReprime<MqttResponseExample>({
     liveEntity: example,
@@ -176,6 +174,10 @@ const MqttResponseExampleView: React.FC<MqttResponseExampleViewProps> = ({
       </div>
     );
   }
+
+  // No Send gates the example, so the encoding gate surfaces inline only.
+  const encodingError = payloadEncodingError(draft.payload, draft.payloadFormat);
+  const editorPlaceholder = payloadPlaceholder(t, draft.payloadFormat, t('workbench.editors.mqtt.payloadPlaceholder'));
 
   const headerTitle = (
     <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, minWidth: 0 }}>
@@ -258,42 +260,23 @@ const MqttResponseExampleView: React.FC<MqttResponseExampleViewProps> = ({
                   <div style={{ padding: '10px 0', flex: '1 0 auto', display: 'flex', flexDirection: 'column' }}>
                     {activeTab === 'message' && (
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flex: 1, minHeight: 0 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                          <Input
-                            size="small"
-                            style={{ flex: 1, minWidth: 0, fontFamily: "'SF Mono', monospace", fontSize: 12 }}
-                            placeholder={t('workbench.editors.mqtt.topicPlaceholder')}
-                            value={draft.topic}
-                            onChange={(e) => setDraft((d) => (d ? { ...d, topic: e.target.value } : d))}
-                            data-testid="mqtt-example-topic"
+                        {/* The Message-tab anatomy minus what an
+                          example has no use for — no saved-messages
+                          rail, no Send: the actions cluster above the
+                          editor, the compose bar below it. */}
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 8 }}>
+                          <CodeEditorActions
+                            target={payloadActionsRef}
+                            language={PAYLOAD_FORMAT_LANGUAGE[draft.payloadFormat]}
+                            labels
+                            findText={t('workbench.editors.scriptEditor.find')}
+                            replaceText={t('workbench.editors.scriptEditor.replace')}
+                            formatText={t('workbench.editors.scriptEditor.beautify')}
                           />
-                          <Select
-                            size="small"
-                            style={{ width: 150 }}
-                            value={draft.qos}
-                            options={QOS_OPTIONS(t)}
-                            onChange={(qos: MqttRequestQos) => setDraft((d) => (d ? { ...d, qos } : d))}
-                          />
-                          <Checkbox
-                            checked={draft.retain}
-                            onChange={(e) => setDraft((d) => (d ? { ...d, retain: e.target.checked } : d))}
-                          >
-                            {t('workbench.editors.mqtt.retainLabel')}
-                          </Checkbox>
-                        </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                          <Segmented
-                            size="small"
-                            value={draft.payloadFormat}
-                            onChange={(payloadFormat) =>
-                              setDraft((d) => (d ? { ...d, payloadFormat: payloadFormat as MqttPayloadFormat } : d))
-                            }
-                            options={[
-                              { value: 'text', label: t('workbench.editors.mqtt.payload.formatText') },
-                              { value: 'json', label: t('workbench.editors.mqtt.payload.formatJson') },
-                              { value: 'base64', label: t('workbench.editors.mqtt.payload.formatBase64') },
-                              { value: 'hex', label: t('workbench.editors.mqtt.payload.formatHex') },
-                            ]}
+                          <EditorViewMenu
+                            wrap={wrapPayload}
+                            onWrapChange={setWrapPayload}
+                            data-testid="mqtt-example-editor-menu"
                           />
                         </div>
                         <div style={{ flex: 1, minHeight: 100, position: 'relative' }}>
@@ -306,10 +289,47 @@ const MqttResponseExampleView: React.FC<MqttResponseExampleViewProps> = ({
                               onChange={(payload) => setDraft((d) => (d ? { ...d, payload } : d))}
                               language={PAYLOAD_FORMAT_LANGUAGE[draft.payloadFormat]}
                               fill
-                              placeholder={t('workbench.editors.mqtt.payloadPlaceholder')}
+                              actions="external"
+                              actionsRef={payloadActionsRef}
+                              wordWrapOverride={wrapPayload ? 'on' : 'off'}
+                              placeholder={editorPlaceholder}
                             />
                           </div>
                         </div>
+                        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+                          <EncodingSelect
+                            value={draft.payloadFormat}
+                            onChange={(payloadFormat) => setDraft((d) => (d ? { ...d, payloadFormat } : d))}
+                            testId="mqtt-example-payload-format"
+                          />
+                          <span style={{ flex: 1 }} />
+                          <MessagePropertiesPopover
+                            value={draft.publishProperties}
+                            onChange={(publishProperties) => setDraft((d) => (d ? { ...d, publishProperties } : d))}
+                            v5={draft.protocolVersion === '5.0'}
+                            testId="mqtt-example-props"
+                          />
+                          <Checkbox
+                            checked={draft.retain}
+                            onChange={(e) => setDraft((d) => (d ? { ...d, retain: e.target.checked } : d))}
+                            data-testid="mqtt-example-retain"
+                          >
+                            {t('workbench.editors.mqtt.retainLabel')}
+                          </Checkbox>
+                          <CompactQosSelect
+                            value={draft.qos}
+                            onChange={(qos) => setDraft((d) => (d ? { ...d, qos } : d))}
+                            testId="mqtt-example-qos"
+                          />
+                          <TopicField
+                            value={draft.topic}
+                            onChange={(topic) => setDraft((d) => (d ? { ...d, topic } : d))}
+                            placeholder={t('workbench.editors.mqtt.topicPlaceholder')}
+                            example={t('workbench.editors.mqtt.topicExample')}
+                            testId="mqtt-example-topic"
+                          />
+                        </div>
+                        <EncodingErrorLine error={encodingError} testId="mqtt-example-encoding-error" />
                       </div>
                     )}
                     {activeTab === 'topics' && (
