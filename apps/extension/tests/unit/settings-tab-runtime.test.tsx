@@ -109,7 +109,7 @@ describe('SettingsTab on a browser runtime (capability absent)', () => {
     expect(screen.getByText('Automatically follow redirects')).toBeTruthy();
     expect(screen.getByText('Send browser cookies')).toBeTruthy();
 
-    fireEvent.click(screen.getByText('10 browser-managed'));
+    fireEvent.click(screen.getByText('11 browser-managed'));
     expect(screen.getByText(/Fixed by the browser for every request sent from an extension/)).toBeTruthy();
     expect(screen.getByText('HTTP version')).toBeTruthy();
     expect(screen.getByText('Auto')).toBeTruthy();
@@ -118,7 +118,7 @@ describe('SettingsTab on a browser runtime (capability absent)', () => {
   it('keeps SSL verification a browser-managed fact, not a knob', () => {
     renderTab();
     expect(screen.queryByText('SSL certificate verification')).toBeNull();
-    fireEvent.click(screen.getByText('10 browser-managed'));
+    fireEvent.click(screen.getByText('11 browser-managed'));
     expect(screen.getByText('SSL certificate verification')).toBeTruthy();
     expect(screen.queryByRole('switch', { name: 'SSL certificate verification' })).toBeNull();
   });
@@ -179,7 +179,7 @@ describe('SettingsTab on a browser runtime (capability absent)', () => {
     expect(screen.queryByRole('combobox', { name: 'Maximum redirects' })).toBeNull();
     expect(screen.queryByRole('switch', { name: 'Follow original HTTP method' })).toBeNull();
     expect(screen.queryByRole('switch', { name: 'Follow Authorization header' })).toBeNull();
-    fireEvent.click(screen.getByText('10 browser-managed'));
+    fireEvent.click(screen.getByText('11 browser-managed'));
     expect(screen.getByText('Maximum redirects')).toBeTruthy();
     expect(screen.getByText('Follow original HTTP method')).toBeTruthy();
     expect(screen.getByText('Follow Authorization header')).toBeTruthy();
@@ -196,7 +196,7 @@ describe('SettingsTab on a browser runtime (capability absent)', () => {
     expect(screen.queryByRole('combobox', { name: 'TLS version minimum' })).toBeNull();
     expect(screen.queryByRole('combobox', { name: 'TLS version maximum' })).toBeNull();
     expect(screen.queryByRole('textbox', { name: 'TLS cipher suites' })).toBeNull();
-    fireEvent.click(screen.getByText('10 browser-managed'));
+    fireEvent.click(screen.getByText('11 browser-managed'));
     expect(screen.getByText('TLS/SSL protocol versions')).toBeTruthy();
     expect(screen.getByText('Server cipher suite order')).toBeTruthy();
   });
@@ -210,7 +210,7 @@ describe('SettingsTab on a browser runtime (capability absent)', () => {
   it('keeps HTTP version a browser-managed fact and never dots a synced httpVersion', () => {
     renderTab();
     expect(screen.queryByRole('combobox', { name: 'HTTP version' })).toBeNull();
-    fireEvent.click(screen.getByText('10 browser-managed'));
+    fireEvent.click(screen.getByText('11 browser-managed'));
     expect(screen.getByText('HTTP version')).toBeTruthy();
     expect(settingsDotCount({ httpVersion: '2' })).toBe(0);
   });
@@ -220,7 +220,7 @@ describe('SettingsTab on a browser runtime (capability absent)', () => {
     expect(screen.queryByRole('textbox', { name: 'Resolve to address' })).toBeNull();
     // Resolution was never a sheet-listed fact — the sheet stays at 10
     // rows with no DNS/resolution row.
-    fireEvent.click(screen.getByText('10 browser-managed'));
+    fireEvent.click(screen.getByText('11 browser-managed'));
     expect(screen.queryByText('Resolve to address')).toBeNull();
     expect(settingsDotCount({ resolveToAddress: '10.0.0.7' })).toBe(0);
   });
@@ -228,8 +228,8 @@ describe('SettingsTab on a browser runtime (capability absent)', () => {
   it('shows no client-certificate control or fact row and never dots a synced ref', () => {
     renderTab();
     expect(screen.queryByRole('combobox', { name: 'Client certificate' })).toBeNull();
-    // Not a sheet-listed fact — the browser sheet stays at 10 rows.
-    fireEvent.click(screen.getByText('10 browser-managed'));
+    // Not a sheet-listed fact — the browser sheet stays at 11 rows.
+    fireEvent.click(screen.getByText('11 browser-managed'));
     expect(screen.queryByText('Client certificate')).toBeNull();
     expect(settingsDotCount({ clientCertificateRef: 'gateway-mtls' })).toBe(0);
   });
@@ -239,8 +239,8 @@ describe('SettingsTab on a browser runtime (capability absent)', () => {
     expect(screen.queryByRole('combobox', { name: 'Proxy' })).toBeNull();
     expect(screen.queryByRole('textbox', { name: 'Proxy URL' })).toBeNull();
     expect(screen.queryByRole('combobox', { name: 'Proxy credentials' })).toBeNull();
-    // Not a sheet-listed fact — the browser sheet stays at 10 rows.
-    fireEvent.click(screen.getByText('10 browser-managed'));
+    // Not a sheet-listed fact — the browser sheet stays at 11 rows.
+    fireEvent.click(screen.getByText('11 browser-managed'));
     expect(screen.queryByText('Proxy')).toBeNull();
     expect(settingsDotCount({ proxyMode: 'url', proxyUrl: 'http://proxy.openheaders.io:3128' })).toBe(0);
   });
@@ -248,8 +248,8 @@ describe('SettingsTab on a browser runtime (capability absent)', () => {
   it('shows no Unix-socket control or fact row and never dots a synced path', () => {
     renderTab({ unixSocketPath: '/var/run/openheaders/api.sock' });
     expect(screen.queryByRole('textbox', { name: 'Unix socket' })).toBeNull();
-    // Not a sheet-listed fact — the browser sheet stays at 10 rows.
-    fireEvent.click(screen.getByText('10 browser-managed'));
+    // Not a sheet-listed fact — the browser sheet stays at 11 rows.
+    fireEvent.click(screen.getByText('11 browser-managed'));
     expect(screen.queryByText('Unix socket')).toBeNull();
     expect(settingsDotCount({ unixSocketPath: '/var/run/openheaders/api.sock' })).toBe(0);
   });
@@ -1029,7 +1029,7 @@ describe('SettingsTab info popovers', () => {
 
   it('leads a runtime-managed fact row with the same card when it has a slice', async () => {
     renderTab();
-    fireEvent.click(screen.getByText('10 browser-managed'));
+    fireEvent.click(screen.getByText('11 browser-managed'));
     fireEvent.click(screen.getByRole('button', { name: 'About HTTP version' }));
     expect(await screen.findByText('Example send')).toBeTruthy();
     expect(litTokens()).toEqual(['h2']);
@@ -1046,7 +1046,7 @@ describe('SettingsTab info popovers', () => {
 
   it('gives the fact-sheet group headers the same group popover', async () => {
     renderTab();
-    fireEvent.click(screen.getByText('10 browser-managed'));
+    fireEvent.click(screen.getByText('11 browser-managed'));
     fireEvent.click(screen.getByRole('button', { name: 'About Connection' }));
     expect(await screen.findByText('Example send')).toBeTruthy();
     expect(litTokens()).toEqual(['h2', 'direct']);

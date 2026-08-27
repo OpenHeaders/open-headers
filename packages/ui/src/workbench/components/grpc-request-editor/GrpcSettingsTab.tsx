@@ -30,6 +30,7 @@ import { ConfigProvider, theme } from 'antd';
 import type React from 'react';
 import { useState } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
+import TrustedRootsSettingsRow from '../trusted-roots/TrustedRootsSettingsRow';
 import type { GrpcDraft } from './draft';
 import { grpcSettingsGroupInfo, grpcSettingsRowInfo } from './GrpcSettingsRowInfo';
 import { GRPC_GROUP_LABEL_KEY } from './settings-groups';
@@ -138,6 +139,7 @@ const GrpcSettingsTab: React.FC<GrpcSettingsTabProps> = ({
             warning={t('workbench.editors.grpc.settings.sslVerifyWarning')}
             testId="grpc-ssl-verify"
           />
+          <TrustedRootsSettingsRow kicker={t(GRPC_GROUP_LABEL_KEY.tls)} testId="grpc-trusted-roots" />
         </GroupSection>
         <GroupSection
           label={t(GRPC_GROUP_LABEL_KEY.messages)}

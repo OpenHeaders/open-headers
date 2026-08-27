@@ -51,4 +51,12 @@ export const workbenchTrustedRoots = {
   'workbench.trustedRoots.addFailed': 'No se pudo añadir el certificado',
   'workbench.trustedRoots.removed': 'Certificado quitado',
   'workbench.trustedRoots.removeFailed': 'No se pudo quitar el certificado',
+  'workbench.trustedRoots.settings.label': 'Certificados de confianza',
+  'workbench.trustedRoots.settings.count': '{count} de este espacio de trabajo',
+  'workbench.trustedRoots.settings.none': 'Ninguno de este espacio de trabajo',
+  'workbench.trustedRoots.settings.manage': 'Gestionar',
+  'workbench.trustedRoots.settings.help':
+    'Autoridades de certificación en las que confía este espacio de trabajo además de las raíces integradas — aplicadas a cada conexión TLS que establece el runtime de la app, una raíz por fila. Añade aquí una CA privada en lugar de desactivar la verificación.',
+  'workbench.trustedRoots.settings.browserNote':
+    'El navegador verifica con su propio almacén de confianza; los certificados añadidos a este espacio de trabajo solo se aplican cuando envía el runtime de la app.',
 } as const satisfies Catalog;

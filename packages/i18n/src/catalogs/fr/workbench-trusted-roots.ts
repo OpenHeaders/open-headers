@@ -51,4 +51,12 @@ export const workbenchTrustedRoots = {
   'workbench.trustedRoots.addFailed': 'L’ajout du certificat a échoué',
   'workbench.trustedRoots.removed': 'Certificat retiré',
   'workbench.trustedRoots.removeFailed': 'Le retrait du certificat a échoué',
+  'workbench.trustedRoots.settings.label': 'Certificats de confiance',
+  'workbench.trustedRoots.settings.count': '{count} de cet espace de travail',
+  'workbench.trustedRoots.settings.none': 'Aucun de cet espace de travail',
+  'workbench.trustedRoots.settings.manage': 'Gérer',
+  'workbench.trustedRoots.settings.help':
+    'Autorités de certification auxquelles cet espace de travail fait confiance en plus des racines intégrées — appliquées à chaque connexion TLS établie par le runtime de l’application, une racine par ligne. Ajoutez ici une CA privée plutôt que de désactiver la vérification.',
+  'workbench.trustedRoots.settings.browserNote':
+    'Le navigateur vérifie avec son propre magasin de confiance ; les certificats ajoutés à cet espace de travail ne s’appliquent que lorsque le runtime de l’application envoie.',
 } as const satisfies Catalog;

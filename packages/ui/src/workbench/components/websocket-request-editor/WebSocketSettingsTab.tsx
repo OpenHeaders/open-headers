@@ -27,6 +27,7 @@ import { ConfigProvider, theme } from 'antd';
 import type React from 'react';
 import { useState } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
+import TrustedRootsSettingsRow from '../trusted-roots/TrustedRootsSettingsRow';
 import type { WebSocketDraft } from './draft';
 import { WS_GROUP_LABEL_KEY } from './settings-groups';
 import { wsSettingsGroupInfo, wsSettingsRowInfo } from './WebSocketSettingsRowInfo';
@@ -163,6 +164,7 @@ const WebSocketSettingsTab: React.FC<WebSocketSettingsTabProps> = ({ draft, setD
             warning={t('workbench.editors.websocket.settings.sslVerifyWarning')}
             testId="websocket-ssl-verify"
           />
+          <TrustedRootsSettingsRow kicker={t(WS_GROUP_LABEL_KEY.tls)} testId="websocket-trusted-roots" />
         </GroupSection>
       </div>
     </ConfigProvider>

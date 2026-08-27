@@ -45,6 +45,7 @@ import { ConfigProvider, Typography, theme } from 'antd';
 import type React from 'react';
 import { useState } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
+import TrustedRootsSettingsRow from '../trusted-roots/TrustedRootsSettingsRow';
 import VaultSelectFooter from '../variables/VaultSelectFooter';
 import type { MqttDraft } from './draft';
 import { mqttSettingsGroupInfo, mqttSettingsRowInfo } from './MqttSettingsRowInfo';
@@ -354,6 +355,7 @@ const MqttSettingsTab: React.FC<MqttSettingsTabProps> = ({ draft, setDraft, v5 }
             warning={t('workbench.editors.mqtt.settings.sslVerifyWarning')}
             testId="mqtt-ssl-verify"
           />
+          <TrustedRootsSettingsRow kicker={t(MQTT_GROUP_LABEL_KEY.tls)} testId="mqtt-trusted-roots" />
           <SelectKnobRow
             label={t('workbench.editors.request.settings.clientCertificate')}
             value={draft.clientCertificateRef}

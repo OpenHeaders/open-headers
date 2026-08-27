@@ -51,4 +51,12 @@ export const workbenchTrustedRoots = {
   'workbench.trustedRoots.addFailed': 'Adding the certificate failed',
   'workbench.trustedRoots.removed': 'Certificate removed',
   'workbench.trustedRoots.removeFailed': 'Removing the certificate failed',
+  'workbench.trustedRoots.settings.label': 'Trusted certificates',
+  'workbench.trustedRoots.settings.count': '{count} from this workspace',
+  'workbench.trustedRoots.settings.none': 'None from this workspace',
+  'workbench.trustedRoots.settings.manage': 'Manage',
+  'workbench.trustedRoots.settings.help':
+    'Certificate authorities this workspace trusts in addition to the built-in roots — applied to every TLS connection the app’s runtime dials, one root per row. Add a private CA here instead of turning verification off.',
+  'workbench.trustedRoots.settings.browserNote':
+    'The browser verifies with its own trust store; certificates added to this workspace apply only when the app’s runtime sends.',
 } as const satisfies Catalog;

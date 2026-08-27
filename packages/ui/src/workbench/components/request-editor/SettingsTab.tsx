@@ -209,6 +209,7 @@ import {
   SelectKnobRow,
   TextKnobRow,
 } from '@openheaders/ui/shared/settings-rows';
+import TrustedRootsSettingsRow from '../trusted-roots/TrustedRootsSettingsRow';
 import VaultSelectFooter from '../variables/VaultSelectFooter';
 import CookieJarRow from './CookieJarRow';
 import { GROUP_LABEL_KEY, GROUP_ORDER, type SettingsGroupKey } from './settings-groups';
@@ -367,6 +368,14 @@ const BROWSER_MANAGED: RuntimeManagedDef[] = [
     descriptionKey: 'workbench.editors.request.settings.managed.encodeUrlDesc',
     group: 'connection',
     tokens: ['url'],
+  },
+  {
+    labelKey: 'workbench.trustedRoots.settings.label',
+    valueKey: 'workbench.editors.request.settings.managed.browserStore',
+    descriptionKey: 'workbench.trustedRoots.settings.browserNote',
+    group: 'tls',
+    tokens: ['verify'],
+    testId: 'oh-managed-trusted-roots-row',
   },
   {
     labelKey: 'workbench.editors.request.settings.managed.cipherOrder',
@@ -824,6 +833,10 @@ const SettingsTab: React.FC<SettingsTabProps> = ({
               onChange={(checked) => onChange({ ...value, sslVerification: checked })}
               info={settingsRowInfo(t, 'sslVerification')}
               warning={t('workbench.editors.request.settings.sslVerificationWarning')}
+            />
+            <TrustedRootsSettingsRow
+              kicker={t('workbench.editors.request.settings.group.tls')}
+              testId="oh-trusted-roots-row"
             />
             <SelectKnobRow
               label={t('workbench.editors.request.settings.tlsMin')}

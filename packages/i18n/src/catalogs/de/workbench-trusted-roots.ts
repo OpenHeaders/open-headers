@@ -51,4 +51,12 @@ export const workbenchTrustedRoots = {
   'workbench.trustedRoots.addFailed': 'Zertifikat konnte nicht hinzugefügt werden',
   'workbench.trustedRoots.removed': 'Zertifikat entfernt',
   'workbench.trustedRoots.removeFailed': 'Zertifikat konnte nicht entfernt werden',
+  'workbench.trustedRoots.settings.label': 'Vertrauenswürdige Zertifikate',
+  'workbench.trustedRoots.settings.count': '{count} aus diesem Arbeitsbereich',
+  'workbench.trustedRoots.settings.none': 'Keine aus diesem Arbeitsbereich',
+  'workbench.trustedRoots.settings.manage': 'Verwalten',
+  'workbench.trustedRoots.settings.help':
+    'Zertifizierungsstellen, denen dieser Arbeitsbereich zusätzlich zu den eingebauten Wurzeln vertraut — angewendet auf jede TLS-Verbindung, die die App-Laufzeit aufbaut, eine Wurzel pro Zeile. Fügen Sie hier eine private CA hinzu, statt die Prüfung abzuschalten.',
+  'workbench.trustedRoots.settings.browserNote':
+    'Der Browser prüft mit seinem eigenen Vertrauensspeicher; in diesem Arbeitsbereich hinzugefügte Zertifikate gelten nur, wenn die App-Laufzeit sendet.',
 } as const satisfies Catalog;

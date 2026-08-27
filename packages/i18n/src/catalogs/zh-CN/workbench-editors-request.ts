@@ -500,6 +500,7 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.settings.managed.auto': '自动',
   'workbench.editors.request.settings.managed.policy': '策略',
   'workbench.editors.request.settings.managed.browser': '浏览器',
+  'workbench.editors.request.settings.managed.browserStore': '浏览器信任库',
   'workbench.editors.request.settings.managed.about20': '~20',
   'workbench.editors.request.settings.managed.notSent': '不发送',
   'workbench.editors.request.settings.managed.httpVersion': 'HTTP 版本',

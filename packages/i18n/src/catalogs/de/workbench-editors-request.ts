@@ -650,6 +650,7 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.settings.managed.auto': 'Auto',
   'workbench.editors.request.settings.managed.policy': 'Richtlinie',
   'workbench.editors.request.settings.managed.browser': 'Browser',
+  'workbench.editors.request.settings.managed.browserStore': 'Browser-Speicher',
   'workbench.editors.request.settings.managed.about20': '~20',
   'workbench.editors.request.settings.managed.notSent': 'Nicht gesendet',
   'workbench.editors.request.settings.managed.httpVersion': 'HTTP-Version',
