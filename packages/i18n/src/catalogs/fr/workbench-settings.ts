@@ -286,22 +286,29 @@ export const workbenchSettings = {
   'workbench.settings.category.proxyTrust.description':
     "L'autorité de certification et les magasins de confiance qui permettent de déchiffrer le trafic " +
     'HTTPS pour inspection — créée sur cette machine, révocable ici.',
-  'workbench.settings.category.data.label': 'Données',
+  'workbench.settings.category.application.label': 'Application',
+  'workbench.settings.category.application.description':
+    'L’application elle-même : ses données, mises à jour, licence et version.',
+  'workbench.settings.category.data.label': 'Application · Données',
+  'workbench.settings.category.data.navLabel': 'Données',
   'workbench.settings.category.data.description': 'Diagnostics, import/export et maintenance destructive.',
   'workbench.settings.category.data.sub.settings': 'Paramètres',
   'workbench.settings.category.data.sub.diagnostics': 'Diagnostics',
   'workbench.settings.category.data.sub.importReports': "Rapports d'importation",
   'workbench.settings.category.data.sub.files': 'Fichiers',
-  'workbench.settings.category.license.label': 'Licence',
+  'workbench.settings.category.license.label': 'Application · Licence',
+  'workbench.settings.category.license.navLabel': 'Licence',
   'workbench.settings.category.license.description':
     "Tout ce qu'Open Headers propose aujourd'hui est inclus dans chaque palier — les offres payantes couvrent " +
     "les sièges d'équipe. Le palier gratuit admet jusqu'à 6 utilisateurs actifs par serveur.",
-  'workbench.settings.category.updates.label': 'Mises à jour',
+  'workbench.settings.category.updates.label': 'Application · Mises à jour',
+  'workbench.settings.category.updates.navLabel': 'Mises à jour',
   'workbench.settings.category.updates.description':
     'Recherche de mises à jour, canal et comportement de téléchargement.',
   'workbench.settings.category.updates.sub.status': 'État',
   'workbench.settings.category.updates.sub.behavior': 'Comportement',
-  'workbench.settings.category.about.label': 'À propos',
+  'workbench.settings.category.about.label': 'Application · À propos',
+  'workbench.settings.category.about.navLabel': 'À propos',
   'workbench.settings.category.about.description': 'Version, licences et informations de build.',
   'workbench.settings.category.about.sub.application': 'Application',
   'workbench.settings.category.about.sub.environment': 'Environnement',

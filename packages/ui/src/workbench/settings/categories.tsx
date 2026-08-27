@@ -1,15 +1,20 @@
 /**
  * Category registry for the settings shell.
  *
- * Each entry becomes one section in the left nav, in `order`. New
- * categories declare their icon here and their label/description as
- * `workbench.settings.category.*` catalog keys; schemas reference them
- * by id. Subcategories are optional one-level-deep groupings rendered
- * as sub-headings inside a section.
+ * Each entry becomes one row in the left nav, in `order` among its
+ * siblings. The tree has nine roots — Appearance & Behavior, Keyboard,
+ * Code Editor, Browser Interceptor, API Requests, Version Control,
+ * Tools, Connectivity, Application — each group root a
+ * `GroupLandingPane` over its children (`parent`), nesting as deep as a
+ * page needs. New categories declare their icon here and their
+ * label/description as `workbench.settings.category.*` catalog keys;
+ * schemas reference them by id. Subcategories are optional groupings
+ * rendered as sub-headings inside a page.
  */
 
 import {
   ApiOutlined,
+  AppstoreOutlined,
   BgColorsOutlined,
   BranchesOutlined,
   ClusterOutlined,
@@ -202,7 +207,7 @@ registerCategory({
   id: 'appearanceBehavior',
   labelKey: 'workbench.settings.category.appearanceBehavior.label',
   icon: <SettingOutlined />,
-  order: 1,
+  order: 10,
   descriptionKey: 'workbench.settings.category.appearanceBehavior.description',
   // Group node over the app-wide pages: General, Appearance and
   // Workspace Layout — how the app looks and behaves on every host.
@@ -291,7 +296,7 @@ registerCategory({
   id: 'browserInterceptor',
   labelKey: 'workbench.settings.category.browserInterceptor.label',
   icon: <RequestRulesIcon />,
-  order: 30,
+  order: 40,
   descriptionKey: 'workbench.settings.category.browserInterceptor.description',
   // Group node over the browser-side plane: the rule engine, the
   // debugging-protocol attach and the DevTools panel — every page the
@@ -430,7 +435,7 @@ registerCategory({
   id: 'editor',
   labelKey: 'workbench.settings.category.editor.label',
   icon: <EditOutlined />,
-  order: 20,
+  order: 30,
   descriptionKey: 'workbench.settings.category.editor.description',
   subcategories: [
     { id: 'font', labelKey: 'workbench.settings.category.editor.sub.font', order: 10 },
@@ -445,7 +450,7 @@ registerCategory({
   id: 'requests',
   labelKey: 'workbench.settings.category.requests.label',
   icon: <ApiRequestsIcon />,
-  order: 21,
+  order: 50,
   descriptionKey: 'workbench.settings.category.requests.description',
   // One section per request type, so each protocol's knobs read as a
   // block instead of one interleaved list.
@@ -479,7 +484,7 @@ registerCategory({
   id: 'keyboard',
   labelKey: 'workbench.settings.category.keyboard.label',
   icon: <KeyboardIcon />,
-  order: 80,
+  order: 20,
   descriptionKey: 'workbench.settings.category.keyboard.description',
   renderPane: KeymapPane,
   subcategories: [
@@ -626,10 +631,24 @@ registerCategory({
 });
 
 registerCategory({
+  id: 'application',
+  labelKey: 'workbench.settings.category.application.label',
+  icon: <AppstoreOutlined />,
+  order: 90,
+  descriptionKey: 'workbench.settings.category.application.description',
+  // Group node over the app itself — Data (every host), Updates and
+  // License (host / admin gated, hidden elsewhere) and About. The
+  // group stays ungated: Data and About are always there.
+  renderPane: GroupLandingPane,
+});
+
+registerCategory({
   id: 'data',
   labelKey: 'workbench.settings.category.data.label',
+  navLabelKey: 'workbench.settings.category.data.navLabel',
+  parent: 'application',
   icon: <DatabaseOutlined />,
-  order: 90,
+  order: 10,
   descriptionKey: 'workbench.settings.category.data.description',
   subcategories: [
     { id: 'settings', labelKey: 'workbench.settings.category.data.sub.settings', order: 10 },
@@ -642,8 +661,10 @@ registerCategory({
 registerCategory({
   id: 'license',
   labelKey: 'workbench.settings.category.license.label',
+  navLabelKey: 'workbench.settings.category.license.navLabel',
+  parent: 'application',
   icon: <SafetyCertificateOutlined />,
-  order: 895,
+  order: 30,
   descriptionKey: 'workbench.settings.category.license.description',
   renderPane: LicensePane,
   // License state is an admin surface: the desktop operator always
@@ -657,8 +678,10 @@ registerCategory({
 registerCategory({
   id: 'updates',
   labelKey: 'workbench.settings.category.updates.label',
+  navLabelKey: 'workbench.settings.category.updates.navLabel',
+  parent: 'application',
   icon: <DownloadOutlined />,
-  order: 898,
+  order: 20,
   descriptionKey: 'workbench.settings.category.updates.description',
   // Only the desktop app self-updates: the store updates the extension
   // and a served web tab updates with the daemon behind it.
@@ -672,8 +695,10 @@ registerCategory({
 registerCategory({
   id: 'about',
   labelKey: 'workbench.settings.category.about.label',
+  navLabelKey: 'workbench.settings.category.about.navLabel',
+  parent: 'application',
   icon: <InfoCircleOutlined />,
-  order: 900,
+  order: 40,
   descriptionKey: 'workbench.settings.category.about.description',
   subcategories: [
     { id: 'application', labelKey: 'workbench.settings.category.about.sub.application', order: 10 },
