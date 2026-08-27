@@ -12,6 +12,7 @@
  * paths through onEnd, and the post-head abort settling clean.
  */
 
+import 'reflect-metadata';
 import { mkdtempSync, rmSync } from 'node:fs';
 import {
   createServer as createHttp2Server,
@@ -20,12 +21,19 @@ import {
   type IncomingHttpHeaders,
   type ServerHttp2Stream,
 } from 'node:http2';
+import * as net from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { rootCertificates } from 'node:tls';
 import { readGrpcFrames, writeGrpcFrame } from '@openheaders/core/proto';
 import { GrpcTransportError } from '@openheaders/oracle/live/grpc-exec/transport';
 import { afterEach, describe, expect, it } from 'vitest';
-import { createNodeGrpcTransport, sessionOptionsFor } from '../../src/live/node-grpc-transport';
+import { mintLeafCertificate, mintProxyCa } from '../../src/daemon/proxy/ca-store';
+import {
+  createNodeGrpcTransport,
+  sessionOptionsFor,
+  tunnelSessionOptionsFor,
+} from '../../src/live/node-grpc-transport';
 
 interface SeenCall {
   headers: IncomingHttpHeaders;
@@ -378,6 +386,31 @@ NUQJ3Oxn7CJkys1GEUb7wHVnkYTG0P1ftJw0c51vRYQDfT7nHe1CetbrJoh1acP5
 KfxyzWrzAL8PG19NaZob/0EuYlX0UvfHNDflMMDwVEJDmafFC9vqkk6OYQ==
 -----END CERTIFICATE-----`;
 
+function keyPem(pkcs8B64: string): string {
+  const body = pkcs8B64.match(/.{1,64}/g)?.join('\n') ?? pkcs8B64;
+  return `-----BEGIN PRIVATE KEY-----\n${body}\n-----END PRIVATE KEY-----\n`;
+}
+
+/** A server whose leaf chains to a freshly minted private CA — the
+ *  workspace-trusted-roots rig: nothing in the runtime bundle vouches
+ *  for it, so only the appended root can make the dial verify. */
+async function startPrivateCaServer(): Promise<{ authority: string; rootPem: string }> {
+  const ca = await mintProxyCa();
+  const leaf = await mintLeafCertificate(ca, ['127.0.0.1']);
+  const server = createSecureHttp2Server({ key: keyPem(leaf.privateKeyPkcs8B64), cert: leaf.certPem });
+  server.on('stream', (stream) => {
+    stream.respond({ ':status': 200, 'content-type': 'application/grpc+proto' }, { waitForTrailers: true });
+    stream.on('wantTrailers', () => stream.sendTrailers({ 'grpc-status': '0' }));
+    stream.write(Buffer.from(writeGrpcFrame(new Uint8Array([0x08, 0x01]))));
+    stream.end();
+  });
+  servers.push(server as unknown as Http2Server);
+  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', () => resolve()));
+  const address = server.address();
+  if (address === null || typeof address === 'string') throw new Error('no port');
+  return { authority: `127.0.0.1:${address.port}`, rootPem: ca.certPem };
+}
+
 async function startTlsServer(): Promise<{ authority: string }> {
   const server = createSecureHttp2Server({ key: SELF_SIGNED_KEY, cert: SELF_SIGNED_CERT });
   server.on('stream', (stream) => {
@@ -392,6 +425,18 @@ async function startTlsServer(): Promise<{ authority: string }> {
   if (address === null || typeof address === 'string') throw new Error('no port');
   return { authority: `127.0.0.1:${address.port}` };
 }
+
+describe('createNodeGrpcTransport — workspace trusted roots', () => {
+  it('a private-CA server verifies once its root rides the request; the bare dial still refuses it', async () => {
+    const { authority, rootPem } = await startPrivateCaServer();
+    await expect(transport.invoke(request(authority, { tls: true }))).rejects.toThrow(
+      /TLS certificate error|TLS handshake/,
+    );
+    const response = await transport.invoke(request(authority, { tls: true, trustedRootsPem: [rootPem] }));
+    expect(response.httpStatus).toBe(200);
+    expect(readGrpcFrames(response.body).frames).toHaveLength(1);
+  });
+});
 
 describe('createNodeGrpcTransport — TLS verification knob', () => {
   it('rejects a self-signed server under the default verify posture, naming the cert failure', async () => {
@@ -497,5 +542,27 @@ describe('createNodeGrpcTransport — Unix socket target', () => {
     );
     expect(sessionOptionsFor({ tls: true }, target)).toBeUndefined();
     expect(sessionOptionsFor({ tls: true, sslVerification: false }, target)).toEqual({ rejectUnauthorized: false });
+  });
+
+  it('workspace trusted roots ride the TCP session behind the runtime bundle; cleartext and empty set nothing', () => {
+    const target = new URL('https://grpc.openheaders.io:50051');
+    const root = '-----BEGIN CERTIFICATE-----\nROOT\n-----END CERTIFICATE-----\n';
+    expect(sessionOptionsFor({ tls: true, trustedRootsPem: [root] }, target)).toEqual({
+      ca: [...rootCertificates, root],
+    });
+    expect(sessionOptionsFor({ tls: true, sslVerification: false, trustedRootsPem: [root] }, target)).toEqual({
+      rejectUnauthorized: false,
+      ca: [...rootCertificates, root],
+    });
+    expect(sessionOptionsFor({ tls: true, trustedRootsPem: [] }, target)).toBeUndefined();
+    expect(sessionOptionsFor({ tls: false, trustedRootsPem: [root] }, target)).toBeUndefined();
+    // The socket-pinned and tunnel shapes own their dial — the bag
+    // is applied inside `createConnection`, so they still expose it.
+    expect(
+      sessionOptionsFor({ tls: true, trustedRootsPem: [root], unixSocketPath: '/tmp/g.sock' }, target),
+    ).toHaveProperty('createConnection');
+    expect(tunnelSessionOptionsFor({ tls: true, trustedRootsPem: [root] }, target, new net.Socket())).toHaveProperty(
+      'createConnection',
+    );
   });
 });

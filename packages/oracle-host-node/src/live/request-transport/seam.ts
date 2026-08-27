@@ -69,6 +69,9 @@ export interface ConnectOptions {
   cert?: string;
   key?: string;
   passphrase?: string;
+  /** The runtime bundle plus the workspace trusted roots — always the
+   *  additive concat (`caOptionFor`), never a replacement. */
+  ca?: string[];
   allowH2?: boolean;
   socketPath?: string;
 }

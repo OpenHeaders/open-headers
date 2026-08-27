@@ -90,6 +90,7 @@ import {
   type SessionRouteResult,
 } from './system-proxy/session-route';
 import type { SystemProxyResolver } from './system-proxy/types';
+import { caOptionFor } from './trusted-roots-ca';
 
 export interface NodeGrpcTransportOptions {
   /** The system-plane resolver — injectable so unit rigs drive
@@ -99,16 +100,33 @@ export interface NodeGrpcTransportOptions {
   systemProxy?: SystemProxyResolver | null;
 }
 
-/**
- * TLS connect options for one session: verify against the system roots
- * unless the request explicitly opted out (`sslVerification: false` —
- * the self-signed dev-server knob). Cleartext connects ignore it.
- */
-function sessionOptions(request: {
+/** The TLS policy slice of one session's request — what every dial
+ *  shape below maps onto its `tls.connect` options. */
+interface SessionTlsPolicy {
   tls: boolean;
   sslVerification?: boolean;
-}): { rejectUnauthorized: false } | undefined {
-  return request.tls && request.sslVerification === false ? { rejectUnauthorized: false } : undefined;
+  trustedRootsPem?: string[];
+}
+
+/**
+ * TLS connect options for one session: verify against the system roots
+ * — plus the workspace trusted roots, additively — unless the request
+ * explicitly opted out (`sslVerification: false` — the self-signed
+ * dev-server knob; the roots still ride). Cleartext connects ignore
+ * both; a fully-default TLS session gets no option bag at all.
+ */
+function tlsPolicyOptions(request: SessionTlsPolicy): { rejectUnauthorized?: false; ca?: string[] } {
+  if (!request.tls) return {};
+  const ca = caOptionFor(request.trustedRootsPem);
+  return {
+    ...(request.sslVerification === false ? { rejectUnauthorized: false } : {}),
+    ...(ca !== undefined ? { ca } : {}),
+  };
+}
+
+function sessionOptions(request: SessionTlsPolicy): { rejectUnauthorized?: false; ca?: string[] } | undefined {
+  const policy = tlsPolicyOptions(request);
+  return Object.keys(policy).length > 0 ? policy : undefined;
 }
 
 /**
@@ -124,7 +142,7 @@ function sessionOptions(request: {
  * transport's `connectOptionsFor` discipline).
  */
 export function sessionOptionsFor(
-  request: { tls: boolean; sslVerification?: boolean; unixSocketPath?: string },
+  request: SessionTlsPolicy & { unixSocketPath?: string },
   target: URL,
 ): Parameters<typeof connect>[1] {
   const socketPath = request.unixSocketPath;
@@ -137,7 +155,7 @@ export function sessionOptionsFor(
             path: socketPath,
             ...(servername !== undefined ? { servername } : {}),
             ALPNProtocols: ['h2'],
-            ...(request.sslVerification === false ? { rejectUnauthorized: false } : {}),
+            ...tlsPolicyOptions(request),
           })
         : net.connect({ path: socketPath }),
   };
@@ -151,7 +169,7 @@ export function sessionOptionsFor(
  * Exported pure like {@link sessionOptionsFor}.
  */
 export function tunnelSessionOptionsFor(
-  request: { tls: boolean; sslVerification?: boolean },
+  request: SessionTlsPolicy,
   target: URL,
   tunnel: net.Socket,
 ): Parameters<typeof connect>[1] {
@@ -163,7 +181,7 @@ export function tunnelSessionOptionsFor(
             socket: tunnel,
             ...(servername !== undefined ? { servername } : {}),
             ALPNProtocols: ['h2'],
-            ...(request.sslVerification === false ? { rejectUnauthorized: false } : {}),
+            ...tlsPolicyOptions(request),
           })
         : tunnel,
   };

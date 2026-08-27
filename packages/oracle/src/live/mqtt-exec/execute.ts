@@ -87,6 +87,8 @@ import type {
 import { decodeBase64Bytes, encodeBase64Bytes, generateUid } from '@openheaders/core/utils';
 import { resolveTemplate } from '@openheaders/core/variables';
 import { getRequestCollections, getRequestCollectionsForWorkspace } from '../../entity/request-store';
+import { getTrustedRootPemsForSend } from '../../entity/trusted-roots-store';
+import { peekActiveWorkspaceId } from '../../workspace/extension-workspace-store';
 import { buildResolver } from '../request-exec/resolver-scope';
 import { registerActiveSend } from '../request-exec/send-stream';
 import { createMqttStreamEmitter, registerActiveMqttSession } from './session-plane';
@@ -290,6 +292,9 @@ export async function executeMqttSession(
   // scope carries; a host-injected resolution has no vault, so the ref
   // passes through bare and the transport fails the dial loudly.
   const clientCertificate = resolveClientCertificate(request.clientCertificateRef, oracleResolution?.vault);
+  // The workspace trust list rides every dial and reconnect alike —
+  // the pin the scope resolved against, else the runtime-Active one.
+  const trustedRootsPem = getTrustedRootPemsForSend(options.workspaceId ?? peekActiveWorkspaceId());
 
   const unresolved = new Set<string>();
   const resolveStr = (s: string): string => resolveWith(s, unresolved);
@@ -892,6 +897,7 @@ export async function executeMqttSession(
         {
           url,
           ...(request.sslVerification !== undefined ? { sslVerification: request.sslVerification } : {}),
+          ...(trustedRootsPem !== undefined ? { trustedRootsPem } : {}),
           timeoutMs: request.timeoutMs ?? DEFAULT_CONNECT_TIMEOUT_MS,
           ...clientCertificate,
           ...(sniServerName !== '' ? { sniServerName } : {}),

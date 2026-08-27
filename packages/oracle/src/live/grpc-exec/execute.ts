@@ -41,6 +41,8 @@ import type { ExecutedGrpcSnapshot, GrpcRequest, Spec } from '@openheaders/core/
 import { encodeBase64Bytes } from '@openheaders/core/utils';
 import { resolveTemplate } from '@openheaders/core/variables';
 import { getRequestCollections, getRequestCollectionsForWorkspace } from '../../entity/request-store';
+import { getTrustedRootPemsForSend } from '../../entity/trusted-roots-store';
+import { peekActiveWorkspaceId } from '../../workspace/extension-workspace-store';
 import { buildResolver } from '../request-exec/resolver-scope';
 import { registerActiveSend } from '../request-exec/send-stream';
 import { executeGrpcStream } from './execute-stream';
@@ -131,6 +133,9 @@ export async function executeGrpcInvoke(
     collectionId: collectionIdForPath(request.path, scope.workspaceId),
     environmentId: options.environmentId,
   };
+  // The workspace trust list rides the session dial — the pin the
+  // scope resolved against, else the runtime-Active one.
+  const trustedRootsPem = getTrustedRootPemsForSend(scope.workspaceId ?? peekActiveWorkspaceId());
   const unresolved = new Set<string>();
   const resolveStr = (s: string): string => {
     const result = resolveTemplate(
@@ -201,6 +206,7 @@ export async function executeGrpcInvoke(
       authority,
       tls: request.tls !== false,
       ...(request.sslVerification !== undefined ? { sslVerification: request.sslVerification } : {}),
+      ...(trustedRootsPem !== undefined ? { trustedRootsPem } : {}),
       path: `/${method.service}/${method.rpc}`,
       ...(request.unixSocketPath !== undefined ? { unixSocketPath: request.unixSocketPath } : {}),
       metadata,
@@ -235,6 +241,7 @@ export async function executeGrpcInvoke(
         authority,
         tls: request.tls !== false,
         ...(request.sslVerification !== undefined ? { sslVerification: request.sslVerification } : {}),
+        ...(trustedRootsPem !== undefined ? { trustedRootsPem } : {}),
         path: `/${method.service}/${method.rpc}`,
         ...(request.unixSocketPath !== undefined ? { unixSocketPath: request.unixSocketPath } : {}),
         metadata,

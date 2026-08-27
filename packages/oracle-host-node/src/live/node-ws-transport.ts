@@ -75,6 +75,7 @@ import {
   type SessionProxyAttempt,
 } from './system-proxy/session-route';
 import type { SystemProxyResolver } from './system-proxy/types';
+import { caOptionFor } from './trusted-roots-ca';
 
 export interface NodeWsTransportOptions {
   /** The system-plane resolver — injectable so unit rigs drive
@@ -289,8 +290,10 @@ export function createNodeWsTransport(options: NodeWsTransportOptions = {}): WsT
       // connector wrap captures the REAL dial error (undici's
       // WebSocket layer swallows it into a bare event — probed live).
       const mintDispatcher = (attempt: SessionProxyAttempt, onDialError: (err: unknown) => void): Dispatcher => {
+        const ca = caOptionFor(request.trustedRootsPem);
         const connectBag: ConnectOptions = {
           ...(request.sslVerification === false ? { rejectUnauthorized: false } : {}),
+          ...(ca !== undefined ? { ca } : {}),
           ...(request.clientCertificatePem !== undefined ? { cert: request.clientCertificatePem } : {}),
           ...(request.clientCertificateKeyPem !== undefined ? { key: request.clientCertificateKeyPem } : {}),
           ...(request.clientCertificatePassphrase !== undefined

@@ -239,6 +239,33 @@ describe('proxy MITM capture core', () => {
     expect(row.statusCode).toBe(200);
   });
 
+  it('the upstream leg trusts the workspace roots, read per dial, behind the runtime bundle', async () => {
+    const upstream = await startHttpsUpstream(ca);
+    cleanups.push(() => closeServer(upstream.server));
+
+    // The list starts EMPTY — the first re-origination must fail on the
+    // private-CA upstream; a list edited while the proxy runs applies
+    // to the next dial without a restart.
+    let roots: string[] = [];
+    proxy = createProxyMitmServer({
+      caProvider: caProviderOf(ca),
+      scope: scopeOf([HOST]),
+      observer: mapper,
+      upstreamTrustedRoots: () => roots,
+    });
+    const port = await proxy.listen();
+
+    const untrusted = await connectTunnelTls(port, HOST, upstream.port, ca.certPem);
+    const failed = await httpOverSocket(untrusted, HOST, upstream.port, '/secure');
+    expect(failed.status).toBe(502);
+
+    roots = [ca.certPem];
+    const trusted = await connectTunnelTls(port, HOST, upstream.port, ca.certPem);
+    const res = await httpOverSocket(trusted, HOST, upstream.port, '/secure');
+    expect(res.status).toBe(200);
+    expect(res.body).toBe('secure-body');
+  });
+
   it('blind-tunnels an un-scoped CONNECT host and captures NOTHING', async () => {
     const upstream = await startHttpsUpstream(ca);
     cleanups.push(() => closeServer(upstream.server));

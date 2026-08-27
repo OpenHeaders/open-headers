@@ -30,7 +30,8 @@ import { appendQueryParams, encodeBase64Bytes, isRequestResolvable } from '@open
 import { resolveTemplate } from '@openheaders/core/variables';
 import { getTokenBundle } from '../../entity/oauth-token-store';
 import { getRequestCollections, getRequestCollectionsForWorkspace } from '../../entity/request-store';
-import { getActiveWorkspaceId } from '../../workspace/extension-workspace-store';
+import { getTrustedRootPemsForSend } from '../../entity/trusted-roots-store';
+import { getActiveWorkspaceId, peekActiveWorkspaceId } from '../../workspace/extension-workspace-store';
 import { resolveInheritedAuth } from './ancestor-chain';
 import { buildResolver } from './resolver-scope';
 
@@ -54,6 +55,11 @@ export interface ResolvedRequest {
   tlsMaxVersion?: TlsVersion;
   /** OpenSSL-format cipher list; absent → the runtime's default suites. */
   tlsCipherSuites?: string;
+  /** Workspace trusted roots (PEM) the honoring transport appends
+   *  behind its runtime bundle — present only when the workspace the
+   *  run resolved against holds at least one. A trust list, never a
+   *  secret; no per-request knob. */
+  trustedRootsPem?: string[];
   /** HTTP version policy; absent / `'auto'` → ALPN offer of h2 +
    *  http/1.1 (the server picks). Explicit tokens pin the protocol —
    *  the transport fails honestly when it can't honor the pin. */
@@ -305,6 +311,11 @@ export async function resolveRequest(
   // ── Proxy credential (ref → user:password against the local vault) ──
   const proxyCredential = resolveProxyCredential(request.proxyCredentialRef, scope.vault);
 
+  // ── Trusted roots (the workspace the run resolved against) ──
+  // Same workspace pin the cookie jar keys on: an unpinned send
+  // resolved against the runtime-Active workspace.
+  const trustedRootsPem = getTrustedRootPemsForSend(scope.workspaceId ?? peekActiveWorkspaceId());
+
   // ── Body ──
   const resolvedBody = buildResolvedBody(request.body, resolveStr);
 
@@ -333,6 +344,7 @@ export async function resolveRequest(
       tlsMinVersion: request.tlsMinVersion,
       tlsMaxVersion: request.tlsMaxVersion,
       tlsCipherSuites: request.tlsCipherSuites,
+      ...(trustedRootsPem !== undefined ? { trustedRootsPem } : {}),
       httpVersion: request.httpVersion,
       resolveToAddress: request.resolveToAddress,
       ...clientCertificate,

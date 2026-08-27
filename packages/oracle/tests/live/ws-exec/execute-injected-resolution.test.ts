@@ -13,7 +13,12 @@ import type { WebSocketRequest } from '@openheaders/core/types';
 import { executeWsSession } from '@openheaders/oracle/live/ws-exec/execute';
 import { sendActiveWsSessionMessage } from '@openheaders/oracle/live/ws-exec/session-plane';
 import type { WsSessionCallbacks, WsTransport, WsTransportRequest } from '@openheaders/oracle/live/ws-exec/transport';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+
+const TRUSTED_ROOT = '-----BEGIN CERTIFICATE-----\nROOT\n-----END CERTIFICATE-----\n';
+vi.mock('../../../src/entity/trusted-roots-store', () => ({
+  getTrustedRootPemsForSend: (workspaceId: string | null) => (workspaceId === 'ws-1' ? [TRUSTED_ROOT] : undefined),
+}));
 
 function makeWsRequest(overrides: Partial<WebSocketRequest> = {}): WebSocketRequest {
   return {
@@ -83,6 +88,34 @@ function scriptedTransport(): {
 }
 
 describe('executeWsSession — injected resolution', () => {
+  it('seats the workspace trusted roots on the dial for the pinned workspace, none without one', async () => {
+    const rooted = scriptedTransport();
+    const rootedRun = executeWsSession(makeWsRequest(), {
+      workspaceId: 'ws-1',
+      environmentId: undefined,
+      transport: rooted.transport,
+      sendId: 'send-inject-roots',
+      resolution: scopedResolution,
+    });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(rooted.wire().trustedRootsPem).toEqual([TRUSTED_ROOT]);
+    rooted.callbacks().onEnd();
+    await rootedRun;
+
+    const bare = scriptedTransport();
+    const bareRun = executeWsSession(makeWsRequest(), {
+      workspaceId: null,
+      environmentId: undefined,
+      transport: bare.transport,
+      sendId: 'send-inject-bare',
+      resolution: scopedResolution,
+    });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(bare.wire().trustedRootsPem).toBeUndefined();
+    bare.callbacks().onEnd();
+    await bareRun;
+  });
+
   it('resolves url, headers and params through the injected closure — no oracle resolver', async () => {
     const rig = scriptedTransport();
     const settled = executeWsSession(

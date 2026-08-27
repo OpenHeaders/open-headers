@@ -43,6 +43,8 @@ import type {
 import { appendQueryParams, encodeBase64Bytes } from '@openheaders/core/utils';
 import { resolveTemplate } from '@openheaders/core/variables';
 import { getRequestCollections, getRequestCollectionsForWorkspace } from '../../entity/request-store';
+import { getTrustedRootPemsForSend } from '../../entity/trusted-roots-store';
+import { peekActiveWorkspaceId } from '../../workspace/extension-workspace-store';
 import { buildResolver } from '../request-exec/resolver-scope';
 import { registerActiveSend } from '../request-exec/send-stream';
 import { createWsStreamEmitter, registerActiveWsSession } from './session-plane';
@@ -105,6 +107,9 @@ export async function executeWsSession(
   // An injected resolution short-circuits the oracle-side resolver
   // entirely — the host's closure carries its own scope context.
   const resolveWith = options.resolution ?? (await buildOracleResolution(request, options));
+  // The workspace trust list rides every dial — the pin the scope
+  // resolved against, else the runtime-Active one.
+  const trustedRootsPem = getTrustedRootPemsForSend(options.workspaceId ?? peekActiveWorkspaceId());
 
   const unresolved = new Set<string>();
   const resolveStr = (s: string): string => resolveWith(s, unresolved);
@@ -249,6 +254,7 @@ export async function executeWsSession(
         headers,
         subprotocols: request.subprotocols,
         ...(request.sslVerification !== undefined ? { sslVerification: request.sslVerification } : {}),
+        ...(trustedRootsPem !== undefined ? { trustedRootsPem } : {}),
         ...(request.unixSocketPath !== undefined ? { unixSocketPath: request.unixSocketPath } : {}),
         ...(request.timeoutMs !== undefined ? { timeoutMs: request.timeoutMs } : {}),
       },

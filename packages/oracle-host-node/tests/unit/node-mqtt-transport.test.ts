@@ -9,8 +9,10 @@
  * reused node WS transport).
  */
 
+import 'reflect-metadata';
 import { createServer as createHttpServer, type Server as HttpServer } from 'node:http';
 import * as net from 'node:net';
+import * as tls from 'node:tls';
 import {
   createMqttStreamDecoder,
   encodeMqttPacket,
@@ -22,6 +24,7 @@ import { executeMqttSession } from '@openheaders/oracle/live/mqtt-exec/execute';
 import { closeActiveMqttSession, publishActiveMqttMessage } from '@openheaders/oracle/live/mqtt-exec/session-plane';
 import { afterEach, describe, expect, it } from 'vitest';
 import { WebSocketServer } from 'ws';
+import { mintLeafCertificate, mintProxyCa } from '../../src/daemon/proxy/ca-store';
 import { createNodeMqttTransport } from '../../src/live/node-mqtt-transport';
 
 const closers: Array<() => void> = [];
@@ -60,6 +63,45 @@ function brokerAnswer(packet: MqttPacket, write: (packet: MqttPacket) => void, c
     default:
       return;
   }
+}
+
+function keyPem(pkcs8B64: string): string {
+  const body = pkcs8B64.match(/.{1,64}/g)?.join('\n') ?? pkcs8B64;
+  return `-----BEGIN PRIVATE KEY-----\n${body}\n-----END PRIVATE KEY-----\n`;
+}
+
+/** An `mqtts:` listener whose leaf chains to a freshly minted private
+ *  CA — nothing in the runtime bundle vouches for it. The handshake is
+ *  the whole proof; it never has to speak MQTT. */
+async function startPrivateCaTlsListener(): Promise<{ port: number; rootPem: string }> {
+  const ca = await mintProxyCa();
+  const leaf = await mintLeafCertificate(ca, ['127.0.0.1']);
+  const server = tls.createServer({ key: keyPem(leaf.privateKeyPkcs8B64), cert: leaf.certPem }, (socket) => {
+    socket.on('error', () => {});
+  });
+  closers.push(() => server.close());
+  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', () => resolve()));
+  const address = server.address();
+  if (address === null || typeof address === 'string') throw new Error('no listen address');
+  return { port: address.port, rootPem: ca.certPem };
+}
+
+/** Dial the byte transport once and report how the handshake settled. */
+function dialOnce(url: string, trustedRootsPem?: string[]): Promise<{ connected: boolean; error?: string }> {
+  return new Promise((resolve) => {
+    let connected = false;
+    const writer = createNodeMqttTransport().connect(
+      { url, timeoutMs: 5_000, ...(trustedRootsPem !== undefined ? { trustedRootsPem } : {}) },
+      {
+        onConnect: () => {
+          connected = true;
+          writer.end();
+        },
+        onData: () => {},
+        onEnd: (error) => resolve({ connected, ...(error !== undefined ? { error: error.message } : {}) }),
+      },
+    );
+  });
 }
 
 async function startTcpBroker(): Promise<number> {
@@ -221,5 +263,16 @@ describe('createNodeMqttTransport', () => {
       'up:over-ws',
       'down:over-ws',
     ]);
+  });
+});
+
+describe('createNodeMqttTransport — workspace trusted roots', () => {
+  it('a private-CA mqtts: listener handshakes once its root rides the request; the bare dial fails', async () => {
+    const { port, rootPem } = await startPrivateCaTlsListener();
+    const bare = await dialOnce(`mqtts://127.0.0.1:${port}`);
+    expect(bare.connected).toBe(false);
+    expect(bare.error).toBeDefined();
+    const rooted = await dialOnce(`mqtts://127.0.0.1:${port}`, [rootPem]);
+    expect(rooted.connected).toBe(true);
   });
 });

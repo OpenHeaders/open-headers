@@ -58,6 +58,9 @@ export interface GrpcTransportRequest {
    *  verify (the safe default); `false` accepts self-signed servers.
    *  Meaningful only when `tls` is true. */
   sslVerification?: boolean;
+  /** Workspace trusted roots (PEM), appended behind the runtime bundle
+   *  on the TLS dial — see the HTTP transport's `trustedRootsPem`. */
+  trustedRootsPem?: string[];
   /** Request path: `/{service full name}/{rpc}`. */
   path: string;
   /**
@@ -152,6 +155,8 @@ export interface GrpcTransportStreamRequest {
   tls: boolean;
   /** See {@link GrpcTransportRequest.sslVerification}. */
   sslVerification?: boolean;
+  /** See {@link GrpcTransportRequest.trustedRootsPem}. */
+  trustedRootsPem?: string[];
   path: string;
   /** See {@link GrpcTransportRequest.unixSocketPath}. */
   unixSocketPath?: string;

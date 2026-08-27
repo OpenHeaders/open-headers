@@ -87,6 +87,16 @@ export interface TransportRequest {
    */
   sslVerification?: boolean;
   /**
+   * Workspace trusted roots, PEM form — appended ADDITIVELY behind the
+   * runtime's own bundle on the TLS dial (never replacing it; an empty
+   * or absent list leaves the runtime default untouched). A trust
+   * list, not a secret: read from the workspace store by the executor
+   * and handed over as plain strings; the transport never reaches into
+   * the store. Applied even under `sslVerification: false`. Transports
+   * whose network stack owns its trust (the browser SW) ignore it.
+   */
+  trustedRootsPem?: string[];
+  /**
    * Lowest TLS protocol version the transport may negotiate. Absent →
    * the runtime default floor (TLS 1.2). `'1.0'` / `'1.1'` LOWER the
    * floor below the runtime default — a per-request explicit opt-in

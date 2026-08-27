@@ -38,6 +38,7 @@ import * as net from 'node:net';
 import type { Duplex } from 'node:stream';
 import * as tls from 'node:tls';
 import type { InspectorOverrideBody } from '@openheaders/core/request-lifecycle';
+import { caOptionFor } from '../../live/trusted-roots-ca';
 import {
   BoundedBodyBuffer,
   type CapturedBody,
@@ -64,6 +65,14 @@ export interface ProxyMitmServerOptions {
    * upstream CA.
    */
   readonly upstreamTls?: { ca?: string | readonly string[]; rejectUnauthorized?: boolean };
+  /**
+   * Workspace trusted roots (PEM) for the upstream leg, read PER DIAL
+   * so a list edited while the proxy runs applies to the next
+   * re-origination. Appended ADDITIVELY behind the runtime bundle
+   * (`caOptionFor`); an explicit `upstreamTls.ca` above wins outright
+   * (the test seam replaces the bundle on purpose).
+   */
+  readonly upstreamTrustedRoots?: () => readonly string[];
 }
 
 interface TunnelTarget {
@@ -264,6 +273,7 @@ class ProxyMitmServerImpl implements ProxyMitmServer {
   private readonly enforcer: ProxyRuleEnforcer | null;
   private readonly now: () => number;
   private readonly upstreamTls: ProxyMitmServerOptions['upstreamTls'];
+  private readonly upstreamTrustedRoots: ProxyMitmServerOptions['upstreamTrustedRoots'];
 
   private readonly outer: http.Server;
   /** Parses decrypted requests fed from terminated CONNECT tunnels. */
@@ -283,6 +293,7 @@ class ProxyMitmServerImpl implements ProxyMitmServer {
     this.enforcer = options.enforcer ?? null;
     this.now = options.now ?? Date.now;
     this.upstreamTls = options.upstreamTls;
+    this.upstreamTrustedRoots = options.upstreamTrustedRoots;
 
     this.outer = http.createServer((req, res) => this.handlePlainRequest(req, res));
     this.outer.on('connect', (req, socket, head) => this.handleConnect(req, socket, head));
@@ -478,9 +489,14 @@ class ProxyMitmServerImpl implements ProxyMitmServer {
       path: target.path,
       headers: outboundHeaders(wireHeaders, authority),
     };
-    if (target.scheme === 'https' && this.upstreamTls !== undefined) {
-      if (this.upstreamTls.ca !== undefined) requestOptions.ca = this.upstreamTls.ca as string | string[];
-      if (this.upstreamTls.rejectUnauthorized !== undefined) {
+    if (target.scheme === 'https') {
+      if (this.upstreamTls?.ca !== undefined) {
+        requestOptions.ca = this.upstreamTls.ca as string | string[];
+      } else if (this.upstreamTrustedRoots !== undefined) {
+        const ca = caOptionFor(this.upstreamTrustedRoots());
+        if (ca !== undefined) requestOptions.ca = ca;
+      }
+      if (this.upstreamTls?.rejectUnauthorized !== undefined) {
         requestOptions.rejectUnauthorized = this.upstreamTls.rejectUnauthorized;
       }
     }

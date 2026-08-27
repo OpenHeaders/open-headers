@@ -69,6 +69,16 @@ vi.mock('../../../src/entity/totp-cooldown-store', () => ({
 }));
 vi.mock('../../../src/workspace/extension-workspace-store', () => ({
   getActiveWorkspaceId: () => 'ws-active',
+  peekActiveWorkspaceId: () => 'ws-active',
+}));
+const trustedRootPems = vi.fn<(workspaceId: string) => string[]>(() => []);
+vi.mock('../../../src/entity/trusted-roots-store', () => ({
+  getTrustedRootPemsForWorkspace: (workspaceId: string) => trustedRootPems(workspaceId),
+  getTrustedRootPemsForSend: (workspaceId: string | null) => {
+    if (workspaceId === null) return undefined;
+    const roots = trustedRootPems(workspaceId);
+    return roots.length > 0 ? roots : undefined;
+  },
 }));
 
 function makeRequest(overrides: Partial<Request> = {}): Request {
@@ -126,6 +136,7 @@ beforeEach(() => {
   recordUsageMock.mockReset();
   requestCollections.mockReturnValue([]);
   requestFolders.mockReturnValue([]);
+  trustedRootPems.mockReturnValue([]);
 });
 
 afterEach(() => {
@@ -133,6 +144,22 @@ afterEach(() => {
 });
 
 describe('runStepRequest (integration over the real resolver + executor)', () => {
+  it('seats the workspace trusted roots from the store the run resolved against, and counts them', async () => {
+    const root = '-----BEGIN CERTIFICATE-----\nROOT\n-----END CERTIFICATE-----\n';
+    trustedRootPems.mockImplementation((workspaceId) => (workspaceId === 'ws-1' ? [root] : []));
+    const { transport, sent } = captureTransport();
+    const snap = await runStepRequest(makeRequest(), opts(transport));
+    expect(sent().trustedRootsPem).toEqual([root]);
+    expect(snap.trustedRootsApplied).toBe(1);
+  });
+
+  it('an empty trust list leaves the transport request and the snapshot untouched', async () => {
+    const { transport, sent } = captureTransport();
+    const snap = await runStepRequest(makeRequest(), opts(transport));
+    expect(sent().trustedRootsPem).toBeUndefined();
+    expect(snap.trustedRootsApplied).toBeUndefined();
+  });
+
   it('resolves workspace variables in the URL', async () => {
     wsVars.mockReturnValue({
       schemaVersion: 5,

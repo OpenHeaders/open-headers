@@ -27,6 +27,18 @@ export function getTrustedRootPemsForWorkspace(workspaceId: string): string[] {
 }
 
 /**
+ * The list as an executor seats it on a transport request: absent when
+ * there is no workspace to read from or the list is empty, so the
+ * transport's runtime-default trust path stays untouched. Takes the
+ * executor's resolved workspace pin (`null` = none).
+ */
+export function getTrustedRootPemsForSend(workspaceId: string | null): string[] | undefined {
+  if (workspaceId === null) return undefined;
+  const roots = getTrustedRootPemsForWorkspace(workspaceId);
+  return roots.length > 0 ? roots : undefined;
+}
+
+/**
  * Seed the active workspace's cache from the persisted record. The
  * cache owns the in-memory snapshot after this — readers go through
  * {@link getTrustedRootsForWorkspace}.

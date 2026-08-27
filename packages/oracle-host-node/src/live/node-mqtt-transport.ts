@@ -39,6 +39,7 @@ import type {
 } from '@openheaders/oracle/live/mqtt-exec/transport';
 import { MqttTransportError } from '@openheaders/oracle/live/mqtt-exec/transport';
 import { createNodeWsTransport } from './node-ws-transport';
+import { caOptionFor } from './trusted-roots-ca';
 
 const MQTT_DEFAULT_PORT = 1883;
 const MQTTS_DEFAULT_PORT = 8883;
@@ -196,12 +197,14 @@ function connectTcp(
     callbacks.onConnect();
   };
 
+  const ca = secure ? caOptionFor(request.trustedRootsPem) : undefined;
   const sock = secure
     ? tls.connect({
         host,
         port,
         servername: request.sniServerName ?? host,
         ...(request.sslVerification === false ? { rejectUnauthorized: false } : {}),
+        ...(ca !== undefined ? { ca } : {}),
         ...(request.alpnProtocol !== undefined ? { ALPNProtocols: [request.alpnProtocol] } : {}),
         ...(request.clientCertificatePem !== undefined ? { cert: request.clientCertificatePem } : {}),
         ...(request.clientCertificateKeyPem !== undefined ? { key: request.clientCertificateKeyPem } : {}),

@@ -9,8 +9,10 @@
  * post-open Stop-abort settling immediately with no error.
  */
 
+import 'reflect-metadata';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { createServer, type IncomingMessage, type Server } from 'node:http';
+import { createServer as createHttpsServer } from 'node:https';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type {
@@ -20,6 +22,7 @@ import type {
 } from '@openheaders/oracle/live/ws-exec/transport';
 import { afterEach, describe, expect, it } from 'vitest';
 import { WebSocketServer } from 'ws';
+import { mintLeafCertificate, mintProxyCa } from '../../src/daemon/proxy/ca-store';
 import { createNodeWsTransport } from '../../src/live/node-ws-transport';
 
 const servers: Server[] = [];
@@ -29,11 +32,19 @@ interface ProbeServer {
   seenHeaders: () => IncomingMessage['headers'];
 }
 
-async function startWsServer(options: { neverUpgrade?: boolean; socketPath?: string } = {}): Promise<ProbeServer> {
-  const httpServer = createServer((_req, res) => {
+function keyPem(pkcs8B64: string): string {
+  const body = pkcs8B64.match(/.{1,64}/g)?.join('\n') ?? pkcs8B64;
+  return `-----BEGIN PRIVATE KEY-----\n${body}\n-----END PRIVATE KEY-----\n`;
+}
+
+async function startWsServer(
+  options: { neverUpgrade?: boolean; socketPath?: string; tls?: { key: string; cert: string } } = {},
+): Promise<ProbeServer> {
+  const onRequest = (_req: IncomingMessage, res: { statusCode: number; end(): void }): void => {
     res.statusCode = 426;
     res.end();
-  });
+  };
+  const httpServer = options.tls !== undefined ? createHttpsServer(options.tls, onRequest) : createServer(onRequest);
   servers.push(httpServer);
   let headers: IncomingMessage['headers'] = {};
   if (!options.neverUpgrade) {
@@ -75,7 +86,17 @@ async function startWsServer(options: { neverUpgrade?: boolean; socketPath?: str
   await new Promise<void>((resolve) => httpServer.listen(0, '127.0.0.1', resolve));
   const address = httpServer.address();
   if (address === null || typeof address === 'string') throw new Error('no listen address');
-  return { url: `ws://127.0.0.1:${address.port}/session`, seenHeaders: () => headers };
+  const scheme = options.tls !== undefined ? 'wss' : 'ws';
+  return { url: `${scheme}://127.0.0.1:${address.port}/session`, seenHeaders: () => headers };
+}
+
+/** A `wss:` server whose leaf chains to a freshly minted private CA —
+ *  nothing in the runtime bundle vouches for it. */
+async function startPrivateCaWsServer(): Promise<ProbeServer & { rootPem: string }> {
+  const ca = await mintProxyCa();
+  const leaf = await mintLeafCertificate(ca, ['127.0.0.1']);
+  const server = await startWsServer({ tls: { key: keyPem(leaf.privateKeyPkcs8B64), cert: leaf.certPem } });
+  return { ...server, rootPem: ca.certPem };
 }
 
 afterEach(async () => {
@@ -106,6 +127,7 @@ function runSession(
     subprotocols?: string[];
     timeoutMs?: number;
     unixSocketPath?: string;
+    trustedRootsPem?: string[];
   },
   steps: (writer: { send(text: string): void; close(code: number, reason: string): void }, seen: SessionRun) => void,
   signal?: AbortSignal,
@@ -120,6 +142,7 @@ function runSession(
         subprotocols: options.subprotocols ?? [],
         ...(options.timeoutMs !== undefined ? { timeoutMs: options.timeoutMs } : {}),
         ...(options.unixSocketPath !== undefined ? { unixSocketPath: options.unixSocketPath } : {}),
+        ...(options.trustedRootsPem !== undefined ? { trustedRootsPem: options.trustedRootsPem } : {}),
       },
       {
         onOpen: (protocol) => {
@@ -145,6 +168,25 @@ function runSession(
     );
   });
 }
+
+describe('createNodeWsTransport — workspace trusted roots', () => {
+  it('a private-CA wss: server opens once its root rides the request; the bare dial fails', async () => {
+    const server = await startPrivateCaWsServer();
+    const bare = await runSession(server.url, {}, (writer) => writer.close(1000, 'unreachable'));
+    expect(bare.error).toBeDefined();
+    expect(bare.protocol).toBe('');
+
+    const rooted = await runSession(server.url, { trustedRootsPem: [server.rootPem] }, (writer, s) => {
+      writer.send('hello');
+      setTimeout(() => {
+        if (s.messages.length > 0) writer.close(1000, 'done');
+      }, 50);
+    });
+    expect(rooted.error).toBeUndefined();
+    expect(rooted.messages).toEqual([{ text: 'echo:hello', binary: false, byteLength: 10 }]);
+    expect(rooted.close).toEqual({ code: 1000, reason: 'done', wasClean: true });
+  });
+});
 
 describe('createNodeWsTransport — session round trip', () => {
   it('negotiates the subprotocol, carries custom headers, echoes text, closes clean', async () => {

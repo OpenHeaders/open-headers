@@ -114,6 +114,54 @@ describe('executeOverTransport', () => {
     expect(failed.sslVerificationDisabled).toBe(true);
   });
 
+  it('hands the workspace trusted roots to the transport and counts them on the snapshot', async () => {
+    const roots = [
+      '-----BEGIN CERTIFICATE-----\nA\n-----END CERTIFICATE-----\n',
+      '-----BEGIN CERTIFICATE-----\nB\n-----END CERTIFICATE-----\n',
+    ];
+    const { transport, sent } = captureTransport();
+    const ok = await executeOverTransport(makeResolved({ trustedRootsPem: roots }), transport);
+    expect(sent().trustedRootsPem).toEqual(roots);
+    expect(ok.trustedRootsApplied).toBe(2);
+
+    const failing: RequestTransport = {
+      async send() {
+        throw new TransportError('Connection refused by api.openheaders.io.');
+      },
+    };
+    const failed = await executeOverTransport(makeResolved({ trustedRootsPem: roots }), failing);
+    expect(failed.trustedRootsApplied).toBe(2);
+  });
+
+  it('counts the roots under verification-off too — the snapshot says what trust the dial ran with', async () => {
+    const { transport } = captureTransport();
+    const snap = await executeOverTransport(
+      makeResolved({
+        sslVerification: false,
+        trustedRootsPem: ['-----BEGIN CERTIFICATE-----\nA\n-----END CERTIFICATE-----\n'],
+      }),
+      transport,
+    );
+    expect(snap.sslVerificationDisabled).toBe(true);
+    expect(snap.trustedRootsApplied).toBe(1);
+  });
+
+  it("leaves the count off an empty list and off an HTTP/3 send (the helper's TLS stack has no seat)", async () => {
+    const { transport } = captureTransport();
+    const none = await executeOverTransport(makeResolved(), transport);
+    expect(none.trustedRootsApplied).toBeUndefined();
+    const empty = await executeOverTransport(makeResolved({ trustedRootsPem: [] }), transport);
+    expect(empty.trustedRootsApplied).toBeUndefined();
+    const h3 = await executeOverTransport(
+      makeResolved({
+        httpVersion: '3',
+        trustedRootsPem: ['-----BEGIN CERTIFICATE-----\nA\n-----END CERTIFICATE-----\n'],
+      }),
+      transport,
+    );
+    expect(h3.trustedRootsApplied).toBeUndefined();
+  });
+
   it('leaves a verified run unmarked', async () => {
     const { transport } = captureTransport();
     const snap = await executeOverTransport(makeResolved(), transport);

@@ -14,6 +14,7 @@ import type { TransportRequest } from '@openheaders/oracle/live/request-exec/tra
 import { Agent, type Dispatcher, ProxyAgent, Socks5ProxyAgent } from 'undici';
 import { type AlpnPolicy, createDialConnector, createRecordingConnector } from '../instrumented-connector';
 import { isSocks5ProxyUrl } from '../system-proxy/proxy-value';
+import { caOptionFor } from '../trusted-roots-ca';
 import type { ProxyTunnel } from './connect-tunnel';
 import type { ConnectOptions } from './seam';
 
@@ -138,6 +139,18 @@ function proxyCredKeySegment(request: TransportRequest): string {
 }
 
 /**
+ * Trusted-roots segment of the tuple key: a short content hash of the
+ * workspace list, so editing the list (add, remove, rotate) mints a
+ * fresh agent instead of reusing one whose sockets were verified
+ * against the old trust. Not a secret, but the PEMs are long — the
+ * hash keeps the key small.
+ */
+function trustedRootsKeySegment(request: TransportRequest): string {
+  if (request.trustedRootsPem === undefined || request.trustedRootsPem.length === 0) return '';
+  return createHash('sha256').update(request.trustedRootsPem.join('\n')).digest('hex').slice(0, 16);
+}
+
+/**
  * The seam's `httpVersion` knob mapped to how a dial offers and
  * enforces the protocol. `'auto'` (and absent) offers h2 + http/1.1 —
  * the server picks; `'1.1'` offers http/1.1 only; `'2'` offers h2
@@ -178,6 +191,7 @@ export function dispatcherFor(request: TransportRequest): DispatcherEntry {
     proxyUrl ?? '',
     proxyUrl !== undefined ? proxyCredKeySegment(request) : '',
     unixSocketPath ?? '',
+    trustedRootsKeySegment(request),
   ].join('|');
   const cached = agentCache.get(key);
   if (cached) return cached;
@@ -262,6 +276,8 @@ export function connectOptionsFor(request: TransportRequest): ConnectOptions {
   if (request.clientCertificatePem !== undefined) connect.cert = request.clientCertificatePem;
   if (request.clientCertificateKeyPem !== undefined) connect.key = request.clientCertificateKeyPem;
   if (request.clientCertificatePassphrase !== undefined) connect.passphrase = request.clientCertificatePassphrase;
+  const ca = caOptionFor(request.trustedRootsPem);
+  if (ca !== undefined) connect.ca = ca;
   // The connector passes `socketPath` as `path` into net.connect /
   // tls.connect, where it wins over host+port — the URL's host stays
   // cosmetic for dialing while Host / SNI / cert verification keep it.

@@ -11,6 +11,8 @@
 
 import { hostInScope } from '@openheaders/core/proxy';
 import type { ProxyCaRecord } from '@openheaders/core/types';
+import { getTrustedRootPemsForWorkspace } from '@openheaders/oracle/entity/trusted-roots-store';
+import { peekActiveWorkspaceId } from '@openheaders/oracle/workspace/extension-workspace-store';
 import type { ProxyBodyRetainer } from './body-store';
 import { readProxyCa } from './ca-store';
 import { type LifecycleSink, ProxyCaptureLifecycleMapper } from './capture-lifecycle';
@@ -60,6 +62,13 @@ export function createProxyCaptureEngine(options: ProxyCaptureEngineOptions): Pr
     caProvider: options.caProvider ?? sealedCaProvider(),
     scope: scopeFromPatterns(options.getScopePatterns),
     observer: mapper,
+    // The upstream leg trusts the same PKI the request executors do:
+    // the runtime-Active workspace's list (the proxy plane's workspace,
+    // like its rule source), read per dial.
+    upstreamTrustedRoots: () => {
+      const workspaceId = peekActiveWorkspaceId();
+      return workspaceId === null ? [] : getTrustedRootPemsForWorkspace(workspaceId);
+    },
     ...(options.enforcer !== undefined ? { enforcer: options.enforcer } : {}),
     ...(options.now !== undefined ? { now: options.now } : {}),
   });

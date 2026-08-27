@@ -186,6 +186,7 @@ export async function executeOverTransport(
     tlsMinVersion: resolved.tlsMinVersion,
     tlsMaxVersion: resolved.tlsMaxVersion,
     tlsCipherSuites: resolved.tlsCipherSuites,
+    ...(resolved.trustedRootsPem !== undefined ? { trustedRootsPem: resolved.trustedRootsPem } : {}),
     httpVersion: resolved.httpVersion,
     resolveToAddress: resolved.resolveToAddress,
     clientCertificateRef: resolved.clientCertificateRef,
@@ -219,6 +220,13 @@ export async function executeOverTransport(
   // runtime's 1.2 default — the policy is known before the wire, so
   // success and error paths mark alike.
   const tlsFloorLowered = resolved.tlsMinVersion === '1.0' || resolved.tlsMinVersion === '1.1';
+  // And the workspace roots the dial trusts — a count, not the list.
+  // An HTTP/3 send stays unstamped: the helper's TLS stack has no seat
+  // for them yet, and the snapshot never claims trust it did not run.
+  const trustedRootsApplied =
+    resolved.trustedRootsPem !== undefined && resolved.trustedRootsPem.length > 0 && resolved.httpVersion !== '3'
+      ? resolved.trustedRootsPem.length
+      : undefined;
 
   // ── Streaming leg (interactive sends only) ──
   // The emitter batches live frames (time-engaged flush — an ordinary
@@ -304,6 +312,7 @@ export async function executeOverTransport(
       durationMs,
       ...(verificationOff ? { sslVerificationDisabled: true } : {}),
       ...(tlsFloorLowered ? { tlsFloorLowered: true } : {}),
+      ...(trustedRootsApplied !== undefined ? { trustedRootsApplied } : {}),
       // The transport reports an actual cross-origin Authorization
       // re-send (only the redirect loop can know); stamp it so the
       // response surface marks the run.
@@ -341,6 +350,7 @@ export async function executeOverTransport(
       durationMs,
       ...(verificationOff ? { sslVerificationDisabled: true } : {}),
       ...(tlsFloorLowered ? { tlsFloorLowered: true } : {}),
+      ...(trustedRootsApplied !== undefined ? { trustedRootsApplied } : {}),
     };
   } finally {
     unregister?.();

@@ -61,6 +61,9 @@ export interface WsTransportRequest {
    *  verify (the safe default); `false` accepts self-signed servers.
    *  Meaningful only for `wss:`. */
   sslVerification?: boolean;
+  /** Workspace trusted roots (PEM), appended behind the runtime bundle
+   *  on the TLS dial — see the HTTP transport's `trustedRootsPem`. */
+  trustedRootsPem?: string[];
   /** Client certificate pair presented in the `wss:` handshake, PEM
    *  form — already resolved by the executor (MQTT-over-WebSocket
    *  sessions ride it; the WS editor has no knob yet). */

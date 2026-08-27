@@ -30,6 +30,9 @@ export interface MqttTransportRequest {
    *  verify (the safe default); `false` accepts self-signed brokers.
    *  Meaningful for `mqtts:` and `wss:`. */
   sslVerification?: boolean;
+  /** Workspace trusted roots (PEM), appended behind the runtime bundle
+   *  on the TLS dial — see the HTTP transport's `trustedRootsPem`. */
+  trustedRootsPem?: string[];
   /**
    * Dial deadline (ms): the connection (TCP connect + TLS handshake,
    * or the WebSocket upgrade) must establish inside it or the attempt

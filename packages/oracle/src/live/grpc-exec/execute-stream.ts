@@ -50,6 +50,8 @@ export interface GrpcStreamExecuteParams {
   tls: boolean;
   /** See {@link GrpcTransportRequest.sslVerification}. */
   sslVerification?: boolean;
+  /** See {@link GrpcTransportRequest.trustedRootsPem}. */
+  trustedRootsPem?: string[];
   path: string;
   /** See {@link GrpcTransportRequest.unixSocketPath}. */
   unixSocketPath?: string;
@@ -180,6 +182,7 @@ export function executeGrpcStream(params: GrpcStreamExecuteParams): Promise<Exec
           authority: params.authority,
           tls: params.tls,
           ...(params.sslVerification !== undefined ? { sslVerification: params.sslVerification } : {}),
+          ...(params.trustedRootsPem !== undefined ? { trustedRootsPem: params.trustedRootsPem } : {}),
           path: params.path,
           ...(params.unixSocketPath !== undefined ? { unixSocketPath: params.unixSocketPath } : {}),
           metadata: params.metadata,

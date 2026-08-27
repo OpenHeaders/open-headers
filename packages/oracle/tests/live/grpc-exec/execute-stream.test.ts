@@ -22,6 +22,7 @@ import {
   type GrpcStreamCallbacks,
   type GrpcTransport,
   GrpcTransportError,
+  type GrpcTransportStreamRequest,
 } from '@openheaders/oracle/live/grpc-exec/transport';
 import { stopActiveSend } from '@openheaders/oracle/live/request-exec/send-stream';
 import { describe, expect, it } from 'vitest';
@@ -91,6 +92,27 @@ const okTrailers = [
   { key: 'grpc-status', value: '0' },
   { key: 'grpc-message', value: 'OK' },
 ];
+
+describe('executeGrpcStream — dial policy', () => {
+  it('hands the workspace trusted roots to the stream transport beside the verify knob', async () => {
+    const root = '-----BEGIN CERTIFICATE-----\nROOT\n-----END CERTIFICATE-----\n';
+    let seen: GrpcTransportStreamRequest | null = null;
+    const transport: GrpcTransport = {
+      invoke: () => Promise.reject(new Error('unary invoke not expected')),
+      openStream(request, cb) {
+        seen = request;
+        queueMicrotask(() => {
+          cb.onHead(200, [], undefined);
+          cb.onTrailers(okTrailers);
+          cb.onEnd();
+        });
+        return { sendMessage: () => {}, halfClose: () => {} };
+      },
+    };
+    await executeGrpcStream(params(transport, { sslVerification: false, trustedRootsPem: [root] }));
+    expect(seen).toMatchObject({ sslVerification: false, trustedRootsPem: [root] });
+  });
+});
 
 describe('executeGrpcStream — server-streaming ceremony', () => {
   it('writes the composed message, half-closes, and captures both directions in order', async () => {

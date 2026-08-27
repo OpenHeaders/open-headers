@@ -5,7 +5,7 @@
  * mapping, and the classification of failures each knob can cause.
  */
 
-import { createSecureContext } from 'node:tls';
+import { createSecureContext, rootCertificates } from 'node:tls';
 import { TransportError } from '@openheaders/oracle/live/request-exec/transport';
 import { Agent, ProxyAgent, Response, Socks5ProxyAgent } from 'undici';
 import { beforeEach, describe, expect, it } from 'vitest';
@@ -158,6 +158,38 @@ describe('createNodeRequestTransport — per-request TLS policy', () => {
     fetchMock.mockRejectedValue(fetchError('EPROTO'));
     const attempt = transport().send(makeRequest());
     await expect(attempt).rejects.toThrow(/TLS handshake with api\.openheaders\.io failed \(EPROTO\)\.$/);
+  });
+});
+
+describe('createNodeRequestTransport — workspace trusted roots', () => {
+  const ROOT = '-----BEGIN CERTIFICATE-----\nROOT\n-----END CERTIFICATE-----\n';
+
+  it('the connect bag carries the runtime bundle plus the workspace roots; an empty list sets nothing', () => {
+    const bag = connectOptionsFor(makeRequest({ trustedRootsPem: [ROOT] }));
+    expect(bag.ca?.length).toBe(rootCertificates.length + 1);
+    expect(bag.ca?.at(-1)).toBe(ROOT);
+    expect(connectOptionsFor(makeRequest({ trustedRootsPem: [] })).ca).toBeUndefined();
+    expect(connectOptionsFor(makeRequest()).ca).toBeUndefined();
+  });
+
+  it('the roots ride even under verification-off (the run snapshot counts them truthfully)', () => {
+    const bag = connectOptionsFor(makeRequest({ sslVerification: false, trustedRootsPem: [ROOT] }));
+    expect(bag.rejectUnauthorized).toBe(false);
+    expect(bag.ca?.at(-1)).toBe(ROOT);
+  });
+
+  it('a roots list mints its own agent, reused per list, refreshed when the list changes', async () => {
+    fetchMock.mockResolvedValue(new Response('ok'));
+    await transport().send(makeRequest());
+    await transport().send(makeRequest({ trustedRootsPem: [ROOT] }));
+    await transport().send(makeRequest({ trustedRootsPem: [ROOT] }));
+    await transport().send(makeRequest({ trustedRootsPem: [ROOT, `${ROOT}2`] }));
+    const plain = callInit(0).dispatcher;
+    const rooted = callInit(1).dispatcher;
+    expect(rooted).toBeInstanceOf(Agent);
+    expect(rooted).not.toBe(plain);
+    expect(callInit(2).dispatcher).toBe(rooted);
+    expect(callInit(3).dispatcher).not.toBe(rooted);
   });
 });
 

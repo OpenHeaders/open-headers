@@ -223,6 +223,18 @@ export interface ExecutedRequestSnapshot {
    */
   sslVerificationDisabled?: boolean;
   /**
+   * Number of workspace trusted roots the runtime appended to its
+   * trust bundle for this send (the workspace trust list, honored by
+   * node runtimes on the TLS dials they own). Like
+   * `sslVerificationDisabled`, known before the wire — recorded on
+   * success and error snapshots alike, and still recorded under
+   * `sslVerification: false` (the roots are applied either way).
+   * Absent = no roots applied: the list was empty, the host was a
+   * browser runtime, or the send rode HTTP/3 (the helper's TLS stack
+   * has no seat for them yet).
+   */
+  trustedRootsApplied?: number;
+  /**
    * True when this send ran with its TLS protocol floor LOWERED below
    * the runtime's TLS 1.2 default (the per-request `tlsMinVersion:
    * '1.0' | '1.1'` opt-in, honored by node runtimes). Like
