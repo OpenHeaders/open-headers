@@ -79,7 +79,13 @@ export const workbenchSettings = {
   'workbench.settings.category.backend.description':
     'Donde viven tus espacios de trabajo, reglas, vault e historial. Elige el host que llegue tan lejos como ' +
     'necesites — solo local en cualquier caso.',
-  'workbench.settings.category.backend.sub.lan-peers': 'Pares LAN',
+  'workbench.settings.category.backendServer.label': 'Backend · Servidor',
+  'workbench.settings.category.backendServer.navLabel': 'Servidor',
+  'workbench.settings.category.backendServer.description':
+    'Esta aplicación como servidor: quién de tu red puede conectarse, qué pueden ejecutar aquí los pares conectados y los dispositivos que has emparejado.',
+  'workbench.settings.category.backendServer.sub.network': 'Red',
+  'workbench.settings.category.backendServer.sub.peer-requests': 'Solicitudes de pares',
+  'workbench.settings.category.backendServer.sub.devices': 'Dispositivos',
   'workbench.settings.category.backendPairing.label': 'Backend · Emparejamiento de escritorio',
   'workbench.settings.category.backendPairing.navLabel': 'Emparejamiento de escritorio',
   'workbench.settings.category.backendPairing.description':

@@ -49,7 +49,7 @@ export const workbenchSettingsDefs = {
     'Permite que una aplicación de escritorio emparejada en este equipo observe el tráfico de red, el almacenamiento ' +
     'y la consola de este navegador en su panel de Tráfico. Al desactivarlo, las reglas y la sincronización siguen ' +
     'funcionando mientras las vistas en vivo del escritorio se rechazan educadamente.',
-  'workbench.settings.def.backend.bindAddress.label': 'Sincronizar con los dispositivos de tu red',
+  'workbench.settings.def.backend.bindAddress.label': 'Sincronizar con los dispositivos de la red',
   'workbench.settings.def.backend.bindAddress.description':
     'Permite que otros ordenadores y navegadores de la misma red se conecten a esta aplicación y compartan ' +
     'sus espacios de trabajo. Desactivado por defecto — solo este ordenador puede alcanzarla.',
@@ -59,7 +59,7 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.backend.bindAddress.option.all-interfaces.label': 'Todas las interfaces (LAN)',
   'workbench.settings.def.backend.bindAddress.option.all-interfaces.description':
     'Los demás dispositivos de la red local pueden conectarse. Requiere el token de autenticación de U3.2.',
-  'workbench.settings.def.backend.bindPort.label': 'Puerto del back-end',
+  'workbench.settings.def.backend.bindPort.label': 'Puerto',
   'workbench.settings.def.backend.bindPort.description':
     'El puerto que esta aplicación abre para que navegadores y otros dispositivos se conecten. Cámbialo solo ' +
     'si otra cosa ya usa el puerto por defecto. Los clientes deben apuntar al mismo puerto.',
@@ -69,15 +69,13 @@ export const workbenchSettingsDefs = {
     'abrirlo directamente desde esta aplicación — sin necesidad de extensión. Cualquiera que alcance el ' +
     'puerto ve la puerta de inicio de sesión; sigue haciendo falta un token emparejado para acceder a los ' +
     'datos.',
-  'workbench.settings.def.backend.allowLocalPeerExecute.label':
-    'Permitir que los navegadores de este dispositivo envíen solicitudes',
+  'workbench.settings.def.backend.allowLocalPeerExecute.label': 'Desde los navegadores de este dispositivo',
   'workbench.settings.def.backend.allowLocalPeerExecute.description':
     'Deja que los navegadores emparejados en ESTA máquina envíen solicitudes API a través de esta ' +
     'aplicación — la extensión la usa como su motor de solicitudes, así que el Enviar de su workbench se ' +
     'ejecuta aquí. Activado por defecto: el emparejamiento es el consentimiento. Cada envío sigue ' +
     'requiriendo acceso de escritura al espacio de trabajo.',
-  'workbench.settings.def.backend.allowRemotePeerExecute.label':
-    'Permitir que otros dispositivos conectados envíen solicitudes',
+  'workbench.settings.def.backend.allowRemotePeerExecute.label': 'Desde otros dispositivos conectados',
   'workbench.settings.def.backend.allowRemotePeerExecute.description':
     'Deja que los dispositivos emparejados en OTRAS máquinas envíen solicitudes API a través de esta ' +
     'aplicación — el Enviar de su workbench se ejecuta en esta máquina, con su acceso de red y su ' +

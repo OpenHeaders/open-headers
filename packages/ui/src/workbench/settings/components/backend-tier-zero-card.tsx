@@ -3,10 +3,9 @@
  * Back-end pane (the multi-backend plan §4). Not a list entry: the
  * extension's service worker / the desktop app's embedded back-end runs
  * regardless of what the connections list holds, and it hosts the home
- * Org. On the desktop host the daemon-side inbound surfaces ride along
- * (the LAN-peers bind rows + paired-devices token management) — they
- * configure this process AS a server, orthogonal to any outbound
- * connection below.
+ * Org. The daemon-side inbound surfaces (bind rows, paired devices) live
+ * on the Backend › Server page — they configure this process AS a
+ * server, orthogonal to any outbound connection below.
  */
 
 import { TeamOutlined } from '@ant-design/icons';
@@ -18,10 +17,7 @@ import { useServerAdminStatus } from '../../components/server-admin/use-server-a
 import { useOpenServerAdmin } from '../../hooks/OpenServerAdminContext';
 import type { Host } from '../../../shared/host-vocabulary';
 import { tierZeroMode } from '../schema/backend';
-import SettingRow from '../fields/SettingRow';
-import type { SettingDef } from '../types';
 import { BackendIcon, backendModeIcon } from './backend-icons';
-import BackendTokensSection from './backend-tokens-section';
 
 const HOST_TITLE: Record<Host, MessageKey> = {
   extension: 'workbench.settings.backendPane.tierZero.title.extension',
@@ -35,7 +31,7 @@ const HOST_COPY: Record<Host, MessageKey> = {
   web: 'workbench.settings.backendPane.tierZero.copy.web',
 };
 
-export const BackendTierZeroCard: React.FC<{ host: Host; defs: readonly SettingDef[] }> = ({ host, defs }) => {
+export const BackendTierZeroCard: React.FC<{ host: Host }> = ({ host }) => {
   const { token } = theme.useToken();
   const t = useT();
   // Admin-console CTA — rendered only when the probe says this subject
@@ -44,14 +40,6 @@ export const BackendTierZeroCard: React.FC<{ host: Host; defs: readonly SettingD
   // Pure affordance honesty; the server gates every call regardless.
   const adminStatus = useServerAdminStatus();
   const openServerAdmin = useOpenServerAdmin();
-  // Daemon-side inbound config exists only where this process IS a
-  // daemon. Strip each row's `when` — it gates on the derived mode for
-  // search hits, but inside the tier-zero card the daemon context is
-  // established by the card itself.
-  const daemonDefs =
-    host === 'desktop'
-      ? defs.filter((d) => d.subcategory === 'lan-peers').map((d) => (d.when ? { ...d, when: undefined } : d))
-      : [];
 
   return (
     <section style={{ marginBottom: 12 }}>
@@ -90,9 +78,6 @@ export const BackendTierZeroCard: React.FC<{ host: Host; defs: readonly SettingD
             <div style={{ fontSize: 12, color: token.colorTextSecondary, marginTop: 2 }}>{t(HOST_COPY[host])}</div>
           </div>
         </div>
-        {daemonDefs.map((def) => (
-          <SettingRow key={def.key} def={def} />
-        ))}
         {adminStatus === 'admin' && openServerAdmin && (
           <div
             style={{
@@ -122,7 +107,6 @@ export const BackendTierZeroCard: React.FC<{ host: Host; defs: readonly SettingD
           </div>
         )}
       </div>
-      {host === 'desktop' && <BackendTokensSection />}
     </section>
   );
 };

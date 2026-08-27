@@ -74,7 +74,13 @@ export const workbenchSettings = {
   'workbench.settings.category.backend.description':
     "Où vivent vos espaces de travail, règles, vault et historique. Choisissez l'hôte qui correspond à votre " +
     'portée — local uniquement dans tous les cas.',
-  'workbench.settings.category.backend.sub.lan-peers': 'Pairs LAN',
+  'workbench.settings.category.backendServer.label': 'Backend · Serveur',
+  'workbench.settings.category.backendServer.navLabel': 'Serveur',
+  'workbench.settings.category.backendServer.description':
+    'Cette application en tant que serveur : qui sur votre réseau peut se connecter, ce que les pairs connectés peuvent exécuter ici, et les appareils que vous avez appairés.',
+  'workbench.settings.category.backendServer.sub.network': 'Réseau',
+  'workbench.settings.category.backendServer.sub.peer-requests': 'Requêtes des pairs',
+  'workbench.settings.category.backendServer.sub.devices': 'Appareils',
   'workbench.settings.category.backendPairing.label': 'Backend · Appairage bureau',
   'workbench.settings.category.backendPairing.navLabel': 'Appairage bureau',
   'workbench.settings.category.backendPairing.description':

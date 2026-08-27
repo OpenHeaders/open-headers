@@ -35,6 +35,11 @@
  * Minted secrets are shown exactly once. The "Copy this token" dialog
  * is deliberately styled so the admin can't dismiss it accidentally;
  * once closed, only the hash remains on disk.
+ *
+ * `BackendTokensLedger` is the headerless body — the caller places its
+ * own heading above and hands in the one for the sessions block, so the
+ * same ledger reads as a card section in the admin console and as a
+ * settings row on the Backend › Server page.
  */
 
 import { App as AntApp, Button, Form, Input, List, Modal, Popconfirm, Select, Tag, Typography, theme } from 'antd';
@@ -87,7 +92,7 @@ function shortenId(id: string): string {
   return id.length > 12 ? `${id.slice(0, 8)}…${id.slice(-4)}` : id;
 }
 
-const BackendTokensSection: React.FC = () => {
+export const BackendTokensLedger: React.FC<{ sessionsHeading: React.ReactNode }> = ({ sessionsHeading }) => {
   const { token: themeToken } = theme.useToken();
   const { message } = AntApp.useApp();
   const t = useT();
@@ -225,24 +230,7 @@ const BackendTokensSection: React.FC = () => {
   const sessionTokens = tokens.filter((row) => row.kind === 'session');
 
   return (
-    <section style={{ marginBottom: 12 }}>
-      <header style={{ marginBottom: 6, padding: '0 2px' }}>
-        <h3
-          style={{
-            margin: 0,
-            fontSize: 11,
-            fontWeight: 700,
-            letterSpacing: 0.3,
-            textTransform: 'uppercase',
-            color: themeToken.colorTextSecondary,
-          }}
-        >
-          {t('workbench.settings.backendTokens.sectionTitle')}
-        </h3>
-        <div style={{ fontSize: 11, color: themeToken.colorTextTertiary, marginTop: 1 }}>
-          {t('workbench.settings.backendTokens.sectionBlurb')}
-        </div>
-      </header>
+    <>
       <div
         className="settings-card"
         style={{
@@ -390,23 +378,7 @@ const BackendTokensSection: React.FC = () => {
 
       {sessionTokens.length > 0 && (
         <>
-          <header style={{ margin: '12px 0 6px', padding: '0 2px' }}>
-            <h3
-              style={{
-                margin: 0,
-                fontSize: 11,
-                fontWeight: 700,
-                letterSpacing: 0.3,
-                textTransform: 'uppercase',
-                color: themeToken.colorTextSecondary,
-              }}
-            >
-              {t('workbench.settings.backendTokens.ssoTitle')}
-            </h3>
-            <div style={{ fontSize: 11, color: themeToken.colorTextTertiary, marginTop: 1 }}>
-              {t('workbench.settings.backendTokens.ssoBlurb')}
-            </div>
-          </header>
+          {sessionsHeading}
           <div
             className="settings-card"
             style={{
@@ -540,6 +512,49 @@ const BackendTokensSection: React.FC = () => {
           setPairOpen(false);
           void refresh();
         }}
+      />
+    </>
+  );
+};
+
+const SectionHeader: React.FC<{ title: string; blurb: string; top?: number }> = ({ title, blurb, top = 0 }) => {
+  const { token } = theme.useToken();
+  return (
+    <header style={{ margin: `${top}px 0 6px`, padding: '0 2px' }}>
+      <h3
+        style={{
+          margin: 0,
+          fontSize: 11,
+          fontWeight: 700,
+          letterSpacing: 0.3,
+          textTransform: 'uppercase',
+          color: token.colorTextSecondary,
+        }}
+      >
+        {title}
+      </h3>
+      <div style={{ fontSize: 11, color: token.colorTextTertiary, marginTop: 1 }}>{blurb}</div>
+    </header>
+  );
+};
+
+/** The ledger as a titled card section — the admin console's Devices tab and the MCP pane. */
+const BackendTokensSection: React.FC = () => {
+  const t = useT();
+  return (
+    <section style={{ marginBottom: 12 }}>
+      <SectionHeader
+        title={t('workbench.settings.backendTokens.sectionTitle')}
+        blurb={t('workbench.settings.backendTokens.sectionBlurb')}
+      />
+      <BackendTokensLedger
+        sessionsHeading={
+          <SectionHeader
+            title={t('workbench.settings.backendTokens.ssoTitle')}
+            blurb={t('workbench.settings.backendTokens.ssoBlurb')}
+            top={12}
+          />
+        }
       />
     </section>
   );

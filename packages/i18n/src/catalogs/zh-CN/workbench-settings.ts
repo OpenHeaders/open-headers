@@ -68,7 +68,13 @@ export const workbenchSettings = {
   'workbench.settings.category.backend.label': '后端',
   'workbench.settings.category.backend.description':
     '你的工作区、规则、vault 和历史所在之处。按你的覆盖面挑选主机——无论哪种都仅限本地。',
-  'workbench.settings.category.backend.sub.lan-peers': 'LAN 对等端',
+  'workbench.settings.category.backendServer.label': '后端 · 服务器',
+  'workbench.settings.category.backendServer.navLabel': '服务器',
+  'workbench.settings.category.backendServer.description':
+    '把此应用当作服务器：你网络中的谁可以连接、已连接的对等端可以在此运行什么，以及你已配对的设备。',
+  'workbench.settings.category.backendServer.sub.network': '网络',
+  'workbench.settings.category.backendServer.sub.peer-requests': '来自对等端的请求',
+  'workbench.settings.category.backendServer.sub.devices': '设备',
   'workbench.settings.category.backendPairing.label': '后端 · 桌面配对',
   'workbench.settings.category.backendPairing.navLabel': '桌面配对',
   'workbench.settings.category.backendPairing.description':

@@ -36,7 +36,7 @@ export const workbenchSettingsDefs = {
     "Permet à une application de bureau appairée sur cet ordinateur d'observer le trafic réseau, le stockage et la " +
     'console de ce navigateur dans son panneau Trafic. Désactivé, les règles et la synchronisation continuent de ' +
     'fonctionner tandis que les vues en direct du bureau sont poliment refusées.',
-  'workbench.settings.def.backend.bindAddress.label': 'Synchroniser avec les appareils de votre réseau',
+  'workbench.settings.def.backend.bindAddress.label': 'Synchroniser avec les appareils du réseau',
   'workbench.settings.def.backend.bindAddress.description':
     'Permet aux autres ordinateurs et navigateurs du même réseau de se connecter à cette application et de ' +
     'partager ses espaces de travail. Désactivé par défaut — seul cet ordinateur peut la joindre.',
@@ -46,7 +46,7 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.backend.bindAddress.option.all-interfaces.label': 'Toutes les interfaces (LAN)',
   'workbench.settings.def.backend.bindAddress.option.all-interfaces.description':
     "Les autres appareils du réseau local peuvent se connecter. Nécessite le jeton d'authentification de U3.2.",
-  'workbench.settings.def.backend.bindPort.label': 'Port du back-end',
+  'workbench.settings.def.backend.bindPort.label': 'Port',
   'workbench.settings.def.backend.bindPort.description':
     'Le port sur lequel cette application écoute pour que navigateurs et autres appareils se connectent. Ne ' +
     'le changez que si autre chose utilise déjà le port par défaut. Les clients doivent viser le même port.',
@@ -55,15 +55,13 @@ export const workbenchSettingsDefs = {
     "Sert le Workbench comme page web sur le port du back-end, pour qu'un onglet de navigateur puisse l'ouvrir " +
     'directement depuis cette application — aucune extension requise. Quiconque atteint le port voit la ' +
     'grille de connexion ; un jeton appairé reste requis pour accéder aux données.',
-  'workbench.settings.def.backend.allowLocalPeerExecute.label':
-    'Autoriser les navigateurs de cet appareil à envoyer des requêtes',
+  'workbench.settings.def.backend.allowLocalPeerExecute.label': 'Depuis les navigateurs de cet appareil',
   'workbench.settings.def.backend.allowLocalPeerExecute.description':
     'Laisse les navigateurs appairés sur CETTE machine envoyer des requêtes API via cette application — ' +
     "l'extension s'en sert comme moteur de requêtes, leur Send du workbench s'exécute donc ici. Activé par " +
     "défaut : l'appairage vaut consentement. Chaque envoi requiert toujours un accès en écriture à l'espace " +
     'de travail.',
-  'workbench.settings.def.backend.allowRemotePeerExecute.label':
-    'Autoriser les autres appareils connectés à envoyer des requêtes',
+  'workbench.settings.def.backend.allowRemotePeerExecute.label': 'Depuis les autres appareils connectés',
   'workbench.settings.def.backend.allowRemotePeerExecute.description':
     "Laisse les appareils appairés sur d'AUTRES machines envoyer des requêtes API via cette application — " +
     "leur Send du workbench s'exécute sur cette machine, avec son accès réseau et son adresse. Désactivé " +

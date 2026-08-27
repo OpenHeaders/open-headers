@@ -38,7 +38,7 @@ export const workbenchSettingsDefs = {
     'Erlaubt einer gekoppelten Desktop-App auf diesem Computer, den Netzwerkverkehr, den Speicher und die Konsole ' +
     'dieses Browsers in ihrem Traffic-Panel zu beobachten. Deaktiviert bleiben Regeln und Synchronisierung aktiv, ' +
     'während die Live-Ansichten des Desktops höflich abgelehnt werden.',
-  'workbench.settings.def.backend.bindAddress.label': 'Mit Geräten in deinem Netzwerk synchronisieren',
+  'workbench.settings.def.backend.bindAddress.label': 'Mit Netzwerkgeräten synchronisieren',
   'workbench.settings.def.backend.bindAddress.description':
     'Erlaubt anderen Computern und Browsern im selben Netzwerk, sich mit dieser App zu verbinden und ihre ' +
     'Arbeitsbereiche zu teilen. Standardmäßig aus — nur dieser Computer erreicht sie.',
@@ -48,7 +48,7 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.backend.bindAddress.option.all-interfaces.label': 'Alle Schnittstellen (LAN)',
   'workbench.settings.def.backend.bindAddress.option.all-interfaces.description':
     'Andere Geräte im lokalen Netzwerk können sich verbinden. Erfordert den Auth-Token aus U3.2.',
-  'workbench.settings.def.backend.bindPort.label': 'Back-end-Port',
+  'workbench.settings.def.backend.bindPort.label': 'Port',
   'workbench.settings.def.backend.bindPort.description':
     'Der Port, den diese App bindet, damit sich Browser und andere Geräte verbinden können. Ändere ihn nur, ' +
     'wenn etwas anderes den Standard schon belegt. Clients müssen auf denselben Port zeigen.',
@@ -57,14 +57,12 @@ export const workbenchSettingsDefs = {
     'Liefert den Arbeitsbereich-Editor als Webseite auf dem Back-end-Port aus, sodass ihn ein Browser-Tab ' +
     'direkt aus dieser App öffnen kann — ohne Erweiterung. Wer den Port erreicht, sieht die Anmeldesperre; ' +
     'für den Datenzugriff bleibt ein gekoppelter Token erforderlich.',
-  'workbench.settings.def.backend.allowLocalPeerExecute.label':
-    'Browsern dieses Geräts das Senden von Anfragen erlauben',
+  'workbench.settings.def.backend.allowLocalPeerExecute.label': 'Von den Browsern dieses Geräts',
   'workbench.settings.def.backend.allowLocalPeerExecute.description':
     'Lässt gekoppelte Browser auf DIESER Maschine API-Anfragen über diese App senden — die Erweiterung ' +
     'nutzt sie als Anfrage-Engine, ihr Workbench-Senden läuft also hier. Standardmäßig an: Die Kopplung ist ' +
     'die Zustimmung. Jedes Senden erfordert weiterhin Schreibzugriff auf den Arbeitsbereich.',
-  'workbench.settings.def.backend.allowRemotePeerExecute.label':
-    'Anderen verbundenen Geräten das Senden von Anfragen erlauben',
+  'workbench.settings.def.backend.allowRemotePeerExecute.label': 'Von anderen verbundenen Geräten',
   'workbench.settings.def.backend.allowRemotePeerExecute.description':
     'Lässt gekoppelte Geräte auf ANDEREN Maschinen API-Anfragen über diese App senden — ihr ' +
     'Workbench-Senden läuft auf dieser Maschine, mit deren Netzwerkzugang und Adresse. Standardmäßig aus: ' +

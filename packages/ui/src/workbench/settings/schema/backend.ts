@@ -42,6 +42,7 @@ import { get as getSettingValue } from '../store';
 const LanPeersToggleEditor = lazy(() => import('../components/lan-peers-toggle'));
 const BackendBindPortFieldEditor = lazy(() => import('../components/backend-bind-port-field'));
 const OfflineFallbackOrderRow = lazy(() => import('../components/offline-fallback-order-row'));
+const KnownDevicesRow = lazy(() => import('../components/known-devices-row'));
 
 export const BACKEND_MODES = ['in-browser', 'desktop-app', 'local-self-hosted', 'remote-self-hosted'] as const;
 export type BackendMode = (typeof BACKEND_MODES)[number];
@@ -117,6 +118,7 @@ declare module '@openheaders/ui/workbench/settings/types' {
     'backend.serveWebApp': boolean;
     'backend.allowLocalPeerExecute': boolean;
     'backend.allowRemotePeerExecute': boolean;
+    'backend.knownDevices': string;
     'backend.reconnectDelayMs': number;
     'backend.maxReconnectDelayMs': number;
     'backend.pingIntervalMs': number;
@@ -224,6 +226,12 @@ registerSetting({
   when: () => getCurrentHost() === 'extension',
 });
 
+// ── Backend › Server — this process AS a daemon ──────────────────────
+// Every row here is host-gated to the desktop: the desktop app runs its
+// embedded server in EVERY mode (even while it is itself a client of
+// another back-end), so the page never gates on the derived mode — the
+// refusing wire messages point here and must always find the rows.
+
 registerSetting({
   key: 'backend.bindAddress',
   type: 'enum',
@@ -231,8 +239,8 @@ registerSetting({
   schema: bindAddressSchema,
   labelKey: 'workbench.settings.def.backend.bindAddress.label',
   descriptionKey: 'workbench.settings.def.backend.bindAddress.description',
-  category: 'backend',
-  subcategory: 'lan-peers',
+  category: 'backendServer',
+  subcategory: 'network',
   tags: ['lan', 'daemon', 'bind', 'peers', 'network', 'host', 'devices', 'sync'],
   scope: 'user',
   enumOptions: [
@@ -247,13 +255,7 @@ registerSetting({
       descriptionKey: 'workbench.settings.def.backend.bindAddress.option.all-interfaces.description',
     },
   ],
-  // Surface only on the desktop host while the derived mode is
-  // `desktop-app` — the only (host, mode) pair where this process IS the
-  // daemon. The tier-zero card strips `when` from the lan-peers rows it
-  // renders (the card itself establishes the daemon context); the `when`
-  // is still honored by search hits and by SettingRow's own visibility
-  // check.
-  when: () => getCurrentHost() === 'desktop' && currentBackendMode() === 'desktop-app',
+  when: () => getCurrentHost() === 'desktop',
   // Custom editor surfaces the boolean-shaped affordance (a single
   // Switch) and the first-flip confirmation dialog. The underlying
   // value remains the explicit address string so future deliverables
@@ -273,15 +275,11 @@ registerSetting({
   schema: v.pipe(v.number(), v.integer(), v.minValue(1024), v.maxValue(65535)),
   labelKey: 'workbench.settings.def.backend.bindPort.label',
   descriptionKey: 'workbench.settings.def.backend.bindPort.description',
-  category: 'backend',
-  subcategory: 'lan-peers',
+  category: 'backendServer',
+  subcategory: 'network',
   tags: ['port', 'bind', 'daemon', 'network', 'host', 'address'],
   scope: 'user',
-  // Same (host, mode) gate as the LAN-peers toggle — surfaced only on the
-  // desktop host while `desktop-app` is active, the one pair where this
-  // process IS the daemon. The tier-zero card strips `when` for the
-  // daemon-side rows it renders; search hits + SettingRow still honor it.
-  when: () => getCurrentHost() === 'desktop' && currentBackendMode() === 'desktop-app',
+  when: () => getCurrentHost() === 'desktop',
   customEditor: BackendBindPortFieldEditor,
 });
 
@@ -292,13 +290,11 @@ registerSetting({
   schema: v.boolean(),
   labelKey: 'workbench.settings.def.backend.serveWebApp.label',
   descriptionKey: 'workbench.settings.def.backend.serveWebApp.description',
-  category: 'backend',
-  subcategory: 'lan-peers',
+  category: 'backendServer',
+  subcategory: 'network',
   tags: ['web', 'serve', 'workbench', 'browser', 'tab', 'daemon', 'host'],
   scope: 'user',
-  // Same (host, mode) gate as the other daemon-side rows — this process
-  // serves the bundle only where it IS the daemon.
-  when: () => getCurrentHost() === 'desktop' && currentBackendMode() === 'desktop-app',
+  when: () => getCurrentHost() === 'desktop',
 });
 
 // Two-tier egress opt-in — same-device browsers vs other devices are
@@ -307,10 +303,6 @@ registerSetting({
 // request engine — pairing is the consent); remote defaults OFF
 // (egress from this machine on another device's behalf is an operator
 // decision, never implied by pairing).
-// Host gate only, NOT the mode gate the other daemon-side rows use:
-// the desktop app runs its embedded server in every mode, so these
-// opt-ins must stay reachable even while this app is itself a client
-// of another back-end — the refusing wire messages point here.
 registerSetting({
   key: 'backend.allowLocalPeerExecute',
   type: 'boolean',
@@ -318,8 +310,8 @@ registerSetting({
   schema: v.boolean(),
   labelKey: 'workbench.settings.def.backend.allowLocalPeerExecute.label',
   descriptionKey: 'workbench.settings.def.backend.allowLocalPeerExecute.description',
-  category: 'backend',
-  subcategory: 'lan-peers',
+  category: 'backendServer',
+  subcategory: 'peer-requests',
   tags: ['send', 'execute', 'requests', 'peers', 'devices', 'daemon', 'egress', 'local', 'loopback'],
   scope: 'user',
   when: () => getCurrentHost() === 'desktop',
@@ -332,11 +324,29 @@ registerSetting({
   schema: v.boolean(),
   labelKey: 'workbench.settings.def.backend.allowRemotePeerExecute.label',
   descriptionKey: 'workbench.settings.def.backend.allowRemotePeerExecute.description',
-  category: 'backend',
-  subcategory: 'lan-peers',
+  category: 'backendServer',
+  subcategory: 'peer-requests',
   tags: ['send', 'execute', 'requests', 'peers', 'devices', 'daemon', 'egress', 'remote', 'lan'],
   scope: 'user',
   when: () => getCurrentHost() === 'desktop',
+});
+
+registerSetting({
+  // The daemon token ledger (paired devices + SSO sessions). Ledger
+  // state lives in the daemon and rides the `oh.daemon.tokens.*` RPCs;
+  // this def is the row that hosts its editor.
+  key: 'backend.knownDevices',
+  type: 'info',
+  default: '',
+  schema: v.string(),
+  labelKey: 'workbench.settings.backendTokens.sectionTitle',
+  descriptionKey: 'workbench.settings.backendTokens.sectionBlurb',
+  category: 'backendServer',
+  subcategory: 'devices',
+  tags: ['devices', 'paired', 'token', 'pair', 'rotate', 'revoke', 'session', 'sso'],
+  scope: 'user',
+  when: () => getCurrentHost() === 'desktop',
+  customEditor: KnownDevicesRow,
 });
 
 // The reliability rows live on their own page (Backend › Reliability),

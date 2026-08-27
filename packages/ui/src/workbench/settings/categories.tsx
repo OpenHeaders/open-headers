@@ -11,6 +11,7 @@
 import {
   BgColorsOutlined,
   BranchesOutlined,
+  ClusterOutlined,
   CodeOutlined,
   BugOutlined,
   CloudDownloadOutlined,
@@ -57,9 +58,6 @@ registerCategory({
   order: 3,
   descriptionKey: 'workbench.settings.category.backend.description',
   renderPane: BackendPane,
-  // Subsections are rendered by BackendPane as section cards beneath
-  // the mode picker. The order here is what drives card sequencing.
-  subcategories: [{ id: 'lan-peers', labelKey: 'workbench.settings.category.backend.sub.lan-peers', order: 40 }],
 });
 
 registerCategory({
@@ -80,6 +78,25 @@ registerCategory({
   // app and a served web tab has no native-messaging plane, so the page
   // simply hides there — nothing to teaser.
   when: () => getCurrentHost() === 'extension',
+});
+
+registerCategory({
+  id: 'backendServer',
+  labelKey: 'workbench.settings.category.backendServer.label',
+  navLabelKey: 'workbench.settings.category.backendServer.navLabel',
+  parent: 'backend',
+  icon: <ClusterOutlined />,
+  order: 7,
+  descriptionKey: 'workbench.settings.category.backendServer.description',
+  subcategories: [
+    { id: 'network', labelKey: 'workbench.settings.category.backendServer.sub.network', order: 10 },
+    { id: 'peer-requests', labelKey: 'workbench.settings.category.backendServer.sub.peer-requests', order: 20 },
+    { id: 'devices', labelKey: 'workbench.settings.category.backendServer.sub.devices', order: 30 },
+  ],
+  // This process as a daemon: only the desktop host runs one. A served
+  // web tab administers its daemon through Server Admin and the
+  // extension is never a server, so the page hides there.
+  when: () => getCurrentHost() === 'desktop',
 });
 
 registerCategory({

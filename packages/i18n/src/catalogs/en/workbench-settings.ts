@@ -64,7 +64,13 @@ export const workbenchSettings = {
   'workbench.settings.category.backend.label': 'Backend',
   'workbench.settings.category.backend.description':
     'Where your workspaces, rules, vault, and history live. Pick the host that matches your reach — local-only either way.',
-  'workbench.settings.category.backend.sub.lan-peers': 'LAN peers',
+  'workbench.settings.category.backendServer.label': 'Backend · Server',
+  'workbench.settings.category.backendServer.navLabel': 'Server',
+  'workbench.settings.category.backendServer.description':
+    'This app as a server: who on your network may connect, what connected peers may run here, and the devices you have paired.',
+  'workbench.settings.category.backendServer.sub.network': 'Network',
+  'workbench.settings.category.backendServer.sub.peer-requests': 'Requests from peers',
+  'workbench.settings.category.backendServer.sub.devices': 'Devices',
   'workbench.settings.category.backendPairing.label': 'Backend · Desktop Pairing',
   'workbench.settings.category.backendPairing.navLabel': 'Desktop Pairing',
   'workbench.settings.category.backendPairing.description':

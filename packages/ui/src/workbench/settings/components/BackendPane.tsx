@@ -91,7 +91,7 @@ const BackendPane: React.FC<CategoryPaneProps> = ({ category, defs }) => {
         </Checkbox>
       </div>
 
-      <BackendTierZeroCard host={host} defs={fieldDefs} />
+      <BackendTierZeroCard host={host} />
 
       {showDiagrams && (
         <div

@@ -37,7 +37,7 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.backend.allowDesktopWatch.description':
     '允许本机上已配对的桌面应用在其流量面板中观察此浏览器的网络流量、存储和控制台。关闭后规则与同步照常工作，' +
     '桌面端的实时视图则会收到明确的拒绝。',
-  'workbench.settings.def.backend.bindAddress.label': '与你网络中的设备同步',
+  'workbench.settings.def.backend.bindAddress.label': '与网络设备同步',
   'workbench.settings.def.backend.bindAddress.description':
     '允许同一网络中的其他电脑和浏览器连接到此应用并共享其工作区。默认关闭——只有这台电脑能访问。',
   'workbench.settings.def.backend.bindAddress.option.loopback.label': '仅回环（127.0.0.1）',
@@ -45,16 +45,16 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.backend.bindAddress.option.all-interfaces.label': '所有网络接口（LAN）',
   'workbench.settings.def.backend.bindAddress.option.all-interfaces.description':
     '本地网络中的其他设备可以连接。需要 U3.2 的身份验证 token。',
-  'workbench.settings.def.backend.bindPort.label': '后端端口',
+  'workbench.settings.def.backend.bindPort.label': '端口',
   'workbench.settings.def.backend.bindPort.description':
     '此应用绑定的端口，供浏览器和其他设备连接。仅当默认端口已被占用时才更改。客户端必须指向同一端口。',
   'workbench.settings.def.backend.serveWebApp.label': '提供 Web 应用',
   'workbench.settings.def.backend.serveWebApp.description':
     '在后端端口上把工作区编辑器作为网页提供，浏览器标签页可以直接从此应用打开它——无需扩展。任何能访问该端口的人都会看到登录门；访问数据仍需要已配对的 token。',
-  'workbench.settings.def.backend.allowLocalPeerExecute.label': '允许此设备的浏览器发送请求',
+  'workbench.settings.def.backend.allowLocalPeerExecute.label': '来自此设备的浏览器',
   'workbench.settings.def.backend.allowLocalPeerExecute.description':
     '让本机上已配对的浏览器通过此应用发送 API 请求——扩展把它用作请求引擎，其工作台的发送就在这里执行。默认开启：配对即同意。每次发送仍需要工作区的写入权限。',
-  'workbench.settings.def.backend.allowRemotePeerExecute.label': '允许其他已连接设备发送请求',
+  'workbench.settings.def.backend.allowRemotePeerExecute.label': '来自其他已连接设备',
   'workbench.settings.def.backend.allowRemotePeerExecute.description':
     '让其他机器上已配对的设备通过此应用发送 API 请求——其工作台的发送在本机执行，使用本机的网络访问与地址。默认关闭：这是运维者的决定，配对本身绝不隐含此授权。每次发送仍需要工作区的写入权限。',
   'workbench.settings.def.backend.reconnectDelayMs.label': '初始延迟',

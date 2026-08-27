@@ -54,6 +54,24 @@ describe('backend settings group', () => {
     expectDefsTagDeclaredSubcategories('backendPairing');
   });
 
+  it('server owns the daemon-side rows plus the known-devices ledger, desktop-only', () => {
+    const server = getCategory('backendServer');
+    expect(server?.parent).toBe('backend');
+    expect(server?.when).toBeDefined();
+    for (const key of [
+      'backend.bindAddress',
+      'backend.bindPort',
+      'backend.serveWebApp',
+      'backend.allowLocalPeerExecute',
+      'backend.allowRemotePeerExecute',
+      'backend.knownDevices',
+    ] as const) {
+      expect(getDef(key)?.category).toBe('backendServer');
+    }
+    expect(getDef('backend.knownDevices')?.customEditor).toBeDefined();
+    expectDefsTagDeclaredSubcategories('backendServer');
+  });
+
   it('the reconnection rows no longer hide behind the derived mode', () => {
     expect(getDef('backend.reconnectDelayMs')?.when).toBeUndefined();
     expect(getDef('backend.maxReconnectDelayMs')?.when).toBeUndefined();

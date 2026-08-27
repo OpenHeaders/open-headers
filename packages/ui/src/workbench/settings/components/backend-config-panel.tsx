@@ -2,10 +2,9 @@
  * Global back-end config sections — the settings-schema rows that apply
  * to EVERY connection, grouped by subcategory under the connections
  * list. Connection identity (address, token, auto-connect) lives on the
- * `OH.backends` records and renders inside each row's editor; the
- * daemon-side inbound rows (`lan-peers`) render in the tier-zero card.
- * Each def's `when` predicate is honored here so a section whose every
- * row is hidden drops its header too.
+ * `OH.backends` records and renders inside each row's editor. Each def's
+ * `when` predicate is honored here so a section whose every row is
+ * hidden drops its header too.
  */
 
 import { theme } from 'antd';
@@ -25,7 +24,7 @@ export const GlobalConfigSections: React.FC<{
 
   const evaluateWhen = (d: SettingDef): boolean =>
     d.when ? d.when(<K extends SettingKey>(k: K): SettingsMap[K] => storeGet(k)) : true;
-  const visibleDefs = defs.filter((d) => d.subcategory !== 'lan-peers' && evaluateWhen(d));
+  const visibleDefs = defs.filter(evaluateWhen);
 
   const grouped = groupBySubcategory(visibleDefs, category.subcategories, t);
 

@@ -29,7 +29,7 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.backend.allowDesktopWatch.label': 'Allow viewing this browser',
   'workbench.settings.def.backend.allowDesktopWatch.description':
     'Allows a paired desktop app on this computer to watch this browser’s network traffic, storage, and console in its Traffic panel. Turn off to keep rules and sync working while the desktop’s live views are politely refused.',
-  'workbench.settings.def.backend.bindAddress.label': 'Sync with devices on your network',
+  'workbench.settings.def.backend.bindAddress.label': 'Sync with network devices',
   'workbench.settings.def.backend.bindAddress.description':
     'Lets other computers and browsers on the same network connect to this app and share its workspaces. Off by default — only this computer can reach it.',
   'workbench.settings.def.backend.bindAddress.option.loopback.label': 'Loopback only (127.0.0.1)',
@@ -37,16 +37,16 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.backend.bindAddress.option.all-interfaces.label': 'All interfaces (LAN)',
   'workbench.settings.def.backend.bindAddress.option.all-interfaces.description':
     'Other devices on the local network can connect. Requires the auth token from U3.2.',
-  'workbench.settings.def.backend.bindPort.label': 'Back-end port',
+  'workbench.settings.def.backend.bindPort.label': 'Port',
   'workbench.settings.def.backend.bindPort.description':
     'The port this app binds for browsers and other devices to connect to. Change it only if something else already uses the default. Clients must point at the same port.',
   'workbench.settings.def.backend.serveWebApp.label': 'Serve the web app',
   'workbench.settings.def.backend.serveWebApp.description':
     'Serve the Workbench as a web page on the back-end port, so a browser tab can open it straight from this app — no extension needed. Anyone who can reach the port sees the login gate; a paired token is still required to access data.',
-  'workbench.settings.def.backend.allowLocalPeerExecute.label': "Allow this device's browsers to send requests",
+  'workbench.settings.def.backend.allowLocalPeerExecute.label': "From this device's browsers",
   'workbench.settings.def.backend.allowLocalPeerExecute.description':
     'Let paired browsers on THIS machine send API requests through this app — the extension uses it as its request engine, so their workbench Send runs here. On by default: pairing is the consent. Each send still requires write access to the workspace.',
-  'workbench.settings.def.backend.allowRemotePeerExecute.label': 'Allow other connected devices to send requests',
+  'workbench.settings.def.backend.allowRemotePeerExecute.label': 'From other connected devices',
   'workbench.settings.def.backend.allowRemotePeerExecute.description':
     'Let paired devices on OTHER machines send API requests through this app — their workbench Send runs on this machine, with its network access and address. Off by default: an operator decision, never implied by pairing. Each send still requires write access to the workspace.',
   'workbench.settings.def.backend.reconnectDelayMs.label': 'Initial delay',

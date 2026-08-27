@@ -46,10 +46,10 @@ const BackendBindPortField: React.FC<{ def: SettingDef }> = ({ def }) => {
   }
 
   return (
-    <FieldRow settingKey={def.key} label={resolveLabel(def, t)} description={resolveDescription(def, t)} block>
-      <div style={{ width: '100%' }}>
+    <FieldRow settingKey={def.key} label={resolveLabel(def, t)} description={resolveDescription(def, t)}>
+      <div>
         <InputNumber
-          style={{ width: '100%' }}
+          style={{ width: 110 }}
           value={input}
           min={1}
           max={65535}
