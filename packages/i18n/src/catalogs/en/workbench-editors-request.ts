@@ -345,7 +345,7 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.settings.sslVerificationDescription':
     'A host with a self-signed, expired, or otherwise untrusted certificate fails with a TLS certificate error — switch verification off to reach it anyway, e.g. a development server with a self-signed certificate.',
   'workbench.editors.request.settings.sslVerificationWarning':
-    'Sends skip the server identity check — any certificate is accepted, including self-signed and expired ones. The response is marked as unverified.',
+    'Sends skip the server identity check — any certificate is accepted, including self-signed and expired ones.',
   'workbench.editors.request.settings.tlsMin': 'TLS version minimum',
   'workbench.editors.request.settings.tlsMinSummary':
     'Lowest TLS protocol version a send may negotiate — empty keeps the runtime default of TLS 1.2.',

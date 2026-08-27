@@ -419,7 +419,7 @@ export const workbenchEditorsRequest = {
     'certificado autofirmado.',
   'workbench.editors.request.settings.sslVerificationWarning':
     'Los envíos omiten la comprobación de identidad del servidor — se acepta cualquier certificado, ' +
-    'incluidos los autofirmados y caducados. La respuesta queda marcada como no verificada.',
+    'incluidos los autofirmados y caducados.',
   'workbench.editors.request.settings.tlsMin': 'Versión mínima de TLS',
   'workbench.editors.request.settings.tlsMinSummary':
     'La versión más baja del protocolo TLS que un envío puede negociar — vacío conserva el valor por ' +

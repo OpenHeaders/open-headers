@@ -433,7 +433,7 @@ export const workbenchEditorsRequest = {
     'erreichen, z. B. einen Entwicklungsserver mit selbstsigniertem Zertifikat.',
   'workbench.editors.request.settings.sslVerificationWarning':
     'Sendevorgänge überspringen die Prüfung der Serveridentität — jedes Zertifikat wird akzeptiert, auch ' +
-    'selbstsignierte und abgelaufene. Die Antwort wird als ungeprüft markiert.',
+    'selbstsignierte und abgelaufene.',
   'workbench.editors.request.settings.tlsMin': 'TLS-Mindestversion',
   'workbench.editors.request.settings.tlsMinSummary':
     'Die niedrigste TLS-Protokollversion, die ein Senden aushandeln darf — leer behält den Standard der ' +

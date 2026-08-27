@@ -423,7 +423,7 @@ export const workbenchEditorsRequest = {
     'certificat auto-signé.',
   'workbench.editors.request.settings.sslVerificationWarning':
     "Les envois sautent la vérification d'identité du serveur — tout certificat est accepté, y compris " +
-    'auto-signés et expirés. La réponse est marquée comme non vérifiée.',
+    'auto-signés et expirés.',
   'workbench.editors.request.settings.tlsMin': 'Version TLS minimum',
   'workbench.editors.request.settings.tlsMinSummary':
     "La version de protocole TLS la plus basse qu'un envoi peut négocier — vide garde le défaut du runtime, " +

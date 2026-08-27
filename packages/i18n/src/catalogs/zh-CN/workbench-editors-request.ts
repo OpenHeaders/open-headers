@@ -350,7 +350,7 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.settings.sslVerificationDescription':
     '证书自签名、过期或不受信任的主机会以 TLS 证书错误失败——关闭验证仍可访问它，例如使用自签名证书的开发服务器。',
   'workbench.editors.request.settings.sslVerificationWarning':
-    '发送会跳过服务器身份检查——任何证书都被接受，包括自签名和已过期的。响应会被标记为未验证。',
+    '发送会跳过服务器身份检查——任何证书都被接受，包括自签名和已过期的。',
   'workbench.editors.request.settings.tlsMin': 'TLS 最低版本',
   'workbench.editors.request.settings.tlsMinSummary':
     '一次发送可协商的最低 TLS 协议版本——留空保持运行时默认的 TLS 1.2。',
