@@ -96,11 +96,15 @@ const SettingsShell: React.FC<SettingsShellProps> = ({ initialSettingKey, initia
     return initialCategoryId ?? null;
   });
 
-  // Keep activeId valid as the visible set changes (e.g. after search edits).
+  // Keep activeId valid as the visible set changes (e.g. after search
+  // edits). The fallback is the first LEAF in nav order — a group node's
+  // landing page is a signpost, not a place to land by default.
   useEffect(() => {
-    const visibleIds = new Set(orderedCategories.visible.map((c) => c.id));
+    const { visible } = orderedCategories;
+    const visibleIds = new Set(visible.map((c) => c.id));
     if (!activeId || !visibleIds.has(activeId)) {
-      setActiveId(orderedCategories.visible[0]?.id ?? null);
+      const parents = new Set(visible.map((c) => c.parent));
+      setActiveId(visible.find((c) => !parents.has(c.id))?.id ?? visible[0]?.id ?? null);
     }
   }, [orderedCategories, activeId]);
 

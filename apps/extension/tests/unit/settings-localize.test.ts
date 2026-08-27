@@ -99,8 +99,8 @@ describe('settings localize resolvers', () => {
     expect(categoryNavLabel(keyedNav, translateEnglish)).toBe('Network');
     const rawNav: CategoryDef = { ...base, label: 'Full Label', navLabel: 'Short' };
     expect(categoryNavLabel(rawNav, translateEnglish)).toBe('Short');
-    const noNav: CategoryDef = { ...base, labelKey: 'workbench.settings.category.general.label' };
-    expect(categoryNavLabel(noNav, translateEnglish)).toBe('General');
+    const noNav: CategoryDef = { ...base, labelKey: 'workbench.settings.category.keyboard.label' };
+    expect(categoryNavLabel(noNav, translateEnglish)).toBe('Keyboard');
     expect(resolveOptionalDescription(noNav, translateEnglish)).toBeUndefined();
   });
 

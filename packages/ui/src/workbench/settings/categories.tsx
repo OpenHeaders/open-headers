@@ -182,10 +182,23 @@ registerCategory({
 });
 
 registerCategory({
+  id: 'appearanceBehavior',
+  labelKey: 'workbench.settings.category.appearanceBehavior.label',
+  icon: <SettingOutlined />,
+  order: 1,
+  descriptionKey: 'workbench.settings.category.appearanceBehavior.description',
+  // Group node over the app-wide pages: General, Appearance and
+  // Workspace Layout — how the app looks and behaves on every host.
+  renderPane: GroupLandingPane,
+});
+
+registerCategory({
   id: 'general',
   labelKey: 'workbench.settings.category.general.label',
+  navLabelKey: 'workbench.settings.category.general.navLabel',
+  parent: 'appearanceBehavior',
   icon: <SettingOutlined />,
-  order: 5,
+  order: 10,
   descriptionKey: 'workbench.settings.category.general.description',
   subcategories: [
     { id: 'locale', labelKey: 'workbench.settings.category.general.sub.locale', order: 10 },
@@ -198,8 +211,10 @@ registerCategory({
 registerCategory({
   id: 'appearance',
   labelKey: 'workbench.settings.category.appearance.label',
+  navLabelKey: 'workbench.settings.category.appearance.navLabel',
+  parent: 'appearanceBehavior',
   icon: <BgColorsOutlined />,
-  order: 10,
+  order: 20,
   descriptionKey: 'workbench.settings.category.appearance.description',
   subcategories: [
     { id: 'theme', labelKey: 'workbench.settings.category.appearance.sub.theme', order: 10 },
@@ -210,8 +225,10 @@ registerCategory({
 registerCategory({
   id: 'workspaceLayout',
   labelKey: 'workbench.settings.category.workspaceLayout.label',
+  navLabelKey: 'workbench.settings.category.workspaceLayout.navLabel',
+  parent: 'appearanceBehavior',
   icon: <LayoutOutlined />,
-  order: 15,
+  order: 30,
   descriptionKey: 'workbench.settings.category.workspaceLayout.description',
   subcategories: [
     { id: 'shell', labelKey: 'workbench.settings.category.workspaceLayout.sub.shell', order: 10 },
