@@ -31,6 +31,7 @@ import type {
   ScriptPackage,
   Spec,
   Template,
+  TrustedRoots,
   Vault,
   WebSocketRequest,
   WorkspaceVariables,
@@ -192,6 +193,23 @@ export interface SyncVaultPostState {
    * and compute `keyBetween(prev, next)` on reorder/insert. Parallel to
    * {@link SyncWorkspaceVariablesPostState.setOrderKeys}.
    */
+  setOrderKeys: Record<string, Array<{ itemId: string; orderKey: string }>>;
+}
+
+/**
+ * Post-commit projection for a trusted-roots envelope. Singleton entity
+ * per workspace — one materialized record at the fixed id
+ * `trusted-roots`. Carries the folded {@link TrustedRoots} plus the live
+ * root uids (set member identity = uid) and the per-uid order keys.
+ *
+ * Trust material, not a secret — broadcast + every sync transport carry
+ * it freely; the same posture as workspace variables' non-secret rows.
+ */
+export interface SyncTrustedRootsPostState {
+  trustedRoots: TrustedRoots;
+  /** Live root uids — the set-member identity (uid) for trusted roots. */
+  rootUids: string[];
+  /** Live `(itemId, orderKey)` pairs at the roots set (§23.5). */
   setOrderKeys: Record<string, Array<{ itemId: string; orderKey: string }>>;
 }
 
@@ -655,6 +673,12 @@ export interface SyncBroadcastEvent {
    * production gesture) and rolled-back batches leave it `undefined`.
    */
   vaultPostState?: SyncVaultPostState;
+  /**
+   * Populated for trusted-roots envelopes whose batch left a
+   * materialized record in place. Tombstoned (singleton deletion is not
+   * a production gesture) and rolled-back batches leave it `undefined`.
+   */
+  trustedRootsPostState?: SyncTrustedRootsPostState;
   /**
    * Populated for Folder envelopes whose batch left a materialized
    * folder in place. Tombstoned folders and rolled-back batches leave

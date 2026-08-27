@@ -95,6 +95,8 @@ import {
   TEMPLATE_CONDITIONS_PATH,
   TEMPLATE_ENTITY_TYPE,
   TEMPLATE_FOLDER_ENTITY_TYPE,
+  TRUSTED_ROOTS_ENTITY_TYPE,
+  TRUSTED_ROOTS_PATH,
   VAULT_ENTITY_TYPE,
   VAULT_PATH,
   WEBSOCKET_REQUEST_ENTITY_TYPE,
@@ -134,6 +136,7 @@ import { createSpecCache } from './caches/spec-cache';
 import { createTemplateCache } from './caches/template-cache';
 import { createTemplateCollectionCache } from './caches/template-collection-cache';
 import { createTemplateFolderCache } from './caches/template-folder-cache';
+import { createTrustedRootsCache } from './caches/trusted-roots-cache';
 import { createVaultCache } from './caches/vault-cache';
 import { createWebSocketRequestCache } from './caches/websocket-request-cache';
 import { createWorkspaceVariablesCache } from './caches/workspace-variables-cache';
@@ -183,6 +186,7 @@ import {
 } from './post-state/template-collection-post-state';
 import { projectTemplateFolderByUid, projectTemplateFolderPostState } from './post-state/template-folder-post-state';
 import { projectTemplateByUid, projectTemplatePostState } from './post-state/template-post-state';
+import { projectTrustedRootsPostState, projectTrustedRootsSingleton } from './post-state/trusted-roots-post-state';
 import { projectVaultPostState, projectVaultSingleton } from './post-state/vault-post-state';
 import {
   projectWebSocketRequestByUid,
@@ -420,6 +424,16 @@ export const WORKSPACE_VARIABLES_REGISTRATION = singletonEntity({
   projectPostState: projectWorkspaceVariablesPostState,
   projectSingleton: projectWorkspaceVariablesSingleton,
   setPaths: [WORKSPACE_VARIABLES_PATH],
+  localWriteSchema: null,
+});
+
+export const TRUSTED_ROOTS_REGISTRATION = singletonEntity({
+  entityType: TRUSTED_ROOTS_ENTITY_TYPE,
+  createCache: createTrustedRootsCache,
+  postStateKey: 'trustedRootsPostState',
+  projectPostState: projectTrustedRootsPostState,
+  projectSingleton: projectTrustedRootsSingleton,
+  setPaths: [TRUSTED_ROOTS_PATH],
   localWriteSchema: null,
 });
 
@@ -677,6 +691,7 @@ export const WORKSPACE_REGISTRY: EntityRegistration[] = [
   FOLDER_REGISTRATION,
   WORKSPACE_VARIABLES_REGISTRATION,
   VAULT_REGISTRATION,
+  TRUSTED_ROOTS_REGISTRATION,
   REQUEST_REGISTRATION,
   GRPC_REQUEST_REGISTRATION,
   WEBSOCKET_REQUEST_REGISTRATION,

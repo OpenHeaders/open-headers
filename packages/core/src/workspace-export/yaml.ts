@@ -35,6 +35,7 @@ import {
   RULE_FIELD_ORDER,
   SPEC_FIELD_ORDER,
   TEMPLATE_FIELD_ORDER,
+  TRUSTED_ROOTS_FIELD_ORDER,
   VAULT_FIELD_ORDER,
   WORKSPACE_VARIABLES_FIELD_ORDER,
 } from '../codec/yaml/ordering';
@@ -93,6 +94,14 @@ function toCanonicalShape(exp: WorkspaceExport): Record<string, unknown> {
     ),
     ...(exp.entities.vault !== undefined
       ? { vault: ordered(exp.entities.vault as unknown as Record<string, unknown>, VAULT_FIELD_ORDER) }
+      : {}),
+    ...(exp.entities.trustedRoots !== undefined
+      ? {
+          trustedRoots: ordered(
+            exp.entities.trustedRoots as unknown as Record<string, unknown>,
+            TRUSTED_ROOTS_FIELD_ORDER,
+          ),
+        }
       : {}),
     templates: exp.entities.templates.map((t) => entityOrdered(t, TEMPLATE_FIELD_ORDER)),
     requests: exp.entities.requests.map((r) => entityOrdered(r, REQUEST_FIELD_ORDER)),

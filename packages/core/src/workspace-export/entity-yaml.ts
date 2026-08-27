@@ -23,6 +23,7 @@ import {
   RULE_FIELD_ORDER,
   SPEC_FIELD_ORDER,
   TEMPLATE_FIELD_ORDER,
+  TRUSTED_ROOTS_FIELD_ORDER,
   VAULT_FIELD_ORDER,
   WORKSPACE_VARIABLES_FIELD_ORDER,
 } from '../codec/yaml/ordering';
@@ -38,7 +39,8 @@ export type SerializableEntityKind =
   | 'folder'
   | 'spec'
   | 'workspaceVars'
-  | 'vault';
+  | 'vault'
+  | 'trustedRoots';
 
 const ORDER_BY_KIND: Record<SerializableEntityKind, readonly string[]> = {
   rule: RULE_FIELD_ORDER,
@@ -52,6 +54,7 @@ const ORDER_BY_KIND: Record<SerializableEntityKind, readonly string[]> = {
   spec: SPEC_FIELD_ORDER,
   workspaceVars: WORKSPACE_VARIABLES_FIELD_ORDER,
   vault: VAULT_FIELD_ORDER,
+  trustedRoots: TRUSTED_ROOTS_FIELD_ORDER,
 };
 
 function ordered(value: Record<string, unknown>, order: readonly string[]): Record<string, unknown> {

@@ -17,6 +17,7 @@ import {
 // and the orchestrator is SW-tier; the constant is the contract.
 const WORKSPACE_VARS_SINGLETON_UID = '__singleton.workspaceVars__';
 const VAULT_SINGLETON_UID = '__singleton.vault__';
+const TRUSTED_ROOTS_SINGLETON_UID = '__singleton.trustedRoots__';
 
 /**
  * Build the next `Record<uid, yaml>` for `lastImportedSnapshots` from
@@ -58,6 +59,12 @@ export function buildLastImportedSnapshots(plan: ImportPlan, prior: Record<strin
     next[VAULT_SINGLETON_UID] = serializeEntityYaml('vault', {
       schemaVersion: 5,
       secrets: plan.vault.secrets,
+    });
+  }
+  if (plan.trustedRoots.action !== 'skip') {
+    next[TRUSTED_ROOTS_SINGLETON_UID] = serializeEntityYaml('trustedRoots', {
+      schemaVersion: 5,
+      roots: plan.trustedRoots.roots,
     });
   }
   return next;

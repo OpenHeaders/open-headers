@@ -23,6 +23,7 @@ import {
   RuleSchema,
   SpecSchema,
   TemplateSchema,
+  TrustedRootsSchema,
   UidSchema,
   UuidV7Schema,
   VaultSchema,
@@ -123,6 +124,9 @@ export const ExportEntitiesSchema = v.object({
   // inline on every `files[]` row, so no sibling-file indirection here.
   specs: v.array(SpecSchema),
   vault: v.optional(VaultSchema),
+  // Workspace trust list — public material, carried verbatim; optional
+  // so envelopes written before it existed still parse.
+  trustedRoots: v.optional(TrustedRootsSchema),
 });
 
 // ── Crypto envelope ─────────────────────────────────────────────────

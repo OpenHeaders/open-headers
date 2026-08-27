@@ -99,6 +99,7 @@ async function hashDiffSnapshot(diff: ReturnType<typeof diffWorkspaceExport>): P
     specs: diff.specs.map((e) => [e.entity.uid, e.state, e.matchedTarget?.uid ?? null]),
     workspaceVars: [diff.workspaceVars.state, diff.workspaceVars.targetHasContent],
     vault: [diff.vault.state, diff.vault.targetHasContent],
+    trustedRoots: [diff.trustedRoots.state, diff.trustedRoots.targetHasContent],
   };
   const bytes = new TextEncoder().encode(JSON.stringify(stable));
   const digest = await globalThis.crypto.subtle.digest('SHA-256', bytes);

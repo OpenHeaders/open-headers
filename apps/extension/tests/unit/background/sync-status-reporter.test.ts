@@ -165,6 +165,7 @@ describe('installHandshakeStatusReporter', () => {
         collections: [],
         workspaceVariables: [],
         vault: [],
+        trustedRoots: [],
         folders: [],
         requests: [],
         requestCollections: [],

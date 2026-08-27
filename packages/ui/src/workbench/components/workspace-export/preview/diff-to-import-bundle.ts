@@ -39,12 +39,14 @@ export type ImportEntityType =
   | 'liveVariable'
   | 'spec'
   | 'workspaceVars'
-  | 'vault';
+  | 'vault'
+  | 'trustedRoots';
 
 /** Synthetic uids for the singleton rows. Stable so the merge editor's
  *  per-file result-text cache survives layout changes / file switching. */
 export const WORKSPACE_VARS_SINGLETON_UID = '__singleton.workspaceVars__';
 export const VAULT_SINGLETON_UID = '__singleton.vault__';
+export const TRUSTED_ROOTS_SINGLETON_UID = '__singleton.trustedRoots__';
 
 export interface DiffToImportBundleResult {
   bundle: ImportBundle;
@@ -118,6 +120,14 @@ export function diffResultToImportBundle(diff: DiffResult, envelope?: WorkspaceE
       targets,
     );
     addSingleton('vault', VAULT_SINGLETON_UID, envelope.entities.vault, diff.vault, entries, targets);
+    addSingleton(
+      'trustedRoots',
+      TRUSTED_ROOTS_SINGLETON_UID,
+      envelope.entities.trustedRoots,
+      diff.trustedRoots,
+      entries,
+      targets,
+    );
   }
 
   return {
@@ -135,8 +145,8 @@ export function diffResultToImportBundle(diff: DiffResult, envelope?: WorkspaceE
 /** Singular `entityType` strings emitted by `diffResultToImportBundle`,
  *  paired with the plural bucket name on the export envelope. */
 const BUCKET_BY_TYPE: Record<
-  Exclude<ImportEntityType, 'workspaceVars' | 'vault'>,
-  keyof Omit<DiffResult, 'workspaceVars' | 'vault'>
+  Exclude<ImportEntityType, 'workspaceVars' | 'vault' | 'trustedRoots'>,
+  keyof Omit<DiffResult, 'workspaceVars' | 'vault' | 'trustedRoots'>
 > = {
   collection: 'collections',
   folder: 'folders',
@@ -150,7 +160,7 @@ const BUCKET_BY_TYPE: Record<
 };
 
 function collisionStateOf(diff: DiffResult, entityType: ImportEntityType, uid: string): CollisionState | undefined {
-  if (entityType === 'workspaceVars' || entityType === 'vault') return undefined;
+  if (entityType === 'workspaceVars' || entityType === 'vault' || entityType === 'trustedRoots') return undefined;
   const bucket = BUCKET_BY_TYPE[entityType];
   const list = diff[bucket] as readonly DiffEntry<{ uid: string }>[];
   return list.find((e) => e.entity.uid === uid)?.state;
@@ -220,6 +230,16 @@ export function applyMergeResultsToEnvelope(args: ApplyMergeResultsArgs): ApplyM
         const parsed = deserialize(text, file);
         next.entities = { ...next.entities, vault: parsed as WorkspaceExport['entities']['vault'] };
         strategies.vault = 'replace' satisfies PlanSingletonAction;
+      }
+      continue;
+    }
+    if (entityType === 'trustedRoots') {
+      if (isEmpty) {
+        strategies.trustedRoots = 'skip';
+      } else {
+        const parsed = deserialize(text, file);
+        next.entities = { ...next.entities, trustedRoots: parsed as WorkspaceExport['entities']['trustedRoots'] };
+        strategies.trustedRoots = 'replace' satisfies PlanSingletonAction;
       }
       continue;
     }

@@ -47,6 +47,7 @@ export function estimatePlanBytes(plan: ImportPlan): number {
     plan.liveVariables,
     plan.workspaceVars.variables,
     plan.vault.secrets,
+    plan.trustedRoots.roots,
   ];
   let total = 0;
   for (const b of buckets) {

@@ -214,6 +214,7 @@ export {
   SystemProxySettingsSchema,
 } from './system-proxy';
 export { TemplateIncludesSchema, TemplateSchema } from './template';
+export { TrustedRootSchema, TrustedRootsSchema } from './trusted-roots';
 export {
   EnvironmentSchema,
   TotpAlgorithmSchema,

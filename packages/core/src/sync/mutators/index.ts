@@ -376,6 +376,17 @@ export {
   type TemplateFolderParentType,
   type TemplateFolderSlot,
 } from './template-folder';
+export {
+  deriveTrustedRootsSideEffects,
+  type RemoveTrustedRootArgs,
+  removeTrustedRoot,
+  type SetTrustedRootArgs,
+  setTrustedRoot,
+  TRUSTED_ROOTS_ENTITY_TYPE,
+  TRUSTED_ROOTS_ID,
+  TRUSTED_ROOTS_MUTATOR_VERSION,
+  TRUSTED_ROOTS_PATH,
+} from './trusted-roots';
 export type {
   EntityState,
   FieldOrigin,

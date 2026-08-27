@@ -53,6 +53,7 @@ import type {
   SyntheticIdentityRecord,
   SystemProxySettings,
   Template,
+  TrustedRoots,
   Vault,
   ViewMode,
   WebSocketRequest,
@@ -574,6 +575,7 @@ export interface WorkspaceKeys {
   defaultEnvironmentId: StorageKey<string | null>;
   workspaceVars: StorageKey<WorkspaceVariables>;
   vault: StorageKey<Vault>;
+  trustedRoots: StorageKey<TrustedRoots>;
   pauseMarkers: StorageKey<Record<string, PauseMarker>>;
   tabSession: StorageKey<PersistedTabSession>;
   panelLayout: StorageKey<PersistedPanelLayout>;
@@ -769,6 +771,7 @@ export function wsKeys(workspaceId: string): WorkspaceKeys {
     defaultEnvironmentId: storageKey<string | null>(`${p}.defaultEnvironmentId`),
     workspaceVars: storageKey<WorkspaceVariables>(`${p}.workspaceVars`),
     vault: storageKey<Vault>(`${p}.vault`, { sensitive: true }),
+    trustedRoots: storageKey<TrustedRoots>(`${p}.trustedRoots`),
     pauseMarkers: storageKey<Record<string, PauseMarker>>(`${p}.pauseMarkers`),
     tabSession: storageKey<PersistedTabSession>(`${p}.tabSession`),
     panelLayout: storageKey<PersistedPanelLayout>(`${p}.panelLayout`),

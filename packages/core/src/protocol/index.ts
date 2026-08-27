@@ -161,6 +161,7 @@ export type {
   SyncTemplateCollectionPostState,
   SyncTemplateFolderPostState,
   SyncTemplatePostState,
+  SyncTrustedRootsPostState,
   SyncVaultPostState,
   SyncWebSocketRequestPostState,
   SyncWorkspaceVariablesPostState,

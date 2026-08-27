@@ -102,6 +102,7 @@ export async function emitPlanAsLocalMutations(args: EmitPlanArgs): Promise<bool
         templateFolders: (target.templateFolders ?? []) as LocalFolder[],
         ...(target.workspaceVars ? { workspaceVars: target.workspaceVars } : {}),
         ...(target.vault ? { vault: target.vault } : {}),
+        ...(target.trustedRoots ? { trustedRoots: target.trustedRoots } : {}),
       },
       {
         nextCtx: (): MutatorContext => svc.context.next({ surfaceId: 'sw' }),

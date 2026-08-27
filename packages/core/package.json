@@ -222,6 +222,8 @@
     "clean": "rm -rf dist dist-package"
   },
   "dependencies": {
+    "@peculiar/x509": "^2.0.0",
+    "reflect-metadata": "^0.2.2",
     "valibot": "^1.4.2",
     "yaml": "^2.8.3"
   },

@@ -386,6 +386,7 @@ export async function gatherWorkspaceExport(
     specs: k.specs,
     defaultEnvironmentId: k.defaultEnvironmentId,
     vault: k.vault,
+    trustedRoots: k.trustedRoots,
   });
 
   const allRules: Rule[] = src.rules ?? [];
@@ -512,6 +513,7 @@ export async function gatherWorkspaceExport(
       liveVariables,
       specs,
       ...(src.vault ? { vault: src.vault } : {}),
+      ...(src.trustedRoots ? { trustedRoots: src.trustedRoots } : {}),
     },
   };
 

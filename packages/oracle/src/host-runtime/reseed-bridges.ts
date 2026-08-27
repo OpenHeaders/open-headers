@@ -43,6 +43,7 @@ import {
   wireTemplateFolderSyncEngine,
   wireTemplateSyncEngine,
 } from '../entity/template-store';
+import { bridgeTrustedRootsSyncEngine } from '../entity/trusted-roots-store';
 import { bridgeLiveValueSyncEngine } from '../live/live-value-store';
 import { wireLiveVariableSyncEngine } from '../live/live-variable-store';
 import { wireLiveWorkflowSyncEngine } from '../live/live-workflow-store';
@@ -84,6 +85,7 @@ export async function reseedAllPerWorkspaceBridges(opts: ReseedOptions = {}): Pr
   await Promise.all([
     bridgeWorkspaceVariablesSyncEngine().catch(catchFor('bridgeWorkspaceVariablesSyncEngine')),
     bridgeVaultSyncEngine().catch(catchFor('bridgeVaultSyncEngine')),
+    bridgeTrustedRootsSyncEngine().catch(catchFor('bridgeTrustedRootsSyncEngine')),
     bridgeLiveValueSyncEngine().catch(catchFor('bridgeLiveValueSyncEngine')),
     bridgeOAuthSyncEngine().catch(catchFor('bridgeOAuthSyncEngine')),
     bridgePauseMarkersSyncEngine().catch(catchFor('bridgePauseMarkersSyncEngine')),

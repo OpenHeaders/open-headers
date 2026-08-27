@@ -63,6 +63,9 @@ import {
   TEMPLATE_FOLDER_CHILDREN_PATH,
   TEMPLATE_FOLDER_ENTITY_TYPE,
   type TemplateFolderParentRef,
+  TRUSTED_ROOTS_ENTITY_TYPE,
+  TRUSTED_ROOTS_ID,
+  TRUSTED_ROOTS_PATH,
   VAULT_ENTITY_TYPE,
   VAULT_ID,
   VAULT_PATH,
@@ -80,6 +83,8 @@ import type {
   Rule,
   Spec,
   Template,
+  TrustedRoot,
+  TrustedRoots,
   Variable,
   Vault,
   VaultSecret,
@@ -91,6 +96,7 @@ import { seedEnvironment } from '../projections/env-projection';
 import { seedRequestCollection } from '../projections/request-collection-projection';
 import { seedSpec } from '../projections/spec-projection';
 import { seedTemplateCollection } from '../projections/template-collection-projection';
+import { seedTrustedRoots } from '../projections/trusted-roots-projection';
 import { seedVault } from '../projections/vault-projection';
 import { seedWorkspaceVariables } from '../projections/workspace-variables-projection';
 import { buildCreateFolderBatch } from './folder-mutations';
@@ -151,6 +157,7 @@ export interface ImportEmissionPrev {
   templateFolders: LocalFolder[];
   workspaceVars?: WorkspaceVariables;
   vault?: Vault;
+  trustedRoots?: TrustedRoots;
 }
 
 /** The plan's collection/folder arrays, demuxed per tree by the caller. */
@@ -307,6 +314,12 @@ export function synthesizeImportEmission(
     deps,
   );
   emitVaultSingleton(out, plan.vault.action !== 'skip' ? plan.vault.secrets : null, prev.vault, deps);
+  emitTrustedRootsSingleton(
+    out,
+    plan.trustedRoots.action !== 'skip' ? plan.trustedRoots.roots : null,
+    prev.trustedRoots,
+    deps,
+  );
 
   return out.filter((e) => e.batch.mutations.length > 0);
 }
@@ -716,4 +729,28 @@ function emitVaultSingleton(
     newItems: finalSecrets,
   });
   if (bodies.length > 0) out.push(bodiesBatch('vault (update)', bodies, deps.nextCtx()));
+}
+
+function emitTrustedRootsSingleton(
+  out: EmissionBatch[],
+  finalRoots: TrustedRoot[] | null,
+  prevSingleton: TrustedRoots | undefined,
+  deps: ImportEmissionDeps,
+): void {
+  if (!finalRoots) return;
+  if (!prevSingleton) {
+    out.push(
+      seedBatch('trusted-roots (create)', seedTrustedRoots({ schemaVersion: 5, roots: finalRoots }, deps.nextCtx())),
+    );
+    return;
+  }
+  if (!changed(prevSingleton.roots, finalRoots)) return;
+  const bodies = synthesizeSetDiff({
+    type: TRUSTED_ROOTS_ENTITY_TYPE,
+    id: TRUSTED_ROOTS_ID,
+    path: TRUSTED_ROOTS_PATH,
+    live: deps.liveSetEntries(TRUSTED_ROOTS_ENTITY_TYPE, TRUSTED_ROOTS_ID, TRUSTED_ROOTS_PATH),
+    newItems: finalRoots,
+  });
+  if (bodies.length > 0) out.push(bodiesBatch('trusted-roots (update)', bodies, deps.nextCtx()));
 }

@@ -23,6 +23,9 @@ export const WORKSPACE_VARS_FILE = 'workspace-vars.yaml';
 /** Vault — matched by the `*.secret.yaml` gitignore rule, never committed. */
 export const VAULT_FILE = 'workspace-vars.secret.yaml';
 
+/** Workspace trust list — public certificate material, committed. */
+export const TRUSTED_ROOTS_FILE = 'trusted-roots.yaml';
+
 export const ENVIRONMENTS_DIR = 'environments';
 
 /** Engine sidecar directory — gitignored, rebuildable (§23.9). */
@@ -92,3 +95,4 @@ export function environmentSecretTemplateFilePath(environment: Pick<Environment,
 export const WORKSPACE_DOC_KEY = '[workspace]';
 export const WORKSPACE_VARS_DOC_KEY = '[workspace-vars]';
 export const VAULT_DOC_KEY = '[vault]';
+export const TRUSTED_ROOTS_DOC_KEY = '[trusted-roots]';

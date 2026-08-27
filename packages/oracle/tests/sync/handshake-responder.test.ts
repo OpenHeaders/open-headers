@@ -55,6 +55,7 @@ function emptySnapshot(): WorkspaceSnapshot {
     collections: [],
     workspaceVariables: [],
     vault: [VAULT_SNAPSHOT_ROW],
+    trustedRoots: [],
     folders: [],
     requests: [],
     requestCollections: [],

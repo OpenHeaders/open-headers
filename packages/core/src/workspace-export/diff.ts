@@ -35,6 +35,7 @@ import type {
   Rule,
   Spec,
   Template,
+  TrustedRoots,
   Vault,
   WorkspaceVariables,
 } from '../types/index';
@@ -103,6 +104,7 @@ export interface DiffResult {
   specs: DiffEntry<Spec>[];
   workspaceVars: DiffSingleton<WorkspaceVariables>;
   vault: DiffSingleton<Vault>;
+  trustedRoots: DiffSingleton<TrustedRoots>;
 }
 
 export interface TargetWorkspaceState {
@@ -117,6 +119,7 @@ export interface TargetWorkspaceState {
   specs: Spec[];
   workspaceVars?: WorkspaceVariables;
   vault?: Vault;
+  trustedRoots?: TrustedRoots;
 }
 
 // ── Strategy tables ─────────────────────────────────────────────────
@@ -244,6 +247,17 @@ function diffVaultSingleton(target?: Vault): DiffSingleton<Vault> {
   };
 }
 
+function diffTrustedRootsSingleton(target?: TrustedRoots): DiffSingleton<TrustedRoots> {
+  const targetHasContent = !!target && target.roots.length > 0;
+  return {
+    state: targetHasContent ? 'collision-name' : 'no-collision',
+    defaultStrategy: 'merge-by-name',
+    allowedStrategies: SINGLETON_STRATEGIES,
+    targetHasContent,
+    ...(target ? { target } : {}),
+  };
+}
+
 // ── Main entry point ────────────────────────────────────────────────
 
 export function diffWorkspaceExport(incoming: WorkspaceExport, target: TargetWorkspaceState): DiffResult {
@@ -336,6 +350,7 @@ export function diffWorkspaceExport(incoming: WorkspaceExport, target: TargetWor
     specs,
     workspaceVars: diffWorkspaceVarsSingleton(target.workspaceVars),
     vault: diffVaultSingleton(target.vault),
+    trustedRoots: diffTrustedRootsSingleton(target.trustedRoots),
   };
 }
 

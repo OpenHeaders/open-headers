@@ -70,6 +70,7 @@ import type {
   SyncTemplateCollectionPostState,
   SyncTemplateFolderPostState,
   SyncTemplatePostState,
+  SyncTrustedRootsPostState,
   SyncVaultPostState,
   SyncWebSocketRequestPostState,
   SyncWorkspaceVariablesPostState,
@@ -94,6 +95,8 @@ export interface WorkspaceSnapshot {
   collections: SyncCollectionPostState[];
   workspaceVariables: SyncWorkspaceVariablesPostState[];
   vault: SyncVaultPostState[];
+  /** Workspace trust list. Not sensitive — rides every transport. */
+  trustedRoots: SyncTrustedRootsPostState[];
   folders: SyncFolderPostState[];
   requests: SyncRequestPostState[];
   requestCollections: SyncRequestCollectionPostState[];
@@ -156,6 +159,7 @@ export const WorkspaceSnapshotSchema = v.object({
   mqttResponseExamples: v.optional(v.array(v.unknown()), []),
   scriptPackages: v.optional(v.array(v.unknown()), []),
   specs: v.optional(v.array(v.unknown()), []),
+  trustedRoots: v.optional(v.array(v.unknown()), []),
   templates: v.array(v.unknown()),
   templateCollections: v.array(v.unknown()),
   templateFolders: v.array(v.unknown()),

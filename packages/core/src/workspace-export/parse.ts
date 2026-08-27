@@ -44,6 +44,7 @@ import {
   RuleSchema,
   SpecSchema,
   TemplateSchema,
+  TrustedRootsSchema,
   VaultSchema,
   WorkspaceVariablesSchema,
 } from '../schemas/index';
@@ -303,6 +304,20 @@ export function parseWorkspaceExport(input: string, opts: ParseOptions = {}): Pa
     }
   }
 
+  let trustedRoots: v.InferOutput<typeof TrustedRootsSchema> | undefined;
+  if (rawEntitiesRec.trustedRoots !== undefined) {
+    const trustedRootsParsed = v.safeParse(TrustedRootsSchema, rawEntitiesRec.trustedRoots);
+    if (trustedRootsParsed.success) {
+      trustedRoots = trustedRootsParsed.output;
+    } else {
+      drops.push({
+        path: 'entities.trustedRoots',
+        reason: 'schema-invalid',
+        details: trustedRootsParsed.issues.map((i) => i.message).join('; '),
+      });
+    }
+  }
+
   // ── Compose the validated WorkspaceExport ───────────────────────
   const exportObj: WorkspaceExport = {
     ...envelopeParsed.output,
@@ -318,6 +333,7 @@ export function parseWorkspaceExport(input: string, opts: ParseOptions = {}): Pa
       liveVariables,
       specs,
       ...(vault !== undefined ? { vault } : {}),
+      ...(trustedRoots !== undefined ? { trustedRoots } : {}),
     },
   };
 

@@ -14,6 +14,7 @@ import type {
   Rule,
   Spec,
   Template,
+  TrustedRoots,
   Vault,
   WorkspaceVariables,
 } from '@openheaders/core/types';
@@ -98,6 +99,7 @@ export interface ReadTargetResult {
     environments?: Environment[];
     workspaceVars?: WorkspaceVariables;
     vault?: Vault;
+    trustedRoots?: TrustedRoots;
     liveWorkflows?: LiveWorkflow[];
     liveVariables?: LiveVariable[];
     specs?: Spec[];
@@ -123,6 +125,7 @@ export async function readTargetWorkspaceState(workspaceId: string): Promise<Rea
     environments: k.environments,
     workspaceVars: k.workspaceVars,
     vault: k.vault,
+    trustedRoots: k.trustedRoots,
     liveWorkflows: k.liveWorkflows,
     liveVariables: k.liveVariables,
     specs: k.specs,
@@ -147,6 +150,7 @@ export async function readTargetWorkspaceState(workspaceId: string): Promise<Rea
     specs: target.specs ?? [],
     ...(target.workspaceVars ? { workspaceVars: target.workspaceVars } : {}),
     ...(target.vault ? { vault: target.vault } : {}),
+    ...(target.trustedRoots ? { trustedRoots: target.trustedRoots } : {}),
   };
   return { target, targetState };
 }

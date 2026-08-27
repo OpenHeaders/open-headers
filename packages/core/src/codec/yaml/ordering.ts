@@ -74,6 +74,8 @@ export const WORKSPACE_VARIABLES_FIELD_ORDER = ['schemaVersion', 'variables'] as
 
 export const VAULT_FIELD_ORDER = ['schemaVersion', 'secrets'] as const;
 
+export const TRUSTED_ROOTS_FIELD_ORDER = ['schemaVersion', 'roots'] as const;
+
 export const ENVIRONMENT_FIELD_ORDER = ['schemaVersion', 'uid', 'name', 'variables'] as const;
 
 export const REQUEST_FIELD_ORDER = [

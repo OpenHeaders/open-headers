@@ -59,6 +59,7 @@ import {
   type SyncTemplateCollectionPostState,
   type SyncTemplateFolderPostState,
   type SyncTemplatePostState,
+  type SyncTrustedRootsPostState,
   type SyncVaultPostState,
   type SyncWebSocketRequestPostState,
   type SyncWorkspaceVariablesPostState,
@@ -91,6 +92,7 @@ import { seedSpec } from '@openheaders/core/sync-builders/projections/spec-proje
 import { seedTemplateCollection } from '@openheaders/core/sync-builders/projections/template-collection-projection';
 import { seedTemplateFolder } from '@openheaders/core/sync-builders/projections/template-folder-projection';
 import { seedTemplate } from '@openheaders/core/sync-builders/projections/template-projection';
+import { seedTrustedRoots } from '@openheaders/core/sync-builders/projections/trusted-roots-projection';
 import { seedVault } from '@openheaders/core/sync-builders/projections/vault-projection';
 import { seedWebSocketRequest } from '@openheaders/core/sync-builders/projections/websocket-request-projection';
 import { seedWorkspaceVariables } from '@openheaders/core/sync-builders/projections/workspace-variables-projection';
@@ -219,6 +221,9 @@ export async function applyWorkspaceSnapshot(
     seedWorkspaceVariables(p.workspaceVariables, ctx),
   );
   await seedEach<SyncVaultPostState>('vault', snapshot.vault, (p, ctx) => seedVault(p.vault, ctx));
+  await seedEach<SyncTrustedRootsPostState>('trustedRoots', snapshot.trustedRoots, (p, ctx) =>
+    seedTrustedRoots(p.trustedRoots, ctx),
+  );
   await seedEach<SyncOAuthBundlePostState>('oauthBundles', snapshot.oauthBundles, (p, ctx) =>
     seedOAuthBundle(
       {

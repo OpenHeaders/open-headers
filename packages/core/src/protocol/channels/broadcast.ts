@@ -47,6 +47,7 @@ import type {
   SyncTemplateCollectionPostState,
   SyncTemplateFolderPostState,
   SyncTemplatePostState,
+  SyncTrustedRootsPostState,
   SyncVaultPostState,
   SyncWebSocketRequestPostState,
   SyncWorkspaceVariablesPostState,
@@ -386,6 +387,11 @@ export interface BridgeBroadcastContract {
      * entity. Local-only by §12.3 — never crosses any sync transport.
      */
     vaultPostState?: SyncVaultPostState;
+    /**
+     * Post-commit projection for trusted-roots envelopes. Singleton
+     * entity. Trust material, not a secret — rides every transport.
+     */
+    trustedRootsPostState?: SyncTrustedRootsPostState;
     /**
      * Post-commit projection for Folder envelopes (Phase B). Renderer
      * mirrors fold this so sidebar tree consumers see post-commit

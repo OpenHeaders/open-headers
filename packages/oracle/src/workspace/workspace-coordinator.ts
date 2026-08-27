@@ -98,6 +98,7 @@ function perWorkspaceDataKeys(workspaceId: string): StorageKey<unknown>[] {
     k.templateCollections,
     k.templateFolders,
     k.pauseMarkers,
+    k.trustedRoots,
     k.tabSession,
     k.panelLayout,
     k.settingsWorkspaceTaste,

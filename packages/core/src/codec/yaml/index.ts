@@ -55,6 +55,7 @@ export {
   RUNTIME_ONLY_FIELDS,
   SPEC_FIELD_ORDER,
   TEMPLATE_FIELD_ORDER,
+  TRUSTED_ROOTS_FIELD_ORDER,
   VAULT_FIELD_ORDER,
   WEBSOCKET_REQUEST_FIELD_ORDER,
   WORKSPACE_FIELD_ORDER,
@@ -70,6 +71,7 @@ export type { SpecCodecContext, SpecSerializeOutput, SpecSiblingFile } from './s
 export { parseSpec, parseSpecInline, serializeSpec } from './spec';
 export type { TemplateCodecContext } from './template';
 export { canonicalizeTemplate, parseTemplate, serializeTemplate } from './template';
+export { parseTrustedRoots, serializeTrustedRoots } from './trusted-roots';
 export type { UnknownField } from './unknown-fields';
 export { extractUnknownFields, unknownFieldsOf } from './unknown-fields';
 export { parseVault, parseWorkspaceVariables, serializeVault, serializeWorkspaceVariables } from './variables';

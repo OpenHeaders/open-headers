@@ -31,12 +31,10 @@ const nextCtx = (): MutatorContext => ({
 });
 
 /** Live reader over a store — the adapter the orchestrator's emit wires. */
-const liveReaderFor =
-  (store: InMemoryDocumentStore) =>
-  (entityType: string, id: string, setPath: string) =>
-    store
-      .liveOrderedSetItems(entityType, id, setPath)
-      .map((entry) => ({ itemId: entry.itemId, orderKey: entry.key, item: entry.item }));
+const liveReaderFor = (store: InMemoryDocumentStore) => (entityType: string, id: string, setPath: string) =>
+  store
+    .liveOrderedSetItems(entityType, id, setPath)
+    .map((entry) => ({ itemId: entry.itemId, orderKey: entry.key, item: entry.item }));
 
 function applyTo(store: InMemoryDocumentStore, batches: EmissionBatch[]): void {
   for (const { batch } of batches) {
@@ -57,6 +55,7 @@ function emptyPlan(overrides: Partial<ImportPlan> = {}): ImportPlan {
     specs: [],
     workspaceVars: { action: 'skip', variables: [] },
     vault: { action: 'skip', secrets: [] },
+    trustedRoots: { action: 'skip', roots: [] },
     uidRemap: {},
     ...overrides,
   };
@@ -370,6 +369,36 @@ describe('synthesizeImportEmission — environments + singletons', () => {
     applyTo(client, diff);
     const members = client.liveOrderedSetItems('workspace-variables', 'workspace-vars', 'variables');
     expect(members.map((m) => m.itemId)).toEqual(['var00021']);
+  });
+
+  it('trusted roots create seeds the singleton; a later merge converges the peer by uid', () => {
+    const rootA = { uid: 'root0001', name: 'Corp Root', certPem: 'PEM-A', addedAt: '2026-08-27T00:00:00.000Z' };
+    const rootB = { uid: 'root0002', name: 'Lab Root', certPem: 'PEM-B', addedAt: '2026-08-27T00:00:00.000Z' };
+    const client = new InMemoryDocumentStore();
+    const peer = new InMemoryDocumentStore();
+
+    const create = synthesizeImportEmission(
+      slicesFor(emptyPlan({ trustedRoots: { action: 'replace', roots: [rootA] } })),
+      emptyPrev(),
+      { nextCtx, liveSetEntries: () => [] },
+    );
+    expect(create.map((b) => b.label)).toEqual(['trusted-roots (create)']);
+    applyTo(client, create);
+    applyTo(peer, create);
+
+    const update = synthesizeImportEmission(
+      slicesFor(emptyPlan({ trustedRoots: { action: 'merge-by-name', roots: [rootA, rootB] } })),
+      emptyPrev({ trustedRoots: { schemaVersion: 5, roots: [rootA] } }),
+      { nextCtx, liveSetEntries: liveReaderFor(client) },
+    );
+    expect(update.map((b) => b.label)).toEqual(['trusted-roots (update)']);
+    expect(update[0].batch.mutations.every((m) => m.body.kind !== 'create')).toBe(true);
+    applyTo(client, update);
+    applyTo(peer, update);
+    for (const store of [client, peer]) {
+      const members = store.liveOrderedSetItems('trusted-roots', 'trusted-roots', 'roots');
+      expect(members.map((m) => m.itemId)).toEqual(['root0001', 'root0002']);
+    }
   });
 
   it('a skipped vault emits nothing', () => {

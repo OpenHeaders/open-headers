@@ -63,6 +63,7 @@ export type {
   PlanAction,
   PlanEntry,
   PlanSingletonAction,
+  PlanTrustedRoots,
   PlanVault,
   PlanWorkspaceVariables,
   StrategyMap,

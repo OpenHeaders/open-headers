@@ -39,6 +39,8 @@ import type {
   Rule,
   Spec,
   Template,
+  TrustedRoot,
+  TrustedRoots,
   Variable,
   Vault,
   VaultSecret,
@@ -79,6 +81,12 @@ export interface PlanVault {
   secrets: VaultSecret[];
 }
 
+export interface PlanTrustedRoots {
+  action: PlanSingletonAction;
+  /** Final root list to persist (already merged for `merge-by-name`). */
+  roots: TrustedRoot[];
+}
+
 export interface ImportPlan {
   collections: PlanEntry<Collection>[];
   folders: PlanEntry<LocalFolder>[];
@@ -91,6 +99,7 @@ export interface ImportPlan {
   specs: PlanEntry<Spec>[];
   workspaceVars: PlanWorkspaceVariables;
   vault: PlanVault;
+  trustedRoots: PlanTrustedRoots;
   /**
    * Flat old-uid → new-uid map across every `new-uid` write. Exposed so
    * the orchestrator can rebind cross-entity references that this
@@ -117,6 +126,7 @@ export interface StrategyMap {
   specs?: Record<string, CollisionStrategy>;
   workspaceVars?: PlanSingletonAction;
   vault?: PlanSingletonAction;
+  trustedRoots?: PlanSingletonAction;
 }
 
 export interface ImporterOptions {
@@ -173,6 +183,24 @@ function mergeSecretsByName(target: VaultSecret[], incoming: VaultSecret[]): Vau
   for (const s of incoming) byName.set(s.name, s); // incoming wins
   return Array.from(byName.values());
 }
+
+/**
+ * Roots merge by certificate identity — the PEM text, whitespace
+ * ignored. Two rows carrying the same certificate are one root; the
+ * incoming row's name wins so a rename travels, the target's uid stays.
+ */
+function mergeRootsByPem(target: TrustedRoot[], incoming: TrustedRoot[]): TrustedRoot[] {
+  const byPem = new Map<string, TrustedRoot>();
+  for (const r of target) byPem.set(normalizePem(r.certPem), r);
+  for (const r of incoming) {
+    const key = normalizePem(r.certPem);
+    const existing = byPem.get(key);
+    byPem.set(key, existing ? { ...r, uid: existing.uid } : r);
+  }
+  return Array.from(byPem.values());
+}
+
+const normalizePem = (pem: string): string => pem.replace(/\s+/g, '');
 
 function forceDisabled<T extends { enabled?: boolean }>(entity: T, trust: boolean): T {
   if (trust) return entity;
@@ -521,6 +549,12 @@ export function buildImportPlan(
     _target.workspaceVars,
   );
   const vault = resolveVaultSingleton(incoming.entities.vault, diff.vault, strategies.vault, _target.vault);
+  const trustedRoots = resolveTrustedRootsSingleton(
+    incoming.entities.trustedRoots,
+    diff.trustedRoots,
+    strategies.trustedRoots,
+    _target.trustedRoots,
+  );
 
   return {
     collections: collections.entries,
@@ -534,6 +568,7 @@ export function buildImportPlan(
     specs: specs.entries,
     workspaceVars,
     vault,
+    trustedRoots,
     uidRemap,
   };
 }
@@ -618,4 +653,19 @@ function resolveVaultSingleton(
   if (action === 'skip') return { action, secrets: target?.secrets ?? [] };
   if (action === 'replace') return { action, secrets: incoming.secrets };
   return { action, secrets: mergeSecretsByName(target?.secrets ?? [], incoming.secrets) };
+}
+
+function resolveTrustedRootsSingleton(
+  incoming: TrustedRoots | undefined,
+  diff: DiffSingleton<TrustedRoots>,
+  override: PlanSingletonAction | undefined,
+  target?: TrustedRoots,
+): PlanTrustedRoots {
+  const action = override ?? (diff.defaultStrategy as PlanSingletonAction);
+  if (!incoming || incoming.roots.length === 0) {
+    return { action: 'skip', roots: target?.roots ?? [] };
+  }
+  if (action === 'skip') return { action, roots: target?.roots ?? [] };
+  if (action === 'replace') return { action, roots: incoming.roots };
+  return { action, roots: mergeRootsByPem(target?.roots ?? [], incoming.roots) };
 }

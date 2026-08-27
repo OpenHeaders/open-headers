@@ -22,6 +22,7 @@ import {
   serializeRule,
   serializeSpec,
   serializeTemplate,
+  serializeTrustedRoots,
   serializeVault,
   serializeWebSocketRequest,
   serializeWorkspace,
@@ -46,6 +47,8 @@ import {
   RULE_MANIFEST_FILE,
   SPEC_MANIFEST_FILE,
   TEMPLATE_MANIFEST_FILE,
+  TRUSTED_ROOTS_DOC_KEY,
+  TRUSTED_ROOTS_FILE,
   VAULT_DOC_KEY,
   VAULT_FILE,
   WEBSOCKET_REQUEST_MANIFEST_FILE,
@@ -101,6 +104,9 @@ export function planWorkspaceTree(state: WorkspaceTreeState, unknowns: TreeUnkno
   }
   if (state.vault !== null && state.vault.secrets.length > 0) {
     add(VAULT_FILE, serializeVault(toWrite(state.vault, unknowns[VAULT_DOC_KEY])));
+  }
+  if (state.trustedRoots !== null && state.trustedRoots.roots.length > 0) {
+    add(TRUSTED_ROOTS_FILE, serializeTrustedRoots(toWrite(state.trustedRoots, unknowns[TRUSTED_ROOTS_DOC_KEY])));
   }
 
   for (const collection of [...state.collections, ...state.requestCollections, ...state.templateCollections]) {

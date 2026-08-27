@@ -17,6 +17,7 @@ import type { Request } from '../types/request';
 import type { Rule } from '../types/rule';
 import type { Spec } from '../types/spec';
 import type { Template } from '../types/template';
+import type { TrustedRoots } from '../types/trusted-roots';
 import type { Environment, Vault, WorkspaceVariables } from '../types/variable';
 import type { WebSocketRequest } from '../types/websocket-request';
 import type { WorkspaceManifest } from '../types/workspace';
@@ -55,6 +56,7 @@ export interface WorkspaceTreeState {
   environments: Environment[];
   workspaceVariables: WorkspaceVariables | null;
   vault: Vault | null;
+  trustedRoots: TrustedRoots | null;
   specs: Spec[];
   liveWorkflows: LiveWorkflow[];
   liveVariables: LiveVariable[];

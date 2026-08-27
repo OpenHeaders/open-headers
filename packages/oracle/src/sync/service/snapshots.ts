@@ -29,6 +29,7 @@ import type {
   SyncTemplateCollectionPostState,
   SyncTemplateFolderPostState,
   SyncTemplatePostState,
+  SyncTrustedRootsPostState,
   SyncVaultPostState,
   SyncWebSocketRequestPostState,
   SyncWorkspaceVariablesPostState,
@@ -62,6 +63,7 @@ import {
   TEMPLATE_COLLECTION_REGISTRATION,
   TEMPLATE_FOLDER_REGISTRATION,
   TEMPLATE_REGISTRATION,
+  TRUSTED_ROOTS_REGISTRATION,
   VAULT_REGISTRATION,
   WEBSOCKET_REQUEST_REGISTRATION,
   WORKSPACE_VARIABLES_REGISTRATION,
@@ -117,6 +119,11 @@ export function snapshotWorkspaceVariablesPostStates(workspaceId?: string): Sync
 export function snapshotVaultPostStates(workspaceId?: string): SyncVaultPostState[] {
   const o = oracleForWorkspace(workspaceId);
   return o ? singletonSnapshot(o, VAULT_REGISTRATION) : [];
+}
+
+export function snapshotTrustedRootsPostStates(workspaceId?: string): SyncTrustedRootsPostState[] {
+  const o = oracleForWorkspace(workspaceId);
+  return o ? singletonSnapshot(o, TRUSTED_ROOTS_REGISTRATION) : [];
 }
 
 export function snapshotFolderPostStates(workspaceId?: string): SyncFolderPostState[] {

@@ -1,11 +1,12 @@
 /**
  * CategoryNav — left rail in page-swap mode.
  *
- * Labeled mode renders a one-level tree: top-level categories in
- * registry order, child categories (`CategoryDef.parent`) indented
- * under their parent behind an expand caret. Collapsed mode (labels
- * hidden) falls back to a flat icon rail where every category —
- * children included — gets its own button.
+ * Labeled mode renders the category tree at any depth: top-level
+ * categories in registry order, child categories (`CategoryDef.parent`)
+ * indented under their parent behind an expand caret, grandchildren
+ * under those. Collapsed mode (labels hidden) falls back to a flat icon
+ * rail of the LEAF categories — group nodes own no settings of their
+ * own, so the rail skips their landing pages.
  *
  * While the user is searching, no category is "active" (search results
  * own the right pane); rows show per-category match counts and parents
@@ -67,21 +68,27 @@ const CategoryNav = forwardRef<CategoryNavHandle, CategoryNavProps>(function Cat
         top.push(cat);
       }
     }
-    return { top, children };
+    const leaves = categories.filter((c) => !children.has(c.id));
+    return { top, children, leaves };
   }, [categories]);
 
   // ── Expansion state ──────────────────────────────────────────────────
-  // Manual caret toggles win; otherwise a parent auto-opens while its
-  // child is active or while a search has matches inside it.
+  // Manual caret toggles win; otherwise a parent auto-opens while a
+  // descendant is active or while a search has matches inside it.
   const [openOverrides, setOpenOverrides] = useState<ReadonlyMap<string, boolean>>(new Map());
 
+  // Matches anywhere below a node — a collapsed group badges its whole
+  // subtree, and a depth-2 hit still opens the root above it.
   const childMatchSum = (id: string): number =>
-    (tree.children.get(id) ?? []).reduce((sum, c) => sum + (matchCount.get(c.id) ?? 0), 0);
+    (tree.children.get(id) ?? []).reduce((sum, c) => sum + (matchCount.get(c.id) ?? 0) + childMatchSum(c.id), 0);
+
+  const hasActiveDescendant = (id: string): boolean =>
+    (tree.children.get(id) ?? []).some((c) => c.id === activeCategoryId || hasActiveDescendant(c.id));
 
   const isOpen = (id: string): boolean => {
     const override = openOverrides.get(id);
     if (override !== undefined) return override;
-    if ((tree.children.get(id) ?? []).some((c) => c.id === activeCategoryId)) return true;
+    if (hasActiveDescendant(id)) return true;
     return isSearching && childMatchSum(id) > 0;
   };
 
@@ -108,17 +115,14 @@ const CategoryNav = forwardRef<CategoryNavHandle, CategoryNavProps>(function Cat
   const computeNavigable = (): string[] => {
     const hasMatch = (id: string) => (matchCount.get(id) ?? 0) > 0;
     if (!showLabels) {
-      return categories.filter((c) => !isSearching || hasMatch(c.id) || childMatchSum(c.id) > 0).map((c) => c.id);
+      return tree.leaves.filter((c) => !isSearching || hasMatch(c.id)).map((c) => c.id);
     }
     const ids: string[] = [];
-    for (const cat of tree.top) {
+    const walk = (cat: CategoryDef) => {
       if (!isSearching || hasMatch(cat.id) || childMatchSum(cat.id) > 0) ids.push(cat.id);
-      if (isOpen(cat.id)) {
-        for (const kid of tree.children.get(cat.id) ?? []) {
-          if (!isSearching || hasMatch(kid.id)) ids.push(kid.id);
-        }
-      }
-    }
+      if (isOpen(cat.id)) for (const kid of tree.children.get(cat.id) ?? []) walk(kid);
+    };
+    for (const cat of tree.top) walk(cat);
     return ids;
   };
 
@@ -289,7 +293,7 @@ const CategoryNav = forwardRef<CategoryNavHandle, CategoryNavProps>(function Cat
     );
   };
 
-  const rows = showLabels ? tree.top : categories;
+  const rows = showLabels ? tree.top : tree.leaves;
 
   return (
     <Dropdown menu={{ items: contextMenu }} trigger={['contextMenu']} onOpenChange={setContextMenuOpen}>

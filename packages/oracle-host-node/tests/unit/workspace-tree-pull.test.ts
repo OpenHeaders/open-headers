@@ -80,6 +80,7 @@ function emptyState(): WorkspaceTreeState {
     environments: [],
     workspaceVariables: null,
     vault: null,
+    trustedRoots: null,
     specs: [],
     liveWorkflows: [],
     liveVariables: [],

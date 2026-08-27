@@ -5,6 +5,8 @@ export type {
 } from './action-validation';
 export { validateActionValues } from './action-validation';
 export { decodeBase64, decodeBase64Bytes, encodeBase64, encodeBase64Bytes } from './base64';
+export type { CertificateSummary } from './certificate-summary';
+export { splitPemChain, summarizeCertificatePem } from './certificate-summary';
 export type {
   AutoSwitchParams,
   CollectionEnvAutoSwitchMode,

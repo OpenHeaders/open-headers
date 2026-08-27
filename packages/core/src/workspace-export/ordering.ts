@@ -36,6 +36,7 @@ export const WORKSPACE_EXPORT_ENTITIES_FIELD_ORDER = [
   'environments',
   'workspaceVars',
   'vault',
+  'trustedRoots',
   'templates',
   'requests',
   'rules',

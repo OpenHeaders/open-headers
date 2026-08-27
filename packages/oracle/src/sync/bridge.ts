@@ -58,6 +58,7 @@ export type EntityPostState = Partial<
     | 'liveFallbackPriorityPostState'
     | 'oauthBundlePostState'
     | 'pauseMarkersPostState'
+    | 'trustedRootsPostState'
     | 'layoutStatePostState'
     | 'filesPostState'
     | 'extensionWorkspacePostState'

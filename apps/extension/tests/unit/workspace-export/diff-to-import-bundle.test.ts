@@ -35,6 +35,12 @@ const emptyDiff: DiffResult = {
     targetHasContent: false,
   },
   vault: { state: 'no-collision', defaultStrategy: 'skip', allowedStrategies: ['skip'], targetHasContent: false },
+  trustedRoots: {
+    state: 'no-collision',
+    defaultStrategy: 'skip',
+    allowedStrategies: ['skip'],
+    targetHasContent: false,
+  },
 };
 
 describe('diffResultToImportBundle', () => {

@@ -33,6 +33,7 @@ import type {
   SyncTemplateCollectionPostState,
   SyncTemplateFolderPostState,
   SyncTemplatePostState,
+  SyncTrustedRootsPostState,
   SyncVaultPostState,
   SyncWebSocketRequestPostState,
   SyncWorkspaceVariablesPostState,
@@ -106,6 +107,15 @@ export interface SyncEngineRpc {
   'oh.sync.snapshotVault': {
     req: { workspaceId?: string };
     res: { entries: SyncVaultPostState[] } | SyncRpcNotReadyResponse;
+  };
+  /**
+   * Snapshot the active workspace's singleton trusted-roots oracle
+   * state. Same semantics as `oh.sync.snapshotVault` — singleton
+   * `entries` carries 0 or 1 element. Not sensitive.
+   */
+  'oh.sync.snapshotTrustedRoots': {
+    req: { workspaceId?: string };
+    res: { entries: SyncTrustedRootsPostState[] } | SyncRpcNotReadyResponse;
   };
   /**
    * Snapshot the active workspace's full Folder oracle state. Same

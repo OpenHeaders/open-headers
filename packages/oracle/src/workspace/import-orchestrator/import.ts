@@ -21,7 +21,7 @@ import {
   type MissingDep,
   type PerEntityStrategies,
 } from '@openheaders/core/import';
-import type { Request, Vault, WorkspaceVariables } from '@openheaders/core/types';
+import type { Request, TrustedRoots, Vault, WorkspaceVariables } from '@openheaders/core/types';
 import { logger } from '@openheaders/core/utils';
 import {
   applyBackupRestoreToggle,
@@ -65,6 +65,7 @@ import {
   bridgeTemplateSyncEngine,
   hydrateTemplatesFromStorage,
 } from '@openheaders/oracle/entity/template-store';
+import { bridgeTrustedRootsSyncEngine } from '@openheaders/oracle/entity/trusted-roots-store';
 import {
   bridgeLiveVariableSyncEngine,
   hydrateFromStorage as hydrateLiveVariablesFromStorage,
@@ -203,6 +204,10 @@ export async function importWorkspace(args: ImportWorkspaceArgs): Promise<Import
                 schemaVersion: 5,
                 secrets: plan.vault.secrets,
               };
+        const nextTrustedRoots: TrustedRoots | undefined =
+          plan.trustedRoots.action === 'skip' && (target.trustedRoots?.roots ?? []).length === 0
+            ? undefined
+            : { schemaVersion: 5, roots: plan.trustedRoots.roots };
 
         // Atomic-per-area write.
         const writes: ReadonlyArray<readonly [StorageKey<unknown>, unknown]> = [
@@ -221,6 +226,7 @@ export async function importWorkspace(args: ImportWorkspaceArgs): Promise<Import
           [k.liveVariables, nextLiveVariables],
           [k.specs, nextSpecs],
           ...(nextVault ? [[k.vault, nextVault] as const] : []),
+          ...(nextTrustedRoots ? [[k.trustedRoots, nextTrustedRoots] as const] : []),
         ];
 
         try {
@@ -311,6 +317,7 @@ export async function importWorkspace(args: ImportWorkspaceArgs): Promise<Import
         await bridgeFolderSyncEngine();
         await bridgeWorkspaceVariablesSyncEngine();
         await bridgeVaultSyncEngine();
+        await bridgeTrustedRootsSyncEngine();
         await bridgeRequestSyncEngine();
         await bridgeRequestCollectionSyncEngine();
         await bridgeRequestFolderSyncEngine();

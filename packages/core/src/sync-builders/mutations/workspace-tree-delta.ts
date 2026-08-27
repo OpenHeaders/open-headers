@@ -217,6 +217,14 @@ export function synthesizeWorkspaceTreeDelta(args: WorkspaceTreeDeltaArgs): Emis
       : vaultFileRemoved && prev.vault !== null
         ? { action: 'replace' as const, secrets: [] }
         : { action: 'skip' as const, secrets: [] };
+  const trustedRootsFileChanged = changedPaths.has('trusted-roots.yaml');
+  const trustedRootsFileRemoved = removedPaths.has('trusted-roots.yaml');
+  const trustedRoots =
+    trustedRootsFileChanged && next.trustedRoots !== null
+      ? { action: 'replace' as const, roots: next.trustedRoots.roots }
+      : trustedRootsFileRemoved && prev.trustedRoots !== null
+        ? { action: 'replace' as const, roots: [] }
+        : { action: 'skip' as const, roots: [] };
 
   const toLocalFolders = (folders: readonly Folder[]): LocalFolder[] => folders as unknown as LocalFolder[];
 
@@ -235,6 +243,7 @@ export function synthesizeWorkspaceTreeDelta(args: WorkspaceTreeDeltaArgs): Emis
           specs: planEntries(next.specs, prev.specs),
           workspaceVars: wsVars,
           vault,
+          trustedRoots,
           uidRemap: {},
         },
         ruleCollections: planEntries(next.collections, prev.collections),
@@ -260,6 +269,7 @@ export function synthesizeWorkspaceTreeDelta(args: WorkspaceTreeDeltaArgs): Emis
         templateFolders: toLocalFolders(prev.templateFolders),
         ...(prev.workspaceVariables !== null ? { workspaceVars: prev.workspaceVariables } : {}),
         ...(prev.vault !== null ? { vault: prev.vault } : {}),
+        ...(prev.trustedRoots !== null ? { trustedRoots: prev.trustedRoots } : {}),
       },
       deps,
     ),

@@ -149,6 +149,7 @@ function generateState(rng: Rng): { state: WorkspaceTreeState; unknowns: TreeUnk
       environments: [plainEnvironment, secretEnvironment],
       workspaceVariables,
       vault,
+      trustedRoots: null,
       specs: [spec],
       liveWorkflows: [liveWorkflow],
       liveVariables: [liveVariable],

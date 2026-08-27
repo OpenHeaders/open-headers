@@ -27,6 +27,7 @@ function emptySnapshot(workspaceId: string): WorkspaceSnapshot {
     collections: [],
     workspaceVariables: [],
     vault: [],
+    trustedRoots: [],
     folders: [],
     requests: [],
     requestCollections: [],

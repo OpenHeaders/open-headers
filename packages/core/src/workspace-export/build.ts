@@ -41,6 +41,7 @@ import type {
   Rule,
   Spec,
   Template,
+  TrustedRoots,
   Vault,
   VaultSecret,
   WorkspaceVariables,
@@ -103,6 +104,8 @@ export interface BuildWorkspaceExportInput {
      * `'encrypted'`.
      */
     vault?: Vault;
+    /** Workspace trust list — public material, carried verbatim when present. */
+    trustedRoots?: TrustedRoots;
   };
 }
 
@@ -236,6 +239,7 @@ export function buildWorkspaceExport(
       liveVariables: input.entities.liveVariables,
       specs,
       ...(vault ? { vault } : {}),
+      ...(input.entities.trustedRoots ? { trustedRoots: input.entities.trustedRoots } : {}),
     },
     ...(opts.secretsBlock && vaultMode === 'encrypted' ? { secrets: opts.secretsBlock } : {}),
     meta: {

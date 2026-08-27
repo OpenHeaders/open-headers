@@ -89,6 +89,7 @@ export {
   snapshotTemplateCollectionPostStates,
   snapshotTemplateFolderPostStates,
   snapshotTemplatePostStates,
+  snapshotTrustedRootsPostStates,
   snapshotVaultPostStates,
   snapshotWebSocketRequestPostStates,
   snapshotWorkspaceVariablesPostStates,

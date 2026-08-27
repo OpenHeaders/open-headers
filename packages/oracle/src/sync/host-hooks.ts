@@ -31,6 +31,7 @@ import type {
   SyncTemplateCollectionPostState,
   SyncTemplateFolderPostState,
   SyncTemplatePostState,
+  SyncTrustedRootsPostState,
   SyncVaultPostState,
   SyncWebSocketRequestPostState,
   SyncWorkspaceVariablesPostState,
@@ -77,6 +78,7 @@ export interface OracleSyncBroadcastEvent {
   liveWorkflowPostState?: SyncLiveWorkflowPostState;
   oauthBundlePostState?: SyncOAuthBundlePostState;
   pauseMarkersPostState?: SyncPauseMarkersPostState;
+  trustedRootsPostState?: SyncTrustedRootsPostState;
   layoutStatePostState?: SyncLayoutStatePostState;
   filesPostState?: SyncFilesPostState;
   extensionWorkspacePostState?: SyncExtensionWorkspacePostState;

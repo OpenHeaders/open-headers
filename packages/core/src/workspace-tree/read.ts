@@ -27,6 +27,7 @@ import {
   parseRule,
   parseSpec,
   parseTemplate,
+  parseTrustedRoots,
   parseVault,
   parseWebSocketRequest,
   parseWorkspace,
@@ -49,6 +50,8 @@ import {
   SECRET_TEMPLATE_FILE_SUFFIX,
   SPEC_MANIFEST_FILE,
   TEMPLATE_MANIFEST_FILE,
+  TRUSTED_ROOTS_DOC_KEY,
+  TRUSTED_ROOTS_FILE,
   VAULT_DOC_KEY,
   VAULT_FILE,
   WEBSOCKET_REQUEST_MANIFEST_FILE,
@@ -128,6 +131,7 @@ export function readWorkspaceTree(files: readonly TreeFile[]): TreeReadResult {
     environments: [],
     workspaceVariables: null,
     vault: null,
+    trustedRoots: null,
     specs: [],
     liveWorkflows: [],
     liveVariables: [],
@@ -213,6 +217,17 @@ export function readWorkspaceTree(files: readonly TreeFile[]): TreeReadResult {
       state.vault = parsed.value;
     } catch (err) {
       issues.push({ path: VAULT_FILE, message: err instanceof Error ? err.message : String(err) });
+    }
+  }
+
+  const trustedRootsYaml = byPath.get(TRUSTED_ROOTS_FILE);
+  if (trustedRootsYaml !== undefined) {
+    try {
+      const parsed = parseTrustedRoots(trustedRootsYaml);
+      captureUnknowns(TRUSTED_ROOTS_DOC_KEY, parsed);
+      state.trustedRoots = parsed.value;
+    } catch (err) {
+      issues.push({ path: TRUSTED_ROOTS_FILE, message: err instanceof Error ? err.message : String(err) });
     }
   }
 

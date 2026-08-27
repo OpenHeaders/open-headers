@@ -41,6 +41,7 @@ import { synthesizeWorkspaceTreeDelta } from '@openheaders/core/sync-builders/mu
 import {
   planWorkspaceTree,
   readWorkspaceTree,
+  TRUSTED_ROOTS_DOC_KEY,
   type TreeIssue,
   VAULT_DOC_KEY,
   WORKSPACE_DOC_KEY,
@@ -172,6 +173,7 @@ export async function sweepWorkspaceTree(options: SweepWorkspaceTreeOptions): Pr
   delete merged[WORKSPACE_DOC_KEY];
   if (read.state.workspaceVariables !== null) delete merged[WORKSPACE_VARS_DOC_KEY];
   if (read.state.vault !== null) delete merged[VAULT_DOC_KEY];
+  if (read.state.trustedRoots !== null) delete merged[TRUSTED_ROOTS_DOC_KEY];
   for (const [key, rows] of Object.entries(read.unknowns)) {
     merged[key] = rows;
   }
