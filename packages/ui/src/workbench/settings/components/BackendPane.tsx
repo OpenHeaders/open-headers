@@ -1,30 +1,28 @@
 /**
- * BackendPane — custom right-pane renderer for the Backend settings
- * category (the multi-backend plan §4). Three bands:
+ * BackendPane — custom right-pane renderer for the Backend › Connections
+ * page (the multi-backend plan §4). Two bands:
  *
  *   1. **Tier-zero card** — the always-on local engine ("This browser" /
- *      "This app"), pinned, never a list entry. Desktop's daemon-side
- *      inbound config (LAN-peers bind + paired devices) rides here.
+ *      "This app"), pinned, never a list entry.
  *   2. **Connections list** — one row per `OH.backends` record with the
  *      probe-gated enabled toggle, auto-connect, re-pair, edit, remove.
  *      Only on hosts that dial outward at all (`hostJoinsBackends`): a
  *      served web tab is served BY its back-end and has no second one to
  *      manage, so the band is absent there rather than empty.
- *   3. **Global sections** — the reliability / notification knobs that
- *      apply to every connection.
  *
- * The four-tile mode picker, the preview/ApplyBar commit machinery, and
- * the mode-switch orchestration retired with the registry UI: "mode" is
- * derived presentation vocabulary (`deriveBackendMode`), and activation
- * is per-record — the enabled toggle verifies the wire before it
- * commits, exactly the gate the old "Switch to …" ran.
+ * The daemon-side inbound config, the browser-side pairing consent and
+ * the reliability knobs each have their own page under the Backend
+ * group. The four-tile mode picker, the preview/ApplyBar commit
+ * machinery, and the mode-switch orchestration retired with the registry
+ * UI: "mode" is derived presentation vocabulary (`deriveBackendMode`),
+ * and activation is per-record — the enabled toggle verifies the wire
+ * before it commits, exactly the gate the old "Switch to …" ran.
  */
 
 import { ArrowRightOutlined } from '@ant-design/icons';
 import { Checkbox, theme, Typography } from 'antd';
 import type React from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
-import { useBackends } from '../../../shared/backend';
 import { getCurrentHost } from '../../../shared/host-vocabulary';
 import { useOptionalInspectorNav } from '../../hooks/useInspectorNav';
 import { useOptionalSettingsHost } from './settings-host-context';
@@ -32,7 +30,6 @@ import { hostJoinsBackends, tierZeroMode } from '../schema/backend';
 import { useSetting } from '../hooks';
 import { resolveLabel } from '../localize';
 import type { CategoryPaneProps } from '../types';
-import { GlobalConfigSections } from './backend-config-panel';
 import { BackendConnectionsList } from './backend-connections-list';
 import { BackendDetailDiagram } from './backend-details';
 import { BackendTierCard } from './backend-tier-card';
@@ -50,19 +47,14 @@ const Intro: React.FC = () => {
   );
 };
 
-const BackendPane: React.FC<CategoryPaneProps> = ({ category, defs }) => {
+const BackendPane: React.FC<CategoryPaneProps> = ({ category }) => {
   const { token } = theme.useToken();
   const t = useT();
   const host = getCurrentHost();
-  // Subscribes this pane to the registry so the `when`-gated global
-  // sections re-evaluate the moment a record enables or disables.
-  useBackends();
 
   // Pane-level view toggle, rendered inline as a checkbox rather than a
-  // config row — so it stays out of the `fieldDefs` the sections lay
-  // out (it remains reachable via settings search).
+  // config row (it remains reachable via settings search).
   const [showDiagrams, setShowDiagrams] = useSetting('backend.showDiagrams');
-  const fieldDefs = defs.filter((d) => d.key !== 'backend.showDiagrams');
 
   return (
     <div style={{ padding: '0 24px 16px' }}>
@@ -117,8 +109,6 @@ const BackendPane: React.FC<CategoryPaneProps> = ({ category, defs }) => {
       )}
 
       {hostJoinsBackends(host) && <BackendConnectionsList host={host} />}
-
-      <GlobalConfigSections defs={fieldDefs} category={category} />
     </div>
   );
 };

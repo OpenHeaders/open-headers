@@ -439,7 +439,7 @@ registerSetting({
   schema: v.boolean(),
   labelKey: 'workbench.settings.def.backend.showDiagrams.label',
   descriptionKey: 'workbench.settings.def.backend.showDiagrams.description',
-  category: 'backend',
+  category: 'backendConnections',
   tags: ['diagram', 'preview', 'illustration', 'panels', 'svg'],
   scope: 'user',
 });

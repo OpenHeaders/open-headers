@@ -59,7 +59,7 @@ export const PanelWorkspaceSelector: React.FC = () => {
             void openWorkspace({ kind: 'open-workspace-manager' }, surface.mode);
           }}
           onOpenBackendSettings={() => {
-            void openWorkspace({ kind: 'open-settings', target: { categoryId: 'backend' } }, surface.mode);
+            void openWorkspace({ kind: 'open-settings', target: { categoryId: 'backendConnections' } }, surface.mode);
           }}
           onClose={() => setOpen(false)}
           orgGrouping={{

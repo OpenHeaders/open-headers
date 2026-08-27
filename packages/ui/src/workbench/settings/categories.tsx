@@ -9,6 +9,7 @@
  */
 
 import {
+  ApiOutlined,
   BgColorsOutlined,
   BranchesOutlined,
   ClusterOutlined,
@@ -57,6 +58,19 @@ registerCategory({
   icon: <CloudServerOutlined />,
   order: 3,
   descriptionKey: 'workbench.settings.category.backend.description',
+  // Group node over the back-end pages: Connections (every host), Desktop
+  // Pairing (extension), Server (desktop) and Reliability (every host).
+  renderPane: GroupLandingPane,
+});
+
+registerCategory({
+  id: 'backendConnections',
+  labelKey: 'workbench.settings.category.backendConnections.label',
+  navLabelKey: 'workbench.settings.category.backendConnections.navLabel',
+  parent: 'backend',
+  icon: <ApiOutlined />,
+  order: 5,
+  descriptionKey: 'workbench.settings.category.backendConnections.description',
   renderPane: BackendPane,
 });
 

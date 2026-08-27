@@ -68,6 +68,9 @@ export const workbenchSettings = {
   'workbench.settings.category.backend.label': '后端',
   'workbench.settings.category.backend.description':
     '你的工作区、规则、vault 和历史所在之处。按你的覆盖面挑选主机——无论哪种都仅限本地。',
+  'workbench.settings.category.backendConnections.label': '后端 · 连接',
+  'workbench.settings.category.backendConnections.navLabel': '连接',
+  'workbench.settings.category.backendConnections.description': '始终在线的本地引擎，以及此主机连接的后端。',
   'workbench.settings.category.backendServer.label': '后端 · 服务器',
   'workbench.settings.category.backendServer.navLabel': '服务器',
   'workbench.settings.category.backendServer.description':

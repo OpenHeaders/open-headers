@@ -1627,7 +1627,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
             onSwitchWorkspace={handleSwitchWorkspace}
             onSetActiveWorkspace={workspacesApi.setActiveWorkspace}
             onOpenWorkspaceManager={openWorkspaceManager}
-            onOpenBackendSettings={() => openSettings({ categoryId: 'backend' })}
+            onOpenBackendSettings={() => openSettings({ categoryId: 'backendConnections' })}
             onExportWorkspace={() => importExportRef.current?.openExportModal({ kind: 'workspace' })}
             onImportWorkspace={() => importExportRef.current?.openImportSource()}
             environments={envApi.environments}

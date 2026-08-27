@@ -79,6 +79,10 @@ export const workbenchSettings = {
   'workbench.settings.category.backend.description':
     'Donde viven tus espacios de trabajo, reglas, vault e historial. Elige el host que llegue tan lejos como ' +
     'necesites — solo local en cualquier caso.',
+  'workbench.settings.category.backendConnections.label': 'Backend · Conexiones',
+  'workbench.settings.category.backendConnections.navLabel': 'Conexiones',
+  'workbench.settings.category.backendConnections.description':
+    'El motor local siempre activo y los back-ends a los que se conecta este host.',
   'workbench.settings.category.backendServer.label': 'Backend · Servidor',
   'workbench.settings.category.backendServer.navLabel': 'Servidor',
   'workbench.settings.category.backendServer.description':

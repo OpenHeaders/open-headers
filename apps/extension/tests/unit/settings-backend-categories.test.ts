@@ -21,6 +21,22 @@ function expectDefsTagDeclaredSubcategories(categoryId: string): void {
 }
 
 describe('backend settings group', () => {
+  it('backend is a group node with no defs of its own; connections is its first child', () => {
+    const backend = getCategory('backend');
+    expect(backend?.parent).toBeUndefined();
+    expect(backend?.renderPane).toBeDefined();
+    expect(backend?.subcategories).toBeUndefined();
+    expect(byCategory('backend')).toHaveLength(0);
+    const connections = getCategory('backendConnections');
+    expect(connections?.parent).toBe('backend');
+    expect(connections?.renderPane).toBeDefined();
+    expect(getDef('backend.showDiagrams')?.category).toBe('backendConnections');
+    const children = allCategories()
+      .filter((c) => c.parent === 'backend')
+      .map((c) => c.id);
+    expect(children).toEqual(['backendConnections', 'backendPairing', 'backendServer', 'backendReliability']);
+  });
+
   it('nests the reliability page under the backend node', () => {
     const reliability = getCategory('backendReliability');
     expect(reliability?.parent).toBe('backend');

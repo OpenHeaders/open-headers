@@ -105,8 +105,12 @@ describe('settings localize resolvers', () => {
   });
 
   it('resolveLabel covers subcategories', () => {
-    const sub: SubcategoryDef = { id: 's', order: 1, labelKey: 'workbench.settings.category.backend.sub.lan-peers' };
-    expect(resolveLabel(sub, translateEnglish)).toBe('LAN peers');
+    const sub: SubcategoryDef = {
+      id: 's',
+      order: 1,
+      labelKey: 'workbench.settings.category.backendServer.sub.network',
+    };
+    expect(resolveLabel(sub, translateEnglish)).toBe('Network');
   });
 
   it('capabilityUnavailableHint prefers the key over the raw hint', () => {

@@ -64,6 +64,10 @@ export const workbenchSettings = {
   'workbench.settings.category.backend.label': 'Backend',
   'workbench.settings.category.backend.description':
     'Where your workspaces, rules, vault, and history live. Pick the host that matches your reach — local-only either way.',
+  'workbench.settings.category.backendConnections.label': 'Backend · Connections',
+  'workbench.settings.category.backendConnections.navLabel': 'Connections',
+  'workbench.settings.category.backendConnections.description':
+    'The always-on local engine and the back-ends this host connects to.',
   'workbench.settings.category.backendServer.label': 'Backend · Server',
   'workbench.settings.category.backendServer.navLabel': 'Server',
   'workbench.settings.category.backendServer.description':

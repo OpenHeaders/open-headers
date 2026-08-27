@@ -78,6 +78,10 @@ export const workbenchSettings = {
   'workbench.settings.category.backend.description':
     'Wo deine Arbeitsbereiche, Regeln, dein vault und dein Verlauf leben. Wähle den Host, der zu deiner ' +
     'Reichweite passt — so oder so nur lokal.',
+  'workbench.settings.category.backendConnections.label': 'Back-end · Verbindungen',
+  'workbench.settings.category.backendConnections.navLabel': 'Verbindungen',
+  'workbench.settings.category.backendConnections.description':
+    'Die immer aktive lokale Engine und die Back-ends, mit denen sich dieser Host verbindet.',
   'workbench.settings.category.backendServer.label': 'Back-end · Server',
   'workbench.settings.category.backendServer.navLabel': 'Server',
   'workbench.settings.category.backendServer.description':
