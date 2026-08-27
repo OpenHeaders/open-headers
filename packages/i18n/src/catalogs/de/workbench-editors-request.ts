@@ -87,7 +87,6 @@ export const workbenchEditorsRequest = {
   // ── Params / Headers tabs ──────────────────────────────────────────
   'workbench.editors.request.goToAuthorization': 'Zur Autorisierung gehen',
   'workbench.editors.request.goToBody': 'Zum Body gehen',
-  'workbench.editors.request.goToSettings': 'Zu den Einstellungen gehen',
   'workbench.editors.request.headers.keyPlaceholder': 'Header',
   'workbench.editors.request.headers.hideAuto': 'Automatisch generierte Header ausblenden',
   'workbench.editors.request.headers.hiddenCount': '{count} ausgeblendet',
@@ -99,9 +98,7 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.headers.calculated': '<wird beim Senden der Anfrage berechnet>',
   'workbench.editors.request.headers.browserUserAgent': '<User-Agent des Browsers>',
   'workbench.editors.request.headers.hint.cacheControl':
-    '„Cache-Control: no-cache“ wird vorsorglich hinzugefügt, damit der Server bei wiederholten Anfragen ' +
-    'keine veralteten Antworten zurückgibt. Du kannst diesen Header in den Anfrage-Einstellungen entfernen ' +
-    'oder einen neuen mit einem anderen Wert eingeben.',
+    '„Cache-Control: no-cache“ geht mit jedem Senden von einem Browser-Host hinaus, damit der Server bei wiederholten Anfragen nie aus einem veralteten Cache antwortet. Eigene Cache-Control-Zeile hinzufügen, um einen anderen Wert zu senden.',
   'workbench.editors.request.headers.hint.contentType':
     'Die Laufzeitumgebung berechnet den Content-Type aus der Body-Kodierung (form-data → ' +
     'multipart/form-data mit einer Boundary; x-www-form-urlencoded → application/x-www-form-urlencoded; ' +
@@ -125,6 +122,18 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.headers.hint.connection':
     'HTTP/1.1-Verbindungswiederverwendung. Der Browser verwaltet den Verbindungs-Pool und lässt ' +
     'Userland-Code diesen Header nicht überschreiben.',
+  'workbench.editors.request.headers.hint.node.host':
+    'Beim Senden aus der Ziel-URL abgeleitet. Eine eigene Host-Zeile ersetzt ihn auf der Leitung.',
+  'workbench.editors.request.headers.hint.node.connection':
+    'Die Node-Laufzeit hält Verbindungen offen und poolt sie je Origin. Eine eigene Connection-Zeile ersetzt sie.',
+  'workbench.editors.request.headers.hint.node.acceptLanguage':
+    'Der Fetch-Client der Node-Laufzeit sendet einen Platzhalter. Eine eigene Zeile ersetzt ihn.',
+  'workbench.editors.request.headers.hint.node.secFetchMode':
+    'Vom Fetch-Client der Node-Laufzeit bei jedem Senden gesetzt. Eine eigene Zeile ersetzt ihn.',
+  'workbench.editors.request.headers.hint.node.userAgent':
+    'Der Fetch-Client der Node-Laufzeit meldet sich als undici. Eigene User-Agent-Zeile hinzufügen, um einen anderen zu senden.',
+  'workbench.editors.request.headers.hint.node.acceptEncoding':
+    'Kompression, die die Node-Laufzeit annimmt und für Sie dekodiert. Eine eigene Zeile ersetzt sie — der Antwortkörper kommt dann so an, wie er gesendet wurde.',
 
   // ── Auth preview rows (Headers/Params generated rows) ──────────────
   'workbench.editors.request.authPreview.basicValue': 'Basic <Anmeldedaten>',
@@ -853,7 +862,8 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.response.meta.tlsIssuer': 'Aussteller-CN',
   'workbench.editors.request.response.meta.tlsValidUntil': 'Gültig bis',
   'workbench.editors.request.response.meta.tlsUnverifiedVerdict': 'Zertifikat nicht geprüft ({code})',
-  'workbench.editors.request.response.meta.trustPinned': 'Zertifikat auf diesem Gerät angeheftet — erneut senden, um zu prüfen.',
+  'workbench.editors.request.response.meta.trustPinned':
+    'Zertifikat auf diesem Gerät angeheftet — erneut senden, um zu prüfen.',
   'workbench.editors.request.response.meta.noteNoTls':
     'Lokale Adresse, TLS- und Zertifikatsdetails werden Erweiterungscode auf Chromium nicht offengelegt.',
   'workbench.editors.request.response.meta.tlsSelfSigned': 'Selbstsigniertes Zertifikat',
@@ -1056,7 +1066,8 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.response.error.openInTab': 'In neuem Tab öffnen',
   'workbench.editors.request.response.error.trust.title': 'Dem von {origin} vorgelegten Zertifikat vertrauen',
   'workbench.editors.request.response.error.trust.probing': 'Vom Server vorgelegtes Zertifikat wird gelesen…',
-  'workbench.editors.request.response.error.trust.probeFailed': 'Das Serverzertifikat konnte nicht gelesen werden: {message}',
+  'workbench.editors.request.response.error.trust.probeFailed':
+    'Das Serverzertifikat konnte nicht gelesen werden: {message}',
   'workbench.editors.request.response.error.trust.retryProbe': 'Erneut versuchen',
   'workbench.editors.request.response.error.trust.failure': 'Fehler',
   'workbench.editors.request.response.error.trust.noAnchor':

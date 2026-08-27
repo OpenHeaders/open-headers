@@ -77,7 +77,6 @@ export const workbenchEditorsRequest = {
   // ── Params / Headers tabs ──────────────────────────────────────────
   'workbench.editors.request.goToAuthorization': '前往授权',
   'workbench.editors.request.goToBody': '前往正文',
-  'workbench.editors.request.goToSettings': '前往设置',
   'workbench.editors.request.headers.keyPlaceholder': '标头',
   'workbench.editors.request.headers.hideAuto': '隐藏自动生成的标头',
   'workbench.editors.request.headers.hiddenCount': '已隐藏 {count} 个',
@@ -87,7 +86,7 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.headers.calculated': '<calculated when request is sent>',
   'workbench.editors.request.headers.browserUserAgent': '<browser user agent>',
   'workbench.editors.request.headers.hint.cacheControl':
-    '添加 "Cache-Control: no-cache" 作为预防措施，防止你重复发送请求时服务器返回过期的响应。你可以在请求设置中移除此标头，或输入一个不同值的新标头。',
+    '从浏览器主机发送时都会带上“Cache-Control: no-cache”，这样重复请求时服务器不会从过期缓存应答。添加你自己的 Cache-Control 行可发送其他值。',
   'workbench.editors.request.headers.hint.contentType':
     '运行时会根据正文编码计算 Content-Type（form-data → 带 boundary 的 multipart/form-data；x-www-form-urlencoded → application/x-www-form-urlencoded；raw JSON → application/json；等等）。设置你自己的标头即可覆盖。',
   'workbench.editors.request.headers.hint.contentLength':
@@ -101,6 +100,17 @@ export const workbenchEditorsRequest = {
     '浏览器支持的压缩算法。由浏览器设置并按连接协商；无法从用户代码覆盖。',
   'workbench.editors.request.headers.hint.connection':
     'HTTP/1.1 连接复用。浏览器管理连接池，不允许用户代码覆盖此标头。',
+  'workbench.editors.request.headers.hint.node.host': '发送时从目标 URL 推导。你自己的 Host 行会在线路上替换它。',
+  'workbench.editors.request.headers.hint.node.connection':
+    'node 运行时保持连接并按来源复用。你自己的 Connection 行会替换它。',
+  'workbench.editors.request.headers.hint.node.acceptLanguage':
+    'node 运行时的 fetch 客户端发送通配符。你自己的行会替换它。',
+  'workbench.editors.request.headers.hint.node.secFetchMode':
+    '由 node 运行时的 fetch 客户端在每次发送时附加。你自己的行会替换它。',
+  'workbench.editors.request.headers.hint.node.userAgent':
+    'node 运行时的 fetch 客户端将自身标识为 undici。添加你自己的 User-Agent 行可发送其他值。',
+  'workbench.editors.request.headers.hint.node.acceptEncoding':
+    'node 运行时接受并为你解码的压缩方式。你自己的行会替换它——响应体将按原样到达。',
 
   // ── Auth preview rows (Headers/Params generated rows) ──────────────
   'workbench.editors.request.authPreview.basicValue': 'Basic <credentials>',
@@ -827,7 +837,8 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.response.error.trust.probeFailed': '无法读取服务器证书：{message}',
   'workbench.editors.request.response.error.trust.retryProbe': '重试',
   'workbench.editors.request.response.error.trust.failure': '失败原因',
-  'workbench.editors.request.response.error.trust.noAnchor': '服务器未出示其根证书，因此这里没有可固定的内容。请在 设置 › API 请求 › TLS 中添加颁发该证书的 CA。',
+  'workbench.editors.request.response.error.trust.noAnchor':
+    '服务器未出示其根证书，因此这里没有可固定的内容。请在 设置 › API 请求 › TLS 中添加颁发该证书的 CA。',
   'workbench.editors.request.response.error.trust.trustOnDevice': '在此设备上信任',
   'workbench.editors.request.response.error.trust.addToWorkspace': '添加到工作区',
   'workbench.editors.request.response.error.certSteps.summary':

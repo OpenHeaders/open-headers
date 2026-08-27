@@ -76,7 +76,6 @@ export const workbenchEditorsRequest = {
   // ── Params / Headers tabs ──────────────────────────────────────────
   'workbench.editors.request.goToAuthorization': 'Ir a la autorización',
   'workbench.editors.request.goToBody': 'Ir al cuerpo',
-  'workbench.editors.request.goToSettings': 'Ir a la configuración',
   'workbench.editors.request.headers.keyPlaceholder': 'Encabezado',
   'workbench.editors.request.headers.hideAuto': 'Ocultar los encabezados generados automáticamente',
   'workbench.editors.request.headers.hiddenCount': '{count} ocultos',
@@ -88,9 +87,7 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.headers.calculated': '<calculado al enviar la solicitud>',
   'workbench.editors.request.headers.browserUserAgent': '<user agent del navegador>',
   'workbench.editors.request.headers.hint.cacheControl':
-    '«Cache-Control: no-cache» se añade como medida de precaución para evitar que el servidor devuelva ' +
-    'respuestas obsoletas cuando repites solicitudes. Puedes quitar este encabezado en la configuración de ' +
-    'la solicitud o introducir uno nuevo con otro valor.',
+    '«Cache-Control: no-cache» sale con cada envío desde un host de navegador, para que el servidor nunca responda desde una caché obsoleta al repetir una solicitud. Añade tu propia fila Cache-Control para enviar otro valor.',
   'workbench.editors.request.headers.hint.contentType':
     'El runtime calcula el Content-Type a partir de la codificación del cuerpo (form-data → ' +
     'multipart/form-data con un boundary; x-www-form-urlencoded → application/x-www-form-urlencoded; JSON ' +
@@ -113,6 +110,18 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.headers.hint.connection':
     'Reutilización de conexiones HTTP/1.1. El navegador gestiona el grupo de conexiones y no permite que el ' +
     'código de usuario sustituya este encabezado.',
+  'workbench.editors.request.headers.hint.node.host':
+    'Derivado de la URL de destino al enviar. Una fila Host tuya lo reemplaza en el cable.',
+  'workbench.editors.request.headers.hint.node.connection':
+    'El runtime de node mantiene las conexiones vivas y las agrupa por origen. Una fila Connection tuya lo reemplaza.',
+  'workbench.editors.request.headers.hint.node.acceptLanguage':
+    'El cliente fetch del runtime de node envía un comodín. Una fila tuya lo reemplaza.',
+  'workbench.editors.request.headers.hint.node.secFetchMode':
+    'Añadido por el cliente fetch del runtime de node en cada envío. Una fila tuya lo reemplaza.',
+  'workbench.editors.request.headers.hint.node.userAgent':
+    'El cliente fetch del runtime de node se identifica como undici. Añade tu propia fila User-Agent para enviar otro.',
+  'workbench.editors.request.headers.hint.node.acceptEncoding':
+    'Compresión que el runtime de node acepta y descodifica por ti. Una fila tuya lo reemplaza — el cuerpo de la respuesta llega entonces tal como se envió.',
 
   // ── Auth preview rows (Headers/Params generated rows) ──────────────
   'workbench.editors.request.authPreview.basicValue': 'Basic <credenciales>',
@@ -837,7 +846,8 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.response.meta.tlsIssuer': 'CN del emisor',
   'workbench.editors.request.response.meta.tlsValidUntil': 'Válido hasta',
   'workbench.editors.request.response.meta.tlsUnverifiedVerdict': 'Certificado no verificado ({code})',
-  'workbench.editors.request.response.meta.trustPinned': 'Certificado fijado en este dispositivo — vuelve a enviar para verificar.',
+  'workbench.editors.request.response.meta.trustPinned':
+    'Certificado fijado en este dispositivo — vuelve a enviar para verificar.',
   'workbench.editors.request.response.meta.noteNoTls':
     'La dirección local y los detalles de TLS y del certificado no se exponen al código de extensiones en ' +
     'Chromium.',
@@ -1041,7 +1051,8 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.response.error.openInTab': 'Abrir en una pestaña nueva',
   'workbench.editors.request.response.error.trust.title': 'Confiar en el certificado que presentó {origin}',
   'workbench.editors.request.response.error.trust.probing': 'Leyendo el certificado que presenta el servidor…',
-  'workbench.editors.request.response.error.trust.probeFailed': 'No se pudo leer el certificado del servidor: {message}',
+  'workbench.editors.request.response.error.trust.probeFailed':
+    'No se pudo leer el certificado del servidor: {message}',
   'workbench.editors.request.response.error.trust.retryProbe': 'Reintentar',
   'workbench.editors.request.response.error.trust.failure': 'Fallo',
   'workbench.editors.request.response.error.trust.noAnchor':

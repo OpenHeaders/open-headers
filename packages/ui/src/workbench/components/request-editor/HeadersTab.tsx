@@ -1,20 +1,20 @@
 /**
  * HeadersTab — user-defined request headers + an auto-generated
- * section the user can reveal with a Show/Hide toggle. The auto
- * rows surface the headers the browser tends to set on the outgoing
- * wire (Host, User-Agent, Accept, etc.) plus a cache-busting
- * Cache-Control default, plus — when the request carries a body —
- * the `Content-Type` + `Content-Length` entries that the executor
- * computes from the body itself.
+ * section the user can reveal with a Show/Hide toggle. The auto rows
+ * surface what the dialing host puts on the wire beyond the user's own
+ * rows: a browser host sends the page fetch's Cache-Control / Host /
+ * User-Agent / Accept family, a node host (desktop app, server) the
+ * undici client's — plus, when the request carries a body, the
+ * `Content-Type` + `Content-Length` entries the executor computes from
+ * the body itself.
  *
  * Auto rows are read-only text but carry a live checkbox the user
- * can un-check. The checkbox state is local — the browser decides
+ * can un-check. The checkbox state is local — the runtime decides
  * what actually goes on the wire for these regardless — so the
- * toggle's job is informational / "don't rely on this" signalling
- * until we move to a custom fetch pipeline that can honour
- * suppression end-to-end.
+ * toggle's job is informational / "don't rely on this" signalling.
  */
 
+import { getCapability } from '@openheaders/core/capabilities';
 import type { AuthConfig, RequestBody } from '@openheaders/core/types';
 import type { MessageKey } from '@openheaders/i18n';
 import type React from 'react';
@@ -75,37 +75,44 @@ interface AutoHeaderDef {
   overridable?: boolean;
   /** Editor tab that owns the generated value — renders the
    *  hover-revealed "Go to …" jump link on the row. */
-  goTo?: 'body' | 'settings';
+  goTo?: 'body';
 }
 
-// Base rows are listed in the order they typically appear on the wire
-// — we render in-order so the visual matches what a proxy / HAR view
-// would show.
-const BASE_AUTO_HEADERS: AutoHeaderDef[] = [
+const CONTENT_TYPE: AutoHeaderDef = {
+  key: 'Content-Type',
+  hintKey: 'workbench.editors.request.headers.hint.contentType',
+  bodyOnly: true,
+  overridable: true,
+  goTo: 'body',
+};
+const CONTENT_LENGTH: AutoHeaderDef = {
+  key: 'Content-Length',
+  hintKey: 'workbench.editors.request.headers.hint.contentLength',
+  bodyOnly: true,
+  goTo: 'body',
+};
+const ACCEPT: AutoHeaderDef = {
+  key: 'Accept',
+  value: '*/*',
+  hintKey: 'workbench.editors.request.headers.hint.accept',
+  overridable: true,
+};
+
+// Rows are listed in the order they appear on the wire — the visual
+// matches what a proxy / HAR view would show.
+
+/** A browser host's page fetch (the transport dials with `cache:
+ *  'no-store'`, which the browser stamps as Cache-Control: no-cache). */
+const BROWSER_AUTO_HEADERS: readonly AutoHeaderDef[] = [
   {
     key: 'Cache-Control',
     value: 'no-cache',
     hintKey: 'workbench.editors.request.headers.hint.cacheControl',
     overridable: true,
-    goTo: 'settings',
   },
-  {
-    key: 'Content-Type',
-    hintKey: 'workbench.editors.request.headers.hint.contentType',
-    bodyOnly: true,
-    overridable: true,
-    goTo: 'body',
-  },
-  {
-    key: 'Content-Length',
-    hintKey: 'workbench.editors.request.headers.hint.contentLength',
-    bodyOnly: true,
-    goTo: 'body',
-  },
-  {
-    key: 'Host',
-    hintKey: 'workbench.editors.request.headers.hint.host',
-  },
+  CONTENT_TYPE,
+  CONTENT_LENGTH,
+  { key: 'Host', hintKey: 'workbench.editors.request.headers.hint.host' },
   {
     key: 'User-Agent',
     value: typeof navigator !== 'undefined' ? navigator.userAgent : undefined,
@@ -113,12 +120,7 @@ const BASE_AUTO_HEADERS: AutoHeaderDef[] = [
     hintKey: 'workbench.editors.request.headers.hint.userAgent',
     overridable: true,
   },
-  {
-    key: 'Accept',
-    value: '*/*',
-    hintKey: 'workbench.editors.request.headers.hint.accept',
-    overridable: true,
-  },
+  ACCEPT,
   {
     key: 'Accept-Encoding',
     value: 'gzip, deflate, br',
@@ -128,6 +130,46 @@ const BASE_AUTO_HEADERS: AutoHeaderDef[] = [
     key: 'Connection',
     value: 'keep-alive',
     hintKey: 'workbench.editors.request.headers.hint.connection',
+  },
+];
+
+/** A node host's undici fetch — the desktop app's main process and
+ *  the server. No cache-busting header: the client has no HTTP cache.
+ *  Every row but the computed Content-Length yields to a user row. */
+const NODE_AUTO_HEADERS: readonly AutoHeaderDef[] = [
+  CONTENT_TYPE,
+  CONTENT_LENGTH,
+  { key: 'Host', hintKey: 'workbench.editors.request.headers.hint.node.host', overridable: true },
+  {
+    key: 'Connection',
+    value: 'keep-alive',
+    hintKey: 'workbench.editors.request.headers.hint.node.connection',
+    overridable: true,
+  },
+  ACCEPT,
+  {
+    key: 'Accept-Language',
+    value: '*',
+    hintKey: 'workbench.editors.request.headers.hint.node.acceptLanguage',
+    overridable: true,
+  },
+  {
+    key: 'Sec-Fetch-Mode',
+    value: 'cors',
+    hintKey: 'workbench.editors.request.headers.hint.node.secFetchMode',
+    overridable: true,
+  },
+  {
+    key: 'User-Agent',
+    value: 'undici',
+    hintKey: 'workbench.editors.request.headers.hint.node.userAgent',
+    overridable: true,
+  },
+  {
+    key: 'Accept-Encoding',
+    value: 'br, gzip, deflate',
+    hintKey: 'workbench.editors.request.headers.hint.node.acceptEncoding',
+    overridable: true,
   },
 ];
 
@@ -162,10 +204,11 @@ const HeadersTab: React.FC<HeadersTabProps> = ({
   const [showAuto, setShowAuto] = useState(false);
   const [disabledAutoKeys, setDisabledAutoKeys] = useState<Set<string>>(new Set());
 
+  const nodeHost = getCapability('requestRuntime')?.() === 'node';
   const autoHeaders = useMemo(() => {
     const hasBody = body.type !== 'none';
-    return BASE_AUTO_HEADERS.filter((h) => !h.bodyOnly || hasBody);
-  }, [body.type]);
+    return (nodeHost ? NODE_AUTO_HEADERS : BROWSER_AUTO_HEADERS).filter((h) => !h.bodyOnly || hasBody);
+  }, [body.type, nodeHost]);
 
   const toggleAutoKey = (key: string, next: boolean) => {
     setDisabledAutoKeys((prev) => {
@@ -259,14 +302,8 @@ const HeadersTab: React.FC<HeadersTabProps> = ({
     onToggle: (next: boolean) => toggleAutoKey(h.key, next),
     overriddenBy: h.overridable ? overrideBy(h.key) : undefined,
     action:
-      h.goTo && onNavigateTab
-        ? {
-            label:
-              h.goTo === 'body'
-                ? t('workbench.editors.request.goToBody')
-                : t('workbench.editors.request.goToSettings'),
-            onClick: () => onNavigateTab(h.goTo as 'body' | 'settings'),
-          }
+      h.goTo !== undefined && onNavigateTab
+        ? { label: t('workbench.editors.request.goToBody'), onClick: () => onNavigateTab('body') }
         : undefined,
   }));
   const suggestions: SuggestionRow[] = showAuto

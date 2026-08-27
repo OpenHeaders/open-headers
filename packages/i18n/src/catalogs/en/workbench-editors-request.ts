@@ -57,7 +57,6 @@ export const workbenchEditorsRequest = {
   // ── Params / Headers tabs ──────────────────────────────────────────
   'workbench.editors.request.goToAuthorization': 'Go to authorization',
   'workbench.editors.request.goToBody': 'Go to body',
-  'workbench.editors.request.goToSettings': 'Go to settings',
   'workbench.editors.request.headers.keyPlaceholder': 'Header',
   'workbench.editors.request.headers.hideAuto': 'Hide auto-generated headers',
   'workbench.editors.request.headers.hiddenCount': '{count} hidden',
@@ -68,7 +67,7 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.headers.calculated': '<calculated when request is sent>',
   'workbench.editors.request.headers.browserUserAgent': '<browser user agent>',
   'workbench.editors.request.headers.hint.cacheControl':
-    '"Cache-Control: no-cache" is added as a precautionary measure to prevent the server from returning stale responses when you make repeated requests. You can remove this header in the request settings or enter a new one with a different value.',
+    '"Cache-Control: no-cache" goes out with every browser-host send so the server never answers from a stale cache when you repeat a request. Add your own Cache-Control row to send a different value.',
   'workbench.editors.request.headers.hint.contentType':
     'The runtime computes Content-Type from the body encoding (form-data → multipart/form-data with a boundary; x-www-form-urlencoded → application/x-www-form-urlencoded; raw JSON → application/json; etc.). Set your own header to override.',
   'workbench.editors.request.headers.hint.contentLength':
@@ -83,6 +82,18 @@ export const workbenchEditorsRequest = {
     'Compression algorithms the browser supports. Set by the browser and negotiated per-connection; not overridable from userland.',
   'workbench.editors.request.headers.hint.connection':
     'HTTP/1.1 connection reuse. The browser manages the connection pool and does not let userland code override this header.',
+  'workbench.editors.request.headers.hint.node.host':
+    'Derived from the target URL when the request is sent. A Host row of your own replaces it on the wire.',
+  'workbench.editors.request.headers.hint.node.connection':
+    'The node runtime keeps connections alive and pools them per origin. A Connection row of your own replaces it.',
+  'workbench.editors.request.headers.hint.node.acceptLanguage':
+    'The node runtime’s fetch client sends a wildcard. A row of your own replaces it.',
+  'workbench.editors.request.headers.hint.node.secFetchMode':
+    'Stamped by the node runtime’s fetch client on every send. A row of your own replaces it.',
+  'workbench.editors.request.headers.hint.node.userAgent':
+    'The node runtime’s fetch client identifies itself as undici. Add your own User-Agent row to send a different one.',
+  'workbench.editors.request.headers.hint.node.acceptEncoding':
+    'Compression the node runtime accepts and decodes for you. A row of your own replaces it — the response body then arrives as sent.',
 
   // ── Auth preview rows (Headers/Params generated rows) ──────────────
   'workbench.editors.request.authPreview.basicValue': 'Basic <credentials>',

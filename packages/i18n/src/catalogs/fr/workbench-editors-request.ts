@@ -76,7 +76,6 @@ export const workbenchEditorsRequest = {
   // ── Params / Headers tabs ──────────────────────────────────────────
   'workbench.editors.request.goToAuthorization': "Aller à l'autorisation",
   'workbench.editors.request.goToBody': 'Aller au corps',
-  'workbench.editors.request.goToSettings': 'Aller aux paramètres',
   'workbench.editors.request.headers.keyPlaceholder': 'En-tête',
   'workbench.editors.request.headers.hideAuto': 'Masquer les en-têtes générés automatiquement',
   'workbench.editors.request.headers.hiddenCount': '{count} masqués',
@@ -88,9 +87,7 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.headers.calculated': "<calculé à l'envoi de la requête>",
   'workbench.editors.request.headers.browserUserAgent': '<user agent du navigateur>',
   'workbench.editors.request.headers.hint.cacheControl':
-    '« Cache-Control: no-cache » est ajouté par précaution pour empêcher le serveur de renvoyer des réponses ' +
-    'périmées quand vous répétez des requêtes. Vous pouvez retirer cet en-tête dans les paramètres de la ' +
-    'requête ou en saisir un nouveau avec une autre valeur.',
+    '« Cache-Control: no-cache » part avec chaque envoi depuis un hôte navigateur, pour que le serveur ne réponde jamais depuis un cache périmé quand vous répétez une requête. Ajoutez votre propre ligne Cache-Control pour envoyer une autre valeur.',
   'workbench.editors.request.headers.hint.contentType':
     "Le runtime calcule le Content-Type à partir de l'encodage du corps (form-data → multipart/form-data avec " +
     'un boundary ; x-www-form-urlencoded → application/x-www-form-urlencoded ; JSON brut → application/json ; ' +
@@ -113,6 +110,18 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.headers.hint.connection':
     'Réutilisation de connexion HTTP/1.1. Le navigateur gère le pool de connexions et ne laisse pas le code ' +
     'utilisateur remplacer cet en-tête.',
+  'workbench.editors.request.headers.hint.node.host':
+    'Dérivé de l’URL cible à l’envoi. Une ligne Host à vous le remplace sur le fil.',
+  'workbench.editors.request.headers.hint.node.connection':
+    'Le runtime node garde les connexions ouvertes et les met en pool par origine. Une ligne Connection à vous le remplace.',
+  'workbench.editors.request.headers.hint.node.acceptLanguage':
+    'Le client fetch du runtime node envoie un joker. Une ligne à vous le remplace.',
+  'workbench.editors.request.headers.hint.node.secFetchMode':
+    'Apposé par le client fetch du runtime node à chaque envoi. Une ligne à vous le remplace.',
+  'workbench.editors.request.headers.hint.node.userAgent':
+    'Le client fetch du runtime node s’identifie comme undici. Ajoutez votre propre ligne User-Agent pour en envoyer un autre.',
+  'workbench.editors.request.headers.hint.node.acceptEncoding':
+    'Compression que le runtime node accepte et décode pour vous. Une ligne à vous le remplace — le corps de la réponse arrive alors tel qu’envoyé.',
 
   // ── Auth preview rows (Headers/Params generated rows) ──────────────
   'workbench.editors.request.authPreview.basicValue': 'Basic <identifiants>',
@@ -849,7 +858,8 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.response.meta.tlsIssuer': 'CN de l’émetteur',
   'workbench.editors.request.response.meta.tlsValidUntil': 'Valide jusqu’au',
   'workbench.editors.request.response.meta.tlsUnverifiedVerdict': 'Certificat non vérifié ({code})',
-  'workbench.editors.request.response.meta.trustPinned': 'Certificat épinglé sur cet appareil — renvoyez pour vérifier.',
+  'workbench.editors.request.response.meta.trustPinned':
+    'Certificat épinglé sur cet appareil — renvoyez pour vérifier.',
   'workbench.editors.request.response.meta.noteNoTls':
     "L'adresse locale, les détails TLS et de certificat ne sont pas exposés au code d'extension " + 'sur Chromium.',
   'workbench.editors.request.response.meta.tlsSelfSigned': 'Certificat auto-signé',
@@ -1056,7 +1066,8 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.response.error.openInTab': 'Ouvrir dans un nouvel onglet',
   'workbench.editors.request.response.error.trust.title': 'Faire confiance au certificat présenté par {origin}',
   'workbench.editors.request.response.error.trust.probing': 'Lecture du certificat présenté par le serveur…',
-  'workbench.editors.request.response.error.trust.probeFailed': 'Impossible de lire le certificat du serveur : {message}',
+  'workbench.editors.request.response.error.trust.probeFailed':
+    'Impossible de lire le certificat du serveur : {message}',
   'workbench.editors.request.response.error.trust.retryProbe': 'Réessayer',
   'workbench.editors.request.response.error.trust.failure': 'Échec',
   'workbench.editors.request.response.error.trust.noAnchor':
