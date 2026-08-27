@@ -104,6 +104,7 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.topics.filterPlaceholder': '主题过滤器，例如 sensors/+/temperature',
   'workbench.editors.mqtt.topics.qosColLabel': 'QoS',
   'workbench.editors.mqtt.topics.optionsColLabel': '选项',
+  'workbench.editors.mqtt.topics.optionsTooltip': '订阅选项',
   'workbench.editors.mqtt.topics.subscribeColLabel': '订阅',
   'workbench.editors.mqtt.topics.subscribeLabel': '会话打开时订阅',
   'workbench.editors.mqtt.topics.subscribeLiveLabel': '在打开的会话上订阅/退订——已保存的行不会被修改',

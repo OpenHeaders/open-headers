@@ -10,9 +10,11 @@
  *     collection tree, MQTT leaves alongside the WebSocket ones.
  *   - `compose.ts` — the saved-row topic-tag color derivation (equal
  *     text, equal color, palette membership).
+ *   - `TopicOptionsPopover.tsx` — the gear's configured dot: lit once
+ *     any subscription option leaves its default.
  */
 
-import type { Collection, MqttRequest, Request } from '@openheaders/core/types';
+import type { Collection, MqttRequest, MqttTopicRow, Request } from '@openheaders/core/types';
 import type { Translate } from '@openheaders/ui/context/LocaleContext';
 import { buildRequestCollectionTrees } from '@openheaders/ui/shared/local-tree-builder';
 import {
@@ -32,6 +34,7 @@ import {
   userPropertiesToRows,
 } from '@openheaders/ui/workbench/components/mqtt-request-editor/draft';
 import { grantFailureLabel } from '@openheaders/ui/workbench/components/mqtt-request-editor/session-display';
+import { topicOptionsConfigured } from '@openheaders/ui/workbench/components/mqtt-request-editor/TopicOptionsPopover';
 import { describe, expect, it } from 'vitest';
 
 const mqttRequest = (overrides: Partial<MqttRequest> = {}): MqttRequest => ({
@@ -358,5 +361,30 @@ describe('saved-row topic tag colors', () => {
       ),
     );
     expect(colors.size).toBeGreaterThan(1);
+  });
+});
+
+describe('topic options — the configured dot', () => {
+  const row = (overrides: Partial<MqttTopicRow> = {}): MqttTopicRow => ({
+    uid: 'mqtp0001',
+    topicFilter: 'streetlights/+/lumens',
+    ...overrides,
+  });
+
+  it('stays off while every option sits at its default', () => {
+    expect(topicOptionsConfigured(row())).toBe(false);
+    expect(topicOptionsConfigured(row({ qos: 2, subscribe: false, description: 'notes' }))).toBe(false);
+    expect(topicOptionsConfigured(row({ noLocal: false, retainAsPublished: false, retainHandling: 0 }))).toBe(false);
+    expect(topicOptionsConfigured(row({ userProperties: [{ uid: 'mqup0001', key: '  ', value: 'x' }] }))).toBe(false);
+  });
+
+  it('lights once any option leaves its default', () => {
+    expect(topicOptionsConfigured(row({ noLocal: true }))).toBe(true);
+    expect(topicOptionsConfigured(row({ retainAsPublished: true }))).toBe(true);
+    expect(topicOptionsConfigured(row({ retainHandling: 2 }))).toBe(true);
+    expect(topicOptionsConfigured(row({ subscriptionId: 7 }))).toBe(true);
+    expect(topicOptionsConfigured(row({ userProperties: [{ uid: 'mqup0001', key: 'x-tenant', value: '' }] }))).toBe(
+      true,
+    );
   });
 });

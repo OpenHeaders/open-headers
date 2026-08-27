@@ -5,38 +5,24 @@
  * `setMqttSubscription` rider and marks the row with its SUBACK grant
  * (QoS downgrades honest), never editing the stored row (the ratified
  * publication-gate idiom). Columns: Topic filter (the Params tables'
- * borderless `TemplateInput` cell), the ⋯ options slot (the 5.0
- * subscription options popover, disabled-honest on 3.1.1), the compact
- * QoS knob, Subscribe, Description.
+ * borderless `TemplateInput` cell), the gear options slot
+ * (`TopicOptionsPopover`, disabled-honest on 3.1.1), the compact QoS
+ * knob, Subscribe, Description.
  */
 
-import { PlusOutlined, SettingOutlined } from '@ant-design/icons';
+import { SettingOutlined } from '@ant-design/icons';
 import { topicFilterError } from '@openheaders/core/mqtt';
-import type { MqttRequestQos, MqttRetainHandling, MqttTopicRow } from '@openheaders/core/types';
+import type { MqttRequestQos, MqttTopicRow } from '@openheaders/core/types';
 import { generateUid } from '@openheaders/core/utils';
 import { useT } from '@openheaders/ui/context/LocaleContext';
-import { InfoPopoverContainerProvider } from '@openheaders/ui/shared/info-popover';
-import {
-  Button,
-  ConfigProvider,
-  Input,
-  InputNumber,
-  Popover,
-  Select,
-  Switch,
-  Tag,
-  Tooltip,
-  Typography,
-  theme,
-} from 'antd';
+import { Button, Select, Switch, Tag, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { cellFont } from '../request-editor/editable-grid-styles';
 import { EditableGridTable } from '../request-editor/EditableGridTable';
 import type { EditableRowAdapter } from '../request-editor/editable-grid-types';
 import { TEMPLATE_INPUT_LINE_HEIGHT, TemplateInput } from '../template-input';
-import { mqttSettingsRowInfo } from './MqttSettingsRowInfo';
-import OptionLabel from './OptionLabel';
 import { grantFailureLabel } from './session-display';
+import TopicOptionsPopover from './TopicOptionsPopover';
 import type { LiveSubscriptionMark } from './useMqttSessionPlane';
 
 const { Text } = Typography;
@@ -45,11 +31,6 @@ const { Text } = Typography;
 // cell with symmetric padding (see `KeyValueTable`).
 const CELL_LINE_PX = 12 * TEMPLATE_INPUT_LINE_HEIGHT;
 const CELL_VERTICAL_PADDING = (32 - CELL_LINE_PX) / 2;
-
-/** The (i) popovers portal INSIDE the options popover — portaled to
- *  body they would count as an outside click and close it. */
-const resolveOptionsPopover = (node: HTMLElement): HTMLElement | null =>
-  node.closest<HTMLElement>('.oh-mqtt-topic-options');
 
 /** Topics-grid row adapter — the topic filter rides the key track; the
  *  ⋯ options slot, QoS and Subscribe each own an aux/value track. */
@@ -199,212 +180,7 @@ const MqttTopicsTab: React.FC<MqttTopicsTabProps> = ({ rows, onChange, v5, sessi
                   data-testid="mqtt-topic-options"
                 />
               ) : (
-                <Popover
-                  trigger="click"
-                  placement="bottom"
-                  content={
-                    // The (i) popovers must portal inside this popover
-                    // (see resolveOptionsPopover) — the marker class is
-                    // the resolver's anchor, position: relative its
-                    // positioning context.
-                    <InfoPopoverContainerProvider resolver={resolveOptionsPopover}>
-                      <div
-                        className="oh-mqtt-topic-options"
-                        style={{
-                          position: 'relative',
-                          display: 'flex',
-                          flexDirection: 'column',
-                          gap: 8,
-                          width: 'max-content',
-                          maxWidth: 420,
-                        }}
-                      >
-                      <Text type="secondary" style={{ fontSize: 11 }}>
-                        {v5 ? t('workbench.editors.mqtt.topics.optionsHint') : t('workbench.editors.mqtt.props.v311')}
-                      </Text>
-                      {/* User Properties ride ONCE on this row's
-                        SUBSCRIBE packet — broker-defined metadata,
-                        never echoed on delivered messages (the (i)
-                        carries that honestly). */}
-                      <OptionLabel
-                        strong
-                        text={t('workbench.editors.mqtt.topics.subscribeProperties')}
-                        info={mqttSettingsRowInfo(t, 'subscribeProperties')}
-                      />
-                      {/* The list shows four rows and scrolls instead of
-                        growing the popover row by row; the right gutter
-                        keeps the scrollbar off the remove buttons. */}
-                      {(row.userProperties ?? []).length > 0 && (
-                        <div
-                          className="oh-mqtt-topic-userprops"
-                          style={{
-                            display: 'flex',
-                            flexDirection: 'column',
-                            gap: 4,
-                            maxHeight: 108,
-                            overflowY: 'auto',
-                            paddingRight: 10,
-                          }}
-                        >
-                          {(row.userProperties ?? []).map((prop, index) => (
-                            <div key={prop.uid} style={{ display: 'flex', gap: 4 }}>
-                              <Input
-                                size="small"
-                                placeholder={t('workbench.editors.mqtt.props.userPropKey')}
-                                value={prop.key}
-                                disabled={!v5}
-                                onChange={(e) => {
-                                  const next = [...(row.userProperties ?? [])];
-                                  next[index] = { ...prop, key: e.target.value };
-                                  update({ ...row, userProperties: next });
-                                }}
-                                data-testid="mqtt-topic-userprop-key"
-                              />
-                              <Input
-                                size="small"
-                                placeholder={t('workbench.editors.mqtt.props.userPropValue')}
-                                value={prop.value}
-                                disabled={!v5}
-                                onChange={(e) => {
-                                  const next = [...(row.userProperties ?? [])];
-                                  next[index] = { ...prop, value: e.target.value };
-                                  update({ ...row, userProperties: next });
-                                }}
-                                data-testid="mqtt-topic-userprop-value"
-                              />
-                              <Button
-                                size="small"
-                                type="text"
-                                disabled={!v5}
-                                aria-label={t('workbench.editors.mqtt.props.removeUserProp')}
-                                onClick={() => {
-                                  const next = (row.userProperties ?? []).filter((r) => r.uid !== prop.uid);
-                                  update({ ...row, userProperties: next.length > 0 ? next : undefined });
-                                }}
-                              >
-                                ×
-                              </Button>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                      <Button
-                        size="small"
-                        type="dashed"
-                        icon={<PlusOutlined style={{ fontSize: 10 }} />}
-                        disabled={!v5}
-                        style={{ fontSize: 11, alignSelf: 'flex-start' }}
-                        onClick={(e) => {
-                          update({
-                            ...row,
-                            userProperties: [...(row.userProperties ?? []), { uid: generateUid(), key: '', value: '' }],
-                          });
-                          // No hook slot inside a cell renderer — the list
-                          // resolves off the popover marker instead.
-                          const list = e.currentTarget
-                            .closest('.oh-mqtt-topic-options')
-                            ?.querySelector<HTMLElement>('.oh-mqtt-topic-userprops');
-                          requestAnimationFrame(() => list?.scrollTo({ top: list.scrollHeight }));
-                        }}
-                        data-testid="mqtt-topic-add-userprop"
-                      >
-                        {t('workbench.editors.mqtt.props.addUserProp')}
-                      </Button>
-                      <div style={{ height: 1, background: token.colorSplit }} />
-                      <OptionLabel
-                        strong
-                        text={t('workbench.editors.mqtt.topics.subscribeSettings')}
-                        info={mqttSettingsRowInfo(t, 'subscribeSettings')}
-                      />
-                      {/* One anatomy for every row: the label column left,
-                        the control column right — explanations live behind
-                        the (i) popovers, never inline in the labels. */}
-                      <div
-                        className="oh-stated-default"
-                        style={{
-                          display: 'grid',
-                          gridTemplateColumns: 'auto 1fr',
-                          columnGap: 12,
-                          rowGap: 8,
-                          alignItems: 'center',
-                        }}
-                      >
-                        <OptionLabel
-                          text={t('workbench.editors.mqtt.topics.noLocal')}
-                          info={mqttSettingsRowInfo(t, 'noLocal')}
-                        />
-                        <Switch
-                          size="small"
-                          style={{ justifySelf: 'start' }}
-                          disabled={!v5}
-                          checked={row.noLocal === true}
-                          onChange={(noLocal) => update({ ...row, noLocal })}
-                          data-testid="mqtt-topic-nolocal"
-                        />
-                        <OptionLabel
-                          text={t('workbench.editors.mqtt.topics.retainAsPublished')}
-                          info={mqttSettingsRowInfo(t, 'retainAsPublished')}
-                        />
-                        <Switch
-                          size="small"
-                          style={{ justifySelf: 'start' }}
-                          disabled={!v5}
-                          checked={row.retainAsPublished === true}
-                          onChange={(retainAsPublished) => update({ ...row, retainAsPublished })}
-                        />
-                        <OptionLabel
-                          text={t('workbench.editors.mqtt.topics.retainHandling')}
-                          info={mqttSettingsRowInfo(t, 'retainHandling')}
-                        />
-                        <Select
-                          size="small"
-                          disabled={!v5}
-                          popupMatchSelectWidth={false}
-                          value={row.retainHandling ?? 0}
-                          options={[
-                            // title stays empty — the label's (i) popover
-                            // carries the values; the native label-title
-                            // would double the hover.
-                            { value: 0, title: '', label: t('workbench.editors.mqtt.topics.retainHandling0') },
-                            { value: 1, title: '', label: t('workbench.editors.mqtt.topics.retainHandling1') },
-                            { value: 2, title: '', label: t('workbench.editors.mqtt.topics.retainHandling2') },
-                          ]}
-                          onChange={(retainHandling: MqttRetainHandling) => update({ ...row, retainHandling })}
-                        />
-                        <OptionLabel
-                          text={t('workbench.editors.mqtt.topics.subscriptionId')}
-                          info={mqttSettingsRowInfo(t, 'subscriptionId')}
-                        />
-                        {/* The empty knob means the default in effect —
-                          its stated default reads at full text
-                          contrast, the Settings-tab discipline. */}
-                        <ConfigProvider
-                          theme={{ components: { InputNumber: { colorTextPlaceholder: token.colorText } } }}
-                        >
-                          <InputNumber
-                            size="small"
-                            min={1}
-                            max={268_435_455}
-                            disabled={!v5}
-                            value={row.subscriptionId}
-                            onChange={(next) => update({ ...row, subscriptionId: next ?? undefined })}
-                            placeholder={t('workbench.editors.mqtt.topics.subscriptionIdPlaceholder')}
-                            style={{ width: 120 }}
-                          />
-                        </ConfigProvider>
-                      </div>
-                      </div>
-                    </InfoPopoverContainerProvider>
-                  }
-                >
-                  <Button
-                    size="small"
-                    type="text"
-                    icon={<SettingOutlined />}
-                    style={{ marginLeft: 4 }}
-                    data-testid="mqtt-topic-options"
-                  />
-                </Popover>
+                <TopicOptionsPopover row={row} onChange={update} v5={v5} />
               ),
           },
           {

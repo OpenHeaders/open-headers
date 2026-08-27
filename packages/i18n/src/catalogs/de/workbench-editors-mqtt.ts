@@ -108,6 +108,7 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.topics.filterPlaceholder': 'Themenfilter, z. B. sensors/+/temperature',
   'workbench.editors.mqtt.topics.qosColLabel': 'QoS',
   'workbench.editors.mqtt.topics.optionsColLabel': 'Optionen',
+  'workbench.editors.mqtt.topics.optionsTooltip': 'Abonnementoptionen',
   'workbench.editors.mqtt.topics.subscribeColLabel': 'Abonnement',
   'workbench.editors.mqtt.topics.subscribeLabel': 'Beim Öffnen der Sitzung abonnieren',
   'workbench.editors.mqtt.topics.subscribeLiveLabel':
