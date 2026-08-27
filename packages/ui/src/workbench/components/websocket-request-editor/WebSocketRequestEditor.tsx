@@ -364,12 +364,12 @@ const WebSocketRequestEditor: React.FC<WebSocketRequestEditorProps> = ({
                     items={[
                       { key: 'docs', label: t('workbench.editors.websocket.tab.docs') },
                       { key: 'message', label: t('workbench.editors.websocket.tab.message') },
+                      { key: 'params', label: t('workbench.editors.websocket.tab.params') },
                       ...(socketioFlavor
                         ? [{ key: 'events', label: t('workbench.editors.websocket.tab.events') }]
                         : []),
                       { key: 'auth', label: t('workbench.editors.websocket.tab.auth') },
                       { key: 'headers', label: t('workbench.editors.websocket.tab.headers') },
-                      { key: 'params', label: t('workbench.editors.websocket.tab.params') },
                       { key: 'spec', label: t('workbench.editors.websocket.tab.spec') },
                       { key: 'settings', label: t('workbench.editors.websocket.tab.settings') },
                     ]}
