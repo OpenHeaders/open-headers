@@ -436,6 +436,9 @@ export const workbenchSettingsDefs = {
     'Highlight matching brackets in different colors.',
 
   // ── API Requests category defs ─────────────────────────────────────
+  'workbench.settings.def.requests.trustedRoots.label': 'Trusted Certificates',
+  'workbench.settings.def.requests.trustedRoots.description':
+    'Certificate authorities this workspace trusts in addition to the built-in roots, applied to every TLS connection the app’s runtime dials. Workspace data, edited in its own tab — open it from here.',
   'workbench.settings.def.requests.responseBodyCapMB.label': 'Response Body Limit (MB)',
   'workbench.settings.def.requests.responseBodyCapMB.description':
     'How much of a response body the executor keeps for display. Larger bodies are truncated at this limit — the full size is still measured and reported. Raising the limit increases memory use per open request tab.',

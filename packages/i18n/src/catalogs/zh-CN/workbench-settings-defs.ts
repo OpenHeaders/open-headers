@@ -409,6 +409,9 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.editor.bracketPairColorization.description': '用不同颜色高亮匹配的括号。',
 
   // ── API Requests category defs ─────────────────────────────────────
+  'workbench.settings.def.requests.trustedRoots.label': '受信任的证书',
+  'workbench.settings.def.requests.trustedRoots.description':
+    '此工作区在内置根证书之外信任的证书颁发机构，应用于应用运行时建立的每个 TLS 连接。属于工作区数据，在其专属标签页中编辑——可从此处打开。',
   'workbench.settings.def.requests.responseBodyCapMB.label': '响应体上限（MB）',
   'workbench.settings.def.requests.responseBodyCapMB.description':
     '执行器为显示保留的响应体大小。更大的响应体会在此上限处截断——完整大小仍会被测量并报告。提高上限会增加每个打开的请求标签页的内存占用。',

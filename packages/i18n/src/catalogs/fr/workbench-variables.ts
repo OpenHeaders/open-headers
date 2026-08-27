@@ -126,6 +126,10 @@ export const workbenchVariables = {
   'workbench.variables.vault.infoBanner':
     'Les secrets du vault sont chiffrés au repos, ne quittent jamais cet appareil et priment sur toutes les ' +
     'autres portées.',
+  'workbench.variables.vault.trustedRootsNote':
+    'Vous cherchez des certificats CA ? Les certificats de confiance sont des données de l’espace de travail, ' +
+    'pas des secrets — ils ont leur propre onglet.',
+  'workbench.variables.vault.trustedRootsLink': 'Ouvrir les certificats de confiance',
   'workbench.variables.vault.cipherLocked':
     "Le stockage des secrets est verrouillé — le système a refusé l'accès à son trousseau, les secrets du " +
     'vault ne peuvent donc être ni lus ni enregistrés cette session.',

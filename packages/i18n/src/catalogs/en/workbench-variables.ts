@@ -130,6 +130,9 @@ export const workbenchVariables = {
   'workbench.variables.vault.title': 'Vault',
   'workbench.variables.vault.infoBanner':
     'Vault secrets are encrypted at rest, never leave this device, and take priority over every other scope.',
+  'workbench.variables.vault.trustedRootsNote':
+    'Looking for CA certificates? Trusted certificates are workspace data, not secrets — they live in their own tab.',
+  'workbench.variables.vault.trustedRootsLink': 'Open trusted certificates',
   'workbench.variables.vault.cipherLocked':
     'Secrets storage is locked — the system denied access to its keychain, so vault secrets cannot be read or saved this session.',
   'workbench.variables.vault.cipherLockedRelaunch': 'Relaunch app',

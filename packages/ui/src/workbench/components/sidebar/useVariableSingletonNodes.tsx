@@ -1,4 +1,4 @@
-import { CodeSandboxOutlined, SafetyCertificateOutlined } from '@ant-design/icons';
+import { CodeSandboxOutlined } from '@ant-design/icons';
 import { useMemo } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { scopeBadge } from '../shared/scope-colors';
@@ -6,14 +6,13 @@ import type { TreeNode } from './types';
 
 interface UseVariableSingletonNodesParams {
   onOpenVault?: () => void;
-  onOpenTrustedRoots?: () => void;
   onOpenWorkspaceVariables?: () => void;
   onOpenLiveVariables?: () => void;
   onOpenScriptPackages?: () => void;
 }
 
 /**
- * Vault / Trusted Certificates / Workspace Variables / Live Variables / Package Library —
+ * Vault / Workspace Variables / Live Variables / Package Library —
  * single-row openers for the full editors. Clicking opens the
  * corresponding editor tab.
  */
@@ -33,22 +32,6 @@ export function useVariableSingletonNodes(p: UseVariableSingletonNodesParams) {
       onOpen: () => p.onOpenVault?.(),
     }),
     [p.onOpenVault, t],
-  );
-
-  const trustedRootsNode = useMemo(
-    (): TreeNode => ({
-      id: 'trusted-roots-row',
-      kind: 'leaf',
-      label: t('workbench.sidebar.singleton.trustedRoots'),
-      depth: 0,
-      expandable: false,
-      icon: <SafetyCertificateOutlined />,
-      canRename: false,
-      canDelete: false,
-      canAddChild: false,
-      onOpen: () => p.onOpenTrustedRoots?.(),
-    }),
-    [p.onOpenTrustedRoots, t],
   );
 
   const workspaceVarsNode = useMemo(
@@ -99,5 +82,5 @@ export function useVariableSingletonNodes(p: UseVariableSingletonNodesParams) {
     [p.onOpenScriptPackages, t],
   );
 
-  return { vaultNode, trustedRootsNode, workspaceVarsNode, liveVarsNode, scriptPackagesNode };
+  return { vaultNode, workspaceVarsNode, liveVarsNode, scriptPackagesNode };
 }

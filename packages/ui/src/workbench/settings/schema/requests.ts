@@ -5,6 +5,7 @@
 
 import * as v from 'valibot';
 import { getCurrentHost } from '../../../shared/host-vocabulary';
+import TrustedRootsRow from '../components/trusted-roots-row';
 import { registerSetting } from '../registry';
 
 declare module '@openheaders/ui/workbench/settings/types' {
@@ -24,6 +25,7 @@ declare module '@openheaders/ui/workbench/settings/types' {
     'requests.wsMessagesGroupByEvent': boolean;
     'requests.wsMessagesGroupRowLimit': number;
     'requests.mqttMessagesNewestFirst': boolean;
+    'requests.trustedRoots': string;
   }
 }
 
@@ -264,4 +266,22 @@ registerSetting({
   tags: ['sse', 'stream', 'events', 'group', 'limit', 'rows', 'watch'],
   scope: 'user',
   numberRange: { min: 0, max: 100, step: 1 },
+});
+
+// The global door to the workspace's trusted certificates — a readout
+// riding an `info` def with a custom editor (the MCP Clients idiom):
+// the list itself is workspace data edited in its own tab, so this
+// row shows the count and opens the editor, never holds a value.
+registerSetting({
+  key: 'requests.trustedRoots',
+  subcategory: 'tls',
+  type: 'info',
+  default: '',
+  schema: v.string(),
+  labelKey: 'workbench.settings.def.requests.trustedRoots.label',
+  descriptionKey: 'workbench.settings.def.requests.trustedRoots.description',
+  category: 'requests',
+  tags: ['tls', 'ssl', 'certificate', 'ca', 'root', 'trust', 'pki', 'verify'],
+  scope: 'user',
+  customEditor: TrustedRootsRow,
 });

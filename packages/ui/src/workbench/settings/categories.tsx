@@ -483,6 +483,7 @@ registerCategory({
   // One section per request type, so each protocol's knobs read as a
   // block instead of one interleaved list.
   subcategories: [
+    { id: 'tls', labelKey: 'workbench.settings.category.requests.sub.tls', order: 5 },
     { id: 'http', labelKey: 'workbench.settings.category.requests.sub.http', order: 10 },
     { id: 'sse', labelKey: 'workbench.settings.category.requests.sub.sse', order: 20 },
     { id: 'grpc', labelKey: 'workbench.settings.category.requests.sub.grpc', order: 30 },

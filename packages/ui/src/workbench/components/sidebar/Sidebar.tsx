@@ -130,7 +130,6 @@ interface SidebarProps {
   onSelectSpec?: (uid: string, name: string, autoRename?: boolean) => void;
   onOpenWorkspaceVariables?: () => void;
   onOpenVault?: () => void;
-  onOpenTrustedRoots?: () => void;
   onOpenLiveVariables?: () => void;
   onOpenScriptPackages?: () => void;
   /** Open the variables editor for a rule-collection (`⋯` action on a
@@ -223,7 +222,6 @@ const Sidebar: React.FC<SidebarProps> = ({
   onSelectSpec,
   onOpenWorkspaceVariables,
   onOpenVault,
-  onOpenTrustedRoots,
   onOpenLiveVariables,
   onOpenScriptPackages,
   onOpenCollectionVariables,
@@ -847,9 +845,8 @@ const Sidebar: React.FC<SidebarProps> = ({
     onExportEntity,
   });
 
-  const { vaultNode, trustedRootsNode, workspaceVarsNode, liveVarsNode, scriptPackagesNode } = useVariableSingletonNodes({
+  const { vaultNode, workspaceVarsNode, liveVarsNode, scriptPackagesNode } = useVariableSingletonNodes({
     onOpenVault,
-    onOpenTrustedRoots,
     onOpenWorkspaceVariables,
     onOpenLiveVariables,
     onOpenScriptPackages,
@@ -1129,7 +1126,6 @@ const Sidebar: React.FC<SidebarProps> = ({
           <VariablesSection
             filterText={filterText}
             vaultNode={vaultNode}
-            trustedRootsNode={trustedRootsNode}
             workspaceVarsNode={workspaceVarsNode}
             liveVarsNode={liveVarsNode}
             isSelected={isSelected}

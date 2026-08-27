@@ -1492,7 +1492,6 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
         }}
         openWorkspaceVariables={openWorkspaceVariables}
         openVault={openVault}
-        openTrustedRoots={openTrustedRoots}
         openScriptPackages={openScriptPackages}
         openLiveVariables={openLiveVariables}
         openCollectionVariables={openCollectionVariables}

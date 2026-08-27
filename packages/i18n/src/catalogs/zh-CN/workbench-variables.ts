@@ -120,6 +120,8 @@ export const workbenchVariables = {
   // ── Vault page ──────────────────────────────────────────────────────
   'workbench.variables.vault.title': 'Vault',
   'workbench.variables.vault.infoBanner': 'Vault 机密在静态存储时加密、从不离开此设备，并优先于所有其他作用域。',
+  'workbench.variables.vault.trustedRootsNote': '在找 CA 证书？受信任的证书属于工作区数据而非机密——它们有自己的标签页。',
+  'workbench.variables.vault.trustedRootsLink': '打开受信任的证书',
   'workbench.variables.vault.cipherLocked':
     '机密存储已锁定——系统拒绝了对其钥匙串的访问，本次会话无法读取或保存 vault 机密。',
   'workbench.variables.vault.cipherLockedRelaunch': '重新启动应用',

@@ -130,6 +130,10 @@ export const workbenchVariables = {
   'workbench.variables.vault.infoBanner':
     'Los secretos del vault se cifran en reposo, nunca salen de este dispositivo y tienen prioridad sobre ' +
     'todos los demás ámbitos.',
+  'workbench.variables.vault.trustedRootsNote':
+    '¿Buscas certificados CA? Los certificados de confianza son datos del espacio de trabajo, no secretos — ' +
+    'tienen su propia pestaña.',
+  'workbench.variables.vault.trustedRootsLink': 'Abrir certificados de confianza',
   'workbench.variables.vault.cipherLocked':
     'El almacenamiento de secretos está bloqueado — el sistema denegó el acceso a su llavero, así que los ' +
     'secretos del vault no se pueden leer ni guardar en esta sesión.',

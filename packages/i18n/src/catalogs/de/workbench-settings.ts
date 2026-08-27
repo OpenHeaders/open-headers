@@ -224,6 +224,7 @@ export const workbenchSettings = {
   'workbench.settings.category.codeEditor.sub.editing': 'Bearbeitung',
   'workbench.settings.category.requests.label': 'API-Anfragen',
   'workbench.settings.category.requests.description': 'Senden von HTTP-Anfragen und Verarbeitung der Antworten.',
+  'workbench.settings.category.requests.sub.tls': 'TLS',
   'workbench.settings.category.requests.sub.http': 'HTTP',
   'workbench.settings.category.requests.sub.sse': 'SSE',
   'workbench.settings.category.requests.sub.grpc': 'gRPC',

@@ -133,6 +133,10 @@ export const workbenchVariables = {
   'workbench.variables.vault.infoBanner':
     'Vault-Secrets sind im Ruhezustand verschlüsselt, verlassen dieses Gerät nie und haben Vorrang vor jedem ' +
     'anderen Geltungsbereich.',
+  'workbench.variables.vault.trustedRootsNote':
+    'CA-Zertifikate gesucht? Vertrauenswürdige Zertifikate sind Arbeitsbereichsdaten, keine Geheimnisse — ' +
+    'sie haben ihren eigenen Tab.',
+  'workbench.variables.vault.trustedRootsLink': 'Vertrauenswürdige Zertifikate öffnen',
   'workbench.variables.vault.cipherLocked':
     'Der Secret-Speicher ist gesperrt — das System hat den Zugriff auf seinen Schlüsselbund verweigert, daher ' +
     'können Secrets aus dem vault in dieser Sitzung weder gelesen noch gespeichert werden.',

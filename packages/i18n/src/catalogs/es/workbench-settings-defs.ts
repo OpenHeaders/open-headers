@@ -560,6 +560,9 @@ export const workbenchSettingsDefs = {
     'Resalta los corchetes emparejados en colores distintos.',
 
   // ── API Requests category defs ─────────────────────────────────────
+  'workbench.settings.def.requests.trustedRoots.label': 'Certificados de confianza',
+  'workbench.settings.def.requests.trustedRoots.description':
+    'Autoridades de certificación en las que confía este espacio de trabajo además de las raíces integradas, aplicadas a cada conexión TLS que establece el runtime de la aplicación. Datos del espacio de trabajo, editados en su propia pestaña — ábrela desde aquí.',
   'workbench.settings.def.requests.responseBodyCapMB.label': 'Límite del cuerpo de respuesta (MB)',
   'workbench.settings.def.requests.responseBodyCapMB.description':
     'Cuánto de un cuerpo de respuesta conserva el ejecutor para mostrarlo. Los cuerpos más grandes se ' +
