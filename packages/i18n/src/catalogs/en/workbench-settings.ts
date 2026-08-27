@@ -124,7 +124,8 @@ export const workbenchSettings = {
   'workbench.settings.category.terminal.sub.appearance': 'Appearance',
   'workbench.settings.category.terminal.sub.behavior': 'Behavior',
   'workbench.settings.category.terminal.sub.tabs': 'Tabs',
-  'workbench.settings.category.devpanel.label': 'DevTools Panel',
+  'workbench.settings.category.devpanel.label': 'Browser Interceptor · DevTools Panel',
+  'workbench.settings.category.devpanel.navLabel': 'DevTools Panel',
   'workbench.settings.category.devpanel.description':
     'Defaults for the browser DevTools panel — the tool-window shell and each tab of the requests surface.',
   'workbench.settings.category.devpanelLayout.label': 'DevTools Panel · Layout',
@@ -164,7 +165,8 @@ export const workbenchSettings = {
   'workbench.settings.category.devpanelTiming.description':
     'Defaults for the Timing tab in the DevTools panel — which bands are visible.',
   'workbench.settings.category.devpanelTiming.sub.view': 'View',
-  'workbench.settings.category.inspection.label': 'Debug mode',
+  'workbench.settings.category.inspection.label': 'Browser Interceptor · Debug Mode',
+  'workbench.settings.category.inspection.navLabel': 'Debug Mode',
   'workbench.settings.category.inspection.description':
     'The opt-in path that attaches your browser’s debugging protocol — inspect and modify requests with the same depth as the built-in developer tools.',
   'workbench.settings.category.inspection.sub.protocol': 'Debugging Protocol',
@@ -188,7 +190,11 @@ export const workbenchSettings = {
   'workbench.settings.category.requests.sub.grpc': 'gRPC',
   'workbench.settings.category.requests.sub.websocket': 'WebSocket',
   'workbench.settings.category.requests.sub.mqtt': 'MQTT',
-  'workbench.settings.category.rulesEngine.label': 'Rules Engine',
+  'workbench.settings.category.browserInterceptor.label': 'Browser Interceptor',
+  'workbench.settings.category.browserInterceptor.description':
+    'The browser-side plane — the rule engine that rewrites traffic, the debugging-protocol attach, and the DevTools panel.',
+  'workbench.settings.category.rulesEngine.label': 'Browser Interceptor · Rules Engine',
+  'workbench.settings.category.rulesEngine.navLabel': 'Rules Engine',
   'workbench.settings.category.rulesEngine.description': 'How rules are evaluated, compiled, and arbitrated.',
   'workbench.settings.category.rulesEngine.sub.engine': 'Engine',
   'workbench.settings.category.rulesEngine.sub.caching': 'Caching',

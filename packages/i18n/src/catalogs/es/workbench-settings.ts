@@ -145,7 +145,8 @@ export const workbenchSettings = {
   'workbench.settings.category.terminal.sub.appearance': 'Apariencia',
   'workbench.settings.category.terminal.sub.behavior': 'Comportamiento',
   'workbench.settings.category.terminal.sub.tabs': 'Pestañas',
-  'workbench.settings.category.devpanel.label': 'Panel de DevTools',
+  'workbench.settings.category.devpanel.label': 'Browser Interceptor · Panel de DevTools',
+  'workbench.settings.category.devpanel.navLabel': 'Panel de DevTools',
   'workbench.settings.category.devpanel.description':
     'Valores por defecto del panel de DevTools del navegador — el shell de las ventanas de herramientas y cada ' +
     'pestaña de la superficie de solicitudes.',
@@ -188,7 +189,8 @@ export const workbenchSettings = {
   'workbench.settings.category.devpanelTiming.description':
     'Valores por defecto de la pestaña Timing en el panel de DevTools — qué bandas son visibles.',
   'workbench.settings.category.devpanelTiming.sub.view': 'Vista',
-  'workbench.settings.category.inspection.label': 'Modo de depuración',
+  'workbench.settings.category.inspection.label': 'Browser Interceptor · Modo de depuración',
+  'workbench.settings.category.inspection.navLabel': 'Modo de depuración',
   'workbench.settings.category.inspection.description':
     'La vía opt-in que adjunta el protocolo de depuración de tu navegador — inspecciona y modifica solicitudes ' +
     'con la misma profundidad que las herramientas de desarrollo integradas.',
@@ -215,7 +217,11 @@ export const workbenchSettings = {
   'workbench.settings.category.requests.sub.grpc': 'gRPC',
   'workbench.settings.category.requests.sub.websocket': 'WebSocket',
   'workbench.settings.category.requests.sub.mqtt': 'MQTT',
-  'workbench.settings.category.rulesEngine.label': 'Motor de reglas',
+  'workbench.settings.category.browserInterceptor.label': 'Browser Interceptor',
+  'workbench.settings.category.browserInterceptor.description':
+    'El plano del navegador: el motor de reglas que reescribe el tráfico, la conexión al protocolo de depuración y el panel de DevTools.',
+  'workbench.settings.category.rulesEngine.label': 'Browser Interceptor · Motor de reglas',
+  'workbench.settings.category.rulesEngine.navLabel': 'Motor de reglas',
   'workbench.settings.category.rulesEngine.description': 'Cómo se evalúan, compilan y arbitran las reglas.',
   'workbench.settings.category.rulesEngine.sub.engine': 'Motor',
   'workbench.settings.category.rulesEngine.sub.caching': 'Caché',

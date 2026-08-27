@@ -138,7 +138,8 @@ export const workbenchSettings = {
   'workbench.settings.category.terminal.sub.appearance': 'Apparence',
   'workbench.settings.category.terminal.sub.behavior': 'Comportement',
   'workbench.settings.category.terminal.sub.tabs': 'Onglets',
-  'workbench.settings.category.devpanel.label': 'Panneau DevTools',
+  'workbench.settings.category.devpanel.label': 'Intercepteur navigateur · Panneau DevTools',
+  'workbench.settings.category.devpanel.navLabel': 'Panneau DevTools',
   'workbench.settings.category.devpanel.description':
     "Réglages par défaut du panneau DevTools du navigateur — le shell des fenêtres d'outils et chaque onglet " +
     'de la surface des requêtes.',
@@ -180,7 +181,8 @@ export const workbenchSettings = {
   'workbench.settings.category.devpanelTiming.description':
     "Réglages par défaut de l'onglet Timing dans le panneau DevTools — quelles bandes sont visibles.",
   'workbench.settings.category.devpanelTiming.sub.view': 'Vue',
-  'workbench.settings.category.inspection.label': 'Mode débogage',
+  'workbench.settings.category.inspection.label': 'Intercepteur navigateur · Mode débogage',
+  'workbench.settings.category.inspection.navLabel': 'Mode débogage',
   'workbench.settings.category.inspection.description':
     'La voie opt-in qui attache le protocole de débogage de votre navigateur — inspectez et modifiez les ' +
     'requêtes avec la même profondeur que les outils de développement intégrés.',
@@ -207,7 +209,11 @@ export const workbenchSettings = {
   'workbench.settings.category.requests.sub.grpc': 'gRPC',
   'workbench.settings.category.requests.sub.websocket': 'WebSocket',
   'workbench.settings.category.requests.sub.mqtt': 'MQTT',
-  'workbench.settings.category.rulesEngine.label': 'Moteur de règles',
+  'workbench.settings.category.browserInterceptor.label': 'Intercepteur navigateur',
+  'workbench.settings.category.browserInterceptor.description':
+    'Le plan côté navigateur : le moteur de règles qui réécrit le trafic, l’attache du protocole de débogage et le panneau DevTools.',
+  'workbench.settings.category.rulesEngine.label': 'Intercepteur navigateur · Moteur de règles',
+  'workbench.settings.category.rulesEngine.navLabel': 'Moteur de règles',
   'workbench.settings.category.rulesEngine.description': 'Comment les règles sont évaluées, compilées et arbitrées.',
   'workbench.settings.category.rulesEngine.sub.engine': 'Moteur',
   'workbench.settings.category.rulesEngine.sub.caching': 'Cache',

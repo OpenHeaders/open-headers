@@ -33,7 +33,7 @@ import {
   SettingOutlined,
   SyncOutlined,
 } from '@ant-design/icons';
-import { ApiRequestsIcon, KeyboardIcon } from '@openheaders/ui/shared/icons';
+import { ApiRequestsIcon, KeyboardIcon, RequestRulesIcon } from '@openheaders/ui/shared/icons';
 import { lazy } from 'react';
 import { getCurrentHost } from '../../shared/host-vocabulary';
 import DevPanelGlyph from './components/DevPanelGlyph';
@@ -240,10 +240,24 @@ registerCategory({
 });
 
 registerCategory({
+  id: 'browserInterceptor',
+  labelKey: 'workbench.settings.category.browserInterceptor.label',
+  icon: <RequestRulesIcon />,
+  order: 30,
+  descriptionKey: 'workbench.settings.category.browserInterceptor.description',
+  // Group node over the browser-side plane: the rule engine, the
+  // debugging-protocol attach and the DevTools panel — every page the
+  // Browser Interceptor tool window's rules end up acting through.
+  renderPane: GroupLandingPane,
+});
+
+registerCategory({
   id: 'devpanel',
   labelKey: 'workbench.settings.category.devpanel.label',
+  navLabelKey: 'workbench.settings.category.devpanel.navLabel',
+  parent: 'browserInterceptor',
   icon: <DevPanelGlyph />,
-  order: 16,
+  order: 30,
   descriptionKey: 'workbench.settings.category.devpanel.description',
   renderPane: GroupLandingPane,
 });
@@ -336,8 +350,10 @@ registerCategory({
 registerCategory({
   id: 'inspection',
   labelKey: 'workbench.settings.category.inspection.label',
+  navLabelKey: 'workbench.settings.category.inspection.navLabel',
+  parent: 'browserInterceptor',
   icon: <BugOutlined />,
-  order: 21,
+  order: 20,
   descriptionKey: 'workbench.settings.category.inspection.description',
   subcategories: [{ id: 'protocol', labelKey: 'workbench.settings.category.inspection.sub.protocol', order: 10 }],
 });
@@ -395,8 +411,10 @@ registerCategory({
 registerCategory({
   id: 'rulesEngine',
   labelKey: 'workbench.settings.category.rulesEngine.label',
+  navLabelKey: 'workbench.settings.category.rulesEngine.navLabel',
+  parent: 'browserInterceptor',
   icon: <FunctionOutlined />,
-  order: 30,
+  order: 10,
   descriptionKey: 'workbench.settings.category.rulesEngine.description',
   subcategories: [
     { id: 'engine', labelKey: 'workbench.settings.category.rulesEngine.sub.engine', order: 10 },

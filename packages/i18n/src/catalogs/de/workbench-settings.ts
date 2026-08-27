@@ -140,7 +140,8 @@ export const workbenchSettings = {
   'workbench.settings.category.terminal.sub.appearance': 'Darstellung',
   'workbench.settings.category.terminal.sub.behavior': 'Verhalten',
   'workbench.settings.category.terminal.sub.tabs': 'Tabs',
-  'workbench.settings.category.devpanel.label': 'DevTools-Panel',
+  'workbench.settings.category.devpanel.label': 'Browser Interceptor · DevTools-Panel',
+  'workbench.settings.category.devpanel.navLabel': 'DevTools-Panel',
   'workbench.settings.category.devpanel.description':
     'Standardwerte für das DevTools-Panel des Browsers — die Werkzeugfenster-Shell und jeder Tab der ' +
     'Anfragen-Oberfläche.',
@@ -181,7 +182,8 @@ export const workbenchSettings = {
   'workbench.settings.category.devpanelTiming.description':
     'Standardwerte für den Tab Timing im DevTools-Panel — welche Bänder sichtbar sind.',
   'workbench.settings.category.devpanelTiming.sub.view': 'Ansicht',
-  'workbench.settings.category.inspection.label': 'Debug-Modus',
+  'workbench.settings.category.inspection.label': 'Browser Interceptor · Debug-Modus',
+  'workbench.settings.category.inspection.navLabel': 'Debug-Modus',
   'workbench.settings.category.inspection.description':
     'Der Opt-in-Pfad, der das Debugging-Protokoll deines Browsers anbindet — untersuche und verändere ' +
     'Anfragen mit derselben Tiefe wie die eingebauten Entwicklerwerkzeuge.',
@@ -208,7 +210,11 @@ export const workbenchSettings = {
   'workbench.settings.category.requests.sub.grpc': 'gRPC',
   'workbench.settings.category.requests.sub.websocket': 'WebSocket',
   'workbench.settings.category.requests.sub.mqtt': 'MQTT',
-  'workbench.settings.category.rulesEngine.label': 'Regel-Engine',
+  'workbench.settings.category.browserInterceptor.label': 'Browser Interceptor',
+  'workbench.settings.category.browserInterceptor.description':
+    'Die Browser-Seite – die Regel-Engine, die den Verkehr umschreibt, das Anbinden des Debugging-Protokolls und das DevTools-Panel.',
+  'workbench.settings.category.rulesEngine.label': 'Browser Interceptor · Regel-Engine',
+  'workbench.settings.category.rulesEngine.navLabel': 'Regel-Engine',
   'workbench.settings.category.rulesEngine.description':
     'Wie Regeln ausgewertet, kompiliert und gegeneinander abgewogen werden.',
   'workbench.settings.category.rulesEngine.sub.engine': 'Engine',

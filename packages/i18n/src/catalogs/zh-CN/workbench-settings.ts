@@ -126,7 +126,8 @@ export const workbenchSettings = {
   'workbench.settings.category.terminal.sub.appearance': '外观',
   'workbench.settings.category.terminal.sub.behavior': '行为',
   'workbench.settings.category.terminal.sub.tabs': '标签页',
-  'workbench.settings.category.devpanel.label': 'DevTools 面板',
+  'workbench.settings.category.devpanel.label': '浏览器拦截器 · DevTools 面板',
+  'workbench.settings.category.devpanel.navLabel': 'DevTools 面板',
   'workbench.settings.category.devpanel.description':
     '浏览器 DevTools 面板的默认值——工具窗口外壳和请求界面的每个标签页。',
   'workbench.settings.category.devpanelLayout.label': 'DevTools 面板 · 布局',
@@ -164,7 +165,8 @@ export const workbenchSettings = {
   'workbench.settings.category.devpanelTiming.navLabel': 'Timing',
   'workbench.settings.category.devpanelTiming.description': 'DevTools 面板中 Timing 标签页的默认值——哪些区段可见。',
   'workbench.settings.category.devpanelTiming.sub.view': '视图',
-  'workbench.settings.category.inspection.label': '调试模式',
+  'workbench.settings.category.inspection.label': '浏览器拦截器 · 调试模式',
+  'workbench.settings.category.inspection.navLabel': '调试模式',
   'workbench.settings.category.inspection.description':
     '自愿开启的路径，附加浏览器的调试协议——以内置开发者工具同等的深度检查并修改请求。',
   'workbench.settings.category.inspection.sub.protocol': '调试协议',
@@ -188,7 +190,11 @@ export const workbenchSettings = {
   'workbench.settings.category.requests.sub.grpc': 'gRPC',
   'workbench.settings.category.requests.sub.websocket': 'WebSocket',
   'workbench.settings.category.requests.sub.mqtt': 'MQTT',
-  'workbench.settings.category.rulesEngine.label': '规则引擎',
+  'workbench.settings.category.browserInterceptor.label': '浏览器拦截器',
+  'workbench.settings.category.browserInterceptor.description':
+    '浏览器侧平面：改写流量的规则引擎、调试协议的附加，以及 DevTools 面板。',
+  'workbench.settings.category.rulesEngine.label': '浏览器拦截器 · 规则引擎',
+  'workbench.settings.category.rulesEngine.navLabel': '规则引擎',
   'workbench.settings.category.rulesEngine.description': '规则如何求值、编译与裁决。',
   'workbench.settings.category.rulesEngine.sub.engine': '引擎',
   'workbench.settings.category.rulesEngine.sub.caching': '缓存',
