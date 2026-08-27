@@ -293,8 +293,9 @@ export const MqttRequestSchema = v.object({
   reconnectMaxAttempts: v.optional(ReconnectMaxAttemptsSchema),
   /**
    * Double the wait after every failed attempt (period, 2×, 4× …)
-   * up to the runtime's 60 s ceiling, instead of a fixed period.
-   * Absent = off: every attempt waits the reconnect period.
+   * up to the runtime's 60 s ceiling, with ±20 % jitter so clients
+   * never redial in lockstep. Absent = ON (what the production SDKs
+   * do); `false` = every attempt waits the exact reconnect period.
    */
   reconnectBackoff: v.optional(v.boolean()),
   /**

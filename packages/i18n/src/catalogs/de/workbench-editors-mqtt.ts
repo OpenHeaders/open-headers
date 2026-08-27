@@ -203,7 +203,7 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.settings.reconnectMaxAttemptsPlaceholder': 'Unbegrenzt (Standard)',
   'workbench.editors.mqtt.settings.reconnectBackoffLabel': 'Exponentielles Warten',
   'workbench.editors.mqtt.settings.reconnectBackoffHelp':
-    'Verdoppelt die Wartezeit nach jedem fehlgeschlagenen Versuch — das Intervall, dann 2×, 4× … bis 60 s — statt eines festen Intervalls. Standardmäßig aus.',
+    'Verdoppelt die Wartezeit nach jedem fehlgeschlagenen Versuch — das Intervall, dann 2×, 4× … bis 60 s — mit leichtem Zufallsversatz, damit Clients nie im Gleichtakt neu wählen. Standardmäßig an; aus wartet jeder Versuch exakt das Intervall.',
   'workbench.editors.mqtt.settings.receiveMaximumLabel': 'Receive Maximum',
   'workbench.editors.mqtt.settings.receiveMaximumHelp':
     'Wie viele QoS-1/2-Nachrichten gleichzeitig zu diesem Client unterwegs sein dürfen. Leer erlaubt den Spezifikations-Standard von 65.535.',

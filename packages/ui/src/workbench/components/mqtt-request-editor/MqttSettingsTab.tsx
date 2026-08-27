@@ -117,7 +117,7 @@ const MqttSettingsTab: React.FC<MqttSettingsTabProps> = ({ draft, setDraft, v5 }
     draft.autoReconnect ||
     draft.reconnectPeriodMs !== undefined ||
     draft.reconnectMaxAttempts !== undefined ||
-    draft.reconnectBackoff;
+    !draft.reconnectBackoff;
   const sessionModified =
     draft.sessionExpiryInterval !== undefined ||
     draft.receiveMaximum !== undefined ||
@@ -247,8 +247,8 @@ const MqttSettingsTab: React.FC<MqttSettingsTabProps> = ({ draft, setDraft, v5 }
             <KnobRow
               label={t('workbench.editors.mqtt.settings.reconnectBackoffLabel')}
               checked={draft.reconnectBackoff}
-              modified={draft.reconnectBackoff}
-              onReset={() => setDraft((d) => ({ ...d, reconnectBackoff: false }))}
+              modified={!draft.reconnectBackoff}
+              onReset={() => setDraft((d) => ({ ...d, reconnectBackoff: true }))}
               onChange={(reconnectBackoff) => setDraft((d) => ({ ...d, reconnectBackoff }))}
               info={mqttSettingsRowInfo(t, 'reconnectBackoff')}
               disabled={!draft.autoReconnect}

@@ -19,7 +19,7 @@ import {
   type MqttProtocolVersion,
 } from '@openheaders/core/mqtt';
 import type { MqttRequest } from '@openheaders/core/types';
-import { executeMqttSession } from '@openheaders/oracle/live/mqtt-exec/execute';
+import { executeMqttSession, reconnectDelayMs } from '@openheaders/oracle/live/mqtt-exec/execute';
 import {
   closeActiveMqttSession,
   publishActiveMqttMessage,
@@ -793,6 +793,7 @@ describe('executeMqttSession — auto-reconnect', () => {
     const settled = executeMqttSession(
       makeMqttRequest({
         autoReconnect: true,
+        reconnectBackoff: false,
         reconnectPeriodMs: 2_000,
         clientId: 'reporter-1',
         topics: [
@@ -873,7 +874,11 @@ describe('executeMqttSession — auto-reconnect', () => {
   it('skips the replay when the reconnect CONNACK kept the session, and carries a failed dial onto the next attempt', async () => {
     const rig = reconnectRig(MQTT_PROTOCOL_VERSIONS.v5);
     const settled = executeMqttSession(
-      makeMqttRequest({ autoReconnect: true, topics: [{ uid: 'row1', topicFilter: 'sensors/+/temp', qos: 1 }] }),
+      makeMqttRequest({
+        autoReconnect: true,
+        reconnectBackoff: false,
+        topics: [{ uid: 'row1', topicFilter: 'sensors/+/temp', qos: 1 }],
+      }),
       {
         workspaceId: null,
         environmentId: undefined,
@@ -959,13 +964,16 @@ describe('executeMqttSession — auto-reconnect', () => {
 
   it('ends the loop on a refused reconnect CONNACK — the refusal verbatim, the lost end kept', async () => {
     const rig = reconnectRig(MQTT_PROTOCOL_VERSIONS.v5);
-    const settled = executeMqttSession(makeMqttRequest({ autoReconnect: true, reconnectPeriodMs: 1_000 }), {
-      workspaceId: null,
-      environmentId: undefined,
-      transport: rig.transport,
-      sendId: 'send-mqtt-reconnect-refused',
-      resolution: scopedResolution,
-    });
+    const settled = executeMqttSession(
+      makeMqttRequest({ autoReconnect: true, reconnectBackoff: false, reconnectPeriodMs: 1_000 }),
+      {
+        workspaceId: null,
+        environmentId: undefined,
+        transport: rig.transport,
+        sendId: 'send-mqtt-reconnect-refused',
+        resolution: scopedResolution,
+      },
+    );
     await tick();
     rig.establish(0);
     rig.push(0, acceptedConnack);
@@ -1001,6 +1009,7 @@ describe('executeMqttSession — auto-reconnect', () => {
         transport: rig.transport,
         sendId: 'send-mqtt-reconnect-backoff',
         resolution: scopedResolution,
+        reconnectJitter: () => 0.5,
       },
     );
     await tick();
@@ -1043,7 +1052,12 @@ describe('executeMqttSession — auto-reconnect', () => {
   it('a reconnect that opens resets the attempt count for the next drop', async () => {
     const rig = reconnectRig(MQTT_PROTOCOL_VERSIONS.v5);
     const settled = executeMqttSession(
-      makeMqttRequest({ autoReconnect: true, reconnectPeriodMs: 1_000, reconnectMaxAttempts: 1 }),
+      makeMqttRequest({
+        autoReconnect: true,
+        reconnectBackoff: false,
+        reconnectPeriodMs: 1_000,
+        reconnectMaxAttempts: 1,
+      }),
       {
         workspaceId: null,
         environmentId: undefined,
@@ -1105,7 +1119,12 @@ describe('executeMqttSession — auto-reconnect', () => {
   it('Reconnect now dials the armed attempt at once with the same number — no extra attempt against the cap', async () => {
     const rig = reconnectRig(MQTT_PROTOCOL_VERSIONS.v5);
     const settled = executeMqttSession(
-      makeMqttRequest({ autoReconnect: true, reconnectPeriodMs: 10_000, reconnectMaxAttempts: 2 }),
+      makeMqttRequest({
+        autoReconnect: true,
+        reconnectBackoff: false,
+        reconnectPeriodMs: 10_000,
+        reconnectMaxAttempts: 2,
+      }),
       {
         workspaceId: null,
         environmentId: undefined,
@@ -1146,6 +1165,50 @@ describe('executeMqttSession — auto-reconnect', () => {
       { kind: 'lost', end: null },
       { kind: 'reconnecting', attempt: 1, delayMs: 3_000, forced: true },
       { kind: 'reconnecting', attempt: 2, delayMs: 10_000, error: 'Connection refused by broker.openheaders.io:1883.' },
+    ]);
+  });
+  it('backs off by default with ±20 % jitter — the draw widens or narrows the doubled wait, the ceiling holds', async () => {
+    const rig = reconnectRig(MQTT_PROTOCOL_VERSIONS.v5);
+    const draws = [1, 0, 0.5, 1];
+    const settled = executeMqttSession(makeMqttRequest({ autoReconnect: true, reconnectPeriodMs: 20_000 }), {
+      workspaceId: null,
+      environmentId: undefined,
+      transport: rig.transport,
+      sendId: 'send-mqtt-reconnect-jitter',
+      resolution: scopedResolution,
+      reconnectJitter: () => draws.shift() ?? 0.5,
+    });
+    await tick();
+    rig.establish(0);
+    rig.push(0, acceptedConnack);
+    rig.sever(0);
+    await tick();
+    // Attempt 1: 20 s × 1.2 = 24 s. Attempt 2: 40 s × 0.8 = 32 s.
+    // Attempt 3: 80 s capped to 60 s, centred draw = 60 s. Attempt 4:
+    // 60 s × 1.2 would overshoot — the ceiling holds at 60 s.
+    await vi.advanceTimersByTimeAsync(23_999);
+    expect(rig.dialCount()).toBe(1);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(rig.dialCount()).toBe(2);
+    rig.fail(1, 'Connection refused by broker.openheaders.io:1883.');
+    await tick();
+    await vi.advanceTimersByTimeAsync(31_999);
+    expect(rig.dialCount()).toBe(2);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(rig.dialCount()).toBe(3);
+    rig.fail(2, 'Connection refused by broker.openheaders.io:1883.');
+    await tick();
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(rig.dialCount()).toBe(4);
+    rig.fail(3, 'Connection refused by broker.openheaders.io:1883.');
+    await tick();
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(rig.dialCount()).toBe(5);
+    expect(reconnectDelayMs(5_000, 1, false, 1)).toBe(5_000);
+    closeActiveMqttSession('send-mqtt-reconnect-jitter');
+    const snapshot = await settled;
+    expect(snapshot.events.filter((e) => e.kind === 'reconnecting').map((e) => e.delayMs)).toEqual([
+      24_000, 32_000, 60_000, 60_000,
     ]);
   });
 });

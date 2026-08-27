@@ -192,7 +192,7 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.settings.reconnectMaxAttemptsPlaceholder': 'Unlimited (default)',
   'workbench.editors.mqtt.settings.reconnectBackoffLabel': 'Exponential backoff',
   'workbench.editors.mqtt.settings.reconnectBackoffHelp':
-    'Double the wait after every failed attempt — the period, then 2×, 4× … up to 60 s — instead of a fixed period. Off by default.',
+    'Double the wait after every failed attempt — the period, then 2×, 4× … up to 60 s — with a little random jitter so clients never redial in lockstep. On by default; off waits the exact period every time.',
   'workbench.editors.mqtt.settings.receiveMaximumLabel': 'Receive Maximum',
   'workbench.editors.mqtt.settings.receiveMaximumHelp':
     'How many QoS 1/2 messages may be in flight toward this client at once. Empty allows the spec default of 65,535.',

@@ -304,7 +304,7 @@ export function draftFromMqttRequest(req: MqttRequest): MqttDraft {
     autoReconnect: req.autoReconnect ?? false,
     reconnectPeriodMs: req.reconnectPeriodMs,
     reconnectMaxAttempts: req.reconnectMaxAttempts,
-    reconnectBackoff: req.reconnectBackoff ?? false,
+    reconnectBackoff: req.reconnectBackoff ?? true,
     sslVerification: req.sslVerification ?? true,
     clientCertificateRef: req.clientCertificateRef,
     sniServerName: req.sniServerName,

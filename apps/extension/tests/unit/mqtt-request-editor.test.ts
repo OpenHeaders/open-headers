@@ -132,7 +132,7 @@ describe('mqtt draft projections', () => {
     expect(bare.autoReconnect).toBe(false);
     expect(bare.reconnectPeriodMs).toBeUndefined();
     expect(bare.reconnectMaxAttempts).toBeUndefined();
-    expect(bare.reconnectBackoff).toBe(false);
+    expect(bare.reconnectBackoff).toBe(true);
   });
 
   it('keeps the canonical projection fingerprint-stable across a round-trip', () => {

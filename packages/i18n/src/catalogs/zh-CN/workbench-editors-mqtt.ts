@@ -186,7 +186,7 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.settings.reconnectMaxAttemptsPlaceholder': '不限（默认）',
   'workbench.editors.mqtt.settings.reconnectBackoffLabel': '指数退避',
   'workbench.editors.mqtt.settings.reconnectBackoffHelp':
-    '每次尝试失败后等待时间翻倍——先是重连周期，然后 2×、4×……最长 60 s——而不是固定周期。默认关闭。',
+    '每次尝试失败后等待时间翻倍——先是重连周期，然后 2×、4×……最长 60 s——并加入少量随机抖动，避免客户端同时重连。默认开启；关闭后每次都精确等待重连周期。',
   'workbench.editors.mqtt.settings.receiveMaximumLabel': 'Receive Maximum',
   'workbench.editors.mqtt.settings.receiveMaximumHelp':
     '同时向此客户端在途的 QoS 1/2 消息数量上限。留空采用规范默认值 65535。',

@@ -114,12 +114,20 @@ export const DEFAULT_RECONNECT_PERIOD_MS = 5_000;
  *  above it holds constant (never shrinks the entity's own wait). */
 export const MAX_RECONNECT_BACKOFF_MS = 60_000;
 
-/** The wait before reconnect attempt `attempt` (1-based): the period,
- *  or under backoff the period doubled per attempt already failed. */
-export function reconnectDelayMs(periodMs: number, attempt: number, backoff: boolean): number {
+/** Jitter span under backoff — the wait lands within ±20 % of the
+ *  doubled period, so a fleet never redials in lockstep. */
+export const RECONNECT_JITTER = 0.2;
+
+/** The wait before reconnect attempt `attempt` (1-based): the exact
+ *  period, or under backoff the period doubled per attempt already
+ *  failed, jittered by `random` (a draw in [0, 1)), the ceiling
+ *  holding above everything. */
+export function reconnectDelayMs(periodMs: number, attempt: number, backoff: boolean, random: number): number {
   if (!backoff) return periodMs;
   const ceiling = Math.max(periodMs, MAX_RECONNECT_BACKOFF_MS);
-  return Math.min(periodMs * 2 ** (attempt - 1), ceiling);
+  const doubled = Math.min(periodMs * 2 ** (attempt - 1), ceiling);
+  const jittered = Math.round(doubled * (1 - RECONNECT_JITTER + 2 * RECONNECT_JITTER * random));
+  return Math.min(jittered, ceiling);
 }
 
 export interface ExecuteMqttSessionOptions {
@@ -141,6 +149,9 @@ export interface ExecuteMqttSessionOptions {
    *  contract, for surfaces whose variable scopes live OUTSIDE the
    *  oracle module mirrors. */
   resolution?: (template: string, unresolved: Set<string>) => string;
+  /** The backoff jitter draw, [0, 1) — `Math.random` unless a test
+   *  pins the wait. */
+  reconnectJitter?: () => number;
 }
 
 /** Decode a compose payload per its authored ENCODING — base64/hex
@@ -365,7 +376,8 @@ export async function executeMqttSession(
   const autoReconnect = request.autoReconnect === true;
   const reconnectPeriodMs = request.reconnectPeriodMs ?? DEFAULT_RECONNECT_PERIOD_MS;
   const reconnectMaxAttempts = request.reconnectMaxAttempts;
-  const reconnectBackoff = request.reconnectBackoff === true;
+  const reconnectBackoff = request.reconnectBackoff !== false;
+  const reconnectJitter = options.reconnectJitter ?? Math.random;
   const sniServerName = request.sniServerName !== undefined ? resolveStr(request.sniServerName).trim() : '';
   const alpnProtocol = request.alpnProtocol !== undefined ? resolveStr(request.alpnProtocol).trim() : '';
 
@@ -767,7 +779,7 @@ export async function executeMqttSession(
         return;
       }
       reconnectAttempt = attempt;
-      const delayMs = reconnectDelayMs(reconnectPeriodMs, attempt, reconnectBackoff);
+      const delayMs = reconnectDelayMs(reconnectPeriodMs, attempt, reconnectBackoff, reconnectJitter());
       const armedAt = Date.now();
       // The wait ran out, or the user cut it short: the same attempt
       // dials either way — the row states the wait actually sat

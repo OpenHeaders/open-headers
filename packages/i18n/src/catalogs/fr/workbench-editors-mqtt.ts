@@ -202,7 +202,7 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.settings.reconnectMaxAttemptsPlaceholder': 'Illimité (défaut)',
   'workbench.editors.mqtt.settings.reconnectBackoffLabel': 'Attente exponentielle',
   'workbench.editors.mqtt.settings.reconnectBackoffHelp':
-    'Double l’attente après chaque tentative échouée — la période, puis 2×, 4× … jusqu’à 60 s — au lieu d’une période fixe. Désactivé par défaut.',
+    'Double l’attente après chaque tentative échouée — la période, puis 2×, 4× … jusqu’à 60 s — avec une légère variation aléatoire pour que les clients ne se reconnectent jamais tous en même temps. Activé par défaut ; désactivé, chaque tentative attend exactement la période.',
   'workbench.editors.mqtt.settings.receiveMaximumLabel': 'Receive Maximum',
   'workbench.editors.mqtt.settings.receiveMaximumHelp':
     'Nombre de messages QoS 1/2 pouvant être en vol vers ce client à la fois. Vide applique le défaut de la spécification, 65 535.',
