@@ -258,7 +258,7 @@ export const workbenchSettingsPanes = {
     'Le back-end de bureau se liera à chaque interface réseau locale pour que les autres appareils de votre ' +
     'réseau puissent se connecter. Chaque connexion — LAN ou loopback — doit présenter un jeton ' +
     "d'authentification appairé ; il n'existe aucun chemin sans jeton. Les appareils s'appairent avec le code " +
-    "que l'application affiche (ou collez un jeton dans Paramètres → Backend → Jeton d'authentification).",
+    "que l'application affiche (ou collez un jeton dans Connectivité › Backend › Connexions).",
 
   // ── Backend pane: offline fallback order ───────────────────────────
   'workbench.settings.backendPane.fallback.empty':
@@ -356,7 +356,7 @@ export const workbenchSettingsPanes = {
   'workbench.settings.backendPane.tier.rangeNote.storageLocal':
     'Chrome ≠ Firefox ≠ Edge — données séparées par navigateur, ni inter-appareils, ni inter-navigateurs',
   'workbench.settings.backendPane.tier.rangeNote.typicalLoopback': 'généralement 127.0.0.1',
-  'workbench.settings.backendPane.tier.rangeNote.portOverride': 'remplaçable dans Backend → Connexion',
+  'workbench.settings.backendPane.tier.rangeNote.portOverride': 'remplaçable dans Connectivité › Backend › Serveur',
   'workbench.settings.backendPane.tier.rangeNote.serverOwnBox':
     'IPv4 — serveur sur votre propre machine (Docker, sidecar)',
   'workbench.settings.backendPane.tier.rangeNote.ipv6': 'IPv6',
@@ -434,11 +434,11 @@ export const workbenchSettingsPanes = {
   'workbench.settings.backendTokens.explainer.generateText':
     "vous montre le secret à copier et coller vous-même dans l'appareil.",
   'workbench.settings.backendTokens.explainer.pairText':
-    "affiche un code court que l'appareil saisit sous Paramètres → Backend → Appairer avec un code (ou ouvre " +
-    "un lien, en repli) — utilisez-le quand quelqu'un d'autre configure l'appareil.",
+    "affiche un code court que l'appareil saisit sous Connectivité › Backend › Connexions › Appairer avec un " +
+    "code (ou ouvre un lien, en repli) — utilisez-le quand quelqu'un d'autre configure l'appareil.",
   'workbench.settings.backendTokens.empty':
-    "Aucun appareil pour le moment. Générez un jeton et collez-le dans Paramètres → Backend de l'appareil, ou " +
-    'appairez un appareil et faites-lui saisir le code là-bas.',
+    'Aucun appareil pour le moment. Générez un jeton et collez-le dans Connectivité › Backend › Connexions de ' +
+    "l'appareil, ou appairez un appareil et faites-lui saisir le code là-bas.",
   'workbench.settings.backendTokens.mintFailed': 'Échec de la création du jeton : {message}',
   'workbench.settings.backendTokens.rotateFailed': 'Échec du renouvellement : {message}',
   'workbench.settings.backendTokens.revokeFailed': 'Échec de la révocation : {message}',
@@ -494,7 +494,7 @@ export const workbenchSettingsPanes = {
     "apparaît dans la liste ci-dessous. Si l'appareil ne parvient pas à se connecter, révoquez l'entrée et " +
     'appairez à nouveau.',
   'workbench.settings.backendTokens.pairModal.intro.part1': "Sur l'autre appareil, ouvrez",
-  'workbench.settings.backendTokens.pairModal.intro.settingsPath': 'Paramètres → Backend',
+  'workbench.settings.backendTokens.pairModal.intro.settingsPath': 'Connectivité › Backend › Connexions',
   'workbench.settings.backendTokens.pairModal.intro.part2': ', pointez son',
   'workbench.settings.backendTokens.pairModal.intro.address': 'Adresse du back-end',
   'workbench.settings.backendTokens.pairModal.intro.part3': 'vers cette application, puis cliquez sur',

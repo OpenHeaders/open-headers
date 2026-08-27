@@ -473,10 +473,10 @@ export const sharedComponents = {
   // rows' own labels, verbatim).
   'shared.peerExecute.localDisabled':
     'Das Senden über die Browser dieses Geräts ist in der Desktop-App ausgeschaltet. Aktiviere „Browsern ' +
-    'dieses Geräts das Senden von Anfragen erlauben“ unter Einstellungen → Backend.',
+    'dieses Geräts das Senden von Anfragen erlauben“ unter Konnektivität › Back-end › Server.',
   'shared.peerExecute.remoteDisabled':
     'Das Senden von anderen Geräten ist auf dem verbundenen Host ausgeschaltet. Aktiviere „Anderen ' +
-    'verbundenen Geräten das Senden von Anfragen erlauben“ in dessen Einstellungen → Backend auf jener ' +
+    'verbundenen Geräten das Senden von Anfragen erlauben“ in dessen Konnektivität › Back-end › Server auf jener ' +
     'Maschine.',
   'shared.peerExecute.enableCta': 'In der Desktop-App aktivieren',
 

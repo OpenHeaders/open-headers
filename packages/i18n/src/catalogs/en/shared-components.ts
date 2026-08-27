@@ -476,9 +476,9 @@ export const sharedComponents = {
   // two-tier opt-in refusal (the quoted phrases are the settings rows'
   // own labels, verbatim).
   'shared.peerExecute.localDisabled':
-    'Sending from this device’s browsers is turned off in the desktop app. Enable "Allow this device’s browsers to send requests" under Settings → Backend.',
+    'Sending from this device’s browsers is turned off in the desktop app. Enable "Allow this device’s browsers to send requests" under Connectivity › Backend › Server.',
   'shared.peerExecute.remoteDisabled':
-    'Sending from other devices is turned off on the connected host. Enable "Allow other connected devices to send requests" in its Settings → Backend on that machine.',
+    'Sending from other devices is turned off on the connected host. Enable "Allow other connected devices to send requests" in its Connectivity › Backend › Server on that machine.',
   'shared.peerExecute.enableCta': 'Enable in the desktop app',
   'shared.desktopTeaser.cta': 'Download the desktop app',
   'shared.desktopTeaser.openApp': 'Open in the desktop app',

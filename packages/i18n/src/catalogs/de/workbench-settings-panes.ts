@@ -258,7 +258,7 @@ export const workbenchSettingsPanes = {
     'Das Desktop-Back-end bindet dann jede lokale Netzwerkschnittstelle, sodass sich andere Geräte in deinem ' +
     'Netzwerk verbinden können. Jede Verbindung — LAN oder Loopback — muss einen gekoppelten Auth-Token ' +
     'vorlegen; es gibt keinen tokenfreien Weg. Geräte koppeln mit dem Code, den die App zeigt (oder fügen ' +
-    'einen Token unter Einstellungen → Back-end → Auth-Token ein).',
+    'einen Token unter Konnektivität › Back-end › Verbindungen ein).',
 
   // ── Backend pane: offline fallback order ───────────────────────────
   'workbench.settings.backendPane.fallback.empty':
@@ -356,7 +356,8 @@ export const workbenchSettingsPanes = {
   'workbench.settings.backendPane.tier.rangeNote.storageLocal':
     'Chrome ≠ Firefox ≠ Edge — getrennte Daten pro Browser, kein geräte-, kein browserübergreifend',
   'workbench.settings.backendPane.tier.rangeNote.typicalLoopback': 'typischerweise 127.0.0.1',
-  'workbench.settings.backendPane.tier.rangeNote.portOverride': 'überschreibbar unter Back-end → Verbindung',
+  'workbench.settings.backendPane.tier.rangeNote.portOverride':
+    'überschreibbar unter Konnektivität › Back-end › Server',
   'workbench.settings.backendPane.tier.rangeNote.serverOwnBox':
     'IPv4 — Server auf deiner eigenen Maschine (Docker, Sidecar)',
   'workbench.settings.backendPane.tier.rangeNote.ipv6': 'IPv6',
@@ -434,11 +435,11 @@ export const workbenchSettingsPanes = {
   'workbench.settings.backendTokens.explainer.generateText':
     'zeigt dir das Secret, damit du es selbst kopierst und auf dem Gerät einfügst.',
   'workbench.settings.backendTokens.explainer.pairText':
-    'zeigt einen kurzen Code, den das Gerät unter Einstellungen → Back-end → Mit einem Code koppeln eingibt ' +
-    '(oder als Ausweg einen Link öffnet) — nutze das, wenn jemand anderes das Gerät einrichtet.',
+    'zeigt einen kurzen Code, den das Gerät unter Konnektivität › Back-end › Verbindungen › Mit einem Code ' +
+    'koppeln eingibt (oder als Ausweg einen Link öffnet) — nutze das, wenn jemand anderes das Gerät einrichtet.',
   'workbench.settings.backendTokens.empty':
-    'Noch keine Geräte. Erzeuge einen Token und füge ihn auf dem Gerät unter Einstellungen → Back-end ein, ' +
-    'oder kopple ein Gerät und lass es dort den Code eingeben.',
+    'Noch keine Geräte. Erzeuge einen Token und füge ihn auf dem Gerät unter Konnektivität › Back-end › ' +
+    'Verbindungen ein, oder kopple ein Gerät und lass es dort den Code eingeben.',
   'workbench.settings.backendTokens.mintFailed': 'Token ließ sich nicht prägen: {message}',
   'workbench.settings.backendTokens.rotateFailed': 'Rotation fehlgeschlagen: {message}',
   'workbench.settings.backendTokens.revokeFailed': 'Widerruf fehlgeschlagen: {message}',
@@ -494,7 +495,7 @@ export const workbenchSettingsPanes = {
     'gespeichert; es erscheint in der Liste unten. Kann sich das Gerät nicht verbinden, widerrufe den ' +
     'Eintrag und kopple erneut.',
   'workbench.settings.backendTokens.pairModal.intro.part1': 'Öffne auf dem anderen Gerät',
-  'workbench.settings.backendTokens.pairModal.intro.settingsPath': 'Einstellungen → Back-end',
+  'workbench.settings.backendTokens.pairModal.intro.settingsPath': 'Konnektivität › Back-end › Verbindungen',
   'workbench.settings.backendTokens.pairModal.intro.part2': ', richte seine',
   'workbench.settings.backendTokens.pairModal.intro.address': 'Back-end-Adresse',
   'workbench.settings.backendTokens.pairModal.intro.part3': 'auf diese App, klicke dann auf',

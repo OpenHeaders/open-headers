@@ -450,10 +450,10 @@ export const sharedComponents = {
   // rows' own labels, verbatim).
   'shared.peerExecute.localDisabled':
     "L'envoi depuis les navigateurs de cet appareil est désactivé dans l'application de bureau. Activez " +
-    '« Autoriser les navigateurs de cet appareil à envoyer des requêtes » sous Paramètres → Backend.',
+    '« Autoriser les navigateurs de cet appareil à envoyer des requêtes » sous Connectivité › Backend › Serveur.',
   'shared.peerExecute.remoteDisabled':
     "L'envoi depuis d'autres appareils est désactivé sur l'hôte connecté. Activez « Autoriser les autres " +
-    'appareils connectés à envoyer des requêtes » dans ses Paramètres → Backend sur cette machine.',
+    'appareils connectés à envoyer des requêtes » dans Connectivité › Backend › Serveur sur cette machine.',
   'shared.peerExecute.enableCta': "Activer dans l'application de bureau",
 
   // ── Desktop teaser ─────────────────────────────────────────────────
