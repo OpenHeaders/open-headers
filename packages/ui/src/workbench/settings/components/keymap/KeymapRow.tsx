@@ -1,8 +1,10 @@
 /**
  * KeymapRow — one action row of the Keymap pane.
  *
- * `Label ......... [chord badge] [warnings] [unbind] [reset]` with the
- * modified dot and description popover of a regular setting row.
+ * `Label (i): [chord badge] [warnings] [unbind] [reset]` on the FieldRow
+ * grid — the label holds the shared 180px key column so chords line up
+ * down the page — with the modified dot and description popover of a
+ * regular setting row.
  * Clicking the chord badge arms inline recording (Escape or a re-click
  * cancels). A captured chord that is already bound to another action in
  * this row's conflict scope does NOT commit straight away — the row
@@ -96,7 +98,7 @@ const KeymapRow: React.FC<KeymapRowProps> = ({ def: rawDef, scopeDefs, conflicts
 
   return (
     <div className="settings-field-row" data-setting-key={def.key} style={{ padding: '3px 0' }}>
-      <div style={{ display: 'flex', alignItems: 'center', columnGap: 6, minHeight: 30 }}>
+      <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', columnGap: 6, rowGap: 4, minHeight: 27 }}>
         {modified && (
           <Tooltip title={t('workbench.settings.row.modified')}>
             <span
@@ -106,14 +108,25 @@ const KeymapRow: React.FC<KeymapRowProps> = ({ def: rawDef, scopeDefs, conflicts
             />
           </Tooltip>
         )}
-        <span style={{ fontSize: 13, color: token.colorText, minWidth: 0 }}>{def.label}</span>
-        {def.description && (
-          <InfoTrigger
-            content={{ title: def.label, summary: def.description }}
-            ariaLabel={t('workbench.settings.row.aboutAria', { label: def.label })}
-          />
-        )}
-        <span style={{ flex: 1 }} />
+        <span
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 4,
+            fontSize: 13,
+            color: token.colorText,
+            flex: 'none',
+            minWidth: 180,
+          }}
+        >
+          {`${def.label}:`}
+          {def.description && (
+            <InfoTrigger
+              content={{ title: def.label, summary: def.description }}
+              ariaLabel={t('workbench.settings.row.aboutAria', { label: def.label })}
+            />
+          )}
+        </span>
         <Tooltip
           title={capabilityGated ? gateHint : t('workbench.settings.keymapPane.recordTip', { label: def.label })}
         >

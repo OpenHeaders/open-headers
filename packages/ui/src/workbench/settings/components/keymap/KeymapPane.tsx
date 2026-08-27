@@ -17,15 +17,16 @@
  * clears it. Text query and chord lookup are mutually exclusive:
  * arming one clears the other.
  *
- * Presets: the dropdown on the search row switches the base keymap
- * (`keyboard.preset`) — overrides survive the switch, non-overridden
- * keys move to the new base (see keymap-preset-actions.ts). A restore
- * button appears while overrides exist. Only keybinding defs become
- * rows; the preset def itself is pane chrome, anchored by its setting
- * key so settings-search deep links still land on it.
+ * Presets: the first section's `Preset: [select]` row switches the
+ * base keymap (`keyboard.preset`) — overrides survive the switch,
+ * non-overridden keys move to the new base (see
+ * keymap-preset-actions.ts). A restore button trails the select while
+ * overrides exist. Only keybinding defs become rows; the preset def
+ * itself is pane chrome laid out like a field row, anchored by its
+ * setting key so settings-search deep links still land on it.
  */
 
-import { DownOutlined, RightOutlined, SearchOutlined, UndoOutlined, WarningOutlined } from '@ant-design/icons';
+import { SearchOutlined, UndoOutlined, WarningOutlined } from '@ant-design/icons';
 import { Button, Input, Select, Tag, Tooltip, theme } from 'antd';
 import type React from 'react';
 import { useEffect, useMemo, useState } from 'react';
@@ -35,9 +36,11 @@ import { noteFeatureUsed } from '@openheaders/ui/shared/product-telemetry';
 import { getCurrentHost } from '../../../../shared/host-vocabulary';
 import { formatChord } from '../../../hooks/useWorkspaceShortcuts';
 import { useChordCapture } from '../../fields/use-chord-capture';
+import { InfoTrigger } from '@openheaders/ui/shared/info-popover';
 import { useModifiedSettings, useSettingValue, useSettingsReady } from '../../hooks';
-import { resolveLabel } from '../../localize';
-import { PaneHeader } from '../pane-chrome';
+import { resolveDescription, resolveLabel } from '../../localize';
+import { requireDef } from '../../registry';
+import { Pane, PaneHeader, PaneSection } from '../pane-chrome';
 import type { CategoryPaneProps } from '../../types';
 import { buildKeymapConflicts } from './keymap-conflicts';
 import { buildKeymapGroups } from './keymap-groups';
@@ -139,9 +142,49 @@ const KeymapPane: React.FC<CategoryPaneProps> = ({ category, defs }) => {
     });
   };
 
+  const presetDef = requireDef('keyboard.preset');
+  const presetLabel = resolveLabel(presetDef, t);
+
   return (
-    <div style={{ padding: '14px 18px 20px' }}>
+    <Pane>
       <PaneHeader category={category} />
+
+      <PaneSection title={t('workbench.settings.keymapPane.presetSection')}>
+        <div
+          data-setting-key="keyboard.preset"
+          style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', columnGap: 6, rowGap: 4, padding: '3px 0' }}
+        >
+          <span
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 13, flex: 'none', minWidth: 180 }}
+          >
+            {`${presetLabel}:`}
+            <InfoTrigger
+              content={{ title: presetLabel, summary: resolveDescription(presetDef, t) }}
+              ariaLabel={t('workbench.settings.row.aboutAria', { label: presetLabel })}
+            />
+          </span>
+          <Select
+            size="small"
+            value={activePreset}
+            onChange={(next) => applyPresetSwitch(bindingDefs, next)}
+            aria-label={t('workbench.settings.keymapPane.presetAria')}
+            options={PRESET_OPTIONS.map((option) => ({ value: option.value, label: t(option.labelKey) }))}
+            style={{ width: 180 }}
+          />
+          {overrides.size > 0 && (
+            <Tooltip title={t('workbench.settings.keymapPane.presetRestoreTip')}>
+              <Button
+                size="small"
+                type="text"
+                icon={<UndoOutlined style={{ fontSize: 11 }} />}
+                onClick={() => restorePreset(bindingDefs)}
+              >
+                {t('workbench.settings.keymapPane.presetRestore', { count: overrides.size })}
+              </Button>
+            </Tooltip>
+          )}
+        </div>
+      </PaneSection>
 
       <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
         <Input
@@ -176,29 +219,6 @@ const KeymapPane: React.FC<CategoryPaneProps> = ({ category, defs }) => {
             {formatChord(lookupChord)}
           </Tag>
         )}
-        <span style={{ flex: 1 }} />
-        <div data-setting-key="keyboard.preset" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          {overrides.size > 0 && (
-            <Tooltip title={t('workbench.settings.keymapPane.presetRestoreTip')}>
-              <Button
-                size="small"
-                type="text"
-                icon={<UndoOutlined style={{ fontSize: 11 }} />}
-                onClick={() => restorePreset(bindingDefs)}
-              >
-                {t('workbench.settings.keymapPane.presetRestore', { count: overrides.size })}
-              </Button>
-            </Tooltip>
-          )}
-          <Select
-            size="small"
-            value={activePreset}
-            onChange={(next) => applyPresetSwitch(bindingDefs, next)}
-            aria-label={t('workbench.settings.keymapPane.presetAria')}
-            options={PRESET_OPTIONS.map((option) => ({ value: option.value, label: t(option.labelKey) }))}
-            style={{ width: 180 }}
-          />
-        </div>
       </div>
 
       {lookupReserved && (
@@ -224,45 +244,16 @@ const KeymapPane: React.FC<CategoryPaneProps> = ({ category, defs }) => {
         // inside collapsed sections reads as broken.
         const isCollapsed = !isSearching && collapsed.has(id);
         return (
-          <section key={id} style={{ marginBottom: 14 }}>
-            {group.sub && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '0 0 4px' }}>
-                <button
-                  type="button"
-                  onClick={() => toggleGroup(id)}
-                  aria-expanded={!isCollapsed}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 6,
-                    border: 'none',
-                    background: 'none',
-                    padding: 0,
-                    cursor: 'pointer',
-                    fontSize: 12,
-                    fontWeight: 600,
-                    color: token.colorText,
-                    flex: 'none',
-                  }}
-                >
-                  {isCollapsed ? (
-                    <RightOutlined style={{ fontSize: 9, color: token.colorTextTertiary }} />
-                  ) : (
-                    <DownOutlined style={{ fontSize: 9, color: token.colorTextTertiary }} />
-                  )}
-                  {resolveLabel(group.sub, t)}
-                </button>
-                <div style={{ flex: 1, height: 1, background: token.colorBorderSecondary }} />
-              </div>
-            )}
-            {!isCollapsed && (
-              <div className="settings-card">
-                {group.defs.map((def) => (
-                  <KeymapRow key={def.key} def={def} scopeDefs={bindingDefs} conflicts={conflicts.get(def.key)} />
-                ))}
-              </div>
-            )}
-          </section>
+          <PaneSection
+            key={id}
+            title={group.sub ? resolveLabel(group.sub, t) : undefined}
+            collapsed={isCollapsed}
+            onToggle={group.sub ? () => toggleGroup(id) : undefined}
+          >
+            {group.defs.map((def) => (
+              <KeymapRow key={def.key} def={def} scopeDefs={bindingDefs} conflicts={conflicts.get(def.key)} />
+            ))}
+          </PaneSection>
         );
       })}
 
@@ -288,7 +279,9 @@ const KeymapPane: React.FC<CategoryPaneProps> = ({ category, defs }) => {
           }}
         >
           <WarningOutlined style={{ fontSize: 12, color: token.colorWarning }} />
-          <span style={{ flex: 1 }}>{t('workbench.settings.keymapPane.conflictSummary', { count: conflicts.size })}</span>
+          <span style={{ flex: 1 }}>
+            {t('workbench.settings.keymapPane.conflictSummary', { count: conflicts.size })}
+          </span>
           <span style={{ color: token.colorPrimary }}>
             {conflictsOnly
               ? t('workbench.settings.keymapPane.conflictShowAll')
@@ -296,7 +289,7 @@ const KeymapPane: React.FC<CategoryPaneProps> = ({ category, defs }) => {
           </span>
         </button>
       )}
-    </div>
+    </Pane>
   );
 };
 

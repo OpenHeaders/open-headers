@@ -410,6 +410,7 @@ export const workbenchSettingsPanes = {
   'workbench.settings.keymapPane.conflictReassign': 'Reasignar',
   'workbench.settings.keymapPane.conflictKeepBoth': 'Mantener ambos',
   'workbench.settings.keymapPane.presetAria': 'Preajuste de atajos',
+  'workbench.settings.keymapPane.presetSection': 'Atajos',
   'workbench.settings.keymapPane.presetRestore': ({ count }, locale) =>
     plural(locale, Number(count), {
       one: 'Restaurar el preajuste ({count} personalización)',

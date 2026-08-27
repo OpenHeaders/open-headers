@@ -86,7 +86,7 @@ export const workbenchSettingsDefsKeyboard = {
   'workbench.settings.def.keyboard.formatCode.description':
     'Formatear el contenido del editor de código con el foco. Solo se dispara cuando el editor tiene el foco — ' +
     'no interfiere con los atajos globales.',
-  'workbench.settings.def.keyboard.preset.label': 'Preajuste de atajos',
+  'workbench.settings.def.keyboard.preset.label': 'Preajuste',
   'workbench.settings.def.keyboard.preset.description':
     'El conjunto base de atajos. Los atajos que personalices se mantienen por encima del preajuste y sobreviven ' +
     'al cambiarlo.',

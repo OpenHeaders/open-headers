@@ -68,7 +68,7 @@ export const workbenchSettingsDefsKeyboard = {
   'workbench.settings.def.keyboard.formatCode.label': 'Format Code',
   'workbench.settings.def.keyboard.formatCode.description':
     'Format the focused code editor buffer. Only fires when the editor has focus — does not interfere with global shortcuts.',
-  'workbench.settings.def.keyboard.preset.label': 'Keymap Preset',
+  'workbench.settings.def.keyboard.preset.label': 'Preset',
   'workbench.settings.def.keyboard.preset.description':
     'The base set of shortcuts. Shortcuts you customize stay on top of the preset and survive switching it.',
   'workbench.settings.def.keyboard.preset.option.openheaders.label': 'OpenHeaders defaults',

@@ -88,7 +88,7 @@ export const workbenchSettingsDefsKeyboard = {
   'workbench.settings.def.keyboard.formatCode.description':
     'Den Inhalt des fokussierten Code-Editors formatieren. Löst nur aus, wenn der Editor den Fokus hat — ' +
     'kollidiert nicht mit globalen Kürzeln.',
-  'workbench.settings.def.keyboard.preset.label': 'Tastenkürzel-Voreinstellung',
+  'workbench.settings.def.keyboard.preset.label': 'Voreinstellung',
   'workbench.settings.def.keyboard.preset.description':
     'Der Basissatz an Kürzeln. Kürzel, die du anpasst, liegen über der Voreinstellung und überstehen einen ' +
     'Wechsel.',

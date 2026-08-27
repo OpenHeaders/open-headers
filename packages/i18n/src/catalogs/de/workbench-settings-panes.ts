@@ -411,6 +411,7 @@ export const workbenchSettingsPanes = {
   'workbench.settings.keymapPane.conflictReassign': 'Neu belegen',
   'workbench.settings.keymapPane.conflictKeepBoth': 'Beide behalten',
   'workbench.settings.keymapPane.presetAria': 'Keymap-Voreinstellung',
+  'workbench.settings.keymapPane.presetSection': 'Tastenkürzel',
   'workbench.settings.keymapPane.presetRestore': ({ count }, locale) =>
     plural(locale, Number(count), {
       one: 'Voreinstellung wiederherstellen ({count} Anpassung)',

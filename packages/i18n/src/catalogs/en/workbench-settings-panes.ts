@@ -360,6 +360,7 @@ export const workbenchSettingsPanes = {
   'workbench.settings.keymapPane.conflictReassign': 'Reassign',
   'workbench.settings.keymapPane.conflictKeepBoth': 'Keep both',
   'workbench.settings.keymapPane.presetAria': 'Keymap preset',
+  'workbench.settings.keymapPane.presetSection': 'Keymap',
   'workbench.settings.keymapPane.presetRestore': ({ count }, locale) =>
     plural(locale, Number(count), {
       one: 'Restore preset ({count} customization)',

@@ -76,7 +76,7 @@ export const workbenchSettingsDefsKeyboard = {
   'workbench.settings.def.keyboard.formatCode.label': '格式化代码',
   'workbench.settings.def.keyboard.formatCode.description':
     '格式化获得焦点的代码编辑器缓冲区。仅在编辑器有焦点时触发——不干扰全局快捷键。',
-  'workbench.settings.def.keyboard.preset.label': '键位预设',
+  'workbench.settings.def.keyboard.preset.label': '预设',
   'workbench.settings.def.keyboard.preset.description':
     '快捷键的基础集合。你自定义的快捷键叠加在预设之上，切换预设后依然保留。',
   'workbench.settings.def.keyboard.preset.option.openheaders.label': 'OpenHeaders 默认值',

@@ -354,6 +354,7 @@ export const workbenchSettingsPanes = {
   'workbench.settings.keymapPane.conflictReassign': '重新分配',
   'workbench.settings.keymapPane.conflictKeepBoth': '两者都保留',
   'workbench.settings.keymapPane.presetAria': '快捷键预设',
+  'workbench.settings.keymapPane.presetSection': '键位',
   'workbench.settings.keymapPane.presetRestore': ({ count }, locale) =>
     plural(locale, Number(count), { other: '恢复预设（{count} 处自定义）' }),
   'workbench.settings.keymapPane.presetRestoreTip': '把每个自定义过的快捷键重置为当前预设。',

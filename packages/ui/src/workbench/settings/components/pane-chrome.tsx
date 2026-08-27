@@ -6,6 +6,7 @@
  * pages) compose the same pieces so the two read identically.
  */
 
+import { DownOutlined, RightOutlined } from '@ant-design/icons';
 import { theme } from 'antd';
 import type React from 'react';
 import type { ReactNode } from 'react';
@@ -61,18 +62,53 @@ export const PaneHeader: React.FC<{ category: CategoryDef }> = ({ category }) =>
   </header>
 );
 
-/** One section: a row-label-styled header over a rule, rows indented beneath. No title → rows flush. */
-export const PaneSection: React.FC<{ title?: string; children: ReactNode }> = ({ title, children }) => {
+/**
+ * One section: a row-label-styled header over a rule, rows indented
+ * beneath. No title → rows flush. With `onToggle` the header is a
+ * button that folds the rows away (caret in front, `aria-expanded`).
+ */
+export const PaneSection: React.FC<{
+  title?: string;
+  collapsed?: boolean;
+  onToggle?: () => void;
+  children: ReactNode;
+}> = ({ title, collapsed = false, onToggle, children }) => {
   const { token } = theme.useToken();
+  const titleStyle = { margin: 0, fontSize: 13, fontWeight: 400, color: token.colorText, flex: 'none' } as const;
   return (
     <section style={{ marginBottom: 14 }}>
       {title !== undefined && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '0 0 4px' }}>
-          <h3 style={{ margin: 0, fontSize: 13, fontWeight: 400, color: token.colorText, flex: 'none' }}>{title}</h3>
+          {onToggle ? (
+            <button
+              type="button"
+              onClick={onToggle}
+              aria-expanded={!collapsed}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
+                border: 'none',
+                background: 'none',
+                padding: 0,
+                cursor: 'pointer',
+                ...titleStyle,
+              }}
+            >
+              {collapsed ? (
+                <RightOutlined style={{ fontSize: 9, color: token.colorTextTertiary }} />
+              ) : (
+                <DownOutlined style={{ fontSize: 9, color: token.colorTextTertiary }} />
+              )}
+              {title}
+            </button>
+          ) : (
+            <h3 style={titleStyle}>{title}</h3>
+          )}
           <div style={{ flex: 1, height: 1, background: token.colorBorderSecondary }} />
         </div>
       )}
-      <div style={title !== undefined ? { paddingLeft: 16 } : undefined}>{children}</div>
+      {!collapsed && <div style={title !== undefined ? { paddingLeft: 16 } : undefined}>{children}</div>}
     </section>
   );
 };

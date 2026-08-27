@@ -84,7 +84,7 @@ export const workbenchSettingsDefsKeyboard = {
   'workbench.settings.def.keyboard.formatCode.description':
     "Formater le contenu de l'éditeur de code en focus. Ne se déclenche que quand l'éditeur a le focus — " +
     "n'interfère pas avec les raccourcis globaux.",
-  'workbench.settings.def.keyboard.preset.label': 'Préréglage de raccourcis',
+  'workbench.settings.def.keyboard.preset.label': 'Préréglage',
   'workbench.settings.def.keyboard.preset.description':
     'Le jeu de raccourcis de base. Les raccourcis que vous personnalisez restent par-dessus le préréglage et ' +
     'survivent à son changement.',

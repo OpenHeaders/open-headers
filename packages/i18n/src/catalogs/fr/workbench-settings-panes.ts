@@ -412,6 +412,7 @@ export const workbenchSettingsPanes = {
   'workbench.settings.keymapPane.conflictReassign': 'Réassigner',
   'workbench.settings.keymapPane.conflictKeepBoth': 'Garder les deux',
   'workbench.settings.keymapPane.presetAria': 'Préréglage de raccourcis',
+  'workbench.settings.keymapPane.presetSection': 'Raccourcis',
   'workbench.settings.keymapPane.presetRestore': ({ count }, locale) =>
     plural(locale, Number(count), {
       one: 'Restaurer le préréglage ({count} personnalisation)',
