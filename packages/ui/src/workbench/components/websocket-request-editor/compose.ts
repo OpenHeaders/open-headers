@@ -19,13 +19,3 @@ export const MESSAGE_FORMAT_LANGUAGE = {
   xml: 'xml',
   html: 'html',
 } as const satisfies Record<WebSocketMessageFormat, LanguageId>;
-
-/** Flip the URL between ws:// and wss:// without touching the rest —
- *  the editor's scheme lock is string surgery on the draft URL only
- *  (templates and schemeless authorities stay as typed until locked). */
-export const toggleScheme = (url: string): string => {
-  if (url.startsWith('wss://')) return `ws://${url.slice('wss://'.length)}`;
-  if (url.startsWith('ws://')) return `wss://${url.slice('ws://'.length)}`;
-  // No recognized scheme yet — locking prepends the secure one.
-  return `wss://${url}`;
-};

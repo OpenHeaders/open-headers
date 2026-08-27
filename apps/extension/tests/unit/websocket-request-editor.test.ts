@@ -54,6 +54,27 @@ describe('websocket draft projections', () => {
     expect(updates.timeoutMs).toBe(30_000);
   });
 
+  it('splits a stored ?query off the URL into params ahead of the stored rows, deterministically', () => {
+    const entity = websocketRequest({ url: 'wss://events.openheaders.io/live?room=a&empty=&flag' });
+    const draft = draftFromWebSocketRequest(entity);
+    expect(draft.url).toBe('wss://events.openheaders.io/live');
+    expect(draft.params.map((r) => [r.key, r.value, r.hasEquals ?? false])).toEqual([
+      ['room', 'a', false],
+      ['empty', '', true],
+      ['flag', '', false],
+      ['tenant', 'openheaders', false],
+    ]);
+    expect(draftFromWebSocketRequest(entity).params.map((r) => r.uid)).toEqual(draft.params.map((r) => r.uid));
+  });
+
+  it('carries the hasEquals marker through the entity round trip', () => {
+    const entity = websocketRequest({
+      params: [{ uid: 'wspm0002', key: 'k', value: '', enabled: true, hasEquals: true }],
+    });
+    const updates = buildWebSocketRequestUpdates(draftFromWebSocketRequest(entity));
+    expect(updates.params).toEqual([{ uid: 'wspm0002', key: 'k', value: '', enabled: true, hasEquals: true }]);
+  });
+
   it('reads an absent sslVerification as verify-on and carries an explicit opt-out', () => {
     expect(buildWebSocketRequestUpdates(draftFromWebSocketRequest(websocketRequest())).sslVerification).toBe(true);
     expect(
@@ -93,14 +114,14 @@ describe('websocket draft projections', () => {
     expect(rowsToHeaders(rows).map((r) => r.uid)).toEqual(['wshd0001']);
   });
 
-  it('normalizes hasEquals away on both sides so the fingerprint stays stable', () => {
+  it('keeps hasEquals identical on both sides so the fingerprint stays stable', () => {
     const entity = websocketRequest({
       params: [{ uid: 'wspm0002', key: 'flag', value: '', hasEquals: true }],
     });
     const viaForm = rowsToParams(paramsToRows(entity.params));
     const canonical = canonicalWebSocketRequestProjection(entity).params;
     expect(viaForm).toEqual(canonical);
-    expect(canonical[0].hasEquals).toBeUndefined();
+    expect(canonical[0].hasEquals).toBe(true);
   });
 });
 

@@ -21,11 +21,6 @@ import type { Catalog } from '../../types';
 export const workbenchEditorsWebsocket = {
   // ── WebSocket request editor ────────────────────────────────────────
   'workbench.editors.websocket.notFound': '未找到 WebSocket 请求。',
-  'workbench.editors.websocket.urlPlaceholder': 'wss://echo.openheaders.com/socket',
-  'workbench.editors.websocket.scheme.wss': 'wss——TLS 已开启。点击切换为明文 ws。',
-  'workbench.editors.websocket.scheme.ws': 'ws——明文。点击切换为 wss。',
-  'workbench.editors.websocket.flavor.raw': 'WebSocket',
-  'workbench.editors.websocket.flavor.socketio': 'Socket.IO',
   'workbench.editors.websocket.connect.label': '连接',
   'workbench.editors.websocket.connect.disconnect': '断开连接',
   'workbench.editors.websocket.connect.cancel': '取消',
@@ -88,8 +83,6 @@ export const workbenchEditorsWebsocket = {
   'workbench.editors.websocket.headers.hint.node.acceptEncoding': 'node 运行时在握手响应中接受的内容编码。',
   'workbench.editors.websocket.headers.browserNotSent':
     '未发送——浏览器自行设置握手标头。自定义标头在会话运行于桌面应用或服务器时生效。',
-  'workbench.editors.websocket.params.keyPlaceholder': '参数名称',
-  'workbench.editors.websocket.params.valuePlaceholder': '值',
   'workbench.editors.websocket.spec.selectLabel': 'AsyncAPI 规范',
   'workbench.editors.websocket.spec.selectPlaceholder': '关联一个 AsyncAPI 规范',
   'workbench.editors.websocket.spec.summary': '{servers} 个服务器 · {channels} 个频道 · {operations} 个操作',

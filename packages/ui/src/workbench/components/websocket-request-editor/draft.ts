@@ -21,6 +21,7 @@ import type {
   WebSocketRequest,
   WebSocketSpecLink,
 } from '@openheaders/core/types';
+import { parseUrlQuery } from '@openheaders/core/utils';
 import { type KeyValueRow, makeKvRow } from '../request-editor/KeyValueTable';
 
 export interface WebSocketDraft {
@@ -102,9 +103,9 @@ export function rowsToHeaders(rows: KeyValueRow[]): WebSocketHeaderPair[] {
     }));
 }
 
-/** Params share the header row anatomy in the Phase B table — the
- *  `hasEquals` URL round-trip marker joins with the URL⇄params sync
- *  (a later phase), so both projections normalize it away for now. */
+/** Params share the header row anatomy; the `hasEquals` marker rides
+ *  both ways so the URL bar keeps `?key=` for a row whose value was
+ *  cleared (the URL⇄params sync in `WsTargetRow`). */
 export function paramsToRows(pairs: readonly WebSocketQueryParam[]): KeyValueRow[] {
   return pairs.map((p) =>
     makeKvRow({
@@ -113,6 +114,7 @@ export function paramsToRows(pairs: readonly WebSocketQueryParam[]): KeyValueRow
       value: p.value,
       description: p.description ?? '',
       enabled: p.enabled ?? true,
+      hasEquals: p.hasEquals,
     }),
   );
 }
@@ -126,7 +128,17 @@ export function rowsToParams(rows: KeyValueRow[]): WebSocketQueryParam[] {
       value: r.value,
       description: r.description?.trim() ? r.description : undefined,
       enabled: r.enabled,
+      ...(r.hasEquals !== undefined ? { hasEquals: r.hasEquals } : {}),
     }));
+}
+
+/** Uid for a URL-derived param row — index-keyed and DETERMINISTIC,
+ *  since `draftFromWebSocketRequest` feeds the canonical projection
+ *  the reprime gate fingerprints (a random uid would make every
+ *  projection compare unequal and re-populate the draft each render).
+ *  Same shape as `generateUid()` output so `UidSchema` accepts it. */
+function urlParamUid(index: number): string {
+  return `q${index.toString(36).padStart(7, '0')}`;
 }
 
 /** Trim the Events grid's trailing ghost + unnamed rows away — the
@@ -143,12 +155,26 @@ export function rowsToEvents(rows: WebSocketEventRow[]): WebSocketEventRow[] {
 }
 
 export function draftFromWebSocketRequest(req: WebSocketRequest): WebSocketDraft {
+  // Split any `?…` suffix off the stored URL into structured params so
+  // the URL⇄params sync works from a clean base; stored rows keep their
+  // metadata and follow the URL-derived ones (URL first, table after).
+  const parsed = parseUrlQuery(req.url);
+  const urlParams: KeyValueRow[] = parsed.params.map((p, i) =>
+    makeKvRow({
+      uid: urlParamUid(i),
+      key: p.key,
+      value: p.value,
+      description: '',
+      enabled: true,
+      hasEquals: p.hasEquals,
+    }),
+  );
   return {
     description: req.description ?? '',
-    url: req.url,
+    url: parsed.base,
     subprotocols: [...req.subprotocols],
     headers: headersToRows(req.headers),
-    params: paramsToRows(req.params),
+    params: [...urlParams, ...paramsToRows(req.params)],
     auth: req.auth ?? { type: 'none' },
     events: (req.events ?? []).map((row) => ({ ...row })),
     message: req.message,

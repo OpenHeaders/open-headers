@@ -253,9 +253,9 @@ test('W1 — Connect morphs, the greeting proves subprotocol + header, Send echo
     .first();
   await connectedRow.waitFor({ state: 'visible', timeout: 10_000 });
   await connectedRow.click();
-  await expect(
-    workbench.getByTestId('ws-timeline-handshake-details').filter({ visible: true }).first(),
-  ).toContainText('oh-e2e-proto');
+  await expect(workbench.getByTestId('ws-timeline-handshake-details').filter({ visible: true }).first()).toContainText(
+    'oh-e2e-proto',
+  );
   await connectedRow.click();
 
   // Send the compose text: the ↑ frame and the probe's echo ↓ land.
@@ -416,9 +416,12 @@ test('W6 — Save Response mints the example: viewer close pill, sidebar leaf, O
   // shape riding the prefill bus as unsaved draft edits.
   await workbench.getByTestId('ws-example-open-in-request').filter({ visible: true }).first().click();
   await connectButton().waitFor({ state: 'visible', timeout: 10_000 });
-  await expect(workbench.getByTestId('websocket-url-input').filter({ visible: true }).first()).toHaveValue(
-    /net\/ws-probe/,
-  );
+  await expect
+    .poll(
+      async () =>
+        (await workbench.getByTestId('websocket-url-input').filter({ visible: true }).first().textContent()) ?? '',
+    )
+    .toMatch(/net\/ws-probe/);
 });
 
 // ── W7: session credential — Authorization header on the raw flavor ──

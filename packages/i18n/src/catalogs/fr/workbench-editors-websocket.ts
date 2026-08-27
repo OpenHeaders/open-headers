@@ -13,11 +13,6 @@ import type { Catalog } from '../../types';
 export const workbenchEditorsWebsocket = {
   // ── WebSocket request editor ────────────────────────────────────────
   'workbench.editors.websocket.notFound': 'Requête WebSocket introuvable.',
-  'workbench.editors.websocket.urlPlaceholder': 'wss://echo.openheaders.com/socket',
-  'workbench.editors.websocket.scheme.wss': 'wss — TLS activé. Cliquez pour passer en ws non chiffré.',
-  'workbench.editors.websocket.scheme.ws': 'ws — en clair. Cliquez pour passer en wss.',
-  'workbench.editors.websocket.flavor.raw': 'WebSocket',
-  'workbench.editors.websocket.flavor.socketio': 'Socket.IO',
   'workbench.editors.websocket.connect.label': 'Se connecter',
   'workbench.editors.websocket.connect.disconnect': 'Se déconnecter',
   'workbench.editors.websocket.connect.cancel': 'Annuler',
@@ -97,8 +92,6 @@ export const workbenchEditorsWebsocket = {
     'Les encodages de contenu que le runtime node accepte sur la réponse de la poignée de main.',
   'workbench.editors.websocket.headers.browserNotSent':
     'Non envoyé — le navigateur définit lui-même les en-têtes de la poignée de main. Les en-têtes personnalisés s’appliquent quand la session s’exécute sur l’application de bureau ou le serveur.',
-  'workbench.editors.websocket.params.keyPlaceholder': 'Nom du paramètre',
-  'workbench.editors.websocket.params.valuePlaceholder': 'Valeur',
   'workbench.editors.websocket.spec.selectLabel': 'Spécification AsyncAPI',
   'workbench.editors.websocket.spec.selectPlaceholder': 'Lier une spécification AsyncAPI',
   'workbench.editors.websocket.spec.summary': '{servers} serveurs · {channels} canaux · {operations} opérations',

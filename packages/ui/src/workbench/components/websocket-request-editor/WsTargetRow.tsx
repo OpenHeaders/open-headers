@@ -1,55 +1,41 @@
 /**
- * WsTargetRow — the editor header's title slot: the flavor tag
- * (identity chrome, fixed at creation), the ws/wss scheme lock, and
- * the URL.
+ * WsTargetRow — the editor header's title slot: the URL, and nothing
+ * else (the flavor already shows as the tab pill; the scheme is the
+ * URL's own text). Owns the bidirectional URL↔Params sync exactly as
+ * the HTTP bar does: the displayed value folds the structured params
+ * back in via `buildUrlDisplay`, and editing the URL re-parses its
+ * query into the params table, preserving row metadata via
+ * `mergeParamsFromUrl`.
  */
 
-import { LockOutlined, UnlockOutlined } from '@ant-design/icons';
-import type { WebSocketRequest } from '@openheaders/core/types';
-import { useT } from '@openheaders/ui/context/LocaleContext';
-import { Button, Input, Tag, Tooltip, theme } from 'antd';
+import { buildUrlDisplay, parseUrlQuery } from '@openheaders/core/utils';
 import type React from 'react';
 import type { Dispatch, SetStateAction } from 'react';
-import { toggleScheme } from './compose';
+import { useT } from '@openheaders/ui/context/LocaleContext';
+import { draftParamsToQueryParams, mergeParamsFromUrl } from '../request-editor/draft';
+import { TemplateInput } from '../template-input';
 import type { WebSocketDraft } from './draft';
 
 interface WsTargetRowProps {
   draft: WebSocketDraft;
   setDraft: Dispatch<SetStateAction<WebSocketDraft>>;
-  flavor: WebSocketRequest['flavor'];
 }
 
-const WsTargetRow: React.FC<WsTargetRowProps> = ({ draft, setDraft, flavor }) => {
+const WsTargetRow: React.FC<WsTargetRowProps> = ({ draft, setDraft }) => {
   const t = useT();
-  const { token } = theme.useToken();
-  const secure = !draft.url.startsWith('ws://');
-  const schemeLabel = secure ? t('workbench.editors.websocket.scheme.wss') : t('workbench.editors.websocket.scheme.ws');
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, minWidth: 0 }}>
-      <Tag style={{ marginInlineEnd: 0, flexShrink: 0, fontSize: 10 }}>
-        {flavor === 'socketio'
-          ? t('workbench.editors.websocket.flavor.socketio')
-          : t('workbench.editors.websocket.flavor.raw')}
-      </Tag>
-      <Tooltip title={schemeLabel}>
-        <Button
-          icon={
-            secure ? (
-              <LockOutlined style={{ color: token.colorSuccess }} />
-            ) : (
-              <UnlockOutlined style={{ color: token.colorWarning }} />
-            )
-          }
-          onClick={() => setDraft((d) => ({ ...d, url: toggleScheme(d.url) }))}
-          aria-label={schemeLabel}
-          data-testid="websocket-scheme-lock"
-        />
-      </Tooltip>
-      <Input
-        style={{ flex: 1, minWidth: 0, fontFamily: "'SF Mono', monospace", fontSize: 12 }}
-        placeholder={t('workbench.editors.websocket.urlPlaceholder')}
-        value={draft.url}
-        onChange={(e) => setDraft((d) => ({ ...d, url: e.target.value }))}
+    <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2 }}>
+      <TemplateInput
+        value={buildUrlDisplay(draft.url, draftParamsToQueryParams(draft.params))}
+        onChange={(next) => {
+          const parsed = parseUrlQuery(next);
+          setDraft((d) => ({ ...d, url: parsed.base, params: mergeParamsFromUrl(parsed.params, d.params) }));
+        }}
+        placeholder={t('workbench.editors.request.url.placeholder')}
+        size="small"
+        flagUnresolved
+        expandOnFocus
+        style={{ width: '100%', fontFamily: "'SF Mono', monospace", fontSize: 12 }}
         data-testid="websocket-url-input"
       />
     </div>

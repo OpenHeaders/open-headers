@@ -18,11 +18,6 @@ import type { Catalog } from '../../types';
 export const workbenchEditorsWebsocket = {
   // ── WebSocket request editor ────────────────────────────────────────
   'workbench.editors.websocket.notFound': 'No se encontró la solicitud WebSocket.',
-  'workbench.editors.websocket.urlPlaceholder': 'wss://echo.openheaders.com/socket',
-  'workbench.editors.websocket.scheme.wss': 'wss — TLS activado. Haz clic para cambiar a ws sin cifrar.',
-  'workbench.editors.websocket.scheme.ws': 'ws — en claro. Haz clic para cambiar a wss.',
-  'workbench.editors.websocket.flavor.raw': 'WebSocket',
-  'workbench.editors.websocket.flavor.socketio': 'Socket.IO',
   'workbench.editors.websocket.connect.label': 'Conectar',
   'workbench.editors.websocket.connect.disconnect': 'Desconectar',
   'workbench.editors.websocket.connect.cancel': 'Cancelar',
@@ -102,8 +97,6 @@ export const workbenchEditorsWebsocket = {
     'Las codificaciones de contenido que el runtime de node acepta en la respuesta del saludo.',
   'workbench.editors.websocket.headers.browserNotSent':
     'No se envía — el navegador fija por sí mismo las cabeceras del saludo. Las cabeceras personalizadas se aplican cuando la sesión se ejecuta en la aplicación de escritorio o el servidor.',
-  'workbench.editors.websocket.params.keyPlaceholder': 'Nombre del parámetro',
-  'workbench.editors.websocket.params.valuePlaceholder': 'Valor',
   'workbench.editors.websocket.spec.selectLabel': 'Especificación AsyncAPI',
   'workbench.editors.websocket.spec.selectPlaceholder': 'Vincular una especificación AsyncAPI',
   'workbench.editors.websocket.spec.summary': '{servers} servidores · {channels} canales · {operations} operaciones',

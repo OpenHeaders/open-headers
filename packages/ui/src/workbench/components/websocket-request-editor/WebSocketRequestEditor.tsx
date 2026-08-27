@@ -10,7 +10,7 @@
  *     compose aids (example picker, channel browser).
  *   - `useSocketIoArgs` — the Socket.IO per-argument compose state
  *     over the stored arguments-array text.
- *   - `WsTargetRow` — flavor tag + scheme lock + URL header title.
+ *   - `WsTargetRow` — the URL header title with the URL⇄params sync.
  *   - `WsMessageTab` (+ `WsArgRail`) / `WsEventsTab` /
  *     `WebSocketAuthTab` / `WsSpecTab` / `WebSocketSettingsTab` — the
  *     compose tabs (Docs, Headers and Params ride shared components
@@ -63,6 +63,7 @@ import WebSocketSettingsTab from './WebSocketSettingsTab';
 import { subscribeWsPrefill } from './ws-prefill-bus';
 import WsEventsTab from './WsEventsTab';
 import WsHeadersTab from './WsHeadersTab';
+import WsParamsTab from './WsParamsTab';
 import WsMessageTab from './WsMessageTab';
 import WsSessionPane from './WsSessionPane';
 import WsSpecTab from './WsSpecTab';
@@ -248,7 +249,7 @@ const WebSocketRequestEditor: React.FC<WebSocketRequestEditorProps> = ({
   // actions slot next to the standardized Save. Where a session
   // cannot run, Connect stays a visible DISABLED affordance with the
   // honest gate copy — never a hidden button.
-  const headerTitle = <WsTargetRow draft={draft} setDraft={setDraft} flavor={entity.flavor} />;
+  const headerTitle = <WsTargetRow draft={draft} setDraft={setDraft} />;
 
   // Connect morphs while the session is in flight — the Invoke→Stop
   // treatment: solid on the darkened error token. The label stays
@@ -420,12 +421,7 @@ const WebSocketRequestEditor: React.FC<WebSocketRequestEditorProps> = ({
                       />
                     )}
                     {activeTab === 'params' && (
-                      <KeyValueTable
-                        rows={draft.params}
-                        onChange={(params) => setDraft((d) => ({ ...d, params }))}
-                        keyPlaceholder={t('workbench.editors.websocket.params.keyPlaceholder')}
-                        valuePlaceholder={t('workbench.editors.websocket.params.valuePlaceholder')}
-                      />
+                      <WsParamsTab rows={draft.params} onChange={(params) => setDraft((d) => ({ ...d, params }))} />
                     )}
                     {activeTab === 'spec' && (
                       <WsSpecTab

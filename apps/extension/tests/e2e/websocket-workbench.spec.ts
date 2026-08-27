@@ -288,7 +288,8 @@ test('url, message and subprotocols survive Save + reload + reopen', async () =>
   await workbench.collapseRightSidebar();
   await openWebsocketRequest(RAW_NAME);
 
-  await expect(urlInput()).toHaveValue(WS_URL);
+  // The URL bar is a contentEditable TemplateInput — read its text.
+  await expect.poll(async () => (await urlInput().textContent()) ?? '').toBe(WS_URL);
   // Poll the readback: a just-reopened Monaco with wrap on first lays
   // out at collapsed width and renders only the first wrapped char
   // line — the poll rides out that relayout, while a truly squished

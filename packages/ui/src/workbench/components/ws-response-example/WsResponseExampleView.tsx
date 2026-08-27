@@ -19,11 +19,11 @@
  * as one LWW value), shell wiring via `useEditorShell`.
  */
 
-import { ExportOutlined, LoadingOutlined, LockOutlined, UnlockOutlined } from '@ant-design/icons';
+import { ExportOutlined, LoadingOutlined } from '@ant-design/icons';
 import { WS_RESPONSE_EXAMPLE_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { WsResponseExample } from '@openheaders/core/types';
 import { Allotment } from 'allotment';
-import { App, Button, Input, Switch, Tabs, Tag, Tooltip, Typography, theme } from 'antd';
+import { App, Button, Input, Switch, Tabs, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useMemo, useState } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
@@ -56,13 +56,6 @@ interface WsResponseExampleViewProps {
   onDirtyChange?: (dirty: boolean) => void;
   registerSaveRef?: (save: () => void) => void;
 }
-
-/** Flip the URL between ws:// and wss:// — the editor's scheme lock. */
-const toggleScheme = (url: string): string => {
-  if (url.startsWith('wss://')) return `ws://${url.slice('wss://'.length)}`;
-  if (url.startsWith('ws://')) return `wss://${url.slice('ws://'.length)}`;
-  return `wss://${url}`;
-};
 
 const WsResponseExampleView: React.FC<WsResponseExampleViewProps> = ({
   exampleUid,
@@ -151,34 +144,11 @@ const WsResponseExampleView: React.FC<WsResponseExampleViewProps> = ({
     );
   }
 
-  const secure = !draft.url.startsWith('ws://');
-
   const headerTitle = (
     <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, minWidth: 0 }}>
-      {/* The wire family is the capture's fact — a static chip. */}
-      <Tag style={{ marginInlineEnd: 0, flexShrink: 0, fontSize: 10 }}>
-        {socketioFlavor
-          ? t('workbench.editors.websocket.flavor.socketio')
-          : t('workbench.editors.websocket.flavor.raw')}
-      </Tag>
-      <Tooltip
-        title={secure ? t('workbench.editors.websocket.scheme.wss') : t('workbench.editors.websocket.scheme.ws')}
-      >
-        <Button
-          icon={
-            secure ? (
-              <LockOutlined style={{ color: token.colorSuccess }} />
-            ) : (
-              <UnlockOutlined style={{ color: token.colorWarning }} />
-            )
-          }
-          onClick={() => setDraft((d) => (d ? { ...d, url: toggleScheme(d.url) } : d))}
-          aria-label={secure ? t('workbench.editors.websocket.scheme.wss') : t('workbench.editors.websocket.scheme.ws')}
-        />
-      </Tooltip>
       <Input
         style={{ flex: 1, minWidth: 0, fontFamily: "'SF Mono', monospace", fontSize: 12 }}
-        placeholder={t('workbench.editors.websocket.urlPlaceholder')}
+        placeholder={t('workbench.editors.request.url.placeholder')}
         value={draft.url}
         onChange={(e) => setDraft((d) => (d ? { ...d, url: e.target.value } : d))}
         data-testid="ws-example-url-input"
@@ -305,8 +275,6 @@ const WsResponseExampleView: React.FC<WsResponseExampleViewProps> = ({
                       <KeyValueTable
                         rows={draft.params}
                         onChange={(params) => setDraft((d) => (d ? { ...d, params } : d))}
-                        keyPlaceholder={t('workbench.editors.websocket.params.keyPlaceholder')}
-                        valuePlaceholder={t('workbench.editors.websocket.params.valuePlaceholder')}
                       />
                     )}
                   </div>

@@ -9,11 +9,6 @@ import type { Catalog } from '../../types';
 export const workbenchEditorsWebsocket = {
   // ── WebSocket request editor ────────────────────────────────────────
   'workbench.editors.websocket.notFound': 'WebSocket request not found.',
-  'workbench.editors.websocket.urlPlaceholder': 'wss://echo.openheaders.com/socket',
-  'workbench.editors.websocket.scheme.wss': 'wss — TLS on. Click to switch to plain ws.',
-  'workbench.editors.websocket.scheme.ws': 'ws — plaintext. Click to switch to wss.',
-  'workbench.editors.websocket.flavor.raw': 'WebSocket',
-  'workbench.editors.websocket.flavor.socketio': 'Socket.IO',
   'workbench.editors.websocket.connect.label': 'Connect',
   'workbench.editors.websocket.connect.disconnect': 'Disconnect',
   'workbench.editors.websocket.connect.cancel': 'Cancel',
@@ -85,8 +80,6 @@ export const workbenchEditorsWebsocket = {
     'The content encodings the node runtime accepts on the handshake response.',
   'workbench.editors.websocket.headers.browserNotSent':
     'Not sent — the browser sets the handshake headers itself. Custom headers apply when the session runs on the desktop app or server.',
-  'workbench.editors.websocket.params.keyPlaceholder': 'Parameter name',
-  'workbench.editors.websocket.params.valuePlaceholder': 'Value',
   'workbench.editors.websocket.spec.selectLabel': 'AsyncAPI spec',
   'workbench.editors.websocket.spec.selectPlaceholder': 'Link an AsyncAPI spec',
   'workbench.editors.websocket.spec.summary': '{servers} servers · {channels} channels · {operations} operations',
