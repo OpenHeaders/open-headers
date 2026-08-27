@@ -1,12 +1,14 @@
 // @vitest-environment jsdom
 /**
- * The read-only trusted-certificates line in the four Settings TLS
- * groups (HTTP, WS, gRPC, MQTT). Pins: the count from the
- * editing-scope workspace, the zero wording with the same link, the
- * Manage link firing the shell's opener (and hiding without one), no
- * knob (no switch, no dot), and the honest browser note on a non-node
+ * The read-only trusted-certificates row in the four Settings TLS
+ * groups (HTTP, WS, gRPC, MQTT) — the client-certificate picker's
+ * shape with nothing to pick. Pins: the count on the control face
+ * from the editing-scope workspace, the zero wording with the empty
+ * popup line, the roots listed read-only (disabled options), the
+ * footer link firing the shell's opener (and hiding without one), no
+ * knob (no value, no dot), and the honest browser note on a non-node
  * host — the HTTP tab's via its browser-managed sheet row, the other
- * three via the row itself.
+ * three via the disabled row and its caption.
  */
 
 import { registerCapability, unregisterCapability } from '@openheaders/core/capabilities';
@@ -153,51 +155,71 @@ function renderTab(kind: TabKind, workspaceId: string, openTrustedRoots?: () => 
 
 const TABS: TabKind[] = ['http', 'ws', 'grpc', 'mqtt'];
 
+const MANAGE = 'Manage trusted certificates';
+
+function openPopup(): void {
+  const combobox = screen.getByRole('combobox', { name: 'Trusted certificates' });
+  fireEvent.mouseDown(combobox);
+  fireEvent.click(combobox);
+}
+
 describe.each(TABS)('trusted-certificates line on the %s Settings tab (node runtime)', (kind) => {
   beforeEach(() => {
     registerCapability('requestRuntime', () => 'node');
   });
 
-  it('counts the editing-scope workspace roots and offers Manage', () => {
+  it('counts the editing-scope workspace roots on the face and lists them read-only', () => {
     renderTab(kind, 'ws-two', () => {});
     expect(screen.getByText('Trusted certificates')).toBeTruthy();
     expect(screen.getByText('2 from this workspace')).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Manage' })).toBeTruthy();
     expect(mockUseTrustedRoots).toHaveBeenCalledWith('ws-two');
+    openPopup();
+    const options = screen.getAllByRole('option');
+    expect(options.map((o) => o.textContent)).toEqual(['Root r1', 'Root r2']);
+    expect(options.every((o) => o.getAttribute('aria-disabled') === 'true')).toBe(true);
+    expect(screen.getByRole('button', { name: MANAGE })).toBeTruthy();
   });
 
-  it('reads None with the same link when the workspace has no roots', () => {
+  it('reads None on the face and the empty line in the popup, same footer link', () => {
     renderTab(kind, 'ws-none', () => {});
     expect(screen.getByText('None from this workspace')).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Manage' })).toBeTruthy();
+    openPopup();
+    expect(screen.getByText('No trusted certificates in this workspace yet.')).toBeTruthy();
+    expect(screen.queryAllByRole('option')).toHaveLength(0);
+    expect(screen.getByRole('button', { name: MANAGE })).toBeTruthy();
   });
 
-  it('Manage fires the shell opener; without a shell the link is absent, the line stays', () => {
+  it('the footer fires the shell opener; without a shell the link is absent, the row stays', () => {
     const open = vi.fn();
     renderTab(kind, 'ws-two', open);
-    fireEvent.click(screen.getByRole('button', { name: 'Manage' }));
+    openPopup();
+    fireEvent.click(screen.getByRole('button', { name: MANAGE }));
     expect(open).toHaveBeenCalledTimes(1);
 
     cleanup();
     renderTab(kind, 'ws-two');
     expect(screen.getByText('2 from this workspace')).toBeTruthy();
-    expect(screen.queryByRole('button', { name: 'Manage' })).toBeNull();
+    openPopup();
+    expect(screen.queryByRole('button', { name: MANAGE })).toBeNull();
   });
 
-  it('is a line, not a knob — no switch, no dot', () => {
+  it('is a row, not a knob — no value, no switch, no dot', () => {
     renderTab(kind, 'ws-two', () => {});
     expect(screen.queryByRole('switch', { name: 'Trusted certificates' })).toBeNull();
+    expect(screen.getByRole('combobox', { name: 'Trusted certificates' }).hasAttribute('disabled')).toBe(false);
     expect(screen.queryAllByTestId('oh-setting-modified-dot')).toHaveLength(0);
   });
 });
 
 describe('trusted-certificates line on a browser host', () => {
-  it.each(['ws', 'grpc', 'mqtt'] as const)('%s tab states the honest note with no count and no link', (kind) => {
+  it.each(['ws', 'grpc', 'mqtt'] as const)('%s tab disables the row and states the honest note, no count', (kind) => {
     renderTab(kind, 'ws-two', () => {});
     expect(screen.getByText('Trusted certificates')).toBeTruthy();
+    expect(screen.getByText('Browser store')).toBeTruthy();
     expect(screen.getByText(/The browser verifies with its own trust store/)).toBeTruthy();
     expect(screen.queryByText('2 from this workspace')).toBeNull();
-    expect(screen.queryByRole('button', { name: 'Manage' })).toBeNull();
+    expect(screen.getByRole('combobox', { name: 'Trusted certificates' }).hasAttribute('disabled')).toBe(true);
+    expect(screen.queryByRole('button', { name: MANAGE })).toBeNull();
     // The list is never read for a host that cannot apply it.
     expect(mockUseTrustedRoots).toHaveBeenCalledWith(null);
   });
@@ -209,6 +231,6 @@ describe('trusted-certificates line on a browser host', () => {
     const row = screen.getByTestId('oh-managed-trusted-roots-row');
     expect(row.textContent).toContain('Trusted certificates');
     expect(row.textContent).toContain('Browser store');
-    expect(screen.queryByRole('button', { name: 'Manage' })).toBeNull();
+    expect(screen.queryByRole('button', { name: MANAGE })).toBeNull();
   });
 });

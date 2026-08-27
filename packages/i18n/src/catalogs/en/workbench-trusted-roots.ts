@@ -54,7 +54,9 @@ export const workbenchTrustedRoots = {
   'workbench.trustedRoots.settings.label': 'Trusted certificates',
   'workbench.trustedRoots.settings.count': '{count} from this workspace',
   'workbench.trustedRoots.settings.none': 'None from this workspace',
-  'workbench.trustedRoots.settings.manage': 'Manage',
+  'workbench.trustedRoots.settings.manage': 'Manage trusted certificates',
+  'workbench.trustedRoots.settings.empty': 'No trusted certificates in this workspace yet.',
+  'workbench.trustedRoots.settings.browserStore': 'Browser store',
   'workbench.trustedRoots.settings.help':
     'Certificate authorities this workspace trusts in addition to the built-in roots — applied to every TLS connection the app’s runtime dials, one root per row. Add a private CA here instead of turning verification off.',
   'workbench.trustedRoots.settings.browserNote':

@@ -52,7 +52,9 @@ export const workbenchTrustedRoots = {
   'workbench.trustedRoots.settings.label': '受信任证书',
   'workbench.trustedRoots.settings.count': '来自此工作区 {count} 个',
   'workbench.trustedRoots.settings.none': '此工作区暂无',
-  'workbench.trustedRoots.settings.manage': '管理',
+  'workbench.trustedRoots.settings.manage': '管理受信任的证书',
+  'workbench.trustedRoots.settings.empty': '此工作区暂无受信任的证书。',
+  'workbench.trustedRoots.settings.browserStore': '浏览器证书库',
   'workbench.trustedRoots.settings.help':
     '此工作区在内置根之外额外信任的证书颁发机构——应用于应用运行时建立的每个 TLS 连接，每行一个根。请在此添加私有 CA，而不是关闭验证。',
   'workbench.trustedRoots.settings.browserNote':

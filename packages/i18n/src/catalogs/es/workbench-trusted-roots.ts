@@ -54,7 +54,9 @@ export const workbenchTrustedRoots = {
   'workbench.trustedRoots.settings.label': 'Certificados de confianza',
   'workbench.trustedRoots.settings.count': '{count} de este espacio de trabajo',
   'workbench.trustedRoots.settings.none': 'Ninguno de este espacio de trabajo',
-  'workbench.trustedRoots.settings.manage': 'Gestionar',
+  'workbench.trustedRoots.settings.manage': 'Gestionar certificados de confianza',
+  'workbench.trustedRoots.settings.empty': 'Todavía no hay certificados de confianza en este espacio de trabajo.',
+  'workbench.trustedRoots.settings.browserStore': 'Almacén del navegador',
   'workbench.trustedRoots.settings.help':
     'Autoridades de certificación en las que confía este espacio de trabajo además de las raíces integradas — aplicadas a cada conexión TLS que establece el runtime de la app, una raíz por fila. Añade aquí una CA privada en lugar de desactivar la verificación.',
   'workbench.trustedRoots.settings.browserNote':

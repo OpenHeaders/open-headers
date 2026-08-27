@@ -54,7 +54,9 @@ export const workbenchTrustedRoots = {
   'workbench.trustedRoots.settings.label': 'Vertrauenswürdige Zertifikate',
   'workbench.trustedRoots.settings.count': '{count} aus diesem Arbeitsbereich',
   'workbench.trustedRoots.settings.none': 'Keine aus diesem Arbeitsbereich',
-  'workbench.trustedRoots.settings.manage': 'Verwalten',
+  'workbench.trustedRoots.settings.manage': 'Vertrauenswürdige Zertifikate verwalten',
+  'workbench.trustedRoots.settings.empty': 'Noch keine vertrauenswürdigen Zertifikate in diesem Arbeitsbereich.',
+  'workbench.trustedRoots.settings.browserStore': 'Browser-Speicher',
   'workbench.trustedRoots.settings.help':
     'Zertifizierungsstellen, denen dieser Arbeitsbereich zusätzlich zu den eingebauten Wurzeln vertraut — angewendet auf jede TLS-Verbindung, die die App-Laufzeit aufbaut, eine Wurzel pro Zeile. Fügen Sie hier eine private CA hinzu, statt die Prüfung abzuschalten.',
   'workbench.trustedRoots.settings.browserNote':
