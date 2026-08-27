@@ -437,12 +437,25 @@ registerCategory({
   icon: <EditOutlined />,
   order: 30,
   descriptionKey: 'workbench.settings.category.editor.description',
+  // Group node over the editor-class surfaces: the code editor and the
+  // diff viewer every editor tab embeds.
+  renderPane: GroupLandingPane,
+});
+
+registerCategory({
+  id: 'codeEditor',
+  labelKey: 'workbench.settings.category.codeEditor.label',
+  navLabelKey: 'workbench.settings.category.codeEditor.navLabel',
+  parent: 'editor',
+  icon: <EditOutlined />,
+  order: 10,
+  descriptionKey: 'workbench.settings.category.codeEditor.description',
   subcategories: [
-    { id: 'font', labelKey: 'workbench.settings.category.editor.sub.font', order: 10 },
-    { id: 'indentation', labelKey: 'workbench.settings.category.editor.sub.indentation', order: 20 },
-    { id: 'wrapping', labelKey: 'workbench.settings.category.editor.sub.wrapping', order: 30 },
-    { id: 'display', labelKey: 'workbench.settings.category.editor.sub.display', order: 40 },
-    { id: 'editing', labelKey: 'workbench.settings.category.editor.sub.editing', order: 50 },
+    { id: 'font', labelKey: 'workbench.settings.category.codeEditor.sub.font', order: 10 },
+    { id: 'indentation', labelKey: 'workbench.settings.category.codeEditor.sub.indentation', order: 20 },
+    { id: 'wrapping', labelKey: 'workbench.settings.category.codeEditor.sub.wrapping', order: 30 },
+    { id: 'display', labelKey: 'workbench.settings.category.codeEditor.sub.display', order: 40 },
+    { id: 'editing', labelKey: 'workbench.settings.category.codeEditor.sub.editing', order: 50 },
   ],
 });
 
