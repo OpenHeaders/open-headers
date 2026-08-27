@@ -8,7 +8,7 @@
  * shipped `shared-chrome.ts` es labels (`Sincronización`, `Reglas`,
  * `Solicitudes`, `Permisos`, `Secretos`, `Live`, `Estado del
  * sistema`). `Enviar` (Send button) and the settings path
- * `Configuración → Datos → Exportar el registro de diagnóstico` are
+ * `Aplicación › Datos › Exportar el registro de diagnóstico` are
  * minted here — the editors-request and settings es files must reuse
  * them. Workbench in prose = editor del espacio de trabajo (the
  * shared-components mint); wake = reactivación (shared-chrome).
@@ -40,7 +40,7 @@ export const workbenchDocsSystemStatus = {
     'primero las grises (sin eventos todavía en esta vida del service worker) y después las de color (han ' +
     'informado al menos una vez). Dentro de cada grupo se conserva el orden canónico de los subsistemas. El ' +
     'historial completo vive en el registro de observabilidad — expórtalo desde',
-  'workbench.docs.body.systemStatus.settingsExportPath': 'Configuración → Datos → Exportar el registro de diagnóstico',
+  'workbench.docs.body.systemStatus.settingsExportPath': 'Aplicación › Datos › Exportar el registro de diagnóstico',
   'workbench.docs.body.systemStatus.popover1Suffix': '.',
   'workbench.docs.body.systemStatus.popoverCaption':
     'Las grises encima del separador, las de color debajo; al primer informe, una fila migra una sola vez.',

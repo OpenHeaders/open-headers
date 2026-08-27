@@ -2126,7 +2126,7 @@ export const workbenchDocsDiagrams = {
   'workbench.docs.diagrams.keyboardShortcuts.editor': 'Editor',
   'workbench.docs.diagrams.keyboardShortcuts.rightSidebar': 'Barra derecha',
   'workbench.docs.diagrams.keyboardShortcuts.bottomPanel': 'Panel inferior',
-  'workbench.docs.diagrams.keyboardShortcuts.footer': 'Reasigna cualquier combinación en Configuración → Teclado.',
+  'workbench.docs.diagrams.keyboardShortcuts.footer': 'Reasigna cualquier combinación en los ajustes de Teclado.',
 
   // ── Wire mirrors (whole-raw copies of en) ───────────────────────────
   'workbench.docs.diagrams.block.wireFetch': 'fetch()',

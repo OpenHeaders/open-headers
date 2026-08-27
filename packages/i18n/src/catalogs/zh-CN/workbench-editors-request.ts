@@ -761,7 +761,7 @@ export const workbenchEditorsRequest = {
   // ── Response body view (filter syntax + format examples stay raw) ──
   'workbench.editors.request.response.body.truncatedNotice': '响应在 {cap} 处被截断（原始大小 {size}）。',
   'workbench.editors.request.response.body.increaseLimit': '提高限制',
-  'workbench.editors.request.response.body.limitHint': '该限制可在设置 → API 请求中调整。',
+  'workbench.editors.request.response.body.limitHint': '该限制可在“API 请求”设置中调整。',
   'workbench.editors.request.response.body.viewPickerAria': '正文视图',
   'workbench.editors.request.response.body.preview': '预览',
   'workbench.editors.request.response.body.wrapLines': '自动换行',

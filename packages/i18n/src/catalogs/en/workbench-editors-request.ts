@@ -777,7 +777,7 @@ export const workbenchEditorsRequest = {
   // ── Response body view (filter syntax + format examples stay raw) ──
   'workbench.editors.request.response.body.truncatedNotice': 'Response truncated at {cap} (original {size}).',
   'workbench.editors.request.response.body.increaseLimit': 'Increase limit',
-  'workbench.editors.request.response.body.limitHint': 'The limit is adjustable in Settings → API Requests.',
+  'workbench.editors.request.response.body.limitHint': 'The limit is adjustable in the API Requests settings.',
   'workbench.editors.request.response.body.viewPickerAria': 'Body view',
   'workbench.editors.request.response.body.preview': 'Preview',
   'workbench.editors.request.response.body.wrapLines': 'Wrap lines',

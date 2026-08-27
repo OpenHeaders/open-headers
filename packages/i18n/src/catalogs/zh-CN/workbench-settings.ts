@@ -7,7 +7,7 @@
  * lowercase `vault` (per-case token law), and the {version} / {when}
  * / {message} / {filename} / {sessionId} / {installId} holes. 数据
  * (Data category) matches the settings path quoted by the
- * system-status doc body（设置 → 数据 → …）. 后端 = Backend (shared
+ * system-status doc body（应用程序 › 数据 › …）. 后端 = Backend (shared
  * register mint); 工作区编辑器 = Workbench (chrome mint); 席位 = seat
  * and 档 = tier reuse the daemon-admin mints; 常规 = General (S79);
  * 规则引擎 = Rules Engine; 终端 = Terminal. MINTS: 设置项 = a

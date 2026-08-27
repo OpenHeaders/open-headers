@@ -2122,7 +2122,7 @@ export const workbenchDocsDiagrams = {
   'workbench.docs.diagrams.keyboardShortcuts.editor': 'Editor',
   'workbench.docs.diagrams.keyboardShortcuts.rightSidebar': 'Rechte Leiste',
   'workbench.docs.diagrams.keyboardShortcuts.bottomPanel': 'Unteres Panel',
-  'workbench.docs.diagrams.keyboardShortcuts.footer': 'Belege jede Tastenfolge neu unter Einstellungen → Tastatur.',
+  'workbench.docs.diagrams.keyboardShortcuts.footer': 'Belege jede Tastenfolge in den Tastatur-Einstellungen neu.',
 
   // ── Wire mirrors (whole-raw copies of en) ───────────────────────────
   'workbench.docs.diagrams.block.wireFetch': 'fetch()',

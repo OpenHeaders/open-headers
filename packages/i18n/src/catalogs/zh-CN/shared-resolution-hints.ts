@@ -23,7 +23,7 @@ export const sharedResolutionHints = {
   'shared.resolutionHint.unset.vault': '在 Vault 中设置此机密。',
   'shared.resolutionHint.unset.collection': '在当前集合中设置此变量。',
   'shared.resolutionHint.unset.workspace': '在工作区变量中设置此变量。',
-  'shared.resolutionHint.unset.file': '在“设置”→“文件”中上传此文件（或通过其 sha256 哈希引用它）。',
+  'shared.resolutionHint.unset.file': '通过其 sha256 哈希引用此文件。',
   'shared.resolutionHint.unset.live': '没有同名的 Live 变量。请在“Live 变量”中创建一个，或等待其首次刷新填充数据。',
   'shared.resolutionHint.unset.step': '在此工作流运行中找不到该步骤 id 或捕获名称。请检查工作流步骤配置。',
   'shared.resolutionHint.unset.dynamic':

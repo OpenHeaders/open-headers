@@ -270,7 +270,7 @@ export const workbenchImportExport = {
   'workbench.importExport.har.dropsTooltip':
     "Drops are source fields that don't map to the model (cookies, multipart uploads, etc.). Each has a tracking annotation in the full report.",
   'workbench.importExport.har.reportHover':
-    'Hover for details · full list in the import-report export (Settings → Data)',
+    'Hover for details · full list in the import-report export (Application › Data)',
 
   // ── cURL modal ─────────────────────────────────────────────────────
   'workbench.importExport.curl.title': 'IMPORT FROM CURL',

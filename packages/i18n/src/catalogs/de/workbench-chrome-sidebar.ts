@@ -220,7 +220,7 @@ export const workbenchChromeSidebar = {
   'workbench.activityFeed.rawRead': 'Ungeschwärzt',
   'workbench.activityFeed.rawReadTip':
     'Dieser Lesezugriff projizierte Rohwerte — die Freigabe für ungeschwärzte Sitzungs-Lesezugriffe war in ' +
-    'Einstellungen → Traffic aktiviert.',
+    'Werkzeuge › Traffic aktiviert.',
 
   // ── Overview tabs (collection / folder, all three families). The
   // folder-suffix chunks carry their leading '· ' — the JSX supplies

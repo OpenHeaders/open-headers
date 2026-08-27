@@ -12,7 +12,7 @@
  * (claude_desktop_config.json), the `oh-license.…` key prefix, git
  * command vocabulary (`git remote add`, `--no-verify`, HEAD), and
  * the {chord} / {token} / {url} holes. Settings paths quote the zh
- * shell mints（设置 → 后端）; 守护进程管理 matches the daemon-admin
+ * shell mints（连接 › 后端）; 守护进程管理 matches the daemon-admin
  * title; 席位 / 档 / 免费档 / 目录用户 / 吊销 / 准入 reuse the
  * daemon-admin mints; 签发 = mint (a token) reuses the chrome mint;
  * 预设 and 快捷键 reuse workbench-settings-defs-keyboard; 配对 =

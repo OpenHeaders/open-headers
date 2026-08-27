@@ -126,7 +126,7 @@ export const workbenchEditorsGrpc = {
   'workbench.editors.grpc.settings.groupInfo.connection': '调用如何到达服务器：通道的去向，以及整个调用的时间上限。',
   'workbench.editors.grpc.settings.groupInfo.tls': 'TLS 通道如何建立信任：是否根据系统根证书验证服务器证书。',
   'workbench.editors.grpc.settings.groupInfo.messages':
-    '工作台如何处理无法解析的消息——这是与「设置 → 请求」共享的应用级姿态，不是按请求的字段。',
+    '工作台如何处理无法解析的消息——这是与「API 请求」设置共享的应用级姿态，不是按请求的字段。',
   'workbench.editors.grpc.settings.unixSocketLabel': 'Unix 套接字',
   'workbench.editors.grpc.settings.unixSocketHelp':
     '连接到此本地套接字——绝对 Unix 套接字路径，或形如 \\\\.\\pipe\\name 的 Windows 命名管道——而不是打开 TCP 连接。目标仍决定 :authority 头、TLS 服务器名和证书验证；只有连接的去向发生变化。留空则使用普通 TCP 连接。',

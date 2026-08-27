@@ -979,7 +979,7 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.response.body.truncatedNotice': 'Antwort bei {cap} abgeschnitten (ursprünglich {size}).',
   'workbench.editors.request.response.body.increaseLimit': 'Limit erhöhen',
   'workbench.editors.request.response.body.limitHint':
-    'Das Limit lässt sich unter Einstellungen → API-Anfragen anpassen.',
+    'Das Limit lässt sich in den API-Anfragen-Einstellungen anpassen.',
   'workbench.editors.request.response.body.viewPickerAria': 'Body-Ansicht',
   'workbench.editors.request.response.body.preview': 'Vorschau',
   'workbench.editors.request.response.body.wrapLines': 'Zeilen umbrechen',

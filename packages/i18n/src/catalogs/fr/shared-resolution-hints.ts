@@ -22,8 +22,7 @@ export const sharedResolutionHints = {
   'shared.resolutionHint.unset.vault': 'Définissez ce secret dans le Vault.',
   'shared.resolutionHint.unset.collection': 'Définissez cette variable dans la collection actuelle.',
   'shared.resolutionHint.unset.workspace': "Définissez cette variable dans les variables d'espace de travail.",
-  'shared.resolutionHint.unset.file':
-    'Téléversez ce fichier dans Paramètres → Fichiers (ou référencez-le par son empreinte sha256).',
+  'shared.resolutionHint.unset.file': 'Référencez ce fichier par son empreinte sha256.',
   'shared.resolutionHint.unset.live':
     'Aucune variable Live de ce nom. Créez-en une dans les variables Live, ou attendez son premier ' +
     'rafraîchissement.',

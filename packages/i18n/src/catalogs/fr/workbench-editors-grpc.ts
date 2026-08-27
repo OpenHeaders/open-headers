@@ -149,7 +149,7 @@ export const workbenchEditorsGrpc = {
     'les racines du système.',
   'workbench.editors.grpc.settings.groupInfo.messages':
     'Comment l’atelier traite un message qui ne s’analyse pas — une posture à l’échelle de l’application, ' +
-    'partagée avec Réglages → Requêtes, pas un champ par requête.',
+    'partagée avec les paramètres Requêtes API, pas un champ par requête.',
   'workbench.editors.grpc.settings.unixSocketLabel': 'Socket Unix',
   'workbench.editors.grpc.settings.unixSocketHelp':
     'Se connecte à cette socket locale — un chemin absolu de socket Unix, ou un tube nommé Windows comme ' +

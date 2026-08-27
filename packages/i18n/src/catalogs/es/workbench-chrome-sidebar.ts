@@ -219,7 +219,7 @@ export const workbenchChromeSidebar = {
     'Un agente leyó tráfico en vivo a través del nivel MCP observe — proyecciones censuradas de una fuente armada.',
   'workbench.activityFeed.rawRead': 'Sin censurar',
   'workbench.activityFeed.rawReadTip':
-    'Esta lectura proyectó los valores reales — el permiso de lectura sin censura de sesiones estaba activado en Ajustes → Tráfico.',
+    'Esta lectura proyectó los valores reales — el permiso de lectura sin censura de sesiones estaba activado en Herramientas › Tráfico.',
 
   // ── Overview tabs (collection / folder, all three families). The
   // folder-suffix chunks carry their leading '· ' — the JSX supplies

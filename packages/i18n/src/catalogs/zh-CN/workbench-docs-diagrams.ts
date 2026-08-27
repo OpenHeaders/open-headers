@@ -1885,7 +1885,7 @@ export const workbenchDocsDiagrams = {
   'workbench.docs.diagrams.keyboardShortcuts.editor': '编辑器',
   'workbench.docs.diagrams.keyboardShortcuts.rightSidebar': '右侧边栏',
   'workbench.docs.diagrams.keyboardShortcuts.bottomPanel': '底部面板',
-  'workbench.docs.diagrams.keyboardShortcuts.footer': '可在“设置 → 键盘”中重新分配任何组合键。',
+  'workbench.docs.diagrams.keyboardShortcuts.footer': '可在“键盘”设置中重新分配任何组合键。',
 
   // ── Wire mirrors (whole-raw copies of en) ───────────────────────────
   'workbench.docs.diagrams.block.wireFetch': 'fetch()',

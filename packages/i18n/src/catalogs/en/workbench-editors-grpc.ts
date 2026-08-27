@@ -123,7 +123,7 @@ export const workbenchEditorsGrpc = {
   'workbench.editors.grpc.settings.groupInfo.tls':
     'How TLS channels establish trust: whether the server certificate is verified against the system roots.',
   'workbench.editors.grpc.settings.groupInfo.messages':
-    'How the workbench treats a message that does not parse — an app-wide posture shared with Settings → Requests, not a per-request field.',
+    'How the workbench treats a message that does not parse — an app-wide posture shared with the API Requests settings, not a per-request field.',
   'workbench.editors.grpc.settings.unixSocketLabel': 'Unix socket',
   'workbench.editors.grpc.settings.unixSocketHelp':
     'Dial this local socket — an absolute Unix socket path, or a Windows named pipe like \\\\.\\pipe\\name — instead of opening a TCP connection. The target keeps deciding the :authority header, TLS server name, and certificate verification; only where the connection goes changes. Leave empty for a normal TCP connection.',

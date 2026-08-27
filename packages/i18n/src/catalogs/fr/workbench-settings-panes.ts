@@ -10,7 +10,7 @@
  * `streamable HTTP`, snippet filenames (claude_desktop_config.json),
  * the `oh-license.…` key prefix (web.ts precedent) and the {chord} /
  * {token} / {url} holes. Settings paths quote the fr shell mints
- * (`Paramètres → Backend`); `Administration du daemon` copies the
+ * (`Connectivité › Backend`); `Administration du daemon` copies the
  * fr/workbench-server-admin title; `palier` / `siège` / `annuaire`
  * reuse the daemon-admin + settings-defs register; `Préréglage de
  * raccourcis` and `Capturer` reuse fr/workbench-settings-defs-keyboard

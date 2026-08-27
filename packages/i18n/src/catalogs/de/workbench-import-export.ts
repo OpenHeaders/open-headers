@@ -310,7 +310,7 @@ export const workbenchImportExport = {
     'Verwerfungen sind Quellfelder, die sich nicht aufs Modell abbilden lassen (Cookies, Multipart-Uploads ' +
     'usw.). Jede hat eine Nachverfolgungs-Anmerkung im vollständigen Bericht.',
   'workbench.importExport.har.reportHover':
-    'Für Details überfahren · vollständige Liste im Importbericht-Export (Einstellungen → Daten)',
+    'Für Details überfahren · vollständige Liste im Importbericht-Export (Anwendung › Daten)',
 
   // ── cURL modal ─────────────────────────────────────────────────────
   'workbench.importExport.curl.title': 'AUS CURL IMPORTIEREN',

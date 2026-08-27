@@ -215,7 +215,7 @@ export const workbenchChromeSidebar = {
     "Un agent a lu du trafic en direct via le palier MCP observe — des projections caviardées d'une source armée.",
   'workbench.activityFeed.rawRead': 'Non caviardé',
   'workbench.activityFeed.rawReadTip':
-    'Cette lecture a projeté les valeurs brutes — l’autorisation de lecture non caviardée des sessions était activée dans Paramètres → Trafic.',
+    'Cette lecture a projeté les valeurs brutes — l’autorisation de lecture non caviardée des sessions était activée dans Outils › Trafic.',
 
   // ── Overview tabs (collection / folder, all three families). The
   // folder-suffix chunks carry their leading '· ' — the JSX supplies

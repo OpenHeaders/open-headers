@@ -27,7 +27,7 @@ export const workbenchDocsSystemStatus = {
     'Clicking any pill opens the same details popover. Rows come in two groups: grey first (no events yet ' +
     'this service-worker lifetime) and colored after (have reported at least once). Within each group the ' +
     'canonical subsystem order is preserved. Full history lives in the Observability log — export from',
-  'workbench.docs.body.systemStatus.settingsExportPath': 'Settings → Data → Export Diagnostic Log',
+  'workbench.docs.body.systemStatus.settingsExportPath': 'Application › Data › Export Diagnostic Log',
   'workbench.docs.body.systemStatus.popover1Suffix': '.',
   'workbench.docs.body.systemStatus.popoverCaption':
     'Greys above the divider, coloreds below; on first report a row migrates once.',

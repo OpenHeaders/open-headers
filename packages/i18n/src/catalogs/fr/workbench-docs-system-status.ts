@@ -7,7 +7,7 @@
  * quoted browser phrasing law. Subsystem display names copy the
  * shipped `shared-chrome.ts` fr labels (`Synchronisation`, `Règles`,
  * `Requêtes`, `Autorisations`, `Secrets`, `Live`, `État du système`).
- * `Envoyer` (Send button) and the settings path `Paramètres → Données
+ * `Envoyer` (Send button) and the settings path `Application › Données
  * → Exporter le journal de diagnostic` are minted here — the
  * editors-request and settings fr files must reuse them.
  */
@@ -38,7 +38,7 @@ export const workbenchDocsSystemStatus = {
     "groupes : les grises d'abord (aucun événement encore dans cette vie du service worker), puis les colorées " +
     "(au moins un rapport). Au sein de chaque groupe, l'ordre canonique des sous-systèmes est préservé. " +
     "L'historique complet vit dans le journal d'observabilité — exportez depuis",
-  'workbench.docs.body.systemStatus.settingsExportPath': 'Paramètres → Données → Exporter le journal de diagnostic',
+  'workbench.docs.body.systemStatus.settingsExportPath': 'Application › Données › Exporter le journal de diagnostic',
   'workbench.docs.body.systemStatus.popover1Suffix': '.',
   'workbench.docs.body.systemStatus.popoverCaption':
     'Les grises au-dessus du séparateur, les colorées en dessous ; au premier rapport, une ligne migre une ' +

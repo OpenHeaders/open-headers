@@ -7,7 +7,7 @@
  * browser phrasing law. Subsystem display names copy the shipped
  * `de/shared-chrome.ts` labels (Synchronisierung, Regeln, Anfragen,
  * Berechtigungen, Secrets, Live, Systemstatus). MINTS: `Senden` (the
- * Send button) and the settings path `Einstellungen → Daten →
+ * Send button) and the settings path `Anwendung › Daten ›
  * Diagnoseprotokoll exportieren` — the de editors-request and
  * settings files must reuse them; die Anzeige = status pill (the
  * debug-mode precedent). Workbench in prose = Arbeitsbereich-Editor
@@ -41,7 +41,7 @@ export const workbenchDocsSystemStatus = {
     'zuerst die grauen (noch keine Ereignisse in dieser Lebenszeit des Service Workers), danach die farbigen ' +
     '(mindestens einmal gemeldet). Innerhalb jeder Gruppe bleibt die kanonische Subsystem-Reihenfolge ' +
     'erhalten. Die volle Historie liegt im Observability-Protokoll — exportiere sie über',
-  'workbench.docs.body.systemStatus.settingsExportPath': 'Einstellungen → Daten → Diagnoseprotokoll exportieren',
+  'workbench.docs.body.systemStatus.settingsExportPath': 'Anwendung › Daten › Diagnoseprotokoll exportieren',
   'workbench.docs.body.systemStatus.popover1Suffix': '.',
   'workbench.docs.body.systemStatus.popoverCaption':
     'Graue über dem Trenner, farbige darunter; bei der ersten Meldung wandert eine Zeile genau einmal.',

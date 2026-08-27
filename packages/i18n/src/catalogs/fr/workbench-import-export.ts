@@ -330,7 +330,7 @@ export const workbenchImportExport = {
     'Les abandons sont des champs source sans correspondance dans le modèle (cookies, téléversements ' +
     'multipart, etc.). Chacun a une annotation de suivi dans le rapport complet.',
   'workbench.importExport.har.reportHover':
-    "Survolez pour les détails · liste complète dans l'export du rapport d'import (Paramètres → Données)",
+    "Survolez pour les détails · liste complète dans l'export du rapport d'import (Application › Données)",
 
   // ── cURL modal ─────────────────────────────────────────────────────
   'workbench.importExport.curl.title': 'IMPORTER DEPUIS CURL',

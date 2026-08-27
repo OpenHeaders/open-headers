@@ -157,7 +157,7 @@ export const workbenchEditorsGrpc = {
     'raíces del sistema.',
   'workbench.editors.grpc.settings.groupInfo.messages':
     'Cómo trata el workbench un mensaje que no se puede analizar — una postura de toda la aplicación, ' +
-    'compartida con Ajustes → Solicitudes, no un campo por solicitud.',
+    'compartida con los ajustes de Solicitudes API, no un campo por solicitud.',
   'workbench.editors.grpc.settings.unixSocketLabel': 'Socket Unix',
   'workbench.editors.grpc.settings.unixSocketHelp':
     'Conecta a este socket local — una ruta absoluta de socket Unix, o una tubería con nombre de Windows ' +

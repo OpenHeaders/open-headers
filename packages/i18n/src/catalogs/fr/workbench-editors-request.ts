@@ -981,7 +981,7 @@ export const workbenchEditorsRequest = {
   // ── Response body view (filter syntax + format examples stay raw) ──
   'workbench.editors.request.response.body.truncatedNotice': "Réponse tronquée à {cap} ({size} à l'origine).",
   'workbench.editors.request.response.body.increaseLimit': 'Augmenter la limite',
-  'workbench.editors.request.response.body.limitHint': 'La limite est réglable dans Paramètres → Requêtes API.',
+  'workbench.editors.request.response.body.limitHint': 'La limite est réglable dans les paramètres Requêtes API.',
   'workbench.editors.request.response.body.viewPickerAria': 'Vue du corps',
   'workbench.editors.request.response.body.preview': 'Aperçu',
   'workbench.editors.request.response.body.wrapLines': 'Activer le retour à la ligne',

@@ -165,7 +165,7 @@ export const workbenchEditorsGrpc = {
     'Wie TLS-Kanäle Vertrauen herstellen: ob das Serverzertifikat gegen die Systemwurzeln geprüft wird.',
   'workbench.editors.grpc.settings.groupInfo.messages':
     'Wie die Workbench eine Nachricht behandelt, die sich nicht parsen lässt — eine app-weite Haltung, ' +
-    'geteilt mit Einstellungen → Anfragen, kein Feld pro Anfrage.',
+    'geteilt mit den API-Anfragen-Einstellungen, kein Feld pro Anfrage.',
   'workbench.editors.grpc.settings.unixSocketLabel': 'Unix-Socket',
   'workbench.editors.grpc.settings.unixSocketHelp':
     'Wählt dieses lokale Socket an — einen absoluten Unix-Socket-Pfad oder eine benannte Windows-Pipe wie ' +

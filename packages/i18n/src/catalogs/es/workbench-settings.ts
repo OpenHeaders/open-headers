@@ -8,7 +8,7 @@
  * `build` / `opt-in`, and the {version} / {when} / {message} /
  * {filename} / {sessionId} / {installId} holes. `Datos` (Data
  * category) matches the settings path quoted by the system-status doc
- * body (`Configuración → Datos → …`). MINTS: setting (countable) =
+ * body (`Aplicación › Datos › …`). MINTS: setting (countable) =
  * `ajuste` (the surface stays `Configuración`); reset =
  * `Restablecer`; DevTools panel = `Panel de DevTools`; tier = `nivel`
  * and seat = `plaza` reuse the daemon-admin mints; sort in category

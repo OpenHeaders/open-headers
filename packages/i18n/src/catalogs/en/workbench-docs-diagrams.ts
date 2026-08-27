@@ -2045,7 +2045,7 @@ export const workbenchDocsDiagrams = {
   'workbench.docs.diagrams.keyboardShortcuts.editor': 'Editor',
   'workbench.docs.diagrams.keyboardShortcuts.rightSidebar': 'Right sidebar',
   'workbench.docs.diagrams.keyboardShortcuts.bottomPanel': 'Bottom panel',
-  'workbench.docs.diagrams.keyboardShortcuts.footer': 'Rebind any chord in Settings → Keyboard.',
+  'workbench.docs.diagrams.keyboardShortcuts.footer': 'Rebind any chord in the Keyboard settings.',
 
   // ── Wire mirrors (whole-raw in every locale) ────────────────────────
   'workbench.docs.diagrams.block.wireFetch': 'fetch()',

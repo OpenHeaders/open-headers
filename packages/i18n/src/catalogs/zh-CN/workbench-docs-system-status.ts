@@ -9,7 +9,7 @@
  * 权限、机密、Live、系统状态）. 指示条 = pill (debug-mode docs mint);
  * 工作区编辑器 = Workbench in prose; 唤醒 = service-worker wake; 配额
  * = quota. MINTS: 发送 = the Send button (editors-request zh-CN must
- * reuse); settings path 设置 → 数据 → 导出诊断日志 (the zh settings
+ * reuse); settings path 应用程序 › 数据 › 导出诊断日志 (the zh settings
  * files must reuse); 漂移 = schema drift.
  */
 
@@ -30,7 +30,7 @@ export const workbenchDocsSystemStatus = {
   'workbench.docs.body.systemStatus.popover1':
     '点击任意指示条都会打开同一个详情弹出框。行分为两组：灰色在前（本次 service worker 生命周期内还没有事件），' +
     '彩色在后（至少报告过一次）。每组内部保持规范的子系统顺序。完整历史在可观测性日志中——导出入口为',
-  'workbench.docs.body.systemStatus.settingsExportPath': '设置 → 数据 → 导出诊断日志',
+  'workbench.docs.body.systemStatus.settingsExportPath': '应用程序 › 数据 › 导出诊断日志',
   'workbench.docs.body.systemStatus.popover1Suffix': '.',
   'workbench.docs.body.systemStatus.popoverCaption': '分隔线上方是灰色，下方是彩色；首次报告时行迁移一次。',
   'workbench.docs.body.systemStatus.stateGreenLabel': '绿色',

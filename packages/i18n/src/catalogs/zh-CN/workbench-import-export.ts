@@ -13,7 +13,7 @@
  * real zh strings（以 HAR 格式保存所有内容 / 以 cURL 格式复制 — S79
  * localized-browser law）. The hub quotes the 导入中心 mint
  * (settings-defs-keyboard); the report hover quotes the shipped
- * settings path 设置 → 数据. MINTS: 指纹 = fingerprint; 密文 =
+ * settings path 应用程序 › 数据. MINTS: 指纹 = fingerprint; 密文 =
  * ciphertext; 丢弃项 = drop (import ledger noun — 拒绝/已丢弃
  * referents unchanged); 转换 = transform; merge strategies
  * “添加为新项” / “替换现有项” (settings-defs must reuse); 扫描这台电脑
@@ -267,7 +267,7 @@ export const workbenchImportExport = {
     '转换会把来源字段改写为规范化的等价形式——例如把 Authorization 标头提升为一等身份验证类型。',
   'workbench.importExport.har.dropsTooltip':
     '丢弃项是无法映射到模型的来源字段（Cookie、multipart 上传等）。每一项在完整报告中都有跟踪标注。',
-  'workbench.importExport.har.reportHover': '悬停查看详情 · 完整列表见导入报告导出（设置 → 数据）',
+  'workbench.importExport.har.reportHover': '悬停查看详情 · 完整列表见导入报告导出（应用程序 › 数据）',
 
   // ── cURL modal ─────────────────────────────────────────────────────
   'workbench.importExport.curl.title': '从 cURL 导入',

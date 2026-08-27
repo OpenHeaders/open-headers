@@ -7,7 +7,7 @@
  * `Build` / `Opt-in`, lowercase `vault` (per-case token law), and
  * the {version} / {when} / {message} / {filename} / {sessionId} /
  * {installId} holes. `Daten` (Data category) matches the settings
- * path quoted by the system-status doc body (`Einstellungen → Daten
+ * path quoted by the system-status doc body (`Anwendung › Daten
  * → …`). Backend rides as `Back-end` per the shared register mint;
  * Layout raw per the panel mint; tool windows use the apposition
  * style (Werkzeugfenster Terminal — panel-storage precedent);

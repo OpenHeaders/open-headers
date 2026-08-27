@@ -13,7 +13,7 @@
  * localize Spanish), `uid` / `{{template}}` tokens, and `vault`
  * lowercase per the glossary. The import hub quotes the S65 binding
  * mint `centro de importación`; the report hover quotes the S64
- * settings path `Configuración → Datos`. MINTS: export (noun) =
+ * settings path `Aplicación › Datos`. MINTS: export (noun) =
  * `exportación`; passphrase = `frase secreta`; fingerprint =
  * `huella`; drop = `descarte` (m., `descartado` family), transform =
  * `transformación`, preset = `preajuste`; merge strategies = «añadir
@@ -338,7 +338,7 @@ export const workbenchImportExport = {
     'Cada uno lleva una anotación de seguimiento en el informe completo.',
   'workbench.importExport.har.reportHover':
     'Pasa el cursor para los detalles · lista completa en la exportación del informe de importación ' +
-    '(Configuración → Datos)',
+    '(Aplicación › Datos)',
 
   // ── cURL modal ─────────────────────────────────────────────────────
   'workbench.importExport.curl.title': 'IMPORTAR DESDE CURL',
