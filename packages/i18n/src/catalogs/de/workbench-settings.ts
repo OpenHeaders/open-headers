@@ -103,7 +103,8 @@ export const workbenchSettings = {
   'workbench.settings.category.backendReliability.sub.reconnection': 'Wiederverbindung',
   'workbench.settings.category.backendReliability.sub.status': 'Status',
   'workbench.settings.category.backendReliability.sub.offline-fallback': 'Offline-Ausweichen',
-  'workbench.settings.category.mcp.label': 'KI · MCP-Server',
+  'workbench.settings.category.mcp.label': 'Werkzeuge · KI · MCP-Server',
+  'workbench.settings.category.mcp.navLabel': 'KI · MCP-Server',
   'workbench.settings.category.mcp.description':
     'Lass KI-Agenten und andere MCP-Clients diese App lesen und steuern. Der Zugriff ist gestuft — Lesen, ' +
     'Schreiben, Ausführen und das Aufdecken von Secrets sind getrennte Schalter, alle standardmäßig aus.',
@@ -140,7 +141,11 @@ export const workbenchSettings = {
   'workbench.settings.category.workspaceLayout.sub.shell': 'Shell',
   'workbench.settings.category.workspaceLayout.sub.topbar': 'Obere Leiste',
   'workbench.settings.category.workspaceLayout.sub.footer': 'Fußzeile',
-  'workbench.settings.category.terminal.label': 'Terminal',
+  'workbench.settings.category.tools.label': 'Werkzeuge',
+  'workbench.settings.category.tools.description':
+    'Werkzeugfenster mit eigenen Einstellungen – Terminal, Traffic-Monitor und MCP-Server.',
+  'workbench.settings.category.terminal.label': 'Werkzeuge · Terminal',
+  'workbench.settings.category.terminal.navLabel': 'Terminal',
   'workbench.settings.category.terminal.description': 'Verhalten des integrierten Werkzeugfensters Terminal.',
   'workbench.settings.category.terminal.sub.shell': 'Shell',
   'workbench.settings.category.terminal.sub.appearance': 'Darstellung',
@@ -194,7 +199,8 @@ export const workbenchSettings = {
     'Der Opt-in-Pfad, der das Debugging-Protokoll deines Browsers anbindet — untersuche und verändere ' +
     'Anfragen mit derselben Tiefe wie die eingebauten Entwicklerwerkzeuge.',
   'workbench.settings.category.inspection.sub.protocol': 'Debugging-Protokoll',
-  'workbench.settings.category.trafficMonitor.label': 'Traffic',
+  'workbench.settings.category.trafficMonitor.label': 'Werkzeuge · Traffic',
+  'workbench.settings.category.trafficMonitor.navLabel': 'Traffic',
   'workbench.settings.category.trafficMonitor.description':
     'Voreinstellungen der Geste „Beobachtung starten“ im Traffic-Panel und das Speicherbudget des ' +
     'Sitzungsarchivs.',

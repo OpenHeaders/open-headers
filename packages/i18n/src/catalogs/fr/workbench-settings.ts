@@ -99,7 +99,8 @@ export const workbenchSettings = {
   'workbench.settings.category.backendReliability.sub.reconnection': 'Reconnexion',
   'workbench.settings.category.backendReliability.sub.status': 'État',
   'workbench.settings.category.backendReliability.sub.offline-fallback': 'Repli hors ligne',
-  'workbench.settings.category.mcp.label': 'IA · Serveur MCP',
+  'workbench.settings.category.mcp.label': 'Outils · IA · Serveur MCP',
+  'workbench.settings.category.mcp.navLabel': 'IA · Serveur MCP',
   'workbench.settings.category.mcp.description':
     "Laissez les agents IA et les autres clients MCP lire et contrôler cette application. L'accès est étagé — " +
     'lecture, écriture, exécution et révélation de secrets sont des interrupteurs séparés, tous désactivés par ' +
@@ -138,7 +139,11 @@ export const workbenchSettings = {
   'workbench.settings.category.workspaceLayout.sub.shell': 'Shell',
   'workbench.settings.category.workspaceLayout.sub.topbar': 'Barre supérieure',
   'workbench.settings.category.workspaceLayout.sub.footer': 'Pied de page',
-  'workbench.settings.category.terminal.label': 'Terminal',
+  'workbench.settings.category.tools.label': 'Outils',
+  'workbench.settings.category.tools.description':
+    'Fenêtres d’outils avec leurs propres réglages : le terminal, le moniteur de trafic et le serveur MCP.',
+  'workbench.settings.category.terminal.label': 'Outils · Terminal',
+  'workbench.settings.category.terminal.navLabel': 'Terminal',
   'workbench.settings.category.terminal.description': "Comportement de la fenêtre d'outils Terminal intégrée.",
   'workbench.settings.category.terminal.sub.shell': 'Shell',
   'workbench.settings.category.terminal.sub.appearance': 'Apparence',
@@ -193,7 +198,8 @@ export const workbenchSettings = {
     'La voie opt-in qui attache le protocole de débogage de votre navigateur — inspectez et modifiez les ' +
     'requêtes avec la même profondeur que les outils de développement intégrés.',
   'workbench.settings.category.inspection.sub.protocol': 'Protocole de débogage',
-  'workbench.settings.category.trafficMonitor.label': 'Trafic',
+  'workbench.settings.category.trafficMonitor.label': 'Outils · Trafic',
+  'workbench.settings.category.trafficMonitor.navLabel': 'Trafic',
   'workbench.settings.category.trafficMonitor.description':
     'Valeurs par défaut du geste « Démarrer l’observation » du panneau Trafic, et budget disque de ' +
     'l’archive de sessions.',

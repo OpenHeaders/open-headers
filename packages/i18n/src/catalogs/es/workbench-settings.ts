@@ -104,7 +104,8 @@ export const workbenchSettings = {
   'workbench.settings.category.backendReliability.sub.reconnection': 'Reconexión',
   'workbench.settings.category.backendReliability.sub.status': 'Estado',
   'workbench.settings.category.backendReliability.sub.offline-fallback': 'Respaldo sin conexión',
-  'workbench.settings.category.mcp.label': 'IA · Servidor MCP',
+  'workbench.settings.category.mcp.label': 'Herramientas · IA · Servidor MCP',
+  'workbench.settings.category.mcp.navLabel': 'IA · Servidor MCP',
   'workbench.settings.category.mcp.description':
     'Permite que los agentes de IA y otros clientes MCP lean y controlen esta aplicación. El acceso está ' +
     'escalonado — lectura, escritura, ejecución y revelación de secretos son interruptores separados, todos ' +
@@ -145,7 +146,11 @@ export const workbenchSettings = {
   'workbench.settings.category.workspaceLayout.sub.shell': 'Shell',
   'workbench.settings.category.workspaceLayout.sub.topbar': 'Barra superior',
   'workbench.settings.category.workspaceLayout.sub.footer': 'Pie de página',
-  'workbench.settings.category.terminal.label': 'Terminal',
+  'workbench.settings.category.tools.label': 'Herramientas',
+  'workbench.settings.category.tools.description':
+    'Ventanas de herramientas con ajustes propios: el terminal, el monitor de tráfico y el servidor MCP.',
+  'workbench.settings.category.terminal.label': 'Herramientas · Terminal',
+  'workbench.settings.category.terminal.navLabel': 'Terminal',
   'workbench.settings.category.terminal.description':
     'Comportamiento de la ventana de herramientas Terminal integrada.',
   'workbench.settings.category.terminal.sub.shell': 'Shell',
@@ -202,7 +207,8 @@ export const workbenchSettings = {
     'La vía opt-in que adjunta el protocolo de depuración de tu navegador — inspecciona y modifica solicitudes ' +
     'con la misma profundidad que las herramientas de desarrollo integradas.',
   'workbench.settings.category.inspection.sub.protocol': 'Protocolo de depuración',
-  'workbench.settings.category.trafficMonitor.label': 'Tráfico',
+  'workbench.settings.category.trafficMonitor.label': 'Herramientas · Tráfico',
+  'workbench.settings.category.trafficMonitor.navLabel': 'Tráfico',
   'workbench.settings.category.trafficMonitor.description':
     'Valores predeterminados del gesto «Empezar a observar» del panel de Tráfico y presupuesto de disco del ' +
     'archivo de sesiones.',

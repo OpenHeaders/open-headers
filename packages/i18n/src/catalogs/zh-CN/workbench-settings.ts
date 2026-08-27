@@ -91,7 +91,8 @@ export const workbenchSettings = {
   'workbench.settings.category.backendReliability.sub.reconnection': '重连',
   'workbench.settings.category.backendReliability.sub.status': '状态',
   'workbench.settings.category.backendReliability.sub.offline-fallback': '离线回退',
-  'workbench.settings.category.mcp.label': 'AI · MCP 服务器',
+  'workbench.settings.category.mcp.label': '工具 · AI · MCP 服务器',
+  'workbench.settings.category.mcp.navLabel': 'AI · MCP 服务器',
   'workbench.settings.category.mcp.description':
     '让 AI 代理和其他 MCP 客户端读取并控制此应用。访问分级——读取、写入、执行和机密显示是各自独立的开关，' +
     '默认全部关闭。',
@@ -125,7 +126,10 @@ export const workbenchSettings = {
   'workbench.settings.category.workspaceLayout.sub.shell': 'Shell',
   'workbench.settings.category.workspaceLayout.sub.topbar': '顶栏',
   'workbench.settings.category.workspaceLayout.sub.footer': '底栏',
-  'workbench.settings.category.terminal.label': '终端',
+  'workbench.settings.category.tools.label': '工具',
+  'workbench.settings.category.tools.description': '带有自身设置的工具窗口：终端、流量监视器和 MCP 服务器。',
+  'workbench.settings.category.terminal.label': '工具 · 终端',
+  'workbench.settings.category.terminal.navLabel': '终端',
   'workbench.settings.category.terminal.description': '集成终端工具窗口的行为。',
   'workbench.settings.category.terminal.sub.shell': 'Shell',
   'workbench.settings.category.terminal.sub.appearance': '外观',
@@ -175,7 +179,8 @@ export const workbenchSettings = {
   'workbench.settings.category.inspection.description':
     '自愿开启的路径，附加浏览器的调试协议——以内置开发者工具同等的深度检查并修改请求。',
   'workbench.settings.category.inspection.sub.protocol': '调试协议',
-  'workbench.settings.category.trafficMonitor.label': '流量',
+  'workbench.settings.category.trafficMonitor.label': '工具 · 流量',
+  'workbench.settings.category.trafficMonitor.navLabel': '流量',
   'workbench.settings.category.trafficMonitor.description':
     '流量面板“开始观察”手势的默认选项，以及会话归档的磁盘预算。',
   'workbench.settings.category.trafficMonitor.sub.layout': '布局',

@@ -89,7 +89,8 @@ export const workbenchSettings = {
   'workbench.settings.category.backendReliability.sub.reconnection': 'Reconnection',
   'workbench.settings.category.backendReliability.sub.status': 'Status',
   'workbench.settings.category.backendReliability.sub.offline-fallback': 'Offline fallback',
-  'workbench.settings.category.mcp.label': 'AI · MCP Server',
+  'workbench.settings.category.mcp.label': 'Tools · AI · MCP Server',
+  'workbench.settings.category.mcp.navLabel': 'AI · MCP Server',
   'workbench.settings.category.mcp.description':
     'Let AI agents and other MCP clients read and control this app. Access is tiered — reading, writing, executing, and secret reveal are separate switches, all off by default.',
   'workbench.settings.category.mcpAccess.label': 'AI · MCP Server · Access',
@@ -124,7 +125,11 @@ export const workbenchSettings = {
   'workbench.settings.category.workspaceLayout.sub.shell': 'Shell',
   'workbench.settings.category.workspaceLayout.sub.topbar': 'Top Bar',
   'workbench.settings.category.workspaceLayout.sub.footer': 'Footer',
-  'workbench.settings.category.terminal.label': 'Terminal',
+  'workbench.settings.category.tools.label': 'Tools',
+  'workbench.settings.category.tools.description':
+    'Tool windows with settings of their own — the terminal, the traffic monitor and the MCP server.',
+  'workbench.settings.category.terminal.label': 'Tools · Terminal',
+  'workbench.settings.category.terminal.navLabel': 'Terminal',
   'workbench.settings.category.terminal.description': 'Behavior of the integrated Terminal tool window.',
   'workbench.settings.category.terminal.sub.shell': 'Shell',
   'workbench.settings.category.terminal.sub.appearance': 'Appearance',
@@ -176,7 +181,8 @@ export const workbenchSettings = {
   'workbench.settings.category.inspection.description':
     'The opt-in path that attaches your browser’s debugging protocol — inspect and modify requests with the same depth as the built-in developer tools.',
   'workbench.settings.category.inspection.sub.protocol': 'Debugging Protocol',
-  'workbench.settings.category.trafficMonitor.label': 'Traffic',
+  'workbench.settings.category.trafficMonitor.label': 'Tools · Traffic',
+  'workbench.settings.category.trafficMonitor.navLabel': 'Traffic',
   'workbench.settings.category.trafficMonitor.description':
     'Defaults for the start-observing gesture in the Traffic panel, and the disk budget of the session archive.',
   'workbench.settings.category.trafficMonitor.sub.layout': 'Layout',

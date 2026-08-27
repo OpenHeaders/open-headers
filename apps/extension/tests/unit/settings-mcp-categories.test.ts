@@ -25,7 +25,7 @@ function expectDefsTagDeclaredSubcategories(categoryId: string): void {
 describe('mcp settings group', () => {
   it('mcp is a desktop-gated group node with the teaser and no defs of its own', () => {
     const mcp = getCategory('mcp');
-    expect(mcp?.parent).toBeUndefined();
+    expect(mcp?.parent).toBe('tools');
     expect(mcp?.renderPane).toBeDefined();
     expect(mcp?.subcategories).toBeUndefined();
     expect(mcp?.when).toBeDefined();

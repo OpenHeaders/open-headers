@@ -32,6 +32,7 @@ import {
   SafetyCertificateOutlined,
   SettingOutlined,
   SyncOutlined,
+  ToolOutlined,
 } from '@ant-design/icons';
 import { ApiRequestsIcon, KeyboardIcon, RequestRulesIcon } from '@openheaders/ui/shared/icons';
 import { lazy } from 'react';
@@ -136,8 +137,10 @@ registerCategory({
 registerCategory({
   id: 'mcp',
   labelKey: 'workbench.settings.category.mcp.label',
+  navLabelKey: 'workbench.settings.category.mcp.navLabel',
+  parent: 'tools',
   icon: <RobotOutlined />,
-  order: 4,
+  order: 30,
   descriptionKey: 'workbench.settings.category.mcp.description',
   // Group node over the MCP pages: Access (the switches) and Clients
   // (CLI provisioning, config snippets). The desktop app is the only
@@ -238,10 +241,24 @@ registerCategory({
 });
 
 registerCategory({
+  id: 'tools',
+  labelKey: 'workbench.settings.category.tools.label',
+  icon: <ToolOutlined />,
+  order: 70,
+  descriptionKey: 'workbench.settings.category.tools.description',
+  // Group node over the tool windows that carry settings of their own:
+  // Terminal, Traffic and the MCP server. Each child is desktop-only and
+  // teasers on browser hosts, so the group itself stays ungated.
+  renderPane: GroupLandingPane,
+});
+
+registerCategory({
   id: 'terminal',
   labelKey: 'workbench.settings.category.terminal.label',
+  navLabelKey: 'workbench.settings.category.terminal.navLabel',
+  parent: 'tools',
   icon: <CodeOutlined />,
-  order: 17,
+  order: 10,
   descriptionKey: 'workbench.settings.category.terminal.description',
   subcategories: [
     { id: 'shell', labelKey: 'workbench.settings.category.terminal.sub.shell', order: 10 },
@@ -378,8 +395,10 @@ registerCategory({
 registerCategory({
   id: 'trafficMonitor',
   labelKey: 'workbench.settings.category.trafficMonitor.label',
+  navLabelKey: 'workbench.settings.category.trafficMonitor.navLabel',
+  parent: 'tools',
   icon: <FundViewOutlined />,
-  order: 22,
+  order: 20,
   descriptionKey: 'workbench.settings.category.trafficMonitor.description',
   subcategories: [
     { id: 'layout', labelKey: 'workbench.settings.category.trafficMonitor.sub.layout', order: 10 },
