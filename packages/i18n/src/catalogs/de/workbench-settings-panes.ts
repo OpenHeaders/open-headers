@@ -26,10 +26,6 @@ import type { Catalog } from '../../types';
 
 export const workbenchSettingsPanes = {
   // ── Backend pane body ──────────────────────────────────────────────
-  'workbench.settings.backendPane.intro.whoLabel': 'Wer:',
-  'workbench.settings.backendPane.intro.whoText': 'verarbeitet und speichert deine Daten.',
-  'workbench.settings.backendPane.intro.whereLabel': 'Wo:',
-  'workbench.settings.backendPane.intro.whereText': 'lokal oder entfernt.',
   'workbench.settings.backendPane.showDiagrams': 'Diagramme anzeigen',
   'workbench.settings.backendPane.learnMore': 'Mehr erfahren',
   'workbench.settings.backendPane.tierZero.title.extension': 'Dieser Browser',

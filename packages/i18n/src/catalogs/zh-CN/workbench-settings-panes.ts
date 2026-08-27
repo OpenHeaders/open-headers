@@ -28,10 +28,6 @@ import type { Catalog } from '../../types';
 
 export const workbenchSettingsPanes = {
   // ── Backend pane body ──────────────────────────────────────────────
-  'workbench.settings.backendPane.intro.whoLabel': '谁：',
-  'workbench.settings.backendPane.intro.whoText': '处理并存储你的数据。',
-  'workbench.settings.backendPane.intro.whereLabel': '在哪：',
-  'workbench.settings.backendPane.intro.whereText': '本地或远程。',
   'workbench.settings.backendPane.showDiagrams': '显示图解',
   'workbench.settings.backendPane.learnMore': '了解更多',
   'workbench.settings.backendPane.tierZero.title.extension': '此浏览器',

@@ -9,10 +9,6 @@ import type { Catalog } from '../../types';
 
 export const workbenchSettingsPanes = {
   // ── Backend pane body ──────────────────────────────────────────────
-  'workbench.settings.backendPane.intro.whoLabel': 'Who:',
-  'workbench.settings.backendPane.intro.whoText': 'processes and stores your data.',
-  'workbench.settings.backendPane.intro.whereLabel': 'Where:',
-  'workbench.settings.backendPane.intro.whereText': 'local or remote.',
   'workbench.settings.backendPane.showDiagrams': 'Show diagrams',
   'workbench.settings.backendPane.learnMore': 'Learn more',
   'workbench.settings.backendPane.tierZero.title.extension': 'This browser',

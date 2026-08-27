@@ -1,6 +1,6 @@
 /**
  * BackendPane — custom right-pane renderer for the Backend › Connections
- * page (the multi-backend plan §4). Two bands:
+ * page (the multi-backend plan §4), on the shared pane chrome. Two bands:
  *
  *   1. **Tier-zero card** — the always-on local engine ("This browser" /
  *      "This app"), pinned, never a list entry.
@@ -33,19 +33,7 @@ import { BackendConnectionsList } from './backend-connections-list';
 import { BackendDetailDiagram } from './backend-details';
 import { BackendTierCard } from './backend-tier-card';
 import { BackendTierZeroCard } from './backend-tier-zero-card';
-import { PaneTitle } from './pane-chrome';
-
-const Intro: React.FC = () => {
-  const t = useT();
-  return (
-    <>
-      <strong>{t('workbench.settings.backendPane.intro.whoLabel')}</strong>{' '}
-      {t('workbench.settings.backendPane.intro.whoText')}{' '}
-      <strong>{t('workbench.settings.backendPane.intro.whereLabel')}</strong>{' '}
-      {t('workbench.settings.backendPane.intro.whereText')}
-    </>
-  );
-};
+import { Pane, PaneHeader } from './pane-chrome';
 
 const BackendPane: React.FC<CategoryPaneProps> = ({ category }) => {
   const { token } = theme.useToken();
@@ -57,28 +45,16 @@ const BackendPane: React.FC<CategoryPaneProps> = ({ category }) => {
   const [showDiagrams, setShowDiagrams] = useSetting('backend.showDiagrams');
 
   return (
-    <div style={{ padding: '0 24px 16px' }}>
-      <header
-        style={{
-          display: 'flex',
-          alignItems: 'baseline',
-          justifyContent: 'space-between',
-          gap: 12,
-          margin: '8px 0',
-        }}
-      >
-        <PaneTitle category={category} />
-        <div style={{ fontSize: 12, color: token.colorTextSecondary }}>
-          <Intro /> <DocsLink />
-        </div>
-      </header>
+    <Pane>
+      <PaneHeader category={category} />
 
-      <div style={{ display: 'flex', justifyContent: 'flex-start', marginBottom: 6 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 6 }}>
         <Checkbox checked={showDiagrams} onChange={(e) => setShowDiagrams(e.target.checked)}>
           <span style={{ fontSize: 12, color: token.colorTextSecondary }}>
             {t('workbench.settings.backendPane.showDiagrams')}
           </span>
         </Checkbox>
+        <DocsLink />
       </div>
 
       <BackendTierZeroCard host={host} />
@@ -107,7 +83,7 @@ const BackendPane: React.FC<CategoryPaneProps> = ({ category }) => {
       )}
 
       {hostJoinsBackends(host) && <BackendConnectionsList host={host} />}
-    </div>
+    </Pane>
   );
 };
 
