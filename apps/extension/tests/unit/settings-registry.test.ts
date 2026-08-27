@@ -88,6 +88,23 @@ describe('settings registry', () => {
     expect(allCategories().map((c) => c.id)).toEqual(['group', 'kid-low', 'kid-high', 'next-top']);
   });
 
+  it('allCategories walks grandchildren under their parent, siblings by order at every depth', () => {
+    registerCategory({ id: 'root', label: 'Root', icon: null, order: 1 });
+    registerCategory({ id: 'group', label: 'Group', icon: null, order: 20, parent: 'root' });
+    registerCategory({ id: 'leaf', label: 'Leaf', icon: null, order: 10, parent: 'root' });
+    registerCategory({ id: 'grandkid-b', label: 'B', icon: null, order: 2, parent: 'group' });
+    registerCategory({ id: 'grandkid-a', label: 'A', icon: null, order: 1, parent: 'group' });
+    registerCategory({ id: 'next-root', label: 'Next', icon: null, order: 2 });
+    expect(allCategories().map((c) => c.id)).toEqual([
+      'root',
+      'leaf',
+      'group',
+      'grandkid-a',
+      'grandkid-b',
+      'next-root',
+    ]);
+  });
+
   it('getCategory returns one category by id', () => {
     registerCategory({ id: 'appearance', label: 'Appearance', icon: null, order: 10 });
     expect(getCategory('appearance')?.label).toBe('Appearance');
