@@ -532,67 +532,67 @@ export const workbenchSettingsDefs = {
     'Wie viel von einem Antwort-Body der Executor für die Anzeige behält. Größere Bodys werden an dieser ' +
     'Grenze abgeschnitten — die volle Größe wird trotzdem gemessen und gemeldet. Eine höhere Grenze erhöht ' +
     'den Speicherverbrauch pro offenem Anfrage-Tab.',
-  'workbench.settings.def.requests.sseEventsNewestFirst.label': 'SSE-Ereignisse: Neueste zuerst',
+  'workbench.settings.def.requests.sseEventsNewestFirst.label': 'Neueste zuerst',
   'workbench.settings.def.requests.sseEventsNewestFirst.description':
     'Reihenfolge der Server-Sent-Events-Liste — neueste Ereignisse oben. Ausschalten, um die ältesten zuerst ' +
     'zu lesen. Die Listen-Toolbar ändert dieselbe Einstellung.',
-  'workbench.settings.def.requests.sseEventsGroupByName.label': 'SSE-Ereignisse: Nach Ereignisname gruppieren',
+  'workbench.settings.def.requests.sseEventsGroupByName.label': 'Nach Ereignisname gruppieren',
   'workbench.settings.def.requests.sseEventsGroupByName.description':
     'Bündelt die Server-Sent-Events-Liste unter einklappbaren Ereignisnamen-Überschriften, ' +
     'Ankunftsreihenfolge innerhalb jeder Gruppe. Die Listen-Toolbar ändert dieselbe Einstellung.',
-  'workbench.settings.def.requests.sseEventsGroupRowLimit.label': 'SSE-Ereignisse: Zeilen pro Gruppe',
+  'workbench.settings.def.requests.sseEventsGroupRowLimit.label': 'Zeilen pro Gruppe',
   'workbench.settings.def.requests.sseEventsGroupRowLimit.description':
     'Zeigt beim Gruppieren nach Ereignisname nur so viele der neuesten Ereignisse jeder Gruppe — das Fenster ' +
     'wandert mit neuen Ereignissen mit, sodass mehrere Gruppen zugleich beobachtbar bleiben. 0 zeigt jedes ' +
     'Ereignis. Die Listen-Toolbar ändert dieselbe Einstellung.',
-  'workbench.settings.def.requests.grpcMessagesNewestFirst.label': 'gRPC-Nachrichten: Neueste zuerst',
+  'workbench.settings.def.requests.grpcMessagesNewestFirst.label': 'Neueste zuerst',
   'workbench.settings.def.requests.grpcMessagesNewestFirst.description':
     'Reihenfolge des gRPC-Nachrichten-Zeitverlaufs — neueste Nachrichten oben. Ausschalten, um die ältesten ' +
     'zuerst zu lesen. Die Zeitverlaufs-Toolbar ändert dieselbe Einstellung.',
-  'workbench.settings.def.requests.grpcMessagesShowTypes.label': 'gRPC-Nachrichten: Nachrichtentypen anzeigen',
+  'workbench.settings.def.requests.grpcMessagesShowTypes.label': 'Nachrichtentypen anzeigen',
   'workbench.settings.def.requests.grpcMessagesShowTypes.description':
     'Versieht jede Zeitverlaufszeile mit ihrem deklarierten Protobuf-Nachrichtentyp. Standardmäßig aus — die ' +
     'Typen eines rpc sind pro Richtung fest, das Richtungs-Badge unterscheidet die Zeilen also schon. Die ' +
     'Zeitverlaufs-Toolbar ändert dieselbe Einstellung.',
-  'workbench.settings.def.requests.grpcMessagesGroupByType.label': 'gRPC-Nachrichten: Nach Nachrichtentyp gruppieren',
+  'workbench.settings.def.requests.grpcMessagesGroupByType.label': 'Nach Nachrichtentyp gruppieren',
   'workbench.settings.def.requests.grpcMessagesGroupByType.description':
     'Bündelt den gRPC-Nachrichten-Zeitverlauf unter einklappbaren Nachrichtentyp-Überschriften, ' +
     'Ankunftsreihenfolge innerhalb jeder Gruppe. Die Zeitverlaufs-Toolbar ändert dieselbe Einstellung.',
-  'workbench.settings.def.requests.grpcMessagesGroupByDirection.label': 'gRPC-Nachrichten: Nach Richtung gruppieren',
+  'workbench.settings.def.requests.grpcMessagesGroupByDirection.label': 'Nach Richtung gruppieren',
   'workbench.settings.def.requests.grpcMessagesGroupByDirection.description':
     'Bündelt den gRPC-Nachrichten-Zeitverlauf unter einklappbaren Gesendet-/Empfangen-Überschriften. ' +
     'Kombiniert mit der Gruppierung nach Nachrichtentyp erhält jedes Paar (Typ, Richtung) eine eigene ' +
     'Gruppe — nützlich bei bidirektionalen Aufrufen, deren Anfrage und Antwort denselben Nachrichtentyp ' +
     'teilen. Die Zeitverlaufs-Toolbar ändert dieselbe Einstellung.',
-  'workbench.settings.def.requests.grpcMessagesGroupRowLimit.label': 'gRPC-Nachrichten: Zeilen pro Gruppe',
+  'workbench.settings.def.requests.grpcMessagesGroupRowLimit.label': 'Zeilen pro Gruppe',
   'workbench.settings.def.requests.grpcMessagesGroupRowLimit.description':
     'Zeigt beim Gruppieren nach Nachrichtentyp nur so viele der neuesten Nachrichten jeder Gruppe — das ' +
     'Fenster wandert mit neuen Nachrichten mit, sodass mehrere Gruppen zugleich beobachtbar bleiben. 0 zeigt ' +
     'jede Nachricht. Die Zeitverlaufs-Toolbar ändert dieselbe Einstellung.',
-  'workbench.settings.def.requests.mqttMessagesNewestFirst.label': 'MQTT-Nachrichten: Neueste zuerst',
+  'workbench.settings.def.requests.mqttMessagesNewestFirst.label': 'Neueste zuerst',
   'workbench.settings.def.requests.mqttMessagesNewestFirst.description':
     'Reihenfolge des MQTT-Nachrichten-Zeitverlaufs — neueste Nachrichten oben. Ausschalten, um die ältesten zuerst zu lesen. Die Zeitverlaufs-Symbolleiste ändert dieselbe Einstellung.',
-  'workbench.settings.def.requests.wsMessagesNewestFirst.label': 'WebSocket-Nachrichten: Neueste zuerst',
+  'workbench.settings.def.requests.wsMessagesNewestFirst.label': 'Neueste zuerst',
   'workbench.settings.def.requests.wsMessagesNewestFirst.description':
     'Reihenfolge des WebSocket-Nachrichten-Zeitverlaufs — neueste Nachrichten oben. Ausschalten, um die ' +
     'ältesten zuerst zu lesen. Die Zeitverlaufs-Toolbar ändert dieselbe Einstellung.',
-  'workbench.settings.def.requests.wsMessagesGroupByDirection.label': 'WebSocket-Nachrichten: Nach Richtung gruppieren',
+  'workbench.settings.def.requests.wsMessagesGroupByDirection.label': 'Nach Richtung gruppieren',
   'workbench.settings.def.requests.wsMessagesGroupByDirection.description':
     'Bündelt den WebSocket-Nachrichten-Zeitverlauf unter einklappbaren Gesendet-/Empfangen-Überschriften, ' +
     'Ankunftsreihenfolge innerhalb jeder Gruppe. Die Zeitverlaufs-Toolbar ändert dieselbe Einstellung.',
-  'workbench.settings.def.requests.wsMessagesGroupByEvent.label': 'WebSocket-Nachrichten: Nach Ereignis gruppieren',
+  'workbench.settings.def.requests.wsMessagesGroupByEvent.label': 'Nach Ereignis gruppieren',
   'workbench.settings.def.requests.wsMessagesGroupByEvent.description':
     'Bündelt Socket.IO-Sitzungs-Zeitverläufe unter einklappbaren Überschriften mit dekodiertem ' +
     'Ereignisnamen (Steuerframes ordnen sich nach ihrer Leitungsart ein). Kombiniert mit der Gruppierung ' +
     'nach Richtung erhält jedes Paar (Ereignis, Richtung) eine eigene Gruppe. Gilt nur für ' +
     'Socket.IO-Sitzungen — rohe WebSocket-Frames tragen keine Ereignisnamen. Die Zeitverlaufs-Toolbar ' +
     'ändert dieselbe Einstellung.',
-  'workbench.settings.def.requests.wsMessagesGroupRowLimit.label': 'WebSocket-Nachrichten: Zeilen pro Gruppe',
+  'workbench.settings.def.requests.wsMessagesGroupRowLimit.label': 'Zeilen pro Gruppe',
   'workbench.settings.def.requests.wsMessagesGroupRowLimit.description':
     'Zeigt beim Gruppieren nach Richtung nur so viele der neuesten Nachrichten jeder Gruppe — das Fenster ' +
     'wandert mit neuen Nachrichten mit, sodass beide Gruppen zugleich beobachtbar bleiben. 0 zeigt jede ' +
     'Nachricht. Die Zeitverlaufs-Toolbar ändert dieselbe Einstellung.',
-  'workbench.settings.def.requests.grpcSendInvalidMessage.label': 'gRPC: Ungültige Nachrichten senden',
+  'workbench.settings.def.requests.grpcSendInvalidMessage.label': 'Ungültige Nachrichten senden',
   'workbench.settings.def.requests.grpcSendInvalidMessage.description':
     'Wenn die gRPC-Nachricht kein gültiges JSON ist, trotzdem mit leerer Nachricht aufrufen und den Server ' +
     'antworten lassen — meist INVALID_ARGUMENT. Standardmäßig aus: der Aufruf scheitert vor der Leitung mit ' +

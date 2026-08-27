@@ -439,46 +439,46 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.requests.responseBodyCapMB.label': 'Response Body Limit (MB)',
   'workbench.settings.def.requests.responseBodyCapMB.description':
     'How much of a response body the executor keeps for display. Larger bodies are truncated at this limit — the full size is still measured and reported. Raising the limit increases memory use per open request tab.',
-  'workbench.settings.def.requests.sseEventsNewestFirst.label': 'SSE Events: Newest First',
+  'workbench.settings.def.requests.sseEventsNewestFirst.label': 'Newest First',
   'workbench.settings.def.requests.sseEventsNewestFirst.description':
     'Order of the Server-Sent Events list — newest events at the top. Turn off to read oldest first. The list toolbar changes this same setting.',
-  'workbench.settings.def.requests.sseEventsGroupByName.label': 'SSE Events: Group by Event Name',
+  'workbench.settings.def.requests.sseEventsGroupByName.label': 'Group by Event Name',
   'workbench.settings.def.requests.sseEventsGroupByName.description':
     'Cluster the Server-Sent Events list under collapsible event-name headers, arrival order kept within each group. The list toolbar changes this same setting.',
-  'workbench.settings.def.requests.sseEventsGroupRowLimit.label': 'SSE Events: Rows per Group',
+  'workbench.settings.def.requests.sseEventsGroupRowLimit.label': 'Rows per Group',
   'workbench.settings.def.requests.sseEventsGroupRowLimit.description':
     'When grouping by event name, show only this many of each group’s newest events — the window slides as new events arrive, so several groups stay watchable at once. 0 shows every event. The list toolbar changes this same setting.',
-  'workbench.settings.def.requests.grpcMessagesNewestFirst.label': 'gRPC Messages: Newest First',
+  'workbench.settings.def.requests.grpcMessagesNewestFirst.label': 'Newest First',
   'workbench.settings.def.requests.grpcMessagesNewestFirst.description':
     'Order of the gRPC message timeline — newest messages at the top. Turn off to read oldest first. The timeline toolbar changes this same setting.',
-  'workbench.settings.def.requests.grpcMessagesShowTypes.label': 'gRPC Messages: Show Message Types',
+  'workbench.settings.def.requests.grpcMessagesShowTypes.label': 'Show Message Types',
   'workbench.settings.def.requests.grpcMessagesShowTypes.description':
     'Tag every timeline row with its declared protobuf message type. Off by default — an rpc’s types are fixed per direction, so the direction badge already tells rows apart. The timeline toolbar changes this same setting.',
-  'workbench.settings.def.requests.grpcMessagesGroupByType.label': 'gRPC Messages: Group by Message Type',
+  'workbench.settings.def.requests.grpcMessagesGroupByType.label': 'Group by Message Type',
   'workbench.settings.def.requests.grpcMessagesGroupByType.description':
     'Cluster the gRPC message timeline under collapsible message-type headers, arrival order kept within each group. The timeline toolbar changes this same setting.',
-  'workbench.settings.def.requests.grpcMessagesGroupByDirection.label': 'gRPC Messages: Group by Direction',
+  'workbench.settings.def.requests.grpcMessagesGroupByDirection.label': 'Group by Direction',
   'workbench.settings.def.requests.grpcMessagesGroupByDirection.description':
     'Cluster the gRPC message timeline under collapsible sent / received headers. Combined with grouping by message type, each (type, direction) pair gets its own group — useful on bidi calls whose request and response share one message type. The timeline toolbar changes this same setting.',
-  'workbench.settings.def.requests.grpcMessagesGroupRowLimit.label': 'gRPC Messages: Rows per Group',
+  'workbench.settings.def.requests.grpcMessagesGroupRowLimit.label': 'Rows per Group',
   'workbench.settings.def.requests.grpcMessagesGroupRowLimit.description':
     'When grouping by message type, show only this many of each group’s newest messages — the window slides as new messages arrive, so several groups stay watchable at once. 0 shows every message. The timeline toolbar changes this same setting.',
-  'workbench.settings.def.requests.mqttMessagesNewestFirst.label': 'MQTT Messages: Newest First',
+  'workbench.settings.def.requests.mqttMessagesNewestFirst.label': 'Newest First',
   'workbench.settings.def.requests.mqttMessagesNewestFirst.description':
     'Order of the MQTT message timeline — newest messages at the top. Turn off to read oldest first. The timeline toolbar changes this same setting.',
-  'workbench.settings.def.requests.wsMessagesNewestFirst.label': 'WebSocket Messages: Newest First',
+  'workbench.settings.def.requests.wsMessagesNewestFirst.label': 'Newest First',
   'workbench.settings.def.requests.wsMessagesNewestFirst.description':
     'Order of the WebSocket message timeline — newest messages at the top. Turn off to read oldest first. The timeline toolbar changes this same setting.',
-  'workbench.settings.def.requests.wsMessagesGroupByDirection.label': 'WebSocket Messages: Group by Direction',
+  'workbench.settings.def.requests.wsMessagesGroupByDirection.label': 'Group by Direction',
   'workbench.settings.def.requests.wsMessagesGroupByDirection.description':
     'Cluster the WebSocket message timeline under collapsible sent / received headers, arrival order kept within each group. The timeline toolbar changes this same setting.',
-  'workbench.settings.def.requests.wsMessagesGroupByEvent.label': 'WebSocket Messages: Group by Event',
+  'workbench.settings.def.requests.wsMessagesGroupByEvent.label': 'Group by Event',
   'workbench.settings.def.requests.wsMessagesGroupByEvent.description':
     'Cluster Socket.IO session timelines under collapsible decoded event-name headers (control frames bucket by their wire kind). Combined with grouping by direction, each (event, direction) pair gets its own group. Applies only to Socket.IO sessions — raw WebSocket frames carry no event names. The timeline toolbar changes this same setting.',
-  'workbench.settings.def.requests.wsMessagesGroupRowLimit.label': 'WebSocket Messages: Rows per Group',
+  'workbench.settings.def.requests.wsMessagesGroupRowLimit.label': 'Rows per Group',
   'workbench.settings.def.requests.wsMessagesGroupRowLimit.description':
     'When grouping by direction, show only this many of each group’s newest messages — the window slides as new messages arrive, so both groups stay watchable at once. 0 shows every message. The timeline toolbar changes this same setting.',
-  'workbench.settings.def.requests.grpcSendInvalidMessage.label': 'gRPC: Send Invalid Messages',
+  'workbench.settings.def.requests.grpcSendInvalidMessage.label': 'Send Invalid Messages',
   'workbench.settings.def.requests.grpcSendInvalidMessage.description':
     'When the gRPC message is not valid JSON, invoke anyway with an empty message and let the server answer — usually INVALID_ARGUMENT. Off by default: the invoke fails before the wire with the exact parse error.',
 

@@ -565,71 +565,71 @@ export const workbenchSettingsDefs = {
     'Cuánto de un cuerpo de respuesta conserva el ejecutor para mostrarlo. Los cuerpos más grandes se ' +
     'truncan en este límite — el tamaño completo se sigue midiendo e informando. Subir el límite aumenta la ' +
     'memoria usada por cada pestaña de solicitud abierta.',
-  'workbench.settings.def.requests.sseEventsNewestFirst.label': 'Eventos SSE: más recientes primero',
+  'workbench.settings.def.requests.sseEventsNewestFirst.label': 'Más recientes primero',
   'workbench.settings.def.requests.sseEventsNewestFirst.description':
     'Orden de la lista de Server-Sent Events — los eventos más recientes arriba. Desactívalo para leer del ' +
     'más antiguo al más reciente. La barra de herramientas de la lista cambia este mismo ajuste.',
-  'workbench.settings.def.requests.sseEventsGroupByName.label': 'Eventos SSE: agrupar por nombre de evento',
+  'workbench.settings.def.requests.sseEventsGroupByName.label': 'Agrupar por nombre de evento',
   'workbench.settings.def.requests.sseEventsGroupByName.description':
     'Agrupa la lista de Server-Sent Events bajo cabeceras plegables por nombre de evento, conservando el ' +
     'orden de llegada dentro de cada grupo. La barra de herramientas de la lista cambia este mismo ajuste.',
-  'workbench.settings.def.requests.sseEventsGroupRowLimit.label': 'Eventos SSE: filas por grupo',
+  'workbench.settings.def.requests.sseEventsGroupRowLimit.label': 'Filas por grupo',
   'workbench.settings.def.requests.sseEventsGroupRowLimit.description':
     'Al agrupar por nombre de evento, muestra solo este número de los eventos más recientes de cada grupo — ' +
     'la ventana se desliza a medida que llegan eventos nuevos, así que varios grupos permanecen observables ' +
     'a la vez. 0 muestra todos los eventos. La barra de herramientas de la lista cambia este mismo ajuste.',
-  'workbench.settings.def.requests.grpcMessagesNewestFirst.label': 'Mensajes gRPC: más recientes primero',
+  'workbench.settings.def.requests.grpcMessagesNewestFirst.label': 'Más recientes primero',
   'workbench.settings.def.requests.grpcMessagesNewestFirst.description':
     'Orden de la cronología de mensajes gRPC — los mensajes más recientes arriba. Desactívalo para leer del ' +
     'más antiguo al más reciente. La barra de herramientas de la cronología cambia este mismo ajuste.',
-  'workbench.settings.def.requests.grpcMessagesShowTypes.label': 'Mensajes gRPC: mostrar los tipos de mensaje',
+  'workbench.settings.def.requests.grpcMessagesShowTypes.label': 'Mostrar los tipos de mensaje',
   'workbench.settings.def.requests.grpcMessagesShowTypes.description':
     'Etiqueta cada fila de la cronología con su tipo de mensaje protobuf declarado. Desactivado por defecto ' +
     '— los tipos de un rpc son fijos por dirección, así que la insignia de dirección ya distingue las filas. ' +
     'La barra de herramientas de la cronología cambia este mismo ajuste.',
-  'workbench.settings.def.requests.grpcMessagesGroupByType.label': 'Mensajes gRPC: agrupar por tipo de mensaje',
+  'workbench.settings.def.requests.grpcMessagesGroupByType.label': 'Agrupar por tipo de mensaje',
   'workbench.settings.def.requests.grpcMessagesGroupByType.description':
     'Agrupa la cronología de mensajes gRPC bajo cabeceras plegables por tipo de mensaje, conservando el ' +
     'orden de llegada dentro de cada grupo. La barra de herramientas de la cronología cambia este mismo ' +
     'ajuste.',
-  'workbench.settings.def.requests.grpcMessagesGroupByDirection.label': 'Mensajes gRPC: agrupar por dirección',
+  'workbench.settings.def.requests.grpcMessagesGroupByDirection.label': 'Agrupar por dirección',
   'workbench.settings.def.requests.grpcMessagesGroupByDirection.description':
     'Agrupa la cronología de mensajes gRPC bajo cabeceras plegables de enviados / recibidos. Combinado con ' +
     'la agrupación por tipo de mensaje, cada par (tipo, dirección) obtiene su propio grupo — útil en ' +
     'llamadas bidireccionales cuya solicitud y respuesta comparten un mismo tipo de mensaje. La barra de ' +
     'herramientas de la cronología cambia este mismo ajuste.',
-  'workbench.settings.def.requests.grpcMessagesGroupRowLimit.label': 'Mensajes gRPC: filas por grupo',
+  'workbench.settings.def.requests.grpcMessagesGroupRowLimit.label': 'Filas por grupo',
   'workbench.settings.def.requests.grpcMessagesGroupRowLimit.description':
     'Al agrupar por tipo de mensaje, muestra solo este número de los mensajes más recientes de cada grupo — ' +
     'la ventana se desliza a medida que llegan mensajes nuevos, así que varios grupos permanecen observables ' +
     'a la vez. 0 muestra todos los mensajes. La barra de herramientas de la cronología cambia este mismo ' +
     'ajuste.',
-  'workbench.settings.def.requests.mqttMessagesNewestFirst.label': 'Mensajes MQTT: más recientes primero',
+  'workbench.settings.def.requests.mqttMessagesNewestFirst.label': 'Más recientes primero',
   'workbench.settings.def.requests.mqttMessagesNewestFirst.description':
     'Orden de la cronología de mensajes MQTT — los mensajes más recientes arriba. Desactívalo para leer del más antiguo al más reciente. La barra de herramientas de la cronología cambia este mismo ajuste.',
-  'workbench.settings.def.requests.wsMessagesNewestFirst.label': 'Mensajes WebSocket: más recientes primero',
+  'workbench.settings.def.requests.wsMessagesNewestFirst.label': 'Más recientes primero',
   'workbench.settings.def.requests.wsMessagesNewestFirst.description':
     'Orden de la cronología de mensajes WebSocket — los mensajes más recientes arriba. Desactívalo para leer ' +
     'del más antiguo al más reciente. La barra de herramientas de la cronología cambia este mismo ajuste.',
-  'workbench.settings.def.requests.wsMessagesGroupByDirection.label': 'Mensajes WebSocket: agrupar por dirección',
+  'workbench.settings.def.requests.wsMessagesGroupByDirection.label': 'Agrupar por dirección',
   'workbench.settings.def.requests.wsMessagesGroupByDirection.description':
     'Agrupa la cronología de mensajes WebSocket bajo cabeceras plegables de enviados / recibidos, ' +
     'conservando el orden de llegada dentro de cada grupo. La barra de herramientas de la cronología cambia ' +
     'este mismo ajuste.',
-  'workbench.settings.def.requests.wsMessagesGroupByEvent.label': 'Mensajes WebSocket: agrupar por evento',
+  'workbench.settings.def.requests.wsMessagesGroupByEvent.label': 'Agrupar por evento',
   'workbench.settings.def.requests.wsMessagesGroupByEvent.description':
     'Agrupa las cronologías de sesiones Socket.IO bajo cabeceras plegables por nombre de evento ' +
     'decodificado (las tramas de control se clasifican por su tipo en el cable). Combinado con la ' +
     'agrupación por dirección, cada par (evento, dirección) obtiene su propio grupo. Solo se aplica a ' +
     'sesiones Socket.IO — las tramas WebSocket sin procesar no llevan nombres de evento. La barra de ' +
     'herramientas de la cronología cambia este mismo ajuste.',
-  'workbench.settings.def.requests.wsMessagesGroupRowLimit.label': 'Mensajes WebSocket: filas por grupo',
+  'workbench.settings.def.requests.wsMessagesGroupRowLimit.label': 'Filas por grupo',
   'workbench.settings.def.requests.wsMessagesGroupRowLimit.description':
     'Al agrupar por dirección, muestra solo este número de los mensajes más recientes de cada grupo — la ' +
     'ventana se desliza a medida que llegan mensajes nuevos, así que ambos grupos permanecen observables a ' +
     'la vez. 0 muestra todos los mensajes. La barra de herramientas de la cronología cambia este mismo ' +
     'ajuste.',
-  'workbench.settings.def.requests.grpcSendInvalidMessage.label': 'gRPC: enviar los mensajes no válidos',
+  'workbench.settings.def.requests.grpcSendInvalidMessage.label': 'Enviar los mensajes no válidos',
   'workbench.settings.def.requests.grpcSendInvalidMessage.description':
     'Cuando el mensaje gRPC no es JSON válido, invoca de todos modos con un mensaje vacío y deja responder ' +
     'al servidor — normalmente INVALID_ARGUMENT. Desactivado por defecto: la invocación falla antes del ' +

@@ -543,71 +543,71 @@ export const workbenchSettingsDefs = {
     "Quelle part d'un corps de réponse l'exécuteur garde pour l'affichage. Les corps plus gros sont tronqués " +
     'à cette limite — la taille complète est toujours mesurée et rapportée. Monter la limite augmente la ' +
     'mémoire utilisée par onglet de requête ouvert.',
-  'workbench.settings.def.requests.sseEventsNewestFirst.label': 'Événements SSE : plus récents en premier',
+  'workbench.settings.def.requests.sseEventsNewestFirst.label': 'Plus récents en premier',
   'workbench.settings.def.requests.sseEventsNewestFirst.description':
     'Ordre de la liste des Server-Sent Events — les événements les plus récents en haut. Désactivez pour ' +
     "lire du plus ancien au plus récent. La barre d'outils de la liste change ce même réglage.",
-  'workbench.settings.def.requests.sseEventsGroupByName.label': "Événements SSE : grouper par nom d'événement",
+  'workbench.settings.def.requests.sseEventsGroupByName.label': "Grouper par nom d'événement",
   'workbench.settings.def.requests.sseEventsGroupByName.description':
     "Regroupe la liste des Server-Sent Events sous des en-têtes repliables par nom d'événement, l'ordre " +
     "d'arrivée conservé dans chaque groupe. La barre d'outils de la liste change ce même réglage.",
-  'workbench.settings.def.requests.sseEventsGroupRowLimit.label': 'Événements SSE : lignes par groupe',
+  'workbench.settings.def.requests.sseEventsGroupRowLimit.label': 'Lignes par groupe',
   'workbench.settings.def.requests.sseEventsGroupRowLimit.description':
     "En groupant par nom d'événement, n'affiche que ce nombre des événements les plus récents de chaque " +
     'groupe — la fenêtre glisse à mesure que de nouveaux événements arrivent, si bien que plusieurs groupes ' +
     "restent observables à la fois. 0 affiche tous les événements. La barre d'outils de la liste change ce " +
     'même réglage.',
-  'workbench.settings.def.requests.grpcMessagesNewestFirst.label': 'Messages gRPC : plus récents en premier',
+  'workbench.settings.def.requests.grpcMessagesNewestFirst.label': 'Plus récents en premier',
   'workbench.settings.def.requests.grpcMessagesNewestFirst.description':
     'Ordre de la chronologie des messages gRPC — les messages les plus récents en haut. Désactivez pour lire ' +
     "du plus ancien au plus récent. La barre d'outils de la chronologie change ce même réglage.",
-  'workbench.settings.def.requests.grpcMessagesShowTypes.label': 'Messages gRPC : afficher les types de messages',
+  'workbench.settings.def.requests.grpcMessagesShowTypes.label': 'Afficher les types de messages',
   'workbench.settings.def.requests.grpcMessagesShowTypes.description':
     'Étiquette chaque ligne de la chronologie avec son type de message protobuf déclaré. Désactivé par ' +
     "défaut — les types d'un rpc sont fixes par direction, donc le badge de direction distingue déjà les " +
     "lignes. La barre d'outils de la chronologie change ce même réglage.",
-  'workbench.settings.def.requests.grpcMessagesGroupByType.label': 'Messages gRPC : grouper par type de message',
+  'workbench.settings.def.requests.grpcMessagesGroupByType.label': 'Grouper par type de message',
   'workbench.settings.def.requests.grpcMessagesGroupByType.description':
     "Regroupe la chronologie des messages gRPC sous des en-têtes repliables par type de message, l'ordre " +
     "d'arrivée conservé dans chaque groupe. La barre d'outils de la chronologie change ce même réglage.",
-  'workbench.settings.def.requests.grpcMessagesGroupByDirection.label': 'Messages gRPC : grouper par direction',
+  'workbench.settings.def.requests.grpcMessagesGroupByDirection.label': 'Grouper par direction',
   'workbench.settings.def.requests.grpcMessagesGroupByDirection.description':
     'Regroupe la chronologie des messages gRPC sous des en-têtes repliables envoyés / reçus. Combiné au ' +
     'regroupement par type de message, chaque paire (type, direction) obtient son propre groupe — utile sur ' +
     'les appels bidirectionnels dont la requête et la réponse partagent un même type de message. La barre ' +
     "d'outils de la chronologie change ce même réglage.",
-  'workbench.settings.def.requests.grpcMessagesGroupRowLimit.label': 'Messages gRPC : lignes par groupe',
+  'workbench.settings.def.requests.grpcMessagesGroupRowLimit.label': 'Lignes par groupe',
   'workbench.settings.def.requests.grpcMessagesGroupRowLimit.description':
     "En groupant par type de message, n'affiche que ce nombre des messages les plus récents de chaque groupe " +
     '— la fenêtre glisse à mesure que de nouveaux messages arrivent, si bien que plusieurs groupes restent ' +
     "observables à la fois. 0 affiche tous les messages. La barre d'outils de la chronologie change ce même " +
     'réglage.',
-  'workbench.settings.def.requests.mqttMessagesNewestFirst.label': 'Messages MQTT : plus récents en premier',
+  'workbench.settings.def.requests.mqttMessagesNewestFirst.label': 'Plus récents en premier',
   'workbench.settings.def.requests.mqttMessagesNewestFirst.description':
     'Ordre de la chronologie des messages MQTT — les messages les plus récents en haut. Désactivez pour lire du plus ancien au plus récent. La barre d’outils de la chronologie modifie ce même réglage.',
-  'workbench.settings.def.requests.wsMessagesNewestFirst.label': 'Messages WebSocket : plus récents en premier',
+  'workbench.settings.def.requests.wsMessagesNewestFirst.label': 'Plus récents en premier',
   'workbench.settings.def.requests.wsMessagesNewestFirst.description':
     'Ordre de la chronologie des messages WebSocket — les messages les plus récents en haut. Désactivez pour ' +
     "lire du plus ancien au plus récent. La barre d'outils de la chronologie change ce même réglage.",
-  'workbench.settings.def.requests.wsMessagesGroupByDirection.label': 'Messages WebSocket : grouper par direction',
+  'workbench.settings.def.requests.wsMessagesGroupByDirection.label': 'Grouper par direction',
   'workbench.settings.def.requests.wsMessagesGroupByDirection.description':
     'Regroupe la chronologie des messages WebSocket sous des en-têtes repliables envoyés / reçus, ' +
     "l'ordre d'arrivée conservé dans chaque groupe. La barre d'outils de la chronologie change ce même " +
     'réglage.',
-  'workbench.settings.def.requests.wsMessagesGroupByEvent.label': 'Messages WebSocket : grouper par événement',
+  'workbench.settings.def.requests.wsMessagesGroupByEvent.label': 'Grouper par événement',
   'workbench.settings.def.requests.wsMessagesGroupByEvent.description':
     "Regroupe les chronologies des sessions Socket.IO sous des en-têtes repliables par nom d'événement " +
     'décodé (les trames de contrôle se rangent par leur type sur le fil). Combiné au regroupement par ' +
     'direction, chaque paire (événement, direction) obtient son propre groupe. Ne concerne que les sessions ' +
     "Socket.IO — les trames WebSocket brutes ne portent pas de noms d'événements. La barre d'outils de la " +
     'chronologie change ce même réglage.',
-  'workbench.settings.def.requests.wsMessagesGroupRowLimit.label': 'Messages WebSocket : lignes par groupe',
+  'workbench.settings.def.requests.wsMessagesGroupRowLimit.label': 'Lignes par groupe',
   'workbench.settings.def.requests.wsMessagesGroupRowLimit.description':
     "En groupant par direction, n'affiche que ce nombre des messages les plus récents de chaque groupe — la " +
     'fenêtre glisse à mesure que de nouveaux messages arrivent, si bien que les deux groupes restent ' +
     "observables à la fois. 0 affiche tous les messages. La barre d'outils de la chronologie change ce même " +
     'réglage.',
-  'workbench.settings.def.requests.grpcSendInvalidMessage.label': 'gRPC : envoyer les messages invalides',
+  'workbench.settings.def.requests.grpcSendInvalidMessage.label': 'Envoyer les messages invalides',
   'workbench.settings.def.requests.grpcSendInvalidMessage.description':
     "Quand le message gRPC n'est pas du JSON valide, invoquer quand même avec un message vide et laisser le " +
     "serveur répondre — généralement INVALID_ARGUMENT. Désactivé par défaut : l'invocation échoue avant le " +
