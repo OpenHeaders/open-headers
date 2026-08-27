@@ -504,6 +504,8 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.rulesEngine.draftUrlStrategy.option.raw.description': '不规范化，按原文匹配此 URL',
 
   // ── Workspace Sharing category defs ────────────────────────────────
+  'workbench.settings.def.workspaceSharing.diffViewerHome.label': '差异查看器',
+  'workbench.settings.def.workspaceSharing.diffViewerHome.description': '预览使用应用级的差异查看器设置进行呈现。',
   'workbench.settings.def.workspaceSharing.importPreviewShowMergeStrategy.label': '在行上显示合并策略',
   'workbench.settings.def.workspaceSharing.importPreviewShowMergeStrategy.description':
     '开启后，导入预览左侧边栏中的每个实体行都会在行计数旁内联显示所选合并策略（添加为新项、替换、跳过、…）。关闭可在窄窗格中释放行宽。',

@@ -535,6 +535,8 @@ export const workbenchSettingsPanes = {
     "de l'application si vous l'avez installée ailleurs. L'application doit être en cours d'exécution pour que " +
     'les clients se connectent.',
   'workbench.settings.mcpPane.tokensHome': "Les jetons d'accès se génèrent et se révoquent sous",
+  'workbench.settings.workspaceSharingPane.diffViewerHome':
+    'Les options de disposition, d’espaces et de gouttière sont partagées par tous les diffs de l’application – réglez-les sous',
   'workbench.settings.mcpPane.snippet.claudeDesktopTitle':
     'claude_desktop_config.json — à fusionner dans le fichier existant',
   'workbench.settings.mcpPane.snippet.runOnceTitle': 'À exécuter une fois dans un terminal',

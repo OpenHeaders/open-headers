@@ -229,11 +229,15 @@ export const workbenchSettings = {
   'workbench.settings.category.keyboard.sub.popup-navigation': '弹窗和侧边栏 · 导航',
   'workbench.settings.category.keyboard.sub.popup-rows': '弹窗和侧边栏 · 行操作',
   'workbench.settings.category.keyboard.sub.popup-tabs': '弹窗和侧边栏 · 标签页',
+  'workbench.settings.category.diffViewer.label': '编辑器 · 差异查看器',
+  'workbench.settings.category.diffViewer.navLabel': '差异查看器',
+  'workbench.settings.category.diffViewer.description':
+    '差异的呈现方式——布局、空白和边栏——在应用比较两个版本的任何地方。',
+  'workbench.settings.category.diffViewer.sub.view': '视图',
   'workbench.settings.category.workspaceSharing.label': '版本控制 · 工作区共享',
   'workbench.settings.category.workspaceSharing.navLabel': '工作区共享',
   'workbench.settings.category.workspaceSharing.description': '工作区导出的导入预览的显示偏好。',
   'workbench.settings.category.workspaceSharing.sub.importPreview': '导入预览',
-  'workbench.settings.category.workspaceSharing.sub.diffViewer': '差异查看器',
   'workbench.settings.category.versionControl.label': '版本控制',
   'workbench.settings.category.versionControl.description':
     '基于 Git 的工作区，以及无需 Git 即可共享工作区的导出/导入路径。',

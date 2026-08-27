@@ -251,12 +251,16 @@ export const workbenchSettings = {
   'workbench.settings.category.keyboard.sub.popup-navigation': 'Popup et panneau latéral · Navigation',
   'workbench.settings.category.keyboard.sub.popup-rows': 'Popup et panneau latéral · Actions de ligne',
   'workbench.settings.category.keyboard.sub.popup-tabs': 'Popup et panneau latéral · Onglets',
+  'workbench.settings.category.diffViewer.label': 'Éditeur · Visionneuse de diff',
+  'workbench.settings.category.diffViewer.navLabel': 'Visionneuse de diff',
+  'workbench.settings.category.diffViewer.description':
+    'Comment les diffs s’affichent – disposition, espaces et gouttière – partout où l’application compare deux versions.',
+  'workbench.settings.category.diffViewer.sub.view': 'Affichage',
   'workbench.settings.category.workspaceSharing.label': "Gestion de versions · Partage d'espace de travail",
   'workbench.settings.category.workspaceSharing.navLabel': "Partage d'espace de travail",
   'workbench.settings.category.workspaceSharing.description':
     "Préférences d'affichage pour l'aperçu d'import des exports d'espace de travail.",
   'workbench.settings.category.workspaceSharing.sub.importPreview': "Aperçu d'import",
-  'workbench.settings.category.workspaceSharing.sub.diffViewer': 'Visionneuse de diff',
   'workbench.settings.category.versionControl.label': 'Gestion de versions',
   'workbench.settings.category.versionControl.description':
     'Espaces de travail adossés à Git et le chemin export/import qui partage un espace de travail sans lui.',

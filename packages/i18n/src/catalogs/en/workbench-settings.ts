@@ -233,12 +233,16 @@ export const workbenchSettings = {
   'workbench.settings.category.keyboard.sub.popup-navigation': 'Popup & Side Panel · Navigation',
   'workbench.settings.category.keyboard.sub.popup-rows': 'Popup & Side Panel · Row Actions',
   'workbench.settings.category.keyboard.sub.popup-tabs': 'Popup & Side Panel · Tabs',
+  'workbench.settings.category.diffViewer.label': 'Editor · Diff Viewer',
+  'workbench.settings.category.diffViewer.navLabel': 'Diff Viewer',
+  'workbench.settings.category.diffViewer.description':
+    'How diffs render — layout, whitespace and the gutter — wherever the app compares two versions.',
+  'workbench.settings.category.diffViewer.sub.view': 'View',
   'workbench.settings.category.workspaceSharing.label': 'Version Control · Workspace Sharing',
   'workbench.settings.category.workspaceSharing.navLabel': 'Workspace Sharing',
   'workbench.settings.category.workspaceSharing.description':
     'Display preferences for the workspace-export import preview.',
   'workbench.settings.category.workspaceSharing.sub.importPreview': 'Import Preview',
-  'workbench.settings.category.workspaceSharing.sub.diffViewer': 'Diff Viewer',
   'workbench.settings.category.versionControl.label': 'Version Control',
   'workbench.settings.category.versionControl.description':
     'Git-backed workspaces, and the export/import path that shares a workspace without one.',

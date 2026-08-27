@@ -261,13 +261,17 @@ export const workbenchSettings = {
   'workbench.settings.category.keyboard.sub.popup-navigation': 'Popup y panel lateral · Navegación',
   'workbench.settings.category.keyboard.sub.popup-rows': 'Popup y panel lateral · Acciones de fila',
   'workbench.settings.category.keyboard.sub.popup-tabs': 'Popup y panel lateral · Pestañas',
+  'workbench.settings.category.diffViewer.label': 'Editor · Visor de diff',
+  'workbench.settings.category.diffViewer.navLabel': 'Visor de diff',
+  'workbench.settings.category.diffViewer.description':
+    'Cómo se muestran los diffs (disposición, espacios en blanco y margen) allí donde la aplicación compara dos versiones.',
+  'workbench.settings.category.diffViewer.sub.view': 'Vista',
   'workbench.settings.category.workspaceSharing.label': 'Control de versiones · Compartir el espacio de trabajo',
   'workbench.settings.category.workspaceSharing.navLabel': 'Compartir el espacio de trabajo',
   'workbench.settings.category.workspaceSharing.description':
     'Preferencias de visualización para la vista previa de importación de las exportaciones de espacio de ' +
     'trabajo.',
   'workbench.settings.category.workspaceSharing.sub.importPreview': 'Vista previa de importación',
-  'workbench.settings.category.workspaceSharing.sub.diffViewer': 'Visor de diff',
   'workbench.settings.category.versionControl.label': 'Control de versiones',
   'workbench.settings.category.versionControl.description':
     'Espacios de trabajo respaldados por Git y la ruta de exportación/importación que comparte un espacio de trabajo sin él.',

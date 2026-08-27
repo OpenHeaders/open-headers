@@ -673,6 +673,9 @@ export const workbenchSettingsDefs = {
     'Diese URL wörtlich abgleichen, ohne Normalisierung',
 
   // ── Workspace Sharing category defs ────────────────────────────────
+  'workbench.settings.def.workspaceSharing.diffViewerHome.label': 'Diff-Ansicht',
+  'workbench.settings.def.workspaceSharing.diffViewerHome.description':
+    'Die Vorschau wird mit den app-weiten Einstellungen der Diff-Ansicht dargestellt.',
   'workbench.settings.def.workspaceSharing.importPreviewShowMergeStrategy.label': 'Merge-Strategie auf Zeilen anzeigen',
   'workbench.settings.def.workspaceSharing.importPreviewShowMergeStrategy.description':
     'Wenn an, zeigt jede Entitätszeile in der linken Seitenleiste der Importvorschau die gewählte ' +

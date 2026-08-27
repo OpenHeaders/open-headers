@@ -23,6 +23,7 @@ import {
   CloudDownloadOutlined,
   CloudServerOutlined,
   DatabaseOutlined,
+  DiffOutlined,
   DownloadOutlined,
   EditOutlined,
   ExportOutlined,
@@ -460,6 +461,20 @@ registerCategory({
 });
 
 registerCategory({
+  id: 'diffViewer',
+  labelKey: 'workbench.settings.category.diffViewer.label',
+  navLabelKey: 'workbench.settings.category.diffViewer.navLabel',
+  parent: 'editor',
+  icon: <DiffOutlined />,
+  order: 20,
+  descriptionKey: 'workbench.settings.category.diffViewer.description',
+  // The app-wide diff surface. Its defs keep their `workspaceSharing.*`
+  // storage keys (the import preview is where the viewer first shipped);
+  // the Workspace Sharing page points here instead of carrying them.
+  subcategories: [{ id: 'view', labelKey: 'workbench.settings.category.diffViewer.sub.view', order: 10 }],
+});
+
+registerCategory({
   id: 'requests',
   labelKey: 'workbench.settings.category.requests.label',
   icon: <ApiRequestsIcon />,
@@ -524,7 +539,6 @@ registerCategory({
   descriptionKey: 'workbench.settings.category.workspaceSharing.description',
   subcategories: [
     { id: 'importPreview', labelKey: 'workbench.settings.category.workspaceSharing.sub.importPreview', order: 10 },
-    { id: 'diffViewer', labelKey: 'workbench.settings.category.workspaceSharing.sub.diffViewer', order: 20 },
   ],
 });
 

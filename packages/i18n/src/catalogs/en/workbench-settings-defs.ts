@@ -541,6 +541,9 @@ export const workbenchSettingsDefs = {
     'Match this URL verbatim without normalization',
 
   // ── Workspace Sharing category defs ────────────────────────────────
+  'workbench.settings.def.workspaceSharing.diffViewerHome.label': 'Diff viewer',
+  'workbench.settings.def.workspaceSharing.diffViewerHome.description':
+    'The preview renders with the app-wide diff viewer settings.',
   'workbench.settings.def.workspaceSharing.importPreviewShowMergeStrategy.label': 'Show merge strategy on rows',
   'workbench.settings.def.workspaceSharing.importPreviewShowMergeStrategy.description':
     "When on, each entity row in the import-preview's left sidebar shows the chosen merge strategy (Add as new, Replace, Skip, …) inline next to the line counts. Toggle off to free up row width on narrow panes.",

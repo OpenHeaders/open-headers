@@ -6,6 +6,7 @@
 
 import '@openheaders/ui/workbench/settings/categories';
 import '@openheaders/ui/workbench/settings/schema/editor';
+import '@openheaders/ui/workbench/settings/schema/workspace-sharing';
 import { allCategories, byCategory, getCategory, getDef } from '@openheaders/ui/workbench/settings/registry';
 import { describe, expect, it } from 'vitest';
 
@@ -39,5 +40,32 @@ describe('editor settings group', () => {
     }
     expect(getDef('editor.fontSize')?.category).toBe('codeEditor');
     expect(allCategories().filter((c) => c.parent === 'editor')[0]?.id).toBe('codeEditor');
+  });
+
+  it('diff viewer is its second child and owns the seven importPreviewDiff* defs under view, keys untouched', () => {
+    const diffViewer = getCategory('diffViewer');
+    expect(diffViewer?.parent).toBe('editor');
+    expect(diffViewer?.navLabelKey).toBeTruthy();
+    expect(diffViewer?.subcategories?.map((s) => s.id)).toEqual(['view']);
+    const defs = byCategory('diffViewer');
+    expect(defs).toHaveLength(7);
+    for (const def of defs) {
+      expect(def.key.startsWith('workspaceSharing.importPreviewDiff'), def.key).toBe(true);
+      expect(def.subcategory).toBe('view');
+    }
+    expect(
+      allCategories()
+        .filter((c) => c.parent === 'editor')
+        .map((c) => c.id),
+    ).toEqual(['codeEditor', 'diffViewer']);
+  });
+
+  it('workspace sharing keeps the merge-strategy row and points at the diff viewer instead of carrying it', () => {
+    const sharing = getCategory('workspaceSharing');
+    expect(sharing?.subcategories?.map((s) => s.id)).toEqual(['importPreview']);
+    const keys = byCategory('workspaceSharing').map((d) => d.key);
+    expect(keys).toEqual(['workspaceSharing.importPreviewShowMergeStrategy', 'workspaceSharing.diffViewerHome']);
+    expect(getDef('workspaceSharing.diffViewerHome')?.customEditor).toBeDefined();
+    expect(getDef('workspaceSharing.importPreviewDiffViewer')?.category).toBe('diffViewer');
   });
 });

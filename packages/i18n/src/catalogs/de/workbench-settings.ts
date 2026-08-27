@@ -253,12 +253,16 @@ export const workbenchSettings = {
   'workbench.settings.category.keyboard.sub.popup-navigation': 'Popup & Seitenpanel · Navigation',
   'workbench.settings.category.keyboard.sub.popup-rows': 'Popup & Seitenpanel · Zeilenaktionen',
   'workbench.settings.category.keyboard.sub.popup-tabs': 'Popup & Seitenpanel · Tabs',
+  'workbench.settings.category.diffViewer.label': 'Editor · Diff-Ansicht',
+  'workbench.settings.category.diffViewer.navLabel': 'Diff-Ansicht',
+  'workbench.settings.category.diffViewer.description':
+    'Wie Diffs dargestellt werden – Layout, Leerraum und Randspalte – überall, wo die App zwei Versionen vergleicht.',
+  'workbench.settings.category.diffViewer.sub.view': 'Ansicht',
   'workbench.settings.category.workspaceSharing.label': 'Versionsverwaltung · Arbeitsbereich-Freigabe',
   'workbench.settings.category.workspaceSharing.navLabel': 'Arbeitsbereich-Freigabe',
   'workbench.settings.category.workspaceSharing.description':
     'Anzeigeeinstellungen für die Import-Vorschau von Arbeitsbereich-Exporten.',
   'workbench.settings.category.workspaceSharing.sub.importPreview': 'Import-Vorschau',
-  'workbench.settings.category.workspaceSharing.sub.diffViewer': 'Diff-Ansicht',
   'workbench.settings.category.versionControl.label': 'Versionsverwaltung',
   'workbench.settings.category.versionControl.description':
     'Git-gestützte Arbeitsbereiche und der Export-/Import-Pfad, der einen Arbeitsbereich ohne Git teilt.',
