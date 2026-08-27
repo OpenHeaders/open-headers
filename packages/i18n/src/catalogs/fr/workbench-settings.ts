@@ -288,8 +288,8 @@ export const workbenchSettings = {
   'workbench.settings.category.proxyOutbound.description':
     'Le proxy sortant de cet appareil — comment les requêtes, sessions WebSocket et appels gRPC ' +
     'atteignent le réseau.',
-  'workbench.settings.category.proxyTrust.label': 'Proxy · Système',
-  'workbench.settings.category.proxyTrust.navLabel': 'Proxy système',
+  'workbench.settings.category.proxyTrust.label': 'Proxy · Confiance HTTPS',
+  'workbench.settings.category.proxyTrust.navLabel': 'Confiance HTTPS',
   'workbench.settings.category.proxyTrust.description':
     "L'autorité de certification et les magasins de confiance qui permettent de déchiffrer le trafic " +
     'HTTPS pour inspection — créée sur cette machine, révocable ici.',

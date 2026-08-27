@@ -261,8 +261,8 @@ export const workbenchSettings = {
   'workbench.settings.category.proxyOutbound.navLabel': '出站请求',
   'workbench.settings.category.proxyOutbound.description':
     '此设备的出站代理——请求、WebSocket 会话和 gRPC 调用如何抵达网络。',
-  'workbench.settings.category.proxyTrust.label': '代理 · 系统',
-  'workbench.settings.category.proxyTrust.navLabel': '系统代理',
+  'workbench.settings.category.proxyTrust.label': '代理 · HTTPS 信任',
+  'workbench.settings.category.proxyTrust.navLabel': 'HTTPS 信任',
   'workbench.settings.category.proxyTrust.description':
     '让 HTTPS 流量可被解密检查的证书颁发机构与信任存储——在本机创建,也可在此移除。',
   'workbench.settings.category.application.label': '应用程序',

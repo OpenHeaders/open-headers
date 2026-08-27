@@ -268,8 +268,8 @@ export const workbenchSettings = {
   'workbench.settings.category.proxyOutbound.navLabel': 'Outbound Requests',
   'workbench.settings.category.proxyOutbound.description':
     'This device’s outbound proxy — how requests, WebSocket sessions, and gRPC calls reach the network.',
-  'workbench.settings.category.proxyTrust.label': 'Proxy · System',
-  'workbench.settings.category.proxyTrust.navLabel': 'System Proxy',
+  'workbench.settings.category.proxyTrust.label': 'Proxy · HTTPS Trust',
+  'workbench.settings.category.proxyTrust.navLabel': 'HTTPS Trust',
   'workbench.settings.category.proxyTrust.description':
     'The certificate authority and trust stores that let HTTPS traffic be decrypted for inspection — created on this machine, removable here.',
   'workbench.settings.category.application.label': 'Application',
