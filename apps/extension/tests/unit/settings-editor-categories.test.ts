@@ -23,7 +23,7 @@ describe('editor settings group', () => {
   it('code editor is its first child and owns every editor.* def under a declared subcategory', () => {
     const codeEditor = getCategory('codeEditor');
     expect(codeEditor?.parent).toBe('editor');
-    expect(codeEditor?.navLabelKey).toBeTruthy();
+    expect(codeEditor?.labelKey).toBeTruthy();
     expect(codeEditor?.subcategories?.map((s) => s.id)).toEqual([
       'font',
       'indentation',
@@ -45,7 +45,7 @@ describe('editor settings group', () => {
   it('diff viewer is its second child and owns the seven importPreviewDiff* defs under view, keys untouched', () => {
     const diffViewer = getCategory('diffViewer');
     expect(diffViewer?.parent).toBe('editor');
-    expect(diffViewer?.navLabelKey).toBeTruthy();
+    expect(diffViewer?.labelKey).toBeTruthy();
     expect(diffViewer?.subcategories?.map((s) => s.id)).toEqual(['view']);
     const defs = byCategory('diffViewer');
     expect(defs).toHaveLength(7);

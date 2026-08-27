@@ -78,50 +78,42 @@ export const workbenchSettings = {
   'workbench.settings.category.connectivity.label': 'Conectividad',
   'workbench.settings.category.connectivity.description':
     'Cómo este host llega a los demás: los back-ends a los que se conecta y los proxies intermedios.',
-  'workbench.settings.category.backend.label': 'Conectividad · Backend',
-  'workbench.settings.category.backend.navLabel': 'Backend',
+  'workbench.settings.category.backend.label': 'Backend',
   'workbench.settings.category.backend.description':
     'Donde viven tus espacios de trabajo, reglas, vault e historial. Elige el host que llegue tan lejos como ' +
     'necesites — solo local en cualquier caso.',
-  'workbench.settings.category.backendConnections.label': 'Backend · Conexiones',
-  'workbench.settings.category.backendConnections.navLabel': 'Conexiones',
+  'workbench.settings.category.backendConnections.label': 'Conexiones',
   'workbench.settings.category.backendConnections.description':
     'El motor local siempre activo y los back-ends a los que se conecta este host.',
-  'workbench.settings.category.backendServer.label': 'Backend · Servidor',
-  'workbench.settings.category.backendServer.navLabel': 'Servidor',
+  'workbench.settings.category.backendServer.label': 'Servidor',
   'workbench.settings.category.backendServer.description':
     'Esta aplicación como servidor: quién de tu red puede conectarse, qué pueden ejecutar aquí los pares conectados y los dispositivos que has emparejado.',
   'workbench.settings.category.backendServer.sub.network': 'Red',
   'workbench.settings.category.backendServer.sub.peer-requests': 'Solicitudes de pares',
   'workbench.settings.category.backendServer.sub.devices': 'Dispositivos',
-  'workbench.settings.category.backendPairing.label': 'Backend · Emparejamiento de escritorio',
-  'workbench.settings.category.backendPairing.navLabel': 'Emparejamiento de escritorio',
+  'workbench.settings.category.backendPairing.label': 'Emparejamiento de escritorio',
   'workbench.settings.category.backendPairing.description':
     'Cómo se empareja este navegador con la aplicación de escritorio de Open Headers en este equipo, y qué puede ver una aplicación emparejada.',
   'workbench.settings.category.backendPairing.sub.automatic': 'Automático',
   'workbench.settings.category.backendPairing.sub.policy': 'Política',
   'workbench.settings.category.backendPairing.sub.sharing': 'Uso compartido',
-  'workbench.settings.category.backendReliability.label': 'Backend · Fiabilidad',
-  'workbench.settings.category.backendReliability.navLabel': 'Fiabilidad',
+  'workbench.settings.category.backendReliability.label': 'Fiabilidad',
   'workbench.settings.category.backendReliability.description':
     'Comportamiento de reconexión y respaldo sin conexión para todas las conexiones al back-end.',
   'workbench.settings.category.backendReliability.sub.reconnection': 'Reconexión',
   'workbench.settings.category.backendReliability.sub.status': 'Estado',
   'workbench.settings.category.backendReliability.sub.offline-fallback': 'Respaldo sin conexión',
-  'workbench.settings.category.mcp.label': 'Herramientas · IA · Servidor MCP',
-  'workbench.settings.category.mcp.navLabel': 'IA · Servidor MCP',
+  'workbench.settings.category.mcp.label': 'IA · Servidor MCP',
   'workbench.settings.category.mcp.description':
     'Permite que los agentes de IA y otros clientes MCP lean y controlen esta aplicación. El acceso está ' +
     'escalonado — lectura, escritura, ejecución y revelación de secretos son interruptores separados, todos ' +
     'desactivados por defecto.',
-  'workbench.settings.category.mcpAccess.label': 'IA · Servidor MCP · Acceso',
-  'workbench.settings.category.mcpAccess.navLabel': 'Acceso',
+  'workbench.settings.category.mcpAccess.label': 'Acceso',
   'workbench.settings.category.mcpAccess.description':
     'Activa el servidor y elige qué pueden hacer los agentes conectados. Todos los niveles están desactivados por defecto.',
   'workbench.settings.category.mcpAccess.sub.server': 'Servidor',
   'workbench.settings.category.mcpAccess.sub.permissions': 'Permisos',
-  'workbench.settings.category.mcpClients.label': 'IA · Servidor MCP · Clientes',
-  'workbench.settings.category.mcpClients.navLabel': 'Clientes',
+  'workbench.settings.category.mcpClients.label': 'Clientes',
   'workbench.settings.category.mcpClients.description':
     'Conecta la línea de comandos oh y los clientes MCP a esta aplicación.',
   'workbench.settings.category.mcpClients.sub.command-line': 'Línea de comandos',
@@ -129,22 +121,18 @@ export const workbenchSettings = {
   'workbench.settings.category.appearanceBehavior.label': 'Apariencia y comportamiento',
   'workbench.settings.category.appearanceBehavior.description':
     'Cómo se ve y se comporta la aplicación: idioma, tema y el shell del workbench.',
-  'workbench.settings.category.general.label': 'Apariencia y comportamiento · General',
-  'workbench.settings.category.general.navLabel': 'General',
+  'workbench.settings.category.general.label': 'General',
   'workbench.settings.category.general.description':
     'Comportamiento global de la aplicación, arranque y configuración regional.',
   'workbench.settings.category.general.sub.locale': 'Idioma',
   'workbench.settings.category.general.sub.behavior': 'Comportamiento',
   'workbench.settings.category.general.sub.settings': 'Configuración',
   'workbench.settings.category.general.sub.privacy': 'Privacidad',
-  'workbench.settings.category.appearance.label': 'Apariencia y comportamiento · Apariencia',
-  'workbench.settings.category.appearance.navLabel': 'Apariencia',
+  'workbench.settings.category.appearance.label': 'Apariencia',
   'workbench.settings.category.appearance.description': 'Tema, densidad y presentación visual.',
   'workbench.settings.category.appearance.sub.theme': 'Tema',
   'workbench.settings.category.appearance.sub.interface': 'Interfaz',
-  'workbench.settings.category.workspaceLayout.label':
-    'Apariencia y comportamiento · Disposición del espacio de trabajo',
-  'workbench.settings.category.workspaceLayout.navLabel': 'Disposición del espacio de trabajo',
+  'workbench.settings.category.workspaceLayout.label': 'Disposición del espacio de trabajo',
   'workbench.settings.category.workspaceLayout.description':
     'Affordances del pie de página y comportamiento del shell de las ventanas de herramientas.',
   'workbench.settings.category.workspaceLayout.sub.shell': 'Shell',
@@ -153,66 +141,56 @@ export const workbenchSettings = {
   'workbench.settings.category.tools.label': 'Herramientas',
   'workbench.settings.category.tools.description':
     'Ventanas de herramientas con ajustes propios: el terminal, el monitor de tráfico y el servidor MCP.',
-  'workbench.settings.category.terminal.label': 'Herramientas · Terminal',
-  'workbench.settings.category.terminal.navLabel': 'Terminal',
+  'workbench.settings.category.terminal.label': 'Terminal',
   'workbench.settings.category.terminal.description':
     'Comportamiento de la ventana de herramientas Terminal integrada.',
   'workbench.settings.category.terminal.sub.shell': 'Shell',
   'workbench.settings.category.terminal.sub.appearance': 'Apariencia',
   'workbench.settings.category.terminal.sub.behavior': 'Comportamiento',
   'workbench.settings.category.terminal.sub.tabs': 'Pestañas',
-  'workbench.settings.category.devpanel.label': 'Browser Interceptor · Panel de DevTools',
-  'workbench.settings.category.devpanel.navLabel': 'Panel de DevTools',
+  'workbench.settings.category.devpanel.label': 'Panel de DevTools',
   'workbench.settings.category.devpanel.description':
     'Valores por defecto del panel de DevTools del navegador — el shell de las ventanas de herramientas y cada ' +
     'pestaña de la superficie de solicitudes.',
-  'workbench.settings.category.devpanelLayout.label': 'Panel de DevTools · Disposición',
-  'workbench.settings.category.devpanelLayout.navLabel': 'Disposición',
+  'workbench.settings.category.devpanelLayout.label': 'Disposición',
   'workbench.settings.category.devpanelLayout.description':
     'Comportamiento del shell de las ventanas de herramientas para el panel de DevTools del navegador.',
   'workbench.settings.category.devpanelLayout.sub.shell': 'Shell',
   'workbench.settings.category.devpanelLayout.sub.topbar': 'Barra superior',
   'workbench.settings.category.devpanelLayout.sub.footer': 'Pie de página',
-  'workbench.settings.category.devpanelNetwork.label': 'Panel de DevTools · Network',
-  'workbench.settings.category.devpanelNetwork.navLabel': 'Network',
+  'workbench.settings.category.devpanelNetwork.label': 'Network',
   'workbench.settings.category.devpanelNetwork.description':
     'Valores por defecto de la tabla de solicitudes Network en el panel de DevTools — disposición, orden, ' +
     'columna de puntos.',
   'workbench.settings.category.devpanelNetwork.sub.table': 'Tabla',
   'workbench.settings.category.devpanelNetwork.sub.sorting': 'Ordenación',
   'workbench.settings.category.devpanelNetwork.sub.waterfall': 'Waterfall',
-  'workbench.settings.category.devpanelHeaders.label': 'Panel de DevTools · Headers',
-  'workbench.settings.category.devpanelHeaders.navLabel': 'Headers',
+  'workbench.settings.category.devpanelHeaders.label': 'Headers',
   'workbench.settings.category.devpanelHeaders.description':
     'Valores por defecto de la pestaña Headers en el panel de DevTools — disposición, orden, filtros, ' +
     'sugerencias.',
   'workbench.settings.category.devpanelHeaders.sub.view': 'Vista',
   'workbench.settings.category.devpanelHeaders.sub.filters': 'Filtros',
-  'workbench.settings.category.devpanelInitiator.label': 'Panel de DevTools · Initiator',
-  'workbench.settings.category.devpanelInitiator.navLabel': 'Initiator',
+  'workbench.settings.category.devpanelInitiator.label': 'Initiator',
   'workbench.settings.category.devpanelInitiator.description':
     'Valores por defecto de la pestaña Initiator en el panel de DevTools — orden, filtros, sugerencias.',
   'workbench.settings.category.devpanelInitiator.sub.view': 'Vista',
   'workbench.settings.category.devpanelInitiator.sub.filters': 'Filtros',
-  'workbench.settings.category.devpanelCookies.label': 'Panel de DevTools · Cookies',
-  'workbench.settings.category.devpanelCookies.navLabel': 'Cookies',
+  'workbench.settings.category.devpanelCookies.label': 'Cookies',
   'workbench.settings.category.devpanelCookies.description':
     'Valores por defecto de la pestaña Cookies en el panel de DevTools — columnas, orden, filtros, sugerencias.',
   'workbench.settings.category.devpanelCookies.sub.view': 'Vista',
   'workbench.settings.category.devpanelCookies.sub.filters': 'Filtros',
-  'workbench.settings.category.devpanelTiming.label': 'Panel de DevTools · Timing',
-  'workbench.settings.category.devpanelTiming.navLabel': 'Timing',
+  'workbench.settings.category.devpanelTiming.label': 'Timing',
   'workbench.settings.category.devpanelTiming.description':
     'Valores por defecto de la pestaña Timing en el panel de DevTools — qué bandas son visibles.',
   'workbench.settings.category.devpanelTiming.sub.view': 'Vista',
-  'workbench.settings.category.inspection.label': 'Browser Interceptor · Modo de depuración',
-  'workbench.settings.category.inspection.navLabel': 'Modo de depuración',
+  'workbench.settings.category.inspection.label': 'Modo de depuración',
   'workbench.settings.category.inspection.description':
     'La vía opt-in que adjunta el protocolo de depuración de tu navegador — inspecciona y modifica solicitudes ' +
     'con la misma profundidad que las herramientas de desarrollo integradas.',
   'workbench.settings.category.inspection.sub.protocol': 'Protocolo de depuración',
-  'workbench.settings.category.trafficMonitor.label': 'Herramientas · Tráfico',
-  'workbench.settings.category.trafficMonitor.navLabel': 'Tráfico',
+  'workbench.settings.category.trafficMonitor.label': 'Tráfico',
   'workbench.settings.category.trafficMonitor.description':
     'Valores predeterminados del gesto «Empezar a observar» del panel de Tráfico y presupuesto de disco del ' +
     'archivo de sesiones.',
@@ -222,8 +200,7 @@ export const workbenchSettings = {
   'workbench.settings.category.editor.label': 'Editor',
   'workbench.settings.category.editor.description':
     'Las superficies de código y diff dentro de cada pestaña del editor.',
-  'workbench.settings.category.codeEditor.label': 'Editor · Editor de código',
-  'workbench.settings.category.codeEditor.navLabel': 'Editor de código',
+  'workbench.settings.category.codeEditor.label': 'Editor de código',
   'workbench.settings.category.codeEditor.description':
     'Fuente, sangría y opciones de vista para las superficies de edición de código.',
   'workbench.settings.category.codeEditor.sub.font': 'Fuente',
@@ -242,8 +219,7 @@ export const workbenchSettings = {
   'workbench.settings.category.browserInterceptor.label': 'Browser Interceptor',
   'workbench.settings.category.browserInterceptor.description':
     'El plano del navegador: el motor de reglas que reescribe el tráfico, la conexión al protocolo de depuración y el panel de DevTools.',
-  'workbench.settings.category.rulesEngine.label': 'Browser Interceptor · Motor de reglas',
-  'workbench.settings.category.rulesEngine.navLabel': 'Motor de reglas',
+  'workbench.settings.category.rulesEngine.label': 'Motor de reglas',
   'workbench.settings.category.rulesEngine.description': 'Cómo se evalúan, compilan y arbitran las reglas.',
   'workbench.settings.category.rulesEngine.sub.engine': 'Motor',
   'workbench.settings.category.rulesEngine.sub.caching': 'Caché',
@@ -262,13 +238,11 @@ export const workbenchSettings = {
   'workbench.settings.category.keyboard.sub.popup-navigation': 'Popup y panel lateral · Navegación',
   'workbench.settings.category.keyboard.sub.popup-rows': 'Popup y panel lateral · Acciones de fila',
   'workbench.settings.category.keyboard.sub.popup-tabs': 'Popup y panel lateral · Pestañas',
-  'workbench.settings.category.diffViewer.label': 'Editor · Visor de diff',
-  'workbench.settings.category.diffViewer.navLabel': 'Visor de diff',
+  'workbench.settings.category.diffViewer.label': 'Visor de diff',
   'workbench.settings.category.diffViewer.description':
     'Cómo se muestran los diffs (disposición, espacios en blanco y margen) allí donde la aplicación compara dos versiones.',
   'workbench.settings.category.diffViewer.sub.view': 'Vista',
-  'workbench.settings.category.workspaceSharing.label': 'Control de versiones · Compartir el espacio de trabajo',
-  'workbench.settings.category.workspaceSharing.navLabel': 'Compartir el espacio de trabajo',
+  'workbench.settings.category.workspaceSharing.label': 'Compartir el espacio de trabajo',
   'workbench.settings.category.workspaceSharing.description':
     'Preferencias de visualización para la vista previa de importación de las exportaciones de espacio de ' +
     'trabajo.',
@@ -276,58 +250,48 @@ export const workbenchSettings = {
   'workbench.settings.category.versionControl.label': 'Control de versiones',
   'workbench.settings.category.versionControl.description':
     'Espacios de trabajo respaldados por Git y la ruta de exportación/importación que comparte un espacio de trabajo sin él.',
-  'workbench.settings.category.git.label': 'Control de versiones · Git',
-  'workbench.settings.category.git.navLabel': 'Git',
+  'workbench.settings.category.git.label': 'Git',
   'workbench.settings.category.git.description':
     'Vincula este espacio de trabajo a una carpeta en disco — un árbol YAML vivo y compatible con git.',
-  'workbench.settings.category.gitFolder.label': 'Git · Carpeta',
-  'workbench.settings.category.gitFolder.navLabel': 'Carpeta',
+  'workbench.settings.category.gitFolder.label': 'Carpeta',
   'workbench.settings.category.gitFolder.description':
     'La carpeta en disco a la que está vinculado este espacio de trabajo.',
   'workbench.settings.category.gitFolder.sub.binding': 'Vinculación',
   'workbench.settings.category.gitFolder.sub.requirements': 'Requisitos',
-  'workbench.settings.category.gitAutomation.label': 'Git · Automatización',
-  'workbench.settings.category.gitAutomation.navLabel': 'Automatización',
+  'workbench.settings.category.gitAutomation.label': 'Automatización',
   'workbench.settings.category.gitAutomation.description': 'Lo que el motor confirma y envía por su cuenta.',
   'workbench.settings.category.gitAutomation.sub.commits': 'Commits',
   'workbench.settings.category.gitAutomation.sub.remote': 'Remoto',
-  'workbench.settings.category.proxy.label': 'Conectividad · Proxy',
-  'workbench.settings.category.proxy.navLabel': 'Proxy',
+  'workbench.settings.category.proxy.label': 'Proxy',
   'workbench.settings.category.proxy.description':
     'El proxy de salida de este dispositivo — cómo alcanzan la red las solicitudes — y la configuración ' +
     'de confianza para el proxy de captura.',
-  'workbench.settings.category.proxyOutbound.label': 'Proxy · Solicitudes salientes',
-  'workbench.settings.category.proxyOutbound.navLabel': 'Solicitudes salientes',
+  'workbench.settings.category.proxyOutbound.label': 'Solicitudes salientes',
   'workbench.settings.category.proxyOutbound.description':
     'El proxy de salida de este dispositivo — cómo alcanzan la red las solicitudes, sesiones WebSocket y ' +
     'llamadas gRPC.',
-  'workbench.settings.category.proxyTrust.label': 'Proxy · Confianza HTTPS',
-  'workbench.settings.category.proxyTrust.navLabel': 'Confianza HTTPS',
+  'workbench.settings.category.proxyTrust.label': 'Confianza HTTPS',
   'workbench.settings.category.proxyTrust.description':
     'La autoridad de certificación y los almacenes de confianza que permiten descifrar el tráfico HTTPS ' +
     'para inspección — creada en esta máquina, eliminable aquí.',
   'workbench.settings.category.application.label': 'Aplicación',
   'workbench.settings.category.application.description':
     'La propia aplicación: sus datos, actualizaciones, licencia y versión.',
-  'workbench.settings.category.data.label': 'Aplicación · Datos',
-  'workbench.settings.category.data.navLabel': 'Datos',
+  'workbench.settings.category.data.label': 'Datos',
   'workbench.settings.category.data.description': 'Diagnósticos, importación/exportación y mantenimiento destructivo.',
   'workbench.settings.category.data.sub.settings': 'Configuración',
   'workbench.settings.category.data.sub.diagnostics': 'Diagnósticos',
   'workbench.settings.category.data.sub.importReports': 'Informes de importación',
   'workbench.settings.category.data.sub.files': 'Archivos',
-  'workbench.settings.category.license.label': 'Aplicación · Licencia',
-  'workbench.settings.category.license.navLabel': 'Licencia',
+  'workbench.settings.category.license.label': 'Licencia',
   'workbench.settings.category.license.description':
     'Todo lo que Open Headers ofrece hoy está incluido en todos los niveles — los planes de pago cubren las ' +
     'plazas de equipo. El nivel gratuito admite hasta 6 usuarios activos por servidor.',
-  'workbench.settings.category.updates.label': 'Aplicación · Actualizaciones',
-  'workbench.settings.category.updates.navLabel': 'Actualizaciones',
+  'workbench.settings.category.updates.label': 'Actualizaciones',
   'workbench.settings.category.updates.description': 'Búsqueda de actualizaciones, canal y comportamiento de descarga.',
   'workbench.settings.category.updates.sub.status': 'Estado',
   'workbench.settings.category.updates.sub.behavior': 'Comportamiento',
-  'workbench.settings.category.about.label': 'Aplicación · Acerca de',
-  'workbench.settings.category.about.navLabel': 'Acerca de',
+  'workbench.settings.category.about.label': 'Acerca de',
   'workbench.settings.category.about.description': 'Versión, licencias e información del build.',
   'workbench.settings.category.about.sub.application': 'Aplicación',
   'workbench.settings.category.about.sub.environment': 'Entorno',

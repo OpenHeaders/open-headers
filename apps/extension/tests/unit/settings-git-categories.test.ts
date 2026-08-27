@@ -24,7 +24,7 @@ describe('git settings group', () => {
   it('folder is the first child: binding and requirements, desktop-only, no teaser of its own', () => {
     const folder = getCategory('gitFolder');
     expect(folder?.parent).toBe('git');
-    expect(folder?.navLabelKey).toBeTruthy();
+    expect(folder?.labelKey).toBeTruthy();
     expect(folder?.renderPane).toBeDefined();
     expect(folder?.when).toBeDefined();
     expect(folder?.teaserWhenUnavailable).toBeUndefined();
@@ -41,7 +41,7 @@ describe('git settings group', () => {
     expect(getCategory('gitRepository')).toBeUndefined();
     const automation = getCategory('gitAutomation');
     expect(automation?.parent).toBe('git');
-    expect(automation?.navLabelKey).toBeTruthy();
+    expect(automation?.labelKey).toBeTruthy();
     expect(automation?.renderPane).toBeDefined();
     expect(automation?.when).toBeDefined();
     expect(automation?.teaserWhenUnavailable).toBeUndefined();

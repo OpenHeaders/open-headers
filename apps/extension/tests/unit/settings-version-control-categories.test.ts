@@ -25,7 +25,7 @@ describe('version control settings group', () => {
       .filter((c) => c.parent === 'versionControl')
       .map((c) => c.id);
     expect(children).toEqual(['git', 'workspaceSharing']);
-    for (const id of children) expect(getCategory(id)?.navLabelKey).toBeTruthy();
+    for (const id of children) expect(getCategory(id)?.labelKey).toBeTruthy();
     expect(byCategory('workspaceSharing').length).toBeGreaterThan(0);
   });
 

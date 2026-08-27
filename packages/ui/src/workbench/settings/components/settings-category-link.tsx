@@ -1,6 +1,6 @@
 /**
  * SettingsCategoryLink — an inline link to another settings page,
- * labelled with that page's own category label. Rides the shell's
+ * labelled with that page's path from its root. Rides the shell's
  * navigation context; outside the shell (the Server Admin console
  * embeds) it renders disabled rather than dead.
  */
@@ -8,7 +8,7 @@
 import { theme } from 'antd';
 import type React from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
-import { resolveLabel } from '../localize';
+import { categoryPathLabel } from '../localize';
 import { useSelectSettingsCategory } from '../NavigationContext';
 import { getCategory } from '../registry';
 
@@ -33,7 +33,7 @@ const SettingsCategoryLink: React.FC<{ categoryId: string; testid?: string }> = 
       }}
       data-testid={testid}
     >
-      {resolveLabel(target, t)}
+      {categoryPathLabel(target, t)}
     </button>
   );
 };

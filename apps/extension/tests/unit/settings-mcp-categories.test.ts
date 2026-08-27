@@ -40,7 +40,7 @@ describe('mcp settings group', () => {
   it('access owns the five switches under server and permissions, desktop-only, no teaser of its own', () => {
     const access = getCategory('mcpAccess');
     expect(access?.parent).toBe('mcp');
-    expect(access?.navLabelKey).toBeTruthy();
+    expect(access?.labelKey).toBeTruthy();
     expect(access?.when).toBeDefined();
     expect(access?.teaserWhenUnavailable).toBeUndefined();
     expect(getDef('mcp.enabled')?.subcategory).toBe('server');

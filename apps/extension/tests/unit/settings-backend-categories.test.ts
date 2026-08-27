@@ -40,7 +40,7 @@ describe('backend settings group', () => {
   it('nests the reliability page under the backend node', () => {
     const reliability = getCategory('backendReliability');
     expect(reliability?.parent).toBe('backend');
-    expect(reliability?.navLabelKey).toBeTruthy();
+    expect(reliability?.labelKey).toBeTruthy();
     const ids = allCategories().map((c) => c.id);
     expect(ids.indexOf('backendReliability')).toBeGreaterThan(ids.indexOf('backend'));
   });

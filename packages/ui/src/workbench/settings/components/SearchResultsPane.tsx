@@ -2,8 +2,9 @@
  * SearchResultsPane — flat results view shown while the user is searching.
  *
  * Results are grouped by category, one card per category, with the
- * category label as a small breadcrumb header above each card. Clicking
- * the breadcrumb jumps the user to that category and clears the search.
+ * category's path from its root as a small breadcrumb header above each
+ * card. Clicking the breadcrumb jumps the user to that category and
+ * clears the search.
  */
 
 import { theme } from 'antd';
@@ -11,7 +12,7 @@ import type React from 'react';
 import { useMemo } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import SettingRow from '../fields/SettingRow';
-import { resolveLabel } from '../localize';
+import { categoryPath } from '../localize';
 import { allCategories } from '../registry';
 import type { SettingsSearchResult } from '../search';
 import type { CategoryDef, SettingDef } from '../types';
@@ -84,7 +85,16 @@ const SearchResultsPane: React.FC<SearchResultsPaneProps> = ({ results, query, o
             title={t('workbench.settings.shell.jumpToCategory')}
           >
             <span style={{ fontSize: 12, opacity: 0.85 }}>{cat.icon}</span>
-            <span>{resolveLabel(cat, t)}</span>
+            {categoryPath(cat, t).map((segment, i) => (
+              <span key={segment} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                {i > 0 && (
+                  <span aria-hidden style={{ fontWeight: 400 }}>
+                    ›
+                  </span>
+                )}
+                {segment}
+              </span>
+            ))}
           </button>
           <div>
             {defs.map((def) => (

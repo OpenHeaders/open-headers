@@ -24,7 +24,7 @@ describe('application settings group', () => {
   it('data, updates, license and about are its children, in that order', () => {
     const children = allCategories().filter((c) => c.parent === 'application');
     expect(children.map((c) => c.id)).toEqual(['data', 'updates', 'license', 'about']);
-    for (const child of children) expect(child.navLabelKey).toBeTruthy();
+    for (const child of children) expect(child.labelKey).toBeTruthy();
     expect(byCategory('data').length).toBeGreaterThan(0);
     expect(getCategory('updates')?.when).toBeDefined();
     expect(getCategory('license')?.when).toBeDefined();

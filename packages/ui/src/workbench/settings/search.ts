@@ -24,7 +24,7 @@
  */
 
 import type { Translate } from '@openheaders/ui/context/LocaleContext';
-import { resolveDescription, resolveLabel, translateEnglish } from './localize';
+import { categoryPathLabel, resolveDescription, resolveLabel, translateEnglish } from './localize';
 import { allCategories, allDefs } from './registry';
 import { isModified } from './store';
 import type { SettingDef } from './types';
@@ -99,7 +99,7 @@ export function searchSettings(query: string, translate: Translate = translateEn
   const categories = allCategories();
   const catLabelTokens = new Map(
     categories.map(
-      (c) => [c.id, bilingualTokens(resolveLabel(c, translate), resolveLabel(c, translateEnglish))] as const,
+      (c) => [c.id, bilingualTokens(categoryPathLabel(c, translate), categoryPathLabel(c, translateEnglish))] as const,
     ),
   );
   const subLabelTokens = new Map(

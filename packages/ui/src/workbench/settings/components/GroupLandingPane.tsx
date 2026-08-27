@@ -10,7 +10,7 @@ import { theme } from 'antd';
 import type React from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { useServerAdminStatus } from '../../components/server-admin/use-server-admin-status';
-import { categoryNavLabel, resolveOptionalDescription } from '../localize';
+import { resolveLabel, resolveOptionalDescription } from '../localize';
 import { allCategories } from '../registry';
 import type { CategoryPaneProps } from '../types';
 import { PaneTitle } from './pane-chrome';
@@ -53,7 +53,7 @@ const GroupLandingPane: React.FC<CategoryPaneProps> = ({ category, onSelectCateg
               cursor: 'pointer',
             }}
           >
-            {categoryNavLabel(child, t)}
+            {resolveLabel(child, t)}
           </button>
         ))}
       </div>

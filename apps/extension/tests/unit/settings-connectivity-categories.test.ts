@@ -23,7 +23,7 @@ describe('connectivity settings group', () => {
   it('backend then proxy are its children, with short nav labels', () => {
     const children = allCategories().filter((c) => c.parent === 'connectivity');
     expect(children.map((c) => c.id)).toEqual(['backend', 'proxy']);
-    for (const child of children) expect(child.navLabelKey).toBeTruthy();
+    for (const child of children) expect(child.labelKey).toBeTruthy();
     expect(getCategory('backend')?.when).toBeUndefined();
     expect(getCategory('proxy')?.teaserWhenUnavailable).toBe('proxy');
   });

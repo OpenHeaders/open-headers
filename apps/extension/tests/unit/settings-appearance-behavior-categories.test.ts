@@ -26,7 +26,7 @@ describe('appearance & behavior settings group', () => {
       .filter((c) => c.parent === 'appearanceBehavior')
       .map((c) => c.id);
     expect(children).toEqual(['general', 'appearance', 'workspaceLayout']);
-    for (const id of children) expect(getCategory(id)?.navLabelKey).toBeTruthy();
+    for (const id of children) expect(getCategory(id)?.labelKey).toBeTruthy();
     expect(byCategory('general').length).toBeGreaterThan(0);
   });
 

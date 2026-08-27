@@ -21,7 +21,7 @@ import type React from 'react';
 import { forwardRef, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { useSetting } from '../hooks';
-import { categoryNavLabel, resolveLabel } from '../localize';
+import { categoryPathLabel, resolveLabel } from '../localize';
 import type { CategoryDef } from '../types';
 
 interface CategoryNavProps {
@@ -191,7 +191,7 @@ const CategoryNav = forwardRef<CategoryNavHandle, CategoryNavProps>(function Cat
         onKeyDown={(e) => handleKeyDown(e, cat.id)}
         aria-current={active ? 'true' : undefined}
         aria-expanded={hasKids ? open : undefined}
-        aria-label={showLabels ? undefined : resolveLabel(cat, t)}
+        aria-label={showLabels ? undefined : categoryPathLabel(cat, t)}
         style={{
           position: 'relative',
           display: 'flex',
@@ -252,7 +252,7 @@ const CategoryNav = forwardRef<CategoryNavHandle, CategoryNavProps>(function Cat
         )}
         {showLabels && (
           <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {categoryNavLabel(cat, t)}
+            {resolveLabel(cat, t)}
           </span>
         )}
         {isSearching && badgeCount > 0 && (
@@ -281,7 +281,12 @@ const CategoryNav = forwardRef<CategoryNavHandle, CategoryNavProps>(function Cat
     const row = showLabels ? (
       button
     ) : (
-      <Tooltip key={cat.id} title={resolveLabel(cat, t)} placement="right" open={contextMenuOpen ? false : undefined}>
+      <Tooltip
+        key={cat.id}
+        title={categoryPathLabel(cat, t)}
+        placement="right"
+        open={contextMenuOpen ? false : undefined}
+      >
         {button}
       </Tooltip>
     );

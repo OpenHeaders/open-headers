@@ -52,25 +52,25 @@ export function resolveOptionalDescription(entry: OptionalDescribedText, t: Tran
   return entry.descriptionKey !== undefined ? t(entry.descriptionKey) : entry.description;
 }
 
-/** Short nav-tree label, falling back to the full category label. */
-export function categoryNavLabel(category: CategoryDef, t: Translate): string {
-  if (category.navLabelKey !== undefined) return t(category.navLabelKey);
-  if (category.navLabel !== undefined) return category.navLabel;
-  return resolveLabel(category, t);
-}
-
 /**
- * Nav labels from the root down to this category — the page title's
- * segments (rendered with `›` separators, IntelliJ-style).
+ * Category labels from the root down to this category — the page
+ * title's segments (rendered with `›` separators, IntelliJ-style). A
+ * category's own label is the child name alone; the path is the only
+ * qualified form.
  */
 export function categoryPath(category: CategoryDef, t: Translate): string[] {
   const segments: string[] = [];
   let node: CategoryDef | undefined = category;
   while (node) {
-    segments.unshift(categoryNavLabel(node, t));
+    segments.unshift(resolveLabel(node, t));
     node = node.parent !== undefined ? getCategory(node.parent) : undefined;
   }
   return segments;
+}
+
+/** The path as one string — for tooltips, aria labels, inline links and the search index. */
+export function categoryPathLabel(category: CategoryDef, t: Translate): string {
+  return categoryPath(category, t).join(' › ');
 }
 
 /** Hint shown on a capability-gated row, in the active locale. */

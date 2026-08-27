@@ -25,7 +25,7 @@ describe('tools settings group', () => {
     const children = allCategories().filter((c) => c.parent === 'tools');
     expect(children.map((c) => c.id)).toEqual(['terminal', 'trafficMonitor', 'mcp']);
     for (const child of children) {
-      expect(child.navLabelKey).toBeTruthy();
+      expect(child.labelKey).toBeTruthy();
       expect(child.when).toBeDefined();
       expect(child.teaserWhenUnavailable).toBeDefined();
     }

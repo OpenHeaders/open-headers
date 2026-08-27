@@ -11,7 +11,8 @@
 
 export { useIsModified, useResetSetting, useSetting, useSettingsReady, useSettingValue } from './hooks';
 export {
-  categoryNavLabel,
+  categoryPath,
+  categoryPathLabel,
   resolveDescription,
   resolveLabel,
   resolveOptionalDescription,

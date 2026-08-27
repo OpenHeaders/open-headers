@@ -5,15 +5,18 @@
  * pair into plain strings for rendering and search.
  */
 
+import '@openheaders/ui/workbench/settings/categories';
 import { getTranslator } from '@openheaders/i18n';
 import {
   capabilityUnavailableHint,
-  categoryNavLabel,
+  categoryPath,
+  categoryPathLabel,
   resolveLabel,
   resolveOptionalDescription,
   resolveSettingDef,
   translateEnglish,
 } from '@openheaders/ui/workbench/settings/localize';
+import { getCategory } from '@openheaders/ui/workbench/settings/registry';
 import type { CategoryDef, SettingDef, SubcategoryDef } from '@openheaders/ui/workbench/settings/types';
 import * as v from 'valibot';
 import { describe, expect, it } from 'vitest';
@@ -89,19 +92,23 @@ describe('settings localize resolvers', () => {
     expect(resolved.label).toContain('⟦');
   });
 
-  it('categoryNavLabel prefers navLabelKey, then navLabel, then the label pair', () => {
+  it('a category label is the child name alone; the path is the only qualified form', () => {
     const base = { id: 'x', icon: null, order: 1 };
-    const keyedNav: CategoryDef = {
-      ...base,
-      labelKey: 'workbench.settings.category.devpanelNetwork.label',
-      navLabelKey: 'workbench.settings.category.devpanelNetwork.navLabel',
-    };
-    expect(categoryNavLabel(keyedNav, translateEnglish)).toBe('Network');
-    const rawNav: CategoryDef = { ...base, label: 'Full Label', navLabel: 'Short' };
-    expect(categoryNavLabel(rawNav, translateEnglish)).toBe('Short');
-    const noNav: CategoryDef = { ...base, labelKey: 'workbench.settings.category.keyboard.label' };
-    expect(categoryNavLabel(noNav, translateEnglish)).toBe('Keyboard');
-    expect(resolveOptionalDescription(noNav, translateEnglish)).toBeUndefined();
+    const network: CategoryDef = { ...base, labelKey: 'workbench.settings.category.devpanelNetwork.label' };
+    expect(resolveLabel(network, translateEnglish)).toBe('Network');
+    const keyboard: CategoryDef = { ...base, labelKey: 'workbench.settings.category.keyboard.label' };
+    expect(resolveLabel(keyboard, translateEnglish)).toBe('Keyboard');
+    expect(resolveOptionalDescription(keyboard, translateEnglish)).toBeUndefined();
+  });
+
+  it('categoryPath walks the registry to the root; categoryPathLabel joins it with ›', () => {
+    const network = getCategory('devpanelNetwork');
+    if (!network) throw new Error('devpanelNetwork missing');
+    expect(categoryPath(network, translateEnglish)).toEqual(['Browser Interceptor', 'DevTools Panel', 'Network']);
+    expect(categoryPathLabel(network, translateEnglish)).toBe('Browser Interceptor › DevTools Panel › Network');
+    const keyboard = getCategory('keyboard');
+    if (!keyboard) throw new Error('keyboard missing');
+    expect(categoryPath(keyboard, translateEnglish)).toEqual(['Keyboard']);
   });
 
   it('resolveLabel covers subcategories', () => {

@@ -75,7 +75,6 @@ registerCategory({
 registerCategory({
   id: 'backend',
   labelKey: 'workbench.settings.category.backend.label',
-  navLabelKey: 'workbench.settings.category.backend.navLabel',
   parent: 'connectivity',
   icon: <CloudServerOutlined />,
   order: 10,
@@ -88,7 +87,6 @@ registerCategory({
 registerCategory({
   id: 'backendConnections',
   labelKey: 'workbench.settings.category.backendConnections.label',
-  navLabelKey: 'workbench.settings.category.backendConnections.navLabel',
   parent: 'backend',
   icon: <ApiOutlined />,
   order: 5,
@@ -99,7 +97,6 @@ registerCategory({
 registerCategory({
   id: 'backendPairing',
   labelKey: 'workbench.settings.category.backendPairing.label',
-  navLabelKey: 'workbench.settings.category.backendPairing.navLabel',
   parent: 'backend',
   icon: <LinkOutlined />,
   order: 6,
@@ -119,7 +116,6 @@ registerCategory({
 registerCategory({
   id: 'backendServer',
   labelKey: 'workbench.settings.category.backendServer.label',
-  navLabelKey: 'workbench.settings.category.backendServer.navLabel',
   parent: 'backend',
   icon: <ClusterOutlined />,
   order: 7,
@@ -138,7 +134,6 @@ registerCategory({
 registerCategory({
   id: 'backendReliability',
   labelKey: 'workbench.settings.category.backendReliability.label',
-  navLabelKey: 'workbench.settings.category.backendReliability.navLabel',
   parent: 'backend',
   icon: <SyncOutlined />,
   order: 8,
@@ -157,7 +152,6 @@ registerCategory({
 registerCategory({
   id: 'mcp',
   labelKey: 'workbench.settings.category.mcp.label',
-  navLabelKey: 'workbench.settings.category.mcp.navLabel',
   parent: 'tools',
   icon: <RobotOutlined />,
   order: 30,
@@ -175,7 +169,6 @@ registerCategory({
 registerCategory({
   id: 'mcpAccess',
   labelKey: 'workbench.settings.category.mcpAccess.label',
-  navLabelKey: 'workbench.settings.category.mcpAccess.navLabel',
   parent: 'mcp',
   icon: <SafetyCertificateOutlined />,
   order: 5,
@@ -192,7 +185,6 @@ registerCategory({
 registerCategory({
   id: 'mcpClients',
   labelKey: 'workbench.settings.category.mcpClients.label',
-  navLabelKey: 'workbench.settings.category.mcpClients.navLabel',
   parent: 'mcp',
   icon: <CodeOutlined />,
   order: 6,
@@ -218,7 +210,6 @@ registerCategory({
 registerCategory({
   id: 'general',
   labelKey: 'workbench.settings.category.general.label',
-  navLabelKey: 'workbench.settings.category.general.navLabel',
   parent: 'appearanceBehavior',
   icon: <SettingOutlined />,
   order: 10,
@@ -234,7 +225,6 @@ registerCategory({
 registerCategory({
   id: 'appearance',
   labelKey: 'workbench.settings.category.appearance.label',
-  navLabelKey: 'workbench.settings.category.appearance.navLabel',
   parent: 'appearanceBehavior',
   icon: <BgColorsOutlined />,
   order: 20,
@@ -248,7 +238,6 @@ registerCategory({
 registerCategory({
   id: 'workspaceLayout',
   labelKey: 'workbench.settings.category.workspaceLayout.label',
-  navLabelKey: 'workbench.settings.category.workspaceLayout.navLabel',
   parent: 'appearanceBehavior',
   icon: <LayoutOutlined />,
   order: 30,
@@ -275,7 +264,6 @@ registerCategory({
 registerCategory({
   id: 'terminal',
   labelKey: 'workbench.settings.category.terminal.label',
-  navLabelKey: 'workbench.settings.category.terminal.navLabel',
   parent: 'tools',
   icon: <CodeOutlined />,
   order: 10,
@@ -308,7 +296,6 @@ registerCategory({
 registerCategory({
   id: 'devpanel',
   labelKey: 'workbench.settings.category.devpanel.label',
-  navLabelKey: 'workbench.settings.category.devpanel.navLabel',
   parent: 'browserInterceptor',
   icon: <DevPanelGlyph />,
   order: 30,
@@ -319,7 +306,6 @@ registerCategory({
 registerCategory({
   id: 'devpanelLayout',
   labelKey: 'workbench.settings.category.devpanelLayout.label',
-  navLabelKey: 'workbench.settings.category.devpanelLayout.navLabel',
   parent: 'devpanel',
   icon: <DevPanelGlyph letter="L" />,
   order: 15,
@@ -334,7 +320,6 @@ registerCategory({
 registerCategory({
   id: 'devpanelNetwork',
   labelKey: 'workbench.settings.category.devpanelNetwork.label',
-  navLabelKey: 'workbench.settings.category.devpanelNetwork.navLabel',
   parent: 'devpanel',
   icon: <DevPanelGlyph letter="N" />,
   order: 16,
@@ -349,7 +334,6 @@ registerCategory({
 registerCategory({
   id: 'devpanelHeaders',
   labelKey: 'workbench.settings.category.devpanelHeaders.label',
-  navLabelKey: 'workbench.settings.category.devpanelHeaders.navLabel',
   parent: 'devpanel',
   icon: <DevPanelGlyph letter="H" />,
   order: 17,
@@ -363,7 +347,6 @@ registerCategory({
 registerCategory({
   id: 'devpanelInitiator',
   labelKey: 'workbench.settings.category.devpanelInitiator.label',
-  navLabelKey: 'workbench.settings.category.devpanelInitiator.navLabel',
   parent: 'devpanel',
   icon: <DevPanelGlyph letter="I" />,
   order: 18,
@@ -377,7 +360,6 @@ registerCategory({
 registerCategory({
   id: 'devpanelCookies',
   labelKey: 'workbench.settings.category.devpanelCookies.label',
-  navLabelKey: 'workbench.settings.category.devpanelCookies.navLabel',
   parent: 'devpanel',
   icon: <DevPanelGlyph letter="C" />,
   order: 19,
@@ -391,7 +373,6 @@ registerCategory({
 registerCategory({
   id: 'devpanelTiming',
   labelKey: 'workbench.settings.category.devpanelTiming.label',
-  navLabelKey: 'workbench.settings.category.devpanelTiming.navLabel',
   parent: 'devpanel',
   icon: <DevPanelGlyph letter="T" />,
   order: 20,
@@ -404,7 +385,6 @@ registerCategory({
 registerCategory({
   id: 'inspection',
   labelKey: 'workbench.settings.category.inspection.label',
-  navLabelKey: 'workbench.settings.category.inspection.navLabel',
   parent: 'browserInterceptor',
   icon: <BugOutlined />,
   order: 20,
@@ -415,7 +395,6 @@ registerCategory({
 registerCategory({
   id: 'trafficMonitor',
   labelKey: 'workbench.settings.category.trafficMonitor.label',
-  navLabelKey: 'workbench.settings.category.trafficMonitor.navLabel',
   parent: 'tools',
   icon: <FundViewOutlined />,
   order: 20,
@@ -446,7 +425,6 @@ registerCategory({
 registerCategory({
   id: 'codeEditor',
   labelKey: 'workbench.settings.category.codeEditor.label',
-  navLabelKey: 'workbench.settings.category.codeEditor.navLabel',
   parent: 'editor',
   icon: <EditOutlined />,
   order: 10,
@@ -463,7 +441,6 @@ registerCategory({
 registerCategory({
   id: 'diffViewer',
   labelKey: 'workbench.settings.category.diffViewer.label',
-  navLabelKey: 'workbench.settings.category.diffViewer.navLabel',
   parent: 'editor',
   icon: <DiffOutlined />,
   order: 20,
@@ -495,7 +472,6 @@ registerCategory({
 registerCategory({
   id: 'rulesEngine',
   labelKey: 'workbench.settings.category.rulesEngine.label',
-  navLabelKey: 'workbench.settings.category.rulesEngine.navLabel',
   parent: 'browserInterceptor',
   icon: <FunctionOutlined />,
   order: 10,
@@ -533,7 +509,6 @@ registerCategory({
 registerCategory({
   id: 'workspaceSharing',
   labelKey: 'workbench.settings.category.workspaceSharing.label',
-  navLabelKey: 'workbench.settings.category.workspaceSharing.navLabel',
   parent: 'versionControl',
   icon: <CloudDownloadOutlined />,
   order: 20,
@@ -558,7 +533,6 @@ registerCategory({
 registerCategory({
   id: 'git',
   labelKey: 'workbench.settings.category.git.label',
-  navLabelKey: 'workbench.settings.category.git.navLabel',
   parent: 'versionControl',
   icon: <BranchesOutlined />,
   order: 10,
@@ -579,7 +553,6 @@ registerCategory({
 registerCategory({
   id: 'gitFolder',
   labelKey: 'workbench.settings.category.gitFolder.label',
-  navLabelKey: 'workbench.settings.category.gitFolder.navLabel',
   parent: 'git',
   icon: <FolderOpenOutlined />,
   order: 10,
@@ -597,7 +570,6 @@ registerCategory({
 registerCategory({
   id: 'gitAutomation',
   labelKey: 'workbench.settings.category.gitAutomation.label',
-  navLabelKey: 'workbench.settings.category.gitAutomation.navLabel',
   parent: 'git',
   icon: <SyncOutlined />,
   order: 20,
@@ -613,7 +585,6 @@ registerCategory({
 registerCategory({
   id: 'proxy',
   labelKey: 'workbench.settings.category.proxy.label',
-  navLabelKey: 'workbench.settings.category.proxy.navLabel',
   parent: 'connectivity',
   icon: <GlobalOutlined />,
   order: 20,
@@ -630,7 +601,6 @@ registerCategory({
 registerCategory({
   id: 'proxyOutbound',
   labelKey: 'workbench.settings.category.proxyOutbound.label',
-  navLabelKey: 'workbench.settings.category.proxyOutbound.navLabel',
   parent: 'proxy',
   icon: <ExportOutlined />,
   order: 88,
@@ -645,7 +615,6 @@ registerCategory({
 registerCategory({
   id: 'proxyTrust',
   labelKey: 'workbench.settings.category.proxyTrust.label',
-  navLabelKey: 'workbench.settings.category.proxyTrust.navLabel',
   parent: 'proxy',
   icon: <SafetyCertificateOutlined />,
   order: 89,
@@ -673,7 +642,6 @@ registerCategory({
 registerCategory({
   id: 'data',
   labelKey: 'workbench.settings.category.data.label',
-  navLabelKey: 'workbench.settings.category.data.navLabel',
   parent: 'application',
   icon: <DatabaseOutlined />,
   order: 10,
@@ -689,7 +657,6 @@ registerCategory({
 registerCategory({
   id: 'license',
   labelKey: 'workbench.settings.category.license.label',
-  navLabelKey: 'workbench.settings.category.license.navLabel',
   parent: 'application',
   icon: <SafetyCertificateOutlined />,
   order: 30,
@@ -706,7 +673,6 @@ registerCategory({
 registerCategory({
   id: 'updates',
   labelKey: 'workbench.settings.category.updates.label',
-  navLabelKey: 'workbench.settings.category.updates.navLabel',
   parent: 'application',
   icon: <DownloadOutlined />,
   order: 20,
@@ -723,7 +689,6 @@ registerCategory({
 registerCategory({
   id: 'about',
   labelKey: 'workbench.settings.category.about.label',
-  navLabelKey: 'workbench.settings.category.about.navLabel',
   parent: 'application',
   icon: <InfoCircleOutlined />,
   order: 40,

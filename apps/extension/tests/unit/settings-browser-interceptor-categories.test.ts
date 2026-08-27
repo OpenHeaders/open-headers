@@ -27,7 +27,7 @@ describe('browser interceptor settings group', () => {
       .filter((c) => c.parent === 'browserInterceptor')
       .map((c) => c.id);
     expect(children).toEqual(['rulesEngine', 'inspection', 'devpanel']);
-    for (const id of children) expect(getCategory(id)?.navLabelKey).toBeTruthy();
+    for (const id of children) expect(getCategory(id)?.labelKey).toBeTruthy();
   });
 
   it('the leaves keep their defs and the devtools panel keeps its own children one level deeper', () => {

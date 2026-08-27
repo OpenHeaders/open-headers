@@ -293,14 +293,6 @@ export type CategoryDef = LabeledText &
      * panes, deep links) they behave as ordinary categories.
      */
     parent?: string;
-    /**
-     * Short label for the nav tree. Children drop the parent prefix here
-     * ("Network" under "DevTools Panel") while `label` keeps the full
-     * qualified name for pane headers and search breadcrumbs. Raw or
-     * keyed, like every other registry text field.
-     */
-    navLabel?: string;
-    navLabelKey?: MessageKey;
     subcategories?: readonly SubcategoryDef[];
     /**
      * Conditional visibility for the whole category. Returning false
