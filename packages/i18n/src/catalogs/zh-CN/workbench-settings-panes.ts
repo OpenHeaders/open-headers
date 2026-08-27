@@ -707,6 +707,7 @@ export const workbenchSettingsPanes = {
   'workbench.settings.gitPane.refusal.alreadyBound': '此工作区已绑定到一个文件夹。',
   'workbench.settings.gitPane.refusal.unknownWorkspace': '没有可绑定的活动工作区。',
   'workbench.settings.gitPane.git.title': 'Git',
+  'workbench.settings.gitPane.git.available': '已找到 Git {version}',
   'workbench.settings.gitPane.git.missing.title': '未安装 Git',
   'workbench.settings.gitPane.git.missing.body': '安装 git 即可为此文件夹提交历史。其他一切没有它也照常工作。',
   'workbench.settings.gitPane.git.belowFloor.body':

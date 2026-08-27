@@ -1,18 +1,18 @@
 /**
  * CategoryPane — single-category content surface.
  *
- * Renders one category's settings as one or more rounded cards. When
- * the category declares subcategories, each gets its own card with a
- * small section header above it; otherwise all rows share one card.
+ * Renders one category's settings through the shared pane chrome. When
+ * the category declares subcategories, each gets its own section with a
+ * small header above it; otherwise all rows share one flush section.
  */
 
-import { theme } from 'antd';
 import type React from 'react';
 import { useMemo } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import SettingRow from '../fields/SettingRow';
-import { resolveLabel, resolveOptionalDescription } from '../localize';
+import { resolveLabel } from '../localize';
 import type { CategoryDef, SettingDef, SubcategoryDef } from '../types';
+import { Pane, PaneHeader, PaneSection } from './pane-chrome';
 
 interface CategoryPaneProps {
   category: CategoryDef;
@@ -51,39 +51,20 @@ function groupBySubcategory(category: CategoryDef, defs: readonly SettingDef[]):
 }
 
 const CategoryPane: React.FC<CategoryPaneProps> = ({ category, defs }) => {
-  const { token } = theme.useToken();
   const t = useT();
   const groups = useMemo(() => groupBySubcategory(category, defs), [category, defs]);
-  const description = resolveOptionalDescription(category, t);
 
   return (
-    <div style={{ padding: '14px 18px 20px' }}>
-      <header style={{ marginBottom: 10 }}>
-        <h2 style={{ margin: 0, fontSize: 13, fontWeight: 600, color: token.colorText, letterSpacing: -0.1 }}>
-          {resolveLabel(category, t)}
-        </h2>
-        {description && (
-          <p style={{ margin: '1px 0 0', fontSize: 11.5, color: token.colorTextSecondary }}>{description}</p>
-        )}
-      </header>
+    <Pane>
+      <PaneHeader category={category} />
       {groups.map((group, i) => (
-        <section key={group.sub?.id ?? `_orphans_${i}`} style={{ marginBottom: 14 }}>
-          {group.sub && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '0 0 4px' }}>
-              <h3 style={{ margin: 0, fontSize: 13, fontWeight: 400, color: token.colorText, flex: 'none' }}>
-                {resolveLabel(group.sub, t)}
-              </h3>
-              <div style={{ flex: 1, height: 1, background: token.colorBorderSecondary }} />
-            </div>
-          )}
-          <div style={group.sub ? { paddingLeft: 16 } : undefined}>
-            {group.defs.map((def) => (
-              <SettingRow key={def.key} def={def} />
-            ))}
-          </div>
-        </section>
+        <PaneSection key={group.sub?.id ?? `_orphans_${i}`} title={group.sub ? resolveLabel(group.sub, t) : undefined}>
+          {group.defs.map((def) => (
+            <SettingRow key={def.key} def={def} />
+          ))}
+        </PaneSection>
       ))}
-    </div>
+    </Pane>
   );
 };
 

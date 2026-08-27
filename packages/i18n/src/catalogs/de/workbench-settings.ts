@@ -237,6 +237,12 @@ export const workbenchSettings = {
   'workbench.settings.category.git.description':
     'Binde diesen Arbeitsbereich an einen Ordner auf der Festplatte — einen lebendigen, git-freundlichen ' +
     'YAML-Baum.',
+  'workbench.settings.category.gitFolder.label': 'Git · Ordner',
+  'workbench.settings.category.gitFolder.navLabel': 'Ordner',
+  'workbench.settings.category.gitFolder.description':
+    'Der Ordner auf der Festplatte, an den dieser Arbeitsbereich gebunden ist.',
+  'workbench.settings.category.gitFolder.sub.binding': 'Bindung',
+  'workbench.settings.category.gitFolder.sub.requirements': 'Voraussetzungen',
   'workbench.settings.category.proxy.label': 'Proxy',
   'workbench.settings.category.proxy.description':
     'Der ausgehende Proxy dieses Geräts — wie Anfragen das Netzwerk erreichen — und die ' +

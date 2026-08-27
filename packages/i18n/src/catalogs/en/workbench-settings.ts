@@ -215,6 +215,11 @@ export const workbenchSettings = {
   'workbench.settings.category.git.label': 'Git',
   'workbench.settings.category.git.description':
     'Bind this workspace to an on-disk folder — a live, git-friendly YAML tree.',
+  'workbench.settings.category.gitFolder.label': 'Git · Folder',
+  'workbench.settings.category.gitFolder.navLabel': 'Folder',
+  'workbench.settings.category.gitFolder.description': 'The on-disk folder this workspace is bound to.',
+  'workbench.settings.category.gitFolder.sub.binding': 'Binding',
+  'workbench.settings.category.gitFolder.sub.requirements': 'Requirements',
   'workbench.settings.category.proxy.label': 'Proxy',
   'workbench.settings.category.proxy.description':
     'This device’s outbound proxy — how requests reach the network — and trust setup for the capture proxy.',

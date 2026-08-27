@@ -243,6 +243,12 @@ export const workbenchSettings = {
   'workbench.settings.category.git.label': 'Git',
   'workbench.settings.category.git.description':
     'Vincula este espacio de trabajo a una carpeta en disco — un árbol YAML vivo y compatible con git.',
+  'workbench.settings.category.gitFolder.label': 'Git · Carpeta',
+  'workbench.settings.category.gitFolder.navLabel': 'Carpeta',
+  'workbench.settings.category.gitFolder.description':
+    'La carpeta en disco a la que está vinculado este espacio de trabajo.',
+  'workbench.settings.category.gitFolder.sub.binding': 'Vinculación',
+  'workbench.settings.category.gitFolder.sub.requirements': 'Requisitos',
   'workbench.settings.category.proxy.label': 'Proxy',
   'workbench.settings.category.proxy.description':
     'El proxy de salida de este dispositivo — cómo alcanzan la red las solicitudes — y la configuración ' +

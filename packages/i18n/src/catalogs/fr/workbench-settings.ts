@@ -234,6 +234,11 @@ export const workbenchSettings = {
   'workbench.settings.category.git.label': 'Git',
   'workbench.settings.category.git.description':
     'Liez cet espace de travail à un dossier sur disque — une arborescence YAML vivante, adaptée à git.',
+  'workbench.settings.category.gitFolder.label': 'Git · Dossier',
+  'workbench.settings.category.gitFolder.navLabel': 'Dossier',
+  'workbench.settings.category.gitFolder.description': 'Le dossier sur disque auquel cet espace de travail est lié.',
+  'workbench.settings.category.gitFolder.sub.binding': 'Liaison',
+  'workbench.settings.category.gitFolder.sub.requirements': 'Prérequis',
   'workbench.settings.category.proxy.label': 'Proxy',
   'workbench.settings.category.proxy.description':
     'Le proxy sortant de cet appareil — comment les requêtes atteignent le réseau — et la mise en place ' +

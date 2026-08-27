@@ -21,6 +21,7 @@ import {
   DownloadOutlined,
   EditOutlined,
   ExportOutlined,
+  FolderOpenOutlined,
   FunctionOutlined,
   FundViewOutlined,
   GlobalOutlined,
@@ -47,6 +48,7 @@ import { registerCategory } from './registry';
 const BackendPane = lazy(() => import('./components/BackendPane'));
 const LicensePane = lazy(() => import('./components/license-pane'));
 const GitWorkspacePane = lazy(() => import('./components/git-workspace-pane'));
+const GitFolderPane = lazy(() => import('./components/git/git-folder-pane'));
 const ProxyTrustPane = lazy(() => import('./components/proxy-trust-pane'));
 const SystemProxyPane = lazy(() => import('./components/system-proxy-pane'));
 const KeymapPane = lazy(() => import('./components/keymap/KeymapPane'));
@@ -451,6 +453,24 @@ registerCategory({
   // Browser hosts keep the nav entry and render the desktop teaser.
   when: () => getCurrentHost() === 'desktop',
   teaserWhenUnavailable: 'git',
+});
+
+registerCategory({
+  id: 'gitFolder',
+  labelKey: 'workbench.settings.category.gitFolder.label',
+  navLabelKey: 'workbench.settings.category.gitFolder.navLabel',
+  parent: 'git',
+  icon: <FolderOpenOutlined />,
+  order: 10,
+  descriptionKey: 'workbench.settings.category.gitFolder.description',
+  subcategories: [
+    { id: 'binding', labelKey: 'workbench.settings.category.gitFolder.sub.binding', order: 10 },
+    { id: 'requirements', labelKey: 'workbench.settings.category.gitFolder.sub.requirements', order: 20 },
+  ],
+  renderPane: GitFolderPane,
+  // The git group node carries the desktop teaser; this child hides
+  // on every other host.
+  when: () => getCurrentHost() === 'desktop',
 });
 
 registerCategory({

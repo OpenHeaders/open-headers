@@ -856,6 +856,7 @@ export const workbenchSettingsPanes = {
   'workbench.settings.gitPane.refusal.alreadyBound': 'Este espacio de trabajo ya está vinculado a una carpeta.',
   'workbench.settings.gitPane.refusal.unknownWorkspace': 'No hay ningún espacio de trabajo activo que vincular.',
   'workbench.settings.gitPane.git.title': 'Git',
+  'workbench.settings.gitPane.git.available': 'Git {version} encontrado',
   'workbench.settings.gitPane.git.missing.title': 'Git no está instalado',
   'workbench.settings.gitPane.git.missing.body':
     'Instala git para confirmar el historial de esta carpeta. Todo lo demás sigue funcionando sin él.',

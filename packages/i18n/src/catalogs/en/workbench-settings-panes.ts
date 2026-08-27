@@ -749,6 +749,7 @@ export const workbenchSettingsPanes = {
   'workbench.settings.gitPane.refusal.alreadyBound': 'This workspace is already bound to a folder.',
   'workbench.settings.gitPane.refusal.unknownWorkspace': 'No active workspace to bind.',
   'workbench.settings.gitPane.git.title': 'Git',
+  'workbench.settings.gitPane.git.available': 'Git {version} found',
   'workbench.settings.gitPane.git.missing.title': 'Git is not installed',
   'workbench.settings.gitPane.git.missing.body':
     'Install git to commit this folder’s history. Everything else keeps working without it.',
