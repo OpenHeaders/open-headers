@@ -64,8 +64,15 @@ export const workbenchEditorsWebsocket = {
   'workbench.editors.websocket.event.argPlaceholder': '把此参数编写为 JSON，例如 "hello" 或 {"id": 42}…',
   'workbench.editors.websocket.headers.keyPlaceholder': '标头名称',
   'workbench.editors.websocket.headers.valuePlaceholder': '值',
-  'workbench.editors.websocket.headers.nodeOnly':
-    '自定义握手标头在会话运行于桌面端应用或服务器时适用——浏览器无法在 WebSocket 上设置它们。',
+  'workbench.editors.websocket.headers.hint.host': '连接时从目标 URL 推导——升级请求所指向的主机。',
+  'workbench.editors.websocket.headers.hint.connection':
+    '请求服务器切换协议；WebSocket 打开握手始终携带 Connection: Upgrade。',
+  'workbench.editors.websocket.headers.hint.upgrade':
+    '指明要切换到的协议——每次 WebSocket 握手都会将 HTTP 连接升级为 websocket。',
+  'workbench.editors.websocket.headers.hint.key':
+    '每次连接生成的随机 nonce；服务器通过在 Sec-WebSocket-Accept 中回传其哈希来证明已读取握手。',
+  'workbench.editors.websocket.headers.hint.version': 'WebSocket 协议版本（RFC 6455）；13 是唯一在用的版本。',
+  'workbench.editors.websocket.headers.hint.extensions': '提议按消息压缩；服务器可在握手响应中接受、缩减或忽略该提议。',
   'workbench.editors.websocket.params.keyPlaceholder': '参数名称',
   'workbench.editors.websocket.params.valuePlaceholder': '值',
   'workbench.editors.websocket.spec.selectLabel': 'AsyncAPI 规范',

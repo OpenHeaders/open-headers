@@ -15,14 +15,13 @@
  * suppression end-to-end.
  */
 
-import { EyeInvisibleOutlined, EyeOutlined, InfoCircleOutlined } from '@ant-design/icons';
 import type { AuthConfig, RequestBody } from '@openheaders/core/types';
 import type { MessageKey } from '@openheaders/i18n';
-import { Button, Tooltip, theme } from 'antd';
 import type React from 'react';
 import { useMemo, useState } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { REQUEST_PATHS } from '@openheaders/ui/shared/awareness';
+import AutoHeadersToggle from './AutoHeadersToggle';
 import { previewAuthContributions } from './auth-preview';
 import KeyValueTable, {
   type KeyValueRow,
@@ -159,7 +158,6 @@ const HeadersTab: React.FC<HeadersTabProps> = ({
   onNavigateTab,
   conflictBridge,
 }) => {
-  const { token } = theme.useToken();
   const t = useT();
   const [showAuto, setShowAuto] = useState(false);
   const [disabledAutoKeys, setDisabledAutoKeys] = useState<Set<string>>(new Set());
@@ -277,26 +275,11 @@ const HeadersTab: React.FC<HeadersTabProps> = ({
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <Button
-            size="small"
-            type="text"
-            icon={showAuto ? <EyeInvisibleOutlined /> : <EyeOutlined />}
-            onClick={() => setShowAuto((s) => !s)}
-            style={{ color: token.colorTextSecondary, fontSize: 12 }}
-          >
-            {showAuto
-              ? t('workbench.editors.request.headers.hideAuto')
-              : t('workbench.editors.request.headers.hiddenCount', { count: browserSuggestions.length })}
-          </Button>
-          {showAuto && (
-            <Tooltip title={t('workbench.editors.request.headers.autoInfo')}>
-              <InfoCircleOutlined style={{ color: token.colorTextTertiary, fontSize: 12, cursor: 'help' }} />
-            </Tooltip>
-          )}
-        </div>
-      </div>
+      <AutoHeadersToggle
+        shown={showAuto}
+        count={browserSuggestions.length}
+        onToggle={() => setShowAuto((s) => !s)}
+      />
       <KeyValueTable
         rows={rows}
         onChange={onChange}

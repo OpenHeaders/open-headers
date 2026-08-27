@@ -62,9 +62,18 @@ export const workbenchEditorsWebsocket = {
   'workbench.editors.websocket.event.argPlaceholder': 'Composez cet argument en JSON, p. ex. "hello" ou {"id": 42}…',
   'workbench.editors.websocket.headers.keyPlaceholder': "Nom de l'en-tête",
   'workbench.editors.websocket.headers.valuePlaceholder': 'Valeur',
-  'workbench.editors.websocket.headers.nodeOnly':
-    "Les en-têtes de handshake personnalisés s'appliquent quand la session s'exécute sur l'application de " +
-    'bureau ou le serveur — les navigateurs ne peuvent pas les définir sur un WebSocket.',
+  'workbench.editors.websocket.headers.hint.host':
+    'Dérivé de l’URL cible au moment de la connexion — l’hôte auquel la requête d’upgrade est adressée.',
+  'workbench.editors.websocket.headers.hint.connection':
+    'Demande au serveur de changer de protocole ; une poignée de main WebSocket porte toujours Connection: Upgrade.',
+  'workbench.editors.websocket.headers.hint.upgrade':
+    'Nomme le protocole cible — chaque poignée de main WebSocket fait passer la connexion HTTP en websocket.',
+  'workbench.editors.websocket.headers.hint.key':
+    'Un nonce aléatoire généré pour chaque connexion ; le serveur prouve avoir lu la poignée de main en renvoyant son hachage dans Sec-WebSocket-Accept.',
+  'workbench.editors.websocket.headers.hint.version':
+    'La version du protocole WebSocket (RFC 6455) ; 13 est la seule version en usage.',
+  'workbench.editors.websocket.headers.hint.extensions':
+    'Propose la compression par message ; le serveur peut accepter, restreindre ou ignorer l’offre dans sa réponse.',
   'workbench.editors.websocket.params.keyPlaceholder': 'Nom du paramètre',
   'workbench.editors.websocket.params.valuePlaceholder': 'Valeur',
   'workbench.editors.websocket.spec.selectLabel': 'Spécification AsyncAPI',

@@ -67,9 +67,18 @@ export const workbenchEditorsWebsocket = {
   'workbench.editors.websocket.event.argPlaceholder': 'Compón este argumento como JSON, p. ej. "hello" o {"id": 42}…',
   'workbench.editors.websocket.headers.keyPlaceholder': 'Nombre del encabezado',
   'workbench.editors.websocket.headers.valuePlaceholder': 'Valor',
-  'workbench.editors.websocket.headers.nodeOnly':
-    'Los encabezados de handshake personalizados se aplican cuando la sesión se ejecuta en la aplicación de ' +
-    'escritorio o el servidor — los navegadores no pueden definirlos en un WebSocket.',
+  'workbench.editors.websocket.headers.hint.host':
+    'Derivado de la URL de destino al conectar — el host al que se dirige la solicitud de upgrade.',
+  'workbench.editors.websocket.headers.hint.connection':
+    'Pide al servidor cambiar de protocolo; un saludo de apertura WebSocket siempre lleva Connection: Upgrade.',
+  'workbench.editors.websocket.headers.hint.upgrade':
+    'Nombra el protocolo de destino — cada saludo WebSocket cambia la conexión HTTP a websocket.',
+  'workbench.editors.websocket.headers.hint.key':
+    'Un nonce aleatorio generado para cada conexión; el servidor demuestra haber leído el saludo devolviendo su hash en Sec-WebSocket-Accept.',
+  'workbench.editors.websocket.headers.hint.version':
+    'La versión del protocolo WebSocket (RFC 6455); 13 es la única versión en uso.',
+  'workbench.editors.websocket.headers.hint.extensions':
+    'Ofrece compresión por mensaje; el servidor puede aceptar, acotar o ignorar la oferta en su respuesta.',
   'workbench.editors.websocket.params.keyPlaceholder': 'Nombre del parámetro',
   'workbench.editors.websocket.params.valuePlaceholder': 'Valor',
   'workbench.editors.websocket.spec.selectLabel': 'Especificación AsyncAPI',

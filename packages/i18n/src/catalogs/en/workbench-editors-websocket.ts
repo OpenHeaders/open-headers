@@ -51,8 +51,18 @@ export const workbenchEditorsWebsocket = {
   'workbench.editors.websocket.event.argPlaceholder': 'Compose this argument as JSON, e.g. "hello" or {"id": 42}…',
   'workbench.editors.websocket.headers.keyPlaceholder': 'Header name',
   'workbench.editors.websocket.headers.valuePlaceholder': 'Value',
-  'workbench.editors.websocket.headers.nodeOnly':
-    'Custom handshake headers apply when the session runs on the desktop app or server — browsers cannot set them on a WebSocket.',
+  'workbench.editors.websocket.headers.hint.host':
+    'Derived from the target URL at connect time — the host the upgrade request is addressed to.',
+  'workbench.editors.websocket.headers.hint.connection':
+    'Asks the server to switch protocols; a WebSocket opening handshake always carries Connection: Upgrade.',
+  'workbench.editors.websocket.headers.hint.upgrade':
+    'Names the protocol to switch to — every WebSocket handshake upgrades the HTTP connection to websocket.',
+  'workbench.editors.websocket.headers.hint.key':
+    'A random nonce generated for each connection; the server proves it read the handshake by echoing a hash of it in Sec-WebSocket-Accept.',
+  'workbench.editors.websocket.headers.hint.version':
+    'The WebSocket protocol version (RFC 6455); 13 is the only version in use.',
+  'workbench.editors.websocket.headers.hint.extensions':
+    'Offers per-message compression; the server may accept, narrow or ignore the offer in its handshake response.',
   'workbench.editors.websocket.params.keyPlaceholder': 'Parameter name',
   'workbench.editors.websocket.params.valuePlaceholder': 'Value',
   'workbench.editors.websocket.spec.selectLabel': 'AsyncAPI spec',

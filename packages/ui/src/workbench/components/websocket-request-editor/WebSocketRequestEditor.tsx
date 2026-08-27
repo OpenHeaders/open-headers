@@ -62,6 +62,7 @@ import WebSocketAuthTab from './WebSocketAuthTab';
 import WebSocketSettingsTab from './WebSocketSettingsTab';
 import { subscribeWsPrefill } from './ws-prefill-bus';
 import WsEventsTab from './WsEventsTab';
+import WsHeadersTab from './WsHeadersTab';
 import WsMessageTab from './WsMessageTab';
 import WsSessionPane from './WsSessionPane';
 import WsSpecTab from './WsSpecTab';
@@ -413,21 +414,10 @@ const WebSocketRequestEditor: React.FC<WebSocketRequestEditorProps> = ({
                       />
                     )}
                     {activeTab === 'headers' && (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                        {/* Node-only honesty line — the limit stated up
-                          front; a page-realm Connect with configured
-                          rows also names it in the session pane's
-                          notice (never a silent drop, never a gate). */}
-                        <Text type="secondary" style={{ fontSize: 11 }}>
-                          {t('workbench.editors.websocket.headers.nodeOnly')}
-                        </Text>
-                        <KeyValueTable
-                          rows={draft.headers}
-                          onChange={(headers) => setDraft((d) => ({ ...d, headers }))}
-                          keyPlaceholder={t('workbench.editors.websocket.headers.keyPlaceholder')}
-                          valuePlaceholder={t('workbench.editors.websocket.headers.valuePlaceholder')}
-                        />
-                      </div>
+                      <WsHeadersTab
+                        rows={draft.headers}
+                        onChange={(headers) => setDraft((d) => ({ ...d, headers }))}
+                      />
                     )}
                     {activeTab === 'params' && (
                       <KeyValueTable
