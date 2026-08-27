@@ -538,9 +538,12 @@ export const workbenchSettingsDefs = {
     'Met en évidence les crochets correspondants dans des couleurs différentes.',
 
   // ── API Requests category defs ─────────────────────────────────────
-  'workbench.settings.def.requests.trustedRoots.label': 'Certificats de confiance',
+  'workbench.settings.def.requests.trustedRoots.label': 'Certificats de l’espace de travail',
   'workbench.settings.def.requests.trustedRoots.description':
-    'Autorités de certification auxquelles cet espace de travail fait confiance en plus des racines intégrées, appliquées à chaque connexion TLS établie par le runtime de l’application. Données de l’espace de travail, modifiées dans leur propre onglet — ouvrez-le d’ici.',
+    'Autorités de certification auxquelles cet espace de travail fait confiance en plus des racines intégrées, appliquées à chaque connexion TLS établie par le runtime de l’application. Partagées avec chaque pair de l’espace de travail — matériel public, jamais un secret.',
+  'workbench.settings.def.requests.deviceTrust.label': 'Certificats de l’appareil',
+  'workbench.settings.def.requests.deviceTrust.description':
+    'Certificats que cette machine épingle en plus de la liste de l’espace de travail — un localhost auto-signé, un serveur de staging. Jamais synchronisés ni exportés ; appliqués à chaque connexion TLS établie depuis cet appareil.',
   'workbench.settings.def.requests.responseBodyCapMB.label': 'Limite du corps de réponse (MB)',
   'workbench.settings.def.requests.responseBodyCapMB.description':
     "Quelle part d'un corps de réponse l'exécuteur garde pour l'affichage. Les corps plus gros sont tronqués " +

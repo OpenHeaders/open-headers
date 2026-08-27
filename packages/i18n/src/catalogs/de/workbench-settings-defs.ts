@@ -527,9 +527,12 @@ export const workbenchSettingsDefs = {
     'Hebt zusammengehörige Klammern in unterschiedlichen Farben hervor.',
 
   // ── API Requests category defs ─────────────────────────────────────
-  'workbench.settings.def.requests.trustedRoots.label': 'Vertrauenswürdige Zertifikate',
+  'workbench.settings.def.requests.trustedRoots.label': 'Arbeitsbereichs-Zertifikate',
   'workbench.settings.def.requests.trustedRoots.description':
-    'Zertifizierungsstellen, denen dieser Arbeitsbereich zusätzlich zu den eingebauten Wurzeln vertraut, angewendet auf jede TLS-Verbindung der App-Laufzeit. Arbeitsbereichsdaten, bearbeitet im eigenen Tab — von hier aus öffnen.',
+    'Zertifizierungsstellen, denen dieser Arbeitsbereich zusätzlich zu den eingebauten Wurzeln vertraut, angewendet auf jede TLS-Verbindung der App-Laufzeit. Mit jedem Peer des Arbeitsbereichs geteilt — öffentliches Material, nie ein Geheimnis.',
+  'workbench.settings.def.requests.deviceTrust.label': 'Geräte-Zertifikate',
+  'workbench.settings.def.requests.deviceTrust.description':
+    'Zertifikate, die diese Maschine zusätzlich zur Arbeitsbereichsliste anheftet — ein selbstsigniertes localhost, ein Staging-Server. Nie synchronisiert oder exportiert; angewendet auf jede TLS-Verbindung von diesem Gerät.',
   'workbench.settings.def.requests.responseBodyCapMB.label': 'Antwort-Body-Grenze (MB)',
   'workbench.settings.def.requests.responseBodyCapMB.description':
     'Wie viel von einem Antwort-Body der Executor für die Anzeige behält. Größere Bodys werden an dieser ' +

@@ -54,6 +54,12 @@ export const workbenchTrustedRoots = {
   'workbench.trustedRoots.settings.browserStore': '浏览器证书库',
   'workbench.trustedRoots.settings.help':
     '此工作区在内置根之外额外信任的证书颁发机构——应用于应用运行时建立的每个 TLS 连接，每行一个根。请在此添加私有 CA，而不是关闭验证。',
+  'workbench.trustedRoots.settings.deviceCount': '此设备上 {count} 个',
+  'workbench.trustedRoots.settings.groupWorkspace': '此工作区',
+  'workbench.trustedRoots.settings.groupDevice': '此设备',
+  'workbench.trustedRoots.device.count': '此设备已固定（{count}）',
+  'workbench.trustedRoots.device.empty': '此设备尚未固定任何证书',
+  'workbench.trustedRoots.device.emptyHint': '固定通常来自一次失败的发送——仅在本机信任服务器出示的证书。也可以在此粘贴一个手动固定。',
   'workbench.trustedRoots.settings.browserNote':
     '浏览器使用自己的信任库进行验证；添加到此工作区的证书仅在应用运行时发送时生效。',
 } as const satisfies Catalog;

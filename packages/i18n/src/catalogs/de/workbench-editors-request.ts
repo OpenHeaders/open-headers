@@ -847,6 +847,18 @@ export const workbenchEditorsRequest = {
     'HTTP-Version verborgen: Die Plattform hat für diese Anfrage keinen Timing-Eintrag aufgezeichnet.',
   'workbench.editors.request.response.meta.noteNoIp':
     'Remote-Adresse nicht verfügbar: Die Erfassung auf der Leitung hat für diesen fetch nichts gesehen.',
+  'workbench.editors.request.response.meta.tlsProtocol': 'TLS-Protokoll',
+  'workbench.editors.request.response.meta.tlsCipher': 'Cipher',
+  'workbench.editors.request.response.meta.tlsCertificate': 'Zertifikat',
+  'workbench.editors.request.response.meta.tlsIssuer': 'Aussteller',
+  'workbench.editors.request.response.meta.tlsValidUntil': 'Gültig bis',
+  'workbench.editors.request.response.meta.tlsFingerprint': 'SHA-256',
+  'workbench.editors.request.response.meta.tlsUnverifiedVerdict': 'Zertifikat nicht geprüft ({code})',
+  'workbench.editors.request.response.meta.tagTrusted': 'Vertrauenswürdige Zertifikate',
+  'workbench.editors.request.response.meta.trustedTitle': 'Vertrauenswürdige Zertifikate angewendet',
+  'workbench.editors.request.response.meta.trustedSummary':
+    'Über die eingebauten Wurzeln hinaus vertraute dieses Senden {workspace} aus dem Arbeitsbereich und {device} auf diesem Gerät angeheftete(n).',
+  'workbench.editors.request.response.meta.trustPinned': 'Zertifikat auf diesem Gerät angeheftet — erneut senden, um zu prüfen.',
   'workbench.editors.request.response.meta.noteNoTls':
     'Lokale Adresse, TLS- und Zertifikatsdetails werden Erweiterungscode auf Chromium nicht offengelegt.',
   'workbench.editors.request.response.meta.tagUnverifiedTls': 'Ungeprüftes TLS',
@@ -1051,6 +1063,15 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.response.empty.prompt': 'Sende die Anfrage, um hier die Antwort zu sehen.',
   'workbench.editors.request.response.error.title': 'Anfrage konnte nicht gesendet werden',
   'workbench.editors.request.response.error.openInTab': 'In neuem Tab öffnen',
+  'workbench.editors.request.response.error.trust.title': 'Dem von {origin} vorgelegten Zertifikat vertrauen',
+  'workbench.editors.request.response.error.trust.probing': 'Vom Server vorgelegtes Zertifikat wird gelesen…',
+  'workbench.editors.request.response.error.trust.probeFailed': 'Das Serverzertifikat konnte nicht gelesen werden: {message}',
+  'workbench.editors.request.response.error.trust.retryProbe': 'Erneut versuchen',
+  'workbench.editors.request.response.error.trust.failure': 'Fehler',
+  'workbench.editors.request.response.error.trust.noAnchor':
+    'Der Server legt sein Wurzelzertifikat nicht vor, daher lässt sich hier nichts anheften. Die ausstellende CA unter Einstellungen › API-Anfragen › TLS hinzufügen.',
+  'workbench.editors.request.response.error.trust.trustOnDevice': 'Auf diesem Gerät vertrauen',
+  'workbench.editors.request.response.error.trust.addToWorkspace': 'Zum Arbeitsbereich hinzufügen',
   'workbench.editors.request.response.error.certSteps.summary':
     'Lokale Entwicklungsserver laufen meist mit einem selbstsignierten Zertifikat, das du akzeptieren ' + 'musst.',
   'workbench.editors.request.response.error.certSteps.step1': 'Öffne die URL in einem neuen Tab',

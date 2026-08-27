@@ -94,7 +94,6 @@ import {
 import { ImportTextProvider } from './hooks/ImportTextContext';
 import { OpenServerAdminProvider } from './hooks/OpenServerAdminContext';
 import { OpenSettingsProvider } from './hooks/OpenSettingsContext';
-import { OpenTrustedRootsProvider } from './hooks/OpenTrustedRootsContext';
 import { OpenVaultProvider } from './hooks/OpenVaultContext';
 import { useCommandPaletteData } from './hooks/useCommandPaletteData';
 import { useEditingScopeWorkspaceId } from './hooks/useEditingScopeWorkspaceId';
@@ -574,7 +573,6 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
     openSpecEdit,
     openWorkspaceVariables,
     openVault,
-    openTrustedRoots,
     openScriptPackages,
     openLiveVariables,
     openCollectionVariables,
@@ -867,12 +865,6 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
     openVault();
   }, [closeSettings, openVault]);
 
-  // And on the way to the trusted-certificates editor tab.
-  const openTrustedRootsFromAnywhere = useCallback(() => {
-    closeSettings();
-    openTrustedRoots();
-  }, [closeSettings, openTrustedRoots]);
-
   // ── Save-to-collection flow ────────────────────────────────────
   // Both rule-create and request-create scratch tabs hand their form
   // values to a save-flow hook that fast-paths to a preferred
@@ -1122,7 +1114,6 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
     openEnvironmentEdit,
     openWorkspaceVariables,
     openVault,
-    openTrustedRoots,
     openScriptPackages,
     openLiveVariables,
     onOpenCreateMenu: openCreateMenu,
@@ -1597,7 +1588,6 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
       <OpenSettingsProvider openSettings={openSettings}>
       <OpenServerAdminProvider openServerAdmin={openServerAdminFromAnywhere}>
       <OpenVaultProvider openVault={openVaultFromAnywhere}>
-      <OpenTrustedRootsProvider openTrustedRoots={openTrustedRootsFromAnywhere}>
       <ImportTextProvider importText={importText}>
       <VariablePopoverProvider>
         <ActiveTabEntityWriter value={activeTabEntity} />
@@ -1865,7 +1855,6 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
         </div>
       </VariablePopoverProvider>
       </ImportTextProvider>
-      </OpenTrustedRootsProvider>
       </OpenVaultProvider>
       </OpenServerAdminProvider>
       </OpenSettingsProvider>

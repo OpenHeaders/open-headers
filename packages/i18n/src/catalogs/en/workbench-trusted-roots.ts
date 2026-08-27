@@ -55,6 +55,13 @@ export const workbenchTrustedRoots = {
   'workbench.trustedRoots.settings.browserStore': 'Browser store',
   'workbench.trustedRoots.settings.help':
     'Certificate authorities this workspace trusts in addition to the built-in roots — applied to every TLS connection the app’s runtime dials, one root per row. Add a private CA here instead of turning verification off.',
+  'workbench.trustedRoots.settings.deviceCount': '{count} on this device',
+  'workbench.trustedRoots.settings.groupWorkspace': 'This workspace',
+  'workbench.trustedRoots.settings.groupDevice': 'This device',
+  'workbench.trustedRoots.device.count': 'PINNED ON THIS DEVICE ({count})',
+  'workbench.trustedRoots.device.empty': 'No certificates pinned on this device',
+  'workbench.trustedRoots.device.emptyHint':
+    'Pins are usually added from a failed send — trust the certificate the server presented, on this machine only. Paste one here to pin it by hand.',
   'workbench.trustedRoots.settings.browserNote':
     'The browser verifies with its own trust store; certificates added to this workspace apply only when the app’s runtime sends.',
 } as const satisfies Catalog;

@@ -36,7 +36,6 @@ interface UseCommandPaletteDataOptions {
   openEnvironmentEdit: (uid: string, name: string) => void;
   openWorkspaceVariables: () => void;
   openVault: () => void;
-  openTrustedRoots: () => void;
   openScriptPackages: () => void;
   openLiveVariables: () => void;
   onOpenCreateMenu: () => void;
@@ -70,7 +69,6 @@ export function useCommandPaletteData(opts: UseCommandPaletteDataOptions): Comma
     openEnvironmentEdit,
     openWorkspaceVariables,
     openVault,
-    openTrustedRoots,
     openScriptPackages,
     openLiveVariables,
     onOpenCreateMenu,
@@ -362,7 +360,7 @@ export function useCommandPaletteData(opts: UseCommandPaletteDataOptions): Comma
         id: 'cmd-open-trusted-roots',
         icon: <SafetyCertificateOutlined />,
         label: t('workbench.shell.commandPalette.cmd.openTrustedRoots'),
-        onSelect: openTrustedRoots,
+        onSelect: () => onOpenSettings({ settingKey: 'requests.trustedRoots' }),
       },
       {
         id: 'cmd-open-live-vars',
@@ -412,7 +410,6 @@ export function useCommandPaletteData(opts: UseCommandPaletteDataOptions): Comma
     openEnvironmentEdit,
     openWorkspaceVariables,
     openVault,
-    openTrustedRoots,
     openScriptPackages,
     openLiveVariables,
   ]);

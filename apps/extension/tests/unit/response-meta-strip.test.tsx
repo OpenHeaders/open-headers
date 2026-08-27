@@ -299,3 +299,58 @@ describe('ResponseMetaStrip timing popover honesty note', () => {
     expect(await screen.findByText(/not observable per send/)).toBeTruthy();
   });
 });
+
+describe('ResponseMetaStrip TLS facts and trust attribution', () => {
+  const tls = {
+    protocol: 'TLSv1.3',
+    cipher: 'TLS_AES_256_GCM_SHA384',
+    authorized: false,
+    authorizationError: 'DEPTH_ZERO_SELF_SIGNED_CERT',
+    certificate: {
+      subject: 'CN=localhost',
+      issuer: 'CN=localhost',
+      notBefore: '2026-01-01T00:00:00.000Z',
+      notAfter: '2036-09-17T19:37:38.000Z',
+      fingerprintSha256: 'ab'.repeat(32),
+      selfSigned: true,
+      pem: '-----BEGIN CERTIFICATE-----\nLEAF\n-----END CERTIFICATE-----\n',
+    },
+  };
+
+  it('the network popover lists the socket’s TLS facts and the honest verdict on an unverified send', async () => {
+    registerCapability('requestRuntime', () => 'node');
+    renderStrip({
+      sslVerificationDisabled: true,
+      network: { httpVersion: 'http/1.1', remoteAddress: '127.0.0.1', tls },
+    });
+    fireEvent.mouseEnter(screen.getByTestId('oh-response-network'));
+    expect(await screen.findByText('TLSv1.3')).toBeTruthy();
+    expect(screen.getByTestId('oh-response-tls-subject').textContent).toBe('localhost');
+    expect(screen.getByTestId('oh-response-tls-verdict').textContent).toBe(
+      'Certificate not verified (DEPTH_ZERO_SELF_SIGNED_CERT)',
+    );
+    expect(screen.getByRole('button', { name: 'Trust on this device' })).toBeTruthy();
+  });
+
+  it('a verified send shows no verdict and no trust action', async () => {
+    registerCapability('requestRuntime', () => 'node');
+    renderStrip({
+      network: { httpVersion: 'h2', tls: { ...tls, authorized: true, authorizationError: undefined } },
+    });
+    fireEvent.mouseEnter(screen.getByTestId('oh-response-network'));
+    expect(await screen.findByText('TLSv1.3')).toBeTruthy();
+    expect(screen.queryByTestId('oh-response-tls-verdict')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Trust on this device' })).toBeNull();
+  });
+
+  it('tags a successful run that trusted workspace or device certificates, never a failed one', () => {
+    renderStrip({ trustedRootsApplied: 1, deviceTrustApplied: 2 });
+    expect(screen.getByTestId('oh-response-tls-trusted').textContent).toBe('Trusted certificates');
+    cleanup();
+    renderStrip({ deviceTrustApplied: 1, error: 'TLS certificate error', status: 0 });
+    expect(screen.queryByTestId('oh-response-tls-trusted')).toBeNull();
+    cleanup();
+    renderStrip();
+    expect(screen.queryByTestId('oh-response-tls-trusted')).toBeNull();
+  });
+});

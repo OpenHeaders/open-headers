@@ -56,6 +56,13 @@ export const workbenchTrustedRoots = {
   'workbench.trustedRoots.settings.browserStore': 'Browser-Speicher',
   'workbench.trustedRoots.settings.help':
     'Zertifizierungsstellen, denen dieser Arbeitsbereich zusätzlich zu den eingebauten Wurzeln vertraut — angewendet auf jede TLS-Verbindung, die die App-Laufzeit aufbaut, eine Wurzel pro Zeile. Fügen Sie hier eine private CA hinzu, statt die Prüfung abzuschalten.',
+  'workbench.trustedRoots.settings.deviceCount': '{count} auf diesem Gerät',
+  'workbench.trustedRoots.settings.groupWorkspace': 'Dieser Arbeitsbereich',
+  'workbench.trustedRoots.settings.groupDevice': 'Dieses Gerät',
+  'workbench.trustedRoots.device.count': 'AUF DIESEM GERÄT ANGEHEFTET ({count})',
+  'workbench.trustedRoots.device.empty': 'Keine Zertifikate auf diesem Gerät angeheftet',
+  'workbench.trustedRoots.device.emptyHint':
+    'Anheftungen entstehen meist aus einem fehlgeschlagenen Senden — dem vom Server vorgelegten Zertifikat vertrauen, nur auf dieser Maschine. Hier eines einfügen, um es von Hand anzuheften.',
   'workbench.trustedRoots.settings.browserNote':
     'Der Browser prüft mit seinem eigenen Vertrauensspeicher; in diesem Arbeitsbereich hinzugefügte Zertifikate gelten nur, wenn die App-Laufzeit sendet.',
 } as const satisfies Catalog;

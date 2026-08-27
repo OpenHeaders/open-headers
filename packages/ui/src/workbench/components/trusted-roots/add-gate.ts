@@ -2,9 +2,10 @@
  * Add gate — the decision the Trusted Certificates add flow makes over
  * a pasted PEM before the Add button lights up.
  *
- * One PEM blob per row (a chain is ONE root — the S1 chain law); a
- * non-CA leaf is refused because a server certificate in the trust
- * list is a footgun, not a feature. Pure over `summarizeCertificatePem`
+ * One PEM blob per row (a chain is ONE root — the S1 chain law); the
+ * workspace list refuses a non-CA leaf because a server certificate in
+ * a shared trust list is a footgun, not a feature; a device pin takes
+ * one on purpose. Pure over `summarizeCertificatePem`
  * so the refusal rules pin without a DOM.
  */
 
@@ -16,7 +17,16 @@ export type TrustedRootGate =
   | { ok: false; reason: 'invalid'; message: string }
   | { ok: false; reason: 'not-ca'; summary: CertificateSummary };
 
-export async function gateTrustedRootPem(pem: string): Promise<TrustedRootGate> {
+export interface TrustedRootGateOptions {
+  /** Refuse a non-CA leaf (the workspace list). Device pins accept one —
+   *  pinning the exact self-signed certificate is their point. */
+  requireCa: boolean;
+}
+
+export async function gateTrustedRootPem(
+  pem: string,
+  options: TrustedRootGateOptions = { requireCa: true },
+): Promise<TrustedRootGate> {
   if (!pem.trim()) return { ok: false, reason: 'empty' };
   let summary: CertificateSummary;
   try {
@@ -24,7 +34,7 @@ export async function gateTrustedRootPem(pem: string): Promise<TrustedRootGate> 
   } catch (err) {
     return { ok: false, reason: 'invalid', message: err instanceof Error ? err.message : String(err) };
   }
-  if (!summary.isCa) return { ok: false, reason: 'not-ca', summary };
+  if (options.requireCa && !summary.isCa) return { ok: false, reason: 'not-ca', summary };
   return { ok: true, summary };
 }
 

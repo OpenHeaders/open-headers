@@ -51,7 +51,6 @@ import TemplateCollectionOverview from '../overviews/TemplateCollectionOverview'
 import TemplateEditor from '../template/TemplateEditor';
 import TemplateFolderOverview from '../overviews/TemplateFolderOverview';
 import PackageLibrary from '../script-packages/PackageLibrary';
-import TrustedRootsEditor from '../trusted-roots/TrustedRootsEditor';
 import VaultEditor from '../variables/VaultEditor';
 import WhatsNewTab from '../whats-new/WhatsNewTab';
 import WorkspaceManager from '../workspace/WorkspaceManager';
@@ -395,15 +394,6 @@ const WorkbenchTabBody: React.FC<WorkbenchTabBodyProps> = ({
   if (tab.mode === 'vault') {
     return (
       <VaultEditor
-        onDirtyChange={(dirty) => handleDirtyChange(tab.id, dirty)}
-        registerSaveRef={(saveFn) => registerSaveRef(tab.id, saveFn)}
-      />
-    );
-  }
-  if (tab.mode === 'trusted-roots') {
-    return (
-      <TrustedRootsEditor
-        workspaceId={editingScopeWorkspaceId}
         onDirtyChange={(dirty) => handleDirtyChange(tab.id, dirty)}
         registerSaveRef={(saveFn) => registerSaveRef(tab.id, saveFn)}
       />

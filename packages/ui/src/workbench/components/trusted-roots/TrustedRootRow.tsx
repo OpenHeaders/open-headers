@@ -1,10 +1,9 @@
 /**
  * TrustedRootRow — one root in the Trusted Certificates table: name
- * (inline rename), subject, fingerprint (mono, copy), expiry with a
- * warning past `notAfter`, remove. Rename and remove edit the
- * editor's draft — nothing commits until Save — so remove needs no
- * confirm. Every projected column derives from `certPem` at read
- * time — nothing here is stored.
+ * (inline rename when the list supports it), subject, fingerprint
+ * (mono, copy), expiry with a warning past `notAfter`, remove. Every
+ * projected column derives from `certPem` at read time — nothing here
+ * is stored. Shared by the workspace list and the device pins.
  */
 
 import { CopyOutlined, DeleteOutlined } from '@ant-design/icons';
@@ -22,8 +21,8 @@ export const ROOT_GRID_COLUMNS = 'minmax(140px, 1.2fr) minmax(180px, 2fr) minmax
 
 interface TrustedRootRowProps {
   root: TrustedRoot;
-  onRename: (uid: string, name: string) => void;
-  onRemove: (uid: string) => void;
+  onRename?: (uid: string, name: string) => void;
+  onRemove?: (uid: string) => void;
 }
 
 const TrustedRootRow: React.FC<TrustedRootRowProps> = ({ root, onRename, onRemove }) => {
@@ -31,7 +30,7 @@ const TrustedRootRow: React.FC<TrustedRootRowProps> = ({ root, onRename, onRemov
   const { token } = theme.useToken();
   const state = useCertificateSummary(root.certPem);
   const [copied, setCopied] = useState(false);
-  const summary = state.status === 'settled' && state.gate.ok ? state.gate.summary : null;
+  const summary = state.status === 'settled' && 'summary' in state.gate ? state.gate.summary : null;
   const fingerprint = summary ? formatFingerprint(summary.fingerprintSha256) : '';
   const expired = summary ? isExpired(summary.notAfter, Date.now()) : false;
 
@@ -58,13 +57,17 @@ const TrustedRootRow: React.FC<TrustedRootRowProps> = ({ root, onRename, onRemov
       <Text
         ellipsis={{ tooltip: root.name }}
         strong
-        editable={{
-          tooltip: t('workbench.trustedRoots.row.rename'),
-          onChange: (name) => {
-            const trimmed = name.trim();
-            if (trimmed && trimmed !== root.name) onRename(root.uid, trimmed);
-          },
-        }}
+        editable={
+          onRename === undefined
+            ? false
+            : {
+                tooltip: t('workbench.trustedRoots.row.rename'),
+                onChange: (name) => {
+                  const trimmed = name.trim();
+                  if (trimmed && trimmed !== root.name) onRename(root.uid, trimmed);
+                },
+              }
+        }
       >
         {root.name}
       </Text>
@@ -103,14 +106,18 @@ const TrustedRootRow: React.FC<TrustedRootRowProps> = ({ root, onRename, onRemov
           <Text type="secondary">—</Text>
         )}
       </div>
-      <Button
-        size="small"
-        type="text"
-        danger
-        icon={<DeleteOutlined />}
-        aria-label={t('workbench.trustedRoots.row.remove')}
-        onClick={() => onRemove(root.uid)}
-      />
+      {onRemove === undefined ? (
+        <span />
+      ) : (
+        <Button
+          size="small"
+          type="text"
+          danger
+          icon={<DeleteOutlined />}
+          aria-label={t('workbench.trustedRoots.row.remove')}
+          onClick={() => onRemove(root.uid)}
+        />
+      )}
     </div>
   );
 };

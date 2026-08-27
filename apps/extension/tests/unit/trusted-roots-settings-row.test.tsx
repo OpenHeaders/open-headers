@@ -21,12 +21,20 @@ import SettingsTab from '@openheaders/ui/workbench/components/request-editor/Set
 import { draftFromWebSocketRequest } from '@openheaders/ui/workbench/components/websocket-request-editor/draft';
 import WebSocketSettingsTab from '@openheaders/ui/workbench/components/websocket-request-editor/WebSocketSettingsTab';
 import { EditingScopeWorkspaceProvider } from '@openheaders/ui/workbench/hooks/EditingScopeWorkspaceContext';
-import { OpenTrustedRootsProvider } from '@openheaders/ui/workbench/hooks/OpenTrustedRootsContext';
+import { OpenSettingsProvider } from '@openheaders/ui/workbench/hooks/OpenSettingsContext';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import type React from 'react';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { mockUseTrustedRoots } = vi.hoisted(() => ({ mockUseTrustedRoots: vi.fn() }));
+const { mockUseTrustedRoots, mockUseDeviceTrust } = vi.hoisted(() => ({
+  mockUseTrustedRoots: vi.fn(),
+  mockUseDeviceTrust: vi.fn(() => ({ certificates: [], ready: true })),
+}));
+
+vi.mock('@openheaders/ui/shared/device-trust', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@openheaders/ui/shared/device-trust')>()),
+  useDeviceTrust: () => mockUseDeviceTrust(),
+}));
 
 vi.mock('@openheaders/ui/shared/hooks/readers/useTrustedRoots', () => ({
   useTrustedRoots: mockUseTrustedRoots,
@@ -140,16 +148,12 @@ function tabElement(kind: TabKind): React.ReactElement {
   }
 }
 
-function renderTab(kind: TabKind, workspaceId: string, openTrustedRoots?: () => void) {
+function renderTab(kind: TabKind, workspaceId: string, openSettings?: () => void) {
   const scoped = (
     <EditingScopeWorkspaceProvider workspaceId={workspaceId}>{tabElement(kind)}</EditingScopeWorkspaceProvider>
   );
   return render(
-    openTrustedRoots ? (
-      <OpenTrustedRootsProvider openTrustedRoots={openTrustedRoots}>{scoped}</OpenTrustedRootsProvider>
-    ) : (
-      scoped
-    ),
+    openSettings ? <OpenSettingsProvider openSettings={openSettings}>{scoped}</OpenSettingsProvider> : scoped,
   );
 }
 

@@ -831,6 +831,18 @@ export const workbenchEditorsRequest = {
     'Versión de HTTP oculta: la plataforma no registró ninguna entrada de tiempos para esta solicitud.',
   'workbench.editors.request.response.meta.noteNoIp':
     'Dirección remota no disponible: la captura del cable no vio nada para este fetch.',
+  'workbench.editors.request.response.meta.tlsProtocol': 'Protocolo TLS',
+  'workbench.editors.request.response.meta.tlsCipher': 'Cifrado',
+  'workbench.editors.request.response.meta.tlsCertificate': 'Certificado',
+  'workbench.editors.request.response.meta.tlsIssuer': 'Emisor',
+  'workbench.editors.request.response.meta.tlsValidUntil': 'Válido hasta',
+  'workbench.editors.request.response.meta.tlsFingerprint': 'SHA-256',
+  'workbench.editors.request.response.meta.tlsUnverifiedVerdict': 'Certificado no verificado ({code})',
+  'workbench.editors.request.response.meta.tagTrusted': 'Certificados de confianza',
+  'workbench.editors.request.response.meta.trustedTitle': 'Certificados de confianza aplicados',
+  'workbench.editors.request.response.meta.trustedSummary':
+    'Además de las raíces integradas, este envío confió en {workspace} del espacio de trabajo y {device} fijado(s) en este dispositivo.',
+  'workbench.editors.request.response.meta.trustPinned': 'Certificado fijado en este dispositivo — vuelve a enviar para verificar.',
   'workbench.editors.request.response.meta.noteNoTls':
     'La dirección local y los detalles de TLS y del certificado no se exponen al código de extensiones en ' +
     'Chromium.',
@@ -1036,6 +1048,15 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.response.empty.prompt': 'Envía la solicitud para ver aquí la respuesta.',
   'workbench.editors.request.response.error.title': 'No se pudo enviar la solicitud',
   'workbench.editors.request.response.error.openInTab': 'Abrir en una pestaña nueva',
+  'workbench.editors.request.response.error.trust.title': 'Confiar en el certificado que presentó {origin}',
+  'workbench.editors.request.response.error.trust.probing': 'Leyendo el certificado que presenta el servidor…',
+  'workbench.editors.request.response.error.trust.probeFailed': 'No se pudo leer el certificado del servidor: {message}',
+  'workbench.editors.request.response.error.trust.retryProbe': 'Reintentar',
+  'workbench.editors.request.response.error.trust.failure': 'Fallo',
+  'workbench.editors.request.response.error.trust.noAnchor':
+    'El servidor no presenta su certificado raíz, así que nada de esto se puede fijar. Añade la CA emisora en Ajustes › Peticiones API › TLS.',
+  'workbench.editors.request.response.error.trust.trustOnDevice': 'Confiar en este dispositivo',
+  'workbench.editors.request.response.error.trust.addToWorkspace': 'Añadir al espacio de trabajo',
   'workbench.editors.request.response.error.certSteps.summary':
     'Los servidores de desarrollo locales suelen funcionar con un certificado autofirmado, que necesitas ' + 'aceptar.',
   'workbench.editors.request.response.error.certSteps.step1': 'Abre la URL en una pestaña nueva',

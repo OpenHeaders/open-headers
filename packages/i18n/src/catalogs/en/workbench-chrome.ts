@@ -214,7 +214,6 @@ export const workbenchChrome = {
   'workbench.shell.breadcrumbs.specs': 'Specs',
   'workbench.shell.breadcrumbs.workspaceVariables': 'Workspace Variables',
   'workbench.shell.breadcrumbs.vault': 'Vault',
-  'workbench.shell.breadcrumbs.trustedRoots': 'Trusted Certificates',
   'workbench.shell.breadcrumbs.packageLibrary': 'Package Library',
   'workbench.shell.breadcrumbs.rules': 'Rules',
   'workbench.shell.breadcrumbs.requests': 'Requests',

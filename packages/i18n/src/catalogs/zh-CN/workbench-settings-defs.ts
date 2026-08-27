@@ -409,9 +409,12 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.editor.bracketPairColorization.description': '用不同颜色高亮匹配的括号。',
 
   // ── API Requests category defs ─────────────────────────────────────
-  'workbench.settings.def.requests.trustedRoots.label': '受信任的证书',
+  'workbench.settings.def.requests.trustedRoots.label': '工作区证书',
   'workbench.settings.def.requests.trustedRoots.description':
-    '此工作区在内置根证书之外信任的证书颁发机构，应用于应用运行时建立的每个 TLS 连接。属于工作区数据，在其专属标签页中编辑——可从此处打开。',
+    '此工作区在内置根证书之外信任的证书颁发机构，应用于应用运行时建立的每个 TLS 连接。与工作区的每个成员共享——公开材料，绝非机密。',
+  'workbench.settings.def.requests.deviceTrust.label': '设备证书',
+  'workbench.settings.def.requests.deviceTrust.description':
+    '本机在工作区列表之外固定的证书——自签名的 localhost、一台预发布服务器。绝不同步或导出；应用于从此设备建立的每个 TLS 连接。',
   'workbench.settings.def.requests.responseBodyCapMB.label': '响应体上限（MB）',
   'workbench.settings.def.requests.responseBodyCapMB.description':
     '执行器为显示保留的响应体大小。更大的响应体会在此上限处截断——完整大小仍会被测量并报告。提高上限会增加每个打开的请求标签页的内存占用。',

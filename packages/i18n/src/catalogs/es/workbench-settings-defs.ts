@@ -560,9 +560,12 @@ export const workbenchSettingsDefs = {
     'Resalta los corchetes emparejados en colores distintos.',
 
   // ── API Requests category defs ─────────────────────────────────────
-  'workbench.settings.def.requests.trustedRoots.label': 'Certificados de confianza',
+  'workbench.settings.def.requests.trustedRoots.label': 'Certificados del espacio de trabajo',
   'workbench.settings.def.requests.trustedRoots.description':
-    'Autoridades de certificación en las que confía este espacio de trabajo además de las raíces integradas, aplicadas a cada conexión TLS que establece el runtime de la aplicación. Datos del espacio de trabajo, editados en su propia pestaña — ábrela desde aquí.',
+    'Autoridades de certificación en las que confía este espacio de trabajo además de las raíces integradas, aplicadas a cada conexión TLS que establece el runtime de la aplicación. Compartidas con cada compañero del espacio de trabajo — material público, nunca un secreto.',
+  'workbench.settings.def.requests.deviceTrust.label': 'Certificados del dispositivo',
+  'workbench.settings.def.requests.deviceTrust.description':
+    'Certificados que esta máquina fija además de la lista del espacio de trabajo — un localhost autofirmado, un servidor de staging. Nunca se sincronizan ni exportan; se aplican a cada conexión TLS establecida desde este dispositivo.',
   'workbench.settings.def.requests.responseBodyCapMB.label': 'Límite del cuerpo de respuesta (MB)',
   'workbench.settings.def.requests.responseBodyCapMB.description':
     'Cuánto de un cuerpo de respuesta conserva el ejecutor para mostrarlo. Los cuerpos más grandes se ' +

@@ -85,7 +85,6 @@ const PaletteProbe: React.FC = () => {
     openEnvironmentEdit: noop,
     openWorkspaceVariables: noop,
     openVault: noop,
-    openTrustedRoots: noop,
     openScriptPackages: noop,
     openLiveVariables: noop,
     onOpenCreateMenu: noop,

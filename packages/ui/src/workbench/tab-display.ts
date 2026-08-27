@@ -178,8 +178,6 @@ export function tabDisplayLabel(tab: WorkbenchTab, lookups: TabDisplayLookups, t
       return t('workbench.shell.breadcrumbs.workspaceVariables');
     case 'vault':
       return t('workbench.shell.breadcrumbs.vault');
-    case 'trusted-roots':
-      return t('workbench.shell.breadcrumbs.trustedRoots');
     case 'script-packages':
       return t('workbench.shell.breadcrumbs.packageLibrary');
     case 'live-vars':

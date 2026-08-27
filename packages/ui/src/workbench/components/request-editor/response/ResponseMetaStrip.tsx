@@ -13,11 +13,16 @@
 import { ArrowDownOutlined, ArrowUpOutlined, GlobalOutlined } from '@ant-design/icons';
 import { getCapability } from '@openheaders/core/capabilities';
 import type { ExecutedRequestSnapshot } from '@openheaders/core/types';
-import { InfoPopover, type InfoPopoverContent } from '@openheaders/ui/shared/info-popover';
+import { InfoPopover, type InfoPopoverAction, type InfoPopoverContent } from '@openheaders/ui/shared/info-popover';
 import { getStatusCodeInfoContent } from '@openheaders/ui/shared/info-popover/data/http-status';
-import { Tag, Typography, theme } from 'antd';
+import { App, Tag, Typography, theme } from 'antd';
 import type React from 'react';
+import { useCallback } from 'react';
+import { addDeviceTrustedCertificate, isNodeRequestRuntime } from '@openheaders/ui/shared/device-trust';
 import { type Translate, useT } from '@openheaders/ui/context/LocaleContext';
+import { useOpenSettings } from '../../../hooks/OpenSettingsContext';
+import { formatFingerprint, subjectCommonName } from '../../trusted-roots/add-gate';
+import { TRUSTED_ROOTS_SETTING_KEY } from '../../trusted-roots/TrustedRootsPicker';
 import ProxyRouteTag, { proxyRouteHasBadge } from './ProxyRouteTag';
 import { formatBytes } from './response-format';
 import { statusDisplayLabel, useStatusPillStyle } from './response-status';
@@ -377,6 +382,36 @@ function NetworkFacts({ response }: { response: ExecutedRequestSnapshot }) {
     ...(local !== undefined ? [{ label: t('workbench.editors.request.response.meta.localAddress'), value: local }] : []),
     { label: t('workbench.editors.request.response.meta.remoteAddress'), value: remote ?? '—' },
   ];
+  const tls = network?.tls;
+  if (tls !== undefined) {
+    if (tls.protocol !== undefined) {
+      rows.push({ label: t('workbench.editors.request.response.meta.tlsProtocol'), value: tls.protocol });
+    }
+    if (tls.cipher !== undefined) {
+      rows.push({ label: t('workbench.editors.request.response.meta.tlsCipher'), value: tls.cipher });
+    }
+    if (tls.certificate !== undefined) {
+      rows.push(
+        {
+          label: t('workbench.editors.request.response.meta.tlsCertificate'),
+          value: subjectCommonName(tls.certificate.subject),
+          testId: 'oh-response-tls-subject',
+        },
+        {
+          label: t('workbench.editors.request.response.meta.tlsIssuer'),
+          value: subjectCommonName(tls.certificate.issuer),
+        },
+        {
+          label: t('workbench.editors.request.response.meta.tlsValidUntil'),
+          value: new Date(tls.certificate.notAfter).toLocaleString(),
+        },
+        {
+          label: t('workbench.editors.request.response.meta.tlsFingerprint'),
+          value: formatFingerprint(tls.certificate.fingerprintSha256),
+        },
+      );
+    }
+  }
   const notes: string[] = [];
   if (!versionLabel) {
     // Absence reads differently per runtime: the browser withheld a
@@ -417,6 +452,11 @@ function NetworkFacts({ response }: { response: ExecutedRequestSnapshot }) {
             {note}
           </span>
         ))}
+        {tls?.authorizationError !== undefined && (
+          <span style={{ fontSize: 11, color: token.colorError }} data-testid="oh-response-tls-verdict">
+            {t('workbench.editors.request.response.meta.tlsUnverifiedVerdict', { code: tls.authorizationError })}
+          </span>
+        )}
       </div>
     </div>
   );
@@ -630,12 +670,28 @@ function executedOnContent(name: string, t: Translate): InfoPopoverContent {
   };
 }
 
-function networkContent(response: ExecutedRequestSnapshot, t: Translate): InfoPopoverContent {
+function networkContent(
+  response: ExecutedRequestSnapshot,
+  t: Translate,
+  actions: ReadonlyArray<InfoPopoverAction>,
+): InfoPopoverContent {
   return {
     title: t('workbench.editors.request.response.meta.networkTitle'),
     kicker: t('workbench.editors.request.response.meta.kicker'),
     summary: t('workbench.editors.request.response.meta.networkSummary'),
     description: <NetworkFacts response={response} />,
+    ...(actions.length > 0 ? { actions } : {}),
+  };
+}
+
+/** Popover for the tag on a run whose dial trusted certificates beyond
+ *  the runtime bundle — the workspace list and/or this device's pins,
+ *  counted per scope on the snapshot. */
+function trustedAnchorsContent(t: Translate, workspace: number, device: number): InfoPopoverContent {
+  return {
+    title: t('workbench.editors.request.response.meta.trustedTitle'),
+    kicker: t('workbench.editors.request.response.meta.kicker'),
+    summary: t('workbench.editors.request.response.meta.trustedSummary', { workspace, device }),
   };
 }
 
@@ -658,6 +714,46 @@ export const MetaDot: React.FC = () => {
 const ResponseMetaStrip: React.FC<ResponseMetaStripProps> = ({ response }) => {
   const { token } = theme.useToken();
   const t = useT();
+  const { message } = App.useApp();
+  const openSettings = useOpenSettings();
+  const tls = response.network?.tls;
+  const unverifiedLeaf =
+    tls?.authorizationError !== undefined && tls.certificate !== undefined && isNodeRequestRuntime()
+      ? tls.certificate
+      : undefined;
+  const pinLeaf = useCallback(async () => {
+    if (unverifiedLeaf === undefined) return;
+    const added = await addDeviceTrustedCertificate({
+      certPem: unverifiedLeaf.pem,
+      name: subjectCommonName(unverifiedLeaf.subject),
+      origin: response.network?.remoteAddress,
+    });
+    if (!added.ok) message.error(added.error);
+    else message.success(t('workbench.editors.request.response.meta.trustPinned'));
+  }, [unverifiedLeaf, response.network?.remoteAddress, message, t]);
+  // The runtime needs an anchor that closes the chain: a self-signed leaf
+  // pins as itself; a CA-issued one points at Settings for its root.
+  const trustActions: InfoPopoverAction[] =
+    unverifiedLeaf === undefined
+      ? []
+      : unverifiedLeaf.selfSigned
+        ? [
+            {
+              label: t('workbench.editors.request.response.error.trust.trustOnDevice'),
+              onClick: () => void pinLeaf(),
+              primary: true,
+            },
+          ]
+        : openSettings === null
+          ? []
+          : [
+              {
+                label: t('workbench.trustedRoots.settings.manage'),
+                onClick: () => openSettings({ settingKey: TRUSTED_ROOTS_SETTING_KEY }),
+              },
+            ];
+  const trustedWorkspace = response.trustedRootsApplied ?? 0;
+  const trustedDevice = response.deviceTrustApplied ?? 0;
   const statusPill = useStatusPillStyle(response.status);
   const factStyle: React.CSSProperties = { fontSize: 11, whiteSpace: 'nowrap', cursor: 'help' };
   // The strip leads with the on-wire size when the server exposes it
@@ -694,6 +790,16 @@ const ResponseMetaStrip: React.FC<ResponseMetaStripProps> = ({ response }) => {
           {formatBytes(stripBytes)}
         </Text>
       </InfoPopover>
+      {trustedWorkspace + trustedDevice > 0 && response.error === null && (
+        <>
+          <MetaDot />
+          <InfoPopover content={trustedAnchorsContent(t, trustedWorkspace, trustedDevice)} trigger="hover">
+            <Tag color="success" data-testid="oh-response-tls-trusted" style={{ marginInlineEnd: 0, cursor: 'help' }}>
+              {t('workbench.editors.request.response.meta.tagTrusted')}
+            </Tag>
+          </InfoPopover>
+        </>
+      )}
       {response.sslVerificationDisabled && (
         <>
           <MetaDot />
@@ -794,7 +900,7 @@ const ResponseMetaStrip: React.FC<ResponseMetaStripProps> = ({ response }) => {
         </>
       )}
       <MetaDot />
-      <InfoPopover content={networkContent(response, t)} trigger="hover">
+      <InfoPopover content={networkContent(response, t, trustActions)} trigger="hover">
         <span
           data-testid="oh-response-network"
           style={{

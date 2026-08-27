@@ -950,6 +950,7 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
                     mode === 'request-edit' && summary ? () => void handleSaveResponse() : undefined
                   }
                   extractRequiresSave={isCreateMode}
+                  onResend={() => void handleSend()}
                 />
               </Allotment.Pane>
             </Allotment>

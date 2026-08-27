@@ -232,7 +232,6 @@ export const workbenchChrome = {
   'workbench.shell.breadcrumbs.specs': '规范',
   'workbench.shell.breadcrumbs.workspaceVariables': '工作区变量',
   'workbench.shell.breadcrumbs.vault': 'Vault',
-  'workbench.shell.breadcrumbs.trustedRoots': '受信任的证书',
   'workbench.shell.breadcrumbs.packageLibrary': '包库',
   'workbench.shell.breadcrumbs.rules': '规则',
   'workbench.shell.breadcrumbs.requests': '请求',

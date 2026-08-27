@@ -155,6 +155,8 @@ interface ResponsePanelProps {
    * disabled button whose tooltip explains that saving unlocks it.
    */
   extractRequiresSave?: boolean;
+  /** Resend the request — the error state's trust gesture retries through it. */
+  onResend?: () => void;
 }
 
 const ResponsePanel: React.FC<ResponsePanelProps> = ({
@@ -168,6 +170,7 @@ const ResponsePanel: React.FC<ResponsePanelProps> = ({
   onExtractToWorkflow,
   onSaveResponse,
   extractRequiresSave,
+  onResend,
 }) => {
   const { token } = theme.useToken();
   const t = useT();
@@ -306,7 +309,12 @@ const ResponsePanel: React.FC<ResponsePanelProps> = ({
               instead of leaving the stale failure on screen; once the
               head frame arrives the live tab chrome above takes over. */}
           {response && !sending ? (
-            <ResponseErrorState error={response.error ?? ''} hint={response.errorHint} layout={layout} />
+            <ResponseErrorState
+              error={response.error ?? ''}
+              hint={response.errorHint}
+              layout={layout}
+              onResend={onResend}
+            />
           ) : (
             <ResponseEmptyState sending={sending} />
           )}

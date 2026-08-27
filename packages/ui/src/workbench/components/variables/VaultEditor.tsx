@@ -45,7 +45,8 @@ import {
   useAutoMergeForm,
 } from '@openheaders/ui/shared/conflicts';
 import { useEditorShell, useReprime } from '@openheaders/ui/shared/editor-shell';
-import { useOpenTrustedRoots } from '../../hooks/OpenTrustedRootsContext';
+import { useOpenSettings } from '../../hooks/OpenSettingsContext';
+import { TRUSTED_ROOTS_SETTING_KEY } from '../trusted-roots/TrustedRootsPicker';
 import { stableStringify } from '@openheaders/ui/shared/forms';
 import EditorHeader from '../shell/EditorHeader';
 import VariableTable, { type VariableTableConflictBridge } from '../panels/VariableTable';
@@ -75,7 +76,7 @@ const VaultEditor: React.FC<VaultEditorProps> = ({ onDirtyChange, registerSaveRe
   const { token } = theme.useToken();
   const { message } = App.useApp();
   const t = useT();
-  const openTrustedRoots = useOpenTrustedRoots();
+  const openSettings = useOpenSettings();
   const { vault, isLocked } = useVault();
   // Cipher-down (denied keychain / missing keyring) is a different fact
   // than the lost-at-rest-key lock: the remedy is a relaunch, not
@@ -309,7 +310,7 @@ const VaultEditor: React.FC<VaultEditorProps> = ({ onDirtyChange, registerSaveRe
               style={{ marginBottom: 16 }}
               message={t('workbench.variables.vault.infoBanner')}
             />
-            {openTrustedRoots !== null && (
+            {openSettings !== null && (
               <div
                 style={{ marginBottom: 16, fontSize: 12, color: token.colorTextSecondary }}
                 data-testid="vault-trusted-roots-note"
@@ -319,7 +320,7 @@ const VaultEditor: React.FC<VaultEditorProps> = ({ onDirtyChange, registerSaveRe
                   type="link"
                   size="small"
                   style={{ padding: 0, fontSize: 12, height: 'auto' }}
-                  onClick={openTrustedRoots}
+                  onClick={() => openSettings({ settingKey: TRUSTED_ROOTS_SETTING_KEY })}
                 >
                   {t('workbench.variables.vault.trustedRootsLink')}
                 </Button>

@@ -17,7 +17,6 @@ import {
   FundViewOutlined,
   GiftOutlined,
   HistoryOutlined,
-  SafetyCertificateOutlined,
   SettingOutlined,
   SisternodeOutlined,
   TeamOutlined,
@@ -114,7 +113,6 @@ export function tabIcon(
   if (tab.mode === 'spec-edit') return <FileTextOutlined style={{ fontSize: 12, color: TAB_ICON_GRAY }} />;
   if (tab.mode === 'workspace-vars') return scopeBadge('workspace');
   if (tab.mode === 'vault') return scopeBadge('vault');
-  if (tab.mode === 'trusted-roots') return <SafetyCertificateOutlined style={{ fontSize: 12, color: TAB_ICON_GRAY }} />;
   if (tab.mode === 'script-packages') return <CodeSandboxOutlined style={{ fontSize: 12, color: TAB_ICON_GRAY }} />;
   if (tab.mode === 'live-vars' || tab.mode === 'live-variable-edit' || tab.mode === 'live-variable-create')
     return scopeBadge('live', 14, tab.mode === 'live-variable-create');

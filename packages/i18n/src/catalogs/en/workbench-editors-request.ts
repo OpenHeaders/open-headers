@@ -664,6 +664,18 @@ export const workbenchEditorsRequest = {
     'HTTP version hidden: the platform recorded no timing entry for this request.',
   'workbench.editors.request.response.meta.noteNoIp':
     'Remote address unavailable: the wire capture saw nothing for this fetch.',
+  'workbench.editors.request.response.meta.tlsProtocol': 'TLS protocol',
+  'workbench.editors.request.response.meta.tlsCipher': 'Cipher',
+  'workbench.editors.request.response.meta.tlsCertificate': 'Certificate',
+  'workbench.editors.request.response.meta.tlsIssuer': 'Issuer',
+  'workbench.editors.request.response.meta.tlsValidUntil': 'Valid until',
+  'workbench.editors.request.response.meta.tlsFingerprint': 'SHA-256',
+  'workbench.editors.request.response.meta.tlsUnverifiedVerdict': 'Certificate not verified ({code})',
+  'workbench.editors.request.response.meta.tagTrusted': 'Trusted certificates',
+  'workbench.editors.request.response.meta.trustedTitle': 'Trusted certificates applied',
+  'workbench.editors.request.response.meta.trustedSummary':
+    'Beyond the built-in roots, this send trusted {workspace} from the workspace and {device} pinned on this device.',
+  'workbench.editors.request.response.meta.trustPinned': 'Certificate pinned on this device — send again to verify.',
   'workbench.editors.request.response.meta.noteNoTls':
     'Local address, TLS and certificate details are not exposed to extension code on Chromium.',
   'workbench.editors.request.response.meta.tagUnverifiedTls': 'Unverified TLS',
@@ -836,6 +848,15 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.response.empty.prompt': 'Send the request to see the response here.',
   'workbench.editors.request.response.error.title': 'Could not send request',
   'workbench.editors.request.response.error.openInTab': 'Open in new tab',
+  'workbench.editors.request.response.error.trust.title': 'Trust the certificate {origin} presented',
+  'workbench.editors.request.response.error.trust.probing': 'Reading the certificate the server presents…',
+  'workbench.editors.request.response.error.trust.probeFailed': 'Could not read the server’s certificate: {message}',
+  'workbench.editors.request.response.error.trust.retryProbe': 'Try again',
+  'workbench.editors.request.response.error.trust.failure': 'Failure',
+  'workbench.editors.request.response.error.trust.noAnchor':
+    'The server does not present its root certificate, so nothing here can be pinned. Add the issuing CA under Settings › API Requests › TLS.',
+  'workbench.editors.request.response.error.trust.trustOnDevice': 'Trust on this device',
+  'workbench.editors.request.response.error.trust.addToWorkspace': 'Add to workspace',
   'workbench.editors.request.response.error.certSteps.summary':
     'Local dev servers usually run with a self-signed certificate, which you need to accept.',
   'workbench.editors.request.response.error.certSteps.step1': 'Open the URL in a new tab',

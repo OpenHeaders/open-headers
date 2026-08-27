@@ -5,11 +5,13 @@
  * Mirrors ResponseEmptyState's centered grey-icon layout so the two
  * placeholder states read as one family.
  *
- * Certificate rejections (`open-in-tab` hint) additionally render the
- * CertTrustSteps walkthrough — open in tab → accept warning → resend —
- * laid out to match the pane's shape: a stacked editor split gives a
- * wide pane (steps in a row), a side-by-side split a narrow one
- * (steps stacked).
+ * Certificate rejections additionally render the runtime's remedy:
+ * the browser's `open-in-tab` hint gets the CertTrustSteps walkthrough
+ * — open in tab → accept warning → resend — laid out to match the
+ * pane's shape (a stacked editor split gives a wide pane, steps in a
+ * row; a side-by-side split a narrow one, steps stacked); the node
+ * runtime's `trust-certificate` hint gets the TrustCertificateOffer —
+ * the presented chain and the pin-on-device / add-to-workspace gesture.
  */
 
 import { DisconnectOutlined } from '@ant-design/icons';
@@ -20,6 +22,7 @@ import { useT } from '@openheaders/ui/context/LocaleContext';
 import PeerExecuteDisabledNotice, { peerExecuteRefusalKind } from '../../shared/PeerExecuteDisabledNotice';
 import type { RequestEditorLayout } from '../useRequestEditorLayout';
 import CertTrustSteps from './CertTrustSteps';
+import TrustCertificateOffer from './TrustCertificateOffer';
 
 const { Text } = Typography;
 
@@ -27,7 +30,9 @@ const ResponseErrorState: React.FC<{
   error: string;
   hint?: ExecutedRequestErrorHint;
   layout: RequestEditorLayout;
-}> = ({ error, hint, layout }) => {
+  /** Resend after a trust gesture (the node remedy). */
+  onResend?: () => void;
+}> = ({ error, hint, layout, onResend }) => {
   const { token } = theme.useToken();
   const t = useT();
   const refusalKind = peerExecuteRefusalKind(error);
@@ -87,6 +92,7 @@ const ResponseErrorState: React.FC<{
         // 'horizontal' puts the panes side-by-side → stack the steps.
         <CertTrustSteps url={hint.url} direction={layout === 'vertical' ? 'horizontal' : 'vertical'} />
       )}
+      {hint?.kind === 'trust-certificate' && <TrustCertificateOffer hint={hint} onResend={onResend} />}
     </div>
   );
 };

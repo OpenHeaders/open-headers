@@ -95,7 +95,6 @@ export interface UseTabOpenersApi {
   openWorkspaceVariables: () => void;
   openVault: () => void;
   /** Open the workspace's trusted-certificates editor (singleton tab). */
-  openTrustedRoots: () => void;
   openScriptPackages: () => void;
   openLiveVariables: () => void;
   openCollectionVariables: (uid: string, name: string) => void;

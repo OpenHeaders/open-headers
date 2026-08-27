@@ -55,6 +55,13 @@ export const workbenchTrustedRoots = {
   'workbench.trustedRoots.settings.browserStore': 'Almacén del navegador',
   'workbench.trustedRoots.settings.help':
     'Autoridades de certificación en las que confía este espacio de trabajo además de las raíces integradas — aplicadas a cada conexión TLS que establece el runtime de la app, una raíz por fila. Añade aquí una CA privada en lugar de desactivar la verificación.',
+  'workbench.trustedRoots.settings.deviceCount': '{count} en este dispositivo',
+  'workbench.trustedRoots.settings.groupWorkspace': 'Este espacio de trabajo',
+  'workbench.trustedRoots.settings.groupDevice': 'Este dispositivo',
+  'workbench.trustedRoots.device.count': 'FIJADOS EN ESTE DISPOSITIVO ({count})',
+  'workbench.trustedRoots.device.empty': 'No hay certificados fijados en este dispositivo',
+  'workbench.trustedRoots.device.emptyHint':
+    'Las fijaciones suelen añadirse desde un envío fallido — confiar en el certificado que presentó el servidor, solo en esta máquina. Pega uno aquí para fijarlo a mano.',
   'workbench.trustedRoots.settings.browserNote':
     'El navegador verifica con su propio almacén de confianza; los certificados añadidos a este espacio de trabajo solo se aplican cuando envía el runtime de la app.',
 } as const satisfies Catalog;

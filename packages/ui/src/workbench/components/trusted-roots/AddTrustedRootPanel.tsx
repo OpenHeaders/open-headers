@@ -1,7 +1,8 @@
 /**
  * AddTrustedRootPanel — the paste → summary → Add flow. The parsed
  * summary shows before anything is committed; a leaf is refused with
- * the reason and Add stays disabled; a chain adds as ONE root.
+ * the reason where the list requires a CA and Add stays disabled; a
+ * chain adds as ONE root.
  */
 
 import type { CertificateSummary } from '@openheaders/core/utils';
@@ -17,15 +18,24 @@ const { Text } = Typography;
 interface AddTrustedRootPanelProps {
   onAdd: (input: { name: string; certPem: string }) => void;
   onCancel: () => void;
+  /** Refuse a non-CA leaf (the workspace list); off for device pins. */
+  requireCa?: boolean;
+  /** Disable Add while a commit is in flight. */
+  busy?: boolean;
 }
 
-const AddTrustedRootPanel: React.FC<AddTrustedRootPanelProps> = ({ onAdd, onCancel }) => {
+const AddTrustedRootPanel: React.FC<AddTrustedRootPanelProps> = ({
+  onAdd,
+  onCancel,
+  requireCa = true,
+  busy = false,
+}) => {
   const t = useT();
   const { token } = theme.useToken();
   const [pem, setPem] = useState('');
   const [name, setName] = useState('');
   const [nameTouched, setNameTouched] = useState(false);
-  const state = useCertificateSummary(pem);
+  const state = useCertificateSummary(pem, { requireCa });
   const gate = state.status === 'settled' ? state.gate : null;
   const summary: CertificateSummary | null = gate && 'summary' in gate ? gate.summary : null;
 
@@ -34,7 +44,7 @@ const AddTrustedRootPanel: React.FC<AddTrustedRootPanelProps> = ({ onAdd, onCanc
     if (!nameTouched) setName(summary ? subjectCommonName(summary.subject) : '');
   }, [summary, nameTouched]);
 
-  const canAdd = gate?.ok === true && name.trim().length > 0;
+  const canAdd = gate?.ok === true && name.trim().length > 0 && !busy;
 
   const summaryRow = (label: string, value: string, mono = false) => (
     <div style={{ display: 'grid', gridTemplateColumns: '120px 1fr', gap: 8, fontSize: 12 }}>

@@ -5,6 +5,7 @@
 
 import * as v from 'valibot';
 import { getCurrentHost } from '../../../shared/host-vocabulary';
+import DeviceTrustRow from '../components/device-trust-row';
 import TrustedRootsRow from '../components/trusted-roots-row';
 import { registerSetting } from '../registry';
 
@@ -26,6 +27,7 @@ declare module '@openheaders/ui/workbench/settings/types' {
     'requests.wsMessagesGroupRowLimit': number;
     'requests.mqttMessagesNewestFirst': boolean;
     'requests.trustedRoots': string;
+    'requests.deviceTrust': string;
   }
 }
 
@@ -268,10 +270,10 @@ registerSetting({
   numberRange: { min: 0, max: 100, step: 1 },
 });
 
-// The global door to the workspace's trusted certificates — a readout
-// riding an `info` def with a custom editor (the MCP Clients idiom):
-// the list itself is workspace data edited in its own tab, so this
-// row shows the count and opens the editor, never holds a value.
+// The two trust lists every TLS dial takes, edited in place — non-schema
+// blocks riding `info` defs with custom editors (the MCP Clients idiom):
+// the workspace's trusted certificates (synced workspace data) and this
+// device's pins (host posture, never synced). Neither holds a value.
 registerSetting({
   key: 'requests.trustedRoots',
   subcategory: 'tls',
@@ -284,4 +286,18 @@ registerSetting({
   tags: ['tls', 'ssl', 'certificate', 'ca', 'root', 'trust', 'pki', 'verify'],
   scope: 'user',
   customEditor: TrustedRootsRow,
+});
+
+registerSetting({
+  key: 'requests.deviceTrust',
+  subcategory: 'tls',
+  type: 'info',
+  default: '',
+  schema: v.string(),
+  labelKey: 'workbench.settings.def.requests.deviceTrust.label',
+  descriptionKey: 'workbench.settings.def.requests.deviceTrust.description',
+  category: 'requests',
+  tags: ['tls', 'ssl', 'certificate', 'self-signed', 'localhost', 'pin', 'trust', 'device'],
+  scope: 'user',
+  customEditor: DeviceTrustRow,
 });
