@@ -102,8 +102,8 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.saved.delete': 'Supprimer',
   'workbench.editors.mqtt.topics.hint':
     'Abonnements ouverts avec la session. Les jokers + et # sont bienvenus ; les lignes désactivées restent enregistrées mais ne s’abonnent pas.',
-  'workbench.editors.mqtt.topics.filterLabel': 'Filtre de sujet',
-  'workbench.editors.mqtt.topics.filterPlaceholder': 'Filtre de sujet, p. ex. sensors/+/temperature',
+  'workbench.editors.mqtt.topics.filterLabel': 'Sujet',
+  'workbench.editors.mqtt.topics.filterPlaceholder': 'Sujet, p. ex. sensors/+/temperature',
   'workbench.editors.mqtt.topics.qosColLabel': 'QoS',
   'workbench.editors.mqtt.topics.optionsColLabel': 'Options',
   'workbench.editors.mqtt.topics.optionsTooltip': 'Options d’abonnement',

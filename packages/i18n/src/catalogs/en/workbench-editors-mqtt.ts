@@ -93,8 +93,8 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.saved.delete': 'Delete',
   'workbench.editors.mqtt.topics.hint':
     'Subscriptions the session opens with. Wildcards + and # are welcome; toggled-off rows stay saved but do not subscribe.',
-  'workbench.editors.mqtt.topics.filterLabel': 'Topic filter',
-  'workbench.editors.mqtt.topics.filterPlaceholder': 'Topic filter, e.g. sensors/+/temperature',
+  'workbench.editors.mqtt.topics.filterLabel': 'Topic',
+  'workbench.editors.mqtt.topics.filterPlaceholder': 'Topic, e.g. sensors/+/temperature',
   'workbench.editors.mqtt.topics.qosColLabel': 'QoS',
   'workbench.editors.mqtt.topics.optionsColLabel': 'Options',
   'workbench.editors.mqtt.topics.optionsTooltip': 'Subscription options',

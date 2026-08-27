@@ -100,8 +100,8 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.saved.delete': 'Eliminar',
   'workbench.editors.mqtt.topics.hint':
     'Suscripciones con las que abre la sesión. Los comodines + y # son bienvenidos; las filas desactivadas se guardan pero no se suscriben.',
-  'workbench.editors.mqtt.topics.filterLabel': 'Filtro de tema',
-  'workbench.editors.mqtt.topics.filterPlaceholder': 'Filtro de tema, p. ej. sensors/+/temperature',
+  'workbench.editors.mqtt.topics.filterLabel': 'Tema',
+  'workbench.editors.mqtt.topics.filterPlaceholder': 'Tema, p. ej. sensors/+/temperature',
   'workbench.editors.mqtt.topics.qosColLabel': 'QoS',
   'workbench.editors.mqtt.topics.optionsColLabel': 'Opciones',
   'workbench.editors.mqtt.topics.optionsTooltip': 'Opciones de suscripción',
