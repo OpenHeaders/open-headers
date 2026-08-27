@@ -266,6 +266,8 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.session.reconnectRefused': '重连被拒绝：{reason}',
   'workbench.editors.mqtt.timeline.reconnectingAfter': '第 {attempt} 次重连尝试，等待 {delay} 后',
   'workbench.editors.mqtt.timeline.reconnectingNow': '第 {attempt} 次重连尝试，立即',
+  'workbench.editors.mqtt.timeline.reconnectedDroppedOne': '已丢弃 1 条未确认的消息',
+  'workbench.editors.mqtt.timeline.reconnectedDroppedMany': '已丢弃 {count} 条未确认的消息',
   'workbench.editors.mqtt.session.reconnectExhaustedTag': '重连已放弃',
   'workbench.editors.mqtt.session.reconnectExhausted': '重连已放弃，共 {attempts}',
   'workbench.editors.mqtt.session.reconnectExhaustedReason': '重连已放弃，共 {attempts}：{reason}',

@@ -128,6 +128,7 @@ export const CapturedMqttReconnectedSchema = v.object({
   sessionPresent: v.boolean(),
   reasonCode: v.number(),
   remainingLength: v.number(),
+  dropped: v.optional(v.number()),
 });
 
 /** One captured event of the session's log, in packet order. */

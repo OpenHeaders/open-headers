@@ -249,13 +249,16 @@ export type MqttStreamItemWire =
    *  `forced` = the user cut the wait short (`delayMs` is then the
    *  wait actually sat through). */
   | { kind: 'reconnecting'; attempt: number; delayMs: number; error?: string; forced?: true; atMs: number }
-  /** A reconnect attempt's CONNACK accepted — the new connection's facts. */
+  /** A reconnect attempt's CONNACK accepted — the new connection's
+   *  facts; `dropped` = the unacknowledged QoS 1/2 PUBLISHes a fresh
+   *  session dropped, present only when there were any. */
   | {
       kind: 'reconnected';
       attempt: number;
       sessionPresent: boolean;
       reasonCode: number;
       remainingLength: number;
+      dropped?: number;
       atMs: number;
     };
 

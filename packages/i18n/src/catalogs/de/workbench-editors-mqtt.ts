@@ -287,6 +287,8 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.session.reconnectRefused': 'Wiederverbindung abgelehnt: {reason}',
   'workbench.editors.mqtt.timeline.reconnectingAfter': 'Wiederverbindungsversuch {attempt} nach {delay}',
   'workbench.editors.mqtt.timeline.reconnectingNow': 'Wiederverbindungsversuch {attempt} jetzt',
+  'workbench.editors.mqtt.timeline.reconnectedDroppedOne': 'eine unbestätigte Nachricht verworfen',
+  'workbench.editors.mqtt.timeline.reconnectedDroppedMany': '{count} unbestätigte Nachrichten verworfen',
   'workbench.editors.mqtt.session.reconnectExhaustedTag': 'Wiederverbindung aufgegeben',
   'workbench.editors.mqtt.session.reconnectExhausted': 'Wiederverbindung aufgegeben nach {attempts}',
   'workbench.editors.mqtt.session.reconnectExhaustedReason': 'Wiederverbindung aufgegeben nach {attempts}: {reason}',

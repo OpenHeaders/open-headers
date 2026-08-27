@@ -88,14 +88,18 @@ export interface ExecutedMqttReconnecting {
 
 /** A reconnect attempt's CONNACK accepted — the new connection's
  *  facts verbatim (`sessionPresent` says whether the broker kept the
- *  subscriptions; when it did not, the driver resubscribes and the
- *  SUBACK rows follow at their true positions). */
+ *  session; when it did, the PUBLISHes still awaiting a QoS 1/2 ack
+ *  go out again with DUP set — their rows follow; when it did not,
+ *  the driver resubscribes and the SUBACK rows follow at their true
+ *  positions). `dropped` = the unacknowledged PUBLISHes a fresh
+ *  session could no longer ack — present only when there were any. */
 export interface ExecutedMqttReconnected {
   kind: 'reconnected';
   attempt: number;
   sessionPresent: boolean;
   reasonCode: number;
   remainingLength: number;
+  dropped?: number;
 }
 
 /** The session's event log in packet order — PUBLISH messages both

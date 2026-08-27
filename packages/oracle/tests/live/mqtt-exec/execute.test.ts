@@ -1211,4 +1211,117 @@ describe('executeMqttSession — auto-reconnect', () => {
       24_000, 32_000, 60_000, 60_000,
     ]);
   });
+
+  it('a kept session sees the unacked QoS 1/2 PUBLISHes again with DUP set — a PUBREL alone once PUBREC arrived', async () => {
+    const rig = reconnectRig(MQTT_PROTOCOL_VERSIONS.v5);
+    const settled = executeMqttSession(
+      makeMqttRequest({ autoReconnect: true, reconnectBackoff: false, reconnectPeriodMs: 1_000, cleanStart: false }),
+      {
+        workspaceId: null,
+        environmentId: undefined,
+        transport: rig.transport,
+        sendId: 'send-mqtt-reconnect-dup',
+        resolution: scopedResolution,
+      },
+    );
+    await tick();
+    rig.establish(0);
+    rig.push(0, acceptedConnack);
+    expect(publishActiveMqttMessage('send-mqtt-reconnect-dup', { topic: 'probe/q1', payload: 'one', qos: 1 })).toEqual({
+      success: true,
+    });
+    expect(publishActiveMqttMessage('send-mqtt-reconnect-dup', { topic: 'probe/q2', payload: 'two', qos: 2 })).toEqual({
+      success: true,
+    });
+    expect(publishActiveMqttMessage('send-mqtt-reconnect-dup', { topic: 'probe/q0', payload: 'zero' })).toEqual({
+      success: true,
+    });
+    rig.push(0, { type: 'pubrec', packetId: 2, reasonCode: 0 });
+    expect(rig.written[0].at(-1)).toMatchObject({ type: 'pubrel', packetId: 2 });
+    rig.sever(0);
+    await tick();
+    await vi.advanceTimersByTimeAsync(1_000);
+    rig.establish(1);
+    rig.push(1, { type: 'connack', sessionPresent: true, reasonCode: 0 });
+    expect(rig.written[1].map((packet) => packet.type)).toEqual(['connect', 'publish', 'pubrel']);
+    expect(rig.written[1][1]).toMatchObject({ type: 'publish', packetId: 1, topic: 'probe/q1', qos: 1, dup: true });
+    expect(rig.written[1][2]).toMatchObject({ type: 'pubrel', packetId: 2 });
+    // Ids 1 and 2 stay reserved until their acks land — a new publish
+    // never takes one over a retransmission still pending.
+    expect(
+      publishActiveMqttMessage('send-mqtt-reconnect-dup', { topic: 'probe/q1', payload: 'three', qos: 1 }),
+    ).toEqual({ success: true });
+    expect(rig.written[1].at(-1)).toMatchObject({ type: 'publish', packetId: 3, dup: false });
+    rig.push(1, { type: 'puback', packetId: 1, reasonCode: 0 });
+    rig.push(1, { type: 'pubcomp', packetId: 2, reasonCode: 0 });
+    rig.push(1, { type: 'puback', packetId: 3, reasonCode: 0 });
+    rig.sever(1);
+    await tick();
+    await vi.advanceTimersByTimeAsync(1_000);
+    rig.establish(2);
+    rig.push(2, { type: 'connack', sessionPresent: true, reasonCode: 0 });
+    expect(rig.written[2].map((packet) => packet.type)).toEqual(['connect']);
+    closeActiveMqttSession('send-mqtt-reconnect-dup');
+    const snapshot = await settled;
+    expect(
+      snapshot.events.map((event) =>
+        event.kind === 'message' ? `${event.direction}:${event.topic}:${event.qos}:${String(event.dup)}` : event.kind,
+      ),
+    ).toEqual([
+      'up:probe/q1:1:false',
+      'up:probe/q2:2:false',
+      'up:probe/q0:0:false',
+      'lost',
+      'reconnecting',
+      'reconnected',
+      'up:probe/q1:1:true',
+      'up:probe/q1:1:false',
+      'lost',
+      'reconnecting',
+      'reconnected',
+    ]);
+    expect(snapshot.events.filter((event) => event.kind === 'reconnected').map((event) => event.dropped)).toEqual([
+      undefined,
+      undefined,
+    ]);
+  });
+
+  it('a fresh session drops the unacked PUBLISHes and the reconnected row counts them', async () => {
+    const rig = reconnectRig(MQTT_PROTOCOL_VERSIONS.v5);
+    const settled = executeMqttSession(
+      makeMqttRequest({
+        autoReconnect: true,
+        reconnectBackoff: false,
+        reconnectPeriodMs: 1_000,
+        topics: [{ uid: 'row1', topicFilter: 'sensors/+/temp', qos: 1 }],
+      }),
+      {
+        workspaceId: null,
+        environmentId: undefined,
+        transport: rig.transport,
+        sendId: 'send-mqtt-reconnect-drop',
+        resolution: scopedResolution,
+      },
+    );
+    await tick();
+    rig.establish(0);
+    rig.push(0, acceptedConnack);
+    rig.push(0, { type: 'suback', packetId: 1, reasonCodes: [1] });
+    publishActiveMqttMessage('send-mqtt-reconnect-drop', { topic: 'probe/q1', payload: 'one', qos: 1 });
+    publishActiveMqttMessage('send-mqtt-reconnect-drop', { topic: 'probe/q2', payload: 'two', qos: 2 });
+    rig.sever(0);
+    await tick();
+    await vi.advanceTimersByTimeAsync(1_000);
+    rig.establish(1);
+    rig.push(1, { type: 'connack', sessionPresent: false, reasonCode: 0 });
+    expect(rig.written[1].map((packet) => packet.type)).toEqual(['connect', 'subscribe']);
+    closeActiveMqttSession('send-mqtt-reconnect-drop');
+    const snapshot = await settled;
+    expect(snapshot.events.find((event) => event.kind === 'reconnected')).toMatchObject({
+      attempt: 1,
+      sessionPresent: false,
+      dropped: 2,
+    });
+    expect(snapshot.events.filter((event) => event.kind === 'message' && event.dup)).toHaveLength(0);
+  });
 });

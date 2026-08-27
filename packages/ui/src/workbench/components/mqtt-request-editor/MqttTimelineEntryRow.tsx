@@ -450,6 +450,14 @@ const MqttTimelineEntryRow: React.FC<MqttTimelineEntryRowProps> = ({
             <CheckCircleOutlined aria-hidden style={{ fontSize: 11, color: token.colorSuccess }} />
             <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {t('workbench.editors.mqtt.timeline.reconnected')}
+              {item.dropped !== undefined
+                ? ` — ${t(
+                    item.dropped === 1
+                      ? 'workbench.editors.mqtt.timeline.reconnectedDroppedOne'
+                      : 'workbench.editors.mqtt.timeline.reconnectedDroppedMany',
+                    { count: item.dropped },
+                  )}`
+                : ''}
             </span>
             {lifecycleTime(ts)}
             {expandSlot(isExpanded)}

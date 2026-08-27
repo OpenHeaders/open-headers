@@ -33,9 +33,12 @@
  * on the snapshot), or the user ends the session. The wait is the
  * reconnect period, or doubles per failed attempt up to the backoff
  * ceiling when the entity asks. One send id, one snapshot, one event
- * log across every connection; in-flight QoS 1/2 acks of a dropped
- * connection are not retransmitted. A first connect that fails never
- * retries.
+ * log across every connection. A PUBLISH still awaiting its QoS 1/2
+ * ack when the connection dropped is retransmitted with DUP set once a
+ * reconnect CONNACK says the broker kept the session (a PUBREL for an
+ * id the broker already PUBREC'd — spec 4.4); a fresh session drops
+ * them, and the reconnected row states how many. A first connect that
+ * fails never retries.
  *
  * Version lens: the entity's `protocolVersion` KNOB maps onto the wire
  * level once, here — and every 5.0-only surface (properties,
@@ -218,6 +221,15 @@ function wireSubscribeUserProps(
 ): MqttUserProperty[] | undefined {
   const kept = (rows ?? []).filter((row) => row.enabled !== false && row.key.trim() !== '');
   return kept.length > 0 ? kept.map((row) => ({ key: resolveStr(row.key), value: resolveStr(row.value) })) : undefined;
+}
+
+/** A QoS 1/2 PUBLISH awaiting its ack — the packet as sent, kept
+ *  across a redial so a kept session can see it again with DUP set;
+ *  `pubrecd` = the broker already PUBREC'd it, so only the PUBREL is
+ *  owed. */
+interface PendingPublish {
+  packet: Extract<MqttPacket, { type: 'publish' }>;
+  pubrecd: boolean;
 }
 
 /** One SUBSCRIBE unit: the per-row options plus the packet-level 5.0
@@ -421,6 +433,11 @@ export async function executeMqttSession(
     const desiredSubscriptions = new Map<string, SubscribeEntry>();
     for (const entry of openSubscriptions) desiredSubscriptions.set(entry.subscription.topicFilter, entry);
 
+    // The outbound QoS 1/2 ledger is SESSION state: it survives a
+    // redial so a kept session sees its unacked PUBLISHes again, and
+    // the allocator never hands their ids to a new publish meanwhile.
+    const outboundQos = new Map<number, PendingPublish>();
+
     // ── Per-connection state — reset on every (re)dial ──
     /** THIS connection's CONNACK accepted. */
     let attemptOpened = false;
@@ -436,7 +453,6 @@ export async function executeMqttSession(
       string,
       { filters: string[]; resolveAck?: (reasonCode: number | null, failure?: string) => void }
     >();
-    let outboundQos = new Map<number, 1 | 2>();
     let inboundQos2 = new Set<number>();
     // Inbound topic aliases (5.0): a PUBLISH naming both a topic and an
     // alias binds them; a later alias-only PUBLISH resolves through the
@@ -466,7 +482,6 @@ export async function executeMqttSession(
       decoder = createMqttStreamDecoder(version);
       nextPacketId = 0;
       pendingSubAcks = new Map();
-      outboundQos = new Map();
       inboundQos2 = new Set();
       inboundTopicAliases = new Map();
     };
@@ -496,6 +511,38 @@ export async function executeMqttSession(
     const recordFact = (event: Exclude<ExecutedMqttEvent, { kind: 'message' }>): void => {
       record(event, 0);
       emitter?.item({ ...event, atMs: Date.now() });
+    };
+    /** Record an outbound PUBLISH that reached the wire and emit it live. */
+    const recordPublished = (packet: PendingPublish['packet']): void => {
+      const payloadBase64 = encodeBase64Bytes(packet.payload);
+      const fact = {
+        kind: 'message' as const,
+        direction: 'up' as const,
+        topic: packet.topic,
+        payloadBase64,
+        qos: packet.qos,
+        retain: packet.retain,
+        dup: packet.dup,
+      };
+      record(fact, packet.payload.byteLength);
+      emitter?.item({ ...fact, atMs: Date.now() });
+    };
+    /** The broker kept the session across a redial: every PUBLISH still
+     *  awaiting its ack goes out again with DUP set, in id order — a
+     *  PUBREL alone for an id the broker already PUBREC'd. */
+    const retransmitPending = (): void => {
+      for (const packetId of [...outboundQos.keys()].sort((a, b) => a - b)) {
+        const pending = outboundQos.get(packetId);
+        if (pending === undefined) continue;
+        if (pending.pubrecd) {
+          sendPacket({ type: 'pubrel', packetId, reasonCode: null });
+          continue;
+        }
+        const packet = { ...pending.packet, dup: true };
+        if (sendPacket(packet) !== null) continue;
+        pending.packet = packet;
+        recordPublished(packet);
+      }
     };
 
     const unregisterSend = registerActiveSend(options.sendId, () => {
@@ -639,14 +686,21 @@ export async function executeMqttSession(
             }
             attemptOpened = true;
             end = null;
+            // A fresh session cannot ack what the last one left in
+            // flight — the pending PUBLISHes drop, and the row says
+            // how many.
+            const dropped = packet.sessionPresent ? 0 : outboundQos.size;
+            if (!packet.sessionPresent) outboundQos.clear();
             recordFact({
               kind: 'reconnected',
               attempt: reconnectAttempt,
               sessionPresent: packet.sessionPresent,
               reasonCode: packet.reasonCode,
               remainingLength,
+              ...(dropped > 0 ? { dropped } : {}),
             });
-            if (!packet.sessionPresent) subscribeEntries([...desiredSubscriptions.values()]);
+            if (packet.sessionPresent) retransmitPending();
+            else subscribeEntries([...desiredSubscriptions.values()]);
             startKeepAlive();
             return;
           }
@@ -720,17 +774,19 @@ export async function executeMqttSession(
           return;
         }
         case 'puback': {
-          if (outboundQos.get(packet.packetId) === 1) outboundQos.delete(packet.packetId);
+          if (outboundQos.get(packet.packetId)?.packet.qos === 1) outboundQos.delete(packet.packetId);
           return;
         }
         case 'pubrec': {
-          if (outboundQos.get(packet.packetId) === 2) {
+          const pending = outboundQos.get(packet.packetId);
+          if (pending?.packet.qos === 2) {
+            pending.pubrecd = true;
             sendPacket({ type: 'pubrel', packetId: packet.packetId, reasonCode: null });
           }
           return;
         }
         case 'pubcomp': {
-          if (outboundQos.get(packet.packetId) === 2) outboundQos.delete(packet.packetId);
+          if (outboundQos.get(packet.packetId)?.packet.qos === 2) outboundQos.delete(packet.packetId);
           return;
         }
         case 'suback': {
@@ -900,7 +956,7 @@ export async function executeMqttSession(
         if (!decoded.ok) return { success: false, error: decoded.error };
         const qos = message.qos ?? 0;
         const packetId = qos > 0 ? allocPacketId() : null;
-        const error = sendPacket({
+        const packet: PendingPublish['packet'] = {
           type: 'publish',
           topic,
           payload: decoded.bytes,
@@ -909,24 +965,11 @@ export async function executeMqttSession(
           dup: false,
           packetId,
           ...(properties !== undefined ? { properties } : {}),
-        });
+        };
+        const error = sendPacket(packet);
         if (error !== null) return { success: false, error };
-        if (packetId !== null && qos > 0) outboundQos.set(packetId, qos as 1 | 2);
-        const payloadBase64 = encodeBase64Bytes(decoded.bytes);
-        record(
-          { kind: 'message', direction: 'up', topic, payloadBase64, qos, retain: message.retain ?? false, dup: false },
-          decoded.bytes.byteLength,
-        );
-        emitter?.item({
-          kind: 'message',
-          direction: 'up',
-          topic,
-          payloadBase64,
-          qos,
-          retain: message.retain ?? false,
-          dup: false,
-          atMs: Date.now(),
-        });
+        if (packetId !== null && qos > 0) outboundQos.set(packetId, { packet, pubrecd: false });
+        recordPublished(packet);
         return { success: true };
       },
       setSubscription: (subscription: MqttSubscriptionWire) => {

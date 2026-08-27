@@ -49,7 +49,14 @@ export type MqttTimelineItem =
   | { kind: 'unsubscribed'; topicFilters: string[] }
   | { kind: 'lost'; end: { by: 'broker'; reasonCode: number | null } | null }
   | { kind: 'reconnecting'; attempt: number; delayMs?: number; error?: string; forced?: true }
-  | { kind: 'reconnected'; attempt: number; sessionPresent: boolean; reasonCode: number; remainingLength: number };
+  | {
+      kind: 'reconnected';
+      attempt: number;
+      sessionPresent: boolean;
+      reasonCode: number;
+      remainingLength: number;
+      dropped?: number;
+    };
 
 /** The reconnect-cycle facts — the lifecycle rows that ride the item
  *  log (a dropped connection, each redial, the CONNACK that took). */

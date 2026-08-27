@@ -97,4 +97,27 @@ describe('MqttMessageTimeline — reconnect attempt rows', () => {
     expect(rows.some((text) => text?.includes('Reconnect attempt 1 after 5 s'))).toBe(true);
     expect(rows.some((text) => text?.includes('Reconnect attempt 2 now — Connection refused.'))).toBe(true);
   });
+
+  it('a reconnected row counts the unacknowledged messages a fresh session dropped', () => {
+    render(
+      <MqttMessageTimeline
+        items={[
+          { kind: 'lost', end: null },
+          { kind: 'reconnected', attempt: 1, sessionPresent: true, reasonCode: 0, remainingLength: 2 },
+          { kind: 'reconnected', attempt: 2, sessionPresent: false, reasonCode: 0, remainingLength: 2, dropped: 1 },
+          { kind: 'reconnected', attempt: 3, sessionPresent: false, reasonCode: 0, remainingLength: 2, dropped: 3 },
+        ]}
+        count={4}
+        lifecycle={lifecycle}
+        v5
+      />,
+    );
+    const rows = screen.getAllByTestId('mqtt-timeline-reconnected-row').map((row) => row.textContent);
+    expect(rows).toHaveLength(3);
+    expect(rows.filter((text) => text?.includes('dropped'))).toHaveLength(2);
+    expect(rows.some((text) => text?.includes('Reconnected to broker — one unacknowledged message dropped'))).toBe(
+      true,
+    );
+    expect(rows.some((text) => text?.includes('Reconnected to broker — 3 unacknowledged messages dropped'))).toBe(true);
+  });
 });

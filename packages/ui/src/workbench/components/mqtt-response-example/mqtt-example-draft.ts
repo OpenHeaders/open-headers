@@ -141,6 +141,7 @@ export function capturedMqttResponseFromSnapshot(snapshot: ExecutedMqttSnapshot)
         sessionPresent: event.sessionPresent,
         reasonCode: event.reasonCode,
         remainingLength: event.remainingLength,
+        ...(event.dropped === undefined ? {} : { dropped: event.dropped }),
       };
     }),
     droppedMessages: snapshot.droppedMessages,

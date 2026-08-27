@@ -285,6 +285,8 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.session.reconnectRefused': 'reconexión rechazada: {reason}',
   'workbench.editors.mqtt.timeline.reconnectingAfter': 'Intento de reconexión {attempt} tras {delay}',
   'workbench.editors.mqtt.timeline.reconnectingNow': 'Intento de reconexión {attempt} ahora',
+  'workbench.editors.mqtt.timeline.reconnectedDroppedOne': 'un mensaje sin confirmar descartado',
+  'workbench.editors.mqtt.timeline.reconnectedDroppedMany': '{count} mensajes sin confirmar descartados',
   'workbench.editors.mqtt.session.reconnectExhaustedTag': 'Reconexión abandonada',
   'workbench.editors.mqtt.session.reconnectExhausted': 'reconexión abandonada tras {attempts}',
   'workbench.editors.mqtt.session.reconnectExhaustedReason': 'reconexión abandonada tras {attempts}: {reason}',
