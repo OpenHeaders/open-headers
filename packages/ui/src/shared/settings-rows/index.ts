@@ -7,7 +7,8 @@
  */
 
 export { default as ComboKnobRow } from './ComboKnobRow';
-export { CONTROL_RIGHT_INSET, CONTROL_WIDTH } from './constants';
+export { CONTROL_RIGHT_INSET, CONTROL_WIDTH, DEPENDENT_ROWS_INDENT } from './constants';
+export { default as DependentRows } from './DependentRows';
 export { default as GroupSection } from './GroupSection';
 export { default as KnobRow } from './KnobRow';
 export { default as ModifiedDot } from './ModifiedDot';

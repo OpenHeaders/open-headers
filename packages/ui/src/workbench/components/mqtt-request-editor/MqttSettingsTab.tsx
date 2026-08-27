@@ -33,7 +33,14 @@ import {
   formatDurationSeconds,
   numericPresets,
 } from '@openheaders/ui/shared/combo-knob';
-import { ComboKnobRow, GroupSection, KnobRow, SelectKnobRow, TextKnobRow } from '@openheaders/ui/shared/settings-rows';
+import {
+  ComboKnobRow,
+  DependentRows,
+  GroupSection,
+  KnobRow,
+  SelectKnobRow,
+  TextKnobRow,
+} from '@openheaders/ui/shared/settings-rows';
 import { ConfigProvider, Typography, theme } from 'antd';
 import type React from 'react';
 import { useState } from 'react';
@@ -212,40 +219,42 @@ const MqttSettingsTab: React.FC<MqttSettingsTabProps> = ({ draft, setDraft, v5 }
             info={mqttSettingsRowInfo(t, 'autoReconnect')}
             testId="mqtt-auto-reconnect"
           />
-          <ComboKnobRow
-            label={t('workbench.editors.mqtt.settings.reconnectPeriodLabel')}
-            value={draft.reconnectPeriodMs}
-            onChange={(reconnectPeriodMs) => setDraft((d) => ({ ...d, reconnectPeriodMs }))}
-            info={mqttSettingsRowInfo(t, 'reconnectPeriod')}
-            presets={RECONNECT_PERIOD_PRESETS}
-            interpret={interpretReconnectPeriod}
-            format={formatDurationMs}
-            placeholder={t('workbench.editors.mqtt.settings.reconnectPeriodPlaceholder')}
-            disabled={!draft.autoReconnect}
-            testId="mqtt-reconnect-period"
-          />
-          <ComboKnobRow
-            label={t('workbench.editors.mqtt.settings.reconnectMaxAttemptsLabel')}
-            value={draft.reconnectMaxAttempts}
-            onChange={(reconnectMaxAttempts) => setDraft((d) => ({ ...d, reconnectMaxAttempts }))}
-            info={mqttSettingsRowInfo(t, 'reconnectMaxAttempts')}
-            presets={RECONNECT_MAX_ATTEMPTS_PRESETS}
-            interpret={interpretReconnectMaxAttempts}
-            format={String}
-            placeholder={t('workbench.editors.mqtt.settings.reconnectMaxAttemptsPlaceholder')}
-            disabled={!draft.autoReconnect}
-            testId="mqtt-reconnect-max-attempts"
-          />
-          <KnobRow
-            label={t('workbench.editors.mqtt.settings.reconnectBackoffLabel')}
-            checked={draft.reconnectBackoff}
-            modified={draft.reconnectBackoff}
-            onReset={() => setDraft((d) => ({ ...d, reconnectBackoff: false }))}
-            onChange={(reconnectBackoff) => setDraft((d) => ({ ...d, reconnectBackoff }))}
-            info={mqttSettingsRowInfo(t, 'reconnectBackoff')}
-            disabled={!draft.autoReconnect}
-            testId="mqtt-reconnect-backoff"
-          />
+          <DependentRows>
+            <ComboKnobRow
+              label={t('workbench.editors.mqtt.settings.reconnectPeriodLabel')}
+              value={draft.reconnectPeriodMs}
+              onChange={(reconnectPeriodMs) => setDraft((d) => ({ ...d, reconnectPeriodMs }))}
+              info={mqttSettingsRowInfo(t, 'reconnectPeriod')}
+              presets={RECONNECT_PERIOD_PRESETS}
+              interpret={interpretReconnectPeriod}
+              format={formatDurationMs}
+              placeholder={t('workbench.editors.mqtt.settings.reconnectPeriodPlaceholder')}
+              disabled={!draft.autoReconnect}
+              testId="mqtt-reconnect-period"
+            />
+            <ComboKnobRow
+              label={t('workbench.editors.mqtt.settings.reconnectMaxAttemptsLabel')}
+              value={draft.reconnectMaxAttempts}
+              onChange={(reconnectMaxAttempts) => setDraft((d) => ({ ...d, reconnectMaxAttempts }))}
+              info={mqttSettingsRowInfo(t, 'reconnectMaxAttempts')}
+              presets={RECONNECT_MAX_ATTEMPTS_PRESETS}
+              interpret={interpretReconnectMaxAttempts}
+              format={String}
+              placeholder={t('workbench.editors.mqtt.settings.reconnectMaxAttemptsPlaceholder')}
+              disabled={!draft.autoReconnect}
+              testId="mqtt-reconnect-max-attempts"
+            />
+            <KnobRow
+              label={t('workbench.editors.mqtt.settings.reconnectBackoffLabel')}
+              checked={draft.reconnectBackoff}
+              modified={draft.reconnectBackoff}
+              onReset={() => setDraft((d) => ({ ...d, reconnectBackoff: false }))}
+              onChange={(reconnectBackoff) => setDraft((d) => ({ ...d, reconnectBackoff }))}
+              info={mqttSettingsRowInfo(t, 'reconnectBackoff')}
+              disabled={!draft.autoReconnect}
+              testId="mqtt-reconnect-backoff"
+            />
+          </DependentRows>
         </GroupSection>
         <GroupSection
           label={t(MQTT_GROUP_LABEL_KEY.session)}
