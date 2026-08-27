@@ -89,23 +89,23 @@ export const workbenchSettingsDefs = {
     'Zeigt die illustrierten Stufen- und Datenfluss-Tafeln in den Back-end-Einstellungen.',
 
   // ── MCP category defs ──────────────────────────────────────────────
-  'workbench.settings.def.mcp.enabled.label': 'MCP-Server aktivieren',
+  'workbench.settings.def.mcp.enabled.label': 'Aktivieren',
   'workbench.settings.def.mcp.enabled.description':
     'Beantwortet MCP-Clients auf dem Back-end-Port dieser App. Solange aus, existiert der Endpunkt nicht. An ' +
     'können Agents mit einem Zugriffstoken deine Arbeitsbereiche lesen.',
-  'workbench.settings.def.mcp.allowObserve.label': 'Traffic-Beobachtung erlauben',
+  'workbench.settings.def.mcp.allowObserve.label': 'Traffic-Beobachtung',
   'workbench.settings.def.mcp.allowObserve.description':
     'Agents können den Live-Traffic der Quellen lesen, die du im Traffic-Panel erfasst. Nicht erfasste Quellen ' +
     'bleiben unsichtbar; Auth-Header, Cookies und tokenförmige Werte werden durch stabile Marker ersetzt.',
-  'workbench.settings.def.mcp.allowWrite.label': 'Schreib-Tools erlauben',
+  'workbench.settings.def.mcp.allowWrite.label': 'Schreib-Tools',
   'workbench.settings.def.mcp.allowWrite.description':
     'Agents können Regeln, Anfragen, Umgebungen, Variablen und Workflows anlegen, bearbeiten und löschen. ' +
     'Jede Änderung landet im Aktivitäts-Feed und lässt sich zurücknehmen.',
-  'workbench.settings.def.mcp.allowExecute.label': 'Ausführungs-Tools erlauben',
+  'workbench.settings.def.mcp.allowExecute.label': 'Ausführungs-Tools',
   'workbench.settings.def.mcp.allowExecute.description':
     'Agents können gespeicherte Anfragen senden und Workflows ausführen — echter Netzwerkverkehr verlässt in ' +
     'ihrem Auftrag diese Maschine.',
-  'workbench.settings.def.mcp.allowSecrets.label': 'Secret-Offenlegung erlauben',
+  'workbench.settings.def.mcp.allowSecrets.label': 'Secret-Offenlegung',
   'workbench.settings.def.mcp.allowSecrets.description':
     'Agents können vault-Secret-Werte im Klartext lesen. Solange aus, bleibt jedes Secret maskiert.',
 

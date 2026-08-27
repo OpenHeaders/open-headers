@@ -107,6 +107,12 @@ export const workbenchSettings = {
   'workbench.settings.category.mcp.description':
     'Lass KI-Agenten und andere MCP-Clients diese App lesen und steuern. Der Zugriff ist gestuft — Lesen, ' +
     'Schreiben, Ausführen und das Aufdecken von Secrets sind getrennte Schalter, alle standardmäßig aus.',
+  'workbench.settings.category.mcpAccess.label': 'KI · MCP-Server · Zugriff',
+  'workbench.settings.category.mcpAccess.navLabel': 'Zugriff',
+  'workbench.settings.category.mcpAccess.description':
+    'Schalte den Server ein und lege fest, was verbundene Agenten dürfen. Jede Stufe ist standardmäßig aus.',
+  'workbench.settings.category.mcpAccess.sub.server': 'Server',
+  'workbench.settings.category.mcpAccess.sub.permissions': 'Berechtigungen',
   'workbench.settings.category.general.label': 'Allgemein',
   'workbench.settings.category.general.description': 'App-weites Verhalten, Start und Locale.',
   'workbench.settings.category.general.sub.locale': 'Sprache',

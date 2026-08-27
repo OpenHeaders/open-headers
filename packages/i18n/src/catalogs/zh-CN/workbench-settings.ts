@@ -95,6 +95,11 @@ export const workbenchSettings = {
   'workbench.settings.category.mcp.description':
     '让 AI 代理和其他 MCP 客户端读取并控制此应用。访问分级——读取、写入、执行和机密显示是各自独立的开关，' +
     '默认全部关闭。',
+  'workbench.settings.category.mcpAccess.label': 'AI · MCP 服务器 · 访问',
+  'workbench.settings.category.mcpAccess.navLabel': '访问',
+  'workbench.settings.category.mcpAccess.description': '开启服务器并选择已连接的代理可以做什么。每个级别默认都关闭。',
+  'workbench.settings.category.mcpAccess.sub.server': '服务器',
+  'workbench.settings.category.mcpAccess.sub.permissions': '权限',
   'workbench.settings.category.general.label': '常规',
   'workbench.settings.category.general.description': '应用级行为、启动和区域设置。',
   'workbench.settings.category.general.sub.locale': '语言',

@@ -69,19 +69,19 @@ export const workbenchSettingsDefs = {
     'Show the illustrated tier and data-flow panels in Backend settings.',
 
   // ── MCP category defs ──────────────────────────────────────────────
-  'workbench.settings.def.mcp.enabled.label': 'Enable MCP server',
+  'workbench.settings.def.mcp.enabled.label': 'Enable',
   'workbench.settings.def.mcp.enabled.description':
     'Answer MCP clients on this app’s back-end port. While off, the endpoint does not exist. On, agents with an access token can read your workspaces.',
-  'workbench.settings.def.mcp.allowObserve.label': 'Allow traffic observation',
+  'workbench.settings.def.mcp.allowObserve.label': 'Traffic observation',
   'workbench.settings.def.mcp.allowObserve.description':
     'Agents can read live traffic from sources you capture in the Traffic panel. Uncaptured sources stay invisible; auth headers, cookies, and token-shaped values are replaced with stable markers.',
-  'workbench.settings.def.mcp.allowWrite.label': 'Allow write tools',
+  'workbench.settings.def.mcp.allowWrite.label': 'Write tools',
   'workbench.settings.def.mcp.allowWrite.description':
     'Agents can create, edit, and delete rules, requests, environments, variables, and workflows. Every change lands in the Activity Feed and can be reverted.',
-  'workbench.settings.def.mcp.allowExecute.label': 'Allow execute tools',
+  'workbench.settings.def.mcp.allowExecute.label': 'Execute tools',
   'workbench.settings.def.mcp.allowExecute.description':
     'Agents can send saved requests and run workflows — real network traffic leaves this machine on their behalf.',
-  'workbench.settings.def.mcp.allowSecrets.label': 'Allow secret reveal',
+  'workbench.settings.def.mcp.allowSecrets.label': 'Secret reveal',
   'workbench.settings.def.mcp.allowSecrets.description':
     'Agents can read vault secret values in plain text. While off, every secret stays masked.',
 

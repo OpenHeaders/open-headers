@@ -104,25 +104,25 @@ export const workbenchSettingsDefs = {
     'Muestra los paneles ilustrados de niveles y de flujo de datos en la configuración de Backend.',
 
   // ── MCP category defs ──────────────────────────────────────────────
-  'workbench.settings.def.mcp.enabled.label': 'Activar el servidor MCP',
+  'workbench.settings.def.mcp.enabled.label': 'Activar',
   'workbench.settings.def.mcp.enabled.description':
     'Responde a los clientes MCP en el puerto del back-end de esta aplicación. Mientras está desactivado, el ' +
     'punto de acceso no existe. Activado, los agentes con un token de acceso pueden leer tus espacios de ' +
     'trabajo.',
-  'workbench.settings.def.mcp.allowObserve.label': 'Permitir la observación del tráfico',
+  'workbench.settings.def.mcp.allowObserve.label': 'Observación del tráfico',
   'workbench.settings.def.mcp.allowObserve.description':
     'Los agentes pueden leer el tráfico en vivo de las fuentes que capturas en el panel de Tráfico. Las fuentes ' +
     'sin capturar permanecen invisibles; las cabeceras de autenticación, las cookies y los valores con forma de ' +
     'token se reemplazan por marcadores estables.',
-  'workbench.settings.def.mcp.allowWrite.label': 'Permitir las herramientas de escritura',
+  'workbench.settings.def.mcp.allowWrite.label': 'Herramientas de escritura',
   'workbench.settings.def.mcp.allowWrite.description':
     'Los agentes pueden crear, editar y eliminar reglas, solicitudes, entornos, variables y workflows. Cada ' +
     'cambio aterriza en el Flujo de actividad y puede revertirse.',
-  'workbench.settings.def.mcp.allowExecute.label': 'Permitir las herramientas de ejecución',
+  'workbench.settings.def.mcp.allowExecute.label': 'Herramientas de ejecución',
   'workbench.settings.def.mcp.allowExecute.description':
     'Los agentes pueden enviar solicitudes guardadas y ejecutar workflows — tráfico de red real sale de esta ' +
     'máquina en su nombre.',
-  'workbench.settings.def.mcp.allowSecrets.label': 'Permitir revelar los secretos',
+  'workbench.settings.def.mcp.allowSecrets.label': 'Revelar los secretos',
   'workbench.settings.def.mcp.allowSecrets.description':
     'Los agentes pueden leer los valores de los secretos del vault en claro. Mientras está desactivado, ' +
     'todos los secretos permanecen enmascarados.',

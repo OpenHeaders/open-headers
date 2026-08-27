@@ -8,8 +8,8 @@
  * These keys live in user settings and are read live by the server —
  * flipping a switch applies to the next request, no restart. The
  * desktop host is the only one that runs the server, so every row is
- * host-gated; the category itself is registered desktop-only in
- * `../categories.tsx`.
+ * host-gated; the rows live on the AI · MCP Server › Access page
+ * (`mcpAccess` in `../categories.tsx`, desktop-only).
  */
 
 import * as v from 'valibot';
@@ -35,7 +35,8 @@ registerSetting({
   schema: v.boolean(),
   labelKey: 'workbench.settings.def.mcp.enabled.label',
   descriptionKey: 'workbench.settings.def.mcp.enabled.description',
-  category: 'mcp',
+  category: 'mcpAccess',
+  subcategory: 'server',
   tags: ['mcp', 'agent', 'ai', 'server', 'model', 'context', 'protocol'],
   scope: 'user',
   when: desktopOnly,
@@ -48,7 +49,8 @@ registerSetting({
   schema: v.boolean(),
   labelKey: 'workbench.settings.def.mcp.allowObserve.label',
   descriptionKey: 'workbench.settings.def.mcp.allowObserve.description',
-  category: 'mcp',
+  category: 'mcpAccess',
+  subcategory: 'permissions',
   tags: ['mcp', 'observe', 'traffic', 'network', 'agent', 'redaction'],
   scope: 'user',
   when: desktopOnly,
@@ -61,7 +63,8 @@ registerSetting({
   schema: v.boolean(),
   labelKey: 'workbench.settings.def.mcp.allowWrite.label',
   descriptionKey: 'workbench.settings.def.mcp.allowWrite.description',
-  category: 'mcp',
+  category: 'mcpAccess',
+  subcategory: 'permissions',
   tags: ['mcp', 'write', 'mutate', 'create', 'edit', 'delete'],
   scope: 'user',
   when: desktopOnly,
@@ -74,7 +77,8 @@ registerSetting({
   schema: v.boolean(),
   labelKey: 'workbench.settings.def.mcp.allowExecute.label',
   descriptionKey: 'workbench.settings.def.mcp.allowExecute.description',
-  category: 'mcp',
+  category: 'mcpAccess',
+  subcategory: 'permissions',
   tags: ['mcp', 'execute', 'send', 'run', 'request', 'workflow'],
   scope: 'user',
   when: desktopOnly,
@@ -87,7 +91,8 @@ registerSetting({
   schema: v.boolean(),
   labelKey: 'workbench.settings.def.mcp.allowSecrets.label',
   descriptionKey: 'workbench.settings.def.mcp.allowSecrets.description',
-  category: 'mcp',
+  category: 'mcpAccess',
+  subcategory: 'permissions',
   tags: ['mcp', 'secret', 'vault', 'reveal', 'mask'],
   scope: 'user',
   when: desktopOnly,

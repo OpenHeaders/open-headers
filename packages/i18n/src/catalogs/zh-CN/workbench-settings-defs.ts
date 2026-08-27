@@ -74,19 +74,19 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.backend.showDiagrams.description': '在后端设置中显示图解的档位与数据流面板。',
 
   // ── MCP category defs ──────────────────────────────────────────────
-  'workbench.settings.def.mcp.enabled.label': '启用 MCP 服务器',
+  'workbench.settings.def.mcp.enabled.label': '启用',
   'workbench.settings.def.mcp.enabled.description':
     '在此应用的后端端口上应答 MCP 客户端。关闭时端点不存在。开启后，持有访问 token 的智能体可以读取你的工作区。',
-  'workbench.settings.def.mcp.allowObserve.label': '允许观察流量',
+  'workbench.settings.def.mcp.allowObserve.label': '观察流量',
   'workbench.settings.def.mcp.allowObserve.description':
     '智能体可以读取你在流量面板中捕获的来源的实时流量。未捕获的来源保持不可见；身份验证标头、Cookie 和 token 形态的值会被替换为稳定的标记。',
-  'workbench.settings.def.mcp.allowWrite.label': '允许写入工具',
+  'workbench.settings.def.mcp.allowWrite.label': '写入工具',
   'workbench.settings.def.mcp.allowWrite.description':
     '智能体可以创建、编辑和删除规则、请求、环境、变量和工作流。每次更改都会进入活动流，并且可以回退。',
-  'workbench.settings.def.mcp.allowExecute.label': '允许执行工具',
+  'workbench.settings.def.mcp.allowExecute.label': '执行工具',
   'workbench.settings.def.mcp.allowExecute.description':
     '智能体可以发送已保存的请求并运行工作流——真实的网络流量会代表它们离开这台机器。',
-  'workbench.settings.def.mcp.allowSecrets.label': '允许显示机密',
+  'workbench.settings.def.mcp.allowSecrets.label': '显示机密',
   'workbench.settings.def.mcp.allowSecrets.description': '智能体可以以明文读取 vault 机密值。关闭时所有机密保持遮罩。',
 
   // ── General category defs ──────────────────────────────────────────

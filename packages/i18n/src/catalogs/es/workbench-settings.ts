@@ -109,6 +109,12 @@ export const workbenchSettings = {
     'Permite que los agentes de IA y otros clientes MCP lean y controlen esta aplicación. El acceso está ' +
     'escalonado — lectura, escritura, ejecución y revelación de secretos son interruptores separados, todos ' +
     'desactivados por defecto.',
+  'workbench.settings.category.mcpAccess.label': 'IA · Servidor MCP · Acceso',
+  'workbench.settings.category.mcpAccess.navLabel': 'Acceso',
+  'workbench.settings.category.mcpAccess.description':
+    'Activa el servidor y elige qué pueden hacer los agentes conectados. Todos los niveles están desactivados por defecto.',
+  'workbench.settings.category.mcpAccess.sub.server': 'Servidor',
+  'workbench.settings.category.mcpAccess.sub.permissions': 'Permisos',
   'workbench.settings.category.general.label': 'General',
   'workbench.settings.category.general.description':
     'Comportamiento global de la aplicación, arranque y configuración regional.',

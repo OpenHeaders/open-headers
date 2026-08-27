@@ -147,6 +147,23 @@ registerCategory({
 });
 
 registerCategory({
+  id: 'mcpAccess',
+  labelKey: 'workbench.settings.category.mcpAccess.label',
+  navLabelKey: 'workbench.settings.category.mcpAccess.navLabel',
+  parent: 'mcp',
+  icon: <SafetyCertificateOutlined />,
+  order: 5,
+  descriptionKey: 'workbench.settings.category.mcpAccess.description',
+  subcategories: [
+    { id: 'server', labelKey: 'workbench.settings.category.mcpAccess.sub.server', order: 10 },
+    { id: 'permissions', labelKey: 'workbench.settings.category.mcpAccess.sub.permissions', order: 20 },
+  ],
+  // The desktop app is the only host that runs the MCP server; the group
+  // node above carries the teaser, so this child simply hides elsewhere.
+  when: () => getCurrentHost() === 'desktop',
+});
+
+registerCategory({
   id: 'general',
   labelKey: 'workbench.settings.category.general.label',
   icon: <SettingOutlined />,

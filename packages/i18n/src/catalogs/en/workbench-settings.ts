@@ -92,6 +92,12 @@ export const workbenchSettings = {
   'workbench.settings.category.mcp.label': 'AI · MCP Server',
   'workbench.settings.category.mcp.description':
     'Let AI agents and other MCP clients read and control this app. Access is tiered — reading, writing, executing, and secret reveal are separate switches, all off by default.',
+  'workbench.settings.category.mcpAccess.label': 'AI · MCP Server · Access',
+  'workbench.settings.category.mcpAccess.navLabel': 'Access',
+  'workbench.settings.category.mcpAccess.description':
+    'Turn the server on and choose what connected agents may do. Every tier is off by default.',
+  'workbench.settings.category.mcpAccess.sub.server': 'Server',
+  'workbench.settings.category.mcpAccess.sub.permissions': 'Permissions',
   'workbench.settings.category.general.label': 'General',
   'workbench.settings.category.general.description': 'App-wide behavior, startup, and locale.',
   'workbench.settings.category.general.sub.locale': 'Locale',
