@@ -1,8 +1,20 @@
 /**
- * GrpcSettingsTab — per-request settings rows (unix socket, SSL
- * verification, timeout) plus the app-wide send-invalid-message
- * posture: the SAME setting as Settings → Requests and the header ⋯
- * toggle, not a per-request field.
+ * GrpcSettingsTab — per-request call knobs in the request Settings
+ * tab's exact anatomy (the MQTT and WebSocket Settings tabs'
+ * discipline): collapsible group sections (Connection · TLS & trust ·
+ * Messages) whose headers carry the (i) group popovers, `label · (i)
+ * · control` rows from the shared settings-row family with the
+ * effective defaults legible in the controls, modified dots, and
+ * per-row resets.
+ *
+ * The tab edits the draft directly, so the dots track distance from
+ * the PROTOCOL defaults — there is no saved-baseline (unsaved) plane
+ * here; the editor's own dirty fingerprint covers "not saved yet".
+ * The call timeout states "No limit" honestly: no layer arms a
+ * deadline unless the request carries one. The Messages group holds
+ * the app-wide send-invalid-message posture — the SAME setting as
+ * Settings → Requests and the header ⋯ toggle, not a per-request
+ * field, so it wears neither dot nor reset.
  */
 
 import {
@@ -12,33 +24,28 @@ import {
   MIN_REQUEST_TIMEOUT_MS,
 } from '@openheaders/core/schemas';
 import { useT } from '@openheaders/ui/context/LocaleContext';
-import { Input, InputNumber, Switch, Typography } from 'antd';
+import { durationMsInterpreter, formatDurationMs, numericPresets } from '@openheaders/ui/shared/combo-knob';
+import { ComboKnobRow, GroupSection, KnobRow, TextKnobRow } from '@openheaders/ui/shared/settings-rows';
+import { ConfigProvider, theme } from 'antd';
 import type React from 'react';
+import { useState } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
 import type { GrpcDraft } from './draft';
+import { grpcSettingsGroupInfo, grpcSettingsRowInfo } from './GrpcSettingsRowInfo';
+import { GRPC_GROUP_LABEL_KEY } from './settings-groups';
 
-const { Text } = Typography;
+/** The call timeout is app milliseconds on the wire — free text
+ *  becomes concrete candidates ("30" → "30 ms" / "30 s"); readings
+ *  outside the field's range stay visible as disabled entries naming
+ *  the violated bound. */
+const interpretTimeout = durationMsInterpreter({ min: MIN_REQUEST_TIMEOUT_MS, max: MAX_REQUEST_TIMEOUT_MS });
+const TIMEOUT_PRESETS = numericPresets([1_000, 5_000, 10_000, 30_000, 60_000], formatDurationMs);
 
-/** One Settings-tab row: label + description on the left, the control
- *  right-aligned — the HTTP editor tabs' vocabulary at the density of
- *  a per-request settings sheet. */
-const SettingRow: React.FC<{ label: string; description: string; control: React.ReactNode }> = ({
-  label,
-  description,
-  control,
-}) => (
-  <div style={{ display: 'flex', alignItems: 'flex-start', gap: 24, padding: '10px 0' }}>
-    <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2 }}>
-      <Text strong style={{ fontSize: 12 }}>
-        {label}
-      </Text>
-      <Text type="secondary" style={{ fontSize: 11 }}>
-        {description}
-      </Text>
-    </div>
-    <div style={{ flexShrink: 0 }}>{control}</div>
-  </div>
-);
+/** Session-scoped memory of the group folds: the tab unmounts on
+ *  every editor tab switch, and a fold choice must survive that.
+ *  Shared by every gRPC editor — a fold is a reading preference, not
+ *  per-request state — and deliberately not persisted to disk. */
+const sessionCollapsed: Record<string, boolean> = {};
 
 interface GrpcSettingsTabProps {
   draft: GrpcDraft;
@@ -54,66 +61,100 @@ const GrpcSettingsTab: React.FC<GrpcSettingsTabProps> = ({
   onSendInvalidMessageChange,
 }) => {
   const t = useT();
+  const { token } = theme.useToken();
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>(() => ({ ...sessionCollapsed }));
+  const toggleGroup = (key: string): void =>
+    setCollapsed((c) => {
+      const next = !(c[key] ?? false);
+      sessionCollapsed[key] = next;
+      return { ...c, [key]: next };
+    });
+  const connectionModified = draft.unixSocketPath !== undefined || draft.timeoutMs !== undefined;
+  const tlsModified = !draft.sslVerification;
+
   return (
-    <div style={{ maxWidth: 720 }}>
-      <SettingRow
-        label={t('workbench.editors.grpc.settings.unixSocketLabel')}
-        description={t('workbench.editors.grpc.settings.unixSocketHelp')}
-        control={
-          <Input
-            value={draft.unixSocketPath ?? ''}
-            onChange={(e) => {
-              const next = e.target.value;
-              setDraft((d) => ({ ...d, unixSocketPath: next.trim() === '' ? undefined : next }));
-            }}
+    <ConfigProvider
+      theme={{
+        components: {
+          // An empty knob means "the default in effect" — its stated
+          // default must read as live behavior, not a disabled
+          // control, so placeholders render at full text contrast,
+          // exactly like a set value; the dot and reset affordances
+          // carry the customized-vs-default distinction.
+          Select: { colorTextPlaceholder: token.colorText },
+          Input: { colorTextPlaceholder: token.colorText },
+        },
+      }}
+    >
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 4, maxWidth: 560 }}>
+        <GroupSection
+          label={t(GRPC_GROUP_LABEL_KEY.connection)}
+          expanded={collapsed.connection !== true}
+          onToggle={() => toggleGroup('connection')}
+          info={grpcSettingsGroupInfo(t, 'connection')}
+          modified={connectionModified}
+        >
+          <TextKnobRow
+            label={t('workbench.editors.grpc.settings.unixSocketLabel')}
+            value={draft.unixSocketPath}
+            onChange={(unixSocketPath) => setDraft((d) => ({ ...d, unixSocketPath }))}
+            info={grpcSettingsRowInfo(t, 'unixSocket')}
             placeholder={t('workbench.editors.grpc.settings.unixSocketPlaceholder')}
             maxLength={MAX_UNIX_SOCKET_PATH_LENGTH}
-            status={
-              draft.unixSocketPath !== undefined && !isValidUnixSocketPath(draft.unixSocketPath) ? 'error' : undefined
+            error={
+              draft.unixSocketPath !== undefined && !isValidUnixSocketPath(draft.unixSocketPath)
+                ? t('workbench.editors.request.settings.unixSocketError')
+                : undefined
             }
-            style={{ width: 260, fontFamily: "'SF Mono', monospace", fontSize: 12 }}
-            data-testid="grpc-unix-socket"
+            example={t('workbench.editors.request.settings.unixSocketExample')}
+            testId="grpc-unix-socket"
           />
-        }
-      />
-      <SettingRow
-        label={t('workbench.editors.grpc.settings.sslVerifyLabel')}
-        description={t('workbench.editors.grpc.settings.sslVerifyHelp')}
-        control={
-          <Switch
-            checked={draft.sslVerification}
-            onChange={(sslVerification) => setDraft((d) => ({ ...d, sslVerification }))}
-            data-testid="grpc-ssl-verify"
-          />
-        }
-      />
-      <SettingRow
-        label={t('workbench.editors.grpc.settings.timeoutLabel')}
-        description={t('workbench.editors.grpc.settings.timeoutHelp')}
-        control={
-          <InputNumber
-            min={MIN_REQUEST_TIMEOUT_MS}
-            max={MAX_REQUEST_TIMEOUT_MS}
-            step={1000}
+          <ComboKnobRow
+            label={t('workbench.editors.grpc.settings.timeoutLabel')}
             value={draft.timeoutMs}
-            onChange={(value) => setDraft((d) => ({ ...d, timeoutMs: value ?? undefined }))}
+            onChange={(timeoutMs) => setDraft((d) => ({ ...d, timeoutMs }))}
+            info={grpcSettingsRowInfo(t, 'timeout')}
+            presets={TIMEOUT_PRESETS}
+            interpret={interpretTimeout}
+            format={formatDurationMs}
             placeholder={t('workbench.editors.grpc.settings.timeoutPlaceholder')}
-            style={{ width: 160 }}
+            testId="grpc-timeout"
           />
-        }
-      />
-      <SettingRow
-        label={t('workbench.settings.def.requests.grpcSendInvalidMessage.label')}
-        description={t('workbench.settings.def.requests.grpcSendInvalidMessage.description')}
-        control={
-          <Switch
+        </GroupSection>
+        <GroupSection
+          label={t(GRPC_GROUP_LABEL_KEY.tls)}
+          expanded={collapsed.tls !== true}
+          onToggle={() => toggleGroup('tls')}
+          info={grpcSettingsGroupInfo(t, 'tls')}
+          modified={tlsModified}
+        >
+          <KnobRow
+            label={t('workbench.editors.grpc.settings.sslVerifyLabel')}
+            checked={draft.sslVerification}
+            modified={!draft.sslVerification}
+            onReset={() => setDraft((d) => ({ ...d, sslVerification: true }))}
+            onChange={(sslVerification) => setDraft((d) => ({ ...d, sslVerification }))}
+            info={grpcSettingsRowInfo(t, 'sslVerification')}
+            warning={t('workbench.editors.grpc.settings.sslVerifyWarning')}
+            testId="grpc-ssl-verify"
+          />
+        </GroupSection>
+        <GroupSection
+          label={t(GRPC_GROUP_LABEL_KEY.messages)}
+          expanded={collapsed.messages !== true}
+          onToggle={() => toggleGroup('messages')}
+          info={grpcSettingsGroupInfo(t, 'messages')}
+        >
+          <KnobRow
+            label={t('workbench.editors.grpc.settings.sendInvalidMessageLabel')}
             checked={sendInvalidMessage}
             onChange={onSendInvalidMessageChange}
-            data-testid="grpc-send-invalid-message"
+            info={grpcSettingsRowInfo(t, 'sendInvalidMessage')}
+            testId="grpc-send-invalid-message"
           />
-        }
-      />
-    </div>
+        </GroupSection>
+      </div>
+    </ConfigProvider>
   );
 };
 

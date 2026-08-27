@@ -120,15 +120,28 @@ export const workbenchEditorsGrpc = {
   'workbench.editors.grpc.specFooter.none': '未关联规范',
   'workbench.editors.grpc.specFooter.issues': '{count} 个未解析',
   'workbench.editors.grpc.specFooter.refresh': '按规范当前的文件重建',
+  'workbench.editors.grpc.settings.group.connection': '连接',
+  'workbench.editors.grpc.settings.group.tls': 'TLS 与信任',
+  'workbench.editors.grpc.settings.group.messages': '消息',
+  'workbench.editors.grpc.settings.groupInfo.connection': '调用如何到达服务器：通道的去向，以及整个调用的时间上限。',
+  'workbench.editors.grpc.settings.groupInfo.tls': 'TLS 通道如何建立信任：是否根据系统根证书验证服务器证书。',
+  'workbench.editors.grpc.settings.groupInfo.messages':
+    '工作台如何处理无法解析的消息——这是与「设置 → 请求」共享的应用级姿态，不是按请求的字段。',
   'workbench.editors.grpc.settings.unixSocketLabel': 'Unix 套接字',
   'workbench.editors.grpc.settings.unixSocketHelp':
-    '拨号这个本地套接字——绝对 Unix 套接字路径，或形如 \\\\.\\pipe\\name 的 Windows 命名管道——而不是打开 TCP 连接。目标仍决定 :authority 标头、TLS 服务器名和证书验证；只有连接的去向改变。留空则使用普通 TCP 连接。',
-  'workbench.editors.grpc.settings.unixSocketPlaceholder': '无套接字——TCP 连接',
-  'workbench.editors.grpc.settings.timeoutLabel': '调用超时（ms）',
-  'workbench.editors.grpc.settings.timeoutPlaceholder': '无限制',
-  'workbench.editors.grpc.settings.timeoutHelp': '整个调用的墙钟时间上限——作为 gRPC 截止时间发送，并在本地强制执行。',
+    '连接到此本地套接字——绝对 Unix 套接字路径，或形如 \\\\.\\pipe\\name 的 Windows 命名管道——而不是打开 TCP 连接。目标仍决定 :authority 头、TLS 服务器名和证书验证；只有连接的去向发生变化。留空则使用普通 TCP 连接。',
+  'workbench.editors.grpc.settings.unixSocketPlaceholder': 'TCP 连接（默认）',
+  'workbench.editors.grpc.settings.timeoutLabel': '调用超时',
+  'workbench.editors.grpc.settings.timeoutHelp':
+    '整个调用的墙钟时间上限——作为 gRPC 截止时间发送以便服务器强制执行，并在本地强制执行。留空则不设截止时间。',
+  'workbench.editors.grpc.settings.timeoutPlaceholder': '不限制（默认）',
   'workbench.editors.grpc.settings.sslVerifyLabel': 'SSL 证书验证',
-  'workbench.editors.grpc.settings.sslVerifyHelp': '按系统根证书验证服务器证书。对自签名的开发服务器可关闭。',
+  'workbench.editors.grpc.settings.sslVerifyHelp':
+    '在 TLS 通道上按系统根证书验证服务器证书。对自签名的开发服务器可关闭。适用于桌面应用或服务器。',
+  'workbench.editors.grpc.settings.sslVerifyWarning': '调用跳过服务器身份检查——接受任何证书，包括自签名和已过期的。',
+  'workbench.editors.grpc.settings.sendInvalidMessageLabel': '发送无效消息',
+  'workbench.editors.grpc.settings.sendInvalidMessageHelp':
+    '消息不是有效 JSON 时，仍以空消息发起调用并让服务器应答——通常是 INVALID_ARGUMENT。默认关闭：调用在上线路之前失败，并给出确切的解析错误。适用于所有 gRPC 请求。',
   'workbench.editors.grpc.tab.auth': '授权',
   'workbench.editors.grpc.auth.help':
     '作为 authorization: Bearer <token> metadata 随调用发送。显式的 authorization metadata 行优先。',

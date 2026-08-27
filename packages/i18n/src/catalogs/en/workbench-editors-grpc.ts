@@ -115,17 +115,31 @@ export const workbenchEditorsGrpc = {
   'workbench.editors.grpc.specFooter.none': 'No spec linked',
   'workbench.editors.grpc.specFooter.issues': '{count} unresolved',
   'workbench.editors.grpc.specFooter.refresh': 'Rebuild from the spec’s current files',
+  'workbench.editors.grpc.settings.group.connection': 'Connection',
+  'workbench.editors.grpc.settings.group.tls': 'TLS & trust',
+  'workbench.editors.grpc.settings.group.messages': 'Messages',
+  'workbench.editors.grpc.settings.groupInfo.connection':
+    'How the call reaches the server: where the channel dials and the ceiling on the whole call.',
+  'workbench.editors.grpc.settings.groupInfo.tls':
+    'How TLS channels establish trust: whether the server certificate is verified against the system roots.',
+  'workbench.editors.grpc.settings.groupInfo.messages':
+    'How the workbench treats a message that does not parse — an app-wide posture shared with Settings → Requests, not a per-request field.',
   'workbench.editors.grpc.settings.unixSocketLabel': 'Unix socket',
   'workbench.editors.grpc.settings.unixSocketHelp':
     'Dial this local socket — an absolute Unix socket path, or a Windows named pipe like \\\\.\\pipe\\name — instead of opening a TCP connection. The target keeps deciding the :authority header, TLS server name, and certificate verification; only where the connection goes changes. Leave empty for a normal TCP connection.',
-  'workbench.editors.grpc.settings.unixSocketPlaceholder': 'No socket — TCP connection',
-  'workbench.editors.grpc.settings.timeoutLabel': 'Call timeout (ms)',
-  'workbench.editors.grpc.settings.timeoutPlaceholder': 'No limit',
+  'workbench.editors.grpc.settings.unixSocketPlaceholder': 'TCP connection (default)',
+  'workbench.editors.grpc.settings.timeoutLabel': 'Call timeout',
   'workbench.editors.grpc.settings.timeoutHelp':
-    'Wall-clock ceiling on the whole call — sent as the gRPC deadline and enforced locally.',
+    'Wall-clock ceiling on the whole call — sent as the gRPC deadline so the server can enforce it, and enforced locally. Empty sets no deadline.',
+  'workbench.editors.grpc.settings.timeoutPlaceholder': 'No limit (default)',
   'workbench.editors.grpc.settings.sslVerifyLabel': 'SSL certificate verification',
   'workbench.editors.grpc.settings.sslVerifyHelp':
-    'Verify the server certificate against the system roots. Turn off for self-signed development servers.',
+    'Verify the server certificate against the system roots on TLS channels. Turn off for self-signed development servers. Applies on the desktop app or server.',
+  'workbench.editors.grpc.settings.sslVerifyWarning':
+    'Calls skip the server identity check — any certificate is accepted, including self-signed and expired ones.',
+  'workbench.editors.grpc.settings.sendInvalidMessageLabel': 'Send invalid messages',
+  'workbench.editors.grpc.settings.sendInvalidMessageHelp':
+    'When the message is not valid JSON, invoke anyway with an empty message and let the server answer — usually INVALID_ARGUMENT. Off by default: the invoke fails before the wire with the exact parse error. Applies to every gRPC request.',
   'workbench.editors.grpc.tab.auth': 'Authorization',
   'workbench.editors.grpc.auth.help':
     'Sent as authorization: Bearer <token> metadata on the call. An explicit authorization metadata row takes precedence.',

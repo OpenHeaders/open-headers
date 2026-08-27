@@ -139,21 +139,41 @@ export const workbenchEditorsGrpc = {
   'workbench.editors.grpc.specFooter.none': 'Aucune spec liée',
   'workbench.editors.grpc.specFooter.issues': '{count} non résolus',
   'workbench.editors.grpc.specFooter.refresh': 'Reconstruire depuis les fichiers actuels de la spec',
+  'workbench.editors.grpc.settings.group.connection': 'Connexion',
+  'workbench.editors.grpc.settings.group.tls': 'TLS et confiance',
+  'workbench.editors.grpc.settings.group.messages': 'Messages',
+  'workbench.editors.grpc.settings.groupInfo.connection':
+    'Comment l’appel atteint le serveur : la destination du canal et le plafond sur l’appel entier.',
+  'workbench.editors.grpc.settings.groupInfo.tls':
+    'Comment les canaux TLS établissent la confiance : vérification ou non du certificat du serveur contre ' +
+    'les racines du système.',
+  'workbench.editors.grpc.settings.groupInfo.messages':
+    'Comment l’atelier traite un message qui ne s’analyse pas — une posture à l’échelle de l’application, ' +
+    'partagée avec Réglages → Requêtes, pas un champ par requête.',
   'workbench.editors.grpc.settings.unixSocketLabel': 'Socket Unix',
   'workbench.editors.grpc.settings.unixSocketHelp':
     'Se connecte à cette socket locale — un chemin absolu de socket Unix, ou un tube nommé Windows comme ' +
     "\\\\.\\pipe\\nom — au lieu d'ouvrir une connexion TCP. La cible continue de déterminer l'en-tête " +
     ':authority, le nom de serveur TLS et la vérification du certificat ; seule la destination de la ' +
     'connexion change. Laissez vide pour une connexion TCP normale.',
-  'workbench.editors.grpc.settings.unixSocketPlaceholder': 'Pas de socket — connexion TCP',
-  'workbench.editors.grpc.settings.timeoutLabel': "Délai d'appel (ms)",
-  'workbench.editors.grpc.settings.timeoutPlaceholder': 'Sans limite',
+  'workbench.editors.grpc.settings.unixSocketPlaceholder': 'Connexion TCP (défaut)',
+  'workbench.editors.grpc.settings.timeoutLabel': 'Délai d’appel',
   'workbench.editors.grpc.settings.timeoutHelp':
-    "Plafond en temps réel sur l'appel entier — envoyé comme deadline gRPC et appliqué localement.",
+    'Plafond en temps réel sur l’appel entier — envoyé comme deadline gRPC pour que le serveur puisse ' +
+    'l’appliquer, et appliqué localement. Vide ne fixe aucune deadline.',
+  'workbench.editors.grpc.settings.timeoutPlaceholder': 'Aucune limite (défaut)',
   'workbench.editors.grpc.settings.sslVerifyLabel': 'Vérification du certificat SSL',
   'workbench.editors.grpc.settings.sslVerifyHelp':
-    'Vérifier le certificat du serveur contre les racines du système. Désactivez pour les serveurs de ' +
-    'développement auto-signés.',
+    'Vérifier le certificat du serveur contre les racines du système sur les canaux TLS. Désactivez pour ' +
+    'les serveurs de développement auto-signés. S’applique sur l’application de bureau ou le serveur.',
+  'workbench.editors.grpc.settings.sslVerifyWarning':
+    'Les appels sautent la vérification d’identité du serveur — tout certificat est accepté, y compris ' +
+    'les auto-signés et les expirés.',
+  'workbench.editors.grpc.settings.sendInvalidMessageLabel': 'Envoyer les messages invalides',
+  'workbench.editors.grpc.settings.sendInvalidMessageHelp':
+    'Quand le message n’est pas du JSON valide, invoquer quand même avec un message vide et laisser le ' +
+    'serveur répondre — en général INVALID_ARGUMENT. Désactivé par défaut : l’invocation échoue avant le ' +
+    'réseau avec l’erreur d’analyse exacte. S’applique à toutes les requêtes gRPC.',
   'workbench.editors.grpc.tab.auth': 'Autorisation',
   'workbench.editors.grpc.auth.help':
     "Envoyé comme metadata authorization: Bearer <token> sur l'appel. Une ligne de metadata authorization " +

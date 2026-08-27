@@ -156,20 +156,40 @@ export const workbenchEditorsGrpc = {
   'workbench.editors.grpc.specFooter.none': 'Keine Spezifikation verknüpft',
   'workbench.editors.grpc.specFooter.issues': '{count} nicht aufgelöst',
   'workbench.editors.grpc.specFooter.refresh': 'Aus den aktuellen Dateien der Spezifikation neu aufbauen',
+  'workbench.editors.grpc.settings.group.connection': 'Verbindung',
+  'workbench.editors.grpc.settings.group.tls': 'TLS & Vertrauen',
+  'workbench.editors.grpc.settings.group.messages': 'Nachrichten',
+  'workbench.editors.grpc.settings.groupInfo.connection':
+    'Wie der Aufruf den Server erreicht: wohin der Kanal wählt und die Obergrenze für den gesamten Aufruf.',
+  'workbench.editors.grpc.settings.groupInfo.tls':
+    'Wie TLS-Kanäle Vertrauen herstellen: ob das Serverzertifikat gegen die Systemwurzeln geprüft wird.',
+  'workbench.editors.grpc.settings.groupInfo.messages':
+    'Wie die Workbench eine Nachricht behandelt, die sich nicht parsen lässt — eine app-weite Haltung, ' +
+    'geteilt mit Einstellungen → Anfragen, kein Feld pro Anfrage.',
   'workbench.editors.grpc.settings.unixSocketLabel': 'Unix-Socket',
   'workbench.editors.grpc.settings.unixSocketHelp':
     'Wählt dieses lokale Socket an — einen absoluten Unix-Socket-Pfad oder eine benannte Windows-Pipe wie ' +
     '\\\\.\\pipe\\name — statt eine TCP-Verbindung zu öffnen. Das Ziel bestimmt weiterhin den ' +
     ':authority-Header, den TLS-Servernamen und die Zertifikatsprüfung; nur wohin die Verbindung geht, ' +
     'ändert sich. Leer lassen für eine normale TCP-Verbindung.',
-  'workbench.editors.grpc.settings.unixSocketPlaceholder': 'Kein Socket — TCP-Verbindung',
-  'workbench.editors.grpc.settings.timeoutLabel': 'Zeitlimit des Aufrufs (ms)',
-  'workbench.editors.grpc.settings.timeoutPlaceholder': 'Kein Limit',
+  'workbench.editors.grpc.settings.unixSocketPlaceholder': 'TCP-Verbindung (Standard)',
+  'workbench.editors.grpc.settings.timeoutLabel': 'Aufruf-Zeitlimit',
   'workbench.editors.grpc.settings.timeoutHelp':
-    'Obergrenze der realen Zeit für den gesamten Aufruf — als gRPC-Deadline gesendet und lokal durchgesetzt.',
+    'Obergrenze der realen Zeit für den gesamten Aufruf — als gRPC-Deadline gesendet, damit der Server sie ' +
+    'durchsetzen kann, und lokal durchgesetzt. Leer setzt keine Deadline.',
+  'workbench.editors.grpc.settings.timeoutPlaceholder': 'Kein Limit (Standard)',
   'workbench.editors.grpc.settings.sslVerifyLabel': 'SSL-Zertifikatsprüfung',
   'workbench.editors.grpc.settings.sslVerifyHelp':
-    'Das Serverzertifikat gegen die Systemwurzeln prüfen. Schalte es für selbstsignierte Entwicklungsserver aus.',
+    'Das Serverzertifikat auf TLS-Kanälen gegen die Systemwurzeln prüfen. Schalte es für selbstsignierte ' +
+    'Entwicklungsserver aus. Gilt in der Desktop-App oder auf dem Server.',
+  'workbench.editors.grpc.settings.sslVerifyWarning':
+    'Aufrufe überspringen die Prüfung der Server-Identität — jedes Zertifikat wird akzeptiert, auch ' +
+    'selbstsignierte und abgelaufene.',
+  'workbench.editors.grpc.settings.sendInvalidMessageLabel': 'Ungültige Nachrichten senden',
+  'workbench.editors.grpc.settings.sendInvalidMessageHelp':
+    'Wenn die Nachricht kein gültiges JSON ist, trotzdem mit leerer Nachricht aufrufen und den Server ' +
+    'antworten lassen — meist INVALID_ARGUMENT. Standardmäßig aus: der Aufruf scheitert vor dem Netz mit ' +
+    'dem genauen Parse-Fehler. Gilt für jede gRPC-Anfrage.',
   'workbench.editors.grpc.tab.auth': 'Autorisierung',
   'workbench.editors.grpc.auth.help':
     'Wird als Metadata authorization: Bearer <token> am Aufruf gesendet. Eine explizite ' +
