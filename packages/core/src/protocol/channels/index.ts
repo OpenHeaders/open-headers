@@ -30,6 +30,7 @@ import type { ActivityRpc } from './activity';
 import type { AwarenessRpc } from './awareness';
 import type { BridgeBroadcastContract } from './broadcast';
 import type { DaemonRpc } from './daemon';
+import type { DeviceTrustRpc } from './device-trust';
 import type { DevToolsRpc } from './devtools';
 import type { EnvironmentRpc } from './environments';
 import type { FileRpc } from './files';
@@ -50,6 +51,7 @@ import type { WorkspaceRpc } from './workspace';
 
 export type { BridgeBroadcastContract, StorageInvalidationKind } from './broadcast';
 export type { FolderDescriptor, WorkspaceSnapshot } from './common';
+export type { DeviceTrustRpc, PresentedCertificateWire } from './device-trust';
 export type {
   CacheEntryDocumentWire,
   CacheEntryHeaderWire,
@@ -163,6 +165,7 @@ export interface BridgeRpcContract
     SecretsRpc,
     MigrationRpc,
     SystemProxyRpc,
+    DeviceTrustRpc,
     ProductTelemetryRpc {}
 
 /**

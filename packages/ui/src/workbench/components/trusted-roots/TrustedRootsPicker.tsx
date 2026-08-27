@@ -2,9 +2,8 @@
  * TrustedRootsPicker — the valueless, picker-shaped control that faces
  * the editing-scope workspace's trusted certificates. Shared by the
  * per-request Settings TLS rows and the global Settings › API Requests
- * row, so the two doors show one face: the CANONICAL count ("N from
- * this workspace" / "None from this workspace"), the `(unsaved
- * changes)` suffix while the editor tab holds a draft, a read-only
+ * row, so the two doors show one face: the count ("N from this
+ * workspace" / "None from this workspace"), a read-only
  * list of the roots in the popup (name · subject, nothing selectable)
  * or the empty line, and the footer link that opens the editor through
  * {@link OpenTrustedRootsContext}. Never a knob — trust is workspace
@@ -19,7 +18,6 @@ import type { TrustedRoot } from '@openheaders/core/types';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { useTrustedRoots } from '@openheaders/ui/shared/hooks/readers/useTrustedRoots';
 import { CONTROL_WIDTH } from '@openheaders/ui/shared/settings-rows';
-import { useTrustedRootsDraft } from '@openheaders/ui/shared/trusted-roots-draft';
 import { Button, ConfigProvider, Select, Typography, theme } from 'antd';
 import type React from 'react';
 import { useState } from 'react';
@@ -57,21 +55,13 @@ const TrustedRootsPicker: React.FC<{
   const nodeHost = isNodeRequestRuntime();
   const workspaceId = useWorkbenchEditingScopeWorkspaceId();
   const roots = useTrustedRoots(nodeHost ? workspaceId : null);
-  const draft = useTrustedRootsDraft(nodeHost ? workspaceId : null);
   const openTrustedRoots = useOpenTrustedRoots();
   const [open, setOpen] = useState(false);
-  const savedFace =
-    roots.length === 0
-      ? t('workbench.trustedRoots.settings.none')
-      : t('workbench.trustedRoots.settings.count', { count: roots.length });
-  // The face counts the CANONICAL list (workspace data); a live draft
-  // on the editor tab only adds the honest suffix — this device's
-  // sends dial with the unsaved list until Save.
   const face = !nodeHost
     ? t('workbench.trustedRoots.settings.browserStore')
-    : draft === undefined
-      ? savedFace
-      : `${savedFace} ${t('workbench.trustedRoots.settings.unsaved')}`;
+    : roots.length === 0
+      ? t('workbench.trustedRoots.settings.none')
+      : t('workbench.trustedRoots.settings.count', { count: roots.length });
   return (
     <ConfigProvider theme={{ token: { motion: false } }}>
       <Select

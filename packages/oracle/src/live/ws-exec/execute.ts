@@ -43,7 +43,7 @@ import type {
 import { appendQueryParams, encodeBase64Bytes } from '@openheaders/core/utils';
 import { resolveTemplate } from '@openheaders/core/variables';
 import { getRequestCollections, getRequestCollectionsForWorkspace } from '../../entity/request-store';
-import { getTrustedRootPemsForSend } from '../../entity/trusted-roots-store';
+import { getTrustAnchorsForSend } from '../trust-anchors';
 import { peekActiveWorkspaceId } from '../../workspace/extension-workspace-store';
 import { buildResolver } from '../request-exec/resolver-scope';
 import { registerActiveSend } from '../request-exec/send-stream';
@@ -79,14 +79,6 @@ export interface ExecuteWsSessionOptions {
   environmentId: string | null | undefined;
   /** Host wire capability. */
   transport: WsTransport;
-  /**
-   * The caller's UNSAVED trust list — the Trusted Certificates tab's
-   * draft riding an interactive frame. Present, it replaces the
-   * workspace list for this dial (added rows apply, removed rows are
-   * withheld, an empty draft applies nothing); absent, the workspace
-   * list applies. Never stored, never synced.
-   */
-  trustedRootsDraft?: readonly string[];
   /** Caller-minted id — Stop hook on the shared active-send registry
    *  + the rider registry key. REQUIRED: a session is interactive by
    *  nature, there is no fire-and-forget leg. */
@@ -117,10 +109,7 @@ export async function executeWsSession(
   const resolveWith = options.resolution ?? (await buildOracleResolution(request, options));
   // The workspace trust list rides every dial — the pin the scope
   // resolved against, else the runtime-Active one.
-  const trustedRootsPem = getTrustedRootPemsForSend(
-    options.workspaceId ?? peekActiveWorkspaceId(),
-    options.trustedRootsDraft,
-  );
+  const trustedRootsPem = getTrustAnchorsForSend(options.workspaceId ?? peekActiveWorkspaceId())?.pems;
 
   const unresolved = new Set<string>();
   const resolveStr = (s: string): string => resolveWith(s, unresolved);

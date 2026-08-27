@@ -45,9 +45,11 @@
 import * as net from 'node:net';
 import { isIP } from 'node:net';
 import * as tls from 'node:tls';
+import type { ExecutedTlsFacts } from '@openheaders/core/types';
 import { Agent, buildConnector, errors } from 'undici';
 import { dialConnectTunnel, type ProxyTunnel } from './request-transport/connect-tunnel';
 import type { ConnectOptions } from './request-transport/seam';
+import { tlsFactsOf } from './tls-facts';
 
 /** Marks + facts for one dialed connection, `performance.now()` clock
  *  (the transport's phase-mark clock). */
@@ -71,6 +73,8 @@ export interface ConnectionRecord {
   localPort?: number;
   remoteAddress?: string;
   remotePort?: number;
+  /** TLS facts read at readiness — absent on cleartext dials. */
+  tls?: ExecutedTlsFacts;
 }
 
 /**
@@ -136,6 +140,7 @@ export function completeConnectionRecord(
   if (socket.localPort !== undefined) record.localPort = socket.localPort;
   if (socket.remoteAddress !== undefined) record.remoteAddress = socket.remoteAddress;
   if (socket.remotePort !== undefined) record.remotePort = socket.remotePort;
+  if (socket instanceof tls.TLSSocket) record.tls = tlsFactsOf(socket);
 }
 
 /**

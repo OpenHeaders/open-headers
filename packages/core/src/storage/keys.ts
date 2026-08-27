@@ -31,6 +31,7 @@ import type {
   DaemonAuthToken,
   DaemonConfig,
   DaemonUserRecord,
+  DeviceTrust,
   Environment,
   ExtensionWorkspace,
   GrpcRequest,
@@ -501,6 +502,14 @@ export const OH = {
    * NAME; the value stays in the vault.
    */
   systemProxy: storageKey<SystemProxySettings>('oh.systemProxy'),
+  /**
+   * Certificates THIS device pins beside the workspace trust list —
+   * self-signed localhost, a staging box (the Trusted Roots plan, device
+   * scope). Host-local by design (the system-proxy posture): machine
+   * state, never workspace data, never synced, never exported. Public
+   * material, not sensitive.
+   */
+  deviceTrust: storageKey<DeviceTrust>('oh.deviceTrust'),
   /**
    * The proxy plane's per-machine CA (the proxy-security design §2.1/§2.2) —
    * cert PEM + private key, minted on this machine at first trust and

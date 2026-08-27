@@ -84,6 +84,12 @@ export interface BridgeBroadcastContract {
    */
   storageInvalidated: { tabId: number; kind: StorageInvalidationKind };
   /**
+   * This device's pinned-certificate list changed (a trust-on-failure
+   * pin, a settings add or remove). Invalidation only — readers refetch
+   * through `oh.deviceTrust.list`.
+   */
+  deviceTrustChanged: { count: number };
+  /**
    * Fires on any workspace list mutation (create/rename/delete/reorder)
    * AND on active-workspace switch. UI surfaces re-read rules, templates,
    * environments, and pause markers on this event — one atomic refetch

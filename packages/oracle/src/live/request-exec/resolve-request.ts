@@ -30,8 +30,8 @@ import { appendQueryParams, encodeBase64Bytes, isRequestResolvable } from '@open
 import { resolveTemplate } from '@openheaders/core/variables';
 import { getTokenBundle } from '../../entity/oauth-token-store';
 import { getRequestCollections, getRequestCollectionsForWorkspace } from '../../entity/request-store';
-import { getTrustedRootPemsForSend } from '../../entity/trusted-roots-store';
 import { getActiveWorkspaceId, peekActiveWorkspaceId } from '../../workspace/extension-workspace-store';
+import { getTrustAnchorsForSend } from '../trust-anchors';
 import { resolveInheritedAuth } from './ancestor-chain';
 import { buildResolver } from './resolver-scope';
 
@@ -55,11 +55,14 @@ export interface ResolvedRequest {
   tlsMaxVersion?: TlsVersion;
   /** OpenSSL-format cipher list; absent → the runtime's default suites. */
   tlsCipherSuites?: string;
-  /** Workspace trusted roots (PEM) the honoring transport appends
-   *  behind its runtime bundle — present only when the workspace the
-   *  run resolved against holds at least one. A trust list, never a
-   *  secret; no per-request knob. */
+  /** Trust anchors (PEM) the honoring transport appends behind its
+   *  runtime bundle — the workspace's trusted certificates followed by
+   *  this device's pins, present only when either holds one. A trust
+   *  list, never a secret; no per-request knob. */
   trustedRootsPem?: string[];
+  /** How many of `trustedRootsPem` came from each scope — snapshot
+   *  attribution (`trustedRootsApplied` / `deviceTrustApplied`). */
+  trustAnchorCounts?: { workspace: number; device: number };
   /** HTTP version policy; absent / `'auto'` → ALPN offer of h2 +
    *  http/1.1 (the server picks). Explicit tokens pin the protocol —
    *  the transport fails honestly when it can't honor the pin. */
@@ -170,14 +173,6 @@ export interface ResolveRequestOptions {
   stepCaptures?: ReadonlyMap<string, ReadonlyMap<string, string>>;
   /** Host hook to refresh an expired OAuth token before attaching it. */
   refreshOAuth?: OAuthRefreshFn;
-  /**
-   * The caller's UNSAVED trust list — the Trusted Certificates tab's
-   * draft riding an interactive frame. Present, it replaces the
-   * workspace list for this dial (added rows apply, removed rows are
-   * withheld, an empty draft applies nothing); absent, the workspace
-   * list applies. Never stored, never synced.
-   */
-  trustedRootsDraft?: readonly string[];
 }
 
 /** Thrown when any `{{ref}}` in the request can't be resolved against
@@ -319,13 +314,10 @@ export async function resolveRequest(
   // ── Proxy credential (ref → user:password against the local vault) ──
   const proxyCredential = resolveProxyCredential(request.proxyCredentialRef, scope.vault);
 
-  // ── Trusted roots (the workspace the run resolved against) ──
+  // ── Trust anchors (the workspace the run resolved against + this device) ──
   // Same workspace pin the cookie jar keys on: an unpinned send
   // resolved against the runtime-Active workspace.
-  const trustedRootsPem = getTrustedRootPemsForSend(
-    scope.workspaceId ?? peekActiveWorkspaceId(),
-    options.trustedRootsDraft,
-  );
+  const trustAnchors = getTrustAnchorsForSend(scope.workspaceId ?? peekActiveWorkspaceId());
 
   // ── Body ──
   const resolvedBody = buildResolvedBody(request.body, resolveStr);
@@ -355,7 +347,12 @@ export async function resolveRequest(
       tlsMinVersion: request.tlsMinVersion,
       tlsMaxVersion: request.tlsMaxVersion,
       tlsCipherSuites: request.tlsCipherSuites,
-      ...(trustedRootsPem !== undefined ? { trustedRootsPem } : {}),
+      ...(trustAnchors !== undefined
+        ? {
+            trustedRootsPem: trustAnchors.pems,
+            trustAnchorCounts: { workspace: trustAnchors.workspace, device: trustAnchors.device },
+          }
+        : {}),
       httpVersion: request.httpVersion,
       resolveToAddress: request.resolveToAddress,
       ...clientCertificate,

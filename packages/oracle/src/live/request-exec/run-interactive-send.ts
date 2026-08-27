@@ -42,14 +42,6 @@ export interface RunInteractiveSendOptions {
   scriptRunner: StepScriptRunner;
   /** Optional host hook to refresh an expired OAuth token before send. */
   refreshOAuth?: OAuthRefreshFn;
-  /**
-   * The caller's UNSAVED trust list — the Trusted Certificates tab's
-   * draft riding an interactive frame. Present, it replaces the
-   * workspace list for this dial (added rows apply, removed rows are
-   * withheld, an empty draft applies nothing); absent, the workspace
-   * list applies. Never stored, never synced.
-   */
-  trustedRootsDraft?: readonly string[];
   /** Streaming capture mode for this interactive send — see
    *  {@link ExecuteStreamOptions}. */
   stream?: ExecuteStreamOptions;
@@ -66,7 +58,6 @@ export async function runInteractiveSend(
       workspaceId: options.workspaceId ?? undefined,
       environmentId: options.environmentId,
       refreshOAuth: options.refreshOAuth,
-      trustedRootsDraft: options.trustedRootsDraft,
     });
   } catch (err) {
     if (err instanceof UnresolvedRequestError) return errorSnapshot(err.message);

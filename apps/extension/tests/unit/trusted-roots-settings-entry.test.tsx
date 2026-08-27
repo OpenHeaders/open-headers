@@ -4,8 +4,7 @@
  * Pins the registry shape (an `info` def with the custom editor under
  * the leading `tls` subcategory, tagging a declared section like every
  * requests def) and the row's face: the canonical count of the
- * editing-scope workspace with the unsaved suffix while a draft is
- * live, the manage link firing the shell's opener, and the disabled
+ * editing-scope workspace, the manage link firing the shell's opener, and the disabled
  * picker with the honest caption on a non-node host. Also pins that
  * the navigator's variables view no longer offers the singleton row —
  * trust is not a variable.
@@ -15,10 +14,6 @@ import '@openheaders/ui/workbench/settings/categories';
 import '@openheaders/ui/workbench/settings/schema/requests';
 import { registerCapability, unregisterCapability } from '@openheaders/core/capabilities';
 import type { TrustedRoot } from '@openheaders/core/types';
-import {
-  __resetTrustedRootsDraftsForTests,
-  publishTrustedRootsDraft,
-} from '@openheaders/ui/shared/trusted-roots-draft';
 import { useVariableSingletonNodes } from '@openheaders/ui/workbench/components/sidebar/useVariableSingletonNodes';
 import { EditingScopeWorkspaceProvider } from '@openheaders/ui/workbench/hooks/EditingScopeWorkspaceContext';
 import { OpenTrustedRootsProvider } from '@openheaders/ui/workbench/hooks/OpenTrustedRootsContext';
@@ -83,7 +78,6 @@ beforeEach(async () => {
 afterEach(() => {
   unregisterCapability('requestRuntime');
   cleanup();
-  __resetTrustedRootsDraftsForTests();
   __resetStoreForTests();
 });
 
@@ -130,13 +124,6 @@ describe('requests.trustedRoots — the Settings › API Requests door', () => {
     expect(screen.getAllByRole('option').map((o) => o.textContent)).toEqual(['Root r1', 'Root r2']);
     fireEvent.click(screen.getByRole('button', { name: 'Manage trusted certificates' }));
     expect(open).toHaveBeenCalledTimes(1);
-  });
-
-  it('suffixes the canonical count while the editor tab holds a draft', () => {
-    registerCapability('requestRuntime', () => 'node');
-    publishTrustedRootsDraft('ws-two', []);
-    renderRow('ws-two', () => {});
-    expect(screen.getByText('2 from this workspace (unsaved changes)')).toBeTruthy();
   });
 
   it('disables the picker with the honest caption on a browser host', () => {

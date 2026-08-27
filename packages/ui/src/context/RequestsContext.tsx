@@ -92,7 +92,6 @@ import {
   type MqttRequestUpdates,
 } from '../shared/sync/mqtt-request-write-client';
 import { applyRequestCreate, applyRequestDelete, applyRequestUpdate } from '../shared/sync/request-write-client';
-import { withTrustedRootsDraft } from '../shared/trusted-roots-draft';
 import { getRequestCollectionSyncMirrorForWorkspace } from './mirrors/request-collection-sync-mirror';
 import { getRequestFolderSyncMirrorForWorkspace } from './mirrors/request-folder-sync-mirror';
 
@@ -998,46 +997,36 @@ export const RequestsProvider: React.FC<RequestsProviderProps> = ({
     [isOverridden, activeWorkspaceIdOverride, surfaceId],
   );
 
-  // The Trusted Certificates tab's unsaved list rides every interactive
-  // frame from this surface (draft = local, Save = peers) — stamped
-  // here, the one seam the four executor channels share, keyed on the
-  // editing-scope workspace; a system surface carries no draft.
-  const trustDraftWorkspaceId = activeWorkspaceIdOverride ?? null;
-
   const execute = useCallback<RequestsContextValue['execute']>(
     async (input) => {
-      const frame = withTrustedRootsDraft(input, trustDraftWorkspaceId);
-      const resp = await hostBridge.call('executeRequest', frame).catch(() => null);
+      const resp = await hostBridge.call('executeRequest', input).catch(() => null);
       return resp?.success ? (resp.snapshot ?? null) : null;
     },
-    [trustDraftWorkspaceId],
+    [],
   );
 
   const executeGrpc = useCallback<RequestsContextValue['executeGrpc']>(
     async (input) => {
-      const frame = withTrustedRootsDraft(input, trustDraftWorkspaceId);
-      const resp = await hostBridge.call('executeGrpcRequest', frame).catch(() => null);
+      const resp = await hostBridge.call('executeGrpcRequest', input).catch(() => null);
       return resp?.success ? (resp.snapshot ?? null) : null;
     },
-    [trustDraftWorkspaceId],
+    [],
   );
 
   const executeWebSocket = useCallback<RequestsContextValue['executeWebSocket']>(
     async (input) => {
-      const frame = withTrustedRootsDraft(input, trustDraftWorkspaceId);
-      const resp = await hostBridge.call('executeWebSocketRequest', frame).catch(() => null);
+      const resp = await hostBridge.call('executeWebSocketRequest', input).catch(() => null);
       return resp?.success ? (resp.snapshot ?? null) : null;
     },
-    [trustDraftWorkspaceId],
+    [],
   );
 
   const executeMqtt = useCallback<RequestsContextValue['executeMqtt']>(
     async (input) => {
-      const frame = withTrustedRootsDraft(input, trustDraftWorkspaceId);
-      const resp = await hostBridge.call('executeMqttRequest', frame).catch(() => null);
+      const resp = await hostBridge.call('executeMqttRequest', input).catch(() => null);
       return resp?.success ? (resp.snapshot ?? null) : null;
     },
-    [trustDraftWorkspaceId],
+    [],
   );
 
   const value = useMemo<RequestsContextValue>(

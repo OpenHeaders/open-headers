@@ -1,16 +1,11 @@
 /**
  * The executors' read seam over the trusted-roots cache: PEM strings
- * per workspace, and the send shape (absent when there is nothing to
- * apply) the transports take.
+ * per workspace (the send shape is composed in `live/trust-anchors`).
  */
 
 import type { TrustedRoots } from '@openheaders/core/types';
 import { describe, expect, it, vi } from 'vitest';
-import {
-  getTrustedRootPemsForSend,
-  getTrustedRootPemsForWorkspace,
-  getTrustedRootsForWorkspace,
-} from '../../src/entity/trusted-roots-store';
+import { getTrustedRootPemsForWorkspace, getTrustedRootsForWorkspace } from '../../src/entity/trusted-roots-store';
 
 const caches = new Map<string, TrustedRoots>();
 
@@ -41,21 +36,4 @@ describe('trusted-roots-store', () => {
     expect(getTrustedRootPemsForWorkspace('ws-1')).toEqual([ROOT_A, ROOT_B]);
   });
 
-  it('the send shape is absent for no workspace, an unmounted one, or an empty list', () => {
-    caches.set('ws-1', { schemaVersion: 5, roots: [root('a', ROOT_A)] });
-    caches.set('ws-empty', { schemaVersion: 5, roots: [] });
-    expect(getTrustedRootPemsForSend('ws-1')).toEqual([ROOT_A]);
-    expect(getTrustedRootPemsForSend(null)).toBeUndefined();
-    expect(getTrustedRootPemsForSend('ws-none')).toBeUndefined();
-    expect(getTrustedRootPemsForSend('ws-empty')).toBeUndefined();
-  });
-
-  it('a draft on the send replaces the workspace list: added rows apply, an empty draft withholds', () => {
-    caches.set('ws-1', { schemaVersion: 5, roots: [root('a', ROOT_A)] });
-    expect(getTrustedRootPemsForSend('ws-1', [ROOT_A, ROOT_B])).toEqual([ROOT_A, ROOT_B]);
-    expect(getTrustedRootPemsForSend('ws-1', [ROOT_B])).toEqual([ROOT_B]);
-    expect(getTrustedRootPemsForSend('ws-1', [])).toBeUndefined();
-    expect(getTrustedRootPemsForSend(null, [ROOT_B])).toEqual([ROOT_B]);
-    expect(getTrustedRootPemsForSend('ws-1', undefined)).toEqual([ROOT_A]);
-  });
 });

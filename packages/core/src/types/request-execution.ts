@@ -46,17 +46,22 @@ export interface ExecutedWireCapture {
 
 /**
  * Machine-readable remedy attached to an error snapshot — lets the UI
- * offer an action instead of only prose. `open-in-tab` covers the
- * untrusted-certificate case: fetch from an extension context rejects
- * self-signed certs with no interstitial, but opening the URL in a
- * regular tab lets the user accept the certificate, after which the
- * browser remembers the exception for that host:port and a retry
- * succeeds.
+ * offer an action instead of only prose. Two remedies, one per
+ * runtime:
+ *
+ *   - `open-in-tab` — the browser runtime's untrusted-certificate
+ *     case: fetch from an extension context rejects self-signed certs
+ *     with no interstitial, but opening the URL in a regular tab lets
+ *     the user accept the certificate, after which the browser
+ *     remembers the exception for that host:port and a retry succeeds.
+ *   - `trust-certificate` — the node runtime's twin: the dial owns its
+ *     TLS stack, so the surface can show the chain the server presents
+ *     (`oh.deviceTrust.probe`) and pin it on this device or add it to
+ *     the workspace, then resend.
  */
-export interface ExecutedRequestErrorHint {
-  kind: 'open-in-tab';
-  /** URL to open — the submitted request URL. */
-  url: string;
+export type ExecutedRequestErrorHint = OpenInTabErrorHint | TrustCertificateErrorHint;
+
+interface ExecutedRequestErrorHintBase {
   /** True when the failure is (or is overwhelmingly likely to be) a
    *  certificate rejection — drives the compact trust-steps
    *  presentation: one-line summary instead of the message prose. */
@@ -66,6 +71,23 @@ export interface ExecutedRequestErrorHint {
    *  code apart from the actionable guidance. Absent when the failure
    *  was classified heuristically without a wire-recovered code. */
   netError?: string;
+}
+
+export interface OpenInTabErrorHint extends ExecutedRequestErrorHintBase {
+  kind: 'open-in-tab';
+  /** URL to open — the submitted request URL. */
+  url: string;
+}
+
+export interface TrustCertificateErrorHint extends ExecutedRequestErrorHintBase {
+  kind: 'trust-certificate';
+  /** The TLS endpoint the verification failed against — the probe's target. */
+  host: string;
+  port: number;
+  /** SNI name when the dial targeted an address the certificate names differently. */
+  servername?: string;
+  /** The runtime's verification code (e.g. `DEPTH_ZERO_SELF_SIGNED_CERT`). */
+  code: string;
 }
 
 /**
@@ -111,6 +133,42 @@ export interface ExecutedNetworkFacts {
   localPort?: number;
   remoteAddress?: string;
   remotePort?: number;
+  /** TLS facts off the socket that served the final hop — absent on
+   *  cleartext dials. */
+  tls?: ExecutedTlsFacts;
+}
+
+/**
+ * What the TLS socket negotiated and who it talked to — read off the
+ * socket at readiness (the node runtime's instrumented dials). The
+ * certificate is the peer's LEAF as presented; `authorized` is the
+ * runtime's own verdict on it, and `authorizationError` names the
+ * verification failure the dial proceeded past when verification was
+ * off (`DEPTH_ZERO_SELF_SIGNED_CERT` and kin) — the honest line beside
+ * an unverified 200. Attribution only, never read back by the runtime.
+ */
+export interface ExecutedTlsFacts {
+  /** Negotiated protocol (`TLSv1.3`). */
+  protocol?: string;
+  /** Negotiated cipher suite name. */
+  cipher?: string;
+  authorized: boolean;
+  authorizationError?: string;
+  certificate?: ExecutedPeerCertificate;
+}
+
+export interface ExecutedPeerCertificate {
+  subject: string;
+  issuer: string;
+  /** ISO-8601 validity window. */
+  notBefore: string;
+  notAfter: string;
+  /** Lowercase hex SHA-256 over the DER bytes. */
+  fingerprintSha256: string;
+  /** Issuer equals subject — the self-signed case. */
+  selfSigned: boolean;
+  /** The certificate as presented, PEM — what a trust gesture pins. */
+  pem: string;
 }
 
 /**
@@ -234,6 +292,14 @@ export interface ExecutedRequestSnapshot {
    * has no seat for them yet).
    */
   trustedRootsApplied?: number;
+  /**
+   * Number of certificates pinned on THIS device the dial trusted
+   * beside the workspace list (device trust — the Trusted Roots plan,
+   * device scope). Same discipline as `trustedRootsApplied`: known
+   * before the wire, recorded on success and error alike, absent when
+   * the device pins nothing or the runtime cannot apply them.
+   */
+  deviceTrustApplied?: number;
   /**
    * True when this send ran with its TLS protocol floor LOWERED below
    * the runtime's TLS 1.2 default (the per-request `tlsMinVersion:

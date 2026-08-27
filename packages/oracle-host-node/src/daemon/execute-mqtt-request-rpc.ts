@@ -62,9 +62,6 @@ export async function handleExecuteMqttRequestRpc(
   const environmentId =
     typeof message.environmentId === 'string' || message.environmentId === null ? message.environmentId : undefined;
   const requestedWorkspaceId = typeof message.workspaceId === 'string' ? message.workspaceId : undefined;
-  const trustedRootsDraft = Array.isArray(message.trustedRootsDraft)
-    ? message.trustedRootsDraft.filter((pem): pem is string => typeof pem === 'string')
-    : undefined;
 
   if (sendId === undefined) return { success: false, error: 'No sendId provided — a session needs one' };
 
@@ -99,7 +96,6 @@ export async function handleExecuteMqttRequestRpc(
       workspaceId,
       environmentId,
       transport,
-      trustedRootsDraft,
       sendId,
       emitStreamEvent,
     });

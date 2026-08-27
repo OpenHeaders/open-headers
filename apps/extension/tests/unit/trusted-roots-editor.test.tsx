@@ -14,7 +14,6 @@
 
 import type { TrustedRoot } from '@openheaders/core/types';
 import { AwarenessIdentityProvider } from '@openheaders/ui/shared/awareness';
-import { __resetTrustedRootsDraftsForTests, getTrustedRootsDraft } from '@openheaders/ui/shared/trusted-roots-draft';
 import TrustedRootsEditor from '@openheaders/ui/workbench/components/trusted-roots/TrustedRootsEditor';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { resolveWorkbenchIdentity } from '@/host/surface-identity-resolvers';
@@ -79,7 +78,6 @@ beforeEach(() => {
 
 afterEach(() => {
   cleanup();
-  __resetTrustedRootsDraftsForTests();
 });
 
 const testIdentity = resolveWorkbenchIdentity();
@@ -158,22 +156,4 @@ describe('TrustedRootsEditor', () => {
     expect(mockReplaceRoots).not.toHaveBeenCalled();
   });
 
-  it('publishes the dirty draft’s PEM list to the registry and clears it on unmount', async () => {
-    liveRoots = [makeRoot('r1')];
-    const { unmount } = renderEditor();
-    expect(getTrustedRootsDraft('ws-1')).toBeUndefined();
-    await pasteAndAdd();
-    expect(getTrustedRootsDraft('ws-1')).toEqual([liveRoots[0].certPem, caPem]);
-    fireEvent.click(screen.getAllByRole('button', { name: 'Remove' })[0]);
-    expect(getTrustedRootsDraft('ws-1')).toEqual([caPem]);
-    unmount();
-    expect(getTrustedRootsDraft('ws-1')).toBeUndefined();
-  });
-
-  it('removing every root publishes an empty draft that withholds the saved roots until Save', () => {
-    liveRoots = [makeRoot('r1')];
-    renderEditor();
-    fireEvent.click(screen.getByRole('button', { name: 'Remove' }));
-    expect(getTrustedRootsDraft('ws-1')).toEqual([]);
-  });
 });

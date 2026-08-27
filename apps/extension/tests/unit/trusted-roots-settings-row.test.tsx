@@ -13,10 +13,6 @@
 
 import { registerCapability, unregisterCapability } from '@openheaders/core/capabilities';
 import type { GrpcRequest, MqttRequest, TrustedRoot, WebSocketRequest } from '@openheaders/core/types';
-import {
-  __resetTrustedRootsDraftsForTests,
-  publishTrustedRootsDraft,
-} from '@openheaders/ui/shared/trusted-roots-draft';
 import { draftFromGrpcRequest } from '@openheaders/ui/workbench/components/grpc-request-editor/draft';
 import GrpcSettingsTab from '@openheaders/ui/workbench/components/grpc-request-editor/GrpcSettingsTab';
 import { draftFromMqttRequest } from '@openheaders/ui/workbench/components/mqtt-request-editor/draft';
@@ -72,7 +68,6 @@ beforeEach(() => {
 afterEach(() => {
   unregisterCapability('requestRuntime');
   cleanup();
-  __resetTrustedRootsDraftsForTests();
 });
 
 const websocketRequest: WebSocketRequest = {
@@ -171,12 +166,6 @@ function openPopup(): void {
 describe.each(TABS)('trusted-certificates line on the %s Settings tab (node runtime)', (kind) => {
   beforeEach(() => {
     registerCapability('requestRuntime', () => 'node');
-  });
-
-  it('suffixes the canonical count with the unsaved note while the editor tab holds a draft', () => {
-    publishTrustedRootsDraft('ws-two', [makeRoot('r1').certPem]);
-    renderTab(kind, 'ws-two', () => {});
-    expect(screen.getByText('2 from this workspace (unsaved changes)')).toBeTruthy();
   });
 
   it('counts the editing-scope workspace roots on the face and lists them read-only', () => {

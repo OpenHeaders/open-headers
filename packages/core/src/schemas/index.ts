@@ -213,6 +213,7 @@ export {
   SystemProxyModeSchema,
   SystemProxySettingsSchema,
 } from './system-proxy';
+export { DeviceTrustedCertificateSchema, DeviceTrustSchema } from './device-trust';
 export { TemplateIncludesSchema, TemplateSchema } from './template';
 export { TrustedRootSchema, TrustedRootsSchema } from './trusted-roots';
 export {

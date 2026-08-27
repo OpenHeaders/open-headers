@@ -11,6 +11,7 @@ export type { DaemonAuditForwardingConfig } from './audit-forwarder';
 export type { DaemonBindState } from './bind-supervisor';
 export { bootDaemonSpine, type DaemonSpineConfig, type DaemonSpineHandle } from './boot-spine';
 export { registerPeerRpcPlane } from './compose-peer-rpc';
+export { handleDeviceTrustRpc, isDeviceTrustRpc } from './device-trust-rpc';
 export { type ExecuteRequestRpcResult, handleExecuteRequestRpc } from './execute-request-rpc';
 export type { DaemonMetrics } from './metrics';
 export type {

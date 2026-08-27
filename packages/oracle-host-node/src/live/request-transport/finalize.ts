@@ -127,6 +127,7 @@ function networkFactsOf(
     ...(record.localPort !== undefined ? { localPort: record.localPort } : {}),
     ...(record.remoteAddress !== undefined ? { remoteAddress: record.remoteAddress } : {}),
     ...(record.remotePort !== undefined ? { remotePort: record.remotePort } : {}),
+    ...(record.tls !== undefined ? { tls: record.tls } : {}),
   };
 }
 

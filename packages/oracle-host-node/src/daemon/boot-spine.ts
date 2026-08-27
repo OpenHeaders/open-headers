@@ -83,6 +83,7 @@ import {
   serializeWorkspaceExport,
 } from '@openheaders/core/workspace-export';
 import { setLockRuntime } from '@openheaders/oracle/coordination';
+import { loadDeviceTrust } from '@openheaders/oracle/entity/device-trust-store';
 import { createRequestDraft, takeRequestDraft } from '@openheaders/oracle/entity/request-draft-store';
 import {
   clearPendingScriptsReview,
@@ -176,6 +177,7 @@ import { type DaemonBindState, type DaemonBindSupervisor, startDaemonBindSupervi
 import { createCliProvisionService } from './cli-provision';
 import { composePeerPush } from './compose-peer-push';
 import { composePeerRpc } from './compose-peer-rpc';
+import { handleDeviceTrustRpc, isDeviceTrustRpc } from './device-trust-rpc';
 import { handleExecuteGrpcRequestRpc } from './execute-grpc-request-rpc';
 import { handleExecuteMqttRequestRpc } from './execute-mqtt-request-rpc';
 import { handleExecuteRequestRpc } from './execute-request-rpc';
@@ -725,6 +727,9 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
   });
   await hydrateActiveWorkspaceStores();
   await bootSyncEngine();
+  // This device's pinned certificates — read synchronously by every TLS
+  // dial after this one load (the Trusted Roots plan, device scope).
+  await loadDeviceTrust();
 
   // Workspace-tree bindings (the git-sync plan Phase 2): reopen persisted
   // bindings now that services can materialize — each open runs the
@@ -1219,6 +1224,11 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
     // lives. Same channel contract the extension SW handles.
     if (type === 'executeRequest') {
       return await handleExecuteRequestRpc(message);
+    }
+    // Device trust — this machine's pinned certificates and the
+    // presented-chain probe behind the response surface's trust gesture.
+    if (isDeviceTrustRpc(type)) {
+      return await handleDeviceTrustRpc(type, message);
     }
     // Workbench "Copy as cURL / fetch" — resolve to the wire shape
     // without dispatching; same handler the extension SW answers with,

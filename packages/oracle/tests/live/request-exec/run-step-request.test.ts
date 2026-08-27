@@ -74,12 +74,10 @@ vi.mock('../../../src/workspace/extension-workspace-store', () => ({
 const trustedRootPems = vi.fn<(workspaceId: string) => string[]>(() => []);
 vi.mock('../../../src/entity/trusted-roots-store', () => ({
   getTrustedRootPemsForWorkspace: (workspaceId: string) => trustedRootPems(workspaceId),
-  getTrustedRootPemsForSend: (workspaceId: string | null, draft?: readonly string[]) => {
-    if (draft !== undefined) return draft.length > 0 ? [...draft] : undefined;
-    if (workspaceId === null) return undefined;
-    const roots = trustedRootPems(workspaceId);
-    return roots.length > 0 ? roots : undefined;
-  },
+}));
+const devicePems = vi.fn<() => string[]>(() => []);
+vi.mock('../../../src/entity/device-trust-store', () => ({
+  getDeviceTrustPems: () => devicePems(),
 }));
 
 function makeRequest(overrides: Partial<Request> = {}): Request {
@@ -138,6 +136,7 @@ beforeEach(() => {
   requestCollections.mockReturnValue([]);
   requestFolders.mockReturnValue([]);
   trustedRootPems.mockReturnValue([]);
+  devicePems.mockReturnValue([]);
 });
 
 afterEach(() => {
@@ -154,19 +153,23 @@ describe('runStepRequest (integration over the real resolver + executor)', () =>
     expect(snap.trustedRootsApplied).toBe(1);
   });
 
-  it('a draft on the run dials with the unsaved list and counts it; an empty draft withholds the saved roots', async () => {
-    const saved = '-----BEGIN CERTIFICATE-----\nSAVED\n-----END CERTIFICATE-----\n';
-    const unsaved = '-----BEGIN CERTIFICATE-----\nUNSAVED\n-----END CERTIFICATE-----\n';
-    trustedRootPems.mockImplementation((workspaceId) => (workspaceId === 'ws-1' ? [saved] : []));
-    const added = captureTransport();
-    const snap = await runStepRequest(makeRequest(), { ...opts(added.transport), trustedRootsDraft: [saved, unsaved] });
-    expect(added.sent().trustedRootsPem).toEqual([saved, unsaved]);
-    expect(snap.trustedRootsApplied).toBe(2);
+  it('this device\'s pins ride behind the workspace roots and count on their own field', async () => {
+    const root = '-----BEGIN CERTIFICATE-----\nROOT\n-----END CERTIFICATE-----\n';
+    const pin = '-----BEGIN CERTIFICATE-----\nPIN\n-----END CERTIFICATE-----\n';
+    trustedRootPems.mockImplementation((workspaceId) => (workspaceId === 'ws-1' ? [root] : []));
+    devicePems.mockReturnValue([pin]);
+    const both = captureTransport();
+    const snap = await runStepRequest(makeRequest(), opts(both.transport));
+    expect(both.sent().trustedRootsPem).toEqual([root, pin]);
+    expect(snap.trustedRootsApplied).toBe(1);
+    expect(snap.deviceTrustApplied).toBe(1);
 
-    const withheld = captureTransport();
-    const bare = await runStepRequest(makeRequest(), { ...opts(withheld.transport), trustedRootsDraft: [] });
-    expect(withheld.sent().trustedRootsPem).toBeUndefined();
+    trustedRootPems.mockReturnValue([]);
+    const pinsOnly = captureTransport();
+    const bare = await runStepRequest(makeRequest(), opts(pinsOnly.transport));
+    expect(pinsOnly.sent().trustedRootsPem).toEqual([pin]);
     expect(bare.trustedRootsApplied).toBeUndefined();
+    expect(bare.deviceTrustApplied).toBe(1);
   });
 
   it('an empty trust list leaves the transport request and the snapshot untouched', async () => {

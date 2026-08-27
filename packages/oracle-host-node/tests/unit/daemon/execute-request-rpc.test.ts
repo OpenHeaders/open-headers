@@ -75,6 +75,10 @@ vi.mock('@openheaders/oracle/workspace/extension-workspace-store', () => ({
   getActiveWorkspaceId: () => 'ws-active',
   peekActiveWorkspaceId: () => 'ws-active',
 }));
+const devicePems = vi.hoisted(() => ({ value: [] as string[] }));
+vi.mock('@openheaders/oracle/entity/device-trust-store', () => ({
+  getDeviceTrustPems: () => devicePems.value,
+}));
 
 import { __resetRateLimiterForTests } from '@openheaders/oracle/live/request-exec/rate-limiter';
 import { handleExecuteRequestRpc } from '../../../src/daemon/execute-request-rpc';
@@ -147,16 +151,18 @@ describe('handleExecuteRequestRpc — draft path', () => {
     expect(sent().url).toBe('https://api.openheaders.io/ping');
   });
 
-  it('dials with the frame’s unsaved trust draft and counts it; a non-string entry is dropped', async () => {
-    const root = '-----BEGIN CERTIFICATE-----\nDRAFT\n-----END CERTIFICATE-----\n';
-    const { transport, sent } = captureTransport();
-    const res = await handleExecuteRequestRpc({ draft: makeRequest(), trustedRootsDraft: [root, 42] }, transport);
-    expect(sent().trustedRootsPem).toEqual([root]);
-    expect(res.snapshot?.trustedRootsApplied).toBe(1);
-    const bare = captureTransport();
-    const none = await handleExecuteRequestRpc({ draft: makeRequest(), trustedRootsDraft: [] }, bare.transport);
-    expect(bare.sent().trustedRootsPem).toBeUndefined();
-    expect(none.snapshot?.trustedRootsApplied).toBeUndefined();
+  it('dials with this device’s pinned certificates and counts them on their own field', async () => {
+    const pin = '-----BEGIN CERTIFICATE-----\nPIN\n-----END CERTIFICATE-----\n';
+    devicePems.value = [pin];
+    try {
+      const { transport, sent } = captureTransport();
+      const res = await handleExecuteRequestRpc({ draft: makeRequest() }, transport);
+      expect(sent().trustedRootsPem).toEqual([pin]);
+      expect(res.snapshot?.deviceTrustApplied).toBe(1);
+      expect(res.snapshot?.trustedRootsApplied).toBeUndefined();
+    } finally {
+      devicePems.value = [];
+    }
   });
 
   it('stamps a cookieJar opt-in with the runtime-Active workspace id', async () => {

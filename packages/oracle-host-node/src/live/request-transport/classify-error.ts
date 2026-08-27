@@ -6,9 +6,11 @@
  * classification.
  */
 
+import type { ExecutedRequestErrorHint } from '@openheaders/core/types';
 import { TransportError, type TransportRequest } from '@openheaders/oracle/live/request-exec/transport';
 import { H3HelperFailure } from '../h3-helper/helper-process';
 import { H2_NOT_NEGOTIATED_CODE } from '../instrumented-connector';
+import { isTlsVerificationCode, trustCertificateHintFor } from '../tls-verification';
 import { proxyConnectRejectedStatus } from './connect-tunnel';
 
 /**
@@ -22,16 +24,20 @@ import { proxyConnectRejectedStatus } from './connect-tunnel';
  */
 export class WireExchangeError extends TransportError {
   readonly causeCode?: string;
-  constructor(message: string, causeCode?: string) {
-    super(message);
+  constructor(message: string, causeCode?: string, hint?: ExecutedRequestErrorHint) {
+    super(message, hint);
     if (causeCode !== undefined) this.causeCode = causeCode;
   }
 }
 
-/** Build the classified wire failure for one hop's raw error. */
+/** Build the classified wire failure for one hop's raw error. A
+ *  verification failure (the peer's certificate could not be trusted)
+ *  additionally carries the trust-certificate remedy — the endpoint
+ *  the surface probes for the presented chain. */
 export function classifiedWireError(url: string, err: unknown, request: TransportRequest): WireExchangeError {
   const code = causeChain(err).find((link) => link.code !== undefined && link.code !== '')?.code;
-  return new WireExchangeError(classifyFetchFailure(url, err, request), code);
+  const hint = isTlsVerificationCode(code) ? trustCertificateHintFor(url, code, request.resolveToAddress) : undefined;
+  return new WireExchangeError(classifyFetchFailure(url, err, request), code, hint);
 }
 
 /** Whether this request carries any TLS version / cipher tuning — the
@@ -266,8 +272,13 @@ export function classifyFetchFailure(url: string, err: unknown, request: Transpo
         ? `${host} rejected the presented client certificate (${code}). Check the request's client-certificate setting — the vault entry "${certRef}" may be expired, revoked, or signed by a CA this server doesn't trust.`
         : `${host} rejected a certificate during the TLS handshake (${code}).`;
     case 'CERT_HAS_EXPIRED':
+    case 'CERT_NOT_YET_VALID':
     case 'DEPTH_ZERO_SELF_SIGNED_CERT':
+    case 'SELF_SIGNED_CERT_IN_CHAIN':
     case 'UNABLE_TO_VERIFY_LEAF_SIGNATURE':
+    case 'UNABLE_TO_GET_ISSUER_CERT':
+    case 'UNABLE_TO_GET_ISSUER_CERT_LOCALLY':
+    case 'CERT_UNTRUSTED':
       return `TLS certificate error reaching ${host} (${code}).`;
     case 'ERR_SSL_NO_CIPHER_MATCH':
       return `No usable cipher suite for ${host} (${code}). Check the request's "TLS cipher suites" setting — none of the listed suites could be used for this connection.`;

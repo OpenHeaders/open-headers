@@ -220,13 +220,13 @@ export async function executeOverTransport(
   // runtime's 1.2 default — the policy is known before the wire, so
   // success and error paths mark alike.
   const tlsFloorLowered = resolved.tlsMinVersion === '1.0' || resolved.tlsMinVersion === '1.1';
-  // And the workspace roots the dial trusts — a count, not the list.
-  // An HTTP/3 send stays unstamped: the helper's TLS stack has no seat
-  // for them yet, and the snapshot never claims trust it did not run.
+  // And the trust anchors the dial trusts — per-scope counts, not the
+  // list. An HTTP/3 send stays unstamped: the helper's TLS stack has no
+  // seat for them yet, and the snapshot never claims trust it did not run.
+  const anchorCounts = resolved.httpVersion !== '3' ? resolved.trustAnchorCounts : undefined;
   const trustedRootsApplied =
-    resolved.trustedRootsPem !== undefined && resolved.trustedRootsPem.length > 0 && resolved.httpVersion !== '3'
-      ? resolved.trustedRootsPem.length
-      : undefined;
+    anchorCounts !== undefined && anchorCounts.workspace > 0 ? anchorCounts.workspace : undefined;
+  const deviceTrustApplied = anchorCounts !== undefined && anchorCounts.device > 0 ? anchorCounts.device : undefined;
 
   // ── Streaming leg (interactive sends only) ──
   // The emitter batches live frames (time-engaged flush — an ordinary
@@ -313,6 +313,7 @@ export async function executeOverTransport(
       ...(verificationOff ? { sslVerificationDisabled: true } : {}),
       ...(tlsFloorLowered ? { tlsFloorLowered: true } : {}),
       ...(trustedRootsApplied !== undefined ? { trustedRootsApplied } : {}),
+      ...(deviceTrustApplied !== undefined ? { deviceTrustApplied } : {}),
       // The transport reports an actual cross-origin Authorization
       // re-send (only the redirect loop can know); stamp it so the
       // response surface marks the run.
@@ -345,12 +346,17 @@ export async function executeOverTransport(
           : err instanceof Error
             ? err.message
             : String(err);
+    // A transport that classified a remedy hands it over verbatim — the
+    // response surface turns it into the action (trust the certificate).
+    const errorHint = err instanceof TransportError ? err.hint : undefined;
     return {
       ...errorSnapshot(message),
+      ...(errorHint !== undefined ? { errorHint } : {}),
       durationMs,
       ...(verificationOff ? { sslVerificationDisabled: true } : {}),
       ...(tlsFloorLowered ? { tlsFloorLowered: true } : {}),
       ...(trustedRootsApplied !== undefined ? { trustedRootsApplied } : {}),
+      ...(deviceTrustApplied !== undefined ? { deviceTrustApplied } : {}),
     };
   } finally {
     unregister?.();

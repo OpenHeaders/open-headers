@@ -26,6 +26,8 @@
  * all of it.
  */
 
+import type { ExecutedRequestErrorHint, ExecutedTlsFacts } from '@openheaders/core/types';
+
 /** A single header on the wire. Repeated keys are allowed (the host
  *  appends them in order). */
 export interface TransportHeader {
@@ -366,6 +368,8 @@ export interface TransportNetworkFacts {
   localPort?: number;
   remoteAddress?: string;
   remotePort?: number;
+  /** TLS facts off the socket — absent on cleartext dials. */
+  tls?: ExecutedTlsFacts;
 }
 
 export interface TransportResponse {
@@ -510,10 +514,17 @@ export interface TransportResponse {
  * transport resolves normally so extractors can read error bodies and
  * status-code gates can branch.
  */
+/** Thrown by a transport for a classified network failure. `hint` is
+ *  the machine-readable remedy the executor stamps on the error
+ *  snapshot (`errorHint`) — a transport that owns its TLS stack names
+ *  the trust-certificate remedy; browser transports name none here
+ *  (the SW classifies after the fact). */
 export class TransportError extends Error {
-  constructor(message: string) {
+  readonly hint?: ExecutedRequestErrorHint;
+  constructor(message: string, hint?: ExecutedRequestErrorHint) {
     super(message);
     this.name = 'TransportError';
+    if (hint !== undefined) this.hint = hint;
   }
 }
 

@@ -303,18 +303,6 @@ describe('handleExecuteWebSocketRequestRpc — happy path', () => {
     expect(sent().sslVerification).toBe(false);
     expect(sent().timeoutMs).toBe(15_000);
   });
-
-  it('dials with the frame’s unsaved trust draft', async () => {
-    const root = '-----BEGIN CERTIFICATE-----\nDRAFT\n-----END CERTIFICATE-----\n';
-    seedStorage([]);
-    const { transport, sent } = scriptedTransport();
-    await runSession(
-      { draft: makeWsRequest(), sendId: 's-roots', trustedRootsDraft: [root] },
-      transport,
-      (sendId) => void closeActiveWsSession(sendId),
-    );
-    expect(sent().trustedRootsPem).toEqual([root]);
-  });
 });
 
 describe('handleExecuteWebSocketRequestRpc — rider plane', () => {

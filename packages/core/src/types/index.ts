@@ -235,9 +235,13 @@ export type {
 export type {
   ExecutedProxyRoute,
   ExecutedRedirectHop,
+  ExecutedPeerCertificate,
   ExecutedRequestErrorHint,
+  OpenInTabErrorHint,
+  TrustCertificateErrorHint,
   ExecutedRequestSize,
   ExecutedRequestSnapshot,
+  ExecutedTlsFacts,
   ExecutedWireCapture,
 } from './request-execution';
 // ── Response example ───────────────────────────────────────────────
@@ -336,6 +340,7 @@ export type {
   SystemProxyResolvedSource,
   SystemProxySettings,
 } from './system-proxy';
+export { EMPTY_DEVICE_TRUST, type DeviceTrust, type DeviceTrustedCertificate } from './device-trust';
 // ── Telemetry ──────────────────────────────────────────────────────
 export type {
   DeliveryMode,

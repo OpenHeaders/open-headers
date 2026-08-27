@@ -459,14 +459,6 @@ export interface RequestRpc {
        * can stop the exchange. Hosts without the streaming leg ignore
        * it — the RPC contract is unchanged either way.
        */
-      /**
-       * The Trusted Certificates tab's UNSAVED trust list (PEM per
-       * row) riding this frame — draft = local, Save = peers. Present,
-       * the executing host dials with it instead of the workspace list
-       * (an empty list applies nothing); absent, the workspace list
-       * applies. Never stored on any host.
-       */
-      trustedRootsDraft?: string[];
       sendId?: string;
     };
     res: { success: boolean; snapshot?: ExecutedRequestSnapshot; error?: string };
@@ -515,14 +507,6 @@ export interface RequestRpc {
       draft?: GrpcRequest;
       environmentId?: string | null;
       workspaceId?: string;
-      /**
-       * The Trusted Certificates tab's UNSAVED trust list (PEM per
-       * row) riding this frame — draft = local, Save = peers. Present,
-       * the executing host dials with it instead of the workspace list
-       * (an empty list applies nothing); absent, the workspace list
-       * applies. Never stored on any host.
-       */
-      trustedRootsDraft?: string[];
       sendId?: string;
     };
     res: { success: boolean; snapshot?: ExecutedGrpcSnapshot; error?: string };
@@ -576,14 +560,6 @@ export interface RequestRpc {
       draft?: WebSocketRequest;
       environmentId?: string | null;
       workspaceId?: string;
-      /**
-       * The Trusted Certificates tab's UNSAVED trust list (PEM per
-       * row) riding this frame — draft = local, Save = peers. Present,
-       * the executing host dials with it instead of the workspace list
-       * (an empty list applies nothing); absent, the workspace list
-       * applies. Never stored on any host.
-       */
-      trustedRootsDraft?: string[];
       sendId: string;
     };
     res: { success: boolean; snapshot?: ExecutedWsSnapshot; error?: string };
@@ -642,14 +618,6 @@ export interface RequestRpc {
       draft?: MqttRequest;
       environmentId?: string | null;
       workspaceId?: string;
-      /**
-       * The Trusted Certificates tab's UNSAVED trust list (PEM per
-       * row) riding this frame — draft = local, Save = peers. Present,
-       * the executing host dials with it instead of the workspace list
-       * (an empty list applies nothing); absent, the workspace list
-       * applies. Never stored on any host.
-       */
-      trustedRootsDraft?: string[];
       sendId: string;
     };
     res: { success: boolean; snapshot?: ExecutedMqttSnapshot; error?: string };

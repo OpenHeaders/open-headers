@@ -36,14 +36,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const TRUSTED_ROOT = '-----BEGIN CERTIFICATE-----\nROOT\n-----END CERTIFICATE-----\n';
 vi.mock('../../../src/entity/trusted-roots-store', () => ({
-  getTrustedRootPemsForSend: (workspaceId: string | null, draft?: readonly string[]) =>
-    draft !== undefined
-      ? draft.length > 0
-        ? [...draft]
-        : undefined
-      : workspaceId === 'ws-1'
-        ? [TRUSTED_ROOT]
-        : undefined,
+  getTrustedRootPemsForWorkspace: (workspaceId: string) => (workspaceId === 'ws-1' ? [TRUSTED_ROOT] : []),
+}));
+const DEVICE_PIN = '-----BEGIN CERTIFICATE-----\nPIN\n-----END CERTIFICATE-----\n';
+const devicePems = vi.fn<() => string[]>(() => []);
+vi.mock('../../../src/entity/device-trust-store', () => ({
+  getDeviceTrustPems: () => devicePems(),
 }));
 
 function makeMqttRequest(overrides: Partial<MqttRequest> = {}): MqttRequest {
@@ -602,22 +600,22 @@ describe('executeMqttSession — 5.0 connect knobs and topic aliases', () => {
     await settled;
   });
 
-  it('a draft on the session dials with the unsaved list instead of the workspace roots', async () => {
-    const unsaved = '-----BEGIN CERTIFICATE-----\nUNSAVED\n-----END CERTIFICATE-----\n';
+  it('this device\'s pins ride behind the workspace roots on the dial', async () => {
+    devicePems.mockReturnValue([DEVICE_PIN]);
     const rig = scriptedTransport(MQTT_PROTOCOL_VERSIONS.v5);
     const settled = executeMqttSession(makeMqttRequest({ url: 'mqtts://{{host}}' }), {
       workspaceId: 'ws-1',
       environmentId: undefined,
       transport: rig.transport,
-      sendId: 'send-mqtt-draft-roots',
+      sendId: 'send-mqtt-device-pin',
       resolution: scopedResolution,
-      trustedRootsDraft: [unsaved],
     });
     await settleTick();
-    expect(rig.wire().trustedRootsPem).toEqual([unsaved]);
+    expect(rig.wire().trustedRootsPem).toEqual([TRUSTED_ROOT, DEVICE_PIN]);
     rig.establish();
-    closeActiveMqttSession('send-mqtt-draft-roots');
+    closeActiveMqttSession('send-mqtt-device-pin');
     await settled;
+    devicePems.mockReturnValue([]);
   });
 
   it('hands the TLS trust knobs to the transport — the cert ref passes through bare without a vault', async () => {

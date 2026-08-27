@@ -45,6 +45,7 @@ export type {
   MqttStreamEventWire,
   MqttStreamItemWire,
   MqttSubscriptionWire,
+  PresentedCertificateWire,
   ProductTelemetryLogEntryWire,
   ProductTelemetrySnapshot,
   RequestStreamEventWire,
