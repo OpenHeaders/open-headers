@@ -861,8 +861,8 @@ export const workbenchSettingsPanes = {
   'workbench.settings.gitPane.refusal.unknownWorkspace': 'Kein aktiver Arbeitsbereich zum Binden.',
   'workbench.settings.gitPane.git.title': 'Git',
   'workbench.settings.gitPane.git.available': 'Git {version} gefunden',
-  'workbench.settings.gitPane.automation.unbound':
-    'Automatisierung gilt für einen gebundenen Ordner mit Repository — binde einen unter',
+  'workbench.settings.gitPane.needsRepo':
+    'Diese Seite braucht einen gebundenen Ordner mit Repository — binde einen unter',
   'workbench.settings.gitPane.git.missing.title': 'Git ist nicht installiert',
   'workbench.settings.gitPane.git.missing.body':
     'Installiere git, um die Historie dieses Ordners zu committen. Alles andere funktioniert auch ohne ' + 'weiter.',

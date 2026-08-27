@@ -50,6 +50,7 @@ const LicensePane = lazy(() => import('./components/license-pane'));
 const GitWorkspacePane = lazy(() => import('./components/git-workspace-pane'));
 const GitFolderPane = lazy(() => import('./components/git/git-folder-pane'));
 const GitAutomationPane = lazy(() => import('./components/git/git-automation-pane'));
+const GitRepositoryPane = lazy(() => import('./components/git/git-repository-pane'));
 const ProxyTrustPane = lazy(() => import('./components/proxy-trust-pane'));
 const SystemProxyPane = lazy(() => import('./components/system-proxy-pane'));
 const KeymapPane = lazy(() => import('./components/keymap/KeymapPane'));
@@ -487,6 +488,24 @@ registerCategory({
     { id: 'remote', labelKey: 'workbench.settings.category.gitAutomation.sub.remote', order: 20 },
   ],
   renderPane: GitAutomationPane,
+  when: () => getCurrentHost() === 'desktop',
+});
+
+registerCategory({
+  id: 'gitRepository',
+  labelKey: 'workbench.settings.category.gitRepository.label',
+  navLabelKey: 'workbench.settings.category.gitRepository.navLabel',
+  parent: 'git',
+  icon: <DatabaseOutlined />,
+  order: 30,
+  descriptionKey: 'workbench.settings.category.gitRepository.description',
+  subcategories: [
+    { id: 'working-tree', labelKey: 'workbench.settings.category.gitRepository.sub.working-tree', order: 10 },
+    { id: 'branches', labelKey: 'workbench.settings.category.gitRepository.sub.branches', order: 20 },
+    { id: 'commit', labelKey: 'workbench.settings.category.gitRepository.sub.commit', order: 30 },
+    { id: 'history', labelKey: 'workbench.settings.category.gitRepository.sub.history', order: 40 },
+  ],
+  renderPane: GitRepositoryPane,
   when: () => getCurrentHost() === 'desktop',
 });
 

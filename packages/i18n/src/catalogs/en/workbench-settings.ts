@@ -225,6 +225,14 @@ export const workbenchSettings = {
   'workbench.settings.category.gitAutomation.description': 'What the engine commits and pushes on its own.',
   'workbench.settings.category.gitAutomation.sub.commits': 'Commits',
   'workbench.settings.category.gitAutomation.sub.remote': 'Remote',
+  'workbench.settings.category.gitRepository.label': 'Git · Repository',
+  'workbench.settings.category.gitRepository.navLabel': 'Repository',
+  'workbench.settings.category.gitRepository.description':
+    'Pull, push, branch, commit and browse the bound repository.',
+  'workbench.settings.category.gitRepository.sub.working-tree': 'Working tree',
+  'workbench.settings.category.gitRepository.sub.branches': 'Branches',
+  'workbench.settings.category.gitRepository.sub.commit': 'Commit',
+  'workbench.settings.category.gitRepository.sub.history': 'History',
   'workbench.settings.category.proxy.label': 'Proxy',
   'workbench.settings.category.proxy.description':
     'This device’s outbound proxy — how requests reach the network — and trust setup for the capture proxy.',

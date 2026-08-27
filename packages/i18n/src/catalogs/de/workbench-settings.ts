@@ -248,6 +248,14 @@ export const workbenchSettings = {
   'workbench.settings.category.gitAutomation.description': 'Was die Engine von sich aus committet und pusht.',
   'workbench.settings.category.gitAutomation.sub.commits': 'Commits',
   'workbench.settings.category.gitAutomation.sub.remote': 'Remote',
+  'workbench.settings.category.gitRepository.label': 'Git · Repository',
+  'workbench.settings.category.gitRepository.navLabel': 'Repository',
+  'workbench.settings.category.gitRepository.description':
+    'Pull, Push, Branches, Commits und Verlauf des gebundenen Repositorys.',
+  'workbench.settings.category.gitRepository.sub.working-tree': 'Arbeitsbaum',
+  'workbench.settings.category.gitRepository.sub.branches': 'Branches',
+  'workbench.settings.category.gitRepository.sub.commit': 'Commit',
+  'workbench.settings.category.gitRepository.sub.history': 'Verlauf',
   'workbench.settings.category.proxy.label': 'Proxy',
   'workbench.settings.category.proxy.description':
     'Der ausgehende Proxy dieses Geräts — wie Anfragen das Netzwerk erreichen — und die ' +

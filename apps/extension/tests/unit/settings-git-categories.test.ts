@@ -48,4 +48,19 @@ describe('git settings group', () => {
       .map((c) => c.id);
     expect(children.slice(0, 2)).toEqual(['gitFolder', 'gitAutomation']);
   });
+
+  it('repository is the third child: working tree, branches, commit, history, desktop-only, no defs', () => {
+    const repository = getCategory('gitRepository');
+    expect(repository?.parent).toBe('git');
+    expect(repository?.navLabelKey).toBeTruthy();
+    expect(repository?.renderPane).toBeDefined();
+    expect(repository?.when).toBeDefined();
+    expect(repository?.teaserWhenUnavailable).toBeUndefined();
+    expect(repository?.subcategories?.map((s) => s.id)).toEqual(['working-tree', 'branches', 'commit', 'history']);
+    expect(byCategory('gitRepository')).toHaveLength(0);
+    const children = allCategories()
+      .filter((c) => c.parent === 'git')
+      .map((c) => c.id);
+    expect(children).toEqual(['gitFolder', 'gitAutomation', 'gitRepository']);
+  });
 });

@@ -5,7 +5,7 @@
  * settings store, so the rows are `FieldRow`s over the workspace-tree
  * verbs with no reset. Shared by the Automation page and the Server
  * Admin git card; without a bound repository the sections give way to
- * a pointer at the Folder page.
+ * the pointer at the Folder page.
  */
 
 import type { WorkspaceTreeCommitCadence } from '@openheaders/core/bridge';
@@ -14,10 +14,8 @@ import type React from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import FieldRow from '../../fields/FieldRow';
 import { PaneSection } from '../pane-chrome';
-import SettingsCategoryLink from '../settings-category-link';
+import GitNeedsRepoNote from './git-needs-repo-note';
 import type { WorkspaceGit } from './use-workspace-git';
-
-export const GIT_FOLDER_CATEGORY = 'gitFolder';
 
 const GitAutomationSection: React.FC<{ git: WorkspaceGit }> = ({ git }) => {
   const { token } = theme.useToken();
@@ -56,17 +54,7 @@ const GitAutomationSection: React.FC<{ git: WorkspaceGit }> = ({ git }) => {
   };
 
   if (gitStatus === null || !gitStatus.git.available || !gitStatus.repo) {
-    return (
-      <PaneSection>
-        <div
-          style={{ padding: '3px 0', fontSize: 11.5, color: token.colorTextSecondary }}
-          data-testid="git-pane-automation-unbound"
-        >
-          {t('workbench.settings.gitPane.automation.unbound')}{' '}
-          <SettingsCategoryLink categoryId={GIT_FOLDER_CATEGORY} testid="git-pane-folder-link" />
-        </div>
-      </PaneSection>
-    );
+    return <GitNeedsRepoNote />;
   }
 
   return (
