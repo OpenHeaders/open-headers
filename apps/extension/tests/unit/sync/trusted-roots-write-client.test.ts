@@ -6,6 +6,10 @@
  *   - add mints a uid + `addedAt` and emits addToSet carrying the WHOLE
  *     row (name + certPem) keyed by that uid — a chain stays one item
  *   - remove emits removeFromSet keyed by uid
+ *   - the replacement (the editor's Save) diffs draft vs canonical
+ *     into ONE batch — addToSet for new and renamed rows, removeFromSet
+ *     for dropped ones, nothing for an unchanged row, no fire on an
+ *     identical list
  *   - a bridge failure collapses to the `other` arm with its detail
  */
 
@@ -35,8 +39,14 @@ vi.mock('@utils/logger', () => ({
   logger: { info: vi.fn(), debug: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }));
 
+import type { TrustedRoot } from '@openheaders/core/types';
 import type { RendererContextHandle } from '@openheaders/ui/context';
-import { applyTrustedRootAdd, applyTrustedRootRemove } from '@openheaders/ui/shared/sync/trusted-roots-write-client';
+import type { TrustedRootsSyncMirror } from '@openheaders/ui/context/mirrors/trusted-roots-sync-mirror';
+import {
+  applyTrustedRootAdd,
+  applyTrustedRootRemove,
+  applyTrustedRootsReplacement,
+} from '@openheaders/ui/shared/sync/trusted-roots-write-client';
 
 const CHAIN_PEM =
   '-----BEGIN CERTIFICATE-----\nAAA\n-----END CERTIFICATE-----\n-----BEGIN CERTIFICATE-----\nBBB\n-----END CERTIFICATE-----\n';
@@ -115,5 +125,58 @@ describe('applyTrustedRootRemove', () => {
       path: TRUSTED_ROOTS_PATH,
       itemId: 'root-1',
     });
+  });
+});
+
+function makeRoot(uid: string, name = `Root ${uid}`): TrustedRoot {
+  return { uid, name, certPem: CHAIN_PEM, addedAt: '2026-08-27T00:00:00.000Z' };
+}
+
+function makeMirror(orderKeys: Array<{ itemId: string; orderKey: string }>): TrustedRootsSyncMirror {
+  return {
+    getMirror: () => null,
+    liveRoots: () => [],
+    liveRootOrderKeys: () => orderKeys,
+    subscribeMirror: () => () => undefined,
+    hydrated: Promise.resolve(),
+    dispose: () => undefined,
+  };
+}
+
+describe('applyTrustedRootsReplacement', () => {
+  const mirror = makeMirror([
+    { itemId: 'r1', orderKey: 'a0' },
+    { itemId: 'r2', orderKey: 'a1' },
+  ]);
+
+  it('commits added, renamed and dropped rows as one batch and leaves an unchanged row alone', async () => {
+    mockCall.mockResolvedValue({ ok: true, outcomes: [] });
+    const canonical = [makeRoot('r1'), makeRoot('r2')];
+    const draft = [makeRoot('r1'), makeRoot('r3'), makeRoot('r2', 'Renamed')];
+    const result = await applyTrustedRootsReplacement(draft, canonical, { ...OPTS, mirror });
+    expect(result).toEqual({ ok: true });
+    expect(mockCall).toHaveBeenCalledTimes(1);
+    const batch = (mockCall.mock.calls[0][1] as { batch: MutationBatch }).batch;
+    const bodies = batch.mutations.map((m) => m.body);
+    expect(bodies.every((b) => b.type === TRUSTED_ROOTS_ENTITY_TYPE && b.id === TRUSTED_ROOTS_ID)).toBe(true);
+    const byItem = new Map(bodies.map((b) => [('itemId' in b ? b.itemId : '') as string, b.kind]));
+    expect(byItem.get('r3')).toBe('addToSet');
+    expect(byItem.get('r2')).toBe('addToSet');
+    expect(byItem.has('r1')).toBe(false);
+  });
+
+  it('emits removeFromSet for a dropped row', async () => {
+    mockCall.mockResolvedValue({ ok: true, outcomes: [] });
+    await applyTrustedRootsReplacement([makeRoot('r1')], [makeRoot('r1'), makeRoot('r2')], { ...OPTS, mirror });
+    const batch = (mockCall.mock.calls[0][1] as { batch: MutationBatch }).batch;
+    expect(batch.mutations).toHaveLength(1);
+    expect(batch.mutations[0].body).toMatchObject({ kind: 'removeFromSet', path: TRUSTED_ROOTS_PATH, itemId: 'r2' });
+  });
+
+  it('does not fire on an identical list', async () => {
+    const same = [makeRoot('r1'), makeRoot('r2')];
+    const result = await applyTrustedRootsReplacement(same, same, { ...OPTS, mirror });
+    expect(result).toEqual({ ok: true });
+    expect(mockCall).not.toHaveBeenCalled();
   });
 });

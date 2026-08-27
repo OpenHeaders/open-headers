@@ -401,7 +401,13 @@ const WorkbenchTabBody: React.FC<WorkbenchTabBodyProps> = ({
     );
   }
   if (tab.mode === 'trusted-roots') {
-    return <TrustedRootsEditor workspaceId={editingScopeWorkspaceId} />;
+    return (
+      <TrustedRootsEditor
+        workspaceId={editingScopeWorkspaceId}
+        onDirtyChange={(dirty) => handleDirtyChange(tab.id, dirty)}
+        registerSaveRef={(saveFn) => registerSaveRef(tab.id, saveFn)}
+      />
+    );
   }
   if (tab.mode === 'script-packages') {
     return (

@@ -3,11 +3,11 @@
  *
  * Thin adapter over {@link createSingletonEntityMirror} for the
  * workspace trust list (the Trusted Roots plan). Public material —
- * the mirror carries the full list; the editor reads rows off it and
- * the write client commits add / remove gestures against it.
+ * the mirror carries the full list; the editor drafts against it and
+ * the write client commits the Save as one set diff.
  */
 
-import { TRUSTED_ROOTS_ENTITY_TYPE } from '@openheaders/core/sync';
+import { TRUSTED_ROOTS_ENTITY_TYPE, TRUSTED_ROOTS_PATH } from '@openheaders/core/sync';
 import type { TrustedRoot, TrustedRoots } from '@openheaders/core/types';
 import { createWorkspaceMirrorRegistry } from './per-workspace-mirror-registry';
 import { type CreateSingletonMirrorOptions, createSingletonEntityMirror } from './singleton-entity-mirror';
@@ -25,6 +25,9 @@ export interface TrustedRootsSyncMirror {
   getMirror(): TrustedRootsMirrorEntry | null;
   /** Live rows in materialized order; `[]` when the singleton is unknown. */
   liveRoots(): TrustedRoot[];
+  /** Persisted fractional-index keys of the roots set — the
+   *  replacement diff reuses them so unmoved rows stay byte-stable. */
+  liveRootOrderKeys(): Array<{ itemId: string; orderKey: string }>;
   subscribeMirror(listener: TrustedRootsMirrorListener): () => void;
   hydrated: Promise<void>;
   dispose(): void;
@@ -63,6 +66,7 @@ export function createTrustedRootsSyncMirror(
   return {
     getMirror: core.get,
     liveRoots: () => core.get()?.trustedRoots.roots ?? [],
+    liveRootOrderKeys: () => core.get()?.setOrderKeys[TRUSTED_ROOTS_PATH] ?? [],
     subscribeMirror: core.subscribe,
     hydrated: core.hydrated,
     dispose: core.dispose,

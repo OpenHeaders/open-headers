@@ -1,13 +1,15 @@
 /**
- * TrustedRootRow — one root in the Trusted Certificates table: name,
- * subject, fingerprint (mono, copy), expiry with a warning past
- * `notAfter`, remove. Every projected column derives from `certPem`
- * at read time — nothing here is stored.
+ * TrustedRootRow — one root in the Trusted Certificates table: name
+ * (inline rename), subject, fingerprint (mono, copy), expiry with a
+ * warning past `notAfter`, remove. Rename and remove edit the
+ * editor's draft — nothing commits until Save — so remove needs no
+ * confirm. Every projected column derives from `certPem` at read
+ * time — nothing here is stored.
  */
 
 import { CopyOutlined, DeleteOutlined } from '@ant-design/icons';
 import type { TrustedRoot } from '@openheaders/core/types';
-import { Button, Popconfirm, Tag, Tooltip, Typography, theme } from 'antd';
+import { Button, Tag, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useState } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
@@ -20,10 +22,11 @@ export const ROOT_GRID_COLUMNS = 'minmax(140px, 1.2fr) minmax(180px, 2fr) minmax
 
 interface TrustedRootRowProps {
   root: TrustedRoot;
+  onRename: (uid: string, name: string) => void;
   onRemove: (uid: string) => void;
 }
 
-const TrustedRootRow: React.FC<TrustedRootRowProps> = ({ root, onRemove }) => {
+const TrustedRootRow: React.FC<TrustedRootRowProps> = ({ root, onRename, onRemove }) => {
   const t = useT();
   const { token } = theme.useToken();
   const state = useCertificateSummary(root.certPem);
@@ -52,7 +55,17 @@ const TrustedRootRow: React.FC<TrustedRootRowProps> = ({ root, onRemove }) => {
         fontSize: 13,
       }}
     >
-      <Text ellipsis={{ tooltip: root.name }} strong>
+      <Text
+        ellipsis={{ tooltip: root.name }}
+        strong
+        editable={{
+          tooltip: t('workbench.trustedRoots.row.rename'),
+          onChange: (name) => {
+            const trimmed = name.trim();
+            if (trimmed && trimmed !== root.name) onRename(root.uid, trimmed);
+          },
+        }}
+      >
         {root.name}
       </Text>
       <Text ellipsis={{ tooltip: summary?.subject }} type={summary ? undefined : 'secondary'}>
@@ -90,21 +103,14 @@ const TrustedRootRow: React.FC<TrustedRootRowProps> = ({ root, onRemove }) => {
           <Text type="secondary">—</Text>
         )}
       </div>
-      <Popconfirm
-        title={t('workbench.trustedRoots.row.removeTitle')}
-        description={t('workbench.trustedRoots.row.removeDescription')}
-        okText={t('workbench.trustedRoots.row.remove')}
-        okButtonProps={{ danger: true }}
-        onConfirm={() => onRemove(root.uid)}
-      >
-        <Button
-          size="small"
-          type="text"
-          danger
-          icon={<DeleteOutlined />}
-          aria-label={t('workbench.trustedRoots.row.remove')}
-        />
-      </Popconfirm>
+      <Button
+        size="small"
+        type="text"
+        danger
+        icon={<DeleteOutlined />}
+        aria-label={t('workbench.trustedRoots.row.remove')}
+        onClick={() => onRemove(root.uid)}
+      />
     </div>
   );
 };

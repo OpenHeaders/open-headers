@@ -2,13 +2,17 @@
  * useTrustedRootsMutator — write-only API for the workspace trust list.
  *
  * Thin React adapter over `trusted-roots-write-client.ts`. Singleton
- * entity — the helpers take no entity id.
+ * entity — the helpers take no entity id. `replaceRoots` is the
+ * editor's Save (draft vs canonical, one batch); `addRoot` and
+ * `removeRoot` are the single-gesture writes.
  */
 
+import type { TrustedRoot } from '@openheaders/core/types';
 import {
   type ApplyTrustedRootAddInput,
   applyTrustedRootAdd,
   applyTrustedRootRemove,
+  applyTrustedRootsReplacement,
   type TrustedRootAddResult,
   type TrustedRootsResult,
 } from '@openheaders/ui/shared/sync/trusted-roots-write-client';
@@ -25,6 +29,7 @@ export interface UseTrustedRootsMutatorOptions {
 export interface UseTrustedRootsMutatorApi {
   addRoot(input: ApplyTrustedRootAddInput): Promise<TrustedRootAddResult>;
   removeRoot(uid: string): Promise<TrustedRootsResult>;
+  replaceRoots(newRoots: readonly TrustedRoot[], oldRoots: readonly TrustedRoot[]): Promise<TrustedRootsResult>;
 }
 
 export function useTrustedRootsMutator(opts: UseTrustedRootsMutatorOptions): UseTrustedRootsMutatorApi {
@@ -38,5 +43,12 @@ export function useTrustedRootsMutator(opts: UseTrustedRootsMutatorOptions): Use
     applyTrustedRootRemove({ uid }, writeOpts),
   );
 
-  return useMemo(() => ({ addRoot, removeRoot }), [addRoot, removeRoot]);
+  const replaceRoots = useGuardedMutation(
+    workspaceId,
+    surfaceId,
+    (writeOpts, newRoots: readonly TrustedRoot[], oldRoots: readonly TrustedRoot[]) =>
+      applyTrustedRootsReplacement(newRoots, oldRoots, writeOpts),
+  );
+
+  return useMemo(() => ({ addRoot, removeRoot, replaceRoots }), [addRoot, removeRoot, replaceRoots]);
 }
