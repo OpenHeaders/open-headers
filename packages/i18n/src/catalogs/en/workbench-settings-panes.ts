@@ -750,6 +750,8 @@ export const workbenchSettingsPanes = {
   'workbench.settings.gitPane.refusal.unknownWorkspace': 'No active workspace to bind.',
   'workbench.settings.gitPane.git.title': 'Git',
   'workbench.settings.gitPane.git.available': 'Git {version} found',
+  'workbench.settings.gitPane.automation.unbound':
+    'Automation applies to a bound folder with a repository — bind one under',
   'workbench.settings.gitPane.git.missing.title': 'Git is not installed',
   'workbench.settings.gitPane.git.missing.body':
     'Install git to commit this folder’s history. Everything else keeps working without it.',
@@ -768,11 +770,15 @@ export const workbenchSettingsPanes = {
   'workbench.settings.gitPane.git.nothingToCommit': 'Nothing to commit — the tree matches the last commit.',
   'workbench.settings.gitPane.git.commitFailed': 'Commit failed: {detail}',
   'workbench.settings.gitPane.git.cadenceLabel': 'Auto-commit',
+  'workbench.settings.gitPane.git.cadenceDescription':
+    'When the engine records your edits as commits on its own. Off keeps every commit an explicit gesture.',
   'workbench.settings.gitPane.git.cadenceOff': 'Off — commit manually',
   'workbench.settings.gitPane.git.cadenceAuto': 'After quiet edits',
   'workbench.settings.gitPane.git.cadenceOnBlur': 'When focus leaves the app',
   'workbench.settings.gitPane.git.cadenceEvery': 'Every {minutes} minutes',
-  'workbench.settings.gitPane.git.bypassHooksLabel': 'Bypass git hooks (--no-verify)',
+  'workbench.settings.gitPane.git.bypassHooksLabel': 'Bypass git hooks',
+  'workbench.settings.gitPane.git.bypassHooksDescription':
+    "Run the engine's commits with --no-verify, skipping your pre-commit and commit-msg hooks.",
   'workbench.settings.gitPane.git.bypassHooksWarning':
     'Engine commits skip your pre-commit and commit-msg hooks while this is on.',
   'workbench.settings.gitPane.git.remoteInSync': '{upstream}: in sync',
@@ -795,6 +801,8 @@ export const workbenchSettingsPanes = {
   'workbench.settings.gitPane.git.exportBranchButton': 'Push as New Branch',
   'workbench.settings.gitPane.git.exportedBranch': 'Pushed branch {branch}.',
   'workbench.settings.gitPane.git.autoPushLabel': 'Push after every commit',
+  'workbench.settings.gitPane.git.autoPushDescription':
+    'Push the current branch to its upstream right after every commit the engine records.',
   'workbench.settings.gitPane.git.branch.title': 'Branches',
   'workbench.settings.gitPane.git.branch.current': 'On branch {branch}',
   'workbench.settings.gitPane.git.branch.detached': 'Detached HEAD — create a branch to keep this history.',

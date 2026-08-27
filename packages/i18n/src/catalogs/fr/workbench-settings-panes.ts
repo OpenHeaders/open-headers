@@ -858,6 +858,8 @@ export const workbenchSettingsPanes = {
   'workbench.settings.gitPane.refusal.unknownWorkspace': 'Aucun espace de travail actif à lier.',
   'workbench.settings.gitPane.git.title': 'Git',
   'workbench.settings.gitPane.git.available': 'Git {version} détecté',
+  'workbench.settings.gitPane.automation.unbound':
+    'L’automatisation s’applique à un dossier lié avec un dépôt — liez-en un sous',
   'workbench.settings.gitPane.git.missing.title': 'Git n’est pas installé',
   'workbench.settings.gitPane.git.missing.body':
     'Installez git pour valider l’historique de ce dossier. Tout le reste continue de fonctionner sans lui.',
@@ -878,11 +880,15 @@ export const workbenchSettingsPanes = {
   'workbench.settings.gitPane.git.nothingToCommit': 'Rien à commiter — l’arbre correspond au dernier commit.',
   'workbench.settings.gitPane.git.commitFailed': 'Échec du commit : {detail}',
   'workbench.settings.gitPane.git.cadenceLabel': 'Auto-commit',
+  'workbench.settings.gitPane.git.cadenceDescription':
+    'Quand le moteur enregistre vos modifications en commits de lui-même. Désactivé garde chaque commit comme un geste explicite.',
   'workbench.settings.gitPane.git.cadenceOff': 'Désactivé — commit manuel',
   'workbench.settings.gitPane.git.cadenceAuto': 'Après une pause d’édition',
   'workbench.settings.gitPane.git.cadenceOnBlur': 'Quand le focus quitte l’application',
   'workbench.settings.gitPane.git.cadenceEvery': 'Toutes les {minutes} minutes',
-  'workbench.settings.gitPane.git.bypassHooksLabel': 'Ignorer les hooks git (--no-verify)',
+  'workbench.settings.gitPane.git.bypassHooksLabel': 'Ignorer les hooks git',
+  'workbench.settings.gitPane.git.bypassHooksDescription':
+    'Exécuter les commits du moteur avec --no-verify, en sautant vos hooks pre-commit et commit-msg.',
   'workbench.settings.gitPane.git.bypassHooksWarning':
     'Tant que cette option est active, les commits du moteur ignorent vos hooks pre-commit et commit-msg.',
   'workbench.settings.gitPane.git.remoteInSync': '{upstream} : synchronisé',
@@ -906,6 +912,8 @@ export const workbenchSettingsPanes = {
   'workbench.settings.gitPane.git.exportBranchButton': 'Pousser comme nouvelle branche',
   'workbench.settings.gitPane.git.exportedBranch': 'Branche {branch} poussée.',
   'workbench.settings.gitPane.git.autoPushLabel': 'Pousser après chaque commit',
+  'workbench.settings.gitPane.git.autoPushDescription':
+    'Pousser la branche courante vers son upstream juste après chaque commit enregistré par le moteur.',
   'workbench.settings.gitPane.git.branch.title': 'Branches',
   'workbench.settings.gitPane.git.branch.current': 'Sur la branche {branch}',
   'workbench.settings.gitPane.git.branch.detached': 'HEAD détaché — créez une branche pour conserver cet historique.',

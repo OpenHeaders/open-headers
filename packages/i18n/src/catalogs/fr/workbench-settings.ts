@@ -239,6 +239,11 @@ export const workbenchSettings = {
   'workbench.settings.category.gitFolder.description': 'Le dossier sur disque auquel cet espace de travail est lié.',
   'workbench.settings.category.gitFolder.sub.binding': 'Liaison',
   'workbench.settings.category.gitFolder.sub.requirements': 'Prérequis',
+  'workbench.settings.category.gitAutomation.label': 'Git · Automatisation',
+  'workbench.settings.category.gitAutomation.navLabel': 'Automatisation',
+  'workbench.settings.category.gitAutomation.description': 'Ce que le moteur valide et pousse de lui-même.',
+  'workbench.settings.category.gitAutomation.sub.commits': 'Commits',
+  'workbench.settings.category.gitAutomation.sub.remote': 'Distant',
   'workbench.settings.category.proxy.label': 'Proxy',
   'workbench.settings.category.proxy.description':
     'Le proxy sortant de cet appareil — comment les requêtes atteignent le réseau — et la mise en place ' +

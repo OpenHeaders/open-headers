@@ -708,6 +708,7 @@ export const workbenchSettingsPanes = {
   'workbench.settings.gitPane.refusal.unknownWorkspace': '没有可绑定的活动工作区。',
   'workbench.settings.gitPane.git.title': 'Git',
   'workbench.settings.gitPane.git.available': '已找到 Git {version}',
+  'workbench.settings.gitPane.automation.unbound': '自动化适用于已绑定且带有仓库的文件夹——请先在此绑定：',
   'workbench.settings.gitPane.git.missing.title': '未安装 Git',
   'workbench.settings.gitPane.git.missing.body': '安装 git 即可为此文件夹提交历史。其他一切没有它也照常工作。',
   'workbench.settings.gitPane.git.belowFloor.body':
@@ -722,11 +723,15 @@ export const workbenchSettingsPanes = {
   'workbench.settings.gitPane.git.nothingToCommit': '没有可提交的内容——树与上次提交一致。',
   'workbench.settings.gitPane.git.commitFailed': '提交失败：{detail}',
   'workbench.settings.gitPane.git.cadenceLabel': '自动提交',
+  'workbench.settings.gitPane.git.cadenceDescription':
+    '引擎何时自行把你的编辑记录为提交。关闭时每次提交都是明确的手动操作。',
   'workbench.settings.gitPane.git.cadenceOff': '关闭——手动提交',
   'workbench.settings.gitPane.git.cadenceAuto': '编辑安静后',
   'workbench.settings.gitPane.git.cadenceOnBlur': '焦点离开应用时',
   'workbench.settings.gitPane.git.cadenceEvery': '每 {minutes} 分钟',
-  'workbench.settings.gitPane.git.bypassHooksLabel': '绕过 git 钩子（--no-verify）',
+  'workbench.settings.gitPane.git.bypassHooksLabel': '绕过 git 钩子',
+  'workbench.settings.gitPane.git.bypassHooksDescription':
+    '以 --no-verify 执行引擎的提交，跳过你的 pre-commit 和 commit-msg 钩子。',
   'workbench.settings.gitPane.git.bypassHooksWarning': '开启期间，引擎提交会跳过你的 pre-commit 和 commit-msg 钩子。',
   'workbench.settings.gitPane.git.remoteInSync': '{upstream}：已同步',
   'workbench.settings.gitPane.git.remoteStatus': '{upstream}：领先 {ahead}，落后 {behind}',
@@ -747,6 +752,7 @@ export const workbenchSettingsPanes = {
   'workbench.settings.gitPane.git.exportBranchButton': '推送为新分支',
   'workbench.settings.gitPane.git.exportedBranch': '已推送分支 {branch}。',
   'workbench.settings.gitPane.git.autoPushLabel': '每次提交后推送',
+  'workbench.settings.gitPane.git.autoPushDescription': '引擎每次记录提交后，立即把当前分支推送到其上游。',
   'workbench.settings.gitPane.git.branch.title': '分支',
   'workbench.settings.gitPane.git.branch.current': '当前分支 {branch}',
   'workbench.settings.gitPane.git.branch.detached': '游离的 HEAD——创建一个分支以保留这段历史。',

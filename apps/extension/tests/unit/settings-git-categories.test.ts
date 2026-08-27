@@ -33,4 +33,19 @@ describe('git settings group', () => {
       .map((c) => c.id);
     expect(children[0]).toBe('gitFolder');
   });
+
+  it('automation is the second child: commits and remote, desktop-only, no defs', () => {
+    const automation = getCategory('gitAutomation');
+    expect(automation?.parent).toBe('git');
+    expect(automation?.navLabelKey).toBeTruthy();
+    expect(automation?.renderPane).toBeDefined();
+    expect(automation?.when).toBeDefined();
+    expect(automation?.teaserWhenUnavailable).toBeUndefined();
+    expect(automation?.subcategories?.map((s) => s.id)).toEqual(['commits', 'remote']);
+    expect(byCategory('gitAutomation')).toHaveLength(0);
+    const children = allCategories()
+      .filter((c) => c.parent === 'git')
+      .map((c) => c.id);
+    expect(children.slice(0, 2)).toEqual(['gitFolder', 'gitAutomation']);
+  });
 });

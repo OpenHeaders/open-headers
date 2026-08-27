@@ -23,9 +23,8 @@ import { useT } from '@openheaders/ui/context/LocaleContext';
 import FieldRow from '../fields/FieldRow';
 import { useSettingValue } from '../hooks';
 import { resolveDescription, resolveLabel } from '../localize';
-import { useSelectSettingsCategory } from '../NavigationContext';
-import { getCategory } from '../registry';
 import type { SettingDef } from '../types';
+import SettingsCategoryLink from './settings-category-link';
 
 const TOKEN_PLACEHOLDER = 'YOUR_ACCESS_TOKEN';
 const TOKENS_HOME_CATEGORY = 'backendServer';
@@ -100,28 +99,10 @@ const SnippetBlock: React.FC<{ title: string; body: string }> = ({ title, body }
 const TokensHomeNote: React.FC = () => {
   const { token } = theme.useToken();
   const t = useT();
-  const selectCategory = useSelectSettingsCategory();
-  const home = getCategory(TOKENS_HOME_CATEGORY);
-  if (!home) return null;
   return (
     <div style={{ fontSize: 11.5, color: token.colorTextSecondary, marginTop: 2 }}>
       {t('workbench.settings.mcpPane.tokensHome')}{' '}
-      <button
-        type="button"
-        onClick={() => selectCategory?.(home.id)}
-        disabled={selectCategory === null}
-        style={{
-          padding: 0,
-          border: 'none',
-          background: 'transparent',
-          font: 'inherit',
-          color: token.colorPrimary,
-          cursor: 'pointer',
-        }}
-        data-testid="mcp-tokens-home"
-      >
-        {resolveLabel(home, t)}
-      </button>
+      <SettingsCategoryLink categoryId={TOKENS_HOME_CATEGORY} testid="mcp-tokens-home" />
     </div>
   );
 };

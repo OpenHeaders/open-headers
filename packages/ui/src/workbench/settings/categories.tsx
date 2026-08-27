@@ -49,6 +49,7 @@ const BackendPane = lazy(() => import('./components/BackendPane'));
 const LicensePane = lazy(() => import('./components/license-pane'));
 const GitWorkspacePane = lazy(() => import('./components/git-workspace-pane'));
 const GitFolderPane = lazy(() => import('./components/git/git-folder-pane'));
+const GitAutomationPane = lazy(() => import('./components/git/git-automation-pane'));
 const ProxyTrustPane = lazy(() => import('./components/proxy-trust-pane'));
 const SystemProxyPane = lazy(() => import('./components/system-proxy-pane'));
 const KeymapPane = lazy(() => import('./components/keymap/KeymapPane'));
@@ -470,6 +471,22 @@ registerCategory({
   renderPane: GitFolderPane,
   // The git group node carries the desktop teaser; this child hides
   // on every other host.
+  when: () => getCurrentHost() === 'desktop',
+});
+
+registerCategory({
+  id: 'gitAutomation',
+  labelKey: 'workbench.settings.category.gitAutomation.label',
+  navLabelKey: 'workbench.settings.category.gitAutomation.navLabel',
+  parent: 'git',
+  icon: <SyncOutlined />,
+  order: 20,
+  descriptionKey: 'workbench.settings.category.gitAutomation.description',
+  subcategories: [
+    { id: 'commits', labelKey: 'workbench.settings.category.gitAutomation.sub.commits', order: 10 },
+    { id: 'remote', labelKey: 'workbench.settings.category.gitAutomation.sub.remote', order: 20 },
+  ],
+  renderPane: GitAutomationPane,
   when: () => getCurrentHost() === 'desktop',
 });
 

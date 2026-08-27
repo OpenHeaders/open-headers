@@ -857,6 +857,8 @@ export const workbenchSettingsPanes = {
   'workbench.settings.gitPane.refusal.unknownWorkspace': 'No hay ningún espacio de trabajo activo que vincular.',
   'workbench.settings.gitPane.git.title': 'Git',
   'workbench.settings.gitPane.git.available': 'Git {version} encontrado',
+  'workbench.settings.gitPane.automation.unbound':
+    'La automatización se aplica a una carpeta vinculada con repositorio — vincula una en',
   'workbench.settings.gitPane.git.missing.title': 'Git no está instalado',
   'workbench.settings.gitPane.git.missing.body':
     'Instala git para confirmar el historial de esta carpeta. Todo lo demás sigue funcionando sin él.',
@@ -877,11 +879,15 @@ export const workbenchSettingsPanes = {
   'workbench.settings.gitPane.git.nothingToCommit': 'Nada que confirmar — el árbol coincide con el último commit.',
   'workbench.settings.gitPane.git.commitFailed': 'El commit falló: {detail}',
   'workbench.settings.gitPane.git.cadenceLabel': 'Auto-commit',
+  'workbench.settings.gitPane.git.cadenceDescription':
+    'Cuándo el motor registra tus ediciones como commits por su cuenta. Desactivado mantiene cada commit como un gesto explícito.',
   'workbench.settings.gitPane.git.cadenceOff': 'Desactivado — commit manual',
   'workbench.settings.gitPane.git.cadenceAuto': 'Tras una pausa de edición',
   'workbench.settings.gitPane.git.cadenceOnBlur': 'Cuando el foco sale de la aplicación',
   'workbench.settings.gitPane.git.cadenceEvery': 'Cada {minutes} minutos',
-  'workbench.settings.gitPane.git.bypassHooksLabel': 'Omitir los hooks de git (--no-verify)',
+  'workbench.settings.gitPane.git.bypassHooksLabel': 'Omitir los hooks de git',
+  'workbench.settings.gitPane.git.bypassHooksDescription':
+    'Ejecutar los commits del motor con --no-verify, saltando tus hooks pre-commit y commit-msg.',
   'workbench.settings.gitPane.git.bypassHooksWarning':
     'Mientras esta opción esté activa, los commits del motor omiten tus hooks pre-commit y commit-msg.',
   'workbench.settings.gitPane.git.remoteInSync': '{upstream}: sincronizado',
@@ -905,6 +911,8 @@ export const workbenchSettingsPanes = {
   'workbench.settings.gitPane.git.exportBranchButton': 'Enviar como rama nueva',
   'workbench.settings.gitPane.git.exportedBranch': 'Rama {branch} enviada.',
   'workbench.settings.gitPane.git.autoPushLabel': 'Hacer push tras cada commit',
+  'workbench.settings.gitPane.git.autoPushDescription':
+    'Hacer push de la rama actual a su upstream justo después de cada commit que registre el motor.',
   'workbench.settings.gitPane.git.branch.title': 'Ramas',
   'workbench.settings.gitPane.git.branch.current': 'En la rama {branch}',
   'workbench.settings.gitPane.git.branch.detached': 'HEAD separado — crea una rama para conservar este historial.',

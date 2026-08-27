@@ -861,6 +861,8 @@ export const workbenchSettingsPanes = {
   'workbench.settings.gitPane.refusal.unknownWorkspace': 'Kein aktiver Arbeitsbereich zum Binden.',
   'workbench.settings.gitPane.git.title': 'Git',
   'workbench.settings.gitPane.git.available': 'Git {version} gefunden',
+  'workbench.settings.gitPane.automation.unbound':
+    'Automatisierung gilt für einen gebundenen Ordner mit Repository — binde einen unter',
   'workbench.settings.gitPane.git.missing.title': 'Git ist nicht installiert',
   'workbench.settings.gitPane.git.missing.body':
     'Installiere git, um die Historie dieses Ordners zu committen. Alles andere funktioniert auch ohne ' + 'weiter.',
@@ -880,11 +882,15 @@ export const workbenchSettingsPanes = {
   'workbench.settings.gitPane.git.nothingToCommit': 'Nichts zu committen — der Baum entspricht dem letzten Commit.',
   'workbench.settings.gitPane.git.commitFailed': 'Commit fehlgeschlagen: {detail}',
   'workbench.settings.gitPane.git.cadenceLabel': 'Auto-Commit',
+  'workbench.settings.gitPane.git.cadenceDescription':
+    'Wann die Engine deine Änderungen von sich aus als Commits aufzeichnet. Aus lässt jeden Commit eine bewusste Geste bleiben.',
   'workbench.settings.gitPane.git.cadenceOff': 'Aus — manuell committen',
   'workbench.settings.gitPane.git.cadenceAuto': 'Nach ruhigen Änderungen',
   'workbench.settings.gitPane.git.cadenceOnBlur': 'Wenn der Fokus die App verlässt',
   'workbench.settings.gitPane.git.cadenceEvery': 'Alle {minutes} Minuten',
-  'workbench.settings.gitPane.git.bypassHooksLabel': 'git-Hooks umgehen (--no-verify)',
+  'workbench.settings.gitPane.git.bypassHooksLabel': 'git-Hooks umgehen',
+  'workbench.settings.gitPane.git.bypassHooksDescription':
+    'Die Commits der Engine mit --no-verify ausführen und deine pre-commit- und commit-msg-Hooks überspringen.',
   'workbench.settings.gitPane.git.bypassHooksWarning':
     'Engine-Commits überspringen deine pre-commit- und commit-msg-Hooks, solange dies an ist.',
   'workbench.settings.gitPane.git.remoteInSync': '{upstream}: synchron',
@@ -909,6 +915,8 @@ export const workbenchSettingsPanes = {
   'workbench.settings.gitPane.git.exportBranchButton': 'Als neuen Branch pushen',
   'workbench.settings.gitPane.git.exportedBranch': 'Branch {branch} gepusht.',
   'workbench.settings.gitPane.git.autoPushLabel': 'Nach jedem Commit pushen',
+  'workbench.settings.gitPane.git.autoPushDescription':
+    'Den aktuellen Branch direkt nach jedem Commit der Engine zu seinem Upstream pushen.',
   'workbench.settings.gitPane.git.branch.title': 'Branches',
   'workbench.settings.gitPane.git.branch.current': 'Auf Branch {branch}',
   'workbench.settings.gitPane.git.branch.detached':

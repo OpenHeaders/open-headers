@@ -220,6 +220,11 @@ export const workbenchSettings = {
   'workbench.settings.category.gitFolder.description': 'The on-disk folder this workspace is bound to.',
   'workbench.settings.category.gitFolder.sub.binding': 'Binding',
   'workbench.settings.category.gitFolder.sub.requirements': 'Requirements',
+  'workbench.settings.category.gitAutomation.label': 'Git · Automation',
+  'workbench.settings.category.gitAutomation.navLabel': 'Automation',
+  'workbench.settings.category.gitAutomation.description': 'What the engine commits and pushes on its own.',
+  'workbench.settings.category.gitAutomation.sub.commits': 'Commits',
+  'workbench.settings.category.gitAutomation.sub.remote': 'Remote',
   'workbench.settings.category.proxy.label': 'Proxy',
   'workbench.settings.category.proxy.description':
     'This device’s outbound proxy — how requests reach the network — and trust setup for the capture proxy.',
