@@ -31,7 +31,7 @@ export const workbenchChromeSidebar = {
   'workbench.sidebar.section.specs': '规范',
 
   // ── Sidebar: per-view header title ──────────────────────────────────
-  'workbench.sidebar.view.httpRules': '拦截器',
+  'workbench.sidebar.view.httpRules': '浏览器拦截器',
   'workbench.sidebar.view.apiRequests': 'API 请求',
   'workbench.sidebar.view.workflows': '工作流',
   'workbench.sidebar.view.variables': '变量',

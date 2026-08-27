@@ -350,7 +350,7 @@ export const workbenchChrome = {
   // ── Tool-window registry (activity bars, dock tab strips, restore
   //    rows, drag previews) ───────────────────────────────────────────
   'workbench.toolWindows.serverAdmin': '服务器管理',
-  'workbench.toolWindows.httpRules': '拦截器',
+  'workbench.toolWindows.httpRules': '浏览器拦截器',
   'workbench.toolWindows.apiRequests': 'API 请求',
   'workbench.toolWindows.workflows': '工作流',
   'workbench.toolWindows.notifications': '通知',

@@ -33,7 +33,7 @@ export const workbenchChromeSidebar = {
   'workbench.sidebar.section.specs': 'ESPECIFICACIONES',
 
   // ── Sidebar: per-view header title ──────────────────────────────────
-  'workbench.sidebar.view.httpRules': 'Interceptor',
+  'workbench.sidebar.view.httpRules': 'Browser Interceptor',
   'workbench.sidebar.view.apiRequests': 'Solicitudes API',
   'workbench.sidebar.view.workflows': 'Workflows',
   'workbench.sidebar.view.variables': 'Variables',

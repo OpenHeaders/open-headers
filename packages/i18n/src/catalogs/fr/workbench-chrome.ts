@@ -351,7 +351,7 @@ export const workbenchChrome = {
   // ── Tool-window registry (activity bars, dock tab strips, restore
   //    rows, drag previews) ───────────────────────────────────────────
   'workbench.toolWindows.serverAdmin': 'Admin du serveur',
-  'workbench.toolWindows.httpRules': 'Intercepteur',
+  'workbench.toolWindows.httpRules': 'Intercepteur navigateur',
   'workbench.toolWindows.apiRequests': 'Requêtes API',
   'workbench.toolWindows.workflows': 'Workflows',
   'workbench.toolWindows.notifications': 'Notifications',
