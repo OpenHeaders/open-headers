@@ -119,7 +119,8 @@ export const workbenchSettings = {
   'workbench.settings.category.mcpClients.sub.command-line': 'Kommandozeile',
   'workbench.settings.category.mcpClients.sub.configuration': 'Konfiguration',
   'workbench.settings.category.appearanceBehavior.label': 'Darstellung & Verhalten',
-  'workbench.settings.category.appearanceBehavior.description': 'Wie die App aussieht und sich verhält – Locale, Design und die Workbench-Hülle.',
+  'workbench.settings.category.appearanceBehavior.description':
+    'Wie die App aussieht und sich verhält – Locale, Design und die Workbench-Hülle.',
   'workbench.settings.category.general.label': 'Darstellung & Verhalten · Allgemein',
   'workbench.settings.category.general.navLabel': 'Allgemein',
   'workbench.settings.category.general.description': 'App-weites Verhalten, Start und Locale.',
@@ -239,12 +240,17 @@ export const workbenchSettings = {
   'workbench.settings.category.keyboard.sub.popup-navigation': 'Popup & Seitenpanel · Navigation',
   'workbench.settings.category.keyboard.sub.popup-rows': 'Popup & Seitenpanel · Zeilenaktionen',
   'workbench.settings.category.keyboard.sub.popup-tabs': 'Popup & Seitenpanel · Tabs',
-  'workbench.settings.category.workspaceSharing.label': 'Arbeitsbereich-Freigabe',
+  'workbench.settings.category.workspaceSharing.label': 'Versionsverwaltung · Arbeitsbereich-Freigabe',
+  'workbench.settings.category.workspaceSharing.navLabel': 'Arbeitsbereich-Freigabe',
   'workbench.settings.category.workspaceSharing.description':
     'Anzeigeeinstellungen für die Import-Vorschau von Arbeitsbereich-Exporten.',
   'workbench.settings.category.workspaceSharing.sub.importPreview': 'Import-Vorschau',
   'workbench.settings.category.workspaceSharing.sub.diffViewer': 'Diff-Ansicht',
-  'workbench.settings.category.git.label': 'Git',
+  'workbench.settings.category.versionControl.label': 'Versionsverwaltung',
+  'workbench.settings.category.versionControl.description':
+    'Git-gestützte Arbeitsbereiche und der Export-/Import-Pfad, der einen Arbeitsbereich ohne Git teilt.',
+  'workbench.settings.category.git.label': 'Versionsverwaltung · Git',
+  'workbench.settings.category.git.navLabel': 'Git',
   'workbench.settings.category.git.description':
     'Binde diesen Arbeitsbereich an einen Ordner auf der Festplatte — einen lebendigen, git-freundlichen ' +
     'YAML-Baum.',

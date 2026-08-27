@@ -104,7 +104,8 @@ export const workbenchSettings = {
   'workbench.settings.category.mcpClients.sub.command-line': 'Command line',
   'workbench.settings.category.mcpClients.sub.configuration': 'Configuration',
   'workbench.settings.category.appearanceBehavior.label': 'Appearance & Behavior',
-  'workbench.settings.category.appearanceBehavior.description': 'How the app looks and behaves — locale, theme, and the workbench shell.',
+  'workbench.settings.category.appearanceBehavior.description':
+    'How the app looks and behaves — locale, theme, and the workbench shell.',
   'workbench.settings.category.general.label': 'Appearance & Behavior · General',
   'workbench.settings.category.general.navLabel': 'General',
   'workbench.settings.category.general.description': 'App-wide behavior, startup, and locale.',
@@ -218,12 +219,17 @@ export const workbenchSettings = {
   'workbench.settings.category.keyboard.sub.popup-navigation': 'Popup & Side Panel · Navigation',
   'workbench.settings.category.keyboard.sub.popup-rows': 'Popup & Side Panel · Row Actions',
   'workbench.settings.category.keyboard.sub.popup-tabs': 'Popup & Side Panel · Tabs',
-  'workbench.settings.category.workspaceSharing.label': 'Workspace Sharing',
+  'workbench.settings.category.workspaceSharing.label': 'Version Control · Workspace Sharing',
+  'workbench.settings.category.workspaceSharing.navLabel': 'Workspace Sharing',
   'workbench.settings.category.workspaceSharing.description':
     'Display preferences for the workspace-export import preview.',
   'workbench.settings.category.workspaceSharing.sub.importPreview': 'Import Preview',
   'workbench.settings.category.workspaceSharing.sub.diffViewer': 'Diff Viewer',
-  'workbench.settings.category.git.label': 'Git',
+  'workbench.settings.category.versionControl.label': 'Version Control',
+  'workbench.settings.category.versionControl.description':
+    'Git-backed workspaces, and the export/import path that shares a workspace without one.',
+  'workbench.settings.category.git.label': 'Version Control · Git',
+  'workbench.settings.category.git.navLabel': 'Git',
   'workbench.settings.category.git.description':
     'Bind this workspace to an on-disk folder — a live, git-friendly YAML tree.',
   'workbench.settings.category.gitFolder.label': 'Git · Folder',

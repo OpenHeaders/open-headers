@@ -117,7 +117,8 @@ export const workbenchSettings = {
   'workbench.settings.category.mcpClients.sub.command-line': 'Ligne de commande',
   'workbench.settings.category.mcpClients.sub.configuration': 'Configuration',
   'workbench.settings.category.appearanceBehavior.label': 'Apparence et comportement',
-  'workbench.settings.category.appearanceBehavior.description': 'L’aspect et le comportement de l’application : locale, thème et l’enveloppe du workbench.',
+  'workbench.settings.category.appearanceBehavior.description':
+    'L’aspect et le comportement de l’application : locale, thème et l’enveloppe du workbench.',
   'workbench.settings.category.general.label': 'Apparence et comportement · Général',
   'workbench.settings.category.general.navLabel': 'Général',
   'workbench.settings.category.general.description': "Comportement global de l'application, démarrage et locale.",
@@ -237,12 +238,17 @@ export const workbenchSettings = {
   'workbench.settings.category.keyboard.sub.popup-navigation': 'Popup et panneau latéral · Navigation',
   'workbench.settings.category.keyboard.sub.popup-rows': 'Popup et panneau latéral · Actions de ligne',
   'workbench.settings.category.keyboard.sub.popup-tabs': 'Popup et panneau latéral · Onglets',
-  'workbench.settings.category.workspaceSharing.label': "Partage d'espace de travail",
+  'workbench.settings.category.workspaceSharing.label': "Gestion de versions · Partage d'espace de travail",
+  'workbench.settings.category.workspaceSharing.navLabel': "Partage d'espace de travail",
   'workbench.settings.category.workspaceSharing.description':
     "Préférences d'affichage pour l'aperçu d'import des exports d'espace de travail.",
   'workbench.settings.category.workspaceSharing.sub.importPreview': "Aperçu d'import",
   'workbench.settings.category.workspaceSharing.sub.diffViewer': 'Visionneuse de diff',
-  'workbench.settings.category.git.label': 'Git',
+  'workbench.settings.category.versionControl.label': 'Gestion de versions',
+  'workbench.settings.category.versionControl.description':
+    'Espaces de travail adossés à Git et le chemin export/import qui partage un espace de travail sans lui.',
+  'workbench.settings.category.git.label': 'Gestion de versions · Git',
+  'workbench.settings.category.git.navLabel': 'Git',
   'workbench.settings.category.git.description':
     'Liez cet espace de travail à un dossier sur disque — une arborescence YAML vivante, adaptée à git.',
   'workbench.settings.category.gitFolder.label': 'Git · Dossier',

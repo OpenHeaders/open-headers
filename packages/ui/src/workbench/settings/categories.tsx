@@ -466,8 +466,10 @@ registerCategory({
 registerCategory({
   id: 'workspaceSharing',
   labelKey: 'workbench.settings.category.workspaceSharing.label',
+  navLabelKey: 'workbench.settings.category.workspaceSharing.navLabel',
+  parent: 'versionControl',
   icon: <CloudDownloadOutlined />,
-  order: 85,
+  order: 20,
   descriptionKey: 'workbench.settings.category.workspaceSharing.description',
   subcategories: [
     { id: 'importPreview', labelKey: 'workbench.settings.category.workspaceSharing.sub.importPreview', order: 10 },
@@ -476,10 +478,24 @@ registerCategory({
 });
 
 registerCategory({
+  id: 'versionControl',
+  labelKey: 'workbench.settings.category.versionControl.label',
+  icon: <BranchesOutlined />,
+  order: 60,
+  descriptionKey: 'workbench.settings.category.versionControl.description',
+  // Group node over the two ways a workspace leaves this host: the Git
+  // binding (desktop) and the export/import path that shares a
+  // workspace without one (every host).
+  renderPane: GroupLandingPane,
+});
+
+registerCategory({
   id: 'git',
   labelKey: 'workbench.settings.category.git.label',
+  navLabelKey: 'workbench.settings.category.git.navLabel',
+  parent: 'versionControl',
   icon: <BranchesOutlined />,
-  order: 86,
+  order: 10,
   descriptionKey: 'workbench.settings.category.git.description',
   // Group node over the Git pages: Folder (the binding) and Automation
   // (cadence, hooks, auto-push). Operating the repository is the Git

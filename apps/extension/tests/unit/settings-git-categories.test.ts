@@ -11,9 +11,9 @@ import { allCategories, byCategory, getCategory } from '@openheaders/ui/workbenc
 import { describe, expect, it } from 'vitest';
 
 describe('git settings group', () => {
-  it('git is a desktop-gated group node with the teaser and no defs of its own', () => {
+  it('git is a desktop-gated group node under version control, with the teaser and no defs of its own', () => {
     const git = getCategory('git');
-    expect(git?.parent).toBeUndefined();
+    expect(git?.parent).toBe('versionControl');
     expect(git?.renderPane).toBeDefined();
     expect(git?.subcategories).toBeUndefined();
     expect(git?.when).toBeDefined();

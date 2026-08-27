@@ -122,7 +122,8 @@ export const workbenchSettings = {
   'workbench.settings.category.mcpClients.sub.command-line': 'Línea de comandos',
   'workbench.settings.category.mcpClients.sub.configuration': 'Configuración',
   'workbench.settings.category.appearanceBehavior.label': 'Apariencia y comportamiento',
-  'workbench.settings.category.appearanceBehavior.description': 'Cómo se ve y se comporta la aplicación: idioma, tema y el shell del workbench.',
+  'workbench.settings.category.appearanceBehavior.description':
+    'Cómo se ve y se comporta la aplicación: idioma, tema y el shell del workbench.',
   'workbench.settings.category.general.label': 'Apariencia y comportamiento · General',
   'workbench.settings.category.general.navLabel': 'General',
   'workbench.settings.category.general.description':
@@ -136,7 +137,8 @@ export const workbenchSettings = {
   'workbench.settings.category.appearance.description': 'Tema, densidad y presentación visual.',
   'workbench.settings.category.appearance.sub.theme': 'Tema',
   'workbench.settings.category.appearance.sub.interface': 'Interfaz',
-  'workbench.settings.category.workspaceLayout.label': 'Apariencia y comportamiento · Disposición del espacio de trabajo',
+  'workbench.settings.category.workspaceLayout.label':
+    'Apariencia y comportamiento · Disposición del espacio de trabajo',
   'workbench.settings.category.workspaceLayout.navLabel': 'Disposición del espacio de trabajo',
   'workbench.settings.category.workspaceLayout.description':
     'Affordances del pie de página y comportamiento del shell de las ventanas de herramientas.',
@@ -245,13 +247,18 @@ export const workbenchSettings = {
   'workbench.settings.category.keyboard.sub.popup-navigation': 'Popup y panel lateral · Navegación',
   'workbench.settings.category.keyboard.sub.popup-rows': 'Popup y panel lateral · Acciones de fila',
   'workbench.settings.category.keyboard.sub.popup-tabs': 'Popup y panel lateral · Pestañas',
-  'workbench.settings.category.workspaceSharing.label': 'Compartir el espacio de trabajo',
+  'workbench.settings.category.workspaceSharing.label': 'Control de versiones · Compartir el espacio de trabajo',
+  'workbench.settings.category.workspaceSharing.navLabel': 'Compartir el espacio de trabajo',
   'workbench.settings.category.workspaceSharing.description':
     'Preferencias de visualización para la vista previa de importación de las exportaciones de espacio de ' +
     'trabajo.',
   'workbench.settings.category.workspaceSharing.sub.importPreview': 'Vista previa de importación',
   'workbench.settings.category.workspaceSharing.sub.diffViewer': 'Visor de diff',
-  'workbench.settings.category.git.label': 'Git',
+  'workbench.settings.category.versionControl.label': 'Control de versiones',
+  'workbench.settings.category.versionControl.description':
+    'Espacios de trabajo respaldados por Git y la ruta de exportación/importación que comparte un espacio de trabajo sin él.',
+  'workbench.settings.category.git.label': 'Control de versiones · Git',
+  'workbench.settings.category.git.navLabel': 'Git',
   'workbench.settings.category.git.description':
     'Vincula este espacio de trabajo a una carpeta en disco — un árbol YAML vivo y compatible con git.',
   'workbench.settings.category.gitFolder.label': 'Git · Carpeta',
