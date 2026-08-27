@@ -1,5 +1,7 @@
 /**
- * Copy-paste client configuration for the MCP server. Two transports:
+ * Client configuration row — custom editor for `mcp.clientConfig` on
+ * the AI · MCP Server › Clients page: copy-paste client configuration
+ * for the MCP server. Two transports:
  *
  *   - stdio — every client config points at the installed app binary
  *     with `--mcp-stdio` (a thin pipe to the running app; everything
@@ -9,17 +11,24 @@
  *
  * The binary path is a per-platform placeholder for the standard
  * install location — shown for the platform this app is running on.
- * Snippets carry a token placeholder; the real secret comes from the
- * "Paired devices" section above and is shown exactly once at mint.
+ * Snippets carry a token placeholder; the real secret is minted on
+ * Backend › Server (the one token home — the row links there) and is
+ * shown exactly once at mint.
  */
 
 import { App as AntApp, Button, Tabs, theme } from 'antd';
 import type React from 'react';
 import { MCP_HTTP_PATH, WS_PORT } from '@openheaders/core/protocol';
 import { useT } from '@openheaders/ui/context/LocaleContext';
+import FieldRow from '../fields/FieldRow';
 import { useSettingValue } from '../hooks';
+import { resolveDescription, resolveLabel } from '../localize';
+import { useSelectSettingsCategory } from '../NavigationContext';
+import { getCategory } from '../registry';
+import type { SettingDef } from '../types';
 
 const TOKEN_PLACEHOLDER = 'YOUR_ACCESS_TOKEN';
+const TOKENS_HOME_CATEGORY = 'backendServer';
 
 function binaryPathForThisPlatform(): string {
   const platform = navigator.platform.toLowerCase();
@@ -77,7 +86,8 @@ const SnippetBlock: React.FC<{ title: string; body: string }> = ({ title, body }
           background: token.colorBgLayout,
           border: `1px solid ${token.colorBorderSecondary}`,
           borderRadius: 6,
-          overflowX: 'auto', overscrollBehavior: 'none',
+          overflowX: 'auto',
+          overscrollBehavior: 'none',
         }}
       >
         {body}
@@ -86,8 +96,37 @@ const SnippetBlock: React.FC<{ title: string; body: string }> = ({ title, body }
   );
 };
 
-const McpConfigSnippets: React.FC = () => {
+/** "Access tokens are minted under <Backend · Server>" — the link jumps to the one token home. */
+const TokensHomeNote: React.FC = () => {
   const { token } = theme.useToken();
+  const t = useT();
+  const selectCategory = useSelectSettingsCategory();
+  const home = getCategory(TOKENS_HOME_CATEGORY);
+  if (!home) return null;
+  return (
+    <div style={{ fontSize: 11.5, color: token.colorTextSecondary, marginTop: 2 }}>
+      {t('workbench.settings.mcpPane.tokensHome')}{' '}
+      <button
+        type="button"
+        onClick={() => selectCategory?.(home.id)}
+        disabled={selectCategory === null}
+        style={{
+          padding: 0,
+          border: 'none',
+          background: 'transparent',
+          font: 'inherit',
+          color: token.colorPrimary,
+          cursor: 'pointer',
+        }}
+        data-testid="mcp-tokens-home"
+      >
+        {resolveLabel(home, t)}
+      </button>
+    </div>
+  );
+};
+
+const McpClientConfigRow: React.FC<{ def: SettingDef }> = ({ def }) => {
   const t = useT();
   const port = useSettingValue('backend.bindPort');
   const httpUrl = `http://127.0.0.1:${port}${MCP_HTTP_PATH}`;
@@ -148,37 +187,17 @@ const McpConfigSnippets: React.FC = () => {
   ];
 
   return (
-    <section style={{ marginBottom: 12 }}>
-      <header style={{ marginBottom: 6, padding: '0 2px' }}>
-        <h3
-          style={{
-            margin: 0,
-            fontSize: 11,
-            fontWeight: 700,
-            letterSpacing: 0.3,
-            textTransform: 'uppercase',
-            color: token.colorTextSecondary,
-          }}
-        >
-          {t('workbench.settings.mcpPane.connect.title')}
-        </h3>
-        <div style={{ fontSize: 11, color: token.colorTextTertiary, marginTop: 1 }}>
-          {t('workbench.settings.mcpPane.connect.blurb', { token: TOKEN_PLACEHOLDER })}
-        </div>
-      </header>
-      <div
-        className="settings-card"
-        style={{
-          background: token.colorBgContainer,
-          border: `1px solid ${token.colorBorderSecondary}`,
-          borderRadius: 10,
-          padding: '4px 12px 10px',
-        }}
-      >
-        <Tabs size="small" items={items} />
-      </div>
-    </section>
+    <FieldRow
+      settingKey={def.key}
+      label={resolveLabel(def, t)}
+      description={resolveDescription(def, t)}
+      resettable={false}
+      block
+    >
+      <Tabs size="small" items={items} />
+      <TokensHomeNote />
+    </FieldRow>
   );
 };
 
-export default McpConfigSnippets;
+export default McpClientConfigRow;

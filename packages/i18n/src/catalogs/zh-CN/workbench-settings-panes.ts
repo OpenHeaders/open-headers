@@ -431,7 +431,7 @@ export const workbenchSettingsPanes = {
     '选项？改为在那里打开这些链接之一——它会提供一个页面，交出一个可手动粘贴的 token。',
 
   // ── Command-line access card (MCP pane) ────────────────────────────
-  'workbench.settings.cliAccess.sectionTitle': '命令行访问',
+  'workbench.settings.cliAccess.sectionTitle': 'CLI 访问',
   'workbench.settings.cliAccess.sectionBlurb':
     '一次点击即可把这台机器上的命令行工具 oh 连接到应用——为它创建并保存一个访问 token，无需复制。',
   'workbench.settings.cliAccess.statusUnconfigured': '这台机器上的 CLI 尚未连接。',
@@ -452,7 +452,8 @@ export const workbenchSettingsPanes = {
   'workbench.settings.mcpPane.serverOff': 'MCP 服务器已关闭——启用之前客户端无法连接。',
   'workbench.settings.mcpPane.connect.title': '连接客户端',
   'workbench.settings.mcpPane.connect.blurb':
-    '选择你的客户端，把 {token} 替换为上方生成的 token，如果安装在别处再调整应用路径。客户端连接时应用必须在运行。',
+    '选择你的客户端，把 token 占位符替换为访问 token，如果安装在别处再调整应用路径。客户端连接时应用必须在运行。',
+  'workbench.settings.mcpPane.tokensHome': '访问 token 的生成与撤销位于',
   'workbench.settings.mcpPane.snippet.claudeDesktopTitle': 'claude_desktop_config.json——合并进现有文件',
   'workbench.settings.mcpPane.snippet.runOnceTitle': '在终端中运行一次',
   'workbench.settings.mcpPane.snippet.cliTitle': '在终端中运行一次——之后的 oh 运行无需任何标志',

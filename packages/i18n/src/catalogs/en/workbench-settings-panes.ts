@@ -442,7 +442,7 @@ export const workbenchSettingsPanes = {
     'option on that device? Open one of these links there instead — it serves a page that hands over a token to paste by hand.',
 
   // ── Command-line access card (MCP pane) ────────────────────────────
-  'workbench.settings.cliAccess.sectionTitle': 'Command-line access',
+  'workbench.settings.cliAccess.sectionTitle': 'CLI access',
   'workbench.settings.cliAccess.sectionBlurb':
     'One click connects the oh command-line tool on this machine to the app — an access token is created and saved for it, no copying.',
   'workbench.settings.cliAccess.statusUnconfigured': 'The CLI on this machine is not connected yet.',
@@ -464,7 +464,9 @@ export const workbenchSettingsPanes = {
   'workbench.settings.mcpPane.serverOff': 'The MCP server is off — clients can’t connect until you enable it.',
   'workbench.settings.mcpPane.connect.title': 'Connect a client',
   'workbench.settings.mcpPane.connect.blurb':
-    'Pick your client, replace {token} with a token generated above, and adjust the app path if you installed somewhere else. The app must be running for clients to connect.',
+    'Pick your client, replace the token placeholder with an access token, and adjust the app path if you ' +
+    'installed somewhere else. The app must be running for clients to connect.',
+  'workbench.settings.mcpPane.tokensHome': 'Access tokens are minted and revoked under',
   'workbench.settings.mcpPane.snippet.claudeDesktopTitle': 'claude_desktop_config.json — merge into the existing file',
   'workbench.settings.mcpPane.snippet.runOnceTitle': 'Run once in a terminal',
   'workbench.settings.mcpPane.snippet.cliTitle': 'Run once in a terminal — later oh runs need no flags',

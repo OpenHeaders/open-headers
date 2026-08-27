@@ -14,6 +14,8 @@
 
 import * as v from 'valibot';
 import { getCurrentHost } from '../../../shared/host-vocabulary';
+import CliAccessRow from '../components/cli-access-row';
+import McpClientConfigRow from '../components/mcp-client-config-row';
 import { registerSetting } from '../registry';
 
 declare module '@openheaders/ui/workbench/settings/types' {
@@ -23,6 +25,8 @@ declare module '@openheaders/ui/workbench/settings/types' {
     'mcp.allowWrite': boolean;
     'mcp.allowExecute': boolean;
     'mcp.allowSecrets': boolean;
+    'mcp.cliAccess': string;
+    'mcp.clientConfig': string;
   }
 }
 
@@ -96,4 +100,38 @@ registerSetting({
   tags: ['mcp', 'secret', 'vault', 'reveal', 'mask'],
   scope: 'user',
   when: desktopOnly,
+});
+
+// The Clients page: non-schema blocks ride `info` defs with a custom
+// editor (the `about.openSource` idiom) so they take the page's
+// section headers and row chrome. The CLI provisioning row and the
+// client config snippets are readouts, not values — nothing to reset.
+registerSetting({
+  key: 'mcp.cliAccess',
+  type: 'info',
+  default: '',
+  schema: v.string(),
+  labelKey: 'workbench.settings.cliAccess.sectionTitle',
+  descriptionKey: 'workbench.settings.cliAccess.sectionBlurb',
+  category: 'mcpClients',
+  subcategory: 'command-line',
+  tags: ['mcp', 'cli', 'oh', 'terminal', 'provision', 'token'],
+  scope: 'user',
+  when: desktopOnly,
+  customEditor: CliAccessRow,
+});
+
+registerSetting({
+  key: 'mcp.clientConfig',
+  type: 'info',
+  default: '',
+  schema: v.string(),
+  labelKey: 'workbench.settings.mcpPane.connect.title',
+  descriptionKey: 'workbench.settings.mcpPane.connect.blurb',
+  category: 'mcpClients',
+  subcategory: 'configuration',
+  tags: ['mcp', 'client', 'config', 'snippet', 'stdio', 'http', 'claude', 'cursor', 'vscode'],
+  scope: 'user',
+  when: desktopOnly,
+  customEditor: McpClientConfigRow,
 });

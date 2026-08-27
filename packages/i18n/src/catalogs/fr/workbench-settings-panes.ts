@@ -507,7 +507,7 @@ export const workbenchSettingsPanes = {
     'à la main.',
 
   // ── Command-line access card (MCP pane) ────────────────────────────
-  'workbench.settings.cliAccess.sectionTitle': 'Accès en ligne de commande',
+  'workbench.settings.cliAccess.sectionTitle': 'Accès CLI',
   'workbench.settings.cliAccess.sectionBlurb':
     "Un clic connecte l'outil en ligne de commande oh de cette machine à l'application — un jeton d'accès " +
     'est créé et enregistré pour lui, sans copie.',
@@ -533,9 +533,10 @@ export const workbenchSettingsPanes = {
     "Le serveur MCP est désactivé — les clients ne peuvent pas se connecter tant que vous ne l'activez pas.",
   'workbench.settings.mcpPane.connect.title': 'Connecter un client',
   'workbench.settings.mcpPane.connect.blurb':
-    'Choisissez votre client, remplacez {token} par un jeton généré ci-dessus, et ajustez le chemin de ' +
-    "l'application si vous l'avez installée ailleurs. L'application doit être en cours d'exécution pour que " +
+    "Choisissez votre client, remplacez l'espace réservé du jeton par un jeton d'accès, et ajustez le chemin " +
+    "de l'application si vous l'avez installée ailleurs. L'application doit être en cours d'exécution pour que " +
     'les clients se connectent.',
+  'workbench.settings.mcpPane.tokensHome': "Les jetons d'accès se génèrent et se révoquent sous",
   'workbench.settings.mcpPane.snippet.claudeDesktopTitle':
     'claude_desktop_config.json — à fusionner dans le fichier existant',
   'workbench.settings.mcpPane.snippet.runOnceTitle': 'À exécuter une fois dans un terminal',

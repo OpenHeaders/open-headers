@@ -164,6 +164,21 @@ registerCategory({
 });
 
 registerCategory({
+  id: 'mcpClients',
+  labelKey: 'workbench.settings.category.mcpClients.label',
+  navLabelKey: 'workbench.settings.category.mcpClients.navLabel',
+  parent: 'mcp',
+  icon: <CodeOutlined />,
+  order: 6,
+  descriptionKey: 'workbench.settings.category.mcpClients.description',
+  subcategories: [
+    { id: 'command-line', labelKey: 'workbench.settings.category.mcpClients.sub.command-line', order: 10 },
+    { id: 'configuration', labelKey: 'workbench.settings.category.mcpClients.sub.configuration', order: 20 },
+  ],
+  when: () => getCurrentHost() === 'desktop',
+});
+
+registerCategory({
   id: 'general',
   labelKey: 'workbench.settings.category.general.label',
   icon: <SettingOutlined />,

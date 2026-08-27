@@ -15,6 +15,7 @@ import { useT } from '@openheaders/ui/context/LocaleContext';
 import { DesktopTeaser } from '@openheaders/ui/shared/desktop-teaser';
 import { useServerAdminStatus } from '../../components/server-admin/use-server-admin-status';
 import { useModifiedCount, useResetAllSettings } from '../hooks';
+import { SettingsNavigationProvider } from '../NavigationContext';
 import { allCategories, getDef } from '../registry';
 import { searchSettings } from '../search';
 import type { CategoryDef, SettingDef, SettingKey } from '../types';
@@ -269,7 +270,9 @@ const SettingsShell: React.FC<SettingsShellProps> = ({ initialSettingKey, initia
                 // resolves synchronously and Suspense is a no-op for it.
                 return (
                   <Suspense fallback={<CategoryPaneSkeleton />}>
-                    <Pane category={activeCategory} defs={activeDefs} onSelectCategory={handleSelectCategory} />
+                    <SettingsNavigationProvider selectCategory={handleSelectCategory}>
+                      <Pane category={activeCategory} defs={activeDefs} onSelectCategory={handleSelectCategory} />
+                    </SettingsNavigationProvider>
                   </Suspense>
                 );
               })()

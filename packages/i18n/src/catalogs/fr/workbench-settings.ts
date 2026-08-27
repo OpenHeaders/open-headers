@@ -110,6 +110,12 @@ export const workbenchSettings = {
     'Activez le serveur et choisissez ce que les agents connectés peuvent faire. Chaque niveau est désactivé par défaut.',
   'workbench.settings.category.mcpAccess.sub.server': 'Serveur',
   'workbench.settings.category.mcpAccess.sub.permissions': 'Autorisations',
+  'workbench.settings.category.mcpClients.label': 'IA · Serveur MCP · Clients',
+  'workbench.settings.category.mcpClients.navLabel': 'Clients',
+  'workbench.settings.category.mcpClients.description':
+    'Connectez la ligne de commande oh et les clients MCP à cette application.',
+  'workbench.settings.category.mcpClients.sub.command-line': 'Ligne de commande',
+  'workbench.settings.category.mcpClients.sub.configuration': 'Configuration',
   'workbench.settings.category.general.label': 'Général',
   'workbench.settings.category.general.description': "Comportement global de l'application, démarrage et locale.",
   'workbench.settings.category.general.sub.locale': 'Langue',

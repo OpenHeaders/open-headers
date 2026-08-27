@@ -22,9 +22,6 @@ import SettingRow from '../fields/SettingRow';
 import { useSettingValue } from '../hooks';
 import { resolveLabel, resolveOptionalDescription } from '../localize';
 import type { CategoryPaneProps } from '../types';
-import CliAccessCard from './cli-access-card';
-import BackendTokensSection from './backend-tokens-section';
-import McpConfigSnippets from './mcp-config-snippets';
 
 const McpPane: React.FC<CategoryPaneProps> = ({ category, defs }) => {
   const { token } = theme.useToken();
@@ -59,12 +56,6 @@ const McpPane: React.FC<CategoryPaneProps> = ({ category, defs }) => {
           ))}
         </div>
       </section>
-
-      <BackendTokensSection />
-
-      <CliAccessCard />
-
-      <McpConfigSnippets />
     </div>
   );
 };

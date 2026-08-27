@@ -507,7 +507,7 @@ export const workbenchSettingsPanes = {
     'para pegarlo a mano.',
 
   // ── Command-line access card (MCP pane) ────────────────────────────
-  'workbench.settings.cliAccess.sectionTitle': 'Acceso por línea de comandos',
+  'workbench.settings.cliAccess.sectionTitle': 'Acceso CLI',
   'workbench.settings.cliAccess.sectionBlurb':
     'Un clic conecta la herramienta de línea de comandos oh de esta máquina con la aplicación — se crea y ' +
     'guarda un token de acceso para ella, sin copiar nada.',
@@ -533,8 +533,9 @@ export const workbenchSettingsPanes = {
     'El servidor MCP está apagado — los clientes no pueden conectarse hasta que lo actives.',
   'workbench.settings.mcpPane.connect.title': 'Conectar un cliente',
   'workbench.settings.mcpPane.connect.blurb':
-    'Elige tu cliente, reemplaza {token} por un token generado arriba y ajusta la ruta de la aplicación si ' +
-    'la instalaste en otro sitio. La aplicación debe estar en ejecución para que los clientes se conecten.',
+    'Elige tu cliente, reemplaza el marcador del token por un token de acceso y ajusta la ruta de la aplicación ' +
+    'si la instalaste en otro sitio. La aplicación debe estar en ejecución para que los clientes se conecten.',
+  'workbench.settings.mcpPane.tokensHome': 'Los tokens de acceso se generan y revocan en',
   'workbench.settings.mcpPane.snippet.claudeDesktopTitle':
     'claude_desktop_config.json — fusiónalo con el archivo existente',
   'workbench.settings.mcpPane.snippet.runOnceTitle': 'Ejecútalo una vez en un terminal',

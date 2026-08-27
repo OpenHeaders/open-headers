@@ -507,7 +507,7 @@ export const workbenchSettingsPanes = {
     'manuellen Einfügen übergibt.',
 
   // ── Command-line access card (MCP pane) ────────────────────────────
-  'workbench.settings.cliAccess.sectionTitle': 'Kommandozeilen-Zugriff',
+  'workbench.settings.cliAccess.sectionTitle': 'CLI-Zugriff',
   'workbench.settings.cliAccess.sectionBlurb':
     'Ein Klick verbindet das Kommandozeilen-Tool oh auf dieser Maschine mit der App — ein Zugriffstoken wird ' +
     'erstellt und für es gespeichert, ohne Kopieren.',
@@ -533,8 +533,9 @@ export const workbenchSettingsPanes = {
     'Der MCP-Server ist aus — Clients können sich erst verbinden, wenn du ihn aktivierst.',
   'workbench.settings.mcpPane.connect.title': 'Client verbinden',
   'workbench.settings.mcpPane.connect.blurb':
-    'Wähle deinen Client, ersetze {token} durch einen oben erzeugten Token und passe den App-Pfad an, falls ' +
-    'du woanders installiert hast. Die App muss laufen, damit sich Clients verbinden können.',
+    'Wähle deinen Client, ersetze den Token-Platzhalter durch einen Zugriffstoken und passe den App-Pfad an, ' +
+    'falls du woanders installiert hast. Die App muss laufen, damit sich Clients verbinden können.',
+  'workbench.settings.mcpPane.tokensHome': 'Zugriffstoken werden erzeugt und widerrufen unter',
   'workbench.settings.mcpPane.snippet.claudeDesktopTitle':
     'claude_desktop_config.json — in die bestehende Datei einmischen',
   'workbench.settings.mcpPane.snippet.runOnceTitle': 'Einmal in einem Terminal ausführen',
