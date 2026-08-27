@@ -17,16 +17,16 @@ import type { Catalog } from '../../types';
 
 export const workbenchSettingsDefs = {
   // ── Backend category defs ──────────────────────────────────────────
-  'workbench.settings.def.backend.nmAutoJoin.label': 'Pair with the desktop app automatically',
+  'workbench.settings.def.backend.nmAutoJoin.label': 'Pair automatically',
   'workbench.settings.def.backend.nmAutoJoin.description':
     'When the Open Headers desktop app runs on this computer, connect to it without a pairing code — the desktop verifies this browser through the operating system before granting access. Turn off to pair only by explicit gesture.',
-  'workbench.settings.def.backend.nmAutoJoinProbe.label': 'Check for the desktop app in the background',
+  'workbench.settings.def.backend.nmAutoJoinProbe.label': 'Check in the background',
   'workbench.settings.def.backend.nmAutoJoinProbe.description':
     'With no desktop app connected, check every couple of minutes whether one has been installed, so a fresh install connects on its own. Turn off to check only when the extension starts.',
-  'workbench.settings.def.backend.requireNmIdentity.label': 'Require verified pairing with the desktop app',
+  'workbench.settings.def.backend.requireNmIdentity.label': 'Require verified pairing',
   'workbench.settings.def.backend.requireNmIdentity.description':
     'Refuses pairing codes and pasted tokens for the desktop app on this computer — only the operating-system-verified handoff can grant it access. Remote back-ends are unaffected. Usually set by an organization policy.',
-  'workbench.settings.def.backend.allowDesktopWatch.label': 'Let the desktop app view this browser',
+  'workbench.settings.def.backend.allowDesktopWatch.label': 'Allow viewing this browser',
   'workbench.settings.def.backend.allowDesktopWatch.description':
     'Allows a paired desktop app on this computer to watch this browser’s network traffic, storage, and console in its Traffic panel. Turn off to keep rules and sync working while the desktop’s live views are politely refused.',
   'workbench.settings.def.backend.bindAddress.label': 'Sync with devices on your network',

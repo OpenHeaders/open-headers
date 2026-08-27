@@ -38,6 +38,22 @@ describe('backend settings group', () => {
     expectDefsTagDeclaredSubcategories('backendReliability');
   });
 
+  it('desktop pairing owns the four native-messaging consent rows, extension-only', () => {
+    const pairing = getCategory('backendPairing');
+    expect(pairing?.parent).toBe('backend');
+    expect(pairing?.when).toBeDefined();
+    expect(pairing?.teaserWhenUnavailable).toBeUndefined();
+    for (const key of [
+      'backend.nmAutoJoin',
+      'backend.nmAutoJoinProbe',
+      'backend.requireNmIdentity',
+      'backend.allowDesktopWatch',
+    ] as const) {
+      expect(getDef(key)?.category).toBe('backendPairing');
+    }
+    expectDefsTagDeclaredSubcategories('backendPairing');
+  });
+
   it('the reconnection rows no longer hide behind the derived mode', () => {
     expect(getDef('backend.reconnectDelayMs')?.when).toBeUndefined();
     expect(getDef('backend.maxReconnectDelayMs')?.when).toBeUndefined();

@@ -24,6 +24,7 @@ import {
   GlobalOutlined,
   InfoCircleOutlined,
   LayoutOutlined,
+  LinkOutlined,
   RobotOutlined,
   SafetyCertificateOutlined,
   SettingOutlined,
@@ -58,10 +59,27 @@ registerCategory({
   renderPane: BackendPane,
   // Subsections are rendered by BackendPane as section cards beneath
   // the mode picker. The order here is what drives card sequencing.
+  subcategories: [{ id: 'lan-peers', labelKey: 'workbench.settings.category.backend.sub.lan-peers', order: 40 }],
+});
+
+registerCategory({
+  id: 'backendPairing',
+  labelKey: 'workbench.settings.category.backendPairing.label',
+  navLabelKey: 'workbench.settings.category.backendPairing.navLabel',
+  parent: 'backend',
+  icon: <LinkOutlined />,
+  order: 6,
+  descriptionKey: 'workbench.settings.category.backendPairing.description',
   subcategories: [
-    { id: 'connection', labelKey: 'workbench.settings.category.backend.sub.connection', order: 10 },
-    { id: 'lan-peers', labelKey: 'workbench.settings.category.backend.sub.lan-peers', order: 40 },
+    { id: 'automatic', labelKey: 'workbench.settings.category.backendPairing.sub.automatic', order: 10 },
+    { id: 'policy', labelKey: 'workbench.settings.category.backendPairing.sub.policy', order: 20 },
+    { id: 'sharing', labelKey: 'workbench.settings.category.backendPairing.sub.sharing', order: 30 },
   ],
+  // Browser-side consent for the native-messaging identity plane: only
+  // the extension pairs with a desktop app this way. The desktop IS the
+  // app and a served web tab has no native-messaging plane, so the page
+  // simply hides there — nothing to teaser.
+  when: () => getCurrentHost() === 'extension',
 });
 
 registerCategory({

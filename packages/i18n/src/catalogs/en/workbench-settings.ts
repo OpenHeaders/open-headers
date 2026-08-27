@@ -64,8 +64,14 @@ export const workbenchSettings = {
   'workbench.settings.category.backend.label': 'Backend',
   'workbench.settings.category.backend.description':
     'Where your workspaces, rules, vault, and history live. Pick the host that matches your reach — local-only either way.',
-  'workbench.settings.category.backend.sub.connection': 'Connection',
   'workbench.settings.category.backend.sub.lan-peers': 'LAN peers',
+  'workbench.settings.category.backendPairing.label': 'Backend · Desktop Pairing',
+  'workbench.settings.category.backendPairing.navLabel': 'Desktop Pairing',
+  'workbench.settings.category.backendPairing.description':
+    'How this browser pairs with the Open Headers desktop app on this computer, and what a paired app may see.',
+  'workbench.settings.category.backendPairing.sub.automatic': 'Automatic',
+  'workbench.settings.category.backendPairing.sub.policy': 'Policy',
+  'workbench.settings.category.backendPairing.sub.sharing': 'Sharing',
   'workbench.settings.category.backendReliability.label': 'Backend · Reliability',
   'workbench.settings.category.backendReliability.navLabel': 'Reliability',
   'workbench.settings.category.backendReliability.description':

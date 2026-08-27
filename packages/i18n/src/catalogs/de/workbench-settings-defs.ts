@@ -21,19 +21,19 @@ import type { Catalog } from '../../types';
 
 export const workbenchSettingsDefs = {
   // ── Backend category defs ──────────────────────────────────────────
-  'workbench.settings.def.backend.nmAutoJoin.label': 'Automatisch mit der Desktop-App koppeln',
+  'workbench.settings.def.backend.nmAutoJoin.label': 'Automatisch koppeln',
   'workbench.settings.def.backend.nmAutoJoin.description':
     'Wenn die Desktop-App von Open Headers auf diesem Computer läuft, wird ohne Kopplungscode verbunden — die ' +
     'Desktop-App verifiziert diesen Browser über das Betriebssystem, bevor sie Zugriff gewährt. Deaktiviere ' +
     'die Option, um nur per expliziter Geste zu koppeln.',
-  'workbench.settings.def.backend.nmAutoJoinProbe.label': 'Im Hintergrund nach der Desktop-App suchen',
+  'workbench.settings.def.backend.nmAutoJoinProbe.label': 'Im Hintergrund suchen',
   'workbench.settings.def.backend.nmAutoJoinProbe.description':
     'Ohne verbundene Desktop-App wird etwa alle zwei Minuten geprüft, ob eine installiert wurde, damit sich eine ' +
     'frische Installation von selbst verbindet. Deaktiviere die Option, um nur beim Start der Erweiterung zu prüfen.',
-  'workbench.settings.def.backend.requireNmIdentity.label': 'Verifizierte Kopplung mit der Desktop-App erzwingen',
+  'workbench.settings.def.backend.requireNmIdentity.label': 'Verifizierte Kopplung erzwingen',
   'workbench.settings.def.backend.requireNmIdentity.description':
     'Lehnt Kopplungscodes und eingefügte Token für die Desktop-App auf diesem Computer ab — nur der vom Betriebssystem verifizierte Austausch kann ihr Zugriff gewähren. Entfernte Back-ends sind nicht betroffen. Wird üblicherweise durch eine Organisationsrichtlinie gesetzt.',
-  'workbench.settings.def.backend.allowDesktopWatch.label': 'Desktop-App darf diesen Browser einsehen',
+  'workbench.settings.def.backend.allowDesktopWatch.label': 'Einsicht in diesen Browser erlauben',
   'workbench.settings.def.backend.allowDesktopWatch.description':
     'Erlaubt einer gekoppelten Desktop-App auf diesem Computer, den Netzwerkverkehr, den Speicher und die Konsole ' +
     'dieses Browsers in ihrem Traffic-Panel zu beobachten. Deaktiviert bleiben Regeln und Synchronisierung aktiv, ' +

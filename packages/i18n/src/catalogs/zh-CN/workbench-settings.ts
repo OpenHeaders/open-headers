@@ -68,8 +68,14 @@ export const workbenchSettings = {
   'workbench.settings.category.backend.label': '后端',
   'workbench.settings.category.backend.description':
     '你的工作区、规则、vault 和历史所在之处。按你的覆盖面挑选主机——无论哪种都仅限本地。',
-  'workbench.settings.category.backend.sub.connection': '连接',
   'workbench.settings.category.backend.sub.lan-peers': 'LAN 对等端',
+  'workbench.settings.category.backendPairing.label': '后端 · 桌面配对',
+  'workbench.settings.category.backendPairing.navLabel': '桌面配对',
+  'workbench.settings.category.backendPairing.description':
+    '此浏览器如何与本机上的 Open Headers 桌面应用配对，以及已配对的应用可以查看什么。',
+  'workbench.settings.category.backendPairing.sub.automatic': '自动',
+  'workbench.settings.category.backendPairing.sub.policy': '策略',
+  'workbench.settings.category.backendPairing.sub.sharing': '共享',
   'workbench.settings.category.backendReliability.label': '后端 · 可靠性',
   'workbench.settings.category.backendReliability.navLabel': '可靠性',
   'workbench.settings.category.backendReliability.description': '每条后端连接的重连行为与离线回退。',

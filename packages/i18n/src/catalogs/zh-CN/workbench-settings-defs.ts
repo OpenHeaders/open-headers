@@ -24,16 +24,16 @@ import type { Catalog } from '../../types';
 
 export const workbenchSettingsDefs = {
   // ── Backend category defs ──────────────────────────────────────────
-  'workbench.settings.def.backend.nmAutoJoin.label': '自动与桌面应用配对',
+  'workbench.settings.def.backend.nmAutoJoin.label': '自动配对',
   'workbench.settings.def.backend.nmAutoJoin.description':
     '当本机运行 Open Headers 桌面应用时，无需配对码即可连接——桌面应用会先通过操作系统验证此浏览器，再授予访问权限。关闭后仅通过显式操作配对。',
-  'workbench.settings.def.backend.nmAutoJoinProbe.label': '在后台检测桌面应用',
+  'workbench.settings.def.backend.nmAutoJoinProbe.label': '在后台检测',
   'workbench.settings.def.backend.nmAutoJoinProbe.description':
     '未连接桌面应用时，每隔约两分钟检测一次是否已安装，以便新安装的应用自动连接。关闭后仅在扩展启动时检测。',
-  'workbench.settings.def.backend.requireNmIdentity.label': '要求与桌面应用进行经验证的配对',
+  'workbench.settings.def.backend.requireNmIdentity.label': '要求经验证的配对',
   'workbench.settings.def.backend.requireNmIdentity.description':
     '拒绝本机桌面应用的配对码和粘贴令牌——只有经操作系统验证的握手才能授予其访问权限。远程后端不受影响。通常由组织策略设置。',
-  'workbench.settings.def.backend.allowDesktopWatch.label': '允许桌面应用查看此浏览器',
+  'workbench.settings.def.backend.allowDesktopWatch.label': '允许查看此浏览器',
   'workbench.settings.def.backend.allowDesktopWatch.description':
     '允许本机上已配对的桌面应用在其流量面板中观察此浏览器的网络流量、存储和控制台。关闭后规则与同步照常工作，' +
     '桌面端的实时视图则会收到明确的拒绝。',

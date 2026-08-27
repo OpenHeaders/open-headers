@@ -18,20 +18,20 @@ import type { Catalog } from '../../types';
 
 export const workbenchSettingsDefs = {
   // ── Backend category defs ──────────────────────────────────────────
-  'workbench.settings.def.backend.nmAutoJoin.label': "Appairer automatiquement avec l'application de bureau",
+  'workbench.settings.def.backend.nmAutoJoin.label': 'Appairer automatiquement',
   'workbench.settings.def.backend.nmAutoJoin.description':
     "Lorsque l'application de bureau Open Headers s'exécute sur cet ordinateur, la connexion se fait sans code " +
     "d'appairage — le bureau vérifie ce navigateur via le système d'exploitation avant d'accorder l'accès. " +
     "Désactivez pour n'appairer que par geste explicite.",
-  'workbench.settings.def.backend.nmAutoJoinProbe.label': "Rechercher l'application de bureau en arrière-plan",
+  'workbench.settings.def.backend.nmAutoJoinProbe.label': 'Rechercher en arrière-plan',
   'workbench.settings.def.backend.nmAutoJoinProbe.description':
     'Sans application de bureau connectée, vérifie environ toutes les deux minutes si elle a été installée, pour ' +
     "qu'une nouvelle installation se connecte d'elle-même. Désactivez pour ne vérifier qu'au démarrage de " +
     "l'extension.",
-  'workbench.settings.def.backend.requireNmIdentity.label': "Exiger un appairage vérifié avec l'application de bureau",
+  'workbench.settings.def.backend.requireNmIdentity.label': 'Exiger un appairage vérifié',
   'workbench.settings.def.backend.requireNmIdentity.description':
     "Refuse les codes d'appairage et les jetons collés pour l'application de bureau sur cet ordinateur — seul l'échange vérifié par le système d'exploitation peut lui accorder l'accès. Les back-ends distants ne sont pas concernés. Généralement défini par une politique d'organisation.",
-  'workbench.settings.def.backend.allowDesktopWatch.label': "Laisser l'application de bureau voir ce navigateur",
+  'workbench.settings.def.backend.allowDesktopWatch.label': 'Autoriser la consultation de ce navigateur',
   'workbench.settings.def.backend.allowDesktopWatch.description':
     "Permet à une application de bureau appairée sur cet ordinateur d'observer le trafic réseau, le stockage et la " +
     'console de ce navigateur dans son panneau Trafic. Désactivé, les règles et la synchronisation continuent de ' +

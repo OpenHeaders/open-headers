@@ -79,8 +79,14 @@ export const workbenchSettings = {
   'workbench.settings.category.backend.description':
     'Donde viven tus espacios de trabajo, reglas, vault e historial. Elige el host que llegue tan lejos como ' +
     'necesites — solo local en cualquier caso.',
-  'workbench.settings.category.backend.sub.connection': 'Conexión',
   'workbench.settings.category.backend.sub.lan-peers': 'Pares LAN',
+  'workbench.settings.category.backendPairing.label': 'Backend · Emparejamiento de escritorio',
+  'workbench.settings.category.backendPairing.navLabel': 'Emparejamiento de escritorio',
+  'workbench.settings.category.backendPairing.description':
+    'Cómo se empareja este navegador con la aplicación de escritorio de Open Headers en este equipo, y qué puede ver una aplicación emparejada.',
+  'workbench.settings.category.backendPairing.sub.automatic': 'Automático',
+  'workbench.settings.category.backendPairing.sub.policy': 'Política',
+  'workbench.settings.category.backendPairing.sub.sharing': 'Uso compartido',
   'workbench.settings.category.backendReliability.label': 'Backend · Fiabilidad',
   'workbench.settings.category.backendReliability.navLabel': 'Fiabilidad',
   'workbench.settings.category.backendReliability.description':
