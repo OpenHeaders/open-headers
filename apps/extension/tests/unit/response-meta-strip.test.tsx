@@ -124,7 +124,6 @@ describe('ResponseMetaStrip cookie-jar attribution', () => {
 
   it('shows no policy tags at all on a plain run', () => {
     renderStrip();
-    expect(screen.queryByTestId('oh-response-tls-unverified')).toBeNull();
     expect(screen.queryByTestId('oh-response-tls-floor-lowered')).toBeNull();
     expect(screen.queryByTestId('oh-response-auth-forwarded')).toBeNull();
   });
@@ -332,7 +331,25 @@ describe('ResponseMetaStrip TLS facts and trust attribution', () => {
     expect(screen.getByRole('button', { name: 'Trust on this device' })).toBeTruthy();
   });
 
-  it('a verified send shows no verdict and no trust action', async () => {
+  it('an unverified send turns the network icon red instead of adding a tag, and the popover says why', async () => {
+    renderStrip({ sslVerificationDisabled: true });
+    const icon = screen.getByTestId('oh-response-network');
+    expect(icon.getAttribute('data-unverified')).toBe('true');
+    expect(icon.querySelector('.anticon-warning')).toBeTruthy();
+    expect(screen.queryByText('Unverified TLS')).toBeNull();
+    fireEvent.mouseEnter(icon);
+    expect((await screen.findByTestId('oh-response-tls-unverified')).textContent).toContain(
+      'certificate verification switched off',
+    );
+  });
+
+  it('a verified send keeps the globe and shows no verdict and no trust action', async () => {
+    renderStrip();
+    const icon = screen.getByTestId('oh-response-network');
+    expect(icon.getAttribute('data-unverified')).toBeNull();
+    expect(icon.querySelector('.anticon-global')).toBeTruthy();
+    cleanup();
+
     registerCapability('requestRuntime', () => 'node');
     renderStrip({
       network: { httpVersion: 'h2', tls: { ...tls, authorized: true, authorizationError: undefined } },

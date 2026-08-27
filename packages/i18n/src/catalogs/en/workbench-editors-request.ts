@@ -678,8 +678,6 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.response.meta.trustPinned': 'Certificate pinned on this device — send again to verify.',
   'workbench.editors.request.response.meta.noteNoTls':
     'Local address, TLS and certificate details are not exposed to extension code on Chromium.',
-  'workbench.editors.request.response.meta.tagUnverifiedTls': 'Unverified TLS',
-  'workbench.editors.request.response.meta.unverifiedTlsTitle': 'SSL verification disabled',
   'workbench.editors.request.response.meta.unverifiedTlsSummary':
     'This request was sent with certificate verification switched off in its Settings. The connection was encrypted, but the server’s identity was not checked — any certificate was accepted, including self-signed and expired ones.',
   'workbench.editors.request.response.meta.tlsFloorLowered': 'TLS floor lowered',

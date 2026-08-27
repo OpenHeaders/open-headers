@@ -10,7 +10,7 @@
  * breakdown.
  */
 
-import { ArrowDownOutlined, ArrowUpOutlined, GlobalOutlined } from '@ant-design/icons';
+import { ArrowDownOutlined, ArrowUpOutlined, GlobalOutlined, WarningOutlined } from '@ant-design/icons';
 import { getCapability } from '@openheaders/core/capabilities';
 import type { ExecutedRequestSnapshot } from '@openheaders/core/types';
 import { InfoPopover, type InfoPopoverAction, type InfoPopoverContent } from '@openheaders/ui/shared/info-popover';
@@ -452,6 +452,11 @@ function NetworkFacts({ response }: { response: ExecutedRequestSnapshot }) {
             {note}
           </span>
         ))}
+        {response.sslVerificationDisabled && (
+          <span style={{ fontSize: 11, color: token.colorError }} data-testid="oh-response-tls-unverified">
+            {t('workbench.editors.request.response.meta.unverifiedTlsSummary')}
+          </span>
+        )}
         {tls?.authorizationError !== undefined && (
           <span style={{ fontSize: 11, color: token.colorError }} data-testid="oh-response-tls-verdict">
             {t('workbench.editors.request.response.meta.tlsUnverifiedVerdict', { code: tls.authorizationError })}
@@ -460,17 +465,6 @@ function NetworkFacts({ response }: { response: ExecutedRequestSnapshot }) {
       </div>
     </div>
   );
-}
-
-/** Popover for the warning tag on a run whose per-request SSL
- *  verification knob was off — the snapshot records the policy the
- *  send actually ran under. */
-function unverifiedTlsContent(t: Translate): InfoPopoverContent {
-  return {
-    title: t('workbench.editors.request.response.meta.unverifiedTlsTitle'),
-    kicker: t('workbench.editors.request.response.meta.kicker'),
-    summary: t('workbench.editors.request.response.meta.unverifiedTlsSummary'),
-  };
 }
 
 /** Popover for the warning tag on a run whose per-request TLS floor
@@ -800,20 +794,6 @@ const ResponseMetaStrip: React.FC<ResponseMetaStripProps> = ({ response }) => {
           </InfoPopover>
         </>
       )}
-      {response.sslVerificationDisabled && (
-        <>
-          <MetaDot />
-          <InfoPopover content={unverifiedTlsContent(t)} trigger="hover">
-            <Tag
-              color="warning"
-              data-testid="oh-response-tls-unverified"
-              style={{ marginInlineEnd: 0, cursor: 'help' }}
-            >
-              {t('workbench.editors.request.response.meta.tagUnverifiedTls')}
-            </Tag>
-          </InfoPopover>
-        </>
-      )}
       {response.tlsFloorLowered && (
         <>
           <MetaDot />
@@ -903,15 +883,16 @@ const ResponseMetaStrip: React.FC<ResponseMetaStripProps> = ({ response }) => {
       <InfoPopover content={networkContent(response, t, trustActions)} trigger="hover">
         <span
           data-testid="oh-response-network"
+          data-unverified={response.sslVerificationDisabled ? 'true' : undefined}
           style={{
             display: 'inline-flex',
             alignItems: 'center',
             cursor: 'help',
-            color: token.colorTextSecondary,
+            color: response.sslVerificationDisabled ? token.colorError : token.colorTextSecondary,
             fontSize: 13,
           }}
         >
-          <GlobalOutlined />
+          {response.sslVerificationDisabled ? <WarningOutlined /> : <GlobalOutlined />}
         </span>
       </InfoPopover>
     </span>

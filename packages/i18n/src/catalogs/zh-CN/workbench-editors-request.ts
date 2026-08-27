@@ -663,8 +663,6 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.response.meta.trustedSummary': '在内置根证书之外，本次发送信任了工作区的 {workspace} 个证书和此设备固定的 {device} 个证书。',
   'workbench.editors.request.response.meta.trustPinned': '证书已固定在此设备——再次发送以验证。',
   'workbench.editors.request.response.meta.noteNoTls': 'Chromium 上不向扩展代码公开本地地址、TLS 和证书详情。',
-  'workbench.editors.request.response.meta.tagUnverifiedTls': '未验证的 TLS',
-  'workbench.editors.request.response.meta.unverifiedTlsTitle': 'SSL 验证已禁用',
   'workbench.editors.request.response.meta.unverifiedTlsSummary':
     '此请求发送时其设置中的证书验证处于关闭状态。连接被加密了，但服务器的身份未经检查——任何证书都被接受，包括自签名和已过期的。',
   'workbench.editors.request.response.meta.tlsFloorLowered': 'TLS 下限已降低',

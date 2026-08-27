@@ -846,8 +846,6 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.response.meta.noteNoTls':
     'La dirección local y los detalles de TLS y del certificado no se exponen al código de extensiones en ' +
     'Chromium.',
-  'workbench.editors.request.response.meta.tagUnverifiedTls': 'TLS sin verificar',
-  'workbench.editors.request.response.meta.unverifiedTlsTitle': 'Verificación SSL desactivada',
   'workbench.editors.request.response.meta.unverifiedTlsSummary':
     'Esta solicitud se envió con la verificación del certificado desactivada en su Configuración. La ' +
     'conexión iba cifrada, pero la identidad del servidor no se comprobó — se aceptó cualquier certificado, ' +

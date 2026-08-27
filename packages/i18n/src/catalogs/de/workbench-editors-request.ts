@@ -861,8 +861,6 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.response.meta.trustPinned': 'Zertifikat auf diesem Gerät angeheftet — erneut senden, um zu prüfen.',
   'workbench.editors.request.response.meta.noteNoTls':
     'Lokale Adresse, TLS- und Zertifikatsdetails werden Erweiterungscode auf Chromium nicht offengelegt.',
-  'workbench.editors.request.response.meta.tagUnverifiedTls': 'Ungeprüftes TLS',
-  'workbench.editors.request.response.meta.unverifiedTlsTitle': 'SSL-Prüfung deaktiviert',
   'workbench.editors.request.response.meta.unverifiedTlsSummary':
     'Diese Anfrage wurde mit in ihren Einstellungen deaktivierter Zertifikatsprüfung gesendet. Die ' +
     'Verbindung war verschlüsselt, aber die Identität des Servers wurde nicht geprüft — jedes Zertifikat ' +
