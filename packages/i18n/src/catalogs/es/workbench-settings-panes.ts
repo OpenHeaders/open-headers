@@ -30,9 +30,6 @@ export const workbenchSettingsPanes = {
   'workbench.settings.backendPane.intro.whereText': 'local o remoto.',
   'workbench.settings.backendPane.showDiagrams': 'Mostrar los diagramas',
   'workbench.settings.backendPane.learnMore': 'Más información',
-  'workbench.settings.backendPane.subsection.reliability.blurb':
-    'Comportamiento de reconexión automática sobre un cable inestable. Se aplica a todas las conexiones.',
-  'workbench.settings.backendPane.subsection.notifications.blurb': 'Señales visuales cuando un enlace está caído.',
   'workbench.settings.backendPane.tierZero.title.extension': 'Este navegador',
   'workbench.settings.backendPane.tierZero.title.desktop': 'Esta aplicación',
   'workbench.settings.backendPane.tierZero.title.web': 'Esta aplicación',
@@ -262,11 +259,6 @@ export const workbenchSettingsPanes = {
     'la aplicación (o pega un token en Configuración → Backend → Token de autenticación).',
 
   // ── Backend pane: offline fallback order ───────────────────────────
-  'workbench.settings.backendPane.fallback.title': 'Orden de respaldo sin conexión',
-  'workbench.settings.backendPane.fallback.blurb':
-    'Si el back-end queda sin conexión, el primer host alcanzable de esta lista refresca por sí mismo la ' +
-    'credencial de un workflow exclusivo. Los hosts se alistan automáticamente; arrastra para reordenar el ' +
-    'rango.',
   'workbench.settings.backendPane.fallback.empty':
     'Aún no se ha alistado ningún host. Un navegador se une a esta lista en cuanto posee el seed de un ' +
     'workflow Live exclusivo en este espacio de trabajo.',

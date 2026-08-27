@@ -29,9 +29,6 @@ export const workbenchSettingsPanes = {
   'workbench.settings.backendPane.intro.whereText': 'local ou distant.',
   'workbench.settings.backendPane.showDiagrams': 'Afficher les diagrammes',
   'workbench.settings.backendPane.learnMore': 'En savoir plus',
-  'workbench.settings.backendPane.subsection.reliability.blurb':
-    "Comportement de reconnexion automatique sur un fil instable. S'applique à chaque connexion.",
-  'workbench.settings.backendPane.subsection.notifications.blurb': 'Repères visuels quand un lien est coupé.',
   'workbench.settings.backendPane.tierZero.title.extension': 'Ce navigateur',
   'workbench.settings.backendPane.tierZero.title.desktop': 'Cette application',
   'workbench.settings.backendPane.tierZero.title.web': 'Cette application',
@@ -264,10 +261,6 @@ export const workbenchSettingsPanes = {
     "que l'application affiche (ou collez un jeton dans Paramètres → Backend → Jeton d'authentification).",
 
   // ── Backend pane: offline fallback order ───────────────────────────
-  'workbench.settings.backendPane.fallback.title': 'Ordre de repli hors ligne',
-  'workbench.settings.backendPane.fallback.blurb':
-    'Si le back-end passe hors ligne, le premier hôte joignable de cette liste rafraîchit lui-même ' +
-    "l'identifiant d'un workflow exclusif. Les hôtes s'enrôlent automatiquement ; glissez pour reclasser.",
   'workbench.settings.backendPane.fallback.empty':
     "Aucun hôte ne s'est encore enrôlé. Un navigateur rejoint cette liste dès qu'il détient le seed d'un Live " +
     'Workflow exclusif dans cet espace de travail.',

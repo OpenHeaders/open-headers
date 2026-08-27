@@ -69,9 +69,13 @@ export const workbenchSettings = {
   'workbench.settings.category.backend.description':
     '你的工作区、规则、vault 和历史所在之处。按你的覆盖面挑选主机——无论哪种都仅限本地。',
   'workbench.settings.category.backend.sub.connection': '连接',
-  'workbench.settings.category.backend.sub.reliability': '可靠性',
-  'workbench.settings.category.backend.sub.notifications': '通知',
   'workbench.settings.category.backend.sub.lan-peers': 'LAN 对等端',
+  'workbench.settings.category.backendReliability.label': '后端 · 可靠性',
+  'workbench.settings.category.backendReliability.navLabel': '可靠性',
+  'workbench.settings.category.backendReliability.description': '每条后端连接的重连行为与离线回退。',
+  'workbench.settings.category.backendReliability.sub.reconnection': '重连',
+  'workbench.settings.category.backendReliability.sub.status': '状态',
+  'workbench.settings.category.backendReliability.sub.offline-fallback': '离线回退',
   'workbench.settings.category.mcp.label': 'AI · MCP 服务器',
   'workbench.settings.category.mcp.description':
     '让 AI 代理和其他 MCP 客户端读取并控制此应用。访问分级——读取、写入、执行和机密显示是各自独立的开关，' +

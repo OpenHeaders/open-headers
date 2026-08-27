@@ -65,9 +65,14 @@ export const workbenchSettings = {
   'workbench.settings.category.backend.description':
     'Where your workspaces, rules, vault, and history live. Pick the host that matches your reach — local-only either way.',
   'workbench.settings.category.backend.sub.connection': 'Connection',
-  'workbench.settings.category.backend.sub.reliability': 'Reliability',
-  'workbench.settings.category.backend.sub.notifications': 'Notifications',
   'workbench.settings.category.backend.sub.lan-peers': 'LAN peers',
+  'workbench.settings.category.backendReliability.label': 'Backend · Reliability',
+  'workbench.settings.category.backendReliability.navLabel': 'Reliability',
+  'workbench.settings.category.backendReliability.description':
+    'Reconnection behavior and offline fallback for every back-end connection.',
+  'workbench.settings.category.backendReliability.sub.reconnection': 'Reconnection',
+  'workbench.settings.category.backendReliability.sub.status': 'Status',
+  'workbench.settings.category.backendReliability.sub.offline-fallback': 'Offline fallback',
   'workbench.settings.category.mcp.label': 'AI · MCP Server',
   'workbench.settings.category.mcp.description':
     'Let AI agents and other MCP clients read and control this app. Access is tiered — reading, writing, executing, and secret reveal are separate switches, all off by default.',

@@ -27,6 +27,7 @@ import {
   RobotOutlined,
   SafetyCertificateOutlined,
   SettingOutlined,
+  SyncOutlined,
 } from '@ant-design/icons';
 import { ApiRequestsIcon, KeyboardIcon } from '@openheaders/ui/shared/icons';
 import { lazy } from 'react';
@@ -59,9 +60,26 @@ registerCategory({
   // the mode picker. The order here is what drives card sequencing.
   subcategories: [
     { id: 'connection', labelKey: 'workbench.settings.category.backend.sub.connection', order: 10 },
-    { id: 'reliability', labelKey: 'workbench.settings.category.backend.sub.reliability', order: 20 },
-    { id: 'notifications', labelKey: 'workbench.settings.category.backend.sub.notifications', order: 30 },
     { id: 'lan-peers', labelKey: 'workbench.settings.category.backend.sub.lan-peers', order: 40 },
+  ],
+});
+
+registerCategory({
+  id: 'backendReliability',
+  labelKey: 'workbench.settings.category.backendReliability.label',
+  navLabelKey: 'workbench.settings.category.backendReliability.navLabel',
+  parent: 'backend',
+  icon: <SyncOutlined />,
+  order: 8,
+  descriptionKey: 'workbench.settings.category.backendReliability.description',
+  subcategories: [
+    { id: 'reconnection', labelKey: 'workbench.settings.category.backendReliability.sub.reconnection', order: 10 },
+    { id: 'status', labelKey: 'workbench.settings.category.backendReliability.sub.status', order: 20 },
+    {
+      id: 'offline-fallback',
+      labelKey: 'workbench.settings.category.backendReliability.sub.offline-fallback',
+      order: 30,
+    },
   ],
 });
 

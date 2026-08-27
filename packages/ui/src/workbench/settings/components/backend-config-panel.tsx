@@ -1,53 +1,31 @@
 /**
  * Global back-end config sections — the settings-schema rows that apply
- * to EVERY connection (reliability knobs, notification cues), grouped
- * by subcategory under the connections list. Connection identity
- * (address, token, auto-connect) lives on the `OH.backends` records and
- * renders inside each row's editor; the daemon-side inbound rows
- * (`lan-peers`) render in the tier-zero card. Each def's `when`
- * predicate is honored here — with no enabled backend there is no wire
- * to tune, so the sections fold away exactly as the old tier-zero
- * ("nothing outbound to configure") branch did.
+ * to EVERY connection, grouped by subcategory under the connections
+ * list. Connection identity (address, token, auto-connect) lives on the
+ * `OH.backends` records and renders inside each row's editor; the
+ * daemon-side inbound rows (`lan-peers`) render in the tier-zero card.
+ * Each def's `when` predicate is honored here so a section whose every
+ * row is hidden drops its header too.
  */
 
-import type { MessageKey } from '@openheaders/i18n';
 import { theme } from 'antd';
 import type React from 'react';
 import { type Translate, useT } from '@openheaders/ui/context/LocaleContext';
-import type { Host } from '../../../shared/host-vocabulary';
 import SettingRow from '../fields/SettingRow';
 import { resolveLabel } from '../localize';
 import { get as storeGet } from '../store';
 import type { CategoryDef, SettingDef, SettingKey, SettingsMap, SubcategoryDef } from '../types';
-import OfflineFallbackOrderSection from './offline-fallback-order-section';
-
-const SUBSECTION_BLURB: Record<string, MessageKey> = {
-  reliability: 'workbench.settings.backendPane.subsection.reliability.blurb',
-  notifications: 'workbench.settings.backendPane.subsection.notifications.blurb',
-};
 
 export const GlobalConfigSections: React.FC<{
-  host: Host;
   defs: readonly SettingDef[];
   category: CategoryDef;
-}> = ({ host, defs, category }) => {
+}> = ({ defs, category }) => {
   const { token } = theme.useToken();
   const t = useT();
 
-  // `backend.showBadgeWhenDisconnected` toggles a `chrome.action`
-  // toolbar badge — meaningless outside the browser extension. The
-  // lan-peers rows belong to the tier-zero card (daemon-side), and the
-  // `when` predicates gate on the derived mode (no enabled backend →
-  // nothing to tune → the row hides).
-  // Evaluated here (not just in SettingRow) so a section whose every
-  // row is `when`-hidden drops its header too.
   const evaluateWhen = (d: SettingDef): boolean =>
     d.when ? d.when(<K extends SettingKey>(k: K): SettingsMap[K] => storeGet(k)) : true;
-  const visibleDefs = defs.filter((d) => {
-    if (d.subcategory === 'lan-peers') return false;
-    if (d.key === 'backend.showBadgeWhenDisconnected' && host !== 'extension') return false;
-    return evaluateWhen(d);
-  });
+  const visibleDefs = defs.filter((d) => d.subcategory !== 'lan-peers' && evaluateWhen(d));
 
   const grouped = groupBySubcategory(visibleDefs, category.subcategories, t);
 
@@ -69,11 +47,6 @@ export const GlobalConfigSections: React.FC<{
               >
                 {label}
               </h3>
-              {SUBSECTION_BLURB[id] && (
-                <div style={{ fontSize: 11, color: token.colorTextTertiary, marginTop: 1 }}>
-                  {t(SUBSECTION_BLURB[id])}
-                </div>
-              )}
             </header>
             <div
               className="settings-card"
@@ -91,12 +64,6 @@ export const GlobalConfigSections: React.FC<{
           </section>
         ),
       )}
-      {/* Offline-fallback runner order — an extension-peer concern: when
-          the configured backend drops, one browser self-refreshes an
-          exclusive workflow's credential, chosen by this ranking. The
-          desktop daemon is the authoritative runner, so it has nothing to
-          elect. */}
-      {host === 'extension' && <OfflineFallbackOrderSection />}
     </>
   );
 };

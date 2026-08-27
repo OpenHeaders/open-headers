@@ -118,7 +118,7 @@ const BackendPane: React.FC<CategoryPaneProps> = ({ category, defs }) => {
 
       {hostJoinsBackends(host) && <BackendConnectionsList host={host} />}
 
-      <GlobalConfigSections host={host} defs={fieldDefs} category={category} />
+      <GlobalConfigSections defs={fieldDefs} category={category} />
     </div>
   );
 };

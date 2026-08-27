@@ -32,9 +32,6 @@ export const workbenchSettingsPanes = {
   'workbench.settings.backendPane.intro.whereText': 'lokal oder entfernt.',
   'workbench.settings.backendPane.showDiagrams': 'Diagramme anzeigen',
   'workbench.settings.backendPane.learnMore': 'Mehr erfahren',
-  'workbench.settings.backendPane.subsection.reliability.blurb':
-    'Verhalten der automatischen Wiederverbindung über eine instabile Leitung. Gilt für jede Verbindung.',
-  'workbench.settings.backendPane.subsection.notifications.blurb': 'Visuelle Hinweise, wenn eine Verbindung unten ist.',
   'workbench.settings.backendPane.tierZero.title.extension': 'Dieser Browser',
   'workbench.settings.backendPane.tierZero.title.desktop': 'Diese App',
   'workbench.settings.backendPane.tierZero.title.web': 'Diese App',
@@ -264,10 +261,6 @@ export const workbenchSettingsPanes = {
     'einen Token unter Einstellungen → Back-end → Auth-Token ein).',
 
   // ── Backend pane: offline fallback order ───────────────────────────
-  'workbench.settings.backendPane.fallback.title': 'Offline-Ausweichreihenfolge',
-  'workbench.settings.backendPane.fallback.blurb':
-    'Geht das Back-end offline, frischt der erste erreichbare Host auf dieser Liste die Zugangsdaten eines ' +
-    'exklusiven Workflows selbst auf. Hosts tragen sich automatisch ein; ziehe zum Umsortieren.',
   'workbench.settings.backendPane.fallback.empty':
     'Noch kein Host eingetragen. Ein Browser tritt dieser Liste bei, sobald er den seed eines exklusiven ' +
     'Live-Workflows in diesem Arbeitsbereich hält.',

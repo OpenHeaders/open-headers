@@ -85,10 +85,10 @@ export const workbenchSettingsDefs = {
     'aplicación — el Enviar de su workbench se ejecuta en esta máquina, con su acceso de red y su ' +
     'dirección. Desactivado por defecto: una decisión del operador, nunca implícita en el emparejamiento. ' +
     'Cada envío sigue requiriendo acceso de escritura al espacio de trabajo.',
-  'workbench.settings.def.backend.reconnectDelayMs.label': 'Retraso inicial de reconexión',
+  'workbench.settings.def.backend.reconnectDelayMs.label': 'Retraso inicial',
   'workbench.settings.def.backend.reconnectDelayMs.description':
     'Cuánto esperar (ms) antes del primer intento de reconexión tras una desconexión.',
-  'workbench.settings.def.backend.maxReconnectDelayMs.label': 'Retraso máximo de reconexión',
+  'workbench.settings.def.backend.maxReconnectDelayMs.label': 'Retraso máximo',
   'workbench.settings.def.backend.maxReconnectDelayMs.description':
     'Cota superior (ms) del backoff exponencial entre intentos de reconexión.',
   'workbench.settings.def.backend.pingIntervalMs.label': 'Intervalo de keep-alive',
@@ -98,6 +98,11 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.backend.showBadgeWhenDisconnected.description':
     'Muestra una insignia roja en el icono de la barra de herramientas cuando el enlace con el back-end está ' +
     'caído.',
+  'workbench.settings.def.backend.offlineFallbackOrder.label': 'Orden de hosts',
+  'workbench.settings.def.backend.offlineFallbackOrder.description':
+    'Si el back-end queda sin conexión, el primer host alcanzable de esta lista refresca por sí mismo la ' +
+    'credencial de un workflow exclusivo. Los hosts se alistan automáticamente; arrastra para reordenar el ' +
+    'rango.',
   'workbench.settings.def.backend.showDiagrams.label': 'Mostrar los diagramas del back-end',
   'workbench.settings.def.backend.showDiagrams.description':
     'Muestra los paneles ilustrados de niveles y de flujo de datos en la configuración de Backend.',

@@ -80,9 +80,14 @@ export const workbenchSettings = {
     'Donde viven tus espacios de trabajo, reglas, vault e historial. Elige el host que llegue tan lejos como ' +
     'necesites — solo local en cualquier caso.',
   'workbench.settings.category.backend.sub.connection': 'Conexión',
-  'workbench.settings.category.backend.sub.reliability': 'Fiabilidad',
-  'workbench.settings.category.backend.sub.notifications': 'Notificaciones',
   'workbench.settings.category.backend.sub.lan-peers': 'Pares LAN',
+  'workbench.settings.category.backendReliability.label': 'Backend · Fiabilidad',
+  'workbench.settings.category.backendReliability.navLabel': 'Fiabilidad',
+  'workbench.settings.category.backendReliability.description':
+    'Comportamiento de reconexión y respaldo sin conexión para todas las conexiones al back-end.',
+  'workbench.settings.category.backendReliability.sub.reconnection': 'Reconexión',
+  'workbench.settings.category.backendReliability.sub.status': 'Estado',
+  'workbench.settings.category.backendReliability.sub.offline-fallback': 'Respaldo sin conexión',
   'workbench.settings.category.mcp.label': 'IA · Servidor MCP',
   'workbench.settings.category.mcp.description':
     'Permite que los agentes de IA y otros clientes MCP lean y controlen esta aplicación. El acceso está ' +

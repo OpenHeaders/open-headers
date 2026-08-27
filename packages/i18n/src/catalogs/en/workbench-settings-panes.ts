@@ -15,9 +15,6 @@ export const workbenchSettingsPanes = {
   'workbench.settings.backendPane.intro.whereText': 'local or remote.',
   'workbench.settings.backendPane.showDiagrams': 'Show diagrams',
   'workbench.settings.backendPane.learnMore': 'Learn more',
-  'workbench.settings.backendPane.subsection.reliability.blurb':
-    'Auto-reconnection behavior over an unstable wire. Applies to every connection.',
-  'workbench.settings.backendPane.subsection.notifications.blurb': 'Visual cues when a link is down.',
   'workbench.settings.backendPane.tierZero.title.extension': 'This browser',
   'workbench.settings.backendPane.tierZero.title.desktop': 'This app',
   'workbench.settings.backendPane.tierZero.title.web': 'This app',
@@ -217,9 +214,6 @@ export const workbenchSettingsPanes = {
     'The desktop back-end will bind every local network interface so other devices on your network can connect. Every connection — LAN or loopback — must present a paired auth token; there is no token-free path. Devices pair with the code the app shows (or paste a token into Settings → Backend → Auth token).',
 
   // ── Backend pane: offline fallback order ───────────────────────────
-  'workbench.settings.backendPane.fallback.title': 'Offline fallback order',
-  'workbench.settings.backendPane.fallback.blurb':
-    "If the backend goes offline, the first reachable host on this list self-refreshes an exclusive workflow's credential. Hosts enlist automatically; drag to re-rank.",
   'workbench.settings.backendPane.fallback.empty':
     'No hosts have enlisted yet. A browser joins this list once it holds the seed for an exclusive Live Workflow in this workspace.',
   'workbench.settings.backendPane.fallback.saveFailed': 'Failed to save the new order',

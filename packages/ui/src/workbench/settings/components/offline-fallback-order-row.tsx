@@ -1,11 +1,12 @@
 /**
- * Offline-fallback runner order (WS-C C14 commit 3).
+ * Offline-fallback runner order (WS-C C14 commit 3) — custom editor for
+ * `backend.offlineFallbackOrder` on the Backend › Reliability page.
  *
  * When an *exclusive* Live Workflow's configured backend goes offline,
  * exactly one of the partitioned browser hosts self-refreshes the
  * credential — chosen by this user-orderable ranking rather than a race.
  * Each host auto-enlists itself (SW-side) once it holds the workflow's
- * consumed seed; this card is where the user re-ranks and prunes that
+ * consumed seed; this row is where the user re-ranks and prunes that
  * list.
  *
  * Reads the workspace's `live-fallback-priority` mirror (members carry a
@@ -32,13 +33,16 @@ import {
   applyFallbackPriorityPrune,
   applyFallbackPriorityReorder,
 } from '../../../shared/sync/live-fallback-priority-write-client';
+import FieldRow from '../fields/FieldRow';
+import { resolveDescription, resolveLabel } from '../localize';
+import type { SettingDef } from '../types';
 
 /** Shorten an opaque principal id for the no-label fallback display. */
 function shortenPrincipalId(id: string): string {
   return id.length > 14 ? `${id.slice(0, 8)}…${id.slice(-4)}` : id;
 }
 
-const OfflineFallbackOrderSection: React.FC = () => {
+const OfflineFallbackOrderRow: React.FC<{ def: SettingDef }> = ({ def }) => {
   const { token } = theme.useToken();
   const { message } = AntApp.useApp();
   const t = useT();
@@ -89,31 +93,18 @@ const OfflineFallbackOrderSection: React.FC = () => {
   );
 
   return (
-    <section style={{ marginBottom: 12 }}>
-      <header style={{ marginBottom: 6, padding: '0 2px' }}>
-        <h3
-          style={{
-            margin: 0,
-            fontSize: 11,
-            fontWeight: 700,
-            letterSpacing: 0.3,
-            textTransform: 'uppercase',
-            color: token.colorTextSecondary,
-          }}
-        >
-          {t('workbench.settings.backendPane.fallback.title')}
-        </h3>
-        <div style={{ fontSize: 11, color: token.colorTextTertiary, marginTop: 1 }}>
-          {t('workbench.settings.backendPane.fallback.blurb')}
-        </div>
-      </header>
+    <FieldRow
+      settingKey={def.key}
+      label={resolveLabel(def, t)}
+      description={resolveDescription(def, t)}
+      resettable={false}
+      block
+    >
       <div
-        className="settings-card"
         style={{
-          background: token.colorBgContainer,
           border: `1px solid ${token.colorBorderSecondary}`,
-          borderRadius: 10,
-          padding: 12,
+          borderRadius: token.borderRadius,
+          padding: 10,
         }}
       >
         {members.length === 0 ? (
@@ -142,7 +133,7 @@ const OfflineFallbackOrderSection: React.FC = () => {
           </DndContext>
         )}
       </div>
-    </section>
+    </FieldRow>
   );
 };
 
@@ -244,4 +235,4 @@ const FallbackHostRow: React.FC<FallbackHostRowProps> = ({
   );
 };
 
-export default OfflineFallbackOrderSection;
+export default OfflineFallbackOrderRow;

@@ -57,9 +57,9 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.backend.allowRemotePeerExecute.label': '允许其他已连接设备发送请求',
   'workbench.settings.def.backend.allowRemotePeerExecute.description':
     '让其他机器上已配对的设备通过此应用发送 API 请求——其工作台的发送在本机执行，使用本机的网络访问与地址。默认关闭：这是运维者的决定，配对本身绝不隐含此授权。每次发送仍需要工作区的写入权限。',
-  'workbench.settings.def.backend.reconnectDelayMs.label': '初始重连延迟',
+  'workbench.settings.def.backend.reconnectDelayMs.label': '初始延迟',
   'workbench.settings.def.backend.reconnectDelayMs.description': '断开后到第一次重连尝试之前等待的时间（ms）。',
-  'workbench.settings.def.backend.maxReconnectDelayMs.label': '最大重连延迟',
+  'workbench.settings.def.backend.maxReconnectDelayMs.label': '最大延迟',
   'workbench.settings.def.backend.maxReconnectDelayMs.description': '重连尝试之间指数 backoff 的上限（ms）。',
   'workbench.settings.def.backend.pingIntervalMs.label': '保活间隔',
   'workbench.settings.def.backend.pingIntervalMs.description':
@@ -67,6 +67,9 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.backend.showBadgeWhenDisconnected.label': '断开时显示徽章',
   'workbench.settings.def.backend.showBadgeWhenDisconnected.description':
     '后端链路中断时，在工具栏图标上显示红色徽章。',
+  'workbench.settings.def.backend.offlineFallbackOrder.label': '主机顺序',
+  'workbench.settings.def.backend.offlineFallbackOrder.description':
+    '如果后端离线，此列表上第一个可达的主机会自行刷新独占工作流的凭据。主机自动加入；拖动可重新排序。',
   'workbench.settings.def.backend.showDiagrams.label': '显示后端示意图',
   'workbench.settings.def.backend.showDiagrams.description': '在后端设置中显示图解的档位与数据流面板。',
 

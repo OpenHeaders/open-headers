@@ -34,8 +34,6 @@ export const workbenchSettingsPanes = {
   'workbench.settings.backendPane.intro.whereText': '本地或远程。',
   'workbench.settings.backendPane.showDiagrams': '显示图解',
   'workbench.settings.backendPane.learnMore': '了解更多',
-  'workbench.settings.backendPane.subsection.reliability.blurb': '不稳定线路上的自动重连行为。适用于每条连接。',
-  'workbench.settings.backendPane.subsection.notifications.blurb': '链路断开时的视觉提示。',
   'workbench.settings.backendPane.tierZero.title.extension': '此浏览器',
   'workbench.settings.backendPane.tierZero.title.desktop': '此应用',
   'workbench.settings.backendPane.tierZero.title.web': '此应用',
@@ -217,9 +215,6 @@ export const workbenchSettingsPanes = {
     '桌面后端将绑定每个本地网络接口，使你网络上的其他设备可以连接。每条连接——无论 LAN 还是环回——都必须出示已配对的身份验证 token；没有免 token 的通道。设备用应用显示的配对码配对（或把 token 粘贴到设置 → 后端 → 身份验证 token）。',
 
   // ── Backend pane: offline fallback order ───────────────────────────
-  'workbench.settings.backendPane.fallback.title': '离线回退顺序',
-  'workbench.settings.backendPane.fallback.blurb':
-    '如果后端离线，此列表上第一个可达的主机会自行刷新独占工作流的凭据。主机自动加入；拖动可重新排序。',
   'workbench.settings.backendPane.fallback.empty':
     '还没有主机加入。当某个浏览器持有此工作区中独占 Live 工作流的 seed 时，它就会加入此列表。',
   'workbench.settings.backendPane.fallback.saveFailed': '保存新顺序失败',

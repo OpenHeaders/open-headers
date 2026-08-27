@@ -79,9 +79,14 @@ export const workbenchSettings = {
     'Wo deine Arbeitsbereiche, Regeln, dein vault und dein Verlauf leben. Wähle den Host, der zu deiner ' +
     'Reichweite passt — so oder so nur lokal.',
   'workbench.settings.category.backend.sub.connection': 'Verbindung',
-  'workbench.settings.category.backend.sub.reliability': 'Zuverlässigkeit',
-  'workbench.settings.category.backend.sub.notifications': 'Benachrichtigungen',
   'workbench.settings.category.backend.sub.lan-peers': 'LAN-Peers',
+  'workbench.settings.category.backendReliability.label': 'Back-end · Zuverlässigkeit',
+  'workbench.settings.category.backendReliability.navLabel': 'Zuverlässigkeit',
+  'workbench.settings.category.backendReliability.description':
+    'Wiederverbindungsverhalten und Offline-Ausweichen für jede Back-end-Verbindung.',
+  'workbench.settings.category.backendReliability.sub.reconnection': 'Wiederverbindung',
+  'workbench.settings.category.backendReliability.sub.status': 'Status',
+  'workbench.settings.category.backendReliability.sub.offline-fallback': 'Offline-Ausweichen',
   'workbench.settings.category.mcp.label': 'KI · MCP-Server',
   'workbench.settings.category.mcp.description':
     'Lass KI-Agenten und andere MCP-Clients diese App lesen und steuern. Der Zugriff ist gestuft — Lesen, ' +

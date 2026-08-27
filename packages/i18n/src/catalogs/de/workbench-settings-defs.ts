@@ -70,10 +70,10 @@ export const workbenchSettingsDefs = {
     'Workbench-Senden läuft auf dieser Maschine, mit deren Netzwerkzugang und Adresse. Standardmäßig aus: ' +
     'eine Betreiber-Entscheidung, niemals durch die Kopplung impliziert. Jedes Senden erfordert weiterhin ' +
     'Schreibzugriff auf den Arbeitsbereich.',
-  'workbench.settings.def.backend.reconnectDelayMs.label': 'Anfängliche Wiederverbindungs-Verzögerung',
+  'workbench.settings.def.backend.reconnectDelayMs.label': 'Anfängliche Verzögerung',
   'workbench.settings.def.backend.reconnectDelayMs.description':
     'Wie lange (ms) nach einer Trennung bis zum ersten Wiederverbindungsversuch gewartet wird.',
-  'workbench.settings.def.backend.maxReconnectDelayMs.label': 'Maximale Wiederverbindungs-Verzögerung',
+  'workbench.settings.def.backend.maxReconnectDelayMs.label': 'Maximale Verzögerung',
   'workbench.settings.def.backend.maxReconnectDelayMs.description':
     'Obergrenze (ms) für das exponentielle Backoff zwischen Wiederverbindungsversuchen.',
   'workbench.settings.def.backend.pingIntervalMs.label': 'Keep-alive-Intervall',
@@ -82,6 +82,10 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.backend.showBadgeWhenDisconnected.label': 'Badge bei getrennter Verbindung',
   'workbench.settings.def.backend.showBadgeWhenDisconnected.description':
     'Zeigt ein rotes Badge auf dem Toolbar-Icon, wenn die Verbindung zum Back-end unten ist.',
+  'workbench.settings.def.backend.offlineFallbackOrder.label': 'Host-Reihenfolge',
+  'workbench.settings.def.backend.offlineFallbackOrder.description':
+    'Geht das Back-end offline, frischt der erste erreichbare Host auf dieser Liste die Zugangsdaten eines ' +
+    'exklusiven Workflows selbst auf. Hosts tragen sich automatisch ein; ziehe zum Umsortieren.',
   'workbench.settings.def.backend.showDiagrams.label': 'Back-end-Diagramme anzeigen',
   'workbench.settings.def.backend.showDiagrams.description':
     'Zeigt die illustrierten Stufen- und Datenfluss-Tafeln in den Back-end-Einstellungen.',

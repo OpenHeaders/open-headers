@@ -41,6 +41,7 @@ import { get as getSettingValue } from '../store';
 
 const LanPeersToggleEditor = lazy(() => import('../components/lan-peers-toggle'));
 const BackendBindPortFieldEditor = lazy(() => import('../components/backend-bind-port-field'));
+const OfflineFallbackOrderRow = lazy(() => import('../components/offline-fallback-order-row'));
 
 export const BACKEND_MODES = ['in-browser', 'desktop-app', 'local-self-hosted', 'remote-self-hosted'] as const;
 export type BackendMode = (typeof BACKEND_MODES)[number];
@@ -120,6 +121,7 @@ declare module '@openheaders/ui/workbench/settings/types' {
     'backend.maxReconnectDelayMs': number;
     'backend.pingIntervalMs': number;
     'backend.showBadgeWhenDisconnected': boolean;
+    'backend.offlineFallbackOrder': string;
     'backend.showDiagrams': boolean;
   }
 }
@@ -333,6 +335,10 @@ registerSetting({
   when: () => getCurrentHost() === 'desktop',
 });
 
+// The reliability rows live on their own page (Backend › Reliability),
+// so they stay visible whether or not a wire is up right now — a page
+// that empties itself when nothing is connected reads as broken, and
+// the knobs are exactly what one tunes BEFORE the next connection.
 registerSetting({
   key: 'backend.reconnectDelayMs',
   type: 'number',
@@ -340,12 +346,11 @@ registerSetting({
   schema: v.pipe(v.number(), v.integer(), v.minValue(100), v.maxValue(60000)),
   labelKey: 'workbench.settings.def.backend.reconnectDelayMs.label',
   descriptionKey: 'workbench.settings.def.backend.reconnectDelayMs.description',
-  category: 'backend',
-  subcategory: 'reliability',
+  category: 'backendReliability',
+  subcategory: 'reconnection',
   tags: ['reconnect', 'backoff', 'delay'],
   scope: 'user',
   numberRange: { min: 100, max: 60000, step: 100 },
-  when: () => backendModeNeedsConnection(currentBackendMode()),
 });
 
 registerSetting({
@@ -355,12 +360,11 @@ registerSetting({
   schema: v.pipe(v.number(), v.integer(), v.minValue(500), v.maxValue(300000)),
   labelKey: 'workbench.settings.def.backend.maxReconnectDelayMs.label',
   descriptionKey: 'workbench.settings.def.backend.maxReconnectDelayMs.description',
-  category: 'backend',
-  subcategory: 'reliability',
+  category: 'backendReliability',
+  subcategory: 'reconnection',
   tags: ['reconnect', 'backoff', 'max', 'ceiling'],
   scope: 'user',
   numberRange: { min: 500, max: 300000, step: 500 },
-  when: () => backendModeNeedsConnection(currentBackendMode()),
 });
 
 registerSetting({
@@ -370,26 +374,48 @@ registerSetting({
   schema: v.pipe(v.number(), v.integer(), v.minValue(1000), v.maxValue(600000)),
   labelKey: 'workbench.settings.def.backend.pingIntervalMs.label',
   descriptionKey: 'workbench.settings.def.backend.pingIntervalMs.description',
-  category: 'backend',
-  subcategory: 'reliability',
+  category: 'backendReliability',
+  subcategory: 'reconnection',
   tags: ['ping', 'keep-alive', 'heartbeat'],
   scope: 'user',
   numberRange: { min: 1000, max: 600000, step: 1000 },
-  when: () => backendModeNeedsConnection(currentBackendMode()),
 });
 
 registerSetting({
+  // Toggles a `chrome.action` toolbar badge — meaningless outside the
+  // browser extension.
   key: 'backend.showBadgeWhenDisconnected',
   type: 'boolean',
   default: false,
   schema: v.boolean(),
   labelKey: 'workbench.settings.def.backend.showBadgeWhenDisconnected.label',
   descriptionKey: 'workbench.settings.def.backend.showBadgeWhenDisconnected.description',
-  category: 'backend',
-  subcategory: 'notifications',
+  category: 'backendReliability',
+  subcategory: 'status',
   tags: ['badge', 'status', 'icon', 'indicator'],
   scope: 'user',
-  when: () => backendModeNeedsConnection(currentBackendMode()),
+  when: () => getCurrentHost() === 'extension',
+});
+
+registerSetting({
+  // Offline-fallback runner order — an extension-peer concern: when the
+  // configured backend drops, one browser self-refreshes an exclusive
+  // workflow's credential, chosen by this ranking. The ranking itself is
+  // workspace state (the `live-fallback-priority` mirror); this def is
+  // the row that hosts its editor. The desktop daemon is the
+  // authoritative runner, so it has nothing to elect.
+  key: 'backend.offlineFallbackOrder',
+  type: 'info',
+  default: '',
+  schema: v.string(),
+  labelKey: 'workbench.settings.def.backend.offlineFallbackOrder.label',
+  descriptionKey: 'workbench.settings.def.backend.offlineFallbackOrder.description',
+  category: 'backendReliability',
+  subcategory: 'offline-fallback',
+  tags: ['offline', 'fallback', 'runner', 'order', 'rank', 'workflow', 'credential'],
+  scope: 'user',
+  when: () => getCurrentHost() === 'extension',
+  customEditor: OfflineFallbackOrderRow,
 });
 
 registerSetting({

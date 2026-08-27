@@ -49,10 +49,10 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.backend.allowRemotePeerExecute.label': 'Allow other connected devices to send requests',
   'workbench.settings.def.backend.allowRemotePeerExecute.description':
     'Let paired devices on OTHER machines send API requests through this app — their workbench Send runs on this machine, with its network access and address. Off by default: an operator decision, never implied by pairing. Each send still requires write access to the workspace.',
-  'workbench.settings.def.backend.reconnectDelayMs.label': 'Initial reconnect delay',
+  'workbench.settings.def.backend.reconnectDelayMs.label': 'Initial delay',
   'workbench.settings.def.backend.reconnectDelayMs.description':
     'How long to wait (ms) before the first reconnect attempt after a disconnect.',
-  'workbench.settings.def.backend.maxReconnectDelayMs.label': 'Max reconnect delay',
+  'workbench.settings.def.backend.maxReconnectDelayMs.label': 'Max delay',
   'workbench.settings.def.backend.maxReconnectDelayMs.description':
     'Upper bound (ms) on the exponential backoff between reconnect attempts.',
   'workbench.settings.def.backend.pingIntervalMs.label': 'Keep-alive interval',
@@ -61,6 +61,9 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.backend.showBadgeWhenDisconnected.label': 'Badge when disconnected',
   'workbench.settings.def.backend.showBadgeWhenDisconnected.description':
     'Show a red badge on the toolbar icon when the back-end link is down.',
+  'workbench.settings.def.backend.offlineFallbackOrder.label': 'Host order',
+  'workbench.settings.def.backend.offlineFallbackOrder.description':
+    "If the backend goes offline, the first reachable host on this list self-refreshes an exclusive workflow's credential. Hosts enlist automatically; drag to re-rank.",
   'workbench.settings.def.backend.showDiagrams.label': 'Show back-end diagrams',
   'workbench.settings.def.backend.showDiagrams.description':
     'Show the illustrated tier and data-flow panels in Backend settings.',

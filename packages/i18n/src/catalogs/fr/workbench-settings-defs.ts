@@ -69,10 +69,10 @@ export const workbenchSettingsDefs = {
     "leur Send du workbench s'exécute sur cette machine, avec son accès réseau et son adresse. Désactivé " +
     "par défaut : une décision d'opérateur, jamais implicite dans l'appairage. Chaque envoi requiert " +
     "toujours un accès en écriture à l'espace de travail.",
-  'workbench.settings.def.backend.reconnectDelayMs.label': 'Délai de reconnexion initial',
+  'workbench.settings.def.backend.reconnectDelayMs.label': 'Délai initial',
   'workbench.settings.def.backend.reconnectDelayMs.description':
     'Combien de temps attendre (ms) avant la première tentative de reconnexion après une déconnexion.',
-  'workbench.settings.def.backend.maxReconnectDelayMs.label': 'Délai de reconnexion maximum',
+  'workbench.settings.def.backend.maxReconnectDelayMs.label': 'Délai maximum',
   'workbench.settings.def.backend.maxReconnectDelayMs.description':
     'Borne supérieure (ms) du backoff exponentiel entre les tentatives de reconnexion.',
   'workbench.settings.def.backend.pingIntervalMs.label': 'Intervalle de keep-alive',
@@ -81,6 +81,10 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.backend.showBadgeWhenDisconnected.label': 'Pastille en cas de déconnexion',
   'workbench.settings.def.backend.showBadgeWhenDisconnected.description':
     "Affiche une pastille rouge sur l'icône de la barre d'outils quand le lien back-end est coupé.",
+  'workbench.settings.def.backend.offlineFallbackOrder.label': 'Ordre des hôtes',
+  'workbench.settings.def.backend.offlineFallbackOrder.description':
+    'Si le back-end passe hors ligne, le premier hôte joignable de cette liste rafraîchit lui-même ' +
+    "l'identifiant d'un workflow exclusif. Les hôtes s'enrôlent automatiquement ; glissez pour reclasser.",
   'workbench.settings.def.backend.showDiagrams.label': 'Afficher les diagrammes back-end',
   'workbench.settings.def.backend.showDiagrams.description':
     'Affiche les panneaux illustrés de paliers et de flux de données dans les réglages Backend.',
