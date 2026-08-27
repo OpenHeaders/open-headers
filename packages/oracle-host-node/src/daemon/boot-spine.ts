@@ -75,7 +75,7 @@ import {
 } from '@openheaders/core/sync';
 import { DEFAULT_TRAFFIC_SESSION_RETENTION, type TrafficSessionRetention } from '@openheaders/core/traffic';
 import type { HostKind } from '@openheaders/core/types';
-import { logger as consoleLogger } from '@openheaders/core/utils';
+import { logger as consoleLogger, productUserAgent } from '@openheaders/core/utils';
 import {
   buildWorkspaceExport,
   type EncryptVaultBlockResult,
@@ -140,6 +140,7 @@ import { createPairingHttpHandler } from '../host-runtime/pairing-http';
 import type { OracleWsServer, OracleWsServerOptions } from '../host-runtime/ws-server';
 import { peekCookieJar } from '../live/cookie-jar';
 import { createNodeRequestTransport } from '../live/node-request-transport';
+import { registerHostUserAgent } from '../live/user-agent';
 import { queryAuditEntries, SqliteAuditLog } from '../sync/sqlite-audit-log';
 import { SqlitePublishedSnapshotStore } from '../sync/sqlite-published-snapshots';
 import { createSqliteSyncPersistence } from '../sync/sqlite-sync-persistence';
@@ -449,6 +450,8 @@ export interface DaemonSpineHandle {
 export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<DaemonSpineHandle> {
   const { status, broadcastLocal } = config;
   const bootedAtMs = Date.now();
+  // Every node dial this host makes identifies itself as this version.
+  registerHostUserAgent(productUserAgent(config.appVersion));
 
   // Captured at boot. The host-hook closures below fan to both local
   // surfaces and connected WS peers; the WS server is null until the

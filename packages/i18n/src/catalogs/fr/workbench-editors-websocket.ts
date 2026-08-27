@@ -84,6 +84,17 @@ export const workbenchEditorsWebsocket = {
     'Les encodages de contenu acceptés par le navigateur sur la réponse de la poignée de main.',
   'workbench.editors.websocket.headers.hint.acceptLanguage':
     'Les langues préférées du navigateur, tirées de ses réglages.',
+  'workbench.editors.websocket.headers.hint.node.accept':
+    'La poignée de main du runtime node accepte tout type de média en réponse.',
+  'workbench.editors.websocket.headers.hint.node.acceptLanguage': 'La poignée de main du runtime node envoie un joker.',
+  'workbench.editors.websocket.headers.hint.node.secFetchMode':
+    'Apposé par le runtime node sur chaque poignée de main WebSocket.',
+  'workbench.editors.websocket.headers.hint.node.userAgent':
+    'Le runtime node identifie cette application sur la poignée de main. Ajoutez votre propre ligne User-Agent pour en envoyer un autre.',
+  'workbench.editors.websocket.headers.hint.node.cacheControl':
+    'Le runtime node marque la requête d’upgrade comme non mise en cache.',
+  'workbench.editors.websocket.headers.hint.node.acceptEncoding':
+    'Les encodages de contenu que le runtime node accepte sur la réponse de la poignée de main.',
   'workbench.editors.websocket.headers.browserNotSent':
     'Non envoyé — le navigateur définit lui-même les en-têtes de la poignée de main. Les en-têtes personnalisés s’appliquent quand la session s’exécute sur l’application de bureau ou le serveur.',
   'workbench.editors.websocket.params.keyPlaceholder': 'Nom du paramètre',

@@ -204,6 +204,7 @@ describe('createNodeWsTransport — session round trip', () => {
     expect(seen.error).toBeUndefined();
     expect(seen.protocol).toBe('chat.v2');
     expect(server.seenHeaders()['x-probe-client']).toBe('oh-real-wire');
+    expect(server.seenHeaders()['user-agent']).toBe('OpenHeaders');
     expect(seen.messages).toEqual([{ text: 'echo:hello', binary: false, byteLength: 10 }]);
     expect(seen.close).toEqual({ code: 1000, reason: 'done', wasClean: true });
   });

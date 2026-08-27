@@ -92,6 +92,18 @@ export const workbenchEditorsWebsocket = {
     'Die Inhaltskodierungen, die der Browser in der Handshake-Antwort akzeptiert.',
   'workbench.editors.websocket.headers.hint.acceptLanguage':
     'Die bevorzugten Sprachen des Browsers aus seinen Einstellungen.',
+  'workbench.editors.websocket.headers.hint.node.accept':
+    'Der Handshake der Node-Laufzeit akzeptiert jeden Antwort-Medientyp.',
+  'workbench.editors.websocket.headers.hint.node.acceptLanguage':
+    'Der Handshake der Node-Laufzeit sendet einen Platzhalter.',
+  'workbench.editors.websocket.headers.hint.node.secFetchMode':
+    'Von der Node-Laufzeit auf jeden WebSocket-Handshake gestempelt.',
+  'workbench.editors.websocket.headers.hint.node.userAgent':
+    'Die Node-Laufzeit weist diese App im Handshake aus. Eigene User-Agent-Zeile hinzufügen, um einen anderen zu senden.',
+  'workbench.editors.websocket.headers.hint.node.cacheControl':
+    'Die Node-Laufzeit markiert die Upgrade-Anfrage als nicht cachebar.',
+  'workbench.editors.websocket.headers.hint.node.acceptEncoding':
+    'Die Inhaltskodierungen, die die Node-Laufzeit in der Handshake-Antwort akzeptiert.',
   'workbench.editors.websocket.headers.browserNotSent':
     'Nicht gesendet — der Browser setzt die Handshake-Header selbst. Eigene Header gelten, wenn die Sitzung in der Desktop-App oder auf dem Server läuft.',
   'workbench.editors.websocket.params.keyPlaceholder': 'Parametername',

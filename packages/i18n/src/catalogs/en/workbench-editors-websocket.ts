@@ -72,6 +72,17 @@ export const workbenchEditorsWebsocket = {
     'The content encodings the browser accepts on the handshake response.',
   'workbench.editors.websocket.headers.hint.acceptLanguage':
     'The browser’s preferred languages, taken from its settings.',
+  'workbench.editors.websocket.headers.hint.node.accept':
+    'The node runtime’s handshake accepts any response media type.',
+  'workbench.editors.websocket.headers.hint.node.acceptLanguage': 'The node runtime’s handshake sends a wildcard.',
+  'workbench.editors.websocket.headers.hint.node.secFetchMode':
+    'Stamped by the node runtime on every WebSocket handshake.',
+  'workbench.editors.websocket.headers.hint.node.userAgent':
+    'The node runtime identifies this app on the handshake. Add your own User-Agent row to send a different one.',
+  'workbench.editors.websocket.headers.hint.node.cacheControl':
+    'The node runtime marks the upgrade request uncacheable.',
+  'workbench.editors.websocket.headers.hint.node.acceptEncoding':
+    'The content encodings the node runtime accepts on the handshake response.',
   'workbench.editors.websocket.headers.browserNotSent':
     'Not sent — the browser sets the handshake headers itself. Custom headers apply when the session runs on the desktop app or server.',
   'workbench.editors.websocket.params.keyPlaceholder': 'Parameter name',

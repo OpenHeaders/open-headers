@@ -91,6 +91,7 @@ import {
 } from './system-proxy/session-route';
 import type { SystemProxyResolver } from './system-proxy/types';
 import { caOptionFor } from './trusted-roots-ca';
+import { withHostUserAgent } from './user-agent';
 
 export interface NodeGrpcTransportOptions {
   /** The system-plane resolver — injectable so unit rigs drive
@@ -214,7 +215,7 @@ function buildOutgoingHeaders(
     te: 'trailers',
     ...(request.timeoutMs !== undefined ? { 'grpc-timeout': encodeGrpcTimeout(request.timeoutMs) } : {}),
   };
-  for (const { key, value } of request.metadata) {
+  for (const { key, value } of withHostUserAgent(request.metadata)) {
     const existing = headers[key];
     if (existing === undefined) {
       headers[key] = value;

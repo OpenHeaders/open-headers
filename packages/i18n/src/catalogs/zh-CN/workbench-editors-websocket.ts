@@ -79,6 +79,13 @@ export const workbenchEditorsWebsocket = {
   'workbench.editors.websocket.headers.hint.cacheControl': '浏览器将升级请求标记为不可缓存。',
   'workbench.editors.websocket.headers.hint.acceptEncoding': '浏览器在握手响应中接受的内容编码。',
   'workbench.editors.websocket.headers.hint.acceptLanguage': '浏览器的首选语言，取自其设置。',
+  'workbench.editors.websocket.headers.hint.node.accept': 'node 运行时的握手接受任意响应媒体类型。',
+  'workbench.editors.websocket.headers.hint.node.acceptLanguage': 'node 运行时的握手发送通配符。',
+  'workbench.editors.websocket.headers.hint.node.secFetchMode': '由 node 运行时附加在每次 WebSocket 握手上。',
+  'workbench.editors.websocket.headers.hint.node.userAgent':
+    'node 运行时在握手中标识本应用。添加你自己的 User-Agent 行可发送其他值。',
+  'workbench.editors.websocket.headers.hint.node.cacheControl': 'node 运行时将升级请求标记为不可缓存。',
+  'workbench.editors.websocket.headers.hint.node.acceptEncoding': 'node 运行时在握手响应中接受的内容编码。',
   'workbench.editors.websocket.headers.browserNotSent':
     '未发送——浏览器自行设置握手标头。自定义标头在会话运行于桌面应用或服务器时生效。',
   'workbench.editors.websocket.params.keyPlaceholder': '参数名称',

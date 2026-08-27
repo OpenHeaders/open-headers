@@ -131,7 +131,7 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.headers.hint.node.secFetchMode':
     'Vom Fetch-Client der Node-Laufzeit bei jedem Senden gesetzt. Eine eigene Zeile ersetzt ihn.',
   'workbench.editors.request.headers.hint.node.userAgent':
-    'Der Fetch-Client der Node-Laufzeit meldet sich als undici. Eigene User-Agent-Zeile hinzufügen, um einen anderen zu senden.',
+    'Die Node-Laufzeit weist diese App bei jedem Senden aus. Eigene User-Agent-Zeile hinzufügen, um einen anderen zu senden.',
   'workbench.editors.request.headers.hint.node.acceptEncoding':
     'Kompression, die die Node-Laufzeit annimmt und für Sie dekodiert. Eine eigene Zeile ersetzt sie — der Antwortkörper kommt dann so an, wie er gesendet wurde.',
 

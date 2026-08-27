@@ -89,6 +89,17 @@ export const workbenchEditorsWebsocket = {
     'Las codificaciones de contenido que el navegador acepta en la respuesta del saludo.',
   'workbench.editors.websocket.headers.hint.acceptLanguage':
     'Los idiomas preferidos del navegador, tomados de su configuración.',
+  'workbench.editors.websocket.headers.hint.node.accept':
+    'El saludo del runtime de node acepta cualquier tipo de medio en la respuesta.',
+  'workbench.editors.websocket.headers.hint.node.acceptLanguage': 'El saludo del runtime de node envía un comodín.',
+  'workbench.editors.websocket.headers.hint.node.secFetchMode':
+    'Añadido por el runtime de node en cada saludo WebSocket.',
+  'workbench.editors.websocket.headers.hint.node.userAgent':
+    'El runtime de node identifica esta aplicación en el saludo. Añade tu propia fila User-Agent para enviar otro.',
+  'workbench.editors.websocket.headers.hint.node.cacheControl':
+    'El runtime de node marca la solicitud de upgrade como no cacheable.',
+  'workbench.editors.websocket.headers.hint.node.acceptEncoding':
+    'Las codificaciones de contenido que el runtime de node acepta en la respuesta del saludo.',
   'workbench.editors.websocket.headers.browserNotSent':
     'No se envía — el navegador fija por sí mismo las cabeceras del saludo. Las cabeceras personalizadas se aplican cuando la sesión se ejecuta en la aplicación de escritorio o el servidor.',
   'workbench.editors.websocket.params.keyPlaceholder': 'Nombre del parámetro',

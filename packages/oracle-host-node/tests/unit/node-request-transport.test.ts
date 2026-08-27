@@ -22,6 +22,7 @@ import { FormData, Headers, Response } from 'undici';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createH3HelperClient, type H3HelperClient } from '../../src/live/h3-helper/helper-process';
 import { createNodeRequestTransport } from '../../src/live/node-request-transport';
+import { registerHostUserAgent, resetHostUserAgent } from '../../src/live/user-agent';
 import { fetchError, makeRequest, makeRig, redirectResponse } from './request-transport/helpers';
 
 const { fetchMock, requestMock, transport, callInit } = makeRig();
@@ -607,5 +608,25 @@ describe("createNodeRequestTransport — pinned '3' sends over the helper pipeli
     await expect(attempt).rejects.toThrow(
       /TLS handshake .* failed over HTTP\/3.*"TLS cipher suites" setting restricts the offer/,
     );
+  });
+
+  it('seats the host user agent on the wire unless the request names its own', async () => {
+    fetchMock.mockResolvedValueOnce(new Response('{}', { status: 200 }));
+    await transport().send(makeRequest());
+    expect((callInit().headers as Headers).get('user-agent')).toBe('OpenHeaders');
+    fetchMock.mockResolvedValueOnce(new Response('{}', { status: 200 }));
+    await transport().send(makeRequest({ headers: [{ key: 'User-Agent', value: 'probe/1' }] }));
+    expect((callInit(1).headers as Headers).get('user-agent')).toBe('probe/1');
+  });
+
+  it('sends the registered product token once the host boots with a version', async () => {
+    registerHostUserAgent('OpenHeaders/2026.8.4');
+    try {
+      fetchMock.mockResolvedValueOnce(new Response('{}', { status: 200 }));
+      await transport().send(makeRequest());
+      expect((callInit().headers as Headers).get('user-agent')).toBe('OpenHeaders/2026.8.4');
+    } finally {
+      resetHostUserAgent();
+    }
   });
 });

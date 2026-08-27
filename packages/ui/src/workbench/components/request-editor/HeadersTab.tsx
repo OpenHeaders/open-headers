@@ -16,6 +16,7 @@
 
 import { getCapability } from '@openheaders/core/capabilities';
 import type { AuthConfig, RequestBody } from '@openheaders/core/types';
+import { productUserAgent } from '@openheaders/core/utils';
 import type { MessageKey } from '@openheaders/i18n';
 import type React from 'react';
 import { useMemo, useState } from 'react';
@@ -29,6 +30,8 @@ import KeyValueTable, {
   makeKvRow,
   type SuggestionRow,
 } from './KeyValueTable';
+
+declare const __APP_VERSION__: string;
 
 function headerRowsToText(rows: KeyValueRow[]): string {
   return rows
@@ -134,8 +137,9 @@ const BROWSER_AUTO_HEADERS: readonly AutoHeaderDef[] = [
 ];
 
 /** A node host's undici fetch — the desktop app's main process and
- *  the server. No cache-busting header: the client has no HTTP cache.
- *  Every row but the computed Content-Length yields to a user row. */
+ *  the server — identifying itself with the product token. No
+ *  cache-busting header: the client has no HTTP cache. Every row but
+ *  the computed Content-Length yields to a user row. */
 const NODE_AUTO_HEADERS: readonly AutoHeaderDef[] = [
   CONTENT_TYPE,
   CONTENT_LENGTH,
@@ -161,7 +165,7 @@ const NODE_AUTO_HEADERS: readonly AutoHeaderDef[] = [
   },
   {
     key: 'User-Agent',
-    value: 'undici',
+    value: productUserAgent(__APP_VERSION__),
     hintKey: 'workbench.editors.request.headers.hint.node.userAgent',
     overridable: true,
   },

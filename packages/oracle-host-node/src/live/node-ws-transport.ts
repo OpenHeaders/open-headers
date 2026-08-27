@@ -76,6 +76,7 @@ import {
 } from './system-proxy/session-route';
 import type { SystemProxyResolver } from './system-proxy/types';
 import { caOptionFor } from './trusted-roots-ca';
+import { withHostUserAgent } from './user-agent';
 
 export interface NodeWsTransportOptions {
   /** The system-plane resolver — injectable so unit rigs drive
@@ -349,9 +350,7 @@ export function createNodeWsTransport(options: NodeWsTransportOptions = {}): WsT
             ws = new UndiciWebSocket(request.url, {
               protocols: [...request.subprotocols],
               dispatcher,
-              ...(request.headers.length > 0
-                ? { headers: request.headers.map(({ key, value }) => [key, value] as [string, string]) }
-                : {}),
+              headers: withHostUserAgent(request.headers).map(({ key, value }) => [key, value] as [string, string]),
             });
           } catch (err) {
             resolveAttempt({ settled: false, failure: err });

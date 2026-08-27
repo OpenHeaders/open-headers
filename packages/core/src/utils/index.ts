@@ -142,6 +142,7 @@ export {
 } from './tree';
 export type { ParsedUrl, QueryParam } from './url';
 export { appendQueryParams, buildUrlDisplay, parseUrlQuery } from './url';
+export { productUserAgent } from './user-agent';
 export { isUuidV7, UUIDV7_LENGTH, uuidV7Timestamp, uuidv7 } from './uuidv7';
 export type { BuildEmptyWebSocketRequestInput } from './websocket-request-defaults';
 export { buildEmptyWebSocketRequest } from './websocket-request-defaults';

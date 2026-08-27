@@ -5,8 +5,8 @@
  * read-only rows in wire order — Host, Connection, Upgrade, the
  * Sec-WebSocket-* trio — with the calculated placeholder where the
  * value only exists at connect time. The set follows the dialing host:
- * the node `ws` six on the desktop app and server, Chromium's longer
- * list on a browser host — where custom rows also carry a not-sent
+ * undici's WebSocket handshake on the desktop app and server, Chromium's
+ * on a browser host — where custom rows also carry a not-sent
  * warning since the page's WebSocket API refuses handshake headers.
  */
 
@@ -36,11 +36,11 @@ afterEach(() => {
 });
 
 describe('WsHeadersTab — auto-generated handshake headers', () => {
-  it('counts the six handshake headers as hidden and shows none of them by default', () => {
+  it('counts the thirteen node handshake headers as hidden and shows none of them by default', () => {
     registerCapability('requestRuntime', () => 'node');
     const { container } = render(<WsHeadersTab rows={[] as KeyValueRow[]} onChange={vi.fn()} />);
     const text = container.textContent ?? '';
-    expect(text).toContain('6 hidden');
+    expect(text).toContain('13 hidden');
     expect(text).not.toContain('Sec-WebSocket-Key');
     expect(text).not.toContain('browsers cannot set them');
   });
@@ -48,7 +48,7 @@ describe('WsHeadersTab — auto-generated handshake headers', () => {
   it('reveals the handshake rows in wire order with the calculated placeholder on connect-time values', () => {
     registerCapability('requestRuntime', () => 'node');
     const { container } = render(<WsHeadersTab rows={[] as KeyValueRow[]} onChange={vi.fn()} />);
-    fireEvent.click(screen.getByText('6 hidden'));
+    fireEvent.click(screen.getByText('13 hidden'));
     const text = container.textContent ?? '';
     expect(text).toContain('Hide auto-generated headers');
     const order = [
@@ -65,6 +65,8 @@ describe('WsHeadersTab — auto-generated handshake headers', () => {
     expect(text).toContain('13');
     expect(text).toContain('permessage-deflate; client_max_window_bits');
     expect(text).toContain('<calculated when request is sent>');
+    expect(text).toContain('OpenHeaders/');
+    expect(text).toContain('Sec-Fetch-Mode');
   });
 
   it('on a node host a custom row carries no warning', () => {

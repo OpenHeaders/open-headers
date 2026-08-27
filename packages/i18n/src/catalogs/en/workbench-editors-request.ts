@@ -91,7 +91,7 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.headers.hint.node.secFetchMode':
     'Stamped by the node runtime’s fetch client on every send. A row of your own replaces it.',
   'workbench.editors.request.headers.hint.node.userAgent':
-    'The node runtime’s fetch client identifies itself as undici. Add your own User-Agent row to send a different one.',
+    'The node runtime identifies this app on every send. Add your own User-Agent row to send a different one.',
   'workbench.editors.request.headers.hint.node.acceptEncoding':
     'Compression the node runtime accepts and decodes for you. A row of your own replaces it — the response body then arrives as sent.',
 

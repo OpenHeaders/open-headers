@@ -3,19 +3,23 @@
  * auto-generated section behind the shared Show/Hide toggle, listed in
  * wire order as read-only rows so the user sees what actually leaves
  * with the upgrade request. The set depends on who dials: a node host
- * (desktop app, server) sends the `ws` client's six; a browser host
+ * (desktop app, server) sends undici's WebSocket handshake, identifying
+ * itself with the product token; a browser host
  * hands the handshake to the page's WebSocket API, which adds its own
  * Origin, User-Agent, cache and Accept-* headers — and refuses custom
  * rows, so on that host every user row carries a not-sent warning.
  */
 
 import { getCapability } from '@openheaders/core/capabilities';
+import { productUserAgent } from '@openheaders/core/utils';
 import type { MessageKey } from '@openheaders/i18n';
 import type React from 'react';
 import { useState } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import AutoHeadersToggle from '../request-editor/AutoHeadersToggle';
 import KeyValueTable, { type KeyValueRow, type SuggestionRow } from '../request-editor/KeyValueTable';
+
+declare const __APP_VERSION__: string;
 
 interface WsAutoHeaderDef {
   key: string;
@@ -47,8 +51,31 @@ const EXTENSIONS: WsAutoHeaderDef = {
   hintKey: 'workbench.editors.websocket.headers.hint.extensions',
 };
 
-/** The node `ws` client's opening handshake, in the order it writes them. */
-const NODE_AUTO_HEADERS: readonly WsAutoHeaderDef[] = [HOST, CONNECTION, UPGRADE, KEY, VERSION, EXTENSIONS];
+/** A node host's opening handshake (undici's WebSocket), in the order
+ *  it writes them. */
+const NODE_AUTO_HEADERS: readonly WsAutoHeaderDef[] = [
+  HOST,
+  CONNECTION,
+  UPGRADE,
+  KEY,
+  VERSION,
+  EXTENSIONS,
+  { key: 'Accept', value: '*/*', hintKey: 'workbench.editors.websocket.headers.hint.node.accept' },
+  { key: 'Accept-Language', value: '*', hintKey: 'workbench.editors.websocket.headers.hint.node.acceptLanguage' },
+  { key: 'Sec-Fetch-Mode', value: 'websocket', hintKey: 'workbench.editors.websocket.headers.hint.node.secFetchMode' },
+  {
+    key: 'User-Agent',
+    value: productUserAgent(__APP_VERSION__),
+    hintKey: 'workbench.editors.websocket.headers.hint.node.userAgent',
+  },
+  { key: 'Pragma', value: 'no-cache', hintKey: 'workbench.editors.websocket.headers.hint.node.cacheControl' },
+  { key: 'Cache-Control', value: 'no-cache', hintKey: 'workbench.editors.websocket.headers.hint.node.cacheControl' },
+  {
+    key: 'Accept-Encoding',
+    value: 'gzip, deflate',
+    hintKey: 'workbench.editors.websocket.headers.hint.node.acceptEncoding',
+  },
+];
 
 /** Chromium's opening handshake for a page-realm WebSocket. */
 const BROWSER_AUTO_HEADERS: readonly WsAutoHeaderDef[] = [

@@ -108,7 +108,7 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.headers.hint.node.secFetchMode':
     '由 node 运行时的 fetch 客户端在每次发送时附加。你自己的行会替换它。',
   'workbench.editors.request.headers.hint.node.userAgent':
-    'node 运行时的 fetch 客户端将自身标识为 undici。添加你自己的 User-Agent 行可发送其他值。',
+    'node 运行时在每次发送时标识本应用。添加你自己的 User-Agent 行可发送其他值。',
   'workbench.editors.request.headers.hint.node.acceptEncoding':
     'node 运行时接受并为你解码的压缩方式。你自己的行会替换它——响应体将按原样到达。',
 

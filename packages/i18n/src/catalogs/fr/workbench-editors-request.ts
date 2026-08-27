@@ -119,7 +119,7 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.headers.hint.node.secFetchMode':
     'Apposé par le client fetch du runtime node à chaque envoi. Une ligne à vous le remplace.',
   'workbench.editors.request.headers.hint.node.userAgent':
-    'Le client fetch du runtime node s’identifie comme undici. Ajoutez votre propre ligne User-Agent pour en envoyer un autre.',
+    'Le runtime node identifie cette application à chaque envoi. Ajoutez votre propre ligne User-Agent pour en envoyer un autre.',
   'workbench.editors.request.headers.hint.node.acceptEncoding':
     'Compression que le runtime node accepte et décode pour vous. Une ligne à vous le remplace — le corps de la réponse arrive alors tel qu’envoyé.',
 

@@ -3,7 +3,7 @@
  * HeadersTab's auto-generated section follows the dialing host: a
  * browser host lists the page fetch's headers (Cache-Control first,
  * the browser's own User-Agent), a node host the undici client's
- * (no Cache-Control, User-Agent undici, Accept-Language and
+ * (no Cache-Control, the product User-Agent, Accept-Language and
  * Sec-Fetch-Mode) — every node row but Content-Length yielding to a
  * same-key user row.
  */
@@ -48,11 +48,11 @@ describe('HeadersTab — auto-generated rows per host', () => {
     const text = container.textContent ?? '';
     expect(text).toContain('Cache-Control');
     expect(text).toContain('Mozilla');
-    expect(text).not.toContain('undici');
+    expect(text).not.toContain('OpenHeaders/');
     expect(text).not.toContain('Sec-Fetch-Mode');
   });
 
-  it('on a node host lists the undici client headers in wire order without Cache-Control', () => {
+  it('on a node host lists the undici client headers in wire order without Cache-Control, identified as the product', () => {
     registerCapability('requestRuntime', () => 'node');
     const { container } = renderTab();
     fireEvent.click(screen.getByText('7 hidden'));
@@ -70,7 +70,7 @@ describe('HeadersTab — auto-generated rows per host', () => {
     ];
     const positions = order.map((key) => text.indexOf(key));
     expect(positions.every((pos, i) => pos >= 0 && (i === 0 || pos > positions[i - 1]))).toBe(true);
-    expect(text).toContain('undici');
+    expect(text).toContain('OpenHeaders/');
     expect(text).toContain('br, gzip, deflate');
     expect(text).toContain('cors');
   });

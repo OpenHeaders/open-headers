@@ -17,6 +17,7 @@ import {
 import type { Dispatcher } from 'undici';
 import type { CookieJar } from '../cookie-jar';
 import type { ConnectionRecord } from '../instrumented-connector';
+import { withHostUserAgent } from '../user-agent';
 import { digestRetryHop } from './digest-leg';
 import { finalizeResponse } from './finalize';
 import { captureJarCookies, type JarActivity, withJarCookie } from './jar-leg';
@@ -54,7 +55,12 @@ export async function followRedirectChain(
   leg: WireLeg | null,
 ): Promise<TransportResponse> {
   const maxRedirects = request.maxRedirects ?? DEFAULT_MAX_REDIRECTS;
-  let hop: HopState = { url: request.url, method: request.method, headers: request.headers, body: request.body };
+  let hop: HopState = {
+    url: request.url,
+    method: request.method,
+    headers: withHostUserAgent(request.headers),
+    body: request.body,
+  };
   let authorizationForwarded = false;
   let redirects = 0;
   let jarActivity: JarActivity | undefined = jar !== undefined ? { cookiesCaptured: [] } : undefined;

@@ -119,6 +119,7 @@ describe('createNodeGrpcTransport — real wire', () => {
     expect(seen.headers[':method']).toBe('POST');
     expect(seen.headers[':path']).toBe('/library.v1.Library/GetBook');
     expect(seen.headers['content-type']).toBe('application/grpc+proto');
+    expect(seen.headers['user-agent']).toBe('OpenHeaders');
     expect(seen.headers.te).toBe('trailers');
     // Node folds repeated request headers into one comma-joined value
     // on the receiving side; both values made the wire.

@@ -177,6 +177,7 @@ import { isSocks5ProxyUrl } from './system-proxy/proxy-value';
 import { systemProxyResolver } from './system-proxy/registry';
 import { PROXY_DIAL_FAILURE_CODES } from './system-proxy/session-route';
 import type { SystemProxyResolver } from './system-proxy/types';
+import { withHostUserAgent } from './user-agent';
 
 export { connectOptionsFor, httpVersionPolicy } from './request-transport/dispatcher';
 export type { ConnectOptions, NodeFetchFn, NodeRequestFn, NodeRequestResponse } from './request-transport/seam';
@@ -445,7 +446,7 @@ export function createNodeRequestTransport(options: NodeRequestTransportOptions 
         let hop: HopState = {
           url: request.url,
           method: request.method,
-          headers: request.headers,
+          headers: withHostUserAgent(request.headers),
           body: request.body,
         };
         let jarActivity: JarActivity | undefined;
