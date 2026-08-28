@@ -169,8 +169,9 @@ const WsSavedMessagesRail: React.FC<WsSavedMessagesRailProps> = ({
         </span>
       </div>
       {/* Only the list scrolls — the header keeps its buttons in
-        place — and the gutter stays reserved so the scrollbar never
-        lands on the rows' menu column. */}
+        place. A thin PERSISTENT bar (the standard properties, never the
+        webkit pseudos) with its gutter reserved: the macOS overlay bar
+        takes no space and paints over the rows' menu column. */}
       <div
         style={{
           flex: 1,
@@ -179,6 +180,9 @@ const WsSavedMessagesRail: React.FC<WsSavedMessagesRailProps> = ({
           flexDirection: 'column',
           gap: 4,
           overflow: 'auto',
+          overscrollBehavior: 'none',
+          scrollbarWidth: 'thin',
+          scrollbarColor: 'rgba(128, 128, 128, 0.45) transparent',
           scrollbarGutter: 'stable',
         }}
         data-testid="ws-saved-list"
