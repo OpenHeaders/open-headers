@@ -84,7 +84,7 @@ export function grpcTag(muted = false): React.ReactNode {
  *  request-family anatomy). `muted` greys the tag to signal an
  *  incomplete (draft) request. */
 export function websocketTag(flavor: 'raw' | 'socketio', muted = false): React.ReactNode {
-  const color = muted ? 'var(--ant-color-text-tertiary, #999)' : 'var(--oh-method-ws, #0f766e)';
+  const color = muted ? 'var(--ant-color-text-tertiary, #999)' : 'var(--oh-method-ws, #c2410c)';
   return createElement(
     'span',
     {

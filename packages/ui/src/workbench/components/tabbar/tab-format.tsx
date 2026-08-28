@@ -182,7 +182,7 @@ export function tabIcon(
         style={{
           fontSize: 9,
           fontWeight: 700,
-          color: 'var(--oh-method-ws, #0f766e)',
+          color: 'var(--oh-method-ws, #c2410c)',
           fontFamily: "'SF Mono', monospace",
           minWidth: options?.compact ? undefined : 36,
           display: 'inline-block',
