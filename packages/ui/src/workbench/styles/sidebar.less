@@ -88,6 +88,10 @@
   overflow-y: auto;
   overscroll-behavior: none;
   font-size: 12px;
+  // Tree rows are not text: a Shift+click ranges the row selection,
+  // not the document's text selection (the inline rename input keeps
+  // its own selection — inputs are exempt from an inherited none).
+  user-select: none;
   min-height: 0;
 }
 
