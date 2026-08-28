@@ -1467,7 +1467,7 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
       }
       case 'noMatches':
         return (
-          <div key={entry.key} style={lifecycleRowStyle}>
+          <div key={entry.key} style={{ ...lifecycleRowStyle, color: token.colorTextSecondary }}>
             <span>{t('workbench.editors.websocket.timeline.noMatches')}</span>
           </div>
         );
