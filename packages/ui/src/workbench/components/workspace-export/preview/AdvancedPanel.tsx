@@ -56,7 +56,7 @@ export const AdvancedTogglesList: React.FC<AdvancedTogglesListProps> = ({
 }) => {
   const t = useT();
   return (
-    <Space direction="vertical" size={10} style={{ width: '100%' }}>
+    <Space orientation="vertical" size={10} style={{ width: '100%' }}>
       <Toggle
         checked={backupRestore}
         onChange={onBackupRestoreChange}

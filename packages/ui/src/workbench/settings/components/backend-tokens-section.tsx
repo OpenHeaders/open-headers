@@ -478,7 +478,7 @@ export const BackendTokensLedger: React.FC<{ sessionsHeading: React.ReactNode }>
             : t('workbench.settings.backendTokens.secretTitle')
         }
         closable={false}
-        maskClosable={false}
+        mask={{ closable: false }}
         keyboard={false}
         onCancel={dismissMintModal}
         footer={[

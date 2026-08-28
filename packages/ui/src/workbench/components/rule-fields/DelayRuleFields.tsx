@@ -36,7 +36,7 @@ const DelayRuleFields: React.FC = () => {
         type="warning"
         showIcon
         style={{ marginBottom: 12, fontSize: 12 }}
-        message={t('workbench.editors.rule.fields.delay.capsAlert')}
+        title={t('workbench.editors.rule.fields.delay.capsAlert')}
       />
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
         <Text type="secondary" style={{ fontSize: 12, whiteSpace: 'nowrap' }}>

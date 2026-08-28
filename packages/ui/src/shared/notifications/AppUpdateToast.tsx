@@ -74,7 +74,7 @@ const ToastCornerMenu: React.FC<{ onPick: (key: string) => void }> = ({ onPick }
     <Dropdown
       trigger={['click']}
       placement="bottomRight"
-      overlayStyle={{ zIndex: OVERLAY_Z }}
+      styles={{ root: { zIndex: OVERLAY_Z } }}
       onOpenChange={setMenuOpen}
       menu={{
         items: [
@@ -145,7 +145,7 @@ const AppUpdateToast: React.FC<AppUpdateToastProps> = ({ onOpenUpdateSettings, o
       notification.info({
         key: TOAST_KEY,
         className: 'oh-update-toast',
-        message,
+        title: message,
         description: version ? (
           <>
             {description}
@@ -191,7 +191,7 @@ const AppUpdateToast: React.FC<AppUpdateToastProps> = ({ onOpenUpdateSettings, o
       notification[severity]({
         key: 'oh-update-check-result',
         className: 'oh-update-toast',
-        message,
+        title: message,
         description,
         placement: 'bottomRight',
         duration: severity === 'info' ? 4 : 6,
@@ -317,7 +317,7 @@ const AppUpdateToast: React.FC<AppUpdateToastProps> = ({ onOpenUpdateSettings, o
       notification.success({
         key: 'oh-updated-to',
         className: 'oh-update-toast',
-        message: t('shared.notifications.toast.updatedTo', { version: currentVersion }),
+        title: t('shared.notifications.toast.updatedTo', { version: currentVersion }),
         description: (
           <Button
             type="link"

@@ -123,7 +123,7 @@ const EditorHeader: React.FC<EditorHeaderProps> = ({ title, actions, overflowIte
       <div className="rules-editor-header-title">{title}</div>
       <div className="rules-editor-header-actions">
         {actions}
-        {actions != null && <Divider type="vertical" style={{ margin: '0 4px', height: 20 }} />}
+        {actions != null && <Divider orientation="vertical" style={{ margin: '0 4px', height: 20 }} />}
         {onSave && (
           <Tooltip
             title={<ShortcutHintTitle label={saveLabel}>{t('shared.action.save')}</ShortcutHintTitle>}
@@ -151,7 +151,7 @@ const EditorHeader: React.FC<EditorHeaderProps> = ({ title, actions, overflowIte
           menu={{ items: mergedOverflowItems }}
           trigger={['click']}
           placement={popupPlacement}
-          overlayStyle={{ minWidth: 220 }}
+          styles={{ root: { minWidth: 220 } }}
         >
           <Button
             size="small"

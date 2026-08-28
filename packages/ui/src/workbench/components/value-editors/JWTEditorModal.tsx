@@ -330,7 +330,7 @@ const JWTEditorModal: React.FC<JWTEditorModalProps> = ({
         <Alert
           type="error"
           showIcon
-          message={t('shared.valueEditors.jwt.decodeErrorTitle')}
+          title={t('shared.valueEditors.jwt.decodeErrorTitle')}
           description={error}
           style={{ marginBottom: 12 }}
         />
@@ -427,7 +427,7 @@ const JWTEditorModal: React.FC<JWTEditorModalProps> = ({
                 <Alert
                   type="error"
                   showIcon
-                  message={t('shared.valueEditors.jwt.notDecodable')}
+                  title={t('shared.valueEditors.jwt.notDecodable')}
                   description={encodedInputError}
                 />
               )}
@@ -516,7 +516,7 @@ const JWTEditorModal: React.FC<JWTEditorModalProps> = ({
               type={expirationInfo.isExpired ? 'error' : 'success'}
               showIcon
               icon={expirationInfo.isExpired ? <CloseCircleOutlined /> : <CheckCircleOutlined />}
-              message={
+              title={
                 expirationInfo.isExpired
                   ? t('shared.valueEditors.jwt.tokenExpired')
                   : t('shared.valueEditors.jwt.tokenNotExpired')
@@ -532,7 +532,7 @@ const JWTEditorModal: React.FC<JWTEditorModalProps> = ({
             <Alert
               type="success"
               showIcon
-              message={t('shared.valueEditors.jwt.resigned', { algorithm: signingAlgorithm ?? '' })}
+              title={t('shared.valueEditors.jwt.resigned', { algorithm: signingAlgorithm ?? '' })}
               description={t('shared.valueEditors.jwt.resignedDescription')}
             />
           )}
@@ -540,18 +540,18 @@ const JWTEditorModal: React.FC<JWTEditorModalProps> = ({
             <Alert
               type="warning"
               showIcon
-              message={t('shared.valueEditors.jwt.cannotResign')}
+              title={t('shared.valueEditors.jwt.cannotResign')}
               description={t('shared.valueEditors.jwt.cannotResignDescription')}
             />
           )}
           {signingStatus === 'error' && (
-            <Alert type="error" showIcon message={t('shared.valueEditors.jwt.signError')} description={signingError} />
+            <Alert type="error" showIcon title={t('shared.valueEditors.jwt.signError')} description={signingError} />
           )}
           {isModified && signingStatus === null && (
             <Alert
               type="warning"
               showIcon
-              message={t('shared.valueEditors.jwt.signatureInvalid')}
+              title={t('shared.valueEditors.jwt.signatureInvalid')}
               description={t('shared.valueEditors.jwt.signatureInvalidDescription')}
             />
           )}

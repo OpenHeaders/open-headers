@@ -354,7 +354,7 @@ export const WireCaptureControl: React.FC<WireCaptureControlProps> = ({
         }}
         trigger="click"
         placement={placement}
-        overlayInnerStyle={{ padding: 10 }}
+        styles={{ container: { padding: 10 } }}
         content={popoverContent}
       >
         <span

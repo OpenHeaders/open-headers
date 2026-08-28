@@ -151,7 +151,7 @@ const SetAsVariablePopover: React.FC<SetAsVariablePopoverProps> = ({
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 10, gap: 8 }}>
         <Dropdown
           trigger={['click']}
-          overlayStyle={{ zIndex: 1090 }}
+          styles={{ root: { zIndex: 1090 } }}
           menu={{
             items: createOptions.map<NonNullable<MenuProps['items']>[number]>((opt) => ({
               key: opt.key,

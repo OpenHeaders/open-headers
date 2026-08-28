@@ -175,7 +175,7 @@ const BackendRemoveDialog: React.FC<{
       .catch(() => null);
     if (!resp?.success || !resp.yaml) {
       notification.error({
-        message: t('workbench.settings.backendPane.remove.backupFailedTitle', { name: workspace.name }),
+        title: t('workbench.settings.backendPane.remove.backupFailedTitle', { name: workspace.name }),
         description: resp?.error ?? t('workbench.settings.backendPane.remove.backupFailedBody'),
       });
       return false;
@@ -201,7 +201,7 @@ const BackendRemoveDialog: React.FC<{
     if (!result.ok) return;
     if (result.failedDeletes.length > 0) {
       notification.warning({
-        message: t('workbench.settings.backendPane.remove.discardStayedTitle', {
+        title: t('workbench.settings.backendPane.remove.discardStayedTitle', {
           label,
           count: result.failedDeletes.length,
         }),
@@ -240,7 +240,7 @@ const BackendRemoveDialog: React.FC<{
       open
       onCancel={busy ? undefined : onClose}
       closable={!busy}
-      maskClosable={false}
+      mask={{ closable: false }}
       width={560}
       footer={
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>

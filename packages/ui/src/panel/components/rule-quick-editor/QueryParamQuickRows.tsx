@@ -75,7 +75,7 @@ export function QueryParamQuickRows({ rows, setRows, collectionId, fieldPath }: 
               onChange={(op) => updateRow(row.uid, { operation: op })}
               options={operationOptions}
               style={{ width: 125, flexShrink: 0 }}
-              dropdownStyle={{ zIndex: 1090 }}
+              styles={{ popup: { root: { zIndex: 1090 } } }}
             />,
           )}
           {row.operation === 'remove-all' ? (

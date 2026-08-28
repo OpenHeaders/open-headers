@@ -667,7 +667,7 @@ const WorkspaceFormModal: React.FC<WorkspaceFormModalProps> = ({
         onCancel();
       }}
       onOk={handleOk}
-      destroyOnClose
+      destroyOnHidden
     >
       <Form
         form={form}
@@ -790,7 +790,7 @@ const DuplicateWorkspaceModal: React.FC<DuplicateWorkspaceModalProps> = ({
         onCancel();
       }}
       onOk={handleOk}
-      destroyOnClose
+      destroyOnHidden
     >
       {source && (
         <Form

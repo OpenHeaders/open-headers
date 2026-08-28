@@ -66,7 +66,7 @@ const QueryParamRuleFields: React.FC<QueryParamRuleFieldsProps> = ({ ruleUid }) 
               type="warning"
               showIcon
               style={{ marginBottom: 8, fontSize: 12 }}
-              message={t('workbench.editors.rule.fields.queryParam.removeAllWarning')}
+              title={t('workbench.editors.rule.fields.queryParam.removeAllWarning')}
             />
           );
         }}

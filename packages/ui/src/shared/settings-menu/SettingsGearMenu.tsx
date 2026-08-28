@@ -430,7 +430,7 @@ const SettingsGearMenu: React.FC<SettingsGearMenuProps> = ({ onOpenSettings, ope
       trigger={['click']}
       placement="bottomRight"
       arrow={false}
-      overlayInnerStyle={{ padding: 6 }}
+      styles={{ container: { padding: 6 } }}
     >
       {/* Force-hide the tooltip while the menu is open — otherwise both
           popups stack under the gear. */}

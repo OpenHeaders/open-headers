@@ -104,7 +104,7 @@ const CliAccessRow: React.FC<{ def: SettingDef }> = ({ def }) => {
         <Alert
           type="error"
           showIcon
-          message={
+          title={
             <span style={{ fontSize: 12 }}>
               {t('workbench.settings.cliAccess.statusMalformed', { message: status.error ?? status.configPath })}
             </span>

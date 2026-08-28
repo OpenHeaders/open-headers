@@ -94,7 +94,7 @@ const EntityConflictBanner: React.FC<EntityConflictBannerProps> = ({
       type="warning"
       showIcon
       banner
-      message={message}
+      title={message}
       style={{ marginBottom: 8, ...style }}
     />
   );

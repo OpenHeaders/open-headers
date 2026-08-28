@@ -465,7 +465,7 @@ const ImportPostmanModal: React.FC<ImportPostmanModalProps> = ({
         </div>
       }
       width={760}
-      destroyOnClose
+      destroyOnHidden
     >
       <Paragraph type="secondary" style={{ fontSize: 12, marginBottom: 12 }}>
         {t('workbench.importExport.postman.intro')}
@@ -480,7 +480,7 @@ const ImportPostmanModal: React.FC<ImportPostmanModalProps> = ({
           <Alert
             type="error"
             showIcon
-            message={t('workbench.importExport.import.cantReadFile')}
+            title={t('workbench.importExport.import.cantReadFile')}
             description={stage.message}
             style={{ marginBottom: 12 }}
           />

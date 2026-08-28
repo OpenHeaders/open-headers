@@ -235,7 +235,7 @@ const ExampleResponsePanel: React.FC<ExampleResponsePanelProps> = ({
                   {formatBytes(meta.bodyBytes)}
                 </Text>
               </Tooltip>
-              <Dropdown trigger={['click']} menu={{ items: layoutMenuItems }} overlayStyle={{ minWidth: 220 }}>
+              <Dropdown trigger={['click']} menu={{ items: layoutMenuItems }} styles={{ root: { minWidth: 220 } }}>
                 <Button
                   size="small"
                   type="text"

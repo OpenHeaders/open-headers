@@ -183,7 +183,7 @@ const CommitForm = forwardRef<CommitFormHandle, CommitFormProps>(function Commit
           showIcon
           closable
           onClose={onDismissError}
-          message={<span style={{ fontSize: 12, whiteSpace: 'pre-wrap' }}>{error}</span>}
+          title={<span style={{ fontSize: 12, whiteSpace: 'pre-wrap' }}>{error}</span>}
           data-testid="commit-tool-error"
         />
       )}

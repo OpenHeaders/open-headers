@@ -357,7 +357,7 @@ const MergeConflictModal = ({
       title={session.title}
       width="min(1600px, 95vw)"
       centered
-      destroyOnClose
+      destroyOnHidden
       zIndex={1100}
       footer={[
         footerLeading ?? null,
@@ -542,8 +542,8 @@ const MergeConflictModal = ({
           <Alert
             type="error"
             showIcon
-            message={
-              <Space direction="vertical" size={2}>
+            title={
+              <Space orientation="vertical" size={2}>
                 <Text strong>{t('shared.mergeEditor.errors.applyReported')}</Text>
                 {failedOutcomes.map((o) => (
                   <Text key={o.fileId} type="secondary" style={{ fontSize: 12 }}>

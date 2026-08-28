@@ -126,7 +126,7 @@ export const PairPopover: React.FC<{
       }}
       trigger="click"
       placement="topLeft"
-      destroyTooltipOnHide
+      destroyOnHidden
       title={
         mode === 'code'
           ? t('workbench.settings.backendPane.pair.pairWithCode')
@@ -139,7 +139,7 @@ export const PairPopover: React.FC<{
               <Typography.Paragraph type="secondary" style={{ fontSize: 12, marginBottom: 8 }}>
                 {t('workbench.settings.backendPane.pair.codeBlurb')}
               </Typography.Paragraph>
-              <Space direction="vertical" size={8} style={{ width: '100%' }}>
+              <Space orientation="vertical" size={8} style={{ width: '100%' }}>
                 <Input
                   autoFocus
                   value={code}
@@ -166,7 +166,7 @@ export const PairPopover: React.FC<{
               <Typography.Paragraph type="secondary" style={{ fontSize: 12, marginBottom: 8 }}>
                 {t('workbench.settings.backendPane.pair.tokenBlurb')}
               </Typography.Paragraph>
-              <Space direction="vertical" size={8} style={{ width: '100%' }}>
+              <Space orientation="vertical" size={8} style={{ width: '100%' }}>
                 <Input.Password
                   autoFocus
                   value={token}

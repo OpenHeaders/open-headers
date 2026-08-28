@@ -196,9 +196,9 @@ const RuleResolutionBanner: React.FC<RuleResolutionBannerProps> = ({ collectionI
       type="warning"
       showIcon
       style={{ marginBottom: 12 }}
-      message={<Text strong>{t('workbench.editors.rule.resolution.header', { count: errors.length })}</Text>}
+      title={<Text strong>{t('workbench.editors.rule.resolution.header', { count: errors.length })}</Text>}
       description={
-        <Space direction="vertical" size={4} style={{ width: '100%' }}>
+        <Space orientation="vertical" size={4} style={{ width: '100%' }}>
           {errors.map((err) => {
             // Live-scope refs get an enriched hint: when the LV exists +
             // its workflow has runs for OTHER envs but not the active

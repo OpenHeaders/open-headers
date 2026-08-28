@@ -643,13 +643,13 @@ export const WorkspaceDropdownBody: React.FC<WorkspaceDropdownBodyProps> = ({
           actions sit at the popup's edge, away from the switch rows. */}
       <div style={{ display: 'flex', alignItems: 'stretch' }}>
         {footerSegment(<ExportOutlined style={{ fontSize: 12 }} />, t('shared.workspaceDropdown.export'), onExport)}
-        <Divider type="vertical" style={{ height: 'auto', margin: '4px 0', alignSelf: 'stretch' }} />
+        <Divider orientation="vertical" style={{ height: 'auto', margin: '4px 0', alignSelf: 'stretch' }} />
         {footerSegment(
           <SettingOutlined style={{ fontSize: 12 }} />,
           t('shared.workspaceDropdown.manage'),
           onOpenManager,
         )}
-        <Divider type="vertical" style={{ height: 'auto', margin: '4px 0', alignSelf: 'stretch' }} />
+        <Divider orientation="vertical" style={{ height: 'auto', margin: '4px 0', alignSelf: 'stretch' }} />
         {footerSegment(<ImportOutlined style={{ fontSize: 12 }} />, t('shared.workspaceDropdown.import'), onImport)}
       </div>
     </div>

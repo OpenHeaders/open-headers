@@ -246,7 +246,7 @@ const ResponsePanel: React.FC<ResponsePanelProps> = ({
             right: (
               <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, paddingLeft: 12 }}>
                 <ResponseLiveMetaStrip live={live} />
-                <Dropdown trigger={['click']} menu={{ items: layoutMenuItems }} overlayStyle={{ minWidth: 220 }}>
+                <Dropdown trigger={['click']} menu={{ items: layoutMenuItems }} styles={{ root: { minWidth: 220 } }}>
                   <Button
                     size="small"
                     type="text"
@@ -295,7 +295,7 @@ const ResponsePanel: React.FC<ResponsePanelProps> = ({
                   {t('workbench.editors.request.response.clear')}
                 </Button>
               )}
-              <Dropdown trigger={['click']} menu={{ items: layoutMenuItems }} overlayStyle={{ minWidth: 220 }}>
+              <Dropdown trigger={['click']} menu={{ items: layoutMenuItems }} styles={{ root: { minWidth: 220 } }}>
                 <Button
                   size="small"
                   type="text"
@@ -338,7 +338,7 @@ const ResponsePanel: React.FC<ResponsePanelProps> = ({
                 ) : null}
                 <Dropdown
                   trigger={['click']}
-                  overlayStyle={{ minWidth: 220 }}
+                  styles={{ root: { minWidth: 220 } }}
                   menu={{
                     items: [
                       // Save Response leads — the one action that mints a

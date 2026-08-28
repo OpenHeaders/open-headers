@@ -84,7 +84,7 @@ const GrpcResponsePane: React.FC<GrpcResponsePaneProps> = ({
       />
       <Dropdown
         trigger={['click']}
-        overlayStyle={{ minWidth: 180 }}
+        styles={{ root: { minWidth: 180 } }}
         menu={{
           items: [
             // Save Response leads — the one action that mints a durable

@@ -399,7 +399,7 @@ const WorkflowStepEditor: React.FC<Props> = ({
         )}
       </div>
 
-      <Space direction="vertical" size={8} style={{ width: '100%' }}>
+      <Space orientation="vertical" size={8} style={{ width: '100%' }}>
         {/* Request picker + optional description — inlined on one row.
          *  Request gets ~60% width, description ~40%. Both `size="small"`
          *  so they render at identical heights (the Select's option label

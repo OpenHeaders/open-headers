@@ -403,7 +403,7 @@ const CommitChangesTree = forwardRef<CommitChangesTreeHandle, CommitChangesTreeP
         menu={menu}
         trigger={['contextMenu']}
         autoFocus
-        overlayClassName="commit-tool-row-menu"
+        classNames={{ root: 'commit-tool-row-menu' }}
         onOpenChange={(open) => {
           if (!open) containerRef.current?.focus({ preventScroll: true });
         }}

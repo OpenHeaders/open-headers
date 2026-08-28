@@ -318,7 +318,7 @@ const ProxyTrustPane: React.FC<CategoryPaneProps> = ({ category }) => {
         <Alert
           type="error"
           showIcon
-          message={
+          title={
             <span style={{ fontSize: 12 }}>
               {t('workbench.settings.proxyTrustPane.loadFailed', { message: loadError })}
             </span>
@@ -331,7 +331,7 @@ const ProxyTrustPane: React.FC<CategoryPaneProps> = ({ category }) => {
         <Alert
           type="error"
           showIcon
-          message={<span style={{ fontSize: 12 }}>{t('workbench.settings.proxyTrustPane.mismatchAlert.title')}</span>}
+          title={<span style={{ fontSize: 12 }}>{t('workbench.settings.proxyTrustPane.mismatchAlert.title')}</span>}
           description={<span style={{ fontSize: 12 }}>{t('workbench.settings.proxyTrustPane.mismatchAlert.body')}</span>}
           style={{ marginBottom: 12 }}
         />
@@ -341,7 +341,7 @@ const ProxyTrustPane: React.FC<CategoryPaneProps> = ({ category }) => {
         <Alert
           type="warning"
           showIcon
-          message={<span style={{ fontSize: 12 }}>{t('workbench.settings.proxyTrustPane.removePartial')}</span>}
+          title={<span style={{ fontSize: 12 }}>{t('workbench.settings.proxyTrustPane.removePartial')}</span>}
           description={resultRows(removeResults)}
           style={{ marginBottom: 12 }}
         />
@@ -609,7 +609,7 @@ const ProxyTrustPane: React.FC<CategoryPaneProps> = ({ category }) => {
             <Alert
               type={failedResults.length === 0 ? 'success' : 'warning'}
               showIcon
-              message={
+              title={
                 <span style={{ fontSize: 12 }}>
                   {failedResults.length === 0
                     ? t('workbench.settings.proxyTrustPane.wizard.results.allOk')

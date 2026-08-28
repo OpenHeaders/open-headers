@@ -157,7 +157,7 @@ const RenameHomeOrgModal: React.FC<RenameHomeOrgModalProps> = ({ open, currentNa
           : t('workbench.workspace.org.renameTitleFallback')
       }
       okText={t('workbench.workspace.saveOk')}
-      destroyOnClose
+      destroyOnHidden
       onCancel={() => {
         form.resetFields();
         onClose();
@@ -275,7 +275,7 @@ const HomeOrgLogoModal: React.FC<HomeOrgLogoModalProps> = ({ open, currentLogo, 
           : t('workbench.workspace.org.logoTitleFallback')
       }
       footer={null}
-      destroyOnClose
+      destroyOnHidden
       onCancel={onClose}
     >
       <div style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '8px 0' }}>

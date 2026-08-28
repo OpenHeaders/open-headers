@@ -141,7 +141,7 @@ const MigrateToolModal: React.FC<MigrateToolModalProps> = ({ open, onClose, onIm
       onCancel={onClose}
       footer={null}
       width={1120}
-      maskClosable={false}
+      mask={{ closable: false }}
       destroyOnHidden
     >
       {!pullOpen && (
@@ -158,7 +158,7 @@ const MigrateToolModal: React.FC<MigrateToolModalProps> = ({ open, onClose, onIm
             {t('workbench.importExport.migrate.scanNote')}
           </Paragraph>
           {scanError && (
-            <Alert type="error" showIcon message={scanError} style={{ maxWidth: 560, margin: '10px auto 0' }} />
+            <Alert type="error" showIcon title={scanError} style={{ maxWidth: 560, margin: '10px auto 0' }} />
           )}
         </div>
       )}
@@ -175,7 +175,7 @@ const MigrateToolModal: React.FC<MigrateToolModalProps> = ({ open, onClose, onIm
 
       {!pullOpen && (
         <>
-          {readReason && <Alert type="error" showIcon message={readReason} style={{ marginTop: 12 }} />}
+          {readReason && <Alert type="error" showIcon title={readReason} style={{ marginTop: 12 }} />}
           {scanning ? (
             <Skeleton active title={false} paragraph={{ rows: 2 }} style={{ marginTop: 16 }} />
           ) : (

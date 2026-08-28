@@ -448,7 +448,12 @@ const FileValueCell: React.FC<FileValueCellProps> = ({
           }
         />
       ))}
-      <Dropdown menu={{ items: menuItems }} trigger={['click']} disabled={disabled} overlayStyle={{ minWidth: 260 }}>
+      <Dropdown
+        menu={{ items: menuItems }}
+        trigger={['click']}
+        disabled={disabled}
+        styles={{ root: { minWidth: 260 } }}
+      >
         <button
           type="button"
           disabled={disabled}

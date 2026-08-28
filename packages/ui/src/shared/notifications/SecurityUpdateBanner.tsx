@@ -64,7 +64,7 @@ const SecurityUpdateBanner: React.FC<SecurityUpdateBannerProps> = ({ onOpenUpdat
       closable
       onClose={() => setDismissed(true)}
       data-testid="security-update-banner"
-      message={message}
+      title={message}
       action={
         <Button size="small" danger onClick={onOpenUpdates}>
           {t('shared.notifications.securityBanner.update')}

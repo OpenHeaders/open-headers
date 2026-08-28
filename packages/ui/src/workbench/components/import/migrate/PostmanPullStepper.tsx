@@ -217,7 +217,7 @@ const PostmanPullStepper: React.FC<PostmanPullStepperProps> = ({ onStarted, onPh
             <WorkingTicker />
           </div>
         )}
-        {listReason && <Alert type="error" showIcon message={listReason} style={{ margin: '8px auto 0', maxWidth: 520 }} />}
+        {listReason && <Alert type="error" showIcon title={listReason} style={{ margin: '8px auto 0', maxWidth: 520 }} />}
         <PostmanKeySteps />
       </div>
     );
@@ -259,7 +259,7 @@ const PostmanPullStepper: React.FC<PostmanPullStepperProps> = ({ onStarted, onPh
           {t('workbench.importExport.pull.back')}
         </Button>
       </div>
-      {startReason && <Alert type="error" showIcon message={startReason} style={{ marginTop: 8 }} />}
+      {startReason && <Alert type="error" showIcon title={startReason} style={{ marginTop: 8 }} />}
     </div>
   );
 };

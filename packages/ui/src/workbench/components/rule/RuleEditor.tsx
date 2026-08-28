@@ -691,7 +691,7 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
           type="warning"
           showIcon
           style={{ margin: 12, fontSize: 12 }}
-          message={t('workbench.editors.rule.deleted.message')}
+          title={t('workbench.editors.rule.deleted.message')}
           description={t('workbench.editors.rule.deleted.description')}
           action={
             <Button size="small" type="primary" onClick={() => void handleUndelete()}>

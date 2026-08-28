@@ -286,7 +286,7 @@ const MigrationReportModal: React.FC<{
       }
       width={840}
       centered
-      maskClosable={false}
+      mask={{ closable: false }}
       // One scroll container: the modal stays in view and only its body
       // scrolls — never the app behind it.
       styles={{ body: { maxHeight: '65vh', overflowY: 'auto' } }}

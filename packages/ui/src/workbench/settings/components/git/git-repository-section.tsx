@@ -341,7 +341,7 @@ const GitRepositorySection: React.FC<{ git: WorkspaceGit }> = ({ git }) => {
             showIcon
             style={{ margin: '3px 0 10px' }}
             data-testid="git-pane-force-push-alert"
-            message={<span style={{ fontSize: 12 }}>{t('workbench.settings.gitPane.git.forcePush.title')}</span>}
+            title={<span style={{ fontSize: 12 }}>{t('workbench.settings.gitPane.git.forcePush.title')}</span>}
             description={
               <div style={{ fontSize: 11.5 }}>
                 <p style={{ margin: '0 0 8px' }}>
@@ -458,7 +458,7 @@ const GitRepositorySection: React.FC<{ git: WorkspaceGit }> = ({ git }) => {
             showIcon
             style={{ marginTop: 8 }}
             data-testid="git-pane-push-no-permission"
-            message={
+            title={
               <span style={{ fontSize: 12 }}>{t('workbench.settings.gitPane.git.pushNoPermission.title')}</span>
             }
             description={

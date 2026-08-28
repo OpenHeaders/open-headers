@@ -294,14 +294,15 @@ export const BackendTierCard: React.FC<Props> = ({ mode }) => {
                 title={<FooterDetails categories={footer.categories} />}
                 placement="top"
                 color="var(--ant-color-bg-elevated)"
-                overlayStyle={{ maxWidth: 560 }}
-                overlayInnerStyle={{
-                  backgroundColor: 'var(--ant-color-bg-elevated)',
-                  color: 'var(--ant-color-text)',
-                  boxShadow: 'var(--ant-box-shadow-secondary)',
-                  border: '1px solid var(--ant-color-border-secondary)',
+                styles={{
+                  root: { maxWidth: 560 },
+                  container: {
+                    backgroundColor: 'var(--ant-color-bg-elevated)',
+                    color: 'var(--ant-color-text)',
+                    boxShadow: 'var(--ant-box-shadow-secondary)',
+                    border: '1px solid var(--ant-color-border-secondary)',
+                  },
                 }}
-                styles={{ root: { maxWidth: 560 } }}
               >
                 <g style={{ cursor: 'help' }}>
                   <circle

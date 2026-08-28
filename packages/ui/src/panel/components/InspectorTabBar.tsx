@@ -142,7 +142,7 @@ const SortableTab: React.FC<SortableTabProps> = ({ leafId, tab, isActive, contex
   if (isDragging) return content;
 
   return (
-    <Dropdown menu={contextMenu} trigger={['contextMenu']} overlayClassName="dt-tab-ctx-menu">
+    <Dropdown menu={contextMenu} trigger={['contextMenu']} classNames={{ root: 'dt-tab-ctx-menu' }}>
       {content}
     </Dropdown>
   );

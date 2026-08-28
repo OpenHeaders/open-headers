@@ -29,7 +29,7 @@ const SwitchingOverlay: React.FC<SwitchingOverlayProps> = ({ open, toLabel }) =>
     <Modal
       open={open}
       closable={false}
-      maskClosable={false}
+      mask={{ closable: false }}
       keyboard={false}
       footer={null}
       centered

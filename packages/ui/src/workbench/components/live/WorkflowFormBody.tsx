@@ -196,7 +196,7 @@ const WorkflowFormBody: React.FC<WorkflowFormBodyProps> = ({
         <Alert
           type="error"
           showIcon
-          message={t('workbench.editors.live.form.structuralIssues')}
+          title={t('workbench.editors.live.form.structuralIssues')}
           description={
             <ul style={{ margin: 0, paddingLeft: 18 }}>
               {workflowLevelErrors.map((err) => (

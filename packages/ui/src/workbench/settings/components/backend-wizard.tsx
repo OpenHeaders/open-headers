@@ -163,7 +163,7 @@ const WizardDialog: React.FC<{
     <Alert
       type="info"
       showIcon
-      message={t('workbench.settings.backendPane.wizard.autoPairFallback')}
+      title={t('workbench.settings.backendPane.wizard.autoPairFallback')}
       style={{ marginBottom: 10 }}
     />
   ) : null;
@@ -177,7 +177,7 @@ const WizardDialog: React.FC<{
       }
       open
       onCancel={() => void cancel()}
-      maskClosable={false}
+      mask={{ closable: false }}
       width={720}
       footer={
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>

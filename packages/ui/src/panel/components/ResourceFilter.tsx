@@ -102,7 +102,7 @@ export function ResourceFilter({ value, onChange, compact }: ResourceFilterProps
           placement="bottomRight"
           open={moreOpen}
           onOpenChange={setMoreOpen}
-          overlayClassName="dt-filter-pills-popover"
+          classNames={{ root: 'dt-filter-pills-popover' }}
         >
           <button type="button" className="dt-filter-pill" data-active={overflowActiveCount > 0}>
             {t('panel.filter.more')}

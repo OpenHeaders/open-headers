@@ -340,7 +340,7 @@ const CollectionManager: React.FC<CollectionManagerProps> = ({
                   searchText ? (
                     <Text type="secondary">{t('popup.collections.emptyNoMatch')}</Text>
                   ) : (
-                    <Space direction="vertical" size={4}>
+                    <Space orientation="vertical" size={4}>
                       <Text type="secondary">{t('popup.collections.emptyNone')}</Text>
                       <Text type="secondary" style={{ fontSize: '12px' }}>
                         {t('popup.collections.emptyHint')}

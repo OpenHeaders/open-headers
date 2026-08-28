@@ -70,7 +70,7 @@ const PublishWorkspaceModal: React.FC<PublishWorkspaceModalProps> = ({ source, t
         onCancel();
       }}
       onOk={handleOk}
-      destroyOnClose
+      destroyOnHidden
     >
       {source && (
         <Form

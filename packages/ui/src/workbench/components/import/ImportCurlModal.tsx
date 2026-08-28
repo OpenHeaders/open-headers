@@ -426,7 +426,7 @@ const ImportCurlModal: React.FC<ImportCurlModalProps> = ({
         </div>
       }
       width={620}
-      destroyOnClose
+      destroyOnHidden
     >
       <Paragraph type="secondary" style={{ fontSize: 12, marginBottom: 8 }}>
         {t('workbench.importExport.curl.introPrefix')} <code>curl</code> {t('workbench.importExport.curl.introSuffix')}
@@ -445,7 +445,7 @@ const ImportCurlModal: React.FC<ImportCurlModalProps> = ({
         <Alert
           type="error"
           showIcon
-          message={t('workbench.importExport.curl.cantParse')}
+          title={t('workbench.importExport.curl.cantParse')}
           description={parsed.message}
         />
       )}

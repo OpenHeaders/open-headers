@@ -27,7 +27,7 @@ export function useBackendRegistryWrite(): BackendRegistryWrite {
     <T>(op: () => Promise<T>): Promise<T | null> =>
       op().catch((err: unknown) => {
         notification.error({
-          message: t('workbench.settings.backendPane.connections.writeFailed'),
+          title: t('workbench.settings.backendPane.connections.writeFailed'),
           description: err instanceof Error ? err.message : String(err),
         });
         return null;

@@ -185,7 +185,7 @@ const GenerateCollectionModal: React.FC<GenerateCollectionModalProps> = ({
         </div>
       }
       width={640}
-      destroyOnClose
+      destroyOnHidden
     >
       <Typography.Paragraph type="secondary" style={{ fontSize: 12, marginBottom: 12 }}>
         {t('workbench.editors.spec.generate.blurb')}
@@ -195,7 +195,7 @@ const GenerateCollectionModal: React.FC<GenerateCollectionModalProps> = ({
         <Alert
           type="info"
           showIcon
-          message={t('workbench.editors.spec.generate.dirtyHint')}
+          title={t('workbench.editors.spec.generate.dirtyHint')}
           style={{ marginBottom: 12 }}
         />
       )}
@@ -204,7 +204,7 @@ const GenerateCollectionModal: React.FC<GenerateCollectionModalProps> = ({
         <Alert
           type="error"
           showIcon
-          message={t('workbench.editors.spec.generate.parseFailed')}
+          title={t('workbench.editors.spec.generate.parseFailed')}
           description={stage.message}
         />
       )}

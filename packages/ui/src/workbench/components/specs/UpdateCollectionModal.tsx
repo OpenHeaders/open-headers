@@ -271,7 +271,7 @@ const UpdateCollectionModal: React.FC<UpdateCollectionModalProps> = ({
         </div>
       }
       width={640}
-      destroyOnClose
+      destroyOnHidden
     >
       <Typography.Paragraph type="secondary" style={{ fontSize: 12, marginBottom: 12 }}>
         {t('workbench.editors.spec.update.blurb', { name: collection.name })}
@@ -281,7 +281,7 @@ const UpdateCollectionModal: React.FC<UpdateCollectionModalProps> = ({
         <Alert
           type="info"
           showIcon
-          message={t('workbench.editors.spec.update.dirtyHint')}
+          title={t('workbench.editors.spec.update.dirtyHint')}
           style={{ marginBottom: 12 }}
         />
       )}
@@ -290,7 +290,7 @@ const UpdateCollectionModal: React.FC<UpdateCollectionModalProps> = ({
         <Alert
           type="error"
           showIcon
-          message={t('workbench.editors.spec.update.parseFailed')}
+          title={t('workbench.editors.spec.update.parseFailed')}
           description={stage.message}
         />
       )}
@@ -300,7 +300,7 @@ const UpdateCollectionModal: React.FC<UpdateCollectionModalProps> = ({
           type="success"
           showIcon
           icon={<CheckCircleOutlined />}
-          message={t('workbench.editors.spec.update.inSync')}
+          title={t('workbench.editors.spec.update.inSync')}
           data-testid="spec-update-in-sync"
         />
       )}

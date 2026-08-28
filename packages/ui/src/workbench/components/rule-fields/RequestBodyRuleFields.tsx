@@ -75,7 +75,7 @@ const RequestBodyRuleFields: React.FC = () => {
         type="info"
         showIcon
         style={{ marginBottom: 12, fontSize: 12 }}
-        message={t('workbench.editors.rule.fields.requestBody.interceptsAlert')}
+        title={t('workbench.editors.rule.fields.requestBody.interceptsAlert')}
       />
 
       {/* Resource Type */}

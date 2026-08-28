@@ -144,7 +144,7 @@ export function HeaderQuickCreate({
           onChange={(op) => updateQuick({ operation: op })}
           options={headerOperationOptions(t)}
           style={{ width: 140, flexShrink: 0 }}
-          dropdownStyle={{ zIndex: 1090 }}
+          styles={{ popup: { root: { zIndex: 1090 } } }}
         />
         <div style={{ flex: 1, minWidth: 0 }}>
           <TemplateInput

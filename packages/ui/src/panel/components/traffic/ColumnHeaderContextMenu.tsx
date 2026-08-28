@@ -178,7 +178,7 @@ export function ColumnHeaderContextMenu({
           trigger="hover"
           placement="rightTop"
           arrow={false}
-          overlayClassName="dt-morefilters-popover dt-colmenu-submenu"
+          classNames={{ root: 'dt-morefilters-popover dt-colmenu-submenu' }}
           mouseEnterDelay={0.05}
           mouseLeaveDelay={0.1}
         >

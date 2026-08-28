@@ -86,7 +86,7 @@ export function defaultPolicyFor(kind: RefreshPolicy['kind'], captures: CaptureT
 const RefreshPolicyEditor: React.FC<Props> = ({ value, onChange, availableCaptures, disabled }) => {
   const t = useT();
   return (
-    <Space direction="vertical" size={6} style={{ width: '100%' }}>
+    <Space orientation="vertical" size={6} style={{ width: '100%' }}>
       <Space wrap size={6}>
         <Select
           size="small"

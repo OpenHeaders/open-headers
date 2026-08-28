@@ -321,7 +321,7 @@ const WorkspaceMembersModal: React.FC<WorkspaceMembersModalProps> = ({ workspace
       title={workspace ? t('workbench.workspace.members.title', { name: workspace.name }) : ''}
       onCancel={onClose}
       footer={null}
-      destroyOnClose
+      destroyOnHidden
     >
       {state.loading ? (
         <div style={{ display: 'flex', justifyContent: 'center', padding: 24 }}>

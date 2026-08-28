@@ -178,7 +178,7 @@ export function HeaderQuickEditor({
                   onChange={(direction) => updateRow(row.uid, { direction })}
                   options={[...directionOptions(t)]}
                   style={{ width: 96, flexShrink: 0 }}
-                  dropdownStyle={{ zIndex: 1090 }}
+                  styles={{ popup: { root: { zIndex: 1090 } } }}
                 />
                 <EntityField path={RULE_FIELD.headerMod(row.direction, row.uid, 'operation')}>
                   <Select
@@ -187,7 +187,7 @@ export function HeaderQuickEditor({
                     onChange={(operation) => updateRow(row.uid, { operation })}
                     options={headerOperationOptions(t)}
                     style={{ width: 116, flexShrink: 0 }}
-                    dropdownStyle={{ zIndex: 1090 }}
+                    styles={{ popup: { root: { zIndex: 1090 } } }}
                   />
                 </EntityField>
                 <div style={{ flex: 1, minWidth: 0 }}>

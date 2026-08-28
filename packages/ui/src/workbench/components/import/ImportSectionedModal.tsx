@@ -607,7 +607,7 @@ const ImportSectionedModal: React.FC<ImportSectionedModalProps> = ({
         </div>
       }
       width={760}
-      destroyOnClose
+      destroyOnHidden
     >
       <Paragraph type="secondary" style={{ fontSize: 12, marginBottom: 12 }}>
         {t(labels.blurb)}
@@ -617,7 +617,7 @@ const ImportSectionedModal: React.FC<ImportSectionedModalProps> = ({
         <Alert
           type="error"
           showIcon
-          message={t('workbench.importExport.sectioned.cantReadImport')}
+          title={t('workbench.importExport.sectioned.cantReadImport')}
           description={stage.message}
         />
       )}
@@ -633,7 +633,7 @@ const ImportSectionedModal: React.FC<ImportSectionedModalProps> = ({
                 onChange={(e) => setIncludeSpec(e.target.value === 'spec-collection')}
                 disabled={busy}
               >
-                <Space direction="vertical" size={2}>
+                <Space orientation="vertical" size={2}>
                   <Radio value="spec-collection" style={{ fontSize: 12 }}>
                     {t('workbench.importExport.sectioned.specWithCollection')}
                   </Radio>
@@ -754,7 +754,7 @@ const ImportSectionedModal: React.FC<ImportSectionedModalProps> = ({
               <Alert
                 type="info"
                 showIcon
-                message={t('workbench.importExport.sectioned.nothingImportable')}
+                title={t('workbench.importExport.sectioned.nothingImportable')}
                 description={t('workbench.importExport.sectioned.nothingImportableDesc')}
                 style={{ marginBottom: 12 }}
               />

@@ -77,7 +77,7 @@ const MessageRuleFields: React.FC<MessageRuleFieldsProps> = ({ kind }) => {
         type="info"
         showIcon
         style={{ marginBottom: 12, fontSize: 12 }}
-        message={
+        title={
           isWs ? t('workbench.editors.rule.fields.message.wsIntro') : t('workbench.editors.rule.fields.message.sseIntro')
         }
       />

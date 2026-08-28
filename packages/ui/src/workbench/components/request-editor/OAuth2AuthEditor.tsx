@@ -238,7 +238,7 @@ const OAuth2AuthEditor: React.FC<OAuth2AuthEditorProps> = ({ auth, onChange }) =
         <Alert
           type="warning"
           showIcon
-          message={t('workbench.editors.request.oauth.queryWarningTitle')}
+          title={t('workbench.editors.request.oauth.queryWarningTitle')}
           description={
             <>
               {t('workbench.editors.request.oauth.queryWarningBefore')} <code>Authorization: Bearer</code>{' '}
@@ -353,7 +353,7 @@ const OAuth2AuthEditor: React.FC<OAuth2AuthEditorProps> = ({ auth, onChange }) =
                           {t('workbench.editors.request.oauth.callbackTipAfterApi')}
                         </span>
                       }
-                      overlayStyle={{ maxWidth: 380 }}
+                      styles={{ root: { maxWidth: 380 } }}
                     >
                       <InfoCircleOutlined style={{ color: 'rgba(0, 0, 0, 0.45)', cursor: 'help' }} />
                     </Tooltip>

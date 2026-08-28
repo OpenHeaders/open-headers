@@ -414,7 +414,7 @@ const ImportHarModal: React.FC<ImportHarModalProps> = ({
         </div>
       }
       width={760}
-      destroyOnClose
+      destroyOnHidden
     >
       <Paragraph type="secondary" style={{ fontSize: 12, marginBottom: 12 }}>
         {t('workbench.importExport.har.introPrefix')} <code>.har</code> {t('workbench.importExport.har.introSuffix')}
@@ -427,7 +427,7 @@ const ImportHarModal: React.FC<ImportHarModalProps> = ({
           <Alert
             type="error"
             showIcon
-            message={t('workbench.importExport.import.cantReadFile')}
+            title={t('workbench.importExport.import.cantReadFile')}
             description={stage.message}
             style={{ marginBottom: 12 }}
           />
@@ -641,13 +641,13 @@ const ReportPanel: React.FC<ReportPanelProps> = ({ report, token }) => {
   const totalTransforms = report.transforms.length;
   if (totalDrops === 0 && totalTransforms === 0) return null;
   return (
-    <Space direction="vertical" size={6} style={{ width: '100%' }}>
+    <Space orientation="vertical" size={6} style={{ width: '100%' }}>
       {totalTransforms > 0 && (
         <Alert
           type="info"
           showIcon
           icon={<InfoCircleOutlined />}
-          message={t('workbench.importExport.har.transformsApplied', { count: totalTransforms })}
+          title={t('workbench.importExport.har.transformsApplied', { count: totalTransforms })}
           description={
             <Tooltip title={t('workbench.importExport.har.transformsTooltip')}>
               <span style={{ fontSize: 11, color: token.colorTextSecondary, cursor: 'help' }}>
@@ -662,7 +662,7 @@ const ReportPanel: React.FC<ReportPanelProps> = ({ report, token }) => {
           type="warning"
           showIcon
           icon={<WarningOutlined />}
-          message={t('workbench.importExport.har.dropsRecorded', { count: totalDrops })}
+          title={t('workbench.importExport.har.dropsRecorded', { count: totalDrops })}
           description={
             <Tooltip title={t('workbench.importExport.har.dropsTooltip')}>
               <span style={{ fontSize: 11, color: token.colorTextSecondary, cursor: 'help' }}>

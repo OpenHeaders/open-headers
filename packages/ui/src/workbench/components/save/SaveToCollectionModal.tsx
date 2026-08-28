@@ -290,7 +290,7 @@ const SaveToCollectionModal: React.FC<SaveToCollectionModalProps> = ({
         </div>
       }
       width={480}
-      destroyOnClose
+      destroyOnHidden
     >
       {/* Rule name */}
       <div style={{ marginBottom: 16 }}>

@@ -279,7 +279,7 @@ const WsSessionPane: React.FC<WsSessionPaneProps> = ({
           {proxyRouteHasBadge(snapshot.proxyRoute) && <ProxyRouteTag route={snapshot.proxyRoute} />}
           <Dropdown
             trigger={['click']}
-            overlayStyle={{ minWidth: 180 }}
+            styles={{ root: { minWidth: 180 } }}
             menu={{
               items: [
                 // Save Response leads — the HTTP ResponsePanel's menu order.

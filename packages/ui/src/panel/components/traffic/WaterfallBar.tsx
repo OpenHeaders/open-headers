@@ -287,7 +287,7 @@ export function WaterfallBar({ row, scale, cdpEnhanced, superseded, connectionOp
       placement={ladder && layout === 'horizontal' ? 'bottom' : 'left'}
       arrow={false}
       mouseEnterDelay={0.25}
-      overlayClassName="dt-morefilters-popover dt-waterfall-pop-overlay"
+      classNames={{ root: 'dt-morefilters-popover dt-waterfall-pop-overlay' }}
     >
       {/* antd attaches the hover ref + handlers to this child via
           cloneElement, so it must be a DOM element — the bar itself is a

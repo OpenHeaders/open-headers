@@ -87,10 +87,10 @@ const AddTrustedRootPanel: React.FC<AddTrustedRootPanelProps> = ({
         </Text>
       )}
       {gate && !gate.ok && gate.reason === 'invalid' && (
-        <Alert type="error" showIcon message={t('workbench.trustedRoots.add.invalid', { message: gate.message })} />
+        <Alert type="error" showIcon title={t('workbench.trustedRoots.add.invalid', { message: gate.message })} />
       )}
       {gate && !gate.ok && gate.reason === 'not-ca' && (
-        <Alert type="error" showIcon message={t('workbench.trustedRoots.add.notCa')} />
+        <Alert type="error" showIcon title={t('workbench.trustedRoots.add.notCa')} />
       )}
       {summary && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>

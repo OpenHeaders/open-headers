@@ -75,7 +75,7 @@ const ReimportDiffPanel: React.FC<ReimportDiffPanelProps> = ({ diff }) => {
       showIcon
       icon={<Icon />}
       style={{ marginBottom: 12 }}
-      message={
+      title={
         <Space size={8} wrap>
           <Text strong style={{ fontSize: 12 }}>
             {headline}

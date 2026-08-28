@@ -193,7 +193,7 @@ export function NetworkCaptureView({
           type="info"
           showIcon
           banner
-          message={watchRefusedCopy?.title ?? t('panel.capture.watchRefused.title')}
+          title={watchRefusedCopy?.title ?? t('panel.capture.watchRefused.title')}
           description={watchRefusedCopy?.body ?? t('panel.capture.watchRefused.body')}
           data-testid="capture-watch-refused"
         />

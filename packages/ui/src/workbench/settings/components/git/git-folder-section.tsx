@@ -60,7 +60,7 @@ const GitFolderSection: React.FC<GitFolderSectionProps> = ({ git, allowFolderPic
                 showIcon
                 style={{ marginTop: 10 }}
                 data-testid="git-pane-issues-alert"
-                message={
+                title={
                   <span style={{ fontSize: 12 }}>
                     {t('workbench.settings.gitPane.issuesTitle', { count: binding.issues.length })}
                   </span>
@@ -116,7 +116,7 @@ const GitFolderSection: React.FC<GitFolderSectionProps> = ({ git, allowFolderPic
               type="warning"
               showIcon
               style={{ margin: '3px 0' }}
-              message={<span style={{ fontSize: 12 }}>{t('workbench.settings.gitPane.git.missing.title')}</span>}
+              title={<span style={{ fontSize: 12 }}>{t('workbench.settings.gitPane.git.missing.title')}</span>}
               description={
                 <span style={{ fontSize: 11.5 }}>
                   {gitStatus.git.reason === 'below-floor'

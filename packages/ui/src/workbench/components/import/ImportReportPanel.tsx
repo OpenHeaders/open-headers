@@ -22,7 +22,7 @@ const ImportReportPanel: React.FC<{
           type="info"
           showIcon
           icon={<InfoCircleOutlined />}
-          message={`${report.transforms.length} conversion${report.transforms.length === 1 ? '' : 's'} handled automatically`}
+          title={`${report.transforms.length} conversion${report.transforms.length === 1 ? '' : 's'} handled automatically`}
           description={
             <ul style={{ margin: 0, paddingLeft: 16, fontSize: 12, maxHeight: 140, overflowY: 'auto', overscrollBehavior: 'none' }}>
               {report.transforms.map((t, i) => (
@@ -41,7 +41,7 @@ const ImportReportPanel: React.FC<{
           type="warning"
           showIcon
           icon={<WarningOutlined />}
-          message={`${report.drops.length} item${report.drops.length === 1 ? '' : 's'} dropped`}
+          title={`${report.drops.length} item${report.drops.length === 1 ? '' : 's'} dropped`}
           description={
             <ul style={{ margin: 0, paddingLeft: 16, fontSize: 12, maxHeight: 160, overflowY: 'auto' }}>
               {report.drops.map((d, i) => (

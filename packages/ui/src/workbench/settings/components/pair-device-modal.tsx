@@ -164,7 +164,7 @@ const PairDeviceModal: React.FC<Props> = ({ open, onClose }) => {
       // A stray click on the backdrop (or an Esc) mid-pairing would
       // discard the live code and force a fresh allocation. Only the X
       // and the footer button dismiss it.
-      maskClosable={false}
+      mask={{ closable: false }}
       keyboard={false}
       footer={[
         <Button key="done" type="primary" onClick={close}>
@@ -174,7 +174,7 @@ const PairDeviceModal: React.FC<Props> = ({ open, onClose }) => {
         </Button>,
       ]}
       width={520}
-      destroyOnClose
+      destroyOnHidden
     >
       {status === 'starting' && (
         <Typography.Text>{t('workbench.settings.backendTokens.pairModal.allocating')}</Typography.Text>
@@ -184,7 +184,7 @@ const PairDeviceModal: React.FC<Props> = ({ open, onClose }) => {
         <Alert
           type="error"
           showIcon
-          message={t('workbench.settings.backendTokens.pairModal.startFailed')}
+          title={t('workbench.settings.backendTokens.pairModal.startFailed')}
           description={errorMessage}
         />
       )}
@@ -193,7 +193,7 @@ const PairDeviceModal: React.FC<Props> = ({ open, onClose }) => {
         <Alert
           type="warning"
           showIcon
-          message={t('workbench.settings.backendTokens.pairModal.expiredTitle')}
+          title={t('workbench.settings.backendTokens.pairModal.expiredTitle')}
           description={t('workbench.settings.backendTokens.pairModal.expiredBody')}
         />
       )}
@@ -202,7 +202,7 @@ const PairDeviceModal: React.FC<Props> = ({ open, onClose }) => {
         <Alert
           type="success"
           showIcon
-          message={t('workbench.settings.backendTokens.pairModal.pairedTitle')}
+          title={t('workbench.settings.backendTokens.pairModal.pairedTitle')}
           description={t('workbench.settings.backendTokens.pairModal.pairedBody')}
         />
       )}
@@ -252,7 +252,7 @@ const PairDeviceModal: React.FC<Props> = ({ open, onClose }) => {
           <div style={{ fontSize: 12, color: token.colorTextSecondary, marginBottom: 4 }}>
             {t('workbench.settings.backendTokens.pairModal.addressListLabel')}
           </div>
-          <Space direction="vertical" size={6} style={{ width: '100%' }}>
+          <Space orientation="vertical" size={6} style={{ width: '100%' }}>
             {active.pairingUrls.map((u) => {
               const wsUrl = `ws://${u.host}:${active.port}`;
               return (
@@ -275,7 +275,7 @@ const PairDeviceModal: React.FC<Props> = ({ open, onClose }) => {
             {t('workbench.settings.backendTokens.pairModal.fallback.suffix')}
           </Typography.Paragraph>
           <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
-            <Space direction="vertical" size={6} style={{ flex: 1, minWidth: 0 }}>
+            <Space orientation="vertical" size={6} style={{ flex: 1, minWidth: 0 }}>
               {active.pairingUrls.map((u) => (
                 <div key={u.host} style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                   <Input value={u.url} readOnly size="small" style={{ fontFamily: 'monospace', fontSize: 12 }} />

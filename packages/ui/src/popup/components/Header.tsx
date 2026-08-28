@@ -129,7 +129,7 @@ const Header: React.FC = () => {
                 }
               >
                 <Switch
-                  size="default"
+                  size="medium"
                   checked={!isRulesExecutionPaused}
                   onChange={handleGlobalRulesToggle}
                   checkedChildren={t('popup.status.active')}

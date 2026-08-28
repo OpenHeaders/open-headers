@@ -196,7 +196,7 @@ const PublicShareReviewModal: React.FC<PublicShareReviewModalProps> = ({
         <Alert
           type="info"
           showIcon
-          message={
+          title={
             loaded.secretValuesStripped > 0
               ? `${t('workbench.workspace.publicShare.reviewStripped')} ${t(
                   'workbench.workspace.publicShare.reviewStrippedCount',
@@ -214,7 +214,7 @@ const PublicShareReviewModal: React.FC<PublicShareReviewModalProps> = ({
       open={open}
       title={t('workbench.workspace.publicShare.reviewTitle', { name: workspaceName })}
       onCancel={onClose}
-      destroyOnClose
+      destroyOnHidden
       footer={[
         <Button key="cancel" onClick={onClose}>
           {t('workbench.workspace.cancel')}

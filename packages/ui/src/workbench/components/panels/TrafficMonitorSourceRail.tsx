@@ -471,7 +471,7 @@ function SourceObserveAffordance({
       // AROUND a stationary cursor (never out from under it — the
       // hover-close hazard a centered placement's re-centering causes).
       placement={placement}
-      overlayInnerStyle={{ padding: 4 }}
+      styles={{ container: { padding: 4 } }}
       content={
         // The overlay is portaled but React still bubbles its events
         // through the owner tree — without this stop, every click inside

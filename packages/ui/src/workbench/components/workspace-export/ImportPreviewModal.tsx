@@ -540,7 +540,7 @@ const ImportPreviewModal: React.FC<ImportPreviewModalProps> = ({
             }
           />
         ) : (
-          <Spin size="large" tip={t('workbench.importExport.preview.preparing')} />
+          <Spin size="large" description={t('workbench.importExport.preview.preparing')} />
         )}
       </div>
 
@@ -648,7 +648,7 @@ const ImportPreviewModal: React.FC<ImportPreviewModalProps> = ({
                 <Alert
                   type="warning"
                   showIcon
-                  message={t('workbench.importExport.preview.staleTitle')}
+                  title={t('workbench.importExport.preview.staleTitle')}
                   description={t('workbench.importExport.preview.staleDescription')}
                 />
               )}

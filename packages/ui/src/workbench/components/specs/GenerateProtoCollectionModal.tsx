@@ -144,7 +144,7 @@ const GenerateProtoCollectionModal: React.FC<GenerateProtoCollectionModalProps> 
         </div>
       }
       width={640}
-      destroyOnClose
+      destroyOnHidden
     >
       <Typography.Paragraph type="secondary" style={{ fontSize: 12, marginBottom: 12 }}>
         {t('workbench.editors.spec.generateProto.blurb')}
@@ -154,7 +154,7 @@ const GenerateProtoCollectionModal: React.FC<GenerateProtoCollectionModalProps> 
         <Alert
           type="info"
           showIcon
-          message={t('workbench.editors.spec.generate.dirtyHint')}
+          title={t('workbench.editors.spec.generate.dirtyHint')}
           style={{ marginBottom: 12 }}
         />
       )}
@@ -163,7 +163,7 @@ const GenerateProtoCollectionModal: React.FC<GenerateProtoCollectionModalProps> 
         <Alert
           type="warning"
           showIcon
-          message={t('workbench.editors.spec.generateProto.empty')}
+          title={t('workbench.editors.spec.generateProto.empty')}
           style={{ marginBottom: 12 }}
           data-testid="spec-generate-proto-empty"
         />
@@ -193,7 +193,7 @@ const GenerateProtoCollectionModal: React.FC<GenerateProtoCollectionModalProps> 
             key={failure.path}
             type="warning"
             showIcon
-            message={t('workbench.editors.grpc.spec.parseFailure', { path: failure.path, message: failure.message })}
+            title={t('workbench.editors.grpc.spec.parseFailure', { path: failure.path, message: failure.message })}
             style={{ marginTop: 8 }}
           />
         ))}

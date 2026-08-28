@@ -371,7 +371,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
           showIcon
           closable
           onClose={() => setFormatError(null)}
-          message="Cannot format — parse error"
+          title="Cannot format — parse error"
           description={
             <pre
               style={{

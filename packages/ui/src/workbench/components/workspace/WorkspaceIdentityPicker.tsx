@@ -185,7 +185,7 @@ const WorkspaceIdentityPicker: React.FC<WorkspaceIdentityPickerProps> = ({ value
       open={open}
       onOpenChange={setOpen}
       placement="bottomLeft"
-      destroyTooltipOnHide
+      destroyOnHidden
     >
       <button
         type="button"

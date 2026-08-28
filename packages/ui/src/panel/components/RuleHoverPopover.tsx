@@ -343,7 +343,7 @@ export function RuleHoverPopover({
               // Popover container's stacking context is z=1080. The
               // antd Select dropdown defaults below that — lift it
               // explicitly so the menu floats above the popover.
-              dropdownStyle={{ zIndex: 1090 }}
+              styles={{ popup: { root: { zIndex: 1090 } } }}
             />
             <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 4 }}>
               {headerModUid && target ? (

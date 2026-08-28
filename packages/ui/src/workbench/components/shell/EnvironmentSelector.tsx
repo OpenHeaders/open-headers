@@ -801,15 +801,15 @@ const EnvironmentSelector: React.FC<EnvironmentSelectorProps> = ({
         {footerSegment('vault', t('workbench.shell.envSelector.footer.vault'), onOpenVault)}
         {activeCollectionId && (
           <>
-            <Divider type="vertical" style={{ height: 'auto', margin: '4px 0', alignSelf: 'stretch' }} />
+            <Divider orientation="vertical" style={{ height: 'auto', margin: '4px 0', alignSelf: 'stretch' }} />
             {footerSegment('collection', t('workbench.shell.envSelector.footer.collection'), onOpenCollectionVariables)}
           </>
         )}
-        <Divider type="vertical" style={{ height: 'auto', margin: '4px 0', alignSelf: 'stretch' }} />
+        <Divider orientation="vertical" style={{ height: 'auto', margin: '4px 0', alignSelf: 'stretch' }} />
         {footerSegment('workspace', t('workbench.shell.envSelector.footer.workspace'), onOpenWorkspaceVariables)}
         {onOpenLiveVariables && (
           <>
-            <Divider type="vertical" style={{ height: 'auto', margin: '4px 0', alignSelf: 'stretch' }} />
+            <Divider orientation="vertical" style={{ height: 'auto', margin: '4px 0', alignSelf: 'stretch' }} />
             {footerSegment('live', t('workbench.shell.envSelector.footer.live'), onOpenLiveVariables)}
           </>
         )}

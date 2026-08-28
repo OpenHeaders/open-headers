@@ -264,7 +264,7 @@ function SortGroupRow({
       trigger="hover"
       placement="rightTop"
       arrow={false}
-      overlayClassName="dt-morefilters-popover dt-sortmode-submenu-popover"
+      classNames={{ root: 'dt-morefilters-popover dt-sortmode-submenu-popover' }}
       mouseEnterDelay={0.05}
       mouseLeaveDelay={0.1}
     >
@@ -322,7 +322,7 @@ function WaterfallSortRow({
       trigger="hover"
       placement="rightTop"
       arrow={false}
-      overlayClassName="dt-morefilters-popover dt-sortmode-submenu-popover"
+      classNames={{ root: 'dt-morefilters-popover dt-sortmode-submenu-popover' }}
       mouseEnterDelay={0.05}
       mouseLeaveDelay={0.1}
     >
@@ -431,7 +431,7 @@ function SortCustomNestedRow({
       trigger="hover"
       placement="rightTop"
       arrow={false}
-      overlayClassName="dt-morefilters-popover dt-sortmode-submenu-popover"
+      classNames={{ root: 'dt-morefilters-popover dt-sortmode-submenu-popover' }}
       mouseEnterDelay={0.05}
       mouseLeaveDelay={0.1}
     >

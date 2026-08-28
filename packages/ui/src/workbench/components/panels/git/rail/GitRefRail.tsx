@@ -108,7 +108,7 @@ const GitRefRail: React.FC<GitRefRailProps> = ({
       const result = await hostBridge.call('oh.workspaceTree.updateBranch', { workspaceId, branch: selection.name });
       if (!result.ok) {
         notification.error({
-          message:
+          title:
             result.reason === 'no-upstream'
               ? t('workbench.gitLog.updateBranch.noUpstream', { branch: selection.name })
               : t('workbench.gitLog.updateBranch.failed', {
@@ -128,7 +128,7 @@ const GitRefRail: React.FC<GitRefRailProps> = ({
     const result = await hostBridge.call('oh.workspaceTree.deleteBranch', { workspaceId, branch });
     if (!result.ok) {
       notification.error({
-        message: t('workbench.gitLog.deleteBranch.failed', { detail: result.detail ?? result.reason }),
+        title: t('workbench.gitLog.deleteBranch.failed', { detail: result.detail ?? result.reason }),
       });
       return;
     }
@@ -137,7 +137,7 @@ const GitRefRail: React.FC<GitRefRailProps> = ({
     const key = `git-branch-deleted-${branch}`;
     notification.info({
       key,
-      message: t('workbench.gitLog.deleteBranch.deleted', { branch }),
+      title: t('workbench.gitLog.deleteBranch.deleted', { branch }),
       duration: 8,
       btn: (
         <button
@@ -174,7 +174,7 @@ const GitRefRail: React.FC<GitRefRailProps> = ({
       const result = await hostBridge.call('oh.workspaceTree.fetch', { workspaceId });
       if (!result.ok) {
         notification.error({
-          message:
+          title:
             result.reason === 'no-remote'
               ? t('workbench.gitLog.fetch.noRemote')
               : t('workbench.gitLog.fetch.failed', { detail: result.detail ?? result.reason }),
@@ -194,7 +194,7 @@ const GitRefRail: React.FC<GitRefRailProps> = ({
   const handleCreated = (branch: string, from: string, checkedOut: boolean): void => {
     if (checkedOut) {
       notification.info({
-        message: t('workbench.gitLog.createBranch.checkedOut', { branch, from }),
+        title: t('workbench.gitLog.createBranch.checkedOut', { branch, from }),
         duration: 5,
       });
     }

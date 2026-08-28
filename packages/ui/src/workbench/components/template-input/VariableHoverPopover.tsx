@@ -443,7 +443,7 @@ const VariableHoverPopover: React.FC<VariableHoverPopoverProps> = ({
                 // Same stacking concern as the Save tooltip — the
                 // popover sits at zIndex 1080, so default Dropdown
                 // overlay (1050) renders behind it. Bump above.
-                overlayStyle={{ zIndex: 1090 }}
+                styles={{ root: { zIndex: 1090 } }}
                 menu={{
                   items: createOptions.map<NonNullable<MenuProps['items']>[number]>((opt) => ({
                     key: opt.key,

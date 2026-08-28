@@ -308,7 +308,7 @@ const VaultEditor: React.FC<VaultEditorProps> = ({ onDirtyChange, registerSaveRe
               type="info"
               showIcon
               style={{ marginBottom: 16 }}
-              message={t('workbench.variables.vault.infoBanner')}
+              title={t('workbench.variables.vault.infoBanner')}
             />
             {openSettings !== null && (
               <div
@@ -331,7 +331,7 @@ const VaultEditor: React.FC<VaultEditorProps> = ({ onDirtyChange, registerSaveRe
               <Alert
                 type="error"
                 showIcon
-                message={t('workbench.variables.vault.cipherLocked')}
+                title={t('workbench.variables.vault.cipherLocked')}
                 action={
                   <Button size="small" danger onClick={requestSecretsRelaunch}>
                     {t('workbench.variables.vault.cipherLockedRelaunch')}
@@ -342,7 +342,7 @@ const VaultEditor: React.FC<VaultEditorProps> = ({ onDirtyChange, registerSaveRe
               <Alert
                 type="error"
                 showIcon
-                message={t('workbench.variables.vault.lockedTitle')}
+                title={t('workbench.variables.vault.lockedTitle')}
                 description={t('workbench.variables.vault.lockedDescription')}
               />
             ) : (

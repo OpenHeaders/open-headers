@@ -106,7 +106,7 @@ function ComboKnob<T>({
       }}
       allowClear
       popupMatchSelectWidth={false}
-      dropdownStyle={{ maxWidth: 320 }}
+      styles={{ popup: { root: { maxWidth: 320 } } }}
       disabled={disabled}
       placeholder={placeholder}
       aria-label={ariaLabel}

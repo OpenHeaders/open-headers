@@ -65,7 +65,7 @@ const KeyValueField: React.FC<KeyValueFieldProps> = ({ def }) => {
       requiresConnection={def.requiresConnection}
       block
     >
-      <Space direction="vertical" style={{ width: '100%' }} size={6}>
+      <Space orientation="vertical" style={{ width: '100%' }} size={6}>
         {rows.map((row, i) => (
           <Space.Compact key={`${i}-${row.key}`} style={{ width: '100%' }}>
             <Input

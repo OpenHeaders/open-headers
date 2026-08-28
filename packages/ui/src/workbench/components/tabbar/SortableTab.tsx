@@ -254,13 +254,15 @@ const SortableTab: React.FC<SortableTabProps> = ({
       <Tooltip
         title={tooltipTitle}
         color={token.colorBgElevated}
-        overlayClassName="rules-tab-path-tooltip"
-        overlayInnerStyle={{
-          color: token.colorText,
-          fontSize: 11,
-          padding: '3px 8px',
-          border: `1px solid ${token.colorBorderSecondary}`,
-          boxShadow: '0 2px 6px rgba(0, 0, 0, 0.06)',
+        classNames={{ root: 'rules-tab-path-tooltip' }}
+        styles={{
+          container: {
+            color: token.colorText,
+            fontSize: 11,
+            padding: '3px 8px',
+            border: `1px solid ${token.colorBorderSecondary}`,
+            boxShadow: '0 2px 6px rgba(0, 0, 0, 0.06)',
+          },
         }}
         placement="bottomLeft"
         // Offset the tooltip 6 px further from the tab so it clears
@@ -277,7 +279,7 @@ const SortableTab: React.FC<SortableTabProps> = ({
         // Empty motionName renders the tooltip statically — appear in
         // place, vanish instantly.
         motion={{ motionName: '' }}
-        destroyTooltipOnHide
+        destroyOnHidden
         open={contextMenuOpen || tooltipSuppressed ? false : undefined}
       >
         {content}

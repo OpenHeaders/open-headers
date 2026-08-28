@@ -72,7 +72,7 @@ export function ResponseQuickFields({ draft, updateDraft, entityUid }: ResponseQ
               style={{ width: '100%' }}
               // Popover container's stacking context is z=1080 — lift
               // the dropdown above it, same as the header popover.
-              dropdownStyle={{ zIndex: 1090 }}
+              styles={{ popup: { root: { zIndex: 1090 } } }}
               filterOption={(input, option) => {
                 const label = String(option?.label ?? '');
                 return label.toLowerCase().includes(input.toLowerCase());
@@ -91,7 +91,7 @@ export function ResponseQuickFields({ draft, updateDraft, entityUid }: ResponseQ
               options={CONTENT_TYPE_OPTIONS}
               placeholder="application/json"
               style={{ width: '100%' }}
-              dropdownStyle={{ zIndex: 1090 }}
+              styles={{ popup: { root: { zIndex: 1090 } } }}
               filterOption={(input, option) => {
                 const value = String(option?.value ?? '');
                 return value.toLowerCase().includes(input.toLowerCase());

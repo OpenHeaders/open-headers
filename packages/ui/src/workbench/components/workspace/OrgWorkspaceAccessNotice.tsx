@@ -127,7 +127,7 @@ const OrgWorkspaceAccessNotice: React.FC<OrgWorkspaceAccessNoticeProps> = ({
         key: toastKey,
         placement: 'bottomRight',
         style: { width: 380 },
-        message: (
+        title: (
           <span style={TOAST_TITLE_STYLE}>
             {alreadyActive
               ? t('workbench.workspace.grant.arrivedActiveTitle')
@@ -187,7 +187,7 @@ const OrgWorkspaceAccessNotice: React.FC<OrgWorkspaceAccessNoticeProps> = ({
       type="info"
       showIcon
       data-testid="org-zero-grant-notice"
-      message={t('workbench.workspace.grant.zeroBanner', { orgs: orgNames })}
+      title={t('workbench.workspace.grant.zeroBanner', { orgs: orgNames })}
     />
   );
 };

@@ -110,9 +110,9 @@ const ImportSourceModal: React.FC<Props> = ({
       onCancel={onCancel}
       width={520}
       centered
-      maskClosable={false}
+      mask={{ closable: false }}
       destroyOnHidden
-      focusTriggerAfterClose={focusTriggerAfterClose}
+      focusable={{ focusTriggerAfterClose }}
       styles={{
         container: { padding: 0, overflow: 'hidden' },
         body: { padding: 0, background: token.colorBgLayout },

@@ -73,7 +73,7 @@ const PanelHeader: React.FC<PanelHeaderProps> = ({ wiring, title, info, actions,
         {optionsMenuItems && optionsMenuItems.length > 0 && (
           <Dropdown
             menu={{ items: optionsMenuItems }}
-            overlayClassName="rules-panel-options-menu"
+            classNames={{ root: 'rules-panel-options-menu' }}
             trigger={['click']}
             placement="bottomRight"
             onOpenChange={setOptionsMenuOpen}

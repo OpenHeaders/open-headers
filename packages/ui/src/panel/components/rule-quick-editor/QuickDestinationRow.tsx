@@ -90,7 +90,7 @@ export function QuickDestinationRow({ api }: { api: QuickCreateDestinationApi })
               onChange={onCollectionChange}
               options={api.trees.map((t) => ({ value: t.uid, label: t.name }))}
               style={{ flex: 1, minWidth: 0 }}
-              dropdownStyle={{ zIndex: 1090 }}
+              styles={{ popup: { root: { zIndex: 1090 } } }}
               disabled={api.trees.length === 0}
             />
             <Select
@@ -111,7 +111,7 @@ export function QuickDestinationRow({ api }: { api: QuickCreateDestinationApi })
                 })),
               ]}
               style={{ flex: 1, minWidth: 0 }}
-              dropdownStyle={{ zIndex: 1090 }}
+              styles={{ popup: { root: { zIndex: 1090 } } }}
               disabled={!activeTree}
             />
           </div>

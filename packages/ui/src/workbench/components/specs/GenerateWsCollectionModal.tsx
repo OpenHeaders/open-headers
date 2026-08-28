@@ -154,7 +154,7 @@ const GenerateWsCollectionModal: React.FC<GenerateWsCollectionModalProps> = ({
         </div>
       }
       width={640}
-      destroyOnClose
+      destroyOnHidden
     >
       <Typography.Paragraph type="secondary" style={{ fontSize: 12, marginBottom: 12 }}>
         {t('workbench.editors.spec.generateWs.blurb')}
@@ -164,7 +164,7 @@ const GenerateWsCollectionModal: React.FC<GenerateWsCollectionModalProps> = ({
         <Alert
           type="info"
           showIcon
-          message={t('workbench.editors.spec.generate.dirtyHint')}
+          title={t('workbench.editors.spec.generate.dirtyHint')}
           style={{ marginBottom: 12 }}
         />
       )}
@@ -173,7 +173,7 @@ const GenerateWsCollectionModal: React.FC<GenerateWsCollectionModalProps> = ({
         <Alert
           type="warning"
           showIcon
-          message={t('workbench.editors.websocket.spec.parseFailure', { message: plan.parseError })}
+          title={t('workbench.editors.websocket.spec.parseFailure', { message: plan.parseError })}
           style={{ marginBottom: 12 }}
         />
       )}
@@ -182,7 +182,7 @@ const GenerateWsCollectionModal: React.FC<GenerateWsCollectionModalProps> = ({
         <Alert
           type="warning"
           showIcon
-          message={t('workbench.editors.spec.generateWs.noServer')}
+          title={t('workbench.editors.spec.generateWs.noServer')}
           style={{ marginBottom: 12 }}
           data-testid="spec-generate-ws-no-server"
         />
@@ -192,7 +192,7 @@ const GenerateWsCollectionModal: React.FC<GenerateWsCollectionModalProps> = ({
         <Alert
           type="warning"
           showIcon
-          message={t('workbench.editors.spec.generateWs.empty')}
+          title={t('workbench.editors.spec.generateWs.empty')}
           style={{ marginBottom: 12 }}
           data-testid="spec-generate-ws-empty"
         />
@@ -230,7 +230,7 @@ const GenerateWsCollectionModal: React.FC<GenerateWsCollectionModalProps> = ({
             key={entry.operation}
             type="warning"
             showIcon
-            message={t('workbench.editors.spec.generateWs.skipped', {
+            title={t('workbench.editors.spec.generateWs.skipped', {
               operation: entry.operation,
               reason: entry.reason,
             })}

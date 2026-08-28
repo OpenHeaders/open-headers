@@ -137,7 +137,7 @@ const LicensePane: React.FC<CategoryPaneProps> = ({ category }) => {
             <Alert
               type="info"
               showIcon
-              message={<span style={{ fontSize: 12 }}>{t('workbench.settings.licensePane.freeTier.title')}</span>}
+              title={<span style={{ fontSize: 12 }}>{t('workbench.settings.licensePane.freeTier.title')}</span>}
               description={
                 <span style={{ fontSize: 12 }}>
                   {t('workbench.settings.licensePane.freeTier.body', { limit: FREE_SEAT_LIMIT })}
@@ -156,7 +156,7 @@ const LicensePane: React.FC<CategoryPaneProps> = ({ category }) => {
             <Alert
               type="error"
               showIcon
-              message={<span style={{ fontSize: 12 }}>{t('workbench.settings.licensePane.invalidAlert.title')}</span>}
+              title={<span style={{ fontSize: 12 }}>{t('workbench.settings.licensePane.invalidAlert.title')}</span>}
               description={
                 <span style={{ fontSize: 12 }}>
                   {t(INVALID_REASON_TEXT[snapshot.reason])}{' '}
@@ -171,7 +171,7 @@ const LicensePane: React.FC<CategoryPaneProps> = ({ category }) => {
             <Alert
               type="warning"
               showIcon
-              message={<span style={{ fontSize: 12 }}>{t('workbench.settings.licensePane.grace.title')}</span>}
+              title={<span style={{ fontSize: 12 }}>{t('workbench.settings.licensePane.grace.title')}</span>}
               description={
                 <span style={{ fontSize: 12 }}>
                   {t('workbench.settings.licensePane.grace.body', {
@@ -194,7 +194,7 @@ const LicensePane: React.FC<CategoryPaneProps> = ({ category }) => {
             <Alert
               type="error"
               showIcon
-              message={<span style={{ fontSize: 12 }}>{t('workbench.settings.licensePane.expired.title')}</span>}
+              title={<span style={{ fontSize: 12 }}>{t('workbench.settings.licensePane.expired.title')}</span>}
               description={
                 <span style={{ fontSize: 12 }}>
                   {t('workbench.settings.licensePane.expired.body', { limit: FREE_SEAT_LIMIT })}
