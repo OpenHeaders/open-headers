@@ -89,6 +89,10 @@ const VIEWER_PX = 181;
 const DETAIL_HEADING_PX = 18;
 const DETAIL_ROW_PX = 20;
 const DETAIL_CHROME_PX = 13;
+/** One level of the sheets' outline — every item sits one step under
+ *  its heading (Handshake Details, Request Headers, Response Headers
+ *  share the top level). */
+const DETAIL_INDENT_PX = 12;
 /** The Disconnected row's block — one detail line. */
 const ENDED_DETAIL_PX = DETAIL_ROW_PX + DETAIL_CHROME_PX;
 
@@ -1217,17 +1221,19 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
             {factRow(
               t('workbench.editors.websocket.timeline.requestUrl'),
               handshake.url !== undefined ? upgradeRequestUrl(handshake.url) : '',
+              DETAIL_INDENT_PX,
             )}
-            {factRow(t('workbench.editors.websocket.timeline.requestMethod'), 'GET')}
-            {factRow(t('workbench.editors.websocket.timeline.statusCode'), '101 Switching Protocols')}
+            {factRow(t('workbench.editors.websocket.timeline.requestMethod'), 'GET', DETAIL_INDENT_PX)}
+            {factRow(t('workbench.editors.websocket.timeline.statusCode'), '101 Switching Protocols', DETAIL_INDENT_PX)}
             {sectionRow('request', t('workbench.editors.websocket.timeline.requestHeaders'))}
-            {sectionsOpen.request && handshakeSheet.requestRows.map((row) => factRow(row.key, row.value, 12))}
+            {sectionsOpen.request &&
+              handshakeSheet.requestRows.map((row) => factRow(row.key, row.value, DETAIL_INDENT_PX))}
             {sectionRow('response', t('workbench.editors.websocket.timeline.responseHeaders'))}
             {sectionsOpen.response &&
               (handshakeSheet.responseRows.length > 0 ? (
-                handshakeSheet.responseRows.map((row) => factRow(row.key, row.value, 12))
+                handshakeSheet.responseRows.map((row) => factRow(row.key, row.value, DETAIL_INDENT_PX))
               ) : (
-                <div style={{ ...lineStyle, paddingLeft: 12, color: token.colorTextTertiary }}>
+                <div style={{ ...lineStyle, paddingLeft: DETAIL_INDENT_PX, color: token.colorTextTertiary }}>
                   {t('workbench.editors.websocket.session.handshakeNote')}
                 </div>
               ))}
@@ -1342,8 +1348,9 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
                 {factRow(
                   t('workbench.editors.websocket.timeline.requestUrl'),
                   handshake.url !== undefined ? upgradeRequestUrl(handshake.url) : '',
+                  DETAIL_INDENT_PX,
                 )}
-                {factRow(t('workbench.editors.websocket.timeline.requestMethod'), 'GET')}
+                {factRow(t('workbench.editors.websocket.timeline.requestMethod'), 'GET', DETAIL_INDENT_PX)}
                 <div
                   role="button"
                   tabIndex={0}
@@ -1360,7 +1367,8 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
                 >
                   {sectionsOpen.request ? '▾' : '▸'} {t('workbench.editors.websocket.timeline.requestHeaders')}
                 </div>
-                {sectionsOpen.request && handshakeSheet.requestRows.map((row) => factRow(row.key, row.value, 12))}
+                {sectionsOpen.request &&
+                  handshakeSheet.requestRows.map((row) => factRow(row.key, row.value, DETAIL_INDENT_PX))}
               </>
             )}
           </div>
