@@ -113,17 +113,19 @@ const WsMessageTab: React.FC<WsMessageTabProps> = ({
         ) : (
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>{exampleSelect}</div>
         )}
-        {(socketioFlavor || draft.messageFormat === 'json') && (
-          <CodeEditorActions
-            target={messageActionsRef}
-            language="json"
-            labels
-            findText={t('workbench.editors.scriptEditor.find')}
-            replaceText={t('workbench.editors.scriptEditor.replace')}
-            formatText={t('workbench.editors.scriptEditor.beautify')}
-          />
-        )}
-        <EditorViewMenu wrap={wrapMessage} onWrapChange={setWrapMessage} data-testid="ws-editor-menu" />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          {(socketioFlavor || draft.messageFormat === 'json') && (
+            <CodeEditorActions
+              target={messageActionsRef}
+              language="json"
+              labels
+              findText={t('workbench.editors.scriptEditor.find')}
+              replaceText={t('workbench.editors.scriptEditor.replace')}
+              formatText={t('workbench.editors.scriptEditor.beautify')}
+            />
+          )}
+          <EditorViewMenu wrap={wrapMessage} onWrapChange={setWrapMessage} data-testid="ws-editor-menu" />
+        </div>
       </div>
       {/* Absolute inset host — a fill editor must not size its own
         flex parent (the BodyTab discipline). */}
