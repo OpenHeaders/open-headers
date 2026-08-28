@@ -164,8 +164,8 @@ export const workbenchEditorsWebsocket = {
   'workbench.editors.websocket.toast.saveExampleFailedDetail': 'Beispiel konnte nicht gespeichert werden: {message}',
   // ── Session pane ────────────────────────────────────────────────────
   'workbench.editors.websocket.session.title': 'Sitzung',
-  'workbench.editors.websocket.session.emptyHint':
-    'Verbinde dich, um die Sitzung zu starten — Nachrichten erscheinen hier live.',
+  'workbench.editors.websocket.session.emptyTitle': 'Antwort',
+  'workbench.editors.websocket.session.emptyHint': 'Verbinden, um Nachrichten zu senden und zu empfangen.',
   'workbench.editors.websocket.session.connectFailed': 'Die Sitzung konnte nicht geöffnet werden',
   'workbench.editors.websocket.session.connectingBadge': 'VERBINDET',
   'workbench.editors.websocket.session.connectedBadge': 'VERBUNDEN',

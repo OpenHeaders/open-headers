@@ -30,10 +30,10 @@
  * hood).
  */
 
-import { DisconnectOutlined, LinkOutlined } from '@ant-design/icons';
+import { CaretRightOutlined, DisconnectOutlined, LinkOutlined } from '@ant-design/icons';
 import { WEBSOCKET_REQUEST_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { WebSocketRequest as WebSocketRequestEntity } from '@openheaders/core/types';
-import { ShortcutHintTitle } from '@openheaders/ui/components/ShortcutKbd';
+import { ShortcutHintTitle, ShortcutKbd } from '@openheaders/ui/components/ShortcutKbd';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { EntityScopeProvider } from '@openheaders/ui/shared/awareness';
 import { useEditorShell, useReprime } from '@openheaders/ui/shared/editor-shell';
@@ -470,13 +470,28 @@ const WebSocketRequestEditor: React.FC<WebSocketRequestEditorProps> = ({
                     }}
                   >
                     <Text strong style={{ fontSize: 12 }}>
-                      {t('workbench.editors.websocket.session.title')}
+                      {t('workbench.editors.websocket.session.emptyTitle')}
                     </Text>
                   </div>
-                  <div style={{ padding: '16px 12px' }} data-testid="ws-session-empty">
+                  <div
+                    style={{
+                      flex: 1,
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: 8,
+                      minHeight: 0,
+                      padding: 24,
+                      textAlign: 'center',
+                    }}
+                    data-testid="ws-session-empty"
+                  >
+                    <CaretRightOutlined style={{ fontSize: 20, color: token.colorTextQuaternary }} />
                     <Text type="secondary" style={{ fontSize: 12 }}>
                       {t('workbench.editors.websocket.session.emptyHint')}
                     </Text>
+                    <ShortcutKbd label={CONNECT_SHORTCUT} surface="page" size={22} />
                   </div>
                 </div>
               )}

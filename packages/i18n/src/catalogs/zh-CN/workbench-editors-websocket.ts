@@ -133,7 +133,8 @@ export const workbenchEditorsWebsocket = {
   'workbench.editors.websocket.toast.saveExampleFailedDetail': '保存示例失败：{message}',
   // ── Session pane ────────────────────────────────────────────────────
   'workbench.editors.websocket.session.title': '会话',
-  'workbench.editors.websocket.session.emptyHint': '连接即可开始会话——消息会实时出现在这里。',
+  'workbench.editors.websocket.session.emptyTitle': '响应',
+  'workbench.editors.websocket.session.emptyHint': '连接以发送和接收消息。',
   'workbench.editors.websocket.session.connectFailed': '打开会话失败',
   'workbench.editors.websocket.session.connectingBadge': '连接中',
   'workbench.editors.websocket.session.connectedBadge': '已连接',
