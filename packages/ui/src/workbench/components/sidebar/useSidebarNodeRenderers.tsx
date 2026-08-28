@@ -45,8 +45,9 @@ interface UseSidebarNodeRenderersParams {
   filterActive: boolean;
   /** False while a non-manual sort is active — rows render without dnd. */
   dragEnabled: boolean;
-  /** The multi-selection a dragged member takes along. */
+  /** The multi-selection a dragged member takes along, and its clear once a drop has moved rows. */
   selectedIds: ReadonlySet<string>;
+  clearSelection: () => void;
 }
 
 export interface SidebarNodeRenderers {
@@ -70,6 +71,7 @@ export function useSidebarNodeRenderers({
   filterActive,
   dragEnabled,
   selectedIds,
+  clearSelection,
 }: UseSidebarNodeRenderersParams): SidebarNodeRenderers {
   const { token } = theme.useToken();
   const t = useT();
@@ -124,7 +126,15 @@ export function useSidebarNodeRenderers({
   const renderTreeDndNodes = (nodes: TreeNode[], config: TreeDndConfig, emptyCreate?: () => void) => {
     if (nodes.length === 0) return renderEmptyState(emptyCreate);
     if (!dragEnabled) return nodes.map(renderTreeNodeRow);
-    return <TreeDnd nodes={nodes} renderNode={renderTreeNodeRow} config={config} selectedIds={selectedIds} />;
+    return (
+      <TreeDnd
+        nodes={nodes}
+        renderNode={renderTreeNodeRow}
+        config={config}
+        selectedIds={selectedIds}
+        onMoved={clearSelection}
+      />
+    );
   };
 
   return { renderTreeNodeRow, renderEmptyState, renderNodes, renderTreeDndNodes };

@@ -101,6 +101,8 @@ interface TreeDndProps {
   config: TreeDndConfig;
   /** The sidebar's multi-selection; a dragged member takes the whole selection along. */
   selectedIds: ReadonlySet<string>;
+  /** A drop that moved rows landed — the selection has done its job. */
+  onMoved: () => void;
 }
 
 interface DragState {
@@ -214,7 +216,7 @@ const anchorPillToCursor: Modifier = ({ activatorEvent, draggingNodeRect, transf
   };
 };
 
-export function TreeDnd({ nodes, renderNode, config, selectedIds }: TreeDndProps): React.ReactElement {
+export function TreeDnd({ nodes, renderNode, config, selectedIds, onMoved }: TreeDndProps): React.ReactElement {
   const t = useT();
   const { token } = theme.useToken();
   const sensors = useSensors(
@@ -300,8 +302,9 @@ export function TreeDnd({ nodes, renderNode, config, selectedIds }: TreeDndProps
       clearDrag();
       if (!current || current.placements.length === 0) return;
       config.move(current.placements);
+      onMoved();
     },
-    [clearDrag, config, dragOver],
+    [clearDrag, config, dragOver, onMoved],
   );
 
   const preview = useMemo(() => {

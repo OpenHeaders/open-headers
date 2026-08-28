@@ -1054,6 +1054,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     filterActive: filterText !== '',
     dragEnabled,
     selectedIds,
+    clearSelection,
   });
 
   const handleTreeMoveKey = useTreeKeyboardMoves({
