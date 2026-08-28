@@ -25,6 +25,14 @@ import { EntityField } from '@openheaders/ui/shared/awareness';
 import { highlightLabel } from './search-highlight';
 import type { TreeNode } from './types';
 
+// Every row reserves the caret slot (empty on leaves) so an expandable
+// row's icon and label line up with its siblings, and one level of
+// indent is exactly slot + row gap: a child's caret sits under its
+// parent's icon. The gap mirrors `.rules-sidebar-item { gap }`.
+const CARET_SLOT = 12;
+const ROW_GAP = 4;
+const INDENT = CARET_SLOT + ROW_GAP;
+
 interface TreeNodeRowProps {
   node: TreeNode;
   isSelected: boolean;
@@ -120,7 +128,7 @@ export function TreeNodeRow({
 
   // Placeholder rendering for empty collections
   if (node.kind === 'placeholder') {
-    const paddingLeft = 8 + node.depth * 12;
+    const paddingLeft = 8 + node.depth * INDENT;
     return (
       <div
         className="rules-sidebar-placeholder"
@@ -170,7 +178,7 @@ export function TreeNodeRow({
     .filter(Boolean)
     .join(' ');
 
-  const paddingLeft = 8 + node.depth * 12;
+  const paddingLeft = 8 + node.depth * INDENT;
 
   return (
     // biome-ignore lint/a11y/noStaticElementInteractions: sidebar tree row — keyboard nav happens at the parent container level
@@ -192,17 +200,18 @@ export function TreeNodeRow({
         if (!isRenaming) onDoubleClick();
       }}
     >
-      {/* Caret for expandable nodes */}
-      {node.expandable && (
-        <CaretRightOutlined
-          style={{
-            color: token.colorTextTertiary,
-            fontSize: 10,
-            transition: 'transform 0.2s',
-            transform: isExpanded ? 'rotate(90deg)' : 'rotate(0deg)',
-          }}
-        />
-      )}
+      <span className="rules-sidebar-item-caret">
+        {node.expandable && (
+          <CaretRightOutlined
+            style={{
+              color: token.colorTextTertiary,
+              fontSize: 10,
+              transition: 'transform 0.2s',
+              transform: isExpanded ? 'rotate(90deg)' : 'rotate(0deg)',
+            }}
+          />
+        )}
+      </span>
 
       {/* Icon — multi-select check overrides the entity icon when this
           node is part of the active export selection set. */}
