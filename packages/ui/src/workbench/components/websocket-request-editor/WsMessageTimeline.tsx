@@ -99,6 +99,13 @@ const DETAIL_INDENT_PX = 12;
 const DETAIL_CARET_PX = 14;
 /** Where the items under a level-0 line start. */
 const DETAIL_ITEM_PX = DETAIL_CARET_PX + DETAIL_INDENT_PX;
+
+/** The sheets' value tint — the info hue mixed toward the theme's
+ *  secondary text so it reads as a soft blue on either ground rather
+ *  than the saturated link tone. */
+function detailValueColor(token: { colorInfo: string; colorTextSecondary: string }): string {
+  return `color-mix(in srgb, ${token.colorInfo} 55%, ${token.colorTextSecondary})`;
+}
 /** The Disconnected row's block — one detail line. */
 const ENDED_DETAIL_PX = DETAIL_ROW_PX + DETAIL_CHROME_PX;
 
@@ -1179,7 +1186,7 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
         const factRow = (label: string, value: string, indent = 0): React.ReactNode => (
           <div key={`${indent}:${label}`} style={{ ...lineStyle, paddingLeft: indent }}>
             <span style={{ color: token.colorTextSecondary }}>{label}: </span>
-            <span style={{ color: token.colorInfoText }}>"{value}"</span>
+            <span style={{ color: detailValueColor(token) }}>"{value}"</span>
           </div>
         );
         const sectionRow = (section: keyof HeaderSectionsOpen, label: string): React.ReactNode => (
@@ -1317,7 +1324,7 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
         const factRow = (label: string, value: string, indent = 0): React.ReactNode => (
           <div key={`${indent}:${label}`} style={{ ...lineStyle, paddingLeft: indent }}>
             <span style={{ color: token.colorTextSecondary }}>{label}: </span>
-            <span style={{ color: token.colorInfoText }}>"{value}"</span>
+            <span style={{ color: detailValueColor(token) }}>"{value}"</span>
           </div>
         );
         return (
