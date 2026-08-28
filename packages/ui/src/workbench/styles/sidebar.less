@@ -242,6 +242,13 @@
   opacity: 1;
 }
 
+// The folder drag grip sits on the row's deepest guide (both center
+// in the parent's caret slot): while that row is hovered, its own
+// segment of the line yields to the grip.
+.rules-sidebar-content:hover .folder-dnd-row:hover .rules-sidebar-item-guide:has(+ .rules-sidebar-item-caret) {
+  opacity: 0;
+}
+
 .rules-sidebar-item-caret {
   flex: none;
   width: 12px;
