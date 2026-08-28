@@ -40,7 +40,7 @@ import {
   resolveRendererContext,
   type SyncSimpleResult,
 } from './apply-payload';
-import { requestTreeMirrors, resolveLeafParent, resolveLeafPlacement, unresolvableParent } from './tree-placement';
+import { requestTreeMirrors, resolveChildPlacement, resolveLeafParent, unresolvableParent } from './tree-placement';
 
 export type WebSocketRequestUpdates = Partial<Omit<WebSocketRequest, 'uid' | 'path' | 'pathSegment' | 'schemaVersion'>>;
 
@@ -131,7 +131,7 @@ export async function applyWebSocketRequestCreate(
   opts: WebSocketRequestWriteOptions,
 ): Promise<WebSocketRequestSimpleResult> {
   const parentPath = parentPathOf(request.path) ?? '';
-  const placement = await resolveLeafPlacement(requestTreeMirrors(opts.workspaceId, opts), parentPath);
+  const placement = await resolveChildPlacement(requestTreeMirrors(opts.workspaceId, opts), parentPath);
   if (!placement) return unresolvableParent(parentPath);
   const ctx = resolveRendererContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
   const payload = buildWebSocketAddBatch(request, ctx, placement);

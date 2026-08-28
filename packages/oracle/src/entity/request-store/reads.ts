@@ -1,6 +1,7 @@
 // ── Reads ────────────────────────────────────────────────────────────
 
 import {
+  mergeOrderedEntries,
   REQUEST_COLLECTION_ENTITY_TYPE,
   REQUEST_FOLDER_CHILDREN_PATH,
   REQUEST_FOLDER_ENTITY_TYPE,
@@ -39,9 +40,9 @@ export function getRequestCollectionTrees(): CollectionTree[] {
 
 /**
  * Build TreeNode[] for the children of a request-collection or
- * request-folder: child folders first, then requests, each run in the
- * order carried by the parent's `folders` / `items` set (§7.2 + §23.5).
- * Children without a live slot yet follow by their stored path
+ * request-folder: folders and requests in ONE order — the parent's
+ * `folders` and `items` sets merged by key (§7.2 + §23.5). Children
+ * without a live slot yet follow by their stored path
  * (`orderedChildren`) — never require a slot on read.
  */
 function buildTreeForParent(
@@ -52,24 +53,28 @@ function buildTreeForParent(
 ): TreeNode[] {
   const nodes: TreeNode[] = [];
   const oracle = getOracleForCurrentWorkspace();
-  const slotUids = (setPath: string): string[] =>
-    oracle ? oracle.liveOrderedSetItems(parentType, parentUid, setPath).map((slot) => slot.itemId) : [];
-  const children = orderedChildren(index, parentPath, {
-    folders: slotUids(REQUEST_FOLDER_CHILDREN_PATH),
-    items: slotUids(REQUEST_FOLDER_ITEMS_PATH),
-  });
+  const slots = oracle
+    ? mergeOrderedEntries(
+        oracle.liveOrderedSetItems(parentType, parentUid, REQUEST_FOLDER_CHILDREN_PATH),
+        oracle.liveOrderedSetItems(parentType, parentUid, REQUEST_FOLDER_ITEMS_PATH),
+        (slot) => slot.key,
+        (slot) => slot.itemId,
+      ).map((slot) => slot.itemId)
+    : null;
 
-  for (const folder of children.folders) {
-    nodes.push({
-      type: 'folder',
-      uid: folder.uid,
-      name: folder.name,
-      path: folder.path,
-      children: buildTreeForParent(index, REQUEST_FOLDER_ENTITY_TYPE, folder.uid, folder.path),
-    });
-  }
-
-  for (const request of children.leaves) {
+  for (const child of orderedChildren(index, parentPath, slots)) {
+    if (child.kind === 'folder') {
+      const folder = child.entity;
+      nodes.push({
+        type: 'folder',
+        uid: folder.uid,
+        name: folder.name,
+        path: folder.path,
+        children: buildTreeForParent(index, REQUEST_FOLDER_ENTITY_TYPE, folder.uid, folder.path),
+      });
+      continue;
+    }
+    const request = child.entity;
     nodes.push({
       type: 'request',
       uid: request.uid,

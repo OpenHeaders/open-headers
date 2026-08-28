@@ -17,8 +17,8 @@
  * vertically). Once the pointer reaches a spot the drop would land in,
  * the placeholder moves there — the source slots collapse and the
  * dashed row renders at the landing spot (at the row's own depth
- * beside a sibling, or one deeper at the head of the run inside a
- * container, right where the pointer is) — and the landing parent's indent
+ * beside a sibling, or one deeper right under a container row, where
+ * the pointer is) — and the landing parent's indent
  * guide turns primary from its first child row down to it. The
  * landing spot is sticky: it only changes when another valid spot
  * resolves (the rows' own slot counts — the placeholder returns there
@@ -156,9 +156,9 @@ function collisionHit(collisions: Collision[] | null): CollisionHit | null {
 /**
  * A different row takes the landing spot over only once the pointer
  * is this far inside it. At a row edge the two rows can name spots
- * rows apart (a leaf into a container lands after its folder run; into
- * the first folder lands right under it), and a resting hand's tremor
- * would toggle them.
+ * rows apart (into a container lands right under its row; before its
+ * first child's own subtree end lands rows below), and a resting
+ * hand's tremor would toggle them.
  */
 const EDGE_HYSTERESIS = 3;
 
@@ -176,7 +176,11 @@ function RemeasureRows({ ids, signature }: { ids: UniqueIdentifier[]; signature:
   return null;
 }
 
-/** The zone a row offers to the dragged row, `null` when it is no target. */
+/**
+ * The zone a row offers to the dragged row, `null` when it is no
+ * target. Folders and leaves share one order, so a folder row offers
+ * the same three bands to both and a leaf row the same two.
+ */
 function zoneFor(
   active: ReturnType<typeof roleOf>,
   over: ReturnType<typeof roleOf>,
@@ -188,12 +192,7 @@ function zoneFor(
     return over.role === 'collection' ? classifySiblingZone(pointerY, rect) : null;
   }
   if (over.role === 'collection') return 'into';
-  if (over.role === 'leaf') {
-    if (active.role === 'folder') return 'into';
-    return classifySiblingZone(pointerY, rect);
-  }
-  // Over a folder: a folder picks among three bands, a leaf only lands inside.
-  if (active.role === 'leaf') return 'into';
+  if (over.role === 'leaf') return classifySiblingZone(pointerY, rect);
   return classifyDropZone(pointerY, rect);
 }
 
@@ -266,8 +265,7 @@ export function TreeDnd({ nodes, renderNode, config, selectedIds, onMoved }: Tre
           overNode,
           byId,
           config,
-          lookupSiblings: config.lookupSiblings,
-          lookupItems: config.lookupItems,
+          lookupChildren: config.lookupChildren,
           lookupCollections: config.lookupCollections,
         });
         if (resolution.kind === 'rejected') return prev;
@@ -277,14 +275,14 @@ export function TreeDnd({ nodes, renderNode, config, selectedIds, onMoved }: Tre
             overId: overNode.id,
             zone,
             placements: [],
-            feedback: computeDropFeedback('before', nodes, byId, drag.moving[0], activeRole.role),
+            feedback: computeDropFeedback('before', nodes, byId, drag.moving[0]),
           };
         }
         return {
           overId: overNode.id,
           zone,
           placements: resolution.placements,
-          feedback: computeDropFeedback(zone, nodes, byId, overNode, activeRole.role),
+          feedback: computeDropFeedback(zone, nodes, byId, overNode),
         };
       });
     },

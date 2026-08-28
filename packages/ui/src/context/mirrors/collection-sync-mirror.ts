@@ -32,6 +32,8 @@ export interface CollectionSyncMirror {
   liveVarNames(collectionUid: string): string[];
   liveOrderedSetItems(collectionUid: string, setPath: string): Array<{ itemId: string; orderKey: string }>;
   subscribeCollectionMirror(collectionUid: string, listener: CollectionMirrorListener): () => void;
+  /** Fires for every collection entry change — tree readers recompute on any slot write. */
+  subscribeAny(listener: CollectionMirrorListener): () => void;
   hydrated: Promise<void>;
   dispose(): void;
 }
@@ -76,6 +78,7 @@ export function createCollectionSyncMirror(
     liveVarNames: (uid) => core.get(uid)?.varUids ?? [],
     liveOrderedSetItems: (uid, setPath) => core.get(uid)?.setOrderKeys[setPath] ?? [],
     subscribeCollectionMirror: core.subscribe,
+    subscribeAny: core.subscribeAny,
     hydrated: core.hydrated,
     dispose: core.dispose,
   };

@@ -113,6 +113,7 @@ function makeTreeMirrors(itemsByParent: Record<string, Array<{ itemId: string; o
       liveVarNames: () => [],
       liveOrderedSetItems: orderKeys,
       subscribeCollectionMirror: () => () => undefined,
+      subscribeAny: () => () => undefined,
       hydrated: Promise.resolve(),
       dispose: () => undefined,
     },

@@ -140,8 +140,14 @@ describe('WorkspaceTreeMaterializer', () => {
       { ...makeRule('rul0000b', 'Second'), path: 'rules/alpha-col0000a/second-rul0000b' } as Rule,
     ];
     state = applyTreeOrder(state, (parent, setPath) => {
-      if (parent.type === 'workspace-roots' && setPath === 'ruleCollections') return ['col0000a'];
-      if (parent.uid === 'col0000a' && setPath === 'items') return ['rul0000b', 'rul0000a'];
+      if (parent.type === 'workspace-roots' && setPath === 'ruleCollections')
+        return [{ uid: 'col0000a', orderKey: 'm' }];
+      if (parent.uid === 'col0000a' && setPath === 'items') {
+        return [
+          { uid: 'rul0000b', orderKey: 'm' },
+          { uid: 'rul0000a', orderKey: 's' },
+        ];
+      }
       return [];
     });
     await makeMaterializer().flush();

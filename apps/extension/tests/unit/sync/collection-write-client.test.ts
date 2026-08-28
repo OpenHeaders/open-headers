@@ -90,6 +90,7 @@ function makeCollectionMirror(
     liveVarNames: () => [],
     liveOrderedSetItems: () => [],
     subscribeCollectionMirror: () => () => undefined,
+    subscribeAny: () => () => undefined,
     hydrated: Promise.resolve(),
     dispose: () => undefined,
   };

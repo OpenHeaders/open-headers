@@ -77,8 +77,6 @@ import VariablesSection from './VariablesSection';
 import WorkflowsSection from './WorkflowsSection';
 import type { SidebarExportEntity } from '../workspace-export/build-export-scope';
 import { useDraftOverlay } from './useDraftOverlay';
-import { applySidebarSort, SIDEBAR_SORT_MODES } from './tree-sort';
-import { usePersistedChoice } from './use-persisted-choice';
 import { useTreeDndConfigs } from './useTreeDndConfigs';
 import { useTreeKeyboardMoves } from './useTreeKeyboardMoves';
 import { useEnvironmentNodes } from './useEnvironmentNodes';
@@ -267,7 +265,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     rules,
     activeWorkspaceId,
     localCollections,
-    localCollectionTrees: rawLocalCollectionTrees,
+    localCollectionTrees,
     pauseMarkers,
     pausedUids,
     togglePause,
@@ -281,7 +279,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     renameLocalCollection,
     createLocalCollection,
     templateCollections,
-    templateCollectionTrees: rawTemplateCollectionTrees,
+    templateCollectionTrees,
     deleteTemplate,
     updateTemplate,
     createTemplateCollection,
@@ -335,7 +333,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     websocketRequests: allWebSocketRequests,
     mqttRequests: allMqttRequests,
     collections: requestCollections,
-    collectionTrees: rawRequestCollectionTrees,
+    collectionTrees: requestCollectionTrees,
     updateRequest: updateRequestData,
     deleteRequest,
     updateGrpcRequest: updateGrpcRequestData,
@@ -371,19 +369,6 @@ const Sidebar: React.FC<SidebarProps> = ({
   const [openFoldersWithSingleClick, setOpenFoldersWithSingleClick] = usePersistedFlag('openFoldersWithSingleClick', true);
   const [alwaysSelectOpened, setAlwaysSelectOpened] = usePersistedFlag('alwaysSelectOpened', true);
   const [showIndentGuides, setShowIndentGuides] = usePersistedFlag('showIndentGuides', true);
-  // Order is data, sort is view: the manual order is shared workspace
-  // data; Name is a local display sort, and drag is off under it.
-  const [sortMode, setSortMode] = usePersistedChoice('sortMode', SIDEBAR_SORT_MODES, 'manual');
-  const dragEnabled = sortMode === 'manual';
-  const localCollectionTrees = useMemo(() => applySidebarSort(rawLocalCollectionTrees, sortMode), [rawLocalCollectionTrees, sortMode]);
-  const templateCollectionTrees = useMemo(
-    () => applySidebarSort(rawTemplateCollectionTrees, sortMode),
-    [rawTemplateCollectionTrees, sortMode],
-  );
-  const requestCollectionTrees = useMemo(
-    () => applySidebarSort(rawRequestCollectionTrees, sortMode),
-    [rawRequestCollectionTrees, sortMode],
-  );
   const containerRef = useRef<HTMLDivElement>(null);
 
   const {
@@ -1052,7 +1037,6 @@ const Sidebar: React.FC<SidebarProps> = ({
     searchHighlightQuery: search.highlightQuery,
     activeSearchMatchId: searchMatches.activeMatchId,
     filterActive: filterText !== '',
-    dragEnabled,
     selectedIds,
     clearSelection,
   });
@@ -1061,7 +1045,6 @@ const Sidebar: React.FC<SidebarProps> = ({
     allFlatItems,
     focusedId,
     configs: treeDndConfigs,
-    enabled: dragEnabled,
   });
 
   return (
@@ -1093,8 +1076,6 @@ const Sidebar: React.FC<SidebarProps> = ({
         alwaysSelectOpened={alwaysSelectOpened}
         setAlwaysSelectOpened={setAlwaysSelectOpened}
         showIndentGuides={showIndentGuides}
-        sortMode={sortMode}
-        setSortMode={setSortMode}
         setShowIndentGuides={setShowIndentGuides}
       />
       {search.open && (

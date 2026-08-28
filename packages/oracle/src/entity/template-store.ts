@@ -18,6 +18,7 @@
 import { consumedOrgIds, getIdentitySnapshot } from '@openheaders/core/identity';
 import { CollectionSchema, FolderSchema, TemplateSchema } from '@openheaders/core/schemas';
 import {
+  mergeOrderedEntries,
   resolveTreeParent,
   TEMPLATE_COLLECTION_ENTITY_TYPE,
   TEMPLATE_ENTITY_TYPE,
@@ -139,9 +140,9 @@ export function getTemplateCollectionTrees(): CollectionTree[] {
 
 /**
  * Build TreeNode[] for the children of a template-collection or
- * template-folder: child folders first, then templates, each run in
- * the order carried by the parent's `folders` / `items` set (§7.2 +
- * §23.5). Children without a live slot yet follow by their stored path
+ * template-folder: folders and templates in ONE order — the parent's
+ * `folders` and `items` sets merged by key (§7.2 + §23.5). Children
+ * without a live slot yet follow by their stored path
  * (`orderedChildren`) — never require a slot on read.
  */
 function buildTreeForParent(
@@ -152,24 +153,28 @@ function buildTreeForParent(
 ): TreeNode[] {
   const nodes: TreeNode[] = [];
   const oracle = getOracleForCurrentWorkspace();
-  const slotUids = (setPath: string): string[] =>
-    oracle ? oracle.liveOrderedSetItems(parentType, parentUid, setPath).map((slot) => slot.itemId) : [];
-  const children = orderedChildren(index, parentPath, {
-    folders: slotUids(TEMPLATE_FOLDER_CHILDREN_PATH),
-    items: slotUids(TEMPLATE_FOLDER_ITEMS_PATH),
-  });
+  const slots = oracle
+    ? mergeOrderedEntries(
+        oracle.liveOrderedSetItems(parentType, parentUid, TEMPLATE_FOLDER_CHILDREN_PATH),
+        oracle.liveOrderedSetItems(parentType, parentUid, TEMPLATE_FOLDER_ITEMS_PATH),
+        (slot) => slot.key,
+        (slot) => slot.itemId,
+      ).map((slot) => slot.itemId)
+    : null;
 
-  for (const folder of children.folders) {
-    nodes.push({
-      type: 'folder',
-      uid: folder.uid,
-      name: folder.name,
-      path: folder.path,
-      children: buildTreeForParent(index, TEMPLATE_FOLDER_ENTITY_TYPE, folder.uid, folder.path),
-    });
-  }
-
-  for (const template of children.leaves) {
+  for (const child of orderedChildren(index, parentPath, slots)) {
+    if (child.kind === 'folder') {
+      const folder = child.entity;
+      nodes.push({
+        type: 'folder',
+        uid: folder.uid,
+        name: folder.name,
+        path: folder.path,
+        children: buildTreeForParent(index, TEMPLATE_FOLDER_ENTITY_TYPE, folder.uid, folder.path),
+      });
+      continue;
+    }
+    const template = child.entity;
     nodes.push({
       type: 'template',
       uid: template.uid,

@@ -1,12 +1,13 @@
 /**
- * Renderer tree builders read children in the parent's slot order —
- * the four request kinds interleave by the `items` set, not by kind —
- * and fall back to stored-path order for slot-less children.
+ * Renderer tree builders read children in the parent's merged slot
+ * order — folders and the four request kinds interleaved as keyed —
+ * and fall back to stored-path order (folders, then leaves by kind)
+ * for slot-less children.
  */
 
 import type { Collection, GrpcRequest, Request, WebSocketRequest } from '@openheaders/core/types';
 import type { PersistedLocalFolder } from '@openheaders/oracle/storage';
-import { buildRequestCollectionTrees } from '@openheaders/ui/shared/local-tree-builder';
+import { buildRequestCollectionTrees, mirrorSlotReader } from '@openheaders/ui/shared/local-tree-builder';
 import { describe, expect, it } from 'vitest';
 
 const collection: Collection = {
@@ -32,7 +33,7 @@ const ws = (uid: string, parent: string): WebSocketRequest =>
   ({ schemaVersion: 5, uid, path: `${parent}/${uid}`, name: uid, flavor: 'raw' }) as unknown as WebSocketRequest;
 
 describe('buildRequestCollectionTrees — slot order', () => {
-  it('interleaves request kinds by the items slots and appends slot-less leaves by path', () => {
+  it('interleaves folders and request kinds by the merged slots and appends slot-less leaves by path', () => {
     const trees = buildRequestCollectionTrees(
       [collection],
       [folder],
@@ -40,29 +41,47 @@ describe('buildRequestCollectionTrees — slot order', () => {
       [grpc('grp00001', collection.path)],
       [ws('wss00001', collection.path)],
       [],
-      (parent) =>
-        parent.uid === collection.uid
-          ? { folders: ['fol00001'], items: ['wss00001', 'req00003', 'grp00001'] }
-          : { folders: [], items: ['req00002'] },
+      (parent) => (parent.uid === collection.uid ? ['wss00001', 'fol00001', 'req00003', 'grp00001'] : ['req00002']),
     );
     expect(trees[0].tree.map((n) => `${n.type}:${n.uid}`)).toEqual([
-      'folder:fol00001',
       'websocket-request:wss00001',
+      'folder:fol00001',
       'request:req00003',
       'grpc-request:grp00001',
       'request:req00001',
     ]);
-    const sub = trees[0].tree[0];
+    const sub = trees[0].tree[1];
     expect(sub.type === 'folder' && sub.children.map((n) => n.uid)).toEqual(['req00002']);
   });
 
-  it('groups by kind in array order without a slot source', () => {
+  it('groups folders first, then kinds in array order, without a slot source', () => {
     const trees = buildRequestCollectionTrees(
       [collection],
-      [],
+      [folder],
       [http('req00002', collection.path), http('req00001', collection.path)],
       [grpc('grp00001', collection.path)],
     );
-    expect(trees[0].tree.map((n) => n.uid)).toEqual(['req00002', 'req00001', 'grp00001']);
+    expect(trees[0].tree.map((n) => n.uid)).toEqual(['fol00001', 'req00002', 'req00001', 'grp00001']);
+  });
+
+  it('merges by key through mirrorSlotReader', () => {
+    const mirror = (sets: Record<string, Array<[string, string]>>) => ({
+      liveOrderedSetItems: (_uid: string, setPath: string) =>
+        (sets[setPath] ?? []).map(([itemId, orderKey]) => ({ itemId, orderKey })),
+    });
+    const read = mirrorSlotReader(
+      mirror({
+        folders: [['fol00001', 'p']],
+        items: [
+          ['req00001', 'm'],
+          ['req00002', 's'],
+        ],
+      }),
+      mirror({}),
+      'folders',
+      'items',
+    );
+    expect(read({ type: 'collection', uid: collection.uid })).toEqual(['req00001', 'fol00001', 'req00002']);
+    expect(read({ type: 'folder', uid: folder.uid })).toEqual([]);
   });
 });

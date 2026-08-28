@@ -5,7 +5,13 @@
  * template-folder entity type.
  */
 
-import type { MutationEnvelope, TemplateFolderParentRef } from '@openheaders/core/sync';
+import {
+  type MutationEnvelope,
+  TEMPLATE_FOLDER_CHILDREN_PATH,
+  TEMPLATE_FOLDER_ITEMS_PATH,
+  TEMPLATE_FOLDER_TREE_KINDS,
+  type TemplateFolderParentRef,
+} from '@openheaders/core/sync';
 import {
   buildCreateTemplateFolderBatch,
   buildDeleteTemplateFolderBatch,
@@ -14,6 +20,7 @@ import {
   buildRenameTemplateFolderBatch,
 } from '@openheaders/core/sync-builders/mutations/template-folder-mutations';
 import { buildDeleteEntityBatch as buildDeleteTemplateEntityBatch } from '@openheaders/core/sync-builders/mutations/template-mutations';
+import { getTemplateCollectionSyncMirrorForWorkspace } from '../../context/mirrors/template-collection-sync-mirror';
 import {
   getTemplateFolderSyncMirrorForWorkspace,
   type TemplateFolderSyncMirror,
@@ -26,6 +33,7 @@ import {
   resolveRendererContext,
   type SyncSimpleResult,
 } from './apply-payload';
+import { appendChildKey, type ContainerMirror } from './tree-placement';
 
 export { createTemplateFolderSyncMirror } from '../../context/mirrors/template-folder-sync-mirror';
 
@@ -33,6 +41,8 @@ export type TemplateFolderSimpleResult = SyncSimpleResult;
 
 export interface TemplateFolderWriteOptions extends BaseSyncWriteOptions {
   mirror?: TemplateFolderSyncMirror;
+  /** The tree's collection mirror — read for a create's append key (test override). */
+  collectionMirror?: ContainerMirror;
 }
 
 export interface ApplyTemplateFolderRenameInput {
@@ -66,7 +76,18 @@ export async function applyTemplateFolderCreate(
   const ctx = resolveRendererContext(opts).next(
     opts.batchId ? { batchId: opts.batchId } : { batchId: `template-folder-create-${input.folderUid}` },
   );
-  return applySyncPayload(buildCreateTemplateFolderBatch(input, ctx));
+  // A container's children are one order: a new folder lands after
+  // the last child of any kind, as a new leaf does.
+  const tree = {
+    kinds: TEMPLATE_FOLDER_TREE_KINDS,
+    childrenPath: TEMPLATE_FOLDER_CHILDREN_PATH,
+    itemsPath: TEMPLATE_FOLDER_ITEMS_PATH,
+    collectionMirror: opts.collectionMirror ?? getTemplateCollectionSyncMirrorForWorkspace(opts.workspaceId),
+    folderMirror: resolveMirror(opts, getTemplateFolderSyncMirrorForWorkspace),
+  };
+  await Promise.all([tree.collectionMirror.hydrated, tree.folderMirror.hydrated]);
+  const orderKey = input.orderKey ?? appendChildKey(tree, input.parent);
+  return applySyncPayload(buildCreateTemplateFolderBatch({ ...input, orderKey }, ctx));
 }
 
 export interface ApplyTemplateFolderDeleteInput {

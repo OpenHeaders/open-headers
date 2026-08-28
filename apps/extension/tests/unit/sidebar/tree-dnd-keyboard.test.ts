@@ -1,7 +1,9 @@
 /**
  * Keyboard moves — Alt+Arrow on the focused row resolves to the same
- * placement a drop makes: up / down among siblings of the same role,
- * into the nearest folder above, out to the grandparent's tail.
+ * placement a drop makes: up / down among the parent's children
+ * (folders and leaves share one order; collections among
+ * collections), into the nearest folder above, out to right after the
+ * folder left.
  */
 
 import { RULE_ENTITY_TYPE } from '@openheaders/core/sync';
@@ -45,10 +47,9 @@ const nodes: TreeNode[] = [
 ];
 const byId = new Map(nodes.map((n) => [n.id, n]));
 const keyed = (ids: string[]) => ids.map((itemId, i) => ({ itemId, orderKey: String.fromCharCode(103 + i * 3) }));
-const lookupSiblings = (parent: TreeDndParent) =>
-  parent.kind === 'collection' ? keyed(['f1', 'f4']) : parent.uid === 'f1' ? keyed(['f2']) : [];
-const lookupItems = (parent: TreeDndParent) =>
-  parent.kind === 'collection' ? keyed(['r1', 'r2']) : parent.uid === 'f1' ? keyed(['r3']) : [];
+// The merged children of each parent, in visible order.
+const lookupChildren = (parent: TreeDndParent) =>
+  parent.kind === 'collection' ? keyed(['f1', 'f4', 'r1', 'r2']) : parent.uid === 'f1' ? keyed(['f2', 'r3']) : [];
 const lookupCollections = () => keyed(['c1', 'c2']);
 
 const move = (direction: 'up' | 'down' | 'into' | 'out', id: string) =>
@@ -58,8 +59,7 @@ const move = (direction: 'up' | 'down' | 'into' | 'out', id: string) =>
     nodes,
     byId,
     config: CONFIG,
-    lookupSiblings,
-    lookupItems,
+    lookupChildren,
     lookupCollections,
   });
 
@@ -77,11 +77,15 @@ describe('moveDirectionForKey', () => {
 });
 
 describe('computeKeyboardMove', () => {
-  it('up / down move among siblings of the same role and stop at the ends', () => {
+  it("up / down move among the parent's children of either kind and stop at the ends", () => {
     expect(move('up', 'rule-r2')).toMatchObject({ kind: 'leaf', uid: 'r2', parent: { kind: 'collection', uid: 'c1' } });
-    expect(move('up', 'rule-r1')).toBeNull();
+    // r1 sits right after f4: up crosses the kind boundary.
+    const leafUp = move('up', 'rule-r1');
+    expect(leafUp).toMatchObject({ kind: 'leaf', uid: 'r1', parent: { kind: 'collection', uid: 'c1' } });
+    expect(leafUp!.orderKey > 'g' && leafUp!.orderKey < 'j').toBe(true);
     expect(move('down', 'rule-r2')).toBeNull();
     expect(move('down', 'folder-f1')).toMatchObject({ kind: 'folder', folderUid: 'f1' });
+    expect(move('down', 'folder-f4')).toMatchObject({ kind: 'folder', folderUid: 'f4' });
     expect(move('up', 'folder-f1')).toBeNull();
     expect(move('down', 'col-c1')).toMatchObject({ kind: 'collection', uid: 'c1' });
     expect(move('up', 'col-c1')).toBeNull();
@@ -104,7 +108,7 @@ describe('computeKeyboardMove', () => {
     expect(move('into', 'col-c1')).toBeNull();
   });
 
-  it('out moves to the grandparent at the tail of its run; a collection child stays', () => {
+  it('out lands right after the folder left, in its parent; a collection child stays', () => {
     const leafOut = move('out', 'rule-r3');
     expect(leafOut).toMatchObject({
       kind: 'leaf',
@@ -112,7 +116,8 @@ describe('computeKeyboardMove', () => {
       parent: { kind: 'collection', uid: 'c1' },
       oldParent: { kind: 'folder', uid: 'f1' },
     });
-    expect(leafOut!.orderKey > 'j').toBe(true);
+    // Between f1 ('g') and f4 ('j').
+    expect(leafOut!.orderKey > 'g' && leafOut!.orderKey < 'j').toBe(true);
     expect(move('out', 'folder-f2')).toMatchObject({
       kind: 'folder',
       folderUid: 'f2',

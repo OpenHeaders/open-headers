@@ -1,13 +1,15 @@
 /**
  * Renderer-side placement for tree write sites.
  *
- * A leaf create takes its parent's `items` slot in the same batch as
- * the entity; a leaf delete tombstones that slot with the entity. The
- * renderer knows parents by PATH (the sidebar's selected container),
- * so every leaf write client resolves the parent ref the same way: the
- * tree's collection + folder mirrors first, the path's own uid tail as
- * the fallback (the shared resolver's contract), and the parent
- * mirror's live `items` tail for the append key.
+ * A create takes its parent's slot — `items` for a leaf, `folders`
+ * for a folder — in the same batch as the entity; a delete tombstones
+ * that slot with the entity. The renderer knows parents by PATH (the
+ * sidebar's selected container), so every write client resolves the
+ * parent ref the same way: the tree's collection + folder mirrors
+ * first, the path's own uid tail as the fallback (the shared
+ * resolver's contract), and the parent's MERGED live tail — its
+ * folders and items are one order — for the append key, so a new
+ * child of either kind lands after the last child of any kind.
  *
  * One `TreeMirrors` per tree; the three factories below bind the
  * per-workspace mirror registries and accept test overrides.
@@ -15,12 +17,16 @@
 
 import {
   type ChildPlacement,
+  FOLDER_CHILDREN_PATH,
   FOLDER_ITEMS_PATH,
   FOLDER_TREE_KINDS,
   keyBetween,
+  mergedTailKey,
+  REQUEST_FOLDER_CHILDREN_PATH,
   REQUEST_FOLDER_ITEMS_PATH,
   REQUEST_FOLDER_TREE_KINDS,
   resolveTreeParent,
+  TEMPLATE_FOLDER_CHILDREN_PATH,
   TEMPLATE_FOLDER_ITEMS_PATH,
   TEMPLATE_FOLDER_TREE_KINDS,
   type TreeParentKinds,
@@ -46,11 +52,16 @@ export interface ContainerMirror {
   hydrated: Promise<void>;
 }
 
-export interface TreeMirrors<C extends string, F extends string> {
+/** A tree's two container mirrors and set paths — what an append key needs. */
+export interface TreeContainerMirrors<C extends string, F extends string> {
   kinds: TreeParentKinds<C, F>;
+  childrenPath: string;
   itemsPath: string;
   collectionMirror: ContainerMirror;
   folderMirror: ContainerMirror;
+}
+
+export interface TreeMirrors<C extends string, F extends string> extends TreeContainerMirrors<C, F> {
   listCollections(): ReadonlyArray<{ uid: string; path: string }>;
   listFolders(): ReadonlyArray<{ uid: string; path: string }>;
 }
@@ -71,6 +82,7 @@ export function ruleTreeMirrors(
   const folderMirror = overrides.folderMirror ?? getFolderSyncMirrorForWorkspace(workspaceId);
   return {
     kinds: FOLDER_TREE_KINDS,
+    childrenPath: FOLDER_CHILDREN_PATH,
     itemsPath: FOLDER_ITEMS_PATH,
     collectionMirror,
     folderMirror,
@@ -92,6 +104,7 @@ export function requestTreeMirrors(
   const folderMirror = overrides.folderMirror ?? getRequestFolderSyncMirrorForWorkspace(workspaceId);
   return {
     kinds: REQUEST_FOLDER_TREE_KINDS,
+    childrenPath: REQUEST_FOLDER_CHILDREN_PATH,
     itemsPath: REQUEST_FOLDER_ITEMS_PATH,
     collectionMirror,
     folderMirror,
@@ -113,6 +126,7 @@ export function templateTreeMirrors(
   const folderMirror = overrides.folderMirror ?? getTemplateFolderSyncMirrorForWorkspace(workspaceId);
   return {
     kinds: TEMPLATE_FOLDER_TREE_KINDS,
+    childrenPath: TEMPLATE_FOLDER_CHILDREN_PATH,
     itemsPath: TEMPLATE_FOLDER_ITEMS_PATH,
     collectionMirror,
     folderMirror,
@@ -147,20 +161,30 @@ export async function resolveLeafParent<C extends string, F extends string>(
   return parentPath === null ? null : resolveTreeParentRef(tree, parentPath);
 }
 
+/** The next append key under `parent`: strictly after the merged tail of its folders and items. */
+export function appendChildKey<C extends string, F extends string>(
+  tree: TreeContainerMirrors<C, F>,
+  parent: TreeParentRef<C, F>,
+): string {
+  const mirror = parent.type === tree.kinds.collectionType ? tree.collectionMirror : tree.folderMirror;
+  const tail = mergedTailKey([
+    mirror.liveOrderedSetItems(parent.uid, tree.childrenPath),
+    mirror.liveOrderedSetItems(parent.uid, tree.itemsPath),
+  ]);
+  return keyBetween(tail, null);
+}
+
 /**
- * Placement for a new leaf under `parentPath`: the parent ref plus the
- * next append key on that parent's `items` set (strictly after the
- * mirror's live tail). `null` when the parent is unresolvable.
+ * Placement for a new child under `parentPath`: the parent ref plus
+ * the next append key on that parent (strictly after its merged live
+ * tail). `null` when the parent is unresolvable.
  */
-export async function resolveLeafPlacement<C extends string, F extends string>(
+export async function resolveChildPlacement<C extends string, F extends string>(
   tree: TreeMirrors<C, F>,
   parentPath: string,
 ): Promise<ChildPlacement<TreeParentRef<C, F>> | null> {
   const parent = await resolveTreeParentRef(tree, parentPath);
-  if (!parent) return null;
-  const mirror = parent.type === tree.kinds.collectionType ? tree.collectionMirror : tree.folderMirror;
-  const live = mirror.liveOrderedSetItems(parent.uid, tree.itemsPath);
-  return { parent, orderKey: keyBetween(live.at(-1)?.orderKey ?? null, null) };
+  return parent ? { parent, orderKey: appendChildKey(tree, parent) } : null;
 }
 
 /** Uniform failure for a create whose parent the renderer cannot place. */

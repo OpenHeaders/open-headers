@@ -10,14 +10,15 @@
  *
  * The persisted arrays under `wsKeys(id).*` are written by the cache
  * layer in tree order (collections in roots order, folders and leaves
- * in their parent's slot order), so a single-kind tree reads its order
- * off the arrays alone. The requests tree holds four leaf kinds in ONE
- * `items` set and is persisted as four arrays; its cross-kind order
- * comes from the container mirrors' `items` slots (`slotsOf`), with
+ * each in their parent's slot order), but a container's children are
+ * ONE order — folders and leaves interleaved — and the arrays keep the
+ * kinds apart, so every tree reads the interleave from its container
+ * mirrors' `folders` + `items` slots merged by key (`slotsOf`), with
  * the arrays as the by-path net (`orderedChildren`).
  */
 
 import type { PersistedLocalFolder } from '@openheaders/core/storage';
+import { mergeOrderedEntries } from '@openheaders/core/sync';
 import type {
   Collection,
   CollectionTree,
@@ -31,10 +32,33 @@ import type {
 } from '@openheaders/core/types';
 import { type ContainerSlots, indexTreeChildren, orderedChildren, type TreeChildIndex } from '@openheaders/core/utils';
 
-/** A container's live child slots, per set — `null` when the reader has no slot source. */
+/** A container's live child slots, both kinds merged by key — `null` when the reader has no slot source. */
 export type ContainerSlotReader = (parent: { type: 'collection' | 'folder'; uid: string }) => ContainerSlots | null;
 
 const NO_SLOTS: ContainerSlotReader = () => null;
+
+/** The slice of a container mirror a slot reader needs. */
+export interface SlotMirror {
+  liveOrderedSetItems(uid: string, setPath: string): Array<{ itemId: string; orderKey: string }>;
+}
+
+/** A slot reader over a tree's collection + folder mirrors: each container's `folders` and `items` merged by key. */
+export function mirrorSlotReader(
+  collectionMirror: SlotMirror,
+  folderMirror: SlotMirror,
+  childrenPath: string,
+  itemsPath: string,
+): ContainerSlotReader {
+  return (parent) => {
+    const mirror = parent.type === 'collection' ? collectionMirror : folderMirror;
+    return mergeOrderedEntries(
+      mirror.liveOrderedSetItems(parent.uid, childrenPath),
+      mirror.liveOrderedSetItems(parent.uid, itemsPath),
+      (slot) => slot.orderKey,
+      (slot) => slot.itemId,
+    ).map((slot) => slot.itemId);
+  };
+}
 
 function buildFolderChildren<TLeaf extends { uid: string }>(
   index: TreeChildIndex<PersistedLocalFolder, TLeaf>,
@@ -43,8 +67,12 @@ function buildFolderChildren<TLeaf extends { uid: string }>(
   emitLeaf: (leaf: TLeaf) => TreeNode,
 ): TreeNode[] {
   const nodes: TreeNode[] = [];
-  const children = orderedChildren(index, parent.path, slotsOf(parent));
-  for (const folder of children.folders) {
+  for (const child of orderedChildren(index, parent.path, slotsOf(parent))) {
+    if (child.kind === 'leaf') {
+      nodes.push(emitLeaf(child.entity));
+      continue;
+    }
+    const folder = child.entity;
     nodes.push({
       type: 'folder',
       uid: folder.uid,
@@ -53,7 +81,6 @@ function buildFolderChildren<TLeaf extends { uid: string }>(
       children: buildFolderChildren(index, { type: 'folder', uid: folder.uid, path: folder.path }, slotsOf, emitLeaf),
     });
   }
-  for (const leaf of children.leaves) nodes.push(emitLeaf(leaf));
   return nodes;
 }
 
@@ -103,9 +130,9 @@ export function buildRequestCollectionTrees(
   slotsOf: ContainerSlotReader = NO_SLOTS,
 ): CollectionTree[] {
   // All request kinds share the collection tree (S8 scope law:
-  // collections hold every request family). Leaves are merged per
-  // parent in the parent's `items` slot order when `slotsOf` has it;
-  // the by-path net runs HTTP requests first, then gRPC, then
+  // collections hold every request family). Children are merged per
+  // parent in the parent's slot order when `slotsOf` has it; the
+  // by-path net runs folders, then HTTP requests, then gRPC, then
   // WebSocket, then MQTT, each in array order.
   type RequestLeaf =
     | { kind: 'http'; uid: string; entity: Request }

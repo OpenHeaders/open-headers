@@ -12,7 +12,13 @@
  * layer on top.
  */
 
-import type { FolderParentRef, MutationEnvelope } from '@openheaders/core/sync';
+import {
+  FOLDER_CHILDREN_PATH,
+  FOLDER_ITEMS_PATH,
+  FOLDER_TREE_KINDS,
+  type FolderParentRef,
+  type MutationEnvelope,
+} from '@openheaders/core/sync';
 import {
   buildCreateFolderBatch,
   buildDeleteFolderBatch,
@@ -21,11 +27,8 @@ import {
   buildRenameFolderBatch,
 } from '@openheaders/core/sync-builders/mutations/folder-mutations';
 import { buildDeleteEntityBatch as buildDeleteRuleEntityBatch } from '@openheaders/core/sync-builders/mutations/rule-mutations';
-import {
-  createFolderSyncMirror,
-  type FolderSyncMirror,
-  getFolderSyncMirrorForWorkspace,
-} from '../../context/mirrors/folder-sync-mirror';
+import { getCollectionSyncMirrorForWorkspace } from '../../context/mirrors/collection-sync-mirror';
+import { type FolderSyncMirror, getFolderSyncMirrorForWorkspace } from '../../context/mirrors/folder-sync-mirror';
 import { getRuleSyncMirrorForWorkspace } from '../../context/mirrors/rule-sync-mirror';
 import {
   applySyncPayload,
@@ -34,6 +37,7 @@ import {
   resolveRendererContext,
   type SyncSimpleResult,
 } from './apply-payload';
+import { appendChildKey, type ContainerMirror } from './tree-placement';
 
 export { createFolderSyncMirror } from '../../context/mirrors/folder-sync-mirror';
 
@@ -41,6 +45,8 @@ export type FolderSimpleResult = SyncSimpleResult;
 
 export interface FolderWriteOptions extends BaseSyncWriteOptions {
   mirror?: FolderSyncMirror;
+  /** The tree's collection mirror — read for a create's append key (test override). */
+  collectionMirror?: ContainerMirror;
 }
 
 export interface ApplyFolderRenameInput {
@@ -77,7 +83,18 @@ export async function applyFolderCreate(
   const ctx = resolveRendererContext(opts).next(
     opts.batchId ? { batchId: opts.batchId } : { batchId: `folder-create-${input.folderUid}` },
   );
-  return applySyncPayload(buildCreateFolderBatch(input, ctx));
+  // A container's children are one order: a new folder lands after
+  // the last child of any kind, as a new leaf does.
+  const tree = {
+    kinds: FOLDER_TREE_KINDS,
+    childrenPath: FOLDER_CHILDREN_PATH,
+    itemsPath: FOLDER_ITEMS_PATH,
+    collectionMirror: opts.collectionMirror ?? getCollectionSyncMirrorForWorkspace(opts.workspaceId),
+    folderMirror: resolveMirror(opts, getFolderSyncMirrorForWorkspace),
+  };
+  await Promise.all([tree.collectionMirror.hydrated, tree.folderMirror.hydrated]);
+  const orderKey = input.orderKey ?? appendChildKey(tree, input.parent);
+  return applySyncPayload(buildCreateFolderBatch({ ...input, orderKey }, ctx));
 }
 
 export interface ApplyFolderDeleteInput {

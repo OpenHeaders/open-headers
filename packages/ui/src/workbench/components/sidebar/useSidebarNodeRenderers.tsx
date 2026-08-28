@@ -43,8 +43,6 @@ interface UseSidebarNodeRenderersParams {
    *  scaffolds are suppressed (a zero-match section must read as "no
    *  matches", not invite creation). */
   filterActive: boolean;
-  /** False while a non-manual sort is active — rows render without dnd. */
-  dragEnabled: boolean;
   /** The multi-selection a dragged member takes along, and its clear once a drop has moved rows. */
   selectedIds: ReadonlySet<string>;
   clearSelection: () => void;
@@ -69,7 +67,6 @@ export function useSidebarNodeRenderers({
   searchHighlightQuery,
   activeSearchMatchId,
   filterActive,
-  dragEnabled,
   selectedIds,
   clearSelection,
 }: UseSidebarNodeRenderersParams): SidebarNodeRenderers {
@@ -125,7 +122,6 @@ export function useSidebarNodeRenderers({
    *  the id prefixes, the live order reads and the mutator binding. */
   const renderTreeDndNodes = (nodes: TreeNode[], config: TreeDndConfig, emptyCreate?: () => void) => {
     if (nodes.length === 0) return renderEmptyState(emptyCreate);
-    if (!dragEnabled) return nodes.map(renderTreeNodeRow);
     return (
       <TreeDnd
         nodes={nodes}

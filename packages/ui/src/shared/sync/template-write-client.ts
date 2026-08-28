@@ -29,7 +29,7 @@ import {
   resolveRendererContext,
   type SyncSimpleResult,
 } from './apply-payload';
-import { resolveLeafParent, resolveLeafPlacement, templateTreeMirrors, unresolvableParent } from './tree-placement';
+import { resolveChildPlacement, resolveLeafParent, templateTreeMirrors, unresolvableParent } from './tree-placement';
 
 export type TemplateUpdates = Partial<Omit<Template, 'uid' | 'path' | 'pathSegment' | 'schemaVersion'>>;
 
@@ -94,7 +94,7 @@ export async function applyTemplateCreate(
   opts: TemplateWriteOptions,
 ): Promise<TemplateSimpleResult> {
   const parentPath = parentPathOf(template.path) ?? '';
-  const placement = await resolveLeafPlacement(templateTreeMirrors(opts.workspaceId, opts), parentPath);
+  const placement = await resolveChildPlacement(templateTreeMirrors(opts.workspaceId, opts), parentPath);
   if (!placement) return unresolvableParent(parentPath);
   const ctx = resolveRendererContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
   const payload = buildAddBatch(template, ctx, placement);

@@ -38,13 +38,22 @@
  * slotted keeps today's path seeding rather than a rehome, so an
  * in-flight create lands where its author put it.
  *
- * Order: at hydration the persisted tree-order record ranks the
- * leaves (it holds the interleave of the request kinds inside one
- * `items` set, which the per-kind arrays cannot), the arrays rank
- * whatever the record does not know, and keys mint ascending in that
- * order; a later inbound arrival appends after the parent's live
- * tail. Collections without a roots slot join their tree's roots in
- * persisted array order.
+ * Order: a container's children are ONE sequence — its `folders` and
+ * `items` sets merged by key. At hydration every container converges
+ * to one desired sequence through the slot-order planner: the
+ * persisted tree-order record's merged `children` list when it has
+ * one (the arrays rank whatever the record does not know, and a live
+ * member the record does not know keeps its place); a legacy record
+ * entry, or no record at all, means the container was never keyed as
+ * one order, and its desired sequence is what it rendered as until
+ * now — folders in their key order, then leaves in theirs — so a live
+ * interleave left over from two separately-seeded runs is normalised
+ * ONCE (items re-keyed after the folder tail, deterministic on every
+ * peer, nothing to do on the next boot once the record is rewritten).
+ * Slot-less leaves take their planned key between the live
+ * neighbours; a later inbound arrival appends after the parent's
+ * merged live tail. Collections without a roots slot join their
+ * tree's roots in persisted array order.
  */
 
 import {
@@ -105,12 +114,21 @@ import {
   webSocketRequestChild,
   wsResponseExampleChild,
 } from '@openheaders/core/sync';
-import { createTailTracker } from '@openheaders/core/sync-builders/mutations/workspace-import-emission';
+import {
+  planSlotOrder,
+  type SlotOrderMember,
+  type SlotOrderTarget,
+} from '@openheaders/core/sync-builders/mutations/tree-slot-order';
+import {
+  createTailTracker,
+  type TailTracker,
+} from '@openheaders/core/sync-builders/mutations/workspace-import-emission';
+import { isMergedTreeOrder, type TreeOrderRecord, treeContainerKey } from '@openheaders/core/types';
 import { logger, parentPathOf } from '@openheaders/core/utils';
 import { hostStorage, type StorageKey, wsKeys } from '@openheaders/oracle/storage';
 import { recordHostActivityEntry } from './activity/activity-host-entries';
 import type { BroadcastEvent, InMemoryBroadcast } from './broadcast';
-import { loadTreeOrderRanks } from './caches/tree-order-cache';
+import { loadTreeOrder, mergedChildSlots, treeOrderRanks } from './caches/tree-order-cache';
 import type { EntityCacheLike } from './entity-registry';
 import type { EntityOracle } from './oracle';
 import {
@@ -294,10 +312,13 @@ interface ReconcilerMemory {
 interface Pass {
   bodies: MutationBody[];
   rehomes: RehomePlan[];
-  tail: (parent: ParentRefShape, setPath: string, childUid: string) => string;
+  /** The key minter for slots outside a tree's plan (examples, runtime arrivals). */
+  tail: TailTracker;
   /** Hydration: persisted order + immediate rehome. */
   settled: boolean;
-  /** Child ranks from the persisted tree-order record (hydration only). */
+  /** The persisted tree-order record (hydration only); `null` = nothing persisted. */
+  treeOrder: TreeOrderRecord | null;
+  /** Child ranks from the record (hydration only). */
   ranks: ReadonlyMap<string, number>;
   now: number;
   /** Orphans seen this pass — the grace map is pruned to them. */
@@ -391,16 +412,14 @@ async function runPass(
   settled: boolean,
   now: number,
 ): Promise<boolean> {
+  const treeOrder = settled ? await loadTreeOrder(workspaceId) : null;
   const pass: Pass = {
     bodies: [],
     rehomes: [],
-    tail: createTailTracker((type, id, setPath) =>
-      oracle
-        .liveOrderedSetItems(type, id, setPath)
-        .map((entry) => ({ itemId: entry.itemId, item: entry.item, orderKey: entry.key })),
-    ),
+    tail: createTailTracker(liveEntries(oracle)),
     settled,
-    ranks: settled ? await loadTreeOrderRanks(workspaceId) : new Map(),
+    treeOrder,
+    ranks: treeOrder ? treeOrderRanks(treeOrder) : new Map(),
     now,
     orphans: new Set(),
     deferred: false,
@@ -497,6 +516,42 @@ async function reconcileTree<C extends string, F extends string>(
     );
   }
 
+  // Leaves of every kind seed in ONE pass: a container's children are
+  // one merged order, so a slot-less leaf is keyed at the position the
+  // tree-order record gives it among the live folders and leaves; a
+  // leaf the record does not know follows, by kind and then by its own
+  // persisted array's order.
+  const slotless: SeedCandidate<C, F>[] = [];
+  const arrayOrders: UidOrder[] = [];
+  for (const [kind, leaf] of tree.leaves.entries()) {
+    arrayOrders.push(pass.settled ? await readOrder(leaf.storageKey(workspaceId)) : new Map());
+    for (const m of materialized) {
+      if (m.type !== leaf.entityType) continue;
+      if (hasTreeSlot(oracle, tree.kinds, m.id)) memory.everSlotted.add(entityKey(m));
+      else slotless.push({ m, leaf, kind });
+    }
+  }
+  slotless.sort((a, b) => compareSeedOrder(a, b, pass.ranks, arrayOrders));
+  const seeding: SeedCandidate<C, F>[] = [];
+  const orphaned: SeedCandidate<C, F>[] = [];
+  for (const candidate of slotless) {
+    const path = storedPath(candidate.m.data);
+    const parentPath = path === null ? null : parentPathOf(path);
+    const parent = parentPath === null ? null : resolveTreeParent(parentPath, containers, tree.parentKinds);
+    // A leaf this host never saw slotted is an old-client or
+    // in-flight create: its stored path is where its author put it.
+    if (parent && liveContainers.has(parent.uid) && !memory.everSlotted.has(entityKey(candidate.m))) {
+      seeding.push({ ...candidate, parent });
+    } else {
+      orphaned.push({ ...candidate, storedPath: path });
+    }
+  }
+  const tail = pass.settled ? plannedTail(oracle, tree, containers, seeding, pass) : pass.tail;
+  for (const { m, leaf, parent } of seeding) {
+    if (!parent) continue;
+    pass.bodies.push(leaf.child.slotAdd(m.id, parent, tail(parent, tree.itemsPath, m.id)));
+  }
+
   // Folders carry no stored path: a slot-less folder that is not this
   // pass's cycle victim is an orphan (its container was tombstoned).
   for (const m of materialized) {
@@ -514,39 +569,96 @@ async function reconcileTree<C extends string, F extends string>(
     });
   }
 
-  // Leaves of every kind seed in ONE pass: the four request kinds
-  // share a parent's `items` set, so their interleave is the tree-order
-  // record's; a leaf the record does not know follows, by kind and
-  // then by its own persisted array's order.
-  const slotless: Array<{ m: MaterializedEntity; leaf: LeafKind<TreeParentRef<C, F>>; kind: number }> = [];
-  const arrayOrders: UidOrder[] = [];
-  for (const [kind, leaf] of tree.leaves.entries()) {
-    arrayOrders.push(pass.settled ? await readOrder(leaf.storageKey(workspaceId)) : new Map());
-    for (const m of materialized) {
-      if (m.type !== leaf.entityType) continue;
-      if (hasTreeSlot(oracle, tree.kinds, m.id)) memory.everSlotted.add(entityKey(m));
-      else slotless.push({ m, leaf, kind });
-    }
-  }
-  slotless.sort((a, b) => compareSeedOrder(a, b, pass.ranks, arrayOrders));
-  for (const { m, leaf } of slotless) {
-    const path = storedPath(m.data);
-    const parentPath = path === null ? null : parentPathOf(path);
-    const parent = parentPath === null ? null : resolveTreeParent(parentPath, containers, tree.parentKinds);
-    // A leaf this host never saw slotted is an old-client or
-    // in-flight create: its stored path is where its author put it.
-    if (parent && liveContainers.has(parent.uid) && !memory.everSlotted.has(entityKey(m))) {
-      pass.bodies.push(leaf.child.slotAdd(m.id, parent, pass.tail(parent, tree.itemsPath, m.id)));
-      continue;
-    }
+  for (const { m, storedPath: path } of orphaned) {
     if (!settled(memory, pass, entityKey(m))) continue;
     planRehome(workspaceId, oracle, tree, containers, liveContainers, pass, {
       child: { type: m.type, uid: m.id },
       from: null,
       reason: 'orphan',
-      storedPath: path,
+      storedPath: path ?? null,
     });
   }
+}
+
+interface SeedCandidate<C extends string, F extends string> {
+  m: MaterializedEntity;
+  leaf: LeafKind<TreeParentRef<C, F>>;
+  kind: number;
+  parent?: TreeParentRef<C, F>;
+  storedPath?: string | null;
+}
+
+/**
+ * Hydration: one desired merged sequence per container of the tree,
+ * planned against the live sets, with the seeding leaves included at
+ * their record positions. The tracker hands out the planned key for a
+ * planned member and the merged-tail append for everything else; the
+ * plan's re-key bodies join the pass.
+ */
+function plannedTail<C extends string, F extends string>(
+  oracle: EntityOracle,
+  tree: TreeSpec<C, F>,
+  containers: TreeContainers,
+  seeding: ReadonlyArray<SeedCandidate<C, F>>,
+  pass: Pass,
+): TailTracker {
+  const seedingByParent = new Map<string, SeedCandidate<C, F>[]>();
+  for (const candidate of seeding) {
+    if (!candidate.parent) continue;
+    const key = treeContainerKey(candidate.parent.type, candidate.parent.uid);
+    const bucket = seedingByParent.get(key);
+    if (bucket) bucket.push(candidate);
+    else seedingByParent.set(key, [candidate]);
+  }
+  const targets: SlotOrderTarget[] = [];
+  const containerRefs: ParentRefShape[] = [
+    ...containers.collections.map((c) => ({ type: tree.kinds.collectionType, uid: c.uid })),
+    ...containers.folders.map((f) => ({ type: tree.kinds.folderType, uid: f.uid })),
+  ];
+  for (const parent of containerRefs) {
+    const key = treeContainerKey(parent.type, parent.uid);
+    const live = mergedChildSlots(oracle, tree.kinds, parent.type, parent.uid);
+    const incoming = seedingByParent.get(key) ?? [];
+    if (live.length === 0 && incoming.length === 0) continue;
+    const folderUids = new Set(
+      oracle.liveOrderedSetItems(parent.type, parent.uid, tree.kinds.childrenPath).map((s) => s.itemId),
+    );
+    const setOf = (uid: string): string => (folderUids.has(uid) ? tree.kinds.childrenPath : tree.itemsPath);
+    const entry = pass.treeOrder?.containers[key];
+    const known = new Set<string>([...live.map((s) => s.itemId), ...incoming.map((c) => c.m.id)]);
+    const members: SlotOrderMember[] = [];
+    const placed = new Set<string>();
+    const push = (uid: string, setPath: string): void => {
+      if (placed.has(uid) || !known.has(uid)) return;
+      placed.add(uid);
+      members.push({ uid, setPath });
+    };
+    if (entry && isMergedTreeOrder(entry)) {
+      // The record's order for what it knows; live members it does not
+      // know keep their place; new leaves follow by kind and array.
+      for (const uid of entry.children) push(uid, setOf(uid));
+      for (const slot of live) push(slot.itemId, setOf(slot.itemId));
+    } else if (pass.treeOrder !== null && entry === undefined) {
+      // A record that has no opinion on this container: the live order stands.
+      for (const slot of live) push(slot.itemId, setOf(slot.itemId));
+    } else {
+      // Never keyed as one order: what it rendered as — folders, then leaves.
+      for (const slot of live) if (folderUids.has(slot.itemId)) push(slot.itemId, tree.kinds.childrenPath);
+      for (const slot of live) push(slot.itemId, setOf(slot.itemId));
+    }
+    for (const candidate of incoming) push(candidate.m.id, tree.itemsPath);
+    targets.push({ parent, members });
+  }
+  const plan = planSlotOrder(targets, liveEntries(oracle));
+  for (const reorder of plan.reorders) pass.bodies.push(...reorder.bodies);
+  return createTailTracker(liveEntries(oracle), plan);
+}
+
+function liveEntries(oracle: EntityOracle) {
+  return (type: string, id: string, setPath: string) =>
+    oracle
+      .liveOrderedSetItems(type, id, setPath)
+      .map((entry) => ({ itemId: entry.itemId, item: entry.item, orderKey: entry.key }));
 }
 
 function compareSeedOrder(

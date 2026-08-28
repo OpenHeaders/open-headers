@@ -2,21 +2,34 @@
  * Host-side placement helpers for tree write sites.
  *
  * A create takes its parent's containment slot in the same batch as
- * the entity; the slot's key appends strictly after the parent set's
- * live tail. Every host write site (SW stores, MCP tools, migration
- * landing) reads the tail off the workspace oracle through these two
- * helpers so the append rule is minted in one place.
+ * the entity; the slot's key appends strictly after the live tail of
+ * the set's order scope — for a tree child (`folders` / `items`) that
+ * is the parent's MERGED tail, so a new folder or leaf lands after the
+ * last child of any kind. Every host write site (SW stores, MCP tools,
+ * migration landing) reads the tail off the workspace oracle through
+ * these helpers so the append rule is minted in one place.
  */
 
-import { type ChildPlacement, keyBetween, type ParentRefShape, WORKSPACE_ROOTS_REF } from '@openheaders/core/sync';
+import {
+  type ChildPlacement,
+  keyBetween,
+  mergedTailKey,
+  type ParentRefShape,
+  treeOrderScope,
+  WORKSPACE_ROOTS_REF,
+} from '@openheaders/core/sync';
 import type { EntityOracle } from '@openheaders/oracle/sync/oracle';
 
 type Reads = Pick<EntityOracle, 'liveOrderedSetItems'>;
 
-/** Next append key on a parent's ordered set — strictly after its live tail. */
+/** Next append key on a parent's ordered set — strictly after the live tail of the set's order scope. */
 export function appendOrderKey(oracle: Reads, parent: ParentRefShape, setPath: string): string {
-  const live = oracle.liveOrderedSetItems(parent.type, parent.uid, setPath);
-  return keyBetween(live.at(-1)?.key ?? null, null);
+  const tail = mergedTailKey(
+    treeOrderScope(setPath).map((path) =>
+      oracle.liveOrderedSetItems(parent.type, parent.uid, path).map((slot) => ({ orderKey: slot.key })),
+    ),
+  );
+  return keyBetween(tail, null);
 }
 
 /**

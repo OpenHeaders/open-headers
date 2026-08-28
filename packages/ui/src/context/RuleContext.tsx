@@ -20,7 +20,17 @@ import { createContext, useCallback, useEffect, useMemo, useRef, useState } from
 import { type PauseTarget, usePauseMarkersContext } from './PauseMarkersContext';
 import { useLocalEntityCrud } from './use-local-entity-crud';
 import { useTemplateCrud } from './use-template-crud';
-import { buildLocalCollectionTrees, buildTemplateCollectionTrees } from '../shared/local-tree-builder';
+import {
+  FOLDER_CHILDREN_PATH,
+  FOLDER_ITEMS_PATH,
+  TEMPLATE_FOLDER_CHILDREN_PATH,
+  TEMPLATE_FOLDER_ITEMS_PATH,
+} from '@openheaders/core/sync';
+import { buildLocalCollectionTrees, buildTemplateCollectionTrees, mirrorSlotReader } from '../shared/local-tree-builder';
+import { getCollectionSyncMirrorForWorkspace } from './mirrors/collection-sync-mirror';
+import { getFolderSyncMirrorForWorkspace } from './mirrors/folder-sync-mirror';
+import { getTemplateCollectionSyncMirrorForWorkspace } from './mirrors/template-collection-sync-mirror';
+import { getTemplateFolderSyncMirrorForWorkspace } from './mirrors/template-folder-sync-mirror';
 import { hostStorage, type PersistedLocalFolder, UI, wsKeys } from '@openheaders/core/storage';
 
 // ── Context shape ─────────────────────────────────────────────────
@@ -439,14 +449,32 @@ export const RuleProvider: React.FC<RuleProviderProps> = ({ children, surfaceId,
     let currentTemplateCollections: Collection[] = [];
     let currentTemplateFolders: PersistedLocalFolder[] = [];
 
+    // A container's children are one order — folders and leaves
+    // interleaved — which the persisted arrays keep apart, so the
+    // container mirrors' merged slots order each tree's children.
+    const ruleCollectionMirror = getCollectionSyncMirrorForWorkspace(wsId);
+    const ruleFolderMirror = getFolderSyncMirrorForWorkspace(wsId);
+    const ruleSlotsOf = mirrorSlotReader(ruleCollectionMirror, ruleFolderMirror, FOLDER_CHILDREN_PATH, FOLDER_ITEMS_PATH);
+    const templateCollectionMirror = getTemplateCollectionSyncMirrorForWorkspace(wsId);
+    const templateFolderMirror = getTemplateFolderSyncMirrorForWorkspace(wsId);
+    const templateSlotsOf = mirrorSlotReader(
+      templateCollectionMirror,
+      templateFolderMirror,
+      TEMPLATE_FOLDER_CHILDREN_PATH,
+      TEMPLATE_FOLDER_ITEMS_PATH,
+    );
     const recomputeRulesTree = () => {
-      setLocalCollectionTrees(buildLocalCollectionTrees(currentCollections, currentFolders, currentRules));
+      setLocalCollectionTrees(buildLocalCollectionTrees(currentCollections, currentFolders, currentRules, ruleSlotsOf));
     };
     const recomputeTemplatesTree = () => {
       setTemplateCollectionTrees(
-        buildTemplateCollectionTrees(currentTemplateCollections, currentTemplateFolders, currentTemplates),
+        buildTemplateCollectionTrees(currentTemplateCollections, currentTemplateFolders, currentTemplates, templateSlotsOf),
       );
     };
+    const unsubRuleCollectionSlots = ruleCollectionMirror.subscribeAny(recomputeRulesTree);
+    const unsubRuleFolderSlots = ruleFolderMirror.subscribeAny(recomputeRulesTree);
+    const unsubTemplateCollectionSlots = templateCollectionMirror.subscribeAny(recomputeTemplatesTree);
+    const unsubTemplateFolderSlots = templateFolderMirror.subscribeAny(recomputeTemplatesTree);
 
     const unsubRules = hostStorage.subscribe(wsKeys(wsId).rules, (record) => {
       currentRules = record ?? [];
@@ -525,6 +553,10 @@ export const RuleProvider: React.FC<RuleProviderProps> = ({ children, surfaceId,
       unsubTemplates();
       unsubTemplateCollections();
       unsubTemplateFolders();
+      unsubRuleCollectionSlots();
+      unsubRuleFolderSlots();
+      unsubTemplateCollectionSlots();
+      unsubTemplateFolderSlots();
     };
   }, [isOverridden, activeWorkspaceId]);
 

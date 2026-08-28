@@ -41,16 +41,13 @@ vi.mock('@utils/logger', () => ({
   logger: { info: vi.fn(), debug: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }));
 
+import type { FolderSyncMirror, RendererContextHandle } from '@openheaders/ui/context';
 import {
   applyFolderCreate,
   applyFolderDelete,
   applyFolderMove,
   applyFolderRename,
 } from '@openheaders/ui/shared/sync/folder-write-client';
-import type {
-  FolderSyncMirror,
-  RendererContextHandle,
-} from '@openheaders/ui/context';
 
 function makeFolder(uid: string, path: string, name = `Folder ${uid}`): Folder {
   return {
@@ -115,12 +112,25 @@ describe('applyFolderCreate', () => {
         parent: { type: COLLECTION_ENTITY_TYPE, uid: 'coll-1' },
         name: 'login',
       },
-      { workspaceId: 'ws-1', surfaceId: 'workbench', context: makeContextHandle() },
+      {
+        workspaceId: 'ws-1',
+        surfaceId: 'workbench',
+        context: makeContextHandle(),
+        mirror: makeFolderMirror(),
+        collectionMirror: {
+          liveOrderedSetItems: () => [{ itemId: 'tail', orderKey: 'm' }],
+          hydrated: Promise.resolve(),
+        },
+      },
     );
     expect(result).toEqual({ ok: true });
     const batch = (mockCall.mock.calls[0][1] as { batch: MutationBatch }).batch;
     const createEnv = batch.mutations.find((m) => m.body.kind === 'create');
     const addEnv = batch.mutations.find((m) => m.body.kind === 'addToSet');
+    // A new folder appends after the parent's merged tail.
+    expect(addEnv?.body.kind === 'addToSet' && addEnv.body.orderKey !== undefined && addEnv.body.orderKey > 'm').toBe(
+      true,
+    );
     expect(createEnv?.body).toMatchObject({
       kind: 'create',
       type: FOLDER_ENTITY_TYPE,
@@ -143,7 +153,13 @@ describe('applyFolderCreate', () => {
         parent: { type: FOLDER_ENTITY_TYPE, uid: 'fold-parent1' },
         name: 'nested',
       },
-      { workspaceId: 'ws-1', surfaceId: 'workbench', context: makeContextHandle() },
+      {
+        workspaceId: 'ws-1',
+        surfaceId: 'workbench',
+        context: makeContextHandle(),
+        mirror: makeFolderMirror(),
+        collectionMirror: { liveOrderedSetItems: () => [], hydrated: Promise.resolve() },
+      },
     );
     const batch = (mockCall.mock.calls[0][1] as { batch: MutationBatch }).batch;
     const addEnv = batch.mutations.find((m) => m.body.kind === 'addToSet');

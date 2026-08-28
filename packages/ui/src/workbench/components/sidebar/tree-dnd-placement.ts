@@ -6,42 +6,38 @@
  *   leaf       → { entityType, uid, parent, oldParent?, orderKey }
  *   collection → { uid, orderKey }            (roots reorder only)
  *
- * Zones (the tree containment plan, slice 7):
+ * A container's children are ONE order — folders and leaves
+ * interleaved as the user arranged them (the tree containment plan,
+ * slice 7b) — so a folder or a leaf lands the same way wherever it is
+ * dropped:
  *
- *   - folder over folder: 'before' / 'after' = sibling of the over
- *     folder (its parent becomes the new parent); 'into' = child of
- *     the over folder, head of its folder run.
- *   - folder over collection: 'into', head of the folder run.
- *   - folder over leaf: 'into' that leaf's parent, tail of the folder
- *     run (the whole leaf row) — right above the leaves.
- *   - leaf over leaf: 'before' / 'after' = sibling in the over leaf's
- *     parent, keyed between the neighbours' live `items` keys.
- *   - leaf over folder or collection: 'into', head of the `items` run
- *     (the whole row).
- *
- * 'into' lands at the HEAD of the run because that is where the
- * pointer is: the container row's bottom edge meets its first child's
- * top edge, and the two resolutions there must name the same spot —
- * a tail landing would sit rows away and the placeholder would leap
- * between the container's first and last row as the layout shifted.
+ *   - 'before' / 'after' a folder or a leaf: a sibling in the over
+ *     row's parent, keyed between the on-screen neighbours whatever
+ *     their kind (the over row's parent becomes the new parent).
+ *   - 'into' a folder or a collection: the first child, right under
+ *     the container row, where the pointer is (a tail landing would
+ *     sit rows away and the placeholder would leap between the
+ *     container's first and last row as the layout shifted).
  *   - collection over collection: 'before' / 'after' on the tree's
  *     roots set. Collections never nest and never receive one.
  *
  * A multi-item drop (`computeDropPlacements`) moves every selected
- * participant of the tree: items are grouped by role in their visible
- * order, each group's first item resolves as above and the rest take
- * keys strictly between it and the next live sibling, so the group
- * lands together in its run, in the order it was seen. A selected
- * child of a selected folder travels with the folder and is not moved
- * on its own; a drop onto one of the moved rows is rejected.
+ * participant of the tree: the folders and leaves in their visible
+ * order as one group (collections as their own), the group's first
+ * row resolves as above and the rest take keys strictly between it
+ * and the next live sibling, so the group lands together, in the
+ * order it was seen. A selected child of a selected folder travels
+ * with the folder and is not moved on its own; a drop onto one of the
+ * moved rows is rejected.
  *
- * Keys come from the live mirrors the caller supplies; `path` is a
- * projection and is never part of the result. A drop resolves to
- * `move` (one placement per row), `stay` (the rows' own slot — a
- * sibling insert right where they already sit, or into the parent
- * they are already in; the drag feedback shows the slot, the drop
- * writes nothing) or `rejected` (cycle, foreign row, onto a moving
- * row); the single-row form returns the placement or `null`.
+ * Keys come from the live mirrors the caller supplies — a parent's
+ * children merged by key; `path` is a projection and is never part
+ * of the result. A drop resolves to `move` (one placement per row),
+ * `stay` (the rows' own slot — a sibling insert right where they
+ * already sit, or into the parent they are already in; the drag
+ * feedback shows the slot, the drop writes nothing) or `rejected`
+ * (cycle, foreign row, onto a moving row); the single-row form
+ * returns the placement or `null`.
  *
  * Pure — no React, no dnd-kit; the dnd component supplies every input
  * and dispatches the result.
@@ -49,7 +45,6 @@
 
 import type { TreeLeafEntityType } from '@openheaders/ui/shared/sync/tree-move-write-client';
 import {
-  computeAppendSlot,
   computePrependSlot,
   computeSiblingInsertSlot,
   isDescendantOf,
@@ -81,12 +76,10 @@ export type DropPlacement =
     }
   | { kind: 'collection'; uid: string; orderKey: string };
 
-/** The live order reads a placement needs: one per set a child can land in. */
+/** The live order reads a placement needs. */
 export interface TreeDndLookups {
-  /** A parent's live `folders` slots. */
-  lookupSiblings(parent: TreeDndParent): LiveSiblings;
-  /** A parent's live `items` slots. */
-  lookupItems(parent: TreeDndParent): LiveSiblings;
+  /** A parent's live children — its `folders` and `items` slots merged by key. */
+  lookupChildren(parent: TreeDndParent): LiveSiblings;
   /** The tree's live collection slots on the workspace roots. */
   lookupCollections(): LiveSiblings;
 }
@@ -128,13 +121,16 @@ export function resolveDropPlacements(input: DropPlacementsInput): DropResolutio
   const folderIds = activeNodes.filter((n) => roleOf(n, config)?.role === 'folder').map((n) => n.id);
   const carried = (node: TreeNode): boolean => folderIds.some((id) => id !== node.id && isDescendantOf(id, node, byId));
 
-  const groups = new Map<TreeDndRole['role'], TreeNode[]>();
+  // Collections move among collections; folders and leaves share one
+  // order and move as one group, in visible order.
+  const groups = new Map<'collection' | 'child', TreeNode[]>();
   for (const node of activeNodes) {
     const role = roleOf(node, config);
     if (!role || carried(node)) continue;
-    const group = groups.get(role.role) ?? [];
+    const kind = role.role === 'collection' ? 'collection' : 'child';
+    const group = groups.get(kind) ?? [];
     group.push(node);
-    groups.set(role.role, group);
+    groups.set(kind, group);
   }
 
   const out: DropPlacement[] = [];
@@ -184,9 +180,11 @@ function resolveDrop(input: DropPlacementInput): ResolvedDrop | 'stay' | null {
   // Cycle guard: never drop a folder into (or beside a row inside) its own subtree.
   if (active.role === 'folder' && isDescendantOf(activeNode.id, overNode, byId)) return null;
 
-  return active.role === 'folder'
-    ? placeFolder(input, active.uid, oldParent, over)
-    : placeLeaf(input, active.uid, active.entityType, oldParent, over);
+  const base =
+    active.role === 'folder'
+      ? ({ kind: 'folder', folderUid: active.uid } as const)
+      : ({ kind: 'leaf', entityType: active.entityType, uid: active.uid } as const);
+  return placeChild(input, base, active.uid, oldParent, over);
 }
 
 function placed(
@@ -200,62 +198,33 @@ function placed(
   return { placement: { ...base, ...linkage }, slot };
 }
 
-function placeFolder(
+/** A folder or a leaf: a sibling of the over row, or the first child of the over container. */
+function placeChild(
   input: DropPlacementInput,
-  folderUid: string,
+  base: { kind: 'folder'; folderUid: string } | { kind: 'leaf'; entityType: TreeLeafEntityType; uid: string },
+  uid: string,
   oldParent: TreeDndParent,
   over: TreeDndRole,
 ): ResolvedDrop | 'stay' | null {
   const { zone, overNode, config } = input;
-  const base = { kind: 'folder', folderUid } as const;
-
-  if (over.role === 'leaf') {
-    // Into the leaf's parent, tail of its folder run.
-    const parent = parentOf(overNode, config);
-    return parent ? placed(base, parent, oldParent, computeAppendSlot(input.lookupSiblings(parent), folderUid)) : null;
-  }
   if (zone === 'into') {
+    if (over.role === 'leaf') return null;
     const parent = parentFromId(overNode.id, config);
     if (!parent) return null;
     if (sameParent(parent, oldParent)) return 'stay';
-    return placed(base, parent, oldParent, computePrependSlot(input.lookupSiblings(parent), folderUid));
+    return placed(base, parent, oldParent, computePrependSlot(input.lookupChildren(parent), uid));
   }
-  // 'before' / 'after' on a folder: its parent becomes ours (or stays ours).
+  // 'before' / 'after' the over row: its parent becomes ours (or stays ours).
   const parent = parentOf(overNode, config);
   if (!parent) return null;
-  return placed(
-    base,
-    parent,
-    oldParent,
-    computeSiblingInsertSlot(input.lookupSiblings(parent), folderUid, over.uid, zone),
-  );
+  return placed(base, parent, oldParent, computeSiblingInsertSlot(input.lookupChildren(parent), uid, over.uid, zone));
 }
 
-function placeLeaf(
-  input: DropPlacementInput,
-  uid: string,
-  entityType: TreeLeafEntityType,
-  oldParent: TreeDndParent,
-  over: TreeDndRole,
-): ResolvedDrop | 'stay' | null {
-  const { zone, overNode, config } = input;
-  const base = { kind: 'leaf', entityType, uid } as const;
-
-  if (over.role === 'leaf') {
-    if (zone === 'into') return null;
-    const parent = parentOf(overNode, config);
-    return parent
-      ? placed(base, parent, oldParent, computeSiblingInsertSlot(input.lookupItems(parent), uid, over.uid, zone))
-      : null;
-  }
-  // A container row: into it, head of its items run.
-  const parent = parentFromId(overNode.id, config);
-  if (!parent) return null;
-  if (sameParent(parent, oldParent)) return 'stay';
-  return placed(base, parent, oldParent, computePrependSlot(input.lookupItems(parent), uid));
-}
-
-/** The group leader's placement re-addressed to a follower row with its own key and old parent. */
+/**
+ * The group leader's placement re-addressed to a follower row with its
+ * own key and old parent — a folder or a leaf lands in the leader's
+ * parent alike, since the two share one order.
+ */
 function withIdentity(
   leader: DropPlacement,
   node: TreeNode,
@@ -264,13 +233,15 @@ function withIdentity(
 ): DropPlacement | null {
   const role = roleOf(node, config);
   if (!role) return null;
-  if (leader.kind === 'collection') {
-    return role.role === 'collection' ? { kind: 'collection', uid: role.uid, orderKey } : null;
+  if (leader.kind === 'collection' || role.role === 'collection') {
+    return leader.kind === 'collection' && role.role === 'collection'
+      ? { kind: 'collection', uid: role.uid, orderKey }
+      : null;
   }
   const oldParent = parentOf(node, config);
   if (!oldParent) return null;
   const linkage = { parent: leader.parent, ...(sameParent(leader.parent, oldParent) ? {} : { oldParent }), orderKey };
-  if (leader.kind === 'folder')
-    return role.role === 'folder' ? { kind: 'folder', folderUid: role.uid, ...linkage } : null;
-  return role.role === 'leaf' ? { kind: 'leaf', entityType: role.entityType, uid: role.uid, ...linkage } : null;
+  return role.role === 'folder'
+    ? { kind: 'folder', folderUid: role.uid, ...linkage }
+    : { kind: 'leaf', entityType: role.entityType, uid: role.uid, ...linkage };
 }

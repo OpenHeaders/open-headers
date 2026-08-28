@@ -1,26 +1,18 @@
 /**
  * tree-dnd-keyboard — the keyboard half of the sidebar's move gesture.
  * Alt+↑ / Alt+↓ move the focused row before its previous / after its
- * next sibling of the same role (folders among folders, leaves among
- * leaves, collections among collections); Alt+→ moves it into the
- * nearest folder above it in the same parent; Alt+← moves it out to
- * its grandparent, at the tail of its run. Every direction resolves
- * to the same `DropPlacement` a pointer drop produces, so both paths
- * make the one `moveChild` call.
+ * next sibling (folders and leaves share one order; collections move
+ * among collections); Alt+→ moves it into the nearest folder above it
+ * in the same parent; Alt+← moves it out of its folder to sit right
+ * after that folder. Every direction resolves to the same
+ * `DropPlacement` a pointer drop produces, so both paths make the one
+ * `moveChild` call.
  *
  * Siblings are read off the flat visible row list: the focused row is
  * visible, so its parent is expanded and every sibling is listed.
  */
 
-import { computeAppendOrderKey } from './tree-dnd-helpers';
-import {
-  parentFromId,
-  parentOf,
-  roleOf,
-  type TreeDndIdConfig,
-  type TreeDndParent,
-  type TreeDndRole,
-} from './tree-dnd-ids';
+import { parentOf, roleOf, type TreeDndIdConfig } from './tree-dnd-ids';
 import { computeDropPlacement, type DropPlacement, type TreeDndLookups } from './tree-dnd-placement';
 import type { TreeNode } from './types';
 
@@ -63,7 +55,12 @@ export function computeKeyboardMove(input: KeyboardMoveInput): DropPlacement | n
   const active = roleOf(activeNode, config);
   if (!active) return null;
 
-  const siblings = nodes.filter((n) => n.parentId === activeNode.parentId && roleOf(n, config)?.role === active.role);
+  const among = active.role === 'collection' ? 'collection' : 'child';
+  const siblings = nodes.filter((n) => {
+    if (n.parentId !== activeNode.parentId) return false;
+    const role = roleOf(n, config)?.role;
+    return role !== undefined && (role === 'collection' ? 'collection' : 'child') === among;
+  });
   const index = siblings.findIndex((n) => n.id === activeNode.id);
   if (index < 0) return null;
 
@@ -79,7 +76,7 @@ export function computeKeyboardMove(input: KeyboardMoveInput): DropPlacement | n
     return target ? computeDropPlacement({ ...input, zone: 'into', overNode: target }) : null;
   }
 
-  return moveOut(input, active);
+  return moveOut(input);
 }
 
 /** The closest folder row above the active row inside the same parent. */
@@ -97,20 +94,11 @@ function nearestFolderAbove(
   return null;
 }
 
-/** Out of a folder to its parent, at the tail of the run of the active row's role. */
-function moveOut(input: KeyboardMoveInput, active: Exclude<TreeDndRole, { role: 'collection' }>): DropPlacement | null {
+/** Out of a folder: a sibling right after that folder, in its parent. */
+function moveOut(input: KeyboardMoveInput): DropPlacement | null {
   const { activeNode, byId, config } = input;
   const oldParent = parentOf(activeNode, config);
   const parentNode = activeNode.parentId ? byId.get(activeNode.parentId) : undefined;
   if (!oldParent || !parentNode || oldParent.kind !== 'folder') return null;
-  const parent: TreeDndParent | null = parentNode.parentId ? parentFromId(parentNode.parentId, config) : null;
-  if (!parent) return null;
-  if (active.role === 'folder') {
-    const orderKey = computeAppendOrderKey(input.lookupSiblings(parent), active.uid);
-    return orderKey === null ? null : { kind: 'folder', folderUid: active.uid, parent, oldParent, orderKey };
-  }
-  const orderKey = computeAppendOrderKey(input.lookupItems(parent), active.uid);
-  return orderKey === null
-    ? null
-    : { kind: 'leaf', entityType: active.entityType, uid: active.uid, parent, oldParent, orderKey };
+  return computeDropPlacement({ ...input, zone: 'after', overNode: parentNode });
 }

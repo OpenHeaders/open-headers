@@ -63,9 +63,6 @@ export const workbenchChromeSidebar = {
   'workbench.sidebar.behavior.alwaysSelectOpened': 'Geöffneten Tab immer auswählen',
   'workbench.sidebar.appearance.title': 'Darstellung',
   'workbench.sidebar.appearance.showIndentGuides': 'Einrückungslinien anzeigen',
-  'workbench.sidebar.sort.title': 'Sortieren nach',
-  'workbench.sidebar.sort.manual': 'Manuell',
-  'workbench.sidebar.sort.name': 'Name',
   'workbench.sidebar.dnd.itemsCount': ({ count }, locale) =>
     plural(locale, Number(count), { one: '{count} Element', other: '{count} Elemente' }),
   'workbench.sidebar.toast.itemsMoved': ({ count }, locale) =>

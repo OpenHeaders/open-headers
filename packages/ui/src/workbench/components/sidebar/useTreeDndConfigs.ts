@@ -22,6 +22,7 @@ import {
   type FolderParentRef,
   GRPC_REQUEST_ENTITY_TYPE,
   MQTT_REQUEST_ENTITY_TYPE,
+  mergeOrderedEntries,
   REQUEST_COLLECTION_ENTITY_TYPE,
   REQUEST_ENTITY_TYPE,
   REQUEST_FOLDER_CHILDREN_PATH,
@@ -64,7 +65,7 @@ import type { TreeDndConfig } from './TreeDnd';
 import type { TreeDndLeafKind, TreeDndParent } from './tree-dnd-ids';
 import type { DropPlacement } from './tree-dnd-placement';
 
-/** Live container-mirror lookup: the ordered slots under a parent, per set. */
+/** Live container-mirror lookup: the ordered slots under a parent, per set (merged by the config). */
 type ContainerMirrorGetter = (workspaceId: string) => {
   liveOrderedSetItems(uid: string, setPath: string): Array<{ itemId: string; orderKey: string }>;
 };
@@ -140,10 +141,16 @@ function buildTreeDndConfig<TParentRef extends TreeDndParentRef>(
     collectionIdPrefix: descriptor.collectionIdPrefix,
     folderIdPrefix: descriptor.folderIdPrefix,
     leafKinds: descriptor.leafKinds,
-    lookupSiblings: (parent) =>
-      activeWorkspaceId ? mirrorFor(parent).liveOrderedSetItems(parent.uid, descriptor.childrenPath) : [],
-    lookupItems: (parent) =>
-      activeWorkspaceId ? mirrorFor(parent).liveOrderedSetItems(parent.uid, descriptor.itemsPath) : [],
+    lookupChildren: (parent) => {
+      if (!activeWorkspaceId) return [];
+      const mirror = mirrorFor(parent);
+      return mergeOrderedEntries(
+        mirror.liveOrderedSetItems(parent.uid, descriptor.childrenPath),
+        mirror.liveOrderedSetItems(parent.uid, descriptor.itemsPath),
+        (slot) => slot.orderKey,
+        (slot) => slot.itemId,
+      );
+    },
     lookupCollections: () =>
       activeWorkspaceId
         ? getWorkspaceRootsSyncMirrorForWorkspace(activeWorkspaceId).liveOrderedSetItems(descriptor.rootsPath)

@@ -1,8 +1,9 @@
 /**
- * Tree-order cache — every container's `folders` + `items` order of
- * the three trees folds into one persisted record; the cache stays
- * quiet until its hydrate (the re-seed reads the record first) and
- * then follows every containment write; ranks read back per child.
+ * Tree-order cache — every container's children of the three trees —
+ * `folders` and `items` MERGED by key — fold into one persisted
+ * record; the cache stays quiet until its hydrate (the re-seed reads
+ * the record first) and then follows every containment write; ranks
+ * read back per child, a legacy entry ranking folders before items.
  */
 
 import { hostStorage } from '@openheaders/core/storage';
@@ -90,14 +91,15 @@ beforeEach(() => {
 });
 
 describe('tree-order cache', () => {
-  it('folds every container of every tree, folders then items, and skips empty containers', async () => {
+  it('folds every container of every tree as one merged order and skips empty containers', async () => {
     const rules = makeCollection('col00001', 'rules');
     const requests = makeCollection('col00002', 'requests');
     await oracle.apply(seedCollection(rules, ctxFactory()), [], 'inbound');
     await oracle.apply(seedRequestCollection(requests, ctxFactory()), [], 'inbound');
     const ruleParent = { type: COLLECTION_ENTITY_TYPE, uid: rules.uid } as const;
+    // The folder is keyed AFTER the rule: the record lists the rule first.
     await oracle.apply(
-      createFolder(ctxFactory(), { folderUid: 'fol00001', parent: ruleParent, name: 'Sub' }).batch,
+      createFolder(ctxFactory(), { folderUid: 'fol00001', parent: ruleParent, name: 'Sub', orderKey: 's' }).batch,
       [],
     );
     await oracle.apply(
@@ -117,10 +119,18 @@ describe('tree-order cache', () => {
 
     const record = projectTreeOrder(oracle);
     expect(record.containers).toEqual({
-      'collection:col00001': { folders: ['fol00001'], items: ['rul00001'] },
-      'request-collection:col00002': { folders: [], items: ['grq00001', 'req00001'] },
+      'collection:col00001': { children: ['rul00001', 'fol00001'] },
+      'request-collection:col00002': { children: ['grq00001', 'req00001'] },
     });
-    expect(Object.fromEntries(treeOrderRanks(record))).toEqual({ fol00001: 0, rul00001: 0, grq00001: 0, req00001: 1 });
+    expect(Object.fromEntries(treeOrderRanks(record))).toEqual({ rul00001: 0, fol00001: 1, grq00001: 0, req00001: 1 });
+  });
+
+  it('ranks a legacy entry folders first, then items', () => {
+    const ranks = treeOrderRanks({
+      schemaVersion: 5,
+      containers: { 'collection:col00001': { folders: ['fol00001'], items: ['rul00001', 'rul00002'] } },
+    });
+    expect(Object.fromEntries(ranks)).toEqual({ fol00001: 0, rul00001: 1, rul00002: 2 });
   });
 
   it('stays quiet until hydrate, then persists on every containment write and drops a deleted container', async () => {
@@ -132,10 +142,13 @@ describe('tree-order cache', () => {
     expect(await hostStorage.get(wsKeys('ws-1').treeOrder)).toBeUndefined();
 
     await cache.hydrateFromStorage();
-    expect(cache.getTreeOrder().containers).toEqual({ 'collection:col00001': { folders: ['fol00001'], items: [] } });
-    await oracle.apply(createFolder(ctxFactory(), { folderUid: 'fol00002', parent, name: 'B' }).batch, []);
+    expect(cache.getTreeOrder().containers).toEqual({ 'collection:col00001': { children: ['fol00001'] } });
+    await oracle.apply(
+      createFolder(ctxFactory(), { folderUid: 'fol00002', parent, name: 'B', orderKey: 's' }).batch,
+      [],
+    );
     expect((await hostStorage.get(wsKeys('ws-1').treeOrder))?.containers).toEqual({
-      'collection:col00001': { folders: ['fol00001', 'fol00002'], items: [] },
+      'collection:col00001': { children: ['fol00001', 'fol00002'] },
     });
     await oracle.apply(
       createFolder(ctxFactory(), {
@@ -145,9 +158,9 @@ describe('tree-order cache', () => {
       }).batch,
       [],
     );
-    expect(cache.getTreeOrder().containers['folder:fol00002']).toEqual({ folders: ['fol00003'], items: [] });
+    expect(cache.getTreeOrder().containers['folder:fol00002']).toEqual({ children: ['fol00003'] });
     await oracle.apply(deleteFolder(ctxFactory(), { folderUid: 'fol00002', parent }).batch, []);
-    expect(cache.getTreeOrder().containers).toEqual({ 'collection:col00001': { folders: ['fol00001'], items: [] } });
+    expect(cache.getTreeOrder().containers).toEqual({ 'collection:col00001': { children: ['fol00001'] } });
     expect(Object.fromEntries(await loadTreeOrderRanks('ws-1'))).toEqual({ fol00001: 0 });
     cache.dispose();
   });

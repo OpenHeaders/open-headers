@@ -14,6 +14,7 @@ import {
   type ActivityEntry,
   COLLECTION_ENTITY_TYPE,
   createFolder,
+  createRequestFolder,
   FOLDER_CHILDREN_PATH,
   FOLDER_ENTITY_TYPE,
   FOLDER_ITEMS_PATH,
@@ -22,9 +23,11 @@ import {
   REQUEST_COLLECTION_ENTITY_TYPE,
   REQUEST_ENTITY_TYPE,
   REQUEST_EXAMPLES_PATH,
+  REQUEST_FOLDER_CHILDREN_PATH,
   REQUEST_FOLDER_ITEMS_PATH,
   WORKSPACE_ROOTS_ENTITY_TYPE,
   WORKSPACE_ROOTS_ID,
+  WORKSPACE_ROOTS_REF,
   WORKSPACE_ROOTS_RULE_COLLECTIONS_PATH,
 } from '@openheaders/core/sync';
 import { seedCollection } from '@openheaders/core/sync-builders/projections/collection-projection';
@@ -37,11 +40,14 @@ import type { Collection, GrpcRequest, Request, ResponseExample, Rule } from '@o
 import { wsKeys } from '@openheaders/oracle/storage';
 import { setHostActivityEntrySink } from '@openheaders/oracle/sync';
 import { InMemoryBroadcast } from '@openheaders/oracle/sync/broadcast';
+import { mergedChildSlots } from '@openheaders/oracle/sync/caches/tree-order-cache';
 import { buildSchemaRegistry, WORKSPACE_REGISTRY } from '@openheaders/oracle/sync/entity-registry';
 import { InMemoryMutationLog } from '@openheaders/oracle/sync/mutation-log';
 import { EntityOracle, type LockAcquirer } from '@openheaders/oracle/sync/oracle';
 import { InMemoryPendingIntents } from '@openheaders/oracle/sync/pending-intents';
-import { projectFolderByUid } from '@openheaders/oracle/sync/post-state/folder-post-state';
+import { projectFolderByUid, RULE_TREE } from '@openheaders/oracle/sync/post-state/folder-post-state';
+import type { FolderTreeKinds } from '@openheaders/oracle/sync/post-state/folder-tree-post-state';
+import { REQUEST_TREE } from '@openheaders/oracle/sync/post-state/request-folder-post-state';
 import { projectResponseExampleByUid } from '@openheaders/oracle/sync/post-state/response-example-post-state';
 import { projectRuleByUid } from '@openheaders/oracle/sync/post-state/rule-post-state';
 import { createTreeSlotReconciler, REHOME_GRACE_MS } from '@openheaders/oracle/sync/tree-slot-reconciler';
@@ -107,6 +113,8 @@ const ruleSlots = (parentType: string, parentUid: string) =>
   oracle.liveOrderedSetItems(parentType, parentUid, FOLDER_ITEMS_PATH);
 const folderSlots = (parentType: string, parentUid: string) =>
   oracle.liveOrderedSetItems(parentType, parentUid, FOLDER_CHILDREN_PATH).map((s) => s.itemId);
+const mergedChildren = (parentType: string, parentUid: string, tree: FolderTreeKinds) =>
+  mergedChildSlots(oracle, tree, parentType, parentUid).map((s) => s.itemId);
 
 let entries: ActivityEntry[] = [];
 beforeEach(() => {
@@ -236,6 +244,125 @@ describe('tree slot reconciler — tree-order record', () => {
       name: uid,
       metadata: [],
     }) as unknown as GrpcRequest;
+
+  it('a merged record entry restores a folder-between-leaves interleave on re-seed', async () => {
+    await oracle.apply(seedRequestCollection(requestCollection, ctxFactory()), [], 'inbound');
+    const parent = { type: REQUEST_COLLECTION_ENTITY_TYPE, uid: requestCollection.uid } as const;
+    // The folder is live (the folder cache seeded it); both requests are slot-less.
+    await oracle.apply(
+      createRequestFolder(ctxFactory(), { folderUid: 'fol00001', parent, name: 'Sub', orderKey: 'm' }).batch,
+      [],
+      'inbound',
+    );
+    const https = [http('req00001'), http('req00002')];
+    for (const r of https) await oracle.apply(seedRequest(r, ctxFactory()), [], 'inbound');
+    await hostStorage.set(wsKeys('ws-1').requests, https);
+    await hostStorage.set(wsKeys('ws-1').requestCollections, [requestCollection]);
+    await hostStorage.set(wsKeys('ws-1').treeOrder, {
+      schemaVersion: 5,
+      containers: { 'request-collection:col00001': { children: ['req00001', 'fol00001', 'req00002'] } },
+    });
+
+    const reconciler = createTreeSlotReconciler('ws-1', oracle, broadcast, ctxFactory);
+    await reconciler.hydrateFromStorage();
+    expect(mergedChildren(REQUEST_COLLECTION_ENTITY_TYPE, 'col00001', REQUEST_TREE)).toEqual([
+      'req00001',
+      'fol00001',
+      'req00002',
+    ]);
+    // The folder kept its key: only the leaves were minted.
+    expect(
+      oracle.liveOrderedSetItems(REQUEST_COLLECTION_ENTITY_TYPE, 'col00001', REQUEST_FOLDER_CHILDREN_PATH)[0].key,
+    ).toBe('m');
+    reconciler.dispose();
+  });
+
+  it('normalises a container never keyed as one order: items re-keyed after the folder tail, once', async () => {
+    const coll = makeCollection('col00001');
+    await oracle.apply(seedCollection(coll, ctxFactory()), [], 'inbound');
+    const parent = { type: COLLECTION_ENTITY_TYPE, uid: coll.uid } as const;
+    // Both runs seeded at 'm' apart — the legacy shape — so by key they interleave.
+    await oracle.apply(
+      createFolder(ctxFactory(), { folderUid: 'fol00001', parent, name: 'A', orderKey: 'm' }).batch,
+      [],
+      'inbound',
+    );
+    await oracle.apply(
+      createFolder(ctxFactory(), { folderUid: 'fol00002', parent, name: 'B', orderKey: 's' }).batch,
+      [],
+      'inbound',
+    );
+    for (const [uid, key] of [
+      ['rul00001', 'm'],
+      ['rul00002', 's'],
+    ] as const) {
+      await oracle.apply(
+        seedRule(makeRule(uid, `${coll.path}/${uid}-${uid}`), ctxFactory(), { parent, orderKey: key }),
+        [],
+        'inbound',
+      );
+    }
+    expect(mergedChildren(COLLECTION_ENTITY_TYPE, coll.uid, RULE_TREE)).toEqual([
+      'fol00001',
+      'rul00001',
+      'fol00002',
+      'rul00002',
+    ]);
+    await hostStorage.set(wsKeys('ws-1').treeOrder, {
+      schemaVersion: 5,
+      containers: { 'collection:col00001': { folders: ['fol00001', 'fol00002'], items: ['rul00001', 'rul00002'] } },
+    });
+
+    const reconciler = createTreeSlotReconciler('ws-1', oracle, broadcast, ctxFactory);
+    await reconciler.hydrateFromStorage();
+    expect(mergedChildren(COLLECTION_ENTITY_TYPE, coll.uid, RULE_TREE)).toEqual([
+      'fol00001',
+      'fol00002',
+      'rul00001',
+      'rul00002',
+    ]);
+    expect(folderSlots(COLLECTION_ENTITY_TYPE, coll.uid)).toEqual(['fol00001', 'fol00002']);
+    expect(
+      oracle.liveOrderedSetItems(COLLECTION_ENTITY_TYPE, coll.uid, FOLDER_CHILDREN_PATH).map((s) => s.key),
+    ).toEqual(['m', 's']);
+
+    // Once rewritten in the merged shape the next hydrate plans nothing.
+    await hostStorage.set(wsKeys('ws-1').treeOrder, {
+      schemaVersion: 5,
+      containers: { 'collection:col00001': { children: ['fol00001', 'fol00002', 'rul00001', 'rul00002'] } },
+    });
+    const revision = oracle.revision;
+    await reconciler.hydrateFromStorage();
+    expect(oracle.revision).toBe(revision);
+    reconciler.dispose();
+  });
+
+  it('a record with no opinion on a container leaves its live interleave alone', async () => {
+    const coll = makeCollection('col00001');
+    await oracle.apply(
+      seedCollection(coll, ctxFactory(), { parent: WORKSPACE_ROOTS_REF, orderKey: 'm' }),
+      [],
+      'inbound',
+    );
+    const parent = { type: COLLECTION_ENTITY_TYPE, uid: coll.uid } as const;
+    await oracle.apply(
+      seedRule(makeRule('rul00001', `${coll.path}/a-rul00001`), ctxFactory(), { parent, orderKey: 'm' }),
+      [],
+      'inbound',
+    );
+    await oracle.apply(
+      createFolder(ctxFactory(), { folderUid: 'fol00001', parent, name: 'A', orderKey: 's' }).batch,
+      [],
+      'inbound',
+    );
+    await hostStorage.set(wsKeys('ws-1').treeOrder, { schemaVersion: 5, containers: {} });
+    const reconciler = createTreeSlotReconciler('ws-1', oracle, broadcast, ctxFactory);
+    const revision = oracle.revision;
+    await reconciler.hydrateFromStorage();
+    expect(oracle.revision).toBe(revision);
+    expect(mergedChildren(COLLECTION_ENTITY_TYPE, coll.uid, RULE_TREE)).toEqual(['rul00001', 'fol00001']);
+    reconciler.dispose();
+  });
 
   it("re-seeds the request kinds in the record's interleave, unknown leaves after by kind and array order", async () => {
     await oracle.apply(seedRequestCollection(requestCollection, ctxFactory()), [], 'inbound');

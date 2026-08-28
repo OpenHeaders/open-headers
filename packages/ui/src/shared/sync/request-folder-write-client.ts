@@ -8,7 +8,13 @@
  * write client is a thin wire layer on top.
  */
 
-import type { MutationEnvelope, RequestFolderParentRef } from '@openheaders/core/sync';
+import {
+  type MutationEnvelope,
+  REQUEST_FOLDER_CHILDREN_PATH,
+  REQUEST_FOLDER_ITEMS_PATH,
+  REQUEST_FOLDER_TREE_KINDS,
+  type RequestFolderParentRef,
+} from '@openheaders/core/sync';
 import {
   buildCreateRequestFolderBatch,
   buildDeleteRequestFolderBatch,
@@ -21,6 +27,7 @@ import {
 } from '@openheaders/core/sync-builders/mutations/request-folder-mutations';
 import { buildDeleteEntityBatch as buildDeleteRequestEntityBatch } from '@openheaders/core/sync-builders/mutations/request-mutations';
 import type { AuthConfig } from '@openheaders/core/types';
+import { getRequestCollectionSyncMirrorForWorkspace } from '../../context/mirrors/request-collection-sync-mirror';
 import {
   getRequestFolderSyncMirrorForWorkspace,
   type RequestFolderSyncMirror,
@@ -33,6 +40,7 @@ import {
   resolveRendererContext,
   type SyncSimpleResult,
 } from './apply-payload';
+import { appendChildKey, type ContainerMirror } from './tree-placement';
 
 export { createRequestFolderSyncMirror } from '../../context/mirrors/request-folder-sync-mirror';
 
@@ -40,6 +48,8 @@ export type RequestFolderSimpleResult = SyncSimpleResult;
 
 export interface RequestFolderWriteOptions extends BaseSyncWriteOptions {
   mirror?: RequestFolderSyncMirror;
+  /** The tree's collection mirror — read for a create's append key (test override). */
+  collectionMirror?: ContainerMirror;
 }
 
 export interface ApplyRequestFolderRenameInput {
@@ -72,7 +82,18 @@ export async function applyRequestFolderCreate(
   const ctx = resolveRendererContext(opts).next(
     opts.batchId ? { batchId: opts.batchId } : { batchId: `request-folder-create-${input.folderUid}` },
   );
-  return applySyncPayload(buildCreateRequestFolderBatch(input, ctx));
+  // A container's children are one order: a new folder lands after
+  // the last child of any kind, as a new leaf does.
+  const tree = {
+    kinds: REQUEST_FOLDER_TREE_KINDS,
+    childrenPath: REQUEST_FOLDER_CHILDREN_PATH,
+    itemsPath: REQUEST_FOLDER_ITEMS_PATH,
+    collectionMirror: opts.collectionMirror ?? getRequestCollectionSyncMirrorForWorkspace(opts.workspaceId),
+    folderMirror: resolveMirror(opts, getRequestFolderSyncMirrorForWorkspace),
+  };
+  await Promise.all([tree.collectionMirror.hydrated, tree.folderMirror.hydrated]);
+  const orderKey = input.orderKey ?? appendChildKey(tree, input.parent);
+  return applySyncPayload(buildCreateRequestFolderBatch({ ...input, orderKey }, ctx));
 }
 
 export type ApplyRequestFolderSetScriptsInput = SetRequestFolderScriptsInput;

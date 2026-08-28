@@ -358,7 +358,9 @@ describe('sweepWorkspaceTree', () => {
       { itemId: 'rul0000b', orderKey: 'n', item: { uid: 'rul0000b', type: 'rule' } },
     ];
     const snapshot = applyTreeOrder(state, (parent, setPath) =>
-      parent.uid === 'col0000a' && setPath === 'items' ? liveItems.map((entry) => entry.itemId) : [],
+      parent.uid === 'col0000a' && setPath === 'items'
+        ? liveItems.map((entry) => ({ uid: entry.itemId, orderKey: entry.orderKey }))
+        : [],
     );
     await new WorkspaceTreeMaterializer({ rootDir: tmpDir, readSnapshot: async () => ({ state: snapshot }) }).flush();
 

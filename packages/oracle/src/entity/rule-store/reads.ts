@@ -5,6 +5,7 @@ import {
   FOLDER_CHILDREN_PATH,
   FOLDER_ENTITY_TYPE,
   FOLDER_ITEMS_PATH,
+  mergeOrderedEntries,
 } from '@openheaders/core/sync';
 import type { Collection, CollectionTree, Rule, TreeNode } from '@openheaders/core/types';
 import { indexTreeChildren, orderedChildren, type TreeChildIndex } from '@openheaders/core/utils';
@@ -62,12 +63,12 @@ export function getCollectionTrees(): CollectionTree[] {
 
 /**
  * Build TreeNode[] for the children of a parent (collection or folder):
- * child folders first, then rules, each run in the order carried by the
- * parent's `folders` / `items` set (§7.2 + §23.5 — orderKey-driven
- * fractional indexing). Children without a live slot yet — the SW wake →
- * hydrate window, an old client's create — follow by their stored path
- * (`orderedChildren`), so the tree is never empty and never requires a
- * slot on read.
+ * folders and rules in ONE order — the parent's `folders` and `items`
+ * sets merged by key (§7.2 + §23.5 — orderKey-driven fractional
+ * indexing), interleaved however they were arranged. Children without
+ * a live slot yet — the SW wake → hydrate window, an old client's
+ * create — follow by their stored path (`orderedChildren`), so the
+ * tree is never empty and never requires a slot on read.
  */
 function buildTreeForParent(
   index: TreeChildIndex<LocalFolder, Rule>,
@@ -77,24 +78,28 @@ function buildTreeForParent(
 ): TreeNode[] {
   const nodes: TreeNode[] = [];
   const oracle = getOracleForCurrentWorkspace();
-  const slotUids = (setPath: string): string[] =>
-    oracle ? oracle.liveOrderedSetItems(parentType, parentUid, setPath).map((slot) => slot.itemId) : [];
-  const children = orderedChildren(index, parentPath, {
-    folders: slotUids(FOLDER_CHILDREN_PATH),
-    items: slotUids(FOLDER_ITEMS_PATH),
-  });
+  const slots = oracle
+    ? mergeOrderedEntries(
+        oracle.liveOrderedSetItems(parentType, parentUid, FOLDER_CHILDREN_PATH),
+        oracle.liveOrderedSetItems(parentType, parentUid, FOLDER_ITEMS_PATH),
+        (slot) => slot.key,
+        (slot) => slot.itemId,
+      ).map((slot) => slot.itemId)
+    : null;
 
-  for (const folder of children.folders) {
-    nodes.push({
-      type: 'folder',
-      uid: folder.uid,
-      name: folder.name,
-      path: folder.path,
-      children: buildTreeForParent(index, FOLDER_ENTITY_TYPE, folder.uid, folder.path),
-    });
-  }
-
-  for (const rule of children.leaves) {
+  for (const child of orderedChildren(index, parentPath, slots)) {
+    if (child.kind === 'folder') {
+      const folder = child.entity;
+      nodes.push({
+        type: 'folder',
+        uid: folder.uid,
+        name: folder.name,
+        path: folder.path,
+        children: buildTreeForParent(index, FOLDER_ENTITY_TYPE, folder.uid, folder.path),
+      });
+      continue;
+    }
+    const rule = child.entity;
     nodes.push({
       type: 'rule',
       uid: rule.uid,

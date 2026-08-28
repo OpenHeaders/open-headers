@@ -7,7 +7,6 @@
 import {
   computeDropFeedback,
   guideLeft,
-  itemsHead,
   onGuide,
 } from '@openheaders/ui/workbench/components/sidebar/tree-dnd-feedback';
 import { CARET_SLOT, ROW_MARGIN, rowPaddingLeft } from '@openheaders/ui/workbench/components/sidebar/tree-geometry';
@@ -48,75 +47,58 @@ const at = (id: string): TreeNode => byId.get(id) as TreeNode;
 
 describe('computeDropFeedback', () => {
   it("'before' a leaf: placeholder at the leaf's index and depth, guide from the parent's first child", () => {
-    const fb = computeDropFeedback('before', nodes, byId, at('leaf-y'), 'leaf');
+    const fb = computeDropFeedback('before', nodes, byId, at('leaf-y'));
     expect(fb.placeholder).toEqual({ index: 4, depth: 2 });
     expect(fb.guide).toEqual({ fromIndex: 2, left: guideLeft(1) });
   });
 
   it("'after' a folder: placeholder past its visible subtree at the folder's depth", () => {
-    const fb = computeDropFeedback('after', nodes, byId, at('folder-f'), 'folder');
+    const fb = computeDropFeedback('after', nodes, byId, at('folder-f'));
     expect(fb.placeholder).toEqual({ index: 5, depth: 1 });
     expect(fb.guide).toEqual({ fromIndex: 1, left: guideLeft(0) });
   });
 
-  it("a folder 'into' a folder: placeholder right under the container row, one level deeper", () => {
-    const fb = computeDropFeedback('into', nodes, byId, at('folder-f'), 'folder');
+  it("'into' a folder: placeholder right under the container row, one level deeper, for any row kind", () => {
+    const fb = computeDropFeedback('into', nodes, byId, at('folder-f'));
     expect(fb.placeholder).toEqual({ index: 2, depth: 2 });
     expect(fb.guide).toEqual({ fromIndex: 2, left: guideLeft(1) });
   });
 
-  it("a leaf 'into' a folder: placeholder at the head of the items run, after the folder run", () => {
-    const fb = computeDropFeedback('into', nodes, byId, at('folder-f'), 'leaf');
-    expect(fb.placeholder).toEqual({ index: 3, depth: 2 });
-    expect(fb.guide).toEqual({ fromIndex: 2, left: guideLeft(1) });
-  });
-
-  it("a folder 'into' a leaf lands in the leaf's parent at the end of its folder run", () => {
-    const fb = computeDropFeedback('into', nodes, byId, at('leaf-y'), 'folder');
-    expect(fb.placeholder).toEqual({ index: 3, depth: 2 });
-    expect(fb.guide).toEqual({ fromIndex: 2, left: guideLeft(1) });
+  it("'before' / 'after' a folder or a leaf are plain sibling spots whatever the dragged kind", () => {
+    expect(computeDropFeedback('after', nodes, byId, at('leaf-x')).placeholder).toEqual({ index: 4, depth: 2 });
+    expect(computeDropFeedback('before', nodes, byId, at('folder-g')).placeholder).toEqual({ index: 2, depth: 2 });
   });
 
   it("'into' the last collection: placeholder past the end of the list", () => {
-    const fb = computeDropFeedback('into', nodes, byId, at('col-b'), 'leaf');
+    const fb = computeDropFeedback('into', nodes, byId, at('col-b'));
     expect(fb.placeholder).toEqual({ index: 7, depth: 1 });
     expect(fb.guide).toEqual({ fromIndex: 7, left: guideLeft(0) });
   });
 
   it('a collection reorder has no parent row and no guide', () => {
-    expect(computeDropFeedback('after', nodes, byId, at('col-a'), 'collection').guide).toBeNull();
-    expect(computeDropFeedback('before', nodes, byId, at('col-b'), 'collection')).toEqual({
+    expect(computeDropFeedback('after', nodes, byId, at('col-a')).guide).toBeNull();
+    expect(computeDropFeedback('before', nodes, byId, at('col-b'))).toEqual({
       placeholder: { index: 6, depth: 0 },
       guide: null,
     });
   });
 });
 
-describe('itemsHead', () => {
-  it('is the first direct non-folder child; past the subtree when there is none; the next row when collapsed', () => {
-    expect(itemsHead(nodes, byId, 1)).toBe(3);
-    expect(itemsHead(nodes, byId, 0)).toBe(5);
-    expect(itemsHead(nodes, byId, 6)).toBe(7);
-    const foldersOnly = [nodes[0], nodes[1], nodes[2]];
-    expect(itemsHead(foldersOnly, new Map(foldersOnly.map((n) => [n.id, n])), 1)).toBe(3);
-  });
-});
-
 describe('onGuide', () => {
   it('runs from the guide start up to the row the placeholder renders ahead of', () => {
-    const fb = computeDropFeedback('before', nodes, byId, at('leaf-z'), 'leaf');
+    const fb = computeDropFeedback('before', nodes, byId, at('leaf-z'));
     expect([0, 1, 2, 3, 4, 5, 6].map((i) => onGuide(fb, i))).toEqual([false, true, true, true, true, false, false]);
   });
 
   it('a collapsed folder: only the placeholder carries the guide', () => {
     const collapsed = [nodes[0], nodes[1], nodes[5], nodes[6]];
-    const fb = computeDropFeedback('into', collapsed, new Map(collapsed.map((n) => [n.id, n])), at('folder-f'), 'leaf');
+    const fb = computeDropFeedback('into', collapsed, new Map(collapsed.map((n) => [n.id, n])), at('folder-f'));
     expect(fb).toEqual({ placeholder: { index: 2, depth: 2 }, guide: { fromIndex: 2, left: guideLeft(1) } });
     expect([0, 1, 2, 3].map((i) => onGuide(fb, i))).toEqual([false, false, false, false]);
   });
 
   it('is never on without a guide', () => {
-    const fb = computeDropFeedback('after', nodes, byId, at('col-a'), 'collection');
+    const fb = computeDropFeedback('after', nodes, byId, at('col-a'));
     expect(onGuide(fb, 5)).toBe(false);
   });
 });

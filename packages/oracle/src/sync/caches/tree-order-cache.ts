@@ -2,24 +2,29 @@
  * Tree-order cache — persists every container's child order of the
  * three sidebar trees to `wsKeys(scope).treeOrder`.
  *
- * The persisted entity arrays are written in tree order, but the four
- * request kinds persist as four arrays, so the interleave inside one
- * `items` set has no home there; folder order likewise lives only in
- * array position. This record folds the live `folders` and `items`
- * sets of every collection and folder — uids in slot order, keyed by
- * `<type>:<uid>` — and is what the restart re-seed (the tree slot
- * reconciler for leaves, the folder caches for folders) replays
- * before falling back to the arrays. Containers with no children
- * carry no entry; a stale entry for a container that no longer
- * exists is ignored by every reader.
+ * The persisted entity arrays are written in tree order, but folders
+ * and leaves persist as separate arrays and the four request kinds as
+ * four, so neither the interleave of folders with leaves nor that of
+ * the request kinds has a home there. This record folds the live
+ * `folders` and `items` sets of every collection and folder MERGED by
+ * key — child uids of both kinds in one list, the order the container
+ * renders — keyed by `<type>:<uid>`, and is what the restart re-seed
+ * (the tree slot reconciler for leaves, the folder caches for folders)
+ * replays before falling back to the arrays. Containers with no
+ * children carry no entry; a stale entry for a container that no
+ * longer exists is ignored by every reader. A legacy entry (the two
+ * runs listed apart) reads as folders then items and marks a container
+ * the hydration pass has yet to key as one order.
  */
 
 import { TreeOrderRecordSchema } from '@openheaders/core/schemas';
+import { mergeOrderedEntries } from '@openheaders/core/sync';
 import {
   EMPTY_TREE_ORDER,
   type TreeContainerOrder,
   type TreeOrderRecord,
   treeContainerKey,
+  treeOrderChildren,
 } from '@openheaders/core/types';
 import { logger } from '@openheaders/core/utils';
 import { hostStorage, wsKeys } from '@openheaders/oracle/storage';
@@ -41,16 +46,30 @@ export interface TreeOrderCache extends EntityCacheLike {
   getTreeOrder(): TreeOrderRecord;
 }
 
-/** Fold the live sets of every container into the record. Pure over the oracle. */
+/** A container's live children of both kinds, merged by key. */
+export function mergedChildSlots(
+  oracle: EntityOracle,
+  tree: FolderTreeKinds,
+  type: string,
+  uid: string,
+): ReadonlyArray<{ itemId: string; key: string }> {
+  return mergeOrderedEntries(
+    oracle.liveOrderedSetItems(type, uid, tree.childrenPath),
+    oracle.liveOrderedSetItems(type, uid, tree.itemsPath),
+    (slot) => slot.key,
+    (slot) => slot.itemId,
+  );
+}
+
+/** Fold the merged live children of every container into the record. Pure over the oracle. */
 export function projectTreeOrder(oracle: EntityOracle): TreeOrderRecord {
   const containers: Record<string, TreeContainerOrder> = {};
   for (const tree of TREES) {
     for (const m of treeMaterialized(oracle, tree)) {
       if (m.type !== tree.collectionType && m.type !== tree.folderType) continue;
-      const folders = oracle.liveOrderedSetItems(m.type, m.id, tree.childrenPath).map((slot) => slot.itemId);
-      const items = oracle.liveOrderedSetItems(m.type, m.id, tree.itemsPath).map((slot) => slot.itemId);
-      if (folders.length === 0 && items.length === 0) continue;
-      containers[treeContainerKey(m.type, m.id)] = { folders, items };
+      const children = mergedChildSlots(oracle, tree, m.type, m.id).map((slot) => slot.itemId);
+      if (children.length === 0) continue;
+      containers[treeContainerKey(m.type, m.id)] = { children };
     }
   }
   return { schemaVersion: 5, containers };
@@ -58,25 +77,30 @@ export function projectTreeOrder(oracle: EntityOracle): TreeOrderRecord {
 
 /**
  * Child-uid ranks across every container of the record: a child's
- * position in its parent's set. Positions of different parents share
- * one map — siblings are only ever compared with each other.
+ * position among its parent's children (a legacy entry ranks folders
+ * before items). Positions of different parents share one map —
+ * siblings are only ever compared with each other.
  */
 export function treeOrderRanks(record: TreeOrderRecord): ReadonlyMap<string, number> {
   const ranks = new Map<string, number>();
   for (const entry of Object.values(record.containers)) {
-    for (const [index, uid] of entry.folders.entries()) ranks.set(uid, index);
-    for (const [index, uid] of entry.items.entries()) ranks.set(uid, index);
+    for (const [index, uid] of treeOrderChildren(entry).entries()) ranks.set(uid, index);
   }
   return ranks;
 }
 
-/** The persisted record's ranks, for a restart re-seed; empty when nothing is persisted. */
-export async function loadTreeOrderRanks(workspaceId: string): Promise<ReadonlyMap<string, number>> {
+/** The persisted record, for a restart re-seed; `null` when nothing valid is persisted. */
+export async function loadTreeOrder(workspaceId: string): Promise<TreeOrderRecord | null> {
   const key = wsKeys(workspaceId).treeOrder;
   const record = await hostStorage.getValidated(key, TreeOrderRecordSchema, {
     onError: driftRecorder({ subsystem: 'workspace', storageKey: key.key, workspaceId }),
   });
-  return treeOrderRanks(record ?? EMPTY_TREE_ORDER);
+  return record ?? null;
+}
+
+/** The persisted record's ranks; empty when nothing is persisted. */
+export async function loadTreeOrderRanks(workspaceId: string): Promise<ReadonlyMap<string, number>> {
+  return treeOrderRanks((await loadTreeOrder(workspaceId)) ?? EMPTY_TREE_ORDER);
 }
 
 export function createTreeOrderCache(

@@ -28,7 +28,7 @@ const CONFIG: TreeDndIdConfig = {
   folderIdPrefix: 'folder-',
   leafKinds: [{ idPrefix: 'rule-', entityType: RULE_ENTITY_TYPE }],
 };
-const lookups = { lookupItems: () => [], lookupCollections: () => [] };
+const lookups = { lookupCollections: () => [] };
 
 const leaf = (uid: string, parentId: string, prefix = 'rule-'): TreeNode => ({
   id: `${prefix}${uid}`,
@@ -76,12 +76,12 @@ function map(nodes: TreeNode[]): Map<string, TreeNode> {
 const noSiblings = () => [];
 
 describe('computeDropPlacement', () => {
-  it("'into' on a collection reparents the dragged folder under it (head of the folder run)", () => {
+  it("'into' on a collection reparents the dragged folder under it, first among its children", () => {
     const c1 = collection('c1');
     const c2 = collection('c2');
     const dragged = folder('f', 'col-c1');
     const byId = map([c1, c2, dragged]);
-    const lookupSiblings = (parent: TreeDndParent) =>
+    const lookupChildren = (parent: TreeDndParent) =>
       parent.kind === 'collection' && parent.uid === 'c2' ? [{ itemId: 'head', orderKey: 's' }] : [];
 
     const result = computeDropPlacement({
@@ -91,7 +91,7 @@ describe('computeDropPlacement', () => {
       byId,
       config: CONFIG,
       ...lookups,
-      lookupSiblings,
+      lookupChildren,
     });
     expect(result).not.toBeNull();
     expect(result).toMatchObject({ parent: { kind: 'collection', uid: 'c2' } });
@@ -110,7 +110,7 @@ describe('computeDropPlacement', () => {
       byId,
       config: CONFIG,
       ...lookups,
-      lookupSiblings: noSiblings,
+      lookupChildren: noSiblings,
     });
     expect(result).toBeNull();
   });
@@ -127,7 +127,7 @@ describe('computeDropPlacement', () => {
       byId,
       config: CONFIG,
       ...lookups,
-      lookupSiblings: () => [],
+      lookupChildren: () => [],
     });
     expect(result).not.toBeNull();
     expect(result).toMatchObject({ parent: { kind: 'folder', uid: 't' } });
@@ -140,7 +140,7 @@ describe('computeDropPlacement', () => {
     const overTarget = folder('t', 'col-c2');
     const dragged = folder('f', 'col-c1');
     const byId = map([c1, c2, overTarget, dragged]);
-    const lookupSiblings = (parent: TreeDndParent) =>
+    const lookupChildren = (parent: TreeDndParent) =>
       parent.kind === 'collection' && parent.uid === 'c2' ? [{ itemId: 't', orderKey: 'm' }] : [];
 
     const result = computeDropPlacement({
@@ -150,7 +150,7 @@ describe('computeDropPlacement', () => {
       byId,
       config: CONFIG,
       ...lookups,
-      lookupSiblings,
+      lookupChildren,
     });
     expect(result).not.toBeNull();
     expect(result).toMatchObject({ parent: { kind: 'collection', uid: 'c2' } });
@@ -165,7 +165,7 @@ describe('computeDropPlacement', () => {
     const overTarget = folder('t', 'col-c2');
     const dragged = folder('f', 'col-c1');
     const byId = map([c1, c2, overTarget, dragged]);
-    const lookupSiblings = (parent: TreeDndParent) =>
+    const lookupChildren = (parent: TreeDndParent) =>
       parent.kind === 'collection' && parent.uid === 'c2' ? [{ itemId: 't', orderKey: 'm' }] : [];
 
     const result = computeDropPlacement({
@@ -175,7 +175,7 @@ describe('computeDropPlacement', () => {
       byId,
       config: CONFIG,
       ...lookups,
-      lookupSiblings,
+      lookupChildren,
     });
     expect(result).not.toBeNull();
     expect(result).toMatchObject({ parent: { kind: 'collection', uid: 'c2' } });
@@ -187,7 +187,7 @@ describe('computeDropPlacement', () => {
     const a = folder('a', 'col-c1');
     const b = folder('b', 'col-c1');
     const byId = map([c1, a, b]);
-    const lookupSiblings = () => [
+    const lookupChildren = () => [
       { itemId: 'a', orderKey: 'g' },
       { itemId: 'b', orderKey: 'm' },
     ];
@@ -199,7 +199,7 @@ describe('computeDropPlacement', () => {
       byId,
       config: CONFIG,
       ...lookups,
-      lookupSiblings,
+      lookupChildren,
     });
     expect(result).toBeNull();
   });
@@ -210,7 +210,7 @@ describe('computeDropPlacement', () => {
     const b = folder('b', 'col-c1');
     const c = folder('c', 'col-c1');
     const byId = map([c1, a, b, c]);
-    const lookupSiblings = () => [
+    const lookupChildren = () => [
       { itemId: 'a', orderKey: 'g' },
       { itemId: 'b', orderKey: 'm' },
       { itemId: 'c', orderKey: 's' },
@@ -223,7 +223,7 @@ describe('computeDropPlacement', () => {
       byId,
       config: CONFIG,
       ...lookups,
-      lookupSiblings,
+      lookupChildren,
     });
     expect(result).not.toBeNull();
     expect(result).toMatchObject({ parent: { kind: 'collection', uid: 'c1' } });
@@ -243,7 +243,7 @@ describe('computeDropPlacement', () => {
       byId,
       config: CONFIG,
       ...lookups,
-      lookupSiblings: () => [],
+      lookupChildren: () => [],
     });
     expect(result).toBeNull();
   });
@@ -264,7 +264,7 @@ describe('computeDropPlacement', () => {
       byId,
       config: CONFIG,
       ...lookups,
-      lookupSiblings: () => [],
+      lookupChildren: () => [],
     });
     expect(result).toBeNull();
   });
@@ -281,39 +281,38 @@ describe('computeDropPlacement', () => {
       byId,
       config: CONFIG,
       ...lookups,
-      lookupSiblings: () => [],
+      lookupChildren: () => [],
     });
     expect(result).toBeNull();
   });
 
-  it("folder over a leaf lands in that leaf's parent at the tail of the folder run", () => {
+  it("folder beside a leaf is a plain sibling insert in that leaf's parent, keyed against the leaf", () => {
     const c1 = collection('c1');
     const c2 = collection('c2');
     const target = folder('t', 'col-c2');
     const over = leaf('r', 'folder-t');
     const dragged = folder('f', 'col-c1');
     const byId = map([c1, c2, target, over, dragged]);
-    const lookupSiblings = (parent: TreeDndParent) =>
-      parent.kind === 'folder' && parent.uid === 't' ? [{ itemId: 'x', orderKey: 'm' }] : [];
-    const result = computeDropPlacement({
-      zone: 'into',
-      activeNode: dragged,
-      overNode: over,
-      byId,
-      config: CONFIG,
-      ...lookups,
-      lookupSiblings,
-    });
+    const lookupChildren = (parent: TreeDndParent) =>
+      parent.kind === 'folder' && parent.uid === 't'
+        ? [
+            { itemId: 'r', orderKey: 'm' },
+            { itemId: 'x', orderKey: 's' },
+          ]
+        : [];
+    const input = { activeNode: dragged, overNode: over, byId, config: CONFIG, ...lookups, lookupChildren };
+    const result = computeDropPlacement({ zone: 'after', ...input });
     expect(result).toMatchObject({
       kind: 'folder',
       folderUid: 'f',
       parent: { kind: 'folder', uid: 't' },
       oldParent: { kind: 'collection', uid: 'c1' },
     });
-    expect(result!.orderKey > 'm').toBe(true);
+    expect(result!.orderKey > 'm' && result!.orderKey < 's').toBe(true);
+    expect(computeDropPlacement({ zone: 'into', ...input })).toBeNull();
   });
 
-  it('folder over a leaf inside its own subtree is rejected (cycle guard)', () => {
+  it('folder beside a leaf inside its own subtree is rejected (cycle guard)', () => {
     const c1 = collection('c1');
     const a = folder('a', 'col-c1');
     const b = folder('b', 'folder-a');
@@ -321,13 +320,13 @@ describe('computeDropPlacement', () => {
     const byId = map([c1, a, b, over]);
     expect(
       computeDropPlacement({
-        zone: 'into',
+        zone: 'after',
         activeNode: a,
         overNode: over,
         byId,
         config: CONFIG,
         ...lookups,
-        lookupSiblings: () => [],
+        lookupChildren: () => [],
       }),
     ).toBeNull();
   });
@@ -337,10 +336,12 @@ describe('computeDropPlacement — leaves', () => {
   const c1 = collection('c1');
   const c2 = collection('c2');
   const f = folder('f', 'col-c1');
-  const items = (parent: TreeDndParent) =>
+  // c1's children merged by key: a, f, b, c — the folder sits between two leaves.
+  const children = (parent: TreeDndParent) =>
     parent.kind === 'collection' && parent.uid === 'c1'
       ? [
           { itemId: 'a', orderKey: 'g' },
+          { itemId: 'f', orderKey: 'j' },
           { itemId: 'b', orderKey: 'm' },
           { itemId: 'c', orderKey: 's' },
         ]
@@ -359,12 +360,11 @@ describe('computeDropPlacement — leaves', () => {
       overNode,
       byId,
       config: CONFIG,
-      lookupSiblings: () => [],
-      lookupItems: items,
+      lookupChildren: children,
       lookupCollections: () => [],
     });
 
-  it('leaf over a sibling leaf reorders in the parent items set, keyed between the neighbours', () => {
+  it("leaf over a sibling reorders among the parent's merged children, keyed between the neighbours", () => {
     const result = place('after', a, c);
     expect(result).toMatchObject({
       kind: 'leaf',
@@ -374,9 +374,14 @@ describe('computeDropPlacement — leaves', () => {
     });
     expect(result).not.toHaveProperty('oldParent');
     expect(result!.orderKey > 's').toBe(true);
-    expect(place('before', a, b)).toBeNull();
+    // 'a' sits directly before the folder; before the folder is its own slot.
+    expect(place('before', a, f)).toBeNull();
+    // Between the folder ('j') and 'b' ('m').
     const between = place('before', c, b);
-    expect(between!.orderKey > 'g' && between!.orderKey < 'm').toBe(true);
+    expect(between!.orderKey > 'j' && between!.orderKey < 'm').toBe(true);
+    // A leaf lands beside a folder like beside any sibling.
+    const afterFolder = place('after', a, f);
+    expect(afterFolder!.orderKey > 'j' && afterFolder!.orderKey < 'm').toBe(true);
   });
 
   it('leaf over a leaf in another parent re-parents beside it', () => {
@@ -390,7 +395,7 @@ describe('computeDropPlacement — leaves', () => {
     expect(result!.orderKey < 'm').toBe(true);
   });
 
-  it('leaf into a folder or collection lands at the head of its items run; into its own parent is a no-op', () => {
+  it('leaf into a folder or collection lands first among its children; into its own parent is a no-op', () => {
     const intoFolder = place('into', a, f);
     expect(intoFolder).toMatchObject({
       kind: 'leaf',
@@ -429,8 +434,7 @@ describe('computeDropPlacement — collections', () => {
       overNode,
       byId,
       config: CONFIG,
-      lookupSiblings: () => [],
-      lookupItems: () => [],
+      lookupChildren: () => [],
       lookupCollections: () => roots,
     });
 
@@ -600,18 +604,21 @@ describe('computeDropPlacements — multi-item', () => {
   const y = leaf('y', 'col-c2');
   const nodes = [c1, f, inF, a, b, c, c2, g, y];
   const byId = map(nodes);
-  const items = (parent: TreeDndParent) =>
+  // Merged children: c1 = f, a, b, c; c2 = g, y.
+  const children = (parent: TreeDndParent) =>
     parent.kind === 'collection' && parent.uid === 'c1'
       ? [
+          { itemId: 'f', orderKey: 'd' },
           { itemId: 'a', orderKey: 'g' },
           { itemId: 'b', orderKey: 'm' },
           { itemId: 'c', orderKey: 's' },
         ]
       : parent.kind === 'collection' && parent.uid === 'c2'
-        ? [{ itemId: 'y', orderKey: 'm' }]
+        ? [
+            { itemId: 'g', orderKey: 'j' },
+            { itemId: 'y', orderKey: 'm' },
+          ]
         : [];
-  const siblings = (parent: TreeDndParent) =>
-    parent.kind === 'collection' && parent.uid === 'c2' ? [{ itemId: 'g', orderKey: 'm' }] : [];
   const place = (zone: 'before' | 'into' | 'after', activeNodes: TreeNode[], overNode: TreeNode) =>
     computeDropPlacements({
       zone,
@@ -619,8 +626,7 @@ describe('computeDropPlacements — multi-item', () => {
       overNode,
       byId,
       config: CONFIG,
-      lookupSiblings: siblings,
-      lookupItems: items,
+      lookupChildren: children,
       lookupCollections: () => [],
     });
 
@@ -631,13 +637,12 @@ describe('computeDropPlacements — multi-item', () => {
     expect(result[0].orderKey < result[1].orderKey && result[1].orderKey < 'm').toBe(true);
   });
 
-  it('splits roles into their own runs: folders land at the head of the folder run, leaves at the head of the items run', () => {
+  it('a folder and a leaf move as one group, in visible order, landing together first under the container', () => {
     const result = place('into', [f, a], c2);
     expect(result).toHaveLength(2);
     expect(result[0]).toMatchObject({ kind: 'folder', folderUid: 'f', parent: { kind: 'collection', uid: 'c2' } });
-    expect(result[0].orderKey < 'm').toBe(true);
     expect(result[1]).toMatchObject({ kind: 'leaf', uid: 'a', parent: { kind: 'collection', uid: 'c2' } });
-    expect(result[1].orderKey < 'm').toBe(true);
+    expect(result[0].orderKey < result[1].orderKey && result[1].orderKey < 'j').toBe(true);
   });
 
   it('a child of a moving folder travels with it, and a drop onto a moving row is rejected', () => {
@@ -654,13 +659,13 @@ describe('computeDropPlacements — multi-item', () => {
         overNode,
         byId,
         config: CONFIG,
-        lookupSiblings: siblings,
-        lookupItems: items,
+        lookupChildren: children,
         lookupCollections: () => [],
       });
-    // 'a' already sits directly before 'b'; into its own parent likewise.
+    // 'a' already sits directly before 'b', and right after the folder; into its own parent likewise.
     expect(resolve('before', [a], b)).toEqual({ kind: 'stay' });
     expect(resolve('after', [b], a)).toEqual({ kind: 'stay' });
+    expect(resolve('after', [a], f)).toEqual({ kind: 'stay' });
     expect(resolve('into', [a], c1)).toEqual({ kind: 'stay' });
     expect(resolve('into', [f], c1)).toEqual({ kind: 'stay' });
     expect(resolve('into', [f], inF)).toEqual({ kind: 'rejected' });

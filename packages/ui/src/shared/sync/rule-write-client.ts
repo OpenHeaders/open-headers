@@ -35,7 +35,7 @@ import {
   resolveRendererContext,
   type SyncSimpleResult,
 } from './apply-payload';
-import { resolveLeafParent, resolveLeafPlacement, ruleTreeMirrors, unresolvableParent } from './tree-placement';
+import { resolveChildPlacement, resolveLeafParent, ruleTreeMirrors, unresolvableParent } from './tree-placement';
 
 export type RuleUpdates = Partial<Omit<Rule, 'uid' | 'path' | 'pathSegment' | 'schemaVersion'>>;
 
@@ -153,7 +153,7 @@ export async function applyRuleCreate(
   request: { rule: Omit<Rule, 'uid' | 'path' | 'pathSegment' | 'schemaVersion'>; parentPath: string },
   opts: RuleWriteOptions,
 ): Promise<RuleMutationResult> {
-  const placement = await resolveLeafPlacement(ruleTreeMirrors(opts.workspaceId, opts), request.parentPath);
+  const placement = await resolveChildPlacement(ruleTreeMirrors(opts.workspaceId, opts), request.parentPath);
   if (!placement) return unresolvableParent(request.parentPath);
   const uid = generateUid();
   const folderName = toFolderName(request.rule.name, uid);

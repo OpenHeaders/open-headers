@@ -57,7 +57,7 @@ import type {
   ExecutedRequestSnapshot,
   ExecutedWsSnapshot,
 } from '@openheaders/core/types';
-import { buildRequestCollectionTrees, type ContainerSlotReader } from '../shared/local-tree-builder';
+import { buildRequestCollectionTrees, mirrorSlotReader } from '../shared/local-tree-builder';
 import { hostStorage, type PersistedLocalFolder, wsKeys } from '@openheaders/core/storage';
 import {
   applyRequestCollectionCreate,
@@ -437,18 +437,17 @@ export const RequestsProvider: React.FC<RequestsProviderProps> = ({
     let currentCollections: Collection[] = [];
     let currentFolders: PersistedLocalFolder[] = [];
 
-    // The four request kinds share one `items` set per container; the
-    // persisted arrays carry each kind's order but not the cross-kind
-    // interleave, so the container mirrors' slots order the leaves.
+    // A container's children are one order — folders and the four
+    // request kinds interleaved — which the persisted per-kind arrays
+    // cannot carry, so the container mirrors' merged slots order them.
     const collectionMirror = getRequestCollectionSyncMirrorForWorkspace(wsId);
     const folderMirror = getRequestFolderSyncMirrorForWorkspace(wsId);
-    const slotsOf: ContainerSlotReader = (parent) => {
-      const mirror = parent.type === 'collection' ? collectionMirror : folderMirror;
-      return {
-        folders: mirror.liveOrderedSetItems(parent.uid, REQUEST_FOLDER_CHILDREN_PATH).map((slot) => slot.itemId),
-        items: mirror.liveOrderedSetItems(parent.uid, REQUEST_FOLDER_ITEMS_PATH).map((slot) => slot.itemId),
-      };
-    };
+    const slotsOf = mirrorSlotReader(
+      collectionMirror,
+      folderMirror,
+      REQUEST_FOLDER_CHILDREN_PATH,
+      REQUEST_FOLDER_ITEMS_PATH,
+    );
 
     const recomputeTrees = () => {
       setCollectionTrees(

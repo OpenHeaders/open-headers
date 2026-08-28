@@ -51,9 +51,6 @@ export const workbenchChromeSidebar = {
   'workbench.sidebar.behavior.alwaysSelectOpened': 'Always Select Opened Tab',
   'workbench.sidebar.appearance.title': 'Appearance',
   'workbench.sidebar.appearance.showIndentGuides': 'Show Indent Guides',
-  'workbench.sidebar.sort.title': 'Sort By',
-  'workbench.sidebar.sort.manual': 'Manual',
-  'workbench.sidebar.sort.name': 'Name',
   'workbench.sidebar.dnd.itemsCount': ({ count }, locale) =>
     plural(locale, Number(count), { one: '{count} item', other: '{count} items' }),
   'workbench.sidebar.toast.itemsMoved': ({ count }, locale) =>
