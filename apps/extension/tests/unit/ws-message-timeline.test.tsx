@@ -305,14 +305,36 @@ describe('WsMessageTimeline — display-only controls', () => {
 });
 
 describe('WsMessageTimeline — payload views', () => {
-  it('labels a binary frame with its byte count and shows base64 in the viewer', () => {
+  it('labels a binary frame with its byte count and opens it on the hexdump, Show Message reads base64', () => {
     const item = binary([1, 2, 3, 4]);
     renderTimeline({ items: [item], count: 1 });
     const row = screen.getByTestId('ws-timeline-message-row');
     expect(row.textContent).toContain('4 bytes');
     fireEvent.click(row);
+    expect(screen.getByTestId('ws-timeline-hex-offsets').textContent).toBe('00000000:');
+    expect(screen.getByTestId('ws-timeline-hex').textContent).toMatch(/01 02 03 04/i);
+    expect(screen.getByTestId('ws-timeline-viewer-hex').textContent).toBe('Show Message');
+    fireEvent.click(screen.getByTestId('ws-timeline-viewer-hex'));
     const viewer = screen.getByTestId('ws-timeline-message-viewer');
     expect((viewer.querySelector('textarea') as HTMLTextAreaElement).value).toBe(item.dataBase64);
+  });
+
+  it('toggles a text frame to its hexdump and back, the viewer toolbar carries format wrap and find', () => {
+    renderTimeline();
+    const pingRow = screen.getAllByTestId('ws-timeline-message-row').find((r) => r.textContent?.includes('ping'));
+    if (!pingRow) throw new Error('no ping row');
+    fireEvent.click(pingRow);
+    expect(screen.getByTestId('ws-timeline-viewer-format')).toBeTruthy();
+    expect(screen.getByTestId('ws-timeline-viewer-wrap')).toBeTruthy();
+    expect(screen.getByTestId('ws-timeline-viewer-find')).toBeTruthy();
+    const toggle = screen.getByTestId('ws-timeline-viewer-hex');
+    expect(toggle.textContent).toBe('Show Hexdump');
+    fireEvent.click(toggle);
+    expect(screen.getByTestId('ws-timeline-hex').textContent).toMatch(/70 69 6e 67/i);
+    expect(screen.queryByTestId('code-editor')).toBeNull();
+    fireEvent.click(screen.getByTestId('ws-timeline-viewer-hex'));
+    const viewer = screen.getByTestId('ws-timeline-message-viewer');
+    expect((viewer.querySelector('textarea') as HTMLTextAreaElement).value).toBe('ping');
   });
 
   it('expands a text row into the decoded payload', () => {

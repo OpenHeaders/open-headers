@@ -62,15 +62,19 @@ import type { MessageKey } from '@openheaders/i18n';
 import { parseEngineIoFrame, SOCKET_IO_PACKET_TYPES } from '@openheaders/core/socketio';
 import type { WebSocketFlavor } from '@openheaders/core/types';
 import { decodeBase64Bytes, wsCloseCodePhrase } from '@openheaders/core/utils';
-import { Button, ConfigProvider, Dropdown, Input, Segmented, Tag, Tooltip, Typography, theme } from 'antd';
+import { Button, ConfigProvider, Dropdown, Input, Segmented, Select, Tag, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { type Translate, useT } from '@openheaders/ui/context/LocaleContext';
 import { useVirtualRowWindow } from '@openheaders/ui/shared/virtual-window';
 import { useSetting } from '@openheaders/ui/workbench/settings/hooks';
 import CodeEditor from '../shared/CodeEditor';
+import type { CodeEditorActionsTarget } from '../shared/CodeEditorActions';
+import HexDumpView from '../shared/HexDumpView';
+import { buildHexDump, type HexDump } from '../request-editor/response/response-encoding';
 import { formatBytes } from '../request-editor/response/response-format';
 import { WrapLinesIcon } from '../request-editor/response/ViewPickerIcons';
+import { MESSAGE_FORMAT_LANGUAGE } from './compose';
 import { wsAutoHeaderDefs } from './ws-auto-headers';
 
 const { Text } = Typography;
@@ -82,9 +86,28 @@ const PREVIEW_MAX_CHARS = 400;
 /** Pinned border-box height of every single-line row — the virtual
  *  window's arithmetic depends on heights being exact by construction. */
 const SINGLE_ROW_PX = 28;
-/** Pinned height of an expanded row's mini viewer (180px editor +
- *  1px divider). */
-const VIEWER_PX = 181;
+/** Pinned height of an expanded row's viewer: the 24px toolbar row
+ *  (format, wrap, hexdump, find) + 4px gap + 180px editor + 4px
+ *  bottom pad + 1px divider. */
+const VIEWER_TOOLBAR_PX = 24;
+const VIEWER_EDITOR_PX = 180;
+const VIEWER_PX = VIEWER_TOOLBAR_PX + 4 + VIEWER_EDITOR_PX + 4 + 1;
+
+/** The viewer's text formats — the compose formats minus binary; a
+ *  frame's bytes are the Hexdump toggle, not a format. */
+type ViewerFormat = 'text' | 'json' | 'xml' | 'html';
+const VIEWER_FORMAT_KEYS: Record<ViewerFormat, MessageKey> = {
+  text: 'workbench.editors.websocket.message.formatText',
+  json: 'workbench.editors.websocket.message.formatJson',
+  xml: 'workbench.editors.websocket.message.formatXml',
+  html: 'workbench.editors.websocket.message.formatHtml',
+};
+/** Per-viewer display choice — `format` null follows the decode
+ *  (JSON when it parses, else Text); `hex` shows the frame's bytes. */
+interface ViewerMode {
+  format: ViewerFormat | null;
+  hex: boolean;
+}
 /** Line heights of the expanded lifecycle blocks — the lines carry
  *  these explicitly so the virtual window's arithmetic stays exact by
  *  construction: a heading is 18px, a fact row 20px, the block pads
@@ -450,12 +473,22 @@ interface WsFrameDerivations {
   /** Socket.IO display decode; always `null` on the raw flavor and on
    *  binary frames. */
   sioOf: (item: WsTimelineItem) => WsSioView | null;
+  /** The frame's bytes as the classic dump — the viewer's Hexdump. */
+  hexOf: (item: WsTimelineItem) => HexDump;
 }
 
 function makeWsFrameDerivations(decodeSio: boolean): WsFrameDerivations {
   const viewCache = new WeakMap<WsTimelineItem, WsMessageView>();
   const previewCache = new WeakMap<WsTimelineItem, string>();
   const sioCache = new WeakMap<WsTimelineItem, WsSioView | null>();
+  const hexCache = new WeakMap<WsTimelineItem, HexDump>();
+  const hexOf = (item: WsTimelineItem): HexDump => {
+    const hit = hexCache.get(item);
+    if (hit !== undefined) return hit;
+    const dump = buildHexDump(decodeBase64Bytes(item.dataBase64) ?? new Uint8Array(0));
+    hexCache.set(item, dump);
+    return dump;
+  };
   const viewOf = (item: WsTimelineItem): WsMessageView => {
     const hit = viewCache.get(item);
     if (hit !== undefined) return hit;
@@ -498,7 +531,7 @@ function makeWsFrameDerivations(decodeSio: boolean): WsFrameDerivations {
     sioCache.set(item, sio);
     return sio;
   };
-  return { viewOf, previewOf, sioOf };
+  return { viewOf, previewOf, sioOf, hexOf };
 }
 
 /** Row label for the socket.io CONTROL frames — `null` for the event
@@ -573,6 +606,20 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
   const toggleSection = (section: keyof HeaderSectionsOpen) =>
     setSectionsOpen((prev) => ({ ...prev, [section]: !prev[section] }));
   const [wrapLines, setWrapLines] = useState(true);
+  // Per-viewer display choice, keyed by item index; absent = follow
+  // the decode. A binary frame opens on its bytes.
+  const [viewerModes, setViewerModes] = useState<ReadonlyMap<number, ViewerMode>>(new Map());
+  // One imperative find target per open viewer — the toolbar's search
+  // button drives the editor under it.
+  const viewerActionsRef = useRef(new Map<number, React.MutableRefObject<CodeEditorActionsTarget | null>>());
+  const viewerActions = (index: number): React.MutableRefObject<CodeEditorActionsTarget | null> => {
+    let ref = viewerActionsRef.current.get(index);
+    if (ref === undefined) {
+      ref = { current: null };
+      viewerActionsRef.current.set(index, ref);
+    }
+    return ref;
+  };
   // Sort direction and grouping are SETTINGS — global, user-owned,
   // written by this toolbar and the Settings page alike; a Connect/
   // Disconnect remount never resets them.
@@ -1716,22 +1763,114 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
         const sio = derive.sioOf(item);
         if (sio?.kind === 'event') view = { ...view, kind: 'json', text: sio.payloadPretty };
         else if (sio?.kind === 'ack') view = { ...view, kind: 'json', text: sio.payloadPretty };
+        const mode = viewerModes.get(entry.index) ?? { format: null, hex: item.binary };
+        const format: ViewerFormat = mode.format ?? (view.kind === 'json' ? 'json' : 'text');
+        const setMode = (patch: Partial<ViewerMode>) =>
+          setViewerModes((prev) => new Map(prev).set(entry.index, { ...mode, ...patch }));
+        const actionsRef = viewerActions(entry.index);
         return (
           <div
             key={entry.key}
             data-testid="ws-timeline-message-viewer"
             onClick={(event) => event.stopPropagation()}
             onKeyDown={(event) => event.stopPropagation()}
-            style={{ height: VIEWER_PX - 1, borderBottom: `1px solid ${token.colorBorderSecondary}` }}
+            style={{
+              height: VIEWER_PX - 1,
+              borderBottom: `1px solid ${token.colorBorderSecondary}`,
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 4,
+              paddingBottom: 4,
+            }}
           >
-            <CodeEditor
-              value={view.text}
-              language={view.kind === 'json' ? 'json' : 'text'}
-              readOnly
-              fill
-              variableAutoComplete={false}
-              wordWrapOverride={wrapLines ? 'on' : 'off'}
-            />
+            {/* The viewer's toolbar: format and wrap left, the Hexdump
+              toggle and find right — the compose bar's anatomy over a
+              read-only buffer. */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, height: VIEWER_TOOLBAR_PX }}>
+              <Select
+                size="small"
+                value={format}
+                disabled={mode.hex}
+                options={(Object.keys(VIEWER_FORMAT_KEYS) as ViewerFormat[]).map((value) => ({
+                  value,
+                  label: t(VIEWER_FORMAT_KEYS[value]),
+                }))}
+                onChange={(next: ViewerFormat) => setMode({ format: next })}
+                style={{ width: 96 }}
+                aria-label={t('workbench.editors.websocket.timeline.viewerFormat')}
+                data-testid="ws-timeline-viewer-format"
+              />
+              <Tooltip
+                title={
+                  wrapLines
+                    ? t('workbench.editors.request.response.body.unwrapLines')
+                    : t('workbench.editors.request.response.body.wrapLines')
+                }
+                placement="bottom"
+              >
+                <Button
+                  size="small"
+                  type="text"
+                  icon={<WrapLinesIcon />}
+                  disabled={mode.hex}
+                  onClick={() => setWrapLines((prev) => !prev)}
+                  aria-label={t('workbench.editors.request.response.body.wrapLines')}
+                  style={wrapLines && !mode.hex ? { background: token.colorBgTextActive } : undefined}
+                  data-testid="ws-timeline-viewer-wrap"
+                />
+              </Tooltip>
+              <span style={{ flex: 1 }} />
+              <Button
+                size="small"
+                type="text"
+                onClick={() => setMode({ hex: !mode.hex })}
+                aria-pressed={mode.hex}
+                data-testid="ws-timeline-viewer-hex"
+              >
+                {mode.hex
+                  ? t('workbench.editors.websocket.timeline.showMessage')
+                  : t('workbench.editors.websocket.timeline.showHexdump')}
+              </Button>
+              <Tooltip title={t('workbench.editors.scriptEditor.find')} placement="bottom">
+                <Button
+                  size="small"
+                  type="text"
+                  icon={<SearchOutlined />}
+                  disabled={mode.hex}
+                  onClick={() => actionsRef.current?.find()}
+                  aria-label={t('workbench.editors.scriptEditor.find')}
+                  data-testid="ws-timeline-viewer-find"
+                />
+              </Tooltip>
+            </div>
+            {mode.hex ? (
+              <div
+                style={{
+                  flex: 1,
+                  minHeight: 0,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  padding: '4px 8px',
+                  border: `1px solid ${token.colorBorder}`,
+                  borderRadius: 6,
+                }}
+              >
+                <HexDumpView dump={derive.hexOf(item)} testIdPrefix="ws-timeline-hex" />
+              </div>
+            ) : (
+              <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+                <CodeEditor
+                  value={view.text}
+                  language={MESSAGE_FORMAT_LANGUAGE[format]}
+                  readOnly
+                  fill
+                  variableAutoComplete={false}
+                  wordWrapOverride={wrapLines ? 'on' : 'off'}
+                  actions="external"
+                  actionsRef={actionsRef}
+                />
+              </div>
+            )}
           </div>
         );
       }
@@ -1853,23 +1992,6 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
             />
           </Tooltip>
         </Dropdown>
-        <Tooltip
-          title={
-            wrapLines
-              ? t('workbench.editors.request.response.body.unwrapLines')
-              : t('workbench.editors.request.response.body.wrapLines')
-          }
-          placement="bottom"
-        >
-          <Button
-            size="small"
-            type="text"
-            icon={<WrapLinesIcon />}
-            onClick={() => setWrapLines((prev) => !prev)}
-            aria-label={t('workbench.editors.request.response.body.wrapLines')}
-            style={wrapLines ? { background: token.colorBgTextActive } : undefined}
-          />
-        </Tooltip>
         <Tooltip title={t('workbench.editors.websocket.timeline.clearMessages')} placement="bottom">
           <Button
             size="small"

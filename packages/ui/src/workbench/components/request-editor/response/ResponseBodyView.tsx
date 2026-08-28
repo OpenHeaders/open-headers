@@ -40,6 +40,7 @@ import { useT } from '@openheaders/ui/context/LocaleContext';
 import { useOpenSettings } from '../../../hooks/OpenSettingsContext';
 import { getLanguage, LANGUAGE_LIST, type LanguageId } from '../../../languages/registry';
 import CodeEditor from '../../shared/CodeEditor';
+import HexDumpView, { HEX_PRE_STYLE } from '../../shared/HexDumpView';
 import ResponseFilterInput from './ResponseFilterInput';
 import ResponseImagePreview from './ResponseImagePreview';
 import ResponseJsonPreview from './ResponseJsonPreview';
@@ -125,13 +126,6 @@ const RAW_GUTTER_MAX_LINES = 5000;
 
 /** Shared column style for the Hex view's three `<pre>`s — the gutter,
  *  the offsets, and the dump must line up row for row. */
-const HEX_PRE_STYLE: React.CSSProperties = {
-  fontFamily: "'SF Mono', 'Fira Code', monospace",
-  fontSize: 12,
-  margin: 0,
-  whiteSpace: 'pre',
-};
-
 function PickerLabel({ icon, text }: { icon: string; text: string }) {
   return (
     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 10 }}>
@@ -424,10 +418,6 @@ const ResponseBodyView: React.FC<{
     const bytes = snapshotBodyBytes(response);
     return buildHexDump(bytes, undefined, detectMagicSignatures(bytes));
   }, [mode, response]);
-  const hexLineNumbers = useMemo(
-    () => (hexDump ? Array.from({ length: hexDump.rowCount }, (_, i) => i + 1).join('\n') : ''),
-    [hexDump],
-  );
   const base64Lines = useMemo(
     () =>
       mode === 'base64'
@@ -838,61 +828,7 @@ const ResponseBodyView: React.FC<{
           )}
         </div>
       )}
-      {mode === 'hex' && hexDump && (
-        <div style={{ flex: 1, overflow: 'auto', minHeight: 0 }}>
-          {hexDump.capped && (
-            <Text type="secondary" style={{ fontSize: 11, display: 'block', marginBottom: 4 }}>
-              {t('workbench.editors.request.response.body.hexCapNotice', {
-                shown: formatBytes(hexDump.shownBytes),
-                total: formatBytes(hexDump.totalBytes),
-              })}
-            </Text>
-          )}
-          {/* Three columns, each ONE text node regardless of row count
-              (a 512 KB dump is 32k rows — per-row elements would jank):
-              line-number gutter (sticky through horizontal scroll),
-              colored offsets, then the dump itself. Only rows carrying
-              a detected file signature split off spans, so their ASCII
-              column highlights (hover names the format). */}
-          <div style={{ display: 'flex', width: 'fit-content', minWidth: '100%' }}>
-            <pre
-              aria-hidden="true"
-              style={{
-                ...HEX_PRE_STYLE,
-                color: token.geekblue7,
-                textAlign: 'right',
-                userSelect: 'none',
-                position: 'sticky',
-                left: 0,
-                background: token.colorBgContainer,
-                paddingRight: 12,
-                minWidth: 34,
-              }}
-            >
-              {hexLineNumbers}
-            </pre>
-            <pre data-testid="oh-response-hex-offsets" style={{ ...HEX_PRE_STYLE, color: token.magenta7 }}>
-              {hexDump.offsetsText}
-            </pre>
-            <pre data-testid="oh-response-hex" style={{ ...HEX_PRE_STYLE, color: token.colorText }}>
-              {hexDump.pieces.map((piece, i) => {
-                const nl = i < hexDump.pieces.length - 1 ? '\n' : '';
-                if (piece.kind === 'plain') return `${piece.text}${nl}`;
-                return (
-                  // biome-ignore lint/suspicious/noArrayIndexKey: pieces are positional derivations of one immutable dump
-                  <span key={i}>
-                    {piece.head}
-                    <span title={piece.label} style={{ color: token.colorInfoText, fontWeight: 600 }}>
-                      {piece.ascii}
-                    </span>
-                    {nl}
-                  </span>
-                );
-              })}
-            </pre>
-          </div>
-        </div>
-      )}
+      {mode === 'hex' && hexDump && <HexDumpView dump={hexDump} />}
       {mode === 'base64' && base64Lines && (
         <div style={{ flex: 1, overflow: 'auto', minHeight: 0 }}>
           {/* Fixed-width base64 rows (the classic 76-char MIME line)
