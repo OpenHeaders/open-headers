@@ -483,9 +483,11 @@ export {
   WEBSOCKET_REQUEST_HEADERS_PATH,
   WEBSOCKET_REQUEST_MUTATOR_VERSION,
   WEBSOCKET_REQUEST_PARAMS_PATH,
+  WEBSOCKET_REQUEST_SAVED_MESSAGES_PATH,
   type WebSocketEventRowRow,
   type WebSocketHeaderPairRow,
   type WebSocketQueryParamRow,
+  type WebSocketSavedMessageRow,
   webSocketRequestChild,
 } from './websocket-request';
 export {

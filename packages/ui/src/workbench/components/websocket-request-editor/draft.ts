@@ -20,9 +20,10 @@ import type {
   WebSocketMessageFormat,
   WebSocketQueryParam,
   WebSocketRequest,
+  WebSocketSavedMessage,
   WebSocketSpecLink,
 } from '@openheaders/core/types';
-import { parseUrlQuery } from '@openheaders/core/utils';
+import { decodeBase64Bytes, parseUrlQuery } from '@openheaders/core/utils';
 import { type KeyValueRow, makeKvRow } from '../request-editor/KeyValueTable';
 
 export interface WebSocketDraft {
@@ -49,6 +50,8 @@ export interface WebSocketDraft {
    *  Rows keep the entity shape; the grid's trailing ghost trims away
    *  in the save projection like the header/param rows. */
   events: WebSocketEventRow[];
+  /** Saved-messages rail rows (concrete — absent reads as []). */
+  savedMessages: WebSocketSavedMessage[];
   /** Concrete in the form — absent on the entity reads as `text`. */
   messageFormat: WebSocketMessageFormat;
   /** Byte spelling of a `binary` compose (concrete — absent reads as
@@ -72,6 +75,7 @@ export interface WebSocketRequestUpdates {
   params: WebSocketQueryParam[];
   auth: WebSocketAuth;
   events: WebSocketEventRow[];
+  savedMessages: WebSocketSavedMessage[];
   message: string;
   eventName: string;
   namespace: string;
@@ -182,6 +186,7 @@ export function draftFromWebSocketRequest(req: WebSocketRequest): WebSocketDraft
     params: [...urlParams, ...paramsToRows(req.params)],
     auth: req.auth ?? { type: 'none' },
     events: (req.events ?? []).map((row) => ({ ...row })),
+    savedMessages: (req.savedMessages ?? []).map((row) => ({ ...row })),
     message: req.message,
     eventName: req.eventName ?? '',
     namespace: req.namespace ?? '',
@@ -204,6 +209,7 @@ export function buildWebSocketRequestUpdates(draft: WebSocketDraft): WebSocketRe
     params: rowsToParams(draft.params),
     auth: draft.auth,
     events: rowsToEvents(draft.events),
+    savedMessages: draft.savedMessages,
     message: draft.message,
     eventName: draft.eventName,
     namespace: draft.namespace,
@@ -222,4 +228,91 @@ export function buildWebSocketRequestUpdates(draft: WebSocketDraft): WebSocketRe
  *  apples-to-apples. */
 export function canonicalWebSocketRequestProjection(req: WebSocketRequest): WebSocketRequestUpdates {
   return buildWebSocketRequestUpdates(draftFromWebSocketRequest(req));
+}
+
+// ── Saved-messages compose binding ──────────────────────────────────
+// The rail's rows are entity rows; the compose is the SELECTED row's
+// editor, so every compose edit mirrors back into it within the same
+// draft update. All four helpers are pure projections over the same
+// field set: message, mode, byte spelling, socketio event name.
+
+/** The compose block captured as one saved row — optional fields
+ *  absent at their defaults (the `+` capture and the mirror share it). */
+export function composeAsSavedMessage(draft: WebSocketDraft, uid: string, name: string): WebSocketSavedMessage {
+  return {
+    uid,
+    name,
+    message: draft.message,
+    ...(draft.messageFormat !== 'text' ? { messageFormat: draft.messageFormat } : {}),
+    ...(draft.messageFormat === 'binary' && draft.binaryEncoding !== 'base64'
+      ? { binaryEncoding: draft.binaryEncoding }
+      : {}),
+    ...(draft.eventName !== '' ? { eventName: draft.eventName } : {}),
+  };
+}
+
+/** One saved row filling the whole compose — the click-to-load leg. */
+export function loadSavedMessageIntoCompose(draft: WebSocketDraft, row: WebSocketSavedMessage): WebSocketDraft {
+  return {
+    ...draft,
+    message: row.message,
+    messageFormat: row.messageFormat ?? 'text',
+    binaryEncoding: row.binaryEncoding ?? 'base64',
+    eventName: row.eventName ?? '',
+  };
+}
+
+/** Does the row hold exactly what the compose shows? Stored optional
+ *  fields read at their defaults; the byte spelling only counts under
+ *  a binary compose. */
+export function savedRowMatchesCompose(draft: WebSocketDraft, row: WebSocketSavedMessage): boolean {
+  return (
+    row.message === draft.message &&
+    (row.messageFormat ?? 'text') === draft.messageFormat &&
+    (draft.messageFormat !== 'binary' || (row.binaryEncoding ?? 'base64') === draft.binaryEncoding) &&
+    (row.eventName ?? '') === draft.eventName
+  );
+}
+
+/** Mirror the compose into the selected saved row — the write-through
+ *  leg. Identity-stable: no selection, a vanished row, or an already-
+ *  matching row returns the SAME draft object (no render churn). */
+export function mirrorComposeIntoSaved(draft: WebSocketDraft, selectedUid: string | null): WebSocketDraft {
+  if (selectedUid === null) return draft;
+  const index = draft.savedMessages.findIndex((row) => row.uid === selectedUid);
+  if (index === -1) return draft;
+  const row = draft.savedMessages[index];
+  if (savedRowMatchesCompose(draft, row)) return draft;
+  const savedMessages = draft.savedMessages.slice();
+  savedMessages[index] = composeAsSavedMessage(draft, row.uid, row.name);
+  return { ...draft, savedMessages };
+}
+
+/** The next free "Message", "Message (2)", … name among the rows. */
+export function nextSavedMessageName(rows: readonly WebSocketSavedMessage[], baseName: string): string {
+  const names = new Set(rows.map((m) => m.name));
+  let name = baseName;
+  let counter = 2;
+  while (names.has(name)) name = `${baseName} (${counter++})`;
+  return name;
+}
+
+/** A timeline frame captured as a saved row: a text frame as its
+ *  decoded text (JSON when it parses), a binary frame as base64. */
+export function savedMessageFromFrame(
+  frame: { dataBase64: string; binary: boolean },
+  uid: string,
+  name: string,
+): WebSocketSavedMessage {
+  if (frame.binary) return { uid, name, message: frame.dataBase64, messageFormat: 'binary' };
+  const bytes = decodeBase64Bytes(frame.dataBase64);
+  const text = bytes === null ? '' : new TextDecoder().decode(bytes);
+  let json = false;
+  try {
+    JSON.parse(text);
+    json = true;
+  } catch {
+    json = false;
+  }
+  return { uid, name, message: text, ...(json ? { messageFormat: 'json' as const } : {}) };
 }

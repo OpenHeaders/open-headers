@@ -54,6 +54,8 @@ interface WsSessionPaneProps {
   onClear: () => void;
   /** Connect again after a trust gesture — the editor's Connect. */
   onReconnect?: () => void;
+  /** "Save message" on a timeline row — the frame becomes a saved row. */
+  onSaveMessage?: (item: { dataBase64: string; binary: boolean }) => void;
   /** "Save Response" — present only when the settled session can be
    *  captured as an example (connected, non-error). First item of the
    *  ⋯ actions menu. */
@@ -70,6 +72,7 @@ const WsSessionPane: React.FC<WsSessionPaneProps> = ({
   onClear,
   onSaveResponse,
   onReconnect,
+  onSaveMessage,
 }) => {
   const { token } = theme.useToken();
   const t = useT();
@@ -377,6 +380,7 @@ const WsSessionPane: React.FC<WsSessionPaneProps> = ({
             droppedMessages={snapshot?.droppedMessages ?? 0}
             {...(flavor !== undefined ? { flavor } : {})}
             {...(listenedEvents !== undefined ? { listenedEvents } : {})}
+            {...(onSaveMessage !== undefined ? { onSaveMessage } : {})}
           />
         </div>
       </div>

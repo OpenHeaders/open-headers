@@ -29,6 +29,7 @@ const draft: WebSocketDraft = {
   ],
   auth: { type: 'none' },
   events: [],
+  savedMessages: [],
   message: '',
   eventName: '',
   namespace: '',

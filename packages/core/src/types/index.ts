@@ -52,6 +52,7 @@ export type { DaemonAuthToken, DaemonAuthTokenKind } from './daemon-auth-token';
 export type { DaemonConfig } from './daemon-config';
 // ── Daemon-local users (the daemon's directory; Phase 5 team tier) ──
 export type { DaemonPrincipalKind, DaemonUserRecord } from './daemon-users';
+export { type DeviceTrust, type DeviceTrustedCertificate, EMPTY_DEVICE_TRUST } from './device-trust';
 // ── Editing-scope view state (per-tab snapshots + donor record) ──
 export type {
   DonorRecord,
@@ -233,16 +234,16 @@ export type {
 } from './request';
 // ── Request execution ──────────────────────────────────────────────
 export type {
+  ExecutedPeerCertificate,
   ExecutedProxyRoute,
   ExecutedRedirectHop,
-  ExecutedPeerCertificate,
   ExecutedRequestErrorHint,
-  OpenInTabErrorHint,
-  TrustCertificateErrorHint,
   ExecutedRequestSize,
   ExecutedRequestSnapshot,
   ExecutedTlsFacts,
   ExecutedWireCapture,
+  OpenInTabErrorHint,
+  TrustCertificateErrorHint,
 } from './request-execution';
 // ── Response example ───────────────────────────────────────────────
 export type { CapturedRequest, CapturedResponse, ResponseExample } from './response-example';
@@ -340,7 +341,6 @@ export type {
   SystemProxyResolvedSource,
   SystemProxySettings,
 } from './system-proxy';
-export { EMPTY_DEVICE_TRUST, type DeviceTrust, type DeviceTrustedCertificate } from './device-trust';
 // ── Telemetry ──────────────────────────────────────────────────────
 export type {
   DeliveryMode,
@@ -394,6 +394,7 @@ export type {
   WebSocketQueryParam,
   WebSocketRequest,
   WebSocketRequestSeed,
+  WebSocketSavedMessage,
   WebSocketSpecLink,
 } from './websocket-request';
 // ── Workspace ──────────────────────────────────────────────────────

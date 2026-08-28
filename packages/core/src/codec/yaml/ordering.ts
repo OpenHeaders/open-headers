@@ -151,6 +151,7 @@ export const WEBSOCKET_REQUEST_FIELD_ORDER = [
   'params',
   'auth',
   'events',
+  'savedMessages',
   'eventName',
   'ackEnabled',
   'messageFormat',

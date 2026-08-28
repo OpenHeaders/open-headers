@@ -51,6 +51,7 @@ import {
   CloseCircleOutlined,
   DownOutlined,
   CopyOutlined,
+  SaveOutlined,
   InfoCircleOutlined,
   SearchOutlined,
   SortAscendingOutlined,
@@ -185,6 +186,9 @@ interface WsMessageTimelineProps {
    *  frames, sent frames and nameless events always show, and the
    *  capture is never touched. Absent = no filter. */
   listenedEvents?: readonly string[];
+  /** "Save message" on a row — absent hides the action (the example
+   *  viewer has no rail to save into). */
+  onSaveMessage?: (item: WsTimelineItem) => void;
 }
 
 /** One group's identity — composed from the ENABLED grouping axes:
@@ -538,6 +542,7 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
   droppedMessages = 0,
   flavor,
   listenedEvents,
+  onSaveMessage,
 }) => {
   const { token } = theme.useToken();
   const t = useT();
@@ -1646,6 +1651,21 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
                   }}
                 />
               </Tooltip>
+              {onSaveMessage !== undefined && (
+                <Tooltip title={t('workbench.editors.websocket.timeline.saveMessage')}>
+                  <Button
+                    size="small"
+                    type="text"
+                    icon={<SaveOutlined style={{ fontSize: 12 }} />}
+                    aria-label={t('workbench.editors.websocket.timeline.saveMessage')}
+                    data-testid="ws-timeline-save-message"
+                    onClick={(event) => {
+                      event.currentTarget.blur();
+                      onSaveMessage(item);
+                    }}
+                  />
+                </Tooltip>
+              )}
               <Tooltip
                 title={
                   <div style={{ display: 'grid', gridTemplateColumns: 'max-content 1fr', columnGap: 8, rowGap: 2 }}>

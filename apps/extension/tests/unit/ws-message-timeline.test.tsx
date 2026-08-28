@@ -262,6 +262,19 @@ describe('WsMessageTimeline — rows and lifecycle order', () => {
     expect(screen.queryByText('Waiting for messages…')).toBeNull();
   });
 
+  it('shows the save action only with a handler and hands it the row frame', () => {
+    const onSaveMessage = vi.fn();
+    const { unmount } = renderTimeline({ onSaveMessage });
+    const saves = screen.getAllByTestId('ws-timeline-save-message');
+    expect(saves).toHaveLength(ITEMS.length);
+    // Newest-first: the top row is the last item.
+    fireEvent.click(saves[0]);
+    expect(onSaveMessage).toHaveBeenCalledWith(ITEMS[ITEMS.length - 1]);
+    unmount();
+    renderTimeline();
+    expect(screen.queryByTestId('ws-timeline-save-message')).toBeNull();
+  });
+
   it('renders session times only when provided', () => {
     const { unmount } = renderTimeline({ timestamps: [1_700_000_000_100, 1_700_000_000_200, 1_700_000_000_300] });
     expect(screen.getAllByTestId('ws-timeline-message-time')).toHaveLength(3);

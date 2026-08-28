@@ -25,6 +25,7 @@ import type {
   WebSocketHeaderPair,
   WebSocketQueryParam,
   WebSocketRequest,
+  WebSocketSavedMessage,
 } from '../../types/websocket-request';
 import { emitCanonicalYaml } from './canonical-emit';
 import { WEBSOCKET_REQUEST_FIELD_ORDER } from './ordering';
@@ -122,7 +123,16 @@ export function canonicalizeWebSocketRequest(request: WebSocketRequest): WebSock
     headers: request.headers.map(canonicalHeaderPair),
     params: request.params.map(canonicalQueryParam),
     ...(request.events !== undefined ? { events: request.events.map(canonicalEventRow) } : {}),
+    ...(request.savedMessages !== undefined ? { savedMessages: request.savedMessages.map(canonicalSavedMessage) } : {}),
   };
+}
+
+function canonicalSavedMessage(row: WebSocketSavedMessage): WebSocketSavedMessage {
+  const out: WebSocketSavedMessage = { uid: row.uid, name: row.name, message: row.message };
+  if (row.messageFormat !== undefined) out.messageFormat = row.messageFormat;
+  if (row.binaryEncoding !== undefined) out.binaryEncoding = row.binaryEncoding;
+  if (row.eventName !== undefined) out.eventName = row.eventName;
+  return out;
 }
 
 function canonicalHeaderPair(p: WebSocketHeaderPair): WebSocketHeaderPair {

@@ -159,6 +159,29 @@ describe('parseWebSocketRequest', () => {
     expect(parsed.value).toEqual(entity);
   });
 
+  it('round-trips saved-message rows with canonical row key order', () => {
+    const entity = websocketRequest({
+      savedMessages: [
+        { binaryEncoding: 'hex', message: '68656c6c6f', messageFormat: 'binary', name: 'Bytes', uid: 'wssm0001' },
+        { uid: 'wssm0002', name: 'Ping', message: 'ping' },
+      ],
+    });
+    const out = serializeWebSocketRequest(freshDocument(entity));
+    const manifest = YAML.parse(out.websocketYaml) as { savedMessages: Array<Record<string, unknown>> };
+    expect(Object.keys(manifest.savedMessages[0])).toEqual([
+      'uid',
+      'name',
+      'message',
+      'messageFormat',
+      'binaryEncoding',
+    ]);
+    const parsed = parseWebSocketRequest(out.websocketYaml, {
+      path: entity.path,
+      siblings: out.messageFile ? [out.messageFile] : [],
+    });
+    expect(parsed.value).toEqual(entity);
+  });
+
   it('parses a missing message sibling as the empty draft', () => {
     const out = serializeWebSocketRequest(freshDocument(websocketRequest()));
     const parsed = parseWebSocketRequest(out.websocketYaml, { path: 'requests/live-events-wsrq0001', siblings: [] });

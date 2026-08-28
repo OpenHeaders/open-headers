@@ -16,6 +16,7 @@
 import { SendOutlined } from '@ant-design/icons';
 import { ShortcutHintTitle } from '@openheaders/ui/components/ShortcutKbd';
 import { useT } from '@openheaders/ui/context/LocaleContext';
+import { Allotment } from 'allotment';
 import { Button, Input, Select, Switch, Tooltip, Typography } from 'antd';
 import type React from 'react';
 import { type Dispatch, type SetStateAction, useRef, useState } from 'react';
@@ -23,10 +24,12 @@ import CodeEditor from '../shared/CodeEditor';
 import CodeEditorActions, { type CodeEditorActionsTarget } from '../shared/CodeEditorActions';
 import EditorViewMenu from '../shared/EditorViewMenu';
 import { MESSAGE_FORMAT_LANGUAGE, SEND_MESSAGE_SHORTCUT } from './compose';
+import type { WebSocketSavedMessage } from '@openheaders/core/types';
 import type { WebSocketDraft } from './draft';
 import type { SocketIoArgs } from './useSocketIoArgs';
 import type { WsComposeAids } from './useWsComposeAids';
 import WsArgRail from './WsArgRail';
+import WsSavedMessagesRail, { WsSavedMessagesStrip } from './WsSavedMessagesRail';
 import { BinaryEncodingSelect, MessageFormatSelect, rawMessagePlaceholder } from './ws-format-parts';
 
 const { Text } = Typography;
@@ -42,6 +45,10 @@ interface WsMessageTabProps {
    *  decodes (always null outside a binary compose). */
   encodingError: 'base64' | 'hex' | null;
   onSend: () => void;
+  /** Saved-row the compose is bound to (the rail's selection plane). */
+  selectedSavedUid: string | null;
+  onSelectSavedMessage: (uid: string | null) => void;
+  onSendSaved: (row: WebSocketSavedMessage) => void;
 }
 
 const WsMessageTab: React.FC<WsMessageTabProps> = ({
@@ -53,6 +60,9 @@ const WsMessageTab: React.FC<WsMessageTabProps> = ({
   aids,
   encodingError,
   onSend,
+  selectedSavedUid,
+  onSelectSavedMessage,
+  onSendSaved,
 }) => {
   const t = useT();
   const messageActionsRef = useRef<CodeEditorActionsTarget | null>(null);
@@ -60,6 +70,12 @@ const WsMessageTab: React.FC<WsMessageTabProps> = ({
   // `editor.wordWrap` setting, ON by default (a message payload is
   // prose-like; horizontal scrolling hides the tail).
   const [wrapMessage, setWrapMessage] = useState(true);
+  // Saved-messages rail collapse — editor-local display state,
+  // COLLAPSED by default (the compose editor gets the full width; the
+  // strip is the affordance in). The expanded rail rides its own
+  // Allotment pane (resizable, the sash its only divider), the
+  // collapsed strip sits flush by the editor.
+  const [railCollapsed, setRailCollapsed] = useState(true);
   const { argTexts, activeArg, composeArgs } = args;
   const binaryCompose = !socketioFlavor && draft.messageFormat === 'binary';
   const rawPlaceholder = rawMessagePlaceholder(t, draft.messageFormat, draft.binaryEncoding);
@@ -127,9 +143,16 @@ const WsMessageTab: React.FC<WsMessageTabProps> = ({
           <EditorViewMenu wrap={wrapMessage} onWrapChange={setWrapMessage} data-testid="ws-editor-menu" />
         </div>
       </div>
-      {/* Absolute inset host — a fill editor must not size its own
+      {/* Editor beside the Saved-messages rail. Expanded, the rail is
+        its own Allotment pane (resizable within min/max; the sash is
+        the ONLY divider — the rail carries no border). Collapsed, the
+        vertical strip sits flush beside the editor. The editor keeps
+        its absolute inset host — a fill editor must not size its own
         flex parent (the BodyTab discipline). */}
-      <div style={{ flex: 1, minHeight: 100, position: 'relative' }}>
+      <div style={{ flex: 1, minHeight: 100 }}>
+        {railCollapsed ? (
+          <div style={{ height: '100%', display: 'flex' }}>
+            <div style={{ flex: 1, minWidth: 0, position: 'relative' }}>
         <div style={{ position: 'absolute', inset: 0, display: 'flex' }}>
           {socketioFlavor && argTexts !== null && <WsArgRail args={args} argTexts={argTexts} />}
           <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
@@ -162,6 +185,61 @@ const WsMessageTab: React.FC<WsMessageTabProps> = ({
             )}
           </div>
         </div>
+            </div>
+            <WsSavedMessagesStrip onExpand={() => setRailCollapsed(false)} />
+          </div>
+        ) : (
+          <Allotment proportionalLayout={false} separator>
+            <Allotment.Pane minSize={280}>
+              <div style={{ height: '100%', position: 'relative' }}>
+        <div style={{ position: 'absolute', inset: 0, display: 'flex' }}>
+          {socketioFlavor && argTexts !== null && <WsArgRail args={args} argTexts={argTexts} />}
+          <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+            {socketioFlavor && argTexts !== null ? (
+              <CodeEditor
+                value={argTexts[activeArg] ?? ''}
+                onChange={(text) => {
+                  const base = argTexts.length === 0 ? [''] : [...argTexts];
+                  base[Math.min(activeArg, base.length - 1)] = text;
+                  composeArgs(base);
+                }}
+                language="json"
+                fill
+                actions="external"
+                actionsRef={messageActionsRef}
+                wordWrapOverride={wrapMessage ? 'on' : 'off'}
+                placeholder={t('workbench.editors.websocket.event.argPlaceholder')}
+              />
+            ) : (
+              <CodeEditor
+                value={draft.message}
+                onChange={(message) => setDraft((d) => ({ ...d, message }))}
+                language={socketioFlavor ? 'json' : MESSAGE_FORMAT_LANGUAGE[draft.messageFormat]}
+                fill
+                actions="external"
+                actionsRef={messageActionsRef}
+                wordWrapOverride={wrapMessage ? 'on' : 'off'}
+                placeholder={socketioFlavor ? t('workbench.editors.websocket.event.argsPlaceholder') : rawPlaceholder}
+              />
+            )}
+          </div>
+        </div>
+              </div>
+            </Allotment.Pane>
+            <Allotment.Pane minSize={160} maxSize={420} preferredSize={208}>
+              <WsSavedMessagesRail
+                draft={draft}
+                setDraft={setDraft}
+                socketioFlavor={socketioFlavor}
+                sessionOpen={sessionOpen}
+                selectedUid={selectedSavedUid}
+                onSelect={onSelectSavedMessage}
+                onSend={onSendSaved}
+                onHide={() => setRailCollapsed(true)}
+              />
+            </Allotment.Pane>
+          </Allotment>
+        )}
       </div>
       {/* Compose bar BELOW the editor, full width (the MQTT discipline):
         the raw flavor's format dropdown left — Socket.IO frames are

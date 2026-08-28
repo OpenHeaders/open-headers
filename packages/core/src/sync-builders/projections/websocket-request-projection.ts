@@ -3,7 +3,7 @@
  * MaterializedEntity`.
  *
  * Parallel to {@link request-projection}: the WebSocket-request entity
- * treats `headers`, `params` and `events` as **sets** (parent-owned
+ * treats `headers`, `params`, `events` and `savedMessages` as **sets** (parent-owned
  * ordering with itemId-keyed members + fractional indexing), while
  * `WebSocketRequest` persists them as plain arrays.
  * `seedWebSocketRequest` strips the set-modeled fields off the create
@@ -25,6 +25,7 @@ import {
   WEBSOCKET_REQUEST_EVENTS_PATH,
   WEBSOCKET_REQUEST_HEADERS_PATH,
   WEBSOCKET_REQUEST_PARAMS_PATH,
+  WEBSOCKET_REQUEST_SAVED_MESSAGES_PATH,
   webSocketRequestChild,
 } from '@openheaders/core/sync';
 import type { WebSocketRequest } from '@openheaders/core/types';
@@ -35,6 +36,7 @@ const SET_PATHS = [
   WEBSOCKET_REQUEST_HEADERS_PATH,
   WEBSOCKET_REQUEST_PARAMS_PATH,
   WEBSOCKET_REQUEST_EVENTS_PATH,
+  WEBSOCKET_REQUEST_SAVED_MESSAGES_PATH,
 ] as const;
 
 /**
@@ -70,7 +72,9 @@ export function seedWebSocketRequest(
         ? request.headers
         : path === WEBSOCKET_REQUEST_PARAMS_PATH
           ? request.params
-          : (request.events ?? []);
+          : path === WEBSOCKET_REQUEST_EVENTS_PATH
+            ? (request.events ?? [])
+            : (request.savedMessages ?? []);
     const nextKey = orderKeyMinter();
     for (const row of rows) {
       bodies.push({
@@ -102,16 +106,16 @@ export function projectWebSocketRequest(materialized: MaterializedEntity): WebSo
   // are emitted as arrays at their setPaths. The cast is honest because
   // seedWebSocketRequest committed to that shape on the way in.
   const request = data as WebSocketRequest;
-  // The store emits [] for every registered set path, but `events` is
-  // schema-optional and an empty list means the same thing as absence
-  // (no display filter) — normalize so the projection round-trips the
-  // persisted shape.
-  if (request.events !== undefined && request.events.length === 0) {
-    const { events, ...rest } = request;
-    void events;
-    return rest;
-  }
-  return request;
+  // The store emits [] for every registered set path, but `events` and
+  // `savedMessages` are schema-optional and an empty list means the
+  // same thing as absence — normalize so the projection round-trips
+  // the persisted shape.
+  const { events, savedMessages, ...rest } = request;
+  return {
+    ...rest,
+    ...(events !== undefined && events.length > 0 ? { events } : {}),
+    ...(savedMessages !== undefined && savedMessages.length > 0 ? { savedMessages } : {}),
+  };
 }
 
 const isPlainObject = (v: unknown): v is Record<string, unknown> =>

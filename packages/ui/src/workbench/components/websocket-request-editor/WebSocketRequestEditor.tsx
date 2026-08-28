@@ -33,7 +33,7 @@
 import { CaretRightOutlined } from '@ant-design/icons';
 import { WEBSOCKET_REQUEST_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { WebSocketRequest as WebSocketRequestEntity } from '@openheaders/core/types';
-import { binaryEncodingError } from '@openheaders/core/utils';
+import { binaryEncodingError, generateUid } from '@openheaders/core/utils';
 import { ShortcutHintTitle, ShortcutKbd } from '@openheaders/ui/components/ShortcutKbd';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { EntityScopeProvider } from '@openheaders/ui/shared/awareness';
@@ -54,10 +54,13 @@ import {
   canonicalWebSocketRequestProjection,
   draftFromWebSocketRequest,
   headersToRows,
+  nextSavedMessageName,
   paramsToRows,
+  savedMessageFromFrame,
   type WebSocketDraft,
 } from './draft';
 import { useSocketIoArgs } from './useSocketIoArgs';
+import { useWsSavedSelection } from './useWsSavedSelection';
 import { useWsComposeAids } from './useWsComposeAids';
 import { useWsSessionPlane } from './useWsSessionPlane';
 import WebSocketAuthTab from './WebSocketAuthTab';
@@ -90,6 +93,7 @@ const emptyWebSocketDraft = (): WebSocketDraft => ({
   params: [],
   auth: { type: 'none' },
   events: [],
+  savedMessages: [],
   message: '',
   eventName: '',
   namespace: '',
@@ -119,9 +123,16 @@ const WebSocketRequestEditor: React.FC<WebSocketRequestEditorProps> = ({
     [websocketRequests, websocketRequestUid],
   );
 
-  const [draft, setDraft] = useState<WebSocketDraft>(() =>
+  const [draft, rawSetDraft] = useState<WebSocketDraft>(() =>
     entity ? draftFromWebSocketRequest(entity) : emptyWebSocketDraft(),
   );
+
+  // Saved-messages selection plane: the compose is the selected row's
+  // editor. Every USER edit below rides the bound setter (compose
+  // edits write through to the selected row); sync repopulates stay
+  // RAW — reprime must never fabricate edits.
+  const savedSelection = useWsSavedSelection(draft, rawSetDraft);
+  const setDraft = savedSelection.setBoundDraft;
   const [activeTab, setActiveTab] = useState('message');
 
   const formFingerprint = useMemo(() => stableStringify(buildWebSocketRequestUpdates(draft)), [draft]);
@@ -132,7 +143,7 @@ const WebSocketRequestEditor: React.FC<WebSocketRequestEditorProps> = ({
     enabled: entity !== null,
     formFingerprint,
     signature: (e: WebSocketRequestEntity) => stableStringify(canonicalWebSocketRequestProjection(e)),
-    populate: (e: WebSocketRequestEntity) => setDraft(draftFromWebSocketRequest(e)),
+    populate: (e: WebSocketRequestEntity) => rawSetDraft(draftFromWebSocketRequest(e)),
   });
   const isDirty = reprime.isDirty;
 
@@ -216,6 +227,22 @@ const WebSocketRequestEditor: React.FC<WebSocketRequestEditorProps> = ({
       void session.handleConnect();
     },
     [session, encodingError],
+  );
+
+  // "Save message" from a timeline row — the frame's payload becomes a
+  // new saved row (a template, direction-free): a text frame as its
+  // decoded text (JSON when it parses), a binary frame as base64.
+  const saveTimelineMessage = useCallback(
+    (item: { dataBase64: string; binary: boolean }) => {
+      const uid = generateUid();
+      rawSetDraft((d) => {
+        const name = nextSavedMessageName(d.savedMessages, t('workbench.editors.websocket.saved.defaultName'));
+        const row = savedMessageFromFrame(item, uid, name);
+        return { ...d, savedMessages: [...d.savedMessages, row] };
+      });
+      savedSelection.selectSavedMessage(uid);
+    },
+    [savedSelection, t],
   );
 
   // ── Save ─────────────────────────────────────────────────────────
@@ -426,6 +453,9 @@ const WebSocketRequestEditor: React.FC<WebSocketRequestEditorProps> = ({
                         aids={aids}
                         encodingError={encodingError}
                         onSend={() => void session.handleSendMessage()}
+                        selectedSavedUid={savedSelection.selectedSavedUid}
+                        onSelectSavedMessage={savedSelection.selectSavedMessage}
+                        onSendSaved={(row) => void session.handleSendSaved(row)}
                       />
                     )}
                     {activeTab === 'events' && socketioFlavor && (
@@ -475,6 +505,7 @@ const WebSocketRequestEditor: React.FC<WebSocketRequestEditorProps> = ({
                   {...(listenedEvents !== null ? { listenedEvents } : {})}
                   onClear={session.handleClearSession}
                   onReconnect={() => void session.handleConnect()}
+                  onSaveMessage={saveTimelineMessage}
                   {...(session.canSaveResponse ? { onSaveResponse: () => void session.handleSaveResponse() } : {})}
                 />
               ) : (

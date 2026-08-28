@@ -121,6 +121,25 @@ export const WebSocketEventRowSchema = v.object({
 });
 
 /**
+ * One Saved-messages rail row — a reusable compose template the
+ * session can send as stored. Entity rows (never local rail state):
+ * they travel with the workspace, git-sync, and multi-window. `uid`
+ * is the stable per-row identity the sync engine's set-modeled paths
+ * key by. Carries the compose fields alone — the message text, its
+ * mode and byte spelling (absent = text / base64), and the socketio
+ * event name — nothing a WebSocket frame does not have.
+ */
+export const WebSocketSavedMessageSchema = v.object({
+  uid: UidSchema,
+  name: v.string(),
+  message: v.string(),
+  messageFormat: v.optional(WebSocketMessageFormatSchema),
+  binaryEncoding: v.optional(WebSocketBinaryEncodingSchema),
+  /** Socket.IO event name (socketio flavor only). */
+  eventName: v.optional(v.string()),
+});
+
+/**
  * Binding to the AsyncAPI spec that feeds compose aids — ids-only
  * identity (the spec may be deleted later; the editor derives link
  * health at read time). Same posture as `GrpcSpecLinkSchema`: no
@@ -162,6 +181,8 @@ export const WebSocketRequestSchema = v.object({
    * timeline surfaces. Absent or empty = no display filter.
    */
   events: v.optional(v.array(WebSocketEventRowSchema)),
+  /** Saved-messages rail rows (set-modeled). Absent or empty = none. */
+  savedMessages: v.optional(v.array(WebSocketSavedMessageSchema)),
   /**
    * Compose draft for the next outgoing message. Fans out to the
    * message sibling file on disk (the `message.json` precedent); the

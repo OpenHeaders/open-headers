@@ -28,6 +28,7 @@ import type {
   WebSocketQueryParamSchema,
   WebSocketRequestSchema,
   WebSocketRequestSeedSchema,
+  WebSocketSavedMessageSchema,
   WebSocketSpecLinkSchema,
 } from '../schemas/websocket-request';
 
@@ -51,6 +52,9 @@ export type WebSocketAuth = v.InferOutput<typeof WebSocketAuthSchema>;
 
 /** One Events-tab row (socketio flavor) — timeline display filter. */
 export type WebSocketEventRow = v.InferOutput<typeof WebSocketEventRowSchema>;
+
+/** One Saved-messages rail row — a reusable compose template. */
+export type WebSocketSavedMessage = v.InferOutput<typeof WebSocketSavedMessageSchema>;
 
 /** Ids-only binding to the AsyncAPI spec feeding compose aids. */
 export type WebSocketSpecLink = v.InferOutput<typeof WebSocketSpecLinkSchema>;

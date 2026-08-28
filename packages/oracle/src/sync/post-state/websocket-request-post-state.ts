@@ -14,6 +14,7 @@ import {
   WEBSOCKET_REQUEST_EVENTS_PATH,
   WEBSOCKET_REQUEST_HEADERS_PATH,
   WEBSOCKET_REQUEST_PARAMS_PATH,
+  WEBSOCKET_REQUEST_SAVED_MESSAGES_PATH,
 } from '@openheaders/core/sync';
 import { projectWebSocketRequest } from '@openheaders/core/sync-builders/projections/websocket-request-projection';
 import type { WebSocketRequest } from '@openheaders/core/types';
@@ -25,6 +26,7 @@ const WEBSOCKET_REQUEST_SET_PATHS = [
   WEBSOCKET_REQUEST_HEADERS_PATH,
   WEBSOCKET_REQUEST_PARAMS_PATH,
   WEBSOCKET_REQUEST_EVENTS_PATH,
+  WEBSOCKET_REQUEST_SAVED_MESSAGES_PATH,
 ] as const;
 
 type Reads = Pick<EntityOracle, 'materializeOne' | 'liveOrderedSetItems'>;

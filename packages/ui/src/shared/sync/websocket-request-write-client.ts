@@ -12,6 +12,7 @@ import {
   WEBSOCKET_REQUEST_EVENTS_PATH,
   WEBSOCKET_REQUEST_HEADERS_PATH,
   WEBSOCKET_REQUEST_PARAMS_PATH,
+  WEBSOCKET_REQUEST_SAVED_MESSAGES_PATH,
 } from '@openheaders/core/sync';
 import {
   buildWebSocketAddBatch,
@@ -92,7 +93,9 @@ export async function applyWebSocketRequestUpdate(
             ? snap.params
             : snap && path === WEBSOCKET_REQUEST_EVENTS_PATH
               ? (snap.events ?? [])
-              : undefined;
+              : snap && path === WEBSOCKET_REQUEST_SAVED_MESSAGES_PATH
+                ? (snap.savedMessages ?? [])
+                : undefined;
       if (!rows) return orderKeys.map((e) => ({ itemId: e.itemId, orderKey: e.orderKey, item: undefined }));
       const byUid = new Map<string, unknown>();
       for (const row of rows) byUid.set(row.uid, row);

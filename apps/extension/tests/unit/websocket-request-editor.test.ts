@@ -14,11 +14,17 @@ import { buildRequestCollectionTrees } from '@openheaders/ui/shared/local-tree-b
 import {
   buildWebSocketRequestUpdates,
   canonicalWebSocketRequestProjection,
+  composeAsSavedMessage,
   draftFromWebSocketRequest,
   headersToRows,
+  loadSavedMessageIntoCompose,
+  mirrorComposeIntoSaved,
+  nextSavedMessageName,
   paramsToRows,
   rowsToHeaders,
   rowsToParams,
+  savedMessageFromFrame,
+  savedRowMatchesCompose,
 } from '@openheaders/ui/workbench/components/websocket-request-editor/draft';
 import { describe, expect, it } from 'vitest';
 
@@ -194,5 +200,58 @@ describe('request collection tree with websocket leaves', () => {
     if (folder.type === 'folder') {
       expect(folder.children.map((n) => n.type)).toEqual(['websocket-request']);
     }
+  });
+});
+
+describe('saved-message compose binding', () => {
+  const draft = draftFromWebSocketRequest(websocketRequest({ message: '{"op":"sub"}', messageFormat: 'json' }));
+
+  it('captures the compose as a saved row with optional fields absent at defaults', () => {
+    expect(composeAsSavedMessage(draft, 'wssm0001', 'Subscribe')).toEqual({
+      uid: 'wssm0001',
+      name: 'Subscribe',
+      message: '{"op":"sub"}',
+      messageFormat: 'json',
+    });
+    const text = { ...draft, messageFormat: 'text' as const, message: 'ping' };
+    expect(composeAsSavedMessage(text, 'wssm0002', 'Ping')).toEqual({ uid: 'wssm0002', name: 'Ping', message: 'ping' });
+    const hex = { ...draft, messageFormat: 'binary' as const, binaryEncoding: 'hex' as const, message: '68656c6c6f' };
+    expect(composeAsSavedMessage(hex, 'wssm0003', 'Bytes')).toMatchObject({
+      messageFormat: 'binary',
+      binaryEncoding: 'hex',
+    });
+  });
+
+  it('loads a row into the compose and recognizes the match; the mirror writes through identity-stably', () => {
+    const row = { uid: 'wssm0001', name: 'Ping', message: 'ping' };
+    const loaded = loadSavedMessageIntoCompose({ ...draft, savedMessages: [row] }, row);
+    expect(loaded.message).toBe('ping');
+    expect(loaded.messageFormat).toBe('text');
+    expect(savedRowMatchesCompose(loaded, row)).toBe(true);
+    expect(mirrorComposeIntoSaved(loaded, 'wssm0001')).toBe(loaded);
+    const edited = { ...loaded, message: 'pong' };
+    expect(mirrorComposeIntoSaved(edited, 'wssm0001').savedMessages[0].message).toBe('pong');
+    expect(mirrorComposeIntoSaved(edited, null)).toBe(edited);
+  });
+
+  it('names the next row past the taken ones and captures a frame by its kind', () => {
+    expect(nextSavedMessageName([{ uid: 'a', name: 'Message', message: '' }], 'Message')).toBe('Message (2)');
+    expect(savedMessageFromFrame({ dataBase64: btoa('{"a":1}'), binary: false }, 'u1', 'M')).toEqual({
+      uid: 'u1',
+      name: 'M',
+      message: '{"a":1}',
+      messageFormat: 'json',
+    });
+    expect(savedMessageFromFrame({ dataBase64: btoa('hello'), binary: false }, 'u2', 'M')).toEqual({
+      uid: 'u2',
+      name: 'M',
+      message: 'hello',
+    });
+    expect(savedMessageFromFrame({ dataBase64: 'AAEC', binary: true }, 'u3', 'M')).toEqual({
+      uid: 'u3',
+      name: 'M',
+      message: 'AAEC',
+      messageFormat: 'binary',
+    });
   });
 });

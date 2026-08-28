@@ -3,7 +3,7 @@
  *
  * Parallel to {@link request-mutations}: write sites produce
  * `(batch, sideEffects)` pairs as pure transforms — no oracle reads,
- * no IO. The three set-modeled fields (`headers`, `params`, `events`)
+ * no IO. The four set-modeled fields (`headers`, `params`, `events`, `savedMessages`)
  * route through the shared {@link synthesizeSetDiff} minimum-envelope
  * synthesizer; container-valued scalars (`subprotocols`, `specLink`,
  * `auth`) route through {@link synthesizeFieldDiff} so edits share
@@ -27,6 +27,7 @@ import {
   WEBSOCKET_REQUEST_EVENTS_PATH,
   WEBSOCKET_REQUEST_HEADERS_PATH,
   WEBSOCKET_REQUEST_PARAMS_PATH,
+  WEBSOCKET_REQUEST_SAVED_MESSAGES_PATH,
 } from '@openheaders/core/sync';
 import { type LiveSetEntry, synthesizeFieldDiff, synthesizeSetDiff } from '@openheaders/core/sync-builders';
 import type { WebSocketRequest } from '@openheaders/core/types';
@@ -81,22 +82,16 @@ const SET_PATHS = [
   WEBSOCKET_REQUEST_HEADERS_PATH,
   WEBSOCKET_REQUEST_PARAMS_PATH,
   WEBSOCKET_REQUEST_EVENTS_PATH,
+  WEBSOCKET_REQUEST_SAVED_MESSAGES_PATH,
 ] as const;
 type SetPath = (typeof SET_PATHS)[number];
 
-const isSetPath = (key: string): SetPath | null =>
-  key === WEBSOCKET_REQUEST_HEADERS_PATH
-    ? WEBSOCKET_REQUEST_HEADERS_PATH
-    : key === WEBSOCKET_REQUEST_PARAMS_PATH
-      ? WEBSOCKET_REQUEST_PARAMS_PATH
-      : key === WEBSOCKET_REQUEST_EVENTS_PATH
-        ? WEBSOCKET_REQUEST_EVENTS_PATH
-        : null;
+const isSetPath = (key: string): SetPath | null => SET_PATHS.find((path) => path === key) ?? null;
 
 /**
  * Translate a `Partial<Omit<WebSocketRequest, 'uid'|'path'>>` patch
  * into a single batch. Scalar fields → one `setField` per leaf;
- * `headers` / `params` / `events` → minimum diff via
+ * `headers` / `params` / `events` / `savedMessages` → minimum diff via
  * {@link synthesizeSetDiff}; `subprotocols` / `specLink` / `auth` →
  * per-leaf flatten-diff via {@link synthesizeFieldDiff}.
  */

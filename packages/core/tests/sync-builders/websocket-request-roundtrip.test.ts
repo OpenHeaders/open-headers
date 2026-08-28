@@ -13,6 +13,7 @@ import {
   WEBSOCKET_REQUEST_EVENTS_PATH,
   WEBSOCKET_REQUEST_HEADERS_PATH,
   WEBSOCKET_REQUEST_PARAMS_PATH,
+  WEBSOCKET_REQUEST_SAVED_MESSAGES_PATH,
 } from '../../src/sync';
 import {
   buildWebSocketAddBatch,
@@ -34,7 +35,14 @@ const ctx = (physicalMs: number): MutatorContext => ({
 const wsSchemas = new Map([
   [
     WEBSOCKET_REQUEST_ENTITY_TYPE,
-    { setPaths: [WEBSOCKET_REQUEST_HEADERS_PATH, WEBSOCKET_REQUEST_PARAMS_PATH, WEBSOCKET_REQUEST_EVENTS_PATH] },
+    {
+      setPaths: [
+        WEBSOCKET_REQUEST_HEADERS_PATH,
+        WEBSOCKET_REQUEST_PARAMS_PATH,
+        WEBSOCKET_REQUEST_EVENTS_PATH,
+        WEBSOCKET_REQUEST_SAVED_MESSAGES_PATH,
+      ],
+    },
   ],
 ]);
 
@@ -126,6 +134,24 @@ describe('websocket request seed → project round-trip', () => {
     };
     applyBatch(store, buildWebSocketAddBatch(seeded, ctx(1_000), null));
     expect(materialized(store, 'wsrq0001')).toEqual(seeded);
+  });
+
+  it('round-trips saved-message rows as a set path and drops an empty list on the way out', () => {
+    const store = new InMemoryDocumentStore(wsSchemas);
+    const seeded: WebSocketRequest = {
+      ...seed,
+      savedMessages: [
+        { uid: 'wssm0001', name: 'Ping', message: 'ping' },
+        { uid: 'wssm0002', name: 'Subscribe', message: '{"op":"sub"}', messageFormat: 'json' },
+        { uid: 'wssm0003', name: 'Bytes', message: 'aGVsbG8=', messageFormat: 'binary', binaryEncoding: 'hex' },
+      ],
+    };
+    applyBatch(store, buildWebSocketAddBatch(seeded, ctx(1_000), null));
+    expect(materialized(store, 'wsrq0001')).toEqual(seeded);
+
+    const bare = new InMemoryDocumentStore(wsSchemas);
+    applyBatch(bare, buildWebSocketAddBatch(seed, ctx(1_000), null));
+    expect('savedMessages' in materialized(bare, 'wsrq0001')).toBe(false);
   });
 
   it('projects null for a foreign entity type', () => {
