@@ -1849,8 +1849,8 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
             minHeight: 0,
             overflow: 'auto',
             overscrollBehavior: 'contain',
-            border: `1px solid ${token.colorBorderSecondary}`,
-            borderRadius: 4,
+            // Rows separate by their own hairlines — no frame around the
+            // list.
           }}
         >
           <div aria-hidden style={{ height: topPadPx }} />

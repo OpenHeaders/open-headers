@@ -346,7 +346,6 @@ const WsSessionPane: React.FC<WsSessionPaneProps> = ({
           display: 'flex',
           alignItems: 'center',
           padding: '6px 12px',
-          borderBottom: `1px solid ${token.colorBorderSecondary}`,
         }}
       >
         <Text strong style={{ fontSize: 12 }}>
