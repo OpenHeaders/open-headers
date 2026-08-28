@@ -171,8 +171,7 @@ export const workbenchEditorsWebsocket = {
   'workbench.editors.websocket.session.connectFailed': "Échec de l'ouverture de la session",
   'workbench.editors.websocket.session.connectingBadge': 'Connexion',
   'workbench.editors.websocket.session.connectedBadge': 'Connecté',
-  'workbench.editors.websocket.session.tab.timeline': 'Messages',
-  'workbench.editors.websocket.session.tab.handshake': 'Handshake',
+  'workbench.editors.websocket.session.tab.timeline': 'Chronologie',
   'workbench.editors.websocket.session.closedTag': 'Fermée {code}',
   'workbench.editors.websocket.session.stoppedTag': 'Arrêtée',
   'workbench.editors.websocket.session.disconnectedTag': 'Déconnecté',
@@ -189,8 +188,6 @@ export const workbenchEditorsWebsocket = {
   'workbench.editors.websocket.session.knobHeaders': 'les en-têtes de handshake personnalisés',
   'workbench.editors.websocket.session.knobSslVerify': 'la vérification SSL désactivée',
   'workbench.editors.websocket.session.knobAuth': "l'en-tête d'identifiants bearer",
-  'workbench.editors.websocket.session.handshakeProtocol': 'Sous-protocole',
-  'workbench.editors.websocket.session.handshakeExtensions': 'Extensions',
   'workbench.editors.websocket.session.handshakeNone': 'Rien de négocié',
   'workbench.editors.websocket.session.handshakeNote':
     "Le socket de la plateforme n'expose que le sous-protocole et les extensions négociés — les en-têtes de " +

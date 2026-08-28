@@ -240,7 +240,7 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.session.notSubscribed': '未订阅任何主题',
   'workbench.editors.mqtt.session.subscribedOne': '已订阅 1 个主题',
   'workbench.editors.mqtt.session.subscribedMany': '已订阅 {count} 个主题',
-  'workbench.editors.mqtt.session.tab.timeline': '消息',
+  'workbench.editors.mqtt.session.tab.timeline': '时间线',
   'workbench.editors.mqtt.session.tab.connection': '连接',
   'workbench.editors.mqtt.session.duration': '{ms} 毫秒',
   'workbench.editors.mqtt.session.sendIdle': '连接后即可发布消息。',

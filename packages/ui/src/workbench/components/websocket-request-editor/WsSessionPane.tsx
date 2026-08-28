@@ -328,19 +328,6 @@ const WsSessionPane: React.FC<WsSessionPaneProps> = ({
   const items = snapshot?.messages ?? live?.items ?? [];
   const count = snapshot?.messages.length ?? live?.count ?? 0;
   const timestamps = snapshot !== null ? timing?.messageTimestamps : live?.timestamps;
-  const protocol = snapshot?.protocol ?? live?.open?.protocol ?? '';
-  const extensions = snapshot?.extensions ?? live?.open?.extensions ?? '';
-
-  const handshakeRow = (label: string, value: string): React.ReactNode => (
-    <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, padding: '4px 0' }}>
-      <Text type="secondary" style={{ fontSize: 11, width: 110, flexShrink: 0 }}>
-        {label}
-      </Text>
-      <Text style={{ fontSize: 12, fontFamily: "'SF Mono', monospace" }}>
-        {value !== '' ? value : t('workbench.editors.websocket.session.handshakeNone')}
-      </Text>
-    </div>
-  );
 
   return (
     <div
@@ -397,19 +384,6 @@ const WsSessionPane: React.FC<WsSessionPaneProps> = ({
                     {...(listenedEvents !== undefined ? { listenedEvents } : {})}
                   />
                 </div>
-              </div>
-            ),
-          },
-          {
-            key: 'handshake',
-            label: t('workbench.editors.websocket.session.tab.handshake'),
-            children: (
-              <div style={{ display: 'flex', flexDirection: 'column', padding: '8px 0' }}>
-                {handshakeRow(t('workbench.editors.websocket.session.handshakeProtocol'), protocol)}
-                {handshakeRow(t('workbench.editors.websocket.session.handshakeExtensions'), extensions)}
-                <Text type="secondary" style={{ fontSize: 11, marginTop: 8 }}>
-                  {t('workbench.editors.websocket.session.handshakeNote')}
-                </Text>
               </div>
             ),
           },

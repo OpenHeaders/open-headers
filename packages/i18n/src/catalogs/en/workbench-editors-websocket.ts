@@ -146,8 +146,7 @@ export const workbenchEditorsWebsocket = {
   'workbench.editors.websocket.session.connectFailed': 'Opening the session failed',
   'workbench.editors.websocket.session.connectingBadge': 'Connecting',
   'workbench.editors.websocket.session.connectedBadge': 'Connected',
-  'workbench.editors.websocket.session.tab.timeline': 'Messages',
-  'workbench.editors.websocket.session.tab.handshake': 'Handshake',
+  'workbench.editors.websocket.session.tab.timeline': 'Timeline',
   'workbench.editors.websocket.session.closedTag': 'Closed {code}',
   'workbench.editors.websocket.session.stoppedTag': 'Stopped',
   'workbench.editors.websocket.session.disconnectedTag': 'Disconnected',
@@ -164,8 +163,6 @@ export const workbenchEditorsWebsocket = {
   'workbench.editors.websocket.session.knobHeaders': 'custom handshake headers',
   'workbench.editors.websocket.session.knobSslVerify': 'disabled SSL verification',
   'workbench.editors.websocket.session.knobAuth': 'the bearer credential header',
-  'workbench.editors.websocket.session.handshakeProtocol': 'Subprotocol',
-  'workbench.editors.websocket.session.handshakeExtensions': 'Extensions',
   'workbench.editors.websocket.session.handshakeNone': 'None negotiated',
   'workbench.editors.websocket.session.handshakeNote':
     'The platform socket exposes only the negotiated subprotocol and extensions — the 101 response headers are not available to clients.',

@@ -178,8 +178,7 @@ export const workbenchEditorsWebsocket = {
   'workbench.editors.websocket.session.connectFailed': 'Die Sitzung konnte nicht geöffnet werden',
   'workbench.editors.websocket.session.connectingBadge': 'Verbindet',
   'workbench.editors.websocket.session.connectedBadge': 'Verbunden',
-  'workbench.editors.websocket.session.tab.timeline': 'Nachrichten',
-  'workbench.editors.websocket.session.tab.handshake': 'Handshake',
+  'workbench.editors.websocket.session.tab.timeline': 'Zeitverlauf',
   'workbench.editors.websocket.session.closedTag': 'Geschlossen {code}',
   'workbench.editors.websocket.session.stoppedTag': 'Gestoppt',
   'workbench.editors.websocket.session.disconnectedTag': 'Getrennt',
@@ -196,8 +195,6 @@ export const workbenchEditorsWebsocket = {
   'workbench.editors.websocket.session.knobHeaders': 'benutzerdefinierte Handshake-Header',
   'workbench.editors.websocket.session.knobSslVerify': 'die deaktivierte SSL-Prüfung',
   'workbench.editors.websocket.session.knobAuth': 'der Bearer-Zugangsdaten-Header',
-  'workbench.editors.websocket.session.handshakeProtocol': 'Subprotokoll',
-  'workbench.editors.websocket.session.handshakeExtensions': 'Erweiterungen',
   'workbench.editors.websocket.session.handshakeNone': 'Nichts ausgehandelt',
   'workbench.editors.websocket.session.handshakeNote':
     'Der Plattform-Socket stellt nur das ausgehandelte Subprotokoll und die Erweiterungen bereit — die Header ' +

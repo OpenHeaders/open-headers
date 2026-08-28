@@ -31,20 +31,17 @@ const WsExampleResultPane: React.FC<WsExampleResultPaneProps> = ({ response, fla
   const t = useT();
   const [activeTab, setActiveTab] = useState('timeline');
 
-  const lifecycle = useMemo((): WsTimelineLifecycle => {
-    const endedMessage =
-      response.close !== null
-        ? `${response.close.code}${response.close.reason !== '' ? ` ${response.close.reason}` : ''}`
-        : response.stopped === true
-          ? undefined
-          : t('workbench.editors.websocket.session.noCloseFrame');
-    return {
+  const lifecycle = useMemo(
+    (): WsTimelineLifecycle => ({
       connected: true,
       handshake: { protocol: response.protocol, extensions: response.extensions },
       endedBy: response.stopped === true ? 'stop' : 'close',
-      ...(endedMessage !== undefined ? { endedMessage } : {}),
-    };
-  }, [response, t]);
+      // The Close frame verbatim, or the honest null for a severed
+      // connection; a Stop carries no close record.
+      ...(response.stopped === true ? {} : { close: response.close }),
+    }),
+    [response],
+  );
 
   // Close pill honesty — the WsSessionPane's settled vocabulary.
   const closeTag =
@@ -75,17 +72,6 @@ const WsExampleResultPane: React.FC<WsExampleResultPaneProps> = ({ response, fla
         </Text>
       </span>
     </Tooltip>
-  );
-
-  const handshakeRow = (label: string, value: string): React.ReactNode => (
-    <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, padding: '4px 0' }}>
-      <Text type="secondary" style={{ fontSize: 11, width: 110, flexShrink: 0 }}>
-        {label}
-      </Text>
-      <Text style={{ fontSize: 12, fontFamily: "'SF Mono', monospace" }}>
-        {value !== '' ? value : t('workbench.editors.websocket.session.handshakeNone')}
-      </Text>
-    </div>
   );
 
   return (
@@ -132,19 +118,6 @@ const WsExampleResultPane: React.FC<WsExampleResultPaneProps> = ({ response, fla
                     flavor={flavor}
                   />
                 </div>
-              </div>
-            ),
-          },
-          {
-            key: 'handshake',
-            label: t('workbench.editors.websocket.session.tab.handshake'),
-            children: (
-              <div style={{ display: 'flex', flexDirection: 'column', padding: '8px 0' }}>
-                {handshakeRow(t('workbench.editors.websocket.session.handshakeProtocol'), response.protocol)}
-                {handshakeRow(t('workbench.editors.websocket.session.handshakeExtensions'), response.extensions)}
-                <Text type="secondary" style={{ fontSize: 11, marginTop: 8 }}>
-                  {t('workbench.editors.websocket.session.handshakeNote')}
-                </Text>
               </div>
             ),
           },

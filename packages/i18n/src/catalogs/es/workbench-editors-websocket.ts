@@ -176,8 +176,7 @@ export const workbenchEditorsWebsocket = {
   'workbench.editors.websocket.session.connectFailed': 'No se pudo abrir la sesión',
   'workbench.editors.websocket.session.connectingBadge': 'Conectando',
   'workbench.editors.websocket.session.connectedBadge': 'Conectado',
-  'workbench.editors.websocket.session.tab.timeline': 'Mensajes',
-  'workbench.editors.websocket.session.tab.handshake': 'Handshake',
+  'workbench.editors.websocket.session.tab.timeline': 'Cronología',
   'workbench.editors.websocket.session.closedTag': 'Cerrada {code}',
   'workbench.editors.websocket.session.stoppedTag': 'Detenida',
   'workbench.editors.websocket.session.disconnectedTag': 'Desconectado',
@@ -194,8 +193,6 @@ export const workbenchEditorsWebsocket = {
   'workbench.editors.websocket.session.knobHeaders': 'los encabezados de handshake personalizados',
   'workbench.editors.websocket.session.knobSslVerify': 'la verificación SSL desactivada',
   'workbench.editors.websocket.session.knobAuth': 'el encabezado de credenciales bearer',
-  'workbench.editors.websocket.session.handshakeProtocol': 'Subprotocolo',
-  'workbench.editors.websocket.session.handshakeExtensions': 'Extensiones',
   'workbench.editors.websocket.session.handshakeNone': 'Nada negociado',
   'workbench.editors.websocket.session.handshakeNote':
     'El socket de la plataforma solo expone el subprotocolo y las extensiones negociados — los encabezados ' +

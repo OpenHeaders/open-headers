@@ -261,7 +261,7 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.session.notSubscribed': 'Keine Themen abonniert',
   'workbench.editors.mqtt.session.subscribedOne': '1 Thema abonniert',
   'workbench.editors.mqtt.session.subscribedMany': '{count} Themen abonniert',
-  'workbench.editors.mqtt.session.tab.timeline': 'Nachrichten',
+  'workbench.editors.mqtt.session.tab.timeline': 'Zeitverlauf',
   'workbench.editors.mqtt.session.tab.connection': 'Verbindung',
   'workbench.editors.mqtt.session.duration': '{ms} ms',
   'workbench.editors.mqtt.session.sendIdle': 'Verbinden Sie sich, um Nachrichten zu veröffentlichen.',

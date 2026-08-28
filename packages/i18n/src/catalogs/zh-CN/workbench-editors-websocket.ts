@@ -146,8 +146,7 @@ export const workbenchEditorsWebsocket = {
   'workbench.editors.websocket.session.connectFailed': '打开会话失败',
   'workbench.editors.websocket.session.connectingBadge': '连接中',
   'workbench.editors.websocket.session.connectedBadge': '已连接',
-  'workbench.editors.websocket.session.tab.timeline': '消息',
-  'workbench.editors.websocket.session.tab.handshake': '握手',
+  'workbench.editors.websocket.session.tab.timeline': '时间线',
   'workbench.editors.websocket.session.closedTag': '已关闭 {code}',
   'workbench.editors.websocket.session.stoppedTag': '已停止',
   'workbench.editors.websocket.session.disconnectedTag': '已断开',
@@ -163,8 +162,6 @@ export const workbenchEditorsWebsocket = {
   'workbench.editors.websocket.session.knobHeaders': '自定义握手标头',
   'workbench.editors.websocket.session.knobSslVerify': '关闭 SSL 验证',
   'workbench.editors.websocket.session.knobAuth': 'Bearer 凭据标头',
-  'workbench.editors.websocket.session.handshakeProtocol': '子协议',
-  'workbench.editors.websocket.session.handshakeExtensions': '扩展',
   'workbench.editors.websocket.session.handshakeNone': '未协商任何项',
   'workbench.editors.websocket.session.handshakeNote':
     '平台 socket 只暴露协商出的子协议和扩展——101 响应标头对客户端不可用。',
