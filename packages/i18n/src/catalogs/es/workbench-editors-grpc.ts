@@ -206,7 +206,6 @@ export const workbenchEditorsGrpc = {
   'workbench.editors.grpc.timeline.completed': 'Llamada completada',
   'workbench.editors.grpc.timeline.stopped': 'Llamada detenida',
   'workbench.editors.grpc.timeline.failed': 'Falló la llamada',
-  'workbench.editors.grpc.timeline.waiting': 'Esperando mensajes…',
   'workbench.editors.grpc.timeline.noMatches': 'Ningún mensaje coincide.',
   'workbench.editors.grpc.timeline.searchMessages': 'Buscar en los mensajes',
   'workbench.editors.grpc.timeline.filterAll': 'Todos',

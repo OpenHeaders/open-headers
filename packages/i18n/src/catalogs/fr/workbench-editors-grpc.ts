@@ -198,7 +198,6 @@ export const workbenchEditorsGrpc = {
   'workbench.editors.grpc.timeline.completed': 'Appel terminé',
   'workbench.editors.grpc.timeline.stopped': 'Appel arrêté',
   'workbench.editors.grpc.timeline.failed': "Échec de l'appel",
-  'workbench.editors.grpc.timeline.waiting': 'En attente de messages…',
   'workbench.editors.grpc.timeline.noMatches': 'Aucun message ne correspond.',
   'workbench.editors.grpc.timeline.searchMessages': 'Rechercher dans les messages',
   'workbench.editors.grpc.timeline.filterAll': 'Tous',

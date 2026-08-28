@@ -194,7 +194,7 @@ interface GrpcGroupIdentity {
 type ListEntry =
   | {
       key: string;
-      kind: 'sent' | 'sentDetail' | 'connected' | 'connectedDetail' | 'ended' | 'errorDetail' | 'waiting' | 'noMatches';
+      kind: 'sent' | 'sentDetail' | 'connected' | 'connectedDetail' | 'ended' | 'errorDetail' | 'noMatches';
     }
   | { key: string; kind: 'header'; group: GrpcGroupIdentity; count: number; collapsed: boolean }
   /** "Show N older" at a windowed group's older edge; the un-windowed
@@ -530,11 +530,7 @@ const GrpcMessageTimeline: React.FC<GrpcMessageTimelineProps> = ({
     };
     const headAt = lifecycle.headArrived ? (lifecycle.headAtMessage ?? 0) : null;
     const notice: ListEntry | null =
-      live && count === 0
-        ? { key: 'waiting', kind: 'waiting' }
-        : filtering && displayRows.length === 0 && count > clearedCount
-          ? { key: 'none', kind: 'noMatches' }
-          : null;
+      filtering && displayRows.length === 0 && count > clearedCount ? { key: 'none', kind: 'noMatches' } : null;
 
     // Top chronological edge.
     if (newestFirst) {
@@ -1153,12 +1149,6 @@ const GrpcMessageTimeline: React.FC<GrpcMessageTimelineProps> = ({
           </div>
         );
       }
-      case 'waiting':
-        return (
-          <div key={entry.key} style={lifecycleRowStyle}>
-            <span>{t('workbench.editors.grpc.timeline.waiting')}</span>
-          </div>
-        );
       case 'noMatches':
         return (
           <div key={entry.key} style={lifecycleRowStyle}>

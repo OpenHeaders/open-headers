@@ -206,7 +206,6 @@ export const workbenchEditorsWebsocket = {
   'workbench.editors.websocket.timeline.disconnected': 'Desconectado',
   'workbench.editors.websocket.timeline.stopped': 'Detenido',
   'workbench.editors.websocket.timeline.aborted': 'Conexión cancelada',
-  'workbench.editors.websocket.timeline.waiting': 'Esperando mensajes…',
   'workbench.editors.websocket.timeline.noMatches': 'Ningún mensaje coincide con el filtro.',
   'workbench.editors.websocket.timeline.searchMessages': 'Buscar en los mensajes',
   'workbench.editors.websocket.timeline.messageCount': '{count} mensajes',

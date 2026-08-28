@@ -165,7 +165,6 @@ export const workbenchEditorsGrpc = {
   'workbench.editors.grpc.timeline.completed': 'Call completed',
   'workbench.editors.grpc.timeline.stopped': 'Call stopped',
   'workbench.editors.grpc.timeline.failed': 'Call failed',
-  'workbench.editors.grpc.timeline.waiting': 'Waiting for messages…',
   'workbench.editors.grpc.timeline.noMatches': 'No messages match.',
   'workbench.editors.grpc.timeline.searchMessages': 'Search messages',
   'workbench.editors.grpc.timeline.filterAll': 'All',

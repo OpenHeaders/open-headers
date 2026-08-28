@@ -164,7 +164,6 @@ export const workbenchEditorsGrpc = {
   'workbench.editors.grpc.timeline.completed': '调用已完成',
   'workbench.editors.grpc.timeline.stopped': '调用已停止',
   'workbench.editors.grpc.timeline.failed': '调用失败',
-  'workbench.editors.grpc.timeline.waiting': '等待消息…',
   'workbench.editors.grpc.timeline.noMatches': '没有匹配的消息。',
   'workbench.editors.grpc.timeline.searchMessages': '搜索消息',
   'workbench.editors.grpc.timeline.filterAll': '全部',

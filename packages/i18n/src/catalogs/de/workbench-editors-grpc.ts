@@ -214,7 +214,6 @@ export const workbenchEditorsGrpc = {
   'workbench.editors.grpc.timeline.completed': 'Aufruf abgeschlossen',
   'workbench.editors.grpc.timeline.stopped': 'Aufruf gestoppt',
   'workbench.editors.grpc.timeline.failed': 'Aufruf fehlgeschlagen',
-  'workbench.editors.grpc.timeline.waiting': 'Warte auf Nachrichten…',
   'workbench.editors.grpc.timeline.noMatches': 'Keine Nachricht passt.',
   'workbench.editors.grpc.timeline.searchMessages': 'Nachrichten durchsuchen',
   'workbench.editors.grpc.timeline.filterAll': 'Alle',

@@ -174,7 +174,6 @@ export const workbenchEditorsWebsocket = {
   'workbench.editors.websocket.timeline.disconnected': '已断开',
   'workbench.editors.websocket.timeline.stopped': '已停止',
   'workbench.editors.websocket.timeline.aborted': '连接已中止',
-  'workbench.editors.websocket.timeline.waiting': '等待消息…',
   'workbench.editors.websocket.timeline.noMatches': '没有匹配筛选条件的消息。',
   'workbench.editors.websocket.timeline.searchMessages': '搜索消息',
   'workbench.editors.websocket.timeline.messageCount': '{count} 条消息',

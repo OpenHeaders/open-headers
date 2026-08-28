@@ -169,7 +169,7 @@ interface WsGroupIdentity {
 /** One display slot of the virtual list — heights are a closed
  *  function of `kind`, so windowing never measures. */
 type ListEntry =
-  | { key: string; kind: 'sent' | 'connected' | 'handshakeDetail' | 'error' | 'ended' | 'waiting' | 'noMatches' }
+  | { key: string; kind: 'sent' | 'connected' | 'handshakeDetail' | 'error' | 'ended' | 'noMatches' }
   | { key: string; kind: 'header'; group: WsGroupIdentity; count: number; collapsed: boolean }
   /** "Show N older messages" at a windowed group's older edge; the
    *  un-windowed state's re-window action lives on the group header. */
@@ -638,11 +638,7 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
       }
     };
     const notice: ListEntry | null =
-      live && count === 0
-        ? { key: 'waiting', kind: 'waiting' }
-        : filtering && visibleRows.length === 0 && count > clearedCount
-          ? { key: 'none', kind: 'noMatches' }
-          : null;
+      filtering && visibleRows.length === 0 && count > clearedCount ? { key: 'none', kind: 'noMatches' } : null;
 
     // The error/aborted row sits at the ended row's chronological slot
     // — the two never coexist (a pre-open end has no opened-session
@@ -1113,12 +1109,6 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
           </div>
         );
       }
-      case 'waiting':
-        return (
-          <div key={entry.key} style={lifecycleRowStyle}>
-            <span>{t('workbench.editors.websocket.timeline.waiting')}</span>
-          </div>
-        );
       case 'noMatches':
         return (
           <div key={entry.key} style={lifecycleRowStyle}>
