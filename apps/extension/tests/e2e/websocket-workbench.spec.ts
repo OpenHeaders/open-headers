@@ -41,7 +41,7 @@
  *   B8  compose aids (Phase F): the linked spec's census feeds the
  *       Message-tab "Use example message" picker (synthesized payload
  *       lands in the compose editor, display mode flips to JSON) and
- *       the AsyncAPI tab's channel browser (picking a message row
+ *       the Spec tab's channel browser (picking a message row
  *       composes its example and switches to the Message tab).
  *   B9  Save Response (Phase F): a settled session freezes into a
  *       WsResponseExample — viewer tab with the captured close pill,
@@ -334,9 +334,8 @@ test('an AsyncAPI spec binds through the picker and the specLink persists', asyn
   await commitAutoRename(/^New Specification/, SPEC_NAME);
 
   await openWebsocketRequest(RAW_NAME);
-  // Exact: the substring would also match the "Streams AsyncAPI"
-  // DOCUMENT tab and switch documents instead of editor tabs.
-  await page.getByRole('tab', { name: 'AsyncAPI', exact: true }).filter({ visible: true }).first().click();
+  // Exact: the editor's Spec tab, never a document tab.
+  await page.getByRole('tab', { name: 'Spec', exact: true }).filter({ visible: true }).first().click();
   await page.getByTestId('websocket-spec-select').filter({ visible: true }).first().click();
   await page
     .locator('.ant-select-dropdown')
@@ -358,9 +357,8 @@ test('an AsyncAPI spec binds through the picker and the specLink persists', asyn
   await workbench.showRequestsView();
   await workbench.collapseRightSidebar();
   await openWebsocketRequest(RAW_NAME);
-  // Exact: the substring would also match the "Streams AsyncAPI"
-  // DOCUMENT tab and switch documents instead of editor tabs.
-  await page.getByRole('tab', { name: 'AsyncAPI', exact: true }).filter({ visible: true }).first().click();
+  // Exact: the editor's Spec tab, never a document tab.
+  await page.getByRole('tab', { name: 'Spec', exact: true }).filter({ visible: true }).first().click();
   // Read the select's own text — a single-mode Select renders its
   // value in `.ant-select-content` (no selection-item element).
   await expect(page.getByTestId('websocket-spec-select').filter({ visible: true }).first()).toContainText(SPEC_NAME);
@@ -373,7 +371,7 @@ test('B5 — Connect runs the session in-page: greeting subprotocol, Send echo, 
   // The CURRENT compose state connects (the draft-send law) — point
   // the draft at the probe without saving.
   await urlInput().fill(WS_PROBE_URL);
-  // B4 left the AsyncAPI editor tab active; Send lives on Message.
+  // B4 left the Spec editor tab active; Send lives on Message.
   await page.getByRole('tab', { name: 'Message', exact: true }).filter({ visible: true }).first().click();
 
   await expect(connectButton()).toBeEnabled();
@@ -524,9 +522,9 @@ test('B8 — "Use example message" synthesizes the scaffold payload; the channel
   expect(composed).toContain('"orders"');
   expect(composed).toContain('"format": "full"');
 
-  // The AsyncAPI tab's channel browser: picking the `ping` message row
+  // The Spec tab's channel browser: picking the `ping` message row
   // composes its example (const op) and switches back to Message.
-  await page.getByRole('tab', { name: 'AsyncAPI', exact: true }).filter({ visible: true }).first().click();
+  await page.getByRole('tab', { name: 'Spec', exact: true }).filter({ visible: true }).first().click();
   const browser = page.getByTestId('ws-asyncapi-browser').filter({ visible: true }).first();
   await browser.waitFor({ state: 'visible', timeout: 10_000 });
   await browser.getByText('ping', { exact: true }).first().click();

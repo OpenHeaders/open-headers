@@ -43,6 +43,8 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.tab.body': 'Body',
   'workbench.editors.request.tab.scripts': 'Scripts',
   'workbench.editors.request.tab.settings': 'Settings',
+  'workbench.editors.request.spec.selectLabel': 'OpenAPI spec',
+  'workbench.editors.request.spec.none': 'No OpenAPI spec is linked to this request.',
 
   // ── URL bar + method picker (method names stay raw parity vocab) ───
   'workbench.editors.request.url.placeholder': 'Enter URL or paste text',
@@ -794,6 +796,7 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.response.body.noMatches': 'No matches for this path.',
   'workbench.editors.request.response.body.showingLastMatch': 'Showing the last match.',
   'workbench.editors.request.response.body.hexCapNotice': 'Hex view shows the first {shown} of {total}.',
+  'workbench.editors.spec.tab': 'Spec',
   'workbench.editors.timelineViewer.format': 'Message format',
   'workbench.editors.timelineViewer.showMessage': 'Show Message',
   'workbench.editors.timelineViewer.showHexdump': 'Show Hexdump',

@@ -63,6 +63,8 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.tab.body': '正文',
   'workbench.editors.request.tab.scripts': '脚本',
   'workbench.editors.request.tab.settings': '设置',
+  'workbench.editors.request.spec.selectLabel': 'OpenAPI 规范',
+  'workbench.editors.request.spec.none': '此请求未关联 OpenAPI 规范。',
 
   // ── URL bar + method picker (method names stay raw parity vocab) ───
   'workbench.editors.request.url.placeholder': '输入 URL 或粘贴文本',
@@ -778,6 +780,7 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.response.body.noMatches': '此路径没有匹配项。',
   'workbench.editors.request.response.body.showingLastMatch': '正在显示最后一个匹配项。',
   'workbench.editors.request.response.body.hexCapNotice': 'Hex 视图显示 {total} 中的前 {shown}。',
+  'workbench.editors.spec.tab': '规范',
   'workbench.editors.timelineViewer.format': '消息格式',
   'workbench.editors.timelineViewer.showMessage': '显示消息',
   'workbench.editors.timelineViewer.showHexdump': '显示十六进制转储',

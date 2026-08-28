@@ -9,13 +9,14 @@ import { theme } from 'antd';
 import type React from 'react';
 import { getCapability } from '@openheaders/core/capabilities';
 import type { Translate } from '@openheaders/ui/context/LocaleContext';
+import SpecTabLabel from '../shared/SpecTabLabel';
 import { previewAuthContributions } from './auth-preview';
 import type { Draft } from './draft';
 import { NO_UNSAVED_SECTIONS, type UnsavedSections } from './section-unsaved';
 import { NO_UNSAVED_SETTINGS, type SettingsKnobKey } from './settings-unsaved';
 import type { SectionUnresolved } from './useSectionUnresolved';
 
-export type TabKey = 'docs' | 'params' | 'authorization' | 'headers' | 'body' | 'scripts' | 'settings';
+export type TabKey = 'docs' | 'params' | 'authorization' | 'headers' | 'body' | 'scripts' | 'settings' | 'spec';
 
 /** Mini count badge on a tab label. `unsaved` recolors it in the
  *  sidebar/tab-bar dirty salmon — the section's rows differ from the
@@ -236,5 +237,6 @@ export function buildRequestTabItems(
         </span>
       ),
     },
+    { key: 'spec', label: <SpecTabLabel /> },
   ];
 }

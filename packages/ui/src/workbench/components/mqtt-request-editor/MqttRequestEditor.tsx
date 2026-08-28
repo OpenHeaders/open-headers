@@ -24,7 +24,7 @@
  * reprime + prefill hand-off, the ⌘/Ctrl+Enter chord plane, the editor
  * shell/save, the header (target row + Connect/Disconnect morph), the
  * compose/session Allotment split with the always-attached session
- * pane, and the spec footer.
+ * pane.
  *
  * 3.1.1 renders every 5.0-only surface disabled-honest (the encode-
  * strict codec law surfaced at the editor). Dirty derives from
@@ -68,6 +68,7 @@ import MqttSessionPane from './MqttSessionPane';
 import MqttSettingsTab from './MqttSettingsTab';
 import MqttSpecTab from './MqttSpecTab';
 import SessionLock from '../shared/SessionLock';
+import SpecTabLabel from '../shared/SpecTabLabel';
 import MqttTargetRow from './MqttTargetRow';
 import MqttTopicsTab from './MqttTopicsTab';
 import { useMqttComposeAids } from './useMqttComposeAids';
@@ -357,31 +358,6 @@ const MqttRequestEditor: React.FC<MqttRequestEditorProps> = ({
 
   const willConfigured = draft.lastWill.topic.trim() !== '';
 
-  const specFooter = (
-    <div
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: 8,
-        padding: '4px 12px',
-        borderTop: `1px solid ${token.colorBorderSecondary}`,
-        fontSize: 11,
-        color: token.colorTextTertiary,
-      }}
-    >
-      <Text type="secondary" style={{ fontSize: 11 }}>
-        {aids.linkedSpec
-          ? t('workbench.editors.mqtt.specFooter.using', { name: aids.linkedSpec.name })
-          : t('workbench.editors.mqtt.specFooter.none')}
-      </Text>
-      {aids.census.census !== null && aids.census.census.issues.length > 0 && (
-        <Text type="warning" style={{ fontSize: 11 }}>
-          {t('workbench.editors.mqtt.spec.issues', { count: aids.census.census.issues.length })}
-        </Text>
-      )}
-    </div>
-  );
-
   return (
     <EntityScopeProvider shell={shell.scopeProps}>
       {/* tabIndex -1: clicks on non-focusable space inside the editor
@@ -430,8 +406,8 @@ const MqttRequestEditor: React.FC<MqttRequestEditorProps> = ({
                           t('workbench.editors.mqtt.tab.lastWill')
                         ),
                       },
-                      { key: 'spec', label: t('workbench.editors.mqtt.tab.spec') },
                       { key: 'settings', label: t('workbench.editors.mqtt.tab.settings') },
+                      { key: 'spec', label: <SpecTabLabel /> },
                     ]}
                   />
                 </div>
@@ -577,7 +553,6 @@ const MqttRequestEditor: React.FC<MqttRequestEditorProps> = ({
           </Allotment>
         </div>
 
-        {specFooter}
       </div>
     </EntityScopeProvider>
   );

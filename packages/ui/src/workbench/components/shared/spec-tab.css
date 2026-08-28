@@ -1,0 +1,14 @@
+/* The Spec tab sits last behind a vertical divider. The hairline is a
+ * pseudo-element in the tab's own gutter (not padding on the tab: the
+ * ink bar spans the tab's box, so padding would run the underline out
+ * under the divider). Keyed on the label's class — antd tab items take
+ * no class. */
+.ant-tabs-tab:has(.oh-spec-tab)::before {
+  content: '';
+  position: absolute;
+  left: -16px;
+  top: 10px;
+  bottom: 10px;
+  width: 1px;
+  background: var(--oh-divider, rgba(0, 0, 0, 0.07));
+}

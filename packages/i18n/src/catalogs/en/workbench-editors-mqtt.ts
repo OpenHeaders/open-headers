@@ -30,7 +30,6 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.tab.auth': 'Authorization',
   'workbench.editors.mqtt.tab.properties': 'Properties',
   'workbench.editors.mqtt.tab.lastWill': 'Last Will',
-  'workbench.editors.mqtt.tab.spec': 'AsyncAPI',
   'workbench.editors.mqtt.tab.settings': 'Settings',
   'workbench.editors.mqtt.qos.compactLabel': 'QoS:',
   'workbench.editors.mqtt.qos.meaning0': 'At most once',
@@ -154,8 +153,6 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.spec.browser.channels': 'Channels',
   'workbench.editors.mqtt.spec.browser.operations': 'Operations',
   'workbench.editors.mqtt.spec.browser.components': 'Components',
-  'workbench.editors.mqtt.specFooter.using': 'Using {name}',
-  'workbench.editors.mqtt.specFooter.none': 'No AsyncAPI spec linked',
   'workbench.editors.mqtt.settings.exampleCaption': 'Example session',
   'workbench.editors.mqtt.settings.clientIdLabel': 'Client ID',
   'workbench.editors.mqtt.settings.clientIdHelp':

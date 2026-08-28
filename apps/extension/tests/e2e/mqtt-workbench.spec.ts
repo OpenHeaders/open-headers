@@ -49,7 +49,7 @@
  *       Message-tab "Use example message" picker (synthesized payload
  *       lands in the payload editor, the ENCODING flips to JSON, and
  *       the channel address prefills the publish topic — the
- *       mqtt-only affordance) and the AsyncAPI tab's channel browser
+ *       mqtt-only affordance) and the Spec tab's channel browser
  *       (picking a message row composes its example and switches to
  *       the Message tab).
  *   E10 Save Response (Phase E): a settled session freezes into an
@@ -377,9 +377,8 @@ test('E4 — an AsyncAPI spec binds through the picker and the specLink persists
   await commitAutoRename(/^New Specification/, SPEC_NAME);
 
   await openMqttRequest(MQTT_NAME);
-  // Exact: the substring would also match the "Broker AsyncAPI"
-  // DOCUMENT tab and switch documents instead of editor tabs.
-  await page.getByRole('tab', { name: 'AsyncAPI', exact: true }).filter({ visible: true }).first().click();
+  // Exact: the editor's Spec tab, never a document tab.
+  await page.getByRole('tab', { name: 'Spec', exact: true }).filter({ visible: true }).first().click();
   await page.getByTestId('mqtt-spec-select').filter({ visible: true }).first().click();
   await page
     .locator('.ant-select-dropdown')
@@ -401,9 +400,8 @@ test('E4 — an AsyncAPI spec binds through the picker and the specLink persists
   await workbench.showRequestsView();
   await workbench.collapseRightSidebar();
   await openMqttRequest(MQTT_NAME);
-  // Exact: the substring would also match the "Broker AsyncAPI"
-  // DOCUMENT tab and switch documents instead of editor tabs.
-  await page.getByRole('tab', { name: 'AsyncAPI', exact: true }).filter({ visible: true }).first().click();
+  // Exact: the editor's Spec tab, never a document tab.
+  await page.getByRole('tab', { name: 'Spec', exact: true }).filter({ visible: true }).first().click();
   // Read the select's own text — a single-mode Select renders its
   // value in `.ant-select-content` (no selection-item element).
   await expect(page.getByTestId('mqtt-spec-select').filter({ visible: true }).first()).toContainText(SPEC_NAME);
@@ -482,9 +480,9 @@ test('E6 — Connect runs the session in-page: CONNACK row, SUBACK grants, retai
 
   // The version knob locks while the session is in flight — the open
   // session speaks the version it connected with.
-  await expect(
-    page.getByTestId('mqtt-version-select').filter({ visible: true }).first(),
-  ).toHaveClass(/ant-select-disabled/);
+  await expect(page.getByTestId('mqtt-version-select').filter({ visible: true }).first()).toHaveClass(
+    /ant-select-disabled/,
+  );
 
   // The Connected lifecycle row reads plain; expanding it shows the
   // verbatim CONNACK facts — the 3.1.1 return-code name beside the
@@ -606,10 +604,10 @@ test('E9 — "Use example message" synthesizes the scaffold payload and prefills
   expect(composed).toContain('"format": "full"');
   await expect(page.getByTestId('mqtt-topic-input').filter({ visible: true }).first()).toHaveValue('/ws/events');
 
-  // The AsyncAPI tab's channel browser: picking the `ping` message row
+  // The Spec tab's channel browser: picking the `ping` message row
   // composes its example (const op), prefills the topic with its own
   // channel address, and switches back to Message.
-  await page.getByRole('tab', { name: 'AsyncAPI', exact: true }).filter({ visible: true }).first().click();
+  await page.getByRole('tab', { name: 'Spec', exact: true }).filter({ visible: true }).first().click();
   const browser = page.getByTestId('mqtt-asyncapi-browser').filter({ visible: true }).first();
   await browser.waitFor({ state: 'visible', timeout: 10_000 });
   await browser.getByText('ping', { exact: true }).first().click();

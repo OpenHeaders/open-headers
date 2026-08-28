@@ -72,6 +72,8 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.tab.body': 'Body',
   'workbench.editors.request.tab.scripts': 'Scripts',
   'workbench.editors.request.tab.settings': 'Einstellungen',
+  'workbench.editors.request.spec.selectLabel': 'OpenAPI-Spezifikation',
+  'workbench.editors.request.spec.none': 'Mit dieser Anfrage ist keine OpenAPI-Spezifikation verknüpft.',
 
   // ── URL bar + method picker (method names stay raw parity vocab) ───
   'workbench.editors.request.url.placeholder': 'URL eingeben oder Text einfügen',
@@ -997,6 +999,7 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.response.body.noMatches': 'Keine Treffer für diesen Pfad.',
   'workbench.editors.request.response.body.showingLastMatch': 'Der letzte Treffer wird angezeigt.',
   'workbench.editors.request.response.body.hexCapNotice': 'Die Hex-Ansicht zeigt die ersten {shown} von {total}.',
+  'workbench.editors.spec.tab': 'Spec',
   'workbench.editors.timelineViewer.format': 'Nachrichtenformat',
   'workbench.editors.timelineViewer.showMessage': 'Nachricht anzeigen',
   'workbench.editors.timelineViewer.showHexdump': 'Hexdump anzeigen',

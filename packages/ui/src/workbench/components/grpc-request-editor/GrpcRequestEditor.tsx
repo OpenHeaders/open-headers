@@ -17,8 +17,7 @@
  * reprime + prefill hand-off, the .proto import picker both spec entry
  * points share, the ⌘/Ctrl+Enter chord plane, the editor shell/save,
  * the header (target row + Invoke/Stop morph + ⋯ posture toggle), the
- * compose/result Allotment split with the always-attached result pane,
- * and the spec footer.
+ * compose/result Allotment split with the always-attached result pane.
  *
  * Compose and result stack in a vertical Allotment split (the HTTP
  * editor's discipline) — the sash bounds the fill message editor, and
@@ -33,7 +32,7 @@
  * `updateGrpcRequest` (the gRPC write client under the hood).
  */
 
-import { CaretRightOutlined, CheckOutlined, ReloadOutlined } from '@ant-design/icons';
+import { CaretRightOutlined, CheckOutlined } from '@ant-design/icons';
 import { GRPC_REQUEST_ENTITY_TYPE } from '@openheaders/core/sync';
 import { ShortcutHintTitle } from '@openheaders/ui/components/ShortcutKbd';
 import { useT } from '@openheaders/ui/context/LocaleContext';
@@ -61,6 +60,7 @@ import GrpcServiceDefinitionTab from './GrpcServiceDefinitionTab';
 import GrpcSettingsTab from './GrpcSettingsTab';
 import GrpcStreamPane from './GrpcStreamPane';
 import SessionLock from '../shared/SessionLock';
+import SpecTabLabel from '../shared/SpecTabLabel';
 import GrpcTargetRow from './GrpcTargetRow';
 import { useGrpcInvokePlane } from './useGrpcInvokePlane';
 import { useGrpcSpecBinding } from './useGrpcSpecBinding';
@@ -368,36 +368,6 @@ const GrpcRequestEditor: React.FC<GrpcRequestEditorProps> = ({
     </Tooltip>
   );
 
-  const specFooter = (
-    <div
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: 8,
-        padding: '4px 12px',
-        borderTop: `1px solid ${token.colorBorderSecondary}`,
-        fontSize: 11,
-        color: token.colorTextTertiary,
-      }}
-    >
-      <Text type="secondary" style={{ fontSize: 11 }}>
-        {spec.linkedSpec
-          ? t('workbench.editors.grpc.specFooter.using', { name: spec.linkedSpec.name })
-          : t('workbench.editors.grpc.specFooter.none')}
-      </Text>
-      {spec.linkedSpec && spec.issueCount > 0 && (
-        <Text type="warning" style={{ fontSize: 11 }}>
-          {t('workbench.editors.grpc.specFooter.issues', { count: spec.issueCount })}
-        </Text>
-      )}
-      {spec.linkedSpec && (
-        <Tooltip title={t('workbench.editors.grpc.specFooter.refresh')}>
-          <Button size="small" type="text" icon={<ReloadOutlined style={{ fontSize: 11 }} />} onClick={spec.refreshDerivation} />
-        </Tooltip>
-      )}
-    </div>
-  );
-
   return (
     <EntityScopeProvider shell={shell.scopeProps}>
       {/* tabIndex -1: clicks on non-focusable space inside the editor
@@ -455,8 +425,8 @@ const GrpcRequestEditor: React.FC<GrpcRequestEditorProps> = ({
                       { key: 'message', label: t('workbench.editors.grpc.tab.message') },
                       { key: 'metadata', label: t('workbench.editors.grpc.tab.metadata') },
                       { key: 'auth', label: t('workbench.editors.grpc.tab.auth') },
-                      { key: 'service', label: t('workbench.editors.grpc.tab.serviceDefinition') },
                       { key: 'settings', label: t('workbench.editors.grpc.tab.settings') },
+                      { key: 'spec', label: <SpecTabLabel /> },
                     ]}
                   />
                 </div>
@@ -501,7 +471,7 @@ const GrpcRequestEditor: React.FC<GrpcRequestEditorProps> = ({
                     {activeTab === 'auth' && (
                       <GrpcAuthTab auth={draft.auth} onChange={(auth) => setDraft((d) => ({ ...d, auth }))} />
                     )}
-                    {activeTab === 'service' && (
+                    {activeTab === 'spec' && (
                       <GrpcServiceDefinitionTab
                         spec={spec}
                         workspaceId={workspaceId}
@@ -575,7 +545,6 @@ const GrpcRequestEditor: React.FC<GrpcRequestEditorProps> = ({
           </Allotment>
         </div>
 
-        {specFooter}
       </div>
     </EntityScopeProvider>
   );

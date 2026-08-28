@@ -22,7 +22,7 @@
  * reprime + prefill hand-off, the ⌘/Ctrl+Enter chord plane, the editor
  * shell/save, the header (target row + Connect/Disconnect morph), the
  * compose/session Allotment split with the always-attached session
- * pane, and the spec footer.
+ * pane.
  *
  * Dirty derives from form-vs-canonical equality via `useReprime`
  * (never setDirty); saves flow through the RequestsContext's
@@ -47,6 +47,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import DocsTab from '../request-editor/DocsTab';
 import KeyValueTable from '../request-editor/KeyValueTable';
 import SessionLock from '../shared/SessionLock';
+import SpecTabLabel from '../shared/SpecTabLabel';
 import EditorHeader from '../shell/EditorHeader';
 import { CONNECT_SHORTCUT } from './compose';
 import {
@@ -362,31 +363,6 @@ const WebSocketRequestEditor: React.FC<WebSocketRequestEditorProps> = ({
     </Tooltip>
   );
 
-  const specFooter = (
-    <div
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: 8,
-        padding: '4px 12px',
-        borderTop: `1px solid ${token.colorBorderSecondary}`,
-        fontSize: 11,
-        color: token.colorTextTertiary,
-      }}
-    >
-      <Text type="secondary" style={{ fontSize: 11 }}>
-        {aids.linkedSpec
-          ? t('workbench.editors.websocket.specFooter.using', { name: aids.linkedSpec.name })
-          : t('workbench.editors.websocket.specFooter.none')}
-      </Text>
-      {aids.census.census !== null && aids.census.census.issues.length > 0 && (
-        <Text type="warning" style={{ fontSize: 11 }}>
-          {t('workbench.editors.websocket.spec.issues', { count: aids.census.census.issues.length })}
-        </Text>
-      )}
-    </div>
-  );
-
   return (
     <EntityScopeProvider shell={shell.scopeProps}>
       {/* tabIndex -1: clicks on non-focusable space inside the editor
@@ -428,8 +404,8 @@ const WebSocketRequestEditor: React.FC<WebSocketRequestEditorProps> = ({
                         : []),
                       { key: 'auth', label: t('workbench.editors.websocket.tab.auth') },
                       { key: 'headers', label: t('workbench.editors.websocket.tab.headers') },
-                      { key: 'spec', label: t('workbench.editors.websocket.tab.spec') },
                       { key: 'settings', label: t('workbench.editors.websocket.tab.settings') },
+                      { key: 'spec', label: <SpecTabLabel /> },
                     ]}
                   />
                 </div>
@@ -569,7 +545,6 @@ const WebSocketRequestEditor: React.FC<WebSocketRequestEditorProps> = ({
           </Allotment>
         </div>
 
-        {specFooter}
       </div>
     </EntityScopeProvider>
   );

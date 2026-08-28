@@ -197,9 +197,9 @@ const GrpcTargetRow: React.FC<GrpcTargetRowProps> = ({ draft, setDraft, spec, wo
                 }}
               >
                 <Text type="secondary" style={{ fontSize: 11 }}>
-                  {t('workbench.editors.grpc.specFooter.using', { name: linkedSpec.name })}
+                  {t('workbench.editors.grpc.method.usingSpec', { name: linkedSpec.name })}
                 </Text>
-                <Tooltip title={t('workbench.editors.grpc.specFooter.refresh')}>
+                <Tooltip title={t('workbench.editors.grpc.method.refreshSpec')}>
                   <Button
                     size="small"
                     type="text"

@@ -61,6 +61,8 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.tab.body': 'Cuerpo',
   'workbench.editors.request.tab.scripts': 'Scripts',
   'workbench.editors.request.tab.settings': 'Configuración',
+  'workbench.editors.request.spec.selectLabel': 'Spec OpenAPI',
+  'workbench.editors.request.spec.none': 'Ninguna spec OpenAPI está vinculada a esta solicitud.',
 
   // ── URL bar + method picker (method names stay raw parity vocab) ───
   'workbench.editors.request.url.placeholder': 'Introduce una URL o pega texto',
@@ -983,6 +985,7 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.response.body.noMatches': 'No hay coincidencias para esta ruta.',
   'workbench.editors.request.response.body.showingLastMatch': 'Mostrando la última coincidencia.',
   'workbench.editors.request.response.body.hexCapNotice': 'La vista Hex muestra los primeros {shown} de {total}.',
+  'workbench.editors.spec.tab': 'Spec',
   'workbench.editors.timelineViewer.format': 'Formato del mensaje',
   'workbench.editors.timelineViewer.showMessage': 'Mostrar el mensaje',
   'workbench.editors.timelineViewer.showHexdump': 'Mostrar el volcado hexadecimal',

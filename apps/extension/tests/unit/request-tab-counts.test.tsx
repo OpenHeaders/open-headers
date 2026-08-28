@@ -137,3 +137,14 @@ describe('request editor tab unsaved (salmon) tones', () => {
     expect(container.querySelector('[data-testid="oh-section-unsaved"]')).toBeNull();
   });
 });
+
+describe('request editor tab order', () => {
+  it('lists the Spec tab last behind its divider class', () => {
+    const items = buildRequestTabItems(emptyDraft(), NONE, t);
+    expect(items.at(-1)?.key).toBe('spec');
+    expect(items.at(-2)?.key).toBe('settings');
+    const { container } = render(<div>{items.at(-1)?.label}</div>);
+    const label = container.querySelector('.oh-spec-tab');
+    expect(label?.textContent).toBe('Spec');
+  });
+});

@@ -37,7 +37,6 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.tab.auth': '授权',
   'workbench.editors.mqtt.tab.properties': '属性',
   'workbench.editors.mqtt.tab.lastWill': '遗嘱',
-  'workbench.editors.mqtt.tab.spec': 'AsyncAPI',
   'workbench.editors.mqtt.tab.settings': '设置',
   'workbench.editors.mqtt.qos.compactLabel': 'QoS:',
   'workbench.editors.mqtt.qos.meaning0': '至多一次',
@@ -149,8 +148,6 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.spec.browser.channels': 'Channels',
   'workbench.editors.mqtt.spec.browser.operations': 'Operations',
   'workbench.editors.mqtt.spec.browser.components': 'Components',
-  'workbench.editors.mqtt.specFooter.using': '正在使用 {name}',
-  'workbench.editors.mqtt.specFooter.none': '未关联 AsyncAPI 规范',
   'workbench.editors.mqtt.settings.exampleCaption': '示例会话',
   'workbench.editors.mqtt.settings.clientIdLabel': 'Client ID',
   'workbench.editors.mqtt.settings.clientIdHelp':

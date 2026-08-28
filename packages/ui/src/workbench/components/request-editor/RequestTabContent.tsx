@@ -16,6 +16,7 @@ import type { TabKey } from './request-tab-items';
 import ScriptsTab from './ScriptsTab';
 import type { UnsavedSections } from './section-unsaved';
 import SettingsTab from './SettingsTab';
+import SpecTab from './SpecTab';
 import { type SettingsKnobKey, settingsSlice } from './settings-unsaved';
 
 interface RequestTabContentProps {
@@ -96,6 +97,8 @@ const RequestTabContent: React.FC<RequestTabContentProps> = ({
           postResponseUnsaved={unsavedSections?.postResponseScript}
         />
       );
+    case 'spec':
+      return <SpecTab />;
     case 'settings':
       return (
         <SettingsTab
