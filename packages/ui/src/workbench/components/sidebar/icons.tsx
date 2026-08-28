@@ -6,13 +6,16 @@ import { ExampleChip } from '../shared/ExampleChip';
 
 /** Every tree prefix tag is at most {@link TAG_CHARS} characters, so
  *  the shared right-aligned column can stay this narrow. */
-export const TAG_CHARS = 5;
-const TAG_WIDTH = 30;
+export const TAG_CHARS = 4;
+const TAG_WIDTH = 24;
 
 /** Short forms for the verbs that overflow {@link TAG_CHARS}. */
 const METHOD_TAGS: Record<string, string> = {
   DELETE: 'DEL',
-  OPTIONS: 'OPTS',
+  OPTIONS: 'OPT',
+  PATCH: 'PTCH',
+  TRACE: 'TRCE',
+  CONNECT: 'CONN',
 };
 
 export function methodTagText(method: string): string {
@@ -151,8 +154,8 @@ export function mqttTag(muted = false): React.ReactNode {
 export function sessionFidelityTag(fidelity: 'cdp' | 'heuristic' | 'proxy'): React.ReactNode {
   const spec = {
     cdp: { label: 'CDP', color: 'var(--oh-method-get, #0a7d33)' },
-    proxy: { label: 'PROXY', color: 'var(--oh-method-put, #0b5cad)' },
-    heuristic: { label: 'BASIC', color: 'var(--ant-color-text-tertiary, #999)' },
+    proxy: { label: 'PRXY', color: 'var(--oh-method-put, #0b5cad)' },
+    heuristic: { label: 'BASE', color: 'var(--ant-color-text-tertiary, #999)' },
   }[fidelity];
   return createElement(
     'span',

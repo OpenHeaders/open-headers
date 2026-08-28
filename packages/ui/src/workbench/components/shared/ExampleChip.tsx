@@ -20,7 +20,7 @@ export const ExampleChip: React.FC<{ color?: string; className?: string }> = ({
       display: 'inline-flex',
       alignItems: 'center',
       height: 14,
-      padding: '0 3px',
+      padding: '0 2px',
       borderRadius: 3,
       border: '1px solid var(--ant-color-border, #d9d9d9)',
       fontSize: 8,
