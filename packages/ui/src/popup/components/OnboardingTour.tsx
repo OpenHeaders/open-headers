@@ -694,6 +694,11 @@ const OnboardingTour: React.FC<OnboardingTourProps> = ({ open, onClose }) => {
     [sharedStepProps, lastStepProps, t, surface.mode],
   );
 
+  // Unmounted while hidden: a mounted Tour subscribes to window resize
+  // and measures its target on every event, which the popup surface
+  // fires on ordinary hover.
+  if (!isVisible) return null;
+
   return (
     <Tour
       open={isVisible}

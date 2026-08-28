@@ -28,9 +28,9 @@ import { useSurface } from '@openheaders/ui/shared/surface';
 import { VariablePopoverProvider } from '@openheaders/ui/workbench/components/template-input/VariablePopoverHost';
 import WhatsNewModal from '@openheaders/ui/workbench/components/whats-new/WhatsNewModal';
 import { EnvSwitcherProvider } from '@openheaders/ui/workbench/services/env-switcher';
-import { Layout } from 'antd';
+import { ConfigProvider, Layout } from 'antd';
 import type React from 'react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Footer from './components/Footer';
 import Header from './components/Header';
 import KeyboardShortcutsOverlay from './components/KeyboardShortcutsOverlay';
@@ -51,6 +51,11 @@ const AppInner: React.FC<AppInnerProps> = ({ tourOpen, onTourClose }) => {
   const { isDarkMode } = useTheme();
   const surface = useSurface();
   const { containerRef, isShortcutsOverlayVisible, setIsShortcutsOverlayVisible } = useKeyboardNav();
+  // Popups (dropdown, tooltip, popover, select) portal into the clipped
+  // shell instead of `body`, so they can never extend the document and
+  // trip the popup window's preferred-size re-measure.
+  const shellRef = useRef<HTMLDivElement>(null);
+  const getPopupContainer = useCallback(() => shellRef.current ?? document.body, []);
 
   // Populate the local notifications store so the header bell's unseen
   // dot reflects the same pending nudges/updates as the workbench —
@@ -72,15 +77,17 @@ const AppInner: React.FC<AppInnerProps> = ({ tourOpen, onTourClose }) => {
       className={`oh-surface oh-surface-${surface.mode}`}
       style={{ outline: 'none', height: '100%' }}
     >
-      <Layout className="app-container" data-theme={isDarkMode ? 'dark' : 'light'}>
-        <Header />
-        <Content className="content">
-          <div className="entries-list">
-            <RulesList />
-          </div>
-        </Content>
-        <Footer />
-      </Layout>
+      <ConfigProvider getPopupContainer={getPopupContainer}>
+        <Layout ref={shellRef} className="app-container" data-theme={isDarkMode ? 'dark' : 'light'}>
+          <Header />
+          <Content className="content">
+            <div className="entries-list">
+              <RulesList />
+            </div>
+          </Content>
+          <Footer />
+        </Layout>
+      </ConfigProvider>
       <KeyboardShortcutsOverlay
         visible={isShortcutsOverlayVisible}
         onClose={() => setIsShortcutsOverlayVisible(false)}

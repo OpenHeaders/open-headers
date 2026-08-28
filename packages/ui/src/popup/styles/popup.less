@@ -34,6 +34,15 @@
 /* Global styles */
 html {
   background-color: transparent;
+  /* Fixed to the popup's dimensions with overflow clipped: the action
+   * popup re-measures its preferred content size on every layout and
+   * dispatches `resize` whenever the document's scrollable overflow
+   * moves — a portaled tooltip or dropdown mounting past the edge was
+   * enough. Every mounted trigger realigns on `resize`, so a stable
+   * document size is what keeps hover cheap on this surface. */
+  width: 800px;
+  height: 600px;
+  overflow: hidden;
 }
 
 /* Rule-type code badge tokens — neutral gradient shared by `ruleTypeBadge()`.
