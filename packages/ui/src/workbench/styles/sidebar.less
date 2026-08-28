@@ -373,7 +373,7 @@
 // The wrapper hosts the dnd-kit attributes + listeners and anchors the
 // drop indicator lines.
 
-.folder-dnd-row {
+.tree-dnd-row {
   position: relative;
 }
 
@@ -383,6 +383,45 @@
 .tree-dnd-placeholder {
   pointer-events: none;
   margin-right: 4px;
+}
+
+// The landing parent's indent guide while a drop target is live: the
+// same hairline as the indent guides, in the primary, painted over the
+// rows from the parent's first child down to the placeholder. Drop
+// feedback, not an indent guide — it shows with the guides switched
+// off and needs no hover to appear.
+.tree-dnd-guide {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: var(--ant-color-primary, #1677ff);
+  pointer-events: none;
+  z-index: 1;
+}
+
+// The sidebar's drag pill: the dock's `.rules-drag-preview` at the
+// tree row's density, clipped so a long label stays a pill. Compound
+// selector: docks.less follows this file in rules.less, so a bare
+// class would lose the padding and line-height to the dock's rule.
+.rules-drag-preview.tree-dnd-pill {
+  gap: 4px;
+  height: 20px;
+  padding: 0 8px;
+  font-size: 11px;
+  line-height: 20px;
+  max-width: 220px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.18);
+
+  .rules-drag-preview-icon {
+    font-size: 10px;
+  }
+
+  .rules-drag-preview-label {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
 }
 
 // ── Environment selector rows ────────────────────────────────────────

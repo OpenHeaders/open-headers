@@ -8,6 +8,7 @@
 import { RULE_ENTITY_TYPE } from '@openheaders/core/sync';
 import {
   computeAppendOrderKey,
+  computePrependSlot,
   computeSiblingInsertOrderKey,
   computeSiblingInsertSlot,
   isDescendantOf,
@@ -17,6 +18,7 @@ import type { TreeDndIdConfig, TreeDndParent } from '@openheaders/ui/workbench/c
 import {
   computeDropPlacement,
   computeDropPlacements,
+  resolveDropPlacements,
 } from '@openheaders/ui/workbench/components/sidebar/tree-dnd-placement';
 import type { TreeNode } from '@openheaders/ui/workbench/components/sidebar/types';
 import { describe, expect, it } from 'vitest';
@@ -74,13 +76,13 @@ function map(nodes: TreeNode[]): Map<string, TreeNode> {
 const noSiblings = () => [];
 
 describe('computeDropPlacement', () => {
-  it("'into' on a collection reparents the dragged folder under it (append at tail)", () => {
+  it("'into' on a collection reparents the dragged folder under it (head of the folder run)", () => {
     const c1 = collection('c1');
     const c2 = collection('c2');
     const dragged = folder('f', 'col-c1');
     const byId = map([c1, c2, dragged]);
     const lookupSiblings = (parent: TreeDndParent) =>
-      parent.kind === 'collection' && parent.uid === 'c2' ? [{ itemId: 'tail', orderKey: 's' }] : [];
+      parent.kind === 'collection' && parent.uid === 'c2' ? [{ itemId: 'head', orderKey: 's' }] : [];
 
     const result = computeDropPlacement({
       zone: 'into',
@@ -94,7 +96,7 @@ describe('computeDropPlacement', () => {
     expect(result).not.toBeNull();
     expect(result).toMatchObject({ parent: { kind: 'collection', uid: 'c2' } });
     expect(result).toMatchObject({ oldParent: { kind: 'collection', uid: 'c1' } });
-    expect(result!.orderKey > 's').toBe(true);
+    expect(result!.orderKey < 's').toBe(true);
   });
 
   it("'into' on dragged folder's current parent is a no-op", () => {
@@ -388,14 +390,14 @@ describe('computeDropPlacement — leaves', () => {
     expect(result!.orderKey < 'm').toBe(true);
   });
 
-  it('leaf into a folder or collection lands at the tail of its items run; into its own parent is a no-op', () => {
+  it('leaf into a folder or collection lands at the head of its items run; into its own parent is a no-op', () => {
     const intoFolder = place('into', a, f);
     expect(intoFolder).toMatchObject({
       kind: 'leaf',
       parent: { kind: 'folder', uid: 'f' },
       oldParent: { kind: 'collection', uid: 'c1' },
     });
-    expect(intoFolder!.orderKey > 'm').toBe(true);
+    expect(intoFolder!.orderKey < 'm').toBe(true);
     expect(place('into', a, c1)).toBeNull();
     const intoCollection = place('into', x, c2);
     expect(intoCollection).toMatchObject({ kind: 'leaf', uid: 'x', parent: { kind: 'collection', uid: 'c2' } });
@@ -443,6 +445,20 @@ describe('computeDropPlacement — collections', () => {
     expect(place('into', c1, c2)).toBeNull();
     expect(place('into', c1, f)).toBeNull();
     expect(place('after', c1, f)).toBeNull();
+  });
+});
+
+describe('computePrependSlot', () => {
+  const run = [
+    { itemId: 'a', orderKey: 'g' },
+    { itemId: 'b', orderKey: 'm' },
+  ];
+  it('keys before the head, carries the head as the next key, seeds an empty run, and is a no-op for the head', () => {
+    const slot = computePrependSlot(run, 'z');
+    expect(slot!.orderKey < 'g' && slot!.nextKey === 'g').toBe(true);
+    expect(computePrependSlot(run, 'b')!.orderKey < 'g').toBe(true);
+    expect(computePrependSlot(run, 'a')).toBeNull();
+    expect(computePrependSlot([], 'z')).toEqual({ orderKey: expect.any(String), nextKey: null });
   });
 });
 
@@ -615,19 +631,41 @@ describe('computeDropPlacements — multi-item', () => {
     expect(result[0].orderKey < result[1].orderKey && result[1].orderKey < 'm').toBe(true);
   });
 
-  it('splits roles into their own runs: folders land in the folder run, leaves in the items run', () => {
+  it('splits roles into their own runs: folders land at the head of the folder run, leaves at the head of the items run', () => {
     const result = place('into', [f, a], c2);
     expect(result).toHaveLength(2);
     expect(result[0]).toMatchObject({ kind: 'folder', folderUid: 'f', parent: { kind: 'collection', uid: 'c2' } });
-    expect(result[0].orderKey > 'm').toBe(true);
+    expect(result[0].orderKey < 'm').toBe(true);
     expect(result[1]).toMatchObject({ kind: 'leaf', uid: 'a', parent: { kind: 'collection', uid: 'c2' } });
-    expect(result[1].orderKey > 'm').toBe(true);
+    expect(result[1].orderKey < 'm').toBe(true);
   });
 
   it('a child of a moving folder travels with it, and a drop onto a moving row is rejected', () => {
     expect(place('into', [f, inF], c2).map((p) => p.kind)).toEqual(['folder']);
     expect(place('after', [a, b], b)).toEqual([]);
     expect(place('into', [f, inF], inF)).toEqual([]);
+  });
+
+  it("resolves the rows' own slot as 'stay', a cycle or a moving target as 'rejected'", () => {
+    const resolve = (zone: 'before' | 'into' | 'after', activeNodes: TreeNode[], overNode: TreeNode) =>
+      resolveDropPlacements({
+        zone,
+        activeNodes,
+        overNode,
+        byId,
+        config: CONFIG,
+        lookupSiblings: siblings,
+        lookupItems: items,
+        lookupCollections: () => [],
+      });
+    // 'a' already sits directly before 'b'; into its own parent likewise.
+    expect(resolve('before', [a], b)).toEqual({ kind: 'stay' });
+    expect(resolve('after', [b], a)).toEqual({ kind: 'stay' });
+    expect(resolve('into', [a], c1)).toEqual({ kind: 'stay' });
+    expect(resolve('into', [f], c1)).toEqual({ kind: 'stay' });
+    expect(resolve('into', [f], inF)).toEqual({ kind: 'rejected' });
+    expect(resolve('after', [a, b], b)).toEqual({ kind: 'rejected' });
+    expect(resolve('before', [a], y).kind).toBe('move');
   });
 
   it('a same-parent group reorder keeps each row on its own parent and omits oldParent', () => {

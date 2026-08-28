@@ -10,14 +10,20 @@
  *
  *   - folder over folder: 'before' / 'after' = sibling of the over
  *     folder (its parent becomes the new parent); 'into' = child of
- *     the over folder, tail of its folder run.
- *   - folder over collection: 'into', tail of the folder run.
+ *     the over folder, head of its folder run.
+ *   - folder over collection: 'into', head of the folder run.
  *   - folder over leaf: 'into' that leaf's parent, tail of the folder
- *     run (the whole leaf row).
+ *     run (the whole leaf row) — right above the leaves.
  *   - leaf over leaf: 'before' / 'after' = sibling in the over leaf's
  *     parent, keyed between the neighbours' live `items` keys.
- *   - leaf over folder or collection: 'into', tail of the `items` run
+ *   - leaf over folder or collection: 'into', head of the `items` run
  *     (the whole row).
+ *
+ * 'into' lands at the HEAD of the run because that is where the
+ * pointer is: the container row's bottom edge meets its first child's
+ * top edge, and the two resolutions there must name the same spot —
+ * a tail landing would sit rows away and the placeholder would leap
+ * between the container's first and last row as the layout shifted.
  *   - collection over collection: 'before' / 'after' on the tree's
  *     roots set. Collections never nest and never receive one.
  *
@@ -30,8 +36,12 @@
  * on its own; a drop onto one of the moved rows is rejected.
  *
  * Keys come from the live mirrors the caller supplies; `path` is a
- * projection and is never part of the result. Returns `null` when the
- * drop is a no-op or rejected (cycle, foreign row, already there).
+ * projection and is never part of the result. A drop resolves to
+ * `move` (one placement per row), `stay` (the rows' own slot — a
+ * sibling insert right where they already sit, or into the parent
+ * they are already in; the drag feedback shows the slot, the drop
+ * writes nothing) or `rejected` (cycle, foreign row, onto a moving
+ * row); the single-row form returns the placement or `null`.
  *
  * Pure — no React, no dnd-kit; the dnd component supplies every input
  * and dispatches the result.
@@ -40,6 +50,7 @@
 import type { TreeLeafEntityType } from '@openheaders/ui/shared/sync/tree-move-write-client';
 import {
   computeAppendSlot,
+  computePrependSlot,
   computeSiblingInsertSlot,
   isDescendantOf,
   type KeySlot,
@@ -97,15 +108,23 @@ export interface DropPlacementsInput extends TreeDndLookups {
   config: TreeDndIdConfig;
 }
 
+export type DropResolution = { kind: 'move'; placements: DropPlacement[] } | { kind: 'stay' } | { kind: 'rejected' };
+
 export function computeDropPlacement(input: DropPlacementInput): DropPlacement | null {
-  return resolveDrop(input)?.placement ?? null;
+  const resolved = resolveDrop(input);
+  return resolved === null || resolved === 'stay' ? null : resolved.placement;
 }
 
 /** One placement per moved row; empty when the drop is rejected or a no-op. */
 export function computeDropPlacements(input: DropPlacementsInput): DropPlacement[] {
+  const resolution = resolveDropPlacements(input);
+  return resolution.kind === 'move' ? resolution.placements : [];
+}
+
+export function resolveDropPlacements(input: DropPlacementsInput): DropResolution {
   const { activeNodes, overNode, byId, config } = input;
   const moving = new Set(activeNodes.map((n) => n.id));
-  if (moving.has(overNode.id)) return [];
+  if (moving.has(overNode.id)) return { kind: 'rejected' };
   const folderIds = activeNodes.filter((n) => roleOf(n, config)?.role === 'folder').map((n) => n.id);
   const carried = (node: TreeNode): boolean => folderIds.some((id) => id !== node.id && isDescendantOf(id, node, byId));
 
@@ -119,9 +138,14 @@ export function computeDropPlacements(input: DropPlacementsInput): DropPlacement
   }
 
   const out: DropPlacement[] = [];
+  let stays = false;
   for (const group of groups.values()) {
     const resolved = resolveDrop({ ...input, activeNode: group[0] });
-    if (!resolved) continue;
+    if (resolved === null) continue;
+    if (resolved === 'stay') {
+      stays = true;
+      continue;
+    }
     out.push(resolved.placement);
     const keys = mintKeysAfter(resolved.slot, group.length - 1);
     for (const [i, node] of group.slice(1).entries()) {
@@ -129,7 +153,8 @@ export function computeDropPlacements(input: DropPlacementsInput): DropPlacement
       if (follower) out.push(follower);
     }
   }
-  return out;
+  if (out.length > 0) return { kind: 'move', placements: out };
+  return stays ? { kind: 'stay' } : { kind: 'rejected' };
 }
 
 interface ResolvedDrop {
@@ -137,7 +162,8 @@ interface ResolvedDrop {
   slot: KeySlot;
 }
 
-function resolveDrop(input: DropPlacementInput): ResolvedDrop | null {
+/** `null` = rejected, `'stay'` = the row's own slot. */
+function resolveDrop(input: DropPlacementInput): ResolvedDrop | 'stay' | null {
   const { activeNode, overNode, byId, config } = input;
   if (activeNode.id === overNode.id) return null;
   const active = roleOf(activeNode, config);
@@ -147,7 +173,9 @@ function resolveDrop(input: DropPlacementInput): ResolvedDrop | null {
   if (active.role === 'collection') {
     if (over.role !== 'collection' || input.zone === 'into') return null;
     const slot = computeSiblingInsertSlot(input.lookupCollections(), active.uid, over.uid, input.zone);
-    return slot === null ? null : { placement: { kind: 'collection', uid: active.uid, orderKey: slot.orderKey }, slot };
+    return slot === null
+      ? 'stay'
+      : { placement: { kind: 'collection', uid: active.uid, orderKey: slot.orderKey }, slot };
   }
   if (over.role === 'collection' && input.zone !== 'into') return null;
 
@@ -166,8 +194,8 @@ function placed(
   parent: TreeDndParent,
   oldParent: TreeDndParent,
   slot: KeySlot | null,
-): ResolvedDrop | null {
-  if (slot === null) return null;
+): ResolvedDrop | 'stay' {
+  if (slot === null) return 'stay';
   const linkage = { parent, ...(sameParent(parent, oldParent) ? {} : { oldParent }), orderKey: slot.orderKey };
   return { placement: { ...base, ...linkage }, slot };
 }
@@ -177,7 +205,7 @@ function placeFolder(
   folderUid: string,
   oldParent: TreeDndParent,
   over: TreeDndRole,
-): ResolvedDrop | null {
+): ResolvedDrop | 'stay' | null {
   const { zone, overNode, config } = input;
   const base = { kind: 'folder', folderUid } as const;
 
@@ -188,8 +216,9 @@ function placeFolder(
   }
   if (zone === 'into') {
     const parent = parentFromId(overNode.id, config);
-    if (!parent || sameParent(parent, oldParent)) return null;
-    return placed(base, parent, oldParent, computeAppendSlot(input.lookupSiblings(parent), folderUid));
+    if (!parent) return null;
+    if (sameParent(parent, oldParent)) return 'stay';
+    return placed(base, parent, oldParent, computePrependSlot(input.lookupSiblings(parent), folderUid));
   }
   // 'before' / 'after' on a folder: its parent becomes ours (or stays ours).
   const parent = parentOf(overNode, config);
@@ -208,7 +237,7 @@ function placeLeaf(
   entityType: TreeLeafEntityType,
   oldParent: TreeDndParent,
   over: TreeDndRole,
-): ResolvedDrop | null {
+): ResolvedDrop | 'stay' | null {
   const { zone, overNode, config } = input;
   const base = { kind: 'leaf', entityType, uid } as const;
 
@@ -219,10 +248,11 @@ function placeLeaf(
       ? placed(base, parent, oldParent, computeSiblingInsertSlot(input.lookupItems(parent), uid, over.uid, zone))
       : null;
   }
-  // A container row: into it, tail of its items run.
+  // A container row: into it, head of its items run.
   const parent = parentFromId(overNode.id, config);
-  if (!parent || sameParent(parent, oldParent)) return null;
-  return placed(base, parent, oldParent, computeAppendSlot(input.lookupItems(parent), uid));
+  if (!parent) return null;
+  if (sameParent(parent, oldParent)) return 'stay';
+  return placed(base, parent, oldParent, computePrependSlot(input.lookupItems(parent), uid));
 }
 
 /** The group leader's placement re-addressed to a follower row with its own key and old parent. */

@@ -11,9 +11,13 @@
  *     over parent's live siblings, the moving child's uid (already
  *     among them for a same-parent slide, or foreign), the over
  *     child's uid and the side.
- *   - `computeAppendOrderKey` — the key after a run's live tail, for
- *     "into a container" drops; `null` when the child already sits at
- *     that tail.
+ *   - `computeAppendOrderKey` — the key after a run's live tail (a
+ *     folder dropped on a leaf lands last among its parent's folders,
+ *     right above the leaves; keyboard moves out of a folder);
+ *     `computePrependSlot` — the key before a run's live head, for
+ *     "into a container" drops (the child lands first, right under the
+ *     container row, where the pointer is); `null` when the child
+ *     already sits there.
  *   - The `*Slot` forms also return the key of the next live sibling,
  *     so a multi-item move can mint one key per item strictly between
  *     the anchor and that neighbour (`mintKeysAfter`).
@@ -103,6 +107,13 @@ export function computeAppendSlot(siblings: LiveSiblings, movingUid: string): Ke
   if (last?.itemId === movingUid) return null;
   const tail = siblings.filter((s) => s.itemId !== movingUid).at(-1)?.orderKey ?? null;
   return { orderKey: tail === null ? seedKey() : keyBetween(tail, null), nextKey: null };
+}
+
+/** The key strictly before the run's head; `null` when `movingUid` already is the head. */
+export function computePrependSlot(siblings: LiveSiblings, movingUid: string): KeySlot | null {
+  if (siblings[0]?.itemId === movingUid) return null;
+  const head = siblings.find((s) => s.itemId !== movingUid)?.orderKey ?? null;
+  return { orderKey: head === null ? seedKey() : keyBetween(null, head), nextKey: head };
 }
 
 /** `count` ascending keys strictly after `slot.orderKey` and before its next live key. */
