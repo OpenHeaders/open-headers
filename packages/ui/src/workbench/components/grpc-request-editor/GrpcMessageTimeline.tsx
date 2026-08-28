@@ -82,9 +82,13 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { type Translate, useT } from '@openheaders/ui/context/LocaleContext';
 import { useVirtualRowWindow } from '@openheaders/ui/shared/virtual-window';
 import { useSetting } from '@openheaders/ui/workbench/settings/hooks';
-import CodeEditor from '../shared/CodeEditor';
 import { buildHexDump, type HexDump } from '../request-editor/response/response-encoding';
-import TimelineMessageViewer, { useTimelineViewerModes, VIEWER_PX } from '../shared/TimelineMessageViewer';
+import TimelineMessageViewer, {
+  STREAM_HAIRLINE,
+  StreamLastRow,
+  useTimelineViewerModes,
+  VIEWER_PX,
+} from '../shared/TimelineMessageViewer';
 import { deriveGrpcFrameView, type GrpcMessageView } from './response-decode';
 
 const { Text } = Typography;
@@ -740,7 +744,7 @@ const GrpcMessageTimeline: React.FC<GrpcMessageTimelineProps> = ({
     height: SINGLE_ROW_PX,
     boxSizing: 'border-box',
     padding: '0 10px',
-    borderBottom: `1px solid ${token.colorBorderSecondary}`,
+    borderBottom: STREAM_HAIRLINE,
     overflow: 'hidden',
   };
 
@@ -940,7 +944,7 @@ const GrpcMessageTimeline: React.FC<GrpcMessageTimelineProps> = ({
               height: sentDetailPx(sentMetadata.length),
               boxSizing: 'border-box',
               padding: '6px 10px 6px 37px',
-              borderBottom: `1px solid ${token.colorBorderSecondary}`,
+              borderBottom: STREAM_HAIRLINE,
               overflow: 'hidden',
             }}
           >
@@ -984,7 +988,7 @@ const GrpcMessageTimeline: React.FC<GrpcMessageTimelineProps> = ({
               height: ERROR_DETAIL_PX,
               boxSizing: 'border-box',
               padding: '6px 10px 6px 37px',
-              borderBottom: `1px solid ${token.colorBorderSecondary}`,
+              borderBottom: STREAM_HAIRLINE,
               overflow: 'hidden',
             }}
           >
@@ -1059,7 +1063,7 @@ const GrpcMessageTimeline: React.FC<GrpcMessageTimelineProps> = ({
               height: CONNECTED_DETAIL_PX,
               boxSizing: 'border-box',
               padding: '6px 10px 6px 37px',
-              borderBottom: `1px solid ${token.colorBorderSecondary}`,
+              borderBottom: STREAM_HAIRLINE,
               overflow: 'hidden',
             }}
           >
@@ -1468,7 +1472,11 @@ const GrpcMessageTimeline: React.FC<GrpcMessageTimelineProps> = ({
           }}
         >
           <div aria-hidden style={{ height: topPadPx }} />
-          {entries.slice(start, end).map(renderEntry)}
+          {entries.slice(start, end).map((entry, i) => (
+            <StreamLastRow key={entry.key} last={start + i === entries.length - 1}>
+              {renderEntry(entry)}
+            </StreamLastRow>
+          ))}
           <div aria-hidden style={{ height: bottomPadPx }} />
         </div>
       </div>

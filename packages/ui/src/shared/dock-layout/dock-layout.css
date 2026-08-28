@@ -1514,6 +1514,12 @@
   opacity: 1;
 }
 
+/* The timelines' last rendered row drops its hairline — no line closes
+ * the list, as none opens it (`STREAM_HAIRLINE` reads this variable). */
+.oh-stream-last-row {
+  --oh-stream-hairline: transparent;
+}
+
 /* EOL glyph (`editor.renderLineEnds`) — the injected ¬ after each real
  * line ending in Monaco buffers. Faint translucent gray reads on both
  * themes; pointer-events off so it never intercepts clicks near the

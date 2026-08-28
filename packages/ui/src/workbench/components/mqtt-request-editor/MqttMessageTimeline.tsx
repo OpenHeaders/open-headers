@@ -55,7 +55,7 @@ import {
 } from './mqtt-timeline-model';
 import MqttTimelineEntryRow from './MqttTimelineEntryRow';
 import MqttTimelineToolbar from './MqttTimelineToolbar';
-import { useTimelineViewerModes } from '../shared/TimelineMessageViewer';
+import { StreamLastRow, useTimelineViewerModes } from '../shared/TimelineMessageViewer';
 
 interface MqttMessageTimelineProps {
   /** Item log — append-only during the live phase (the array reference
@@ -393,23 +393,24 @@ const MqttMessageTimeline: React.FC<MqttMessageTimelineProps> = ({
           }}
         >
           <div aria-hidden style={{ height: topPadPx }} />
-          {entries.slice(start, end).map((entry) => (
-            <MqttTimelineEntryRow
-              key={entry.key}
-              entry={entry}
-              items={items}
-              timestamps={timestamps}
-              lifecycle={lifecycle}
-              v5={v5}
-              derive={derive}
-              expanded={expanded}
-              connackExpanded={connackExpanded}
-              onToggleRow={toggleRow}
-              onToggleConnack={toggleConnack}
-              wrapLines={wrapLines}
-              onWrapLinesChange={setWrapLines}
-              viewerModes={viewerModes}
-            />
+          {entries.slice(start, end).map((entry, i) => (
+            <StreamLastRow key={entry.key} last={start + i === entries.length - 1}>
+              <MqttTimelineEntryRow
+                entry={entry}
+                items={items}
+                timestamps={timestamps}
+                lifecycle={lifecycle}
+                v5={v5}
+                derive={derive}
+                expanded={expanded}
+                connackExpanded={connackExpanded}
+                onToggleRow={toggleRow}
+                onToggleConnack={toggleConnack}
+                wrapLines={wrapLines}
+                onWrapLinesChange={setWrapLines}
+                viewerModes={viewerModes}
+              />
+            </StreamLastRow>
           ))}
           <div aria-hidden style={{ height: bottomPadPx }} />
         </div>

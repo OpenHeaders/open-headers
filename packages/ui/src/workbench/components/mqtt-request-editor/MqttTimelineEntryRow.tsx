@@ -28,7 +28,7 @@ import { Tag, theme } from 'antd';
 import type React from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { formatDurationMs } from '@openheaders/ui/shared/combo-knob';
-import TimelineMessageViewer, { type TimelineViewerModes } from '../shared/TimelineMessageViewer';
+import TimelineMessageViewer, { STREAM_HAIRLINE, type TimelineViewerModes } from '../shared/TimelineMessageViewer';
 import {
   CONNACK_DETAIL_PX,
   cellFont,
@@ -90,7 +90,7 @@ const MqttTimelineEntryRow: React.FC<MqttTimelineEntryRowProps> = ({
     height: SINGLE_ROW_PX,
     boxSizing: 'border-box',
     padding: '0 10px',
-    borderBottom: `1px solid ${token.colorBorderSecondary}`,
+    borderBottom: STREAM_HAIRLINE,
     overflow: 'hidden',
   };
 
@@ -265,7 +265,7 @@ const MqttTimelineEntryRow: React.FC<MqttTimelineEntryRowProps> = ({
             height: CONNACK_DETAIL_PX,
             boxSizing: 'border-box',
             padding: '6px 10px 6px 37px',
-            borderBottom: `1px solid ${token.colorBorderSecondary}`,
+            borderBottom: STREAM_HAIRLINE,
             overflow: 'hidden',
           }}
         >

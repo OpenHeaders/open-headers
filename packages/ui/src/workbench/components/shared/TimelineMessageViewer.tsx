@@ -21,6 +21,20 @@ import CodeEditor from './CodeEditor';
 import type { CodeEditorActionsTarget } from './CodeEditorActions';
 import HexDumpView from './HexDumpView';
 
+/** The timelines' row hairline — a CSS variable with the theme's
+ *  secondary border as its fallback, so the LAST rendered row can drop
+ *  it through `.oh-stream-last-row` (dock-layout.css) without every
+ *  row site threading a flag: no line closes the list, the same as no
+ *  line opens it. */
+export const STREAM_HAIRLINE = '1px solid var(--oh-stream-hairline, var(--ant-color-border-secondary))';
+
+/** Wraps every rendered entry — the same element whether last or not,
+ *  so a row never remounts as the last slot moves — and marks the
+ *  last one so its hairline goes. */
+export const StreamLastRow: React.FC<{ last: boolean; children: React.ReactNode }> = ({ last, children }) => (
+  <div className={last ? 'oh-stream-last-row' : undefined}>{children}</div>
+);
+
 /** Pinned height of an expanded row's viewer: the 24px toolbar row +
  *  4px gap + 180px editor + 4px bottom pad + 1px divider — the virtual
  *  windows' arithmetic depends on it being exact by construction. */
@@ -105,7 +119,7 @@ const TimelineMessageViewer: React.FC<TimelineMessageViewerProps> = ({
       onKeyDown={(event) => event.stopPropagation()}
       style={{
         height: VIEWER_PX - 1,
-        borderBottom: `1px solid ${token.colorBorderSecondary}`,
+        borderBottom: STREAM_HAIRLINE,
         display: 'flex',
         flexDirection: 'column',
         gap: 4,

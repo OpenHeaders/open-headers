@@ -68,7 +68,12 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { type Translate, useT } from '@openheaders/ui/context/LocaleContext';
 import { useVirtualRowWindow } from '@openheaders/ui/shared/virtual-window';
 import { useSetting } from '@openheaders/ui/workbench/settings/hooks';
-import TimelineMessageViewer, { useTimelineViewerModes, VIEWER_PX } from '../shared/TimelineMessageViewer';
+import TimelineMessageViewer, {
+  STREAM_HAIRLINE,
+  StreamLastRow,
+  useTimelineViewerModes,
+  VIEWER_PX,
+} from '../shared/TimelineMessageViewer';
 import { buildHexDump, type HexDump } from '../request-editor/response/response-encoding';
 import { formatBytes } from '../request-editor/response/response-format';
 import { wsAutoHeaderDefs } from './ws-auto-headers';
@@ -998,7 +1003,7 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
     height: SINGLE_ROW_PX,
     boxSizing: 'border-box',
     padding: '0 10px',
-    borderBottom: `1px solid ${token.colorBorderSecondary}`,
+    borderBottom: STREAM_HAIRLINE,
     overflow: 'hidden',
   };
 
@@ -1251,7 +1256,7 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
               height: handshakeSheet.heightPx,
               boxSizing: 'border-box',
               padding: '6px 10px 6px 37px',
-              borderBottom: `1px solid ${token.colorBorderSecondary}`,
+              borderBottom: STREAM_HAIRLINE,
               overflow: 'hidden',
             }}
           >
@@ -1367,7 +1372,7 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
               height: errorDetailPx(handshakeSheet?.requestRows.length ?? null, sectionsOpen),
               boxSizing: 'border-box',
               padding: '6px 10px 6px 37px',
-              borderBottom: `1px solid ${token.colorBorderSecondary}`,
+              borderBottom: STREAM_HAIRLINE,
               overflow: 'hidden',
             }}
           >
@@ -1484,7 +1489,7 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
               height: ENDED_DETAIL_PX,
               boxSizing: 'border-box',
               padding: '6px 10px 6px 37px',
-              borderBottom: `1px solid ${token.colorBorderSecondary}`,
+              borderBottom: STREAM_HAIRLINE,
               overflow: 'hidden',
               fontSize: 12,
               lineHeight: `${DETAIL_ROW_PX}px`,
@@ -1944,7 +1949,11 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
           }}
         >
           <div aria-hidden style={{ height: topPadPx }} />
-          {entries.slice(start, end).map(renderEntry)}
+          {entries.slice(start, end).map((entry, i) => (
+            <StreamLastRow key={entry.key} last={start + i === entries.length - 1}>
+              {renderEntry(entry)}
+            </StreamLastRow>
+          ))}
           <div aria-hidden style={{ height: bottomPadPx }} />
         </div>
       </div>
