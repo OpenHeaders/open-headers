@@ -198,6 +198,13 @@ export interface WsSendBinaryWire {
   encoding: 'base64' | 'hex';
 }
 
+/** One handshake request header the executor handed the transport —
+ *  a user row, the session credential, or the subprotocol offer. */
+export interface WsHandshakeHeaderWire {
+  key: string;
+  value: string;
+}
+
 export type WsStreamEventWire =
   | {
       sendId: string;
@@ -207,6 +214,14 @@ export type WsStreamEventWire =
       protocol: string;
       /** Negotiated extensions; empty when none. */
       extensions: string;
+      /** The URL the session dialed, templates resolved — the timeline's
+       *  "Connected to …" title. Optional for wire tolerance toward
+       *  hosts that predate the stamp. */
+      url?: string;
+      /** The handshake request headers the executor composed (user rows,
+       *  the bearer credential, the subprotocol offer) — the platform
+       *  socket adds its own on top. Same tolerance. */
+      requestHeaders?: WsHandshakeHeaderWire[];
       /** The session's effective proxy route as the transport decided
        *  it — attribution from the record's live twin, so the session
        *  strip is honest WHILE the session is open. Absent = direct. */

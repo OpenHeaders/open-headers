@@ -21,7 +21,12 @@
  * them.
  */
 
-import { hostBridge, type WsStreamEventWire, type WsStreamMessageWire } from '@openheaders/core/bridge';
+import {
+  hostBridge,
+  type WsHandshakeHeaderWire,
+  type WsStreamEventWire,
+  type WsStreamMessageWire,
+} from '@openheaders/core/bridge';
 import type { ExecutedProxyRoute } from '@openheaders/core/types';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
@@ -51,7 +56,15 @@ export interface LiveWsSession {
   /** The settled handshake, or null until the open frame arrives.
    *  `proxyRoute` is the transport's route decision riding the open
    *  frame — the session strip's live attribution. Absent = direct. */
-  open: { protocol: string; extensions: string; proxyRoute?: ExecutedProxyRoute } | null;
+  open: {
+    protocol: string;
+    extensions: string;
+    proxyRoute?: ExecutedProxyRoute;
+    /** The dialed URL and the composed request headers — absent from
+     *  hosts that predate the stamp. */
+    url?: string;
+    requestHeaders?: WsHandshakeHeaderWire[];
+  } | null;
   /** When Connect left — the ticking lifecycle base. */
   startedAt: number;
   /** When the handshake settled — the "Connected" row's time. */
@@ -149,6 +162,8 @@ export function useLiveWsSession(): {
             protocol: event.protocol,
             extensions: event.extensions,
             ...(event.proxyRoute !== undefined ? { proxyRoute: event.proxyRoute } : {}),
+            ...(event.url !== undefined ? { url: event.url } : {}),
+            ...(event.requestHeaders !== undefined ? { requestHeaders: event.requestHeaders } : {}),
           };
           acc.connectedAt = event.atMs ?? Date.now();
         } else if (event.kind === 'messages') {

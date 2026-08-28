@@ -106,7 +106,7 @@ describe('WsMessageTimeline — rows and lifecycle order', () => {
         ...LIVE_LIFECYCLE,
         endedBy: 'close',
         endedAt: 1_700_000_001_000,
-        endedMessage: '1000',
+        close: { code: 1000, reason: '' },
       },
     });
     const sortButton = screen.getByTestId('ws-timeline-sort');
@@ -123,18 +123,66 @@ describe('WsMessageTimeline — rows and lifecycle order', () => {
     expect(screen.queryByTestId('ws-timeline-handshake-details')).toBeNull();
     fireEvent.click(row);
     const details = screen.getByTestId('ws-timeline-handshake-details');
-    expect(details.textContent).toContain('protocol: chat.v2');
-    // The empty extensions fact renders as the absence it is.
-    expect(details.textContent).toContain('extensions: —');
+    expect(details.textContent).toContain('Request Method: "GET"');
+    expect(details.textContent).toContain('Sec-WebSocket-Protocol: "chat.v2"');
+    // No extensions negotiated — the response section names none.
+    const response = (details.textContent ?? '').split('Response Headers')[1] ?? '';
+    expect(response).not.toContain('Sec-WebSocket-Extensions');
     fireEvent.click(row);
     expect(screen.queryByTestId('ws-timeline-handshake-details')).toBeNull();
   });
 
-  it('renders the ended row detail verbatim (close code, stop, failure)', () => {
-    renderTimeline({
-      lifecycle: { ...LIVE_LIFECYCLE, endedBy: 'close', endedMessage: '4444 menu-reason' },
+  it('reads the close verdict under the Disconnected row: registry phrase and meaning, reason verbatim', () => {
+    const { unmount } = renderTimeline({
+      lifecycle: { ...LIVE_LIFECYCLE, endedBy: 'close', close: { code: 1000, reason: '' } },
     });
-    expect(screen.getByTestId('ws-timeline-ended-row').textContent).toContain('4444 menu-reason');
+    expect(screen.getByTestId('ws-timeline-ended-row').textContent).toContain('Disconnected');
+    expect(screen.getByTestId('ws-timeline-ended-details').textContent).toBe(
+      '1000 Normal Closure: Connection was closed successfully.',
+    );
+    unmount();
+
+    const reasoned = renderTimeline({
+      lifecycle: { ...LIVE_LIFECYCLE, endedBy: 'close', close: { code: 4444, reason: 'menu-reason' } },
+    });
+    expect(screen.getByTestId('ws-timeline-ended-details').textContent).toBe('4444: menu-reason');
+    reasoned.unmount();
+
+    renderTimeline({ lifecycle: { ...LIVE_LIFECYCLE, endedBy: 'close', close: null } });
+    expect(screen.getByTestId('ws-timeline-ended-details').textContent).toContain('without a Close frame');
+  });
+
+  it('names the peer on both rows and lays the stamped request headers over the host set', () => {
+    renderTimeline({
+      lifecycle: {
+        ...LIVE_LIFECYCLE,
+        handshake: {
+          protocol: 'chat.v2',
+          extensions: 'permessage-deflate',
+          url: 'wss://echo.openheaders.io/live',
+          requestHeaders: [
+            { key: 'authorization', value: 'Bearer tok' },
+            { key: 'Sec-WebSocket-Protocol', value: 'chat.v2' },
+          ],
+        },
+        endedBy: 'close',
+        close: { code: 1000, reason: '' },
+      },
+    });
+    expect(screen.getByTestId('ws-timeline-connected-row').textContent).toContain(
+      'Connected to wss://echo.openheaders.io/live',
+    );
+    expect(screen.getByTestId('ws-timeline-ended-row').textContent).toContain(
+      'Disconnected from wss://echo.openheaders.io/live',
+    );
+    fireEvent.click(screen.getByTestId('ws-timeline-connected-row'));
+    const sheet = screen.getByTestId('ws-timeline-handshake-details').textContent ?? '';
+    expect(sheet).toContain('Request URL: "https://echo.openheaders.io/live"');
+    expect(sheet).toContain('Status Code: "101 Switching Protocols"');
+    expect(sheet).toContain('Host: "echo.openheaders.io"');
+    expect(sheet).toContain('authorization: "Bearer tok"');
+    expect(sheet).toContain('Sec-WebSocket-Protocol: "chat.v2"');
+    expect(sheet).toContain('Sec-WebSocket-Extensions: "permessage-deflate"');
   });
 
   it('renders a settled pre-open failure as the error row at the ended slot', () => {

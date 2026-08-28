@@ -209,6 +209,40 @@ export const workbenchEditorsWebsocket = {
   'workbench.editors.websocket.timeline.stopped': 'Gestoppt',
   'workbench.editors.websocket.timeline.aborted': 'Verbindung abgebrochen',
   'workbench.editors.websocket.timeline.noMatches': 'Keine Nachricht passt zum Filter.',
+  'workbench.editors.websocket.timeline.connectedTo': 'Verbunden mit {url}',
+  'workbench.editors.websocket.timeline.disconnectedFrom': 'Getrennt von {url}',
+  'workbench.editors.websocket.timeline.handshakeDetails': 'Handshake-Details',
+  'workbench.editors.websocket.timeline.requestUrl': 'Request-URL',
+  'workbench.editors.websocket.timeline.requestMethod': 'Request-Methode',
+  'workbench.editors.websocket.timeline.statusCode': 'Statuscode',
+  'workbench.editors.websocket.timeline.requestHeaders': 'Request-Header',
+  'workbench.editors.websocket.timeline.responseHeaders': 'Response-Header',
+  'workbench.editors.websocket.timeline.keyGenerated': '<vom Socket erzeugt>',
+  'workbench.editors.websocket.timeline.stoppedDetail': 'Die Sitzung wurde aus dieser App gestoppt.',
+  'workbench.editors.websocket.timeline.closeCode.unknown':
+    'Keine registrierte Bedeutung — ein Anwendungs- oder privater Code.',
+  'workbench.editors.websocket.timeline.closeCode.1000': 'Die Verbindung wurde ordnungsgemäß geschlossen.',
+  'workbench.editors.websocket.timeline.closeCode.1001':
+    'Der Endpunkt geht weg — Server-Shutdown oder Seitennavigation.',
+  'workbench.editors.websocket.timeline.closeCode.1002':
+    'Der Endpunkt hat die Verbindung wegen eines Protokollfehlers beendet.',
+  'workbench.editors.websocket.timeline.closeCode.1003':
+    'Der Endpunkt hat Daten eines Typs erhalten, den er nicht annehmen kann.',
+  'workbench.editors.websocket.timeline.closeCode.1005': 'Im Close-Frame war kein Statuscode enthalten.',
+  'workbench.editors.websocket.timeline.closeCode.1006': 'Die Verbindung brach ohne Close-Frame ab.',
+  'workbench.editors.websocket.timeline.closeCode.1007':
+    'Eine Nachricht enthielt Daten, die nicht zu ihrem Typ passen, etwa ungültiges UTF-8 in einem Text-Frame.',
+  'workbench.editors.websocket.timeline.closeCode.1008': 'Eine Nachricht verstieß gegen die Richtlinie des Endpunkts.',
+  'workbench.editors.websocket.timeline.closeCode.1009': 'Eine Nachricht war zu groß für die Verarbeitung.',
+  'workbench.editors.websocket.timeline.closeCode.1010':
+    'Der Server hat eine vom Client geforderte Erweiterung nicht ausgehandelt.',
+  'workbench.editors.websocket.timeline.closeCode.1011':
+    'Der Server stieß auf eine unerwartete Bedingung und konnte die Anfrage nicht erfüllen.',
+  'workbench.editors.websocket.timeline.closeCode.1012': 'Der Server startet neu.',
+  'workbench.editors.websocket.timeline.closeCode.1013': 'Der Server ist überlastet — später erneut versuchen.',
+  'workbench.editors.websocket.timeline.closeCode.1014':
+    'Ein Gateway oder Proxy erhielt eine ungültige Antwort vom Upstream-Server.',
+  'workbench.editors.websocket.timeline.closeCode.1015': 'Der TLS-Handshake ist fehlgeschlagen.',
   'workbench.editors.websocket.timeline.searchMessages': 'Nachrichten durchsuchen',
   'workbench.editors.websocket.timeline.messageCount': '{count} Nachrichten',
   'workbench.editors.websocket.timeline.dropped': '{count} ältere Nachrichten sind aus der Erfassung herausgefallen',

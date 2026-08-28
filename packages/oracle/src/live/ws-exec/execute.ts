@@ -133,6 +133,17 @@ export async function executeWsSession(
   if (bearerToken !== '' && !hasAuthorizationRow) {
     headers.push({ key: 'Authorization', value: `Bearer ${bearerToken}` });
   }
+  // The handshake request headers as this executor composed them —
+  // the user rows and the credential above, plus the subprotocol offer
+  // the transport writes from its own field; the platform socket adds
+  // its own on top. Stamped on the open frame and the snapshot so the
+  // timeline's Connected row reads what left.
+  const requestHeaders = [
+    ...headers,
+    ...(request.subprotocols.length > 0
+      ? [{ key: 'Sec-WebSocket-Protocol', value: request.subprotocols.join(', ') }]
+      : []),
+  ];
   const params = request.params
     .filter((p) => p.enabled !== false && p.key.trim() !== '')
     .map((p) => ({ ...p, key: resolveStr(p.key), value: resolveStr(p.value) }));
@@ -217,6 +228,8 @@ export async function executeWsSession(
       }
       resolve({
         outcome: { kind: 'connected' },
+        url,
+        requestHeaders,
         protocol,
         extensions,
         messages,
@@ -280,7 +293,7 @@ export async function executeWsSession(
           // system plane decided — H5 leaves WS no request plane,
           // so the plane is always the executing device's.
           if (route !== undefined) proxyRoute = { plane: 'system', ...route };
-          emitter?.open(selectedProtocol, negotiatedExtensions, proxyRoute);
+          emitter?.open(selectedProtocol, negotiatedExtensions, proxyRoute, { url, requestHeaders });
         },
         onMessage: ({ data, binary }) => {
           const dataBase64 = encodeBase64Bytes(data);

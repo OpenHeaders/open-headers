@@ -164,6 +164,42 @@ describe('executeWsSession — injected resolution', () => {
     expect(snapshot.outcome).toEqual({ kind: 'connected' });
   });
 
+  it('stamps the dialed url and the composed request headers on the open frame and the snapshot', async () => {
+    const rig = scriptedTransport();
+    const events: Array<{ kind: string; url?: string; requestHeaders?: Array<{ key: string; value: string }> }> = [];
+    const settled = executeWsSession(
+      makeWsRequest({
+        subprotocols: ['chat.v2'],
+        headers: [{ uid: 'h1', key: 'x-room', value: '{{token}}' }],
+        auth: { type: 'bearer', token: '{{token}}' },
+      }),
+      {
+        workspaceId: null,
+        environmentId: undefined,
+        transport: rig.transport,
+        sendId: 'send-stamp-1',
+        resolution: scopedResolution,
+        emitStreamEvent: (event) => {
+          if (event.kind === 'open')
+            events.push({ kind: 'open', url: event.url, requestHeaders: event.requestHeaders });
+        },
+      },
+    );
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    rig.callbacks().onOpen('chat.v2', '');
+    rig.callbacks().onClose({ code: 1000, reason: '', wasClean: true });
+    rig.callbacks().onEnd();
+    const snapshot = await settled;
+    const expectedHeaders = [
+      { key: 'x-room', value: 'tok-123' },
+      { key: 'Authorization', value: 'Bearer tok-123' },
+      { key: 'Sec-WebSocket-Protocol', value: 'chat.v2' },
+    ];
+    expect(events).toEqual([{ kind: 'open', url: 'wss://echo.openheaders.io/live', requestHeaders: expectedHeaders }]);
+    expect(snapshot.url).toBe('wss://echo.openheaders.io/live');
+    expect(snapshot.requestHeaders).toEqual(expectedHeaders);
+  });
+
   it('gates an unresolved Connect-time reference as a structured error snapshot', async () => {
     const rig = scriptedTransport();
     const snapshot = await executeWsSession(makeWsRequest({ url: 'wss://{{missing_host}}/live' }), {

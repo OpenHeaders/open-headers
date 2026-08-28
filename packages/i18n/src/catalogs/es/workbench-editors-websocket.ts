@@ -207,6 +207,38 @@ export const workbenchEditorsWebsocket = {
   'workbench.editors.websocket.timeline.stopped': 'Detenido',
   'workbench.editors.websocket.timeline.aborted': 'Conexión cancelada',
   'workbench.editors.websocket.timeline.noMatches': 'Ningún mensaje coincide con el filtro.',
+  'workbench.editors.websocket.timeline.connectedTo': 'Conectado a {url}',
+  'workbench.editors.websocket.timeline.disconnectedFrom': 'Desconectado de {url}',
+  'workbench.editors.websocket.timeline.handshakeDetails': 'Detalles del handshake',
+  'workbench.editors.websocket.timeline.requestUrl': 'URL de la solicitud',
+  'workbench.editors.websocket.timeline.requestMethod': 'Método de la solicitud',
+  'workbench.editors.websocket.timeline.statusCode': 'Código de estado',
+  'workbench.editors.websocket.timeline.requestHeaders': 'Cabeceras de la solicitud',
+  'workbench.editors.websocket.timeline.responseHeaders': 'Cabeceras de la respuesta',
+  'workbench.editors.websocket.timeline.keyGenerated': '<generado por el socket>',
+  'workbench.editors.websocket.timeline.stoppedDetail': 'La sesión se detuvo desde esta aplicación.',
+  'workbench.editors.websocket.timeline.closeCode.unknown':
+    'Sin significado registrado: un código de aplicación o privado.',
+  'workbench.editors.websocket.timeline.closeCode.1000': 'La conexión se cerró correctamente.',
+  'workbench.editors.websocket.timeline.closeCode.1001':
+    'El extremo se retira: apagado del servidor o navegación de la página.',
+  'workbench.editors.websocket.timeline.closeCode.1002': 'El extremo terminó la conexión por un error de protocolo.',
+  'workbench.editors.websocket.timeline.closeCode.1003': 'El extremo recibió datos de un tipo que no puede aceptar.',
+  'workbench.editors.websocket.timeline.closeCode.1005': 'No había código de estado en la trama Close.',
+  'workbench.editors.websocket.timeline.closeCode.1006': 'La conexión se cortó sin trama Close.',
+  'workbench.editors.websocket.timeline.closeCode.1007':
+    'Un mensaje llevaba datos incoherentes con su tipo, como UTF-8 no válido en una trama de texto.',
+  'workbench.editors.websocket.timeline.closeCode.1008': 'Un mensaje violó la política del extremo.',
+  'workbench.editors.websocket.timeline.closeCode.1009': 'Un mensaje era demasiado grande para procesarlo.',
+  'workbench.editors.websocket.timeline.closeCode.1010':
+    'El servidor no negoció una extensión que el cliente requería.',
+  'workbench.editors.websocket.timeline.closeCode.1011':
+    'El servidor encontró una condición inesperada y no pudo atender la solicitud.',
+  'workbench.editors.websocket.timeline.closeCode.1012': 'El servidor se está reiniciando.',
+  'workbench.editors.websocket.timeline.closeCode.1013': 'El servidor está sobrecargado: inténtalo más tarde.',
+  'workbench.editors.websocket.timeline.closeCode.1014':
+    'Una pasarela o proxy recibió una respuesta no válida del servidor ascendente.',
+  'workbench.editors.websocket.timeline.closeCode.1015': 'El handshake TLS falló.',
   'workbench.editors.websocket.timeline.searchMessages': 'Buscar en los mensajes',
   'workbench.editors.websocket.timeline.messageCount': '{count} mensajes',
   'workbench.editors.websocket.timeline.dropped': '{count} mensajes más antiguos salieron de la captura',

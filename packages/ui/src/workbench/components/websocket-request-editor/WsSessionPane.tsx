@@ -94,7 +94,14 @@ const WsSessionPane: React.FC<WsSessionPaneProps> = ({
         connected: live !== null && live.open !== null,
         ...(live?.connectedAt !== undefined ? { connectedAt: live.connectedAt } : {}),
         ...(live?.open != null
-          ? { handshake: { protocol: live.open.protocol, extensions: live.open.extensions } }
+          ? {
+              handshake: {
+                protocol: live.open.protocol,
+                extensions: live.open.extensions,
+                ...(live.open.url !== undefined ? { url: live.open.url } : {}),
+                ...(live.open.requestHeaders !== undefined ? { requestHeaders: live.open.requestHeaders } : {}),
+              },
+            }
           : {}),
       };
     }
@@ -119,20 +126,21 @@ const WsSessionPane: React.FC<WsSessionPaneProps> = ({
         ...(terminalAt !== undefined ? { endedAt: terminalAt } : {}),
       };
     }
-    const endedMessage =
-      snapshot.close !== null
-        ? `${snapshot.close.code}${snapshot.close.reason !== '' ? ` ${snapshot.close.reason}` : ''}`
-        : snapshot.stopped === true
-          ? undefined
-          : t('workbench.editors.websocket.session.noCloseFrame');
     return {
       ...(timing?.startedAt !== undefined ? { startedAt: timing.startedAt } : {}),
       connected: true,
       ...(timing?.connectedAt !== undefined ? { connectedAt: timing.connectedAt } : {}),
-      handshake: { protocol: snapshot.protocol, extensions: snapshot.extensions },
+      handshake: {
+        protocol: snapshot.protocol,
+        extensions: snapshot.extensions,
+        ...(snapshot.url !== undefined ? { url: snapshot.url } : {}),
+        ...(snapshot.requestHeaders !== undefined ? { requestHeaders: snapshot.requestHeaders } : {}),
+      },
       endedBy: snapshot.stopped === true ? 'stop' : 'close',
       ...(teardownAt !== undefined ? { endedAt: teardownAt } : {}),
-      ...(endedMessage !== undefined ? { endedMessage } : {}),
+      // The Close frame verbatim, or the honest null for a severed
+      // connection; a Stop carries no close record.
+      ...(snapshot.stopped === true ? {} : { close: snapshot.close }),
     };
   }, [snapshot, live, timing, t]);
 

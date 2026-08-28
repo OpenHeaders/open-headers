@@ -202,6 +202,40 @@ export const workbenchEditorsWebsocket = {
   'workbench.editors.websocket.timeline.stopped': 'Arrêté',
   'workbench.editors.websocket.timeline.aborted': 'Connexion interrompue',
   'workbench.editors.websocket.timeline.noMatches': 'Aucun message ne correspond au filtre.',
+  'workbench.editors.websocket.timeline.connectedTo': 'Connecté à {url}',
+  'workbench.editors.websocket.timeline.disconnectedFrom': 'Déconnecté de {url}',
+  'workbench.editors.websocket.timeline.handshakeDetails': 'Détails de la négociation',
+  'workbench.editors.websocket.timeline.requestUrl': 'URL de la requête',
+  'workbench.editors.websocket.timeline.requestMethod': 'Méthode de la requête',
+  'workbench.editors.websocket.timeline.statusCode': 'Code de statut',
+  'workbench.editors.websocket.timeline.requestHeaders': 'En-têtes de la requête',
+  'workbench.editors.websocket.timeline.responseHeaders': 'En-têtes de la réponse',
+  'workbench.editors.websocket.timeline.keyGenerated': '<généré par le socket>',
+  'workbench.editors.websocket.timeline.stoppedDetail': 'La session a été arrêtée depuis cette application.',
+  'workbench.editors.websocket.timeline.closeCode.unknown':
+    'Aucune signification enregistrée — un code applicatif ou privé.',
+  'workbench.editors.websocket.timeline.closeCode.1000': 'La connexion a été fermée correctement.',
+  'workbench.editors.websocket.timeline.closeCode.1001':
+    'Le point de terminaison s’en va — arrêt du serveur ou navigation de la page.',
+  'workbench.editors.websocket.timeline.closeCode.1002':
+    'Le point de terminaison a mis fin à la connexion suite à une erreur de protocole.',
+  'workbench.editors.websocket.timeline.closeCode.1003':
+    'Le point de terminaison a reçu des données d’un type qu’il ne peut pas accepter.',
+  'workbench.editors.websocket.timeline.closeCode.1005': 'Aucun code de statut n’était présent dans la trame Close.',
+  'workbench.editors.websocket.timeline.closeCode.1006': 'La connexion a été coupée sans trame Close.',
+  'workbench.editors.websocket.timeline.closeCode.1007':
+    'Un message contenait des données incohérentes avec son type, comme de l’UTF-8 invalide dans une trame texte.',
+  'workbench.editors.websocket.timeline.closeCode.1008': 'Un message a enfreint la politique du point de terminaison.',
+  'workbench.editors.websocket.timeline.closeCode.1009': 'Un message était trop volumineux pour être traité.',
+  'workbench.editors.websocket.timeline.closeCode.1010':
+    'Le serveur n’a pas négocié une extension requise par le client.',
+  'workbench.editors.websocket.timeline.closeCode.1011':
+    'Le serveur a rencontré une condition inattendue et n’a pas pu répondre.',
+  'workbench.editors.websocket.timeline.closeCode.1012': 'Le serveur redémarre.',
+  'workbench.editors.websocket.timeline.closeCode.1013': 'Le serveur est surchargé — réessayez plus tard.',
+  'workbench.editors.websocket.timeline.closeCode.1014':
+    'Une passerelle ou un proxy a reçu une réponse invalide du serveur en amont.',
+  'workbench.editors.websocket.timeline.closeCode.1015': 'La négociation TLS a échoué.',
   'workbench.editors.websocket.timeline.searchMessages': 'Rechercher dans les messages',
   'workbench.editors.websocket.timeline.messageCount': '{count} messages',
   'workbench.editors.websocket.timeline.dropped': '{count} messages plus anciens sont sortis de la capture',

@@ -15,6 +15,7 @@
  */
 
 import type {
+  WsHandshakeHeaderWire,
   WsSendBinaryWire,
   WsSendSocketIoWire,
   WsStreamEventWire,
@@ -35,8 +36,15 @@ const FLUSH_MAX_MESSAGES = 256;
 export interface WsStreamEmitter {
   /** Push the settled handshake as soon as it arrives — one frame.
    *  `proxyRoute` carries the transport's route decision so the live
-   *  session strip attributes honestly before the snapshot settles. */
-  open(protocol: string, extensions: string, proxyRoute?: ExecutedProxyRoute): void;
+   *  session strip attributes honestly before the snapshot settles;
+   *  `handshake` carries the dialed URL and the composed request
+   *  headers so the timeline's Connected row reads the truth live. */
+  open(
+    protocol: string,
+    extensions: string,
+    proxyRoute?: ExecutedProxyRoute,
+    handshake?: { url: string; requestHeaders: WsHandshakeHeaderWire[] },
+  ): void;
   /** Enqueue one direction-tagged message; flushes by the time window. */
   message(message: WsStreamMessageWire): void;
   /** Settle the emitter (any end path): flush pending messages, then
@@ -64,7 +72,7 @@ export function createWsStreamEmitter(sendId: string, emit: (event: WsStreamEven
   };
 
   return {
-    open(protocol, extensions, proxyRoute) {
+    open(protocol, extensions, proxyRoute, handshake) {
       if (settled) return;
       // Open emits immediately, so the emit instant IS the observed
       // handshake-settled instant — the message frames' atMs law.
@@ -75,6 +83,7 @@ export function createWsStreamEmitter(sendId: string, emit: (event: WsStreamEven
         protocol,
         extensions,
         ...(proxyRoute !== undefined ? { proxyRoute } : {}),
+        ...(handshake !== undefined ? { url: handshake.url, requestHeaders: handshake.requestHeaders } : {}),
         atMs: Date.now(),
       });
     },

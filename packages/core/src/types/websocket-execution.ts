@@ -47,6 +47,13 @@ export type ExecutedWsOutcome = { kind: 'connected' } | { kind: 'failed'; error:
 export interface ExecutedWsSnapshot {
   /** How the session settled (see {@link ExecutedWsOutcome}). */
   outcome: ExecutedWsOutcome;
+  /** The URL the session dialed, templates resolved. Absent on
+   *  snapshots that predate the stamp. */
+  url?: string;
+  /** The handshake request headers the executor composed — user rows,
+   *  the bearer credential, the subprotocol offer; the platform socket
+   *  adds its own on top. Absent on snapshots that predate the stamp. */
+  requestHeaders?: Array<{ key: string; value: string }>;
   /** The subprotocol the server selected; empty when none negotiated. */
   protocol: string;
   /** The extensions the handshake negotiated; empty when none. The
