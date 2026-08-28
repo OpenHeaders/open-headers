@@ -115,7 +115,7 @@ test('a leaf dropped on the lower band of a sibling lands after it', async () =>
   expect(at(ids.r2) < at(ids.r3) && at(ids.r3) < at(ids.r1)).toBe(true);
 });
 
-test('a leaf dropped on a folder row lands inside it, after its items', async () => {
+test('a leaf dropped on a folder row lands inside it, first among its children', async () => {
   await drag(requestRow(ids.r2), row(`req-folder-${ids.folder}`), 0.5);
   await expectMovedToast(1);
   await expect
@@ -124,7 +124,7 @@ test('a leaf dropped on a folder row lands inside it, after its items', async ()
       const folderAt = order.indexOf(`req-folder-${ids.folder}`);
       return order.slice(folderAt + 1, folderAt + 3);
     })
-    .toEqual([`request-${ids.r4}`, `request-${ids.r2}`]);
+    .toEqual([`request-${ids.r2}`, `request-${ids.r4}`]);
 });
 
 test('a folder dropped on another collection moves there with its subtree', async () => {
@@ -138,7 +138,7 @@ test('a folder dropped on another collection moves there with its subtree', asyn
       const colBAt = order.indexOf(`req-col-${ids.colB}`);
       return order.slice(colBAt + 1, colBAt + 4);
     })
-    .toEqual([`req-folder-${ids.folder}`, `request-${ids.r4}`, `request-${ids.r2}`]);
+    .toEqual([`req-folder-${ids.folder}`, `request-${ids.r2}`, `request-${ids.r4}`]);
 });
 
 test('a collection dropped on the upper band of another reorders the roots', async () => {
@@ -164,7 +164,7 @@ test('a dragged member of the multi-selection takes the selection along', async 
       const folderAt = order.indexOf(`req-folder-${ids.folder}`);
       return order.slice(folderAt + 1, folderAt + 5);
     })
-    .toEqual([`request-${ids.r4}`, `request-${ids.r2}`, `request-${ids.r3}`, `request-${ids.r1}`]);
+    .toEqual([`request-${ids.r3}`, `request-${ids.r1}`, `request-${ids.r2}`, `request-${ids.r4}`]);
 });
 
 test('the order survives a reload', async () => {
