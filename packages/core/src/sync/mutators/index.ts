@@ -2,7 +2,14 @@ export {
   COLLECTION_ENTITY_TYPE,
   COLLECTION_MUTATOR_VERSION,
   COLLECTION_VARS_PATH,
+  type CreateCollectionArgs,
+  collectionChild,
+  createCollection,
+  type DeleteCollectionArgs,
+  deleteCollection,
   invalidateResolverIntent as collectionInvalidateResolverIntent,
+  type MoveCollectionArgs,
+  moveCollection,
   type RemoveCollectionVarArgs,
   type RenameCollectionArgs,
   removeCollectionVar,
@@ -73,7 +80,10 @@ export {
   deleteFolder,
   FOLDER_CHILDREN_PATH,
   FOLDER_ENTITY_TYPE,
+  FOLDER_ITEMS_PATH,
   FOLDER_MUTATOR_VERSION,
+  FOLDER_TREE_KINDS,
+  type FolderItemSlot,
   type FolderParentRef,
   type FolderParentType,
   type FolderSlot,
@@ -84,12 +94,17 @@ export {
 } from './folder';
 export { applyMutation } from './generic';
 export {
+  type CreateGrpcRequestArgs,
+  createGrpcRequest,
   type DeleteGrpcRequestArgs,
   deleteGrpcRequest,
   GRPC_REQUEST_ENTITY_TYPE,
   GRPC_REQUEST_METADATA_PATH,
   GRPC_REQUEST_MUTATOR_VERSION,
   type GrpcMetadataPairRow,
+  grpcRequestChild,
+  type MoveGrpcRequestArgs,
+  moveGrpcRequest,
 } from './grpc-request';
 export {
   type CreateGrpcResponseExampleArgs,
@@ -161,8 +176,11 @@ export {
   unsetLiveWorkflowField,
 } from './live-workflow';
 export {
+  type CreateMqttRequestArgs,
+  createMqttRequest,
   type DeleteMqttRequestArgs,
   deleteMqttRequest,
+  type MoveMqttRequestArgs,
   MQTT_REQUEST_ENTITY_TYPE,
   MQTT_REQUEST_MUTATOR_VERSION,
   MQTT_REQUEST_SAVED_MESSAGES_PATH,
@@ -171,6 +189,8 @@ export {
   type MqttSavedMessageRow,
   type MqttTopicRowRow,
   type MqttUserPropertyRowRow,
+  moveMqttRequest,
+  mqttRequestChild,
 } from './mqtt-request';
 export {
   type CreateMqttResponseExampleArgs,
@@ -221,6 +241,8 @@ export {
   createRequest,
   type DeleteRequestArgs,
   deleteRequest,
+  type MoveRequestArgs,
+  moveRequest,
   REQUEST_ENTITY_TYPE,
   REQUEST_HEADERS_PATH,
   REQUEST_MUTATOR_VERSION,
@@ -236,11 +258,18 @@ export {
   removeRequestParam,
   reorderRequestHeader,
   reorderRequestParam,
+  requestChild,
   type SetRequestFieldArgs,
   setRequestField,
 } from './request';
 export {
+  type CreateRequestCollectionArgs,
+  createRequestCollection,
+  type DeleteRequestCollectionArgs,
+  deleteRequestCollection,
   invalidateResolverIntent as requestCollectionInvalidateResolverIntent,
+  type MoveRequestCollectionArgs,
+  moveRequestCollection,
   REQUEST_COLLECTION_ENTITY_TYPE,
   REQUEST_COLLECTION_MUTATOR_VERSION,
   REQUEST_COLLECTION_SPEC_LINK_PATH,
@@ -250,6 +279,7 @@ export {
   type RequestCollectionScriptPath,
   removeRequestCollectionVar,
   renameRequestCollection,
+  requestCollectionChild,
   type SetRequestCollectionPinnedAndDefaultArgs,
   type SetRequestCollectionScriptsArgs,
   type SetRequestCollectionSpecLinkArgs,
@@ -268,12 +298,16 @@ export {
   moveRequestFolder,
   REQUEST_FOLDER_CHILDREN_PATH,
   REQUEST_FOLDER_ENTITY_TYPE,
+  REQUEST_FOLDER_ITEMS_PATH,
   REQUEST_FOLDER_MUTATOR_VERSION,
+  REQUEST_FOLDER_TREE_KINDS,
   type RenameRequestFolderArgs,
+  type RequestFolderItemSlot,
   type RequestFolderParentRef,
   type RequestFolderParentType,
   type RequestFolderScriptPath,
   type RequestFolderSlot,
+  type RequestItemType,
   renameRequestFolder,
   type SetRequestFolderScriptsArgs,
   setRequestFolderScripts,
@@ -303,6 +337,23 @@ export {
   type UnsetScriptPackageFieldArgs,
   unsetScriptPackageField,
 } from './script-package';
+export {
+  type ChildMutatorBindings,
+  type ChildMutators,
+  type ChildPlacement,
+  type ChildSlotShape,
+  type CreateChildInput,
+  type DeleteChildInput,
+  type MoveChildInput,
+  makeChildMutators,
+  type ParentRefShape,
+} from './shared/child-mutators';
+export {
+  resolveTreeParent,
+  type TreeParentKinds,
+  type TreeParentLookup,
+  type TreeParentRef,
+} from './shared/tree-parent';
 export {
   makeVariableMutators,
   type RemoveVariableInput,
@@ -334,6 +385,8 @@ export {
   createTemplate,
   type DeleteTemplateArgs,
   deleteTemplate,
+  type MoveTemplateArgs,
+  moveTemplate,
   type RemoveTemplateConditionArgs,
   removeTemplateCondition,
   type SetTemplateConditionFieldArgs,
@@ -345,9 +398,16 @@ export {
   TEMPLATE_MUTATOR_VERSION,
   type TemplateConditionLike,
   type TemplateScalarPath,
+  templateChild,
 } from './template';
 export {
+  type CreateTemplateCollectionArgs,
+  createTemplateCollection,
+  type DeleteTemplateCollectionArgs,
+  deleteTemplateCollection,
   invalidateResolverIntent as templateCollectionInvalidateResolverIntent,
+  type MoveTemplateCollectionArgs,
+  moveTemplateCollection,
   type RemoveTemplateCollectionVarArgs,
   type RenameTemplateCollectionArgs,
   removeTemplateCollectionVar,
@@ -359,6 +419,7 @@ export {
   TEMPLATE_COLLECTION_ENTITY_TYPE,
   TEMPLATE_COLLECTION_MUTATOR_VERSION,
   TEMPLATE_COLLECTION_VARS_PATH,
+  templateCollectionChild,
 } from './template-collection';
 export {
   type CreateTemplateFolderArgs,
@@ -371,7 +432,10 @@ export {
   renameTemplateFolder,
   TEMPLATE_FOLDER_CHILDREN_PATH,
   TEMPLATE_FOLDER_ENTITY_TYPE,
+  TEMPLATE_FOLDER_ITEMS_PATH,
   TEMPLATE_FOLDER_MUTATOR_VERSION,
+  TEMPLATE_FOLDER_TREE_KINDS,
+  type TemplateFolderItemSlot,
   type TemplateFolderParentRef,
   type TemplateFolderParentType,
   type TemplateFolderSlot,
@@ -408,8 +472,12 @@ export {
   VAULT_PATH,
 } from './vault';
 export {
+  type CreateWebSocketRequestArgs,
+  createWebSocketRequest,
   type DeleteWebSocketRequestArgs,
   deleteWebSocketRequest,
+  type MoveWebSocketRequestArgs,
+  moveWebSocketRequest,
   WEBSOCKET_REQUEST_ENTITY_TYPE,
   WEBSOCKET_REQUEST_EVENTS_PATH,
   WEBSOCKET_REQUEST_HEADERS_PATH,
@@ -418,7 +486,18 @@ export {
   type WebSocketEventRowRow,
   type WebSocketHeaderPairRow,
   type WebSocketQueryParamRow,
+  webSocketRequestChild,
 } from './websocket-request';
+export {
+  type CollectionSlot,
+  WORKSPACE_ROOTS_ENTITY_TYPE,
+  WORKSPACE_ROOTS_ID,
+  WORKSPACE_ROOTS_REF,
+  WORKSPACE_ROOTS_REQUEST_COLLECTIONS_PATH,
+  WORKSPACE_ROOTS_RULE_COLLECTIONS_PATH,
+  WORKSPACE_ROOTS_TEMPLATE_COLLECTIONS_PATH,
+  type WorkspaceRootsRef,
+} from './workspace-roots';
 export {
   invalidateResolverIntent as workspaceVariablesInvalidateResolverIntent,
   type RemoveWorkspaceVarArgs,

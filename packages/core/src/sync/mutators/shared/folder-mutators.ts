@@ -1,24 +1,19 @@
 /**
- * Shared folder-mutator factory.
+ * Shared folder-mutator factory — a thin adapter over the generic
+ * child-mutator factory (`child-mutators.ts`).
  *
  * The three folder catalogs (`folder/`, `request-folder/`,
  * `template-folder/`) all model the same shape:
  *   - the folder entity itself carries `{ name, pathSegment, schemaVersion }`
  *   - the parent (collection or sibling folder) carries an ordered set
  *     of slot markers `{ uid }` at a fixed path (`folders`)
- *   - lifecycle = create entity + addToSet slot / removeFromSet slot + delete entity
- *   - move = same-parent `moveBefore` OR atomic remove+add reparent
+ *   - lifecycle / move are the generic child verbs
  *   - rename = `setField('name', _)` on the entity
- *
- * Per-batch all-or-nothing at the local oracle (§11.2) keeps observers
- * from seeing the half-and-half intermediate state on lifecycle and
- * reparent batches.
  *
  * Cascading children deletes (rules / requests / templates under a
  * folder) are NOT modelled here — the SW-side store cascades emit per-
  * child `delete(...)` envelopes minted by the child catalog. Cross-
- * entity orchestration stays outside the folder catalog (see session 14
- * for the equivalent collection-delete pattern).
+ * entity orchestration stays outside the folder catalog.
  *
  * Side effects are always empty: a folder rename or move never changes
  * variable resolution downstream.
@@ -27,11 +22,9 @@
 import { toFolderName } from '../../../utils/workspace';
 import type { MutationBatch, MutationBody } from '../../envelope';
 import type { MutatorContext, MutatorIntent } from '../types';
+import { type ChildMutators, type ChildSlotShape, makeChildMutators, type ParentRefShape } from './child-mutators';
 
-export interface FolderParentRefShape {
-  type: string;
-  uid: string;
-}
+export type FolderParentRefShape = ParentRefShape;
 
 export interface FolderMutatorBindings {
   entityType: string;
@@ -82,89 +75,41 @@ export interface FolderMutators<P extends FolderParentRefShape> {
    *  per-batch all-or-nothing for cross-parent. */
   moveFolder(ctx: MutatorContext, input: MoveFolderInput<P>): MutatorIntent;
   renameFolder(ctx: MutatorContext, input: RenameFolderInput): MutatorIntent;
+  /** The generic child verbs the folder verbs adapt — seed builders and
+   *  cascades reach for `slotAdd` / `slotRemove` here. */
+  child: ChildMutators<P>;
 }
 
-export function makeFolderMutators<P extends FolderParentRefShape>(
-  bindings: FolderMutatorBindings,
-): FolderMutators<P> {
+export function makeFolderMutators<P extends FolderParentRefShape>(bindings: FolderMutatorBindings): FolderMutators<P> {
   const { entityType, childrenPath, mintBatch } = bindings;
+  const child = makeChildMutators<P, ChildSlotShape>({
+    entityType,
+    childrenPath,
+    slot: (uid) => ({ uid }),
+    mintBatch,
+  });
 
   return {
+    child,
     createFolder(ctx, input) {
       const pathSegment = input.pathSegment ?? toFolderName(input.name, input.folderUid);
-      const bodies: MutationBody[] = [
-        {
-          kind: 'create',
-          type: entityType,
-          id: input.folderUid,
-          payload: { schemaVersion: 5, name: input.name, pathSegment },
-        },
-        {
-          kind: 'addToSet',
-          type: input.parent.type,
-          id: input.parent.uid,
-          path: childrenPath,
-          itemId: input.folderUid,
-          item: { uid: input.folderUid },
-          orderKey: input.orderKey,
-        },
-      ];
-      return { batch: mintBatch(ctx, bodies), sideEffects: [] };
+      return child.create(ctx, {
+        childUid: input.folderUid,
+        parent: input.parent,
+        payload: { schemaVersion: 5, name: input.name, pathSegment },
+        orderKey: input.orderKey,
+      });
     },
     deleteFolder(ctx, input) {
-      const bodies: MutationBody[] = [
-        {
-          kind: 'removeFromSet',
-          type: input.parent.type,
-          id: input.parent.uid,
-          path: childrenPath,
-          itemId: input.folderUid,
-        },
-        { kind: 'delete', type: entityType, id: input.folderUid },
-      ];
-      return { batch: mintBatch(ctx, bodies), sideEffects: [] };
+      return child.delete(ctx, { childUid: input.folderUid, parent: input.parent });
     },
     moveFolder(ctx, input) {
-      const sameParent =
-        !input.oldParent ||
-        (input.oldParent.type === input.newParent.type && input.oldParent.uid === input.newParent.uid);
-
-      if (sameParent) {
-        return {
-          batch: mintBatch(ctx, [
-            {
-              kind: 'moveBefore',
-              type: input.newParent.type,
-              id: input.newParent.uid,
-              path: childrenPath,
-              itemId: input.folderUid,
-              orderKey: input.orderKey,
-            },
-          ]),
-          sideEffects: [],
-        };
-      }
-
-      const oldParent = input.oldParent as P;
-      const bodies: MutationBody[] = [
-        {
-          kind: 'removeFromSet',
-          type: oldParent.type,
-          id: oldParent.uid,
-          path: childrenPath,
-          itemId: input.folderUid,
-        },
-        {
-          kind: 'addToSet',
-          type: input.newParent.type,
-          id: input.newParent.uid,
-          path: childrenPath,
-          itemId: input.folderUid,
-          item: { uid: input.folderUid },
-          orderKey: input.orderKey,
-        },
-      ];
-      return { batch: mintBatch(ctx, bodies), sideEffects: [] };
+      return child.move(ctx, {
+        childUid: input.folderUid,
+        newParent: input.newParent,
+        orderKey: input.orderKey,
+        oldParent: input.oldParent,
+      });
     },
     renameFolder(ctx, input) {
       return {

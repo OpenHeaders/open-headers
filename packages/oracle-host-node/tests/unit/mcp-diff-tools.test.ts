@@ -80,7 +80,7 @@ describe('workspaces_diff', () => {
     const oracleB = getOracleForWorkspace(wsB);
     if (!oracleB) throw new Error('wsB not materialized');
     const drifted = { ...created.rule, name: 'API key header (renamed)' };
-    const payload = buildAddRuleBatch(drifted, seedCtx(wsB, 1_000));
+    const payload = buildAddRuleBatch(drifted, seedCtx(wsB, 1_000), null);
     const applied = await oracleB.apply(payload.batch, payload.sideEffects);
     expect(applied.ok).toBe(true);
 

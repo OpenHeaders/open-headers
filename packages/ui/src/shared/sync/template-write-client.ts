@@ -11,11 +11,17 @@
  * content edits.
  */
 
-import type { Template } from '@openheaders/core/types';
 import {
-  getTemplateSyncMirrorForWorkspace,
-  type TemplateSyncMirror,
-} from '../../context/mirrors/template-sync-mirror';
+  buildAddBatch,
+  buildDeleteBatch,
+  buildDeleteEntityBatch,
+  buildUpdateBatch,
+} from '@openheaders/core/sync-builders/mutations/template-mutations';
+import type { Template } from '@openheaders/core/types';
+import { parentPathOf } from '@openheaders/core/utils';
+import type { TemplateCollectionSyncMirror } from '../../context/mirrors/template-collection-sync-mirror';
+import type { TemplateFolderSyncMirror } from '../../context/mirrors/template-folder-sync-mirror';
+import { getTemplateSyncMirrorForWorkspace, type TemplateSyncMirror } from '../../context/mirrors/template-sync-mirror';
 import {
   applySyncPayload,
   type BaseSyncWriteOptions,
@@ -23,13 +29,9 @@ import {
   resolveRendererContext,
   type SyncSimpleResult,
 } from './apply-payload';
-import {
-  buildAddBatch,
-  buildDeleteBatch,
-  buildUpdateBatch,
-} from '@openheaders/core/sync-builders/mutations/template-mutations';
+import { resolveLeafParent, resolveLeafPlacement, templateTreeMirrors, unresolvableParent } from './tree-placement';
 
-export type TemplateUpdates = Partial<Omit<Template, 'uid' | 'path' | 'schemaVersion'>>;
+export type TemplateUpdates = Partial<Omit<Template, 'uid' | 'path' | 'pathSegment' | 'schemaVersion'>>;
 
 export type TemplateMutationResult =
   | { ok: true; template: Template }
@@ -40,6 +42,9 @@ export type TemplateSimpleResult = SyncSimpleResult;
 
 export interface TemplateWriteOptions extends BaseSyncWriteOptions {
   mirror?: TemplateSyncMirror;
+  /** Override the parent-resolving container mirrors for tests. */
+  collectionMirror?: TemplateCollectionSyncMirror;
+  folderMirror?: TemplateFolderSyncMirror;
 }
 
 export async function applyTemplateUpdate(
@@ -78,12 +83,21 @@ export async function applyTemplateUpdate(
   return { ok: false, reason: 'other', message: ack.message };
 }
 
+/**
+ * Seed a brand-new template through the oracle. Caller mints the full
+ * `Template` shape; the helper resolves the parent from the template's
+ * path (its `items` slot rides the create batch, appended after the
+ * parent's live tail). An unplaceable parent fails the create.
+ */
 export async function applyTemplateCreate(
   template: Template,
   opts: TemplateWriteOptions,
 ): Promise<TemplateSimpleResult> {
+  const parentPath = parentPathOf(template.path) ?? '';
+  const placement = await resolveLeafPlacement(templateTreeMirrors(opts.workspaceId, opts), parentPath);
+  if (!placement) return unresolvableParent(parentPath);
   const ctx = resolveRendererContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
-  const payload = buildAddBatch(template, ctx);
+  const payload = buildAddBatch(template, ctx, placement);
   return applySyncPayload(payload);
 }
 
@@ -94,23 +108,28 @@ export async function applyTemplateCreate(
  * shape today, so the helper returns `null` for everything else and
  * the synthesizer falls back to its content-unequal branch.
  */
-function resolveTemplateRows(
-  template: Template | undefined,
-  path: string,
-): ReadonlyArray<{ uid: string }> | null {
+function resolveTemplateRows(template: Template | undefined, path: string): ReadonlyArray<{ uid: string }> | null {
   if (!template) return null;
   if (path === 'conditions') return template.conditions;
   return null;
 }
 
+/**
+ * Delete a template: its parent's `items` slot tombstones in the same
+ * batch as the entity; an unresolvable parent (already tombstoned)
+ * falls back to the bare entity tombstone.
+ */
 export async function applyTemplateDelete(
   templateUid: string,
   opts: TemplateWriteOptions,
 ): Promise<TemplateSimpleResult> {
   const mirror = resolveMirror(opts, getTemplateSyncMirrorForWorkspace);
   await mirror.hydrated;
-  if (!mirror.getTemplateMirror(templateUid)) return { ok: false, reason: 'not-found' };
+  const entry = mirror.getTemplateMirror(templateUid);
+  if (!entry) return { ok: false, reason: 'not-found' };
+  const parent = await resolveLeafParent(templateTreeMirrors(opts.workspaceId, opts), entry.template.path);
   const ctx = resolveRendererContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
-  const payload = buildDeleteBatch(templateUid, ctx);
-  return applySyncPayload(payload);
+  return applySyncPayload(
+    parent ? buildDeleteBatch(templateUid, parent, ctx) : buildDeleteEntityBatch(templateUid, ctx),
+  );
 }

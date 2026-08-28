@@ -4,7 +4,7 @@
  */
 
 import * as v from 'valibot';
-import { RelativePathSchema, SchemaVersionSchema, UidSchema } from './common';
+import { PathSegmentSchema, RelativePathSchema, SchemaVersionSchema, UidSchema } from './common';
 import { RuleConditionSchema, RuleTypeSchema } from './rule';
 
 export const TemplateIncludesSchema = v.object({
@@ -16,6 +16,7 @@ export const TemplateSchema = v.object({
   schemaVersion: SchemaVersionSchema,
   uid: UidSchema,
   path: RelativePathSchema,
+  pathSegment: v.optional(PathSegmentSchema),
   name: v.string(),
   ruleType: RuleTypeSchema,
   icon: v.string(),

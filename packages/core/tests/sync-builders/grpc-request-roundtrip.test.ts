@@ -75,18 +75,18 @@ const seed: GrpcRequest = {
 describe('grpc request seed → project round-trip', () => {
   it('materializes the seeded entity back to the persisted shape', () => {
     const store = new InMemoryDocumentStore(grpcSchemas);
-    applyBatch(store, buildGrpcAddBatch(seed, ctx(1_000)));
+    applyBatch(store, buildGrpcAddBatch(seed, ctx(1_000), null));
     expect(materialized(store, 'grpc0001')).toEqual(seed);
   });
 
   it('materializes an empty metadata set as [] (schema-aware set path)', () => {
     const store = new InMemoryDocumentStore(grpcSchemas);
-    applyBatch(store, buildGrpcAddBatch({ ...seed, metadata: [] }, ctx(1_000)));
+    applyBatch(store, buildGrpcAddBatch({ ...seed, metadata: [] }, ctx(1_000), null));
     expect(materialized(store, 'grpc0001').metadata).toEqual([]);
   });
 
   it('emits one addToSet per metadata row with the row uid as itemId', () => {
-    const payload = buildGrpcAddBatch(seed, ctx(1_000));
+    const payload = buildGrpcAddBatch(seed, ctx(1_000), null);
     const adds = payload.batch.mutations.filter((m) => m.body.kind === 'addToSet');
     expect(adds.map((m) => (m.body.kind === 'addToSet' ? m.body.itemId : ''))).toEqual(['meta0001', 'meta0002']);
     // The create shell must not carry the set-modeled field — a
@@ -106,7 +106,7 @@ describe('grpc request seed → project round-trip', () => {
 describe('grpc request update batches', () => {
   it('persists scalar edits (url, tls, message) as setField leaves', () => {
     const store = new InMemoryDocumentStore(grpcSchemas);
-    applyBatch(store, buildGrpcAddBatch(seed, ctx(1_000)));
+    applyBatch(store, buildGrpcAddBatch(seed, ctx(1_000), null));
 
     applyBatch(
       store,
@@ -127,7 +127,7 @@ describe('grpc request update batches', () => {
 
   it('routes method changes through the per-leaf flatten-diff', () => {
     const store = new InMemoryDocumentStore(grpcSchemas);
-    applyBatch(store, buildGrpcAddBatch(seed, ctx(1_000)));
+    applyBatch(store, buildGrpcAddBatch(seed, ctx(1_000), null));
 
     const payload = buildGrpcUpdateBatch(
       'grpc0001',
@@ -146,7 +146,7 @@ describe('grpc request update batches', () => {
 
   it('routes the bearer credential through the per-leaf flatten-diff and clears it to none', () => {
     const store = new InMemoryDocumentStore(grpcSchemas);
-    applyBatch(store, buildGrpcAddBatch(seed, ctx(1_000)));
+    applyBatch(store, buildGrpcAddBatch(seed, ctx(1_000), null));
 
     const setBearer = buildGrpcUpdateBatch(
       'grpc0001',
@@ -172,7 +172,7 @@ describe('grpc request update batches', () => {
 
   it('persists the sslVerification knob as a scalar setField leaf', () => {
     const store = new InMemoryDocumentStore(grpcSchemas);
-    applyBatch(store, buildGrpcAddBatch(seed, ctx(1_000)));
+    applyBatch(store, buildGrpcAddBatch(seed, ctx(1_000), null));
 
     applyBatch(
       store,
@@ -183,7 +183,7 @@ describe('grpc request update batches', () => {
 
   it('persists a spec re-link through the per-leaf flatten-diff', () => {
     const store = new InMemoryDocumentStore(grpcSchemas);
-    applyBatch(store, buildGrpcAddBatch(seed, ctx(1_000)));
+    applyBatch(store, buildGrpcAddBatch(seed, ctx(1_000), null));
 
     applyBatch(
       store,
@@ -200,7 +200,7 @@ describe('grpc request update batches', () => {
 
   it('emits minimum set-diff envelopes for metadata row edits', () => {
     const store = new InMemoryDocumentStore(grpcSchemas);
-    applyBatch(store, buildGrpcAddBatch(seed, ctx(1_000)));
+    applyBatch(store, buildGrpcAddBatch(seed, ctx(1_000), null));
 
     // Live reader over the materialized set — ordered (itemId, orderKey, item).
     const liveSets = (uid: string, setPath: string) => {

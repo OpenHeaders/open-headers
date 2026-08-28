@@ -9,27 +9,23 @@
  */
 
 import {
+  deleteTemplateCollection,
   deriveSideEffectsForEnvelope,
-  type MutationBatch,
   type MutatorContext,
   type MutatorIntent,
-  newBatchId,
-  newMutationId,
-  PRE_BOOTSTRAP_ORG_ID,
   removeTemplateCollectionVar,
   renameTemplateCollection,
   setTemplateCollectionPinnedAndDefault,
   setTemplateCollectionVar,
-  TEMPLATE_COLLECTION_ENTITY_TYPE,
-  TEMPLATE_COLLECTION_MUTATOR_VERSION,
 } from '@openheaders/core/sync';
 import type { Variable } from '@openheaders/core/types';
 
 export type TemplateCollectionMutationPayload = MutatorIntent;
 
 /**
- * Build a `delete` envelope for a template collection. Generic primitive
- * — no dedicated catalog factory, identical shape across entities.
+ * Delete a template collection: the workspace roots' slot tombstone +
+ * the entity tombstone in one batch (the catalog's
+ * `deleteTemplateCollection`).
  *
  * Deleting a template collection drops its variables from resolver
  * scope, so the payload carries the `INVALIDATE_RESOLVER` side effect —
@@ -41,20 +37,7 @@ export function buildDeleteTemplateCollectionBatch(
   collectionUid: string,
   ctx: MutatorContext,
 ): TemplateCollectionMutationPayload {
-  const batch: MutationBatch = {
-    batchId: ctx.batchId ?? newBatchId(),
-    mutations: [
-      {
-        mutationId: newMutationId(),
-        hlc: ctx.hlc,
-        origin: { surfaceId: ctx.surfaceId, deviceId: ctx.deviceId, userId: ctx.userId },
-        workspaceId: ctx.workspaceId,
-        orgId: ctx.orgId ?? PRE_BOOTSTRAP_ORG_ID,
-        mutatorVersion: TEMPLATE_COLLECTION_MUTATOR_VERSION,
-        body: { kind: 'delete', type: TEMPLATE_COLLECTION_ENTITY_TYPE, id: collectionUid },
-      },
-    ],
-  };
+  const { batch } = deleteTemplateCollection(ctx, { collectionUid });
   return { batch, sideEffects: batch.mutations.flatMap(deriveSideEffectsForEnvelope) };
 }
 

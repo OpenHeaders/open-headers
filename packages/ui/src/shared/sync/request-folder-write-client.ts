@@ -19,7 +19,7 @@ import {
   buildSetRequestFolderScriptsBatch,
   type SetRequestFolderScriptsInput,
 } from '@openheaders/core/sync-builders/mutations/request-folder-mutations';
-import { buildDeleteBatch as buildDeleteRequestBatch } from '@openheaders/core/sync-builders/mutations/request-mutations';
+import { buildDeleteEntityBatch as buildDeleteRequestEntityBatch } from '@openheaders/core/sync-builders/mutations/request-mutations';
 import type { AuthConfig } from '@openheaders/core/types';
 import {
   getRequestFolderSyncMirrorForWorkspace,
@@ -160,7 +160,7 @@ export async function applyRequestFolderDelete(
   const baseCtx = resolveRendererContext(opts);
   for (const reqUid of cascadingRequestUids) {
     const ctx = baseCtx.next({ batchId: `request-folder-delete-cascade-req-${reqUid}` });
-    const ack = await applySyncPayload(buildDeleteRequestBatch(reqUid, ctx));
+    const ack = await applySyncPayload(buildDeleteRequestEntityBatch(reqUid, ctx));
     if (!ack.ok) return ack;
   }
   for (const nestedUid of cascadingFolderUids) {

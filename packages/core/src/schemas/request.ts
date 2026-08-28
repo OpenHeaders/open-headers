@@ -6,7 +6,7 @@
  */
 
 import * as v from 'valibot';
-import { RelativePathSchema, SchemaVersionSchema, UidSchema } from './common';
+import { PathSegmentSchema, RelativePathSchema, SchemaVersionSchema, UidSchema } from './common';
 
 /**
  * HTTP method — the standard verbs plus custom tokens (PROPFIND, PURGE,
@@ -734,6 +734,7 @@ const RequestObjectSchema = v.object({
   schemaVersion: SchemaVersionSchema,
   uid: UidSchema,
   path: RelativePathSchema,
+  pathSegment: v.optional(PathSegmentSchema),
   name: v.string(),
   /**
    * Free-form Markdown notes surfaced in the request editor's Docs tab.
@@ -993,4 +994,4 @@ export const RequestSchema = v.pipe(
  * Derived from the plain object shape — the proxy-pair ties above
  * apply at the persist boundary, not to pre-fill drafts.
  */
-export const RequestSeedSchema = v.omit(RequestObjectSchema, ['schemaVersion', 'uid', 'path']);
+export const RequestSeedSchema = v.omit(RequestObjectSchema, ['schemaVersion', 'uid', 'path', 'pathSegment']);

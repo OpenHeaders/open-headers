@@ -13,7 +13,7 @@
  */
 
 import * as v from 'valibot';
-import { RelativePathSchema, SchemaVersionSchema, UidSchema } from './common';
+import { PathSegmentSchema, RelativePathSchema, SchemaVersionSchema, UidSchema } from './common';
 import { RequestTimeoutMsSchema, UnixSocketPathSchema } from './request';
 
 /**
@@ -135,6 +135,7 @@ export const WebSocketRequestSchema = v.object({
   schemaVersion: SchemaVersionSchema,
   uid: UidSchema,
   path: RelativePathSchema,
+  pathSegment: v.optional(PathSegmentSchema),
   name: v.string(),
   /** Free-form Markdown notes (Docs-tab parity with the HTTP request). */
   description: v.optional(v.string()),
@@ -214,4 +215,9 @@ export const WebSocketRequestSchema = v.object({
  * Content-only shape (no `schemaVersion` / `uid` / `path`) — the
  * pre-fill handoff unit for the create tab, mirroring `RequestSeedSchema`.
  */
-export const WebSocketRequestSeedSchema = v.omit(WebSocketRequestSchema, ['schemaVersion', 'uid', 'path']);
+export const WebSocketRequestSeedSchema = v.omit(WebSocketRequestSchema, [
+  'schemaVersion',
+  'uid',
+  'path',
+  'pathSegment',
+]);

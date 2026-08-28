@@ -1,23 +1,32 @@
 export {
-  addCondition,
   type AddConditionArgs,
-  removeCondition,
+  addCondition,
   type RemoveConditionArgs,
   type RuleConditionLike,
-  setConditionField,
+  removeCondition,
   type SetConditionFieldArgs,
+  setConditionField,
 } from './condition';
-export { toggleEnabled, type ToggleEnabledArgs } from './enabled';
+export { type ToggleEnabledArgs, toggleEnabled } from './enabled';
 export { mintBatch, mintEnvelope, RULE_MUTATOR_VERSION } from './envelope';
 export {
-  addHeaderMod,
   type AddHeaderModArgs,
+  addHeaderMod,
   type HeaderModification,
   type HeaderSide,
-  removeHeaderMod,
   type RemoveHeaderModArgs,
-  reorderHeaderMod,
   type ReorderHeaderModArgs,
+  removeHeaderMod,
+  reorderHeaderMod,
 } from './header-mod';
+export {
+  type CreateRuleArgs,
+  createRule,
+  type DeleteRuleArgs,
+  deleteRule,
+  type MoveRuleArgs,
+  moveRule,
+  ruleChild,
+} from './lifecycle';
 export { RECOMPILE_DNR, recompileDnrIntent } from './side-effects';
 export { RULE_ENTITY_TYPE } from './types';

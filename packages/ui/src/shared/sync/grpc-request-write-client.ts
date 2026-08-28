@@ -12,10 +12,12 @@ import { GRPC_REQUEST_METADATA_PATH } from '@openheaders/core/sync';
 import {
   buildGrpcAddBatch,
   buildGrpcDeleteBatch,
+  buildGrpcDeleteEntityBatch,
   buildGrpcUpdateBatch,
 } from '@openheaders/core/sync-builders/mutations/grpc-request-mutations';
 import { buildDeleteGrpcResponseExampleBatch } from '@openheaders/core/sync-builders/mutations/grpc-response-example-mutations';
 import type { GrpcRequest } from '@openheaders/core/types';
+import { parentPathOf } from '@openheaders/core/utils';
 import {
   type GrpcRequestSyncMirror,
   getGrpcRequestSyncMirrorForWorkspace,
@@ -24,6 +26,8 @@ import {
   type GrpcResponseExampleSyncMirror,
   getGrpcResponseExampleSyncMirrorForWorkspace,
 } from '../../context/mirrors/grpc-response-example-sync-mirror';
+import type { RequestCollectionSyncMirror } from '../../context/mirrors/request-collection-sync-mirror';
+import type { RequestFolderSyncMirror } from '../../context/mirrors/request-folder-sync-mirror';
 import {
   applySyncPayload,
   type BaseSyncWriteOptions,
@@ -31,8 +35,9 @@ import {
   resolveRendererContext,
   type SyncSimpleResult,
 } from './apply-payload';
+import { requestTreeMirrors, resolveLeafParent, resolveLeafPlacement, unresolvableParent } from './tree-placement';
 
-export type GrpcRequestUpdates = Partial<Omit<GrpcRequest, 'uid' | 'path' | 'schemaVersion'>>;
+export type GrpcRequestUpdates = Partial<Omit<GrpcRequest, 'uid' | 'path' | 'pathSegment' | 'schemaVersion'>>;
 
 export type GrpcRequestMutationResult =
   | { ok: true; grpcRequest: GrpcRequest }
@@ -46,6 +51,9 @@ export interface GrpcRequestWriteOptions extends BaseSyncWriteOptions {
   mirror?: GrpcRequestSyncMirror;
   /** Override the response-example mirror the delete cascade reads (tests). */
   exampleMirror?: GrpcResponseExampleSyncMirror;
+  /** Override the parent-resolving container mirrors for tests. */
+  collectionMirror?: RequestCollectionSyncMirror;
+  folderMirror?: RequestFolderSyncMirror;
 }
 
 /**
@@ -97,15 +105,22 @@ export async function applyGrpcRequestUpdate(
   return { ok: false, reason: 'other', message: ack.message };
 }
 
-/** Seed a brand-new gRPC request through the oracle. Caller mints the
- *  full `GrpcRequest` shape; the helper handles the create + per-row
- *  addToSet envelopes via the projection layer. */
+/**
+ * Seed a brand-new gRPC request through the oracle. Caller mints the
+ * full `GrpcRequest` shape; the helper resolves the parent from the
+ * request's path (its `items` slot rides the create batch) and handles
+ * the per-row addToSet envelopes via the projection layer. An
+ * unplaceable parent fails the create.
+ */
 export async function applyGrpcRequestCreate(
   request: GrpcRequest,
   opts: GrpcRequestWriteOptions,
 ): Promise<GrpcRequestSimpleResult> {
+  const parentPath = parentPathOf(request.path) ?? '';
+  const placement = await resolveLeafPlacement(requestTreeMirrors(opts.workspaceId, opts), parentPath);
+  if (!placement) return unresolvableParent(parentPath);
   const ctx = resolveRendererContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
-  const payload = buildGrpcAddBatch(request, ctx);
+  const payload = buildGrpcAddBatch(request, ctx, placement);
   return applySyncPayload(payload);
 }
 
@@ -115,7 +130,8 @@ export async function applyGrpcRequestDelete(
 ): Promise<GrpcRequestSimpleResult> {
   const mirror = resolveMirror(opts, getGrpcRequestSyncMirrorForWorkspace);
   await mirror.hydrated;
-  if (!mirror.getGrpcRequestMirror(grpcRequestUid)) return { ok: false, reason: 'not-found' };
+  const entry = mirror.getGrpcRequestMirror(grpcRequestUid);
+  if (!entry) return { ok: false, reason: 'not-found' };
   // Cascade: a deleted gRPC request must not leave orphan response
   // examples behind (the HTTP request-store's invariant, applied at
   // this family's renderer-direct write site).
@@ -125,7 +141,11 @@ export async function applyGrpcRequestDelete(
   for (const example of exampleMirror.listGrpcResponseExamplesForRequest(grpcRequestUid)) {
     await applySyncPayload(buildDeleteGrpcResponseExampleBatch(example.uid, handle.next()));
   }
+  // The parent's `items` slot tombstones with the entity; an
+  // unresolvable parent (already tombstoned) takes the bare tombstone.
+  const parent = await resolveLeafParent(requestTreeMirrors(opts.workspaceId, opts), entry.grpcRequest.path);
   const ctx = handle.next(opts.batchId ? { batchId: opts.batchId } : undefined);
-  const payload = buildGrpcDeleteBatch(grpcRequestUid, ctx);
-  return applySyncPayload(payload);
+  return applySyncPayload(
+    parent ? buildGrpcDeleteBatch(grpcRequestUid, parent, ctx) : buildGrpcDeleteEntityBatch(grpcRequestUid, ctx),
+  );
 }

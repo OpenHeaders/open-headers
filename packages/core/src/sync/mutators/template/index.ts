@@ -1,19 +1,22 @@
 export {
-  addTemplateCondition,
   type AddTemplateConditionArgs,
-  removeTemplateCondition,
+  addTemplateCondition,
   type RemoveTemplateConditionArgs,
-  setTemplateConditionField,
+  removeTemplateCondition,
   type SetTemplateConditionFieldArgs,
+  setTemplateConditionField,
 } from './condition';
 export { mintBatch, mintEnvelope, TEMPLATE_MUTATOR_VERSION } from './envelope';
 export {
-  createTemplate,
   type CreateTemplateArgs,
-  deleteTemplate,
+  createTemplate,
   type DeleteTemplateArgs,
+  deleteTemplate,
+  type MoveTemplateArgs,
+  moveTemplate,
+  templateChild,
 } from './lifecycle';
-export { setTemplateField, type SetTemplateFieldArgs, type TemplateScalarPath } from './scalar';
+export { type SetTemplateFieldArgs, setTemplateField, type TemplateScalarPath } from './scalar';
 export {
   TEMPLATE_CONDITIONS_PATH,
   TEMPLATE_ENTITY_TYPE,

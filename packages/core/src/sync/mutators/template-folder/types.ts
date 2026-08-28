@@ -20,6 +20,8 @@
  * effects are empty.
  */
 
+import type { TreeParentKinds } from '../shared/tree-parent';
+import type { TEMPLATE_ENTITY_TYPE } from '../template/types';
 import { TEMPLATE_COLLECTION_ENTITY_TYPE } from '../template-collection/types';
 
 /** Routing key carried on every template-folder mutation envelope. */
@@ -32,14 +34,35 @@ export const TEMPLATE_FOLDER_ENTITY_TYPE = 'template-folder';
  */
 export const TEMPLATE_FOLDER_CHILDREN_PATH = 'folders';
 
+/**
+ * Set path on a parent (template collection or template folder) holding
+ * the ordered leaf slots — the templates under it. Folders render
+ * first, then items; the two sets never interleave.
+ */
+export const TEMPLATE_FOLDER_ITEMS_PATH = 'items';
+
 /** Discriminator for the two parent kinds that can hold a template-folder. */
-export type TemplateFolderParentType =
-  | typeof TEMPLATE_COLLECTION_ENTITY_TYPE
-  | typeof TEMPLATE_FOLDER_ENTITY_TYPE;
+export type TemplateFolderParentType = typeof TEMPLATE_COLLECTION_ENTITY_TYPE | typeof TEMPLATE_FOLDER_ENTITY_TYPE;
 
 export interface TemplateFolderParentRef {
   type: TemplateFolderParentType;
   uid: string;
+}
+
+/** The templates tree's parent vocabulary for path → parent-ref resolution. */
+export const TEMPLATE_FOLDER_TREE_KINDS: TreeParentKinds<
+  typeof TEMPLATE_COLLECTION_ENTITY_TYPE,
+  typeof TEMPLATE_FOLDER_ENTITY_TYPE
+> = {
+  treePrefix: 'templates',
+  collectionType: TEMPLATE_COLLECTION_ENTITY_TYPE,
+  folderType: TEMPLATE_FOLDER_ENTITY_TYPE,
+};
+
+/** Slot marker stored under `parent.items[templateUid]`. */
+export interface TemplateFolderItemSlot {
+  uid: string;
+  type: typeof TEMPLATE_ENTITY_TYPE;
 }
 
 /**

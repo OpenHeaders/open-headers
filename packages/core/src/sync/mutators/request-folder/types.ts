@@ -19,7 +19,12 @@
  * effects are empty.
  */
 
+import type { GRPC_REQUEST_ENTITY_TYPE } from '../grpc-request/types';
+import type { MQTT_REQUEST_ENTITY_TYPE } from '../mqtt-request/types';
+import type { REQUEST_ENTITY_TYPE } from '../request/types';
 import { REQUEST_COLLECTION_ENTITY_TYPE } from '../request-collection/types';
+import type { TreeParentKinds } from '../shared/tree-parent';
+import type { WEBSOCKET_REQUEST_ENTITY_TYPE } from '../websocket-request/types';
 
 /** Routing key carried on every request-folder mutation envelope. */
 export const REQUEST_FOLDER_ENTITY_TYPE = 'request-folder';
@@ -31,14 +36,46 @@ export const REQUEST_FOLDER_ENTITY_TYPE = 'request-folder';
  */
 export const REQUEST_FOLDER_CHILDREN_PATH = 'folders';
 
+/**
+ * Set path on a parent (request collection or request folder) holding
+ * the ordered leaf slots — the four request kinds under it, in one
+ * set. Folders render first, then items; the two sets never interleave.
+ */
+export const REQUEST_FOLDER_ITEMS_PATH = 'items';
+
 /** Discriminator for the two parent kinds that can hold a request-folder. */
-export type RequestFolderParentType =
-  | typeof REQUEST_COLLECTION_ENTITY_TYPE
-  | typeof REQUEST_FOLDER_ENTITY_TYPE;
+export type RequestFolderParentType = typeof REQUEST_COLLECTION_ENTITY_TYPE | typeof REQUEST_FOLDER_ENTITY_TYPE;
 
 export interface RequestFolderParentRef {
   type: RequestFolderParentType;
   uid: string;
+}
+
+/** The requests tree's parent vocabulary for path → parent-ref resolution. */
+export const REQUEST_FOLDER_TREE_KINDS: TreeParentKinds<
+  typeof REQUEST_COLLECTION_ENTITY_TYPE,
+  typeof REQUEST_FOLDER_ENTITY_TYPE
+> = {
+  treePrefix: 'requests',
+  collectionType: REQUEST_COLLECTION_ENTITY_TYPE,
+  folderType: REQUEST_FOLDER_ENTITY_TYPE,
+};
+
+/** The leaf kinds a request parent's `items` set can hold. */
+export type RequestItemType =
+  | typeof REQUEST_ENTITY_TYPE
+  | typeof GRPC_REQUEST_ENTITY_TYPE
+  | typeof WEBSOCKET_REQUEST_ENTITY_TYPE
+  | typeof MQTT_REQUEST_ENTITY_TYPE;
+
+/**
+ * Slot marker stored under `parent.items[requestUid]`. The `type`
+ * names which request catalog owns the leaf so a reader can resolve
+ * the slot without probing four stores.
+ */
+export interface RequestFolderItemSlot {
+  uid: string;
+  type: RequestItemType;
 }
 
 /**

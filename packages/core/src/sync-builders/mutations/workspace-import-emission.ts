@@ -11,7 +11,12 @@
  *
  * Shape per plan entry:
  *   - `create` → the family's seed batch (`create` + per-member
- *     `addToSet`), exactly what `buildAddBatch` wraps.
+ *     `addToSet`), exactly what `buildAddBatch` wraps, plus the parent's
+ *     containment slot in the same batch: the workspace roots' set for
+ *     a collection, the parent's `folders` / `items` set for a folder /
+ *     leaf, appended after the parent's live tail. A leaf whose parent
+ *     is unresolvable lands slot-less (the by-path seeding rehomes it)
+ *     rather than being dropped.
  *   - `update` → a diff against the pre-import target entity: scalar
  *     leaves via the family's `buildUpdateBatch` where one exists
  *     (rules / requests / templates / live workflows / live variables),
@@ -30,6 +35,7 @@
  */
 
 import {
+  type ChildPlacement,
   COLLECTION_ENTITY_TYPE,
   COLLECTION_VARS_PATH,
   canonicalJson,
@@ -37,8 +43,8 @@ import {
   ENV_VARS_PATH,
   ENVIRONMENT_ENTITY_TYPE,
   FOLDER_CHILDREN_PATH,
-  FOLDER_ENTITY_TYPE,
-  type FolderParentRef,
+  FOLDER_ITEMS_PATH,
+  FOLDER_TREE_KINDS,
   keyBetween,
   LIVE_VARIABLE_ENTITY_TYPE,
   LIVE_WORKFLOW_ENTITY_TYPE,
@@ -47,13 +53,15 @@ import {
   type MutatorContext,
   type MutatorIntent,
   mintBatch,
+  type ParentRefShape,
   REQUEST_COLLECTION_ENTITY_TYPE,
   REQUEST_COLLECTION_VARS_PATH,
   REQUEST_ENTITY_TYPE,
   REQUEST_FOLDER_CHILDREN_PATH,
-  REQUEST_FOLDER_ENTITY_TYPE,
-  type RequestFolderParentRef,
+  REQUEST_FOLDER_ITEMS_PATH,
+  REQUEST_FOLDER_TREE_KINDS,
   RULE_ENTITY_TYPE,
+  resolveTreeParent,
   type SideEffectIntent,
   SPEC_ENTITY_TYPE,
   SPEC_FILES_PATH,
@@ -61,17 +69,24 @@ import {
   TEMPLATE_COLLECTION_VARS_PATH,
   TEMPLATE_ENTITY_TYPE,
   TEMPLATE_FOLDER_CHILDREN_PATH,
-  TEMPLATE_FOLDER_ENTITY_TYPE,
-  type TemplateFolderParentRef,
+  TEMPLATE_FOLDER_ITEMS_PATH,
+  TEMPLATE_FOLDER_TREE_KINDS,
   TRUSTED_ROOTS_ENTITY_TYPE,
   TRUSTED_ROOTS_ID,
   TRUSTED_ROOTS_PATH,
+  type TreeParentKinds,
+  type TreeParentRef,
   VAULT_ENTITY_TYPE,
   VAULT_ID,
   VAULT_PATH,
+  WORKSPACE_ROOTS_REF,
+  WORKSPACE_ROOTS_REQUEST_COLLECTIONS_PATH,
+  WORKSPACE_ROOTS_RULE_COLLECTIONS_PATH,
+  WORKSPACE_ROOTS_TEMPLATE_COLLECTIONS_PATH,
   WORKSPACE_VARIABLES_ENTITY_TYPE,
   WORKSPACE_VARIABLES_ID,
   WORKSPACE_VARIABLES_PATH,
+  type WorkspaceRootsRef,
 } from '@openheaders/core/sync';
 import { type LiveSetEntry, synthesizeSetDiff } from '@openheaders/core/sync-builders';
 import type {
@@ -90,6 +105,7 @@ import type {
   VaultSecret,
   WorkspaceVariables,
 } from '@openheaders/core/types';
+import { lastPathSegment, parentPathOf } from '@openheaders/core/utils';
 import type { ImportPlan, LocalFolder, PlanEntry } from '@openheaders/core/workspace-export';
 import { seedCollection } from '../projections/collection-projection';
 import { seedEnvironment } from '../projections/env-projection';
@@ -179,6 +195,32 @@ export function synthesizeImportEmission(
   const out: EmissionBatch[] = [];
   const { plan } = slices;
 
+  // One tail tracker per emission: every parent's `folders` / `items`
+  // set and the roots' collection sets append strictly after their live
+  // tail, and sibling creates in the same run keep ascending.
+  const tail = createTailTracker(deps.liveSetEntries);
+  const ruleTree = createTreePlacer(
+    FOLDER_TREE_KINDS,
+    prev.ruleCollections,
+    slices.ruleCollections,
+    prev.ruleFolders,
+    slices.ruleFolders,
+  );
+  const requestTree = createTreePlacer(
+    REQUEST_FOLDER_TREE_KINDS,
+    prev.requestCollections,
+    slices.requestCollections,
+    prev.requestFolders,
+    slices.requestFolders,
+  );
+  const templateTree = createTreePlacer(
+    TEMPLATE_FOLDER_TREE_KINDS,
+    prev.templateCollections,
+    slices.templateCollections,
+    prev.templateFolders,
+    slices.templateFolders,
+  );
+
   // ── Collections (parents first: folder creates addToSet their slots) ──
   emitCollections(
     out,
@@ -186,7 +228,9 @@ export function synthesizeImportEmission(
     prev.ruleCollections,
     COLLECTION_ENTITY_TYPE,
     COLLECTION_VARS_PATH,
+    WORKSPACE_ROOTS_RULE_COLLECTIONS_PATH,
     seedCollection,
+    tail,
     deps,
   );
   emitCollections(
@@ -195,7 +239,9 @@ export function synthesizeImportEmission(
     prev.requestCollections,
     REQUEST_COLLECTION_ENTITY_TYPE,
     REQUEST_COLLECTION_VARS_PATH,
+    WORKSPACE_ROOTS_REQUEST_COLLECTIONS_PATH,
     seedRequestCollection,
+    tail,
     deps,
   );
   emitCollections(
@@ -204,51 +250,45 @@ export function synthesizeImportEmission(
     prev.templateCollections,
     TEMPLATE_COLLECTION_ENTITY_TYPE,
     TEMPLATE_COLLECTION_VARS_PATH,
+    WORKSPACE_ROOTS_TEMPLATE_COLLECTIONS_PATH,
     seedTemplateCollection,
+    tail,
     deps,
   );
 
   // ── Folders (depth order; parent slot rides the create batch) ──
-  emitFolders<FolderParentRef>(out, {
+  emitFolders(out, {
     entries: slices.ruleFolders,
     prevFolders: prev.ruleFolders,
-    prevCollections: prev.ruleCollections,
-    planCollections: slices.ruleCollections,
-    collectionType: COLLECTION_ENTITY_TYPE,
-    folderType: FOLDER_ENTITY_TYPE,
+    tree: ruleTree,
     childrenPath: FOLDER_CHILDREN_PATH,
-    parentRef: (type, uid) => ({ type, uid }) as FolderParentRef,
     buildCreate: buildCreateFolderBatch,
+    tail,
     deps,
   });
-  emitFolders<RequestFolderParentRef>(out, {
+  emitFolders(out, {
     entries: slices.requestFolders,
     prevFolders: prev.requestFolders,
-    prevCollections: prev.requestCollections,
-    planCollections: slices.requestCollections,
-    collectionType: REQUEST_COLLECTION_ENTITY_TYPE,
-    folderType: REQUEST_FOLDER_ENTITY_TYPE,
+    tree: requestTree,
     childrenPath: REQUEST_FOLDER_CHILDREN_PATH,
-    parentRef: (type, uid) => ({ type, uid }) as RequestFolderParentRef,
     buildCreate: buildCreateRequestFolderBatch,
+    tail,
     deps,
   });
-  emitFolders<TemplateFolderParentRef>(out, {
+  emitFolders(out, {
     entries: slices.templateFolders,
     prevFolders: prev.templateFolders,
-    prevCollections: prev.templateCollections,
-    planCollections: slices.templateCollections,
-    collectionType: TEMPLATE_COLLECTION_ENTITY_TYPE,
-    folderType: TEMPLATE_FOLDER_ENTITY_TYPE,
+    tree: templateTree,
     childrenPath: TEMPLATE_FOLDER_CHILDREN_PATH,
-    parentRef: (type, uid) => ({ type, uid }) as TemplateFolderParentRef,
     buildCreate: buildCreateTemplateFolderBatch,
+    tail,
     deps,
   });
 
   // ── Leaves ──
   emitLeaves(out, plan.rules, prev.rules, 'rule', {
-    create: (rule, ctx) => buildAddRuleBatch(rule, ctx),
+    place: (rule) => ruleTree.placeLeaf(rule.path, FOLDER_ITEMS_PATH, tail),
+    create: (rule, ctx, placement) => buildAddRuleBatch(rule, ctx, placement),
     update: (uid, entity, updates, ctx) =>
       buildUpdateRuleBatch(
         uid,
@@ -262,7 +302,8 @@ export function synthesizeImportEmission(
     deps,
   });
   emitLeaves(out, plan.requests, prev.requests, 'request', {
-    create: (request, ctx) => buildAddRequestBatch(request, ctx),
+    place: (request) => requestTree.placeLeaf(request.path, REQUEST_FOLDER_ITEMS_PATH, tail),
+    create: (request, ctx, placement) => buildAddRequestBatch(request, ctx, placement),
     update: (uid, _entity, updates, ctx) =>
       buildUpdateRequestBatch(
         uid,
@@ -275,7 +316,8 @@ export function synthesizeImportEmission(
     deps,
   });
   emitLeaves(out, plan.templates, prev.templates, 'template', {
-    create: (template, ctx) => buildAddTemplateBatch(template, ctx),
+    place: (template) => templateTree.placeLeaf(template.path, TEMPLATE_FOLDER_ITEMS_PATH, tail),
+    create: (template, ctx, placement) => buildAddTemplateBatch(template, ctx, placement),
     update: (uid, _entity, updates, ctx) =>
       buildUpdateTemplateBatch(uid, updates as Partial<Omit<Template, 'uid' | 'path'>>, ctx, (id, setPath) =>
         deps.liveSetEntries(TEMPLATE_ENTITY_TYPE, id, setPath),
@@ -292,6 +334,7 @@ export function synthesizeImportEmission(
 
   // ── Live workflows / variables (flat scalars) ──
   emitLeaves(out, plan.liveWorkflows, prev.liveWorkflows, 'live-workflow', {
+    place: () => null,
     create: (wf, ctx) => buildAddLiveWorkflowBatch(wf, ctx),
     update: (uid, _entity, updates, ctx) =>
       buildUpdateLiveWorkflowBatch(uid, updates as Partial<Omit<LiveWorkflow, 'uid' | 'path'>>, ctx),
@@ -299,6 +342,7 @@ export function synthesizeImportEmission(
     deps,
   });
   emitLeaves(out, plan.liveVariables, prev.liveVariables, 'live-variable', {
+    place: () => null,
     create: (lv, ctx) => buildAddLiveVariableBatch(lv, ctx),
     update: (uid, _entity, updates, ctx) =>
       buildUpdateLiveVariableBatch(uid, updates as Partial<Omit<LiveVariable, 'uid' | 'path'>>, ctx),
@@ -327,6 +371,68 @@ export function synthesizeImportEmission(
 // ── Shared helpers ─────────────────────────────────────────────────
 
 export const changed = (a: unknown, b: unknown): boolean => canonicalJson(a) !== canonicalJson(b);
+
+/**
+ * Mints the next append key for a parent's ordered set: strictly after
+ * the set's live tail on the first call, strictly after the previous
+ * mint on every later call, so a run of creates keeps its order.
+ */
+export type TailTracker = (parent: ParentRefShape, setPath: string) => string;
+
+export function createTailTracker(liveSetEntries: LiveSetEntriesReader): TailTracker {
+  const lastKey = new Map<string, string | null>();
+  return (parent, setPath) => {
+    const mapKey = `${parent.type}:${parent.uid}:${setPath}`;
+    let tail = lastKey.get(mapKey);
+    if (tail === undefined) {
+      const live = liveSetEntries(parent.type, parent.uid, setPath);
+      tail = live.length > 0 ? live[live.length - 1].orderKey : null;
+    }
+    const next = keyBetween(tail, null);
+    lastKey.set(mapKey, next);
+    return next;
+  };
+}
+
+/**
+ * Path → parent-ref resolution over one tree for the duration of an
+ * emission: the target's collections and folders plus the plan's
+ * non-skip entries (a created child may hang under a container created
+ * by this same run), with the path's own uid tail as the fallback.
+ */
+export interface TreePlacer<C extends string, F extends string> {
+  readonly kinds: TreeParentKinds<C, F>;
+  parentOf(entityPath: string): TreeParentRef<C, F> | null;
+  /** Placement for a leaf at `entityPath`: its parent + the next
+   *  append key on the parent's `setPath`; `null` when unresolvable. */
+  placeLeaf(entityPath: string, setPath: string, tail: TailTracker): ChildPlacement<TreeParentRef<C, F>> | null;
+}
+
+export function createTreePlacer<C extends string, F extends string>(
+  kinds: TreeParentKinds<C, F>,
+  prevCollections: readonly Collection[],
+  planCollections: readonly PlanEntry<Collection>[],
+  prevFolders: readonly LocalFolder[],
+  planFolders: readonly PlanEntry<LocalFolder>[],
+): TreePlacer<C, F> {
+  const collections: Array<{ uid: string; path: string }> = [...prevCollections];
+  for (const e of planCollections) if (e.action !== 'skip') collections.push(e.entity);
+  const folders: Array<{ uid: string; path: string }> = [...prevFolders];
+  for (const e of planFolders) if (e.action !== 'skip') folders.push(e.entity);
+  const lookup = { collections, folders };
+  const parentOf = (entityPath: string): TreeParentRef<C, F> | null => {
+    const parentPath = parentPathOf(entityPath);
+    return parentPath === null ? null : resolveTreeParent(parentPath, lookup, kinds);
+  };
+  return {
+    kinds,
+    parentOf,
+    placeLeaf(entityPath, setPath, tail) {
+      const parent = parentOf(entityPath);
+      return parent ? { parent, orderKey: tail(parent, setPath) } : null;
+    },
+  };
+}
 
 function byUid<T extends { uid: string }>(items: readonly T[] | undefined): Map<string, T> {
   return new Map((items ?? []).map((e) => [e.uid, e] as const));
@@ -378,13 +484,25 @@ export function diffKeys(
   return { updates, removedKeys };
 }
 
-const LEAF_SKIP = new Set(['uid', 'path']);
+/**
+ * Entity-managed keys an update collision never rewrites: identity,
+ * the projected path, and the frozen segment behind it (an import
+ * source that predates containment carries no `pathSegment`; a diff
+ * against the target must not tombstone it).
+ */
+export const LEAF_SKIP: ReadonlySet<string> = new Set(['uid', 'path', 'pathSegment']);
 
 // ── Leaves (rules / requests / templates / live wf / live vars) ────
 
-interface LeafFamily<T extends { uid: string }> {
+interface LeafFamily<T extends { uid: string }, P extends ParentRefShape> {
   entityType: string;
-  create: (entity: T, ctx: MutatorContext) => { batch: MutationBatch; sideEffects: SideEffectIntent[] };
+  /** Containment for a created leaf; `null` for families without a parent. */
+  place: (entity: T) => ChildPlacement<P> | null;
+  create: (
+    entity: T,
+    ctx: MutatorContext,
+    placement: ChildPlacement<P> | null,
+  ) => { batch: MutationBatch; sideEffects: SideEffectIntent[] };
   update: (
     uid: string,
     entity: T,
@@ -394,12 +512,12 @@ interface LeafFamily<T extends { uid: string }> {
   deps: ImportEmissionDeps;
 }
 
-function emitLeaves<T extends { uid: string }>(
+function emitLeaves<T extends { uid: string }, P extends ParentRefShape>(
   out: EmissionBatch[],
   entries: PlanEntry<T>[],
   prevItems: readonly T[],
   tag: string,
-  family: LeafFamily<T>,
+  family: LeafFamily<T, P>,
 ): void {
   const prevByUid = byUid(prevItems);
   for (const entry of entries) {
@@ -407,7 +525,7 @@ function emitLeaves<T extends { uid: string }>(
     const uid = entry.entity.uid;
     const prevEntity = entry.action === 'update' ? prevByUid.get(uid) : undefined;
     if (entry.action === 'create' || !prevEntity) {
-      const payload = family.create(entry.entity, family.deps.nextCtx());
+      const payload = family.create(entry.entity, family.deps.nextCtx(), family.place(entry.entity));
       out.push({ label: `${tag}:${uid} (create)`, batch: payload.batch, sideEffects: payload.sideEffects });
       continue;
     }
@@ -442,7 +560,9 @@ function emitCollections(
   prevItems: readonly Collection[],
   entityType: string,
   varsPath: string,
-  seed: (collection: Collection, ctx: MutatorContext) => MutationBatch,
+  rootsPath: string,
+  seed: (collection: Collection, ctx: MutatorContext, placement: ChildPlacement<WorkspaceRootsRef>) => MutationBatch,
+  tail: TailTracker,
   deps: ImportEmissionDeps,
 ): void {
   const prevByUid = byUid(prevItems);
@@ -451,7 +571,8 @@ function emitCollections(
     const uid = entry.entity.uid;
     const prevEntity = entry.action === 'update' ? prevByUid.get(uid) : undefined;
     if (entry.action === 'create' || !prevEntity) {
-      out.push(seedBatch(`${entityType}:${uid} (create)`, seed(entry.entity, deps.nextCtx())));
+      const placement = { parent: WORKSPACE_ROOTS_REF, orderKey: tail(WORKSPACE_ROOTS_REF, rootsPath) };
+      out.push(seedBatch(`${entityType}:${uid} (create)`, seed(entry.entity, deps.nextCtx(), placement)));
       continue;
     }
     const { updates, removedKeys } = diffKeys(
@@ -483,52 +604,22 @@ function emitCollections(
 
 // ── Folders ────────────────────────────────────────────────────────
 
-interface FolderEmissionArgs<P extends { type: string; uid: string }> {
+interface FolderEmissionArgs<C extends string, F extends string> {
   entries: PlanEntry<LocalFolder>[];
   prevFolders: readonly LocalFolder[];
-  prevCollections: readonly Collection[];
-  planCollections: PlanEntry<Collection>[];
-  collectionType: string;
-  folderType: string;
+  tree: TreePlacer<C, F>;
   /** The parent's ordered child-folder set path (`folders` on every tree). */
   childrenPath: string;
-  /** Narrow a `(type, uid)` pair to the family's parent-ref union —
-   *  same cast-at-config-site shape the folder cache's `parentFor` uses. */
-  parentRef: (type: string, uid: string) => P;
   buildCreate: (
-    input: { folderUid: string; parent: P; name: string; pathSegment?: string; orderKey?: string },
+    input: { folderUid: string; parent: TreeParentRef<C, F>; name: string; pathSegment?: string; orderKey?: string },
     ctx: MutatorContext,
   ) => MutatorIntent;
+  tail: TailTracker;
   deps: ImportEmissionDeps;
 }
 
-function emitFolders<P extends { type: string; uid: string }>(out: EmissionBatch[], args: FolderEmissionArgs<P>): void {
+function emitFolders<C extends string, F extends string>(out: EmissionBatch[], args: FolderEmissionArgs<C, F>): void {
   const prevByUid = byUid(args.prevFolders);
-
-  // Parent lookup by path — target collections/folders plus the plan's
-  // non-skip entries (a created folder may hang under a collection or
-  // folder created by this same import).
-  const parentByPath = new Map<string, P>();
-  for (const c of args.prevCollections) parentByPath.set(c.path, args.parentRef(args.collectionType, c.uid));
-  for (const e of args.planCollections) {
-    if (e.action !== 'skip') parentByPath.set(e.entity.path, args.parentRef(args.collectionType, e.entity.uid));
-  }
-  for (const f of args.prevFolders) parentByPath.set(f.path, args.parentRef(args.folderType, f.uid));
-  for (const e of args.entries) {
-    if (e.action !== 'skip') parentByPath.set(e.entity.path, args.parentRef(args.folderType, e.entity.uid));
-  }
-
-  // Track the last child orderKey per parent so sibling creates in the
-  // same import mint strictly increasing keys after the live tail.
-  const lastKeyByParent = new Map<string, string | null>();
-  const tailKey = (parent: P): string | null => {
-    const mapKey = `${parent.type}:${parent.uid}`;
-    if (!lastKeyByParent.has(mapKey)) {
-      const live = args.deps.liveSetEntries(parent.type, parent.uid, args.childrenPath);
-      lastKeyByParent.set(mapKey, live.length > 0 ? live[live.length - 1].orderKey : null);
-    }
-    return lastKeyByParent.get(mapKey) ?? null;
-  };
 
   // Parents before children — depth from `/` separators is total-ordered
   // with parents-first, same trick the folder cache's seed uses.
@@ -538,24 +629,20 @@ function emitFolders<P extends { type: string; uid: string }>(out: EmissionBatch
 
   for (const entry of creates) {
     const folder = entry.entity;
-    const parentPath = parentPathOf(folder.path);
-    const parent = parentPath ? parentByPath.get(parentPath) : undefined;
+    const parent = args.tree.parentOf(folder.path);
     if (!parent) continue; // unresolvable parent — same skip the reseed applies
-    const segment = lastSegmentOf(folder.path);
-    const mapKey = `${parent.type}:${parent.uid}`;
-    const orderKey = keyBetween(tailKey(parent), null);
-    lastKeyByParent.set(mapKey, orderKey);
+    const segment = lastPathSegment(folder.path);
     const intent = args.buildCreate(
       {
         folderUid: folder.uid,
         parent,
         name: folder.name,
         ...(segment ? { pathSegment: segment } : {}),
-        orderKey,
+        orderKey: args.tail(parent, args.childrenPath),
       },
       args.deps.nextCtx(),
     );
-    out.push(intentBatch(`${args.folderType}:${folder.uid} (create)`, intent));
+    out.push(intentBatch(`${args.tree.kinds.folderType}:${folder.uid} (create)`, intent));
   }
 
   // Update collisions carry the folder's own scalar state only — parent
@@ -566,10 +653,11 @@ function emitFolders<P extends { type: string; uid: string }>(out: EmissionBatch
     const prevEntity = prevByUid.get(entry.entity.uid);
     if (!prevEntity) continue; // handled as create above only when action says so
     if (prevEntity.name !== entry.entity.name) {
+      const folderType = args.tree.kinds.folderType;
       out.push(
         bodiesBatch(
-          `${args.folderType}:${entry.entity.uid} (rename)`,
-          [{ kind: 'setField', type: args.folderType, id: entry.entity.uid, path: 'name', value: entry.entity.name }],
+          `${folderType}:${entry.entity.uid} (rename)`,
+          [{ kind: 'setField', type: folderType, id: entry.entity.uid, path: 'name', value: entry.entity.name }],
           args.deps.nextCtx(),
         ),
       );
@@ -578,15 +666,6 @@ function emitFolders<P extends { type: string; uid: string }>(out: EmissionBatch
 }
 
 const depthOf = (path: string): number => path.split('/').length;
-const parentPathOf = (path: string): string | null => {
-  const idx = path.lastIndexOf('/');
-  return idx > 0 ? path.slice(0, idx) : null;
-};
-const lastSegmentOf = (path: string): string | null => {
-  const idx = path.lastIndexOf('/');
-  const tail = idx < 0 ? path : path.slice(idx + 1);
-  return tail.length > 0 ? tail : null;
-};
 
 // ── Environments ───────────────────────────────────────────────────
 

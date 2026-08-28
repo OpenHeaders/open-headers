@@ -1,62 +1,81 @@
 /**
- * `createRequest` + `deleteRequest` — request entity lifecycle.
+ * `createRequest` + `deleteRequest` + `moveRequest` — request entity
+ * lifecycle as a tree child. Thin adapters over the shared
+ * child-mutator factory bound to the requests tree: the parent
+ * (request collection or request folder) owns the request's slot in
+ * its `items` set, tagged `type: 'request'` because the same set holds
+ * the gRPC / WebSocket / MQTT kinds; the request's `path` is a
+ * projection of that slot.
  *
- * Unlike folders, the request entity is NOT slotted on a parent — its
- * tree position is encoded by the `path` scalar (legacy `requests/<col>/<folder>/<request>`
- * filesystem-style segments) on the request payload itself. Parent
- * collections / folders own only their own state, not a child-slot
- * for requests. Cascade deletes when a parent collection / folder is
- * removed are emitted from the SW write site (rule-store / request-
- * store cascade walks `path` prefixes); this catalog ships the
- * single-entity primitives.
- *
- * Set-modeled paths (`headers`, `params`) and body-internal arrays
- * are NOT pre-seeded by `createRequest`. The projection layer in
- * Phase B commit 2 (`request-projection.ts`) flattens the create
- * payload into per-leaf scalars + per-row `addToSet` envelopes, so
- * the catalog's create can stay opaque about the row shapes — the
- * payload is just `Request` minus uid/path (which are the
- * envelope's `id` and a scalar respectively).
+ * Set-modeled paths (`headers`, `params`) and body-internal arrays are
+ * NOT pre-seeded by `createRequest`. The seed builder
+ * (`request-projection.ts`) flattens the create payload into per-leaf
+ * scalars + per-row `addToSet` envelopes and appends the parent slot
+ * via {@link requestChild.slotAdd} in the same batch — the catalog's
+ * create stays opaque about the row shapes.
  */
 
-import type { MutationBody } from '../../envelope';
+import {
+  REQUEST_FOLDER_ITEMS_PATH,
+  type RequestFolderItemSlot,
+  type RequestFolderParentRef,
+} from '../request-folder/types';
+import { makeChildMutators } from '../shared/child-mutators';
 import type { MutatorContext, MutatorIntent } from '../types';
 import { mintBatch } from './envelope';
 import { REQUEST_ENTITY_TYPE } from './types';
 
+/** The generic child verbs bound to the requests tree for this kind. */
+export const requestChild = makeChildMutators<RequestFolderParentRef, RequestFolderItemSlot>({
+  entityType: REQUEST_ENTITY_TYPE,
+  childrenPath: REQUEST_FOLDER_ITEMS_PATH,
+  slot: (uid) => ({ uid, type: REQUEST_ENTITY_TYPE }),
+  mintBatch,
+});
+
 export interface CreateRequestArgs {
   requestUid: string;
+  parent: RequestFolderParentRef;
   /**
-   * Full request payload as `Request` minus `uid` (carried on the
-   * envelope as `id`). Validated at the oracle boundary by the
-   * request schema. The projector layer is responsible for splitting
-   * `headers` / `params` arrays into per-row `addToSet` envelopes —
-   * this factory does not do that splitting itself, mirroring the way
-   * `seedRule` / `seedFolder` operate (catalog mints the create; SW
-   * shared/sync projector seeds the set-modeled paths).
+   * Scalar shell as `Request` minus `uid` (carried on the envelope as
+   * `id`). Validated at the oracle boundary by the request schema.
    */
   payload: unknown;
+  /** Pre-computed fractional-indexing key for the new slot's position. */
+  orderKey?: string;
 }
 
 export function createRequest(ctx: MutatorContext, args: CreateRequestArgs): MutatorIntent {
-  const bodies: MutationBody[] = [
-    {
-      kind: 'create',
-      type: REQUEST_ENTITY_TYPE,
-      id: args.requestUid,
-      payload: args.payload,
-    },
-  ];
-  return { batch: mintBatch(ctx, bodies), sideEffects: [] };
+  return requestChild.create(ctx, {
+    childUid: args.requestUid,
+    parent: args.parent,
+    payload: args.payload,
+    orderKey: args.orderKey,
+  });
 }
 
 export interface DeleteRequestArgs {
   requestUid: string;
+  parent: RequestFolderParentRef;
 }
 
 export function deleteRequest(ctx: MutatorContext, args: DeleteRequestArgs): MutatorIntent {
-  return {
-    batch: mintBatch(ctx, [{ kind: 'delete', type: REQUEST_ENTITY_TYPE, id: args.requestUid }]),
-    sideEffects: [],
-  };
+  return requestChild.delete(ctx, { childUid: args.requestUid, parent: args.parent });
+}
+
+export interface MoveRequestArgs {
+  requestUid: string;
+  newParent: RequestFolderParentRef;
+  orderKey: string;
+  /** Omit (or pass equal to `newParent`) for intra-parent reorder. */
+  oldParent?: RequestFolderParentRef;
+}
+
+export function moveRequest(ctx: MutatorContext, args: MoveRequestArgs): MutatorIntent {
+  return requestChild.move(ctx, {
+    childUid: args.requestUid,
+    newParent: args.newParent,
+    orderKey: args.orderKey,
+    oldParent: args.oldParent,
+  });
 }

@@ -9,7 +9,7 @@
  */
 
 import * as v from 'valibot';
-import { RelativePathSchema, SchemaVersionSchema, UidSchema } from './common';
+import { PathSegmentSchema, RelativePathSchema, SchemaVersionSchema, UidSchema } from './common';
 
 // ── Rule-type discriminator (shared by rule + template) ────────────
 
@@ -74,6 +74,7 @@ export const RuleBaseSchema = v.object({
   schemaVersion: SchemaVersionSchema,
   uid: UidSchema,
   path: RelativePathSchema,
+  pathSegment: v.optional(PathSegmentSchema),
   name: v.string(),
   type: RuleTypeSchema,
   enabled: v.boolean(),

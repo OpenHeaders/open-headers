@@ -84,19 +84,19 @@ const seed: WebSocketRequest = {
 describe('websocket request seed → project round-trip', () => {
   it('materializes the seeded entity back to the persisted shape', () => {
     const store = new InMemoryDocumentStore(wsSchemas);
-    applyBatch(store, buildWebSocketAddBatch(seed, ctx(1_000)));
+    applyBatch(store, buildWebSocketAddBatch(seed, ctx(1_000), null));
     expect(materialized(store, 'wsrq0001')).toEqual(seed);
   });
 
   it('materializes empty header + param sets as [] (schema-aware set paths)', () => {
     const store = new InMemoryDocumentStore(wsSchemas);
-    applyBatch(store, buildWebSocketAddBatch({ ...seed, headers: [], params: [] }, ctx(1_000)));
+    applyBatch(store, buildWebSocketAddBatch({ ...seed, headers: [], params: [] }, ctx(1_000), null));
     expect(materialized(store, 'wsrq0001').headers).toEqual([]);
     expect(materialized(store, 'wsrq0001').params).toEqual([]);
   });
 
   it('emits one addToSet per header/param row with the row uid as itemId', () => {
-    const payload = buildWebSocketAddBatch(seed, ctx(1_000));
+    const payload = buildWebSocketAddBatch(seed, ctx(1_000), null);
     const adds = payload.batch.mutations.filter((m) => m.body.kind === 'addToSet');
     expect(adds.map((m) => (m.body.kind === 'addToSet' ? m.body.itemId : ''))).toEqual([
       'wshd0001',
@@ -124,7 +124,7 @@ describe('websocket request seed → project round-trip', () => {
         { uid: 'wsev0002', name: 'heartbeat', listen: false, description: 'server keepalive' },
       ],
     };
-    applyBatch(store, buildWebSocketAddBatch(seeded, ctx(1_000)));
+    applyBatch(store, buildWebSocketAddBatch(seeded, ctx(1_000), null));
     expect(materialized(store, 'wsrq0001')).toEqual(seeded);
   });
 
@@ -136,7 +136,7 @@ describe('websocket request seed → project round-trip', () => {
 describe('websocket request update batches', () => {
   it('persists scalar edits (url, message, messageFormat) as setField leaves', () => {
     const store = new InMemoryDocumentStore(wsSchemas);
-    applyBatch(store, buildWebSocketAddBatch(seed, ctx(1_000)));
+    applyBatch(store, buildWebSocketAddBatch(seed, ctx(1_000), null));
 
     applyBatch(
       store,
@@ -157,7 +157,7 @@ describe('websocket request update batches', () => {
 
   it('routes subprotocol changes through the per-leaf flatten-diff', () => {
     const store = new InMemoryDocumentStore(wsSchemas);
-    applyBatch(store, buildWebSocketAddBatch(seed, ctx(1_000)));
+    applyBatch(store, buildWebSocketAddBatch(seed, ctx(1_000), null));
 
     const payload = buildWebSocketUpdateBatch(
       'wsrq0001',
@@ -176,7 +176,7 @@ describe('websocket request update batches', () => {
 
   it('shrinks the subprotocol list by tombstoning vanished indexes', () => {
     const store = new InMemoryDocumentStore(wsSchemas);
-    applyBatch(store, buildWebSocketAddBatch({ ...seed, subprotocols: ['a', 'b'] }, ctx(1_000)));
+    applyBatch(store, buildWebSocketAddBatch({ ...seed, subprotocols: ['a', 'b'] }, ctx(1_000), null));
 
     applyBatch(
       store,
@@ -187,7 +187,7 @@ describe('websocket request update batches', () => {
 
   it('persists a spec re-link through the per-leaf flatten-diff', () => {
     const store = new InMemoryDocumentStore(wsSchemas);
-    applyBatch(store, buildWebSocketAddBatch(seed, ctx(1_000)));
+    applyBatch(store, buildWebSocketAddBatch(seed, ctx(1_000), null));
 
     applyBatch(
       store,
@@ -204,7 +204,7 @@ describe('websocket request update batches', () => {
 
   it('emits minimum set-diff envelopes for header row edits', () => {
     const store = new InMemoryDocumentStore(wsSchemas);
-    applyBatch(store, buildWebSocketAddBatch(seed, ctx(1_000)));
+    applyBatch(store, buildWebSocketAddBatch(seed, ctx(1_000), null));
 
     // Live reader over the materialized set — ordered (itemId, orderKey, item).
     const liveSets = (uid: string, setPath: string) => {
@@ -239,7 +239,7 @@ describe('websocket request update batches', () => {
 
   it('routes an auth-block edit through the per-leaf flatten-diff', () => {
     const store = new InMemoryDocumentStore(wsSchemas);
-    applyBatch(store, buildWebSocketAddBatch({ ...seed, auth: { type: 'none' } }, ctx(1_000)));
+    applyBatch(store, buildWebSocketAddBatch({ ...seed, auth: { type: 'none' } }, ctx(1_000), null));
 
     const payload = buildWebSocketUpdateBatch(
       'wsrq0001',
@@ -261,7 +261,7 @@ describe('websocket request update batches', () => {
     const store = new InMemoryDocumentStore(wsSchemas);
     applyBatch(
       store,
-      buildWebSocketAddBatch({ ...seed, events: [{ uid: 'wsev0001', name: 'price-update' }] }, ctx(1_000)),
+      buildWebSocketAddBatch({ ...seed, events: [{ uid: 'wsev0001', name: 'price-update' }] }, ctx(1_000), null),
     );
 
     const liveSets = (uid: string, setPath: string) => {
@@ -290,7 +290,7 @@ describe('websocket request update batches', () => {
 
   it('replaces param rows including the hasEquals round-trip marker', () => {
     const store = new InMemoryDocumentStore(wsSchemas);
-    applyBatch(store, buildWebSocketAddBatch(seed, ctx(1_000)));
+    applyBatch(store, buildWebSocketAddBatch(seed, ctx(1_000), null));
 
     const liveSets = (uid: string, setPath: string) => {
       const entries = store.liveOrderedSetItems(WEBSOCKET_REQUEST_ENTITY_TYPE, uid, setPath);

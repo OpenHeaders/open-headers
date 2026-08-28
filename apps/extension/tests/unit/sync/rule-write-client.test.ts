@@ -12,8 +12,15 @@
  */
 
 import type { MutationBatch, MutatorContext } from '@openheaders/core/sync';
-import { advanceHlc, initialHlc, RULE_ENTITY_TYPE } from '@openheaders/core/sync';
-import type { HeaderModification, HeaderRule, Rule } from '@openheaders/core/types';
+import {
+  advanceHlc,
+  COLLECTION_ENTITY_TYPE,
+  FOLDER_ENTITY_TYPE,
+  FOLDER_ITEMS_PATH,
+  initialHlc,
+  RULE_ENTITY_TYPE,
+} from '@openheaders/core/sync';
+import type { Folder, HeaderModification, HeaderRule, Rule } from '@openheaders/core/types';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const { mockCall } = vi.hoisted(() => ({ mockCall: vi.fn() }));
@@ -33,7 +40,12 @@ vi.mock('@utils/logger', () => ({
 }));
 
 import { type HostBridge, setHostBridge } from '@openheaders/core/bridge';
-import type { RendererContextHandle, RuleSyncMirror } from '@openheaders/ui/context';
+import type {
+  CollectionSyncMirror,
+  FolderSyncMirror,
+  RendererContextHandle,
+  RuleSyncMirror,
+} from '@openheaders/ui/context';
 import {
   applyRuleCreate,
   applyRuleDelete,
@@ -74,6 +86,45 @@ function makeMirror(
     subscribeRuleMirror: () => () => undefined,
     hydrated: Promise.resolve(),
     dispose: () => undefined,
+  };
+}
+
+/** The rule tree's container mirrors: the collection `rules/coll-abcd1234`
+ *  and one folder under it, with pinned `items` order keys. */
+function makeTreeMirrors(itemsByParent: Record<string, Array<{ itemId: string; orderKey: string }>> = {}): {
+  collectionMirror: CollectionSyncMirror;
+  folderMirror: FolderSyncMirror;
+} {
+  const collection = {
+    schemaVersion: 5 as const,
+    uid: 'abcd1234',
+    path: 'rules/coll-abcd1234',
+    name: 'Coll',
+    variables: [],
+    pinnedEnvironmentIds: [],
+    defaultEnvironmentId: null,
+  };
+  const folder: Folder = { schemaVersion: 5, uid: 'fold0001', path: 'rules/coll-abcd1234/auth-fold0001', name: 'Auth' };
+  const orderKeys = (uid: string, path: string) => (path === FOLDER_ITEMS_PATH ? (itemsByParent[uid] ?? []) : []);
+  return {
+    collectionMirror: {
+      getCollectionMirror: (uid) => (uid === collection.uid ? { collection, varUids: [], setOrderKeys: {} } : null),
+      listCollections: () => [collection],
+      liveVarNames: () => [],
+      liveOrderedSetItems: orderKeys,
+      subscribeCollectionMirror: () => () => undefined,
+      hydrated: Promise.resolve(),
+      dispose: () => undefined,
+    },
+    folderMirror: {
+      getFolderMirror: (uid) => (uid === folder.uid ? { folder, setOrderKeys: {} } : null),
+      listFolders: () => [folder],
+      liveOrderedSetItems: orderKeys,
+      subscribeFolderMirror: () => () => undefined,
+      subscribeAny: () => () => undefined,
+      hydrated: Promise.resolve(),
+      dispose: () => undefined,
+    },
   };
 }
 
@@ -339,7 +390,7 @@ describe('applyRuleCreate', () => {
     mockCall.mockResolvedValue({ ok: true, outcomes: [] });
     const result = await applyRuleCreate(
       { rule: createSeed, parentPath: 'rules/coll-abcd1234' },
-      { workspaceId: 'ws-1', surfaceId: 'workbench', context: makeContextHandle() },
+      { workspaceId: 'ws-1', surfaceId: 'workbench', context: makeContextHandle(), ...makeTreeMirrors() },
     );
     expect(result.ok).toBe(true);
     expect(mockCall).toHaveBeenCalledTimes(1);
@@ -353,17 +404,70 @@ describe('applyRuleCreate', () => {
     expect(created.uid).toMatch(/^[0-9a-z]{8,}$/);
     expect(created.path.startsWith('rules/coll-abcd1234/')).toBe(true);
     expect(created.path.endsWith(created.uid)).toBe(true);
+    expect(created.pathSegment).toBe(`new-header-rule-${created.uid}`);
     expect(created.schemaVersion).toBe(5);
     expect(created.published).toBe(false);
     expect(result.ok && result.rule.uid).toBe(created.uid);
+  });
+
+  it('takes the parent collection items slot in the create batch, appended after the live tail', async () => {
+    mockCall.mockResolvedValue({ ok: true, outcomes: [] });
+    await applyRuleCreate(
+      { rule: createSeed, parentPath: 'rules/coll-abcd1234' },
+      {
+        workspaceId: 'ws-1',
+        surfaceId: 'workbench',
+        context: makeContextHandle(),
+        ...makeTreeMirrors({ abcd1234: [{ itemId: 'rul00001', orderKey: 'm' }] }),
+      },
+    );
+    const batch = (mockCall.mock.calls[0][1] as { batch: MutationBatch }).batch;
+    const created = (batch.mutations[0].body as { payload: HeaderRule }).payload;
+    const slot = batch.mutations[batch.mutations.length - 1].body as { orderKey?: string };
+    expect(slot).toMatchObject({
+      kind: 'addToSet',
+      type: COLLECTION_ENTITY_TYPE,
+      id: 'abcd1234',
+      path: FOLDER_ITEMS_PATH,
+      itemId: created.uid,
+      item: { uid: created.uid, type: RULE_ENTITY_TYPE },
+    });
+    expect(slot.orderKey && slot.orderKey > 'm').toBe(true);
+  });
+
+  it('routes the slot to the parent folder for a nested create, by the mirror or the path tail', async () => {
+    mockCall.mockResolvedValue({ ok: true, outcomes: [] });
+    for (const parentPath of ['rules/coll-abcd1234/auth-fold0001', 'rules/coll-abcd1234/unseen-fold0002']) {
+      mockCall.mockClear();
+      await applyRuleCreate(
+        { rule: createSeed, parentPath },
+        { workspaceId: 'ws-1', surfaceId: 'workbench', context: makeContextHandle(), ...makeTreeMirrors() },
+      );
+      const batch = (mockCall.mock.calls[0][1] as { batch: MutationBatch }).batch;
+      expect(batch.mutations[batch.mutations.length - 1].body).toMatchObject({
+        kind: 'addToSet',
+        type: FOLDER_ENTITY_TYPE,
+        id: parentPath.endsWith('fold0001') ? 'fold0001' : 'fold0002',
+        path: FOLDER_ITEMS_PATH,
+      });
+    }
+  });
+
+  it('refuses a parent path nothing can place instead of minting a stranded rule', async () => {
+    const result = await applyRuleCreate(
+      { rule: createSeed, parentPath: 'rules/hand-named' },
+      { workspaceId: 'ws-1', surfaceId: 'workbench', context: makeContextHandle(), ...makeTreeMirrors() },
+    );
+    expect(result).toEqual({ ok: false, reason: 'other', message: 'parent path not resolvable: rules/hand-named' });
+    expect(mockCall).not.toHaveBeenCalled();
   });
 
   it('overrides caller-supplied published:true with false — drafts must not arrive published', async () => {
     mockCall.mockResolvedValue({ ok: true, outcomes: [] });
     const result = await applyRuleCreate(
       // Seed type omits `published` but we cast through to assert the override path.
-      { rule: { ...createSeed, published: true } as typeof createSeed, parentPath: 'rules/c-1' },
-      { workspaceId: 'ws-1', surfaceId: 'workbench', context: makeContextHandle() },
+      { rule: { ...createSeed, published: true } as typeof createSeed, parentPath: 'rules/coll-abcd1234' },
+      { workspaceId: 'ws-1', surfaceId: 'workbench', context: makeContextHandle(), ...makeTreeMirrors() },
     );
     expect(result.ok).toBe(true);
     const batch = (mockCall.mock.calls[0][1] as { batch: MutationBatch }).batch;
@@ -383,11 +487,11 @@ describe('applyRuleCreate', () => {
       },
     };
     await applyRuleCreate(
-      { rule: seedWithMembers, parentPath: 'rules/c-1' },
-      { workspaceId: 'ws-1', surfaceId: 'workbench', context: makeContextHandle() },
+      { rule: seedWithMembers, parentPath: 'rules/coll-abcd1234' },
+      { workspaceId: 'ws-1', surfaceId: 'workbench', context: makeContextHandle(), ...makeTreeMirrors() },
     );
     const batch = (mockCall.mock.calls[0][1] as { batch: MutationBatch }).batch;
-    const adds = batch.mutations.filter((m) => m.body.kind === 'addToSet');
+    const adds = batch.mutations.filter((m) => m.body.kind === 'addToSet' && m.body.type === RULE_ENTITY_TYPE);
     expect(adds).toHaveLength(2);
     const paths = adds.map((m) => (m.body as { path: string }).path).sort();
     expect(paths).toEqual(['action.requestHeaders', 'conditions']);
@@ -404,12 +508,12 @@ describe('applyRuleCreate', () => {
       })),
     };
     await applyRuleCreate(
-      { rule: seedWithConds, parentPath: 'rules/c-1' },
-      { workspaceId: 'ws-1', surfaceId: 'workbench', context: makeContextHandle() },
+      { rule: seedWithConds, parentPath: 'rules/coll-abcd1234' },
+      { workspaceId: 'ws-1', surfaceId: 'workbench', context: makeContextHandle(), ...makeTreeMirrors() },
     );
     const batch = (mockCall.mock.calls[0][1] as { batch: MutationBatch }).batch;
     const keys = batch.mutations
-      .filter((m) => m.body.kind === 'addToSet')
+      .filter((m) => m.body.kind === 'addToSet' && m.body.type === RULE_ENTITY_TYPE)
       .map((m) => m.body as { itemId: string; orderKey?: string });
     expect(keys.map((k) => k.itemId)).toEqual(['c1', 'c2', 'c3']);
     for (const k of keys) expect(typeof k.orderKey).toBe('string');
@@ -421,8 +525,8 @@ describe('applyRuleCreate', () => {
   it('returns the bridge error as `other` on transport failure', async () => {
     mockCall.mockRejectedValue(new Error('bridge dead'));
     const result = await applyRuleCreate(
-      { rule: createSeed, parentPath: 'rules/c-1' },
-      { workspaceId: 'ws-1', surfaceId: 'workbench', context: makeContextHandle() },
+      { rule: createSeed, parentPath: 'rules/coll-abcd1234' },
+      { workspaceId: 'ws-1', surfaceId: 'workbench', context: makeContextHandle(), ...makeTreeMirrors() },
     );
     expect(result).toEqual({ ok: false, reason: 'other', message: 'bridge dead' });
   });
@@ -447,8 +551,8 @@ describe('applyRuleCreate — rule_created product telemetry', () => {
     mockCall.mockResolvedValue({ ok: true, outcomes: [] });
     const track = installTelemetrySpy();
     await applyRuleCreate(
-      { rule: createSeed, parentPath: 'rules/c-1' },
-      { workspaceId: 'ws-1', surfaceId: 'workbench', context: makeContextHandle() },
+      { rule: createSeed, parentPath: 'rules/coll-abcd1234' },
+      { workspaceId: 'ws-1', surfaceId: 'workbench', context: makeContextHandle(), ...makeTreeMirrors() },
     );
     expect(track).toHaveBeenCalledWith('productTelemetryTrack', {
       event: { name: 'rule_created', ruleType: 'header', origin: 'editor' },
@@ -459,8 +563,14 @@ describe('applyRuleCreate — rule_created product telemetry', () => {
     mockCall.mockResolvedValue({ ok: true, outcomes: [] });
     const track = installTelemetrySpy();
     await applyRuleCreate(
-      { rule: createSeed, parentPath: 'rules/c-1' },
-      { workspaceId: 'ws-1', surfaceId: 'devpanel', origin: 'quick-editor', context: makeContextHandle() },
+      { rule: createSeed, parentPath: 'rules/coll-abcd1234' },
+      {
+        workspaceId: 'ws-1',
+        surfaceId: 'devpanel',
+        origin: 'quick-editor',
+        context: makeContextHandle(),
+        ...makeTreeMirrors(),
+      },
     );
     expect(track).toHaveBeenCalledWith('productTelemetryTrack', {
       event: { name: 'rule_created', ruleType: 'header', origin: 'quick-editor' },
@@ -471,11 +581,12 @@ describe('applyRuleCreate — rule_created product telemetry', () => {
     mockCall.mockResolvedValue({ ok: true, outcomes: [] });
     const track = installTelemetrySpy();
     await applyRuleCreate(
-      { rule: createSeed, parentPath: 'rules/c-1' },
+      { rule: createSeed, parentPath: 'rules/coll-abcd1234' },
       {
         workspaceId: 'ws-1',
         surfaceId: IMPORT_ATTRIBUTION_SURFACE_ID,
         context: makeContextHandle('ws-1', IMPORT_ATTRIBUTION_SURFACE_ID),
+        ...makeTreeMirrors(),
       },
     );
     expect(track).not.toHaveBeenCalled();
@@ -485,15 +596,34 @@ describe('applyRuleCreate — rule_created product telemetry', () => {
     mockCall.mockRejectedValue(new Error('bridge dead'));
     const track = installTelemetrySpy();
     await applyRuleCreate(
-      { rule: createSeed, parentPath: 'rules/c-1' },
-      { workspaceId: 'ws-1', surfaceId: 'workbench', context: makeContextHandle() },
+      { rule: createSeed, parentPath: 'rules/coll-abcd1234' },
+      { workspaceId: 'ws-1', surfaceId: 'workbench', context: makeContextHandle(), ...makeTreeMirrors() },
     );
     expect(track).not.toHaveBeenCalled();
   });
 });
 
 describe('applyRuleDelete', () => {
-  it('emits a delete envelope', async () => {
+  it('emits the parent items slot tombstone + the delete envelope in one batch', async () => {
+    mockCall.mockResolvedValue({ ok: true, outcomes: [] });
+    const placed: HeaderRule = { ...headerRule, path: 'rules/coll-abcd1234/auth-fold0001/my-header-rule-1' };
+    const mirror = makeMirror(placed);
+    const result = await applyRuleDelete(placed.uid, {
+      workspaceId: 'ws-1',
+      surfaceId: 'popup',
+      mirror,
+      context: makeContextHandle('ws-1', 'popup'),
+      ...makeTreeMirrors(),
+    });
+    expect(result).toEqual({ ok: true });
+    const batch = (mockCall.mock.calls[0][1] as { batch: MutationBatch }).batch;
+    expect(batch.mutations.map((m) => m.body)).toMatchObject([
+      { kind: 'removeFromSet', type: FOLDER_ENTITY_TYPE, id: 'fold0001', path: FOLDER_ITEMS_PATH, itemId: placed.uid },
+      { kind: 'delete', id: placed.uid },
+    ]);
+  });
+
+  it('falls back to the bare delete envelope when the parent cannot be placed', async () => {
     mockCall.mockResolvedValue({ ok: true, outcomes: [] });
     const mirror = makeMirror(headerRule);
     const result = await applyRuleDelete(headerRule.uid, {
@@ -501,6 +631,7 @@ describe('applyRuleDelete', () => {
       surfaceId: 'popup',
       mirror,
       context: makeContextHandle('ws-1', 'popup'),
+      ...makeTreeMirrors(),
     });
     expect(result).toEqual({ ok: true });
     const batch = (mockCall.mock.calls[0][1] as { batch: MutationBatch }).batch;
@@ -516,6 +647,7 @@ describe('applyRuleDelete', () => {
       surfaceId: 'popup',
       mirror,
       context: makeContextHandle('ws-1', 'popup'),
+      ...makeTreeMirrors(),
     });
     expect(result).toEqual({ ok: false, reason: 'other', message: 'bridge dead' });
   });

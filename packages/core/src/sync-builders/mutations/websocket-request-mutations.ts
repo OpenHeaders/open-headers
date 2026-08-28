@@ -15,10 +15,13 @@
  */
 
 import {
+  type ChildPlacement,
+  deleteWebSocketRequest,
   type MutationBatch,
   type MutationBody,
   type MutatorContext,
   mintBatch,
+  type RequestFolderParentRef,
   type SideEffectIntent,
   WEBSOCKET_REQUEST_ENTITY_TYPE,
   WEBSOCKET_REQUEST_EVENTS_PATH,
@@ -40,16 +43,33 @@ export type WebSocketLiveSetEntries = (webSocketRequestUid: string, setPath: str
 /** Current materialized value reader for container-valued scalar paths (`subprotocols`, `specLink`, `auth`). */
 export type WebSocketLiveFieldValue = (webSocketRequestUid: string, path: string) => unknown;
 
-/** New WebSocket request → seed batch. No side effects. */
+/**
+ * New WebSocket request → seed batch. No side effects. `placement` is
+ * the parent whose `items` slot the request takes in the same batch;
+ * `null` only when the parent is unresolvable at the write site.
+ */
 export function buildWebSocketAddBatch(
   request: WebSocketRequest,
   ctx: MutatorContext,
+  placement: ChildPlacement<RequestFolderParentRef> | null,
 ): WebSocketRequestMutationPayload {
-  return { batch: seedWebSocketRequest(request, ctx), sideEffects: [] };
+  return { batch: seedWebSocketRequest(request, ctx, placement ?? undefined), sideEffects: [] };
 }
 
-/** Delete a WebSocket request. Tombstone is permanent under §7.2 delete-wins. */
+/**
+ * Delete a WebSocket request: the parent's slot tombstone + the entity
+ * tombstone in one batch. Tombstone is permanent under §7.2 delete-wins.
+ */
 export function buildWebSocketDeleteBatch(
+  webSocketRequestUid: string,
+  parent: RequestFolderParentRef,
+  ctx: MutatorContext,
+): WebSocketRequestMutationPayload {
+  return deleteWebSocketRequest(ctx, { webSocketRequestUid, parent });
+}
+
+/** Bare entity tombstone for cascades where the parent is going too. */
+export function buildWebSocketDeleteEntityBatch(
   webSocketRequestUid: string,
   ctx: MutatorContext,
 ): WebSocketRequestMutationPayload {

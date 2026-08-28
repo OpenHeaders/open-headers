@@ -15,6 +15,8 @@
  */
 
 import {
+  type ChildPlacement,
+  deleteMqttRequest,
   MQTT_REQUEST_ENTITY_TYPE,
   MQTT_REQUEST_SAVED_MESSAGES_PATH,
   MQTT_REQUEST_TOPICS_PATH,
@@ -23,6 +25,7 @@ import {
   type MutationBody,
   type MutatorContext,
   mintBatch,
+  type RequestFolderParentRef,
   type SideEffectIntent,
 } from '@openheaders/core/sync';
 import { type LiveSetEntry, synthesizeFieldDiff, synthesizeSetDiff } from '@openheaders/core/sync-builders';
@@ -41,13 +44,33 @@ export type MqttLiveSetEntries = (mqttRequestUid: string, setPath: string) => Re
  *  (`publishProperties`, `lastWill`, `specLink`, `auth`). */
 export type MqttLiveFieldValue = (mqttRequestUid: string, path: string) => unknown;
 
-/** New MQTT request → seed batch. No side effects. */
-export function buildMqttAddBatch(request: MqttRequest, ctx: MutatorContext): MqttRequestMutationPayload {
-  return { batch: seedMqttRequest(request, ctx), sideEffects: [] };
+/**
+ * New MQTT request → seed batch. No side effects. `placement` is the
+ * parent whose `items` slot the request takes in the same batch;
+ * `null` only when the parent is unresolvable at the write site.
+ */
+export function buildMqttAddBatch(
+  request: MqttRequest,
+  ctx: MutatorContext,
+  placement: ChildPlacement<RequestFolderParentRef> | null,
+): MqttRequestMutationPayload {
+  return { batch: seedMqttRequest(request, ctx, placement ?? undefined), sideEffects: [] };
 }
 
-/** Delete an MQTT request. Tombstone is permanent under §7.2 delete-wins. */
-export function buildMqttDeleteBatch(mqttRequestUid: string, ctx: MutatorContext): MqttRequestMutationPayload {
+/**
+ * Delete an MQTT request: the parent's slot tombstone + the entity
+ * tombstone in one batch. Tombstone is permanent under §7.2 delete-wins.
+ */
+export function buildMqttDeleteBatch(
+  mqttRequestUid: string,
+  parent: RequestFolderParentRef,
+  ctx: MutatorContext,
+): MqttRequestMutationPayload {
+  return deleteMqttRequest(ctx, { mqttRequestUid, parent });
+}
+
+/** Bare entity tombstone for cascades where the parent is going too. */
+export function buildMqttDeleteEntityBatch(mqttRequestUid: string, ctx: MutatorContext): MqttRequestMutationPayload {
   const bodies: MutationBody[] = [{ kind: 'delete', type: MQTT_REQUEST_ENTITY_TYPE, id: mqttRequestUid }];
   return { batch: mintBatch(ctx, bodies), sideEffects: [] };
 }

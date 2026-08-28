@@ -1,10 +1,17 @@
 // ── Rules ───────────────────────────────────────────────────────────
 
-import { buildAddBatch, buildDeleteBatch } from '@openheaders/core/sync-builders/mutations/rule-mutations';
+import { FOLDER_ITEMS_PATH, FOLDER_TREE_KINDS, resolveTreeParent } from '@openheaders/core/sync';
+import {
+  buildAddBatch,
+  buildDeleteBatch,
+  buildDeleteEntityBatch,
+} from '@openheaders/core/sync-builders/mutations/rule-mutations';
 import type { Rule } from '@openheaders/core/types';
-import { generateUid, toFolderName } from '@openheaders/core/utils';
+import { generateUid, parentPathOf, toFolderName } from '@openheaders/core/utils';
+import { getOracleForCurrentWorkspace } from '@openheaders/oracle/sync/service/accessors';
+import { childPlacement } from '../tree-placement';
 import { applyRuleMutationOrThrow } from './apply';
-import { assertLoaded, collections, rules } from './state';
+import { assertLoaded, collections, folders, rules } from './state';
 
 /**
  * Add a rule. `parentPath` is the collection or folder path.
@@ -12,9 +19,10 @@ import { assertLoaded, collections, rules } from './state';
  * payload, the store stamps the persisted version.
  *
  * Routes through the sync oracle: emits a seed batch (one create +
- * one addToSet per set-modeled item) and awaits the broadcast-driven
- * cache refresh so the returned rule is observable from `getRules()`
- * before the function resolves.
+ * one addToSet per set-modeled item + the parent's `items` slot,
+ * appended after the parent's live tail) and awaits the broadcast-
+ * driven cache refresh so the returned rule is observable from
+ * `getRules()` before the function resolves.
  */
 export async function addRule(rule: Omit<Rule, 'uid' | 'path' | 'schemaVersion'>, parentPath: string): Promise<Rule> {
   const uid = generateUid();
@@ -24,8 +32,11 @@ export async function addRule(rule: Omit<Rule, 'uid' | 'path' | 'schemaVersion'>
     ...rule,
     uid,
     path: `${parentPath}/${folderName}`,
+    pathSegment: folderName,
   } as Rule;
-  await applyRuleMutationOrThrow((ctx) => buildAddBatch(created, ctx), 'addRule');
+  const parent = resolveTreeParent(parentPath, { collections, folders }, FOLDER_TREE_KINDS);
+  const placement = childPlacement(getOracleForCurrentWorkspace(), parent, FOLDER_ITEMS_PATH);
+  await applyRuleMutationOrThrow((ctx) => buildAddBatch(created, ctx, placement), 'addRule');
   return created;
 }
 
@@ -42,9 +53,22 @@ export function addRuleToCollection(
   return addRule(rule, parentPath);
 }
 
+/**
+ * Delete a rule: its parent's `items` slot tombstones in the same batch
+ * as the entity. A parent the mirrors can't resolve (already
+ * tombstoned) falls back to the bare entity tombstone — the parent's
+ * own tombstone covers the slot.
+ */
 export async function deleteRule(uid: string): Promise<boolean> {
   assertLoaded();
-  if (!rules.some((r) => r.uid === uid)) return false;
-  await applyRuleMutationOrThrow((ctx) => buildDeleteBatch(uid, ctx), 'deleteRule');
+  const rule = rules.find((r) => r.uid === uid);
+  if (!rule) return false;
+  const parentPath = parentPathOf(rule.path);
+  const parent =
+    parentPath === null ? null : resolveTreeParent(parentPath, { collections, folders }, FOLDER_TREE_KINDS);
+  await applyRuleMutationOrThrow(
+    (ctx) => (parent ? buildDeleteBatch(uid, parent, ctx) : buildDeleteEntityBatch(uid, ctx)),
+    'deleteRule',
+  );
   return true;
 }

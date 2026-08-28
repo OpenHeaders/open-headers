@@ -20,6 +20,9 @@ import {
   COLLECTION_ENTITY_TYPE,
   COLLECTION_VARS_PATH,
   initialHlc,
+  WORKSPACE_ROOTS_ENTITY_TYPE,
+  WORKSPACE_ROOTS_ID,
+  WORKSPACE_ROOTS_RULE_COLLECTIONS_PATH,
 } from '@openheaders/core/sync';
 import type { Variable } from '@openheaders/core/types';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -40,6 +43,7 @@ vi.mock('@utils/logger', () => ({
   logger: { info: vi.fn(), debug: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }));
 
+import type { CollectionSyncMirror, RendererContextHandle } from '@openheaders/ui/context';
 import {
   applyCollectionCreate,
   applyCollectionDelete,
@@ -50,10 +54,6 @@ import {
   applySetPinnedAndDefault,
   applySetPinnedEnvironments,
 } from '@openheaders/ui/shared/sync/collection-write-client';
-import type {
-  CollectionSyncMirror,
-  RendererContextHandle,
-} from '@openheaders/ui/context';
 
 function makeCollectionMirror(
   collections: Array<{ uid: string; path: string; name: string }> = [],
@@ -144,6 +144,23 @@ describe('applyCollectionCreate', () => {
     expect(created.path.endsWith(created.uid)).toBe(true);
     expect(created.name).toBe('Login flow');
     expect(result.ok && result.collection.uid).toBe(created.uid);
+  });
+
+  it('takes its workspace-roots slot in the seed batch', async () => {
+    mockCall.mockResolvedValue({ ok: true, outcomes: [] });
+    const result = await applyCollectionCreate(
+      { name: 'Login flow' },
+      { workspaceId: 'ws-1', surfaceId: 'workbench', context: makeContextHandle() },
+    );
+    const batch = (mockCall.mock.calls[0][1] as { batch: MutationBatch }).batch;
+    expect(batch.mutations[batch.mutations.length - 1].body).toMatchObject({
+      kind: 'addToSet',
+      type: WORKSPACE_ROOTS_ENTITY_TYPE,
+      id: WORKSPACE_ROOTS_ID,
+      path: WORKSPACE_ROOTS_RULE_COLLECTIONS_PATH,
+      itemId: result.ok ? result.collection.uid : '',
+      item: { uid: result.ok ? result.collection.uid : '' },
+    });
   });
 });
 

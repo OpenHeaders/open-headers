@@ -11,7 +11,17 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { InMemoryDocumentStore, type MutationBody, type MutatorContext } from '../../src/sync';
+import {
+  COLLECTION_ENTITY_TYPE,
+  FOLDER_ITEMS_PATH,
+  InMemoryDocumentStore,
+  type MutationBody,
+  type MutatorContext,
+  RULE_ENTITY_TYPE,
+  WORKSPACE_ROOTS_ENTITY_TYPE,
+  WORKSPACE_ROOTS_ID,
+  WORKSPACE_ROOTS_RULE_COLLECTIONS_PATH,
+} from '../../src/sync';
 import {
   type EmissionBatch,
   type ImportEmissionPlanSlices,
@@ -161,6 +171,66 @@ describe('synthesizeImportEmission — creates', () => {
     });
     expect(batches).toHaveLength(0);
   });
+
+  it('a created leaf takes its parent items slot in the same batch, stamped with its path segment', () => {
+    const collection = {
+      schemaVersion: 5,
+      uid: 'colaaaaa',
+      path: 'rules/api-colaaaaa',
+      name: 'API',
+      variables: [],
+      pinnedEnvironmentIds: [],
+      defaultEnvironmentId: null,
+    } as unknown as Collection;
+    const first = { ...targetRule, uid: 'rul00001', path: 'rules/api-colaaaaa/probe-rul00001' } as HeaderRule;
+    const second = { ...targetRule, uid: 'rul00002', path: 'rules/api-colaaaaa/probe-rul00002' } as HeaderRule;
+    const client = new InMemoryDocumentStore();
+    const batches = synthesizeImportEmission(
+      slicesFor(
+        emptyPlan({
+          rules: [
+            { action: 'create', entity: first },
+            { action: 'create', entity: second },
+          ] as PlanEntry<Rule>[],
+        }),
+      ),
+      emptyPrev({ ruleCollections: [collection] }),
+      { nextCtx, liveSetEntries: liveReaderFor(client) },
+    );
+    const slots = batches.map((b) => b.batch.mutations[b.batch.mutations.length - 1].body);
+    expect(slots).toMatchObject([
+      {
+        kind: 'addToSet',
+        type: COLLECTION_ENTITY_TYPE,
+        id: 'colaaaaa',
+        path: FOLDER_ITEMS_PATH,
+        itemId: 'rul00001',
+        item: { uid: 'rul00001', type: RULE_ENTITY_TYPE },
+      },
+      { kind: 'addToSet', id: 'colaaaaa', path: FOLDER_ITEMS_PATH, itemId: 'rul00002' },
+    ]);
+    const [k1, k2] = slots.map((b) => (b as { orderKey: string }).orderKey);
+    expect(k1 < k2).toBe(true);
+    const shell = batches[0].batch.mutations[0].body as { payload: { pathSegment?: string } };
+    expect(shell.payload.pathSegment).toBe('probe-rul00001');
+
+    applyTo(client, batches);
+    const live = client.liveOrderedSetItems(COLLECTION_ENTITY_TYPE, 'colaaaaa', FOLDER_ITEMS_PATH);
+    expect(live.map((s) => s.itemId)).toEqual(['rul00001', 'rul00002']);
+  });
+
+  it('a parent the run cannot resolve still creates the leaf — slot-less, never dropped', () => {
+    const orphan = { ...targetRule, path: 'rules/hand-named/probe-rul00001' } as HeaderRule;
+    const batches = synthesizeImportEmission(
+      slicesFor(emptyPlan({ rules: [{ action: 'create', entity: orphan }] as PlanEntry<Rule>[] })),
+      emptyPrev(),
+      { nextCtx, liveSetEntries: () => [] },
+    );
+    expect(batches).toHaveLength(1);
+    expect(
+      batches[0].batch.mutations.some((m) => m.body.kind === 'addToSet' && m.body.path === FOLDER_ITEMS_PATH),
+    ).toBe(false);
+  });
 });
 
 describe('synthesizeImportEmission — update collisions', () => {
@@ -211,6 +281,24 @@ describe('synthesizeImportEmission — update collisions', () => {
       liveSetEntries: liveReaderFor(client),
     });
     expect(batches).toHaveLength(0);
+  });
+
+  it("never tombstones the target's frozen pathSegment when the import source predates it", () => {
+    const { client } = seededStores();
+    const prevWithSegment = { ...targetRule, pathSegment: 'probe-rul00001' } as unknown as Rule;
+    const plan = emptyPlan({
+      rules: [{ action: 'update', targetUid: 'rul00001', entity: importedRule }] as PlanEntry<Rule>[],
+    });
+    const batches = synthesizeImportEmission(slicesFor(plan), emptyPrev({ rules: [prevWithSegment] }), {
+      nextCtx,
+      liveSetEntries: liveReaderFor(client),
+    });
+    const unsetPaths = batches
+      .flatMap((b) => b.batch.mutations)
+      .map((m) => m.body)
+      .filter((b): b is Extract<MutationBody, { kind: 'unsetField' }> => b.kind === 'unsetField')
+      .map((b) => b.path);
+    expect(unsetPaths).not.toContain('pathSegment');
   });
 
   it('a scalar key that vanished from the imported entity tombstones via unsetField', () => {
@@ -269,6 +357,13 @@ describe('synthesizeImportEmission — collections + folders', () => {
     expect(client.materializeOne('folder', 'fld00001')).toBeTruthy();
     const slots = client.liveOrderedSetItems('collection', 'col00001', 'folders');
     expect(slots.map((s) => s.itemId)).toEqual(['fld00001']);
+    // The created collection took its workspace-roots slot in its seed batch.
+    const roots = client.liveOrderedSetItems(
+      WORKSPACE_ROOTS_ENTITY_TYPE,
+      WORKSPACE_ROOTS_ID,
+      WORKSPACE_ROOTS_RULE_COLLECTIONS_PATH,
+    );
+    expect(roots.map((s) => s.itemId)).toEqual(['col00001']);
     // Collection carries its variables as uid-keyed set members.
     const vars = client.liveOrderedSetItems('collection', 'col00001', 'variables');
     expect(vars.map((v) => v.itemId)).toEqual(['var00001']);

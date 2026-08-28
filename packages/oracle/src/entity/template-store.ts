@@ -18,11 +18,15 @@
 import { consumedOrgIds, getIdentitySnapshot } from '@openheaders/core/identity';
 import { CollectionSchema, FolderSchema, TemplateSchema } from '@openheaders/core/schemas';
 import {
+  resolveTreeParent,
   TEMPLATE_COLLECTION_ENTITY_TYPE,
   TEMPLATE_ENTITY_TYPE,
   TEMPLATE_FOLDER_CHILDREN_PATH,
   TEMPLATE_FOLDER_ENTITY_TYPE,
+  TEMPLATE_FOLDER_ITEMS_PATH,
+  TEMPLATE_FOLDER_TREE_KINDS,
   type TemplateFolderParentRef,
+  WORKSPACE_ROOTS_TEMPLATE_COLLECTIONS_PATH,
 } from '@openheaders/core/sync';
 import {
   buildDeleteTemplateCollectionBatch,
@@ -37,11 +41,12 @@ import {
 import {
   buildAddBatch,
   buildDeleteBatch,
+  buildDeleteEntityBatch,
   buildUpdateBatch,
 } from '@openheaders/core/sync-builders/mutations/template-mutations';
 import { seedTemplateCollection } from '@openheaders/core/sync-builders/projections/template-collection-projection';
 import type { Collection, CollectionTree, RuleType, Template, TreeNode } from '@openheaders/core/types';
-import { generateUid, logger, toFolderName } from '@openheaders/core/utils';
+import { generateUid, logger, parentPathOf, toFolderName } from '@openheaders/core/utils';
 import type { LocalFolder } from '@openheaders/oracle/entity/rule-store';
 import { hostStorage, wsKeys } from '@openheaders/oracle/storage';
 import { requireActiveWorkspaceId } from '@openheaders/oracle/sync';
@@ -61,6 +66,7 @@ import {
 } from '@openheaders/oracle/sync/service/accessors';
 import { driftRecorder } from '@openheaders/oracle/sync/storage-drift';
 import { getWorkspace } from '../workspace/extension-workspace-store';
+import { childPlacement, rootsPlacement } from './tree-placement';
 
 // ── In-memory state (scoped to active workspace) ────────────────────
 
@@ -227,8 +233,9 @@ export async function ensureDefaultTemplateCollection(purpose?: 'initialization'
   // immediately; the oracle's broadcast confirms the same post-commit
   // shape on the next tick.
   templateCollections = [...templateCollections, collection];
+  const placement = rootsPlacement(getOracleForCurrentWorkspace(), WORKSPACE_ROOTS_TEMPLATE_COLLECTIONS_PATH);
   await applyTemplateCollectionMutationOrThrow(
-    (ctx) => ({ batch: seedTemplateCollection(collection, ctx), sideEffects: [] }),
+    (ctx) => ({ batch: seedTemplateCollection(collection, ctx, placement), sideEffects: [] }),
     'ensureDefaultTemplateCollection',
   );
   return collection;
@@ -247,8 +254,9 @@ export async function createTemplateCollection(name: string): Promise<Collection
     defaultEnvironmentId: null,
   };
   templateCollections = [...templateCollections, collection];
+  const placement = rootsPlacement(getOracleForCurrentWorkspace(), WORKSPACE_ROOTS_TEMPLATE_COLLECTIONS_PATH);
   await applyTemplateCollectionMutationOrThrow(
-    (ctx) => ({ batch: seedTemplateCollection(collection, ctx), sideEffects: [] }),
+    (ctx) => ({ batch: seedTemplateCollection(collection, ctx, placement), sideEffects: [] }),
     'createTemplateCollection',
   );
   return collection;
@@ -278,7 +286,10 @@ export async function deleteTemplateCollection(uid: string): Promise<boolean> {
   const cascadingTemplateUids = templates.filter((t) => t.path.startsWith(collection.path)).map((t) => t.uid);
   const cascadingFolderUids = templateFolders.filter((f) => f.path.startsWith(collection.path)).map((f) => f.uid);
   for (const templateUid of cascadingTemplateUids) {
-    await applyTemplateMutationOrThrow((ctx) => buildDeleteBatch(templateUid, ctx), 'deleteTemplateCollection-cascade');
+    await applyTemplateMutationOrThrow(
+      (ctx) => buildDeleteEntityBatch(templateUid, ctx),
+      'deleteTemplateCollection-cascade',
+    );
   }
   for (const folderUid of cascadingFolderUids) {
     await applyTemplateFolderMutationOrThrow(
@@ -297,15 +308,15 @@ export async function deleteTemplateCollection(uid: string): Promise<boolean> {
 
 /**
  * Resolve `parentPath` to a {@link TemplateFolderParentRef} via the local
- * mirrors. `parentPath` matches a template collection root or a template
- * folder path.
+ * mirrors (template collection root or template folder path), with the
+ * path's own uid tail as the fallback the shared resolver applies.
  */
 function resolveTemplateFolderParent(parentPath: string): TemplateFolderParentRef | null {
-  const collection = templateCollections.find((c) => c.path === parentPath);
-  if (collection) return { type: TEMPLATE_COLLECTION_ENTITY_TYPE, uid: collection.uid };
-  const folder = templateFolders.find((f) => f.path === parentPath);
-  if (folder) return { type: TEMPLATE_FOLDER_ENTITY_TYPE, uid: folder.uid };
-  return null;
+  return resolveTreeParent(
+    parentPath,
+    { collections: templateCollections, folders: templateFolders },
+    TEMPLATE_FOLDER_TREE_KINDS,
+  );
 }
 
 export async function createTemplateFolder(name: string, parentPath: string): Promise<LocalFolder | null> {
@@ -350,7 +361,7 @@ export async function deleteTemplateFolder(uid: string): Promise<boolean> {
     .map((f) => f.uid);
   for (const templateUid of cascadingTemplateUids) {
     await applyTemplateMutationOrThrow(
-      (ctx) => buildDeleteBatch(templateUid, ctx),
+      (ctx) => buildDeleteEntityBatch(templateUid, ctx),
       'deleteTemplateFolder-cascade-template',
     );
   }
@@ -388,10 +399,16 @@ export async function addTemplate(
     ...template,
     uid,
     path: `${parentPath}/${folderName}`,
+    pathSegment: folderName,
     createdAt: template.createdAt || now,
     updatedAt: template.updatedAt || now,
   };
-  await applyTemplateMutationOrThrow((ctx) => buildAddBatch(created, ctx), 'addTemplate');
+  const placement = childPlacement(
+    getOracleForCurrentWorkspace(),
+    resolveTemplateFolderParent(parentPath),
+    TEMPLATE_FOLDER_ITEMS_PATH,
+  );
+  await applyTemplateMutationOrThrow((ctx) => buildAddBatch(created, ctx, placement), 'addTemplate');
   return created;
 }
 
@@ -451,10 +468,21 @@ export async function updateTemplate(
   return { ok: true, template: { ...existing, ...stamped } as Template };
 }
 
+/**
+ * Delete a template: its parent's `items` slot tombstones in the same
+ * batch as the entity; an unresolvable parent (already tombstoned)
+ * falls back to the bare entity tombstone.
+ */
 export async function deleteTemplate(uid: string): Promise<boolean> {
   assertLoaded();
-  if (!templates.some((t) => t.uid === uid)) return false;
-  await applyTemplateMutationOrThrow((ctx) => buildDeleteBatch(uid, ctx), 'deleteTemplate');
+  const template = templates.find((t) => t.uid === uid);
+  if (!template) return false;
+  const parentPath = parentPathOf(template.path);
+  const parent = parentPath === null ? null : resolveTemplateFolderParent(parentPath);
+  await applyTemplateMutationOrThrow(
+    (ctx) => (parent ? buildDeleteBatch(uid, parent, ctx) : buildDeleteEntityBatch(uid, ctx)),
+    'deleteTemplate',
+  );
   return true;
 }
 

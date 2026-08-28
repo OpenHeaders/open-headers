@@ -7,22 +7,23 @@
 import {
   addRequestHeader,
   addRequestParam,
+  deleteRequest,
   type MutationEnvelope,
   type MutatorContext,
+  REQUEST_COLLECTION_ENTITY_TYPE,
   REQUEST_HEADERS_PATH,
   REQUEST_PARAMS_PATH,
-  deleteRequest,
   setRequestField,
 } from '@openheaders/core/sync';
+import { seedRequest } from '@openheaders/core/sync-builders/projections/request-projection';
 import type { Request } from '@openheaders/core/types';
 import { generateUid } from '@openheaders/core/utils';
-import { describe, expect, it } from 'vitest';
 import { InMemoryBroadcast } from '@openheaders/oracle/sync/broadcast';
 import { InMemoryMutationLog } from '@openheaders/oracle/sync/mutation-log';
-import { type LockAcquirer, EntityOracle } from '@openheaders/oracle/sync/oracle';
+import { EntityOracle, type LockAcquirer } from '@openheaders/oracle/sync/oracle';
 import { InMemoryPendingIntents } from '@openheaders/oracle/sync/pending-intents';
 import { projectRequestByUid, projectRequestPostState } from '@openheaders/oracle/sync/post-state/request-post-state';
-import { seedRequest } from '@openheaders/core/sync-builders/projections/request-projection';
+import { describe, expect, it } from 'vitest';
 
 const wsId = 'ws-1';
 const lock: LockAcquirer = async (_ws, _t, _id, fn) => fn();
@@ -100,7 +101,11 @@ describe('projectRequestPostState', () => {
     const oracle = await newOracle();
     const request = makeRequest('rq-del');
     await oracle.apply(seedRequest(request, ctx(1)), []);
-    await oracle.apply(deleteRequest(ctx(2), { requestUid: 'rq-del' }).batch, []);
+    await oracle.apply(
+      deleteRequest(ctx(2), { requestUid: 'rq-del', parent: { type: REQUEST_COLLECTION_ENTITY_TYPE, uid: 'col-1' } })
+        .batch,
+      [],
+    );
     expect(projectRequestByUid(oracle, 'rq-del')).toBeNull();
   });
 
@@ -167,5 +172,4 @@ describe('projectRequestPostState', () => {
     const post = projectRequestByUid(oracle, 'rq-scalar');
     expect(post?.request.name).toBe('updated');
   });
-
 });

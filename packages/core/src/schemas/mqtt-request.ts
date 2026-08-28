@@ -12,7 +12,7 @@
  */
 
 import * as v from 'valibot';
-import { RelativePathSchema, SchemaVersionSchema, UidSchema } from './common';
+import { PathSegmentSchema, RelativePathSchema, SchemaVersionSchema, UidSchema } from './common';
 import { ClientCertificateRefSchema, RequestTimeoutMsSchema } from './request';
 
 /** Whole attempts, one to a thousand — enough for a day of 60 s
@@ -205,6 +205,7 @@ export const MqttRequestSchema = v.object({
   schemaVersion: SchemaVersionSchema,
   uid: UidSchema,
   path: RelativePathSchema,
+  pathSegment: v.optional(PathSegmentSchema),
   name: v.string(),
   /** Free-form Markdown notes (Docs-tab parity with the HTTP request). */
   description: v.optional(v.string()),
@@ -328,4 +329,4 @@ export const MqttRequestSchema = v.object({
  * Content-only shape (no `schemaVersion` / `uid` / `path`) — the
  * pre-fill handoff unit, mirroring `WebSocketRequestSeedSchema`.
  */
-export const MqttRequestSeedSchema = v.omit(MqttRequestSchema, ['schemaVersion', 'uid', 'path']);
+export const MqttRequestSeedSchema = v.omit(MqttRequestSchema, ['schemaVersion', 'uid', 'path', 'pathSegment']);

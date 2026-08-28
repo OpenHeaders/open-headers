@@ -37,8 +37,13 @@ vi.mock('@utils/logger', () => ({
   logger: { info: vi.fn(), debug: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }));
 
-import { REQUEST_ENTITY_TYPE } from '@openheaders/core/sync';
-import type { RendererContextHandle, RequestSyncMirror } from '@openheaders/ui/context';
+import { REQUEST_COLLECTION_ENTITY_TYPE, REQUEST_ENTITY_TYPE, REQUEST_FOLDER_ITEMS_PATH } from '@openheaders/core/sync';
+import type {
+  RendererContextHandle,
+  RequestCollectionSyncMirror,
+  RequestFolderSyncMirror,
+  RequestSyncMirror,
+} from '@openheaders/ui/context';
 import {
   applyRequestCreate,
   applyRequestDelete,
@@ -64,6 +69,43 @@ function makeMirror(request: Request, ordered: Record<string, LiveOrdered>): Req
     subscribeAny: () => () => undefined,
     hydrated: Promise.resolve(),
     dispose: () => undefined,
+  };
+}
+
+/** The request tree's container mirrors: one collection `requests/my-col00001`, no folders. */
+function makeTreeMirrors(items: Array<{ itemId: string; orderKey: string }> = []): {
+  collectionMirror: RequestCollectionSyncMirror;
+  folderMirror: RequestFolderSyncMirror;
+} {
+  const collection = {
+    schemaVersion: 5 as const,
+    uid: 'col00001',
+    path: 'requests/my-col00001',
+    name: 'My',
+    variables: [],
+    pinnedEnvironmentIds: [],
+    defaultEnvironmentId: null,
+  };
+  return {
+    collectionMirror: {
+      getRequestCollectionMirror: (uid) =>
+        uid === collection.uid ? { collection, varUids: [], setOrderKeys: {} } : null,
+      listRequestCollections: () => [collection],
+      liveOrderedSetItems: (uid, path) => (uid === collection.uid && path === REQUEST_FOLDER_ITEMS_PATH ? items : []),
+      subscribeRequestCollectionMirror: () => () => undefined,
+      subscribeAny: () => () => undefined,
+      hydrated: Promise.resolve(),
+      dispose: () => undefined,
+    },
+    folderMirror: {
+      getRequestFolderMirror: () => null,
+      listRequestFolders: () => [],
+      liveOrderedSetItems: () => [],
+      subscribeRequestFolderMirror: () => () => undefined,
+      subscribeAny: () => () => undefined,
+      hydrated: Promise.resolve(),
+      dispose: () => undefined,
+    },
   };
 }
 
@@ -96,7 +138,7 @@ function baseRequest(headers: RequestHeader[]): Request {
   return {
     schemaVersion: 5,
     uid: 'rq-1',
-    path: 'requests/My/Auth',
+    path: 'requests/my-col00001/auth-rq-1',
     name: 'Auth',
     method: 'GET',
     url: 'https://api.openheaders.io/v1/me',
@@ -271,15 +313,51 @@ describe('applyRequestCreate', () => {
       workspaceId: 'ws-1',
       surfaceId: 'workbench',
       context: makeContextHandle(),
+      ...makeTreeMirrors(),
     });
     expect(result).toEqual({ ok: true });
     const batch = (mockCall.mock.calls[0][1] as { batch: MutationBatch }).batch;
     const createEnv = batch.mutations.find((m) => m.body.kind === 'create');
     expect(createEnv?.body).toMatchObject({ kind: 'create', type: REQUEST_ENTITY_TYPE, id: 'rq-1' });
-    const adds = batch.mutations.filter((m) => m.body.kind === 'addToSet');
+    // The frozen segment is stamped from the caller's path (create rides first).
+    expect((batch.mutations[0].body as { payload: { pathSegment?: string } }).payload.pathSegment).toBe('auth-rq-1');
+    const adds = batch.mutations.filter((m) => m.body.kind === 'addToSet' && m.body.type === REQUEST_ENTITY_TYPE);
     // One addToSet per set-modeled member — headers carries one row.
     expect(adds).toHaveLength(1);
     expect(adds[0].body).toMatchObject({ path: 'headers', itemId: 'h1' });
+  });
+
+  it('takes the parent collection items slot in the create batch, appended after the live tail', async () => {
+    mockCall.mockResolvedValue({ ok: true, outcomes: [] });
+    await applyRequestCreate(baseRequest([]), {
+      workspaceId: 'ws-1',
+      surfaceId: 'workbench',
+      context: makeContextHandle(),
+      ...makeTreeMirrors([{ itemId: 'rq-0', orderKey: 'm' }]),
+    });
+    const batch = (mockCall.mock.calls[0][1] as { batch: MutationBatch }).batch;
+    const slot = batch.mutations[batch.mutations.length - 1].body as { orderKey?: string };
+    expect(slot).toMatchObject({
+      kind: 'addToSet',
+      type: REQUEST_COLLECTION_ENTITY_TYPE,
+      id: 'col00001',
+      path: REQUEST_FOLDER_ITEMS_PATH,
+      itemId: 'rq-1',
+      item: { uid: 'rq-1', type: REQUEST_ENTITY_TYPE },
+    });
+    expect(slot.orderKey && slot.orderKey > 'm').toBe(true);
+  });
+
+  it('refuses a request whose parent path nothing can place', async () => {
+    const stranded = { ...baseRequest([]), path: 'requests/hand-named/auth-rq-1' } as Request;
+    const result = await applyRequestCreate(stranded, {
+      workspaceId: 'ws-1',
+      surfaceId: 'workbench',
+      context: makeContextHandle(),
+      ...makeTreeMirrors(),
+    });
+    expect(result).toEqual({ ok: false, reason: 'other', message: 'parent path not resolvable: requests/hand-named' });
+    expect(mockCall).not.toHaveBeenCalled();
   });
 
   it('seeds multi-row sets with strictly increasing orderKeys (creation order survives materialize)', async () => {
@@ -289,10 +367,11 @@ describe('applyRequestCreate', () => {
       workspaceId: 'ws-1',
       surfaceId: 'workbench',
       context: makeContextHandle(),
+      ...makeTreeMirrors(),
     });
     const batch = (mockCall.mock.calls[0][1] as { batch: MutationBatch }).batch;
     const keys = batch.mutations
-      .filter((m) => m.body.kind === 'addToSet')
+      .filter((m) => m.body.kind === 'addToSet' && m.body.type === REQUEST_ENTITY_TYPE)
       .map((m) => m.body as { itemId: string; orderKey?: string });
     expect(keys.map((k) => k.itemId)).toEqual(['h1', 'h2', 'h3']);
     for (const k of keys) expect(typeof k.orderKey).toBe('string');
@@ -315,7 +394,7 @@ describe('applyRequestDelete', () => {
     expect(mockCall).not.toHaveBeenCalled();
   });
 
-  it('emits one delete envelope on the request entity', async () => {
+  it('emits the parent items slot tombstone + the delete envelope in one batch', async () => {
     mockCall.mockResolvedValue({ ok: true, outcomes: [] });
     const mirror = makeMirror(baseRequest([]), {});
     const result = await applyRequestDelete('rq-1', {
@@ -323,10 +402,19 @@ describe('applyRequestDelete', () => {
       surfaceId: 'workbench',
       mirror,
       context: makeContextHandle(),
+      ...makeTreeMirrors(),
     });
     expect(result).toEqual({ ok: true });
     const batch = (mockCall.mock.calls[0][1] as { batch: MutationBatch }).batch;
-    expect(batch.mutations).toHaveLength(1);
-    expect(batch.mutations[0].body).toMatchObject({ kind: 'delete', type: REQUEST_ENTITY_TYPE, id: 'rq-1' });
+    expect(batch.mutations.map((m) => m.body)).toMatchObject([
+      {
+        kind: 'removeFromSet',
+        type: REQUEST_COLLECTION_ENTITY_TYPE,
+        id: 'col00001',
+        path: REQUEST_FOLDER_ITEMS_PATH,
+        itemId: 'rq-1',
+      },
+      { kind: 'delete', type: REQUEST_ENTITY_TYPE, id: 'rq-1' },
+    ]);
   });
 });

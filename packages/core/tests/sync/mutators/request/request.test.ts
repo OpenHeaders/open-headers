@@ -5,14 +5,18 @@ import {
   createRequest,
   deleteRequest,
   type MutatorContext,
+  moveRequest,
+  REQUEST_COLLECTION_ENTITY_TYPE,
+  REQUEST_ENTITY_TYPE,
+  REQUEST_FOLDER_ENTITY_TYPE,
+  REQUEST_FOLDER_ITEMS_PATH,
+  REQUEST_HEADERS_PATH,
+  REQUEST_MUTATOR_VERSION,
+  REQUEST_PARAMS_PATH,
   removeRequestHeader,
   removeRequestParam,
   reorderRequestHeader,
   reorderRequestParam,
-  REQUEST_ENTITY_TYPE,
-  REQUEST_HEADERS_PATH,
-  REQUEST_MUTATOR_VERSION,
-  REQUEST_PARAMS_PATH,
   setRequestField,
 } from '../../../../src/sync';
 
@@ -172,37 +176,108 @@ describe('setRequestField', () => {
 });
 
 describe('createRequest', () => {
-  it('mints a single create envelope carrying the full payload', () => {
-    const payload = {
-      schemaVersion: 5,
-      path: 'requests/col/req',
-      name: 'list users',
-      method: 'GET',
-      url: 'https://api.openheaders.io/v1/users',
-      headers: [],
-      params: [],
-      auth: { type: 'inherit' },
-      body: { type: 'none' },
-    };
-    const intent = createRequest(ctx(), { requestUid: 'rq-1', payload });
-    expect(intent.batch.mutations).toHaveLength(1);
-    expect(intent.batch.mutations[0].body).toEqual({
-      kind: 'create',
-      type: REQUEST_ENTITY_TYPE,
-      id: 'rq-1',
+  const payload = {
+    schemaVersion: 5,
+    path: 'requests/col/req',
+    pathSegment: 'req',
+    name: 'list users',
+    method: 'GET',
+    url: 'https://api.openheaders.io/v1/users',
+    headers: [],
+    params: [],
+    auth: { type: 'inherit' },
+    body: { type: 'none' },
+  };
+
+  it('mints the create envelope + the parent collection items slot in one batch', () => {
+    const intent = createRequest(ctx(), {
+      requestUid: 'rq-1',
+      parent: { type: REQUEST_COLLECTION_ENTITY_TYPE, uid: 'col-1' },
       payload,
+      orderKey: 'mm',
+    });
+    expect(intent.batch.mutations).toHaveLength(2);
+    const [createBody, slotBody] = intent.batch.mutations.map((m) => m.body);
+    expect(createBody).toEqual({ kind: 'create', type: REQUEST_ENTITY_TYPE, id: 'rq-1', payload });
+    expect(slotBody).toEqual({
+      kind: 'addToSet',
+      type: REQUEST_COLLECTION_ENTITY_TYPE,
+      id: 'col-1',
+      path: REQUEST_FOLDER_ITEMS_PATH,
+      itemId: 'rq-1',
+      item: { uid: 'rq-1', type: REQUEST_ENTITY_TYPE },
+      orderKey: 'mm',
     });
     expect(intent.sideEffects).toEqual([]);
+  });
+
+  it('routes the slot to a request folder when nested', () => {
+    const intent = createRequest(ctx(), {
+      requestUid: 'rq-1',
+      parent: { type: REQUEST_FOLDER_ENTITY_TYPE, uid: 'fold-1' },
+      payload,
+    });
+    expect(intent.batch.mutations[1].body).toMatchObject({
+      kind: 'addToSet',
+      type: REQUEST_FOLDER_ENTITY_TYPE,
+      id: 'fold-1',
+      path: REQUEST_FOLDER_ITEMS_PATH,
+      itemId: 'rq-1',
+    });
   });
 });
 
 describe('deleteRequest', () => {
-  it('emits a single delete envelope', () => {
-    const intent = deleteRequest(ctx(), { requestUid: 'rq-1' });
-    expect(intent.batch.mutations[0].body).toEqual({
-      kind: 'delete',
-      type: REQUEST_ENTITY_TYPE,
-      id: 'rq-1',
+  it('emits the parent slot tombstone + the entity tombstone, in that order', () => {
+    const intent = deleteRequest(ctx(), {
+      requestUid: 'rq-1',
+      parent: { type: REQUEST_COLLECTION_ENTITY_TYPE, uid: 'col-1' },
+    });
+    expect(intent.batch.mutations.map((m) => m.body)).toEqual([
+      {
+        kind: 'removeFromSet',
+        type: REQUEST_COLLECTION_ENTITY_TYPE,
+        id: 'col-1',
+        path: REQUEST_FOLDER_ITEMS_PATH,
+        itemId: 'rq-1',
+      },
+      { kind: 'delete', type: REQUEST_ENTITY_TYPE, id: 'rq-1' },
+    ]);
+  });
+});
+
+describe('moveRequest', () => {
+  it('same-parent reorder is one moveBefore on the items set', () => {
+    const parent = { type: REQUEST_COLLECTION_ENTITY_TYPE, uid: 'col-1' } as const;
+    const intent = moveRequest(ctx(), { requestUid: 'rq-1', newParent: parent, oldParent: parent, orderKey: 'qz' });
+    expect(intent.batch.mutations.map((m) => m.body)).toEqual([
+      {
+        kind: 'moveBefore',
+        type: REQUEST_COLLECTION_ENTITY_TYPE,
+        id: 'col-1',
+        path: REQUEST_FOLDER_ITEMS_PATH,
+        itemId: 'rq-1',
+        orderKey: 'qz',
+      },
+    ]);
+  });
+
+  it('reparent is an atomic remove from the old parent + add to the new one', () => {
+    const intent = moveRequest(ctx({ batchId: 'b-move' }), {
+      requestUid: 'rq-1',
+      oldParent: { type: REQUEST_COLLECTION_ENTITY_TYPE, uid: 'col-1' },
+      newParent: { type: REQUEST_FOLDER_ENTITY_TYPE, uid: 'fold-9' },
+      orderKey: 'm',
+    });
+    expect(intent.batch.batchId).toBe('b-move');
+    const [removeBody, addBody] = intent.batch.mutations.map((m) => m.body);
+    expect(removeBody).toMatchObject({ kind: 'removeFromSet', type: REQUEST_COLLECTION_ENTITY_TYPE, id: 'col-1' });
+    expect(addBody).toMatchObject({
+      kind: 'addToSet',
+      type: REQUEST_FOLDER_ENTITY_TYPE,
+      id: 'fold-9',
+      item: { uid: 'rq-1', type: REQUEST_ENTITY_TYPE },
+      orderKey: 'm',
     });
   });
 });

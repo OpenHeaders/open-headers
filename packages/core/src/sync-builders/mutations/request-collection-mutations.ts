@@ -10,16 +10,12 @@
  */
 
 import {
+  deleteRequestCollection,
   deriveSideEffectsForEnvelope,
-  type MutationBatch,
   type MutatorContext,
   type MutatorIntent,
   mintBatch,
-  newBatchId,
-  newMutationId,
-  PRE_BOOTSTRAP_ORG_ID,
   REQUEST_COLLECTION_ENTITY_TYPE,
-  REQUEST_COLLECTION_MUTATOR_VERSION,
   removeRequestCollectionVar,
   renameRequestCollection,
   setRequestCollectionPinnedAndDefault,
@@ -33,8 +29,9 @@ import type { AuthConfig, SpecLink, Variable } from '@openheaders/core/types';
 export type RequestCollectionMutationPayload = MutatorIntent;
 
 /**
- * Build a `delete` envelope for a request collection. Generic primitive
- * — no dedicated catalog factory, identical shape across entities.
+ * Delete a request collection: the workspace roots' slot tombstone +
+ * the entity tombstone in one batch (the catalog's
+ * `deleteRequestCollection`).
  *
  * Deleting a request collection drops its variables from resolver
  * scope, so the payload carries the `INVALIDATE_RESOLVER` side effect —
@@ -46,20 +43,7 @@ export function buildDeleteRequestCollectionBatch(
   collectionUid: string,
   ctx: MutatorContext,
 ): RequestCollectionMutationPayload {
-  const batch: MutationBatch = {
-    batchId: ctx.batchId ?? newBatchId(),
-    mutations: [
-      {
-        mutationId: newMutationId(),
-        hlc: ctx.hlc,
-        origin: { surfaceId: ctx.surfaceId, deviceId: ctx.deviceId, userId: ctx.userId },
-        workspaceId: ctx.workspaceId,
-        orgId: ctx.orgId ?? PRE_BOOTSTRAP_ORG_ID,
-        mutatorVersion: REQUEST_COLLECTION_MUTATOR_VERSION,
-        body: { kind: 'delete', type: REQUEST_COLLECTION_ENTITY_TYPE, id: collectionUid },
-      },
-    ],
-  };
+  const { batch } = deleteRequestCollection(ctx, { collectionUid });
   return { batch, sideEffects: batch.mutations.flatMap(deriveSideEffectsForEnvelope) };
 }
 

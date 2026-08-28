@@ -1,16 +1,19 @@
 // ── Collections ─────────────────────────────────────────────────────
 
+import { WORKSPACE_ROOTS_RULE_COLLECTIONS_PATH } from '@openheaders/core/sync';
 import {
   buildDeleteCollectionBatch,
   buildRenameCollectionBatch,
   buildSetPinnedAndDefaultBatch,
 } from '@openheaders/core/sync-builders/mutations/collection-mutations';
 import { buildDeleteFolderEntityBatch } from '@openheaders/core/sync-builders/mutations/folder-mutations';
-import { buildDeleteBatch } from '@openheaders/core/sync-builders/mutations/rule-mutations';
+import { buildDeleteEntityBatch } from '@openheaders/core/sync-builders/mutations/rule-mutations';
 import { seedCollection } from '@openheaders/core/sync-builders/projections/collection-projection';
 import type { Collection } from '@openheaders/core/types';
 import { generateUid, toFolderName } from '@openheaders/core/utils';
 import { entityLockName, withLock } from '@openheaders/oracle/coordination';
+import { getOracleForCurrentWorkspace } from '@openheaders/oracle/sync/service/accessors';
+import { rootsPlacement } from '../tree-placement';
 import { applyCollectionMutationOrThrow, applyFolderMutationOrThrow, applyRuleMutationOrThrow } from './apply';
 import { assertLoaded, collections, folders, rules, setCollections } from './state';
 
@@ -43,8 +46,9 @@ export function ensureDefaultCollection(): Collection {
   // identical post-commit shape (variables list re-projected from
   // its addToSet members).
   setCollections([...collections, collection]);
+  const placement = rootsPlacement(getOracleForCurrentWorkspace(), WORKSPACE_ROOTS_RULE_COLLECTIONS_PATH);
   void applyCollectionMutationOrThrow(
-    (ctx) => ({ batch: seedCollection(collection, ctx), sideEffects: [] }),
+    (ctx) => ({ batch: seedCollection(collection, ctx, placement), sideEffects: [] }),
     'ensureDefaultCollection',
   );
   return collection;
@@ -63,9 +67,10 @@ export async function createCollection(name: string): Promise<Collection> {
     defaultEnvironmentId: null,
   };
   setCollections([...collections, collection]);
+  const placement = rootsPlacement(getOracleForCurrentWorkspace(), WORKSPACE_ROOTS_RULE_COLLECTIONS_PATH);
   try {
     await applyCollectionMutationOrThrow(
-      (ctx) => ({ batch: seedCollection(collection, ctx), sideEffects: [] }),
+      (ctx) => ({ batch: seedCollection(collection, ctx, placement), sideEffects: [] }),
       'createCollection',
     );
   } catch (err) {
@@ -110,7 +115,7 @@ export async function deleteCollection(uid: string): Promise<boolean> {
       const cascadingRuleUids = rules.filter((r) => r.path.startsWith(collection.path)).map((r) => r.uid);
       const cascadingFolderUids = folders.filter((f) => f.path.startsWith(collection.path)).map((f) => f.uid);
       for (const ruleUid of cascadingRuleUids) {
-        await applyRuleMutationOrThrow((ctx) => buildDeleteBatch(ruleUid, ctx), 'deleteCollection-cascade');
+        await applyRuleMutationOrThrow((ctx) => buildDeleteEntityBatch(ruleUid, ctx), 'deleteCollection-cascade');
       }
       for (const folderUid of cascadingFolderUids) {
         await applyFolderMutationOrThrow(

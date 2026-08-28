@@ -11,6 +11,7 @@ import {
   type MutationEnvelope,
   TEMPLATE_COLLECTION_ENTITY_TYPE,
   TEMPLATE_COLLECTION_VARS_PATH,
+  WORKSPACE_ROOTS_REF,
 } from '@openheaders/core/sync';
 import { buildVariablesReplacement } from '@openheaders/core/sync-builders';
 import {
@@ -21,7 +22,7 @@ import {
   buildSetTemplateCollectionVarBatch,
 } from '@openheaders/core/sync-builders/mutations/template-collection-mutations';
 import { buildDeleteTemplateFolderEntityBatch } from '@openheaders/core/sync-builders/mutations/template-folder-mutations';
-import { buildDeleteBatch as buildDeleteTemplateBatch } from '@openheaders/core/sync-builders/mutations/template-mutations';
+import { buildDeleteEntityBatch as buildDeleteTemplateEntityBatch } from '@openheaders/core/sync-builders/mutations/template-mutations';
 import { seedTemplateCollection } from '@openheaders/core/sync-builders/projections/template-collection-projection';
 import type { Collection, Variable } from '@openheaders/core/types';
 import { generateUid, toFolderName } from '@openheaders/core/utils';
@@ -77,7 +78,10 @@ export async function applyTemplateCollectionCreate(
     defaultEnvironmentId: null,
   };
   const ctx = resolveRendererContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
-  const ack = await applySyncPayload({ batch: seedTemplateCollection(collection, ctx), sideEffects: [] });
+  const ack = await applySyncPayload({
+    batch: seedTemplateCollection(collection, ctx, { parent: WORKSPACE_ROOTS_REF }),
+    sideEffects: [],
+  });
   if (ack.ok) return { ok: true, collection };
   if (ack.reason === 'not-found') return { ok: false, reason: 'not-found' };
   return { ok: false, reason: 'other', message: ack.message };
@@ -153,7 +157,7 @@ export async function applyTemplateCollectionDelete(
   const baseCtx = resolveRendererContext(opts);
   for (const tplUid of cascadingTemplateUids) {
     const ctx = baseCtx.next({ batchId: `template-collection-delete-cascade-tpl-${tplUid}` });
-    const ack = await applySyncPayload(buildDeleteTemplateBatch(tplUid, ctx));
+    const ack = await applySyncPayload(buildDeleteTemplateEntityBatch(tplUid, ctx));
     if (!ack.ok) return ack;
   }
   for (const folderUid of cascadingFolderUids) {

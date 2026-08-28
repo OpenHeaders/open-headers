@@ -1,10 +1,13 @@
 export { FOLDER_MUTATOR_VERSION, mintBatch, mintEnvelope } from './envelope';
-export { createFolder, type CreateFolderArgs, deleteFolder, type DeleteFolderArgs } from './lifecycle';
-export { moveFolder, type MoveFolderArgs } from './move';
-export { renameFolder, type RenameFolderArgs } from './name';
+export { type CreateFolderArgs, createFolder, type DeleteFolderArgs, deleteFolder } from './lifecycle';
+export { type MoveFolderArgs, moveFolder } from './move';
+export { type RenameFolderArgs, renameFolder } from './name';
 export {
   FOLDER_CHILDREN_PATH,
   FOLDER_ENTITY_TYPE,
+  FOLDER_ITEMS_PATH,
+  FOLDER_TREE_KINDS,
+  type FolderItemSlot,
   type FolderParentRef,
   type FolderParentType,
   type FolderSlot,

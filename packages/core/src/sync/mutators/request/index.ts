@@ -1,27 +1,30 @@
-export { REQUEST_MUTATOR_VERSION, mintBatch, mintEnvelope } from './envelope';
+export { mintBatch, mintEnvelope, REQUEST_MUTATOR_VERSION } from './envelope';
 export {
-  addRequestHeader,
   type AddRequestHeaderArgs,
-  removeRequestHeader,
+  addRequestHeader,
   type RemoveRequestHeaderArgs,
-  reorderRequestHeader,
   type ReorderRequestHeaderArgs,
+  removeRequestHeader,
+  reorderRequestHeader,
 } from './header';
 export {
-  addRequestParam,
-  type AddRequestParamArgs,
-  removeRequestParam,
-  type RemoveRequestParamArgs,
-  reorderRequestParam,
-  type ReorderRequestParamArgs,
-} from './param';
-export {
-  createRequest,
   type CreateRequestArgs,
-  deleteRequest,
+  createRequest,
   type DeleteRequestArgs,
+  deleteRequest,
+  type MoveRequestArgs,
+  moveRequest,
+  requestChild,
 } from './lifecycle';
-export { type RequestScalarPath, setRequestField, type SetRequestFieldArgs } from './scalar';
+export {
+  type AddRequestParamArgs,
+  addRequestParam,
+  type RemoveRequestParamArgs,
+  type ReorderRequestParamArgs,
+  removeRequestParam,
+  reorderRequestParam,
+} from './param';
+export { type RequestScalarPath, type SetRequestFieldArgs, setRequestField } from './scalar';
 export {
   REQUEST_ENTITY_TYPE,
   REQUEST_HEADERS_PATH,

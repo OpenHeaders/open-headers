@@ -94,8 +94,11 @@ const liveWorkflow = (): LiveWorkflow => ({
 
 /** Every builder, one row per write path that emits a payload. */
 const cases: Array<{ label: string; payload: MutatorIntent }> = [
-  { label: 'rule.buildAddBatch', payload: buildAddBatch(headerRule(), ctx()) },
-  { label: 'rule.buildDeleteBatch', payload: buildDeleteBatch('rule-1', ctx()) },
+  { label: 'rule.buildAddBatch', payload: buildAddBatch(headerRule(), ctx(), null) },
+  {
+    label: 'rule.buildDeleteBatch',
+    payload: buildDeleteBatch('rule-1', { type: COLLECTION_ENTITY_TYPE, uid: 'col-1' }, ctx()),
+  },
   {
     label: 'rule.buildUpdateBatch',
     payload: buildUpdateBatch(
@@ -170,8 +173,8 @@ describe('sync-builders side effects — content', () => {
 
   it('a rule add / delete / update recompiles DNR keyed by the rule uid', () => {
     for (const payload of [
-      buildAddBatch(headerRule(), ctx()),
-      buildDeleteBatch('rule-1', ctx()),
+      buildAddBatch(headerRule(), ctx(), null),
+      buildDeleteBatch('rule-1', { type: COLLECTION_ENTITY_TYPE, uid: 'col-1' }, ctx()),
       buildUpdateBatch(
         'rule-1',
         'header',
@@ -183,7 +186,13 @@ describe('sync-builders side effects — content', () => {
     ]) {
       expect(payload.sideEffects.length).toBeGreaterThan(0);
       for (const intent of payload.sideEffects) {
-        expect(intent).toEqual({ kind: RECOMPILE_DNR, key: 'rule-1', hlc });
+        // The parented delete is a two-envelope batch (slot tombstone,
+        // then the entity tombstone the intent keys off) — logical ticks.
+        expect(intent).toEqual({
+          kind: RECOMPILE_DNR,
+          key: 'rule-1',
+          hlc: { ...hlc, logical: expect.any(Number) as number },
+        });
       }
     }
   });
@@ -259,14 +268,17 @@ describe('sync-builders side effects — content', () => {
   // and every caller hardcoded `sideEffects: []`, so deleting a
   // collection never flushed the deleting host's own resolver cache.
   it('a collection / request-collection / template-collection delete invalidates the resolver', () => {
+    // The roots slot tombstone rides first; the entity tombstone the
+    // intent keys off is the second envelope, so its logical ticks.
+    const ticked = { ...hlc, logical: expect.any(Number) as number };
     expect(buildDeleteCollectionBatch('coll-1', ctx()).sideEffects).toEqual([
-      { kind: INVALIDATE_RESOLVER, key: 'coll-1', hlc },
+      { kind: INVALIDATE_RESOLVER, key: 'coll-1', hlc: ticked },
     ]);
     expect(buildDeleteRequestCollectionBatch('rc-1', ctx()).sideEffects).toEqual([
-      { kind: INVALIDATE_RESOLVER, key: 'rc-1', hlc },
+      { kind: INVALIDATE_RESOLVER, key: 'rc-1', hlc: ticked },
     ]);
     expect(buildDeleteTemplateCollectionBatch('tc-1', ctx()).sideEffects).toEqual([
-      { kind: INVALIDATE_RESOLVER, key: 'tc-1', hlc },
+      { kind: INVALIDATE_RESOLVER, key: 'tc-1', hlc: ticked },
     ]);
   });
 });

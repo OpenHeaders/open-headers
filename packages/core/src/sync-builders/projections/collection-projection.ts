@@ -10,14 +10,17 @@
  */
 
 import {
+  type ChildPlacement,
   COLLECTION_ENTITY_TYPE,
   COLLECTION_VARS_PATH,
+  collectionChild,
   type MaterializedEntity,
   type MutationBatch,
   type MutationBody,
   type MutatorContext,
   mintBatch,
   orderKeyMinter,
+  type WorkspaceRootsRef,
 } from '@openheaders/core/sync';
 import type { Collection } from '@openheaders/core/types';
 
@@ -25,8 +28,15 @@ import type { Collection } from '@openheaders/core/types';
  * Convert a persisted `Collection` into a `MutationBatch` of one
  * `create` for the scalar shell plus one `addToSet` per variable.
  * All-or-nothing under the oracle's per-entity lock.
+ *
+ * `placement` is the roots linkage for a NEW collection: the workspace
+ * roots' slot rides the same batch. Boot-time re-seeds pass none.
  */
-export function seedCollection(collection: Collection, ctx: MutatorContext): MutationBatch {
+export function seedCollection(
+  collection: Collection,
+  ctx: MutatorContext,
+  placement?: ChildPlacement<WorkspaceRootsRef>,
+): MutationBatch {
   const shell = stripVariables(collection);
 
   const bodies: MutationBody[] = [{ kind: 'create', type: COLLECTION_ENTITY_TYPE, id: collection.uid, payload: shell }];
@@ -45,6 +55,7 @@ export function seedCollection(collection: Collection, ctx: MutatorContext): Mut
       orderKey: nextKey(),
     });
   }
+  if (placement) bodies.push(collectionChild.slotAdd(collection.uid, placement.parent, placement.orderKey));
   return mintBatch(ctx, bodies);
 }
 

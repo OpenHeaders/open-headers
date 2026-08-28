@@ -57,9 +57,13 @@ import {
   type MutatorContext,
   REQUEST_COLLECTION_ENTITY_TYPE,
   REQUEST_ENTITY_TYPE,
+  REQUEST_FOLDER_CHILDREN_PATH,
   REQUEST_FOLDER_ENTITY_TYPE,
+  REQUEST_FOLDER_ITEMS_PATH,
   RESPONSE_EXAMPLE_ENTITY_TYPE,
+  type RequestFolderParentRef,
   type SideEffectIntent,
+  WORKSPACE_ROOTS_REQUEST_COLLECTIONS_PATH,
   WORKSPACE_VARIABLES_ENTITY_TYPE,
   WORKSPACE_VARIABLES_ID,
   WORKSPACE_VARIABLES_PATH,
@@ -77,7 +81,7 @@ import {
 } from '@openheaders/core/sync-builders/mutations/request-folder-mutations';
 import {
   buildAddBatch as buildAddRequestBatch,
-  buildDeleteBatch as buildDeleteRequestBatch,
+  buildDeleteEntityBatch as buildDeleteRequestEntityBatch,
 } from '@openheaders/core/sync-builders/mutations/request-mutations';
 import {
   buildAddResponseExampleBatch,
@@ -88,6 +92,7 @@ import { seedRequestCollection } from '@openheaders/core/sync-builders/projectio
 import type { Collection, Environment, Request, ResponseExample, Variable } from '@openheaders/core/types';
 import { generateUid, logger, toFolderName } from '@openheaders/core/utils';
 import { recordImportReport } from '@openheaders/oracle/entity/import-reports-store';
+import { appendOrderKey, childPlacement, rootsPlacement } from '@openheaders/oracle/entity/tree-placement';
 import { makeOracleInverseAccess, rememberPriorForMutation } from '@openheaders/oracle/sync';
 import {
   applySyncRequest,
@@ -225,7 +230,9 @@ function buildDeleteForReplacedEntity(
     case RESPONSE_EXAMPLE_ENTITY_TYPE:
       return buildDeleteResponseExampleBatch(entity.id, ctx);
     case REQUEST_ENTITY_TYPE:
-      return buildDeleteRequestBatch(entity.id, ctx);
+      // Child-first refresh: the request's collection tombstones in the
+      // same pass, so its slot needs no tombstone of its own.
+      return buildDeleteRequestEntityBatch(entity.id, ctx);
     case REQUEST_FOLDER_ENTITY_TYPE:
       return { batch: buildDeleteRequestFolderEntityBatch(entity.id, ctx), sideEffects: [] };
     case REQUEST_COLLECTION_ENTITY_TYPE:
@@ -297,6 +304,7 @@ async function materializeCollection(
   importedAt: string,
   report: ImportReport,
   mintCtx: MutatorContextMinter,
+  oracle: LiveSetEntryReader,
 ): Promise<{ collections: number; requests: number; examples: number }> {
   const parsed = parsePostman(json, { responseExamples: true });
   mergeSubReport(report, parsed.report, `pull.collections[${index}].`);
@@ -326,13 +334,16 @@ async function materializeCollection(
   };
   const collectionCtx = mintCtx();
   if (!collectionCtx) throw new Error('landing workspace is not loaded on this host');
-  await applyMigrationMutation(seedRequestCollection(collection, collectionCtx), []);
+  await applyMigrationMutation(
+    seedRequestCollection(collection, collectionCtx, rootsPlacement(oracle, WORKSPACE_ROOTS_REQUEST_COLLECTIONS_PATH)),
+    [],
+  );
 
   // Folder tree — depth-first so every parent exists before its
-  // children; the map carries both the parent ref (folder membership)
-  // and the reconstructed path (request placement).
-  const folderMap = new Map<string, { type: 'request-collection' | 'request-folder'; uid: string; path: string }>();
-  folderMap.set('', { type: 'request-collection', uid: collectionUid, path: collection.path });
+  // children; the map carries both the parent ref (folder membership
+  // + request placement) and the reconstructed path (request `path`).
+  const folderMap = new Map<string, { ref: RequestFolderParentRef; path: string }>();
+  folderMap.set('', { ref: { type: 'request-collection', uid: collectionUid }, path: collection.path });
   const sortedFolders = [...parsed.folders].sort((a, b) => a.path.length - b.path.length);
   for (const folder of sortedFolders) {
     const parentKey = folder.path.slice(0, -1).join('/');
@@ -344,7 +355,12 @@ async function materializeCollection(
     if (!ctx) throw new Error('landing workspace is not loaded on this host');
     try {
       const intent = buildCreateRequestFolderBatch(
-        { folderUid, parent: { type: parent.type, uid: parent.uid }, name: folderName },
+        {
+          folderUid,
+          parent: parent.ref,
+          name: folderName,
+          orderKey: appendOrderKey(oracle, parent.ref, REQUEST_FOLDER_CHILDREN_PATH),
+        },
         ctx,
       );
       await applyMigrationMutation(intent.batch, intent.sideEffects);
@@ -376,8 +392,7 @@ async function materializeCollection(
         await applyMigrationMutation(authIntent.batch, authIntent.sideEffects);
       }
       folderMap.set(folder.path.join('/'), {
-        type: 'request-folder',
-        uid: folderUid,
+        ref: { type: 'request-folder', uid: folderUid },
         path: `${parent.path}/${toFolderName(folderName, folderUid)}`,
       });
     } catch (err) {
@@ -394,9 +409,11 @@ async function materializeCollection(
   for (let r = 0; r < parsed.requests.length; r++) {
     const entry = parsed.requests[r];
     if (!entry) continue;
-    const parentPath = folderMap.get(entry.folderPath.join('/'))?.path ?? collection.path;
+    const parent = folderMap.get(entry.folderPath.join('/')) ?? folderMap.get('');
+    if (!parent) continue;
     const uid = generateUid();
     const name = entry.request.name.trim() || 'Untitled Request';
+    const segment = toFolderName(name, uid);
     const candidate = v.safeParse(RequestSchema, {
       ...(entry.request.description !== undefined ? { description: entry.request.description } : {}),
       ...entry.request.settings,
@@ -413,7 +430,8 @@ async function materializeCollection(
       name,
       schemaVersion: 5,
       uid,
-      path: `${parentPath}/${toFolderName(name, uid)}`,
+      path: `${parent.path}/${segment}`,
+      pathSegment: segment,
     });
     if (!candidate.success) {
       recordDrop(report, {
@@ -427,7 +445,7 @@ async function materializeCollection(
     if (!ctx) throw new Error('landing workspace is not loaded on this host');
     const request = candidate.output as Request;
     try {
-      const payload = buildAddRequestBatch(request, ctx);
+      const payload = buildAddRequestBatch(request, ctx, childPlacement(oracle, parent.ref, REQUEST_FOLDER_ITEMS_PATH));
       await applyMigrationMutation(payload.batch, payload.sideEffects);
       requests++;
     } catch (err) {
@@ -507,8 +525,8 @@ async function materializeEnvironment(
 }
 
 /**
- * The live set-entry surface the globals landing needs — the workspace
- * service's oracle satisfies it.
+ * The live set-entry surface the landing needs for append-at-tail slots
+ * and the globals upsert — the workspace service's oracle satisfies it.
  */
 interface LiveSetEntryReader {
   liveOrderedSetItems(type: string, id: string, setPath: string): Array<{ itemId: string; item: unknown; key: string }>;
@@ -658,7 +676,7 @@ async function materializeWorkspacePull(
     }
     for (const { pulled, index } of wsCollections) {
       try {
-        const outcome = await materializeCollection(pulled.json, index, importedAt, report, mintCtx);
+        const outcome = await materializeCollection(pulled.json, index, importedAt, report, mintCtx, service.oracle);
         collections += outcome.collections;
         requests += outcome.requests;
         examples += outcome.examples;

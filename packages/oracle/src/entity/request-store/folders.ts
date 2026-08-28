@@ -1,17 +1,13 @@
 // ── Folders ─────────────────────────────────────────────────────────
 
-import {
-  REQUEST_COLLECTION_ENTITY_TYPE,
-  REQUEST_FOLDER_ENTITY_TYPE,
-  type RequestFolderParentRef,
-} from '@openheaders/core/sync';
+import { REQUEST_FOLDER_TREE_KINDS, type RequestFolderParentRef, resolveTreeParent } from '@openheaders/core/sync';
 import {
   buildCreateRequestFolderBatch,
   buildDeleteRequestFolderBatch,
   buildDeleteRequestFolderEntityBatch,
   buildRenameRequestFolderBatch,
 } from '@openheaders/core/sync-builders/mutations/request-folder-mutations';
-import { buildDeleteBatch } from '@openheaders/core/sync-builders/mutations/request-mutations';
+import { buildDeleteEntityBatch } from '@openheaders/core/sync-builders/mutations/request-mutations';
 import { generateUid, toFolderName } from '@openheaders/core/utils';
 import { applyRequestFolderMutationOrThrow, applyRequestMutationOrThrow } from './apply';
 import { deleteResponseExamplesForRequests } from './response-examples';
@@ -19,15 +15,12 @@ import { assertLoaded, collections, folders, type LocalFolder, requests } from '
 
 /**
  * Resolve `parentPath` to a {@link RequestFolderParentRef} via the
- * local mirrors. `parentPath` matches a request collection root
- * (`requests/<slug>-<uid>`) or a request folder path.
+ * local mirrors (request collection root `requests/<slug>-<uid>` or
+ * request folder path), with the path's own uid tail as the fallback
+ * the shared resolver applies.
  */
-function resolveRequestFolderParent(parentPath: string): RequestFolderParentRef | null {
-  const collection = collections.find((c) => c.path === parentPath);
-  if (collection) return { type: REQUEST_COLLECTION_ENTITY_TYPE, uid: collection.uid };
-  const folder = folders.find((f) => f.path === parentPath);
-  if (folder) return { type: REQUEST_FOLDER_ENTITY_TYPE, uid: folder.uid };
-  return null;
+export function resolveRequestFolderParent(parentPath: string): RequestFolderParentRef | null {
+  return resolveTreeParent(parentPath, { collections, folders }, REQUEST_FOLDER_TREE_KINDS);
 }
 
 export async function createRequestFolder(name: string, parentPath: string): Promise<LocalFolder | null> {
@@ -72,7 +65,10 @@ export async function deleteRequestFolder(uid: string): Promise<boolean> {
     .map((f) => f.uid);
   await deleteResponseExamplesForRequests(cascadingRequestUids);
   for (const reqUid of cascadingRequestUids) {
-    await applyRequestMutationOrThrow((ctx) => buildDeleteBatch(reqUid, ctx), 'deleteRequestFolder-cascade-request');
+    await applyRequestMutationOrThrow(
+      (ctx) => buildDeleteEntityBatch(reqUid, ctx),
+      'deleteRequestFolder-cascade-request',
+    );
   }
   for (const nestedUid of cascadingNestedFolderUids) {
     await applyRequestFolderMutationOrThrow(

@@ -16,10 +16,14 @@ import {
 import {
   buildWebSocketAddBatch,
   buildWebSocketDeleteBatch,
+  buildWebSocketDeleteEntityBatch,
   buildWebSocketUpdateBatch,
 } from '@openheaders/core/sync-builders/mutations/websocket-request-mutations';
 import { buildDeleteWsResponseExampleBatch } from '@openheaders/core/sync-builders/mutations/ws-response-example-mutations';
 import type { WebSocketRequest } from '@openheaders/core/types';
+import { parentPathOf } from '@openheaders/core/utils';
+import type { RequestCollectionSyncMirror } from '../../context/mirrors/request-collection-sync-mirror';
+import type { RequestFolderSyncMirror } from '../../context/mirrors/request-folder-sync-mirror';
 import {
   getWebSocketRequestSyncMirrorForWorkspace,
   type WebSocketRequestSyncMirror,
@@ -35,8 +39,9 @@ import {
   resolveRendererContext,
   type SyncSimpleResult,
 } from './apply-payload';
+import { requestTreeMirrors, resolveLeafParent, resolveLeafPlacement, unresolvableParent } from './tree-placement';
 
-export type WebSocketRequestUpdates = Partial<Omit<WebSocketRequest, 'uid' | 'path' | 'schemaVersion'>>;
+export type WebSocketRequestUpdates = Partial<Omit<WebSocketRequest, 'uid' | 'path' | 'pathSegment' | 'schemaVersion'>>;
 
 export type WebSocketRequestMutationResult =
   | { ok: true; websocketRequest: WebSocketRequest }
@@ -50,6 +55,9 @@ export interface WebSocketRequestWriteOptions extends BaseSyncWriteOptions {
   mirror?: WebSocketRequestSyncMirror;
   /** Override the response-example mirror the delete cascade reads (tests). */
   exampleMirror?: WsResponseExampleSyncMirror;
+  /** Override the parent-resolving container mirrors for tests. */
+  collectionMirror?: RequestCollectionSyncMirror;
+  folderMirror?: RequestFolderSyncMirror;
 }
 
 /**
@@ -108,15 +116,22 @@ export async function applyWebSocketRequestUpdate(
   return { ok: false, reason: 'other', message: ack.message };
 }
 
-/** Seed a brand-new WebSocket request through the oracle. Caller mints
- *  the full `WebSocketRequest` shape; the helper handles the create +
- *  per-row addToSet envelopes via the projection layer. */
+/**
+ * Seed a brand-new WebSocket request through the oracle. Caller mints
+ * the full `WebSocketRequest` shape; the helper resolves the parent from
+ * the request's path (its `items` slot rides the create batch) and
+ * handles the per-row addToSet envelopes via the projection layer. An
+ * unplaceable parent fails the create.
+ */
 export async function applyWebSocketRequestCreate(
   request: WebSocketRequest,
   opts: WebSocketRequestWriteOptions,
 ): Promise<WebSocketRequestSimpleResult> {
+  const parentPath = parentPathOf(request.path) ?? '';
+  const placement = await resolveLeafPlacement(requestTreeMirrors(opts.workspaceId, opts), parentPath);
+  if (!placement) return unresolvableParent(parentPath);
   const ctx = resolveRendererContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
-  const payload = buildWebSocketAddBatch(request, ctx);
+  const payload = buildWebSocketAddBatch(request, ctx, placement);
   return applySyncPayload(payload);
 }
 
@@ -126,7 +141,8 @@ export async function applyWebSocketRequestDelete(
 ): Promise<WebSocketRequestSimpleResult> {
   const mirror = resolveMirror(opts, getWebSocketRequestSyncMirrorForWorkspace);
   await mirror.hydrated;
-  if (!mirror.getWebSocketRequestMirror(webSocketRequestUid)) return { ok: false, reason: 'not-found' };
+  const entry = mirror.getWebSocketRequestMirror(webSocketRequestUid);
+  if (!entry) return { ok: false, reason: 'not-found' };
   // Cascade: a deleted WebSocket request must not leave orphan response
   // examples behind (the gRPC request family's invariant, applied at
   // this family's renderer-direct write site).
@@ -136,7 +152,13 @@ export async function applyWebSocketRequestDelete(
   for (const example of exampleMirror.listWsResponseExamplesForRequest(webSocketRequestUid)) {
     await applySyncPayload(buildDeleteWsResponseExampleBatch(example.uid, handle.next()));
   }
+  // The parent's `items` slot tombstones with the entity; an
+  // unresolvable parent (already tombstoned) takes the bare tombstone.
+  const parent = await resolveLeafParent(requestTreeMirrors(opts.workspaceId, opts), entry.websocketRequest.path);
   const ctx = handle.next(opts.batchId ? { batchId: opts.batchId } : undefined);
-  const payload = buildWebSocketDeleteBatch(webSocketRequestUid, ctx);
-  return applySyncPayload(payload);
+  return applySyncPayload(
+    parent
+      ? buildWebSocketDeleteBatch(webSocketRequestUid, parent, ctx)
+      : buildWebSocketDeleteEntityBatch(webSocketRequestUid, ctx),
+  );
 }

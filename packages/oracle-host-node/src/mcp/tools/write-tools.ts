@@ -27,13 +27,23 @@ import {
   RuleSchema,
 } from '@openheaders/core/schemas';
 import {
+  type ChildPlacement,
   ENV_VARS_PATH,
   ENVIRONMENT_ENTITY_TYPE,
+  FOLDER_ITEMS_PATH,
+  FOLDER_TREE_KINDS,
+  type FolderParentRef,
   invalidateResolverIntent,
   type MutationBody,
   mintBatch,
   REQUEST_ENTITY_TYPE,
+  REQUEST_FOLDER_ITEMS_PATH,
+  REQUEST_FOLDER_TREE_KINDS,
+  type RequestFolderParentRef,
   RULE_ENTITY_TYPE,
+  resolveTreeParent,
+  WORKSPACE_ROOTS_REQUEST_COLLECTIONS_PATH,
+  WORKSPACE_ROOTS_RULE_COLLECTIONS_PATH,
 } from '@openheaders/core/sync';
 import { buildSetCollectionVarBatch } from '@openheaders/core/sync-builders/mutations/collection-mutations';
 import { buildAddEnvironmentBatch } from '@openheaders/core/sync-builders/mutations/env-mutations';
@@ -50,6 +60,7 @@ import {
 import {
   buildAddBatch as buildAddRuleBatch,
   buildDeleteBatch as buildDeleteRuleBatch,
+  buildDeleteEntityBatch as buildDeleteRuleEntityBatch,
   buildUpdateBatch as buildUpdateRuleBatch,
   type LiveSetEntries,
 } from '@openheaders/core/sync-builders/mutations/rule-mutations';
@@ -65,15 +76,18 @@ import type {
   Rule,
   Variable,
 } from '@openheaders/core/types';
-import { generateUid, toFolderName } from '@openheaders/core/utils';
+import { generateUid, parentPathOf, toFolderName } from '@openheaders/core/utils';
+import { childPlacement, rootsPlacement } from '@openheaders/oracle/entity/tree-placement';
 import type { EntityOracle } from '@openheaders/oracle/sync/oracle';
 import {
   getOracleForWorkspace,
   snapshotCollectionPostStates,
   snapshotEnvironmentPostStates,
+  snapshotFolderPostStates,
   snapshotLiveVariablePostStates,
   snapshotLiveWorkflowPostStates,
   snapshotRequestCollectionPostStates,
+  snapshotRequestFolderPostStates,
   snapshotRequestPostStates,
   snapshotRulePostStates,
   snapshotWorkspaceVariablesPostStates,
@@ -101,7 +115,7 @@ function requireObjectArg(args: Record<string, unknown>, name: string): Record<s
 }
 
 function rejectEntityManagedFields(patch: Record<string, unknown>): void {
-  for (const field of ['uid', 'path', 'schemaVersion'] as const) {
+  for (const field of ['uid', 'path', 'pathSegment', 'schemaVersion'] as const) {
     if (field in patch) {
       throw new McpToolInputError(`'${field}' is entity-managed and cannot appear in an update patch`);
     }
@@ -192,6 +206,32 @@ async function applyRulePatch(workspaceId: string, rule: Rule, patch: Record<str
 }
 
 /**
+ * The parent a rule lives under, resolved from its path over the
+ * workspace's live collections + folders (the shared resolver's uid-tail
+ * fallback covers a parent the snapshot hasn't caught up with).
+ */
+function resolveRuleParent(workspaceId: string, rulePath: string): FolderParentRef | null {
+  const parentPath = parentPathOf(rulePath);
+  if (parentPath === null) return null;
+  return resolveTreeParent(
+    parentPath,
+    {
+      collections: snapshotCollectionPostStates(workspaceId).map((ps) => ps.collection),
+      folders: snapshotFolderPostStates(workspaceId).map((ps) => ps.folder),
+    },
+    FOLDER_TREE_KINDS,
+  );
+}
+
+/**
+ * Containment for a rule minted at `rulePath`: its parent's `items`
+ * slot, appended after the live tail. Shared with `traffic_to_rule`.
+ */
+export function placeRule(workspaceId: string, rulePath: string): ChildPlacement<FolderParentRef> | null {
+  return childPlacement(oracleFor(workspaceId), resolveRuleParent(workspaceId, rulePath), FOLDER_ITEMS_PATH);
+}
+
+/**
  * Resolve the parent collection for a new rule, minting the default
  * "My Rules" collection when the workspace has none yet — the same
  * ensure-on-demand shape the rule store applies at hydration. Shared
@@ -221,7 +261,11 @@ export async function resolveRuleParentPath(workspaceId: string, collectionUid: 
     defaultEnvironmentId: null,
   };
   await applyMcpMutation({
-    batch: seedCollection(collection, mintMcpContext(workspaceId)),
+    batch: seedCollection(
+      collection,
+      mintMcpContext(workspaceId),
+      rootsPlacement(oracleFor(workspaceId), WORKSPACE_ROOTS_RULE_COLLECTIONS_PATH),
+    ),
     sideEffects: [],
   });
   return collection.path;
@@ -262,10 +306,41 @@ export async function resolveRequestParentPath(
     defaultEnvironmentId: null,
   };
   await applyMcpMutation({
-    batch: seedRequestCollection(collection, mintMcpContext(workspaceId)),
+    batch: seedRequestCollection(
+      collection,
+      mintMcpContext(workspaceId),
+      rootsPlacement(oracleFor(workspaceId), WORKSPACE_ROOTS_REQUEST_COLLECTIONS_PATH),
+    ),
     sideEffects: [],
   });
   return collection.path;
+}
+
+/** The parent a request lives under — see {@link resolveRuleParent}. */
+function resolveRequestParent(workspaceId: string, requestPath: string): RequestFolderParentRef | null {
+  const parentPath = parentPathOf(requestPath);
+  if (parentPath === null) return null;
+  return resolveTreeParent(
+    parentPath,
+    {
+      collections: snapshotRequestCollectionPostStates(workspaceId).map((ps) => ps.collection),
+      folders: snapshotRequestFolderPostStates(workspaceId).map((ps) => ps.folder),
+    },
+    REQUEST_FOLDER_TREE_KINDS,
+  );
+}
+
+/**
+ * Containment for a request minted at `requestPath`: its parent's
+ * `items` slot, appended after the live tail. Shared with
+ * `requests_import`.
+ */
+export function placeRequest(workspaceId: string, requestPath: string): ChildPlacement<RequestFolderParentRef> | null {
+  return childPlacement(
+    oracleFor(workspaceId),
+    resolveRequestParent(workspaceId, requestPath),
+    REQUEST_FOLDER_ITEMS_PATH,
+  );
 }
 
 // ── Environments / variables ────────────────────────────────────────
@@ -584,6 +659,7 @@ export function createWriteToolDefinitions(): McpToolDefinition[] {
         );
         const uid = generateUid();
         const name = typeof input.name === 'string' && input.name.trim() ? input.name.trim() : 'Untitled Rule';
+        const segment = toFolderName(name, uid);
         const created = parseOrThrow(
           RuleSchema,
           {
@@ -591,12 +667,15 @@ export function createWriteToolDefinitions(): McpToolDefinition[] {
             name,
             schemaVersion: 5,
             uid,
-            path: `${parentPath}/${toFolderName(name, uid)}`,
+            path: `${parentPath}/${segment}`,
+            pathSegment: segment,
             published: input.published === true,
           },
           'rule',
         );
-        await applyMcpMutation(buildAddRuleBatch(created, mintMcpContext(workspaceId)));
+        await applyMcpMutation(
+          buildAddRuleBatch(created, mintMcpContext(workspaceId), placeRule(workspaceId, created.path)),
+        );
         return { workspaceId, rule: created, appliedBy: 'connected browser extension' };
       },
     },
@@ -647,7 +726,11 @@ export function createWriteToolDefinitions(): McpToolDefinition[] {
       handler: async (args) => {
         const workspaceId = requireWorkspace(args);
         const rule = findRule(workspaceId, requireStringArg(args, 'uid'));
-        await applyMcpMutation(buildDeleteRuleBatch(rule.uid, mintMcpContext(workspaceId)));
+        const parent = resolveRuleParent(workspaceId, rule.path);
+        const ctx = mintMcpContext(workspaceId);
+        await applyMcpMutation(
+          parent ? buildDeleteRuleBatch(rule.uid, parent, ctx) : buildDeleteRuleEntityBatch(rule.uid, ctx),
+        );
         return { workspaceId, uid: rule.uid, deleted: true };
       },
     },
@@ -919,6 +1002,7 @@ export function createWriteToolDefinitions(): McpToolDefinition[] {
         );
         const uid = generateUid();
         const name = typeof input.name === 'string' && input.name.trim() ? input.name.trim() : 'Untitled Request';
+        const segment = toFolderName(name, uid);
         const created = parseOrThrow(
           RequestSchema,
           {
@@ -932,11 +1016,14 @@ export function createWriteToolDefinitions(): McpToolDefinition[] {
             name,
             schemaVersion: 5,
             uid,
-            path: `${parentPath}/${toFolderName(name, uid)}`,
+            path: `${parentPath}/${segment}`,
+            pathSegment: segment,
           },
           'request',
         );
-        await applyMcpMutation(buildAddRequestBatch(created, mintMcpContext(workspaceId)));
+        await applyMcpMutation(
+          buildAddRequestBatch(created, mintMcpContext(workspaceId), placeRequest(workspaceId, created.path)),
+        );
         return {
           workspaceId,
           request: {

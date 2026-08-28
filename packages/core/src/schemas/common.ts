@@ -42,3 +42,11 @@ export const UuidV7Schema = v.pipe(
  * Matches Phase 0 invariant #12.
  */
 export const RelativePathSchema = v.pipe(v.string(), v.minLength(1));
+
+/**
+ * A tree child's own last path segment (`<slug>-<uid>`), frozen at
+ * create so the projected `path` never shifts on rename. Optional on
+ * the leaf schemas: entities minted before containment carried only
+ * `path`, and the by-path seeding derives the segment for them.
+ */
+export const PathSegmentSchema = v.pipe(v.string(), v.minLength(1));

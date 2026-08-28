@@ -1,4 +1,13 @@
 export { mintBatch, mintEnvelope, REQUEST_COLLECTION_MUTATOR_VERSION } from './envelope';
+export {
+  type CreateRequestCollectionArgs,
+  createRequestCollection,
+  type DeleteRequestCollectionArgs,
+  deleteRequestCollection,
+  type MoveRequestCollectionArgs,
+  moveRequestCollection,
+  requestCollectionChild,
+} from './lifecycle';
 export { type RenameRequestCollectionArgs, renameRequestCollection } from './name';
 export {
   type SetRequestCollectionPinnedAndDefaultArgs,

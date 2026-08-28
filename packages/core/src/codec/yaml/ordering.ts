@@ -209,7 +209,7 @@ export const MQTT_REQUEST_FIELD_ORDER = [
  * on serialize and re-populates it on parse (the caller tells the codec
  * what path the document came from).
  */
-export const RUNTIME_ONLY_FIELDS = ['path'] as const;
+export const RUNTIME_ONLY_FIELDS = ['path', 'pathSegment'] as const;
 
 /**
  * Live Workflow manifest (`workflow.yaml`): metadata top, payload nested.

@@ -18,6 +18,8 @@
  */
 
 import { COLLECTION_ENTITY_TYPE } from '../collection/types';
+import type { RULE_ENTITY_TYPE } from '../rule/types';
+import type { TreeParentKinds } from '../shared/tree-parent';
 
 /** Routing key carried on every folder mutation envelope. */
 export const FOLDER_ENTITY_TYPE = 'folder';
@@ -30,12 +32,36 @@ export const FOLDER_ENTITY_TYPE = 'folder';
  */
 export const FOLDER_CHILDREN_PATH = 'folders';
 
+/**
+ * Set path on a parent (collection or folder) holding the ordered
+ * leaf slots — the rules under it. Folders render first, then items;
+ * the two sets never interleave.
+ */
+export const FOLDER_ITEMS_PATH = 'items';
+
 /** Discriminator for the two parent kinds that can hold a folder. */
 export type FolderParentType = typeof COLLECTION_ENTITY_TYPE | typeof FOLDER_ENTITY_TYPE;
 
 export interface FolderParentRef {
   type: FolderParentType;
   uid: string;
+}
+
+/** The rules tree's parent vocabulary for path → parent-ref resolution. */
+export const FOLDER_TREE_KINDS: TreeParentKinds<typeof COLLECTION_ENTITY_TYPE, typeof FOLDER_ENTITY_TYPE> = {
+  treePrefix: 'rules',
+  collectionType: COLLECTION_ENTITY_TYPE,
+  folderType: FOLDER_ENTITY_TYPE,
+};
+
+/**
+ * Slot marker stored under `parent.items[ruleUid]`. Carries the leaf's
+ * entity type so one `items` set can hold several leaf kinds on trees
+ * that need it; the rules tree holds one.
+ */
+export interface FolderItemSlot {
+  uid: string;
+  type: typeof RULE_ENTITY_TYPE;
 }
 
 /**

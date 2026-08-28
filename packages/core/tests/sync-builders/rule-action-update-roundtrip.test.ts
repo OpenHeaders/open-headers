@@ -15,7 +15,11 @@
 
 import { describe, expect, it } from 'vitest';
 import { InMemoryDocumentStore, type MutatorContext } from '../../src/sync';
-import { buildAddBatch, buildUpdateBatch, type RuleMutationPayload } from '../../src/sync-builders/mutations/rule-mutations';
+import {
+  buildAddBatch,
+  buildUpdateBatch,
+  type RuleMutationPayload,
+} from '../../src/sync-builders/mutations/rule-mutations';
 import type { RedirectRule, ResponseRule, Rule, SseRule } from '../../src/types';
 
 const ctx = (physicalMs: number): MutatorContext => ({
@@ -58,7 +62,7 @@ const responseSeed: ResponseRule = {
 describe('non-header rule action update round-trip', () => {
   it('persists every edited response action leaf instead of reverting to create defaults', () => {
     const store = new InMemoryDocumentStore();
-    applyBatch(store, buildAddBatch(responseSeed, ctx(1_000)));
+    applyBatch(store, buildAddBatch(responseSeed, ctx(1_000), null));
 
     const editedAction: ResponseRule['action'] = {
       responseSource: 'network', // flipped mock → network
@@ -91,7 +95,7 @@ describe('non-header rule action update round-trip', () => {
 
   it('a second update supersedes the first (no stale residue)', () => {
     const store = new InMemoryDocumentStore();
-    applyBatch(store, buildAddBatch(responseSeed, ctx(1_000)));
+    applyBatch(store, buildAddBatch(responseSeed, ctx(1_000), null));
     applyBatch(
       store,
       buildUpdateBatch(
@@ -133,7 +137,7 @@ describe('non-header rule action update round-trip', () => {
       action: { redirectTo: '' },
     };
     const store = new InMemoryDocumentStore();
-    applyBatch(store, buildAddBatch(redirectSeed, ctx(1_000)));
+    applyBatch(store, buildAddBatch(redirectSeed, ctx(1_000), null));
     applyBatch(
       store,
       buildUpdateBatch(
@@ -167,7 +171,7 @@ describe('non-header rule action update round-trip', () => {
       },
     };
     const store = new InMemoryDocumentStore();
-    applyBatch(store, buildAddBatch(sseSeed, ctx(1_000)));
+    applyBatch(store, buildAddBatch(sseSeed, ctx(1_000), null));
     // Editor clears the event name and switches the filter back to
     // "every event" — both leaves vanish from the projected action.
     applyBatch(
@@ -175,7 +179,9 @@ describe('non-header rule action update round-trip', () => {
       buildUpdateBatch(
         'rule-3',
         'sse',
-        { action: { operation: 'modify', eventName: undefined, messageFilter: undefined, payload: '{"replaced":true}' } },
+        {
+          action: { operation: 'modify', eventName: undefined, messageFilter: undefined, payload: '{"replaced":true}' },
+        },
         ctx(2_000),
         () => [],
         liveAction(store),

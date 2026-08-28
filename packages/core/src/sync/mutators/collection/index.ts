@@ -1,19 +1,28 @@
 export { COLLECTION_MUTATOR_VERSION, mintBatch, mintEnvelope } from './envelope';
-export { renameCollection, type RenameCollectionArgs } from './name';
 export {
-  setDefaultEnvironmentId,
+  type CreateCollectionArgs,
+  collectionChild,
+  createCollection,
+  type DeleteCollectionArgs,
+  deleteCollection,
+  type MoveCollectionArgs,
+  moveCollection,
+} from './lifecycle';
+export { type RenameCollectionArgs, renameCollection } from './name';
+export {
   type SetDefaultEnvironmentIdArgs,
-  setPinnedAndDefault,
   type SetPinnedAndDefaultArgs,
-  setPinnedEnvironments,
   type SetPinnedEnvironmentsArgs,
+  setDefaultEnvironmentId,
+  setPinnedAndDefault,
+  setPinnedEnvironments,
 } from './pinned';
 export { INVALIDATE_RESOLVER, invalidateResolverIntent } from './side-effects';
 export { COLLECTION_ENTITY_TYPE, COLLECTION_VARS_PATH } from './types';
 export {
-  removeCollectionVar,
   type RemoveCollectionVarArgs,
-  setCollectionVar,
+  removeCollectionVar,
   type SetCollectionVarArgs,
+  setCollectionVar,
   type VariableType,
 } from './variable';

@@ -7,7 +7,12 @@
  */
 
 import type { SyncCollectionPostState } from '@openheaders/core/protocol';
-import { COLLECTION_ENTITY_TYPE, COLLECTION_VARS_PATH, FOLDER_CHILDREN_PATH } from '@openheaders/core/sync';
+import {
+  COLLECTION_ENTITY_TYPE,
+  COLLECTION_VARS_PATH,
+  FOLDER_CHILDREN_PATH,
+  FOLDER_ITEMS_PATH,
+} from '@openheaders/core/sync';
 import { projectCollection } from '@openheaders/core/sync-builders/projections/collection-projection';
 import type { Collection } from '@openheaders/core/types';
 import type { EntityOracle } from '../oracle';
@@ -21,10 +26,12 @@ const projectors = makeFlatEntityProjectors<Reads, Collection, SyncCollectionPos
   composeResult: (collection, oracle, uid) => ({
     collection,
     ...buildVarNamesExtras(oracle, COLLECTION_ENTITY_TYPE, uid, COLLECTION_VARS_PATH),
-    // Order keys for BOTH the parent-owned `folders` set (sidebar tree /
-    // dnd) and the `variables` set (editor's position-preserving Save).
+    // Order keys for the parent-owned `folders` + `items` sets (sidebar
+    // tree / dnd / append-at-tail creates) and the `variables` set
+    // (editor's position-preserving Save).
     setOrderKeys: buildSetMembersExtras(oracle, COLLECTION_ENTITY_TYPE, uid, [
       FOLDER_CHILDREN_PATH,
+      FOLDER_ITEMS_PATH,
       COLLECTION_VARS_PATH,
     ]).setOrderKeys,
   }),

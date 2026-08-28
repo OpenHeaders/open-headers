@@ -4,11 +4,15 @@ import {
   createTemplate,
   deleteTemplate,
   type MutatorContext,
+  moveTemplate,
   removeTemplateCondition,
   setTemplateConditionField,
   setTemplateField,
+  TEMPLATE_COLLECTION_ENTITY_TYPE,
   TEMPLATE_CONDITIONS_PATH,
   TEMPLATE_ENTITY_TYPE,
+  TEMPLATE_FOLDER_ENTITY_TYPE,
+  TEMPLATE_FOLDER_ITEMS_PATH,
   TEMPLATE_MUTATOR_VERSION,
 } from '../../../../src/sync';
 
@@ -127,39 +131,79 @@ describe('setTemplateField', () => {
 });
 
 describe('createTemplate', () => {
-  it('mints a single create envelope carrying the full payload', () => {
-    const payload = {
-      schemaVersion: 5,
-      path: 'templates/col/tpl',
-      name: 'list users template',
-      ruleType: 'header',
-      icon: 'header',
-      description: 'Adds X-Trace header',
-      includes: { conditions: true, formValues: true },
-      conditions: [],
-      formValues: {},
-      createdAt: '2026-04-29T00:00:00Z',
-      updatedAt: '2026-04-29T00:00:00Z',
-    };
-    const intent = createTemplate(ctx(), { templateUid: 'tpl-1', payload });
-    expect(intent.batch.mutations).toHaveLength(1);
-    expect(intent.batch.mutations[0].body).toEqual({
-      kind: 'create',
-      type: TEMPLATE_ENTITY_TYPE,
-      id: 'tpl-1',
+  const payload = {
+    schemaVersion: 5,
+    path: 'templates/col/tpl',
+    pathSegment: 'tpl',
+    name: 'list users template',
+    ruleType: 'header',
+    icon: 'header',
+    description: 'Adds X-Trace header',
+    includes: { conditions: true, formValues: true },
+    conditions: [],
+    formValues: {},
+    createdAt: '2026-04-29T00:00:00Z',
+    updatedAt: '2026-04-29T00:00:00Z',
+  };
+
+  it('mints the create envelope + the parent collection items slot in one batch', () => {
+    const intent = createTemplate(ctx(), {
+      templateUid: 'tpl-1',
+      parent: { type: TEMPLATE_COLLECTION_ENTITY_TYPE, uid: 'col-1' },
       payload,
+      orderKey: 'mm',
+    });
+    expect(intent.batch.mutations).toHaveLength(2);
+    const [createBody, slotBody] = intent.batch.mutations.map((m) => m.body);
+    expect(createBody).toEqual({ kind: 'create', type: TEMPLATE_ENTITY_TYPE, id: 'tpl-1', payload });
+    expect(slotBody).toEqual({
+      kind: 'addToSet',
+      type: TEMPLATE_COLLECTION_ENTITY_TYPE,
+      id: 'col-1',
+      path: TEMPLATE_FOLDER_ITEMS_PATH,
+      itemId: 'tpl-1',
+      item: { uid: 'tpl-1', type: TEMPLATE_ENTITY_TYPE },
+      orderKey: 'mm',
     });
     expect(intent.sideEffects).toEqual([]);
   });
 });
 
 describe('deleteTemplate', () => {
-  it('emits a single delete envelope', () => {
-    const intent = deleteTemplate(ctx(), { templateUid: 'tpl-1' });
-    expect(intent.batch.mutations[0].body).toEqual({
-      kind: 'delete',
-      type: TEMPLATE_ENTITY_TYPE,
-      id: 'tpl-1',
+  it('emits the parent slot tombstone + the entity tombstone, in that order', () => {
+    const intent = deleteTemplate(ctx(), {
+      templateUid: 'tpl-1',
+      parent: { type: TEMPLATE_FOLDER_ENTITY_TYPE, uid: 'fold-1' },
+    });
+    expect(intent.batch.mutations.map((m) => m.body)).toEqual([
+      {
+        kind: 'removeFromSet',
+        type: TEMPLATE_FOLDER_ENTITY_TYPE,
+        id: 'fold-1',
+        path: TEMPLATE_FOLDER_ITEMS_PATH,
+        itemId: 'tpl-1',
+      },
+      { kind: 'delete', type: TEMPLATE_ENTITY_TYPE, id: 'tpl-1' },
+    ]);
+  });
+});
+
+describe('moveTemplate', () => {
+  it('reparent is an atomic remove from the old parent + add to the new one', () => {
+    const intent = moveTemplate(ctx(), {
+      templateUid: 'tpl-1',
+      oldParent: { type: TEMPLATE_COLLECTION_ENTITY_TYPE, uid: 'col-1' },
+      newParent: { type: TEMPLATE_FOLDER_ENTITY_TYPE, uid: 'fold-9' },
+      orderKey: 'm',
+    });
+    const [removeBody, addBody] = intent.batch.mutations.map((m) => m.body);
+    expect(removeBody).toMatchObject({ kind: 'removeFromSet', type: TEMPLATE_COLLECTION_ENTITY_TYPE, id: 'col-1' });
+    expect(addBody).toMatchObject({
+      kind: 'addToSet',
+      type: TEMPLATE_FOLDER_ENTITY_TYPE,
+      id: 'fold-9',
+      path: TEMPLATE_FOLDER_ITEMS_PATH,
+      item: { uid: 'tpl-1', type: TEMPLATE_ENTITY_TYPE },
     });
   });
 });

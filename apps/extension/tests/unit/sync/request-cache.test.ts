@@ -8,6 +8,7 @@ import {
   addRequestHeader,
   addRequestParam,
   deleteRequest,
+  REQUEST_COLLECTION_ENTITY_TYPE,
   REQUEST_ENTITY_TYPE,
   setRequestField,
 } from '@openheaders/core/sync';
@@ -118,7 +119,11 @@ describe('RequestCache', () => {
   it('drops a request from the cache after delete (tombstone wins)', async () => {
     const cache = createRequestCache('ws-1', oracle, broadcast, ctxFactory);
     await cache.seedFromPersistedRequests([makeRequest('rq'), makeRequest('alt')]);
-    await oracle.apply(deleteRequest(ctxFactory(), { requestUid: 'rq' }).batch, []);
+    await oracle.apply(
+      deleteRequest(ctxFactory(), { requestUid: 'rq', parent: { type: REQUEST_COLLECTION_ENTITY_TYPE, uid: 'col-1' } })
+        .batch,
+      [],
+    );
     expect(cache.getRequests().map((r) => r.uid)).toEqual(['alt']);
     cache.dispose();
   });

@@ -17,12 +17,15 @@ import { type MutationBody, mintBatch, RULE_ENTITY_TYPE, recompileDnrIntent } fr
 import {
   buildAddBatch,
   buildDeleteBatch,
+  buildDeleteEntityBatch,
   buildToggleBatch,
   buildUpdateBatch,
 } from '@openheaders/core/sync-builders/mutations/rule-mutations';
 import type { TelemetryRuleCreatedOrigin } from '@openheaders/core/telemetry';
 import type { Rule } from '@openheaders/core/types';
 import { generateUid, shouldAutoUnpublishOnUpdate, toFolderName } from '@openheaders/core/utils';
+import type { CollectionSyncMirror } from '../../context/mirrors/collection-sync-mirror';
+import type { FolderSyncMirror } from '../../context/mirrors/folder-sync-mirror';
 import { getRuleSyncMirrorForWorkspace, type RuleSyncMirror } from '../../context/mirrors/rule-sync-mirror';
 import { trackProductTelemetryEvent } from '../product-telemetry';
 import {
@@ -32,8 +35,9 @@ import {
   resolveRendererContext,
   type SyncSimpleResult,
 } from './apply-payload';
+import { resolveLeafParent, resolveLeafPlacement, ruleTreeMirrors, unresolvableParent } from './tree-placement';
 
-export type RuleUpdates = Partial<Omit<Rule, 'uid' | 'path' | 'schemaVersion'>>;
+export type RuleUpdates = Partial<Omit<Rule, 'uid' | 'path' | 'pathSegment' | 'schemaVersion'>>;
 
 export type RuleMutationResult =
   | { ok: true; rule: Rule }
@@ -45,6 +49,9 @@ export type RuleSimpleResult = SyncSimpleResult;
 export interface RuleWriteOptions extends BaseSyncWriteOptions {
   /** Override the singleton mirror for tests. */
   mirror?: RuleSyncMirror;
+  /** Override the parent-resolving container mirrors for tests. */
+  collectionMirror?: CollectionSyncMirror;
+  folderMirror?: FolderSyncMirror;
   /**
    * Which affordance a create gesture came from, for the `rule_created`
    * telemetry split (plan §3, S16). Defaults to `editor`; quick-create
@@ -129,20 +136,25 @@ export async function applyRuleUpdate(
 
 /**
  * Renderer-direct rule create. Mints uid + path locally, builds the seed
- * batch (one `create` + one `addToSet` per set-modeled item), and fires
- * `oh.sync.apply`. The created rule starts `published: false` — per-keystroke
- * edits stream into a real entity from this point; the explicit Save
- * gesture flips publication via {@link applyRulePublish}.
+ * batch (one `create` + one `addToSet` per set-modeled item + the
+ * parent's `items` slot, appended after the parent's live tail), and
+ * fires `oh.sync.apply`. The created rule starts `published: false` —
+ * per-keystroke edits stream into a real entity from this point; the
+ * explicit Save gesture flips publication via {@link applyRulePublish}.
  *
  * `request.rule` carries everything except the entity-managed fields
- * (uid, path, schemaVersion). Passing `published` in the request payload
- * is allowed but the write client always overrides to `false` — drafts
- * must not arrive published.
+ * (uid, path, pathSegment, schemaVersion). Passing `published` in the
+ * request payload is allowed but the write client always overrides to
+ * `false` — drafts must not arrive published. A `parentPath` neither
+ * the container mirrors nor the path's own uid tail can place fails
+ * the create — a rule never lands where the tree cannot show it.
  */
 export async function applyRuleCreate(
-  request: { rule: Omit<Rule, 'uid' | 'path' | 'schemaVersion'>; parentPath: string },
+  request: { rule: Omit<Rule, 'uid' | 'path' | 'pathSegment' | 'schemaVersion'>; parentPath: string },
   opts: RuleWriteOptions,
 ): Promise<RuleMutationResult> {
+  const placement = await resolveLeafPlacement(ruleTreeMirrors(opts.workspaceId, opts), request.parentPath);
+  if (!placement) return unresolvableParent(request.parentPath);
   const uid = generateUid();
   const folderName = toFolderName(request.rule.name, uid);
   const created = {
@@ -150,10 +162,11 @@ export async function applyRuleCreate(
     schemaVersion: 5 as const,
     uid,
     path: `${request.parentPath}/${folderName}`,
+    pathSegment: folderName,
     published: false,
   } as Rule;
   const ctx = resolveRendererContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
-  const payload = buildAddBatch(created, ctx);
+  const payload = buildAddBatch(created, ctx, placement);
   const ack = await applySyncPayload(payload);
   if (ack.ok) {
     if (opts.surfaceId !== IMPORT_ATTRIBUTION_SURFACE_ID) {
@@ -199,13 +212,20 @@ export async function applyRuleToggle(
   return applySyncPayload(payload);
 }
 
+/**
+ * Delete a rule: its parent's `items` slot tombstones in the same batch
+ * as the entity. A parent the mirrors cannot resolve (already
+ * tombstoned) falls back to the bare entity tombstone — the parent's own
+ * tombstone covers the slot.
+ */
 export async function applyRuleDelete(ruleUid: string, opts: RuleWriteOptions): Promise<RuleSimpleResult> {
   const mirror = resolveMirror(opts, getRuleSyncMirrorForWorkspace);
   await mirror.hydrated;
-  if (!mirror.getRuleMirror(ruleUid)) return { ok: false, reason: 'not-found' };
+  const entry = mirror.getRuleMirror(ruleUid);
+  if (!entry) return { ok: false, reason: 'not-found' };
+  const parent = await resolveLeafParent(ruleTreeMirrors(opts.workspaceId, opts), entry.rule.path);
   const ctx = resolveRendererContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
-  const payload = buildDeleteBatch(ruleUid, ctx);
-  return applySyncPayload(payload);
+  return applySyncPayload(parent ? buildDeleteBatch(ruleUid, parent, ctx) : buildDeleteEntityBatch(ruleUid, ctx));
 }
 
 /**

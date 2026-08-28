@@ -1,56 +1,77 @@
 /**
- * `createTemplate` + `deleteTemplate` — template entity lifecycle.
+ * `createTemplate` + `deleteTemplate` + `moveTemplate` — template
+ * entity lifecycle as a tree child. Thin adapters over the shared
+ * child-mutator factory bound to the templates tree: the parent
+ * (template collection or template folder) owns the template's slot in
+ * its `items` set; the template's `path` is a projection of that slot.
  *
- * Mirrors the request-side lifecycle: each is a single-envelope batch
- * (no parent slot — templates are tracked by `path` on the template
- * payload itself, just like requests). The set-modeled path
- * (`conditions`) is NOT pre-seeded by `createTemplate`. The projection
- * layer (`template-projection.ts`) flattens the create payload into
- * per-leaf scalars + per-row `addToSet` envelopes, so the catalog's
- * create can stay opaque about row shapes — same pattern `seedRequest`
- * uses.
- *
- * Cascade deletes when a parent template-collection / template-folder
- * is removed are emitted from the SW write site (template-store
- * cascade walks `path` prefixes); this catalog ships the
- * single-entity primitives.
+ * The set-modeled path (`conditions`) is NOT pre-seeded by
+ * `createTemplate`. The seed builder (`template-projection.ts`)
+ * flattens the create payload into per-leaf scalars + per-row
+ * `addToSet` envelopes and appends the parent slot via
+ * {@link templateChild.slotAdd} in the same batch.
  */
 
-import type { MutationBody } from '../../envelope';
+import { makeChildMutators } from '../shared/child-mutators';
+import {
+  TEMPLATE_FOLDER_ITEMS_PATH,
+  type TemplateFolderItemSlot,
+  type TemplateFolderParentRef,
+} from '../template-folder/types';
 import type { MutatorContext, MutatorIntent } from '../types';
 import { mintBatch } from './envelope';
 import { TEMPLATE_ENTITY_TYPE } from './types';
 
+/** The generic child verbs bound to the templates tree. */
+export const templateChild = makeChildMutators<TemplateFolderParentRef, TemplateFolderItemSlot>({
+  entityType: TEMPLATE_ENTITY_TYPE,
+  childrenPath: TEMPLATE_FOLDER_ITEMS_PATH,
+  slot: (uid) => ({ uid, type: TEMPLATE_ENTITY_TYPE }),
+  mintBatch,
+});
+
 export interface CreateTemplateArgs {
   templateUid: string;
+  parent: TemplateFolderParentRef;
   /**
-   * Full template payload as `Template` minus `uid` (carried on
-   * the envelope as `id`). Validated at the oracle boundary by the
-   * template schema. The projector is responsible for splitting
-   * `conditions` array into per-row `addToSet` envelopes.
+   * Scalar shell as `Template` minus `uid` (carried on the envelope as
+   * `id`). Validated at the oracle boundary by the template schema.
    */
   payload: unknown;
+  orderKey?: string;
 }
 
 export function createTemplate(ctx: MutatorContext, args: CreateTemplateArgs): MutatorIntent {
-  const bodies: MutationBody[] = [
-    {
-      kind: 'create',
-      type: TEMPLATE_ENTITY_TYPE,
-      id: args.templateUid,
-      payload: args.payload,
-    },
-  ];
-  return { batch: mintBatch(ctx, bodies), sideEffects: [] };
+  return templateChild.create(ctx, {
+    childUid: args.templateUid,
+    parent: args.parent,
+    payload: args.payload,
+    orderKey: args.orderKey,
+  });
 }
 
 export interface DeleteTemplateArgs {
   templateUid: string;
+  parent: TemplateFolderParentRef;
 }
 
 export function deleteTemplate(ctx: MutatorContext, args: DeleteTemplateArgs): MutatorIntent {
-  return {
-    batch: mintBatch(ctx, [{ kind: 'delete', type: TEMPLATE_ENTITY_TYPE, id: args.templateUid }]),
-    sideEffects: [],
-  };
+  return templateChild.delete(ctx, { childUid: args.templateUid, parent: args.parent });
+}
+
+export interface MoveTemplateArgs {
+  templateUid: string;
+  newParent: TemplateFolderParentRef;
+  orderKey: string;
+  /** Omit (or pass equal to `newParent`) for intra-parent reorder. */
+  oldParent?: TemplateFolderParentRef;
+}
+
+export function moveTemplate(ctx: MutatorContext, args: MoveTemplateArgs): MutatorIntent {
+  return templateChild.move(ctx, {
+    childUid: args.templateUid,
+    newParent: args.newParent,
+    orderKey: args.orderKey,
+    oldParent: args.oldParent,
+  });
 }

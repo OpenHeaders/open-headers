@@ -149,7 +149,7 @@ async function seedFolderWithRequest(name: string, requestName: string, url: str
     auth: { type: 'inherit' },
     body: { type: 'none' },
   };
-  await applyMcpMutation(buildAddRequestBatch(request, mintMcpContext(wsId)));
+  await applyMcpMutation(buildAddRequestBatch(request, mintMcpContext(wsId), null));
   return folder;
 }
 

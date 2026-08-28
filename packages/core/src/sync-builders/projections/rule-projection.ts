@@ -32,6 +32,8 @@
  */
 
 import {
+  type ChildPlacement,
+  type FolderParentRef,
   type MaterializedEntity,
   type MutationBatch,
   type MutationBody,
@@ -39,8 +41,10 @@ import {
   mintBatch,
   orderKeyMinter,
   RULE_ENTITY_TYPE,
+  ruleChild,
 } from '@openheaders/core/sync';
 import type { Rule } from '@openheaders/core/types';
+import { lastPathSegment } from '@openheaders/core/utils';
 
 /**
  * Set-modeled field paths on a Rule. The mutator catalog
@@ -57,10 +61,17 @@ type SetPath = (typeof SET_PATHS)[number];
  * for the scalar + non-set-modeled fields, plus one `addToSet` per
  * member of every set-modeled field. The batch is all-or-nothing under
  * the oracle's per-entity lock — partial seeding is impossible.
+ *
+ * `placement` is the tree linkage for a NEW rule: the parent's `items`
+ * slot rides the same batch and the shell is stamped with its frozen
+ * `pathSegment` (the last segment of the path the caller minted).
+ * Boot-time re-seeds of already-persisted rules pass none — their
+ * slots are the projection's business.
  */
-export function seedRule(rule: Rule, ctx: MutatorContext): MutationBatch {
+export function seedRule(rule: Rule, ctx: MutatorContext, placement?: ChildPlacement<FolderParentRef>): MutationBatch {
   const setItems: Array<{ path: SetPath; item: unknown }> = [];
   const scalarShell = stripSetFields(rule, setItems);
+  if (placement) scalarShell.pathSegment ??= lastPathSegment(rule.path);
 
   const bodies: MutationBody[] = [{ kind: 'create', type: RULE_ENTITY_TYPE, id: rule.uid, payload: scalarShell }];
   // Sequential orderKeys per set path — a keyless addToSet defaults every
@@ -81,6 +92,7 @@ export function seedRule(rule: Rule, ctx: MutatorContext): MutationBatch {
       orderKey: nextKey(),
     });
   }
+  if (placement) bodies.push(ruleChild.slotAdd(rule.uid, placement.parent, placement.orderKey));
   return mintBatch(ctx, bodies);
 }
 
@@ -120,7 +132,7 @@ export function projectRule(materialized: MaterializedEntity): Rule | null {
 
 // ── internals ─────────────────────────────────────────────────────
 
-function stripSetFields(rule: Rule, out: Array<{ path: SetPath; item: unknown }>): unknown {
+function stripSetFields(rule: Rule, out: Array<{ path: SetPath; item: unknown }>): Record<string, unknown> {
   // Deep clone is overkill; we copy the shell and replace the
   // set-modeled slots with pruned versions. JSON round-trip is the
   // simplest correct-by-construction approach for Rule's deep

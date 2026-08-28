@@ -28,6 +28,7 @@
  */
 
 import {
+  type ChildPlacement,
   type MaterializedEntity,
   type MutationBatch,
   type MutationBody,
@@ -36,17 +37,29 @@ import {
   orderKeyMinter,
   TEMPLATE_CONDITIONS_PATH,
   TEMPLATE_ENTITY_TYPE,
+  type TemplateFolderParentRef,
+  templateChild,
 } from '@openheaders/core/sync';
 import type { Template } from '@openheaders/core/types';
+import { lastPathSegment } from '@openheaders/core/utils';
 
 /**
  * Convert a persisted Template into a `MutationBatch` of one `create`
  * for the scalar shell, plus one `addToSet` per condition. Per-batch
  * all-or-nothing under the oracle's lock.
+ *
+ * `placement` is the tree linkage for a NEW template: the parent's
+ * `items` slot rides the same batch and the shell is stamped with its
+ * frozen `pathSegment`. Boot-time re-seeds pass none.
  */
-export function seedTemplate(template: Template, ctx: MutatorContext): MutationBatch {
+export function seedTemplate(
+  template: Template,
+  ctx: MutatorContext,
+  placement?: ChildPlacement<TemplateFolderParentRef>,
+): MutationBatch {
   const conditions: unknown[] = [];
   const scalarShell = stripConditions(template, conditions);
+  if (placement) scalarShell.pathSegment ??= lastPathSegment(template.path);
 
   const bodies: MutationBody[] = [
     { kind: 'create', type: TEMPLATE_ENTITY_TYPE, id: template.uid, payload: scalarShell },
@@ -67,6 +80,7 @@ export function seedTemplate(template: Template, ctx: MutatorContext): MutationB
       orderKey: nextKey(),
     });
   }
+  if (placement) bodies.push(templateChild.slotAdd(template.uid, placement.parent, placement.orderKey));
   return mintBatch(ctx, bodies);
 }
 
@@ -100,7 +114,7 @@ export function projectTemplate(materialized: MaterializedEntity): Template | nu
 
 // ── internals ─────────────────────────────────────────────────────
 
-function stripConditions(template: Template, out: unknown[]): unknown {
+function stripConditions(template: Template, out: unknown[]): Record<string, unknown> {
   const shell = JSON.parse(JSON.stringify(template)) as Record<string, unknown>;
   const conds = shell[TEMPLATE_CONDITIONS_PATH];
   if (Array.isArray(conds)) {

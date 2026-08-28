@@ -86,13 +86,16 @@ const seed: MqttRequest = {
 describe('mqtt request seed → project round-trip', () => {
   it('materializes the seeded entity back to the persisted shape', () => {
     const store = new InMemoryDocumentStore(mqttSchemas);
-    applyBatch(store, buildMqttAddBatch(seed, ctx(1_000)));
+    applyBatch(store, buildMqttAddBatch(seed, ctx(1_000), null));
     expect(materialized(store, 'mqrq0001')).toEqual(seed);
   });
 
   it('materializes empty set paths as [] (schema-aware set paths)', () => {
     const store = new InMemoryDocumentStore(mqttSchemas);
-    applyBatch(store, buildMqttAddBatch({ ...seed, topics: [], savedMessages: [], userProperties: [] }, ctx(1_000)));
+    applyBatch(
+      store,
+      buildMqttAddBatch({ ...seed, topics: [], savedMessages: [], userProperties: [] }, ctx(1_000), null),
+    );
     const after = materialized(store, 'mqrq0001');
     expect(after.topics).toEqual([]);
     expect(after.savedMessages).toEqual([]);
@@ -100,7 +103,7 @@ describe('mqtt request seed → project round-trip', () => {
   });
 
   it('emits one addToSet per row with the row uid as itemId', () => {
-    const payload = buildMqttAddBatch(seed, ctx(1_000));
+    const payload = buildMqttAddBatch(seed, ctx(1_000), null);
     const adds = payload.batch.mutations.filter((m) => m.body.kind === 'addToSet');
     expect(adds.map((m) => (m.body.kind === 'addToSet' ? m.body.itemId : ''))).toEqual([
       'mqtp0001',
@@ -126,7 +129,7 @@ describe('mqtt request seed → project round-trip', () => {
       publishProperties: { responseTopic: 'streetlights/1/ack', payloadFormatIndicator: true },
       lastWill: { topic: 'streetlights/1/offline', payload: 'gone', qos: 1, willDelayInterval: 10 },
     };
-    applyBatch(store, buildMqttAddBatch(seeded, ctx(1_000)));
+    applyBatch(store, buildMqttAddBatch(seeded, ctx(1_000), null));
     expect(materialized(store, 'mqrq0001')).toEqual(seeded);
   });
 
@@ -138,7 +141,7 @@ describe('mqtt request seed → project round-trip', () => {
 describe('mqtt request update batches', () => {
   it('persists scalar edits (url, topic, payload, qos) as setField leaves', () => {
     const store = new InMemoryDocumentStore(mqttSchemas);
-    applyBatch(store, buildMqttAddBatch(seed, ctx(1_000)));
+    applyBatch(store, buildMqttAddBatch(seed, ctx(1_000), null));
 
     applyBatch(
       store,
@@ -162,7 +165,7 @@ describe('mqtt request update batches', () => {
     const store = new InMemoryDocumentStore(mqttSchemas);
     applyBatch(
       store,
-      buildMqttAddBatch({ ...seed, lastWill: { topic: 'streetlights/1/offline', payload: 'gone' } }, ctx(1_000)),
+      buildMqttAddBatch({ ...seed, lastWill: { topic: 'streetlights/1/offline', payload: 'gone' } }, ctx(1_000), null),
     );
 
     const payload = buildMqttUpdateBatch(
@@ -190,7 +193,11 @@ describe('mqtt request update batches', () => {
     const store = new InMemoryDocumentStore(mqttSchemas);
     applyBatch(
       store,
-      buildMqttAddBatch({ ...seed, auth: { type: 'basic', username: 'probe', password: '{{secret}}' } }, ctx(1_000)),
+      buildMqttAddBatch(
+        { ...seed, auth: { type: 'basic', username: 'probe', password: '{{secret}}' } },
+        ctx(1_000),
+        null,
+      ),
     );
 
     const edit = buildMqttUpdateBatch(
@@ -223,7 +230,7 @@ describe('mqtt request update batches', () => {
     const store = new InMemoryDocumentStore(mqttSchemas);
     applyBatch(
       store,
-      buildMqttAddBatch({ ...seed, auth: { type: 'basic', username: 'probe', password: 'pw' } }, ctx(1_000)),
+      buildMqttAddBatch({ ...seed, auth: { type: 'basic', username: 'probe', password: 'pw' } }, ctx(1_000), null),
     );
 
     applyBatch(
@@ -235,7 +242,7 @@ describe('mqtt request update batches', () => {
 
   it('persists a spec re-link through the per-leaf flatten-diff', () => {
     const store = new InMemoryDocumentStore(mqttSchemas);
-    applyBatch(store, buildMqttAddBatch(seed, ctx(1_000)));
+    applyBatch(store, buildMqttAddBatch(seed, ctx(1_000), null));
 
     applyBatch(
       store,
@@ -257,6 +264,7 @@ describe('mqtt request update batches', () => {
       buildMqttAddBatch(
         { ...seed, lastWill: { topic: 'streetlights/1/offline', payload: 'gone', qos: 1, retain: true } },
         ctx(1_000),
+        null,
       ),
     );
 
@@ -283,6 +291,7 @@ describe('mqtt request update batches', () => {
       buildMqttAddBatch(
         { ...seed, publishProperties: { responseTopic: 'streetlights/1/ack', contentType: 'application/json' } },
         ctx(1_000),
+        null,
       ),
     );
 
@@ -303,7 +312,7 @@ describe('mqtt request update batches', () => {
 
   it('emits nothing for an undefined container key with no saved baseline', () => {
     const store = new InMemoryDocumentStore(mqttSchemas);
-    applyBatch(store, buildMqttAddBatch({ ...seed, specLink: undefined }, ctx(1_000)));
+    applyBatch(store, buildMqttAddBatch({ ...seed, specLink: undefined }, ctx(1_000), null));
 
     // The editor's save patch always names the container keys — with
     // nothing saved and nothing composed the update stays a no-op.
@@ -319,7 +328,7 @@ describe('mqtt request update batches', () => {
 
   it('emits minimum set-diff envelopes for topic row edits', () => {
     const store = new InMemoryDocumentStore(mqttSchemas);
-    applyBatch(store, buildMqttAddBatch(seed, ctx(1_000)));
+    applyBatch(store, buildMqttAddBatch(seed, ctx(1_000), null));
 
     // Live reader over the materialized set — ordered (itemId, orderKey, item).
     const liveSets = (uid: string, setPath: string) => {
@@ -360,7 +369,7 @@ describe('mqtt request update batches', () => {
 
   it('emits minimum set-diff envelopes for saved-message row edits', () => {
     const store = new InMemoryDocumentStore(mqttSchemas);
-    applyBatch(store, buildMqttAddBatch(seed, ctx(1_000)));
+    applyBatch(store, buildMqttAddBatch(seed, ctx(1_000), null));
 
     const liveSets = (uid: string, setPath: string) => {
       const entries = store.liveOrderedSetItems(MQTT_REQUEST_ENTITY_TYPE, uid, setPath);
@@ -383,7 +392,7 @@ describe('mqtt request update batches', () => {
 
   it('emits minimum set-diff envelopes for user-property row edits', () => {
     const store = new InMemoryDocumentStore(mqttSchemas);
-    applyBatch(store, buildMqttAddBatch(seed, ctx(1_000)));
+    applyBatch(store, buildMqttAddBatch(seed, ctx(1_000), null));
 
     const liveSets = (uid: string, setPath: string) => {
       const entries = store.liveOrderedSetItems(MQTT_REQUEST_ENTITY_TYPE, uid, setPath);

@@ -5,19 +5,7 @@
  * template-folder entity type.
  */
 
-import {
-  applySyncPayload,
-  type BaseSyncWriteOptions,
-  resolveMirror,
-  resolveRendererContext,
-  type SyncSimpleResult,
-} from './apply-payload';
-import { type MutationEnvelope, type TemplateFolderParentRef } from '@openheaders/core/sync';
-import {
-  getTemplateFolderSyncMirrorForWorkspace,
-  type TemplateFolderSyncMirror,
-} from '../../context/mirrors/template-folder-sync-mirror';
-import { getTemplateSyncMirrorForWorkspace } from '../../context/mirrors/template-sync-mirror';
+import type { MutationEnvelope, TemplateFolderParentRef } from '@openheaders/core/sync';
 import {
   buildCreateTemplateFolderBatch,
   buildDeleteTemplateFolderBatch,
@@ -25,7 +13,19 @@ import {
   buildMoveTemplateFolderBatch,
   buildRenameTemplateFolderBatch,
 } from '@openheaders/core/sync-builders/mutations/template-folder-mutations';
-import { buildDeleteBatch as buildDeleteTemplateBatch } from '@openheaders/core/sync-builders/mutations/template-mutations';
+import { buildDeleteEntityBatch as buildDeleteTemplateEntityBatch } from '@openheaders/core/sync-builders/mutations/template-mutations';
+import {
+  getTemplateFolderSyncMirrorForWorkspace,
+  type TemplateFolderSyncMirror,
+} from '../../context/mirrors/template-folder-sync-mirror';
+import { getTemplateSyncMirrorForWorkspace } from '../../context/mirrors/template-sync-mirror';
+import {
+  applySyncPayload,
+  type BaseSyncWriteOptions,
+  resolveMirror,
+  resolveRendererContext,
+  type SyncSimpleResult,
+} from './apply-payload';
 
 export { createTemplateFolderSyncMirror } from '../../context/mirrors/template-folder-sync-mirror';
 
@@ -64,9 +64,7 @@ export async function applyTemplateFolderCreate(
   opts: TemplateFolderWriteOptions,
 ): Promise<TemplateFolderSimpleResult> {
   const ctx = resolveRendererContext(opts).next(
-    opts.batchId
-      ? { batchId: opts.batchId }
-      : { batchId: `template-folder-create-${input.folderUid}` },
+    opts.batchId ? { batchId: opts.batchId } : { batchId: `template-folder-create-${input.folderUid}` },
   );
   return applySyncPayload(buildCreateTemplateFolderBatch(input, ctx));
 }
@@ -106,7 +104,7 @@ export async function applyTemplateFolderDelete(
   const baseCtx = resolveRendererContext(opts);
   for (const tplUid of cascadingTemplateUids) {
     const ctx = baseCtx.next({ batchId: `template-folder-delete-cascade-tpl-${tplUid}` });
-    const ack = await applySyncPayload(buildDeleteTemplateBatch(tplUid, ctx));
+    const ack = await applySyncPayload(buildDeleteTemplateEntityBatch(tplUid, ctx));
     if (!ack.ok) return ack;
   }
   for (const nestedUid of cascadingFolderUids) {
@@ -119,9 +117,7 @@ export async function applyTemplateFolderDelete(
   }
 
   const ctx = baseCtx.next(
-    opts.batchId
-      ? { batchId: opts.batchId }
-      : { batchId: `template-folder-delete-${input.folderUid}` },
+    opts.batchId ? { batchId: opts.batchId } : { batchId: `template-folder-delete-${input.folderUid}` },
   );
   return applySyncPayload(buildDeleteTemplateFolderBatch(input, ctx));
 }
@@ -138,9 +134,7 @@ export async function applyTemplateFolderMove(
   opts: TemplateFolderWriteOptions,
 ): Promise<TemplateFolderSimpleResult> {
   const ctx = resolveRendererContext(opts).next(
-    opts.batchId
-      ? { batchId: opts.batchId }
-      : { batchId: `template-folder-move-${input.folderUid}` },
+    opts.batchId ? { batchId: opts.batchId } : { batchId: `template-folder-move-${input.folderUid}` },
   );
   return applySyncPayload(buildMoveTemplateFolderBatch(input, ctx));
 }

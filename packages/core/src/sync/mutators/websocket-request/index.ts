@@ -1,5 +1,13 @@
 export { WEBSOCKET_REQUEST_MUTATOR_VERSION } from './envelope';
-export { type DeleteWebSocketRequestArgs, deleteWebSocketRequest } from './lifecycle';
+export {
+  type CreateWebSocketRequestArgs,
+  createWebSocketRequest,
+  type DeleteWebSocketRequestArgs,
+  deleteWebSocketRequest,
+  type MoveWebSocketRequestArgs,
+  moveWebSocketRequest,
+  webSocketRequestChild,
+} from './lifecycle';
 export {
   WEBSOCKET_REQUEST_ENTITY_TYPE,
   WEBSOCKET_REQUEST_EVENTS_PATH,

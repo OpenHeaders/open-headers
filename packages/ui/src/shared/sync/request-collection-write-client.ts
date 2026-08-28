@@ -12,6 +12,7 @@ import {
   type MutationEnvelope,
   REQUEST_COLLECTION_ENTITY_TYPE,
   REQUEST_COLLECTION_VARS_PATH,
+  WORKSPACE_ROOTS_REF,
 } from '@openheaders/core/sync';
 import { buildVariablesReplacement } from '@openheaders/core/sync-builders';
 import {
@@ -26,7 +27,7 @@ import {
   type SetRequestCollectionScriptsInput,
 } from '@openheaders/core/sync-builders/mutations/request-collection-mutations';
 import { buildDeleteRequestFolderEntityBatch } from '@openheaders/core/sync-builders/mutations/request-folder-mutations';
-import { buildDeleteBatch as buildDeleteRequestBatch } from '@openheaders/core/sync-builders/mutations/request-mutations';
+import { buildDeleteEntityBatch as buildDeleteRequestEntityBatch } from '@openheaders/core/sync-builders/mutations/request-mutations';
 import { seedRequestCollection } from '@openheaders/core/sync-builders/projections/request-collection-projection';
 import type { AuthConfig, Collection, SpecLink, Variable } from '@openheaders/core/types';
 import { generateUid, toFolderName } from '@openheaders/core/utils';
@@ -82,7 +83,10 @@ export async function applyRequestCollectionCreate(
     defaultEnvironmentId: null,
   };
   const ctx = resolveRendererContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
-  const ack = await applySyncPayload({ batch: seedRequestCollection(collection, ctx), sideEffects: [] });
+  const ack = await applySyncPayload({
+    batch: seedRequestCollection(collection, ctx, { parent: WORKSPACE_ROOTS_REF }),
+    sideEffects: [],
+  });
   if (ack.ok) return { ok: true, collection };
   if (ack.reason === 'not-found') return { ok: false, reason: 'not-found' };
   return { ok: false, reason: 'other', message: ack.message };
@@ -236,7 +240,7 @@ export async function applyRequestCollectionDelete(
   const baseCtx = resolveRendererContext(opts);
   for (const reqUid of cascadingRequestUids) {
     const ctx = baseCtx.next({ batchId: `request-collection-delete-cascade-req-${reqUid}` });
-    const ack = await applySyncPayload(buildDeleteRequestBatch(reqUid, ctx));
+    const ack = await applySyncPayload(buildDeleteRequestEntityBatch(reqUid, ctx));
     if (!ack.ok) return ack;
   }
   for (const folderUid of cascadingFolderUids) {

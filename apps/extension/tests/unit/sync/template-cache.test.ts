@@ -8,15 +8,16 @@ import {
   addTemplateCondition,
   deleteTemplate,
   setTemplateField,
+  TEMPLATE_COLLECTION_ENTITY_TYPE,
   TEMPLATE_ENTITY_TYPE,
 } from '@openheaders/core/sync';
 import type { Template } from '@openheaders/core/types';
-import { beforeEach, describe, expect, it } from 'vitest';
 import { InMemoryBroadcast } from '@openheaders/oracle/sync/broadcast';
-import { InMemoryMutationLog } from '@openheaders/oracle/sync/mutation-log';
-import { type LockAcquirer, EntityOracle } from '@openheaders/oracle/sync/oracle';
-import { InMemoryPendingIntents } from '@openheaders/oracle/sync/pending-intents';
 import { createTemplateCache } from '@openheaders/oracle/sync/caches/template-cache';
+import { InMemoryMutationLog } from '@openheaders/oracle/sync/mutation-log';
+import { EntityOracle, type LockAcquirer } from '@openheaders/oracle/sync/oracle';
+import { InMemoryPendingIntents } from '@openheaders/oracle/sync/pending-intents';
+import { beforeEach, describe, expect, it } from 'vitest';
 
 const lock: LockAcquirer = async (_ws, _t, _id, fn) => fn();
 
@@ -89,10 +90,7 @@ describe('TemplateCache', () => {
   it('reflects scalar setField on name', async () => {
     const cache = createTemplateCache('ws-1', oracle, broadcast, ctxFactory);
     await cache.seedFromPersistedTemplates([makeTemplate('tp')]);
-    await oracle.apply(
-      setTemplateField(ctxFactory(), { templateUid: 'tp', path: 'name', value: 'updated' }).batch,
-      [],
-    );
+    await oracle.apply(setTemplateField(ctxFactory(), { templateUid: 'tp', path: 'name', value: 'updated' }).batch, []);
     expect(cache.getTemplates()[0].name).toBe('updated');
     cache.dispose();
   });
@@ -100,7 +98,13 @@ describe('TemplateCache', () => {
   it('drops a template after delete (tombstone wins)', async () => {
     const cache = createTemplateCache('ws-1', oracle, broadcast, ctxFactory);
     await cache.seedFromPersistedTemplates([makeTemplate('tp'), makeTemplate('alt')]);
-    await oracle.apply(deleteTemplate(ctxFactory(), { templateUid: 'tp' }).batch, []);
+    await oracle.apply(
+      deleteTemplate(ctxFactory(), {
+        templateUid: 'tp',
+        parent: { type: TEMPLATE_COLLECTION_ENTITY_TYPE, uid: 'col-1' },
+      }).batch,
+      [],
+    );
     expect(cache.getTemplates().map((t) => t.uid)).toEqual(['alt']);
     cache.dispose();
   });
@@ -113,10 +117,7 @@ describe('TemplateCache', () => {
     });
     await cache.seedFromPersistedTemplates([makeTemplate('tp')]);
     const before = fires;
-    await oracle.apply(
-      setTemplateField(ctxFactory(), { templateUid: 'tp', path: 'name', value: 'b' }).batch,
-      [],
-    );
+    await oracle.apply(setTemplateField(ctxFactory(), { templateUid: 'tp', path: 'name', value: 'b' }).batch, []);
     expect(fires).toBeGreaterThan(before);
     cache.dispose();
   });
@@ -125,10 +126,7 @@ describe('TemplateCache', () => {
     const cache = createTemplateCache('ws-1', oracle, broadcast, ctxFactory);
     await cache.seedFromPersistedTemplates([makeTemplate('tp')]);
     cache.dispose();
-    await oracle.apply(
-      setTemplateField(ctxFactory(), { templateUid: 'tp', path: 'name', value: 'after' }).batch,
-      [],
-    );
+    await oracle.apply(setTemplateField(ctxFactory(), { templateUid: 'tp', path: 'name', value: 'after' }).batch, []);
     expect(cache.getTemplates()[0].name).toBe('tpl-tp');
   });
 

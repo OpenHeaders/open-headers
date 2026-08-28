@@ -10,17 +10,18 @@ import {
   REQUEST_COLLECTION_ENTITY_TYPE,
   REQUEST_FOLDER_CHILDREN_PATH,
   REQUEST_FOLDER_ENTITY_TYPE,
+  REQUEST_FOLDER_ITEMS_PATH,
 } from '@openheaders/core/sync';
-import type { Folder } from '@openheaders/core/types';
 import { projectRequestCollection } from '@openheaders/core/sync-builders/projections/request-collection-projection';
 import { projectRequestFolder } from '@openheaders/core/sync-builders/projections/request-folder-projection';
+import type { Folder } from '@openheaders/core/types';
+import type { EntityOracle } from '../oracle';
 import {
   type FolderTreeKinds,
   projectAllFoldersGeneric,
   projectFolderByUidGeneric,
   projectFolderPostStateGeneric,
 } from './folder-tree-post-state';
-import type { EntityOracle } from '../oracle';
 
 type Reads = Pick<EntityOracle, 'materializeOne' | 'materializeAll' | 'liveSetItems' | 'liveOrderedSetItems'>;
 
@@ -28,6 +29,7 @@ const KINDS: FolderTreeKinds<typeof REQUEST_COLLECTION_ENTITY_TYPE, typeof REQUE
   collectionType: REQUEST_COLLECTION_ENTITY_TYPE,
   folderType: REQUEST_FOLDER_ENTITY_TYPE,
   childrenPath: REQUEST_FOLDER_CHILDREN_PATH,
+  itemsPath: REQUEST_FOLDER_ITEMS_PATH,
   projectCollection: projectRequestCollection,
   projectFolder: projectRequestFolder,
 };

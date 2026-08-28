@@ -29,7 +29,10 @@
  */
 
 import {
+  type ChildPlacement,
+  deleteRule,
   deriveSideEffectsForEnvelope,
+  type FolderParentRef,
   type MutationBatch,
   type MutationBody,
   type MutatorContext,
@@ -69,9 +72,19 @@ export type LiveSetEntries = (ruleUid: string, setPath: string) => ReadonlyArray
  */
 export type LiveFieldValue = (ruleUid: string, path: string) => unknown;
 
-/** New rule → seed batch + DNR recompile intent. */
-export function buildAddBatch(rule: Rule, ctx: MutatorContext): RuleMutationPayload {
-  const batch = seedRule(rule, ctx);
+/**
+ * New rule → seed batch + DNR recompile intent. `placement` is the
+ * parent whose `items` slot the rule takes in the same batch; `null`
+ * only when the parent is unresolvable at the write site (the leaf
+ * then lands slot-less, exactly as a pre-containment client mints it,
+ * and the by-path seeding rehomes it).
+ */
+export function buildAddBatch(
+  rule: Rule,
+  ctx: MutatorContext,
+  placement: ChildPlacement<FolderParentRef> | null,
+): RuleMutationPayload {
+  const batch = seedRule(rule, ctx, placement ?? undefined);
   return { batch, sideEffects: batch.mutations.flatMap(deriveSideEffectsForEnvelope) };
 }
 
@@ -81,8 +94,23 @@ export function buildToggleBatch(ruleUid: string, enabled: boolean, ctx: Mutator
   return { batch: intent.batch, sideEffects: intent.sideEffects };
 }
 
-/** Delete a rule. Tombstone is permanent under §7.2 delete-wins. */
-export function buildDeleteBatch(ruleUid: string, ctx: MutatorContext): RuleMutationPayload {
+/**
+ * Delete a rule: the parent's slot tombstone + the entity tombstone in
+ * one batch. Tombstone is permanent under §7.2 delete-wins.
+ */
+export function buildDeleteBatch(ruleUid: string, parent: FolderParentRef, ctx: MutatorContext): RuleMutationPayload {
+  const { batch } = deleteRule(ctx, { ruleUid, parent });
+  return { batch, sideEffects: batch.mutations.flatMap(deriveSideEffectsForEnvelope) };
+}
+
+/**
+ * Bare rule-entity tombstone. For cross-entity cascades (collection /
+ * folder delete cascading into its rules) where the parent is going
+ * too — its tombstone covers the slot, so a `removeFromSet` against it
+ * is wasted wire churn. {@link buildDeleteBatch} is the right call
+ * when the parent stays live.
+ */
+export function buildDeleteEntityBatch(ruleUid: string, ctx: MutatorContext): RuleMutationPayload {
   const bodies: MutationBody[] = [{ kind: 'delete', type: RULE_ENTITY_TYPE, id: ruleUid }];
   const batch = mintBatch(ctx, bodies);
   return { batch, sideEffects: batch.mutations.flatMap(deriveSideEffectsForEnvelope) };

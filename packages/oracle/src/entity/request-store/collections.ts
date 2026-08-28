@@ -1,14 +1,17 @@
 // ── Collections ─────────────────────────────────────────────────────
 
+import { WORKSPACE_ROOTS_REQUEST_COLLECTIONS_PATH } from '@openheaders/core/sync';
 import {
   buildDeleteRequestCollectionBatch,
   buildRenameRequestCollectionBatch,
 } from '@openheaders/core/sync-builders/mutations/request-collection-mutations';
 import { buildDeleteRequestFolderEntityBatch } from '@openheaders/core/sync-builders/mutations/request-folder-mutations';
-import { buildDeleteBatch } from '@openheaders/core/sync-builders/mutations/request-mutations';
+import { buildDeleteEntityBatch } from '@openheaders/core/sync-builders/mutations/request-mutations';
 import { seedRequestCollection } from '@openheaders/core/sync-builders/projections/request-collection-projection';
 import type { Collection } from '@openheaders/core/types';
 import { generateUid, toFolderName } from '@openheaders/core/utils';
+import { getOracleForCurrentWorkspace } from '@openheaders/oracle/sync/service/accessors';
+import { rootsPlacement } from '../tree-placement';
 import {
   applyRequestCollectionMutationOrThrow,
   applyRequestFolderMutationOrThrow,
@@ -38,8 +41,9 @@ export async function ensureDefaultRequestCollection(): Promise<Collection> {
   // collection immediately; the oracle's broadcast confirms the same
   // post-commit shape on the next tick.
   setCollections([...collections, collection]);
+  const placement = rootsPlacement(getOracleForCurrentWorkspace(), WORKSPACE_ROOTS_REQUEST_COLLECTIONS_PATH);
   await applyRequestCollectionMutationOrThrow(
-    (ctx) => ({ batch: seedRequestCollection(collection, ctx), sideEffects: [] }),
+    (ctx) => ({ batch: seedRequestCollection(collection, ctx, placement), sideEffects: [] }),
     'ensureDefaultRequestCollection',
   );
   return collection;
@@ -58,8 +62,9 @@ export async function createRequestCollection(name: string): Promise<Collection>
     defaultEnvironmentId: null,
   };
   setCollections([...collections, collection]);
+  const placement = rootsPlacement(getOracleForCurrentWorkspace(), WORKSPACE_ROOTS_REQUEST_COLLECTIONS_PATH);
   await applyRequestCollectionMutationOrThrow(
-    (ctx) => ({ batch: seedRequestCollection(collection, ctx), sideEffects: [] }),
+    (ctx) => ({ batch: seedRequestCollection(collection, ctx, placement), sideEffects: [] }),
     'createRequestCollection',
   );
   return collection;
@@ -88,7 +93,7 @@ export async function deleteRequestCollection(uid: string): Promise<boolean> {
   const cascadingFolderUids = folders.filter((f) => f.path.startsWith(collection.path)).map((f) => f.uid);
   await deleteResponseExamplesForRequests(cascadingRequestUids);
   for (const reqUid of cascadingRequestUids) {
-    await applyRequestMutationOrThrow((ctx) => buildDeleteBatch(reqUid, ctx), 'deleteRequestCollection-cascade');
+    await applyRequestMutationOrThrow((ctx) => buildDeleteEntityBatch(reqUid, ctx), 'deleteRequestCollection-cascade');
   }
   for (const folderUid of cascadingFolderUids) {
     await applyRequestFolderMutationOrThrow(

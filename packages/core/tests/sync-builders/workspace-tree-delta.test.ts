@@ -14,7 +14,14 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { InMemoryDocumentStore, type MutatorContext } from '../../src/sync';
+import {
+  FOLDER_ITEMS_PATH,
+  GRPC_REQUEST_ENTITY_TYPE,
+  InMemoryDocumentStore,
+  type MutatorContext,
+  REQUEST_COLLECTION_ENTITY_TYPE,
+  REQUEST_FOLDER_ITEMS_PATH,
+} from '../../src/sync';
 import type { EmissionBatch } from '../../src/sync-builders/mutations/workspace-import-emission';
 import { synthesizeWorkspaceTreeDelta } from '../../src/sync-builders/mutations/workspace-tree-delta';
 import type { GrpcRequest, HeaderRule, Rule, Vault, WebSocketRequest } from '../../src/types';
@@ -193,6 +200,32 @@ describe('synthesizeWorkspaceTreeDelta — deletions', () => {
     });
     expect(batches).toHaveLength(0);
   });
+
+  const col = { schemaVersion: 5, uid: 'col0000a', path: 'rules/api-col0000a', name: 'API' } as never;
+  const ruleInCol = { ...baseRule, path: 'rules/api-col0000a/probe-rul00001' } as Rule;
+
+  it('a vanished leaf under a live parent tombstones its parent items slot too', () => {
+    const batches = delta({
+      prev: emptyState({ collections: [col], rules: [ruleInCol] }),
+      next: emptyState({ collections: [col] }),
+      removed: ['rules/api-col0000a/probe-rul00001/rule.yaml'],
+    });
+    expect(batches).toHaveLength(1);
+    expect(batches[0].batch.mutations.map((m) => m.body)).toMatchObject([
+      { kind: 'removeFromSet', type: 'collection', id: 'col0000a', path: FOLDER_ITEMS_PATH, itemId: 'rul00001' },
+      { kind: 'delete', type: 'rule', id: 'rul00001' },
+    ]);
+  });
+
+  it('a vanished leaf whose parent vanished with it takes the bare tombstone', () => {
+    const batches = delta({
+      prev: emptyState({ collections: [col], rules: [ruleInCol] }),
+      next: emptyState(),
+      removed: ['rules/api-col0000a/probe-rul00001/rule.yaml', 'rules/api-col0000a/_collection.yaml'],
+    });
+    const ruleBatch = batches.find((b) => b.label === 'rule:rul00001 (delete)');
+    expect(ruleBatch?.batch.mutations.map((m) => m.body)).toEqual([{ kind: 'delete', type: 'rule', id: 'rul00001' }]);
+  });
 });
 
 describe('synthesizeWorkspaceTreeDelta — moves', () => {
@@ -307,6 +340,26 @@ describe('synthesizeWorkspaceTreeDelta — gRPC / WebSocket families', () => {
       'grpc-request:grp00001 (create)',
       'websocket-request:wsr00001 (create)',
     ]);
+  });
+
+  it("a hand-added grpc manifest under a known collection takes that collection's items slot", () => {
+    const col = { schemaVersion: 5, uid: 'rcol0001', path: 'requests/api-rcol0001', name: 'API' } as never;
+    const nested = { ...grpc, path: 'requests/api-rcol0001/echo-grp00001' } as GrpcRequest;
+    const batches = delta({
+      prev: emptyState({ requestCollections: [col] }),
+      next: emptyState({ requestCollections: [col], grpcRequests: [nested] }),
+      changed: ['requests/api-rcol0001/echo-grp00001/grpc.yaml'],
+    });
+    expect(batches).toHaveLength(1);
+    const bodies = batches[0].batch.mutations.map((m) => m.body);
+    expect(bodies[bodies.length - 1]).toMatchObject({
+      kind: 'addToSet',
+      type: REQUEST_COLLECTION_ENTITY_TYPE,
+      id: 'rcol0001',
+      path: REQUEST_FOLDER_ITEMS_PATH,
+      itemId: 'grp00001',
+      item: { uid: 'grp00001', type: GRPC_REQUEST_ENTITY_TYPE },
+    });
   });
 
   it('a hand-edit on a websocket manifest emits a scalar update', () => {

@@ -20,17 +20,20 @@
  */
 
 import {
-  mintBatch,
+  type ChildPlacement,
+  deleteTemplate,
   type MutationBatch,
   type MutationBody,
+  type MutatorContext,
+  mintBatch,
+  type SideEffectIntent,
   TEMPLATE_CONDITIONS_PATH,
   TEMPLATE_ENTITY_TYPE,
-  type MutatorContext,
-  type SideEffectIntent,
+  type TemplateFolderParentRef,
 } from '@openheaders/core/sync';
+import { type LiveSetEntry, synthesizeSetDiff } from '@openheaders/core/sync-builders';
 import type { Template } from '@openheaders/core/types';
 import { seedTemplate } from '../projections/template-projection';
-import { type LiveSetEntry, synthesizeSetDiff } from '@openheaders/core/sync-builders';
 
 export interface TemplateMutationPayload {
   batch: MutationBatch;
@@ -44,18 +47,35 @@ export interface TemplateMutationPayload {
  * to detect pure-reorder gestures, content edits, and additions in
  * one pass.
  */
-export type LiveSetEntries = (
-  templateUid: string,
-  setPath: string,
-) => ReadonlyArray<LiveSetEntry>;
+export type LiveSetEntries = (templateUid: string, setPath: string) => ReadonlyArray<LiveSetEntry>;
 
-/** New template → seed batch. No side effects. */
-export function buildAddBatch(template: Template, ctx: MutatorContext): TemplateMutationPayload {
-  return { batch: seedTemplate(template, ctx), sideEffects: [] };
+/**
+ * New template → seed batch. No side effects. `placement` is the parent
+ * whose `items` slot the template takes in the same batch; `null` only
+ * when the parent is unresolvable at the write site.
+ */
+export function buildAddBatch(
+  template: Template,
+  ctx: MutatorContext,
+  placement: ChildPlacement<TemplateFolderParentRef> | null,
+): TemplateMutationPayload {
+  return { batch: seedTemplate(template, ctx, placement ?? undefined), sideEffects: [] };
 }
 
-/** Delete a template. Tombstone is permanent under §7.2 delete-wins. */
-export function buildDeleteBatch(templateUid: string, ctx: MutatorContext): TemplateMutationPayload {
+/**
+ * Delete a template: the parent's slot tombstone + the entity tombstone
+ * in one batch. Tombstone is permanent under §7.2 delete-wins.
+ */
+export function buildDeleteBatch(
+  templateUid: string,
+  parent: TemplateFolderParentRef,
+  ctx: MutatorContext,
+): TemplateMutationPayload {
+  return deleteTemplate(ctx, { templateUid, parent });
+}
+
+/** Bare entity tombstone for cascades where the parent is going too. */
+export function buildDeleteEntityBatch(templateUid: string, ctx: MutatorContext): TemplateMutationPayload {
   const bodies: MutationBody[] = [{ kind: 'delete', type: TEMPLATE_ENTITY_TYPE, id: templateUid }];
   return { batch: mintBatch(ctx, bodies), sideEffects: [] };
 }

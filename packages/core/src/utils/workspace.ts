@@ -61,3 +61,24 @@ export function extractUid(folderName: string): string {
   const match = folderName.match(UID_REGEX);
   return match ? match[1] : folderName;
 }
+
+/** True when `value` has the exact shape {@link generateUid} mints. */
+export function isUid(value: string): boolean {
+  return value.length === UID_LENGTH && /^[a-z0-9]+$/.test(value);
+}
+
+/**
+ * Last `/`-separated component of a workspace-relative path — the
+ * entity's own `<slug>-<uid>` segment. `null` for an empty tail.
+ */
+export function lastPathSegment(path: string): string | null {
+  const idx = path.lastIndexOf('/');
+  const tail = idx < 0 ? path : path.slice(idx + 1);
+  return tail.length > 0 ? tail : null;
+}
+
+/** Parent path of a workspace-relative path; `null` at the tree root. */
+export function parentPathOf(path: string): string | null {
+  const idx = path.lastIndexOf('/');
+  return idx > 0 ? path.slice(0, idx) : null;
+}

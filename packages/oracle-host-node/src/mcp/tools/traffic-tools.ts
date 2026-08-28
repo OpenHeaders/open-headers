@@ -45,7 +45,7 @@ import {
 import { computeTrafficDiff } from './traffic-diff';
 import { computeTrafficGraph, isFailureProjection, trafficFailureKind } from './traffic-graph';
 import { buildResponseOverrideDraft, conditionValueForUrl, type TrafficDraftBodyInput } from './traffic-to-rule';
-import { resolveRuleParentPath } from './write-tools';
+import { placeRule, resolveRuleParentPath } from './write-tools';
 
 export const LIST_LIMIT_DEFAULT = 50;
 export const LIST_LIMIT_MAX = 200;
@@ -800,12 +800,14 @@ export function createTrafficToolDefinitions(deps: McpTrafficToolDeps): McpToolD
         const ruleUid = generateUid();
         const defaultName = `Override ${record.method.toUpperCase()} ${conditionValueForUrl(record.url)}`;
         const name = optionalString(args, 'name')?.trim() || defaultName;
+        const segment = toFolderName(name, ruleUid);
         const created = parseOrThrow(
           RuleSchema,
           {
             schemaVersion: 5,
             uid: ruleUid,
-            path: `${parentPath}/${toFolderName(name, ruleUid)}`,
+            path: `${parentPath}/${segment}`,
+            pathSegment: segment,
             name,
             type: 'response',
             enabled: true,
@@ -822,7 +824,9 @@ export function createTrafficToolDefinitions(deps: McpTrafficToolDeps): McpToolD
           },
           'rule',
         );
-        await applyMcpMutation(buildAddRuleBatch(created, mintMcpContext(workspaceId)));
+        await applyMcpMutation(
+          buildAddRuleBatch(created, mintMcpContext(workspaceId), placeRule(workspaceId, created.path)),
+        );
         return {
           workspaceId,
           rule: created,

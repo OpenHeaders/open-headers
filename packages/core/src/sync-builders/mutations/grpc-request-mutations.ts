@@ -14,12 +14,15 @@
  */
 
 import {
+  type ChildPlacement,
+  deleteGrpcRequest,
   GRPC_REQUEST_ENTITY_TYPE,
   GRPC_REQUEST_METADATA_PATH,
   type MutationBatch,
   type MutationBody,
   type MutatorContext,
   mintBatch,
+  type RequestFolderParentRef,
   type SideEffectIntent,
 } from '@openheaders/core/sync';
 import { type LiveSetEntry, synthesizeFieldDiff, synthesizeSetDiff } from '@openheaders/core/sync-builders';
@@ -37,13 +40,33 @@ export type GrpcLiveSetEntries = (grpcRequestUid: string, setPath: string) => Re
 /** Current materialized value reader for object-valued scalar paths (`method`, `auth`, `specLink`). */
 export type GrpcLiveFieldValue = (grpcRequestUid: string, path: string) => unknown;
 
-/** New gRPC request → seed batch. No side effects. */
-export function buildGrpcAddBatch(request: GrpcRequest, ctx: MutatorContext): GrpcRequestMutationPayload {
-  return { batch: seedGrpcRequest(request, ctx), sideEffects: [] };
+/**
+ * New gRPC request → seed batch. No side effects. `placement` is the
+ * parent whose `items` slot the request takes in the same batch;
+ * `null` only when the parent is unresolvable at the write site.
+ */
+export function buildGrpcAddBatch(
+  request: GrpcRequest,
+  ctx: MutatorContext,
+  placement: ChildPlacement<RequestFolderParentRef> | null,
+): GrpcRequestMutationPayload {
+  return { batch: seedGrpcRequest(request, ctx, placement ?? undefined), sideEffects: [] };
 }
 
-/** Delete a gRPC request. Tombstone is permanent under §7.2 delete-wins. */
-export function buildGrpcDeleteBatch(grpcRequestUid: string, ctx: MutatorContext): GrpcRequestMutationPayload {
+/**
+ * Delete a gRPC request: the parent's slot tombstone + the entity
+ * tombstone in one batch. Tombstone is permanent under §7.2 delete-wins.
+ */
+export function buildGrpcDeleteBatch(
+  grpcRequestUid: string,
+  parent: RequestFolderParentRef,
+  ctx: MutatorContext,
+): GrpcRequestMutationPayload {
+  return deleteGrpcRequest(ctx, { grpcRequestUid, parent });
+}
+
+/** Bare entity tombstone for cascades where the parent is going too. */
+export function buildGrpcDeleteEntityBatch(grpcRequestUid: string, ctx: MutatorContext): GrpcRequestMutationPayload {
   const bodies: MutationBody[] = [{ kind: 'delete', type: GRPC_REQUEST_ENTITY_TYPE, id: grpcRequestUid }];
   return { batch: mintBatch(ctx, bodies), sideEffects: [] };
 }

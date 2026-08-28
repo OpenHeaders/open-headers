@@ -18,7 +18,13 @@
  */
 
 import type { MutationBatch, MutatorContext } from '@openheaders/core/sync';
-import { advanceHlc, initialHlc, TEMPLATE_ENTITY_TYPE } from '@openheaders/core/sync';
+import {
+  advanceHlc,
+  initialHlc,
+  TEMPLATE_COLLECTION_ENTITY_TYPE,
+  TEMPLATE_ENTITY_TYPE,
+  TEMPLATE_FOLDER_ITEMS_PATH,
+} from '@openheaders/core/sync';
 import type { RuleCondition, Template } from '@openheaders/core/types';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -38,18 +44,22 @@ vi.mock('@utils/logger', () => ({
   logger: { info: vi.fn(), debug: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }));
 
+import type {
+  RendererContextHandle,
+  TemplateCollectionSyncMirror,
+  TemplateFolderSyncMirror,
+  TemplateSyncMirror,
+} from '@openheaders/ui/context';
 import {
   applyTemplateCreate,
   applyTemplateDelete,
   applyTemplateUpdate,
 } from '@openheaders/ui/shared/sync/template-write-client';
-import type { TemplateSyncMirror } from '@openheaders/ui/context';
-import type { RendererContextHandle } from '@openheaders/ui/context';
 
 const baseTemplate: Template = {
   schemaVersion: 5,
   uid: 'tpl-1',
-  path: 'templates/col-1/My',
+  path: 'templates/user-col00001/my-tpl-1',
   name: 'My',
   ruleType: 'header',
   icon: '',
@@ -78,17 +88,48 @@ function makeMirror(
   }
   return {
     getTemplateMirror: (uid) =>
-      template && template.uid === uid
-        ? { template, setItemIds, setOrderKeys: resolvedOrderKeys }
-        : null,
+      template && template.uid === uid ? { template, setItemIds, setOrderKeys: resolvedOrderKeys } : null,
     listTemplates: () => (template ? [template] : []),
     liveSetItems: (uid, path) => (template && template.uid === uid ? (setItemIds[path] ?? []) : []),
-    liveOrderedSetItems: (uid, path) =>
-      template && template.uid === uid ? (resolvedOrderKeys[path] ?? []) : [],
+    liveOrderedSetItems: (uid, path) => (template && template.uid === uid ? (resolvedOrderKeys[path] ?? []) : []),
     subscribeTemplateMirror: () => () => undefined,
     subscribeAny: () => () => undefined,
     hydrated: Promise.resolve(),
     dispose: () => undefined,
+  };
+}
+
+/** The template tree's container mirrors: one collection `templates/user-col00001`, no folders. */
+function makeTreeMirrors(): { collectionMirror: TemplateCollectionSyncMirror; folderMirror: TemplateFolderSyncMirror } {
+  const collection = {
+    schemaVersion: 5 as const,
+    uid: 'col00001',
+    path: 'templates/user-col00001',
+    name: 'User Templates',
+    variables: [],
+    pinnedEnvironmentIds: [],
+    defaultEnvironmentId: null,
+  };
+  return {
+    collectionMirror: {
+      getTemplateCollectionMirror: (uid) =>
+        uid === collection.uid ? { collection, varUids: [], setOrderKeys: {} } : null,
+      listTemplateCollections: () => [collection],
+      liveOrderedSetItems: () => [],
+      subscribeTemplateCollectionMirror: () => () => undefined,
+      subscribeAny: () => () => undefined,
+      hydrated: Promise.resolve(),
+      dispose: () => undefined,
+    },
+    folderMirror: {
+      getTemplateFolderMirror: () => null,
+      listTemplateFolders: () => [],
+      liveOrderedSetItems: () => [],
+      subscribeTemplateFolderMirror: () => () => undefined,
+      subscribeAny: () => () => undefined,
+      hydrated: Promise.resolve(),
+      dispose: () => undefined,
+    },
   };
 }
 
@@ -205,9 +246,7 @@ describe('applyTemplateUpdate — set-diff via synthesizer', () => {
     const batch = (mockCall.mock.calls[0][1] as { batch: MutationBatch }).batch;
     const bodies = batch.mutations.map((m) => m.body);
     expect(bodies.filter((b) => b.kind === 'removeFromSet')).toHaveLength(0);
-    const adds = bodies.filter(
-      (b): b is Extract<typeof b, { kind: 'addToSet' }> => b.kind === 'addToSet',
-    );
+    const adds = bodies.filter((b): b is Extract<typeof b, { kind: 'addToSet' }> => b.kind === 'addToSet');
     expect(adds).toHaveLength(1);
     expect(adds[0].itemId).toBe('cnd00001');
     expect(adds[0].orderKey).toBe('mn');
@@ -271,7 +310,7 @@ describe('applyTemplateUpdate — set-diff via synthesizer', () => {
 });
 
 describe('applyTemplateDelete', () => {
-  it('emits a delete envelope when the template is mirrored', async () => {
+  it('emits the parent items slot tombstone + the delete envelope when the template is mirrored', async () => {
     mockCall.mockResolvedValue({ ok: true, outcomes: [] });
     const mirror = makeMirror(baseTemplate);
     const result = await applyTemplateDelete(baseTemplate.uid, {
@@ -279,11 +318,20 @@ describe('applyTemplateDelete', () => {
       surfaceId: 'workbench',
       mirror,
       context: makeContextHandle(),
+      ...makeTreeMirrors(),
     });
     expect(result).toEqual({ ok: true });
     const batch = (mockCall.mock.calls[0][1] as { batch: MutationBatch }).batch;
-    expect(batch.mutations).toHaveLength(1);
-    expect(batch.mutations[0].body).toMatchObject({ kind: 'delete', id: baseTemplate.uid });
+    expect(batch.mutations.map((m) => m.body)).toMatchObject([
+      {
+        kind: 'removeFromSet',
+        type: TEMPLATE_COLLECTION_ENTITY_TYPE,
+        id: 'col00001',
+        path: TEMPLATE_FOLDER_ITEMS_PATH,
+        itemId: baseTemplate.uid,
+      },
+      { kind: 'delete', id: baseTemplate.uid },
+    ]);
   });
 
   it('short-circuits to not-found when the mirror has no entry', async () => {
@@ -305,19 +353,40 @@ describe('applyTemplateCreate', () => {
     const tpl: Template = {
       ...baseTemplate,
       uid: 'tpl-new',
+      path: 'templates/user-col00001/my-tpl-new',
       conditions: [cond('cnd00010', 'foo')],
     };
     const result = await applyTemplateCreate(tpl, {
       workspaceId: 'ws-1',
       surfaceId: 'workbench',
       context: makeContextHandle(),
+      ...makeTreeMirrors(),
     });
     expect(result).toEqual({ ok: true });
     const batch = (mockCall.mock.calls[0][1] as { batch: MutationBatch }).batch;
     const createEnv = batch.mutations.find((m) => m.body.kind === 'create');
     expect(createEnv?.body).toMatchObject({ kind: 'create', type: TEMPLATE_ENTITY_TYPE, id: 'tpl-new' });
-    const adds = batch.mutations.filter((m) => m.body.kind === 'addToSet');
+    const adds = batch.mutations.filter((m) => m.body.kind === 'addToSet' && m.body.type === TEMPLATE_ENTITY_TYPE);
     expect(adds).toHaveLength(1);
     expect(adds[0].body).toMatchObject({ path: 'conditions', itemId: 'cnd00010' });
+  });
+
+  it('takes the parent collection items slot in the create batch', async () => {
+    mockCall.mockResolvedValue({ ok: true, outcomes: [] });
+    await applyTemplateCreate(baseTemplate, {
+      workspaceId: 'ws-1',
+      surfaceId: 'workbench',
+      context: makeContextHandle(),
+      ...makeTreeMirrors(),
+    });
+    const batch = (mockCall.mock.calls[0][1] as { batch: MutationBatch }).batch;
+    expect(batch.mutations[batch.mutations.length - 1].body).toMatchObject({
+      kind: 'addToSet',
+      type: TEMPLATE_COLLECTION_ENTITY_TYPE,
+      id: 'col00001',
+      path: TEMPLATE_FOLDER_ITEMS_PATH,
+      itemId: baseTemplate.uid,
+      item: { uid: baseTemplate.uid, type: TEMPLATE_ENTITY_TYPE },
+    });
   });
 });

@@ -1,14 +1,15 @@
 // ── Requests ────────────────────────────────────────────────────────
 
 import { RequestSchema, schemaParseError } from '@openheaders/core/schemas';
-import { REQUEST_ENTITY_TYPE } from '@openheaders/core/sync';
+import { REQUEST_ENTITY_TYPE, REQUEST_FOLDER_ITEMS_PATH } from '@openheaders/core/sync';
 import {
   buildAddBatch,
   buildDeleteBatch,
+  buildDeleteEntityBatch,
   buildUpdateBatch,
 } from '@openheaders/core/sync-builders/mutations/request-mutations';
 import type { Collection, Folder, Request } from '@openheaders/core/types';
-import { generateUid, toFolderName } from '@openheaders/core/utils';
+import { generateUid, parentPathOf, toFolderName } from '@openheaders/core/utils';
 import type { RequestCache } from '@openheaders/oracle/sync/caches/request-cache';
 import type { RequestCollectionCache } from '@openheaders/oracle/sync/caches/request-collection-cache';
 import type { RequestFolderCache } from '@openheaders/oracle/sync/caches/request-folder-cache';
@@ -22,7 +23,9 @@ import {
   getOracleForCurrentWorkspace,
   nextSwMutatorContext,
 } from '@openheaders/oracle/sync/service/accessors';
+import { childPlacement } from '../tree-placement';
 import { applyRequestMutationOrThrow } from './apply';
+import { resolveRequestFolderParent } from './folders';
 import { deleteResponseExamplesForRequests } from './response-examples';
 import { assertLoaded, collections, loadedWorkspaceId, requests } from './state';
 
@@ -52,6 +55,7 @@ export async function addRequest(
     schemaVersion: 5,
     uid,
     path: `${parentPath}/${folderName}`,
+    pathSegment: folderName,
     name,
     method: seed?.method ?? 'GET',
     url: seed?.url ?? '',
@@ -88,7 +92,12 @@ export async function addRequest(
   };
   const schemaError = requestSchemaError(created);
   if (schemaError) throw new Error(`addRequest: ${schemaError}`);
-  await applyRequestMutationOrThrow((ctx) => buildAddBatch(created, ctx), 'addRequest');
+  const placement = childPlacement(
+    getOracleForCurrentWorkspace(),
+    resolveRequestFolderParent(parentPath),
+    REQUEST_FOLDER_ITEMS_PATH,
+  );
+  await applyRequestMutationOrThrow((ctx) => buildAddBatch(created, ctx, placement), 'addRequest');
   return created;
 }
 
@@ -232,10 +241,21 @@ export async function updateRequest(
   return { ok: true, request: { ...existing, ...updates } as Request };
 }
 
+/**
+ * Delete a request: its parent's `items` slot tombstones in the same
+ * batch as the entity; an unresolvable parent (already tombstoned)
+ * falls back to the bare entity tombstone.
+ */
 export async function deleteRequest(uid: string): Promise<boolean> {
   assertLoaded();
-  if (!requests.some((r) => r.uid === uid)) return false;
+  const request = requests.find((r) => r.uid === uid);
+  if (!request) return false;
+  const parentPath = parentPathOf(request.path);
+  const parent = parentPath === null ? null : resolveRequestFolderParent(parentPath);
   await deleteResponseExamplesForRequests([uid]);
-  await applyRequestMutationOrThrow((ctx) => buildDeleteBatch(uid, ctx), 'deleteRequest');
+  await applyRequestMutationOrThrow(
+    (ctx) => (parent ? buildDeleteBatch(uid, parent, ctx) : buildDeleteEntityBatch(uid, ctx)),
+    'deleteRequest',
+  );
   return true;
 }

@@ -17,7 +17,7 @@
 
 import { MIN_SCHEMA_VERSION } from '@openheaders/core/schemas';
 import type { MutationEnvelope } from '@openheaders/core/sync';
-import { COLLECTION_ENTITY_TYPE, COLLECTION_VARS_PATH } from '@openheaders/core/sync';
+import { COLLECTION_ENTITY_TYPE, COLLECTION_VARS_PATH, WORKSPACE_ROOTS_REF } from '@openheaders/core/sync';
 import { buildVariablesReplacement } from '@openheaders/core/sync-builders';
 import {
   buildDeleteCollectionBatch,
@@ -29,7 +29,7 @@ import {
   buildSetPinnedEnvironmentsBatch,
 } from '@openheaders/core/sync-builders/mutations/collection-mutations';
 import { buildDeleteFolderEntityBatch } from '@openheaders/core/sync-builders/mutations/folder-mutations';
-import { buildDeleteBatch as buildDeleteRuleBatch } from '@openheaders/core/sync-builders/mutations/rule-mutations';
+import { buildDeleteEntityBatch as buildDeleteRuleEntityBatch } from '@openheaders/core/sync-builders/mutations/rule-mutations';
 import { seedCollection } from '@openheaders/core/sync-builders/projections/collection-projection';
 import type { Collection, Variable } from '@openheaders/core/types';
 import { generateUid, toFolderName } from '@openheaders/core/utils';
@@ -86,11 +86,13 @@ export async function applyCollectionRemoveVar(
 /**
  * Renderer-direct collection create. Mints uid + path locally, builds the
  * seed batch (one `create` for the scalar shell + one `addToSet` per
- * variable), and fires `oh.sync.apply` against the workspace carried on
- * `opts`. Mirrors `applyEnvironmentCreate`. The legacy SW handler
+ * variable + the workspace roots' slot), and fires `oh.sync.apply`
+ * against the workspace carried on `opts`. Mirrors
+ * `applyEnvironmentCreate`. The legacy SW handler
  * (`createLocalCollection`) operates on the runtime-Active workspace and
  * is bypassed here — workbench surfaces emit applies with the
- * editing-scope workspaceId.
+ * editing-scope workspaceId. The renderer holds no roots mirror yet, so
+ * the slot lands on the seed key (uid tie-break — today's order).
  */
 export type CollectionMutationResult =
   | { ok: true; collection: Collection }
@@ -117,7 +119,10 @@ export async function applyCollectionCreate(
     defaultEnvironmentId: null,
   };
   const ctx = resolveRendererContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
-  const ack = await applySyncPayload({ batch: seedCollection(collection, ctx), sideEffects: [] });
+  const ack = await applySyncPayload({
+    batch: seedCollection(collection, ctx, { parent: WORKSPACE_ROOTS_REF }),
+    sideEffects: [],
+  });
   if (ack.ok) return { ok: true, collection };
   if (ack.reason === 'not-found') return { ok: false, reason: 'not-found' };
   return { ok: false, reason: 'other', message: ack.message };
@@ -158,7 +163,7 @@ export async function applyCollectionDelete(
   const baseCtx = resolveRendererContext(opts);
   for (const ruleUid of cascadingRuleUids) {
     const ctx = baseCtx.next({ batchId: `collection-delete-cascade-rule-${ruleUid}` });
-    const ack = await applySyncPayload(buildDeleteRuleBatch(ruleUid, ctx));
+    const ack = await applySyncPayload(buildDeleteRuleEntityBatch(ruleUid, ctx));
     if (!ack.ok) return ack;
   }
   for (const folderUid of cascadingFolderUids) {

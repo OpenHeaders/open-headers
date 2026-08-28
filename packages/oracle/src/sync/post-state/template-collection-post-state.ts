@@ -12,6 +12,7 @@ import {
   TEMPLATE_COLLECTION_ENTITY_TYPE,
   TEMPLATE_COLLECTION_VARS_PATH,
   TEMPLATE_FOLDER_CHILDREN_PATH,
+  TEMPLATE_FOLDER_ITEMS_PATH,
 } from '@openheaders/core/sync';
 import { projectTemplateCollection } from '@openheaders/core/sync-builders/projections/template-collection-projection';
 import type { Collection } from '@openheaders/core/types';
@@ -30,6 +31,7 @@ const projectors = makeFlatEntityProjectors<Reads, Collection, SyncTemplateColle
     // `variables` set (editor's position-preserving Save).
     setOrderKeys: buildSetMembersExtras(oracle, TEMPLATE_COLLECTION_ENTITY_TYPE, uid, [
       TEMPLATE_FOLDER_CHILDREN_PATH,
+      TEMPLATE_FOLDER_ITEMS_PATH,
       TEMPLATE_COLLECTION_VARS_PATH,
     ]).setOrderKeys,
   }),

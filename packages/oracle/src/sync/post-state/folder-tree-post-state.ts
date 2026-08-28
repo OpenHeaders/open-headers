@@ -19,7 +19,7 @@
 import type { MaterializedEntity, MutationEnvelope } from '@openheaders/core/sync';
 import type { Collection, Folder } from '@openheaders/core/types';
 import type { EntityOracle } from '../oracle';
-import { buildFolderChildrenOrderKeys } from './folder-children-order-keys';
+import { buildSetMembersExtras } from './flat-entity-post-state';
 
 type Reads = Pick<EntityOracle, 'materializeOne' | 'materializeAll' | 'liveSetItems' | 'liveOrderedSetItems'>;
 
@@ -33,6 +33,8 @@ export interface FolderTreeKinds<C extends string = string, F extends string = s
   collectionType: C;
   folderType: F;
   childrenPath: string;
+  /** The parent's ordered leaf set (`items`) — order keys ride the post-state next to `folders`. */
+  itemsPath: string;
   projectCollection: (materialized: MaterializedEntity) => Collection | null;
   projectFolder: (materialized: MaterializedEntity, parentPath: string) => Folder | null;
 }
@@ -45,9 +47,9 @@ export interface FolderTreeKinds<C extends string = string, F extends string = s
  */
 export interface FolderPostStateProjection {
   folder: Folder;
-  /** Live `(itemId, orderKey)` pairs at the folder's own `folders` set
-   *  — the slot list for nested child folders. Keyed by setPath
-   *  (`'folders'`) for shape consistency with other entities. */
+  /** Live `(itemId, orderKey)` pairs at the folder's own `folders` and
+   *  `items` sets — the slot lists for nested child folders and leaves.
+   *  Keyed by setPath for shape consistency with other entities. */
   setOrderKeys: Record<string, Array<{ itemId: string; orderKey: string }>>;
 }
 
@@ -147,7 +149,8 @@ function projectFolderWithIndex<C extends string, F extends string>(
 
   return {
     folder,
-    setOrderKeys: buildFolderChildrenOrderKeys(oracle, kinds.folderType, folderUid, kinds.childrenPath),
+    setOrderKeys: buildSetMembersExtras(oracle, kinds.folderType, folderUid, [kinds.childrenPath, kinds.itemsPath])
+      .setOrderKeys,
   };
 }
 

@@ -28,6 +28,8 @@
  */
 
 import {
+  type ChildPlacement,
+  deleteRequest,
   type MutationBatch,
   type MutationBody,
   type MutatorContext,
@@ -35,6 +37,7 @@ import {
   REQUEST_ENTITY_TYPE,
   REQUEST_HEADERS_PATH,
   REQUEST_PARAMS_PATH,
+  type RequestFolderParentRef,
   type SideEffectIntent,
 } from '@openheaders/core/sync';
 import { type LiveSetEntry, synthesizeFieldDiff, synthesizeSetDiff } from '@openheaders/core/sync-builders';
@@ -69,13 +72,38 @@ export type LiveSetEntries = (requestUid: string, setPath: string) => ReadonlyAr
  */
 export type LiveFieldValue = (requestUid: string, path: string) => unknown;
 
-/** New request → seed batch. No side effects. */
-export function buildAddBatch(request: Request, ctx: MutatorContext): RequestMutationPayload {
-  return { batch: seedRequest(request, ctx), sideEffects: [] };
+/**
+ * New request → seed batch. No side effects. `placement` is the parent
+ * whose `items` slot the request takes in the same batch; `null` only
+ * when the parent is unresolvable at the write site (slot-less leaf,
+ * rehomed by the by-path seeding).
+ */
+export function buildAddBatch(
+  request: Request,
+  ctx: MutatorContext,
+  placement: ChildPlacement<RequestFolderParentRef> | null,
+): RequestMutationPayload {
+  return { batch: seedRequest(request, ctx, placement ?? undefined), sideEffects: [] };
 }
 
-/** Delete a request. Tombstone is permanent under §7.2 delete-wins. */
-export function buildDeleteBatch(requestUid: string, ctx: MutatorContext): RequestMutationPayload {
+/**
+ * Delete a request: the parent's slot tombstone + the entity tombstone
+ * in one batch. Tombstone is permanent under §7.2 delete-wins.
+ */
+export function buildDeleteBatch(
+  requestUid: string,
+  parent: RequestFolderParentRef,
+  ctx: MutatorContext,
+): RequestMutationPayload {
+  return deleteRequest(ctx, { requestUid, parent });
+}
+
+/**
+ * Bare request-entity tombstone for cross-entity cascades where the
+ * parent is going too (its tombstone covers the slot). See the rule
+ * side's {@link buildDeleteEntityBatch} for the contract.
+ */
+export function buildDeleteEntityBatch(requestUid: string, ctx: MutatorContext): RequestMutationPayload {
   const bodies: MutationBody[] = [{ kind: 'delete', type: REQUEST_ENTITY_TYPE, id: requestUid }];
   return { batch: mintBatch(ctx, bodies), sideEffects: [] };
 }

@@ -15,7 +15,7 @@ import { tickHlc } from '../../hlc';
 import type { MutatorContext } from '../types';
 
 /** Request mutator catalog version — bumped on any wire-incompatible change (§13.4). */
-export const REQUEST_MUTATOR_VERSION = 1;
+export const REQUEST_MUTATOR_VERSION = 2;
 
 export function mintEnvelope(ctx: MutatorContext, body: MutationBody): MutationEnvelope {
   return {

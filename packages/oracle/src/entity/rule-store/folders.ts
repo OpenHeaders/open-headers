@@ -1,30 +1,24 @@
 // ── Folders ─────────────────────────────────────────────────────────
 
-import { COLLECTION_ENTITY_TYPE, FOLDER_ENTITY_TYPE, type FolderParentRef } from '@openheaders/core/sync';
+import { FOLDER_TREE_KINDS, type FolderParentRef, resolveTreeParent } from '@openheaders/core/sync';
 import {
   buildCreateFolderBatch,
   buildDeleteFolderBatch,
   buildDeleteFolderEntityBatch,
   buildRenameFolderBatch,
 } from '@openheaders/core/sync-builders/mutations/folder-mutations';
-import { buildDeleteBatch } from '@openheaders/core/sync-builders/mutations/rule-mutations';
+import { buildDeleteEntityBatch } from '@openheaders/core/sync-builders/mutations/rule-mutations';
 import { generateUid, logger, toFolderName } from '@openheaders/core/utils';
 import { applyFolderMutationOrThrow, applyRuleMutationOrThrow } from './apply';
 import { assertLoaded, collections, folders, type LocalFolder, rules } from './state';
 
 /**
  * Resolve `parentPath` to a {@link FolderParentRef} via the local
- * mirrors. `parentPath` matches a collection root (`rules/<slug>-<uid>`)
- * or a folder path (`<collectionPath>/<slug>-<uid>`); we look up
- * collections first because their paths are shorter prefixes of
- * descendant folders.
+ * mirrors (collection root `rules/<slug>-<uid>` or folder path), with
+ * the path's own uid tail as the fallback the shared resolver applies.
  */
 function resolveFolderParent(parentPath: string): FolderParentRef | null {
-  const collection = collections.find((c) => c.path === parentPath);
-  if (collection) return { type: COLLECTION_ENTITY_TYPE, uid: collection.uid };
-  const folder = folders.find((f) => f.path === parentPath);
-  if (folder) return { type: FOLDER_ENTITY_TYPE, uid: folder.uid };
-  return null;
+  return resolveTreeParent(parentPath, { collections, folders }, FOLDER_TREE_KINDS);
 }
 
 /**
@@ -76,7 +70,7 @@ export async function deleteFolder(uid: string): Promise<boolean> {
     .filter((f) => f.uid !== uid && f.path.startsWith(`${folder.path}/`))
     .map((f) => f.uid);
   for (const ruleUid of cascadingRuleUids) {
-    await applyRuleMutationOrThrow((ctx) => buildDeleteBatch(ruleUid, ctx), 'deleteFolder-cascade-rule');
+    await applyRuleMutationOrThrow((ctx) => buildDeleteEntityBatch(ruleUid, ctx), 'deleteFolder-cascade-rule');
   }
   for (const nestedUid of cascadingNestedFolderUids) {
     await applyFolderMutationOrThrow(

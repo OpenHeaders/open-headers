@@ -16,7 +16,13 @@
  */
 
 import type { MutationBatch, MutatorContext } from '@openheaders/core/sync';
-import { advanceHlc, GRPC_RESPONSE_EXAMPLE_ENTITY_TYPE, initialHlc } from '@openheaders/core/sync';
+import {
+  advanceHlc,
+  GRPC_RESPONSE_EXAMPLE_ENTITY_TYPE,
+  initialHlc,
+  REQUEST_COLLECTION_ENTITY_TYPE,
+  REQUEST_FOLDER_ITEMS_PATH,
+} from '@openheaders/core/sync';
 import type { GrpcResponseExample } from '@openheaders/core/types';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -36,7 +42,12 @@ vi.mock('@utils/logger', () => ({
   logger: { info: vi.fn(), debug: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }));
 
-import type { GrpcResponseExampleSyncMirror, RendererContextHandle } from '@openheaders/ui/context';
+import type {
+  GrpcResponseExampleSyncMirror,
+  RendererContextHandle,
+  RequestCollectionSyncMirror,
+  RequestFolderSyncMirror,
+} from '@openheaders/ui/context';
 import type { GrpcRequestSyncMirror } from '@openheaders/ui/context/mirrors/grpc-request-sync-mirror';
 import { applyGrpcRequestDelete } from '@openheaders/ui/shared/sync/grpc-request-write-client';
 import {
@@ -331,7 +342,41 @@ describe('applyGrpcRequestDelete — example cascade', () => {
     };
   }
 
-  it('tombstones every example owned by the request before deleting it', async () => {
+  /** The request tree's container mirrors: the collection `requests/api-rc1`, no folders. */
+  function makeTreeMirrors(): { collectionMirror: RequestCollectionSyncMirror; folderMirror: RequestFolderSyncMirror } {
+    const collection = {
+      schemaVersion: 5 as const,
+      uid: 'rcol0001',
+      path: 'requests/api-rc1',
+      name: 'API',
+      variables: [],
+      pinnedEnvironmentIds: [],
+      defaultEnvironmentId: null,
+    };
+    return {
+      collectionMirror: {
+        getRequestCollectionMirror: (uid) =>
+          uid === collection.uid ? { collection, varUids: [], setOrderKeys: {} } : null,
+        listRequestCollections: () => [collection],
+        liveOrderedSetItems: () => [],
+        subscribeRequestCollectionMirror: () => () => undefined,
+        subscribeAny: () => () => undefined,
+        hydrated: Promise.resolve(),
+        dispose: () => undefined,
+      },
+      folderMirror: {
+        getRequestFolderMirror: () => null,
+        listRequestFolders: () => [],
+        liveOrderedSetItems: () => [],
+        subscribeRequestFolderMirror: () => () => undefined,
+        subscribeAny: () => () => undefined,
+        hydrated: Promise.resolve(),
+        dispose: () => undefined,
+      },
+    };
+  }
+
+  it('tombstones every example owned by the request before deleting it with its parent slot', async () => {
     mockCall.mockResolvedValue({ ok: true, outcomes: [] });
     const exampleMirror = makeMirror([
       makeExample('gexx0001', { grpcRequestUid: 'grq00001' }),
@@ -344,13 +389,25 @@ describe('applyGrpcRequestDelete — example cascade', () => {
       mirror: makeGrpcRequestMirror(['grq00001']),
       exampleMirror,
       context: makeContextHandle(),
+      ...makeTreeMirrors(),
     });
     expect(result).toEqual({ ok: true });
-    const deletes = mockCall.mock.calls.map((c) => (c[1] as { batch: MutationBatch }).batch.mutations[0].body);
-    expect(deletes).toEqual([
-      { kind: 'delete', type: GRPC_RESPONSE_EXAMPLE_ENTITY_TYPE, id: 'gexx0001' },
-      { kind: 'delete', type: GRPC_RESPONSE_EXAMPLE_ENTITY_TYPE, id: 'gexx0002' },
-      { kind: 'delete', type: 'grpcRequest', id: 'grq00001' },
+    const batches = mockCall.mock.calls.map((c) =>
+      (c[1] as { batch: MutationBatch }).batch.mutations.map((m) => m.body),
+    );
+    expect(batches).toEqual([
+      [{ kind: 'delete', type: GRPC_RESPONSE_EXAMPLE_ENTITY_TYPE, id: 'gexx0001' }],
+      [{ kind: 'delete', type: GRPC_RESPONSE_EXAMPLE_ENTITY_TYPE, id: 'gexx0002' }],
+      [
+        {
+          kind: 'removeFromSet',
+          type: REQUEST_COLLECTION_ENTITY_TYPE,
+          id: 'rcol0001',
+          path: REQUEST_FOLDER_ITEMS_PATH,
+          itemId: 'grq00001',
+        },
+        { kind: 'delete', type: 'grpcRequest', id: 'grq00001' },
+      ],
     ]);
   });
 });

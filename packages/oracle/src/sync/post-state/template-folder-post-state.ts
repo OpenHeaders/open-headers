@@ -10,17 +10,18 @@ import {
   TEMPLATE_COLLECTION_ENTITY_TYPE,
   TEMPLATE_FOLDER_CHILDREN_PATH,
   TEMPLATE_FOLDER_ENTITY_TYPE,
+  TEMPLATE_FOLDER_ITEMS_PATH,
 } from '@openheaders/core/sync';
-import type { Folder } from '@openheaders/core/types';
 import { projectTemplateCollection } from '@openheaders/core/sync-builders/projections/template-collection-projection';
 import { projectTemplateFolder } from '@openheaders/core/sync-builders/projections/template-folder-projection';
+import type { Folder } from '@openheaders/core/types';
+import type { EntityOracle } from '../oracle';
 import {
   type FolderTreeKinds,
   projectAllFoldersGeneric,
   projectFolderByUidGeneric,
   projectFolderPostStateGeneric,
 } from './folder-tree-post-state';
-import type { EntityOracle } from '../oracle';
 
 type Reads = Pick<EntityOracle, 'materializeOne' | 'materializeAll' | 'liveSetItems' | 'liveOrderedSetItems'>;
 
@@ -28,6 +29,7 @@ const KINDS: FolderTreeKinds<typeof TEMPLATE_COLLECTION_ENTITY_TYPE, typeof TEMP
   collectionType: TEMPLATE_COLLECTION_ENTITY_TYPE,
   folderType: TEMPLATE_FOLDER_ENTITY_TYPE,
   childrenPath: TEMPLATE_FOLDER_CHILDREN_PATH,
+  itemsPath: TEMPLATE_FOLDER_ITEMS_PATH,
   projectCollection: projectTemplateCollection,
   projectFolder: projectTemplateFolder,
 };

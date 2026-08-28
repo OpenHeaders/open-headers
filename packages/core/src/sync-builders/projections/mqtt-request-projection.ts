@@ -13,6 +13,7 @@
  */
 
 import {
+  type ChildPlacement,
   type MaterializedEntity,
   MQTT_REQUEST_ENTITY_TYPE,
   MQTT_REQUEST_SAVED_MESSAGES_PATH,
@@ -22,9 +23,12 @@ import {
   type MutationBody,
   type MutatorContext,
   mintBatch,
+  mqttRequestChild,
   orderKeyMinter,
+  type RequestFolderParentRef,
 } from '@openheaders/core/sync';
 import type { MqttRequest } from '@openheaders/core/types';
+import { lastPathSegment } from '@openheaders/core/utils';
 
 /** Set-modeled paths on an MqttRequest, with their row readers. */
 const SET_PATHS = [
@@ -40,12 +44,21 @@ const SET_PATHS = [
  * the sync engine's itemId, so reorder gestures land as `moveBefore`
  * over a known itemId set. Per-batch all-or-nothing under the
  * oracle's lock.
+ *
+ * `placement` is the tree linkage for a NEW request: the parent's
+ * `items` slot rides the same batch and the shell is stamped with its
+ * frozen `pathSegment`. Boot-time re-seeds pass none.
  */
-export function seedMqttRequest(request: MqttRequest, ctx: MutatorContext): MutationBatch {
+export function seedMqttRequest(
+  request: MqttRequest,
+  ctx: MutatorContext,
+  placement?: ChildPlacement<RequestFolderParentRef>,
+): MutationBatch {
   // Deep clone via JSON round-trip — MqttRequest has no functions /
   // symbols / Dates; correct-by-construction for the persisted shape.
   const shell = JSON.parse(JSON.stringify(request)) as Record<string, unknown>;
   for (const path of SET_PATHS) delete shell[path];
+  if (placement) shell.pathSegment ??= lastPathSegment(request.path);
 
   const bodies: MutationBody[] = [{ kind: 'create', type: MQTT_REQUEST_ENTITY_TYPE, id: request.uid, payload: shell }];
   // Sequential orderKeys — a keyless addToSet defaults every row to the
@@ -70,6 +83,7 @@ export function seedMqttRequest(request: MqttRequest, ctx: MutatorContext): Muta
       });
     }
   }
+  if (placement) bodies.push(mqttRequestChild.slotAdd(request.uid, placement.parent, placement.orderKey));
   return mintBatch(ctx, bodies);
 }
 

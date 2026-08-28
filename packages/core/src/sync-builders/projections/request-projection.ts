@@ -23,6 +23,7 @@
  */
 
 import {
+  type ChildPlacement,
   type MaterializedEntity,
   type MutationBatch,
   type MutationBody,
@@ -32,8 +33,11 @@ import {
   REQUEST_ENTITY_TYPE,
   REQUEST_HEADERS_PATH,
   REQUEST_PARAMS_PATH,
+  type RequestFolderParentRef,
+  requestChild,
 } from '@openheaders/core/sync';
 import type { QueryParam, Request, RequestHeader } from '@openheaders/core/types';
+import { lastPathSegment } from '@openheaders/core/utils';
 
 /**
  * Set-modeled field paths on a Request. The mutator catalog
@@ -61,10 +65,19 @@ interface SetMember {
  * itemId set rather than wholesale `removeFromSet + addToSet`.
  *
  * Per-batch all-or-nothing under the oracle's lock.
+ *
+ * `placement` is the tree linkage for a NEW request: the parent's
+ * `items` slot rides the same batch and the shell is stamped with its
+ * frozen `pathSegment`. Boot-time re-seeds pass none.
  */
-export function seedRequest(request: Request, ctx: MutatorContext): MutationBatch {
+export function seedRequest(
+  request: Request,
+  ctx: MutatorContext,
+  placement?: ChildPlacement<RequestFolderParentRef>,
+): MutationBatch {
   const setMembers: SetMember[] = [];
   const scalarShell = stripSetFields(request, setMembers);
+  if (placement) scalarShell.pathSegment ??= lastPathSegment(request.path);
 
   const bodies: MutationBody[] = [{ kind: 'create', type: REQUEST_ENTITY_TYPE, id: request.uid, payload: scalarShell }];
   // Sequential orderKeys per set path — a keyless addToSet defaults every
@@ -84,6 +97,7 @@ export function seedRequest(request: Request, ctx: MutatorContext): MutationBatc
       orderKey: nextKey(),
     });
   }
+  if (placement) bodies.push(requestChild.slotAdd(request.uid, placement.parent, placement.orderKey));
   return mintBatch(ctx, bodies);
 }
 
@@ -106,7 +120,7 @@ export function projectRequest(materialized: MaterializedEntity): Request | null
 
 // ── internals ─────────────────────────────────────────────────────
 
-function stripSetFields(request: Request, out: SetMember[]): unknown {
+function stripSetFields(request: Request, out: SetMember[]): Record<string, unknown> {
   // Deep clone via JSON round-trip — Request has no functions /
   // symbols / Dates; correct-by-construction for the persisted shape.
   // Not a hot path.

@@ -92,7 +92,7 @@ function build(rng: Rng): Built {
   const envelopes: MutationEnvelope[] = [];
   const node = `node-${rng.int(0xffff).toString(16)}`;
 
-  const create = buildAddBatch(seed, ctx(1, node));
+  const create = buildAddBatch(seed, ctx(1, node), null);
   envelopes.push(...create.batch.mutations);
 
   let currentAuth: AuthConfig = seed.auth;

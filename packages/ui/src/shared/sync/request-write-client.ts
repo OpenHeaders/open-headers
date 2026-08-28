@@ -15,9 +15,13 @@
 import {
   buildAddBatch,
   buildDeleteBatch,
+  buildDeleteEntityBatch,
   buildUpdateBatch,
 } from '@openheaders/core/sync-builders/mutations/request-mutations';
 import type { Request } from '@openheaders/core/types';
+import { parentPathOf } from '@openheaders/core/utils';
+import type { RequestCollectionSyncMirror } from '../../context/mirrors/request-collection-sync-mirror';
+import type { RequestFolderSyncMirror } from '../../context/mirrors/request-folder-sync-mirror';
 import { getRequestSyncMirrorForWorkspace, type RequestSyncMirror } from '../../context/mirrors/request-sync-mirror';
 import {
   applySyncPayload,
@@ -26,8 +30,9 @@ import {
   resolveRendererContext,
   type SyncSimpleResult,
 } from './apply-payload';
+import { requestTreeMirrors, resolveLeafParent, resolveLeafPlacement, unresolvableParent } from './tree-placement';
 
-export type RequestUpdates = Partial<Omit<Request, 'uid' | 'path' | 'schemaVersion'>>;
+export type RequestUpdates = Partial<Omit<Request, 'uid' | 'path' | 'pathSegment' | 'schemaVersion'>>;
 
 export type RequestMutationResult =
   | { ok: true; request: Request }
@@ -39,6 +44,9 @@ export type RequestSimpleResult = SyncSimpleResult;
 export interface RequestWriteOptions extends BaseSyncWriteOptions {
   /** Override the singleton mirror for tests. */
   mirror?: RequestSyncMirror;
+  /** Override the parent-resolving container mirrors for tests. */
+  collectionMirror?: RequestCollectionSyncMirror;
+  folderMirror?: RequestFolderSyncMirror;
 }
 
 /**
@@ -96,20 +104,33 @@ export async function applyRequestUpdate(
   return { ok: false, reason: 'other', message: ack.message };
 }
 
-/** Seed a brand-new request through the oracle. Caller mints the full
- *  `Request` shape; the helper handles the create + per-row addToSet
- *  envelopes via the projection layer. */
+/**
+ * Seed a brand-new request through the oracle. Caller mints the full
+ * `Request` shape; the helper resolves the parent from the request's
+ * path (its `items` slot rides the create batch, appended after the
+ * parent's live tail) and handles the per-row addToSet envelopes via
+ * the projection layer. An unplaceable parent fails the create.
+ */
 export async function applyRequestCreate(request: Request, opts: RequestWriteOptions): Promise<RequestSimpleResult> {
+  const parentPath = parentPathOf(request.path) ?? '';
+  const placement = await resolveLeafPlacement(requestTreeMirrors(opts.workspaceId, opts), parentPath);
+  if (!placement) return unresolvableParent(parentPath);
   const ctx = resolveRendererContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
-  const payload = buildAddBatch(request, ctx);
+  const payload = buildAddBatch(request, ctx, placement);
   return applySyncPayload(payload);
 }
 
+/**
+ * Delete a request: its parent's `items` slot tombstones in the same
+ * batch as the entity; an unresolvable parent (already tombstoned)
+ * falls back to the bare entity tombstone.
+ */
 export async function applyRequestDelete(requestUid: string, opts: RequestWriteOptions): Promise<RequestSimpleResult> {
   const mirror = resolveMirror(opts, getRequestSyncMirrorForWorkspace);
   await mirror.hydrated;
-  if (!mirror.getRequestMirror(requestUid)) return { ok: false, reason: 'not-found' };
+  const entry = mirror.getRequestMirror(requestUid);
+  if (!entry) return { ok: false, reason: 'not-found' };
+  const parent = await resolveLeafParent(requestTreeMirrors(opts.workspaceId, opts), entry.request.path);
   const ctx = resolveRendererContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
-  const payload = buildDeleteBatch(requestUid, ctx);
-  return applySyncPayload(payload);
+  return applySyncPayload(parent ? buildDeleteBatch(requestUid, parent, ctx) : buildDeleteEntityBatch(requestUid, ctx));
 }

@@ -39,8 +39,10 @@
  */
 
 import {
+  type ChildPlacement,
   COLLECTION_ENTITY_TYPE,
   FOLDER_ENTITY_TYPE,
+  FOLDER_TREE_KINDS,
   GRPC_REQUEST_ENTITY_TYPE,
   LIVE_VARIABLE_ENTITY_TYPE,
   LIVE_WORKFLOW_ENTITY_TYPE,
@@ -49,11 +51,16 @@ import {
   REQUEST_COLLECTION_ENTITY_TYPE,
   REQUEST_ENTITY_TYPE,
   REQUEST_FOLDER_ENTITY_TYPE,
+  REQUEST_FOLDER_ITEMS_PATH,
+  REQUEST_FOLDER_TREE_KINDS,
+  type RequestFolderParentRef,
   RULE_ENTITY_TYPE,
   SPEC_ENTITY_TYPE,
   TEMPLATE_COLLECTION_ENTITY_TYPE,
   TEMPLATE_ENTITY_TYPE,
   TEMPLATE_FOLDER_ENTITY_TYPE,
+  TEMPLATE_FOLDER_TREE_KINDS,
+  type TreeParentRef,
   WEBSOCKET_REQUEST_ENTITY_TYPE,
 } from '@openheaders/core/sync';
 import type {
@@ -74,29 +81,53 @@ import {
 import { buildDeleteCollectionBatch } from './collection-mutations';
 import { buildDeleteEnvironmentBatch } from './env-mutations';
 import { buildDeleteFolderBatch, buildDeleteFolderEntityBatch } from './folder-mutations';
-import { buildGrpcAddBatch, buildGrpcDeleteBatch, buildGrpcUpdateBatch } from './grpc-request-mutations';
+import {
+  buildGrpcAddBatch,
+  buildGrpcDeleteBatch,
+  buildGrpcDeleteEntityBatch,
+  buildGrpcUpdateBatch,
+} from './grpc-request-mutations';
 import { buildDeleteLiveVariableBatch } from './live-variable-mutations';
 import { buildDeleteLiveWorkflowBatch } from './live-workflow-mutations';
-import { buildMqttAddBatch, buildMqttDeleteBatch, buildMqttUpdateBatch } from './mqtt-request-mutations';
+import {
+  buildMqttAddBatch,
+  buildMqttDeleteBatch,
+  buildMqttDeleteEntityBatch,
+  buildMqttUpdateBatch,
+} from './mqtt-request-mutations';
 import { buildDeleteRequestCollectionBatch } from './request-collection-mutations';
 import { buildDeleteRequestFolderBatch, buildDeleteRequestFolderEntityBatch } from './request-folder-mutations';
-import { buildDeleteBatch as buildDeleteRequestBatch } from './request-mutations';
-import { buildDeleteBatch as buildDeleteRuleBatch } from './rule-mutations';
+import {
+  buildDeleteBatch as buildDeleteRequestBatch,
+  buildDeleteEntityBatch as buildDeleteRequestEntityBatch,
+} from './request-mutations';
+import {
+  buildDeleteBatch as buildDeleteRuleBatch,
+  buildDeleteEntityBatch as buildDeleteRuleEntityBatch,
+} from './rule-mutations';
 import { buildDeleteSpecBatch } from './spec-mutations';
 import { buildDeleteTemplateCollectionBatch } from './template-collection-mutations';
 import { buildDeleteTemplateFolderBatch, buildDeleteTemplateFolderEntityBatch } from './template-folder-mutations';
-import { buildDeleteBatch as buildDeleteTemplateBatch } from './template-mutations';
+import {
+  buildDeleteBatch as buildDeleteTemplateBatch,
+  buildDeleteEntityBatch as buildDeleteTemplateEntityBatch,
+} from './template-mutations';
 import {
   buildWebSocketAddBatch,
   buildWebSocketDeleteBatch,
+  buildWebSocketDeleteEntityBatch,
   buildWebSocketUpdateBatch,
 } from './websocket-request-mutations';
 import {
   bodiesBatch,
+  createTailTracker,
+  createTreePlacer,
   diffKeys,
   type EmissionBatch,
   type ImportEmissionDeps,
+  LEAF_SKIP,
   synthesizeImportEmission,
+  type TreePlacer,
 } from './workspace-import-emission';
 
 export interface WorkspaceTreeDeltaArgs {
@@ -227,6 +258,8 @@ export function synthesizeWorkspaceTreeDelta(args: WorkspaceTreeDeltaArgs): Emis
         : { action: 'skip' as const, roots: [] };
 
   const toLocalFolders = (folders: readonly Folder[]): LocalFolder[] => folders as unknown as LocalFolder[];
+  const requestCollections = planEntries(next.requestCollections, prev.requestCollections);
+  const requestFolders = planEntries(toLocalFolders(next.requestFolders), toLocalFolders(prev.requestFolders));
 
   out.push(
     ...synthesizeImportEmission(
@@ -247,10 +280,10 @@ export function synthesizeWorkspaceTreeDelta(args: WorkspaceTreeDeltaArgs): Emis
           uidRemap: {},
         },
         ruleCollections: planEntries(next.collections, prev.collections),
-        requestCollections: planEntries(next.requestCollections, prev.requestCollections),
+        requestCollections,
         templateCollections: planEntries(next.templateCollections, prev.templateCollections),
         ruleFolders: planEntries(toLocalFolders(next.folders), toLocalFolders(prev.folders)),
-        requestFolders: planEntries(toLocalFolders(next.requestFolders), toLocalFolders(prev.requestFolders)),
+        requestFolders,
         templateFolders: planEntries(toLocalFolders(next.templateFolders), toLocalFolders(prev.templateFolders)),
       },
       {
@@ -275,22 +308,40 @@ export function synthesizeWorkspaceTreeDelta(args: WorkspaceTreeDeltaArgs): Emis
     ),
   );
 
+  // The three request kinds the export envelope doesn't carry take
+  // their parent slot the same way the emission places its leaves: the
+  // request tree as the engine + this sweep know it, appended after the
+  // parent's live tail.
+  const tail = createTailTracker(deps.liveSetEntries);
+  const requestTree = createTreePlacer(
+    REQUEST_FOLDER_TREE_KINDS,
+    prev.requestCollections,
+    requestCollections,
+    toLocalFolders(prev.requestFolders),
+    requestFolders,
+  );
+  const placeRequest = (entity: { path: string }): ChildPlacement<RequestFolderParentRef> | null =>
+    requestTree.placeLeaf(entity.path, REQUEST_FOLDER_ITEMS_PATH, tail);
+
   emitGrpcRequests(
     out,
     next.grpcRequests.filter((entity) => touched(entity.path)),
     prev.grpcRequests,
+    placeRequest,
     deps,
   );
   emitWebSocketRequests(
     out,
     next.websocketRequests.filter((entity) => touched(entity.path)),
     prev.websocketRequests,
+    placeRequest,
     deps,
   );
   emitMqttRequests(
     out,
     next.mqttRequests.filter((entity) => touched(entity.path)),
     prev.mqttRequests,
+    placeRequest,
     deps,
   );
 
@@ -302,19 +353,20 @@ export function synthesizeWorkspaceTreeDelta(args: WorkspaceTreeDeltaArgs): Emis
 
 // ── gRPC / WebSocket requests (no export-envelope membership) ────────
 
-const LEAF_SKIP = new Set(['uid', 'path']);
+type PlaceRequest = (entity: { path: string }) => ChildPlacement<RequestFolderParentRef> | null;
 
 function emitGrpcRequests(
   out: EmissionBatch[],
   entries: readonly GrpcRequest[],
   prevItems: readonly GrpcRequest[],
+  place: PlaceRequest,
   deps: ImportEmissionDeps,
 ): void {
   const prevByUid = byUid(prevItems);
   for (const entity of entries) {
     const prevEntity = prevByUid.get(entity.uid);
     if (!prevEntity) {
-      const payload = buildGrpcAddBatch(entity, deps.nextCtx());
+      const payload = buildGrpcAddBatch(entity, deps.nextCtx(), place(entity));
       out.push({
         label: `grpc-request:${entity.uid} (create)`,
         batch: payload.batch,
@@ -357,13 +409,14 @@ function emitWebSocketRequests(
   out: EmissionBatch[],
   entries: readonly WebSocketRequest[],
   prevItems: readonly WebSocketRequest[],
+  place: PlaceRequest,
   deps: ImportEmissionDeps,
 ): void {
   const prevByUid = byUid(prevItems);
   for (const entity of entries) {
     const prevEntity = prevByUid.get(entity.uid);
     if (!prevEntity) {
-      const payload = buildWebSocketAddBatch(entity, deps.nextCtx());
+      const payload = buildWebSocketAddBatch(entity, deps.nextCtx(), place(entity));
       out.push({
         label: `websocket-request:${entity.uid} (create)`,
         batch: payload.batch,
@@ -406,13 +459,14 @@ function emitMqttRequests(
   out: EmissionBatch[],
   entries: readonly MqttRequest[],
   prevItems: readonly MqttRequest[],
+  place: PlaceRequest,
   deps: ImportEmissionDeps,
 ): void {
   const prevByUid = byUid(prevItems);
   for (const entity of entries) {
     const prevEntity = prevByUid.get(entity.uid);
     if (!prevEntity) {
-      const payload = buildMqttAddBatch(entity, deps.nextCtx());
+      const payload = buildMqttAddBatch(entity, deps.nextCtx(), place(entity));
       out.push({
         label: `mqtt-request:${entity.uid} (create)`,
         batch: payload.batch,
@@ -600,26 +654,99 @@ function emitDeletions(
   const push = (label: string, payload: { batch: EmissionBatch['batch']; sideEffects: EmissionBatch['sideEffects'] }) =>
     out.push({ label, batch: payload.batch, sideEffects: payload.sideEffects });
 
+  // A vanished leaf tombstones its parent slot too, unless the parent
+  // container vanished with it — then the parent's own tombstone covers
+  // the slot and the bare entity tombstone suffices (the same rule the
+  // folder deletions below apply).
+  const containerVanished = (containers: readonly Collection[], folders: readonly Folder[]): ReadonlySet<string> => {
+    const gone = new Set<string>();
+    for (const collection of containers) {
+      if (!nextUids.has(collection.uid) && removedPaths.has(`${collection.path}/_collection.yaml`))
+        gone.add(collection.uid);
+    }
+    for (const folder of folders) {
+      if (!nextUids.has(folder.uid) && removedPaths.has(`${folder.path}/_folder.yaml`)) gone.add(folder.uid);
+    }
+    return gone;
+  };
+  const ruleLeafParent = leafParentResolver(
+    createTreePlacer(FOLDER_TREE_KINDS, prev.collections, [], prev.folders as unknown as LocalFolder[], []),
+    containerVanished(prev.collections, prev.folders),
+  );
+  const requestLeafParent = leafParentResolver(
+    createTreePlacer(
+      REQUEST_FOLDER_TREE_KINDS,
+      prev.requestCollections,
+      [],
+      prev.requestFolders as unknown as LocalFolder[],
+      [],
+    ),
+    containerVanished(prev.requestCollections, prev.requestFolders),
+  );
+  const templateLeafParent = leafParentResolver(
+    createTreePlacer(
+      TEMPLATE_FOLDER_TREE_KINDS,
+      prev.templateCollections,
+      [],
+      prev.templateFolders as unknown as LocalFolder[],
+      [],
+    ),
+    containerVanished(prev.templateCollections, prev.templateFolders),
+  );
+
   for (const rule of vanished(prev.rules, RULE_ENTITY_TYPE)) {
-    push(`rule:${rule.uid} (delete)`, buildDeleteRuleBatch(rule.uid, deps.nextCtx()));
+    const parent = ruleLeafParent(rule.path);
+    push(
+      `rule:${rule.uid} (delete)`,
+      parent
+        ? buildDeleteRuleBatch(rule.uid, parent, deps.nextCtx())
+        : buildDeleteRuleEntityBatch(rule.uid, deps.nextCtx()),
+    );
   }
   for (const request of vanished(prev.requests, REQUEST_ENTITY_TYPE)) {
-    push(`request:${request.uid} (delete)`, buildDeleteRequestBatch(request.uid, deps.nextCtx()));
+    const parent = requestLeafParent(request.path);
+    push(
+      `request:${request.uid} (delete)`,
+      parent
+        ? buildDeleteRequestBatch(request.uid, parent, deps.nextCtx())
+        : buildDeleteRequestEntityBatch(request.uid, deps.nextCtx()),
+    );
   }
   for (const grpcRequest of vanished(prev.grpcRequests, GRPC_REQUEST_ENTITY_TYPE)) {
-    push(`grpc-request:${grpcRequest.uid} (delete)`, buildGrpcDeleteBatch(grpcRequest.uid, deps.nextCtx()));
+    const parent = requestLeafParent(grpcRequest.path);
+    push(
+      `grpc-request:${grpcRequest.uid} (delete)`,
+      parent
+        ? buildGrpcDeleteBatch(grpcRequest.uid, parent, deps.nextCtx())
+        : buildGrpcDeleteEntityBatch(grpcRequest.uid, deps.nextCtx()),
+    );
   }
   for (const websocketRequest of vanished(prev.websocketRequests, WEBSOCKET_REQUEST_ENTITY_TYPE)) {
+    const parent = requestLeafParent(websocketRequest.path);
     push(
       `websocket-request:${websocketRequest.uid} (delete)`,
-      buildWebSocketDeleteBatch(websocketRequest.uid, deps.nextCtx()),
+      parent
+        ? buildWebSocketDeleteBatch(websocketRequest.uid, parent, deps.nextCtx())
+        : buildWebSocketDeleteEntityBatch(websocketRequest.uid, deps.nextCtx()),
     );
   }
   for (const mqttRequest of vanished(prev.mqttRequests, MQTT_REQUEST_ENTITY_TYPE)) {
-    push(`mqtt-request:${mqttRequest.uid} (delete)`, buildMqttDeleteBatch(mqttRequest.uid, deps.nextCtx()));
+    const parent = requestLeafParent(mqttRequest.path);
+    push(
+      `mqtt-request:${mqttRequest.uid} (delete)`,
+      parent
+        ? buildMqttDeleteBatch(mqttRequest.uid, parent, deps.nextCtx())
+        : buildMqttDeleteEntityBatch(mqttRequest.uid, deps.nextCtx()),
+    );
   }
   for (const template of vanished(prev.templates, TEMPLATE_ENTITY_TYPE)) {
-    push(`template:${template.uid} (delete)`, buildDeleteTemplateBatch(template.uid, deps.nextCtx()));
+    const parent = templateLeafParent(template.path);
+    push(
+      `template:${template.uid} (delete)`,
+      parent
+        ? buildDeleteTemplateBatch(template.uid, parent, deps.nextCtx())
+        : buildDeleteTemplateEntityBatch(template.uid, deps.nextCtx()),
+    );
   }
   for (const spec of vanished(prev.specs, SPEC_ENTITY_TYPE)) {
     push(`spec:${spec.uid} (delete)`, buildDeleteSpecBatch(spec.uid, deps.nextCtx()));
@@ -711,6 +838,17 @@ function emitDeletions(
       buildDeleteTemplateCollectionBatch(collection.uid, deps.nextCtx()),
     );
   }
+}
+
+/** The live parent of a vanished leaf, or `null` when the parent vanished with it. */
+function leafParentResolver<C extends string, F extends string>(
+  tree: TreePlacer<C, F>,
+  vanishedContainers: ReadonlySet<string>,
+): (entityPath: string) => TreeParentRef<C, F> | null {
+  return (entityPath) => {
+    const parent = tree.parentOf(entityPath);
+    return parent && !vanishedContainers.has(parent.uid) ? parent : null;
+  };
 }
 
 interface FolderDeletionArgs {

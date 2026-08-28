@@ -10,19 +10,20 @@ import {
   type MutationEnvelope,
   type MutatorContext,
   setTemplateField,
+  TEMPLATE_COLLECTION_ENTITY_TYPE,
   TEMPLATE_CONDITIONS_PATH,
 } from '@openheaders/core/sync';
+import { seedTemplate } from '@openheaders/core/sync-builders/projections/template-projection';
 import type { Template } from '@openheaders/core/types';
-import { describe, expect, it } from 'vitest';
 import { InMemoryBroadcast } from '@openheaders/oracle/sync/broadcast';
 import { InMemoryMutationLog } from '@openheaders/oracle/sync/mutation-log';
-import { type LockAcquirer, EntityOracle } from '@openheaders/oracle/sync/oracle';
+import { EntityOracle, type LockAcquirer } from '@openheaders/oracle/sync/oracle';
 import { InMemoryPendingIntents } from '@openheaders/oracle/sync/pending-intents';
 import {
   projectTemplateByUid,
   projectTemplatePostState,
 } from '@openheaders/oracle/sync/post-state/template-post-state';
-import { seedTemplate } from '@openheaders/core/sync-builders/projections/template-projection';
+import { describe, expect, it } from 'vitest';
 
 const wsId = 'ws-1';
 const lock: LockAcquirer = async (_ws, _t, _id, fn) => fn();
@@ -101,7 +102,11 @@ describe('projectTemplatePostState', () => {
   it('returns null after the template is deleted (tombstone)', async () => {
     const oracle = newOracle();
     await oracle.apply(seedTemplate(makeTemplate('tp-del'), ctx(1)), []);
-    await oracle.apply(deleteTemplate(ctx(2), { templateUid: 'tp-del' }).batch, []);
+    await oracle.apply(
+      deleteTemplate(ctx(2), { templateUid: 'tp-del', parent: { type: TEMPLATE_COLLECTION_ENTITY_TYPE, uid: 'col-1' } })
+        .batch,
+      [],
+    );
     expect(projectTemplateByUid(oracle, 'tp-del')).toBeNull();
   });
 
@@ -117,10 +122,7 @@ describe('projectTemplatePostState', () => {
   it('reflects scalar setField on the template shape', async () => {
     const oracle = newOracle();
     await oracle.apply(seedTemplate(makeTemplate('tp-s'), ctx(1)), []);
-    await oracle.apply(
-      setTemplateField(ctx(2), { templateUid: 'tp-s', path: 'name', value: 'updated' }).batch,
-      [],
-    );
+    await oracle.apply(setTemplateField(ctx(2), { templateUid: 'tp-s', path: 'name', value: 'updated' }).batch, []);
     const post = projectTemplateByUid(oracle, 'tp-s');
     expect(post?.template.name).toBe('updated');
   });

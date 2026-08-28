@@ -13,18 +13,22 @@
  */
 
 import {
+  type ChildPlacement,
   type MaterializedEntity,
   type MutationBatch,
   type MutationBody,
   type MutatorContext,
   mintBatch,
   orderKeyMinter,
+  type RequestFolderParentRef,
   WEBSOCKET_REQUEST_ENTITY_TYPE,
   WEBSOCKET_REQUEST_EVENTS_PATH,
   WEBSOCKET_REQUEST_HEADERS_PATH,
   WEBSOCKET_REQUEST_PARAMS_PATH,
+  webSocketRequestChild,
 } from '@openheaders/core/sync';
 import type { WebSocketRequest } from '@openheaders/core/types';
+import { lastPathSegment } from '@openheaders/core/utils';
 
 /** Set-modeled paths on a WebSocketRequest, with their row readers. */
 const SET_PATHS = [
@@ -39,12 +43,21 @@ const SET_PATHS = [
  * row. Each row's `uid` doubles as the sync engine's itemId, so
  * reorder gestures land as `moveBefore` over a known itemId set.
  * Per-batch all-or-nothing under the oracle's lock.
+ *
+ * `placement` is the tree linkage for a NEW request: the parent's
+ * `items` slot rides the same batch and the shell is stamped with its
+ * frozen `pathSegment`. Boot-time re-seeds pass none.
  */
-export function seedWebSocketRequest(request: WebSocketRequest, ctx: MutatorContext): MutationBatch {
+export function seedWebSocketRequest(
+  request: WebSocketRequest,
+  ctx: MutatorContext,
+  placement?: ChildPlacement<RequestFolderParentRef>,
+): MutationBatch {
   // Deep clone via JSON round-trip — WebSocketRequest has no functions /
   // symbols / Dates; correct-by-construction for the persisted shape.
   const shell = JSON.parse(JSON.stringify(request)) as Record<string, unknown>;
   for (const path of SET_PATHS) delete shell[path];
+  if (placement) shell.pathSegment ??= lastPathSegment(request.path);
 
   const bodies: MutationBody[] = [
     { kind: 'create', type: WEBSOCKET_REQUEST_ENTITY_TYPE, id: request.uid, payload: shell },
@@ -71,6 +84,7 @@ export function seedWebSocketRequest(request: WebSocketRequest, ctx: MutatorCont
       });
     }
   }
+  if (placement) bodies.push(webSocketRequestChild.slotAdd(request.uid, placement.parent, placement.orderKey));
   return mintBatch(ctx, bodies);
 }
 

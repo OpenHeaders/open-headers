@@ -84,7 +84,7 @@ function setBody(store: InMemoryDocumentStore, body: RequestBody, at: number): v
 describe('request auth/body variant update round-trip', () => {
   it('persists an inherit → basic auth switch instead of reverting to the create-time type', () => {
     const store = new InMemoryDocumentStore();
-    applyBatch(store, buildAddBatch(seed, ctx(1_000)));
+    applyBatch(store, buildAddBatch(seed, ctx(1_000), null));
 
     const basic: AuthConfig = { type: 'basic', username: 'u', password: 'p' };
     setAuth(store, basic, 2_000);
@@ -94,7 +94,7 @@ describe('request auth/body variant update round-trip', () => {
 
   it('emits a per-leaf diff, not a whole-object setField at `auth`', () => {
     const store = new InMemoryDocumentStore();
-    applyBatch(store, buildAddBatch(seed, ctx(1_000)));
+    applyBatch(store, buildAddBatch(seed, ctx(1_000), null));
 
     const payload = buildUpdateBatch(
       'rq-1',
@@ -111,7 +111,7 @@ describe('request auth/body variant update round-trip', () => {
 
   it('tombstones the basic-only leaves when switching basic → inherit (no stale residue)', () => {
     const store = new InMemoryDocumentStore();
-    applyBatch(store, buildAddBatch(seed, ctx(1_000)));
+    applyBatch(store, buildAddBatch(seed, ctx(1_000), null));
     setAuth(store, { type: 'basic', username: 'u', password: 'p' }, 2_000);
     setAuth(store, { type: 'inherit' }, 3_000);
 
@@ -121,7 +121,7 @@ describe('request auth/body variant update round-trip', () => {
 
   it('round-trips inherit → basic → inherit to a clean inherit (derived-dirty converges)', () => {
     const store = new InMemoryDocumentStore();
-    applyBatch(store, buildAddBatch(seed, ctx(1_000)));
+    applyBatch(store, buildAddBatch(seed, ctx(1_000), null));
     setAuth(store, { type: 'basic', username: 'u', password: 'p' }, 2_000);
     setAuth(store, { type: 'bearer', token: 't' }, 3_000);
     setAuth(store, { type: 'inherit' }, 4_000);
@@ -131,7 +131,7 @@ describe('request auth/body variant update round-trip', () => {
 
   it('a later auth edit supersedes an earlier one with no leftover leaves', () => {
     const store = new InMemoryDocumentStore();
-    applyBatch(store, buildAddBatch(seed, ctx(1_000)));
+    applyBatch(store, buildAddBatch(seed, ctx(1_000), null));
     setAuth(store, { type: 'api-key', key: 'X-Key', value: 'v1', in: 'header' }, 2_000);
     setAuth(store, { type: 'api-key', key: 'X-Key', value: 'v2', in: 'query' }, 3_000);
 
@@ -145,7 +145,7 @@ describe('request auth/body variant update round-trip', () => {
 
   it('persists a body none → json → none switch and tombstones the json content', () => {
     const store = new InMemoryDocumentStore();
-    applyBatch(store, buildAddBatch(seed, ctx(1_000)));
+    applyBatch(store, buildAddBatch(seed, ctx(1_000), null));
     setBody(store, { type: 'json', content: '{"q":1}' }, 2_000);
     expect(materializedRequest(store, 'rq-1').body).toEqual({ type: 'json', content: '{"q":1}' });
 

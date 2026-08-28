@@ -11,16 +11,20 @@
  */
 
 import {
+  type ChildPlacement,
   GRPC_REQUEST_ENTITY_TYPE,
   GRPC_REQUEST_METADATA_PATH,
+  grpcRequestChild,
   type MaterializedEntity,
   type MutationBatch,
   type MutationBody,
   type MutatorContext,
   mintBatch,
   orderKeyMinter,
+  type RequestFolderParentRef,
 } from '@openheaders/core/sync';
 import type { GrpcRequest } from '@openheaders/core/types';
+import { lastPathSegment } from '@openheaders/core/utils';
 
 /**
  * Convert a persisted GrpcRequest into a `MutationBatch` of one
@@ -28,12 +32,21 @@ import type { GrpcRequest } from '@openheaders/core/types';
  * Each row's `uid` doubles as the sync engine's itemId, so reorder
  * gestures land as `moveBefore` over a known itemId set. Per-batch
  * all-or-nothing under the oracle's lock.
+ *
+ * `placement` is the tree linkage for a NEW request: the parent's
+ * `items` slot rides the same batch and the shell is stamped with its
+ * frozen `pathSegment`. Boot-time re-seeds pass none.
  */
-export function seedGrpcRequest(request: GrpcRequest, ctx: MutatorContext): MutationBatch {
+export function seedGrpcRequest(
+  request: GrpcRequest,
+  ctx: MutatorContext,
+  placement?: ChildPlacement<RequestFolderParentRef>,
+): MutationBatch {
   // Deep clone via JSON round-trip — GrpcRequest has no functions /
   // symbols / Dates; correct-by-construction for the persisted shape.
   const shell = JSON.parse(JSON.stringify(request)) as Record<string, unknown>;
   delete shell[GRPC_REQUEST_METADATA_PATH];
+  if (placement) shell.pathSegment ??= lastPathSegment(request.path);
 
   const bodies: MutationBody[] = [{ kind: 'create', type: GRPC_REQUEST_ENTITY_TYPE, id: request.uid, payload: shell }];
   // Sequential orderKeys — a keyless addToSet defaults every row to the
@@ -50,6 +63,7 @@ export function seedGrpcRequest(request: GrpcRequest, ctx: MutatorContext): Muta
       orderKey: nextKey(),
     });
   }
+  if (placement) bodies.push(grpcRequestChild.slotAdd(request.uid, placement.parent, placement.orderKey));
   return mintBatch(ctx, bodies);
 }
 

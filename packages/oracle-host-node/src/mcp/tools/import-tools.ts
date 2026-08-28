@@ -40,7 +40,7 @@ import {
   resolveWorkspaceIdArg,
   WORKSPACE_ID_PROPERTY,
 } from './common';
-import { resolveRequestParentPath } from './write-tools';
+import { placeRequest, resolveRequestParentPath } from './write-tools';
 
 /** Per-call ceiling on HAR entries — captures are noisy; agents pick
  *  specific entries via `entryIndices` instead of bulk-landing pages
@@ -163,6 +163,7 @@ export function createImportToolDefinitions(): McpToolDefinition[] {
         for (const seed of parsed.requests) {
           const uid = generateUid();
           const name = seed.name.trim() || 'Untitled Request';
+          const segment = toFolderName(name, uid);
           const request = parseOrThrow(
             RequestSchema,
             {
@@ -179,11 +180,14 @@ export function createImportToolDefinitions(): McpToolDefinition[] {
               name,
               schemaVersion: 5,
               uid,
-              path: `${parentPath}/${toFolderName(name, uid)}`,
+              path: `${parentPath}/${segment}`,
+              pathSegment: segment,
             },
             'request',
           );
-          await applyMcpMutation(buildAddRequestBatch(request, mintMcpContext(workspaceId)));
+          await applyMcpMutation(
+            buildAddRequestBatch(request, mintMcpContext(workspaceId), placeRequest(workspaceId, request.path)),
+          );
           created.push({ uid: request.uid, name: request.name, method: request.method, url: request.url });
         }
         return {

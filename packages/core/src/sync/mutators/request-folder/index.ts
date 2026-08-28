@@ -15,7 +15,11 @@ export {
 export {
   REQUEST_FOLDER_CHILDREN_PATH,
   REQUEST_FOLDER_ENTITY_TYPE,
+  REQUEST_FOLDER_ITEMS_PATH,
+  REQUEST_FOLDER_TREE_KINDS,
+  type RequestFolderItemSlot,
   type RequestFolderParentRef,
   type RequestFolderParentType,
   type RequestFolderSlot,
+  type RequestItemType,
 } from './types';

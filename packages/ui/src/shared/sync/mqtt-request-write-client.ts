@@ -16,13 +16,17 @@ import {
 import {
   buildMqttAddBatch,
   buildMqttDeleteBatch,
+  buildMqttDeleteEntityBatch,
   buildMqttUpdateBatch,
 } from '@openheaders/core/sync-builders/mutations/mqtt-request-mutations';
 import type { MqttRequest } from '@openheaders/core/types';
+import { parentPathOf } from '@openheaders/core/utils';
 import {
   getMqttRequestSyncMirrorForWorkspace,
   type MqttRequestSyncMirror,
 } from '../../context/mirrors/mqtt-request-sync-mirror';
+import type { RequestCollectionSyncMirror } from '../../context/mirrors/request-collection-sync-mirror';
+import type { RequestFolderSyncMirror } from '../../context/mirrors/request-folder-sync-mirror';
 import {
   applySyncPayload,
   type BaseSyncWriteOptions,
@@ -30,8 +34,9 @@ import {
   resolveRendererContext,
   type SyncSimpleResult,
 } from './apply-payload';
+import { requestTreeMirrors, resolveLeafParent, resolveLeafPlacement, unresolvableParent } from './tree-placement';
 
-export type MqttRequestUpdates = Partial<Omit<MqttRequest, 'uid' | 'path' | 'schemaVersion'>>;
+export type MqttRequestUpdates = Partial<Omit<MqttRequest, 'uid' | 'path' | 'pathSegment' | 'schemaVersion'>>;
 
 export type MqttRequestMutationResult =
   | { ok: true; mqttRequest: MqttRequest }
@@ -43,6 +48,9 @@ export type MqttRequestSimpleResult = SyncSimpleResult;
 export interface MqttRequestWriteOptions extends BaseSyncWriteOptions {
   /** Override the singleton mirror for tests. */
   mirror?: MqttRequestSyncMirror;
+  /** Override the parent-resolving container mirrors for tests. */
+  collectionMirror?: RequestCollectionSyncMirror;
+  folderMirror?: RequestFolderSyncMirror;
 }
 
 /**
@@ -101,26 +109,41 @@ export async function applyMqttRequestUpdate(
   return { ok: false, reason: 'other', message: ack.message };
 }
 
-/** Seed a brand-new MQTT request through the oracle. Caller mints the
- *  full `MqttRequest` shape; the helper handles the create + per-row
- *  addToSet envelopes via the projection layer. */
+/**
+ * Seed a brand-new MQTT request through the oracle. Caller mints the
+ * full `MqttRequest` shape; the helper resolves the parent from the
+ * request's path (its `items` slot rides the create batch) and handles
+ * the per-row addToSet envelopes via the projection layer. An
+ * unplaceable parent fails the create.
+ */
 export async function applyMqttRequestCreate(
   request: MqttRequest,
   opts: MqttRequestWriteOptions,
 ): Promise<MqttRequestSimpleResult> {
+  const parentPath = parentPathOf(request.path) ?? '';
+  const placement = await resolveLeafPlacement(requestTreeMirrors(opts.workspaceId, opts), parentPath);
+  if (!placement) return unresolvableParent(parentPath);
   const ctx = resolveRendererContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
-  const payload = buildMqttAddBatch(request, ctx);
+  const payload = buildMqttAddBatch(request, ctx, placement);
   return applySyncPayload(payload);
 }
 
+/**
+ * Delete an MQTT request: its parent's `items` slot tombstones in the
+ * same batch as the entity; an unresolvable parent (already tombstoned)
+ * falls back to the bare entity tombstone.
+ */
 export async function applyMqttRequestDelete(
   mqttRequestUid: string,
   opts: MqttRequestWriteOptions,
 ): Promise<MqttRequestSimpleResult> {
   const mirror = resolveMirror(opts, getMqttRequestSyncMirrorForWorkspace);
   await mirror.hydrated;
-  if (!mirror.getMqttRequestMirror(mqttRequestUid)) return { ok: false, reason: 'not-found' };
+  const entry = mirror.getMqttRequestMirror(mqttRequestUid);
+  if (!entry) return { ok: false, reason: 'not-found' };
+  const parent = await resolveLeafParent(requestTreeMirrors(opts.workspaceId, opts), entry.mqttRequest.path);
   const ctx = resolveRendererContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
-  const payload = buildMqttDeleteBatch(mqttRequestUid, ctx);
-  return applySyncPayload(payload);
+  return applySyncPayload(
+    parent ? buildMqttDeleteBatch(mqttRequestUid, parent, ctx) : buildMqttDeleteEntityBatch(mqttRequestUid, ctx),
+  );
 }
