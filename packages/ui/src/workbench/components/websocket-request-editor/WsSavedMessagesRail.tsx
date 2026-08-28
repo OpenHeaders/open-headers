@@ -101,6 +101,11 @@ const WsSavedMessagesRail: React.FC<WsSavedMessagesRailProps> = ({
   const t = useT();
   const [renamingSavedUid, setRenamingSavedUid] = useState<string | null>(null);
   const [hoveredUid, setHoveredUid] = useState<string | null>(null);
+  // The row's menu reveals on hover, keyboard focus, selection, or
+  // while its dropdown is open — never conditionally rendered, so the
+  // name column never jumps.
+  const [focusedUid, setFocusedUid] = useState<string | null>(null);
+  const [menuOpenUid, setMenuOpenUid] = useState<string | null>(null);
 
   // `+` captures the compose as a new row, SELECTS it (the compose is
   // already its content — the binding starts live), and opens the
@@ -132,7 +137,7 @@ const WsSavedMessagesRail: React.FC<WsSavedMessagesRailProps> = ({
 
   return (
     <div
-      style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', gap: 4, overflow: 'auto' }}
+      style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', gap: 4, minHeight: 0 }}
       data-testid="ws-saved-rail"
     >
       {/* The rail's left indent lives on the header and hint, not the
@@ -163,111 +168,133 @@ const WsSavedMessagesRail: React.FC<WsSavedMessagesRailProps> = ({
           </Tooltip>
         </span>
       </div>
-      {draft.savedMessages.length === 0 && (
-        <Text type="secondary" style={{ fontSize: 11, paddingLeft: 8 }}>
-          {t('workbench.editors.websocket.saved.emptyHint')}
-        </Text>
-      )}
-      {draft.savedMessages.map((row) => {
-        const selected = row.uid === selectedUid;
-        // A socketio row is an event; a raw row wears its compose mode.
-        const tagText = socketioFlavor
-          ? row.eventName?.trim() || t('workbench.editors.websocket.timeline.sio.eventNoName')
-          : t(FORMAT_LABEL_KEYS[row.messageFormat ?? 'text']);
-        return (
-          <div
-            key={row.uid}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 4,
-              padding: '1px 2px 1px 8px',
-              background: selected
-                ? token.colorFillSecondary
-                : hoveredUid === row.uid
-                  ? token.colorFillTertiary
-                  : 'transparent',
-            }}
-            onMouseEnter={() => setHoveredUid(row.uid)}
-            onMouseLeave={() => setHoveredUid((uid) => (uid === row.uid ? null : uid))}
-            data-testid="ws-saved-row"
-            data-selected={selected ? 'true' : undefined}
-          >
-            <Tag
+      {/* Only the list scrolls — the header keeps its buttons in
+        place — and the gutter stays reserved so the scrollbar never
+        lands on the rows' menu column. */}
+      <div
+        style={{
+          flex: 1,
+          minHeight: 0,
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 4,
+          overflow: 'auto',
+          scrollbarGutter: 'stable',
+        }}
+        data-testid="ws-saved-list"
+      >
+        {draft.savedMessages.length === 0 && (
+          <Text type="secondary" style={{ fontSize: 11, paddingLeft: 8 }}>
+            {t('workbench.editors.websocket.saved.emptyHint')}
+          </Text>
+        )}
+        {draft.savedMessages.map((row) => {
+          const selected = row.uid === selectedUid;
+          const menuVisible =
+            selected || hoveredUid === row.uid || focusedUid === row.uid || menuOpenUid === row.uid;
+          // A socketio row is an event; a raw row wears its compose mode.
+          const tagText = socketioFlavor
+            ? row.eventName?.trim() || t('workbench.editors.websocket.timeline.sio.eventNoName')
+            : t(FORMAT_LABEL_KEYS[row.messageFormat ?? 'text']);
+          return (
+            <div
+              key={row.uid}
               style={{
-                flexShrink: 0,
-                maxWidth: 96,
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap',
-                fontSize: 10,
-                lineHeight: '16px',
-                marginInlineEnd: 0,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 4,
+                padding: '1px 2px 1px 8px',
+                background: selected
+                  ? token.colorFillSecondary
+                  : hoveredUid === row.uid
+                    ? token.colorFillTertiary
+                    : 'transparent',
               }}
-              data-testid="ws-saved-row-format"
+              onMouseEnter={() => setHoveredUid(row.uid)}
+              onMouseLeave={() => setHoveredUid((uid) => (uid === row.uid ? null : uid))}
+              onFocus={() => setFocusedUid(row.uid)}
+              onBlur={() => setFocusedUid((uid) => (uid === row.uid ? null : uid))}
+              data-testid="ws-saved-row"
+              data-selected={selected ? 'true' : undefined}
             >
-              {tagText}
-            </Tag>
-            {renamingSavedUid === row.uid ? (
-              <Input
-                size="small"
-                autoFocus
-                onFocus={(e) => e.target.select()}
-                defaultValue={row.name}
-                onBlur={(e) => {
-                  const name = e.target.value.trim();
-                  setRenamingSavedUid(null);
-                  if (!name) return;
-                  setDraft((d) => ({
-                    ...d,
-                    savedMessages: d.savedMessages.map((m) => (m.uid === row.uid ? { ...m, name } : m)),
-                  }));
+              <Tag
+                style={{
+                  flexShrink: 0,
+                  maxWidth: 96,
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                  fontSize: 10,
+                  lineHeight: '16px',
+                  marginInlineEnd: 0,
                 }}
-                onPressEnter={(e) => (e.target as HTMLInputElement).blur()}
-              />
-            ) : (
-              <Button
-                size="small"
-                type="text"
-                style={{ flex: 1, minWidth: 0, justifyContent: 'flex-start', fontSize: 11, overflow: 'hidden' }}
-                onClick={() => onSelect(row.uid)}
+                data-testid="ws-saved-row-format"
               >
-                {row.name}
-              </Button>
-            )}
-            <Dropdown
-              trigger={['click']}
-              menu={{
-                items: [
-                  {
-                    key: 'rename',
-                    label: t('workbench.editors.websocket.saved.rename'),
-                    onClick: () => setRenamingSavedUid(row.uid),
-                  },
-                  {
-                    key: 'duplicate',
-                    label: t('workbench.editors.websocket.saved.duplicate'),
-                    onClick: () => duplicateSavedMessage(row),
-                  },
-                  {
-                    key: 'delete',
-                    label: t('workbench.editors.websocket.saved.delete'),
-                    danger: true,
-                    onClick: () => deleteSavedMessage(row),
-                  },
-                ],
-              }}
-            >
-              <Button
-                size="small"
-                type="text"
-                icon={<MoreOutlined style={{ fontSize: 11 }} />}
-                data-testid="ws-saved-row-menu"
-              />
-            </Dropdown>
-          </div>
-        );
-      })}
+                {tagText}
+              </Tag>
+              {renamingSavedUid === row.uid ? (
+                <Input
+                  size="small"
+                  autoFocus
+                  onFocus={(e) => e.target.select()}
+                  defaultValue={row.name}
+                  onBlur={(e) => {
+                    const name = e.target.value.trim();
+                    setRenamingSavedUid(null);
+                    if (!name) return;
+                    setDraft((d) => ({
+                      ...d,
+                      savedMessages: d.savedMessages.map((m) => (m.uid === row.uid ? { ...m, name } : m)),
+                    }));
+                  }}
+                  onPressEnter={(e) => (e.target as HTMLInputElement).blur()}
+                />
+              ) : (
+                <Button
+                  size="small"
+                  type="text"
+                  style={{ flex: 1, minWidth: 0, justifyContent: 'flex-start', fontSize: 11, overflow: 'hidden' }}
+                  onClick={() => onSelect(row.uid)}
+                >
+                  {row.name}
+                </Button>
+              )}
+              <Dropdown
+                trigger={['click']}
+                onOpenChange={(open) => setMenuOpenUid(open ? row.uid : null)}
+                menu={{
+                  items: [
+                    {
+                      key: 'rename',
+                      label: t('workbench.editors.websocket.saved.rename'),
+                      onClick: () => setRenamingSavedUid(row.uid),
+                    },
+                    {
+                      key: 'duplicate',
+                      label: t('workbench.editors.websocket.saved.duplicate'),
+                      onClick: () => duplicateSavedMessage(row),
+                    },
+                    {
+                      key: 'delete',
+                      label: t('workbench.editors.websocket.saved.delete'),
+                      danger: true,
+                      onClick: () => deleteSavedMessage(row),
+                    },
+                  ],
+                }}
+              >
+                <Button
+                  size="small"
+                  type="text"
+                  icon={<MoreOutlined style={{ fontSize: 11 }} />}
+                  style={{ visibility: menuVisible ? 'visible' : 'hidden' }}
+                  data-testid="ws-saved-row-menu"
+                />
+              </Dropdown>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 };

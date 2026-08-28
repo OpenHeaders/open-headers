@@ -102,6 +102,11 @@ const MqttSavedMessagesRail: React.FC<MqttSavedMessagesRailProps> = ({
   const t = useT();
   const [renamingSavedUid, setRenamingSavedUid] = useState<string | null>(null);
   const [hoveredUid, setHoveredUid] = useState<string | null>(null);
+  // The row's menu reveals on hover, keyboard focus, selection, or
+  // while its dropdown is open — never conditionally rendered, so the
+  // name column never jumps.
+  const [focusedUid, setFocusedUid] = useState<string | null>(null);
+  const [menuOpenUid, setMenuOpenUid] = useState<string | null>(null);
 
   // `+` captures the compose as a new row, SELECTS it (the compose is
   // already its content — the binding starts live), and opens the
@@ -143,7 +148,7 @@ const MqttSavedMessagesRail: React.FC<MqttSavedMessagesRailProps> = ({
         display: 'flex',
         flexDirection: 'column',
         gap: 4,
-        overflow: 'auto',
+        minHeight: 0,
       }}
       data-testid="mqtt-saved-rail"
     >
@@ -175,141 +180,163 @@ const MqttSavedMessagesRail: React.FC<MqttSavedMessagesRailProps> = ({
           </Tooltip>
         </span>
       </div>
-      {draft.savedMessages.length === 0 && (
-        <Text type="secondary" style={{ fontSize: 11, paddingLeft: 8 }}>
-          {t('workbench.editors.mqtt.saved.emptyHint')}
-        </Text>
-      )}
-      {draft.savedMessages.map((row) => {
-        /* The topic tag rides every row — the saved topic verbatim, the
-           placeholder word when empty; color derives from the tag TEXT
-           so equal topics wear equal colors. */
-        const tagText = row.topic.trim() !== '' ? row.topic : t('workbench.editors.mqtt.saved.topicTagPlaceholder');
-        const selected = row.uid === selectedUid;
-        return (
-          <div
-            key={row.uid}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 4,
-              padding: '1px 2px 1px 8px',
-              background: selected
-                ? token.colorFillSecondary
-                : hoveredUid === row.uid
-                  ? token.colorFillTertiary
-                  : 'transparent',
-            }}
-            onMouseEnter={() => setHoveredUid(row.uid)}
-            onMouseLeave={() => setHoveredUid((uid) => (uid === row.uid ? null : uid))}
-            data-testid="mqtt-saved-row"
-            data-selected={selected ? 'true' : undefined}
-          >
-            <Tag
-              color={savedTopicTagColor(tagText)}
-              title={row.topic.trim() !== '' ? row.topic : undefined}
+      {/* Only the list scrolls — the header keeps its buttons in
+        place — and the gutter stays reserved so the scrollbar never
+        lands on the rows' menu column. */}
+      <div
+        style={{
+          flex: 1,
+          minHeight: 0,
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 4,
+          overflow: 'auto',
+          scrollbarGutter: 'stable',
+        }}
+        data-testid="mqtt-saved-list"
+      >
+        {draft.savedMessages.length === 0 && (
+          <Text type="secondary" style={{ fontSize: 11, paddingLeft: 8 }}>
+            {t('workbench.editors.mqtt.saved.emptyHint')}
+          </Text>
+        )}
+        {draft.savedMessages.map((row) => {
+          /* The topic tag rides every row — the saved topic verbatim, the
+             placeholder word when empty; color derives from the tag TEXT
+             so equal topics wear equal colors. */
+          const tagText = row.topic.trim() !== '' ? row.topic : t('workbench.editors.mqtt.saved.topicTagPlaceholder');
+          const selected = row.uid === selectedUid;
+          const menuVisible =
+            selected || hoveredUid === row.uid || focusedUid === row.uid || menuOpenUid === row.uid;
+          return (
+            <div
+              key={row.uid}
               style={{
-                flexShrink: 0,
-                maxWidth: 96,
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap',
-                fontSize: 10,
-                lineHeight: '16px',
-                marginInlineEnd: 0,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 4,
+                padding: '1px 2px 1px 8px',
+                background: selected
+                  ? token.colorFillSecondary
+                  : hoveredUid === row.uid
+                    ? token.colorFillTertiary
+                    : 'transparent',
               }}
-              data-testid="mqtt-saved-row-topic"
+              onMouseEnter={() => setHoveredUid(row.uid)}
+              onMouseLeave={() => setHoveredUid((uid) => (uid === row.uid ? null : uid))}
+              onFocus={() => setFocusedUid(row.uid)}
+              onBlur={() => setFocusedUid((uid) => (uid === row.uid ? null : uid))}
+              data-testid="mqtt-saved-row"
+              data-selected={selected ? 'true' : undefined}
             >
-              {tagText}
-            </Tag>
-            {renamingSavedUid === row.uid ? (
-              <Input
-                size="small"
-                autoFocus
-                onFocus={(e) => e.target.select()}
-                defaultValue={row.name}
-                onBlur={(e) => {
-                  const name = e.target.value.trim();
-                  setRenamingSavedUid(null);
-                  if (!name) return;
-                  setDraft((d) => ({
-                    ...d,
-                    savedMessages: d.savedMessages.map((m) => (m.uid === row.uid ? { ...m, name } : m)),
-                  }));
-                }}
-                onPressEnter={(e) => (e.target as HTMLInputElement).blur()}
-              />
-            ) : (
-              <Button
-                size="small"
-                type="text"
+              <Tag
+                color={savedTopicTagColor(tagText)}
+                title={row.topic.trim() !== '' ? row.topic : undefined}
                 style={{
-                  flex: 1,
-                  minWidth: 0,
-                  justifyContent: 'flex-start',
-                  fontSize: 11,
+                  flexShrink: 0,
+                  maxWidth: 96,
                   overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                  fontSize: 10,
+                  lineHeight: '16px',
+                  marginInlineEnd: 0,
                 }}
-                onClick={() => onSelect(row.uid)}
+                data-testid="mqtt-saved-row-topic"
               >
-                {row.name}
-              </Button>
-            )}
-            {/* Send-from-row — publishes the saved preset AS STORED while
-              the session is open; the compose surface stays untouched. */}
-            {sessionOpen && (
-              <Tooltip title={t('workbench.editors.mqtt.saved.sendTooltip')}>
+                {tagText}
+              </Tag>
+              {renamingSavedUid === row.uid ? (
+                <Input
+                  size="small"
+                  autoFocus
+                  onFocus={(e) => e.target.select()}
+                  defaultValue={row.name}
+                  onBlur={(e) => {
+                    const name = e.target.value.trim();
+                    setRenamingSavedUid(null);
+                    if (!name) return;
+                    setDraft((d) => ({
+                      ...d,
+                      savedMessages: d.savedMessages.map((m) => (m.uid === row.uid ? { ...m, name } : m)),
+                    }));
+                  }}
+                  onPressEnter={(e) => (e.target as HTMLInputElement).blur()}
+                />
+              ) : (
                 <Button
                   size="small"
                   type="text"
-                  icon={<SendOutlined style={{ fontSize: 11 }} />}
-                  onClick={() =>
-                    onPublish({
-                      topic: row.topic,
-                      payload: row.payload,
-                      ...(row.format !== undefined ? { format: row.format } : {}),
-                      ...(row.qos !== undefined ? { qos: row.qos } : {}),
-                      ...(row.retain !== undefined ? { retain: row.retain } : {}),
-                      ...(row.properties !== undefined ? { properties: row.properties } : {}),
-                    })
-                  }
-                  data-testid="mqtt-saved-row-send"
+                  style={{
+                    flex: 1,
+                    minWidth: 0,
+                    justifyContent: 'flex-start',
+                    fontSize: 11,
+                    overflow: 'hidden',
+                  }}
+                  onClick={() => onSelect(row.uid)}
+                >
+                  {row.name}
+                </Button>
+              )}
+              {/* Send-from-row — publishes the saved preset AS STORED while
+                the session is open; the compose surface stays untouched. */}
+              {sessionOpen && (
+                <Tooltip title={t('workbench.editors.mqtt.saved.sendTooltip')}>
+                  <Button
+                    size="small"
+                    type="text"
+                    icon={<SendOutlined style={{ fontSize: 11 }} />}
+                    onClick={() =>
+                      onPublish({
+                        topic: row.topic,
+                        payload: row.payload,
+                        ...(row.format !== undefined ? { format: row.format } : {}),
+                        ...(row.qos !== undefined ? { qos: row.qos } : {}),
+                        ...(row.retain !== undefined ? { retain: row.retain } : {}),
+                        ...(row.properties !== undefined ? { properties: row.properties } : {}),
+                      })
+                    }
+                    data-testid="mqtt-saved-row-send"
+                  />
+                </Tooltip>
+              )}
+              <Dropdown
+                trigger={['click']}
+                onOpenChange={(open) => setMenuOpenUid(open ? row.uid : null)}
+                menu={{
+                  items: [
+                    {
+                      key: 'rename',
+                      label: t('workbench.editors.mqtt.saved.rename'),
+                      onClick: () => setRenamingSavedUid(row.uid),
+                    },
+                    {
+                      key: 'duplicate',
+                      label: t('workbench.editors.mqtt.saved.duplicate'),
+                      onClick: () => duplicateSavedMessage(row),
+                    },
+                    {
+                      key: 'delete',
+                      label: t('workbench.editors.mqtt.saved.delete'),
+                      danger: true,
+                      onClick: () => deleteSavedMessage(row),
+                    },
+                  ],
+                }}
+              >
+                <Button
+                  size="small"
+                  type="text"
+                  icon={<MoreOutlined style={{ fontSize: 11 }} />}
+                  style={{ visibility: menuVisible ? 'visible' : 'hidden' }}
+                  data-testid="mqtt-saved-row-menu"
                 />
-              </Tooltip>
-            )}
-            <Dropdown
-              trigger={['click']}
-              menu={{
-                items: [
-                  {
-                    key: 'rename',
-                    label: t('workbench.editors.mqtt.saved.rename'),
-                    onClick: () => setRenamingSavedUid(row.uid),
-                  },
-                  {
-                    key: 'duplicate',
-                    label: t('workbench.editors.mqtt.saved.duplicate'),
-                    onClick: () => duplicateSavedMessage(row),
-                  },
-                  {
-                    key: 'delete',
-                    label: t('workbench.editors.mqtt.saved.delete'),
-                    danger: true,
-                    onClick: () => deleteSavedMessage(row),
-                  },
-                ],
-              }}
-            >
-              <Button
-                size="small"
-                type="text"
-                icon={<MoreOutlined style={{ fontSize: 11 }} />}
-                data-testid="mqtt-saved-row-menu"
-              />
-            </Dropdown>
-          </div>
-        );
-      })}
+              </Dropdown>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 };
