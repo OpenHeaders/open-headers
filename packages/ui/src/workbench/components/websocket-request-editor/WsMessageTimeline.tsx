@@ -263,20 +263,29 @@ function handshakeResponseRows(
   ];
 }
 
-/** Height of the Connected row's expanded block for its row counts. */
-function handshakeDetailPx(requestRows: number, responseRows: number): number {
-  // Heading, three request facts, the two section heads, the rows
-  // (the response section always shows at least the honesty note).
-  const lines = 3 + 2 + requestRows + Math.max(responseRows, 1);
+/** Which header sections of the sheets are open — the two heads
+ *  toggle independently and both sheets share the state. */
+interface HeaderSectionsOpen {
+  request: boolean;
+  response: boolean;
+}
+
+/** Height of the Connected row's expanded block for its row counts
+ *  and the open sections. */
+function handshakeDetailPx(requestRows: number, responseRows: number, open: HeaderSectionsOpen): number {
+  // Heading, three request facts, the two section heads, then each
+  // open section's rows (the response section always shows at least
+  // the honesty note).
+  const lines = 3 + 2 + (open.request ? requestRows : 0) + (open.response ? Math.max(responseRows, 1) : 0);
   return DETAIL_HEADING_PX + lines * DETAIL_ROW_PX + DETAIL_CHROME_PX;
 }
 
 /** Height of the error row's expanded block: the error line, then the
  *  attempted handshake (heading, two request facts, the request-header
- *  head and its rows) when the session stamped one. */
-function errorDetailPx(requestRows: number | null): number {
+ *  head and its rows when open) when the session stamped one. */
+function errorDetailPx(requestRows: number | null, open: HeaderSectionsOpen): number {
   if (requestRows === null) return DETAIL_ROW_PX + DETAIL_CHROME_PX;
-  const handshakeLines = 2 + 1 + requestRows;
+  const handshakeLines = 2 + 1 + (open.request ? requestRows : 0);
   return DETAIL_ROW_PX + DETAIL_HEADING_PX + handshakeLines * DETAIL_ROW_PX + DETAIL_CHROME_PX;
 }
 
@@ -526,6 +535,9 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
   // on the failure and the handshake it attempted.
   const [endedExpanded, setEndedExpanded] = useState(true);
   const [errorExpanded, setErrorExpanded] = useState(true);
+  const [sectionsOpen, setSectionsOpen] = useState<HeaderSectionsOpen>({ request: true, response: true });
+  const toggleSection = (section: keyof HeaderSectionsOpen) =>
+    setSectionsOpen((prev) => ({ ...prev, [section]: !prev[section] }));
   const [wrapLines, setWrapLines] = useState(true);
   // Sort direction and grouping are SETTINGS — global, user-owned,
   // written by this toolbar and the Settings page alike; a Connect/
@@ -834,8 +846,12 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
     if (handshake === undefined) return null;
     const requestRows = handshakeRequestRows(handshake, t);
     const responseRows = handshakeResponseRows(handshake);
-    return { requestRows, responseRows, heightPx: handshakeDetailPx(requestRows.length, responseRows.length) };
-  }, [lifecycle.handshake, t]);
+    return {
+      requestRows,
+      responseRows,
+      heightPx: handshakeDetailPx(requestRows.length, responseRows.length, sectionsOpen),
+    };
+  }, [lifecycle.handshake, t, sectionsOpen]);
 
   const heights = useMemo(
     () =>
@@ -847,10 +863,10 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
             : e.kind === 'endedDetail'
               ? ENDED_DETAIL_PX
               : e.kind === 'errorDetail'
-                ? errorDetailPx(handshakeSheet?.requestRows.length ?? null)
+                ? errorDetailPx(handshakeSheet?.requestRows.length ?? null, sectionsOpen)
                 : SINGLE_ROW_PX,
       ),
-    [entries, handshakeSheet],
+    [entries, handshakeSheet, sectionsOpen],
   );
 
   const { onScroll: onWindowScroll, start, end, topPadPx, bottomPadPx, prefix } = useVirtualRowWindow(
@@ -1156,9 +1172,23 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
             <span style={{ color: token.colorInfoText }}>"{value}"</span>
           </div>
         );
-        const sectionRow = (label: string): React.ReactNode => (
-          <div key={label} style={{ ...lineStyle, color: token.colorTextSecondary }}>
-            ▾ {label}
+        const sectionRow = (section: keyof HeaderSectionsOpen, label: string): React.ReactNode => (
+          <div
+            key={section}
+            role="button"
+            tabIndex={0}
+            aria-expanded={sectionsOpen[section]}
+            data-testid={`ws-timeline-${section}-headers-head`}
+            onClick={() => toggleSection(section)}
+            onKeyDown={(event: React.KeyboardEvent) => {
+              if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                toggleSection(section);
+              }
+            }}
+            style={{ ...lineStyle, color: token.colorTextSecondary, cursor: 'pointer' }}
+          >
+            {sectionsOpen[section] ? '▾' : '▸'} {label}
           </div>
         );
         return (
@@ -1190,16 +1220,17 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
             )}
             {factRow(t('workbench.editors.websocket.timeline.requestMethod'), 'GET')}
             {factRow(t('workbench.editors.websocket.timeline.statusCode'), '101 Switching Protocols')}
-            {sectionRow(t('workbench.editors.websocket.timeline.requestHeaders'))}
-            {handshakeSheet.requestRows.map((row) => factRow(row.key, row.value, 12))}
-            {sectionRow(t('workbench.editors.websocket.timeline.responseHeaders'))}
-            {handshakeSheet.responseRows.length > 0 ? (
-              handshakeSheet.responseRows.map((row) => factRow(row.key, row.value, 12))
-            ) : (
-              <div style={{ ...lineStyle, paddingLeft: 12, color: token.colorTextTertiary }}>
-                {t('workbench.editors.websocket.session.handshakeNote')}
-              </div>
-            )}
+            {sectionRow('request', t('workbench.editors.websocket.timeline.requestHeaders'))}
+            {sectionsOpen.request && handshakeSheet.requestRows.map((row) => factRow(row.key, row.value, 12))}
+            {sectionRow('response', t('workbench.editors.websocket.timeline.responseHeaders'))}
+            {sectionsOpen.response &&
+              (handshakeSheet.responseRows.length > 0 ? (
+                handshakeSheet.responseRows.map((row) => factRow(row.key, row.value, 12))
+              ) : (
+                <div style={{ ...lineStyle, paddingLeft: 12, color: token.colorTextTertiary }}>
+                  {t('workbench.editors.websocket.session.handshakeNote')}
+                </div>
+              ))}
           </div>
         );
       }
@@ -1278,7 +1309,7 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
             key={entry.key}
             data-testid="ws-timeline-error-details"
             style={{
-              height: errorDetailPx(handshakeSheet?.requestRows.length ?? null),
+              height: errorDetailPx(handshakeSheet?.requestRows.length ?? null, sectionsOpen),
               boxSizing: 'border-box',
               padding: '6px 10px 6px 37px',
               borderBottom: `1px solid ${token.colorBorderSecondary}`,
@@ -1313,10 +1344,23 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
                   handshake.url !== undefined ? upgradeRequestUrl(handshake.url) : '',
                 )}
                 {factRow(t('workbench.editors.websocket.timeline.requestMethod'), 'GET')}
-                <div style={{ ...lineStyle, color: token.colorTextSecondary }}>
-                  ▾ {t('workbench.editors.websocket.timeline.requestHeaders')}
+                <div
+                  role="button"
+                  tabIndex={0}
+                  aria-expanded={sectionsOpen.request}
+                  data-testid="ws-timeline-request-headers-head"
+                  onClick={() => toggleSection('request')}
+                  onKeyDown={(event: React.KeyboardEvent) => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault();
+                      toggleSection('request');
+                    }
+                  }}
+                  style={{ ...lineStyle, color: token.colorTextSecondary, cursor: 'pointer' }}
+                >
+                  {sectionsOpen.request ? '▾' : '▸'} {t('workbench.editors.websocket.timeline.requestHeaders')}
                 </div>
-                {handshakeSheet.requestRows.map((row) => factRow(row.key, row.value, 12))}
+                {sectionsOpen.request && handshakeSheet.requestRows.map((row) => factRow(row.key, row.value, 12))}
               </>
             )}
           </div>

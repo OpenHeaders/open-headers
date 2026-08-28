@@ -183,6 +183,13 @@ describe('WsMessageTimeline — rows and lifecycle order', () => {
     expect(sheet).toContain('authorization: "Bearer tok"');
     expect(sheet).toContain('Sec-WebSocket-Protocol: "chat.v2"');
     expect(sheet).toContain('Sec-WebSocket-Extensions: "permessage-deflate"');
+    // The header sections fold independently.
+    fireEvent.click(screen.getByTestId('ws-timeline-request-headers-head'));
+    const folded = screen.getByTestId('ws-timeline-handshake-details').textContent ?? '';
+    expect(folded).not.toContain('authorization: "Bearer tok"');
+    expect(folded).toContain('Sec-WebSocket-Extensions: "permessage-deflate"');
+    fireEvent.click(screen.getByTestId('ws-timeline-response-headers-head'));
+    expect(screen.getByTestId('ws-timeline-handshake-details').textContent).not.toContain('permessage-deflate"');
   });
 
   it('renders a settled pre-open failure as the error row at the ended slot', () => {
