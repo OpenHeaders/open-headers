@@ -60,6 +60,7 @@ import GrpcResponsePane from './GrpcResponsePane';
 import GrpcServiceDefinitionTab from './GrpcServiceDefinitionTab';
 import GrpcSettingsTab from './GrpcSettingsTab';
 import GrpcStreamPane from './GrpcStreamPane';
+import SessionLock from '../shared/SessionLock';
 import GrpcTargetRow from './GrpcTargetRow';
 import { useGrpcInvokePlane } from './useGrpcInvokePlane';
 import { useGrpcSpecBinding } from './useGrpcSpecBinding';
@@ -283,14 +284,18 @@ const GrpcRequestEditor: React.FC<GrpcRequestEditorProps> = ({
   // slot (the input grows), Invoke in the actions slot next to the
   // standardized Save. No separate target row below — the tab pill
   // already carries the request's identity.
+  // The target row and the Invoke-time tabs freeze while an invoke is
+  // running — their values were snapshotted at Invoke.
   const headerTitle = (
-    <GrpcTargetRow
-      draft={draft}
-      setDraft={setDraft}
-      spec={spec}
-      workspaceId={workspaceId}
-      onImportProto={handleImportProto}
-    />
+    <SessionLock locked={invoke.invoking}>
+      <GrpcTargetRow
+        draft={draft}
+        setDraft={setDraft}
+        spec={spec}
+        workspaceId={workspaceId}
+        onImportProto={handleImportProto}
+      />
+    </SessionLock>
   );
 
   // Editor-specific ⋯ items — the send-invalid-message posture toggles
@@ -484,6 +489,7 @@ const GrpcRequestEditor: React.FC<GrpcRequestEditorProps> = ({
                         onEndStreaming={invoke.handleEndStreaming}
                       />
                     )}
+                    <SessionLock locked={invoke.invoking}>
                     {activeTab === 'metadata' && (
                       <KeyValueTable
                         rows={draft.metadata}
@@ -511,6 +517,7 @@ const GrpcRequestEditor: React.FC<GrpcRequestEditorProps> = ({
                         onSendInvalidMessageChange={setSendInvalidMessage}
                       />
                     )}
+                    </SessionLock>
                   </div>
                 </div>
               </div>

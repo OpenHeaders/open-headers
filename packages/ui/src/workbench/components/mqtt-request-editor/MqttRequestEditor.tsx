@@ -67,6 +67,7 @@ import MqttMessageTab from './MqttMessageTab';
 import MqttSessionPane from './MqttSessionPane';
 import MqttSettingsTab from './MqttSettingsTab';
 import MqttSpecTab from './MqttSpecTab';
+import SessionLock from '../shared/SessionLock';
 import MqttTargetRow from './MqttTargetRow';
 import MqttTopicsTab from './MqttTopicsTab';
 import { useMqttComposeAids } from './useMqttComposeAids';
@@ -270,7 +271,14 @@ const MqttRequestEditor: React.FC<MqttRequestEditorProps> = ({
   // the actions slot next to the standardized Save. Where a session
   // cannot run, Connect stays a visible DISABLED affordance with the
   // honest gate copy — never a hidden button.
-  const headerTitle = <MqttTargetRow draft={draft} setDraft={setDraft} inFlight={session.inFlight} />;
+  // The target row and the Connect-time tabs freeze while the session
+  // is in flight — their values were snapshotted at Connect (topics
+  // stay live: subscriptions ride the open session).
+  const headerTitle = (
+    <SessionLock locked={session.inFlight}>
+      <MqttTargetRow draft={draft} setDraft={setDraft} inFlight={session.inFlight} />
+    </SessionLock>
+  );
 
   // Connect morphs while the session is in flight — the Invoke→Stop
   // treatment verbatim: solid on the darkened error token with the
@@ -467,6 +475,7 @@ const MqttRequestEditor: React.FC<MqttRequestEditorProps> = ({
                         onLiveToggle={(row, subscribe) => void session.handleLiveSubscriptionToggle(row, subscribe)}
                       />
                     )}
+                    <SessionLock locked={session.inFlight}>
                     {activeTab === 'auth' && (
                       <MqttAuthTab auth={draft.auth} onChange={(auth) => setDraft((d) => ({ ...d, auth }))} />
                     )}
@@ -486,13 +495,18 @@ const MqttRequestEditor: React.FC<MqttRequestEditorProps> = ({
                       </div>
                     )}
                     {activeTab === 'lastwill' && <MqttLastWillTab draft={draft} setDraft={setDraft} v5={v5} />}
+                    </SessionLock>
                     {activeTab === 'spec' && (
                       <MqttSpecTab
                         aids={aids}
                         onLinkSpec={(specUid) => setDraft((d) => ({ ...d, specLink: { specUid } }))}
                       />
                     )}
-                    {activeTab === 'settings' && <MqttSettingsTab draft={draft} setDraft={setDraft} v5={v5} />}
+                    {activeTab === 'settings' && (
+                      <SessionLock locked={session.inFlight}>
+                        <MqttSettingsTab draft={draft} setDraft={setDraft} v5={v5} />
+                      </SessionLock>
+                    )}
                   </div>
                 </div>
               </div>

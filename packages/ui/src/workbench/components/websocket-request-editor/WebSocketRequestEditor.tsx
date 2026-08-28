@@ -46,6 +46,7 @@ import type React from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import DocsTab from '../request-editor/DocsTab';
 import KeyValueTable from '../request-editor/KeyValueTable';
+import SessionLock from '../shared/SessionLock';
 import EditorHeader from '../shell/EditorHeader';
 import { CONNECT_SHORTCUT } from './compose';
 import {
@@ -259,7 +260,13 @@ const WebSocketRequestEditor: React.FC<WebSocketRequestEditorProps> = ({
   // actions slot next to the standardized Save. Where a session
   // cannot run, Connect stays a visible DISABLED affordance with the
   // honest gate copy — never a hidden button.
-  const headerTitle = <WsTargetRow draft={draft} setDraft={setDraft} />;
+  // The target row and the Connect-time tabs freeze while the session
+  // is in flight — their values were snapshotted at Connect.
+  const headerTitle = (
+    <SessionLock locked={session.inFlight}>
+      <WsTargetRow draft={draft} setDraft={setDraft} />
+    </SessionLock>
+  );
 
   // Connect morphs while the session is in flight — the Invoke→Stop
   // treatment verbatim: solid on the darkened error token with the
@@ -437,9 +444,11 @@ const WebSocketRequestEditor: React.FC<WebSocketRequestEditorProps> = ({
                         onChange={(headers) => setDraft((d) => ({ ...d, headers }))}
                       />
                     )}
+                    <SessionLock locked={session.inFlight}>
                     {activeTab === 'params' && (
                       <WsParamsTab rows={draft.params} onChange={(params) => setDraft((d) => ({ ...d, params }))} />
                     )}
+                    </SessionLock>
                     {activeTab === 'spec' && (
                       <WsSpecTab
                         aids={aids}
@@ -447,7 +456,9 @@ const WebSocketRequestEditor: React.FC<WebSocketRequestEditorProps> = ({
                       />
                     )}
                     {activeTab === 'settings' && (
-                      <WebSocketSettingsTab draft={draft} setDraft={setDraft} socketioFlavor={socketioFlavor} />
+                      <SessionLock locked={session.inFlight}>
+                        <WebSocketSettingsTab draft={draft} setDraft={setDraft} socketioFlavor={socketioFlavor} />
+                      </SessionLock>
                     )}
                   </div>
                 </div>

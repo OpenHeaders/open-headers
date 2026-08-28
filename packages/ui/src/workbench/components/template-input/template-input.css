@@ -38,6 +38,15 @@
  * <input>, which never paints a scrollbar — in a one-line-tall field
  * the thumb has nowhere to go and lands on top of the value text.
  * Scrolling itself still works (trackpad, caret past the edge). */
+/* Disabled (a session lock or the prop): the antd disabled input's
+ * look — muted text on the fill wash, no caret, no pointer. */
+.oh-template-input-editable--disabled {
+  color: var(--ant-color-text-disabled, rgba(0, 0, 0, 0.25));
+  background: var(--ant-color-bg-container-disabled, rgba(0, 0, 0, 0.04));
+  cursor: not-allowed;
+  user-select: none;
+}
+
 .oh-template-input-editable:not(.oh-template-input-editable--expanded) {
   scrollbar-width: none;
 }

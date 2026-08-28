@@ -8,6 +8,7 @@
 
 import { makeKvRow } from '@openheaders/ui/workbench/components/request-editor/KeyValueTable';
 import type { WebSocketDraft } from '@openheaders/ui/workbench/components/websocket-request-editor/draft';
+import SessionLock from '@openheaders/ui/workbench/components/shared/SessionLock';
 import WsTargetRow from '@openheaders/ui/workbench/components/websocket-request-editor/WsTargetRow';
 import '@openheaders/ui/workbench/settings/schema';
 import { cleanup, render, screen } from '@testing-library/react';
@@ -48,5 +49,19 @@ describe('WsTargetRow', () => {
     expect(input.getAttribute('data-placeholder')).toBe('Enter URL or paste text');
     expect(container.querySelector('.ant-tag')).toBeNull();
     expect(screen.queryByTestId('websocket-scheme-lock')).toBeNull();
+  });
+
+  it('freezes the URL under a session lock — no caret, no focus, disabled styling', () => {
+    render(
+      <SessionLock locked>
+        <WsTargetRow draft={draft} setDraft={vi.fn()} />
+      </SessionLock>,
+    );
+    const input = screen.getByTestId('websocket-url-input');
+    expect(input.getAttribute('contenteditable')).toBe('false');
+    expect(input.getAttribute('tabindex')).toBe('-1');
+    expect(input.getAttribute('aria-disabled')).toBe('true');
+    expect(input.classList.contains('oh-template-input-editable--disabled')).toBe(true);
+    expect(input.textContent).toBe('wss://events.openheaders.io/live?room=a');
   });
 });

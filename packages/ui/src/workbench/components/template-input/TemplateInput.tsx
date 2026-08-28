@@ -39,6 +39,7 @@ import { type RefState, renderHighlightedHtml, TEMPLATE_REGEX } from './highligh
 import { useAutoSuggestionContext } from './SuggestionContextProvider';
 import SuggestionPopover from './SuggestionPopover';
 import type { TemplateInputProps } from './types';
+import { useSessionLocked } from '../shared/SessionLock';
 import { useGripResize } from './use-grip-resize';
 import { useSelectionContextMenu } from './use-selection-context-menu';
 import { useTemplateSuggestions } from './use-template-suggestions';
@@ -77,9 +78,12 @@ const TemplateInput = forwardRef<HTMLDivElement, TemplateInputProps>(
       onValueEdit,
       editTooltip,
       flagUnresolved = false,
+      disabled: disabledProp = false,
     },
     ref,
   ) => {
+    const sessionLocked = useSessionLocked();
+    const disabled = disabledProp || sessionLocked;
     const editableRef = useRef<HTMLDivElement | null>(null);
     const mergedRef = useCallback(
       (instance: HTMLDivElement | null) => {
@@ -305,11 +309,19 @@ const TemplateInput = forwardRef<HTMLDivElement, TemplateInputProps>(
       >
         <div
           ref={mergedRef}
-          className={`oh-template-input-editable${displayExpanded ? ' oh-template-input-editable--expanded' : ''}${secret ? ' oh-template-input-secret' : ''}`}
-          contentEditable
+          className={[
+            'oh-template-input-editable',
+            displayExpanded ? 'oh-template-input-editable--expanded' : '',
+            secret ? 'oh-template-input-secret' : '',
+            disabled ? 'oh-template-input-editable--disabled' : '',
+          ]
+            .filter(Boolean)
+            .join(' ')}
+          contentEditable={!disabled}
           suppressContentEditableWarning
           role="combobox"
-          tabIndex={0}
+          tabIndex={disabled ? -1 : 0}
+          aria-disabled={disabled || undefined}
           aria-expanded={isOpen}
           aria-autocomplete="list"
           aria-label={ariaLabel}
@@ -340,7 +352,7 @@ const TemplateInput = forwardRef<HTMLDivElement, TemplateInputProps>(
             aria-hidden="true"
           />
         )}
-        {(showClear || onSecretToggle || onValueEdit) && (
+        {!disabled && (showClear || onSecretToggle || onValueEdit) && (
           <span
             className="oh-template-input-actions"
             style={{ right: iconInset, ...iconTopStyle }}
