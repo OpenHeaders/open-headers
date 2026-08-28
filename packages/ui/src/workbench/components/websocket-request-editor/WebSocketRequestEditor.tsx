@@ -235,7 +235,9 @@ const WebSocketRequestEditor: React.FC<WebSocketRequestEditorProps> = ({
 
   // "Save message" from a timeline row — the frame's payload becomes a
   // new saved row (a template, direction-free): a text frame as its
-  // decoded text (JSON when it parses), a binary frame as base64.
+  // decoded text (JSON when it parses), a binary frame as base64. The
+  // row is NOT selected: selecting loads a row into the compose, and
+  // the user's draft must survive a save. The rail opens as feedback.
   const saveTimelineMessage = useCallback(
     (item: { dataBase64: string; binary: boolean }) => {
       const uid = generateUid();
@@ -244,11 +246,10 @@ const WebSocketRequestEditor: React.FC<WebSocketRequestEditorProps> = ({
         const row = savedMessageFromFrame(item, uid, name);
         return { ...d, savedMessages: [...d.savedMessages, row] };
       });
-      savedSelection.selectSavedMessage(uid);
       setRailCollapsed(false);
       setActiveTab('message');
     },
-    [savedSelection, t],
+    [t],
   );
 
   // ── Save ─────────────────────────────────────────────────────────
