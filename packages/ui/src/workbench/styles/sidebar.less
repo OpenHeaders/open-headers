@@ -242,6 +242,13 @@
   opacity: 1;
 }
 
+// A selected row paints a wash over its full width; the guides stay
+// off that row so the wash reads as one unbroken band. Hover keeps
+// them — the pointer is what reveals the guides in the first place.
+.rules-sidebar-content:hover .rules-sidebar-item.selected .rules-sidebar-item-guide {
+  opacity: 0;
+}
+
 .rules-sidebar-item-caret {
   flex: none;
   width: 12px;
