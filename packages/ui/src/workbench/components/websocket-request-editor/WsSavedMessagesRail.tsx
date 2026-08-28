@@ -144,15 +144,16 @@ const WsSavedMessagesRail: React.FC<WsSavedMessagesRailProps> = ({
         container — selection/hover bands bleed the full row width. The
         header reserves the list's scrollbar gutter (a hidden-overflow
         box still owns one) so + and the chevron share the rows' menu
-        column instead of sitting under the bar; both inset from the bar
-        so the selection band stops short of it. */}
+        column instead of sitting under the bar; both inset by the tab
+        body's padding the pane bleeds into, so the bands end on the
+        content column and the bar rides the edge. */}
       <div
         style={{
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
           paddingLeft: 8,
-          paddingRight: 6,
+          paddingRight: 12,
           overflow: 'hidden',
           scrollbarWidth: 'thin',
           scrollbarGutter: 'stable',
@@ -194,7 +195,7 @@ const WsSavedMessagesRail: React.FC<WsSavedMessagesRailProps> = ({
           display: 'flex',
           flexDirection: 'column',
           gap: 4,
-          paddingRight: 6,
+          paddingRight: 12,
           overflow: 'auto',
           overscrollBehavior: 'none',
           scrollbarWidth: 'thin',

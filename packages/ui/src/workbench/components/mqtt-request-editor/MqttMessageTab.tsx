@@ -115,7 +115,10 @@ const MqttMessageTab: React.FC<MqttMessageTabProps> = ({
         collapsed (its sash goes with it), and the vertical strip sits
         flush beside the Allotment then. Expanded, the rail resizes
         within min/max; the sash is the ONLY divider. */}
-      <div style={{ flex: 1, minHeight: 100, display: 'flex' }}>
+      {/* Expanded, the row bleeds into the tab body's right padding so
+        the rail's scrollbar sits at the content edge, clear of the
+        rows — the rail insets its rows back to the column. */}
+      <div style={{ flex: 1, minHeight: 100, display: 'flex', marginRight: railCollapsed ? 0 : -12 }}>
         <div style={{ flex: 1, minWidth: 0 }}>
           <Allotment proportionalLayout={false} separator>
             <Allotment.Pane minSize={280}>

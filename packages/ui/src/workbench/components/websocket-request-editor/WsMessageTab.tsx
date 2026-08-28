@@ -148,7 +148,10 @@ const WsMessageTab: React.FC<WsMessageTabProps> = ({
         within min/max; the sash is the ONLY divider. The editor keeps
         its absolute inset host — a fill editor must not size its own
         flex parent (the BodyTab discipline). */}
-      <div style={{ flex: 1, minHeight: 100, display: 'flex' }}>
+      {/* Expanded, the row bleeds into the tab body's right padding so
+        the rail's scrollbar sits at the content edge, clear of the
+        rows — the rail insets its rows back to the column. */}
+      <div style={{ flex: 1, minHeight: 100, display: 'flex', marginRight: railCollapsed ? 0 : -12 }}>
         <div style={{ flex: 1, minWidth: 0 }}>
           <Allotment proportionalLayout={false} separator>
             <Allotment.Pane minSize={280}>
