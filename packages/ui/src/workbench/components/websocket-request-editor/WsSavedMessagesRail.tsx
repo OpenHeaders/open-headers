@@ -141,8 +141,21 @@ const WsSavedMessagesRail: React.FC<WsSavedMessagesRailProps> = ({
       data-testid="ws-saved-rail"
     >
       {/* The rail's left indent lives on the header and hint, not the
-        container — selection/hover bands bleed the full row width. */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingLeft: 8 }}>
+        container — selection/hover bands bleed the full row width. The
+        header reserves the list's scrollbar gutter (a hidden-overflow
+        box still owns one) so + and the chevron share the rows' menu
+        column instead of sitting under the bar. */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          paddingLeft: 8,
+          overflow: 'hidden',
+          scrollbarWidth: 'thin',
+          scrollbarGutter: 'stable',
+        }}
+      >
         <Text strong style={{ fontSize: 11 }}>
           {t('workbench.editors.websocket.saved.title')}
         </Text>
@@ -207,7 +220,7 @@ const WsSavedMessagesRail: React.FC<WsSavedMessagesRailProps> = ({
                 display: 'flex',
                 alignItems: 'center',
                 gap: 4,
-                padding: '1px 2px 1px 8px',
+                padding: '1px 6px 1px 8px',
                 background: selected
                   ? token.colorFillSecondary
                   : hoveredUid === row.uid
