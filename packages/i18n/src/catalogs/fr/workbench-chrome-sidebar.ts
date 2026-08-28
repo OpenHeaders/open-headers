@@ -58,6 +58,18 @@ export const workbenchChromeSidebar = {
   'workbench.sidebar.behavior.alwaysSelectOpened': "Toujours sélectionner l'onglet ouvert",
   'workbench.sidebar.appearance.title': 'Apparence',
   'workbench.sidebar.appearance.showIndentGuides': "Afficher les guides d'indentation",
+  'workbench.sidebar.sort.title': 'Trier par',
+  'workbench.sidebar.sort.manual': 'Manuel',
+  'workbench.sidebar.sort.name': 'Nom',
+  'workbench.sidebar.dnd.itemsCount': ({ count }, locale) =>
+    plural(locale, Number(count), { one: '{count} élément', many: '{count} éléments', other: '{count} éléments' }),
+  'workbench.sidebar.toast.itemsMoved': ({ count }, locale) =>
+    plural(locale, Number(count), {
+      one: '{count} élément déplacé',
+      many: '{count} éléments déplacés',
+      other: '{count} éléments déplacés',
+    }),
+  'workbench.sidebar.toast.moveFailed': 'Échec du déplacement',
   'workbench.sidebar.filterPlaceholder': 'Filtrer',
 
   // ── Sidebar : barre de recherche rapide (à la demande, double mode) ──

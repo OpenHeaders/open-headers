@@ -1,9 +1,10 @@
 /**
- * Unit tests for `classifyDropZone` — the pointer-Y → drop-zone band
- * classifier the FolderDndTree gesture surface uses.
+ * Unit tests for the pointer-Y → drop-zone band classifiers the
+ * TreeDnd gesture surface uses: three bands over a container row,
+ * two over a sibling-only row.
  */
 
-import { classifyDropZone } from '@openheaders/ui/workbench/components/sidebar/folder-dnd-zone';
+import { classifyDropZone, classifySiblingZone } from '@openheaders/ui/workbench/components/sidebar/tree-dnd-zone';
 import { describe, expect, it } from 'vitest';
 
 const rect = { top: 100, height: 40 }; // bands: 100–110 'before', 110–130 'into', 130–140 'after'
@@ -42,5 +43,15 @@ describe('classifyDropZone', () => {
     expect(classifyDropZone(110, rect)).toBe('into');
     // offset == afterBoundary (30) is exactly at boundary — not >, so 'into'.
     expect(classifyDropZone(130, rect)).toBe('into');
+  });
+});
+
+describe('classifySiblingZone', () => {
+  it('splits the row at the middle — before above, after at and below', () => {
+    expect(classifySiblingZone(100, rect)).toBe('before');
+    expect(classifySiblingZone(119, rect)).toBe('before');
+    expect(classifySiblingZone(120, rect)).toBe('after');
+    expect(classifySiblingZone(139, rect)).toBe('after');
+    expect(classifySiblingZone(100, { top: 100, height: 0 })).toBe('after');
   });
 });

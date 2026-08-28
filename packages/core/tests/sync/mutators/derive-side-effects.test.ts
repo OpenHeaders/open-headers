@@ -32,14 +32,19 @@ import {
   deleteLiveWorkflow,
   deriveSideEffectsForEnvelope,
   ENVIRONMENT_ENTITY_TYPE,
+  FOLDER_ENTITY_TYPE,
   INVALIDATE_RESOLVER,
   type MutationEnvelope,
   type MutatorContext,
   type MutatorIntent,
+  moveFolder,
+  moveRequest,
+  moveRule,
   PAUSE_MARKERS_ID,
   PURGE_WORKSPACE_DATA,
   RECOMPILE_DNR,
   REQUEST_COLLECTION_ENTITY_TYPE,
+  REQUEST_FOLDER_ENTITY_TYPE,
   removeCollectionVar,
   removeCondition,
   removeEnvVar,
@@ -354,4 +359,38 @@ describe('deriveSideEffectsForEnvelope — create / delete bodies', () => {
       expect(deriveSideEffectsForEnvelope(mkEnvelope({ kind: 'create', type, id: 'e1', payload: {} }))).toEqual([]);
     });
   }
+});
+
+describe('rule-tree containment side effects', () => {
+  const parent = { type: COLLECTION_ENTITY_TYPE, uid: 'col00001' } as const;
+  const folder = { type: FOLDER_ENTITY_TYPE, uid: 'fol00001' } as const;
+
+  it('a rule slot landing on a container (cross-parent move) recompiles DNR keyed by the rule, on both sides', () => {
+    const intent = moveRule(ctx(), { ruleUid: 'rul00001', newParent: folder, orderKey: 'n', oldParent: parent });
+    const kinds = intent.sideEffects.map((e) => `${e.kind}:${e.key}`);
+    expect(kinds).toEqual([`${RECOMPILE_DNR}:rul00001`]);
+    expect(intent.batch.mutations.flatMap(deriveSideEffectsForEnvelope)).toEqual(intent.sideEffects);
+  });
+
+  it('a same-parent rule reorder keeps its pause chain and emits nothing', () => {
+    const intent = moveRule(ctx(), { ruleUid: 'rul00001', newParent: parent, orderKey: 'n' });
+    expect(intent.sideEffects).toEqual([]);
+  });
+
+  it('a folder re-parent recompiles DNR keyed by the folder; a request-tree move emits nothing', () => {
+    const folderMove = moveFolder(ctx(), {
+      folderUid: 'fol00001',
+      newParent: parent,
+      orderKey: 'n',
+      oldParent: folder,
+    });
+    expect(folderMove.sideEffects.map((e) => `${e.kind}:${e.key}`)).toEqual([`${RECOMPILE_DNR}:fol00001`]);
+    const requestMove = moveRequest(ctx(), {
+      requestUid: 'req00001',
+      newParent: { type: REQUEST_FOLDER_ENTITY_TYPE, uid: 'fol00002' },
+      orderKey: 'n',
+      oldParent: { type: REQUEST_COLLECTION_ENTITY_TYPE, uid: 'col00002' },
+    });
+    expect(requestMove.sideEffects).toEqual([]);
+  });
 });

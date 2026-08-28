@@ -1,7 +1,7 @@
 /**
  * useSidebarNodeRenderers — the four shared row/section renderers every
  * sidebar view assembles from: a single tree-row renderer, a section
- * empty-state, and the plain + folder-dnd node-list wrappers.
+ * empty-state, and the plain + tree-dnd node-list wrappers.
  *
  * They're closures over interaction state the parent owns — the
  * selection / focus / export-select predicates, the mouse handlers, the
@@ -19,7 +19,7 @@ import { PlusOutlined } from '@ant-design/icons';
 import { theme } from 'antd';
 import type React from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
-import { FolderDndTree, type FolderDndConfig } from './FolderDndTree';
+import { TreeDnd, type TreeDndConfig } from './TreeDnd';
 import { TreeNodeRow } from './TreeNodeRow';
 import type { TreeNode } from './types';
 
@@ -43,13 +43,17 @@ interface UseSidebarNodeRenderersParams {
    *  scaffolds are suppressed (a zero-match section must read as "no
    *  matches", not invite creation). */
   filterActive: boolean;
+  /** False while a non-manual sort is active — rows render without dnd. */
+  dragEnabled: boolean;
+  /** The multi-selection a dragged member takes along. */
+  selectedIds: ReadonlySet<string>;
 }
 
 export interface SidebarNodeRenderers {
   renderTreeNodeRow: (node: TreeNode) => React.ReactElement;
   renderEmptyState: (emptyCreate?: () => void) => React.ReactNode;
   renderNodes: (nodes: TreeNode[], emptyCreate?: () => void) => React.ReactNode;
-  renderFolderDndNodes: (nodes: TreeNode[], config: FolderDndConfig, emptyCreate?: () => void) => React.ReactNode;
+  renderTreeDndNodes: (nodes: TreeNode[], config: TreeDndConfig, emptyCreate?: () => void) => React.ReactNode;
 }
 
 export function useSidebarNodeRenderers({
@@ -64,6 +68,8 @@ export function useSidebarNodeRenderers({
   searchHighlightQuery,
   activeSearchMatchId,
   filterActive,
+  dragEnabled,
+  selectedIds,
 }: UseSidebarNodeRenderersParams): SidebarNodeRenderers {
   const { token } = theme.useToken();
   const t = useT();
@@ -112,13 +118,14 @@ export function useSidebarNodeRenderers({
     return nodes.map(renderTreeNodeRow);
   };
 
-  /** Variant of `renderNodes` that wraps folder rows in dnd-kit so
-   *  same-parent reorder gestures emit `moveFolder` mutations. The
-   *  per-tree config supplies the id prefixes + mutator binding. */
-  const renderFolderDndNodes = (nodes: TreeNode[], config: FolderDndConfig, emptyCreate?: () => void) => {
+  /** Variant of `renderNodes` that wraps the tree's rows in dnd-kit so
+   *  drag gestures emit one move mutation. The per-tree config supplies
+   *  the id prefixes, the live order reads and the mutator binding. */
+  const renderTreeDndNodes = (nodes: TreeNode[], config: TreeDndConfig, emptyCreate?: () => void) => {
     if (nodes.length === 0) return renderEmptyState(emptyCreate);
-    return <FolderDndTree nodes={nodes} renderNode={renderTreeNodeRow} config={config} />;
+    if (!dragEnabled) return nodes.map(renderTreeNodeRow);
+    return <TreeDnd nodes={nodes} renderNode={renderTreeNodeRow} config={config} selectedIds={selectedIds} />;
   };
 
-  return { renderTreeNodeRow, renderEmptyState, renderNodes, renderFolderDndNodes };
+  return { renderTreeNodeRow, renderEmptyState, renderNodes, renderTreeDndNodes };
 }

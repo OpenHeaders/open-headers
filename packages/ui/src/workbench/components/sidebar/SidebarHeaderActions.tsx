@@ -5,7 +5,7 @@
  * Owns nothing but its own `theme.useToken()` read; every value it renders —
  * the per-view `+` menus, the create-environment / create-workflow openers,
  * the multi-select export state, expand/collapse-all, and the four
- * single-click behavior flags — arrives as a flat prop from the parent, which
+ * single-click behavior flags, the sort mode — arrives as a flat prop from the parent, which
  * stays the single owner of that state. The parent's return then opens
  * directly with `<SidebarHeaderActions … />` above the filter row.
  */
@@ -29,6 +29,7 @@ import type { MessageKey } from '@openheaders/i18n';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { menuCheckIcon, menuIconGutter } from '../shared/menu-check';
 import type { SidebarExportEntity } from '../workspace-export/build-export-scope';
+import type { SidebarSortMode } from './tree-sort';
 import type { SidebarView } from './types';
 
 // Per-view display label — mirrors the `tool-windows.tsx` registry
@@ -73,11 +74,14 @@ interface SidebarHeaderActionsProps {
   setAlwaysSelectOpened: React.Dispatch<React.SetStateAction<boolean>>;
   showIndentGuides: boolean;
   setShowIndentGuides: React.Dispatch<React.SetStateAction<boolean>>;
+  /** Display sort of the tree views — a local view preference over the shared manual order. */
+  sortMode: SidebarSortMode;
+  setSortMode: (mode: SidebarSortMode) => void;
 }
 
 /** Views whose content is a nested tree — the only ones where the
- *  indent guides exist, so the only ones that offer the Appearance
- *  submenu. */
+ *  indent guides and the manual order exist, so the only ones that
+ *  offer the Appearance and Sort By submenus. */
 const TREE_VIEWS: ReadonlySet<SidebarView> = new Set(['http-rules', 'api-requests']);
 
 const SidebarHeaderActions: React.FC<SidebarHeaderActionsProps> = ({
@@ -106,6 +110,8 @@ const SidebarHeaderActions: React.FC<SidebarHeaderActionsProps> = ({
   setAlwaysSelectOpened,
   showIndentGuides,
   setShowIndentGuides,
+  sortMode,
+  setSortMode,
 }) => {
   const { token } = theme.useToken();
   const t = useT();
@@ -160,6 +166,22 @@ const SidebarHeaderActions: React.FC<SidebarHeaderActionsProps> = ({
     },
     ...(TREE_VIEWS.has(view)
       ? [
+          {
+            key: 'sort',
+            label: t('workbench.sidebar.sort.title'),
+            children: [
+              {
+                key: 'sort-manual',
+                label: `${sortMode === 'manual' ? '✓ ' : ''}${t('workbench.sidebar.sort.manual')}`,
+                onClick: () => setSortMode('manual'),
+              },
+              {
+                key: 'sort-name',
+                label: `${sortMode === 'name' ? '✓ ' : ''}${t('workbench.sidebar.sort.name')}`,
+                onClick: () => setSortMode('name'),
+              },
+            ],
+          },
           {
             key: 'appearance',
             icon: menuIconGutter(),

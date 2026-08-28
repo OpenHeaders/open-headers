@@ -22,9 +22,15 @@
  * reach for `slotAdd` / `slotRemove` directly so the slot rides the
  * same batch as the entity create — the law is "one batch, entity +
  * slot", not "one factory".
+ *
+ * Side effects are derived from the minted envelopes through the one
+ * receive-side dispatcher, so the host that mints a move enqueues
+ * exactly what every peer applying it will (a rule re-chained under a
+ * pause marker recompiles DNR everywhere).
  */
 
 import type { AddToSetMutation, MutationBatch, MutationBody, RemoveFromSetMutation } from '../../envelope';
+import { deriveSideEffectsForEnvelope } from '../derive-side-effects';
 import type { MutatorContext, MutatorIntent } from '../types';
 
 export interface ParentRefShape {
@@ -119,14 +125,14 @@ export function makeChildMutators<P extends ParentRefShape, S extends ChildSlotS
         { kind: 'create', type: entityType, id: input.childUid, payload: input.payload },
         slotAdd(input.childUid, input.parent, input.orderKey),
       ];
-      return { batch: mintBatch(ctx, bodies), sideEffects: [] };
+      return intent(mintBatch(ctx, bodies));
     },
     delete(ctx, input) {
       const bodies: MutationBody[] = [
         slotRemove(input.childUid, input.parent),
         { kind: 'delete', type: entityType, id: input.childUid },
       ];
-      return { batch: mintBatch(ctx, bodies), sideEffects: [] };
+      return intent(mintBatch(ctx, bodies));
     },
     move(ctx, input) {
       const sameParent =
@@ -134,8 +140,8 @@ export function makeChildMutators<P extends ParentRefShape, S extends ChildSlotS
         (input.oldParent.type === input.newParent.type && input.oldParent.uid === input.newParent.uid);
 
       if (sameParent) {
-        return {
-          batch: mintBatch(ctx, [
+        return intent(
+          mintBatch(ctx, [
             {
               kind: 'moveBefore',
               type: input.newParent.type,
@@ -145,8 +151,7 @@ export function makeChildMutators<P extends ParentRefShape, S extends ChildSlotS
               orderKey: input.orderKey,
             },
           ]),
-          sideEffects: [],
-        };
+        );
       }
 
       const oldParent = input.oldParent as P;
@@ -154,7 +159,11 @@ export function makeChildMutators<P extends ParentRefShape, S extends ChildSlotS
         slotRemove(input.childUid, oldParent),
         slotAdd(input.childUid, input.newParent, input.orderKey),
       ];
-      return { batch: mintBatch(ctx, bodies), sideEffects: [] };
+      return intent(mintBatch(ctx, bodies));
     },
   };
+}
+
+function intent(batch: MutationBatch): MutatorIntent {
+  return { batch, sideEffects: batch.mutations.flatMap(deriveSideEffectsForEnvelope) };
 }

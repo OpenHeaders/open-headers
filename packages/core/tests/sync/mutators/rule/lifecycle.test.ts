@@ -3,6 +3,7 @@ import {
   COLLECTION_ENTITY_TYPE,
   createRule,
   deleteRule,
+  deriveSideEffectsForEnvelope,
   FOLDER_ENTITY_TYPE,
   FOLDER_ITEMS_PATH,
   type MutatorContext,
@@ -41,7 +42,9 @@ describe('createRule', () => {
         orderKey: 'mm',
       },
     ]);
-    expect(intent.sideEffects).toEqual([]);
+    // Mint == derive: the rule create and its slot both recompile DNR, keyed by the rule.
+    expect(intent.sideEffects).toEqual(intent.batch.mutations.flatMap(deriveSideEffectsForEnvelope));
+    expect(intent.sideEffects.map((e) => e.key)).toEqual(['r-1', 'r-1']);
   });
 
   it('the exported child verbs mint the same slot the seed builders append', () => {

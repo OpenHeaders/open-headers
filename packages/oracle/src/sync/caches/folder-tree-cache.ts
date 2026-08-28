@@ -32,6 +32,7 @@ import type { BroadcastEvent, InMemoryBroadcast } from '../broadcast';
 import type { EntityOracle } from '../oracle';
 import { driftRecorder } from '../storage-drift';
 import type { SwMutatorContextFactory } from '../sw-context';
+import { loadTreeOrderRanks } from './tree-order-cache';
 
 /**
  * Input shape for `buildCreateBatch`. Per-entity factories accept the
@@ -123,7 +124,9 @@ export function createFolderTreeCache<P extends ParentRefShape>(
     // Sort folders so a parent always seeds before any of its
     // descendants. Depth derived from `/` separators is total-ordered
     // with parents-before-children — cheaper than a full topo sort.
-    const ordered = sortByDepth(persistedFolders);
+    // Within a depth the persisted tree-order record ranks siblings,
+    // array position ranks the rest (the sort is stable).
+    const ordered = sortByDepth(persistedFolders, await loadTreeOrderRanks(workspaceId));
     const parentByPath = buildParentLookup(collections, persistedFolders, config);
     const batchId = `${config.hydrationBatchPrefix}-${newBatchId()}`;
     // Sibling order is the persisted array order: every slot appends
@@ -258,9 +261,13 @@ function buildParentLookup<P extends ParentRefShape>(
   return out;
 }
 
-function sortByDepth(folders: readonly PersistedLocalFolder[]): PersistedLocalFolder[] {
+function sortByDepth(
+  folders: readonly PersistedLocalFolder[],
+  ranks: ReadonlyMap<string, number>,
+): PersistedLocalFolder[] {
   const depth = (f: PersistedLocalFolder): number => f.path.split('/').length;
-  return [...folders].sort((a, b) => depth(a) - depth(b));
+  const rank = (f: PersistedLocalFolder): number => ranks.get(f.uid) ?? Number.POSITIVE_INFINITY;
+  return [...folders].sort((a, b) => depth(a) - depth(b) || rank(a) - rank(b));
 }
 
 function parentPathOf(path: string): string | null {

@@ -77,7 +77,10 @@ import VariablesSection from './VariablesSection';
 import WorkflowsSection from './WorkflowsSection';
 import type { SidebarExportEntity } from '../workspace-export/build-export-scope';
 import { useDraftOverlay } from './useDraftOverlay';
-import { useFolderDndConfigs } from './useFolderDndConfigs';
+import { applySidebarSort, SIDEBAR_SORT_MODES } from './tree-sort';
+import { usePersistedChoice } from './use-persisted-choice';
+import { useTreeDndConfigs } from './useTreeDndConfigs';
+import { useTreeKeyboardMoves } from './useTreeKeyboardMoves';
 import { useEnvironmentNodes } from './useEnvironmentNodes';
 import { useRequestTreeNodes } from './useRequestTreeNodes';
 import { useRulesTreeNodes } from './useRulesTreeNodes';
@@ -264,7 +267,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     rules,
     activeWorkspaceId,
     localCollections,
-    localCollectionTrees,
+    localCollectionTrees: rawLocalCollectionTrees,
     pauseMarkers,
     pausedUids,
     togglePause,
@@ -278,7 +281,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     renameLocalCollection,
     createLocalCollection,
     templateCollections,
-    templateCollectionTrees,
+    templateCollectionTrees: rawTemplateCollectionTrees,
     deleteTemplate,
     updateTemplate,
     createTemplateCollection,
@@ -332,7 +335,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     websocketRequests: allWebSocketRequests,
     mqttRequests: allMqttRequests,
     collections: requestCollections,
-    collectionTrees: requestCollectionTrees,
+    collectionTrees: rawRequestCollectionTrees,
     updateRequest: updateRequestData,
     deleteRequest,
     updateGrpcRequest: updateGrpcRequestData,
@@ -368,6 +371,19 @@ const Sidebar: React.FC<SidebarProps> = ({
   const [openFoldersWithSingleClick, setOpenFoldersWithSingleClick] = usePersistedFlag('openFoldersWithSingleClick', true);
   const [alwaysSelectOpened, setAlwaysSelectOpened] = usePersistedFlag('alwaysSelectOpened', true);
   const [showIndentGuides, setShowIndentGuides] = usePersistedFlag('showIndentGuides', true);
+  // Order is data, sort is view: the manual order is shared workspace
+  // data; Name is a local display sort, and drag is off under it.
+  const [sortMode, setSortMode] = usePersistedChoice('sortMode', SIDEBAR_SORT_MODES, 'manual');
+  const dragEnabled = sortMode === 'manual';
+  const localCollectionTrees = useMemo(() => applySidebarSort(rawLocalCollectionTrees, sortMode), [rawLocalCollectionTrees, sortMode]);
+  const templateCollectionTrees = useMemo(
+    () => applySidebarSort(rawTemplateCollectionTrees, sortMode),
+    [rawTemplateCollectionTrees, sortMode],
+  );
+  const requestCollectionTrees = useMemo(
+    () => applySidebarSort(rawRequestCollectionTrees, sortMode),
+    [rawRequestCollectionTrees, sortMode],
+  );
   const containerRef = useRef<HTMLDivElement>(null);
 
   const {
@@ -667,10 +683,12 @@ const Sidebar: React.FC<SidebarProps> = ({
     [activeWorkspaceId, message, t],
   );
 
-  // ── Folder reorder dnd configs (one per tree) ─────────────────────
-  const { rulesFolderDndConfig, requestFolderDndConfig, templateFolderDndConfig } = useFolderDndConfigs({
-    activeWorkspaceId,
-  });
+  // ── Tree dnd configs (one per tree) ────────────────────────────────
+  const { rulesDndConfig, requestDndConfig, templateDndConfig } = useTreeDndConfigs({ activeWorkspaceId });
+  const treeDndConfigs = useMemo(
+    () => [rulesDndConfig, requestDndConfig, templateDndConfig],
+    [rulesDndConfig, requestDndConfig, templateDndConfig],
+  );
 
   // ── Section nodes via hooks ────────────────────────────────────
 
@@ -919,6 +937,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   // ── Selection / interaction subsystem ─────────────────────────
 
   const {
+    focusedId,
     setFocusedId,
     exportSelectedIds,
     isExportSelected,
@@ -1020,7 +1039,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     t,
   );
 
-  const { renderTreeNodeRow, renderEmptyState, renderNodes, renderFolderDndNodes } = useSidebarNodeRenderers({
+  const { renderTreeNodeRow, renderEmptyState, renderNodes, renderTreeDndNodes } = useSidebarNodeRenderers({
     isSelected,
     isFocused,
     isExportSelected,
@@ -1032,6 +1051,15 @@ const Sidebar: React.FC<SidebarProps> = ({
     searchHighlightQuery: search.highlightQuery,
     activeSearchMatchId: searchMatches.activeMatchId,
     filterActive: filterText !== '',
+    dragEnabled,
+    selectedIds: exportSelectedIds,
+  });
+
+  const handleTreeMoveKey = useTreeKeyboardMoves({
+    allFlatItems,
+    focusedId,
+    configs: treeDndConfigs,
+    enabled: dragEnabled,
   });
 
   return (
@@ -1062,6 +1090,8 @@ const Sidebar: React.FC<SidebarProps> = ({
         alwaysSelectOpened={alwaysSelectOpened}
         setAlwaysSelectOpened={setAlwaysSelectOpened}
         showIndentGuides={showIndentGuides}
+        sortMode={sortMode}
+        setSortMode={setSortMode}
         setShowIndentGuides={setShowIndentGuides}
       />
       {search.open && (
@@ -1078,7 +1108,9 @@ const Sidebar: React.FC<SidebarProps> = ({
       <div
         ref={containerRef}
         className={`rules-sidebar-content oh-scroll-topline${showIndentGuides ? '' : ' rules-sidebar-content--no-guides'}`}
-        onKeyDown={handleKeyDown}
+        onKeyDown={(e) => {
+          if (!handleTreeMoveKey(e)) handleKeyDown(e);
+        }}
         tabIndex={-1}
         style={{ outline: 'none' }}
       >
@@ -1089,9 +1121,9 @@ const Sidebar: React.FC<SidebarProps> = ({
               toggleSection={toggleSection}
               requestImportMenuItems={requestImportMenuItems}
               requestNodes={requestNodes}
-              requestFolderDndConfig={requestFolderDndConfig}
+              requestDndConfig={requestDndConfig}
               createNewRequestCollection={createNewRequestCollection}
-              renderFolderDndNodes={renderFolderDndNodes}
+              renderTreeDndNodes={renderTreeDndNodes}
             />
             <SpecsSection
               sectionsExpanded={sectionsExpanded}
@@ -1117,15 +1149,15 @@ const Sidebar: React.FC<SidebarProps> = ({
             toggleSection={toggleSection}
             createMenuItems={createMenuItems}
             rulesNodes={rulesNodes}
-            rulesFolderDndConfig={rulesFolderDndConfig}
+            rulesDndConfig={rulesDndConfig}
             createNewCollection={createNewCollection}
             systemTemplateNodes={systemTemplateNodes}
             templateNodes={templateNodes}
-            templateFolderDndConfig={templateFolderDndConfig}
+            templateDndConfig={templateDndConfig}
             createNewTemplateCollection={createNewTemplateCollection}
             renderTreeNodeRow={renderTreeNodeRow}
             renderEmptyState={renderEmptyState}
-            renderFolderDndNodes={renderFolderDndNodes}
+            renderTreeDndNodes={renderTreeDndNodes}
           />
         )}
 

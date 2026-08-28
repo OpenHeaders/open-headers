@@ -39,6 +39,7 @@ import { deriveEnvironmentSideEffects } from './environment/side-effects';
 import { ENVIRONMENT_ENTITY_TYPE } from './environment/types';
 import { deriveExtensionWorkspaceSideEffects } from './extension-workspace/side-effects';
 import { EXTENSION_WORKSPACE_ENTITY_TYPE } from './extension-workspace/types';
+import { FOLDER_ENTITY_TYPE } from './folder/types';
 import { deriveLiveVariableSideEffects } from './live-variable/side-effects';
 import { LIVE_VARIABLE_ENTITY_TYPE } from './live-variable/types';
 import { deriveLiveWorkflowSideEffects } from './live-workflow/side-effects';
@@ -47,7 +48,7 @@ import { derivePauseMarkersSideEffects } from './pause-markers/side-effects';
 import { PAUSE_MARKERS_ENTITY_TYPE } from './pause-markers/types';
 import { deriveRequestCollectionSideEffects } from './request-collection/side-effects';
 import { REQUEST_COLLECTION_ENTITY_TYPE } from './request-collection/types';
-import { deriveRuleSideEffects } from './rule/side-effects';
+import { deriveRuleSideEffects, deriveRuleTreeContainmentSideEffects } from './rule/side-effects';
 import { RULE_ENTITY_TYPE } from './rule/types';
 import { deriveTemplateCollectionSideEffects } from './template-collection/side-effects';
 import { TEMPLATE_COLLECTION_ENTITY_TYPE } from './template-collection/types';
@@ -76,8 +77,13 @@ export function deriveSideEffectsForEnvelope(envelope: MutationEnvelope): SideEf
     // applies the envelope so the resolver-invalidate runner flushes.
     // Without this, a peer-synced variable edit updates the store but
     // downstream rules keep resolving the stale value.
+    // A rule-tree container's slot writes re-chain rules under pause
+    // markers (the add half of a move, a folder re-parent) — DNR
+    // recompiles on every host, the same as a rule edit.
     case COLLECTION_ENTITY_TYPE:
-      return deriveCollectionSideEffects(envelope);
+      return [...deriveCollectionSideEffects(envelope), ...deriveRuleTreeContainmentSideEffects(envelope)];
+    case FOLDER_ENTITY_TYPE:
+      return deriveRuleTreeContainmentSideEffects(envelope);
     case ENVIRONMENT_ENTITY_TYPE:
       return deriveEnvironmentSideEffects(envelope);
     case LIVE_VARIABLE_ENTITY_TYPE:
@@ -93,7 +99,7 @@ export function deriveSideEffectsForEnvelope(envelope: MutationEnvelope): SideEf
     case REQUEST_COLLECTION_ENTITY_TYPE:
       return deriveRequestCollectionSideEffects(envelope);
     default:
-      // Entity types with no host-local side effect (folder, request,
+      // Entity types with no host-local side effect (request,
       // template, files, oauth-bundle, layout-state, live-value,
       // trusted-roots) map to no intents. The live-value (resolved-token) consumer lights up
       // via the live-layer bridge's `onLiveCacheStoreChange` notify, not

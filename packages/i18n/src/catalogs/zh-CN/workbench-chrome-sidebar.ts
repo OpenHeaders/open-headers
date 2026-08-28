@@ -60,6 +60,13 @@ export const workbenchChromeSidebar = {
   'workbench.sidebar.behavior.alwaysSelectOpened': '始终选中已打开的标签页',
   'workbench.sidebar.appearance.title': '外观',
   'workbench.sidebar.appearance.showIndentGuides': '显示缩进参考线',
+  'workbench.sidebar.sort.title': '排序方式',
+  'workbench.sidebar.sort.manual': '手动',
+  'workbench.sidebar.sort.name': '名称',
+  'workbench.sidebar.dnd.itemsCount': ({ count }, locale) => plural(locale, Number(count), { other: '{count} 项' }),
+  'workbench.sidebar.toast.itemsMoved': ({ count }, locale) =>
+    plural(locale, Number(count), { other: '已移动 {count} 项' }),
+  'workbench.sidebar.toast.moveFailed': '移动失败',
   'workbench.sidebar.filterPlaceholder': '筛选',
 
   // ── 侧边栏：快速搜索栏（按需打开，双模式） ──

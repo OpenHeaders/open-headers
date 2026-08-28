@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  deriveSideEffectsForEnvelope,
   type MutatorContext,
   makeChildMutators,
   mintBatch,
@@ -69,7 +70,7 @@ describe('makeChildMutators — create', () => {
       { kind: 'create', type: RULE_ENTITY_TYPE, id: 'r-1', payload: { name: 'Probe' } },
       child.slotAdd('r-1', collection, 'mm'),
     ]);
-    expect(intent.sideEffects).toEqual([]);
+    expect(intent.sideEffects).toEqual(intent.batch.mutations.flatMap(deriveSideEffectsForEnvelope));
   });
 
   it('a keyless create leaves the slot on the seed key', () => {

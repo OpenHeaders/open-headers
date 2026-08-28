@@ -9,6 +9,7 @@ import { getOracleHostHooks } from '@openheaders/oracle/sync';
 import { createAwarenessStore } from '../awareness/awareness';
 import { wireBroadcastToSink } from '../bridge';
 import { InMemoryBroadcast } from '../broadcast';
+import { createTreeOrderCache } from '../caches/tree-order-cache';
 import {
   buildLocalWriteValidator,
   buildProjectorPipeline,
@@ -82,6 +83,10 @@ export function buildService(deps: WireDeps): WorkspaceServiceState {
   // (`getActiveCacheForRegistration`) stay aligned.
   const treeSlots = createTreeSlotReconciler(deps.workspaceId, oracle, broadcast, () => context.next());
   caches.push(treeSlots);
+  // The per-container order record the restart re-seed reads back;
+  // written from the live sets on every containment write.
+  const treeOrder = createTreeOrderCache(deps.workspaceId, oracle, broadcast);
+  caches.push(treeOrder);
 
   const awareness = createAwarenessStore({
     workspaceId: deps.workspaceId,
@@ -132,6 +137,7 @@ export function buildService(deps: WireDeps): WorkspaceServiceState {
     await Promise.all(nonFolderCaches.map((c) => c.hydrateFromStorage()));
     await Promise.all(folderCaches.map((c) => c.hydrateFromStorage()));
     await treeSlots.hydrateFromStorage();
+    await treeOrder.hydrateFromStorage();
   })();
 
   // Active-bound runners (DNR + resolver-invalidate) are NOT subscribed

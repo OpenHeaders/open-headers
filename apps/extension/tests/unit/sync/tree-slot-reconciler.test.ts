@@ -22,16 +22,18 @@ import {
   REQUEST_COLLECTION_ENTITY_TYPE,
   REQUEST_ENTITY_TYPE,
   REQUEST_EXAMPLES_PATH,
+  REQUEST_FOLDER_ITEMS_PATH,
   WORKSPACE_ROOTS_ENTITY_TYPE,
   WORKSPACE_ROOTS_ID,
   WORKSPACE_ROOTS_RULE_COLLECTIONS_PATH,
 } from '@openheaders/core/sync';
 import { seedCollection } from '@openheaders/core/sync-builders/projections/collection-projection';
+import { seedGrpcRequest } from '@openheaders/core/sync-builders/projections/grpc-request-projection';
 import { seedRequestCollection } from '@openheaders/core/sync-builders/projections/request-collection-projection';
 import { seedRequest } from '@openheaders/core/sync-builders/projections/request-projection';
 import { seedResponseExample } from '@openheaders/core/sync-builders/projections/response-example-projection';
 import { seedRule } from '@openheaders/core/sync-builders/projections/rule-projection';
-import type { Collection, Request, ResponseExample, Rule } from '@openheaders/core/types';
+import type { Collection, GrpcRequest, Request, ResponseExample, Rule } from '@openheaders/core/types';
 import { wsKeys } from '@openheaders/oracle/storage';
 import { setHostActivityEntrySink } from '@openheaders/oracle/sync';
 import { InMemoryBroadcast } from '@openheaders/oracle/sync/broadcast';
@@ -201,6 +203,61 @@ describe('tree slot reconciler', () => {
     expect(ruleSlots(COLLECTION_ENTITY_TYPE, coll.uid)).toEqual([]);
     await new Promise((resolve) => setTimeout(resolve, 80));
     expect(ruleSlots(COLLECTION_ENTITY_TYPE, coll.uid).map((s) => s.itemId)).toEqual(['rul00001']);
+    reconciler.dispose();
+  });
+});
+
+describe('tree slot reconciler — tree-order record', () => {
+  const requestCollection = {
+    schemaVersion: 5,
+    uid: 'col00001',
+    name: 'api',
+    path: 'requests/api-col00001',
+    variables: [],
+    pinnedEnvironmentIds: [],
+    defaultEnvironmentId: null,
+  } as unknown as Collection;
+  const http = (uid: string): Request =>
+    ({
+      schemaVersion: 5,
+      uid,
+      path: `${requestCollection.path}/get-${uid}`,
+      name: uid,
+      method: 'GET',
+      url: '',
+      headers: [],
+      params: [],
+    }) as unknown as Request;
+  const grpc = (uid: string): GrpcRequest =>
+    ({
+      schemaVersion: 5,
+      uid,
+      path: `${requestCollection.path}/call-${uid}`,
+      name: uid,
+      metadata: [],
+    }) as unknown as GrpcRequest;
+
+  it("re-seeds the request kinds in the record's interleave, unknown leaves after by kind and array order", async () => {
+    await oracle.apply(seedRequestCollection(requestCollection, ctxFactory()), [], 'inbound');
+    const https = [http('req00002'), http('req00001'), http('req00003')];
+    const grpcs = [grpc('grq00001')];
+    for (const r of https) await oracle.apply(seedRequest(r, ctxFactory()), [], 'inbound');
+    for (const g of grpcs) await oracle.apply(seedGrpcRequest(g, ctxFactory()), [], 'inbound');
+    await hostStorage.set(wsKeys('ws-1').requests, https);
+    await hostStorage.set(wsKeys('ws-1').grpcRequests, grpcs);
+    await hostStorage.set(wsKeys('ws-1').requestCollections, [requestCollection]);
+    // The record knows three of the four: gRPC first, between the two
+    // HTTP requests it lists; req00003 is new to it.
+    await hostStorage.set(wsKeys('ws-1').treeOrder, {
+      schemaVersion: 5,
+      containers: { 'request-collection:col00001': { folders: [], items: ['req00001', 'grq00001', 'req00002'] } },
+    });
+
+    const reconciler = createTreeSlotReconciler('ws-1', oracle, broadcast, ctxFactory);
+    await reconciler.hydrateFromStorage();
+    const slots = oracle.liveOrderedSetItems(REQUEST_COLLECTION_ENTITY_TYPE, 'col00001', REQUEST_FOLDER_ITEMS_PATH);
+    expect(slots.map((s) => s.itemId)).toEqual(['req00001', 'grq00001', 'req00002', 'req00003']);
+    expect(slots.every((s, i) => i === 0 || slots[i - 1].key < s.key)).toBe(true);
     reconciler.dispose();
   });
 });

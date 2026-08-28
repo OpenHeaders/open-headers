@@ -9,6 +9,8 @@
 
 import type { MutationEnvelope } from '../../envelope';
 import type { HLC } from '../../hlc';
+import { COLLECTION_ENTITY_TYPE } from '../collection/types';
+import { FOLDER_CHILDREN_PATH, FOLDER_ENTITY_TYPE, FOLDER_ITEMS_PATH } from '../folder/types';
 import type { SideEffectIntent } from '../types';
 import { RULE_ENTITY_TYPE } from './types';
 
@@ -37,4 +39,25 @@ export function recompileDnrIntent(ruleUid: string, hlc: HLC): SideEffectIntent 
 export function deriveRuleSideEffects(envelope: MutationEnvelope): SideEffectIntent[] {
   if (envelope.body.type !== RULE_ENTITY_TYPE) return [];
   return [recompileDnrIntent(envelope.body.id, envelope.hlc)];
+}
+
+/**
+ * Containment writes on the rule tree that change which pause markers
+ * a rule sits under: a rule slot landing on a collection or folder
+ * (the add half of a cross-parent move; a rehome), or a folder slot
+ * landing anywhere (its whole subtree changes chain). A same-parent
+ * `moveBefore` keeps the chain and emits nothing. Keyed by the moved
+ * child's uid so a flurry on one child coalesces.
+ */
+export function deriveRuleTreeContainmentSideEffects(envelope: MutationEnvelope): SideEffectIntent[] {
+  const body = envelope.body;
+  if (body.type !== COLLECTION_ENTITY_TYPE && body.type !== FOLDER_ENTITY_TYPE) return [];
+  if (body.kind !== 'addToSet') return [];
+  if (body.path === FOLDER_CHILDREN_PATH) return [recompileDnrIntent(body.itemId, envelope.hlc)];
+  if (body.path === FOLDER_ITEMS_PATH && isRuleSlot(body.item)) return [recompileDnrIntent(body.itemId, envelope.hlc)];
+  return [];
+}
+
+function isRuleSlot(item: unknown): boolean {
+  return typeof item === 'object' && item !== null && (item as { type?: unknown }).type === RULE_ENTITY_TYPE;
 }

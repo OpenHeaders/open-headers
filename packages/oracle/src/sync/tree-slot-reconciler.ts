@@ -38,11 +38,13 @@
  * slotted keeps today's path seeding rather than a rehome, so an
  * in-flight create lands where its author put it.
  *
- * Order: at hydration the persisted arrays are read back and replayed
- * in array order (the caches persist tree order, so keys mint
- * ascending in the order the user last saw); a later inbound arrival
- * appends after the parent's live tail. Collections without a roots
- * slot join their tree's roots the same way.
+ * Order: at hydration the persisted tree-order record ranks the
+ * leaves (it holds the interleave of the request kinds inside one
+ * `items` set, which the per-kind arrays cannot), the arrays rank
+ * whatever the record does not know, and keys mint ascending in that
+ * order; a later inbound arrival appends after the parent's live
+ * tail. Collections without a roots slot join their tree's roots in
+ * persisted array order.
  */
 
 import {
@@ -108,6 +110,7 @@ import { logger, parentPathOf } from '@openheaders/core/utils';
 import { hostStorage, type StorageKey, wsKeys } from '@openheaders/oracle/storage';
 import { recordHostActivityEntry } from './activity/activity-host-entries';
 import type { BroadcastEvent, InMemoryBroadcast } from './broadcast';
+import { loadTreeOrderRanks } from './caches/tree-order-cache';
 import type { EntityCacheLike } from './entity-registry';
 import type { EntityOracle } from './oracle';
 import {
@@ -294,6 +297,8 @@ interface Pass {
   tail: (parent: ParentRefShape, setPath: string, childUid: string) => string;
   /** Hydration: persisted order + immediate rehome. */
   settled: boolean;
+  /** Child ranks from the persisted tree-order record (hydration only). */
+  ranks: ReadonlyMap<string, number>;
   now: number;
   /** Orphans seen this pass — the grace map is pruned to them. */
   orphans: Set<string>;
@@ -395,6 +400,7 @@ async function runPass(
         .map((entry) => ({ itemId: entry.itemId, item: entry.item, orderKey: entry.key })),
     ),
     settled,
+    ranks: settled ? await loadTreeOrderRanks(workspaceId) : new Map(),
     now,
     orphans: new Set(),
     deferred: false,
@@ -508,33 +514,55 @@ async function reconcileTree<C extends string, F extends string>(
     });
   }
 
-  for (const leaf of tree.leaves) {
-    const order = pass.settled ? await readOrder(leaf.storageKey(workspaceId)) : new Map();
-    const slotless: MaterializedEntity[] = [];
+  // Leaves of every kind seed in ONE pass: the four request kinds
+  // share a parent's `items` set, so their interleave is the tree-order
+  // record's; a leaf the record does not know follows, by kind and
+  // then by its own persisted array's order.
+  const slotless: Array<{ m: MaterializedEntity; leaf: LeafKind<TreeParentRef<C, F>>; kind: number }> = [];
+  const arrayOrders: UidOrder[] = [];
+  for (const [kind, leaf] of tree.leaves.entries()) {
+    arrayOrders.push(pass.settled ? await readOrder(leaf.storageKey(workspaceId)) : new Map());
     for (const m of materialized) {
       if (m.type !== leaf.entityType) continue;
       if (hasTreeSlot(oracle, tree.kinds, m.id)) memory.everSlotted.add(entityKey(m));
-      else slotless.push(m);
-    }
-    for (const m of sortByOrder(slotless, order)) {
-      const path = storedPath(m.data);
-      const parentPath = path === null ? null : parentPathOf(path);
-      const parent = parentPath === null ? null : resolveTreeParent(parentPath, containers, tree.parentKinds);
-      // A leaf this host never saw slotted is an old-client or
-      // in-flight create: its stored path is where its author put it.
-      if (parent && liveContainers.has(parent.uid) && !memory.everSlotted.has(entityKey(m))) {
-        pass.bodies.push(leaf.child.slotAdd(m.id, parent, pass.tail(parent, tree.itemsPath, m.id)));
-        continue;
-      }
-      if (!settled(memory, pass, entityKey(m))) continue;
-      planRehome(workspaceId, oracle, tree, containers, liveContainers, pass, {
-        child: { type: m.type, uid: m.id },
-        from: null,
-        reason: 'orphan',
-        storedPath: path,
-      });
+      else slotless.push({ m, leaf, kind });
     }
   }
+  slotless.sort((a, b) => compareSeedOrder(a, b, pass.ranks, arrayOrders));
+  for (const { m, leaf } of slotless) {
+    const path = storedPath(m.data);
+    const parentPath = path === null ? null : parentPathOf(path);
+    const parent = parentPath === null ? null : resolveTreeParent(parentPath, containers, tree.parentKinds);
+    // A leaf this host never saw slotted is an old-client or
+    // in-flight create: its stored path is where its author put it.
+    if (parent && liveContainers.has(parent.uid) && !memory.everSlotted.has(entityKey(m))) {
+      pass.bodies.push(leaf.child.slotAdd(m.id, parent, pass.tail(parent, tree.itemsPath, m.id)));
+      continue;
+    }
+    if (!settled(memory, pass, entityKey(m))) continue;
+    planRehome(workspaceId, oracle, tree, containers, liveContainers, pass, {
+      child: { type: m.type, uid: m.id },
+      from: null,
+      reason: 'orphan',
+      storedPath: path,
+    });
+  }
+}
+
+function compareSeedOrder(
+  a: { m: MaterializedEntity; kind: number },
+  b: { m: MaterializedEntity; kind: number },
+  ranks: ReadonlyMap<string, number>,
+  arrayOrders: ReadonlyArray<UidOrder>,
+): number {
+  const ra = ranks.get(a.m.id) ?? Number.POSITIVE_INFINITY;
+  const rb = ranks.get(b.m.id) ?? Number.POSITIVE_INFINITY;
+  if (ra !== rb) return ra < rb ? -1 : 1;
+  if (a.kind !== b.kind) return a.kind - b.kind;
+  const aa = arrayOrders[a.kind].get(a.m.id) ?? Number.POSITIVE_INFINITY;
+  const ab = arrayOrders[b.kind].get(b.m.id) ?? Number.POSITIVE_INFINITY;
+  if (aa !== ab) return aa < ab ? -1 : 1;
+  return a.m.id < b.m.id ? -1 : a.m.id > b.m.id ? 1 : 0;
 }
 
 /**

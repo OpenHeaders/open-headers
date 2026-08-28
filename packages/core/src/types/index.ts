@@ -356,6 +356,7 @@ export type {
 export type { Template } from './template';
 // ── Per-tab tracked-resource state ─────────────────────────────────
 export type { ObservationSource, TrackedResource } from './tracking';
+export { EMPTY_TREE_ORDER, type TreeContainerOrder, type TreeOrderRecord, treeContainerKey } from './tree-order';
 export { EMPTY_TRUSTED_ROOTS, type TrustedRoot, type TrustedRoots } from './trusted-roots';
 // ── Variable ───────────────────────────────────────────────────────
 export type {

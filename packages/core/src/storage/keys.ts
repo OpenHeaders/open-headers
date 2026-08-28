@@ -54,6 +54,7 @@ import type {
   SyntheticIdentityRecord,
   SystemProxySettings,
   Template,
+  TreeOrderRecord,
   TrustedRoots,
   Vault,
   ViewMode,
@@ -588,6 +589,8 @@ export interface WorkspaceKeys {
   trustedRoots: StorageKey<TrustedRoots>;
   /** Collection order of the three trees — the workspace-roots singleton's projection. */
   workspaceRoots: StorageKey<WorkspaceRoots>;
+  /** Child order of every container of the three trees — the sets' projection, read back at restart. */
+  treeOrder: StorageKey<TreeOrderRecord>;
   pauseMarkers: StorageKey<PauseMarkersRecord>;
   tabSession: StorageKey<PersistedTabSession>;
   panelLayout: StorageKey<PersistedPanelLayout>;
@@ -785,6 +788,7 @@ export function wsKeys(workspaceId: string): WorkspaceKeys {
     vault: storageKey<Vault>(`${p}.vault`, { sensitive: true }),
     trustedRoots: storageKey<TrustedRoots>(`${p}.trustedRoots`),
     workspaceRoots: storageKey<WorkspaceRoots>(`${p}.workspaceRoots`),
+    treeOrder: storageKey<TreeOrderRecord>(`${p}.treeOrder`),
     pauseMarkers: storageKey<PauseMarkersRecord>(`${p}.pauseMarkers`),
     tabSession: storageKey<PersistedTabSession>(`${p}.tabSession`),
     panelLayout: storageKey<PersistedPanelLayout>(`${p}.panelLayout`),

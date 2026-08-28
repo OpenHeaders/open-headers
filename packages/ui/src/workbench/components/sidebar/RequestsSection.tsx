@@ -1,7 +1,7 @@
 /**
  * RequestsSection — the `api-requests` view's single REQUESTS section.
  * Header `+` opens the import/create menu; the body renders the request
- * collection tree with folder-reorder dnd (or the empty-state Create
+ * collection tree with tree dnd (or the empty-state Create
  * link). Owns only its own `theme.useToken()` read; the node tree, its
  * dnd config, the import menu, the create action, and the expansion state
  * arrive as props.
@@ -12,7 +12,7 @@ import type { MenuProps } from 'antd';
 import { Dropdown, theme } from 'antd';
 import type React from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
-import type { FolderDndConfig } from './FolderDndTree';
+import type { TreeDndConfig } from './TreeDnd';
 import { SectionHeader } from './SectionHeader';
 import type { TreeNode } from './types';
 import type { SidebarNodeRenderers } from './useSidebarNodeRenderers';
@@ -22,9 +22,9 @@ interface RequestsSectionProps {
   toggleSection: (key: string) => void;
   requestImportMenuItems: MenuProps['items'];
   requestNodes: TreeNode[];
-  requestFolderDndConfig: FolderDndConfig;
+  requestDndConfig: TreeDndConfig;
   createNewRequestCollection: () => Promise<void>;
-  renderFolderDndNodes: SidebarNodeRenderers['renderFolderDndNodes'];
+  renderTreeDndNodes: SidebarNodeRenderers['renderTreeDndNodes'];
 }
 
 const RequestsSection: React.FC<RequestsSectionProps> = ({
@@ -32,9 +32,9 @@ const RequestsSection: React.FC<RequestsSectionProps> = ({
   toggleSection,
   requestImportMenuItems,
   requestNodes,
-  requestFolderDndConfig,
+  requestDndConfig,
   createNewRequestCollection,
-  renderFolderDndNodes,
+  renderTreeDndNodes,
 }) => {
   const { token } = theme.useToken();
   const t = useT();
@@ -55,7 +55,7 @@ const RequestsSection: React.FC<RequestsSectionProps> = ({
       />
       {sectionsExpanded['api-requests'] && (
         <div className="oh-scroll-topline" style={{ flex: 1, overflowY: 'auto', overscrollBehavior: 'none' }}>
-          {renderFolderDndNodes(requestNodes, requestFolderDndConfig, () => void createNewRequestCollection())}
+          {renderTreeDndNodes(requestNodes, requestDndConfig, () => void createNewRequestCollection())}
         </div>
       )}
     </>

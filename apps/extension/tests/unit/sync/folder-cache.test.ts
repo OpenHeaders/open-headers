@@ -4,6 +4,7 @@
  * collection-cache.test.ts.
  */
 
+import { hostStorage } from '@openheaders/core/storage';
 import {
   COLLECTION_ENTITY_TYPE,
   createFolder,
@@ -13,13 +14,14 @@ import {
 } from '@openheaders/core/sync';
 import { seedCollection } from '@openheaders/core/sync-builders/projections/collection-projection';
 import type { Collection } from '@openheaders/core/types';
-import type { PersistedLocalFolder } from '@openheaders/oracle/storage';
+import { type PersistedLocalFolder, wsKeys } from '@openheaders/oracle/storage';
 import { InMemoryBroadcast } from '@openheaders/oracle/sync/broadcast';
 import { createFolderCache } from '@openheaders/oracle/sync/caches/folder-cache';
 import { InMemoryMutationLog } from '@openheaders/oracle/sync/mutation-log';
 import { EntityOracle, type LockAcquirer } from '@openheaders/oracle/sync/oracle';
 import { InMemoryPendingIntents } from '@openheaders/oracle/sync/pending-intents';
 import { beforeEach, describe, expect, it } from 'vitest';
+import { installBackingStorage } from '../../helpers/chrome-storage-backing';
 
 const lock: LockAcquirer = async (_ws, _t, _id, fn) => fn();
 
@@ -230,6 +232,29 @@ describe('FolderCache', () => {
     expect(slots.map((s) => s.itemId)).toEqual(['f-z', 'f-a', 'f-m']);
     expect(slots[0].key < slots[1].key && slots[1].key < slots[2].key).toBe(true);
     expect(cache.getFolders().map((f) => f.uid)).toEqual(['f-z', 'f-a', 'f-m']);
+    cache.dispose();
+  });
+
+  it("seeds siblings in the persisted tree-order record's order, array order for the rest", async () => {
+    installBackingStorage();
+    const coll = makeCollection('col00001');
+    await oracle.apply(seedCollection(coll, ctxFactory()), []);
+    await hostStorage.set(wsKeys('ws-1').treeOrder, {
+      schemaVersion: 5,
+      containers: { 'collection:col00001': { folders: ['fol0000m', 'fol0000z'], items: [] } },
+    });
+    const cache = createFolderCache('ws-1', oracle, broadcast, ctxFactory);
+    await cache.seedFromPersistedFolders(
+      [
+        { schemaVersion: 5, uid: 'fol0000z', path: `${coll.path}/z-fol0000z`, name: 'Z' },
+        { schemaVersion: 5, uid: 'fol0000b', path: `${coll.path}/b-fol0000b`, name: 'B' },
+        { schemaVersion: 5, uid: 'fol0000a', path: `${coll.path}/a-fol0000a`, name: 'A' },
+        { schemaVersion: 5, uid: 'fol0000m', path: `${coll.path}/m-fol0000m`, name: 'M' },
+      ],
+      [coll],
+    );
+    const slots = oracle.liveOrderedSetItems(COLLECTION_ENTITY_TYPE, coll.uid, FOLDER_CHILDREN_PATH);
+    expect(slots.map((s) => s.itemId)).toEqual(['fol0000m', 'fol0000z', 'fol0000b', 'fol0000a']);
     cache.dispose();
   });
 });

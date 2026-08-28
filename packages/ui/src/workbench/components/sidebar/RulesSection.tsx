@@ -1,7 +1,7 @@
 /**
  * RulesSection — the `http-rules` view's RULES + TEMPLATES sections.
  * RULES header `+` opens the create-rule menu; its body renders the rule
- * collection tree with folder-reorder dnd. TEMPLATES header `+` creates a
+ * collection tree with tree dnd. TEMPLATES header `+` creates a
  * user-template collection; its body renders the system templates and the
  * user-template dnd tree side-by-side under one header, collapsing to a
  * single empty-state when both lists are empty. Owns only its own
@@ -14,7 +14,7 @@ import type { MenuProps } from 'antd';
 import { Dropdown, Tooltip, theme } from 'antd';
 import type React from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
-import type { FolderDndConfig } from './FolderDndTree';
+import type { TreeDndConfig } from './TreeDnd';
 import { SectionHeader } from './SectionHeader';
 import type { TreeNode } from './types';
 import type { SidebarNodeRenderers } from './useSidebarNodeRenderers';
@@ -24,15 +24,15 @@ interface RulesSectionProps {
   toggleSection: (key: string) => void;
   createMenuItems: MenuProps['items'];
   rulesNodes: TreeNode[];
-  rulesFolderDndConfig: FolderDndConfig;
+  rulesDndConfig: TreeDndConfig;
   createNewCollection: () => Promise<void>;
   systemTemplateNodes: TreeNode[];
   templateNodes: TreeNode[];
-  templateFolderDndConfig: FolderDndConfig;
+  templateDndConfig: TreeDndConfig;
   createNewTemplateCollection: () => Promise<void>;
   renderTreeNodeRow: SidebarNodeRenderers['renderTreeNodeRow'];
   renderEmptyState: SidebarNodeRenderers['renderEmptyState'];
-  renderFolderDndNodes: SidebarNodeRenderers['renderFolderDndNodes'];
+  renderTreeDndNodes: SidebarNodeRenderers['renderTreeDndNodes'];
 }
 
 const RulesSection: React.FC<RulesSectionProps> = ({
@@ -40,15 +40,15 @@ const RulesSection: React.FC<RulesSectionProps> = ({
   toggleSection,
   createMenuItems,
   rulesNodes,
-  rulesFolderDndConfig,
+  rulesDndConfig,
   createNewCollection,
   systemTemplateNodes,
   templateNodes,
-  templateFolderDndConfig,
+  templateDndConfig,
   createNewTemplateCollection,
   renderTreeNodeRow,
   renderEmptyState,
-  renderFolderDndNodes,
+  renderTreeDndNodes,
 }) => {
   const { token } = theme.useToken();
   const t = useT();
@@ -69,7 +69,7 @@ const RulesSection: React.FC<RulesSectionProps> = ({
       />
       {sectionsExpanded.rules && (
         <div className="oh-scroll-topline" style={{ flex: 1, overflowY: 'auto', overscrollBehavior: 'none' }}>
-          {renderFolderDndNodes(rulesNodes, rulesFolderDndConfig, () => void createNewCollection())}
+          {renderTreeDndNodes(rulesNodes, rulesDndConfig, () => void createNewCollection())}
         </div>
       )}
 
@@ -107,7 +107,7 @@ const RulesSection: React.FC<RulesSectionProps> = ({
               <>
                 {systemTemplateNodes.length > 0 && systemTemplateNodes.map(renderTreeNodeRow)}
                 {templateNodes.length > 0 &&
-                  renderFolderDndNodes(templateNodes, templateFolderDndConfig, createUserCollection)}
+                  renderTreeDndNodes(templateNodes, templateDndConfig, createUserCollection)}
               </>
             );
           })()}

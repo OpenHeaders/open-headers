@@ -377,6 +377,14 @@
   position: relative;
 }
 
+// The insertion placeholder while a row is dragged: an empty slot the
+// height of a row, inset to the landing depth (the indent is the box's
+// own left margin — an empty box has no content for padding to push).
+.tree-dnd-placeholder {
+  pointer-events: none;
+  margin-right: 4px;
+}
+
 // ── Environment selector rows ────────────────────────────────────────
 // Mirrors .rules-sidebar-item pattern: raw <span> actions with opacity
 // toggled by parent :hover. No AntD Button/Space wrappers (their internal

@@ -62,6 +62,14 @@ export const workbenchChromeSidebar = {
   'workbench.sidebar.behavior.alwaysSelectOpened': 'Seleccionar siempre la pestaña abierta',
   'workbench.sidebar.appearance.title': 'Apariencia',
   'workbench.sidebar.appearance.showIndentGuides': 'Mostrar las guías de sangría',
+  'workbench.sidebar.sort.title': 'Ordenar por',
+  'workbench.sidebar.sort.manual': 'Manual',
+  'workbench.sidebar.sort.name': 'Nombre',
+  'workbench.sidebar.dnd.itemsCount': ({ count }, locale) =>
+    plural(locale, Number(count), { one: '{count} elemento', other: '{count} elementos' }),
+  'workbench.sidebar.toast.itemsMoved': ({ count }, locale) =>
+    plural(locale, Number(count), { one: '{count} elemento movido', other: '{count} elementos movidos' }),
+  'workbench.sidebar.toast.moveFailed': 'Error al mover',
   'workbench.sidebar.filterPlaceholder': 'Filtrar',
 
   // ── Sidebar: barra de búsqueda rápida (bajo demanda, modo dual) ──
