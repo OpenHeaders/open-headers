@@ -136,6 +136,7 @@ export function executeGrpcStream(params: GrpcStreamExecuteParams): Promise<Exec
           : error instanceof GrpcTransportError
             ? error.canonicalStatus
             : undefined;
+        const hint = !stopped && error instanceof GrpcTransportError ? error.hint : undefined;
         resolve({
           httpStatus: 0,
           headers: [],
@@ -149,6 +150,7 @@ export function executeGrpcStream(params: GrpcStreamExecuteParams): Promise<Exec
           requestMetadata: params.metadata.map((m) => ({ key: m.key, value: m.value })),
           error: message,
           ...(localStatus !== undefined ? { localStatus } : {}),
+          ...(hint !== undefined ? { hint } : {}),
         });
         return;
       }

@@ -21,14 +21,15 @@
  * law's display twin: facts, never synthesis).
  */
 
-import { ClearOutlined, EllipsisOutlined } from '@ant-design/icons';
+import { ClearOutlined, CloseOutlined, EllipsisOutlined } from '@ant-design/icons';
 import type { ExecutedMqttSnapshot, MqttRequestProtocolVersion } from '@openheaders/core/types';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { Button, Dropdown, Tabs, Tag, Typography, theme } from 'antd';
 import type React from 'react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import ProxyRouteTag, { proxyRouteHasBadge } from '../request-editor/response/ProxyRouteTag';
 import { useTonePillStyle } from '../request-editor/response/response-status';
+import TrustCertificateOffer from '../request-editor/response/TrustCertificateOffer';
 import ConnectionDetailsTooltip, { type ConnectionDetailsRow } from '../shared/ConnectionDetailsTooltip';
 import { ExampleChip } from '../shared/ExampleChip';
 import MqttMessageTimeline from './MqttMessageTimeline';
@@ -67,6 +68,8 @@ interface MqttSessionPaneProps {
   subscribedTopicsCount?: number;
   /** Clicking the summary jumps to the compose Topics tab. */
   onShowTopics?: () => void;
+  /** Connect again after a trust gesture — the editor's Connect. */
+  onReconnect?: () => void;
 }
 
 const MqttSessionPane: React.FC<MqttSessionPaneProps> = ({
@@ -79,10 +82,18 @@ const MqttSessionPane: React.FC<MqttSessionPaneProps> = ({
   onSaveResponse,
   subscribedTopicsCount,
   onShowTopics,
+  onReconnect,
 }) => {
   const { token } = theme.useToken();
   const t = useT();
   const [activeTab, setActiveTab] = useState('timeline');
+  // A verification failure's remedy — shown only once the error row's
+  // Trust certificate button asks for it; a new session closes it.
+  const trustHint = snapshot?.outcome.kind === 'failed' ? (snapshot.outcome.hint ?? null) : null;
+  const [trustOfferOpen, setTrustOfferOpen] = useState(false);
+  useEffect(() => {
+    if (trustHint === null) setTrustOfferOpen(false);
+  }, [trustHint]);
   const [subsHovered, setSubsHovered] = useState(false);
   const v5 = protocolVersion !== '3.1.1';
 
@@ -460,6 +471,22 @@ const MqttSessionPane: React.FC<MqttSessionPaneProps> = ({
                   minHeight: 0,
                 }}
               >
+                {trustHint !== null && trustOfferOpen && (
+                  <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'flex-start', gap: 4 }}>
+                    <TrustCertificateOffer
+                      hint={trustHint}
+                      {...(onReconnect !== undefined ? { onResend: onReconnect } : {})}
+                    />
+                    <Button
+                      size="small"
+                      type="text"
+                      icon={<CloseOutlined style={{ fontSize: 11 }} />}
+                      onClick={() => setTrustOfferOpen(false)}
+                      aria-label={t('shared.action.close')}
+                      data-testid="mqtt-session-trust-offer-close"
+                    />
+                  </div>
+                )}
                 <div style={{ flex: 1, minHeight: 120, display: 'flex', flexDirection: 'column' }}>
                   <MqttMessageTimeline
                     items={items}
@@ -468,6 +495,10 @@ const MqttSessionPane: React.FC<MqttSessionPaneProps> = ({
                     lifecycle={lifecycle}
                     v5={v5}
                     droppedMessages={snapshot?.droppedMessages ?? 0}
+                    {...(trustHint !== null
+                      ? { onTrustCertificate: () => setTrustOfferOpen((open) => !open) }
+                      : {})}
+                    trustOfferOpen={trustOfferOpen}
                   />
                 </div>
               </div>

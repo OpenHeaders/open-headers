@@ -24,7 +24,7 @@ import {
   ReloadOutlined,
   UpOutlined,
 } from '@ant-design/icons';
-import { Tag, theme } from 'antd';
+import { Button, Tag, theme } from 'antd';
 import type React from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { formatDurationMs } from '@openheaders/ui/shared/combo-knob';
@@ -63,6 +63,12 @@ interface MqttTimelineEntryRowProps {
   wrapLines: boolean;
   onWrapLinesChange: (wrap: boolean) => void;
   viewerModes: TimelineViewerModes;
+  /** A verification failure's remedy — present only when the failure
+   *  carries the trust hint; the error row shows the Trust certificate
+   *  button that reveals the pane's offer. */
+  onTrustCertificate?: () => void;
+  /** The offer is showing — the button's pressed state (a11y only). */
+  trustOfferOpen?: boolean;
 }
 
 const MqttTimelineEntryRow: React.FC<MqttTimelineEntryRowProps> = ({
@@ -79,6 +85,8 @@ const MqttTimelineEntryRow: React.FC<MqttTimelineEntryRowProps> = ({
   wrapLines,
   onWrapLinesChange,
   viewerModes,
+  onTrustCertificate,
+  trustOfferOpen = false,
 }) => {
   const { token } = theme.useToken();
   const t = useT();
@@ -327,6 +335,20 @@ const MqttTimelineEntryRow: React.FC<MqttTimelineEntryRowProps> = ({
           >
             {lifecycle.errorMessage}
           </span>
+          {onTrustCertificate !== undefined && (
+            <Button
+              size="small"
+              aria-pressed={trustOfferOpen}
+              onClick={(event) => {
+                event.stopPropagation();
+                onTrustCertificate();
+              }}
+              style={{ flexShrink: 0 }}
+              data-testid="mqtt-timeline-trust-certificate"
+            >
+              {t('workbench.editors.mqtt.timeline.trustCertificate')}
+            </Button>
+          )}
           {lifecycleTime(lifecycle.endedAt)}
           {expandSlot(null)}
         </div>

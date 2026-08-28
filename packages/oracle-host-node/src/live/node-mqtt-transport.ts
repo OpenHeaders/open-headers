@@ -31,6 +31,7 @@
 
 import * as net from 'node:net';
 import * as tls from 'node:tls';
+import type { TrustCertificateErrorHint } from '@openheaders/core/types';
 import type {
   MqttByteTransport,
   MqttStreamCallbacks,
@@ -39,6 +40,7 @@ import type {
 } from '@openheaders/oracle/live/mqtt-exec/transport';
 import { MqttTransportError } from '@openheaders/oracle/live/mqtt-exec/transport';
 import { createNodeWsTransport } from './node-ws-transport';
+import { isTlsVerificationCode, trustCertificateHintFor } from './tls-verification';
 import { caOptionFor } from './trusted-roots-ca';
 
 const MQTT_DEFAULT_PORT = 1883;
@@ -55,12 +57,16 @@ function hostLabelOf(url: string): string {
 
 /** Classify a pre-connect dial failure into a user-actionable message
  *  — the WS transport's classifier vocabulary on the tcp leg. */
+/** The failure's `code` when the error carries one. */
+function mqttFailureCode(err: unknown): string | undefined {
+  return err !== null && typeof err === 'object' && typeof (err as { code?: unknown }).code === 'string'
+    ? (err as { code: string }).code
+    : undefined;
+}
+
 function classifyMqttDialFailure(url: string, err: unknown, certRef: string | undefined): string {
   const host = hostLabelOf(url);
-  const code =
-    err !== null && typeof err === 'object' && typeof (err as { code?: unknown }).code === 'string'
-      ? ((err as { code: string }).code as string)
-      : undefined;
+  const code = mqttFailureCode(err);
   switch (code) {
     case 'ENOTFOUND':
     case 'EAI_AGAIN':
@@ -117,11 +123,11 @@ function connectTcp(
     timer = null;
     signal?.removeEventListener('abort', onAbort);
   };
-  const settleError = (message: string): void => {
+  const settleError = (message: string, hint?: TrustCertificateErrorHint): void => {
     if (ended) return;
     ended = true;
     cleanup();
-    callbacks.onEnd(new MqttTransportError(message));
+    callbacks.onEnd(new MqttTransportError(message, hint));
   };
   const settleComplete = (): void => {
     if (ended) return;
@@ -143,12 +149,14 @@ function connectTcp(
       settleError('Session stopped before it connected.');
       return;
     }
+    // A verification failure carries the trust remedy — the hint the
+    // HTTP and WS transports attach, so the pane can offer the
+    // presented chain for pinning.
+    const dialError = lastError ?? new Error('the connection closed during the dial');
+    const code = mqttFailureCode(dialError);
     settleError(
-      classifyMqttDialFailure(
-        request.url,
-        lastError ?? new Error('the connection closed during the dial'),
-        request.clientCertificateRef,
-      ),
+      classifyMqttDialFailure(request.url, dialError, request.clientCertificateRef),
+      isTlsVerificationCode(code) ? trustCertificateHintFor(request.url, code) : undefined,
     );
   };
   const onAbort = (): void => {
@@ -273,7 +281,8 @@ function connectWs(
       // The Close accounting has no MQTT meaning — the byte stream's
       // end is the fact the executor consumes.
       onClose: () => {},
-      onEnd: (error) => callbacks.onEnd(error !== undefined ? new MqttTransportError(error.message) : undefined),
+      onEnd: (error) =>
+        callbacks.onEnd(error !== undefined ? new MqttTransportError(error.message, error.hint) : undefined),
     },
     signal,
   );

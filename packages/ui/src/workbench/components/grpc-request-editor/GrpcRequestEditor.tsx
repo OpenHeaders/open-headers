@@ -532,6 +532,7 @@ const GrpcRequestEditor: React.FC<GrpcRequestEditorProps> = ({
                   method={draft.method}
                   onClear={invoke.handleClearResponse}
                   onSaveResponse={invoke.canSaveResponse ? () => void invoke.handleSaveResponse() : undefined}
+                  onReinvoke={() => void invoke.handleInvoke()}
                 />
               ) : invoke.response !== null ? (
                 <GrpcResponsePane
@@ -540,6 +541,7 @@ const GrpcRequestEditor: React.FC<GrpcRequestEditorProps> = ({
                   method={draft.method}
                   onClear={invoke.handleClearResponse}
                   onSaveResponse={invoke.canSaveResponse ? () => void invoke.handleSaveResponse() : undefined}
+                  onReinvoke={() => void invoke.handleInvoke()}
                 />
               ) : (
                 // Always-attached result pane (the HTTP ResponsePanel

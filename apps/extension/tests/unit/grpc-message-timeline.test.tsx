@@ -209,6 +209,28 @@ describe('GrpcMessageTimeline rows', () => {
 });
 
 describe('GrpcMessageTimeline lifecycle rows', () => {
+  it('shows Trust certificate on the failed ended row only with a handler, the click never toggles the row', () => {
+    const failed = {
+      ...LIVE_LIFECYCLE,
+      headArrived: false,
+      endedBy: 'error' as const,
+      endedAt: 1_700_000_000_200,
+      endedMessage: 'TLS certificate error reaching grpc.openheaders.io:443 (DEPTH_ZERO_SELF_SIGNED_CERT).',
+    };
+    const { unmount } = renderTimeline({ items: [], count: 0, lifecycle: failed });
+    expect(screen.queryByTestId('grpc-timeline-trust-certificate')).toBeNull();
+    unmount();
+    const onTrustCertificate = vi.fn();
+    renderTimeline({ items: [], count: 0, lifecycle: failed, onTrustCertificate, trustOfferOpen: true });
+    const row = screen.getByTestId('grpc-timeline-ended-row');
+    const before = row.getAttribute('aria-expanded');
+    const button = screen.getByTestId('grpc-timeline-trust-certificate');
+    expect(button.getAttribute('aria-pressed')).toBe('true');
+    fireEvent.click(button);
+    expect(onTrustCertificate).toHaveBeenCalledTimes(1);
+    expect(row.getAttribute('aria-expanded')).toBe(before);
+  });
+
   it('derives sent, connected, and ended rows from props — never invented', () => {
     const { unmount } = renderTimeline();
     // The bare label — no call path (the Postman posture).

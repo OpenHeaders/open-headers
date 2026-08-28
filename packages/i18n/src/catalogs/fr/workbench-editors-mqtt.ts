@@ -322,6 +322,7 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.timeline.oldestFirst': 'Plus anciens en premier',
   'workbench.editors.mqtt.timeline.sortOrder': 'Ordre de tri',
   'workbench.editors.mqtt.timeline.clearMessages': 'Effacer les messages',
+  'workbench.editors.mqtt.timeline.trustCertificate': 'Faire confiance au certificat',
   'workbench.editors.mqtt.timeline.newMessages': 'Nouveaux messages',
   'workbench.editors.mqtt.timeline.binaryMessage': 'Charge utile binaire ({bytes} octets)',
   'workbench.editors.mqtt.timeline.byteCount': '{bytes} o',

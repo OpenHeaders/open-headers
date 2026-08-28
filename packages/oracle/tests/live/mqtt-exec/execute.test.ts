@@ -18,7 +18,7 @@ import {
   type MqttPacket,
   type MqttProtocolVersion,
 } from '@openheaders/core/mqtt';
-import type { MqttRequest } from '@openheaders/core/types';
+import type { MqttRequest, TrustCertificateErrorHint } from '@openheaders/core/types';
 import { executeMqttSession, reconnectDelayMs } from '@openheaders/oracle/live/mqtt-exec/execute';
 import {
   closeActiveMqttSession,
@@ -600,7 +600,7 @@ describe('executeMqttSession — 5.0 connect knobs and topic aliases', () => {
     await settled;
   });
 
-  it('this device\'s pins ride behind the workspace roots on the dial', async () => {
+  it("this device's pins ride behind the workspace roots on the dial", async () => {
     devicePems.mockReturnValue([DEVICE_PIN]);
     const rig = scriptedTransport(MQTT_PROTOCOL_VERSIONS.v5);
     const settled = executeMqttSession(makeMqttRequest({ url: 'mqtts://{{host}}' }), {
@@ -815,10 +815,10 @@ function reconnectRig(version: MqttProtocolVersion) {
       dial.callbacks.onEnd();
     },
     /** The dial failed before it established. */
-    fail: (n: number, message: string) => {
+    fail: (n: number, message: string, hint?: TrustCertificateErrorHint) => {
       const dial = dialAt(n);
       dial.ended = true;
-      dial.callbacks.onEnd(new MqttTransportError(message));
+      dial.callbacks.onEnd(new MqttTransportError(message, hint));
     },
   };
 }

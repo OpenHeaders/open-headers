@@ -240,6 +240,29 @@ describe('executeGrpcStream — settle paths', () => {
     expect(snapshot.grpcStatus).toBeNull();
   });
 
+  it("carries the transport error's trust hint onto the failed snapshot", async () => {
+    const fake = streamTransport();
+    const pending = executeGrpcStream(params(fake.transport));
+    const hint = {
+      kind: 'trust-certificate' as const,
+      host: 'grpc.openheaders.io',
+      port: 443,
+      code: 'DEPTH_ZERO_SELF_SIGNED_CERT',
+    };
+    fake
+      .cb()
+      .onEnd(
+        new GrpcTransportError(
+          'TLS certificate error reaching grpc.openheaders.io:443 (DEPTH_ZERO_SELF_SIGNED_CERT).',
+          14,
+          hint,
+        ),
+      );
+    const snapshot = await pending;
+    expect(snapshot.error).toContain('DEPTH_ZERO_SELF_SIGNED_CERT');
+    expect(snapshot.hint).toEqual(hint);
+  });
+
   it('maps a pre-head failure onto an error snapshot with its client-runtime canonical status', async () => {
     const fake = streamTransport();
     const pending = executeGrpcStream(params(fake.transport, { metadata: [{ key: 'wat', value: 'wat' }] }));

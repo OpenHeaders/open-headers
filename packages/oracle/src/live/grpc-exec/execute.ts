@@ -41,10 +41,10 @@ import type { ExecutedGrpcSnapshot, GrpcRequest, Spec } from '@openheaders/core/
 import { encodeBase64Bytes } from '@openheaders/core/utils';
 import { resolveTemplate } from '@openheaders/core/variables';
 import { getRequestCollections, getRequestCollectionsForWorkspace } from '../../entity/request-store';
-import { getTrustAnchorsForSend } from '../trust-anchors';
 import { peekActiveWorkspaceId } from '../../workspace/extension-workspace-store';
 import { buildResolver } from '../request-exec/resolver-scope';
 import { registerActiveSend } from '../request-exec/send-stream';
+import { getTrustAnchorsForSend } from '../trust-anchors';
 import { executeGrpcStream } from './execute-stream';
 import {
   GRPC_CANONICAL_CANCELLED,
@@ -290,10 +290,12 @@ export async function executeGrpcInvoke(
       : err instanceof GrpcTransportError
         ? err.canonicalStatus
         : undefined;
+    const hint = !stopped && err instanceof GrpcTransportError ? err.hint : undefined;
     return {
       ...errorGrpcSnapshot(message),
       requestMetadata: metadata.map((m) => ({ key: m.key, value: m.value })),
       ...(localStatus !== undefined ? { localStatus } : {}),
+      ...(hint !== undefined ? { hint } : {}),
       durationMs,
     };
   } finally {

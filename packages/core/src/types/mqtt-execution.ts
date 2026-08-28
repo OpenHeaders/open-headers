@@ -14,7 +14,7 @@
  * synthesized; pretty/decoded views are display-side.
  */
 
-import type { ExecutedProxyRoute } from './request-execution';
+import type { ExecutedProxyRoute, TrustCertificateErrorHint } from './request-execution';
 
 /** One captured PUBLISH of the session, in packet order. `direction`
  *  tags client-sent ('up') vs broker-sent ('down'). Payloads ride
@@ -136,7 +136,12 @@ export interface ExecutedMqttConnack {
  * cancelled before the session opened — a neutral outcome carrying no
  * synthesized message.
  */
-export type ExecutedMqttOutcome = { kind: 'connected' } | { kind: 'failed'; error: string } | { kind: 'aborted' };
+export type ExecutedMqttOutcome =
+  | { kind: 'connected' }
+  /** `hint` rides a TLS verification failure — the presented chain the
+   *  pane can offer for pinning (the HTTP snapshot's hint). */
+  | { kind: 'failed'; error: string; hint?: TrustCertificateErrorHint }
+  | { kind: 'aborted' };
 
 export interface ExecutedMqttSnapshot {
   /** How the session settled (see {@link ExecutedMqttOutcome}). */

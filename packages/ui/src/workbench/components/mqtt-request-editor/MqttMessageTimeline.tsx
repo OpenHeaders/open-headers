@@ -72,6 +72,9 @@ interface MqttMessageTimelineProps {
   /** Events that rolled off the retention window — an honest notice
    *  above the list when non-zero. */
   droppedMessages?: number;
+  /** A verification failure's remedy — see the entry row. */
+  onTrustCertificate?: () => void;
+  trustOfferOpen?: boolean;
 }
 
 const MqttMessageTimeline: React.FC<MqttMessageTimelineProps> = ({
@@ -81,6 +84,8 @@ const MqttMessageTimeline: React.FC<MqttMessageTimelineProps> = ({
   lifecycle,
   v5,
   droppedMessages = 0,
+  onTrustCertificate,
+  trustOfferOpen = false,
 }) => {
   const { token } = theme.useToken();
   const t = useT();
@@ -409,6 +414,8 @@ const MqttMessageTimeline: React.FC<MqttMessageTimelineProps> = ({
                 wrapLines={wrapLines}
                 onWrapLinesChange={setWrapLines}
                 viewerModes={viewerModes}
+                {...(onTrustCertificate !== undefined ? { onTrustCertificate } : {})}
+                trustOfferOpen={trustOfferOpen}
               />
             </StreamLastRow>
           ))}

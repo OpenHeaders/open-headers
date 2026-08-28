@@ -300,6 +300,7 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.timeline.oldestFirst': '最旧在前',
   'workbench.editors.mqtt.timeline.sortOrder': '排序',
   'workbench.editors.mqtt.timeline.clearMessages': '清除消息',
+  'workbench.editors.mqtt.timeline.trustCertificate': '信任证书',
   'workbench.editors.mqtt.timeline.newMessages': '新消息',
   'workbench.editors.mqtt.timeline.binaryMessage': '二进制载荷（{bytes} 字节）',
   'workbench.editors.mqtt.timeline.byteCount': '{bytes} B',

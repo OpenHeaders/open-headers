@@ -180,6 +180,12 @@ interface GrpcMessageTimelineProps {
   /** Clicking the received-metadata line jumps to the pane's Metadata
    *  tab. */
   onShowMetadata?: () => void;
+  /** A verification failure's remedy — present only when the failure
+   *  carries the trust hint; the error row shows the Trust certificate
+   *  button that reveals the pane's offer. */
+  onTrustCertificate?: () => void;
+  /** The offer is showing — the button's pressed state (a11y only). */
+  trustOfferOpen?: boolean;
 }
 
 /** One display slot of the virtual list — heights are a closed
@@ -325,6 +331,8 @@ const GrpcMessageTimeline: React.FC<GrpcMessageTimelineProps> = ({
   outputType,
   responseMetadataCount,
   onShowMetadata,
+  onTrustCertificate,
+  trustOfferOpen = false,
 }) => {
   const { token } = theme.useToken();
   const t = useT();
@@ -1142,6 +1150,21 @@ const GrpcMessageTimeline: React.FC<GrpcMessageTimelineProps> = ({
               <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {endedLabel(lifecycle.endedBy, t)}
               </span>
+              {onTrustCertificate !== undefined && (
+                <Button
+                  size="small"
+                  aria-pressed={trustOfferOpen}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onTrustCertificate();
+                  }}
+                  onKeyDown={(event) => event.stopPropagation()}
+                  style={{ flexShrink: 0 }}
+                  data-testid="grpc-timeline-trust-certificate"
+                >
+                  {t('workbench.editors.grpc.timeline.trustCertificate')}
+                </Button>
+              )}
               {lifecycleTime(lifecycle.endedAt)}
               {expandSlot(errorExpandable ? errorExpanded : null)}
             </div>

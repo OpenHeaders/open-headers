@@ -15,16 +15,17 @@
  * (the WS/MQTT session panes' law).
  */
 
-import { ClearOutlined, EllipsisOutlined } from '@ant-design/icons';
+import { ClearOutlined, CloseOutlined, EllipsisOutlined } from '@ant-design/icons';
 import type { ProtoRegistry } from '@openheaders/core/proto';
 import type { ExecutedGrpcSnapshot, GrpcMethodRef } from '@openheaders/core/types';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { Button, Dropdown, Tabs, Tag, Typography, theme } from 'antd';
 import type React from 'react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import ProxyRouteTag, { proxyRouteHasBadge } from '../request-editor/response/ProxyRouteTag';
 import { useTonePillStyle } from '../request-editor/response/response-status';
 import ResponseHeadersView from '../request-editor/response/ResponseHeadersView';
+import TrustCertificateOffer from '../request-editor/response/TrustCertificateOffer';
 import { ExampleChip } from '../shared/ExampleChip';
 import GrpcMessageTimeline, { type GrpcTimelineLifecycle } from './GrpcMessageTimeline';
 import GrpcMetaStrip from './GrpcMetaStrip';
@@ -50,6 +51,8 @@ interface GrpcStreamPaneProps {
    * the item.
    */
   onSaveResponse?: () => void;
+  /** Invoke again after a trust gesture — the editor's Invoke. */
+  onReinvoke?: () => void;
 }
 
 const GrpcStreamPane: React.FC<GrpcStreamPaneProps> = ({
@@ -60,10 +63,18 @@ const GrpcStreamPane: React.FC<GrpcStreamPaneProps> = ({
   method,
   onClear,
   onSaveResponse,
+  onReinvoke,
 }) => {
   const { token } = theme.useToken();
   const t = useT();
   const [activeTab, setActiveTab] = useState('timeline');
+  // A verification failure's remedy — shown only once the error row's
+  // Trust certificate button asks for it; a new call closes it.
+  const trustHint = snapshot?.hint ?? null;
+  const [trustOfferOpen, setTrustOfferOpen] = useState(false);
+  useEffect(() => {
+    if (trustHint === null) setTrustOfferOpen(false);
+  }, [trustHint]);
 
   const inputType = useMemo(() => grpcInputTypeOf(registry, method), [registry, method]);
   const outputType = useMemo(() => grpcOutputTypeOf(registry, method), [registry, method]);
@@ -239,6 +250,22 @@ const GrpcStreamPane: React.FC<GrpcStreamPaneProps> = ({
                     {notice}
                   </Text>
                 ))}
+                {trustHint !== null && trustOfferOpen && (
+                  <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'flex-start', gap: 4 }}>
+                    <TrustCertificateOffer
+                      hint={trustHint}
+                      {...(onReinvoke !== undefined ? { onResend: onReinvoke } : {})}
+                    />
+                    <Button
+                      size="small"
+                      type="text"
+                      icon={<CloseOutlined style={{ fontSize: 11 }} />}
+                      onClick={() => setTrustOfferOpen(false)}
+                      aria-label={t('shared.action.close')}
+                      data-testid="grpc-stream-trust-offer-close"
+                    />
+                  </div>
+                )}
                 {/* The timeline tracks the pane's height — the sash is
                   the resize affordance, not a fixed inner height. */}
                 <div style={{ flex: 1, minHeight: 120, display: 'flex', flexDirection: 'column' }}>
@@ -252,6 +279,8 @@ const GrpcStreamPane: React.FC<GrpcStreamPaneProps> = ({
                     outputType={outputType}
                     responseMetadataCount={headers.length}
                     onShowMetadata={() => setActiveTab('metadata')}
+                    {...(trustHint !== null ? { onTrustCertificate: () => setTrustOfferOpen((open) => !open) } : {})}
+                    trustOfferOpen={trustOfferOpen}
                   />
                 </div>
               </div>

@@ -153,3 +153,33 @@ describe('MqttMessageTimeline — message viewer', () => {
     expect(screen.getByTestId('code-editor')).toBeTruthy();
   });
 });
+
+describe('MqttMessageTimeline — trust certificate gesture', () => {
+  const failed: MqttTimelineLifecycle = {
+    startedAt: STARTED_AT,
+    connected: false,
+    errorMessage: 'TLS certificate error reaching broker.openheaders.io (SELF_SIGNED_CERT_IN_CHAIN).',
+    endedAt: STARTED_AT + 200,
+  };
+
+  it('shows Trust certificate on the error row only with a handler', () => {
+    const { unmount } = render(<MqttMessageTimeline items={[]} count={0} lifecycle={failed} v5 />);
+    expect(screen.queryByTestId('mqtt-timeline-trust-certificate')).toBeNull();
+    unmount();
+    const onTrustCertificate = vi.fn();
+    render(
+      <MqttMessageTimeline
+        items={[]}
+        count={0}
+        lifecycle={failed}
+        v5
+        onTrustCertificate={onTrustCertificate}
+        trustOfferOpen
+      />,
+    );
+    const button = screen.getByTestId('mqtt-timeline-trust-certificate');
+    expect(button.getAttribute('aria-pressed')).toBe('true');
+    fireEvent.click(button);
+    expect(onTrustCertificate).toHaveBeenCalledTimes(1);
+  });
+});

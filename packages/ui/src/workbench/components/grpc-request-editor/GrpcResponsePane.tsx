@@ -28,6 +28,7 @@ import { ExampleChip } from '../shared/ExampleChip';
 import CodeEditor from '../shared/CodeEditor';
 import GrpcMetaStrip from './GrpcMetaStrip';
 import GrpcResponseErrorState from './GrpcResponseErrorState';
+import GrpcResponseFailure from './GrpcResponseFailure';
 import { deriveGrpcMessageView, grpcOutputTypeOf, withoutGrpcStatusPair } from './response-decode';
 
 const { Text } = Typography;
@@ -43,9 +44,18 @@ interface GrpcResponsePaneProps {
    * the ⋯ actions menu). Undefined hides the item.
    */
   onSaveResponse?: () => void;
+  /** Invoke again after a trust gesture — the editor's Invoke. */
+  onReinvoke?: () => void;
 }
 
-const GrpcResponsePane: React.FC<GrpcResponsePaneProps> = ({ snapshot, registry, method, onClear, onSaveResponse }) => {
+const GrpcResponsePane: React.FC<GrpcResponsePaneProps> = ({
+  snapshot,
+  registry,
+  method,
+  onClear,
+  onSaveResponse,
+  onReinvoke,
+}) => {
   const { token } = theme.useToken();
   const t = useT();
   const [activeTab, setActiveTab] = useState('response');
@@ -128,7 +138,11 @@ const GrpcResponsePane: React.FC<GrpcResponsePaneProps> = ({ snapshot, registry,
       // the friendly error state IS the Response tab's body, inside
       // the pane's chrome (pill + duration + tabs stay; never a bare
       // error wall).
-      <GrpcResponseErrorState status={null} detail={snapshot.error} />
+      <GrpcResponseFailure
+        detail={snapshot.error}
+        {...(snapshot.hint !== undefined ? { hint: snapshot.hint } : {})}
+        {...(onReinvoke !== undefined ? { onReinvoke } : {})}
+      />
     ) : view.kind === 'none' ? (
       snapshot.grpcStatus !== null && snapshot.grpcStatus !== 0 ? (
         // A non-OK status with no reply message — the friendly error

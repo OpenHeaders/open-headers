@@ -66,6 +66,7 @@ import { type ClientHttp2Session, type ClientHttp2Stream, connect, constants } f
 import * as net from 'node:net';
 import * as tls from 'node:tls';
 import { encodeGrpcTimeout, writeGrpcFrame } from '@openheaders/core/proto';
+import type { TrustCertificateErrorHint } from '@openheaders/core/types';
 import {
   GRPC_CANONICAL_CANCELLED,
   GRPC_CANONICAL_DEADLINE_EXCEEDED,
@@ -90,6 +91,7 @@ import {
   type SessionRouteResult,
 } from './system-proxy/session-route';
 import type { SystemProxyResolver } from './system-proxy/types';
+import { isTlsVerificationCode, trustCertificateHintFor } from './tls-verification';
 import { caOptionFor } from './trusted-roots-ca';
 import { withHostUserAgent } from './user-agent';
 
@@ -269,6 +271,19 @@ function proxyHostOf(proxyUrl: string): string {
  * target-leg failures past the tunnel fall through to the shared
  * classification, because by then the proxy is a transparent pipe.
  */
+/** The trust remedy for a verification failure on a TLS channel — the
+ *  hint the HTTP and WS transports attach, so the pane can offer the
+ *  presented chain for pinning; never on a plaintext channel. */
+function grpcTrustHintFor(
+  request: { authority: string; tls: boolean },
+  err: unknown,
+): TrustCertificateErrorHint | undefined {
+  const code = grpcFailureCode(err);
+  return request.tls && isTlsVerificationCode(code)
+    ? trustCertificateHintFor(`https://${request.authority}`, code)
+    : undefined;
+}
+
 function classifyGrpcFailure(
   authority: string,
   tlsChannel: boolean,
@@ -447,6 +462,7 @@ export function createNodeGrpcTransport(options: NodeGrpcTransportOptions = {}):
               new GrpcTransportError(
                 classifyGrpcFailure(request.authority, request.tls, err, request.unixSocketPath, attempt.proxy?.url),
                 GRPC_CANONICAL_UNAVAILABLE,
+                grpcTrustHintFor(request, err),
               ),
             );
           };
@@ -569,6 +585,7 @@ export function createNodeGrpcTransport(options: NodeGrpcTransportOptions = {}):
                 throw new GrpcTransportError(
                   classifyGrpcFailure(request.authority, request.tls, err, request.unixSocketPath, attempt.proxy.url),
                   GRPC_CANONICAL_UNAVAILABLE,
+                  grpcTrustHintFor(request, err),
                 );
               }
             }
@@ -653,6 +670,7 @@ export function createNodeGrpcTransport(options: NodeGrpcTransportOptions = {}):
           new GrpcTransportError(
             classifyGrpcFailure(request.authority, request.tls, err, request.unixSocketPath, activeProxyUrl),
             GRPC_CANONICAL_UNAVAILABLE,
+            grpcTrustHintFor(request, err),
           ),
         );
       };

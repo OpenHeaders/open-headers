@@ -82,6 +82,7 @@ import type {
   MqttPayloadFormat,
   MqttRequest,
   MqttUserPropertyRow,
+  TrustCertificateErrorHint,
   Vault,
 } from '@openheaders/core/types';
 import { decodeBinaryText, encodeBase64Bytes, generateUid } from '@openheaders/core/utils';
@@ -92,7 +93,12 @@ import { buildResolver } from '../request-exec/resolver-scope';
 import { registerActiveSend } from '../request-exec/send-stream';
 import { getTrustAnchorsForSend } from '../trust-anchors';
 import { createMqttStreamEmitter, registerActiveMqttSession } from './session-plane';
-import type { MqttByteTransport, MqttStreamWriter, MqttTransportRequest } from './transport';
+import {
+  type MqttByteTransport,
+  type MqttStreamWriter,
+  MqttTransportError,
+  type MqttTransportRequest,
+} from './transport';
 
 /** Rolling-retention caps on the captured payload bytes / event count
  *  — the always-on host never buffers unbounded, and the session is
@@ -555,7 +561,7 @@ export async function executeMqttSession(
     });
     let unregisterSession: (() => void) | null = null;
 
-    const settle = (errorMessage?: string): void => {
+    const settle = (errorMessage?: string, hint?: TrustCertificateErrorHint): void => {
       if (settled) return;
       settled = true;
       clearConnectionTimers();
@@ -575,7 +581,11 @@ export async function executeMqttSession(
         resolve({
           outcome: aborted
             ? { kind: 'aborted' }
-            : { kind: 'failed', error: refusalMessage ?? errorMessage ?? 'The session ended before it opened.' },
+            : {
+                kind: 'failed',
+                error: refusalMessage ?? errorMessage ?? 'The session ended before it opened.',
+                ...(refusalMessage === null && hint !== undefined ? { hint } : {}),
+              },
           connack,
           clientId,
           events: [],
@@ -862,7 +872,7 @@ export async function executeMqttSession(
       const wasOpen = attemptOpened;
       const dialingAgain = reconnectAttempt > 0;
       if (stopped) {
-        settle(error?.message);
+        settle(error?.message, error instanceof MqttTransportError ? error.hint : undefined);
         return;
       }
       if (wasOpen && autoReconnect && reconnectable(end)) {
@@ -882,7 +892,7 @@ export async function executeMqttSession(
         scheduleReconnect(reconnectAttempt + 1, error?.message ?? 'The connection closed before the session opened.');
         return;
       }
-      settle(error?.message);
+      settle(error?.message, error instanceof MqttTransportError ? error.hint : undefined);
     };
 
     const dial = (): void => {

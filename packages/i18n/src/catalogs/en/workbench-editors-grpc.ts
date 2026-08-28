@@ -181,6 +181,7 @@ export const workbenchEditorsGrpc = {
   'workbench.editors.grpc.timeline.rowsPerGroup': 'Rows per group',
   'workbench.editors.grpc.timeline.noLimit': 'No limit',
   'workbench.editors.grpc.timeline.clearMessages': 'Clear messages (display only)',
+  'workbench.editors.grpc.timeline.trustCertificate': 'Trust certificate',
   'workbench.editors.grpc.timeline.newMessages': 'New messages',
   'workbench.editors.grpc.timeline.sentAria': 'Sent message',
   'workbench.editors.grpc.timeline.receivedAria': 'Received message',

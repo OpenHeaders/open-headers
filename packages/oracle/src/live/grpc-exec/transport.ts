@@ -25,6 +25,8 @@
 
 /** One metadata field on the wire (request or response side).
  *  Repeated keys are allowed — the host appends them in order. */
+import type { TrustCertificateErrorHint } from '@openheaders/core/types';
+
 export interface GrpcTransportHeader {
   key: string;
   value: string;
@@ -134,10 +136,14 @@ export const GRPC_CANONICAL_UNAVAILABLE = 14;
  */
 export class GrpcTransportError extends Error {
   readonly canonicalStatus: number | undefined;
-  constructor(message: string, canonicalStatus?: number) {
+  /** A TLS verification failure's trust remedy — the executor stamps
+   *  it on the failed snapshot. */
+  readonly hint: TrustCertificateErrorHint | undefined;
+  constructor(message: string, canonicalStatus?: number, hint?: TrustCertificateErrorHint) {
     super(message);
     this.name = 'GrpcTransportError';
     this.canonicalStatus = canonicalStatus;
+    this.hint = hint;
   }
 }
 

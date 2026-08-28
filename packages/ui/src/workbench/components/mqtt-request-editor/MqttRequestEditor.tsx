@@ -522,6 +522,7 @@ const MqttRequestEditor: React.FC<MqttRequestEditorProps> = ({
                   onClear={session.handleClearSession}
                   subscribedTopicsCount={subscribedTopicsCount}
                   onShowTopics={handleShowTopics}
+                  onReconnect={() => void session.handleConnect()}
                   {...(session.canSaveResponse ? { onSaveResponse: () => void session.handleSaveResponse() } : {})}
                 />
               ) : (

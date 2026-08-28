@@ -20,6 +20,7 @@
  * wire later.
  */
 
+import type { TrustCertificateErrorHint } from '@openheaders/core/types';
 import type { WsProxyRoute } from '../ws-exec/transport';
 
 export interface MqttTransportRequest {
@@ -64,9 +65,13 @@ export interface MqttTransportRequest {
  * `error` (unless a CONNACK refusal already told a better story).
  */
 export class MqttTransportError extends Error {
-  constructor(message: string) {
+  /** A TLS verification failure's trust remedy — the executor stamps
+   *  it on the failed outcome. */
+  readonly hint: TrustCertificateErrorHint | undefined;
+  constructor(message: string, hint?: TrustCertificateErrorHint) {
     super(message);
     this.name = 'MqttTransportError';
+    this.hint = hint;
   }
 }
 

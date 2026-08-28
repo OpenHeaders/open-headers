@@ -180,6 +180,7 @@ export const workbenchEditorsGrpc = {
   'workbench.editors.grpc.timeline.rowsPerGroup': '每组行数',
   'workbench.editors.grpc.timeline.noLimit': '无限制',
   'workbench.editors.grpc.timeline.clearMessages': '清除消息（仅显示层）',
+  'workbench.editors.grpc.timeline.trustCertificate': '信任证书',
   'workbench.editors.grpc.timeline.newMessages': '新消息',
   'workbench.editors.grpc.timeline.sentAria': '已发送的消息',
   'workbench.editors.grpc.timeline.receivedAria': '已接收的消息',

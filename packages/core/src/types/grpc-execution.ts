@@ -12,7 +12,7 @@
  * nothing here is ever rewritten to make a reply look well-formed.
  */
 
-import type { ExecutedProxyRoute } from './request-execution';
+import type { ExecutedProxyRoute, TrustCertificateErrorHint } from './request-execution';
 
 /** One message frame of the call, unwrapped from the wire: the payload
  *  bytes base64-encoded and the frame's compression flag as received
@@ -108,4 +108,8 @@ export interface ExecutedGrpcSnapshot {
    *  `error`, and absent where no canonical mapping exists (a
    *  malformed target, a compose error). */
   localStatus?: number;
+  /** A TLS verification failure's remedy — the presented chain the
+   *  pane can offer for pinning (the HTTP snapshot's hint). Present
+   *  only beside `error`, on a TLS channel. */
+  hint?: TrustCertificateErrorHint;
 }
