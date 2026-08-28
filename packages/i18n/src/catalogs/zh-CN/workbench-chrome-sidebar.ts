@@ -169,7 +169,6 @@ export const workbenchChromeSidebar = {
   'workbench.sidebar.toast.deleteSpecFailed': '删除规范失败',
 
   // ── Sidebar: folder drag-and-drop ───────────────────────────────────
-  'workbench.sidebar.dnd.dragToReorderFolder': '拖动以重新排序文件夹',
 
   // ── Activity feed panel + cards ─────────────────────────────────────
   'workbench.activityFeed.reverted': '更改已撤销',

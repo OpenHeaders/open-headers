@@ -1,6 +1,5 @@
 /**
- * Sidebar tree row geometry, shared by the row renderer and the
- * folder drag handle so both compute the same columns.
+ * Sidebar tree row geometry.
  *
  * Every row reserves the caret slot (empty on leaves) so an expandable
  * row's icon and label line up with its siblings, and one level of

@@ -170,7 +170,6 @@ export const workbenchChromeSidebar = {
   'workbench.sidebar.toast.deleteSpecFailed': 'Failed to delete specification',
 
   // ── Sidebar: folder drag-and-drop ───────────────────────────────────
-  'workbench.sidebar.dnd.dragToReorderFolder': 'Drag to reorder folder',
 
   // ── Activity feed panel + cards ─────────────────────────────────────
   'workbench.activityFeed.reverted': 'Change reverted',

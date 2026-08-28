@@ -242,13 +242,6 @@
   opacity: 1;
 }
 
-// The folder drag grip sits on the row's deepest guide (both center
-// in the parent's caret slot): while that row is hovered, its own
-// segment of the line yields to the grip.
-.rules-sidebar-content:hover .folder-dnd-row:hover .rules-sidebar-item-guide:has(+ .rules-sidebar-item-caret) {
-  opacity: 0;
-}
-
 .rules-sidebar-item-caret {
   flex: none;
   width: 12px;
@@ -361,48 +354,13 @@
   display: none;
 }
 
-// ── Sidebar folder drag-handle (FolderDndTree) ─────────────────────
+// ── Sidebar folder drag row (FolderDndTree) ────────────────────────
 //
-// The wrapper hosts the dnd-kit attributes + drop indicator lines; the
-// handle button hosts the pointer listeners so clicks on the row body
-// don't initiate a drag. The handle is hidden until the wrapper is
-// hovered, then sits in the indent gutter left of the row's caret
-// (`left` comes inline from the row's depth).
+// The wrapper hosts the dnd-kit attributes + listeners and anchors the
+// drop indicator lines.
 
 .folder-dnd-row {
   position: relative;
-}
-
-.folder-dnd-handle {
-  position: absolute;
-  top: 50%;
-  transform: translateY(-50%);
-  z-index: 1;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 14px;
-  height: 18px;
-  padding: 0;
-  border: none;
-  background: transparent;
-  color: rgba(128, 128, 128, 0.85);
-  opacity: 0;
-  cursor: grab;
-  font-size: 11px;
-  outline: none;
-
-  &:active {
-    cursor: grabbing;
-  }
-}
-
-.folder-dnd-row:hover .folder-dnd-handle {
-  opacity: 0.55;
-}
-
-.folder-dnd-handle:hover {
-  opacity: 1 !important;
 }
 
 // ── Environment selector rows ────────────────────────────────────────

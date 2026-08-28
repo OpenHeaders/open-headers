@@ -36,7 +36,6 @@
  * `folder-dnd-helpers.ts`. Each module is independently testable.
  */
 
-import { HolderOutlined } from '@ant-design/icons';
 import type { ClientRect, DragEndEvent, DragOverEvent } from '@dnd-kit/core';
 import {
   closestCenter,
@@ -56,8 +55,6 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import type React from 'react';
 import { useCallback, useMemo, useState } from 'react';
-import { useT } from '@openheaders/ui/context/LocaleContext';
-import { ROW_INDENT, ROW_MARGIN, rowPaddingLeft } from './tree-geometry';
 import { computeDropPlacement } from './folder-dnd-placement';
 import type { FolderDndParent, FolderDndIdConfig } from './folder-dnd-ids';
 import type { DropZone } from './folder-dnd-zone';
@@ -215,7 +212,7 @@ export function FolderDndTree({ nodes, renderNode, config }: FolderDndTreeProps)
           if (node.kind === 'folder' && node.id.startsWith(config.folderIdPrefix)) {
             const indicator = dragOver?.overId === node.id ? dragOver.zone : null;
             return (
-              <SortableFolderRow key={node.id} id={node.id} depth={node.depth} indicator={indicator}>
+              <SortableFolderRow key={node.id} id={node.id} indicator={indicator}>
                 {renderNode(node)}
               </SortableFolderRow>
             );
@@ -248,19 +245,13 @@ const INDICATOR_LINE_STYLE: React.CSSProperties = {
 function SortableFolderRow({
   id,
   children,
-  depth,
   indicator,
 }: {
   id: string;
-  depth: number;
   children: React.ReactNode;
   indicator: DropZone | null;
 }): React.ReactElement {
-  const t = useT();
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
-  // The grip sits in the indent gutter just left of the row's own
-  // caret — inside the row's hover rectangle, under the parent's icon.
-  const handleLeft = ROW_MARGIN + rowPaddingLeft(depth) - ROW_INDENT;
 
   const wrapperStyle: React.CSSProperties = {
     transform: CSS.Transform.toString(transform),
@@ -270,26 +261,14 @@ function SortableFolderRow({
       indicator === 'into' && !isDragging ? 'var(--ant-color-primary-bg)' : undefined,
   };
 
-  // `listeners` go on the handle (not the wrapper) so clicks on the
-  // row body don't initiate a drag; `attributes` stay on the wrapper
-  // for ARIA + keyboard-sensor accessibility (the keyboard sensor
-  // pairs with the focused row, not the handle).
+  // The whole row is the drag surface: the pointer sensor's distance
+  // constraint keeps clicks and double-clicks on the row body from
+  // starting a drag, and the keyboard sensor pairs with the focused row.
   return (
-    <div ref={setNodeRef} className="folder-dnd-row" style={wrapperStyle} {...attributes}>
+    <div ref={setNodeRef} className="folder-dnd-row" style={wrapperStyle} {...attributes} {...listeners}>
       {indicator === 'before' && !isDragging && (
         <div style={{ ...INDICATOR_LINE_STYLE, top: -1 }} aria-hidden />
       )}
-      <button
-        type="button"
-        className="folder-dnd-handle"
-        aria-label={t('workbench.sidebar.dnd.dragToReorderFolder')}
-        tabIndex={-1}
-        style={{ left: handleLeft }}
-        onClick={(e) => e.stopPropagation()}
-        {...listeners}
-      >
-        <HolderOutlined />
-      </button>
       {children}
       {indicator === 'after' && !isDragging && (
         <div style={{ ...INDICATOR_LINE_STYLE, bottom: -1 }} aria-hidden />

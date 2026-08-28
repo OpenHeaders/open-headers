@@ -176,7 +176,6 @@ export const workbenchChromeSidebar = {
   'workbench.sidebar.toast.deleteSpecFailed': 'Impossible de supprimer la spécification',
 
   // ── Sidebar: folder drag-and-drop ───────────────────────────────────
-  'workbench.sidebar.dnd.dragToReorderFolder': 'Glisser pour réordonner le dossier',
 
   // ── Activity feed panel + cards ─────────────────────────────────────
   'workbench.activityFeed.reverted': 'Modification annulée',

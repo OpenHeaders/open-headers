@@ -180,7 +180,6 @@ export const workbenchChromeSidebar = {
   'workbench.sidebar.toast.deleteSpecFailed': 'No se pudo eliminar la especificación',
 
   // ── Sidebar: folder drag-and-drop ───────────────────────────────────
-  'workbench.sidebar.dnd.dragToReorderFolder': 'Arrastra para reordenar la carpeta',
 
   // ── Activity feed panel + cards ─────────────────────────────────────
   'workbench.activityFeed.reverted': 'Cambio revertido',
