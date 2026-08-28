@@ -4,13 +4,7 @@
  */
 
 import type { Rule, RuleCondition, RuleType } from '@openheaders/core/types';
-import {
-  getActionDetail,
-  isRuleComplete,
-  isRuleDraft,
-  type PauseMarkers,
-  resolvePauseState,
-} from '@openheaders/core/utils';
+import { getActionDetail, isRuleComplete, isRuleDraft, type PausedUids } from '@openheaders/core/utils';
 import { resolveRule, type VariableResolver } from '@openheaders/core/variables';
 import { compareBySortMode, type SortMode } from '@openheaders/ui/shared/table-shared';
 import type { ActionDetail } from './columns/sharedColumnRenderers';
@@ -33,6 +27,8 @@ export interface TableRecord {
    *  Drives the gray "draft" row styling (publication gate, distinct
    *  from completeness). */
   isDraft: boolean;
+  /** True when the rule sits under a paused collection / folder. */
+  isPaused: boolean;
   statusRank: StatusRank;
 }
 
@@ -41,12 +37,13 @@ export interface TableRecord {
  * `actionDetail` and the displayed `conditions` flow from the RESOLVED
  * rule (templates substituted) so the row reflects what reaches the
  * wire — not the literal `{{ref}}` source. The original `rule` is
- * still used for the IS-COMPLETE / pause checks because completeness
- * is a structural property independent of variable values.
+ * still used for the IS-COMPLETE check because completeness is a
+ * structural property independent of variable values; the pause state
+ * is the tree-resolved `pausedUids` lookup.
  */
 export function rulesToRecords(
   rules: Rule[],
-  pauseMarkers: PauseMarkers,
+  pausedUids: PausedUids,
   resolver: VariableResolver,
   sortMode: SortMode,
 ): TableRecord[] {
@@ -55,7 +52,7 @@ export function rulesToRecords(
       const isEnabled = rule.enabled;
       const complete = isRuleComplete(rule);
       const draft = isRuleDraft(rule);
-      const groupPaused = resolvePauseState(rule.path, pauseMarkers);
+      const groupPaused = pausedUids.has(rule.uid);
       const resolved = resolveRule(rule, resolver);
 
       // Status rank drives sort order: active first, then paused/disabled,
@@ -84,6 +81,7 @@ export function rulesToRecords(
         isEnabled,
         isComplete: complete,
         isDraft: draft,
+        isPaused: groupPaused,
         statusRank,
       };
     })

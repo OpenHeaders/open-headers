@@ -2,7 +2,6 @@ import { PlusOutlined, SortAscendingOutlined } from '@ant-design/icons';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { RequestRulesIcon } from '@openheaders/ui/shared/icons';
 import type { ExtensionRuleType } from '@openheaders/core/types';
-import { resolvePauseState } from '@openheaders/core/utils';
 import { useRowActionRegistration } from '@openheaders/ui/shared/hooks/dom/useRowActionRegistration';
 import { useRuleMutator } from '@openheaders/ui/shared/hooks/mutators/useRuleMutator';
 import { useRules } from '@openheaders/ui/shared/hooks/readers/useRules';
@@ -56,7 +55,7 @@ const RulesTable: React.FC<RulesTableProps> = ({
   const { message } = App.useApp();
   const t = useT();
 
-  const { rules, activeWorkspaceId, uiState, updateUiState, pauseMarkers } = useRules();
+  const { rules, activeWorkspaceId, uiState, updateUiState, pausedUids } = useRules();
   const ruleMutator = useRuleMutator({ workspaceId: activeWorkspaceId, surfaceId: 'popup' });
   const { setFocusedRowIndex } = useKeyboardNav();
   const screens = Grid.useBreakpoint();
@@ -90,7 +89,7 @@ const RulesTable: React.FC<RulesTableProps> = ({
     }
   }, [uiState?.tableState]);
 
-  const dataSource: TableRecord[] = rulesToRecords(rules, pauseMarkers, resolver, sortMode);
+  const dataSource: TableRecord[] = rulesToRecords(rules, pausedUids, resolver, sortMode);
 
   const dataSourceRef = useRef<TableRecord[]>([]);
 
@@ -106,12 +105,10 @@ const RulesTable: React.FC<RulesTableProps> = ({
   dataSourceRef.current = filteredData;
 
   const activeCount = dataSource.filter(
-    (item) => item.isEnabled && item.isComplete && !resolvePauseState(item.path, pauseMarkers),
+    (item) => item.isEnabled && item.isComplete && !item.isPaused,
   ).length;
   const draftCount = dataSource.filter((item) => !item.isComplete).length;
-  const pausedCount = dataSource.filter(
-    (item) => item.isEnabled && item.isComplete && resolvePauseState(item.path, pauseMarkers),
-  ).length;
+  const pausedCount = dataSource.filter((item) => item.isEnabled && item.isComplete && item.isPaused).length;
   const totalCount = dataSource.length;
 
   const { paginationConfig } = useTablePagination({
@@ -360,7 +357,7 @@ const RulesTable: React.FC<RulesTableProps> = ({
           rowClassName={(record: TableRecord, index: number) => {
             const classes: string[] = [];
             if (record.isDraft) classes.push('row-draft');
-            else if (resolvePauseState(record.path, pauseMarkers)) classes.push('row-group-paused');
+            else if (record.isPaused) classes.push('row-group-paused');
             else if (!record.isEnabled) classes.push('row-disabled');
             if (index === focusedRowIndex) classes.push('keyboard-focused-row');
             if (index === pendingDeleteIndex) classes.push('keyboard-pending-delete-row');

@@ -93,8 +93,22 @@ export {
   ORG_LOGO_MIME_TYPES,
   validateOrgLogoDataUri,
 } from './org-logo';
-export type { PauseMarker, PauseMarkers } from './pause';
-export { computePausedUids, hasNestedPauseMarkers, resolvePauseState } from './pause';
+export type {
+  PausedUids,
+  PauseMarker,
+  PauseMarkerContainerType,
+  PauseMarkerEntry,
+  PauseMarkerRef,
+  PauseMarkers,
+  PauseMarkersRecord,
+} from './pause';
+export {
+  collectNestedContainerUids,
+  computePausedUids,
+  hasNestedPauseMarkers,
+  pauseMarkersFromEntries,
+  resolvePauseState,
+} from './pause';
 export type { PortIssueReason, PortValidation } from './port';
 export { EPHEMERAL_PORT_START, MAX_PORT, MIN_UNPRIVILEGED_PORT, validatePort } from './port';
 export { shouldAutoUnpublishOnUpdate, UNIVERSAL_METADATA_KEYS } from './publication-gate';

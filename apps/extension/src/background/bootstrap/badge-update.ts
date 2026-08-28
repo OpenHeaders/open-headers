@@ -1,5 +1,5 @@
 import { isRuleEffective } from '@openheaders/core/utils';
-import { getPauseMarkers } from '@openheaders/oracle/entity/pause-markers-store';
+import { getPausedUids } from '@openheaders/oracle/entity/pause-markers-store';
 import { getRules } from '@openheaders/oracle/entity/rule-store';
 import { getUnresolvableRuleUids } from '@openheaders/oracle/rule-engine/variables-resolver';
 import { getReconnectAttempts, isWebSocketConnected } from '@openheaders/oracle/sync/client/backend-connection-manager';
@@ -16,9 +16,11 @@ export async function updateBadgeForCurrentTab(): Promise<void> {
   tabs.query({ active: true, currentWindow: true }, async (tabList: chrome.tabs.Tab[]) => {
     const currentTab = tabList[0];
 
-    const markers = getPauseMarkers();
+    const pausedUids = getPausedUids();
     const unresolvable = getUnresolvableRuleUids();
-    const effectiveRules = getRules().filter((r) => isRuleEffective(r, markers, isPaused) && !unresolvable.has(r.uid));
+    const effectiveRules = getRules().filter(
+      (r) => isRuleEffective(r, pausedUids, isPaused) && !unresolvable.has(r.uid),
+    );
     const effectiveUids = new Set(effectiveRules.map((r) => r.uid));
 
     let matchedRuleCount = 0;

@@ -13,11 +13,11 @@
 
 import type { Collection, CollectionTree, Rule, Template, TreeNode } from '@openheaders/core/types';
 import type { PauseMarker } from '@openheaders/core/utils';
-import { computePausedUids } from '@openheaders/core/utils';
+import { collectNestedContainerUids, computePausedUids } from '@openheaders/core/utils';
 import { hostBridge } from '@openheaders/core/bridge';
 import type React from 'react';
 import { createContext, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { usePauseMarkersContext } from './PauseMarkersContext';
+import { type PauseTarget, usePauseMarkersContext } from './PauseMarkersContext';
 import { useLocalEntityCrud } from './use-local-entity-crud';
 import { useTemplateCrud } from './use-template-crud';
 import { buildLocalCollectionTrees, buildTemplateCollectionTrees } from '../shared/local-tree-builder';
@@ -47,28 +47,28 @@ export interface RuleContextValue {
   /** UI state persisted across popup open/close. */
   uiState: UiState;
   /**
-   * Pause state map — every collection/folder path that has an explicit
+   * Pause state map — every collection/folder UID that has an explicit
    * marker. 'paused' pauses the subtree; 'unpaused' is an override that
-   * forces the subtree active even if an ancestor is paused. A path with
-   * no marker inherits from its closest marked ancestor.
+   * forces the subtree active even if an ancestor is paused. A container
+   * with no marker inherits from its closest marked ancestor.
    */
   pauseMarkers: ReadonlyMap<string, PauseMarker>;
   /**
    * Uids of every node (collection / folder / rule) that is effectively
-   * paused after marker resolution. Lets UI code answer "is this node
-   * paused?" with a single Set lookup.
+   * paused after marker resolution over the tree. Lets UI code answer
+   * "is this node paused?" with a single Set lookup.
    */
   pausedUids: Set<string>;
   /**
-   * Smart toggle: flips the effective pause state of `path` by setting
-   * the opposite marker. Idempotent for the same effective outcome —
-   * pressing twice returns to the original state.
+   * Smart toggle: flips the effective pause state of a container by
+   * setting the opposite marker. Idempotent for the same effective
+   * outcome — pressing twice returns to the original state.
    */
-  togglePause: (path: string) => void;
-  /** Remove the explicit marker on `path` so it inherits from its parent. */
-  clearPauseOverride: (path: string) => void;
-  /** Remove every marker strictly below `path` — power-user cleanup. */
-  clearNestedPauseOverrides: (path: string) => void;
+  togglePause: (target: PauseTarget) => void;
+  /** Remove the explicit marker on a container so it inherits from its parent. */
+  clearPauseOverride: (uid: string) => void;
+  /** Remove every marker strictly inside a container's subtree — power-user cleanup. */
+  clearNestedPauseOverrides: (children: readonly TreeNode[]) => void;
   /** Force-refresh rules from the background. */
   refreshRules: () => void;
   /** Update persisted UI state. */
@@ -212,8 +212,7 @@ export const RuleProvider: React.FC<RuleProviderProps> = ({ children, surfaceId,
   const [uiState, setUiState] = useState<UiState>({
     tableState: { searchText: '', sortMode: 'status', filteredInfo: {}, sortedInfo: {} },
   });
-  const { pauseMarkers, togglePause, clearPauseOverride, clearNestedPauseOverrides, replaceMarkers } =
-    usePauseMarkersContext();
+  const { pauseMarkers, setMarker, clearMarker, clearMarkers, pruneMarkers } = usePauseMarkersContext();
   const [localCollections, setLocalCollections] = useState<Collection[]>([]);
   const [localCollectionTrees, setLocalCollectionTrees] = useState<CollectionTree[]>([]);
   const [templates, setTemplates] = useState<Template[]>([]);
@@ -552,38 +551,53 @@ export const RuleProvider: React.FC<RuleProviderProps> = ({ children, surfaceId,
     setUiState((prev) => ({ ...prev, ...updates }));
   }, []);
 
+  // ── Pause marker resolution + gestures ────────────────────────
+  //
+  // Markers are keyed by container uid; the collection trees ARE the
+  // parent chain, so effective state folds top-down in one pass. The
+  // gestures the surfaces call are composed here because they need
+  // that resolution (the toggle) or the subtree (clear-nested); the
+  // raw primitives live in `PauseMarkersProvider` (per § 8.3.9).
+
+  const pausedUids = useMemo(() => computePausedUids(localCollectionTrees, pauseMarkers), [localCollectionTrees, pauseMarkers]);
+
+  const togglePause = useCallback(
+    (target: PauseTarget) => {
+      setMarker(target, pausedUids.has(target.uid) ? 'unpaused' : 'paused');
+    },
+    [setMarker, pausedUids],
+  );
+
+  const clearPauseOverride = useCallback((uid: string) => clearMarker(uid), [clearMarker]);
+
+  const clearNestedPauseOverrides = useCallback(
+    (children: readonly TreeNode[]) => {
+      const nested = collectNestedContainerUids(children).filter((uid) => pauseMarkers.has(uid));
+      if (nested.length > 0) clearMarkers(nested);
+    },
+    [clearMarkers, pauseMarkers],
+  );
+
   // ── Pause marker pruning ──────────────────────────────────────
   //
-  // Drop marker paths that no longer correspond to any known
-  // collection/folder. Pause-marker state + mutators live in
-  // `PauseMarkersProvider` (per § 8.3.9); this effect keeps them
-  // consistent with the tree by calling `replaceMarkers` on the
-  // provider when stale paths appear. The pruning depends on
-  // `localCollectionTrees` so it stays here.
+  // Drop markers whose container no longer exists in the tree. Only
+  // once the trees are loaded: on a cold mount the markers can land
+  // before the first tree recompute, and an empty tree would read as
+  // "every marker is stale" — pruning the whole set.
   useEffect(() => {
-    if (pauseMarkers.size === 0) return;
-    const activePaths = new Set<string>();
+    if (pauseMarkers.size === 0 || localCollectionTrees.length === 0) return;
+    const containers = new Set<string>();
     for (const tree of localCollectionTrees) {
-      activePaths.add(tree.path);
-      const addFolderPaths = (nodes: TreeNode[]) => {
-        for (const node of nodes) {
-          if (node.type === 'folder') {
-            activePaths.add(node.path);
-            addFolderPaths(node.children);
-          }
-        }
-      };
-      addFolderPaths(tree.tree);
+      containers.add(tree.uid);
+      for (const uid of collectNestedContainerUids(tree.tree)) containers.add(uid);
     }
-    let hasStale = false;
-    const next = new Map<string, PauseMarker>();
-    for (const [key, value] of pauseMarkers) {
-      if (activePaths.has(key)) next.set(key, value);
-      else hasStale = true;
+    for (const uid of pauseMarkers.keys()) {
+      if (!containers.has(uid)) {
+        pruneMarkers(containers);
+        return;
+      }
     }
-    if (!hasStale) return;
-    replaceMarkers(next);
-  }, [localCollectionTrees, pauseMarkers, replaceMarkers]);
+  }, [localCollectionTrees, pauseMarkers, pruneMarkers]);
 
   // ── Local rule / collection / folder CRUD ────────────────────
 
@@ -609,11 +623,6 @@ export const RuleProvider: React.FC<RuleProviderProps> = ({ children, surfaceId,
   });
 
   // ── Render ────────────────────────────────────────────────────
-
-  const pausedUids = useMemo(
-    () => computePausedUids(localCollectionTrees, pauseMarkers),
-    [localCollectionTrees, pauseMarkers],
-  );
 
   const contextValue: RuleContextValue = {
     rules,

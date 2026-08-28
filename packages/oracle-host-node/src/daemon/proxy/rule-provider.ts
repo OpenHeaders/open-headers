@@ -17,7 +17,7 @@
 import type { Rule } from '@openheaders/core/types';
 import { isRuleEffective } from '@openheaders/core/utils';
 import { onEnvironmentStoreChange } from '@openheaders/oracle/entity/environment-store';
-import { getPauseMarkers, onPauseMarkersChange } from '@openheaders/oracle/entity/pause-markers-store';
+import { getPausedUids, onPauseMarkersChange } from '@openheaders/oracle/entity/pause-markers-store';
 import { getRules, onStoreChange } from '@openheaders/oracle/entity/rule-store';
 import { resolveRuleSubsetWithDiagnostics } from '@openheaders/oracle/rule-engine/variables-resolver';
 import type { ProxyRuleSource } from './rule-enforcement';
@@ -40,7 +40,8 @@ export function createProxyRuleSource(): DisposableProxyRuleSource {
   return {
     getRules(): readonly Rule[] {
       if (cache === null) {
-        const effective = getRules().filter((rule) => isRuleEffective(rule, getPauseMarkers(), false));
+        const pausedUids = getPausedUids();
+        const effective = getRules().filter((rule) => isRuleEffective(rule, pausedUids, false));
         const { resolved, unresolvableUids } = resolveRuleSubsetWithDiagnostics(effective);
         cache = resolved.filter((rule) => !unresolvableUids.has(rule.uid));
       }

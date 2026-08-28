@@ -6,7 +6,7 @@
  * (`usePauseMarkersMutator` write client). Mirrors
  * `vault-mutations.ts`.
  *
- * `replacePauseMarkers` needs the existing key set so it can compute
+ * `replacePauseMarkers` needs the existing uid set so it can compute
  * removals. Callers (SW: in-memory mirror; renderer: live mirror)
  * supply that — the helpers don't read the oracle directly.
  */
@@ -15,27 +15,21 @@ import {
   clearPauseMarker,
   type MutatorContext,
   type MutatorIntent,
-  type PauseMarkerKind,
+  type PauseMarkerEntry,
   replacePauseMarkers,
   setPauseMarker,
 } from '@openheaders/core/sync';
 
 export type PauseMarkersMutationPayload = MutatorIntent;
 
-export interface SetPauseMarkerInput {
-  path: string;
-  marker: PauseMarkerKind;
-}
+export type SetPauseMarkerInput = PauseMarkerEntry;
 
-export function buildSetPauseMarkerBatch(
-  input: SetPauseMarkerInput,
-  ctx: MutatorContext,
-): PauseMarkersMutationPayload {
+export function buildSetPauseMarkerBatch(input: SetPauseMarkerInput, ctx: MutatorContext): PauseMarkersMutationPayload {
   return setPauseMarker(ctx, input);
 }
 
 export interface ClearPauseMarkerInput {
-  path: string;
+  uid: string;
 }
 
 export function buildClearPauseMarkerBatch(
@@ -46,8 +40,8 @@ export function buildClearPauseMarkerBatch(
 }
 
 export interface ReplacePauseMarkersInput {
-  existing: ReadonlyMap<string, PauseMarkerKind> | Readonly<Record<string, PauseMarkerKind>>;
-  next: ReadonlyMap<string, PauseMarkerKind> | Readonly<Record<string, PauseMarkerKind>>;
+  existing: Iterable<string>;
+  next: readonly PauseMarkerEntry[];
 }
 
 export function buildReplacePauseMarkersBatch(

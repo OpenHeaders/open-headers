@@ -3,7 +3,7 @@
  * plus first-run seeding and broad-scope fallback.
  */
 import type { Rule } from '@openheaders/core/types';
-import type { PauseMarker } from '@openheaders/core/utils';
+import type { PausedUids } from '@openheaders/core/utils';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@utils/logger', () => ({
@@ -37,7 +37,7 @@ function rule(uid: string, opts: { domain?: string; enabled?: boolean; path?: st
   } as Rule;
 }
 
-const NO_MARKERS: ReadonlyMap<string, PauseMarker> = new Map();
+const NO_MARKERS: PausedUids = new Set();
 
 beforeEach(() => {
   enqueueSpy.mockReset();
@@ -158,12 +158,13 @@ describe('effective-state flip', () => {
     expect(new Set(origins)).toEqual(new Set(['http://api.openheaders.io', 'https://api.openheaders.io']));
   });
 
-  it('evicts when a pause marker is added on the rule path', () => {
+  it('evicts when the rule becomes paused through its container', () => {
     observeRuleState([rule('r1', { path: 'rules/collection-a/r1' })], NO_MARKERS, false);
     enqueueSpy.mockClear();
 
-    const paused: Map<string, PauseMarker> = new Map();
-    paused.set('rules/collection-a', 'paused');
+    // The host resolves the container's marker over the tree into the
+    // paused uid set; the observer only sees the rule's membership.
+    const paused: PausedUids = new Set(['collection-a', 'r1']);
 
     observeRuleState([rule('r1', { path: 'rules/collection-a/r1' })], paused, false);
 

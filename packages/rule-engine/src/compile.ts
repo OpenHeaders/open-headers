@@ -4,8 +4,8 @@
  *
  * No side effects, no chrome.* calls, no workspace-state reads. The
  * orchestrator (`dnr-manager.ts`) does all of the workspace-state
- * coordination (variable resolution, pause markers)
- * and feeds resolved rules in.
+ * coordination (variable resolution, pause resolution over the tree)
+ * and feeds resolved rules + the paused uid set in.
  *
  * This file is the future `@openheaders/rule-engine/compile` entry —
  * kept inside `apps/extension/src/background/engine/` during the
@@ -14,7 +14,7 @@
  */
 
 import type { Rule } from '@openheaders/core/types';
-import { isRuleEffective, type PauseMarkers } from '@openheaders/core/utils';
+import { isRuleEffective, type PausedUids } from '@openheaders/core/utils';
 import type { CompilationPlan, CompilerContext, DnrRule, EngineCompileSettings, RuleCompiler } from './builders';
 import {
   blockCompiler,
@@ -71,7 +71,7 @@ export interface CompileResult {
  */
 export function compileRuleSet(
   rules: Rule[],
-  pauseMarkers: PauseMarkers,
+  pausedUids: PausedUids,
   startId: number,
   settings: EngineCompileSettings,
 ): CompileResult {
@@ -86,7 +86,7 @@ export function compileRuleSet(
     // `compileRuleSet` only runs when the engine is NOT globally paused
     // (checked upstream in the orchestrator), so we pass `false` for
     // `enginePaused` here.
-    if (!isRuleEffective(rule, pauseMarkers, false)) continue;
+    if (!isRuleEffective(rule, pausedUids, false)) continue;
 
     // inject-manager wants every rule that has any in-page side effect,
     // regardless of whether it ALSO produces DNR rules. Passed by value.

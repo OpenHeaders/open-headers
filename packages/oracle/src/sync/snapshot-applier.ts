@@ -259,8 +259,11 @@ export async function applyWorkspaceSnapshot(
       ctx,
     ),
   );
+  // The seeder reads both shapes: a 2026.8.4 sender's `markers` is
+  // path-keyed (no `entries`) and seeds version-1 members the fold
+  // migrates on read.
   await seedEach<SyncPauseMarkersPostState>('pauseMarkers', snapshot.pauseMarkers, (p, ctx) =>
-    seedPauseMarkers(p.markers, ctx),
+    seedPauseMarkers(p, ctx),
   );
   await seedEach<SyncLayoutStatePostState>('layoutState', snapshot.layoutState, (p, ctx) =>
     seedLayoutState(p.layout, ctx),

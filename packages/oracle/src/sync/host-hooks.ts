@@ -39,7 +39,7 @@ import type {
 } from '@openheaders/core/protocol';
 import type { FieldOrigin, MutationEnvelope, MutatorOutcome } from '@openheaders/core/sync';
 import type { LogEntry, Rule } from '@openheaders/core/types';
-import type { PauseMarker } from '@openheaders/core/utils';
+import type { PausedUids } from '@openheaders/core/utils';
 import type { TotpRegistry } from '@openheaders/core/variables';
 
 /**
@@ -192,7 +192,7 @@ export interface OracleHostHooks {
    * and BEFORE the DNR rebuild fires, so observers see the incoming
    * workspace's rule view.
    */
-  onWorkspaceSwitched?: (nextRules: readonly Rule[], pauseMarkers: ReadonlyMap<string, PauseMarker>) => void;
+  onWorkspaceSwitched?: (nextRules: readonly Rule[], pausedUids: PausedUids) => void;
 }
 
 export interface OracleStatusReport {

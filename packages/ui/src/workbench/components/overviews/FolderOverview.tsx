@@ -13,7 +13,7 @@ import {
 } from '@ant-design/icons';
 import { useRules } from '@openheaders/ui/shared/hooks/readers/useRules';
 import type { CollectionTree, FolderNode, TreeNode } from '@openheaders/core/types';
-import { isRuleComplete, isRuleDraft, resolvePauseState } from '@openheaders/core/utils';
+import { isRuleComplete, isRuleDraft } from '@openheaders/core/utils';
 import { Button, Dropdown, Empty, Space, Table, Tag, Tooltip, theme } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import type React from 'react';
@@ -86,7 +86,7 @@ const FolderOverview: React.FC<FolderOverviewProps> = ({
 }) => {
   const { token } = theme.useToken();
   const t = useT();
-  const { rules, localCollectionTrees, pauseMarkers, togglePause } = useRules();
+  const { rules, localCollectionTrees, pausedUids, togglePause } = useRules();
 
   const found = useMemo(() => findFolder(localCollectionTrees, folderUid), [localCollectionTrees, folderUid]);
 
@@ -123,14 +123,14 @@ const FolderOverview: React.FC<FolderOverviewProps> = ({
     return { total, folders, active, disabled, draft };
   }, [folder, rules]);
 
-  const isPaused = folderPath ? resolvePauseState(folderPath, pauseMarkers) : false;
+  const isPaused = pausedUids.has(folderUid);
 
   // ── Contents table ─────────────────────────────────────────────
 
   const rows = useMemo((): ContentRow[] => {
     if (!folder) return [];
     return folder.children.map((node): ContentRow => {
-      const rowPaused = resolvePauseState(node.path, pauseMarkers);
+      const rowPaused = pausedUids.has(node.uid);
       if (node.type === 'folder') {
         return {
           key: node.uid,
@@ -154,7 +154,7 @@ const FolderOverview: React.FC<FolderOverviewProps> = ({
         effectivelyPaused: rowPaused,
       };
     });
-  }, [folder, rules, pauseMarkers]);
+  }, [folder, rules, pausedUids]);
 
   const handleRowClick = useCallback(
     (row: ContentRow) => {
@@ -274,7 +274,7 @@ const FolderOverview: React.FC<FolderOverviewProps> = ({
           <Button
             size="small"
             icon={isPaused ? <PlayCircleOutlined /> : <PauseCircleOutlined />}
-            onClick={() => togglePause(folderPath)}
+            onClick={() => togglePause({ type: 'folder', uid: folderUid, path: folderPath })}
           >
             {isPaused ? t('workbench.overview.action.resume') : t('workbench.overview.action.pause')}
           </Button>

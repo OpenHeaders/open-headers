@@ -36,7 +36,7 @@ import {
 } from '../entity/environment-store';
 import { purgeFilesForWorkspace } from '../entity/files-store';
 import { purgeOAuthForWorkspace } from '../entity/oauth-token-store';
-import { getPauseMarkers } from '../entity/pause-markers-store';
+import { getPausedUids } from '../entity/pause-markers-store';
 import {
   hydrateRequestScriptsReviewFromStorage,
   switchToWorkspace as switchRequestScriptsReviewToWorkspace,
@@ -179,7 +179,7 @@ export async function swapPerWorkspaceStores(targetId: string): Promise<void> {
   // when workspace swaps can change dozens of rules at once. Host wires
   // the rule-state-observer + cache-invalidator; non-browser hosts no-op.
   const hooks = getOracleHostHooks();
-  hooks.onWorkspaceSwitched?.(getRules(), getPauseMarkers());
+  hooks.onWorkspaceSwitched?.(getRules(), getPausedUids());
 
   hooks.scheduleRuleEngineUpdate?.('workspace', { immediate: true });
 

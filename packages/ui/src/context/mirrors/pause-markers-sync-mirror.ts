@@ -2,26 +2,28 @@
  * Renderer-side pause-markers sync mirror.
  *
  * Thin adapter over {@link createSingletonEntityMirror}. Renderer
- * write helpers consult this mirror to compute the existing key set
+ * write helpers consult this mirror to compute the existing uid set
  * when emitting a replacement batch — no SW round-trip per write
  * (§19.4).
  */
 
-import { PAUSE_MARKERS_ENTITY_TYPE, type PauseMarkerKind } from '@openheaders/core/sync';
+import { PAUSE_MARKERS_ENTITY_TYPE, type PauseMarkerEntry, type PauseMarkerKind } from '@openheaders/core/sync';
 import { createWorkspaceMirrorRegistry } from './per-workspace-mirror-registry';
 import { type CreateSingletonMirrorOptions, createSingletonEntityMirror } from './singleton-entity-mirror';
 import { callSnapshotRpc } from './snapshot-rpc';
 
 export interface PauseMarkersMirrorEntry {
   markers: Record<string, PauseMarkerKind>;
-  paths: string[];
+  entries: PauseMarkerEntry[];
 }
 
 export type PauseMarkersMirrorListener = () => void;
 
 export interface PauseMarkersSyncMirror {
   getMirror(): PauseMarkersMirrorEntry | null;
-  livePaths(): string[];
+  /** Every marked container uid. */
+  liveUids(): string[];
+  liveEntries(): PauseMarkerEntry[];
   liveMarkers(): Record<string, PauseMarkerKind>;
   subscribeMirror(listener: PauseMarkersMirrorListener): () => void;
   hydrated: Promise<void>;
@@ -42,19 +44,20 @@ export function createPauseMarkersSyncMirror(
         const { envelope, pauseMarkersPostState } = event;
         if (envelope.body.type !== PAUSE_MARKERS_ENTITY_TYPE) return null;
         if (!pauseMarkersPostState) return 'tombstone';
-        return { markers: pauseMarkersPostState.markers, paths: pauseMarkersPostState.paths };
+        return { markers: pauseMarkersPostState.markers, entries: pauseMarkersPostState.entries };
       },
       fetchSnapshot: async () => {
         const resp = await callSnapshotRpc('oh.sync.snapshotPauseMarkers', { workspaceId });
         const first = resp.entries[0];
-        return first ? { markers: first.markers, paths: first.paths } : null;
+        return first ? { markers: first.markers, entries: first.entries } : null;
       },
     },
     options,
   );
   return {
     getMirror: core.get,
-    livePaths: () => core.get()?.paths ?? [],
+    liveUids: () => (core.get()?.entries ?? []).map((entry) => entry.uid),
+    liveEntries: () => core.get()?.entries ?? [],
     liveMarkers: () => core.get()?.markers ?? {},
     subscribeMirror: core.subscribe,
     hydrated: core.hydrated,

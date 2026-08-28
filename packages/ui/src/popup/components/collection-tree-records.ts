@@ -54,17 +54,17 @@ function countRules(nodes: TreeNode[]): { total: number; enabled: number } {
 }
 
 /**
- * Resolve the effective pause state for one node given its own marker and
- * the inherited state from its ancestors. Mirrors the closest-specifier
- * walk in `resolvePauseState` but is cheaper here because we already
- * carry `inherited` down the tree as we recurse.
+ * Resolve the effective pause state for one node given its own marker
+ * (keyed by the container uid) and the inherited state from its
+ * ancestors. Mirrors the closest-specifier fold in `computePausedUids`
+ * but also reports whether the node carries its own marker.
  */
 function resolveNodeState(
-  path: string,
+  uid: string,
   pauseMarkers: PauseMarkers,
   inherited: boolean,
 ): { effective: boolean; hasOwn: boolean } {
-  const marker = pauseMarkers.get(path);
+  const marker = pauseMarkers.get(uid);
   if (marker === 'paused') return { effective: true, hasOwn: true };
   if (marker === 'unpaused') return { effective: false, hasOwn: true };
   return { effective: inherited, hasOwn: false };
@@ -78,7 +78,7 @@ function treeNodesToRecords(
   resolver: VariableResolver,
 ): CollectionTreeRecord[] {
   return nodes.map((node) => {
-    const { effective, hasOwn } = resolveNodeState(node.path, pauseMarkers, inherited);
+    const { effective, hasOwn } = resolveNodeState(node.uid, pauseMarkers, inherited);
     if (node.type === 'rule') {
       const rule = rules.find((r) => r.uid === node.uid);
       // Resolve `{{var}}` templates so the row's display reflects what
@@ -141,7 +141,7 @@ export function collectionTreesToRecords(
   resolver: VariableResolver,
 ): CollectionTreeRecord[] {
   return trees.map((tree) => {
-    const { effective, hasOwn } = resolveNodeState(tree.path, pauseMarkers, false);
+    const { effective, hasOwn } = resolveNodeState(tree.uid, pauseMarkers, false);
     const { total, enabled } = countRules(tree.tree);
     const children = treeNodesToRecords(tree.tree, rules, pauseMarkers, effective, resolver);
     return {

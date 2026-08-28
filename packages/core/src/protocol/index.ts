@@ -149,6 +149,7 @@ export type {
   SyncMqttRequestPostState,
   SyncMqttResponseExamplePostState,
   SyncOAuthBundlePostState,
+  SyncPauseMarkerEntry,
   SyncPauseMarkersPostState,
   SyncRequestCollectionPostState,
   SyncRequestFolderPostState,

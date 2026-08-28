@@ -1,6 +1,6 @@
 import { DeleteOutlined, EditOutlined } from '@ant-design/icons';
 import { getCapability } from '@openheaders/core/capabilities';
-import { type PauseMarkers, resolvePauseState } from '@openheaders/core/utils';
+import type { PausedUids } from '@openheaders/core/utils';
 import type { Translate } from '@openheaders/ui/context/LocaleContext';
 import type { UseRuleMutatorApi } from '@openheaders/ui/shared/hooks/mutators/useRuleMutator';
 import { VERDICT_COLOR, VERDICT_LABEL, VERDICT_TOOLTIP } from '@openheaders/ui/shared/verdict';
@@ -27,7 +27,7 @@ export interface ThisPageRulesColumnsOptions {
   sortedInfo: SorterResult<TableRecord>;
   filteredInfo: Record<string, FilterValue | null>;
   dataSource: TableRecord[];
-  pauseMarkers: PauseMarkers;
+  pausedUids: PausedUids;
   shadowDetection: boolean;
   ruleMutator: UseRuleMutatorApi;
   message: ThisPageMessageApi;
@@ -46,7 +46,7 @@ export function buildThisPageRulesColumns({
   sortedInfo,
   filteredInfo,
   dataSource,
-  pauseMarkers,
+  pausedUids,
   shadowDetection,
   ruleMutator,
   message,
@@ -71,7 +71,7 @@ export function buildThisPageRulesColumns({
         const displayName = truncateValue(text, 20);
         const count = record.fireCount;
         const isEnabled = record.isEnabled !== false;
-        const groupPaused = resolvePauseState(record.path ?? '', pauseMarkers);
+        const groupPaused = pausedUids.has(record.id);
         const outOfPlay = !isEnabled || groupPaused;
         const shadowed = shadowDetection && record.shadowedCount > 0;
 
@@ -238,14 +238,14 @@ export function buildThisPageRulesColumns({
         ];
         const labels = [
           ...resourceLabels,
-          ...(resolvePauseState(record.path ?? '', pauseMarkers) ? [t('popup.status.paused')] : []),
+          ...(pausedUids.has(record.id) ? [t('popup.status.paused')] : []),
           ruleTypeLabel(record.ruleType, t),
         ];
         return labels.includes(value as string);
       },
       render: (_: unknown, record: TableRecord) => {
         const allTags: TagDescriptor[] = [];
-        if (resolvePauseState(record.path ?? '', pauseMarkers)) {
+        if (pausedUids.has(record.id)) {
           allTags.push({
             label: t('popup.status.paused'),
             color: 'default',

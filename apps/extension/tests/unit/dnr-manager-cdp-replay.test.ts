@@ -52,7 +52,7 @@ vi.mock('@utils/logger', () => ({
 }));
 
 vi.mock('@openheaders/oracle/entity/pause-markers-store', () => ({
-  getPauseMarkers: vi.fn(() => new Map<string, 'paused' | 'unpaused'>()),
+  getPausedUids: vi.fn(() => new Set<string>()),
   applyExternalSnapshot: vi.fn(),
 }));
 

@@ -1,5 +1,5 @@
 import type { RequestRecord, TabTelemetrySnapshot as TelemetrySnapshot } from '@openheaders/core/types';
-import { type PauseMarkers, resolvePauseState } from '@openheaders/core/utils';
+import type { PausedUids } from '@openheaders/core/utils';
 import { compareBySortMode } from '@openheaders/ui/shared/table-shared';
 import { type RuleVerdict, VERDICT_RANK } from '@openheaders/ui/shared/verdict';
 import type { ActiveRule, SortMode, TableRecord } from './types';
@@ -8,7 +8,7 @@ export interface BuildThisPageRowsOptions {
   snapshot: TelemetrySnapshot;
   activeRules: ActiveRule[];
   visibleTypeSet: Set<string>;
-  pauseMarkers: PauseMarkers;
+  pausedUids: PausedUids;
   sortMode: SortMode;
   searchText: string;
 }
@@ -58,7 +58,7 @@ export function buildThisPageRows({
   snapshot,
   activeRules,
   visibleTypeSet,
-  pauseMarkers,
+  pausedUids,
   sortMode,
   searchText,
 }: BuildThisPageRowsOptions): ThisPageRows {
@@ -147,7 +147,7 @@ export function buildThisPageRows({
   const dataSource: TableRecord[] = sortedFilteredRules
     .map((rule, index) => {
       const isEnabled = rule.isEnabled !== false;
-      const groupPaused = resolvePauseState(rule.path ?? '', pauseMarkers);
+      const groupPaused = pausedUids.has(rule.id);
       const statusRank = isEnabled && !groupPaused ? 0 : isEnabled && groupPaused ? 1 : 2;
       const records = recordsFor(rule.id);
       let dominantShadow: { uid: string; name: string } | undefined;
@@ -184,9 +184,7 @@ export function buildThisPageRows({
     })
     .sort((a, b) => compareBySortMode(a, b, sortMode));
 
-  const activeCount = activeRules.filter(
-    (r) => r.isEnabled !== false && !resolvePauseState(r.path ?? '', pauseMarkers),
-  ).length;
+  const activeCount = activeRules.filter((r) => r.isEnabled !== false && !pausedUids.has(r.id)).length;
 
   // Per-verdict counts for the header summary. `firing` is the ground
   // truth count (telemetry has a counter). `silent` and `page` come
@@ -194,7 +192,7 @@ export function buildThisPageRows({
   // domain" hint.
   const verdictCounts = dataSource.reduce(
     (acc, rec) => {
-      if (rec.isEnabled === false || resolvePauseState(rec.path ?? '', pauseMarkers)) return acc;
+      if (rec.isEnabled === false || pausedUids.has(rec.id)) return acc;
       const state = rec.verdict ?? 'page';
       if (state === 'firing') acc.firing++;
       else if (state === 'silent') acc.silent++;

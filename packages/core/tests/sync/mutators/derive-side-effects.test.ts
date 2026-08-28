@@ -131,10 +131,12 @@ const cases = [
     reorderHeaderMod(ctx(), { ruleUid: 'rule-1', side: 'request', itemId: 'h1', orderKey: 'm' }),
   ),
   // pause-markers — every mutation recompiles DNR, keyed by the singleton
-  intent('pauseMarkers.setPauseMarker', () => setPauseMarker(ctx(), { path: 'collections/auth', marker: 'paused' })),
-  intent('pauseMarkers.clearPauseMarker', () => clearPauseMarker(ctx(), { path: 'collections/auth' })),
+  intent('pauseMarkers.setPauseMarker', () =>
+    setPauseMarker(ctx(), { type: 'collection', uid: 'col-auth', marker: 'paused' }),
+  ),
+  intent('pauseMarkers.clearPauseMarker', () => clearPauseMarker(ctx(), { uid: 'col-auth' })),
   intent('pauseMarkers.replacePauseMarkers', () =>
-    replacePauseMarkers(ctx(), { existing: { a: 'paused' }, next: { b: 'unpaused' } }),
+    replacePauseMarkers(ctx(), { existing: ['a'], next: [{ type: 'folder', uid: 'b', marker: 'unpaused' }] }),
   ),
   // collection — variable edits invalidate; name / pinned / default do not
   intent('collection.renameCollection', () => renameCollection(ctx(), { collectionUid: 'coll-1', name: 'P' })),
@@ -219,7 +221,7 @@ describe('deriveSideEffectsForEnvelope — per-body-kind content', () => {
   });
 
   it('pause-marker edits recompile DNR keyed by the singleton', () => {
-    expect(derive(setPauseMarker(ctx(), { path: 'p', marker: 'paused' }))).toEqual([
+    expect(derive(setPauseMarker(ctx(), { type: 'collection', uid: 'p', marker: 'paused' }))).toEqual([
       { kind: RECOMPILE_DNR, key: PAUSE_MARKERS_ID, hlc },
     ]);
   });

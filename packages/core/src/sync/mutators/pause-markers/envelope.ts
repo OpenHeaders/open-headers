@@ -14,8 +14,12 @@ import {
 import { tickHlc } from '../../hlc';
 import type { MutatorContext } from '../types';
 
-/** Pause-markers mutator catalog version — bump on any wire-incompatible change (§13.4). */
-export const PAUSE_MARKERS_MUTATOR_VERSION = 1;
+/**
+ * Pause-markers mutator catalog version — bump on any wire-incompatible
+ * change (§13.4). 2: set members keyed by container uid (`{ type, uid,
+ * marker, path? }`); 1 keyed them by path.
+ */
+export const PAUSE_MARKERS_MUTATOR_VERSION = 2;
 
 export function mintEnvelope(ctx: MutatorContext, body: MutationBody): MutationEnvelope {
   return {

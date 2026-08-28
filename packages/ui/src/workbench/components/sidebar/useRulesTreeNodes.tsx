@@ -4,6 +4,7 @@ import type { Rule, TreeNode as CoreTreeNode } from '@openheaders/core/types';
 import { hasNestedPauseMarkers, isRuleComplete, type PauseMarkers } from '@openheaders/core/utils';
 import { useCallback, useMemo } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
+import type { PauseTarget } from '@openheaders/ui/context/PauseMarkersContext';
 import type { WorkbenchTab } from '../../types';
 import { buildRuleIcon } from '../shared/rule-icon';
 import { exportNodeFields } from './export-fields';
@@ -33,9 +34,9 @@ interface UseRulesTreeNodesParams {
   filterText: string;
   confirmDelete: (name: string, onConfirm: () => void) => void;
   handleToggleRule: (uid: string, enabled: boolean) => void;
-  togglePause: (path: string) => void;
-  clearPauseOverride: (path: string) => void;
-  clearNestedPauseOverrides: (path: string) => void;
+  togglePause: (target: PauseTarget) => void;
+  clearPauseOverride: (uid: string) => void;
+  clearNestedPauseOverrides: (children: readonly CoreTreeNode[]) => void;
   updateLocalRule: (uid: string, patch: Partial<Rule>) => Promise<unknown> | unknown;
   createLocalFolder: (name: string, parentPath: string) => Promise<{ uid: string; path: string; name: string } | null>;
   renameLocalFolder: (uid: string, name: string) => Promise<unknown> | unknown;
@@ -93,8 +94,8 @@ export function useRulesTreeNodes(p: UseRulesTreeNodesParams): TreeNode[] {
           const fid = `folder-${node.uid}`;
           const isExpanded = p.isExpandedKey(fid);
           const folderPaused = p.pausedUids.has(node.uid);
-          const folderHasOwnMarker = p.pauseMarkers.has(node.path);
-          const folderHasNestedMarkers = hasNestedPauseMarkers(node.path, p.pauseMarkers);
+          const folderHasOwnMarker = p.pauseMarkers.has(node.uid);
+          const folderHasNestedMarkers = hasNestedPauseMarkers(node.children, p.pauseMarkers);
           const onAddRule = (type: string) => p.onCreateRule(type, { collectionId, folderPath: node.path });
           const onAddFolder = () => {
             void p.createLocalFolder(t('workbench.sidebar.defaults.newFolder'), node.path).then((f) => {
@@ -152,9 +153,9 @@ export function useRulesTreeNodes(p: UseRulesTreeNodesParams): TreeNode[] {
                 effectivelyPaused: folderPaused,
                 hasOwnMarker: folderHasOwnMarker,
                 hasNestedMarkers: folderHasNestedMarkers,
-                onTogglePause: () => p.togglePause(node.path),
-                onClearOverride: () => p.clearPauseOverride(node.path),
-                onClearNested: () => p.clearNestedPauseOverrides(node.path),
+                onTogglePause: () => p.togglePause({ type: 'folder', uid: node.uid, path: node.path }),
+                onClearOverride: () => p.clearPauseOverride(node.uid),
+                onClearNested: () => p.clearNestedPauseOverrides(node.children),
                 kind: 'folder',
                 ...(p.onExportEntity
                   ? { onExport: () => p.onExportEntity?.({ kind: 'folder', uid: node.uid, name: node.name }) }
@@ -329,8 +330,8 @@ export function useRulesTreeNodes(p: UseRulesTreeNodesParams): TreeNode[] {
       };
 
       const colPaused = p.pausedUids.has(collection.uid);
-      const colHasOwnMarker = p.pauseMarkers.has(collection.path);
-      const colHasNestedMarkers = hasNestedPauseMarkers(collection.path, p.pauseMarkers);
+      const colHasOwnMarker = p.pauseMarkers.has(collection.uid);
+      const colHasNestedMarkers = hasNestedPauseMarkers(collection.tree, p.pauseMarkers);
       items.push({
         id: colId,
         kind: 'group',
@@ -373,9 +374,9 @@ export function useRulesTreeNodes(p: UseRulesTreeNodesParams): TreeNode[] {
             effectivelyPaused: colPaused,
             hasOwnMarker: colHasOwnMarker,
             hasNestedMarkers: colHasNestedMarkers,
-            onTogglePause: () => p.togglePause(collection.path),
-            onClearOverride: () => p.clearPauseOverride(collection.path),
-            onClearNested: () => p.clearNestedPauseOverrides(collection.path),
+            onTogglePause: () => p.togglePause({ type: 'collection', uid: collection.uid, path: collection.path }),
+            onClearOverride: () => p.clearPauseOverride(collection.uid),
+            onClearNested: () => p.clearNestedPauseOverrides(collection.tree),
             kind: 'collection',
             ...(p.onExportEntity
               ? {

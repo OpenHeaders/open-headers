@@ -3,7 +3,7 @@ import type { CdpScopeMode, RequestRecord, Rule } from '@openheaders/core/types'
 import { isRuleEffective } from '@openheaders/core/utils';
 import { ConsoleStreamHub } from '@openheaders/oracle/console-stream-hub';
 import { type CdpTabControlState, EMPTY_TAB_CONTROL_STATE } from '@openheaders/oracle/correlator-cdp';
-import { getPauseMarkers } from '@openheaders/oracle/entity/pause-markers-store';
+import { getPausedUids } from '@openheaders/oracle/entity/pause-markers-store';
 import { getRules } from '@openheaders/oracle/entity/rule-store';
 import { JsContextHub } from '@openheaders/oracle/js-context-hub';
 import { PageStreamHub } from '@openheaders/oracle/page-stream-hub';
@@ -165,7 +165,7 @@ export function startLifecyclePipeline(): LifecyclePipelineHandles {
   // not the raw template. The resolve is cheap (no I/O) and passes a strict
   // subset of the store's rules, so it never clobbers the DNR snapshot memo.
   const liveRules = (): Rule[] =>
-    resolveRulesForCompile(getRules().filter((rule) => isRuleEffective(rule, getPauseMarkers(), getRulesPaused())));
+    resolveRulesForCompile(getRules().filter((rule) => isRuleEffective(rule, getPausedUids(), getRulesPaused())));
   // Cache, conditions, and overrides are the three standing-state inputs that
   // are NOT rule-derived: the per-tab "disable cache" toggle (DNR cache-bypass
   // module), the per-tab throttle profile (network-conditions module), and the

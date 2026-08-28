@@ -554,19 +554,27 @@ export interface SyncOAuthBundlePostState {
  * Post-commit projection for a pause-markers envelope. Singleton entity
  * per workspace — there is exactly one materialized record at the fixed
  * id `pause-markers`. The catalog stores entries as set members at
- * `markers` (set member identity = path); the projection folds the live
- * set back into a `Record<path, marker>` so renderer + DNR consumers
- * see post-commit state without iterating arrays.
+ * `markers` (set member identity = the container uid); the projection
+ * folds the live set into a uid-keyed map beside the full entries so
+ * renderer + DNR consumers see post-commit state without iterating
+ * arrays. Version-1 members (path-keyed) are migrated on read.
  *
  * Pause markers are user-visible UX state, not secrets — broadcast +
  * sync transports carry them freely.
  */
+export interface SyncPauseMarkerEntry {
+  type: 'collection' | 'folder';
+  uid: string;
+  marker: 'paused' | 'unpaused';
+  /** Write-time container path — a hint for version-1 readers only. */
+  path?: string;
+}
+
 export interface SyncPauseMarkersPostState {
-  /** Path → 'paused' | 'unpaused'. */
+  /** Container uid → 'paused' | 'unpaused'. */
   markers: Record<string, 'paused' | 'unpaused'>;
-  /** Sorted live set of marked paths — convenient for consumers
-   *  iterating in deterministic order. */
-  paths: string[];
+  /** Every live marker, sorted by container uid. */
+  entries: SyncPauseMarkerEntry[];
 }
 
 /**

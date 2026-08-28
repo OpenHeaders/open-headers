@@ -1,19 +1,26 @@
 import { describe, expect, it } from 'vitest';
 import type { CollectionTree } from '../../src/types/collection';
-import { computePausedUids, hasNestedPauseMarkers, type PauseMarker, resolvePauseState } from '../../src/utils/pause';
+import {
+  collectNestedContainerUids,
+  computePausedUids,
+  hasNestedPauseMarkers,
+  type PauseMarker,
+  pauseMarkersFromEntries,
+  resolvePauseState,
+} from '../../src/utils/pause';
 
 function markers(record: Record<string, PauseMarker>): Map<string, PauseMarker> {
   return new Map(Object.entries(record));
 }
 
 // A small fixture: one collection, two folders, three rules.
-//   rules/col-a
-//     ├ folder-x  (path: rules/col-a/folder-x)
-//     │   └ rule-r1 (path: rules/col-a/folder-x/rule-r1)
-//     └ folder-y  (path: rules/col-a/folder-y)
-//         └ rule-r2 (path: rules/col-a/folder-y/rule-r2)
-//   rules/col-b
-//     └ rule-r3 (path: rules/col-b/rule-r3)
+//   col-a
+//     ├ folder-x
+//     │   └ rule-r1
+//     └ folder-y
+//         └ rule-r2
+//   col-b
+//     └ rule-r3
 const trees: CollectionTree[] = [
   {
     schemaVersion: 5,
@@ -79,71 +86,84 @@ const trees: CollectionTree[] = [
   },
 ];
 
+// The same fixture as a parent chain (what a store-side resolver walks).
+const PARENTS: Record<string, string | null> = {
+  'col-a': null,
+  'col-b': null,
+  'folder-x': 'col-a',
+  'folder-y': 'col-a',
+  'rule-r1': 'folder-x',
+  'rule-r2': 'folder-y',
+  'rule-r3': 'col-b',
+};
+const parentOf = (uid: string): string | null => PARENTS[uid] ?? null;
+
 describe('resolvePauseState', () => {
   it('returns false when no markers exist', () => {
-    expect(resolvePauseState('rules/col-a/folder-x/rule-r1', new Map())).toBe(false);
+    expect(resolvePauseState('rule-r1', new Map(), parentOf)).toBe(false);
   });
 
-  it('returns true when self path is marked paused', () => {
-    expect(resolvePauseState('rules/col-a/folder-x', markers({ 'rules/col-a/folder-x': 'paused' }))).toBe(true);
+  it('returns true when self is marked paused', () => {
+    expect(resolvePauseState('folder-x', markers({ 'folder-x': 'paused' }), parentOf)).toBe(true);
   });
 
   it('returns true when an ancestor is marked paused', () => {
-    expect(resolvePauseState('rules/col-a/folder-x/rule-r1', markers({ 'rules/col-a': 'paused' }))).toBe(true);
+    expect(resolvePauseState('rule-r1', markers({ 'col-a': 'paused' }), parentOf)).toBe(true);
   });
 
-  it('returns false when self has an unpaused override even though ancestor is paused', () => {
-    // closest specifier wins
-    expect(
-      resolvePauseState(
-        'rules/col-a/folder-x',
-        markers({ 'rules/col-a': 'paused', 'rules/col-a/folder-x': 'unpaused' }),
-      ),
-    ).toBe(false);
+  it('returns false when self has an unpaused override even though an ancestor is paused', () => {
+    expect(resolvePauseState('folder-x', markers({ 'col-a': 'paused', 'folder-x': 'unpaused' }), parentOf)).toBe(false);
   });
 
-  it('returns true for a rule under a paused collection but inside an unpaused folder override', () => {
-    // The unpaused override on the FOLDER protects every rule inside it.
-    expect(
-      resolvePauseState(
-        'rules/col-a/folder-x/rule-r1',
-        markers({ 'rules/col-a': 'paused', 'rules/col-a/folder-x': 'unpaused' }),
-      ),
-    ).toBe(false);
+  it('protects a rule under a paused collection through an unpaused folder override', () => {
+    expect(resolvePauseState('rule-r1', markers({ 'col-a': 'paused', 'folder-x': 'unpaused' }), parentOf)).toBe(false);
   });
 
   it('keeps a sibling paused when only one folder is overridden', () => {
-    // folder-y has no override — inherited 'paused' from collection still wins.
-    expect(
-      resolvePauseState(
-        'rules/col-a/folder-y/rule-r2',
-        markers({ 'rules/col-a': 'paused', 'rules/col-a/folder-x': 'unpaused' }),
-      ),
-    ).toBe(true);
+    expect(resolvePauseState('rule-r2', markers({ 'col-a': 'paused', 'folder-x': 'unpaused' }), parentOf)).toBe(true);
   });
 
-  it('does not treat a path with the same prefix as an ancestor', () => {
-    // 'rules/col-ab' must not be treated as a child of 'rules/col-a'.
-    expect(resolvePauseState('rules/col-ab/rule-x', markers({ 'rules/col-a': 'paused' }))).toBe(false);
+  it('never loops on a cyclic chain', () => {
+    const cyclic = (uid: string): string | null => (uid === 'a' ? 'b' : 'a');
+    expect(resolvePauseState('a', markers({ z: 'paused' }), cyclic)).toBe(false);
   });
 });
 
 describe('hasNestedPauseMarkers', () => {
+  const colA = trees[0].tree;
+
   it('returns false for an empty map', () => {
-    expect(hasNestedPauseMarkers('rules/col-a', new Map())).toBe(false);
+    expect(hasNestedPauseMarkers(colA, new Map())).toBe(false);
   });
 
-  it('returns true when a strict descendant has a marker', () => {
-    expect(hasNestedPauseMarkers('rules/col-a', markers({ 'rules/col-a/folder-x': 'paused' }))).toBe(true);
+  it('returns true when a strict descendant folder has a marker', () => {
+    expect(hasNestedPauseMarkers(colA, markers({ 'folder-x': 'paused' }))).toBe(true);
   });
 
-  it('returns false when only the path itself has a marker', () => {
-    // A self marker is not a "nested" descendant.
-    expect(hasNestedPauseMarkers('rules/col-a', markers({ 'rules/col-a': 'paused' }))).toBe(false);
+  it('ignores the container itself and unrelated containers', () => {
+    expect(hasNestedPauseMarkers(colA, markers({ 'col-a': 'paused', 'col-b': 'paused' }))).toBe(false);
   });
 
-  it('does not match unrelated prefixes', () => {
-    expect(hasNestedPauseMarkers('rules/col-a', markers({ 'rules/col-ab/folder': 'paused' }))).toBe(false);
+  it('ignores rule uids (markers sit on containers only)', () => {
+    expect(hasNestedPauseMarkers(colA, markers({ 'rule-r1': 'paused' }))).toBe(false);
+  });
+});
+
+describe('collectNestedContainerUids', () => {
+  it('lists every folder inside the subtree, depth-first', () => {
+    expect(collectNestedContainerUids(trees[0].tree)).toEqual(['folder-x', 'folder-y']);
+    expect(collectNestedContainerUids(trees[1].tree)).toEqual([]);
+  });
+});
+
+describe('pauseMarkersFromEntries', () => {
+  it('keys the map by container uid', () => {
+    expect(
+      pauseMarkersFromEntries([
+        { type: 'collection', uid: 'col-a', marker: 'paused', path: 'rules/col-a' },
+        { type: 'folder', uid: 'folder-x', marker: 'unpaused' },
+      ]),
+    ).toEqual(markers({ 'col-a': 'paused', 'folder-x': 'unpaused' }));
   });
 });
 
@@ -153,20 +173,27 @@ describe('computePausedUids', () => {
   });
 
   it('marks every descendant of a paused collection', () => {
-    const result = computePausedUids(trees, markers({ 'rules/col-a': 'paused' }));
+    const result = computePausedUids(trees, markers({ 'col-a': 'paused' }));
     expect(result).toEqual(new Set(['col-a', 'folder-x', 'rule-r1', 'folder-y', 'rule-r2']));
   });
 
   it('honors an unpaused folder override under a paused collection', () => {
-    const result = computePausedUids(trees, markers({ 'rules/col-a': 'paused', 'rules/col-a/folder-x': 'unpaused' }));
-    // col-a paused; folder-y + rule-r2 inherit paused;
-    // folder-x + rule-r1 are protected by the override.
+    const result = computePausedUids(trees, markers({ 'col-a': 'paused', 'folder-x': 'unpaused' }));
     expect(result).toEqual(new Set(['col-a', 'folder-y', 'rule-r2']));
   });
 
   it('does not pause sibling collections', () => {
-    const result = computePausedUids(trees, markers({ 'rules/col-a': 'paused' }));
+    const result = computePausedUids(trees, markers({ 'col-a': 'paused' }));
     expect(result.has('col-b')).toBe(false);
     expect(result.has('rule-r3')).toBe(false);
+  });
+
+  it('follows a moved folder: the marker travels with the uid, not the path', () => {
+    const moved: CollectionTree[] = [
+      { ...trees[0], tree: [trees[0].tree[1]] },
+      { ...trees[1], tree: [...trees[1].tree, { ...trees[0].tree[0], path: 'rules/col-b/folder-x' }] },
+    ];
+    const result = computePausedUids(moved, markers({ 'folder-x': 'paused' }));
+    expect(result).toEqual(new Set(['folder-x', 'rule-r1']));
   });
 });

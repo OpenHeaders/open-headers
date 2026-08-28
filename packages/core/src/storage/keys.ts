@@ -63,7 +63,7 @@ import type {
   WorkspaceVariables,
   WsResponseExample,
 } from '../types';
-import type { PauseMarker } from '../utils';
+import type { PauseMarkersRecord } from '../utils';
 
 // ── Core key type ────────────────────────────────────────────────────
 
@@ -588,7 +588,7 @@ export interface WorkspaceKeys {
   trustedRoots: StorageKey<TrustedRoots>;
   /** Collection order of the three trees — the workspace-roots singleton's projection. */
   workspaceRoots: StorageKey<WorkspaceRoots>;
-  pauseMarkers: StorageKey<Record<string, PauseMarker>>;
+  pauseMarkers: StorageKey<PauseMarkersRecord>;
   tabSession: StorageKey<PersistedTabSession>;
   panelLayout: StorageKey<PersistedPanelLayout>;
   /** R2a — taste-scoped workspace settings. Always reads from the global active workspace. */
@@ -785,7 +785,7 @@ export function wsKeys(workspaceId: string): WorkspaceKeys {
     vault: storageKey<Vault>(`${p}.vault`, { sensitive: true }),
     trustedRoots: storageKey<TrustedRoots>(`${p}.trustedRoots`),
     workspaceRoots: storageKey<WorkspaceRoots>(`${p}.workspaceRoots`),
-    pauseMarkers: storageKey<Record<string, PauseMarker>>(`${p}.pauseMarkers`),
+    pauseMarkers: storageKey<PauseMarkersRecord>(`${p}.pauseMarkers`),
     tabSession: storageKey<PersistedTabSession>(`${p}.tabSession`),
     panelLayout: storageKey<PersistedPanelLayout>(`${p}.panelLayout`),
     settingsWorkspaceTaste: storageKey<Record<string, unknown>>(`${p}.settings.workspaceTaste`),

@@ -1,7 +1,6 @@
 import { ExclamationCircleOutlined, InfoCircleOutlined } from '@ant-design/icons';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { RequestRulesIcon } from '@openheaders/ui/shared/icons';
-import { resolvePauseState } from '@openheaders/core/utils';
 import { scheduleFrame } from '@openheaders/ui/shared/frame-scheduler';
 import { useRuleMutator } from '@openheaders/ui/shared/hooks/mutators/useRuleMutator';
 import { useRules } from '@openheaders/ui/shared/hooks/readers/useRules';
@@ -59,7 +58,7 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
   const { message } = App.useApp();
   const t = useT();
   const { token } = theme.useToken();
-  const { pauseMarkers, activeWorkspaceId } = useRules();
+  const { pausedUids, activeWorkspaceId } = useRules();
   const ruleMutator = useRuleMutator({ workspaceId: activeWorkspaceId, surfaceId: 'popup' });
   const openRulesIntent = useOpenRulesIntent();
   const {
@@ -143,7 +142,7 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
     snapshot,
     activeRules,
     visibleTypeSet,
-    pauseMarkers,
+    pausedUids,
     sortMode,
     searchText,
   });
@@ -186,7 +185,7 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
     sortedInfo,
     filteredInfo,
     dataSource,
-    pauseMarkers,
+    pausedUids,
     shadowDetection,
     ruleMutator,
     message,
@@ -222,7 +221,7 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
         currentTab={currentTab}
         activeCount={activeCount}
         activeRules={activeRules}
-        pauseMarkers={pauseMarkers}
+        pausedUids={pausedUids}
         verdictCounts={verdictCounts}
         searchText={searchText}
         setSearchText={setSearchText}
@@ -260,7 +259,7 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
           })}
           rowClassName={(record: TableRecord, index: number) => {
             const classes: string[] = [];
-            if (resolvePauseState(record.path ?? '', pauseMarkers)) classes.push('row-group-paused');
+            if (pausedUids.has(record.id)) classes.push('row-group-paused');
             else if (record.isEnabled === false) classes.push('row-disabled');
             if (index === focusedRowIndex) classes.push('keyboard-focused-row');
             if (index === pendingDeleteIndex) classes.push('keyboard-pending-delete-row');

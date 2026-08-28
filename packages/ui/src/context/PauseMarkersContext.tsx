@@ -2,10 +2,10 @@
  * PauseMarkersContext — pause-markers singleton-entity provider.
  *
  * Mirrors `VaultContext` (per MWPT-FULL § 8.3.9 — singleton-with-storage-key
- * baseline). Pause markers are a path → 'paused' | 'unpaused' map projected
- * to `wsKeys(workspaceId).pauseMarkers` AND owned as a sync-engine singleton
- * entity exposed via `oh.sync.snapshotPauseMarkers` + per-workspace
- * `PauseMarkersSyncMirror`.
+ * baseline). Pause markers are keyed by CONTAINER UID (collection /
+ * folder) and projected to `wsKeys(workspaceId).pauseMarkers` AND owned
+ * as a sync-engine singleton entity exposed via
+ * `oh.sync.snapshotPauseMarkers` + per-workspace `PauseMarkersSyncMirror`.
  *
  *   - Override branch: reads `wsKeys(workspaceId).pauseMarkers` via
  *     `hostStorage.subscribe`; writes route through
@@ -16,44 +16,63 @@
  *     (re-binds on `workspaceChanged`); writes route through Phase B with
  *     the active workspace id.
  *
+ * This provider owns the raw marker primitives (set / clear / prune).
+ * Resolution against the tree — "is this node paused?", the smart
+ * toggle, clearing a subtree — lives in `RuleContext`, which holds the
+ * collection trees the parent chain is read from.
+ *
+ * A version-1 record at rest (path-keyed, no `entries`) reads as empty
+ * here; the SW's projection rewrites the key in the current shape on
+ * its first pass, which is what this subscription then sees.
+ *
  * No § 4.1.c residual: pause markers have no active/default pointer concept
  * so the migration covers all writes.
  */
 
 import { useActiveWorkspaceId } from '../shared/hooks/readers/useActiveWorkspaceId';
-import type { PauseMarker } from '@openheaders/core/utils';
-import { resolvePauseState } from '@openheaders/core/utils';
+import type { PauseMarker, PauseMarkerEntry, PauseMarkerRef } from '@openheaders/core/utils';
+import { pauseMarkersFromEntries } from '@openheaders/core/utils';
 import type React from 'react';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { hostStorage, wsKeys } from '@openheaders/core/storage';
+import { isPauseMarkersRecord } from '@openheaders/core/sync-builders/projections/pause-markers-projection';
 import {
   applyPauseMarkerClear,
   applyPauseMarkerSet,
   applyPauseMarkersReplacement,
 } from '../shared/sync/pause-markers-write-client';
 
+const EMPTY_ENTRIES: readonly PauseMarkerEntry[] = [];
 const EMPTY_MARKERS: ReadonlyMap<string, PauseMarker> = new Map();
 
+/** The container a pause gesture targets: its ref plus its current path (the version-1 reader hint). */
+export interface PauseTarget extends PauseMarkerRef {
+  path: string;
+}
+
 export interface PauseMarkersContextValue {
+  /** Container uid → marker. */
   pauseMarkers: ReadonlyMap<string, PauseMarker>;
+  entries: readonly PauseMarkerEntry[];
   isReady: boolean;
-  /** Smart toggle — flips effective pause state by setting the opposite marker. */
-  togglePause: (path: string) => void;
-  /** Remove the explicit marker on `path` so it inherits from its parent. */
-  clearPauseOverride: (path: string) => void;
-  /** Remove every marker strictly below `path`. */
-  clearNestedPauseOverrides: (path: string) => void;
-  /** Replace the entire map — used by the stale-marker pruning effect. */
-  replaceMarkers: (next: ReadonlyMap<string, PauseMarker>) => void;
+  /** Put an explicit marker on a container. */
+  setMarker: (target: PauseTarget, marker: PauseMarker) => void;
+  /** Remove the explicit marker on a container so it inherits from its parent. */
+  clearMarker: (uid: string) => void;
+  /** Remove the explicit markers on every listed container in one batch. */
+  clearMarkers: (uids: readonly string[]) => void;
+  /** Drop every marker whose container is not in `keepUids` — the stale-marker pruning effect. */
+  pruneMarkers: (keepUids: ReadonlySet<string>) => void;
 }
 
 const defaultContextValue: PauseMarkersContextValue = {
   pauseMarkers: EMPTY_MARKERS,
+  entries: EMPTY_ENTRIES,
   isReady: false,
-  togglePause: () => {},
-  clearPauseOverride: () => {},
-  clearNestedPauseOverrides: () => {},
-  replaceMarkers: () => {},
+  setMarker: () => {},
+  clearMarker: () => {},
+  clearMarkers: () => {},
+  pruneMarkers: () => {},
 };
 
 export const PauseMarkersContext = createContext<PauseMarkersContextValue>(defaultContextValue);
@@ -69,6 +88,10 @@ interface PauseMarkersProviderProps {
   activeWorkspaceIdOverride?: string | null;
 }
 
+function entriesOf(record: unknown): PauseMarkerEntry[] {
+  return isPauseMarkersRecord(record) ? record.entries : [];
+}
+
 export const PauseMarkersProvider: React.FC<PauseMarkersProviderProps> = ({
   children,
   surfaceId,
@@ -79,7 +102,7 @@ export const PauseMarkersProvider: React.FC<PauseMarkersProviderProps> = ({
   const readWorkspaceId = isOverridden ? (activeWorkspaceIdOverride ?? null) : activeWorkspaceId;
   const writeWorkspaceId = readWorkspaceId;
 
-  const [pauseMarkers, setPauseMarkers] = useState<Map<string, PauseMarker>>(() => new Map());
+  const [entries, setEntries] = useState<PauseMarkerEntry[]>([]);
   const [isReady, setIsReady] = useState(false);
   const readIdRef = useRef<string | null>(null);
 
@@ -96,18 +119,18 @@ export const PauseMarkersProvider: React.FC<PauseMarkersProviderProps> = ({
     const wsId = readWorkspaceId;
     readIdRef.current = wsId;
     if (!wsId) {
-      setPauseMarkers(new Map());
+      setEntries([]);
       setIsReady(true);
       return;
     }
     setIsReady(false);
     void hostStorage.get(wsKeys(wsId).pauseMarkers).then((record) => {
       if (readIdRef.current !== wsId) return;
-      setPauseMarkers(record ? new Map(Object.entries(record)) : new Map());
+      setEntries(entriesOf(record));
       setIsReady(true);
     });
     return hostStorage.subscribe(wsKeys(wsId).pauseMarkers, (record) => {
-      setPauseMarkers(record ? new Map(Object.entries(record)) : new Map());
+      setEntries(entriesOf(record));
     });
   }, [readWorkspaceId]);
 
@@ -117,49 +140,39 @@ export const PauseMarkersProvider: React.FC<PauseMarkersProviderProps> = ({
   // broadcasts via the host storage layer's change events; the read-path
   // subscriber corrects any divergence.
 
-  const togglePause = useCallback(
-    (path: string) => {
+  const setMarker = useCallback(
+    (target: PauseTarget, marker: PauseMarker) => {
       const wsId = writeWorkspaceId;
-      setPauseMarkers((prev) => {
-        const currentlyPaused = resolvePauseState(path, prev);
-        const marker: PauseMarker = currentlyPaused ? 'unpaused' : 'paused';
-        const next = new Map(prev);
-        next.set(path, marker);
-        if (wsId) {
-          void applyPauseMarkerSet({ path, marker }, { workspaceId: wsId, surfaceId }).catch(() => undefined);
-        }
-        return next;
-      });
+      const entry: PauseMarkerEntry = { type: target.type, uid: target.uid, marker, path: target.path };
+      setEntries((prev) => [...prev.filter((e) => e.uid !== target.uid), entry]);
+      if (wsId) {
+        void applyPauseMarkerSet(entry, { workspaceId: wsId, surfaceId }).catch(() => undefined);
+      }
     },
     [writeWorkspaceId, surfaceId],
   );
 
-  const clearPauseOverride = useCallback(
-    (path: string) => {
+  const clearMarker = useCallback(
+    (uid: string) => {
       const wsId = writeWorkspaceId;
-      setPauseMarkers((prev) => {
-        if (!prev.has(path)) return prev;
-        const next = new Map(prev);
-        next.delete(path);
-        if (wsId) {
-          void applyPauseMarkerClear({ path }, { workspaceId: wsId, surfaceId }).catch(() => undefined);
-        }
-        return next;
+      setEntries((prev) => {
+        if (!prev.some((e) => e.uid === uid)) return prev;
+        return prev.filter((e) => e.uid !== uid);
       });
+      if (wsId) {
+        void applyPauseMarkerClear({ uid }, { workspaceId: wsId, surfaceId }).catch(() => undefined);
+      }
     },
     [writeWorkspaceId, surfaceId],
   );
 
-  const clearNestedPauseOverrides = useCallback(
-    (path: string) => {
+  const replaceWith = useCallback(
+    (keep: (entry: PauseMarkerEntry) => boolean) => {
       const wsId = writeWorkspaceId;
-      setPauseMarkers((prev) => {
-        const prefix = `${path}/`;
-        const next = new Map<string, PauseMarker>();
-        for (const [key, value] of prev) {
-          if (!key.startsWith(prefix)) next.set(key, value);
-        }
-        if (wsId && next.size !== prev.size) {
+      setEntries((prev) => {
+        const next = prev.filter(keep);
+        if (next.length === prev.length) return prev;
+        if (wsId) {
           void applyPauseMarkersReplacement(next, { workspaceId: wsId, surfaceId }).catch(() => undefined);
         }
         return next;
@@ -168,21 +181,26 @@ export const PauseMarkersProvider: React.FC<PauseMarkersProviderProps> = ({
     [writeWorkspaceId, surfaceId],
   );
 
-  const replaceMarkers = useCallback(
-    (next: ReadonlyMap<string, PauseMarker>) => {
-      const wsId = writeWorkspaceId;
-      const nextMap = new Map(next);
-      setPauseMarkers(nextMap);
-      if (wsId) {
-        void applyPauseMarkersReplacement(nextMap, { workspaceId: wsId, surfaceId }).catch(() => undefined);
-      }
+  const clearMarkers = useCallback(
+    (uids: readonly string[]) => {
+      const drop = new Set(uids);
+      replaceWith((entry) => !drop.has(entry.uid));
     },
-    [writeWorkspaceId, surfaceId],
+    [replaceWith],
   );
 
+  const pruneMarkers = useCallback(
+    (keepUids: ReadonlySet<string>) => {
+      replaceWith((entry) => keepUids.has(entry.uid));
+    },
+    [replaceWith],
+  );
+
+  const pauseMarkers = useMemo(() => pauseMarkersFromEntries(entries), [entries]);
+
   const value = useMemo<PauseMarkersContextValue>(
-    () => ({ pauseMarkers, isReady, togglePause, clearPauseOverride, clearNestedPauseOverrides, replaceMarkers }),
-    [pauseMarkers, isReady, togglePause, clearPauseOverride, clearNestedPauseOverrides, replaceMarkers],
+    () => ({ pauseMarkers, entries, isReady, setMarker, clearMarker, clearMarkers, pruneMarkers }),
+    [pauseMarkers, entries, isReady, setMarker, clearMarker, clearMarkers, pruneMarkers],
   );
 
   return <PauseMarkersContext.Provider value={value}>{children}</PauseMarkersContext.Provider>;

@@ -5,7 +5,7 @@ import {
   SortAscendingOutlined,
 } from '@ant-design/icons';
 import type { RequestRecord } from '@openheaders/core/types';
-import { type PauseMarkers, resolvePauseState } from '@openheaders/core/utils';
+import type { PausedUids } from '@openheaders/core/utils';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { VERDICT_TOOLTIP } from '@openheaders/ui/shared/verdict';
 import type { WorkspaceIntent } from '@openheaders/ui/shared/workspace-intent';
@@ -25,7 +25,7 @@ interface ThisPageToolbarProps {
   currentTab: CurrentTabInfo;
   activeCount: number;
   activeRules: ActiveRule[];
-  pauseMarkers: PauseMarkers;
+  pausedUids: PausedUids;
   verdictCounts: { firing: number; silent: number; page: number; related: number };
   searchText: string;
   setSearchText: Dispatch<SetStateAction<string>>;
@@ -57,7 +57,7 @@ const ThisPageToolbar: React.FC<ThisPageToolbarProps> = ({
   currentTab,
   activeCount,
   activeRules,
-  pauseMarkers,
+  pausedUids,
   verdictCounts,
   searchText,
   setSearchText,
@@ -101,7 +101,7 @@ const ThisPageToolbar: React.FC<ThisPageToolbarProps> = ({
             </Text>
             <span className="oh-status-detail" style={{ display: 'inline-flex', gap: 4, alignItems: 'center' }}>
               {(() => {
-                const pausedCount = activeRules.filter((r) => resolvePauseState(r.path ?? '', pauseMarkers)).length;
+                const pausedCount = activeRules.filter((r) => pausedUids.has(r.id)).length;
                 return pausedCount > 0 ? (
                   <>
                     <Text type="secondary" style={{ fontSize: '11px' }}>

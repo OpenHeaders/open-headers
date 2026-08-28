@@ -21,7 +21,7 @@
  */
 
 import type { Rule } from '@openheaders/core/types';
-import { getPauseMarkers } from '@openheaders/oracle/entity/pause-markers-store';
+import { getPausedUids } from '@openheaders/oracle/entity/pause-markers-store';
 import { getRules } from '@openheaders/oracle/entity/rule-store';
 import {
   computeRuleLiveBypass,
@@ -374,7 +374,7 @@ async function rebuildAll(rawRules: Rule[]): Promise<void> {
   // and enqueue any necessary cache eviction. Runs on every rebuild
   // regardless of pause state — pausing the engine is itself a
   // transition that should evict caches holding rule-applied bytes.
-  observeRuleState(rules, getPauseMarkers(), isPaused);
+  observeRuleState(rules, getPausedUids(), isPaused);
 
   if (isPaused) {
     logger.info('DnrManager', 'Rules execution is paused, clearing all active rules');
@@ -412,7 +412,7 @@ async function rebuildAll(rawRules: Rule[]): Promise<void> {
     dynamic: globalDynamic,
     session: globalSessionUntagged,
     scriptables,
-  } = compileRuleSet(rules, getPauseMarkers(), 1, engineSettings);
+  } = compileRuleSet(rules, getPausedUids(), 1, engineSettings);
 
   // ── Capacity enforcement ───────────────────────────────────────
   //

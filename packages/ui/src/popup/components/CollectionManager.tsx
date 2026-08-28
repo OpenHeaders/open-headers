@@ -115,7 +115,7 @@ const CollectionManager: React.FC<CollectionManagerProps> = ({
           if (!resp.ok) message.error(t('popup.rule.toggleFailed'));
         });
       } else {
-        togglePause(record.path);
+        togglePause({ type: record.nodeType, uid: record.uid, path: record.path });
       }
     },
     [message, ruleMutator, togglePause, t],
@@ -143,7 +143,7 @@ const CollectionManager: React.FC<CollectionManagerProps> = ({
       const record = flatRowsRef.current[index];
       if (!record) return;
       if (record.nodeType === 'rule') return;
-      togglePause(record.path);
+      togglePause({ type: record.nodeType, uid: record.uid, path: record.path });
     },
     [togglePause],
   );

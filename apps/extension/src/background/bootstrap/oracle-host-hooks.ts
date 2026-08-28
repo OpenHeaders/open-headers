@@ -46,8 +46,8 @@ export function installOracleHostHooks(): void {
     peekActiveWorkspaceId,
     isSnapshotPlaneReady: isBackgroundReady,
     getCachedTotpCodes,
-    onWorkspaceSwitched: (nextRules, pauseMarkers) => {
-      seedFromWorkspaceSwitch(nextRules, pauseMarkers, getRulesPaused());
+    onWorkspaceSwitched: (nextRules, pausedUids) => {
+      seedFromWorkspaceSwitch(nextRules, pausedUids, getRulesPaused());
     },
   });
 }

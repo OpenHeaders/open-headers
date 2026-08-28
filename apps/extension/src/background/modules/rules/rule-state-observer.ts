@@ -3,7 +3,8 @@
  * DNR rebuilds and enqueues cache eviction for every transition.
  *
  * "Effective active" means: `rule.enabled === true` AND not covered
- * by any pause marker on its path AND the global engine isn't paused.
+ * by any pause marker on its parent chain AND the global engine isn't
+ * paused.
  * Any flip on those axes — explicit toggle, folder pause cascade,
  * engine pause, delete, add, workspace switch — shows up here as a
  * transition on the rule's UID.
@@ -56,14 +57,13 @@
  */
 
 import type { Rule } from '@openheaders/core/types';
-import type { PauseMarker } from '@openheaders/core/utils';
-import { isRuleEffective } from '@openheaders/core/utils';
+import { isRuleEffective, type PausedUids } from '@openheaders/core/utils';
+import { extractRuleOrigins } from '@openheaders/oracle/rule-engine/rule-origins';
 import { logger } from '@utils/logger';
 import { enqueueInvalidation } from '../net/cache-invalidator';
-import { extractRuleOrigins } from '@openheaders/oracle/rule-engine/rule-origins';
 
 interface RuleFingerprint {
-  /** `isRuleEffective(rule, pauseMarkers, enginePaused)` — the single
+  /** `isRuleEffective(rule, pausedUids, enginePaused)` — the single
    *  bit that gates DNR inclusion. Combines enabled, complete, pause
    *  cascade, and engine pause. */
   effective: boolean;
@@ -87,12 +87,8 @@ let writeTimer: ReturnType<typeof setTimeout> | null = null;
  * AFTER `rebuildAll` has pushed the new DNR rules to Chrome — the
  * eviction itself is async and decoupled.
  */
-export function observeRuleState(
-  rules: readonly Rule[],
-  pauseMarkers: ReadonlyMap<string, PauseMarker>,
-  enginePaused: boolean,
-): void {
-  const current = buildSnapshot(rules, pauseMarkers, enginePaused);
+export function observeRuleState(rules: readonly Rule[], pausedUids: PausedUids, enginePaused: boolean): void {
+  const current = buildSnapshot(rules, pausedUids, enginePaused);
 
   if (previousSnapshot === null) {
     // First run after boot / extension reload / workspace import —
@@ -156,10 +152,10 @@ export async function rehydrateFromStorage(): Promise<void> {
  */
 export function seedFromWorkspaceSwitch(
   nextRules: readonly Rule[],
-  pauseMarkers: ReadonlyMap<string, PauseMarker>,
+  pausedUids: PausedUids,
   enginePaused: boolean,
 ): void {
-  const next = buildSnapshot(nextRules, pauseMarkers, enginePaused);
+  const next = buildSnapshot(nextRules, pausedUids, enginePaused);
 
   const origins = new Set<string>();
   let broad = false;
@@ -266,14 +262,10 @@ function isPersistedShape(raw: unknown): raw is Record<string, RuleFingerprint> 
 
 // ── Snapshot construction ────────────────────────────────────────
 
-function buildSnapshot(
-  rules: readonly Rule[],
-  pauseMarkers: ReadonlyMap<string, PauseMarker>,
-  enginePaused: boolean,
-): Snapshot {
+function buildSnapshot(rules: readonly Rule[], pausedUids: PausedUids, enginePaused: boolean): Snapshot {
   const out: Snapshot = new Map();
   for (const rule of rules) {
-    const effective = isRuleEffective(rule, pauseMarkers, enginePaused);
+    const effective = isRuleEffective(rule, pausedUids, enginePaused);
     const { origins, broad } = extractRuleOrigins(rule);
     out.set(rule.uid, { effective, origins, broad });
   }

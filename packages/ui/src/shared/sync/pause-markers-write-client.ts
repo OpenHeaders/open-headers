@@ -9,12 +9,22 @@
  * helpers; the optimistic local apply is folded into the renderer's
  * own state via the mirror's broadcast subscription.
  *
- * `applyPauseMarkersReplacement` is the editor / prune convenience:
- * caller passes the post-image map and the helper diffs against the
- * mirror's existing keys (provided by the caller — the helper doesn't
+ * `applyPauseMarkersReplacement` is the prune / bulk-clear convenience:
+ * caller passes the post-image entries and the helper diffs against the
+ * mirror's existing uids (provided by the caller — the helper doesn't
  * reach for the singleton mirror, keeping it injectable for tests).
  */
 
+import type { PauseMarkerEntry } from '@openheaders/core/sync';
+import {
+  buildClearPauseMarkerBatch,
+  buildReplacePauseMarkersBatch,
+  buildSetPauseMarkerBatch,
+} from '@openheaders/core/sync-builders/mutations/pause-markers-mutations';
+import {
+  getPauseMarkersSyncMirrorForWorkspace,
+  type PauseMarkersSyncMirror,
+} from '../../context/mirrors/pause-markers-sync-mirror';
 import {
   applySyncPayload,
   type BaseSyncWriteOptions,
@@ -22,20 +32,6 @@ import {
   resolveRendererContext,
   type SyncSimpleResult,
 } from './apply-payload';
-import {
-  type MutatorIntent,
-  type PauseMarkerKind,
-} from '@openheaders/core/sync';
-import {
-  createPauseMarkersSyncMirror,
-  getPauseMarkersSyncMirrorForWorkspace,
-  type PauseMarkersSyncMirror,
-} from '../../context/mirrors/pause-markers-sync-mirror';
-import {
-  buildClearPauseMarkerBatch,
-  buildReplacePauseMarkersBatch,
-  buildSetPauseMarkerBatch,
-} from '@openheaders/core/sync-builders/mutations/pause-markers-mutations';
 
 // Re-exported so tests can construct a mirror without going through the singleton.
 export { createPauseMarkersSyncMirror } from '../../context/mirrors/pause-markers-sync-mirror';
@@ -46,10 +42,7 @@ export interface PauseMarkersWriteOptions extends BaseSyncWriteOptions {
   mirror?: PauseMarkersSyncMirror;
 }
 
-export interface ApplyPauseMarkerSetInput {
-  path: string;
-  marker: PauseMarkerKind;
-}
+export type ApplyPauseMarkerSetInput = PauseMarkerEntry;
 
 export async function applyPauseMarkerSet(
   input: ApplyPauseMarkerSetInput,
@@ -60,7 +53,7 @@ export async function applyPauseMarkerSet(
 }
 
 export interface ApplyPauseMarkerClearInput {
-  path: string;
+  uid: string;
 }
 
 export async function applyPauseMarkerClear(
@@ -72,17 +65,17 @@ export async function applyPauseMarkerClear(
 }
 
 /**
- * Replace the entire pause-markers map. The helper reads the existing
- * key set off the active mirror so it can compute removals, then
- * diffs against the supplied `next` map. Empty diff → empty batch (no
+ * Replace the entire pause-markers set. The helper reads the existing
+ * uid set off the active mirror so it can compute removals, then diffs
+ * against the supplied `next` entries. Empty diff → empty batch (no
  * broadcast, no recompile).
  */
 export async function applyPauseMarkersReplacement(
-  next: ReadonlyMap<string, PauseMarkerKind> | Readonly<Record<string, PauseMarkerKind>>,
+  next: readonly PauseMarkerEntry[],
   opts: PauseMarkersWriteOptions,
 ): Promise<PauseMarkersResult> {
   const mirror = resolveMirror(opts, getPauseMarkersSyncMirrorForWorkspace);
-  const existing = mirror.liveMarkers();
+  const existing = mirror.liveUids();
   const ctx = resolveRendererContext(opts).next({ batchId: opts.batchId ?? `pause-markers-replace` });
   return applySyncPayload(buildReplacePauseMarkersBatch({ existing, next }, ctx));
 }

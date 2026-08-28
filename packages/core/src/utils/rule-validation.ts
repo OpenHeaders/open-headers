@@ -20,7 +20,7 @@ import { validateActionValues } from './action-validation';
 import { validateConditionValues, validateDomainValues } from './condition-validation';
 import { getHeaderOperationCapability } from './headers';
 import { logger } from './logger';
-import { type PauseMarkers, resolvePauseState } from './pause';
+import type { PausedUids } from './pause';
 
 /**
  * Check whether a rule has all required fields to function.
@@ -249,8 +249,10 @@ export function isRuleDraft(rule: Rule | Omit<Rule, 'uid' | 'path'>): boolean {
  *                                     missing structural pieces never
  *                                     compile to DNR or fire as
  *                                     scriptable injections
- *   - `!resolvePauseState(path)`    — neither the rule nor any ancestor
- *                                     collection/folder is paused
+ *   - `!pausedUids.has(rule.uid)`   — neither the rule nor any ancestor
+ *                                     collection/folder is paused; the
+ *                                     set is `computePausedUids` over the
+ *                                     tree + the uid-keyed markers
  *   - `!enginePaused`               — the global `rulesEngine.paused`
  *                                     kill switch isn't on
  *
@@ -262,11 +264,11 @@ export function isRuleDraft(rule: Rule | Omit<Rule, 'uid' | 'path'>): boolean {
  * (`published?: boolean`) collapses to "draft" for both `false` and
  * `undefined` — single contract, one negation site.
  */
-export function isRuleEffective(rule: Rule, pauseMarkers: PauseMarkers, enginePaused: boolean): boolean {
+export function isRuleEffective(rule: Rule, pausedUids: PausedUids, enginePaused: boolean): boolean {
   if (isRuleDraft(rule)) return false;
   if (rule.enabled !== true) return false;
   if (enginePaused) return false;
-  if (resolvePauseState(rule.path, pauseMarkers)) return false;
+  if (pausedUids.has(rule.uid)) return false;
   if (!isRuleComplete(rule)) return false;
   return true;
 }

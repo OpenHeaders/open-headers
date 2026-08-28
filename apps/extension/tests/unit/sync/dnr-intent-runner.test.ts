@@ -5,19 +5,19 @@
 
 import {
   addHeaderMod,
+  type MutatorContext,
   PAUSE_MARKERS_ENTITY_TYPE,
   RECOMPILE_DNR,
   RULE_ENTITY_TYPE,
-  type MutatorContext,
   setPauseMarker,
   toggleEnabled,
 } from '@openheaders/core/sync';
-import { describe, expect, it } from 'vitest';
 import { InMemoryBroadcast } from '@openheaders/oracle/sync/broadcast';
 import { createDnrIntentRunner } from '@openheaders/oracle/sync/dnr-intent-runner';
 import { InMemoryMutationLog } from '@openheaders/oracle/sync/mutation-log';
-import { type LockAcquirer, EntityOracle } from '@openheaders/oracle/sync/oracle';
+import { EntityOracle, type LockAcquirer } from '@openheaders/oracle/sync/oracle';
 import { InMemoryPendingIntents } from '@openheaders/oracle/sync/pending-intents';
+import { describe, expect, it } from 'vitest';
 
 const wsId = 'ws-1';
 const sequentialLock: LockAcquirer = async (_ws, _type, _id, fn) => fn();
@@ -137,7 +137,7 @@ describe('DnrIntentRunner', () => {
 
   it('recompiles after a pause-markers mutation lands', async () => {
     const h = makeHarness();
-    const intent = setPauseMarker(ctx(1_000), { path: 'collections/auth', marker: 'paused' });
+    const intent = setPauseMarker(ctx(1_000), { type: 'collection', uid: 'col00001', marker: 'paused' });
     await h.oracle.apply(intent.batch, intent.sideEffects);
     await flush();
     expect(h.recompileCalls).toEqual(['rules']);
