@@ -175,6 +175,7 @@ export function useSidebarInteraction({
           setSelectedIds(next);
         }
         setFocusedId(node.id);
+        containerRef.current?.focus({ preventScroll: true });
         return;
       }
 

@@ -386,6 +386,10 @@
 
 .tree-dnd-row {
   position: relative;
+  // dnd-kit makes the wrapper focusable (its keyboard sensor); the
+  // tree's own `.focused` cursor is the visible focus, never the
+  // browser's accent-coloured ring around the wrapper.
+  outline: none;
 }
 
 // The insertion placeholder while a row is dragged: an empty slot the
