@@ -65,6 +65,16 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.tab.settings': '设置',
   'workbench.editors.request.spec.selectLabel': 'OpenAPI 规范',
   'workbench.editors.request.spec.none': '此请求未关联 OpenAPI 规范。',
+  'workbench.editors.request.spec.fromCollection': '来自集合 {name}',
+  'workbench.editors.request.spec.missing': '关联的规范已不在此工作区中。',
+  'workbench.editors.request.spec.parseFailure': '规范解析失败：{message}',
+  'workbench.editors.request.spec.drifted': '此集合生成后规范已更改。',
+  'workbench.editors.request.spec.operation': '操作',
+  'workbench.editors.request.spec.noOperation': '规范中没有与 {method} {url} 匹配的操作。',
+  'workbench.editors.request.spec.inSync': '与规范一致。',
+  'workbench.editors.request.spec.fieldDiffers': '{field} 与规范不同。',
+  'workbench.editors.request.spec.apply': '应用',
+  'workbench.editors.request.spec.applyAll': '全部应用',
 
   // ── URL bar + method picker (method names stay raw parity vocab) ───
   'workbench.editors.request.url.placeholder': '输入 URL 或粘贴文本',

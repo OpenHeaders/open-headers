@@ -86,7 +86,8 @@ export function specUpdatePlanSize(plan: SpecUpdatePlan): number {
   );
 }
 
-const operationKey = (method: string, url: string) => `${method} ${url.trim()}`;
+/** Pairing key for an operation: method + URL template. */
+export const operationKey = (method: string, url: string) => `${method} ${url.trim()}`;
 
 // Row projections for spec-vs-live equality — uid is sync identity,
 // never document content; absent optionals normalize like the wire.
@@ -122,7 +123,16 @@ function reuseRowUids<T extends { uid: string; key: string }>(specRows: readonly
   });
 }
 
-function diffRequest(spec: CurlRequest, live: Request): Pick<SpecPlanChange, 'changedFields' | 'updates'> {
+/** The request fields the spec comparison reads. */
+export type SpecComparableRequest = Pick<Request, 'name' | 'description' | 'headers' | 'params' | 'auth' | 'body'>;
+
+/** Field-by-field comparison of one parsed operation against its live
+ *  request — the changed fields and the update partial that converges
+ *  them (row uids reused by key). */
+export function diffRequest(
+  spec: CurlRequest,
+  live: SpecComparableRequest,
+): Pick<SpecPlanChange, 'changedFields' | 'updates'> {
   const changedFields: SpecChangedField[] = [];
   const updates: SpecPlanChange['updates'] = {};
 

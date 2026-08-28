@@ -45,6 +45,16 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.tab.settings': 'Settings',
   'workbench.editors.request.spec.selectLabel': 'OpenAPI spec',
   'workbench.editors.request.spec.none': 'No OpenAPI spec is linked to this request.',
+  'workbench.editors.request.spec.fromCollection': 'From collection {name}',
+  'workbench.editors.request.spec.missing': 'The linked spec is no longer in this workspace.',
+  'workbench.editors.request.spec.parseFailure': 'Spec did not parse: {message}',
+  'workbench.editors.request.spec.drifted': 'The spec changed after this collection was generated.',
+  'workbench.editors.request.spec.operation': 'Operation',
+  'workbench.editors.request.spec.noOperation': 'No operation in the spec matches {method} {url}.',
+  'workbench.editors.request.spec.inSync': 'In sync with the spec.',
+  'workbench.editors.request.spec.fieldDiffers': 'The {field} differs from the spec.',
+  'workbench.editors.request.spec.apply': 'Apply',
+  'workbench.editors.request.spec.applyAll': 'Apply all',
 
   // ── URL bar + method picker (method names stay raw parity vocab) ───
   'workbench.editors.request.url.placeholder': 'Enter URL or paste text',

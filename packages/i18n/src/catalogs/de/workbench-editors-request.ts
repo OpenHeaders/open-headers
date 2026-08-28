@@ -74,6 +74,16 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.tab.settings': 'Einstellungen',
   'workbench.editors.request.spec.selectLabel': 'OpenAPI-Spezifikation',
   'workbench.editors.request.spec.none': 'Mit dieser Anfrage ist keine OpenAPI-Spezifikation verknüpft.',
+  'workbench.editors.request.spec.fromCollection': 'Aus der Sammlung {name}',
+  'workbench.editors.request.spec.missing': 'Die verknüpfte Spezifikation ist nicht mehr in diesem Arbeitsbereich.',
+  'workbench.editors.request.spec.parseFailure': 'Spezifikation konnte nicht gelesen werden: {message}',
+  'workbench.editors.request.spec.drifted': 'Die Spezifikation hat sich nach dem Erzeugen dieser Sammlung geändert.',
+  'workbench.editors.request.spec.operation': 'Operation',
+  'workbench.editors.request.spec.noOperation': 'Keine Operation der Spezifikation passt zu {method} {url}.',
+  'workbench.editors.request.spec.inSync': 'Mit der Spezifikation synchron.',
+  'workbench.editors.request.spec.fieldDiffers': 'Das Feld {field} weicht von der Spezifikation ab.',
+  'workbench.editors.request.spec.apply': 'Übernehmen',
+  'workbench.editors.request.spec.applyAll': 'Alle übernehmen',
 
   // ── URL bar + method picker (method names stay raw parity vocab) ───
   'workbench.editors.request.url.placeholder': 'URL eingeben oder Text einfügen',

@@ -4,6 +4,7 @@
  * folds edits back into the draft via `setDraft`.
  */
 
+import type { Collection } from '@openheaders/core/types';
 import type React from 'react';
 import AuthorizationTab from './AuthorizationTab';
 import BodyTab from './BodyTab';
@@ -40,6 +41,11 @@ interface RequestTabContentProps {
   /** Per-section unsaved flags — feeds the Scripts tab's rail dots
    *  (see section-unsaved.ts). */
   unsavedSections?: UnsavedSections;
+  /** The request's containing collection — the Spec tab reads its
+   *  spec link. */
+  collection?: Collection;
+  /** Saved request name — the Spec tab's operation comparison reads it. */
+  requestName?: string;
 }
 
 const RequestTabContent: React.FC<RequestTabContentProps> = ({
@@ -53,6 +59,8 @@ const RequestTabContent: React.FC<RequestTabContentProps> = ({
   onNavigateTab,
   unsavedSettings,
   unsavedSections,
+  collection,
+  requestName,
 }) => {
   switch (tab) {
     case 'docs':
@@ -98,7 +106,15 @@ const RequestTabContent: React.FC<RequestTabContentProps> = ({
         />
       );
     case 'spec':
-      return <SpecTab />;
+      return (
+        <SpecTab
+          workspaceId={workspaceId ?? null}
+          collection={collection}
+          requestName={requestName ?? ''}
+          draft={draft}
+          setDraft={setDraft}
+        />
+      );
     case 'settings':
       return (
         <SettingsTab

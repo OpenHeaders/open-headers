@@ -91,7 +91,7 @@ export interface RequestUpdates {
   postResponseScript: string | undefined;
 }
 
-function headersFromRequest(list: RequestHeader[]): KeyValueRow[] {
+export function headersFromRequest(list: RequestHeader[]): KeyValueRow[] {
   return list.map((h) =>
     makeKvRow({
       uid: h.uid,
@@ -102,7 +102,7 @@ function headersFromRequest(list: RequestHeader[]): KeyValueRow[] {
     }),
   );
 }
-function paramsFromRequest(list: QueryParam[]): KeyValueRow[] {
+export function paramsFromRequest(list: QueryParam[]): KeyValueRow[] {
   return list.map((p) =>
     makeKvRow({
       uid: p.uid,

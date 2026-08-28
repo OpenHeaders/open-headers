@@ -222,12 +222,12 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
     return mirror.subscribeRequestMirror(requestUid, sync);
   }, [isCreateMode, requestUid, editingScopeWorkspaceId]);
 
-  const draftCollectionId = useMemo(() => {
+  const draftCollection = useMemo(() => {
     const path = summary?.path;
     if (!path) return undefined;
-    const hit = requestCollections.find((c) => path.startsWith(`${c.path}/`));
-    return hit?.uid;
+    return requestCollections.find((c) => path.startsWith(`${c.path}/`));
   }, [summary?.path, requestCollections]);
+  const draftCollectionId = draftCollection?.uid;
 
   // When this request is referenced by a single workflow step, surface
   // `{{step.X.Y}}` captures from strictly-earlier steps. Unique-binding
@@ -922,6 +922,8 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
                         onNavigateTab={setActiveTab}
                         unsavedSettings={unsavedSettings}
                         unsavedSections={unsavedTabSections}
+                        collection={draftCollection}
+                        requestName={summary?.name}
                       />
                     </div>
                   </div>
