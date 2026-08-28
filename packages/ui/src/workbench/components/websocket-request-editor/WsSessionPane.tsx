@@ -183,17 +183,22 @@ const WsSessionPane: React.FC<WsSessionPaneProps> = ({
   })();
 
   // The state pill's hover details — the reference sheet: the Connected
-  // instant and the negotiated extensions (the selected subprotocol
-  // when the server picked one); a settled pill leads with its own
-  // end transition. Rows without an observed fact stay absent, never
+  // instant and the extensions answer (the selected subprotocol when
+  // the server picked one); a settled pill leads with its own end
+  // transition. Instants without an observation stay absent, never
   // fabricated.
   const detailRows = useMemo((): ConnectionDetailsRow[] => {
     const rows: ConnectionDetailsRow[] = [];
+    // Extensions always has a row — an empty answer reads as the
+    // Handshake tab's "None negotiated", so the user learns the server
+    // declined the offer rather than wondering where the row went; the
+    // subprotocol joins only when the server selected one.
     const handshakeRows = (open: { protocol: string; extensions: string }): void => {
       if (open.protocol !== '') rows.push({ label: t('workbench.editors.session.subprotocol'), value: open.protocol });
-      if (open.extensions !== '') {
-        rows.push({ label: t('workbench.editors.session.extensions'), value: open.extensions });
-      }
+      rows.push({
+        label: t('workbench.editors.session.extensions'),
+        value: open.extensions !== '' ? open.extensions : t('workbench.editors.websocket.session.handshakeNone'),
+      });
     };
     if (snapshot === null) {
       if (live === null) return rows;
