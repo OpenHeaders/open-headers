@@ -24,6 +24,7 @@ import { ruleOracleLockAcquirer } from '../lock-adapter';
 import { EntityOracle } from '../oracle';
 import { createSwContextHandle } from '../sw-context';
 import { getSyncPersistenceProvider } from '../sync-persistence-provider';
+import { createTreeSlotReconciler } from '../tree-slot-reconciler';
 import type { WireDeps, WorkspaceServiceState } from './types';
 
 export function productionDepsFactory(workspaceId: string): WireDeps {
@@ -76,6 +77,11 @@ export function buildService(deps: WireDeps): WorkspaceServiceState {
   const caches: EntityCacheLike[] = WORKSPACE_REGISTRY.map((reg) =>
     reg.createCache(deps.workspaceId, oracle, broadcast, () => context.next()),
   );
+  // Path-derived slot seeding rides the same bus as a cache; it is
+  // appended AFTER the registry's caches so registry-index lookups
+  // (`getActiveCacheForRegistration`) stay aligned.
+  const treeSlots = createTreeSlotReconciler(deps.workspaceId, oracle, broadcast, () => context.next());
+  caches.push(treeSlots);
 
   const awareness = createAwarenessStore({
     workspaceId: deps.workspaceId,
@@ -101,7 +107,9 @@ export function buildService(deps: WireDeps): WorkspaceServiceState {
   // entries that reference collection parents in the oracle, so
   // collection caches must finish hydrating before folder caches start.
   // Two-phase: non-folder caches in parallel, then folder caches in
-  // parallel. The `hydrated` promise resolves after both phases finish.
+  // parallel; then the tree slot reconciler seeds every slot-less leaf
+  // and collection from the persisted paths (parents must be live
+  // first). The `hydrated` promise resolves after all three finish.
   //
   // Without this, a freshly materialized non-Active workspace service
   // starts with empty caches even though `wsKeys(workspaceId).<key>` has
@@ -123,6 +131,7 @@ export function buildService(deps: WireDeps): WorkspaceServiceState {
   const hydrated = (async () => {
     await Promise.all(nonFolderCaches.map((c) => c.hydrateFromStorage()));
     await Promise.all(folderCaches.map((c) => c.hydrateFromStorage()));
+    await treeSlots.hydrateFromStorage();
   })();
 
   // Active-bound runners (DNR + resolver-invalidate) are NOT subscribed

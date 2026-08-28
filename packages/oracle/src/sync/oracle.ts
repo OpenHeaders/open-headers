@@ -101,9 +101,21 @@ export interface OracleConfig {
 
 export class EntityOracle {
   private readonly store: InMemoryDocumentStore;
+  private committed = 0;
 
   constructor(private readonly cfg: OracleConfig) {
     this.store = cfg.store ?? new InMemoryDocumentStore(cfg.schemas);
+  }
+
+  /**
+   * Monotonic count of committed state changes (applied batches +
+   * eviction surgery). Read-side memos key on it: a derived view built
+   * at revision N is exact until the next commit bumps it. Bumped
+   * BEFORE the batch broadcasts, so every projector run by that
+   * broadcast sees the post-commit revision.
+   */
+  get revision(): number {
+    return this.committed;
   }
 
   /**
@@ -173,6 +185,7 @@ export class EntityOracle {
     await this.cfg.lock(this.cfg.workspaceId, type, id, async () => {
       this.store.evictSetItem(type, id, setPath, itemId);
       this.store.forgetMutations(forgetIds);
+      this.committed += 1;
     });
   }
 
@@ -228,6 +241,10 @@ export class EntityOracle {
 
     // Commit: log envelopes (dedup-safe), enqueue side effects,
     // broadcast every (env, outcome).
+    // The store already holds the post-batch state; bump before the
+    // durable appends so a read that interleaves with them keys its
+    // memo on the state it actually sees.
+    this.committed += 1;
     await this.cfg.log.appendAll(batch.mutations);
     if (sideEffects.length > 0) await this.cfg.intents.enqueueAll(sideEffects);
 

@@ -34,6 +34,7 @@ import type {
   TrustedRoots,
   Vault,
   WebSocketRequest,
+  WorkspaceRoots,
   WorkspaceVariables,
   WsResponseExample,
 } from '../types';
@@ -210,6 +211,19 @@ export interface SyncTrustedRootsPostState {
   /** Live root uids — the set-member identity (uid) for trusted roots. */
   rootUids: string[];
   /** Live `(itemId, orderKey)` pairs at the roots set (§23.5). */
+  setOrderKeys: Record<string, Array<{ itemId: string; orderKey: string }>>;
+}
+
+/**
+ * Post-commit projection for a workspace-roots envelope. Singleton
+ * entity per workspace — the top of the three sidebar trees. Carries
+ * the folded {@link WorkspaceRoots} (collection uids in slot order per
+ * tree) plus the per-uid order keys of the three collection sets, so a
+ * renderer collection create appends strictly after the live tail.
+ */
+export interface SyncWorkspaceRootsPostState {
+  workspaceRoots: WorkspaceRoots;
+  /** Live `(itemId, orderKey)` pairs at the three collection sets (§23.5). */
   setOrderKeys: Record<string, Array<{ itemId: string; orderKey: string }>>;
 }
 
@@ -679,6 +693,11 @@ export interface SyncBroadcastEvent {
    * a production gesture) and rolled-back batches leave it `undefined`.
    */
   trustedRootsPostState?: SyncTrustedRootsPostState;
+  /**
+   * Populated for workspace-roots envelopes — every collection create,
+   * delete and reorder touches one of the roots' collection sets.
+   */
+  workspaceRootsPostState?: SyncWorkspaceRootsPostState;
   /**
    * Populated for Folder envelopes whose batch left a materialized
    * folder in place. Tombstoned folders and rolled-back batches leave

@@ -62,11 +62,30 @@ import {
   type SyncTrustedRootsPostState,
   type SyncVaultPostState,
   type SyncWebSocketRequestPostState,
+  type SyncWorkspaceRootsPostState,
   type SyncWorkspaceVariablesPostState,
   type SyncWsResponseExamplePostState,
   type WorkspaceSnapshot,
 } from '@openheaders/core/protocol';
-import type { MutatorContext } from '@openheaders/core/sync';
+import {
+  COLLECTION_ENTITY_TYPE,
+  FOLDER_CHILDREN_PATH,
+  FOLDER_ENTITY_TYPE,
+  FOLDER_ITEMS_PATH,
+  GRPC_REQUEST_ENTITY_TYPE,
+  MQTT_REQUEST_ENTITY_TYPE,
+  type MutationBody,
+  type MutatorContext,
+  mintBatch,
+  REQUEST_COLLECTION_ENTITY_TYPE,
+  REQUEST_ENTITY_TYPE,
+  REQUEST_FOLDER_ENTITY_TYPE,
+  RULE_ENTITY_TYPE,
+  TEMPLATE_COLLECTION_ENTITY_TYPE,
+  TEMPLATE_ENTITY_TYPE,
+  TEMPLATE_FOLDER_ENTITY_TYPE,
+  WEBSOCKET_REQUEST_ENTITY_TYPE,
+} from '@openheaders/core/sync';
 import { seedCollection } from '@openheaders/core/sync-builders/projections/collection-projection';
 import { seedEnvironment } from '@openheaders/core/sync-builders/projections/env-projection';
 import { seedFiles } from '@openheaders/core/sync-builders/projections/files-projection';
@@ -95,6 +114,7 @@ import { seedTemplate } from '@openheaders/core/sync-builders/projections/templa
 import { seedTrustedRoots } from '@openheaders/core/sync-builders/projections/trusted-roots-projection';
 import { seedVault } from '@openheaders/core/sync-builders/projections/vault-projection';
 import { seedWebSocketRequest } from '@openheaders/core/sync-builders/projections/websocket-request-projection';
+import { seedWorkspaceRoots } from '@openheaders/core/sync-builders/projections/workspace-roots-projection';
 import { seedWorkspaceVariables } from '@openheaders/core/sync-builders/projections/workspace-variables-projection';
 import { seedWsResponseExample } from '@openheaders/core/sync-builders/projections/ws-response-example-projection';
 
@@ -224,6 +244,9 @@ export async function applyWorkspaceSnapshot(
   await seedEach<SyncTrustedRootsPostState>('trustedRoots', snapshot.trustedRoots, (p, ctx) =>
     seedTrustedRoots(p.trustedRoots, ctx),
   );
+  await seedEach<SyncWorkspaceRootsPostState>('workspaceRoots', snapshot.workspaceRoots, (p, ctx) =>
+    seedWorkspaceRoots(p.workspaceRoots, ctx),
+  );
   await seedEach<SyncOAuthBundlePostState>('oauthBundles', snapshot.oauthBundles, (p, ctx) =>
     seedOAuthBundle(
       {
@@ -244,5 +267,113 @@ export async function applyWorkspaceSnapshot(
   );
   await seedEach<SyncFilesPostState>('files', snapshot.files, (p, ctx) => seedFiles(p.refs, ctx));
 
+  // Containment slots. The entity seeds above are slot-less — folders
+  // and leaves are linked by their parent's `folders` / `items` sets,
+  // and every container post-state carries those sets' `(itemId,
+  // orderKey)` pairs. Replay them with the sender's keys so the
+  // receiver's tree order is the sender's, not a re-seed from paths.
+  await seedEach<ContainerSlots>('treeSlots', collectTreeSlots(snapshot), (p, ctx) => mintBatch(ctx, p.bodies));
+
   return { entitiesApplied, byType };
+}
+
+interface ContainerSlots {
+  bodies: MutationBody[];
+}
+
+interface ContainerTree {
+  containers: ReadonlyArray<{ type: string; uid: string; setOrderKeys: SetOrderKeys }>;
+  leafTypeOf: ReadonlyMap<string, string>;
+}
+
+type SetOrderKeys = Record<string, Array<{ itemId: string; orderKey: string }>>;
+
+/** One slot batch per container that carries live `folders` / `items` slots. */
+function collectTreeSlots(snapshot: WorkspaceSnapshot): ContainerSlots[] {
+  const leafTypes = (...groups: Array<[string, ReadonlyArray<{ uid: string }>]>): ReadonlyMap<string, string> => {
+    const out = new Map<string, string>();
+    for (const [type, entities] of groups) for (const entity of entities) out.set(entity.uid, type);
+    return out;
+  };
+  const trees: ContainerTree[] = [
+    {
+      containers: [
+        ...snapshot.collections.map((p) => ({
+          type: COLLECTION_ENTITY_TYPE,
+          uid: p.collection.uid,
+          setOrderKeys: p.setOrderKeys,
+        })),
+        ...snapshot.folders.map((p) => ({ type: FOLDER_ENTITY_TYPE, uid: p.folder.uid, setOrderKeys: p.setOrderKeys })),
+      ],
+      leafTypeOf: leafTypes([RULE_ENTITY_TYPE, snapshot.rules.map((p) => p.rule)]),
+    },
+    {
+      containers: [
+        ...snapshot.requestCollections.map((p) => ({
+          type: REQUEST_COLLECTION_ENTITY_TYPE,
+          uid: p.collection.uid,
+          setOrderKeys: p.setOrderKeys,
+        })),
+        ...snapshot.requestFolders.map((p) => ({
+          type: REQUEST_FOLDER_ENTITY_TYPE,
+          uid: p.folder.uid,
+          setOrderKeys: p.setOrderKeys,
+        })),
+      ],
+      leafTypeOf: leafTypes(
+        [REQUEST_ENTITY_TYPE, snapshot.requests.map((p) => p.request)],
+        [GRPC_REQUEST_ENTITY_TYPE, snapshot.grpcRequests.map((p) => p.grpcRequest)],
+        [WEBSOCKET_REQUEST_ENTITY_TYPE, snapshot.websocketRequests.map((p) => p.websocketRequest)],
+        [MQTT_REQUEST_ENTITY_TYPE, snapshot.mqttRequests.map((p) => p.mqttRequest)],
+      ),
+    },
+    {
+      containers: [
+        ...snapshot.templateCollections.map((p) => ({
+          type: TEMPLATE_COLLECTION_ENTITY_TYPE,
+          uid: p.collection.uid,
+          setOrderKeys: p.setOrderKeys,
+        })),
+        ...snapshot.templateFolders.map((p) => ({
+          type: TEMPLATE_FOLDER_ENTITY_TYPE,
+          uid: p.folder.uid,
+          setOrderKeys: p.setOrderKeys,
+        })),
+      ],
+      leafTypeOf: leafTypes([TEMPLATE_ENTITY_TYPE, snapshot.templates.map((p) => p.template)]),
+    },
+  ];
+
+  const out: ContainerSlots[] = [];
+  for (const tree of trees) {
+    for (const container of tree.containers) {
+      const bodies: MutationBody[] = [];
+      for (const slot of container.setOrderKeys[FOLDER_CHILDREN_PATH] ?? []) {
+        bodies.push({
+          kind: 'addToSet',
+          type: container.type,
+          id: container.uid,
+          path: FOLDER_CHILDREN_PATH,
+          itemId: slot.itemId,
+          item: { uid: slot.itemId },
+          orderKey: slot.orderKey,
+        });
+      }
+      for (const slot of container.setOrderKeys[FOLDER_ITEMS_PATH] ?? []) {
+        const type = tree.leafTypeOf.get(slot.itemId);
+        if (type === undefined) continue;
+        bodies.push({
+          kind: 'addToSet',
+          type: container.type,
+          id: container.uid,
+          path: FOLDER_ITEMS_PATH,
+          itemId: slot.itemId,
+          item: { uid: slot.itemId, type },
+          orderKey: slot.orderKey,
+        });
+      }
+      if (bodies.length > 0) out.push({ bodies });
+    }
+  }
+  return out;
 }

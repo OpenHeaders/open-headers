@@ -13,6 +13,12 @@ import type { MqttRequest } from '@openheaders/core/types';
 import { hostStorage, wsKeys } from '@openheaders/oracle/storage';
 import type { InMemoryBroadcast } from '../broadcast';
 import type { EntityOracle } from '../oracle';
+import {
+  affectsTreeContainment,
+  arrangeInTreeOrder,
+  resolveLeafParentPath,
+} from '../post-state/folder-tree-post-state';
+import { REQUEST_TREE } from '../post-state/request-folder-post-state';
 import { driftRecorder } from '../storage-drift';
 import type { SwMutatorContextFactory } from '../sw-context';
 import { createFlatEntityCache } from './flat-entity-cache';
@@ -44,7 +50,15 @@ export function createMqttRequestCache(
       loggerTag: 'MqttRequestCache',
       storageKey: (ws) => wsKeys(ws).mqttRequests,
       filterBroadcastByType: true,
-      project: projectMqttRequest,
+      project: (materialized, oracle) =>
+        projectMqttRequest(materialized, resolveLeafParentPath(oracle, materialized.id, REQUEST_TREE)),
+      arrange: (entities, oracle) => arrangeInTreeOrder(oracle, REQUEST_TREE, entities),
+      // Own envelopes plus the containment envelopes a leaf's projected
+      // path and sibling order depend on (a parent's `folders` / `items`
+      // slots — folder moves cascade through here).
+      affects: (event) =>
+        event.envelope.body.type === MQTT_REQUEST_ENTITY_TYPE ||
+        affectsTreeContainment(event.envelope.body, REQUEST_TREE),
       seed: seedMqttRequest,
       loadFromStorage: (ws) =>
         hostStorage.getValidatedArray(wsKeys(ws).mqttRequests, MqttRequestSchema, {

@@ -73,6 +73,7 @@ import type {
   SyncTrustedRootsPostState,
   SyncVaultPostState,
   SyncWebSocketRequestPostState,
+  SyncWorkspaceRootsPostState,
   SyncWorkspaceVariablesPostState,
   SyncWsResponseExamplePostState,
 } from './sync-bridge';
@@ -97,6 +98,8 @@ export interface WorkspaceSnapshot {
   vault: SyncVaultPostState[];
   /** Workspace trust list. Not sensitive — rides every transport. */
   trustedRoots: SyncTrustedRootsPostState[];
+  /** Collection order of the three trees. Not sensitive — rides every transport. */
+  workspaceRoots: SyncWorkspaceRootsPostState[];
   folders: SyncFolderPostState[];
   requests: SyncRequestPostState[];
   requestCollections: SyncRequestCollectionPostState[];
@@ -160,6 +163,7 @@ export const WorkspaceSnapshotSchema = v.object({
   scriptPackages: v.optional(v.array(v.unknown()), []),
   specs: v.optional(v.array(v.unknown()), []),
   trustedRoots: v.optional(v.array(v.unknown()), []),
+  workspaceRoots: v.optional(v.array(v.unknown()), []),
   templates: v.array(v.unknown()),
   templateCollections: v.array(v.unknown()),
   templateFolders: v.array(v.unknown()),

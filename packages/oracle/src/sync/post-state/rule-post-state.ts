@@ -12,19 +12,25 @@
 
 import type { SyncRulePostState } from '@openheaders/core/protocol';
 import { RULE_ENTITY_TYPE } from '@openheaders/core/sync';
-import type { Rule } from '@openheaders/core/types';
 import { projectRule } from '@openheaders/core/sync-builders/projections/rule-projection';
-import { buildSetMembersExtras, makeFlatEntityProjectors } from './flat-entity-post-state';
+import type { Rule } from '@openheaders/core/types';
 import type { EntityOracle } from '../oracle';
+import { buildSetMembersExtras, makeFlatEntityProjectors } from './flat-entity-post-state';
+import { RULE_TREE } from './folder-post-state';
+import { resolveLeafParentPath } from './folder-tree-post-state';
 
 /** Set-modeled paths on a Rule — mirrors {@link rule-projection.SET_PATHS}. */
 const RULE_SET_PATHS = ['conditions', 'action.requestHeaders', 'action.responseHeaders'] as const;
 
-type Reads = Pick<EntityOracle, 'materializeOne' | 'liveOrderedSetItems'>;
+type Reads = Pick<
+  EntityOracle,
+  'materializeOne' | 'materializeAll' | 'liveSetItems' | 'liveOrderedSetItems' | 'revision'
+>;
 
 const projectors = makeFlatEntityProjectors<Reads, Rule, SyncRulePostState>({
   entityType: RULE_ENTITY_TYPE,
-  project: projectRule,
+  project: (materialized, oracle) =>
+    projectRule(materialized, resolveLeafParentPath(oracle, materialized.id, RULE_TREE)),
   composeResult: (rule, oracle, uid) => ({
     rule,
     ...buildSetMembersExtras(oracle, RULE_ENTITY_TYPE, uid, RULE_SET_PATHS),

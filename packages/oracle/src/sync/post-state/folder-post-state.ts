@@ -26,9 +26,13 @@ import {
   projectFolderPostStateGeneric,
 } from './folder-tree-post-state';
 
-type Reads = Pick<EntityOracle, 'materializeOne' | 'materializeAll' | 'liveSetItems' | 'liveOrderedSetItems'>;
+type Reads = Pick<
+  EntityOracle,
+  'materializeOne' | 'materializeAll' | 'liveSetItems' | 'liveOrderedSetItems' | 'revision'
+>;
 
-const KINDS: FolderTreeKinds<typeof COLLECTION_ENTITY_TYPE, typeof FOLDER_ENTITY_TYPE> = {
+/** The rules tree — shared by the folder, rule and collection projections. */
+export const RULE_TREE: FolderTreeKinds<typeof COLLECTION_ENTITY_TYPE, typeof FOLDER_ENTITY_TYPE> = {
   collectionType: COLLECTION_ENTITY_TYPE,
   folderType: FOLDER_ENTITY_TYPE,
   childrenPath: FOLDER_CHILDREN_PATH,
@@ -38,13 +42,13 @@ const KINDS: FolderTreeKinds<typeof COLLECTION_ENTITY_TYPE, typeof FOLDER_ENTITY
 };
 
 export function projectFolderPostState(oracle: Reads, envelope: MutationEnvelope): SyncFolderPostState | null {
-  return projectFolderPostStateGeneric(oracle, envelope, KINDS);
+  return projectFolderPostStateGeneric(oracle, envelope, RULE_TREE);
 }
 
 export function projectFolderByUid(oracle: Reads, folderUid: string): SyncFolderPostState | null {
-  return projectFolderByUidGeneric(oracle, folderUid, KINDS);
+  return projectFolderByUidGeneric(oracle, folderUid, RULE_TREE);
 }
 
 export function projectAllFolders(oracle: Reads): Folder[] {
-  return projectAllFoldersGeneric(oracle, KINDS);
+  return projectAllFoldersGeneric(oracle, RULE_TREE);
 }

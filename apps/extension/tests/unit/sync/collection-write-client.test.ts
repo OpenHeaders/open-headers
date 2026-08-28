@@ -20,6 +20,7 @@ import {
   COLLECTION_ENTITY_TYPE,
   COLLECTION_VARS_PATH,
   initialHlc,
+  keyBetween,
   WORKSPACE_ROOTS_ENTITY_TYPE,
   WORKSPACE_ROOTS_ID,
   WORKSPACE_ROOTS_RULE_COLLECTIONS_PATH,
@@ -43,7 +44,7 @@ vi.mock('@utils/logger', () => ({
   logger: { info: vi.fn(), debug: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }));
 
-import type { CollectionSyncMirror, RendererContextHandle } from '@openheaders/ui/context';
+import type { CollectionSyncMirror, RendererContextHandle, WorkspaceRootsSyncMirror } from '@openheaders/ui/context';
 import {
   applyCollectionCreate,
   applyCollectionDelete,
@@ -115,6 +116,17 @@ function makeContextHandle(workspaceId = 'ws-1', surfaceId = 'workbench'): Rende
   };
 }
 
+function makeRootsMirror(tailKey: string | null = null): WorkspaceRootsSyncMirror {
+  return {
+    getMirror: () => null,
+    liveOrderedSetItems: () => (tailKey === null ? [] : [{ itemId: 'col0tail', orderKey: tailKey }]),
+    appendOrderKey: () => keyBetween(tailKey, null),
+    subscribeMirror: () => () => undefined,
+    hydrated: Promise.resolve(),
+    dispose: () => undefined,
+  };
+}
+
 beforeEach(() => {
   mockCall.mockReset();
 });
@@ -128,7 +140,7 @@ describe('applyCollectionCreate', () => {
     mockCall.mockResolvedValue({ ok: true, outcomes: [] });
     const result = await applyCollectionCreate(
       { name: 'Login flow' },
-      { workspaceId: 'ws-1', surfaceId: 'workbench', context: makeContextHandle() },
+      { workspaceId: 'ws-1', surfaceId: 'workbench', context: makeContextHandle(), rootsMirror: makeRootsMirror() },
     );
     expect(result.ok).toBe(true);
     expect(mockCall).toHaveBeenCalledTimes(1);
@@ -150,7 +162,7 @@ describe('applyCollectionCreate', () => {
     mockCall.mockResolvedValue({ ok: true, outcomes: [] });
     const result = await applyCollectionCreate(
       { name: 'Login flow' },
-      { workspaceId: 'ws-1', surfaceId: 'workbench', context: makeContextHandle() },
+      { workspaceId: 'ws-1', surfaceId: 'workbench', context: makeContextHandle(), rootsMirror: makeRootsMirror() },
     );
     const batch = (mockCall.mock.calls[0][1] as { batch: MutationBatch }).batch;
     expect(batch.mutations[batch.mutations.length - 1].body).toMatchObject({
@@ -161,6 +173,22 @@ describe('applyCollectionCreate', () => {
       itemId: result.ok ? result.collection.uid : '',
       item: { uid: result.ok ? result.collection.uid : '' },
     });
+  });
+  it('appends its roots slot strictly after the workspace-roots mirror tail', async () => {
+    mockCall.mockResolvedValue({ ok: true, outcomes: [] });
+    await applyCollectionCreate(
+      { name: 'Last' },
+      { workspaceId: 'ws-1', surfaceId: 'workbench', context: makeContextHandle(), rootsMirror: makeRootsMirror('m') },
+    );
+    const batch = (mockCall.mock.calls[0][1] as { batch: MutationBatch }).batch;
+    const slot = batch.mutations[batch.mutations.length - 1].body;
+    expect(slot).toMatchObject({
+      kind: 'addToSet',
+      type: WORKSPACE_ROOTS_ENTITY_TYPE,
+      id: WORKSPACE_ROOTS_ID,
+      path: WORKSPACE_ROOTS_RULE_COLLECTIONS_PATH,
+    });
+    expect(slot.kind === 'addToSet' && slot.orderKey).toBe(keyBetween('m', null));
   });
 });
 

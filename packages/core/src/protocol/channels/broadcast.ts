@@ -50,6 +50,7 @@ import type {
   SyncTrustedRootsPostState,
   SyncVaultPostState,
   SyncWebSocketRequestPostState,
+  SyncWorkspaceRootsPostState,
   SyncWorkspaceVariablesPostState,
   SyncWsResponseExamplePostState,
 } from '../sync-bridge';
@@ -398,6 +399,11 @@ export interface BridgeBroadcastContract {
      * entity. Trust material, not a secret — rides every transport.
      */
     trustedRootsPostState?: SyncTrustedRootsPostState;
+    /**
+     * Post-commit projection for workspace-roots envelopes — the three
+     * trees' collection order. Singleton entity.
+     */
+    workspaceRootsPostState?: SyncWorkspaceRootsPostState;
     /**
      * Post-commit projection for Folder envelopes (Phase B). Renderer
      * mirrors fold this so sidebar tree consumers see post-commit

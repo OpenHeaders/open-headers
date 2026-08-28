@@ -59,6 +59,7 @@ import type {
   ViewMode,
   WebSocketRequest,
   WorkspaceRoleAssignment,
+  WorkspaceRoots,
   WorkspaceVariables,
   WsResponseExample,
 } from '../types';
@@ -585,6 +586,8 @@ export interface WorkspaceKeys {
   workspaceVars: StorageKey<WorkspaceVariables>;
   vault: StorageKey<Vault>;
   trustedRoots: StorageKey<TrustedRoots>;
+  /** Collection order of the three trees — the workspace-roots singleton's projection. */
+  workspaceRoots: StorageKey<WorkspaceRoots>;
   pauseMarkers: StorageKey<Record<string, PauseMarker>>;
   tabSession: StorageKey<PersistedTabSession>;
   panelLayout: StorageKey<PersistedPanelLayout>;
@@ -781,6 +784,7 @@ export function wsKeys(workspaceId: string): WorkspaceKeys {
     workspaceVars: storageKey<WorkspaceVariables>(`${p}.workspaceVars`),
     vault: storageKey<Vault>(`${p}.vault`, { sensitive: true }),
     trustedRoots: storageKey<TrustedRoots>(`${p}.trustedRoots`),
+    workspaceRoots: storageKey<WorkspaceRoots>(`${p}.workspaceRoots`),
     pauseMarkers: storageKey<Record<string, PauseMarker>>(`${p}.pauseMarkers`),
     tabSession: storageKey<PersistedTabSession>(`${p}.tabSession`),
     panelLayout: storageKey<PersistedPanelLayout>(`${p}.panelLayout`),

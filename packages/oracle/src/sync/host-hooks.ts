@@ -34,6 +34,7 @@ import type {
   SyncTrustedRootsPostState,
   SyncVaultPostState,
   SyncWebSocketRequestPostState,
+  SyncWorkspaceRootsPostState,
   SyncWorkspaceVariablesPostState,
 } from '@openheaders/core/protocol';
 import type { FieldOrigin, MutationEnvelope, MutatorOutcome } from '@openheaders/core/sync';
@@ -79,6 +80,7 @@ export interface OracleSyncBroadcastEvent {
   oauthBundlePostState?: SyncOAuthBundlePostState;
   pauseMarkersPostState?: SyncPauseMarkersPostState;
   trustedRootsPostState?: SyncTrustedRootsPostState;
+  workspaceRootsPostState?: SyncWorkspaceRootsPostState;
   layoutStatePostState?: SyncLayoutStatePostState;
   filesPostState?: SyncFilesPostState;
   extensionWorkspacePostState?: SyncExtensionWorkspacePostState;

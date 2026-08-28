@@ -39,15 +39,19 @@
  */
 
 import {
+  type ChildMutators,
   type ChildPlacement,
   COLLECTION_ENTITY_TYPE,
   FOLDER_ENTITY_TYPE,
+  FOLDER_ITEMS_PATH,
   FOLDER_TREE_KINDS,
   GRPC_REQUEST_ENTITY_TYPE,
+  grpcRequestChild,
   LIVE_VARIABLE_ENTITY_TYPE,
   LIVE_WORKFLOW_ENTITY_TYPE,
   MQTT_REQUEST_ENTITY_TYPE,
   type MutationBody,
+  mqttRequestChild,
   REQUEST_COLLECTION_ENTITY_TYPE,
   REQUEST_ENTITY_TYPE,
   REQUEST_FOLDER_ENTITY_TYPE,
@@ -55,13 +59,18 @@ import {
   REQUEST_FOLDER_TREE_KINDS,
   type RequestFolderParentRef,
   RULE_ENTITY_TYPE,
+  requestChild,
+  ruleChild,
   SPEC_ENTITY_TYPE,
   TEMPLATE_COLLECTION_ENTITY_TYPE,
   TEMPLATE_ENTITY_TYPE,
   TEMPLATE_FOLDER_ENTITY_TYPE,
+  TEMPLATE_FOLDER_ITEMS_PATH,
   TEMPLATE_FOLDER_TREE_KINDS,
   type TreeParentRef,
+  templateChild,
   WEBSOCKET_REQUEST_ENTITY_TYPE,
+  webSocketRequestChild,
 } from '@openheaders/core/sync';
 import type {
   Collection,
@@ -127,6 +136,7 @@ import {
   type ImportEmissionDeps,
   LEAF_SKIP,
   synthesizeImportEmission,
+  type TailTracker,
   type TreePlacer,
 } from './workspace-import-emission';
 
@@ -345,7 +355,7 @@ export function synthesizeWorkspaceTreeDelta(args: WorkspaceTreeDeltaArgs): Emis
     deps,
   );
 
-  emitPathMoves(out, prev, next, touched, deps);
+  emitPathMoves(out, prev, next, touched, tail, deps);
   emitDeletions(out, prev, nextUids, removedPaths, deps);
 
   return out.filter((entry) => entry.batch.mutations.length > 0);
@@ -513,34 +523,140 @@ interface MoveFamily {
   prevItems: readonly { uid: string; path: string }[];
 }
 
+/** A tree leaf family whose parent slot follows a directory move. */
+interface LeafMoveFamily<C extends string, F extends string> extends MoveFamily {
+  child: ChildMutators<TreeParentRef<C, F>>;
+  itemsPath: string;
+  prevTree: TreePlacer<C, F>;
+  nextTree: TreePlacer<C, F>;
+}
+
 /**
  * A directory rename changes every resident entity's `path` while the
- * uids inside the manifests stay put. Placement is the entity's own
- * mutator-maintained `path` (S3 decision), so a single `setField`
- * converges it — the next materialize then writes the canonical file
- * at the new location and the hashed index retires the old one.
+ * uids inside the manifests stay put. Top-level families (specs,
+ * workflows, variables, collections) have no parent slot: a single
+ * `setField('path')` converges them. A tree LEAF is linked by its
+ * parent's `items` slot and its path is a projection of that slot, so
+ * a move across parents lands as one atomic slot transfer — old parent
+ * tombstone + new parent slot appended after the live tail — with the
+ * stored path written alongside as the net for slot-less readers. A
+ * move that keeps the parent (a renamed ancestor cascading down) is a
+ * path write only.
  *
  * Folders are the one guarded family: their path may only follow the
  * tree when the PARENT container is unchanged (a rename in place, or a
  * renamed ancestor cascading down). A cross-parent move would also
- * need the parents' ordered child slots rewritten, which paths alone
- * cannot express — the engine's placement stands and the next
- * materialize restores the directory.
+ * need the parents' ordered child slots rewritten from the destination
+ * manifest — the engine's placement stands and the next materialize
+ * restores the directory.
  */
 function emitPathMoves(
   out: EmissionBatch[],
   prev: WorkspaceTreeState,
   next: TreeReadResult['state'],
   touched: (entityPath: string) => boolean,
+  tail: TailTracker,
   deps: ImportEmissionDeps,
 ): void {
-  const leafFamilies: MoveFamily[] = [
-    { entityType: RULE_ENTITY_TYPE, nextItems: next.rules, prevItems: prev.rules },
-    { entityType: REQUEST_ENTITY_TYPE, nextItems: next.requests, prevItems: prev.requests },
-    { entityType: GRPC_REQUEST_ENTITY_TYPE, nextItems: next.grpcRequests, prevItems: prev.grpcRequests },
-    { entityType: WEBSOCKET_REQUEST_ENTITY_TYPE, nextItems: next.websocketRequests, prevItems: prev.websocketRequests },
-    { entityType: MQTT_REQUEST_ENTITY_TYPE, nextItems: next.mqttRequests, prevItems: prev.mqttRequests },
-    { entityType: TEMPLATE_ENTITY_TYPE, nextItems: next.templates, prevItems: prev.templates },
+  const toLocalFolders = (folders: readonly Folder[]): LocalFolder[] => folders as unknown as LocalFolder[];
+  const prevRuleTree = createTreePlacer(FOLDER_TREE_KINDS, prev.collections, [], toLocalFolders(prev.folders), []);
+  const nextRuleTree = createTreePlacer(FOLDER_TREE_KINDS, next.collections, [], toLocalFolders(next.folders), []);
+  const prevRequestTree = createTreePlacer(
+    REQUEST_FOLDER_TREE_KINDS,
+    prev.requestCollections,
+    [],
+    toLocalFolders(prev.requestFolders),
+    [],
+  );
+  const nextRequestTree = createTreePlacer(
+    REQUEST_FOLDER_TREE_KINDS,
+    next.requestCollections,
+    [],
+    toLocalFolders(next.requestFolders),
+    [],
+  );
+  const prevTemplateTree = createTreePlacer(
+    TEMPLATE_FOLDER_TREE_KINDS,
+    prev.templateCollections,
+    [],
+    toLocalFolders(prev.templateFolders),
+    [],
+  );
+  const nextTemplateTree = createTreePlacer(
+    TEMPLATE_FOLDER_TREE_KINDS,
+    next.templateCollections,
+    [],
+    toLocalFolders(next.templateFolders),
+    [],
+  );
+  const requestLeaf = <T extends { uid: string; path: string }>(
+    entityType: string,
+    child: ChildMutators<RequestFolderParentRef>,
+    nextItems: readonly T[],
+    prevItems: readonly T[],
+  ): LeafMoveFamily<typeof REQUEST_COLLECTION_ENTITY_TYPE, typeof REQUEST_FOLDER_ENTITY_TYPE> => ({
+    entityType,
+    child,
+    itemsPath: REQUEST_FOLDER_ITEMS_PATH,
+    prevTree: prevRequestTree,
+    nextTree: nextRequestTree,
+    nextItems,
+    prevItems,
+  });
+  emitLeafMoves(
+    out,
+    {
+      entityType: RULE_ENTITY_TYPE,
+      child: ruleChild,
+      itemsPath: FOLDER_ITEMS_PATH,
+      prevTree: prevRuleTree,
+      nextTree: nextRuleTree,
+      nextItems: next.rules,
+      prevItems: prev.rules,
+    },
+    touched,
+    tail,
+    deps,
+  );
+  emitLeafMoves(out, requestLeaf(REQUEST_ENTITY_TYPE, requestChild, next.requests, prev.requests), touched, tail, deps);
+  emitLeafMoves(
+    out,
+    requestLeaf(GRPC_REQUEST_ENTITY_TYPE, grpcRequestChild, next.grpcRequests, prev.grpcRequests),
+    touched,
+    tail,
+    deps,
+  );
+  emitLeafMoves(
+    out,
+    requestLeaf(WEBSOCKET_REQUEST_ENTITY_TYPE, webSocketRequestChild, next.websocketRequests, prev.websocketRequests),
+    touched,
+    tail,
+    deps,
+  );
+  emitLeafMoves(
+    out,
+    requestLeaf(MQTT_REQUEST_ENTITY_TYPE, mqttRequestChild, next.mqttRequests, prev.mqttRequests),
+    touched,
+    tail,
+    deps,
+  );
+  emitLeafMoves(
+    out,
+    {
+      entityType: TEMPLATE_ENTITY_TYPE,
+      child: templateChild,
+      itemsPath: TEMPLATE_FOLDER_ITEMS_PATH,
+      prevTree: prevTemplateTree,
+      nextTree: nextTemplateTree,
+      nextItems: next.templates,
+      prevItems: prev.templates,
+    },
+    touched,
+    tail,
+    deps,
+  );
+
+  const topLevelFamilies: MoveFamily[] = [
     { entityType: SPEC_ENTITY_TYPE, nextItems: next.specs, prevItems: prev.specs },
     { entityType: LIVE_WORKFLOW_ENTITY_TYPE, nextItems: next.liveWorkflows, prevItems: prev.liveWorkflows },
     { entityType: LIVE_VARIABLE_ENTITY_TYPE, nextItems: next.liveVariables, prevItems: prev.liveVariables },
@@ -556,7 +672,7 @@ function emitPathMoves(
       prevItems: prev.templateCollections,
     },
   ];
-  for (const family of leafFamilies) {
+  for (const family of topLevelFamilies) {
     const prevByUid = byUid(family.prevItems);
     for (const entity of family.nextItems) {
       if (!touched(entity.path)) continue;
@@ -565,7 +681,7 @@ function emitPathMoves(
       out.push(
         bodiesBatch(
           `${family.entityType}:${entity.uid} (move)`,
-          [{ kind: 'setField', type: family.entityType, id: entity.uid, path: 'path', value: entity.path }],
+          [pathWrite(family.entityType, entity)],
           deps.nextCtx(),
         ),
       );
@@ -613,11 +729,41 @@ function emitPathMoves(
       out.push(
         bodiesBatch(
           `${family.entityType}:${folder.uid} (move)`,
-          [{ kind: 'setField', type: family.entityType, id: folder.uid, path: 'path', value: folder.path }],
+          [pathWrite(family.entityType, folder)],
           deps.nextCtx(),
         ),
       );
     }
+  }
+}
+
+function pathWrite(entityType: string, entity: { uid: string; path: string }): MutationBody {
+  return { kind: 'setField', type: entityType, id: entity.uid, path: 'path', value: entity.path };
+}
+
+function emitLeafMoves<C extends string, F extends string>(
+  out: EmissionBatch[],
+  family: LeafMoveFamily<C, F>,
+  touched: (entityPath: string) => boolean,
+  tail: TailTracker,
+  deps: ImportEmissionDeps,
+): void {
+  const prevByUid = byUid(family.prevItems);
+  for (const entity of family.nextItems) {
+    if (!touched(entity.path)) continue;
+    const prevEntity = prevByUid.get(entity.uid);
+    if (!prevEntity || prevEntity.path === entity.path) continue;
+    const oldParent = family.prevTree.parentOf(prevEntity.path);
+    const newParent = family.nextTree.parentOf(entity.path);
+    const bodies: MutationBody[] = [];
+    if (oldParent && newParent && (oldParent.type !== newParent.type || oldParent.uid !== newParent.uid)) {
+      bodies.push(
+        family.child.slotRemove(entity.uid, oldParent),
+        family.child.slotAdd(entity.uid, newParent, tail(newParent, family.itemsPath)),
+      );
+    }
+    bodies.push(pathWrite(family.entityType, entity));
+    out.push(bodiesBatch(`${family.entityType}:${entity.uid} (move)`, bodies, deps.nextCtx()));
   }
 }
 

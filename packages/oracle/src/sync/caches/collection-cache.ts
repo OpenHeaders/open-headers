@@ -16,22 +16,22 @@
  */
 
 import { CollectionSchema } from '@openheaders/core/schemas';
-import type { MaterializedEntity } from '@openheaders/core/sync';
-import { COLLECTION_ENTITY_TYPE } from '@openheaders/core/sync';
+import { COLLECTION_ENTITY_TYPE, WORKSPACE_ROOTS_RULE_COLLECTIONS_PATH } from '@openheaders/core/sync';
+import { projectCollection, seedCollection } from '@openheaders/core/sync-builders/projections/collection-projection';
 import type { Collection } from '@openheaders/core/types';
 import { logger } from '@openheaders/core/utils';
 import { hostStorage, wsKeys } from '@openheaders/oracle/storage';
-import { projectCollection, seedCollection } from '@openheaders/core/sync-builders/projections/collection-projection';
-import { driftRecorder } from '../storage-drift';
 import type { BroadcastEvent, InMemoryBroadcast } from '../broadcast';
 import type { EntityOracle } from '../oracle';
+import { affectsRoots, arrangeInRootsOrder } from '../post-state/workspace-roots-post-state';
+import { driftRecorder } from '../storage-drift';
 import type { SwMutatorContextFactory } from '../sw-context';
 
 export type CollectionCacheListener = () => void;
 
 export interface CollectionCache {
   readonly workspaceId: string;
-  /** Snapshot of the cached collections in stable (uid) order. */
+  /** Snapshot of the cached collections in roots order. */
   getCollections(): Collection[];
   /** Replace the cache from a list of collection snapshots and seed
    *  the oracle. Drives boot-time hydration and the workspace-switch
@@ -59,7 +59,7 @@ export function createCollectionCache(
   const listeners = new Set<CollectionCacheListener>();
 
   const refreshFromOracle = (): void => {
-    const next = projectAllCollections(oracle.materializeAll());
+    const next = projectAllCollections(oracle);
     collections = next;
     void persist(workspaceId, next);
     for (const l of listeners) {
@@ -72,7 +72,8 @@ export function createCollectionCache(
   };
 
   const unsubscribe = broadcast.subscribe((event: BroadcastEvent) => {
-    if (event.envelope.body.type !== COLLECTION_ENTITY_TYPE) return;
+    const body = event.envelope.body;
+    if (body.type !== COLLECTION_ENTITY_TYPE && !affectsRoots(body, WORKSPACE_ROOTS_RULE_COLLECTIONS_PATH)) return;
     refreshFromOracle();
   });
 
@@ -130,15 +131,15 @@ export function createCollectionCache(
 
 // ── helpers ───────────────────────────────────────────────────────
 
-function projectAllCollections(materialized: MaterializedEntity[]): Collection[] {
+/** Persisted in roots order — the array IS the collection order. */
+function projectAllCollections(oracle: EntityOracle): Collection[] {
   const out: Collection[] = [];
-  for (const m of materialized) {
+  for (const m of oracle.materializeAll()) {
     if (m.type !== COLLECTION_ENTITY_TYPE) continue;
     const coll = projectCollection(m);
     if (coll) out.push(coll);
   }
-  out.sort((a, b) => (a.uid < b.uid ? -1 : a.uid > b.uid ? 1 : 0));
-  return out;
+  return arrangeInRootsOrder(oracle, WORKSPACE_ROOTS_RULE_COLLECTIONS_PATH, out);
 }
 
 async function persist(workspaceId: string, collections: Collection[]): Promise<void> {

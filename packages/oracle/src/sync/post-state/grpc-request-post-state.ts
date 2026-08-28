@@ -13,15 +13,21 @@ import { projectGrpcRequest } from '@openheaders/core/sync-builders/projections/
 import type { GrpcRequest } from '@openheaders/core/types';
 import type { EntityOracle } from '../oracle';
 import { buildSetMembersExtras, makeFlatEntityProjectors } from './flat-entity-post-state';
+import { resolveLeafParentPath } from './folder-tree-post-state';
+import { REQUEST_TREE } from './request-folder-post-state';
 
 /** Set-modeled paths on a GrpcRequest — mirrors the projection's set handling. */
 const GRPC_REQUEST_SET_PATHS = [GRPC_REQUEST_METADATA_PATH] as const;
 
-type Reads = Pick<EntityOracle, 'materializeOne' | 'liveOrderedSetItems'>;
+type Reads = Pick<
+  EntityOracle,
+  'materializeOne' | 'materializeAll' | 'liveSetItems' | 'liveOrderedSetItems' | 'revision'
+>;
 
 const projectors = makeFlatEntityProjectors<Reads, GrpcRequest, SyncGrpcRequestPostState>({
   entityType: GRPC_REQUEST_ENTITY_TYPE,
-  project: projectGrpcRequest,
+  project: (materialized, oracle) =>
+    projectGrpcRequest(materialized, resolveLeafParentPath(oracle, materialized.id, REQUEST_TREE)),
   composeResult: (grpcRequest, oracle, uid) => ({
     grpcRequest,
     ...buildSetMembersExtras(oracle, GRPC_REQUEST_ENTITY_TYPE, uid, GRPC_REQUEST_SET_PATHS),

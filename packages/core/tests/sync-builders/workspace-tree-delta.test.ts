@@ -245,6 +245,45 @@ describe('synthesizeWorkspaceTreeDelta — moves', () => {
     });
   });
 
+  it('a leaf moved across parents transfers its items slot and writes the path', () => {
+    const colA = { schemaVersion: 5, uid: 'col0000a', path: 'rules/col-a-col0000a', name: 'A' } as never;
+    const colB = { schemaVersion: 5, uid: 'col0000b', path: 'rules/col-b-col0000b', name: 'B' } as never;
+    const atA = { ...baseRule, path: 'rules/col-a-col0000a/probe-rul00001' } as Rule;
+    const atB = { ...baseRule, path: 'rules/col-b-col0000b/probe-rul00001' } as Rule;
+    const batches = delta({
+      prev: emptyState({ collections: [colA, colB], rules: [atA] }),
+      next: emptyState({ collections: [colA, colB], rules: [atB] }),
+      changed: ['rules/col-b-col0000b/probe-rul00001/rule.yaml'],
+    });
+    expect(batches).toHaveLength(1);
+    expect(batches[0].batch.mutations.map((m) => m.body)).toMatchObject([
+      { kind: 'removeFromSet', type: 'collection', id: 'col0000a', path: FOLDER_ITEMS_PATH, itemId: 'rul00001' },
+      {
+        kind: 'addToSet',
+        type: 'collection',
+        id: 'col0000b',
+        path: FOLDER_ITEMS_PATH,
+        itemId: 'rul00001',
+        item: { uid: 'rul00001', type: 'rule' },
+      },
+      { kind: 'setField', type: 'rule', id: 'rul00001', path: 'path', value: 'rules/col-b-col0000b/probe-rul00001' },
+    ]);
+  });
+
+  it('a leaf whose ancestor renamed in place keeps its slot and only writes the path', () => {
+    const colA = { schemaVersion: 5, uid: 'col0000a', path: 'rules/col-a-col0000a', name: 'A' } as never;
+    const colRenamed = { schemaVersion: 5, uid: 'col0000a', path: 'rules/renamed-col0000a', name: 'A' } as never;
+    const before = { ...baseRule, path: 'rules/col-a-col0000a/probe-rul00001' } as Rule;
+    const after = { ...baseRule, path: 'rules/renamed-col0000a/probe-rul00001' } as Rule;
+    const batches = delta({
+      prev: emptyState({ collections: [colA], rules: [before] }),
+      next: emptyState({ collections: [colRenamed], rules: [after] }),
+      changed: ['rules/renamed-col0000a/probe-rul00001/rule.yaml'],
+    });
+    const move = batches.find((b) => b.label === 'rule:rul00001 (move)');
+    expect(move?.batch.mutations.map((m) => m.body.kind)).toEqual(['setField']);
+  });
+
   it('a folder moved across parents is guarded (engine placement stands)', () => {
     const colA = { schemaVersion: 5, uid: 'col0000a', path: 'rules/col-a-col0000a', name: 'A' } as never;
     const colB = { schemaVersion: 5, uid: 'col0000b', path: 'rules/col-b-col0000b', name: 'B' } as never;

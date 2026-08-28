@@ -5,13 +5,14 @@
  */
 
 import { setCollectionVar } from '@openheaders/core/sync';
+import { seedWorkspaceRoots } from '@openheaders/core/sync-builders/projections/workspace-roots-projection';
 import type { Collection } from '@openheaders/core/types';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { InMemoryBroadcast } from '@openheaders/oracle/sync/broadcast';
 import { createCollectionCache } from '@openheaders/oracle/sync/caches/collection-cache';
 import { InMemoryMutationLog } from '@openheaders/oracle/sync/mutation-log';
-import { type LockAcquirer, EntityOracle } from '@openheaders/oracle/sync/oracle';
+import { EntityOracle, type LockAcquirer } from '@openheaders/oracle/sync/oracle';
 import { InMemoryPendingIntents } from '@openheaders/oracle/sync/pending-intents';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 const lock: LockAcquirer = async (_ws, _t, _id, fn) => fn();
 
@@ -65,7 +66,10 @@ describe('CollectionCache', () => {
   it('updates the cache when a new var is set via the catalog', async () => {
     const cache = createCollectionCache('ws-1', oracle, broadcast, ctxFactory);
     await cache.seedFromPersistedCollections([makeCollection('a')]);
-    const intent = setCollectionVar(ctxFactory(), { collectionUid: 'a', variable: { uid: 'vrcollvb1', name: 'B', value: '2', type: 'default' } });
+    const intent = setCollectionVar(ctxFactory(), {
+      collectionUid: 'a',
+      variable: { uid: 'vrcollvb1', name: 'B', value: '2', type: 'default' },
+    });
     await oracle.apply(intent.batch, []);
     const colls = cache.getCollections();
     expect(colls[0].variables.map((v) => v.name).sort()).toEqual(['A', 'B']);
@@ -99,8 +103,26 @@ describe('CollectionCache', () => {
     const cache = createCollectionCache('ws-1', oracle, broadcast, ctxFactory);
     await cache.seedFromPersistedCollections([makeCollection('a')]);
     cache.dispose();
-    const intent = setCollectionVar(ctxFactory(), { collectionUid: 'a', variable: { uid: 'vrcollvb1', name: 'B', value: '2', type: 'default' } });
+    const intent = setCollectionVar(ctxFactory(), {
+      collectionUid: 'a',
+      variable: { uid: 'vrcollvb1', name: 'B', value: '2', type: 'default' },
+    });
     await oracle.apply(intent.batch, []);
     expect(cache.getCollections()[0].variables.map((v) => v.name)).toEqual(['A']);
+  });
+
+  it('projects collections in roots order, slot-less ones after by uid', async () => {
+    const cache = createCollectionCache('ws-1', oracle, broadcast, ctxFactory);
+    await cache.seedFromPersistedCollections([makeCollection('a'), makeCollection('b'), makeCollection('c')]);
+    expect(cache.getCollections().map((c) => c.uid)).toEqual(['a', 'b', 'c']);
+    await oracle.apply(
+      seedWorkspaceRoots(
+        { schemaVersion: 5, ruleCollections: ['c', 'a'], requestCollections: [], templateCollections: [] },
+        ctxFactory(),
+      ),
+      [],
+    );
+    expect(cache.getCollections().map((c) => c.uid)).toEqual(['c', 'a', 'b']);
+    cache.dispose();
   });
 });

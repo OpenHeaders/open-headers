@@ -4,15 +4,19 @@
  */
 
 import { CollectionSchema } from '@openheaders/core/schemas';
-import { TEMPLATE_COLLECTION_ENTITY_TYPE } from '@openheaders/core/sync';
+import { TEMPLATE_COLLECTION_ENTITY_TYPE, WORKSPACE_ROOTS_TEMPLATE_COLLECTIONS_PATH } from '@openheaders/core/sync';
+import {
+  projectTemplateCollection,
+  seedTemplateCollection,
+} from '@openheaders/core/sync-builders/projections/template-collection-projection';
 import type { Collection } from '@openheaders/core/types';
 import { hostStorage, wsKeys } from '@openheaders/oracle/storage';
-import { projectTemplateCollection, seedTemplateCollection } from '@openheaders/core/sync-builders/projections/template-collection-projection';
-import { driftRecorder } from '../storage-drift';
 import type { InMemoryBroadcast } from '../broadcast';
-import { createFlatEntityCache } from './flat-entity-cache';
 import type { EntityOracle } from '../oracle';
+import { affectsRoots, arrangeInRootsOrder } from '../post-state/workspace-roots-post-state';
+import { driftRecorder } from '../storage-drift';
 import type { SwMutatorContextFactory } from '../sw-context';
+import { createFlatEntityCache } from './flat-entity-cache';
 
 export type TemplateCollectionCacheListener = () => void;
 
@@ -42,6 +46,11 @@ export function createTemplateCollectionCache(
       storageKey: (ws) => wsKeys(ws).templateCollections,
       project: projectTemplateCollection,
       seed: seedTemplateCollection,
+      // Persisted in roots order — the array IS the collection order.
+      arrange: (entities, oracle) => arrangeInRootsOrder(oracle, WORKSPACE_ROOTS_TEMPLATE_COLLECTIONS_PATH, entities),
+      affects: (event) =>
+        event.envelope.body.type === TEMPLATE_COLLECTION_ENTITY_TYPE ||
+        affectsRoots(event.envelope.body, WORKSPACE_ROOTS_TEMPLATE_COLLECTIONS_PATH),
       loadFromStorage: (ws) =>
         hostStorage.getValidatedArray(wsKeys(ws).templateCollections, CollectionSchema, {
           onError: driftRecorder({

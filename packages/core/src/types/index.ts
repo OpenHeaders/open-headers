@@ -403,6 +403,7 @@ export type { Workspace, WorkspaceSection } from './workspace';
 export type { ExportSelection } from './workspace-export-selection';
 // ── Workspace import dedup ─────────────────────────────────────────
 export type { DedupMatchEntry, DedupMatchesResult, FindMatchesArgs } from './workspace-import';
+export { EMPTY_WORKSPACE_ROOTS, type WorkspaceRoots } from './workspace-roots';
 // ── WebSocket response example ─────────────────────────────────────
 export type {
   CapturedWsClose,

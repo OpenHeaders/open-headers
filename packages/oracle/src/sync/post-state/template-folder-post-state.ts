@@ -23,9 +23,16 @@ import {
   projectFolderPostStateGeneric,
 } from './folder-tree-post-state';
 
-type Reads = Pick<EntityOracle, 'materializeOne' | 'materializeAll' | 'liveSetItems' | 'liveOrderedSetItems'>;
+type Reads = Pick<
+  EntityOracle,
+  'materializeOne' | 'materializeAll' | 'liveSetItems' | 'liveOrderedSetItems' | 'revision'
+>;
 
-const KINDS: FolderTreeKinds<typeof TEMPLATE_COLLECTION_ENTITY_TYPE, typeof TEMPLATE_FOLDER_ENTITY_TYPE> = {
+/** The templates tree — shared by the folder, template and collection projections. */
+export const TEMPLATE_TREE: FolderTreeKinds<
+  typeof TEMPLATE_COLLECTION_ENTITY_TYPE,
+  typeof TEMPLATE_FOLDER_ENTITY_TYPE
+> = {
   collectionType: TEMPLATE_COLLECTION_ENTITY_TYPE,
   folderType: TEMPLATE_FOLDER_ENTITY_TYPE,
   childrenPath: TEMPLATE_FOLDER_CHILDREN_PATH,
@@ -38,13 +45,13 @@ export function projectTemplateFolderPostState(
   oracle: Reads,
   envelope: MutationEnvelope,
 ): SyncTemplateFolderPostState | null {
-  return projectFolderPostStateGeneric(oracle, envelope, KINDS);
+  return projectFolderPostStateGeneric(oracle, envelope, TEMPLATE_TREE);
 }
 
 export function projectTemplateFolderByUid(oracle: Reads, folderUid: string): SyncTemplateFolderPostState | null {
-  return projectFolderByUidGeneric(oracle, folderUid, KINDS);
+  return projectFolderByUidGeneric(oracle, folderUid, TEMPLATE_TREE);
 }
 
 export function projectAllTemplateFolders(oracle: Reads): Folder[] {
-  return projectAllFoldersGeneric(oracle, KINDS);
+  return projectAllFoldersGeneric(oracle, TEMPLATE_TREE);
 }

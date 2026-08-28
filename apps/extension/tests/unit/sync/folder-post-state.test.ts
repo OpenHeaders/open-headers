@@ -10,25 +10,27 @@ import {
   createFolder,
   FOLDER_CHILDREN_PATH,
   FOLDER_ENTITY_TYPE,
-  mintBatch,
-  moveFolder,
   type MutationEnvelope,
   type MutatorContext,
-  renameFolder,
+  mintBatch,
+  moveFolder,
   RULE_ENTITY_TYPE,
+  renameFolder,
 } from '@openheaders/core/sync';
+import { seedCollection } from '@openheaders/core/sync-builders/projections/collection-projection';
+import { seedRule } from '@openheaders/core/sync-builders/projections/rule-projection';
 import type { Collection, Folder } from '@openheaders/core/types';
-import { describe, expect, it } from 'vitest';
 import { InMemoryBroadcast } from '@openheaders/oracle/sync/broadcast';
+import { InMemoryMutationLog } from '@openheaders/oracle/sync/mutation-log';
+import { EntityOracle, type LockAcquirer } from '@openheaders/oracle/sync/oracle';
+import { InMemoryPendingIntents } from '@openheaders/oracle/sync/pending-intents';
 import {
   projectAllFolders,
   projectFolderByUid,
   projectFolderPostState,
 } from '@openheaders/oracle/sync/post-state/folder-post-state';
-import { InMemoryMutationLog } from '@openheaders/oracle/sync/mutation-log';
-import { type LockAcquirer, EntityOracle } from '@openheaders/oracle/sync/oracle';
-import { InMemoryPendingIntents } from '@openheaders/oracle/sync/pending-intents';
-import { seedCollection } from '@openheaders/core/sync-builders/projections/collection-projection';
+import { projectRuleByUid } from '@openheaders/oracle/sync/post-state/rule-post-state';
+import { describe, expect, it } from 'vitest';
 
 const wsId = 'ws-1';
 const lock: LockAcquirer = async (_ws, _t, _id, fn) => fn();
@@ -187,10 +189,7 @@ describe('projectFolderPostState', () => {
     );
 
     const before = projectFolderByUid(oracle, 'parent');
-    expect(before?.setOrderKeys[FOLDER_CHILDREN_PATH]?.map((s) => s.itemId)).toEqual([
-      'child-a',
-      'child-b',
-    ]);
+    expect(before?.setOrderKeys[FOLDER_CHILDREN_PATH]?.map((s) => s.itemId)).toEqual(['child-a', 'child-b']);
 
     await oracle.apply(
       moveFolder(ctx(5), {
@@ -202,10 +201,7 @@ describe('projectFolderPostState', () => {
     );
 
     const after = projectFolderByUid(oracle, 'parent');
-    expect(after?.setOrderKeys[FOLDER_CHILDREN_PATH]?.map((s) => s.itemId)).toEqual([
-      'child-b',
-      'child-a',
-    ]);
+    expect(after?.setOrderKeys[FOLDER_CHILDREN_PATH]?.map((s) => s.itemId)).toEqual(['child-b', 'child-a']);
   });
 
   it('omits setOrderKeys.folders for leaf folders', async () => {
@@ -268,5 +264,82 @@ describe('projectAllFolders', () => {
 
     const all = projectAllFolders(oracle);
     expect(all.map((f) => f.uid)).toEqual(['good']);
+  });
+});
+
+describe('leaf path projection (tree containment slice 2)', () => {
+  const makeRule = (uid: string, path: string) =>
+    ({
+      schemaVersion: 5,
+      uid,
+      path,
+      type: 'header',
+      name: uid,
+      enabled: true,
+      conditions: [],
+      action: { requestHeaders: [], responseHeaders: [] },
+    }) as unknown as Parameters<typeof seedRule>[0];
+
+  it('composes a slotted leaf path from the parent walk and cascades a folder move', async () => {
+    const oracle = newOracle();
+    const collA = makeCollection('col-a');
+    const collB = { ...makeCollection('col-b'), path: 'rules/other-col-b' } as Collection;
+    await oracle.apply(seedCollection(collA, ctx(1)), []);
+    await oracle.apply(seedCollection(collB, ctx(2)), []);
+    await oracle.apply(
+      createFolder(ctx(3), {
+        folderUid: 'fold-m',
+        parent: { type: COLLECTION_ENTITY_TYPE, uid: collA.uid },
+        name: 'Moving',
+      }).batch,
+      [],
+    );
+    const rule = makeRule('rul00001', `${collA.path}/moving-fold-m/probe-rul00001`);
+    await oracle.apply(seedRule(rule, ctx(4), { parent: { type: FOLDER_ENTITY_TYPE, uid: 'fold-m' } }), []);
+    expect(projectRuleByUid(oracle, 'rul00001')?.rule.path).toBe(`${collA.path}/moving-fold-m/probe-rul00001`);
+    expect(projectRuleByUid(oracle, 'rul00001')?.rule.pathSegment).toBe('probe-rul00001');
+
+    await oracle.apply(
+      moveFolder(ctx(5), {
+        folderUid: 'fold-m',
+        oldParent: { type: COLLECTION_ENTITY_TYPE, uid: collA.uid },
+        newParent: { type: COLLECTION_ENTITY_TYPE, uid: collB.uid },
+        orderKey: 'a',
+      }).batch,
+      [],
+    );
+    expect(projectFolderByUid(oracle, 'fold-m')?.folder.path).toBe(`${collB.path}/moving-fold-m`);
+    expect(projectRuleByUid(oracle, 'rul00001')?.rule.path).toBe(`${collB.path}/moving-fold-m/probe-rul00001`);
+  });
+
+  it('keeps the stored path for a slot-less leaf (the mixed-fleet net)', async () => {
+    const oracle = newOracle();
+    const coll = makeCollection('col-n');
+    await oracle.apply(seedCollection(coll, ctx(1)), []);
+    await oracle.apply(seedRule(makeRule('rul00002', `${coll.path}/legacy-rul00002`), ctx(2)), []);
+    const post = projectRuleByUid(oracle, 'rul00002');
+    expect(post?.rule.path).toBe(`${coll.path}/legacy-rul00002`);
+    expect(post?.rule.pathSegment).toBeUndefined();
+  });
+
+  it('projects folders in tree order — parent path, then slot position', async () => {
+    const oracle = newOracle();
+    const coll = makeCollection('col-o');
+    await oracle.apply(seedCollection(coll, ctx(1)), []);
+    for (const [uid, key] of [
+      ['fold-z', 'a'],
+      ['fold-a', 'b'],
+    ] as const) {
+      await oracle.apply(
+        createFolder(ctx(2), {
+          folderUid: uid,
+          parent: { type: COLLECTION_ENTITY_TYPE, uid: coll.uid },
+          name: uid,
+          orderKey: key,
+        }).batch,
+        [],
+      );
+    }
+    expect(projectAllFolders(oracle).map((f) => f.uid)).toEqual(['fold-z', 'fold-a']);
   });
 });

@@ -17,8 +17,12 @@ import type { MutationBatch, MutatorContext } from '@openheaders/core/sync';
 import {
   advanceHlc,
   initialHlc,
+  keyBetween,
   TEMPLATE_COLLECTION_ENTITY_TYPE,
   TEMPLATE_COLLECTION_VARS_PATH,
+  WORKSPACE_ROOTS_ENTITY_TYPE,
+  WORKSPACE_ROOTS_ID,
+  WORKSPACE_ROOTS_TEMPLATE_COLLECTIONS_PATH,
 } from '@openheaders/core/sync';
 import type { Variable } from '@openheaders/core/types';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -39,6 +43,11 @@ vi.mock('@utils/logger', () => ({
   logger: { info: vi.fn(), debug: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }));
 
+import type {
+  RendererContextHandle,
+  TemplateCollectionSyncMirror,
+  WorkspaceRootsSyncMirror,
+} from '@openheaders/ui/context';
 import {
   applyTemplateCollectionCreate,
   applyTemplateCollectionDelete,
@@ -46,10 +55,6 @@ import {
   applyTemplateCollectionRename,
   applyTemplateCollectionSetVar,
 } from '@openheaders/ui/shared/sync/template-collection-write-client';
-import type {
-  RendererContextHandle,
-  TemplateCollectionSyncMirror,
-} from '@openheaders/ui/context';
 
 function makeMirror(
   collections: Array<{ uid: string; path: string; name: string }> = [],
@@ -111,6 +116,17 @@ function makeContextHandle(workspaceId = 'ws-1', surfaceId = 'workbench'): Rende
   };
 }
 
+function makeRootsMirror(tailKey: string | null = null): WorkspaceRootsSyncMirror {
+  return {
+    getMirror: () => null,
+    liveOrderedSetItems: () => (tailKey === null ? [] : [{ itemId: 'col0tail', orderKey: tailKey }]),
+    appendOrderKey: () => keyBetween(tailKey, null),
+    subscribeMirror: () => () => undefined,
+    hydrated: Promise.resolve(),
+    dispose: () => undefined,
+  };
+}
+
 beforeEach(() => {
   mockCall.mockReset();
 });
@@ -124,7 +140,7 @@ describe('applyTemplateCollectionCreate', () => {
     mockCall.mockResolvedValue({ ok: true, outcomes: [] });
     const result = await applyTemplateCollectionCreate(
       { name: 'Header templates' },
-      { workspaceId: 'ws-1', surfaceId: 'workbench', context: makeContextHandle() },
+      { workspaceId: 'ws-1', surfaceId: 'workbench', context: makeContextHandle(), rootsMirror: makeRootsMirror() },
     );
     expect(result.ok).toBe(true);
     const batch = (mockCall.mock.calls[0][1] as { batch: MutationBatch }).batch;
@@ -139,6 +155,23 @@ describe('applyTemplateCollectionCreate', () => {
     expect(created.path.endsWith(created.uid)).toBe(true);
     expect(created.name).toBe('Header templates');
     expect(result.ok && result.collection.uid).toBe(created.uid);
+  });
+
+  it('appends its roots slot strictly after the workspace-roots mirror tail', async () => {
+    mockCall.mockResolvedValue({ ok: true, outcomes: [] });
+    await applyTemplateCollectionCreate(
+      { name: 'Last' },
+      { workspaceId: 'ws-1', surfaceId: 'workbench', context: makeContextHandle(), rootsMirror: makeRootsMirror('m') },
+    );
+    const batch = (mockCall.mock.calls[0][1] as { batch: MutationBatch }).batch;
+    const slot = batch.mutations[batch.mutations.length - 1].body;
+    expect(slot).toMatchObject({
+      kind: 'addToSet',
+      type: WORKSPACE_ROOTS_ENTITY_TYPE,
+      id: WORKSPACE_ROOTS_ID,
+      path: WORKSPACE_ROOTS_TEMPLATE_COLLECTIONS_PATH,
+    });
+    expect(slot.kind === 'addToSet' && slot.orderKey).toBe(keyBetween('m', null));
   });
 });
 

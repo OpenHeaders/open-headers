@@ -45,6 +45,7 @@ import {
 } from '@openheaders/core/sync';
 import type { Rule } from '@openheaders/core/types';
 import { lastPathSegment } from '@openheaders/core/utils';
+import { projectLeafPath } from './leaf-path';
 
 /**
  * Set-modeled field paths on a Rule. The mutator catalog
@@ -117,9 +118,10 @@ function readUid(item: unknown): string {
  * Convert a `MaterializedEntity` (the oracle's per-entity snapshot)
  * back into a Rule. Returns `null` when the materialized data fails
  * basic shape checks — callers persist the rule only when projection
- * succeeds.
+ * succeeds. `parentPath` is the resolved path of the rule's live
+ * parent slot; `null` keeps the stored `path` (see `leaf-path.ts`).
  */
-export function projectRule(materialized: MaterializedEntity): Rule | null {
+export function projectRule(materialized: MaterializedEntity, parentPath: string | null = null): Rule | null {
   if (materialized.type !== RULE_ENTITY_TYPE) return null;
   const data = materialized.data;
   if (!isPlainObject(data)) return null;
@@ -127,7 +129,8 @@ export function projectRule(materialized: MaterializedEntity): Rule | null {
   // unflattened from per-leaf paths; set-modeled fields are emitted as
   // arrays at their setPath. The cast is honest because seedRule
   // committed to that shape on the way in.
-  return data as Rule;
+  const rule = data as Rule;
+  return parentPath === null ? rule : { ...rule, path: projectLeafPath(data, parentPath) };
 }
 
 // ── internals ─────────────────────────────────────────────────────

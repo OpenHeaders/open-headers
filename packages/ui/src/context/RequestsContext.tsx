@@ -31,7 +31,9 @@
 
 import {
   REQUEST_COLLECTION_ENTITY_TYPE,
+  REQUEST_FOLDER_CHILDREN_PATH,
   REQUEST_FOLDER_ENTITY_TYPE,
+  REQUEST_FOLDER_ITEMS_PATH,
   type RequestFolderParentRef,
 } from '@openheaders/core/sync';
 import type {
@@ -55,7 +57,7 @@ import type {
   ExecutedRequestSnapshot,
   ExecutedWsSnapshot,
 } from '@openheaders/core/types';
-import { buildRequestCollectionTrees } from '../shared/local-tree-builder';
+import { buildRequestCollectionTrees, type ContainerSlotReader } from '../shared/local-tree-builder';
 import { hostStorage, type PersistedLocalFolder, wsKeys } from '@openheaders/core/storage';
 import {
   applyRequestCollectionCreate,
@@ -435,6 +437,19 @@ export const RequestsProvider: React.FC<RequestsProviderProps> = ({
     let currentCollections: Collection[] = [];
     let currentFolders: PersistedLocalFolder[] = [];
 
+    // The four request kinds share one `items` set per container; the
+    // persisted arrays carry each kind's order but not the cross-kind
+    // interleave, so the container mirrors' slots order the leaves.
+    const collectionMirror = getRequestCollectionSyncMirrorForWorkspace(wsId);
+    const folderMirror = getRequestFolderSyncMirrorForWorkspace(wsId);
+    const slotsOf: ContainerSlotReader = (parent) => {
+      const mirror = parent.type === 'collection' ? collectionMirror : folderMirror;
+      return {
+        folders: mirror.liveOrderedSetItems(parent.uid, REQUEST_FOLDER_CHILDREN_PATH).map((slot) => slot.itemId),
+        items: mirror.liveOrderedSetItems(parent.uid, REQUEST_FOLDER_ITEMS_PATH).map((slot) => slot.itemId),
+      };
+    };
+
     const recomputeTrees = () => {
       setCollectionTrees(
         buildRequestCollectionTrees(
@@ -444,9 +459,12 @@ export const RequestsProvider: React.FC<RequestsProviderProps> = ({
           currentGrpcRequests,
           currentWebSocketRequests,
           currentMqttRequests,
+          slotsOf,
         ),
       );
     };
+    const unsubCollectionSlots = collectionMirror.subscribeAny(recomputeTrees);
+    const unsubFolderSlots = folderMirror.subscribeAny(recomputeTrees);
 
     const unsubRequests = hostStorage.subscribe(wsKeys(wsId).requests, (record) => {
       currentRequests = record ?? [];
@@ -511,6 +529,8 @@ export const RequestsProvider: React.FC<RequestsProviderProps> = ({
       unsubMqttRequests();
       unsubCollections();
       unsubFolders();
+      unsubCollectionSlots();
+      unsubFolderSlots();
     };
   }, [isOverridden, activeWorkspaceIdOverride]);
 

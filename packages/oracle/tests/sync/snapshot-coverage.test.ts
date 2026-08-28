@@ -28,6 +28,7 @@ const SNAPSHOT_KEY_BY_ENTITY_TYPE: Record<string, string> = {
   'workspace-variables': 'workspaceVariables',
   vault: 'vault',
   'trusted-roots': 'trustedRoots',
+  'workspace-roots': 'workspaceRoots',
   request: 'requests',
   grpcRequest: 'grpcRequests',
   websocketRequest: 'websocketRequests',

@@ -13,6 +13,7 @@ import {
   REQUEST_COLLECTION_ENTITY_TYPE,
   REQUEST_COLLECTION_VARS_PATH,
   WORKSPACE_ROOTS_REF,
+  WORKSPACE_ROOTS_REQUEST_COLLECTIONS_PATH,
 } from '@openheaders/core/sync';
 import { buildVariablesReplacement } from '@openheaders/core/sync-builders';
 import {
@@ -38,6 +39,10 @@ import {
 import { getRequestFolderSyncMirrorForWorkspace } from '../../context/mirrors/request-folder-sync-mirror';
 import { getRequestSyncMirrorForWorkspace } from '../../context/mirrors/request-sync-mirror';
 import {
+  getWorkspaceRootsSyncMirrorForWorkspace,
+  type WorkspaceRootsSyncMirror,
+} from '../../context/mirrors/workspace-roots-sync-mirror';
+import {
   applySyncPayload,
   type BaseSyncWriteOptions,
   resolveMirror,
@@ -51,6 +56,8 @@ export type RequestCollectionSimpleResult = SyncSimpleResult;
 
 export interface RequestCollectionWriteOptions extends BaseSyncWriteOptions {
   mirror?: RequestCollectionSyncMirror;
+  /** Test override for the workspace-roots mirror a create appends after. */
+  rootsMirror?: WorkspaceRootsSyncMirror;
 }
 
 /**
@@ -82,9 +89,14 @@ export async function applyRequestCollectionCreate(
     pinnedEnvironmentIds: [],
     defaultEnvironmentId: null,
   };
+  const roots = opts.rootsMirror ?? getWorkspaceRootsSyncMirrorForWorkspace(opts.workspaceId);
+  await roots.hydrated;
   const ctx = resolveRendererContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
   const ack = await applySyncPayload({
-    batch: seedRequestCollection(collection, ctx, { parent: WORKSPACE_ROOTS_REF }),
+    batch: seedRequestCollection(collection, ctx, {
+      parent: WORKSPACE_ROOTS_REF,
+      orderKey: roots.appendOrderKey(WORKSPACE_ROOTS_REQUEST_COLLECTIONS_PATH),
+    }),
     sideEffects: [],
   });
   if (ack.ok) return { ok: true, collection };

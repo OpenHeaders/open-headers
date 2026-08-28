@@ -25,6 +25,7 @@ import {
 } from '@openheaders/core/sync';
 import type { GrpcRequest } from '@openheaders/core/types';
 import { lastPathSegment } from '@openheaders/core/utils';
+import { projectLeafPath } from './leaf-path';
 
 /**
  * Convert a persisted GrpcRequest into a `MutationBatch` of one
@@ -70,9 +71,13 @@ export function seedGrpcRequest(
 /**
  * Convert a `MaterializedEntity` back into a `GrpcRequest`. Returns
  * `null` when the materialized data fails basic shape checks — callers
- * persist only when projection succeeds.
+ * persist only when projection succeeds. `parentPath` is the resolved
+ * path of the live parent slot; `null` keeps the stored `path`.
  */
-export function projectGrpcRequest(materialized: MaterializedEntity): GrpcRequest | null {
+export function projectGrpcRequest(
+  materialized: MaterializedEntity,
+  parentPath: string | null = null,
+): GrpcRequest | null {
   if (materialized.type !== GRPC_REQUEST_ENTITY_TYPE) return null;
   const data = materialized.data;
   if (!isPlainObject(data)) return null;
@@ -80,7 +85,8 @@ export function projectGrpcRequest(materialized: MaterializedEntity): GrpcReques
   // unflattened from per-leaf paths; `metadata` is emitted as an array
   // at its setPath. The cast is honest because seedGrpcRequest
   // committed to that shape on the way in.
-  return data as GrpcRequest;
+  const request = data as GrpcRequest;
+  return parentPath === null ? request : { ...request, path: projectLeafPath(data, parentPath) };
 }
 
 const isPlainObject = (v: unknown): v is Record<string, unknown> =>

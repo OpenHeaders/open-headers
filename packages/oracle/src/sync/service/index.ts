@@ -92,6 +92,7 @@ export {
   snapshotTrustedRootsPostStates,
   snapshotVaultPostStates,
   snapshotWebSocketRequestPostStates,
+  snapshotWorkspaceRootsPostStates,
   snapshotWorkspaceVariablesPostStates,
   snapshotWsResponseExamplePostStates,
 } from './snapshots';

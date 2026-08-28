@@ -34,6 +34,12 @@ import type { Rule } from '@openheaders/core/types';
 import { hostStorage, wsKeys } from '@openheaders/oracle/storage';
 import type { InMemoryBroadcast } from '../broadcast';
 import type { EntityOracle } from '../oracle';
+import { RULE_TREE } from '../post-state/folder-post-state';
+import {
+  affectsTreeContainment,
+  arrangeInTreeOrder,
+  resolveLeafParentPath,
+} from '../post-state/folder-tree-post-state';
 import { driftRecorder } from '../storage-drift';
 import type { SwMutatorContextFactory } from '../sw-context';
 import { createFlatEntityCache } from './flat-entity-cache';
@@ -70,7 +76,14 @@ export function createRuleCache(
     // tightening to `true` shrinks the wipe surface to the genuine
     // "rule changed" lane.
     filterBroadcastByType: true,
-    project: projectRule,
+    project: (materialized, oracle) =>
+      projectRule(materialized, resolveLeafParentPath(oracle, materialized.id, RULE_TREE)),
+    arrange: (entities, oracle) => arrangeInTreeOrder(oracle, RULE_TREE, entities),
+    // Own envelopes plus the containment envelopes a leaf's projected
+    // path and sibling order depend on (a parent's `folders` / `items`
+    // slots — folder moves cascade through here).
+    affects: (event) =>
+      event.envelope.body.type === RULE_ENTITY_TYPE || affectsTreeContainment(event.envelope.body, RULE_TREE),
     seed: seedRule,
     loadFromStorage: (ws) =>
       hostStorage.getValidatedArray(wsKeys(ws).rules, RuleSchema, {

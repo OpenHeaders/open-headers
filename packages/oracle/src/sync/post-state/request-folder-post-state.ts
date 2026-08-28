@@ -23,9 +23,13 @@ import {
   projectFolderPostStateGeneric,
 } from './folder-tree-post-state';
 
-type Reads = Pick<EntityOracle, 'materializeOne' | 'materializeAll' | 'liveSetItems' | 'liveOrderedSetItems'>;
+type Reads = Pick<
+  EntityOracle,
+  'materializeOne' | 'materializeAll' | 'liveSetItems' | 'liveOrderedSetItems' | 'revision'
+>;
 
-const KINDS: FolderTreeKinds<typeof REQUEST_COLLECTION_ENTITY_TYPE, typeof REQUEST_FOLDER_ENTITY_TYPE> = {
+/** The requests tree — shared by the folder, the four request kinds and the collection projections. */
+export const REQUEST_TREE: FolderTreeKinds<typeof REQUEST_COLLECTION_ENTITY_TYPE, typeof REQUEST_FOLDER_ENTITY_TYPE> = {
   collectionType: REQUEST_COLLECTION_ENTITY_TYPE,
   folderType: REQUEST_FOLDER_ENTITY_TYPE,
   childrenPath: REQUEST_FOLDER_CHILDREN_PATH,
@@ -38,13 +42,13 @@ export function projectRequestFolderPostState(
   oracle: Reads,
   envelope: MutationEnvelope,
 ): SyncRequestFolderPostState | null {
-  return projectFolderPostStateGeneric(oracle, envelope, KINDS);
+  return projectFolderPostStateGeneric(oracle, envelope, REQUEST_TREE);
 }
 
 export function projectRequestFolderByUid(oracle: Reads, folderUid: string): SyncRequestFolderPostState | null {
-  return projectFolderByUidGeneric(oracle, folderUid, KINDS);
+  return projectFolderByUidGeneric(oracle, folderUid, REQUEST_TREE);
 }
 
 export function projectAllRequestFolders(oracle: Reads): Folder[] {
-  return projectAllFoldersGeneric(oracle, KINDS);
+  return projectAllFoldersGeneric(oracle, REQUEST_TREE);
 }

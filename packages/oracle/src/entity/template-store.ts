@@ -46,7 +46,15 @@ import {
 } from '@openheaders/core/sync-builders/mutations/template-mutations';
 import { seedTemplateCollection } from '@openheaders/core/sync-builders/projections/template-collection-projection';
 import type { Collection, CollectionTree, RuleType, Template, TreeNode } from '@openheaders/core/types';
-import { generateUid, logger, parentPathOf, toFolderName } from '@openheaders/core/utils';
+import {
+  generateUid,
+  indexTreeChildren,
+  logger,
+  orderedChildren,
+  parentPathOf,
+  type TreeChildIndex,
+  toFolderName,
+} from '@openheaders/core/utils';
 import type { LocalFolder } from '@openheaders/oracle/entity/rule-store';
 import { hostStorage, wsKeys } from '@openheaders/oracle/storage';
 import { requireActiveWorkspaceId } from '@openheaders/oracle/sync';
@@ -117,57 +125,51 @@ export function getTemplateFolders(): LocalFolder[] {
 }
 
 export function getTemplateCollectionTrees(): CollectionTree[] {
+  const index = indexTreeChildren(
+    templateFolders,
+    templates,
+    (f) => f.path,
+    (t) => t.path,
+  );
   return templateCollections.map((collection) => {
-    const tree = buildTreeForParent(TEMPLATE_COLLECTION_ENTITY_TYPE, collection.uid, collection.path);
+    const tree = buildTreeForParent(index, TEMPLATE_COLLECTION_ENTITY_TYPE, collection.uid, collection.path);
     return { ...collection, tree };
   });
 }
 
 /**
  * Build TreeNode[] for the children of a template-collection or
- * template-folder. Folder siblings render in the order carried by the
- * parent's `folders` set (§7.2 + §23.5). Templates inside the same
- * parent keep their cache-array order — templates don't live in a
- * parent set today.
+ * template-folder: child folders first, then templates, each run in
+ * the order carried by the parent's `folders` / `items` set (§7.2 +
+ * §23.5). Children without a live slot yet follow by their stored path
+ * (`orderedChildren`) — never require a slot on read.
  */
 function buildTreeForParent(
+  index: TreeChildIndex<LocalFolder, Template>,
   parentType: typeof TEMPLATE_COLLECTION_ENTITY_TYPE | typeof TEMPLATE_FOLDER_ENTITY_TYPE,
   parentUid: string,
   parentPath: string,
 ): TreeNode[] {
   const nodes: TreeNode[] = [];
-
   const oracle = getOracleForCurrentWorkspace();
-  const slots = oracle ? oracle.liveOrderedSetItems(parentType, parentUid, TEMPLATE_FOLDER_CHILDREN_PATH) : [];
+  const slotUids = (setPath: string): string[] =>
+    oracle ? oracle.liveOrderedSetItems(parentType, parentUid, setPath).map((slot) => slot.itemId) : [];
+  const children = orderedChildren(index, parentPath, {
+    folders: slotUids(TEMPLATE_FOLDER_CHILDREN_PATH),
+    items: slotUids(TEMPLATE_FOLDER_ITEMS_PATH),
+  });
 
-  let childFolders: LocalFolder[];
-  if (slots.length > 0) {
-    const byUid = new Map(templateFolders.map((f) => [f.uid, f]));
-    childFolders = slots.map((slot) => byUid.get(slot.itemId)).filter((f): f is LocalFolder => Boolean(f));
-  } else {
-    childFolders = templateFolders.filter((f) => {
-      const parent = f.path.substring(0, f.path.lastIndexOf('/'));
-      return parent === parentPath;
-    });
-  }
-
-  for (const folder of childFolders) {
-    const children = buildTreeForParent(TEMPLATE_FOLDER_ENTITY_TYPE, folder.uid, folder.path);
+  for (const folder of children.folders) {
     nodes.push({
       type: 'folder',
       uid: folder.uid,
       name: folder.name,
       path: folder.path,
-      children,
+      children: buildTreeForParent(index, TEMPLATE_FOLDER_ENTITY_TYPE, folder.uid, folder.path),
     });
   }
 
-  const childTemplates = templates.filter((t) => {
-    const parent = t.path.substring(0, t.path.lastIndexOf('/'));
-    return parent === parentPath;
-  });
-
-  for (const template of childTemplates) {
+  for (const template of children.leaves) {
     nodes.push({
       type: 'template',
       uid: template.uid,

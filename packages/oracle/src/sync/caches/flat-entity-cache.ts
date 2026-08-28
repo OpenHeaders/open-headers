@@ -33,9 +33,17 @@ export interface FlatEntityCacheConfig<E extends { uid: string }, T extends stri
   /**
    * Per-entity projector — returns null when the materialized entity
    * doesn't shape into a valid `E` (tombstoned mid-batch; foreign
-   * fields the schema can't validate yet).
+   * fields the schema can't validate yet). Tree leaves read their live
+   * parent path off the oracle here.
    */
-  project: (materialized: MaterializedEntity) => E | null;
+  project: (materialized: MaterializedEntity, oracle: EntityOracle) => E | null;
+  /**
+   * Order of the projected array — the order the cache persists and
+   * boot-time seeding replays. Default: stable uid order. Tree leaves
+   * and collections pass tree / roots order so sibling order survives
+   * a restart.
+   */
+  arrange?: (entities: E[], oracle: EntityOracle) => E[];
   /**
    * Per-entity seed-batch builder. Used during hydration to feed the
    * oracle from `chrome.storage.local`-persisted snapshots.
@@ -50,6 +58,13 @@ export interface FlatEntityCacheConfig<E extends { uid: string }, T extends stri
    * shape is safer than tightening the contract in a refactor commit.
    */
   filterBroadcastByType?: boolean;
+  /**
+   * Re-project on this predicate instead of the entity-type filter.
+   * Tree leaves and collections re-project on their own envelopes AND
+   * on the containment envelopes their paths / order depend on (a
+   * parent's `folders` / `items` slots, the roots sets).
+   */
+  affects?: (event: BroadcastEvent) => boolean;
   /**
    * Read this entity's persisted projection for `scope` from
    * `chrome.storage.local`. Symmetric to the implicit persist-on-refresh
@@ -97,7 +112,7 @@ export function createFlatEntityCache<E extends { uid: string }, T extends strin
   const filter = config.filterBroadcastByType ?? true;
 
   const refreshFromOracle = (): void => {
-    entities = projectAll(oracle.materializeAll(), config);
+    entities = projectAll(oracle, config);
     void persist(workspaceId, entities, config);
     for (const l of listeners) {
       try {
@@ -114,7 +129,9 @@ export function createFlatEntityCache<E extends { uid: string }, T extends strin
     // seed loop's end-of-loop refresh covers everything applied
     // meanwhile (it projects the whole oracle).
     if (seeding) return;
-    if (filter && event.envelope.body.type !== config.entityType) return;
+    if (config.affects) {
+      if (!config.affects(event)) return;
+    } else if (filter && event.envelope.body.type !== config.entityType) return;
     refreshFromOracle();
   });
 
@@ -181,15 +198,16 @@ export function createFlatEntityCache<E extends { uid: string }, T extends strin
 }
 
 function projectAll<E extends { uid: string }, T extends string>(
-  materialized: MaterializedEntity[],
+  oracle: EntityOracle,
   config: FlatEntityCacheConfig<E, T>,
 ): E[] {
   const out: E[] = [];
-  for (const m of materialized) {
+  for (const m of oracle.materializeAll()) {
     if (m.type !== config.entityType) continue;
-    const entity = config.project(m);
+    const entity = config.project(m, oracle);
     if (entity) out.push(entity);
   }
+  if (config.arrange) return config.arrange(out, oracle);
   // Stable order by uid so consumers (badge, exporter, tests)
   // observe deterministic outputs across SW lifetimes.
   out.sort((a, b) => (a.uid < b.uid ? -1 : a.uid > b.uid ? 1 : 0));

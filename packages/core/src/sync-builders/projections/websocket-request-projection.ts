@@ -30,6 +30,7 @@ import {
 } from '@openheaders/core/sync';
 import type { WebSocketRequest } from '@openheaders/core/types';
 import { lastPathSegment } from '@openheaders/core/utils';
+import { projectLeafPath } from './leaf-path';
 
 /** Set-modeled paths on a WebSocketRequest, with their row readers. */
 const SET_PATHS = [
@@ -95,9 +96,13 @@ export function seedWebSocketRequest(
 /**
  * Convert a `MaterializedEntity` back into a `WebSocketRequest`.
  * Returns `null` when the materialized data fails basic shape checks —
- * callers persist only when projection succeeds.
+ * callers persist only when projection succeeds. `parentPath` is the
+ * resolved path of the live parent slot; `null` keeps the stored `path`.
  */
-export function projectWebSocketRequest(materialized: MaterializedEntity): WebSocketRequest | null {
+export function projectWebSocketRequest(
+  materialized: MaterializedEntity,
+  parentPath: string | null = null,
+): WebSocketRequest | null {
   if (materialized.type !== WEBSOCKET_REQUEST_ENTITY_TYPE) return null;
   const data = materialized.data;
   if (!isPlainObject(data)) return null;
@@ -113,6 +118,7 @@ export function projectWebSocketRequest(materialized: MaterializedEntity): WebSo
   const { events, savedMessages, ...rest } = request;
   return {
     ...rest,
+    ...(parentPath === null ? {} : { path: projectLeafPath(data, parentPath) }),
     ...(events !== undefined && events.length > 0 ? { events } : {}),
     ...(savedMessages !== undefined && savedMessages.length > 0 ? { savedMessages } : {}),
   };

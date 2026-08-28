@@ -36,6 +36,7 @@ import type {
   SyncTrustedRootsPostState,
   SyncVaultPostState,
   SyncWebSocketRequestPostState,
+  SyncWorkspaceRootsPostState,
   SyncWorkspaceVariablesPostState,
   SyncWsResponseExamplePostState,
 } from '../sync-bridge';
@@ -116,6 +117,15 @@ export interface SyncEngineRpc {
   'oh.sync.snapshotTrustedRoots': {
     req: { workspaceId?: string };
     res: { entries: SyncTrustedRootsPostState[] } | SyncRpcNotReadyResponse;
+  };
+  /**
+   * Snapshot the workspace's singleton workspace-roots oracle state —
+   * the collection order of the three trees. Singleton `entries`
+   * carries 0 or 1 element.
+   */
+  'oh.sync.snapshotWorkspaceRoots': {
+    req: { workspaceId?: string };
+    res: { entries: SyncWorkspaceRootsPostState[] } | SyncRpcNotReadyResponse;
   };
   /**
    * Snapshot the active workspace's full Folder oracle state. Same

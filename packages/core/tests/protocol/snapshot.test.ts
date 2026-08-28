@@ -27,6 +27,7 @@ function makeSnapshot(overrides: Partial<WorkspaceSnapshot> = {}): WorkspaceSnap
     workspaceVariables: [],
     vault: [],
     trustedRoots: [],
+    workspaceRoots: [],
     folders: [],
     requests: [],
     requestCollections: [],

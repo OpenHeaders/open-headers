@@ -42,6 +42,7 @@ import {
 } from '@openheaders/core/sync';
 import type { Template } from '@openheaders/core/types';
 import { lastPathSegment } from '@openheaders/core/utils';
+import { projectLeafPath } from './leaf-path';
 
 /**
  * Convert a persisted Template into a `MutationBatch` of one `create`
@@ -103,13 +104,15 @@ function readUid(item: unknown): string {
  * Convert a `MaterializedEntity` (the oracle's per-template snapshot)
  * back into a `Template`. Returns `null` when the materialized data
  * fails basic shape checks — callers persist the template only when
- * projection succeeds.
+ * projection succeeds. `parentPath` is the resolved path of the live
+ * parent slot; `null` keeps the stored `path` (see `leaf-path.ts`).
  */
-export function projectTemplate(materialized: MaterializedEntity): Template | null {
+export function projectTemplate(materialized: MaterializedEntity, parentPath: string | null = null): Template | null {
   if (materialized.type !== TEMPLATE_ENTITY_TYPE) return null;
   const data = materialized.data;
   if (!isPlainObject(data)) return null;
-  return data as Template;
+  const template = data as Template;
+  return parentPath === null ? template : { ...template, path: projectLeafPath(data, parentPath) };
 }
 
 // ── internals ─────────────────────────────────────────────────────

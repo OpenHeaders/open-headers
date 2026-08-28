@@ -38,6 +38,7 @@ import {
 } from '@openheaders/core/sync';
 import type { QueryParam, Request, RequestHeader } from '@openheaders/core/types';
 import { lastPathSegment } from '@openheaders/core/utils';
+import { projectLeafPath } from './leaf-path';
 
 /**
  * Set-modeled field paths on a Request. The mutator catalog
@@ -105,9 +106,10 @@ export function seedRequest(
  * Convert a `MaterializedEntity` (the oracle's per-entity snapshot)
  * back into a `Request`. Returns `null` when the materialized data
  * fails basic shape checks — callers persist the request only when
- * projection succeeds.
+ * projection succeeds. `parentPath` is the resolved path of the live
+ * parent slot; `null` keeps the stored `path` (see `leaf-path.ts`).
  */
-export function projectRequest(materialized: MaterializedEntity): Request | null {
+export function projectRequest(materialized: MaterializedEntity, parentPath: string | null = null): Request | null {
   if (materialized.type !== REQUEST_ENTITY_TYPE) return null;
   const data = materialized.data;
   if (!isPlainObject(data)) return null;
@@ -115,7 +117,8 @@ export function projectRequest(materialized: MaterializedEntity): Request | null
   // unflattened from per-leaf paths; set-modeled fields are emitted as
   // arrays at their setPath. The cast is honest because seedRequest
   // committed to that shape on the way in.
-  return data as Request;
+  const request = data as Request;
+  return parentPath === null ? request : { ...request, path: projectLeafPath(data, parentPath) };
 }
 
 // ── internals ─────────────────────────────────────────────────────

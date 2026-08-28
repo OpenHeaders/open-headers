@@ -19,6 +19,8 @@ import { projectMqttRequest } from '@openheaders/core/sync-builders/projections/
 import type { MqttRequest } from '@openheaders/core/types';
 import type { EntityOracle } from '../oracle';
 import { buildSetMembersExtras, makeFlatEntityProjectors } from './flat-entity-post-state';
+import { resolveLeafParentPath } from './folder-tree-post-state';
+import { REQUEST_TREE } from './request-folder-post-state';
 
 /** Set-modeled paths on an MqttRequest — mirrors the projection's set handling. */
 const MQTT_REQUEST_SET_PATHS = [
@@ -27,11 +29,15 @@ const MQTT_REQUEST_SET_PATHS = [
   MQTT_REQUEST_USER_PROPERTIES_PATH,
 ] as const;
 
-type Reads = Pick<EntityOracle, 'materializeOne' | 'liveOrderedSetItems'>;
+type Reads = Pick<
+  EntityOracle,
+  'materializeOne' | 'materializeAll' | 'liveSetItems' | 'liveOrderedSetItems' | 'revision'
+>;
 
 const projectors = makeFlatEntityProjectors<Reads, MqttRequest, SyncMqttRequestPostState>({
   entityType: MQTT_REQUEST_ENTITY_TYPE,
-  project: projectMqttRequest,
+  project: (materialized, oracle) =>
+    projectMqttRequest(materialized, resolveLeafParentPath(oracle, materialized.id, REQUEST_TREE)),
   composeResult: (mqttRequest, oracle, uid) => ({
     mqttRequest,
     ...buildSetMembersExtras(oracle, MQTT_REQUEST_ENTITY_TYPE, uid, MQTT_REQUEST_SET_PATHS),

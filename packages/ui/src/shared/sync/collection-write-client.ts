@@ -17,7 +17,12 @@
 
 import { MIN_SCHEMA_VERSION } from '@openheaders/core/schemas';
 import type { MutationEnvelope } from '@openheaders/core/sync';
-import { COLLECTION_ENTITY_TYPE, COLLECTION_VARS_PATH, WORKSPACE_ROOTS_REF } from '@openheaders/core/sync';
+import {
+  COLLECTION_ENTITY_TYPE,
+  COLLECTION_VARS_PATH,
+  WORKSPACE_ROOTS_REF,
+  WORKSPACE_ROOTS_RULE_COLLECTIONS_PATH,
+} from '@openheaders/core/sync';
 import { buildVariablesReplacement } from '@openheaders/core/sync-builders';
 import {
   buildDeleteCollectionBatch,
@@ -40,6 +45,10 @@ import {
 import { getFolderSyncMirrorForWorkspace } from '../../context/mirrors/folder-sync-mirror';
 import { getRuleSyncMirrorForWorkspace } from '../../context/mirrors/rule-sync-mirror';
 import {
+  getWorkspaceRootsSyncMirrorForWorkspace,
+  type WorkspaceRootsSyncMirror,
+} from '../../context/mirrors/workspace-roots-sync-mirror';
+import {
   applySyncPayload,
   type BaseSyncWriteOptions,
   resolveMirror,
@@ -53,6 +62,8 @@ export type CollectionSimpleResult = SyncSimpleResult;
 
 export interface CollectionWriteOptions extends BaseSyncWriteOptions {
   mirror?: CollectionSyncMirror;
+  /** Test override for the workspace-roots mirror a create appends after. */
+  rootsMirror?: WorkspaceRootsSyncMirror;
 }
 
 export interface ApplyCollectionSetVarInput {
@@ -91,8 +102,8 @@ export async function applyCollectionRemoveVar(
  * `applyEnvironmentCreate`. The legacy SW handler
  * (`createLocalCollection`) operates on the runtime-Active workspace and
  * is bypassed here — workbench surfaces emit applies with the
- * editing-scope workspaceId. The renderer holds no roots mirror yet, so
- * the slot lands on the seed key (uid tie-break — today's order).
+ * editing-scope workspaceId. The roots slot appends strictly after the
+ * workspace-roots mirror's live tail, so a new collection lands last.
  */
 export type CollectionMutationResult =
   | { ok: true; collection: Collection }
@@ -118,9 +129,14 @@ export async function applyCollectionCreate(
     pinnedEnvironmentIds: [],
     defaultEnvironmentId: null,
   };
+  const roots = opts.rootsMirror ?? getWorkspaceRootsSyncMirrorForWorkspace(opts.workspaceId);
+  await roots.hydrated;
   const ctx = resolveRendererContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
   const ack = await applySyncPayload({
-    batch: seedCollection(collection, ctx, { parent: WORKSPACE_ROOTS_REF }),
+    batch: seedCollection(collection, ctx, {
+      parent: WORKSPACE_ROOTS_REF,
+      orderKey: roots.appendOrderKey(WORKSPACE_ROOTS_RULE_COLLECTIONS_PATH),
+    }),
     sideEffects: [],
   });
   if (ack.ok) return { ok: true, collection };

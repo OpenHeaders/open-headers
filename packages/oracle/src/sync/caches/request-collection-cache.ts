@@ -4,15 +4,19 @@
  */
 
 import { CollectionSchema } from '@openheaders/core/schemas';
-import { REQUEST_COLLECTION_ENTITY_TYPE } from '@openheaders/core/sync';
+import { REQUEST_COLLECTION_ENTITY_TYPE, WORKSPACE_ROOTS_REQUEST_COLLECTIONS_PATH } from '@openheaders/core/sync';
+import {
+  projectRequestCollection,
+  seedRequestCollection,
+} from '@openheaders/core/sync-builders/projections/request-collection-projection';
 import type { Collection } from '@openheaders/core/types';
 import { hostStorage, wsKeys } from '@openheaders/oracle/storage';
-import { projectRequestCollection, seedRequestCollection } from '@openheaders/core/sync-builders/projections/request-collection-projection';
-import { driftRecorder } from '../storage-drift';
 import type { InMemoryBroadcast } from '../broadcast';
-import { createFlatEntityCache } from './flat-entity-cache';
 import type { EntityOracle } from '../oracle';
+import { affectsRoots, arrangeInRootsOrder } from '../post-state/workspace-roots-post-state';
+import { driftRecorder } from '../storage-drift';
 import type { SwMutatorContextFactory } from '../sw-context';
+import { createFlatEntityCache } from './flat-entity-cache';
 
 export type RequestCollectionCacheListener = () => void;
 
@@ -42,6 +46,11 @@ export function createRequestCollectionCache(
       storageKey: (ws) => wsKeys(ws).requestCollections,
       project: projectRequestCollection,
       seed: seedRequestCollection,
+      // Persisted in roots order — the array IS the collection order.
+      arrange: (entities, oracle) => arrangeInRootsOrder(oracle, WORKSPACE_ROOTS_REQUEST_COLLECTIONS_PATH, entities),
+      affects: (event) =>
+        event.envelope.body.type === REQUEST_COLLECTION_ENTITY_TYPE ||
+        affectsRoots(event.envelope.body, WORKSPACE_ROOTS_REQUEST_COLLECTIONS_PATH),
       loadFromStorage: (ws) =>
         hostStorage.getValidatedArray(wsKeys(ws).requestCollections, CollectionSchema, {
           onError: driftRecorder({

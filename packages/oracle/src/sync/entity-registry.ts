@@ -104,6 +104,10 @@ import {
   WEBSOCKET_REQUEST_HEADERS_PATH,
   WEBSOCKET_REQUEST_PARAMS_PATH,
   WEBSOCKET_REQUEST_SAVED_MESSAGES_PATH,
+  WORKSPACE_ROOTS_ENTITY_TYPE,
+  WORKSPACE_ROOTS_REQUEST_COLLECTIONS_PATH,
+  WORKSPACE_ROOTS_RULE_COLLECTIONS_PATH,
+  WORKSPACE_ROOTS_TEMPLATE_COLLECTIONS_PATH,
   WORKSPACE_VARIABLES_ENTITY_TYPE,
   WORKSPACE_VARIABLES_PATH,
   WS_RESPONSE_EXAMPLE_ENTITY_TYPE,
@@ -140,6 +144,7 @@ import { createTemplateFolderCache } from './caches/template-folder-cache';
 import { createTrustedRootsCache } from './caches/trusted-roots-cache';
 import { createVaultCache } from './caches/vault-cache';
 import { createWebSocketRequestCache } from './caches/websocket-request-cache';
+import { createWorkspaceRootsCache } from './caches/workspace-roots-cache';
 import { createWorkspaceVariablesCache } from './caches/workspace-variables-cache';
 import { createWsResponseExampleCache } from './caches/ws-response-example-cache';
 import type { EntityOracle } from './oracle';
@@ -193,6 +198,10 @@ import {
   projectWebSocketRequestByUid,
   projectWebSocketRequestPostState,
 } from './post-state/websocket-request-post-state';
+import {
+  projectWorkspaceRootsPostState,
+  projectWorkspaceRootsSingleton,
+} from './post-state/workspace-roots-post-state';
 import {
   projectWorkspaceVariablesPostState,
   projectWorkspaceVariablesSingleton,
@@ -435,6 +444,23 @@ export const TRUSTED_ROOTS_REGISTRATION = singletonEntity({
   projectPostState: projectTrustedRootsPostState,
   projectSingleton: projectTrustedRootsSingleton,
   setPaths: [TRUSTED_ROOTS_PATH],
+  localWriteSchema: null,
+});
+
+// The top of the three sidebar trees: one ordered collection set per
+// tree. Singleton — observable without a create, so a collection's
+// roots slot lands before (or without) the roots' own seed.
+export const WORKSPACE_ROOTS_REGISTRATION = singletonEntity({
+  entityType: WORKSPACE_ROOTS_ENTITY_TYPE,
+  createCache: createWorkspaceRootsCache,
+  postStateKey: 'workspaceRootsPostState',
+  projectPostState: projectWorkspaceRootsPostState,
+  projectSingleton: projectWorkspaceRootsSingleton,
+  setPaths: [
+    WORKSPACE_ROOTS_RULE_COLLECTIONS_PATH,
+    WORKSPACE_ROOTS_REQUEST_COLLECTIONS_PATH,
+    WORKSPACE_ROOTS_TEMPLATE_COLLECTIONS_PATH,
+  ],
   localWriteSchema: null,
 });
 
@@ -698,6 +724,7 @@ export const WORKSPACE_REGISTRY: EntityRegistration[] = [
   WORKSPACE_VARIABLES_REGISTRATION,
   VAULT_REGISTRATION,
   TRUSTED_ROOTS_REGISTRATION,
+  WORKSPACE_ROOTS_REGISTRATION,
   REQUEST_REGISTRATION,
   GRPC_REQUEST_REGISTRATION,
   WEBSOCKET_REQUEST_REGISTRATION,

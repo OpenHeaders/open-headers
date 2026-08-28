@@ -74,6 +74,7 @@ import {
   snapshotTrustedRootsPostStates,
   snapshotVaultPostStates,
   snapshotWebSocketRequestPostStates,
+  snapshotWorkspaceRootsPostStates,
   snapshotWorkspaceVariablesPostStates,
   snapshotWsResponseExamplePostStates,
 } from './service';
@@ -131,6 +132,7 @@ export function buildSnapshotFromOracle(
     workspaceVariables: snapshotWorkspaceVariablesPostStates(workspaceId),
     vault: snapshotVaultPostStates(workspaceId),
     trustedRoots: snapshotTrustedRootsPostStates(workspaceId),
+    workspaceRoots: snapshotWorkspaceRootsPostStates(workspaceId),
     folders: snapshotFolderPostStates(workspaceId),
     requests: snapshotRequestPostStates(workspaceId),
     requestCollections: snapshotRequestCollectionPostStates(workspaceId),

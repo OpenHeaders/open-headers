@@ -32,6 +32,7 @@ import type {
   SyncTrustedRootsPostState,
   SyncVaultPostState,
   SyncWebSocketRequestPostState,
+  SyncWorkspaceRootsPostState,
   SyncWorkspaceVariablesPostState,
   SyncWsResponseExamplePostState,
 } from '@openheaders/core/protocol';
@@ -66,6 +67,7 @@ import {
   TRUSTED_ROOTS_REGISTRATION,
   VAULT_REGISTRATION,
   WEBSOCKET_REQUEST_REGISTRATION,
+  WORKSPACE_ROOTS_REGISTRATION,
   WORKSPACE_VARIABLES_REGISTRATION,
   WS_RESPONSE_EXAMPLE_REGISTRATION,
 } from '../entity-registry';
@@ -124,6 +126,11 @@ export function snapshotVaultPostStates(workspaceId?: string): SyncVaultPostStat
 export function snapshotTrustedRootsPostStates(workspaceId?: string): SyncTrustedRootsPostState[] {
   const o = oracleForWorkspace(workspaceId);
   return o ? singletonSnapshot(o, TRUSTED_ROOTS_REGISTRATION) : [];
+}
+
+export function snapshotWorkspaceRootsPostStates(workspaceId?: string): SyncWorkspaceRootsPostState[] {
+  const o = oracleForWorkspace(workspaceId);
+  return o ? singletonSnapshot(o, WORKSPACE_ROOTS_REGISTRATION) : [];
 }
 
 export function snapshotFolderPostStates(workspaceId?: string): SyncFolderPostState[] {

@@ -12,6 +12,7 @@ import {
   TEMPLATE_COLLECTION_ENTITY_TYPE,
   TEMPLATE_COLLECTION_VARS_PATH,
   WORKSPACE_ROOTS_REF,
+  WORKSPACE_ROOTS_TEMPLATE_COLLECTIONS_PATH,
 } from '@openheaders/core/sync';
 import { buildVariablesReplacement } from '@openheaders/core/sync-builders';
 import {
@@ -33,6 +34,10 @@ import {
 import { getTemplateFolderSyncMirrorForWorkspace } from '../../context/mirrors/template-folder-sync-mirror';
 import { getTemplateSyncMirrorForWorkspace } from '../../context/mirrors/template-sync-mirror';
 import {
+  getWorkspaceRootsSyncMirrorForWorkspace,
+  type WorkspaceRootsSyncMirror,
+} from '../../context/mirrors/workspace-roots-sync-mirror';
+import {
   applySyncPayload,
   type BaseSyncWriteOptions,
   resolveMirror,
@@ -46,6 +51,8 @@ export type TemplateCollectionSimpleResult = SyncSimpleResult;
 
 export interface TemplateCollectionWriteOptions extends BaseSyncWriteOptions {
   mirror?: TemplateCollectionSyncMirror;
+  /** Test override for the workspace-roots mirror a create appends after. */
+  rootsMirror?: WorkspaceRootsSyncMirror;
 }
 
 /**
@@ -77,9 +84,14 @@ export async function applyTemplateCollectionCreate(
     pinnedEnvironmentIds: [],
     defaultEnvironmentId: null,
   };
+  const roots = opts.rootsMirror ?? getWorkspaceRootsSyncMirrorForWorkspace(opts.workspaceId);
+  await roots.hydrated;
   const ctx = resolveRendererContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
   const ack = await applySyncPayload({
-    batch: seedTemplateCollection(collection, ctx, { parent: WORKSPACE_ROOTS_REF }),
+    batch: seedTemplateCollection(collection, ctx, {
+      parent: WORKSPACE_ROOTS_REF,
+      orderKey: roots.appendOrderKey(WORKSPACE_ROOTS_TEMPLATE_COLLECTIONS_PATH),
+    }),
     sideEffects: [],
   });
   if (ack.ok) return { ok: true, collection };

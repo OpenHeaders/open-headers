@@ -9,19 +9,25 @@
 
 import type { SyncRequestPostState } from '@openheaders/core/protocol';
 import { REQUEST_ENTITY_TYPE, REQUEST_HEADERS_PATH, REQUEST_PARAMS_PATH } from '@openheaders/core/sync';
-import type { Request } from '@openheaders/core/types';
 import { projectRequest } from '@openheaders/core/sync-builders/projections/request-projection';
-import { buildSetMembersExtras, makeFlatEntityProjectors } from './flat-entity-post-state';
+import type { Request } from '@openheaders/core/types';
 import type { EntityOracle } from '../oracle';
+import { buildSetMembersExtras, makeFlatEntityProjectors } from './flat-entity-post-state';
+import { resolveLeafParentPath } from './folder-tree-post-state';
+import { REQUEST_TREE } from './request-folder-post-state';
 
 /** Set-modeled paths on a Request — mirrors {@link request-projection}'s SET_PATHS. */
 const REQUEST_SET_PATHS = [REQUEST_HEADERS_PATH, REQUEST_PARAMS_PATH] as const;
 
-type Reads = Pick<EntityOracle, 'materializeOne' | 'liveOrderedSetItems'>;
+type Reads = Pick<
+  EntityOracle,
+  'materializeOne' | 'materializeAll' | 'liveSetItems' | 'liveOrderedSetItems' | 'revision'
+>;
 
 const projectors = makeFlatEntityProjectors<Reads, Request, SyncRequestPostState>({
   entityType: REQUEST_ENTITY_TYPE,
-  project: projectRequest,
+  project: (materialized, oracle) =>
+    projectRequest(materialized, resolveLeafParentPath(oracle, materialized.id, REQUEST_TREE)),
   composeResult: (request, oracle, uid) => ({
     request,
     ...buildSetMembersExtras(oracle, REQUEST_ENTITY_TYPE, uid, REQUEST_SET_PATHS),

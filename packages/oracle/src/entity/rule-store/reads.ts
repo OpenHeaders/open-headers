@@ -1,7 +1,13 @@
 // ── Reads ────────────────────────────────────────────────────────────
 
-import { COLLECTION_ENTITY_TYPE, FOLDER_CHILDREN_PATH, FOLDER_ENTITY_TYPE } from '@openheaders/core/sync';
+import {
+  COLLECTION_ENTITY_TYPE,
+  FOLDER_CHILDREN_PATH,
+  FOLDER_ENTITY_TYPE,
+  FOLDER_ITEMS_PATH,
+} from '@openheaders/core/sync';
 import type { Collection, CollectionTree, Rule, TreeNode } from '@openheaders/core/types';
+import { indexTreeChildren, orderedChildren, type TreeChildIndex } from '@openheaders/core/utils';
 import type { CollectionCache } from '@openheaders/oracle/sync/caches/collection-cache';
 import { COLLECTION_REGISTRATION } from '@openheaders/oracle/sync/entity-registry';
 import { getCacheForWorkspace, getOracleForCurrentWorkspace } from '@openheaders/oracle/sync/service/accessors';
@@ -38,65 +44,57 @@ export function getFolders(): LocalFolder[] {
 
 /**
  * Build CollectionTree[] from flat collections + folders + rules.
- * Same structure the desktop derives from the filesystem.
+ * Same structure the desktop derives from the filesystem. Collections
+ * come in the cache's roots order.
  */
 export function getCollectionTrees(): CollectionTree[] {
+  const index = indexTreeChildren(
+    folders,
+    rules,
+    (f) => f.path,
+    (r) => r.path,
+  );
   return collections.map((collection) => {
-    const tree = buildTreeForParent(COLLECTION_ENTITY_TYPE, collection.uid, collection.path);
+    const tree = buildTreeForParent(index, COLLECTION_ENTITY_TYPE, collection.uid, collection.path);
     return { ...collection, tree };
   });
 }
 
 /**
- * Build TreeNode[] for the children of a parent (collection or folder).
- *
- * Folder siblings render in the order carried by the parent's `folders`
- * set (§7.2 + §23.5 — orderKey-driven fractional-indexing). Rules
- * inside the same parent keep their cache-array order (rules don't
- * live in a parent set today; each rule is its own entity with a path).
+ * Build TreeNode[] for the children of a parent (collection or folder):
+ * child folders first, then rules, each run in the order carried by the
+ * parent's `folders` / `items` set (§7.2 + §23.5 — orderKey-driven
+ * fractional indexing). Children without a live slot yet — the SW wake →
+ * hydrate window, an old client's create — follow by their stored path
+ * (`orderedChildren`), so the tree is never empty and never requires a
+ * slot on read.
  */
 function buildTreeForParent(
+  index: TreeChildIndex<LocalFolder, Rule>,
   parentType: typeof COLLECTION_ENTITY_TYPE | typeof FOLDER_ENTITY_TYPE,
   parentUid: string,
   parentPath: string,
 ): TreeNode[] {
   const nodes: TreeNode[] = [];
-
   const oracle = getOracleForCurrentWorkspace();
-  const slots = oracle ? oracle.liveOrderedSetItems(parentType, parentUid, FOLDER_CHILDREN_PATH) : [];
+  const slotUids = (setPath: string): string[] =>
+    oracle ? oracle.liveOrderedSetItems(parentType, parentUid, setPath).map((slot) => slot.itemId) : [];
+  const children = orderedChildren(index, parentPath, {
+    folders: slotUids(FOLDER_CHILDREN_PATH),
+    items: slotUids(FOLDER_ITEMS_PATH),
+  });
 
-  // Use slot order when the oracle has parent linkage (post-hydration).
-  // Boot fallback: if no slots are live yet, derive children from the
-  // path-string filter so the tree is non-empty during the SW wake →
-  // hydrate window.
-  let childFolders: LocalFolder[];
-  if (slots.length > 0) {
-    const byUid = new Map(folders.map((f) => [f.uid, f]));
-    childFolders = slots.map((slot) => byUid.get(slot.itemId)).filter((f): f is LocalFolder => Boolean(f));
-  } else {
-    childFolders = folders.filter((f) => {
-      const parent = f.path.substring(0, f.path.lastIndexOf('/'));
-      return parent === parentPath;
-    });
-  }
-
-  for (const folder of childFolders) {
-    const children = buildTreeForParent(FOLDER_ENTITY_TYPE, folder.uid, folder.path);
+  for (const folder of children.folders) {
     nodes.push({
       type: 'folder',
       uid: folder.uid,
       name: folder.name,
       path: folder.path,
-      children,
+      children: buildTreeForParent(index, FOLDER_ENTITY_TYPE, folder.uid, folder.path),
     });
   }
 
-  const childRules = rules.filter((r) => {
-    const parent = r.path.substring(0, r.path.lastIndexOf('/'));
-    return parent === parentPath;
-  });
-
-  for (const rule of childRules) {
+  for (const rule of children.leaves) {
     nodes.push({
       type: 'rule',
       uid: rule.uid,

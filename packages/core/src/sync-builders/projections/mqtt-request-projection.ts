@@ -29,6 +29,7 @@ import {
 } from '@openheaders/core/sync';
 import type { MqttRequest } from '@openheaders/core/types';
 import { lastPathSegment } from '@openheaders/core/utils';
+import { projectLeafPath } from './leaf-path';
 
 /** Set-modeled paths on an MqttRequest, with their row readers. */
 const SET_PATHS = [
@@ -90,9 +91,13 @@ export function seedMqttRequest(
 /**
  * Convert a `MaterializedEntity` back into an `MqttRequest`. Returns
  * `null` when the materialized data fails basic shape checks — callers
- * persist only when projection succeeds.
+ * persist only when projection succeeds. `parentPath` is the resolved
+ * path of the live parent slot; `null` keeps the stored `path`.
  */
-export function projectMqttRequest(materialized: MaterializedEntity): MqttRequest | null {
+export function projectMqttRequest(
+  materialized: MaterializedEntity,
+  parentPath: string | null = null,
+): MqttRequest | null {
   if (materialized.type !== MQTT_REQUEST_ENTITY_TYPE) return null;
   const data = materialized.data;
   if (!isPlainObject(data)) return null;
@@ -101,7 +106,8 @@ export function projectMqttRequest(materialized: MaterializedEntity): MqttReques
   // as arrays. The cast is honest because seedMqttRequest committed to
   // that shape on the way in (all three arrays are schema-required, so
   // the store's [] for an empty set path IS the persisted shape).
-  return data as MqttRequest;
+  const request = data as MqttRequest;
+  return parentPath === null ? request : { ...request, path: projectLeafPath(data, parentPath) };
 }
 
 const isPlainObject = (v: unknown): v is Record<string, unknown> =>

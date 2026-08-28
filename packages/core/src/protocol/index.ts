@@ -164,6 +164,7 @@ export type {
   SyncTrustedRootsPostState,
   SyncVaultPostState,
   SyncWebSocketRequestPostState,
+  SyncWorkspaceRootsPostState,
   SyncWorkspaceVariablesPostState,
   SyncWsResponseExamplePostState,
 } from './sync-bridge';

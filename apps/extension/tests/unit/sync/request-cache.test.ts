@@ -7,12 +7,19 @@
 import {
   addRequestHeader,
   addRequestParam,
+  type ChildPlacement,
+  createRequestFolder,
   deleteRequest,
+  moveRequestFolder,
   REQUEST_COLLECTION_ENTITY_TYPE,
   REQUEST_ENTITY_TYPE,
+  REQUEST_FOLDER_ENTITY_TYPE,
+  type RequestFolderParentRef,
   setRequestField,
 } from '@openheaders/core/sync';
-import type { Request } from '@openheaders/core/types';
+import { seedRequestCollection } from '@openheaders/core/sync-builders/projections/request-collection-projection';
+import { seedRequest } from '@openheaders/core/sync-builders/projections/request-projection';
+import type { Collection, Request } from '@openheaders/core/types';
 import { InMemoryBroadcast } from '@openheaders/oracle/sync/broadcast';
 import { createRequestCache } from '@openheaders/oracle/sync/caches/request-cache';
 import { InMemoryMutationLog } from '@openheaders/oracle/sync/mutation-log';
@@ -193,6 +200,72 @@ describe('RequestCache', () => {
     expect(requests[0].name).toBe('req-rq');
     // Sanity — request shape stays request-shaped even after the broadcast.
     void REQUEST_ENTITY_TYPE;
+    cache.dispose();
+  });
+
+  it('persists requests in tree order and cascades a folder move into their paths', async () => {
+    const collection = {
+      schemaVersion: 5,
+      uid: 'rcol0001',
+      name: 'API',
+      path: 'requests/api-rcol0001',
+      variables: [],
+      pinnedEnvironmentIds: [],
+      defaultEnvironmentId: null,
+    } as unknown as Collection;
+    await oracle.apply(seedRequestCollection(collection, ctxFactory()), []);
+    await oracle.apply(
+      createRequestFolder(ctxFactory(), {
+        folderUid: 'rfol0001',
+        parent: { type: REQUEST_COLLECTION_ENTITY_TYPE, uid: collection.uid },
+        name: 'v1',
+      }).batch,
+      [],
+    );
+    await oracle.apply(
+      createRequestFolder(ctxFactory(), {
+        folderUid: 'rfol0002',
+        parent: { type: REQUEST_COLLECTION_ENTITY_TYPE, uid: collection.uid },
+        name: 'v2',
+      }).batch,
+      [],
+    );
+    const cache = createRequestCache('ws-1', oracle, broadcast, ctxFactory);
+    const place = (uid: string, orderKey: string): ChildPlacement<RequestFolderParentRef> => ({
+      parent: { type: REQUEST_FOLDER_ENTITY_TYPE, uid },
+      orderKey,
+    });
+    await oracle.apply(
+      seedRequest(
+        makeRequest('zzz', { path: `${collection.path}/v1-rfol0001/req-zzz` }),
+        ctxFactory(),
+        place('rfol0001', 'a'),
+      ),
+      [],
+    );
+    await oracle.apply(
+      seedRequest(
+        makeRequest('aaa', { path: `${collection.path}/v1-rfol0001/req-aaa` }),
+        ctxFactory(),
+        place('rfol0001', 'b'),
+      ),
+      [],
+    );
+    expect(cache.getRequests().map((r) => r.uid)).toEqual(['zzz', 'aaa']);
+
+    await oracle.apply(
+      moveRequestFolder(ctxFactory(), {
+        folderUid: 'rfol0001',
+        oldParent: { type: REQUEST_COLLECTION_ENTITY_TYPE, uid: collection.uid },
+        newParent: { type: REQUEST_FOLDER_ENTITY_TYPE, uid: 'rfol0002' },
+        orderKey: 'a',
+      }).batch,
+      [],
+    );
+    expect(cache.getRequests().map((r) => r.path)).toEqual([
+      `${collection.path}/v2-rfol0002/v1-rfol0001/req-zzz`,
+      `${collection.path}/v2-rfol0002/v1-rfol0001/req-aaa`,
+    ]);
     cache.dispose();
   });
 });

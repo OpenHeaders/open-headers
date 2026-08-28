@@ -4,7 +4,13 @@
  * collection-cache.test.ts.
  */
 
-import { COLLECTION_ENTITY_TYPE, createFolder, FOLDER_ENTITY_TYPE, renameFolder } from '@openheaders/core/sync';
+import {
+  COLLECTION_ENTITY_TYPE,
+  createFolder,
+  FOLDER_CHILDREN_PATH,
+  FOLDER_ENTITY_TYPE,
+  renameFolder,
+} from '@openheaders/core/sync';
 import { seedCollection } from '@openheaders/core/sync-builders/projections/collection-projection';
 import type { Collection } from '@openheaders/core/types';
 import type { PersistedLocalFolder } from '@openheaders/oracle/storage';
@@ -206,5 +212,24 @@ describe('FolderCache', () => {
     const intent = renameFolder(ctxFactory(), { folderUid: 'f-d', name: 'Renamed' });
     await oracle.apply(intent.batch, []);
     expect(cache.getFolders()[0].name).toBe('X');
+  });
+
+  it('seeds sibling slots with ascending keys in persisted order (restart keeps the order)', async () => {
+    const coll = makeCollection('col-k');
+    await oracle.apply(seedCollection(coll, ctxFactory()), []);
+    const cache = createFolderCache('ws-1', oracle, broadcast, ctxFactory);
+    await cache.seedFromPersistedFolders(
+      [
+        { schemaVersion: 5, uid: 'f-z', path: `${coll.path}/z-f-z`, name: 'Z' },
+        { schemaVersion: 5, uid: 'f-a', path: `${coll.path}/a-f-a`, name: 'A' },
+        { schemaVersion: 5, uid: 'f-m', path: `${coll.path}/m-f-m`, name: 'M' },
+      ],
+      [coll],
+    );
+    const slots = oracle.liveOrderedSetItems(COLLECTION_ENTITY_TYPE, coll.uid, FOLDER_CHILDREN_PATH);
+    expect(slots.map((s) => s.itemId)).toEqual(['f-z', 'f-a', 'f-m']);
+    expect(slots[0].key < slots[1].key && slots[1].key < slots[2].key).toBe(true);
+    expect(cache.getFolders().map((f) => f.uid)).toEqual(['f-z', 'f-a', 'f-m']);
+    cache.dispose();
   });
 });

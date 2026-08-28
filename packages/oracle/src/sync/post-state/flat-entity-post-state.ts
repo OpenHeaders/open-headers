@@ -83,7 +83,9 @@ export function buildVarNamesExtras(
 
 export interface FlatEntityProjectorConfig<O extends FlatProjectorReads, T, R> {
   entityType: string;
-  project: (materialized: MaterializedEntity) => T | null;
+  /** Domain projector. Tree leaves read their live parent path off the
+   *  oracle here (`folder-tree-post-state.resolveLeafParentPath`). */
+  project: (materialized: MaterializedEntity, oracle: O) => T | null;
   composeResult: (entity: T, oracle: O, uid: string) => R;
 }
 
@@ -98,7 +100,7 @@ export function makeFlatEntityProjectors<O extends FlatProjectorReads, T, R>(
   const projectByUid = (oracle: O, uid: string): R | null => {
     const materialized = oracle.materializeOne(config.entityType, uid);
     if (!materialized) return null;
-    const entity = config.project(materialized);
+    const entity = config.project(materialized, oracle);
     if (!entity) return null;
     return config.composeResult(entity, oracle, uid);
   };

@@ -17,7 +17,14 @@
  */
 
 import { CollectionSchema } from '@openheaders/core/schemas';
-import { type MutationBatch, type MutatorContext, newBatchId, type SideEffectIntent } from '@openheaders/core/sync';
+import {
+  type MutationBatch,
+  type MutatorContext,
+  newBatchId,
+  type ParentRefShape,
+  type SideEffectIntent,
+} from '@openheaders/core/sync';
+import { createTailTracker } from '@openheaders/core/sync-builders/mutations/workspace-import-emission';
 import type { Collection, Folder } from '@openheaders/core/types';
 import { logger } from '@openheaders/core/utils';
 import { hostStorage, type PersistedLocalFolder, type StorageKey } from '@openheaders/oracle/storage';
@@ -30,14 +37,15 @@ import type { SwMutatorContextFactory } from '../sw-context';
  * Input shape for `buildCreateBatch`. Per-entity factories accept the
  * same field set with their typed `parent` discriminator.
  */
-export interface FolderTreeCreateInput<P> {
+export interface FolderTreeCreateInput<P extends ParentRefShape> {
   folderUid: string;
   parent: P;
   name: string;
   pathSegment?: string;
+  orderKey?: string;
 }
 
-export interface FolderTreeCacheConfig<P> {
+export interface FolderTreeCacheConfig<P extends ParentRefShape> {
   collectionType: string;
   folderType: string;
   childrenPath: string;
@@ -75,7 +83,7 @@ export interface FolderTreeCacheCore {
   dispose(): void;
 }
 
-export function createFolderTreeCache<P>(
+export function createFolderTreeCache<P extends ParentRefShape>(
   workspaceId: string,
   oracle: EntityOracle,
   broadcast: InMemoryBroadcast,
@@ -118,6 +126,14 @@ export function createFolderTreeCache<P>(
     const ordered = sortByDepth(persistedFolders);
     const parentByPath = buildParentLookup(collections, persistedFolders, config);
     const batchId = `${config.hydrationBatchPrefix}-${newBatchId()}`;
+    // Sibling order is the persisted array order: every slot appends
+    // strictly after its parent's live tail, so a restart replays the
+    // same order instead of collapsing it to the uid tie-break.
+    const tail = createTailTracker((type, id, setPath) =>
+      oracle
+        .liveOrderedSetItems(type, id, setPath)
+        .map((entry) => ({ itemId: entry.itemId, item: entry.item, orderKey: entry.key })),
+    );
 
     seeding = true;
     try {
@@ -138,6 +154,7 @@ export function createFolderTreeCache<P>(
             folderUid: folder.uid,
             parent,
             name: folder.name,
+            orderKey: tail(parent, config.childrenPath),
             ...(segment ? { pathSegment: segment } : {}),
           },
           ctx,
@@ -199,7 +216,7 @@ export function createFolderTreeCache<P>(
   };
 }
 
-function affectsFolders<P>(event: BroadcastEvent, config: FolderTreeCacheConfig<P>): boolean {
+function affectsFolders<P extends ParentRefShape>(event: BroadcastEvent, config: FolderTreeCacheConfig<P>): boolean {
   const body = event.envelope.body;
   if (body.type === config.folderType) return true;
   if (body.type === config.collectionType || body.type === config.folderType) {
@@ -208,7 +225,11 @@ function affectsFolders<P>(event: BroadcastEvent, config: FolderTreeCacheConfig<
   return false;
 }
 
-async function persist<P>(workspaceId: string, folders: Folder[], config: FolderTreeCacheConfig<P>): Promise<void> {
+async function persist<P extends ParentRefShape>(
+  workspaceId: string,
+  folders: Folder[],
+  config: FolderTreeCacheConfig<P>,
+): Promise<void> {
   try {
     const persisted: PersistedLocalFolder[] = folders.map((f) => ({
       schemaVersion: f.schemaVersion,
@@ -222,7 +243,7 @@ async function persist<P>(workspaceId: string, folders: Folder[], config: Folder
   }
 }
 
-function buildParentLookup<P>(
+function buildParentLookup<P extends ParentRefShape>(
   collections: readonly Collection[],
   folders: readonly PersistedLocalFolder[],
   config: FolderTreeCacheConfig<P>,

@@ -20,6 +20,8 @@ import { projectWebSocketRequest } from '@openheaders/core/sync-builders/project
 import type { WebSocketRequest } from '@openheaders/core/types';
 import type { EntityOracle } from '../oracle';
 import { buildSetMembersExtras, makeFlatEntityProjectors } from './flat-entity-post-state';
+import { resolveLeafParentPath } from './folder-tree-post-state';
+import { REQUEST_TREE } from './request-folder-post-state';
 
 /** Set-modeled paths on a WebSocketRequest — mirrors the projection's set handling. */
 const WEBSOCKET_REQUEST_SET_PATHS = [
@@ -29,11 +31,15 @@ const WEBSOCKET_REQUEST_SET_PATHS = [
   WEBSOCKET_REQUEST_SAVED_MESSAGES_PATH,
 ] as const;
 
-type Reads = Pick<EntityOracle, 'materializeOne' | 'liveOrderedSetItems'>;
+type Reads = Pick<
+  EntityOracle,
+  'materializeOne' | 'materializeAll' | 'liveSetItems' | 'liveOrderedSetItems' | 'revision'
+>;
 
 const projectors = makeFlatEntityProjectors<Reads, WebSocketRequest, SyncWebSocketRequestPostState>({
   entityType: WEBSOCKET_REQUEST_ENTITY_TYPE,
-  project: projectWebSocketRequest,
+  project: (materialized, oracle) =>
+    projectWebSocketRequest(materialized, resolveLeafParentPath(oracle, materialized.id, REQUEST_TREE)),
   composeResult: (websocketRequest, oracle, uid) => ({
     websocketRequest,
     ...buildSetMembersExtras(oracle, WEBSOCKET_REQUEST_ENTITY_TYPE, uid, WEBSOCKET_REQUEST_SET_PATHS),

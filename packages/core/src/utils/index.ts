@@ -142,6 +142,13 @@ export {
   buildBreadcrumbTrail,
   findNodeChildren,
 } from './tree';
+export {
+  type ContainerSlots,
+  indexTreeChildren,
+  type OrderedChildren,
+  orderedChildren,
+  type TreeChildIndex,
+} from './tree-children';
 export type { ParsedUrl, QueryParam } from './url';
 export { appendQueryParams, buildUrlDisplay, parseUrlQuery } from './url';
 export { productUserAgent } from './user-agent';

@@ -104,6 +104,7 @@ import {
   snapshotTrustedRootsPostStates,
   snapshotVaultPostStates,
   snapshotWebSocketRequestPostStates,
+  snapshotWorkspaceRootsPostStates,
   snapshotWorkspaceVariablesPostStates,
   snapshotWsResponseExamplePostStates,
 } from '../sync/service';
@@ -228,6 +229,7 @@ const GATE_RULES: ReadonlyMap<string, GateRule> = new Map<string, GateRule>([
       'oh.sync.snapshotOAuthBundle',
       'oh.sync.snapshotPauseMarkers',
       'oh.sync.snapshotTrustedRoots',
+      'oh.sync.snapshotWorkspaceRoots',
       'oh.sync.snapshotLayoutState',
       'oh.sync.snapshotFallbackPriority',
       'oh.sync.snapshotFiles',
@@ -365,6 +367,7 @@ const SYNC_SNAPSHOT_DISPATCH: Record<string, (workspaceId?: string) => { entries
   'oh.sync.snapshotWorkspaceVariables': (ws) => ({ entries: snapshotWorkspaceVariablesPostStates(ws) }),
   'oh.sync.snapshotVault': (ws) => ({ entries: snapshotVaultPostStates(ws) }),
   'oh.sync.snapshotTrustedRoots': (ws) => ({ entries: snapshotTrustedRootsPostStates(ws) }),
+  'oh.sync.snapshotWorkspaceRoots': (ws) => ({ entries: snapshotWorkspaceRootsPostStates(ws) }),
   'oh.sync.snapshotFolders': (ws) => ({ entries: snapshotFolderPostStates(ws) }),
   'oh.sync.snapshotRequests': (ws) => ({ entries: snapshotRequestPostStates(ws) }),
   'oh.sync.snapshotGrpcRequests': (ws) => ({ entries: snapshotGrpcRequestPostStates(ws) }),

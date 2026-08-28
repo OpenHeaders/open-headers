@@ -10,18 +10,24 @@
 
 import type { SyncTemplatePostState } from '@openheaders/core/protocol';
 import { TEMPLATE_CONDITIONS_PATH, TEMPLATE_ENTITY_TYPE } from '@openheaders/core/sync';
-import type { Template } from '@openheaders/core/types';
 import { projectTemplate } from '@openheaders/core/sync-builders/projections/template-projection';
-import { buildSetMembersExtras, makeFlatEntityProjectors } from './flat-entity-post-state';
+import type { Template } from '@openheaders/core/types';
 import type { EntityOracle } from '../oracle';
+import { buildSetMembersExtras, makeFlatEntityProjectors } from './flat-entity-post-state';
+import { resolveLeafParentPath } from './folder-tree-post-state';
+import { TEMPLATE_TREE } from './template-folder-post-state';
 
 const TEMPLATE_SET_PATHS = [TEMPLATE_CONDITIONS_PATH] as const;
 
-type Reads = Pick<EntityOracle, 'materializeOne' | 'liveOrderedSetItems'>;
+type Reads = Pick<
+  EntityOracle,
+  'materializeOne' | 'materializeAll' | 'liveSetItems' | 'liveOrderedSetItems' | 'revision'
+>;
 
 const projectors = makeFlatEntityProjectors<Reads, Template, SyncTemplatePostState>({
   entityType: TEMPLATE_ENTITY_TYPE,
-  project: projectTemplate,
+  project: (materialized, oracle) =>
+    projectTemplate(materialized, resolveLeafParentPath(oracle, materialized.id, TEMPLATE_TREE)),
   composeResult: (template, oracle, uid) => ({
     template,
     ...buildSetMembersExtras(oracle, TEMPLATE_ENTITY_TYPE, uid, TEMPLATE_SET_PATHS),
