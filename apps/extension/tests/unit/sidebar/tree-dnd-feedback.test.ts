@@ -49,19 +49,20 @@ describe('computeDropFeedback', () => {
   it("'before' a leaf: placeholder at the leaf's index and depth, guide from the parent's first child", () => {
     const fb = computeDropFeedback('before', nodes, byId, at('leaf-y'));
     expect(fb.placeholder).toEqual({ index: 4, depth: 2 });
-    expect(fb.guide).toEqual({ fromIndex: 2, left: guideLeft(1) });
+    expect(fb.guide).toEqual({ fromIndex: 2, toIndex: 5, left: guideLeft(1) });
   });
 
   it("'after' a folder: placeholder past its visible subtree at the folder's depth", () => {
     const fb = computeDropFeedback('after', nodes, byId, at('folder-f'));
     expect(fb.placeholder).toEqual({ index: 5, depth: 1 });
-    expect(fb.guide).toEqual({ fromIndex: 1, left: guideLeft(0) });
+    expect(fb.guide).toEqual({ fromIndex: 1, toIndex: 6, left: guideLeft(0) });
   });
 
   it("'into' a folder: placeholder right under the container row, one level deeper, for any row kind", () => {
     const fb = computeDropFeedback('into', nodes, byId, at('folder-f'));
     expect(fb.placeholder).toEqual({ index: 2, depth: 2 });
-    expect(fb.guide).toEqual({ fromIndex: 2, left: guideLeft(1) });
+    // The guide runs the folder's whole level, not just down to the placeholder.
+    expect(fb.guide).toEqual({ fromIndex: 2, toIndex: 5, left: guideLeft(1) });
   });
 
   it("'before' / 'after' a folder or a leaf are plain sibling spots whatever the dragged kind", () => {
@@ -72,7 +73,7 @@ describe('computeDropFeedback', () => {
   it("'into' the last collection: placeholder past the end of the list", () => {
     const fb = computeDropFeedback('into', nodes, byId, at('col-b'));
     expect(fb.placeholder).toEqual({ index: 7, depth: 1 });
-    expect(fb.guide).toEqual({ fromIndex: 7, left: guideLeft(0) });
+    expect(fb.guide).toEqual({ fromIndex: 7, toIndex: 7, left: guideLeft(0) });
   });
 
   it('a collection reorder has no parent row and no guide', () => {
@@ -85,15 +86,20 @@ describe('computeDropFeedback', () => {
 });
 
 describe('onGuide', () => {
-  it('runs from the guide start up to the row the placeholder renders ahead of', () => {
+  it("runs the landing parent's whole subtree, whatever the placeholder's position", () => {
     const fb = computeDropFeedback('before', nodes, byId, at('leaf-z'));
-    expect([0, 1, 2, 3, 4, 5, 6].map((i) => onGuide(fb, i))).toEqual([false, true, true, true, true, false, false]);
+    expect([0, 1, 2, 3, 4, 5, 6].map((i) => onGuide(fb, i))).toEqual([false, true, true, true, true, true, false]);
+    const head = computeDropFeedback('into', nodes, byId, at('folder-f'));
+    expect([0, 1, 2, 3, 4, 5, 6].map((i) => onGuide(head, i))).toEqual([false, false, true, true, true, false, false]);
   });
 
   it('a collapsed folder: only the placeholder carries the guide', () => {
     const collapsed = [nodes[0], nodes[1], nodes[5], nodes[6]];
     const fb = computeDropFeedback('into', collapsed, new Map(collapsed.map((n) => [n.id, n])), at('folder-f'));
-    expect(fb).toEqual({ placeholder: { index: 2, depth: 2 }, guide: { fromIndex: 2, left: guideLeft(1) } });
+    expect(fb).toEqual({
+      placeholder: { index: 2, depth: 2 },
+      guide: { fromIndex: 2, toIndex: 2, left: guideLeft(1) },
+    });
     expect([0, 1, 2, 3].map((i) => onGuide(fb, i))).toEqual([false, false, false, false]);
   });
 

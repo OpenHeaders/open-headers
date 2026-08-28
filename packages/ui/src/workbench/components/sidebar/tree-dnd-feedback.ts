@@ -7,9 +7,10 @@
  *     right under the container row ('into' — the first child, for a
  *     folder and a leaf alike);
  *   - the drop guide: the indent guide of the parent the drop lands in,
- *     painted from the parent's first child row down to the
- *     placeholder so the eye follows the line up to the container.
- *     A drop on the roots (no parent row) has no guide.
+ *     painted the full length of that parent's children — from its
+ *     first child row through its last descendant, the placeholder
+ *     included wherever it sits — so the whole level the drop joins
+ *     reads as one. A drop on the roots (no parent row) has no guide.
  *
  * Pure — the dnd component paints what this resolves.
  */
@@ -26,8 +27,10 @@ export interface DropPlaceholder {
 }
 
 export interface DropGuide {
-  /** The first row the guide runs through; it runs to the placeholder inclusive. */
+  /** The first row the guide runs through — the landing parent's first child. */
   fromIndex: number;
+  /** One past the last row the guide runs through — the end of the parent's visible subtree. */
+  toIndex: number;
   /** The guide's x inside a full-width row wrapper. */
   left: number;
 }
@@ -60,7 +63,7 @@ export function computeDropFeedback(
   if (zone === 'into') {
     return {
       placeholder: { index: overIndex + 1, depth: overNode.depth + 1 },
-      guide: { fromIndex: overIndex + 1, left: guideLeft(overNode.depth) },
+      guide: containerGuide(nodes, byId, overIndex),
     };
   }
   const placeholder =
@@ -68,12 +71,23 @@ export function computeDropFeedback(
       ? { index: overIndex, depth: overNode.depth }
       : { index: subtreeEnd(nodes, byId, overIndex), depth: overNode.depth };
   const parentIndex = overNode.parentId ? nodes.findIndex((n) => n.id === overNode.parentId) : -1;
-  const guide = parentIndex < 0 ? null : { fromIndex: parentIndex + 1, left: guideLeft(nodes[parentIndex].depth) };
-  return { placeholder, guide };
+  return { placeholder, guide: parentIndex < 0 ? null : containerGuide(nodes, byId, parentIndex) };
 }
 
-/** Whether the row at `index` sits on the guide's run — the rows before the placeholder, which renders
- *  ahead of the row at its own index and carries the guide itself. */
+/** The guide down a container's whole visible subtree. */
+function containerGuide(
+  nodes: readonly TreeNode[],
+  byId: ReadonlyMap<string, TreeNode>,
+  containerIndex: number,
+): DropGuide {
+  return {
+    fromIndex: containerIndex + 1,
+    toIndex: subtreeEnd(nodes, byId, containerIndex),
+    left: guideLeft(nodes[containerIndex].depth),
+  };
+}
+
+/** Whether the row at `index` sits on the guide's run; the placeholder row carries the guide itself. */
 export function onGuide(feedback: DropFeedback, index: number): boolean {
-  return feedback.guide !== null && index >= feedback.guide.fromIndex && index < feedback.placeholder.index;
+  return feedback.guide !== null && index >= feedback.guide.fromIndex && index < feedback.guide.toIndex;
 }
