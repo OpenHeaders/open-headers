@@ -14,7 +14,7 @@
 
 import type { Collection, CollectionTree, ExtensionRuleType, LiveWorkflow } from '@openheaders/core/types';
 import type React from 'react';
-import { lazy, Suspense } from 'react';
+import { lazy, memo, Suspense } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { findFolderByUid } from '@openheaders/ui/shared/variables';
 import type { UseWorkspacesApi } from '@openheaders/ui/shared/hooks/readers/useWorkspaces';
@@ -691,4 +691,8 @@ const WorkbenchTabBody: React.FC<WorkbenchTabBodyProps> = ({
   return null;
 };
 
-export default WorkbenchTabBody;
+// Memoized: a tab switch re-renders the group renderer, which calls the
+// body render prop for every tab in the leaf — hidden editors included.
+// Every prop is referentially stable across a switch, so the memo keeps
+// the switch to the one panel that actually changed.
+export default memo(WorkbenchTabBody);

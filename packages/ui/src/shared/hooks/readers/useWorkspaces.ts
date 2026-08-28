@@ -26,7 +26,7 @@ import {
   applySetActiveWorkspace,
   applyUpdateWorkspace,
 } from '@openheaders/ui/shared/sync/extension-workspace-write-client';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 const DEFAULT_SURFACE_ID = 'workspace-meta';
 
@@ -176,17 +176,35 @@ export function useWorkspaces(options: UseWorkspacesOptions = {}): UseWorkspaces
 
   const activeWorkspace = activeWorkspaceId ? (workspaces.find((w) => w.id === activeWorkspaceId) ?? null) : null;
 
-  return {
-    workspaces,
-    activeWorkspaceId,
-    activeWorkspace,
-    isReady,
-    createWorkspace,
-    renameWorkspace,
-    updateWorkspace,
-    deleteWorkspace,
-    duplicateWorkspace,
-    setActiveWorkspace,
-    reorderWorkspaces,
-  };
+  // One object per state change — the workbench passes this api down
+  // into every mounted tab body, so a fresh literal per render would
+  // re-render every hidden editor on each tab switch.
+  return useMemo(
+    () => ({
+      workspaces,
+      activeWorkspaceId,
+      activeWorkspace,
+      isReady,
+      createWorkspace,
+      renameWorkspace,
+      updateWorkspace,
+      deleteWorkspace,
+      duplicateWorkspace,
+      setActiveWorkspace,
+      reorderWorkspaces,
+    }),
+    [
+      workspaces,
+      activeWorkspaceId,
+      activeWorkspace,
+      isReady,
+      createWorkspace,
+      renameWorkspace,
+      updateWorkspace,
+      deleteWorkspace,
+      duplicateWorkspace,
+      setActiveWorkspace,
+      reorderWorkspaces,
+    ],
+  );
 }

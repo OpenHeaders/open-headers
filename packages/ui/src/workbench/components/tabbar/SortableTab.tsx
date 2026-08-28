@@ -14,7 +14,7 @@ import type { EditorTabDragData } from '@openheaders/ui/shared/dock-layout';
 import { Dropdown, Tooltip, theme } from 'antd';
 import type { ItemType } from 'antd/es/menu/interface';
 import type React from 'react';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { useUiTheme } from '@openheaders/ui/context';
 import { scratchLabelForMode } from '../../breadcrumbs';
@@ -30,11 +30,14 @@ interface SortableTabProps extends TabEntityLookups {
   displayLabel: string;
   isActive: boolean;
   tabPath?: string[];
-  contextMenu: { items: ItemType[] };
+  tabIndex: number;
+  buildContextMenu: (tab: WorkbenchTab, tabIndex: number) => { items: ItemType[] };
   onSwitch: (id: string) => void;
   onClose: (id: string) => void;
   onDoubleClick?: (id: string) => void;
 }
+
+const EMPTY_MENU: { items: ItemType[] } = { items: [] };
 
 const SortableTab: React.FC<SortableTabProps> = ({
   leafId,
@@ -51,7 +54,8 @@ const SortableTab: React.FC<SortableTabProps> = ({
   liveWorkflows,
   unresolvableWorkflowUids,
   tabPath,
-  contextMenu,
+  tabIndex,
+  buildContextMenu,
   onSwitch,
   onClose,
   onDoubleClick,
@@ -164,6 +168,12 @@ const SortableTab: React.FC<SortableTabProps> = ({
   );
 
   const [contextMenuOpen, setContextMenuOpen] = useState(false);
+  // Built on demand: the ~20-item menu (icons included) is only needed
+  // while the right-click menu is open, not on every strip render.
+  const contextMenu = useMemo(
+    () => (contextMenuOpen ? buildContextMenu(tab, tabIndex) : EMPTY_MENU),
+    [contextMenuOpen, buildContextMenu, tab, tabIndex],
+  );
 
   // While dragging, skip Tooltip/Dropdown wrappers so they don't
   // interfere with dnd-kit's overlay portal.

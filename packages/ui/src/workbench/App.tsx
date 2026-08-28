@@ -1282,7 +1282,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
       openResponseExampleTab,
       openGrpcResponseExampleTab,
       openWsResponseExampleTab,
-    openMqttResponseExampleTab,
+      openMqttResponseExampleTab,
       openGrpcRequestEditTab,
       openWebSocketRequestEditTab,
       openMqttRequestEditTab,
@@ -1304,9 +1304,9 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
       openTemplateCollectionVariables,
       openTemplateEditTab,
       requestsApi.collectionTrees,
-      requestsApi.collections.some,
+      requestsApi.collections,
       templateCollectionTrees,
-      templateCollections.some,
+      templateCollections,
     ],
   );
 
