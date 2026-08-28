@@ -1618,7 +1618,10 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
                   icon={<CopyOutlined style={{ fontSize: 12 }} />}
                   aria-label={t('workbench.editors.websocket.timeline.copyMessage')}
                   data-testid="ws-timeline-copy-message"
-                  onClick={() => {
+                  onClick={(event) => {
+                    // Drop the click focus so the cluster fades with the
+                    // pointer — the ring stays for keyboard users only.
+                    event.currentTarget.blur();
                     void navigator.clipboard.writeText(view.text).then(() => {
                       toast.success(t('shared.toast.copiedToClipboard'));
                     });

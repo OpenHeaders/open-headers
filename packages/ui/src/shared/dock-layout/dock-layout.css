@@ -1502,13 +1502,15 @@
 }
 
 /* Per-row action cluster (copy / info) — hidden at rest, revealed
- * while the pointer or focus is on the row. */
+ * while the pointer is on the row or a keyboard focus ring sits on one
+ * of its buttons (a mouse click leaves no ring, so the cluster fades
+ * with the pointer). */
 .oh-stream-row-actions {
   opacity: 0;
   transition: opacity 0.15s;
 }
 .oh-stream-row:hover .oh-stream-row-actions,
-.oh-stream-row:focus-within .oh-stream-row-actions {
+.oh-stream-row:has(.oh-stream-row-actions :focus-visible) .oh-stream-row-actions {
   opacity: 1;
 }
 
