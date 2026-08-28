@@ -1,18 +1,18 @@
 /**
  * GrpcMessageTab — the compose surface: JSON message editor with the
  * labelled Find / Replace / Beautify cluster in the toolbar row above
- * it (the ScriptsTab discipline), "Use example message" floating
- * bottom-left INSIDE the editor surface, and the client/bidi upstream
- * controls (Send message + End streaming) bottom-right of the same
- * surface — visible for every client/bidi method (the CTA-scaffold
- * posture) and enabled only while a stream is open.
+ * it (the ScriptsTab discipline), and the compose bar BELOW the editor
+ * (the MQTT discipline): "Use example message" left, the client/bidi
+ * upstream controls (End streaming + Send message) right — visible for
+ * every client/bidi method (the CTA-scaffold posture) and enabled only
+ * while a stream is open.
  */
 
 import { SendOutlined } from '@ant-design/icons';
 import { ShortcutHintTitle } from '@openheaders/ui/components/ShortcutKbd';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { isMac } from '@openheaders/ui/shared/platform';
-import { Button, Tooltip, theme } from 'antd';
+import { Button, Tooltip } from 'antd';
 import type React from 'react';
 import { useRef, useState } from 'react';
 import CodeEditor from '../shared/CodeEditor';
@@ -48,7 +48,6 @@ const GrpcMessageTab: React.FC<GrpcMessageTabProps> = ({
   onSendStreamMessage,
   onEndStreaming,
 }) => {
-  const { token } = theme.useToken();
   const t = useT();
   // Compose-editor wrap — a per-pane override of the global
   // `editor.wordWrap` setting, ON by default (a request message is
@@ -90,55 +89,27 @@ const GrpcMessageTab: React.FC<GrpcMessageTabProps> = ({
             placeholder={t('workbench.editors.grpc.messagePlaceholder')}
           />
         </div>
-        {/* Floating action pill INSIDE the editor surface,
-          bottom-left — the ScriptsTab's Packages/Snippets bar mirrored
-          to the opposite corner. */}
-        <div
-          style={{
-            position: 'absolute',
-            bottom: 22,
-            left: 26,
-            zIndex: 12,
-            display: 'flex',
-            alignItems: 'center',
-            gap: 2,
-            padding: '2px 4px',
-            background: token.colorBgElevated,
-            border: `1px solid ${token.colorBorderSecondary}`,
-            borderRadius: 8,
-            boxShadow: token.boxShadowTertiary,
-          }}
-        >
-          <Tooltip title={exampleText === null ? t('workbench.editors.grpc.example.needsMethod') : undefined}>
-            <Button
-              size="small"
-              type="text"
-              icon={<ExampleChip />}
-              disabled={exampleText === null}
-              onClick={onUseExample}
-              data-testid="grpc-use-example"
-            >
-              {t('workbench.editors.grpc.example.label')}
-            </Button>
-          </Tooltip>
-        </div>
-        {/* Stream controls, bottom-RIGHT of the same surface: Send
-          message + End streaming for every client/bidi method, enabled
-          only while the stream is open — the compose text is what Send
-          writes upstream, so the controls live on it. Bare buttons, no
-          pill chrome — they carry their own fills. */}
-        {clientStreamShape && (
-          <div
-            style={{
-              position: 'absolute',
-              bottom: 22,
-              right: 26,
-              zIndex: 12,
-              display: 'flex',
-              alignItems: 'center',
-              gap: 6,
-            }}
+      </div>
+      {/* Compose bar BELOW the editor (the MQTT discipline): the
+        example CTA left; End streaming + Send message right for every
+        client/bidi method, enabled only while the stream is open — the
+        compose text is what Send writes upstream, so the controls live
+        on it. */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <Tooltip title={exampleText === null ? t('workbench.editors.grpc.example.needsMethod') : undefined}>
+          <Button
+            size="small"
+            icon={<ExampleChip />}
+            disabled={exampleText === null}
+            onClick={onUseExample}
+            data-testid="grpc-use-example"
           >
+            {t('workbench.editors.grpc.example.label')}
+          </Button>
+        </Tooltip>
+        <span style={{ flex: 1 }} />
+        {clientStreamShape && (
+          <>
             <Tooltip
               title={
                 clientStreamActive ? (
@@ -176,7 +147,7 @@ const GrpcMessageTab: React.FC<GrpcMessageTabProps> = ({
                 {t('workbench.editors.grpc.stream.sendMessage')}
               </Button>
             </Tooltip>
-          </div>
+          </>
         )}
       </div>
     </div>
