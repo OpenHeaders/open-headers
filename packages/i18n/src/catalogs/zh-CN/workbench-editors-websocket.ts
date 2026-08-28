@@ -176,6 +176,8 @@ export const workbenchEditorsWebsocket = {
   'workbench.editors.websocket.timeline.aborted': '连接已中止',
   'workbench.editors.websocket.timeline.noMatches': '没有匹配筛选条件的消息。',
   'workbench.editors.websocket.timeline.connectedTo': '已连接到 {url}',
+  'workbench.editors.websocket.timeline.couldNotConnect': '无法连接到 {url}',
+  'workbench.editors.websocket.timeline.errorLabel': '错误',
   'workbench.editors.websocket.timeline.disconnectedFrom': '已从 {url} 断开',
   'workbench.editors.websocket.timeline.handshakeDetails': '握手详情',
   'workbench.editors.websocket.timeline.requestUrl': '请求 URL',

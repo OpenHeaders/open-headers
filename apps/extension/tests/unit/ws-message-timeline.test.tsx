@@ -208,6 +208,35 @@ describe('WsMessageTimeline — rows and lifecycle order', () => {
     expect(screen.queryByText('Waiting for messages…')).toBeNull();
   });
 
+  it('names the peer on a failed dial and opens on the error and the attempted handshake', () => {
+    renderTimeline({
+      items: [],
+      count: 0,
+      lifecycle: {
+        startedAt: 1_700_000_000_000,
+        connected: false,
+        handshake: {
+          protocol: '',
+          extensions: '',
+          url: 'wss://echo.openheaders.io/live',
+          requestHeaders: [{ key: 'x-room', value: 'a' }],
+        },
+        errorMessage: 'TLS certificate error reaching echo.openheaders.io (DEPTH_ZERO_SELF_SIGNED_CERT).',
+        endedAt: 1_700_000_000_200,
+      },
+    });
+    expect(screen.getByTestId('ws-timeline-error-row').textContent).toContain(
+      'Could not connect to wss://echo.openheaders.io/live',
+    );
+    const details = screen.getByTestId('ws-timeline-error-details').textContent ?? '';
+    expect(details).toContain('Error: TLS certificate error reaching echo.openheaders.io');
+    expect(details).toContain('Request URL: "https://echo.openheaders.io/live"');
+    expect(details).toContain('x-room: "a"');
+    expect(details).not.toContain('Status Code');
+    fireEvent.click(screen.getByTestId('ws-timeline-error-row'));
+    expect(screen.queryByTestId('ws-timeline-error-details')).toBeNull();
+  });
+
   it('renders a pre-open user abort as the neutral aborted row, never the error row', () => {
     renderTimeline({
       items: [],

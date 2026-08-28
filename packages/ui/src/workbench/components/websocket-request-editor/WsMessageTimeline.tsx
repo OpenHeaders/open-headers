@@ -181,7 +181,10 @@ interface WsGroupIdentity {
 /** One display slot of the virtual list — heights are a closed
  *  function of `kind`, so windowing never measures. */
 type ListEntry =
-  | { key: string; kind: 'sent' | 'connected' | 'handshakeDetail' | 'error' | 'ended' | 'endedDetail' | 'noMatches' }
+  | {
+      key: string;
+      kind: 'sent' | 'connected' | 'handshakeDetail' | 'error' | 'errorDetail' | 'ended' | 'endedDetail' | 'noMatches';
+    }
   | { key: string; kind: 'header'; group: WsGroupIdentity; count: number; collapsed: boolean }
   /** "Show N older messages" at a windowed group's older edge; the
    *  un-windowed state's re-window action lives on the group header. */
@@ -266,6 +269,15 @@ function handshakeDetailPx(requestRows: number, responseRows: number): number {
   // (the response section always shows at least the honesty note).
   const lines = 3 + 2 + requestRows + Math.max(responseRows, 1);
   return DETAIL_HEADING_PX + lines * DETAIL_ROW_PX + DETAIL_CHROME_PX;
+}
+
+/** Height of the error row's expanded block: the error line, then the
+ *  attempted handshake (heading, two request facts, the request-header
+ *  head and its rows) when the session stamped one. */
+function errorDetailPx(requestRows: number | null): number {
+  if (requestRows === null) return DETAIL_ROW_PX + DETAIL_CHROME_PX;
+  const handshakeLines = 2 + 1 + requestRows;
+  return DETAIL_ROW_PX + DETAIL_HEADING_PX + handshakeLines * DETAIL_ROW_PX + DETAIL_CHROME_PX;
 }
 
 /** Lifecycle label for how the session ended — naming the peer when
@@ -510,8 +522,10 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
   const [expanded, setExpanded] = useState<ReadonlySet<number>>(new Set<number>());
   const [handshakeExpanded, setHandshakeExpanded] = useState(false);
   // The Disconnected row opens on its detail line by default — one
-  // line, the close verdict the user came to read.
+  // line, the close verdict the user came to read; the error row opens
+  // on the failure and the handshake it attempted.
   const [endedExpanded, setEndedExpanded] = useState(true);
+  const [errorExpanded, setErrorExpanded] = useState(true);
   const [wrapLines, setWrapLines] = useState(true);
   // Sort direction and grouping are SETTINGS — global, user-owned,
   // written by this toolbar and the Settings page alike; a Connect/
@@ -726,11 +740,15 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
     // — the two never coexist (a pre-open end has no opened-session
     // end).
     const preOpenEnd = lifecycle.errorMessage !== undefined || lifecycle.aborted === true;
+    const pushError = () => {
+      out.push({ key: 'error', kind: 'error' });
+      if (errorExpanded && lifecycle.errorMessage !== undefined) out.push({ key: 'errorDetail', kind: 'errorDetail' });
+    };
 
     // Top chronological edge.
     if (newestFirst) {
       if (lifecycle.endedBy !== undefined) pushEnded();
-      if (preOpenEnd) out.push({ key: 'error', kind: 'error' });
+      if (preOpenEnd) pushError();
       if (notice) out.push(notice);
     } else {
       out.push({ key: 'sent', kind: 'sent' });
@@ -783,7 +801,7 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
       out.push({ key: 'sent', kind: 'sent' });
     } else {
       if (notice) out.push(notice);
-      if (preOpenEnd) out.push({ key: 'error', kind: 'error' });
+      if (preOpenEnd) pushError();
       if (lifecycle.endedBy !== undefined) pushEnded();
     }
     return { entries: out, groupRanges: ranges };
@@ -803,6 +821,7 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
     expanded,
     handshakeExpanded,
     endedExpanded,
+    errorExpanded,
     collapsedGroups,
     groupRowLimit,
     unwindowedGroups,
@@ -827,7 +846,9 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
             ? (handshakeSheet?.heightPx ?? 0)
             : e.kind === 'endedDetail'
               ? ENDED_DETAIL_PX
-              : SINGLE_ROW_PX,
+              : e.kind === 'errorDetail'
+                ? errorDetailPx(handshakeSheet?.requestRows.length ?? null)
+                : SINGLE_ROW_PX,
       ),
     [entries, handshakeSheet],
   );
@@ -1197,12 +1218,27 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
           );
         }
         if (lifecycle.errorMessage === undefined) return null;
+        const url = lifecycle.handshake?.url;
         return (
-          <div key={entry.key} data-testid="ws-timeline-error-row" style={lifecycleRowStyle}>
+          <div
+            key={entry.key}
+            data-testid="ws-timeline-error-row"
+            role="button"
+            tabIndex={0}
+            aria-expanded={errorExpanded}
+            className="oh-stream-row"
+            onClick={() => setErrorExpanded((prev) => !prev)}
+            onKeyDown={(event: React.KeyboardEvent) => {
+              if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                setErrorExpanded((prev) => !prev);
+              }
+            }}
+            style={{ ...lifecycleRowStyle, cursor: 'pointer' }}
+          >
             <CloseCircleOutlined aria-hidden style={{ fontSize: 11, color: token.colorError }} />
             <span
-              title={lifecycle.errorMessage}
-              data-testid="ws-session-error-detail"
+              title={url !== undefined ? undefined : lifecycle.errorMessage}
               style={{
                 minWidth: 0,
                 overflow: 'hidden',
@@ -1211,10 +1247,78 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
                 color: token.colorError,
               }}
             >
-              {lifecycle.errorMessage}
+              {url !== undefined
+                ? t('workbench.editors.websocket.timeline.couldNotConnect', { url })
+                : lifecycle.errorMessage}
             </span>
             {lifecycleTime(lifecycle.endedAt)}
-            {expandSlot(null)}
+            {expandSlot(errorExpanded)}
+          </div>
+        );
+      }
+      case 'errorDetail': {
+        if (lifecycle.errorMessage === undefined) return null;
+        const handshake = lifecycle.handshake;
+        const lineStyle: React.CSSProperties = {
+          ...cellFont,
+          lineHeight: `${DETAIL_ROW_PX}px`,
+          height: DETAIL_ROW_PX,
+          whiteSpace: 'nowrap',
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+        };
+        const factRow = (label: string, value: string, indent = 0): React.ReactNode => (
+          <div key={`${indent}:${label}`} style={{ ...lineStyle, paddingLeft: indent }}>
+            <span style={{ color: token.colorTextSecondary }}>{label}: </span>
+            <span style={{ color: token.colorInfoText }}>"{value}"</span>
+          </div>
+        );
+        return (
+          <div
+            key={entry.key}
+            data-testid="ws-timeline-error-details"
+            style={{
+              height: errorDetailPx(handshakeSheet?.requestRows.length ?? null),
+              boxSizing: 'border-box',
+              padding: '6px 10px 6px 37px',
+              borderBottom: `1px solid ${token.colorBorderSecondary}`,
+              overflow: 'hidden',
+            }}
+          >
+            <div
+              style={{ fontSize: 12, lineHeight: `${DETAIL_ROW_PX}px`, height: DETAIL_ROW_PX, whiteSpace: 'nowrap' }}
+            >
+              <span style={{ fontWeight: 600, color: token.colorText }}>
+                {t('workbench.editors.websocket.timeline.errorLabel')}:{' '}
+              </span>
+              <span data-testid="ws-session-error-detail" style={{ color: token.colorTextSecondary }}>
+                {lifecycle.errorMessage}
+              </span>
+            </div>
+            {handshake !== undefined && handshakeSheet !== null && (
+              <>
+                <div
+                  style={{
+                    fontSize: 12,
+                    fontWeight: 600,
+                    lineHeight: `${DETAIL_HEADING_PX}px`,
+                    height: DETAIL_HEADING_PX,
+                    color: token.colorTextSecondary,
+                  }}
+                >
+                  {t('workbench.editors.websocket.timeline.handshakeDetails')}
+                </div>
+                {factRow(
+                  t('workbench.editors.websocket.timeline.requestUrl'),
+                  handshake.url !== undefined ? upgradeRequestUrl(handshake.url) : '',
+                )}
+                {factRow(t('workbench.editors.websocket.timeline.requestMethod'), 'GET')}
+                <div style={{ ...lineStyle, color: token.colorTextSecondary }}>
+                  ▾ {t('workbench.editors.websocket.timeline.requestHeaders')}
+                </div>
+                {handshakeSheet.requestRows.map((row) => factRow(row.key, row.value, 12))}
+              </>
+            )}
           </div>
         );
       }

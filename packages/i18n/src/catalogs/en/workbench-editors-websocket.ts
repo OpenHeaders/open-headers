@@ -177,6 +177,8 @@ export const workbenchEditorsWebsocket = {
   'workbench.editors.websocket.timeline.aborted': 'Connection aborted',
   'workbench.editors.websocket.timeline.noMatches': 'No messages match the filter.',
   'workbench.editors.websocket.timeline.connectedTo': 'Connected to {url}',
+  'workbench.editors.websocket.timeline.couldNotConnect': 'Could not connect to {url}',
+  'workbench.editors.websocket.timeline.errorLabel': 'Error',
   'workbench.editors.websocket.timeline.disconnectedFrom': 'Disconnected from {url}',
   'workbench.editors.websocket.timeline.handshakeDetails': 'Handshake Details',
   'workbench.editors.websocket.timeline.requestUrl': 'Request URL',

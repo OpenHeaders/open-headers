@@ -22,6 +22,8 @@
  * to text is display-side, never a transport rewrite.
  */
 
+import type { TrustCertificateErrorHint } from '@openheaders/core/types';
+
 /** One handshake header, already resolved and filtered of the fields
  *  the platform socket owns. Node-host capability. */
 export interface WsTransportHeader {
@@ -110,9 +112,13 @@ export interface WsTransportClose {
  * executor surfaces it verbatim on the snapshot's `error`.
  */
 export class WsTransportError extends Error {
-  constructor(message: string) {
+  /** A certificate-verification failure's remedy — the endpoint the
+   *  surface probes for the presented chain and offers to trust. */
+  readonly hint: TrustCertificateErrorHint | undefined;
+  constructor(message: string, hint?: TrustCertificateErrorHint) {
     super(message);
     this.name = 'WsTransportError';
+    this.hint = hint;
   }
 }
 

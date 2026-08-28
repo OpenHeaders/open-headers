@@ -208,6 +208,8 @@ export const workbenchEditorsWebsocket = {
   'workbench.editors.websocket.timeline.aborted': 'Conexión cancelada',
   'workbench.editors.websocket.timeline.noMatches': 'Ningún mensaje coincide con el filtro.',
   'workbench.editors.websocket.timeline.connectedTo': 'Conectado a {url}',
+  'workbench.editors.websocket.timeline.couldNotConnect': 'No se pudo conectar a {url}',
+  'workbench.editors.websocket.timeline.errorLabel': 'Error',
   'workbench.editors.websocket.timeline.disconnectedFrom': 'Desconectado de {url}',
   'workbench.editors.websocket.timeline.handshakeDetails': 'Detalles del handshake',
   'workbench.editors.websocket.timeline.requestUrl': 'URL de la solicitud',

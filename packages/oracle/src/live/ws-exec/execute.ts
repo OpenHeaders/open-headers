@@ -38,6 +38,7 @@ import type {
   ExecutedWsClose,
   ExecutedWsMessage,
   ExecutedWsSnapshot,
+  TrustCertificateErrorHint,
   WebSocketRequest,
 } from '@openheaders/core/types';
 import { appendQueryParams, decodeBinaryText, encodeBase64Bytes } from '@openheaders/core/utils';
@@ -209,7 +210,7 @@ export async function executeWsSession(
     });
     let unregisterSession: (() => void) | null = null;
 
-    const settle = (errorMessage?: string): void => {
+    const settle = (errorMessage?: string, hint?: TrustCertificateErrorHint): void => {
       if (settled) return;
       settled = true;
       unregisterSend();
@@ -219,8 +220,12 @@ export async function executeWsSession(
       if (!opened) {
         // A user Stop-abort before the handshake completed settles as
         // the ABORTED outcome, not a failure.
+        // The dial's facts ride the failure too — the timeline's error
+        // row names the peer and the handshake it attempted.
         resolve({
-          ...errorWsSnapshot(errorMessage ?? 'The session ended before it opened.'),
+          ...errorWsSnapshot(errorMessage ?? 'The session ended before it opened.', hint),
+          url,
+          requestHeaders,
           ...(stopped ? { outcome: { kind: 'aborted' as const } } : {}),
           durationMs,
         });
@@ -310,7 +315,7 @@ export async function executeWsSession(
               ? null
               : { code: event.code, reason: event.reason, wasClean: event.wasClean };
         },
-        onEnd: (error) => settle(error?.message),
+        onEnd: (error) => settle(error?.message, error?.hint),
       },
       controller.signal,
     );
@@ -417,9 +422,9 @@ function byteLengthOfBase64(base64: string): number {
   return (base64.length / 4) * 3 - padding;
 }
 
-export function errorWsSnapshot(message: string): ExecutedWsSnapshot {
+export function errorWsSnapshot(message: string, hint?: TrustCertificateErrorHint): ExecutedWsSnapshot {
   return {
-    outcome: { kind: 'failed', error: message },
+    outcome: { kind: 'failed', error: message, ...(hint !== undefined ? { hint } : {}) },
     protocol: '',
     extensions: '',
     messages: [],

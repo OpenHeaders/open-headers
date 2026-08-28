@@ -27,6 +27,7 @@ import type React from 'react';
 import { useMemo, useState } from 'react';
 import ProxyRouteTag, { proxyRouteHasBadge } from '../request-editor/response/ProxyRouteTag';
 import { useTonePillStyle } from '../request-editor/response/response-status';
+import TrustCertificateOffer from '../request-editor/response/TrustCertificateOffer';
 import ConnectionDetailsTooltip, { type ConnectionDetailsRow } from '../shared/ConnectionDetailsTooltip';
 import { ExampleChip } from '../shared/ExampleChip';
 import WsMessageTimeline, { type WsTimelineLifecycle } from './WsMessageTimeline';
@@ -51,6 +52,8 @@ interface WsSessionPaneProps {
    *  only; the capture stays verbatim). Absent = no filter. */
   listenedEvents?: readonly string[];
   onClear: () => void;
+  /** Connect again after a trust gesture — the editor's Connect. */
+  onReconnect?: () => void;
   /** "Save Response" — present only when the settled session can be
    *  captured as an example (connected, non-error). First item of the
    *  ⋯ actions menu. */
@@ -66,6 +69,7 @@ const WsSessionPane: React.FC<WsSessionPaneProps> = ({
   listenedEvents,
   onClear,
   onSaveResponse,
+  onReconnect,
 }) => {
   const { token } = theme.useToken();
   const t = useT();
@@ -120,6 +124,18 @@ const WsSessionPane: React.FC<WsSessionPaneProps> = ({
       return {
         ...(timing?.startedAt !== undefined ? { startedAt: timing.startedAt } : {}),
         connected: false,
+        // The attempted handshake's facts ride a failure too — the error
+        // row names the peer and shows the request it sent.
+        ...(snapshot.url !== undefined
+          ? {
+              handshake: {
+                protocol: '',
+                extensions: '',
+                url: snapshot.url,
+                ...(snapshot.requestHeaders !== undefined ? { requestHeaders: snapshot.requestHeaders } : {}),
+              },
+            }
+          : {}),
         ...(snapshot.outcome.kind === 'failed'
           ? { errorMessage: snapshot.outcome.error }
           : { aborted: true as const }),
@@ -302,6 +318,13 @@ const WsSessionPane: React.FC<WsSessionPaneProps> = ({
     </div>
   );
 
+  // A verification failure's remedy — the HTTP error state's offer,
+  // above the timeline so the trust gesture and Connect again sit by
+  // the error row that explains them.
+  const trustHint =
+    snapshot?.outcome.kind === 'failed' && snapshot.outcome.hint?.kind === 'trust-certificate'
+      ? snapshot.outcome.hint
+      : null;
   const items = snapshot?.messages ?? live?.items ?? [];
   const count = snapshot?.messages.length ?? live?.count ?? 0;
   const timestamps = snapshot !== null ? timing?.messageTimestamps : live?.timestamps;
@@ -355,6 +378,14 @@ const WsSessionPane: React.FC<WsSessionPaneProps> = ({
                   minHeight: 0,
                 }}
               >
+                {trustHint !== null && (
+                  <div style={{ display: 'flex', justifyContent: 'center' }}>
+                    <TrustCertificateOffer
+                      hint={trustHint}
+                      {...(onReconnect !== undefined ? { onResend: onReconnect } : {})}
+                    />
+                  </div>
+                )}
                 <div style={{ flex: 1, minHeight: 120, display: 'flex', flexDirection: 'column' }}>
                   <WsMessageTimeline
                     items={items}

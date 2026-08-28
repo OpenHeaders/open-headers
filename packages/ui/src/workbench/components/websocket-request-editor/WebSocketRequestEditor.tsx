@@ -474,6 +474,7 @@ const WebSocketRequestEditor: React.FC<WebSocketRequestEditorProps> = ({
                   flavor={entity.flavor}
                   {...(listenedEvents !== null ? { listenedEvents } : {})}
                   onClear={session.handleClearSession}
+                  onReconnect={() => void session.handleConnect()}
                   {...(session.canSaveResponse ? { onSaveResponse: () => void session.handleSaveResponse() } : {})}
                 />
               ) : (

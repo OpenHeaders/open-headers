@@ -54,6 +54,7 @@
  * names the credentials, a refused dial names the proxy).
  */
 
+import type { TrustCertificateErrorHint } from '@openheaders/core/types';
 import {
   type WsProxyRoute,
   type WsSessionCallbacks,
@@ -75,6 +76,7 @@ import {
   type SessionProxyAttempt,
 } from './system-proxy/session-route';
 import type { SystemProxyResolver } from './system-proxy/types';
+import { isTlsVerificationCode, trustCertificateHintFor } from './tls-verification';
 import { caOptionFor } from './trusted-roots-ca';
 import { withHostUserAgent } from './user-agent';
 
@@ -225,11 +227,11 @@ export function createNodeWsTransport(options: NodeWsTransportOptions = {}): WsT
         void dispatcher?.close();
         dispatcher = null;
       };
-      const settleError = (message: string): void => {
+      const settleError = (message: string, hint?: TrustCertificateErrorHint): void => {
         if (ended) return;
         ended = true;
         cleanup();
-        callbacks.onEnd(new WsTransportError(message));
+        callbacks.onEnd(new WsTransportError(message, hint));
       };
       const endWithError = (err: unknown): void => {
         if (ended) return;
@@ -241,7 +243,14 @@ export function createNodeWsTransport(options: NodeWsTransportOptions = {}): WsT
           settleError('Session stopped before it connected.');
           return;
         }
-        settleError(classifyWsFailure(request.url, err, request.unixSocketPath, attemptProxyUrl));
+        // A verification failure carries the trust remedy — the same
+        // hint the HTTP transport attaches, so the session pane can
+        // offer the presented chain for pinning.
+        const code = wsFailureCode(err);
+        settleError(
+          classifyWsFailure(request.url, err, request.unixSocketPath, attemptProxyUrl),
+          isTlsVerificationCode(code) ? trustCertificateHintFor(request.url, code) : undefined,
+        );
       };
       const endComplete = (): void => {
         if (ended) return;

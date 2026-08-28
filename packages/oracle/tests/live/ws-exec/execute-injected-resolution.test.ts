@@ -12,7 +12,12 @@
 import type { WebSocketRequest } from '@openheaders/core/types';
 import { executeWsSession } from '@openheaders/oracle/live/ws-exec/execute';
 import { sendActiveWsSessionMessage } from '@openheaders/oracle/live/ws-exec/session-plane';
-import type { WsSessionCallbacks, WsTransport, WsTransportRequest } from '@openheaders/oracle/live/ws-exec/transport';
+import {
+  type WsSessionCallbacks,
+  type WsTransport,
+  WsTransportError,
+  type WsTransportRequest,
+} from '@openheaders/oracle/live/ws-exec/transport';
 import { describe, expect, it, vi } from 'vitest';
 
 const TRUSTED_ROOT = '-----BEGIN CERTIFICATE-----\nROOT\n-----END CERTIFICATE-----\n';
@@ -198,6 +203,33 @@ describe('executeWsSession — injected resolution', () => {
     expect(events).toEqual([{ kind: 'open', url: 'wss://echo.openheaders.io/live', requestHeaders: expectedHeaders }]);
     expect(snapshot.url).toBe('wss://echo.openheaders.io/live');
     expect(snapshot.requestHeaders).toEqual(expectedHeaders);
+  });
+
+  it("carries the transport's trust remedy and the attempted handshake on a pre-open failure", async () => {
+    const rig = scriptedTransport();
+    const settled = executeWsSession(makeWsRequest({ subprotocols: ['chat.v2'] }), {
+      workspaceId: null,
+      environmentId: undefined,
+      transport: rig.transport,
+      sendId: 'send-trust-1',
+      resolution: scopedResolution,
+    });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    const hint = {
+      kind: 'trust-certificate' as const,
+      host: 'echo.openheaders.io',
+      port: 443,
+      code: 'DEPTH_ZERO_SELF_SIGNED_CERT',
+    };
+    rig.callbacks().onEnd(new WsTransportError('TLS certificate error reaching echo.openheaders.io', hint));
+    const snapshot = await settled;
+    expect(snapshot.outcome).toEqual({
+      kind: 'failed',
+      error: 'TLS certificate error reaching echo.openheaders.io',
+      hint,
+    });
+    expect(snapshot.url).toBe('wss://echo.openheaders.io/live');
+    expect(snapshot.requestHeaders).toEqual([{ key: 'Sec-WebSocket-Protocol', value: 'chat.v2' }]);
   });
 
   it('gates an unresolved Connect-time reference as a structured error snapshot', async () => {

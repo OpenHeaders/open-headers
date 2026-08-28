@@ -12,7 +12,7 @@
  * ever rewritten or synthesized; pretty/decoded views are display-side.
  */
 
-import type { ExecutedProxyRoute } from './request-execution';
+import type { ExecutedProxyRoute, TrustCertificateErrorHint } from './request-execution';
 
 /** One captured message of the session, in call order. `direction`
  *  tags client-sent ('up') vs server-sent ('down'). Payloads ride
@@ -42,7 +42,17 @@ export interface ExecutedWsClose {
  * user cancelled before the session opened — a neutral outcome
  * carrying no synthesized message.
  */
-export type ExecutedWsOutcome = { kind: 'connected' } | { kind: 'failed'; error: string } | { kind: 'aborted' };
+export type ExecutedWsOutcome =
+  | { kind: 'connected' }
+  | {
+      kind: 'failed';
+      error: string;
+      /** The remedy a node runtime attaches to a certificate-verification
+       *  failure — the endpoint to probe for the presented chain and the
+       *  trust gesture (the HTTP snapshot's `trust-certificate` hint). */
+      hint?: TrustCertificateErrorHint;
+    }
+  | { kind: 'aborted' };
 
 export interface ExecutedWsSnapshot {
   /** How the session settled (see {@link ExecutedWsOutcome}). */
