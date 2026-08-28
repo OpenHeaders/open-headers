@@ -59,6 +59,9 @@ interface EditableStyleParams {
   /** Masked field — the collapsed line clips without an ellipsis (a
    *  `…` after the discs reads as noise, not truncation). */
   secret: boolean;
+  /** Disabled field — antd's disabled input look: muted text on the
+   *  disabled fill, the plain border, a not-allowed cursor. */
+  disabled: boolean;
   surfaceStyle: React.CSSProperties;
 }
 
@@ -75,6 +78,7 @@ export function buildEditableStyle({
   manualHeight,
   maxRows,
   secret,
+  disabled,
   surfaceStyle,
 }: EditableStyleParams): React.CSSProperties {
   // Derive paddings from `size` — match AntD defaults so we visually
@@ -86,7 +90,8 @@ export function buildEditableStyle({
   // `status === 'error'` wins regardless of focus so the error
   // colour doesn't flicker back to primary-blue when the field is
   // active — matches AntD Input's behaviour.
-  const borderColor = status === 'error' ? token.colorError : isFocused ? token.colorPrimary : token.colorBorder;
+  const borderColor =
+    status === 'error' ? token.colorError : isFocused && !disabled ? token.colorPrimary : token.colorBorder;
   const focusShadow =
     status === 'error' ? `0 0 0 2px ${token.colorErrorBorderHover}` : `0 0 0 2px ${token.controlOutline}`;
 
@@ -107,12 +112,13 @@ export function buildEditableStyle({
     lineHeight: TEMPLATE_INPUT_LINE_HEIGHT,
     fontSize: size === 'small' ? 12 : size === 'large' ? 16 : 14,
     fontFamily: 'inherit',
-    color: token.colorText,
-    background: variant === 'borderless' ? 'transparent' : token.colorBgContainer,
+    color: disabled ? token.colorTextDisabled : token.colorText,
+    background:
+      variant === 'borderless' ? 'transparent' : disabled ? token.colorBgContainerDisabled : token.colorBgContainer,
     border: variant === 'borderless' ? 'none' : `1px solid ${borderColor}`,
     borderRadius: variant === 'borderless' ? 0 : token.borderRadius,
     outline: 'none',
-    cursor: 'text',
+    cursor: disabled ? 'not-allowed' : 'text',
     width: '100%',
     boxSizing: 'border-box',
     // Display mode (separate from `multiline` newline SEMANTICS):
@@ -154,7 +160,7 @@ export function buildEditableStyle({
           : undefined,
     wordBreak: displayExpanded ? 'break-word' : 'normal',
     transition: 'border-color 0.2s, box-shadow 0.2s',
-    boxShadow: isFocused && variant !== 'borderless' ? focusShadow : undefined,
+    boxShadow: isFocused && !disabled && variant !== 'borderless' ? focusShadow : undefined,
     ...surfaceStyle,
   };
 }

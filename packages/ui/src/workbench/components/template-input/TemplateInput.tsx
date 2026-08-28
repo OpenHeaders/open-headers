@@ -282,6 +282,7 @@ const TemplateInput = forwardRef<HTMLDivElement, TemplateInputProps>(
       manualHeight,
       maxRows,
       secret,
+      disabled,
       surfaceStyle,
     });
 
