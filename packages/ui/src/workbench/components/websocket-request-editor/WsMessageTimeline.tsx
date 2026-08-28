@@ -979,7 +979,7 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
 
   const lifecycleRowStyle: React.CSSProperties = {
     ...singleRowStyle,
-    color: token.colorTextSecondary,
+    color: token.colorText,
     fontSize: 12,
   };
 
@@ -1185,7 +1185,7 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
         };
         const factRow = (label: string, value: string, indent = 0): React.ReactNode => (
           <div key={`${indent}:${label}`} style={{ ...lineStyle, paddingLeft: indent }}>
-            <span style={{ color: token.colorTextSecondary }}>{label}: </span>
+            <span style={{ color: token.colorText }}>{label}: </span>
             <span style={{ color: detailValueColor(token) }}>"{value}"</span>
           </div>
         );
@@ -1323,7 +1323,7 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
         };
         const factRow = (label: string, value: string, indent = 0): React.ReactNode => (
           <div key={`${indent}:${label}`} style={{ ...lineStyle, paddingLeft: indent }}>
-            <span style={{ color: token.colorTextSecondary }}>{label}: </span>
+            <span style={{ color: token.colorText }}>{label}: </span>
             <span style={{ color: detailValueColor(token) }}>"{value}"</span>
           </div>
         );
@@ -1345,7 +1345,7 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
               <span style={{ fontWeight: 600, color: token.colorText }}>
                 {t('workbench.editors.websocket.timeline.errorLabel')}:{' '}
               </span>
-              <span data-testid="ws-session-error-detail" style={{ color: token.colorTextSecondary }}>
+              <span data-testid="ws-session-error-detail" style={{ color: token.colorText }}>
                 {lifecycle.errorMessage}
               </span>
             </div>
@@ -1461,7 +1461,7 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
             }}
           >
             {lead !== '' && <span style={{ fontWeight: 600, color: token.colorText }}>{lead} </span>}
-            <span style={{ color: token.colorTextSecondary }}>{detail}</span>
+            <span style={{ color: token.colorText }}>{detail}</span>
           </div>
         );
       }
