@@ -178,7 +178,6 @@ export const workbenchEditorsWebsocket = {
   'workbench.editors.websocket.saved.hideRail': '隐藏已保存消息',
   'workbench.editors.websocket.saved.emptyHint': '保存消息，以便在活动连接期间复用。',
   'workbench.editors.websocket.saved.defaultName': '消息',
-  'workbench.editors.websocket.saved.sendTooltip': '按已保存内容发送此消息',
   'workbench.editors.websocket.saved.rename': '重命名',
   'workbench.editors.websocket.saved.duplicate': '复制',
   'workbench.editors.websocket.saved.delete': '删除',

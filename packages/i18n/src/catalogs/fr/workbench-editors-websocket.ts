@@ -206,7 +206,6 @@ export const workbenchEditorsWebsocket = {
   'workbench.editors.websocket.saved.emptyHint':
     'Enregistrez des messages pour les réutiliser pendant une connexion active.',
   'workbench.editors.websocket.saved.defaultName': 'Message',
-  'workbench.editors.websocket.saved.sendTooltip': 'Envoyer ce message enregistré tel quel',
   'workbench.editors.websocket.saved.rename': 'Renommer',
   'workbench.editors.websocket.saved.duplicate': 'Dupliquer',
   'workbench.editors.websocket.saved.delete': 'Supprimer',

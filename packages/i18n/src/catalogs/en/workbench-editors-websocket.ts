@@ -179,7 +179,6 @@ export const workbenchEditorsWebsocket = {
   'workbench.editors.websocket.saved.hideRail': 'Hide saved messages',
   'workbench.editors.websocket.saved.emptyHint': 'Save messages to reuse them during an active connection.',
   'workbench.editors.websocket.saved.defaultName': 'Message',
-  'workbench.editors.websocket.saved.sendTooltip': 'Send this saved message as stored',
   'workbench.editors.websocket.saved.rename': 'Rename',
   'workbench.editors.websocket.saved.duplicate': 'Duplicate',
   'workbench.editors.websocket.saved.delete': 'Delete',

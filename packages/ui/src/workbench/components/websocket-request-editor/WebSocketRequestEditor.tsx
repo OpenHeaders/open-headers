@@ -134,6 +134,10 @@ const WebSocketRequestEditor: React.FC<WebSocketRequestEditorProps> = ({
   const savedSelection = useWsSavedSelection(draft, rawSetDraft);
   const setDraft = savedSelection.setBoundDraft;
   const [activeTab, setActiveTab] = useState('message');
+  // Saved-messages rail collapse — COLLAPSED by default (the compose
+  // editor gets the full width; the strip is the affordance in); a
+  // Save from the timeline opens it so the new row is the feedback.
+  const [railCollapsed, setRailCollapsed] = useState(true);
 
   const formFingerprint = useMemo(() => stableStringify(buildWebSocketRequestUpdates(draft)), [draft]);
 
@@ -241,6 +245,8 @@ const WebSocketRequestEditor: React.FC<WebSocketRequestEditorProps> = ({
         return { ...d, savedMessages: [...d.savedMessages, row] };
       });
       savedSelection.selectSavedMessage(uid);
+      setRailCollapsed(false);
+      setActiveTab('message');
     },
     [savedSelection, t],
   );
@@ -455,7 +461,8 @@ const WebSocketRequestEditor: React.FC<WebSocketRequestEditorProps> = ({
                         onSend={() => void session.handleSendMessage()}
                         selectedSavedUid={savedSelection.selectedSavedUid}
                         onSelectSavedMessage={savedSelection.selectSavedMessage}
-                        onSendSaved={(row) => void session.handleSendSaved(row)}
+                        railCollapsed={railCollapsed}
+                        onRailCollapsedChange={setRailCollapsed}
                       />
                     )}
                     {activeTab === 'events' && socketioFlavor && (

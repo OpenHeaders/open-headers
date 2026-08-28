@@ -24,7 +24,6 @@ import CodeEditor from '../shared/CodeEditor';
 import CodeEditorActions, { type CodeEditorActionsTarget } from '../shared/CodeEditorActions';
 import EditorViewMenu from '../shared/EditorViewMenu';
 import { MESSAGE_FORMAT_LANGUAGE, SEND_MESSAGE_SHORTCUT } from './compose';
-import type { WebSocketSavedMessage } from '@openheaders/core/types';
 import type { WebSocketDraft } from './draft';
 import type { SocketIoArgs } from './useSocketIoArgs';
 import type { WsComposeAids } from './useWsComposeAids';
@@ -48,7 +47,10 @@ interface WsMessageTabProps {
   /** Saved-row the compose is bound to (the rail's selection plane). */
   selectedSavedUid: string | null;
   onSelectSavedMessage: (uid: string | null) => void;
-  onSendSaved: (row: WebSocketSavedMessage) => void;
+  /** Saved-messages rail collapse — owned by the editor so a Save from
+   *  the timeline can open the rail as its feedback. */
+  railCollapsed: boolean;
+  onRailCollapsedChange: (collapsed: boolean) => void;
 }
 
 const WsMessageTab: React.FC<WsMessageTabProps> = ({
@@ -62,7 +64,8 @@ const WsMessageTab: React.FC<WsMessageTabProps> = ({
   onSend,
   selectedSavedUid,
   onSelectSavedMessage,
-  onSendSaved,
+  railCollapsed,
+  onRailCollapsedChange,
 }) => {
   const t = useT();
   const messageActionsRef = useRef<CodeEditorActionsTarget | null>(null);
@@ -70,12 +73,9 @@ const WsMessageTab: React.FC<WsMessageTabProps> = ({
   // `editor.wordWrap` setting, ON by default (a message payload is
   // prose-like; horizontal scrolling hides the tail).
   const [wrapMessage, setWrapMessage] = useState(true);
-  // Saved-messages rail collapse — editor-local display state,
-  // COLLAPSED by default (the compose editor gets the full width; the
-  // strip is the affordance in). The expanded rail rides its own
-  // Allotment pane (resizable, the sash its only divider), the
-  // collapsed strip sits flush by the editor.
-  const [railCollapsed, setRailCollapsed] = useState(true);
+  // The expanded rail rides its own Allotment pane (resizable, the
+  // sash its only divider), the collapsed strip sits flush by the
+  // editor.
   const { argTexts, activeArg, composeArgs } = args;
   const binaryCompose = !socketioFlavor && draft.messageFormat === 'binary';
   const rawPlaceholder = rawMessagePlaceholder(t, draft.messageFormat, draft.binaryEncoding);
@@ -186,7 +186,7 @@ const WsMessageTab: React.FC<WsMessageTabProps> = ({
           </div>
         </div>
             </div>
-            <WsSavedMessagesStrip onExpand={() => setRailCollapsed(false)} />
+            <WsSavedMessagesStrip onExpand={() => onRailCollapsedChange(false)} />
           </div>
         ) : (
           <Allotment proportionalLayout={false} separator>
@@ -231,11 +231,9 @@ const WsMessageTab: React.FC<WsMessageTabProps> = ({
                 draft={draft}
                 setDraft={setDraft}
                 socketioFlavor={socketioFlavor}
-                sessionOpen={sessionOpen}
                 selectedUid={selectedSavedUid}
                 onSelect={onSelectSavedMessage}
-                onSend={onSendSaved}
-                onHide={() => setRailCollapsed(true)}
+                onHide={() => onRailCollapsedChange(true)}
               />
             </Allotment.Pane>
           </Allotment>

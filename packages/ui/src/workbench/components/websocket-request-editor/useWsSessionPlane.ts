@@ -18,11 +18,7 @@
 
 import { hostBridge } from '@openheaders/core/bridge';
 import { getCapability } from '@openheaders/core/capabilities';
-import type {
-  ExecutedWsSnapshot,
-  WebSocketRequest as WebSocketRequestEntity,
-  WebSocketSavedMessage,
-} from '@openheaders/core/types';
+import type { ExecutedWsSnapshot, WebSocketRequest as WebSocketRequestEntity } from '@openheaders/core/types';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { getWsResponseExampleSyncMirrorForWorkspace } from '@openheaders/ui/context/mirrors/ws-response-example-sync-mirror';
 import { useRequests } from '@openheaders/ui/shared/hooks/readers/useRequests';
@@ -61,8 +57,6 @@ export interface WsSessionPlane {
   handleConnect: () => Promise<void>;
   handleDisconnect: () => void;
   handleSendMessage: () => Promise<void>;
-  /** Send a saved row AS STORED — the rail's send-from-row. */
-  handleSendSaved: (row: WebSocketSavedMessage) => Promise<void>;
   handleClearSession: () => void;
   handleSaveResponse: () => Promise<void>;
   canSaveResponse: boolean;
@@ -202,27 +196,6 @@ export function useWsSessionPlane({
     }
   }, [draft.message, draft.eventName, draft.ackEnabled, draft.binaryEncoding, socketioFlavor, binaryCompose, toast, t]);
 
-  const handleSendSaved = useCallback(
-    async (row: WebSocketSavedMessage) => {
-      const sendId = activeSendIdRef.current;
-      if (!sendId) return;
-      const result = await hostBridge
-        .call('sendWsMessage', {
-          sendId,
-          messageText: row.message,
-          ...(socketioFlavor ? { socketio: { eventName: row.eventName ?? '', expectAck: draft.ackEnabled } } : {}),
-          ...(!socketioFlavor && row.messageFormat === 'binary'
-            ? { binary: { encoding: row.binaryEncoding ?? 'base64' } }
-            : {}),
-        })
-        .catch(() => null);
-      if (result === null || !result.success) {
-        toast.error(result?.error ?? t('workbench.editors.websocket.session.sendFailed'));
-      }
-    },
-    [socketioFlavor, draft.ackEnabled, toast, t],
-  );
-
   const handleClearSession = useCallback(() => {
     setSnapshot(null);
     setTiming(null);
@@ -286,7 +259,6 @@ export function useWsSessionPlane({
     handleConnect,
     handleDisconnect,
     handleSendMessage,
-    handleSendSaved,
     handleClearSession,
     handleSaveResponse,
     canSaveResponse,

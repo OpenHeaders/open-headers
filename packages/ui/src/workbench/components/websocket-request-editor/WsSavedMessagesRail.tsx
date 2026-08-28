@@ -7,8 +7,8 @@
  * `useWsSavedSelection` binding); `+` captures the compose as a new
  * selected row and opens the inline rename with the name pre-selected;
  * deleting the selected row hands the selection to its neighbor.
- * Send-from-row sends AS STORED while the session is open; rename/
- * duplicate/delete ride the row's ⋯ menu. Each row wears its compose
+ * Rename/duplicate/delete ride the row's ⋯ menu — sending is the
+ * compose's Send alone. Each row wears its compose
  * mode as a small tag (Text / JSON / … / Binary) so the list scans.
  *
  * COLLAPSIBLE: hidden, the rail swaps for the narrow vertical
@@ -19,7 +19,7 @@
  * flush beside the editor otherwise.
  */
 
-import { LeftOutlined, MoreOutlined, PlusOutlined, RightOutlined, SendOutlined } from '@ant-design/icons';
+import { LeftOutlined, MoreOutlined, PlusOutlined, RightOutlined } from '@ant-design/icons';
 import type { WebSocketMessageFormat, WebSocketSavedMessage } from '@openheaders/core/types';
 import { generateUid } from '@openheaders/core/utils';
 import type { MessageKey } from '@openheaders/i18n';
@@ -82,13 +82,10 @@ interface WsSavedMessagesRailProps {
   draft: WebSocketDraft;
   setDraft: Dispatch<SetStateAction<WebSocketDraft>>;
   socketioFlavor: boolean;
-  sessionOpen: boolean;
   /** The row the compose is BOUND to — edits write through to it. */
   selectedUid: string | null;
   /** Select a row (loading it into the compose); `null` clears. */
   onSelect: (uid: string | null) => void;
-  /** Send a saved row as stored — the session plane's rider. */
-  onSend: (row: WebSocketSavedMessage) => void;
   onHide: () => void;
 }
 
@@ -96,10 +93,8 @@ const WsSavedMessagesRail: React.FC<WsSavedMessagesRailProps> = ({
   draft,
   setDraft,
   socketioFlavor,
-  sessionOpen,
   selectedUid,
   onSelect,
-  onSend,
   onHide,
 }) => {
   const { token } = theme.useToken();
@@ -239,19 +234,6 @@ const WsSavedMessagesRail: React.FC<WsSavedMessagesRailProps> = ({
               >
                 {row.name}
               </Button>
-            )}
-            {/* Send-from-row — sends the saved row AS STORED while the
-              session is open; the compose surface stays untouched. */}
-            {sessionOpen && (
-              <Tooltip title={t('workbench.editors.websocket.saved.sendTooltip')}>
-                <Button
-                  size="small"
-                  type="text"
-                  icon={<SendOutlined style={{ fontSize: 11 }} />}
-                  onClick={() => onSend(row)}
-                  data-testid="ws-saved-row-send"
-                />
-              </Tooltip>
             )}
             <Dropdown
               trigger={['click']}

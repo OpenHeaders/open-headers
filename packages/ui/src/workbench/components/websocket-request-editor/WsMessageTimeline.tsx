@@ -1485,7 +1485,7 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
             }}
           >
             {lead !== '' && <span style={{ fontWeight: 600, color: token.colorText }}>{lead} </span>}
-            <span style={{ color: token.colorText }}>{detail}</span>
+            <span style={{ color: token.colorTextSecondary }}>{detail}</span>
           </div>
         );
       }

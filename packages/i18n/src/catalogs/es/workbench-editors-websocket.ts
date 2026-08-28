@@ -210,7 +210,6 @@ export const workbenchEditorsWebsocket = {
   'workbench.editors.websocket.saved.hideRail': 'Ocultar mensajes guardados',
   'workbench.editors.websocket.saved.emptyHint': 'Guarda mensajes para reutilizarlos durante una conexión activa.',
   'workbench.editors.websocket.saved.defaultName': 'Mensaje',
-  'workbench.editors.websocket.saved.sendTooltip': 'Enviar este mensaje guardado tal como está',
   'workbench.editors.websocket.saved.rename': 'Renombrar',
   'workbench.editors.websocket.saved.duplicate': 'Duplicar',
   'workbench.editors.websocket.saved.delete': 'Eliminar',
