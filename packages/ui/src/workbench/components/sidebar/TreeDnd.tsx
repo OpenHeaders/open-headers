@@ -179,13 +179,18 @@ function RemeasureRows({ ids, signature }: { ids: UniqueIdentifier[]; signature:
 /**
  * The zone a row offers to the dragged row, `null` when it is no
  * target. Folders and leaves share one order, so a folder row offers
- * the same three bands to both and a leaf row the same two.
+ * the same three bands to both and a leaf row the same two. An
+ * EXPANDED folder's bottom band reads as `into`, not `after`: "after"
+ * an expanded folder is the spot past its whole subtree — rows away
+ * from the pointer, which crosses that band on its way into the row —
+ * and that spot is reached from the last descendant's own band.
  */
 function zoneFor(
   active: ReturnType<typeof roleOf>,
   over: ReturnType<typeof roleOf>,
   pointerY: number,
   rect: RowRect,
+  overExpanded: boolean,
 ): DropZone | null {
   if (!active || !over) return null;
   if (active.role === 'collection') {
@@ -193,7 +198,14 @@ function zoneFor(
   }
   if (over.role === 'collection') return 'into';
   if (over.role === 'leaf') return classifySiblingZone(pointerY, rect);
-  return classifyDropZone(pointerY, rect);
+  const zone = classifyDropZone(pointerY, rect);
+  return zone === 'after' && overExpanded ? 'into' : zone;
+}
+
+/** Whether the row at `index` has its subtree rendered right under it. */
+function isExpanded(nodes: readonly TreeNode[], byId: ReadonlyMap<string, TreeNode>, index: number): boolean {
+  const next = nodes[index + 1];
+  return next !== undefined && isDescendantOf(nodes[index].id, next, byId);
 }
 
 /** Where the cursor sits inside the overlay pill, as a fraction of its width. */
@@ -254,7 +266,14 @@ export function TreeDnd({ nodes, renderNode, config, selectedIds, onMoved }: Tre
       const activeNode = byId.get(String(e.active.id));
       if (!hit || !overNode || !activeNode || !drag || drag.travelling.has(overNode.id)) return;
       const activeRole = roleOf(activeNode, config);
-      const zone = zoneFor(activeRole, roleOf(overNode, config), hit.pointerY, hit.rect);
+      const overIndex = nodes.findIndex((n) => n.id === overNode.id);
+      const zone = zoneFor(
+        activeRole,
+        roleOf(overNode, config),
+        hit.pointerY,
+        hit.rect,
+        isExpanded(nodes, byId, overIndex),
+      );
       if (zone === null || activeRole === null) return;
       setDragOver((prev) => {
         if (prev && prev.overId === overNode.id && prev.zone === zone) return prev;
