@@ -226,13 +226,15 @@
 
 // Indent guides: a hairline per ancestor level, spanning the full row
 // so consecutive rows join into one continuous line. Hidden at rest,
-// revealed while the pointer is anywhere over the tree.
+// revealed while the pointer is anywhere over the tree. The grey is a
+// hint, not a divider: well under the panel's hairline so the eye
+// finds it only when it looks for the parent.
 .rules-sidebar-item-guide {
   position: absolute;
   top: 0;
   bottom: 0;
   width: 1px;
-  background: var(--ant-color-border-secondary, rgba(128, 128, 128, 0.2));
+  background: rgba(128, 128, 128, 0.12);
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.15s;
