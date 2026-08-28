@@ -469,23 +469,26 @@ const WebSocketRequestEditor: React.FC<WebSocketRequestEditorProps> = ({
                     {activeTab === 'events' && socketioFlavor && (
                       <WsEventsTab rows={draft.events} onChange={(events) => setDraft((d) => ({ ...d, events }))} />
                     )}
-                    {activeTab === 'auth' && (
-                      <WebSocketAuthTab
-                        auth={draft.auth}
-                        socketioFlavor={socketioFlavor}
-                        onChange={(auth) => setDraft((d) => ({ ...d, auth }))}
-                      />
-                    )}
-                    {activeTab === 'headers' && (
-                      <WsHeadersTab
-                        rows={draft.headers}
-                        onChange={(headers) => setDraft((d) => ({ ...d, headers }))}
-                      />
-                    )}
+                    {/* Connect-time surfaces — what the handshake carries —
+                      freeze while a session is in flight; compose, events,
+                      docs and spec stay live. */}
                     <SessionLock locked={session.inFlight}>
-                    {activeTab === 'params' && (
-                      <WsParamsTab rows={draft.params} onChange={(params) => setDraft((d) => ({ ...d, params }))} />
-                    )}
+                      {activeTab === 'auth' && (
+                        <WebSocketAuthTab
+                          auth={draft.auth}
+                          socketioFlavor={socketioFlavor}
+                          onChange={(auth) => setDraft((d) => ({ ...d, auth }))}
+                        />
+                      )}
+                      {activeTab === 'headers' && (
+                        <WsHeadersTab
+                          rows={draft.headers}
+                          onChange={(headers) => setDraft((d) => ({ ...d, headers }))}
+                        />
+                      )}
+                      {activeTab === 'params' && (
+                        <WsParamsTab rows={draft.params} onChange={(params) => setDraft((d) => ({ ...d, params }))} />
+                      )}
                     </SessionLock>
                     {activeTab === 'spec' && (
                       <WsSpecTab
