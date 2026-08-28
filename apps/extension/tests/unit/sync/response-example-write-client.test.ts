@@ -35,7 +35,8 @@ vi.mock('@utils/logger', () => ({
   logger: { info: vi.fn(), debug: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }));
 
-import type { RendererContextHandle, ResponseExampleSyncMirror } from '@openheaders/ui/context';
+import { REQUEST_ENTITY_TYPE, REQUEST_EXAMPLES_PATH } from '@openheaders/core/sync';
+import type { RendererContextHandle, RequestSyncMirror, ResponseExampleSyncMirror } from '@openheaders/ui/context';
 import {
   applyResponseExampleCreate,
   applyResponseExampleDelete,
@@ -83,6 +84,24 @@ function makeMirror(examples: ResponseExample[] = []): ResponseExampleSyncMirror
     listResponseExamples: () => examples,
     listResponseExamplesForRequest: (requestUid) => examples.filter((e) => e.requestUid === requestUid),
     subscribeResponseExampleMirror: () => () => undefined,
+    subscribeAny: () => () => undefined,
+    hydrated: Promise.resolve(),
+    dispose: () => undefined,
+  };
+}
+
+/** The parent request mirror: `req-1` live with the given `examples` tail. */
+function makeRequestMirror(uids: string[] = ['req-1'], tail: string | null = null): RequestSyncMirror {
+  return {
+    getRequestMirror: (uid) =>
+      uids.includes(uid)
+        ? ({ request: { uid } } as unknown as ReturnType<RequestSyncMirror['getRequestMirror']>)
+        : null,
+    listRequests: () => [],
+    liveSetItems: () => [],
+    liveOrderedSetItems: (_uid, setPath) =>
+      setPath === REQUEST_EXAMPLES_PATH && tail !== null ? [{ itemId: 'rex-0', orderKey: tail }] : [],
+    subscribeRequestMirror: () => () => undefined,
     subscribeAny: () => () => undefined,
     hydrated: Promise.resolve(),
     dispose: () => undefined,
@@ -138,7 +157,7 @@ describe('nextExampleName', () => {
 });
 
 describe('applyResponseExampleCreate', () => {
-  it('mints identity and emits a create envelope on the response-example entity', async () => {
+  it('mints identity and emits the create + the request examples slot after the live tail', async () => {
     mockCall.mockResolvedValue({ ok: true, outcomes: [] });
     const source = makeExample('unused');
     const result = await applyResponseExampleCreate(
@@ -152,7 +171,13 @@ describe('applyResponseExampleCreate', () => {
           response: source.response,
         },
       },
-      { workspaceId: 'ws-1', surfaceId: 'workbench', mirror: makeMirror([]), context: makeContextHandle() },
+      {
+        workspaceId: 'ws-1',
+        surfaceId: 'workbench',
+        mirror: makeMirror([]),
+        requestMirror: makeRequestMirror(['req-1'], 'm'),
+        context: makeContextHandle(),
+      },
     );
     if (!result.ok) throw new Error('expected ok');
     expect(result.responseExample.uid).toBeTruthy();
@@ -167,6 +192,46 @@ describe('applyResponseExampleCreate', () => {
       type: RESPONSE_EXAMPLE_ENTITY_TYPE,
       id: result.responseExample.uid,
     });
+    if (createEnv?.body.kind !== 'create') throw new Error('expected create body');
+    expect((createEnv.body.payload as Record<string, unknown>).pathSegment).toBe(
+      `list-users-${result.responseExample.uid}`,
+    );
+    expect(batch.mutations[1].body).toMatchObject({
+      kind: 'addToSet',
+      type: REQUEST_ENTITY_TYPE,
+      id: 'req-1',
+      path: REQUEST_EXAMPLES_PATH,
+      itemId: result.responseExample.uid,
+      item: { uid: result.responseExample.uid, type: RESPONSE_EXAMPLE_ENTITY_TYPE },
+    });
+    const slot = batch.mutations[1].body;
+    if (slot.kind !== 'addToSet') throw new Error('expected addToSet body');
+    expect((slot.orderKey ?? '') > 'm').toBe(true);
+  });
+
+  it('refuses a create whose request the mirror does not hold', async () => {
+    const source = makeExample('unused');
+    const result = await applyResponseExampleCreate(
+      {
+        requestPath: 'requests/api-rc1/list-users-req-1',
+        example: {
+          requestUid: 'req-gone',
+          name: source.name,
+          capturedAt: source.capturedAt,
+          request: source.request,
+          response: source.response,
+        },
+      },
+      {
+        workspaceId: 'ws-1',
+        surfaceId: 'workbench',
+        mirror: makeMirror([]),
+        requestMirror: makeRequestMirror(['req-1']),
+        context: makeContextHandle(),
+      },
+    );
+    expect(result).toEqual({ ok: false, reason: 'not-found' });
+    expect(mockCall).not.toHaveBeenCalled();
   });
 });
 
@@ -286,6 +351,7 @@ describe('applyResponseExampleDuplicate', () => {
       workspaceId: 'ws-1',
       surfaceId: 'workbench',
       mirror,
+      requestMirror: makeRequestMirror(),
       context: makeContextHandle(),
     });
     if (!result.ok) throw new Error('expected ok');
@@ -310,7 +376,7 @@ describe('applyResponseExampleDelete', () => {
     expect(mockCall).not.toHaveBeenCalled();
   });
 
-  it('emits one delete envelope on success', async () => {
+  it('emits the request slot tombstone + the entity tombstone in one batch', async () => {
     mockCall.mockResolvedValue({ ok: true, outcomes: [] });
     const mirror = makeMirror([makeExample('rex-1')]);
     const result = await applyResponseExampleDelete('rex-1', {
@@ -321,11 +387,9 @@ describe('applyResponseExampleDelete', () => {
     });
     expect(result).toEqual({ ok: true });
     const batch = (mockCall.mock.calls[0][1] as { batch: MutationBatch }).batch;
-    expect(batch.mutations).toHaveLength(1);
-    expect(batch.mutations[0].body).toMatchObject({
-      kind: 'delete',
-      type: RESPONSE_EXAMPLE_ENTITY_TYPE,
-      id: 'rex-1',
-    });
+    expect(batch.mutations.map((m) => m.body)).toEqual([
+      { kind: 'removeFromSet', type: REQUEST_ENTITY_TYPE, id: 'req-1', path: REQUEST_EXAMPLES_PATH, itemId: 'rex-1' },
+      { kind: 'delete', type: RESPONSE_EXAMPLE_ENTITY_TYPE, id: 'rex-1' },
+    ]);
   });
 });

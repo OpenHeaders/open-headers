@@ -80,3 +80,11 @@ export interface RequestParamRow {
   enabled?: boolean;
   hasEquals?: boolean;
 }
+
+/**
+ * Set path on a request holding its response examples' ordered slots
+ * — the request is the examples' container, so their `path` and
+ * `requestUid` are projections of this set. Sibling constants on the
+ * other request kinds share the name.
+ */
+export const REQUEST_EXAMPLES_PATH = 'examples';

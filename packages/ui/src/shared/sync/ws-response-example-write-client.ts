@@ -10,6 +10,12 @@
  */
 
 import {
+  keyBetween,
+  WEBSOCKET_REQUEST_ENTITY_TYPE,
+  WEBSOCKET_REQUEST_EXAMPLES_PATH,
+  type WsResponseExampleParentRef,
+} from '@openheaders/core/sync';
+import {
   buildAddWsResponseExampleBatch,
   buildDeleteWsResponseExampleBatch,
   buildRenameWsResponseExampleBatch,
@@ -18,6 +24,10 @@ import {
 } from '@openheaders/core/sync-builders/mutations/ws-response-example-mutations';
 import type { WsResponseExample } from '@openheaders/core/types';
 import { generateUid, toFolderName } from '@openheaders/core/utils';
+import {
+  getWebSocketRequestSyncMirrorForWorkspace,
+  type WebSocketRequestSyncMirror,
+} from '../../context/mirrors/websocket-request-sync-mirror';
 import {
   getWsResponseExampleSyncMirrorForWorkspace,
   type WsResponseExampleSyncMirror,
@@ -39,6 +49,8 @@ export type WsResponseExampleSimpleResult = SyncSimpleResult;
 
 export interface WsResponseExampleWriteOptions extends BaseSyncWriteOptions {
   mirror?: WsResponseExampleSyncMirror;
+  /** Override the parent request mirror the create reads its `examples` tail from (tests). */
+  requestMirror?: WebSocketRequestSyncMirror;
 }
 
 /**
@@ -71,6 +83,13 @@ export async function applyWsResponseExampleCreate(
 ): Promise<WsResponseExampleMutationResult> {
   const mirror = resolveMirror(opts, getWsResponseExampleSyncMirrorForWorkspace);
   await mirror.hydrated;
+  const requestMirror = opts.requestMirror ?? getWebSocketRequestSyncMirrorForWorkspace(opts.workspaceId);
+  await requestMirror.hydrated;
+  const parent: WsResponseExampleParentRef = {
+    type: WEBSOCKET_REQUEST_ENTITY_TYPE,
+    uid: request.example.websocketRequestUid,
+  };
+  if (!requestMirror.getWebSocketRequestMirror(parent.uid)) return { ok: false, reason: 'not-found' };
   const uid = generateUid();
   const created: WsResponseExample = {
     ...request.example,
@@ -79,7 +98,11 @@ export async function applyWsResponseExampleCreate(
     path: `${request.websocketRequestPath}/examples/${toFolderName(request.example.name, uid)}`,
   };
   const ctx = resolveRendererContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
-  const payload = buildAddWsResponseExampleBatch(created, ctx);
+  const live = requestMirror.liveOrderedSetItems(parent.uid, WEBSOCKET_REQUEST_EXAMPLES_PATH);
+  const payload = buildAddWsResponseExampleBatch(created, ctx, {
+    parent,
+    orderKey: keyBetween(live.at(-1)?.orderKey ?? null, null),
+  });
   const ack = await applySyncPayload(payload);
   if (ack.ok) return { ok: true, wsResponseExample: created };
   if (ack.reason === 'not-found') return { ok: false, reason: 'not-found' };
@@ -154,8 +177,13 @@ export async function applyWsResponseExampleDelete(
 ): Promise<WsResponseExampleSimpleResult> {
   const mirror = resolveMirror(opts, getWsResponseExampleSyncMirrorForWorkspace);
   await mirror.hydrated;
-  if (!mirror.getWsResponseExampleMirror(exampleUid)) return { ok: false, reason: 'not-found' };
+  const entry = mirror.getWsResponseExampleMirror(exampleUid);
+  if (!entry) return { ok: false, reason: 'not-found' };
   const ctx = resolveRendererContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
-  const payload = buildDeleteWsResponseExampleBatch(exampleUid, ctx);
+  const payload = buildDeleteWsResponseExampleBatch(
+    exampleUid,
+    { type: WEBSOCKET_REQUEST_ENTITY_TYPE, uid: entry.wsResponseExample.websocketRequestUid },
+    ctx,
+  );
   return applySyncPayload(payload);
 }

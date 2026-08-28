@@ -53,24 +53,33 @@ import {
   FOLDER_TREE_KINDS,
   folderChild,
   GRPC_REQUEST_ENTITY_TYPE,
+  GRPC_REQUEST_EXAMPLES_PATH,
+  GRPC_RESPONSE_EXAMPLE_ENTITY_TYPE,
   grpcRequestChild,
+  grpcResponseExampleChild,
   type MaterializedEntity,
   MQTT_REQUEST_ENTITY_TYPE,
+  MQTT_REQUEST_EXAMPLES_PATH,
+  MQTT_RESPONSE_EXAMPLE_ENTITY_TYPE,
   type MutationBody,
   type MutationEnvelope,
   mintBatch,
   mqttRequestChild,
+  mqttResponseExampleChild,
   newBatchId,
   type ParentRefShape,
   type REQUEST_COLLECTION_ENTITY_TYPE,
   REQUEST_ENTITY_TYPE,
+  REQUEST_EXAMPLES_PATH,
   REQUEST_FOLDER_ITEMS_PATH,
   REQUEST_FOLDER_TREE_KINDS,
+  RESPONSE_EXAMPLE_ENTITY_TYPE,
   RULE_ENTITY_TYPE,
   requestChild,
   requestCollectionChild,
   requestFolderChild,
   resolveTreeParent,
+  responseExampleChild,
   ruleChild,
   type TEMPLATE_COLLECTION_ENTITY_TYPE,
   TEMPLATE_ENTITY_TYPE,
@@ -82,6 +91,7 @@ import {
   templateCollectionChild,
   templateFolderChild,
   WEBSOCKET_REQUEST_ENTITY_TYPE,
+  WEBSOCKET_REQUEST_EXAMPLES_PATH,
   WORKSPACE_ROOTS_ENTITY_TYPE,
   WORKSPACE_ROOTS_ID,
   WORKSPACE_ROOTS_REF,
@@ -89,7 +99,9 @@ import {
   WORKSPACE_ROOTS_RULE_COLLECTIONS_PATH,
   WORKSPACE_ROOTS_TEMPLATE_COLLECTIONS_PATH,
   type WorkspaceRootsRef,
+  WS_RESPONSE_EXAMPLE_ENTITY_TYPE,
   webSocketRequestChild,
+  wsResponseExampleChild,
 } from '@openheaders/core/sync';
 import { createTailTracker } from '@openheaders/core/sync-builders/mutations/workspace-import-emission';
 import { logger, parentPathOf } from '@openheaders/core/utils';
@@ -98,6 +110,12 @@ import { recordHostActivityEntry } from './activity/activity-host-entries';
 import type { BroadcastEvent, InMemoryBroadcast } from './broadcast';
 import type { EntityCacheLike } from './entity-registry';
 import type { EntityOracle } from './oracle';
+import {
+  affectsExampleContainment,
+  exampleConflicts,
+  hasExampleSlot,
+  isExampleContainerType,
+} from './post-state/example-tree-post-state';
 import { RULE_TREE } from './post-state/folder-post-state';
 import {
   affectsTreeContainment,
@@ -182,15 +200,70 @@ const TEMPLATES: TreeSpec<typeof TEMPLATE_COLLECTION_ENTITY_TYPE, typeof TEMPLAT
 
 const TREES = [RULES, REQUESTS, TEMPLATES] as const;
 
-/** Entity types whose slot-less inbound create schedules a pass. */
-const SEEDED_TYPES: ReadonlySet<string> = new Set(
-  TREES.flatMap((tree) => [tree.kinds.collectionType, ...tree.leaves.map((leaf) => leaf.entityType)]),
-);
+/**
+ * Response examples as request children: the request the example was
+ * captured against owns its slot at the request's `examples` path. A
+ * slot-less example seeds from its stored parent-uid field — the
+ * permanent net for old-client captures; there is no rehome (an
+ * example has no root besides its request), so when that request is
+ * KNOWN tombstoned delete-wins extends to the example.
+ */
+interface ExampleKind {
+  entityType: string;
+  parentType: string;
+  /** The example's stored parent-uid field (`requestUid` and siblings). */
+  parentUidField: string;
+  examplesPath: string;
+  child: ChildMutators<ParentRefShape>;
+  storageKey: (workspaceId: string) => StorageKey<ReadonlyArray<{ uid: string }>>;
+}
 
-/** Container types whose inbound delete can orphan children. */
-const CONTAINER_TYPES: ReadonlySet<string> = new Set(
-  TREES.flatMap((tree) => [tree.kinds.collectionType, tree.kinds.folderType]),
-);
+const EXAMPLES: ReadonlyArray<ExampleKind> = [
+  {
+    entityType: RESPONSE_EXAMPLE_ENTITY_TYPE,
+    parentType: REQUEST_ENTITY_TYPE,
+    parentUidField: 'requestUid',
+    examplesPath: REQUEST_EXAMPLES_PATH,
+    child: responseExampleChild,
+    storageKey: (ws) => wsKeys(ws).responseExamples,
+  },
+  {
+    entityType: GRPC_RESPONSE_EXAMPLE_ENTITY_TYPE,
+    parentType: GRPC_REQUEST_ENTITY_TYPE,
+    parentUidField: 'grpcRequestUid',
+    examplesPath: GRPC_REQUEST_EXAMPLES_PATH,
+    child: grpcResponseExampleChild,
+    storageKey: (ws) => wsKeys(ws).grpcResponseExamples,
+  },
+  {
+    entityType: WS_RESPONSE_EXAMPLE_ENTITY_TYPE,
+    parentType: WEBSOCKET_REQUEST_ENTITY_TYPE,
+    parentUidField: 'websocketRequestUid',
+    examplesPath: WEBSOCKET_REQUEST_EXAMPLES_PATH,
+    child: wsResponseExampleChild,
+    storageKey: (ws) => wsKeys(ws).wsResponseExamples,
+  },
+  {
+    entityType: MQTT_RESPONSE_EXAMPLE_ENTITY_TYPE,
+    parentType: MQTT_REQUEST_ENTITY_TYPE,
+    parentUidField: 'mqttRequestUid',
+    examplesPath: MQTT_REQUEST_EXAMPLES_PATH,
+    child: mqttResponseExampleChild,
+    storageKey: (ws) => wsKeys(ws).mqttResponseExamples,
+  },
+];
+
+/** Entity types whose slot-less inbound create schedules a pass. */
+const SEEDED_TYPES: ReadonlySet<string> = new Set([
+  ...TREES.flatMap((tree) => [tree.kinds.collectionType, ...tree.leaves.map((leaf) => leaf.entityType)]),
+  ...EXAMPLES.map((kind) => kind.entityType),
+]);
+
+/** Container types whose inbound delete can orphan children — tree containers and example-holding requests. */
+const CONTAINER_TYPES: ReadonlySet<string> = new Set([
+  ...TREES.flatMap((tree) => [tree.kinds.collectionType, tree.kinds.folderType]),
+  ...EXAMPLES.map((kind) => kind.parentType),
+]);
 
 const COLLECTION_TYPES: ReadonlySet<string> = new Set(TREES.map((tree) => tree.kinds.collectionType));
 
@@ -301,7 +374,7 @@ function triggersPass(body: MutationBody, applyOrigin: BroadcastEvent['applyOrig
   if (applyOrigin !== 'inbound') return false;
   if (body.kind === 'create') return SEEDED_TYPES.has(body.type);
   if (body.kind === 'delete') return CONTAINER_TYPES.has(body.type);
-  return TREES.some((tree) => affectsTreeContainment(body, tree.kinds));
+  return affectsExampleContainment(body) || TREES.some((tree) => affectsTreeContainment(body, tree.kinds));
 }
 
 /** Returns whether an orphan is still inside its grace (a follow-up pass is owed). */
@@ -329,6 +402,7 @@ async function runPass(
   for (const tree of TREES) {
     await reconcileTree(workspaceId, oracle, tree, memory, pass);
   }
+  await reconcileExamples(workspaceId, oracle, memory, pass);
   for (const key of memory.orphanSince.keys()) {
     if (!pass.orphans.has(key)) memory.orphanSince.delete(key);
   }
@@ -464,6 +538,59 @@ async function reconcileTree<C extends string, F extends string>(
 }
 
 /**
+ * Examples: heal the store to the example index (shadowed + dead
+ * slots), then seed every slot-less example onto its stored parent
+ * when that request is live — persisted array order at hydration,
+ * tail otherwise. A parent KNOWN tombstoned takes the example with it
+ * after the grace (delete-wins, the cascade); an unknown parent leaves
+ * the example slot-less on the by-field net.
+ */
+async function reconcileExamples(
+  workspaceId: string,
+  oracle: EntityOracle,
+  memory: ReconcilerMemory,
+  pass: Pass,
+): Promise<void> {
+  const conflicts = exampleConflicts(oracle);
+  for (const slot of conflicts.shadowed) pass.bodies.push(slotTombstone(slot));
+  for (const slot of conflicts.deadSlots) {
+    if (settled(memory, pass, `slot:${slot.parent.type}:${slot.parent.uid}:${slot.childUid}`)) {
+      pass.bodies.push(slotTombstone(slot));
+    }
+  }
+  const materialized = treeMaterialized(oracle, REQUEST_TREE);
+  const liveRequests = new Set<string>();
+  for (const m of materialized) {
+    if (isExampleContainerType(m.type)) liveRequests.add(entityKey(m));
+  }
+  for (const kind of EXAMPLES) {
+    const order = pass.settled ? await readOrder(kind.storageKey(workspaceId)) : new Map();
+    const slotless = materialized.filter((m) => m.type === kind.entityType && !hasExampleSlot(oracle, m.id));
+    for (const m of sortByOrder(slotless, order)) {
+      const parentUid = storedString(m.data, kind.parentUidField);
+      const parent: ParentRefShape | null = parentUid === null ? null : { type: kind.parentType, uid: parentUid };
+      if (parent && liveRequests.has(`${parent.type}:${parent.uid}`)) {
+        pass.bodies.push(kind.child.slotAdd(m.id, parent, pass.tail(parent, kind.examplesPath)));
+        continue;
+      }
+      if (parent && oracle.isTombstoned(parent.type, parent.uid)) {
+        if (!settled(memory, pass, entityKey(m))) continue;
+        logger.info(
+          'TreeSlotReconciler',
+          `${m.type} ${m.id}: its request ${parent.uid} is deleted — delete-wins extends to it (ws=${workspaceId})`,
+        );
+        pass.bodies.push({ kind: 'delete', type: m.type, id: m.id });
+        continue;
+      }
+      logger.info(
+        'TreeSlotReconciler',
+        `${m.type} ${m.id} stays slot-less — its request ${parentUid ?? '(none)'} is not live here (ws=${workspaceId})`,
+      );
+    }
+  }
+}
+
+/**
  * Runtime orphans and dead-child slots wait out {@link REHOME_GRACE_MS}
  * from the pass that first saw them; hydration heals at once.
  */
@@ -568,8 +695,13 @@ function entityKey(m: MaterializedEntity): string {
 }
 
 function storedPath(data: unknown): string | null {
-  if (typeof data !== 'object' || data === null || !('path' in data)) return null;
-  return typeof data.path === 'string' ? data.path : null;
+  return storedString(data, 'path');
+}
+
+function storedString(data: unknown, field: string): string | null {
+  if (typeof data !== 'object' || data === null || !(field in data)) return null;
+  const value = (data as Record<string, unknown>)[field];
+  return typeof value === 'string' ? value : null;
 }
 
 async function readOrder(key: StorageKey<ReadonlyArray<{ uid: string }>>): Promise<UidOrder> {

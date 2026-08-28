@@ -3,11 +3,12 @@
 // Examples are renderer-written (see the UI's response-example write
 // client); the store's only job is keeping them consistent with their
 // parent request's lifecycle — a deleted request must not leave orphan
-// examples behind. Every request-delete path (single delete, collection
+// examples behind. The request goes too, so its `examples` set goes
+// with it: the cascade mints bare entity tombstones. Every request-delete path (single delete, collection
 // cascade, folder cascade) routes through
 // {@link deleteResponseExamplesForRequests}.
 
-import { buildDeleteResponseExampleBatch } from '@openheaders/core/sync-builders/mutations/response-example-mutations';
+import { buildDeleteResponseExampleEntityBatch } from '@openheaders/core/sync-builders/mutations/response-example-mutations';
 import type { ResponseExampleCache } from '@openheaders/oracle/sync/caches/response-example-cache';
 import { RESPONSE_EXAMPLE_REGISTRATION } from '@openheaders/oracle/sync/entity-registry';
 import { getActiveCacheForRegistration } from '@openheaders/oracle/sync/service/accessors';
@@ -28,7 +29,7 @@ function responseExampleUidsForRequests(requestUids: readonly string[]): string[
 export async function deleteResponseExamplesForRequests(requestUids: readonly string[]): Promise<void> {
   for (const exampleUid of responseExampleUidsForRequests(requestUids)) {
     await applyRequestMutationOrThrow(
-      (ctx) => buildDeleteResponseExampleBatch(exampleUid, ctx),
+      (ctx) => buildDeleteResponseExampleEntityBatch(exampleUid, ctx),
       'deleteResponseExamples-cascade',
     );
   }

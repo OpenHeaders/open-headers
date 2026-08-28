@@ -4,9 +4,12 @@ import { MqttResponseExampleSchema } from '../../../../src/schemas';
 import {
   createMqttResponseExample,
   deleteMqttResponseExample,
+  MQTT_REQUEST_ENTITY_TYPE,
+  MQTT_REQUEST_EXAMPLES_PATH,
   MQTT_RESPONSE_EXAMPLE_ENTITY_TYPE,
   MQTT_RESPONSE_EXAMPLE_MUTATOR_VERSION,
   type MutatorContext,
+  mqttResponseExampleChild,
   setMqttResponseExampleField,
 } from '../../../../src/sync';
 import { buildRenameMqttResponseExampleBatch } from '../../../../src/sync-builders/mutations/mqtt-response-example-mutations';
@@ -15,6 +18,8 @@ import {
   seedMqttResponseExample,
 } from '../../../../src/sync-builders/projections/mqtt-response-example-projection';
 import type { MqttResponseExample } from '../../../../src/types';
+
+const parent = { type: MQTT_REQUEST_ENTITY_TYPE, uid: 'mqr00001' } as const;
 
 const ctx = (overrides: Partial<MutatorContext> = {}): MutatorContext => ({
   workspaceId: 'ws-1',
@@ -133,29 +138,59 @@ describe('MqttResponseExampleSchema', () => {
 });
 
 describe('createMqttResponseExample', () => {
-  it('mints a single create envelope carrying the full payload with no side effects', () => {
+  it('mints the create + the request examples slot in one batch', () => {
     const { uid: _uid, ...payload } = example();
-    const intent = createMqttResponseExample(ctx(), { mqttResponseExampleUid: 'mex00001', payload });
-    expect(intent.batch.mutations).toHaveLength(1);
-    expect(intent.batch.mutations[0].mutatorVersion).toBe(MQTT_RESPONSE_EXAMPLE_MUTATOR_VERSION);
-    expect(intent.batch.mutations[0].body).toEqual({
-      kind: 'create',
-      type: MQTT_RESPONSE_EXAMPLE_ENTITY_TYPE,
-      id: 'mex00001',
+    const intent = createMqttResponseExample(ctx(), {
+      mqttResponseExampleUid: 'mex00001',
+      parent,
       payload,
+      orderKey: 'mm',
     });
+    expect(intent.batch.mutations.map((m) => m.mutatorVersion)).toEqual([
+      MQTT_RESPONSE_EXAMPLE_MUTATOR_VERSION,
+      MQTT_RESPONSE_EXAMPLE_MUTATOR_VERSION,
+    ]);
+    expect(intent.batch.mutations.map((m) => m.body)).toEqual([
+      { kind: 'create', type: MQTT_RESPONSE_EXAMPLE_ENTITY_TYPE, id: 'mex00001', payload },
+      {
+        kind: 'addToSet',
+        type: MQTT_REQUEST_ENTITY_TYPE,
+        id: 'mqr00001',
+        path: MQTT_REQUEST_EXAMPLES_PATH,
+        itemId: 'mex00001',
+        item: { uid: 'mex00001', type: MQTT_RESPONSE_EXAMPLE_ENTITY_TYPE },
+        orderKey: 'mm',
+      },
+    ]);
     expect(intent.sideEffects).toEqual([]);
+  });
+
+  it('the exported child verbs mint the same slot the seed builder appends', () => {
+    expect(mqttResponseExampleChild.slotAdd('mex00001', parent, 'k')).toEqual({
+      kind: 'addToSet',
+      type: MQTT_REQUEST_ENTITY_TYPE,
+      id: 'mqr00001',
+      path: MQTT_REQUEST_EXAMPLES_PATH,
+      itemId: 'mex00001',
+      item: { uid: 'mex00001', type: MQTT_RESPONSE_EXAMPLE_ENTITY_TYPE },
+      orderKey: 'k',
+    });
   });
 });
 
 describe('deleteMqttResponseExample', () => {
-  it('emits a single delete envelope with no side effects', () => {
-    const intent = deleteMqttResponseExample(ctx(), { mqttResponseExampleUid: 'mex00001' });
-    expect(intent.batch.mutations[0].body).toEqual({
-      kind: 'delete',
-      type: MQTT_RESPONSE_EXAMPLE_ENTITY_TYPE,
-      id: 'mex00001',
-    });
+  it('emits the request slot tombstone + the entity tombstone with no side effects', () => {
+    const intent = deleteMqttResponseExample(ctx(), { mqttResponseExampleUid: 'mex00001', parent });
+    expect(intent.batch.mutations.map((m) => m.body)).toEqual([
+      {
+        kind: 'removeFromSet',
+        type: MQTT_REQUEST_ENTITY_TYPE,
+        id: 'mqr00001',
+        path: MQTT_REQUEST_EXAMPLES_PATH,
+        itemId: 'mex00001',
+      },
+      { kind: 'delete', type: MQTT_RESPONSE_EXAMPLE_ENTITY_TYPE, id: 'mex00001' },
+    ]);
     expect(intent.sideEffects).toEqual([]);
   });
 });
@@ -216,5 +251,41 @@ describe('seedMqttResponseExample / projectMqttResponseExample', () => {
 
   it('returns null for a foreign entity type', () => {
     expect(projectMqttResponseExample({ type: 'mqttRequest', id: 'r1', data: {}, fieldOrigins: {} })).toBeNull();
+  });
+});
+
+describe('seedMqttResponseExample with a placement', () => {
+  it('stamps the frozen pathSegment and appends the request slot after the create', () => {
+    const entity = example();
+    const batch = seedMqttResponseExample(entity, ctx(), { parent, orderKey: 'mm' });
+    expect(batch.mutations.map((m) => m.body.kind)).toEqual(['create', 'addToSet']);
+    const body = batch.mutations[0].body;
+    if (body.kind !== 'create') throw new Error('expected create body');
+    expect((body.payload as Record<string, unknown>).pathSegment).toBe(entity.path.split('/').at(-1));
+    expect(batch.mutations[1].body).toMatchObject({
+      kind: 'addToSet',
+      type: MQTT_REQUEST_ENTITY_TYPE,
+      id: 'mqr00001',
+      path: MQTT_REQUEST_EXAMPLES_PATH,
+      itemId: entity.uid,
+      orderKey: 'mm',
+    });
+  });
+
+  it('projects path and the parent uid from the live slot, keeping the stored values with no slot', () => {
+    const entity = example();
+    const materialized = {
+      type: MQTT_RESPONSE_EXAMPLE_ENTITY_TYPE,
+      id: entity.uid,
+      data: { ...entity, pathSegment: 'moved-mex00001' },
+      fieldOrigins: {},
+    };
+    expect(projectMqttResponseExample(materialized)).toEqual({ ...entity, pathSegment: 'moved-mex00001' });
+    expect(
+      projectMqttResponseExample(materialized, { path: 'requests/other-col00002/req-req00009', uid: 'req00009' }),
+    ).toMatchObject({
+      path: 'requests/other-col00002/req-req00009/examples/moved-mex00001',
+      mqttRequestUid: 'req00009',
+    });
   });
 });

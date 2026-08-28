@@ -77,3 +77,6 @@ export interface WebSocketEventRowRow {
   listen?: boolean;
   description?: string;
 }
+
+/** Set path on a WebSocket request holding its response examples' ordered slots. */
+export const WEBSOCKET_REQUEST_EXAMPLES_PATH = 'examples';

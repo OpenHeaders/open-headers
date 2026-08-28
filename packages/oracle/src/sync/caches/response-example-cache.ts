@@ -13,6 +13,13 @@ import type { ResponseExample } from '@openheaders/core/types';
 import { hostStorage, wsKeys } from '@openheaders/oracle/storage';
 import type { InMemoryBroadcast } from '../broadcast';
 import type { EntityOracle } from '../oracle';
+import {
+  affectsExampleContainment,
+  arrangeInExampleOrder,
+  resolveExampleParent,
+} from '../post-state/example-tree-post-state';
+import { affectsTreeContainment } from '../post-state/folder-tree-post-state';
+import { REQUEST_TREE } from '../post-state/request-folder-post-state';
 import { driftRecorder } from '../storage-drift';
 import type { SwMutatorContextFactory } from '../sw-context';
 import { createFlatEntityCache } from './flat-entity-cache';
@@ -43,7 +50,16 @@ export function createResponseExampleCache(
       entityType: RESPONSE_EXAMPLE_ENTITY_TYPE,
       loggerTag: 'ResponseExampleCache',
       storageKey: (ws) => wsKeys(ws).responseExamples,
-      project: projectResponseExample,
+      project: (materialized, oracle) =>
+        projectResponseExample(materialized, resolveExampleParent(oracle, materialized.id)),
+      arrange: (entities, oracle) => arrangeInExampleOrder(oracle, (e) => e.requestUid, entities),
+      // Own envelopes plus the containment envelopes the projected path
+      // and parent depend on: the request's `examples` slots and the
+      // request tree's own slots (a folder move cascades through here).
+      affects: (event) =>
+        event.envelope.body.type === RESPONSE_EXAMPLE_ENTITY_TYPE ||
+        affectsExampleContainment(event.envelope.body) ||
+        affectsTreeContainment(event.envelope.body, REQUEST_TREE),
       seed: seedResponseExample,
       loadFromStorage: (ws) =>
         hostStorage.getValidatedArray(wsKeys(ws).responseExamples, ResponseExampleSchema, {

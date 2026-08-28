@@ -20,7 +20,7 @@ import {
   buildWebSocketDeleteEntityBatch,
   buildWebSocketUpdateBatch,
 } from '@openheaders/core/sync-builders/mutations/websocket-request-mutations';
-import { buildDeleteWsResponseExampleBatch } from '@openheaders/core/sync-builders/mutations/ws-response-example-mutations';
+import { buildDeleteWsResponseExampleEntityBatch } from '@openheaders/core/sync-builders/mutations/ws-response-example-mutations';
 import type { WebSocketRequest } from '@openheaders/core/types';
 import { parentPathOf } from '@openheaders/core/utils';
 import type { RequestCollectionSyncMirror } from '../../context/mirrors/request-collection-sync-mirror';
@@ -153,7 +153,7 @@ export async function applyWebSocketRequestDelete(
   await exampleMirror.hydrated;
   const handle = resolveRendererContext(opts);
   for (const example of exampleMirror.listWsResponseExamplesForRequest(webSocketRequestUid)) {
-    await applySyncPayload(buildDeleteWsResponseExampleBatch(example.uid, handle.next()));
+    await applySyncPayload(buildDeleteWsResponseExampleEntityBatch(example.uid, handle.next()));
   }
   // The parent's `items` slot tombstones with the entity; an
   // unresolvable parent (already tombstoned) takes the bare tombstone.

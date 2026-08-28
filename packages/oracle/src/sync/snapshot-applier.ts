@@ -73,18 +73,26 @@ import {
   FOLDER_ENTITY_TYPE,
   FOLDER_ITEMS_PATH,
   GRPC_REQUEST_ENTITY_TYPE,
+  GRPC_REQUEST_EXAMPLES_PATH,
+  GRPC_RESPONSE_EXAMPLE_ENTITY_TYPE,
   MQTT_REQUEST_ENTITY_TYPE,
+  MQTT_REQUEST_EXAMPLES_PATH,
+  MQTT_RESPONSE_EXAMPLE_ENTITY_TYPE,
   type MutationBody,
   type MutatorContext,
   mintBatch,
   REQUEST_COLLECTION_ENTITY_TYPE,
   REQUEST_ENTITY_TYPE,
+  REQUEST_EXAMPLES_PATH,
   REQUEST_FOLDER_ENTITY_TYPE,
+  RESPONSE_EXAMPLE_ENTITY_TYPE,
   RULE_ENTITY_TYPE,
   TEMPLATE_COLLECTION_ENTITY_TYPE,
   TEMPLATE_ENTITY_TYPE,
   TEMPLATE_FOLDER_ENTITY_TYPE,
   WEBSOCKET_REQUEST_ENTITY_TYPE,
+  WEBSOCKET_REQUEST_EXAMPLES_PATH,
+  WS_RESPONSE_EXAMPLE_ENTITY_TYPE,
 } from '@openheaders/core/sync';
 import { seedCollection } from '@openheaders/core/sync-builders/projections/collection-projection';
 import { seedEnvironment } from '@openheaders/core/sync-builders/projections/env-projection';
@@ -272,8 +280,8 @@ export async function applyWorkspaceSnapshot(
 
   // Containment slots. The entity seeds above are slot-less — folders
   // and leaves are linked by their parent's `folders` / `items` sets,
-  // and every container post-state carries those sets' `(itemId,
-  // orderKey)` pairs. Replay them with the sender's keys so the
+  // response examples by their request's `examples` set, and every
+  // container post-state carries those sets' `(itemId, orderKey)` pairs. Replay them with the sender's keys so the
   // receiver's tree order is the sender's, not a re-seed from paths.
   await seedEach<ContainerSlots>('treeSlots', collectTreeSlots(snapshot), (p, ctx) => mintBatch(ctx, p.bodies));
 
@@ -286,12 +294,16 @@ interface ContainerSlots {
 
 interface ContainerTree {
   containers: ReadonlyArray<{ type: string; uid: string; setOrderKeys: SetOrderKeys }>;
+  /** The bare-marker child set (`folders`); null for containers that hold typed children only. */
+  childrenPath: string | null;
+  /** The typed `{ uid, type }` child set (`items`, or a request's `examples`). */
+  itemsPath: string;
   leafTypeOf: ReadonlyMap<string, string>;
 }
 
 type SetOrderKeys = Record<string, Array<{ itemId: string; orderKey: string }>>;
 
-/** One slot batch per container that carries live `folders` / `items` slots. */
+/** One slot batch per container that carries live `folders` / `items` / `examples` slots. */
 function collectTreeSlots(snapshot: WorkspaceSnapshot): ContainerSlots[] {
   const leafTypes = (...groups: Array<[string, ReadonlyArray<{ uid: string }>]>): ReadonlyMap<string, string> => {
     const out = new Map<string, string>();
@@ -308,6 +320,8 @@ function collectTreeSlots(snapshot: WorkspaceSnapshot): ContainerSlots[] {
         })),
         ...snapshot.folders.map((p) => ({ type: FOLDER_ENTITY_TYPE, uid: p.folder.uid, setOrderKeys: p.setOrderKeys })),
       ],
+      childrenPath: FOLDER_CHILDREN_PATH,
+      itemsPath: FOLDER_ITEMS_PATH,
       leafTypeOf: leafTypes([RULE_ENTITY_TYPE, snapshot.rules.map((p) => p.rule)]),
     },
     {
@@ -329,6 +343,8 @@ function collectTreeSlots(snapshot: WorkspaceSnapshot): ContainerSlots[] {
         [WEBSOCKET_REQUEST_ENTITY_TYPE, snapshot.websocketRequests.map((p) => p.websocketRequest)],
         [MQTT_REQUEST_ENTITY_TYPE, snapshot.mqttRequests.map((p) => p.mqttRequest)],
       ),
+      childrenPath: FOLDER_CHILDREN_PATH,
+      itemsPath: FOLDER_ITEMS_PATH,
     },
     {
       containers: [
@@ -343,33 +359,39 @@ function collectTreeSlots(snapshot: WorkspaceSnapshot): ContainerSlots[] {
           setOrderKeys: p.setOrderKeys,
         })),
       ],
+      childrenPath: FOLDER_CHILDREN_PATH,
+      itemsPath: FOLDER_ITEMS_PATH,
       leafTypeOf: leafTypes([TEMPLATE_ENTITY_TYPE, snapshot.templates.map((p) => p.template)]),
     },
+    ...exampleTrees(snapshot),
   ];
 
   const out: ContainerSlots[] = [];
   for (const tree of trees) {
     for (const container of tree.containers) {
       const bodies: MutationBody[] = [];
-      for (const slot of container.setOrderKeys[FOLDER_CHILDREN_PATH] ?? []) {
-        bodies.push({
-          kind: 'addToSet',
-          type: container.type,
-          id: container.uid,
-          path: FOLDER_CHILDREN_PATH,
-          itemId: slot.itemId,
-          item: { uid: slot.itemId },
-          orderKey: slot.orderKey,
-        });
+      const childrenPath = tree.childrenPath;
+      if (childrenPath !== null) {
+        for (const slot of container.setOrderKeys[childrenPath] ?? []) {
+          bodies.push({
+            kind: 'addToSet',
+            type: container.type,
+            id: container.uid,
+            path: childrenPath,
+            itemId: slot.itemId,
+            item: { uid: slot.itemId },
+            orderKey: slot.orderKey,
+          });
+        }
       }
-      for (const slot of container.setOrderKeys[FOLDER_ITEMS_PATH] ?? []) {
+      for (const slot of container.setOrderKeys[tree.itemsPath] ?? []) {
         const type = tree.leafTypeOf.get(slot.itemId);
         if (type === undefined) continue;
         bodies.push({
           kind: 'addToSet',
           type: container.type,
           id: container.uid,
-          path: FOLDER_ITEMS_PATH,
+          path: tree.itemsPath,
           itemId: slot.itemId,
           item: { uid: slot.itemId, type },
           orderKey: slot.orderKey,
@@ -379,4 +401,64 @@ function collectTreeSlots(snapshot: WorkspaceSnapshot): ContainerSlots[] {
     }
   }
   return out;
+}
+
+/** The four request kinds as example containers — one tree each, typed children only. */
+function exampleTrees(snapshot: WorkspaceSnapshot): ContainerTree[] {
+  const leafTypes = (type: string, entities: ReadonlyArray<{ uid: string }>): ReadonlyMap<string, string> =>
+    new Map(entities.map((entity) => [entity.uid, type]));
+  return [
+    {
+      containers: snapshot.requests.map((p) => ({
+        type: REQUEST_ENTITY_TYPE,
+        uid: p.request.uid,
+        setOrderKeys: p.setOrderKeys,
+      })),
+      childrenPath: null,
+      itemsPath: REQUEST_EXAMPLES_PATH,
+      leafTypeOf: leafTypes(
+        RESPONSE_EXAMPLE_ENTITY_TYPE,
+        snapshot.responseExamples.map((p) => p.responseExample),
+      ),
+    },
+    {
+      containers: snapshot.grpcRequests.map((p) => ({
+        type: GRPC_REQUEST_ENTITY_TYPE,
+        uid: p.grpcRequest.uid,
+        setOrderKeys: p.setOrderKeys,
+      })),
+      childrenPath: null,
+      itemsPath: GRPC_REQUEST_EXAMPLES_PATH,
+      leafTypeOf: leafTypes(
+        GRPC_RESPONSE_EXAMPLE_ENTITY_TYPE,
+        snapshot.grpcResponseExamples.map((p) => p.grpcResponseExample),
+      ),
+    },
+    {
+      containers: snapshot.websocketRequests.map((p) => ({
+        type: WEBSOCKET_REQUEST_ENTITY_TYPE,
+        uid: p.websocketRequest.uid,
+        setOrderKeys: p.setOrderKeys,
+      })),
+      childrenPath: null,
+      itemsPath: WEBSOCKET_REQUEST_EXAMPLES_PATH,
+      leafTypeOf: leafTypes(
+        WS_RESPONSE_EXAMPLE_ENTITY_TYPE,
+        snapshot.wsResponseExamples.map((p) => p.wsResponseExample),
+      ),
+    },
+    {
+      containers: snapshot.mqttRequests.map((p) => ({
+        type: MQTT_REQUEST_ENTITY_TYPE,
+        uid: p.mqttRequest.uid,
+        setOrderKeys: p.setOrderKeys,
+      })),
+      childrenPath: null,
+      itemsPath: MQTT_REQUEST_EXAMPLES_PATH,
+      leafTypeOf: leafTypes(
+        MQTT_RESPONSE_EXAMPLE_ENTITY_TYPE,
+        snapshot.mqttResponseExamples.map((p) => p.mqttResponseExample),
+      ),
+    },
+  ];
 }

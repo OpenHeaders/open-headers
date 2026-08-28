@@ -10,6 +10,12 @@
  */
 
 import {
+  keyBetween,
+  MQTT_REQUEST_ENTITY_TYPE,
+  MQTT_REQUEST_EXAMPLES_PATH,
+  type MqttResponseExampleParentRef,
+} from '@openheaders/core/sync';
+import {
   buildAddMqttResponseExampleBatch,
   buildDeleteMqttResponseExampleBatch,
   buildRenameMqttResponseExampleBatch,
@@ -18,6 +24,10 @@ import {
 } from '@openheaders/core/sync-builders/mutations/mqtt-response-example-mutations';
 import type { MqttResponseExample } from '@openheaders/core/types';
 import { generateUid, toFolderName } from '@openheaders/core/utils';
+import {
+  getMqttRequestSyncMirrorForWorkspace,
+  type MqttRequestSyncMirror,
+} from '../../context/mirrors/mqtt-request-sync-mirror';
 import {
   getMqttResponseExampleSyncMirrorForWorkspace,
   type MqttResponseExampleSyncMirror,
@@ -39,6 +49,8 @@ export type MqttResponseExampleSimpleResult = SyncSimpleResult;
 
 export interface MqttResponseExampleWriteOptions extends BaseSyncWriteOptions {
   mirror?: MqttResponseExampleSyncMirror;
+  /** Override the parent request mirror the create reads its `examples` tail from (tests). */
+  requestMirror?: MqttRequestSyncMirror;
 }
 
 /**
@@ -71,6 +83,10 @@ export async function applyMqttResponseExampleCreate(
 ): Promise<MqttResponseExampleMutationResult> {
   const mirror = resolveMirror(opts, getMqttResponseExampleSyncMirrorForWorkspace);
   await mirror.hydrated;
+  const requestMirror = opts.requestMirror ?? getMqttRequestSyncMirrorForWorkspace(opts.workspaceId);
+  await requestMirror.hydrated;
+  const parent: MqttResponseExampleParentRef = { type: MQTT_REQUEST_ENTITY_TYPE, uid: request.example.mqttRequestUid };
+  if (!requestMirror.getMqttRequestMirror(parent.uid)) return { ok: false, reason: 'not-found' };
   const uid = generateUid();
   const created: MqttResponseExample = {
     ...request.example,
@@ -79,7 +95,11 @@ export async function applyMqttResponseExampleCreate(
     path: `${request.mqttRequestPath}/examples/${toFolderName(request.example.name, uid)}`,
   };
   const ctx = resolveRendererContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
-  const payload = buildAddMqttResponseExampleBatch(created, ctx);
+  const live = requestMirror.liveOrderedSetItems(parent.uid, MQTT_REQUEST_EXAMPLES_PATH);
+  const payload = buildAddMqttResponseExampleBatch(created, ctx, {
+    parent,
+    orderKey: keyBetween(live.at(-1)?.orderKey ?? null, null),
+  });
   const ack = await applySyncPayload(payload);
   if (ack.ok) return { ok: true, mqttResponseExample: created };
   if (ack.reason === 'not-found') return { ok: false, reason: 'not-found' };
@@ -154,8 +174,13 @@ export async function applyMqttResponseExampleDelete(
 ): Promise<MqttResponseExampleSimpleResult> {
   const mirror = resolveMirror(opts, getMqttResponseExampleSyncMirrorForWorkspace);
   await mirror.hydrated;
-  if (!mirror.getMqttResponseExampleMirror(exampleUid)) return { ok: false, reason: 'not-found' };
+  const entry = mirror.getMqttResponseExampleMirror(exampleUid);
+  if (!entry) return { ok: false, reason: 'not-found' };
   const ctx = resolveRendererContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
-  const payload = buildDeleteMqttResponseExampleBatch(exampleUid, ctx);
+  const payload = buildDeleteMqttResponseExampleBatch(
+    exampleUid,
+    { type: MQTT_REQUEST_ENTITY_TYPE, uid: entry.mqttResponseExample.mqttRequestUid },
+    ctx,
+  );
   return applySyncPayload(payload);
 }

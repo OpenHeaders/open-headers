@@ -27,6 +27,7 @@ export {
 export { type RequestScalarPath, type SetRequestFieldArgs, setRequestField } from './scalar';
 export {
   REQUEST_ENTITY_TYPE,
+  REQUEST_EXAMPLES_PATH,
   REQUEST_HEADERS_PATH,
   REQUEST_PARAMS_PATH,
   type RequestHeaderRow,

@@ -29,7 +29,7 @@
  */
 
 import * as v from 'valibot';
-import { RelativePathSchema, SchemaVersionSchema, UidSchema } from './common';
+import { PathSegmentSchema, RelativePathSchema, SchemaVersionSchema, UidSchema } from './common';
 import {
   MqttMessagePropertiesSchema,
   MqttPayloadFormatSchema,
@@ -181,6 +181,8 @@ export const MqttResponseExampleSchema = v.object({
   uid: UidSchema,
   /** `<mqttRequestPath>/examples/<slug>-<uid>` — nested under the parent request's folder. */
   path: RelativePathSchema,
+  /** Frozen directory-name segment (`<slug>-<uid>`), stamped at create; `path` projects from the parent request's slot + this. */
+  pathSegment: v.optional(PathSegmentSchema),
   /** Parent MqttRequest identity. */
   mqttRequestUid: UidSchema,
   name: v.pipe(v.string(), v.minLength(1)),

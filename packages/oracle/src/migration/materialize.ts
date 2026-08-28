@@ -58,6 +58,7 @@ import {
   type MutatorContext,
   REQUEST_COLLECTION_ENTITY_TYPE,
   REQUEST_ENTITY_TYPE,
+  REQUEST_EXAMPLES_PATH,
   REQUEST_FOLDER_CHILDREN_PATH,
   REQUEST_FOLDER_ENTITY_TYPE,
   REQUEST_FOLDER_ITEMS_PATH,
@@ -86,7 +87,7 @@ import {
 } from '@openheaders/core/sync-builders/mutations/request-mutations';
 import {
   buildAddResponseExampleBatch,
-  buildDeleteResponseExampleBatch,
+  buildDeleteResponseExampleEntityBatch,
 } from '@openheaders/core/sync-builders/mutations/response-example-mutations';
 import { buildSetWorkspaceVarBatch } from '@openheaders/core/sync-builders/mutations/workspace-variables-mutations';
 import { seedRequestCollection } from '@openheaders/core/sync-builders/projections/request-collection-projection';
@@ -229,7 +230,7 @@ function buildDeleteForReplacedEntity(
 ): { batch: MutationBatch; sideEffects: SideEffectIntent[] } {
   switch (entity.type) {
     case RESPONSE_EXAMPLE_ENTITY_TYPE:
-      return buildDeleteResponseExampleBatch(entity.id, ctx);
+      return buildDeleteResponseExampleEntityBatch(entity.id, ctx);
     case REQUEST_ENTITY_TYPE:
       // Child-first refresh: the request's collection tombstones in the
       // same pass, so its slot needs no tombstone of its own.
@@ -482,7 +483,11 @@ async function materializeCollection(
       const exampleCtx = mintCtx();
       if (!exampleCtx) throw new Error('landing workspace is not loaded on this host');
       try {
-        const payload = buildAddResponseExampleBatch(exampleCandidate.output as ResponseExample, exampleCtx);
+        const payload = buildAddResponseExampleBatch(
+          exampleCandidate.output as ResponseExample,
+          exampleCtx,
+          childPlacement(oracle, { type: REQUEST_ENTITY_TYPE, uid: request.uid }, REQUEST_EXAMPLES_PATH),
+        );
         await applyMigrationMutation(payload.batch, payload.sideEffects);
         examples++;
       } catch (err) {

@@ -15,7 +15,7 @@ import {
   buildGrpcDeleteEntityBatch,
   buildGrpcUpdateBatch,
 } from '@openheaders/core/sync-builders/mutations/grpc-request-mutations';
-import { buildDeleteGrpcResponseExampleBatch } from '@openheaders/core/sync-builders/mutations/grpc-response-example-mutations';
+import { buildDeleteGrpcResponseExampleEntityBatch } from '@openheaders/core/sync-builders/mutations/grpc-response-example-mutations';
 import type { GrpcRequest } from '@openheaders/core/types';
 import { parentPathOf } from '@openheaders/core/utils';
 import {
@@ -139,7 +139,7 @@ export async function applyGrpcRequestDelete(
   await exampleMirror.hydrated;
   const handle = resolveRendererContext(opts);
   for (const example of exampleMirror.listGrpcResponseExamplesForRequest(grpcRequestUid)) {
-    await applySyncPayload(buildDeleteGrpcResponseExampleBatch(example.uid, handle.next()));
+    await applySyncPayload(buildDeleteGrpcResponseExampleEntityBatch(example.uid, handle.next()));
   }
   // The parent's `items` slot tombstones with the entity; an
   // unresolvable parent (already tombstoned) takes the bare tombstone.

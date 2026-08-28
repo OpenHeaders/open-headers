@@ -17,7 +17,7 @@
  */
 
 import * as v from 'valibot';
-import { RelativePathSchema, SchemaVersionSchema, UidSchema } from './common';
+import { PathSegmentSchema, RelativePathSchema, SchemaVersionSchema, UidSchema } from './common';
 import { HttpMethodSchema, QueryParamSchema, RequestBodySchema, RequestHeaderSchema } from './request';
 
 /** Request shape as sent — authored values, variable refs unresolved. */
@@ -57,6 +57,8 @@ export const ResponseExampleSchema = v.object({
   uid: UidSchema,
   /** `<requestPath>/examples/<slug>-<uid>` — nested under the parent request's folder. */
   path: RelativePathSchema,
+  /** Frozen directory-name segment (`<slug>-<uid>`), stamped at create; `path` projects from the parent request's slot + this. */
+  pathSegment: v.optional(PathSegmentSchema),
   /** Parent request identity. */
   requestUid: UidSchema,
   name: v.pipe(v.string(), v.minLength(1)),

@@ -19,12 +19,17 @@ import {
   buildMqttDeleteEntityBatch,
   buildMqttUpdateBatch,
 } from '@openheaders/core/sync-builders/mutations/mqtt-request-mutations';
+import { buildDeleteMqttResponseExampleEntityBatch } from '@openheaders/core/sync-builders/mutations/mqtt-response-example-mutations';
 import type { MqttRequest } from '@openheaders/core/types';
 import { parentPathOf } from '@openheaders/core/utils';
 import {
   getMqttRequestSyncMirrorForWorkspace,
   type MqttRequestSyncMirror,
 } from '../../context/mirrors/mqtt-request-sync-mirror';
+import {
+  getMqttResponseExampleSyncMirrorForWorkspace,
+  type MqttResponseExampleSyncMirror,
+} from '../../context/mirrors/mqtt-response-example-sync-mirror';
 import type { RequestCollectionSyncMirror } from '../../context/mirrors/request-collection-sync-mirror';
 import type { RequestFolderSyncMirror } from '../../context/mirrors/request-folder-sync-mirror';
 import {
@@ -51,6 +56,8 @@ export interface MqttRequestWriteOptions extends BaseSyncWriteOptions {
   /** Override the parent-resolving container mirrors for tests. */
   collectionMirror?: RequestCollectionSyncMirror;
   folderMirror?: RequestFolderSyncMirror;
+  /** Override the response-example mirror the delete cascade reads (tests). */
+  exampleMirror?: MqttResponseExampleSyncMirror;
 }
 
 /**
@@ -141,8 +148,17 @@ export async function applyMqttRequestDelete(
   await mirror.hydrated;
   const entry = mirror.getMqttRequestMirror(mqttRequestUid);
   if (!entry) return { ok: false, reason: 'not-found' };
+  // Cascade: a deleted MQTT request must not leave orphan response
+  // examples behind (the other request families' invariant, applied
+  // at this family's renderer-direct write site).
+  const exampleMirror = opts.exampleMirror ?? getMqttResponseExampleSyncMirrorForWorkspace(opts.workspaceId);
+  await exampleMirror.hydrated;
+  const handle = resolveRendererContext(opts);
+  for (const example of exampleMirror.listMqttResponseExamplesForRequest(mqttRequestUid)) {
+    await applySyncPayload(buildDeleteMqttResponseExampleEntityBatch(example.uid, handle.next()));
+  }
   const parent = await resolveLeafParent(requestTreeMirrors(opts.workspaceId, opts), entry.mqttRequest.path);
-  const ctx = resolveRendererContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
+  const ctx = handle.next(opts.batchId ? { batchId: opts.batchId } : undefined);
   return applySyncPayload(
     parent ? buildMqttDeleteBatch(mqttRequestUid, parent, ctx) : buildMqttDeleteEntityBatch(mqttRequestUid, ctx),
   );

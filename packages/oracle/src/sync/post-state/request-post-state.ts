@@ -8,7 +8,12 @@
  */
 
 import type { SyncRequestPostState } from '@openheaders/core/protocol';
-import { REQUEST_ENTITY_TYPE, REQUEST_HEADERS_PATH, REQUEST_PARAMS_PATH } from '@openheaders/core/sync';
+import {
+  REQUEST_ENTITY_TYPE,
+  REQUEST_EXAMPLES_PATH,
+  REQUEST_HEADERS_PATH,
+  REQUEST_PARAMS_PATH,
+} from '@openheaders/core/sync';
 import { projectRequest } from '@openheaders/core/sync-builders/projections/request-projection';
 import type { Request } from '@openheaders/core/types';
 import type { EntityOracle } from '../oracle';
@@ -17,7 +22,7 @@ import { resolveLeafParentPath } from './folder-tree-post-state';
 import { REQUEST_TREE } from './request-folder-post-state';
 
 /** Set-modeled paths on a Request — mirrors {@link request-projection}'s SET_PATHS. */
-const REQUEST_SET_PATHS = [REQUEST_HEADERS_PATH, REQUEST_PARAMS_PATH] as const;
+const REQUEST_SET_PATHS = [REQUEST_HEADERS_PATH, REQUEST_PARAMS_PATH, REQUEST_EXAMPLES_PATH] as const;
 
 type Reads = Pick<
   EntityOracle,

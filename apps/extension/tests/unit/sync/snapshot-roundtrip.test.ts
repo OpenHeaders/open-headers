@@ -16,11 +16,17 @@ import {
   FOLDER_ITEMS_PATH,
   type MutationBatch,
   type MutatorContext,
+  REQUEST_COLLECTION_ENTITY_TYPE,
+  REQUEST_ENTITY_TYPE,
+  REQUEST_EXAMPLES_PATH,
   WORKSPACE_ROOTS_REF,
 } from '@openheaders/core/sync';
 import { seedCollection } from '@openheaders/core/sync-builders/projections/collection-projection';
+import { seedRequestCollection } from '@openheaders/core/sync-builders/projections/request-collection-projection';
+import { seedRequest } from '@openheaders/core/sync-builders/projections/request-projection';
+import { seedResponseExample } from '@openheaders/core/sync-builders/projections/response-example-projection';
 import { seedRule } from '@openheaders/core/sync-builders/projections/rule-projection';
-import type { Collection, Rule } from '@openheaders/core/types';
+import type { Collection, Request, ResponseExample, Rule } from '@openheaders/core/types';
 import { generateUid } from '@openheaders/core/utils';
 import { applyWorkspaceSnapshot, buildSnapshotForWorkspace } from '@openheaders/oracle/sync';
 import {
@@ -135,6 +141,85 @@ describe('snapshot build → apply round-trip', () => {
     expect(reSnap.workspaceRoots[0].workspaceRoots.ruleCollections).toEqual(['col00001']);
     const paths = new Map(reSnap.rules.map((r) => [r.rule.uid, r.rule.path]));
     expect(paths.get('rul00002')).toBe(`${collection.path}/sub-fol00001/first-rul00002`);
+  });
+
+  it('replays a request examples slots so the receiver keeps the sender example order', async () => {
+    const collection = {
+      schemaVersion: 5,
+      uid: 'col00001',
+      name: 'API',
+      path: 'requests/api-col00001',
+      variables: [],
+      pinnedEnvironmentIds: [],
+      defaultEnvironmentId: null,
+    } as unknown as Collection;
+    const request = {
+      schemaVersion: 5,
+      uid: 'req00001',
+      path: `${collection.path}/get-req00001`,
+      pathSegment: 'get-req00001',
+      name: 'get',
+      method: 'GET',
+      url: 'https://api.openheaders.io/v1',
+      headers: [],
+      params: [],
+      auth: { type: 'inherit' },
+      body: { type: 'none' },
+    } as unknown as Request;
+    const makeExample = (uid: string): ResponseExample => ({
+      schemaVersion: 5,
+      uid,
+      path: `${request.path}/examples/ping-${uid}`,
+      requestUid: request.uid,
+      name: 'ping',
+      capturedAt: '2026-07-09T09:00:00.000Z',
+      request: {
+        method: 'GET',
+        url: 'https://api.openheaders.io/ping',
+        headers: [],
+        params: [],
+        body: { type: 'none' },
+      },
+      response: {
+        status: 200,
+        statusText: 'OK',
+        url: 'https://api.openheaders.io/ping',
+        headers: [],
+        body: '{"ok":true}',
+        bodyTruncated: false,
+        bodyBytes: 11,
+        durationMs: 42,
+      },
+    });
+    const apply = (batch: MutationBatch) => applySyncRequest({ type: 'oh.sync.apply', batch, sideEffects: [] });
+    await apply(seedRequestCollection(collection, ctx('source'), { parent: WORKSPACE_ROOTS_REF, orderKey: 'a' }));
+    await apply(
+      seedRequest(request, ctx('source'), {
+        parent: { type: REQUEST_COLLECTION_ENTITY_TYPE, uid: collection.uid },
+        orderKey: 'a',
+      }),
+    );
+    const onRequest = { type: REQUEST_ENTITY_TYPE, uid: request.uid } as const;
+    await apply(seedResponseExample(makeExample('ex000001'), ctx('source'), { parent: onRequest, orderKey: 'b' }));
+    await apply(seedResponseExample(makeExample('ex000002'), ctx('source'), { parent: onRequest, orderKey: 'a' }));
+
+    const snap = await buildSnapshotForWorkspace(wsId);
+    if (snap === null) throw new Error('expected snapshot for authorized workspace');
+    expect(snap.requests[0].setOrderKeys[REQUEST_EXAMPLES_PATH].map((s) => s.itemId)).toEqual(['ex000002', 'ex000001']);
+
+    disposeSyncService();
+    __initSyncServiceForTests(wsId);
+    const result = await applyWorkspaceSnapshot(snap, { makeContext: () => ctx() });
+    expect(result.byType).toMatchObject({ requestCollections: 1, requests: 1, responseExamples: 2, treeSlots: 2 });
+
+    const reSnap = await buildSnapshotForWorkspace(wsId);
+    if (reSnap === null) throw new Error('expected snapshot for authorized workspace');
+    expect(reSnap.requests[0].setOrderKeys[REQUEST_EXAMPLES_PATH]).toEqual(
+      snap.requests[0].setOrderKeys[REQUEST_EXAMPLES_PATH],
+    );
+    const paths = new Map(reSnap.responseExamples.map((e) => [e.responseExample.uid, e.responseExample.path]));
+    expect(paths.get('ex000002')).toBe(`${request.path}/examples/ping-ex000002`);
+    expect(paths.get('ex000001')).toBe(`${request.path}/examples/ping-ex000001`);
   });
 
   it('rejects a snapshot with an unknown schemaVersion', async () => {

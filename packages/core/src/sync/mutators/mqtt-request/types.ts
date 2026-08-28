@@ -70,3 +70,6 @@ export interface MqttSavedMessageRow {
   retain?: boolean;
   properties?: Record<string, unknown>;
 }
+
+/** Set path on an MQTT request holding its response examples' ordered slots. */
+export const MQTT_REQUEST_EXAMPLES_PATH = 'examples';

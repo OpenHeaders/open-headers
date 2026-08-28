@@ -10,6 +10,12 @@
  */
 
 import {
+  GRPC_REQUEST_ENTITY_TYPE,
+  GRPC_REQUEST_EXAMPLES_PATH,
+  type GrpcResponseExampleParentRef,
+  keyBetween,
+} from '@openheaders/core/sync';
+import {
   buildAddGrpcResponseExampleBatch,
   buildDeleteGrpcResponseExampleBatch,
   buildRenameGrpcResponseExampleBatch,
@@ -18,6 +24,10 @@ import {
 } from '@openheaders/core/sync-builders/mutations/grpc-response-example-mutations';
 import type { GrpcResponseExample } from '@openheaders/core/types';
 import { generateUid, toFolderName } from '@openheaders/core/utils';
+import {
+  type GrpcRequestSyncMirror,
+  getGrpcRequestSyncMirrorForWorkspace,
+} from '../../context/mirrors/grpc-request-sync-mirror';
 import {
   type GrpcResponseExampleSyncMirror,
   getGrpcResponseExampleSyncMirrorForWorkspace,
@@ -39,6 +49,8 @@ export type GrpcResponseExampleSimpleResult = SyncSimpleResult;
 
 export interface GrpcResponseExampleWriteOptions extends BaseSyncWriteOptions {
   mirror?: GrpcResponseExampleSyncMirror;
+  /** Override the parent request mirror the create reads its `examples` tail from (tests). */
+  requestMirror?: GrpcRequestSyncMirror;
 }
 
 /**
@@ -71,6 +83,10 @@ export async function applyGrpcResponseExampleCreate(
 ): Promise<GrpcResponseExampleMutationResult> {
   const mirror = resolveMirror(opts, getGrpcResponseExampleSyncMirrorForWorkspace);
   await mirror.hydrated;
+  const requestMirror = opts.requestMirror ?? getGrpcRequestSyncMirrorForWorkspace(opts.workspaceId);
+  await requestMirror.hydrated;
+  const parent: GrpcResponseExampleParentRef = { type: GRPC_REQUEST_ENTITY_TYPE, uid: request.example.grpcRequestUid };
+  if (!requestMirror.getGrpcRequestMirror(parent.uid)) return { ok: false, reason: 'not-found' };
   const uid = generateUid();
   const created: GrpcResponseExample = {
     ...request.example,
@@ -79,7 +95,11 @@ export async function applyGrpcResponseExampleCreate(
     path: `${request.grpcRequestPath}/examples/${toFolderName(request.example.name, uid)}`,
   };
   const ctx = resolveRendererContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
-  const payload = buildAddGrpcResponseExampleBatch(created, ctx);
+  const live = requestMirror.liveOrderedSetItems(parent.uid, GRPC_REQUEST_EXAMPLES_PATH);
+  const payload = buildAddGrpcResponseExampleBatch(created, ctx, {
+    parent,
+    orderKey: keyBetween(live.at(-1)?.orderKey ?? null, null),
+  });
   const ack = await applySyncPayload(payload);
   if (ack.ok) return { ok: true, grpcResponseExample: created };
   if (ack.reason === 'not-found') return { ok: false, reason: 'not-found' };
@@ -154,8 +174,13 @@ export async function applyGrpcResponseExampleDelete(
 ): Promise<GrpcResponseExampleSimpleResult> {
   const mirror = resolveMirror(opts, getGrpcResponseExampleSyncMirrorForWorkspace);
   await mirror.hydrated;
-  if (!mirror.getGrpcResponseExampleMirror(exampleUid)) return { ok: false, reason: 'not-found' };
+  const entry = mirror.getGrpcResponseExampleMirror(exampleUid);
+  if (!entry) return { ok: false, reason: 'not-found' };
   const ctx = resolveRendererContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
-  const payload = buildDeleteGrpcResponseExampleBatch(exampleUid, ctx);
+  const payload = buildDeleteGrpcResponseExampleBatch(
+    exampleUid,
+    { type: GRPC_REQUEST_ENTITY_TYPE, uid: entry.grpcResponseExample.grpcRequestUid },
+    ctx,
+  );
   return applySyncPayload(payload);
 }

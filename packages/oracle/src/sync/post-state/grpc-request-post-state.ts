@@ -8,7 +8,11 @@
  */
 
 import type { SyncGrpcRequestPostState } from '@openheaders/core/protocol';
-import { GRPC_REQUEST_ENTITY_TYPE, GRPC_REQUEST_METADATA_PATH } from '@openheaders/core/sync';
+import {
+  GRPC_REQUEST_ENTITY_TYPE,
+  GRPC_REQUEST_EXAMPLES_PATH,
+  GRPC_REQUEST_METADATA_PATH,
+} from '@openheaders/core/sync';
 import { projectGrpcRequest } from '@openheaders/core/sync-builders/projections/grpc-request-projection';
 import type { GrpcRequest } from '@openheaders/core/types';
 import type { EntityOracle } from '../oracle';
@@ -17,7 +21,7 @@ import { resolveLeafParentPath } from './folder-tree-post-state';
 import { REQUEST_TREE } from './request-folder-post-state';
 
 /** Set-modeled paths on a GrpcRequest — mirrors the projection's set handling. */
-const GRPC_REQUEST_SET_PATHS = [GRPC_REQUEST_METADATA_PATH] as const;
+const GRPC_REQUEST_SET_PATHS = [GRPC_REQUEST_METADATA_PATH, GRPC_REQUEST_EXAMPLES_PATH] as const;
 
 type Reads = Pick<
   EntityOracle,

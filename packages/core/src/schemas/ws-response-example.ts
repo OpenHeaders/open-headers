@@ -23,7 +23,7 @@
  */
 
 import * as v from 'valibot';
-import { RelativePathSchema, SchemaVersionSchema, UidSchema } from './common';
+import { PathSegmentSchema, RelativePathSchema, SchemaVersionSchema, UidSchema } from './common';
 import { RequestTimeoutMsSchema } from './request';
 import {
   WebSocketBinaryEncodingSchema,
@@ -107,6 +107,8 @@ export const WsResponseExampleSchema = v.object({
   uid: UidSchema,
   /** `<websocketRequestPath>/examples/<slug>-<uid>` — nested under the parent request's folder. */
   path: RelativePathSchema,
+  /** Frozen directory-name segment (`<slug>-<uid>`), stamped at create; `path` projects from the parent request's slot + this. */
+  pathSegment: v.optional(PathSegmentSchema),
   /** Parent WebSocketRequest identity. */
   websocketRequestUid: UidSchema,
   name: v.pipe(v.string(), v.minLength(1)),

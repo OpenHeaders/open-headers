@@ -21,7 +21,7 @@
  */
 
 import * as v from 'valibot';
-import { RelativePathSchema, SchemaVersionSchema, UidSchema } from './common';
+import { PathSegmentSchema, RelativePathSchema, SchemaVersionSchema, UidSchema } from './common';
 import { GrpcMetadataPairSchema, GrpcMethodRefSchema, GrpcUrlSchema } from './grpc-request';
 import { RequestTimeoutMsSchema } from './request';
 
@@ -91,6 +91,8 @@ export const GrpcResponseExampleSchema = v.object({
   uid: UidSchema,
   /** `<grpcRequestPath>/examples/<slug>-<uid>` — nested under the parent request's folder. */
   path: RelativePathSchema,
+  /** Frozen directory-name segment (`<slug>-<uid>`), stamped at create; `path` projects from the parent request's slot + this. */
+  pathSegment: v.optional(PathSegmentSchema),
   /** Parent GrpcRequest identity. */
   grpcRequestUid: UidSchema,
   name: v.pipe(v.string(), v.minLength(1)),

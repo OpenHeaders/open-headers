@@ -12,6 +12,12 @@
  */
 
 import {
+  keyBetween,
+  REQUEST_ENTITY_TYPE,
+  REQUEST_EXAMPLES_PATH,
+  type ResponseExampleParentRef,
+} from '@openheaders/core/sync';
+import {
   buildAddResponseExampleBatch,
   buildDeleteResponseExampleBatch,
   buildRenameResponseExampleBatch,
@@ -20,6 +26,7 @@ import {
 } from '@openheaders/core/sync-builders/mutations/response-example-mutations';
 import type { ResponseExample } from '@openheaders/core/types';
 import { generateUid, toFolderName } from '@openheaders/core/utils';
+import { getRequestSyncMirrorForWorkspace, type RequestSyncMirror } from '../../context/mirrors/request-sync-mirror';
 import {
   getResponseExampleSyncMirrorForWorkspace,
   type ResponseExampleSyncMirror,
@@ -41,6 +48,8 @@ export type ResponseExampleSimpleResult = SyncSimpleResult;
 
 export interface ResponseExampleWriteOptions extends BaseSyncWriteOptions {
   mirror?: ResponseExampleSyncMirror;
+  /** Override the parent request mirror the create reads its `examples` tail from (tests). */
+  requestMirror?: RequestSyncMirror;
 }
 
 /**
@@ -69,6 +78,10 @@ export async function applyResponseExampleCreate(
 ): Promise<ResponseExampleMutationResult> {
   const mirror = resolveMirror(opts, getResponseExampleSyncMirrorForWorkspace);
   await mirror.hydrated;
+  const requestMirror = opts.requestMirror ?? getRequestSyncMirrorForWorkspace(opts.workspaceId);
+  await requestMirror.hydrated;
+  const parent: ResponseExampleParentRef = { type: REQUEST_ENTITY_TYPE, uid: request.example.requestUid };
+  if (!requestMirror.getRequestMirror(parent.uid)) return { ok: false, reason: 'not-found' };
   const uid = generateUid();
   const created: ResponseExample = {
     ...request.example,
@@ -77,7 +90,11 @@ export async function applyResponseExampleCreate(
     path: `${request.requestPath}/examples/${toFolderName(request.example.name, uid)}`,
   };
   const ctx = resolveRendererContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
-  const payload = buildAddResponseExampleBatch(created, ctx);
+  const live = requestMirror.liveOrderedSetItems(parent.uid, REQUEST_EXAMPLES_PATH);
+  const payload = buildAddResponseExampleBatch(created, ctx, {
+    parent,
+    orderKey: keyBetween(live.at(-1)?.orderKey ?? null, null),
+  });
   const ack = await applySyncPayload(payload);
   if (ack.ok) return { ok: true, responseExample: created };
   if (ack.reason === 'not-found') return { ok: false, reason: 'not-found' };
@@ -152,8 +169,13 @@ export async function applyResponseExampleDelete(
 ): Promise<ResponseExampleSimpleResult> {
   const mirror = resolveMirror(opts, getResponseExampleSyncMirrorForWorkspace);
   await mirror.hydrated;
-  if (!mirror.getResponseExampleMirror(exampleUid)) return { ok: false, reason: 'not-found' };
+  const entry = mirror.getResponseExampleMirror(exampleUid);
+  if (!entry) return { ok: false, reason: 'not-found' };
   const ctx = resolveRendererContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
-  const payload = buildDeleteResponseExampleBatch(exampleUid, ctx);
+  const payload = buildDeleteResponseExampleBatch(
+    exampleUid,
+    { type: REQUEST_ENTITY_TYPE, uid: entry.responseExample.requestUid },
+    ctx,
+  );
   return applySyncPayload(payload);
 }

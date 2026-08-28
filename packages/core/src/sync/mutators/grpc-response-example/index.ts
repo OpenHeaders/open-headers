@@ -4,10 +4,15 @@ export {
   createGrpcResponseExample,
   type DeleteGrpcResponseExampleArgs,
   deleteGrpcResponseExample,
+  grpcResponseExampleChild,
 } from './lifecycle';
 export {
   type GrpcResponseExampleScalarPath,
   type SetGrpcResponseExampleFieldArgs,
   setGrpcResponseExampleField,
 } from './scalar';
-export { GRPC_RESPONSE_EXAMPLE_ENTITY_TYPE } from './types';
+export {
+  GRPC_RESPONSE_EXAMPLE_ENTITY_TYPE,
+  type GrpcResponseExampleParentRef,
+  type GrpcResponseExampleSlot,
+} from './types';

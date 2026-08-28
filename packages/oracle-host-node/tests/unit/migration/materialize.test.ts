@@ -12,6 +12,7 @@
 import type { ImportReport, PostmanPullResult } from '@openheaders/core/import';
 import { setHostLogger } from '@openheaders/core/logger';
 import { setHostStorage } from '@openheaders/core/storage';
+import { REQUEST_ENTITY_TYPE } from '@openheaders/core/sync';
 import { buildAddResponseExampleBatch } from '@openheaders/core/sync-builders/mutations/response-example-mutations';
 import { buildSetWorkspaceVarBatch } from '@openheaders/core/sync-builders/mutations/workspace-variables-mutations';
 import type { Request } from '@openheaders/core/types';
@@ -156,6 +157,7 @@ async function saveExampleUnder(request: Request): Promise<void> {
       },
     },
     ctx,
+    { parent: { type: REQUEST_ENTITY_TYPE, uid: request.uid } },
   );
   const response = await applySyncRequest({ type: 'oh.sync.apply', batch, sideEffects });
   if (!response.ok) throw new Error('example seed failed');

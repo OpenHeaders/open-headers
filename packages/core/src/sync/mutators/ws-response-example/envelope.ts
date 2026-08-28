@@ -15,7 +15,7 @@ import { tickHlc } from '../../hlc';
 import type { MutatorContext } from '../types';
 
 /** WebSocket response-example mutator catalog version — bump on any wire-incompatible change (§13.4). */
-export const WS_RESPONSE_EXAMPLE_MUTATOR_VERSION = 1;
+export const WS_RESPONSE_EXAMPLE_MUTATOR_VERSION = 2;
 
 export function mintEnvelope(ctx: MutatorContext, body: MutationBody): MutationEnvelope {
   return {

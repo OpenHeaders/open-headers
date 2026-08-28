@@ -36,3 +36,6 @@ export interface GrpcMetadataPairRow {
   description?: string;
   enabled?: boolean;
 }
+
+/** Set path on a gRPC request holding its response examples' ordered slots. */
+export const GRPC_REQUEST_EXAMPLES_PATH = 'examples';

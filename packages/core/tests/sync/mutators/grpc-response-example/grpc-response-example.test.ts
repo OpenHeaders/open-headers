@@ -4,8 +4,11 @@ import { GrpcResponseExampleSchema } from '../../../../src/schemas';
 import {
   createGrpcResponseExample,
   deleteGrpcResponseExample,
+  GRPC_REQUEST_ENTITY_TYPE,
+  GRPC_REQUEST_EXAMPLES_PATH,
   GRPC_RESPONSE_EXAMPLE_ENTITY_TYPE,
   GRPC_RESPONSE_EXAMPLE_MUTATOR_VERSION,
+  grpcResponseExampleChild,
   type MutatorContext,
   setGrpcResponseExampleField,
 } from '../../../../src/sync';
@@ -15,6 +18,8 @@ import {
   seedGrpcResponseExample,
 } from '../../../../src/sync-builders/projections/grpc-response-example-projection';
 import type { GrpcResponseExample } from '../../../../src/types';
+
+const parent = { type: GRPC_REQUEST_ENTITY_TYPE, uid: 'grq00001' } as const;
 
 const ctx = (overrides: Partial<MutatorContext> = {}): MutatorContext => ({
   workspaceId: 'ws-1',
@@ -121,29 +126,59 @@ describe('GrpcResponseExampleSchema', () => {
 });
 
 describe('createGrpcResponseExample', () => {
-  it('mints a single create envelope carrying the full payload with no side effects', () => {
+  it('mints the create + the request examples slot in one batch', () => {
     const { uid: _uid, ...payload } = example();
-    const intent = createGrpcResponseExample(ctx(), { grpcResponseExampleUid: 'gex00001', payload });
-    expect(intent.batch.mutations).toHaveLength(1);
-    expect(intent.batch.mutations[0].mutatorVersion).toBe(GRPC_RESPONSE_EXAMPLE_MUTATOR_VERSION);
-    expect(intent.batch.mutations[0].body).toEqual({
-      kind: 'create',
-      type: GRPC_RESPONSE_EXAMPLE_ENTITY_TYPE,
-      id: 'gex00001',
+    const intent = createGrpcResponseExample(ctx(), {
+      grpcResponseExampleUid: 'gex00001',
+      parent,
       payload,
+      orderKey: 'mm',
     });
+    expect(intent.batch.mutations.map((m) => m.mutatorVersion)).toEqual([
+      GRPC_RESPONSE_EXAMPLE_MUTATOR_VERSION,
+      GRPC_RESPONSE_EXAMPLE_MUTATOR_VERSION,
+    ]);
+    expect(intent.batch.mutations.map((m) => m.body)).toEqual([
+      { kind: 'create', type: GRPC_RESPONSE_EXAMPLE_ENTITY_TYPE, id: 'gex00001', payload },
+      {
+        kind: 'addToSet',
+        type: GRPC_REQUEST_ENTITY_TYPE,
+        id: 'grq00001',
+        path: GRPC_REQUEST_EXAMPLES_PATH,
+        itemId: 'gex00001',
+        item: { uid: 'gex00001', type: GRPC_RESPONSE_EXAMPLE_ENTITY_TYPE },
+        orderKey: 'mm',
+      },
+    ]);
     expect(intent.sideEffects).toEqual([]);
+  });
+
+  it('the exported child verbs mint the same slot the seed builder appends', () => {
+    expect(grpcResponseExampleChild.slotAdd('gex00001', parent, 'k')).toEqual({
+      kind: 'addToSet',
+      type: GRPC_REQUEST_ENTITY_TYPE,
+      id: 'grq00001',
+      path: GRPC_REQUEST_EXAMPLES_PATH,
+      itemId: 'gex00001',
+      item: { uid: 'gex00001', type: GRPC_RESPONSE_EXAMPLE_ENTITY_TYPE },
+      orderKey: 'k',
+    });
   });
 });
 
 describe('deleteGrpcResponseExample', () => {
-  it('emits a single delete envelope with no side effects', () => {
-    const intent = deleteGrpcResponseExample(ctx(), { grpcResponseExampleUid: 'gex00001' });
-    expect(intent.batch.mutations[0].body).toEqual({
-      kind: 'delete',
-      type: GRPC_RESPONSE_EXAMPLE_ENTITY_TYPE,
-      id: 'gex00001',
-    });
+  it('emits the request slot tombstone + the entity tombstone with no side effects', () => {
+    const intent = deleteGrpcResponseExample(ctx(), { grpcResponseExampleUid: 'gex00001', parent });
+    expect(intent.batch.mutations.map((m) => m.body)).toEqual([
+      {
+        kind: 'removeFromSet',
+        type: GRPC_REQUEST_ENTITY_TYPE,
+        id: 'grq00001',
+        path: GRPC_REQUEST_EXAMPLES_PATH,
+        itemId: 'gex00001',
+      },
+      { kind: 'delete', type: GRPC_RESPONSE_EXAMPLE_ENTITY_TYPE, id: 'gex00001' },
+    ]);
     expect(intent.sideEffects).toEqual([]);
   });
 });
@@ -204,5 +239,41 @@ describe('seedGrpcResponseExample / projectGrpcResponseExample', () => {
 
   it('returns null for a foreign entity type', () => {
     expect(projectGrpcResponseExample({ type: 'grpcRequest', id: 'r1', data: {}, fieldOrigins: {} })).toBeNull();
+  });
+});
+
+describe('seedGrpcResponseExample with a placement', () => {
+  it('stamps the frozen pathSegment and appends the request slot after the create', () => {
+    const entity = example();
+    const batch = seedGrpcResponseExample(entity, ctx(), { parent, orderKey: 'mm' });
+    expect(batch.mutations.map((m) => m.body.kind)).toEqual(['create', 'addToSet']);
+    const body = batch.mutations[0].body;
+    if (body.kind !== 'create') throw new Error('expected create body');
+    expect((body.payload as Record<string, unknown>).pathSegment).toBe(entity.path.split('/').at(-1));
+    expect(batch.mutations[1].body).toMatchObject({
+      kind: 'addToSet',
+      type: GRPC_REQUEST_ENTITY_TYPE,
+      id: 'grq00001',
+      path: GRPC_REQUEST_EXAMPLES_PATH,
+      itemId: entity.uid,
+      orderKey: 'mm',
+    });
+  });
+
+  it('projects path and the parent uid from the live slot, keeping the stored values with no slot', () => {
+    const entity = example();
+    const materialized = {
+      type: GRPC_RESPONSE_EXAMPLE_ENTITY_TYPE,
+      id: entity.uid,
+      data: { ...entity, pathSegment: 'moved-gex00001' },
+      fieldOrigins: {},
+    };
+    expect(projectGrpcResponseExample(materialized)).toEqual({ ...entity, pathSegment: 'moved-gex00001' });
+    expect(
+      projectGrpcResponseExample(materialized, { path: 'requests/other-col00002/req-req00009', uid: 'req00009' }),
+    ).toMatchObject({
+      path: 'requests/other-col00002/req-req00009/examples/moved-gex00001',
+      grpcRequestUid: 'req00009',
+    });
   });
 });

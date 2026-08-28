@@ -6,8 +6,11 @@ import {
   deleteWsResponseExample,
   type MutatorContext,
   setWsResponseExampleField,
+  WEBSOCKET_REQUEST_ENTITY_TYPE,
+  WEBSOCKET_REQUEST_EXAMPLES_PATH,
   WS_RESPONSE_EXAMPLE_ENTITY_TYPE,
   WS_RESPONSE_EXAMPLE_MUTATOR_VERSION,
+  wsResponseExampleChild,
 } from '../../../../src/sync';
 import { buildRenameWsResponseExampleBatch } from '../../../../src/sync-builders/mutations/ws-response-example-mutations';
 import {
@@ -15,6 +18,8 @@ import {
   seedWsResponseExample,
 } from '../../../../src/sync-builders/projections/ws-response-example-projection';
 import type { WsResponseExample } from '../../../../src/types';
+
+const parent = { type: WEBSOCKET_REQUEST_ENTITY_TYPE, uid: 'wsr00001' } as const;
 
 const ctx = (overrides: Partial<MutatorContext> = {}): MutatorContext => ({
   workspaceId: 'ws-1',
@@ -113,29 +118,59 @@ describe('WsResponseExampleSchema', () => {
 });
 
 describe('createWsResponseExample', () => {
-  it('mints a single create envelope carrying the full payload with no side effects', () => {
+  it('mints the create + the request examples slot in one batch', () => {
     const { uid: _uid, ...payload } = example();
-    const intent = createWsResponseExample(ctx(), { wsResponseExampleUid: 'wex00001', payload });
-    expect(intent.batch.mutations).toHaveLength(1);
-    expect(intent.batch.mutations[0].mutatorVersion).toBe(WS_RESPONSE_EXAMPLE_MUTATOR_VERSION);
-    expect(intent.batch.mutations[0].body).toEqual({
-      kind: 'create',
-      type: WS_RESPONSE_EXAMPLE_ENTITY_TYPE,
-      id: 'wex00001',
+    const intent = createWsResponseExample(ctx(), {
+      wsResponseExampleUid: 'wex00001',
+      parent,
       payload,
+      orderKey: 'mm',
     });
+    expect(intent.batch.mutations.map((m) => m.mutatorVersion)).toEqual([
+      WS_RESPONSE_EXAMPLE_MUTATOR_VERSION,
+      WS_RESPONSE_EXAMPLE_MUTATOR_VERSION,
+    ]);
+    expect(intent.batch.mutations.map((m) => m.body)).toEqual([
+      { kind: 'create', type: WS_RESPONSE_EXAMPLE_ENTITY_TYPE, id: 'wex00001', payload },
+      {
+        kind: 'addToSet',
+        type: WEBSOCKET_REQUEST_ENTITY_TYPE,
+        id: 'wsr00001',
+        path: WEBSOCKET_REQUEST_EXAMPLES_PATH,
+        itemId: 'wex00001',
+        item: { uid: 'wex00001', type: WS_RESPONSE_EXAMPLE_ENTITY_TYPE },
+        orderKey: 'mm',
+      },
+    ]);
     expect(intent.sideEffects).toEqual([]);
+  });
+
+  it('the exported child verbs mint the same slot the seed builder appends', () => {
+    expect(wsResponseExampleChild.slotAdd('wex00001', parent, 'k')).toEqual({
+      kind: 'addToSet',
+      type: WEBSOCKET_REQUEST_ENTITY_TYPE,
+      id: 'wsr00001',
+      path: WEBSOCKET_REQUEST_EXAMPLES_PATH,
+      itemId: 'wex00001',
+      item: { uid: 'wex00001', type: WS_RESPONSE_EXAMPLE_ENTITY_TYPE },
+      orderKey: 'k',
+    });
   });
 });
 
 describe('deleteWsResponseExample', () => {
-  it('emits a single delete envelope with no side effects', () => {
-    const intent = deleteWsResponseExample(ctx(), { wsResponseExampleUid: 'wex00001' });
-    expect(intent.batch.mutations[0].body).toEqual({
-      kind: 'delete',
-      type: WS_RESPONSE_EXAMPLE_ENTITY_TYPE,
-      id: 'wex00001',
-    });
+  it('emits the request slot tombstone + the entity tombstone with no side effects', () => {
+    const intent = deleteWsResponseExample(ctx(), { wsResponseExampleUid: 'wex00001', parent });
+    expect(intent.batch.mutations.map((m) => m.body)).toEqual([
+      {
+        kind: 'removeFromSet',
+        type: WEBSOCKET_REQUEST_ENTITY_TYPE,
+        id: 'wsr00001',
+        path: WEBSOCKET_REQUEST_EXAMPLES_PATH,
+        itemId: 'wex00001',
+      },
+      { kind: 'delete', type: WS_RESPONSE_EXAMPLE_ENTITY_TYPE, id: 'wex00001' },
+    ]);
     expect(intent.sideEffects).toEqual([]);
   });
 });
@@ -196,5 +231,41 @@ describe('seedWsResponseExample / projectWsResponseExample', () => {
 
   it('returns null for a foreign entity type', () => {
     expect(projectWsResponseExample({ type: 'websocketRequest', id: 'r1', data: {}, fieldOrigins: {} })).toBeNull();
+  });
+});
+
+describe('seedWsResponseExample with a placement', () => {
+  it('stamps the frozen pathSegment and appends the request slot after the create', () => {
+    const entity = example();
+    const batch = seedWsResponseExample(entity, ctx(), { parent, orderKey: 'mm' });
+    expect(batch.mutations.map((m) => m.body.kind)).toEqual(['create', 'addToSet']);
+    const body = batch.mutations[0].body;
+    if (body.kind !== 'create') throw new Error('expected create body');
+    expect((body.payload as Record<string, unknown>).pathSegment).toBe(entity.path.split('/').at(-1));
+    expect(batch.mutations[1].body).toMatchObject({
+      kind: 'addToSet',
+      type: WEBSOCKET_REQUEST_ENTITY_TYPE,
+      id: 'wsr00001',
+      path: WEBSOCKET_REQUEST_EXAMPLES_PATH,
+      itemId: entity.uid,
+      orderKey: 'mm',
+    });
+  });
+
+  it('projects path and the parent uid from the live slot, keeping the stored values with no slot', () => {
+    const entity = example();
+    const materialized = {
+      type: WS_RESPONSE_EXAMPLE_ENTITY_TYPE,
+      id: entity.uid,
+      data: { ...entity, pathSegment: 'moved-wex00001' },
+      fieldOrigins: {},
+    };
+    expect(projectWsResponseExample(materialized)).toEqual({ ...entity, pathSegment: 'moved-wex00001' });
+    expect(
+      projectWsResponseExample(materialized, { path: 'requests/other-col00002/req-req00009', uid: 'req00009' }),
+    ).toMatchObject({
+      path: 'requests/other-col00002/req-req00009/examples/moved-wex00001',
+      websocketRequestUid: 'req00009',
+    });
   });
 });

@@ -19,13 +19,19 @@ import {
   FOLDER_ITEMS_PATH,
   mintBatch,
   moveFolder,
+  REQUEST_COLLECTION_ENTITY_TYPE,
+  REQUEST_ENTITY_TYPE,
+  REQUEST_EXAMPLES_PATH,
   WORKSPACE_ROOTS_ENTITY_TYPE,
   WORKSPACE_ROOTS_ID,
   WORKSPACE_ROOTS_RULE_COLLECTIONS_PATH,
 } from '@openheaders/core/sync';
 import { seedCollection } from '@openheaders/core/sync-builders/projections/collection-projection';
+import { seedRequestCollection } from '@openheaders/core/sync-builders/projections/request-collection-projection';
+import { seedRequest } from '@openheaders/core/sync-builders/projections/request-projection';
+import { seedResponseExample } from '@openheaders/core/sync-builders/projections/response-example-projection';
 import { seedRule } from '@openheaders/core/sync-builders/projections/rule-projection';
-import type { Collection, Rule } from '@openheaders/core/types';
+import type { Collection, Request, ResponseExample, Rule } from '@openheaders/core/types';
 import { wsKeys } from '@openheaders/oracle/storage';
 import { setHostActivityEntrySink } from '@openheaders/oracle/sync';
 import { InMemoryBroadcast } from '@openheaders/oracle/sync/broadcast';
@@ -34,6 +40,7 @@ import { InMemoryMutationLog } from '@openheaders/oracle/sync/mutation-log';
 import { EntityOracle, type LockAcquirer } from '@openheaders/oracle/sync/oracle';
 import { InMemoryPendingIntents } from '@openheaders/oracle/sync/pending-intents';
 import { projectFolderByUid } from '@openheaders/oracle/sync/post-state/folder-post-state';
+import { projectResponseExampleByUid } from '@openheaders/oracle/sync/post-state/response-example-post-state';
 import { projectRuleByUid } from '@openheaders/oracle/sync/post-state/rule-post-state';
 import { createTreeSlotReconciler, REHOME_GRACE_MS } from '@openheaders/oracle/sync/tree-slot-reconciler';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -469,6 +476,114 @@ describe('tree slot reconciler — conflict healing', () => {
     expect(folderSlots(FOLDER_ENTITY_TYPE, 'fol0000a')).toEqual(['fol0000x']);
     await new Promise((resolve) => setTimeout(resolve, 80));
     expect(folderSlots(FOLDER_ENTITY_TYPE, 'fol0000a')).toEqual([]);
+    reconciler.dispose();
+  });
+});
+
+describe('tree slot reconciler — response examples', () => {
+  const requestCollection = {
+    schemaVersion: 5,
+    uid: 'col00001',
+    name: 'api',
+    path: 'requests/api-col00001',
+    variables: [],
+    pinnedEnvironmentIds: [],
+    defaultEnvironmentId: null,
+  } as unknown as Collection;
+  const requestPath = `${requestCollection.path}/get-req00001`;
+  const makeRequest = (uid: string): Request =>
+    ({
+      schemaVersion: 5,
+      uid,
+      path: `${requestCollection.path}/get-${uid}`,
+      pathSegment: `get-${uid}`,
+      name: 'get',
+      method: 'GET',
+      url: 'https://api.openheaders.io/v1',
+      headers: [],
+      params: [],
+      auth: { type: 'inherit' },
+      body: { type: 'none' },
+    }) as unknown as Request;
+  const makeExample = (uid: string, requestUid: string): ResponseExample => ({
+    schemaVersion: 5,
+    uid,
+    path: `${requestPath}/examples/ping-${uid}`,
+    requestUid,
+    name: 'ping',
+    capturedAt: '2026-07-09T09:00:00.000Z',
+    request: { method: 'GET', url: 'https://api.openheaders.io/ping', headers: [], params: [], body: { type: 'none' } },
+    response: {
+      status: 200,
+      statusText: 'OK',
+      url: 'https://api.openheaders.io/ping',
+      headers: [],
+      body: '{"ok":true}',
+      bodyTruncated: false,
+      bodyBytes: 11,
+      durationMs: 42,
+    },
+  });
+  const exampleSlots = (requestUid: string) =>
+    oracle.liveOrderedSetItems(REQUEST_ENTITY_TYPE, requestUid, REQUEST_EXAMPLES_PATH);
+
+  it('seeds slot-less examples onto their live request in persisted order', async () => {
+    await oracle.apply(seedRequestCollection(requestCollection, ctxFactory()), [], 'inbound');
+    await oracle.apply(
+      seedRequest(makeRequest('req00001'), ctxFactory(), {
+        parent: { type: REQUEST_COLLECTION_ENTITY_TYPE, uid: requestCollection.uid },
+        orderKey: 'm',
+      }),
+      [],
+      'inbound',
+    );
+    const examples = [makeExample('ex000002', 'req00001'), makeExample('ex000001', 'req00001')];
+    for (const example of examples) await oracle.apply(seedResponseExample(example, ctxFactory()), [], 'inbound');
+    await hostStorage.set(wsKeys('ws-1').responseExamples, examples);
+
+    const reconciler = createTreeSlotReconciler('ws-1', oracle, broadcast, ctxFactory);
+    await reconciler.hydrateFromStorage();
+    const slots = exampleSlots('req00001');
+    expect(slots.map((s) => s.itemId)).toEqual(['ex000002', 'ex000001']);
+    expect(slots[0].key < slots[1].key).toBe(true);
+    expect(slots[0].item).toEqual({ uid: 'ex000002', type: 'response-example' });
+    expect(projectResponseExampleByUid(oracle, 'ex000001')?.responseExample).toMatchObject({
+      path: `${requestPath}/examples/ping-ex000001`,
+      requestUid: 'req00001',
+    });
+    const before = oracle.revision;
+    await reconciler.reconcile();
+    expect(oracle.revision).toBe(before);
+    reconciler.dispose();
+  });
+
+  it('extends delete-wins to an example whose request is known deleted', async () => {
+    await oracle.apply(seedRequestCollection(requestCollection, ctxFactory()), [], 'inbound');
+    await oracle.apply(seedRequest(makeRequest('req00001'), ctxFactory()), [], 'inbound');
+    await oracle.apply(seedResponseExample(makeExample('ex000001', 'req00001'), ctxFactory()), [], 'inbound');
+    await oracle.apply(
+      mintBatch(ctxFactory(), [{ kind: 'delete', type: REQUEST_ENTITY_TYPE, id: 'req00001' }]),
+      [],
+      'inbound',
+    );
+    const reconciler = createTreeSlotReconciler('ws-1', oracle, broadcast, ctxFactory);
+    await reconciler.hydrateFromStorage();
+    expect(oracle.materializeOne('response-example', 'ex000001')).toBeNull();
+    expect(entries).toEqual([]);
+    reconciler.dispose();
+  });
+
+  it('keeps an example whose request is merely unknown slot-less on the stored net', async () => {
+    const example = makeExample('ex000001', 'req0gone');
+    await oracle.apply(seedResponseExample(example, ctxFactory()), [], 'inbound');
+    const reconciler = createTreeSlotReconciler('ws-1', oracle, broadcast, ctxFactory);
+    await reconciler.hydrateFromStorage();
+    expect(oracle.materializeOne('response-example', 'ex000001')).not.toBeNull();
+    expect(exampleSlots('req0gone')).toEqual([]);
+    expect(projectResponseExampleByUid(oracle, 'ex000001')?.responseExample).toMatchObject({
+      path: example.path,
+      requestUid: 'req0gone',
+    });
     reconciler.dispose();
   });
 });

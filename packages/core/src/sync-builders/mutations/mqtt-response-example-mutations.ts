@@ -1,16 +1,22 @@
 /**
  * MQTT response-example write-site → oracle helpers.
  *
- * Pure transforms — no oracle reads, no IO — mirroring
- * {@link ws-response-example-mutations}. Updates cover `name`/`path`
- * renames plus the captured `request` / `response` blocks (each
- * patched as one LWW value); duplicate is a fresh add with a new uid.
- * Side effects are always empty — examples feed no DNR compile and no
+ * Pure transforms — no oracle reads, no IO — producing `(batch,
+ * sideEffects)` pairs from the catalog factories. A new example takes
+ * its request's `examples` slot in the same batch as the entity; a
+ * delete tombstones the slot with the entity (or the entity alone when
+ * the request is going too). Updates cover `name`/`path` renames
+ * plus the captured `request` / `response` blocks (each patched as
+ * one LWW value); duplicate is a fresh add with a new uid. Side
+ * effects are always empty — examples feed no DNR compile and no
  * variable resolver.
  */
 
 import {
+  type ChildPlacement,
+  deleteMqttResponseExample,
   MQTT_RESPONSE_EXAMPLE_ENTITY_TYPE,
+  type MqttResponseExampleParentRef,
   type MqttResponseExampleScalarPath,
   type MutationBatch,
   type MutationBody,
@@ -26,14 +32,34 @@ export interface MqttResponseExampleMutationPayload {
   sideEffects: SideEffectIntent[];
 }
 
+/**
+ * New example → seed batch. `placement` is the request whose
+ * `examples` slot the example takes in the same batch; `null` only
+ * when the write site deliberately leaves the example slot-less (the
+ * reconciler seeds it from its stored parent uid).
+ */
 export function buildAddMqttResponseExampleBatch(
   example: MqttResponseExample,
   ctx: MutatorContext,
+  placement: ChildPlacement<MqttResponseExampleParentRef> | null,
 ): MqttResponseExampleMutationPayload {
-  return { batch: seedMqttResponseExample(example, ctx), sideEffects: [] };
+  return { batch: seedMqttResponseExample(example, ctx, placement ?? undefined), sideEffects: [] };
 }
 
+/** Delete an example: the request's slot tombstone + the entity tombstone in one batch. */
 export function buildDeleteMqttResponseExampleBatch(
+  exampleUid: string,
+  parent: MqttResponseExampleParentRef,
+  ctx: MutatorContext,
+): MqttResponseExampleMutationPayload {
+  return deleteMqttResponseExample(ctx, { mqttResponseExampleUid: exampleUid, parent });
+}
+
+/**
+ * Bare example-entity tombstone for the request-delete cascade, where
+ * the request (and with it the slot set) is going too.
+ */
+export function buildDeleteMqttResponseExampleEntityBatch(
   exampleUid: string,
   ctx: MutatorContext,
 ): MqttResponseExampleMutationPayload {

@@ -23,3 +23,21 @@ export function projectLeafPath(data: Record<string, unknown>, parentPath: strin
     typeof data.pathSegment === 'string' && data.pathSegment.length > 0 ? data.pathSegment : lastPathSegment(stored);
   return segment === null ? stored : `${parentPath}/${segment}`;
 }
+
+/** The live parent a response example projects from: its request's projected path + uid. */
+export interface ExampleParent {
+  path: string;
+  uid: string;
+}
+
+/** The directory a request's examples nest under: `<requestPath>/examples/<segment>`. */
+export const EXAMPLES_DIRECTORY = 'examples';
+
+/**
+ * A response example's `path` projection — the request's projected
+ * path, the `examples` directory, then the example's own frozen
+ * segment (the stored path's tail for a segment-less old capture).
+ */
+export function projectExamplePath(data: Record<string, unknown>, requestPath: string): string {
+  return projectLeafPath(data, `${requestPath}/${EXAMPLES_DIRECTORY}`);
+}

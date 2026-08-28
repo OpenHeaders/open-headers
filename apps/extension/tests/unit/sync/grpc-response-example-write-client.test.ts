@@ -18,6 +18,8 @@
 import type { MutationBatch, MutatorContext } from '@openheaders/core/sync';
 import {
   advanceHlc,
+  GRPC_REQUEST_ENTITY_TYPE,
+  GRPC_REQUEST_EXAMPLES_PATH,
   GRPC_RESPONSE_EXAMPLE_ENTITY_TYPE,
   initialHlc,
   REQUEST_COLLECTION_ENTITY_TYPE,
@@ -153,7 +155,7 @@ describe('nextGrpcExampleName', () => {
 });
 
 describe('applyGrpcResponseExampleCreate', () => {
-  it('mints identity and emits a create envelope on the grpcResponseExample entity', async () => {
+  it('mints identity and emits the create + the request examples slot after the live tail', async () => {
     mockCall.mockResolvedValue({ ok: true, outcomes: [] });
     const source = makeExample('unusedxx');
     const result = await applyGrpcResponseExampleCreate(
@@ -167,7 +169,13 @@ describe('applyGrpcResponseExampleCreate', () => {
           response: source.response,
         },
       },
-      { workspaceId: 'ws-1', surfaceId: 'workbench', mirror: makeMirror([]), context: makeContextHandle() },
+      {
+        workspaceId: 'ws-1',
+        surfaceId: 'workbench',
+        mirror: makeMirror([]),
+        requestMirror: makeGrpcRequestMirror(['grq00001'], 'm'),
+        context: makeContextHandle(),
+      },
     );
     if (!result.ok) throw new Error('expected ok');
     expect(result.grpcResponseExample.uid).toBeTruthy();
@@ -182,6 +190,39 @@ describe('applyGrpcResponseExampleCreate', () => {
       type: GRPC_RESPONSE_EXAMPLE_ENTITY_TYPE,
       id: result.grpcResponseExample.uid,
     });
+    expect(batch.mutations[1].body).toMatchObject({
+      kind: 'addToSet',
+      type: GRPC_REQUEST_ENTITY_TYPE,
+      id: 'grq00001',
+      path: GRPC_REQUEST_EXAMPLES_PATH,
+      itemId: result.grpcResponseExample.uid,
+      item: { uid: result.grpcResponseExample.uid, type: GRPC_RESPONSE_EXAMPLE_ENTITY_TYPE },
+    });
+  });
+
+  it('refuses a create whose request the mirror does not hold', async () => {
+    const source = makeExample('unusedxx');
+    const result = await applyGrpcResponseExampleCreate(
+      {
+        grpcRequestPath: 'requests/api-rc1/get-book-grq00001',
+        example: {
+          grpcRequestUid: 'grq0gone',
+          name: source.name,
+          capturedAt: source.capturedAt,
+          request: source.request,
+          response: source.response,
+        },
+      },
+      {
+        workspaceId: 'ws-1',
+        surfaceId: 'workbench',
+        mirror: makeMirror([]),
+        requestMirror: makeGrpcRequestMirror(['grq00001']),
+        context: makeContextHandle(),
+      },
+    );
+    expect(result).toEqual({ ok: false, reason: 'not-found' });
+    expect(mockCall).not.toHaveBeenCalled();
   });
 });
 
@@ -301,6 +342,7 @@ describe('applyGrpcResponseExampleDuplicate', () => {
       workspaceId: 'ws-1',
       surfaceId: 'workbench',
       mirror,
+      requestMirror: makeGrpcRequestMirror(['grq00001']),
       context: makeContextHandle(),
     });
     if (!result.ok) throw new Error('expected ok');
@@ -313,35 +355,37 @@ describe('applyGrpcResponseExampleDuplicate', () => {
   });
 });
 
-describe('applyGrpcRequestDelete — example cascade', () => {
-  function makeGrpcRequestMirror(uids: string[]): GrpcRequestSyncMirror {
-    return {
-      getGrpcRequestMirror: (uid) =>
-        uids.includes(uid)
-          ? {
-              grpcRequest: {
-                schemaVersion: 5,
-                uid,
-                path: `requests/api-rc1/get-book-${uid}`,
-                name: 'GetBook',
-                url: 'grpc.openheaders.io:443',
-                message: '',
-                metadata: [],
-              },
-              setItemIds: {},
-              setOrderKeys: {},
-            }
-          : null,
-      listGrpcRequests: () => [],
-      liveSetItems: () => [],
-      liveOrderedSetItems: () => [],
-      subscribeGrpcRequestMirror: () => () => undefined,
-      subscribeAny: () => () => undefined,
-      hydrated: Promise.resolve(),
-      dispose: () => undefined,
-    };
-  }
+/** The parent gRPC request mirror: the given uids live, with an optional `examples` tail. */
+function makeGrpcRequestMirror(uids: string[], tail: string | null = null): GrpcRequestSyncMirror {
+  return {
+    getGrpcRequestMirror: (uid) =>
+      uids.includes(uid)
+        ? {
+            grpcRequest: {
+              schemaVersion: 5,
+              uid,
+              path: `requests/api-rc1/get-book-${uid}`,
+              name: 'GetBook',
+              url: 'grpc.openheaders.io:443',
+              message: '',
+              metadata: [],
+            },
+            setItemIds: {},
+            setOrderKeys: {},
+          }
+        : null,
+    listGrpcRequests: () => [],
+    liveSetItems: () => [],
+    liveOrderedSetItems: (_uid, setPath) =>
+      setPath === GRPC_REQUEST_EXAMPLES_PATH && tail !== null ? [{ itemId: 'gexx0000', orderKey: tail }] : [],
+    subscribeGrpcRequestMirror: () => () => undefined,
+    subscribeAny: () => () => undefined,
+    hydrated: Promise.resolve(),
+    dispose: () => undefined,
+  };
+}
 
+describe('applyGrpcRequestDelete — example cascade', () => {
   /** The request tree's container mirrors: the collection `requests/api-rc1`, no folders. */
   function makeTreeMirrors(): { collectionMirror: RequestCollectionSyncMirror; folderMirror: RequestFolderSyncMirror } {
     const collection = {
@@ -424,7 +468,7 @@ describe('applyGrpcResponseExampleDelete', () => {
     expect(mockCall).not.toHaveBeenCalled();
   });
 
-  it('emits one delete envelope on success', async () => {
+  it('emits the request slot tombstone + the entity tombstone in one batch', async () => {
     mockCall.mockResolvedValue({ ok: true, outcomes: [] });
     const mirror = makeMirror([makeExample('gexx0001')]);
     const result = await applyGrpcResponseExampleDelete('gexx0001', {
@@ -435,11 +479,15 @@ describe('applyGrpcResponseExampleDelete', () => {
     });
     expect(result).toEqual({ ok: true });
     const batch = (mockCall.mock.calls[0][1] as { batch: MutationBatch }).batch;
-    expect(batch.mutations).toHaveLength(1);
-    expect(batch.mutations[0].body).toMatchObject({
-      kind: 'delete',
-      type: GRPC_RESPONSE_EXAMPLE_ENTITY_TYPE,
-      id: 'gexx0001',
-    });
+    expect(batch.mutations.map((m) => m.body)).toEqual([
+      {
+        kind: 'removeFromSet',
+        type: GRPC_REQUEST_ENTITY_TYPE,
+        id: 'grq00001',
+        path: GRPC_REQUEST_EXAMPLES_PATH,
+        itemId: 'gexx0001',
+      },
+      { kind: 'delete', type: GRPC_RESPONSE_EXAMPLE_ENTITY_TYPE, id: 'gexx0001' },
+    ]);
   });
 });
