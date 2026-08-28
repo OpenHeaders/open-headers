@@ -27,6 +27,7 @@ export const workbenchEditors = {
   'workbench.editors.session.connectionDetails': '连接详情',
   'workbench.editors.session.subprotocol': '子协议',
   'workbench.editors.session.extensions': '扩展',
+  'workbench.editors.session.closeCode': '关闭代码',
 
   // ── Editable-grid chrome (shared: request editor + response-example) ─
   'workbench.editors.grid.key': '键',

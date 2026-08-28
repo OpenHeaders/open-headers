@@ -136,48 +136,32 @@ const WsSessionPane: React.FC<WsSessionPaneProps> = ({
     };
   }, [snapshot, live, timing, t]);
 
-  // Close pill honesty: a user abort pills neutrally; a pre-open
-  // failure reads as Connect failed on the error tint; the clean 1000
-  // reads success-green; any other code renders verbatim on the
-  // warning tint; a missing Close frame is named as the absence it
-  // is; Stopped is its own state.
+  // The settled pill — the reference vocabulary: a session that opened
+  // reads Disconnected on the error tint whatever ended it (the close
+  // code, a Stop, a missing Close frame all ride the hover sheet); a
+  // handshake failure reads Connect failed on the same tint; a cancel
+  // before the handshake reads Aborted on the neutral wash.
+  const endedPill = useTonePillStyle('error');
+  const abortedPill = useTonePillStyle('neutral');
   const closeTag = (() => {
     if (snapshot === null) return null;
     if (snapshot.outcome.kind === 'aborted') {
       return (
-        <Tag style={{ marginInlineEnd: 0 }} data-testid="ws-session-close-tag">
+        <Tag color="default" style={abortedPill} data-testid="ws-session-close-tag">
           {t('workbench.editors.websocket.session.abortedTag')}
         </Tag>
       );
     }
     if (snapshot.outcome.kind === 'failed') {
       return (
-        <Tag color="error" style={{ marginInlineEnd: 0 }} data-testid="ws-session-close-tag">
+        <Tag color="default" style={endedPill} data-testid="ws-session-close-tag">
           {t('workbench.editors.websocket.session.connectFailedTag')}
         </Tag>
       );
     }
-    if (snapshot.stopped === true) {
-      return (
-        <Tag color="warning" style={{ marginInlineEnd: 0 }} data-testid="ws-session-close-tag">
-          {t('workbench.editors.websocket.session.stoppedTag')}
-        </Tag>
-      );
-    }
-    if (snapshot.close === null) {
-      return (
-        <Tag color="error" style={{ marginInlineEnd: 0 }} data-testid="ws-session-close-tag">
-          {t('workbench.editors.websocket.session.noCloseFrame')}
-        </Tag>
-      );
-    }
     return (
-      <Tag
-        color={snapshot.close.code === 1000 ? 'success' : 'warning'}
-        style={{ marginInlineEnd: 0 }}
-        data-testid="ws-session-close-tag"
-      >
-        {t('workbench.editors.websocket.session.closedTag', { code: snapshot.close.code })}
+      <Tag color="default" style={endedPill} data-testid="ws-session-close-tag">
+        {t('workbench.editors.websocket.session.disconnectedTag')}
       </Tag>
     );
   })();
@@ -225,14 +209,19 @@ const WsSessionPane: React.FC<WsSessionPaneProps> = ({
       }
     } else {
       if (teardownAt !== undefined) {
-        const label =
+        rows.push({ label: t('workbench.editors.websocket.session.disconnectedTag'), atMs: teardownAt });
+      }
+      rows.push({
+        label: t('workbench.editors.session.closeCode'),
+        value:
           snapshot.stopped === true
             ? t('workbench.editors.websocket.session.stoppedTag')
             : snapshot.close === null
               ? t('workbench.editors.websocket.session.noCloseFrame')
-              : t('workbench.editors.websocket.session.closedTag', { code: snapshot.close.code });
-        rows.push({ label, atMs: teardownAt });
-      }
+              : snapshot.close.reason !== ''
+                ? `${snapshot.close.code} — ${snapshot.close.reason}`
+                : String(snapshot.close.code),
+      });
       if (timing.connectedAt !== undefined) {
         rows.push({ label: t('workbench.editors.websocket.timeline.connected'), atMs: timing.connectedAt });
       }
@@ -262,9 +251,6 @@ const WsSessionPane: React.FC<WsSessionPaneProps> = ({
         <>
           {closeTag !== null && <ConnectionDetailsTooltip rows={detailRows}>{closeTag}</ConnectionDetailsTooltip>}
           {proxyRouteHasBadge(snapshot.proxyRoute) && <ProxyRouteTag route={snapshot.proxyRoute} />}
-          <Text type="secondary" style={{ fontSize: 11 }} data-testid="ws-session-duration">
-            {t('workbench.editors.websocket.session.duration', { ms: snapshot.durationMs })}
-          </Text>
           <Dropdown
             trigger={['click']}
             overlayStyle={{ minWidth: 180 }}

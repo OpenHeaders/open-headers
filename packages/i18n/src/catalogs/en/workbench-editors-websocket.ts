@@ -150,6 +150,7 @@ export const workbenchEditorsWebsocket = {
   'workbench.editors.websocket.session.tab.handshake': 'Handshake',
   'workbench.editors.websocket.session.closedTag': 'Closed {code}',
   'workbench.editors.websocket.session.stoppedTag': 'Stopped',
+  'workbench.editors.websocket.session.disconnectedTag': 'Disconnected',
   'workbench.editors.websocket.session.connectFailedTag': 'Connect failed',
   'workbench.editors.websocket.session.abortedTag': 'Aborted',
   'workbench.editors.websocket.session.noCloseFrame': 'Connection ended without a Close frame',

@@ -27,6 +27,7 @@ export const workbenchEditors = {
   'workbench.editors.session.connectionDetails': 'Verbindungsdetails',
   'workbench.editors.session.subprotocol': 'Subprotokoll',
   'workbench.editors.session.extensions': 'Erweiterungen',
+  'workbench.editors.session.closeCode': 'Schließcode',
 
   // ── Editable-grid chrome (shared: request editor + response-example) ─
   'workbench.editors.grid.key': 'Schlüssel',

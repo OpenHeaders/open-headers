@@ -150,6 +150,7 @@ export const workbenchEditorsWebsocket = {
   'workbench.editors.websocket.session.tab.handshake': '握手',
   'workbench.editors.websocket.session.closedTag': '已关闭 {code}',
   'workbench.editors.websocket.session.stoppedTag': '已停止',
+  'workbench.editors.websocket.session.disconnectedTag': '已断开',
   'workbench.editors.websocket.session.connectFailedTag': '连接失败',
   'workbench.editors.websocket.session.abortedTag': '已中止',
   'workbench.editors.websocket.session.noCloseFrame': '连接结束时没有 Close 帧',

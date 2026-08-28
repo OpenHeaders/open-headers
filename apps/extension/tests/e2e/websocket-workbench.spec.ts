@@ -203,7 +203,7 @@ function timelineMessageRows() {
 /** Disconnect (the clean close 1000) and wait for the settled tag. */
 async function disconnectAndAwaitClose(): Promise<void> {
   await connectButton().filter({ hasText: 'Disconnect' }).click();
-  await closeTag().filter({ hasText: 'Closed 1000' }).waitFor({ state: 'visible', timeout: 20_000 });
+  await closeTag().filter({ hasText: 'Disconnected' }).waitFor({ state: 'visible', timeout: 20_000 });
 }
 
 test.describe.configure({ mode: 'serial' });
