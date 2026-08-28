@@ -123,10 +123,7 @@ const TimelineMessageViewer: React.FC<TimelineMessageViewerProps> = ({
         display: 'flex',
         flexDirection: 'column',
         gap: 4,
-        // Inset under the row like the lifecycle sheets — the detail
-        // column starts at the sheets' 37px, the right edge keeps the
-        // row's 10px — so the viewer reads as the row's own block.
-        padding: '0 10px 4px 37px',
+        paddingBottom: 4,
       }}
     >
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, height: VIEWER_TOOLBAR_PX }}>
