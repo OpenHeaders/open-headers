@@ -13,7 +13,6 @@ import { Button, ConfigProvider, Dropdown, Input, Segmented, Select, Tooltip, Ty
 import type React from 'react';
 import { useState } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
-import { WrapLinesIcon } from '../request-editor/response/ViewPickerIcons';
 import type { MqttDirectionFilter } from './mqtt-timeline-model';
 
 const { Text } = Typography;
@@ -32,8 +31,6 @@ interface MqttTimelineToolbarProps {
   onDirectionFilterChange: (filter: MqttDirectionFilter) => void;
   newestFirst: boolean;
   onNewestFirstChange: (newestFirst: boolean) => void;
-  wrapLines: boolean;
-  onWrapLinesChange: (wrap: boolean) => void;
   onClear: () => void;
 }
 
@@ -49,8 +46,6 @@ const MqttTimelineToolbar: React.FC<MqttTimelineToolbarProps> = ({
   onDirectionFilterChange,
   newestFirst,
   onNewestFirstChange,
-  wrapLines,
-  onWrapLinesChange,
   onClear,
 }) => {
   const { token } = theme.useToken();
@@ -147,23 +142,6 @@ const MqttTimelineToolbar: React.FC<MqttTimelineToolbarProps> = ({
           />
         </Tooltip>
       </Dropdown>
-      <Tooltip
-        title={
-          wrapLines
-            ? t('workbench.editors.request.response.body.unwrapLines')
-            : t('workbench.editors.request.response.body.wrapLines')
-        }
-        placement="bottom"
-      >
-        <Button
-          size="small"
-          type="text"
-          icon={<WrapLinesIcon />}
-          onClick={() => onWrapLinesChange(!wrapLines)}
-          aria-label={t('workbench.editors.request.response.body.wrapLines')}
-          style={wrapLines ? { background: token.colorBgTextActive } : undefined}
-        />
-      </Tooltip>
       <Tooltip title={t('workbench.editors.mqtt.timeline.clearMessages')} placement="bottom">
         <Button
           size="small"

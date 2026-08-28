@@ -12,12 +12,14 @@
 import MqttMessageTimeline from '@openheaders/ui/workbench/components/mqtt-request-editor/MqttMessageTimeline';
 import {
   formatMessageTime,
+  type MqttTimelineItem,
   type MqttTimelineLifecycle,
 } from '@openheaders/ui/workbench/components/mqtt-request-editor/mqtt-timeline-model';
 // Registers the requests.* settings the timeline's toolbar reads/writes.
 import '@openheaders/ui/workbench/settings/schema/requests';
 import { reset as resetSetting } from '@openheaders/ui/workbench/settings/store';
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { encodeBase64Bytes } from '@openheaders/core/utils';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@openheaders/ui/workbench/components/shared/CodeEditor', () => ({
@@ -119,5 +121,35 @@ describe('MqttMessageTimeline — reconnect attempt rows', () => {
       true,
     );
     expect(rows.some((text) => text?.includes('Reconnected to broker — 3 unacknowledged messages dropped'))).toBe(true);
+  });
+});
+
+describe('MqttMessageTimeline — message viewer', () => {
+  const message = (payload: string): MqttTimelineItem => ({
+    kind: 'message',
+    direction: 'down',
+    topic: 'sensors/temp',
+    payloadBase64: encodeBase64Bytes(new TextEncoder().encode(payload)),
+    qos: 0,
+    retain: false,
+    dup: false,
+  });
+  const CONNECTED: MqttTimelineLifecycle = { startedAt: STARTED_AT, connected: true, connectedAt: STARTED_AT + 40 };
+
+  it('expands a row into the viewer with the toolbar and toggles the hexdump', () => {
+    render(<MqttMessageTimeline items={[message('ping')]} count={1} lifecycle={CONNECTED} v5 />);
+    fireEvent.click(screen.getByTestId('mqtt-timeline-message-row'));
+    const viewer = screen.getByTestId('mqtt-timeline-message-viewer');
+    expect((viewer.querySelector('[data-testid="code-editor"]') as HTMLTextAreaElement).value).toBe('ping');
+    expect(screen.getByTestId('mqtt-timeline-viewer-format')).toBeTruthy();
+    expect(screen.getByTestId('mqtt-timeline-viewer-wrap')).toBeTruthy();
+    expect(screen.getByTestId('mqtt-timeline-viewer-find')).toBeTruthy();
+    const toggle = screen.getByTestId('mqtt-timeline-viewer-hex');
+    expect(toggle.textContent).toBe('Show Hexdump');
+    fireEvent.click(toggle);
+    expect(screen.getByTestId('mqtt-timeline-hex').textContent).toMatch(/70 69 6e 67/i);
+    expect(screen.queryByTestId('code-editor')).toBeNull();
+    fireEvent.click(screen.getByTestId('mqtt-timeline-viewer-hex'));
+    expect(screen.getByTestId('code-editor')).toBeTruthy();
   });
 });

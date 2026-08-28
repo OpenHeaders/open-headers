@@ -76,13 +76,15 @@ import {
 } from '@ant-design/icons';
 import type { ProtoRegistry } from '@openheaders/core/proto';
 import { Button, ConfigProvider, Dropdown, Input, Segmented, Tag, Tooltip, Typography, theme } from 'antd';
+import { decodeBase64Bytes } from '@openheaders/core/utils';
 import type React from 'react';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { type Translate, useT } from '@openheaders/ui/context/LocaleContext';
 import { useVirtualRowWindow } from '@openheaders/ui/shared/virtual-window';
 import { useSetting } from '@openheaders/ui/workbench/settings/hooks';
 import CodeEditor from '../shared/CodeEditor';
-import { WrapLinesIcon } from '../request-editor/response/ViewPickerIcons';
+import { buildHexDump, type HexDump } from '../request-editor/response/response-encoding';
+import TimelineMessageViewer, { useTimelineViewerModes, VIEWER_PX } from '../shared/TimelineMessageViewer';
 import { deriveGrpcFrameView, type GrpcMessageView } from './response-decode';
 
 const { Text } = Typography;
@@ -95,9 +97,6 @@ const PREVIEW_MAX_CHARS = 400;
  *  header, lifecycle) — the virtual window's arithmetic depends on
  *  heights being exact by construction. */
 const SINGLE_ROW_PX = 28;
-/** Pinned height of an expanded row's mini viewer (180px editor +
- *  1px divider). */
-const VIEWER_PX = 181;
 /** Pinned height of the sent row's expanded metadata block — heading
  *  (18px) + one 20px line per pair (the recorded-empty state's "No
  *  metadata sent." line counts as one) + 6px paddings + 1px divider
@@ -269,6 +268,8 @@ function entryIndexAt(prefix: readonly number[], scrollTop: number): number {
 interface FrameDerivations {
   viewOf: (item: GrpcTimelineItem) => GrpcMessageView;
   previewOf: (item: GrpcTimelineItem) => string;
+  /** The frame's bytes as the classic dump — the viewer's Hexdump. */
+  hexOf: (item: GrpcTimelineItem) => HexDump;
 }
 
 function makeFrameDerivations(
@@ -299,7 +300,15 @@ function makeFrameDerivations(
     previewCache.set(item, preview);
     return preview;
   };
-  return { viewOf, previewOf };
+  const hexCache = new WeakMap<GrpcTimelineItem, HexDump>();
+  const hexOf = (item: GrpcTimelineItem): HexDump => {
+    const hit = hexCache.get(item);
+    if (hit !== undefined) return hit;
+    const dump = buildHexDump(decodeBase64Bytes(item.dataBase64) ?? new Uint8Array(0));
+    hexCache.set(item, dump);
+    return dump;
+  };
+  return { viewOf, previewOf, hexOf };
 }
 
 const GrpcMessageTimeline: React.FC<GrpcMessageTimelineProps> = ({
@@ -335,6 +344,7 @@ const GrpcMessageTimeline: React.FC<GrpcMessageTimelineProps> = ({
   /** The error row's explanation details are open. */
   const [errorExpanded, setErrorExpanded] = useState(false);
   const [wrapLines, setWrapLines] = useState(true);
+  const viewerModes = useTimelineViewerModes();
   // Sort direction and grouping are SETTINGS — global, user-owned,
   // written by this toolbar and the Settings page alike; an Invoke/
   // Cancel remount never resets them.
@@ -1230,30 +1240,26 @@ const GrpcMessageTimeline: React.FC<GrpcMessageTimelineProps> = ({
         );
       }
       case 'viewer': {
-        const view = derive.viewOf(items[entry.index]);
-        const content =
-          view.kind === 'schema' || view.kind === 'structural'
-            ? { value: view.text, language: 'json' as const }
-            : view.kind === 'raw'
-              ? { value: view.base64, language: 'text' as const }
-              : { value: '', language: 'text' as const };
+        const item = items[entry.index];
+        const view = derive.viewOf(item);
+        // A decoded frame reads as JSON; the raw and compressed frames
+        // have only their bytes — they open on the Hexdump, Show Message
+        // reads the base64.
+        const decoded = view.kind === 'schema' || view.kind === 'structural';
+        const text = decoded ? view.text : view.kind === 'raw' ? view.base64 : '';
         return (
-          <div
+          <TimelineMessageViewer
             key={entry.key}
-            data-testid="grpc-timeline-message-viewer"
-            onClick={(event) => event.stopPropagation()}
-            onKeyDown={(event) => event.stopPropagation()}
-            style={{ height: VIEWER_PX - 1, borderBottom: `1px solid ${token.colorBorderSecondary}` }}
-          >
-            <CodeEditor
-              value={content.value}
-              language={content.language}
-              readOnly
-              fill
-              variableAutoComplete={false}
-              wordWrapOverride={wrapLines ? 'on' : 'off'}
-            />
-          </div>
+            text={text}
+            defaultFormat={decoded ? 'json' : 'text'}
+            hexDump={() => derive.hexOf(item)}
+            mode={viewerModes.modeOf(entry.index, !decoded)}
+            onModeChange={(mode) => viewerModes.setMode(entry.index, mode)}
+            wrapLines={wrapLines}
+            onWrapLinesChange={setWrapLines}
+            actionsRef={viewerModes.actionsOf(entry.index)}
+            testIdPrefix="grpc-timeline"
+          />
         );
       }
       default: {
@@ -1380,23 +1386,6 @@ const GrpcMessageTimeline: React.FC<GrpcMessageTimelineProps> = ({
             />
           </Tooltip>
         </Dropdown>
-        <Tooltip
-          title={
-            wrapLines
-              ? t('workbench.editors.request.response.body.unwrapLines')
-              : t('workbench.editors.request.response.body.wrapLines')
-          }
-          placement="bottom"
-        >
-          <Button
-            size="small"
-            type="text"
-            icon={<WrapLinesIcon />}
-            onClick={() => setWrapLines((prev) => !prev)}
-            aria-label={t('workbench.editors.request.response.body.wrapLines')}
-            style={wrapLines ? { background: token.colorBgTextActive } : undefined}
-          />
-        </Tooltip>
         <Tooltip title={t('workbench.editors.grpc.timeline.clearMessages')} placement="bottom">
           <Button
             size="small"

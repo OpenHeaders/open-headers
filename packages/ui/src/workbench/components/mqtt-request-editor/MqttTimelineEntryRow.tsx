@@ -28,7 +28,7 @@ import { Tag, theme } from 'antd';
 import type React from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { formatDurationMs } from '@openheaders/ui/shared/combo-knob';
-import CodeEditor from '../shared/CodeEditor';
+import TimelineMessageViewer, { type TimelineViewerModes } from '../shared/TimelineMessageViewer';
 import {
   CONNACK_DETAIL_PX,
   cellFont,
@@ -61,6 +61,8 @@ interface MqttTimelineEntryRowProps {
   onToggleRow: (index: number) => void;
   onToggleConnack: () => void;
   wrapLines: boolean;
+  onWrapLinesChange: (wrap: boolean) => void;
+  viewerModes: TimelineViewerModes;
 }
 
 const MqttTimelineEntryRow: React.FC<MqttTimelineEntryRowProps> = ({
@@ -75,6 +77,8 @@ const MqttTimelineEntryRow: React.FC<MqttTimelineEntryRowProps> = ({
   onToggleRow,
   onToggleConnack,
   wrapLines,
+  onWrapLinesChange,
+  viewerModes,
 }) => {
   const { token } = theme.useToken();
   const t = useT();
@@ -544,21 +548,17 @@ const MqttTimelineEntryRow: React.FC<MqttTimelineEntryRowProps> = ({
       if (item.kind !== 'message') return null;
       const view = derive.viewOf(item);
       return (
-        <div
-          data-testid="mqtt-timeline-message-viewer"
-          onClick={(event) => event.stopPropagation()}
-          onKeyDown={(event) => event.stopPropagation()}
-          style={{ height: VIEWER_PX - 1, borderBottom: `1px solid ${token.colorBorderSecondary}` }}
-        >
-          <CodeEditor
-            value={view.text}
-            language={view.kind === 'json' ? 'json' : 'text'}
-            readOnly
-            fill
-            variableAutoComplete={false}
-            wordWrapOverride={wrapLines ? 'on' : 'off'}
-          />
-        </div>
+        <TimelineMessageViewer
+          text={view.text}
+          defaultFormat={view.kind === 'json' ? 'json' : 'text'}
+          hexDump={() => derive.hexOf(item)}
+          mode={viewerModes.modeOf(entry.index, view.kind === 'binary')}
+          onModeChange={(mode) => viewerModes.setMode(entry.index, mode)}
+          wrapLines={wrapLines}
+          onWrapLinesChange={onWrapLinesChange}
+          actionsRef={viewerModes.actionsOf(entry.index)}
+          testIdPrefix="mqtt-timeline"
+        />
       );
     }
     default: {

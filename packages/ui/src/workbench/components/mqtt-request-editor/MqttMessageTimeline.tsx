@@ -55,6 +55,7 @@ import {
 } from './mqtt-timeline-model';
 import MqttTimelineEntryRow from './MqttTimelineEntryRow';
 import MqttTimelineToolbar from './MqttTimelineToolbar';
+import { useTimelineViewerModes } from '../shared/TimelineMessageViewer';
 
 interface MqttMessageTimelineProps {
   /** Item log — append-only during the live phase (the array reference
@@ -92,6 +93,7 @@ const MqttMessageTimeline: React.FC<MqttMessageTimelineProps> = ({
   const [expanded, setExpanded] = useState<ReadonlySet<number>>(new Set<number>());
   const [connackExpanded, setConnackExpanded] = useState(false);
   const [wrapLines, setWrapLines] = useState(true);
+  const viewerModes = useTimelineViewerModes();
   // Sort direction is a SETTING — global, user-owned, written by this
   // toolbar and the Settings page alike; a Connect/Disconnect remount
   // never resets it.
@@ -340,8 +342,6 @@ const MqttMessageTimeline: React.FC<MqttMessageTimelineProps> = ({
         onDirectionFilterChange={setDirectionFilter}
         newestFirst={newestFirst}
         onNewestFirstChange={setNewestFirst}
-        wrapLines={wrapLines}
-        onWrapLinesChange={setWrapLines}
         onClear={() => setClearedCount(count)}
       />
       <div style={{ flex: 1, minHeight: 0, position: 'relative', display: 'flex', flexDirection: 'column' }}>
@@ -407,6 +407,8 @@ const MqttMessageTimeline: React.FC<MqttMessageTimelineProps> = ({
               onToggleRow={toggleRow}
               onToggleConnack={toggleConnack}
               wrapLines={wrapLines}
+              onWrapLinesChange={setWrapLines}
+              viewerModes={viewerModes}
             />
           ))}
           <div aria-hidden style={{ height: bottomPadPx }} />

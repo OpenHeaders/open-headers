@@ -10,6 +10,7 @@
 
 import { decodeBase64Bytes } from '@openheaders/core/utils';
 import type React from 'react';
+import { buildHexDump, type HexDump } from '../request-editor/response/response-encoding';
 
 /** Inline preview cap — plenty for a row; the expanded viewer has the
  *  full payload. */
@@ -20,7 +21,7 @@ export const PREVIEW_MAX_CHARS = 400;
 export const SINGLE_ROW_PX = 28;
 /** Pinned height of an expanded row's mini viewer (180px editor +
  *  1px divider). */
-export const VIEWER_PX = 181;
+export { VIEWER_PX } from '../shared/TimelineMessageViewer';
 /** Pinned height of the Connected row's expanded CONNACK block —
  *  heading (18px) + four fact rows (20px each) + 6px paddings + 1px
  *  divider; the lines carry these heights explicitly so the virtual
@@ -182,6 +183,8 @@ const BINARY_MARKS = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\uFFFD]/;
 export interface MqttFrameDerivations {
   viewOf: (item: MqttTimelineItem & { kind: 'message' }) => MqttMessageView;
   previewOf: (item: MqttTimelineItem & { kind: 'message' }) => string;
+  /** The payload's bytes as the classic dump — the viewer's Hexdump. */
+  hexOf: (item: MqttTimelineItem & { kind: 'message' }) => HexDump;
 }
 
 /** Per-item view/preview caches — item identity is append-only, so a
@@ -223,5 +226,13 @@ export function makeMqttFrameDerivations(): MqttFrameDerivations {
     previewCache.set(item, preview);
     return preview;
   };
-  return { viewOf, previewOf };
+  const hexCache = new WeakMap<MqttTimelineItem, HexDump>();
+  const hexOf = (item: MqttTimelineItem & { kind: 'message' }): HexDump => {
+    const hit = hexCache.get(item);
+    if (hit !== undefined) return hit;
+    const dump = buildHexDump(decodeBase64Bytes(item.payloadBase64) ?? new Uint8Array(0));
+    hexCache.set(item, dump);
+    return dump;
+  };
+  return { viewOf, previewOf, hexOf };
 }
