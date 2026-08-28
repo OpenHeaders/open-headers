@@ -468,7 +468,11 @@
   line-height: 1.5;
 }
 
+// Shares the tree row's box (side margin, relative origin) so the
+// indent guides it carries land on the same x as the rows around it.
 .rules-sidebar-placeholder {
+  position: relative;
+  margin: 0 4px;
   padding: 6px 10px;
   font-size: 11px;
   line-height: 1.5;
