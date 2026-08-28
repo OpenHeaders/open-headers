@@ -29,6 +29,7 @@ import type {
   MqttTopicRow,
   MqttUserPropertyRow,
 } from '@openheaders/core/types';
+import { binaryEncodingError } from '@openheaders/core/utils';
 import { stableStringify } from '@openheaders/ui/shared/forms';
 import { type KeyValueRow, makeKvRow } from '../request-editor/KeyValueTable';
 
@@ -427,23 +428,13 @@ export function mirrorComposeIntoSaved(draft: MqttDraft, selectedUid: string | n
 
 // ── Compose-payload encoding validation ─────────────────────────────
 
-/** Base64 alphabet with optional padding — whitespace tolerated. */
-const BASE64_PATTERN = /^[A-Za-z0-9+/]*={0,2}$/;
-
 /**
  * Validate the compose payload against its ENCODING. `base64` / `hex`
  * author binary payloads, so malformed input gates Send honestly
- * (Phase C) and shows inline before that. `text` / `json` always pass
- * — JSON syntax is a display concern, the payload travels verbatim.
+ * (Phase C) and shows inline before that — the shared core gate the
+ * executor decodes by. `text` / `json` always pass — JSON syntax is a
+ * display concern, the payload travels verbatim.
  */
 export function payloadEncodingError(payload: string, format: MqttPayloadFormat): 'base64' | 'hex' | null {
-  if (format === 'base64') {
-    const compact = payload.replace(/\s/g, '');
-    return BASE64_PATTERN.test(compact) && compact.length % 4 === 0 ? null : 'base64';
-  }
-  if (format === 'hex') {
-    const compact = payload.replace(/\s/g, '');
-    return /^[0-9a-fA-F]*$/.test(compact) && compact.length % 2 === 0 ? null : 'hex';
-  }
-  return null;
+  return format === 'base64' || format === 'hex' ? binaryEncodingError(payload, format) : null;
 }

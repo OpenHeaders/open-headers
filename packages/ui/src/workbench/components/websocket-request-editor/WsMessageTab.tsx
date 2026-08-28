@@ -6,13 +6,15 @@
  * Replace / Beautify for JSON. The fill editor — the Socket.IO
  * argument rail beside it when the stored text parses as an array.
  * The compose bar BELOW the editor: the raw flavor's format dropdown
- * left, Send right — a visible affordance that ENABLES only while
- * the session is open (the compose text is what Send writes, so the
- * control lives on it).
+ * left — Binary adds the Base64 / Hexadecimal spelling beside it and
+ * the byte spelling is what a BINARY frame carries, so malformed text
+ * shows the honest line and gates Send — and Send right, a visible
+ * affordance that ENABLES only while the session is open (the compose
+ * text is what Send writes, so the control lives on it).
  */
 
 import { SendOutlined } from '@ant-design/icons';
-import type { WebSocketMessageFormat } from '@openheaders/core/types';
+import type { WebSocketBinaryEncoding, WebSocketMessageFormat } from '@openheaders/core/types';
 import { ShortcutHintTitle } from '@openheaders/ui/components/ShortcutKbd';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { Button, Input, Select, Switch, Tooltip, Typography } from 'antd';
@@ -36,6 +38,9 @@ interface WsMessageTabProps {
   sessionOpen: boolean;
   args: SocketIoArgs;
   aids: WsComposeAids;
+  /** Which byte spelling the binary compose fails, or null when it
+   *  decodes (always null outside a binary compose). */
+  encodingError: 'base64' | 'hex' | null;
   onSend: () => void;
 }
 
@@ -46,6 +51,7 @@ const WsMessageTab: React.FC<WsMessageTabProps> = ({
   sessionOpen,
   args,
   aids,
+  encodingError,
   onSend,
 }) => {
   const t = useT();
@@ -55,6 +61,12 @@ const WsMessageTab: React.FC<WsMessageTabProps> = ({
   // prose-like; horizontal scrolling hides the tail).
   const [wrapMessage, setWrapMessage] = useState(true);
   const { argTexts, activeArg, composeArgs } = args;
+  const binaryCompose = !socketioFlavor && draft.messageFormat === 'binary';
+  const rawPlaceholder = binaryCompose
+    ? draft.binaryEncoding === 'hex'
+      ? t('workbench.editors.websocket.messagePlaceholderHex')
+      : t('workbench.editors.websocket.messagePlaceholderBase64')
+    : t('workbench.editors.websocket.messagePlaceholder');
 
   // "Use example message" — the compose aid off the specLink census.
   // A command picker, not a value: picking synthesizes the payload
@@ -147,11 +159,7 @@ const WsMessageTab: React.FC<WsMessageTabProps> = ({
                 actions="external"
                 actionsRef={messageActionsRef}
                 wordWrapOverride={wrapMessage ? 'on' : 'off'}
-                placeholder={
-                  socketioFlavor
-                    ? t('workbench.editors.websocket.event.argsPlaceholder')
-                    : t('workbench.editors.websocket.messagePlaceholder')
-                }
+                placeholder={socketioFlavor ? t('workbench.editors.websocket.event.argsPlaceholder') : rawPlaceholder}
               />
             )}
           </div>
@@ -173,14 +181,30 @@ const WsMessageTab: React.FC<WsMessageTabProps> = ({
               { value: 'json', label: t('workbench.editors.websocket.message.formatJson') },
               { value: 'xml', label: t('workbench.editors.websocket.message.formatXml') },
               { value: 'html', label: t('workbench.editors.websocket.message.formatHtml') },
+              { value: 'binary', label: t('workbench.editors.websocket.message.formatBinary') },
             ]}
             data-testid="websocket-message-format"
+          />
+        )}
+        {binaryCompose && (
+          <Select
+            size="small"
+            style={{ width: 120 }}
+            value={draft.binaryEncoding}
+            onChange={(binaryEncoding: WebSocketBinaryEncoding) => setDraft((d) => ({ ...d, binaryEncoding }))}
+            options={[
+              { value: 'base64', label: t('workbench.editors.websocket.message.encodingBase64') },
+              { value: 'hex', label: t('workbench.editors.websocket.message.encodingHex') },
+            ]}
+            data-testid="websocket-binary-encoding"
           />
         )}
         <span style={{ flex: 1 }} />
         <Tooltip
           title={
-            sessionOpen ? (
+            encodingError !== null ? (
+              t('workbench.editors.websocket.message.invalidGate')
+            ) : sessionOpen ? (
               <ShortcutHintTitle label={SEND_MESSAGE_SHORTCUT}>
                 {t('workbench.editors.websocket.session.sendMessage')}
               </ShortcutHintTitle>
@@ -194,7 +218,7 @@ const WsMessageTab: React.FC<WsMessageTabProps> = ({
               size="small"
               type="primary"
               icon={<SendOutlined />}
-              disabled={!sessionOpen}
+              disabled={!sessionOpen || encodingError !== null}
               onClick={onSend}
               data-testid="websocket-send-message"
             >
@@ -203,6 +227,13 @@ const WsMessageTab: React.FC<WsMessageTabProps> = ({
           </span>
         </Tooltip>
       </div>
+      {encodingError !== null && (
+        <Text type="danger" style={{ fontSize: 11 }} data-testid="websocket-encoding-error">
+          {encodingError === 'base64'
+            ? t('workbench.editors.websocket.message.invalidBase64')
+            : t('workbench.editors.websocket.message.invalidHex')}
+        </Text>
+      )}
     </div>
   );
 };

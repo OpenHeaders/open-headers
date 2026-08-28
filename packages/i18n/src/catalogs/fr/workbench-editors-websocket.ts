@@ -28,10 +28,20 @@ export const workbenchEditorsWebsocket = {
   'workbench.editors.websocket.tab.spec': 'AsyncAPI',
   'workbench.editors.websocket.tab.settings': 'Paramètres',
   'workbench.editors.websocket.messagePlaceholder': 'Composez le prochain message à envoyer…',
+  'workbench.editors.websocket.messagePlaceholderBase64': 'Base64 du message binaire, p. ex. aGVsbG8=…',
+  'workbench.editors.websocket.messagePlaceholderHex': 'Hexadécimal du message binaire, p. ex. 68656c6c6f…',
   'workbench.editors.websocket.message.formatText': 'Texte',
   'workbench.editors.websocket.message.formatJson': 'JSON',
   'workbench.editors.websocket.message.formatXml': 'XML',
   'workbench.editors.websocket.message.formatHtml': 'HTML',
+  'workbench.editors.websocket.message.formatBinary': 'Binaire',
+  'workbench.editors.websocket.message.encodingBase64': 'Base64',
+  'workbench.editors.websocket.message.encodingHex': 'Hexadécimal',
+  'workbench.editors.websocket.message.invalidGate': 'Corrigez d’abord l’encodage du message.',
+  'workbench.editors.websocket.message.invalidBase64':
+    'Base64 invalide — ce sont les octets décodés qui seraient envoyés.',
+  'workbench.editors.websocket.message.invalidHex':
+    'Hexadécimal invalide — des paires de chiffres 0-9 a-f se décodent en octets envoyés.',
   'workbench.editors.websocket.auth.helpRaw':
     "Envoyé comme en-tête Authorization: Bearer sur le handshake — s'applique sur l'application de bureau ou " +
     "le serveur ; les navigateurs ne peuvent pas le définir sur un WebSocket. Une ligne d'en-tête " +

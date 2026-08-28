@@ -95,6 +95,7 @@ export type {
   MqttSubscriptionWire,
   RequestStreamEventWire,
   RequestStreamHeadWire,
+  WsSendBinaryWire,
   WsSendSocketIoWire,
   WsStreamEventWire,
   WsStreamMessageWire,

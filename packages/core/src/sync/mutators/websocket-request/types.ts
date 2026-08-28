@@ -8,7 +8,7 @@
  *   - `events`  — Events-tab rows (`{ name, listen?, description? }`, socketio flavor)
  *
  * Every other field — `name`, `description`, `url`, `flavor`,
- * `subprotocols`, `message`, `messageFormat`, `specLink`,
+ * `subprotocols`, `message`, `messageFormat`, `binaryEncoding`, `specLink`,
  * `unixSocketPath`, `timeoutMs` — flows through `setField` scalars. `subprotocols`, `specLink` and
  * `auth` are container-valued; they route through the per-leaf
  * flatten-diff at the write site (the same treatment `auth` / `body`

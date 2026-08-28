@@ -143,13 +143,13 @@ export interface WsSessionCallbacks {
  * RPC rider already answers "no such session".
  */
 export interface WsSessionWriter {
-  /** Write one text message verbatim (v1 composes text only). */
+  /** Write one text message verbatim. */
   send(text: string): void;
   /**
-   * Write one BINARY frame verbatim. Optional — the WS editor composes
-   * text only, so only transports a byte-riding protocol reuses (the
-   * MQTT plane's ws-scheme dial) need it; a transport without it
-   * cannot carry such a session.
+   * Write one BINARY frame verbatim — the editor's binary compose and
+   * the byte-riding protocols that reuse the transport (the MQTT
+   * plane's ws-scheme dial). Optional for wire tolerance: a transport
+   * without it answers the binary rider with an honest error.
    */
   sendBinary?(data: Uint8Array): void;
   /** Start the Close handshake — Disconnect sends the clean 1000. */

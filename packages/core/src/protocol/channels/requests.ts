@@ -187,6 +187,17 @@ export interface WsSendSocketIoWire {
   expectAck: boolean;
 }
 
+/**
+ * Binary rider addendum on `sendWsMessage` — present when the compose
+ * is a `binary` frame: `messageText` is then the base64 / hex spelling
+ * of the bytes (templates resolved first), the executor decodes and
+ * writes ONE binary frame. Never combined with `socketio` (event
+ * frames are text by contract).
+ */
+export interface WsSendBinaryWire {
+  encoding: 'base64' | 'hex';
+}
+
 export type WsStreamEventWire =
   | {
       sendId: string;
@@ -573,12 +584,14 @@ export interface RequestRpc {
    * the editor passes `socketio`: `messageText` is then the JSON
    * arguments ARRAY and the executor frames the EVENT packet
    * (`eventName` resolved per send; `expectAck` mints the ack id) — a
-   * frame that does not compose fails this RPC alone too. `success:
-   * false` names the reason: no such session (settled, unknown id),
-   * the resolve error, or the compose error.
+   * frame that does not compose fails this RPC alone too. With
+   * `binary`, `messageText` is the encoded byte spelling and the
+   * executor writes one BINARY frame — malformed text fails this RPC
+   * alone. `success: false` names the reason: no such session
+   * (settled, unknown id), the resolve error, or the compose error.
    */
   sendWsMessage: {
-    req: { sendId: string; messageText: string; socketio?: WsSendSocketIoWire };
+    req: { sendId: string; messageText: string; socketio?: WsSendSocketIoWire; binary?: WsSendBinaryWire };
     res: { success: boolean; error?: string };
   };
   /**

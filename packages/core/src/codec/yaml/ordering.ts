@@ -154,6 +154,7 @@ export const WEBSOCKET_REQUEST_FIELD_ORDER = [
   'eventName',
   'ackEnabled',
   'messageFormat',
+  'binaryEncoding',
   'specLink',
   'unixSocketPath',
   'timeoutMs',

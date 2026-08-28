@@ -175,7 +175,11 @@ export function useWsSessionPlane({
   // reports here without touching the open session. For socketio the
   // compose text is the JSON arguments array and the rider addendum
   // carries the event name + ack opt-in.
+  // A raw-flavor binary compose rides the `binary` addendum: the text
+  // is the byte spelling, the executor decodes and writes ONE binary
+  // frame (the socketio flavor never composes binary).
   const socketioFlavor = entity?.flavor === 'socketio';
+  const binaryCompose = !socketioFlavor && draft.messageFormat === 'binary';
   const handleSendMessage = useCallback(async () => {
     const sendId = activeSendIdRef.current;
     if (!sendId) return;
@@ -184,12 +188,13 @@ export function useWsSessionPlane({
         sendId,
         messageText: draft.message,
         ...(socketioFlavor ? { socketio: { eventName: draft.eventName, expectAck: draft.ackEnabled } } : {}),
+        ...(binaryCompose ? { binary: { encoding: draft.binaryEncoding } } : {}),
       })
       .catch(() => null);
     if (result === null || !result.success) {
       toast.error(result?.error ?? t('workbench.editors.websocket.session.sendFailed'));
     }
-  }, [draft.message, draft.eventName, draft.ackEnabled, socketioFlavor, toast, t]);
+  }, [draft.message, draft.eventName, draft.ackEnabled, draft.binaryEncoding, socketioFlavor, binaryCompose, toast, t]);
 
   const handleClearSession = useCallback(() => {
     setSnapshot(null);

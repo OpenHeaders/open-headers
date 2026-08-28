@@ -67,6 +67,16 @@ describe('serializeWebSocketRequest', () => {
       'timeoutMs',
     ]);
   });
+
+  it('seats the binary encoding after the format and fans a binary compose out to message.txt', () => {
+    const out = serializeWebSocketRequest(
+      freshDocument(websocketRequest({ message: 'aGVsbG8=', messageFormat: 'binary', binaryEncoding: 'hex' })),
+    );
+    const keys = Object.keys(YAML.parse(out.websocketYaml) as Record<string, unknown>);
+    expect(keys.indexOf('binaryEncoding')).toBe(keys.indexOf('messageFormat') + 1);
+    expect(out.websocketYaml).toContain('binaryEncoding: hex');
+    expect(out.messageFile).toEqual({ fileName: 'message.txt', content: 'aGVsbG8=' });
+  });
 });
 
 describe('parseWebSocketRequest', () => {

@@ -70,12 +70,17 @@ export const WebSocketQueryParamSchema = v.object({
 });
 
 /**
- * Compose-draft display mode for the raw flavor: free text, JSON
- * (structured editor + validation), XML, or HTML (language-mode
- * highlighting). Display-side only — the payload travels verbatim
- * either way. Absent = `text`.
+ * Compose-draft mode for the raw flavor: free text, JSON (structured
+ * editor + validation), XML, or HTML (language-mode highlighting) —
+ * display-side only, the payload travels verbatim as a text frame —
+ * or `binary`, where the compose text is the base64 / hex spelling of
+ * the bytes a BINARY frame carries (see
+ * {@link WebSocketBinaryEncodingSchema}). Absent = `text`.
  */
-export const WebSocketMessageFormatSchema = v.picklist(['text', 'json', 'xml', 'html']);
+export const WebSocketMessageFormatSchema = v.picklist(['text', 'json', 'xml', 'html', 'binary']);
+
+/** The text encoding a `binary` compose authors its bytes in. Absent = `base64`. */
+export const WebSocketBinaryEncodingSchema = v.picklist(['base64', 'hex']);
 
 /**
  * Session credential — deliberately the `GrpcAuthSchema` SUBSET
@@ -173,8 +178,10 @@ export const WebSocketRequestSchema = v.object({
    * server's ACK reply correlates in the timeline. Absent = off.
    */
   ackEnabled: v.optional(v.boolean()),
-  /** Raw-flavor compose display mode. Absent = `text`. */
+  /** Raw-flavor compose mode. Absent = `text`. */
   messageFormat: v.optional(WebSocketMessageFormatSchema),
+  /** Byte spelling of a `binary` compose. Absent = `base64`. */
+  binaryEncoding: v.optional(WebSocketBinaryEncodingSchema),
   specLink: v.optional(WebSocketSpecLinkSchema),
   /**
    * Dial this local socket — an absolute Unix domain socket path or a

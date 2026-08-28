@@ -33,6 +33,7 @@ const draft: WebSocketDraft = {
   namespace: '',
   ackEnabled: false,
   messageFormat: 'text',
+  binaryEncoding: 'base64',
   specLink: undefined,
   unixSocketPath: undefined,
   timeoutMs: undefined,

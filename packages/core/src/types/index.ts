@@ -386,6 +386,7 @@ export type { ExecutedWsClose, ExecutedWsMessage, ExecutedWsOutcome, ExecutedWsS
 // ── WebSocket request ──────────────────────────────────────────────
 export type {
   WebSocketAuth,
+  WebSocketBinaryEncoding,
   WebSocketEventRow,
   WebSocketFlavor,
   WebSocketHeaderPair,

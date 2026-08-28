@@ -101,6 +101,17 @@ describe('websocket draft projections', () => {
     expect(draft.messageFormat).toBe('text');
   });
 
+  it('carries the binary encoding only while the format is binary, base64 by default', () => {
+    const text = draftFromWebSocketRequest(websocketRequest({ messageFormat: 'text', binaryEncoding: 'hex' }));
+    expect(text.binaryEncoding).toBe('hex');
+    expect(buildWebSocketRequestUpdates(text).binaryEncoding).toBeUndefined();
+
+    const binary = draftFromWebSocketRequest(websocketRequest({ messageFormat: 'binary' }));
+    expect(binary.binaryEncoding).toBe('base64');
+    expect(buildWebSocketRequestUpdates(binary).binaryEncoding).toBe('base64');
+    expect(buildWebSocketRequestUpdates({ ...binary, binaryEncoding: 'hex' }).binaryEncoding).toBe('hex');
+  });
+
   it('matches the canonical projection for an untouched form (derived dirty baseline)', () => {
     const entity = websocketRequest();
     expect(buildWebSocketRequestUpdates(draftFromWebSocketRequest(entity))).toEqual(

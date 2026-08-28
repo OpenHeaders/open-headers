@@ -33,10 +33,20 @@ export const workbenchEditorsWebsocket = {
   'workbench.editors.websocket.tab.spec': 'AsyncAPI',
   'workbench.editors.websocket.tab.settings': 'Configuración',
   'workbench.editors.websocket.messagePlaceholder': 'Compón el siguiente mensaje a enviar…',
+  'workbench.editors.websocket.messagePlaceholderBase64': 'Base64 del mensaje binario, p. ej. aGVsbG8=…',
+  'workbench.editors.websocket.messagePlaceholderHex': 'Hexadecimal del mensaje binario, p. ej. 68656c6c6f…',
   'workbench.editors.websocket.message.formatText': 'Texto',
   'workbench.editors.websocket.message.formatJson': 'JSON',
   'workbench.editors.websocket.message.formatXml': 'XML',
   'workbench.editors.websocket.message.formatHtml': 'HTML',
+  'workbench.editors.websocket.message.formatBinary': 'Binario',
+  'workbench.editors.websocket.message.encodingBase64': 'Base64',
+  'workbench.editors.websocket.message.encodingHex': 'Hexadecimal',
+  'workbench.editors.websocket.message.invalidGate': 'Corrige primero la codificación del mensaje.',
+  'workbench.editors.websocket.message.invalidBase64':
+    'Base64 no válido: los bytes decodificados son lo que se enviaría.',
+  'workbench.editors.websocket.message.invalidHex':
+    'Hexadecimal no válido: pares de dígitos 0-9 a-f se decodifican en los bytes enviados.',
   'workbench.editors.websocket.auth.helpRaw':
     'Se envía como encabezado Authorization: Bearer en el handshake — se aplica en la aplicación de ' +
     'escritorio o el servidor; los navegadores no pueden definirlo en un WebSocket. Una fila de encabezado ' +

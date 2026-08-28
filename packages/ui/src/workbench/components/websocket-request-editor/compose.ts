@@ -12,10 +12,12 @@ import type { LanguageId } from '@openheaders/ui/workbench/languages/registry';
 export const CONNECT_SHORTCUT = isMac ? '⌘↵' : 'Ctrl+Enter';
 export const SEND_MESSAGE_SHORTCUT = isMac ? '⇧⌘↵' : 'Ctrl+Shift+Enter';
 
-/** Monaco language for each raw-flavor compose display mode. */
+/** Monaco language for each raw-flavor compose mode — a binary
+ *  compose authors its byte spelling as plain text. */
 export const MESSAGE_FORMAT_LANGUAGE = {
   text: 'text',
   json: 'json',
   xml: 'xml',
   html: 'html',
+  binary: 'text',
 } as const satisfies Record<WebSocketMessageFormat, LanguageId>;

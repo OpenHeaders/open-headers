@@ -86,6 +86,7 @@ export type {
   WorkspaceTreeUpdateBranchWire,
   WorkspaceTreeUserCommitWire,
   WorkspaceTreeWorkingChangeWire,
+  WsSendBinaryWire,
   WsSendSocketIoWire,
   WsStreamEventWire,
   WsStreamMessageWire,

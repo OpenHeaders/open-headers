@@ -14,6 +14,7 @@
 
 import type {
   WebSocketAuth,
+  WebSocketBinaryEncoding,
   WebSocketEventRow,
   WebSocketHeaderPair,
   WebSocketMessageFormat,
@@ -50,6 +51,9 @@ export interface WebSocketDraft {
   events: WebSocketEventRow[];
   /** Concrete in the form — absent on the entity reads as `text`. */
   messageFormat: WebSocketMessageFormat;
+  /** Byte spelling of a `binary` compose (concrete — absent reads as
+   *  `base64`); the entity carries it only while the format is binary. */
+  binaryEncoding: WebSocketBinaryEncoding;
   specLink: WebSocketSpecLink | undefined;
   /** Local socket / named pipe the session dials instead of TCP —
    *  `undefined` = a normal TCP connection. */
@@ -73,6 +77,7 @@ export interface WebSocketRequestUpdates {
   namespace: string;
   ackEnabled: boolean;
   messageFormat: WebSocketMessageFormat;
+  binaryEncoding: WebSocketBinaryEncoding | undefined;
   specLink: WebSocketSpecLink | undefined;
   unixSocketPath: string | undefined;
   timeoutMs: number | undefined;
@@ -182,6 +187,7 @@ export function draftFromWebSocketRequest(req: WebSocketRequest): WebSocketDraft
     namespace: req.namespace ?? '',
     ackEnabled: req.ackEnabled ?? false,
     messageFormat: req.messageFormat ?? 'text',
+    binaryEncoding: req.binaryEncoding ?? 'base64',
     specLink: req.specLink,
     unixSocketPath: req.unixSocketPath,
     timeoutMs: req.timeoutMs,
@@ -203,6 +209,7 @@ export function buildWebSocketRequestUpdates(draft: WebSocketDraft): WebSocketRe
     namespace: draft.namespace,
     ackEnabled: draft.ackEnabled,
     messageFormat: draft.messageFormat,
+    binaryEncoding: draft.messageFormat === 'binary' ? draft.binaryEncoding : undefined,
     specLink: draft.specLink,
     unixSocketPath: draft.unixSocketPath,
     timeoutMs: draft.timeoutMs,

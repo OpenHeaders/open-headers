@@ -121,7 +121,7 @@ describe('executeWsSession — injected resolution', () => {
     await bareRun;
   });
 
-  it('this device\'s pins ride behind the workspace roots on the dial', async () => {
+  it("this device's pins ride behind the workspace roots on the dial", async () => {
     devicePems.mockReturnValue([DEVICE_PIN]);
     const pinned = scriptedTransport();
     const pinnedRun = executeWsSession(makeWsRequest(), {
@@ -225,5 +225,80 @@ describe('executeWsSession — injected resolution', () => {
     const snapshot = await settled;
     expect(snapshot.outcome).toEqual({ kind: 'connected' });
     expect(snapshot.messages.map((m) => m.direction)).toEqual(['up']);
+  });
+});
+
+describe('executeWsSession — binary rider', () => {
+  function binaryTransport(): ReturnType<typeof scriptedTransport> & { bytes: Uint8Array[] } {
+    const bytes: Uint8Array[] = [];
+    const base = scriptedTransport();
+    const inner = base.transport;
+    return {
+      ...base,
+      bytes,
+      transport: {
+        connect(request, callbacks, signal) {
+          const writer = inner.connect(request, callbacks, signal);
+          return { ...writer, sendBinary: (data: Uint8Array) => bytes.push(data) };
+        },
+      },
+    };
+  }
+
+  it('decodes the spelling, writes one binary frame and records it as binary', async () => {
+    const rig = binaryTransport();
+    const settled = executeWsSession(makeWsRequest(), {
+      workspaceId: null,
+      environmentId: undefined,
+      transport: rig.transport,
+      sendId: 'send-binary-1',
+      resolution: scopedResolution,
+    });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    rig.callbacks().onOpen('', '');
+
+    expect(sendActiveWsSessionMessage('send-binary-1', 'aGVs bG8=', undefined, { encoding: 'base64' })).toEqual({
+      success: true,
+    });
+    expect(sendActiveWsSessionMessage('send-binary-1', '68656c6c6f', undefined, { encoding: 'hex' })).toEqual({
+      success: true,
+    });
+    expect(rig.bytes.map((b) => [...b])).toEqual([
+      [104, 101, 108, 108, 111],
+      [104, 101, 108, 108, 111],
+    ]);
+    expect(rig.sent).toEqual([]);
+
+    const bad = sendActiveWsSessionMessage('send-binary-1', 'aGVsbG8', undefined, { encoding: 'base64' });
+    expect(bad.success).toBe(false);
+    expect(bad.error).toContain('Base64');
+    expect(rig.bytes).toHaveLength(2);
+
+    rig.callbacks().onClose({ code: 1000, reason: '', wasClean: true });
+    rig.callbacks().onEnd();
+    const snapshot = await settled;
+    expect(snapshot.messages.map((m) => [m.direction, m.binary])).toEqual([
+      ['up', true],
+      ['up', true],
+    ]);
+  });
+
+  it('answers honestly on a transport without a binary writer', async () => {
+    const rig = scriptedTransport();
+    const settled = executeWsSession(makeWsRequest(), {
+      workspaceId: null,
+      environmentId: undefined,
+      transport: rig.transport,
+      sendId: 'send-binary-2',
+      resolution: scopedResolution,
+    });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    rig.callbacks().onOpen('', '');
+    const result = sendActiveWsSessionMessage('send-binary-2', 'aGVsbG8=', undefined, { encoding: 'base64' });
+    expect(result.success).toBe(false);
+    expect(result.error).toContain('binary');
+    expect(rig.sent).toEqual([]);
+    rig.callbacks().onEnd();
+    await settled;
   });
 });

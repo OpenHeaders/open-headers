@@ -101,7 +101,7 @@ const wsSessionHostBridge: HostBridge = {
     }
     if (type === 'sendWsMessage') {
       const payload = args[0] as BridgeRpcRequest<'sendWsMessage'>;
-      const result = sendActiveWsSessionMessage(payload.sendId, payload.messageText, payload.socketio);
+      const result = sendActiveWsSessionMessage(payload.sendId, payload.messageText, payload.socketio, payload.binary);
       return Promise.resolve(result) as Promise<BridgeRpcResponse<K>>;
     }
     if (type === 'closeWsSession') {

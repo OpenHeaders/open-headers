@@ -23,10 +23,18 @@ export const workbenchEditorsWebsocket = {
   'workbench.editors.websocket.tab.spec': 'AsyncAPI',
   'workbench.editors.websocket.tab.settings': 'Settings',
   'workbench.editors.websocket.messagePlaceholder': 'Compose the next message to send…',
+  'workbench.editors.websocket.messagePlaceholderBase64': 'Base64 of the binary message, e.g. aGVsbG8=…',
+  'workbench.editors.websocket.messagePlaceholderHex': 'Hex of the binary message, e.g. 68656c6c6f…',
   'workbench.editors.websocket.message.formatText': 'Text',
   'workbench.editors.websocket.message.formatJson': 'JSON',
   'workbench.editors.websocket.message.formatXml': 'XML',
   'workbench.editors.websocket.message.formatHtml': 'HTML',
+  'workbench.editors.websocket.message.formatBinary': 'Binary',
+  'workbench.editors.websocket.message.encodingBase64': 'Base64',
+  'workbench.editors.websocket.message.encodingHex': 'Hexadecimal',
+  'workbench.editors.websocket.message.invalidGate': 'Fix the message encoding first.',
+  'workbench.editors.websocket.message.invalidBase64': 'Not valid Base64 — the decoded bytes are what would be sent.',
+  'workbench.editors.websocket.message.invalidHex': 'Not valid hex — pairs of 0-9 a-f digits decode to the sent bytes.',
   'workbench.editors.websocket.auth.helpRaw':
     'Sent as an Authorization: Bearer header on the handshake — applies on the desktop app or server; browsers cannot set it on a WebSocket. An explicit Authorization header row takes precedence.',
   'workbench.editors.websocket.auth.helpSocketio':

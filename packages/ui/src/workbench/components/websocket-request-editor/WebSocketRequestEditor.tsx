@@ -33,6 +33,7 @@
 import { CaretRightOutlined, DisconnectOutlined, LinkOutlined } from '@ant-design/icons';
 import { WEBSOCKET_REQUEST_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { WebSocketRequest as WebSocketRequestEntity } from '@openheaders/core/types';
+import { binaryEncodingError } from '@openheaders/core/utils';
 import { ShortcutHintTitle, ShortcutKbd } from '@openheaders/ui/components/ShortcutKbd';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { EntityScopeProvider } from '@openheaders/ui/shared/awareness';
@@ -93,6 +94,7 @@ const emptyWebSocketDraft = (): WebSocketDraft => ({
   namespace: '',
   ackEnabled: false,
   messageFormat: 'text',
+  binaryEncoding: 'base64',
   specLink: undefined,
   unixSocketPath: undefined,
   timeoutMs: undefined,
@@ -168,6 +170,12 @@ const WebSocketRequestEditor: React.FC<WebSocketRequestEditorProps> = ({
     onApplied: onExampleApplied,
   });
   const args = useSocketIoArgs(socketioFlavor, draft.message, setDraft);
+  // A binary compose gates Send (button and chord) on its byte spelling
+  // decoding — the MQTT publish law; text modes always pass.
+  const encodingError =
+    !socketioFlavor && draft.messageFormat === 'binary'
+      ? binaryEncodingError(draft.message, draft.binaryEncoding)
+      : null;
 
   // Events-tab display filter: with at least one NAMED row, the
   // timeline shows only the listened incoming events (rows compare by
@@ -189,7 +197,7 @@ const WebSocketRequestEditor: React.FC<WebSocketRequestEditorProps> = ({
     (e: React.KeyboardEvent<HTMLDivElement>) => {
       if (!(e.metaKey || e.ctrlKey) || e.key !== 'Enter') return;
       if (e.shiftKey) {
-        if (!session.sessionOpen) return;
+        if (!session.sessionOpen || encodingError !== null) return;
         e.preventDefault();
         e.stopPropagation();
         void session.handleSendMessage();
@@ -204,7 +212,7 @@ const WebSocketRequestEditor: React.FC<WebSocketRequestEditorProps> = ({
       if (session.connectDisabledReason !== null) return;
       void session.handleConnect();
     },
-    [session],
+    [session, encodingError],
   );
 
   // ── Save ─────────────────────────────────────────────────────────
@@ -401,6 +409,7 @@ const WebSocketRequestEditor: React.FC<WebSocketRequestEditorProps> = ({
                         sessionOpen={session.sessionOpen}
                         args={args}
                         aids={aids}
+                        encodingError={encodingError}
                         onSend={() => void session.handleSendMessage()}
                       />
                     )}

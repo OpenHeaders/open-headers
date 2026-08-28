@@ -31,7 +31,7 @@
  * `droppedMessages` counts what rolled off — honest, never silent.
  */
 
-import type { WsSendSocketIoWire, WsStreamEventWire } from '@openheaders/core/bridge';
+import type { WsSendBinaryWire, WsSendSocketIoWire, WsStreamEventWire } from '@openheaders/core/bridge';
 import { buildEngineIoUrl, encodeEventPacket, isValidNamespace, normalizeNamespace } from '@openheaders/core/socketio';
 import type {
   ExecutedProxyRoute,
@@ -40,13 +40,13 @@ import type {
   ExecutedWsSnapshot,
   WebSocketRequest,
 } from '@openheaders/core/types';
-import { appendQueryParams, encodeBase64Bytes } from '@openheaders/core/utils';
+import { appendQueryParams, decodeBinaryText, encodeBase64Bytes } from '@openheaders/core/utils';
 import { resolveTemplate } from '@openheaders/core/variables';
 import { getRequestCollections, getRequestCollectionsForWorkspace } from '../../entity/request-store';
-import { getTrustAnchorsForSend } from '../trust-anchors';
 import { peekActiveWorkspaceId } from '../../workspace/extension-workspace-store';
 import { buildResolver } from '../request-exec/resolver-scope';
 import { registerActiveSend } from '../request-exec/send-stream';
+import { getTrustAnchorsForSend } from '../trust-anchors';
 import { createWsStreamEmitter, registerActiveWsSession } from './session-plane';
 import { createSocketIoSessionController } from './socketio-session';
 import type { WsSessionWriter, WsTransport, WsTransportHeader } from './transport';
@@ -240,6 +240,19 @@ export async function executeWsSession(
       record({ direction: 'up', dataBase64, binary: false }, data.byteLength);
       emitter?.message({ direction: 'up', dataBase64, binary: false, atMs: Date.now() });
     };
+    // The binary twin — one frame of decoded bytes; a transport without
+    // the optional writer cannot carry it and says so on the rider.
+    const sendBinary = (data: Uint8Array): { success: boolean; error?: string } => {
+      if (writer === null || settled) return { success: false, error: 'The session is not open.' };
+      if (writer.sendBinary === undefined) {
+        return { success: false, error: 'This host cannot send binary frames.' };
+      }
+      writer.sendBinary(data);
+      const dataBase64 = encodeBase64Bytes(data);
+      record({ direction: 'up', dataBase64, binary: true }, data.byteLength);
+      emitter?.message({ direction: 'up', dataBase64, binary: true, atMs: Date.now() });
+      return { success: true };
+    };
     // The socketio flavor ALSO lands the bearer token as the CONNECT
     // packet's auth payload — in-band framing, so it works on hosts
     // whose platform socket cannot carry the header.
@@ -290,11 +303,31 @@ export async function executeWsSession(
     );
 
     unregisterSession = registerActiveWsSession(options.sendId, {
-      send: (messageText, socketio?: WsSendSocketIoWire) => {
+      send: (messageText, socketio?: WsSendSocketIoWire, binary?: WsSendBinaryWire) => {
         if (settled || !opened) return { success: false, error: 'The session is not open.' };
         const sendUnresolved = new Set<string>();
         const resolved = resolveWith(messageText, sendUnresolved);
         let frame = resolved;
+        if (binary !== undefined) {
+          if (socketio !== undefined) {
+            return { success: false, error: 'A Socket.IO event cannot be a binary frame.' };
+          }
+          if (sendUnresolved.size > 0) {
+            return {
+              success: false,
+              error: `Message has unresolved variables (${[...sendUnresolved].join(', ')}).`,
+            };
+          }
+          const bytes = decodeBinaryText(resolved, binary.encoding);
+          if (bytes === null) {
+            return {
+              success: false,
+              error:
+                binary.encoding === 'base64' ? 'The message is not valid Base64.' : 'The message is not valid hex.',
+            };
+          }
+          return sendBinary(bytes);
+        }
         if (socketio !== undefined) {
           if (socketioSession === null) {
             return { success: false, error: 'This session is not a Socket.IO session.' };

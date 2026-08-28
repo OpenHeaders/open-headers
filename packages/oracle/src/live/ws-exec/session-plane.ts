@@ -14,7 +14,12 @@
  * end frames emit immediately (they are single and load-bearing).
  */
 
-import type { WsSendSocketIoWire, WsStreamEventWire, WsStreamMessageWire } from '@openheaders/core/bridge';
+import type {
+  WsSendBinaryWire,
+  WsSendSocketIoWire,
+  WsStreamEventWire,
+  WsStreamMessageWire,
+} from '@openheaders/core/bridge';
 import type { ExecutedProxyRoute } from '@openheaders/core/types';
 
 /** Flush the pending message batch on this cadence — the gRPC
@@ -101,10 +106,15 @@ export interface ActiveWsSessionHandle {
   /** Resolve `{{refs}}` in `messageText` through the resolver built at
    *  Connect and write it. On a socketio-flavor session the rider's
    *  `socketio` addendum makes `messageText` the JSON arguments array
-   *  and the executor frames the EVENT packet. An unresolved reference
-   *  or a compose error reports on the RPC alone — the session stays
-   *  open. */
-  send(messageText: string, socketio?: WsSendSocketIoWire): { success: boolean; error?: string };
+   *  and the executor frames the EVENT packet; the `binary` addendum
+   *  makes it the encoded byte spelling of ONE binary frame. An
+   *  unresolved reference or a compose error reports on the RPC alone
+   *  — the session stays open. */
+  send(
+    messageText: string,
+    socketio?: WsSendSocketIoWire,
+    binary?: WsSendBinaryWire,
+  ): { success: boolean; error?: string };
   /** Start the clean close (code 1000) — Disconnect. */
   close(): void;
 }
@@ -126,10 +136,11 @@ export function sendActiveWsSessionMessage(
   sendId: string,
   messageText: string,
   socketio?: WsSendSocketIoWire,
+  binary?: WsSendBinaryWire,
 ): { success: boolean; error?: string } {
   const handle = activeSessions.get(sendId);
   if (!handle) return { success: false, error: 'No open WebSocket session with this id.' };
-  return handle.send(messageText, socketio);
+  return handle.send(messageText, socketio, binary);
 }
 
 /** Start an open session's clean close. False = no such session. */

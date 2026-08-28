@@ -84,13 +84,13 @@ import type {
   MqttUserPropertyRow,
   Vault,
 } from '@openheaders/core/types';
-import { decodeBase64Bytes, encodeBase64Bytes, generateUid } from '@openheaders/core/utils';
+import { decodeBinaryText, encodeBase64Bytes, generateUid } from '@openheaders/core/utils';
 import { resolveTemplate } from '@openheaders/core/variables';
 import { getRequestCollections, getRequestCollectionsForWorkspace } from '../../entity/request-store';
-import { getTrustAnchorsForSend } from '../trust-anchors';
 import { peekActiveWorkspaceId } from '../../workspace/extension-workspace-store';
 import { buildResolver } from '../request-exec/resolver-scope';
 import { registerActiveSend } from '../request-exec/send-stream';
+import { getTrustAnchorsForSend } from '../trust-anchors';
 import { createMqttStreamEmitter, registerActiveMqttSession } from './session-plane';
 import type { MqttByteTransport, MqttStreamWriter, MqttTransportRequest } from './transport';
 
@@ -165,21 +165,14 @@ function decodeComposePayload(
   payload: string,
   format: MqttPayloadFormat | undefined,
 ): { ok: true; bytes: Uint8Array } | { ok: false; error: string } {
-  if (format === 'base64') {
-    const compact = payload.replace(/\s/g, '');
-    const bytes = decodeBase64Bytes(compact);
-    if (bytes === null || compact.length % 4 !== 0) {
-      return { ok: false, error: 'The payload is not valid Base64.' };
+  if (format === 'base64' || format === 'hex') {
+    const bytes = decodeBinaryText(payload, format);
+    if (bytes === null) {
+      return {
+        ok: false,
+        error: format === 'base64' ? 'The payload is not valid Base64.' : 'The payload is not valid hex.',
+      };
     }
-    return { ok: true, bytes };
-  }
-  if (format === 'hex') {
-    const compact = payload.replace(/\s/g, '');
-    if (!/^[0-9a-fA-F]*$/.test(compact) || compact.length % 2 !== 0) {
-      return { ok: false, error: 'The payload is not valid hex.' };
-    }
-    const bytes = new Uint8Array(compact.length / 2);
-    for (let i = 0; i < bytes.length; i++) bytes[i] = Number.parseInt(compact.slice(i * 2, i * 2 + 2), 16);
     return { ok: true, bytes };
   }
   return { ok: true, bytes: new TextEncoder().encode(payload) };

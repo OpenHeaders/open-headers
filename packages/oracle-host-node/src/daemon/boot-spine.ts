@@ -47,6 +47,7 @@ import {
   type MqttPublishWire,
   type MqttSubscriptionWire,
   setHostBridge,
+  type WsSendBinaryWire,
   type WsSendSocketIoWire,
 } from '@openheaders/core/bridge';
 import {
@@ -1279,6 +1280,7 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
             message.sendId,
             message.messageText,
             message.socketio as WsSendSocketIoWire | undefined,
+            message.binary as WsSendBinaryWire | undefined,
           )
         : { success: false, error: 'No session id or message provided' };
     }

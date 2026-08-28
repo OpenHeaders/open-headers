@@ -35,10 +35,18 @@ export const workbenchEditorsWebsocket = {
   'workbench.editors.websocket.tab.spec': 'AsyncAPI',
   'workbench.editors.websocket.tab.settings': '设置',
   'workbench.editors.websocket.messagePlaceholder': '编写下一条要发送的消息…',
+  'workbench.editors.websocket.messagePlaceholderBase64': '二进制消息的 Base64，例如 aGVsbG8=…',
+  'workbench.editors.websocket.messagePlaceholderHex': '二进制消息的十六进制，例如 68656c6c6f…',
   'workbench.editors.websocket.message.formatText': '文本',
   'workbench.editors.websocket.message.formatJson': 'JSON',
   'workbench.editors.websocket.message.formatXml': 'XML',
   'workbench.editors.websocket.message.formatHtml': 'HTML',
+  'workbench.editors.websocket.message.formatBinary': '二进制',
+  'workbench.editors.websocket.message.encodingBase64': 'Base64',
+  'workbench.editors.websocket.message.encodingHex': 'Hexadecimal',
+  'workbench.editors.websocket.message.invalidGate': '请先修正消息编码。',
+  'workbench.editors.websocket.message.invalidBase64': '不是有效的 Base64——解码后的字节才是将要发送的内容。',
+  'workbench.editors.websocket.message.invalidHex': '不是有效的十六进制——成对的 0-9 a-f 数字解码为要发送的字节。',
   'workbench.editors.websocket.auth.helpRaw':
     '在握手时作为 Authorization: Bearer 标头发送——适用于桌面端应用或服务器；浏览器无法在 WebSocket 上设置它。' +
     '显式的 Authorization 标头行优先。',

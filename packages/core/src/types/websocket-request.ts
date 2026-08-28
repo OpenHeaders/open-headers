@@ -20,6 +20,7 @@
 import type * as v from 'valibot';
 import type {
   WebSocketAuthSchema,
+  WebSocketBinaryEncodingSchema,
   WebSocketEventRowSchema,
   WebSocketFlavorSchema,
   WebSocketHeaderPairSchema,
@@ -39,8 +40,11 @@ export type WebSocketHeaderPair = v.InferOutput<typeof WebSocketHeaderPairSchema
 /** One query-param row appended to the session URL. */
 export type WebSocketQueryParam = v.InferOutput<typeof WebSocketQueryParamSchema>;
 
-/** Compose-draft display mode for the raw flavor (absent = text). */
+/** Compose-draft mode for the raw flavor (absent = text). */
 export type WebSocketMessageFormat = v.InferOutput<typeof WebSocketMessageFormatSchema>;
+
+/** Byte spelling of a `binary` compose (absent = base64). */
+export type WebSocketBinaryEncoding = v.InferOutput<typeof WebSocketBinaryEncodingSchema>;
 
 /** Session credential injected at Connect (absent = none). */
 export type WebSocketAuth = v.InferOutput<typeof WebSocketAuthSchema>;
