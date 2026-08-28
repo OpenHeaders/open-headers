@@ -194,12 +194,6 @@
     background: rgba(24, 144, 255, 0.08);
   }
 
-  // The multi-selection (Cmd/Ctrl+click, Shift+click): every picked
-  // row wears the focused-panel selection wash, so the set a drag will
-  // take along reads at a glance.
-  &.multi-selected {
-    background: rgba(24, 144, 255, 0.12);
-  }
 
   // The keyboard cursor renders only while its OWN tree container holds
   // DOM focus — the exact condition under which arrow keys reach it. At
@@ -222,6 +216,20 @@
   // outranks every focused-dock vivid rule, the Traffic Monitor's
   // `--dt-pill-active-bg` override included.
   .rules-dock-body--focused .rules-sidebar-content:focus-within &.selected:not(.focused) {
+    background: var(--ant-color-fill-secondary, rgba(128, 128, 128, 0.12));
+  }
+
+  // The multi-selection (Cmd/Ctrl+click, Shift+click): one neutral
+  // wash for the whole set — the panel's one blue stays with the
+  // cursor — outranking the active-tab echo and the cursor tint above
+  // (each selector here mirrors one of those with `.multi-selected`
+  // added), so the rows a drag will take along read as one block. The
+  // cursor keeps its ring as the cursor mark.
+  &.multi-selected,
+  .rules-dock-body--focused &.multi-selected.selected,
+  .rules-sidebar-content:focus-within &.multi-selected.focused,
+  .rules-sidebar-content:focus-within &.multi-selected.selected.focused,
+  .rules-dock-body--focused .rules-sidebar-content:focus-within &.multi-selected.selected:not(.focused) {
     background: var(--ant-color-fill-secondary, rgba(128, 128, 128, 0.12));
   }
 
