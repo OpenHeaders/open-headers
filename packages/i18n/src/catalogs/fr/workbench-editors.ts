@@ -17,6 +17,8 @@ export const workbenchEditors = {
 
   // ── Session chrome (shared: WS/MQTT session panes) ─────────────────
   'workbench.editors.session.connectionDetails': 'Détails de la connexion',
+  'workbench.editors.session.subprotocol': 'Sous-protocole',
+  'workbench.editors.session.extensions': 'Extensions',
 
   // ── Editable-grid chrome (shared: request editor + response-example) ─
   'workbench.editors.grid.key': 'Clé',

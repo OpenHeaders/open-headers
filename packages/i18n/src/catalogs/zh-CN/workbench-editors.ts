@@ -25,6 +25,8 @@ export const workbenchEditors = {
 
   // ── Session chrome (shared: WS/MQTT session panes) ─────────────────
   'workbench.editors.session.connectionDetails': '连接详情',
+  'workbench.editors.session.subprotocol': '子协议',
+  'workbench.editors.session.extensions': '扩展',
 
   // ── Editable-grid chrome (shared: request editor + response-example) ─
   'workbench.editors.grid.key': '键',

@@ -184,16 +184,25 @@ const WsSessionPane: React.FC<WsSessionPaneProps> = ({
 
   // The state pill's hover details — the session's lifecycle
   // transitions with their observed instants, newest first (the
-  // timeline's order, the pill vocabulary); rows without an observed
-  // instant stay absent, never fabricated.
+  // timeline's order, the pill vocabulary), then the handshake facts
+  // (the selected subprotocol, the negotiated extensions) when the
+  // server sent any; rows without an observed fact stay absent, never
+  // fabricated.
   const detailRows = useMemo((): ConnectionDetailsRow[] => {
     const rows: ConnectionDetailsRow[] = [];
+    const handshakeRows = (open: { protocol: string; extensions: string }): void => {
+      if (open.protocol !== '') rows.push({ label: t('workbench.editors.session.subprotocol'), value: open.protocol });
+      if (open.extensions !== '') {
+        rows.push({ label: t('workbench.editors.session.extensions'), value: open.extensions });
+      }
+    };
     if (snapshot === null) {
       if (live === null) return rows;
       if (live.open !== null && live.connectedAt !== undefined) {
         rows.push({ label: t('workbench.editors.websocket.timeline.connected'), atMs: live.connectedAt });
       }
       rows.push({ label: t('workbench.editors.websocket.timeline.connecting'), atMs: live.startedAt });
+      if (live.open !== null) handshakeRows(live.open);
       return rows;
     }
     if (timing === null) return rows;
@@ -222,6 +231,7 @@ const WsSessionPane: React.FC<WsSessionPaneProps> = ({
       }
     }
     rows.push({ label: t('workbench.editors.websocket.timeline.connecting'), atMs: timing.startedAt });
+    if (snapshot.outcome.kind === 'connected') handshakeRows(snapshot);
     return rows;
   }, [snapshot, live, timing, t]);
 
