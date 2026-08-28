@@ -1186,7 +1186,7 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
                 toggleSection(section);
               }
             }}
-            style={{ ...lineStyle, color: token.colorTextSecondary, cursor: 'pointer' }}
+            style={{ ...lineStyle, color: token.colorTextTertiary, cursor: 'pointer' }}
           >
             {sectionsOpen[section] ? '▾' : '▸'} {label}
           </div>
@@ -1209,7 +1209,7 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
                 fontWeight: 600,
                 lineHeight: `${DETAIL_HEADING_PX}px`,
                 height: DETAIL_HEADING_PX,
-                color: token.colorTextSecondary,
+                color: token.colorTextTertiary,
               }}
             >
               {t('workbench.editors.websocket.timeline.handshakeDetails')}
@@ -1334,7 +1334,7 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
                     fontWeight: 600,
                     lineHeight: `${DETAIL_HEADING_PX}px`,
                     height: DETAIL_HEADING_PX,
-                    color: token.colorTextSecondary,
+                    color: token.colorTextTertiary,
                   }}
                 >
                   {t('workbench.editors.websocket.timeline.handshakeDetails')}
@@ -1356,7 +1356,7 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
                       toggleSection('request');
                     }
                   }}
-                  style={{ ...lineStyle, color: token.colorTextSecondary, cursor: 'pointer' }}
+                  style={{ ...lineStyle, color: token.colorTextTertiary, cursor: 'pointer' }}
                 >
                   {sectionsOpen.request ? '▾' : '▸'} {t('workbench.editors.websocket.timeline.requestHeaders')}
                 </div>
