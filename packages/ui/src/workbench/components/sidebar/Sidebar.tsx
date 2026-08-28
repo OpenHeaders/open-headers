@@ -84,6 +84,7 @@ import { useRulesTreeNodes } from './useRulesTreeNodes';
 import { useSidebarCreateActions } from './useSidebarCreateActions';
 import { useSidebarExpansion } from './useSidebarExpansion';
 import { useSidebarInteraction } from './useSidebarInteraction';
+import { usePersistedFlag } from './use-persisted-flag';
 import { useSidebarNodeRenderers } from './useSidebarNodeRenderers';
 import { useSpecNodes } from './useSpecNodes';
 import { useTemplateTreeNodes } from './useTemplateTreeNodes';
@@ -359,11 +360,14 @@ const Sidebar: React.FC<SidebarProps> = ({
   // opens the request picker modal over that container's subtree.
   const [workflowFromTarget, setWorkflowFromTarget] = useState<WorkflowFromRequestsTarget | null>(null);
 
-  const [openWithSingleClick, setOpenWithSingleClick] = useState(true);
-  const [openCollectionsWithSingleClick, setOpenCollectionsWithSingleClick] = useState(true);
-  const [openFoldersWithSingleClick, setOpenFoldersWithSingleClick] = useState(true);
-  const [alwaysSelectOpened, setAlwaysSelectOpened] = useState(true);
-  const [showIndentGuides, setShowIndentGuides] = useState(true);
+  const [openWithSingleClick, setOpenWithSingleClick] = usePersistedFlag('openWithSingleClick', true);
+  const [openCollectionsWithSingleClick, setOpenCollectionsWithSingleClick] = usePersistedFlag(
+    'openCollectionsWithSingleClick',
+    true,
+  );
+  const [openFoldersWithSingleClick, setOpenFoldersWithSingleClick] = usePersistedFlag('openFoldersWithSingleClick', true);
+  const [alwaysSelectOpened, setAlwaysSelectOpened] = usePersistedFlag('alwaysSelectOpened', true);
+  const [showIndentGuides, setShowIndentGuides] = usePersistedFlag('showIndentGuides', true);
   const containerRef = useRef<HTMLDivElement>(null);
 
   const {
