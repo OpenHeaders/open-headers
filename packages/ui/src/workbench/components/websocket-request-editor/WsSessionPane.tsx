@@ -22,9 +22,9 @@
 import { ClearOutlined, EllipsisOutlined } from '@ant-design/icons';
 import type { ExecutedWsSnapshot, WebSocketFlavor } from '@openheaders/core/types';
 import { useT } from '@openheaders/ui/context/LocaleContext';
-import { Button, Dropdown, Tabs, Tag, Typography, theme } from 'antd';
+import { Button, Dropdown, Tag, Typography, theme } from 'antd';
 import type React from 'react';
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import ProxyRouteTag, { proxyRouteHasBadge } from '../request-editor/response/ProxyRouteTag';
 import { useTonePillStyle } from '../request-editor/response/response-status';
 import TrustCertificateOffer from '../request-editor/response/TrustCertificateOffer';
@@ -73,7 +73,6 @@ const WsSessionPane: React.FC<WsSessionPaneProps> = ({
 }) => {
   const { token } = theme.useToken();
   const t = useT();
-  const [activeTab, setActiveTab] = useState('timeline');
 
   const noticeStrip =
     hostNotice != null && hostNotice !== '' ? (
@@ -342,53 +341,46 @@ const WsSessionPane: React.FC<WsSessionPaneProps> = ({
       data-testid="ws-session-pane"
     >
       {noticeStrip}
-      <Tabs
-        activeKey={activeTab}
-        onChange={setActiveTab}
-        size="small"
-        className="rules-response-tabs"
-        style={{ flex: 1, padding: '0 12px', display: 'flex', flexDirection: 'column', minHeight: 0 }}
-        tabBarStyle={{ marginBottom: 0 }}
-        tabBarExtraContent={{ right: metaStrip }}
-        items={[
-          {
-            key: 'timeline',
-            label: t('workbench.editors.websocket.session.tab.timeline'),
-            children: (
-              <div
-                style={{
-                  height: '100%',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: 6,
-                  padding: '8px 0',
-                  minHeight: 0,
-                }}
-              >
-                {trustHint !== null && (
-                  <div style={{ display: 'flex', justifyContent: 'center' }}>
-                    <TrustCertificateOffer
-                      hint={trustHint}
-                      {...(onReconnect !== undefined ? { onResend: onReconnect } : {})}
-                    />
-                  </div>
-                )}
-                <div style={{ flex: 1, minHeight: 120, display: 'flex', flexDirection: 'column' }}>
-                  <WsMessageTimeline
-                    items={items}
-                    count={count}
-                    {...(timestamps !== undefined ? { timestamps } : {})}
-                    lifecycle={lifecycle}
-                    droppedMessages={snapshot?.droppedMessages ?? 0}
-                    {...(flavor !== undefined ? { flavor } : {})}
-                    {...(listenedEvents !== undefined ? { listenedEvents } : {})}
-                  />
-                </div>
-              </div>
-            ),
-          },
-        ]}
-      />
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          padding: '6px 12px',
+          borderBottom: `1px solid ${token.colorBorderSecondary}`,
+        }}
+      >
+        <Text strong style={{ fontSize: 12 }}>
+          {t('workbench.editors.websocket.session.paneTitle')}
+        </Text>
+        <span style={{ marginLeft: 'auto', display: 'inline-flex' }}>{metaStrip}</span>
+      </div>
+      <div
+        style={{
+          flex: 1,
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 6,
+          padding: '8px 12px',
+          minHeight: 0,
+        }}
+      >
+        {trustHint !== null && (
+          <div style={{ display: 'flex', justifyContent: 'center' }}>
+            <TrustCertificateOffer hint={trustHint} {...(onReconnect !== undefined ? { onResend: onReconnect } : {})} />
+          </div>
+        )}
+        <div style={{ flex: 1, minHeight: 120, display: 'flex', flexDirection: 'column' }}>
+          <WsMessageTimeline
+            items={items}
+            count={count}
+            {...(timestamps !== undefined ? { timestamps } : {})}
+            lifecycle={lifecycle}
+            droppedMessages={snapshot?.droppedMessages ?? 0}
+            {...(flavor !== undefined ? { flavor } : {})}
+            {...(listenedEvents !== undefined ? { listenedEvents } : {})}
+          />
+        </div>
+      </div>
     </div>
   );
 };

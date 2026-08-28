@@ -499,7 +499,7 @@ const WebSocketRequestEditor: React.FC<WebSocketRequestEditorProps> = ({
                     }}
                   >
                     <Text strong style={{ fontSize: 12 }}>
-                      {t('workbench.editors.websocket.session.emptyTitle')}
+                      {t('workbench.editors.websocket.session.paneTitle')}
                     </Text>
                   </div>
                   <div

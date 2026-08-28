@@ -11,9 +11,9 @@
 
 import type { CapturedWsResponse, WebSocketFlavor } from '@openheaders/core/types';
 import { useT } from '@openheaders/ui/context/LocaleContext';
-import { Tabs, Tag, Tooltip, Typography, theme } from 'antd';
+import { Tag, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import WsMessageTimeline, { type WsTimelineLifecycle } from '../websocket-request-editor/WsMessageTimeline';
 
 const { Text } = Typography;
@@ -29,7 +29,6 @@ interface WsExampleResultPaneProps {
 const WsExampleResultPane: React.FC<WsExampleResultPaneProps> = ({ response, flavor, capturedAt }) => {
   const { token } = theme.useToken();
   const t = useT();
-  const [activeTab, setActiveTab] = useState('timeline');
 
   const lifecycle = useMemo(
     (): WsTimelineLifecycle => ({
@@ -86,43 +85,39 @@ const WsExampleResultPane: React.FC<WsExampleResultPaneProps> = ({ response, fla
       }}
       data-testid="ws-example-result-pane"
     >
-      <Tabs
-        activeKey={activeTab}
-        onChange={setActiveTab}
-        size="small"
-        className="rules-response-tabs"
-        style={{ flex: 1, padding: '0 12px', display: 'flex', flexDirection: 'column', minHeight: 0 }}
-        tabBarStyle={{ marginBottom: 0 }}
-        tabBarExtraContent={{ right: metaStrip }}
-        items={[
-          {
-            key: 'timeline',
-            label: t('workbench.editors.websocket.session.tab.timeline'),
-            children: (
-              <div
-                style={{
-                  height: '100%',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: 6,
-                  padding: '8px 0',
-                  minHeight: 0,
-                }}
-              >
-                <div style={{ flex: 1, minHeight: 120, display: 'flex', flexDirection: 'column' }}>
-                  <WsMessageTimeline
-                    items={response.messages}
-                    count={response.messages.length}
-                    lifecycle={lifecycle}
-                    droppedMessages={response.droppedMessages}
-                    flavor={flavor}
-                  />
-                </div>
-              </div>
-            ),
-          },
-        ]}
-      />
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          padding: '6px 12px',
+          borderBottom: `1px solid ${token.colorBorderSecondary}`,
+        }}
+      >
+        <Text strong style={{ fontSize: 12 }}>
+          {t('workbench.editors.websocket.session.paneTitle')}
+        </Text>
+        <span style={{ marginLeft: 'auto', display: 'inline-flex' }}>{metaStrip}</span>
+      </div>
+      <div
+        style={{
+          flex: 1,
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 6,
+          padding: '8px 12px',
+          minHeight: 0,
+        }}
+      >
+        <div style={{ flex: 1, minHeight: 120, display: 'flex', flexDirection: 'column' }}>
+          <WsMessageTimeline
+            items={response.messages}
+            count={response.messages.length}
+            lifecycle={lifecycle}
+            droppedMessages={response.droppedMessages}
+            flavor={flavor}
+          />
+        </div>
+      </div>
     </div>
   );
 };
