@@ -18,7 +18,7 @@ export function statusDisplayLabel(status: number, statusText: string): string {
   return phrase ? `${status} ${phrase}` : `${status}`;
 }
 
-export type PillTone = 'success' | 'warning' | 'error' | 'neutral';
+export type PillTone = 'success' | 'warning' | 'error' | 'info' | 'neutral';
 
 /**
  * Filled pill in one tone — the status chip's palette, also worn by
@@ -39,7 +39,14 @@ export function useTonePillStyle(tone: PillTone): React.CSSProperties {
     text = token.colorTextSecondary;
     bg = token.colorFillTertiary;
   } else {
-    const hue = tone === 'error' ? token.colorError : tone === 'warning' ? token.colorWarning : token.colorSuccess;
+    const hue =
+      tone === 'error'
+        ? token.colorError
+        : tone === 'warning'
+          ? token.colorWarning
+          : tone === 'info'
+            ? token.colorInfo
+            : token.colorSuccess;
     if (isDarkMode) {
       text = `color-mix(in srgb, ${hue} 22%, ${token.colorWhite})`;
       bg = `color-mix(in srgb, ${hue} 32%, ${token.colorBgContainer})`;

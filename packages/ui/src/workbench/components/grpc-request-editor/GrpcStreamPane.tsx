@@ -23,6 +23,7 @@ import { Button, Dropdown, Tabs, Tag, Typography, theme } from 'antd';
 import type React from 'react';
 import { useMemo, useState } from 'react';
 import ProxyRouteTag, { proxyRouteHasBadge } from '../request-editor/response/ProxyRouteTag';
+import { useTonePillStyle } from '../request-editor/response/response-status';
 import ResponseHeadersView from '../request-editor/response/ResponseHeadersView';
 import { ExampleChip } from '../shared/ExampleChip';
 import GrpcMessageTimeline, { type GrpcTimelineLifecycle } from './GrpcMessageTimeline';
@@ -118,11 +119,15 @@ const GrpcStreamPane: React.FC<GrpcStreamPaneProps> = ({
   // one-row header format: STREAMING while live; the shared strip
   // (status pill popover · duration) plus the ⋯ actions menu once
   // settled.
+  // The live badge wears the session pill (the WebSocket Connected
+  // treatment) on the info hue — bold text on a real wash, not the
+  // faint processing tag.
+  const streamingPill = useTonePillStyle('info');
   const metaStrip = (
     <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, paddingLeft: 12 }}>
       {snapshot === null ? (
         <>
-          <Tag color="processing" style={{ marginInlineEnd: 0 }} data-testid="grpc-streaming-badge">
+          <Tag color="default" style={streamingPill} data-testid="grpc-streaming-badge">
             {t('workbench.editors.grpc.stream.streamingBadge')}
           </Tag>
           {proxyRouteHasBadge(live?.head?.proxyRoute) && <ProxyRouteTag route={live?.head?.proxyRoute} />}
