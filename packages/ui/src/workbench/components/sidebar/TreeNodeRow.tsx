@@ -23,7 +23,7 @@ import { Fragment, useEffect, useRef, useState } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { EntityField } from '@openheaders/ui/shared/awareness';
 import { highlightLabel } from './search-highlight';
-import { rowPaddingLeft } from './tree-geometry';
+import { rowGuideOffsets, rowPaddingLeft } from './tree-geometry';
 import type { TreeNode } from './types';
 
 interface TreeNodeRowProps {
@@ -193,6 +193,10 @@ export function TreeNodeRow({
         if (!isRenaming) onDoubleClick();
       }}
     >
+      {/* Indent guides — one per ancestor level, revealed on tree hover. */}
+      {rowGuideOffsets(node.depth).map((left) => (
+        <span key={left} className="rules-sidebar-item-guide" style={{ left }} aria-hidden />
+      ))}
       <span className="rules-sidebar-item-caret">
         {node.expandable && (
           <CaretRightOutlined

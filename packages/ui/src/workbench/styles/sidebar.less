@@ -155,6 +155,7 @@
 // ── Sidebar tree nodes (mirrors desktop v5-sidebar-item) ───────────
 
 .rules-sidebar-item {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 4px;
@@ -221,6 +222,24 @@
   &:hover .rules-sidebar-item-hover-action {
     opacity: 1;
   }
+}
+
+// Indent guides: a hairline per ancestor level, spanning the full row
+// so consecutive rows join into one continuous line. Hidden at rest,
+// revealed while the pointer is anywhere over the tree.
+.rules-sidebar-item-guide {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: var(--ant-color-border-secondary, rgba(128, 128, 128, 0.2));
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s;
+}
+
+.rules-sidebar-content:hover .rules-sidebar-item-guide {
+  opacity: 1;
 }
 
 .rules-sidebar-item-caret {

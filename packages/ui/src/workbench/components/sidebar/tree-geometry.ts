@@ -18,3 +18,11 @@ export const ROW_MARGIN = 4;
 export function rowPaddingLeft(depth: number): number {
   return ROW_INSET + depth * ROW_INDENT;
 }
+
+/** Left offsets, inside the row, of the indent guides for a row at
+ *  `depth`: one per ancestor level, centered under that level's caret. */
+export function rowGuideOffsets(depth: number): number[] {
+  const offsets: number[] = [];
+  for (let level = 0; level < depth; level++) offsets.push(rowPaddingLeft(level) + CARET_SLOT / 2);
+  return offsets;
+}
