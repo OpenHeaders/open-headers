@@ -17,7 +17,9 @@ import type {
   CapturedWsRequest,
   CapturedWsResponse,
   ExecutedWsSnapshot,
+  WebSocketBinaryEncoding,
   WebSocketFlavor,
+  WebSocketMessageFormat,
   WsResponseExample,
 } from '@openheaders/core/types';
 import { stableStringify } from '@openheaders/ui/shared/forms';
@@ -30,6 +32,10 @@ export interface WsExampleDraft {
   headers: KeyValueRow[];
   params: KeyValueRow[];
   message: string;
+  /** Raw-flavor compose mode (concrete — absent on the capture reads `text`). */
+  messageFormat: WebSocketMessageFormat;
+  /** Byte spelling of a binary compose (concrete — absent reads `base64`). */
+  binaryEncoding: WebSocketBinaryEncoding;
   /** Socket.IO event name (concrete — absent on the capture reads ''). */
   eventName: string;
   /** Socket.IO namespace (concrete — absent reads as '', the root). */
@@ -47,6 +53,8 @@ export function wsExampleToDraft(example: WsResponseExample): WsExampleDraft {
     headers: headersToRows(example.request.headers),
     params: paramsToRows(example.request.params),
     message: example.request.message,
+    messageFormat: example.request.messageFormat ?? 'text',
+    binaryEncoding: example.request.binaryEncoding ?? 'base64',
     eventName: example.request.eventName ?? '',
     namespace: example.request.namespace ?? '',
     ackEnabled: example.request.ackEnabled ?? false,
@@ -72,6 +80,8 @@ export function capturedWsRequestFromDraft(draft: WsExampleDraft, flavor: WebSoc
     headers: rowsToHeaders(draft.headers),
     params: rowsToParams(draft.params),
     message: draft.message,
+    ...(flavor === 'raw' && draft.messageFormat !== 'text' ? { messageFormat: draft.messageFormat } : {}),
+    ...(flavor === 'raw' && draft.messageFormat === 'binary' ? { binaryEncoding: draft.binaryEncoding } : {}),
     ...(draft.eventName === '' ? {} : { eventName: draft.eventName }),
     ...(draft.ackEnabled ? { ackEnabled: true } : {}),
     sslVerification: draft.sslVerification,
@@ -115,6 +125,8 @@ export function wsExampleDraftFingerprint(draft: WsExampleDraft): string {
     headers: draft.headers.filter((r) => r.key.trim()).map(stripRow),
     params: draft.params.filter((r) => r.key.trim()).map(stripRow),
     message: draft.message,
+    messageFormat: draft.messageFormat,
+    binaryEncoding: draft.messageFormat === 'binary' ? draft.binaryEncoding : undefined,
     eventName: draft.eventName,
     namespace: draft.namespace,
     ackEnabled: draft.ackEnabled,

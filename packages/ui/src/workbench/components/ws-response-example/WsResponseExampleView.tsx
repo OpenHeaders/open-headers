@@ -35,7 +35,13 @@ import { applyWsResponseExampleUpdate } from '@openheaders/ui/shared/sync/ws-res
 import EditorHeader from '../shell/EditorHeader';
 import CodeEditor from '../shared/CodeEditor';
 import KeyValueTable from '../request-editor/KeyValueTable';
+import { MESSAGE_FORMAT_LANGUAGE } from '../websocket-request-editor/compose';
 import { publishWsPrefill } from '../websocket-request-editor/ws-prefill-bus';
+import {
+  BinaryEncodingSelect,
+  MessageFormatSelect,
+  rawMessagePlaceholder,
+} from '../websocket-request-editor/ws-format-parts';
 import WsExampleResultPane from './WsExampleResultPane';
 import {
   capturedWsRequestFromDraft,
@@ -251,16 +257,34 @@ const WsResponseExampleView: React.FC<WsResponseExampleViewProps> = ({
                             <CodeEditor
                               value={draft.message}
                               onChange={(msg) => setDraft((d) => (d ? { ...d, message: msg } : d))}
-                              language={socketioFlavor ? 'json' : 'text'}
+                              language={socketioFlavor ? 'json' : MESSAGE_FORMAT_LANGUAGE[draft.messageFormat]}
                               fill
                               placeholder={
                                 socketioFlavor
                                   ? t('workbench.editors.websocket.event.argsPlaceholder')
-                                  : t('workbench.editors.websocket.messagePlaceholder')
+                                  : rawMessagePlaceholder(t, draft.messageFormat, draft.binaryEncoding)
                               }
                             />
                           </div>
                         </div>
+                        {/* Compose bar BELOW the editor — the request editor's
+                          format anatomy on the captured record. */}
+                        {!socketioFlavor && (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <MessageFormatSelect
+                              value={draft.messageFormat}
+                              onChange={(messageFormat) => setDraft((d) => (d ? { ...d, messageFormat } : d))}
+                              testId="ws-example-message-format"
+                            />
+                            {draft.messageFormat === 'binary' && (
+                              <BinaryEncodingSelect
+                                value={draft.binaryEncoding}
+                                onChange={(binaryEncoding) => setDraft((d) => (d ? { ...d, binaryEncoding } : d))}
+                                testId="ws-example-binary-encoding"
+                              />
+                            )}
+                          </div>
+                        )}
                       </div>
                     )}
                     {activeTab === 'headers' && (

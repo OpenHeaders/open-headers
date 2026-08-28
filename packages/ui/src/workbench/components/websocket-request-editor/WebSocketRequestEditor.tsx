@@ -150,6 +150,8 @@ const WebSocketRequestEditor: React.FC<WebSocketRequestEditorProps> = ({
         headers: headersToRows(captured.headers),
         params: paramsToRows(captured.params),
         message: captured.message,
+        messageFormat: captured.messageFormat ?? 'text',
+        binaryEncoding: captured.binaryEncoding ?? 'base64',
         eventName: captured.eventName ?? '',
         namespace: captured.namespace ?? '',
         ackEnabled: captured.ackEnabled ?? false,

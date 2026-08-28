@@ -14,7 +14,6 @@
  */
 
 import { SendOutlined } from '@ant-design/icons';
-import type { WebSocketBinaryEncoding, WebSocketMessageFormat } from '@openheaders/core/types';
 import { ShortcutHintTitle } from '@openheaders/ui/components/ShortcutKbd';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { Button, Input, Select, Switch, Tooltip, Typography } from 'antd';
@@ -28,6 +27,7 @@ import type { WebSocketDraft } from './draft';
 import type { SocketIoArgs } from './useSocketIoArgs';
 import type { WsComposeAids } from './useWsComposeAids';
 import WsArgRail from './WsArgRail';
+import { BinaryEncodingSelect, MessageFormatSelect, rawMessagePlaceholder } from './ws-format-parts';
 
 const { Text } = Typography;
 
@@ -62,11 +62,7 @@ const WsMessageTab: React.FC<WsMessageTabProps> = ({
   const [wrapMessage, setWrapMessage] = useState(true);
   const { argTexts, activeArg, composeArgs } = args;
   const binaryCompose = !socketioFlavor && draft.messageFormat === 'binary';
-  const rawPlaceholder = binaryCompose
-    ? draft.binaryEncoding === 'hex'
-      ? t('workbench.editors.websocket.messagePlaceholderHex')
-      : t('workbench.editors.websocket.messagePlaceholderBase64')
-    : t('workbench.editors.websocket.messagePlaceholder');
+  const rawPlaceholder = rawMessagePlaceholder(t, draft.messageFormat, draft.binaryEncoding);
 
   // "Use example message" — the compose aid off the specLink census.
   // A command picker, not a value: picking synthesizes the payload
@@ -171,32 +167,17 @@ const WsMessageTab: React.FC<WsMessageTabProps> = ({
         a disabled scaffold that enables with the session plane. */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         {!socketioFlavor && (
-          <Select
-            size="small"
-            style={{ width: 120 }}
+          <MessageFormatSelect
             value={draft.messageFormat}
-            onChange={(messageFormat: WebSocketMessageFormat) => setDraft((d) => ({ ...d, messageFormat }))}
-            options={[
-              { value: 'text', label: t('workbench.editors.websocket.message.formatText') },
-              { value: 'json', label: t('workbench.editors.websocket.message.formatJson') },
-              { value: 'xml', label: t('workbench.editors.websocket.message.formatXml') },
-              { value: 'html', label: t('workbench.editors.websocket.message.formatHtml') },
-              { value: 'binary', label: t('workbench.editors.websocket.message.formatBinary') },
-            ]}
-            data-testid="websocket-message-format"
+            onChange={(messageFormat) => setDraft((d) => ({ ...d, messageFormat }))}
+            testId="websocket-message-format"
           />
         )}
         {binaryCompose && (
-          <Select
-            size="small"
-            style={{ width: 120 }}
+          <BinaryEncodingSelect
             value={draft.binaryEncoding}
-            onChange={(binaryEncoding: WebSocketBinaryEncoding) => setDraft((d) => ({ ...d, binaryEncoding }))}
-            options={[
-              { value: 'base64', label: t('workbench.editors.websocket.message.encodingBase64') },
-              { value: 'hex', label: t('workbench.editors.websocket.message.encodingHex') },
-            ]}
-            data-testid="websocket-binary-encoding"
+            onChange={(binaryEncoding) => setDraft((d) => ({ ...d, binaryEncoding }))}
+            testId="websocket-binary-encoding"
           />
         )}
         <span style={{ flex: 1 }} />

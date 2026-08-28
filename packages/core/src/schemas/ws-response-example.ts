@@ -20,15 +20,16 @@
  *   - volatile execution internals: `executedOn` attribution and the
  *     `error` classification — Save Response only offers on a settled
  *     session that connected (the gRPC example's law).
- *   - `messageFormat` — a compose display mode, not session fact.
  */
 
 import * as v from 'valibot';
 import { RelativePathSchema, SchemaVersionSchema, UidSchema } from './common';
 import { RequestTimeoutMsSchema } from './request';
 import {
+  WebSocketBinaryEncodingSchema,
   WebSocketFlavorSchema,
   WebSocketHeaderPairSchema,
+  WebSocketMessageFormatSchema,
   WebSocketQueryParamSchema,
   WebSocketUrlSchema,
 } from './websocket-request';
@@ -47,6 +48,12 @@ export const CapturedWsRequestSchema = v.object({
   /** Compose draft at capture — the raw payload, or the socketio JSON
    *  arguments array. */
   message: v.string(),
+  /** Compose mode at capture (raw flavor) — the text modes are display
+   *  only, `binary` names the message as the byte spelling a binary
+   *  frame carried. Absent = `text`. */
+  messageFormat: v.optional(WebSocketMessageFormatSchema),
+  /** Byte spelling of a `binary` compose. Absent = `base64`. */
+  binaryEncoding: v.optional(WebSocketBinaryEncodingSchema),
   /** Socket.IO event name as composed (socketio flavor only). */
   eventName: v.optional(v.string()),
   /** Socket.IO ack opt-in as composed (socketio flavor only). */
