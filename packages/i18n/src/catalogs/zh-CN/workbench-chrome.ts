@@ -593,7 +593,7 @@ export const workbenchChrome = {
   'workbench.gitLog.compare.failed': '无法比较：{detail}',
 
   // ── Commit tool window ───────────────────────────────────────────
-  'workbench.toolWindows.commit': '提交',
+  'workbench.toolWindows.commit': 'Git · 提交',
   'workbench.toolWindows.info.commit.summary':
     '提交当前工作区 Git 绑定中的更改——可勾选的更改树、提交信息，以及使用你自己的 git 身份和钩子的提交 / 提交并推送。',
   'workbench.commitTool.groups.changes': '更改',

@@ -773,7 +773,7 @@ export const workbenchChrome = {
   'workbench.gitLog.compare.failed': 'Vergleich nicht möglich: {detail}',
 
   // ── Commit tool window ───────────────────────────────────────────
-  'workbench.toolWindows.commit': 'Commit',
+  'workbench.toolWindows.commit': 'Git · Commit',
   'workbench.toolWindows.info.commit.summary':
     'Änderungen der Git-Bindung des aktiven Workspace committen — abhakbarer Änderungsbaum, ' +
     'Commit-Nachricht und Commit / Commit und Push mit Ihrer eigenen Git-Identität und Ihren Hooks.',
