@@ -19,12 +19,12 @@
  * beats a synthesized grid (the capture law's display twin).
  */
 
-import { ClearOutlined, EllipsisOutlined } from '@ant-design/icons';
+import { ClearOutlined, CloseOutlined, EllipsisOutlined } from '@ant-design/icons';
 import type { ExecutedWsSnapshot, WebSocketFlavor } from '@openheaders/core/types';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { Button, Dropdown, Tag, Typography, theme } from 'antd';
 import type React from 'react';
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import ProxyRouteTag, { proxyRouteHasBadge } from '../request-editor/response/ProxyRouteTag';
 import { useTonePillStyle } from '../request-editor/response/response-status';
 import TrustCertificateOffer from '../request-editor/response/TrustCertificateOffer';
@@ -321,12 +321,17 @@ const WsSessionPane: React.FC<WsSessionPaneProps> = ({
   );
 
   // A verification failure's remedy — the HTTP error state's offer,
-  // above the timeline so the trust gesture and Connect again sit by
-  // the error row that explains them.
+  // above the timeline, shown only once the error row's Trust
+  // certificate button asks for it (the row already tells the story;
+  // the card is the gesture). A new session closes it.
   const trustHint =
     snapshot?.outcome.kind === 'failed' && snapshot.outcome.hint?.kind === 'trust-certificate'
       ? snapshot.outcome.hint
       : null;
+  const [trustOfferOpen, setTrustOfferOpen] = useState(false);
+  useEffect(() => {
+    if (trustHint === null) setTrustOfferOpen(false);
+  }, [trustHint]);
   const items = snapshot?.messages ?? live?.items ?? [];
   const count = snapshot?.messages.length ?? live?.count ?? 0;
   const timestamps = snapshot !== null ? timing?.messageTimestamps : live?.timestamps;
@@ -366,9 +371,17 @@ const WsSessionPane: React.FC<WsSessionPaneProps> = ({
           minHeight: 0,
         }}
       >
-        {trustHint !== null && (
-          <div style={{ display: 'flex', justifyContent: 'center' }}>
+        {trustHint !== null && trustOfferOpen && (
+          <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'flex-start', gap: 4 }}>
             <TrustCertificateOffer hint={trustHint} {...(onReconnect !== undefined ? { onResend: onReconnect } : {})} />
+            <Button
+              size="small"
+              type="text"
+              icon={<CloseOutlined style={{ fontSize: 11 }} />}
+              onClick={() => setTrustOfferOpen(false)}
+              aria-label={t('shared.action.close')}
+              data-testid="ws-session-trust-offer-close"
+            />
           </div>
         )}
         <div style={{ flex: 1, minHeight: 120, display: 'flex', flexDirection: 'column' }}>
@@ -381,6 +394,8 @@ const WsSessionPane: React.FC<WsSessionPaneProps> = ({
             {...(flavor !== undefined ? { flavor } : {})}
             {...(listenedEvents !== undefined ? { listenedEvents } : {})}
             {...(onSaveMessage !== undefined ? { onSaveMessage } : {})}
+            {...(trustHint !== null ? { onTrustCertificate: () => setTrustOfferOpen((open) => !open) } : {})}
+            trustOfferOpen={trustOfferOpen}
           />
         </div>
       </div>

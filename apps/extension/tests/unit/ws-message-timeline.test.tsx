@@ -192,6 +192,27 @@ describe('WsMessageTimeline — rows and lifecycle order', () => {
     expect(screen.getByTestId('ws-timeline-handshake-details').textContent).not.toContain('permessage-deflate"');
   });
 
+  it('shows Trust certificate on the error row only with a handler, the click never toggles the row', () => {
+    const failed = {
+      startedAt: 1_700_000_000_000,
+      connected: false,
+      errorMessage: 'TLS certificate error reaching 127.0.0.1:3443',
+      endedAt: 1_700_000_000_200,
+    };
+    const { unmount } = renderTimeline({ items: [], count: 0, lifecycle: failed });
+    expect(screen.queryByTestId('ws-timeline-trust-certificate')).toBeNull();
+    unmount();
+    const onTrustCertificate = vi.fn();
+    renderTimeline({ items: [], count: 0, lifecycle: failed, onTrustCertificate, trustOfferOpen: true });
+    const row = screen.getByTestId('ws-timeline-error-row');
+    const before = row.getAttribute('aria-expanded');
+    const button = screen.getByTestId('ws-timeline-trust-certificate');
+    expect(button.getAttribute('aria-pressed')).toBe('true');
+    fireEvent.click(button);
+    expect(onTrustCertificate).toHaveBeenCalledTimes(1);
+    expect(row.getAttribute('aria-expanded')).toBe(before);
+  });
+
   it('renders a settled pre-open failure as the error row at the ended slot', () => {
     renderTimeline({
       items: [],

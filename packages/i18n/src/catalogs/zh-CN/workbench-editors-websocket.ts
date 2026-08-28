@@ -229,6 +229,7 @@ export const workbenchEditorsWebsocket = {
   'workbench.editors.websocket.timeline.rowsPerGroup': '每组行数',
   'workbench.editors.websocket.timeline.noLimit': '不限制',
   'workbench.editors.websocket.timeline.clearMessages': '清除消息',
+  'workbench.editors.websocket.timeline.trustCertificate': '信任证书',
   'workbench.editors.websocket.timeline.newMessages': '新消息',
   'workbench.editors.websocket.timeline.binaryMessage': '二进制消息（{bytes} 字节）',
   'workbench.editors.websocket.timeline.sentAria': '已发送',

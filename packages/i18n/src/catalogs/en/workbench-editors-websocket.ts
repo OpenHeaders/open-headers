@@ -236,6 +236,7 @@ export const workbenchEditorsWebsocket = {
   'workbench.editors.websocket.timeline.rowsPerGroup': 'Rows per group',
   'workbench.editors.websocket.timeline.noLimit': 'No limit',
   'workbench.editors.websocket.timeline.clearMessages': 'Clear messages',
+  'workbench.editors.websocket.timeline.trustCertificate': 'Trust certificate',
   'workbench.editors.websocket.timeline.newMessages': 'New messages',
   'workbench.editors.websocket.timeline.binaryMessage': 'Binary message ({bytes} bytes)',
   'workbench.editors.websocket.timeline.sentAria': 'Sent',

@@ -191,6 +191,12 @@ interface WsMessageTimelineProps {
   /** "Save message" on a row — absent hides the action (the example
    *  viewer has no rail to save into). */
   onSaveMessage?: (item: WsTimelineItem) => void;
+  /** A verification failure's remedy — present only when the failure
+   *  carries the trust hint; the error row shows the Trust certificate
+   *  button that reveals the pane's offer. */
+  onTrustCertificate?: () => void;
+  /** The offer is showing — the button reads as pressed. */
+  trustOfferOpen?: boolean;
 }
 
 /** One group's identity — composed from the ENABLED grouping axes:
@@ -555,6 +561,8 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
   flavor,
   listenedEvents,
   onSaveMessage,
+  onTrustCertificate,
+  trustOfferOpen = false,
 }) => {
   const { token } = theme.useToken();
   const t = useT();
@@ -1342,6 +1350,22 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
                 ? t('workbench.editors.websocket.timeline.couldNotConnect', { url })
                 : lifecycle.errorMessage}
             </span>
+            {onTrustCertificate !== undefined && (
+              <Button
+                size="small"
+                type={trustOfferOpen ? 'primary' : 'default'}
+                aria-pressed={trustOfferOpen}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onTrustCertificate();
+                }}
+                onKeyDown={(event) => event.stopPropagation()}
+                style={{ flexShrink: 0, marginLeft: 'auto' }}
+                data-testid="ws-timeline-trust-certificate"
+              >
+                {t('workbench.editors.websocket.timeline.trustCertificate')}
+              </Button>
+            )}
             {lifecycleTime(lifecycle.endedAt)}
             {expandSlot(errorExpanded)}
           </div>
