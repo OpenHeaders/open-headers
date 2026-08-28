@@ -9,9 +9,10 @@
  * smallest sidebar width across all supported browsers).
  *
  * Container-query rules in popup.less drive the responsive collapsing
- * — they query `.app-container`'s inline size and fire the same on
- * either surface. The popup at 800px gets the wide layout; the
- * sidepanel at 320px gets the narrow layout.
+ * — they query the `oh-shell` container declared here on
+ * `.app-container`. The popup never declares it: it is fixed at 800px,
+ * above every collapse tier, and a size container makes each forced
+ * layout of the shell a double pass.
  */
 
 html,
@@ -21,4 +22,9 @@ body {
   min-height: 100vh;
   min-width: 0;
   overflow: hidden;
+}
+
+.app-container {
+  container-type: inline-size;
+  container-name: oh-shell;
 }

@@ -96,12 +96,11 @@ body {
   position: relative;
   overflow: hidden !important;
 
-  /* Container-query host: every responsive collapse rule below queries
-   * THIS element's inline-size, not the viewport. The popup gets the
-   * 800px wide layout; the sidepanel gets a fluid layout that collapses
-   * as the user drags it narrower. */
-  container-type: inline-size;
-  container-name: oh-shell;
+  /* The responsive collapse rules below query the `oh-shell` container's
+   * inline-size. Only the side panel declares that container (see
+   * `sidepanel.less`): the popup is fixed at 800px, above every tier
+   * below, and a size container costs a second full relayout of the
+   * shell on every forced layout — dozens per dropdown open. */
 }
 
 /* Ensure ant-layout doesn't add scrollbar */
