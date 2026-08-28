@@ -199,6 +199,7 @@ export const workbenchChromeSidebar = {
   'workbench.activityFeed.revertUnavailableDelete':
     'Las eliminaciones son permanentes y no se pueden revertir (§7.2 delete-wins).',
   'workbench.activityFeed.revertUnavailable': 'Este cambio no se puede revertir.',
+  'workbench.activityFeed.revertUnavailableParentGone': 'La carpeta de la que procede este elemento ya no existe.',
   'workbench.activityFeed.kind.created': 'Creada',
   'workbench.activityFeed.kind.createdTip': 'Llegó una entidad nueva desde un par.',
   'workbench.activityFeed.kind.edited': 'Editada',
@@ -216,6 +217,9 @@ export const workbenchChromeSidebar = {
   'workbench.activityFeed.kind.agentObserved': 'Lectura por agente',
   'workbench.activityFeed.kind.agentObservedTip':
     'Un agente leyó tráfico en vivo a través del nivel MCP observe — proyecciones censuradas de una fuente armada.',
+  'workbench.activityFeed.kind.rehomed': 'Movido a la raíz de la colección',
+  'workbench.activityFeed.kind.rehomedTip':
+    'Otro par eliminó su carpeta o la movió dentro de sí misma; este elemento se volvió a adjuntar a la raíz de la colección.',
   'workbench.activityFeed.rawRead': 'Sin censurar',
   'workbench.activityFeed.rawReadTip':
     'Esta lectura proyectó los valores reales — el permiso de lectura sin censura de sesiones estaba activado en Herramientas › Tráfico.',

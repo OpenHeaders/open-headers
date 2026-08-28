@@ -1,5 +1,5 @@
 export { FOLDER_MUTATOR_VERSION, mintBatch, mintEnvelope } from './envelope';
-export { type CreateFolderArgs, createFolder, type DeleteFolderArgs, deleteFolder } from './lifecycle';
+export { type CreateFolderArgs, createFolder, type DeleteFolderArgs, deleteFolder, folderChild } from './lifecycle';
 export { type MoveFolderArgs, moveFolder } from './move';
 export { type RenameFolderArgs, renameFolder } from './name';
 export {

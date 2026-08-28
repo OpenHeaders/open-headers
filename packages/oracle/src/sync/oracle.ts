@@ -35,6 +35,7 @@ import {
   type FieldOrigin,
   type HLC,
   InMemoryDocumentStore,
+  type LiveOrderedItem,
   type MutationBatch,
   type MutationEnvelope,
   type MutatorOutcome,
@@ -150,6 +151,11 @@ export class EntityOracle {
     return this.store.materializeOne(type, id);
   }
 
+  /** Whether `(type, id)` is known deleted — see `InMemoryDocumentStore.isTombstoned`. */
+  isTombstoned(type: string, id: string): boolean {
+    return this.store.isTombstoned(type, id);
+  }
+
   /**
    * Read live `(itemId, item)` pairs at a set path. Write-side helpers
    * (rule-store's partial-update path) consult this to enumerate the
@@ -161,16 +167,13 @@ export class EntityOracle {
   }
 
   /**
-   * Same as {@link liveSetItems} but exposes the per-entry order key.
-   * Used by write-side helpers that need to PRESERVE an entry's
-   * position on a replace (e.g. workspace rename) or compute a fresh
-   * key via `keyBetween` against the neighbours.
+   * Same as {@link liveSetItems} but exposes the per-entry order key
+   * and add-HLC. Used by write-side helpers that need to PRESERVE an
+   * entry's position on a replace (e.g. workspace rename), compute a
+   * fresh key via `keyBetween` against the neighbours, or rank a
+   * child's competing parent slots (the tree index).
    */
-  liveOrderedSetItems(
-    type: string,
-    id: string,
-    setPath: string,
-  ): Array<{ itemId: string; item: unknown; key: string }> {
+  liveOrderedSetItems(type: string, id: string, setPath: string): LiveOrderedItem[] {
     return this.store.liveOrderedSetItems(type, id, setPath);
   }
 

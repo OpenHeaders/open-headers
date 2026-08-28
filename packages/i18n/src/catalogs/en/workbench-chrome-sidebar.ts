@@ -186,6 +186,7 @@ export const workbenchChromeSidebar = {
     'Apply the inverse of this change. Emits a new mutation that brings the entity back to its pre-inbound state.',
   'workbench.activityFeed.revertUnavailableDelete': 'Deletes are permanent and cannot be reverted (§7.2 delete-wins).',
   'workbench.activityFeed.revertUnavailable': 'This change cannot be reverted.',
+  'workbench.activityFeed.revertUnavailableParentGone': 'The folder this item came from no longer exists.',
   'workbench.activityFeed.kind.created': 'Created',
   'workbench.activityFeed.kind.createdTip': 'New entity arrived from a peer.',
   'workbench.activityFeed.kind.edited': 'Edited',
@@ -203,6 +204,9 @@ export const workbenchChromeSidebar = {
   'workbench.activityFeed.kind.agentObserved': 'Agent read',
   'workbench.activityFeed.kind.agentObservedTip':
     'An agent read live traffic through the MCP observe tier — redacted projections from an armed source.',
+  'workbench.activityFeed.kind.rehomed': 'Moved to collection root',
+  'workbench.activityFeed.kind.rehomedTip':
+    'Its folder was deleted or moved into itself by another peer, so this item was re-attached to the collection root.',
   'workbench.activityFeed.rawRead': 'Unredacted',
   'workbench.activityFeed.rawReadTip':
     'This read projected raw values — the unredacted session reads grant was on in Tools › Traffic.',

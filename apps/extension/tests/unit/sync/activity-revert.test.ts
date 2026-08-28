@@ -21,8 +21,8 @@ import {
   newBatchId,
   newMutationId,
 } from '@openheaders/core/sync';
-import { InMemoryBroadcast } from '@openheaders/oracle/sync/broadcast';
 import { generateInverseMutation } from '@openheaders/oracle/sync/activity/activity-revert';
+import { InMemoryBroadcast } from '@openheaders/oracle/sync/broadcast';
 import { InMemoryMutationLog } from '@openheaders/oracle/sync/mutation-log';
 import { EntityOracle, type LockAcquirer } from '@openheaders/oracle/sync/oracle';
 import { InMemoryPendingIntents } from '@openheaders/oracle/sync/pending-intents';
@@ -359,5 +359,113 @@ describe('generateInverseMutation — envelope stamping', () => {
     expect(env.hlc).toEqual({ physicalMs: 3_141, logical: 5, nodeId: 'n-local' });
     expect(env.origin).toEqual({ surfaceId: 'panel', deviceId: 'd-local', userId: undefined });
     expect(env.workspaceId).toBe(WS);
+  });
+});
+
+describe('generateInverseMutation — slotTransfer (rehome undo)', () => {
+  const ITEMS = 'items';
+  const spec = (): InverseEnvelopeContext => ({
+    mutatorVersion: 2,
+    spec: {
+      kind: 'slotTransfer',
+      from: { type: 'collection', id: 'col-1', path: ITEMS },
+      to: { type: 'folder', id: 'fold-1', path: ITEMS },
+      itemId: 'r1',
+      item: { uid: 'r1', type: 'rule' },
+      orderKey: 'k',
+    },
+  });
+
+  async function seedParked(withFolder: boolean): Promise<void> {
+    await oracle.apply(batchOf(ctx(1_000), { kind: 'create', type: 'rule', id: 'r1', payload: { name: 'r' } }), []);
+    await oracle.apply(
+      batchOf(ctx(1_001), { kind: 'create', type: 'collection', id: 'col-1', payload: { name: 'c' } }),
+      [],
+    );
+    if (withFolder) {
+      await oracle.apply(
+        batchOf(ctx(1_002), { kind: 'create', type: 'folder', id: 'fold-1', payload: { name: 'f' } }),
+        [],
+      );
+    }
+    await oracle.apply(
+      batchOf(ctx(1_003), {
+        kind: 'addToSet',
+        type: 'collection',
+        id: 'col-1',
+        path: ITEMS,
+        itemId: 'r1',
+        item: { uid: 'r1', type: 'rule' },
+      }),
+      [],
+    );
+  }
+
+  it('mints the atomic remove + add that moves the child back onto its original container', async () => {
+    await seedParked(true);
+    const result = generateInverseMutation({
+      entityType: 'rule',
+      entityId: 'r1',
+      inverse: spec(),
+      oracle,
+      ctx: ctx(2_000),
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.batch.mutations.map((m) => m.body)).toEqual([
+      { kind: 'removeFromSet', type: 'collection', id: 'col-1', path: ITEMS, itemId: 'r1' },
+      {
+        kind: 'addToSet',
+        type: 'folder',
+        id: 'fold-1',
+        path: ITEMS,
+        itemId: 'r1',
+        item: { uid: 'r1', type: 'rule' },
+        orderKey: 'k',
+      },
+    ]);
+    expect(result.batch.mutations.every((m) => m.mutatorVersion === 2)).toBe(true);
+    expect(result.batch.mutations[0].hlc.logical < result.batch.mutations[1].hlc.logical).toBe(true);
+    const applied = await oracle.apply(result.batch, []);
+    expect(applied.ok).toBe(true);
+    expect(oracle.liveOrderedSetItems('collection', 'col-1', ITEMS)).toEqual([]);
+    expect(oracle.liveOrderedSetItems('folder', 'fold-1', ITEMS).map((e) => e.itemId)).toEqual(['r1']);
+  });
+
+  it('refuses with original-parent-gone when the container to return to is tombstoned', async () => {
+    await seedParked(false);
+    const result = generateInverseMutation({
+      entityType: 'rule',
+      entityId: 'r1',
+      inverse: spec(),
+      oracle,
+      ctx: ctx(2_000),
+    });
+    expect(result).toEqual({ ok: false, reason: 'original-parent-gone' });
+  });
+
+  it('refuses with set-item-missing when the child no longer sits where the rehome parked it', async () => {
+    await seedParked(true);
+    await oracle.apply(
+      batchOf(ctx(1_500), { kind: 'removeFromSet', type: 'collection', id: 'col-1', path: ITEMS, itemId: 'r1' }),
+      [],
+    );
+    const result = generateInverseMutation({
+      entityType: 'rule',
+      entityId: 'r1',
+      inverse: spec(),
+      oracle,
+      ctx: ctx(2_000),
+    });
+    expect(result).toEqual({ ok: false, reason: 'set-item-missing' });
+  });
+
+  it('surfaces the recorded unavailable reason verbatim', () => {
+    const inverse: InverseEnvelopeContext = {
+      mutatorVersion: 2,
+      spec: { kind: 'unavailable', reason: 'original-parent-gone' },
+    };
+    const result = generateInverseMutation({ entityType: 'rule', entityId: 'r1', inverse, oracle, ctx: ctx(2_000) });
+    expect(result).toEqual({ ok: false, reason: 'original-parent-gone' });
   });
 });

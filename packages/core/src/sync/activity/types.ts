@@ -51,7 +51,17 @@ export type ActivityEntryKind =
    * envelope, no prior, nothing to revert; the entry is minted directly
    * by the host's observe sink.
    */
-  | 'agent-observe';
+  | 'agent-observe'
+  /**
+   * The host re-attached a tree child to its collection root because
+   * its container vanished under a concurrent move or a merge formed
+   * a cycle (the tree containment plan: nothing is lost silently).
+   * Minted by the tree slot reconciler, not the classifier — the
+   * healing batch is local reconciliation; the entry's `context`
+   * carries `from` / `to` / `reason` and a `slotTransfer` inverse when
+   * the original parent is still alive.
+   */
+  | 'rehome-entity';
 
 export interface ActivityEntry {
   /** `${hlcKey}|${mutationId}|${kind}` — sortable by HLC, unique per row. */

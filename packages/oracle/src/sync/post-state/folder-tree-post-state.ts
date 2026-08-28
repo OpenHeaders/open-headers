@@ -20,12 +20,27 @@
  * every per-uid snapshot projection, so rebuilding it per call would
  * turn bulk seeding and cold-mount snapshots quadratic.
  *
+ * Merged state is not always well-formed, and the index is where the
+ * conflict rules of the tree containment plan become deterministic on
+ * every peer: a child in two live slots keeps the one with the higher
+ * add-HLC (the other is SHADOWED — invisible to the projection); a
+ * cycle among folders is broken at the slot with the lowest add-HLC
+ * (that child becomes a CYCLE VICTIM — slot-less until rehomed). Both
+ * are reported through `treeConflicts` so the slot reconciler can heal
+ * the store to match the projection.
+ *
  * Caches don't read each other; this projector reads everything off
  * the shared oracle, which already holds collection + folder + leaf
  * state in one document store.
  */
 
-import type { MaterializedEntity, MutationBody, MutationEnvelope } from '@openheaders/core/sync';
+import {
+  compareHlc,
+  type HLC,
+  type MaterializedEntity,
+  type MutationBody,
+  type MutationEnvelope,
+} from '@openheaders/core/sync';
 import type { Collection, Folder } from '@openheaders/core/types';
 import { parentPathOf } from '@openheaders/core/utils';
 import type { EntityOracle } from '../oracle';
@@ -222,6 +237,39 @@ export function affectsTreeContainment<C extends string, F extends string>(
   return 'path' in body && (body.path === kinds.childrenPath || body.path === kinds.itemsPath);
 }
 
+/**
+ * The slots the index dropped from the projection this revision —
+ * what the reconciler heals. `shadowed`: the losing slot of a child
+ * that sits in two live parents. `cycleVictims`: the lowest-add-HLC
+ * slot of each folder cycle, whose child now has NO live slot in the
+ * projection and must be rehomed. `deadSlots`: slots whose child is
+ * not live — a move merged with a concurrent delete of the child
+ * (delete-wins on the child, the slot is garbage). All carry the
+ * slot's marker + key so the healing batch can tombstone it and the
+ * rehome entry can record where the child came from.
+ */
+export interface TreeConflicts {
+  shadowed: TreeSlotRecord[];
+  cycleVictims: TreeSlotRecord[];
+  deadSlots: TreeSlotRecord[];
+}
+
+export interface TreeSlotRecord {
+  childUid: string;
+  parent: { type: string; uid: string };
+  setPath: string;
+  item: unknown;
+  orderKey: string;
+}
+
+export function treeConflicts<C extends string, F extends string>(
+  oracle: Reads,
+  kinds: FolderTreeKinds<C, F>,
+): TreeConflicts {
+  const index = treeIndex(oracle, kinds);
+  return { shadowed: index.shadowed, cycleVictims: index.cycleVictims, deadSlots: index.deadSlots };
+}
+
 // ── Index ────────────────────────────────────────────────────────────
 
 interface ParentRef {
@@ -232,6 +280,10 @@ interface ParentRef {
 interface SlotRef {
   parent: ParentRef;
   position: number;
+  setPath: string;
+  item: unknown;
+  orderKey: string;
+  addHlc: HLC;
 }
 
 /**
@@ -239,8 +291,9 @@ interface SlotRef {
  * leaves — inverted into a `childUid → (parent, position)` map, plus a
  * memo of resolved absolute paths. Parent linkage is unique per child
  * in well-formed state (each uid occupies one slot); a child that
- * shows up in two live slots keeps the first the scan meets — the
- * shadowed-slot rule is the conflict slice's business.
+ * shows up in two live slots keeps the higher add-HLC one (parent
+ * `type:uid` breaks a tie) and the loser lands in `shadowed`; a folder
+ * cycle loses its lowest-add-HLC slot to `cycleVictims`.
  */
 interface FolderTreeIndex {
   revision: number;
@@ -249,6 +302,9 @@ interface FolderTreeIndex {
   /** Memoized absolute path per `type:uid` node; null = unresolvable. */
   pathOf: Map<string, string | null>;
   containers: TreeContainers | null;
+  shadowed: TreeSlotRecord[];
+  cycleVictims: TreeSlotRecord[];
+  deadSlots: TreeSlotRecord[];
 }
 
 const indexMemo = new WeakMap<object, Map<string, FolderTreeIndex>>();
@@ -265,20 +321,119 @@ function treeIndex<C extends string, F extends string>(oracle: Reads, kinds: Fol
   const revision = oracle.revision;
   const materialized = oracle.materializeAll();
   const parentOf = new Map<string, SlotRef>();
+  const shadowed: TreeSlotRecord[] = [];
+  const deadSlots: TreeSlotRecord[] = [];
+  const liveIds = new Set(materialized.map((m) => m.id));
   for (const m of materialized) {
     if (m.type !== kinds.collectionType && m.type !== kinds.folderType) continue;
     const parent: ParentRef = { type: m.type, uid: m.id };
     for (const setPath of [kinds.childrenPath, kinds.itemsPath]) {
       const slots = oracle.liveOrderedSetItems(m.type, m.id, setPath);
       for (let position = 0; position < slots.length; position++) {
-        const childUid = slots[position].itemId;
-        if (!parentOf.has(childUid)) parentOf.set(childUid, { parent, position });
+        const entry = slots[position];
+        const slot: SlotRef = {
+          parent,
+          position,
+          setPath,
+          item: entry.item,
+          orderKey: entry.key,
+          addHlc: entry.addHlc,
+        };
+        if (!liveIds.has(entry.itemId)) {
+          deadSlots.push(slotRecord(entry.itemId, slot));
+          continue;
+        }
+        const held = parentOf.get(entry.itemId);
+        if (!held) {
+          parentOf.set(entry.itemId, slot);
+          continue;
+        }
+        if (outranks(slot, held)) {
+          shadowed.push(slotRecord(entry.itemId, held));
+          parentOf.set(entry.itemId, slot);
+        } else {
+          shadowed.push(slotRecord(entry.itemId, slot));
+        }
       }
     }
   }
-  const index: FolderTreeIndex = { revision, materialized, parentOf, pathOf: new Map(), containers: null };
+  const cycleVictims = breakCycles(materialized, parentOf, kinds);
+  const index: FolderTreeIndex = {
+    revision,
+    materialized,
+    parentOf,
+    pathOf: new Map(),
+    containers: null,
+    shadowed,
+    cycleVictims,
+    deadSlots,
+  };
   perTree.set(kinds.folderType, index);
   return index;
+}
+
+/** Higher add-HLC wins; equal HLCs (same node, same tick) fall back to the parent key. */
+function outranks(candidate: SlotRef, held: SlotRef): boolean {
+  const byHlc = compareHlc(candidate.addHlc, held.addHlc);
+  if (byHlc !== 0) return byHlc > 0;
+  return nodeKey(candidate.parent) > nodeKey(held.parent);
+}
+
+function slotRecord(childUid: string, slot: SlotRef): TreeSlotRecord {
+  return { childUid, parent: slot.parent, setPath: slot.setPath, item: slot.item, orderKey: slot.orderKey };
+}
+
+/**
+ * Folder cycles (a folder moved into its own descendant on another
+ * peer) are broken at the cycle's lowest-add-HLC slot — the earliest
+ * of the competing moves loses, on every peer alike. The victim's
+ * slot leaves `parentOf` so the rest of the cycle resolves through it
+ * to "no parent" until the reconciler rehomes the victim. One walk per
+ * folder with tri-state marks keeps the pass linear.
+ */
+function breakCycles<C extends string, F extends string>(
+  materialized: MaterializedEntity[],
+  parentOf: Map<string, SlotRef>,
+  kinds: FolderTreeKinds<C, F>,
+): TreeSlotRecord[] {
+  const victims: TreeSlotRecord[] = [];
+  const mark = new Map<string, 'open' | 'done'>();
+  for (const m of materialized) {
+    if (m.type !== kinds.folderType || mark.has(m.id)) continue;
+    const trail: string[] = [];
+    let cursor: string | undefined = m.id;
+    while (cursor !== undefined) {
+      const state = mark.get(cursor);
+      if (state === 'done') break;
+      if (state === 'open') {
+        const victim = breakCycle(trail.slice(trail.indexOf(cursor)), parentOf);
+        if (victim) victims.push(victim);
+        break;
+      }
+      mark.set(cursor, 'open');
+      trail.push(cursor);
+      const slot = parentOf.get(cursor);
+      cursor = slot && slot.parent.type === kinds.folderType ? slot.parent.uid : undefined;
+    }
+    for (const uid of trail) mark.set(uid, 'done');
+  }
+  return victims;
+}
+
+function breakCycle(cycle: string[], parentOf: Map<string, SlotRef>): TreeSlotRecord | null {
+  let victim: { uid: string; slot: SlotRef } | null = null;
+  for (const uid of cycle) {
+    const slot = parentOf.get(uid);
+    if (!slot) continue;
+    if (!victim || compareHlc(slot.addHlc, victim.slot.addHlc) < 0) victim = { uid, slot };
+  }
+  if (!victim) return null;
+  parentOf.delete(victim.uid);
+  return slotRecord(victim.uid, victim.slot);
+}
+
+function nodeKey(node: ParentRef): string {
+  return `${node.type}:${node.uid}`;
 }
 
 /**
@@ -299,9 +454,8 @@ function resolveParentPath<C extends string, F extends string>(
 
 /**
  * Absolute path of a collection or folder node, memoized on the index.
- * Folder graphs are trees in well-formed state, but a corrupt persisted
- * snapshot could carry a cycle; the visiting guard bails safely instead
- * of recursing forever.
+ * The index has already broken every folder cycle, so the visiting
+ * guard is a pure safety net against recursing forever.
  */
 function resolveNodePath<C extends string, F extends string>(
   oracle: Reads,
@@ -310,7 +464,7 @@ function resolveNodePath<C extends string, F extends string>(
   kinds: FolderTreeKinds<C, F>,
   visiting: Set<string>,
 ): string | null {
-  const key = `${node.type}:${node.uid}`;
+  const key = nodeKey(node);
   const memo = index.pathOf.get(key);
   if (memo !== undefined) return memo;
   if (visiting.has(key)) return null;

@@ -4,6 +4,7 @@ export {
   createRequestFolder,
   type DeleteRequestFolderArgs,
   deleteRequestFolder,
+  requestFolderChild,
 } from './lifecycle';
 export { type MoveRequestFolderArgs, moveRequestFolder } from './move';
 export { type RenameRequestFolderArgs, renameRequestFolder } from './name';

@@ -4,6 +4,7 @@ export {
   createTemplateFolder,
   type DeleteTemplateFolderArgs,
   deleteTemplateFolder,
+  templateFolderChild,
 } from './lifecycle';
 export { type MoveTemplateFolderArgs, moveTemplateFolder } from './move';
 export { type RenameTemplateFolderArgs, renameTemplateFolder } from './name';

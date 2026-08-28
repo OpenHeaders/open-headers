@@ -15,7 +15,7 @@
 
 import type { EntityType, MutationEnvelope } from '../envelope';
 import { applyMutation } from '../mutators';
-import { liveOrderedItemsAt, newEntityState } from '../mutators/state';
+import { type LiveOrderedItem, liveOrderedItemsAt, newEntityState } from '../mutators/state';
 import type { EntityState, FieldOrigin, MutatorOutcome } from '../mutators/types';
 import { EMPTY_ENTITY_SCHEMA_REGISTRY, type EntitySchemaRegistry } from '../schema';
 import { canonicalJson } from './canonical';
@@ -66,6 +66,18 @@ export class InMemoryDocumentStore {
   }
 
   /**
+   * Whether `(type, id)` carries an entity tombstone. `materializeOne`
+   * answers `null` for both a deleted entity and one this store never
+   * saw; the tree reconciler needs the difference — delete-wins
+   * extends to a child only when its container is KNOWN deleted, an
+   * unknown container keeps the child on the by-path net.
+   */
+  isTombstoned(type: EntityType, id: string): boolean {
+    const state = this.entities.get(entityKey(type, id));
+    return state !== undefined && state.tombstone !== null;
+  }
+
+  /**
    * Live members of a set at `(type, id, setPath)`, sorted by order key
    * (with itemId tie-break). Surfaces this for write-side helpers that
    * need to enumerate current itemIds — e.g. a partial-update flow that
@@ -80,18 +92,16 @@ export class InMemoryDocumentStore {
   }
 
   /**
-   * Same as {@link liveSetItems} but exposes the per-entry order key.
-   * Write-side helpers that need to PRESERVE position on a replace
-   * (e.g. workspace rename without reorder) re-emit `addToSet` with the
-   * existing key; callers computing a NEW position via `keyBetween`
-   * read the neighbours' keys here. Internal-shape consumers only —
-   * the public projectors should keep using the keyless variant.
+   * Same as {@link liveSetItems} but exposes the per-entry order key
+   * and add-HLC. Write-side helpers that need to PRESERVE position on
+   * a replace (e.g. workspace rename without reorder) re-emit
+   * `addToSet` with the existing key; callers computing a NEW position
+   * via `keyBetween` read the neighbours' keys here; the tree index
+   * ranks a child's competing parent slots by `addHlc`. Internal-shape
+   * consumers only — the public projectors should keep using the
+   * keyless variant.
    */
-  liveOrderedSetItems(
-    type: EntityType,
-    id: string,
-    setPath: string,
-  ): Array<{ itemId: string; item: unknown; key: string }> {
+  liveOrderedSetItems(type: EntityType, id: string, setPath: string): LiveOrderedItem[] {
     const state = this.entities.get(entityKey(type, id));
     if (!state) return [];
     return liveOrderedItemsAt(state, setPath);

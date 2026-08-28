@@ -53,6 +53,7 @@ import {
   computeInverseSpec,
   ENVIRONMENT_ENTITY_TYPE,
   keyBetween,
+  type LiveOrderedItem,
   type MutationBatch,
   type MutatorContext,
   REQUEST_COLLECTION_ENTITY_TYPE,
@@ -529,7 +530,7 @@ async function materializeEnvironment(
  * and the globals upsert — the workspace service's oracle satisfies it.
  */
 interface LiveSetEntryReader {
-  liveOrderedSetItems(type: string, id: string, setPath: string): Array<{ itemId: string; item: unknown; key: string }>;
+  liveOrderedSetItems(type: string, id: string, setPath: string): LiveOrderedItem[];
 }
 
 /**

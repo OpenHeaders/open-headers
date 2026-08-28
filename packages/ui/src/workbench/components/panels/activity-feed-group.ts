@@ -34,6 +34,7 @@ const KIND_ORDER: Record<ActivityEntryKind, number> = {
   'sensitive-field-rotation': 4,
   'permission-scope-expansion': 5,
   'agent-observe': 6,
+  'rehome-entity': 7,
 };
 
 export function groupActivityEntriesByMutation(entries: readonly ActivityEntry[]): ActivityFeedGroup[] {

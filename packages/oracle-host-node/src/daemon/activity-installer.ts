@@ -40,6 +40,7 @@ import {
   hasRecentlyApplied,
   isMutedForActivityFeed,
   type OracleSyncBroadcastEvent,
+  setHostActivityEntrySink,
 } from '@openheaders/oracle/sync';
 import { nextSwMutatorContextForWorkspace } from '@openheaders/oracle/sync/service';
 import { MCP_SURFACE_ID } from '../mcp';
@@ -60,6 +61,9 @@ const subscribers = new Set<(entry: ActivityEntry) => void>();
  */
 export function setActivityLog(log: ActivityLog | null): void {
   activityLog = log;
+  // Host-minted rows (the tree reconciler's rehomes) land through the
+  // same mute → subscribers → log path as classified ones.
+  setHostActivityEntrySink((entry) => landEntries([entry]));
 }
 
 /** Test seam — swap the wall-clock source. */
@@ -118,15 +122,20 @@ export function observeForActivityFeed(event: OracleSyncBroadcastEvent): void {
     });
   }
 
-  const entries = classifyEnvelopeForActivity({
-    envelope: event.envelope,
-    outcome: event.outcome,
-    isInbound,
-    observedAt: clock(),
-    prior,
-    next,
-    inverse,
-  });
+  landEntries(
+    classifyEnvelopeForActivity({
+      envelope: event.envelope,
+      outcome: event.outcome,
+      isInbound,
+      observedAt: clock(),
+      prior,
+      next,
+      inverse,
+    }),
+  );
+}
+
+function landEntries(entries: readonly ActivityEntry[]): void {
   if (entries.length === 0) return;
 
   // Drop muted-entity rows before they reach subscribers + log. The

@@ -184,6 +184,7 @@ export const workbenchChromeSidebar = {
   'workbench.activityFeed.revertTip': '应用此更改的逆操作。会发出一个新的变更，将实体恢复到传入之前的状态。',
   'workbench.activityFeed.revertUnavailableDelete': '删除是永久性的，无法撤销（§7.2 delete-wins）。',
   'workbench.activityFeed.revertUnavailable': '此更改无法撤销。',
+  'workbench.activityFeed.revertUnavailableParentGone': '此项原来的文件夹已不存在。',
   'workbench.activityFeed.kind.created': '已创建',
   'workbench.activityFeed.kind.createdTip': '新实体从其他节点到达。',
   'workbench.activityFeed.kind.edited': '已编辑',
@@ -199,6 +200,8 @@ export const workbenchChromeSidebar = {
   'workbench.activityFeed.kind.agentObserved': '智能体读取',
   'workbench.activityFeed.kind.agentObservedTip':
     '一个智能体通过 MCP observe 层级读取了实时流量——来自已授权来源的脱敏投影。',
+  'workbench.activityFeed.kind.rehomed': '已移至集合根',
+  'workbench.activityFeed.kind.rehomedTip': '其文件夹被另一个节点删除或移入自身，此项已重新挂到集合根。',
   'workbench.activityFeed.rawRead': '未脱敏',
   'workbench.activityFeed.rawReadTip': '此次读取投影了原始值——工具 › 流量中的会话未脱敏读取授权处于开启状态。',
 

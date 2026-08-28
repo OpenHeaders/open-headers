@@ -49,6 +49,21 @@ const seedRule = (state: EntityState, items: Array<{ itemId: string; item: unkno
 };
 
 describe('moveBefore', () => {
+  it('exposes the winning add-HLC on every live entry', () => {
+    const state = newEntityState('rule', 'r1');
+    seedRule(state, [{ itemId: 'a', item: { v: 1 } }]);
+    applyMutation(
+      state,
+      env(
+        { kind: 'addToSet', type: 'rule', id: 'r1', path: 'mods', itemId: 'a', item: { v: 2 } },
+        { ...HLC_ZERO, physicalMs: 500 },
+      ),
+    );
+    expect(liveOrderedItemsAt(state, 'mods')).toEqual([
+      { itemId: 'a', item: { v: 2 }, key: expect.any(String), addHlc: { ...HLC_ZERO, physicalMs: 500 } },
+    ]);
+  });
+
   it('addToSet without an orderKey seeds — itemId tie-breaks the materialized order', () => {
     const state = newEntityState('rule', 'r1');
     seedRule(state, [
@@ -78,10 +93,13 @@ describe('moveBefore', () => {
     ]);
     applyMutation(
       state,
-      env({ kind: 'moveBefore', type: 'rule', id: 'r1', path: 'mods', itemId: 'a', orderKey: 'p' }, {
-        ...HLC_ZERO,
-        physicalMs: 200,
-      }),
+      env(
+        { kind: 'moveBefore', type: 'rule', id: 'r1', path: 'mods', itemId: 'a', orderKey: 'p' },
+        {
+          ...HLC_ZERO,
+          physicalMs: 200,
+        },
+      ),
     );
     expect(liveOrderedItemsAt(state, 'mods').map((e) => e.itemId)).toEqual(['b', 'c', 'a']);
   });
@@ -122,10 +140,13 @@ describe('moveBefore', () => {
     ]);
     applyMutation(
       state,
-      env({ kind: 'removeFromSet', type: 'rule', id: 'r1', path: 'mods', itemId: 'a' }, {
-        ...HLC_ZERO,
-        physicalMs: 200,
-      }),
+      env(
+        { kind: 'removeFromSet', type: 'rule', id: 'r1', path: 'mods', itemId: 'a' },
+        {
+          ...HLC_ZERO,
+          physicalMs: 200,
+        },
+      ),
     );
     expect(liveOrderedItemsAt(state, 'mods').map((e) => e.itemId)).toEqual(['b']);
   });

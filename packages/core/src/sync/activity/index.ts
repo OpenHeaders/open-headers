@@ -1,7 +1,3 @@
-export { ActivityEntryKindSchema, ActivityEntrySchema } from './schema';
-export { activityEntryId } from './types';
-export type { ActivityEntry, ActivityEntryKind } from './types';
-export { computeInverseSpec } from './inverse';
 export type {
   InverseAddToSet,
   InverseCreate,
@@ -9,17 +5,23 @@ export type {
   InverseMoveBefore,
   InverseRemoveFromSet,
   InverseSetField,
+  InverseSlotTarget,
+  InverseSlotTransfer,
   InverseSpec,
   InverseSpecPriorAccess,
   InverseUnavailable,
   InverseUnsetField,
 } from './inverse';
-export { activityMuteKey } from './mute';
+export { computeInverseSpec } from './inverse';
 export type { ActivityMuteEntry } from './mute';
+export { activityMuteKey } from './mute';
+export { ActivityEntryKindSchema, ActivityEntrySchema } from './schema';
+export { widensScope } from './scope-expansion';
 export {
   detectSensitiveRotation,
   isSensitiveHeaderName,
   isSensitiveLeafPath,
   isSensitiveSetMember,
 } from './sensitive-paths';
-export { widensScope } from './scope-expansion';
+export type { ActivityEntry, ActivityEntryKind } from './types';
+export { activityEntryId } from './types';

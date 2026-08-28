@@ -195,6 +195,7 @@ export const workbenchChromeSidebar = {
   'workbench.activityFeed.revertUnavailableDelete':
     'Les suppressions sont définitives et ne peuvent pas être annulées (§7.2 delete-wins).',
   'workbench.activityFeed.revertUnavailable': 'Cette modification ne peut pas être annulée.',
+  'workbench.activityFeed.revertUnavailableParentGone': "Le dossier d'origine de cet élément n'existe plus.",
   'workbench.activityFeed.kind.created': 'Créée',
   'workbench.activityFeed.kind.createdTip': "Une nouvelle entité est arrivée d'un pair.",
   'workbench.activityFeed.kind.edited': 'Modifiée',
@@ -212,6 +213,9 @@ export const workbenchChromeSidebar = {
   'workbench.activityFeed.kind.agentObserved': 'Lecture par agent',
   'workbench.activityFeed.kind.agentObservedTip':
     "Un agent a lu du trafic en direct via le palier MCP observe — des projections caviardées d'une source armée.",
+  'workbench.activityFeed.kind.rehomed': 'Déplacé à la racine de la collection',
+  'workbench.activityFeed.kind.rehomedTip':
+    'Son dossier a été supprimé ou déplacé dans lui-même par un autre pair ; cet élément a été rattaché à la racine de la collection.',
   'workbench.activityFeed.rawRead': 'Non caviardé',
   'workbench.activityFeed.rawReadTip':
     'Cette lecture a projeté les valeurs brutes — l’autorisation de lecture non caviardée des sessions était activée dans Outils › Trafic.',

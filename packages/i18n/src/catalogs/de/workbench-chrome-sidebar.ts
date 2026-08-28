@@ -198,6 +198,8 @@ export const workbenchChromeSidebar = {
   'workbench.activityFeed.revertUnavailableDelete':
     'Löschungen sind endgültig und können nicht zurückgenommen werden (§7.2 delete-wins).',
   'workbench.activityFeed.revertUnavailable': 'Diese Änderung kann nicht zurückgenommen werden.',
+  'workbench.activityFeed.revertUnavailableParentGone':
+    'Der Ordner, aus dem dieses Element stammt, existiert nicht mehr.',
   'workbench.activityFeed.kind.created': 'Erstellt',
   'workbench.activityFeed.kind.createdTip': 'Eine neue Entität ist von einem Peer eingetroffen.',
   'workbench.activityFeed.kind.edited': 'Bearbeitet',
@@ -216,6 +218,9 @@ export const workbenchChromeSidebar = {
   'workbench.activityFeed.kind.agentObservedTip':
     'Ein Agent hat Live-Traffic über die MCP-Stufe observe gelesen — geschwärzte Projektionen einer scharf ' +
     'geschalteten Quelle.',
+  'workbench.activityFeed.kind.rehomed': 'An Sammlungswurzel verschoben',
+  'workbench.activityFeed.kind.rehomedTip':
+    'Sein Ordner wurde von einem anderen Peer gelöscht oder in sich selbst verschoben; dieses Element wurde an der Sammlungswurzel neu angehängt.',
   'workbench.activityFeed.rawRead': 'Ungeschwärzt',
   'workbench.activityFeed.rawReadTip':
     'Dieser Lesezugriff projizierte Rohwerte — die Freigabe für ungeschwärzte Sitzungs-Lesezugriffe war in ' +

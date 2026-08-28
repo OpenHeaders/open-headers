@@ -16,6 +16,9 @@ const factories = makeFolderMutators<FolderParentRef>({
   mintBatch,
 });
 
+/** The generic child verbs — `slotAdd` / `slotRemove` for seeders, cascades and the tree reconciler. */
+export const folderChild = factories.child;
+
 export interface CreateFolderArgs {
   folderUid: string;
   parent: FolderParentRef;

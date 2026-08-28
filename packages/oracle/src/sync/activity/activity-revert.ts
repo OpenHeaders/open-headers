@@ -34,25 +34,26 @@
  */
 
 import {
-  newBatchId,
-  newMutationId,
-  PRE_BOOTSTRAP_ORG_ID,
   type InverseEnvelopeContext,
+  type InverseSlotTransfer,
   type InverseSpec,
   type MutationBatch,
   type MutationBody,
   type MutationEnvelope,
   type MutatorContext,
+  newBatchId,
+  newMutationId,
+  PRE_BOOTSTRAP_ORG_ID,
+  tickHlc,
 } from '@openheaders/core/sync';
 
 import type { EntityOracle } from '../oracle';
 
-export type GenerateInverseResult =
-  | { ok: true; batch: MutationBatch }
-  | { ok: false; reason: GenerateInverseReason };
+export type GenerateInverseResult = { ok: true; batch: MutationBatch } | { ok: false; reason: GenerateInverseReason };
 
 export type GenerateInverseReason =
   | 'delete-irreversible'
+  | 'original-parent-gone'
   | 'no-inverse-recorded'
   | 'no-oracle-for-workspace'
   | 'already-tombstoned'
@@ -77,7 +78,7 @@ export function generateInverseMutation(input: GenerateInverseInput): GenerateIn
   const { entityType, entityId, inverse, oracle, ctx } = input;
 
   if (inverse.spec.kind === 'unavailable') {
-    return { ok: false, reason: 'delete-irreversible' };
+    return { ok: false, reason: inverse.spec.reason };
   }
 
   const current = oracle.materializeOne(entityType, entityId);
@@ -90,28 +91,60 @@ export function generateInverseMutation(input: GenerateInverseInput): GenerateIn
     return { ok: false, reason: 'already-tombstoned' };
   }
 
-  const body = specToBody(inverse.spec, entityType, entityId, oracle);
-  if ('reason' in body) {
-    return { ok: false, reason: body.reason };
+  const bodies =
+    inverse.spec.kind === 'slotTransfer'
+      ? slotTransferBodies(inverse.spec, oracle)
+      : specToBody(inverse.spec, entityType, entityId, oracle);
+  if ('reason' in bodies) {
+    return { ok: false, reason: bodies.reason };
   }
 
-  const envelope: MutationEnvelope = {
+  const mint = (body: MutationBody, step: number): MutationEnvelope => ({
     mutationId: newMutationId(),
-    hlc: ctx.hlc,
+    hlc: tickHlc(ctx.hlc, step),
     origin: { surfaceId: ctx.surfaceId, deviceId: ctx.deviceId, userId: ctx.userId },
     workspaceId: ctx.workspaceId,
     orgId: ctx.orgId ?? PRE_BOOTSTRAP_ORG_ID,
     mutatorVersion: inverse.mutatorVersion,
     body,
-  };
+  });
+  const list = Array.isArray(bodies) ? bodies : [bodies];
   const batch: MutationBatch = {
     batchId: ctx.batchId ?? newBatchId(),
-    mutations: [envelope],
+    mutations: list.map((body, step) => mint(body, step)),
   };
   return { ok: true, batch };
 }
 
 type BodyResult = MutationBody | { reason: GenerateInverseReason };
+
+/**
+ * Undo a host rehome: the child's slot leaves the root it was parked
+ * on and returns to its original container with the prior marker and
+ * key — the same atomic remove + add a cross-parent move mints. Refused
+ * when the original container is tombstoned (nowhere to go back to)
+ * or the child is no longer where the rehome put it.
+ */
+function slotTransferBodies(
+  spec: InverseSlotTransfer,
+  oracle: EntityOracle,
+): MutationBody[] | { reason: GenerateInverseReason } {
+  if (oracle.materializeOne(spec.to.type, spec.to.id) === null) return { reason: 'original-parent-gone' };
+  const parked = oracle.liveOrderedSetItems(spec.from.type, spec.from.id, spec.from.path);
+  if (!parked.some((entry) => entry.itemId === spec.itemId)) return { reason: 'set-item-missing' };
+  return [
+    { kind: 'removeFromSet', type: spec.from.type, id: spec.from.id, path: spec.from.path, itemId: spec.itemId },
+    {
+      kind: 'addToSet',
+      type: spec.to.type,
+      id: spec.to.id,
+      path: spec.to.path,
+      itemId: spec.itemId,
+      item: spec.item,
+      orderKey: spec.orderKey,
+    },
+  ];
+}
 
 /**
  * Translate the captured {@link InverseSpec} into a concrete
@@ -124,7 +157,10 @@ function specToBody(spec: InverseSpec, type: string, id: string, oracle: EntityO
   switch (spec.kind) {
     case 'unavailable':
       // Already short-circuited by the caller; defensive.
-      return { reason: 'delete-irreversible' };
+      return { reason: spec.reason };
+    case 'slotTransfer':
+      // Routed to `slotTransferBodies` by the caller; defensive.
+      return { reason: 'no-inverse-recorded' };
     case 'create':
       return { kind: 'delete', type, id };
     case 'setField':

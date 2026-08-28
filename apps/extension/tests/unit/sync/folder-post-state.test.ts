@@ -10,6 +10,7 @@ import {
   createFolder,
   FOLDER_CHILDREN_PATH,
   FOLDER_ENTITY_TYPE,
+  type FolderParentRef,
   type MutationEnvelope,
   type MutatorContext,
   mintBatch,
@@ -28,7 +29,9 @@ import {
   projectAllFolders,
   projectFolderByUid,
   projectFolderPostState,
+  RULE_TREE,
 } from '@openheaders/oracle/sync/post-state/folder-post-state';
+import { treeConflicts } from '@openheaders/oracle/sync/post-state/folder-tree-post-state';
 import { projectRuleByUid } from '@openheaders/oracle/sync/post-state/rule-post-state';
 import { describe, expect, it } from 'vitest';
 
@@ -341,5 +344,109 @@ describe('leaf path projection (tree containment slice 2)', () => {
       );
     }
     expect(projectAllFolders(oracle).map((f) => f.uid)).toEqual(['fold-z', 'fold-a']);
+  });
+});
+
+describe('conflict rules in the index (tree containment slice 3)', () => {
+  const folderAt = (uid: string, parent: FolderParentRef, ms: number) =>
+    createFolder(ctx(ms), { folderUid: uid, parent, name: uid }).batch;
+
+  it('a child in two live slots follows the higher add-HLC parent; the loser is reported shadowed', async () => {
+    const oracle = newOracle();
+    const coll = makeCollection('col-s');
+    await oracle.apply(seedCollection(coll, ctx(1)), []);
+    await oracle.apply(folderAt('fold-a', { type: COLLECTION_ENTITY_TYPE, uid: coll.uid }, 2), []);
+    await oracle.apply(folderAt('fold-b', { type: COLLECTION_ENTITY_TYPE, uid: coll.uid }, 3), []);
+    await oracle.apply(folderAt('fold-x', { type: FOLDER_ENTITY_TYPE, uid: 'fold-a' }, 10), []);
+    // A concurrent peer added the same child under fold-b with a LATER add-HLC —
+    // no removal of the fold-a slot ever arrived.
+    await oracle.apply(
+      mintBatch(ctx(20), [
+        {
+          kind: 'addToSet',
+          type: FOLDER_ENTITY_TYPE,
+          id: 'fold-b',
+          path: FOLDER_CHILDREN_PATH,
+          itemId: 'fold-x',
+          item: { uid: 'fold-x' },
+        },
+      ]),
+      [],
+    );
+
+    expect(projectFolderByUid(oracle, 'fold-x')?.folder.path).toBe(`${coll.path}/fold-b-fold-b/fold-x-fold-x`);
+    const conflicts = treeConflicts(oracle, RULE_TREE);
+    expect(conflicts.shadowed).toEqual([
+      {
+        childUid: 'fold-x',
+        parent: { type: FOLDER_ENTITY_TYPE, uid: 'fold-a' },
+        setPath: FOLDER_CHILDREN_PATH,
+        item: { uid: 'fold-x' },
+        orderKey: expect.any(String),
+      },
+    ]);
+    expect(conflicts.cycleVictims).toEqual([]);
+    expect(conflicts.deadSlots).toEqual([]);
+  });
+
+  it('breaks a folder cycle at the lowest add-HLC slot and reports the victim', async () => {
+    const oracle = newOracle();
+    const coll = makeCollection('col-c');
+    await oracle.apply(seedCollection(coll, ctx(1)), []);
+    await oracle.apply(folderAt('fold-p', { type: COLLECTION_ENTITY_TYPE, uid: coll.uid }, 2), []);
+    await oracle.apply(folderAt('fold-q', { type: COLLECTION_ENTITY_TYPE, uid: coll.uid }, 3), []);
+    // Peer A moved q into p (HLC 10); peer B moved p into q (HLC 11). Merged: a cycle.
+    await oracle.apply(
+      moveFolder(ctx(10), {
+        folderUid: 'fold-q',
+        oldParent: { type: COLLECTION_ENTITY_TYPE, uid: coll.uid },
+        newParent: { type: FOLDER_ENTITY_TYPE, uid: 'fold-p' },
+        orderKey: 'a',
+      }).batch,
+      [],
+    );
+    await oracle.apply(
+      moveFolder(ctx(11), {
+        folderUid: 'fold-p',
+        oldParent: { type: COLLECTION_ENTITY_TYPE, uid: coll.uid },
+        newParent: { type: FOLDER_ENTITY_TYPE, uid: 'fold-q' },
+        orderKey: 'a',
+      }).batch,
+      [],
+    );
+
+    const conflicts = treeConflicts(oracle, RULE_TREE);
+    expect(conflicts.cycleVictims.map((v) => [v.childUid, v.parent.uid])).toEqual([['fold-q', 'fold-p']]);
+    // The victim has no live parent until rehomed; the survivor chains through it and waits too.
+    expect(projectFolderByUid(oracle, 'fold-q')).toBeNull();
+    expect(projectFolderByUid(oracle, 'fold-p')).toBeNull();
+    expect(projectAllFolders(oracle)).toEqual([]);
+  });
+});
+
+describe('dead-child slots in the index', () => {
+  it('drops a slot whose child is tombstoned and reports it', async () => {
+    const oracle = newOracle();
+    const coll = makeCollection('col-d');
+    await oracle.apply(seedCollection(coll, ctx(1)), []);
+    await oracle.apply(
+      createFolder(ctx(2), {
+        folderUid: 'fold-g',
+        parent: { type: COLLECTION_ENTITY_TYPE, uid: coll.uid },
+        name: 'Gone',
+      }).batch,
+      [],
+    );
+    await oracle.apply(mintBatch(ctx(3), [{ kind: 'delete', type: FOLDER_ENTITY_TYPE, id: 'fold-g' }]), []);
+    expect(treeConflicts(oracle, RULE_TREE).deadSlots).toEqual([
+      {
+        childUid: 'fold-g',
+        parent: { type: COLLECTION_ENTITY_TYPE, uid: coll.uid },
+        setPath: FOLDER_CHILDREN_PATH,
+        item: { uid: 'fold-g' },
+        orderKey: expect.any(String),
+      },
+    ]);
+    expect(projectAllFolders(oracle)).toEqual([]);
   });
 });

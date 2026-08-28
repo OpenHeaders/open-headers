@@ -38,7 +38,9 @@ export interface InverseCreate {
  */
 export interface InverseUnavailable {
   kind: 'unavailable';
-  reason: 'delete-irreversible';
+  /** `original-parent-gone`: a rehomed child's previous container is
+   *  tombstoned — there is nowhere to move it back to. */
+  reason: 'delete-irreversible' | 'original-parent-gone';
 }
 
 /**
@@ -103,10 +105,35 @@ export interface InverseMoveBefore {
   priorOrderKey: string;
 }
 
+/** One container's ordered set — the target of a slot transfer leg. */
+export interface InverseSlotTarget {
+  type: string;
+  id: string;
+  path: string;
+}
+
 /**
- * Discriminated union mirroring {@link MutationBody} kinds. The
- * `unavailable` variant carries no per-mutator data — it is the
- * sentinel for "this row cannot be reverted, here is why."
+ * Inverse of a host rehome (`rehome-entity`): move the child's slot
+ * back from the collection root it was re-attached to (`from`) onto
+ * its original container (`to`) with the prior slot marker + order
+ * key. Two envelopes, one batch — the same atomic remove + add shape
+ * a cross-parent move mints. The generator refuses when the original
+ * container is tombstoned by revert time.
+ */
+export interface InverseSlotTransfer {
+  kind: 'slotTransfer';
+  from: InverseSlotTarget;
+  to: InverseSlotTarget;
+  itemId: string;
+  item: unknown;
+  orderKey: string;
+}
+
+/**
+ * Discriminated union mirroring {@link MutationBody} kinds, plus the
+ * host-minted `slotTransfer`. The `unavailable` variant carries no
+ * per-mutator data — it is the sentinel for "this row cannot be
+ * reverted, here is why."
  */
 export type InverseSpec =
   | InverseCreate
@@ -115,7 +142,8 @@ export type InverseSpec =
   | InverseUnsetField
   | InverseAddToSet
   | InverseRemoveFromSet
-  | InverseMoveBefore;
+  | InverseMoveBefore
+  | InverseSlotTransfer;
 
 /**
  * Wire-side shape embedded on the structural activity entry's

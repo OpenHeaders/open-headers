@@ -2,6 +2,11 @@ export {
   type ClassifyActivityInput,
   classifyEnvelopeForActivity,
 } from './activity/activity-classifier';
+export {
+  type HostActivityEntrySink,
+  recordHostActivityEntry,
+  setHostActivityEntrySink,
+} from './activity/activity-host-entries';
 export { makeOracleInverseAccess, type OracleInverseAccessInput } from './activity/activity-inverse-builder';
 export {
   type ActivityLog,

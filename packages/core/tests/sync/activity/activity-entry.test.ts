@@ -1,8 +1,7 @@
 import * as v from 'valibot';
 import { describe, expect, it } from 'vitest';
-
-import { activityEntryId, ActivityEntryKindSchema, ActivityEntrySchema } from '../../../src/sync';
 import type { ActivityEntry } from '../../../src/sync';
+import { ActivityEntryKindSchema, ActivityEntrySchema, activityEntryId } from '../../../src/sync';
 
 const baseEntry: ActivityEntry = {
   id: '',
@@ -36,7 +35,7 @@ describe('activityEntryId', () => {
 });
 
 describe('ActivityEntryKindSchema', () => {
-  it('accepts the six known kinds', () => {
+  it('accepts the eight known kinds', () => {
     for (const k of [
       'create-entity',
       'edit-entity',
@@ -44,6 +43,8 @@ describe('ActivityEntryKindSchema', () => {
       'supersede-local-edit',
       'sensitive-field-rotation',
       'permission-scope-expansion',
+      'agent-observe',
+      'rehome-entity',
     ]) {
       expect(v.parse(ActivityEntryKindSchema, k)).toBe(k);
     }

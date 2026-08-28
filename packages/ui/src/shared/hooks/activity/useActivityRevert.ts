@@ -21,9 +21,7 @@ import { hostBridge } from '@openheaders/core/bridge';
 import type { ActivityEntry, InverseEnvelopeContext } from '@openheaders/core/sync';
 import { useCallback } from 'react';
 
-export type RevertResult =
-  | { ok: true; mutationId: string }
-  | { ok: false; reason: string };
+export type RevertResult = { ok: true; mutationId: string } | { ok: false; reason: string };
 
 /**
  * Map a {@link RevertResult.reason} code to a single-line, end-user-
@@ -34,6 +32,8 @@ export function humanizeRevertReason(reason: string): string {
   switch (reason) {
     case 'delete-irreversible':
       return 'Deletes are permanent and cannot be reverted.';
+    case 'original-parent-gone':
+      return 'The folder this item came from no longer exists.';
     case 'already-tombstoned':
       return 'The entity was deleted after this change landed.';
     case 'set-item-missing':

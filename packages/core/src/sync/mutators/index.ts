@@ -87,6 +87,7 @@ export {
   type FolderParentRef,
   type FolderParentType,
   type FolderSlot,
+  folderChild,
   type MoveFolderArgs,
   moveFolder,
   type RenameFolderArgs,
@@ -309,6 +310,7 @@ export {
   type RequestFolderSlot,
   type RequestItemType,
   renameRequestFolder,
+  requestFolderChild,
   type SetRequestFolderScriptsArgs,
   setRequestFolderScripts,
 } from './request-folder';
@@ -377,7 +379,7 @@ export {
   type UnsetSpecFieldArgs,
   unsetSpecField,
 } from './spec';
-export { liveOrderedItemsAt, newEntityState, writeSetOrderIfNewer } from './state';
+export { type LiveOrderedItem, liveOrderedItemsAt, newEntityState, writeSetOrderIfNewer } from './state';
 export {
   type AddTemplateConditionArgs,
   addTemplateCondition,
@@ -439,6 +441,7 @@ export {
   type TemplateFolderParentRef,
   type TemplateFolderParentType,
   type TemplateFolderSlot,
+  templateFolderChild,
 } from './template-folder';
 export {
   deriveTrustedRootsSideEffects,

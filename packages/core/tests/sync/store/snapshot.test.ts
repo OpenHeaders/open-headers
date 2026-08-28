@@ -55,3 +55,25 @@ describe('document store snapshot / restore', () => {
     expect(store.materializeAll()).toHaveLength(1);
   });
 });
+
+describe('isTombstoned', () => {
+  it('distinguishes a deleted entity from one the store never saw', () => {
+    const store = new InMemoryDocumentStore();
+    const hlc = { physicalMs: 1, logical: 0, nodeId: 'n' };
+    const env = (body: MutationEnvelope['body'], mutationId: string): MutationEnvelope => ({
+      mutationId,
+      hlc,
+      origin: { surfaceId: 's', deviceId: 'd' },
+      workspaceId: 'ws-1',
+      orgId: 'org-test',
+      mutatorVersion: 1,
+      body,
+    });
+    store.apply(env({ kind: 'create', type: 'rule', id: 'r1', payload: {} }, 'm1'));
+    expect(store.isTombstoned('rule', 'r1')).toBe(false);
+    expect(store.isTombstoned('rule', 'never')).toBe(false);
+    store.apply(env({ kind: 'delete', type: 'rule', id: 'r1' }, 'm2'));
+    expect(store.isTombstoned('rule', 'r1')).toBe(true);
+    expect(store.materializeOne('rule', 'r1')).toBeNull();
+  });
+});

@@ -89,6 +89,8 @@ function describeLastEntry(entry: ActivityEntry | null): string | null {
       return `${entry.entityType} scope widened`;
     case 'agent-observe':
       return 'AI agent observed traffic';
+    case 'rehome-entity':
+      return `${entry.entityType} moved to its collection root`;
   }
 }
 

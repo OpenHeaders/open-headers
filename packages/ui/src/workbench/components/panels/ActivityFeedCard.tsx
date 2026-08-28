@@ -116,6 +116,11 @@ const KIND_META: Record<ActivityEntryKind, KindMeta> = {
     color: 'purple',
     tooltipKey: 'workbench.activityFeed.kind.agentObservedTip',
   },
+  'rehome-entity': {
+    labelKey: 'workbench.activityFeed.kind.rehomed',
+    color: 'orange',
+    tooltipKey: 'workbench.activityFeed.kind.rehomedTip',
+  },
 };
 
 function entityLabel(entityType: string, entityId: string): string {
@@ -296,7 +301,9 @@ const ActivityFeedCard: React.FC<ActivityFeedCardProps> = ({
                   ? t('workbench.activityFeed.revertTip')
                   : revertUnavailableReason === 'delete-irreversible'
                     ? t('workbench.activityFeed.revertUnavailableDelete')
-                    : t('workbench.activityFeed.revertUnavailable')
+                    : revertUnavailableReason === 'original-parent-gone'
+                      ? t('workbench.activityFeed.revertUnavailableParentGone')
+                      : t('workbench.activityFeed.revertUnavailable')
               }
             >
               <Button

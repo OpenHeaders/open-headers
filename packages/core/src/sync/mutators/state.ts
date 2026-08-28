@@ -97,25 +97,31 @@ export function writeSetOrderIfNewer(state: EntityState, path: string, itemId: s
   return true;
 }
 
+export interface LiveOrderedItem {
+  itemId: string;
+  item: unknown;
+  key: string;
+  /** HLC of the winning `addToSet` — the containment conflict rules
+   *  rank a child's competing parent slots by it. */
+  addHlc: HLC;
+}
+
 /**
  * Live (not tombstoned) members at `path`, sorted by their order key
  * with itemId as the deterministic tie-breaker. Shared by move-key
  * computation and the materializer.
  */
-export function liveOrderedItemsAt(
-  state: EntityState,
-  path: string,
-): Array<{ itemId: string; item: unknown; key: string }> {
+export function liveOrderedItemsAt(state: EntityState, path: string): LiveOrderedItem[] {
   const items = state.setItems.get(path);
   if (!items) return [];
   const tombstones = state.setTombstones.get(path);
   const order = state.setOrder.get(path);
-  const live: Array<{ itemId: string; item: unknown; key: string }> = [];
+  const live: LiveOrderedItem[] = [];
   for (const [itemId, addEntry] of items) {
     const removeHlc = tombstones?.get(itemId);
     if (removeHlc && compareHlc(removeHlc, addEntry.addHlc) >= 0) continue;
     const key = order?.get(itemId)?.key ?? seedKey();
-    live.push({ itemId, item: addEntry.item, key });
+    live.push({ itemId, item: addEntry.item, key, addHlc: addEntry.addHlc });
   }
   live.sort((a, b) => {
     if (a.key !== b.key) return a.key < b.key ? -1 : 1;

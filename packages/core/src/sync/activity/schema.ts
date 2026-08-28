@@ -22,6 +22,8 @@ export const ActivityEntryKindSchema = v.picklist([
   'supersede-local-edit',
   'sensitive-field-rotation',
   'permission-scope-expansion',
+  'agent-observe',
+  'rehome-entity',
 ] as const satisfies readonly ActivityEntryKind[]);
 
 const MutationOriginSchema = v.object({

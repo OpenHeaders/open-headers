@@ -8,17 +8,16 @@
 import { makeFolderMutators } from '../shared/folder-mutators';
 import type { MutatorContext, MutatorIntent } from '../types';
 import { mintBatch } from './envelope';
-import {
-  REQUEST_FOLDER_CHILDREN_PATH,
-  REQUEST_FOLDER_ENTITY_TYPE,
-  type RequestFolderParentRef,
-} from './types';
+import { REQUEST_FOLDER_CHILDREN_PATH, REQUEST_FOLDER_ENTITY_TYPE, type RequestFolderParentRef } from './types';
 
 const factories = makeFolderMutators<RequestFolderParentRef>({
   entityType: REQUEST_FOLDER_ENTITY_TYPE,
   childrenPath: REQUEST_FOLDER_CHILDREN_PATH,
   mintBatch,
 });
+
+/** The generic child verbs — `slotAdd` / `slotRemove` for seeders, cascades and the tree reconciler. */
+export const requestFolderChild = factories.child;
 
 export interface CreateRequestFolderArgs {
   folderUid: string;
@@ -34,10 +33,7 @@ export interface CreateRequestFolderArgs {
   orderKey?: string;
 }
 
-export function createRequestFolder(
-  ctx: MutatorContext,
-  args: CreateRequestFolderArgs,
-): MutatorIntent {
+export function createRequestFolder(ctx: MutatorContext, args: CreateRequestFolderArgs): MutatorIntent {
   return factories.createFolder(ctx, args);
 }
 
@@ -46,9 +42,6 @@ export interface DeleteRequestFolderArgs {
   parent: RequestFolderParentRef;
 }
 
-export function deleteRequestFolder(
-  ctx: MutatorContext,
-  args: DeleteRequestFolderArgs,
-): MutatorIntent {
+export function deleteRequestFolder(ctx: MutatorContext, args: DeleteRequestFolderArgs): MutatorIntent {
   return factories.deleteFolder(ctx, args);
 }
