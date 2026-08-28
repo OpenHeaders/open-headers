@@ -30,7 +30,7 @@
  * hood).
  */
 
-import { CaretRightOutlined, DisconnectOutlined, LinkOutlined } from '@ant-design/icons';
+import { CaretRightOutlined } from '@ant-design/icons';
 import { WEBSOCKET_REQUEST_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { WebSocketRequest as WebSocketRequestEntity } from '@openheaders/core/types';
 import { binaryEncodingError } from '@openheaders/core/utils';
@@ -262,7 +262,8 @@ const WebSocketRequestEditor: React.FC<WebSocketRequestEditorProps> = ({
   const headerTitle = <WsTargetRow draft={draft} setDraft={setDraft} />;
 
   // Connect morphs while the session is in flight — the Invoke→Stop
-  // treatment: solid on the darkened error token. The label stays
+  // treatment verbatim: solid on the darkened error token with the
+  // square stop glyph, the caret on the idle button. The label stays
   // HONEST across the phases: Cancel while the attempt is still
   // connecting, Disconnect only once the session is actually open
   // (both close the same send).
@@ -279,7 +280,12 @@ const WebSocketRequestEditor: React.FC<WebSocketRequestEditorProps> = ({
           size="small"
           type="primary"
           danger
-          icon={<DisconnectOutlined />}
+          icon={
+            <span
+              aria-hidden="true"
+              style={{ display: 'inline-block', width: 9, height: 9, borderRadius: 2, background: 'currentcolor' }}
+            />
+          }
           onClick={session.handleDisconnect}
           style={{ fontSize: 11 }}
           data-testid="websocket-connect-button"
@@ -303,7 +309,7 @@ const WebSocketRequestEditor: React.FC<WebSocketRequestEditorProps> = ({
         <Button
           size="small"
           type="primary"
-          icon={<LinkOutlined />}
+          icon={<CaretRightOutlined />}
           disabled={session.connectDisabledReason !== null}
           onClick={() => void session.handleConnect()}
           style={{ fontSize: 11 }}
