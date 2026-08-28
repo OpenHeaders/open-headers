@@ -23,15 +23,8 @@ import { Fragment, useEffect, useRef, useState } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { EntityField } from '@openheaders/ui/shared/awareness';
 import { highlightLabel } from './search-highlight';
+import { rowPaddingLeft } from './tree-geometry';
 import type { TreeNode } from './types';
-
-// Every row reserves the caret slot (empty on leaves) so an expandable
-// row's icon and label line up with its siblings, and one level of
-// indent is exactly slot + row gap: a child's caret sits under its
-// parent's icon. The gap mirrors `.rules-sidebar-item { gap }`.
-const CARET_SLOT = 12;
-const ROW_GAP = 4;
-const INDENT = CARET_SLOT + ROW_GAP;
 
 interface TreeNodeRowProps {
   node: TreeNode;
@@ -128,7 +121,7 @@ export function TreeNodeRow({
 
   // Placeholder rendering for empty collections
   if (node.kind === 'placeholder') {
-    const paddingLeft = 8 + node.depth * INDENT;
+    const paddingLeft = rowPaddingLeft(node.depth);
     return (
       <div
         className="rules-sidebar-placeholder"
@@ -178,7 +171,7 @@ export function TreeNodeRow({
     .filter(Boolean)
     .join(' ');
 
-  const paddingLeft = 8 + node.depth * INDENT;
+  const paddingLeft = rowPaddingLeft(node.depth);
 
   return (
     // biome-ignore lint/a11y/noStaticElementInteractions: sidebar tree row — keyboard nav happens at the parent container level
