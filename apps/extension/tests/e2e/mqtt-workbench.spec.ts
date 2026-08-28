@@ -557,15 +557,8 @@ test('E6 — Connect runs the session in-page: CONNACK row, SUBACK grants, retai
 
 // ── E7: tcp-scheme honesty — the scheme is named, never downgraded ──
 
-test('E7 — flipping the scheme to mqtt:// gates Connect with the copy naming the scheme', async () => {
-  await page.getByTestId('mqtt-scheme-select').filter({ visible: true }).first().click();
-  await page
-    .locator('.ant-select-dropdown')
-    .filter({ visible: true })
-    .locator('.ant-select-item-option')
-    .filter({ hasText: /^mqtt:\/\/$/ })
-    .first()
-    .click();
+test('E7 — typing an mqtt:// url gates Connect with the copy naming the scheme', async () => {
+  await urlInput().fill('mqtt://127.0.0.1:3000/net/mqtt');
   await expect(urlInput()).toHaveValue('mqtt://127.0.0.1:3000/net/mqtt');
   await expectConnectGate(CONNECT_TCP_SCHEME_COPY);
 });
@@ -574,14 +567,7 @@ test('E7 — flipping the scheme to mqtt:// gates Connect with the copy naming t
 
 test('E8 — SSL verification off rides the honesty notice for the session’s whole life', async () => {
   // Back onto the ws scheme, then configure the node-only knob.
-  await page.getByTestId('mqtt-scheme-select').filter({ visible: true }).first().click();
-  await page
-    .locator('.ant-select-dropdown')
-    .filter({ visible: true })
-    .locator('.ant-select-item-option')
-    .filter({ hasText: /^ws:\/\/$/ })
-    .first()
-    .click();
+  await urlInput().fill('ws://127.0.0.1:3000/net/mqtt');
   await page.getByRole('tab', { name: 'Settings', exact: true }).filter({ visible: true }).first().click();
   await page.getByTestId('mqtt-ssl-verify').filter({ visible: true }).first().click();
 

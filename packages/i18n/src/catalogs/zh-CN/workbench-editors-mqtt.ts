@@ -22,8 +22,6 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.version.v5': 'V5',
   'workbench.editors.mqtt.version.v311': 'V3.1.1',
   'workbench.editors.mqtt.version.lockedWhileConnected': '已连接时无法更改版本。',
-  'workbench.editors.mqtt.scheme.tooltip':
-    '协议方案决定传输方式。\nmqtt/mqtts · 桌面应用或服务器上的 TCP 套接字\nws/wss · 任何主机上的 MQTT over WebSocket',
   'workbench.editors.mqtt.connect.label': '连接',
   'workbench.editors.mqtt.connect.disconnect': '断开连接',
   'workbench.editors.mqtt.connect.cancel': '取消',

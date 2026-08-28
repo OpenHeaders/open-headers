@@ -15,8 +15,6 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.version.v5': 'V5',
   'workbench.editors.mqtt.version.v311': 'V3.1.1',
   'workbench.editors.mqtt.version.lockedWhileConnected': "Can't change version while connected.",
-  'workbench.editors.mqtt.scheme.tooltip':
-    'The scheme picks the transport.\nmqtt/mqtts · TCP socket on the desktop app or server\nws/wss · MQTT over WebSocket on every host',
   'workbench.editors.mqtt.connect.label': 'Connect',
   'workbench.editors.mqtt.connect.disconnect': 'Disconnect',
   'workbench.editors.mqtt.connect.cancel': 'Cancel',

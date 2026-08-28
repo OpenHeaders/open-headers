@@ -19,8 +19,6 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.version.v311': 'V3.1.1',
   'workbench.editors.mqtt.version.lockedWhileConnected':
     'Die Version kann nicht geändert werden, solange die Sitzung verbunden ist.',
-  'workbench.editors.mqtt.scheme.tooltip':
-    'Das Schema wählt den Transport.\nmqtt/mqtts · TCP-Socket in der Desktop-App oder auf dem Server\nws/wss · MQTT über WebSocket auf jedem Host',
   'workbench.editors.mqtt.connect.label': 'Verbinden',
   'workbench.editors.mqtt.connect.disconnect': 'Trennen',
   'workbench.editors.mqtt.connect.cancel': 'Abbrechen',

@@ -19,8 +19,6 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.version.v311': 'V3.1.1',
   'workbench.editors.mqtt.version.lockedWhileConnected':
     'Impossible de changer de version pendant une session connectée.',
-  'workbench.editors.mqtt.scheme.tooltip':
-    'Le schéma choisit le transport.\nmqtt/mqtts · socket TCP sur l’application de bureau ou le serveur\nws/wss · MQTT sur WebSocket sur tous les hôtes',
   'workbench.editors.mqtt.connect.label': 'Se connecter',
   'workbench.editors.mqtt.connect.disconnect': 'Se déconnecter',
   'workbench.editors.mqtt.connect.cancel': 'Annuler',
