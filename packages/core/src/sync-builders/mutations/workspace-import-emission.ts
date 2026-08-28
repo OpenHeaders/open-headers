@@ -52,6 +52,7 @@ import {
   type MutationBody,
   type MutatorContext,
   type MutatorIntent,
+  mergedTailKey,
   mintBatch,
   type ParentRefShape,
   REQUEST_COLLECTION_ENTITY_TYPE,
@@ -76,6 +77,7 @@ import {
   TRUSTED_ROOTS_PATH,
   type TreeParentKinds,
   type TreeParentRef,
+  treeOrderScope,
   VAULT_ENTITY_TYPE,
   VAULT_ID,
   VAULT_PATH,
@@ -383,10 +385,12 @@ export const changed = (a: unknown, b: unknown): boolean => canonicalJson(a) !==
 /**
  * Mints the slot key a child takes at a parent's ordered set. With no
  * order plan (or a set the plan does not cover) that is the next append
- * key: strictly after the set's live tail on the first call, strictly
- * after the previous mint on every later call, so a run of creates
- * keeps its order. A planned set hands out the position the tree's
- * `order:` assigned the child instead, and the tail stays untouched.
+ * key: strictly after the live tail of the set's order scope on the
+ * first call — a tree child set's scope is the parent's `folders` AND
+ * `items` together, one merged order — strictly after the previous
+ * mint on every later call, so a run of creates keeps its order across
+ * kinds. A planned set hands out the position the tree's `order:`
+ * assigned the child instead, and the tail stays untouched.
  */
 export type TailTracker = (parent: ParentRefShape, setPath: string, childUid: string) => string;
 
@@ -395,11 +399,11 @@ export function createTailTracker(liveSetEntries: LiveSetEntriesReader, plan?: S
   return (parent, setPath, childUid) => {
     const planned = plan?.keyFor(parent, setPath, childUid);
     if (planned !== null && planned !== undefined) return planned;
-    const mapKey = `${parent.type}:${parent.uid}:${setPath}`;
+    const scope = treeOrderScope(setPath);
+    const mapKey = `${parent.type}:${parent.uid}:${scope.join('+')}`;
     let tail = lastKey.get(mapKey);
     if (tail === undefined) {
-      const live = liveSetEntries(parent.type, parent.uid, setPath);
-      tail = live.length > 0 ? live[live.length - 1].orderKey : null;
+      tail = mergedTailKey(scope.map((path) => liveSetEntries(parent.type, parent.uid, path)));
     }
     const next = keyBetween(tail, null);
     lastKey.set(mapKey, next);

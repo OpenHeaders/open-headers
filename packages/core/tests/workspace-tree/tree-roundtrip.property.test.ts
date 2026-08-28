@@ -39,6 +39,8 @@ import {
   planWorkspaceTree,
   readWorkspaceTree,
   type TreeFile,
+  type TreeSlotEntry,
+  type TreeSlotReader,
   type TreeUnknownFields,
   type WorkspaceTreeState,
 } from '../../src/workspace-tree';
@@ -167,7 +169,12 @@ function generateState(rng: Rng): { state: WorkspaceTreeState; unknowns: TreeUnk
  * (folders then leaves, matched by path prefix) shuffled by the rng —
  * a manual order the arrays do not carry.
  */
-function shuffledSlots(state: WorkspaceTreeState, rng: Rng): (parent: ParentRefShape, setPath: string) => string[] {
+/**
+ * A slot reader over the state's own containment, shuffled: every child
+ * gets a random key from a shared keyspace, so folders and leaves of one
+ * container interleave by key exactly as a mixed order would.
+ */
+function shuffledSlots(state: WorkspaceTreeState, rng: Rng): TreeSlotReader {
   const byUid = new Map<string, { path: string }>();
   const all = [
     ...state.collections,
@@ -188,14 +195,21 @@ function shuffledSlots(state: WorkspaceTreeState, rng: Rng): (parent: ParentRefS
     if (parent.type === 'workspace-roots') return null;
     return byUid.get(parent.uid)?.path ?? null;
   };
-  const childrenOf = (prefix: string, pool: ReadonlyArray<{ uid: string; path: string }>): string[] =>
-    rng
-      .shuffle(
-        pool.filter(
-          (entity) => entity.path.startsWith(`${prefix}/`) && !entity.path.slice(prefix.length + 1).includes('/'),
-        ),
-      )
-      .map((e) => e.uid);
+  const keyOf = new Map<string, string>();
+  const randomKey = (uid: string): string => {
+    let key = keyOf.get(uid);
+    if (key === undefined) {
+      key = '';
+      for (let i = 0; i < 3; i += 1) key += String.fromCharCode(0x61 + rng.int(26));
+      keyOf.set(uid, key);
+    }
+    return key;
+  };
+  const childrenOf = (prefix: string, pool: ReadonlyArray<{ uid: string; path: string }>): TreeSlotEntry[] =>
+    pool
+      .filter((entity) => entity.path.startsWith(`${prefix}/`) && !entity.path.slice(prefix.length + 1).includes('/'))
+      .map((e) => ({ uid: e.uid, orderKey: randomKey(e.uid) }))
+      .sort((x, y) => (x.orderKey < y.orderKey ? -1 : x.orderKey > y.orderKey ? 1 : x.uid < y.uid ? -1 : 1));
   return (parent, setPath) => {
     if (parent.type === 'workspace-roots') {
       const prefix =

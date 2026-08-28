@@ -159,7 +159,7 @@ export {
 export {
   type ContainerSlots,
   indexTreeChildren,
-  type OrderedChildren,
+  type OrderedChild,
   orderedChildren,
   type TreeChildIndex,
 } from './tree-children';

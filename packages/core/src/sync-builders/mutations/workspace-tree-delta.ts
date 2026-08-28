@@ -139,7 +139,7 @@ import {
   buildDeleteBatch as buildDeleteTemplateBatch,
   buildDeleteEntityBatch as buildDeleteTemplateEntityBatch,
 } from './template-mutations';
-import { planSlotOrder, type SlotOrderPlan, type SlotOrderTarget } from './tree-slot-order';
+import { planSlotOrder, type SlotOrderMember, type SlotOrderPlan, type SlotOrderTarget } from './tree-slot-order';
 import {
   buildWebSocketAddBatch,
   buildWebSocketDeleteBatch,
@@ -404,12 +404,12 @@ interface TreeOrderFamily<C extends string, F extends string> {
 }
 
 /**
- * Every ordered set a tree-authored manifest speaks for: a touched
- * container with an `order:` (its `folders` and `items` sets, split by
- * what each named directory holds), and the roots set of each tree the
- * touched `workspace.yaml` lists. The desired sequence is the listed
- * directories in listed order, then the unlisted ones in name order;
- * names with no directory are ignored.
+ * Every order a tree-authored manifest speaks for: a touched container
+ * with an `order:` (one merged sequence over its `folders` and `items`
+ * sets — each named directory tagged with the set it holds a slot in),
+ * and the roots set of each tree the touched `workspace.yaml` lists.
+ * The desired sequence is the listed directories in listed order, then
+ * the unlisted ones in name order; names with no directory are ignored.
  */
 function planTreeOrder(
   next: TreeReadResult['state'],
@@ -456,24 +456,20 @@ function planTreeOrder(
     const leavesByParent = childrenByParent(family.leaves);
     const container = (type: string, entity: Collection | Folder): void => {
       if (!touched(entity.path) || entity.order === undefined) return;
-      const parent = { type, uid: entity.uid };
-      targets.push(
-        {
-          parent,
-          setPath: family.childrenPath,
-          desired: inListedOrder(foldersByParent.get(entity.path), entity.order),
-        },
-        { parent, setPath: family.itemsPath, desired: inListedOrder(leavesByParent.get(entity.path), entity.order) },
-      );
+      const children: ChildDirectory[] = [
+        ...(foldersByParent.get(entity.path) ?? []).map((child) => ({ ...child, setPath: family.childrenPath })),
+        ...(leavesByParent.get(entity.path) ?? []).map((child) => ({ ...child, setPath: family.itemsPath })),
+      ];
+      targets.push({ parent: { type, uid: entity.uid }, members: inListedOrder(children, entity.order) });
     };
     for (const collection of family.collections) container(family.kinds.collectionType, collection);
     for (const folder of family.folders) container(family.kinds.folderType, folder);
     if (family.rootOrder !== undefined) {
-      targets.push({
-        parent: WORKSPACE_ROOTS_REF,
+      const roots = (collectionsByParent.get(family.kinds.treePrefix) ?? []).map((child) => ({
+        ...child,
         setPath: family.rootsPath,
-        desired: inListedOrder(collectionsByParent.get(family.kinds.treePrefix), family.rootOrder),
-      });
+      }));
+      targets.push({ parent: WORKSPACE_ROOTS_REF, members: inListedOrder(roots, family.rootOrder) });
     }
   }
   return planSlotOrder(targets, live);
@@ -482,10 +478,14 @@ function planTreeOrder(
 interface ChildDirectory {
   uid: string;
   segment: string;
+  /** The parent set this directory's slot lives in. */
+  setPath: string;
 }
 
-function childrenByParent(entities: ReadonlyArray<{ uid: string; path: string }>): Map<string, ChildDirectory[]> {
-  const out = new Map<string, ChildDirectory[]>();
+type ChildEntry = Omit<ChildDirectory, 'setPath'>;
+
+function childrenByParent(entities: ReadonlyArray<{ uid: string; path: string }>): Map<string, ChildEntry[]> {
+  const out = new Map<string, ChildEntry[]>();
   for (const entity of entities) {
     const parentPath = parentPathOf(entity.path);
     const segment = lastPathSegment(entity.path);
@@ -498,9 +498,8 @@ function childrenByParent(entities: ReadonlyArray<{ uid: string; path: string }>
   return out;
 }
 
-/** Listed directories in listed order, then the unlisted ones by name. */
-function inListedOrder(children: readonly ChildDirectory[] | undefined, order: readonly string[]): string[] {
-  if (!children) return [];
+/** Listed directories in listed order, then the unlisted ones by name — folders and leaves in one sequence. */
+function inListedOrder(children: readonly ChildDirectory[], order: readonly string[]): SlotOrderMember[] {
   const rank = new Map<string, number>();
   order.forEach((segment, index) => {
     if (!rank.has(segment)) rank.set(segment, index);
@@ -512,7 +511,7 @@ function inListedOrder(children: readonly ChildDirectory[] | undefined, order: r
       if (byRank !== 0) return byRank;
       return a.segment < b.segment ? -1 : a.segment > b.segment ? 1 : 0;
     })
-    .map((child) => child.uid);
+    .map((child) => ({ uid: child.uid, setPath: child.setPath }));
 }
 
 // ── gRPC / WebSocket requests (no export-envelope membership) ────────

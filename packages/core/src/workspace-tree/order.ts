@@ -8,9 +8,9 @@
  * not a valid source (the four request kinds persist as four arrays,
  * so cross-kind order lives only in the set). The binding host reads
  * the sets off its oracle and stamps every container before planning:
- * `folders` segments then `items` segments on `_collection.yaml` /
- * `_folder.yaml`, and the roots' collection segments per tree on
- * `workspace.yaml`. A container with no children carries no key. The
+ * the `folders` and `items` sets MERGED by key — folders and leaves
+ * interleaved as they render — on `_collection.yaml` / `_folder.yaml`,
+ * and the roots' collection segments per tree on `workspace.yaml`. A container with no children carries no key. The
  * key is emitted whenever there are children — an omitted key reads as
  * "keep the engine's order" on the other side, so omitting it when the
  * order happens to be alphabetical would never converge a peer that
@@ -24,6 +24,7 @@ import {
   FOLDER_CHILDREN_PATH,
   FOLDER_ITEMS_PATH,
   FOLDER_TREE_KINDS,
+  mergeOrderedEntries,
   type ParentRefShape,
   REQUEST_FOLDER_CHILDREN_PATH,
   REQUEST_FOLDER_ITEMS_PATH,
@@ -42,8 +43,14 @@ import type { WorkspaceManifest, WorkspaceOrder } from '../types/workspace';
 import { lastPathSegment } from '../utils/workspace';
 import type { WorkspaceTreeState } from './types';
 
-/** Child uids at a parent's ordered set, in slot order. */
-export type TreeSlotReader = (parent: ParentRefShape, setPath: string) => ReadonlyArray<string>;
+/** One live slot: the child uid and its fractional key. */
+export interface TreeSlotEntry {
+  uid: string;
+  orderKey: string;
+}
+
+/** Live slots at a parent's ordered set, in slot order. */
+export type TreeSlotReader = (parent: ParentRefShape, setPath: string) => ReadonlyArray<TreeSlotEntry>;
 
 interface TreeOrderSpec {
   kinds: TreeParentKinds<string, string>;
@@ -97,9 +104,9 @@ export function applyTreeOrder(state: WorkspaceTreeState, slots: TreeSlotReader)
 
   // A slot whose child is not in the snapshot (a dead slot the
   // reconciler has not healed yet) names no directory and is skipped.
-  const names = (parent: ParentRefShape, setPath: string): string[] => {
+  const names = (entries: ReadonlyArray<TreeSlotEntry>): string[] => {
     const out: string[] = [];
-    for (const uid of slots(parent, setPath)) {
+    for (const { uid } of entries) {
       const segment = segmentOf.get(uid);
       if (segment !== undefined) out.push(segment);
     }
@@ -109,15 +116,21 @@ export function applyTreeOrder(state: WorkspaceTreeState, slots: TreeSlotReader)
   const containers = <T extends Collection | Folder>(entities: T[], type: string, spec: TreeOrderSpec): T[] =>
     entities.map((entity) => {
       const parent = { type, uid: entity.uid };
-      return withOrder(entity, [...names(parent, spec.childrenPath), ...names(parent, spec.itemsPath)]);
+      const merged = mergeOrderedEntries(
+        slots(parent, spec.childrenPath),
+        slots(parent, spec.itemsPath),
+        (entry) => entry.orderKey,
+        (entry) => entry.uid,
+      );
+      return withOrder(entity, names(merged));
     });
 
   return {
     ...state,
     workspace: withWorkspaceOrder(state.workspace, {
-      rules: names(WORKSPACE_ROOTS_REF, RULE_TREE.rootsPath),
-      requests: names(WORKSPACE_ROOTS_REF, REQUEST_TREE.rootsPath),
-      templates: names(WORKSPACE_ROOTS_REF, TEMPLATE_TREE.rootsPath),
+      rules: names(slots(WORKSPACE_ROOTS_REF, RULE_TREE.rootsPath)),
+      requests: names(slots(WORKSPACE_ROOTS_REF, REQUEST_TREE.rootsPath)),
+      templates: names(slots(WORKSPACE_ROOTS_REF, TEMPLATE_TREE.rootsPath)),
     }),
     collections: containers(state.collections, RULE_TREE.kinds.collectionType, RULE_TREE),
     folders: containers(state.folders, RULE_TREE.kinds.folderType, RULE_TREE),

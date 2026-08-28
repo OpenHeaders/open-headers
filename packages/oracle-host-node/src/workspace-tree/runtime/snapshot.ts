@@ -79,7 +79,9 @@ export async function buildSnapshot(workspaceId: string, service: WorkspaceServi
     liveVariables: src.liveVariables ?? [],
   };
   return applyTreeOrder(state, (parent, setPath) =>
-    service.oracle.liveOrderedSetItems(parent.type, parent.uid, setPath).map((entry) => entry.itemId),
+    service.oracle
+      .liveOrderedSetItems(parent.type, parent.uid, setPath)
+      .map((entry) => ({ uid: entry.itemId, orderKey: entry.key })),
   );
 }
 

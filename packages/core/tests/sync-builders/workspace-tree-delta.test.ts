@@ -471,6 +471,30 @@ describe('synthesizeWorkspaceTreeDelta — order:', () => {
     expect(liveOrder(store, 'collection', 'col0000a', FOLDER_CHILDREN_PATH)).toEqual(['fol00001']);
   });
 
+  it('a mixed order: lands a folder between two leaves — one merged sequence over both sets', () => {
+    const store = seeded();
+    const folder = { schemaVersion: 5, uid: 'fol00001', path: `${COL_PATH}/sub-fol00001`, name: 'Sub' } as Folder;
+    const batches = delta({
+      prev: emptyState({ collections: [collection()], rules: [a, b, c] }),
+      next: emptyState({
+        collections: [collection(['a-rul0000a', 'sub-fol00001', 'b-rul0000b', 'c-rul0000c'])],
+        folders: [folder],
+        rules: [a, b, c],
+      }),
+      changed: [`${COL_PATH}/_collection.yaml`, `${folder.path}/_folder.yaml`],
+      store,
+    });
+    expect(batches.some((batch) => batch.label.endsWith('(reorder)'))).toBe(false);
+    applyTo(store, batches);
+    const merged = [
+      ...store.liveOrderedSetItems('collection', 'col0000a', FOLDER_CHILDREN_PATH),
+      ...store.liveOrderedSetItems('collection', 'col0000a', FOLDER_ITEMS_PATH),
+    ]
+      .sort((x, y) => (x.key < y.key ? -1 : x.key > y.key ? 1 : 0))
+      .map((entry) => entry.itemId);
+    expect(merged).toEqual(['rul0000a', 'fol00001', 'rul0000b', 'rul0000c']);
+  });
+
   it('a leaf moved into a container whose order: lists it lands at the listed position', () => {
     const store = seeded();
     const colB: Collection = {

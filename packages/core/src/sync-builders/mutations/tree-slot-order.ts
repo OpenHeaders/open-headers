@@ -1,15 +1,17 @@
 /**
- * Slot-order planning for a tree-authored `order:` (the tree
- * containment plan, Disk).
+ * Slot-order planning for a tree-authored order (the tree containment
+ * plan, Disk; the persisted tree-order record at hydration).
  *
- * A manifest's `order:` names the container's children in the order
- * the tree wants them. Converging the parent's ordered set to that
- * sequence is one pass per set: the longest strictly-increasing run of
- * live keys, taken in the desired order, keeps its keys; every other
- * member is re-keyed strictly between its desired neighbours with
- * `keyBetween`. Live members that are re-keyed become `moveBefore`
- * bodies — exactly the members whose relative order changed, never
- * the whole set — and members with no live slot (created or moved in
+ * A manifest's `order:` (or the record) names a container's children
+ * — folders and leaves together — in the order the tree wants them.
+ * The children live in two sets (`folders` / `items`) that share one
+ * keyspace and render merged by key, so converging them is ONE pass
+ * per parent over the merged live entries: the longest
+ * strictly-increasing run of live keys, taken in the desired order,
+ * keeps its keys; every other member is re-keyed strictly between its
+ * desired neighbours with `keyBetween`, whichever set it sits in. Live members that are re-keyed become
+ * `moveBefore` bodies on their own set — exactly the members whose
+ * relative order changed, never the whole set — and members with no live slot (created or moved in
  * this round) get their key handed to the create / `slotAdd` through
  * {@link SlotOrderPlan.keyFor}, so a fresh clone seeds the committed
  * order and a moved directory lands at its listed position.
@@ -20,11 +22,16 @@
 import { keyBetween, type MutationBody, type ParentRefShape } from '@openheaders/core/sync';
 import type { LiveSetEntriesReader } from './workspace-import-emission';
 
-/** One ordered set to converge: the parent, the set path, the child uids in their final order. */
+/** One child in its final position: the uid and the set it belongs to. */
+export interface SlotOrderMember {
+  uid: string;
+  setPath: string;
+}
+
+/** One parent to converge: its children — every set they span — in their final merged order. */
 export interface SlotOrderTarget {
   parent: ParentRefShape;
-  setPath: string;
-  desired: readonly string[];
+  members: readonly SlotOrderMember[];
 }
 
 /** Re-key bodies for one parent — both of its sets, one batch. */
@@ -44,13 +51,21 @@ export function planSlotOrder(targets: readonly SlotOrderTarget[], live: LiveSet
   const planned = new Map<string, string>();
   const byParent = new Map<string, SlotReorder>();
   for (const target of targets) {
+    const setPaths = new Set(target.members.map((member) => member.setPath));
     const liveKeys = new Map<string, string>();
-    for (const entry of live(target.parent.type, target.parent.uid, target.setPath)) {
-      liveKeys.set(entry.itemId, entry.orderKey);
+    for (const setPath of setPaths) {
+      for (const entry of live(target.parent.type, target.parent.uid, setPath)) {
+        liveKeys.set(entry.itemId, entry.orderKey);
+      }
     }
-    const assigned = assignKeys(target.desired, liveKeys);
-    for (const [uid, key] of assigned) {
-      if (liveKeys.has(uid)) {
+    const assigned = assignKeys(
+      target.members.map((member) => member.uid),
+      liveKeys,
+    );
+    for (const member of target.members) {
+      const key = assigned.get(member.uid);
+      if (key === undefined) continue;
+      if (liveKeys.has(member.uid)) {
         const parentKey = nodeKey(target.parent);
         let group = byParent.get(parentKey);
         if (!group) {
@@ -61,12 +76,12 @@ export function planSlotOrder(targets: readonly SlotOrderTarget[], live: LiveSet
           kind: 'moveBefore',
           type: target.parent.type,
           id: target.parent.uid,
-          path: target.setPath,
-          itemId: uid,
+          path: member.setPath,
+          itemId: member.uid,
           orderKey: key,
         });
       } else {
-        planned.set(slotKey(target.parent, target.setPath, uid), key);
+        planned.set(slotKey(target.parent, member.setPath, member.uid), key);
       }
     }
   }
@@ -104,7 +119,13 @@ function assignKeys(desired: readonly string[], liveKeys: ReadonlyMap<string, st
   return out;
 }
 
-/** Indices of one longest strictly-increasing subsequence over the non-null keys (patience sorting). */
+/**
+ * Indices of one longest strictly-increasing subsequence over the
+ * non-null keys (patience sorting). Among members with EQUAL keys the
+ * earlier one keeps its place: a run seeded twice at the same key
+ * (two child sets keyed apart, before they shared one order) keeps
+ * its first members and re-keys the later ones after them.
+ */
 function longestIncreasingRun(keys: ReadonlyArray<string | null>): number[] {
   const tails: number[] = [];
   const tailKeys: string[] = [];
@@ -118,6 +139,7 @@ function longestIncreasingRun(keys: ReadonlyArray<string | null>): number[] {
       if (tailKeys[mid] < key) low = mid + 1;
       else high = mid;
     }
+    if (low < tails.length && tailKeys[low] === key) return;
     predecessor[i] = low > 0 ? tails[low - 1] : -1;
     tails[low] = i;
     tailKeys[low] = key;

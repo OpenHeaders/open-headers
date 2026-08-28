@@ -215,7 +215,12 @@ export {
   SystemProxySettingsSchema,
 } from './system-proxy';
 export { TemplateIncludesSchema, TemplateSchema } from './template';
-export { TreeContainerOrderSchema, TreeOrderRecordSchema } from './tree-order';
+export {
+  LegacyTreeContainerOrderSchema,
+  TreeContainerChildrenSchema,
+  TreeContainerOrderSchema,
+  TreeOrderRecordSchema,
+} from './tree-order';
 export { TrustedRootSchema, TrustedRootsSchema } from './trusted-roots';
 export {
   EnvironmentSchema,

@@ -104,27 +104,39 @@ function state(overrides: Partial<WorkspaceTreeState> = {}): WorkspaceTreeState 
   };
 }
 
+/** Slots per `<type>:<uid>:<setPath>` as `uid:key` strings, in key order. */
 type Slots = Record<string, string[]>;
 
 const slotKey = (parent: ParentRefShape, setPath: string): string => `${parent.type}:${parent.uid}:${setPath}`;
 
-const reader = (slots: Slots) => (parent: ParentRefShape, setPath: string) => slots[slotKey(parent, setPath)] ?? [];
+const reader = (slots: Slots) => (parent: ParentRefShape, setPath: string) =>
+  (slots[slotKey(parent, setPath)] ?? []).map((entry) => {
+    const [uid, orderKey] = entry.split(':');
+    return { uid, orderKey };
+  });
 
+// The folder is keyed BETWEEN the two rules: the stamp merges the sets by key.
 const SLOTS: Slots = {
-  [`workspace-roots:${WORKSPACE_ROOTS_ID}:${WORKSPACE_ROOTS_RULE_COLLECTIONS_PATH}`]: ['col0000b', 'col0000a'],
-  [`workspace-roots:${WORKSPACE_ROOTS_ID}:${WORKSPACE_ROOTS_REQUEST_COLLECTIONS_PATH}`]: ['rco0000a'],
-  [`collection:col0000a:${FOLDER_CHILDREN_PATH}`]: ['fol00001'],
-  [`collection:col0000a:${FOLDER_ITEMS_PATH}`]: ['rul0000b', 'rul0000a'],
-  [`request-collection:rco0000a:${REQUEST_FOLDER_ITEMS_PATH}`]: ['req00001'],
+  [`workspace-roots:${WORKSPACE_ROOTS_ID}:${WORKSPACE_ROOTS_RULE_COLLECTIONS_PATH}`]: ['col0000b:m', 'col0000a:s'],
+  [`workspace-roots:${WORKSPACE_ROOTS_ID}:${WORKSPACE_ROOTS_REQUEST_COLLECTIONS_PATH}`]: ['rco0000a:m'],
+  [`collection:col0000a:${FOLDER_CHILDREN_PATH}`]: ['fol00001:p'],
+  [`collection:col0000a:${FOLDER_ITEMS_PATH}`]: ['rul0000b:m', 'rul0000a:s'],
+  [`request-collection:rco0000a:${REQUEST_FOLDER_ITEMS_PATH}`]: ['req00001:m'],
   [`request-collection:rco0000a:${REQUEST_FOLDER_CHILDREN_PATH}`]: [],
 };
 
 describe('applyTreeOrder', () => {
-  it('stamps folders then items on every container and the roots per tree on the manifest', () => {
+  it('stamps the merged child order on every container and the roots per tree on the manifest', () => {
     const stamped = applyTreeOrder(state(), reader(SLOTS));
     expect(stamped.workspace.order).toEqual({ rules: ['b-col0000b', 'a-col0000a'], requests: ['api-rco0000a'] });
-    expect(stamped.collections[0].order).toEqual(['sub-fol00001', 'b-rul0000b', 'a-rul0000a']);
+    expect(stamped.collections[0].order).toEqual(['b-rul0000b', 'sub-fol00001', 'a-rul0000a']);
     expect(stamped.requestCollections[0].order).toEqual(['ping-req00001']);
+  });
+
+  it('an equal key across the two sets breaks by uid, as inside one set', () => {
+    const slots: Slots = { ...SLOTS, [`collection:col0000a:${FOLDER_CHILDREN_PATH}`]: ['fol00001:m'] };
+    const stamped = applyTreeOrder(state(), reader(slots));
+    expect(stamped.collections[0].order).toEqual(['sub-fol00001', 'b-rul0000b', 'a-rul0000a']);
   });
 
   it('a container without children carries no key; a stale key on the input is dropped', () => {
@@ -135,7 +147,7 @@ describe('applyTreeOrder', () => {
   });
 
   it('a slot whose child is not in the snapshot names no directory', () => {
-    const slots: Slots = { ...SLOTS, [`collection:col0000a:${FOLDER_ITEMS_PATH}`]: ['dead0000', 'rul0000a'] };
+    const slots: Slots = { ...SLOTS, [`collection:col0000a:${FOLDER_ITEMS_PATH}`]: ['dead0000:m', 'rul0000a:s'] };
     const stamped = applyTreeOrder(state(), reader(slots));
     expect(stamped.collections[0].order).toEqual(['sub-fol00001', 'a-rul0000a']);
   });
@@ -162,7 +174,7 @@ describe('order: through plan → read', () => {
       'order:\n  rules:\n    - b-col0000b\n    - a-col0000a\n  requests:\n    - api-rco0000a\n',
     );
     const collectionYaml = plan.find((file) => file.path === 'rules/a-col0000a/_collection.yaml');
-    expect(collectionYaml?.content).toContain('order:\n  - sub-fol00001\n  - b-rul0000b\n  - a-rul0000a\n');
+    expect(collectionYaml?.content).toContain('order:\n  - b-rul0000b\n  - sub-fol00001\n  - a-rul0000a\n');
 
     const read = readWorkspaceTree(plan);
     expect(read.issues).toEqual([]);

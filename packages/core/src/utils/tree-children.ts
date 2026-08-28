@@ -2,12 +2,15 @@
  * Ordered children of a tree container — the one read rule every
  * sidebar tree builder applies.
  *
- * A container (collection or folder) renders its child folders first,
- * then its leaves, each run in the order of the parent's slot set
- * (`folders` / `items`). A child that has no live slot yet — an
- * old-client entity the reconciliation rule has not reached, the boot
- * window before slots land — still belongs to the parent its stored
- * `path` names, so it follows the slotted run in array order. Never
+ * A container (collection or folder) renders its children as ONE
+ * sequence: the merge of its `folders` and `items` sets by key
+ * (`mergeOrderedEntries` in the sync order module), folders and
+ * leaves interleaved however the user arranged them. The reader hands
+ * that merged uid list in; this module resolves it to entities. A
+ * child that has no live slot yet — an old-client entity the
+ * reconciliation rule has not reached, the boot window before slots
+ * land — still belongs to the parent its stored `path` names, so it
+ * follows the slotted run in array order, folders then leaves. Never
  * require a slot on read.
  *
  * The index is built once per tree build (one pass over the arrays);
@@ -16,11 +19,8 @@
 
 import { parentPathOf } from './workspace';
 
-/** Child uids of one container in slot order, per set. */
-export interface ContainerSlots {
-  folders: ReadonlyArray<string>;
-  items: ReadonlyArray<string>;
-}
+/** Child uids of one container, both kinds, in merged slot order. */
+export type ContainerSlots = ReadonlyArray<string>;
 
 export interface TreeChildIndex<F, L> {
   folderByUid: ReadonlyMap<string, F>;
@@ -57,46 +57,45 @@ function group<T>(into: Map<string, T[]>, parentPath: string | null, entity: T):
   else into.set(parentPath, [entity]);
 }
 
-export interface OrderedChildren<F, L> {
-  folders: F[];
-  leaves: L[];
-}
+export type OrderedChild<F, L> = { kind: 'folder'; entity: F } | { kind: 'leaf'; entity: L };
 
 /**
  * The children of the container at `parentPath`: slotted children in
- * slot order, then the slot-less children whose stored path names this
- * parent. `slots` is `null` when the reader has no slot source (no live
- * oracle, no mirror) — pure path order then.
+ * merged slot order, then the slot-less children whose stored path
+ * names this parent (folders, then leaves). `slots` is `null` when the
+ * reader has no slot source (no live oracle, no mirror) — pure path
+ * order then.
  */
 export function orderedChildren<F extends { uid: string }, L extends { uid: string }>(
   index: TreeChildIndex<F, L>,
   parentPath: string,
   slots: ContainerSlots | null,
-): OrderedChildren<F, L> {
-  return {
-    folders: orderedRun(slots?.folders ?? [], index.folderByUid, index.foldersByParent.get(parentPath) ?? []),
-    leaves: orderedRun(slots?.items ?? [], index.leafByUid, index.leavesByParent.get(parentPath) ?? []),
-  };
-}
-
-function orderedRun<T extends { uid: string }>(
-  slotUids: ReadonlyArray<string>,
-  byUid: ReadonlyMap<string, T>,
-  byPath: ReadonlyArray<T>,
-): T[] {
-  if (slotUids.length === 0) return [...byPath];
-  const out: T[] = [];
+): OrderedChild<F, L>[] {
+  const out: OrderedChild<F, L>[] = [];
   const emitted = new Set<string>();
-  for (const uid of slotUids) {
-    const entity = byUid.get(uid);
-    if (!entity || emitted.has(uid)) continue;
-    emitted.add(uid);
-    out.push(entity);
+  for (const uid of slots ?? []) {
+    if (emitted.has(uid)) continue;
+    const folder = index.folderByUid.get(uid);
+    if (folder) {
+      emitted.add(uid);
+      out.push({ kind: 'folder', entity: folder });
+      continue;
+    }
+    const leaf = index.leafByUid.get(uid);
+    if (leaf) {
+      emitted.add(uid);
+      out.push({ kind: 'leaf', entity: leaf });
+    }
   }
-  for (const entity of byPath) {
+  for (const entity of index.foldersByParent.get(parentPath) ?? []) {
     if (emitted.has(entity.uid)) continue;
     emitted.add(entity.uid);
-    out.push(entity);
+    out.push({ kind: 'folder', entity });
+  }
+  for (const entity of index.leavesByParent.get(parentPath) ?? []) {
+    if (emitted.has(entity.uid)) continue;
+    emitted.add(entity.uid);
+    out.push({ kind: 'leaf', entity });
   }
   return out;
 }
