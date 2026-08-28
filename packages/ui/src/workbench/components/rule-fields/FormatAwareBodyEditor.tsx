@@ -17,7 +17,7 @@
  * pays for two scans.
  */
 
-import { ConfigProvider, Segmented, Tooltip, theme } from 'antd';
+import { Segmented, Tooltip } from 'antd';
 import type React from 'react';
 import { useMemo, useRef, useState } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
@@ -70,7 +70,6 @@ const FormatAwareBodyEditor: React.FC<FormatAwareBodyEditorProps> = ({
   extra,
 }) => {
   const t = useT();
-  const { token } = theme.useToken();
   const modeInfo = useMemo<InfoPopoverContent>(
     () => ({
       title: t('workbench.editors.rule.fields.formatAwareBody.infoTitle'),
@@ -143,19 +142,6 @@ const FormatAwareBodyEditor: React.FC<FormatAwareBodyEditorProps> = ({
     <div>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-          <ConfigProvider
-            // The stock thumb is near-invisible against the dark editors —
-            // the accent selection keeps the active mode legible on both
-            // themes (scoped-provider idiom, see QuickConditionsRow).
-            theme={{
-              components: {
-                Segmented: {
-                  itemSelectedBg: token.colorPrimary,
-                  itemSelectedColor: token.colorTextLightSolid,
-                },
-              },
-            }}
-          >
             <Tooltip
               title={formattable ? undefined : t('workbench.editors.rule.fields.formatAwareBody.unavailableTooltip')}
             >
@@ -173,7 +159,6 @@ const FormatAwareBodyEditor: React.FC<FormatAwareBodyEditorProps> = ({
                 ]}
               />
             </Tooltip>
-          </ConfigProvider>
           <InfoTrigger content={modeInfo} />
         </span>
         {extra}

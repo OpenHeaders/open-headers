@@ -140,6 +140,8 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
   const algorithms: Array<typeof theme.darkAlgorithm> = [isDarkMode ? theme.darkAlgorithm : theme.defaultAlgorithm];
   if (isCompactMode) algorithms.push(theme.compactAlgorithm);
 
+  // Every variant pins a primary; the accent is the fallback either way.
+  const primaryColor = variant.honorsAccentColor ? accentColor : (variant.antdTokens.colorPrimary ?? accentColor);
   const antTheme = useMemo(
     () => ({
       algorithm: algorithms.length === 1 ? algorithms[0] : algorithms,
@@ -169,12 +171,21 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
           paddingBlock: 3,
           controlPaddingHorizontal: 10,
         },
+        // Segmented controls select in the accent: the stock thumb is a
+        // barely-lifted fill that reads near-invisible on the dark
+        // grounds and faint on the light ones. A wash of the accent
+        // under the accent-colored label — the selected-tag look, not
+        // a solid button.
+        Segmented: {
+          itemSelectedBg: `color-mix(in srgb, ${primaryColor} 18%, transparent)`,
+          itemSelectedColor: primaryColor,
+        },
       },
     }),
     // `algorithms` rebuilds every render but its content is stable when
     // these inputs are; including primitives here keeps the memo honest.
     // biome-ignore lint/correctness/useExhaustiveDependencies: algorithms is derived from isDarkMode + isCompactMode
-    [variant, accentColor, isDarkMode, isCompactMode, uiScale, fontFamily],
+    [variant, accentColor, primaryColor, isDarkMode, isCompactMode, uiScale, fontFamily],
   );
 
   return (

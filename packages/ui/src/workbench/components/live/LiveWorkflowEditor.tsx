@@ -57,7 +57,7 @@ import { applyLiveWorkflowPublish } from '@openheaders/ui/shared/sync/live-workf
 import { useWorkbenchEditingScopeWorkspaceId } from '../../hooks/EditingScopeWorkspaceContext';
 import type { WorkflowSeedStep } from '../../types';
 import type { LiveWorkflow } from '@openheaders/core/types';
-import { App, Button, ConfigProvider, Segmented, Tag, Typography, theme } from 'antd';
+import { App, Button, Segmented, Tag, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import EditorHeader from '../shell/EditorHeader';
@@ -158,29 +158,17 @@ type Props = EditProps | CreateProps;
 type WorkflowView = 'form' | 'graph';
 
 const ViewToggle: React.FC<{ view: WorkflowView; setView: (v: WorkflowView) => void }> = ({ view, setView }) => {
-  const { token } = theme.useToken();
   const t = useT();
   return (
-    <ConfigProvider
-      theme={{
-        components: {
-          Segmented: {
-            itemSelectedBg: token.colorPrimary,
-            itemSelectedColor: token.colorWhite,
-          },
-        },
-      }}
-    >
-      <Segmented
-        size="small"
-        value={view}
-        onChange={(v) => setView(v as WorkflowView)}
-        options={[
-          { label: t('workbench.editors.live.workflow.viewEditor'), value: 'form', icon: <FormOutlined /> },
-          { label: t('workbench.editors.live.workflow.viewPreview'), value: 'graph', icon: <ApartmentOutlined /> },
-        ]}
-      />
-    </ConfigProvider>
+    <Segmented
+      size="small"
+      value={view}
+      onChange={(v) => setView(v as WorkflowView)}
+      options={[
+        { label: t('workbench.editors.live.workflow.viewEditor'), value: 'form', icon: <FormOutlined /> },
+        { label: t('workbench.editors.live.workflow.viewPreview'), value: 'graph', icon: <ApartmentOutlined /> },
+      ]}
+    />
   );
 };
 
