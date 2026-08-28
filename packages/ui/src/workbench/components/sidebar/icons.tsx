@@ -4,6 +4,21 @@ import { createElement } from 'react';
 import type { Translate } from '@openheaders/ui/context/LocaleContext';
 import { ExampleChip } from '../shared/ExampleChip';
 
+/** Every tree prefix tag is at most {@link TAG_CHARS} characters, so
+ *  the shared right-aligned column can stay this narrow. */
+export const TAG_CHARS = 5;
+const TAG_WIDTH = 30;
+
+/** Short forms for the verbs that overflow {@link TAG_CHARS}. */
+const METHOD_TAGS: Record<string, string> = {
+  DELETE: 'DEL',
+  OPTIONS: 'OPTS',
+};
+
+export function methodTagText(method: string): string {
+  return METHOD_TAGS[method] ?? method.slice(0, TAG_CHARS);
+}
+
 export function iconEl(Icon: typeof StopOutlined, color: string, size = 12): React.ReactNode {
   return createElement(Icon, { style: { color, fontSize: size } });
 }
@@ -39,7 +54,7 @@ export function methodTag(method: string, muted = false): React.ReactNode {
       key: 'method',
       style: {
         display: 'inline-block',
-        minWidth: 38,
+        minWidth: TAG_WIDTH,
         fontSize: 9,
         fontWeight: 700,
         color,
@@ -49,7 +64,7 @@ export function methodTag(method: string, muted = false): React.ReactNode {
         flexShrink: 0,
       },
     },
-    method,
+    methodTagText(method),
   );
 }
 
@@ -64,7 +79,7 @@ export function grpcTag(muted = false): React.ReactNode {
       key: 'grpc',
       style: {
         display: 'inline-block',
-        minWidth: 38,
+        minWidth: TAG_WIDTH,
         fontSize: 9,
         fontWeight: 700,
         color,
@@ -91,7 +106,7 @@ export function websocketTag(flavor: 'raw' | 'socketio', muted = false): React.R
       key: 'websocket',
       style: {
         display: 'inline-block',
-        minWidth: 38,
+        minWidth: TAG_WIDTH,
         fontSize: 9,
         fontWeight: 700,
         color,
@@ -116,7 +131,7 @@ export function mqttTag(muted = false): React.ReactNode {
       key: 'mqtt',
       style: {
         display: 'inline-block',
-        minWidth: 38,
+        minWidth: TAG_WIDTH,
         fontSize: 9,
         fontWeight: 700,
         color,
@@ -145,7 +160,7 @@ export function sessionFidelityTag(fidelity: 'cdp' | 'heuristic' | 'proxy'): Rea
       key: 'fidelity',
       style: {
         display: 'inline-block',
-        minWidth: 38,
+        minWidth: TAG_WIDTH,
         fontSize: 9,
         fontWeight: 700,
         color: spec.color,
@@ -167,12 +182,31 @@ export function exampleTag(): React.ReactNode {
       key: 'example',
       style: {
         display: 'inline-flex',
-        minWidth: 38,
+        minWidth: TAG_WIDTH,
         justifyContent: 'flex-end',
         flexShrink: 0,
       },
     },
     createElement(ExampleChip),
+  );
+}
+
+/** A folder glyph right-aligned inside the {@link methodTag} footprint
+ *  so its label lines up with the sibling request labels. Root
+ *  collections keep the bare glyph — nothing else lives at that level. */
+export function folderTag(Icon: typeof StopOutlined): React.ReactNode {
+  return createElement(
+    'span',
+    {
+      key: 'folder',
+      style: {
+        display: 'inline-flex',
+        minWidth: TAG_WIDTH,
+        justifyContent: 'flex-end',
+        flexShrink: 0,
+      },
+    },
+    iconEl(Icon, 'var(--ant-color-text-tertiary, #999)'),
   );
 }
 

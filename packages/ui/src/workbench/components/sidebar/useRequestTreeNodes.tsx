@@ -29,7 +29,7 @@ import { useT } from '@openheaders/ui/context/LocaleContext';
 import { useCopyRequestSnippet } from '../../hooks/useCopyRequestSnippet';
 import type { WorkbenchTab } from '../../types';
 import { exportNodeFields } from './export-fields';
-import { composeBadge, exampleTag, grpcTag, iconEl, methodTag, mqttTag, websocketTag } from './icons';
+import { composeBadge, exampleTag, folderTag, grpcTag, iconEl, methodTag, mqttTag, websocketTag } from './icons';
 import { requestKindAddMenuItems } from '../../request-kind-menu';
 import { containerActionMenuItems, containerAddMenuItems } from './menus';
 import type { TreeNode } from './types';
@@ -224,7 +224,7 @@ export function useRequestTreeNodes(p: UseRequestTreeNodesParams): TreeNode[] {
             depth,
             expandable: true,
             parentId,
-            icon: iconEl(FolderOutlined, 'var(--ant-color-text-tertiary, #999)'),
+            icon: folderTag(FolderOutlined),
             ...(folderScriptsPending
               ? {
                   badge: composeBadge(
