@@ -166,7 +166,7 @@ async function openWebsocketRequest(uid: string): Promise<void> {
 async function connectAndAwaitOpen(): Promise<void> {
   await expect.poll(async () => connectButton().isEnabled(), { timeout: 15_000 }).toBe(true);
   await connectButton().click();
-  await liveBadge().filter({ hasText: 'CONNECTED' }).waitFor({ state: 'visible', timeout: 20_000 });
+  await liveBadge().filter({ hasText: 'Connected' }).waitFor({ state: 'visible', timeout: 20_000 });
 }
 
 /** Disconnect (the clean close 1000) and wait for the settled tag. */

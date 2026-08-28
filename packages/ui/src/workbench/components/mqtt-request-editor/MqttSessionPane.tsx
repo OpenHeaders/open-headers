@@ -28,6 +28,7 @@ import { Button, Dropdown, Tabs, Tag, Typography, theme } from 'antd';
 import type React from 'react';
 import { useMemo, useState } from 'react';
 import ProxyRouteTag, { proxyRouteHasBadge } from '../request-editor/response/ProxyRouteTag';
+import { useTonePillStyle } from '../request-editor/response/response-status';
 import ConnectionDetailsTooltip, { type ConnectionDetailsRow } from '../shared/ConnectionDetailsTooltip';
 import { ExampleChip } from '../shared/ExampleChip';
 import MqttMessageTimeline from './MqttMessageTimeline';
@@ -340,17 +341,17 @@ const MqttSessionPane: React.FC<MqttSessionPaneProps> = ({
       </>
     ) : null;
 
+  // The live badge wears the HTTP status chip's pill — connected reads
+  // as a 2xx, reconnecting as the warning wash, connecting neutral.
+  const livePill = useTonePillStyle(reconnecting ? 'warning' : live?.open !== null ? 'success' : 'neutral');
+
   const metaStrip = (
     <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, paddingLeft: 12 }}>
       {snapshot === null ? (
         <>
           {subsSummary}
           <ConnectionDetailsTooltip rows={detailRows}>
-            <Tag
-              color={reconnecting ? 'warning' : live?.open !== null ? 'processing' : 'default'}
-              style={{ marginInlineEnd: 0 }}
-              data-testid="mqtt-session-live-badge"
-            >
+            <Tag color="default" style={livePill} data-testid="mqtt-session-live-badge">
               {reconnecting
                 ? t('workbench.editors.mqtt.session.reconnectingBadge')
                 : live?.open !== null

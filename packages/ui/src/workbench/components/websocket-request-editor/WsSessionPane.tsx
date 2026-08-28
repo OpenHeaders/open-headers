@@ -26,6 +26,7 @@ import { Button, Dropdown, Tabs, Tag, Typography, theme } from 'antd';
 import type React from 'react';
 import { useMemo, useState } from 'react';
 import ProxyRouteTag, { proxyRouteHasBadge } from '../request-editor/response/ProxyRouteTag';
+import { useTonePillStyle } from '../request-editor/response/response-status';
 import ConnectionDetailsTooltip, { type ConnectionDetailsRow } from '../shared/ConnectionDetailsTooltip';
 import { ExampleChip } from '../shared/ExampleChip';
 import WsMessageTimeline, { type WsTimelineLifecycle } from './WsMessageTimeline';
@@ -224,16 +225,16 @@ const WsSessionPane: React.FC<WsSessionPaneProps> = ({
     return rows;
   }, [snapshot, live, timing, t]);
 
+  // The live badge wears the HTTP status chip's pill — connected reads
+  // as a 2xx, connecting as the neutral wash.
+  const livePill = useTonePillStyle(live?.open !== null ? 'success' : 'neutral');
+
   const metaStrip = (
     <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, paddingLeft: 12 }}>
       {snapshot === null ? (
         <>
           <ConnectionDetailsTooltip rows={detailRows}>
-            <Tag
-              color={live?.open !== null ? 'processing' : 'default'}
-              style={{ marginInlineEnd: 0 }}
-              data-testid="ws-session-live-badge"
-            >
+            <Tag color="default" style={livePill} data-testid="ws-session-live-badge">
               {live?.open !== null
                 ? t('workbench.editors.websocket.session.connectedBadge')
                 : t('workbench.editors.websocket.session.connectingBadge')}

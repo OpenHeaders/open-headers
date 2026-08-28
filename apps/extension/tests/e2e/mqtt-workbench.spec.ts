@@ -206,7 +206,7 @@ function timelineMessageRows() {
 async function connectAndAwaitOpen(): Promise<void> {
   await expect(connectButton()).toBeEnabled();
   await connectButton().click();
-  await liveBadge().filter({ hasText: 'CONNECTED' }).waitFor({ state: 'visible', timeout: 20_000 });
+  await liveBadge().filter({ hasText: 'Connected' }).waitFor({ state: 'visible', timeout: 20_000 });
 }
 
 /** Disconnect (the clean DISCONNECT + close) and wait for the tag. */

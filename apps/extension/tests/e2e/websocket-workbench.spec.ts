@@ -378,7 +378,7 @@ test('B5 — Connect runs the session in-page: greeting subprotocol, Send echo, 
 
   await expect(connectButton()).toBeEnabled();
   await connectButton().click();
-  await liveBadge().filter({ hasText: 'CONNECTED' }).waitFor({ state: 'visible', timeout: 20_000 });
+  await liveBadge().filter({ hasText: 'Connected' }).waitFor({ state: 'visible', timeout: 20_000 });
   await expect(connectButton()).toHaveText(/Disconnect/);
 
   // The greeting names the negotiated subprotocol — the offer rode the
@@ -472,7 +472,7 @@ test('B7 — socketio runs in-page: namespace connect, decoded events, acked ech
 
   await expect(connectButton()).toBeEnabled();
   await connectButton().click();
-  await liveBadge().filter({ hasText: 'CONNECTED' }).waitFor({ state: 'visible', timeout: 20_000 });
+  await liveBadge().filter({ hasText: 'Connected' }).waitFor({ state: 'visible', timeout: 20_000 });
 
   // The greeting proves the whole handshake chain decoded: engine.io
   // open, our namespace CONNECT, the server's connect ack, the first
@@ -546,7 +546,7 @@ test('B9 — Save Response mints the example: viewer close pill, sidebar leaf, O
   await urlInput().fill(WS_PROBE_URL);
   await expect(connectButton()).toBeEnabled();
   await connectButton().click();
-  await liveBadge().filter({ hasText: 'CONNECTED' }).waitFor({ state: 'visible', timeout: 20_000 });
+  await liveBadge().filter({ hasText: 'Connected' }).waitFor({ state: 'visible', timeout: 20_000 });
   await disconnectAndAwaitClose();
 
   // Save Response lives in the session pane's ⋯ actions menu (first item).
@@ -607,7 +607,7 @@ test('B10 — the bearer credential rides the CONNECT auth payload in-page and t
   await page.getByRole('tab', { name: 'Message', exact: true }).filter({ visible: true }).first().click();
   await expect(connectButton()).toBeEnabled();
   await connectButton().click();
-  await liveBadge().filter({ hasText: 'CONNECTED' }).waitFor({ state: 'visible', timeout: 20_000 });
+  await liveBadge().filter({ hasText: 'Connected' }).waitFor({ state: 'visible', timeout: 20_000 });
 
   // The greeting mirrors the CONNECT auth payload — the credential
   // works IN the page realm, so no honesty notice appears on THIS
