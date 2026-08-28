@@ -61,7 +61,7 @@ import type { MessageKey } from '@openheaders/i18n';
 import { parseEngineIoFrame, SOCKET_IO_PACKET_TYPES } from '@openheaders/core/socketio';
 import type { WebSocketFlavor } from '@openheaders/core/types';
 import { decodeBase64Bytes, wsCloseCodePhrase } from '@openheaders/core/utils';
-import { App, Button, ConfigProvider, Dropdown, Input, Segmented, Tag, Tooltip, Typography, theme } from 'antd';
+import { Button, ConfigProvider, Dropdown, Input, Segmented, Tag, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { type Translate, useT } from '@openheaders/ui/context/LocaleContext';
@@ -541,7 +541,6 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
 }) => {
   const { token } = theme.useToken();
   const t = useT();
-  const { message: toast } = App.useApp();
   const [search, setSearch] = useState('');
   const [directionFilter, setDirectionFilter] = useState<DirectionFilter>('all');
   const [sortMenuOpen, setSortMenuOpen] = useState(false);
@@ -555,6 +554,16 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
   // on the failure and the handshake it attempted.
   const [endedExpanded, setEndedExpanded] = useState(true);
   const [errorExpanded, setErrorExpanded] = useState(true);
+  // The row whose Copy just landed — its icon reads as a check for a
+  // second, then the copy glyph returns (no toast).
+  const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
+  const copiedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(
+    () => () => {
+      if (copiedTimerRef.current !== null) clearTimeout(copiedTimerRef.current);
+    },
+    [],
+  );
   const [sectionsOpen, setSectionsOpen] = useState<HeaderSectionsOpen>({ request: true, response: true });
   const toggleSection = (section: keyof HeaderSectionsOpen) =>
     setSectionsOpen((prev) => ({ ...prev, [section]: !prev[section] }));
@@ -1615,15 +1624,24 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
                 <Button
                   size="small"
                   type="text"
-                  icon={<CopyOutlined style={{ fontSize: 12 }} />}
+                  icon={
+                    copiedIndex === entry.index ? (
+                      <CheckOutlined style={{ fontSize: 12, color: token.colorSuccess }} />
+                    ) : (
+                      <CopyOutlined style={{ fontSize: 12 }} />
+                    )
+                  }
                   aria-label={t('workbench.editors.websocket.timeline.copyMessage')}
                   data-testid="ws-timeline-copy-message"
                   onClick={(event) => {
                     // Drop the click focus so the cluster fades with the
                     // pointer — the ring stays for keyboard users only.
                     event.currentTarget.blur();
+                    const index = entry.index;
                     void navigator.clipboard.writeText(view.text).then(() => {
-                      toast.success(t('shared.toast.copiedToClipboard'));
+                      setCopiedIndex(index);
+                      if (copiedTimerRef.current !== null) clearTimeout(copiedTimerRef.current);
+                      copiedTimerRef.current = setTimeout(() => setCopiedIndex(null), 1000);
                     });
                   }}
                 />
