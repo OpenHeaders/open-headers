@@ -61,6 +61,8 @@ export const workbenchChromeSidebar = {
   'workbench.sidebar.behavior.openCollectionsSingleClick': 'Sammlungen mit Einfachklick öffnen',
   'workbench.sidebar.behavior.openFoldersSingleClick': 'Ordner mit Einfachklick öffnen',
   'workbench.sidebar.behavior.alwaysSelectOpened': 'Geöffneten Tab immer auswählen',
+  'workbench.sidebar.appearance.title': 'Darstellung',
+  'workbench.sidebar.appearance.showIndentGuides': 'Einrückungslinien anzeigen',
   'workbench.sidebar.filterPlaceholder': 'Filtern',
 
   // ── Sidebar: Schnellsuchleiste (bei Bedarf, dualer Modus) ──

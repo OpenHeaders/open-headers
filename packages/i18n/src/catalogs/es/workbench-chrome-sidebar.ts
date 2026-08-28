@@ -60,6 +60,8 @@ export const workbenchChromeSidebar = {
   'workbench.sidebar.behavior.openCollectionsSingleClick': 'Abrir las colecciones con un solo clic',
   'workbench.sidebar.behavior.openFoldersSingleClick': 'Abrir las carpetas con un solo clic',
   'workbench.sidebar.behavior.alwaysSelectOpened': 'Seleccionar siempre la pestaña abierta',
+  'workbench.sidebar.appearance.title': 'Apariencia',
+  'workbench.sidebar.appearance.showIndentGuides': 'Mostrar las guías de sangría',
   'workbench.sidebar.filterPlaceholder': 'Filtrar',
 
   // ── Sidebar: barra de búsqueda rápida (bajo demanda, modo dual) ──

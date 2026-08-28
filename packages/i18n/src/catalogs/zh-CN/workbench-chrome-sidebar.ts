@@ -58,6 +58,8 @@ export const workbenchChromeSidebar = {
   'workbench.sidebar.behavior.openCollectionsSingleClick': '单击打开集合',
   'workbench.sidebar.behavior.openFoldersSingleClick': '单击打开文件夹',
   'workbench.sidebar.behavior.alwaysSelectOpened': '始终选中已打开的标签页',
+  'workbench.sidebar.appearance.title': '外观',
+  'workbench.sidebar.appearance.showIndentGuides': '显示缩进参考线',
   'workbench.sidebar.filterPlaceholder': '筛选',
 
   // ── 侧边栏：快速搜索栏（按需打开，双模式） ──

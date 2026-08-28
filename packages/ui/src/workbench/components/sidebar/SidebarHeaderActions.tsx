@@ -70,7 +70,14 @@ interface SidebarHeaderActionsProps {
   setOpenFoldersWithSingleClick: React.Dispatch<React.SetStateAction<boolean>>;
   alwaysSelectOpened: boolean;
   setAlwaysSelectOpened: React.Dispatch<React.SetStateAction<boolean>>;
+  showIndentGuides: boolean;
+  setShowIndentGuides: React.Dispatch<React.SetStateAction<boolean>>;
 }
+
+/** Views whose content is a nested tree — the only ones where the
+ *  indent guides exist, so the only ones that offer the Appearance
+ *  submenu. */
+const TREE_VIEWS: ReadonlySet<SidebarView> = new Set(['http-rules', 'api-requests']);
 
 const SidebarHeaderActions: React.FC<SidebarHeaderActionsProps> = ({
   view,
@@ -96,6 +103,8 @@ const SidebarHeaderActions: React.FC<SidebarHeaderActionsProps> = ({
   setOpenFoldersWithSingleClick,
   alwaysSelectOpened,
   setAlwaysSelectOpened,
+  showIndentGuides,
+  setShowIndentGuides,
 }) => {
   const { token } = theme.useToken();
   const t = useT();
@@ -143,6 +152,21 @@ const SidebarHeaderActions: React.FC<SidebarHeaderActionsProps> = ({
         },
       ],
     },
+    ...(TREE_VIEWS.has(view)
+      ? [
+          {
+            key: 'appearance',
+            label: t('workbench.sidebar.appearance.title'),
+            children: [
+              {
+                key: 'indent-guides',
+                label: `${showIndentGuides ? '✓ ' : ''}${t('workbench.sidebar.appearance.showIndentGuides')}`,
+                onClick: () => setShowIndentGuides((v) => !v),
+              },
+            ],
+          },
+        ]
+      : []),
   ];
   const headerActions = (
     <>

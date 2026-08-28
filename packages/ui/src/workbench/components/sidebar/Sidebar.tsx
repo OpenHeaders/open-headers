@@ -363,6 +363,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   const [openCollectionsWithSingleClick, setOpenCollectionsWithSingleClick] = useState(true);
   const [openFoldersWithSingleClick, setOpenFoldersWithSingleClick] = useState(true);
   const [alwaysSelectOpened, setAlwaysSelectOpened] = useState(true);
+  const [showIndentGuides, setShowIndentGuides] = useState(true);
   const containerRef = useRef<HTMLDivElement>(null);
 
   const {
@@ -1056,6 +1057,8 @@ const Sidebar: React.FC<SidebarProps> = ({
         setOpenFoldersWithSingleClick={setOpenFoldersWithSingleClick}
         alwaysSelectOpened={alwaysSelectOpened}
         setAlwaysSelectOpened={setAlwaysSelectOpened}
+        showIndentGuides={showIndentGuides}
+        setShowIndentGuides={setShowIndentGuides}
       />
       {search.open && (
         <TreeSearchBar
@@ -1070,7 +1073,7 @@ const Sidebar: React.FC<SidebarProps> = ({
       {/* biome-ignore lint/a11y/noStaticElementInteractions: keyboard navigation container */}
       <div
         ref={containerRef}
-        className="rules-sidebar-content oh-scroll-topline"
+        className={`rules-sidebar-content oh-scroll-topline${showIndentGuides ? '' : ' rules-sidebar-content--no-guides'}`}
         onKeyDown={handleKeyDown}
         tabIndex={-1}
         style={{ outline: 'none' }}

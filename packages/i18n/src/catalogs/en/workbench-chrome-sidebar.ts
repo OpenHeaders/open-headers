@@ -49,6 +49,8 @@ export const workbenchChromeSidebar = {
   'workbench.sidebar.behavior.openCollectionsSingleClick': 'Open Collections with Single Click',
   'workbench.sidebar.behavior.openFoldersSingleClick': 'Open Folders with Single Click',
   'workbench.sidebar.behavior.alwaysSelectOpened': 'Always Select Opened Tab',
+  'workbench.sidebar.appearance.title': 'Appearance',
+  'workbench.sidebar.appearance.showIndentGuides': 'Show Indent Guides',
   'workbench.sidebar.filterPlaceholder': 'Filter',
 
   // ── Sidebar: speed-search bar (on-demand, dual filter/search mode) ──
