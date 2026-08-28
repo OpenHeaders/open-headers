@@ -93,6 +93,12 @@ const DETAIL_CHROME_PX = 13;
  *  its heading (Handshake Details, Request Headers, Response Headers
  *  share the top level). */
 const DETAIL_INDENT_PX = 12;
+/** The caret column every level-0 line reserves — the section heads
+ *  draw their caret in it, the heading leaves it blank — so the three
+ *  labels share one text column and their items indent from it. */
+const DETAIL_CARET_PX = 14;
+/** Where the items under a level-0 line start. */
+const DETAIL_ITEM_PX = DETAIL_CARET_PX + DETAIL_INDENT_PX;
 /** The Disconnected row's block — one detail line. */
 const ENDED_DETAIL_PX = DETAIL_ROW_PX + DETAIL_CHROME_PX;
 
@@ -1192,7 +1198,10 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
             }}
             style={{ ...lineStyle, color: token.colorTextTertiary, cursor: 'pointer' }}
           >
-            {sectionsOpen[section] ? '▾' : '▸'} {label}
+            <span style={{ display: 'inline-block', width: DETAIL_CARET_PX }}>
+              {sectionsOpen[section] ? '▾' : '▸'}
+            </span>
+            {label}
           </div>
         );
         return (
@@ -1213,6 +1222,7 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
                 fontWeight: 600,
                 lineHeight: `${DETAIL_HEADING_PX}px`,
                 height: DETAIL_HEADING_PX,
+                paddingLeft: DETAIL_CARET_PX,
                 color: token.colorTextTertiary,
               }}
             >
@@ -1221,19 +1231,19 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
             {factRow(
               t('workbench.editors.websocket.timeline.requestUrl'),
               handshake.url !== undefined ? upgradeRequestUrl(handshake.url) : '',
-              DETAIL_INDENT_PX,
+              DETAIL_ITEM_PX,
             )}
-            {factRow(t('workbench.editors.websocket.timeline.requestMethod'), 'GET', DETAIL_INDENT_PX)}
-            {factRow(t('workbench.editors.websocket.timeline.statusCode'), '101 Switching Protocols', DETAIL_INDENT_PX)}
+            {factRow(t('workbench.editors.websocket.timeline.requestMethod'), 'GET', DETAIL_ITEM_PX)}
+            {factRow(t('workbench.editors.websocket.timeline.statusCode'), '101 Switching Protocols', DETAIL_ITEM_PX)}
             {sectionRow('request', t('workbench.editors.websocket.timeline.requestHeaders'))}
             {sectionsOpen.request &&
-              handshakeSheet.requestRows.map((row) => factRow(row.key, row.value, DETAIL_INDENT_PX))}
+              handshakeSheet.requestRows.map((row) => factRow(row.key, row.value, DETAIL_ITEM_PX))}
             {sectionRow('response', t('workbench.editors.websocket.timeline.responseHeaders'))}
             {sectionsOpen.response &&
               (handshakeSheet.responseRows.length > 0 ? (
-                handshakeSheet.responseRows.map((row) => factRow(row.key, row.value, DETAIL_INDENT_PX))
+                handshakeSheet.responseRows.map((row) => factRow(row.key, row.value, DETAIL_ITEM_PX))
               ) : (
-                <div style={{ ...lineStyle, paddingLeft: DETAIL_INDENT_PX, color: token.colorTextTertiary }}>
+                <div style={{ ...lineStyle, paddingLeft: DETAIL_ITEM_PX, color: token.colorTextTertiary }}>
                   {t('workbench.editors.websocket.session.handshakeNote')}
                 </div>
               ))}
@@ -1340,6 +1350,7 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
                     fontWeight: 600,
                     lineHeight: `${DETAIL_HEADING_PX}px`,
                     height: DETAIL_HEADING_PX,
+                    paddingLeft: DETAIL_CARET_PX,
                     color: token.colorTextTertiary,
                   }}
                 >
@@ -1348,9 +1359,9 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
                 {factRow(
                   t('workbench.editors.websocket.timeline.requestUrl'),
                   handshake.url !== undefined ? upgradeRequestUrl(handshake.url) : '',
-                  DETAIL_INDENT_PX,
+                  DETAIL_ITEM_PX,
                 )}
-                {factRow(t('workbench.editors.websocket.timeline.requestMethod'), 'GET', DETAIL_INDENT_PX)}
+                {factRow(t('workbench.editors.websocket.timeline.requestMethod'), 'GET', DETAIL_ITEM_PX)}
                 <div
                   role="button"
                   tabIndex={0}
@@ -1365,10 +1376,13 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
                   }}
                   style={{ ...lineStyle, color: token.colorTextTertiary, cursor: 'pointer' }}
                 >
-                  {sectionsOpen.request ? '▾' : '▸'} {t('workbench.editors.websocket.timeline.requestHeaders')}
+                  <span style={{ display: 'inline-block', width: DETAIL_CARET_PX }}>
+                    {sectionsOpen.request ? '▾' : '▸'}
+                  </span>
+                  {t('workbench.editors.websocket.timeline.requestHeaders')}
                 </div>
                 {sectionsOpen.request &&
-                  handshakeSheet.requestRows.map((row) => factRow(row.key, row.value, DETAIL_INDENT_PX))}
+                  handshakeSheet.requestRows.map((row) => factRow(row.key, row.value, DETAIL_ITEM_PX))}
               </>
             )}
           </div>
