@@ -4,7 +4,7 @@
  * empty-state, and the plain + tree-dnd node-list wrappers.
  *
  * They're closures over interaction state the parent owns — the
- * selection / focus / export-select predicates, the mouse handlers, the
+ * selection / focus / multi-select predicates, the mouse handlers, the
  * rename cursor, and the expanded-key set — all passed in so the
  * renderers stay pure view-assembly. `theme.useToken()` is read
  * internally: the empty-state is the only consumer of the token here, so
@@ -26,7 +26,7 @@ import type { TreeNode } from './types';
 interface UseSidebarNodeRenderersParams {
   isSelected: (id: string) => boolean;
   isFocused: (id: string) => boolean;
-  isExportSelected: (id: string) => boolean;
+  isMultiSelected: (id: string) => boolean;
   handleItemClick: (node: TreeNode, e: React.MouseEvent) => void;
   handleItemDoubleClick: (node: TreeNode) => void;
   renamingId: string | null;
@@ -59,7 +59,7 @@ export interface SidebarNodeRenderers {
 export function useSidebarNodeRenderers({
   isSelected,
   isFocused,
-  isExportSelected,
+  isMultiSelected,
   handleItemClick,
   handleItemDoubleClick,
   renamingId,
@@ -82,7 +82,7 @@ export function useSidebarNodeRenderers({
       isFocused={isFocused(node.id)}
       isRenaming={renamingId === node.id}
       isExpanded={node.expandable ? isExpandedKey(node.id) : undefined}
-      isExportSelected={isExportSelected(node.id)}
+      isMultiSelected={isMultiSelected(node.id)}
       highlightQuery={searchHighlightQuery}
       isSearchActive={activeSearchMatchId === node.id}
       onClick={(e) => handleItemClick(node, e)}

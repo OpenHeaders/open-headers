@@ -190,6 +190,13 @@
     background: rgba(24, 144, 255, 0.08);
   }
 
+  // The multi-selection (Cmd/Ctrl+click, Shift+click): every picked
+  // row wears the focused-panel selection wash, so the set a drag will
+  // take along reads at a glance.
+  &.multi-selected {
+    background: rgba(24, 144, 255, 0.12);
+  }
+
   // The keyboard cursor renders only while its OWN tree container holds
   // DOM focus — the exact condition under which arrow keys reach it. At
   // most one container can hold focus, so at most ONE cursor is visible

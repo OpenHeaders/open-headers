@@ -939,9 +939,10 @@ const Sidebar: React.FC<SidebarProps> = ({
   const {
     focusedId,
     setFocusedId,
-    exportSelectedIds,
-    isExportSelected,
-    clearExportSelection,
+    selectedIds,
+    exportableSelectedCount,
+    isMultiSelected,
+    clearSelection,
     isSelected,
     isFocused,
     handleItemClick,
@@ -1042,7 +1043,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   const { renderTreeNodeRow, renderEmptyState, renderNodes, renderTreeDndNodes } = useSidebarNodeRenderers({
     isSelected,
     isFocused,
-    isExportSelected,
+    isMultiSelected,
     handleItemClick,
     handleItemDoubleClick,
     renamingId,
@@ -1052,7 +1053,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     activeSearchMatchId: searchMatches.activeMatchId,
     filterActive: filterText !== '',
     dragEnabled,
-    selectedIds: exportSelectedIds,
+    selectedIds,
   });
 
   const handleTreeMoveKey = useTreeKeyboardMoves({
@@ -1074,10 +1075,11 @@ const Sidebar: React.FC<SidebarProps> = ({
         requestImportMenuItems={requestImportMenuItems}
         createNewEnvironment={createNewEnvironment}
         onCreateWorkflow={onCreateWorkflow}
-        exportSelectedIds={exportSelectedIds}
+        selectedCount={selectedIds.size}
+        exportableSelectedCount={exportableSelectedCount}
         onExportSelection={onExportSelection}
         handleExportSelectedClick={handleExportSelectedClick}
-        clearExportSelection={clearExportSelection}
+        clearSelection={clearSelection}
         selectOpenedFile={selectOpenedFile}
         expandAll={expandAll}
         collapseAll={collapseAll}

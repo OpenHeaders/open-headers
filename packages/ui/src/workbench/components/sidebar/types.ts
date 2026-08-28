@@ -77,9 +77,10 @@ export interface TreeNode {
   onExport?: () => void;
   /**
    * Identity of this node as an exportable entity. Present iff the node
-   * carries `onExport`; consumed by the sidebar's multi-select aggregator
-   * so cmd/ctrl+click and shift+click can build a single combined export
-   * across heterogeneous picks (rules, requests, collections, …).
+   * carries `onExport`; "Export selected…" folds the rows of the
+   * sidebar's multi-selection that carry one into a single combined
+   * export across heterogeneous picks (rules, requests, collections, …).
+   * Selection itself is not gated on it — see `tree-selection.ts`.
    */
   exportEntity?: SidebarExportEntity;
   /** Items shown on `+` — create affordances only (Add Rule / Add

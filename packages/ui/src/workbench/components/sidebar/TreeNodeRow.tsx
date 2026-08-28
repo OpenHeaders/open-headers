@@ -8,7 +8,6 @@
 
 import {
   CaretRightOutlined,
-  CheckSquareFilled,
   CopyOutlined,
   DeleteOutlined,
   EditOutlined,
@@ -32,8 +31,8 @@ interface TreeNodeRowProps {
   isFocused: boolean;
   isRenaming: boolean;
   isExpanded?: boolean;
-  /** True when this node is part of the multi-select export set. */
-  isExportSelected?: boolean;
+  /** True when this row is part of the sidebar's multi-selection. */
+  isMultiSelected?: boolean;
   /** Speed-search (search mode) — matching label runs get the
    *  warning-tinted hit span. Empty/absent outside search. */
   highlightQuery?: string;
@@ -109,7 +108,7 @@ export function TreeNodeRow({
   isFocused,
   isRenaming,
   isExpanded,
-  isExportSelected,
+  isMultiSelected,
   highlightQuery,
   isSearchActive,
   onClick,
@@ -168,7 +167,7 @@ export function TreeNodeRow({
     'rules-sidebar-item',
     isSelected ? 'selected' : '',
     isFocused ? 'focused' : '',
-    isExportSelected ? 'export-selected' : '',
+    isMultiSelected ? 'multi-selected' : '',
     isSearchActive ? 'search-active' : '',
   ]
     .filter(Boolean)
@@ -213,9 +212,7 @@ export function TreeNodeRow({
         )}
       </span>
 
-      {/* Icon — multi-select check overrides the entity icon when this
-          node is part of the active export selection set. */}
-      {isExportSelected ? <CheckSquareFilled style={{ color: token.colorPrimary, fontSize: 12 }} /> : node.icon}
+      {node.icon}
 
       {/* Label or rename input. The rename input is wrapped in
           `<EntityField path="name">` when the node carries an

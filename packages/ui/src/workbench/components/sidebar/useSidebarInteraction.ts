@@ -7,10 +7,13 @@
  *
  *   - `focusedId`            — keyboard-nav cursor (distinct from the
  *                              active-tab-driven `isSelected`).
- *   - `exportSelectedIds`    — the multi-select "Export selected…" set.
- *   - `lastExportSelectAnchorRef` — shift-click range anchor (never
+ *   - `selectedIds`          — the multi-selection: the rows a drag
+ *                              takes along and "Export selected…"
+ *                              folds (those with an export identity).
+ *   - `anchorRef`            — the row a Shift+click ranges from, with
+ *                              the selection it was set on (never
  *                              leaked; consumers clear via
- *                              `clearExportSelection()`).
+ *                              `clearSelection()`).
  *
  * Everything else it needs — the flat nav item list, the behavior flags,
  * the lifted expansion setters, the collection trees, and the export
@@ -22,8 +25,9 @@
 
 import type { TreeNode as CoreTreeNode } from '@openheaders/core/types';
 import type React from 'react';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { SidebarExportEntity } from '../workspace-export/build-export-scope';
+import { isSelectableRow, rangeSelection, type SelectionAnchor, toggleSelection } from './tree-selection';
 import type { SidebarView, TreeNode } from './types';
 import { useSelectOpenedTab } from './useSelectOpenedTab';
 
@@ -64,9 +68,12 @@ interface UseSidebarInteractionParams {
 export interface SidebarInteraction {
   focusedId: string | null;
   setFocusedId: React.Dispatch<React.SetStateAction<string | null>>;
-  exportSelectedIds: Set<string>;
-  isExportSelected: (id: string) => boolean;
-  clearExportSelection: () => void;
+  /** The multi-selection, in no particular order; readers walk the flat rows for visible order. */
+  selectedIds: Set<string>;
+  /** How many of the selected rows carry an export identity. */
+  exportableSelectedCount: number;
+  isMultiSelected: (id: string) => boolean;
+  clearSelection: () => void;
   isSelected: (id: string) => boolean;
   isFocused: (id: string) => boolean;
   handleItemClick: (node: TreeNode, e: React.MouseEvent) => void;
@@ -102,20 +109,19 @@ export function useSidebarInteraction({
 }: UseSidebarInteractionParams): SidebarInteraction {
   const [focusedId, setFocusedId] = useState<string | null>(null);
 
-  // Multi-select export selection state. Distinct from `focusedId` /
-  // `isSelected` (which track active-tab navigation) — these track which
-  // sidebar entities are queued for a combined "Export selected…" call.
-  // Cmd/Ctrl+click toggles a single entry; Shift+click extends a range
-  // anchored at the last toggled exportable id. Plain click clears.
-  // Cleared on view change, filter change, and explicit Esc.
-  const [exportSelectedIds, setExportSelectedIds] = useState<Set<string>>(() => new Set());
-  const lastExportSelectAnchorRef = useRef<string | null>(null);
+  // The multi-selection. Distinct from `focusedId` / `isSelected` (which
+  // track active-tab navigation): these are the rows the user picked
+  // as a set — a drag takes them along, "Export selected…" folds the
+  // exportable ones. The gestures are the tree-selection contract;
+  // cleared on view change, filter change, and explicit Esc.
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
+  const anchorRef = useRef<SelectionAnchor | null>(null);
 
-  const isExportSelected = useCallback((id: string) => exportSelectedIds.has(id), [exportSelectedIds]);
+  const isMultiSelected = useCallback((id: string) => selectedIds.has(id), [selectedIds]);
 
-  const clearExportSelection = useCallback(() => {
-    setExportSelectedIds(new Set());
-    lastExportSelectAnchorRef.current = null;
+  const clearSelection = useCallback(() => {
+    setSelectedIds(new Set());
+    anchorRef.current = null;
   }, []);
 
   const isSelected = useCallback(
@@ -151,41 +157,30 @@ export function useSidebarInteraction({
       const modifierToggle = (e.metaKey || e.ctrlKey) && !e.shiftKey;
       const modifierRange = e.shiftKey;
 
-      if ((modifierToggle || modifierRange) && node.exportEntity) {
-        // Multi-select gesture — suppress nav. Cmd/Ctrl toggles, Shift
-        // extends a contiguous range over exportable nodes anchored at
-        // the last toggled id (or this node if no anchor yet).
+      if ((modifierToggle || modifierRange) && isSelectableRow(node)) {
+        // Multi-select gesture — suppress nav. Cmd/Ctrl toggles the row
+        // and anchors on it; Shift ranges from the anchor (the last
+        // plain or Cmd/Ctrl click, else the keyboard cursor, else this
+        // row) on top of the selection the anchor was set with.
         e.preventDefault();
         if (modifierRange) {
-          const exportableIds = allFlatItems.filter((n) => n.exportEntity).map((n) => n.id);
-          const anchor = lastExportSelectAnchorRef.current ?? node.id;
-          const a = exportableIds.indexOf(anchor);
-          const b = exportableIds.indexOf(node.id);
-          if (a >= 0 && b >= 0) {
-            const [from, to] = a <= b ? [a, b] : [b, a];
-            setExportSelectedIds((prev) => {
-              const next = new Set(prev);
-              for (let i = from; i <= to; i++) next.add(exportableIds[i]!);
-              return next;
-            });
-            lastExportSelectAnchorRef.current = node.id;
-          }
+          const anchor: SelectionAnchor =
+            anchorRef.current ??
+            (focusedId ? { id: focusedId, base: selectedIds } : { id: node.id, base: selectedIds });
+          anchorRef.current = anchor;
+          setSelectedIds(rangeSelection(allFlatItems, anchor, node.id));
         } else {
-          setExportSelectedIds((prev) => {
-            const next = new Set(prev);
-            if (next.has(node.id)) next.delete(node.id);
-            else next.add(node.id);
-            return next;
-          });
-          lastExportSelectAnchorRef.current = node.id;
+          const next = toggleSelection(selectedIds, node.id);
+          anchorRef.current = { id: node.id, base: next };
+          setSelectedIds(next);
         }
         setFocusedId(node.id);
         return;
       }
 
-      // Plain click — clear any multi-select set, then normal nav.
-      if (exportSelectedIds.size > 0) setExportSelectedIds(new Set());
-      lastExportSelectAnchorRef.current = null;
+      // Plain click — collapse the selection, anchor here, then normal nav.
+      if (selectedIds.size > 0) setSelectedIds(new Set());
+      anchorRef.current = { id: node.id, base: new Set() };
       setFocusedId(node.id);
       // Pull keyboard focus onto the tree container so subsequent
       // ArrowUp/Down/Left/Right reach the React onKeyDown handler.
@@ -196,7 +191,7 @@ export function useSidebarInteraction({
       containerRef.current?.focus({ preventScroll: true });
       if (shouldOpenOnSingleClick(node)) node.onOpen?.();
     },
-    [shouldOpenOnSingleClick, allFlatItems, exportSelectedIds.size, containerRef],
+    [shouldOpenOnSingleClick, allFlatItems, selectedIds, focusedId, containerRef],
   );
 
   const handleItemDoubleClick = useCallback(
@@ -240,29 +235,28 @@ export function useSidebarInteraction({
     }
   }, [alwaysSelectOpened, activeTabId, selectOpenedFile]);
 
-  // Multi-select set is bound to the current view + filter context — a
+  // The selection is bound to the current view + filter context — a
   // pick made under "http-rules" with no filter would silently include
   // hidden nodes if the user switched view or typed a query, so clear it.
   // biome-ignore lint/correctness/useExhaustiveDependencies: intentional reset on view/filter change
   useEffect(() => {
-    if (exportSelectedIds.size === 0) return;
-    setExportSelectedIds(new Set());
-    lastExportSelectAnchorRef.current = null;
+    if (selectedIds.size === 0) return;
+    setSelectedIds(new Set());
+    anchorRef.current = null;
   }, [view, filterText]);
 
-  const resolveExportSelectionEntities = useCallback((): SidebarExportEntity[] => {
-    const byId = new Map<string, SidebarExportEntity>();
+  const exportSelectionEntities = useMemo((): SidebarExportEntity[] => {
+    const entities: SidebarExportEntity[] = [];
     for (const n of allFlatItems) {
-      if (exportSelectedIds.has(n.id) && n.exportEntity) byId.set(n.id, n.exportEntity);
+      if (selectedIds.has(n.id) && n.exportEntity) entities.push(n.exportEntity);
     }
-    return Array.from(byId.values());
-  }, [allFlatItems, exportSelectedIds]);
+    return entities;
+  }, [allFlatItems, selectedIds]);
 
   const handleExportSelectedClick = useCallback(() => {
-    const entities = resolveExportSelectionEntities();
-    if (entities.length === 0) return;
-    onExportSelection?.(entities);
-  }, [resolveExportSelectionEntities, onExportSelection]);
+    if (exportSelectionEntities.length === 0) return;
+    onExportSelection?.(exportSelectionEntities);
+  }, [exportSelectionEntities, onExportSelection]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
@@ -315,21 +309,22 @@ export function useSidebarInteraction({
         e.preventDefault();
         const node = allFlatItems.find((n) => n.id === focusedId);
         if (node?.canRename) setRenamingId(focusedId);
-      } else if (e.key === 'Escape' && exportSelectedIds.size > 0) {
+      } else if (e.key === 'Escape' && selectedIds.size > 0) {
         e.preventDefault();
-        setExportSelectedIds(new Set());
-        lastExportSelectAnchorRef.current = null;
+        setSelectedIds(new Set());
+        anchorRef.current = null;
       }
     },
-    [allFlatItems, focusedId, isExpandedKey, toggleExpand, exportSelectedIds.size, containerRef, setRenamingId],
+    [allFlatItems, focusedId, isExpandedKey, toggleExpand, selectedIds.size, containerRef, setRenamingId],
   );
 
   return {
     focusedId,
     setFocusedId,
-    exportSelectedIds,
-    isExportSelected,
-    clearExportSelection,
+    selectedIds,
+    exportableSelectedCount: exportSelectionEntities.length,
+    isMultiSelected,
+    clearSelection,
     isSelected,
     isFocused,
     handleItemClick,

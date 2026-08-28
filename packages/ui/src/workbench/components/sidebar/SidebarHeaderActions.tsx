@@ -55,10 +55,13 @@ interface SidebarHeaderActionsProps {
   requestImportMenuItems: MenuProps['items'];
   createNewEnvironment: () => Promise<void>;
   onCreateWorkflow?: () => void;
-  exportSelectedIds: Set<string>;
+  /** The multi-selection's size — the clear affordance shows while it is non-empty. */
+  selectedCount: number;
+  /** How many selected rows carry an export identity — the export affordance shows while > 0. */
+  exportableSelectedCount: number;
   onExportSelection?: (entities: SidebarExportEntity[]) => void;
   handleExportSelectedClick: () => void;
-  clearExportSelection: () => void;
+  clearSelection: () => void;
   selectOpenedFile: () => boolean;
   /** Open the on-demand speed-search bar (⋯ Options → Search). */
   onOpenSearch: () => void;
@@ -92,10 +95,11 @@ const SidebarHeaderActions: React.FC<SidebarHeaderActionsProps> = ({
   requestImportMenuItems,
   createNewEnvironment,
   onCreateWorkflow,
-  exportSelectedIds,
+  selectedCount,
+  exportableSelectedCount,
   onExportSelection,
   handleExportSelectedClick,
-  clearExportSelection,
+  clearSelection,
   selectOpenedFile,
   onOpenSearch,
   expandAll,
@@ -260,9 +264,10 @@ const SidebarHeaderActions: React.FC<SidebarHeaderActionsProps> = ({
           </span>
         </Tooltip>
       )}
-      {exportSelectedIds.size > 0 && onExportSelection && (
+      {selectedCount > 0 && (
         <>
-          <Tooltip title={t('workbench.sidebar.header.exportSelected', { count: exportSelectedIds.size })} placement="bottom">
+          {exportableSelectedCount > 0 && onExportSelection && (
+          <Tooltip title={t('workbench.sidebar.header.exportSelected', { count: exportableSelectedCount })} placement="bottom">
             <span
               role="button"
               tabIndex={0}
@@ -272,20 +277,21 @@ const SidebarHeaderActions: React.FC<SidebarHeaderActionsProps> = ({
               onKeyDown={(e) => {
                 if (e.key === 'Enter' || e.key === ' ') handleExportSelectedClick();
               }}
-              aria-label={t('workbench.sidebar.header.exportSelectedAria', { count: exportSelectedIds.size })}
+              aria-label={t('workbench.sidebar.header.exportSelectedAria', { count: exportableSelectedCount })}
             >
               <ExportOutlined />
-              <span style={{ marginLeft: 4, fontSize: 11, fontWeight: 600 }}>{exportSelectedIds.size}</span>
+              <span style={{ marginLeft: 4, fontSize: 11, fontWeight: 600 }}>{exportableSelectedCount}</span>
             </span>
           </Tooltip>
+          )}
           <Tooltip title={t('workbench.sidebar.header.clearSelection')} placement="bottom">
             <span
               role="button"
               tabIndex={0}
               className="rules-panel-header-action"
-              onClick={clearExportSelection}
+              onClick={clearSelection}
               onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') clearExportSelection();
+                if (e.key === 'Enter' || e.key === ' ') clearSelection();
               }}
               aria-label={t('workbench.sidebar.header.clearSelectionAria')}
             >
