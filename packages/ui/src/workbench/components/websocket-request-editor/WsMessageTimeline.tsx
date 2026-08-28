@@ -195,7 +195,8 @@ interface WsMessageTimelineProps {
    *  carries the trust hint; the error row shows the Trust certificate
    *  button that reveals the pane's offer. */
   onTrustCertificate?: () => void;
-  /** The offer is showing — the button reads as pressed. */
+  /** The offer is showing — the button's pressed state (a11y only;
+   *  the button keeps its neutral face). */
   trustOfferOpen?: boolean;
 }
 
@@ -1353,14 +1354,13 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
             {onTrustCertificate !== undefined && (
               <Button
                 size="small"
-                type={trustOfferOpen ? 'primary' : 'default'}
                 aria-pressed={trustOfferOpen}
                 onClick={(event) => {
                   event.stopPropagation();
                   onTrustCertificate();
                 }}
                 onKeyDown={(event) => event.stopPropagation()}
-                style={{ flexShrink: 0, marginLeft: 'auto' }}
+                style={{ flexShrink: 0 }}
                 data-testid="ws-timeline-trust-certificate"
               >
                 {t('workbench.editors.websocket.timeline.trustCertificate')}
