@@ -73,9 +73,6 @@ const WsMessageTab: React.FC<WsMessageTabProps> = ({
   // `editor.wordWrap` setting, ON by default (a message payload is
   // prose-like; horizontal scrolling hides the tail).
   const [wrapMessage, setWrapMessage] = useState(true);
-  // The expanded rail rides its own Allotment pane (resizable, the
-  // sash its only divider), the collapsed strip sits flush by the
-  // editor.
   const { argTexts, activeArg, composeArgs } = args;
   const binaryCompose = !socketioFlavor && draft.messageFormat === 'binary';
   const rawPlaceholder = rawMessagePlaceholder(t, draft.messageFormat, draft.binaryEncoding);
@@ -143,90 +140,56 @@ const WsMessageTab: React.FC<WsMessageTabProps> = ({
           <EditorViewMenu wrap={wrapMessage} onWrapChange={setWrapMessage} data-testid="ws-editor-menu" />
         </div>
       </div>
-      {/* Editor beside the Saved-messages rail. Expanded, the rail is
-        its own Allotment pane (resizable within min/max; the sash is
-        the ONLY divider — the rail carries no border). Collapsed, the
-        vertical strip sits flush beside the editor. The editor keeps
+      {/* Editor beside the Saved-messages rail — ONE tree in every
+        state so the editor never remounts on a toggle (a fresh Monaco
+        flickers). The rail is an Allotment pane that HIDES when
+        collapsed (its sash goes with it), and the vertical strip sits
+        flush beside the Allotment then. Expanded, the rail resizes
+        within min/max; the sash is the ONLY divider. The editor keeps
         its absolute inset host — a fill editor must not size its own
         flex parent (the BodyTab discipline). */}
-      <div style={{ flex: 1, minHeight: 100 }}>
-        {railCollapsed ? (
-          <div style={{ height: '100%', display: 'flex' }}>
-            <div style={{ flex: 1, minWidth: 0, position: 'relative' }}>
-        <div style={{ position: 'absolute', inset: 0, display: 'flex' }}>
-          {socketioFlavor && argTexts !== null && <WsArgRail args={args} argTexts={argTexts} />}
-          <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
-            {socketioFlavor && argTexts !== null ? (
-              <CodeEditor
-                value={argTexts[activeArg] ?? ''}
-                onChange={(text) => {
-                  const base = argTexts.length === 0 ? [''] : [...argTexts];
-                  base[Math.min(activeArg, base.length - 1)] = text;
-                  composeArgs(base);
-                }}
-                language="json"
-                fill
-                actions="external"
-                actionsRef={messageActionsRef}
-                wordWrapOverride={wrapMessage ? 'on' : 'off'}
-                placeholder={t('workbench.editors.websocket.event.argPlaceholder')}
-              />
-            ) : (
-              <CodeEditor
-                value={draft.message}
-                onChange={(message) => setDraft((d) => ({ ...d, message }))}
-                language={socketioFlavor ? 'json' : MESSAGE_FORMAT_LANGUAGE[draft.messageFormat]}
-                fill
-                actions="external"
-                actionsRef={messageActionsRef}
-                wordWrapOverride={wrapMessage ? 'on' : 'off'}
-                placeholder={socketioFlavor ? t('workbench.editors.websocket.event.argsPlaceholder') : rawPlaceholder}
-              />
-            )}
-          </div>
-        </div>
-            </div>
-            <WsSavedMessagesStrip onExpand={() => onRailCollapsedChange(false)} />
-          </div>
-        ) : (
+      <div style={{ flex: 1, minHeight: 100, display: 'flex' }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
           <Allotment proportionalLayout={false} separator>
             <Allotment.Pane minSize={280}>
               <div style={{ height: '100%', position: 'relative' }}>
-        <div style={{ position: 'absolute', inset: 0, display: 'flex' }}>
-          {socketioFlavor && argTexts !== null && <WsArgRail args={args} argTexts={argTexts} />}
-          <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
-            {socketioFlavor && argTexts !== null ? (
-              <CodeEditor
-                value={argTexts[activeArg] ?? ''}
-                onChange={(text) => {
-                  const base = argTexts.length === 0 ? [''] : [...argTexts];
-                  base[Math.min(activeArg, base.length - 1)] = text;
-                  composeArgs(base);
-                }}
-                language="json"
-                fill
-                actions="external"
-                actionsRef={messageActionsRef}
-                wordWrapOverride={wrapMessage ? 'on' : 'off'}
-                placeholder={t('workbench.editors.websocket.event.argPlaceholder')}
-              />
-            ) : (
-              <CodeEditor
-                value={draft.message}
-                onChange={(message) => setDraft((d) => ({ ...d, message }))}
-                language={socketioFlavor ? 'json' : MESSAGE_FORMAT_LANGUAGE[draft.messageFormat]}
-                fill
-                actions="external"
-                actionsRef={messageActionsRef}
-                wordWrapOverride={wrapMessage ? 'on' : 'off'}
-                placeholder={socketioFlavor ? t('workbench.editors.websocket.event.argsPlaceholder') : rawPlaceholder}
-              />
-            )}
-          </div>
-        </div>
+                <div style={{ position: 'absolute', inset: 0, display: 'flex' }}>
+                  {socketioFlavor && argTexts !== null && <WsArgRail args={args} argTexts={argTexts} />}
+                  <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+                    {socketioFlavor && argTexts !== null ? (
+                      <CodeEditor
+                        value={argTexts[activeArg] ?? ''}
+                        onChange={(text) => {
+                          const base = argTexts.length === 0 ? [''] : [...argTexts];
+                          base[Math.min(activeArg, base.length - 1)] = text;
+                          composeArgs(base);
+                        }}
+                        language="json"
+                        fill
+                        actions="external"
+                        actionsRef={messageActionsRef}
+                        wordWrapOverride={wrapMessage ? 'on' : 'off'}
+                        placeholder={t('workbench.editors.websocket.event.argPlaceholder')}
+                      />
+                    ) : (
+                      <CodeEditor
+                        value={draft.message}
+                        onChange={(message) => setDraft((d) => ({ ...d, message }))}
+                        language={socketioFlavor ? 'json' : MESSAGE_FORMAT_LANGUAGE[draft.messageFormat]}
+                        fill
+                        actions="external"
+                        actionsRef={messageActionsRef}
+                        wordWrapOverride={wrapMessage ? 'on' : 'off'}
+                        placeholder={
+                          socketioFlavor ? t('workbench.editors.websocket.event.argsPlaceholder') : rawPlaceholder
+                        }
+                      />
+                    )}
+                  </div>
+                </div>
               </div>
             </Allotment.Pane>
-            <Allotment.Pane minSize={160} maxSize={420} preferredSize={208}>
+            <Allotment.Pane minSize={160} maxSize={420} preferredSize={208} visible={!railCollapsed}>
               <WsSavedMessagesRail
                 draft={draft}
                 setDraft={setDraft}
@@ -237,7 +200,8 @@ const WsMessageTab: React.FC<WsMessageTabProps> = ({
               />
             </Allotment.Pane>
           </Allotment>
-        )}
+        </div>
+        {railCollapsed && <WsSavedMessagesStrip onExpand={() => onRailCollapsedChange(false)} />}
       </div>
       {/* Compose bar BELOW the editor, full width (the MQTT discipline):
         the raw flavor's format dropdown left — Socket.IO frames are

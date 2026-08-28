@@ -63,9 +63,8 @@ const MqttMessageTab: React.FC<MqttMessageTabProps> = ({
   const payloadActionsRef = useRef<CodeEditorActionsTarget | null>(null);
   // Saved-messages rail collapse — editor-local display state,
   // COLLAPSED by default (the compose editor gets the full width; the
-  // strip is the affordance in). The expanded rail rides its own
-  // Allotment pane (resizable, the sash its only divider), the
-  // collapsed strip sits flush by the editor.
+  // strip is the affordance in). The rail is a hidden Allotment pane
+  // while collapsed, the strip flush beside the editor.
   const [railCollapsed, setRailCollapsed] = useState(true);
   const editorPlaceholder = payloadPlaceholder(t, draft.payloadFormat, t('workbench.editors.mqtt.payloadPlaceholder'));
 
@@ -110,30 +109,14 @@ const MqttMessageTab: React.FC<MqttMessageTabProps> = ({
           <EditorViewMenu wrap={wrapPayload} onWrapChange={setWrapPayload} data-testid="mqtt-editor-menu" />
         </div>
       </div>
-      {/* Editor beside the Saved-messages rail. Expanded, the rail is
-        its own Allotment pane (resizable within min/max; the sash is
-        the ONLY divider — the rail carries no border). Collapsed, the
-        vertical strip sits flush beside the editor. */}
-      <div style={{ flex: 1, minHeight: 100 }}>
-        {railCollapsed ? (
-          <div style={{ height: '100%', display: 'flex' }}>
-            <div style={{ flex: 1, minWidth: 0, position: 'relative' }}>
-              <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column' }}>
-                <CodeEditor
-                  value={draft.payload}
-                  onChange={(payload) => setDraft((d) => ({ ...d, payload }))}
-                  language={PAYLOAD_FORMAT_LANGUAGE[draft.payloadFormat]}
-                  fill
-                  actions="external"
-                  actionsRef={payloadActionsRef}
-                  wordWrapOverride={wrapPayload ? 'on' : 'off'}
-                  placeholder={editorPlaceholder}
-                />
-              </div>
-            </div>
-            <MqttSavedMessagesStrip onExpand={() => setRailCollapsed(false)} />
-          </div>
-        ) : (
+      {/* Editor beside the Saved-messages rail — ONE tree in every
+        state so the editor never remounts on a toggle (a fresh Monaco
+        flickers). The rail is an Allotment pane that HIDES when
+        collapsed (its sash goes with it), and the vertical strip sits
+        flush beside the Allotment then. Expanded, the rail resizes
+        within min/max; the sash is the ONLY divider. */}
+      <div style={{ flex: 1, minHeight: 100, display: 'flex' }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
           <Allotment proportionalLayout={false} separator>
             <Allotment.Pane minSize={280}>
               {/* Absolute inset host — a fill editor must not size its
@@ -153,7 +136,7 @@ const MqttMessageTab: React.FC<MqttMessageTabProps> = ({
                 </div>
               </div>
             </Allotment.Pane>
-            <Allotment.Pane minSize={160} maxSize={420} preferredSize={208}>
+            <Allotment.Pane minSize={160} maxSize={420} preferredSize={208} visible={!railCollapsed}>
               <MqttSavedMessagesRail
                 draft={draft}
                 setDraft={setDraft}
@@ -165,7 +148,8 @@ const MqttMessageTab: React.FC<MqttMessageTabProps> = ({
               />
             </Allotment.Pane>
           </Allotment>
-        )}
+        </div>
+        {railCollapsed && <MqttSavedMessagesStrip onExpand={() => setRailCollapsed(false)} />}
       </div>
       {/* Compose bar BELOW the editor+rail row, full width (the
         message panel's own bottom band): ENCODING dropdown left;
