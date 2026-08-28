@@ -11,7 +11,7 @@ import { Dropdown, theme } from 'antd';
 import type React from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import type { GitLogViewPrefs } from '../git-log-view-prefs';
-import { menuCheckIcon } from './menu-check';
+import { menuCheckIcon } from '../../../shared/menu-check';
 import ToolbarIconButton from './ToolbarIconButton';
 
 export interface GitDetailsToolbarProps {

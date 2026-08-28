@@ -27,6 +27,7 @@ import type React from 'react';
 import { useState } from 'react';
 import type { MessageKey } from '@openheaders/i18n';
 import { useT } from '@openheaders/ui/context/LocaleContext';
+import { menuCheckIcon, menuIconGutter } from '../shared/menu-check';
 import type { SidebarExportEntity } from '../workspace-export/build-export-scope';
 import type { SidebarView } from './types';
 
@@ -128,26 +129,31 @@ const SidebarHeaderActions: React.FC<SidebarHeaderActionsProps> = ({
     },
     {
       key: 'behavior',
+      icon: menuIconGutter(),
       label: t('workbench.sidebar.behavior.title'),
       children: [
         {
           key: 'single-click',
-          label: `${openWithSingleClick ? '✓ ' : ''}${t('workbench.sidebar.behavior.openEntriesSingleClick')}`,
+          icon: menuCheckIcon(openWithSingleClick),
+          label: t('workbench.sidebar.behavior.openEntriesSingleClick'),
           onClick: () => setOpenWithSingleClick((v) => !v),
         },
         {
           key: 'collections-single-click',
-          label: `${openCollectionsWithSingleClick ? '✓ ' : ''}${t('workbench.sidebar.behavior.openCollectionsSingleClick')}`,
+          icon: menuCheckIcon(openCollectionsWithSingleClick),
+          label: t('workbench.sidebar.behavior.openCollectionsSingleClick'),
           onClick: () => setOpenCollectionsWithSingleClick((v) => !v),
         },
         {
           key: 'folders-single-click',
-          label: `${openFoldersWithSingleClick ? '✓ ' : ''}${t('workbench.sidebar.behavior.openFoldersSingleClick')}`,
+          icon: menuCheckIcon(openFoldersWithSingleClick),
+          label: t('workbench.sidebar.behavior.openFoldersSingleClick'),
           onClick: () => setOpenFoldersWithSingleClick((v) => !v),
         },
         {
           key: 'always-select',
-          label: `${alwaysSelectOpened ? '✓ ' : ''}${t('workbench.sidebar.behavior.alwaysSelectOpened')}`,
+          icon: menuCheckIcon(alwaysSelectOpened),
+          label: t('workbench.sidebar.behavior.alwaysSelectOpened'),
           onClick: () => setAlwaysSelectOpened((v) => !v),
         },
       ],
@@ -156,11 +162,13 @@ const SidebarHeaderActions: React.FC<SidebarHeaderActionsProps> = ({
       ? [
           {
             key: 'appearance',
+            icon: menuIconGutter(),
             label: t('workbench.sidebar.appearance.title'),
             children: [
               {
                 key: 'indent-guides',
-                label: `${showIndentGuides ? '✓ ' : ''}${t('workbench.sidebar.appearance.showIndentGuides')}`,
+                icon: menuCheckIcon(showIndentGuides),
+                label: t('workbench.sidebar.appearance.showIndentGuides'),
                 onClick: () => setShowIndentGuides((v) => !v),
               },
             ],

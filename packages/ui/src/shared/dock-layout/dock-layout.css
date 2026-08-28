@@ -1119,6 +1119,17 @@
   pointer-events: none;
 }
 
+/* ⋯ Options menu — the IDE options-menu posture: a floor on the
+   width so short menus don't collapse around their longest label, and
+   a long run between a submenu's label and its caret. */
+.rules-panel-options-menu .ant-dropdown-menu {
+  min-width: 200px;
+}
+
+.rules-panel-options-menu .ant-dropdown-menu-submenu-title {
+  padding-inline-end: 56px;
+}
+
 .rules-panel-header-title {
   flex: 1;
   min-width: 0;

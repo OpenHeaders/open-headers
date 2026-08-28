@@ -19,7 +19,7 @@ import BranchFilterChip from './BranchFilterChip';
 import DateFilterModal from './DateFilterModal';
 import GitFilterChip from './GitFilterChip';
 import { CherryPickIcon, GraphOptionsIcon } from './icons';
-import { menuCheckIcon } from './menu-check';
+import { menuCheckIcon } from '../../../shared/menu-check';
 import PathsFilterModal from './PathsFilterModal';
 import ToolbarIconButton from './ToolbarIconButton';
 

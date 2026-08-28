@@ -40,7 +40,10 @@ export interface PanelHeaderProps {
   info?: InfoPopoverContent;
   /** Panel-specific inline actions that render before ⋯ and −. */
   actions?: React.ReactNode;
-  /** Items for the ⋯ Options dropdown. Omit to hide the ⋯ button. */
+  /** Items for the ⋯ Options dropdown. Omit to hide the ⋯ button.
+   *  IDE options-menu posture: give EVERY item an `icon` (a glyph, a
+   *  `menuCheckIcon`, or a `menuIconGutter` spacer) so labels share
+   *  one x; the overlay widens the run before a submenu caret. */
   optionsMenuItems?: MenuProps['items'];
 }
 
@@ -70,6 +73,7 @@ const PanelHeader: React.FC<PanelHeaderProps> = ({ wiring, title, info, actions,
         {optionsMenuItems && optionsMenuItems.length > 0 && (
           <Dropdown
             menu={{ items: optionsMenuItems }}
+            overlayClassName="rules-panel-options-menu"
             trigger={['click']}
             placement="bottomRight"
             onOpenChange={setOptionsMenuOpen}

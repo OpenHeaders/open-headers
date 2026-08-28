@@ -28,7 +28,7 @@ import {
 import { Dropdown, theme, Tooltip } from 'antd';
 import type React from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
-import { menuCheckIcon } from '../toolbar/menu-check';
+import { menuCheckIcon } from '../../../shared/menu-check';
 import type { GitRailSingleClick } from './git-rail-prefs';
 
 export interface GitRailActivityBarProps {

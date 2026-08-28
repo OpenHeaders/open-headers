@@ -19,7 +19,7 @@ import {
 import { Dropdown, theme } from 'antd';
 import type React from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
-import { menuCheckIcon } from '../toolbar/menu-check';
+import { menuCheckIcon } from '../../../shared/menu-check';
 import ToolbarIconButton from '../toolbar/ToolbarIconButton';
 import type { CommitViewPrefs } from './commit-view-prefs';
 
