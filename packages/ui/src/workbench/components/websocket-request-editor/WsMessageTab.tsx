@@ -1,20 +1,21 @@
 /**
- * WsMessageTab — the compose surface. Toolbar row ABOVE the editor
- * (the ScriptsTab discipline): the raw flavor's display-mode toggle,
- * or the Socket.IO event name + ack opt-in that compose the EVENT
- * frame; the "Use example message" picker off the specLink census;
- * Find / Replace / Beautify for JSON. Below, the fill editor — the
- * Socket.IO argument rail beside it when the stored text parses as
- * an array — and the Send control bottom-right, a visible affordance
- * that ENABLES only while the session is open (the compose text is
- * what Send writes, so the control lives on it).
+ * WsMessageTab — the compose surface, the MQTT Message tab's anatomy.
+ * Toolbar row ABOVE the editor (the ScriptsTab discipline): the
+ * Socket.IO event name + ack opt-in that compose the EVENT frame; the
+ * "Use example message" picker off the specLink census; Find /
+ * Replace / Beautify for JSON. The fill editor — the Socket.IO
+ * argument rail beside it when the stored text parses as an array.
+ * The compose bar BELOW the editor: the raw flavor's format dropdown
+ * left, Send right — a visible affordance that ENABLES only while
+ * the session is open (the compose text is what Send writes, so the
+ * control lives on it).
  */
 
 import { SendOutlined } from '@ant-design/icons';
 import type { WebSocketMessageFormat } from '@openheaders/core/types';
 import { ShortcutHintTitle } from '@openheaders/ui/components/ShortcutKbd';
 import { useT } from '@openheaders/ui/context/LocaleContext';
-import { Button, Input, Segmented, Select, Switch, Tooltip, Typography } from 'antd';
+import { Button, Input, Select, Switch, Tooltip, Typography } from 'antd';
 import type React from 'react';
 import { type Dispatch, type SetStateAction, useRef, useState } from 'react';
 import CodeEditor from '../shared/CodeEditor';
@@ -102,23 +103,7 @@ const WsMessageTab: React.FC<WsMessageTabProps> = ({
             {exampleSelect}
           </div>
         ) : (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <Segmented
-              size="small"
-              value={draft.messageFormat}
-              onChange={(messageFormat) =>
-                setDraft((d) => ({ ...d, messageFormat: messageFormat as WebSocketMessageFormat }))
-              }
-              options={[
-                { value: 'text', label: t('workbench.editors.websocket.message.formatText') },
-                { value: 'json', label: t('workbench.editors.websocket.message.formatJson') },
-                { value: 'xml', label: t('workbench.editors.websocket.message.formatXml') },
-                { value: 'html', label: t('workbench.editors.websocket.message.formatHtml') },
-              ]}
-              data-testid="websocket-message-format"
-            />
-            {exampleSelect}
-          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>{exampleSelect}</div>
         )}
         {(socketioFlavor || draft.messageFormat === 'json') && (
           <CodeEditorActions
@@ -171,28 +156,40 @@ const WsMessageTab: React.FC<WsMessageTabProps> = ({
             )}
           </div>
         </div>
-        <div
-          style={{
-            position: 'absolute',
-            bottom: 22,
-            right: 26,
-            zIndex: 12,
-            display: 'flex',
-            alignItems: 'center',
-            gap: 6,
-          }}
+      </div>
+      {/* Compose bar BELOW the editor, full width (the MQTT discipline):
+        the raw flavor's format dropdown left — Socket.IO frames are
+        JSON by contract, the bar carries no selector — and Send right,
+        a disabled scaffold that enables with the session plane. */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        {!socketioFlavor && (
+          <Select
+            size="small"
+            style={{ width: 120 }}
+            value={draft.messageFormat}
+            onChange={(messageFormat: WebSocketMessageFormat) => setDraft((d) => ({ ...d, messageFormat }))}
+            options={[
+              { value: 'text', label: t('workbench.editors.websocket.message.formatText') },
+              { value: 'json', label: t('workbench.editors.websocket.message.formatJson') },
+              { value: 'xml', label: t('workbench.editors.websocket.message.formatXml') },
+              { value: 'html', label: t('workbench.editors.websocket.message.formatHtml') },
+            ]}
+            data-testid="websocket-message-format"
+          />
+        )}
+        <span style={{ flex: 1 }} />
+        <Tooltip
+          title={
+            sessionOpen ? (
+              <ShortcutHintTitle label={SEND_MESSAGE_SHORTCUT}>
+                {t('workbench.editors.websocket.session.sendMessage')}
+              </ShortcutHintTitle>
+            ) : (
+              t('workbench.editors.websocket.session.sendIdle')
+            )
+          }
         >
-          <Tooltip
-            title={
-              sessionOpen ? (
-                <ShortcutHintTitle label={SEND_MESSAGE_SHORTCUT}>
-                  {t('workbench.editors.websocket.session.sendMessage')}
-                </ShortcutHintTitle>
-              ) : (
-                t('workbench.editors.websocket.session.sendIdle')
-              )
-            }
-          >
+          <span style={{ display: 'inline-flex' }}>
             <Button
               size="small"
               type="primary"
@@ -203,8 +200,8 @@ const WsMessageTab: React.FC<WsMessageTabProps> = ({
             >
               {t('workbench.editors.websocket.session.sendMessage')}
             </Button>
-          </Tooltip>
-        </div>
+          </span>
+        </Tooltip>
       </div>
     </div>
   );
