@@ -156,13 +156,15 @@ const MqttSavedMessagesRail: React.FC<MqttSavedMessagesRailProps> = ({
         container — selection/hover bands bleed the full row width. The
         header reserves the list's scrollbar gutter (a hidden-overflow
         box still owns one) so + and the chevron share the rows' menu
-        column instead of sitting under the bar. */}
+        column instead of sitting under the bar; both inset from the bar
+        so the selection band stops short of it. */}
       <div
         style={{
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
           paddingLeft: 8,
+          paddingRight: 6,
           overflow: 'hidden',
           scrollbarWidth: 'thin',
           scrollbarGutter: 'stable',
@@ -204,6 +206,7 @@ const MqttSavedMessagesRail: React.FC<MqttSavedMessagesRailProps> = ({
           display: 'flex',
           flexDirection: 'column',
           gap: 4,
+          paddingRight: 6,
           overflow: 'auto',
           overscrollBehavior: 'none',
           scrollbarWidth: 'thin',
@@ -232,7 +235,7 @@ const MqttSavedMessagesRail: React.FC<MqttSavedMessagesRailProps> = ({
                 display: 'flex',
                 alignItems: 'center',
                 gap: 4,
-                padding: '1px 6px 1px 8px',
+                padding: '1px 2px 1px 8px',
                 background: selected
                   ? token.colorFillSecondary
                   : hoveredUid === row.uid
