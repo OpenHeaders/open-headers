@@ -9,7 +9,7 @@ import { promises as fs } from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import type { Rule, Workspace } from '@openheaders/core/types';
-import type { WorkspaceTreeState } from '@openheaders/core/workspace-tree';
+import { applyTreeOrder, type WorkspaceTreeState } from '@openheaders/core/workspace-tree';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { WorkspaceTreeMaterializer } from '../../src/workspace-tree/materializer';
 import { readWorkspaceTreeFromDisk } from '../../src/workspace-tree/reader';
@@ -121,6 +121,37 @@ describe('WorkspaceTreeMaterializer', () => {
     expect(result.deleted).toEqual([]);
     await expect(fs.readFile(handAdded, 'utf-8')).resolves.toContain('schemaVersion');
     await expect(fs.readFile(path.join(tmpDir, 'README.md'), 'utf-8')).resolves.toBe('# mine\n');
+  });
+
+  it('order: stamped from the live sets lands on disk and reads back', async () => {
+    state.collections = [
+      {
+        schemaVersion: 5,
+        uid: 'col0000a',
+        path: 'rules/alpha-col0000a',
+        name: 'Alpha',
+        variables: [],
+        pinnedEnvironmentIds: [],
+        defaultEnvironmentId: null,
+      },
+    ];
+    state.rules = [
+      { ...makeRule('rul0000a', 'First'), path: 'rules/alpha-col0000a/first-rul0000a' } as Rule,
+      { ...makeRule('rul0000b', 'Second'), path: 'rules/alpha-col0000a/second-rul0000b' } as Rule,
+    ];
+    state = applyTreeOrder(state, (parent, setPath) => {
+      if (parent.type === 'workspace-roots' && setPath === 'ruleCollections') return ['col0000a'];
+      if (parent.uid === 'col0000a' && setPath === 'items') return ['rul0000b', 'rul0000a'];
+      return [];
+    });
+    await makeMaterializer().flush();
+
+    const manifest = await fs.readFile(path.join(tmpDir, 'workspace.yaml'), 'utf-8');
+    expect(manifest).toContain('order:\n  rules:\n    - alpha-col0000a\n');
+    const read = await readWorkspaceTreeFromDisk(tmpDir);
+    expect(read.issues).toEqual([]);
+    expect(read.state.workspace?.order).toEqual({ rules: ['alpha-col0000a'] });
+    expect(read.state.collections[0].order).toEqual(['second-rul0000b', 'first-rul0000a']);
   });
 
   it('round-trips through the disk reader', async () => {

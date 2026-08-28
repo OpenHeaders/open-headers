@@ -154,7 +154,7 @@ export function createFolderTreeCache<P extends ParentRefShape>(
             folderUid: folder.uid,
             parent,
             name: folder.name,
-            orderKey: tail(parent, config.childrenPath),
+            orderKey: tail(parent, config.childrenPath, folder.uid),
             ...(segment ? { pathSegment: segment } : {}),
           },
           ctx,

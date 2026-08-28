@@ -135,7 +135,7 @@ export interface RuntimeCtx {
   ensureGitAvailability(cwd: string): Promise<GitAvailability>;
   /** §8 single actor — chain `op` on the binding's serial promise chain. */
   enqueue(binding: OpenBinding, op: () => Promise<void>): void;
-  buildSnapshot(workspaceId: string): Promise<WorkspaceTreeState>;
+  buildSnapshot(workspaceId: string, service: WorkspaceServiceState): Promise<WorkspaceTreeState>;
   applyAll(service: WorkspaceServiceState, batches: EmissionBatch[]): Promise<void>;
   updateBindingRecord(
     workspaceId: string,

@@ -355,6 +355,10 @@ export const ENTITY_CASES: readonly EntityCase[] = [
         maybe(rng, 0.5, () => `Workspace ${word(rng)}.`),
       ),
       ...opt(
+        'order',
+        maybe(rng, 0.5, () => ({ rules: [`auth-${uid(rng)}`, `probes-${uid(rng)}`], requests: [`api-${uid(rng)}`] })),
+      ),
+      ...opt(
         'defaultEnvironmentId',
         maybe(rng, 0.5, () => uid(rng)),
       ),

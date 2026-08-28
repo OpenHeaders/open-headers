@@ -398,7 +398,7 @@ export type {
   WebSocketSpecLink,
 } from './websocket-request';
 // ── Workspace ──────────────────────────────────────────────────────
-export type { Workspace, WorkspaceSection } from './workspace';
+export type { Workspace, WorkspaceOrder, WorkspaceSection } from './workspace';
 // ── Workspace export selection ─────────────────────────────────────
 export type { ExportSelection } from './workspace-export-selection';
 // ── Workspace import dedup ─────────────────────────────────────────

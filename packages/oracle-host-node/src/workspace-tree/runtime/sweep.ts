@@ -48,7 +48,7 @@ export async function runSweep(ctx: RuntimeCtx, binding: OpenBinding): Promise<S
   if (await heldByGitOperation(ctx, binding)) return null;
   const { service, record } = binding;
   await service.hydrated;
-  const snapshot = await ctx.buildSnapshot(record.workspaceId);
+  const snapshot = await ctx.buildSnapshot(record.workspaceId, service);
   const result = await sweepWorkspaceTree({
     rootDir: record.rootDir,
     workspaceUid: record.workspaceId,

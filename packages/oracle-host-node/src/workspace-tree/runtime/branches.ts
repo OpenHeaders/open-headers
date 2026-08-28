@@ -239,7 +239,7 @@ export async function runMergeBranch(
     rootDir,
     ref,
     workspaceUid: binding.record.workspaceId,
-    readSnapshot: () => ctx.buildSnapshot(binding.record.workspaceId),
+    readSnapshot: () => ctx.buildSnapshot(binding.record.workspaceId, binding.service),
     nextCtx: () => binding.service.context.next({ surfaceId: TREE_SURFACE_ID }),
     liveSetEntries: (entityType, id, setPath) =>
       binding.service.oracle

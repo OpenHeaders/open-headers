@@ -94,7 +94,7 @@ export async function runPull(ctx: RuntimeCtx, binding: OpenBinding): Promise<Pu
     run: ctx.gitRun,
     rootDir,
     workspaceUid: binding.record.workspaceId,
-    readSnapshot: () => ctx.buildSnapshot(binding.record.workspaceId),
+    readSnapshot: () => ctx.buildSnapshot(binding.record.workspaceId, binding.service),
     nextCtx: () => binding.service.context.next({ surfaceId: TREE_SURFACE_ID }),
     liveSetEntries: (entityType, id, setPath) =>
       binding.service.oracle
@@ -178,7 +178,7 @@ export async function runResolveForcePush(
     choice,
     workspaceUid: binding.record.workspaceId,
     lastSyncedRemoteSha: lastSyncedSha,
-    readSnapshot: () => ctx.buildSnapshot(binding.record.workspaceId),
+    readSnapshot: () => ctx.buildSnapshot(binding.record.workspaceId, binding.service),
     nextCtx: () => binding.service.context.next({ surfaceId: TREE_SURFACE_ID }),
     liveSetEntries: (entityType, id, setPath) =>
       binding.service.oracle

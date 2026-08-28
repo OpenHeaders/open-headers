@@ -36,6 +36,7 @@ export {
   WORKSPACE_VARS_DOC_KEY,
   WORKSPACE_VARS_FILE,
 } from './layout';
+export { applyTreeOrder, type TreeSlotReader } from './order';
 export { planWorkspaceTree, serializeWorkspaceManifest } from './plan';
 export { readWorkspaceTree } from './read';
 export type { TreeFile, TreeIssue, TreeReadResult, TreeUnknownFields, WorkspaceTreeState } from './types';

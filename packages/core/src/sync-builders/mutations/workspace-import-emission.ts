@@ -129,6 +129,7 @@ import {
   buildAddBatch as buildAddTemplateBatch,
   buildUpdateBatch as buildUpdateTemplateBatch,
 } from './template-mutations';
+import type { SlotOrderPlan } from './tree-slot-order';
 
 /** One applicable unit: a minted batch plus its derived side effects. */
 export interface EmissionBatch {
@@ -150,6 +151,13 @@ export interface ImportEmissionDeps {
   /** Fresh mutator context per batch — mintBatch ticks HLCs off it. */
   nextCtx: () => MutatorContext;
   liveSetEntries: LiveSetEntriesReader;
+  /**
+   * The slot-key minter to place created children with. Absent = a
+   * fresh tail tracker over `liveSetEntries`; a caller that mints slots
+   * beyond this emission in the same run (the tree delta) shares its own
+   * so two minters never hand the same parent the same key.
+   */
+  tail?: TailTracker;
 }
 
 /**
@@ -198,7 +206,7 @@ export function synthesizeImportEmission(
   // One tail tracker per emission: every parent's `folders` / `items`
   // set and the roots' collection sets append strictly after their live
   // tail, and sibling creates in the same run keep ascending.
-  const tail = createTailTracker(deps.liveSetEntries);
+  const tail = deps.tail ?? createTailTracker(deps.liveSetEntries);
   const ruleTree = createTreePlacer(
     FOLDER_TREE_KINDS,
     prev.ruleCollections,
@@ -287,7 +295,7 @@ export function synthesizeImportEmission(
 
   // ── Leaves ──
   emitLeaves(out, plan.rules, prev.rules, 'rule', {
-    place: (rule) => ruleTree.placeLeaf(rule.path, FOLDER_ITEMS_PATH, tail),
+    place: (rule) => ruleTree.placeLeaf(rule, FOLDER_ITEMS_PATH, tail),
     create: (rule, ctx, placement) => buildAddRuleBatch(rule, ctx, placement),
     update: (uid, entity, updates, ctx) =>
       buildUpdateRuleBatch(
@@ -302,7 +310,7 @@ export function synthesizeImportEmission(
     deps,
   });
   emitLeaves(out, plan.requests, prev.requests, 'request', {
-    place: (request) => requestTree.placeLeaf(request.path, REQUEST_FOLDER_ITEMS_PATH, tail),
+    place: (request) => requestTree.placeLeaf(request, REQUEST_FOLDER_ITEMS_PATH, tail),
     create: (request, ctx, placement) => buildAddRequestBatch(request, ctx, placement),
     update: (uid, _entity, updates, ctx) =>
       buildUpdateRequestBatch(
@@ -316,7 +324,7 @@ export function synthesizeImportEmission(
     deps,
   });
   emitLeaves(out, plan.templates, prev.templates, 'template', {
-    place: (template) => templateTree.placeLeaf(template.path, TEMPLATE_FOLDER_ITEMS_PATH, tail),
+    place: (template) => templateTree.placeLeaf(template, TEMPLATE_FOLDER_ITEMS_PATH, tail),
     create: (template, ctx, placement) => buildAddTemplateBatch(template, ctx, placement),
     update: (uid, _entity, updates, ctx) =>
       buildUpdateTemplateBatch(uid, updates as Partial<Omit<Template, 'uid' | 'path'>>, ctx, (id, setPath) =>
@@ -373,15 +381,20 @@ export function synthesizeImportEmission(
 export const changed = (a: unknown, b: unknown): boolean => canonicalJson(a) !== canonicalJson(b);
 
 /**
- * Mints the next append key for a parent's ordered set: strictly after
- * the set's live tail on the first call, strictly after the previous
- * mint on every later call, so a run of creates keeps its order.
+ * Mints the slot key a child takes at a parent's ordered set. With no
+ * order plan (or a set the plan does not cover) that is the next append
+ * key: strictly after the set's live tail on the first call, strictly
+ * after the previous mint on every later call, so a run of creates
+ * keeps its order. A planned set hands out the position the tree's
+ * `order:` assigned the child instead, and the tail stays untouched.
  */
-export type TailTracker = (parent: ParentRefShape, setPath: string) => string;
+export type TailTracker = (parent: ParentRefShape, setPath: string, childUid: string) => string;
 
-export function createTailTracker(liveSetEntries: LiveSetEntriesReader): TailTracker {
+export function createTailTracker(liveSetEntries: LiveSetEntriesReader, plan?: SlotOrderPlan): TailTracker {
   const lastKey = new Map<string, string | null>();
-  return (parent, setPath) => {
+  return (parent, setPath, childUid) => {
+    const planned = plan?.keyFor(parent, setPath, childUid);
+    if (planned !== null && planned !== undefined) return planned;
     const mapKey = `${parent.type}:${parent.uid}:${setPath}`;
     let tail = lastKey.get(mapKey);
     if (tail === undefined) {
@@ -403,9 +416,13 @@ export function createTailTracker(liveSetEntries: LiveSetEntriesReader): TailTra
 export interface TreePlacer<C extends string, F extends string> {
   readonly kinds: TreeParentKinds<C, F>;
   parentOf(entityPath: string): TreeParentRef<C, F> | null;
-  /** Placement for a leaf at `entityPath`: its parent + the next
-   *  append key on the parent's `setPath`; `null` when unresolvable. */
-  placeLeaf(entityPath: string, setPath: string, tail: TailTracker): ChildPlacement<TreeParentRef<C, F>> | null;
+  /** Placement for a leaf: its parent + the key the tracker mints for it
+   *  on the parent's `setPath`; `null` when unresolvable. */
+  placeLeaf(
+    entity: { uid: string; path: string },
+    setPath: string,
+    tail: TailTracker,
+  ): ChildPlacement<TreeParentRef<C, F>> | null;
 }
 
 export function createTreePlacer<C extends string, F extends string>(
@@ -427,9 +444,9 @@ export function createTreePlacer<C extends string, F extends string>(
   return {
     kinds,
     parentOf,
-    placeLeaf(entityPath, setPath, tail) {
-      const parent = parentOf(entityPath);
-      return parent ? { parent, orderKey: tail(parent, setPath) } : null;
+    placeLeaf(entity, setPath, tail) {
+      const parent = parentOf(entity.path);
+      return parent ? { parent, orderKey: tail(parent, setPath, entity.uid) } : null;
     },
   };
 }
@@ -552,7 +569,12 @@ function emitLeaves<T extends { uid: string }, P extends ParentRefShape>(
 
 // ── Collections ────────────────────────────────────────────────────
 
-const COLLECTION_SKIP = new Set(['uid', 'path', 'variables']);
+/**
+ * `order` is a projection of the parent's sets stamped for the planner
+ * (`workspace-tree/order.ts`), never entity state — a tree-authored
+ * `order:` converges through the slot-order plan, not a field write.
+ */
+const COLLECTION_SKIP = new Set(['uid', 'path', 'variables', 'order']);
 
 function emitCollections(
   out: EmissionBatch[],
@@ -571,7 +593,7 @@ function emitCollections(
     const uid = entry.entity.uid;
     const prevEntity = entry.action === 'update' ? prevByUid.get(uid) : undefined;
     if (entry.action === 'create' || !prevEntity) {
-      const placement = { parent: WORKSPACE_ROOTS_REF, orderKey: tail(WORKSPACE_ROOTS_REF, rootsPath) };
+      const placement = { parent: WORKSPACE_ROOTS_REF, orderKey: tail(WORKSPACE_ROOTS_REF, rootsPath, uid) };
       out.push(seedBatch(`${entityType}:${uid} (create)`, seed(entry.entity, deps.nextCtx(), placement)));
       continue;
     }
@@ -638,7 +660,7 @@ function emitFolders<C extends string, F extends string>(out: EmissionBatch[], a
         parent,
         name: folder.name,
         ...(segment ? { pathSegment: segment } : {}),
-        orderKey: args.tail(parent, args.childrenPath),
+        orderKey: args.tail(parent, args.childrenPath, folder.uid),
       },
       args.deps.nextCtx(),
     );

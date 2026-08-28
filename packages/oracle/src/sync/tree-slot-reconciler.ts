@@ -291,7 +291,7 @@ interface ReconcilerMemory {
 interface Pass {
   bodies: MutationBody[];
   rehomes: RehomePlan[];
-  tail: (parent: ParentRefShape, setPath: string) => string;
+  tail: (parent: ParentRefShape, setPath: string, childUid: string) => string;
   /** Hydration: persisted order + immediate rehome. */
   settled: boolean;
   now: number;
@@ -487,7 +487,7 @@ async function reconcileTree<C extends string, F extends string>(
   const collections = materialized.filter((m) => m.type === tree.kinds.collectionType && !rooted.has(m.id));
   for (const m of sortByOrder(collections, collectionOrder)) {
     pass.bodies.push(
-      tree.collectionChild.slotAdd(m.id, WORKSPACE_ROOTS_REF, pass.tail(WORKSPACE_ROOTS_REF, tree.rootsPath)),
+      tree.collectionChild.slotAdd(m.id, WORKSPACE_ROOTS_REF, pass.tail(WORKSPACE_ROOTS_REF, tree.rootsPath, m.id)),
     );
   }
 
@@ -523,7 +523,7 @@ async function reconcileTree<C extends string, F extends string>(
       // A leaf this host never saw slotted is an old-client or
       // in-flight create: its stored path is where its author put it.
       if (parent && liveContainers.has(parent.uid) && !memory.everSlotted.has(entityKey(m))) {
-        pass.bodies.push(leaf.child.slotAdd(m.id, parent, pass.tail(parent, tree.itemsPath)));
+        pass.bodies.push(leaf.child.slotAdd(m.id, parent, pass.tail(parent, tree.itemsPath, m.id)));
         continue;
       }
       if (!settled(memory, pass, entityKey(m))) continue;
@@ -570,7 +570,7 @@ async function reconcileExamples(
       const parentUid = storedString(m.data, kind.parentUidField);
       const parent: ParentRefShape | null = parentUid === null ? null : { type: kind.parentType, uid: parentUid };
       if (parent && liveRequests.has(`${parent.type}:${parent.uid}`)) {
-        pass.bodies.push(kind.child.slotAdd(m.id, parent, pass.tail(parent, kind.examplesPath)));
+        pass.bodies.push(kind.child.slotAdd(m.id, parent, pass.tail(parent, kind.examplesPath, m.id)));
         continue;
       }
       if (parent && oracle.isTombstoned(parent.type, parent.uid)) {
@@ -648,7 +648,7 @@ function planRehome<C extends string, F extends string>(
   const setPath = isFolder ? tree.kinds.childrenPath : tree.itemsPath;
   const child = isFolder ? tree.folderChild : tree.leaves.find((leaf) => leaf.entityType === input.child.type)?.child;
   if (!child) return;
-  pass.bodies.push(child.slotAdd(input.child.uid, root, pass.tail(root, setPath)));
+  pass.bodies.push(child.slotAdd(input.child.uid, root, pass.tail(root, setPath, input.child.uid)));
   pass.rehomes.push({ child: input.child, from: input.from, to: { parent: root, setPath }, reason: input.reason });
   logger.info(
     'TreeSlotReconciler',

@@ -5,6 +5,7 @@
  *   uid: a1b2c3d4                  # workspace identity, stable across renames
  *   name: My API Project
  *   description: …
+ *   order: { rules: […], requests: […], templates: […] }   # collection dirs per tree
  *   defaultEnvironmentId: …        # optional; resolver falls back here when active env lacks a var
  *   rootPath: …                    # runtime-only (desktop absolute path); codec strips on serialize
  *
@@ -23,7 +24,7 @@
  */
 
 import type * as v from 'valibot';
-import type { WorkspaceManifestSchema, WorkspaceSchema } from '../schemas/workspace';
+import type { WorkspaceManifestSchema, WorkspaceOrderSchema, WorkspaceSchema } from '../schemas/workspace';
 
 /**
  * Top-level sections that organize collections within a workspace.
@@ -32,6 +33,9 @@ import type { WorkspaceManifestSchema, WorkspaceSchema } from '../schemas/worksp
 export type WorkspaceSection = 'requests' | 'rules' | 'environments' | 'recordings' | 'proxy-rules';
 
 export type Workspace = v.InferOutput<typeof WorkspaceSchema>;
+
+/** Collection directory names per tree, in roots order (`workspace.yaml` `order:`). */
+export type WorkspaceOrder = v.InferOutput<typeof WorkspaceOrderSchema>;
 
 /**
  * The committed `workspace.yaml` shape — {@link Workspace} without the

@@ -30,21 +30,29 @@
  * `path` moves get their own passes here, and deletions are appended
  * per family, leaves before containers.
  *
- * Deliberately out of scope (engine placement wins, the next
- * materialize restores the tree): re-parenting a folder across
- * containers by moving its directory (the parent's ordered child slot
- * cannot be derived from paths alone), and `workspace.yaml` scalar
- * edits (workspace metadata lives on the host workspace store, not the
- * per-workspace entity plane).
+ * Containment is the parent's ordered set, so the tree speaks to it in
+ * two ways (the tree containment plan, Disk): a tree-authored
+ * manifest's `order:` becomes a slot-order plan (`tree-slot-order.ts`)
+ * that keys every child created or moved into that container this
+ * round and re-keys the live members whose relative order changed; and
+ * a directory moved across parents — leaf or folder — is one slot
+ * transfer, the new parent read off the destination path through the
+ * shared resolver. A manifest without `order:` keeps the engine's order.
+ *
+ * Deliberately out of scope: `workspace.yaml` scalar edits (workspace
+ * metadata lives on the host workspace store, not the per-workspace
+ * entity plane) — only its `order:` is read.
  */
 
 import {
   type ChildMutators,
   type ChildPlacement,
   COLLECTION_ENTITY_TYPE,
+  FOLDER_CHILDREN_PATH,
   FOLDER_ENTITY_TYPE,
   FOLDER_ITEMS_PATH,
   FOLDER_TREE_KINDS,
+  folderChild,
   GRPC_REQUEST_ENTITY_TYPE,
   grpcRequestChild,
   LIVE_VARIABLE_ENTITY_TYPE,
@@ -54,22 +62,31 @@ import {
   mqttRequestChild,
   REQUEST_COLLECTION_ENTITY_TYPE,
   REQUEST_ENTITY_TYPE,
+  REQUEST_FOLDER_CHILDREN_PATH,
   REQUEST_FOLDER_ENTITY_TYPE,
   REQUEST_FOLDER_ITEMS_PATH,
   REQUEST_FOLDER_TREE_KINDS,
   type RequestFolderParentRef,
   RULE_ENTITY_TYPE,
   requestChild,
+  requestFolderChild,
   ruleChild,
   SPEC_ENTITY_TYPE,
   TEMPLATE_COLLECTION_ENTITY_TYPE,
   TEMPLATE_ENTITY_TYPE,
+  TEMPLATE_FOLDER_CHILDREN_PATH,
   TEMPLATE_FOLDER_ENTITY_TYPE,
   TEMPLATE_FOLDER_ITEMS_PATH,
   TEMPLATE_FOLDER_TREE_KINDS,
+  type TreeParentKinds,
   type TreeParentRef,
   templateChild,
+  templateFolderChild,
   WEBSOCKET_REQUEST_ENTITY_TYPE,
+  WORKSPACE_ROOTS_REF,
+  WORKSPACE_ROOTS_REQUEST_COLLECTIONS_PATH,
+  WORKSPACE_ROOTS_RULE_COLLECTIONS_PATH,
+  WORKSPACE_ROOTS_TEMPLATE_COLLECTIONS_PATH,
   webSocketRequestChild,
 } from '@openheaders/core/sync';
 import type {
@@ -80,6 +97,7 @@ import type {
   MqttRequest,
   WebSocketRequest,
 } from '@openheaders/core/types';
+import { lastPathSegment } from '@openheaders/core/utils';
 import type { LocalFolder, PlanEntry } from '@openheaders/core/workspace-export';
 import {
   environmentFilePath,
@@ -121,6 +139,7 @@ import {
   buildDeleteBatch as buildDeleteTemplateBatch,
   buildDeleteEntityBatch as buildDeleteTemplateEntityBatch,
 } from './template-mutations';
+import { planSlotOrder, type SlotOrderPlan, type SlotOrderTarget } from './tree-slot-order';
 import {
   buildWebSocketAddBatch,
   buildWebSocketDeleteBatch,
@@ -271,6 +290,13 @@ export function synthesizeWorkspaceTreeDelta(args: WorkspaceTreeDeltaArgs): Emis
   const requestCollections = planEntries(next.requestCollections, prev.requestCollections);
   const requestFolders = planEntries(toLocalFolders(next.requestFolders), toLocalFolders(prev.requestFolders));
 
+  // One slot-key minter for the whole round: the emission's creates,
+  // the three request kinds below and the path moves all place through
+  // it, and a tree-authored `order:` pre-assigns the keys it hands out.
+  const slotOrder = planTreeOrder(next, touched, deps.liveSetEntries);
+  const tail = createTailTracker(deps.liveSetEntries, slotOrder);
+  const emissionDeps: ImportEmissionDeps = { ...deps, tail };
+
   out.push(
     ...synthesizeImportEmission(
       {
@@ -314,15 +340,14 @@ export function synthesizeWorkspaceTreeDelta(args: WorkspaceTreeDeltaArgs): Emis
         ...(prev.vault !== null ? { vault: prev.vault } : {}),
         ...(prev.trustedRoots !== null ? { trustedRoots: prev.trustedRoots } : {}),
       },
-      deps,
+      emissionDeps,
     ),
   );
 
   // The three request kinds the export envelope doesn't carry take
   // their parent slot the same way the emission places its leaves: the
-  // request tree as the engine + this sweep know it, appended after the
-  // parent's live tail.
-  const tail = createTailTracker(deps.liveSetEntries);
+  // request tree as the engine + this sweep know it, through the shared
+  // minter.
   const requestTree = createTreePlacer(
     REQUEST_FOLDER_TREE_KINDS,
     prev.requestCollections,
@@ -330,8 +355,8 @@ export function synthesizeWorkspaceTreeDelta(args: WorkspaceTreeDeltaArgs): Emis
     toLocalFolders(prev.requestFolders),
     requestFolders,
   );
-  const placeRequest = (entity: { path: string }): ChildPlacement<RequestFolderParentRef> | null =>
-    requestTree.placeLeaf(entity.path, REQUEST_FOLDER_ITEMS_PATH, tail);
+  const placeRequest = (entity: { uid: string; path: string }): ChildPlacement<RequestFolderParentRef> | null =>
+    requestTree.placeLeaf(entity, REQUEST_FOLDER_ITEMS_PATH, tail);
 
   emitGrpcRequests(
     out,
@@ -356,14 +381,143 @@ export function synthesizeWorkspaceTreeDelta(args: WorkspaceTreeDeltaArgs): Emis
   );
 
   emitPathMoves(out, prev, next, touched, tail, deps);
+  for (const reorder of slotOrder.reorders) {
+    out.push(bodiesBatch(`${reorder.parent.type}:${reorder.parent.uid} (reorder)`, reorder.bodies, deps.nextCtx()));
+  }
   emitDeletions(out, prev, nextUids, removedPaths, deps);
 
   return out.filter((entry) => entry.batch.mutations.length > 0);
 }
 
+// ── Tree-authored `order:` → slot-order plan ─────────────────────────
+
+interface TreeOrderFamily<C extends string, F extends string> {
+  kinds: TreeParentKinds<C, F>;
+  childrenPath: string;
+  itemsPath: string;
+  rootsPath: string;
+  collections: readonly Collection[];
+  folders: readonly Folder[];
+  leaves: ReadonlyArray<{ uid: string; path: string }>;
+  /** The manifest's per-tree collection list, when `workspace.yaml` carries one. */
+  rootOrder: readonly string[] | undefined;
+}
+
+/**
+ * Every ordered set a tree-authored manifest speaks for: a touched
+ * container with an `order:` (its `folders` and `items` sets, split by
+ * what each named directory holds), and the roots set of each tree the
+ * touched `workspace.yaml` lists. The desired sequence is the listed
+ * directories in listed order, then the unlisted ones in name order;
+ * names with no directory are ignored.
+ */
+function planTreeOrder(
+  next: TreeReadResult['state'],
+  touched: (entityPath: string) => boolean,
+  live: ImportEmissionDeps['liveSetEntries'],
+): SlotOrderPlan {
+  const manifestOrder = touched('') ? next.workspace?.order : undefined;
+  const families: Array<TreeOrderFamily<string, string>> = [
+    {
+      kinds: FOLDER_TREE_KINDS,
+      childrenPath: FOLDER_CHILDREN_PATH,
+      itemsPath: FOLDER_ITEMS_PATH,
+      rootsPath: WORKSPACE_ROOTS_RULE_COLLECTIONS_PATH,
+      collections: next.collections,
+      folders: next.folders,
+      leaves: next.rules,
+      rootOrder: manifestOrder?.rules,
+    },
+    {
+      kinds: REQUEST_FOLDER_TREE_KINDS,
+      childrenPath: REQUEST_FOLDER_CHILDREN_PATH,
+      itemsPath: REQUEST_FOLDER_ITEMS_PATH,
+      rootsPath: WORKSPACE_ROOTS_REQUEST_COLLECTIONS_PATH,
+      collections: next.requestCollections,
+      folders: next.requestFolders,
+      leaves: [...next.requests, ...next.grpcRequests, ...next.websocketRequests, ...next.mqttRequests],
+      rootOrder: manifestOrder?.requests,
+    },
+    {
+      kinds: TEMPLATE_FOLDER_TREE_KINDS,
+      childrenPath: TEMPLATE_FOLDER_CHILDREN_PATH,
+      itemsPath: TEMPLATE_FOLDER_ITEMS_PATH,
+      rootsPath: WORKSPACE_ROOTS_TEMPLATE_COLLECTIONS_PATH,
+      collections: next.templateCollections,
+      folders: next.templateFolders,
+      leaves: next.templates,
+      rootOrder: manifestOrder?.templates,
+    },
+  ];
+  const targets: SlotOrderTarget[] = [];
+  for (const family of families) {
+    const collectionsByParent = childrenByParent(family.collections);
+    const foldersByParent = childrenByParent(family.folders);
+    const leavesByParent = childrenByParent(family.leaves);
+    const container = (type: string, entity: Collection | Folder): void => {
+      if (!touched(entity.path) || entity.order === undefined) return;
+      const parent = { type, uid: entity.uid };
+      targets.push(
+        {
+          parent,
+          setPath: family.childrenPath,
+          desired: inListedOrder(foldersByParent.get(entity.path), entity.order),
+        },
+        { parent, setPath: family.itemsPath, desired: inListedOrder(leavesByParent.get(entity.path), entity.order) },
+      );
+    };
+    for (const collection of family.collections) container(family.kinds.collectionType, collection);
+    for (const folder of family.folders) container(family.kinds.folderType, folder);
+    if (family.rootOrder !== undefined) {
+      targets.push({
+        parent: WORKSPACE_ROOTS_REF,
+        setPath: family.rootsPath,
+        desired: inListedOrder(collectionsByParent.get(family.kinds.treePrefix), family.rootOrder),
+      });
+    }
+  }
+  return planSlotOrder(targets, live);
+}
+
+interface ChildDirectory {
+  uid: string;
+  segment: string;
+}
+
+function childrenByParent(entities: ReadonlyArray<{ uid: string; path: string }>): Map<string, ChildDirectory[]> {
+  const out = new Map<string, ChildDirectory[]>();
+  for (const entity of entities) {
+    const parentPath = parentPathOf(entity.path);
+    const segment = lastPathSegment(entity.path);
+    if (parentPath === null || segment === null) continue;
+    const bucket = out.get(parentPath);
+    const child = { uid: entity.uid, segment };
+    if (bucket) bucket.push(child);
+    else out.set(parentPath, [child]);
+  }
+  return out;
+}
+
+/** Listed directories in listed order, then the unlisted ones by name. */
+function inListedOrder(children: readonly ChildDirectory[] | undefined, order: readonly string[]): string[] {
+  if (!children) return [];
+  const rank = new Map<string, number>();
+  order.forEach((segment, index) => {
+    if (!rank.has(segment)) rank.set(segment, index);
+  });
+  const position = (child: ChildDirectory): number => rank.get(child.segment) ?? Number.POSITIVE_INFINITY;
+  return [...children]
+    .sort((a, b) => {
+      const byRank = position(a) - position(b);
+      if (byRank !== 0) return byRank;
+      return a.segment < b.segment ? -1 : a.segment > b.segment ? 1 : 0;
+    })
+    .map((child) => child.uid);
+}
+
 // ── gRPC / WebSocket requests (no export-envelope membership) ────────
 
-type PlaceRequest = (entity: { path: string }) => ChildPlacement<RequestFolderParentRef> | null;
+type PlaceRequest = (entity: { uid: string; path: string }) => ChildPlacement<RequestFolderParentRef> | null;
 
 function emitGrpcRequests(
   out: EmissionBatch[],
@@ -538,17 +692,17 @@ interface LeafMoveFamily<C extends string, F extends string> extends MoveFamily 
  * `setField('path')` converges them. A tree LEAF is linked by its
  * parent's `items` slot and its path is a projection of that slot, so
  * a move across parents lands as one atomic slot transfer — old parent
- * tombstone + new parent slot appended after the live tail — with the
- * stored path written alongside as the net for slot-less readers. A
- * move that keeps the parent (a renamed ancestor cascading down) is a
- * path write only.
+ * tombstone + new parent slot at the position the destination's
+ * `order:` assigned it, else after the live tail — with the stored path
+ * written alongside as the net for slot-less readers. A move that keeps
+ * the parent (a renamed ancestor cascading down) is a path write only.
  *
- * Folders are the one guarded family: their path may only follow the
- * tree when the PARENT container is unchanged (a rename in place, or a
- * renamed ancestor cascading down). A cross-parent move would also
- * need the parents' ordered child slots rewritten from the destination
- * manifest — the engine's placement stands and the next materialize
- * restores the directory.
+ * A FOLDER moved across parents is the same slot transfer on the
+ * parents' `folders` sets; its path is a pure projection (nothing
+ * stored), and every leaf and example beneath it re-projects from the
+ * new slot — nothing else to emit. The parent comes from the
+ * destination path through the shared resolver (exact container match,
+ * then the path's own uid tail).
  */
 function emitPathMoves(
   out: EmissionBatch[],
@@ -688,53 +842,51 @@ function emitPathMoves(
     }
   }
 
-  const folderFamilies: Array<{
-    entityType: string;
-    nextFolders: readonly Folder[];
-    prevFolders: readonly Folder[];
-    nextContainers: readonly Collection[];
-    prevContainers: readonly Collection[];
-  }> = [
+  emitFolderMoves(
+    out,
     {
       entityType: FOLDER_ENTITY_TYPE,
-      nextFolders: next.folders,
-      prevFolders: prev.folders,
-      nextContainers: next.collections,
-      prevContainers: prev.collections,
+      child: folderChild,
+      childrenPath: FOLDER_CHILDREN_PATH,
+      prevTree: prevRuleTree,
+      nextTree: nextRuleTree,
+      nextItems: next.folders,
+      prevItems: prev.folders,
     },
+    touched,
+    tail,
+    deps,
+  );
+  emitFolderMoves(
+    out,
     {
       entityType: REQUEST_FOLDER_ENTITY_TYPE,
-      nextFolders: next.requestFolders,
-      prevFolders: prev.requestFolders,
-      nextContainers: next.requestCollections,
-      prevContainers: prev.requestCollections,
+      child: requestFolderChild,
+      childrenPath: REQUEST_FOLDER_CHILDREN_PATH,
+      prevTree: prevRequestTree,
+      nextTree: nextRequestTree,
+      nextItems: next.requestFolders,
+      prevItems: prev.requestFolders,
     },
+    touched,
+    tail,
+    deps,
+  );
+  emitFolderMoves(
+    out,
     {
       entityType: TEMPLATE_FOLDER_ENTITY_TYPE,
-      nextFolders: next.templateFolders,
-      prevFolders: prev.templateFolders,
-      nextContainers: next.templateCollections,
-      prevContainers: prev.templateCollections,
+      child: templateFolderChild,
+      childrenPath: TEMPLATE_FOLDER_CHILDREN_PATH,
+      prevTree: prevTemplateTree,
+      nextTree: nextTemplateTree,
+      nextItems: next.templateFolders,
+      prevItems: prev.templateFolders,
     },
-  ];
-  for (const family of folderFamilies) {
-    const prevByUid = byUid(family.prevFolders);
-    const prevParentUid = parentUidResolver(family.prevContainers, family.prevFolders);
-    const nextParentUid = parentUidResolver(family.nextContainers, family.nextFolders);
-    for (const folder of family.nextFolders) {
-      if (!touched(folder.path)) continue;
-      const prevFolder = prevByUid.get(folder.uid);
-      if (!prevFolder || prevFolder.path === folder.path) continue;
-      if (prevParentUid(prevFolder.path) !== nextParentUid(folder.path)) continue;
-      out.push(
-        bodiesBatch(
-          `${family.entityType}:${folder.uid} (move)`,
-          [pathWrite(family.entityType, folder)],
-          deps.nextCtx(),
-        ),
-      );
-    }
-  }
+    touched,
+    tail,
+    deps,
+  );
 }
 
 function pathWrite(entityType: string, entity: { uid: string; path: string }): MutationBody {
@@ -759,7 +911,7 @@ function emitLeafMoves<C extends string, F extends string>(
     if (oldParent && newParent && (oldParent.type !== newParent.type || oldParent.uid !== newParent.uid)) {
       bodies.push(
         family.child.slotRemove(entity.uid, oldParent),
-        family.child.slotAdd(entity.uid, newParent, tail(newParent, family.itemsPath)),
+        family.child.slotAdd(entity.uid, newParent, tail(newParent, family.itemsPath, entity.uid)),
       );
     }
     bodies.push(pathWrite(family.entityType, entity));
@@ -767,18 +919,37 @@ function emitLeafMoves<C extends string, F extends string>(
   }
 }
 
-/** Resolve a folder path's parent container/folder uid by path prefix; null when unresolvable. */
-function parentUidResolver(
-  containers: readonly Collection[],
-  folders: readonly Folder[],
-): (folderPath: string) => string | null {
-  const uidByPath = new Map<string, string>();
-  for (const container of containers) uidByPath.set(container.path, container.uid);
-  for (const folder of folders) uidByPath.set(folder.path, folder.uid);
-  return (folderPath) => {
-    const parentPath = parentPathOf(folderPath);
-    return parentPath !== null ? (uidByPath.get(parentPath) ?? null) : null;
-  };
+/** A folder family whose parent slot follows a directory move. */
+interface FolderMoveFamily<C extends string, F extends string> extends MoveFamily {
+  child: ChildMutators<TreeParentRef<C, F>>;
+  childrenPath: string;
+  prevTree: TreePlacer<C, F>;
+  nextTree: TreePlacer<C, F>;
+}
+
+function emitFolderMoves<C extends string, F extends string>(
+  out: EmissionBatch[],
+  family: FolderMoveFamily<C, F>,
+  touched: (entityPath: string) => boolean,
+  tail: TailTracker,
+  deps: ImportEmissionDeps,
+): void {
+  const prevByUid = byUid(family.prevItems);
+  for (const folder of family.nextItems) {
+    if (!touched(folder.path)) continue;
+    const prevFolder = prevByUid.get(folder.uid);
+    if (!prevFolder || prevFolder.path === folder.path) continue;
+    const oldParent = family.prevTree.parentOf(prevFolder.path);
+    const newParent = family.nextTree.parentOf(folder.path);
+    const crossed = oldParent && newParent && (oldParent.type !== newParent.type || oldParent.uid !== newParent.uid);
+    const bodies: MutationBody[] = crossed
+      ? [
+          family.child.slotRemove(folder.uid, oldParent),
+          family.child.slotAdd(folder.uid, newParent, tail(newParent, family.childrenPath, folder.uid)),
+        ]
+      : [pathWrite(family.entityType, folder)];
+    out.push(bodiesBatch(`${family.entityType}:${folder.uid} (move)`, bodies, deps.nextCtx()));
+  }
 }
 
 // ── Deletions (gated on the materialized baseline) ──────────────────

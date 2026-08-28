@@ -17,8 +17,8 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import type { MutatorContext } from '@openheaders/core/sync';
 import type { EmissionBatch } from '@openheaders/core/sync-builders/mutations/workspace-import-emission';
-import type { Rule, Workspace } from '@openheaders/core/types';
-import type { WorkspaceTreeState } from '@openheaders/core/workspace-tree';
+import type { Collection, Folder, Rule, Workspace } from '@openheaders/core/types';
+import { applyTreeOrder, type WorkspaceTreeState } from '@openheaders/core/workspace-tree';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { WorkspaceTreeMaterializer } from '../../src/workspace-tree/materializer';
 import { sweepWorkspaceTree } from '../../src/workspace-tree/sweep';
@@ -40,6 +40,26 @@ function makeRule(uid: string, name: string): Rule {
     conditions: [],
     action: {},
   } as Rule;
+}
+
+function makeCollection(uid: string, name: string): Collection {
+  return {
+    schemaVersion: 5,
+    uid,
+    path: `rules/${name.toLowerCase()}-${uid}`,
+    name,
+    variables: [],
+    pinnedEnvironmentIds: [],
+    defaultEnvironmentId: null,
+  };
+}
+
+function makeFolder(uid: string, name: string, parentPath: string): Folder {
+  return { schemaVersion: 5, uid, path: `${parentPath}/${name.toLowerCase()}-${uid}`, name };
+}
+
+function ruleUnder(uid: string, name: string, parentPath: string): Rule {
+  return { ...makeRule(uid, name), path: `${parentPath}/${name.toLowerCase().replace(/\s+/g, '-')}-${uid}` } as Rule;
 }
 
 function emptyState(): WorkspaceTreeState {
@@ -292,5 +312,88 @@ describe('sweepWorkspaceTree', () => {
     // Still off-baseline → the write guard keeps protecting the bytes.
     await materializer.flush();
     await expect(fs.readFile(ruleFile, 'utf-8')).resolves.toBe('schemaVersion: 5\nuid: [broken\n');
+  });
+
+  it('a folder directory moved across collections is one slot transfer; its leaves keep their slot', async () => {
+    const colA = makeCollection('col0000a', 'Alpha');
+    const colB = makeCollection('col0000b', 'Beta');
+    const folder = makeFolder('fol00001', 'Sub', colA.path);
+    const rule = ruleUnder('rul00001', 'Block probes', folder.path);
+    state.collections = [colA, colB];
+    state.folders = [folder];
+    state.rules = [rule];
+    await makeMaterializer().flush();
+
+    await fs.rename(path.join(tmpDir, ...folder.path.split('/')), path.join(tmpDir, colB.path, 'sub-fol00001'));
+
+    const applied: EmissionBatch[] = [];
+    const result = await runSweep(applied);
+    expect(result.ok).toBe(true);
+    const folderMove = applied.find((batch) => batch.label === 'folder:fol00001 (move)');
+    expect(folderMove?.batch.mutations.map((m) => m.body)).toMatchObject([
+      { kind: 'removeFromSet', type: 'collection', id: 'col0000a', path: 'folders', itemId: 'fol00001' },
+      { kind: 'addToSet', type: 'collection', id: 'col0000b', path: 'folders', itemId: 'fol00001' },
+    ]);
+    const ruleMove = applied.find((batch) => batch.label === 'rule:rul00001 (move)');
+    expect(ruleMove?.batch.mutations.map((m) => m.body)).toEqual([
+      {
+        kind: 'setField',
+        type: 'rule',
+        id: 'rul00001',
+        path: 'path',
+        value: `${colB.path}/sub-fol00001/block-probes-rul00001`,
+      },
+    ]);
+    expect(applied.some((batch) => batch.label.endsWith('(delete)'))).toBe(false);
+  });
+
+  it('a hand-edited order: on _collection.yaml becomes the minimum moveBefore set', async () => {
+    const col = makeCollection('col0000a', 'Alpha');
+    const first = ruleUnder('rul0000a', 'First', col.path);
+    const second = ruleUnder('rul0000b', 'Second', col.path);
+    state.collections = [col];
+    state.rules = [first, second];
+    const liveItems = [
+      { itemId: 'rul0000a', orderKey: 'm', item: { uid: 'rul0000a', type: 'rule' } },
+      { itemId: 'rul0000b', orderKey: 'n', item: { uid: 'rul0000b', type: 'rule' } },
+    ];
+    const snapshot = applyTreeOrder(state, (parent, setPath) =>
+      parent.uid === 'col0000a' && setPath === 'items' ? liveItems.map((entry) => entry.itemId) : [],
+    );
+    await new WorkspaceTreeMaterializer({ rootDir: tmpDir, readSnapshot: async () => ({ state: snapshot }) }).flush();
+
+    const manifest = path.join(tmpDir, col.path, '_collection.yaml');
+    const yaml = await fs.readFile(manifest, 'utf-8');
+    expect(yaml).toContain('order:\n  - first-rul0000a\n  - second-rul0000b\n');
+    await fs.writeFile(
+      manifest,
+      yaml.replace('  - first-rul0000a\n  - second-rul0000b', '  - second-rul0000b\n  - first-rul0000a'),
+      'utf-8',
+    );
+
+    const applied: EmissionBatch[] = [];
+    const result = await sweepWorkspaceTree({
+      rootDir: tmpDir,
+      workspaceUid: 'wsaaaaaa',
+      snapshot,
+      nextCtx,
+      liveSetEntries: (type, id, setPath) =>
+        type === 'collection' && id === 'col0000a' && setPath === 'items' ? liveItems : [],
+      apply: async (batches) => {
+        applied.push(...batches);
+      },
+    });
+    expect(result.ok).toBe(true);
+    expect(applied.map((batch) => batch.label)).toEqual(['collection:col0000a (reorder)']);
+    const bodies = applied[0].batch.mutations.map((m) => m.body);
+    expect(bodies).toHaveLength(1);
+    expect(bodies[0]).toMatchObject({
+      kind: 'moveBefore',
+      type: 'collection',
+      id: 'col0000a',
+      path: 'items',
+      itemId: 'rul0000b',
+    });
+    if (bodies[0].kind === 'moveBefore') expect(bodies[0].orderKey < 'm').toBe(true);
   });
 });

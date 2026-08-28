@@ -6,6 +6,19 @@ import * as v from 'valibot';
 import { SchemaVersionSchema, UidSchema, UuidV7Schema } from './common';
 
 /**
+ * Committed collection order per tree — the workspace root's children
+ * are the three fixed tree directories, so `order` lists collection
+ * directory names (`<slug>-<uid>`) under each. Emitted from the
+ * workspace roots' ordered sets, read back on sweep (the tree
+ * containment plan, Disk). Absent = keep the engine's order.
+ */
+export const WorkspaceOrderSchema = v.object({
+  rules: v.optional(v.array(v.string())),
+  requests: v.optional(v.array(v.string())),
+  templates: v.optional(v.array(v.string())),
+});
+
+/**
  * On-disk `workspace.yaml` + runtime `Workspace`. `rootPath` is
  * runtime-only (absolute path on desktop); the codec (when it lands)
  * strips it on serialize. Schemas are shared by runtime + codec —
@@ -26,6 +39,7 @@ export const WorkspaceSchema = v.object({
   uid: v.union([UidSchema, UuidV7Schema]),
   name: v.string(),
   description: v.optional(v.string()),
+  order: v.optional(WorkspaceOrderSchema),
   defaultEnvironmentId: v.optional(v.string()),
   rootPath: v.optional(v.string()),
   /**

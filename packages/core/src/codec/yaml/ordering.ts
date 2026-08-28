@@ -7,7 +7,14 @@
  * retain their original position beneath the known block.
  */
 
-export const WORKSPACE_FIELD_ORDER = ['schemaVersion', 'uid', 'name', 'description', 'defaultEnvironmentId'] as const;
+export const WORKSPACE_FIELD_ORDER = [
+  'schemaVersion',
+  'uid',
+  'name',
+  'description',
+  'order',
+  'defaultEnvironmentId',
+] as const;
 
 export const COLLECTION_FIELD_ORDER = [
   'schemaVersion',

@@ -7,6 +7,9 @@
  *   uid: a1b2c3d4
  *   name: My API Project
  *   description: optional prose
+ *   order:                        # collection directory names per tree, roots order
+ *     rules: [auth-a1b2c3d4]
+ *     requests: [api-e5f6a7b8]
  *   defaultEnvironmentId: staging8
  *
  * `rootPath` is runtime-only — populated after parse by whichever layer

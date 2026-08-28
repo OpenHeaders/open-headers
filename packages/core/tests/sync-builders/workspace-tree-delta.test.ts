@@ -15,16 +15,20 @@
 
 import { describe, expect, it } from 'vitest';
 import {
+  FOLDER_CHILDREN_PATH,
   FOLDER_ITEMS_PATH,
   GRPC_REQUEST_ENTITY_TYPE,
   InMemoryDocumentStore,
   type MutatorContext,
   REQUEST_COLLECTION_ENTITY_TYPE,
   REQUEST_FOLDER_ITEMS_PATH,
+  WORKSPACE_ROOTS_ENTITY_TYPE,
+  WORKSPACE_ROOTS_ID,
+  WORKSPACE_ROOTS_RULE_COLLECTIONS_PATH,
 } from '../../src/sync';
 import type { EmissionBatch } from '../../src/sync-builders/mutations/workspace-import-emission';
 import { synthesizeWorkspaceTreeDelta } from '../../src/sync-builders/mutations/workspace-tree-delta';
-import type { GrpcRequest, HeaderRule, Rule, Vault, WebSocketRequest } from '../../src/types';
+import type { Collection, Folder, GrpcRequest, HeaderRule, Rule, Vault, WebSocketRequest } from '../../src/types';
 import type { TreeReadResult, WorkspaceTreeState } from '../../src/workspace-tree';
 
 let hlcMs = 1_000;
@@ -284,7 +288,7 @@ describe('synthesizeWorkspaceTreeDelta — moves', () => {
     expect(move?.batch.mutations.map((m) => m.body.kind)).toEqual(['setField']);
   });
 
-  it('a folder moved across parents is guarded (engine placement stands)', () => {
+  it("a folder moved across parents is one slot transfer on the parents' folders sets", () => {
     const colA = { schemaVersion: 5, uid: 'col0000a', path: 'rules/col-a-col0000a', name: 'A' } as never;
     const colB = { schemaVersion: 5, uid: 'col0000b', path: 'rules/col-b-col0000b', name: 'B' } as never;
     const folderAtA = {
@@ -304,9 +308,241 @@ describe('synthesizeWorkspaceTreeDelta — moves', () => {
       next: emptyState({ collections: [colA, colB], folders: [folderAtB] }),
       changed: ['rules/col-b-col0000b/sub-fol00001/_folder.yaml'],
     });
-    // No path move; the update entry for the folder itself carries no
-    // changed scalar keys either, so the delta is empty.
+    // The folder's path is a projection — nothing else to write; every
+    // leaf beneath it re-projects from the new slot.
+    expect(batches.map((b) => b.label)).toEqual(['folder:fol00001 (move)']);
+    expect(batches[0].batch.mutations.map((m) => m.body)).toMatchObject([
+      { kind: 'removeFromSet', type: 'collection', id: 'col0000a', path: FOLDER_CHILDREN_PATH, itemId: 'fol00001' },
+      {
+        kind: 'addToSet',
+        type: 'collection',
+        id: 'col0000b',
+        path: FOLDER_CHILDREN_PATH,
+        itemId: 'fol00001',
+        item: { uid: 'fol00001' },
+      },
+    ]);
+  });
+
+  it('a folder whose ancestor renamed in place keeps its slot and only writes the path', () => {
+    const colA = { schemaVersion: 5, uid: 'col0000a', path: 'rules/col-a-col0000a', name: 'A' } as never;
+    const colRenamed = { schemaVersion: 5, uid: 'col0000a', path: 'rules/renamed-col0000a', name: 'A' } as never;
+    const before = {
+      schemaVersion: 5,
+      uid: 'fol00001',
+      path: 'rules/col-a-col0000a/sub-fol00001',
+      name: 'Sub',
+    } as never;
+    const after = {
+      schemaVersion: 5,
+      uid: 'fol00001',
+      path: 'rules/renamed-col0000a/sub-fol00001',
+      name: 'Sub',
+    } as never;
+    const batches = delta({
+      prev: emptyState({ collections: [colA], folders: [before] }),
+      next: emptyState({ collections: [colRenamed], folders: [after] }),
+      changed: ['rules/renamed-col0000a/sub-fol00001/_folder.yaml'],
+    });
+    const move = batches.find((b) => b.label === 'folder:fol00001 (move)');
+    expect(move?.batch.mutations.map((m) => m.body.kind)).toEqual(['setField']);
+  });
+});
+
+describe('synthesizeWorkspaceTreeDelta — order:', () => {
+  const COL_PATH = 'rules/col-a-col0000a';
+  const collection = (order?: string[]): Collection => ({
+    schemaVersion: 5,
+    uid: 'col0000a',
+    path: COL_PATH,
+    name: 'A',
+    variables: [],
+    pinnedEnvironmentIds: [],
+    defaultEnvironmentId: null,
+    ...(order ? { order } : {}),
+  });
+  const ruleAt = (uid: string, slug: string, parentPath = COL_PATH): Rule =>
+    ({ ...baseRule, uid, path: `${parentPath}/${slug}-${uid}` }) as Rule;
+  const a = ruleAt('rul0000a', 'a');
+  const b = ruleAt('rul0000b', 'b');
+  const c = ruleAt('rul0000c', 'c');
+  const manifestOf = (rule: Rule): string => `${rule.path}/rule.yaml`;
+  const liveOrder = (store: InMemoryDocumentStore, type = 'collection', id = 'col0000a', setPath = FOLDER_ITEMS_PATH) =>
+    store.liveOrderedSetItems(type, id, setPath).map((entry) => entry.itemId);
+
+  /** A store holding the collection with a, b, c slotted in that order. */
+  function seeded(): InMemoryDocumentStore {
+    const store = new InMemoryDocumentStore();
+    applyTo(
+      store,
+      delta({
+        prev: emptyState(),
+        next: emptyState({ collections: [collection()], rules: [a, b, c] }),
+        changed: [`${COL_PATH}/_collection.yaml`, manifestOf(a), manifestOf(b), manifestOf(c)],
+        store,
+      }),
+    );
+    expect(liveOrder(store)).toEqual(['rul0000a', 'rul0000b', 'rul0000c']);
+    return store;
+  }
+
+  it('a touched manifest whose order: moved one member re-keys only that member', () => {
+    const store = seeded();
+    const batches = delta({
+      prev: emptyState({ collections: [collection()], rules: [a, b, c] }),
+      next: emptyState({ collections: [collection(['c-rul0000c', 'a-rul0000a', 'b-rul0000b'])], rules: [a, b, c] }),
+      changed: [`${COL_PATH}/_collection.yaml`],
+      store,
+    });
+    expect(batches.map((batch) => batch.label)).toEqual(['collection:col0000a (reorder)']);
+    expect(batches[0].batch.mutations.map((m) => m.body)).toMatchObject([
+      { kind: 'moveBefore', type: 'collection', id: 'col0000a', path: FOLDER_ITEMS_PATH, itemId: 'rul0000c' },
+    ]);
+    applyTo(store, batches);
+    expect(liveOrder(store)).toEqual(['rul0000c', 'rul0000a', 'rul0000b']);
+  });
+
+  it('a touched manifest without order: keeps the engine order', () => {
+    const store = seeded();
+    const renamed = { ...collection(), name: 'A (vim)' };
+    const batches = delta({
+      prev: emptyState({ collections: [collection()], rules: [a, b, c] }),
+      next: emptyState({ collections: [renamed], rules: [a, b, c] }),
+      changed: [`${COL_PATH}/_collection.yaml`],
+      store,
+    });
+    expect(batches.map((batch) => batch.label)).toEqual(['collection:col0000a (update)']);
+    expect(batches[0].batch.mutations.map((m) => m.body.kind)).toEqual(['setField']);
+  });
+
+  it('an order: that matches the engine emits nothing, and order never becomes a field write', () => {
+    const store = seeded();
+    const batches = delta({
+      prev: emptyState({ collections: [collection()], rules: [a, b, c] }),
+      next: emptyState({ collections: [collection(['a-rul0000a', 'b-rul0000b', 'c-rul0000c'])], rules: [a, b, c] }),
+      changed: [`${COL_PATH}/_collection.yaml`],
+      store,
+    });
     expect(batches).toHaveLength(0);
+  });
+
+  it('unknown names are ignored; unlisted directories follow in name order', () => {
+    const store = seeded();
+    const batches = delta({
+      prev: emptyState({ collections: [collection()], rules: [a, b, c] }),
+      next: emptyState({ collections: [collection(['ghost-gho00000', 'c-rul0000c'])], rules: [a, b, c] }),
+      changed: [`${COL_PATH}/_collection.yaml`],
+      store,
+    });
+    applyTo(store, batches);
+    expect(liveOrder(store)).toEqual(['rul0000c', 'rul0000a', 'rul0000b']);
+  });
+
+  it('a fresh clone seeds the listed order across folders and items', () => {
+    const store = new InMemoryDocumentStore();
+    const folder = {
+      schemaVersion: 5,
+      uid: 'fol00001',
+      path: `${COL_PATH}/sub-fol00001`,
+      name: 'Sub',
+      order: ['b-rul0000b', 'a-rul0000a'],
+    } as Folder;
+    const inFolderA = ruleAt('rul0000a', 'a', folder.path);
+    const inFolderB = ruleAt('rul0000b', 'b', folder.path);
+    const batches = delta({
+      prev: emptyState(),
+      next: emptyState({
+        collections: [collection(['sub-fol00001', 'c-rul0000c'])],
+        folders: [folder],
+        rules: [inFolderA, inFolderB, c],
+      }),
+      changed: [
+        `${COL_PATH}/_collection.yaml`,
+        `${folder.path}/_folder.yaml`,
+        manifestOf(inFolderA),
+        manifestOf(inFolderB),
+        manifestOf(c),
+      ],
+      store,
+    });
+    expect(batches.some((batch) => batch.label.endsWith('(reorder)'))).toBe(false);
+    applyTo(store, batches);
+    expect(liveOrder(store, 'folder', 'fol00001')).toEqual(['rul0000b', 'rul0000a']);
+    expect(liveOrder(store, 'collection', 'col0000a', FOLDER_CHILDREN_PATH)).toEqual(['fol00001']);
+  });
+
+  it('a leaf moved into a container whose order: lists it lands at the listed position', () => {
+    const store = seeded();
+    const colB: Collection = {
+      schemaVersion: 5,
+      uid: 'col0000b',
+      path: 'rules/col-b-col0000b',
+      name: 'B',
+      variables: [],
+      pinnedEnvironmentIds: [],
+      defaultEnvironmentId: null,
+    };
+    const d = ruleAt('rul0000d', 'd', colB.path);
+    applyTo(
+      store,
+      delta({
+        prev: emptyState({ collections: [collection()], rules: [a, b, c] }),
+        next: emptyState({ collections: [collection(), colB], rules: [a, b, c, d] }),
+        changed: [`${colB.path}/_collection.yaml`, manifestOf(d)],
+        store,
+      }),
+    );
+    const movedD = ruleAt('rul0000d', 'd');
+    const batches = delta({
+      prev: emptyState({ collections: [collection(), colB], rules: [a, b, c, d] }),
+      next: emptyState({
+        collections: [collection(['a-rul0000a', 'd-rul0000d', 'b-rul0000b', 'c-rul0000c']), colB],
+        rules: [a, b, c, movedD],
+      }),
+      changed: [`${COL_PATH}/_collection.yaml`, manifestOf(movedD)],
+      store,
+    });
+    expect(batches.map((batch) => batch.label)).toEqual(['rule:rul0000d (move)']);
+    applyTo(store, batches);
+    expect(liveOrder(store)).toEqual(['rul0000a', 'rul0000d', 'rul0000b', 'rul0000c']);
+    expect(liveOrder(store, 'collection', 'col0000b')).toEqual([]);
+  });
+
+  it('workspace.yaml order: reorders the roots', () => {
+    const store = new InMemoryDocumentStore();
+    const colB: Collection = {
+      schemaVersion: 5,
+      uid: 'col0000b',
+      path: 'rules/col-b-col0000b',
+      name: 'B',
+      variables: [],
+      pinnedEnvironmentIds: [],
+      defaultEnvironmentId: null,
+    };
+    applyTo(
+      store,
+      delta({
+        prev: emptyState(),
+        next: emptyState({ collections: [collection(), colB] }),
+        changed: [`${COL_PATH}/_collection.yaml`, `${colB.path}/_collection.yaml`],
+        store,
+      }),
+    );
+    const roots = () =>
+      liveOrder(store, WORKSPACE_ROOTS_ENTITY_TYPE, WORKSPACE_ROOTS_ID, WORKSPACE_ROOTS_RULE_COLLECTIONS_PATH);
+    expect(roots()).toEqual(['col0000a', 'col0000b']);
+    const batches = delta({
+      prev: emptyState({ collections: [collection(), colB] }),
+      next: emptyState({
+        workspace: { ...workspace, order: { rules: ['col-b-col0000b', 'col-a-col0000a'] } },
+        collections: [collection(), colB],
+      }),
+      changed: ['workspace.yaml'],
+      store,
+    });
+    expect(batches.map((batch) => batch.label)).toEqual(['workspace-roots:workspace-roots (reorder)']);
+    applyTo(store, batches);
+    expect(roots()).toEqual(['col0000b', 'col0000a']);
   });
 });
 

@@ -12,6 +12,8 @@
  *      never array position).
  *   3. Unknown-field survival — rows injected via the unknowns map ride
  *      plan → read → plan byte-stably.
+ *   4. `order:` stamped from a slot reader survives the same loop and
+ *      is independent of entity array order too.
  *
  * Seeded mulberry32 like the codec harness; a failing seed reproduces
  * exactly.
@@ -19,6 +21,7 @@
 
 import * as v from 'valibot';
 import { describe, expect, it } from 'vitest';
+import type { ParentRefShape } from '../../src/sync';
 import type { Collection, Folder } from '../../src/types/collection';
 import type { GrpcRequest } from '../../src/types/grpc-request';
 import type { LiveVariable, LiveWorkflow } from '../../src/types/live';
@@ -32,6 +35,7 @@ import type { WebSocketRequest } from '../../src/types/websocket-request';
 import type { WorkspaceManifest } from '../../src/types/workspace';
 import { toFolderName } from '../../src/utils/workspace';
 import {
+  applyTreeOrder,
   planWorkspaceTree,
   readWorkspaceTree,
   type TreeFile,
@@ -158,6 +162,61 @@ function generateState(rng: Rng): { state: WorkspaceTreeState; unknowns: TreeUnk
   };
 }
 
+/**
+ * A slot reader over the generated state: every container's children
+ * (folders then leaves, matched by path prefix) shuffled by the rng —
+ * a manual order the arrays do not carry.
+ */
+function shuffledSlots(state: WorkspaceTreeState, rng: Rng): (parent: ParentRefShape, setPath: string) => string[] {
+  const byUid = new Map<string, { path: string }>();
+  const all = [
+    ...state.collections,
+    ...state.requestCollections,
+    ...state.templateCollections,
+    ...state.folders,
+    ...state.requestFolders,
+    ...state.templateFolders,
+    ...state.rules,
+    ...state.requests,
+    ...state.grpcRequests,
+    ...state.websocketRequests,
+    ...state.mqttRequests,
+    ...state.templates,
+  ];
+  for (const entity of all) byUid.set(entity.uid, entity);
+  const containerPath = (parent: ParentRefShape): string | null => {
+    if (parent.type === 'workspace-roots') return null;
+    return byUid.get(parent.uid)?.path ?? null;
+  };
+  const childrenOf = (prefix: string, pool: ReadonlyArray<{ uid: string; path: string }>): string[] =>
+    rng
+      .shuffle(
+        pool.filter(
+          (entity) => entity.path.startsWith(`${prefix}/`) && !entity.path.slice(prefix.length + 1).includes('/'),
+        ),
+      )
+      .map((e) => e.uid);
+  return (parent, setPath) => {
+    if (parent.type === 'workspace-roots') {
+      const prefix =
+        setPath === 'ruleCollections' ? 'rules' : setPath === 'requestCollections' ? 'requests' : 'templates';
+      return childrenOf(prefix, [...state.collections, ...state.requestCollections, ...state.templateCollections]);
+    }
+    const path = containerPath(parent);
+    if (path === null) return [];
+    if (setPath === 'folders')
+      return childrenOf(path, [...state.folders, ...state.requestFolders, ...state.templateFolders]);
+    return childrenOf(path, [
+      ...state.rules,
+      ...state.requests,
+      ...state.grpcRequests,
+      ...state.websocketRequests,
+      ...state.mqttRequests,
+      ...state.templates,
+    ]);
+  };
+}
+
 function expectSameFiles(actual: TreeFile[], expected: TreeFile[], seed: number): void {
   expect(
     actual.map((f) => f.path),
@@ -218,6 +277,34 @@ describe('workspace-tree round-trip properties', () => {
 
     const result = readWorkspaceTree(plan);
     expect(result.unknowns[ruleUid]).toEqual(unknowns[ruleUid]);
+  });
+
+  it(`order: stamped from the live sets is a byte fixpoint and array-order independent (${SEEDS} seeded workspaces)`, () => {
+    for (let seed = 1; seed <= SEEDS; seed += 1) {
+      const rng = makeRng(seed * 15_485_863);
+      const generated = generateState(rng);
+      const state = applyTreeOrder(generated.state, shuffledSlots(generated.state, rng));
+      const plan = planWorkspaceTree(state, generated.unknowns);
+
+      const result = readWorkspaceTree(plan);
+      expect(result.issues, `seed ${seed}: read issues`).toEqual([]);
+      if (result.state.workspace === null) throw new Error(`seed ${seed}: workspace not recovered`);
+      expect(result.state.workspace.order, `seed ${seed}: manifest order`).toEqual(state.workspace.order);
+      for (const collection of state.requestCollections) {
+        const read = result.state.requestCollections.find((c) => c.uid === collection.uid);
+        expect(read?.order, `seed ${seed}: collection ${collection.uid} order`).toEqual(collection.order);
+      }
+      const replan = planWorkspaceTree({ ...result.state, workspace: result.state.workspace }, result.unknowns);
+      expectSameFiles(replan, plan, seed);
+
+      const shuffled: WorkspaceTreeState = {
+        ...state,
+        rules: rng.shuffle(state.rules),
+        requests: rng.shuffle(state.requests),
+        requestCollections: rng.shuffle(state.requestCollections),
+      };
+      expectSameFiles(planWorkspaceTree(shuffled, generated.unknowns), plan, seed);
+    }
   });
 
   it('a case-insensitive path collision fails loudly', () => {

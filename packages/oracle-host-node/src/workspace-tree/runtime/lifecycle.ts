@@ -22,7 +22,7 @@ export async function openBinding(ctx: RuntimeCtx, record: WorkspaceTreeBindingR
   const materializer = new WorkspaceTreeMaterializer({
     rootDir: record.rootDir,
     readSnapshot: async () => ({
-      state: await ctx.buildSnapshot(record.workspaceId),
+      state: await ctx.buildSnapshot(record.workspaceId, service),
       unknowns: await readTreeUnknownFields(record.rootDir),
     }),
     log: (level, msg, ...rest) => logger[level](SCOPE, msg, ...rest),

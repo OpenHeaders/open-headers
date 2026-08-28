@@ -1,14 +1,16 @@
 /**
  * Workspace-tree runtime — snapshot assembly: the bound workspace's
  * `wsKeys` slots + workspace meta folded into the `WorkspaceTreeState`
- * the sweep/materialize planes consume, plus the shared batch
- * applicator. Pure reads against host storage; no binding state.
+ * the sweep/materialize planes consume, with `order:` stamped from the
+ * service oracle's live containment sets, plus the shared batch
+ * applicator. Pure reads against host storage + the oracle; no
+ * binding state.
  */
 
 import type { EmissionBatch } from '@openheaders/core/sync-builders/mutations/workspace-import-emission';
 import type { Workspace } from '@openheaders/core/types';
 import { logger } from '@openheaders/core/utils';
-import type { WorkspaceTreeState } from '@openheaders/core/workspace-tree';
+import { applyTreeOrder, type WorkspaceTreeState } from '@openheaders/core/workspace-tree';
 import { hostStorage, wsKeys } from '@openheaders/oracle/storage';
 import type { WorkspaceServiceState } from '@openheaders/oracle/sync/service';
 import { getWorkspace } from '@openheaders/oracle/workspace/extension-workspace-store';
@@ -29,7 +31,7 @@ export async function workspaceEntity(workspaceId: string): Promise<Workspace | 
   };
 }
 
-export async function buildSnapshot(workspaceId: string): Promise<WorkspaceTreeState> {
+export async function buildSnapshot(workspaceId: string, service: WorkspaceServiceState): Promise<WorkspaceTreeState> {
   const workspace = await workspaceEntity(workspaceId);
   if (!workspace) throw new Error(`workspace ${workspaceId} is gone`);
   const k = wsKeys(workspaceId);
@@ -54,7 +56,7 @@ export async function buildSnapshot(workspaceId: string): Promise<WorkspaceTreeS
     liveWorkflows: k.liveWorkflows,
     liveVariables: k.liveVariables,
   });
-  return {
+  const state: WorkspaceTreeState = {
     workspace,
     rules: src.rules ?? [],
     collections: src.collections ?? [],
@@ -76,6 +78,9 @@ export async function buildSnapshot(workspaceId: string): Promise<WorkspaceTreeS
     liveWorkflows: src.liveWorkflows ?? [],
     liveVariables: src.liveVariables ?? [],
   };
+  return applyTreeOrder(state, (parent, setPath) =>
+    service.oracle.liveOrderedSetItems(parent.type, parent.uid, setPath).map((entry) => entry.itemId),
+  );
 }
 
 export async function applyAll(service: WorkspaceServiceState, batches: EmissionBatch[]): Promise<void> {
