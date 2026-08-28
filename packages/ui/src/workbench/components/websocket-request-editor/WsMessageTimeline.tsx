@@ -982,6 +982,9 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
     color: token.colorText,
     fontSize: 12,
   };
+  // An opened row drops its hairline — the title and the block under it
+  // read as one entry; the block carries the divider.
+  const opened = (isOpen: boolean): React.CSSProperties => (isOpen ? { borderBottom: 'none' } : {});
 
   const lifecycleTime = (ts: number | undefined): React.ReactNode =>
     ts !== undefined ? (
@@ -1156,7 +1159,11 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
                   },
                 }
               : {})}
-            style={{ ...lifecycleRowStyle, ...(expandable ? { cursor: 'pointer' } : {}) }}
+            style={{
+              ...lifecycleRowStyle,
+              ...(expandable ? { cursor: 'pointer' } : {}),
+              ...opened(expandable && handshakeExpanded),
+            }}
           >
             <CheckCircleOutlined aria-hidden style={{ fontSize: 11, color: token.colorSuccess }} />
             <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -1288,7 +1295,7 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
                 setErrorExpanded((prev) => !prev);
               }
             }}
-            style={{ ...lifecycleRowStyle, cursor: 'pointer' }}
+            style={{ ...lifecycleRowStyle, cursor: 'pointer', ...opened(errorExpanded) }}
           >
             <CloseCircleOutlined aria-hidden style={{ fontSize: 11, color: token.colorError }} />
             <span
@@ -1412,7 +1419,7 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
                 setEndedExpanded((prev) => !prev);
               }
             }}
-            style={{ ...lifecycleRowStyle, cursor: 'pointer' }}
+            style={{ ...lifecycleRowStyle, cursor: 'pointer', ...opened(endedExpanded) }}
           >
             <InfoCircleOutlined aria-hidden style={{ fontSize: 11, color: token.colorTextTertiary }} />
             <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -1571,7 +1578,7 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
                 toggleRow(entry.index);
               }
             }}
-            style={{ ...singleRowStyle, cursor: 'pointer' }}
+            style={{ ...singleRowStyle, cursor: 'pointer', ...opened(isExpanded) }}
           >
             {directionBadge(up)}
             {sioCell ?? (
