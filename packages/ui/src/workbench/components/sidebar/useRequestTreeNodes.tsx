@@ -297,7 +297,53 @@ export function useRequestTreeNodes(p: UseRequestTreeNodesParams): TreeNode[] {
             const children = walkRequestTree(node.children, depth + 1, fid, collectionId);
             const folderDrafts = p.draftsByLocationRequest.get(`${collectionId}|${node.path}`) ?? [];
             const folderDraftNodes = folderDrafts.map((d) => p.buildRequestDraftNode(d, depth + 1, fid));
-            items.push(...children, ...folderDraftNodes);
+            if (children.length > 0 || folderDraftNodes.length > 0) {
+              items.push(...children, ...folderDraftNodes);
+            } else if (!lowerFilter || node.children.length === 0) {
+              // Placeholder only when the folder is TRULY empty in the
+              // data — a folder whose children merely don't match the
+              // live filter shows nothing (the scaffold would lie).
+              items.push({
+                id: `${fid}-empty`,
+                kind: 'placeholder',
+                label: '',
+                depth: depth + 1,
+                expandable: false,
+                icon: null,
+                canRename: false,
+                canDelete: false,
+                canAddChild: false,
+                placeholderTitle: t('workbench.sidebar.placeholder.folderEmptyTitle'),
+                placeholderMessage: t('workbench.sidebar.placeholder.addRequestOrFolder'),
+                placeholderActions: [
+                  {
+                    label: t('workbench.sidebar.placeholder.addRequest'),
+                    icon: iconEl(PlusOutlined, 'var(--ant-color-text-tertiary, #999)'),
+                    // Same four protocols the folder's `+` offers — the
+                    // CTA picks nothing on the user's behalf.
+                    menuItems: requestKindAddMenuItems(
+                      {
+                        onAddRequest,
+                        ...(p.onCreateGrpcRequest ? { onAddGrpcRequest } : {}),
+                        ...(p.onCreateWebSocketRequest
+                          ? {
+                              onAddWebSocketRequest: () => onAddWebSocketRequest('raw'),
+                              onAddSocketIoRequest: () => onAddWebSocketRequest('socketio'),
+                            }
+                          : {}),
+                        ...(p.onCreateMqttRequest ? { onAddMqttRequest } : {}),
+                      },
+                      t,
+                    ),
+                  },
+                  {
+                    label: t('workbench.sidebar.placeholder.addFolder'),
+                    icon: iconEl(FolderOutlined, 'var(--ant-color-text-tertiary, #999)'),
+                    onClick: onAddFolder,
+                  },
+                ],
+              });
+            }
           }
         } else if (node.type === 'grpc-request') {
           if (lowerFilter && !node.name.toLowerCase().includes(lowerFilter)) continue;
