@@ -50,6 +50,7 @@ import {
   ClearOutlined,
   CloseCircleOutlined,
   DownOutlined,
+  CopyOutlined,
   InfoCircleOutlined,
   SearchOutlined,
   SortAscendingOutlined,
@@ -60,13 +61,14 @@ import type { MessageKey } from '@openheaders/i18n';
 import { parseEngineIoFrame, SOCKET_IO_PACKET_TYPES } from '@openheaders/core/socketio';
 import type { WebSocketFlavor } from '@openheaders/core/types';
 import { decodeBase64Bytes, wsCloseCodePhrase } from '@openheaders/core/utils';
-import { Button, ConfigProvider, Dropdown, Input, Segmented, Tag, Tooltip, Typography, theme } from 'antd';
+import { App, Button, ConfigProvider, Dropdown, Input, Segmented, Tag, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { type Translate, useT } from '@openheaders/ui/context/LocaleContext';
 import { useVirtualRowWindow } from '@openheaders/ui/shared/virtual-window';
 import { useSetting } from '@openheaders/ui/workbench/settings/hooks';
 import CodeEditor from '../shared/CodeEditor';
+import { formatBytes } from '../request-editor/response/response-format';
 import { WrapLinesIcon } from '../request-editor/response/ViewPickerIcons';
 import { wsAutoHeaderDefs } from './ws-auto-headers';
 
@@ -539,6 +541,7 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
 }) => {
   const { token } = theme.useToken();
   const t = useT();
+  const { message: toast } = App.useApp();
   const [search, setSearch] = useState('');
   const [directionFilter, setDirectionFilter] = useState<DirectionFilter>('all');
   const [sortMenuOpen, setSortMenuOpen] = useState(false);
@@ -1599,6 +1602,58 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
                   : derive.previewOf(item)}
               </span>
             )}
+            {/* Hover cluster left of the time — copy the payload as the
+              viewer shows it, and the frame's facts on hover; clicks
+              never reach the row toggle. */}
+            <span
+              className="oh-stream-row-actions"
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 2, flexShrink: 0 }}
+              onClick={(event) => event.stopPropagation()}
+              onKeyDown={(event) => event.stopPropagation()}
+            >
+              <Tooltip title={t('workbench.editors.websocket.timeline.copyMessage')}>
+                <Button
+                  size="small"
+                  type="text"
+                  icon={<CopyOutlined style={{ fontSize: 12 }} />}
+                  aria-label={t('workbench.editors.websocket.timeline.copyMessage')}
+                  data-testid="ws-timeline-copy-message"
+                  onClick={() => {
+                    void navigator.clipboard.writeText(view.text).then(() => {
+                      toast.success(t('shared.toast.copiedToClipboard'));
+                    });
+                  }}
+                />
+              </Tooltip>
+              <Tooltip
+                title={
+                  <div style={{ display: 'grid', gridTemplateColumns: 'max-content 1fr', columnGap: 8, rowGap: 2 }}>
+                    <span>{t('workbench.editors.websocket.timeline.info.size')}:</span>
+                    <span>{formatBytes(view.byteLength)}</span>
+                    {ts !== undefined && (
+                      <>
+                        <span>{t('workbench.editors.websocket.timeline.info.time')}:</span>
+                        <span>{formatMessageTime(ts)}</span>
+                      </>
+                    )}
+                    <span>{t('workbench.editors.websocket.timeline.info.frame')}:</span>
+                    <span>
+                      {item.binary
+                        ? t('workbench.editors.websocket.timeline.info.frameBinary')
+                        : t('workbench.editors.websocket.timeline.info.frameText')}
+                    </span>
+                  </div>
+                }
+              >
+                <Button
+                  size="small"
+                  type="text"
+                  icon={<InfoCircleOutlined style={{ fontSize: 12 }} />}
+                  aria-label={t('workbench.editors.websocket.timeline.info.label')}
+                  data-testid="ws-timeline-message-info"
+                />
+              </Tooltip>
+            </span>
             {ts !== undefined && (
               <span
                 data-testid="ws-timeline-message-time"

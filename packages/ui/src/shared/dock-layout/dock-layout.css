@@ -1501,6 +1501,17 @@
   background: rgba(128, 128, 128, 0.08);
 }
 
+/* Per-row action cluster (copy / info) — hidden at rest, revealed
+ * while the pointer or focus is on the row. */
+.oh-stream-row-actions {
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+.oh-stream-row:hover .oh-stream-row-actions,
+.oh-stream-row:focus-within .oh-stream-row-actions {
+  opacity: 1;
+}
+
 /* EOL glyph (`editor.renderLineEnds`) — the injected ¬ after each real
  * line ending in Monaco buffers. Faint translucent gray reads on both
  * themes; pointer-events off so it never intercepts clicks near the
