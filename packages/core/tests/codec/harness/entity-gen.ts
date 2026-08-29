@@ -629,7 +629,13 @@ export const ENTITY_CASES: readonly EntityCase[] = [
         url: `wss://stream.openheaders.io/${word(rng)}`,
         flavor,
         ...opt('namespace', flavor === 'socketio' ? maybe(rng, 0.5, () => '/live') : undefined),
-        subprotocols: rng.next() < 0.3 ? ['graphql-ws'] : [],
+        ...opt('handshakePath', flavor === 'socketio' ? maybe(rng, 0.4, () => '/net/sio/') : undefined),
+        ...opt(
+          'socketioProtocol',
+          flavor === 'socketio' ? maybe(rng, 0.4, () => rng.pick([4, 5] as const)) : undefined,
+        ),
+        ...opt('ackTimeoutMs', flavor === 'socketio' ? maybe(rng, 0.3, () => 1_000 + rng.int(20_000)) : undefined),
+        subprotocols: flavor === 'raw' && rng.next() < 0.3 ? ['graphql-ws'] : [],
         headers: Array.from({ length: rng.int(2) }, () => keyValueRow(rng)),
         params: Array.from({ length: rng.int(2) }, () => keyValueRow(rng)),
         ...opt(

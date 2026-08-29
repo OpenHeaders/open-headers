@@ -8,7 +8,8 @@
  *   - `events`  — Events-tab rows (`{ name, listen?, description? }`, socketio flavor)
  *   - `savedMessages` — Saved-messages rail rows (`{ name, message, messageFormat?, … }`)
  *
- * Every other field — `name`, `description`, `url`, `flavor`,
+ * Every other field — `name`, `description`, `url`, `flavor`, the Socket.IO protocol
+ * (`namespace`, `handshakePath`, `socketioProtocol`, `ackTimeoutMs`),
  * `subprotocols`, `message`, `messageFormat`, `binaryEncoding`, `specLink`,
  * `unixSocketPath`, `timeoutMs`, the TLS policy (`sslVerification`, `clientCertificateRef`,
  * `tlsMinVersion`, `tlsMaxVersion`, `tlsCipherSuites`, `sniServerName`), the dial policy

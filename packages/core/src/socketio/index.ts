@@ -1,9 +1,11 @@
 export {
+  ENGINE_IO_PING_FRAME,
   ENGINE_IO_PONG_FRAME,
   ENGINE_IO_VERSION,
   type EngineIoFrame,
   encodeConnectPacket,
   encodeEventPacket,
+  engineIoVersionFor,
   isValidNamespace,
   normalizeHandshakePath,
   normalizeNamespace,
@@ -11,8 +13,10 @@ export {
   parseSocketIoPacket,
   resolveSocketIoTarget,
   SOCKET_IO_DEFAULT_PATH,
+  SOCKET_IO_DEFAULT_PROTOCOL,
   SOCKET_IO_PACKET_TYPES,
   type SocketIoDialTarget,
   type SocketIoEventEncodeResult,
   type SocketIoPacket,
+  type SocketIoProtocolRevision,
 } from './wire';

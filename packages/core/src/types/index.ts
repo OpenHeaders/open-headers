@@ -397,6 +397,7 @@ export type { ViewMode } from './view-mode';
 export { DEFAULT_VIEW_MODE, VIEW_MODE_STORAGE_KEY } from './view-mode';
 // ── WebSocket execution ────────────────────────────────────────────
 export type {
+  ExecutedWsAckTimeout,
   ExecutedWsClose,
   ExecutedWsLifecycle,
   ExecutedWsLost,
@@ -408,6 +409,7 @@ export type {
 } from './websocket-execution';
 // ── WebSocket request ──────────────────────────────────────────────
 export type {
+  SocketIoProtocol,
   WebSocketAuth,
   WebSocketBinaryEncoding,
   WebSocketEventRow,

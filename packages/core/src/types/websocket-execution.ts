@@ -70,14 +70,29 @@ export interface ExecutedWsReconnected {
   extensions: string;
 }
 
+/** A Socket.IO event sent with the ack opt-in waited `timeoutMs` for
+ *  its ACK and none came (the request's ack timeout). The pending ack
+ *  is dropped; a late ACK still captures verbatim. */
+export interface ExecutedWsAckTimeout {
+  kind: 'ackTimeout';
+  ackId: number;
+  timeoutMs: number;
+}
+
 /**
- * One reconnect-cycle fact of the session. `atIndex` is the number of
+ * One session fact — the reconnect cycle (lost / reconnecting /
+ * reconnected) or a Socket.IO ack timeout. `atIndex` is the number of
  * captured messages when it happened, so the timeline renders the row
  * at its true chronological position while `messages` and its
  * positional session timing stay untouched (the message rows' identity
  * discipline); the rolling retention offsets it by `droppedMessages`.
  */
-export type ExecutedWsLifecycle = (ExecutedWsLost | ExecutedWsReconnecting | ExecutedWsReconnected) & {
+export type ExecutedWsLifecycle = (
+  | ExecutedWsLost
+  | ExecutedWsReconnecting
+  | ExecutedWsReconnected
+  | ExecutedWsAckTimeout
+) & {
   atIndex: number;
 };
 
@@ -130,9 +145,9 @@ export interface ExecutedWsSnapshot {
   /** The Close frame as received (or locally initiated); `null` when
    *  the connection severed without one — never synthesized. */
   close: ExecutedWsClose | null;
-  /** The reconnect-cycle facts (lost / reconnecting / reconnected) in
-   *  order — see {@link ExecutedWsLifecycle}. Absent = the session
-   *  never reconnected. */
+  /** The session facts (lost / reconnecting / reconnected / ack
+   *  timeout) in order — see {@link ExecutedWsLifecycle}. Absent =
+   *  none happened. */
   lifecycle?: ExecutedWsLifecycle[];
   /** Auto-reconnect gave up: the attempt cap was spent without a
    *  connection opening. `attempts` is how many were dialed; `error`

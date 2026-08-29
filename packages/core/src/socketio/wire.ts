@@ -10,15 +10,36 @@
  * SNAPSHOT to verbatim wire text — decode is display-side, and this
  * module is the single grammar both sides share).
  *
- * Scope is the websocket-only posture ratified for v1: EIO=4 direct
+ * Scope is the websocket-only posture ratified for v1: a direct
  * websocket dial (no long-polling fallback, no upgrade dance), text
  * frames only — binary attachments (BINARY_EVENT / BINARY_ACK) parse
  * to an honest header so the display can name them, but the client
- * never composes them.
+ * never composes them. Two protocol revisions share this grammar
+ * byte for byte: socket.io v5 over engine.io 4 (`EIO=4`, Socket.IO
+ * 3.x / 4.x servers — the default) and socket.io v4 over engine.io 3
+ * (`EIO=3`, 1.x / 2.x servers). What differs is behavior the session
+ * controller owns: who pings, whether the root namespace needs a
+ * CONNECT, and whether CONNECT may carry a payload.
  */
 
-/** Engine.IO protocol revision the client dials with (`EIO=4`). */
+/** Socket.IO protocol revision — the spec's own numbering. */
+export type SocketIoProtocolRevision = 4 | 5;
+
+/** The revision dialed when the request names none. */
+export const SOCKET_IO_DEFAULT_PROTOCOL: SocketIoProtocolRevision = 5;
+
+/** Engine.IO protocol revision the client dials with (`EIO=4`) on the
+ *  default socket.io revision. */
 export const ENGINE_IO_VERSION = 4;
+
+/** The `EIO` query value a socket.io revision rides on: v5 → 4, v4 → 3. */
+export function engineIoVersionFor(protocol: SocketIoProtocolRevision): number {
+  return protocol === 4 ? 3 : ENGINE_IO_VERSION;
+}
+
+/** The client's engine.io ping — the frame the socket.io v4 client
+ *  writes every `pingInterval` (on v5 the server pings instead). */
+export const ENGINE_IO_PING_FRAME = '2';
 
 /** The engine.io endpoint path the stock server mounts when the URL
  *  names none — a bare authority dials `/socket.io/`. */
@@ -88,8 +109,9 @@ export function normalizeHandshakePath(path: string): string {
 
 /** The two facts a Socket.IO dial resolves from the user's target. */
 export interface SocketIoDialTarget {
-  /** The engine.io dial URL — handshake path mounted, `EIO` +
-   *  `transport=websocket` joined after any user query params. */
+  /** The engine.io dial URL — handshake path mounted, `EIO` (the
+   *  revision's engine.io version) + `transport=websocket` joined
+   *  after any user query params. */
   url: string;
   /** The namespace the session CONNECTs, wire-normalized. */
   namespace: string;
@@ -106,13 +128,13 @@ export interface SocketIoDialTarget {
  */
 export function resolveSocketIoTarget(
   url: string,
-  settings: { namespace: string; handshakePath: string },
+  settings: { namespace: string; handshakePath: string; protocol?: SocketIoProtocolRevision },
 ): SocketIoDialTarget {
   const parsed = new URL(url);
   const urlNamespace = parsed.pathname === '/' ? '' : parsed.pathname;
   const namespace = normalizeNamespace(settings.namespace.trim() !== '' ? settings.namespace : urlNamespace);
   parsed.pathname = normalizeHandshakePath(settings.handshakePath);
-  parsed.searchParams.append('EIO', String(ENGINE_IO_VERSION));
+  parsed.searchParams.append('EIO', String(engineIoVersionFor(settings.protocol ?? SOCKET_IO_DEFAULT_PROTOCOL)));
   parsed.searchParams.append('transport', 'websocket');
   return { url: parsed.toString(), namespace };
 }

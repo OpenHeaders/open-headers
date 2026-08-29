@@ -19,6 +19,7 @@
 
 import type * as v from 'valibot';
 import type {
+  SocketIoProtocolSchema,
   WebSocketAuthSchema,
   WebSocketBinaryEncodingSchema,
   WebSocketEventRowSchema,
@@ -34,6 +35,9 @@ import type {
 
 /** Wire-family discriminant — raw WebSocket vs Socket.IO. */
 export type WebSocketFlavor = v.InferOutput<typeof WebSocketFlavorSchema>;
+
+/** Socket.IO protocol revision (absent = 5). */
+export type SocketIoProtocol = v.InferOutput<typeof SocketIoProtocolSchema>;
 
 /** One handshake header row (node-host capability; honest in the extension). */
 export type WebSocketHeaderPair = v.InferOutput<typeof WebSocketHeaderPairSchema>;

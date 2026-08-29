@@ -244,6 +244,7 @@ export {
 } from './variable';
 export {
   MAX_WEBSOCKET_URL_LENGTH,
+  SocketIoProtocolSchema,
   WebSocketAuthSchema,
   WebSocketEventRowSchema,
   WebSocketFlavorSchema,

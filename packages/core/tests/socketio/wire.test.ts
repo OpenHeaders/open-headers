@@ -43,6 +43,15 @@ describe('resolveSocketIoTarget', () => {
     );
   });
 
+  it('dials EIO=3 on socket.io protocol v4 and EIO=4 on v5', () => {
+    expect(resolveSocketIoTarget('ws://events.openheaders.io', { ...plain, protocol: 4 }).url).toBe(
+      'ws://events.openheaders.io/socket.io/?EIO=3&transport=websocket',
+    );
+    expect(resolveSocketIoTarget('ws://events.openheaders.io', { ...plain, protocol: 5 }).url).toBe(
+      'ws://events.openheaders.io/socket.io/?EIO=4&transport=websocket',
+    );
+  });
+
   it('keeps user query params ahead of the engine.io ones', () => {
     expect(resolveSocketIoTarget('ws://events.openheaders.io/?room=alpha', plain).url).toBe(
       'ws://events.openheaders.io/socket.io/?room=alpha&EIO=4&transport=websocket',

@@ -149,6 +149,32 @@ describe('serializeWebSocketRequest', () => {
     expect(parsed.value.heartbeatMessage).toBe('ping');
   });
 
+  it('seats the socket.io protocol fields after the namespace and round-trips them', () => {
+    const out = serializeWebSocketRequest(
+      freshDocument(
+        websocketRequest({
+          flavor: 'socketio',
+          ackTimeoutMs: 5_000,
+          socketioProtocol: 4,
+          handshakePath: '/net/sio/',
+          namespace: '/admin',
+        }),
+      ),
+    );
+    const keys = Object.keys(YAML.parse(out.websocketYaml) as Record<string, unknown>);
+    expect(keys.slice(keys.indexOf('namespace'), keys.indexOf('subprotocols') + 1)).toEqual([
+      'namespace',
+      'handshakePath',
+      'socketioProtocol',
+      'ackTimeoutMs',
+      'subprotocols',
+    ]);
+    const parsed = parseWebSocketRequest(out.websocketYaml, { path: 'requests/live-events-wsrq0001' });
+    expect(parsed.value.handshakePath).toBe('/net/sio/');
+    expect(parsed.value.socketioProtocol).toBe(4);
+    expect(parsed.value.ackTimeoutMs).toBe(5_000);
+  });
+
   it('seats the limits between the timeout and the resilience policy in one fixed order', () => {
     const out = serializeWebSocketRequest(
       freshDocument(

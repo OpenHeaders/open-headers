@@ -52,6 +52,16 @@ export const WebSocketUrlSchema = v.pipe(v.string(), v.maxLength(MAX_WEBSOCKET_U
 export const WebSocketFlavorSchema = v.picklist(['raw', 'socketio']);
 
 /**
+ * Socket.IO protocol revision the session speaks (socketio flavor
+ * only) — the spec's own numbering. `5` (engine.io 4, `EIO=4`) is
+ * what Socket.IO 3.x / 4.x servers speak; `4` (engine.io 3, `EIO=3`)
+ * is the 1.x / 2.x wire: the client pings, the root namespace is
+ * connected by the server, and CONNECT carries no auth payload.
+ * Absent = 5.
+ */
+export const SocketIoProtocolSchema = v.picklist([4, 5]);
+
+/**
  * One handshake header row. Same row anatomy as `RequestHeaderSchema`:
  * `uid` is the stable per-row identity the sync engine's set-modeled
  * paths key by; two rows may share a `key` but never a `uid`. Custom
@@ -190,10 +200,22 @@ const WebSocketRequestObjectSchema = v.object({
    * = the stock `/socket.io/`. Templates welcome.
    */
   handshakePath: v.optional(v.string()),
+  /** Socket.IO protocol revision (socketio flavor only) — see
+   *  {@link SocketIoProtocolSchema}. Absent = 5. */
+  socketioProtocol: v.optional(SocketIoProtocolSchema),
+  /**
+   * Wait (ms) for the server's ACK after an event sent with the ack
+   * opt-in (socketio flavor only) — the official client's `ackTimeout`
+   * default. A spent wait records the ack as timed out in the session
+   * (a late ACK still captures verbatim). Absent = wait forever. Same
+   * bounds as the connect timeout knob.
+   */
+  ackTimeoutMs: v.optional(RequestTimeoutMsSchema),
   /**
    * `Sec-WebSocket-Protocol` offer list, in preference order. Plain
    * strings — the server picks one during the handshake. Empty = no
-   * subprotocol negotiation.
+   * subprotocol negotiation. Raw flavor only — engine.io negotiates
+   * none, so the socketio flavor never offers a stored list.
    */
   subprotocols: v.array(v.pipe(v.string(), v.minLength(1))),
   headers: v.array(WebSocketHeaderPairSchema),
