@@ -61,6 +61,37 @@ describe('orderedChildren', () => {
     const out = orderedChildren(index, 'rules/col00001/a-fol00001', ['rul00003']);
     expect(uids(out)).toEqual(['L:rul00003', 'F:fol00003']);
   });
+
+  // A cross-parent move lands as separate events; between them the
+  // child holds a slot under both containers, or its path has moved
+  // ahead of the old slot's removal. The path names the ONE container
+  // that renders it — a slot orders, it does not claim.
+  it('a slot claims a child only when its path names the container — the new slot before the path lands', () => {
+    const root = orderedChildren(index, 'rules/col00001', ['fol00001', 'rul00003', 'rul00001']);
+    const folder = orderedChildren(index, 'rules/col00001/a-fol00001', ['rul00003']);
+    expect(uids(root)).toEqual(['F:fol00001', 'L:rul00001', 'F:fol00002', 'L:rul00002', 'L:rul00004']);
+    expect(uids(folder)).toEqual(['L:rul00003', 'F:fol00003']);
+  });
+
+  it('a slot claims a child only when its path names the container — the path before the old slot leaves', () => {
+    const moved = indexTreeChildren(
+      folders,
+      leaves.map((leaf) => (leaf.uid === 'rul00003' ? node(leaf.uid, 'rules/col00001/three-rul00003') : leaf)),
+      (f) => f.path,
+      (l) => l.path,
+    );
+    const root = orderedChildren(moved, 'rules/col00001', ['fol00001', 'rul00001']);
+    const folder = orderedChildren(moved, 'rules/col00001/a-fol00001', ['rul00003']);
+    expect(uids(root)).toEqual(['F:fol00001', 'L:rul00001', 'F:fol00002', 'L:rul00002', 'L:rul00003', 'L:rul00004']);
+    expect(uids(folder)).toEqual(['F:fol00003']);
+  });
+
+  it('a folder in two live slots renders under the container its path names', () => {
+    const root = orderedChildren(index, 'rules/col00001', ['fol00003', 'fol00001']);
+    const folder = orderedChildren(index, 'rules/col00001/a-fol00001', ['fol00003', 'rul00003']);
+    expect(uids(root)).toEqual(['F:fol00001', 'F:fol00002', 'L:rul00001', 'L:rul00002', 'L:rul00004']);
+    expect(uids(folder)).toEqual(['F:fol00003', 'L:rul00003']);
+  });
 });
 
 describe('orderedBySlots', () => {

@@ -54,6 +54,21 @@ describe('buildRequestCollectionTrees — slot order', () => {
     expect(sub.type === 'folder' && sub.children.map((n) => n.uid)).toEqual(['req00002']);
   });
 
+  it('renders a request once while a cross-parent move is landing — the new slot arrived, the old slot and path have not', () => {
+    const trees = buildRequestCollectionTrees(
+      [collection],
+      [folder],
+      [http('req00001', collection.path), http('req00002', folder.path)],
+      [],
+      [],
+      [],
+      (parent) => (parent.uid === collection.uid ? ['req00002', 'fol00001', 'req00001'] : ['req00002']),
+    );
+    expect(trees[0].tree.map((n) => n.uid)).toEqual(['fol00001', 'req00001']);
+    const sub = trees[0].tree[0];
+    expect(sub.type === 'folder' && sub.children.map((n) => n.uid)).toEqual(['req00002']);
+  });
+
   it('groups folders first, then kinds in array order, without a slot source', () => {
     const trees = buildRequestCollectionTrees(
       [collection],

@@ -162,6 +162,7 @@ export {
   type OrderedChild,
   orderedBySlots,
   orderedChildren,
+  type IndexedChild,
   type TreeChildIndex,
 } from './tree-children';
 export type { ParsedUrl, QueryParam } from './url';
