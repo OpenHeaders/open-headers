@@ -544,6 +544,14 @@ export const workbenchEditorsRequest = {
     '从线路上读取的响应体最大大小；超出部分被截断，响应会被标记为已截断。留空为默认限制 2,048 KB（2 MB）。可提高到 10,240 KB（10 MB）以容纳更大的负载，或降低它来测试截断的响应是什么样子。',
 
   // ── Settings tab — runtime-managed fact sheets ─────────────────────
+  'workbench.editors.request.settings.maxMessageSize': '最大消息大小',
+  'workbench.editors.request.settings.maxMessageSizeInfo':
+    '会话接受的最大入站消息。超过上限的消息不会被捕获：会话以代码 1009（Message Too Big）关闭并注明两个大小，自动重连也不会重新打开——这是客户端的请求。留空表示不设置每请求上限；桌面运行时最多组装 128 MB 的消息，浏览器不设限制。',
+  'workbench.editors.request.settings.maxMessageSizePlaceholder': '无限制（默认）',
+  'workbench.editors.request.settings.followRedirectsWsInfo':
+    '跟随握手的 3xx 应答并拨号其 Location——认证网关弹回升级请求的方式。默认关闭，这是 WebSocket 标准自身的规则：被重定向的握手会失败并注明重定向。当会话在桌面应用或服务器上运行时生效；浏览器从不跟随。',
+  'workbench.editors.request.settings.maxRedirectsWsInfo':
+    '一次连接在因超出限制而报错前最多可跟随多少次握手重定向。留空表示默认值 20。',
   'workbench.editors.request.settings.managed.browserKicker': '浏览器管理',
   'workbench.editors.request.settings.managed.nodeKicker': '运行时管理',
   'workbench.editors.request.settings.managed.browserIntro':
@@ -562,6 +570,23 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.settings.managed.browserStore': '浏览器信任库',
   'workbench.editors.request.settings.managed.about20': '~20',
   'workbench.editors.request.settings.managed.notSent': '不发送',
+  'workbench.editors.request.settings.managed.offered': '已提供',
+  'workbench.editors.request.settings.managed.none': '无',
+  'workbench.editors.request.settings.managed.never': '从不',
+  'workbench.editors.request.settings.managed.websocketOnly': '仅 WebSocket',
+  'workbench.editors.request.settings.managed.http2': 'HTTP/2',
+  'workbench.editors.request.settings.managed.compression': '压缩',
+  'workbench.editors.request.settings.managed.compressionWsDesc':
+    '每次握手都会提供 permessage-deflate，由服务器决定帧是否压缩；“已连接”行显示协商结果。该提议无法按请求撤回。',
+  'workbench.editors.request.settings.managed.compressionGrpcDesc':
+    '消息以未压缩形式发出，且不协商任何 grpc-encoding；服务器返回的压缩帧会显示为已压缩，而不会被解码。',
+  'workbench.editors.request.settings.managed.transport': '传输',
+  'workbench.editors.request.settings.managed.transportSocketioDesc':
+    '会话直接拨号 WebSocket 传输，跳过官方客户端起始并从中升级的 HTTP 长轮询握手。',
+  'workbench.editors.request.settings.managed.httpVersionGrpcDesc':
+    'gRPC 仅运行于 HTTP/2：TLS 通道通过 ALPN 协商 h2，明文通道以先验知识方式使用 h2。',
+  'workbench.editors.request.settings.managed.followRedirectsBrowserDesc':
+    '浏览器从不跟随被重定向的握手；3xx 应答会使连接失败。要跟随重定向，请在桌面应用或服务器上运行会话。',
   'workbench.editors.request.settings.managed.httpVersion': 'HTTP 版本',
   'workbench.editors.request.settings.managed.httpVersionDesc':
     '浏览器按连接协商 HTTP/1.1、HTTP/2 或 HTTP/3；fetch API 不提供版本选择器。',

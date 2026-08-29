@@ -12,12 +12,23 @@ import type { Translate } from '@openheaders/ui/context/LocaleContext';
 import type { InfoPopoverContent } from '@openheaders/ui/shared/info-popover';
 import { WS_GROUP_LABEL_KEY, type WsSettingsGroupKey } from './settings-groups';
 
-export type WsInfoKey = 'subprotocols' | 'unixSocket' | 'timeout' | 'handshakePath' | 'namespace';
+export type WsInfoKey =
+  | 'subprotocols'
+  | 'unixSocket'
+  | 'timeout'
+  | 'maxMessageSize'
+  | 'followRedirects'
+  | 'maxRedirects'
+  | 'handshakePath'
+  | 'namespace';
 
 const TITLE_KEY: Record<WsInfoKey, MessageKey> = {
   subprotocols: 'workbench.editors.websocket.settings.subprotocolsLabel',
   unixSocket: 'workbench.editors.websocket.settings.unixSocketLabel',
   timeout: 'workbench.editors.websocket.settings.timeoutLabel',
+  maxMessageSize: 'workbench.editors.request.settings.maxMessageSize',
+  followRedirects: 'workbench.editors.request.settings.followRedirects',
+  maxRedirects: 'workbench.editors.request.settings.maxRedirects',
   handshakePath: 'workbench.editors.websocket.settings.handshakePathLabel',
   namespace: 'workbench.editors.websocket.settings.namespaceLabel',
 };
@@ -26,6 +37,9 @@ const SUMMARY_KEY: Record<WsInfoKey, MessageKey> = {
   subprotocols: 'workbench.editors.websocket.settings.subprotocolsHelp',
   unixSocket: 'workbench.editors.websocket.settings.unixSocketHelp',
   timeout: 'workbench.editors.websocket.settings.timeoutHelp',
+  maxMessageSize: 'workbench.editors.request.settings.maxMessageSizeInfo',
+  followRedirects: 'workbench.editors.request.settings.followRedirectsWsInfo',
+  maxRedirects: 'workbench.editors.request.settings.maxRedirectsWsInfo',
   handshakePath: 'workbench.editors.websocket.settings.handshakePathHelp',
   namespace: 'workbench.editors.websocket.settings.namespaceHelp',
 };
@@ -34,6 +48,9 @@ const KICKER_GROUP: Record<WsInfoKey, WsSettingsGroupKey> = {
   subprotocols: 'connection',
   unixSocket: 'connection',
   timeout: 'connection',
+  maxMessageSize: 'connection',
+  followRedirects: 'connection',
+  maxRedirects: 'connection',
   handshakePath: 'socketio',
   namespace: 'socketio',
 };

@@ -548,6 +548,14 @@ export const workbenchEditorsRequest = {
     'Maximum response body size read off the wire; anything past it is cut off and the response is marked as truncated. Leave empty for the default limit of 2,048 KB (2 MB). Raise it up to 10,240 KB (10 MB) for larger payloads, or lower it to test how a truncated response looks.',
 
   // ── Settings tab — runtime-managed fact sheets ─────────────────────
+  'workbench.editors.request.settings.maxMessageSize': 'Max message size',
+  'workbench.editors.request.settings.maxMessageSizeInfo':
+    'Largest inbound message the session accepts. A message over the cap is never captured: the session closes with code 1009 (Message Too Big) naming both sizes, and auto-reconnect does not reopen it — the client asked. Leave empty for no per-request cap; the desktop runtime assembles messages up to 128 MB, the browser sets no limit.',
+  'workbench.editors.request.settings.maxMessageSizePlaceholder': 'No limit (default)',
+  'workbench.editors.request.settings.followRedirectsWsInfo':
+    'Follow a 3xx answer to the handshake and dial its Location — the shape an auth gateway bounces upgrades in. Off by default, the WebSocket standard’s own rule: a redirected handshake fails, naming the redirect. Applies when the session runs on the desktop app or server; browsers never follow.',
+  'workbench.editors.request.settings.maxRedirectsWsInfo':
+    'How many handshake redirects a connect may follow before failing with an error naming the limit. Leave empty for the default of 20.',
   'workbench.editors.request.settings.managed.browserKicker': 'Browser-managed',
   'workbench.editors.request.settings.managed.nodeKicker': 'Runtime-managed',
   'workbench.editors.request.settings.managed.browserIntro':
@@ -566,6 +574,23 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.settings.managed.browserStore': 'Browser store',
   'workbench.editors.request.settings.managed.about20': '~20',
   'workbench.editors.request.settings.managed.notSent': 'Not sent',
+  'workbench.editors.request.settings.managed.offered': 'Offered',
+  'workbench.editors.request.settings.managed.none': 'None',
+  'workbench.editors.request.settings.managed.never': 'Never',
+  'workbench.editors.request.settings.managed.websocketOnly': 'WebSocket only',
+  'workbench.editors.request.settings.managed.http2': 'HTTP/2',
+  'workbench.editors.request.settings.managed.compression': 'Compression',
+  'workbench.editors.request.settings.managed.compressionWsDesc':
+    'permessage-deflate is offered on every handshake and the server decides whether frames are compressed; the Connected row shows what was negotiated. The offer cannot be withheld per request.',
+  'workbench.editors.request.settings.managed.compressionGrpcDesc':
+    'Messages go out uncompressed and no grpc-encoding is negotiated; a compressed frame from the server is shown as compressed, not decoded.',
+  'workbench.editors.request.settings.managed.transport': 'Transport',
+  'workbench.editors.request.settings.managed.transportSocketioDesc':
+    'The session dials the WebSocket transport directly, skipping the HTTP long-polling handshake the official client starts with and upgrades from.',
+  'workbench.editors.request.settings.managed.httpVersionGrpcDesc':
+    'gRPC rides HTTP/2 only: TLS channels negotiate h2 through ALPN, plaintext channels speak h2 with prior knowledge.',
+  'workbench.editors.request.settings.managed.followRedirectsBrowserDesc':
+    'The browser never follows a redirected handshake; a 3xx answer fails the connection. Run the session on the desktop app or server to follow redirects.',
   'workbench.editors.request.settings.managed.httpVersion': 'HTTP version',
   'workbench.editors.request.settings.managed.httpVersionDesc':
     'The browser negotiates HTTP/1.1, HTTP/2, or HTTP/3 per connection; the fetch API does not expose a version selector.',

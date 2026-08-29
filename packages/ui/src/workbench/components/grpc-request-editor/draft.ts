@@ -44,6 +44,8 @@ export interface GrpcDraft {
    *  `undefined` = a normal TCP connection. */
   unixSocketPath: string | undefined;
   timeoutMs: number | undefined;
+  /** The response body cap — `undefined` = the runtime's 2 MiB default. */
+  maxResponseBytes: number | undefined;
   /** Concrete like `auth` — absent on the entity reads as `true`. */
   sslVerification: boolean;
   /** The rest of the TLS policy — `undefined` = the runtime default. */
@@ -69,6 +71,7 @@ export interface GrpcRequestUpdates {
   proxyCredentialRef: string | undefined;
   unixSocketPath: string | undefined;
   timeoutMs: number | undefined;
+  maxResponseBytes: number | undefined;
   sslVerification: boolean;
   clientCertificateRef: string | undefined;
   tlsMinVersion: TlsVersion | undefined;
@@ -117,6 +120,7 @@ export function draftFromGrpcRequest(req: GrpcRequest): GrpcDraft {
     proxyCredentialRef: req.proxyCredentialRef,
     unixSocketPath: req.unixSocketPath,
     timeoutMs: req.timeoutMs,
+    maxResponseBytes: req.maxResponseBytes,
     sslVerification: req.sslVerification ?? true,
     clientCertificateRef: req.clientCertificateRef,
     tlsMinVersion: req.tlsMinVersion,
@@ -142,6 +146,7 @@ export function buildGrpcRequestUpdates(draft: GrpcDraft): GrpcRequestUpdates {
     proxyCredentialRef: draft.proxyCredentialRef,
     unixSocketPath: draft.unixSocketPath,
     timeoutMs: draft.timeoutMs,
+    maxResponseBytes: draft.maxResponseBytes,
     sslVerification: draft.sslVerification,
     clientCertificateRef: draft.clientCertificateRef,
     tlsMinVersion: draft.tlsMinVersion,

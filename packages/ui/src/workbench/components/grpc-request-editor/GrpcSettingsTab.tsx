@@ -6,7 +6,11 @@
  * · control` rows from the shared settings-row family with the
  * effective defaults legible in the controls, modified dots, and
  * per-row resets; the Connection group opens on the shared `DialRows`
- * block, the TLS & trust group is the shared `TlsTrustGroup` block.
+ * block and closes on the response size limit (the HTTP request's
+ * cap on the channel's body), the TLS & trust group is the shared
+ * `TlsTrustGroup` block. On node runtimes the runtime-managed sheet
+ * under the groups states what the channel fixes: no compression,
+ * HTTP/2 only.
  *
  * The tab edits the draft directly, so the dots track distance from
  * the PROTOCOL defaults — there is no saved-baseline (unsaved) plane
@@ -18,15 +22,31 @@
  * field, so it wears neither dot nor reset.
  */
 
+import { getCapability, type RequestRuntimeKind } from '@openheaders/core/capabilities';
 import {
   isValidUnixSocketPath,
   MAX_REQUEST_TIMEOUT_MS,
+  MAX_RESPONSE_BYTES,
   MAX_UNIX_SOCKET_PATH_LENGTH,
   MIN_REQUEST_TIMEOUT_MS,
+  MIN_RESPONSE_BYTES,
 } from '@openheaders/core/schemas';
 import { useT } from '@openheaders/ui/context/LocaleContext';
-import { durationMsInterpreter, formatDurationMs, numericPresets } from '@openheaders/ui/shared/combo-knob';
-import { ComboKnobRow, GroupSection, KnobRow, TextKnobRow } from '@openheaders/ui/shared/settings-rows';
+import {
+  byteSizeInterpreter,
+  durationMsInterpreter,
+  formatByteSize,
+  formatDurationMs,
+  numericPresets,
+} from '@openheaders/ui/shared/combo-knob';
+import {
+  ComboKnobRow,
+  GroupSection,
+  KnobRow,
+  type RuntimeManagedRowDef,
+  RuntimeManagedSheet,
+  TextKnobRow,
+} from '@openheaders/ui/shared/settings-rows';
 import { ConfigProvider, theme } from 'antd';
 import type React from 'react';
 import { useState } from 'react';
@@ -35,7 +55,7 @@ import DialRows, { isDialModified } from '../shared/dial/DialRows';
 import TlsTrustGroup from '../shared/tls-trust/TlsTrustGroup';
 import type { GrpcDraft } from './draft';
 import { grpcSettingsGroupInfo, grpcSettingsRowInfo } from './GrpcSettingsRowInfo';
-import { GRPC_GROUP_LABEL_KEY } from './settings-groups';
+import { GRPC_GROUP_LABEL_KEY, GRPC_GROUP_ORDER, type GrpcSettingsGroupKey } from './settings-groups';
 
 /** The call timeout is app milliseconds on the wire — free text
  *  becomes concrete candidates ("30" → "30 ms" / "30 s"); readings
@@ -43,6 +63,30 @@ import { GRPC_GROUP_LABEL_KEY } from './settings-groups';
  *  the violated bound. */
 const interpretTimeout = durationMsInterpreter({ min: MIN_REQUEST_TIMEOUT_MS, max: MAX_REQUEST_TIMEOUT_MS });
 const TIMEOUT_PRESETS = numericPresets([1_000, 5_000, 10_000, 30_000, 60_000], formatDurationMs);
+const interpretResponseSize = byteSizeInterpreter({ min: MIN_RESPONSE_BYTES, max: MAX_RESPONSE_BYTES });
+const SIZE_PRESETS = numericPresets(
+  [256, 512, 1024, 2048, 5120, 10240].map((kb) => kb * 1024),
+  formatByteSize,
+);
+
+/** The facts the channel fixes for every call — the runtime-managed
+ *  sheet's rows, node runtimes only (the browser has no gRPC wire). */
+const NODE_MANAGED: RuntimeManagedRowDef<GrpcSettingsGroupKey>[] = [
+  {
+    labelKey: 'workbench.editors.request.settings.managed.compression',
+    valueKey: 'workbench.editors.request.settings.managed.none',
+    descriptionKey: 'workbench.editors.request.settings.managed.compressionGrpcDesc',
+    group: 'connection',
+    testId: 'grpc-managed-compression',
+  },
+  {
+    labelKey: 'workbench.editors.request.settings.managed.httpVersion',
+    valueKey: 'workbench.editors.request.settings.managed.http2',
+    descriptionKey: 'workbench.editors.request.settings.managed.httpVersionGrpcDesc',
+    group: 'connection',
+    testId: 'grpc-managed-http-version',
+  },
+];
 
 /** Session-scoped memory of the group folds: the tab unmounts on
  *  every editor tab switch, and a fold choice must survive that.
@@ -65,6 +109,7 @@ const GrpcSettingsTab: React.FC<GrpcSettingsTabProps> = ({
 }) => {
   const t = useT();
   const { token } = theme.useToken();
+  const runtime: RequestRuntimeKind = getCapability('requestRuntime')?.() ?? 'browser';
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>(() => ({ ...sessionCollapsed }));
   const toggleGroup = (key: string): void =>
     setCollapsed((c) => {
@@ -73,7 +118,10 @@ const GrpcSettingsTab: React.FC<GrpcSettingsTabProps> = ({
       return { ...c, [key]: next };
     });
   const connectionModified =
-    isDialModified(draft) || draft.unixSocketPath !== undefined || draft.timeoutMs !== undefined;
+    isDialModified(draft) ||
+    draft.unixSocketPath !== undefined ||
+    draft.timeoutMs !== undefined ||
+    draft.maxResponseBytes !== undefined;
 
   return (
     <ConfigProvider
@@ -129,6 +177,17 @@ const GrpcSettingsTab: React.FC<GrpcSettingsTabProps> = ({
             placeholder={t('workbench.editors.grpc.settings.timeoutPlaceholder')}
             testId="grpc-timeout"
           />
+          <ComboKnobRow
+            label={t('workbench.editors.request.settings.responseSizeLimit')}
+            value={draft.maxResponseBytes}
+            onChange={(maxResponseBytes) => setDraft((d) => ({ ...d, maxResponseBytes }))}
+            info={grpcSettingsRowInfo(t, 'responseSizeLimit')}
+            presets={SIZE_PRESETS}
+            interpret={interpretResponseSize}
+            format={formatByteSize}
+            placeholder={t('workbench.editors.request.settings.responseSizeLimitPlaceholder')}
+            testId="grpc-response-size-limit"
+          />
         </GroupSection>
         <TlsTrustGroup
           groupLabel={t(GRPC_GROUP_LABEL_KEY.tls)}
@@ -153,6 +212,15 @@ const GrpcSettingsTab: React.FC<GrpcSettingsTabProps> = ({
             testId="grpc-send-invalid-message"
           />
         </GroupSection>
+        <RuntimeManagedSheet
+          runtime={runtime}
+          rows={runtime === 'node' ? NODE_MANAGED : []}
+          groupOrder={GRPC_GROUP_ORDER}
+          groupLabel={(group) => t(GRPC_GROUP_LABEL_KEY[group])}
+          groupInfo={(group) => grpcSettingsGroupInfo(t, group)}
+          expanded={(group) => collapsed[`sheet-${group}`] !== true}
+          onToggle={(group) => toggleGroup(`sheet-${group}`)}
+        />
       </div>
     </ConfigProvider>
   );

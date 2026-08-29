@@ -102,6 +102,7 @@ const emptyGrpcDraft = (): GrpcDraft => ({
   sslVerification: true,
   clientCertificateRef: undefined,
   tlsMinVersion: undefined,
+  maxResponseBytes: undefined,
   tlsMaxVersion: undefined,
   tlsCipherSuites: undefined,
   sniServerName: undefined,

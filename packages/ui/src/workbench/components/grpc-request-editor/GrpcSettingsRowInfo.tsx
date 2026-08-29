@@ -12,23 +12,26 @@ import type { Translate } from '@openheaders/ui/context/LocaleContext';
 import type { InfoPopoverContent } from '@openheaders/ui/shared/info-popover';
 import { GRPC_GROUP_LABEL_KEY, type GrpcSettingsGroupKey } from './settings-groups';
 
-export type GrpcInfoKey = 'unixSocket' | 'timeout' | 'sendInvalidMessage';
+export type GrpcInfoKey = 'unixSocket' | 'timeout' | 'responseSizeLimit' | 'sendInvalidMessage';
 
 const TITLE_KEY: Record<GrpcInfoKey, MessageKey> = {
   unixSocket: 'workbench.editors.grpc.settings.unixSocketLabel',
   timeout: 'workbench.editors.grpc.settings.timeoutLabel',
+  responseSizeLimit: 'workbench.editors.request.settings.responseSizeLimit',
   sendInvalidMessage: 'workbench.editors.grpc.settings.sendInvalidMessageLabel',
 };
 
 const SUMMARY_KEY: Record<GrpcInfoKey, MessageKey> = {
   unixSocket: 'workbench.editors.grpc.settings.unixSocketHelp',
   timeout: 'workbench.editors.grpc.settings.timeoutHelp',
+  responseSizeLimit: 'workbench.editors.request.settings.responseSizeLimitInfo',
   sendInvalidMessage: 'workbench.editors.grpc.settings.sendInvalidMessageHelp',
 };
 
 const KICKER_GROUP: Record<GrpcInfoKey, GrpcSettingsGroupKey> = {
   unixSocket: 'connection',
   timeout: 'connection',
+  responseSizeLimit: 'connection',
   sendInvalidMessage: 'messages',
 };
 

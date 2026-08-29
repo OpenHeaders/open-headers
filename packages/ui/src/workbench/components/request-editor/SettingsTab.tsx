@@ -167,9 +167,8 @@
  * own slice highlighted, the network column-popover idiom.
  */
 
-import { EyeInvisibleOutlined, EyeOutlined } from '@ant-design/icons';
 import type { MessageKey } from '@openheaders/i18n';
-import { Button, ConfigProvider, Typography, theme } from 'antd';
+import { ConfigProvider, theme } from 'antd';
 import type React from 'react';
 import { useState } from 'react';
 import { getCapability, type RequestRuntimeKind } from '@openheaders/core/capabilities';
@@ -193,11 +192,11 @@ import {
   formatDurationMs,
   numericPresets,
 } from '@openheaders/ui/shared/combo-knob';
-import { InfoTrigger } from '@openheaders/ui/shared/info-popover';
 import {
   ComboKnobRow,
   GroupSection,
   KnobRow,
+  RuntimeManagedSheet,
   SelectKnobRow,
   TextKnobRow,
 } from '@openheaders/ui/shared/settings-rows';
@@ -213,8 +212,6 @@ import {
   settingsRowInfo,
 } from './SettingsRowInfo';
 import { useScriptExecutionMode } from './use-script-execution-mode';
-
-const { Text } = Typography;
 
 export interface RequestSettingsDraft {
   /** Undefined treated as 'omit' (default). */
@@ -446,32 +443,9 @@ const SCRIPTS_SAFE_FORWARDED_ROW: RuntimeManagedDef = {
   testId: 'oh-managed-scripts-row',
 };
 
-interface RuntimeManagedSheet {
-  rows: RuntimeManagedDef[];
-  /** Reveal-toggle variants: "N <noun>" collapsed / "Hide <noun> settings" open. */
-  countKey: MessageKey;
-  hideKey: MessageKey;
-  /** Kicker on each row's info popover. */
-  kickerKey: MessageKey;
-  /** Intro line above the read-only rows. */
-  introKey: MessageKey;
-}
-
-const MANAGED_SHEETS: Record<RequestRuntimeKind, RuntimeManagedSheet> = {
-  browser: {
-    rows: BROWSER_MANAGED,
-    countKey: 'workbench.editors.request.settings.managed.countBrowser',
-    hideKey: 'workbench.editors.request.settings.managed.hideBrowser',
-    kickerKey: 'workbench.editors.request.settings.managed.browserKicker',
-    introKey: 'workbench.editors.request.settings.managed.browserIntro',
-  },
-  node: {
-    rows: NODE_MANAGED,
-    countKey: 'workbench.editors.request.settings.managed.countNode',
-    hideKey: 'workbench.editors.request.settings.managed.hideNode',
-    kickerKey: 'workbench.editors.request.settings.managed.nodeKicker',
-    introKey: 'workbench.editors.request.settings.managed.nodeIntro',
-  },
+const MANAGED_ROWS: Record<RequestRuntimeKind, RuntimeManagedDef[]> = {
+  browser: BROWSER_MANAGED,
+  node: NODE_MANAGED,
 };
 
 /** Session-scoped memory of the group folds: the tab unmounts on
@@ -494,37 +468,6 @@ const SIZE_PRESETS = numericPresets(
 const REDIRECT_BOUNDS = { min: MIN_MAX_REDIRECTS, max: MAX_MAX_REDIRECTS };
 const REDIRECT_PRESET_VALUES = [5, 10, 20, 50];
 
-const RuntimeManagedRow: React.FC<RuntimeManagedDef & { kicker: string }> = ({
-  labelKey,
-  valueKey,
-  descriptionKey,
-  kicker,
-  tokens,
-  testId,
-}) => {
-  const { token } = theme.useToken();
-  const t = useT();
-  return (
-    <div
-      className="rules-settings-row"
-      data-testid={testId}
-      style={{ display: 'flex', alignItems: 'center', gap: 6, minHeight: 26 }}
-    >
-      <Text style={{ fontSize: 12, color: token.colorTextSecondary }}>{t(labelKey)}</Text>
-      <InfoTrigger
-        content={{
-          title: t(labelKey),
-          kicker,
-          summary: t(descriptionKey),
-          diagram: settingsExampleCard(tokens ?? []),
-        }}
-      />
-      <span style={{ flex: 1 }} />
-      <Text style={{ fontSize: 12, color: token.colorTextTertiary }}>{t(valueKey)}</Text>
-    </div>
-  );
-};
-
 const SettingsTab: React.FC<SettingsTabProps> = ({
   value,
   onChange,
@@ -533,15 +476,16 @@ const SettingsTab: React.FC<SettingsTabProps> = ({
 }) => {
   const { token } = theme.useToken();
   const t = useT();
-  const [showRuntimeManaged, setShowRuntimeManaged] = useState(false);
   const runtime: RequestRuntimeKind = getCapability('requestRuntime')?.() ?? 'browser';
   const scriptMode = useScriptExecutionMode(workspaceId);
-  const sheet = MANAGED_SHEETS[runtime];
   const remoteScriptsSafe = getCapability('remoteScriptRuntime')?.() === 'safe';
-  const sheetRows =
+  const managedRows =
     runtime === 'node' && !scriptMode.available
-      ? [...sheet.rows, remoteScriptsSafe ? SCRIPTS_SAFE_FORWARDED_ROW : SCRIPTS_NOT_RUN_ROW]
-      : sheet.rows;
+      ? [...MANAGED_ROWS[runtime], remoteScriptsSafe ? SCRIPTS_SAFE_FORWARDED_ROW : SCRIPTS_NOT_RUN_ROW]
+      : MANAGED_ROWS[runtime];
+  // Every fact popover leads with the shared example card, its slice
+  // lit — the same card the live knobs use.
+  const sheetRows = managedRows.map(({ tokens, ...def }) => ({ ...def, diagram: settingsExampleCard(tokens ?? []) }));
   // Redirect-cap candidates carry a localized "hops" unit, so the
   // interpreter is minted here where `t` lives rather than at module
   // scope; formatting inside the interpreter keeps the disabled
@@ -825,46 +769,15 @@ const SettingsTab: React.FC<SettingsTabProps> = ({
         )}
 
         </GroupSection>
-        <div style={{ marginTop: 8 }}>
-          <Button
-            size="small"
-            type="text"
-            icon={showRuntimeManaged ? <EyeInvisibleOutlined /> : <EyeOutlined />}
-            onClick={() => setShowRuntimeManaged((s) => !s)}
-            style={{ color: token.colorTextSecondary, fontSize: 12 }}
-          >
-            {showRuntimeManaged ? t(sheet.hideKey) : t(sheet.countKey, { count: sheetRows.length })}
-          </Button>
-        </div>
-        {showRuntimeManaged && (
-          <div
-            style={{
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 2,
-              padding: '6px 10px',
-              borderRadius: 6,
-              background: token.colorFillQuaternary,
-            }}
-          >
-            <Text style={{ fontSize: 11, color: token.colorTextTertiary, marginBottom: 2 }}>{t(sheet.introKey)}</Text>
-            {GROUP_ORDER.filter((group) => sheetRows.some((r) => r.group === group)).map((group) => (
-              <GroupSection
-                key={group}
-                label={t(GROUP_LABEL_KEY[group])}
-                expanded={collapsed[`sheet-${group}`] !== true}
-                onToggle={() => toggleGroup(`sheet-${group}`)}
-                info={settingsGroupInfo(t, group)}
-              >
-                {sheetRows
-                  .filter((r) => r.group === group)
-                  .map((def) => (
-                    <RuntimeManagedRow key={def.labelKey} {...def} kicker={t(sheet.kickerKey)} />
-                  ))}
-              </GroupSection>
-            ))}
-          </div>
-        )}
+        <RuntimeManagedSheet
+          runtime={runtime}
+          rows={sheetRows}
+          groupOrder={GROUP_ORDER}
+          groupLabel={(group) => t(GROUP_LABEL_KEY[group])}
+          groupInfo={(group) => settingsGroupInfo(t, group)}
+          expanded={(group) => collapsed[`sheet-${group}`] !== true}
+          onToggle={(group) => toggleGroup(`sheet-${group}`)}
+        />
       </div>
     </ConfigProvider>
   );

@@ -692,6 +692,14 @@ export const workbenchEditorsRequest = {
     'Antwort aussieht.',
 
   // ── Settings tab — runtime-managed fact sheets ─────────────────────
+  'workbench.editors.request.settings.maxMessageSize': 'Max. Nachrichtengröße',
+  'workbench.editors.request.settings.maxMessageSizeInfo':
+    'Größte eingehende Nachricht, die die Sitzung annimmt. Eine Nachricht über dem Limit wird nie erfasst: Die Sitzung schließt mit Code 1009 (Message Too Big) und nennt beide Größen, und die automatische Wiederverbindung öffnet sie nicht erneut — der Client hat es verlangt. Leer lassen für kein Limit pro Anfrage; die Desktop-Laufzeit setzt Nachrichten bis 128 MB zusammen, der Browser setzt kein Limit.',
+  'workbench.editors.request.settings.maxMessageSizePlaceholder': 'Kein Limit (Standard)',
+  'workbench.editors.request.settings.followRedirectsWsInfo':
+    'Folgt einer 3xx-Antwort auf den Handshake und wählt deren Location — die Form, in der ein Auth-Gateway Upgrades umleitet. Standardmäßig aus, die Regel des WebSocket-Standards selbst: Ein umgeleiteter Handshake schlägt fehl und nennt die Umleitung. Gilt, wenn die Sitzung in der Desktop-App oder auf dem Server läuft; Browser folgen nie.',
+  'workbench.editors.request.settings.maxRedirectsWsInfo':
+    'Wie vielen Handshake-Umleitungen ein Verbindungsaufbau folgen darf, bevor er mit einem Fehler scheitert, der das Limit nennt. Leer lassen für den Standardwert 20.',
   'workbench.editors.request.settings.managed.browserKicker': 'Vom Browser verwaltet',
   'workbench.editors.request.settings.managed.nodeKicker': 'Von der Laufzeitumgebung verwaltet',
   'workbench.editors.request.settings.managed.browserIntro':
@@ -712,6 +720,23 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.settings.managed.browserStore': 'Browser-Speicher',
   'workbench.editors.request.settings.managed.about20': '~20',
   'workbench.editors.request.settings.managed.notSent': 'Nicht gesendet',
+  'workbench.editors.request.settings.managed.offered': 'Angeboten',
+  'workbench.editors.request.settings.managed.none': 'Keine',
+  'workbench.editors.request.settings.managed.never': 'Nie',
+  'workbench.editors.request.settings.managed.websocketOnly': 'Nur WebSocket',
+  'workbench.editors.request.settings.managed.http2': 'HTTP/2',
+  'workbench.editors.request.settings.managed.compression': 'Komprimierung',
+  'workbench.editors.request.settings.managed.compressionWsDesc':
+    'permessage-deflate wird bei jedem Handshake angeboten und der Server entscheidet, ob Frames komprimiert werden; die Zeile „Verbunden“ zeigt, was ausgehandelt wurde. Das Angebot lässt sich nicht pro Anfrage zurückhalten.',
+  'workbench.editors.request.settings.managed.compressionGrpcDesc':
+    'Nachrichten gehen unkomprimiert hinaus und es wird kein grpc-encoding ausgehandelt; ein komprimierter Frame vom Server wird als komprimiert angezeigt, nicht dekodiert.',
+  'workbench.editors.request.settings.managed.transport': 'Transport',
+  'workbench.editors.request.settings.managed.transportSocketioDesc':
+    'Die Sitzung wählt den WebSocket-Transport direkt und überspringt den HTTP-Long-Polling-Handshake, mit dem der offizielle Client beginnt, bevor er upgradet.',
+  'workbench.editors.request.settings.managed.httpVersionGrpcDesc':
+    'gRPC läuft ausschließlich über HTTP/2: TLS-Kanäle handeln h2 über ALPN aus, Klartextkanäle sprechen h2 mit Prior Knowledge.',
+  'workbench.editors.request.settings.managed.followRedirectsBrowserDesc':
+    'Der Browser folgt einem umgeleiteten Handshake nie; eine 3xx-Antwort lässt die Verbindung scheitern. Führen Sie die Sitzung in der Desktop-App oder auf dem Server aus, um Umleitungen zu folgen.',
   'workbench.editors.request.settings.managed.httpVersion': 'HTTP-Version',
   'workbench.editors.request.settings.managed.httpVersionDesc':
     'Der Browser handelt HTTP/1.1, HTTP/2 oder HTTP/3 pro Verbindung aus; die fetch-API stellt keinen ' +

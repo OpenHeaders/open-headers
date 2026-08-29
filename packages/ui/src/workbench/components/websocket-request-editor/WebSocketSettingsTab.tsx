@@ -8,10 +8,16 @@
  * defaults legible in the controls, modified dots, and per-row
  * resets. The Socket.IO group renders on that flavor only; the
  * Connection group seats the shared `DialRows` block between the
- * subprotocol offer and the socket path; the Session resilience group
+ * subprotocol offer and the socket path and closes on the limits —
+ * the max message size (every runtime: the executor's own cap) and
+ * the handshake redirect pair (node runtimes; the browser client
+ * never follows); the Session resilience group
  * is the shared `SessionResilienceGroup` block (the raw flavor's idle
  * + heartbeat rows, the socketio flavor's idle row); the TLS & trust
- * group is the shared `TlsTrustGroup` block.
+ * group is the shared `TlsTrustGroup` block. The runtime-managed
+ * sheet under the groups states what the host fixes: the
+ * permessage-deflate offer, the socketio flavor's WebSocket-only
+ * transport, and on the browser the never-followed redirect.
  *
  * The tab edits the draft directly, so the dots track distance from
  * the PROTOCOL defaults — there is no saved-baseline (unsaved) plane
@@ -20,15 +26,35 @@
  * dial deadline unless the request carries one.
  */
 
+import { getCapability, type RequestRuntimeKind } from '@openheaders/core/capabilities';
 import {
   isValidUnixSocketPath,
+  MAX_MAX_REDIRECTS,
   MAX_REQUEST_TIMEOUT_MS,
+  MAX_RESPONSE_BYTES,
   MAX_UNIX_SOCKET_PATH_LENGTH,
+  MIN_MAX_REDIRECTS,
   MIN_REQUEST_TIMEOUT_MS,
+  MIN_RESPONSE_BYTES,
 } from '@openheaders/core/schemas';
 import { useT } from '@openheaders/ui/context/LocaleContext';
-import { durationMsInterpreter, formatDurationMs, numericPresets } from '@openheaders/ui/shared/combo-knob';
-import { ComboKnobRow, GroupSection, TagsKnobRow, TextKnobRow } from '@openheaders/ui/shared/settings-rows';
+import {
+  byteSizeInterpreter,
+  countInterpreter,
+  durationMsInterpreter,
+  formatByteSize,
+  formatDurationMs,
+  numericPresets,
+} from '@openheaders/ui/shared/combo-knob';
+import {
+  ComboKnobRow,
+  GroupSection,
+  KnobRow,
+  type RuntimeManagedRowDef,
+  RuntimeManagedSheet,
+  TagsKnobRow,
+  TextKnobRow,
+} from '@openheaders/ui/shared/settings-rows';
 import { ConfigProvider, theme } from 'antd';
 import type React from 'react';
 import { useState } from 'react';
@@ -37,7 +63,7 @@ import DialRows, { isDialModified } from '../shared/dial/DialRows';
 import SessionResilienceGroup from '../shared/resilience/SessionResilienceGroup';
 import TlsTrustGroup from '../shared/tls-trust/TlsTrustGroup';
 import type { WebSocketDraft } from './draft';
-import { WS_GROUP_LABEL_KEY } from './settings-groups';
+import { WS_GROUP_LABEL_KEY, WS_GROUP_ORDER, type WsSettingsGroupKey } from './settings-groups';
 import { wsSettingsGroupInfo, wsSettingsRowInfo } from './WebSocketSettingsRowInfo';
 
 /** The Socket.IO handshake path and namespace are URL paths; cap
@@ -50,6 +76,38 @@ const MAX_SOCKETIO_PATH_LENGTH = 256;
  *  the violated bound. */
 const interpretTimeout = durationMsInterpreter({ min: MIN_REQUEST_TIMEOUT_MS, max: MAX_REQUEST_TIMEOUT_MS });
 const TIMEOUT_PRESETS = numericPresets([1_000, 5_000, 10_000, 30_000, 60_000], formatDurationMs);
+/** The message cap shares the HTTP response cap's bounds. */
+const interpretMessageSize = byteSizeInterpreter({ min: MIN_RESPONSE_BYTES, max: MAX_RESPONSE_BYTES });
+const SIZE_PRESETS = numericPresets(
+  [256, 512, 1024, 2048, 5120, 10240].map((kb) => kb * 1024),
+  formatByteSize,
+);
+const REDIRECT_BOUNDS = { min: MIN_MAX_REDIRECTS, max: MAX_MAX_REDIRECTS };
+const REDIRECT_PRESET_VALUES = [5, 10, 20, 50];
+
+/** The facts the host fixes for every session — the runtime-managed
+ *  sheet's rows, in the tab's group vocabulary. */
+const MANAGED_COMPRESSION: RuntimeManagedRowDef<WsSettingsGroupKey> = {
+  labelKey: 'workbench.editors.request.settings.managed.compression',
+  valueKey: 'workbench.editors.request.settings.managed.offered',
+  descriptionKey: 'workbench.editors.request.settings.managed.compressionWsDesc',
+  group: 'connection',
+  testId: 'websocket-managed-compression',
+};
+const MANAGED_TRANSPORT: RuntimeManagedRowDef<WsSettingsGroupKey> = {
+  labelKey: 'workbench.editors.request.settings.managed.transport',
+  valueKey: 'workbench.editors.request.settings.managed.websocketOnly',
+  descriptionKey: 'workbench.editors.request.settings.managed.transportSocketioDesc',
+  group: 'socketio',
+  testId: 'websocket-managed-transport',
+};
+const BROWSER_MANAGED_REDIRECTS: RuntimeManagedRowDef<WsSettingsGroupKey> = {
+  labelKey: 'workbench.editors.request.settings.followRedirects',
+  valueKey: 'workbench.editors.request.settings.managed.never',
+  descriptionKey: 'workbench.editors.request.settings.managed.followRedirectsBrowserDesc',
+  group: 'connection',
+  testId: 'websocket-managed-follow-redirects',
+};
 
 /** Session-scoped memory of the group folds: the tab unmounts on
  *  every editor tab switch, and a fold choice must survive that.
@@ -66,6 +124,17 @@ interface WebSocketSettingsTabProps {
 const WebSocketSettingsTab: React.FC<WebSocketSettingsTabProps> = ({ draft, setDraft, socketioFlavor }) => {
   const t = useT();
   const { token } = theme.useToken();
+  const runtime: RequestRuntimeKind = getCapability('requestRuntime')?.() ?? 'browser';
+  // Redirect-cap candidates carry a localized "hops" unit, so the
+  // interpreter is minted here where `t` lives (the HTTP tab's mint).
+  const formatHops = (count: number): string => t('workbench.editors.request.settings.maxRedirectsHops', { count });
+  const redirectPresets = REDIRECT_PRESET_VALUES.map((v) => ({ value: v, label: formatHops(v) }));
+  const interpretHops = countInterpreter(REDIRECT_BOUNDS, formatHops);
+  const managedRows = [
+    MANAGED_COMPRESSION,
+    ...(socketioFlavor ? [MANAGED_TRANSPORT] : []),
+    ...(runtime === 'browser' ? [BROWSER_MANAGED_REDIRECTS] : []),
+  ];
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>(() => ({ ...sessionCollapsed }));
   const toggleGroup = (key: string): void =>
     setCollapsed((c) => {
@@ -77,7 +146,10 @@ const WebSocketSettingsTab: React.FC<WebSocketSettingsTabProps> = ({ draft, setD
     draft.subprotocols.length > 0 ||
     isDialModified(draft) ||
     draft.unixSocketPath !== undefined ||
-    draft.timeoutMs !== undefined;
+    draft.timeoutMs !== undefined ||
+    draft.maxMessageBytes !== undefined ||
+    draft.followRedirects ||
+    draft.maxRedirects !== undefined;
   const socketioModified = draft.namespace !== '' || draft.handshakePath !== '';
 
   return (
@@ -143,6 +215,43 @@ const WebSocketSettingsTab: React.FC<WebSocketSettingsTabProps> = ({ draft, setD
             placeholder={t('workbench.editors.websocket.settings.timeoutPlaceholder')}
             testId="websocket-timeout"
           />
+          <ComboKnobRow
+            label={t('workbench.editors.request.settings.maxMessageSize')}
+            value={draft.maxMessageBytes}
+            onChange={(maxMessageBytes) => setDraft((d) => ({ ...d, maxMessageBytes }))}
+            info={wsSettingsRowInfo(t, 'maxMessageSize')}
+            presets={SIZE_PRESETS}
+            interpret={interpretMessageSize}
+            format={formatByteSize}
+            placeholder={t('workbench.editors.request.settings.maxMessageSizePlaceholder')}
+            testId="websocket-max-message-size"
+          />
+          {runtime === 'node' && (
+            <>
+              <KnobRow
+                label={t('workbench.editors.request.settings.followRedirects')}
+                checked={draft.followRedirects}
+                modified={draft.followRedirects}
+                onReset={() => setDraft((d) => ({ ...d, followRedirects: false }))}
+                onChange={(followRedirects) => setDraft((d) => ({ ...d, followRedirects }))}
+                info={wsSettingsRowInfo(t, 'followRedirects')}
+                testId="websocket-follow-redirects"
+              />
+              {draft.followRedirects && (
+                <ComboKnobRow
+                  label={t('workbench.editors.request.settings.maxRedirects')}
+                  value={draft.maxRedirects}
+                  onChange={(maxRedirects) => setDraft((d) => ({ ...d, maxRedirects }))}
+                  info={wsSettingsRowInfo(t, 'maxRedirects')}
+                  presets={redirectPresets}
+                  interpret={interpretHops}
+                  format={formatHops}
+                  placeholder={t('workbench.editors.request.settings.maxRedirectsPlaceholder')}
+                  testId="websocket-max-redirects"
+                />
+              )}
+            </>
+          )}
         </GroupSection>
         <SessionResilienceGroup
           groupLabel={t(WS_GROUP_LABEL_KEY.resilience)}
@@ -192,6 +301,15 @@ const WebSocketSettingsTab: React.FC<WebSocketSettingsTabProps> = ({ draft, setD
           value={draft}
           onChange={(next) => setDraft((d) => ({ ...d, ...next, sslVerification: next.sslVerification !== false }))}
           testIdPrefix="websocket"
+        />
+        <RuntimeManagedSheet
+          runtime={runtime}
+          rows={managedRows}
+          groupOrder={WS_GROUP_ORDER}
+          groupLabel={(group) => t(WS_GROUP_LABEL_KEY[group])}
+          groupInfo={(group) => wsSettingsGroupInfo(t, group)}
+          expanded={(group) => collapsed[`sheet-${group}`] !== true}
+          onToggle={(group) => toggleGroup(`sheet-${group}`)}
         />
       </div>
     </ConfigProvider>

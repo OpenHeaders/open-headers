@@ -77,6 +77,12 @@ export interface WebSocketDraft {
    *  `undefined` = a normal TCP connection. */
   unixSocketPath: string | undefined;
   timeoutMs: number | undefined;
+  /** The limits — the redirect switch concrete (absent on the entity
+   *  reads as off, the WebSocket standard's rule), the caps
+   *  `undefined` = the runtime default. */
+  maxMessageBytes: number | undefined;
+  followRedirects: boolean;
+  maxRedirects: number | undefined;
   /** The resilience policy — the two switches concrete (absent on the
    *  entity reads as off / backoff on), the rest `undefined` = the
    *  runtime default. */
@@ -121,6 +127,9 @@ export interface WebSocketRequestUpdates {
   proxyCredentialRef: string | undefined;
   unixSocketPath: string | undefined;
   timeoutMs: number | undefined;
+  maxMessageBytes: number | undefined;
+  followRedirects: boolean;
+  maxRedirects: number | undefined;
   autoReconnect: boolean;
   reconnectPeriodMs: number | undefined;
   reconnectMaxAttempts: number | undefined;
@@ -263,6 +272,9 @@ export function draftFromWebSocketRequest(req: WebSocketRequest): WebSocketDraft
     proxyCredentialRef: req.proxyCredentialRef,
     unixSocketPath: req.unixSocketPath,
     timeoutMs: req.timeoutMs,
+    maxMessageBytes: req.maxMessageBytes,
+    followRedirects: req.followRedirects ?? false,
+    maxRedirects: req.maxRedirects,
     autoReconnect: req.autoReconnect ?? false,
     reconnectPeriodMs: req.reconnectPeriodMs,
     reconnectMaxAttempts: req.reconnectMaxAttempts,
@@ -303,6 +315,9 @@ export function buildWebSocketRequestUpdates(draft: WebSocketDraft): WebSocketRe
     proxyCredentialRef: draft.proxyCredentialRef,
     unixSocketPath: draft.unixSocketPath,
     timeoutMs: draft.timeoutMs,
+    maxMessageBytes: draft.maxMessageBytes,
+    followRedirects: draft.followRedirects,
+    maxRedirects: draft.maxRedirects,
     autoReconnect: draft.autoReconnect,
     reconnectPeriodMs: draft.reconnectPeriodMs,
     reconnectMaxAttempts: draft.reconnectMaxAttempts,
