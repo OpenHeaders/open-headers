@@ -33,7 +33,7 @@ function node(id: string, depth: number, parentId?: string): TreeNode {
   };
 }
 
-// col > [a, sub > [b], c], other
+// col > [a, sub > [b], c], other > [empty placeholder]
 const NODES: TreeNode[] = [
   node('col', 0),
   node('a', 1, 'col'),
@@ -41,6 +41,7 @@ const NODES: TreeNode[] = [
   node('b', 2, 'sub'),
   node('c', 1, 'col'),
   node('other', 0),
+  { ...node('other-empty', 1, 'other'), kind: 'placeholder' },
 ];
 
 const Tree: React.FC<{ nodes: TreeNode[]; dragging?: boolean }> = ({ nodes, dragging }) => {
@@ -75,6 +76,12 @@ describe('useGuideHover', () => {
     expect(litRows(getByTestId('tree'))).toEqual(['a@0', 'sub@0', 'b@0', 'c@0']);
     fireEvent.mouseOver(getByText('b'));
     expect(litRows(getByTestId('tree'))).toEqual(['b@1']);
+  });
+
+  it('lights an empty container guide from its placeholder scaffold', () => {
+    const { getByTestId, getByText } = render(<Tree nodes={NODES} />);
+    fireEvent.mouseOver(getByText('other-empty'));
+    expect(litRows(getByTestId('tree'))).toEqual(['other-empty@0']);
   });
 
   it('clears on a root row and when the pointer leaves the tree', () => {
