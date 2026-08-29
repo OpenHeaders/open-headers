@@ -12,7 +12,9 @@
  * `subprotocols`, `message`, `messageFormat`, `binaryEncoding`, `specLink`,
  * `unixSocketPath`, `timeoutMs`, the TLS policy (`sslVerification`, `clientCertificateRef`,
  * `tlsMinVersion`, `tlsMaxVersion`, `tlsCipherSuites`, `sniServerName`), the dial policy
- * (`resolveToAddress`, `proxyMode`, `proxyUrl`, `proxyCredentialRef`) — flows through
+ * (`resolveToAddress`, `proxyMode`, `proxyUrl`, `proxyCredentialRef`), the resilience
+ * policy (`autoReconnect`, `reconnectPeriodMs`, `reconnectMaxAttempts`, `reconnectBackoff`,
+ * `idleTimeoutMs`, `heartbeatMessage`, `heartbeatIntervalMs`) — flows through
  * `setField` scalars. `subprotocols`, `specLink` and
  * `auth` are container-valued; they route through the per-leaf
  * flatten-diff at the write site (the same treatment `auth` / `body`

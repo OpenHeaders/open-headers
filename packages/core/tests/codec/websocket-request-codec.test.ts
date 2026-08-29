@@ -116,6 +116,39 @@ describe('serializeWebSocketRequest', () => {
     ]);
   });
 
+  it('seats the resilience policy between the timeout and sslVerification in one fixed order', () => {
+    const out = serializeWebSocketRequest(
+      freshDocument(
+        websocketRequest({
+          sslVerification: false,
+          heartbeatIntervalMs: 15_000,
+          heartbeatMessage: 'ping',
+          idleTimeoutMs: 45_000,
+          reconnectBackoff: false,
+          reconnectMaxAttempts: 10,
+          reconnectPeriodMs: 2_000,
+          autoReconnect: true,
+          timeoutMs: 5_000,
+        }),
+      ),
+    );
+    const keys = Object.keys(YAML.parse(out.websocketYaml) as Record<string, unknown>);
+    expect(keys.slice(keys.indexOf('timeoutMs'), keys.indexOf('sslVerification') + 1)).toEqual([
+      'timeoutMs',
+      'autoReconnect',
+      'reconnectPeriodMs',
+      'reconnectMaxAttempts',
+      'reconnectBackoff',
+      'idleTimeoutMs',
+      'heartbeatMessage',
+      'heartbeatIntervalMs',
+      'sslVerification',
+    ]);
+    const parsed = parseWebSocketRequest(out.websocketYaml, { path: 'requests/live-events-wsrq0001' });
+    expect(parsed.value.reconnectMaxAttempts).toBe(10);
+    expect(parsed.value.heartbeatMessage).toBe('ping');
+  });
+
   it('rejects a proxy URL floating without its mode, and a direct mode carrying one', () => {
     const floating = serializeWebSocketRequest(
       freshDocument(websocketRequest({ proxyMode: 'url', proxyUrl: 'http://proxy.openheaders.io:8080' })),

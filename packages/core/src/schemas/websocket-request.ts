@@ -16,10 +16,12 @@ import * as v from 'valibot';
 import { PathSegmentSchema, RelativePathSchema, SchemaVersionSchema, UidSchema } from './common';
 import {
   ClientCertificateRefSchema,
+  HeartbeatMessageSchema,
   ProxyCredentialRefSchema,
   ProxyModeSchema,
   ProxyUrlSchema,
   proxyPairChecks,
+  ReconnectMaxAttemptsSchema,
   RequestTimeoutMsSchema,
   ResolveToAddressSchema,
   SniServerNameSchema,
@@ -274,6 +276,44 @@ const WebSocketRequestObjectSchema = v.object({
    * bounds as the HTTP request's timeout knob.
    */
   timeoutMs: v.optional(RequestTimeoutMsSchema),
+  /**
+   * Reopen the session after an OPEN connection drops without the
+   * client asking (severed socket, server close, liveness deadline) —
+   * redial on the reconnect period until it opens again or the user
+   * disconnects. Absent = off. A first connect that fails never
+   * retries; a Socket.IO server's own DISCONNECT packet is the one
+   * drop that never redials (the server said goodbye on purpose).
+   */
+  autoReconnect: v.optional(v.boolean()),
+  /** Wait (ms) between reconnect attempts. Absent = the runtime's 5 s
+   *  reference default. Same bounds as the connect timeout knob. */
+  reconnectPeriodMs: v.optional(RequestTimeoutMsSchema),
+  /** Cap on consecutive reconnect attempts after one drop — a
+   *  reconnect that opens resets the count. Absent = unlimited; a
+   *  spent cap settles the session as Reconnect gave up. */
+  reconnectMaxAttempts: v.optional(ReconnectMaxAttemptsSchema),
+  /** Double the wait per failed attempt up to the runtime's 60 s
+   *  ceiling with ±20 % jitter. Absent = ON; `false` = the exact
+   *  period every time. */
+  reconnectBackoff: v.optional(v.boolean()),
+  /**
+   * Liveness deadline (ms): no frame arriving for this long closes the
+   * connection as lost. Absent = off on the raw flavor; the socketio
+   * flavor derives it from the server's handshake (`pingInterval +
+   * pingTimeout`, the official client's rule) unless this overrides.
+   */
+  idleTimeoutMs: v.optional(RequestTimeoutMsSchema),
+  /**
+   * Application-level heartbeat TEXT frame the raw flavor writes every
+   * `heartbeatIntervalMs` — neither WebSocket client can send a control
+   * PING, so an LB-friendly keepalive is an app frame. Absent = none.
+   * Templates welcome. The socketio flavor never needs one (the
+   * engine.io ping is answered).
+   */
+  heartbeatMessage: v.optional(HeartbeatMessageSchema),
+  /** Wait (ms) between heartbeat frames. Absent = the runtime's 30 s
+   *  reference default. Meaningful only with `heartbeatMessage`. */
+  heartbeatIntervalMs: v.optional(RequestTimeoutMsSchema),
   /**
    * Verify the server certificate against the system roots. Absent =
    * verify (the safe default); `false` accepts self-signed `wss:`

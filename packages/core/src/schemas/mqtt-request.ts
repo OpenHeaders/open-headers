@@ -19,22 +19,13 @@ import {
   ProxyModeSchema,
   ProxyUrlSchema,
   proxyPairChecks,
+  ReconnectMaxAttemptsSchema,
   RequestTimeoutMsSchema,
   ResolveToAddressSchema,
   SniServerNameSchema,
   TlsCipherSuitesSchema,
   TlsVersionSchema,
 } from './request';
-
-/** Whole attempts, one to a thousand — enough for a day of 60 s
- *  backoff waits without inviting an unbounded loop by another name. */
-export const MAX_RECONNECT_ATTEMPTS = 1_000;
-export const ReconnectMaxAttemptsSchema = v.pipe(
-  v.number(),
-  v.integer(),
-  v.minValue(1),
-  v.maxValue(MAX_RECONNECT_ATTEMPTS),
-);
 
 /**
  * Session target: full `mqtt://` / `mqtts://` / `ws://` / `wss://` URL.

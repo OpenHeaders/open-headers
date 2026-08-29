@@ -12,6 +12,7 @@ import type {
   ExecutedMqttSnapshot,
   ExecutedProxyRoute,
   ExecutedRequestSnapshot,
+  ExecutedWsLifecycle,
   ExecutedWsSnapshot,
   GrpcRequest,
   MqttMessageProperties,
@@ -233,6 +234,10 @@ export type WsStreamEventWire =
       atMs?: number;
     }
   | { sendId: string; seq: number; kind: 'messages'; items: WsStreamMessageWire[] }
+  /** One reconnect-cycle fact — the executor's `lifecycle` entry
+   *  (`atIndex` counts the captured messages at that instant) plus the
+   *  executing host's wall-clock; emits immediately like `open`. */
+  | { sendId: string; seq: number; kind: 'lifecycle'; item: ExecutedWsLifecycle; atMs: number }
   | {
       sendId: string;
       seq: number;
@@ -616,6 +621,16 @@ export interface RequestRpc {
    * = no such session.
    */
   closeWsSession: {
+    req: { sendId: string };
+    res: { success: boolean };
+  };
+  /**
+   * Cut a WebSocket session's auto-reconnect wait short — the armed
+   * attempt dials now, with the SAME attempt number (no extra attempt
+   * against the cap). `success: false` = no such session, or nothing
+   * is waiting (a connection is up, or a redial is already on the wire).
+   */
+  reconnectWsSessionNow: {
     req: { sendId: string };
     res: { success: boolean };
   };

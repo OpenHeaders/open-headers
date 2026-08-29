@@ -277,14 +277,85 @@ export const DialPolicySchema = v.object({
  */
 export function proxyPairChecks<T extends { proxyMode?: (typeof PROXY_MODES)[number]; proxyUrl?: string }>() {
   return [
-    v.check<T, string>((r) => r.proxyMode !== 'url' || r.proxyUrl !== undefined, "Proxy mode 'url' requires a proxy URL"),
+    v.check<T, string>(
+      (r) => r.proxyMode !== 'url' || r.proxyUrl !== undefined,
+      "Proxy mode 'url' requires a proxy URL",
+    ),
     v.check<T, string>(
       (r) => r.proxyMode !== 'direct' || r.proxyUrl === undefined,
       "Proxy mode 'direct' cannot carry a proxy URL",
     ),
-    v.check<T, string>((r) => r.proxyUrl === undefined || r.proxyMode === 'url', "A proxy URL requires proxy mode 'url'"),
+    v.check<T, string>(
+      (r) => r.proxyUrl === undefined || r.proxyMode === 'url',
+      "A proxy URL requires proxy mode 'url'",
+    ),
   ] as const;
 }
+
+/** Whole attempts, one to a thousand — enough for a day of 60 s
+ *  backoff waits without inviting an unbounded loop by another name. */
+export const MAX_RECONNECT_ATTEMPTS = 1_000;
+export const ReconnectMaxAttemptsSchema = v.pipe(
+  v.number(),
+  v.integer(),
+  v.minValue(1),
+  v.maxValue(MAX_RECONNECT_ATTEMPTS),
+);
+
+/**
+ * The application-level heartbeat a raw WebSocket session writes on a
+ * timer — a TEXT frame verbatim (`ping`, `{"type":"ping"}`, whatever
+ * the server expects). Neither the node nor the browser WebSocket
+ * client can send a control PING, so keeping an idle session alive
+ * through a load balancer is an app-level frame everywhere.
+ */
+export const MAX_HEARTBEAT_MESSAGE_LENGTH = 4_096;
+
+export const HeartbeatMessageSchema = v.pipe(v.string(), v.minLength(1), v.maxLength(MAX_HEARTBEAT_MESSAGE_LENGTH));
+
+/**
+ * The session-resilience policy the long-lived session kinds carry —
+ * the reconnect quartet (auto · period · attempts · backoff), the
+ * liveness deadline and the client heartbeat: one field set, one row
+ * block on the session Settings tabs, one reconnect loop in the
+ * executors (the TLS and dial policies' twin). Each entity schema
+ * seats the fields it masks itself (with its own on-disk order); this
+ * object names the shared shape.
+ */
+export const ResiliencePolicySchema = v.object({
+  /**
+   * Reopen the session after an OPEN connection drops without the
+   * client asking — redial on the reconnect period until it opens
+   * again or the user disconnects. Absent = off: nothing reconnects
+   * silently. A first connect that fails never retries.
+   */
+  autoReconnect: v.optional(v.boolean()),
+  /** Wait (ms) between reconnect attempts. Absent = the runtime's 5 s
+   *  reference default. Same bounds as the connect timeout knob. */
+  reconnectPeriodMs: v.optional(RequestTimeoutMsSchema),
+  /** Cap on consecutive reconnect attempts after one drop — a
+   *  successful reconnect resets the count. Absent = unlimited. When
+   *  the cap is spent the session settles as Reconnect gave up. */
+  reconnectMaxAttempts: v.optional(ReconnectMaxAttemptsSchema),
+  /** Double the wait after every failed attempt (period, 2×, 4× …) up
+   *  to the runtime's 60 s ceiling, with ±20 % jitter. Absent = ON;
+   *  `false` = every attempt waits the exact reconnect period. */
+  reconnectBackoff: v.optional(v.boolean()),
+  /**
+   * Liveness deadline (ms): no frame arriving for this long closes the
+   * connection as lost (auto-reconnect then redials). Absent = off on
+   * a raw session; a Socket.IO session derives the deadline from the
+   * server's handshake (`pingInterval + pingTimeout`, the official
+   * client's rule) unless this overrides it.
+   */
+  idleTimeoutMs: v.optional(RequestTimeoutMsSchema),
+  /** The heartbeat text frame — see {@link HeartbeatMessageSchema}.
+   *  Absent = no client heartbeat. Templates welcome. */
+  heartbeatMessage: v.optional(HeartbeatMessageSchema),
+  /** Wait (ms) between heartbeat frames. Absent = the runtime's 30 s
+   *  reference default. Meaningful only with `heartbeatMessage`. */
+  heartbeatIntervalMs: v.optional(RequestTimeoutMsSchema),
+});
 
 /**
  * Local socket the send dials instead of opening a TCP connection: an

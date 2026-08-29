@@ -35,6 +35,52 @@ export interface ExecutedWsClose {
 }
 
 /**
+ * An OPEN connection dropped without the client asking and the
+ * session's auto-reconnect took over — `close` is the Close frame
+ * that ended it verbatim, or `null` when it severed without one;
+ * `idle` marks the liveness deadline closing it (no frame for
+ * `idleTimeoutMs`). Never recorded for a client Disconnect.
+ */
+export interface ExecutedWsLost {
+  kind: 'lost';
+  close: ExecutedWsClose | null;
+  idle?: true;
+}
+
+/** One reconnect attempt dialed (1-based) after `delayMs` of waiting
+ *  (the period, or the backoff step). `error` is the PREVIOUS
+ *  attempt's classified dial failure when there was one; `forced` =
+ *  the user cut the wait short (`delayMs` is then the wait actually
+ *  sat through). */
+export interface ExecutedWsReconnecting {
+  kind: 'reconnecting';
+  attempt: number;
+  delayMs: number;
+  error?: string;
+  forced?: true;
+}
+
+/** A reconnect attempt's handshake settled — the new connection's
+ *  negotiated facts verbatim. */
+export interface ExecutedWsReconnected {
+  kind: 'reconnected';
+  attempt: number;
+  protocol: string;
+  extensions: string;
+}
+
+/**
+ * One reconnect-cycle fact of the session. `atIndex` is the number of
+ * captured messages when it happened, so the timeline renders the row
+ * at its true chronological position while `messages` and its
+ * positional session timing stay untouched (the message rows' identity
+ * discipline); the rolling retention offsets it by `droppedMessages`.
+ */
+export type ExecutedWsLifecycle = (ExecutedWsLost | ExecutedWsReconnecting | ExecutedWsReconnected) & {
+  atIndex: number;
+};
+
+/**
  * How the session settled, first-class: `connected` = the handshake
  * completed and the session opened (however it later ended — `close`
  * and `stopped` carry that story); `failed` = a pre-open failure with
@@ -83,6 +129,15 @@ export interface ExecutedWsSnapshot {
   /** The Close frame as received (or locally initiated); `null` when
    *  the connection severed without one — never synthesized. */
   close: ExecutedWsClose | null;
+  /** The reconnect-cycle facts (lost / reconnecting / reconnected) in
+   *  order — see {@link ExecutedWsLifecycle}. Absent = the session
+   *  never reconnected. */
+  lifecycle?: ExecutedWsLifecycle[];
+  /** Auto-reconnect gave up: the attempt cap was spent without a
+   *  connection opening. `attempts` is how many were dialed; `error`
+   *  the last attempt's classified failure when there was one. The
+   *  session settles with the LOST connection's close record. */
+  reconnectExhausted?: { attempts: number; error?: string };
   /** True when the user stopped the OPEN session via Stop-abort rather
    *  than a Disconnect close — the capture holds what arrived. Never
    *  set on a pre-open abort: the `aborted` outcome IS that mark. */

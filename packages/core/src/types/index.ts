@@ -232,6 +232,7 @@ export type {
   RequestHeader,
   RequestSeed,
   RequestSpecLink,
+  ResiliencePolicy,
   TlsPolicy,
   TlsVersion,
 } from './request';
@@ -395,7 +396,16 @@ export type { ActiveRule, RuleVerdict, SilentMatchRecord } from './verdict';
 export type { ViewMode } from './view-mode';
 export { DEFAULT_VIEW_MODE, VIEW_MODE_STORAGE_KEY } from './view-mode';
 // ── WebSocket execution ────────────────────────────────────────────
-export type { ExecutedWsClose, ExecutedWsMessage, ExecutedWsOutcome, ExecutedWsSnapshot } from './websocket-execution';
+export type {
+  ExecutedWsClose,
+  ExecutedWsLifecycle,
+  ExecutedWsLost,
+  ExecutedWsMessage,
+  ExecutedWsOutcome,
+  ExecutedWsReconnected,
+  ExecutedWsReconnecting,
+  ExecutedWsSnapshot,
+} from './websocket-execution';
 // ── WebSocket request ──────────────────────────────────────────────
 export type {
   WebSocketAuth,

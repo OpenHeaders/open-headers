@@ -41,6 +41,7 @@ import type {
   RequestSchema,
   RequestSeedSchema,
   RequestSpecLinkSchema,
+  ResiliencePolicySchema,
   TlsPolicySchema,
   TlsVersionSchema,
 } from '../schemas/request';
@@ -138,6 +139,13 @@ export type TlsPolicy = v.InferOutput<typeof TlsPolicySchema>;
  * and transports route against one policy.
  */
 export type DialPolicy = v.InferOutput<typeof DialPolicySchema>;
+
+/**
+ * The session-resilience policy the long-lived session kinds carry —
+ * the reconnect quartet, the liveness deadline, the client heartbeat.
+ * One shape so the executors loop against one policy.
+ */
+export type ResiliencePolicy = v.InferOutput<typeof ResiliencePolicySchema>;
 
 /**
  * HTTP version policy for the per-request `httpVersion` knob. Absent /

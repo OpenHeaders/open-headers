@@ -666,6 +666,34 @@ export const ENTITY_CASES: readonly EntityCase[] = [
           maybe(rng, 0.3, () => 1_000 + rng.int(30_000)),
         ),
         ...opt(
+          'autoReconnect',
+          maybe(rng, 0.3, () => true),
+        ),
+        ...opt(
+          'reconnectPeriodMs',
+          maybe(rng, 0.2, () => 1_000 + rng.int(10_000)),
+        ),
+        ...opt(
+          'reconnectMaxAttempts',
+          maybe(rng, 0.2, () => 1 + rng.int(20)),
+        ),
+        ...opt(
+          'reconnectBackoff',
+          maybe(rng, 0.2, () => false),
+        ),
+        ...opt(
+          'idleTimeoutMs',
+          maybe(rng, 0.2, () => 5_000 + rng.int(60_000)),
+        ),
+        ...opt(
+          'heartbeatMessage',
+          maybe(rng, 0.2, () => rng.pick(['ping', '{"type":"ping"}'] as const)),
+        ),
+        ...opt(
+          'heartbeatIntervalMs',
+          maybe(rng, 0.2, () => 5_000 + rng.int(30_000)),
+        ),
+        ...opt(
           'sslVerification',
           maybe(rng, 0.2, () => false),
         ),
