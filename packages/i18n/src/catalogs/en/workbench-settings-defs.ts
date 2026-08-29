@@ -484,6 +484,12 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.requests.wsMessagesGroupByEvent.label': 'Group by Event',
   'workbench.settings.def.requests.wsMessagesGroupByEvent.description':
     'Cluster Socket.IO session timelines under collapsible decoded event-name headers (control frames bucket by their wire kind). Combined with grouping by direction, each (event, direction) pair gets its own group. Applies only to Socket.IO sessions — raw WebSocket frames carry no event names. The timeline toolbar changes this same setting.',
+  'workbench.settings.def.requests.wsMessagesHideHeartbeat.label': 'Hide Heartbeat',
+  'workbench.settings.def.requests.wsMessagesHideHeartbeat.description':
+    'Hide the engine.io ping / pong keep-alive rows in Socket.IO session timelines. The frames are still captured and exported — only the display filters them. The timeline toolbar changes this same setting.',
+  'workbench.settings.def.requests.wsMessagesHideHandshake.label': 'Hide Handshake Frames',
+  'workbench.settings.def.requests.wsMessagesHideHandshake.description':
+    'Hide the Socket.IO handshake framing rows — engine.io open / close and the namespace connect with its acknowledgement — in session timelines. Disconnects and connect errors always show. The frames are still captured and exported. The timeline toolbar changes this same setting.',
   'workbench.settings.def.requests.wsMessagesGroupRowLimit.label': 'Rows per Group',
   'workbench.settings.def.requests.wsMessagesGroupRowLimit.description':
     'When grouping by direction, show only this many of each group’s newest messages — the window slides as new messages arrive, so both groups stay watchable at once. 0 shows every message. The timeline toolbar changes this same setting.',

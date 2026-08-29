@@ -235,6 +235,8 @@ export const workbenchEditorsWebsocket = {
   'workbench.editors.websocket.timeline.sortOrder': 'Sort and group',
   'workbench.editors.websocket.timeline.groupByDirection': 'Group by direction',
   'workbench.editors.websocket.timeline.groupByEvent': 'Group by event',
+  'workbench.editors.websocket.timeline.hideHeartbeat': 'Hide heartbeat (ping / pong)',
+  'workbench.editors.websocket.timeline.hideHandshake': 'Hide handshake frames (open / connect)',
   'workbench.editors.websocket.timeline.rowsPerGroup': 'Rows per group',
   'workbench.editors.websocket.timeline.noLimit': 'No limit',
   'workbench.editors.websocket.timeline.clearMessages': 'Clear messages',

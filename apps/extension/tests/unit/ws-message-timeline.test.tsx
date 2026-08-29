@@ -22,7 +22,7 @@ import WsMessageTimeline, {
 } from '@openheaders/ui/workbench/components/websocket-request-editor/WsMessageTimeline';
 // Registers the requests.* settings the timeline's toolbar reads/writes.
 import '@openheaders/ui/workbench/settings/schema/requests';
-import { reset as resetSetting } from '@openheaders/ui/workbench/settings/store';
+import { reset as resetSetting, set as setSetting } from '@openheaders/ui/workbench/settings/store';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
@@ -49,6 +49,8 @@ afterEach(() => {
   cleanup();
   // The sort choice is a GLOBAL setting — reset between tests.
   resetSetting('requests.wsMessagesNewestFirst');
+  resetSetting('requests.wsMessagesHideHeartbeat');
+  resetSetting('requests.wsMessagesHideHandshake');
 });
 
 const text = (direction: 'up' | 'down', payload: string): WsTimelineItem => ({
@@ -386,17 +388,37 @@ describe('WsMessageTimeline — socketio decoded display', () => {
     text('down', '431[{"ok":true}]'),
   ];
 
-  it('renders control frames as subdued protocol rows and events by name', () => {
+  it('renders events by name, the handshake framing and the heartbeat hidden by default', () => {
+    renderTimeline({ items: SIO_ITEMS, count: SIO_ITEMS.length, flavor: 'socketio' });
+    const rows = screen.getAllByTestId('ws-timeline-message-row').map((r) => r.textContent ?? '');
+    expect(rows.some((r) => r.includes('engine.io open'))).toBe(false);
+    expect(rows.some((r) => r.includes('connect /'))).toBe(false);
+    expect(rows.some((r) => r.includes('connected /'))).toBe(false);
+    // The engine.io ping / pong rows are keep-alive noise — filtered
+    // by the default-on setting; the event named `ping-me` is not a
+    // heartbeat and stays.
+    expect(rows.some((r) => /\bping\b/.test(r) && !r.includes('ping-me'))).toBe(false);
+    expect(rows.some((r) => r.includes('pong'))).toBe(false);
+    // Newest-first default: the latest frame renders first.
+    const names = screen.getAllByTestId('ws-sio-event-name').map((el) => el.textContent);
+    expect(names).toEqual(['ack', 'ping-me', 'news']);
+  });
+
+  it('renders the handshake framing as subdued protocol rows once the setting is off', () => {
+    setSetting('requests.wsMessagesHideHandshake', false);
     renderTimeline({ items: SIO_ITEMS, count: SIO_ITEMS.length, flavor: 'socketio' });
     const rows = screen.getAllByTestId('ws-timeline-message-row').map((r) => r.textContent ?? '');
     expect(rows.some((r) => r.includes('engine.io open'))).toBe(true);
     expect(rows.some((r) => r.includes('connect /'))).toBe(true);
     expect(rows.some((r) => r.includes('connected /'))).toBe(true);
-    expect(rows.some((r) => r.includes('ping'))).toBe(true);
+  });
+
+  it('shows the heartbeat rows once the setting is off', () => {
+    setSetting('requests.wsMessagesHideHeartbeat', false);
+    renderTimeline({ items: SIO_ITEMS, count: SIO_ITEMS.length, flavor: 'socketio' });
+    const rows = screen.getAllByTestId('ws-timeline-message-row').map((r) => r.textContent ?? '');
+    expect(rows.some((r) => /\bping\b/.test(r) && !r.includes('ping-me'))).toBe(true);
     expect(rows.some((r) => r.includes('pong'))).toBe(true);
-    // Newest-first default: the latest frame renders first.
-    const names = screen.getAllByTestId('ws-sio-event-name').map((el) => el.textContent);
-    expect(names).toEqual(['ack', 'ping-me', 'news']);
   });
 
   it('shows the args preview and correlates ack ids', () => {
@@ -433,6 +455,8 @@ describe('WsMessageTimeline — socketio decoded display', () => {
       text('down', '42["mute-me",{"n":1}]'),
       text('down', '431[{"ok":true}]'),
     ];
+    // Handshake framing shown so the control row proves it survives the filter.
+    setSetting('requests.wsMessagesHideHandshake', false);
     renderTimeline({ items, count: items.length, flavor: 'socketio', listenedEvents: ['news'] });
     const rows = screen.getAllByTestId('ws-timeline-message-row').map((r) => r.textContent ?? '');
     // The unlisted DOWN event hides; the same-named UP compose stays

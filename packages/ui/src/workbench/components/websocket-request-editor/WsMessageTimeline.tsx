@@ -605,6 +605,12 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
   // exists there alone; both axes on = COMPOUND (event, direction)
   // group identity, still one header level.
   const [groupByEvent, setGroupByEvent] = useSetting('requests.wsMessagesGroupByEvent');
+  // The engine.io heartbeat filter — socketio only, display-only like
+  // the direction filter: the capture keeps every frame.
+  const [hideHeartbeat, setHideHeartbeat] = useSetting('requests.wsMessagesHideHeartbeat');
+  const [hideHandshake, setHideHandshake] = useSetting('requests.wsMessagesHideHandshake');
+  const heartbeatHidden = flavor === 'socketio' && hideHeartbeat;
+  const handshakeHidden = flavor === 'socketio' && hideHandshake;
   // Watch-both-groups-at-once: each group shows only its N newest
   // rows (the window slides as messages arrive); 0 = no limit.
   const [groupRowLimit, setGroupRowLimit] = useSetting('requests.wsMessagesGroupRowLimit');
@@ -682,6 +688,16 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
     for (let i = clearedCount; i < count; i++) {
       const item = items[i];
       if (directionFilter !== 'all' && item.direction !== directionFilter) continue;
+      if (heartbeatHidden || handshakeHidden) {
+        const kind = derive.sioOf(item)?.kind;
+        if (heartbeatHidden && (kind === 'ping' || kind === 'pong')) continue;
+        if (
+          handshakeHidden &&
+          (kind === 'engineOpen' || kind === 'engineClose' || kind === 'connect' || kind === 'connectAck')
+        ) {
+          continue;
+        }
+      }
       // Events-tab listen filter — named incoming events only; control
       // frames, sent frames and nameless events always show.
       if (listenedSet !== null && item.direction === 'down') {
@@ -692,7 +708,7 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
       rows.push(i);
     }
     return rows;
-  }, [items, count, clearedCount, search, directionFilter, listenedSet, derive]);
+  }, [items, count, clearedCount, search, directionFilter, heartbeatHidden, handshakeHidden, listenedSet, derive]);
 
   const displayRows = useMemo(
     () => (newestFirst ? [...visibleRows].reverse() : visibleRows),
@@ -771,7 +787,7 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
     return newestFirst ? anchored.reverse() : anchored;
   }, [displayRows, groupByDirection, groupByEventActive, items, count, clearedCount, newestFirst, derive]);
 
-  const filtering = search.trim() !== '' || directionFilter !== 'all';
+  const filtering = search.trim() !== '' || directionFilter !== 'all' || heartbeatHidden || handshakeHidden;
   const live = lifecycle.endedBy === undefined && lifecycle.errorMessage === undefined && lifecycle.aborted !== true;
 
   // The flat display list the virtual window runs over — ONE event
@@ -1853,6 +1869,17 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
                       key: 'group-event',
                       label: menuOptionLabel(t('workbench.editors.websocket.timeline.groupByEvent'), groupByEvent),
                       onClick: () => setGroupByEvent(!groupByEvent),
+                    },
+                    { type: 'divider' as const },
+                    {
+                      key: 'hide-heartbeat',
+                      label: menuOptionLabel(t('workbench.editors.websocket.timeline.hideHeartbeat'), hideHeartbeat),
+                      onClick: () => setHideHeartbeat(!hideHeartbeat),
+                    },
+                    {
+                      key: 'hide-handshake',
+                      label: menuOptionLabel(t('workbench.editors.websocket.timeline.hideHandshake'), hideHandshake),
+                      onClick: () => setHideHandshake(!hideHandshake),
                     },
                   ]
                 : []),

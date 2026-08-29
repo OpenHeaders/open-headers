@@ -25,6 +25,8 @@ declare module '@openheaders/ui/workbench/settings/types' {
     'requests.wsMessagesNewestFirst': boolean;
     'requests.wsMessagesGroupByDirection': boolean;
     'requests.wsMessagesGroupByEvent': boolean;
+    'requests.wsMessagesHideHeartbeat': boolean;
+    'requests.wsMessagesHideHandshake': boolean;
     'requests.wsMessagesGroupRowLimit': number;
     'requests.mqttMessagesNewestFirst': boolean;
     'requests.trustedRoots': string;
@@ -221,6 +223,40 @@ registerSetting({
   category: 'requests',
   subcategory: 'websocket',
   tags: ['websocket', 'ws', 'socketio', 'session', 'messages', 'timeline', 'group', 'cluster', 'event', 'name'],
+  scope: 'user',
+});
+
+// The engine.io heartbeat (server ping / client pong, every
+// pingInterval) is keep-alive noise on a long session: hidden by
+// default, one toggle away when the wire itself is the question.
+// Socket.IO sessions only — raw frames carry no heartbeat packets.
+registerSetting({
+  key: 'requests.wsMessagesHideHeartbeat',
+  type: 'boolean',
+  default: true,
+  schema: v.boolean(),
+  labelKey: 'workbench.settings.def.requests.wsMessagesHideHeartbeat.label',
+  descriptionKey: 'workbench.settings.def.requests.wsMessagesHideHeartbeat.description',
+  category: 'requests',
+  subcategory: 'websocket',
+  tags: ['websocket', 'ws', 'socketio', 'session', 'messages', 'timeline', 'heartbeat', 'ping', 'pong', 'hide'],
+  scope: 'user',
+});
+
+// The socket.io handshake framing (engine.io open / close, the
+// namespace CONNECT and its ack) is the same four rows on every
+// session: hidden by default, one toggle away. Disconnects and
+// connect errors are outcomes, not framing — they always show.
+registerSetting({
+  key: 'requests.wsMessagesHideHandshake',
+  type: 'boolean',
+  default: true,
+  schema: v.boolean(),
+  labelKey: 'workbench.settings.def.requests.wsMessagesHideHandshake.label',
+  descriptionKey: 'workbench.settings.def.requests.wsMessagesHideHandshake.description',
+  category: 'requests',
+  subcategory: 'websocket',
+  tags: ['websocket', 'ws', 'socketio', 'session', 'messages', 'timeline', 'handshake', 'connect', 'engine.io', 'hide'],
   scope: 'user',
 });
 
