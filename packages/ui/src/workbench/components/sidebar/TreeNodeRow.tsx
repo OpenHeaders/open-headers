@@ -127,8 +127,8 @@ export function TreeNodeRow({
         data-item-id={node.id}
         style={{ paddingLeft, color: token.colorTextTertiary }}
       >
-        {rowGuideOffsets(node.depth).map((left) => (
-          <span key={left} className="rules-sidebar-item-guide" style={{ left }} aria-hidden />
+        {rowGuideOffsets(node.depth).map((left, level) => (
+          <span key={left} className="rules-sidebar-item-guide" data-guide-level={level} style={{ left }} aria-hidden />
         ))}
         <div style={{ fontWeight: 600, fontSize: 12, color: token.colorTextSecondary, marginBottom: 2 }}>
           {node.placeholderTitle}
@@ -195,9 +195,10 @@ export function TreeNodeRow({
         if (!isRenaming) onDoubleClick();
       }}
     >
-      {/* Indent guides — one per ancestor level, revealed on tree hover. */}
-      {rowGuideOffsets(node.depth).map((left) => (
-        <span key={left} className="rules-sidebar-item-guide" style={{ left }} aria-hidden />
+      {/* Indent guides — one per ancestor level, revealed on tree hover;
+          `data-guide-level` names the level for the parent-guide hover. */}
+      {rowGuideOffsets(node.depth).map((left, level) => (
+        <span key={left} className="rules-sidebar-item-guide" data-guide-level={level} style={{ left }} aria-hidden />
       ))}
       <span className="rules-sidebar-item-caret">
         {node.expandable && (

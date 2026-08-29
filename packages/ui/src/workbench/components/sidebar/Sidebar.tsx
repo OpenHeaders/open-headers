@@ -82,6 +82,7 @@ import { useTreeKeyboardMoves } from './useTreeKeyboardMoves';
 import { useEnvironmentNodes } from './useEnvironmentNodes';
 import { useRequestTreeNodes } from './useRequestTreeNodes';
 import { useRulesTreeNodes } from './useRulesTreeNodes';
+import { useGuideHover } from './useGuideHover';
 import { useSidebarCreateActions } from './useSidebarCreateActions';
 import { useSidebarExpansion } from './useSidebarExpansion';
 import { useSidebarInteraction } from './useSidebarInteraction';
@@ -965,6 +966,9 @@ const Sidebar: React.FC<SidebarProps> = ({
   // revealed rows); the state machine ran before the node hooks.
 
   const searchMatches = useTreeSearchMatches({ search, allFlatItems, containerRef, setFocusedId });
+
+  // Hovering a row lights its parent's guide down the parent's subtree.
+  useGuideHover(containerRef, allFlatItems);
 
   useImperativeHandle(searchRef, () => ({ focus: search.openBar }), [search.openBar]);
 

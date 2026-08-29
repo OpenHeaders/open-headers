@@ -275,6 +275,16 @@
   opacity: 0;
 }
 
+// The hovered row's parent guide, down the parent's whole subtree: the
+// drop guide's picture for a pointer at rest (`useGuideHover`). Paints
+// over a selected row's wash the way the drop guide does.
+.rules-sidebar-content:hover .rules-sidebar-item-guide--parent,
+.rules-sidebar-content:hover .rules-sidebar-item.selected .rules-sidebar-item-guide--parent {
+  opacity: 1;
+  background: var(--ant-color-primary, #1677ff);
+  z-index: 1;
+}
+
 .rules-sidebar-item-caret {
   flex: none;
   width: 12px;
