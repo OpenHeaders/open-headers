@@ -14,6 +14,7 @@ import type {
   GrpcMethodRef,
   GrpcRequest,
   GrpcSpecLink,
+  ProxyMode,
   TlsVersion,
 } from '@openheaders/core/types';
 import { type KeyValueRow, makeKvRow } from '../request-editor/KeyValueTable';
@@ -33,6 +34,12 @@ export interface GrpcDraft {
    *  round-trips (an update skips only `undefined` values). */
   auth: GrpcAuth;
   specLink: GrpcSpecLink | undefined;
+  /** The dial policy — `undefined` = system DNS / the host's proxy
+   *  planes (the HTTP request's knobs on the channel). */
+  resolveToAddress: string | undefined;
+  proxyMode: ProxyMode | undefined;
+  proxyUrl: string | undefined;
+  proxyCredentialRef: string | undefined;
   /** Local socket / named pipe the call dials instead of TCP —
    *  `undefined` = a normal TCP connection. */
   unixSocketPath: string | undefined;
@@ -56,6 +63,10 @@ export interface GrpcRequestUpdates {
   metadata: GrpcMetadataPair[];
   auth: GrpcAuth;
   specLink: GrpcSpecLink | undefined;
+  resolveToAddress: string | undefined;
+  proxyMode: ProxyMode | undefined;
+  proxyUrl: string | undefined;
+  proxyCredentialRef: string | undefined;
   unixSocketPath: string | undefined;
   timeoutMs: number | undefined;
   sslVerification: boolean;
@@ -100,6 +111,10 @@ export function draftFromGrpcRequest(req: GrpcRequest): GrpcDraft {
     metadata: metadataToRows(req.metadata),
     auth: req.auth ?? { type: 'none' },
     specLink: req.specLink,
+    resolveToAddress: req.resolveToAddress,
+    proxyMode: req.proxyMode,
+    proxyUrl: req.proxyUrl,
+    proxyCredentialRef: req.proxyCredentialRef,
     unixSocketPath: req.unixSocketPath,
     timeoutMs: req.timeoutMs,
     sslVerification: req.sslVerification ?? true,
@@ -121,6 +136,10 @@ export function buildGrpcRequestUpdates(draft: GrpcDraft): GrpcRequestUpdates {
     metadata: rowsToMetadata(draft.metadata),
     auth: draft.auth,
     specLink: draft.specLink,
+    resolveToAddress: draft.resolveToAddress,
+    proxyMode: draft.proxyMode,
+    proxyUrl: draft.proxyUrl,
+    proxyCredentialRef: draft.proxyCredentialRef,
     unixSocketPath: draft.unixSocketPath,
     timeoutMs: draft.timeoutMs,
     sslVerification: draft.sslVerification,

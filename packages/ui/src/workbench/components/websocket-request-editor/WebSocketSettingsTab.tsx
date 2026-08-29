@@ -5,8 +5,10 @@
  * whose headers carry the (i) group popovers, `label · (i) · control`
  * rows from the shared settings-row family with the effective
  * defaults legible in the controls, modified dots, and per-row
- * resets. The Socket.IO group renders on that flavor only; the TLS &
- * trust group is the shared `TlsTrustGroup` block.
+ * resets. The Socket.IO group renders on that flavor only; the
+ * Connection group seats the shared `DialRows` block between the
+ * subprotocol offer and the socket path; the TLS & trust group is the
+ * shared `TlsTrustGroup` block.
  *
  * The tab edits the draft directly, so the dots track distance from
  * the PROTOCOL defaults — there is no saved-baseline (unsaved) plane
@@ -28,6 +30,7 @@ import { ConfigProvider, theme } from 'antd';
 import type React from 'react';
 import { useState } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
+import DialRows, { isDialModified } from '../shared/dial/DialRows';
 import TlsTrustGroup from '../shared/tls-trust/TlsTrustGroup';
 import type { WebSocketDraft } from './draft';
 import { WS_GROUP_LABEL_KEY } from './settings-groups';
@@ -67,7 +70,10 @@ const WebSocketSettingsTab: React.FC<WebSocketSettingsTabProps> = ({ draft, setD
       return { ...c, [key]: next };
     });
   const connectionModified =
-    draft.subprotocols.length > 0 || draft.unixSocketPath !== undefined || draft.timeoutMs !== undefined;
+    draft.subprotocols.length > 0 ||
+    isDialModified(draft) ||
+    draft.unixSocketPath !== undefined ||
+    draft.timeoutMs !== undefined;
   const socketioModified = draft.namespace !== '' || draft.handshakePath !== '';
 
   return (
@@ -100,6 +106,12 @@ const WebSocketSettingsTab: React.FC<WebSocketSettingsTabProps> = ({ draft, setD
             placeholder={t('workbench.editors.websocket.settings.subprotocolsPlaceholder')}
             example={t('workbench.editors.websocket.settings.subprotocolsExample')}
             testId="websocket-subprotocols"
+          />
+          <DialRows
+            groupLabel={t(WS_GROUP_LABEL_KEY.connection)}
+            value={draft}
+            onChange={(next) => setDraft((d) => ({ ...d, ...next }))}
+            testIdPrefix="websocket"
           />
           <TextKnobRow
             label={t('workbench.editors.websocket.settings.unixSocketLabel')}

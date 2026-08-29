@@ -169,7 +169,7 @@ async function openRequest(uid: string): Promise<void> {
 /** Pick a value in the request Settings tab's Proxy mode select. */
 async function setRequestProxyMode(optionTitle: string): Promise<void> {
   await workbench.getByRole('tab', { name: 'Settings' }).filter({ visible: true }).first().click();
-  const select = workbench.getByTestId('oh-proxy-mode-select').filter({ visible: true }).first();
+  const select = workbench.getByTestId('request-proxy-mode').filter({ visible: true }).first();
   await select.waitFor({ state: 'visible', timeout: 10_000 });
   await select.click();
   const option = workbench.locator(`.ant-select-item-option[title="${optionTitle}"]`).filter({ visible: true }).first();
@@ -179,7 +179,7 @@ async function setRequestProxyMode(optionTitle: string): Promise<void> {
 
 /** Type the request-plane proxy URL into the Settings tab's URL row. */
 async function setRequestProxyUrl(url: string): Promise<void> {
-  const input = workbench.getByTestId('oh-proxy-url-input').filter({ visible: true }).first();
+  const input = workbench.getByTestId('request-proxy-url').filter({ visible: true }).first();
   await input.waitFor({ state: 'visible', timeout: 10_000 });
   await input.fill(url);
 }

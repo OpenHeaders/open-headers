@@ -28,6 +28,7 @@ import type {
   MqttSpecLink,
   MqttTopicRow,
   MqttUserPropertyRow,
+  ProxyMode,
   TlsVersion,
 } from '@openheaders/core/types';
 import { binaryEncodingError } from '@openheaders/core/utils';
@@ -99,6 +100,12 @@ export interface MqttDraft {
   reconnectMaxAttempts: number | undefined;
   /** Concrete — absent on the entity reads as a fixed period. */
   reconnectBackoff: boolean;
+  /** The dial policy — `undefined` = system DNS / the host's proxy
+   *  planes (the HTTP request's knobs on the broker dial). */
+  resolveToAddress: string | undefined;
+  proxyMode: ProxyMode | undefined;
+  proxyUrl: string | undefined;
+  proxyCredentialRef: string | undefined;
   /** Concrete — absent on the entity reads as verify-on. */
   sslVerification: boolean;
   clientCertificateRef: string | undefined;
@@ -139,6 +146,10 @@ export interface MqttRequestUpdates {
   reconnectPeriodMs: number | undefined;
   reconnectMaxAttempts: number | undefined;
   reconnectBackoff: boolean;
+  resolveToAddress: string | undefined;
+  proxyMode: ProxyMode | undefined;
+  proxyUrl: string | undefined;
+  proxyCredentialRef: string | undefined;
   sslVerification: boolean;
   clientCertificateRef: string | undefined;
   tlsMinVersion: TlsVersion | undefined;
@@ -313,6 +324,10 @@ export function draftFromMqttRequest(req: MqttRequest): MqttDraft {
     reconnectPeriodMs: req.reconnectPeriodMs,
     reconnectMaxAttempts: req.reconnectMaxAttempts,
     reconnectBackoff: req.reconnectBackoff ?? true,
+    resolveToAddress: req.resolveToAddress,
+    proxyMode: req.proxyMode,
+    proxyUrl: req.proxyUrl,
+    proxyCredentialRef: req.proxyCredentialRef,
     sslVerification: req.sslVerification ?? true,
     clientCertificateRef: req.clientCertificateRef,
     tlsMinVersion: req.tlsMinVersion,
@@ -354,6 +369,10 @@ export function buildMqttRequestUpdates(draft: MqttDraft): MqttRequestUpdates {
     reconnectPeriodMs: draft.reconnectPeriodMs,
     reconnectMaxAttempts: draft.reconnectMaxAttempts,
     reconnectBackoff: draft.reconnectBackoff,
+    resolveToAddress: draft.resolveToAddress,
+    proxyMode: draft.proxyMode,
+    proxyUrl: draft.proxyUrl,
+    proxyCredentialRef: draft.proxyCredentialRef,
     sslVerification: draft.sslVerification,
     clientCertificateRef: draft.clientCertificateRef,
     tlsMinVersion: draft.tlsMinVersion,

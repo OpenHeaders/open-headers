@@ -4,10 +4,11 @@
  * (Connection · Session — MQTT 5.0 · TLS & trust) whose headers carry
  * the (i) group popovers, `label · (i) · control` rows from the shared
  * settings-row family with the effective defaults legible in the
- * controls, modified dots, and per-row resets. The TLS & trust group
- * is the shared `TlsTrustGroup` block with the ALPN offer as its
- * MQTT-only row; its verify / certificate / SNI popovers keep the
- * session example card.
+ * controls, modified dots, and per-row resets. The Connection group
+ * seats the shared `DialRows` block between the keep-alive and the
+ * connect timeout; the TLS & trust group is the shared `TlsTrustGroup`
+ * block with the ALPN offer as its MQTT-only row; its verify /
+ * certificate / SNI popovers keep the session example card.
  *
  * The tab edits the draft directly, so the dots track distance from
  * the PROTOCOL defaults — there is no saved-baseline (unsaved) plane
@@ -45,6 +46,7 @@ import { ConfigProvider, Typography, theme } from 'antd';
 import type React from 'react';
 import { useState } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
+import DialRows, { isDialModified } from '../shared/dial/DialRows';
 import TlsTrustGroup from '../shared/tls-trust/TlsTrustGroup';
 import type { MqttDraft } from './draft';
 import { mqttSettingsGroupInfo, mqttSettingsRowInfo } from './MqttSettingsRowInfo';
@@ -113,6 +115,7 @@ const MqttSettingsTab: React.FC<MqttSettingsTabProps> = ({ draft, setDraft, v5 }
     draft.clientId !== '' ||
     !draft.cleanStart ||
     draft.keepAlive !== undefined ||
+    isDialModified(draft) ||
     draft.timeoutMs !== undefined ||
     draft.autoReconnect ||
     draft.reconnectPeriodMs !== undefined ||
@@ -182,6 +185,12 @@ const MqttSettingsTab: React.FC<MqttSettingsTabProps> = ({ draft, setDraft, v5 }
             format={formatDurationSeconds}
             placeholder={t('workbench.editors.mqtt.settings.keepAlivePlaceholder')}
             testId="mqtt-keep-alive"
+          />
+          <DialRows
+            groupLabel={t(MQTT_GROUP_LABEL_KEY.connection)}
+            value={draft}
+            onChange={(next) => setDraft((d) => ({ ...d, ...next }))}
+            testIdPrefix="mqtt"
           />
           <ComboKnobRow
             label={t('workbench.editors.mqtt.settings.timeoutLabel')}

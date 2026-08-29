@@ -30,6 +30,7 @@ import type { MessageKey } from '@openheaders/i18n';
 import { type Translate, useT } from '@openheaders/ui/context/LocaleContext';
 import type { InfoPopoverContent, InfoPopoverSection } from '@openheaders/ui/shared/info-popover';
 import { GROUP_LABEL_KEY, type SettingsGroupKey } from './settings-groups';
+import { proxyModesSection } from '../shared/dial/dial-row-info';
 
 /** One key per settings row that opens a popover with the card. */
 export type SettingsInfoKey =
@@ -339,26 +340,7 @@ export function settingsRowInfo(t: Translate, infoKey: SettingsInfoKey): InfoPop
         ...base,
         summary: t('workbench.editors.request.settings.proxySummary'),
         description: t('workbench.editors.request.settings.proxyDescription'),
-        sections: [
-          {
-            heading: t('workbench.editors.request.settings.proxyModesHeading'),
-            layout: 'stacked',
-            items: [
-              {
-                label: t('workbench.editors.request.settings.proxyModePlaceholder'),
-                desc: t('workbench.editors.request.settings.proxyModeInheritDesc'),
-              },
-              {
-                label: t('workbench.editors.request.settings.proxyModeDirect'),
-                desc: t('workbench.editors.request.settings.proxyModeDirectDesc'),
-              },
-              {
-                label: t('workbench.editors.request.settings.proxyModeCustom'),
-                desc: t('workbench.editors.request.settings.proxyModeCustomDesc'),
-              },
-            ],
-          },
-        ],
+        sections: [proxyModesSection(t)],
       };
     case 'sslVerification':
       return {

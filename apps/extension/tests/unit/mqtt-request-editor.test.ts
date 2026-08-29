@@ -108,6 +108,23 @@ describe('mqtt draft projections', () => {
     expect(updates.requestProblemInformation).toBe(false);
   });
 
+  it('carries the dial knobs — address pin, proxy mode / URL / credential ref — through the round-trip', () => {
+    const entity = mqttRequest({
+      resolveToAddress: '10.0.0.12',
+      proxyMode: 'url',
+      proxyUrl: 'http://proxy.openheaders.io:8080',
+      proxyCredentialRef: 'corp-proxy',
+    });
+    const updates = buildMqttRequestUpdates(draftFromMqttRequest(entity));
+    expect(updates.resolveToAddress).toBe('10.0.0.12');
+    expect(updates.proxyMode).toBe('url');
+    expect(updates.proxyUrl).toBe('http://proxy.openheaders.io:8080');
+    expect(updates.proxyCredentialRef).toBe('corp-proxy');
+    const bare = buildMqttRequestUpdates(draftFromMqttRequest(mqttRequest()));
+    expect(bare.proxyMode).toBeUndefined();
+    expect(bare.resolveToAddress).toBeUndefined();
+  });
+
   it('carries the TLS trust knobs — client certificate ref, SNI name, ALPN — through the round-trip', () => {
     const entity = mqttRequest({
       clientCertificateRef: 'iot-device',

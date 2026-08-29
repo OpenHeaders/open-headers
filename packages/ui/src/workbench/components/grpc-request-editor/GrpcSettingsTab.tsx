@@ -5,8 +5,8 @@
  * Messages) whose headers carry the (i) group popovers, `label · (i)
  * · control` rows from the shared settings-row family with the
  * effective defaults legible in the controls, modified dots, and
- * per-row resets; the TLS & trust group is the shared `TlsTrustGroup`
- * block.
+ * per-row resets; the Connection group opens on the shared `DialRows`
+ * block, the TLS & trust group is the shared `TlsTrustGroup` block.
  *
  * The tab edits the draft directly, so the dots track distance from
  * the PROTOCOL defaults — there is no saved-baseline (unsaved) plane
@@ -31,6 +31,7 @@ import { ConfigProvider, theme } from 'antd';
 import type React from 'react';
 import { useState } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
+import DialRows, { isDialModified } from '../shared/dial/DialRows';
 import TlsTrustGroup from '../shared/tls-trust/TlsTrustGroup';
 import type { GrpcDraft } from './draft';
 import { grpcSettingsGroupInfo, grpcSettingsRowInfo } from './GrpcSettingsRowInfo';
@@ -71,7 +72,8 @@ const GrpcSettingsTab: React.FC<GrpcSettingsTabProps> = ({
       sessionCollapsed[key] = next;
       return { ...c, [key]: next };
     });
-  const connectionModified = draft.unixSocketPath !== undefined || draft.timeoutMs !== undefined;
+  const connectionModified =
+    isDialModified(draft) || draft.unixSocketPath !== undefined || draft.timeoutMs !== undefined;
 
   return (
     <ConfigProvider
@@ -95,6 +97,12 @@ const GrpcSettingsTab: React.FC<GrpcSettingsTabProps> = ({
           info={grpcSettingsGroupInfo(t, 'connection')}
           modified={connectionModified}
         >
+          <DialRows
+            groupLabel={t(GRPC_GROUP_LABEL_KEY.connection)}
+            value={draft}
+            onChange={(next) => setDraft((d) => ({ ...d, ...next }))}
+            testIdPrefix="grpc"
+          />
           <TextKnobRow
             label={t('workbench.editors.grpc.settings.unixSocketLabel')}
             value={draft.unixSocketPath}

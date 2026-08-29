@@ -174,21 +174,16 @@ import type React from 'react';
 import { useState } from 'react';
 import { getCapability, type RequestRuntimeKind } from '@openheaders/core/capabilities';
 import {
-  isValidProxyUrl,
   isValidUnixSocketPath,
   MAX_MAX_REDIRECTS,
-  MAX_PROXY_URL_LENGTH,
   MAX_REQUEST_TIMEOUT_MS,
-  MAX_RESOLVE_TO_ADDRESS_LENGTH,
   MAX_RESPONSE_BYTES,
   MAX_UNIX_SOCKET_PATH_LENGTH,
   MIN_MAX_REDIRECTS,
   MIN_REQUEST_TIMEOUT_MS,
   MIN_RESPONSE_BYTES,
-  RESOLVE_TO_ADDRESS_PATTERN,
 } from '@openheaders/core/schemas';
 import type { HttpVersion, ProxyMode, TlsVersion } from '@openheaders/core/types';
-import { useVaultContext } from '@openheaders/ui/context';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import {
   byteSizeInterpreter,
@@ -206,8 +201,8 @@ import {
   SelectKnobRow,
   TextKnobRow,
 } from '@openheaders/ui/shared/settings-rows';
+import DialRows from '../shared/dial/DialRows';
 import TlsTrustGroup from '../shared/tls-trust/TlsTrustGroup';
-import VaultSelectFooter from '../variables/VaultSelectFooter';
 import CookieJarRow from './CookieJarRow';
 import { GROUP_LABEL_KEY, GROUP_ORDER, type SettingsGroupKey } from './settings-groups';
 import { NO_UNSAVED_SETTINGS, type SettingsKnobKey } from './settings-unsaved';
@@ -547,19 +542,6 @@ const SettingsTab: React.FC<SettingsTabProps> = ({
     runtime === 'node' && !scriptMode.available
       ? [...sheet.rows, remoteScriptsSafe ? SCRIPTS_SAFE_FORWARDED_ROW : SCRIPTS_NOT_RUN_ROW]
       : sheet.rows;
-  // The vault feeds the proxy-credentials picker (the TLS block reads
-  // its own client-certificate entries). The context defaults to an
-  // empty vault when no provider is mounted, so the tab stays
-  // renderable everywhere.
-  const { vault } = useVaultContext();
-  // Vault string entries feed the proxy-credentials picker — a
-  // `user:password` pair is string-shaped, no dedicated entry kind.
-  const proxyCredentialOptions = vault.secrets
-    .filter((s) => s.kind === 'string')
-    .map((s) => ({ value: s.name, label: s.name }));
-  const proxyCredentialRefDangling =
-    value.proxyCredentialRef !== undefined &&
-    !proxyCredentialOptions.some((o) => o.value === value.proxyCredentialRef);
   // Redirect-cap candidates carry a localized "hops" unit, so the
   // interpreter is minted here where `t` lives rather than at module
   // scope; formatting inside the interpreter keeps the disabled
@@ -659,123 +641,14 @@ const SettingsTab: React.FC<SettingsTabProps> = ({
               testId="oh-http-version-select"
               unsaved={unsaved.has('httpVersion')}
             />
-            <TextKnobRow
-              label={t('workbench.editors.request.settings.resolveToAddress')}
-              value={value.resolveToAddress}
-              onChange={(resolveToAddress) => onChange({ ...value, resolveToAddress })}
-              info={settingsRowInfo(t, 'resolveToAddress')}
-              placeholder={t('workbench.editors.request.settings.resolveToAddressPlaceholder')}
-              maxLength={MAX_RESOLVE_TO_ADDRESS_LENGTH}
-              error={
-                value.resolveToAddress !== undefined && !RESOLVE_TO_ADDRESS_PATTERN.test(value.resolveToAddress)
-                  ? t('workbench.editors.request.settings.resolveToAddressError')
-                  : undefined
-              }
-              example={t('workbench.editors.request.settings.resolveToAddressExample')}
-              unsaved={unsaved.has('resolveToAddress')}
+            <DialRows
+              groupLabel={t('workbench.editors.request.settings.group.connection')}
+              value={value}
+              onChange={(next) => onChange({ ...value, ...next })}
+              rowInfo={(key) => settingsRowInfo(t, key)}
+              unsaved={unsaved}
+              testIdPrefix="request"
             />
-            <SelectKnobRow
-              label={t('workbench.editors.request.settings.proxy')}
-              value={value.proxyMode}
-              // The tri-state row writes the MODE+URL pair: Inherit
-              // (an explicit option mapping to undefined — the H11
-              // reset target) and Direct both clear the URL and its
-              // credentials (a hidden row must not keep a dormant URL
-              // or a stale ref alive); Custom keeps whatever URL is
-              // already set.
-              onChange={(v) =>
-                onChange(
-                  v === 'url'
-                    ? { ...value, proxyMode: 'url' }
-                    : {
-                        ...value,
-                        proxyMode: v === 'direct' ? 'direct' : undefined,
-                        proxyUrl: undefined,
-                        proxyCredentialRef: undefined,
-                      },
-                )
-              }
-              info={settingsRowInfo(t, 'proxy')}
-              options={[
-                { value: 'inherit', label: t('workbench.editors.request.settings.proxyModePlaceholder') },
-                { value: 'direct', label: t('workbench.editors.request.settings.proxyModeDirect') },
-                { value: 'url', label: t('workbench.editors.request.settings.proxyModeCustom') },
-              ]}
-              placeholder={t('workbench.editors.request.settings.proxyModePlaceholder')}
-              modified={value.proxyMode !== undefined || value.proxyUrl !== undefined}
-              unsaved={unsaved.has('proxyMode')}
-              onReset={() =>
-                onChange({ ...value, proxyMode: undefined, proxyUrl: undefined, proxyCredentialRef: undefined })
-              }
-              testId="oh-proxy-mode-select"
-            />
-            {value.proxyMode === 'url' && (
-              <>
-                <TextKnobRow
-                  label={t('workbench.editors.request.settings.proxyUrl')}
-                  value={value.proxyUrl}
-                  onChange={(proxyUrl) =>
-                    onChange(
-                      // Clearing the URL also clears its credentials —
-                      // they have nothing to authenticate against.
-                      proxyUrl === undefined
-                        ? { ...value, proxyUrl, proxyCredentialRef: undefined }
-                        : { ...value, proxyUrl },
-                    )
-                  }
-                  info={settingsRowInfo(t, 'proxyUrl')}
-                  placeholder={t('workbench.editors.request.settings.proxyUrlPlaceholder')}
-                  testId="oh-proxy-url-input"
-                  onReset={() => onChange({ ...value, proxyUrl: undefined, proxyCredentialRef: undefined })}
-                  unsaved={unsaved.has('proxyUrl')}
-                  maxLength={MAX_PROXY_URL_LENGTH}
-                  error={
-                    value.proxyUrl === undefined
-                      ? t('workbench.editors.request.settings.proxyUrlMissing')
-                      : !isValidProxyUrl(value.proxyUrl)
-                        ? t('workbench.editors.request.settings.proxyError')
-                        : undefined
-                  }
-                  warning={
-                    value.proxyUrl !== undefined && value.resolveToAddress !== undefined
-                      ? t('workbench.editors.request.settings.proxyResolveConflict')
-                      : undefined
-                  }
-                  example={t('workbench.editors.request.settings.proxyUrlExample')}
-                />
-                {value.proxyUrl !== undefined && (
-                  <SelectKnobRow
-                    label={t('workbench.editors.request.settings.proxyCredentials')}
-                    value={value.proxyCredentialRef}
-                    onChange={(proxyCredentialRef) => onChange({ ...value, proxyCredentialRef })}
-                    info={settingsRowInfo(t, 'proxyCredentials')}
-                    options={proxyCredentialOptions}
-                    placeholder={t('workbench.editors.request.settings.proxyCredentialsPlaceholder')}
-                    searchable
-                    notFoundContent={
-                      <Text type="secondary" style={{ fontSize: 12, padding: '6px 8px' }}>
-                        {t('workbench.editors.request.settings.proxyCredentialsEmpty')}
-                      </Text>
-                    }
-                    popupFooter={(close) => (
-                      <VaultSelectFooter
-                        label={t('workbench.editors.request.settings.vaultManageCredentials')}
-                        testId="oh-proxy-credentials-manage"
-                        onNavigate={close}
-                      />
-                    )}
-                    unsaved={unsaved.has('proxyCredentialRef')}
-                    warning={
-                      proxyCredentialRefDangling
-                        ? t('workbench.editors.request.settings.proxyCredentialsDangling', {
-                            name: value.proxyCredentialRef ?? '',
-                          })
-                        : undefined
-                    }
-                  />
-                )}
-              </>
-            )}
             <TextKnobRow
               label={t('workbench.editors.request.settings.unixSocket')}
               value={value.unixSocketPath}

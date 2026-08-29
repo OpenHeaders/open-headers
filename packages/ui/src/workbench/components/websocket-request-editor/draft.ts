@@ -13,6 +13,7 @@
  */
 
 import type {
+  ProxyMode,
   TlsVersion,
   WebSocketAuth,
   WebSocketBinaryEncoding,
@@ -66,6 +67,12 @@ export interface WebSocketDraft {
    *  `base64`); the entity carries it only while the format is binary. */
   binaryEncoding: WebSocketBinaryEncoding;
   specLink: WebSocketSpecLink | undefined;
+  /** The dial policy — `undefined` = system DNS / the host's proxy
+   *  planes (the HTTP request's knobs on the session dial). */
+  resolveToAddress: string | undefined;
+  proxyMode: ProxyMode | undefined;
+  proxyUrl: string | undefined;
+  proxyCredentialRef: string | undefined;
   /** Local socket / named pipe the session dials instead of TCP —
    *  `undefined` = a normal TCP connection. */
   unixSocketPath: string | undefined;
@@ -98,6 +105,10 @@ export interface WebSocketRequestUpdates {
   messageFormat: WebSocketMessageFormat;
   binaryEncoding: WebSocketBinaryEncoding | undefined;
   specLink: WebSocketSpecLink | undefined;
+  resolveToAddress: string | undefined;
+  proxyMode: ProxyMode | undefined;
+  proxyUrl: string | undefined;
+  proxyCredentialRef: string | undefined;
   unixSocketPath: string | undefined;
   timeoutMs: number | undefined;
   sslVerification: boolean;
@@ -229,6 +240,10 @@ export function draftFromWebSocketRequest(req: WebSocketRequest): WebSocketDraft
     messageFormat: req.messageFormat ?? 'text',
     binaryEncoding: req.binaryEncoding ?? 'base64',
     specLink: req.specLink,
+    resolveToAddress: req.resolveToAddress,
+    proxyMode: req.proxyMode,
+    proxyUrl: req.proxyUrl,
+    proxyCredentialRef: req.proxyCredentialRef,
     unixSocketPath: req.unixSocketPath,
     timeoutMs: req.timeoutMs,
     sslVerification: req.sslVerification ?? true,
@@ -258,6 +273,10 @@ export function buildWebSocketRequestUpdates(draft: WebSocketDraft): WebSocketRe
     messageFormat: draft.messageFormat,
     binaryEncoding: draft.messageFormat === 'binary' ? draft.binaryEncoding : undefined,
     specLink: draft.specLink,
+    resolveToAddress: draft.resolveToAddress,
+    proxyMode: draft.proxyMode,
+    proxyUrl: draft.proxyUrl,
+    proxyCredentialRef: draft.proxyCredentialRef,
     unixSocketPath: draft.unixSocketPath,
     timeoutMs: draft.timeoutMs,
     sslVerification: draft.sslVerification,
