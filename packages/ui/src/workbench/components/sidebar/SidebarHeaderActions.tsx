@@ -22,7 +22,7 @@ import {
 import { createPanelHeaderWiring, PanelHeader } from '@openheaders/ui/shared/dock-layout';
 import type { InfoPopoverContent } from '@openheaders/ui/shared/info-popover';
 import type { MenuProps } from 'antd';
-import { Dropdown, Tooltip, theme } from 'antd';
+import { Divider, Dropdown, Tooltip, theme } from 'antd';
 import type React from 'react';
 import { useState } from 'react';
 import type { MessageKey } from '@openheaders/i18n';
@@ -182,6 +182,45 @@ const SidebarHeaderActions: React.FC<SidebarHeaderActionsProps> = ({
   ];
   const headerActions = (
     <>
+      {selectedCount > 0 && (
+        <>
+          {exportableSelectedCount > 0 && onExportSelection && (
+          <Tooltip title={t('workbench.sidebar.header.exportSelected', { count: exportableSelectedCount })} placement="bottom">
+            <span
+              role="button"
+              tabIndex={0}
+              className="rules-panel-header-action"
+              style={{ color: token.colorPrimary, width: 'auto', padding: '0 4px' }}
+              onClick={handleExportSelectedClick}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') handleExportSelectedClick();
+              }}
+              aria-label={t('workbench.sidebar.header.exportSelectedAria', { count: exportableSelectedCount })}
+            >
+              <ExportOutlined />
+              <span style={{ marginLeft: 4, fontSize: 11, fontWeight: 600 }}>
+                {exportableSelectedCount === selectedCount ? exportableSelectedCount : `${exportableSelectedCount}/${selectedCount}`}
+              </span>
+            </span>
+          </Tooltip>
+          )}
+          <Tooltip title={t('workbench.sidebar.header.clearSelection')} placement="bottom">
+            <span
+              role="button"
+              tabIndex={0}
+              className="rules-panel-header-action"
+              onClick={clearSelection}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') clearSelection();
+              }}
+              aria-label={t('workbench.sidebar.header.clearSelectionAria')}
+            >
+              <CloseOutlined />
+            </span>
+          </Tooltip>
+          <Divider orientation="vertical" style={{ margin: '0 4px', height: 16 }} />
+        </>
+      )}
       {view === 'http-rules' && (
         <Dropdown
           menu={{ items: createMenuItems }}
@@ -241,42 +280,6 @@ const SidebarHeaderActions: React.FC<SidebarHeaderActionsProps> = ({
             <PlusOutlined />
           </span>
         </Tooltip>
-      )}
-      {selectedCount > 0 && (
-        <>
-          {exportableSelectedCount > 0 && onExportSelection && (
-          <Tooltip title={t('workbench.sidebar.header.exportSelected', { count: exportableSelectedCount })} placement="bottom">
-            <span
-              role="button"
-              tabIndex={0}
-              className="rules-panel-header-action"
-              style={{ color: token.colorPrimary, width: 'auto', padding: '0 4px' }}
-              onClick={handleExportSelectedClick}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') handleExportSelectedClick();
-              }}
-              aria-label={t('workbench.sidebar.header.exportSelectedAria', { count: exportableSelectedCount })}
-            >
-              <ExportOutlined />
-              <span style={{ marginLeft: 4, fontSize: 11, fontWeight: 600 }}>{exportableSelectedCount}</span>
-            </span>
-          </Tooltip>
-          )}
-          <Tooltip title={t('workbench.sidebar.header.clearSelection')} placement="bottom">
-            <span
-              role="button"
-              tabIndex={0}
-              className="rules-panel-header-action"
-              onClick={clearSelection}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') clearSelection();
-              }}
-              aria-label={t('workbench.sidebar.header.clearSelectionAria')}
-            >
-              <CloseOutlined />
-            </span>
-          </Tooltip>
-        </>
       )}
       <Tooltip title={t('workbench.sidebar.header.selectOpenedTab')} placement="bottom">
         <span
