@@ -5,14 +5,17 @@
  * minted opt-in), and the capture recording every protocol frame
  * VERBATIM (the display decodes; the snapshot never does). The
  * transport stays protocol-blind — everything here rides the same
- * scripted seam the raw flavor uses.
+ * scripted seam the raw flavor uses. The S5 protocol slice: the v4
+ * revision (EIO=3, the client pings, the root namespace needs no
+ * CONNECT, no CONNECT payload), the ack timeout registry, and the
+ * subprotocol offer masked off the socketio flavor.
  */
 
 import type { WebSocketRequest } from '@openheaders/core/types';
 import { executeWsSession } from '@openheaders/oracle/live/ws-exec/execute';
 import { sendActiveWsSessionMessage } from '@openheaders/oracle/live/ws-exec/session-plane';
 import type { WsSessionCallbacks, WsTransport, WsTransportRequest } from '@openheaders/oracle/live/ws-exec/transport';
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 function makeSocketIoRequest(overrides: Partial<WebSocketRequest> = {}): WebSocketRequest {
   return {
@@ -240,5 +243,158 @@ describe('executeWsSession — socketio flavor', () => {
     expect(result.error).toContain('not a Socket.IO session');
     rig.callbacks().onEnd();
     await settled;
+  });
+
+  it('never offers a stored subprotocol list on the socketio flavor', async () => {
+    const rig = scriptedTransport();
+    const settled = executeWsSession(makeSocketIoRequest({ subprotocols: ['graphql-ws'] }), {
+      workspaceId: null,
+      environmentId: undefined,
+      transport: rig.transport,
+      sendId: 'send-sio-nosub',
+      resolution: scopedResolution,
+    });
+    await settleTick();
+    expect(rig.wire().subprotocols).toEqual([]);
+    rig.callbacks().onOpen('', '');
+    rig.callbacks().onEnd();
+    const snapshot = await settled;
+    expect(snapshot.requestHeaders?.some((h) => h.key === 'Sec-WebSocket-Protocol')).toBe(false);
+  });
+});
+
+describe('executeWsSession — socketio flavor, timers', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+  const tick = () => vi.advanceTimersByTimeAsync(0);
+
+  it('speaks protocol v4: dials EIO=3, pings on the handshake cadence and again after each pong', async () => {
+    const rig = scriptedTransport();
+    const settled = executeWsSession(makeSocketIoRequest({ socketioProtocol: 4 }), {
+      workspaceId: null,
+      environmentId: undefined,
+      transport: rig.transport,
+      sendId: 'send-sio-v4',
+      resolution: scopedResolution,
+    });
+    await tick();
+    expect(rig.wire().url).toBe('ws://events.openheaders.io:3000/socket.io/?EIO=3&transport=websocket');
+    rig.callbacks().onOpen('', '');
+    rig.callbacks().onMessage(textFrame('0{"sid":"abc","pingInterval":1000,"pingTimeout":500}'));
+    // The server connects the root namespace itself on v4.
+    expect(rig.sent).toEqual([]);
+    rig.callbacks().onMessage(textFrame('40'));
+    await vi.advanceTimersByTimeAsync(999);
+    expect(rig.sent).toEqual([]);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(rig.sent).toEqual(['2']);
+    // No pong yet — no second ping; the pong re-arms the cadence.
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(rig.sent).toEqual(['2']);
+    rig.callbacks().onMessage(textFrame('3'));
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(rig.sent).toEqual(['2', '2']);
+    rig.callbacks().onEnd();
+    await settled;
+  });
+
+  it('protocol v4 CONNECTs a non-root namespace without the auth payload; v5 carries it', async () => {
+    const v4 = scriptedTransport();
+    const settledV4 = executeWsSession(
+      makeSocketIoRequest({ socketioProtocol: 4, namespace: 'admin', auth: { type: 'bearer', token: 't0k' } }),
+      {
+        workspaceId: null,
+        environmentId: undefined,
+        transport: v4.transport,
+        sendId: 'send-sio-v4-ns',
+        resolution: scopedResolution,
+      },
+    );
+    await tick();
+    v4.callbacks().onOpen('', '');
+    v4.callbacks().onMessage(textFrame('0{"sid":"abc"}'));
+    expect(v4.sent).toEqual(['40/admin,']);
+    v4.callbacks().onEnd();
+    await settledV4;
+
+    const v5 = scriptedTransport();
+    const settledV5 = executeWsSession(
+      makeSocketIoRequest({ namespace: 'admin', auth: { type: 'bearer', token: 't0k' } }),
+      {
+        workspaceId: null,
+        environmentId: undefined,
+        transport: v5.transport,
+        sendId: 'send-sio-v5-ns',
+        resolution: scopedResolution,
+      },
+    );
+    await tick();
+    expect(v5.wire().url).toContain('EIO=4');
+    v5.callbacks().onOpen('', '');
+    v5.callbacks().onMessage(textFrame('0{"sid":"abc","pingInterval":1000,"pingTimeout":500}'));
+    expect(v5.sent).toEqual(['40/admin,{"token":"t0k"}']);
+    // v5 never pings from the client.
+    await vi.advanceTimersByTimeAsync(3000);
+    expect(v5.sent).toEqual(['40/admin,{"token":"t0k"}']);
+    v5.callbacks().onEnd();
+    await settledV5;
+  });
+
+  it('records an ack timeout fact when the ACK never comes, clears the wait when it does', async () => {
+    const rig = scriptedTransport();
+    const settled = executeWsSession(makeSocketIoRequest({ ackTimeoutMs: 2000 }), {
+      workspaceId: null,
+      environmentId: undefined,
+      transport: rig.transport,
+      sendId: 'send-sio-ack',
+      resolution: scopedResolution,
+    });
+    await tick();
+    rig.callbacks().onOpen('', '');
+    rig.callbacks().onMessage(textFrame('0{"sid":"abc"}'));
+    expect(sendActiveWsSessionMessage('send-sio-ack', '[1]', { eventName: 'echo', expectAck: true })).toEqual({
+      success: true,
+    });
+    expect(sendActiveWsSessionMessage('send-sio-ack', '[2]', { eventName: 'echo', expectAck: true })).toEqual({
+      success: true,
+    });
+    expect(sendActiveWsSessionMessage('send-sio-ack', '[3]', { eventName: 'echo', expectAck: false })).toEqual({
+      success: true,
+    });
+    // The second ack lands in time; the first never does.
+    await vi.advanceTimersByTimeAsync(500);
+    rig.callbacks().onMessage(textFrame('432[true]'));
+    await vi.advanceTimersByTimeAsync(1499);
+    rig.callbacks().onMessage(textFrame('42["late"]'));
+    await vi.advanceTimersByTimeAsync(1);
+    // A late ACK after the timeout captures like any frame, no fact.
+    rig.callbacks().onMessage(textFrame('431[false]'));
+    rig.callbacks().onEnd();
+    const snapshot = await settled;
+    expect(snapshot.lifecycle).toEqual([{ kind: 'ackTimeout', ackId: 1, timeoutMs: 2000, atIndex: 7 }]);
+    expect(snapshot.messages).toHaveLength(8);
+  });
+
+  it('drops pending acks with the connection — no fact after the end, none across a redial', async () => {
+    const rig = scriptedTransport();
+    const settled = executeWsSession(makeSocketIoRequest({ ackTimeoutMs: 1000 }), {
+      workspaceId: null,
+      environmentId: undefined,
+      transport: rig.transport,
+      sendId: 'send-sio-ack-end',
+      resolution: scopedResolution,
+    });
+    await tick();
+    rig.callbacks().onOpen('', '');
+    rig.callbacks().onMessage(textFrame('0{"sid":"abc"}'));
+    sendActiveWsSessionMessage('send-sio-ack-end', '[1]', { eventName: 'echo', expectAck: true });
+    rig.callbacks().onEnd();
+    const snapshot = await settled;
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(snapshot.lifecycle).toBeUndefined();
   });
 });

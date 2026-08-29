@@ -56,10 +56,12 @@ import {
   encodeEventPacket,
   isValidNamespace,
   resolveSocketIoTarget,
+  SOCKET_IO_DEFAULT_PROTOCOL,
   type SocketIoDialTarget,
 } from '@openheaders/core/socketio';
 import type {
   ExecutedProxyRoute,
+  ExecutedWsAckTimeout,
   ExecutedWsClose,
   ExecutedWsLifecycle,
   ExecutedWsLost,
@@ -180,6 +182,18 @@ export async function executeWsSession(
   if (bearerToken !== '' && !hasAuthorizationRow) {
     headers.push({ key: 'Authorization', value: `Bearer ${bearerToken}` });
   }
+  // Socket.IO flavor: the namespace, handshake path and protocol
+  // revision resolve with the other target fields; the framing
+  // controller CONNECTs the namespace once the engine.io open packet
+  // arrives. engine.io negotiates no subprotocol — a stored offer is a
+  // raw-flavor knob the socketio flavor never puts on the wire.
+  const socketioFlavor = request.flavor === 'socketio';
+  const socketioSettings = {
+    namespace: socketioFlavor ? resolveStr(request.namespace ?? '') : '',
+    handshakePath: socketioFlavor ? resolveStr(request.handshakePath ?? '') : '',
+    protocol: request.socketioProtocol ?? SOCKET_IO_DEFAULT_PROTOCOL,
+  };
+  const subprotocols = socketioFlavor ? [] : request.subprotocols;
   // The handshake request headers as this executor composed them —
   // the user rows and the credential above, plus the subprotocol offer
   // the transport writes from its own field; the platform socket adds
@@ -187,21 +201,11 @@ export async function executeWsSession(
   // timeline's Connected row reads what left.
   const requestHeaders = [
     ...headers,
-    ...(request.subprotocols.length > 0
-      ? [{ key: 'Sec-WebSocket-Protocol', value: request.subprotocols.join(', ') }]
-      : []),
+    ...(subprotocols.length > 0 ? [{ key: 'Sec-WebSocket-Protocol', value: subprotocols.join(', ') }] : []),
   ];
   const params = request.params
     .filter((p) => p.enabled !== false && p.key.trim() !== '')
     .map((p) => ({ ...p, key: resolveStr(p.key), value: resolveStr(p.value) }));
-  // Socket.IO flavor: the namespace and handshake path resolve with
-  // the other target fields; the framing controller CONNECTs the
-  // namespace once the engine.io open packet arrives.
-  const socketioFlavor = request.flavor === 'socketio';
-  const socketioSettings = {
-    namespace: socketioFlavor ? resolveStr(request.namespace ?? '') : '',
-    handshakePath: socketioFlavor ? resolveStr(request.handshakePath ?? '') : '',
-  };
   // The heartbeat frame is a raw-flavor knob (engine.io answers its
   // own pings); resolved with the other Connect-time templates.
   const heartbeatMessage =
@@ -302,10 +306,12 @@ export async function executeWsSession(
         droppedMessages += 1;
       }
     };
-    /** One reconnect-cycle fact at the capture's current index — the
+    /** One session fact at the capture's current index — the
      *  count of every message captured before it, rolled-off ones
      *  included, so live and materialized positions agree. */
-    const recordLifecycle = (fact: ExecutedWsLost | ExecutedWsReconnecting | ExecutedWsReconnected): void => {
+    const recordLifecycle = (
+      fact: ExecutedWsLost | ExecutedWsReconnecting | ExecutedWsReconnected | ExecutedWsAckTimeout,
+    ): void => {
       const item: ExecutedWsLifecycle = { ...fact, atIndex: messages.length + droppedMessages };
       lifecycle.push(item);
       emitter?.lifecycle(item);
@@ -368,6 +374,7 @@ export async function executeWsSession(
       settled = true;
       clearConnectionTimers();
       clearReconnectTimer();
+      socketioSession?.resetConnection();
       unregisterSend();
       unregisterSession?.();
       emitter?.end();
@@ -436,18 +443,33 @@ export async function executeWsSession(
     // whose platform socket cannot carry the header.
     const connectAuthJson = bearerToken !== '' ? JSON.stringify({ token: bearerToken }) : undefined;
     const socketioSession = socketioFlavor
-      ? createSocketIoSessionController(namespace, sendText, connectAuthJson, {
-          onHandshake: ({ pingIntervalMs, pingTimeoutMs }) => {
-            // The official client's liveness rule: a server ping is
-            // due every pingInterval and may run pingTimeout late.
-            if (idleTimeoutMs !== undefined || pingIntervalMs === undefined || pingTimeoutMs === undefined) return;
-            idleDeadlineMs = pingIntervalMs + pingTimeoutMs;
-            armIdleTimer();
+      ? createSocketIoSessionController(
+          namespace,
+          sendText,
+          {
+            protocol: socketioSettings.protocol,
+            ...(connectAuthJson !== undefined ? { connectAuthJson } : {}),
+            ...(request.ackTimeoutMs !== undefined ? { ackTimeoutMs: request.ackTimeoutMs } : {}),
           },
-          onServerDisconnect: () => {
-            serverGoodbye = true;
+          {
+            onHandshake: ({ pingIntervalMs, pingTimeoutMs }) => {
+              // The official client's liveness rule on either
+              // revision: a ping (the server's on v5, the client's
+              // pong on v4) is due every pingInterval and may run
+              // pingTimeout late.
+              if (idleTimeoutMs !== undefined || pingIntervalMs === undefined || pingTimeoutMs === undefined) return;
+              idleDeadlineMs = pingIntervalMs + pingTimeoutMs;
+              armIdleTimer();
+            },
+            onServerDisconnect: () => {
+              serverGoodbye = true;
+            },
+            onAckTimeout: (ackId, timeoutMs) => {
+              if (settled) return;
+              recordLifecycle({ kind: 'ackTimeout', ackId, timeoutMs });
+            },
           },
-        })
+        )
       : null;
 
     /** Arm the wait before the next attempt; `error` is the attempt
@@ -522,7 +544,7 @@ export async function executeWsSession(
         {
           url,
           headers,
-          subprotocols: request.subprotocols,
+          subprotocols,
           ...tlsPolicy,
           ...dialPolicy,
           ...(request.unixSocketPath !== undefined ? { unixSocketPath: request.unixSocketPath } : {}),
@@ -595,7 +617,6 @@ export async function executeWsSession(
         if (settled || !attemptOpened) return { success: false, error: 'The session is not open.' };
         const sendUnresolved = new Set<string>();
         const resolved = resolveWith(messageText, sendUnresolved);
-        let frame = resolved;
         if (binary !== undefined) {
           if (socketio !== undefined) {
             return { success: false, error: 'A Socket.IO event cannot be a binary frame.' };
@@ -627,21 +648,20 @@ export async function executeWsSession(
               error: `Message has unresolved variables (${[...sendUnresolved].join(', ')}).`,
             };
           }
-          const encoded = encodeEventPacket(
-            namespace,
-            socketio.expectAck ? socketioSession.nextAckId() : null,
-            eventName,
-            resolved,
-          );
+          const ackId = socketio.expectAck ? socketioSession.nextAckId() : null;
+          const encoded = encodeEventPacket(namespace, ackId, eventName, resolved);
           if (!encoded.ok) return { success: false, error: encoded.error };
-          frame = encoded.frame;
-        } else if (sendUnresolved.size > 0) {
+          sendText(encoded.frame);
+          if (ackId !== null) socketioSession.armAck(ackId);
+          return { success: true };
+        }
+        if (sendUnresolved.size > 0) {
           return {
             success: false,
             error: `Message has unresolved variables (${[...sendUnresolved].join(', ')}).`,
           };
         }
-        sendText(frame);
+        sendText(resolved);
         return { success: true };
       },
       close: () => {
