@@ -13,6 +13,7 @@
  */
 
 import type {
+  TlsVersion,
   WebSocketAuth,
   WebSocketBinaryEncoding,
   WebSocketEventRow,
@@ -72,6 +73,12 @@ export interface WebSocketDraft {
   /** Concrete in the form — absent on the entity reads as verify-on
    *  (the safe default the transport applies). */
   sslVerification: boolean;
+  /** The rest of the TLS policy — `undefined` = the runtime default. */
+  clientCertificateRef: string | undefined;
+  tlsMinVersion: TlsVersion | undefined;
+  tlsMaxVersion: TlsVersion | undefined;
+  tlsCipherSuites: string | undefined;
+  sniServerName: string | undefined;
 }
 
 export interface WebSocketRequestUpdates {
@@ -94,6 +101,11 @@ export interface WebSocketRequestUpdates {
   unixSocketPath: string | undefined;
   timeoutMs: number | undefined;
   sslVerification: boolean;
+  clientCertificateRef: string | undefined;
+  tlsMinVersion: TlsVersion | undefined;
+  tlsMaxVersion: TlsVersion | undefined;
+  tlsCipherSuites: string | undefined;
+  sniServerName: string | undefined;
 }
 
 export function headersToRows(pairs: readonly WebSocketHeaderPair[]): KeyValueRow[] {
@@ -220,6 +232,11 @@ export function draftFromWebSocketRequest(req: WebSocketRequest): WebSocketDraft
     unixSocketPath: req.unixSocketPath,
     timeoutMs: req.timeoutMs,
     sslVerification: req.sslVerification ?? true,
+    clientCertificateRef: req.clientCertificateRef,
+    tlsMinVersion: req.tlsMinVersion,
+    tlsMaxVersion: req.tlsMaxVersion,
+    tlsCipherSuites: req.tlsCipherSuites,
+    sniServerName: req.sniServerName,
   };
 }
 
@@ -244,6 +261,11 @@ export function buildWebSocketRequestUpdates(draft: WebSocketDraft): WebSocketRe
     unixSocketPath: draft.unixSocketPath,
     timeoutMs: draft.timeoutMs,
     sslVerification: draft.sslVerification,
+    clientCertificateRef: draft.clientCertificateRef,
+    tlsMinVersion: draft.tlsMinVersion,
+    tlsMaxVersion: draft.tlsMaxVersion,
+    tlsCipherSuites: draft.tlsCipherSuites,
+    sniServerName: draft.sniServerName,
   };
 }
 

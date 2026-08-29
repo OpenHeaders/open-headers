@@ -42,6 +42,7 @@ export interface Draft {
   tlsMinVersion?: TlsVersion;
   tlsMaxVersion?: TlsVersion;
   tlsCipherSuites?: string;
+  sniServerName?: string;
   httpVersion?: HttpVersion;
   resolveToAddress?: string;
   clientCertificateRef?: string;
@@ -77,6 +78,7 @@ export interface RequestUpdates {
   tlsMinVersion: TlsVersion | undefined;
   tlsMaxVersion: TlsVersion | undefined;
   tlsCipherSuites: string | undefined;
+  sniServerName: string | undefined;
   httpVersion: HttpVersion | undefined;
   resolveToAddress: string | undefined;
   clientCertificateRef: string | undefined;
@@ -221,6 +223,7 @@ export function draftFromRequest(req: Request): Draft {
     tlsMinVersion: req.tlsMinVersion,
     tlsMaxVersion: req.tlsMaxVersion,
     tlsCipherSuites: req.tlsCipherSuites,
+    sniServerName: req.sniServerName,
     httpVersion: req.httpVersion,
     resolveToAddress: req.resolveToAddress,
     clientCertificateRef: req.clientCertificateRef,
@@ -267,6 +270,7 @@ export function buildRequestUpdates(draft: Draft): RequestUpdates {
     tlsMinVersion: draft.tlsMinVersion,
     tlsMaxVersion: draft.tlsMaxVersion,
     tlsCipherSuites: draft.tlsCipherSuites,
+    sniServerName: draft.sniServerName,
     httpVersion: draft.httpVersion,
     resolveToAddress: draft.resolveToAddress,
     clientCertificateRef: draft.clientCertificateRef,

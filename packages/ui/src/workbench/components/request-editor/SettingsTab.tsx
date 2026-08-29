@@ -181,14 +181,11 @@ import {
   MAX_REQUEST_TIMEOUT_MS,
   MAX_RESOLVE_TO_ADDRESS_LENGTH,
   MAX_RESPONSE_BYTES,
-  MAX_TLS_CIPHER_SUITES_LENGTH,
   MAX_UNIX_SOCKET_PATH_LENGTH,
   MIN_MAX_REDIRECTS,
   MIN_REQUEST_TIMEOUT_MS,
   MIN_RESPONSE_BYTES,
   RESOLVE_TO_ADDRESS_PATTERN,
-  TLS_CIPHER_SUITES_PATTERN,
-  TLS_VERSIONS,
 } from '@openheaders/core/schemas';
 import type { HttpVersion, ProxyMode, TlsVersion } from '@openheaders/core/types';
 import { useVaultContext } from '@openheaders/ui/context';
@@ -209,7 +206,7 @@ import {
   SelectKnobRow,
   TextKnobRow,
 } from '@openheaders/ui/shared/settings-rows';
-import TrustedRootsSettingsRow from '../trusted-roots/TrustedRootsSettingsRow';
+import TlsTrustGroup from '../shared/tls-trust/TlsTrustGroup';
 import VaultSelectFooter from '../variables/VaultSelectFooter';
 import CookieJarRow from './CookieJarRow';
 import { GROUP_LABEL_KEY, GROUP_ORDER, type SettingsGroupKey } from './settings-groups';
@@ -241,6 +238,9 @@ export interface RequestSettingsDraft {
   /** OpenSSL-format colon-joined cipher list offered in the handshake.
    *  Undefined = the runtime's default suites. Node runtimes only. */
   tlsCipherSuites?: string;
+  /** SNI server name presented in the TLS handshake instead of the
+   *  URL's host. Undefined = the URL's host. Node runtimes only. */
+  sniServerName?: string;
   /** HTTP version policy. Undefined = `'auto'` (ALPN offer of h2 +
    *  http/1.1, the server picks); explicit tokens pin the protocol
    *  and fail honestly when the server won't speak it. Node runtimes
@@ -530,11 +530,6 @@ const RuntimeManagedRow: React.FC<RuntimeManagedDef & { kicker: string }> = ({
   );
 };
 
-/** Position of a version token in the ordered {@link TLS_VERSIONS}
- *  list — the min/max selects disable options outside the window the
- *  OTHER select already pinned, so min ≤ max holds by construction. */
-const tlsVersionRank = (version: TlsVersion): number => TLS_VERSIONS.indexOf(version);
-
 const SettingsTab: React.FC<SettingsTabProps> = ({
   value,
   onChange,
@@ -552,16 +547,11 @@ const SettingsTab: React.FC<SettingsTabProps> = ({
     runtime === 'node' && !scriptMode.available
       ? [...sheet.rows, remoteScriptsSafe ? SCRIPTS_SAFE_FORWARDED_ROW : SCRIPTS_NOT_RUN_ROW]
       : sheet.rows;
-  // Vault client-certificate entries feed the picker's options. The
-  // context defaults to an empty vault when no provider is mounted, so
-  // the tab stays renderable everywhere.
+  // The vault feeds the proxy-credentials picker (the TLS block reads
+  // its own client-certificate entries). The context defaults to an
+  // empty vault when no provider is mounted, so the tab stays
+  // renderable everywhere.
   const { vault } = useVaultContext();
-  const clientCertificateOptions = vault.secrets
-    .filter((s) => s.kind === 'client-certificate')
-    .map((s) => ({ value: s.name, label: s.name }));
-  const clientCertificateRefDangling =
-    value.clientCertificateRef !== undefined &&
-    !clientCertificateOptions.some((o) => o.value === value.clientCertificateRef);
   // Vault string entries feed the proxy-credentials picker — a
   // `user:password` pair is string-shaped, no dedicated entry kind.
   const proxyCredentialOptions = vault.secrets
@@ -595,12 +585,6 @@ const SettingsTab: React.FC<SettingsTabProps> = ({
     value.proxyUrl !== undefined ||
     value.proxyCredentialRef !== undefined ||
     value.unixSocketPath !== undefined;
-  const tlsModified =
-    value.sslVerification === false ||
-    value.tlsMinVersion !== undefined ||
-    value.tlsMaxVersion !== undefined ||
-    value.tlsCipherSuites !== undefined ||
-    value.clientCertificateRef !== undefined;
   // Short-circuit: past the first clause redirects are being followed,
   // so the trio rows are visible and may contribute.
   const redirectsModified =
@@ -624,7 +608,6 @@ const SettingsTab: React.FC<SettingsTabProps> = ({
     'proxyCredentialRef',
     'unixSocketPath',
   );
-  const tlsUnsaved = hasUnsaved('sslVerification', 'tlsMinVersion', 'tlsMaxVersion', 'tlsCipherSuites', 'clientCertificateRef');
   const redirectsUnsaved = hasUnsaved(
     'followRedirects',
     'maxRedirects',
@@ -816,104 +799,17 @@ const SettingsTab: React.FC<SettingsTabProps> = ({
               unsaved={unsaved.has('unixSocketPath')}
             />
             </GroupSection>
-            <GroupSection
-              label={t('workbench.editors.request.settings.group.tls')}
+            <TlsTrustGroup
+              groupLabel={t('workbench.editors.request.settings.group.tls')}
+              groupInfo={settingsGroupInfo(t, 'tls')}
               expanded={collapsed.tls !== true}
               onToggle={() => toggleGroup('tls')}
-              info={settingsGroupInfo(t, 'tls')}
-              modified={tlsModified}
-              unsaved={tlsUnsaved}
-            >
-            <KnobRow
-              label={t('workbench.editors.request.settings.sslVerification')}
-              checked={value.sslVerification !== false}
-              modified={value.sslVerification === false}
-              unsaved={unsaved.has('sslVerification')}
-              onReset={() => onChange({ ...value, sslVerification: undefined })}
-              onChange={(checked) => onChange({ ...value, sslVerification: checked })}
-              info={settingsRowInfo(t, 'sslVerification')}
-              warning={t('workbench.editors.request.settings.sslVerificationWarning')}
+              value={value}
+              onChange={(next) => onChange({ ...value, ...next })}
+              rowInfo={(key) => settingsRowInfo(t, key)}
+              unsaved={unsaved}
+              testIdPrefix="request"
             />
-            <TrustedRootsSettingsRow
-              kicker={t('workbench.editors.request.settings.group.tls')}
-              testId="oh-trusted-roots-row"
-            />
-            <SelectKnobRow
-              label={t('workbench.editors.request.settings.tlsMin')}
-              value={value.tlsMinVersion}
-              onChange={(v) => onChange({ ...value, tlsMinVersion: v as TlsVersion | undefined })}
-              info={settingsRowInfo(t, 'tlsMin')}
-              options={TLS_VERSIONS.map((v) => ({
-                value: v,
-                label: v,
-                disabled: value.tlsMaxVersion !== undefined && tlsVersionRank(v) > tlsVersionRank(value.tlsMaxVersion),
-              }))}
-              placeholder={t('workbench.editors.request.settings.tlsMinPlaceholder')}
-              unsaved={unsaved.has('tlsMinVersion')}
-              warning={
-                value.tlsMinVersion === '1.0' || value.tlsMinVersion === '1.1'
-                  ? t('workbench.editors.request.settings.tlsMinWarning')
-                  : undefined
-              }
-            />
-            <SelectKnobRow
-              label={t('workbench.editors.request.settings.tlsMax')}
-              value={value.tlsMaxVersion}
-              onChange={(v) => onChange({ ...value, tlsMaxVersion: v as TlsVersion | undefined })}
-              info={settingsRowInfo(t, 'tlsMax')}
-              options={TLS_VERSIONS.map((v) => ({
-                value: v,
-                label: v,
-                disabled: value.tlsMinVersion !== undefined && tlsVersionRank(v) < tlsVersionRank(value.tlsMinVersion),
-              }))}
-              placeholder={t('workbench.editors.request.settings.tlsMaxPlaceholder')}
-              unsaved={unsaved.has('tlsMaxVersion')}
-            />
-            <TextKnobRow
-              label={t('workbench.editors.request.settings.tlsCipherSuites')}
-              value={value.tlsCipherSuites}
-              onChange={(tlsCipherSuites) => onChange({ ...value, tlsCipherSuites })}
-              info={settingsRowInfo(t, 'tlsCipherSuites')}
-              placeholder={t('workbench.editors.request.settings.tlsCipherSuitesPlaceholder')}
-              maxLength={MAX_TLS_CIPHER_SUITES_LENGTH}
-              error={
-                value.tlsCipherSuites !== undefined && !TLS_CIPHER_SUITES_PATTERN.test(value.tlsCipherSuites)
-                  ? t('workbench.editors.request.settings.tlsCipherSuitesError')
-                  : undefined
-              }
-              example={t('workbench.editors.request.settings.tlsCipherSuitesExample')}
-              unsaved={unsaved.has('tlsCipherSuites')}
-            />
-            <SelectKnobRow
-              label={t('workbench.editors.request.settings.clientCertificate')}
-              value={value.clientCertificateRef}
-              onChange={(clientCertificateRef) => onChange({ ...value, clientCertificateRef })}
-              info={settingsRowInfo(t, 'clientCertificate')}
-              options={clientCertificateOptions}
-              placeholder={t('workbench.editors.request.settings.clientCertificatePlaceholder')}
-              searchable
-              notFoundContent={
-                <Text type="secondary" style={{ fontSize: 12, padding: '6px 8px' }}>
-                  {t('workbench.editors.request.settings.clientCertificateEmpty')}
-                </Text>
-              }
-              popupFooter={(close) => (
-                <VaultSelectFooter
-                  label={t('workbench.editors.request.settings.vaultManageCertificates')}
-                  testId="oh-client-certificate-manage"
-                  onNavigate={close}
-                />
-              )}
-              unsaved={unsaved.has('clientCertificateRef')}
-              warning={
-                clientCertificateRefDangling
-                  ? t('workbench.editors.request.settings.clientCertificateDangling', {
-                      name: value.clientCertificateRef ?? '',
-                    })
-                  : undefined
-              }
-            />
-            </GroupSection>
           </>
         )}
         <GroupSection

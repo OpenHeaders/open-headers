@@ -5,7 +5,8 @@
  * whose headers carry the (i) group popovers, `label · (i) · control`
  * rows from the shared settings-row family with the effective
  * defaults legible in the controls, modified dots, and per-row
- * resets. The Socket.IO group renders on that flavor only.
+ * resets. The Socket.IO group renders on that flavor only; the TLS &
+ * trust group is the shared `TlsTrustGroup` block.
  *
  * The tab edits the draft directly, so the dots track distance from
  * the PROTOCOL defaults — there is no saved-baseline (unsaved) plane
@@ -22,12 +23,12 @@ import {
 } from '@openheaders/core/schemas';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { durationMsInterpreter, formatDurationMs, numericPresets } from '@openheaders/ui/shared/combo-knob';
-import { ComboKnobRow, GroupSection, KnobRow, TagsKnobRow, TextKnobRow } from '@openheaders/ui/shared/settings-rows';
+import { ComboKnobRow, GroupSection, TagsKnobRow, TextKnobRow } from '@openheaders/ui/shared/settings-rows';
 import { ConfigProvider, theme } from 'antd';
 import type React from 'react';
 import { useState } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
-import TrustedRootsSettingsRow from '../trusted-roots/TrustedRootsSettingsRow';
+import TlsTrustGroup from '../shared/tls-trust/TlsTrustGroup';
 import type { WebSocketDraft } from './draft';
 import { WS_GROUP_LABEL_KEY } from './settings-groups';
 import { wsSettingsGroupInfo, wsSettingsRowInfo } from './WebSocketSettingsRowInfo';
@@ -68,7 +69,6 @@ const WebSocketSettingsTab: React.FC<WebSocketSettingsTabProps> = ({ draft, setD
   const connectionModified =
     draft.subprotocols.length > 0 || draft.unixSocketPath !== undefined || draft.timeoutMs !== undefined;
   const socketioModified = draft.namespace !== '' || draft.handshakePath !== '';
-  const tlsModified = !draft.sslVerification;
 
   return (
     <ConfigProvider
@@ -158,25 +158,15 @@ const WebSocketSettingsTab: React.FC<WebSocketSettingsTabProps> = ({ draft, setD
             />
           </GroupSection>
         )}
-        <GroupSection
-          label={t(WS_GROUP_LABEL_KEY.tls)}
+        <TlsTrustGroup
+          groupLabel={t(WS_GROUP_LABEL_KEY.tls)}
+          groupInfo={wsSettingsGroupInfo(t, 'tls')}
           expanded={collapsed.tls !== true}
           onToggle={() => toggleGroup('tls')}
-          info={wsSettingsGroupInfo(t, 'tls')}
-          modified={tlsModified}
-        >
-          <KnobRow
-            label={t('workbench.editors.websocket.settings.sslVerifyLabel')}
-            checked={draft.sslVerification}
-            modified={!draft.sslVerification}
-            onReset={() => setDraft((d) => ({ ...d, sslVerification: true }))}
-            onChange={(sslVerification) => setDraft((d) => ({ ...d, sslVerification }))}
-            info={wsSettingsRowInfo(t, 'sslVerification')}
-            warning={t('workbench.editors.websocket.settings.sslVerifyWarning')}
-            testId="websocket-ssl-verify"
-          />
-          <TrustedRootsSettingsRow kicker={t(WS_GROUP_LABEL_KEY.tls)} testId="websocket-trusted-roots" />
-        </GroupSection>
+          value={draft}
+          onChange={(next) => setDraft((d) => ({ ...d, ...next, sslVerification: next.sslVerification !== false }))}
+          testIdPrefix="websocket"
+        />
       </div>
     </ConfigProvider>
   );

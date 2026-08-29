@@ -65,6 +65,7 @@ export interface DraftData {
   tlsMinVersion?: TlsVersion;
   tlsMaxVersion?: TlsVersion;
   tlsCipherSuites?: string;
+  sniServerName?: string;
   httpVersion?: HttpVersion;
   resolveToAddress?: string;
   clientCertificateRef?: string;
@@ -137,6 +138,7 @@ export function useSaveRequestFlow({
             tlsMinVersion: draftData.tlsMinVersion,
             tlsMaxVersion: draftData.tlsMaxVersion,
             tlsCipherSuites: draftData.tlsCipherSuites,
+            sniServerName: draftData.sniServerName,
             httpVersion: draftData.httpVersion,
             resolveToAddress: draftData.resolveToAddress,
             clientCertificateRef: draftData.clientCertificateRef,
@@ -191,6 +193,7 @@ export function useSaveRequestFlow({
           tlsMinVersion: saveModalDraftData.tlsMinVersion,
           tlsMaxVersion: saveModalDraftData.tlsMaxVersion,
           tlsCipherSuites: saveModalDraftData.tlsCipherSuites,
+          sniServerName: saveModalDraftData.sniServerName,
           httpVersion: saveModalDraftData.httpVersion,
           resolveToAddress: saveModalDraftData.resolveToAddress,
           clientCertificateRef: saveModalDraftData.clientCertificateRef,

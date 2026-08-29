@@ -107,6 +107,11 @@ const emptyWebSocketDraft = (): WebSocketDraft => ({
   unixSocketPath: undefined,
   timeoutMs: undefined,
   sslVerification: true,
+  clientCertificateRef: undefined,
+  tlsMinVersion: undefined,
+  tlsMaxVersion: undefined,
+  tlsCipherSuites: undefined,
+  sniServerName: undefined,
 });
 
 const WebSocketRequestEditor: React.FC<WebSocketRequestEditorProps> = ({

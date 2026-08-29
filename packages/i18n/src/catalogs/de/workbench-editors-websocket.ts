@@ -129,7 +129,7 @@ export const workbenchEditorsWebsocket = {
   'workbench.editors.websocket.settings.groupInfo.socketio':
     'Wie das Socket.IO-CONNECT den Server adressiert: der Namespace, dem die Sitzung beitritt.',
   'workbench.editors.websocket.settings.groupInfo.tls':
-    'Wie wss:-Sitzungen Vertrauen herstellen: ob das Serverzertifikat gegen die Systemwurzeln geprüft wird.',
+    'Wie wss:-Sitzungen Vertrauen herstellen: ob das Serverzertifikat gegen die Systemwurzeln geprüft wird, welches Client-Zertifikat dieses Gerät vorlegt, das TLS-Versionsfenster und die Cipher-Liste im Handshake sowie der angebotene SNI-Name.',
   'workbench.editors.websocket.settings.subprotocolsLabel': 'Subprotokolle',
   'workbench.editors.websocket.settings.subprotocolsHelp':
     'Die Sec-WebSocket-Protocol-Angebotsliste, in bevorzugter Reihenfolge — der Server wählt eines während ' +
@@ -154,13 +154,6 @@ export const workbenchEditorsWebsocket = {
     'direkt den websocket-Transport; es gibt keinen Fallback auf long-polling.',
   'workbench.editors.websocket.settings.namespacePlaceholder': '/ (Standard)',
   'workbench.editors.websocket.settings.namespaceExample': 'z. B. /admin',
-  'workbench.editors.websocket.settings.sslVerifyLabel': 'SSL-Zertifikatsprüfung',
-  'workbench.editors.websocket.settings.sslVerifyHelp':
-    'Prüft das Serverzertifikat für wss:-Sitzungen gegen die Systemwurzeln. Schalte es für selbstsignierte ' +
-    'Entwicklungsserver aus. Gilt in der Desktop-App oder im Server.',
-  'workbench.editors.websocket.settings.sslVerifyWarning':
-    'Sitzungen überspringen die Prüfung der Server-Identität — jedes Zertifikat wird akzeptiert, auch ' +
-    'selbstsignierte und abgelaufene.',
   'workbench.editors.websocket.toast.deletedOtherTab': 'Diese WebSocket-Anfrage wurde in einem anderen Tab gelöscht.',
   'workbench.editors.websocket.toast.updateFailed': 'WebSocket-Anfrage konnte nicht gespeichert werden',
   'workbench.editors.websocket.toast.updateFailedDetail':

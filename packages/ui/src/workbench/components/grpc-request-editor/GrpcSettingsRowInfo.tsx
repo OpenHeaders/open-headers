@@ -1,7 +1,8 @@
 /**
  * `(i)` info-popover content for the gRPC editor's Settings-tab knobs
  * and group headers — kicker (the group), title (the row's own
- * label), and the knob's copy as the summary. No example card: the
+ * label), and the knob's copy as the summary; the TLS & trust rows
+ * read the shared block's copy. No example card: the
  * protocol's channel card is its own surface when it lands, never a
  * leg on the MQTT session card.
  */
@@ -11,26 +12,23 @@ import type { Translate } from '@openheaders/ui/context/LocaleContext';
 import type { InfoPopoverContent } from '@openheaders/ui/shared/info-popover';
 import { GRPC_GROUP_LABEL_KEY, type GrpcSettingsGroupKey } from './settings-groups';
 
-export type GrpcInfoKey = 'unixSocket' | 'timeout' | 'sslVerification' | 'sendInvalidMessage';
+export type GrpcInfoKey = 'unixSocket' | 'timeout' | 'sendInvalidMessage';
 
 const TITLE_KEY: Record<GrpcInfoKey, MessageKey> = {
   unixSocket: 'workbench.editors.grpc.settings.unixSocketLabel',
   timeout: 'workbench.editors.grpc.settings.timeoutLabel',
-  sslVerification: 'workbench.editors.grpc.settings.sslVerifyLabel',
   sendInvalidMessage: 'workbench.editors.grpc.settings.sendInvalidMessageLabel',
 };
 
 const SUMMARY_KEY: Record<GrpcInfoKey, MessageKey> = {
   unixSocket: 'workbench.editors.grpc.settings.unixSocketHelp',
   timeout: 'workbench.editors.grpc.settings.timeoutHelp',
-  sslVerification: 'workbench.editors.grpc.settings.sslVerifyHelp',
   sendInvalidMessage: 'workbench.editors.grpc.settings.sendInvalidMessageHelp',
 };
 
 const KICKER_GROUP: Record<GrpcInfoKey, GrpcSettingsGroupKey> = {
   unixSocket: 'connection',
   timeout: 'connection',
-  sslVerification: 'tls',
   sendInvalidMessage: 'messages',
 };
 

@@ -216,20 +216,7 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.settings.requestProblemInfoLabel': 'Request Problem Information',
   'workbench.editors.mqtt.settings.requestProblemInfoHelp':
     'Dem Broker erlauben, Reason Strings und User Properties an Fehlerpakete anzuhängen. Standardmäßig an.',
-  'workbench.editors.mqtt.settings.sslVerifyLabel': 'SSL-Zertifikatsprüfung',
-  'workbench.editors.mqtt.settings.sslVerifyHelp':
-    'Das Broker-Zertifikat für mqtts/wss-Sitzungen gegen die Systemwurzeln prüfen. Für selbstsignierte Entwicklungs-Broker ausschalten.',
-  'workbench.editors.mqtt.settings.sslVerifyWarning':
-    'Sitzungen überspringen die Prüfung der Broker-Identität — jedes Zertifikat wird akzeptiert, auch ' +
-    'selbstsignierte und abgelaufene.',
   'workbench.editors.mqtt.settings.clientIdExample': 'z. B. reporter-1',
-  'workbench.editors.mqtt.settings.clientCertificateHelp':
-    'Einen Client-Zertifikat-Eintrag des Tresors im mqtts/wss-Handshake vorzeigen — für Broker, die Geräte per Zertifikat authentifizieren. Die Anfrage speichert nur den Eintragsnamen; jedes Gerät zeigt seinen eigenen Eintrag dieses Namens vor.',
-  'workbench.editors.mqtt.settings.sniLabel': 'SNI-Servername',
-  'workbench.editors.mqtt.settings.sniHelp':
-    'Servername im TLS-Handshake von mqtts-Sitzungen — Broker hinter einem gemeinsamen Endpunkt wählen daran ihr Zertifikat. Leer sendet den URL-Host.',
-  'workbench.editors.mqtt.settings.sniPlaceholder': 'Auto — der URL-Host',
-  'workbench.editors.mqtt.settings.sniExample': 'z. B. broker.openheaders.com',
   'workbench.editors.mqtt.settings.alpnLabel': 'ALPN-Protokoll',
   'workbench.editors.mqtt.settings.alpnHelp':
     'Im TLS-Handshake von mqtts-Sitzungen angebotenes Anwendungsprotokoll — Broker, die MQTT auf einem gemeinsamen TLS-Port multiplexen, wählen daran. Leer bietet keines an.',
@@ -245,7 +232,7 @@ export const workbenchEditorsMqtt = {
     'MQTT-5.0-Bedingungen, die CONNECT dem Broker anbietet: wie lange die Sitzung eine Trennung überlebt, plus ' +
     'die Obergrenzen für gleichzeitige Nachrichten und Paketgröße, die dieser Client akzeptiert.',
   'workbench.editors.mqtt.settings.groupInfo.tls':
-    'Wie mqtts/wss-Sitzungen Vertrauen herstellen: ob das Broker-Zertifikat gegen die Systemwurzeln geprüft wird, welches Client-Zertifikat dieses Gerät vorzeigt, sowie SNI-Name und ALPN-Angebot im Handshake.',
+    'Wie mqtts/wss-Sitzungen Vertrauen herstellen: ob das Broker-Zertifikat gegen die Systemwurzeln geprüft wird, welches Client-Zertifikat dieses Gerät vorlegt, das TLS-Versionsfenster und die Cipher-Liste sowie SNI-Name und ALPN-Angebot im Handshake.',
   'workbench.editors.mqtt.settings.sessionV311': 'MQTT-5.0-Regler — diese Anfrage zielt auf 3.1.1.',
   // ── Sitzungsbereich ─────────────────────────────────────────────────
   'workbench.editors.mqtt.session.emptyTitle': 'Antwort',

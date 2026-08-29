@@ -106,7 +106,7 @@ export const workbenchEditorsWebsocket = {
   'workbench.editors.websocket.settings.groupInfo.socketio':
     'How the Socket.IO dial addresses the server: the engine.io handshake path it mounts and the namespace the session joins.',
   'workbench.editors.websocket.settings.groupInfo.tls':
-    'How wss: sessions establish trust: whether the server certificate is verified against the system roots.',
+    'How wss: sessions establish trust: whether the server certificate is verified against the system roots, the client certificate this device presents, the TLS version window and cipher list on the handshake, and the SNI name it offers.',
   'workbench.editors.websocket.settings.subprotocolsLabel': 'Subprotocols',
   'workbench.editors.websocket.settings.subprotocolsHelp':
     'Sec-WebSocket-Protocol offer list, in preference order — the server picks one during the handshake.',
@@ -130,11 +130,6 @@ export const workbenchEditorsWebsocket = {
     'The namespace the session joins — the URL path, as the official client reads it (ws://host/admin joins /admin). Edit it here or in the URL; the two stay in sync. Empty joins the root /.',
   'workbench.editors.websocket.settings.namespacePlaceholder': '/ (default)',
   'workbench.editors.websocket.settings.namespaceExample': 'e.g. /admin',
-  'workbench.editors.websocket.settings.sslVerifyLabel': 'SSL certificate verification',
-  'workbench.editors.websocket.settings.sslVerifyHelp':
-    'Verify the server certificate against the system roots for wss: sessions. Turn off for self-signed development servers. Applies on the desktop app or server.',
-  'workbench.editors.websocket.settings.sslVerifyWarning':
-    'Sessions skip the server identity check — any certificate is accepted, including self-signed and expired ones.',
   'workbench.editors.websocket.toast.deletedOtherTab': 'This WebSocket request was deleted in another tab.',
   'workbench.editors.websocket.toast.updateFailed': 'Saving the WebSocket request failed',
   'workbench.editors.websocket.toast.updateFailedDetail': 'Saving the WebSocket request failed: {message}',

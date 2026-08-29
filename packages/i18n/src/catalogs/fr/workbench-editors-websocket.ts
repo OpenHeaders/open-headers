@@ -121,8 +121,7 @@ export const workbenchEditorsWebsocket = {
   'workbench.editors.websocket.settings.groupInfo.socketio':
     'Comment le CONNECT Socket.IO adresse le serveur : l’espace de noms que la session rejoint.',
   'workbench.editors.websocket.settings.groupInfo.tls':
-    'Comment les sessions wss: établissent la confiance : vérification ou non du certificat du serveur contre ' +
-    'les racines du système.',
+    'Comment les sessions wss: établissent la confiance : vérification du certificat du serveur contre les racines système, certificat client présenté par cet appareil, fenêtre de versions TLS et liste de suites de chiffrement de la négociation, et nom SNI proposé.',
   'workbench.editors.websocket.settings.subprotocolsLabel': 'Sous-protocoles',
   'workbench.editors.websocket.settings.subprotocolsHelp':
     "Liste d'offres Sec-WebSocket-Protocol, par ordre de préférence — le serveur en choisit un pendant le handshake.",
@@ -146,13 +145,6 @@ export const workbenchEditorsWebsocket = {
     "composent directement le transport websocket ; il n'y a pas de repli long-polling.",
   'workbench.editors.websocket.settings.namespacePlaceholder': '/ (défaut)',
   'workbench.editors.websocket.settings.namespaceExample': 'p. ex. /admin',
-  'workbench.editors.websocket.settings.sslVerifyLabel': 'Vérification du certificat SSL',
-  'workbench.editors.websocket.settings.sslVerifyHelp':
-    'Vérifie le certificat du serveur contre les racines du système pour les sessions wss:. Désactivez pour ' +
-    "les serveurs de développement auto-signés. S'applique sur l'application de bureau ou le serveur.",
-  'workbench.editors.websocket.settings.sslVerifyWarning':
-    'Les sessions sautent la vérification d’identité du serveur — tout certificat est accepté, y compris ' +
-    'auto-signés et expirés.',
   'workbench.editors.websocket.toast.deletedOtherTab':
     'Cette requête WebSocket a été supprimée depuis un autre onglet.',
   'workbench.editors.websocket.toast.updateFailed': "Échec de l'enregistrement de la requête WebSocket",

@@ -181,6 +181,7 @@ export const REQUEST_SCHEMA: FieldNode = obj({
   tlsMinVersion: leaf('string', { coercion: 'optional-string' }),
   tlsMaxVersion: leaf('string', { coercion: 'optional-string' }),
   tlsCipherSuites: leaf('string', { coercion: 'optional-string' }),
+  sniServerName: leaf('string', { coercion: 'optional-string' }),
   httpVersion: leaf('string', { coercion: 'optional-string' }),
   resolveToAddress: leaf('string', { coercion: 'optional-string' }),
   clientCertificateRef: leaf('string', { coercion: 'optional-string' }),

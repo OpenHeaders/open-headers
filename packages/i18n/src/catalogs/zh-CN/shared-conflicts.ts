@@ -204,6 +204,7 @@ export const sharedConflicts = {
   'shared.conflicts.label.request.scalar.tlsMinVersion': 'TLS 最低版本',
   'shared.conflicts.label.request.scalar.tlsMaxVersion': 'TLS 最高版本',
   'shared.conflicts.label.request.scalar.tlsCipherSuites': 'TLS 密码套件',
+  'shared.conflicts.label.request.scalar.sniServerName': 'SNI 服务器名称',
   'shared.conflicts.label.request.scalar.httpVersion': 'HTTP 版本',
   'shared.conflicts.label.request.scalar.resolveToAddress': '解析到地址',
   'shared.conflicts.label.request.scalar.clientCertificateRef': '客户端证书',

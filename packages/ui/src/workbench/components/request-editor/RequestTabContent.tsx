@@ -130,6 +130,7 @@ const RequestTabContent: React.FC<RequestTabContentProps> = ({
               tlsMinVersion: next.tlsMinVersion,
               tlsMaxVersion: next.tlsMaxVersion,
               tlsCipherSuites: next.tlsCipherSuites,
+              sniServerName: next.sniServerName,
               httpVersion: next.httpVersion,
               resolveToAddress: next.resolveToAddress,
               clientCertificateRef: next.clientCertificateRef,

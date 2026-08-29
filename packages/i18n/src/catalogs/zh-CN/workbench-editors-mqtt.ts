@@ -199,18 +199,7 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.settings.requestProblemInfoLabel': 'Request Problem Information',
   'workbench.editors.mqtt.settings.requestProblemInfoHelp':
     '允许代理在失败数据包中附带 Reason String 与用户属性。默认开启。',
-  'workbench.editors.mqtt.settings.sslVerifyLabel': 'SSL 证书验证',
-  'workbench.editors.mqtt.settings.sslVerifyHelp':
-    '对 mqtts/wss 会话按系统根证书验证代理证书。开发中的自签名代理可关闭。',
-  'workbench.editors.mqtt.settings.sslVerifyWarning': '会话跳过代理身份检查——接受任何证书，包括自签名和已过期的。',
   'workbench.editors.mqtt.settings.clientIdExample': '例如 reporter-1',
-  'workbench.editors.mqtt.settings.clientCertificateHelp':
-    '在 mqtts/wss 握手中出示保险库中的客户端证书条目——面向按证书认证设备的代理。请求只保存条目名称；每台设备出示自己同名的保险库条目。',
-  'workbench.editors.mqtt.settings.sniLabel': 'SNI 服务器名',
-  'workbench.editors.mqtt.settings.sniHelp':
-    'mqtts 会话 TLS 握手中发送的服务器名——共享端点后的代理据此选择证书。留空发送 URL 主机。',
-  'workbench.editors.mqtt.settings.sniPlaceholder': '自动——URL 主机',
-  'workbench.editors.mqtt.settings.sniExample': '例如 broker.openheaders.com',
   'workbench.editors.mqtt.settings.alpnLabel': 'ALPN 协议',
   'workbench.editors.mqtt.settings.alpnHelp':
     'mqtts 会话 TLS 握手中提出的应用协议——在共享 TLS 端口上复用 MQTT 的代理据此选择。留空不提出。',
@@ -224,7 +213,7 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.settings.groupInfo.session':
     'CONNECT 向代理提出的 MQTT 5.0 条款：断开后会话保留多久，以及此客户端接受的在途消息和数据包大小上限。',
   'workbench.editors.mqtt.settings.groupInfo.tls':
-    'mqtts/wss 会话如何建立信任：是否根据系统根证书验证代理证书、此设备出示的客户端证书，以及握手中的 SNI 名称与 ALPN 提议。',
+    'mqtts/wss 会话如何建立信任：是否根据系统根证书验证 broker 证书、此设备出示的客户端证书、TLS 版本范围和密码套件列表，以及握手时的 SNI 名称和 ALPN 提议。',
   'workbench.editors.mqtt.settings.sessionV311': 'MQTT 5.0 设置——此请求面向 3.1.1。',
   // ── 会话面板 ────────────────────────────────────────────────────────
   'workbench.editors.mqtt.session.emptyTitle': '响应',

@@ -101,6 +101,7 @@ export function buildRequestTabItems(
     (!browserRuntime && draft.sslVerification === false) ||
     (!browserRuntime &&
       (draft.tlsMinVersion !== undefined || draft.tlsMaxVersion !== undefined || draft.tlsCipherSuites !== undefined)) ||
+    (!browserRuntime && draft.sniServerName !== undefined) ||
     (!browserRuntime && draft.httpVersion !== undefined && draft.httpVersion !== 'auto') ||
     (!browserRuntime && draft.resolveToAddress !== undefined) ||
     (!browserRuntime && draft.clientCertificateRef !== undefined) ||
@@ -136,6 +137,7 @@ export function buildRequestTabItems(
         unsavedSettings.has('tlsMinVersion') ||
         unsavedSettings.has('tlsMaxVersion') ||
         unsavedSettings.has('tlsCipherSuites') ||
+        unsavedSettings.has('sniServerName') ||
         unsavedSettings.has('httpVersion') ||
         unsavedSettings.has('resolveToAddress') ||
         unsavedSettings.has('clientCertificateRef') ||

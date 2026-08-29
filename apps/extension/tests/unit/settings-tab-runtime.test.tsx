@@ -1017,7 +1017,13 @@ describe('SettingsTab info popovers', () => {
     renderTab();
     fireEvent.click(screen.getByRole('button', { name: 'About TLS & trust' }));
     expect(await screen.findByText('Example send')).toBeTruthy();
-    expect(litTokens()).toEqual(['TLS 1.2–1.3', 'verify ✓', 'TLS_AES_128_GCM_SHA256', 'cert: acme-mtls']);
+    expect(litTokens()).toEqual([
+      'TLS 1.2–1.3',
+      'verify ✓',
+      'TLS_AES_128_GCM_SHA256',
+      'cert: acme-mtls',
+      'sni: api.openheaders.com',
+    ]);
   });
 
   it('keeps Enter on a header (i) from toggling the fold', () => {

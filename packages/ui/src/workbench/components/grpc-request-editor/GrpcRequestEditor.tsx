@@ -96,6 +96,11 @@ const emptyGrpcDraft = (): GrpcDraft => ({
   unixSocketPath: undefined,
   timeoutMs: undefined,
   sslVerification: true,
+  clientCertificateRef: undefined,
+  tlsMinVersion: undefined,
+  tlsMaxVersion: undefined,
+  tlsCipherSuites: undefined,
+  sniServerName: undefined,
 });
 
 const INVOKE_SHORTCUT = isMac ? '⌘↵' : 'Ctrl+Enter';

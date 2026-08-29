@@ -8,7 +8,14 @@
  * (derived dirty — never setDirty).
  */
 
-import type { GrpcAuth, GrpcMetadataPair, GrpcMethodRef, GrpcRequest, GrpcSpecLink } from '@openheaders/core/types';
+import type {
+  GrpcAuth,
+  GrpcMetadataPair,
+  GrpcMethodRef,
+  GrpcRequest,
+  GrpcSpecLink,
+  TlsVersion,
+} from '@openheaders/core/types';
 import { type KeyValueRow, makeKvRow } from '../request-editor/KeyValueTable';
 
 export interface GrpcDraft {
@@ -32,6 +39,12 @@ export interface GrpcDraft {
   timeoutMs: number | undefined;
   /** Concrete like `auth` — absent on the entity reads as `true`. */
   sslVerification: boolean;
+  /** The rest of the TLS policy — `undefined` = the runtime default. */
+  clientCertificateRef: string | undefined;
+  tlsMinVersion: TlsVersion | undefined;
+  tlsMaxVersion: TlsVersion | undefined;
+  tlsCipherSuites: string | undefined;
+  sniServerName: string | undefined;
 }
 
 export interface GrpcRequestUpdates {
@@ -46,6 +59,11 @@ export interface GrpcRequestUpdates {
   unixSocketPath: string | undefined;
   timeoutMs: number | undefined;
   sslVerification: boolean;
+  clientCertificateRef: string | undefined;
+  tlsMinVersion: TlsVersion | undefined;
+  tlsMaxVersion: TlsVersion | undefined;
+  tlsCipherSuites: string | undefined;
+  sniServerName: string | undefined;
 }
 
 export function metadataToRows(pairs: readonly GrpcMetadataPair[]): KeyValueRow[] {
@@ -85,6 +103,11 @@ export function draftFromGrpcRequest(req: GrpcRequest): GrpcDraft {
     unixSocketPath: req.unixSocketPath,
     timeoutMs: req.timeoutMs,
     sslVerification: req.sslVerification ?? true,
+    clientCertificateRef: req.clientCertificateRef,
+    tlsMinVersion: req.tlsMinVersion,
+    tlsMaxVersion: req.tlsMaxVersion,
+    tlsCipherSuites: req.tlsCipherSuites,
+    sniServerName: req.sniServerName,
   };
 }
 
@@ -101,6 +124,11 @@ export function buildGrpcRequestUpdates(draft: GrpcDraft): GrpcRequestUpdates {
     unixSocketPath: draft.unixSocketPath,
     timeoutMs: draft.timeoutMs,
     sslVerification: draft.sslVerification,
+    clientCertificateRef: draft.clientCertificateRef,
+    tlsMinVersion: draft.tlsMinVersion,
+    tlsMaxVersion: draft.tlsMaxVersion,
+    tlsCipherSuites: draft.tlsCipherSuites,
+    sniServerName: draft.sniServerName,
   };
 }
 

@@ -150,8 +150,7 @@ export const workbenchEditorsGrpc = {
   'workbench.editors.grpc.settings.groupInfo.connection':
     'Cómo llega la llamada al servidor: adónde marca el canal y el tope sobre la llamada entera.',
   'workbench.editors.grpc.settings.groupInfo.tls':
-    'Cómo establecen confianza los canales TLS: si se verifica el certificado del servidor contra las ' +
-    'raíces del sistema.',
+    'Cómo los canales TLS establecen la confianza: si el certificado del servidor se verifica contra las raíces del sistema, el certificado de cliente que presenta este dispositivo, la ventana de versiones TLS y la lista de cifrados del handshake, y el nombre SNI que ofrece.',
   'workbench.editors.grpc.settings.groupInfo.messages':
     'Cómo trata el workbench un mensaje que no se puede analizar — una postura de toda la aplicación, ' +
     'compartida con los ajustes de Solicitudes API, no un campo por solicitud.',
@@ -167,13 +166,6 @@ export const workbenchEditorsGrpc = {
     'Tope de tiempo real sobre la llamada entera — se envía como deadline de gRPC para que el servidor ' +
     'pueda aplicarlo, y se aplica localmente. Vacío no fija ninguna deadline.',
   'workbench.editors.grpc.settings.timeoutPlaceholder': 'Sin límite (por defecto)',
-  'workbench.editors.grpc.settings.sslVerifyLabel': 'Verificación del certificado SSL',
-  'workbench.editors.grpc.settings.sslVerifyHelp':
-    'Verificar el certificado del servidor contra las raíces del sistema en los canales TLS. Desactívalo ' +
-    'para servidores de desarrollo autofirmados. Se aplica en la aplicación de escritorio o el servidor.',
-  'workbench.editors.grpc.settings.sslVerifyWarning':
-    'Las llamadas omiten la comprobación de identidad del servidor — se acepta cualquier certificado, ' +
-    'incluidos los autofirmados y los caducados.',
   'workbench.editors.grpc.settings.sendInvalidMessageLabel': 'Enviar los mensajes no válidos',
   'workbench.editors.grpc.settings.sendInvalidMessageHelp':
     'Cuando el mensaje no es JSON válido, invoca de todos modos con un mensaje vacío y deja responder al ' +

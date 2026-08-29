@@ -121,7 +121,8 @@ export const workbenchEditorsGrpc = {
   'workbench.editors.grpc.settings.group.tls': 'TLS 与信任',
   'workbench.editors.grpc.settings.group.messages': '消息',
   'workbench.editors.grpc.settings.groupInfo.connection': '调用如何到达服务器：通道的去向，以及整个调用的时间上限。',
-  'workbench.editors.grpc.settings.groupInfo.tls': 'TLS 通道如何建立信任：是否根据系统根证书验证服务器证书。',
+  'workbench.editors.grpc.settings.groupInfo.tls':
+    'TLS 通道如何建立信任：是否根据系统根证书验证服务器证书、此设备出示的客户端证书、握手时的 TLS 版本范围和密码套件列表，以及提供的 SNI 名称。',
   'workbench.editors.grpc.settings.groupInfo.messages':
     '工作台如何处理无法解析的消息——这是与「API 请求」设置共享的应用级姿态，不是按请求的字段。',
   'workbench.editors.grpc.settings.unixSocketLabel': 'Unix 套接字',
@@ -132,10 +133,6 @@ export const workbenchEditorsGrpc = {
   'workbench.editors.grpc.settings.timeoutHelp':
     '整个调用的墙钟时间上限——作为 gRPC 截止时间发送以便服务器强制执行，并在本地强制执行。留空则不设截止时间。',
   'workbench.editors.grpc.settings.timeoutPlaceholder': '不限制（默认）',
-  'workbench.editors.grpc.settings.sslVerifyLabel': 'SSL 证书验证',
-  'workbench.editors.grpc.settings.sslVerifyHelp':
-    '在 TLS 通道上按系统根证书验证服务器证书。对自签名的开发服务器可关闭。适用于桌面应用或服务器。',
-  'workbench.editors.grpc.settings.sslVerifyWarning': '调用跳过服务器身份检查——接受任何证书，包括自签名和已过期的。',
   'workbench.editors.grpc.settings.sendInvalidMessageLabel': '发送无效消息',
   'workbench.editors.grpc.settings.sendInvalidMessageHelp':
     '消息不是有效 JSON 时，仍以空消息发起调用并让服务器应答——通常是 INVALID_ARGUMENT。默认关闭：调用在上线路之前失败，并给出确切的解析错误。适用于所有 gRPC 请求。',

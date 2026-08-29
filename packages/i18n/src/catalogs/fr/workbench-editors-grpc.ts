@@ -142,8 +142,7 @@ export const workbenchEditorsGrpc = {
   'workbench.editors.grpc.settings.groupInfo.connection':
     'Comment l’appel atteint le serveur : la destination du canal et le plafond sur l’appel entier.',
   'workbench.editors.grpc.settings.groupInfo.tls':
-    'Comment les canaux TLS établissent la confiance : vérification ou non du certificat du serveur contre ' +
-    'les racines du système.',
+    'Comment les canaux TLS établissent la confiance : vérification du certificat du serveur contre les racines système, certificat client présenté par cet appareil, fenêtre de versions TLS et liste de suites de chiffrement de la négociation, et nom SNI proposé.',
   'workbench.editors.grpc.settings.groupInfo.messages':
     'Comment l’atelier traite un message qui ne s’analyse pas — une posture à l’échelle de l’application, ' +
     'partagée avec les paramètres Requêtes API, pas un champ par requête.',
@@ -159,13 +158,6 @@ export const workbenchEditorsGrpc = {
     'Plafond en temps réel sur l’appel entier — envoyé comme deadline gRPC pour que le serveur puisse ' +
     'l’appliquer, et appliqué localement. Vide ne fixe aucune deadline.',
   'workbench.editors.grpc.settings.timeoutPlaceholder': 'Aucune limite (défaut)',
-  'workbench.editors.grpc.settings.sslVerifyLabel': 'Vérification du certificat SSL',
-  'workbench.editors.grpc.settings.sslVerifyHelp':
-    'Vérifier le certificat du serveur contre les racines du système sur les canaux TLS. Désactivez pour ' +
-    'les serveurs de développement auto-signés. S’applique sur l’application de bureau ou le serveur.',
-  'workbench.editors.grpc.settings.sslVerifyWarning':
-    'Les appels sautent la vérification d’identité du serveur — tout certificat est accepté, y compris ' +
-    'les auto-signés et les expirés.',
   'workbench.editors.grpc.settings.sendInvalidMessageLabel': 'Envoyer les messages invalides',
   'workbench.editors.grpc.settings.sendInvalidMessageHelp':
     'Quand le message n’est pas du JSON valide, invoquer quand même avec un message vide et laisser le ' +

@@ -126,8 +126,7 @@ export const workbenchEditorsWebsocket = {
   'workbench.editors.websocket.settings.groupInfo.socketio':
     'Cómo dirige el CONNECT de Socket.IO al servidor: el espacio de nombres al que se une la sesión.',
   'workbench.editors.websocket.settings.groupInfo.tls':
-    'Cómo establecen confianza las sesiones wss:: si se verifica el certificado del servidor contra las ' +
-    'raíces del sistema.',
+    'Cómo las sesiones wss: establecen la confianza: si el certificado del servidor se verifica contra las raíces del sistema, el certificado de cliente que presenta este dispositivo, la ventana de versiones TLS y la lista de cifrados del handshake, y el nombre SNI que ofrece.',
   'workbench.editors.websocket.settings.subprotocolsLabel': 'Subprotocolos',
   'workbench.editors.websocket.settings.subprotocolsHelp':
     'Lista de ofertas Sec-WebSocket-Protocol, en orden de preferencia — el servidor elige uno durante el ' +
@@ -152,14 +151,6 @@ export const workbenchEditorsWebsocket = {
     'directamente el transporte websocket; no hay respaldo de long-polling.',
   'workbench.editors.websocket.settings.namespacePlaceholder': '/ (por defecto)',
   'workbench.editors.websocket.settings.namespaceExample': 'p. ej. /admin',
-  'workbench.editors.websocket.settings.sslVerifyLabel': 'Verificación del certificado SSL',
-  'workbench.editors.websocket.settings.sslVerifyHelp':
-    'Verifica el certificado del servidor contra las raíces del sistema para las sesiones wss:. Desactívala ' +
-    'para servidores de desarrollo con certificados autofirmados. Se aplica en la aplicación de escritorio ' +
-    'o el servidor.',
-  'workbench.editors.websocket.settings.sslVerifyWarning':
-    'Las sesiones omiten la comprobación de identidad del servidor — se acepta cualquier certificado, ' +
-    'incluidos los autofirmados y caducados.',
   'workbench.editors.websocket.toast.deletedOtherTab': 'Esta solicitud WebSocket se eliminó desde otra pestaña.',
   'workbench.editors.websocket.toast.updateFailed': 'No se pudo guardar la solicitud WebSocket',
   'workbench.editors.websocket.toast.updateFailedDetail': 'No se pudo guardar la solicitud WebSocket: {message}',

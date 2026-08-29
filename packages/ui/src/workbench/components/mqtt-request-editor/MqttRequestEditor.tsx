@@ -120,6 +120,9 @@ const emptyMqttDraft = (): MqttDraft => ({
   reconnectBackoff: true,
   sslVerification: true,
   clientCertificateRef: undefined,
+  tlsMinVersion: undefined,
+  tlsMaxVersion: undefined,
+  tlsCipherSuites: undefined,
   sniServerName: undefined,
   alpnProtocol: undefined,
 });

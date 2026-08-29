@@ -446,6 +446,11 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.settings.resolveToAddressPlaceholder': 'System DNS',
   'workbench.editors.request.settings.resolveToAddressError': 'IPv4 or IPv6 address only — no hostname, no port.',
   'workbench.editors.request.settings.resolveToAddressExample': 'e.g. 10.0.0.12 or 2001:db8::1',
+  'workbench.editors.request.settings.sni': 'SNI server name',
+  'workbench.editors.request.settings.sniInfo':
+    'Server name presented in the TLS handshake instead of the URL host — a gateway fronting many hostnames on one address, or a certificate issued for a name DNS does not answer. Empty sends the URL host.',
+  'workbench.editors.request.settings.sniPlaceholder': 'Auto — the URL host',
+  'workbench.editors.request.settings.sniExample': 'e.g. api.openheaders.com',
   'workbench.editors.request.settings.clientCertificate': 'Client certificate',
   'workbench.editors.request.settings.clientCertificateInfo':
     "Present a client certificate during the TLS handshake, for APIs behind mutual-TLS gateways that authenticate the caller by certificate. Pick a certificate entry from the vault — the request saves only the entry's name, and each device presents its own vault entry of that name; the certificate and key never leave the vault. Leave empty to connect without a client certificate.",

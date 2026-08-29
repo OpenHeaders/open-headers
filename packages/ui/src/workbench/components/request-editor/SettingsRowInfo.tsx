@@ -44,6 +44,7 @@ export type SettingsInfoKey =
   | 'tlsMax'
   | 'tlsCipherSuites'
   | 'clientCertificate'
+  | 'sni'
   | 'followRedirects'
   | 'maxRedirects'
   | 'followOriginalMethod'
@@ -67,6 +68,7 @@ const EX = {
   verify: 'verify ✓',
   suite: 'TLS_AES_128_GCM_SHA256',
   cert: 'cert: acme-mtls',
+  sni: 'sni: api.openheaders.com',
   chain: '302 → 200',
   hops: '3 hops',
   methodRewrite: 'POST → GET',
@@ -95,6 +97,7 @@ const HIGHLIGHT: Record<SettingsInfoKey, TokenId> = {
   tlsMax: 'tlsWindow',
   tlsCipherSuites: 'suite',
   clientCertificate: 'cert',
+  sni: 'sni',
   followRedirects: 'chain',
   maxRedirects: 'hops',
   followOriginalMethod: 'methodRewrite',
@@ -121,7 +124,7 @@ const DIAL_VARIANT: Partial<Record<SettingsInfoKey, string>> = {
  * tokens, so the group popovers partition the card between them. */
 const GROUP_TOKENS: Record<SettingsGroupKey, readonly TokenId[]> = {
   connection: ['protocol', 'dial'],
-  tls: ['tlsWindow', 'verify', 'suite', 'cert'],
+  tls: ['tlsWindow', 'verify', 'suite', 'cert', 'sni'],
   redirects: ['chain', 'hops', 'methodRewrite', 'authDrop'],
   cookies: ['jar'],
   execution: ['time', 'cap', 'scripts'],
@@ -161,6 +164,8 @@ function SettingsExampleCard({
           {tok('suite', EX.suite)}
           {' · '}
           {tok('cert', EX.cert)}
+          {' · '}
+          {tok('sni', EX.sni)}
         </div>
         <div className="oh-info-eg-line">
           {tok('chain', EX.chain)}
@@ -196,6 +201,7 @@ const TITLE_KEY: Record<SettingsInfoKey, MessageKey> = {
   tlsMax: 'workbench.editors.request.settings.tlsMax',
   tlsCipherSuites: 'workbench.editors.request.settings.tlsCipherSuites',
   clientCertificate: 'workbench.editors.request.settings.clientCertificate',
+  sni: 'workbench.editors.request.settings.sni',
   followRedirects: 'workbench.editors.request.settings.followRedirects',
   maxRedirects: 'workbench.editors.request.settings.maxRedirects',
   followOriginalMethod: 'workbench.editors.request.settings.followOriginalMethod',
@@ -219,6 +225,7 @@ const GROUP_OF: Record<SettingsInfoKey, SettingsGroupKey> = {
   tlsMax: 'tls',
   tlsCipherSuites: 'tls',
   clientCertificate: 'tls',
+  sni: 'tls',
   followRedirects: 'redirects',
   maxRedirects: 'redirects',
   followOriginalMethod: 'redirects',
@@ -240,6 +247,7 @@ const SUMMARY_KEY: Record<Exclude<SettingsInfoKey, RichInfoKey>, MessageKey> = {
   proxyCredentials: 'workbench.editors.request.settings.proxyCredentialsInfo',
   unixSocket: 'workbench.editors.request.settings.unixSocketInfo',
   clientCertificate: 'workbench.editors.request.settings.clientCertificateInfo',
+  sni: 'workbench.editors.request.settings.sniInfo',
   followRedirects: 'workbench.editors.request.settings.followRedirectsInfo',
   maxRedirects: 'workbench.editors.request.settings.maxRedirectsInfo',
   followOriginalMethod: 'workbench.editors.request.settings.followOriginalMethodInfo',

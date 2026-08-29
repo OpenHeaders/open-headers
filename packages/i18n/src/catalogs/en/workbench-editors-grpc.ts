@@ -118,7 +118,7 @@ export const workbenchEditorsGrpc = {
   'workbench.editors.grpc.settings.groupInfo.connection':
     'How the call reaches the server: where the channel dials and the ceiling on the whole call.',
   'workbench.editors.grpc.settings.groupInfo.tls':
-    'How TLS channels establish trust: whether the server certificate is verified against the system roots.',
+    'How TLS channels establish trust: whether the server certificate is verified against the system roots, the client certificate this device presents, the TLS version window and cipher list on the handshake, and the SNI name it offers.',
   'workbench.editors.grpc.settings.groupInfo.messages':
     'How the workbench treats a message that does not parse — an app-wide posture shared with the API Requests settings, not a per-request field.',
   'workbench.editors.grpc.settings.unixSocketLabel': 'Unix socket',
@@ -129,11 +129,6 @@ export const workbenchEditorsGrpc = {
   'workbench.editors.grpc.settings.timeoutHelp':
     'Wall-clock ceiling on the whole call — sent as the gRPC deadline so the server can enforce it, and enforced locally. Empty sets no deadline.',
   'workbench.editors.grpc.settings.timeoutPlaceholder': 'No limit (default)',
-  'workbench.editors.grpc.settings.sslVerifyLabel': 'SSL certificate verification',
-  'workbench.editors.grpc.settings.sslVerifyHelp':
-    'Verify the server certificate against the system roots on TLS channels. Turn off for self-signed development servers. Applies on the desktop app or server.',
-  'workbench.editors.grpc.settings.sslVerifyWarning':
-    'Calls skip the server identity check — any certificate is accepted, including self-signed and expired ones.',
   'workbench.editors.grpc.settings.sendInvalidMessageLabel': 'Send invalid messages',
   'workbench.editors.grpc.settings.sendInvalidMessageHelp':
     'When the message is not valid JSON, invoke anyway with an empty message and let the server answer — usually INVALID_ARGUMENT. Off by default: the invoke fails before the wire with the exact parse error. Applies to every gRPC request.',

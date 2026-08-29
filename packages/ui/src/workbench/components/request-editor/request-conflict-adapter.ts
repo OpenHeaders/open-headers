@@ -45,6 +45,7 @@ const SCALAR_LABEL: Record<string, MessageKey> = {
   [REQUEST_PATHS.tlsMinVersion]: 'shared.conflicts.label.request.scalar.tlsMinVersion',
   [REQUEST_PATHS.tlsMaxVersion]: 'shared.conflicts.label.request.scalar.tlsMaxVersion',
   [REQUEST_PATHS.tlsCipherSuites]: 'shared.conflicts.label.request.scalar.tlsCipherSuites',
+  [REQUEST_PATHS.sniServerName]: 'shared.conflicts.label.request.scalar.sniServerName',
   [REQUEST_PATHS.httpVersion]: 'shared.conflicts.label.request.scalar.httpVersion',
   [REQUEST_PATHS.resolveToAddress]: 'shared.conflicts.label.request.scalar.resolveToAddress',
   [REQUEST_PATHS.clientCertificateRef]: 'shared.conflicts.label.request.scalar.clientCertificateRef',

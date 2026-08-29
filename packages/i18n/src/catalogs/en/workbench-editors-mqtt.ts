@@ -205,19 +205,7 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.settings.requestProblemInfoLabel': 'Request Problem Information',
   'workbench.editors.mqtt.settings.requestProblemInfoHelp':
     'Allow the broker to attach Reason Strings and user properties to failure packets. On by default.',
-  'workbench.editors.mqtt.settings.sslVerifyLabel': 'SSL certificate verification',
-  'workbench.editors.mqtt.settings.sslVerifyHelp':
-    'Verify the broker certificate against the system roots for mqtts/wss sessions. Turn off for self-signed development brokers.',
-  'workbench.editors.mqtt.settings.sslVerifyWarning':
-    'Sessions skip the broker identity check — any certificate is accepted, including self-signed and expired ones.',
   'workbench.editors.mqtt.settings.clientIdExample': 'e.g. reporter-1',
-  'workbench.editors.mqtt.settings.clientCertificateHelp':
-    'Present a vault client-certificate entry in the mqtts/wss handshake — brokers that authenticate devices by certificate. The request saves only the entry name; each device presents its own vault entry of that name.',
-  'workbench.editors.mqtt.settings.sniLabel': 'SNI server name',
-  'workbench.editors.mqtt.settings.sniHelp':
-    'Server name sent in the TLS handshake of mqtts sessions — brokers behind a shared endpoint select their certificate on it. Empty sends the URL host.',
-  'workbench.editors.mqtt.settings.sniPlaceholder': 'Auto — the URL host',
-  'workbench.editors.mqtt.settings.sniExample': 'e.g. broker.openheaders.com',
   'workbench.editors.mqtt.settings.alpnLabel': 'ALPN protocol',
   'workbench.editors.mqtt.settings.alpnHelp':
     'Application protocol offered in the TLS handshake of mqtts sessions — brokers multiplexing MQTT on a shared TLS port select on it. Empty offers none.',
@@ -231,7 +219,7 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.settings.groupInfo.session':
     'MQTT 5.0 terms the CONNECT offers the broker: how long the session outlives a disconnect, plus the in-flight and packet-size ceilings this client accepts.',
   'workbench.editors.mqtt.settings.groupInfo.tls':
-    'How mqtts/wss sessions establish trust: whether the broker certificate is verified against the system roots, the client certificate this device presents, and the SNI name and ALPN offer on the handshake.',
+    'How mqtts/wss sessions establish trust: whether the broker certificate is verified against the system roots, the client certificate this device presents, the TLS version window and cipher list, and the SNI name and ALPN offer on the handshake.',
   'workbench.editors.mqtt.settings.sessionV311': 'MQTT 5.0 knobs — this request targets 3.1.1.',
   // ── Session pane ────────────────────────────────────────────────────
   'workbench.editors.mqtt.session.emptyTitle': 'Response',

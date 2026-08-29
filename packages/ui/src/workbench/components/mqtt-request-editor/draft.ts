@@ -28,6 +28,7 @@ import type {
   MqttSpecLink,
   MqttTopicRow,
   MqttUserPropertyRow,
+  TlsVersion,
 } from '@openheaders/core/types';
 import { binaryEncodingError } from '@openheaders/core/utils';
 import { stableStringify } from '@openheaders/ui/shared/forms';
@@ -101,6 +102,9 @@ export interface MqttDraft {
   /** Concrete — absent on the entity reads as verify-on. */
   sslVerification: boolean;
   clientCertificateRef: string | undefined;
+  tlsMinVersion: TlsVersion | undefined;
+  tlsMaxVersion: TlsVersion | undefined;
+  tlsCipherSuites: string | undefined;
   sniServerName: string | undefined;
   alpnProtocol: string | undefined;
 }
@@ -137,6 +141,9 @@ export interface MqttRequestUpdates {
   reconnectBackoff: boolean;
   sslVerification: boolean;
   clientCertificateRef: string | undefined;
+  tlsMinVersion: TlsVersion | undefined;
+  tlsMaxVersion: TlsVersion | undefined;
+  tlsCipherSuites: string | undefined;
   sniServerName: string | undefined;
   alpnProtocol: string | undefined;
 }
@@ -308,6 +315,9 @@ export function draftFromMqttRequest(req: MqttRequest): MqttDraft {
     reconnectBackoff: req.reconnectBackoff ?? true,
     sslVerification: req.sslVerification ?? true,
     clientCertificateRef: req.clientCertificateRef,
+    tlsMinVersion: req.tlsMinVersion,
+    tlsMaxVersion: req.tlsMaxVersion,
+    tlsCipherSuites: req.tlsCipherSuites,
     sniServerName: req.sniServerName,
     alpnProtocol: req.alpnProtocol,
   };
@@ -346,6 +356,9 @@ export function buildMqttRequestUpdates(draft: MqttDraft): MqttRequestUpdates {
     reconnectBackoff: draft.reconnectBackoff,
     sslVerification: draft.sslVerification,
     clientCertificateRef: draft.clientCertificateRef,
+    tlsMinVersion: draft.tlsMinVersion,
+    tlsMaxVersion: draft.tlsMaxVersion,
+    tlsCipherSuites: draft.tlsCipherSuites,
     sniServerName: draft.sniServerName,
     alpnProtocol: draft.alpnProtocol,
   };

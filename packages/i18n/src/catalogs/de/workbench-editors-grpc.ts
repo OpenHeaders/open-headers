@@ -159,7 +159,7 @@ export const workbenchEditorsGrpc = {
   'workbench.editors.grpc.settings.groupInfo.connection':
     'Wie der Aufruf den Server erreicht: wohin der Kanal wählt und die Obergrenze für den gesamten Aufruf.',
   'workbench.editors.grpc.settings.groupInfo.tls':
-    'Wie TLS-Kanäle Vertrauen herstellen: ob das Serverzertifikat gegen die Systemwurzeln geprüft wird.',
+    'Wie TLS-Kanäle Vertrauen herstellen: ob das Serverzertifikat gegen die Systemwurzeln geprüft wird, welches Client-Zertifikat dieses Gerät vorlegt, das TLS-Versionsfenster und die Cipher-Liste im Handshake sowie der angebotene SNI-Name.',
   'workbench.editors.grpc.settings.groupInfo.messages':
     'Wie die Workbench eine Nachricht behandelt, die sich nicht parsen lässt — eine app-weite Haltung, ' +
     'geteilt mit den API-Anfragen-Einstellungen, kein Feld pro Anfrage.',
@@ -175,13 +175,6 @@ export const workbenchEditorsGrpc = {
     'Obergrenze der realen Zeit für den gesamten Aufruf — als gRPC-Deadline gesendet, damit der Server sie ' +
     'durchsetzen kann, und lokal durchgesetzt. Leer setzt keine Deadline.',
   'workbench.editors.grpc.settings.timeoutPlaceholder': 'Kein Limit (Standard)',
-  'workbench.editors.grpc.settings.sslVerifyLabel': 'SSL-Zertifikatsprüfung',
-  'workbench.editors.grpc.settings.sslVerifyHelp':
-    'Das Serverzertifikat auf TLS-Kanälen gegen die Systemwurzeln prüfen. Schalte es für selbstsignierte ' +
-    'Entwicklungsserver aus. Gilt in der Desktop-App oder auf dem Server.',
-  'workbench.editors.grpc.settings.sslVerifyWarning':
-    'Aufrufe überspringen die Prüfung der Server-Identität — jedes Zertifikat wird akzeptiert, auch ' +
-    'selbstsignierte und abgelaufene.',
   'workbench.editors.grpc.settings.sendInvalidMessageLabel': 'Ungültige Nachrichten senden',
   'workbench.editors.grpc.settings.sendInvalidMessageHelp':
     'Wenn die Nachricht kein gültiges JSON ist, trotzdem mit leerer Nachricht aufrufen und den Server ' +

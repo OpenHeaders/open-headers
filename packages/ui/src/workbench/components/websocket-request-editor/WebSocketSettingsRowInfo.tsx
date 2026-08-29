@@ -1,7 +1,8 @@
 /**
  * `(i)` info-popover content for the WebSocket editor's Settings-tab
  * knobs and group headers — kicker (the group), title (the row's own
- * label), and the knob's copy as the summary. No example card yet:
+ * label), and the knob's copy as the summary. The TLS & trust rows
+ * read the shared block's copy. No example card yet:
  * the protocol's handshake card is its own surface when it lands,
  * never a leg on the MQTT session card.
  */
@@ -11,7 +12,7 @@ import type { Translate } from '@openheaders/ui/context/LocaleContext';
 import type { InfoPopoverContent } from '@openheaders/ui/shared/info-popover';
 import { WS_GROUP_LABEL_KEY, type WsSettingsGroupKey } from './settings-groups';
 
-export type WsInfoKey = 'subprotocols' | 'unixSocket' | 'timeout' | 'handshakePath' | 'namespace' | 'sslVerification';
+export type WsInfoKey = 'subprotocols' | 'unixSocket' | 'timeout' | 'handshakePath' | 'namespace';
 
 const TITLE_KEY: Record<WsInfoKey, MessageKey> = {
   subprotocols: 'workbench.editors.websocket.settings.subprotocolsLabel',
@@ -19,7 +20,6 @@ const TITLE_KEY: Record<WsInfoKey, MessageKey> = {
   timeout: 'workbench.editors.websocket.settings.timeoutLabel',
   handshakePath: 'workbench.editors.websocket.settings.handshakePathLabel',
   namespace: 'workbench.editors.websocket.settings.namespaceLabel',
-  sslVerification: 'workbench.editors.websocket.settings.sslVerifyLabel',
 };
 
 const SUMMARY_KEY: Record<WsInfoKey, MessageKey> = {
@@ -28,7 +28,6 @@ const SUMMARY_KEY: Record<WsInfoKey, MessageKey> = {
   timeout: 'workbench.editors.websocket.settings.timeoutHelp',
   handshakePath: 'workbench.editors.websocket.settings.handshakePathHelp',
   namespace: 'workbench.editors.websocket.settings.namespaceHelp',
-  sslVerification: 'workbench.editors.websocket.settings.sslVerifyHelp',
 };
 
 const KICKER_GROUP: Record<WsInfoKey, WsSettingsGroupKey> = {
@@ -37,7 +36,6 @@ const KICKER_GROUP: Record<WsInfoKey, WsSettingsGroupKey> = {
   timeout: 'connection',
   handshakePath: 'socketio',
   namespace: 'socketio',
-  sslVerification: 'tls',
 };
 
 const GROUP_SUMMARY_KEY: Record<WsSettingsGroupKey, MessageKey> = {

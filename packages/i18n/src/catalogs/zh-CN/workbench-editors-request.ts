@@ -446,6 +446,11 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.settings.resolveToAddressPlaceholder': '系统 DNS',
   'workbench.editors.request.settings.resolveToAddressError': '仅限 IPv4 或 IPv6 地址——不能有主机名或端口。',
   'workbench.editors.request.settings.resolveToAddressExample': '例如 10.0.0.12 或 2001:db8::1',
+  'workbench.editors.request.settings.sni': 'SNI 服务器名称',
+  'workbench.editors.request.settings.sniInfo':
+    '在 TLS 握手中代替 URL 主机发送的服务器名称——用于在一个地址上承载多个主机名的网关，或为 DNS 无法解析的名称签发的证书。留空则发送 URL 主机。',
+  'workbench.editors.request.settings.sniPlaceholder': '自动 — URL 主机',
+  'workbench.editors.request.settings.sniExample': '例如 api.openheaders.com',
   'workbench.editors.request.settings.clientCertificate': '客户端证书',
   'workbench.editors.request.settings.clientCertificateInfo':
     '在 TLS 握手期间出示客户端证书，用于双向 TLS 网关背后按证书验证调用方的 API。从 vault 中选择一个证书条目——请求只保存条目名称，每台设备出示自己同名的 vault 条目；证书和密钥绝不离开 vault。留空则不带客户端证书连接。',

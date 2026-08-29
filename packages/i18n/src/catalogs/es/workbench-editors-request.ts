@@ -539,6 +539,11 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.settings.resolveToAddressError':
     'Solo direcciones IPv4 o IPv6 — sin nombre de host ni puerto.',
   'workbench.editors.request.settings.resolveToAddressExample': 'p. ej. 10.0.0.12 o 2001:db8::1',
+  'workbench.editors.request.settings.sni': 'Nombre de servidor SNI',
+  'workbench.editors.request.settings.sniInfo':
+    'Nombre de servidor presentado en el handshake TLS en lugar del host de la URL: una pasarela que sirve varios nombres de host en una sola dirección, o un certificado emitido para un nombre que el DNS no resuelve. Vacío envía el host de la URL.',
+  'workbench.editors.request.settings.sniPlaceholder': 'Auto — el host de la URL',
+  'workbench.editors.request.settings.sniExample': 'p. ej. api.openheaders.com',
   'workbench.editors.request.settings.clientCertificate': 'Certificado de cliente',
   'workbench.editors.request.settings.clientCertificateInfo':
     'Presenta un certificado de cliente durante el handshake TLS, para APIs detrás de pasarelas de TLS ' +

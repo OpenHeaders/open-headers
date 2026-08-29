@@ -107,7 +107,8 @@ export const workbenchEditorsWebsocket = {
   'workbench.editors.websocket.settings.groupInfo.connection':
     '握手如何打开会话：提议的子协议、连接的去向，以及打开的时间上限。',
   'workbench.editors.websocket.settings.groupInfo.socketio': 'Socket.IO CONNECT 如何寻址服务器：会话加入的命名空间。',
-  'workbench.editors.websocket.settings.groupInfo.tls': 'wss: 会话如何建立信任：是否根据系统根证书验证服务器证书。',
+  'workbench.editors.websocket.settings.groupInfo.tls':
+    'wss: 会话如何建立信任：是否根据系统根证书验证服务器证书、此设备出示的客户端证书、握手时的 TLS 版本范围和密码套件列表，以及提供的 SNI 名称。',
   'workbench.editors.websocket.settings.subprotocolsLabel': '子协议',
   'workbench.editors.websocket.settings.subprotocolsHelp':
     'Sec-WebSocket-Protocol 提议列表，按偏好排序——服务器在握手期间从中选定一个。',
@@ -125,11 +126,6 @@ export const workbenchEditorsWebsocket = {
     '会话连接到的命名空间——留空连接到根 /。会话直接拨号 websocket 传输；没有 long-polling 回退。',
   'workbench.editors.websocket.settings.namespacePlaceholder': '/（默认）',
   'workbench.editors.websocket.settings.namespaceExample': '例如 /admin',
-  'workbench.editors.websocket.settings.sslVerifyLabel': 'SSL 证书验证',
-  'workbench.editors.websocket.settings.sslVerifyHelp':
-    '对 wss: 会话按系统根证书验证服务器证书。对自签名的开发服务器可关闭。适用于桌面端应用或服务器。',
-  'workbench.editors.websocket.settings.sslVerifyWarning':
-    '会话跳过服务器身份检查——接受任何证书，包括自签名和已过期的。',
   'workbench.editors.websocket.toast.deletedOtherTab': '此 WebSocket 请求已在另一个标签页中被删除。',
   'workbench.editors.websocket.toast.updateFailed': '保存 WebSocket 请求失败',
   'workbench.editors.websocket.toast.updateFailedDetail': '保存 WebSocket 请求失败：{message}',

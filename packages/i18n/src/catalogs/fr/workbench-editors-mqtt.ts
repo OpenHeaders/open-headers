@@ -215,20 +215,7 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.settings.requestProblemInfoLabel': 'Request Problem Information',
   'workbench.editors.mqtt.settings.requestProblemInfoHelp':
     'Autoriser le courtier à joindre des Reason Strings et des propriétés utilisateur aux paquets d’échec. Activé par défaut.',
-  'workbench.editors.mqtt.settings.sslVerifyLabel': 'Vérification du certificat SSL',
-  'workbench.editors.mqtt.settings.sslVerifyHelp':
-    'Vérifier le certificat du courtier contre les racines système pour les sessions mqtts/wss. Désactivez pour les courtiers auto-signés de développement.',
-  'workbench.editors.mqtt.settings.sslVerifyWarning':
-    'Les sessions sautent la vérification d’identité du courtier — tout certificat est accepté, y compris ' +
-    'auto-signés et expirés.',
   'workbench.editors.mqtt.settings.clientIdExample': 'p. ex. reporter-1',
-  'workbench.editors.mqtt.settings.clientCertificateHelp':
-    'Présenter une entrée certificat client du coffre lors de la poignée de main mqtts/wss — pour les courtiers qui authentifient les appareils par certificat. La requête n’enregistre que le nom de l’entrée ; chaque appareil présente sa propre entrée de ce nom.',
-  'workbench.editors.mqtt.settings.sniLabel': 'Nom de serveur SNI',
-  'workbench.editors.mqtt.settings.sniHelp':
-    'Nom de serveur envoyé dans la poignée de main TLS des sessions mqtts — les courtiers derrière un point d’accès partagé y choisissent leur certificat. Vide envoie l’hôte de l’URL.',
-  'workbench.editors.mqtt.settings.sniPlaceholder': 'Auto — l’hôte de l’URL',
-  'workbench.editors.mqtt.settings.sniExample': 'p. ex. broker.openheaders.com',
   'workbench.editors.mqtt.settings.alpnLabel': 'Protocole ALPN',
   'workbench.editors.mqtt.settings.alpnHelp':
     'Protocole applicatif proposé dans la poignée de main TLS des sessions mqtts — les courtiers multiplexant MQTT sur un port TLS partagé y font leur choix. Vide n’en propose aucun.',
@@ -244,7 +231,7 @@ export const workbenchEditorsMqtt = {
     'Conditions MQTT 5.0 que CONNECT propose au courtier : combien de temps la session survit à une déconnexion, ' +
     'plus les plafonds de messages en vol et de taille de paquet acceptés par ce client.',
   'workbench.editors.mqtt.settings.groupInfo.tls':
-    'Comment les sessions mqtts/wss établissent la confiance : vérification du certificat du courtier contre les racines système, certificat client présenté par cet appareil, nom SNI et offre ALPN de la poignée de main.',
+    'Comment les sessions mqtts/wss établissent la confiance : vérification du certificat du broker contre les racines système, certificat client présenté par cet appareil, fenêtre de versions TLS et liste de suites de chiffrement, et nom SNI et offre ALPN de la négociation.',
   'workbench.editors.mqtt.settings.sessionV311': 'Réglages MQTT 5.0 — cette requête cible 3.1.1.',
   // ── Volet de session ────────────────────────────────────────────────
   'workbench.editors.mqtt.session.emptyTitle': 'Réponse',

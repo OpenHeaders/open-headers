@@ -44,6 +44,7 @@ export interface RequestSaveBatch {
   tlsMinVersion: TlsVersion | undefined;
   tlsMaxVersion: TlsVersion | undefined;
   tlsCipherSuites: string | undefined;
+  sniServerName: string | undefined;
   httpVersion: HttpVersion | undefined;
   resolveToAddress: string | undefined;
   clientCertificateRef: string | undefined;
@@ -77,6 +78,7 @@ function projectRequest(req: Request): RequestSaveBatch {
     tlsMinVersion: req.tlsMinVersion,
     tlsMaxVersion: req.tlsMaxVersion,
     tlsCipherSuites: req.tlsCipherSuites,
+    sniServerName: req.sniServerName,
     httpVersion: req.httpVersion,
     resolveToAddress: req.resolveToAddress,
     clientCertificateRef: req.clientCertificateRef,
@@ -132,6 +134,7 @@ export function mergeRequestForSave(
     tlsMinVersion: form.tlsMinVersion,
     tlsMaxVersion: form.tlsMaxVersion,
     tlsCipherSuites: form.tlsCipherSuites,
+    sniServerName: form.sniServerName,
     httpVersion: form.httpVersion,
     resolveToAddress: form.resolveToAddress,
     clientCertificateRef: form.clientCertificateRef,
@@ -160,6 +163,7 @@ export function mergeRequestForSave(
     tlsMinVersion: baseProj.tlsMinVersion,
     tlsMaxVersion: baseProj.tlsMaxVersion,
     tlsCipherSuites: baseProj.tlsCipherSuites,
+    sniServerName: baseProj.sniServerName,
     httpVersion: baseProj.httpVersion,
     resolveToAddress: baseProj.resolveToAddress,
     clientCertificateRef: baseProj.clientCertificateRef,
@@ -188,6 +192,7 @@ export function mergeRequestForSave(
     tlsMinVersion: liveProj.tlsMinVersion,
     tlsMaxVersion: liveProj.tlsMaxVersion,
     tlsCipherSuites: liveProj.tlsCipherSuites,
+    sniServerName: liveProj.sniServerName,
     httpVersion: liveProj.httpVersion,
     resolveToAddress: liveProj.resolveToAddress,
     clientCertificateRef: liveProj.clientCertificateRef,
@@ -226,6 +231,7 @@ export function mergeRequestForSave(
     tlsMinVersion: merged.tlsMinVersion as TlsVersion | undefined,
     tlsMaxVersion: merged.tlsMaxVersion as TlsVersion | undefined,
     tlsCipherSuites: merged.tlsCipherSuites as string | undefined,
+    sniServerName: merged.sniServerName as string | undefined,
     httpVersion: merged.httpVersion as HttpVersion | undefined,
     resolveToAddress: merged.resolveToAddress as string | undefined,
     clientCertificateRef: merged.clientCertificateRef as string | undefined,

@@ -585,6 +585,7 @@ export const RequestsProvider: React.FC<RequestsProviderProps> = ({
           ...(seed?.tlsMinVersion !== undefined ? { tlsMinVersion: seed.tlsMinVersion } : {}),
           ...(seed?.tlsMaxVersion !== undefined ? { tlsMaxVersion: seed.tlsMaxVersion } : {}),
           ...(seed?.tlsCipherSuites !== undefined ? { tlsCipherSuites: seed.tlsCipherSuites } : {}),
+          ...(seed?.sniServerName !== undefined ? { sniServerName: seed.sniServerName } : {}),
           ...(seed?.httpVersion !== undefined ? { httpVersion: seed.httpVersion } : {}),
           ...(seed?.resolveToAddress !== undefined ? { resolveToAddress: seed.resolveToAddress } : {}),
           ...(seed?.clientCertificateRef !== undefined ? { clientCertificateRef: seed.clientCertificateRef } : {}),

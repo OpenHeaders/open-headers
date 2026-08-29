@@ -196,6 +196,7 @@ export const sharedConflicts = {
   'shared.conflicts.label.request.scalar.tlsMinVersion': 'Version TLS minimale',
   'shared.conflicts.label.request.scalar.tlsMaxVersion': 'Version TLS maximale',
   'shared.conflicts.label.request.scalar.tlsCipherSuites': 'Suites de chiffrement TLS',
+  'shared.conflicts.label.request.scalar.sniServerName': 'Nom de serveur SNI',
   'shared.conflicts.label.request.scalar.httpVersion': 'Version HTTP',
   'shared.conflicts.label.request.scalar.resolveToAddress': 'Résoudre vers une adresse',
   'shared.conflicts.label.request.scalar.clientCertificateRef': 'Certificat client',

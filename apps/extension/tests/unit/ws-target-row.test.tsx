@@ -41,6 +41,11 @@ const draft: WebSocketDraft = {
   unixSocketPath: undefined,
   timeoutMs: undefined,
   sslVerification: true,
+  clientCertificateRef: undefined,
+  tlsMinVersion: undefined,
+  tlsMaxVersion: undefined,
+  tlsCipherSuites: undefined,
+  sniServerName: undefined,
 };
 
 describe('WsTargetRow', () => {

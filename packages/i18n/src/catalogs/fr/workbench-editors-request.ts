@@ -543,6 +543,11 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.settings.resolveToAddressError':
     "Adresse IPv4 ou IPv6 uniquement — pas de nom d'hôte, pas de port.",
   'workbench.editors.request.settings.resolveToAddressExample': 'p. ex. 10.0.0.12 ou 2001:db8::1',
+  'workbench.editors.request.settings.sni': 'Nom de serveur SNI',
+  'workbench.editors.request.settings.sniInfo':
+    'Nom de serveur présenté dans la négociation TLS à la place de l’hôte de l’URL — une passerelle qui sert plusieurs noms d’hôte sur une seule adresse, ou un certificat émis pour un nom que le DNS ne résout pas. Vide envoie l’hôte de l’URL.',
+  'workbench.editors.request.settings.sniPlaceholder': 'Auto — l’hôte de l’URL',
+  'workbench.editors.request.settings.sniExample': 'p. ex. api.openheaders.com',
   'workbench.editors.request.settings.clientCertificate': 'Certificat client',
   'workbench.editors.request.settings.clientCertificateInfo':
     'Présenter un certificat client pendant le handshake TLS, pour les API derrière des passerelles TLS ' +

@@ -5,7 +5,8 @@
  * Messages) whose headers carry the (i) group popovers, `label · (i)
  * · control` rows from the shared settings-row family with the
  * effective defaults legible in the controls, modified dots, and
- * per-row resets.
+ * per-row resets; the TLS & trust group is the shared `TlsTrustGroup`
+ * block.
  *
  * The tab edits the draft directly, so the dots track distance from
  * the PROTOCOL defaults — there is no saved-baseline (unsaved) plane
@@ -30,7 +31,7 @@ import { ConfigProvider, theme } from 'antd';
 import type React from 'react';
 import { useState } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
-import TrustedRootsSettingsRow from '../trusted-roots/TrustedRootsSettingsRow';
+import TlsTrustGroup from '../shared/tls-trust/TlsTrustGroup';
 import type { GrpcDraft } from './draft';
 import { grpcSettingsGroupInfo, grpcSettingsRowInfo } from './GrpcSettingsRowInfo';
 import { GRPC_GROUP_LABEL_KEY } from './settings-groups';
@@ -71,7 +72,6 @@ const GrpcSettingsTab: React.FC<GrpcSettingsTabProps> = ({
       return { ...c, [key]: next };
     });
   const connectionModified = draft.unixSocketPath !== undefined || draft.timeoutMs !== undefined;
-  const tlsModified = !draft.sslVerification;
 
   return (
     <ConfigProvider
@@ -122,25 +122,15 @@ const GrpcSettingsTab: React.FC<GrpcSettingsTabProps> = ({
             testId="grpc-timeout"
           />
         </GroupSection>
-        <GroupSection
-          label={t(GRPC_GROUP_LABEL_KEY.tls)}
+        <TlsTrustGroup
+          groupLabel={t(GRPC_GROUP_LABEL_KEY.tls)}
+          groupInfo={grpcSettingsGroupInfo(t, 'tls')}
           expanded={collapsed.tls !== true}
           onToggle={() => toggleGroup('tls')}
-          info={grpcSettingsGroupInfo(t, 'tls')}
-          modified={tlsModified}
-        >
-          <KnobRow
-            label={t('workbench.editors.grpc.settings.sslVerifyLabel')}
-            checked={draft.sslVerification}
-            modified={!draft.sslVerification}
-            onReset={() => setDraft((d) => ({ ...d, sslVerification: true }))}
-            onChange={(sslVerification) => setDraft((d) => ({ ...d, sslVerification }))}
-            info={grpcSettingsRowInfo(t, 'sslVerification')}
-            warning={t('workbench.editors.grpc.settings.sslVerifyWarning')}
-            testId="grpc-ssl-verify"
-          />
-          <TrustedRootsSettingsRow kicker={t(GRPC_GROUP_LABEL_KEY.tls)} testId="grpc-trusted-roots" />
-        </GroupSection>
+          value={draft}
+          onChange={(next) => setDraft((d) => ({ ...d, ...next, sslVerification: next.sslVerification !== false }))}
+          testIdPrefix="grpc"
+        />
         <GroupSection
           label={t(GRPC_GROUP_LABEL_KEY.messages)}
           expanded={collapsed.messages !== true}
