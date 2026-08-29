@@ -13,7 +13,13 @@ import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { setHostLogger } from '@openheaders/core/logger';
 import { setHostStorage } from '@openheaders/core/storage';
-import { REQUEST_COLLECTION_ENTITY_TYPE } from '@openheaders/core/sync';
+import {
+  keyBetween,
+  mergedTailKey,
+  REQUEST_COLLECTION_ENTITY_TYPE,
+  REQUEST_FOLDER_CHILDREN_PATH,
+  REQUEST_FOLDER_ITEMS_PATH,
+} from '@openheaders/core/sync';
 import { buildCreateRequestFolderBatch } from '@openheaders/core/sync-builders/mutations/request-folder-mutations';
 import { buildAddBatch as buildAddRequestBatch } from '@openheaders/core/sync-builders/mutations/request-mutations';
 import { seedRequestCollection } from '@openheaders/core/sync-builders/projections/request-collection-projection';
@@ -132,6 +138,13 @@ async function seedFolderWithRequest(name: string, requestName: string, url: str
         parent: { type: REQUEST_COLLECTION_ENTITY_TYPE, uid: collection.collection.uid },
         name,
         pathSegment: toFolderName(name, folderUid),
+        orderKey: keyBetween(
+          mergedTailKey([
+            collection.setOrderKeys[REQUEST_FOLDER_CHILDREN_PATH] ?? [],
+            collection.setOrderKeys[REQUEST_FOLDER_ITEMS_PATH] ?? [],
+          ]),
+          null,
+        ),
       },
       mintMcpContext(wsId),
     ),
@@ -191,7 +204,7 @@ function installFakeScriptRuntime(): void {
 // ── Collection / folder suites ──────────────────────────────────────
 
 describe('runs_execute collection', () => {
-  it('runs the tree in sidebar order — folder requests before collection-root requests', async () => {
+  it('runs the tree in sidebar order — the merged child sequence, a folder between two root requests', async () => {
     await saveRequest({ name: 'Root A', url: `http://127.0.0.1:${port}/ok?root-a` });
     await seedFolderWithRequest('Auth', 'Login', `http://127.0.0.1:${port}/ok?login`);
     await saveRequest({ name: 'Root B', url: `http://127.0.0.1:${port}/ok?root-b` });
@@ -199,15 +212,11 @@ describe('runs_execute collection', () => {
     const report = await runTarget({ kind: 'collection', ref: 'My Requests' });
 
     expect(report.ok).toBe(true);
-    // Folder requests run before collection-root requests (the sidebar
-    // order); root SIBLINGS keep cache order, which this harness does
-    // not pin — assert the folder-first law and full membership.
-    expect(report.items[0].name).toBe('Login');
-    expect(report.items.map((item) => item.name).sort()).toEqual(['Login', 'Root A', 'Root B']);
+    expect(report.items.map((item) => item.name)).toEqual(['Root A', 'Login', 'Root B']);
     expect(report.totals).toEqual({ items: 3, passed: 3, failed: 0, skipped: 0 });
     // The always-on negotiated-protocol report rides every item.
     expect(report.items.map((item) => item.httpVersion)).toEqual(['http/1.1', 'http/1.1', 'http/1.1']);
-    expect(hits[0]).toBe('/ok?login');
+    expect(hits).toEqual(['/ok?root-a', '/ok?login', '/ok?root-b']);
     expect(report.target.kind).toBe('collection');
   });
 
@@ -270,17 +279,17 @@ describe('runs_execute collection', () => {
   });
 
   it('bail stops at the first failure and reports the rest skipped without sending them', async () => {
-    // The failing request rides a folder so it runs FIRST (folder
-    // before roots — root-sibling order is unpinned cache order).
+    // Children run in the merged sidebar order — creation order here:
+    // a root request, the folder's failing request, a root request.
     await saveRequest({ name: 'Alpha', url: `http://127.0.0.1:${port}/ok?alpha` });
-    await saveRequest({ name: 'Bravo', url: `http://127.0.0.1:${port}/ok?bravo` });
     await seedFolderWithRequest('First', 'Boom', `http://127.0.0.1:${port}/boom`);
+    await saveRequest({ name: 'Bravo', url: `http://127.0.0.1:${port}/ok?bravo` });
 
     const report = await runTarget({ kind: 'collection', ref: 'My Requests', bail: true });
 
-    expect(report.items.map((item) => item.status)).toEqual(['failed', 'skipped', 'skipped']);
-    expect(report.totals).toEqual({ items: 3, passed: 0, failed: 1, skipped: 2 });
-    expect(hits).toEqual(['/boom']);
+    expect(report.items.map((item) => item.status)).toEqual(['passed', 'failed', 'skipped']);
+    expect(report.totals).toEqual({ items: 3, passed: 1, failed: 1, skipped: 1 });
+    expect(hits).toEqual(['/ok?alpha', '/boom']);
   });
 
   it('runs a >5-item one-origin suite without riding the refresh rate limiter', async () => {
@@ -402,6 +411,7 @@ describe('runs_execute progress (H6)', () => {
   it('bail: skipped items settle without starting, and end still fires with the counts', async () => {
     await saveRequest({ name: 'Alpha', url: `http://127.0.0.1:${port}/ok?alpha` });
     await seedFolderWithRequest('First', 'Boom', `http://127.0.0.1:${port}/boom`);
+    await saveRequest({ name: 'Bravo', url: `http://127.0.0.1:${port}/ok?bravo` });
     const plan = resolveSuitePlan(wsId, 'collection', 'My Requests');
     const events: SuiteRunEvent[] = [];
 
@@ -413,13 +423,22 @@ describe('runs_execute progress (H6)', () => {
       onEvent: (event) => events.push(event),
     });
 
-    expect(events.map((event) => event.type)).toEqual(['begin', 'item-start', 'item-settle', 'item-settle', 'end']);
-    expect(events[events.length - 1]).toEqual({ type: 'end', passed: 0, failed: 1, skipped: 1 });
+    expect(events.map((event) => event.type)).toEqual([
+      'begin',
+      'item-start',
+      'item-settle',
+      'item-start',
+      'item-settle',
+      'item-settle',
+      'end',
+    ]);
+    expect(events[events.length - 1]).toEqual({ type: 'end', passed: 1, failed: 1, skipped: 1 });
   });
 
   it('bridges runner events onto the per-call progress seat as counters plus compact lines', async () => {
     await saveRequest({ name: 'Alpha', url: `http://127.0.0.1:${port}/ok?alpha` });
     await seedFolderWithRequest('First', 'Boom', `http://127.0.0.1:${port}/boom`);
+    await saveRequest({ name: 'Bravo', url: `http://127.0.0.1:${port}/ok?bravo` });
     const frames: Array<{ progress: number; total?: number; message?: string }> = [];
     const tool = tools.get('runs_execute');
     if (!tool) throw new Error('missing tool runs_execute');
@@ -429,14 +448,16 @@ describe('runs_execute progress (H6)', () => {
       { ...CTX, progress: (update) => frames.push(update) },
     )) as unknown as ReportShape;
 
-    expect(frames).toHaveLength(3);
-    expect(frames[0]).toEqual({ progress: 0, total: 2, message: 'running My Requests: 2 items' });
+    expect(frames).toHaveLength(4);
+    expect(frames[0]).toEqual({ progress: 0, total: 3, message: 'running My Requests: 3 items' });
     expect(frames[1].progress).toBe(1);
-    expect(frames[1].message).toMatch(/^\[1\/2\] FAIL GET http:\/\/127\.0\.0\.1:\d+\/boom \(\d+ms\) — HTTP 500/);
+    expect(frames[1].message).toMatch(/^\[1\/3\] PASS GET http:\/\/127\.0\.0\.1:\d+\/ok\?alpha \(\d+ms\)/);
     expect(frames[2].progress).toBe(2);
-    expect(frames[2].message).toMatch(/^\[2\/2\] SKIP GET http:\/\/127\.0\.0\.1:\d+\/ok\?alpha$/);
+    expect(frames[2].message).toMatch(/^\[2\/3\] FAIL GET http:\/\/127\.0\.0\.1:\d+\/boom \(\d+ms\) — HTTP 500/);
+    expect(frames[3].progress).toBe(3);
+    expect(frames[3].message).toMatch(/^\[3\/3\] SKIP GET http:\/\/127\.0\.0\.1:\d+\/ok\?bravo$/);
     // The buffered report is untouched by the streaming seat.
-    expect(report.totals).toEqual({ items: 2, passed: 0, failed: 1, skipped: 1 });
+    expect(report.totals).toEqual({ items: 3, passed: 1, failed: 1, skipped: 1 });
   });
 
   it('passes no runner hook when the call carries no progress seat', async () => {

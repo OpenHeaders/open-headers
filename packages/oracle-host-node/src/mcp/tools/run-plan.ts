@@ -3,13 +3,12 @@
  * flatten its requests in sidebar tree order, from the same
  * post-state snapshots every MCP tool reads.
  *
- * Ordering mirrors the request store's tree builder
- * (`entity/request-store/reads.ts`): child folders ride the parent's
- * ordered `folders` set when it carries slots (order keys sort
- * lexicographically — the `keyBetween` contract) and fall back to
- * path-parent matching otherwise; requests keep their cache-array
- * order within a parent. Flattening is depth-first, folders before
- * the parent's own requests — the order the sidebar shows.
+ * Ordering is the request store's tree builder's
+ * (`entity/request-store/reads.ts`): a container's child folders and
+ * requests are ONE sequence — the parent's `folders` and `items` sets
+ * merged by key, interleaved as the sidebar shows them — and a child
+ * without a live slot follows by its stored path (`orderedChildren`).
+ * Flattening is depth-first in that order.
  *
  * Target resolution is uid-first (a uid is never reinterpreted as a
  * name), then unique exact name; a folder ref additionally accepts a
@@ -18,8 +17,9 @@
  * the candidate uids.
  */
 
-import { REQUEST_FOLDER_CHILDREN_PATH } from '@openheaders/core/sync';
+import { mergeOrderedEntries, REQUEST_FOLDER_CHILDREN_PATH, REQUEST_FOLDER_ITEMS_PATH } from '@openheaders/core/sync';
 import type { Request } from '@openheaders/core/types';
+import { indexTreeChildren, type OrderedChild, orderedChildren } from '@openheaders/core/utils';
 import {
   snapshotRequestCollectionPostStates,
   snapshotRequestFolderPostStates,
@@ -43,10 +43,6 @@ interface TreeParent {
   setOrderKeys: Record<string, Array<{ itemId: string; orderKey: string }>>;
 }
 
-function parentDir(path: string): string {
-  return path.substring(0, path.lastIndexOf('/'));
-}
-
 export function resolveSuitePlan(workspaceId: string, kind: 'collection' | 'folder', ref: string): SuitePlan {
   const collections: TreeParent[] = snapshotRequestCollectionPostStates(workspaceId).map((ps) => ({
     uid: ps.collection.uid,
@@ -61,32 +57,38 @@ export function resolveSuitePlan(workspaceId: string, kind: 'collection' | 'fold
     setOrderKeys: ps.setOrderKeys,
   }));
   const requests = snapshotRequestPostStates(workspaceId).map((ps) => ps.request);
+  const index = indexTreeChildren(
+    folders,
+    requests,
+    (folder) => folder.path,
+    (request) => request.path,
+  );
 
-  const orderedChildFolders = (parent: TreeParent): TreeParent[] => {
-    const slots = parent.setOrderKeys[REQUEST_FOLDER_CHILDREN_PATH] ?? [];
-    if (slots.length > 0) {
-      const byUid = new Map(folders.map((folder) => [folder.uid, folder]));
-      return [...slots]
-        .sort((a, b) => (a.orderKey < b.orderKey ? -1 : a.orderKey > b.orderKey ? 1 : 0))
-        .map((slot) => byUid.get(slot.itemId))
-        .filter((folder): folder is TreeParent => folder !== undefined);
-    }
-    return folders.filter((folder) => parentDir(folder.path) === parent.path);
+  const children = (parent: TreeParent): OrderedChild<TreeParent, Request>[] => {
+    const slots = mergeOrderedEntries(
+      parent.setOrderKeys[REQUEST_FOLDER_CHILDREN_PATH] ?? [],
+      parent.setOrderKeys[REQUEST_FOLDER_ITEMS_PATH] ?? [],
+      (slot) => slot.orderKey,
+      (slot) => slot.itemId,
+    ).map((slot) => slot.itemId);
+    return orderedChildren(index, parent.path, slots);
   };
+  const childFolders = (parent: TreeParent): TreeParent[] =>
+    children(parent).flatMap((child) => (child.kind === 'folder' ? [child.entity] : []));
 
   const collectRequests = (parent: TreeParent): Request[] => {
     const out: Request[] = [];
-    for (const child of orderedChildFolders(parent)) {
-      out.push(...collectRequests(child));
+    for (const child of children(parent)) {
+      if (child.kind === 'folder') out.push(...collectRequests(child.entity));
+      else out.push(child.entity);
     }
-    out.push(...requests.filter((request) => parentDir(request.path) === parent.path));
     return out;
   };
 
   const target =
     kind === 'collection'
       ? resolveByRef(collections, ref, 'request collection', workspaceId)
-      : resolveFolder(collections, folders, orderedChildFolders, ref, workspaceId);
+      : resolveFolder(collections, folders, childFolders, ref, workspaceId);
 
   return { kind, uid: target.uid, name: target.name, path: target.path, requests: collectRequests(target) };
 }
