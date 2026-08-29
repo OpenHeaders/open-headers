@@ -14,6 +14,7 @@ import { useSpecs } from '@openheaders/ui/shared/hooks/readers/useSpecs';
 import { Button, Select, Tag, Typography } from 'antd';
 import type React from 'react';
 import { useCallback, useMemo } from 'react';
+import SpecEmptyCta from '../shared/SpecEmptyCta';
 import { SPEC_FORMAT_LABELS } from '../specs/spec-format-labels';
 import type { SpecChangedField } from '../specs/spec-update-plan';
 import { type Draft, headersFromRequest, paramsFromRequest } from './draft';
@@ -75,7 +76,9 @@ const SpecTab: React.FC<SpecTabProps> = ({ workspaceId, collection, requestName,
     [setDraft],
   );
 
-  const picker = (
+  const picker = openapiSpecs.length === 0 ? (
+    <SpecEmptyCta format="OpenAPI" testid="request-spec-empty" />
+  ) : (
     <div>
       <Text type="secondary" style={{ display: 'block', fontSize: 11, marginBottom: 4 }}>
         {t('workbench.editors.request.spec.selectLabel')}
@@ -104,9 +107,11 @@ const SpecTab: React.FC<SpecTabProps> = ({ workspaceId, collection, requestName,
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12, maxWidth: 560 }} data-testid="request-spec-tab">
         {picker}
-        <Text type="secondary" style={{ fontSize: 12 }}>
-          {t('workbench.editors.request.spec.none')}
-        </Text>
+        {openapiSpecs.length > 0 && (
+          <Text type="secondary" style={{ fontSize: 12 }}>
+            {t('workbench.editors.request.spec.none')}
+          </Text>
+        )}
       </div>
     );
   }

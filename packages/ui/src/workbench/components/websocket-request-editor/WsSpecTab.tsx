@@ -8,6 +8,7 @@
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { Select, Tree, Typography } from 'antd';
 import type React from 'react';
+import SpecEmptyCta from '../shared/SpecEmptyCta';
 import type { WsComposeAids } from './useWsComposeAids';
 
 const { Text } = Typography;
@@ -22,19 +23,23 @@ const WsSpecTab: React.FC<WsSpecTabProps> = ({ aids, onLinkSpec }) => {
   const { asyncapiSpecs, linkedSpec, census, browserTree, handleBrowserSelect } = aids;
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12, maxWidth: 560 }}>
-      <div>
-        <Text type="secondary" style={{ display: 'block', fontSize: 11, marginBottom: 4 }}>
-          {t('workbench.editors.websocket.spec.selectLabel')}
-        </Text>
-        <Select
-          style={{ width: '100%' }}
-          placeholder={t('workbench.editors.websocket.spec.selectPlaceholder')}
-          value={linkedSpec?.uid}
-          options={asyncapiSpecs.map((s) => ({ value: s.uid, label: s.name }))}
-          onChange={onLinkSpec}
-          data-testid="websocket-spec-select"
-        />
-      </div>
+      {asyncapiSpecs.length === 0 ? (
+        <SpecEmptyCta format="AsyncAPI" testid="websocket-spec-empty" />
+      ) : (
+        <div>
+          <Text type="secondary" style={{ display: 'block', fontSize: 11, marginBottom: 4 }}>
+            {t('workbench.editors.websocket.spec.selectLabel')}
+          </Text>
+          <Select
+            style={{ width: '100%' }}
+            placeholder={t('workbench.editors.websocket.spec.selectPlaceholder')}
+            value={linkedSpec?.uid}
+            options={asyncapiSpecs.map((s) => ({ value: s.uid, label: s.name }))}
+            onChange={onLinkSpec}
+            data-testid="websocket-spec-select"
+          />
+        </div>
+      )}
       {census.census && (
         <Text type="secondary" style={{ fontSize: 11 }}>
           {t('workbench.editors.websocket.spec.summary', {

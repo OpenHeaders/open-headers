@@ -809,6 +809,8 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.response.body.showingLastMatch': 'Showing the last match.',
   'workbench.editors.request.response.body.hexCapNotice': 'Hex view shows the first {shown} of {total}.',
   'workbench.editors.spec.tab': 'Spec',
+  'workbench.editors.spec.noSpecs': 'No {format} spec in this workspace yet.',
+  'workbench.editors.spec.goToSpecs': 'Go to Specs',
   'workbench.editors.timelineViewer.format': 'Message format',
   'workbench.editors.timelineViewer.showMessage': 'Show Message',
   'workbench.editors.timelineViewer.showHexdump': 'Show Hexdump',

@@ -123,6 +123,7 @@ import { useWorkbenchShortcutActions } from './hooks/useWorkbenchShortcutActions
 import { useWorkbenchSidebarState } from './hooks/useWorkbenchSidebarState';
 import { useWorkbenchWorkspaceSlice } from './hooks/useWorkbenchWorkspaceSlice';
 import { subscribeGitPanelReveal } from './data/git-panel-reveal';
+import { subscribeSpecsSectionReveal } from './data/specs-section-reveal';
 import { subscribeTrafficStorageReveal } from './data/traffic-storage-reveal';
 import { useWorkspaceIntentRouter } from './hooks/useWorkspaceIntentRouter';
 import { useWorkspaceShortcuts } from './hooks/useWorkspaceShortcuts';
@@ -451,6 +452,18 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
   // Branch or Tag, Branches…) — tab state is already applied on the
   // git-panel registry; the shell only activates the window.
   useEffect(() => subscribeGitPanelReveal(() => tl.activateWindow('git')), [tl]);
+
+  // A Spec tab with no spec of its format to pick sends the user to
+  // where one gets created: the API Requests window's SPECS section.
+  useEffect(
+    () =>
+      subscribeSpecsSectionReveal(() => {
+        if (tl.state.hidden.includes('api-requests')) tl.restoreWindow('api-requests');
+        tl.activateWindow('api-requests');
+        sidebarState.setSectionsForView('api-requests', (prev) => ({ ...prev, specs: true }));
+      }),
+    [tl, sidebarState],
+  );
 
   // Host-reported app updates land in the Notifications timeline
   // (no-op on hosts without the getAppUpdate capability), and the

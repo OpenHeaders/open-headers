@@ -1013,6 +1013,8 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.response.body.showingLastMatch': 'Affichage de la dernière correspondance.',
   'workbench.editors.request.response.body.hexCapNotice': 'La vue Hex montre les premiers {shown} sur {total}.',
   'workbench.editors.spec.tab': 'Spec',
+  'workbench.editors.spec.noSpecs': 'Aucune spécification {format} dans cet espace de travail pour l’instant.',
+  'workbench.editors.spec.goToSpecs': 'Aller aux spécifications',
   'workbench.editors.timelineViewer.format': 'Format du message',
   'workbench.editors.timelineViewer.showMessage': 'Afficher le message',
   'workbench.editors.timelineViewer.showHexdump': 'Afficher le hexdump',

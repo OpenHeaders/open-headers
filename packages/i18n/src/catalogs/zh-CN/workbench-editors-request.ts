@@ -793,6 +793,8 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.response.body.showingLastMatch': '正在显示最后一个匹配项。',
   'workbench.editors.request.response.body.hexCapNotice': 'Hex 视图显示 {total} 中的前 {shown}。',
   'workbench.editors.spec.tab': '规范',
+  'workbench.editors.spec.noSpecs': '此工作区尚无 {format} 规范。',
+  'workbench.editors.spec.goToSpecs': '前往规范',
   'workbench.editors.timelineViewer.format': '消息格式',
   'workbench.editors.timelineViewer.showMessage': '显示消息',
   'workbench.editors.timelineViewer.showHexdump': '显示十六进制转储',

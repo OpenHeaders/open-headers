@@ -1012,6 +1012,8 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.response.body.showingLastMatch': 'Der letzte Treffer wird angezeigt.',
   'workbench.editors.request.response.body.hexCapNotice': 'Die Hex-Ansicht zeigt die ersten {shown} von {total}.',
   'workbench.editors.spec.tab': 'Spec',
+  'workbench.editors.spec.noSpecs': 'Noch keine {format}-Spezifikation in diesem Arbeitsbereich.',
+  'workbench.editors.spec.goToSpecs': 'Zu den Spezifikationen',
   'workbench.editors.timelineViewer.format': 'Nachrichtenformat',
   'workbench.editors.timelineViewer.showMessage': 'Nachricht anzeigen',
   'workbench.editors.timelineViewer.showHexdump': 'Hexdump anzeigen',

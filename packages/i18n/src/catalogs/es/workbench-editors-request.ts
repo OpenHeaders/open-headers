@@ -998,6 +998,8 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.response.body.showingLastMatch': 'Mostrando la última coincidencia.',
   'workbench.editors.request.response.body.hexCapNotice': 'La vista Hex muestra los primeros {shown} de {total}.',
   'workbench.editors.spec.tab': 'Spec',
+  'workbench.editors.spec.noSpecs': 'Todavía no hay ninguna especificación {format} en este espacio de trabajo.',
+  'workbench.editors.spec.goToSpecs': 'Ir a Especificaciones',
   'workbench.editors.timelineViewer.format': 'Formato del mensaje',
   'workbench.editors.timelineViewer.showMessage': 'Mostrar el mensaje',
   'workbench.editors.timelineViewer.showHexdump': 'Mostrar el volcado hexadecimal',
