@@ -187,17 +187,20 @@ const MqttSessionPane: React.FC<MqttSessionPaneProps> = ({
   }, [snapshot, live, timing, connackFacts, endedMessage]);
 
   // End pill honesty: a pre-open failure reads as Connect failed on
-  // the error tint; the clean client Disconnect reads success-green;
+  // the error tint; the clean client Disconnect wears the ended pill's error tint (the WebSocket pane's picture);
   // a broker DISCONNECT renders on the warning tint with its verbatim
   // reason; a severed connection is named as the absence it is;
   // Stopped is its own state; a reconnect the broker refused, or a
   // spent attempt cap, ended the auto-reconnect loop — their own
   // error-tint states.
+  const errorPill = useTonePillStyle('error');
+  const warningPill = useTonePillStyle('warning');
+  const neutralPill = useTonePillStyle('neutral');
   const endTag = (() => {
     if (snapshot === null) return null;
     if (snapshot.reconnectRefused !== undefined || snapshot.reconnectExhausted !== undefined) {
       return (
-        <Tag color="error" style={{ marginInlineEnd: 0 }} data-testid="mqtt-session-end-tag">
+        <Tag color="default" style={errorPill} data-testid="mqtt-session-end-tag">
           {t(reconnectLoopEndTagKey(snapshot))}
         </Tag>
       );
@@ -205,36 +208,36 @@ const MqttSessionPane: React.FC<MqttSessionPaneProps> = ({
     // A user abort pills neutrally — Connect failed is for failures.
     if (snapshot.outcome.kind === 'aborted') {
       return (
-        <Tag style={{ marginInlineEnd: 0 }} data-testid="mqtt-session-end-tag">
+        <Tag color="default" style={neutralPill} data-testid="mqtt-session-end-tag">
           {t('workbench.editors.mqtt.session.abortedTag')}
         </Tag>
       );
     }
     if (snapshot.outcome.kind === 'failed') {
       return (
-        <Tag color="error" style={{ marginInlineEnd: 0 }} data-testid="mqtt-session-end-tag">
+        <Tag color="default" style={errorPill} data-testid="mqtt-session-end-tag">
           {t('workbench.editors.mqtt.session.connectFailedTag')}
         </Tag>
       );
     }
     if (snapshot.stopped === true) {
       return (
-        <Tag color="warning" style={{ marginInlineEnd: 0 }} data-testid="mqtt-session-end-tag">
+        <Tag color="default" style={warningPill} data-testid="mqtt-session-end-tag">
           {t('workbench.editors.mqtt.session.stoppedTag')}
         </Tag>
       );
     }
     if (snapshot.end === null) {
       return (
-        <Tag color="error" style={{ marginInlineEnd: 0 }} data-testid="mqtt-session-end-tag">
+        <Tag color="default" style={errorPill} data-testid="mqtt-session-end-tag">
           {t('workbench.editors.mqtt.session.severedTag')}
         </Tag>
       );
     }
     return (
       <Tag
-        color={snapshot.end.by === 'client' ? 'success' : 'warning'}
-        style={{ marginInlineEnd: 0 }}
+        color="default"
+        style={snapshot.end.by === 'client' ? errorPill : warningPill}
         data-testid="mqtt-session-end-tag"
       >
         {snapshot.end.by === 'client'
@@ -376,9 +379,6 @@ const MqttSessionPane: React.FC<MqttSessionPaneProps> = ({
         <>
           {endTag !== null && <ConnectionDetailsTooltip rows={detailRows}>{endTag}</ConnectionDetailsTooltip>}
           {proxyRouteHasBadge(snapshot.proxyRoute) && <ProxyRouteTag route={snapshot.proxyRoute} />}
-          <Text type="secondary" style={{ fontSize: 11 }} data-testid="mqtt-session-duration">
-            {t('workbench.editors.mqtt.session.duration', { ms: snapshot.durationMs })}
-          </Text>
           <Dropdown
             trigger={['click']}
             styles={{ root: { minWidth: 180 } }}

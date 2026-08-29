@@ -1,10 +1,9 @@
 /**
- * GrpcMetaStrip — the glanceable `status · time` line in the gRPC
- * result pane's tab bar, the HTTP ResponseMetaStrip's sibling: the
- * status pill carries a hover popover explaining the code's canonical
- * meaning, facts separate with the shared MetaDot, and the stream
- * phases ride as badges (STREAMING while live, Stopped after a
- * cancel). The panes append their own ⋯ actions menu after it.
+ * GrpcMetaStrip — the glanceable status pill in the gRPC result
+ * pane's tab bar, the HTTP ResponseMetaStrip's sibling: the pill
+ * carries a hover popover explaining the code's canonical meaning; a
+ * cancel reads as 1 CANCELLED. The panes append their own ⋯ actions
+ * menu after it.
  */
 
 import { GRPC_STATUS_NAMES, grpcStatusLabel } from '@openheaders/core/proto';
@@ -12,12 +11,9 @@ import type { ExecutedProxyRoute } from '@openheaders/core/types';
 import type { MessageKey } from '@openheaders/i18n';
 import { type Translate, useT } from '@openheaders/ui/context/LocaleContext';
 import { InfoPopover, type InfoPopoverContent } from '@openheaders/ui/shared/info-popover';
-import { Tag, Typography, theme } from 'antd';
+import { Tag, theme } from 'antd';
 import type React from 'react';
 import ProxyRouteTag, { proxyRouteHasBadge } from '../request-editor/response/ProxyRouteTag';
-import { MetaDot } from '../request-editor/response/ResponseMetaStrip';
-
-const { Text } = Typography;
 
 /** Canonical description key per protocol status name — a literal map
  *  so the catalog keys stay statically checked (no dynamic key
@@ -57,8 +53,7 @@ export function grpcStatusInfoContent(t: Translate, status: number): InfoPopover
 const GrpcMetaStrip: React.FC<{
   /** Wire status; null when the reply carried none. */
   status: number | null;
-  durationMs: number;
-  /** Cancelled mid-stream — the Stopped badge. */
+  /** Cancelled mid-stream — reads as 1 CANCELLED when the reply carried no status. */
   stopped?: boolean;
   /** The classified LOCAL failure — the call never produced a response
    *  head. With `localStatus` the pill reads the canonical code the
@@ -74,7 +69,7 @@ const GrpcMetaStrip: React.FC<{
    *  tag when a plane proxied (or stood down for) the dial. Examples
    *  strip it with the other volatile internals, so they omit it. */
   proxyRoute?: ExecutedProxyRoute;
-}> = ({ status, durationMs, stopped, error, localStatus, proxyRoute }) => {
+}> = ({ status, stopped, error, localStatus, proxyRoute }) => {
   const { token } = theme.useToken();
   const t = useT();
   // A caller-stopped call whose reply carried no status reads as
@@ -109,25 +104,7 @@ const GrpcMetaStrip: React.FC<{
           </Tag>
         </InfoPopover>
       )}
-      {stopped === true && (
-        <InfoPopover
-          content={{
-            title: t('workbench.editors.grpc.stream.stoppedBadge'),
-            kicker: t('workbench.editors.request.response.meta.kicker'),
-            summary: t('workbench.editors.request.response.meta.streamedPartialSummary'),
-          }}
-          trigger="hover"
-        >
-          <Tag color="default" style={{ marginInlineEnd: 0, cursor: 'help' }} data-testid="grpc-stopped-tag">
-            {t('workbench.editors.grpc.stream.stoppedBadge')}
-          </Tag>
-        </InfoPopover>
-      )}
       {proxyRouteHasBadge(proxyRoute) && <ProxyRouteTag route={proxyRoute} />}
-      <MetaDot />
-      <Text type="secondary" style={{ fontSize: 11, whiteSpace: 'nowrap' }}>
-        {t('workbench.editors.grpc.response.duration', { ms: durationMs })}
-      </Text>
     </span>
   );
 };

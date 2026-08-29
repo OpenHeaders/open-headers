@@ -77,7 +77,6 @@ const GrpcResponsePane: React.FC<GrpcResponsePaneProps> = ({
     <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, paddingLeft: 12 }}>
       <GrpcMetaStrip
         status={snapshot.grpcStatus}
-        durationMs={snapshot.durationMs}
         {...(snapshot.error !== null ? { error: snapshot.error } : {})}
         {...(snapshot.localStatus !== undefined ? { localStatus: snapshot.localStatus } : {})}
         {...(snapshot.proxyRoute !== undefined ? { proxyRoute: snapshot.proxyRoute } : {})}

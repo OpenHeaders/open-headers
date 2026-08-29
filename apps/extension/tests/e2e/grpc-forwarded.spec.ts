@@ -552,12 +552,7 @@ test('Stop mid-stream keeps arrived frames and reads 1 CANCELLED', async () => {
   await expect.poll(async () => timelineMessageRows().count(), { timeout: 20000 }).toBeGreaterThanOrEqual(3);
   // Invoke has morphed into Stop.
   await invokeButton().click();
-  await page
-    .getByTestId('grpc-stopped-tag')
-    .filter({ visible: true })
-    .first()
-    .waitFor({ state: 'visible', timeout: 15000 });
-  await expect(statusTag()).toContainText('1 CANCELLED');
+  await expect(statusTag()).toContainText('1 CANCELLED', { timeout: 15000 });
   expect(await timelineMessageRows().count()).toBeGreaterThanOrEqual(3);
 });
 

@@ -147,7 +147,6 @@ const GrpcStreamPane: React.FC<GrpcStreamPaneProps> = ({
         <>
           <GrpcMetaStrip
             status={snapshot.grpcStatus}
-            durationMs={snapshot.durationMs}
             stopped={snapshot.stopped === true}
             {...(snapshot.error !== null ? { error: snapshot.error } : {})}
             {...(snapshot.localStatus !== undefined ? { localStatus: snapshot.localStatus } : {})}

@@ -403,12 +403,7 @@ test('D7 — bidi echo; Stop mid-stream keeps frames and reads 1 CANCELLED', asy
   // Invoke has morphed into Stop; a local cancel reads 1 CANCELLED
   // display-side while the capture keeps its honest null status.
   await invokeButton().click();
-  await workbench
-    .getByTestId('grpc-stopped-tag')
-    .filter({ visible: true })
-    .first()
-    .waitFor({ state: 'visible', timeout: 15_000 });
-  await expect(statusTag()).toContainText('1 CANCELLED');
+  await expect(statusTag()).toContainText('1 CANCELLED', { timeout: 15_000 });
   expect(await timelineMessageRows().count()).toBeGreaterThanOrEqual(2);
   await expectStatusPopover(/Status code 1 CANCELLED is returned if the operation is cancelled by the caller/);
 });

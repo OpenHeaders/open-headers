@@ -83,7 +83,6 @@ const GrpcExampleResultPane: React.FC<GrpcExampleResultPaneProps> = ({ response,
       <span style={{ display: 'inline-flex', alignItems: 'center', paddingLeft: 12 }}>
         <GrpcMetaStrip
           status={response.grpcStatus}
-          durationMs={response.durationMs}
           stopped={response.stopped === true}
         />
       </span>
