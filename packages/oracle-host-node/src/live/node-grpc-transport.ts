@@ -91,8 +91,8 @@ import {
   type SessionRouteResult,
 } from './system-proxy/session-route';
 import type { SystemProxyResolver } from './system-proxy/types';
+import { type TlsPolicyOptions, type TlsPolicyRequest, tlsPolicyOptionsFor } from './tls-policy';
 import { isTlsVerificationCode, trustCertificateHintFor } from './tls-verification';
-import { caOptionFor } from './trusted-roots-ca';
 import { withHostUserAgent } from './user-agent';
 
 export interface NodeGrpcTransportOptions {
@@ -105,29 +105,22 @@ export interface NodeGrpcTransportOptions {
 
 /** The TLS policy slice of one session's request — what every dial
  *  shape below maps onto its `tls.connect` options. */
-interface SessionTlsPolicy {
+interface SessionTlsPolicy extends TlsPolicyRequest {
   tls: boolean;
-  sslVerification?: boolean;
-  trustedRootsPem?: string[];
 }
 
 /**
- * TLS connect options for one session: verify against the system roots
- * — plus the workspace trusted roots, additively — unless the request
- * explicitly opted out (`sslVerification: false` — the self-signed
- * dev-server knob; the roots still ride). Cleartext connects ignore
- * both; a fully-default TLS session gets no option bag at all.
+ * TLS connect options for one session — the shared policy bag
+ * ({@link tlsPolicyOptionsFor}: verification, workspace roots, client
+ * certificate, version window, ciphers, SNI override). Cleartext
+ * connects ignore it all; a fully-default TLS session gets no option
+ * bag at all.
  */
-function tlsPolicyOptions(request: SessionTlsPolicy): { rejectUnauthorized?: false; ca?: string[] } {
-  if (!request.tls) return {};
-  const ca = caOptionFor(request.trustedRootsPem);
-  return {
-    ...(request.sslVerification === false ? { rejectUnauthorized: false } : {}),
-    ...(ca !== undefined ? { ca } : {}),
-  };
+function tlsPolicyOptions(request: SessionTlsPolicy): TlsPolicyOptions {
+  return request.tls ? tlsPolicyOptionsFor(request) : {};
 }
 
-function sessionOptions(request: SessionTlsPolicy): { rejectUnauthorized?: false; ca?: string[] } | undefined {
+function sessionOptions(request: SessionTlsPolicy): TlsPolicyOptions | undefined {
   const policy = tlsPolicyOptions(request);
   return Object.keys(policy).length > 0 ? policy : undefined;
 }

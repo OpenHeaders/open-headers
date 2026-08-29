@@ -25,7 +25,7 @@
 
 /** One metadata field on the wire (request or response side).
  *  Repeated keys are allowed — the host appends them in order. */
-import type { TrustCertificateErrorHint } from '@openheaders/core/types';
+import type { TlsVersion, TrustCertificateErrorHint } from '@openheaders/core/types';
 
 export interface GrpcTransportHeader {
   key: string;
@@ -63,6 +63,24 @@ export interface GrpcTransportRequest {
   /** Workspace trusted roots (PEM), appended behind the runtime bundle
    *  on the TLS dial — see the HTTP transport's `trustedRootsPem`. */
   trustedRootsPem?: string[];
+  /** Vault `client-certificate` entry NAME the call asks to present on
+   *  the TLS channel — always passes through when set, even unresolved,
+   *  so the host fails the dial loudly instead of silently connecting
+   *  without a certificate; the PEM pair below rides only when the
+   *  entry resolved on this device. */
+  clientCertificateRef?: string;
+  clientCertificatePem?: string;
+  clientCertificateKeyPem?: string;
+  clientCertificatePassphrase?: string;
+  /** TLS negotiation floor; absent = the runtime default (1.2). */
+  tlsMinVersion?: TlsVersion;
+  /** TLS negotiation ceiling; absent = the runtime default (1.3). */
+  tlsMaxVersion?: TlsVersion;
+  /** OpenSSL-format cipher list; absent = the runtime's default suites. */
+  tlsCipherSuites?: string;
+  /** SNI server name for the TLS channel, already resolved; absent =
+   *  the authority's host. `:authority` keeps the target. */
+  sniServerName?: string;
   /** Request path: `/{service full name}/{rpc}`. */
   path: string;
   /**
@@ -163,6 +181,17 @@ export interface GrpcTransportStreamRequest {
   sslVerification?: boolean;
   /** See {@link GrpcTransportRequest.trustedRootsPem}. */
   trustedRootsPem?: string[];
+  /** See {@link GrpcTransportRequest.clientCertificateRef}. */
+  clientCertificateRef?: string;
+  clientCertificatePem?: string;
+  clientCertificateKeyPem?: string;
+  clientCertificatePassphrase?: string;
+  /** See {@link GrpcTransportRequest.tlsMinVersion}. */
+  tlsMinVersion?: TlsVersion;
+  tlsMaxVersion?: TlsVersion;
+  tlsCipherSuites?: string;
+  /** See {@link GrpcTransportRequest.sniServerName}. */
+  sniServerName?: string;
   path: string;
   /** See {@link GrpcTransportRequest.unixSocketPath}. */
   unixSocketPath?: string;

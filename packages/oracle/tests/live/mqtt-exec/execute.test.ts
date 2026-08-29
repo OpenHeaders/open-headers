@@ -624,6 +624,8 @@ describe('executeMqttSession — 5.0 connect knobs and topic aliases', () => {
       makeMqttRequest({
         url: 'mqtts://{{host}}',
         clientCertificateRef: 'iot-device',
+        tlsMinVersion: '1.2',
+        tlsCipherSuites: 'TLS_AES_256_GCM_SHA384',
         sniServerName: 'edge-{{team}}.openheaders.io',
         alpnProtocol: 'mqtt',
       }),
@@ -638,6 +640,8 @@ describe('executeMqttSession — 5.0 connect knobs and topic aliases', () => {
     await settleTick();
     expect(rig.wire()).toMatchObject({
       clientCertificateRef: 'iot-device',
+      tlsMinVersion: '1.2',
+      tlsCipherSuites: 'TLS_AES_256_GCM_SHA384',
       sniServerName: 'edge-alpha.openheaders.io',
       alpnProtocol: 'mqtt',
     });

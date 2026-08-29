@@ -20,7 +20,7 @@
  * wire later.
  */
 
-import type { TrustCertificateErrorHint } from '@openheaders/core/types';
+import type { TlsVersion, TrustCertificateErrorHint } from '@openheaders/core/types';
 import type { WsProxyRoute } from '../ws-exec/transport';
 
 export interface MqttTransportRequest {
@@ -51,6 +51,12 @@ export interface MqttTransportRequest {
   clientCertificatePem?: string;
   clientCertificateKeyPem?: string;
   clientCertificatePassphrase?: string;
+  /** TLS negotiation floor; absent = the runtime default (1.2). */
+  tlsMinVersion?: TlsVersion;
+  /** TLS negotiation ceiling; absent = the runtime default (1.3). */
+  tlsMaxVersion?: TlsVersion;
+  /** OpenSSL-format cipher list; absent = the runtime's default suites. */
+  tlsCipherSuites?: string;
   /** SNI server name for `mqtts:` dials. Absent = the URL host. */
   sniServerName?: string;
   /** ALPN protocol offered on `mqtts:` dials. Absent = no offer. */

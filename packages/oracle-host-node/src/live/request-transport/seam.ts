@@ -72,6 +72,9 @@ export interface ConnectOptions {
   /** The runtime bundle plus the workspace trusted roots — always the
    *  additive concat (`caOptionFor`), never a replacement. */
   ca?: string[];
+  /** SNI override; absent = the dial's hostname (undici's own default,
+   *  and what the hand-rolled dials fall back to). */
+  servername?: string;
   allowH2?: boolean;
   socketPath?: string;
 }

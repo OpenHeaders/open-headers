@@ -188,7 +188,7 @@ export async function h2PriorKnowledgeHop(request: H2PriorKnowledgeHopRequest): 
   const { socketPath, lookup, ...tlsOptions } = request.connect;
   const port = url.port !== '' ? url.port : secure ? '443' : '80';
   const origin = socketPath ?? `${url.hostname}:${port}`;
-  const servername = servernameFor(url.hostname);
+  const servername = tlsOptions.servername ?? servernameFor(url.hostname);
   // The record is handed over AT DIAL START, before the tunnel leg —
   // a tunneled hop's tunnel dial IS its TCP leg (see `onConnection`).
   const record: ConnectionRecord | undefined =

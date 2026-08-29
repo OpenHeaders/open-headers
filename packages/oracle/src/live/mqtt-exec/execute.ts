@@ -91,14 +91,10 @@ import { getRequestCollections, getRequestCollectionsForWorkspace } from '../../
 import { peekActiveWorkspaceId } from '../../workspace/extension-workspace-store';
 import { buildResolver } from '../request-exec/resolver-scope';
 import { registerActiveSend } from '../request-exec/send-stream';
+import { sessionTlsPolicy } from '../tls-policy';
 import { getTrustAnchorsForSend } from '../trust-anchors';
 import { createMqttStreamEmitter, registerActiveMqttSession } from './session-plane';
-import {
-  type MqttByteTransport,
-  type MqttStreamWriter,
-  MqttTransportError,
-  type MqttTransportRequest,
-} from './transport';
+import { type MqttByteTransport, type MqttStreamWriter, MqttTransportError } from './transport';
 
 /** Rolling-retention caps on the captured payload bytes / event count
  *  — the always-on host never buffers unbounded, and the session is
@@ -287,10 +283,6 @@ export async function executeMqttSession(
   const oracleResolution = options.resolution === undefined ? await buildOracleResolution(request, options) : null;
   const resolveWith = options.resolution ?? oracleResolution?.resolve;
   if (resolveWith === undefined) return errorMqttSnapshot('No template resolution available for this session.');
-  // The client-certificate pair resolves against the vault the oracle
-  // scope carries; a host-injected resolution has no vault, so the ref
-  // passes through bare and the transport fails the dial loudly.
-  const clientCertificate = resolveClientCertificate(request.clientCertificateRef, oracleResolution?.vault);
   // The workspace trust list rides every dial and reconnect alike —
   // the pin the scope resolved against, else the runtime-Active one.
   const trustedRootsPem = getTrustAnchorsForSend(options.workspaceId ?? peekActiveWorkspaceId())?.pems;
@@ -394,7 +386,10 @@ export async function executeMqttSession(
   const reconnectMaxAttempts = request.reconnectMaxAttempts;
   const reconnectBackoff = request.reconnectBackoff !== false;
   const reconnectJitter = options.reconnectJitter ?? Math.random;
-  const sniServerName = request.sniServerName !== undefined ? resolveStr(request.sniServerName).trim() : '';
+  // The client-certificate pair resolves against the vault the oracle
+  // scope carries; a host-injected resolution has no vault, so the ref
+  // passes through bare and the transport fails the dial loudly.
+  const tlsPolicy = sessionTlsPolicy({ request, trustedRootsPem, vault: oracleResolution?.vault, resolve: resolveStr });
   const alpnProtocol = request.alpnProtocol !== undefined ? resolveStr(request.alpnProtocol).trim() : '';
 
   // ── The live session on the sendId spine ──
@@ -899,11 +894,8 @@ export async function executeMqttSession(
       writer = options.transport.connect(
         {
           url,
-          ...(request.sslVerification !== undefined ? { sslVerification: request.sslVerification } : {}),
-          ...(trustedRootsPem !== undefined ? { trustedRootsPem } : {}),
           timeoutMs: request.timeoutMs ?? DEFAULT_CONNECT_TIMEOUT_MS,
-          ...clientCertificate,
-          ...(sniServerName !== '' ? { sniServerName } : {}),
+          ...tlsPolicy,
           ...(alpnProtocol !== '' ? { alpnProtocol } : {}),
         },
         {
@@ -1093,27 +1085,6 @@ async function buildOracleResolution(
     return result.result;
   };
   return { resolve, vault: scope.vault };
-}
-
-/** Resolve the request's `clientCertificateRef` against the vault —
- *  the HTTP executor's contract: the ref always passes through when
- *  set, the PEM pair attaches only when the named entry exists here. */
-function resolveClientCertificate(
-  ref: string | undefined,
-  vault: Vault | undefined,
-): Pick<
-  MqttTransportRequest,
-  'clientCertificateRef' | 'clientCertificatePem' | 'clientCertificateKeyPem' | 'clientCertificatePassphrase'
-> {
-  if (ref === undefined) return {};
-  const entry = vault?.secrets.find((s) => s.kind === 'client-certificate' && s.name === ref);
-  if (entry?.kind !== 'client-certificate') return { clientCertificateRef: ref };
-  return {
-    clientCertificateRef: ref,
-    clientCertificatePem: entry.cert,
-    clientCertificateKeyPem: entry.key,
-    ...(entry.passphrase !== undefined ? { clientCertificatePassphrase: entry.passphrase } : {}),
-  };
 }
 
 /** The collection whose variables scope this request — same

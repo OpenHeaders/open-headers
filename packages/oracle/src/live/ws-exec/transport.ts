@@ -22,7 +22,7 @@
  * to text is display-side, never a transport rewrite.
  */
 
-import type { TrustCertificateErrorHint } from '@openheaders/core/types';
+import type { TlsVersion, TrustCertificateErrorHint } from '@openheaders/core/types';
 
 /** One handshake header, already resolved and filtered of the fields
  *  the platform socket owns. Node-host capability. */
@@ -66,12 +66,25 @@ export interface WsTransportRequest {
   /** Workspace trusted roots (PEM), appended behind the runtime bundle
    *  on the TLS dial — see the HTTP transport's `trustedRootsPem`. */
   trustedRootsPem?: string[];
-  /** Client certificate pair presented in the `wss:` handshake, PEM
-   *  form — already resolved by the executor (MQTT-over-WebSocket
-   *  sessions ride it; the WS editor has no knob yet). */
+  /** Vault `client-certificate` entry NAME the request asks to present
+   *  in the `wss:` handshake — always passes through when set, even
+   *  unresolved, so the host fails the dial loudly instead of silently
+   *  connecting without a certificate; the PEM pair below rides only
+   *  when the entry resolved on this device (MQTT-over-WebSocket
+   *  sessions hand theirs through the same seat). */
+  clientCertificateRef?: string;
   clientCertificatePem?: string;
   clientCertificateKeyPem?: string;
   clientCertificatePassphrase?: string;
+  /** TLS negotiation floor; absent = the runtime default (1.2). */
+  tlsMinVersion?: TlsVersion;
+  /** TLS negotiation ceiling; absent = the runtime default (1.3). */
+  tlsMaxVersion?: TlsVersion;
+  /** OpenSSL-format cipher list; absent = the runtime's default suites. */
+  tlsCipherSuites?: string;
+  /** SNI server name for the `wss:` dial, already resolved; absent =
+   *  the URL host. */
+  sniServerName?: string;
   /**
    * Dial this local socket — an absolute Unix domain socket path or a
    * Windows named pipe — instead of opening a TCP connection. The

@@ -130,6 +130,13 @@ describe('createNodeRequestTransport — per-request TLS policy', () => {
     expect(connectOptionsFor(makeRequest({ tlsMinVersion: '1.0' })).ciphers).toBe(stackAccepts);
   });
 
+  it('the SNI override rides the connect bag; absent, undici falls back to the hostname', () => {
+    expect(connectOptionsFor(makeRequest({ sniServerName: 'edge.openheaders.io' })).servername).toBe(
+      'edge.openheaders.io',
+    );
+    expect(connectOptionsFor(makeRequest()).servername).toBeUndefined();
+  });
+
   it('an explicit cipher list wins verbatim over the lowered-floor default', () => {
     const bag = connectOptionsFor(makeRequest({ tlsMinVersion: '1.1', tlsCipherSuites: 'AES128-SHA' }));
     expect(bag.ciphers).toBe('AES128-SHA');

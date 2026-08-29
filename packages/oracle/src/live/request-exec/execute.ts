@@ -186,6 +186,7 @@ export async function executeOverTransport(
     tlsMinVersion: resolved.tlsMinVersion,
     tlsMaxVersion: resolved.tlsMaxVersion,
     tlsCipherSuites: resolved.tlsCipherSuites,
+    ...(resolved.sniServerName !== undefined ? { sniServerName: resolved.sniServerName } : {}),
     ...(resolved.trustedRootsPem !== undefined ? { trustedRootsPem: resolved.trustedRootsPem } : {}),
     httpVersion: resolved.httpVersion,
     resolveToAddress: resolved.resolveToAddress,

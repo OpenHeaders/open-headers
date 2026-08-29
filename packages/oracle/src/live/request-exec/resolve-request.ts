@@ -31,6 +31,7 @@ import { resolveTemplate } from '@openheaders/core/variables';
 import { getTokenBundle } from '../../entity/oauth-token-store';
 import { getRequestCollections, getRequestCollectionsForWorkspace } from '../../entity/request-store';
 import { getActiveWorkspaceId, peekActiveWorkspaceId } from '../../workspace/extension-workspace-store';
+import { resolveClientCertificate } from '../tls-policy';
 import { getTrustAnchorsForSend } from '../trust-anchors';
 import { resolveInheritedAuth } from './ancestor-chain';
 import { buildResolver } from './resolver-scope';
@@ -55,6 +56,9 @@ export interface ResolvedRequest {
   tlsMaxVersion?: TlsVersion;
   /** OpenSSL-format cipher list; absent → the runtime's default suites. */
   tlsCipherSuites?: string;
+  /** SNI server name presented instead of the URL's host, already
+   *  resolved and trimmed; absent → the URL's host. */
+  sniServerName?: string;
   /** Trust anchors (PEM) the honoring transport appends behind its
    *  runtime bundle — the workspace's trusted certificates followed by
    *  this device's pins, present only when either holds one. A trust
@@ -310,6 +314,9 @@ export async function resolveRequest(
 
   // ── Client certificate (ref → PEM against the local vault) ──
   const clientCertificate = resolveClientCertificate(request.clientCertificateRef, scope.vault);
+  // ── SNI override — a template like the URL; an empty resolution
+  //    reads as no override ──
+  const sniServerName = request.sniServerName !== undefined ? resolveStr(request.sniServerName).trim() : '';
 
   // ── Proxy credential (ref → user:password against the local vault) ──
   const proxyCredential = resolveProxyCredential(request.proxyCredentialRef, scope.vault);
@@ -347,6 +354,7 @@ export async function resolveRequest(
       tlsMinVersion: request.tlsMinVersion,
       tlsMaxVersion: request.tlsMaxVersion,
       tlsCipherSuites: request.tlsCipherSuites,
+      ...(sniServerName !== '' ? { sniServerName } : {}),
       ...(trustAnchors !== undefined
         ? {
             trustedRootsPem: trustAnchors.pems,
@@ -376,31 +384,6 @@ export async function resolveRequest(
       ...(oauth1 ? { oauth1 } : {}),
     },
     totpUsed: [...totpUsed.values()],
-  };
-}
-
-/**
- * Resolve a `clientCertificateRef` against the local vault. The ref
- * always passes through when set — even unresolved — so the honoring
- * transport can fail the send loudly instead of silently dialing
- * without a certificate; the PEM material attaches only when the named
- * entry exists on this device with the right kind.
- */
-function resolveClientCertificate(
-  ref: string | undefined,
-  vault: Vault,
-): Pick<
-  ResolvedRequest,
-  'clientCertificateRef' | 'clientCertificatePem' | 'clientCertificateKeyPem' | 'clientCertificatePassphrase'
-> {
-  if (ref === undefined) return {};
-  const entry = vault.secrets.find((s) => s.kind === 'client-certificate' && s.name === ref);
-  if (!entry || entry.kind !== 'client-certificate') return { clientCertificateRef: ref };
-  return {
-    clientCertificateRef: ref,
-    clientCertificatePem: entry.cert,
-    clientCertificateKeyPem: entry.key,
-    ...(entry.passphrase !== undefined ? { clientCertificatePassphrase: entry.passphrase } : {}),
   };
 }
 

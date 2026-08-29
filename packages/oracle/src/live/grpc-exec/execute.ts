@@ -44,6 +44,7 @@ import { getRequestCollections, getRequestCollectionsForWorkspace } from '../../
 import { peekActiveWorkspaceId } from '../../workspace/extension-workspace-store';
 import { buildResolver } from '../request-exec/resolver-scope';
 import { registerActiveSend } from '../request-exec/send-stream';
+import { sessionTlsPolicy } from '../tls-policy';
 import { getTrustAnchorsForSend } from '../trust-anchors';
 import { executeGrpcStream } from './execute-stream';
 import {
@@ -150,6 +151,7 @@ export async function executeGrpcInvoke(
   };
 
   const url = resolveStr(request.url);
+  const tlsPolicy = sessionTlsPolicy({ request, trustedRootsPem, vault: scope.vault, resolve: resolveStr });
   const metadata: GrpcTransportHeader[] = [];
   for (const row of request.metadata) {
     if (row.enabled === false || !row.key.trim()) continue;
@@ -205,8 +207,7 @@ export async function executeGrpcInvoke(
       transport: options.transport,
       authority,
       tls: request.tls !== false,
-      ...(request.sslVerification !== undefined ? { sslVerification: request.sslVerification } : {}),
-      ...(trustedRootsPem !== undefined ? { trustedRootsPem } : {}),
+      ...tlsPolicy,
       path: `/${method.service}/${method.rpc}`,
       ...(request.unixSocketPath !== undefined ? { unixSocketPath: request.unixSocketPath } : {}),
       metadata,
@@ -240,8 +241,7 @@ export async function executeGrpcInvoke(
       {
         authority,
         tls: request.tls !== false,
-        ...(request.sslVerification !== undefined ? { sslVerification: request.sslVerification } : {}),
-        ...(trustedRootsPem !== undefined ? { trustedRootsPem } : {}),
+        ...tlsPolicy,
         path: `/${method.service}/${method.rpc}`,
         ...(request.unixSocketPath !== undefined ? { unixSocketPath: request.unixSocketPath } : {}),
         metadata,

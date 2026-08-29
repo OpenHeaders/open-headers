@@ -31,9 +31,15 @@ import {
   ProtoCodecError,
   type ProtoRegistry,
 } from '@openheaders/core/proto';
-import type { ExecutedGrpcMessageFrame, ExecutedGrpcSnapshot, ExecutedProxyRoute } from '@openheaders/core/types';
+import type {
+  ExecutedGrpcMessageFrame,
+  ExecutedGrpcSnapshot,
+  ExecutedProxyRoute,
+  TlsVersion,
+} from '@openheaders/core/types';
 import { encodeBase64Bytes } from '@openheaders/core/utils';
 import { registerActiveSend } from '../request-exec/send-stream';
+import { pickSessionTlsPolicy } from '../tls-policy';
 import { createGrpcStreamEmitter, registerActiveGrpcStream } from './stream-plane';
 import {
   GRPC_CANONICAL_CANCELLED,
@@ -52,6 +58,17 @@ export interface GrpcStreamExecuteParams {
   sslVerification?: boolean;
   /** See {@link GrpcTransportRequest.trustedRootsPem}. */
   trustedRootsPem?: string[];
+  /** See {@link GrpcTransportRequest.clientCertificateRef}. */
+  clientCertificateRef?: string;
+  clientCertificatePem?: string;
+  clientCertificateKeyPem?: string;
+  clientCertificatePassphrase?: string;
+  /** See {@link GrpcTransportRequest.tlsMinVersion}. */
+  tlsMinVersion?: TlsVersion;
+  tlsMaxVersion?: TlsVersion;
+  tlsCipherSuites?: string;
+  /** See {@link GrpcTransportRequest.sniServerName}. */
+  sniServerName?: string;
   path: string;
   /** See {@link GrpcTransportRequest.unixSocketPath}. */
   unixSocketPath?: string;
@@ -183,8 +200,7 @@ export function executeGrpcStream(params: GrpcStreamExecuteParams): Promise<Exec
         {
           authority: params.authority,
           tls: params.tls,
-          ...(params.sslVerification !== undefined ? { sslVerification: params.sslVerification } : {}),
-          ...(params.trustedRootsPem !== undefined ? { trustedRootsPem: params.trustedRootsPem } : {}),
+          ...pickSessionTlsPolicy(params),
           path: params.path,
           ...(params.unixSocketPath !== undefined ? { unixSocketPath: params.unixSocketPath } : {}),
           metadata: params.metadata,

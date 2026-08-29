@@ -122,6 +122,15 @@ export interface TransportRequest {
    */
   tlsCipherSuites?: string;
   /**
+   * SNI server name presented in the TLS handshake instead of the
+   * URL's host — a gateway fronting many names on one address, or a
+   * certificate issued for a name DNS does not answer. The Host header
+   * keeps the URL's host; verification checks the certificate against
+   * the URL's host as before. Transports whose network stack fixes SNI
+   * to the URL host (the browser SW) ignore it.
+   */
+  sniServerName?: string;
+  /**
    * HTTP version policy for the send. Absent / `'auto'` → offer h2
    * alongside http/1.1 via ALPN on secure connections and let the
    * server pick (plain `http://` targets stay HTTP/1.1 — no h2c under

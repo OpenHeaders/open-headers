@@ -109,8 +109,22 @@ describe('executeGrpcStream — dial policy', () => {
         return { sendMessage: () => {}, halfClose: () => {} };
       },
     };
-    await executeGrpcStream(params(transport, { sslVerification: false, trustedRootsPem: [root] }));
-    expect(seen).toMatchObject({ sslVerification: false, trustedRootsPem: [root] });
+    await executeGrpcStream(
+      params(transport, {
+        sslVerification: false,
+        trustedRootsPem: [root],
+        clientCertificateRef: 'gateway-mtls',
+        tlsMinVersion: '1.2',
+        sniServerName: 'edge.openheaders.io',
+      }),
+    );
+    expect(seen).toMatchObject({
+      sslVerification: false,
+      trustedRootsPem: [root],
+      clientCertificateRef: 'gateway-mtls',
+      tlsMinVersion: '1.2',
+      sniServerName: 'edge.openheaders.io',
+    });
   });
 });
 

@@ -44,6 +44,7 @@ import type {
   ExecutedWsMessage,
   ExecutedWsSnapshot,
   TrustCertificateErrorHint,
+  Vault,
   WebSocketRequest,
 } from '@openheaders/core/types';
 import { appendQueryParams, decodeBinaryText, encodeBase64Bytes } from '@openheaders/core/utils';
@@ -52,6 +53,7 @@ import { getRequestCollections, getRequestCollectionsForWorkspace } from '../../
 import { peekActiveWorkspaceId } from '../../workspace/extension-workspace-store';
 import { buildResolver } from '../request-exec/resolver-scope';
 import { registerActiveSend } from '../request-exec/send-stream';
+import { sessionTlsPolicy } from '../tls-policy';
 import { getTrustAnchorsForSend } from '../trust-anchors';
 import { createWsStreamEmitter, registerActiveWsSession } from './session-plane';
 import { createSocketIoSessionController } from './socketio-session';
@@ -111,14 +113,18 @@ export async function executeWsSession(
 ): Promise<ExecutedWsSnapshot> {
   // ── Variable resolution (the HTTP sends' exact pipeline) ──
   // An injected resolution short-circuits the oracle-side resolver
-  // entirely — the host's closure carries its own scope context.
-  const resolveWith = options.resolution ?? (await buildOracleResolution(request, options));
+  // entirely — the host's closure carries its own scope context (and
+  // no vault: the client-certificate ref then passes through bare).
+  const oracleResolution = options.resolution === undefined ? await buildOracleResolution(request, options) : null;
+  const resolveWith = options.resolution ?? oracleResolution?.resolve;
+  if (resolveWith === undefined) return errorWsSnapshot('No template resolution available for this session.');
   // The workspace trust list rides every dial — the pin the scope
   // resolved against, else the runtime-Active one.
   const trustedRootsPem = getTrustAnchorsForSend(options.workspaceId ?? peekActiveWorkspaceId())?.pems;
 
   const unresolved = new Set<string>();
   const resolveStr = (s: string): string => resolveWith(s, unresolved);
+  const tlsPolicy = sessionTlsPolicy({ request, trustedRootsPem, vault: oracleResolution?.vault, resolve: resolveStr });
 
   let url = resolveStr(request.url).trim();
   // Session credential (bearer) — resolved with the other Connect-time
@@ -297,8 +303,7 @@ export async function executeWsSession(
         url,
         headers,
         subprotocols: request.subprotocols,
-        ...(request.sslVerification !== undefined ? { sslVerification: request.sslVerification } : {}),
-        ...(trustedRootsPem !== undefined ? { trustedRootsPem } : {}),
+        ...tlsPolicy,
         ...(request.unixSocketPath !== undefined ? { unixSocketPath: request.unixSocketPath } : {}),
         ...(request.timeoutMs !== undefined ? { timeoutMs: request.timeoutMs } : {}),
       },
@@ -396,18 +401,19 @@ export async function executeWsSession(
 }
 
 /** The oracle-side resolution closure — the module-mirror resolver the
- *  node hosts ride (the HTTP sends' exact pipeline). Hosts whose scopes
- *  live elsewhere inject `options.resolution` instead. */
+ *  node hosts ride (the HTTP sends' exact pipeline) — plus the vault
+ *  the scope carries for the client-certificate ref. Hosts whose
+ *  scopes live elsewhere inject `options.resolution` instead. */
 async function buildOracleResolution(
   request: WebSocketRequest,
   options: ExecuteWsSessionOptions,
-): Promise<(template: string, unresolved: Set<string>) => string> {
+): Promise<{ resolve: (template: string, unresolved: Set<string>) => string; vault: Vault }> {
   const { resolver, context: scope } = await buildResolver(options.workspaceId ?? undefined);
   const context = {
     collectionId: collectionIdForPath(request.path, scope.workspaceId),
     environmentId: options.environmentId,
   };
-  return (template, unresolved) => {
+  const resolve = (template: string, unresolved: Set<string>): string => {
     const result = resolveTemplate(
       template,
       (name) => resolver.resolve(name, context),
@@ -418,6 +424,7 @@ async function buildOracleResolution(
     }
     return result.result;
   };
+  return { resolve, vault: scope.vault };
 }
 
 /** The collection whose variables scope this request — same

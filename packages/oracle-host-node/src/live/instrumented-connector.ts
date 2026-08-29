@@ -259,7 +259,7 @@ export function createDialConnector(
             tls.connect({
               ...tlsOpts,
               socket: tunnel,
-              servername: servernameFor(hostname),
+              servername: tlsOpts.servername ?? servernameFor(hostname),
               ALPNProtocols: alpn.alpnProtocols,
             }),
           );
@@ -274,7 +274,7 @@ export function createDialConnector(
           ...tlsOpts,
           ...(lookup !== undefined ? { lookup } : {}),
           ...(socketPath !== undefined ? { path: socketPath } : {}),
-          servername: servernameFor(hostname),
+          servername: tlsOpts.servername ?? servernameFor(hostname),
           ALPNProtocols: alpn.alpnProtocols,
           port: targetPort,
           host: hostname,

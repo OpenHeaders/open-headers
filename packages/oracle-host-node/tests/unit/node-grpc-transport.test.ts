@@ -545,6 +545,24 @@ describe('createNodeGrpcTransport — Unix socket target', () => {
     expect(sessionOptionsFor({ tls: true, sslVerification: false }, target)).toEqual({ rejectUnauthorized: false });
   });
 
+  it('the TLS policy rides the TCP session: client certificate, version window, ciphers, SNI override', () => {
+    const target = new URL('https://grpc.openheaders.io:50051');
+    expect(
+      sessionOptionsFor(
+        {
+          tls: true,
+          clientCertificatePem: 'CERT',
+          clientCertificateKeyPem: 'KEY',
+          tlsMinVersion: '1.2',
+          tlsCipherSuites: 'AES128-SHA',
+          sniServerName: 'edge.openheaders.io',
+        },
+        target,
+      ),
+    ).toEqual({ cert: 'CERT', key: 'KEY', minVersion: 'TLSv1.2', ciphers: 'AES128-SHA', servername: 'edge.openheaders.io' });
+    expect(sessionOptionsFor({ tls: false, sniServerName: 'edge.openheaders.io' }, target)).toBeUndefined();
+  });
+
   it('workspace trusted roots ride the TCP session behind the runtime bundle; cleartext and empty set nothing', () => {
     const target = new URL('https://grpc.openheaders.io:50051');
     const root = '-----BEGIN CERTIFICATE-----\nROOT\n-----END CERTIFICATE-----\n';

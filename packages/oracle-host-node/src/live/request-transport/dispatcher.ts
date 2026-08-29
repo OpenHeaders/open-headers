@@ -9,23 +9,14 @@
 
 import { createHash } from 'node:crypto';
 import { isIP, type LookupFunction } from 'node:net';
-import { createSecureContext, type SecureVersion } from 'node:tls';
 import { isSystemTrustEnabled } from '@openheaders/oracle/entity/device-trust-store';
 import type { TransportRequest } from '@openheaders/oracle/live/request-exec/transport';
 import { Agent, type Dispatcher, ProxyAgent, Socks5ProxyAgent } from 'undici';
 import { type AlpnPolicy, createDialConnector, createRecordingConnector } from '../instrumented-connector';
 import { isSocks5ProxyUrl } from '../system-proxy/proxy-value';
-import { caOptionFor } from '../trusted-roots-ca';
+import { tlsPolicyOptionsFor } from '../tls-policy';
 import type { ProxyTunnel } from './connect-tunnel';
 import type { ConnectOptions } from './seam';
-
-/** Seam value (`'1.2'`) → Node `tls.connect` version token (`'TLSv1.2'`). */
-const TLS_VERSION_TOKEN: Record<string, SecureVersion> = {
-  '1.0': 'TLSv1',
-  '1.1': 'TLSv1.1',
-  '1.2': 'TLSv1.2',
-  '1.3': 'TLSv1.3',
-};
 
 /**
  * Ceiling on cached per-tuple agents. Distinct option tuples per
@@ -232,60 +223,20 @@ export function dispatcherFor(request: TransportRequest): DispatcherEntry {
 }
 
 /**
- * Cipher list a lowered TLS floor needs on THIS runtime's TLS stack,
- * probed once. OpenSSL 3 disallows the legacy signature algorithms a
- * TLS < 1.2 handshake needs at its default security level, so a lowered
- * floor alone can never negotiate 1.0/1.1 (probed live:
- * ERR_SSL_LEGACY_SIGALG_DISALLOWED_OR_UNSUPPORTED) — `@SECLEVEL=0` on
- * the default suites is what makes the knob honorable. BoringSSL
- * (Electron's stack) REJECTS the `@SECLEVEL` syntax outright
- * (ERR_SSL_INVALID_COMMAND) and has no security-level gate — a lowered
- * floor negotiates plain there (both probed live in each runtime).
- */
-let legacyFloorCiphers: string | null | undefined;
-function legacyFloorCipherDefault(): string | undefined {
-  if (legacyFloorCiphers === undefined) {
-    try {
-      createSecureContext({ ciphers: 'DEFAULT@SECLEVEL=0' });
-      legacyFloorCiphers = 'DEFAULT@SECLEVEL=0';
-    } catch {
-      legacyFloorCiphers = null;
-    }
-  }
-  return legacyFloorCiphers ?? undefined;
-}
-
-/**
- * The connection-option bag a request's knobs map to — one place, pure,
- * so the mapping is testable without inspecting a minted `Agent`. The
- * caller keys the agent cache on the same request fields, so the bag is
- * deterministic per tuple.
+ * The connection-option bag a request's knobs map to — the shared TLS
+ * policy bag ({@link tlsPolicyOptionsFor}) plus the dial-only knobs
+ * (resolve-to-address, socket path). One place, pure, so the mapping
+ * is testable without inspecting a minted `Agent`. The caller keys the
+ * agent cache on the same request fields, so the bag is deterministic
+ * per tuple.
  */
 export function connectOptionsFor(request: TransportRequest): ConnectOptions {
-  const { tlsMinVersion, tlsMaxVersion, tlsCipherSuites, resolveToAddress, unixSocketPath } = request;
-  const connect: ConnectOptions = {};
-  if (request.sslVerification === false) connect.rejectUnauthorized = false;
-  if (tlsMinVersion !== undefined) connect.minVersion = TLS_VERSION_TOKEN[tlsMinVersion];
-  if (tlsMaxVersion !== undefined) connect.maxVersion = TLS_VERSION_TOKEN[tlsMaxVersion];
-  if (tlsCipherSuites !== undefined) {
-    connect.ciphers = tlsCipherSuites;
-  } else if (tlsMinVersion === '1.0' || tlsMinVersion === '1.1') {
-    // Lowering the floor is the explicit opt-in; what the runtime's TLS
-    // stack needs to honor it (see {@link legacyFloorCipherDefault})
-    // rides along. An explicit cipher list above wins verbatim.
-    const legacy = legacyFloorCipherDefault();
-    if (legacy !== undefined) connect.ciphers = legacy;
-  }
-  if (resolveToAddress !== undefined) connect.lookup = pinnedLookup(resolveToAddress);
-  if (request.clientCertificatePem !== undefined) connect.cert = request.clientCertificatePem;
-  if (request.clientCertificateKeyPem !== undefined) connect.key = request.clientCertificateKeyPem;
-  if (request.clientCertificatePassphrase !== undefined) connect.passphrase = request.clientCertificatePassphrase;
-  const ca = caOptionFor(request.trustedRootsPem);
-  if (ca !== undefined) connect.ca = ca;
+  const connect: ConnectOptions = { ...tlsPolicyOptionsFor(request) };
+  if (request.resolveToAddress !== undefined) connect.lookup = pinnedLookup(request.resolveToAddress);
   // The connector passes `socketPath` as `path` into net.connect /
   // tls.connect, where it wins over host+port — the URL's host stays
   // cosmetic for dialing while Host / SNI / cert verification keep it.
-  if (unixSocketPath !== undefined) connect.socketPath = unixSocketPath;
+  if (request.unixSocketPath !== undefined) connect.socketPath = request.unixSocketPath;
   return connect;
 }
 

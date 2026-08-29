@@ -76,8 +76,8 @@ import {
   type SessionProxyAttempt,
 } from './system-proxy/session-route';
 import type { SystemProxyResolver } from './system-proxy/types';
+import { tlsPolicyOptionsFor } from './tls-policy';
 import { isTlsVerificationCode, trustCertificateHintFor } from './tls-verification';
-import { caOptionFor } from './trusted-roots-ca';
 import { withHostUserAgent } from './user-agent';
 
 export interface NodeWsTransportOptions {
@@ -300,16 +300,7 @@ export function createNodeWsTransport(options: NodeWsTransportOptions = {}): WsT
       // connector wrap captures the REAL dial error (undici's
       // WebSocket layer swallows it into a bare event — probed live).
       const mintDispatcher = (attempt: SessionProxyAttempt, onDialError: (err: unknown) => void): Dispatcher => {
-        const ca = caOptionFor(request.trustedRootsPem);
-        const connectBag: ConnectOptions = {
-          ...(request.sslVerification === false ? { rejectUnauthorized: false } : {}),
-          ...(ca !== undefined ? { ca } : {}),
-          ...(request.clientCertificatePem !== undefined ? { cert: request.clientCertificatePem } : {}),
-          ...(request.clientCertificateKeyPem !== undefined ? { key: request.clientCertificateKeyPem } : {}),
-          ...(request.clientCertificatePassphrase !== undefined
-            ? { passphrase: request.clientCertificatePassphrase }
-            : {}),
-        };
+        const connectBag: ConnectOptions = { ...tlsPolicyOptionsFor(request) };
         if (attempt.proxy !== undefined && isSocks5ProxyUrl(attempt.proxy.url)) {
           return buildSocks5Agent(attempt.proxy, connectBag);
         }
