@@ -20,7 +20,7 @@
  * wire later.
  */
 
-import type { TlsVersion, TrustCertificateErrorHint } from '@openheaders/core/types';
+import type { ProxyMode, TlsVersion, TrustCertificateErrorHint } from '@openheaders/core/types';
 import type { WsProxyRoute } from '../ws-exec/transport';
 
 export interface MqttTransportRequest {
@@ -61,6 +61,34 @@ export interface MqttTransportRequest {
   sniServerName?: string;
   /** ALPN protocol offered on `mqtts:` dials. Absent = no offer. */
   alpnProtocol?: string;
+  /**
+   * Resolve the URL's host to this IPv4 / IPv6 address instead of
+   * asking DNS — SNI, the `mqtts:` server name and certificate verification keep the
+   * original hostname (the HTTP seam's contract). Node runtimes only.
+   */
+  resolveToAddress?: string;
+  /**
+   * Request-plane proxy routing mode. Absent = INHERIT the host's
+   * system plane; `'direct'` opts the session out of any ambient proxy;
+   * `'url'` routes through {@link proxyUrl}. Transports whose network
+   * stack owns proxying (the browser) ignore it.
+   */
+  proxyMode?: ProxyMode;
+  /**
+   * Proxy the dial tunnels through (HTTP CONNECT, or the SOCKS5 dial
+   * where the transport seats one) — the host's system plane never
+   * consulted. Not honorable together with {@link resolveToAddress};
+   * the transport fails the dial loudly.
+   */
+  proxyUrl?: string;
+  /**
+   * Vault string entry NAME holding the proxy's `user:password`. Always
+   * passes through when set — even unresolved — so the transport fails
+   * the dial loudly instead of dialing the proxy unauthenticated; the
+   * value below rides only when the entry resolved on this device.
+   */
+  proxyCredentialRef?: string;
+  proxyCredential?: string;
 }
 
 /**
@@ -93,8 +121,8 @@ export class MqttTransportError extends Error {
  */
 export interface MqttStreamCallbacks {
   /** `proxyRoute` rides along when the transport's host decided an
-   *  egress route (ws-scheme dials consult the system plane; raw tcp
-   *  dials are direct in v1 and omit it). */
+   *  egress route (see {@link WsProxyRoute}); transports without an
+   *  egress seat simply omit it. */
   onConnect(proxyRoute?: WsProxyRoute): void;
   onData(chunk: Uint8Array): void;
   onEnd(error?: MqttTransportError): void;

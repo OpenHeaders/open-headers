@@ -35,9 +35,11 @@ import type {
   ExecutedGrpcMessageFrame,
   ExecutedGrpcSnapshot,
   ExecutedProxyRoute,
+  ProxyMode,
   TlsVersion,
 } from '@openheaders/core/types';
 import { encodeBase64Bytes } from '@openheaders/core/utils';
+import { pickSessionDialPolicy } from '../dial-policy';
 import { registerActiveSend } from '../request-exec/send-stream';
 import { pickSessionTlsPolicy } from '../tls-policy';
 import { createGrpcStreamEmitter, registerActiveGrpcStream } from './stream-plane';
@@ -72,6 +74,13 @@ export interface GrpcStreamExecuteParams {
   path: string;
   /** See {@link GrpcTransportRequest.unixSocketPath}. */
   unixSocketPath?: string;
+  /** See {@link GrpcTransportRequest.resolveToAddress}. */
+  resolveToAddress?: string;
+  /** See {@link GrpcTransportRequest.proxyMode}. */
+  proxyMode?: ProxyMode;
+  proxyUrl?: string;
+  proxyCredentialRef?: string;
+  proxyCredential?: string;
   metadata: ReadonlyArray<GrpcTransportHeader>;
   timeoutMs?: number;
   registry: ProtoRegistry;
@@ -201,6 +210,7 @@ export function executeGrpcStream(params: GrpcStreamExecuteParams): Promise<Exec
           authority: params.authority,
           tls: params.tls,
           ...pickSessionTlsPolicy(params),
+          ...pickSessionDialPolicy(params),
           path: params.path,
           ...(params.unixSocketPath !== undefined ? { unixSocketPath: params.unixSocketPath } : {}),
           metadata: params.metadata,
@@ -212,9 +222,9 @@ export function executeGrpcStream(params: GrpcStreamExecuteParams): Promise<Exec
             headAtMessage = messages.length;
             httpStatus = status;
             headers = incoming.map((h) => ({ key: h.key, value: h.value }));
-            // Route wire truth: H5 leaves gRPC no request plane, so the
-            // deciding plane is always the executing device's.
-            if (route !== undefined) proxyRoute = { plane: 'system', ...route };
+            // Route wire truth: which plane decided and what — recorded
+            // verbatim.
+            if (route !== undefined) proxyRoute = route;
             emitter?.head(httpStatus, headers, headAtMessage, proxyRoute);
           },
           onData: (chunk) => {

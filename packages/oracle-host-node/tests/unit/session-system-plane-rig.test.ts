@@ -1,14 +1,17 @@
 /**
- * Ambient WS/gRPC proxy coverage over REAL wire (P6) — the session
- * twins of the HTTP system-plane rig legs: live CONNECT and
+ * WS/gRPC proxy coverage over REAL wire (P6 + the request plane) — the
+ * session twins of the HTTP system-plane rig legs: live CONNECT and
  * SOCKS5 proxies from the shared rig, real `ws` / `node:http2`
  * servers behind them, resolvers injected through each transport's
  * `systemProxy` seat (the test-hermeticity law: REAL resolvers,
  * injected). Pins the tunnel actually carrying the session (the rig
  * records CONNECT targets / SOCKS negotiations), the credential leg,
- * the 407 honesty, chain fall-through past a dead proxy, the SOCKS5
- * agent seat on WS, the socket-pin stand-down, and the wire-truth
- * route reported through `onOpen` / the unary response / `onHead`.
+ * the 407 honesty on both planes, chain fall-through past a dead
+ * proxy, the SOCKS5 agent seat on WS, the socket-pin stand-down, the
+ * request plane's own proxy (its URL and vault credential, the system
+ * plane never consulted), the address pin dialing where it points,
+ * and the wire-truth route reported through `onOpen` / the unary
+ * response / `onHead`.
  */
 
 import { mkdtempSync, rmSync } from 'node:fs';
@@ -18,7 +21,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { readGrpcFrames, writeGrpcFrame } from '@openheaders/core/proto';
 import type { GrpcProxyRoute } from '@openheaders/oracle/live/grpc-exec/transport';
-import type { WsProxyRoute, WsTransportError } from '@openheaders/oracle/live/ws-exec/transport';
+import type { WsProxyRoute, WsTransportError, WsTransportRequest } from '@openheaders/oracle/live/ws-exec/transport';
 import { afterEach, describe, expect, it } from 'vitest';
 import { WebSocketServer } from 'ws';
 import { createNodeGrpcTransport } from '../../src/live/node-grpc-transport';
@@ -78,7 +81,7 @@ interface WsRun {
 function runWsSession(
   url: string,
   resolver: SystemProxyResolver | null,
-  options: { unixSocketPath?: string; timeoutMs?: number } = {},
+  options: Partial<Omit<WsTransportRequest, 'url' | 'headers' | 'subprotocols'>> = {},
 ): Promise<WsRun> {
   const transport = createNodeWsTransport({ systemProxy: resolver });
   return new Promise<WsRun>((resolve) => {
@@ -88,8 +91,8 @@ function runWsSession(
         url,
         headers: [],
         subprotocols: [],
-        ...(options.unixSocketPath !== undefined ? { unixSocketPath: options.unixSocketPath } : {}),
-        timeoutMs: options.timeoutMs ?? 5000,
+        timeoutMs: 5000,
+        ...options,
       },
       {
         onOpen: (_protocol, _extensions, route) => {
@@ -151,7 +154,7 @@ describe('ambient WS coverage — live rigs', () => {
     expect(run.opened).toBe(true);
     expect(run.echoes).toEqual(['echo:hello']);
     expect(proxy.tunnels).toEqual([`127.0.0.1:${port}`]);
-    expect(run.route).toEqual({ proxyUrl: proxy.url, source: 'system' });
+    expect(run.route).toEqual({ plane: 'system', proxyUrl: proxy.url, source: 'system' });
   });
 
   it('sends the environment credential as Proxy-Authorization on the tunnel', async () => {
@@ -189,7 +192,7 @@ describe('ambient WS coverage — live rigs', () => {
     expect(run.error).toBeUndefined();
     expect(run.echoes).toEqual(['echo:hello']);
     expect(proxy.tunnels).toEqual([`127.0.0.1:${port}`]);
-    expect(run.route).toEqual({ proxyUrl: proxy.url, source: 'env' });
+    expect(run.route).toEqual({ plane: 'system', proxyUrl: proxy.url, source: 'env' });
   });
 
   it('rides a SOCKS5 answer on the agent seat (RFC 1928 over real wire)', async () => {
@@ -201,7 +204,7 @@ describe('ambient WS coverage — live rigs', () => {
     expect(run.echoes).toEqual(['echo:hello']);
     expect(socks.targets).toEqual([`127.0.0.1:${port}`]);
     expect(socks.auths).toEqual(['user:pass']);
-    expect(run.route).toEqual({ proxyUrl: socks.url, source: 'env' });
+    expect(run.route).toEqual({ plane: 'system', proxyUrl: socks.url, source: 'env' });
   });
 
   it('stands down for a socket-pinned session, recorded — the proxy never sees a tunnel', async () => {
@@ -217,7 +220,81 @@ describe('ambient WS coverage — live rigs', () => {
     expect(run.error).toBeUndefined();
     expect(run.echoes).toEqual(['echo:hello']);
     expect(proxy.tunnels).toEqual([]);
-    expect(run.route).toEqual({ source: 'system', standDownReason: 'unix-socket' });
+    expect(run.route).toEqual({ plane: 'system', source: 'system', standDownReason: 'unix-socket' });
+  });
+});
+
+describe('request-plane WS coverage — live rigs', () => {
+  it("tunnels through the request's own proxy with its vault credential — the system plane never consulted", async () => {
+    const proxy = await startConnectProxy({ requireAuth: 'corp:secret' });
+    cleanups.push(proxy.close);
+    const { url, port } = await startWsEcho();
+    const consulted: SystemProxyResolver = { resolve: () => Promise.reject(new Error('must not be consulted')) };
+    const run = await runWsSession(url, consulted, {
+      proxyMode: 'url',
+      proxyUrl: proxy.url,
+      proxyCredentialRef: 'corp-proxy',
+      proxyCredential: 'corp:secret',
+    });
+    expect(run.error).toBeUndefined();
+    expect(run.echoes).toEqual(['echo:hello']);
+    expect(proxy.tunnels).toEqual([`127.0.0.1:${port}`]);
+    expect(proxy.authHeaders[0]).toBe(`Basic ${Buffer.from('corp:secret').toString('base64')}`);
+    expect(run.route).toEqual({ plane: 'request', proxyUrl: proxy.url });
+  });
+
+  it("a 407 on the request plane names the request's proxy-credentials setting and the vault entry", async () => {
+    const proxy = await startConnectProxy({ requireAuth: 'corp:secret' });
+    cleanups.push(proxy.close);
+    const { url } = await startWsEcho();
+    const run = await runWsSession(url, null, {
+      proxyMode: 'url',
+      proxyUrl: proxy.url,
+      proxyCredentialRef: 'corp-proxy',
+      proxyCredential: 'corp:wrong',
+    });
+    expect(run.opened).toBe(false);
+    expect(run.error?.message).toContain('rejected the credentials (407)');
+    expect(run.error?.message).toContain('"corp-proxy"');
+  });
+
+  it('Direct opts the session out of the ambient chain — the proxy never sees a tunnel', async () => {
+    const proxy = await startConnectProxy();
+    cleanups.push(proxy.close);
+    const { url } = await startWsEcho();
+    const run = await runWsSession(url, resolverOf([{ kind: 'proxy', url: proxy.url }], 'system'), {
+      proxyMode: 'direct',
+    });
+    expect(run.error).toBeUndefined();
+    expect(run.echoes).toEqual(['echo:hello']);
+    expect(proxy.tunnels).toEqual([]);
+    expect(run.route).toEqual({ plane: 'request' });
+  });
+
+  it('the address pin dials where it points while the URL keeps its host; an explicit proxy beside it fails before the wire', async () => {
+    const { port } = await startWsEcho();
+    const pinned = await runWsSession(`ws://ws.openheaders.io:${port}/session`, null, {
+      resolveToAddress: '127.0.0.1',
+    });
+    expect(pinned.error).toBeUndefined();
+    expect(pinned.echoes).toEqual(['echo:hello']);
+    const conflict = await runWsSession(`ws://ws.openheaders.io:${port}/session`, null, {
+      resolveToAddress: '127.0.0.1',
+      proxyMode: 'url',
+      proxyUrl: 'http://proxy.openheaders.io:8080',
+    });
+    expect(conflict.opened).toBe(false);
+    expect(conflict.error?.message).toContain('resolves the hostname itself');
+  });
+
+  it('a refused pinned dial names the resolve-to-address setting', async () => {
+    const dead = await closedPort();
+    const run = await runWsSession(`ws://ws.openheaders.io:${dead}/session`, null, {
+      resolveToAddress: '127.0.0.1',
+    });
+    expect(run.opened).toBe(false);
+    expect(run.error?.message).toContain('Connection refused at 127.0.0.1');
+    expect(run.error?.message).toContain('resolve-to-address setting points ws.openheaders.io');
   });
 });
 
@@ -232,7 +309,7 @@ describe('ambient gRPC coverage — live rigs', () => {
     const { frames } = readGrpcFrames(response.body);
     expect(frames).toHaveLength(1);
     expect(proxy.tunnels).toEqual([`127.0.0.1:${port}`]);
-    expect(response.proxyRoute).toEqual({ proxyUrl: proxy.url, source: 'env' });
+    expect(response.proxyRoute).toEqual({ plane: 'system', proxyUrl: proxy.url, source: 'env' });
   });
 
   it('classifies an unauthenticated 407 against the proxy', async () => {
@@ -256,7 +333,7 @@ describe('ambient gRPC coverage — live rigs', () => {
     const response = await transport.invoke(grpcRequest(authority));
     expect(response.httpStatus).toBe(200);
     expect(proxy.tunnels).toEqual([`127.0.0.1:${port}`]);
-    expect(response.proxyRoute).toEqual({ proxyUrl: proxy.url, source: 'env' });
+    expect(response.proxyRoute).toEqual({ plane: 'system', proxyUrl: proxy.url, source: 'env' });
   });
 
   it('fails a SOCKS5-only chain honestly before the wire', async () => {
@@ -303,6 +380,44 @@ describe('ambient gRPC coverage — live rigs', () => {
     expect(outcome.error).toBeUndefined();
     expect(outcome.chunks).toBeGreaterThan(0);
     expect(proxy.tunnels).toEqual([`127.0.0.1:${port}`]);
-    expect(outcome.route).toEqual({ proxyUrl: proxy.url, source: 'system' });
+    expect(outcome.route).toEqual({ plane: 'system', proxyUrl: proxy.url, source: 'system' });
+  });
+
+  it("tunnels a unary call through the request's own proxy and stamps the request plane", async () => {
+    const proxy = await startConnectProxy({ requireAuth: 'corp:secret' });
+    cleanups.push(proxy.close);
+    const { authority, port } = await startGrpcEcho();
+    const transport = createNodeGrpcTransport({
+      systemProxy: { resolve: () => Promise.reject(new Error('must not be consulted')) },
+    });
+    const response = await transport.invoke({
+      ...grpcRequest(authority),
+      proxyMode: 'url',
+      proxyUrl: proxy.url,
+      proxyCredentialRef: 'corp-proxy',
+      proxyCredential: 'corp:secret',
+    });
+    expect(response.httpStatus).toBe(200);
+    expect(proxy.tunnels).toEqual([`127.0.0.1:${port}`]);
+    expect(proxy.authHeaders[0]).toBe(`Basic ${Buffer.from('corp:secret').toString('base64')}`);
+    expect(response.proxyRoute).toEqual({ plane: 'request', proxyUrl: proxy.url });
+  });
+
+  it('an explicit SOCKS5 proxy on the CONNECT-only channel fails before the wire; the address pin dials where it points', async () => {
+    const { authority, port } = await startGrpcEcho();
+    const transport = createNodeGrpcTransport({ systemProxy: null });
+    await expect(
+      transport.invoke({
+        ...grpcRequest(authority),
+        proxyMode: 'url',
+        proxyUrl: 'socks5://socks.openheaders.io:1080',
+      }),
+    ).rejects.toThrow(/HTTP CONNECT only/);
+    const pinned = await transport.invoke({
+      ...grpcRequest(`grpc.openheaders.io:${port}`),
+      resolveToAddress: '127.0.0.1',
+    });
+    expect(pinned.httpStatus).toBe(200);
+    expect(pinned.proxyRoute).toBeUndefined();
   });
 });

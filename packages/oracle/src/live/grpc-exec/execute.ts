@@ -42,6 +42,7 @@ import { encodeBase64Bytes } from '@openheaders/core/utils';
 import { resolveTemplate } from '@openheaders/core/variables';
 import { getRequestCollections, getRequestCollectionsForWorkspace } from '../../entity/request-store';
 import { peekActiveWorkspaceId } from '../../workspace/extension-workspace-store';
+import { sessionDialPolicy } from '../dial-policy';
 import { buildResolver } from '../request-exec/resolver-scope';
 import { registerActiveSend } from '../request-exec/send-stream';
 import { sessionTlsPolicy } from '../tls-policy';
@@ -152,6 +153,7 @@ export async function executeGrpcInvoke(
 
   const url = resolveStr(request.url);
   const tlsPolicy = sessionTlsPolicy({ request, trustedRootsPem, vault: scope.vault, resolve: resolveStr });
+  const dialPolicy = sessionDialPolicy(request, scope.vault);
   const metadata: GrpcTransportHeader[] = [];
   for (const row of request.metadata) {
     if (row.enabled === false || !row.key.trim()) continue;
@@ -208,6 +210,7 @@ export async function executeGrpcInvoke(
       authority,
       tls: request.tls !== false,
       ...tlsPolicy,
+      ...dialPolicy,
       path: `/${method.service}/${method.rpc}`,
       ...(request.unixSocketPath !== undefined ? { unixSocketPath: request.unixSocketPath } : {}),
       metadata,
@@ -242,6 +245,7 @@ export async function executeGrpcInvoke(
         authority,
         tls: request.tls !== false,
         ...tlsPolicy,
+        ...dialPolicy,
         path: `/${method.service}/${method.rpc}`,
         ...(request.unixSocketPath !== undefined ? { unixSocketPath: request.unixSocketPath } : {}),
         metadata,
@@ -267,10 +271,10 @@ export async function executeGrpcInvoke(
       ...(response.bodyTruncated ? { bodyCapBytes: MAX_BODY_BYTES } : {}),
       bodyBytes: response.body.byteLength,
       durationMs,
-      // Route wire truth: the transport reports what its host's
-      // system plane decided — H5 leaves gRPC no request plane,
-      // so the plane is always the executing device's.
-      ...(response.proxyRoute !== undefined ? { proxyRoute: { plane: 'system', ...response.proxyRoute } } : {}),
+      // Route wire truth: the transport reports which plane decided
+      // (the request's own proxy setting, or the host's system plane)
+      // and what it decided — recorded verbatim.
+      ...(response.proxyRoute !== undefined ? { proxyRoute: response.proxyRoute } : {}),
       requestMetadata: metadata.map((m) => ({ key: m.key, value: m.value })),
       error: null,
     };

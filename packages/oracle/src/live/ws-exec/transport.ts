@@ -22,7 +22,7 @@
  * to text is display-side, never a transport rewrite.
  */
 
-import type { TlsVersion, TrustCertificateErrorHint } from '@openheaders/core/types';
+import type { ProxyMode, TlsVersion, TrustCertificateErrorHint } from '@openheaders/core/types';
 
 /** One handshake header, already resolved and filtered of the fields
  *  the platform socket owns. Node-host capability. */
@@ -33,22 +33,25 @@ export interface WsTransportHeader {
 
 /**
  * Wire truth for the session's proxy routing, reported by transports
- * whose host owns egress (the node hosts' system plane). WS
- * editors carry no request-plane proxy knobs (the H5 ruling), so the
- * deciding plane is always the executing device's system plane —
- * the executor stamps `plane: 'system'` when it records this.
- * Browser transports never report one (the browser owns proxying
- * there).
+ * whose host owns egress (the node hosts): which plane decided — the
+ * request's own proxy setting, or the executing device's system plane
+ * — and what it decided. The executor records it verbatim. Browser
+ * transports never report one (the browser owns proxying there).
  */
 export interface WsProxyRoute {
+  /** The deciding plane: the request's own setting or the executing
+   *  device's system plane. */
+  plane: 'request' | 'system';
   /** The proxy the session actually tunneled through (credentials
    *  never ride it). Absent = the plane decided direct. */
   proxyUrl?: string;
-  /** Where the system plane's answer came from. */
-  source: 'env' | 'system' | 'manual' | 'pac';
-  /** Present when the ambient proxy stood down for a socket-pinned
-   *  dial (a tunnel has nowhere to run) — the session dialed direct. */
-  standDownReason?: 'unix-socket';
+  /** Where the system plane's answer came from (system plane only). */
+  source?: 'env' | 'system' | 'manual' | 'pac';
+  /** Present when an INHERITED proxy stood down for an explicit ask a
+   *  tunnel can't honor (a socket-pinned or address-pinned dial) — the
+   *  session dialed direct. Explicit request-plane conflicts fail
+   *  before the wire instead. */
+  standDownReason?: 'unix-socket' | 'resolve-to-address';
 }
 
 export interface WsTransportRequest {
@@ -93,6 +96,34 @@ export interface WsTransportRequest {
    * contract).
    */
   unixSocketPath?: string;
+  /**
+   * Resolve the URL's host to this IPv4 / IPv6 address instead of
+   * asking DNS — SNI, the handshake `Host` and certificate verification keep the
+   * original hostname (the HTTP seam's contract). Node runtimes only.
+   */
+  resolveToAddress?: string;
+  /**
+   * Request-plane proxy routing mode. Absent = INHERIT the host's
+   * system plane; `'direct'` opts the session out of any ambient proxy;
+   * `'url'` routes through {@link proxyUrl}. Transports whose network
+   * stack owns proxying (the browser) ignore it.
+   */
+  proxyMode?: ProxyMode;
+  /**
+   * Proxy the dial tunnels through (HTTP CONNECT, or the SOCKS5 dial
+   * where the transport seats one) — the host's system plane never
+   * consulted. Not honorable together with {@link resolveToAddress} or `unixSocketPath`;
+   * the transport fails the dial loudly.
+   */
+  proxyUrl?: string;
+  /**
+   * Vault string entry NAME holding the proxy's `user:password`. Always
+   * passes through when set — even unresolved — so the transport fails
+   * the dial loudly instead of dialing the proxy unauthenticated; the
+   * value below rides only when the entry resolved on this device.
+   */
+  proxyCredentialRef?: string;
+  proxyCredential?: string;
   /**
    * Handshake deadline (ms): connect + upgrade must complete inside
    * it or the attempt aborts with a classified error. An OPEN session

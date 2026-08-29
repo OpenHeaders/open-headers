@@ -25,7 +25,7 @@
 
 /** One metadata field on the wire (request or response side).
  *  Repeated keys are allowed — the host appends them in order. */
-import type { TlsVersion, TrustCertificateErrorHint } from '@openheaders/core/types';
+import type { ProxyMode, TlsVersion, TrustCertificateErrorHint } from '@openheaders/core/types';
 
 export interface GrpcTransportHeader {
   key: string;
@@ -34,20 +34,24 @@ export interface GrpcTransportHeader {
 
 /**
  * Wire truth for the call's proxy routing, reported by transports
- * whose host owns egress (the node hosts' system plane). gRPC
- * editors carry no request-plane proxy knobs (the H5 ruling), so the
- * deciding plane is always the executing device's system plane —
- * the executor stamps `plane: 'system'` when it records this.
+ * whose host owns egress (the node hosts): which plane decided — the
+ * request's own proxy setting, or the executing device's system plane
+ * — and what it decided. The executor records it verbatim.
  */
 export interface GrpcProxyRoute {
+  /** The deciding plane: the request's own setting or the executing
+   *  device's system plane. */
+  plane: 'request' | 'system';
   /** The proxy the call actually tunneled through (credentials never
    *  ride it). Absent = the plane decided direct. */
   proxyUrl?: string;
-  /** Where the system plane's answer came from. */
-  source: 'env' | 'system' | 'manual' | 'pac';
-  /** Present when the ambient proxy stood down for a socket-pinned
-   *  dial (a tunnel has nowhere to run) — the call dialed direct. */
-  standDownReason?: 'unix-socket';
+  /** Where the system plane's answer came from (system plane only). */
+  source?: 'env' | 'system' | 'manual' | 'pac';
+  /** Present when an INHERITED proxy stood down for an explicit ask a
+   *  tunnel can't honor (a socket-pinned or address-pinned dial) — the
+   *  call dialed direct. Explicit request-plane conflicts fail before
+   *  the wire instead. */
+  standDownReason?: 'unix-socket' | 'resolve-to-address';
 }
 
 export interface GrpcTransportRequest {
@@ -90,6 +94,34 @@ export interface GrpcTransportRequest {
    * certificate verification keep it (the HTTP seam's contract).
    */
   unixSocketPath?: string;
+  /**
+   * Resolve the URL's host to this IPv4 / IPv6 address instead of
+   * asking DNS — SNI, `:authority` and certificate verification keep the
+   * original hostname (the HTTP seam's contract). Node runtimes only.
+   */
+  resolveToAddress?: string;
+  /**
+   * Request-plane proxy routing mode. Absent = INHERIT the host's
+   * system plane; `'direct'` opts the call out of any ambient proxy;
+   * `'url'` routes through {@link proxyUrl}. Transports whose network
+   * stack owns proxying (the browser) ignore it.
+   */
+  proxyMode?: ProxyMode;
+  /**
+   * Proxy the dial tunnels through (HTTP CONNECT, or the SOCKS5 dial
+   * where the transport seats one) — the host's system plane never
+   * consulted. Not honorable together with {@link resolveToAddress} or `unixSocketPath`;
+   * the transport fails the dial loudly.
+   */
+  proxyUrl?: string;
+  /**
+   * Vault string entry NAME holding the proxy's `user:password`. Always
+   * passes through when set — even unresolved — so the transport fails
+   * the dial loudly instead of dialing the proxy unauthenticated; the
+   * value below rides only when the entry resolved on this device.
+   */
+  proxyCredentialRef?: string;
+  proxyCredential?: string;
   /** Custom metadata, already resolved and filtered of the fields the
    *  transport owns (pseudo-headers, content-type, te). */
   metadata: ReadonlyArray<GrpcTransportHeader>;
@@ -195,6 +227,13 @@ export interface GrpcTransportStreamRequest {
   path: string;
   /** See {@link GrpcTransportRequest.unixSocketPath}. */
   unixSocketPath?: string;
+  /** See {@link GrpcTransportRequest.resolveToAddress}. */
+  resolveToAddress?: string;
+  /** See {@link GrpcTransportRequest.proxyMode}. */
+  proxyMode?: ProxyMode;
+  proxyUrl?: string;
+  proxyCredentialRef?: string;
+  proxyCredential?: string;
   metadata: ReadonlyArray<GrpcTransportHeader>;
   timeoutMs?: number;
 }

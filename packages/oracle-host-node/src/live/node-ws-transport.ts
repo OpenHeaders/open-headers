@@ -23,19 +23,23 @@
  *     into net/tls.connect, so the URL's host stays cosmetic for
  *     dialing while the handshake `Host`, SNI, and certificate
  *     verification keep it.
- *   - Ambient proxy coverage (the request-engine proxy design,
- *     P6): a connect consults the host's system plane per target
- *     — WS editors carry no request-plane proxy knobs (the H5
- *     ruling), so the plane's answer is the whole story. An HTTP(S)
- *     answer rides the shared hand-rolled CONNECT tunnel on the
- *     per-connect agent's connector (`wss://` tunnels; `ws://`
- *     through the same CONNECT tunnel — corporate proxies expect
- *     CONNECT for WS upgrades); a SOCKS5 answer seats undici's
- *     `Socks5ProxyAgent` as the per-connect dispatcher. The chain
- *     walks like HTTP sends (a dial failure REACHING one proxy falls
- *     through to the next entry); a socket-pinned connect makes the
- *     ambient proxy stand down (recorded); the winning route reports
- *     through `onOpen` as wire truth.
+ *   - Address pin: `resolveToAddress` rides the per-connect agent's
+ *     connector as the shared pinned `lookup` seat — undici derives
+ *     `servername` from the URL's hostname, so SNI / `Host` /
+ *     verification keep the name while the socket goes to the pin.
+ *   - Proxy coverage (the request-engine proxy design, P6 + the
+ *     request plane): a connect walks the shared session route — the
+ *     request's own proxy setting first, else the host's system plane
+ *     per target. An HTTP(S) proxy rides the shared hand-rolled
+ *     CONNECT tunnel on the per-connect agent's connector (`wss://`
+ *     tunnels; `ws://` through the same CONNECT tunnel — corporate
+ *     proxies expect CONNECT for WS upgrades); a SOCKS5 proxy seats
+ *     undici's `Socks5ProxyAgent` as the per-connect dispatcher. An
+ *     ambient chain walks like HTTP sends (a dial failure REACHING one
+ *     proxy falls through to the next entry); a socket- or
+ *     address-pinned connect makes the ambient proxy stand down
+ *     (recorded); the winning route reports through `onOpen` as wire
+ *     truth.
  *   - Frame types honest: `binaryType = 'arraybuffer'`; a text frame
  *     crosses the seam as its UTF-8 bytes with `binary: false`.
  *   - The Close event verbatim (`code`, `reason`, `wasClean`) — the
@@ -64,8 +68,8 @@ import {
   type WsTransportRequest,
 } from '@openheaders/oracle/live/ws-exec/transport';
 import { Agent, buildConnector, type Dispatcher, WebSocket as UndiciWebSocket } from 'undici';
+import { classifyPinnedDialFailure, classifyProxyLegFailure, pinnedLookupOptionsFor } from './dial-policy';
 import { createDialConnector } from './instrumented-connector';
-import { proxyConnectRejectedStatus } from './request-transport/connect-tunnel';
 import { buildSocks5Agent } from './request-transport/dispatcher';
 import type { ConnectOptions } from './request-transport/seam';
 import { isSocks5ProxyUrl } from './system-proxy/proxy-value';
@@ -74,6 +78,7 @@ import {
   isSessionProxyDialFailure,
   resolveSessionProxyAttempts,
   type SessionProxyAttempt,
+  sessionRouteFieldsOf,
 } from './system-proxy/session-route';
 import type { SystemProxyResolver } from './system-proxy/types';
 import { tlsPolicyOptionsFor } from './tls-policy';
@@ -101,7 +106,13 @@ function wsFailureCode(err: unknown): string | undefined {
 }
 
 /** Classify a pre-open failure into a user-actionable message. */
-function classifyWsFailure(url: string, err: unknown, socketPath?: string, proxyUrl?: string): string {
+function classifyWsFailure(
+  request: WsTransportRequest,
+  err: unknown,
+  attempt: SessionProxyAttempt | undefined,
+): string {
+  const url = request.url;
+  const socketPath = request.unixSocketPath;
   const host = hostLabelOf(url);
   const code = wsFailureCode(err);
   // A socket-pinned session never dials TCP, so every dial-level
@@ -130,35 +141,15 @@ function classifyWsFailure(url: string, err: unknown, socketPath?: string, proxy
         return `Connection on the socket at ${socketPath} timed out — the request's Unix-socket setting dials it.`;
     }
   }
-  // An ambient-proxied dial classifies against the PROXY leg: a
-  // rejected CONNECT is the proxy's own answer, and a dial-level
-  // failure can only be the proxy itself (target dialing happens at
-  // the proxy). Target-leg failures past the tunnel fall through to
-  // the shared classification — by then the proxy is a transparent
-  // pipe.
-  if (proxyUrl !== undefined) {
-    const proxyHost = hostLabelOf(proxyUrl);
-    const rejected = proxyConnectRejectedStatus(err);
-    if (rejected === 407) {
-      return `The proxy at ${proxyHost} requires authentication (407) — this machine's proxy configuration routes this session through it. Check the system plane's proxy credentials in the app settings.`;
-    }
-    if (rejected !== undefined) {
-      return `The proxy at ${proxyHost} could not open a tunnel to ${host} (HTTP ${rejected}). The proxy is reachable — the failure is between the proxy and the target.`;
-    }
-    switch (code) {
-      case 'ENOTFOUND':
-      case 'EAI_AGAIN':
-        return `Could not resolve the proxy host ${proxyHost} (DNS lookup failed) — this machine's proxy configuration routes this session through it.`;
-      case 'ECONNREFUSED':
-        return `Connection refused by the proxy at ${proxyHost} — this machine's proxy configuration routes this session through it. Is the proxy running?`;
-      case 'EHOSTUNREACH':
-      case 'ENETUNREACH':
-        return `No route to the proxy at ${proxyHost} (${code}) — this machine's proxy configuration routes this session through it.`;
-      case 'ETIMEDOUT':
-      case 'UND_ERR_CONNECT_TIMEOUT':
-        return `Connection to the proxy at ${proxyHost} timed out — this machine's proxy configuration routes this session through it.`;
-    }
-  }
+  // A proxied dial classifies against the PROXY leg (the shared prose
+  // names the plane that sent it there); a pinned dial names the
+  // resolve-to-address setting. Target-leg failures past the tunnel
+  // fall through to the shared classification — by then the proxy is
+  // a transparent pipe.
+  const proxied = classifyProxyLegFailure(host, err, attempt, 'session', request.proxyCredentialRef);
+  if (proxied !== undefined) return proxied;
+  const pinned = classifyPinnedDialFailure(host, request.resolveToAddress, err);
+  if (pinned !== undefined) return pinned;
   switch (code) {
     case 'ENOTFOUND':
     case 'EAI_AGAIN':
@@ -215,7 +206,7 @@ export function createNodeWsTransport(options: NodeWsTransportOptions = {}): WsT
       let ended = false;
       let opened = false;
       let deadlineExpired = false;
-      let attemptProxyUrl: string | undefined;
+      let activeAttempt: SessionProxyAttempt | undefined;
       let timer: ReturnType<typeof setTimeout> | null = null;
 
       const cleanup = (): void => {
@@ -248,7 +239,7 @@ export function createNodeWsTransport(options: NodeWsTransportOptions = {}): WsT
         // offer the presented chain for pinning.
         const code = wsFailureCode(err);
         settleError(
-          classifyWsFailure(request.url, err, request.unixSocketPath, attemptProxyUrl),
+          classifyWsFailure(request, err, activeAttempt),
           isTlsVerificationCode(code) ? trustCertificateHintFor(request.url, code) : undefined,
         );
       };
@@ -293,8 +284,8 @@ export function createNodeWsTransport(options: NodeWsTransportOptions = {}): WsT
       signal?.addEventListener('abort', onAbort);
 
       // The per-connect dispatcher for one attempt. Direct attempts
-      // keep undici's own connector (TLS policy + socket path); an
-      // HTTP(S) proxy attempt rides the hand-rolled CONNECT tunnel
+      // keep undici's own connector (TLS policy + address pin + socket
+      // path); an HTTP(S) proxy attempt rides the hand-rolled CONNECT tunnel
       // dial (CONNECT for ws:// and wss:// alike — the corporate-proxy
       // expectation); a SOCKS5 attempt seats undici's agent. The
       // connector wrap captures the REAL dial error (undici's
@@ -312,6 +303,7 @@ export function createNodeWsTransport(options: NodeWsTransportOptions = {}): WsT
               })
             : buildConnector({
                 ...connectBag,
+                ...pinnedLookupOptionsFor(request),
                 ...(request.unixSocketPath !== undefined ? { socketPath: request.unixSocketPath } : {}),
               });
         return new Agent({
@@ -405,11 +397,7 @@ export function createNodeWsTransport(options: NodeWsTransportOptions = {}): WsT
       const runConnect = async (): Promise<void> => {
         const resolver = options.systemProxy !== undefined ? options.systemProxy : systemProxyResolver();
         const resolved = await resolveSessionProxyAttempts(
-          {
-            url: request.url,
-            ...(request.unixSocketPath !== undefined ? { unixSocketPath: request.unixSocketPath } : {}),
-            capability: 'socks5-dialable',
-          },
+          { ...sessionRouteFieldsOf(request), capability: 'socks5-dialable' },
           resolver,
         );
         if (ended) return;
@@ -423,7 +411,7 @@ export function createNodeWsTransport(options: NodeWsTransportOptions = {}): WsT
         for (let i = 0; i < attempts.length; i += 1) {
           if (ended) return;
           const attempt = attempts[i];
-          attemptProxyUrl = attempt.proxy?.url;
+          activeAttempt = attempt;
           const outcome = await dialAttempt(attempt);
           if (outcome.settled) return;
           active = null;

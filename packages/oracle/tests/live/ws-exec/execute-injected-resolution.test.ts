@@ -255,7 +255,7 @@ describe('executeWsSession — injected resolution', () => {
       resolution: scopedResolution,
     });
     await new Promise((resolve) => setTimeout(resolve, 0));
-    rig.callbacks().onOpen('', '', { proxyUrl: 'http://corp.openheaders.io:8080', source: 'system' });
+    rig.callbacks().onOpen('', '', { plane: 'system', proxyUrl: 'http://corp.openheaders.io:8080', source: 'system' });
     rig.callbacks().onClose({ code: 1000, reason: '', wasClean: true });
     rig.callbacks().onEnd();
     const snapshot = await settled;

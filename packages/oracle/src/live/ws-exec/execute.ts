@@ -51,6 +51,7 @@ import { appendQueryParams, decodeBinaryText, encodeBase64Bytes } from '@openhea
 import { resolveTemplate } from '@openheaders/core/variables';
 import { getRequestCollections, getRequestCollectionsForWorkspace } from '../../entity/request-store';
 import { peekActiveWorkspaceId } from '../../workspace/extension-workspace-store';
+import { sessionDialPolicy } from '../dial-policy';
 import { buildResolver } from '../request-exec/resolver-scope';
 import { registerActiveSend } from '../request-exec/send-stream';
 import { sessionTlsPolicy } from '../tls-policy';
@@ -125,6 +126,7 @@ export async function executeWsSession(
   const unresolved = new Set<string>();
   const resolveStr = (s: string): string => resolveWith(s, unresolved);
   const tlsPolicy = sessionTlsPolicy({ request, trustedRootsPem, vault: oracleResolution?.vault, resolve: resolveStr });
+  const dialPolicy = sessionDialPolicy(request, oracleResolution?.vault);
 
   let url = resolveStr(request.url).trim();
   // Session credential (bearer) — resolved with the other Connect-time
@@ -304,6 +306,7 @@ export async function executeWsSession(
         headers,
         subprotocols: request.subprotocols,
         ...tlsPolicy,
+        ...dialPolicy,
         ...(request.unixSocketPath !== undefined ? { unixSocketPath: request.unixSocketPath } : {}),
         ...(request.timeoutMs !== undefined ? { timeoutMs: request.timeoutMs } : {}),
       },
@@ -312,10 +315,10 @@ export async function executeWsSession(
           opened = true;
           protocol = selectedProtocol;
           extensions = negotiatedExtensions;
-          // Route wire truth: the transport reports what its host's
-          // system plane decided — H5 leaves WS no request plane,
-          // so the plane is always the executing device's.
-          if (route !== undefined) proxyRoute = { plane: 'system', ...route };
+          // Route wire truth: the transport reports which plane decided
+          // (the request's own proxy setting, or the host's system
+          // plane) and what it decided — recorded verbatim.
+          if (route !== undefined) proxyRoute = route;
           emitter?.open(selectedProtocol, negotiatedExtensions, proxyRoute, { url, requestHeaders });
         },
         onMessage: ({ data, binary }) => {

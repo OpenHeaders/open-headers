@@ -1,11 +1,13 @@
 /**
- * Session-dial ambient route resolution — the WS/gRPC twins of the
- * HTTP `proxy-route` walk: no request plane exists (H5), so the
- * system plane's answer is the whole story. Pins the attempt
- * shapes per chain, the socket-pin stand-down, the per-capability
- * SOCKS5 posture ('socks5-dialable' seats it, 'connect-only' skips it
- * like a failed dial), and the honest error when a chain resolves only
- * to proxies the dial cannot traverse.
+ * Session-dial route resolution — the WS / gRPC / MQTT twin of the
+ * HTTP `proxy-route` walk. Pins the request plane's precedence (an
+ * explicit URL is one `plane: 'request'` attempt with its credential;
+ * Direct records itself; its contradictions fail before the wire), the
+ * attempt shapes per ambient chain, the socket- and address-pin
+ * stand-downs, the per-capability SOCKS5 posture ('socks5-dialable'
+ * seats it, 'connect-only' skips it like a failed dial and refuses an
+ * explicit one), and the honest error when a chain resolves only to
+ * proxies the dial cannot traverse.
  */
 
 import { describe, expect, it } from 'vitest';
@@ -13,6 +15,7 @@ import {
   isSessionProxyDialFailure,
   resolveSessionProxyAttempts,
   type SessionRouteRequest,
+  sessionRouteFieldsOf,
 } from '../../../src/live/system-proxy/session-route';
 import type { SystemProxyEntry, SystemProxyResolver } from '../../../src/live/system-proxy/types';
 
@@ -55,12 +58,12 @@ describe('resolveSessionProxyAttempts', () => {
       attempts: [
         {
           proxy: { url: 'http://corp-a.openheaders.io:8080', credential: 'u:p' },
-          route: { proxyUrl: 'http://corp-a.openheaders.io:8080', source: 'system' },
+          route: { plane: 'system', proxyUrl: 'http://corp-a.openheaders.io:8080', source: 'system' },
           environmentChain: true,
         },
         {
           proxy: { url: 'http://corp-b.openheaders.io:8080' },
-          route: { proxyUrl: 'http://corp-b.openheaders.io:8080', source: 'system' },
+          route: { plane: 'system', proxyUrl: 'http://corp-b.openheaders.io:8080', source: 'system' },
           environmentChain: true,
         },
       ],
@@ -82,21 +85,29 @@ describe('resolveSessionProxyAttempts', () => {
       attempts: [
         {
           proxy: { url: 'http://corp.openheaders.io:8080' },
-          route: { proxyUrl: 'http://corp.openheaders.io:8080', source: 'env' },
+          route: { plane: 'system', proxyUrl: 'http://corp.openheaders.io:8080', source: 'env' },
           environmentChain: true,
         },
-        { route: { source: 'env' } },
+        { route: { plane: 'system', source: 'env' } },
       ],
     });
   });
 
-  it('a socket-pinned dial makes the answering plane stand down, recorded', async () => {
+  it('a socket- or address-pinned dial makes the answering plane stand down, recorded', async () => {
     const result = await resolveSessionProxyAttempts(
       wsRequest({ unixSocketPath: '/tmp/oh.sock' }),
       resolverOf([{ kind: 'proxy', url: 'http://corp.openheaders.io:8080' }], 'system'),
     );
     expect(result).toEqual({
-      attempts: [{ route: { source: 'system', standDownReason: 'unix-socket' } }],
+      attempts: [{ route: { plane: 'system', source: 'system', standDownReason: 'unix-socket' } }],
+    });
+    expect(
+      await resolveSessionProxyAttempts(
+        wsRequest({ resolveToAddress: '10.0.0.12' }),
+        resolverOf([{ kind: 'proxy', url: 'http://corp.openheaders.io:8080' }], 'system'),
+      ),
+    ).toEqual({
+      attempts: [{ route: { plane: 'system', source: 'system', standDownReason: 'resolve-to-address' } }],
     });
     // A silent plane records nothing — the stand-down needs an answer.
     expect(await resolveSessionProxyAttempts(wsRequest({ unixSocketPath: '/tmp/oh.sock' }), resolverOf([]))).toEqual({
@@ -131,7 +142,7 @@ describe('resolveSessionProxyAttempts', () => {
     if (!('errorMessage' in result)) throw new Error('expected the honest error');
     expect(result.errorMessage).toContain('socks5://socks.openheaders.io:1080');
     expect(result.errorMessage).toContain('HTTP CONNECT only');
-    expect(result.errorMessage).toContain('system-plane proxy to Off');
+    expect(result.errorMessage).toContain("request's proxy setting to Direct");
   });
 
   it('a SOCKS4-family-only chain fails honestly on every capability', async () => {
@@ -144,6 +155,88 @@ describe('resolveSessionProxyAttempts', () => {
       expect(result.errorMessage).toContain('SOCKS legacy.openheaders.io:1080');
       expect(result.errorMessage).toContain('SOCKS4');
     }
+  });
+});
+
+describe('resolveSessionProxyAttempts — the request plane', () => {
+  const chain = resolverOf([{ kind: 'proxy', url: 'http://ambient.openheaders.io:8080' }], 'system');
+
+  it('an explicit proxy URL is one request-plane attempt carrying the resolved credential — the system plane never consulted', async () => {
+    const consulted = { resolve: () => Promise.reject(new Error('must not be consulted')) };
+    expect(
+      await resolveSessionProxyAttempts(
+        wsRequest({
+          proxyMode: 'url',
+          proxyUrl: 'http://corp.openheaders.io:8080',
+          proxyCredentialRef: 'corp-proxy',
+          proxyCredential: 'u:p',
+        }),
+        consulted,
+      ),
+    ).toEqual({
+      attempts: [
+        {
+          proxy: { url: 'http://corp.openheaders.io:8080', credential: 'u:p' },
+          route: { plane: 'request', proxyUrl: 'http://corp.openheaders.io:8080' },
+        },
+      ],
+    });
+  });
+
+  it('Direct records the request-plane decision whatever the machine says', async () => {
+    expect(await resolveSessionProxyAttempts(wsRequest({ proxyMode: 'direct' }), chain)).toEqual({
+      attempts: [{ route: { plane: 'request' } }],
+    });
+  });
+
+  it('an explicit proxy against a socket pin, an address pin, or an unresolved credential ref fails before the wire', async () => {
+    const explicit = { proxyMode: 'url' as const, proxyUrl: 'http://corp.openheaders.io:8080' };
+    const socket = await resolveSessionProxyAttempts(wsRequest({ ...explicit, unixSocketPath: '/tmp/oh.sock' }), null);
+    if (!('errorMessage' in socket)) throw new Error('expected the honest error');
+    expect(socket.errorMessage).toContain("can't dial a local socket");
+    const pinned = await resolveSessionProxyAttempts(wsRequest({ ...explicit, resolveToAddress: '10.0.0.12' }), null);
+    if (!('errorMessage' in pinned)) throw new Error('expected the honest error');
+    expect(pinned.errorMessage).toContain('resolves the hostname itself');
+    const dangling = await resolveSessionProxyAttempts(
+      wsRequest({ ...explicit, proxyCredentialRef: 'corp-proxy' }),
+      null,
+    );
+    if (!('errorMessage' in dangling)) throw new Error('expected the honest error');
+    expect(dangling.errorMessage).toContain('"corp-proxy"');
+    expect(dangling.errorMessage).toContain('proxy-credentials setting');
+  });
+
+  it("an explicit SOCKS5 proxy rides a 'socks5-dialable' dial and fails honestly on a 'connect-only' one", async () => {
+    const explicit = { proxyMode: 'url' as const, proxyUrl: 'socks5://socks.openheaders.io:1080' };
+    expect(await resolveSessionProxyAttempts(wsRequest(explicit), null)).toEqual({
+      attempts: [
+        {
+          proxy: { url: 'socks5://socks.openheaders.io:1080' },
+          route: { plane: 'request', proxyUrl: 'socks5://socks.openheaders.io:1080' },
+        },
+      ],
+    });
+    const grpc = await resolveSessionProxyAttempts(wsRequest({ ...explicit, capability: 'connect-only' }), null);
+    if (!('errorMessage' in grpc)) throw new Error('expected the honest error');
+    expect(grpc.errorMessage).toContain('socks5://socks.openheaders.io:1080');
+    expect(grpc.errorMessage).toContain('HTTP CONNECT only');
+    expect(grpc.errorMessage).toContain('http:// or https:// proxy');
+  });
+
+  it('sessionRouteFieldsOf picks the defined route fields only', () => {
+    expect(
+      sessionRouteFieldsOf({
+        url: 'wss://ws.openheaders.io/session',
+        proxyMode: 'url',
+        proxyUrl: 'http://corp.openheaders.io:8080',
+        resolveToAddress: undefined,
+        proxyCredential: undefined,
+      }),
+    ).toEqual({
+      url: 'wss://ws.openheaders.io/session',
+      proxyMode: 'url',
+      proxyUrl: 'http://corp.openheaders.io:8080',
+    });
   });
 });
 

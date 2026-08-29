@@ -157,7 +157,7 @@ describe('executeGrpcStream — server-streaming ceremony', () => {
     const fake = streamTransport();
     const pending = executeGrpcStream(params(fake.transport, { shape: 'server-streaming' }));
     const cb = fake.cb();
-    cb.onHead(200, [], { proxyUrl: 'http://corp.openheaders.io:8080', source: 'system' });
+    cb.onHead(200, [], { plane: 'system', proxyUrl: 'http://corp.openheaders.io:8080', source: 'system' });
     cb.onTrailers(okTrailers);
     cb.onEnd();
     const snapshot = await pending;

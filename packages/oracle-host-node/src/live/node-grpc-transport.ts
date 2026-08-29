@@ -81,14 +81,16 @@ import {
   type GrpcTransportResponse,
   type GrpcTransportStreamRequest,
 } from '@openheaders/oracle/live/grpc-exec/transport';
+import { classifyPinnedDialFailure, classifyProxyLegFailure, pinnedLookupOptionsFor } from './dial-policy';
 import { servernameFor } from './instrumented-connector';
-import { dialConnectTunnel, proxyConnectRejectedStatus } from './request-transport/connect-tunnel';
+import { dialConnectTunnel } from './request-transport/connect-tunnel';
 import { systemProxyResolver } from './system-proxy/registry';
 import {
   isSessionProxyDialFailure,
   resolveSessionProxyAttempts,
   type SessionProxyAttempt,
   type SessionRouteResult,
+  sessionRouteFieldsOf,
 } from './system-proxy/session-route';
 import type { SystemProxyResolver } from './system-proxy/types';
 import { type TlsPolicyOptions, type TlsPolicyRequest, tlsPolicyOptionsFor } from './tls-policy';
@@ -120,10 +122,17 @@ function tlsPolicyOptions(request: SessionTlsPolicy): TlsPolicyOptions {
   return request.tls ? tlsPolicyOptionsFor(request) : {};
 }
 
-function sessionOptions(request: SessionTlsPolicy): TlsPolicyOptions | undefined {
-  const policy = tlsPolicyOptions(request);
-  return Object.keys(policy).length > 0 ? policy : undefined;
+/** The TCP session's own options: the TLS policy bag plus the pinned
+ *  `lookup` seat — `http2.connect` hands both to `net` / `tls.connect`.
+ *  A fully-default request gets no option bag at all. */
+function sessionOptions(request: SessionDialShape): Parameters<typeof connect>[1] {
+  const options = { ...tlsPolicyOptions(request), ...pinnedLookupOptionsFor(request) };
+  return Object.keys(options).length > 0 ? options : undefined;
 }
+
+/** The dial-shape slice of one call's request: the TLS policy plus
+ *  the dial-only knobs (socket path, address pin). */
+type SessionDialShape = SessionTlsPolicy & { unixSocketPath?: string; resolveToAddress?: string };
 
 /**
  * Session options for one call's dial shape. A TCP call hands the dial
@@ -137,10 +146,7 @@ function sessionOptions(request: SessionTlsPolicy): TlsPolicyOptions | undefined
  * the mapping is testable without inspecting a live session (the HTTP
  * transport's `connectOptionsFor` discipline).
  */
-export function sessionOptionsFor(
-  request: SessionTlsPolicy & { unixSocketPath?: string },
-  target: URL,
-): Parameters<typeof connect>[1] {
+export function sessionOptionsFor(request: SessionDialShape, target: URL): Parameters<typeof connect>[1] {
   const socketPath = request.unixSocketPath;
   if (socketPath === undefined) return sessionOptions(request);
   const servername = servernameFor(target.hostname);
@@ -245,15 +251,6 @@ function grpcFailureCode(err: unknown): string | undefined {
   return fallback;
 }
 
-/** `host[:port]` of a proxy URL, for error messages. */
-function proxyHostOf(proxyUrl: string): string {
-  try {
-    return new URL(proxyUrl).host;
-  } catch {
-    return proxyUrl;
-  }
-}
-
 /**
  * Classify a pre-head failure into a user-actionable message. `err` is
  * Node's own (no undici layers here); the codes below are the ones a
@@ -278,12 +275,14 @@ function grpcTrustHintFor(
 }
 
 function classifyGrpcFailure(
-  authority: string,
-  tlsChannel: boolean,
+  request: Pick<
+    GrpcTransportRequest,
+    'authority' | 'tls' | 'unixSocketPath' | 'resolveToAddress' | 'proxyCredentialRef'
+  >,
   err: unknown,
-  socketPath?: string,
-  proxyUrl?: string,
+  attempt: SessionProxyAttempt | undefined,
 ): string {
+  const { authority, unixSocketPath: socketPath, tls: tlsChannel } = request;
   const code = grpcFailureCode(err);
   // A socket-pinned call never dials TCP, so every dial-level failure
   // is about the socket itself — name the setting and the path (the
@@ -311,28 +310,14 @@ function classifyGrpcFailure(
         return `Connection on the socket at ${socketPath} timed out — the request's Unix-socket setting dials it.`;
     }
   }
-  if (proxyUrl !== undefined) {
-    const proxyHost = proxyHostOf(proxyUrl);
-    const rejected = proxyConnectRejectedStatus(err);
-    if (rejected === 407) {
-      return `The proxy at ${proxyHost} requires authentication (407) — this machine's proxy configuration routes this call through it. Check the system plane's proxy credentials in the app settings.`;
-    }
-    if (rejected !== undefined) {
-      return `The proxy at ${proxyHost} could not open a tunnel to ${authority} (HTTP ${rejected}). The proxy is reachable — the failure is between the proxy and the target.`;
-    }
-    switch (code) {
-      case 'ENOTFOUND':
-      case 'EAI_AGAIN':
-        return `Could not resolve the proxy host ${proxyHost} (DNS lookup failed) — this machine's proxy configuration routes this call through it.`;
-      case 'ECONNREFUSED':
-        return `Connection refused by the proxy at ${proxyHost} — this machine's proxy configuration routes this call through it. Is the proxy running?`;
-      case 'EHOSTUNREACH':
-      case 'ENETUNREACH':
-        return `No route to the proxy at ${proxyHost} (${code}) — this machine's proxy configuration routes this call through it.`;
-      case 'ETIMEDOUT':
-        return `Connection to the proxy at ${proxyHost} timed out — this machine's proxy configuration routes this call through it.`;
-    }
-  }
+  // A proxied dial classifies against the PROXY leg (the shared prose
+  // names the plane that sent it there); a pinned dial names the
+  // resolve-to-address setting. Target-leg failures past the tunnel
+  // fall through to the shared classification.
+  const proxied = classifyProxyLegFailure(authority, err, attempt, 'call', request.proxyCredentialRef);
+  if (proxied !== undefined) return proxied;
+  const pinned = classifyPinnedDialFailure(authority, request.resolveToAddress, err);
+  if (pinned !== undefined) return pinned;
   switch (code) {
     case 'ENOTFOUND':
     case 'EAI_AGAIN':
@@ -379,13 +364,12 @@ type PendingStreamWrite = { kind: 'message'; message: Uint8Array } | { kind: 'ha
 export function createNodeGrpcTransport(options: NodeGrpcTransportOptions = {}): GrpcTransport {
   const resolverFor = (): SystemProxyResolver | null =>
     options.systemProxy !== undefined ? options.systemProxy : systemProxyResolver();
-  const resolveCallAttempts = (target: URL, unixSocketPath: string | undefined): Promise<SessionRouteResult> =>
+  const resolveCallAttempts = (
+    target: URL,
+    request: GrpcTransportRequest | GrpcTransportStreamRequest,
+  ): Promise<SessionRouteResult> =>
     resolveSessionProxyAttempts(
-      {
-        url: target.origin,
-        ...(unixSocketPath !== undefined ? { unixSocketPath } : {}),
-        capability: 'connect-only',
-      },
+      { ...sessionRouteFieldsOf({ ...request, url: target.origin }), capability: 'connect-only' },
       resolverFor(),
     );
 
@@ -453,7 +437,7 @@ export function createNodeGrpcTransport(options: NodeGrpcTransportOptions = {}):
             }
             reject(
               new GrpcTransportError(
-                classifyGrpcFailure(request.authority, request.tls, err, request.unixSocketPath, attempt.proxy?.url),
+                classifyGrpcFailure(request, err, attempt),
                 GRPC_CANONICAL_UNAVAILABLE,
                 grpcTrustHintFor(request, err),
               ),
@@ -528,7 +512,7 @@ export function createNodeGrpcTransport(options: NodeGrpcTransportOptions = {}):
         });
 
       const runInvoke = async (): Promise<GrpcTransportResponse> => {
-        const resolved = await resolveCallAttempts(target, request.unixSocketPath);
+        const resolved = await resolveCallAttempts(target, request);
         if ('errorMessage' in resolved) throw new GrpcTransportError(resolved.errorMessage, GRPC_CANONICAL_UNAVAILABLE);
         const attempts = resolved.attempts;
         const timer =
@@ -576,7 +560,7 @@ export function createNodeGrpcTransport(options: NodeGrpcTransportOptions = {}):
                   throw new GrpcTransportError('Call aborted before a response arrived.', GRPC_CANONICAL_CANCELLED);
                 }
                 throw new GrpcTransportError(
-                  classifyGrpcFailure(request.authority, request.tls, err, request.unixSocketPath, attempt.proxy.url),
+                  classifyGrpcFailure(request, err, attempt),
                   GRPC_CANONICAL_UNAVAILABLE,
                   grpcTrustHintFor(request, err),
                 );
@@ -628,7 +612,7 @@ export function createNodeGrpcTransport(options: NodeGrpcTransportOptions = {}):
       let timer: ReturnType<typeof setTimeout> | null = null;
       let stream: ClientHttp2Stream | null = null;
       let session: ClientHttp2Session | null = null;
-      let activeProxyUrl: string | undefined;
+      let activeAttempt: SessionProxyAttempt | undefined;
       // Upstream writes issued while the ambient route was still
       // resolving (a server-stream call writes and half-closes the
       // moment this returns) — flushed in order once the stream exists.
@@ -661,7 +645,7 @@ export function createNodeGrpcTransport(options: NodeGrpcTransportOptions = {}):
         }
         callbacks.onEnd(
           new GrpcTransportError(
-            classifyGrpcFailure(request.authority, request.tls, err, request.unixSocketPath, activeProxyUrl),
+            classifyGrpcFailure(request, err, activeAttempt),
             GRPC_CANONICAL_UNAVAILABLE,
             grpcTrustHintFor(request, err),
           ),
@@ -744,7 +728,7 @@ export function createNodeGrpcTransport(options: NodeGrpcTransportOptions = {}):
       };
 
       const runOpen = async (): Promise<void> => {
-        const resolved = await resolveCallAttempts(resolvedTarget, request.unixSocketPath);
+        const resolved = await resolveCallAttempts(resolvedTarget, request);
         if (ended) return;
         if ('errorMessage' in resolved) {
           endMessage(resolved.errorMessage);
@@ -754,7 +738,7 @@ export function createNodeGrpcTransport(options: NodeGrpcTransportOptions = {}):
         for (let i = 0; i < attempts.length; i += 1) {
           if (ended) return;
           const attempt = attempts[i];
-          activeProxyUrl = attempt.proxy?.url;
+          activeAttempt = attempt;
           let tunnel: net.Socket | undefined;
           if (attempt.proxy !== undefined) {
             try {

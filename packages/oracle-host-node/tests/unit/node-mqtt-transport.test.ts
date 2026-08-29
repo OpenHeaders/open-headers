@@ -4,13 +4,18 @@
  * sockets, the actual byte stream): the full driver round trip over
  * raw TCP (CONNECT/CONNACK, open-time SUBSCRIBE with SUBACK grants,
  * publish echo both directions, clean DISCONNECT), the refused-dial
- * classification, and the MQTT-over-WebSocket leg (the `mqtt`
- * subprotocol offered, packets riding BINARY frames both ways over the
- * reused node WS transport).
+ * classification, the MQTT-over-WebSocket leg (the `mqtt` subprotocol
+ * offered, packets riding BINARY frames both ways over the reused node
+ * WS transport, the whole TLS policy handed through to a `wss:` dial),
+ * and the dial policy on the raw socket: the request's own CONNECT
+ * proxy (the rig records the tunnel target and the credential), the
+ * ambient chain, the 407 honesty, the SOCKS5 pre-wire refusal, and the
+ * address pin dialing where it points.
  */
 
 import 'reflect-metadata';
 import { createServer as createHttpServer, type Server as HttpServer } from 'node:http';
+import { createServer as createHttpsServer } from 'node:https';
 import * as net from 'node:net';
 import * as tls from 'node:tls';
 import {
@@ -22,10 +27,14 @@ import {
 import type { MqttRequest } from '@openheaders/core/types';
 import { executeMqttSession } from '@openheaders/oracle/live/mqtt-exec/execute';
 import { closeActiveMqttSession, publishActiveMqttMessage } from '@openheaders/oracle/live/mqtt-exec/session-plane';
+import type { MqttTransportRequest } from '@openheaders/oracle/live/mqtt-exec/transport';
+import type { WsProxyRoute } from '@openheaders/oracle/live/ws-exec/transport';
 import { afterEach, describe, expect, it } from 'vitest';
 import { WebSocketServer } from 'ws';
 import { mintLeafCertificate, mintProxyCa } from '../../src/daemon/proxy/ca-store';
-import { createNodeMqttTransport } from '../../src/live/node-mqtt-transport';
+import { createNodeMqttTransport, type NodeMqttTransportOptions } from '../../src/live/node-mqtt-transport';
+import type { SystemProxyEntry, SystemProxyResolver } from '../../src/live/system-proxy/types';
+import { startConnectProxy } from './request-transport/connect-proxy-rig';
 
 const closers: Array<() => void> = [];
 
@@ -87,21 +96,56 @@ async function startPrivateCaTlsListener(): Promise<{ port: number; rootPem: str
 }
 
 /** Dial the byte transport once and report how the handshake settled. */
-function dialOnce(url: string, trustedRootsPem?: string[]): Promise<{ connected: boolean; error?: string }> {
+function dialOnce(
+  url: string,
+  trustedRootsPem?: string[],
+  request: Partial<MqttTransportRequest> = {},
+  options: NodeMqttTransportOptions = { systemProxy: null },
+): Promise<{ connected: boolean; error?: string; route?: WsProxyRoute }> {
   return new Promise((resolve) => {
     let connected = false;
-    const writer = createNodeMqttTransport().connect(
-      { url, timeoutMs: 5_000, ...(trustedRootsPem !== undefined ? { trustedRootsPem } : {}) },
+    let route: WsProxyRoute | undefined;
+    const writer = createNodeMqttTransport(options).connect(
+      { url, timeoutMs: 5_000, ...(trustedRootsPem !== undefined ? { trustedRootsPem } : {}), ...request },
       {
-        onConnect: () => {
+        onConnect: (proxyRoute) => {
           connected = true;
+          route = proxyRoute;
           writer.end();
         },
         onData: () => {},
-        onEnd: (error) => resolve({ connected, ...(error !== undefined ? { error: error.message } : {}) }),
+        onEnd: (error) =>
+          resolve({
+            connected,
+            ...(error !== undefined ? { error: error.message } : {}),
+            ...(route !== undefined ? { route } : {}),
+          }),
       },
     );
   });
+}
+
+const resolverOf = (entries: SystemProxyEntry[]): SystemProxyResolver => ({
+  resolve: () => Promise.resolve({ entries, source: 'system' }),
+});
+
+/** A `wss:` broker whose leaf chains to a freshly minted private CA —
+ *  the handshake plus the `mqtt` subprotocol accept are the proof. */
+async function startPrivateCaWssListener(): Promise<{ port: number; rootPem: string }> {
+  const ca = await mintProxyCa();
+  const leaf = await mintLeafCertificate(ca, ['127.0.0.1']);
+  const httpsServer = createHttpsServer({ key: keyPem(leaf.privateKeyPkcs8B64), cert: leaf.certPem });
+  const wss = new WebSocketServer({ server: httpsServer, handleProtocols: () => 'mqtt' });
+  wss.on('connection', (ws) => ws.on('error', () => {}));
+  closers.push(() => {
+    wss.close();
+    httpsServer.close();
+    httpsServer.closeAllConnections();
+  });
+  await new Promise<void>((resolve) => httpsServer.listen(0, '127.0.0.1', () => resolve()));
+  const address = httpsServer.address();
+  if (address === null || typeof address === 'string') throw new Error('no listen address');
+  return { port: address.port, rootPem: ca.certPem };
 }
 
 async function startTcpBroker(): Promise<number> {
@@ -274,5 +318,91 @@ describe('createNodeMqttTransport — workspace trusted roots', () => {
     expect(bare.error).toBeDefined();
     const rooted = await dialOnce(`mqtts://127.0.0.1:${port}`, [rootPem]);
     expect(rooted.connected).toBe(true);
+  });
+});
+
+describe('createNodeMqttTransport — the dial policy on the raw socket', () => {
+  const proxyCleanups: Array<() => Promise<void>> = [];
+  afterEach(async () => {
+    await Promise.all(proxyCleanups.splice(0).map((close) => close()));
+  });
+
+  it("tunnels mqtt:// through the request's own CONNECT proxy with its credential and stamps the request plane", async () => {
+    const port = await startTcpBroker();
+    const proxy = await startConnectProxy({ requireAuth: 'corp:secret' });
+    proxyCleanups.push(proxy.close);
+    const run = await dialOnce(
+      `mqtt://127.0.0.1:${port}`,
+      undefined,
+      { proxyMode: 'url', proxyUrl: proxy.url, proxyCredentialRef: 'corp-proxy', proxyCredential: 'corp:secret' },
+      { systemProxy: { resolve: () => Promise.reject(new Error('must not be consulted')) } },
+    );
+    expect(run.error).toBeUndefined();
+    expect(run.connected).toBe(true);
+    expect(proxy.tunnels).toEqual([`127.0.0.1:${port}`]);
+    expect(proxy.authHeaders[0]).toBe(`Basic ${Buffer.from('corp:secret').toString('base64')}`);
+    expect(run.route).toEqual({ plane: 'request', proxyUrl: proxy.url });
+  });
+
+  it('rides an ambient CONNECT answer and stamps the system plane; Direct opts out of it', async () => {
+    const port = await startTcpBroker();
+    const proxy = await startConnectProxy();
+    proxyCleanups.push(proxy.close);
+    const ambient = await dialOnce(
+      `mqtt://127.0.0.1:${port}`,
+      undefined,
+      {},
+      {
+        systemProxy: resolverOf([{ kind: 'proxy', url: proxy.url }]),
+      },
+    );
+    expect(ambient.error).toBeUndefined();
+    expect(ambient.route).toEqual({ plane: 'system', proxyUrl: proxy.url, source: 'system' });
+    const direct = await dialOnce(
+      `mqtt://127.0.0.1:${port}`,
+      undefined,
+      { proxyMode: 'direct' },
+      {
+        systemProxy: resolverOf([{ kind: 'proxy', url: proxy.url }]),
+      },
+    );
+    expect(direct.error).toBeUndefined();
+    expect(direct.route).toEqual({ plane: 'request' });
+    expect(proxy.tunnels).toEqual([`127.0.0.1:${port}`]);
+  });
+
+  it("classifies a 407 against the request's proxy-credentials setting, and refuses an explicit SOCKS5 proxy before the wire", async () => {
+    const port = await startTcpBroker();
+    const proxy = await startConnectProxy({ requireAuth: 'corp:secret' });
+    proxyCleanups.push(proxy.close);
+    const rejected = await dialOnce(`mqtt://127.0.0.1:${port}`, undefined, {
+      proxyMode: 'url',
+      proxyUrl: proxy.url,
+    });
+    expect(rejected.connected).toBe(false);
+    expect(rejected.error).toContain('requires authentication (407)');
+    expect(rejected.error).toContain("request's proxy-credentials setting");
+    const socks = await dialOnce(`mqtt://127.0.0.1:${port}`, undefined, {
+      proxyMode: 'url',
+      proxyUrl: 'socks5://socks.openheaders.io:1080',
+    });
+    expect(socks.connected).toBe(false);
+    expect(socks.error).toContain('HTTP CONNECT only');
+  });
+
+  it('the address pin dials where it points while the URL keeps its host', async () => {
+    const port = await startTcpBroker();
+    const run = await dialOnce(`mqtt://broker.openheaders.io:${port}`, undefined, { resolveToAddress: '127.0.0.1' });
+    expect(run.error).toBeUndefined();
+    expect(run.connected).toBe(true);
+  });
+
+  it('hands the whole TLS policy through to a wss:// dial — the workspace root vouches for the broker', async () => {
+    const { port, rootPem } = await startPrivateCaWssListener();
+    const untrusted = await dialOnce(`wss://127.0.0.1:${port}/mqtt`);
+    expect(untrusted.connected).toBe(false);
+    const trusted = await dialOnce(`wss://127.0.0.1:${port}/mqtt`, [rootPem]);
+    expect(trusted.error).toBeUndefined();
+    expect(trusted.connected).toBe(true);
   });
 });

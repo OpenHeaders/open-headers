@@ -8,10 +8,10 @@
  */
 
 import { createHash } from 'node:crypto';
-import { isIP, type LookupFunction } from 'node:net';
 import { isSystemTrustEnabled } from '@openheaders/oracle/entity/device-trust-store';
 import type { TransportRequest } from '@openheaders/oracle/live/request-exec/transport';
 import { Agent, type Dispatcher, ProxyAgent, Socks5ProxyAgent } from 'undici';
+import { pinnedLookupOptionsFor } from '../dial-policy';
 import { type AlpnPolicy, createDialConnector, createRecordingConnector } from '../instrumented-connector';
 import { isSocks5ProxyUrl } from '../system-proxy/proxy-value';
 import { tlsPolicyOptionsFor } from '../tls-policy';
@@ -72,28 +72,6 @@ function recordNegotiated(map: Map<string, string>, origin: string, alpnProtocol
  * eviction.
  */
 const agentCache = new Map<string, DispatcherEntry>();
-
-/**
- * Resolver pinned to one address: answers EVERY hostname it is asked
- * about with `address`, in both callback shapes Node's `net.connect`
- * uses (`all: true` Happy-Eyeballs mode expects an address list; the
- * family-pinned path expects `(err, address, family)`). The connector
- * derives `servername` from the URL's hostname BEFORE dialing, so SNI,
- * the Host header, and certificate verification all keep the original
- * name — the pin only changes where the socket goes. Sharing one agent
- * between requests that pin DIFFERENT hosts to the SAME address is
- * correct by construction: the lookup pins everything the agent dials.
- */
-function pinnedLookup(address: string): LookupFunction {
-  const family = isIP(address);
-  return (_hostname, options, callback) => {
-    if (options.all) {
-      callback(null, [{ address, family }]);
-      return;
-    }
-    callback(null, address, family);
-  };
-}
 
 /**
  * Client-certificate segment of the tuple key: the stable vault ref
@@ -224,15 +202,17 @@ export function dispatcherFor(request: TransportRequest): DispatcherEntry {
 
 /**
  * The connection-option bag a request's knobs map to — the shared TLS
- * policy bag ({@link tlsPolicyOptionsFor}) plus the dial-only knobs
- * (resolve-to-address, socket path). One place, pure, so the mapping
- * is testable without inspecting a minted `Agent`. The caller keys the
- * agent cache on the same request fields, so the bag is deterministic
- * per tuple.
+ * policy bag ({@link tlsPolicyOptionsFor}) plus the dial-only knobs:
+ * the resolve-to-address pin as the shared `lookup` seat
+ * ({@link pinnedLookupOptionsFor} — sharing one agent between requests
+ * that pin DIFFERENT hosts to the SAME address is correct by
+ * construction: the lookup pins everything the agent dials) and the
+ * socket path. One place, pure, so the mapping is testable without
+ * inspecting a minted `Agent`. The caller keys the agent cache on the
+ * same request fields, so the bag is deterministic per tuple.
  */
 export function connectOptionsFor(request: TransportRequest): ConnectOptions {
-  const connect: ConnectOptions = { ...tlsPolicyOptionsFor(request) };
-  if (request.resolveToAddress !== undefined) connect.lookup = pinnedLookup(request.resolveToAddress);
+  const connect: ConnectOptions = { ...tlsPolicyOptionsFor(request), ...pinnedLookupOptionsFor(request) };
   // The connector passes `socketPath` as `path` into net.connect /
   // tls.connect, where it wins over host+port — the URL's host stays
   // cosmetic for dialing while Host / SNI / cert verification keep it.

@@ -31,6 +31,7 @@ import { resolveTemplate } from '@openheaders/core/variables';
 import { getTokenBundle } from '../../entity/oauth-token-store';
 import { getRequestCollections, getRequestCollectionsForWorkspace } from '../../entity/request-store';
 import { getActiveWorkspaceId, peekActiveWorkspaceId } from '../../workspace/extension-workspace-store';
+import { resolveProxyCredential } from '../dial-policy';
 import { resolveClientCertificate } from '../tls-policy';
 import { getTrustAnchorsForSend } from '../trust-anchors';
 import { resolveInheritedAuth } from './ancestor-chain';
@@ -385,24 +386,6 @@ export async function resolveRequest(
     },
     totpUsed: [...totpUsed.values()],
   };
-}
-
-/**
- * Resolve a `proxyCredentialRef` against the local vault. Same contract
- * as {@link resolveClientCertificate}: the ref always passes through
- * when set — even unresolved — so the honoring transport can fail the
- * send loudly instead of silently dialing the proxy unauthenticated;
- * the `user:password` value attaches only when a string entry with that
- * name exists on this device.
- */
-function resolveProxyCredential(
-  ref: string | undefined,
-  vault: Vault,
-): Pick<ResolvedRequest, 'proxyCredentialRef' | 'proxyCredential'> {
-  if (ref === undefined) return {};
-  const entry = vault.secrets.find((s) => s.kind === 'string' && s.name === ref);
-  if (!entry || entry.kind !== 'string') return { proxyCredentialRef: ref };
-  return { proxyCredentialRef: ref, proxyCredential: entry.value };
 }
 
 function indexTotpEntries(vault: Vault): Map<string, VaultSecretTotp> {

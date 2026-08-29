@@ -89,6 +89,7 @@ import { decodeBinaryText, encodeBase64Bytes, generateUid } from '@openheaders/c
 import { resolveTemplate } from '@openheaders/core/variables';
 import { getRequestCollections, getRequestCollectionsForWorkspace } from '../../entity/request-store';
 import { peekActiveWorkspaceId } from '../../workspace/extension-workspace-store';
+import { sessionDialPolicy } from '../dial-policy';
 import { buildResolver } from '../request-exec/resolver-scope';
 import { registerActiveSend } from '../request-exec/send-stream';
 import { sessionTlsPolicy } from '../tls-policy';
@@ -390,6 +391,7 @@ export async function executeMqttSession(
   // scope carries; a host-injected resolution has no vault, so the ref
   // passes through bare and the transport fails the dial loudly.
   const tlsPolicy = sessionTlsPolicy({ request, trustedRootsPem, vault: oracleResolution?.vault, resolve: resolveStr });
+  const dialPolicy = sessionDialPolicy(request, oracleResolution?.vault);
   const alpnProtocol = request.alpnProtocol !== undefined ? resolveStr(request.alpnProtocol).trim() : '';
 
   // ── The live session on the sendId spine ──
@@ -896,12 +898,13 @@ export async function executeMqttSession(
           url,
           timeoutMs: request.timeoutMs ?? DEFAULT_CONNECT_TIMEOUT_MS,
           ...tlsPolicy,
+          ...dialPolicy,
           ...(alpnProtocol !== '' ? { alpnProtocol } : {}),
         },
         {
           onConnect: (route) => {
             socketConnected = true;
-            if (route !== undefined) proxyRoute = { plane: 'system', ...route };
+            if (route !== undefined) proxyRoute = route;
             const error = sendPacket({
               type: 'connect',
               clientId,
