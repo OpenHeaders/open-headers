@@ -35,11 +35,12 @@ export interface ExecutedWsClose {
 }
 
 /**
- * An OPEN connection dropped without the client asking and the
- * session's auto-reconnect took over — `close` is the Close frame
- * that ended it verbatim, or `null` when it severed without one;
- * `idle` marks the liveness deadline closing it (no frame for
- * `idleTimeoutMs`). Never recorded for a client Disconnect.
+ * An OPEN connection dropped without the client asking — the
+ * session's auto-reconnect took over, or the liveness deadline cut it
+ * (`idle`: no frame for the deadline; the session settles on it when
+ * nothing reconnects). `close` is the Close frame that ended it
+ * verbatim, or `null` when it severed without one. Never recorded for
+ * a client Disconnect.
  */
 export interface ExecutedWsLost {
   kind: 'lost';

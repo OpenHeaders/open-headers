@@ -107,7 +107,11 @@ import {
 import { buildRefreshOAuthHook } from '@openheaders/oracle/live/request-exec/oauth-refresh';
 import { handleResolveRequestWireRpc } from '@openheaders/oracle/live/request-exec/resolve-wire-rpc';
 import { stopActiveSend } from '@openheaders/oracle/live/request-exec/send-stream';
-import { closeActiveWsSession, sendActiveWsSessionMessage } from '@openheaders/oracle/live/ws-exec/session-plane';
+import {
+  closeActiveWsSession,
+  reconnectActiveWsSessionNow,
+  sendActiveWsSessionMessage,
+} from '@openheaders/oracle/live/ws-exec/session-plane';
 import { dispatchSyncRpc } from '@openheaders/oracle/rpc';
 import { hostStorage, OH, wsKeys } from '@openheaders/oracle/storage';
 import {
@@ -1286,6 +1290,9 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
     }
     if (type === 'closeWsSession') {
       return { success: typeof message.sendId === 'string' && closeActiveWsSession(message.sendId) };
+    }
+    if (type === 'reconnectWsSessionNow') {
+      return { success: typeof message.sendId === 'string' && reconnectActiveWsSessionNow(message.sendId) };
     }
     // Workbench MQTT Connect — the MqttRequest entity's executor
     // plane, same in-process answer posture; the RPC resolves when the

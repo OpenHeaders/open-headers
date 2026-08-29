@@ -10,6 +10,7 @@ import type { WsStreamEventWire } from '@openheaders/core/bridge';
 import {
   closeActiveWsSession,
   createWsStreamEmitter,
+  reconnectActiveWsSessionNow,
   registerActiveWsSession,
   sendActiveWsSessionMessage,
 } from '@openheaders/oracle/live/ws-exec/session-plane';
@@ -82,6 +83,20 @@ describe('createWsStreamEmitter', () => {
     expect(events).toHaveLength(2);
   });
 
+  it('a lifecycle fact flushes the pooled messages first, then emits immediately with the host wall-clock', () => {
+    vi.setSystemTime(1_700_000_111_222);
+    const events: WsStreamEventWire[] = [];
+    const emitter = createWsStreamEmitter('send-1', (e) => events.push(e));
+    emitter.message(msg('down'));
+    emitter.lifecycle({ kind: 'lost', close: null, atIndex: 1 });
+    expect(events.map((e) => e.kind)).toEqual(['messages', 'lifecycle']);
+    if (events[1].kind !== 'lifecycle') throw new Error('expected a lifecycle frame');
+    expect(events[1].item).toEqual({ kind: 'lost', close: null, atIndex: 1 });
+    expect(events[1].atMs).toBe(1_700_000_111_222);
+    emitter.end();
+    expect(events).toHaveLength(3);
+  });
+
   it('stamps the lifecycle frames with the host wall-clock — the message frames atMs law', () => {
     vi.setSystemTime(1_700_000_111_222);
     const events: WsStreamEventWire[] = [];
@@ -100,6 +115,7 @@ describe('active WS session registry', () => {
   it('routes sends and close to the registered handle until unregistered', () => {
     const sent: string[] = [];
     let closedCount = 0;
+    let reconnectNowCount = 0;
     const unregister = registerActiveWsSession('send-2', {
       send: (text) => {
         sent.push(text);
@@ -108,14 +124,21 @@ describe('active WS session registry', () => {
       close: () => {
         closedCount++;
       },
+      reconnectNow: () => {
+        reconnectNowCount++;
+        return true;
+      },
     });
     expect(sendActiveWsSessionMessage('send-2', 'hello')).toEqual({ success: true });
+    expect(reconnectActiveWsSessionNow('send-2')).toBe(true);
+    expect(reconnectNowCount).toBe(1);
     expect(sent).toEqual(['hello']);
     expect(closeActiveWsSession('send-2')).toBe(true);
     expect(closedCount).toBe(1);
     unregister();
     expect(sendActiveWsSessionMessage('send-2', 'late').success).toBe(false);
     expect(closeActiveWsSession('send-2')).toBe(false);
+    expect(reconnectActiveWsSessionNow('send-2')).toBe(false);
   });
 
   it('answers an unknown id without touching any handle', () => {

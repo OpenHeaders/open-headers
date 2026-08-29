@@ -3,7 +3,7 @@
  * `grpc-exec/stream-plane.ts` sibling for the WS executor plane: the
  * flush-batched `wsStreamEvent` emitter behind the message timeline,
  * and the active-session registry behind the `sendWsMessage` /
- * `closeWsSession` riders (the Stop hook itself stays on the shared
+ * `closeWsSession` / `reconnectWsSessionNow` riders (the Stop hook itself stays on the shared
  * HTTP active-send registry — one abort plane for every interactive
  * send).
  *
@@ -21,7 +21,7 @@ import type {
   WsStreamEventWire,
   WsStreamMessageWire,
 } from '@openheaders/core/bridge';
-import type { ExecutedProxyRoute } from '@openheaders/core/types';
+import type { ExecutedProxyRoute, ExecutedWsLifecycle } from '@openheaders/core/types';
 
 /** Flush the pending message batch on this cadence — the gRPC
  *  emitter's window; per-message `atMs` stamps keep arrival fidelity
@@ -47,6 +47,10 @@ export interface WsStreamEmitter {
   ): void;
   /** Enqueue one direction-tagged message; flushes by the time window. */
   message(message: WsStreamMessageWire): void;
+  /** Push one reconnect-cycle fact — flushes the pooled messages first
+   *  so the row lands at its true position, then emits immediately
+   *  (single and load-bearing, like open). */
+  lifecycle(item: ExecutedWsLifecycle): void;
   /** Settle the emitter (any end path): flush pending messages, then
    *  emit the final `end` frame. */
   end(): void;
@@ -96,6 +100,11 @@ export function createWsStreamEmitter(sendId: string, emit: (event: WsStreamEven
       }
       if (timer === null) timer = setTimeout(flush, FLUSH_INTERVAL_MS);
     },
+    lifecycle(item) {
+      if (settled) return;
+      flush();
+      emit({ sendId, seq: seq++, kind: 'lifecycle', item, atMs: Date.now() });
+    },
     end() {
       if (settled) return;
       flush();
@@ -126,6 +135,9 @@ export interface ActiveWsSessionHandle {
   ): { success: boolean; error?: string };
   /** Start the clean close (code 1000) — Disconnect. */
   close(): void;
+  /** Dial the armed reconnect attempt now instead of after its wait.
+   *  False = nothing is waiting. */
+  reconnectNow(): boolean;
 }
 
 const activeSessions = new Map<string, ActiveWsSessionHandle>();
@@ -150,6 +162,14 @@ export function sendActiveWsSessionMessage(
   const handle = activeSessions.get(sendId);
   if (!handle) return { success: false, error: 'No open WebSocket session with this id.' };
   return handle.send(messageText, socketio, binary);
+}
+
+/** Cut a session's auto-reconnect wait short. False = no such
+ *  session, or nothing is waiting. */
+export function reconnectActiveWsSessionNow(sendId: string): boolean {
+  const handle = activeSessions.get(sendId);
+  if (!handle) return false;
+  return handle.reconnectNow();
 }
 
 /** Start an open session's clean close. False = no such session. */

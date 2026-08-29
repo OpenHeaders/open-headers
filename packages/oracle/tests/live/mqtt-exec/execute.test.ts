@@ -19,7 +19,7 @@ import {
   type MqttProtocolVersion,
 } from '@openheaders/core/mqtt';
 import type { MqttRequest, TrustCertificateErrorHint } from '@openheaders/core/types';
-import { executeMqttSession, reconnectDelayMs } from '@openheaders/oracle/live/mqtt-exec/execute';
+import { executeMqttSession } from '@openheaders/oracle/live/mqtt-exec/execute';
 import {
   closeActiveMqttSession,
   publishActiveMqttMessage,
@@ -32,6 +32,7 @@ import {
   MqttTransportError,
   type MqttTransportRequest,
 } from '@openheaders/oracle/live/mqtt-exec/transport';
+import { reconnectDelayMs } from '@openheaders/oracle/live/reconnect-policy';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const TRUSTED_ROOT = '-----BEGIN CERTIFICATE-----\nROOT\n-----END CERTIFICATE-----\n';

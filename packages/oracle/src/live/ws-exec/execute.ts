@@ -29,6 +29,26 @@
  * the session stays open however chatty the server is, the capture
  * keeps the most RECENT messages under the byte/count caps, and
  * `droppedMessages` counts what rolled off — honest, never silent.
+ *
+ * Session resilience (the MQTT executor's reconnect plane, lifted):
+ * once a session OPENED, a connection that drops without the client
+ * asking — severed socket, server close, the liveness deadline — logs
+ * a `lost` fact and, when the entity asks, the driver redials on the
+ * reconnect period until a handshake settles again (`reconnected`),
+ * the attempt cap is spent (`reconnectExhausted` on the snapshot), or
+ * the user ends the session. The wait is the period, or doubles per
+ * failed attempt under backoff (`reconnect-policy.ts`, the one law).
+ * The facts ride `lifecycle` with the message index they happened at,
+ * so the timeline interleaves them at their true positions while the
+ * message capture stays positional. A first connect that fails never
+ * retries; a Socket.IO server DISCONNECT packet is the one drop that
+ * never redials (the official client's rule — the server said goodbye
+ * on purpose). Liveness: `idleTimeoutMs` closes a connection no frame
+ * reached in time; the socketio flavor derives the deadline from the
+ * handshake's ping cadence when the entity names none. Heartbeat: the
+ * raw flavor writes `heartbeatMessage` on its interval through the
+ * same captured send path — neither WebSocket client can send a
+ * control PING, so an LB keepalive is an app frame everywhere.
  */
 
 import type { WsSendBinaryWire, WsSendSocketIoWire, WsStreamEventWire } from '@openheaders/core/bridge';
@@ -41,7 +61,11 @@ import {
 import type {
   ExecutedProxyRoute,
   ExecutedWsClose,
+  ExecutedWsLifecycle,
+  ExecutedWsLost,
   ExecutedWsMessage,
+  ExecutedWsReconnected,
+  ExecutedWsReconnecting,
   ExecutedWsSnapshot,
   TrustCertificateErrorHint,
   Vault,
@@ -52,13 +76,14 @@ import { resolveTemplate } from '@openheaders/core/variables';
 import { getRequestCollections, getRequestCollectionsForWorkspace } from '../../entity/request-store';
 import { peekActiveWorkspaceId } from '../../workspace/extension-workspace-store';
 import { sessionDialPolicy } from '../dial-policy';
+import { DEFAULT_HEARTBEAT_INTERVAL_MS, DEFAULT_RECONNECT_PERIOD_MS, reconnectDelayMs } from '../reconnect-policy';
 import { buildResolver } from '../request-exec/resolver-scope';
 import { registerActiveSend } from '../request-exec/send-stream';
 import { sessionTlsPolicy } from '../tls-policy';
 import { getTrustAnchorsForSend } from '../trust-anchors';
 import { createWsStreamEmitter, registerActiveWsSession } from './session-plane';
 import { createSocketIoSessionController } from './socketio-session';
-import type { WsSessionWriter, WsTransport, WsTransportHeader } from './transport';
+import type { WsSessionWriter, WsTransport, WsTransportError, WsTransportHeader } from './transport';
 
 /** Rolling-retention caps on the captured payload bytes / message
  *  count — the always-on host never buffers unbounded, and unlike the
@@ -106,6 +131,9 @@ export interface ExecuteWsSessionOptions {
    * injector's concern — the closure carries its own scope context.
    */
   resolution?: (template: string, unresolved: Set<string>) => string;
+  /** The backoff jitter draw, [0, 1) — `Math.random` unless a test
+   *  pins the wait. */
+  reconnectJitter?: () => number;
 }
 
 export async function executeWsSession(
@@ -169,6 +197,10 @@ export async function executeWsSession(
     namespace: socketioFlavor ? resolveStr(request.namespace ?? '') : '',
     handshakePath: socketioFlavor ? resolveStr(request.handshakePath ?? '') : '',
   };
+  // The heartbeat frame is a raw-flavor knob (engine.io answers its
+  // own pings); resolved with the other Connect-time templates.
+  const heartbeatMessage =
+    !socketioFlavor && request.heartbeatMessage !== undefined ? resolveStr(request.heartbeatMessage) : '';
   let namespace = '/';
   if (unresolved.size > 0) {
     return errorWsSnapshot(
@@ -196,23 +228,63 @@ export async function executeWsSession(
     url = target.url;
     namespace = target.namespace;
   }
+  const autoReconnect = request.autoReconnect === true;
+  const reconnectPeriodMs = request.reconnectPeriodMs ?? DEFAULT_RECONNECT_PERIOD_MS;
+  const reconnectMaxAttempts = request.reconnectMaxAttempts;
+  const reconnectBackoff = request.reconnectBackoff !== false;
+  const reconnectJitter = options.reconnectJitter ?? Math.random;
+  const idleTimeoutMs = request.idleTimeoutMs;
+  const heartbeatIntervalMs = request.heartbeatIntervalMs ?? DEFAULT_HEARTBEAT_INTERVAL_MS;
 
   // ── The live session on the sendId spine ──
   return new Promise<ExecutedWsSnapshot>((resolve) => {
     const emitter =
       options.emitStreamEvent !== undefined ? createWsStreamEmitter(options.sendId, options.emitStreamEvent) : null;
-    const controller = new AbortController();
     let stopped = false;
+    /** The session opened at least once — the outcome is `connected`
+     *  however the (last) connection later ended. */
     let opened = false;
     let protocol = '';
     let extensions = '';
     let proxyRoute: ExecutedProxyRoute | undefined;
     let close: ExecutedWsClose | null = null;
+    let reconnectExhausted: ExecutedWsSnapshot['reconnectExhausted'];
     let settled = false;
     const messages: ExecutedWsMessage[] = [];
+    const lifecycle: ExecutedWsLifecycle[] = [];
     let capturedBytes = 0;
     let droppedMessages = 0;
     const startedAt = performance.now();
+
+    // ── Reconnect plane ──
+    // 0 while the first connection is up; the attempt number once a
+    // dropped connection put auto-reconnect in charge. The wait timer
+    // is armed between attempts; Stop / Disconnect clear it and settle
+    // — nothing is on the wire then, so the end reads Stopped.
+    let reconnectAttempt = 0;
+    let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+    /** Fire the armed attempt ahead of its wait — set while the timer
+     *  is armed, the `reconnectWsSessionNow` rider's hook. */
+    let fireReconnectNow: (() => void) | null = null;
+
+    // ── Per-connection state — reset on every (re)dial ──
+    /** THIS connection's handshake settled. */
+    let attemptOpened = false;
+    /** The client asked for this connection's close (Disconnect). */
+    let closeRequested = false;
+    /** The liveness deadline closed this connection. */
+    let idleTripped = false;
+    /** The Socket.IO server ended the namespace on purpose. */
+    let serverGoodbye = false;
+    let writer: WsSessionWriter | null = null;
+    /** One abort per connection — the Stop hook aborts the current
+     *  one; a redial mints a fresh signal. */
+    let connectionController = new AbortController();
+    let idleTimer: ReturnType<typeof setTimeout> | null = null;
+    let heartbeatTimer: ReturnType<typeof setInterval> | null = null;
+    /** The liveness deadline in force on this connection: the entity's
+     *  knob, else the socket.io handshake's cadence, else none. */
+    let idleDeadlineMs: number | undefined = idleTimeoutMs;
 
     const record = (message: ExecutedWsMessage, byteLength: number): void => {
       messages.push(message);
@@ -224,16 +296,72 @@ export async function executeWsSession(
         droppedMessages += 1;
       }
     };
+    /** One reconnect-cycle fact at the capture's current index — the
+     *  count of every message captured before it, rolled-off ones
+     *  included, so live and materialized positions agree. */
+    const recordLifecycle = (fact: ExecutedWsLost | ExecutedWsReconnecting | ExecutedWsReconnected): void => {
+      const item: ExecutedWsLifecycle = { ...fact, atIndex: messages.length + droppedMessages };
+      lifecycle.push(item);
+      emitter?.lifecycle(item);
+    };
+
+    const clearIdleTimer = (): void => {
+      if (idleTimer !== null) clearTimeout(idleTimer);
+      idleTimer = null;
+    };
+    /** (Re)arm the liveness deadline — on open and on every inbound
+     *  frame; a deadline that runs out tears the connection down as
+     *  lost (the abort settles through `onEnd` with no error). */
+    const armIdleTimer = (): void => {
+      clearIdleTimer();
+      if (idleDeadlineMs === undefined || !attemptOpened) return;
+      idleTimer = setTimeout(() => {
+        idleTimer = null;
+        if (settled || !attemptOpened) return;
+        idleTripped = true;
+        connectionController.abort();
+      }, idleDeadlineMs);
+    };
+    const clearConnectionTimers = (): void => {
+      clearIdleTimer();
+      if (heartbeatTimer !== null) clearInterval(heartbeatTimer);
+      heartbeatTimer = null;
+    };
+    const clearReconnectTimer = (): void => {
+      if (reconnectTimer !== null) clearTimeout(reconnectTimer);
+      reconnectTimer = null;
+      fireReconnectNow = null;
+    };
+    const resetConnectionState = (): void => {
+      clearConnectionTimers();
+      attemptOpened = false;
+      closeRequested = false;
+      idleTripped = false;
+      serverGoodbye = false;
+      writer = null;
+      close = null;
+      connectionController = new AbortController();
+      idleDeadlineMs = idleTimeoutMs;
+      socketioSession?.resetConnection();
+    };
 
     const unregisterSend = registerActiveSend(options.sendId, () => {
       stopped = true;
-      controller.abort();
+      connectionController.abort();
+      // Between attempts nothing is dialing — the abort has no socket
+      // to settle through, so settle here.
+      if (reconnectTimer !== null) {
+        clearReconnectTimer();
+        settle();
+      }
     });
     let unregisterSession: (() => void) | null = null;
 
     const settle = (errorMessage?: string, hint?: TrustCertificateErrorHint): void => {
       if (settled) return;
       settled = true;
+      clearConnectionTimers();
+      clearReconnectTimer();
       unregisterSend();
       unregisterSession?.();
       emitter?.end();
@@ -261,6 +389,8 @@ export async function executeWsSession(
         messages,
         droppedMessages,
         close,
+        ...(lifecycle.length > 0 ? { lifecycle } : {}),
+        ...(reconnectExhausted !== undefined ? { reconnectExhausted } : {}),
         ...(stopped ? { stopped: true } : {}),
         durationMs,
         ...(proxyRoute !== undefined ? { proxyRoute } : {}),
@@ -269,10 +399,9 @@ export async function executeWsSession(
 
     // One write path for riders AND protocol frames — every ↑ frame is
     // captured and broadcast verbatim, socket.io control answers
-    // (CONNECT, pong) included.
-    let writer: WsSessionWriter | null = null;
+    // (CONNECT, pong) and the heartbeat included.
     const sendText = (text: string): void => {
-      if (writer === null || settled) return;
+      if (writer === null || settled || !attemptOpened) return;
       writer.send(text);
       const data = new TextEncoder().encode(text);
       const dataBase64 = encodeBase64Bytes(data);
@@ -282,7 +411,7 @@ export async function executeWsSession(
     // The binary twin — one frame of decoded bytes; a transport without
     // the optional writer cannot carry it and says so on the rider.
     const sendBinary = (data: Uint8Array): { success: boolean; error?: string } => {
-      if (writer === null || settled) return { success: false, error: 'The session is not open.' };
+      if (writer === null || settled || !attemptOpened) return { success: false, error: 'The session is not open.' };
       if (writer.sendBinary === undefined) {
         return { success: false, error: 'This host cannot send binary frames.' };
       }
@@ -292,58 +421,159 @@ export async function executeWsSession(
       emitter?.message({ direction: 'up', dataBase64, binary: true, atMs: Date.now() });
       return { success: true };
     };
+    const startHeartbeat = (): void => {
+      if (heartbeatMessage === '') return;
+      heartbeatTimer = setInterval(() => sendText(heartbeatMessage), heartbeatIntervalMs);
+    };
     // The socketio flavor ALSO lands the bearer token as the CONNECT
     // packet's auth payload — in-band framing, so it works on hosts
     // whose platform socket cannot carry the header.
     const connectAuthJson = bearerToken !== '' ? JSON.stringify({ token: bearerToken }) : undefined;
     const socketioSession = socketioFlavor
-      ? createSocketIoSessionController(namespace, sendText, connectAuthJson)
+      ? createSocketIoSessionController(namespace, sendText, connectAuthJson, {
+          onHandshake: ({ pingIntervalMs, pingTimeoutMs }) => {
+            // The official client's liveness rule: a server ping is
+            // due every pingInterval and may run pingTimeout late.
+            if (idleTimeoutMs !== undefined || pingIntervalMs === undefined || pingTimeoutMs === undefined) return;
+            idleDeadlineMs = pingIntervalMs + pingTimeoutMs;
+            armIdleTimer();
+          },
+          onServerDisconnect: () => {
+            serverGoodbye = true;
+          },
+        })
       : null;
 
-    writer = options.transport.connect(
-      {
-        url,
-        headers,
-        subprotocols: request.subprotocols,
-        ...tlsPolicy,
-        ...dialPolicy,
-        ...(request.unixSocketPath !== undefined ? { unixSocketPath: request.unixSocketPath } : {}),
-        ...(request.timeoutMs !== undefined ? { timeoutMs: request.timeoutMs } : {}),
-      },
-      {
-        onOpen: (selectedProtocol, negotiatedExtensions, route) => {
-          opened = true;
-          protocol = selectedProtocol;
-          extensions = negotiatedExtensions;
-          // Route wire truth: the transport reports which plane decided
-          // (the request's own proxy setting, or the host's system
-          // plane) and what it decided — recorded verbatim.
-          if (route !== undefined) proxyRoute = route;
-          emitter?.open(selectedProtocol, negotiatedExtensions, proxyRoute, { url, requestHeaders });
+    /** Arm the wait before the next attempt; `error` is the attempt
+     *  just failed, carried onto the next attempt's row. A spent
+     *  attempt cap ends the loop instead — the session settles with
+     *  the attempts dialed and that last failure. */
+    const scheduleReconnect = (attempt: number, error?: string): void => {
+      if (reconnectMaxAttempts !== undefined && attempt > reconnectMaxAttempts) {
+        reconnectExhausted = { attempts: attempt - 1, ...(error !== undefined ? { error } : {}) };
+        settle();
+        return;
+      }
+      reconnectAttempt = attempt;
+      const delayMs = reconnectDelayMs(reconnectPeriodMs, attempt, reconnectBackoff, reconnectJitter());
+      const armedAt = Date.now();
+      // The wait ran out, or the user cut it short: the same attempt
+      // dials either way — the row states the wait actually sat
+      // through, and the cap is only consulted when a NEXT attempt is
+      // armed.
+      const fire = (forced: boolean): void => {
+        clearReconnectTimer();
+        if (settled) return;
+        recordLifecycle({
+          kind: 'reconnecting',
+          attempt,
+          delayMs: forced ? Math.max(0, Date.now() - armedAt) : delayMs,
+          ...(error !== undefined ? { error } : {}),
+          ...(forced ? { forced: true } : {}),
+        });
+        dial();
+      };
+      reconnectTimer = setTimeout(() => fire(false), delayMs);
+      fireReconnectNow = () => fire(true);
+    };
+
+    /** The connection ended — decide between the reconnect loop and
+     *  the settle. */
+    const onStreamEnd = (error?: WsTransportError): void => {
+      if (settled) return;
+      const wasOpen = attemptOpened;
+      const dialingAgain = reconnectAttempt > 0;
+      if (stopped) {
+        settle(error?.message, error?.hint);
+        return;
+      }
+      if (wasOpen && !closeRequested && !serverGoodbye && (autoReconnect || idleTripped)) {
+        // The connection dropped under an open session without the
+        // client asking — its end is a fact row; then the loop starts
+        // when the entity asks, else the liveness cut is the story.
+        recordLifecycle({ kind: 'lost', close, ...(idleTripped ? { idle: true } : {}) });
+        if (!autoReconnect) {
+          settle();
+          return;
+        }
+        resetConnectionState();
+        scheduleReconnect(1);
+        return;
+      }
+      if (dialingAgain && !wasOpen) {
+        // A reconnect attempt failed before it opened — the classified
+        // dial failure rides the next attempt's row; the loop goes on
+        // until the server is back or the user ends the session.
+        resetConnectionState();
+        scheduleReconnect(reconnectAttempt + 1, error?.message ?? 'The connection closed before the session opened.');
+        return;
+      }
+      settle(error?.message, error?.hint);
+    };
+
+    const dial = (): void => {
+      writer = options.transport.connect(
+        {
+          url,
+          headers,
+          subprotocols: request.subprotocols,
+          ...tlsPolicy,
+          ...dialPolicy,
+          ...(request.unixSocketPath !== undefined ? { unixSocketPath: request.unixSocketPath } : {}),
+          ...(request.timeoutMs !== undefined ? { timeoutMs: request.timeoutMs } : {}),
         },
-        onMessage: ({ data, binary }) => {
-          const dataBase64 = encodeBase64Bytes(data);
-          record({ direction: 'down', dataBase64, binary }, data.byteLength);
-          emitter?.message({ direction: 'down', dataBase64, binary, atMs: Date.now() });
-          // The socket.io controller answers protocol obligations off
-          // the same feed the capture records — text frames only
-          // (binary attachments carry no engine.io grammar).
-          if (socketioSession !== null && !binary) socketioSession.handleFrame(new TextDecoder().decode(data));
+        {
+          onOpen: (selectedProtocol, negotiatedExtensions, route) => {
+            attemptOpened = true;
+            protocol = selectedProtocol;
+            extensions = negotiatedExtensions;
+            // Route wire truth: the transport reports which plane decided
+            // (the request's own proxy setting, or the host's system
+            // plane) and what it decided — recorded verbatim.
+            if (route !== undefined) proxyRoute = route;
+            if (reconnectAttempt > 0) {
+              // A reconnect attempt's handshake settled — the new
+              // connection's facts are its row.
+              recordLifecycle({
+                kind: 'reconnected',
+                attempt: reconnectAttempt,
+                protocol: selectedProtocol,
+                extensions: negotiatedExtensions,
+              });
+            } else {
+              opened = true;
+              emitter?.open(selectedProtocol, negotiatedExtensions, proxyRoute, { url, requestHeaders });
+            }
+            armIdleTimer();
+            startHeartbeat();
+          },
+          onMessage: ({ data, binary }) => {
+            const dataBase64 = encodeBase64Bytes(data);
+            record({ direction: 'down', dataBase64, binary }, data.byteLength);
+            emitter?.message({ direction: 'down', dataBase64, binary, atMs: Date.now() });
+            armIdleTimer();
+            // The socket.io controller answers protocol obligations off
+            // the same feed the capture records — text frames only
+            // (binary attachments carry no engine.io grammar).
+            if (socketioSession !== null && !binary) socketioSession.handleFrame(new TextDecoder().decode(data));
+          },
+          onClose: (event) => {
+            close =
+              event.code === NO_CLOSE_FRAME_CODE
+                ? null
+                : { code: event.code, reason: event.reason, wasClean: event.wasClean };
+          },
+          onEnd: onStreamEnd,
         },
-        onClose: (event) => {
-          close =
-            event.code === NO_CLOSE_FRAME_CODE
-              ? null
-              : { code: event.code, reason: event.reason, wasClean: event.wasClean };
-        },
-        onEnd: (error) => settle(error?.message, error?.hint),
-      },
-      controller.signal,
-    );
+        connectionController.signal,
+      );
+    };
+
+    dial();
 
     unregisterSession = registerActiveWsSession(options.sendId, {
       send: (messageText, socketio?: WsSendSocketIoWire, binary?: WsSendBinaryWire) => {
-        if (settled || !opened) return { success: false, error: 'The session is not open.' };
+        if (settled || !attemptOpened) return { success: false, error: 'The session is not open.' };
         const sendUnresolved = new Set<string>();
         const resolved = resolveWith(messageText, sendUnresolved);
         let frame = resolved;
@@ -397,7 +627,27 @@ export async function executeWsSession(
       },
       close: () => {
         if (settled) return;
+        if (reconnectAttempt > 0 && !attemptOpened) {
+          // Disconnect while auto-reconnect is between attempts or
+          // mid-redial: no connection is up to close cleanly, so the
+          // loop ends and the session settles Stopped — the last
+          // connection's close record stays the honest end.
+          stopped = true;
+          if (reconnectTimer !== null) {
+            clearReconnectTimer();
+            settle();
+          } else {
+            connectionController.abort();
+          }
+          return;
+        }
+        closeRequested = true;
         writer?.close(WS_DISCONNECT_CODE, '');
+      },
+      reconnectNow: () => {
+        if (settled || fireReconnectNow === null) return false;
+        fireReconnectNow();
+        return true;
       },
     });
   });

@@ -10,8 +10,9 @@
  * module mirrors are empty in a page realm).
  *
  * Wiring shape: a {@link HostBridge} DECORATOR over the chrome
- * transport. The three WebSocket channels (`executeWebSocketRequest`
- * draft path, `sendWsMessage`, `closeWsSession`) answer locally, and
+ * transport. The four WebSocket channels (`executeWebSocketRequest`
+ * draft path, `sendWsMessage`, `closeWsSession`, `reconnectWsSessionNow`)
+ * answer locally, and
  * `wsStreamEvent` subscribers are fed synchronously from the in-page
  * emitter — no broadcast hop, so the editor, `RequestsContext`, and
  * `useLiveWsSession` ride the exact code paths the node hosts answer.
@@ -38,7 +39,11 @@ import {
 import { registerCapability } from '@openheaders/core/capabilities';
 import { stopActiveSend } from '@openheaders/oracle/live/request-exec/send-stream';
 import { errorWsSnapshot, executeWsSession } from '@openheaders/oracle/live/ws-exec/execute';
-import { closeActiveWsSession, sendActiveWsSessionMessage } from '@openheaders/oracle/live/ws-exec/session-plane';
+import {
+  closeActiveWsSession,
+  reconnectActiveWsSessionNow,
+  sendActiveWsSessionMessage,
+} from '@openheaders/oracle/live/ws-exec/session-plane';
 import { createBrowserWsTransport } from '@openheaders/oracle-host-browser/live/browser-ws-transport';
 import { getWsPageResolutionFactory } from '@openheaders/ui/workbench/components/websocket-request-editor/ws-page-session';
 import { chromeBridge } from '@/utils/bridge';
@@ -107,6 +112,10 @@ const wsSessionHostBridge: HostBridge = {
     if (type === 'closeWsSession') {
       const payload = args[0] as BridgeRpcRequest<'closeWsSession'>;
       return Promise.resolve({ success: closeActiveWsSession(payload.sendId) }) as Promise<BridgeRpcResponse<K>>;
+    }
+    if (type === 'reconnectWsSessionNow') {
+      const payload = args[0] as BridgeRpcRequest<'reconnectWsSessionNow'>;
+      return Promise.resolve({ success: reconnectActiveWsSessionNow(payload.sendId) }) as Promise<BridgeRpcResponse<K>>;
     }
     if (type === 'abortRequestSend') {
       const payload = args[0] as BridgeRpcRequest<'abortRequestSend'>;
