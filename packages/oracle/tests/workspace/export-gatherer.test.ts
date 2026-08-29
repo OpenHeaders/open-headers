@@ -15,10 +15,12 @@
 import type {
   Collection,
   Environment,
+  Folder,
   LiveVariable,
   LiveWorkflow,
   Request,
   Rule,
+  TreeOrderRecord,
   WorkspaceVariables,
 } from '@openheaders/core/types';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -35,6 +37,7 @@ vi.mock('@openheaders/oracle/storage', async () => {
     ...actual,
     hostStorage: {
       get: vi.fn(async (key: { key: string }) => blobs.get(key.key)),
+      getValidated: vi.fn(async (key: { key: string }) => blobs.get(key.key)),
       getMany: vi.fn(async (specs: Record<string, { key: string }>) => {
         const out: Record<string, unknown> = {};
         for (const [name, spec] of Object.entries(specs)) out[name] = blobs.get(spec.key);
@@ -60,6 +63,8 @@ afterEach(() => {
 
 function seedWorkspace(opts: {
   rules?: Rule[];
+  folders?: Folder[];
+  treeOrder?: TreeOrderRecord;
   requests?: Request[];
   environments?: Environment[];
   workspaceVars?: WorkspaceVariables;
@@ -69,7 +74,8 @@ function seedWorkspace(opts: {
 }): void {
   blobs.set('oh.ws.ws-test.rules', opts.rules ?? []);
   blobs.set('oh.ws.ws-test.collections', opts.collections ?? []);
-  blobs.set('oh.ws.ws-test.folders', []);
+  blobs.set('oh.ws.ws-test.folders', opts.folders ?? []);
+  if (opts.treeOrder) blobs.set('oh.ws.ws-test.treeOrder', opts.treeOrder);
   blobs.set('oh.ws.ws-test.requests', opts.requests ?? []);
   blobs.set('oh.ws.ws-test.requestCollections', []);
   blobs.set('oh.ws.ws-test.requestFolders', []);
@@ -260,5 +266,47 @@ describe('gatherWorkspaceExport — selection scope transitive deps', () => {
     const res = await gatherer.gatherWorkspaceExport('ws-test', { kind: 'workspace' }, OPTS);
 
     expect(res!.input.entities.workspaceVars.variables.map((v) => v.name)).toEqual(['a', 'b']);
+  });
+});
+
+describe('gatherWorkspaceExport — child order', () => {
+  const collection: Collection = {
+    schemaVersion: 5,
+    uid: 'col00001',
+    path: 'rules/api-col00001',
+    name: 'API',
+    variables: [],
+    pinnedEnvironmentIds: [],
+    defaultEnvironmentId: null,
+  };
+  const folder: Folder = { schemaVersion: 5, uid: 'fld00001', path: 'rules/api-col00001/auth-fld00001', name: 'Auth' };
+  const ruleA = makeHeaderRule({ uid: 'rula0001', path: 'rules/api-col00001/a-rula0001', name: 'a' });
+  const ruleB = makeHeaderRule({ uid: 'rulb0001', path: 'rules/api-col00001/b-rulb0001', name: 'b' });
+  const treeOrder: TreeOrderRecord = {
+    schemaVersion: 5,
+    containers: { 'collection:col00001': { children: ['rulb0001', 'fld00001', 'rula0001'] } },
+  };
+
+  it('stamps order: on every shipped container from the tree-order record — the merged, interleaved sequence', async () => {
+    seedWorkspace({ collections: [collection], folders: [folder], rules: [ruleA, ruleB], treeOrder });
+    const res = await gatherer.gatherWorkspaceExport('ws-test', { kind: 'workspace' }, OPTS);
+    expect(res!.input.entities.collections[0].order).toEqual(['b-rulb0001', 'auth-fld00001', 'a-rula0001']);
+    expect('order' in res!.input.entities.folders[0]).toBe(false);
+  });
+
+  it('a selection names only the children that ship', async () => {
+    seedWorkspace({ collections: [collection], folders: [folder], rules: [ruleA, ruleB], treeOrder });
+    const res = await gatherer.gatherWorkspaceExport(
+      'ws-test',
+      { kind: 'selection', selection: { collections: ['col00001'], rules: ['rulb0001'] }, strictLiteral: true },
+      OPTS,
+    );
+    expect(res!.input.entities.collections[0].order).toEqual(['b-rulb0001']);
+  });
+
+  it('a workspace without a record exports its containers without order:', async () => {
+    seedWorkspace({ collections: [collection], folders: [folder], rules: [ruleA, ruleB] });
+    const res = await gatherer.gatherWorkspaceExport('ws-test', { kind: 'workspace' }, OPTS);
+    expect('order' in res!.input.entities.collections[0]).toBe(false);
   });
 });

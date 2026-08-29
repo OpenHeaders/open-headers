@@ -18,7 +18,6 @@
  */
 
 import { TreeOrderRecordSchema } from '@openheaders/core/schemas';
-import { mergeOrderedEntries } from '@openheaders/core/sync';
 import {
   EMPTY_TREE_ORDER,
   type TreeContainerOrder,
@@ -36,6 +35,7 @@ import { affectsTreeContainment, type FolderTreeKinds, treeMaterialized } from '
 import { REQUEST_TREE } from '../post-state/request-folder-post-state';
 import { TEMPLATE_TREE } from '../post-state/template-folder-post-state';
 import { driftRecorder } from '../storage-drift';
+import { mergedChildSlots } from '../tree-child-slots';
 
 const TREES: ReadonlyArray<FolderTreeKinds> = [RULE_TREE, REQUEST_TREE, TEMPLATE_TREE];
 
@@ -44,21 +44,6 @@ const CONTAINER_TYPES: ReadonlySet<string> = new Set(TREES.flatMap((tree) => [tr
 export interface TreeOrderCache extends EntityCacheLike {
   readonly workspaceId: string;
   getTreeOrder(): TreeOrderRecord;
-}
-
-/** A container's live children of both kinds, merged by key. */
-export function mergedChildSlots(
-  oracle: EntityOracle,
-  tree: FolderTreeKinds,
-  type: string,
-  uid: string,
-): ReadonlyArray<{ itemId: string; key: string }> {
-  return mergeOrderedEntries(
-    oracle.liveOrderedSetItems(type, uid, tree.childrenPath),
-    oracle.liveOrderedSetItems(type, uid, tree.itemsPath),
-    (slot) => slot.key,
-    (slot) => slot.itemId,
-  );
 }
 
 /** Fold the merged live children of every container into the record. Pure over the oracle. */

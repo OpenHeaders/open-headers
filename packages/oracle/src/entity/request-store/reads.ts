@@ -1,15 +1,11 @@
 // ── Reads ────────────────────────────────────────────────────────────
 
-import {
-  mergeOrderedEntries,
-  REQUEST_COLLECTION_ENTITY_TYPE,
-  REQUEST_FOLDER_CHILDREN_PATH,
-  REQUEST_FOLDER_ENTITY_TYPE,
-  REQUEST_FOLDER_ITEMS_PATH,
-} from '@openheaders/core/sync';
+import { REQUEST_COLLECTION_ENTITY_TYPE, REQUEST_FOLDER_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { Collection, CollectionTree, Request, TreeNode } from '@openheaders/core/types';
 import { indexTreeChildren, orderedChildren, type TreeChildIndex } from '@openheaders/core/utils';
+import { REQUEST_TREE } from '@openheaders/oracle/sync/post-state/request-folder-post-state';
 import { getOracleForCurrentWorkspace } from '@openheaders/oracle/sync/service/accessors';
+import { mergedChildSlots } from '@openheaders/oracle/sync/tree-child-slots';
 import { collections, folders, type LocalFolder, requests } from './state';
 
 export function getRequests(): Request[] {
@@ -54,12 +50,7 @@ function buildTreeForParent(
   const nodes: TreeNode[] = [];
   const oracle = getOracleForCurrentWorkspace();
   const slots = oracle
-    ? mergeOrderedEntries(
-        oracle.liveOrderedSetItems(parentType, parentUid, REQUEST_FOLDER_CHILDREN_PATH),
-        oracle.liveOrderedSetItems(parentType, parentUid, REQUEST_FOLDER_ITEMS_PATH),
-        (slot) => slot.key,
-        (slot) => slot.itemId,
-      ).map((slot) => slot.itemId)
+    ? mergedChildSlots(oracle, REQUEST_TREE, parentType, parentUid).map((slot) => slot.itemId)
     : null;
 
   for (const child of orderedChildren(index, parentPath, slots)) {

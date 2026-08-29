@@ -18,11 +18,9 @@
 import { consumedOrgIds, getIdentitySnapshot } from '@openheaders/core/identity';
 import { CollectionSchema, FolderSchema, TemplateSchema } from '@openheaders/core/schemas';
 import {
-  mergeOrderedEntries,
   resolveTreeParent,
   TEMPLATE_COLLECTION_ENTITY_TYPE,
   TEMPLATE_ENTITY_TYPE,
-  TEMPLATE_FOLDER_CHILDREN_PATH,
   TEMPLATE_FOLDER_ENTITY_TYPE,
   TEMPLATE_FOLDER_ITEMS_PATH,
   TEMPLATE_FOLDER_TREE_KINDS,
@@ -67,6 +65,7 @@ import {
   TEMPLATE_FOLDER_REGISTRATION,
   TEMPLATE_REGISTRATION,
 } from '@openheaders/oracle/sync/entity-registry';
+import { TEMPLATE_TREE } from '@openheaders/oracle/sync/post-state/template-folder-post-state';
 import {
   getActiveCacheForRegistration,
   getCacheForWorkspace,
@@ -74,6 +73,7 @@ import {
   nextSwMutatorContext,
 } from '@openheaders/oracle/sync/service/accessors';
 import { driftRecorder } from '@openheaders/oracle/sync/storage-drift';
+import { mergedChildSlots } from '@openheaders/oracle/sync/tree-child-slots';
 import { getWorkspace } from '../workspace/extension-workspace-store';
 import { childPlacement, rootsPlacement } from './tree-placement';
 
@@ -154,12 +154,7 @@ function buildTreeForParent(
   const nodes: TreeNode[] = [];
   const oracle = getOracleForCurrentWorkspace();
   const slots = oracle
-    ? mergeOrderedEntries(
-        oracle.liveOrderedSetItems(parentType, parentUid, TEMPLATE_FOLDER_CHILDREN_PATH),
-        oracle.liveOrderedSetItems(parentType, parentUid, TEMPLATE_FOLDER_ITEMS_PATH),
-        (slot) => slot.key,
-        (slot) => slot.itemId,
-      ).map((slot) => slot.itemId)
+    ? mergedChildSlots(oracle, TEMPLATE_TREE, parentType, parentUid).map((slot) => slot.itemId)
     : null;
 
   for (const child of orderedChildren(index, parentPath, slots)) {

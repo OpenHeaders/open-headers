@@ -1,17 +1,13 @@
 // ── Reads ────────────────────────────────────────────────────────────
 
-import {
-  COLLECTION_ENTITY_TYPE,
-  FOLDER_CHILDREN_PATH,
-  FOLDER_ENTITY_TYPE,
-  FOLDER_ITEMS_PATH,
-  mergeOrderedEntries,
-} from '@openheaders/core/sync';
+import { COLLECTION_ENTITY_TYPE, FOLDER_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { Collection, CollectionTree, Rule, TreeNode } from '@openheaders/core/types';
 import { indexTreeChildren, orderedChildren, type TreeChildIndex } from '@openheaders/core/utils';
 import type { CollectionCache } from '@openheaders/oracle/sync/caches/collection-cache';
 import { COLLECTION_REGISTRATION } from '@openheaders/oracle/sync/entity-registry';
+import { RULE_TREE } from '@openheaders/oracle/sync/post-state/folder-post-state';
 import { getCacheForWorkspace, getOracleForCurrentWorkspace } from '@openheaders/oracle/sync/service/accessors';
+import { mergedChildSlots } from '@openheaders/oracle/sync/tree-child-slots';
 import { collections, folders, type LocalFolder, rules } from './state';
 
 export function getRules(): Rule[] {
@@ -78,14 +74,7 @@ function buildTreeForParent(
 ): TreeNode[] {
   const nodes: TreeNode[] = [];
   const oracle = getOracleForCurrentWorkspace();
-  const slots = oracle
-    ? mergeOrderedEntries(
-        oracle.liveOrderedSetItems(parentType, parentUid, FOLDER_CHILDREN_PATH),
-        oracle.liveOrderedSetItems(parentType, parentUid, FOLDER_ITEMS_PATH),
-        (slot) => slot.key,
-        (slot) => slot.itemId,
-      ).map((slot) => slot.itemId)
-    : null;
+  const slots = oracle ? mergedChildSlots(oracle, RULE_TREE, parentType, parentUid).map((slot) => slot.itemId) : null;
 
   for (const child of orderedChildren(index, parentPath, slots)) {
     if (child.kind === 'folder') {

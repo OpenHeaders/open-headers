@@ -24,6 +24,12 @@
  */
 
 import { scanTemplateReferencesMany } from '@openheaders/core/live';
+import {
+  FOLDER_TREE_KINDS,
+  REQUEST_FOLDER_TREE_KINDS,
+  TEMPLATE_FOLDER_TREE_KINDS,
+  type TreeParentKinds,
+} from '@openheaders/core/sync';
 import type {
   Collection,
   Environment,
@@ -35,10 +41,13 @@ import type {
   Rule,
   Spec,
   Template,
+  TreeOrderRecord,
   WorkspaceVariables,
 } from '@openheaders/core/types';
 import type { BuildWorkspaceExportInput } from '@openheaders/core/workspace-export';
+import { indexSegments, recordChildOrder, withOrder } from '@openheaders/core/workspace-tree';
 import { hostStorage, type PersistedLocalFolder, wsKeys } from '@openheaders/oracle/storage';
+import { loadTreeOrder } from '@openheaders/oracle/sync/caches/tree-order-cache';
 import { getWorkspace } from '@openheaders/oracle/workspace/extension-workspace-store';
 
 export type { ExportSelection } from '@openheaders/core/types';
@@ -72,13 +81,56 @@ interface GatherResult {
 }
 
 /**
- * Folder records as persisted carry no `order` field; the exporter
- * leaves them as-is (the codec's `FolderSchema` declares `order` as
- * optional, so the envelope schema accepts the persisted shape
- * verbatim).
+ * Folder records as persisted carry no `order` field (the codec's
+ * `FolderSchema` declares it optional, so the envelope accepts the
+ * persisted shape verbatim); `order` is stamped on the shipped set by
+ * {@link stampChildOrder}.
  */
 function toExportFolders(folders: PersistedLocalFolder[]): Folder[] {
   return folders;
+}
+
+const TREE_KINDS: ReadonlyArray<TreeParentKinds<string, string>> = [
+  FOLDER_TREE_KINDS,
+  REQUEST_FOLDER_TREE_KINDS,
+  TEMPLATE_FOLDER_TREE_KINDS,
+];
+
+interface ShippedTree {
+  collections: Collection[];
+  folders: Folder[];
+  rules: Rule[];
+  requests: Request[];
+  templates: Template[];
+}
+
+/**
+ * Stamp every shipped collection's and folder's `order` from the
+ * workspace's tree-order record — the merged child sequence the sidebar
+ * renders, as directory segments (the git `order:` shape, which the
+ * importer's emission plans against). Only children that ship are
+ * named; a container the record does not list carries no key, and a
+ * workspace without a record exports as before. The persisted
+ * collection arrays are already in roots order, so the envelope needs
+ * no workspace-level order.
+ */
+function stampChildOrder(shipped: ShippedTree, record: TreeOrderRecord): Pick<ShippedTree, 'collections' | 'folders'> {
+  const segmentOf = indexSegments(
+    shipped.collections,
+    shipped.folders,
+    shipped.rules,
+    shipped.requests,
+    shipped.templates,
+  );
+  const stamp = <T extends Collection | Folder>(entity: T, role: 'collectionType' | 'folderType'): T => {
+    const kinds = TREE_KINDS.find((tree) => entity.path.startsWith(`${tree.treePrefix}/`));
+    if (!kinds) return entity;
+    return withOrder(entity, recordChildOrder(record, { type: kinds[role], uid: entity.uid }, segmentOf));
+  };
+  return {
+    collections: shipped.collections.map((collection) => stamp(collection, 'collectionType')),
+    folders: shipped.folders.map((folder) => stamp(folder, 'folderType')),
+  };
 }
 
 interface ExpandedSelection {
@@ -484,6 +536,11 @@ export async function gatherWorkspaceExport(
     }
   }
 
+  const treeOrder = await loadTreeOrder(workspaceId);
+  const ordered = treeOrder
+    ? stampChildOrder({ collections, folders, rules, requests, templates }, treeOrder)
+    : { collections, folders };
+
   const input: BuildWorkspaceExportInput = {
     exportedAt: new Date().toISOString(),
     source: {
@@ -502,8 +559,8 @@ export async function gatherWorkspaceExport(
       ...(src.defaultEnvironmentId ? { defaultEnvironmentId: src.defaultEnvironmentId } : {}),
     },
     entities: {
-      collections,
-      folders,
+      collections: ordered.collections,
+      folders: ordered.folders,
       rules,
       requests,
       templates,

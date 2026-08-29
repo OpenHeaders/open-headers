@@ -128,7 +128,7 @@ import { logger, parentPathOf } from '@openheaders/core/utils';
 import { hostStorage, type StorageKey, wsKeys } from '@openheaders/oracle/storage';
 import { recordHostActivityEntry } from './activity/activity-host-entries';
 import type { BroadcastEvent, InMemoryBroadcast } from './broadcast';
-import { loadTreeOrder, mergedChildSlots, treeOrderRanks } from './caches/tree-order-cache';
+import { loadTreeOrder, treeOrderRanks } from './caches/tree-order-cache';
 import type { EntityCacheLike } from './entity-registry';
 import type { EntityOracle } from './oracle';
 import {
@@ -151,6 +151,7 @@ import {
 import { REQUEST_TREE } from './post-state/request-folder-post-state';
 import { TEMPLATE_TREE } from './post-state/template-folder-post-state';
 import type { SwMutatorContextFactory } from './sw-context';
+import { mergedChildSlots } from './tree-child-slots';
 import { type RehomePlan, type RehomeReason, rehomeActivityEntry } from './tree-rehome';
 
 /** Inbound creates coalesce into one pass per burst (peer streams, snapshot replay). */

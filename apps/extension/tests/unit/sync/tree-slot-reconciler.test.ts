@@ -40,7 +40,6 @@ import type { Collection, GrpcRequest, Request, ResponseExample, Rule } from '@o
 import { wsKeys } from '@openheaders/oracle/storage';
 import { setHostActivityEntrySink } from '@openheaders/oracle/sync';
 import { InMemoryBroadcast } from '@openheaders/oracle/sync/broadcast';
-import { mergedChildSlots } from '@openheaders/oracle/sync/caches/tree-order-cache';
 import { buildSchemaRegistry, WORKSPACE_REGISTRY } from '@openheaders/oracle/sync/entity-registry';
 import { InMemoryMutationLog } from '@openheaders/oracle/sync/mutation-log';
 import { EntityOracle, type LockAcquirer } from '@openheaders/oracle/sync/oracle';
@@ -50,6 +49,7 @@ import type { FolderTreeKinds } from '@openheaders/oracle/sync/post-state/folder
 import { REQUEST_TREE } from '@openheaders/oracle/sync/post-state/request-folder-post-state';
 import { projectResponseExampleByUid } from '@openheaders/oracle/sync/post-state/response-example-post-state';
 import { projectRuleByUid } from '@openheaders/oracle/sync/post-state/rule-post-state';
+import { mergedChildSlots } from '@openheaders/oracle/sync/tree-child-slots';
 import { createTreeSlotReconciler, REHOME_GRACE_MS } from '@openheaders/oracle/sync/tree-slot-reconciler';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { installBackingStorage } from '../../helpers/chrome-storage-backing';
