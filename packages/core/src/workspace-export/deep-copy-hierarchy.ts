@@ -27,7 +27,7 @@
  */
 
 import type { Collection, Folder } from '../types/index';
-import { generateUid, toFolderName } from '../utils/workspace';
+import { generateUid, lastPathSegment, toFolderName } from '../utils/workspace';
 
 /**
  * Local-folder alias re-exported for the extension-side caller. The
@@ -151,10 +151,31 @@ export function deepCopyHierarchy<E extends TreeLeafEntity>(
     return finalizeEntity(proposed, { ...ctxBase, proposedEntity: proposed });
   });
 
+  // A container's `order` names its children's directory segments; the
+  // children were just re-minted, so the listed segments follow them.
+  // A segment naming a child the copy does not carry is dropped.
+  const segmentRemap = new Map<string, string>();
+  const link = (oldPath: string, newPath: string): void => {
+    const from = lastPathSegment(oldPath);
+    const to = lastPathSegment(newPath);
+    if (from !== null && to !== null) segmentRemap.set(from, to);
+  };
+  for (const [oldPath, newPath] of pathRemap) link(oldPath, newPath);
+  for (const [i, entity] of entities.entries()) link(entity.path, newEntities[i].path);
+  const remapOrder = <T extends { order?: string[] }>(container: T): T => {
+    if (container.order === undefined) return container;
+    const order: string[] = [];
+    for (const segment of container.order) {
+      const next = segmentRemap.get(segment);
+      if (next !== undefined) order.push(next);
+    }
+    return { ...container, order };
+  };
+
   return {
     entities: newEntities,
-    collections: newCollections,
-    folders: newFolders,
+    collections: newCollections.map(remapOrder),
+    folders: newFolders.map(remapOrder),
     pathRemap,
     entityUidRemap,
   };

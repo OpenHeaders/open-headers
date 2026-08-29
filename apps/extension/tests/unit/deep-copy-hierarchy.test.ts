@@ -124,6 +124,28 @@ describe('deepCopyHierarchy — nested folders', () => {
     expect(newChild.path.startsWith(`${newParent.path}/oauth-`)).toBe(true);
   });
 
+  it('remaps a container order: to the re-minted child segments and drops segments the copy does not carry', () => {
+    const col: Collection = {
+      ...makeCollection('col00001', 'API', 'rules/api-col00001'),
+      order: ['b-rulb0001', 'auth-flda0001', 'a-rula0001', 'gone-xxxxxxxx'],
+    };
+    const folder: LocalFolder = { ...makeFolder('flda0001', 'Auth', 'rules/api-col00001/auth-flda0001'), order: [] };
+    const a = makeRule('rula0001', 'a', 'rules/api-col00001/a-rula0001');
+    const b = makeRule('rulb0001', 'b', 'rules/api-col00001/b-rulb0001');
+
+    const out = deepCopyHierarchy<Rule>({
+      entities: [a, b],
+      collections: [col],
+      folders: [folder],
+      treePrefix: 'rules',
+    });
+
+    const segment = (path: string): string => path.slice(path.lastIndexOf('/') + 1);
+    const [newA, newB] = out.entities;
+    expect(out.collections[0].order).toEqual([segment(newB.path), segment(out.folders[0].path), segment(newA.path)]);
+    expect(out.folders[0].order).toEqual([]);
+  });
+
   it('preserves input array order in the returned folders', () => {
     const col = makeCollection('col00001', 'API', 'rules/api-col');
     const a = makeFolder('flda0001', 'A', 'rules/api-col/a');

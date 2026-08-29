@@ -39,6 +39,7 @@ import {
   WORKSPACE_ROOTS_TEMPLATE_COLLECTIONS_PATH,
 } from '../sync';
 import type { Collection, Folder } from '../types/collection';
+import { type TreeOrderRecord, treeContainerKey, treeOrderChildren } from '../types/tree-order';
 import type { WorkspaceManifest, WorkspaceOrder } from '../types/workspace';
 import { lastPathSegment } from '../utils/workspace';
 import type { WorkspaceTreeState } from './types';
@@ -82,36 +83,28 @@ const TEMPLATE_TREE: TreeOrderSpec = {
 
 /** Stamp `order` on every container and the manifest from the live sets. */
 export function applyTreeOrder(state: WorkspaceTreeState, slots: TreeSlotReader): WorkspaceTreeState {
-  const segmentOf = new Map<string, string>();
-  const index = (entities: ReadonlyArray<{ uid: string; path: string }>): void => {
-    for (const entity of entities) {
-      const segment = lastPathSegment(entity.path);
-      if (segment !== null) segmentOf.set(entity.uid, segment);
-    }
-  };
-  index(state.collections);
-  index(state.folders);
-  index(state.rules);
-  index(state.requestCollections);
-  index(state.requestFolders);
-  index(state.requests);
-  index(state.grpcRequests);
-  index(state.websocketRequests);
-  index(state.mqttRequests);
-  index(state.templateCollections);
-  index(state.templateFolders);
-  index(state.templates);
+  const segmentOf = indexSegments(
+    state.collections,
+    state.folders,
+    state.rules,
+    state.requestCollections,
+    state.requestFolders,
+    state.requests,
+    state.grpcRequests,
+    state.websocketRequests,
+    state.mqttRequests,
+    state.templateCollections,
+    state.templateFolders,
+    state.templates,
+  );
 
   // A slot whose child is not in the snapshot (a dead slot the
   // reconciler has not healed yet) names no directory and is skipped.
-  const names = (entries: ReadonlyArray<TreeSlotEntry>): string[] => {
-    const out: string[] = [];
-    for (const { uid } of entries) {
-      const segment = segmentOf.get(uid);
-      if (segment !== undefined) out.push(segment);
-    }
-    return out;
-  };
+  const names = (entries: ReadonlyArray<TreeSlotEntry>): string[] =>
+    segmentsOf(
+      entries.map((entry) => entry.uid),
+      segmentOf,
+    );
 
   const containers = <T extends Collection | Folder>(entities: T[], type: string, spec: TreeOrderSpec): T[] =>
     entities.map((entity) => {
@@ -141,7 +134,47 @@ export function applyTreeOrder(state: WorkspaceTreeState, slots: TreeSlotReader)
   };
 }
 
-function withOrder<T extends { order?: string[] }>(entity: T, order: string[]): T {
+/** Child uid → directory segment over every entity of the snapshot; an entity without a path tail is absent. */
+export function indexSegments(
+  ...lists: ReadonlyArray<ReadonlyArray<{ uid: string; path: string }>>
+): Map<string, string> {
+  const segmentOf = new Map<string, string>();
+  for (const entities of lists) {
+    for (const entity of entities) {
+      const segment = lastPathSegment(entity.path);
+      if (segment !== null) segmentOf.set(entity.uid, segment);
+    }
+  }
+  return segmentOf;
+}
+
+/** The directory segments of `uids` in order; a uid the index does not know names no directory and is skipped. */
+export function segmentsOf(uids: ReadonlyArray<string>, segmentOf: ReadonlyMap<string, string>): string[] {
+  const out: string[] = [];
+  for (const uid of uids) {
+    const segment = segmentOf.get(uid);
+    if (segment !== undefined) out.push(segment);
+  }
+  return out;
+}
+
+/**
+ * A container's `order` from the persisted tree-order record instead of
+ * the live sets — for a host that reads storage, not an oracle (the
+ * export gatherer). The record's children that the index knows, in
+ * record order; a container the record does not list gets no key.
+ */
+export function recordChildOrder(
+  record: TreeOrderRecord,
+  parent: ParentRefShape,
+  segmentOf: ReadonlyMap<string, string>,
+): string[] {
+  const entry = record.containers[treeContainerKey(parent.type, parent.uid)];
+  return entry ? segmentsOf(treeOrderChildren(entry), segmentOf) : [];
+}
+
+/** The entity with `order` stamped when there is one, and without the key when there is none. */
+export function withOrder<T extends { order?: string[] }>(entity: T, order: string[]): T {
   const out = { ...entity };
   if (order.length > 0) out.order = order;
   else delete out.order;

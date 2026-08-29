@@ -369,6 +369,90 @@ describe('synthesizeImportEmission — collections + folders', () => {
     expect(vars.map((v) => v.itemId)).toEqual(['var00001']);
   });
 
+  const leaf = (uid: string, slug: string): Rule =>
+    ({
+      ...targetRule,
+      uid,
+      name: slug,
+      path: `rules/api-col00001/${slug}-${uid}`,
+    }) as Rule;
+
+  it('a created collection carrying order: seeds its folder and leaves interleaved as listed', () => {
+    const ordered: Collection = { ...collection, order: ['b-rul0000b', 'auth-fld00001', 'a-rul0000a'] };
+    const plan = emptyPlan({
+      collections: [{ action: 'create', entity: ordered }],
+      folders: [{ action: 'create', entity: folder }],
+      rules: [
+        { action: 'create', entity: leaf('rul0000a', 'a') },
+        { action: 'create', entity: leaf('rul0000b', 'b') },
+      ],
+    });
+    const client = new InMemoryDocumentStore();
+    const batches = synthesizeImportEmission(
+      slicesFor(plan, {
+        ruleCollections: [{ action: 'create', entity: ordered }],
+        ruleFolders: [{ action: 'create', entity: folder }],
+      }),
+      emptyPrev(),
+      { nextCtx, liveSetEntries: liveReaderFor(client) },
+    );
+    applyTo(client, batches);
+
+    const merged = [
+      ...client.liveOrderedSetItems('collection', 'col00001', 'folders'),
+      ...client.liveOrderedSetItems('collection', 'col00001', FOLDER_ITEMS_PATH),
+    ].sort((a, b) => (a.key < b.key ? -1 : a.key > b.key ? 1 : 0));
+    expect(merged.map((s) => s.itemId)).toEqual(['rul0000b', 'fld00001', 'rul0000a']);
+    expect(batches.some(({ batch }) => batch.mutations.some((m) => m.body.kind === 'moveBefore'))).toBe(false);
+  });
+
+  it('an update collision carrying order: re-keys the live children into the listed order, none when equal', () => {
+    const client = new InMemoryDocumentStore();
+    const a = leaf('rul0000a', 'a');
+    const b = leaf('rul0000b', 'b');
+    const seedPlan = emptyPlan({
+      collections: [{ action: 'create', entity: collection }],
+      rules: [
+        { action: 'create', entity: a },
+        { action: 'create', entity: b },
+      ],
+    });
+    applyTo(
+      client,
+      synthesizeImportEmission(
+        slicesFor(seedPlan, { ruleCollections: [{ action: 'create', entity: collection }] }),
+        emptyPrev(),
+        { nextCtx, liveSetEntries: liveReaderFor(client) },
+      ),
+    );
+
+    const reordered: Collection = { ...collection, order: ['b-rul0000b', 'a-rul0000a'] };
+    const batches = synthesizeImportEmission(
+      slicesFor(emptyPlan({ collections: [{ action: 'update', targetUid: 'col00001', entity: reordered }] }), {
+        ruleCollections: [{ action: 'update', targetUid: 'col00001', entity: reordered }],
+      }),
+      emptyPrev({ ruleCollections: [collection], rules: [a, b] }),
+      { nextCtx, liveSetEntries: liveReaderFor(client) },
+    );
+    const bodies = batches.flatMap(({ batch }) => batch.mutations.map((m) => m.body));
+    expect(bodies.filter((body) => body.kind === 'moveBefore')).toHaveLength(1);
+    expect(bodies.some((body) => body.kind === 'setField' && body.path === 'order')).toBe(false);
+    applyTo(client, batches);
+    expect(client.liveOrderedSetItems('collection', 'col00001', FOLDER_ITEMS_PATH).map((s) => s.itemId)).toEqual([
+      'rul0000b',
+      'rul0000a',
+    ]);
+
+    const again = synthesizeImportEmission(
+      slicesFor(emptyPlan({ collections: [{ action: 'update', targetUid: 'col00001', entity: reordered }] }), {
+        ruleCollections: [{ action: 'update', targetUid: 'col00001', entity: reordered }],
+      }),
+      emptyPrev({ ruleCollections: [collection], rules: [a, b] }),
+      { nextCtx, liveSetEntries: liveReaderFor(client) },
+    );
+    expect(again).toEqual([]);
+  });
+
   it('collection update collisions diff variables by uid and rename via setField', () => {
     const client = new InMemoryDocumentStore();
     const seed = synthesizeImportEmission(

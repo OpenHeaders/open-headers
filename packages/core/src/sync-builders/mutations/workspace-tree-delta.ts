@@ -78,15 +78,10 @@ import {
   TEMPLATE_FOLDER_ENTITY_TYPE,
   TEMPLATE_FOLDER_ITEMS_PATH,
   TEMPLATE_FOLDER_TREE_KINDS,
-  type TreeParentKinds,
   type TreeParentRef,
   templateChild,
   templateFolderChild,
   WEBSOCKET_REQUEST_ENTITY_TYPE,
-  WORKSPACE_ROOTS_REF,
-  WORKSPACE_ROOTS_REQUEST_COLLECTIONS_PATH,
-  WORKSPACE_ROOTS_RULE_COLLECTIONS_PATH,
-  WORKSPACE_ROOTS_TEMPLATE_COLLECTIONS_PATH,
   webSocketRequestChild,
 } from '@openheaders/core/sync';
 import type {
@@ -97,7 +92,6 @@ import type {
   MqttRequest,
   WebSocketRequest,
 } from '@openheaders/core/types';
-import { lastPathSegment } from '@openheaders/core/utils';
 import type { LocalFolder, PlanEntry } from '@openheaders/core/workspace-export';
 import {
   environmentFilePath,
@@ -139,7 +133,7 @@ import {
   buildDeleteBatch as buildDeleteTemplateBatch,
   buildDeleteEntityBatch as buildDeleteTemplateEntityBatch,
 } from './template-mutations';
-import { planSlotOrder, type SlotOrderMember, type SlotOrderPlan, type SlotOrderTarget } from './tree-slot-order';
+import { planTreeOrder, type TreeOrderInput } from './tree-order-plan';
 import {
   buildWebSocketAddBatch,
   buildWebSocketDeleteBatch,
@@ -293,7 +287,7 @@ export function synthesizeWorkspaceTreeDelta(args: WorkspaceTreeDeltaArgs): Emis
   // One slot-key minter for the whole round: the emission's creates,
   // the three request kinds below and the path moves all place through
   // it, and a tree-authored `order:` pre-assigns the keys it hands out.
-  const slotOrder = planTreeOrder(next, touched, deps.liveSetEntries);
+  const slotOrder = planTreeOrder(treeOrderInput(next, touched), touched, deps.liveSetEntries);
   const tail = createTailTracker(deps.liveSetEntries, slotOrder);
   const emissionDeps: ImportEmissionDeps = { ...deps, tail };
 
@@ -391,127 +385,29 @@ export function synthesizeWorkspaceTreeDelta(args: WorkspaceTreeDeltaArgs): Emis
 
 // ── Tree-authored `order:` → slot-order plan ─────────────────────────
 
-interface TreeOrderFamily<C extends string, F extends string> {
-  kinds: TreeParentKinds<C, F>;
-  childrenPath: string;
-  itemsPath: string;
-  rootsPath: string;
-  collections: readonly Collection[];
-  folders: readonly Folder[];
-  leaves: ReadonlyArray<{ uid: string; path: string }>;
-  /** The manifest's per-tree collection list, when `workspace.yaml` carries one. */
-  rootOrder: readonly string[] | undefined;
-}
-
-/**
- * Every order a tree-authored manifest speaks for: a touched container
- * with an `order:` (one merged sequence over its `folders` and `items`
- * sets — each named directory tagged with the set it holds a slot in),
- * and the roots set of each tree the touched `workspace.yaml` lists.
- * The desired sequence is the listed directories in listed order, then
- * the unlisted ones in name order; names with no directory are ignored.
- */
-function planTreeOrder(
-  next: TreeReadResult['state'],
-  touched: (entityPath: string) => boolean,
-  live: ImportEmissionDeps['liveSetEntries'],
-): SlotOrderPlan {
+/** The read tree as the order planner sees it: every container and leaf of each family, the manifest's roots order when `workspace.yaml` was touched. */
+function treeOrderInput(next: TreeReadResult['state'], touched: (entityPath: string) => boolean): TreeOrderInput {
   const manifestOrder = touched('') ? next.workspace?.order : undefined;
-  const families: Array<TreeOrderFamily<string, string>> = [
-    {
-      kinds: FOLDER_TREE_KINDS,
-      childrenPath: FOLDER_CHILDREN_PATH,
-      itemsPath: FOLDER_ITEMS_PATH,
-      rootsPath: WORKSPACE_ROOTS_RULE_COLLECTIONS_PATH,
+  return {
+    rules: {
       collections: next.collections,
       folders: next.folders,
       leaves: next.rules,
       rootOrder: manifestOrder?.rules,
     },
-    {
-      kinds: REQUEST_FOLDER_TREE_KINDS,
-      childrenPath: REQUEST_FOLDER_CHILDREN_PATH,
-      itemsPath: REQUEST_FOLDER_ITEMS_PATH,
-      rootsPath: WORKSPACE_ROOTS_REQUEST_COLLECTIONS_PATH,
+    requests: {
       collections: next.requestCollections,
       folders: next.requestFolders,
       leaves: [...next.requests, ...next.grpcRequests, ...next.websocketRequests, ...next.mqttRequests],
       rootOrder: manifestOrder?.requests,
     },
-    {
-      kinds: TEMPLATE_FOLDER_TREE_KINDS,
-      childrenPath: TEMPLATE_FOLDER_CHILDREN_PATH,
-      itemsPath: TEMPLATE_FOLDER_ITEMS_PATH,
-      rootsPath: WORKSPACE_ROOTS_TEMPLATE_COLLECTIONS_PATH,
+    templates: {
       collections: next.templateCollections,
       folders: next.templateFolders,
       leaves: next.templates,
       rootOrder: manifestOrder?.templates,
     },
-  ];
-  const targets: SlotOrderTarget[] = [];
-  for (const family of families) {
-    const collectionsByParent = childrenByParent(family.collections);
-    const foldersByParent = childrenByParent(family.folders);
-    const leavesByParent = childrenByParent(family.leaves);
-    const container = (type: string, entity: Collection | Folder): void => {
-      if (!touched(entity.path) || entity.order === undefined) return;
-      const children: ChildDirectory[] = [
-        ...(foldersByParent.get(entity.path) ?? []).map((child) => ({ ...child, setPath: family.childrenPath })),
-        ...(leavesByParent.get(entity.path) ?? []).map((child) => ({ ...child, setPath: family.itemsPath })),
-      ];
-      targets.push({ parent: { type, uid: entity.uid }, members: inListedOrder(children, entity.order) });
-    };
-    for (const collection of family.collections) container(family.kinds.collectionType, collection);
-    for (const folder of family.folders) container(family.kinds.folderType, folder);
-    if (family.rootOrder !== undefined) {
-      const roots = (collectionsByParent.get(family.kinds.treePrefix) ?? []).map((child) => ({
-        ...child,
-        setPath: family.rootsPath,
-      }));
-      targets.push({ parent: WORKSPACE_ROOTS_REF, members: inListedOrder(roots, family.rootOrder) });
-    }
-  }
-  return planSlotOrder(targets, live);
-}
-
-interface ChildDirectory {
-  uid: string;
-  segment: string;
-  /** The parent set this directory's slot lives in. */
-  setPath: string;
-}
-
-type ChildEntry = Omit<ChildDirectory, 'setPath'>;
-
-function childrenByParent(entities: ReadonlyArray<{ uid: string; path: string }>): Map<string, ChildEntry[]> {
-  const out = new Map<string, ChildEntry[]>();
-  for (const entity of entities) {
-    const parentPath = parentPathOf(entity.path);
-    const segment = lastPathSegment(entity.path);
-    if (parentPath === null || segment === null) continue;
-    const bucket = out.get(parentPath);
-    const child = { uid: entity.uid, segment };
-    if (bucket) bucket.push(child);
-    else out.set(parentPath, [child]);
-  }
-  return out;
-}
-
-/** Listed directories in listed order, then the unlisted ones by name — folders and leaves in one sequence. */
-function inListedOrder(children: readonly ChildDirectory[], order: readonly string[]): SlotOrderMember[] {
-  const rank = new Map<string, number>();
-  order.forEach((segment, index) => {
-    if (!rank.has(segment)) rank.set(segment, index);
-  });
-  const position = (child: ChildDirectory): number => rank.get(child.segment) ?? Number.POSITIVE_INFINITY;
-  return [...children]
-    .sort((a, b) => {
-      const byRank = position(a) - position(b);
-      if (byRank !== 0) return byRank;
-      return a.segment < b.segment ? -1 : a.segment > b.segment ? 1 : 0;
-    })
-    .map((child) => ({ uid: child.uid, setPath: child.setPath }));
+  };
 }
 
 // ── gRPC / WebSocket requests (no export-envelope membership) ────────

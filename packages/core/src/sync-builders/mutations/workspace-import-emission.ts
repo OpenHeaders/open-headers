@@ -131,6 +131,7 @@ import {
   buildAddBatch as buildAddTemplateBatch,
   buildUpdateBatch as buildUpdateTemplateBatch,
 } from './template-mutations';
+import { planTreeOrder, type TreeOrderFamilyInput, type TreeOrderInput } from './tree-order-plan';
 import type { SlotOrderPlan } from './tree-slot-order';
 
 /** One applicable unit: a minted batch plus its derived side effects. */
@@ -208,7 +209,10 @@ export function synthesizeImportEmission(
   // One tail tracker per emission: every parent's `folders` / `items`
   // set and the roots' collection sets append strictly after their live
   // tail, and sibling creates in the same run keep ascending.
-  const tail = deps.tail ?? createTailTracker(deps.liveSetEntries);
+  // A caller sharing its own minter (the tree delta) plans and re-keys
+  // its containers itself; a bare import plans the order its containers carry.
+  const slotOrder = deps.tail ? null : planImportOrder(slices, prev, deps.liveSetEntries);
+  const tail = deps.tail ?? createTailTracker(deps.liveSetEntries, slotOrder ?? undefined);
   const ruleTree = createTreePlacer(
     FOLDER_TREE_KINDS,
     prev.ruleCollections,
@@ -374,6 +378,10 @@ export function synthesizeImportEmission(
     prev.trustedRoots,
     deps,
   );
+
+  for (const reorder of slotOrder?.reorders ?? []) {
+    out.push(bodiesBatch(`${reorder.parent.type}:${reorder.parent.uid} (reorder)`, reorder.bodies, deps.nextCtx()));
+  }
 
   return out.filter((e) => e.batch.mutations.length > 0);
 }
@@ -569,6 +577,78 @@ function emitLeaves<T extends { uid: string }, P extends ParentRefShape>(
       out.push(bodiesBatch(`${tag}:${uid} (unset)`, bodies, family.deps.nextCtx()));
     }
   }
+}
+
+/**
+ * The order an imported collection or folder carries — the sender's
+ * merged child sequence, stamped by its export gatherer — converges
+ * its children the way a touched manifest does on git: planned against
+ * the live sets, creates keyed at their listed position, colliding
+ * containers re-keyed by `moveBefore`. The planner sees the tree as it
+ * will stand after the import (incoming non-skip entries over the
+ * target's own), so a listed child the import does not carry keeps its
+ * place among the listed ones.
+ */
+function planImportOrder(
+  slices: ImportEmissionPlanSlices,
+  prev: ImportEmissionPrev,
+  live: LiveSetEntriesReader,
+): SlotOrderPlan {
+  const touched = new Set<string>();
+  const family = <C extends Collection, F extends LocalFolder, L extends { uid: string; path: string }>(
+    collections: PlanEntry<C>[],
+    prevCollections: readonly C[],
+    folders: PlanEntry<F>[],
+    prevFolders: readonly F[],
+    leaves: PlanEntry<L>[],
+    prevLeaves: readonly L[],
+  ): TreeOrderFamilyInput => {
+    const landing = <T extends { uid: string; path: string }>(entries: PlanEntry<T>[], existing: readonly T[]): T[] => {
+      const out: T[] = [];
+      const seen = new Set<string>();
+      for (const entry of entries) {
+        if (entry.action === 'skip') continue;
+        touched.add(entry.entity.path);
+        seen.add(entry.entity.uid);
+        out.push(entry.entity);
+      }
+      for (const entity of existing) if (!seen.has(entity.uid)) out.push(entity);
+      return out;
+    };
+    return {
+      collections: landing(collections, prevCollections),
+      folders: landing(folders, prevFolders),
+      leaves: landing(leaves, prevLeaves),
+    };
+  };
+  const { plan } = slices;
+  const input: TreeOrderInput = {
+    rules: family(
+      slices.ruleCollections,
+      prev.ruleCollections,
+      slices.ruleFolders,
+      prev.ruleFolders,
+      plan.rules,
+      prev.rules,
+    ),
+    requests: family(
+      slices.requestCollections,
+      prev.requestCollections,
+      slices.requestFolders,
+      prev.requestFolders,
+      plan.requests,
+      prev.requests,
+    ),
+    templates: family(
+      slices.templateCollections,
+      prev.templateCollections,
+      slices.templateFolders,
+      prev.templateFolders,
+      plan.templates,
+      prev.templates,
+    ),
+  };
+  return planTreeOrder(input, (path) => touched.has(path), live);
 }
 
 // ── Collections ────────────────────────────────────────────────────

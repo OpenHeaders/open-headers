@@ -19,8 +19,10 @@ import {
 import type { Collection, Folder, Request, Rule } from '../../src/types';
 import {
   applyTreeOrder,
+  indexSegments,
   planWorkspaceTree,
   readWorkspaceTree,
+  recordChildOrder,
   type WorkspaceTreeState,
 } from '../../src/workspace-tree';
 
@@ -162,6 +164,35 @@ describe('applyTreeOrder', () => {
     applyTreeOrder(input, reader(SLOTS));
     expect('order' in input.collections[0]).toBe(false);
     expect('order' in input.workspace).toBe(false);
+  });
+});
+
+describe('recordChildOrder', () => {
+  const segmentOf = indexSegments([ruleCollection], [folder], [rule('rul0000a', 'a'), rule('rul0000b', 'b')]);
+
+  it("hands back the record's merged children as directory segments, skipping children the index does not know", () => {
+    const record = {
+      schemaVersion: 5 as const,
+      containers: { 'collection:col0000a': { children: ['rul0000b', 'fol00001', 'dead0000', 'rul0000a'] } },
+    };
+    expect(recordChildOrder(record, { type: 'collection', uid: 'col0000a' }, segmentOf)).toEqual([
+      'b-rul0000b',
+      'sub-fol00001',
+      'a-rul0000a',
+    ]);
+  });
+
+  it('a legacy entry reads folders then items; an unlisted container gets nothing', () => {
+    const record = {
+      schemaVersion: 5 as const,
+      containers: { 'collection:col0000a': { folders: ['fol00001'], items: ['rul0000b', 'rul0000a'] } },
+    };
+    expect(recordChildOrder(record, { type: 'collection', uid: 'col0000a' }, segmentOf)).toEqual([
+      'sub-fol00001',
+      'b-rul0000b',
+      'a-rul0000a',
+    ]);
+    expect(recordChildOrder(record, { type: 'collection', uid: 'col0000b' }, segmentOf)).toEqual([]);
   });
 });
 
