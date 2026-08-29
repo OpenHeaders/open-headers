@@ -35,6 +35,7 @@ describe('request create menus', () => {
       { createNewRequestCollection: async () => undefined, onCreateRequestOfKind: () => undefined },
       t,
     );
+    expect(items.map((i) => (i ? i.key : null))).toEqual(['collection', 'new-request']);
     const newRequest = items.find((i) => i && i.key === 'new-request');
     expect(newRequest && labelOf(newRequest)).toBe('New Request');
     expect(newRequest ? childrenOf(newRequest).map(labelOf) : []).toEqual(SHORT);

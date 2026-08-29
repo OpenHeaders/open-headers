@@ -55,7 +55,6 @@ export function buildRequestImportMenuItems(
     },
     ...(onCreateRequestOfKind || onCreateRequest
       ? [
-          { type: 'divider' as const, key: 'div-request' },
           onCreateRequestOfKind
             ? {
                 key: 'new-request',
