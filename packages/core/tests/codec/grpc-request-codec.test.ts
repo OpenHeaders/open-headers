@@ -43,7 +43,16 @@ describe('serializeGrpcRequest', () => {
   it('orders manifest fields metadata-top (invariant #6)', () => {
     const out = serializeGrpcRequest(
       freshDocument(
-        grpcRequest({ description: 'ordered', auth: { type: 'bearer', token: 't' }, sslVerification: false }),
+        grpcRequest({
+          description: 'ordered',
+          auth: { type: 'bearer', token: 't' },
+          sslVerification: false,
+          sniServerName: 'grpc.openheaders.io',
+          tlsCipherSuites: 'TLS_AES_128_GCM_SHA256',
+          tlsMaxVersion: '1.3',
+          tlsMinVersion: '1.2',
+          clientCertificateRef: 'gateway-mtls',
+        }),
       ),
     );
     const keys = Object.keys(YAML.parse(out.grpcYaml) as Record<string, unknown>);
@@ -60,6 +69,11 @@ describe('serializeGrpcRequest', () => {
       'specLink',
       'timeoutMs',
       'sslVerification',
+      'clientCertificateRef',
+      'tlsMinVersion',
+      'tlsMaxVersion',
+      'tlsCipherSuites',
+      'sniServerName',
     ]);
   });
 });

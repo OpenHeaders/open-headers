@@ -9,7 +9,7 @@
  * Every other request field — `name`, `description`, `method`, `url`,
  * `auth`, `body`, `credentialsMode`, `followRedirects`,
  * `sslVerification`, `tlsMinVersion`, `tlsMaxVersion`,
- * `tlsCipherSuites`, `httpVersion`, `resolveToAddress`,
+ * `tlsCipherSuites`, `sniServerName`, `httpVersion`, `resolveToAddress`,
  * `clientCertificateRef`, `proxyMode`, `proxyUrl`, `proxyCredentialRef`,
  * `unixSocketPath`, `cookieJar`, `timeoutMs`,
  * `maxResponseBytes`, `maxRedirects`,

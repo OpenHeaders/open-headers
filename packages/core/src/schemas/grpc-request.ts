@@ -11,7 +11,14 @@
 
 import * as v from 'valibot';
 import { PathSegmentSchema, RelativePathSchema, SchemaVersionSchema, UidSchema } from './common';
-import { RequestTimeoutMsSchema, UnixSocketPathSchema } from './request';
+import {
+  ClientCertificateRefSchema,
+  RequestTimeoutMsSchema,
+  SniServerNameSchema,
+  TlsCipherSuitesSchema,
+  TlsVersionSchema,
+  UnixSocketPathSchema,
+} from './request';
 
 /**
  * gRPC target: authority (`host` or `host:port`) without a scheme —
@@ -129,6 +136,26 @@ export const GrpcRequestSchema = v.object({
    * (the safe default); `false` accepts self-signed dev servers.
    */
   sslVerification: v.optional(v.boolean()),
+  /**
+   * Vault `client-certificate` entry NAME presented in the TLS
+   * handshake — mutual-TLS servers. The PEM pair never rides the
+   * request; the executor resolves the ref at connect (the HTTP
+   * request's contract). Node runtimes only.
+   */
+  clientCertificateRef: v.optional(ClientCertificateRefSchema),
+  /** Lowest TLS version the dial may negotiate — the HTTP request's
+   *  knob. Absent = the runtime floor (1.2); `1.0` / `1.1` lower it
+   *  for legacy servers. Node runtimes only. */
+  tlsMinVersion: v.optional(TlsVersionSchema),
+  /** Highest TLS version the dial may negotiate. Absent = the runtime
+   *  ceiling (1.3). Node runtimes only. */
+  tlsMaxVersion: v.optional(TlsVersionSchema),
+  /** Cipher suites offered on the dial, OpenSSL colon-list. Absent =
+   *  the runtime's defaults. Node runtimes only. */
+  tlsCipherSuites: v.optional(TlsCipherSuitesSchema),
+  /** SNI server name override for the TLS dial. Absent = the target's
+   *  host. Templates welcome. Node runtimes only. */
+  sniServerName: v.optional(SniServerNameSchema),
 });
 
 /**

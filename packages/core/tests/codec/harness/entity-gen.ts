@@ -595,6 +595,10 @@ export const ENTITY_CASES: readonly EntityCase[] = [
         maybe(rng, 0.2, () => rng.pick(['1.0', '1.2'] as const)),
       ),
       ...opt(
+        'sniServerName',
+        maybe(rng, 0.2, () => `${word(rng)}.openheaders.io`),
+      ),
+      ...opt(
         'timeoutMs',
         maybe(rng, 0.3, () => 1_000 + rng.int(60_000)),
       ),
@@ -660,6 +664,26 @@ export const ENTITY_CASES: readonly EntityCase[] = [
         ...opt(
           'timeoutMs',
           maybe(rng, 0.3, () => 1_000 + rng.int(30_000)),
+        ),
+        ...opt(
+          'sslVerification',
+          maybe(rng, 0.2, () => false),
+        ),
+        ...opt(
+          'clientCertificateRef',
+          maybe(rng, 0.2, () => `cert-${word(rng)}`),
+        ),
+        ...opt(
+          'tlsMinVersion',
+          maybe(rng, 0.2, () => rng.pick(['1.0', '1.2'] as const)),
+        ),
+        ...opt(
+          'tlsCipherSuites',
+          maybe(rng, 0.2, () => 'TLS_AES_128_GCM_SHA256:ECDHE-RSA-AES128-GCM-SHA256'),
+        ),
+        ...opt(
+          'sniServerName',
+          maybe(rng, 0.2, () => `${word(rng)}.openheaders.io`),
         ),
       };
     },
@@ -816,6 +840,14 @@ export const ENTITY_CASES: readonly EntityCase[] = [
         maybe(rng, 0.2, () => `cert-${word(rng)}`),
       ),
       ...opt(
+        'tlsMaxVersion',
+        maybe(rng, 0.2, () => '1.2' as const),
+      ),
+      ...opt(
+        'tlsCipherSuites',
+        maybe(rng, 0.2, () => 'TLS_AES_128_GCM_SHA256'),
+      ),
+      ...opt(
         'sniServerName',
         maybe(rng, 0.2, () => `${word(rng)}.openheaders.io`),
       ),
@@ -867,6 +899,26 @@ export const ENTITY_CASES: readonly EntityCase[] = [
       ...opt(
         'timeoutMs',
         maybe(rng, 0.3, () => 1_000 + rng.int(30_000)),
+      ),
+      ...opt(
+        'sslVerification',
+        maybe(rng, 0.2, () => false),
+      ),
+      ...opt(
+        'clientCertificateRef',
+        maybe(rng, 0.2, () => `cert-${word(rng)}`),
+      ),
+      ...opt(
+        'tlsMinVersion',
+        maybe(rng, 0.2, () => rng.pick(['1.0', '1.2'] as const)),
+      ),
+      ...opt(
+        'tlsCipherSuites',
+        maybe(rng, 0.2, () => 'TLS_AES_128_GCM_SHA256:ECDHE-RSA-AES128-GCM-SHA256'),
+      ),
+      ...opt(
+        'sniServerName',
+        maybe(rng, 0.2, () => `${word(rng)}.openheaders.io`),
       ),
     }),
     fresh: freshDocument,

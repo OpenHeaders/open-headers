@@ -40,6 +40,7 @@ import type {
   RequestSchema,
   RequestSeedSchema,
   RequestSpecLinkSchema,
+  TlsPolicySchema,
   TlsVersionSchema,
 } from '../schemas/request';
 
@@ -122,6 +123,13 @@ export type CredentialsMode = v.InferOutput<typeof CredentialsModeSchema>;
  * transports translate to their runtime's own tokens.
  */
 export type TlsVersion = v.InferOutput<typeof TlsVersionSchema>;
+
+/**
+ * The TLS policy every request kind carries — verification, client
+ * certificate ref, version window, cipher list, SNI override. One
+ * shape so executors and transports type against one policy.
+ */
+export type TlsPolicy = v.InferOutput<typeof TlsPolicySchema>;
 
 /**
  * HTTP version policy for the per-request `httpVersion` knob. Absent /

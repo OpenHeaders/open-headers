@@ -10,7 +10,9 @@
  *
  * Every other field — `name`, `description`, `url`, `flavor`,
  * `subprotocols`, `message`, `messageFormat`, `binaryEncoding`, `specLink`,
- * `unixSocketPath`, `timeoutMs` — flows through `setField` scalars. `subprotocols`, `specLink` and
+ * `unixSocketPath`, `timeoutMs`, the TLS policy (`sslVerification`, `clientCertificateRef`,
+ * `tlsMinVersion`, `tlsMaxVersion`, `tlsCipherSuites`, `sniServerName`) — flows through
+ * `setField` scalars. `subprotocols`, `specLink` and
  * `auth` are container-valued; they route through the per-leaf
  * flatten-diff at the write site (the same treatment `auth` / `body`
  * get on the HTTP request) so edits share create's leaf

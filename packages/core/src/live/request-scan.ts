@@ -162,6 +162,7 @@ export function requestExecutableFingerprint(request: Request): string {
     tlsMinVersion: request.tlsMinVersion ?? null,
     tlsMaxVersion: request.tlsMaxVersion ?? null,
     tlsCipherSuites: request.tlsCipherSuites ?? null,
+    sniServerName: request.sniServerName ?? null,
     httpVersion: request.httpVersion ?? null,
     resolveToAddress: request.resolveToAddress ?? null,
     clientCertificateRef: request.clientCertificateRef ?? null,

@@ -44,6 +44,7 @@ export type RequestScalarPath =
   | 'tlsMinVersion'
   | 'tlsMaxVersion'
   | 'tlsCipherSuites'
+  | 'sniServerName'
   | 'httpVersion'
   | 'resolveToAddress'
   | 'clientCertificateRef'

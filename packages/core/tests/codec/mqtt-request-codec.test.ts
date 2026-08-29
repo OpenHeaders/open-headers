@@ -132,6 +132,9 @@ describe('parseMqttRequest', () => {
       requestProblemInformation: false,
       sslVerification: false,
       clientCertificateRef: 'iot-device',
+      tlsMinVersion: '1.2',
+      tlsMaxVersion: '1.3',
+      tlsCipherSuites: 'TLS_AES_256_GCM_SHA384',
       sniServerName: 'broker.openheaders.io',
       alpnProtocol: 'x-amzn-mqtt-ca',
       lastWill: {

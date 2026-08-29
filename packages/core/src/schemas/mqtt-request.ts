@@ -13,7 +13,13 @@
 
 import * as v from 'valibot';
 import { PathSegmentSchema, RelativePathSchema, SchemaVersionSchema, UidSchema } from './common';
-import { ClientCertificateRefSchema, RequestTimeoutMsSchema } from './request';
+import {
+  ClientCertificateRefSchema,
+  RequestTimeoutMsSchema,
+  SniServerNameSchema,
+  TlsCipherSuitesSchema,
+  TlsVersionSchema,
+} from './request';
 
 /** Whole attempts, one to a thousand — enough for a day of 60 s
  *  backoff waits without inviting an unbounded loop by another name. */
@@ -198,7 +204,6 @@ export const MqttSpecLinkSchema = v.object({
   specUid: UidSchema,
 });
 
-export const MAX_SNI_SERVER_NAME_LENGTH = 253;
 export const MAX_ALPN_PROTOCOL_LENGTH = 255;
 
 export const MqttRequestSchema = v.object({
@@ -312,11 +317,21 @@ export const MqttRequestSchema = v.object({
    * HTTP request's contract). Node runtimes only.
    */
   clientCertificateRef: v.optional(ClientCertificateRefSchema),
+  /** Lowest TLS version the dial may negotiate — the HTTP request's
+   *  knob. Absent = the runtime floor (1.2); `1.0` / `1.1` lower it
+   *  for legacy brokers. Node runtimes only. */
+  tlsMinVersion: v.optional(TlsVersionSchema),
+  /** Highest TLS version the dial may negotiate. Absent = the runtime
+   *  ceiling (1.3). Node runtimes only. */
+  tlsMaxVersion: v.optional(TlsVersionSchema),
+  /** Cipher suites offered on the dial, OpenSSL colon-list. Absent =
+   *  the runtime's defaults. Node runtimes only. */
+  tlsCipherSuites: v.optional(TlsCipherSuitesSchema),
   /**
    * SNI server name override for `mqtts:` dials. Absent = the URL's
    * host. Templates welcome. Node runtimes only.
    */
-  sniServerName: v.optional(v.pipe(v.string(), v.maxLength(MAX_SNI_SERVER_NAME_LENGTH))),
+  sniServerName: v.optional(SniServerNameSchema),
   /**
    * ALPN protocol offered on `mqtts:` dials — brokers multiplexing
    * MQTT on a shared TLS port select on it. Absent = no ALPN offer.

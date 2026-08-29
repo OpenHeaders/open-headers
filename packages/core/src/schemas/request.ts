@@ -97,6 +97,24 @@ export const HTTP_VERSIONS = ['auto', '1.1', '2', '2-prior-knowledge', '3'] as c
 export const HttpVersionSchema = v.picklist(HTTP_VERSIONS);
 
 /**
+ * Reference to a vault `client-certificate` entry by NAME. The vault is
+ * local-per-device and never syncs, so the entry name is the only
+ * cross-device contract — a synced request finds each device's own
+ * certificate under the same name (the `{{vault.X}}` model). The PEM
+ * material itself never rides the request: the executor resolves the
+ * ref against the vault at send time. Whether the named entry EXISTS
+ * is a device-local question the editor and the transport both answer
+ * in place.
+ */
+export const MAX_CLIENT_CERTIFICATE_REF_LENGTH = 256;
+
+export const ClientCertificateRefSchema = v.pipe(
+  v.string(),
+  v.minLength(1),
+  v.maxLength(MAX_CLIENT_CERTIFICATE_REF_LENGTH),
+);
+
+/**
  * OpenSSL-format cipher suite list: colon-joined suite names (TLS ≤1.2
  * and TLS 1.3 suites both ride the one string). The token alphabet is
  * OpenSSL's — suite names plus the list operators (`:`, `!`, `+`, `-`,
@@ -115,6 +133,31 @@ export const TlsCipherSuitesSchema = v.pipe(
   v.regex(TLS_CIPHER_SUITES_PATTERN, 'Must be an OpenSSL-format cipher list (colon-separated, no spaces)'),
   v.maxLength(MAX_TLS_CIPHER_SUITES_LENGTH),
 );
+
+/**
+ * SNI server name override for TLS dials. Absent = the URL's host.
+ * Bounded at the DNS hostname ceiling (RFC 1035); templates welcome —
+ * the executor resolves it with the other connect-time fields.
+ */
+export const MAX_SNI_SERVER_NAME_LENGTH = 253;
+
+export const SniServerNameSchema = v.pipe(v.string(), v.maxLength(MAX_SNI_SERVER_NAME_LENGTH));
+
+/**
+ * The TLS policy every request kind carries — one field set, one row
+ * block on every Settings tab, one connect-option bag at the
+ * transport. Each entity schema seats these fields itself (with its
+ * own on-disk order); this object names the shared shape so the
+ * executors and transports type against one policy instead of four.
+ */
+export const TlsPolicySchema = v.object({
+  sslVerification: v.optional(v.boolean()),
+  clientCertificateRef: v.optional(ClientCertificateRefSchema),
+  tlsMinVersion: v.optional(TlsVersionSchema),
+  tlsMaxVersion: v.optional(TlsVersionSchema),
+  tlsCipherSuites: v.optional(TlsCipherSuitesSchema),
+  sniServerName: v.optional(SniServerNameSchema),
+});
 
 /**
  * IPv4 / IPv6 address literal for the per-request resolve-to-address
@@ -136,24 +179,6 @@ export const ResolveToAddressSchema = v.pipe(
   v.string(),
   v.regex(RESOLVE_TO_ADDRESS_PATTERN, 'Must be an IPv4 or IPv6 address literal'),
   v.maxLength(MAX_RESOLVE_TO_ADDRESS_LENGTH),
-);
-
-/**
- * Reference to a vault `client-certificate` entry by NAME. The vault is
- * local-per-device and never syncs, so the entry name is the only
- * cross-device contract — a synced request finds each device's own
- * certificate under the same name (the `{{vault.X}}` model). The PEM
- * material itself never rides the request: the executor resolves the
- * ref against the vault at send time. Whether the named entry EXISTS
- * is a device-local question the editor and the transport both answer
- * in place.
- */
-export const MAX_CLIENT_CERTIFICATE_REF_LENGTH = 256;
-
-export const ClientCertificateRefSchema = v.pipe(
-  v.string(),
-  v.minLength(1),
-  v.maxLength(MAX_CLIENT_CERTIFICATE_REF_LENGTH),
 );
 
 /**
@@ -808,6 +833,17 @@ const RequestObjectSchema = v.object({
    * `tlsMinVersion`. Bounded — see {@link TlsCipherSuitesSchema}.
    */
   tlsCipherSuites: v.optional(TlsCipherSuitesSchema),
+  /**
+   * SNI server name presented in the TLS handshake instead of the
+   * URL's host — a gateway that fronts many hostnames on one address,
+   * or a certificate issued for a name DNS does not answer. Host
+   * header and certificate verification keep the URL's host unless
+   * the certificate itself names this value. Not trust-relaxing — no
+   * snapshot marker. Honored by node runtimes; browser runtimes fix
+   * SNI to the URL host and ignore it (the request still syncs it —
+   * one schema, all runtimes carry the value).
+   */
+  sniServerName: v.optional(SniServerNameSchema),
   /**
    * HTTP version policy for the send. Absent / `'auto'` = offer h2
    * alongside http/1.1 via ALPN and let the server pick (plain

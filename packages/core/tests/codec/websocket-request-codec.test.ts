@@ -68,6 +68,30 @@ describe('serializeWebSocketRequest', () => {
     ]);
   });
 
+  it('seats the TLS policy after sslVerification in one fixed order', () => {
+    const out = serializeWebSocketRequest(
+      freshDocument(
+        websocketRequest({
+          sslVerification: false,
+          sniServerName: 'events.openheaders.io',
+          tlsCipherSuites: 'TLS_AES_128_GCM_SHA256',
+          tlsMaxVersion: '1.2',
+          tlsMinVersion: '1.1',
+          clientCertificateRef: 'gateway-mtls',
+        }),
+      ),
+    );
+    const keys = Object.keys(YAML.parse(out.websocketYaml) as Record<string, unknown>);
+    expect(keys.slice(keys.indexOf('sslVerification'))).toEqual([
+      'sslVerification',
+      'clientCertificateRef',
+      'tlsMinVersion',
+      'tlsMaxVersion',
+      'tlsCipherSuites',
+      'sniServerName',
+    ]);
+  });
+
   it('seats the binary encoding after the format and fans a binary compose out to message.txt', () => {
     const out = serializeWebSocketRequest(
       freshDocument(websocketRequest({ message: 'aGVsbG8=', messageFormat: 'binary', binaryEncoding: 'hex' })),

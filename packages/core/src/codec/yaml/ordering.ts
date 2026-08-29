@@ -102,6 +102,7 @@ export const REQUEST_FIELD_ORDER = [
   'tlsMinVersion',
   'tlsMaxVersion',
   'tlsCipherSuites',
+  'sniServerName',
   'httpVersion',
   'resolveToAddress',
   'clientCertificateRef',
@@ -138,6 +139,11 @@ export const GRPC_REQUEST_FIELD_ORDER = [
   'unixSocketPath',
   'timeoutMs',
   'sslVerification',
+  'clientCertificateRef',
+  'tlsMinVersion',
+  'tlsMaxVersion',
+  'tlsCipherSuites',
+  'sniServerName',
 ] as const;
 
 /**
@@ -168,6 +174,11 @@ export const WEBSOCKET_REQUEST_FIELD_ORDER = [
   'unixSocketPath',
   'timeoutMs',
   'sslVerification',
+  'clientCertificateRef',
+  'tlsMinVersion',
+  'tlsMaxVersion',
+  'tlsCipherSuites',
+  'sniServerName',
 ] as const;
 
 /**
@@ -207,6 +218,9 @@ export const MQTT_REQUEST_FIELD_ORDER = [
   'timeoutMs',
   'sslVerification',
   'clientCertificateRef',
+  'tlsMinVersion',
+  'tlsMaxVersion',
+  'tlsCipherSuites',
   'sniServerName',
   'alpnProtocol',
 ] as const;

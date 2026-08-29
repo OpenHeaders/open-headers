@@ -7,7 +7,7 @@
  * folder containing:
  *   grpc.yaml      — schemaVersion, uid, name, url, tls, method,
  *                    metadata, auth, specLink, unixSocketPath,
- *                    timeoutMs, sslVerification
+ *                    timeoutMs, TLS policy
  *   message.json   — request message as canonical protobuf JSON
  *
  * The 8-char uid is embedded in `grpc.yaml` and mirrored in the folder
