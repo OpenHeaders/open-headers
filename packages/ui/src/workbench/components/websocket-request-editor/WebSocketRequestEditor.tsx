@@ -58,6 +58,7 @@ import {
   nextSavedMessageName,
   paramsToRows,
   savedMessageFromFrame,
+  splitSocketIoUrl,
   type WebSocketDraft,
 } from './draft';
 import { useSocketIoArgs } from './useSocketIoArgs';
@@ -98,6 +99,7 @@ const emptyWebSocketDraft = (): WebSocketDraft => ({
   message: '',
   eventName: '',
   namespace: '',
+  handshakePath: '',
   ackEnabled: false,
   messageFormat: 'text',
   binaryEncoding: 'base64',
@@ -160,9 +162,10 @@ const WebSocketRequestEditor: React.FC<WebSocketRequestEditorProps> = ({
   useEffect(() => {
     if (!entity) return;
     return subscribeWsPrefill(entity.uid, (captured) => {
+      const target = splitSocketIoUrl(captured.url, captured.flavor, captured.namespace ?? '');
       setDraft((d) => ({
         ...d,
-        url: captured.url,
+        url: target.url,
         subprotocols: [...captured.subprotocols],
         headers: headersToRows(captured.headers),
         params: paramsToRows(captured.params),
@@ -170,7 +173,8 @@ const WebSocketRequestEditor: React.FC<WebSocketRequestEditorProps> = ({
         messageFormat: captured.messageFormat ?? 'text',
         binaryEncoding: captured.binaryEncoding ?? 'base64',
         eventName: captured.eventName ?? '',
-        namespace: captured.namespace ?? '',
+        namespace: target.namespace,
+        handshakePath: captured.handshakePath ?? '',
         ackEnabled: captured.ackEnabled ?? false,
         sslVerification: captured.sslVerification,
         timeoutMs: captured.timeoutMs,
@@ -299,7 +303,7 @@ const WebSocketRequestEditor: React.FC<WebSocketRequestEditorProps> = ({
   // is in flight — their values were snapshotted at Connect.
   const headerTitle = (
     <SessionLock locked={session.inFlight}>
-      <WsTargetRow draft={draft} setDraft={setDraft} />
+      <WsTargetRow draft={draft} setDraft={setDraft} socketioFlavor={socketioFlavor} />
     </SessionLock>
   );
 

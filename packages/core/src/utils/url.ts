@@ -110,6 +110,40 @@ export function parseUrlQuery(input: string): ParsedUrl {
   return { base, params };
 }
 
+/** A query-less URL split at its path: the authority (scheme + host +
+ *  port, or a bare `{{host}}` template) and the path after it. */
+export interface SplitUrlPath {
+  /** Everything before the first `/` past the scheme's `//`. */
+  authority: string;
+  /** The path from that `/` on, verbatim; `''` when the URL has none. */
+  path: string;
+}
+
+/**
+ * Split a query-less URL into authority + path, template-safe: a `/`
+ * inside a `{{...}}` block never counts, and the scheme's own `//` is
+ * skipped. Round-trips as `authority + path`. The Socket.IO editor's
+ * URL⇄namespace sync rides this the way the params sync rides
+ * {@link parseUrlQuery} — the official client reads a Socket.IO URL's
+ * path as the namespace.
+ */
+export function splitUrlPath(input: string): SplitUrlPath {
+  const scheme = input.indexOf('://');
+  let i = scheme === -1 ? 0 : scheme + 3;
+  while (i < input.length) {
+    const ch = input[i];
+    if (ch === '{' && input[i + 1] === '{') {
+      const close = input.indexOf('}}', i + 2);
+      if (close === -1) break;
+      i = close + 2;
+      continue;
+    }
+    if (ch === '/') return { authority: input.slice(0, i), path: input.slice(i) };
+    i++;
+  }
+  return { authority: input, path: '' };
+}
+
 /** Render one {@link QueryParam} as its display form (no encoding).
  *  Always emits a string — empty placeholder rows render as `''` so
  *  `['a=1', ''].join('&')` correctly produces `'a=1&'`. */

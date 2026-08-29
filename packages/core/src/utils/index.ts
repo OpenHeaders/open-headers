@@ -158,15 +158,15 @@ export {
 } from './tree';
 export {
   type ContainerSlots,
+  type IndexedChild,
   indexTreeChildren,
   type OrderedChild,
   orderedBySlots,
   orderedChildren,
-  type IndexedChild,
   type TreeChildIndex,
 } from './tree-children';
-export type { ParsedUrl, QueryParam } from './url';
-export { appendQueryParams, buildUrlDisplay, parseUrlQuery } from './url';
+export type { ParsedUrl, QueryParam, SplitUrlPath } from './url';
+export { appendQueryParams, buildUrlDisplay, parseUrlQuery, splitUrlPath } from './url';
 export { productUserAgent } from './user-agent';
 export { isUuidV7, UUIDV7_LENGTH, uuidV7Timestamp, uuidv7 } from './uuidv7';
 export type { BuildEmptyWebSocketRequestInput } from './websocket-request-defaults';

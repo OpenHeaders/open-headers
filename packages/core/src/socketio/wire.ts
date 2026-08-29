@@ -76,23 +76,45 @@ export type EngineIoFrame =
   | { kind: 'noop' }
   | { kind: 'unknown'; raw: string };
 
+/** Normalize a user-typed engine.io handshake path to the mount form
+ *  the server matches: empty = the stock `/socket.io/`, a missing
+ *  leading or trailing slash gains one (`net/sio` → `/net/sio/`). */
+export function normalizeHandshakePath(path: string): string {
+  const trimmed = path.trim();
+  if (trimmed === '' || trimmed === '/') return SOCKET_IO_DEFAULT_PATH;
+  const lead = trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
+  return lead.endsWith('/') ? lead : `${lead}/`;
+}
+
+/** The two facts a Socket.IO dial resolves from the user's target. */
+export interface SocketIoDialTarget {
+  /** The engine.io dial URL — handshake path mounted, `EIO` +
+   *  `transport=websocket` joined after any user query params. */
+  url: string;
+  /** The namespace the session CONNECTs, wire-normalized. */
+  namespace: string;
+}
+
 /**
- * Build the engine.io dial URL from the user's session URL: a URL with
- * no path dials the stock `/socket.io/` mount, a typed path IS the
- * engine.io path (trailing slash normalized — the server matches the
- * slash-terminated prefix), and `EIO` + `transport=websocket` join any
- * user query params already appended.
+ * Resolve the dial from the user's session URL and settings, the
+ * official client's reading of a Socket.IO URL: the URL's PATH names
+ * the namespace (`ws://host/admin` joins `/admin`), never the engine.io
+ * mount — that is the handshake path setting (default `/socket.io/`).
+ * An explicit namespace setting overrides the URL path; an empty URL
+ * path with no setting joins the root `/`. Throws on an unparseable
+ * URL like the `URL` constructor.
  */
-export function buildEngineIoUrl(url: string): string {
+export function resolveSocketIoTarget(
+  url: string,
+  settings: { namespace: string; handshakePath: string },
+): SocketIoDialTarget {
   const parsed = new URL(url);
-  if (parsed.pathname === '/') {
-    parsed.pathname = SOCKET_IO_DEFAULT_PATH;
-  } else if (!parsed.pathname.endsWith('/')) {
-    parsed.pathname = `${parsed.pathname}/`;
-  }
+  const urlNamespace = parsed.pathname === '/' ? '' : parsed.pathname;
+  const namespace = normalizeNamespace(settings.namespace.trim() !== '' ? settings.namespace : urlNamespace);
+  parsed.pathname = normalizeHandshakePath(settings.handshakePath);
   parsed.searchParams.append('EIO', String(ENGINE_IO_VERSION));
   parsed.searchParams.append('transport', 'websocket');
-  return parsed.toString();
+  return { url: parsed.toString(), namespace };
 }
 
 /**

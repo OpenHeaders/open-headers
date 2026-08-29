@@ -11,12 +11,13 @@ import type { Translate } from '@openheaders/ui/context/LocaleContext';
 import type { InfoPopoverContent } from '@openheaders/ui/shared/info-popover';
 import { WS_GROUP_LABEL_KEY, type WsSettingsGroupKey } from './settings-groups';
 
-export type WsInfoKey = 'subprotocols' | 'unixSocket' | 'timeout' | 'namespace' | 'sslVerification';
+export type WsInfoKey = 'subprotocols' | 'unixSocket' | 'timeout' | 'handshakePath' | 'namespace' | 'sslVerification';
 
 const TITLE_KEY: Record<WsInfoKey, MessageKey> = {
   subprotocols: 'workbench.editors.websocket.settings.subprotocolsLabel',
   unixSocket: 'workbench.editors.websocket.settings.unixSocketLabel',
   timeout: 'workbench.editors.websocket.settings.timeoutLabel',
+  handshakePath: 'workbench.editors.websocket.settings.handshakePathLabel',
   namespace: 'workbench.editors.websocket.settings.namespaceLabel',
   sslVerification: 'workbench.editors.websocket.settings.sslVerifyLabel',
 };
@@ -25,6 +26,7 @@ const SUMMARY_KEY: Record<WsInfoKey, MessageKey> = {
   subprotocols: 'workbench.editors.websocket.settings.subprotocolsHelp',
   unixSocket: 'workbench.editors.websocket.settings.unixSocketHelp',
   timeout: 'workbench.editors.websocket.settings.timeoutHelp',
+  handshakePath: 'workbench.editors.websocket.settings.handshakePathHelp',
   namespace: 'workbench.editors.websocket.settings.namespaceHelp',
   sslVerification: 'workbench.editors.websocket.settings.sslVerifyHelp',
 };
@@ -33,6 +35,7 @@ const KICKER_GROUP: Record<WsInfoKey, WsSettingsGroupKey> = {
   subprotocols: 'connection',
   unixSocket: 'connection',
   timeout: 'connection',
+  handshakePath: 'socketio',
   namespace: 'socketio',
   sslVerification: 'tls',
 };

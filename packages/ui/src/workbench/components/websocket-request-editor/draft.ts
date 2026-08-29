@@ -16,6 +16,7 @@ import type {
   WebSocketAuth,
   WebSocketBinaryEncoding,
   WebSocketEventRow,
+  WebSocketFlavor,
   WebSocketHeaderPair,
   WebSocketMessageFormat,
   WebSocketQueryParam,
@@ -23,7 +24,7 @@ import type {
   WebSocketSavedMessage,
   WebSocketSpecLink,
 } from '@openheaders/core/types';
-import { decodeBase64Bytes, parseUrlQuery } from '@openheaders/core/utils';
+import { decodeBase64Bytes, parseUrlQuery, splitUrlPath } from '@openheaders/core/utils';
 import { type KeyValueRow, makeKvRow } from '../request-editor/KeyValueTable';
 
 export interface WebSocketDraft {
@@ -39,8 +40,14 @@ export interface WebSocketDraft {
   /** Socket.IO compose: event name for the next Send (concrete in the
    *  form — absent on the entity reads as ''). Raw flavor ignores it. */
   eventName: string;
-  /** Socket.IO namespace (concrete — absent reads as '', the root). */
+  /** Socket.IO namespace (concrete — absent reads as ''). On the
+   *  socketio flavor the form keeps `url` as the AUTHORITY alone and
+   *  this field as its path: the URL bar shows the two joined and
+   *  re-splits on edit (the URL⇄params sync's law) — one value, two
+   *  views, the official client's reading of a Socket.IO URL. */
   namespace: string;
+  /** Socket.IO handshake path (concrete — absent reads as '', the stock `/socket.io/`). */
+  handshakePath: string;
   /** Socket.IO ack opt-in (concrete — absent reads as off). */
   ackEnabled: boolean;
   /** Session credential (concrete — absent on the entity reads as
@@ -79,6 +86,7 @@ export interface WebSocketRequestUpdates {
   message: string;
   eventName: string;
   namespace: string;
+  handshakePath: string;
   ackEnabled: boolean;
   messageFormat: WebSocketMessageFormat;
   binaryEncoding: WebSocketBinaryEncoding | undefined;
@@ -163,11 +171,25 @@ export function rowsToEvents(rows: WebSocketEventRow[]): WebSocketEventRow[] {
     }));
 }
 
+/** The socketio flavor's URL⇄namespace split: a stored URL path is
+ *  the namespace unless the entity names one explicitly. The raw
+ *  flavor keeps its path in the URL — it has no namespace. */
+export function splitSocketIoUrl(
+  url: string,
+  flavor: WebSocketFlavor,
+  namespace: string,
+): { url: string; namespace: string } {
+  if (flavor !== 'socketio') return { url, namespace };
+  const split = splitUrlPath(url);
+  return { url: split.authority, namespace: namespace !== '' ? namespace : split.path };
+}
+
 export function draftFromWebSocketRequest(req: WebSocketRequest): WebSocketDraft {
   // Split any `?…` suffix off the stored URL into structured params so
   // the URL⇄params sync works from a clean base; stored rows keep their
   // metadata and follow the URL-derived ones (URL first, table after).
   const parsed = parseUrlQuery(req.url);
+  const target = splitSocketIoUrl(parsed.base, req.flavor, req.namespace ?? '');
   const urlParams: KeyValueRow[] = parsed.params.map((p, i) =>
     makeKvRow({
       uid: urlParamUid(i),
@@ -180,7 +202,7 @@ export function draftFromWebSocketRequest(req: WebSocketRequest): WebSocketDraft
   );
   return {
     description: req.description ?? '',
-    url: parsed.base,
+    url: target.url,
     subprotocols: [...req.subprotocols],
     headers: headersToRows(req.headers),
     params: [...urlParams, ...paramsToRows(req.params)],
@@ -189,7 +211,8 @@ export function draftFromWebSocketRequest(req: WebSocketRequest): WebSocketDraft
     savedMessages: (req.savedMessages ?? []).map((row) => ({ ...row })),
     message: req.message,
     eventName: req.eventName ?? '',
-    namespace: req.namespace ?? '',
+    namespace: target.namespace,
+    handshakePath: req.handshakePath ?? '',
     ackEnabled: req.ackEnabled ?? false,
     messageFormat: req.messageFormat ?? 'text',
     binaryEncoding: req.binaryEncoding ?? 'base64',
@@ -213,6 +236,7 @@ export function buildWebSocketRequestUpdates(draft: WebSocketDraft): WebSocketRe
     message: draft.message,
     eventName: draft.eventName,
     namespace: draft.namespace,
+    handshakePath: draft.handshakePath,
     ackEnabled: draft.ackEnabled,
     messageFormat: draft.messageFormat,
     binaryEncoding: draft.messageFormat === 'binary' ? draft.binaryEncoding : undefined,

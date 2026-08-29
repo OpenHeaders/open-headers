@@ -84,7 +84,8 @@ const websocketRequests: WebSocketRequest[] = [
   // probe greeting mirrors it back).
   websocketRequest('e2ewsd05', 'Probe SIO', '["from-desktop", 7]', {
     flavor: 'socketio',
-    url: `ws://127.0.0.1:${probePort}/net/sio-probe`,
+    url: `ws://127.0.0.1:${probePort}`,
+    handshakePath: '/net/sio-probe',
     namespace: '/probe',
     eventName: 'echo',
     ackEnabled: true,

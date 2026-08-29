@@ -1,32 +1,64 @@
 import { describe, expect, it } from 'vitest';
 import {
-  buildEngineIoUrl,
   encodeConnectPacket,
   encodeEventPacket,
   isValidNamespace,
+  normalizeHandshakePath,
   normalizeNamespace,
   parseEngineIoFrame,
   parseSocketIoPacket,
+  resolveSocketIoTarget,
   SOCKET_IO_PACKET_TYPES,
 } from '../../src/socketio';
 
-describe('buildEngineIoUrl', () => {
-  it('mounts the default /socket.io/ path on a bare authority', () => {
-    expect(buildEngineIoUrl('ws://events.openheaders.io:3000')).toBe(
-      'ws://events.openheaders.io:3000/socket.io/?EIO=4&transport=websocket',
-    );
+describe('resolveSocketIoTarget', () => {
+  const plain = { namespace: '', handshakePath: '' };
+
+  it('mounts the default /socket.io/ path on a bare authority and joins the root namespace', () => {
+    expect(resolveSocketIoTarget('ws://events.openheaders.io:3000', plain)).toEqual({
+      url: 'ws://events.openheaders.io:3000/socket.io/?EIO=4&transport=websocket',
+      namespace: '/',
+    });
   });
 
-  it('keeps a typed path as the engine.io path, trailing slash normalized', () => {
-    expect(buildEngineIoUrl('wss://events.openheaders.io/net/sio-probe')).toBe(
-      'wss://events.openheaders.io/net/sio-probe/?EIO=4&transport=websocket',
+  it('reads the URL path as the namespace, never as the mount', () => {
+    expect(resolveSocketIoTarget('wss://events.openheaders.io/admin', plain)).toEqual({
+      url: 'wss://events.openheaders.io/socket.io/?EIO=4&transport=websocket',
+      namespace: '/admin',
+    });
+  });
+
+  it('mounts the handshake path setting, trailing slash normalized', () => {
+    expect(
+      resolveSocketIoTarget('ws://events.openheaders.io', { namespace: '', handshakePath: '/net/sio-probe' }),
+    ).toEqual({ url: 'ws://events.openheaders.io/net/sio-probe/?EIO=4&transport=websocket', namespace: '/' });
+  });
+
+  it('lets the namespace setting override the URL path', () => {
+    expect(resolveSocketIoTarget('ws://events.openheaders.io/admin', { namespace: 'chat', handshakePath: '' })).toEqual(
+      {
+        url: 'ws://events.openheaders.io/socket.io/?EIO=4&transport=websocket',
+        namespace: '/chat',
+      },
     );
   });
 
   it('keeps user query params ahead of the engine.io ones', () => {
-    expect(buildEngineIoUrl('ws://events.openheaders.io/rt/?room=alpha')).toBe(
-      'ws://events.openheaders.io/rt/?room=alpha&EIO=4&transport=websocket',
+    expect(resolveSocketIoTarget('ws://events.openheaders.io/?room=alpha', plain).url).toBe(
+      'ws://events.openheaders.io/socket.io/?room=alpha&EIO=4&transport=websocket',
     );
+  });
+});
+
+describe('normalizeHandshakePath', () => {
+  it('defaults empty and root to the stock mount', () => {
+    expect(normalizeHandshakePath('')).toBe('/socket.io/');
+    expect(normalizeHandshakePath(' / ')).toBe('/socket.io/');
+  });
+
+  it('adds the missing leading and trailing slashes', () => {
+    expect(normalizeHandshakePath('net/sio')).toBe('/net/sio/');
+    expect(normalizeHandshakePath('/net/sio/')).toBe('/net/sio/');
   });
 });
 

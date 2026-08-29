@@ -88,7 +88,8 @@ const WS_SUBPROTOCOL = 'graphql-ws';
 const WS_PROBE_URL = 'ws://127.0.0.1:3000/net/ws-probe';
 // The REAL socket.io server the socketio flavor's leg dials — the URL
 // path IS the engine.io path.
-const SIO_PROBE_URL = 'ws://127.0.0.1:3000/net/sio-probe';
+const SIO_PROBE_URL = 'ws://127.0.0.1:3000';
+const SIO_PROBE_HANDSHAKE_PATH = '/net/sio-probe';
 
 let context: BrowserContext;
 let extensionId: string;
@@ -465,8 +466,10 @@ test('B7 — socketio runs in-page: namespace connect, decoded events, acked ech
   // The CURRENT compose state connects (the draft-send law).
   await urlInput().fill(SIO_PROBE_URL);
 
-  // Namespace rides the Settings tab (socketio-only row).
+  // The handshake path (the server's mount) and the namespace ride
+  // the Settings tab (socketio-only rows).
   await page.getByRole('tab', { name: 'Settings', exact: true }).filter({ visible: true }).first().click();
+  await page.getByTestId('websocket-handshake-path').filter({ visible: true }).first().fill(SIO_PROBE_HANDSHAKE_PATH);
   await page.getByTestId('websocket-namespace').filter({ visible: true }).first().fill('/probe');
 
   // Event compose on the Message tab: name + ack opt-in + per-arg

@@ -51,7 +51,7 @@ afterEach(() => {
 describe('pause-markers-store getPausedUids', () => {
   it('resolves the marker over the tree and keeps following the folder after it moves', () => {
     setCollections([collection('col00001', 'rules/a-col00001'), collection('col00002', 'rules/b-col00002')]);
-    setFolders([{ uid: 'fld00001', name: 'Login', path: 'rules/a-col00001/login-fld00001' }]);
+    setFolders([{ schemaVersion: 5, uid: 'fld00001', name: 'Login', path: 'rules/a-col00001/login-fld00001' }]);
     setRules([
       rule('rul00001', 'rules/a-col00001/login-fld00001/r1-rul00001'),
       rule('rul00002', 'rules/a-col00001/r2-rul00002'),
@@ -63,7 +63,7 @@ describe('pause-markers-store getPausedUids', () => {
 
     // The folder moves to the other collection: its path and its
     // rule's path re-project, the marker's key does not.
-    setFolders([{ uid: 'fld00001', name: 'Login', path: 'rules/b-col00002/login-fld00001' }]);
+    setFolders([{ schemaVersion: 5, uid: 'fld00001', name: 'Login', path: 'rules/b-col00002/login-fld00001' }]);
     setRules([
       rule('rul00001', 'rules/b-col00002/login-fld00001/r1-rul00001'),
       rule('rul00002', 'rules/a-col00001/r2-rul00002'),
@@ -75,7 +75,7 @@ describe('pause-markers-store getPausedUids', () => {
 
   it('honours an unpaused folder override under a paused collection and memoizes between changes', () => {
     setCollections([collection('col00001', 'rules/a-col00001')]);
-    setFolders([{ uid: 'fld00001', name: 'Login', path: 'rules/a-col00001/login-fld00001' }]);
+    setFolders([{ schemaVersion: 5, uid: 'fld00001', name: 'Login', path: 'rules/a-col00001/login-fld00001' }]);
     setRules([
       rule('rul00001', 'rules/a-col00001/login-fld00001/r1-rul00001'),
       rule('rul00002', 'rules/a-col00001/r2-rul00002'),

@@ -38,8 +38,10 @@ export interface WsExampleDraft {
   binaryEncoding: WebSocketBinaryEncoding;
   /** Socket.IO event name (concrete — absent on the capture reads ''). */
   eventName: string;
-  /** Socket.IO namespace (concrete — absent reads as '', the root). */
+  /** Socket.IO namespace (concrete — absent reads as '', the URL path). */
   namespace: string;
+  /** Socket.IO handshake path (concrete — absent reads as '', the stock mount). */
+  handshakePath: string;
   /** Socket.IO ack opt-in (concrete — absent reads as off). */
   ackEnabled: boolean;
   sslVerification: boolean;
@@ -57,6 +59,7 @@ export function wsExampleToDraft(example: WsResponseExample): WsExampleDraft {
     binaryEncoding: example.request.binaryEncoding ?? 'base64',
     eventName: example.request.eventName ?? '',
     namespace: example.request.namespace ?? '',
+    handshakePath: example.request.handshakePath ?? '',
     ackEnabled: example.request.ackEnabled ?? false,
     sslVerification: example.request.sslVerification,
     timeoutMs: example.request.timeoutMs,
@@ -76,6 +79,7 @@ export function capturedWsRequestFromDraft(draft: WsExampleDraft, flavor: WebSoc
     url: draft.url,
     flavor,
     ...(draft.namespace === '' ? {} : { namespace: draft.namespace }),
+    ...(draft.handshakePath === '' ? {} : { handshakePath: draft.handshakePath }),
     subprotocols: [...draft.subprotocols],
     headers: rowsToHeaders(draft.headers),
     params: rowsToParams(draft.params),
@@ -129,6 +133,7 @@ export function wsExampleDraftFingerprint(draft: WsExampleDraft): string {
     binaryEncoding: draft.messageFormat === 'binary' ? draft.binaryEncoding : undefined,
     eventName: draft.eventName,
     namespace: draft.namespace,
+    handshakePath: draft.handshakePath,
     ackEnabled: draft.ackEnabled,
     sslVerification: draft.sslVerification,
     timeoutMs: draft.timeoutMs,

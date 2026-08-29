@@ -103,6 +103,27 @@ describe('executeWsSession — socketio flavor', () => {
     await settled;
   });
 
+  it('mounts the handshake path setting and reads the URL path as the namespace', async () => {
+    const rig = scriptedTransport();
+    const settled = executeWsSession(
+      makeSocketIoRequest({ url: 'ws://{{host}}/admin', handshakePath: '/net/sio-probe' }),
+      {
+        workspaceId: null,
+        environmentId: undefined,
+        transport: rig.transport,
+        sendId: 'send-sio-path',
+        resolution: scopedResolution,
+      },
+    );
+    await settleTick();
+    expect(rig.wire().url).toBe('ws://events.openheaders.io:3000/net/sio-probe/?EIO=4&transport=websocket');
+    rig.callbacks().onOpen('', '');
+    rig.callbacks().onMessage(textFrame('0{"sid":"s1","pingInterval":25000,"pingTimeout":20000}'));
+    expect(rig.sent).toEqual(['40/admin,']);
+    rig.callbacks().onEnd();
+    await settled;
+  });
+
   it('answers the open packet with the namespace CONNECT and pings with pongs — all captured verbatim', async () => {
     const rig = scriptedTransport();
     const settled = executeWsSession(makeSocketIoRequest({ namespace: 'probe' }), {

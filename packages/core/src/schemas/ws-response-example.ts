@@ -42,6 +42,8 @@ export const CapturedWsRequestSchema = v.object({
   flavor: WebSocketFlavorSchema,
   /** Socket.IO namespace as composed (socketio flavor only). */
   namespace: v.optional(v.string()),
+  /** Socket.IO handshake path as composed (socketio flavor only). */
+  handshakePath: v.optional(v.string()),
   subprotocols: v.array(v.pipe(v.string(), v.minLength(1))),
   headers: v.array(WebSocketHeaderPairSchema),
   params: v.array(WebSocketQueryParamSchema),

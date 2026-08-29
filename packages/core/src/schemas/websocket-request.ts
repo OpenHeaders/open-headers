@@ -162,10 +162,18 @@ export const WebSocketRequestSchema = v.object({
   flavor: WebSocketFlavorSchema,
   /**
    * Socket.IO namespace the session CONNECTs to (socketio flavor
-   * only). Absent or empty = the root `/`. Templates welcome —
-   * resolved at Connect with the other target fields.
+   * only). Absent or empty = the URL's path, the official client's
+   * reading (`ws://host/admin` joins `/admin`); a bare authority joins
+   * the root `/`. Templates welcome — resolved at Connect with the
+   * other target fields.
    */
   namespace: v.optional(v.string()),
+  /**
+   * Engine.io handshake path the session dials (socketio flavor
+   * only) — the server's mount, never the namespace. Absent or empty
+   * = the stock `/socket.io/`. Templates welcome.
+   */
+  handshakePath: v.optional(v.string()),
   /**
    * `Sec-WebSocket-Protocol` offer list, in preference order. Plain
    * strings — the server picks one during the handshake. Empty = no

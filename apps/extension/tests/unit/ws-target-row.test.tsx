@@ -7,8 +7,8 @@
  */
 
 import { makeKvRow } from '@openheaders/ui/workbench/components/request-editor/KeyValueTable';
-import type { WebSocketDraft } from '@openheaders/ui/workbench/components/websocket-request-editor/draft';
 import SessionLock from '@openheaders/ui/workbench/components/shared/SessionLock';
+import type { WebSocketDraft } from '@openheaders/ui/workbench/components/websocket-request-editor/draft';
 import WsTargetRow from '@openheaders/ui/workbench/components/websocket-request-editor/WsTargetRow';
 import '@openheaders/ui/workbench/settings/schema';
 import { cleanup, render, screen } from '@testing-library/react';
@@ -33,6 +33,7 @@ const draft: WebSocketDraft = {
   message: '',
   eventName: '',
   namespace: '',
+  handshakePath: '',
   ackEnabled: false,
   messageFormat: 'text',
   binaryEncoding: 'base64',
@@ -44,7 +45,7 @@ const draft: WebSocketDraft = {
 
 describe('WsTargetRow', () => {
   it('shows only the URL, with enabled params folded in and the HTTP placeholder', () => {
-    const { container } = render(<WsTargetRow draft={draft} setDraft={vi.fn()} />);
+    const { container } = render(<WsTargetRow draft={draft} setDraft={vi.fn()} socketioFlavor={false} />);
     const input = screen.getByTestId('websocket-url-input');
     expect(input.textContent).toBe('wss://events.openheaders.io/live?room=a');
     expect(input.getAttribute('data-placeholder')).toBe('Enter URL or paste text');
@@ -55,7 +56,7 @@ describe('WsTargetRow', () => {
   it('freezes the URL under a session lock — no caret, no focus, disabled styling', () => {
     render(
       <SessionLock locked>
-        <WsTargetRow draft={draft} setDraft={vi.fn()} />
+        <WsTargetRow draft={draft} setDraft={vi.fn()} socketioFlavor={false} />
       </SessionLock>,
     );
     const input = screen.getByTestId('websocket-url-input');
@@ -64,5 +65,16 @@ describe('WsTargetRow', () => {
     expect(input.getAttribute('aria-disabled')).toBe('true');
     expect(input.classList.contains('oh-template-input-editable--disabled')).toBe(true);
     expect(input.textContent).toBe('wss://events.openheaders.io/live?room=a');
+  });
+
+  it('joins the namespace onto the authority on the socketio flavor — a slashless namespace gains its slash', () => {
+    render(
+      <WsTargetRow
+        draft={{ ...draft, url: 'wss://events.openheaders.io', namespace: 'admin' }}
+        setDraft={vi.fn()}
+        socketioFlavor
+      />,
+    );
+    expect(screen.getByTestId('websocket-url-input').textContent).toBe('wss://events.openheaders.io/admin?room=a');
   });
 });

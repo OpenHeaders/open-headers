@@ -104,7 +104,7 @@ export const workbenchEditorsWebsocket = {
   'workbench.editors.websocket.settings.groupInfo.connection':
     'How the handshake opens the session: the subprotocols it offers, where the connection dials, and the ceiling on the open.',
   'workbench.editors.websocket.settings.groupInfo.socketio':
-    'How the Socket.IO CONNECT addresses the server: the namespace the session joins.',
+    'How the Socket.IO dial addresses the server: the engine.io handshake path it mounts and the namespace the session joins.',
   'workbench.editors.websocket.settings.groupInfo.tls':
     'How wss: sessions establish trust: whether the server certificate is verified against the system roots.',
   'workbench.editors.websocket.settings.subprotocolsLabel': 'Subprotocols',
@@ -120,9 +120,14 @@ export const workbenchEditorsWebsocket = {
   'workbench.editors.websocket.settings.timeoutHelp':
     'Wall-clock ceiling on the connection handshake only — an open session has no ceiling. Empty sets no deadline.',
   'workbench.editors.websocket.settings.timeoutPlaceholder': 'No limit (default)',
+  'workbench.editors.websocket.settings.handshakePathLabel': 'Handshake path',
+  'workbench.editors.websocket.settings.handshakePathHelp':
+    'The server path the engine.io handshake dials — the Socket.IO mount, not the namespace. Empty dials the stock /socket.io/. Sessions dial the websocket transport directly; there is no long-polling fallback.',
+  'workbench.editors.websocket.settings.handshakePathPlaceholder': '/socket.io/ (default)',
+  'workbench.editors.websocket.settings.handshakePathExample': 'e.g. /net/sio-probe',
   'workbench.editors.websocket.settings.namespaceLabel': 'Namespace',
   'workbench.editors.websocket.settings.namespaceHelp':
-    'The namespace the session connects to — empty connects to the root /. Sessions dial the websocket transport directly; there is no long-polling fallback.',
+    'The namespace the session joins — the URL path, as the official client reads it (ws://host/admin joins /admin). Edit it here or in the URL; the two stay in sync. Empty joins the root /.',
   'workbench.editors.websocket.settings.namespacePlaceholder': '/ (default)',
   'workbench.editors.websocket.settings.namespaceExample': 'e.g. /admin',
   'workbench.editors.websocket.settings.sslVerifyLabel': 'SSL certificate verification',

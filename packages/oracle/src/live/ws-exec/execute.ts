@@ -32,7 +32,12 @@
  */
 
 import type { WsSendBinaryWire, WsSendSocketIoWire, WsStreamEventWire } from '@openheaders/core/bridge';
-import { buildEngineIoUrl, encodeEventPacket, isValidNamespace, normalizeNamespace } from '@openheaders/core/socketio';
+import {
+  encodeEventPacket,
+  isValidNamespace,
+  resolveSocketIoTarget,
+  type SocketIoDialTarget,
+} from '@openheaders/core/socketio';
 import type {
   ExecutedProxyRoute,
   ExecutedWsClose,
@@ -148,11 +153,15 @@ export async function executeWsSession(
   const params = request.params
     .filter((p) => p.enabled !== false && p.key.trim() !== '')
     .map((p) => ({ ...p, key: resolveStr(p.key), value: resolveStr(p.value) }));
-  // Socket.IO flavor: the namespace resolves with the other target
-  // fields; the framing controller CONNECTs it once the engine.io open
-  // packet arrives.
+  // Socket.IO flavor: the namespace and handshake path resolve with
+  // the other target fields; the framing controller CONNECTs the
+  // namespace once the engine.io open packet arrives.
   const socketioFlavor = request.flavor === 'socketio';
-  const namespace = socketioFlavor ? normalizeNamespace(resolveStr(request.namespace ?? '')) : '/';
+  const socketioSettings = {
+    namespace: socketioFlavor ? resolveStr(request.namespace ?? '') : '',
+    handshakePath: socketioFlavor ? resolveStr(request.handshakePath ?? '') : '',
+  };
+  let namespace = '/';
   if (unresolved.size > 0) {
     return errorWsSnapshot(
       `Request has unresolved variables (${[...unresolved].join(', ')}). Define them in vault, environment, collection, or workspace before connecting.`,
@@ -164,16 +173,20 @@ export async function executeWsSession(
   }
   if (params.length > 0) url = appendQueryParams(url, params);
   if (socketioFlavor) {
-    if (!isValidNamespace(namespace)) {
-      return errorWsSnapshot('The Socket.IO namespace must not contain a comma.');
-    }
-    // The engine.io dial URL: default /socket.io/ mount on a bare
-    // authority, EIO + transport joined after any user params.
+    // The engine.io dial: the handshake path mounts (default
+    // /socket.io/), the URL path names the namespace unless the
+    // setting overrides it, EIO + transport join after any user params.
+    let target: SocketIoDialTarget;
     try {
-      url = buildEngineIoUrl(url);
+      target = resolveSocketIoTarget(url, socketioSettings);
     } catch {
       return errorWsSnapshot('The URL is not valid.');
     }
+    if (!isValidNamespace(target.namespace)) {
+      return errorWsSnapshot('The Socket.IO namespace must not contain a comma.');
+    }
+    url = target.url;
+    namespace = target.namespace;
   }
 
   // ── The live session on the sendId spine ──

@@ -32,8 +32,9 @@ import type { WebSocketDraft } from './draft';
 import { WS_GROUP_LABEL_KEY } from './settings-groups';
 import { wsSettingsGroupInfo, wsSettingsRowInfo } from './WebSocketSettingsRowInfo';
 
-/** The Socket.IO namespace is a URL path segment; cap it generously. */
-const MAX_NAMESPACE_LENGTH = 256;
+/** The Socket.IO handshake path and namespace are URL paths; cap
+ *  them generously. */
+const MAX_SOCKETIO_PATH_LENGTH = 256;
 
 /** The connect timeout is app milliseconds on the wire — free text
  *  becomes concrete candidates ("30" → "30 ms" / "30 s"); readings
@@ -66,7 +67,7 @@ const WebSocketSettingsTab: React.FC<WebSocketSettingsTabProps> = ({ draft, setD
     });
   const connectionModified =
     draft.subprotocols.length > 0 || draft.unixSocketPath !== undefined || draft.timeoutMs !== undefined;
-  const socketioModified = draft.namespace !== '';
+  const socketioModified = draft.namespace !== '' || draft.handshakePath !== '';
   const tlsModified = !draft.sslVerification;
 
   return (
@@ -136,12 +137,22 @@ const WebSocketSettingsTab: React.FC<WebSocketSettingsTabProps> = ({ draft, setD
             modified={socketioModified}
           >
             <TextKnobRow
+              label={t('workbench.editors.websocket.settings.handshakePathLabel')}
+              value={draft.handshakePath === '' ? undefined : draft.handshakePath}
+              onChange={(handshakePath) => setDraft((d) => ({ ...d, handshakePath: handshakePath ?? '' }))}
+              info={wsSettingsRowInfo(t, 'handshakePath')}
+              placeholder={t('workbench.editors.websocket.settings.handshakePathPlaceholder')}
+              maxLength={MAX_SOCKETIO_PATH_LENGTH}
+              example={t('workbench.editors.websocket.settings.handshakePathExample')}
+              testId="websocket-handshake-path"
+            />
+            <TextKnobRow
               label={t('workbench.editors.websocket.settings.namespaceLabel')}
               value={draft.namespace === '' ? undefined : draft.namespace}
               onChange={(namespace) => setDraft((d) => ({ ...d, namespace: namespace ?? '' }))}
               info={wsSettingsRowInfo(t, 'namespace')}
               placeholder={t('workbench.editors.websocket.settings.namespacePlaceholder')}
-              maxLength={MAX_NAMESPACE_LENGTH}
+              maxLength={MAX_SOCKETIO_PATH_LENGTH}
               example={t('workbench.editors.websocket.settings.namespaceExample')}
               testId="websocket-namespace"
             />

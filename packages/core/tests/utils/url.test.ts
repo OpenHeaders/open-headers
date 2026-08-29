@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { appendQueryParams, buildUrlDisplay, parseUrlQuery } from '../../src/utils/url';
+import { appendQueryParams, buildUrlDisplay, parseUrlQuery, splitUrlPath } from '../../src/utils/url';
 
 describe('parseUrlQuery', () => {
   it('returns empty params when no separator is present', () => {
@@ -203,5 +203,31 @@ describe('appendQueryParams (wire-side)', () => {
     expect(appendQueryParams('https://api.openheaders.io/path?existing=1', [{ key: 'new', value: '2' }])).toBe(
       'https://api.openheaders.io/path?existing=1&new=2',
     );
+  });
+});
+
+describe('splitUrlPath', () => {
+  it('returns the whole URL as the authority when it has no path', () => {
+    expect(splitUrlPath('ws://events.openheaders.io:3000')).toEqual({
+      authority: 'ws://events.openheaders.io:3000',
+      path: '',
+    });
+  });
+
+  it('splits at the first slash past the scheme, path verbatim', () => {
+    expect(splitUrlPath('wss://events.openheaders.io/admin/room/')).toEqual({
+      authority: 'wss://events.openheaders.io',
+      path: '/admin/room/',
+    });
+    expect(splitUrlPath('ws://events.openheaders.io/')).toEqual({ authority: 'ws://events.openheaders.io', path: '/' });
+  });
+
+  it('never splits inside a template block and handles a scheme-less template host', () => {
+    expect(splitUrlPath('ws://{{env.host/with/slash}}/chat')).toEqual({
+      authority: 'ws://{{env.host/with/slash}}',
+      path: '/chat',
+    });
+    expect(splitUrlPath('{{host}}/admin')).toEqual({ authority: '{{host}}', path: '/admin' });
+    expect(splitUrlPath('{{host}}')).toEqual({ authority: '{{host}}', path: '' });
   });
 });
