@@ -17,6 +17,8 @@ import { PathSegmentSchema, RelativePathSchema, SchemaVersionSchema, UidSchema }
 import {
   ClientCertificateRefSchema,
   HeartbeatMessageSchema,
+  MaxRedirectsSchema,
+  MaxResponseBytesSchema,
   ProxyCredentialRefSchema,
   ProxyModeSchema,
   ProxyUrlSchema,
@@ -276,6 +278,30 @@ const WebSocketRequestObjectSchema = v.object({
    * bounds as the HTTP request's timeout knob.
    */
   timeoutMs: v.optional(RequestTimeoutMsSchema),
+  /**
+   * Cap (bytes) on ONE inbound message. A message over the cap closes
+   * the session with 1009 (message too big) naming the cap — the
+   * client asked, so auto-reconnect never redials it. Absent = the
+   * runtime's own ceiling (the node client assembles up to 128 MiB;
+   * the browser client has none). Shares the response-size bounds —
+   * see {@link MaxResponseBytesSchema}.
+   */
+  maxMessageBytes: v.optional(MaxResponseBytesSchema),
+  /**
+   * Follow a 3xx answer to the handshake (an auth gateway bouncing the
+   * upgrade) and dial the Location. Absent = OFF — the WebSocket spec's
+   * own rule (a redirected upgrade fails), unlike the HTTP request
+   * where absent follows. Node runtimes only; browser clients never
+   * follow a handshake redirect.
+   */
+  followRedirects: v.optional(v.boolean()),
+  /**
+   * Cap on the handshake redirects followed before the connect fails
+   * naming the limit. Only meaningful while `followRedirects` is on.
+   * Absent = the runtime default (20). Node runtimes only. Bounded —
+   * see {@link MaxRedirectsSchema}.
+   */
+  maxRedirects: v.optional(MaxRedirectsSchema),
   /**
    * Reopen the session after an OPEN connection drops without the
    * client asking (severed socket, server close, liveness deadline) —

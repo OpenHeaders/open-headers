@@ -14,7 +14,8 @@
  * `tlsMinVersion`, `tlsMaxVersion`, `tlsCipherSuites`, `sniServerName`), the dial policy
  * (`resolveToAddress`, `proxyMode`, `proxyUrl`, `proxyCredentialRef`), the resilience
  * policy (`autoReconnect`, `reconnectPeriodMs`, `reconnectMaxAttempts`, `reconnectBackoff`,
- * `idleTimeoutMs`, `heartbeatMessage`, `heartbeatIntervalMs`) — flows through
+ * `idleTimeoutMs`, `heartbeatMessage`, `heartbeatIntervalMs`), the limits (`maxMessageBytes`,
+ * `followRedirects`, `maxRedirects`) — flows through
  * `setField` scalars. `subprotocols`, `specLink` and
  * `auth` are container-valued; they route through the per-leaf
  * flatten-diff at the write site (the same treatment `auth` / `body`

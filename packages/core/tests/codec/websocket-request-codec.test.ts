@@ -149,6 +149,31 @@ describe('serializeWebSocketRequest', () => {
     expect(parsed.value.heartbeatMessage).toBe('ping');
   });
 
+  it('seats the limits between the timeout and the resilience policy in one fixed order', () => {
+    const out = serializeWebSocketRequest(
+      freshDocument(
+        websocketRequest({
+          autoReconnect: true,
+          maxRedirects: 3,
+          followRedirects: true,
+          maxMessageBytes: 65_536,
+          timeoutMs: 5_000,
+        }),
+      ),
+    );
+    const keys = Object.keys(YAML.parse(out.websocketYaml) as Record<string, unknown>);
+    expect(keys.slice(keys.indexOf('timeoutMs'), keys.indexOf('autoReconnect') + 1)).toEqual([
+      'timeoutMs',
+      'maxMessageBytes',
+      'followRedirects',
+      'maxRedirects',
+      'autoReconnect',
+    ]);
+    const parsed = parseWebSocketRequest(out.websocketYaml, { path: 'requests/live-events-wsrq0001' });
+    expect(parsed.value.maxMessageBytes).toBe(65_536);
+    expect(parsed.value.maxRedirects).toBe(3);
+  });
+
   it('rejects a proxy URL floating without its mode, and a direct mode carrying one', () => {
     const floating = serializeWebSocketRequest(
       freshDocument(websocketRequest({ proxyMode: 'url', proxyUrl: 'http://proxy.openheaders.io:8080' })),

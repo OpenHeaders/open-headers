@@ -6,7 +6,7 @@
  *   - `metadata` — metadata pair rows (`{ key, value, description?, enabled? }`)
  *
  * Every other field — `name`, `description`, `url`, `tls`, `method`,
- * `message`, `auth`, `specLink`, `unixSocketPath`, `timeoutMs`,
+ * `message`, `auth`, `specLink`, `unixSocketPath`, `timeoutMs`, `maxResponseBytes`,
  * the TLS policy (`sslVerification`, `clientCertificateRef`, `tlsMinVersion`, `tlsMaxVersion`,
  * `tlsCipherSuites`, `sniServerName`), the dial policy (`resolveToAddress`, `proxyMode`,
  * `proxyUrl`, `proxyCredentialRef`) — flows through `setField` scalars. `method`, `auth`, and `specLink`

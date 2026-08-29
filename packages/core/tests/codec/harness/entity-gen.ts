@@ -666,6 +666,18 @@ export const ENTITY_CASES: readonly EntityCase[] = [
           maybe(rng, 0.3, () => 1_000 + rng.int(30_000)),
         ),
         ...opt(
+          'maxMessageBytes',
+          maybe(rng, 0.2, () => 1_024 + rng.int(1_000_000)),
+        ),
+        ...opt(
+          'followRedirects',
+          maybe(rng, 0.2, () => true),
+        ),
+        ...opt(
+          'maxRedirects',
+          maybe(rng, 0.2, () => rng.int(20)),
+        ),
+        ...opt(
           'autoReconnect',
           maybe(rng, 0.3, () => true),
         ),
@@ -879,6 +891,10 @@ export const ENTITY_CASES: readonly EntityCase[] = [
       ...opt(
         'timeoutMs',
         maybe(rng, 0.3, () => 1_000 + rng.int(30_000)),
+      ),
+      ...opt(
+        'maxResponseBytes',
+        maybe(rng, 0.2, () => 1_024 + rng.int(1_000_000)),
       ),
       ...opt(
         'clientCertificateRef',

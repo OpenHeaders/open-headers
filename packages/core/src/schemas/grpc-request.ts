@@ -13,6 +13,7 @@ import * as v from 'valibot';
 import { PathSegmentSchema, RelativePathSchema, SchemaVersionSchema, UidSchema } from './common';
 import {
   ClientCertificateRefSchema,
+  MaxResponseBytesSchema,
   ProxyCredentialRefSchema,
   ProxyModeSchema,
   ProxyUrlSchema,
@@ -165,6 +166,15 @@ const GrpcRequestObjectSchema = v.object({
    * HTTP request's timeout knob.
    */
   timeoutMs: v.optional(RequestTimeoutMsSchema),
+  /**
+   * Cap (bytes) on the response body read off the channel — the HTTP
+   * request's knob: a unary call's one message, a server stream's
+   * captured body. The executor aborts past it and records the cap on
+   * the snapshot (`bodyCapBytes`). May raise the runtime's 2 MiB
+   * default up to the hard 10 MiB ceiling, or lower it. Bounded — see
+   * {@link MaxResponseBytesSchema}.
+   */
+  maxResponseBytes: v.optional(MaxResponseBytesSchema),
   /**
    * Verify the server's TLS certificate against the system roots —
    * the HTTP request's knob, TLS-channel calls only. Absent = verify
