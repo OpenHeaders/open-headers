@@ -6,9 +6,11 @@
  * records so there are no set-modeled paths to enumerate.
  */
 
-import { MQTT_RESPONSE_EXAMPLE_ENTITY_TYPE } from '@openheaders/core/sync';
+import { MQTT_REQUEST_EXAMPLES_PATH, MQTT_RESPONSE_EXAMPLE_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { MqttResponseExample } from '@openheaders/core/types';
+import { orderedBySlots } from '@openheaders/core/utils';
 import { type CreateFlatMirrorOptions, createFlatEntityMirror } from './flat-entity-mirror';
+import { getMqttRequestSyncMirrorForWorkspace } from './mqtt-request-sync-mirror';
 import { createWorkspaceMirrorRegistry } from './per-workspace-mirror-registry';
 import { callSnapshotRpc } from './snapshot-rpc';
 
@@ -21,7 +23,7 @@ export type MqttResponseExampleMirrorListener = (uid: string) => void;
 export interface MqttResponseExampleSyncMirror {
   getMqttResponseExampleMirror(uid: string): MqttResponseExampleMirrorEntry | null;
   listMqttResponseExamples(): MqttResponseExample[];
-  /** Examples under one MQTT request, capture order (oldest first). */
+  /** Examples under one MQTT request, the request's slot order. */
   listMqttResponseExamplesForRequest(mqttRequestUid: string): MqttResponseExample[];
   subscribeMqttResponseExampleMirror(uid: string, listener: MqttResponseExampleMirrorListener): () => void;
   subscribeAny(listener: MqttResponseExampleMirrorListener): () => void;
@@ -57,13 +59,18 @@ export function createMqttResponseExampleSyncMirror(
     options,
   );
   const list = () => core.list().map((e) => e.mqttResponseExample);
+  const exampleSlots = (requestUid: string): string[] =>
+    getMqttRequestSyncMirrorForWorkspace(workspaceId)
+      .liveOrderedSetItems(requestUid, MQTT_REQUEST_EXAMPLES_PATH)
+      .map((slot) => slot.itemId);
   return {
     getMqttResponseExampleMirror: core.get,
     listMqttResponseExamples: list,
     listMqttResponseExamplesForRequest: (mqttRequestUid) =>
-      list()
-        .filter((e) => e.mqttRequestUid === mqttRequestUid)
-        .sort((a, b) => a.capturedAt.localeCompare(b.capturedAt)),
+      orderedBySlots(
+        list().filter((e) => e.mqttRequestUid === mqttRequestUid),
+        exampleSlots(mqttRequestUid),
+      ),
     subscribeMqttResponseExampleMirror: core.subscribe,
     subscribeAny: core.subscribeAny,
     hydrated: core.hydrated,

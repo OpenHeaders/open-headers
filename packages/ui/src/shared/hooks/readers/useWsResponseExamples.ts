@@ -7,8 +7,11 @@
  * under the request.
  */
 
+import { WEBSOCKET_REQUEST_EXAMPLES_PATH } from '@openheaders/core/sync';
 import type { WsResponseExample } from '@openheaders/core/types';
+import { orderedBySlots } from '@openheaders/core/utils';
 import { useEffect, useState } from 'react';
+import { getWebSocketRequestSyncMirrorForWorkspace } from '../../../context/mirrors/websocket-request-sync-mirror';
 import { getWsResponseExampleSyncMirrorForWorkspace } from '../../../context/mirrors/ws-response-example-sync-mirror';
 
 const EMPTY_EXAMPLES: readonly WsResponseExample[] = [];
@@ -80,7 +83,7 @@ const EMPTY_BY_REQUEST: ReadonlyMap<string, WsResponseExample[]> = new Map();
 
 /**
  * All WebSocket examples in the workspace grouped by parent request,
- * each group in capture order (oldest first) — feeds the sidebar's
+ * each group in the request's slot order — feeds the sidebar's
  * per-request child nodes without one subscription per request row.
  */
 export function useWsResponseExamplesByRequest(workspaceId: string | null): ReadonlyMap<string, WsResponseExample[]> {
@@ -100,7 +103,13 @@ export function useWsResponseExamplesByRequest(workspaceId: string | null): Read
         if (group) group.push(example);
         else next.set(example.websocketRequestUid, [example]);
       }
-      for (const group of next.values()) group.sort((a, b) => a.capturedAt.localeCompare(b.capturedAt));
+      const requests = getWebSocketRequestSyncMirrorForWorkspace(workspaceId);
+      for (const [requestUid, group] of next) {
+        const slots = requests
+          .liveOrderedSetItems(requestUid, WEBSOCKET_REQUEST_EXAMPLES_PATH)
+          .map((slot) => slot.itemId);
+        next.set(requestUid, orderedBySlots(group, slots));
+      }
       setByRequest(next);
     };
     void mirror.hydrated.then(refresh);

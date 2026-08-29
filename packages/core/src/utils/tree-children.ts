@@ -99,3 +99,30 @@ export function orderedChildren<F extends { uid: string }, L extends { uid: stri
   }
   return out;
 }
+
+/**
+ * The same read rule for ONE kind the caller has already grouped under
+ * its parent (a request's response examples, keyed by their parent
+ * uid): the slotted run in slot order, then the slot-less rest in
+ * array order. `slots` is `null` when the reader has no slot source.
+ */
+export function orderedBySlots<T extends { uid: string }>(
+  entities: ReadonlyArray<T>,
+  slots: ContainerSlots | null,
+): T[] {
+  const byUid = new Map(entities.map((entity) => [entity.uid, entity]));
+  const out: T[] = [];
+  const emitted = new Set<string>();
+  for (const uid of slots ?? []) {
+    const entity = byUid.get(uid);
+    if (!entity || emitted.has(uid)) continue;
+    emitted.add(uid);
+    out.push(entity);
+  }
+  for (const entity of entities) {
+    if (emitted.has(entity.uid)) continue;
+    emitted.add(entity.uid);
+    out.push(entity);
+  }
+  return out;
+}

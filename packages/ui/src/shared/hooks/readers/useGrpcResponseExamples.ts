@@ -2,12 +2,15 @@
  * useGrpcResponseExamples — live gRPC example lists, the
  * `useResponseExamples` sibling for the GrpcRequest family. Subscribes
  * to the per-workspace gRPC response-example sync mirror directly (no
- * context provider stack); groups return capture order (oldest first),
+ * context provider stack); groups return the request's slot order,
  * matching the sidebar's child-node ordering under the request.
  */
 
+import { GRPC_REQUEST_EXAMPLES_PATH } from '@openheaders/core/sync';
 import type { GrpcResponseExample } from '@openheaders/core/types';
+import { orderedBySlots } from '@openheaders/core/utils';
 import { useEffect, useState } from 'react';
+import { getGrpcRequestSyncMirrorForWorkspace } from '../../../context/mirrors/grpc-request-sync-mirror';
 import { getGrpcResponseExampleSyncMirrorForWorkspace } from '../../../context/mirrors/grpc-response-example-sync-mirror';
 
 const EMPTY_EXAMPLES: readonly GrpcResponseExample[] = [];
@@ -79,7 +82,7 @@ const EMPTY_BY_REQUEST: ReadonlyMap<string, GrpcResponseExample[]> = new Map();
 
 /**
  * All gRPC examples in the workspace grouped by parent request, each
- * group in capture order (oldest first) — feeds the sidebar's
+ * group in the request's slot order — feeds the sidebar's
  * per-request child nodes without one subscription per request row.
  */
 export function useGrpcResponseExamplesByRequest(
@@ -101,7 +104,11 @@ export function useGrpcResponseExamplesByRequest(
         if (group) group.push(example);
         else next.set(example.grpcRequestUid, [example]);
       }
-      for (const group of next.values()) group.sort((a, b) => a.capturedAt.localeCompare(b.capturedAt));
+      const requests = getGrpcRequestSyncMirrorForWorkspace(workspaceId);
+      for (const [requestUid, group] of next) {
+        const slots = requests.liveOrderedSetItems(requestUid, GRPC_REQUEST_EXAMPLES_PATH).map((slot) => slot.itemId);
+        next.set(requestUid, orderedBySlots(group, slots));
+      }
       setByRequest(next);
     };
     void mirror.hydrated.then(refresh);

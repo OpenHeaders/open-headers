@@ -6,11 +6,13 @@
  * records so there are no set-modeled paths to enumerate.
  */
 
-import { WS_RESPONSE_EXAMPLE_ENTITY_TYPE } from '@openheaders/core/sync';
+import { WEBSOCKET_REQUEST_EXAMPLES_PATH, WS_RESPONSE_EXAMPLE_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { WsResponseExample } from '@openheaders/core/types';
+import { orderedBySlots } from '@openheaders/core/utils';
 import { type CreateFlatMirrorOptions, createFlatEntityMirror } from './flat-entity-mirror';
 import { createWorkspaceMirrorRegistry } from './per-workspace-mirror-registry';
 import { callSnapshotRpc } from './snapshot-rpc';
+import { getWebSocketRequestSyncMirrorForWorkspace } from './websocket-request-sync-mirror';
 
 export interface WsResponseExampleMirrorEntry {
   wsResponseExample: WsResponseExample;
@@ -21,7 +23,7 @@ export type WsResponseExampleMirrorListener = (uid: string) => void;
 export interface WsResponseExampleSyncMirror {
   getWsResponseExampleMirror(uid: string): WsResponseExampleMirrorEntry | null;
   listWsResponseExamples(): WsResponseExample[];
-  /** Examples under one WebSocket request, capture order (oldest first). */
+  /** Examples under one WebSocket request, the request's slot order. */
   listWsResponseExamplesForRequest(websocketRequestUid: string): WsResponseExample[];
   subscribeWsResponseExampleMirror(uid: string, listener: WsResponseExampleMirrorListener): () => void;
   subscribeAny(listener: WsResponseExampleMirrorListener): () => void;
@@ -57,13 +59,18 @@ export function createWsResponseExampleSyncMirror(
     options,
   );
   const list = () => core.list().map((e) => e.wsResponseExample);
+  const exampleSlots = (requestUid: string): string[] =>
+    getWebSocketRequestSyncMirrorForWorkspace(workspaceId)
+      .liveOrderedSetItems(requestUid, WEBSOCKET_REQUEST_EXAMPLES_PATH)
+      .map((slot) => slot.itemId);
   return {
     getWsResponseExampleMirror: core.get,
     listWsResponseExamples: list,
     listWsResponseExamplesForRequest: (websocketRequestUid) =>
-      list()
-        .filter((e) => e.websocketRequestUid === websocketRequestUid)
-        .sort((a, b) => a.capturedAt.localeCompare(b.capturedAt)),
+      orderedBySlots(
+        list().filter((e) => e.websocketRequestUid === websocketRequestUid),
+        exampleSlots(websocketRequestUid),
+      ),
     subscribeWsResponseExampleMirror: core.subscribe,
     subscribeAny: core.subscribeAny,
     hydrated: core.hydrated,

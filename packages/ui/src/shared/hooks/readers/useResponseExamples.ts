@@ -3,12 +3,15 @@
  *
  * Subscribes to the per-workspace response-example sync mirror directly
  * (no context provider stack — same posture as `useScriptPackages`).
- * Returns capture order (oldest first), matching the sidebar's
+ * Returns the request's slot order, matching the sidebar's
  * child-node ordering under the request.
  */
 
+import { REQUEST_EXAMPLES_PATH } from '@openheaders/core/sync';
 import type { ResponseExample } from '@openheaders/core/types';
+import { orderedBySlots } from '@openheaders/core/utils';
 import { useEffect, useState } from 'react';
+import { getRequestSyncMirrorForWorkspace } from '../../../context/mirrors/request-sync-mirror';
 import { getResponseExampleSyncMirrorForWorkspace } from '../../../context/mirrors/response-example-sync-mirror';
 
 export function useResponseExamples(workspaceId: string | null, requestUid: string | null): ResponseExample[] {
@@ -100,7 +103,7 @@ const EMPTY_BY_REQUEST: ReadonlyMap<string, ResponseExample[]> = new Map();
 
 /**
  * All examples in the workspace grouped by parent request, each group in
- * capture order (oldest first) — feeds the sidebar's per-request child
+ * the request's slot order — feeds the sidebar's per-request child
  * nodes without one subscription per request row.
  */
 export function useResponseExamplesByRequest(workspaceId: string | null): ReadonlyMap<string, ResponseExample[]> {
@@ -120,7 +123,11 @@ export function useResponseExamplesByRequest(workspaceId: string | null): Readon
         if (group) group.push(example);
         else next.set(example.requestUid, [example]);
       }
-      for (const group of next.values()) group.sort((a, b) => a.capturedAt.localeCompare(b.capturedAt));
+      const requests = getRequestSyncMirrorForWorkspace(workspaceId);
+      for (const [requestUid, group] of next) {
+        const slots = requests.liveOrderedSetItems(requestUid, REQUEST_EXAMPLES_PATH).map((slot) => slot.itemId);
+        next.set(requestUid, orderedBySlots(group, slots));
+      }
       setByRequest(next);
     };
     void mirror.hydrated.then(refresh);

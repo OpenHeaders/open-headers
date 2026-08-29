@@ -5,10 +5,12 @@
  * flat records so there are no set-modeled paths to enumerate.
  */
 
-import { RESPONSE_EXAMPLE_ENTITY_TYPE } from '@openheaders/core/sync';
+import { REQUEST_EXAMPLES_PATH, RESPONSE_EXAMPLE_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { ResponseExample } from '@openheaders/core/types';
+import { orderedBySlots } from '@openheaders/core/utils';
 import { type CreateFlatMirrorOptions, createFlatEntityMirror } from './flat-entity-mirror';
 import { createWorkspaceMirrorRegistry } from './per-workspace-mirror-registry';
+import { getRequestSyncMirrorForWorkspace } from './request-sync-mirror';
 import { callSnapshotRpc } from './snapshot-rpc';
 
 export interface ResponseExampleMirrorEntry {
@@ -20,7 +22,7 @@ export type ResponseExampleMirrorListener = (uid: string) => void;
 export interface ResponseExampleSyncMirror {
   getResponseExampleMirror(uid: string): ResponseExampleMirrorEntry | null;
   listResponseExamples(): ResponseExample[];
-  /** Examples under one request, capture order (oldest first). */
+  /** Examples under one request, the request's slot order. */
   listResponseExamplesForRequest(requestUid: string): ResponseExample[];
   subscribeResponseExampleMirror(uid: string, listener: ResponseExampleMirrorListener): () => void;
   subscribeAny(listener: ResponseExampleMirrorListener): () => void;
@@ -56,13 +58,18 @@ export function createResponseExampleSyncMirror(
     options,
   );
   const list = () => core.list().map((e) => e.responseExample);
+  const exampleSlots = (requestUid: string): string[] =>
+    getRequestSyncMirrorForWorkspace(workspaceId)
+      .liveOrderedSetItems(requestUid, REQUEST_EXAMPLES_PATH)
+      .map((slot) => slot.itemId);
   return {
     getResponseExampleMirror: core.get,
     listResponseExamples: list,
     listResponseExamplesForRequest: (requestUid) =>
-      list()
-        .filter((e) => e.requestUid === requestUid)
-        .sort((a, b) => a.capturedAt.localeCompare(b.capturedAt)),
+      orderedBySlots(
+        list().filter((e) => e.requestUid === requestUid),
+        exampleSlots(requestUid),
+      ),
     subscribeResponseExampleMirror: core.subscribe,
     subscribeAny: core.subscribeAny,
     hydrated: core.hydrated,

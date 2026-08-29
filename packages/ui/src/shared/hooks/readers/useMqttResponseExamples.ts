@@ -2,13 +2,16 @@
  * useMqttResponseExamples — live MQTT example lists, the
  * `useWsResponseExamples` sibling for the MqttRequest family.
  * Subscribes to the per-workspace MQTT response-example sync mirror
- * directly (no context provider stack); groups return capture order
- * (oldest first), matching the sidebar's child-node ordering under the
+ * directly (no context provider stack); groups return the request's slot order,
+ * matching the sidebar's child-node ordering under the
  * request.
  */
 
+import { MQTT_REQUEST_EXAMPLES_PATH } from '@openheaders/core/sync';
 import type { MqttResponseExample } from '@openheaders/core/types';
+import { orderedBySlots } from '@openheaders/core/utils';
 import { useEffect, useState } from 'react';
+import { getMqttRequestSyncMirrorForWorkspace } from '../../../context/mirrors/mqtt-request-sync-mirror';
 import { getMqttResponseExampleSyncMirrorForWorkspace } from '../../../context/mirrors/mqtt-response-example-sync-mirror';
 
 const EMPTY_EXAMPLES: readonly MqttResponseExample[] = [];
@@ -80,7 +83,7 @@ const EMPTY_BY_REQUEST: ReadonlyMap<string, MqttResponseExample[]> = new Map();
 
 /**
  * All MQTT examples in the workspace grouped by parent request, each
- * group in capture order (oldest first) — feeds the sidebar's
+ * group in the request's slot order — feeds the sidebar's
  * per-request child nodes without one subscription per request row.
  */
 export function useMqttResponseExamplesByRequest(
@@ -102,7 +105,11 @@ export function useMqttResponseExamplesByRequest(
         if (group) group.push(example);
         else next.set(example.mqttRequestUid, [example]);
       }
-      for (const group of next.values()) group.sort((a, b) => a.capturedAt.localeCompare(b.capturedAt));
+      const requests = getMqttRequestSyncMirrorForWorkspace(workspaceId);
+      for (const [requestUid, group] of next) {
+        const slots = requests.liveOrderedSetItems(requestUid, MQTT_REQUEST_EXAMPLES_PATH).map((slot) => slot.itemId);
+        next.set(requestUid, orderedBySlots(group, slots));
+      }
       setByRequest(next);
     };
     void mirror.hydrated.then(refresh);

@@ -6,9 +6,11 @@
  * records so there are no set-modeled paths to enumerate.
  */
 
-import { GRPC_RESPONSE_EXAMPLE_ENTITY_TYPE } from '@openheaders/core/sync';
+import { GRPC_REQUEST_EXAMPLES_PATH, GRPC_RESPONSE_EXAMPLE_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { GrpcResponseExample } from '@openheaders/core/types';
+import { orderedBySlots } from '@openheaders/core/utils';
 import { type CreateFlatMirrorOptions, createFlatEntityMirror } from './flat-entity-mirror';
+import { getGrpcRequestSyncMirrorForWorkspace } from './grpc-request-sync-mirror';
 import { createWorkspaceMirrorRegistry } from './per-workspace-mirror-registry';
 import { callSnapshotRpc } from './snapshot-rpc';
 
@@ -21,7 +23,7 @@ export type GrpcResponseExampleMirrorListener = (uid: string) => void;
 export interface GrpcResponseExampleSyncMirror {
   getGrpcResponseExampleMirror(uid: string): GrpcResponseExampleMirrorEntry | null;
   listGrpcResponseExamples(): GrpcResponseExample[];
-  /** Examples under one gRPC request, capture order (oldest first). */
+  /** Examples under one gRPC request, the request's slot order. */
   listGrpcResponseExamplesForRequest(grpcRequestUid: string): GrpcResponseExample[];
   subscribeGrpcResponseExampleMirror(uid: string, listener: GrpcResponseExampleMirrorListener): () => void;
   subscribeAny(listener: GrpcResponseExampleMirrorListener): () => void;
@@ -57,13 +59,18 @@ export function createGrpcResponseExampleSyncMirror(
     options,
   );
   const list = () => core.list().map((e) => e.grpcResponseExample);
+  const exampleSlots = (requestUid: string): string[] =>
+    getGrpcRequestSyncMirrorForWorkspace(workspaceId)
+      .liveOrderedSetItems(requestUid, GRPC_REQUEST_EXAMPLES_PATH)
+      .map((slot) => slot.itemId);
   return {
     getGrpcResponseExampleMirror: core.get,
     listGrpcResponseExamples: list,
     listGrpcResponseExamplesForRequest: (grpcRequestUid) =>
-      list()
-        .filter((e) => e.grpcRequestUid === grpcRequestUid)
-        .sort((a, b) => a.capturedAt.localeCompare(b.capturedAt)),
+      orderedBySlots(
+        list().filter((e) => e.grpcRequestUid === grpcRequestUid),
+        exampleSlots(grpcRequestUid),
+      ),
     subscribeGrpcResponseExampleMirror: core.subscribe,
     subscribeAny: core.subscribeAny,
     hydrated: core.hydrated,

@@ -6,7 +6,7 @@
 
 import { describe, expect, it } from 'vitest';
 import { mergedTailKey, mergeOrderedEntries } from '../../src/sync/order/tree-child-order';
-import { indexTreeChildren, orderedChildren } from '../../src/utils/tree-children';
+import { indexTreeChildren, orderedBySlots, orderedChildren } from '../../src/utils/tree-children';
 
 interface Node {
   uid: string;
@@ -60,6 +60,19 @@ describe('orderedChildren', () => {
   it('answers nested containers from the same index', () => {
     const out = orderedChildren(index, 'rules/col00001/a-fol00001', ['rul00003']);
     expect(uids(out)).toEqual(['L:rul00003', 'F:fol00003']);
+  });
+});
+
+describe('orderedBySlots', () => {
+  const examples = [node('exa00001', 'a'), node('exa00002', 'b'), node('exa00003', 'c')];
+
+  it('follows the slot order and appends the slot-less rest in array order; unknown slots are skipped', () => {
+    const out = orderedBySlots(examples, ['exa00003', 'dead0000', 'exa00001', 'exa00003']);
+    expect(out.map((e) => e.uid)).toEqual(['exa00003', 'exa00001', 'exa00002']);
+  });
+
+  it('is array order without a slot source', () => {
+    expect(orderedBySlots(examples, null).map((e) => e.uid)).toEqual(['exa00001', 'exa00002', 'exa00003']);
   });
 });
 
