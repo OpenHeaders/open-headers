@@ -34,6 +34,8 @@ const draft: WebSocketDraft = {
   eventName: '',
   namespace: '',
   handshakePath: '',
+  socketioProtocol: undefined,
+  ackTimeoutMs: undefined,
   ackEnabled: false,
   messageFormat: 'text',
   binaryEncoding: 'base64',

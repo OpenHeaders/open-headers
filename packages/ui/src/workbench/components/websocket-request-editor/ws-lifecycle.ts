@@ -18,10 +18,16 @@ import type { Translate } from '@openheaders/ui/context/LocaleContext';
 export type WsTimelineLifecycleItem = ExecutedWsLifecycle & { atMs?: number };
 
 /** True while the last reconnect fact is a drop or an attempt still
- *  dialing — the session is in flight but no connection is up. */
+ *  dialing — the session is in flight but no connection is up. Ack
+ *  timeouts are session facts, not reconnect facts; they never move
+ *  the badge. */
 export function reconnectingAt(lifecycle: readonly ExecutedWsLifecycle[]): boolean {
-  const last = lifecycle[lifecycle.length - 1];
-  return last !== undefined && last.kind !== 'reconnected';
+  for (let i = lifecycle.length - 1; i >= 0; i--) {
+    const kind = lifecycle[i].kind;
+    if (kind === 'ackTimeout') continue;
+    return kind !== 'reconnected';
+  }
+  return false;
 }
 
 /** The live feed's facts as timeline rows — absolute capture indexes

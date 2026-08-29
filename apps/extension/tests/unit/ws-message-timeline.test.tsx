@@ -429,6 +429,24 @@ describe('WsMessageTimeline — socketio decoded display', () => {
     expect(ackIds).toEqual(['#1', '#1']);
   });
 
+  it('renders an ack-timeout fact at its index and tints the timed-out event chip', () => {
+    const items = SIO_ITEMS.slice(0, 7);
+    renderTimeline({
+      items,
+      count: items.length,
+      flavor: 'socketio',
+      lifecycleItems: [{ kind: 'ackTimeout', ackId: 1, timeoutMs: 5000, atIndex: 7, atMs: 1_700_000_005_000 }],
+    });
+    const row = screen.getByTestId('ws-timeline-ack-timeout-row');
+    expect(row.textContent).toContain('Ack #1 timed out after 5 s');
+    const chip = screen.getByTestId('ws-sio-ack-id');
+    expect(chip.getAttribute('data-ack-timed-out')).toBe('true');
+    // Newest-first: the fact sits above the event it names.
+    const eventRow = screen.getAllByTestId('ws-timeline-message-row').find((r) => r.textContent?.includes('ping-me'));
+    if (!eventRow) throw new Error('no event row');
+    expect((row.compareDocumentPosition(eventRow) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0).toBe(true);
+  });
+
   it('expands an event row into the pretty-printed arguments', () => {
     renderTimeline({ items: SIO_ITEMS, count: SIO_ITEMS.length, flavor: 'socketio' });
     const eventRow = screen.getAllByTestId('ws-timeline-message-row').find((r) => r.textContent?.includes('news'));

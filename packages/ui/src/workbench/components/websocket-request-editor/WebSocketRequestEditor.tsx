@@ -100,6 +100,8 @@ const emptyWebSocketDraft = (): WebSocketDraft => ({
   eventName: '',
   namespace: '',
   handshakePath: '',
+  socketioProtocol: undefined,
+  ackTimeoutMs: undefined,
   ackEnabled: false,
   messageFormat: 'text',
   binaryEncoding: 'base64',

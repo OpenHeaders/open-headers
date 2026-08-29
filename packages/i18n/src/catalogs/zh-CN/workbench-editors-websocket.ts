@@ -109,7 +109,8 @@ export const workbenchEditorsWebsocket = {
     '让长会话保持存活的机制：断开的连接是否重新打开、重试多有耐心，沉默多久后连接算作丢失，以及此客户端发送的心跳。',
   'workbench.editors.websocket.settings.groupInfo.connection':
     '握手如何打开会话：提议的子协议、连接的去向，以及打开的时间上限。',
-  'workbench.editors.websocket.settings.groupInfo.socketio': 'Socket.IO CONNECT 如何寻址服务器：会话加入的命名空间。',
+  'workbench.editors.websocket.settings.groupInfo.socketio':
+    'Socket.IO 会话如何寻址并与服务器对话：挂载的 engine.io 握手路径、加入的命名空间、协议版本，以及事件等待其 ack 的时长。',
   'workbench.editors.websocket.settings.groupInfo.tls':
     'wss: 会话如何建立信任：是否根据系统根证书验证服务器证书、此设备出示的客户端证书、握手时的 TLS 版本范围和密码套件列表，以及提供的 SNI 名称。',
   'workbench.editors.websocket.settings.subprotocolsLabel': '子协议',
@@ -129,6 +130,16 @@ export const workbenchEditorsWebsocket = {
     '会话连接到的命名空间——留空连接到根 /。会话直接拨号 websocket 传输；没有 long-polling 回退。',
   'workbench.editors.websocket.settings.namespacePlaceholder': '/（默认）',
   'workbench.editors.websocket.settings.namespaceExample': '例如 /admin',
+  'workbench.editors.websocket.settings.socketioProtocolLabel': '协议',
+  'workbench.editors.websocket.settings.socketioProtocolHelp':
+    '会话使用的 Socket.IO 协议版本。v5（engine.io 4）是 Socket.IO 3.x 和 4.x 服务器所用的版本；连接 1.x 或 2.x 服务器请选择 v4（engine.io 3）——此时由客户端发送 ping，服务器自行加入根命名空间，connect 包不携带认证负载，因此 bearer 凭据只随握手请求头发送。',
+  'workbench.editors.websocket.settings.socketioProtocolPlaceholder': 'v5（默认）',
+  'workbench.editors.websocket.settings.socketioProtocolV5': 'v5 — Socket.IO 3.x / 4.x 服务器',
+  'workbench.editors.websocket.settings.socketioProtocolV4': 'v4 — Socket.IO 1.x / 2.x 服务器',
+  'workbench.editors.websocket.settings.ackTimeoutLabel': 'Ack 超时',
+  'workbench.editors.websocket.settings.ackTimeoutHelp':
+    '带 Ack 发送的事件等待服务器确认的时长。等待耗尽后，时间线将该 ack 记为超时并停止等待；迟到的 ack 到达时仍会显示。留空则一直等待。',
+  'workbench.editors.websocket.settings.ackTimeoutPlaceholder': '不超时（默认）',
   'workbench.editors.websocket.toast.deletedOtherTab': '此 WebSocket 请求已在另一个标签页中被删除。',
   'workbench.editors.websocket.toast.updateFailed': '保存 WebSocket 请求失败',
   'workbench.editors.websocket.toast.updateFailedDetail': '保存 WebSocket 请求失败：{message}',
@@ -179,6 +190,7 @@ export const workbenchEditorsWebsocket = {
   'workbench.editors.websocket.timeline.reconnectingNow': '第 {attempt} 次重连尝试，立即进行',
   'workbench.editors.websocket.timeline.reconnected': '已重新连接',
   'workbench.editors.websocket.timeline.reconnectedTo': '已重新连接到 {url}',
+  'workbench.editors.websocket.timeline.ackTimeout': 'Ack #{ackId} 在 {timeout} 后超时',
   'workbench.editors.websocket.timeline.noMatches': '没有匹配筛选条件的消息。',
   'workbench.editors.websocket.timeline.connectedTo': '已连接到 {url}',
   'workbench.editors.websocket.timeline.copyMessage': '复制消息',

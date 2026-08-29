@@ -122,7 +122,7 @@ export const workbenchEditorsWebsocket = {
     'Comment le handshake ouvre la session : les sous-protocoles proposés, la destination de la connexion et ' +
     'le plafond sur l’ouverture.',
   'workbench.editors.websocket.settings.groupInfo.socketio':
-    'Comment le CONNECT Socket.IO adresse le serveur : l’espace de noms que la session rejoint.',
+    'Comment la session Socket.IO adresse le serveur et lui parle : le chemin de handshake engine.io qu’elle monte, l’espace de noms qu’elle rejoint, la révision du protocole et combien de temps un événement attend son ack.',
   'workbench.editors.websocket.settings.groupInfo.tls':
     'Comment les sessions wss: établissent la confiance : vérification du certificat du serveur contre les racines système, certificat client présenté par cet appareil, fenêtre de versions TLS et liste de suites de chiffrement de la négociation, et nom SNI proposé.',
   'workbench.editors.websocket.settings.subprotocolsLabel': 'Sous-protocoles',
@@ -148,6 +148,16 @@ export const workbenchEditorsWebsocket = {
     "composent directement le transport websocket ; il n'y a pas de repli long-polling.",
   'workbench.editors.websocket.settings.namespacePlaceholder': '/ (défaut)',
   'workbench.editors.websocket.settings.namespaceExample': 'p. ex. /admin',
+  'workbench.editors.websocket.settings.socketioProtocolLabel': 'Protocole',
+  'workbench.editors.websocket.settings.socketioProtocolHelp':
+    'La révision du protocole Socket.IO que parle la session. v5 (engine.io 4) est celle des serveurs Socket.IO 3.x et 4.x ; choisissez v4 (engine.io 3) pour un serveur 1.x ou 2.x — là, le client envoie les pings, le serveur rejoint lui-même le namespace racine et le paquet connect ne porte aucune charge d’authentification : l’identifiant bearer ne voyage que dans l’en-tête du handshake.',
+  'workbench.editors.websocket.settings.socketioProtocolPlaceholder': 'v5 (par défaut)',
+  'workbench.editors.websocket.settings.socketioProtocolV5': 'v5 — serveurs Socket.IO 3.x / 4.x',
+  'workbench.editors.websocket.settings.socketioProtocolV4': 'v4 — serveurs Socket.IO 1.x / 2.x',
+  'workbench.editors.websocket.settings.ackTimeoutLabel': 'Délai d’ack',
+  'workbench.editors.websocket.settings.ackTimeoutHelp':
+    'Combien de temps un événement envoyé avec Ack attend l’accusé du serveur. Une fois le délai écoulé, la chronologie note l’ack comme expiré et cesse d’attendre ; un ack tardif s’affiche tout de même à son arrivée. Vide attend indéfiniment.',
+  'workbench.editors.websocket.settings.ackTimeoutPlaceholder': 'Aucun délai (par défaut)',
   'workbench.editors.websocket.toast.deletedOtherTab':
     'Cette requête WebSocket a été supprimée depuis un autre onglet.',
   'workbench.editors.websocket.toast.updateFailed': "Échec de l'enregistrement de la requête WebSocket",
@@ -203,6 +213,7 @@ export const workbenchEditorsWebsocket = {
   'workbench.editors.websocket.timeline.reconnectingNow': 'Tentative de reconnexion {attempt} maintenant',
   'workbench.editors.websocket.timeline.reconnected': 'Reconnecté',
   'workbench.editors.websocket.timeline.reconnectedTo': 'Reconnecté à {url}',
+  'workbench.editors.websocket.timeline.ackTimeout': 'Ack #{ackId} expiré après {timeout}',
   'workbench.editors.websocket.timeline.noMatches': 'Aucun message ne correspond au filtre.',
   'workbench.editors.websocket.timeline.connectedTo': 'Connecté à {url}',
   'workbench.editors.websocket.timeline.copyMessage': 'Copier le message',

@@ -20,7 +20,9 @@ export type WsInfoKey =
   | 'followRedirects'
   | 'maxRedirects'
   | 'handshakePath'
-  | 'namespace';
+  | 'namespace'
+  | 'socketioProtocol'
+  | 'ackTimeout';
 
 const TITLE_KEY: Record<WsInfoKey, MessageKey> = {
   subprotocols: 'workbench.editors.websocket.settings.subprotocolsLabel',
@@ -31,6 +33,8 @@ const TITLE_KEY: Record<WsInfoKey, MessageKey> = {
   maxRedirects: 'workbench.editors.request.settings.maxRedirects',
   handshakePath: 'workbench.editors.websocket.settings.handshakePathLabel',
   namespace: 'workbench.editors.websocket.settings.namespaceLabel',
+  socketioProtocol: 'workbench.editors.websocket.settings.socketioProtocolLabel',
+  ackTimeout: 'workbench.editors.websocket.settings.ackTimeoutLabel',
 };
 
 const SUMMARY_KEY: Record<WsInfoKey, MessageKey> = {
@@ -42,6 +46,8 @@ const SUMMARY_KEY: Record<WsInfoKey, MessageKey> = {
   maxRedirects: 'workbench.editors.request.settings.maxRedirectsWsInfo',
   handshakePath: 'workbench.editors.websocket.settings.handshakePathHelp',
   namespace: 'workbench.editors.websocket.settings.namespaceHelp',
+  socketioProtocol: 'workbench.editors.websocket.settings.socketioProtocolHelp',
+  ackTimeout: 'workbench.editors.websocket.settings.ackTimeoutHelp',
 };
 
 const KICKER_GROUP: Record<WsInfoKey, WsSettingsGroupKey> = {
@@ -53,6 +59,8 @@ const KICKER_GROUP: Record<WsInfoKey, WsSettingsGroupKey> = {
   maxRedirects: 'connection',
   handshakePath: 'socketio',
   namespace: 'socketio',
+  socketioProtocol: 'socketio',
+  ackTimeout: 'socketio',
 };
 
 const GROUP_SUMMARY_KEY: Record<WsSettingsGroupKey, MessageKey> = {

@@ -14,6 +14,7 @@
 
 import type {
   ProxyMode,
+  SocketIoProtocol,
   TlsVersion,
   WebSocketAuth,
   WebSocketBinaryEncoding,
@@ -50,6 +51,10 @@ export interface WebSocketDraft {
   namespace: string;
   /** Socket.IO handshake path (concrete — absent reads as '', the stock `/socket.io/`). */
   handshakePath: string;
+  /** Socket.IO protocol revision; `undefined` = v5, the default. */
+  socketioProtocol: SocketIoProtocol | undefined;
+  /** Socket.IO ack wait; `undefined` = wait forever. */
+  ackTimeoutMs: number | undefined;
   /** Socket.IO ack opt-in (concrete — absent reads as off). */
   ackEnabled: boolean;
   /** Session credential (concrete — absent on the entity reads as
@@ -117,6 +122,8 @@ export interface WebSocketRequestUpdates {
   eventName: string;
   namespace: string;
   handshakePath: string;
+  socketioProtocol: SocketIoProtocol | undefined;
+  ackTimeoutMs: number | undefined;
   ackEnabled: boolean;
   messageFormat: WebSocketMessageFormat;
   binaryEncoding: WebSocketBinaryEncoding | undefined;
@@ -262,6 +269,8 @@ export function draftFromWebSocketRequest(req: WebSocketRequest): WebSocketDraft
     eventName: req.eventName ?? '',
     namespace: target.namespace,
     handshakePath: req.handshakePath ?? '',
+    socketioProtocol: req.socketioProtocol,
+    ackTimeoutMs: req.ackTimeoutMs,
     ackEnabled: req.ackEnabled ?? false,
     messageFormat: req.messageFormat ?? 'text',
     binaryEncoding: req.binaryEncoding ?? 'base64',
@@ -305,6 +314,8 @@ export function buildWebSocketRequestUpdates(draft: WebSocketDraft): WebSocketRe
     eventName: draft.eventName,
     namespace: draft.namespace,
     handshakePath: draft.handshakePath,
+    socketioProtocol: draft.socketioProtocol,
+    ackTimeoutMs: draft.ackTimeoutMs,
     ackEnabled: draft.ackEnabled,
     messageFormat: draft.messageFormat,
     binaryEncoding: draft.messageFormat === 'binary' ? draft.binaryEncoding : undefined,

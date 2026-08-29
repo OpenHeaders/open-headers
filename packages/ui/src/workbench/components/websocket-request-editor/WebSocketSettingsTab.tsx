@@ -8,7 +8,8 @@
  * defaults legible in the controls, modified dots, and per-row
  * resets. The Socket.IO group renders on that flavor only; the
  * Connection group seats the shared `DialRows` block between the
- * subprotocol offer and the socket path and closes on the limits —
+ * subprotocol offer (raw flavor — engine.io negotiates none) and the
+ * socket path and closes on the limits —
  * the max message size (every runtime: the executor's own cap) and
  * the handshake redirect pair (node runtimes; the browser client
  * never follows); the Session resilience group
@@ -52,6 +53,7 @@ import {
   KnobRow,
   type RuntimeManagedRowDef,
   RuntimeManagedSheet,
+  SelectKnobRow,
   TagsKnobRow,
   TextKnobRow,
 } from '@openheaders/ui/shared/settings-rows';
@@ -143,14 +145,22 @@ const WebSocketSettingsTab: React.FC<WebSocketSettingsTabProps> = ({ draft, setD
       return { ...c, [key]: next };
     });
   const connectionModified =
-    draft.subprotocols.length > 0 ||
+    (!socketioFlavor && draft.subprotocols.length > 0) ||
     isDialModified(draft) ||
     draft.unixSocketPath !== undefined ||
     draft.timeoutMs !== undefined ||
     draft.maxMessageBytes !== undefined ||
     draft.followRedirects ||
     draft.maxRedirects !== undefined;
-  const socketioModified = draft.namespace !== '' || draft.handshakePath !== '';
+  const socketioModified =
+    draft.namespace !== '' ||
+    draft.handshakePath !== '' ||
+    draft.socketioProtocol !== undefined ||
+    draft.ackTimeoutMs !== undefined;
+  const protocolOptions = [
+    { value: 'v5', label: t('workbench.editors.websocket.settings.socketioProtocolV5') },
+    { value: 'v4', label: t('workbench.editors.websocket.settings.socketioProtocolV4') },
+  ];
 
   return (
     <ConfigProvider
@@ -174,15 +184,17 @@ const WebSocketSettingsTab: React.FC<WebSocketSettingsTabProps> = ({ draft, setD
           info={wsSettingsGroupInfo(t, 'connection')}
           modified={connectionModified}
         >
-          <TagsKnobRow
-            label={t('workbench.editors.websocket.settings.subprotocolsLabel')}
-            value={draft.subprotocols}
-            onChange={(subprotocols) => setDraft((d) => ({ ...d, subprotocols }))}
-            info={wsSettingsRowInfo(t, 'subprotocols')}
-            placeholder={t('workbench.editors.websocket.settings.subprotocolsPlaceholder')}
-            example={t('workbench.editors.websocket.settings.subprotocolsExample')}
-            testId="websocket-subprotocols"
-          />
+          {!socketioFlavor && (
+            <TagsKnobRow
+              label={t('workbench.editors.websocket.settings.subprotocolsLabel')}
+              value={draft.subprotocols}
+              onChange={(subprotocols) => setDraft((d) => ({ ...d, subprotocols }))}
+              info={wsSettingsRowInfo(t, 'subprotocols')}
+              placeholder={t('workbench.editors.websocket.settings.subprotocolsPlaceholder')}
+              example={t('workbench.editors.websocket.settings.subprotocolsExample')}
+              testId="websocket-subprotocols"
+            />
+          )}
           <DialRows
             groupLabel={t(WS_GROUP_LABEL_KEY.connection)}
             value={draft}
@@ -290,6 +302,29 @@ const WebSocketSettingsTab: React.FC<WebSocketSettingsTabProps> = ({ draft, setD
               maxLength={MAX_SOCKETIO_PATH_LENGTH}
               example={t('workbench.editors.websocket.settings.namespaceExample')}
               testId="websocket-namespace"
+            />
+            <SelectKnobRow
+              label={t('workbench.editors.websocket.settings.socketioProtocolLabel')}
+              value={draft.socketioProtocol === undefined ? undefined : `v${draft.socketioProtocol}`}
+              onChange={(value) =>
+                setDraft((d) => ({ ...d, socketioProtocol: value === 'v4' ? 4 : value === 'v5' ? 5 : undefined }))
+              }
+              info={wsSettingsRowInfo(t, 'socketioProtocol')}
+              options={protocolOptions}
+              placeholder={t('workbench.editors.websocket.settings.socketioProtocolPlaceholder')}
+              modified={draft.socketioProtocol !== undefined}
+              testId="websocket-socketio-protocol"
+            />
+            <ComboKnobRow
+              label={t('workbench.editors.websocket.settings.ackTimeoutLabel')}
+              value={draft.ackTimeoutMs}
+              onChange={(ackTimeoutMs) => setDraft((d) => ({ ...d, ackTimeoutMs }))}
+              info={wsSettingsRowInfo(t, 'ackTimeout')}
+              presets={TIMEOUT_PRESETS}
+              interpret={interpretTimeout}
+              format={formatDurationMs}
+              placeholder={t('workbench.editors.websocket.settings.ackTimeoutPlaceholder')}
+              testId="websocket-ack-timeout"
             />
           </GroupSection>
         )}

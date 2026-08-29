@@ -48,6 +48,7 @@ import {
   CheckCircleOutlined,
   CheckOutlined,
   ClearOutlined,
+  ClockCircleOutlined,
   CloseCircleOutlined,
   DisconnectOutlined,
   DownOutlined,
@@ -807,6 +808,13 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
 
   const filtering = search.trim() !== '' || directionFilter !== 'all' || heartbeatHidden || handshakeHidden;
   const live = lifecycle.endedBy === undefined && lifecycle.errorMessage === undefined && lifecycle.aborted !== true;
+  // The ↑ event rows whose ack wait ran out — their id chip reads the
+  // fact where the compose sits, not only at the timeout row.
+  const timedOutAcks = useMemo(() => {
+    const out = new Set<number>();
+    for (const item of lifecycleItems) if (item.kind === 'ackTimeout') out.add(item.ackId);
+    return out;
+  }, [lifecycleItems]);
 
   // The flat display list the virtual window runs over — ONE event
   // log: Connecting at one chronological edge, Connected before the
@@ -1546,6 +1554,22 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
             </div>
           );
         }
+        if (item.kind === 'ackTimeout') {
+          // A Socket.IO ack wait ran out — the id names the ↑ event.
+          return (
+            <div key={entry.key} data-testid="ws-timeline-ack-timeout-row" style={lifecycleRowStyle}>
+              <ClockCircleOutlined aria-hidden style={{ fontSize: 11, color: token.colorWarning }} />
+              <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {t('workbench.editors.websocket.timeline.ackTimeout', {
+                  ackId: item.ackId,
+                  timeout: formatDurationMs(item.timeoutMs),
+                })}
+              </span>
+              {lifecycleTime(item.atMs)}
+              {expandSlot(null)}
+            </div>
+          );
+        }
         if (item.kind === 'reconnecting') {
           // One redial — on its wait, or asked for early; the previous
           // attempt's classified failure rides beside it.
@@ -1734,7 +1758,19 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
                   : t('workbench.editors.websocket.timeline.sio.ack')}
               </span>
               {sioEventLike.ackId !== null && (
-                <span style={{ color: token.colorTextTertiary, flexShrink: 0 }} data-testid="ws-sio-ack-id">
+                <span
+                  style={{
+                    color:
+                      sioEventLike.kind === 'event' && item.direction === 'up' && timedOutAcks.has(sioEventLike.ackId)
+                        ? token.colorWarning
+                        : token.colorTextTertiary,
+                    flexShrink: 0,
+                  }}
+                  data-testid="ws-sio-ack-id"
+                  {...(sioEventLike.kind === 'event' && item.direction === 'up' && timedOutAcks.has(sioEventLike.ackId)
+                    ? { 'data-ack-timed-out': 'true' }
+                    : {})}
+                >
                   #{sioEventLike.ackId}
                 </span>
               )}
