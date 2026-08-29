@@ -13,13 +13,15 @@
 import type React from 'react';
 import { createElement } from 'react';
 
-export function codeBadge(code: string): React.ReactNode {
+/** `width` — the slot's fixed width; 48 fits the six-character rule
+ *  codes, the four-character request kinds sit tighter at 36. */
+export function codeBadge(code: string, width = 48): React.ReactNode {
   return createElement(
     'span',
     {
       style: {
         display: 'inline-block',
-        width: 48,
+        width,
         flexShrink: 0,
         backgroundImage: 'linear-gradient(180deg, var(--rule-code-from, #6b7689), var(--rule-code-to, #3d4456))',
         WebkitBackgroundClip: 'text',

@@ -5,19 +5,20 @@
  *
  * Two vocabularies, each set by the gesture that carries it:
  *
- *   - `buildRequestKindMenuItems` — bare nouns under a parent that
- *     already supplies the verb ("Create API Request ▸ gRPC Request").
- *     Rows carry the code badge the sidebar leaf / tab will show.
- *   - `requestKindAddMenuItems` — the "Add …" imperative for a known
- *     container: its `+` menu and the "Add request" CTA an empty
- *     container offers.
+ *   - `buildRequestKindMenuItems` — the destination-less create menus
+ *     ("New Request ▸ HTTP"), every kind offered.
+ *   - `requestKindAddMenuItems` — the kinds a known container can add:
+ *     under "Add Request ▸" on its `+` menu, flat behind the "Add
+ *     request" button an empty container or overview offers.
+ *
+ * Both draw the same row: the code badge the sidebar leaf / tab will
+ * show, then the protocol's short name — the parent (or the button)
+ * already said "request".
  */
 
-import { PlusOutlined } from '@ant-design/icons';
 import type { MessageKey } from '@openheaders/i18n';
 import type { Translate } from '@openheaders/ui/context/LocaleContext';
 import type { ItemType } from 'antd/es/menu/interface';
-import { createElement } from 'react';
 import { codeBadge } from './components/shared/code-badge';
 
 /** Protocol flavors offered by every context-less request create. */
@@ -40,13 +41,16 @@ export const ALL_REQUEST_KINDS: RequestKindMenuItem[] = [
   { key: 'mqtt', code: 'MQTT', labelKey: 'shared.requestKinds.mqtt.label' },
 ];
 
+/** The four-character kind codes sit tighter than the rule codes. */
+const REQUEST_KIND_BADGE_WIDTH = 36;
+
 /**
  * Build Ant Design menu items for the destination-less create menus.
  */
 export function buildRequestKindMenuItems(onClick: (kind: RequestKind) => void, t: Translate) {
   return ALL_REQUEST_KINDS.map((rk) => ({
     key: rk.key,
-    icon: codeBadge(rk.code),
+    icon: codeBadge(rk.code, REQUEST_KIND_BADGE_WIDTH),
     label: t(rk.labelKey),
     onClick: () => onClick(rk.key),
   }));
@@ -79,45 +83,22 @@ export function requestKindAddMenuItems(
   { onAddRequest, onAddGrpcRequest, onAddWebSocketRequest, onAddSocketIoRequest, onAddMqttRequest }: RequestKindAddMenuOptions,
   t: Translate,
 ): ItemType[] {
+  const handlers: Partial<Record<RequestKind, () => void>> = {
+    http: onAddRequest,
+    grpc: onAddGrpcRequest,
+    websocket: onAddWebSocketRequest,
+    socketio: onAddSocketIoRequest,
+    mqtt: onAddMqttRequest,
+  };
   const items: ItemType[] = [];
-  if (onAddRequest) {
+  for (const rk of ALL_REQUEST_KINDS) {
+    const onClick = handlers[rk.key];
+    if (!onClick) continue;
     items.push({
-      key: 'add-request',
-      icon: createElement(PlusOutlined),
-      label: t('workbench.sidebar.menu.addRequest'),
-      onClick: onAddRequest,
-    });
-  }
-  if (onAddGrpcRequest) {
-    items.push({
-      key: 'add-grpc-request',
-      icon: createElement(PlusOutlined),
-      label: t('workbench.sidebar.menu.addGrpcRequest'),
-      onClick: onAddGrpcRequest,
-    });
-  }
-  if (onAddWebSocketRequest) {
-    items.push({
-      key: 'add-websocket-request',
-      icon: createElement(PlusOutlined),
-      label: t('workbench.sidebar.menu.addWebSocketRequest'),
-      onClick: onAddWebSocketRequest,
-    });
-  }
-  if (onAddSocketIoRequest) {
-    items.push({
-      key: 'add-socketio-request',
-      icon: createElement(PlusOutlined),
-      label: t('workbench.sidebar.menu.addSocketIoRequest'),
-      onClick: onAddSocketIoRequest,
-    });
-  }
-  if (onAddMqttRequest) {
-    items.push({
-      key: 'add-mqtt-request',
-      icon: createElement(PlusOutlined),
-      label: t('workbench.sidebar.menu.addMqttRequest'),
-      onClick: onAddMqttRequest,
+      key: `add-${rk.key}-request`,
+      icon: codeBadge(rk.code, REQUEST_KIND_BADGE_WIDTH),
+      label: t(rk.labelKey),
+      onClick,
     });
   }
   return items;

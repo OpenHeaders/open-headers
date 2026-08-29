@@ -289,11 +289,11 @@ export const sharedComponents = {
     'Proporcionar credenciales para un desafío de autenticación HTTP/proxy (requiere el modo de depuración)',
 
   // ── Request-kind registry ──────────────────────────────────────────
-  'shared.requestKinds.http.label': 'Solicitud HTTP',
-  'shared.requestKinds.grpc.label': 'Solicitud gRPC',
-  'shared.requestKinds.websocket.label': 'Solicitud WebSocket',
-  'shared.requestKinds.socketio.label': 'Solicitud Socket.IO',
-  'shared.requestKinds.mqtt.label': 'Solicitud MQTT',
+  'shared.requestKinds.http.label': 'HTTP',
+  'shared.requestKinds.grpc.label': 'gRPC',
+  'shared.requestKinds.websocket.label': 'WebSocket',
+  'shared.requestKinds.socketio.label': 'Socket.IO',
+  'shared.requestKinds.mqtt.label': 'MQTT',
 
   // ── System rule-template registry ──────────────────────────────────
   'shared.ruleTemplates.blankRule': 'Regla en blanco',

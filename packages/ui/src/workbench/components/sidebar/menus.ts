@@ -54,7 +54,15 @@ export function containerAddMenuItems(
       children: ruleTypeSubmenu(onAddRule, t),
     });
   }
-  items.push(...requestKindAddMenuItems(requestKinds, t));
+  const kinds = requestKindAddMenuItems(requestKinds, t);
+  if (kinds.length > 0) {
+    items.push({
+      key: 'add-request',
+      icon: createElement(PlusOutlined),
+      label: t('workbench.sidebar.menu.addRequest'),
+      children: kinds,
+    });
+  }
   items.push({
     key: 'add-folder',
     icon: createElement(FolderOutlined),

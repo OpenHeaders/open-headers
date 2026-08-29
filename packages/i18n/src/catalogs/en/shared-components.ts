@@ -298,11 +298,11 @@ export const sharedComponents = {
   //    request without a destination in hand: tab-strip `+`, editor
   //    empty state). Labels single-source the four protocol rows; the
   //    code badges (HTTP / gRPC / WS / S.IO) stay raw. ──
-  'shared.requestKinds.http.label': 'HTTP Request',
-  'shared.requestKinds.grpc.label': 'gRPC Request',
-  'shared.requestKinds.websocket.label': 'WebSocket Request',
-  'shared.requestKinds.socketio.label': 'Socket.IO Request',
-  'shared.requestKinds.mqtt.label': 'MQTT Request',
+  'shared.requestKinds.http.label': 'HTTP',
+  'shared.requestKinds.grpc.label': 'gRPC',
+  'shared.requestKinds.websocket.label': 'WebSocket',
+  'shared.requestKinds.socketio.label': 'Socket.IO',
+  'shared.requestKinds.mqtt.label': 'MQTT',
 
   // ── System rule-template registry (same surfaces as the rule types).
   //    Template keys, icons, conditions, and form values stay raw data;

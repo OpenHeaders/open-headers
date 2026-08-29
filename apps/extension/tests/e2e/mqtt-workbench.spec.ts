@@ -113,8 +113,19 @@ async function openCollectionAddMenu(): Promise<void> {
   await row.locator('.rules-sidebar-collection-actions .anticon-plus').first().click();
 }
 
-async function clickAddMenuItem(label: string): Promise<void> {
-  await page.locator('.ant-dropdown').filter({ visible: true }).getByRole('menuitem', { name: label }).first().click();
+async function clickAddMenuItem(kind: string): Promise<void> {
+  await page
+    .locator('.ant-dropdown')
+    .filter({ visible: true })
+    .getByRole('menuitem', { name: 'Add Request' })
+    .first()
+    .hover();
+  await page
+    .locator('.ant-dropdown-menu-submenu-popup')
+    .filter({ visible: true })
+    .getByRole('menuitem', { name: kind, exact: true })
+    .first()
+    .click();
 }
 
 /** Commit the create gesture's primed breadcrumb rename: wait until
@@ -255,7 +266,7 @@ test.afterAll(async () => {
 
 test('E1 — the collection + menu creates an MQTT request gated only on its empty URL', async () => {
   await openCollectionAddMenu();
-  await clickAddMenuItem('Add MQTT Request');
+  await clickAddMenuItem('MQTT');
   await commitAutoRename(/^New MQTT Request/, MQTT_NAME);
 
   // The renamed entity lands as a sidebar leaf carrying the MQTT tag.

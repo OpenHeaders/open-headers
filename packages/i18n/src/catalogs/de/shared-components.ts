@@ -301,11 +301,11 @@ export const sharedComponents = {
     'Anmeldedaten für eine HTTP-/Proxy-Auth-Challenge bereitstellen (erfordert Debug-Modus)',
 
   // ── Request-kind registry ──────────────────────────────────────────
-  'shared.requestKinds.http.label': 'HTTP-Anfrage',
-  'shared.requestKinds.grpc.label': 'gRPC-Anfrage',
-  'shared.requestKinds.websocket.label': 'WebSocket-Anfrage',
-  'shared.requestKinds.socketio.label': 'Socket.IO-Anfrage',
-  'shared.requestKinds.mqtt.label': 'MQTT-Anfrage',
+  'shared.requestKinds.http.label': 'HTTP',
+  'shared.requestKinds.grpc.label': 'gRPC',
+  'shared.requestKinds.websocket.label': 'WebSocket',
+  'shared.requestKinds.socketio.label': 'Socket.IO',
+  'shared.requestKinds.mqtt.label': 'MQTT',
 
   // ── System rule-template registry (same surfaces as the rule types).
   //    Template keys, icons, conditions, and form values stay raw data;
