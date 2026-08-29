@@ -77,6 +77,16 @@ export interface WebSocketDraft {
    *  `undefined` = a normal TCP connection. */
   unixSocketPath: string | undefined;
   timeoutMs: number | undefined;
+  /** The resilience policy — the two switches concrete (absent on the
+   *  entity reads as off / backoff on), the rest `undefined` = the
+   *  runtime default. */
+  autoReconnect: boolean;
+  reconnectPeriodMs: number | undefined;
+  reconnectMaxAttempts: number | undefined;
+  reconnectBackoff: boolean;
+  idleTimeoutMs: number | undefined;
+  heartbeatMessage: string | undefined;
+  heartbeatIntervalMs: number | undefined;
   /** Concrete in the form — absent on the entity reads as verify-on
    *  (the safe default the transport applies). */
   sslVerification: boolean;
@@ -111,6 +121,13 @@ export interface WebSocketRequestUpdates {
   proxyCredentialRef: string | undefined;
   unixSocketPath: string | undefined;
   timeoutMs: number | undefined;
+  autoReconnect: boolean;
+  reconnectPeriodMs: number | undefined;
+  reconnectMaxAttempts: number | undefined;
+  reconnectBackoff: boolean;
+  idleTimeoutMs: number | undefined;
+  heartbeatMessage: string | undefined;
+  heartbeatIntervalMs: number | undefined;
   sslVerification: boolean;
   clientCertificateRef: string | undefined;
   tlsMinVersion: TlsVersion | undefined;
@@ -246,6 +263,13 @@ export function draftFromWebSocketRequest(req: WebSocketRequest): WebSocketDraft
     proxyCredentialRef: req.proxyCredentialRef,
     unixSocketPath: req.unixSocketPath,
     timeoutMs: req.timeoutMs,
+    autoReconnect: req.autoReconnect ?? false,
+    reconnectPeriodMs: req.reconnectPeriodMs,
+    reconnectMaxAttempts: req.reconnectMaxAttempts,
+    reconnectBackoff: req.reconnectBackoff ?? true,
+    idleTimeoutMs: req.idleTimeoutMs,
+    heartbeatMessage: req.heartbeatMessage,
+    heartbeatIntervalMs: req.heartbeatIntervalMs,
     sslVerification: req.sslVerification ?? true,
     clientCertificateRef: req.clientCertificateRef,
     tlsMinVersion: req.tlsMinVersion,
@@ -279,6 +303,13 @@ export function buildWebSocketRequestUpdates(draft: WebSocketDraft): WebSocketRe
     proxyCredentialRef: draft.proxyCredentialRef,
     unixSocketPath: draft.unixSocketPath,
     timeoutMs: draft.timeoutMs,
+    autoReconnect: draft.autoReconnect,
+    reconnectPeriodMs: draft.reconnectPeriodMs,
+    reconnectMaxAttempts: draft.reconnectMaxAttempts,
+    reconnectBackoff: draft.reconnectBackoff,
+    idleTimeoutMs: draft.idleTimeoutMs,
+    heartbeatMessage: draft.heartbeatMessage,
+    heartbeatIntervalMs: draft.heartbeatIntervalMs,
     sslVerification: draft.sslVerification,
     clientCertificateRef: draft.clientCertificateRef,
     tlsMinVersion: draft.tlsMinVersion,

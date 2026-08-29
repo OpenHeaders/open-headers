@@ -621,6 +621,37 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.settings.proxyCredentialsDangling':
     'Kein vault-String-Eintrag namens „{name}“ auf diesem Gerät — Sendevorgänge schlagen fehl, bis der ' +
     'Eintrag existiert oder diese Einstellung geleert wird.',
+  // ── Sitzungsresilienz-Block (WebSocket / Socket.IO / MQTT) ──────────
+  'workbench.editors.request.settings.autoReconnect': 'Automatisch neu verbinden',
+  'workbench.editors.request.settings.autoReconnectInfo':
+    'Öffnet die Sitzung erneut, wenn eine offene Verbindung abbricht — Socket getrennt, Server schließt, Leerlauf-Timeout — und wählt im Wiederverbindungsintervall neu, bis sie wieder offen ist oder du trennst. Ein fehlgeschlagener Erstverbindungsversuch wird nie wiederholt. Standardmäßig aus.',
+  'workbench.editors.request.settings.reconnectPeriod': 'Wiederverbindungsintervall',
+  'workbench.editors.request.settings.reconnectPeriodInfo':
+    'Wartezeit zwischen zwei Wiederverbindungsversuchen. Leer nutzt den Standard von 5 s.',
+  'workbench.editors.request.settings.reconnectPeriodPlaceholder': '5 s (Standard)',
+  'workbench.editors.request.settings.reconnectMaxAttempts': 'Wiederverbindungsversuche',
+  'workbench.editors.request.settings.reconnectMaxAttemptsInfo':
+    'Obergrenze aufeinanderfolgender Wiederverbindungsversuche nach einem Abbruch — eine gelungene Wiederverbindung setzt den Zähler zurück; eine erschöpfte Obergrenze beendet die Sitzung als Wiederverbindung aufgegeben. Leer versucht es weiter, bis der Server zurück ist oder du trennst.',
+  'workbench.editors.request.settings.reconnectMaxAttemptsPlaceholder': 'Unbegrenzt (Standard)',
+  'workbench.editors.request.settings.reconnectBackoff': 'Exponentielles Warten',
+  'workbench.editors.request.settings.reconnectBackoffInfo':
+    'Verdoppelt die Wartezeit nach jedem fehlgeschlagenen Versuch — das Intervall, dann 2×, 4× … bis 60 s — mit leichtem Zufallsversatz, damit Clients nie im Gleichtakt neu wählen. Standardmäßig an; aus wartet jeder Versuch exakt das Intervall.',
+  'workbench.editors.request.settings.idleTimeout': 'Leerlauf-Timeout',
+  'workbench.editors.request.settings.idleTimeoutInfo':
+    'Schließt die Verbindung als verloren, wenn so lange nichts ankommt — die Lebenszeichenprüfung, die ein Client nicht per Ping-Frame machen kann. Mit aktivem automatischem Neuverbinden wählt die Sitzung neu. Leer setzt keine Leerlauffrist.',
+  'workbench.editors.request.settings.idleTimeoutSocketioInfo':
+    'Schließt die Verbindung als verloren, wenn so lange nichts ankommt. Mit aktivem automatischem Neuverbinden wählt die Sitzung neu. Leer folgt dem Handshake des Servers — ein Ping ist alle pingInterval fällig und darf pingTimeout verspätet sein, die Regel des offiziellen Clients.',
+  'workbench.editors.request.settings.idleTimeoutPlaceholder': 'Aus (Standard)',
+  'workbench.editors.request.settings.idleTimeoutSocketioPlaceholder': 'Ping-Takt des Servers (Standard)',
+  'workbench.editors.request.settings.heartbeatMessage': 'Heartbeat-Nachricht',
+  'workbench.editors.request.settings.heartbeatMessageInfo':
+    'Ein Text-Frame, der im Heartbeat-Intervall gesendet wird, damit eine untätige Sitzung Load Balancer und Proxys überlebt — was immer dein Server erwartet. Kein WebSocket-Client kann einen Protokoll-Ping-Frame senden, daher ist das Keepalive eine Anwendungsnachricht; sie wird wie jeder gesendete Frame erfasst. Templates willkommen. Leer sendet keinen Heartbeat.',
+  'workbench.editors.request.settings.heartbeatMessagePlaceholder': 'Kein Heartbeat',
+  'workbench.editors.request.settings.heartbeatMessageExample': 'z. B. ping oder {"type":"ping"}',
+  'workbench.editors.request.settings.heartbeatInterval': 'Heartbeat-Intervall',
+  'workbench.editors.request.settings.heartbeatIntervalInfo':
+    'Wartezeit zwischen zwei Heartbeat-Nachrichten. Leer nutzt den Standard von 30 s — unter der 60-s-Leerlaufgrenze der meisten Load Balancer.',
+  'workbench.editors.request.settings.heartbeatIntervalPlaceholder': '30 s (Standard)',
   'workbench.editors.request.settings.unixSocket': 'Unix-Socket',
   'workbench.editors.request.settings.unixSocketInfo':
     'Wählt diesen lokalen Socket an — einen absoluten Unix-Socket-Pfad oder eine benannte Windows-Pipe wie ' +

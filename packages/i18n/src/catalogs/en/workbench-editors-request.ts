@@ -494,6 +494,37 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.settings.vaultManageCredentials': 'Manage credentials in the vault',
   'workbench.editors.request.settings.proxyCredentialsDangling':
     'No vault string entry named "{name}" on this device — sends will fail until the entry exists or this setting is cleared.',
+  // ── Session resilience block (WebSocket / Socket.IO / MQTT) ─────────
+  'workbench.editors.request.settings.autoReconnect': 'Reconnect automatically',
+  'workbench.editors.request.settings.autoReconnectInfo':
+    'Reopen the session when an open connection drops — a severed socket, a server close, the idle timeout — redialing on the reconnect period until it opens again or you disconnect. A first connect that fails never retries. Off by default.',
+  'workbench.editors.request.settings.reconnectPeriod': 'Reconnect period',
+  'workbench.editors.request.settings.reconnectPeriodInfo':
+    'Wait between reconnect attempts. Empty uses the 5 s default.',
+  'workbench.editors.request.settings.reconnectPeriodPlaceholder': '5 s (default)',
+  'workbench.editors.request.settings.reconnectMaxAttempts': 'Reconnect attempts',
+  'workbench.editors.request.settings.reconnectMaxAttemptsInfo':
+    'Cap on consecutive reconnect attempts after one drop — a reconnect that opens resets the count; a spent cap ends the session as Reconnect gave up. Empty keeps trying until the server is back or you disconnect.',
+  'workbench.editors.request.settings.reconnectMaxAttemptsPlaceholder': 'Unlimited (default)',
+  'workbench.editors.request.settings.reconnectBackoff': 'Exponential backoff',
+  'workbench.editors.request.settings.reconnectBackoffInfo':
+    'Double the wait after every failed attempt — the period, then 2×, 4× … up to 60 s — with a little random jitter so clients never redial in lockstep. On by default; off waits the exact period every time.',
+  'workbench.editors.request.settings.idleTimeout': 'Idle timeout',
+  'workbench.editors.request.settings.idleTimeoutInfo':
+    'Close the connection as lost when nothing arrives for this long — the liveness check a client cannot make with a ping frame. With Reconnect automatically on, the session redials. Empty sets no idle deadline.',
+  'workbench.editors.request.settings.idleTimeoutSocketioInfo':
+    'Close the connection as lost when nothing arrives for this long. With Reconnect automatically on, the session redials. Empty follows the server’s handshake — a ping is due every pingInterval and may run pingTimeout late, the official client’s rule.',
+  'workbench.editors.request.settings.idleTimeoutPlaceholder': 'Off (default)',
+  'workbench.editors.request.settings.idleTimeoutSocketioPlaceholder': 'Server ping cadence (default)',
+  'workbench.editors.request.settings.heartbeatMessage': 'Heartbeat message',
+  'workbench.editors.request.settings.heartbeatMessageInfo':
+    'A text frame sent on the heartbeat interval to keep an idle session alive through load balancers and proxies — whatever your server expects. Neither WebSocket client can send a protocol ping frame, so the keepalive is an application message; it is captured like any sent frame. Templates welcome. Empty sends no heartbeat.',
+  'workbench.editors.request.settings.heartbeatMessagePlaceholder': 'No heartbeat',
+  'workbench.editors.request.settings.heartbeatMessageExample': 'e.g. ping or {"type":"ping"}',
+  'workbench.editors.request.settings.heartbeatInterval': 'Heartbeat interval',
+  'workbench.editors.request.settings.heartbeatIntervalInfo':
+    'Wait between heartbeat messages. Empty uses the 30 s default — under the 60 s idle cut most load balancers apply.',
+  'workbench.editors.request.settings.heartbeatIntervalPlaceholder': '30 s (default)',
   'workbench.editors.request.settings.unixSocket': 'Unix socket',
   'workbench.editors.request.settings.unixSocketInfo':
     "Dial this local socket — an absolute Unix socket path, or a Windows named pipe like \\\\.\\pipe\\name — instead of opening a TCP connection, e.g. a Docker daemon or a local development service listening on a socket. The URL's host no longer decides where the connection goes, but the Host header, TLS server name, and certificate verification still use it, and a redirect to another host also dials this same socket. Leave empty for a normal TCP connection.",

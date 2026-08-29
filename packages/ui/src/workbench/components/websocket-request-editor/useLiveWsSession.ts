@@ -27,7 +27,7 @@ import {
   type WsStreamEventWire,
   type WsStreamMessageWire,
 } from '@openheaders/core/bridge';
-import type { ExecutedProxyRoute } from '@openheaders/core/types';
+import type { ExecutedProxyRoute, ExecutedWsLifecycle } from '@openheaders/core/types';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 /** Session-only timing retained past materialization — joins the
@@ -41,6 +41,9 @@ export interface WsSessionTiming {
   connectedAt?: number;
   /** Per-message host stamps in capture order. */
   messageTimestamps: number[];
+  /** Per-lifecycle-fact host stamps in capture order (the snapshot's
+   *  `lifecycle` joins positionally). */
+  lifecycleTimestamps: number[];
   /** When the socket's teardown was observed — the end frame's host
    *  stamp, on every settle path. Absent = no end frame arrived (a
    *  session that never dialed). */
@@ -75,6 +78,12 @@ export interface LiveWsSession {
   /** Session-only host stamps, positional (items[i] ↔ timestamps[i]);
    *  append-only and reference-stable like `items`. */
   timestamps: number[];
+  /** The reconnect-cycle facts so far (lost / reconnecting /
+   *  reconnected), append-only and reference-stable; `atIndex` counts
+   *  the messages captured before each. */
+  lifecycle: ExecutedWsLifecycle[];
+  /** Positional host stamps for `lifecycle`. */
+  lifecycleTimestamps: number[];
 }
 
 interface WsSessionAccumulator {
@@ -85,6 +94,8 @@ interface WsSessionAccumulator {
   disconnectedAt?: number;
   items: WsStreamMessageWire[];
   timestamps: number[];
+  lifecycle: ExecutedWsLifecycle[];
+  lifecycleTimestamps: number[];
   lastSeq: number;
 }
 
@@ -116,6 +127,8 @@ export function useLiveWsSession(): {
       items: acc.items,
       count: acc.items.length,
       timestamps: acc.timestamps,
+      lifecycle: acc.lifecycle,
+      lifecycleTimestamps: acc.lifecycleTimestamps,
     });
   }, []);
 
@@ -139,6 +152,7 @@ export function useLiveWsSession(): {
       startedAt: acc.startedAt,
       ...(acc.connectedAt !== undefined ? { connectedAt: acc.connectedAt } : {}),
       messageTimestamps: [...acc.timestamps],
+      lifecycleTimestamps: [...acc.lifecycleTimestamps],
       ...(acc.disconnectedAt !== undefined ? { disconnectedAt: acc.disconnectedAt } : {}),
     };
   }, []);
@@ -146,7 +160,16 @@ export function useLiveWsSession(): {
   const beginSession = useCallback(
     (sendId: string) => {
       endSession();
-      accRef.current = { sendId, startedAt: Date.now(), open: null, items: [], timestamps: [], lastSeq: -1 };
+      accRef.current = {
+        sendId,
+        startedAt: Date.now(),
+        open: null,
+        items: [],
+        timestamps: [],
+        lifecycle: [],
+        lifecycleTimestamps: [],
+        lastSeq: -1,
+      };
       // Commit the empty state NOW — the session pane keys off a
       // non-null live feed, and no wire event arrives until the
       // handshake settles: without this seed the editor sits on a
@@ -171,6 +194,9 @@ export function useLiveWsSession(): {
             acc.items.push(item);
             acc.timestamps.push(item.atMs);
           }
+        } else if (event.kind === 'lifecycle') {
+          acc.lifecycle.push(event.item);
+          acc.lifecycleTimestamps.push(event.atMs);
         } else {
           // The end frame carries the host's teardown instant; the
           // resolving RPC still ends the session.

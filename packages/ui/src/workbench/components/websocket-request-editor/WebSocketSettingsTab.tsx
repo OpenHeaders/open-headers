@@ -1,14 +1,17 @@
 /**
  * WebSocketSettingsTab — per-request connection knobs in the request
  * Settings tab's exact anatomy (the MQTT Settings tab's discipline):
- * collapsible group sections (Connection · Socket.IO · TLS & trust)
+ * collapsible group sections (Connection · Session resilience ·
+ * Socket.IO · TLS & trust)
  * whose headers carry the (i) group popovers, `label · (i) · control`
  * rows from the shared settings-row family with the effective
  * defaults legible in the controls, modified dots, and per-row
  * resets. The Socket.IO group renders on that flavor only; the
  * Connection group seats the shared `DialRows` block between the
- * subprotocol offer and the socket path; the TLS & trust group is the
- * shared `TlsTrustGroup` block.
+ * subprotocol offer and the socket path; the Session resilience group
+ * is the shared `SessionResilienceGroup` block (the raw flavor's idle
+ * + heartbeat rows, the socketio flavor's idle row); the TLS & trust
+ * group is the shared `TlsTrustGroup` block.
  *
  * The tab edits the draft directly, so the dots track distance from
  * the PROTOCOL defaults — there is no saved-baseline (unsaved) plane
@@ -31,6 +34,7 @@ import type React from 'react';
 import { useState } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
 import DialRows, { isDialModified } from '../shared/dial/DialRows';
+import SessionResilienceGroup from '../shared/resilience/SessionResilienceGroup';
 import TlsTrustGroup from '../shared/tls-trust/TlsTrustGroup';
 import type { WebSocketDraft } from './draft';
 import { WS_GROUP_LABEL_KEY } from './settings-groups';
@@ -140,6 +144,16 @@ const WebSocketSettingsTab: React.FC<WebSocketSettingsTabProps> = ({ draft, setD
             testId="websocket-timeout"
           />
         </GroupSection>
+        <SessionResilienceGroup
+          groupLabel={t(WS_GROUP_LABEL_KEY.resilience)}
+          groupInfo={wsSettingsGroupInfo(t, 'resilience')}
+          expanded={collapsed.resilience !== true}
+          onToggle={() => toggleGroup('resilience')}
+          value={draft}
+          onChange={(next) => setDraft((d) => ({ ...d, ...next }))}
+          liveness={socketioFlavor ? 'socketio' : 'raw'}
+          testIdPrefix="websocket"
+        />
         {socketioFlavor && (
           <GroupSection
             label={t(WS_GROUP_LABEL_KEY.socketio)}

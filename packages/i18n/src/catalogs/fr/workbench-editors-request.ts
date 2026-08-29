@@ -614,6 +614,37 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.settings.proxyCredentialsDangling':
     'Aucune entrée de type chaîne du vault nommée « {name} » sur cet appareil — les envois échoueront ' +
     "jusqu'à ce que l'entrée existe ou que ce réglage soit effacé.",
+  // ── Bloc résilience de session (WebSocket / Socket.IO / MQTT) ───────
+  'workbench.editors.request.settings.autoReconnect': 'Reconnexion automatique',
+  'workbench.editors.request.settings.autoReconnectInfo':
+    'Rouvre la session quand une connexion ouverte tombe — socket coupé, fermeture par le serveur, délai d’inactivité écoulé — en recomposant à la période de reconnexion jusqu’à réouverture ou déconnexion manuelle. Une première connexion qui échoue ne réessaie jamais. Désactivé par défaut.',
+  'workbench.editors.request.settings.reconnectPeriod': 'Période de reconnexion',
+  'workbench.editors.request.settings.reconnectPeriodInfo':
+    'Attente entre deux tentatives de reconnexion. Vide utilise les 5 s par défaut.',
+  'workbench.editors.request.settings.reconnectPeriodPlaceholder': '5 s (défaut)',
+  'workbench.editors.request.settings.reconnectMaxAttempts': 'Tentatives de reconnexion',
+  'workbench.editors.request.settings.reconnectMaxAttemptsInfo':
+    'Plafond de tentatives de reconnexion consécutives après une coupure — une reconnexion qui aboutit remet le compte à zéro ; un plafond épuisé termine la session en Reconnexion abandonnée. Vide réessaie jusqu’au retour du serveur ou à votre déconnexion.',
+  'workbench.editors.request.settings.reconnectMaxAttemptsPlaceholder': 'Illimité (défaut)',
+  'workbench.editors.request.settings.reconnectBackoff': 'Attente exponentielle',
+  'workbench.editors.request.settings.reconnectBackoffInfo':
+    'Double l’attente après chaque tentative échouée — la période, puis 2×, 4× … jusqu’à 60 s — avec une légère variation aléatoire pour que les clients ne se reconnectent jamais tous en même temps. Activé par défaut ; désactivé, chaque tentative attend exactement la période.',
+  'workbench.editors.request.settings.idleTimeout': 'Délai d’inactivité',
+  'workbench.editors.request.settings.idleTimeoutInfo':
+    'Ferme la connexion comme perdue quand rien n’arrive pendant ce délai — le contrôle de vie qu’un client ne peut pas faire avec une trame ping. Avec la reconnexion automatique activée, la session recompose. Vide ne fixe aucun délai d’inactivité.',
+  'workbench.editors.request.settings.idleTimeoutSocketioInfo':
+    'Ferme la connexion comme perdue quand rien n’arrive pendant ce délai. Avec la reconnexion automatique activée, la session recompose. Vide suit le handshake du serveur — un ping est attendu chaque pingInterval et peut avoir pingTimeout de retard, la règle du client officiel.',
+  'workbench.editors.request.settings.idleTimeoutPlaceholder': 'Désactivé (défaut)',
+  'workbench.editors.request.settings.idleTimeoutSocketioPlaceholder': 'Cadence de ping du serveur (défaut)',
+  'workbench.editors.request.settings.heartbeatMessage': 'Message de battement',
+  'workbench.editors.request.settings.heartbeatMessageInfo':
+    'Une trame texte envoyée à chaque intervalle de battement pour garder une session inactive en vie à travers répartiteurs de charge et proxys — ce que votre serveur attend. Aucun client WebSocket ne peut envoyer une trame ping de protocole, le keepalive est donc un message applicatif ; il est capturé comme toute trame envoyée. Modèles acceptés. Vide n’envoie aucun battement.',
+  'workbench.editors.request.settings.heartbeatMessagePlaceholder': 'Aucun battement',
+  'workbench.editors.request.settings.heartbeatMessageExample': 'p. ex. ping ou {"type":"ping"}',
+  'workbench.editors.request.settings.heartbeatInterval': 'Intervalle de battement',
+  'workbench.editors.request.settings.heartbeatIntervalInfo':
+    'Attente entre deux messages de battement. Vide utilise les 30 s par défaut — sous la coupure d’inactivité de 60 s qu’appliquent la plupart des répartiteurs.',
+  'workbench.editors.request.settings.heartbeatIntervalPlaceholder': '30 s (défaut)',
   'workbench.editors.request.settings.unixSocket': 'Socket Unix',
   'workbench.editors.request.settings.unixSocketInfo':
     'Composer ce socket local — un chemin de socket Unix absolu, ou un tube nommé Windows comme ' +

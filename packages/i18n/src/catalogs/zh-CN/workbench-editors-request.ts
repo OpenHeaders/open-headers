@@ -491,6 +491,36 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.settings.vaultManageCredentials': '在 vault 中管理凭据',
   'workbench.editors.request.settings.proxyCredentialsDangling':
     '此设备上没有名为“{name}”的 vault 字符串条目——在该条目存在或此设置被清除之前，发送都会失败。',
+  // ── 会话韧性区块（WebSocket / Socket.IO / MQTT）───────────────────────
+  'workbench.editors.request.settings.autoReconnect': '自动重连',
+  'workbench.editors.request.settings.autoReconnectInfo':
+    '已打开的连接断开时（套接字中断、服务器关闭、空闲超时）重新打开会话，按重连周期反复拨号，直到再次打开或你手动断开。首次连接失败不会重试。默认关闭。',
+  'workbench.editors.request.settings.reconnectPeriod': '重连周期',
+  'workbench.editors.request.settings.reconnectPeriodInfo': '两次重连尝试之间的等待时间。留空使用默认的 5 s。',
+  'workbench.editors.request.settings.reconnectPeriodPlaceholder': '5 s（默认）',
+  'workbench.editors.request.settings.reconnectMaxAttempts': '重连次数上限',
+  'workbench.editors.request.settings.reconnectMaxAttemptsInfo':
+    '一次断开后连续重连尝试的上限——重连成功后计数归零；上限用尽时会话以“重连已放弃”结束。留空则持续尝试，直到服务器恢复或你手动断开。',
+  'workbench.editors.request.settings.reconnectMaxAttemptsPlaceholder': '不限（默认）',
+  'workbench.editors.request.settings.reconnectBackoff': '指数退避',
+  'workbench.editors.request.settings.reconnectBackoffInfo':
+    '每次尝试失败后等待时间翻倍——先是重连周期，然后 2×、4×……最长 60 s——并加入少量随机抖动，避免客户端同时重连。默认开启；关闭后每次都精确等待重连周期。',
+  'workbench.editors.request.settings.idleTimeout': '空闲超时',
+  'workbench.editors.request.settings.idleTimeoutInfo':
+    '这么长时间内没有任何数据到达时，把连接视为丢失并关闭——客户端无法用 ping 帧完成的存活检查。开启自动重连后会话会重新拨号。留空则不设空闲期限。',
+  'workbench.editors.request.settings.idleTimeoutSocketioInfo':
+    '这么长时间内没有任何数据到达时，把连接视为丢失并关闭。开启自动重连后会话会重新拨号。留空则遵循服务器握手：每 pingInterval 应收到一次 ping，最多可迟 pingTimeout——官方客户端的规则。',
+  'workbench.editors.request.settings.idleTimeoutPlaceholder': '关闭（默认）',
+  'workbench.editors.request.settings.idleTimeoutSocketioPlaceholder': '服务器 ping 节奏（默认）',
+  'workbench.editors.request.settings.heartbeatMessage': '心跳消息',
+  'workbench.editors.request.settings.heartbeatMessageInfo':
+    '按心跳间隔发送的文本帧，让空闲会话穿过负载均衡器和代理保持存活——内容由你的服务器决定。两种 WebSocket 客户端都无法发送协议层 ping 帧，因此保活是一条应用消息；它会像任何已发送帧一样被记录。支持模板。留空则不发送心跳。',
+  'workbench.editors.request.settings.heartbeatMessagePlaceholder': '无心跳',
+  'workbench.editors.request.settings.heartbeatMessageExample': '例如 ping 或 {"type":"ping"}',
+  'workbench.editors.request.settings.heartbeatInterval': '心跳间隔',
+  'workbench.editors.request.settings.heartbeatIntervalInfo':
+    '两条心跳消息之间的等待时间。留空使用默认的 30 s——低于多数负载均衡器 60 s 的空闲切断。',
+  'workbench.editors.request.settings.heartbeatIntervalPlaceholder': '30 s（默认）',
   'workbench.editors.request.settings.unixSocket': 'Unix 套接字',
   'workbench.editors.request.settings.unixSocketInfo':
     '拨号这个本地套接字——绝对 Unix 套接字路径，或形如 \\\\.\\pipe\\name 的 Windows 命名管道——而不是打开 TCP 连接，例如 Docker 守护进程或监听套接字的本地开发服务。URL 的主机不再决定连接去向，但 Host 标头、TLS 服务器名和证书验证仍使用它，重定向到其他主机时也拨号同一个套接字。留空则使用普通 TCP 连接。',

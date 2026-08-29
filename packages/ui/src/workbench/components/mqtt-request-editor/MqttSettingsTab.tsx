@@ -1,7 +1,7 @@
 /**
  * MqttSettingsTab — per-request connection knobs in the request
  * Settings tab's exact anatomy: collapsible group sections
- * (Connection · Session — MQTT 5.0 · TLS & trust) whose headers carry
+ * (Connection · Session resilience · Session — MQTT 5.0 · TLS & trust) whose headers carry
  * the (i) group popovers, `label · (i) · control` rows from the shared
  * settings-row family with the effective defaults legible in the
  * controls, modified dots, and per-row resets. The Connection group
@@ -20,7 +20,6 @@
 
 import {
   MAX_ALPN_PROTOCOL_LENGTH,
-  MAX_RECONNECT_ATTEMPTS,
   MAX_REQUEST_TIMEOUT_MS,
   MIN_REQUEST_TIMEOUT_MS,
 } from '@openheaders/core/schemas';
@@ -37,7 +36,6 @@ import {
 } from '@openheaders/ui/shared/combo-knob';
 import {
   ComboKnobRow,
-  DependentRows,
   GroupSection,
   KnobRow,
   TextKnobRow,
@@ -47,6 +45,8 @@ import type React from 'react';
 import { useState } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
 import DialRows, { isDialModified } from '../shared/dial/DialRows';
+import SessionResilienceGroup from '../shared/resilience/SessionResilienceGroup';
+import type { ResilienceInfoKey } from '../shared/resilience/resilience-row-info';
 import TlsTrustGroup from '../shared/tls-trust/TlsTrustGroup';
 import type { MqttDraft } from './draft';
 import { mqttSettingsGroupInfo, mqttSettingsRowInfo } from './MqttSettingsRowInfo';
@@ -71,10 +71,6 @@ const interpretSessionExpiry = durationSecondsInterpreter({ min: 0, max: 0xffff_
 const SESSION_EXPIRY_PRESETS = numericPresets([300, 3_600, 86_400], formatDurationSeconds);
 const interpretTimeout = durationMsInterpreter({ min: MIN_REQUEST_TIMEOUT_MS, max: MAX_REQUEST_TIMEOUT_MS });
 const TIMEOUT_PRESETS = numericPresets([1_000, 5_000, 10_000, 30_000, 60_000], formatDurationMs);
-const interpretReconnectPeriod = durationMsInterpreter({ min: MIN_REQUEST_TIMEOUT_MS, max: MAX_REQUEST_TIMEOUT_MS });
-const RECONNECT_PERIOD_PRESETS = numericPresets([1_000, 2_000, 5_000, 10_000, 30_000], formatDurationMs);
-const interpretReconnectMaxAttempts = countInterpreter({ min: 1, max: MAX_RECONNECT_ATTEMPTS });
-const RECONNECT_MAX_ATTEMPTS_PRESETS = numericPresets([3, 5, 10, 50], String);
 const interpretReceiveMaximum = countInterpreter({ min: 1, max: 65_535 });
 const RECEIVE_MAXIMUM_PRESETS = numericPresets([1, 5, 20, 100], String);
 const interpretMaxPacketSize = byteSizeInterpreter({ min: 1, max: 0xffff_ffff });
@@ -84,6 +80,17 @@ const MAX_PACKET_SIZE_PRESETS = numericPresets(
   [64, 256, 1024, 10_240].map((kb) => kb * 1024),
   formatByteSize,
 );
+
+/** The resilience rows MQTT masks in — the reconnect quartet lights
+ *  the session card; the liveness rows never render here. */
+const MQTT_RESILIENCE_ROWS = {
+  autoReconnect: true,
+  reconnectPeriod: true,
+  reconnectMaxAttempts: true,
+  reconnectBackoff: true,
+} as const;
+type MqttResilienceRow = keyof typeof MQTT_RESILIENCE_ROWS;
+const isMqttResilienceRow = (key: ResilienceInfoKey): key is MqttResilienceRow => key in MQTT_RESILIENCE_ROWS;
 
 /** Session-scoped memory of the group folds: the tab unmounts on
  *  every editor tab switch, and a fold choice must survive that.
@@ -116,11 +123,7 @@ const MqttSettingsTab: React.FC<MqttSettingsTabProps> = ({ draft, setDraft, v5 }
     !draft.cleanStart ||
     draft.keepAlive !== undefined ||
     isDialModified(draft) ||
-    draft.timeoutMs !== undefined ||
-    draft.autoReconnect ||
-    draft.reconnectPeriodMs !== undefined ||
-    draft.reconnectMaxAttempts !== undefined ||
-    !draft.reconnectBackoff;
+    draft.timeoutMs !== undefined;
   const sessionModified =
     draft.sessionExpiryInterval !== undefined ||
     draft.receiveMaximum !== undefined ||
@@ -203,52 +206,18 @@ const MqttSettingsTab: React.FC<MqttSettingsTabProps> = ({ draft, setDraft, v5 }
             placeholder={t('workbench.editors.mqtt.settings.timeoutPlaceholder')}
             testId="mqtt-timeout"
           />
-          <KnobRow
-            label={t('workbench.editors.mqtt.settings.autoReconnectLabel')}
-            checked={draft.autoReconnect}
-            modified={draft.autoReconnect}
-            onReset={() => setDraft((d) => ({ ...d, autoReconnect: false }))}
-            onChange={(autoReconnect) => setDraft((d) => ({ ...d, autoReconnect }))}
-            info={mqttSettingsRowInfo(t, 'autoReconnect')}
-            testId="mqtt-auto-reconnect"
-          />
-          <DependentRows>
-            <ComboKnobRow
-              label={t('workbench.editors.mqtt.settings.reconnectPeriodLabel')}
-              value={draft.reconnectPeriodMs}
-              onChange={(reconnectPeriodMs) => setDraft((d) => ({ ...d, reconnectPeriodMs }))}
-              info={mqttSettingsRowInfo(t, 'reconnectPeriod')}
-              presets={RECONNECT_PERIOD_PRESETS}
-              interpret={interpretReconnectPeriod}
-              format={formatDurationMs}
-              placeholder={t('workbench.editors.mqtt.settings.reconnectPeriodPlaceholder')}
-              disabled={!draft.autoReconnect}
-              testId="mqtt-reconnect-period"
-            />
-            <ComboKnobRow
-              label={t('workbench.editors.mqtt.settings.reconnectMaxAttemptsLabel')}
-              value={draft.reconnectMaxAttempts}
-              onChange={(reconnectMaxAttempts) => setDraft((d) => ({ ...d, reconnectMaxAttempts }))}
-              info={mqttSettingsRowInfo(t, 'reconnectMaxAttempts')}
-              presets={RECONNECT_MAX_ATTEMPTS_PRESETS}
-              interpret={interpretReconnectMaxAttempts}
-              format={String}
-              placeholder={t('workbench.editors.mqtt.settings.reconnectMaxAttemptsPlaceholder')}
-              disabled={!draft.autoReconnect}
-              testId="mqtt-reconnect-max-attempts"
-            />
-            <KnobRow
-              label={t('workbench.editors.mqtt.settings.reconnectBackoffLabel')}
-              checked={draft.reconnectBackoff}
-              modified={!draft.reconnectBackoff}
-              onReset={() => setDraft((d) => ({ ...d, reconnectBackoff: true }))}
-              onChange={(reconnectBackoff) => setDraft((d) => ({ ...d, reconnectBackoff }))}
-              info={mqttSettingsRowInfo(t, 'reconnectBackoff')}
-              disabled={!draft.autoReconnect}
-              testId="mqtt-reconnect-backoff"
-            />
-          </DependentRows>
         </GroupSection>
+        <SessionResilienceGroup
+          groupLabel={t(MQTT_GROUP_LABEL_KEY.resilience)}
+          groupInfo={mqttSettingsGroupInfo(t, 'resilience')}
+          expanded={collapsed.resilience !== true}
+          onToggle={() => toggleGroup('resilience')}
+          value={draft}
+          onChange={(next) => setDraft((d) => ({ ...d, ...next }))}
+          liveness="none"
+          rowInfo={(key) => (isMqttResilienceRow(key) ? mqttSettingsRowInfo(t, key) : undefined)}
+          testIdPrefix="mqtt"
+        />
         <GroupSection
           label={t(MQTT_GROUP_LABEL_KEY.session)}
           expanded={collapsed.session !== true}

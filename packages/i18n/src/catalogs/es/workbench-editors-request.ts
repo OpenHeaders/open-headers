@@ -610,6 +610,37 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.settings.proxyCredentialsDangling':
     'No hay ninguna entrada de texto del vault llamada «{name}» en este dispositivo — los envíos fallarán ' +
     'hasta que la entrada exista o se borre este ajuste.',
+  // ── Bloque de resiliencia de sesión (WebSocket / Socket.IO / MQTT) ──
+  'workbench.editors.request.settings.autoReconnect': 'Reconectar automáticamente',
+  'workbench.editors.request.settings.autoReconnectInfo':
+    'Reabre la sesión cuando una conexión abierta se cae — socket cortado, cierre del servidor, tiempo de inactividad agotado — volviendo a marcar cada periodo de reconexión hasta que abra de nuevo o desconectes. Una primera conexión que falla nunca reintenta. Desactivado por defecto.',
+  'workbench.editors.request.settings.reconnectPeriod': 'Periodo de reconexión',
+  'workbench.editors.request.settings.reconnectPeriodInfo':
+    'Espera entre intentos de reconexión. Vacío usa los 5 s por defecto.',
+  'workbench.editors.request.settings.reconnectPeriodPlaceholder': '5 s (por defecto)',
+  'workbench.editors.request.settings.reconnectMaxAttempts': 'Intentos de reconexión',
+  'workbench.editors.request.settings.reconnectMaxAttemptsInfo':
+    'Tope de intentos de reconexión consecutivos tras una caída — una reconexión que abre reinicia la cuenta; un tope agotado termina la sesión como Reconexión abandonada. Vacío sigue intentando hasta que el servidor vuelva o desconectes.',
+  'workbench.editors.request.settings.reconnectMaxAttemptsPlaceholder': 'Sin límite (por defecto)',
+  'workbench.editors.request.settings.reconnectBackoff': 'Espera exponencial',
+  'workbench.editors.request.settings.reconnectBackoffInfo':
+    'Duplica la espera tras cada intento fallido — el periodo, luego 2×, 4× … hasta 60 s — con una pequeña variación aleatoria para que los clientes nunca reconecten al unísono. Activado por defecto; desactivado, cada intento espera exactamente el periodo.',
+  'workbench.editors.request.settings.idleTimeout': 'Tiempo de inactividad',
+  'workbench.editors.request.settings.idleTimeoutInfo':
+    'Cierra la conexión como perdida cuando no llega nada durante este tiempo — la comprobación de vida que un cliente no puede hacer con un frame ping. Con Reconectar automáticamente activado, la sesión vuelve a marcar. Vacío no fija ningún plazo de inactividad.',
+  'workbench.editors.request.settings.idleTimeoutSocketioInfo':
+    'Cierra la conexión como perdida cuando no llega nada durante este tiempo. Con Reconectar automáticamente activado, la sesión vuelve a marcar. Vacío sigue el handshake del servidor — un ping toca cada pingInterval y puede retrasarse pingTimeout, la regla del cliente oficial.',
+  'workbench.editors.request.settings.idleTimeoutPlaceholder': 'Desactivado (por defecto)',
+  'workbench.editors.request.settings.idleTimeoutSocketioPlaceholder': 'Cadencia de ping del servidor (por defecto)',
+  'workbench.editors.request.settings.heartbeatMessage': 'Mensaje de latido',
+  'workbench.editors.request.settings.heartbeatMessageInfo':
+    'Un frame de texto enviado en cada intervalo de latido para mantener viva una sesión inactiva a través de balanceadores y proxies — lo que tu servidor espere. Ningún cliente WebSocket puede enviar un frame ping de protocolo, así que el keepalive es un mensaje de aplicación; se captura como cualquier frame enviado. Se admiten plantillas. Vacío no envía latido.',
+  'workbench.editors.request.settings.heartbeatMessagePlaceholder': 'Sin latido',
+  'workbench.editors.request.settings.heartbeatMessageExample': 'p. ej. ping o {"type":"ping"}',
+  'workbench.editors.request.settings.heartbeatInterval': 'Intervalo de latido',
+  'workbench.editors.request.settings.heartbeatIntervalInfo':
+    'Espera entre mensajes de latido. Vacío usa los 30 s por defecto — por debajo del corte de inactividad de 60 s que aplican la mayoría de balanceadores.',
+  'workbench.editors.request.settings.heartbeatIntervalPlaceholder': '30 s (por defecto)',
   'workbench.editors.request.settings.unixSocket': 'Socket Unix',
   'workbench.editors.request.settings.unixSocketInfo':
     'Marca este socket local — una ruta absoluta de socket Unix, o una tubería con nombre de Windows como ' +

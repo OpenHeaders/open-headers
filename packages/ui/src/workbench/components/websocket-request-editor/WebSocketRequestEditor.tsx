@@ -30,7 +30,7 @@
  * hood).
  */
 
-import { CaretRightOutlined } from '@ant-design/icons';
+import { CaretRightOutlined, ReloadOutlined } from '@ant-design/icons';
 import { WEBSOCKET_REQUEST_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { WebSocketRequest as WebSocketRequestEntity } from '@openheaders/core/types';
 import { binaryEncodingError, generateUid } from '@openheaders/core/utils';
@@ -110,6 +110,13 @@ const emptyWebSocketDraft = (): WebSocketDraft => ({
   proxyCredentialRef: undefined,
   unixSocketPath: undefined,
   timeoutMs: undefined,
+  autoReconnect: false,
+  reconnectPeriodMs: undefined,
+  reconnectMaxAttempts: undefined,
+  reconnectBackoff: true,
+  idleTimeoutMs: undefined,
+  heartbeatMessage: undefined,
+  heartbeatIntervalMs: undefined,
   sslVerification: true,
   clientCertificateRef: undefined,
   tlsMinVersion: undefined,
@@ -322,33 +329,49 @@ const WebSocketRequestEditor: React.FC<WebSocketRequestEditorProps> = ({
   // HONEST across the phases: Cancel while the attempt is still
   // connecting, Disconnect only once the session is actually open
   // (both close the same send).
-  const inFlightLabel = session.sessionOpen
-    ? t('workbench.editors.websocket.connect.disconnect')
-    : t('workbench.editors.websocket.connect.cancel');
+  const inFlightLabel =
+    session.sessionOpen || session.reconnecting
+      ? t('workbench.editors.websocket.connect.disconnect')
+      : t('workbench.editors.websocket.connect.cancel');
   const headerActions = session.inFlight ? (
-    <Tooltip
-      placement="bottom"
-      title={<ShortcutHintTitle label={CONNECT_SHORTCUT}>{inFlightLabel}</ShortcutHintTitle>}
-    >
-      <ConfigProvider theme={{ token: { colorError: token.colorErrorActive } }}>
-        <Button
-          size="small"
-          type="primary"
-          danger
-          icon={
-            <span
-              aria-hidden="true"
-              style={{ display: 'inline-block', width: 9, height: 9, borderRadius: 2, background: 'currentcolor' }}
-            />
-          }
-          onClick={session.handleDisconnect}
-          style={{ fontSize: 11 }}
-          data-testid="websocket-connect-button"
-        >
-          {inFlightLabel}
-        </Button>
-      </ConfigProvider>
-    </Tooltip>
+    <>
+      {session.reconnecting ? (
+        <Tooltip placement="bottom" title={t('workbench.editors.websocket.connect.reconnectNowHint')}>
+          <Button
+            size="small"
+            icon={<ReloadOutlined />}
+            onClick={session.handleReconnectNow}
+            style={{ fontSize: 11 }}
+            data-testid="websocket-reconnect-now-button"
+          >
+            {t('workbench.editors.websocket.connect.reconnectNow')}
+          </Button>
+        </Tooltip>
+      ) : null}
+      <Tooltip
+        placement="bottom"
+        title={<ShortcutHintTitle label={CONNECT_SHORTCUT}>{inFlightLabel}</ShortcutHintTitle>}
+      >
+        <ConfigProvider theme={{ token: { colorError: token.colorErrorActive } }}>
+          <Button
+            size="small"
+            type="primary"
+            danger
+            icon={
+              <span
+                aria-hidden="true"
+                style={{ display: 'inline-block', width: 9, height: 9, borderRadius: 2, background: 'currentcolor' }}
+              />
+            }
+            onClick={session.handleDisconnect}
+            style={{ fontSize: 11 }}
+            data-testid="websocket-connect-button"
+          >
+            {inFlightLabel}
+          </Button>
+        </ConfigProvider>
+      </Tooltip>
+    </>
   ) : (
     <Tooltip
       placement="bottom"

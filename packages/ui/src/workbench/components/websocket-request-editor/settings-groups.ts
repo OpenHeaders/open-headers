@@ -7,12 +7,13 @@
 
 import type { MessageKey } from '@openheaders/i18n';
 
-export type WsSettingsGroupKey = 'connection' | 'socketio' | 'tls';
+export type WsSettingsGroupKey = 'connection' | 'resilience' | 'socketio' | 'tls';
 
-export const WS_GROUP_ORDER: WsSettingsGroupKey[] = ['connection', 'socketio', 'tls'];
+export const WS_GROUP_ORDER: WsSettingsGroupKey[] = ['connection', 'resilience', 'socketio', 'tls'];
 
 export const WS_GROUP_LABEL_KEY: Record<WsSettingsGroupKey, MessageKey> = {
   connection: 'workbench.editors.websocket.settings.group.connection',
+  resilience: 'workbench.editors.websocket.settings.group.resilience',
   socketio: 'workbench.editors.websocket.settings.group.socketio',
   tls: 'workbench.editors.websocket.settings.group.tls',
 };

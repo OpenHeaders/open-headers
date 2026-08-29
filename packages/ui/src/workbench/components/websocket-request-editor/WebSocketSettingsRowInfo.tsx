@@ -1,8 +1,8 @@
 /**
  * `(i)` info-popover content for the WebSocket editor's Settings-tab
  * knobs and group headers — kicker (the group), title (the row's own
- * label), and the knob's copy as the summary. The TLS & trust rows
- * read the shared block's copy. No example card yet:
+ * label), and the knob's copy as the summary. The TLS & trust and
+ * session-resilience rows read their shared blocks' copy. No example card yet:
  * the protocol's handshake card is its own surface when it lands,
  * never a leg on the MQTT session card.
  */
@@ -40,6 +40,7 @@ const KICKER_GROUP: Record<WsInfoKey, WsSettingsGroupKey> = {
 
 const GROUP_SUMMARY_KEY: Record<WsSettingsGroupKey, MessageKey> = {
   connection: 'workbench.editors.websocket.settings.groupInfo.connection',
+  resilience: 'workbench.editors.websocket.settings.groupInfo.resilience',
   socketio: 'workbench.editors.websocket.settings.groupInfo.socketio',
   tls: 'workbench.editors.websocket.settings.groupInfo.tls',
 };

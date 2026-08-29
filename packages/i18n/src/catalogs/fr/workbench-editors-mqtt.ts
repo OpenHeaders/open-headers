@@ -182,20 +182,6 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.settings.timeoutHelp':
     'Plafond horloge sur l’ouverture de connexion seulement — une session ouverte n’a pas de plafond. Vide applique le délai par défaut de 30 s.',
   'workbench.editors.mqtt.settings.timeoutPlaceholder': '30 s (défaut)',
-  'workbench.editors.mqtt.settings.autoReconnectLabel': 'Reconnexion automatique',
-  'workbench.editors.mqtt.settings.autoReconnectHelp':
-    'Rouvre la session quand une connexion ouverte tombe — socket coupé ou DISCONNECT du broker — en recomposant à la période de reconnexion jusqu’à réouverture ou déconnexion manuelle. Une première connexion qui échoue ne réessaie jamais. Désactivé par défaut.',
-  'workbench.editors.mqtt.settings.reconnectPeriodLabel': 'Période de reconnexion',
-  'workbench.editors.mqtt.settings.reconnectPeriodHelp':
-    'Attente entre deux tentatives de reconnexion. Vide utilise les 5 s par défaut.',
-  'workbench.editors.mqtt.settings.reconnectPeriodPlaceholder': '5 s (défaut)',
-  'workbench.editors.mqtt.settings.reconnectMaxAttemptsLabel': 'Tentatives de reconnexion',
-  'workbench.editors.mqtt.settings.reconnectMaxAttemptsHelp':
-    'Plafond de tentatives de reconnexion consécutives après une coupure — une reconnexion qui aboutit remet le compte à zéro ; un plafond épuisé termine la session en Reconnexion abandonnée. Vide réessaie jusqu’au retour du courtier ou à votre déconnexion.',
-  'workbench.editors.mqtt.settings.reconnectMaxAttemptsPlaceholder': 'Illimité (défaut)',
-  'workbench.editors.mqtt.settings.reconnectBackoffLabel': 'Attente exponentielle',
-  'workbench.editors.mqtt.settings.reconnectBackoffHelp':
-    'Double l’attente après chaque tentative échouée — la période, puis 2×, 4× … jusqu’à 60 s — avec une légère variation aléatoire pour que les clients ne se reconnectent jamais tous en même temps. Activé par défaut ; désactivé, chaque tentative attend exactement la période.',
   'workbench.editors.mqtt.settings.receiveMaximumLabel': 'Receive Maximum',
   'workbench.editors.mqtt.settings.receiveMaximumHelp':
     'Nombre de messages QoS 1/2 pouvant être en vol vers ce client à la fois. Vide applique le défaut de la spécification, 65 535.',
@@ -224,9 +210,12 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.settings.group.connection': 'Connexion',
   'workbench.editors.mqtt.settings.group.session': 'Session — MQTT 5.0',
   'workbench.editors.mqtt.settings.group.tls': 'TLS et confiance',
+  'workbench.editors.mqtt.settings.group.resilience': 'Résilience de session',
+  'workbench.editors.mqtt.settings.groupInfo.resilience':
+    'Si une connexion coupée se rouvre et avec quelle patience : la période de reconnexion, le plafond de tentatives et l’attente exponentielle entre elles.',
   'workbench.editors.mqtt.settings.groupInfo.connection':
-    'Comment CONNECT ouvre la session : l’identité présentée, s’il repart de zéro, les plafonds de battement ' +
-    'et d’ouverture promis, et si une connexion tombée se rouvre.',
+    'Comment CONNECT ouvre la session : l’identité présentée, s’il repart de zéro et les plafonds de battement ' +
+    'et d’ouverture promis.',
   'workbench.editors.mqtt.settings.groupInfo.session':
     'Conditions MQTT 5.0 que CONNECT propose au courtier : combien de temps la session survit à une déconnexion, ' +
     'plus les plafonds de messages en vol et de taille de paquet acceptés par ce client.',

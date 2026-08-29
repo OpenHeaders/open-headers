@@ -115,6 +115,9 @@ export const workbenchEditorsWebsocket = {
   'workbench.editors.websocket.settings.group.connection': 'Connexion',
   'workbench.editors.websocket.settings.group.socketio': 'Socket.IO',
   'workbench.editors.websocket.settings.group.tls': 'TLS et confiance',
+  'workbench.editors.websocket.settings.group.resilience': 'Résilience de session',
+  'workbench.editors.websocket.settings.groupInfo.resilience':
+    'Ce qui garde une longue session en vie : si une connexion coupée se rouvre et avec quelle patience, combien de silence est toléré avant de considérer la connexion perdue, et le battement qu’envoie ce client.',
   'workbench.editors.websocket.settings.groupInfo.connection':
     'Comment le handshake ouvre la session : les sous-protocoles proposés, la destination de la connexion et ' +
     'le plafond sur l’ouverture.',
@@ -185,6 +188,21 @@ export const workbenchEditorsWebsocket = {
   'workbench.editors.websocket.timeline.disconnected': 'Déconnecté',
   'workbench.editors.websocket.timeline.stopped': 'Arrêté',
   'workbench.editors.websocket.timeline.aborted': 'Connexion interrompue',
+  'workbench.editors.websocket.connect.reconnectNow': 'Reconnecter maintenant',
+  'workbench.editors.websocket.connect.reconnectNowHint':
+    'Lancer la prochaine tentative de reconnexion sans attendre la période',
+  'workbench.editors.websocket.session.reconnectingBadge': 'Reconnexion',
+  'workbench.editors.websocket.session.reconnectExhaustedTag': 'Reconnexion abandonnée',
+  'workbench.editors.websocket.session.reconnectExhausted': 'reconnexion abandonnée après {attempts}',
+  'workbench.editors.websocket.session.reconnectExhaustedReason': 'reconnexion abandonnée après {attempts} : {reason}',
+  'workbench.editors.websocket.session.reconnectAttemptsOne': 'une tentative',
+  'workbench.editors.websocket.session.reconnectAttemptsMany': '{count} tentatives',
+  'workbench.editors.websocket.timeline.lost': 'Connexion perdue',
+  'workbench.editors.websocket.timeline.lostIdle': 'rien n’est arrivé avant le délai d’inactivité',
+  'workbench.editors.websocket.timeline.reconnectingAfter': 'Tentative de reconnexion {attempt} après {delay}',
+  'workbench.editors.websocket.timeline.reconnectingNow': 'Tentative de reconnexion {attempt} maintenant',
+  'workbench.editors.websocket.timeline.reconnected': 'Reconnecté',
+  'workbench.editors.websocket.timeline.reconnectedTo': 'Reconnecté à {url}',
   'workbench.editors.websocket.timeline.noMatches': 'Aucun message ne correspond au filtre.',
   'workbench.editors.websocket.timeline.connectedTo': 'Connecté à {url}',
   'workbench.editors.websocket.timeline.copyMessage': 'Copier le message',

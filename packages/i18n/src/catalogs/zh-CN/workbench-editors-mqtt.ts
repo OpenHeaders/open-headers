@@ -167,19 +167,6 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.settings.timeoutLabel': '连接超时',
   'workbench.editors.mqtt.settings.timeoutHelp': '仅限连接拨号的墙钟上限——已打开的会话没有上限。留空使用默认的 30 s。',
   'workbench.editors.mqtt.settings.timeoutPlaceholder': '30 s（默认）',
-  'workbench.editors.mqtt.settings.autoReconnectLabel': '自动重连',
-  'workbench.editors.mqtt.settings.autoReconnectHelp':
-    '已打开的连接断开时（套接字中断或代理发送 DISCONNECT）重新打开会话，按重连周期反复拨号，直到再次打开或你手动断开。首次连接失败不会重试。默认关闭。',
-  'workbench.editors.mqtt.settings.reconnectPeriodLabel': '重连周期',
-  'workbench.editors.mqtt.settings.reconnectPeriodHelp': '两次重连尝试之间的等待时间。留空使用默认的 5 s。',
-  'workbench.editors.mqtt.settings.reconnectPeriodPlaceholder': '5 s（默认）',
-  'workbench.editors.mqtt.settings.reconnectMaxAttemptsLabel': '重连次数上限',
-  'workbench.editors.mqtt.settings.reconnectMaxAttemptsHelp':
-    '一次断开后连续重连尝试的上限——重连成功后计数归零；上限用尽时会话以“重连已放弃”结束。留空则持续尝试，直到代理恢复或你手动断开。',
-  'workbench.editors.mqtt.settings.reconnectMaxAttemptsPlaceholder': '不限（默认）',
-  'workbench.editors.mqtt.settings.reconnectBackoffLabel': '指数退避',
-  'workbench.editors.mqtt.settings.reconnectBackoffHelp':
-    '每次尝试失败后等待时间翻倍——先是重连周期，然后 2×、4×……最长 60 s——并加入少量随机抖动，避免客户端同时重连。默认开启；关闭后每次都精确等待重连周期。',
   'workbench.editors.mqtt.settings.receiveMaximumLabel': 'Receive Maximum',
   'workbench.editors.mqtt.settings.receiveMaximumHelp':
     '同时向此客户端在途的 QoS 1/2 消息数量上限。留空采用规范默认值 65535。',
@@ -208,8 +195,11 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.settings.group.connection': '连接',
   'workbench.editors.mqtt.settings.group.session': '会话 — MQTT 5.0',
   'workbench.editors.mqtt.settings.group.tls': 'TLS 与信任',
+  'workbench.editors.mqtt.settings.group.resilience': '会话韧性',
+  'workbench.editors.mqtt.settings.groupInfo.resilience':
+    '断开的连接是否重新打开、重试多有耐心：重连周期、尝试次数上限以及尝试之间的指数退避。',
   'workbench.editors.mqtt.settings.groupInfo.connection':
-    'CONNECT 如何打开会话：呈现的身份、是否全新开始、承诺的心跳和连接建立时限，以及断开的连接是否重新打开。',
+    'CONNECT 如何打开会话：呈现的身份、是否全新开始，以及承诺的心跳和连接建立时限。',
   'workbench.editors.mqtt.settings.groupInfo.session':
     'CONNECT 向代理提出的 MQTT 5.0 条款：断开后会话保留多久，以及此客户端接受的在途消息和数据包大小上限。',
   'workbench.editors.mqtt.settings.groupInfo.tls':

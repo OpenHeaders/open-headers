@@ -11,9 +11,13 @@
  * names the configured node-only knobs (headers, SSL-verify-off, the
  * raw flavor's bearer header) in the session pane's honesty notice.
  * In flight Connect MORPHS to Disconnect (the clean close 1000 via the
- * `closeWsSession` rider), Send rides `sendWsMessage` — enabled only
- * while the session is open — and Save Response freezes a settled
- * session that opened into a WsResponseExample.
+ * `closeWsSession` rider; Reconnect now cuts the auto-reconnect wait
+ * short via `reconnectWsSessionNow`), Send rides `sendWsMessage` —
+ * enabled only while the session is open — and Save Response freezes
+ * a settled session that opened into a WsResponseExample. Between
+ * auto-reconnect attempts the session stays in flight with
+ * `sessionOpen` false — Send disables honestly until a handshake takes
+ * again (the MQTT plane's law).
  */
 
 import { hostBridge } from '@openheaders/core/bridge';
@@ -32,6 +36,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { capturedWsRequestFromDraft, capturedWsResponseFromSnapshot } from '../ws-response-example/ws-example-draft';
 import { buildWebSocketRequestUpdates, type WebSocketDraft } from './draft';
 import { type LiveWsSession, useLiveWsSession, type WsSessionTiming } from './useLiveWsSession';
+import { reconnectingAt } from './ws-lifecycle';
 import { makeWsPageResolutionFactory, publishWsPageResolutionFactory } from './ws-page-session';
 
 interface UseWsSessionPlaneInput {
@@ -46,6 +51,9 @@ export interface WsSessionPlane {
   inFlight: boolean;
   /** True while the session is open (handshake done, not settled). */
   sessionOpen: boolean;
+  /** True while auto-reconnect is between attempts or mid-redial —
+   *  in flight, no connection up. */
+  reconnecting: boolean;
   snapshot: ExecutedWsSnapshot | null;
   timing: WsSessionTiming | null;
   /** The open session's live feed; null outside one. */
@@ -56,6 +64,8 @@ export interface WsSessionPlane {
   connectDisabledReason: string | null;
   handleConnect: () => Promise<void>;
   handleDisconnect: () => void;
+  /** Dial the armed reconnect attempt now instead of after its wait. */
+  handleReconnectNow: () => void;
   handleSendMessage: () => Promise<void>;
   handleClearSession: () => void;
   handleSaveResponse: () => Promise<void>;
@@ -169,6 +179,12 @@ export function useWsSessionPlane({
     hostBridge.call('closeWsSession', { sendId }).catch(() => {});
   }, []);
 
+  const handleReconnectNow = useCallback(() => {
+    const sendId = activeSendIdRef.current;
+    if (!sendId) return;
+    hostBridge.call('reconnectWsSessionNow', { sendId }).catch(() => {});
+  }, []);
+
   // Send the CURRENT compose state as one message — the executor
   // resolves {{refs}} through the resolver it built at Connect, and a
   // resolve (or, on the socketio flavor, a frame-compose) failure
@@ -239,7 +255,8 @@ export function useWsSessionPlane({
 
   const canSaveResponse = workspaceId !== null && snapshot !== null && snapshot.outcome.kind === 'connected';
 
-  const sessionOpen = inFlight && liveSession.live !== null && liveSession.live.open !== null;
+  const reconnecting = inFlight && liveSession.live !== null && reconnectingAt(liveSession.live.lifecycle);
+  const sessionOpen = inFlight && liveSession.live !== null && liveSession.live.open !== null && !reconnecting;
 
   const connectDisabledReason =
     requestRuntimeKind !== 'node' && !pageSession
@@ -251,6 +268,7 @@ export function useWsSessionPlane({
   return {
     inFlight,
     sessionOpen,
+    reconnecting,
     snapshot,
     timing,
     live: liveSession.live,
@@ -258,6 +276,7 @@ export function useWsSessionPlane({
     connectDisabledReason,
     handleConnect,
     handleDisconnect,
+    handleReconnectNow,
     handleSendMessage,
     handleClearSession,
     handleSaveResponse,

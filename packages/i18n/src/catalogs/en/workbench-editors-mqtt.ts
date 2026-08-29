@@ -173,19 +173,6 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.settings.timeoutHelp':
     'Wall-clock ceiling on the connection dial only — an open session has no ceiling. Empty uses the 30 s default.',
   'workbench.editors.mqtt.settings.timeoutPlaceholder': '30 s (default)',
-  'workbench.editors.mqtt.settings.autoReconnectLabel': 'Reconnect automatically',
-  'workbench.editors.mqtt.settings.autoReconnectHelp':
-    'Reopen the session when an open connection drops — a severed socket or a broker DISCONNECT — redialing on the reconnect period until it opens again or you disconnect. A first connect that fails never retries. Off by default.',
-  'workbench.editors.mqtt.settings.reconnectPeriodLabel': 'Reconnect period',
-  'workbench.editors.mqtt.settings.reconnectPeriodHelp': 'Wait between reconnect attempts. Empty uses the 5 s default.',
-  'workbench.editors.mqtt.settings.reconnectPeriodPlaceholder': '5 s (default)',
-  'workbench.editors.mqtt.settings.reconnectMaxAttemptsLabel': 'Reconnect attempts',
-  'workbench.editors.mqtt.settings.reconnectMaxAttemptsHelp':
-    'Cap on consecutive reconnect attempts after one drop — a reconnect that opens resets the count; a spent cap ends the session as Reconnect gave up. Empty keeps trying until the broker is back or you disconnect.',
-  'workbench.editors.mqtt.settings.reconnectMaxAttemptsPlaceholder': 'Unlimited (default)',
-  'workbench.editors.mqtt.settings.reconnectBackoffLabel': 'Exponential backoff',
-  'workbench.editors.mqtt.settings.reconnectBackoffHelp':
-    'Double the wait after every failed attempt — the period, then 2×, 4× … up to 60 s — with a little random jitter so clients never redial in lockstep. On by default; off waits the exact period every time.',
   'workbench.editors.mqtt.settings.receiveMaximumLabel': 'Receive Maximum',
   'workbench.editors.mqtt.settings.receiveMaximumHelp':
     'How many QoS 1/2 messages may be in flight toward this client at once. Empty allows the spec default of 65,535.',
@@ -214,8 +201,11 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.settings.group.connection': 'Connection',
   'workbench.editors.mqtt.settings.group.session': 'Session — MQTT 5.0',
   'workbench.editors.mqtt.settings.group.tls': 'TLS & trust',
+  'workbench.editors.mqtt.settings.group.resilience': 'Session resilience',
+  'workbench.editors.mqtt.settings.groupInfo.resilience':
+    'Whether a dropped connection reopens and how patiently: the redial period, the attempt cap, and the exponential backoff between attempts.',
   'workbench.editors.mqtt.settings.groupInfo.connection':
-    'How the CONNECT opens the session: the identity it presents, whether it starts fresh, the ping and dial ceilings it promises, and whether a dropped connection reopens.',
+    'How the CONNECT opens the session: the identity it presents, whether it starts fresh, and the ping and dial ceilings it promises.',
   'workbench.editors.mqtt.settings.groupInfo.session':
     'MQTT 5.0 terms the CONNECT offers the broker: how long the session outlives a disconnect, plus the in-flight and packet-size ceilings this client accepts.',
   'workbench.editors.mqtt.settings.groupInfo.tls':

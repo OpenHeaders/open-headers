@@ -101,6 +101,9 @@ export const workbenchEditorsWebsocket = {
   'workbench.editors.websocket.settings.group.connection': 'Connection',
   'workbench.editors.websocket.settings.group.socketio': 'Socket.IO',
   'workbench.editors.websocket.settings.group.tls': 'TLS & trust',
+  'workbench.editors.websocket.settings.group.resilience': 'Session resilience',
+  'workbench.editors.websocket.settings.groupInfo.resilience':
+    'What keeps a long session alive: whether a dropped connection reopens and how patiently, how long silence may last before the connection counts as lost, and the heartbeat this client sends.',
   'workbench.editors.websocket.settings.groupInfo.connection':
     'How the handshake opens the session: the subprotocols it offers, where the connection dials, and the ceiling on the open.',
   'workbench.editors.websocket.settings.groupInfo.socketio':
@@ -167,6 +170,21 @@ export const workbenchEditorsWebsocket = {
   'workbench.editors.websocket.timeline.disconnected': 'Disconnected',
   'workbench.editors.websocket.timeline.stopped': 'Stopped',
   'workbench.editors.websocket.timeline.aborted': 'Connection aborted',
+  'workbench.editors.websocket.connect.reconnectNow': 'Reconnect now',
+  'workbench.editors.websocket.connect.reconnectNowHint':
+    'Dial the next reconnect attempt without waiting out the period',
+  'workbench.editors.websocket.session.reconnectingBadge': 'Reconnecting',
+  'workbench.editors.websocket.session.reconnectExhaustedTag': 'Reconnect gave up',
+  'workbench.editors.websocket.session.reconnectExhausted': 'reconnect gave up after {attempts}',
+  'workbench.editors.websocket.session.reconnectExhaustedReason': 'reconnect gave up after {attempts}: {reason}',
+  'workbench.editors.websocket.session.reconnectAttemptsOne': 'one attempt',
+  'workbench.editors.websocket.session.reconnectAttemptsMany': '{count} attempts',
+  'workbench.editors.websocket.timeline.lost': 'Connection lost',
+  'workbench.editors.websocket.timeline.lostIdle': 'nothing arrived before the idle timeout',
+  'workbench.editors.websocket.timeline.reconnectingAfter': 'Reconnect attempt {attempt} after {delay}',
+  'workbench.editors.websocket.timeline.reconnectingNow': 'Reconnect attempt {attempt} now',
+  'workbench.editors.websocket.timeline.reconnected': 'Reconnected',
+  'workbench.editors.websocket.timeline.reconnectedTo': 'Reconnected to {url}',
   'workbench.editors.websocket.timeline.noMatches': 'No messages match the filter.',
   'workbench.editors.websocket.timeline.connectedTo': 'Connected to {url}',
   'workbench.editors.websocket.timeline.copyMessage': 'Copy message',

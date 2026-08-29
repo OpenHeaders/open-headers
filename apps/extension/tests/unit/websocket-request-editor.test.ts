@@ -97,6 +97,32 @@ describe('websocket draft projections', () => {
     expect(updates.unixSocketPath).toBe('/var/run/openheaders/ws.sock');
   });
 
+  it('carries the resilience policy through the round-trip and reads the switches off / backoff-on by default', () => {
+    const tuned = websocketRequest({
+      autoReconnect: true,
+      reconnectPeriodMs: 2_000,
+      reconnectMaxAttempts: 5,
+      reconnectBackoff: false,
+      idleTimeoutMs: 45_000,
+      heartbeatMessage: '{"type":"ping"}',
+      heartbeatIntervalMs: 15_000,
+    });
+    const updates = buildWebSocketRequestUpdates(draftFromWebSocketRequest(tuned));
+    expect(updates).toEqual(canonicalWebSocketRequestProjection(tuned));
+    expect(updates.autoReconnect).toBe(true);
+    expect(updates.reconnectPeriodMs).toBe(2_000);
+    expect(updates.reconnectMaxAttempts).toBe(5);
+    expect(updates.reconnectBackoff).toBe(false);
+    expect(updates.idleTimeoutMs).toBe(45_000);
+    expect(updates.heartbeatMessage).toBe('{"type":"ping"}');
+    expect(updates.heartbeatIntervalMs).toBe(15_000);
+    const bare = buildWebSocketRequestUpdates(draftFromWebSocketRequest(websocketRequest()));
+    expect(bare.autoReconnect).toBe(false);
+    expect(bare.reconnectBackoff).toBe(true);
+    expect(bare.idleTimeoutMs).toBeUndefined();
+    expect(bare.heartbeatMessage).toBeUndefined();
+  });
+
   it('never carries the flavor — creation fixes it, the editor cannot flip it', () => {
     const updates = buildWebSocketRequestUpdates(draftFromWebSocketRequest(websocketRequest({ flavor: 'socketio' })));
     expect('flavor' in updates).toBe(false);

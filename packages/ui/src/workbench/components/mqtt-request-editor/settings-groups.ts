@@ -7,12 +7,13 @@
 
 import type { MessageKey } from '@openheaders/i18n';
 
-export type MqttSettingsGroupKey = 'connection' | 'session' | 'tls';
+export type MqttSettingsGroupKey = 'connection' | 'resilience' | 'session' | 'tls';
 
-export const MQTT_GROUP_ORDER: MqttSettingsGroupKey[] = ['connection', 'session', 'tls'];
+export const MQTT_GROUP_ORDER: MqttSettingsGroupKey[] = ['connection', 'resilience', 'session', 'tls'];
 
 export const MQTT_GROUP_LABEL_KEY: Record<MqttSettingsGroupKey, MessageKey> = {
   connection: 'workbench.editors.mqtt.settings.group.connection',
+  resilience: 'workbench.editors.mqtt.settings.group.resilience',
   session: 'workbench.editors.mqtt.settings.group.session',
   tls: 'workbench.editors.mqtt.settings.group.tls',
 };

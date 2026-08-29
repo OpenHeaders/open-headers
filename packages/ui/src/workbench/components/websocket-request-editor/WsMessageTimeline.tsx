@@ -49,10 +49,12 @@ import {
   CheckOutlined,
   ClearOutlined,
   CloseCircleOutlined,
+  DisconnectOutlined,
   DownOutlined,
   CopyOutlined,
   SaveOutlined,
   InfoCircleOutlined,
+  ReloadOutlined,
   SearchOutlined,
   SortAscendingOutlined,
   UpOutlined,
@@ -66,6 +68,7 @@ import { Button, ConfigProvider, Dropdown, Input, Segmented, Tag, Tooltip, Typog
 import type React from 'react';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { type Translate, useT } from '@openheaders/ui/context/LocaleContext';
+import { formatDurationMs } from '@openheaders/ui/shared/combo-knob';
 import { useVirtualRowWindow } from '@openheaders/ui/shared/virtual-window';
 import { useSetting } from '@openheaders/ui/workbench/settings/hooks';
 import TimelineMessageViewer, {
@@ -77,6 +80,7 @@ import TimelineMessageViewer, {
 import { buildHexDump, type HexDump } from '../request-editor/response/response-encoding';
 import { formatBytes } from '../request-editor/response/response-format';
 import { wsAutoHeaderDefs } from './ws-auto-headers';
+import { reconnectExhaustedMessage, type WsTimelineLifecycleItem } from './ws-lifecycle';
 
 const { Text } = Typography;
 
@@ -165,6 +169,9 @@ export interface WsTimelineLifecycle {
    *  code + reason verbatim, `null` when the connection severed
    *  without one; absent on a Stop. */
   close?: { code: number; reason: string } | null;
+  /** Auto-reconnect spent its attempt cap — the ended row's detail
+   *  names the attempts and the last failure instead of a close. */
+  reconnectExhausted?: { attempts: number; error?: string };
 }
 
 interface WsMessageTimelineProps {
@@ -176,6 +183,11 @@ interface WsMessageTimelineProps {
   /** Session-only positional times (items[i] ↔ timestamps[i]). */
   timestamps?: readonly number[];
   lifecycle: WsTimelineLifecycle;
+  /** The reconnect-cycle facts (lost / reconnecting / reconnected),
+   *  each at the display index of the message it precedes — rendered
+   *  as lifecycle rows interleaved at their true positions (at the
+   *  chronological edge in grouped mode). Absent = none. */
+  lifecycleItems?: readonly WsTimelineLifecycleItem[];
   /** Messages that rolled off the retention window — an honest notice
    *  row above the list when non-zero. */
   droppedMessages?: number;
@@ -222,9 +234,14 @@ type ListEntry =
    *  un-windowed state's re-window action lives on the group header. */
   | { key: string; kind: 'groupMore'; group: WsGroupIdentity; hidden: number }
   | { key: string; kind: 'row'; index: number }
-  | { key: string; kind: 'viewer'; index: number };
+  | { key: string; kind: 'viewer'; index: number }
+  /** One reconnect-cycle fact — `index` into `lifecycleItems`. */
+  | { key: string; kind: 'lifecycle'; index: number };
 
 type DirectionFilter = 'all' | 'up' | 'down';
+
+/** Stable empty default so the entries memo never re-keys on it. */
+const NO_LIFECYCLE_ITEMS: readonly WsTimelineLifecycleItem[] = [];
 
 /** Stable badge palette for decoded event-name group tags — the same
  *  name always lands on the same color (the SSE badge recipe). */
@@ -558,6 +575,7 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
   count,
   timestamps,
   lifecycle,
+  lifecycleItems = NO_LIFECYCLE_ITEMS,
   droppedMessages = 0,
   flavor,
   listenedEvents,
@@ -817,6 +835,15 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
       out.push({ key: 'ended', kind: 'ended' });
       if (endedExpanded) out.push({ key: 'endedDetail', kind: 'endedDetail' });
     };
+    // The reconnect-cycle facts — a cleared log drops the facts that
+    // happened before the clear along with the messages.
+    const facts: number[] = [];
+    lifecycleItems.forEach((item, i) => {
+      if (item.atIndex >= clearedCount) facts.push(i);
+    });
+    const pushFacts = (indexes: readonly number[]) => {
+      for (const i of indexes) out.push({ key: `l${i}`, kind: 'lifecycle', index: i });
+    };
     const notice: ListEntry | null =
       filtering && visibleRows.length === 0 && count > clearedCount ? { key: 'none', kind: 'noMatches' } : null;
 
@@ -836,7 +863,11 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
       if (notice) out.push(notice);
     } else {
       out.push({ key: 'sent', kind: 'sent' });
-      if (groups !== null && lifecycle.connected) pushConnected();
+      if (groups !== null && lifecycle.connected) {
+        // Grouped mode clusters; the facts join Connected at the edge.
+        pushConnected();
+        pushFacts(facts);
+      }
     }
 
     if (groups !== null) {
@@ -869,19 +900,34 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
         ranges.push({ key: identity.key, startEntry, endEntry: out.length });
       }
     } else {
-      const tokens: Array<number | 'connected'> = [];
+      // One chronological log: each fact lands before the first
+      // visible message at or past its index (a filtered-out message
+      // never hides the fact), the rest trail the last message.
+      const tokens: Array<number | 'connected' | { fact: number }> = [];
       if (lifecycle.connected) tokens.push('connected');
-      for (const index of visibleRows) tokens.push(index);
+      let nextFact = 0;
+      for (const index of visibleRows) {
+        while (nextFact < facts.length && lifecycleItems[facts[nextFact]].atIndex <= index) {
+          tokens.push({ fact: facts[nextFact] });
+          nextFact += 1;
+        }
+        tokens.push(index);
+      }
+      for (; nextFact < facts.length; nextFact++) tokens.push({ fact: facts[nextFact] });
       if (newestFirst) tokens.reverse();
       for (const token of tokens) {
         if (token === 'connected') pushConnected();
-        else pushRow(token);
+        else if (typeof token === 'number') pushRow(token);
+        else pushFacts([token.fact]);
       }
     }
 
     // Bottom chronological edge.
     if (newestFirst) {
-      if (groups !== null && lifecycle.connected) pushConnected();
+      if (groups !== null && lifecycle.connected) {
+        pushFacts([...facts].reverse());
+        pushConnected();
+      }
       out.push({ key: 'sent', kind: 'sent' });
     } else {
       if (notice) out.push(notice);
@@ -896,6 +942,7 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
     lifecycle.errorMessage,
     lifecycle.aborted,
     lifecycle.endedBy,
+    lifecycleItems,
     live,
     count,
     clearedCount,
@@ -1472,6 +1519,70 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
           </div>
         );
       }
+      case 'lifecycle': {
+        const item = lifecycleItems[entry.index];
+        if (item === undefined) return null;
+        if (item.kind === 'lost') {
+          // The connection dropped under the open session — how it
+          // ended, verbatim; auto-reconnect's rows follow.
+          const phrase = item.close !== null ? wsCloseCodePhrase(item.close.code) : null;
+          const detail = item.idle
+            ? t('workbench.editors.websocket.timeline.lostIdle')
+            : item.close === null
+              ? t('workbench.editors.websocket.session.noCloseFrame')
+              : item.close.reason !== ''
+                ? `${item.close.code} — ${item.close.reason}`
+                : phrase !== null
+                  ? `${item.close.code} ${phrase}`
+                  : String(item.close.code);
+          return (
+            <div key={entry.key} data-testid="ws-timeline-lost-row" style={lifecycleRowStyle}>
+              <DisconnectOutlined aria-hidden style={{ fontSize: 11, color: token.colorWarning }} />
+              <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {`${t('workbench.editors.websocket.timeline.lost')} — ${detail}`}
+              </span>
+              {lifecycleTime(item.atMs)}
+              {expandSlot(null)}
+            </div>
+          );
+        }
+        if (item.kind === 'reconnecting') {
+          // One redial — on its wait, or asked for early; the previous
+          // attempt's classified failure rides beside it.
+          return (
+            <div key={entry.key} data-testid="ws-timeline-reconnecting-row" style={lifecycleRowStyle}>
+              <ReloadOutlined aria-hidden style={{ fontSize: 11, color: token.colorTextTertiary }} />
+              <span
+                {...(item.error !== undefined ? { title: item.error } : {})}
+                style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+              >
+                {item.forced
+                  ? t('workbench.editors.websocket.timeline.reconnectingNow', { attempt: item.attempt })
+                  : t('workbench.editors.websocket.timeline.reconnectingAfter', {
+                      attempt: item.attempt,
+                      delay: formatDurationMs(item.delayMs),
+                    })}
+                {item.error !== undefined ? ` — ${item.error}` : ''}
+              </span>
+              {lifecycleTime(item.atMs)}
+              {expandSlot(null)}
+            </div>
+          );
+        }
+        // The Connected row's twin for a reconnect attempt that took.
+        return (
+          <div key={entry.key} data-testid="ws-timeline-reconnected-row" style={lifecycleRowStyle}>
+            <CheckCircleOutlined aria-hidden style={{ fontSize: 11, color: token.colorSuccess }} />
+            <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {lifecycle.handshake?.url !== undefined
+                ? t('workbench.editors.websocket.timeline.reconnectedTo', { url: lifecycle.handshake.url })
+                : t('workbench.editors.websocket.timeline.reconnected')}
+            </span>
+            {lifecycleTime(item.atMs)}
+            {expandSlot(null)}
+          </div>
+        );
+      }
       case 'ended': {
         if (lifecycle.endedBy === undefined) return null;
         return (
@@ -1507,7 +1618,9 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
         // severed connection and a Stop say what they are.
         let lead = '';
         let detail: string;
-        if (lifecycle.endedBy === 'stop') {
+        if (lifecycle.reconnectExhausted !== undefined) {
+          detail = reconnectExhaustedMessage(lifecycle.reconnectExhausted, t);
+        } else if (lifecycle.endedBy === 'stop') {
           detail = t('workbench.editors.websocket.timeline.stoppedDetail');
         } else if (lifecycle.close === null || lifecycle.close === undefined) {
           detail = t('workbench.editors.websocket.session.noCloseFrame');

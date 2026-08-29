@@ -32,6 +32,7 @@ import ConnectionDetailsTooltip, { type ConnectionDetailsRow } from '../shared/C
 import { ExampleChip } from '../shared/ExampleChip';
 import WsMessageTimeline, { type WsTimelineLifecycle } from './WsMessageTimeline';
 import type { LiveWsSession, WsSessionTiming } from './useLiveWsSession';
+import { liveLifecycleItems, reconnectExhaustedMessage, reconnectingAt, snapshotLifecycleItems } from './ws-lifecycle';
 
 const { Text } = Typography;
 
@@ -159,6 +160,7 @@ const WsSessionPane: React.FC<WsSessionPaneProps> = ({
       // The Close frame verbatim, or the honest null for a severed
       // connection; a Stop carries no close record.
       ...(snapshot.stopped === true ? {} : { close: snapshot.close }),
+      ...(snapshot.reconnectExhausted !== undefined ? { reconnectExhausted: snapshot.reconnectExhausted } : {}),
     };
   }, [snapshot, live, timing, t]);
 
@@ -182,6 +184,13 @@ const WsSessionPane: React.FC<WsSessionPaneProps> = ({
       return (
         <Tag color="default" style={endedPill} data-testid="ws-session-close-tag">
           {t('workbench.editors.websocket.session.connectFailedTag')}
+        </Tag>
+      );
+    }
+    if (snapshot.reconnectExhausted !== undefined) {
+      return (
+        <Tag color="default" style={endedPill} data-testid="ws-session-close-tag">
+          {t('workbench.editors.websocket.session.reconnectExhaustedTag')}
         </Tag>
       );
     }
@@ -240,9 +249,11 @@ const WsSessionPane: React.FC<WsSessionPaneProps> = ({
       rows.push({
         label: t('workbench.editors.session.closeCode'),
         value:
-          snapshot.stopped === true
-            ? t('workbench.editors.websocket.session.stoppedTag')
-            : snapshot.close === null
+          snapshot.reconnectExhausted !== undefined
+            ? reconnectExhaustedMessage(snapshot.reconnectExhausted, t)
+            : snapshot.stopped === true
+              ? t('workbench.editors.websocket.session.stoppedTag')
+              : snapshot.close === null
               ? t('workbench.editors.websocket.session.noCloseFrame')
               : snapshot.close.reason !== ''
                 ? `${snapshot.close.code} — ${snapshot.close.reason}`
@@ -257,8 +268,9 @@ const WsSessionPane: React.FC<WsSessionPaneProps> = ({
   }, [snapshot, live, timing, t]);
 
   // The live badge wears the HTTP status chip's pill — connected reads
-  // as a 2xx, connecting as the neutral wash.
-  const livePill = useTonePillStyle(live?.open !== null ? 'success' : 'neutral');
+  // as a 2xx, reconnecting as the warning wash, connecting neutral.
+  const reconnecting = live !== null && snapshot === null && reconnectingAt(live.lifecycle);
+  const livePill = useTonePillStyle(reconnecting ? 'warning' : live?.open !== null ? 'success' : 'neutral');
 
   const metaStrip = (
     <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, paddingLeft: 12 }}>
@@ -266,9 +278,11 @@ const WsSessionPane: React.FC<WsSessionPaneProps> = ({
         <>
           <ConnectionDetailsTooltip rows={detailRows}>
             <Tag color="default" style={livePill} data-testid="ws-session-live-badge">
-              {live?.open !== null
-                ? t('workbench.editors.websocket.session.connectedBadge')
-                : t('workbench.editors.websocket.session.connectingBadge')}
+              {reconnecting
+                ? t('workbench.editors.websocket.session.reconnectingBadge')
+                : live?.open !== null
+                  ? t('workbench.editors.websocket.session.connectedBadge')
+                  : t('workbench.editors.websocket.session.connectingBadge')}
             </Tag>
           </ConnectionDetailsTooltip>
           {proxyRouteHasBadge(live?.open?.proxyRoute) && <ProxyRouteTag route={live?.open?.proxyRoute} />}
@@ -335,6 +349,15 @@ const WsSessionPane: React.FC<WsSessionPaneProps> = ({
   const items = snapshot?.messages ?? live?.items ?? [];
   const count = snapshot?.messages.length ?? live?.count ?? 0;
   const timestamps = snapshot !== null ? timing?.messageTimestamps : live?.timestamps;
+  const lifecycleItems = useMemo(
+    () =>
+      snapshot !== null
+        ? snapshotLifecycleItems(snapshot, timing?.lifecycleTimestamps)
+        : live !== null
+          ? liveLifecycleItems(live.lifecycle, live.lifecycleTimestamps)
+          : [],
+    [snapshot, timing, live],
+  );
 
   return (
     <div
@@ -390,6 +413,7 @@ const WsSessionPane: React.FC<WsSessionPaneProps> = ({
             count={count}
             {...(timestamps !== undefined ? { timestamps } : {})}
             lifecycle={lifecycle}
+            lifecycleItems={lifecycleItems}
             droppedMessages={snapshot?.droppedMessages ?? 0}
             {...(flavor !== undefined ? { flavor } : {})}
             {...(listenedEvents !== undefined ? { listenedEvents } : {})}
