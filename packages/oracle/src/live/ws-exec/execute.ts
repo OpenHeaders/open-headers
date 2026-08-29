@@ -103,6 +103,11 @@ const NO_CLOSE_FRAME_CODE = 1006;
 
 /** The clean close Disconnect sends. */
 export const WS_DISCONNECT_CODE = 1000;
+/** The Close code a message over the request's size cap ends the
+ *  session with — RFC 6455 §7.4.1 Message Too Big. The client asked,
+ *  so the end is never a `lost` drop and auto-reconnect never redials
+ *  it; the peer's Close answer is the record, verbatim. */
+export const WS_MESSAGE_TOO_BIG_CODE = 1009;
 
 export interface ExecuteWsSessionOptions {
   /** `null` = the runtime-Active workspace via the module mirrors;
@@ -235,6 +240,7 @@ export async function executeWsSession(
   const reconnectJitter = options.reconnectJitter ?? Math.random;
   const idleTimeoutMs = request.idleTimeoutMs;
   const heartbeatIntervalMs = request.heartbeatIntervalMs ?? DEFAULT_HEARTBEAT_INTERVAL_MS;
+  const maxMessageBytes = request.maxMessageBytes;
 
   // ── The live session on the sendId spine ──
   return new Promise<ExecutedWsSnapshot>((resolve) => {
@@ -521,6 +527,8 @@ export async function executeWsSession(
           ...dialPolicy,
           ...(request.unixSocketPath !== undefined ? { unixSocketPath: request.unixSocketPath } : {}),
           ...(request.timeoutMs !== undefined ? { timeoutMs: request.timeoutMs } : {}),
+          ...(request.followRedirects === true ? { followRedirects: true } : {}),
+          ...(request.maxRedirects !== undefined ? { maxRedirects: request.maxRedirects } : {}),
         },
         {
           onOpen: (selectedProtocol, negotiatedExtensions, route) => {
@@ -548,6 +556,17 @@ export async function executeWsSession(
             startHeartbeat();
           },
           onMessage: ({ data, binary }) => {
+            if (maxMessageBytes !== undefined && data.byteLength > maxMessageBytes) {
+              // The request's cap, one law on every host: the message
+              // is never captured and the session ends on the
+              // Message Too Big close naming both sizes.
+              closeRequested = true;
+              writer?.close(
+                WS_MESSAGE_TOO_BIG_CODE,
+                `Message of ${data.byteLength} bytes exceeds the ${maxMessageBytes} byte limit`,
+              );
+              return;
+            }
             const dataBase64 = encodeBase64Bytes(data);
             record({ direction: 'down', dataBase64, binary }, data.byteLength);
             emitter?.message({ direction: 'down', dataBase64, binary, atMs: Date.now() });

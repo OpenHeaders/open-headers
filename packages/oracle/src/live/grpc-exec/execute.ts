@@ -55,7 +55,8 @@ import {
   type GrpcTransportHeader,
 } from './transport';
 
-/** Response-body cap — the HTTP executor's default, same memory law. */
+/** Response-body cap default — the HTTP executor's, same memory law;
+ *  the request's `maxResponseBytes` raises or lowers it. */
 const MAX_BODY_BYTES = 2 * 1024 * 1024;
 
 /** Metadata keys the transport owns — user rows carrying them are
@@ -203,6 +204,8 @@ export async function executeGrpcInvoke(
     }
   }
 
+  const maxBodyBytes = request.maxResponseBytes ?? MAX_BODY_BYTES;
+
   // ── Streaming shapes: the stream executor owns the wire from here ──
   if (rpc.streaming !== 'unary') {
     return executeGrpcStream({
@@ -221,7 +224,7 @@ export async function executeGrpcInvoke(
       initialMessage: rpc.streaming === 'server-streaming' ? encoded : null,
       ...(options.sendId !== undefined ? { sendId: options.sendId } : {}),
       ...(options.emitStreamEvent !== undefined ? { emitEvent: options.emitStreamEvent } : {}),
-      maxBodyBytes: MAX_BODY_BYTES,
+      maxBodyBytes,
     });
   }
   if (encoded === null) {
@@ -251,7 +254,7 @@ export async function executeGrpcInvoke(
         metadata,
         message: encoded,
         ...(request.timeoutMs !== undefined ? { timeoutMs: request.timeoutMs } : {}),
-        maxBodyBytes: MAX_BODY_BYTES,
+        maxBodyBytes,
       },
       controller?.signal,
     );
@@ -268,7 +271,7 @@ export async function executeGrpcInvoke(
       messages: frames.map((f) => ({ dataBase64: encodeBase64Bytes(f.data), compressed: f.flag !== 0 })),
       ...(incomplete ? { incompleteTail: true } : {}),
       bodyTruncated: response.bodyTruncated,
-      ...(response.bodyTruncated ? { bodyCapBytes: MAX_BODY_BYTES } : {}),
+      ...(response.bodyTruncated ? { bodyCapBytes: maxBodyBytes } : {}),
       bodyBytes: response.body.byteLength,
       durationMs,
       // Route wire truth: the transport reports which plane decided

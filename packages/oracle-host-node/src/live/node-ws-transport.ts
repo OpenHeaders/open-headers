@@ -27,6 +27,14 @@
  *     connector as the shared pinned `lookup` seat — undici derives
  *     `servername` from the URL's hostname, so SNI / `Host` /
  *     verification keep the name while the socket goes to the pin.
+ *   - Handshake redirects: the handshake fetch pins the spec's
+ *     "redirect mode error" (`maxRedirections: 0` on its dispatch), so
+ *     `followRedirects` composes the per-connect dispatcher — the pin
+ *     lifted, then undici's own redirect interceptor redials the
+ *     upgrade at the Location (Host recomputed, Authorization dropped
+ *     cross-origin, loops detected) up to `maxRedirects`. A 3xx that
+ *     still reaches the handshake — following off, or the cap spent
+ *     — is observed on the handler so the refusal names the redirect.
  *   - Proxy coverage (the request-engine proxy design, P6 + the
  *     request plane): a connect walks the shared session route — the
  *     request's own proxy setting first, else the host's system plane
@@ -67,7 +75,7 @@ import {
   WsTransportError,
   type WsTransportRequest,
 } from '@openheaders/oracle/live/ws-exec/transport';
-import { Agent, buildConnector, type Dispatcher, WebSocket as UndiciWebSocket } from 'undici';
+import { Agent, buildConnector, type Dispatcher, interceptors, WebSocket as UndiciWebSocket } from 'undici';
 import { classifyPinnedDialFailure, classifyProxyLegFailure, pinnedLookupOptionsFor } from './dial-policy';
 import { createDialConnector } from './instrumented-connector';
 import { buildSocks5Agent } from './request-transport/dispatcher';
@@ -193,6 +201,73 @@ function hostLabelOf(url: string): string {
   }
 }
 
+/** Redirect cap when the request follows without naming one. */
+const DEFAULT_MAX_REDIRECTS = 20;
+const REDIRECT_STATUSES = new Set([300, 301, 302, 303, 307, 308]);
+
+/** A 3xx answer that reached the handshake — the observer's fact. */
+interface HandshakeRedirect {
+  status: number;
+  location: string | undefined;
+}
+
+/**
+ * Compose the per-connect dispatcher for the handshake's redirect
+ * policy. Always: an observer on the handler noting a 3xx answer that
+ * reaches the handshake (undici's WebSocket layer reduces every
+ * non-101 to one bare error — the fact would be lost). Following on:
+ * the fetch's `maxRedirections: 0` pin lifted, then undici's redirect
+ * interceptor (the LAST composed interceptor runs first, so the lift
+ * sits outside the redirect).
+ */
+function composeHandshakeDispatcher(
+  dispatcher: Dispatcher,
+  request: WsTransportRequest,
+  onRedirect: (fact: HandshakeRedirect) => void,
+): Dispatcher {
+  const observer = (handler: Dispatcher.DispatchHandler): Dispatcher.DispatchHandler => ({
+    onRequestStart: (controller, context) => handler.onRequestStart?.(controller, context),
+    onRequestUpgrade: (controller, statusCode, headers, socket) =>
+      handler.onRequestUpgrade?.(controller, statusCode, headers, socket),
+    onResponseStart: (controller, statusCode, headers, statusMessage) => {
+      if (REDIRECT_STATUSES.has(statusCode)) {
+        const location = headers.location;
+        onRedirect({ status: statusCode, location: typeof location === 'string' ? location : undefined });
+      }
+      handler.onResponseStart?.(controller, statusCode, headers, statusMessage);
+    },
+    onResponseData: (controller, chunk) => handler.onResponseData?.(controller, chunk),
+    onResponseEnd: (controller, trailers) => handler.onResponseEnd?.(controller, trailers),
+    onResponseError: (controller, error) => handler.onResponseError?.(controller, error),
+  });
+  const observe: Dispatcher.DispatcherComposeInterceptor = (dispatch) => (opts, handler) =>
+    dispatch(opts, observer(handler));
+  if (request.followRedirects !== true) return dispatcher.compose(observe);
+  const liftPin: Dispatcher.DispatcherComposeInterceptor = (dispatch) => (opts, handler) => {
+    // The pin is a fetch-internal extension of the dispatch options —
+    // untyped, so it leaves through the reflective delete.
+    const rest = { ...opts };
+    Reflect.deleteProperty(rest, 'maxRedirections');
+    return dispatch(rest, handler);
+  };
+  return dispatcher.compose(
+    observe,
+    interceptors.redirect({ maxRedirections: request.maxRedirects ?? DEFAULT_MAX_REDIRECTS }),
+    liftPin,
+  );
+}
+
+/** The refusal prose for a 3xx that reached the handshake. */
+function classifyHandshakeRedirect(request: WsTransportRequest, fact: HandshakeRedirect): string {
+  const host = hostLabelOf(request.url);
+  const target = fact.location !== undefined ? ` to ${fact.location}` : '';
+  if (request.followRedirects === true) {
+    const cap = request.maxRedirects ?? DEFAULT_MAX_REDIRECTS;
+    return `${host} kept redirecting the WebSocket handshake past the Max redirects setting (${cap}) — the last answer was a ${fact.status}${target}.`;
+  }
+  return `${host} answered the WebSocket handshake with a ${fact.status} redirect${target}. Turn on Follow redirects to dial it.`;
+}
+
 /** One dial attempt's outcome: the session opened (or the connect
  *  already settled some other way), or a pre-open failure the walker
  *  may fall through from. */
@@ -208,6 +283,7 @@ export function createNodeWsTransport(options: NodeWsTransportOptions = {}): WsT
       let deadlineExpired = false;
       let activeAttempt: SessionProxyAttempt | undefined;
       let timer: ReturnType<typeof setTimeout> | null = null;
+      let handshakeRedirect: HandshakeRedirect | null = null;
 
       const cleanup = (): void => {
         if (timer !== null) clearTimeout(timer);
@@ -232,6 +308,10 @@ export function createNodeWsTransport(options: NodeWsTransportOptions = {}): WsT
         }
         if (signal?.aborted) {
           settleError('Session stopped before it connected.');
+          return;
+        }
+        if (handshakeRedirect !== null) {
+          settleError(classifyHandshakeRedirect(request, handshakeRedirect));
           return;
         }
         // A verification failure carries the trust remedy — the same
@@ -336,9 +416,15 @@ export function createNodeWsTransport(options: NodeWsTransportOptions = {}): WsT
           let lastError: unknown = null;
           let ws: UndiciWebSocket;
           try {
-            dispatcher = mintDispatcher(attempt, (err) => {
-              dialError = err;
-            });
+            dispatcher = composeHandshakeDispatcher(
+              mintDispatcher(attempt, (err) => {
+                dialError = err;
+              }),
+              request,
+              (fact) => {
+                handshakeRedirect = fact;
+              },
+            );
             ws = new UndiciWebSocket(request.url, {
               protocols: [...request.subprotocols],
               dispatcher,

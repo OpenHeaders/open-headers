@@ -5,8 +5,9 @@
  * (subprotocol negotiation, custom handshake headers, both directions
  * text + binary), the server close code/reason verbatim, the local
  * clean close, connect-failure classification off the wrapped
- * connector, the connect deadline, the pre-open abort, and the
- * post-open Stop-abort settling immediately with no error.
+ * connector, the connect deadline, the pre-open abort, the post-open
+ * Stop-abort settling immediately with no error, and the handshake
+ * redirect policy against a real 3xx chain.
  */
 
 import 'reflect-metadata';
@@ -90,6 +91,32 @@ async function startWsServer(
   return { url: `${scheme}://127.0.0.1:${address.port}/session`, seenHeaders: () => headers };
 }
 
+/** A plain HTTP server answering every `/hop/N` with a 302 to
+ *  `/hop/N-1`, and `/hop/0` with a 302 to the target's handshake URL
+ *  in its `http:` form — the shape an auth gateway bounces upgrades
+ *  in. `hops` = the redirects a dial to `/hop/hops-1` walks before the
+ *  handshake. */
+async function startRedirectServer(targetWsUrl: string): Promise<{ urlFor: (hops: number) => string }> {
+  const target = new URL(targetWsUrl);
+  target.protocol = 'http:';
+  const httpServer = createServer((req, res) => {
+    const hop = Number(req.url?.match(/^\/hop\/(\d+)$/)?.[1] ?? Number.NaN);
+    if (Number.isNaN(hop)) {
+      res.statusCode = 404;
+      res.end();
+      return;
+    }
+    res.statusCode = 302;
+    res.setHeader('location', hop === 0 ? target.toString() : `/hop/${hop - 1}`);
+    res.end();
+  });
+  servers.push(httpServer);
+  await new Promise<void>((resolve) => httpServer.listen(0, '127.0.0.1', resolve));
+  const address = httpServer.address();
+  if (address === null || typeof address === 'string') throw new Error('no listen address');
+  return { urlFor: (hops) => `ws://127.0.0.1:${address.port}/hop/${hops - 1}` };
+}
+
 /** A `wss:` server whose leaf chains to a freshly minted private CA —
  *  nothing in the runtime bundle vouches for it. */
 async function startPrivateCaWsServer(): Promise<ProbeServer & { rootPem: string }> {
@@ -128,6 +155,8 @@ function runSession(
     timeoutMs?: number;
     unixSocketPath?: string;
     trustedRootsPem?: string[];
+    followRedirects?: boolean;
+    maxRedirects?: number;
   },
   steps: (writer: { send(text: string): void; close(code: number, reason: string): void }, seen: SessionRun) => void,
   signal?: AbortSignal,
@@ -143,6 +172,8 @@ function runSession(
         ...(options.timeoutMs !== undefined ? { timeoutMs: options.timeoutMs } : {}),
         ...(options.unixSocketPath !== undefined ? { unixSocketPath: options.unixSocketPath } : {}),
         ...(options.trustedRootsPem !== undefined ? { trustedRootsPem: options.trustedRootsPem } : {}),
+        ...(options.followRedirects !== undefined ? { followRedirects: options.followRedirects } : {}),
+        ...(options.maxRedirects !== undefined ? { maxRedirects: options.maxRedirects } : {}),
       },
       {
         onOpen: (protocol) => {
@@ -332,6 +363,42 @@ describe('createNodeWsTransport — abort discipline', () => {
     // No Close frame arrived before the teardown — the platform's
     // accounting stays honest (nothing synthesized).
     expect(seen.close).toBeNull();
+  });
+});
+
+describe('createNodeWsTransport — handshake redirects', () => {
+  const echoOnce = (writer: { send(text: string): void; close(code: number, reason: string): void }, s: SessionRun) => {
+    writer.send('hello');
+    setTimeout(() => {
+      if (s.messages.length > 0) writer.close(1000, 'done');
+    }, 50);
+  };
+
+  it('follows a 3xx chain to the upgrade when the request asks', async () => {
+    const server = await startWsServer();
+    const gateway = await startRedirectServer(server.url);
+    const seen = await runSession(gateway.urlFor(2), { followRedirects: true }, echoOnce);
+    expect(seen.error).toBeUndefined();
+    expect(seen.messages.map((m) => m.text)).toEqual(['echo:hello']);
+    expect(seen.close).toEqual({ code: 1000, reason: 'done', wasClean: true });
+  });
+
+  it('refuses a redirected handshake by default, naming the redirect and the setting', async () => {
+    const server = await startWsServer();
+    const gateway = await startRedirectServer(server.url);
+    const seen = await runSession(gateway.urlFor(1), {}, echoOnce);
+    expect(seen.error?.message).toMatch(
+      /^127\.0\.0\.1:\d+ answered the WebSocket handshake with a 302 redirect to http:\/\/127\.0\.0\.1:\d+\/session\. Turn on Follow redirects to dial it\.$/,
+    );
+  });
+
+  it('names the spent Max redirects setting when the chain outruns it', async () => {
+    const server = await startWsServer();
+    const gateway = await startRedirectServer(server.url);
+    const seen = await runSession(gateway.urlFor(3), { followRedirects: true, maxRedirects: 1 }, echoOnce);
+    expect(seen.error?.message).toMatch(
+      /^127\.0\.0\.1:\d+ kept redirecting the WebSocket handshake past the Max redirects setting \(1\) — the last answer was a 302 to \/hop\/0\.$/,
+    );
   });
 });
 

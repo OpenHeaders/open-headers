@@ -130,6 +130,16 @@ export interface WsTransportRequest {
    * has no ceiling — it lives until a close, Stop, or Disconnect.
    */
   timeoutMs?: number;
+  /**
+   * Follow a 3xx answer to the handshake and dial its Location (an
+   * auth gateway bouncing the upgrade). Absent = off — a redirected
+   * handshake fails as a refusal naming the redirect. Transports
+   * whose client never follows (the browser) ignore it.
+   */
+  followRedirects?: boolean;
+  /** Cap on the handshake redirects followed; absent = the transport's
+   *  default (20). Meaningful only with {@link followRedirects}. */
+  maxRedirects?: number;
 }
 
 /** One inbound message as the wire carried it: payload bytes plus the
