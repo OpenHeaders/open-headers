@@ -13,7 +13,12 @@ import * as v from 'valibot';
 import { PathSegmentSchema, RelativePathSchema, SchemaVersionSchema, UidSchema } from './common';
 import {
   ClientCertificateRefSchema,
+  ProxyCredentialRefSchema,
+  ProxyModeSchema,
+  ProxyUrlSchema,
+  proxyPairChecks,
   RequestTimeoutMsSchema,
+  ResolveToAddressSchema,
   SniServerNameSchema,
   TlsCipherSuitesSchema,
   TlsVersionSchema,
@@ -88,7 +93,7 @@ export const GrpcSpecLinkSchema = v.object({
   specUid: UidSchema,
 });
 
-export const GrpcRequestSchema = v.object({
+const GrpcRequestObjectSchema = v.object({
   schemaVersion: SchemaVersionSchema,
   uid: UidSchema,
   path: RelativePathSchema,
@@ -125,6 +130,36 @@ export const GrpcRequestSchema = v.object({
    */
   unixSocketPath: v.optional(UnixSocketPathSchema),
   /**
+   * Resolve the URL's host to this IPv4 / IPv6 address at connect time
+   * instead of asking DNS — the HTTP request's knob on the gRPC channel: SNI,
+   * `:authority` and certificate verification keep the ORIGINAL hostname;
+   * only where the socket goes changes. Node runtimes only.
+   * Pattern-validated — see {@link ResolveToAddressSchema}.
+   */
+  resolveToAddress: v.optional(ResolveToAddressSchema),
+  /**
+   * Proxy routing mode for the dial — the HTTP request's knob. Absent =
+   * INHERIT the executing host's system plane; `'direct'` opts the
+   * call out of any ambient proxy; `'url'` routes through `proxyUrl`.
+   * The mode / URL pair is tied by the checks on the persisted schema.
+   */
+  proxyMode: v.optional(ProxyModeSchema),
+  /**
+   * Route the dial through this proxy instead of connecting directly —
+   * an HTTP CONNECT tunnel (the channel's own HTTP/2 session tunnels CONNECT only, so a SOCKS5 URL fails before the wire) — so end-to-end TLS still verifies the TARGET.
+   * Incompatible with `resolveToAddress` and `unixSocketPath` (the dial fails
+   * naming the conflict). Credentials never ride this URL — see
+   * `proxyCredentialRef`. Node runtimes only.
+   */
+  proxyUrl: v.optional(ProxyUrlSchema),
+  /**
+   * Vault string entry NAME holding the proxy's `user:password` — sent
+   * on the proxy leg only, never to the target. Only meaningful
+   * alongside `proxyUrl`; a ref that doesn't resolve on this device
+   * fails the dial naming this setting. Node runtimes only.
+   */
+  proxyCredentialRef: v.optional(ProxyCredentialRefSchema),
+  /**
    * Wall-clock ceiling (ms) on the whole call — becomes the gRPC
    * deadline once the transport lands (Phase D). Same bounds as the
    * HTTP request's timeout knob.
@@ -158,8 +193,15 @@ export const GrpcRequestSchema = v.object({
   sniServerName: v.optional(SniServerNameSchema),
 });
 
+/** The persisted GrpcRequest shape with the proxy mode / URL tie —
+ *  see {@link proxyPairChecks}. */
+export const GrpcRequestSchema = v.pipe(
+  GrpcRequestObjectSchema,
+  ...proxyPairChecks<v.InferOutput<typeof GrpcRequestObjectSchema>>(),
+);
+
 /**
  * Content-only shape (no `schemaVersion` / `uid` / `path`) — the
  * pre-fill handoff unit for the create tab, mirroring `RequestSeedSchema`.
  */
-export const GrpcRequestSeedSchema = v.omit(GrpcRequestSchema, ['schemaVersion', 'uid', 'path', 'pathSegment']);
+export const GrpcRequestSeedSchema = v.omit(GrpcRequestObjectSchema, ['schemaVersion', 'uid', 'path', 'pathSegment']);

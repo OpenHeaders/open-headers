@@ -685,6 +685,23 @@ export const ENTITY_CASES: readonly EntityCase[] = [
           'sniServerName',
           maybe(rng, 0.2, () => `${word(rng)}.openheaders.io`),
         ),
+        ...opt(
+          'resolveToAddress',
+          maybe(rng, 0.2, () => rng.pick(['10.0.0.12', '2001:db8::1'] as const)),
+        ),
+        ...(maybe(rng, 0.2, () => true) === true
+          ? {
+              proxyMode: 'url' as const,
+              proxyUrl: 'http://proxy.openheaders.io:8080',
+              ...opt(
+                'proxyCredentialRef',
+                maybe(rng, 0.5, () => `proxy-${word(rng)}`),
+              ),
+            }
+          : opt(
+              'proxyMode',
+              maybe(rng, 0.2, () => 'direct' as const),
+            )),
       };
     },
     fresh: freshDocument,
@@ -852,6 +869,23 @@ export const ENTITY_CASES: readonly EntityCase[] = [
         maybe(rng, 0.2, () => `${word(rng)}.openheaders.io`),
       ),
       ...opt(
+        'resolveToAddress',
+        maybe(rng, 0.2, () => rng.pick(['10.0.0.12', '2001:db8::1'] as const)),
+      ),
+      ...(maybe(rng, 0.2, () => true) === true
+        ? {
+            proxyMode: 'url' as const,
+            proxyUrl: 'http://proxy.openheaders.io:8080',
+            ...opt(
+              'proxyCredentialRef',
+              maybe(rng, 0.5, () => `proxy-${word(rng)}`),
+            ),
+          }
+        : opt(
+            'proxyMode',
+            maybe(rng, 0.2, () => 'direct' as const),
+          )),
+      ...opt(
         'alpnProtocol',
         maybe(rng, 0.2, () => 'mqtt'),
       ),
@@ -920,6 +954,23 @@ export const ENTITY_CASES: readonly EntityCase[] = [
         'sniServerName',
         maybe(rng, 0.2, () => `${word(rng)}.openheaders.io`),
       ),
+      ...opt(
+        'resolveToAddress',
+        maybe(rng, 0.2, () => rng.pick(['10.0.0.12', '2001:db8::1'] as const)),
+      ),
+      ...(maybe(rng, 0.2, () => true) === true
+        ? {
+            proxyMode: 'url' as const,
+            proxyUrl: 'http://proxy.openheaders.io:8080',
+            ...opt(
+              'proxyCredentialRef',
+              maybe(rng, 0.5, () => `proxy-${word(rng)}`),
+            ),
+          }
+        : opt(
+            'proxyMode',
+            maybe(rng, 0.2, () => 'direct' as const),
+          )),
     }),
     fresh: freshDocument,
     serialize: (write) => serializeGrpcRequest(write as WriteableDocument<GrpcRequest>).grpcYaml,

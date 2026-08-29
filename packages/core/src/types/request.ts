@@ -24,6 +24,7 @@ import type {
   AwsSigV4AuthSchema,
   BodyTypeSchema,
   CredentialsModeSchema,
+  DialPolicySchema,
   DigestAuthSchema,
   FileRefSchema,
   FormFieldSchema,
@@ -130,6 +131,13 @@ export type TlsVersion = v.InferOutput<typeof TlsVersionSchema>;
  * shape so executors and transports type against one policy.
  */
 export type TlsPolicy = v.InferOutput<typeof TlsPolicySchema>;
+
+/**
+ * The dial policy every request kind carries — resolve-to-address pin,
+ * proxy mode, proxy URL, proxy credential ref. One shape so executors
+ * and transports route against one policy.
+ */
+export type DialPolicy = v.InferOutput<typeof DialPolicySchema>;
 
 /**
  * HTTP version policy for the per-request `httpVersion` knob. Absent /

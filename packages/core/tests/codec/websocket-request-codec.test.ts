@@ -92,6 +92,45 @@ describe('serializeWebSocketRequest', () => {
     ]);
   });
 
+  it('seats the dial policy between the socket path and the timeout in one fixed order', () => {
+    const out = serializeWebSocketRequest(
+      freshDocument(
+        websocketRequest({
+          timeoutMs: 5_000,
+          proxyCredentialRef: 'corp-proxy',
+          proxyUrl: 'http://proxy.openheaders.io:8080',
+          proxyMode: 'url',
+          resolveToAddress: '10.0.0.12',
+          unixSocketPath: '/var/run/ws.sock',
+        }),
+      ),
+    );
+    const keys = Object.keys(YAML.parse(out.websocketYaml) as Record<string, unknown>);
+    expect(keys.slice(keys.indexOf('unixSocketPath'), keys.indexOf('timeoutMs') + 1)).toEqual([
+      'unixSocketPath',
+      'resolveToAddress',
+      'proxyMode',
+      'proxyUrl',
+      'proxyCredentialRef',
+      'timeoutMs',
+    ]);
+  });
+
+  it('rejects a proxy URL floating without its mode, and a direct mode carrying one', () => {
+    const floating = serializeWebSocketRequest(
+      freshDocument(websocketRequest({ proxyMode: 'url', proxyUrl: 'http://proxy.openheaders.io:8080' })),
+    ).websocketYaml.replace('proxyMode: url\n', '');
+    expect(() => parseWebSocketRequest(floating, { path: 'requests/live-events-wsrq0001' })).toThrow(
+      /requires proxy mode 'url'/,
+    );
+    const direct = serializeWebSocketRequest(
+      freshDocument(websocketRequest({ proxyMode: 'url', proxyUrl: 'http://proxy.openheaders.io:8080' })),
+    ).websocketYaml.replace('proxyMode: url', 'proxyMode: direct');
+    expect(() => parseWebSocketRequest(direct, { path: 'requests/live-events-wsrq0001' })).toThrow(
+      /cannot carry a proxy URL/,
+    );
+  });
+
   it('seats the binary encoding after the format and fans a binary compose out to message.txt', () => {
     const out = serializeWebSocketRequest(
       freshDocument(websocketRequest({ message: 'aGVsbG8=', messageFormat: 'binary', binaryEncoding: 'hex' })),

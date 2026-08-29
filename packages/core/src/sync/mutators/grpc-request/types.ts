@@ -8,7 +8,8 @@
  * Every other field — `name`, `description`, `url`, `tls`, `method`,
  * `message`, `auth`, `specLink`, `unixSocketPath`, `timeoutMs`,
  * the TLS policy (`sslVerification`, `clientCertificateRef`, `tlsMinVersion`, `tlsMaxVersion`,
- * `tlsCipherSuites`, `sniServerName`) — flows through `setField` scalars. `method`, `auth`, and `specLink`
+ * `tlsCipherSuites`, `sniServerName`), the dial policy (`resolveToAddress`, `proxyMode`,
+ * `proxyUrl`, `proxyCredentialRef`) — flows through `setField` scalars. `method`, `auth`, and `specLink`
  * are small objects; they route through the per-leaf flatten-diff at
  * the write site (the same treatment `auth` / `body` get on the HTTP
  * request) so edits share create's leaf representation.

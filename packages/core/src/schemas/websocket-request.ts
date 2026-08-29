@@ -16,7 +16,12 @@ import * as v from 'valibot';
 import { PathSegmentSchema, RelativePathSchema, SchemaVersionSchema, UidSchema } from './common';
 import {
   ClientCertificateRefSchema,
+  ProxyCredentialRefSchema,
+  ProxyModeSchema,
+  ProxyUrlSchema,
+  proxyPairChecks,
   RequestTimeoutMsSchema,
+  ResolveToAddressSchema,
   SniServerNameSchema,
   TlsCipherSuitesSchema,
   TlsVersionSchema,
@@ -157,7 +162,7 @@ export const WebSocketSpecLinkSchema = v.object({
   specUid: UidSchema,
 });
 
-export const WebSocketRequestSchema = v.object({
+const WebSocketRequestObjectSchema = v.object({
   schemaVersion: SchemaVersionSchema,
   uid: UidSchema,
   path: RelativePathSchema,
@@ -234,6 +239,36 @@ export const WebSocketRequestSchema = v.object({
    */
   unixSocketPath: v.optional(UnixSocketPathSchema),
   /**
+   * Resolve the URL's host to this IPv4 / IPv6 address at connect time
+   * instead of asking DNS — the HTTP request's knob on the session dial: SNI,
+   * the handshake `Host` and certificate verification keep the ORIGINAL hostname;
+   * only where the socket goes changes. Node runtimes only.
+   * Pattern-validated — see {@link ResolveToAddressSchema}.
+   */
+  resolveToAddress: v.optional(ResolveToAddressSchema),
+  /**
+   * Proxy routing mode for the dial — the HTTP request's knob. Absent =
+   * INHERIT the executing host's system plane; `'direct'` opts the
+   * session out of any ambient proxy; `'url'` routes through `proxyUrl`.
+   * The mode / URL pair is tied by the checks on the persisted schema.
+   */
+  proxyMode: v.optional(ProxyModeSchema),
+  /**
+   * Route the dial through this proxy instead of connecting directly —
+   * an HTTP CONNECT tunnel, or the SOCKS5 dial — so end-to-end TLS still verifies the TARGET.
+   * Incompatible with `resolveToAddress` and `unixSocketPath` (the dial fails
+   * naming the conflict). Credentials never ride this URL — see
+   * `proxyCredentialRef`. Node runtimes only.
+   */
+  proxyUrl: v.optional(ProxyUrlSchema),
+  /**
+   * Vault string entry NAME holding the proxy's `user:password` — sent
+   * on the proxy leg only, never to the target. Only meaningful
+   * alongside `proxyUrl`; a ref that doesn't resolve on this device
+   * fails the dial naming this setting. Node runtimes only.
+   */
+  proxyCredentialRef: v.optional(ProxyCredentialRefSchema),
+  /**
    * Wall-clock ceiling (ms) on the connection handshake — the
    * transport's open deadline. An OPEN session has no ceiling. Same
    * bounds as the HTTP request's timeout knob.
@@ -267,11 +302,18 @@ export const WebSocketRequestSchema = v.object({
   sniServerName: v.optional(SniServerNameSchema),
 });
 
+/** The persisted WebSocketRequest shape with the proxy mode / URL tie
+ *  — see {@link proxyPairChecks}. */
+export const WebSocketRequestSchema = v.pipe(
+  WebSocketRequestObjectSchema,
+  ...proxyPairChecks<v.InferOutput<typeof WebSocketRequestObjectSchema>>(),
+);
+
 /**
  * Content-only shape (no `schemaVersion` / `uid` / `path`) — the
  * pre-fill handoff unit for the create tab, mirroring `RequestSeedSchema`.
  */
-export const WebSocketRequestSeedSchema = v.omit(WebSocketRequestSchema, [
+export const WebSocketRequestSeedSchema = v.omit(WebSocketRequestObjectSchema, [
   'schemaVersion',
   'uid',
   'path',

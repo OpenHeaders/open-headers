@@ -15,7 +15,12 @@ import * as v from 'valibot';
 import { PathSegmentSchema, RelativePathSchema, SchemaVersionSchema, UidSchema } from './common';
 import {
   ClientCertificateRefSchema,
+  ProxyCredentialRefSchema,
+  ProxyModeSchema,
+  ProxyUrlSchema,
+  proxyPairChecks,
   RequestTimeoutMsSchema,
+  ResolveToAddressSchema,
   SniServerNameSchema,
   TlsCipherSuitesSchema,
   TlsVersionSchema,
@@ -206,7 +211,7 @@ export const MqttSpecLinkSchema = v.object({
 
 export const MAX_ALPN_PROTOCOL_LENGTH = 255;
 
-export const MqttRequestSchema = v.object({
+const MqttRequestObjectSchema = v.object({
   schemaVersion: SchemaVersionSchema,
   uid: UidSchema,
   path: RelativePathSchema,
@@ -270,6 +275,36 @@ export const MqttRequestSchema = v.object({
   /** 5.0 Request Problem Information — allows Reason Strings and user
    *  properties on failure packets. Absent = on (the spec default). */
   requestProblemInformation: v.optional(v.boolean()),
+  /**
+   * Resolve the URL's host to this IPv4 / IPv6 address at connect time
+   * instead of asking DNS — the HTTP request's knob on the broker dial: SNI,
+   * the `mqtts:` server name and certificate verification keep the ORIGINAL hostname;
+   * only where the socket goes changes. Node runtimes only.
+   * Pattern-validated — see {@link ResolveToAddressSchema}.
+   */
+  resolveToAddress: v.optional(ResolveToAddressSchema),
+  /**
+   * Proxy routing mode for the dial — the HTTP request's knob. Absent =
+   * INHERIT the executing host's system plane; `'direct'` opts the
+   * session out of any ambient proxy; `'url'` routes through `proxyUrl`.
+   * The mode / URL pair is tied by the checks on the persisted schema.
+   */
+  proxyMode: v.optional(ProxyModeSchema),
+  /**
+   * Route the dial through this proxy instead of connecting directly —
+   * an HTTP CONNECT tunnel on every scheme, or the SOCKS5 dial on `ws(s):` (a raw `mqtt(s):` dial tunnels CONNECT only, so a SOCKS5 URL fails before the wire) — so end-to-end TLS still verifies the TARGET.
+   * Incompatible with `resolveToAddress` (the dial fails
+   * naming the conflict). Credentials never ride this URL — see
+   * `proxyCredentialRef`. Node runtimes only.
+   */
+  proxyUrl: v.optional(ProxyUrlSchema),
+  /**
+   * Vault string entry NAME holding the proxy's `user:password` — sent
+   * on the proxy leg only, never to the target. Only meaningful
+   * alongside `proxyUrl`; a ref that doesn't resolve on this device
+   * fails the dial naming this setting. Node runtimes only.
+   */
+  proxyCredentialRef: v.optional(ProxyCredentialRefSchema),
   /**
    * Wall-clock ceiling (ms) on the connection dial — the transport's
    * open deadline only; an OPEN session has no ceiling. Absent = the
@@ -340,8 +375,15 @@ export const MqttRequestSchema = v.object({
   alpnProtocol: v.optional(v.pipe(v.string(), v.maxLength(MAX_ALPN_PROTOCOL_LENGTH))),
 });
 
+/** The persisted MqttRequest shape with the proxy mode / URL tie —
+ *  see {@link proxyPairChecks}. */
+export const MqttRequestSchema = v.pipe(
+  MqttRequestObjectSchema,
+  ...proxyPairChecks<v.InferOutput<typeof MqttRequestObjectSchema>>(),
+);
+
 /**
  * Content-only shape (no `schemaVersion` / `uid` / `path`) — the
  * pre-fill handoff unit, mirroring `WebSocketRequestSeedSchema`.
  */
-export const MqttRequestSeedSchema = v.omit(MqttRequestSchema, ['schemaVersion', 'uid', 'path', 'pathSegment']);
+export const MqttRequestSeedSchema = v.omit(MqttRequestObjectSchema, ['schemaVersion', 'uid', 'path', 'pathSegment']);

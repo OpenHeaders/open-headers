@@ -248,6 +248,45 @@ export const ProxyCredentialRefSchema = v.pipe(
 );
 
 /**
+ * The dial policy every request kind carries — the resolve-to-address
+ * pin and the request-plane proxy trio (mode · URL · credential ref):
+ * one field set, one row block on every Settings tab, one route walk
+ * at the transport (the TLS policy's twin). Each entity schema seats
+ * these fields itself (with its own on-disk order) and pipes
+ * {@link proxyPairChecks} onto its persisted shape; this object names
+ * the shared shape so the executors and transports type against one
+ * policy instead of four.
+ */
+export const DialPolicySchema = v.object({
+  resolveToAddress: v.optional(ResolveToAddressSchema),
+  proxyMode: v.optional(ProxyModeSchema),
+  proxyUrl: v.optional(ProxyUrlSchema),
+  proxyCredentialRef: v.optional(ProxyCredentialRefSchema),
+});
+
+/**
+ * The cross-field ties the dial fields need on every persisted shape,
+ * which the field schemas can't express: `proxyMode: 'url'` requires a
+ * `proxyUrl` (an URL-mode row with nothing to route through is a
+ * config error, not a direct send), `'direct'` forbids one (the
+ * opt-out must not carry a dormant URL that silently reactivates on a
+ * mode flip), and a `proxyUrl` requires `mode: 'url'` — the tri-state
+ * settings row always writes the PAIR, so a URL floating without its
+ * mode is a malformed write, never a valid explicit route. Generic
+ * over the entity so each request schema pipes the same three checks.
+ */
+export function proxyPairChecks<T extends { proxyMode?: (typeof PROXY_MODES)[number]; proxyUrl?: string }>() {
+  return [
+    v.check<T, string>((r) => r.proxyMode !== 'url' || r.proxyUrl !== undefined, "Proxy mode 'url' requires a proxy URL"),
+    v.check<T, string>(
+      (r) => r.proxyMode !== 'direct' || r.proxyUrl === undefined,
+      "Proxy mode 'direct' cannot carry a proxy URL",
+    ),
+    v.check<T, string>((r) => r.proxyUrl === undefined || r.proxyMode === 'url', "A proxy URL requires proxy mode 'url'"),
+  ] as const;
+}
+
+/**
  * Local socket the send dials instead of opening a TCP connection: an
  * absolute Unix domain socket path (`/…`) or a Windows named pipe
  * (`\\.\pipe\…`). Whether the socket EXISTS, listens, or is dialable
@@ -1015,21 +1054,13 @@ const RequestObjectSchema = v.object({
 });
 
 /**
- * The persisted Request shape, with the cross-field ties the field
- * schemas can't express. `proxyMode: 'url'` requires a `proxyUrl` (an
- * URL-mode row with nothing to route through is a config error, not a
- * direct send), `'direct'` forbids one (the opt-out must not carry a
- * dormant URL that silently reactivates on a mode flip), and a
- * `proxyUrl` requires `mode: 'url'` — the tri-state settings row
- * always writes the PAIR, so a URL floating without its mode is a
- * malformed write, never a valid explicit route (the P2 transitional
- * lenience, tightened with the P3 row).
+ * The persisted Request shape, with the proxy mode / URL tie the field
+ * schemas can't express — see {@link proxyPairChecks} (the P2
+ * transitional lenience, tightened with the P3 row).
  */
 export const RequestSchema = v.pipe(
   RequestObjectSchema,
-  v.check((r) => r.proxyMode !== 'url' || r.proxyUrl !== undefined, "Proxy mode 'url' requires a proxy URL"),
-  v.check((r) => r.proxyMode !== 'direct' || r.proxyUrl === undefined, "Proxy mode 'direct' cannot carry a proxy URL"),
-  v.check((r) => r.proxyUrl === undefined || r.proxyMode === 'url', "A proxy URL requires proxy mode 'url'"),
+  ...proxyPairChecks<v.InferOutput<typeof RequestObjectSchema>>(),
 );
 
 /**

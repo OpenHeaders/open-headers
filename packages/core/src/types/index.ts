@@ -217,6 +217,7 @@ export type {
   AuthType,
   BodyType,
   CredentialsMode,
+  DialPolicy,
   FileRef,
   FormField,
   HttpMethod,
