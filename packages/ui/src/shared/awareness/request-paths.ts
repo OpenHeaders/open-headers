@@ -46,6 +46,7 @@ export interface RequestPathBundle {
   followAuthorizationHeader: string;
   preRequestScript: string;
   postResponseScript: string;
+  specLink: string;
   // Set roots (used for path-prefix presence + set-level conflict keys).
   headerSet: string;
   paramSet: string;
@@ -82,6 +83,7 @@ export const REQUEST_PATHS: RequestPathBundle = {
   followAuthorizationHeader: 'followAuthorizationHeader',
   preRequestScript: 'preRequestScript',
   postResponseScript: 'postResponseScript',
+  specLink: 'specLink',
   headerSet: 'headers',
   paramSet: 'params',
   header: (uid, leaf) => `headers.${uid}.${leaf}`,

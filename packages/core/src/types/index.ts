@@ -230,6 +230,7 @@ export type {
   RequestBody,
   RequestHeader,
   RequestSeed,
+  RequestSpecLink,
   TlsVersion,
 } from './request';
 // ── Request execution ──────────────────────────────────────────────

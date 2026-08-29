@@ -19,6 +19,8 @@ params:
 auth:
   type: bearer
   token: "{{env.TOKEN}}"
+specLink:
+  specUid: spec0001
 credentialsMode: omit
 followRedirects: false
 sslVerification: false

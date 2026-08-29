@@ -1,18 +1,19 @@
 /**
- * SpecTab — the HTTP request's spec binding surface. The link is the
- * collection's (a collection generated from an OpenAPI document links
- * at the collection level; an HTTP request carries none of its own),
- * so the tab reads through it: the linked document and its drift, the
- * operation this request pairs with by method + URL template, and the
- * fields that differ from the spec with a per-field Apply — the same
- * comparison the collection's Update dialog runs, one request at a time.
+ * SpecTab — the HTTP request's spec binding surface: the picker for
+ * the request's own OpenAPI link (a request inside a spec-generated
+ * collection inherits the collection's link until it picks one), the
+ * linked document and its drift, the operation this request pairs
+ * with by method + URL template, and the fields that differ from the
+ * spec with a per-field Apply — the same comparison the collection's
+ * Update dialog runs, one request at a time.
  */
 
 import type { Collection } from '@openheaders/core/types';
 import { useT } from '@openheaders/ui/context/LocaleContext';
-import { Button, Tag, Typography } from 'antd';
+import { useSpecs } from '@openheaders/ui/shared/hooks/readers/useSpecs';
+import { Button, Select, Tag, Typography } from 'antd';
 import type React from 'react';
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 import { SPEC_FORMAT_LABELS } from '../specs/spec-format-labels';
 import type { SpecChangedField } from '../specs/spec-update-plan';
 import { type Draft, headersFromRequest, paramsFromRequest } from './draft';
@@ -46,6 +47,15 @@ interface SpecTabProps {
 const SpecTab: React.FC<SpecTabProps> = ({ workspaceId, collection, requestName, draft, setDraft }) => {
   const t = useT();
   const binding = useRequestSpecBinding(workspaceId, collection, draft, requestName);
+  const specs = useSpecs(workspaceId);
+  const openapiSpecs = useMemo(
+    () => specs.filter((s) => s.format === 'openapi-3.0' || s.format === 'openapi-3.1'),
+    [specs],
+  );
+  const inherited =
+    binding.kind !== 'unlinked' && binding.source.kind === 'collection' ? binding.source.collection : null;
+  const inheritedSpecName =
+    inherited && (binding.kind === 'linked' || binding.kind === 'parseError') ? binding.spec.name : null;
 
   const apply = useCallback(
     (operation: RequestSpecOperation, fields: readonly SpecChangedField[]) => {
@@ -65,21 +75,38 @@ const SpecTab: React.FC<SpecTabProps> = ({ workspaceId, collection, requestName,
     [setDraft],
   );
 
-  const label = (
-    <Text type="secondary" style={{ display: 'block', fontSize: 11, marginBottom: 4 }}>
-      {t('workbench.editors.request.spec.selectLabel')}
-    </Text>
+  const picker = (
+    <div>
+      <Text type="secondary" style={{ display: 'block', fontSize: 11, marginBottom: 4 }}>
+        {t('workbench.editors.request.spec.selectLabel')}
+      </Text>
+      <Select
+        style={{ width: '100%' }}
+        allowClear
+        placeholder={
+          inheritedSpecName !== null
+            ? t('workbench.editors.request.spec.inheritedPlaceholder', { name: inheritedSpecName })
+            : t('workbench.editors.request.spec.selectPlaceholder')
+        }
+        // null, not undefined — an undefined value flips the antd
+        // Select to uncontrolled.
+        value={draft.specLink?.specUid ?? null}
+        options={openapiSpecs.map((s) => ({ value: s.uid, label: s.name }))}
+        onChange={(specUid: string | undefined) =>
+          setDraft((d) => ({ ...d, specLink: specUid === undefined ? undefined : { specUid } }))
+        }
+        data-testid="request-spec-select"
+      />
+    </div>
   );
 
   if (binding.kind === 'unlinked') {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12, maxWidth: 560 }} data-testid="request-spec-tab">
-        <div>
-          {label}
-          <Text type="secondary" style={{ fontSize: 12 }}>
-            {t('workbench.editors.request.spec.none')}
-          </Text>
-        </div>
+        {picker}
+        <Text type="secondary" style={{ fontSize: 12 }}>
+          {t('workbench.editors.request.spec.none')}
+        </Text>
       </div>
     );
   }
@@ -92,21 +119,21 @@ const SpecTab: React.FC<SpecTabProps> = ({ workspaceId, collection, requestName,
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12, maxWidth: 560 }} data-testid="request-spec-tab">
-      <div>
-        {label}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-          {specName !== null && (
-            <Text style={{ fontSize: 12 }} data-testid="request-spec-name">
-              {specName}
-            </Text>
-          )}
-          {binding.kind !== 'missing' && (
-            <Tag style={{ margin: 0, fontSize: 11 }}>{SPEC_FORMAT_LABELS[binding.spec.format]}</Tag>
-          )}
-          <Text type="secondary" style={{ fontSize: 11 }}>
-            {t('workbench.editors.request.spec.fromCollection', { name: binding.collection.name })}
+      {picker}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+        {specName !== null && (
+          <Text style={{ fontSize: 12 }} data-testid="request-spec-name">
+            {specName}
           </Text>
-        </div>
+        )}
+        {binding.kind !== 'missing' && (
+          <Tag style={{ margin: 0, fontSize: 11 }}>{SPEC_FORMAT_LABELS[binding.spec.format]}</Tag>
+        )}
+        {inherited && (
+          <Text type="secondary" style={{ fontSize: 11 }}>
+            {t('workbench.editors.request.spec.fromCollection', { name: inherited.name })}
+          </Text>
+        )}
       </div>
       {binding.kind === 'missing' && (
         <Text type="warning" style={{ fontSize: 11 }} data-testid="request-spec-missing">

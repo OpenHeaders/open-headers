@@ -45,6 +45,8 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.tab.settings': 'Settings',
   'workbench.editors.request.spec.selectLabel': 'OpenAPI spec',
   'workbench.editors.request.spec.none': 'No OpenAPI spec is linked to this request.',
+  'workbench.editors.request.spec.selectPlaceholder': 'Link an OpenAPI spec…',
+  'workbench.editors.request.spec.inheritedPlaceholder': 'Inherited from the collection: {name}',
   'workbench.editors.request.spec.fromCollection': 'From collection {name}',
   'workbench.editors.request.spec.missing': 'The linked spec is no longer in this workspace.',
   'workbench.editors.request.spec.parseFailure': 'Spec did not parse: {message}',

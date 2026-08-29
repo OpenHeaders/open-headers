@@ -1,9 +1,11 @@
 /**
- * useRequestSpecBinding — the HTTP request's spec binding, read
- * through its collection's `specLink` (an HTTP request carries no
- * link of its own). Parses the linked document once per saved root
- * content, judges drift against the link's `sourceHash` (async hash,
- * the sidebar's rule), and resolves this request's operation.
+ * useRequestSpecBinding — the HTTP request's spec binding: the
+ * request's own `specLink` first, its collection's second (a request
+ * inside a spec-generated collection reads through it). Parses the
+ * linked document once per saved root content, judges drift against
+ * the collection link's `sourceHash` (async hash, the sidebar's rule —
+ * a request link has no generation to drift from), and resolves this
+ * request's operation.
  */
 
 import { type OpenApiParseResult, parseOpenApi } from '@openheaders/core/import';
@@ -17,17 +19,21 @@ import { type RequestSpecOperation, resolveSpecOperation } from './request-spec-
 
 export type RequestSpecBinding =
   | { kind: 'unlinked' }
-  | { kind: 'missing'; collection: Collection }
-  | { kind: 'parseError'; collection: Collection; spec: Spec; message: string }
+  | { kind: 'missing'; source: SpecLinkSource }
+  | { kind: 'parseError'; source: SpecLinkSource; spec: Spec; message: string }
   | {
       kind: 'linked';
-      collection: Collection;
+      source: SpecLinkSource;
       spec: Spec;
       parsed: OpenApiParseResult;
-      /** `null` while the saved content is still hashing. */
+      /** Collection-sourced links only: `null` while the saved content
+       *  is still hashing. A request link never drifts. */
       drifted: boolean | null;
       operation: RequestSpecOperation | null;
     };
+
+/** Where the binding's link lives. */
+export type SpecLinkSource = { kind: 'request' } | { kind: 'collection'; collection: Collection };
 
 const UNLINKED: RequestSpecBinding = { kind: 'unlinked' };
 
@@ -43,7 +49,12 @@ export function useRequestSpecBinding(
   requestName: string,
 ): RequestSpecBinding {
   const specs = useSpecs(workspaceId);
-  const specUid = collection?.specLink?.specUid;
+  const source = useMemo<SpecLinkSource | null>(() => {
+    if (draft.specLink) return { kind: 'request' };
+    if (collection?.specLink) return { kind: 'collection', collection };
+    return null;
+  }, [draft.specLink, collection]);
+  const specUid = draft.specLink?.specUid ?? collection?.specLink?.specUid;
   const spec = useMemo(() => (specUid ? (specs.find((s) => s.uid === specUid) ?? null) : null), [specs, specUid]);
   const content = spec ? specRootContent(spec) : null;
   const savedHash = useSpecSourceHash(content);
@@ -76,11 +87,15 @@ export function useRequestSpecBinding(
   );
 
   return useMemo<RequestSpecBinding>(() => {
-    if (!collection?.specLink) return UNLINKED;
-    if (!spec) return { kind: 'missing', collection };
-    if (!parsed) return { kind: 'missing', collection };
-    if ('message' in parsed) return { kind: 'parseError', collection, spec, message: parsed.message };
-    const drifted = savedHash === null ? null : savedHash !== collection.specLink.sourceHash;
-    return { kind: 'linked', collection, spec, parsed: parsed.result, drifted, operation };
-  }, [collection, spec, parsed, savedHash, operation]);
+    if (source === null) return UNLINKED;
+    if (!spec || !parsed) return { kind: 'missing', source };
+    if ('message' in parsed) return { kind: 'parseError', source, spec, message: parsed.message };
+    const drifted =
+      source.kind === 'collection' && source.collection.specLink
+        ? savedHash === null
+          ? null
+          : savedHash !== source.collection.specLink.sourceHash
+        : false;
+    return { kind: 'linked', source, spec, parsed: parsed.result, drifted, operation };
+  }, [source, spec, parsed, savedHash, operation]);
 }

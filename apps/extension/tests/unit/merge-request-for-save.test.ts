@@ -33,6 +33,7 @@ function batchOf(req: Request): RequestSaveBatch {
     params: req.params,
     auth: req.auth,
     body: req.body,
+    specLink: req.specLink,
     credentialsMode: req.credentialsMode,
     followRedirects: req.followRedirects,
     sslVerification: req.sslVerification,
@@ -178,5 +179,20 @@ describe('mergeRequestForSave', () => {
     const merged = mergeRequestForSave(form, baseline, live);
     const uids = merged.headers.map((h) => h.uid).sort();
     expect(uids).toEqual(['a', 'b']);
+  });
+});
+
+describe('mergeRequestForSave — specLink', () => {
+  it('adopts a peer-set spec link while the form still carries the baseline', () => {
+    const baseline = makeReq();
+    const live = makeReq({ specLink: { specUid: 'spec0001' } });
+    expect(mergeRequestForSave(batchOf(baseline), baseline, live).specLink).toEqual({ specUid: 'spec0001' });
+  });
+
+  it('keeps the form’s own spec link over a peer edit', () => {
+    const baseline = makeReq();
+    const live = makeReq({ specLink: { specUid: 'spec0001' } });
+    const form = { ...batchOf(baseline), specLink: { specUid: 'spec0002' } };
+    expect(mergeRequestForSave(form, baseline, live).specLink).toEqual({ specUid: 'spec0002' });
   });
 });

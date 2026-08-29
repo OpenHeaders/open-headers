@@ -39,6 +39,7 @@ import type {
   RequestHeaderSchema,
   RequestSchema,
   RequestSeedSchema,
+  RequestSpecLinkSchema,
   TlsVersionSchema,
 } from '../schemas/request';
 
@@ -67,6 +68,7 @@ export type AuthType =
   | 'digest'
   | 'oauth1';
 export type AuthConfig = v.InferOutput<typeof AuthConfigSchema>;
+export type RequestSpecLink = v.InferOutput<typeof RequestSpecLinkSchema>;
 export type OAuth2Flow = v.InferOutput<typeof OAuth2FlowSchema>;
 export type OAuth2Auth = v.InferOutput<typeof OAuth2AuthSchema>;
 export type AwsSigV4Auth = v.InferOutput<typeof AwsSigV4AuthSchema>;

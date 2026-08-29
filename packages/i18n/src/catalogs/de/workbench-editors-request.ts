@@ -74,6 +74,8 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.tab.settings': 'Einstellungen',
   'workbench.editors.request.spec.selectLabel': 'OpenAPI-Spezifikation',
   'workbench.editors.request.spec.none': 'Mit dieser Anfrage ist keine OpenAPI-Spezifikation verknüpft.',
+  'workbench.editors.request.spec.selectPlaceholder': 'OpenAPI-Spezifikation verknüpfen…',
+  'workbench.editors.request.spec.inheritedPlaceholder': 'Aus der Sammlung geerbt: {name}',
   'workbench.editors.request.spec.fromCollection': 'Aus der Sammlung {name}',
   'workbench.editors.request.spec.missing': 'Die verknüpfte Spezifikation ist nicht mehr in diesem Arbeitsbereich.',
   'workbench.editors.request.spec.parseFailure': 'Spezifikation konnte nicht gelesen werden: {message}',

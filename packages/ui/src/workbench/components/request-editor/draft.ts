@@ -21,6 +21,7 @@ import type {
   Request,
   RequestBody,
   RequestHeader,
+  RequestSpecLink,
   TlsVersion,
 } from '@openheaders/core/types';
 import { parseUrlQuery } from '@openheaders/core/utils';
@@ -34,6 +35,7 @@ export interface Draft {
   params: KeyValueRow[];
   auth: AuthConfig;
   body: RequestBody;
+  specLink?: RequestSpecLink;
   credentialsMode?: CredentialsMode;
   followRedirects?: boolean;
   sslVerification?: boolean;
@@ -68,6 +70,7 @@ export interface RequestUpdates {
   params: QueryParam[];
   auth: AuthConfig;
   body: RequestBody;
+  specLink: RequestSpecLink | undefined;
   credentialsMode: CredentialsMode | undefined;
   followRedirects: boolean | undefined;
   sslVerification: boolean | undefined;
@@ -211,6 +214,7 @@ export function draftFromRequest(req: Request): Draft {
     params: [...urlParams, ...paramsFromRequest(req.params)],
     auth: req.auth,
     body: req.body,
+    specLink: req.specLink,
     credentialsMode: req.credentialsMode,
     followRedirects: req.followRedirects,
     sslVerification: req.sslVerification,
@@ -256,6 +260,7 @@ export function buildRequestUpdates(draft: Draft): RequestUpdates {
     params: rowsToParams(draft.params),
     auth: draft.auth,
     body: draft.body,
+    specLink: draft.specLink,
     credentialsMode: draft.credentialsMode,
     followRedirects: draft.followRedirects,
     sslVerification: draft.sslVerification,

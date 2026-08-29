@@ -200,4 +200,5 @@ export const REQUEST_SCHEMA: FieldNode = obj({
   params: setByUid({ summary: summarizeKv('param'), child: PARAM_ROW }),
   auth: AUTH_UNION,
   body: BODY_UNION,
+  specLink: obj({ specUid: leaf('string') }),
 });

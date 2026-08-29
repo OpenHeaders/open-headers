@@ -730,6 +730,11 @@ export const RequestBodySchema = v.variant('type', [
   }),
 ]);
 
+/** Ids-only OpenAPI spec binding on a request (see `Request.specLink`). */
+export const RequestSpecLinkSchema = v.object({
+  specUid: UidSchema,
+});
+
 const RequestObjectSchema = v.object({
   schemaVersion: SchemaVersionSchema,
   uid: UidSchema,
@@ -747,6 +752,12 @@ const RequestObjectSchema = v.object({
   headers: v.array(RequestHeaderSchema),
   params: v.array(QueryParamSchema),
   auth: AuthConfigSchema,
+  /** Binding to the OpenAPI spec the request reads through — ids-only,
+   *  no `sourceHash` (nothing was generated from it; the operation is
+   *  resolved from the spec's live files at read). A request inside a
+   *  spec-generated collection reads the collection's link when it
+   *  carries none of its own. */
+  specLink: v.optional(RequestSpecLinkSchema),
   credentialsMode: v.optional(CredentialsModeSchema),
   /**
    * Whether the executor should transparently follow HTTP 3xx redirects.

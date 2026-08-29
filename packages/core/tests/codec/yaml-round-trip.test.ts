@@ -332,6 +332,7 @@ describe('yaml codec — round-trip parity', () => {
       ],
     });
     expect(parsed.value.body.type).toBe('json');
+    expect(parsed.value.specLink).toEqual({ specUid: 'spec0001' });
     if (parsed.value.body.type !== 'json') throw new Error('expected json body');
     expect(parsed.value.body.content).toBe(bodyJson);
     expect(parsed.value.sslVerification).toBe(false);

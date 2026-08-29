@@ -24,6 +24,7 @@ import type {
   Request,
   RequestBody,
   RequestHeader,
+  RequestSpecLink,
   TlsVersion,
 } from '@openheaders/core/types';
 import { deepEqual, mergeRowsByIdentity, mergeScalarLeaves } from '@openheaders/ui/shared/forms/per-field-merge';
@@ -36,6 +37,7 @@ export interface RequestSaveBatch {
   params: QueryParam[];
   auth: AuthConfig;
   body: RequestBody;
+  specLink: RequestSpecLink | undefined;
   credentialsMode: CredentialsMode | undefined;
   followRedirects: boolean | undefined;
   sslVerification: boolean | undefined;
@@ -68,6 +70,7 @@ function projectRequest(req: Request): RequestSaveBatch {
     params: req.params,
     auth: req.auth,
     body: req.body,
+    specLink: req.specLink,
     credentialsMode: req.credentialsMode,
     followRedirects: req.followRedirects,
     sslVerification: req.sslVerification,
@@ -122,6 +125,7 @@ export function mergeRequestForSave(
     method: form.method,
     url: form.url,
     auth: form.auth,
+    specLink: form.specLink,
     credentialsMode: form.credentialsMode,
     followRedirects: form.followRedirects,
     sslVerification: form.sslVerification,
@@ -149,6 +153,7 @@ export function mergeRequestForSave(
     method: baseProj.method,
     url: baseProj.url,
     auth: baseProj.auth,
+    specLink: baseProj.specLink,
     credentialsMode: baseProj.credentialsMode,
     followRedirects: baseProj.followRedirects,
     sslVerification: baseProj.sslVerification,
@@ -176,6 +181,7 @@ export function mergeRequestForSave(
     method: liveProj.method,
     url: liveProj.url,
     auth: liveProj.auth,
+    specLink: liveProj.specLink,
     credentialsMode: liveProj.credentialsMode,
     followRedirects: liveProj.followRedirects,
     sslVerification: liveProj.sslVerification,
@@ -213,6 +219,7 @@ export function mergeRequestForSave(
     params,
     auth: merged.auth as AuthConfig,
     body,
+    specLink: merged.specLink as RequestSpecLink | undefined,
     credentialsMode: merged.credentialsMode as CredentialsMode | undefined,
     followRedirects: merged.followRedirects as boolean | undefined,
     sslVerification: merged.sslVerification as boolean | undefined,

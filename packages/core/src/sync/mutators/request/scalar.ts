@@ -37,6 +37,7 @@ export type RequestScalarPath =
   | 'url'
   | 'auth'
   | 'body'
+  | 'specLink'
   | 'credentialsMode'
   | 'followRedirects'
   | 'sslVerification'

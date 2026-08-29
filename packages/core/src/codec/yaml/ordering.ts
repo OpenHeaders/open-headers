@@ -95,6 +95,7 @@ export const REQUEST_FIELD_ORDER = [
   'headers',
   'params',
   'auth',
+  'specLink',
   'credentialsMode',
   'followRedirects',
   'sslVerification',
