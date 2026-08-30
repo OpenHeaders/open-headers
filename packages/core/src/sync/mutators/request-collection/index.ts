@@ -1,3 +1,4 @@
+export { requestCollectionAuthPool } from './auth-pool';
 export { mintBatch, mintEnvelope, REQUEST_COLLECTION_MUTATOR_VERSION } from './envelope';
 export {
   type CreateRequestCollectionArgs,
@@ -24,7 +25,12 @@ export {
   type SetRequestCollectionSpecLinkArgs,
   setRequestCollectionSpecLink,
 } from './spec-link';
-export { REQUEST_COLLECTION_ENTITY_TYPE, REQUEST_COLLECTION_VARS_PATH } from './types';
+export {
+  REQUEST_COLLECTION_AUTHS_PATH,
+  REQUEST_COLLECTION_DEFAULT_AUTH_PATH,
+  REQUEST_COLLECTION_ENTITY_TYPE,
+  REQUEST_COLLECTION_VARS_PATH,
+} from './types';
 export {
   type RemoveRequestCollectionVarArgs,
   removeRequestCollectionVar,

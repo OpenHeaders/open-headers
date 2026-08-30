@@ -111,6 +111,37 @@ describe('yaml codec — round-trip parity', () => {
     expect(cleared.collectionYaml).toBe(raw);
   });
 
+  it('_collection.yaml with an auth pool — entries and default inline, round-trips', () => {
+    const raw = loadFixture('_collection.yaml');
+    const parsed = parseCollection(raw, { path: 'requests/auth-c0ll1111' });
+    const write = mergePatch(parsed, (draft) => {
+      draft.auths = [
+        { uid: 'auth0001', name: 'Admin token', config: { type: 'bearer', token: '{{admin}}' } },
+        {
+          uid: 'auth0002',
+          name: 'Partner key',
+          config: { type: 'api-key', key: 'X-Key', value: '{{partner}}', in: 'header' },
+          appliesTo: '*.partner.openheaders.io',
+        },
+      ];
+      draft.defaultAuthUid = 'auth0002';
+    });
+    const out = serializeCollection(write);
+    expect(out.collectionYaml).toContain('auths:');
+    expect(out.collectionYaml).toContain('defaultAuthUid: auth0002');
+    const reparsed = parseCollection(out.collectionYaml, { path: 'requests/auth-c0ll1111' });
+    expect(reparsed.value.auths).toEqual(write.value.auths);
+    expect(reparsed.value.defaultAuthUid).toBe('auth0002');
+    // Clearing the pool removes both keys — no pool ↔ transparent level.
+    const cleared = serializeCollection(
+      mergePatch(reparsed, (draft) => {
+        delete draft.auths;
+        delete draft.defaultAuthUid;
+      }),
+    );
+    expect(cleared.collectionYaml).toBe(raw);
+  });
+
   it('_collection.yaml with specLink — inline generation bookkeeping, round-trips', () => {
     const raw = loadFixture('_collection.yaml');
     const parsed = parseCollection(raw, { path: 'requests/auth-c0ll1111' });

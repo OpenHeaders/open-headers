@@ -16,6 +16,7 @@ import type { AwsSigV4Credentials, DigestCredentials, OAuth1Credentials } from '
 import { isExpired as isOAuthTokenExpired, type OAuth2TokenBundle } from '@openheaders/core/oauth';
 import type {
   AuthConfig,
+  ExecutedAuthAttribution,
   FormField,
   HttpMethod,
   HttpVersion,
@@ -29,12 +30,11 @@ import type {
 import { appendQueryParams, encodeBase64Bytes, isRequestResolvable } from '@openheaders/core/utils';
 import { resolveTemplate } from '@openheaders/core/variables';
 import { getTokenBundle } from '../../entity/oauth-token-store';
-import { getRequestCollections, getRequestCollectionsForWorkspace } from '../../entity/request-store';
 import { getActiveWorkspaceId, peekActiveWorkspaceId } from '../../workspace/extension-workspace-store';
 import { resolveProxyCredential } from '../dial-policy';
 import { resolveClientCertificate } from '../tls-policy';
 import { getTrustAnchorsForSend } from '../trust-anchors';
-import { resolveInheritedAuth } from './ancestor-chain';
+import { collectionUidForRequest, resolveRequestAuth } from './ancestor-chain';
 import { buildResolver } from './resolver-scope';
 
 /** Resolved, wire-ready request. Auth + params are folded into `url`
@@ -148,6 +148,14 @@ export interface ResolvedRequest {
    * script mutation.
    */
   oauth1?: OAuth1Credentials;
+  /**
+   * The auth this send applies and where it came from — the request's
+   * own config or the ancestor pool entry its Inherit resolved to.
+   * Resolve-time attribution the executor stamps on the snapshot
+   * (success and error alike); absent when the request's own auth is
+   * `none`.
+   */
+  auth?: ExecutedAuthAttribution;
 }
 
 /** One TOTP vault entry the resolved request used. Carries the code (so
@@ -190,24 +198,15 @@ export class UnresolvedRequestError extends Error {
   }
 }
 
-/**
- * Find the collection a request belongs to. Requests live under
- * `requests/<coll>/...`; we look in the REQUEST collection tree, keyed
- * on the same workspace pin the resolver scope used.
- */
-function collectionIdForRequest(request: Request, workspaceId: string | null): string | undefined {
-  const collections = workspaceId ? getRequestCollectionsForWorkspace(workspaceId) : getRequestCollections();
-  const hit = collections.find((c) => request.path.startsWith(`${c.path}/`));
-  return hit?.uid;
-}
-
 export async function resolveRequest(
   request: Request,
   options: ResolveRequestOptions,
 ): Promise<ResolvedRequestOutcome> {
   const { resolver, context: scope } = await buildResolver(options.workspaceId, options.stepCaptures);
+  // The collection scope reads off the same ancestor chain the auth
+  // walk uses — the tree index, never the request's stored path.
   const context = {
-    collectionId: collectionIdForRequest(request, scope.workspaceId),
+    collectionId: collectionUidForRequest(request, scope.workspaceId),
     environmentId: options.environmentId,
   };
 
@@ -215,11 +214,9 @@ export async function resolveRequest(
   // resolvability gate — the inherited config's own templates (a
   // collection-level `{{auth_token}}` bearer) must pass the same gate
   // explicit request auth does, or a literal `{{ref}}` ships on the
-  // wire. A disabled inherit stays as-is: `applyAuth` skips it whole.
-  const effectiveAuth =
-    request.auth.type === 'inherit' && !request.auth.disabled
-      ? resolveInheritedAuth(request, scope.workspaceId)
-      : request.auth;
+  // wire. A disabled inherit resolves too (the attribution names what
+  // was suspended); `applyAuth` skips the disabled contribution whole.
+  const { auth: effectiveAuth, attribution: authAttribution } = resolveRequestAuth(request, scope.workspaceId);
   const gated: Request = { ...request, auth: effectiveAuth };
 
   // Architectural gate: refuse to dispatch when any `{{ref}}` can't be
@@ -383,6 +380,7 @@ export async function resolveRequest(
       ...(awsSigV4 ? { awsSigV4 } : {}),
       ...(digest ? { digest } : {}),
       ...(oauth1 ? { oauth1 } : {}),
+      ...(authAttribution !== undefined ? { auth: authAttribution } : {}),
     },
     totpUsed: [...totpUsed.values()],
   };

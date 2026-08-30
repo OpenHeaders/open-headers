@@ -25,11 +25,13 @@ export const COLLECTION_FIELD_ORDER = [
   'pinnedEnvironmentIds',
   'defaultEnvironmentId',
   'auth',
+  'defaultAuthUid',
+  'auths',
   'specLink',
   'variables',
 ] as const;
 
-export const FOLDER_FIELD_ORDER = ['schemaVersion', 'uid', 'name', 'order', 'auth'] as const;
+export const FOLDER_FIELD_ORDER = ['schemaVersion', 'uid', 'name', 'order', 'auth', 'defaultAuthUid', 'auths'] as const;
 
 /**
  * Rule entries — shared across all 8 variants. Each variant carries its

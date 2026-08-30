@@ -1,3 +1,4 @@
+export { requestFolderAuthPool } from './auth-pool';
 export { mintBatch, mintEnvelope, REQUEST_FOLDER_MUTATOR_VERSION } from './envelope';
 export {
   type CreateRequestFolderArgs,
@@ -14,7 +15,9 @@ export {
   setRequestFolderScripts,
 } from './scripts';
 export {
+  REQUEST_FOLDER_AUTHS_PATH,
   REQUEST_FOLDER_CHILDREN_PATH,
+  REQUEST_FOLDER_DEFAULT_AUTH_PATH,
   REQUEST_FOLDER_ENTITY_TYPE,
   REQUEST_FOLDER_ITEMS_PATH,
   REQUEST_FOLDER_TREE_KINDS,

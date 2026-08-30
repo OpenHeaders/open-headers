@@ -22,6 +22,7 @@
  * reuse so unchanged rows keep their sync identity.
  */
 
+import { defaultAuthEntry } from '@openheaders/core/auth-inheritance';
 import type { CurlRequest, OpenApiParseResult } from '@openheaders/core/import';
 import type {
   AuthConfig,
@@ -248,7 +249,8 @@ export function buildSpecUpdatePlan(parsed: OpenApiParseResult, live: SpecUpdate
   }
 
   const specAuth = parsed.collectionAuth;
-  const auth = specAuth !== undefined && !structurallyEqual(specAuth, live.collection.auth) ? specAuth : null;
+  const liveDefault = defaultAuthEntry(live.collection)?.config;
+  const auth = specAuth !== undefined && !structurallyEqual(specAuth, liveDefault) ? specAuth : null;
 
   return {
     adds,

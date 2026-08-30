@@ -11,7 +11,9 @@ export {
   type AncestorCarrier,
   type AncestorCarrierEntity,
   collectAncestorCarriers,
-  resolveInheritedAuth,
+  collectionUidForRequest,
+  type ResolvedRequestAuth,
+  resolveRequestAuth,
 } from './ancestor-chain';
 export { buildChainFetchAdapter, type ChainFetchAdapterOptions } from './chain-adapter';
 export { errorSnapshot, executeOverTransport } from './execute';

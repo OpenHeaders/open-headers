@@ -7,7 +7,8 @@
  * identity = `variable.uid`); persisted `Collection.variables` is a
  * plain array. `seedRequestCollection` strips the `variables` array off
  * the create payload and emits one `addToSet` per variable (itemId =
- * uid); `projectRequestCollection` is the inverse via the materialized
+ * uid) — the auth pool (`auths`, itemId = the entry uid) rides the same
+ * way; `projectRequestCollection` is the inverse via the materialized
  * `data` blob the oracle composes back from set members at materialize
  * time.
  *
@@ -24,6 +25,7 @@ import {
   type MutatorContext,
   mintBatch,
   orderKeyMinter,
+  REQUEST_COLLECTION_AUTHS_PATH,
   REQUEST_COLLECTION_ENTITY_TYPE,
   REQUEST_COLLECTION_VARS_PATH,
   requestCollectionChild,
@@ -44,7 +46,7 @@ export function seedRequestCollection(
   ctx: MutatorContext,
   placement?: ChildPlacement<WorkspaceRootsRef>,
 ): MutationBatch {
-  const shell = stripVariables(collection);
+  const shell = stripSets(collection);
 
   const bodies: MutationBody[] = [
     { kind: 'create', type: REQUEST_COLLECTION_ENTITY_TYPE, id: collection.uid, payload: shell },
@@ -62,6 +64,20 @@ export function seedRequestCollection(
       itemId: variable.uid,
       item: variable,
       orderKey: nextKey(),
+    });
+  }
+  // The auth pool is a set too — one `addToSet` per entry, the same
+  // sequential keys, so the pool materializes in authored order.
+  const nextAuthKey = orderKeyMinter();
+  for (const entry of collection.auths ?? []) {
+    bodies.push({
+      kind: 'addToSet',
+      type: REQUEST_COLLECTION_ENTITY_TYPE,
+      id: collection.uid,
+      path: REQUEST_COLLECTION_AUTHS_PATH,
+      itemId: entry.uid,
+      item: entry,
+      orderKey: nextAuthKey(),
     });
   }
   if (placement) bodies.push(requestCollectionChild.slotAdd(collection.uid, placement.parent, placement.orderKey));
@@ -82,9 +98,10 @@ export function projectRequestCollection(materialized: MaterializedEntity): Coll
 
 // ── internals ─────────────────────────────────────────────────────
 
-function stripVariables(collection: Collection): unknown {
+function stripSets(collection: Collection): unknown {
   const shell = JSON.parse(JSON.stringify(collection)) as Record<string, unknown>;
   delete shell.variables;
+  delete shell.auths;
   return shell;
 }
 

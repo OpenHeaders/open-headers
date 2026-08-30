@@ -46,6 +46,63 @@ vi.mock('@openheaders/oracle/entity/request-store', () => ({
   getRequestUidsForWorkspace: vi.fn(() => null),
 }));
 
+// The ancestor walk reads the tree index off the workspace oracle —
+// built from the mocked lists, every folder slotted under the parent
+// its path names; the request nets by its stored path.
+vi.mock('@openheaders/oracle/sync/service/accessors', async () => {
+  const sync = await import('@openheaders/core/sync');
+  const utils = await import('@openheaders/core/utils');
+  const { seedRequestCollection } = await import(
+    '@openheaders/core/sync-builders/projections/request-collection-projection'
+  );
+  const { seedRequestFolder } = await import('@openheaders/core/sync-builders/projections/request-folder-projection');
+  const store = await import('@openheaders/oracle/entity/request-store');
+  const { buildSchemaRegistry, WORKSPACE_REGISTRY } = await import('@openheaders/oracle/sync/entity-registry');
+  const { EntityOracle } = await import('@openheaders/oracle/sync/oracle');
+  const { InMemoryBroadcast } = await import('@openheaders/oracle/sync/broadcast');
+  const { InMemoryMutationLog } = await import('@openheaders/oracle/sync/mutation-log');
+  const { InMemoryPendingIntents } = await import('@openheaders/oracle/sync/pending-intents');
+  let clock = 1_000;
+  const ctx = () => ({
+    workspaceId: 'ws-1',
+    orgId: 'org-test',
+    hlc: { physicalMs: clock++, logical: 0, nodeId: 'node-x' },
+    surfaceId: 'workbench',
+    deviceId: 'device-a',
+  });
+  const treeOracle = () => {
+    const collections = store.getRequestCollections();
+    const folders = store.getRequestFolders();
+    const doc = new sync.InMemoryDocumentStore(buildSchemaRegistry(WORKSPACE_REGISTRY));
+    for (const c of collections) for (const env of seedRequestCollection(c, ctx()).mutations) doc.apply(env);
+    for (const f of [...folders].sort((a, b) => a.path.length - b.path.length)) {
+      for (const env of seedRequestFolder(f, ctx()).mutations) doc.apply(env);
+      const parentPath = utils.parentPathOf(f.path);
+      const collection = collections.find((c) => c.path === parentPath);
+      const folder = folders.find((x) => x.path === parentPath);
+      const parent = collection
+        ? { type: 'request-collection' as const, uid: collection.uid }
+        : folder
+          ? { type: 'request-folder' as const, uid: folder.uid }
+          : null;
+      if (!parent) continue;
+      for (const env of sync.mintBatch(ctx(), [sync.requestFolderChild.slotAdd(f.uid, parent)]).mutations) {
+        doc.apply(env);
+      }
+    }
+    return new EntityOracle({
+      workspaceId: 'ws-1',
+      lock: async <T>(_ws: string, _type: string, _id: string, fn: () => Promise<T>) => fn(),
+      log: new InMemoryMutationLog(),
+      intents: new InMemoryPendingIntents(),
+      broadcast: new InMemoryBroadcast(),
+      store: doc,
+      schemas: buildSchemaRegistry(WORKSPACE_REGISTRY),
+    });
+  };
+  return { getOracleForCurrentWorkspace: treeOracle, getOracleForWorkspace: treeOracle };
+});
+
 vi.mock('@openheaders/oracle/entity/rule-store', () => ({
   getCollections: vi.fn(() => [] as Collection[]),
 }));

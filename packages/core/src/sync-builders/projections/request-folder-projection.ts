@@ -4,21 +4,25 @@
  *
  * Mirrors `folder-projection.ts`. Folder is its own entity but carries
  * minimal scalar state (`name` + `schemaVersion` + frozen
- * `pathSegment`). Sibling order + parent linkage live on the parent's
- * `folders` set under request-collection / request-folder routing.
+ * `pathSegment`, the script slots, the pool's default) plus the auth
+ * pool as set members at `auths`. Sibling order + parent linkage live
+ * on the parent's `folders` set under request-collection /
+ * request-folder routing.
  * Path on `Folder` is reconstructed at projection time by walking
  * the parent chain — `projectRequestFolder` takes the resolved
  * `parentPath` and produces a `Folder` with the full slug path
  * legacy consumers expect.
  */
 
-import { AuthConfigSchema } from '@openheaders/core/schemas';
+import { AuthConfigSchema, AuthPoolEntrySchema } from '@openheaders/core/schemas';
 import {
   type MaterializedEntity,
   type MutationBatch,
   type MutationBody,
   type MutatorContext,
   mintBatch,
+  orderKeyMinter,
+  REQUEST_FOLDER_AUTHS_PATH,
   REQUEST_FOLDER_ENTITY_TYPE,
 } from '@openheaders/core/sync';
 import type { Folder } from '@openheaders/core/types';
@@ -48,12 +52,27 @@ export function seedRequestFolder(folder: Folder, ctx: MutatorContext): Mutation
       // ↔ no script).
       ...(folder.preRequestScript !== undefined ? { preRequestScript: folder.preRequestScript } : {}),
       ...(folder.postResponseScript !== undefined ? { postResponseScript: folder.postResponseScript } : {}),
-      // Ancestor default auth rides the seed when present (field absent
-      // ↔ transparent level).
+      // The pool's default scalar rides the seed; the entries are set
+      // members below. The pre-pool `auth` field passes through as
+      // data — read as a one-entry pool until the first pool write.
+      ...(folder.defaultAuthUid !== undefined ? { defaultAuthUid: folder.defaultAuthUid } : {}),
       ...(folder.auth !== undefined ? { auth: folder.auth } : {}),
     },
   };
-  return mintBatch(ctx, [body]);
+  const bodies: MutationBody[] = [body];
+  const nextKey = orderKeyMinter();
+  for (const entry of folder.auths ?? []) {
+    bodies.push({
+      kind: 'addToSet',
+      type: REQUEST_FOLDER_ENTITY_TYPE,
+      id: folder.uid,
+      path: REQUEST_FOLDER_AUTHS_PATH,
+      itemId: entry.uid,
+      item: entry,
+      orderKey: nextKey(),
+    });
+  }
+  return mintBatch(ctx, bodies);
 }
 
 function lastSegment(path: string): string | null {
@@ -81,9 +100,16 @@ export function projectRequestFolder(materialized: MaterializedEntity, parentPat
     typeof data.pathSegment === 'string' && data.pathSegment.length > 0
       ? data.pathSegment
       : fallbackPathSegment(name, materialized.id);
-  // Ancestor default auth — carried only when the materialized blob
-  // holds a well-formed AuthConfig (per-leaf writes could transiently
-  // compose an invalid shape; projection stays fail-soft).
+  // The pool — entries carried only when each is a well-formed
+  // AuthPoolEntry (a malformed member is skipped, never surfaced); the
+  // pre-pool `auth` field the same way (per-leaf writes could
+  // transiently compose an invalid shape; projection stays fail-soft).
+  const auths = Array.isArray(data.auths)
+    ? data.auths.flatMap((entry) => {
+        const parsed = v.safeParse(AuthPoolEntrySchema, entry);
+        return parsed.success ? [parsed.output] : [];
+      })
+    : [];
   const auth = v.safeParse(AuthConfigSchema, data.auth);
   return {
     schemaVersion,
@@ -93,6 +119,8 @@ export function projectRequestFolder(materialized: MaterializedEntity, parentPat
     // Ancestor script slots — carried when set (field absent ↔ no script).
     ...(typeof data.preRequestScript === 'string' ? { preRequestScript: data.preRequestScript } : {}),
     ...(typeof data.postResponseScript === 'string' ? { postResponseScript: data.postResponseScript } : {}),
+    ...(auths.length > 0 ? { auths } : {}),
+    ...(typeof data.defaultAuthUid === 'string' ? { defaultAuthUid: data.defaultAuthUid } : {}),
     ...(auth.success ? { auth: auth.output } : {}),
   };
 }

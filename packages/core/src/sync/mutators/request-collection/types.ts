@@ -22,3 +22,9 @@ export const REQUEST_COLLECTION_ENTITY_TYPE = 'request-collection';
 
 /** Set path holding the variable list on a request-collection entity. */
 export const REQUEST_COLLECTION_VARS_PATH = 'variables';
+
+/** Set path holding the auth pool on a request-collection entity (member identity = the entry uid). */
+export const REQUEST_COLLECTION_AUTHS_PATH = 'auths';
+
+/** Scalar field naming the pool's default entry; absent = the first entry. */
+export const REQUEST_COLLECTION_DEFAULT_AUTH_PATH = 'defaultAuthUid';

@@ -44,6 +44,7 @@ import {
   SpecSchema,
   schemaParseError,
   TemplateSchema,
+  UidSchema,
   WebSocketRequestSchema,
   WsResponseExampleSchema,
 } from '@openheaders/core/schemas';
@@ -79,9 +80,11 @@ import {
   OAUTH_TOKENS_PATH,
   PAUSE_MARKERS_ENTITY_TYPE,
   PAUSE_MARKERS_PATH,
+  REQUEST_COLLECTION_AUTHS_PATH,
   REQUEST_COLLECTION_ENTITY_TYPE,
   REQUEST_COLLECTION_VARS_PATH,
   REQUEST_ENTITY_TYPE,
+  REQUEST_FOLDER_AUTHS_PATH,
   REQUEST_FOLDER_ENTITY_TYPE,
   REQUEST_HEADERS_PATH,
   REQUEST_PARAMS_PATH,
@@ -361,14 +364,16 @@ const FolderShellSchema = v.object({
   pathSegment: v.pipe(v.string(), v.minLength(1)),
 });
 
-// Request-folder shells additionally carry the ancestor script slots
-// and default auth (field absent ↔ no script / transparent level).
+// Request-folder shells additionally carry the ancestor script slots,
+// the auth pool's default scalar (the entries are set members) and the
+// pre-pool `auth` field (field absent ↔ no script / transparent level).
 const RequestFolderShellSchema = v.object({
   schemaVersion: SchemaVersionSchema,
   name: v.string(),
   pathSegment: v.pipe(v.string(), v.minLength(1)),
   preRequestScript: v.optional(v.string()),
   postResponseScript: v.optional(v.string()),
+  defaultAuthUid: v.optional(UidSchema),
   auth: v.optional(AuthConfigSchema),
 });
 
@@ -525,7 +530,7 @@ export const REQUEST_COLLECTION_REGISTRATION = flatEntity({
   postStateKey: 'requestCollectionPostState',
   projectPostState: projectRequestCollectionPostState,
   projectByUid: projectRequestCollectionByUid,
-  setPaths: [REQUEST_COLLECTION_VARS_PATH],
+  setPaths: [REQUEST_COLLECTION_VARS_PATH, REQUEST_COLLECTION_AUTHS_PATH],
   localWriteSchema: CollectionSchema,
 });
 
@@ -535,6 +540,7 @@ export const REQUEST_FOLDER_REGISTRATION = flatEntity({
   postStateKey: 'requestFolderPostState',
   projectPostState: projectRequestFolderPostState,
   projectByUid: projectRequestFolderByUid,
+  setPaths: [REQUEST_FOLDER_AUTHS_PATH],
   localWriteSchema: RequestFolderShellSchema,
 });
 

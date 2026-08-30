@@ -133,16 +133,16 @@ const replaceRequestCollectionVariables = vi.fn(async () => ({ ok: true as const
 vi.mock('@openheaders/ui/shared/hooks/mutators/useVariableMutator', () => ({
   useVariableMutator: () => ({ replaceRequestCollectionVariables }),
 }));
-const applyRequestCollectionSetAuth = vi.fn(async () => ({ ok: true as const }));
+const applyRequestCollectionSetAuthPool = vi.fn(async () => ({ ok: true as const }));
 const applyRequestCollectionSetScripts = vi.fn(async () => ({ ok: true as const }));
 vi.mock('@openheaders/ui/shared/sync/request-collection-write-client', () => ({
-  applyRequestCollectionSetAuth,
+  applyRequestCollectionSetAuthPool,
   applyRequestCollectionSetScripts,
 }));
-const applyRequestFolderSetAuth = vi.fn(async () => ({ ok: true as const }));
+const applyRequestFolderSetAuthPool = vi.fn(async () => ({ ok: true as const }));
 const applyRequestFolderSetScripts = vi.fn(async () => ({ ok: true as const }));
 vi.mock('@openheaders/ui/shared/sync/request-folder-write-client', () => ({
-  applyRequestFolderSetAuth,
+  applyRequestFolderSetAuthPool,
   applyRequestFolderSetScripts,
 }));
 
@@ -280,9 +280,13 @@ describe('RequestContainerEditor — one Save', () => {
     await pickAuthType('Bearer Token');
     fireEvent.click(await findSaveButton());
 
-    await waitFor(() => expect(applyRequestCollectionSetAuth).toHaveBeenCalledTimes(1));
-    expect(applyRequestCollectionSetAuth).toHaveBeenCalledWith(
-      { collectionUid: 'col00001', auth: { type: 'bearer', token: '' } },
+    await waitFor(() => expect(applyRequestCollectionSetAuthPool).toHaveBeenCalledTimes(1));
+    expect(applyRequestCollectionSetAuthPool).toHaveBeenCalledWith(
+      {
+        collectionUid: 'col00001',
+        auths: [{ uid: expect.stringMatching(/^[a-z0-9]{8}$/), name: '', config: { type: 'bearer', token: '' } }],
+        defaultAuthUid: expect.stringMatching(/^[a-z0-9]{8}$/),
+      },
       { workspaceId: 'ws00001', surfaceId: 'workbench' },
     );
     expect(applyRequestCollectionSetScripts).not.toHaveBeenCalled();
@@ -294,9 +298,9 @@ describe('RequestContainerEditor — one Save', () => {
     renderEditor({ section: 'authorization' });
     await pickAuthType('No default');
     fireEvent.click(await findSaveButton());
-    await waitFor(() => expect(applyRequestCollectionSetAuth).toHaveBeenCalledTimes(1));
-    expect(applyRequestCollectionSetAuth).toHaveBeenCalledWith(
-      { collectionUid: 'col00001', auth: undefined },
+    await waitFor(() => expect(applyRequestCollectionSetAuthPool).toHaveBeenCalledTimes(1));
+    expect(applyRequestCollectionSetAuthPool).toHaveBeenCalledWith(
+      { collectionUid: 'col00001', auths: [], defaultAuthUid: undefined },
       { workspaceId: 'ws00001', surfaceId: 'workbench' },
     );
   });
@@ -305,12 +309,16 @@ describe('RequestContainerEditor — one Save', () => {
     renderEditor({ kind: 'folder', entityUid: 'fld00001', section: 'authorization' });
     await pickAuthType('No Auth');
     fireEvent.click(await findSaveButton());
-    await waitFor(() => expect(applyRequestFolderSetAuth).toHaveBeenCalledTimes(1));
-    expect(applyRequestFolderSetAuth).toHaveBeenCalledWith(
-      { folderUid: 'fld00001', auth: { type: 'none' } },
+    await waitFor(() => expect(applyRequestFolderSetAuthPool).toHaveBeenCalledTimes(1));
+    expect(applyRequestFolderSetAuthPool).toHaveBeenCalledWith(
+      {
+        folderUid: 'fld00001',
+        auths: [{ uid: expect.stringMatching(/^[a-z0-9]{8}$/), name: '', config: { type: 'none' } }],
+        defaultAuthUid: expect.stringMatching(/^[a-z0-9]{8}$/),
+      },
       { workspaceId: 'ws00001', surfaceId: 'workbench' },
     );
-    expect(applyRequestCollectionSetAuth).not.toHaveBeenCalled();
+    expect(applyRequestCollectionSetAuthPool).not.toHaveBeenCalled();
   });
 });
 

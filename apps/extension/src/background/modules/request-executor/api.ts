@@ -182,7 +182,10 @@ export async function executeRequestDraft(
     if (postRun.outcome) scriptOutcome = { ...(scriptOutcome ?? {}), postResponse: postRun.outcome };
   }
 
-  return scriptOutcome ? { ...wireResult, scripts: scriptOutcome } : wireResult;
+  // The auth the send ran with and its source — resolve-time
+  // attribution, stamped on success and error alike.
+  const attributed = outcome.resolved.auth !== undefined ? { ...wireResult, auth: outcome.resolved.auth } : wireResult;
+  return scriptOutcome ? { ...attributed, scripts: scriptOutcome } : attributed;
 }
 
 // Register the executor with the offscreen host so `oh.sendRequest`

@@ -8,6 +8,11 @@
  */
 
 export {
+  type AuthPoolReplacementBindings,
+  type AuthPoolReplacementInput,
+  buildAuthPoolReplacement,
+} from './auth-pool-replacement';
+export {
   type FieldDiffArgs,
   synthesizeFieldDiff,
 } from './field-diff';

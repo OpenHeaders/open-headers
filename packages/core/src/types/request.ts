@@ -23,6 +23,7 @@ import type {
   AuthConfigSchema,
   AwsSigV4AuthSchema,
   BodyTypeSchema,
+  ConcreteAuthConfigSchema,
   CredentialsModeSchema,
   DialPolicySchema,
   DigestAuthSchema,
@@ -71,6 +72,9 @@ export type AuthType =
   | 'digest'
   | 'oauth1';
 export type AuthConfig = v.InferOutput<typeof AuthConfigSchema>;
+/** Every auth shape but `inherit` — what a pool entry holds and what the ancestor walk resolves to. */
+export type ConcreteAuthConfig = v.InferOutput<typeof ConcreteAuthConfigSchema>;
+export type InheritAuth = Extract<AuthConfig, { type: 'inherit' }>;
 export type RequestSpecLink = v.InferOutput<typeof RequestSpecLinkSchema>;
 export type OAuth2Flow = v.InferOutput<typeof OAuth2FlowSchema>;
 export type OAuth2Auth = v.InferOutput<typeof OAuth2AuthSchema>;

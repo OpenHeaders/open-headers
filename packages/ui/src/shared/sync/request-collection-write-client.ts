@@ -10,6 +10,7 @@
 import { MIN_SCHEMA_VERSION } from '@openheaders/core/schemas';
 import {
   type MutationEnvelope,
+  REQUEST_COLLECTION_AUTHS_PATH,
   REQUEST_COLLECTION_ENTITY_TYPE,
   REQUEST_COLLECTION_VARS_PATH,
   WORKSPACE_ROOTS_REF,
@@ -20,7 +21,7 @@ import {
   buildDeleteRequestCollectionBatch,
   buildRemoveRequestCollectionVarBatch,
   buildRenameRequestCollectionBatch,
-  buildSetRequestCollectionAuthBatch,
+  buildSetRequestCollectionAuthPoolBatch,
   buildSetRequestCollectionPinnedAndDefaultBatch,
   buildSetRequestCollectionScriptsBatch,
   buildSetRequestCollectionSpecLinkBatch,
@@ -28,7 +29,7 @@ import {
   type SetRequestCollectionScriptsInput,
 } from '@openheaders/core/sync-builders/mutations/request-collection-mutations';
 import { seedRequestCollection } from '@openheaders/core/sync-builders/projections/request-collection-projection';
-import type { AuthConfig, Collection, SpecLink, Variable } from '@openheaders/core/types';
+import type { AuthPoolEntry, Collection, SpecLink, Variable } from '@openheaders/core/types';
 import { generateUid, toFolderName } from '@openheaders/core/utils';
 import {
   getRequestCollectionSyncMirrorForWorkspace,
@@ -161,29 +162,40 @@ export async function applyRequestCollectionSetScripts(
   return applySyncPayload(buildSetRequestCollectionScriptsBatch(input, ctx));
 }
 
-export interface ApplyRequestCollectionSetAuthInput {
+export interface ApplyRequestCollectionSetAuthPoolInput {
   collectionUid: string;
-  /** New ancestor default auth; `undefined` clears the field (the
-   *  level goes transparent — the inherit walk passes through it). */
-  auth: AuthConfig | undefined;
+  /** The whole pool; empty with no default = the level goes transparent. */
+  auths: readonly AuthPoolEntry[];
+  defaultAuthUid: string | undefined;
 }
 
-/** Persist the collection's ancestor default auth. The per-leaf diff
- *  baseline is the mirror's live collection — see
- *  `buildSetRequestCollectionAuthBatch` for the granularity contract. */
-export async function applyRequestCollectionSetAuth(
-  input: ApplyRequestCollectionSetAuthInput,
+/** Persist the collection's auth pool — the set diff over the entries
+ *  plus the default scalar, the pre-pool `auth` field retired in the
+ *  same batch. The diff baseline is the mirror's live collection. */
+export async function applyRequestCollectionSetAuthPool(
+  input: ApplyRequestCollectionSetAuthPoolInput,
   opts: RequestCollectionWriteOptions,
 ): Promise<RequestCollectionSimpleResult> {
   const mirror = resolveMirror(opts, getRequestCollectionSyncMirrorForWorkspace);
   await mirror.hydrated;
   const entry = mirror.getRequestCollectionMirror(input.collectionUid);
   if (!entry) return { ok: false, reason: 'not-found' };
+  const currentKeys = new Map(
+    mirror
+      .liveOrderedSetItems(input.collectionUid, REQUEST_COLLECTION_AUTHS_PATH)
+      .map((e) => [e.itemId, e.orderKey] as const),
+  );
   const ctx = resolveRendererContext(opts).next({
     batchId: opts.batchId ?? `request-collection-auth-${input.collectionUid}`,
   });
-  const payload = buildSetRequestCollectionAuthBatch(
-    { collectionUid: input.collectionUid, auth: input.auth, currentAuth: entry.collection.auth },
+  const payload = buildSetRequestCollectionAuthPoolBatch(
+    {
+      collectionUid: input.collectionUid,
+      auths: input.auths,
+      defaultAuthUid: input.defaultAuthUid,
+      current: entry.collection,
+      currentKeys,
+    },
     ctx,
   );
   if (payload.batch.mutations.length === 0) return { ok: true };

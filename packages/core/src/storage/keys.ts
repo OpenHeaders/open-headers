@@ -25,6 +25,7 @@ import type { ScriptExecutionMode } from '../scripts';
 import type { TelemetryInstallContext } from '../telemetry/client';
 import type {
   AuthConfig,
+  AuthPoolEntry,
   BackendConnection,
   CliProvisionRecord,
   Collection,
@@ -278,7 +279,10 @@ export interface PersistedLocalFolder {
   /** Ancestor script slots (request folders only) — see `FolderSchema`. */
   preRequestScript?: string;
   postResponseScript?: string;
-  /** Ancestor default auth (request folders only) — see `FolderSchema`. */
+  /** The auth pool (request folders only) — see `FolderSchema`. */
+  auths?: AuthPoolEntry[];
+  defaultAuthUid?: string;
+  /** The pre-pool single default auth — read only, see `FolderSchema`. */
   auth?: AuthConfig;
 }
 

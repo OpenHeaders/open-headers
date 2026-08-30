@@ -63,6 +63,8 @@ export interface FolderTreeKinds<C extends string = string, F extends string = s
   childrenPath: string;
   /** The parent's ordered leaf set (`items`) — order keys ride the post-state next to `folders`. */
   itemsPath: string;
+  /** Further set paths on the folder entity whose order keys ride the post-state (the auth pool). */
+  folderSetPaths?: readonly string[];
   projectCollection: (materialized: MaterializedEntity) => Collection | null;
   projectFolder: (materialized: MaterializedEntity, parentPath: string) => Folder | null;
 }
@@ -111,8 +113,11 @@ export function projectFolderByUidGeneric<C extends string, F extends string>(
 
   return {
     folder,
-    setOrderKeys: buildSetMembersExtras(oracle, kinds.folderType, folderUid, [kinds.childrenPath, kinds.itemsPath])
-      .setOrderKeys,
+    setOrderKeys: buildSetMembersExtras(oracle, kinds.folderType, folderUid, [
+      kinds.childrenPath,
+      kinds.itemsPath,
+      ...(kinds.folderSetPaths ?? []),
+    ]).setOrderKeys,
   };
 }
 
@@ -151,6 +156,51 @@ export function resolveLeafParentPath<C extends string, F extends string>(
   kinds: FolderTreeKinds<C, F>,
 ): string | null {
   return resolveParentPath(oracle, treeIndex(oracle, kinds), leafUid, kinds);
+}
+
+/**
+ * A leaf's ancestor chain, outer → inner: the owning collection, then
+ * every folder down to the leaf's parent — read off the slot index
+ * (the containment authority), never off the leaf's stored path. A
+ * slot-less leaf (an old-client create the reconciler has not reached,
+ * the boot window before slots land) nets by its stored path's parent
+ * — the same net the tree walks apply — and from that container up the
+ * chain is slots again. Empty when the leaf sits in no tree (a scratch
+ * draft) or the chain does not terminate at a collection (a cycle
+ * victim mid-heal). The composed concerns — auth inheritance, the
+ * script chain, the collection scope — all read this one primitive.
+ */
+export function ancestorChain<C extends string, F extends string>(
+  oracle: Reads,
+  kinds: FolderTreeKinds<C, F>,
+  leaf: { uid: string; path: string },
+): ParentRef[] {
+  const index = treeIndex(oracle, kinds);
+  let node: ParentRef | undefined = index.parentOf.get(leaf.uid)?.parent;
+  if (node === undefined) {
+    const storedParent = parentPathOf(leaf.path);
+    if (storedParent === null) return [];
+    const containers = treeContainers(oracle, kinds);
+    const collection = containers.collections.find((c) => c.path === storedParent);
+    const folder = collection === undefined ? containers.folders.find((f) => f.path === storedParent) : undefined;
+    if (collection) node = { type: kinds.collectionType, uid: collection.uid };
+    else if (folder) node = { type: kinds.folderType, uid: folder.uid };
+    else return [];
+  }
+  const chain: ParentRef[] = [];
+  const visited = new Set<string>();
+  while (node !== undefined) {
+    const key = nodeKey(node);
+    if (visited.has(key)) return [];
+    visited.add(key);
+    chain.push(node);
+    if (node.type === kinds.collectionType) {
+      chain.reverse();
+      return chain;
+    }
+    node = index.parentOf.get(node.uid)?.parent;
+  }
+  return [];
 }
 
 /**
@@ -272,7 +322,7 @@ export function treeConflicts<C extends string, F extends string>(
 
 // ── Index ────────────────────────────────────────────────────────────
 
-interface ParentRef {
+export interface ParentRef {
   type: string;
   uid: string;
 }

@@ -632,9 +632,14 @@ export const OAuth1AuthSchema = v.object({
   realm: v.optional(v.string()),
 });
 
-export const AuthConfigSchema = v.variant('type', [
+/**
+ * The auth shapes that can be put on the wire — every variant but
+ * `inherit`. A collection's or folder's auth pool holds these (a pool
+ * entry is always concrete), and the ancestor walk resolves a
+ * request's `inherit` to one of them.
+ */
+export const ConcreteAuthConfigSchema = v.variant('type', [
   v.object({ type: v.literal('none'), disabled: AuthDisabledSchema }),
-  v.object({ type: v.literal('inherit'), disabled: AuthDisabledSchema }),
   v.object({
     type: v.literal('basic'),
     username: v.string(),
@@ -658,6 +663,26 @@ export const AuthConfigSchema = v.variant('type', [
   DigestAuthSchema,
   OAuth1AuthSchema,
 ]);
+
+/**
+ * The transparent choice: the request sends with an ancestor's auth,
+ * resolved up its collection / folder chain at execute time. Without
+ * `authUid` it takes the nearest level's DEFAULT pool entry (a
+ * host-scoped entry first); with `authUid` it names ONE entry in any
+ * ancestor's pool — the request's pick, so switching between "Admin
+ * token" and "User token" is a select, the credentials living in the
+ * parent. A pick whose entry no longer exists falls back to the
+ * default and the Auth tab says so. `disabled` suspends the inherited
+ * contribution without discarding the choice (the Headers table's
+ * auth-row checkbox).
+ */
+export const InheritAuthSchema = v.object({
+  type: v.literal('inherit'),
+  authUid: v.optional(UidSchema),
+  disabled: AuthDisabledSchema,
+});
+
+export const AuthConfigSchema = v.variant('type', [...ConcreteAuthConfigSchema.options, InheritAuthSchema]);
 
 export const RequestHeaderSchema = v.object({
   /**

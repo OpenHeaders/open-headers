@@ -11,23 +11,26 @@
  * minted — a collection was the only entity in the workbench without
  * an editor of its own.
  *
- * Draft = the container's editable slots (`auth`, the two script
- * slots, the variables); `useReprime` derives dirty from the draft vs
- * the live entity; Save writes only the slots that changed, each
- * through its own write client (the batches those clients mint are
- * per-slot by design — auth rides flattened leaf paths, scripts are
- * sibling files, variables a set replacement).
+ * Draft = the container's editable slots (the auth pool's default
+ * entry, the two script slots, the variables); `useReprime` derives
+ * dirty from the draft vs the live entity; Save writes only the slots
+ * that changed, each through its own write client (the batches those
+ * clients mint are per-slot by design — the pool is a set replacement
+ * plus its default scalar, scripts are sibling files, variables a set
+ * replacement).
  *
  * Level-honest auth: at a collection the transparent choice reads "No
  * default" (there is no parent), at a folder "Inherit from
- * collection"; both persist the field ABSENT (field absent ↔
- * transparent level), the same rule the script slots follow.
+ * collection"; both persist the pool WITHOUT a default entry (no
+ * default ↔ transparent level), the same rule the script slots follow.
  */
 
 import { FolderOpenOutlined, FolderOutlined } from '@ant-design/icons';
+import { defaultAuthEntry, withDefaultAuthConfig, withoutDefaultAuth } from '@openheaders/core/auth-inheritance';
 import type { PersistedLocalFolder } from '@openheaders/core/storage';
 import { REQUEST_COLLECTION_ENTITY_TYPE, REQUEST_FOLDER_ENTITY_TYPE } from '@openheaders/core/sync';
-import type { AuthConfig, Collection, HttpMethod, Variable } from '@openheaders/core/types';
+import { generateUid } from '@openheaders/core/utils';
+import type { AuthConfig, AuthPoolEntry, Collection, HttpMethod, Variable } from '@openheaders/core/types';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import {
   EntityScopeProvider,
@@ -43,11 +46,11 @@ import { useVariableMutator } from '@openheaders/ui/shared/hooks/mutators/useVar
 import { useRequests } from '@openheaders/ui/shared/hooks/readers/useRequests';
 import { useRules } from '@openheaders/ui/shared/hooks/readers/useRules';
 import {
-  applyRequestCollectionSetAuth,
+  applyRequestCollectionSetAuthPool,
   applyRequestCollectionSetScripts,
 } from '@openheaders/ui/shared/sync/request-collection-write-client';
 import {
-  applyRequestFolderSetAuth,
+  applyRequestFolderSetAuthPool,
   applyRequestFolderSetScripts,
 } from '@openheaders/ui/shared/sync/request-folder-write-client';
 import { App, Tabs, Typography, theme } from 'antd';
@@ -110,6 +113,8 @@ interface RequestContainerEditorProps {
 interface ContainerEntity {
   uid: string;
   name: string;
+  auths?: AuthPoolEntry[];
+  defaultAuthUid?: string;
   auth?: AuthConfig;
   preRequestScript?: string;
   postResponseScript?: string;
@@ -123,13 +128,15 @@ interface ContainerDraft {
   variables: Variable[];
 }
 
-/** Absent field renders — and compares — as the transparent choice. */
+/** A transparent level (no pool) renders — and compares — as the transparent choice. */
 const TRANSPARENT: AuthConfig = { type: 'inherit' };
 const EMPTY_VARS: Variable[] = [];
 
+/** The section edits the pool's DEFAULT entry; the named entries ride
+ *  the pool untouched (their editor is the next slice). */
 function draftOf(entity: ContainerEntity | null): ContainerDraft {
   return {
-    auth: entity?.auth ?? TRANSPARENT,
+    auth: (entity && defaultAuthEntry(entity)?.config) ?? TRANSPARENT,
     pre: entity?.preRequestScript ?? '',
     post: entity?.postResponseScript ?? '',
     variables: entity?.variables ?? EMPTY_VARS,
@@ -255,14 +262,18 @@ const RequestContainerEditor: React.FC<RequestContainerEditorProps> = ({
     };
     const run = async () => {
       if (authUnsaved) {
-        // Transparent at an ancestor level means "nothing configured
-        // here" — the field persists ABSENT so the chain walk passes
-        // through.
-        const auth = draft.auth.type === 'inherit' ? undefined : draft.auth;
+        // Transparent at an ancestor level means "no default here" —
+        // the default entry leaves the pool (the named entries stay)
+        // so the chain walk passes through; otherwise the default
+        // entry takes the edited config, keeping its uid and name.
+        const pool =
+          draft.auth.type === 'inherit'
+            ? withoutDefaultAuth(entity)
+            : withDefaultAuthConfig(entity, draft.auth, generateUid);
         const result =
           kind === 'collection'
-            ? await applyRequestCollectionSetAuth({ collectionUid: entity.uid, auth }, opts)
-            : await applyRequestFolderSetAuth({ folderUid: entity.uid, auth }, opts);
+            ? await applyRequestCollectionSetAuthPool({ collectionUid: entity.uid, ...pool }, opts)
+            : await applyRequestFolderSetAuthPool({ folderUid: entity.uid, ...pool }, opts);
         failed(result, 'auth');
       }
       if (scriptsUnsaved) {

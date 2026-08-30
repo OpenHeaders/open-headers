@@ -43,6 +43,12 @@ export const REQUEST_FOLDER_CHILDREN_PATH = 'folders';
  */
 export const REQUEST_FOLDER_ITEMS_PATH = 'items';
 
+/** Set path holding the auth pool on a request-folder entity — the collection's contract. */
+export const REQUEST_FOLDER_AUTHS_PATH = 'auths';
+
+/** Scalar field naming the folder pool's default entry; absent = the first entry. */
+export const REQUEST_FOLDER_DEFAULT_AUTH_PATH = 'defaultAuthUid';
+
 /** Discriminator for the two parent kinds that can hold a request-folder. */
 export type RequestFolderParentType = typeof REQUEST_COLLECTION_ENTITY_TYPE | typeof REQUEST_FOLDER_ENTITY_TYPE;
 

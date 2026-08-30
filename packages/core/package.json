@@ -92,6 +92,10 @@
       "import": "./src/auth-signing/index.ts",
       "default": "./dist/auth-signing/index.js"
     },
+    "./auth-inheritance": {
+      "import": "./src/auth-inheritance/index.ts",
+      "default": "./dist/auth-inheritance/index.js"
+    },
     "./scripts": {
       "import": "./src/scripts/index.ts",
       "default": "./dist/scripts/index.js"

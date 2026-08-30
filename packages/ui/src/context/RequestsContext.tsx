@@ -46,6 +46,7 @@ import type {
   Variable,
   WebSocketRequest,
 } from '@openheaders/core/types';
+import { withDefaultAuthConfig } from '@openheaders/core/auth-inheritance';
 import { generateUid, toFolderName } from '@openheaders/core/utils';
 import { hostBridge, type BridgeRpcResponse } from '@openheaders/core/bridge';
 import type React from 'react';
@@ -63,7 +64,7 @@ import {
   applyRequestCollectionCreate,
   applyRequestCollectionDelete,
   applyRequestCollectionRename,
-  applyRequestCollectionSetAuth,
+  applyRequestCollectionSetAuthPool,
   applyRequestCollectionSetScripts,
   applyRequestCollectionSetSpecLink,
   applyRequestCollectionVariablesReplacement,
@@ -72,7 +73,7 @@ import {
   applyRequestFolderCreate,
   applyRequestFolderDelete,
   applyRequestFolderRename,
-  applyRequestFolderSetAuth,
+  applyRequestFolderSetAuthPool,
   applyRequestFolderSetScripts,
 } from '../shared/sync/request-folder-write-client';
 import {
@@ -226,6 +227,9 @@ export interface RequestsContextValue {
 
   /** Ancestor default auth — same override-branch discipline as the
    *  script setters (import modals + the Authorization editor). */
+  /** Land one config as the container pool's default entry (imports,
+   *  spec updates). An `inherit` config lands nothing — the level stays
+   *  transparent. */
   setCollectionAuth: (collectionUid: string, auth: AuthConfig) => Promise<boolean>;
   setFolderAuth: (folderUid: string, auth: AuthConfig) => Promise<boolean>;
 
@@ -967,10 +971,17 @@ export const RequestsProvider: React.FC<RequestsProviderProps> = ({
       if (!isOverridden) return false;
       const wsId = activeWorkspaceIdOverride ?? null;
       if (!wsId) return false;
-      const result = await applyRequestCollectionSetAuth({ collectionUid, auth }, { workspaceId: wsId, surfaceId });
+      // One landed config becomes the pool's default entry — the
+      // existing default keeps its uid and name, other entries survive.
+      const current = collections.find((c) => c.uid === collectionUid);
+      if (!current || auth.type === 'inherit') return false;
+      const result = await applyRequestCollectionSetAuthPool(
+        { collectionUid, ...withDefaultAuthConfig(current, auth, generateUid) },
+        { workspaceId: wsId, surfaceId },
+      );
       return result.ok;
     },
-    [isOverridden, activeWorkspaceIdOverride, surfaceId],
+    [isOverridden, activeWorkspaceIdOverride, surfaceId, collections],
   );
 
   const setFolderAuth = useCallback<RequestsContextValue['setFolderAuth']>(
@@ -978,10 +989,15 @@ export const RequestsProvider: React.FC<RequestsProviderProps> = ({
       if (!isOverridden) return false;
       const wsId = activeWorkspaceIdOverride ?? null;
       if (!wsId) return false;
-      const result = await applyRequestFolderSetAuth({ folderUid, auth }, { workspaceId: wsId, surfaceId });
+      const current = folders.find((f) => f.uid === folderUid);
+      if (!current || auth.type === 'inherit') return false;
+      const result = await applyRequestFolderSetAuthPool(
+        { folderUid, ...withDefaultAuthConfig(current, auth, generateUid) },
+        { workspaceId: wsId, surfaceId },
+      );
       return result.ok;
     },
-    [isOverridden, activeWorkspaceIdOverride, surfaceId],
+    [isOverridden, activeWorkspaceIdOverride, surfaceId, folders],
   );
 
   const setCollectionVariables = useCallback<RequestsContextValue['setCollectionVariables']>(

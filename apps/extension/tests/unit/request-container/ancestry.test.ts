@@ -1,15 +1,18 @@
 /**
  * Request-tree ancestry — the renderer's inherited-auth attribution
  * and the folder → collection lookup, read off the trees (never a
- * stored leaf path). Pins:
- *   - innermost carrier wins (folder beats collection), `none` is a
- *     real carrier, an absent field is transparent;
+ * stored leaf path), the shared rule over the pool. Pins:
+ *   - the innermost pool's default wins (folder beats collection),
+ *     `none` is a real entry, a level without a pool is transparent,
+ *     the pre-pool single field still reads as the default;
+ *   - a named pick reaches any level's entry; a dangling pick falls
+ *     back and is reported; a host-scoped entry applies on a match;
  *   - nothing set anywhere = no auth with no source;
  *   - a request in no tree (a scratch draft) resolves to no source;
  *   - the folder lookup finds nested folders and misses unknown ones.
  */
 
-import type { AuthConfig, Collection, CollectionTree } from '@openheaders/core/types';
+import type { AuthPoolEntry, Collection, CollectionTree, ConcreteAuthConfig } from '@openheaders/core/types';
 import {
   findFolderCollectionUid,
   findRequestAncestry,
@@ -17,8 +20,11 @@ import {
 } from '@openheaders/ui/workbench/components/request-container/ancestry';
 import { describe, expect, it } from 'vitest';
 
-const BEARER: AuthConfig = { type: 'bearer', token: '{{token}}' };
-const BASIC: AuthConfig = { type: 'basic', username: 'john.doe', password: 'secret' };
+const BEARER: ConcreteAuthConfig = { type: 'bearer', token: '{{token}}' };
+const BASIC: ConcreteAuthConfig = { type: 'basic', username: 'john.doe', password: 'secret' };
+const NONE: ConcreteAuthConfig = { type: 'none' };
+const ADMIN: AuthPoolEntry = { uid: 'admin001', name: 'Admin token', config: BEARER };
+const USER: AuthPoolEntry = { uid: 'user0001', name: 'User token', config: { type: 'bearer', token: '{{user}}' } };
 
 function makeCollection(overrides: Partial<Collection> = {}): Collection {
   return {
@@ -97,30 +103,75 @@ describe('resolveInheritedAuthFor', () => {
     expect(resolveInheritedAuthFor(ancestry)).toEqual({ auth: { type: 'none' }, source: null });
   });
 
-  it('the collection supplies the auth when no folder carries one', () => {
+  it("the collection's pool default supplies the auth when no folder carries a pool", () => {
+    const ancestry = findRequestAncestry([TREE], [makeCollection({ auths: [ADMIN, USER] })], FOLDERS, 'req00002');
+    expect(resolveInheritedAuthFor(ancestry)).toEqual({
+      auth: BEARER,
+      source: { kind: 'collection', name: 'Payments', entryName: 'Admin token' },
+    });
+  });
+
+  it("a pre-pool single `auth` field still reads as the collection's default", () => {
     const ancestry = findRequestAncestry([TREE], [makeCollection({ auth: BEARER })], FOLDERS, 'req00002');
     expect(resolveInheritedAuthFor(ancestry)).toEqual({
       auth: BEARER,
-      source: { kind: 'collection', name: 'Payments' },
+      source: { kind: 'collection', name: 'Payments', entryName: '' },
     });
   });
 
-  it('the innermost folder wins over the collection; a transparent folder is skipped', () => {
+  it("the innermost folder's pool wins over the collection's; a transparent folder is skipped", () => {
     const folders = [
-      { uid: 'fld00001', name: 'Cards', auth: BASIC },
+      { uid: 'fld00001', name: 'Cards', auths: [{ uid: 'basic001', name: 'Service', config: BASIC }] },
       { uid: 'fld00002', name: 'Refunds' },
     ];
-    const ancestry = findRequestAncestry([TREE], [makeCollection({ auth: BEARER })], folders, 'req00002');
-    expect(resolveInheritedAuthFor(ancestry)).toEqual({ auth: BASIC, source: { kind: 'folder', name: 'Cards' } });
+    const ancestry = findRequestAncestry([TREE], [makeCollection({ auths: [ADMIN] })], folders, 'req00002');
+    expect(resolveInheritedAuthFor(ancestry)).toEqual({
+      auth: BASIC,
+      source: { kind: 'folder', name: 'Cards', entryName: 'Service' },
+    });
   });
 
-  it("`none` on a folder is a real carrier shadowing the collection's bearer", () => {
-    const folders = [{ uid: 'fld00001', name: 'Cards', auth: { type: 'none' } as AuthConfig }];
-    const ancestry = findRequestAncestry([TREE], [makeCollection({ auth: BEARER })], folders, 'req00002');
+  it("a `none` entry on a folder is a real carrier shadowing the collection's bearer", () => {
+    const folders = [{ uid: 'fld00001', name: 'Cards', auths: [{ uid: 'none0001', name: 'Public', config: NONE }] }];
+    const ancestry = findRequestAncestry([TREE], [makeCollection({ auths: [ADMIN] })], folders, 'req00002');
     expect(resolveInheritedAuthFor(ancestry)).toEqual({
       auth: { type: 'none' },
-      source: { kind: 'folder', name: 'Cards' },
+      source: { kind: 'folder', name: 'Cards', entryName: 'Public' },
     });
+  });
+
+  it("a named pick reaches the collection's entry under a folder with its own pool", () => {
+    const folders = [{ uid: 'fld00001', name: 'Cards', auths: [{ uid: 'none0001', name: 'Public', config: NONE }] }];
+    const collection = makeCollection({ auths: [ADMIN, USER], defaultAuthUid: 'admin001' });
+    const ancestry = findRequestAncestry([TREE], [collection], folders, 'req00002');
+    expect(resolveInheritedAuthFor(ancestry, { authUid: 'user0001' })).toEqual({
+      auth: USER.config,
+      source: { kind: 'collection', name: 'Payments', entryName: 'User token' },
+    });
+  });
+
+  it('a dangling pick falls back to the default and is reported', () => {
+    const ancestry = findRequestAncestry([TREE], [makeCollection({ auths: [ADMIN] })], FOLDERS, 'req00002');
+    expect(resolveInheritedAuthFor(ancestry, { authUid: 'gone0000' })).toMatchObject({
+      auth: BEARER,
+      danglingAuthUid: 'gone0000',
+    });
+  });
+
+  it("a host-scoped entry applies ahead of the default when the request's URL host matches", () => {
+    const scoped = {
+      uid: 'scope001',
+      name: 'Partner key',
+      config: { type: 'api-key', key: 'X-Key', value: '{{partner}}', in: 'header' } as const,
+      appliesTo: '*.partner.openheaders.io',
+    };
+    const ancestry = findRequestAncestry([TREE], [makeCollection({ auths: [ADMIN, scoped] })], FOLDERS, 'req00002');
+    expect(resolveInheritedAuthFor(ancestry, {}, 'https://api.partner.openheaders.io/v1').source?.entryName).toBe(
+      'Partner key',
+    );
+    expect(resolveInheritedAuthFor(ancestry, {}, 'https://api.openheaders.io/v1').source?.entryName).toBe(
+      'Admin token',
+    );
   });
 
   it('a scratch draft (no ancestry) resolves to no auth and no source', () => {

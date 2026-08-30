@@ -9,6 +9,7 @@
 
 import type { SyncRequestCollectionPostState } from '@openheaders/core/protocol';
 import {
+  REQUEST_COLLECTION_AUTHS_PATH,
   REQUEST_COLLECTION_ENTITY_TYPE,
   REQUEST_COLLECTION_VARS_PATH,
   REQUEST_FOLDER_CHILDREN_PATH,
@@ -27,12 +28,13 @@ const projectors = makeFlatEntityProjectors<Reads, Collection, SyncRequestCollec
   composeResult: (collection, oracle, uid) => ({
     collection,
     ...buildVarNamesExtras(oracle, REQUEST_COLLECTION_ENTITY_TYPE, uid, REQUEST_COLLECTION_VARS_PATH),
-    // Order keys for BOTH the parent-owned `folders` set and the
-    // `variables` set (editor's position-preserving Save).
+    // Order keys for the parent-owned `folders` / `items` sets, the
+    // `variables` set and the auth pool (editor's position-preserving Save).
     setOrderKeys: buildSetMembersExtras(oracle, REQUEST_COLLECTION_ENTITY_TYPE, uid, [
       REQUEST_FOLDER_CHILDREN_PATH,
       REQUEST_FOLDER_ITEMS_PATH,
       REQUEST_COLLECTION_VARS_PATH,
+      REQUEST_COLLECTION_AUTHS_PATH,
     ]).setOrderKeys,
   }),
 });

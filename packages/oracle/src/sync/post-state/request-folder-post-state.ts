@@ -8,6 +8,7 @@ import type { SyncRequestFolderPostState } from '@openheaders/core/protocol';
 import {
   type MutationEnvelope,
   REQUEST_COLLECTION_ENTITY_TYPE,
+  REQUEST_FOLDER_AUTHS_PATH,
   REQUEST_FOLDER_CHILDREN_PATH,
   REQUEST_FOLDER_ENTITY_TYPE,
   REQUEST_FOLDER_ITEMS_PATH,
@@ -34,6 +35,7 @@ export const REQUEST_TREE: FolderTreeKinds<typeof REQUEST_COLLECTION_ENTITY_TYPE
   folderType: REQUEST_FOLDER_ENTITY_TYPE,
   childrenPath: REQUEST_FOLDER_CHILDREN_PATH,
   itemsPath: REQUEST_FOLDER_ITEMS_PATH,
+  folderSetPaths: [REQUEST_FOLDER_AUTHS_PATH],
   projectCollection: projectRequestCollection,
   projectFolder: projectRequestFolder,
 };

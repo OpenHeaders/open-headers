@@ -10,6 +10,7 @@
 
 import {
   type MutationEnvelope,
+  REQUEST_FOLDER_AUTHS_PATH,
   REQUEST_FOLDER_CHILDREN_PATH,
   REQUEST_FOLDER_ENTITY_TYPE,
   REQUEST_FOLDER_ITEMS_PATH,
@@ -21,11 +22,11 @@ import {
   buildDeleteRequestFolderBatch,
   buildMoveRequestFolderBatch,
   buildRenameRequestFolderBatch,
-  buildSetRequestFolderAuthBatch,
+  buildSetRequestFolderAuthPoolBatch,
   buildSetRequestFolderScriptsBatch,
   type SetRequestFolderScriptsInput,
 } from '@openheaders/core/sync-builders/mutations/request-folder-mutations';
-import type { AuthConfig } from '@openheaders/core/types';
+import type { AuthPoolEntry } from '@openheaders/core/types';
 import {
   getRequestCollectionSyncMirrorForWorkspace,
   type RequestCollectionSyncMirror,
@@ -119,29 +120,36 @@ export async function applyRequestFolderSetScripts(
   return applySyncPayload(buildSetRequestFolderScriptsBatch(input, ctx));
 }
 
-export interface ApplyRequestFolderSetAuthInput {
+export interface ApplyRequestFolderSetAuthPoolInput {
   folderUid: string;
-  /** New ancestor default auth; `undefined` clears the field (the
-   *  level goes transparent — the inherit walk passes through it). */
-  auth: AuthConfig | undefined;
+  /** The whole pool; empty with no default = the level goes transparent. */
+  auths: readonly AuthPoolEntry[];
+  defaultAuthUid: string | undefined;
 }
 
-/** Persist the folder's ancestor default auth. The per-leaf diff
- *  baseline is the mirror's live folder — see
- *  `buildSetRequestFolderAuthBatch` for the granularity contract. */
-export async function applyRequestFolderSetAuth(
-  input: ApplyRequestFolderSetAuthInput,
+/** Persist the folder's auth pool — see `applyRequestCollectionSetAuthPool`. */
+export async function applyRequestFolderSetAuthPool(
+  input: ApplyRequestFolderSetAuthPoolInput,
   opts: RequestFolderWriteOptions,
 ): Promise<RequestFolderSimpleResult> {
   const mirror = resolveMirror(opts, getRequestFolderSyncMirrorForWorkspace);
   await mirror.hydrated;
   const entry = mirror.getRequestFolderMirror(input.folderUid);
   if (!entry) return { ok: false, reason: 'not-found' };
+  const currentKeys = new Map(
+    mirror.liveOrderedSetItems(input.folderUid, REQUEST_FOLDER_AUTHS_PATH).map((e) => [e.itemId, e.orderKey] as const),
+  );
   const ctx = resolveRendererContext(opts).next({
     batchId: opts.batchId ?? `request-folder-auth-${input.folderUid}`,
   });
-  const payload = buildSetRequestFolderAuthBatch(
-    { folderUid: input.folderUid, auth: input.auth, currentAuth: entry.folder.auth },
+  const payload = buildSetRequestFolderAuthPoolBatch(
+    {
+      folderUid: input.folderUid,
+      auths: input.auths,
+      defaultAuthUid: input.defaultAuthUid,
+      current: entry.folder,
+      currentKeys,
+    },
     ctx,
   );
   if (payload.batch.mutations.length === 0) return { ok: true };

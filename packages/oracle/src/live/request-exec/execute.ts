@@ -315,6 +315,9 @@ export async function executeOverTransport(
       ...(tlsFloorLowered ? { tlsFloorLowered: true } : {}),
       ...(trustedRootsApplied !== undefined ? { trustedRootsApplied } : {}),
       ...(deviceTrustApplied !== undefined ? { deviceTrustApplied } : {}),
+      // The auth the send ran with and its source — resolve-time
+      // attribution, stamped on success and error alike.
+      ...(resolved.auth !== undefined ? { auth: resolved.auth } : {}),
       // The transport reports an actual cross-origin Authorization
       // re-send (only the redirect loop can know); stamp it so the
       // response surface marks the run.
@@ -358,6 +361,7 @@ export async function executeOverTransport(
       ...(tlsFloorLowered ? { tlsFloorLowered: true } : {}),
       ...(trustedRootsApplied !== undefined ? { trustedRootsApplied } : {}),
       ...(deviceTrustApplied !== undefined ? { deviceTrustApplied } : {}),
+      ...(resolved.auth !== undefined ? { auth: resolved.auth } : {}),
     };
   } finally {
     unregister?.();

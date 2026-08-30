@@ -6,14 +6,21 @@
  */
 
 import type { AwsSigV4Credentials, OAuth1Credentials } from '@openheaders/core/auth-signing';
-import type { CredentialsMode, HttpMethod, Request, RequestBody, VaultSecretTotp } from '@openheaders/core/types';
+import type {
+  CredentialsMode,
+  ExecutedAuthAttribution,
+  HttpMethod,
+  Request,
+  RequestBody,
+  VaultSecretTotp,
+} from '@openheaders/core/types';
 import { isRequestResolvable } from '@openheaders/core/utils';
 import { resolveTemplate } from '@openheaders/core/variables';
-import { resolveInheritedAuth } from '@openheaders/oracle/live/request-exec/ancestor-chain';
+import { collectionUidForRequest, resolveRequestAuth } from '@openheaders/oracle/live/request-exec/ancestor-chain';
 import type { ExecuteRequestOptions } from './api';
 import { applyAuth } from './auth';
 import { buildResolvedBody, defaultContentType } from './body';
-import { buildResolver, collectionIdForRequest } from './scope';
+import { buildResolver } from './scope';
 
 export interface ResolvedRequest {
   method: HttpMethod;
@@ -63,6 +70,10 @@ export interface ResolvedRequest {
    * folded into the URL — twin of the oracle resolver's carry.
    */
   oauth1?: OAuth1Credentials;
+  /** The auth this send applies and its source — resolve-time
+   *  attribution the executor stamps on the snapshot; absent when the
+   *  request's own auth is `none`. Twin of the oracle's carry. */
+  auth?: ExecutedAuthAttribution;
   // auth folds into `url` + `headers`; params ride structured to the wire.
 }
 
@@ -104,8 +115,10 @@ export async function resolveRequest(
   options: ExecuteRequestOptions,
 ): Promise<ResolvedRequestOutcome> {
   const { resolver, context: scope } = await buildResolver(options.workspaceId, options.stepCaptures);
+  // The collection scope reads off the same ancestor chain the auth
+  // walk uses — the tree index, never the request's stored path.
   const context = {
-    collectionId: collectionIdForRequest(request, scope.workspaceId),
+    collectionId: collectionUidForRequest(request, scope.workspaceId),
     environmentId: options.environmentId,
   };
 
@@ -113,12 +126,10 @@ export async function resolveRequest(
   // resolvability gate — the inherited config's own templates (a
   // collection-level `{{auth_token}}` bearer) must pass the same gate
   // explicit request auth does, or a literal `{{ref}}` ships on the
-  // wire. A disabled inherit stays as-is: `applyAuth` skips it whole.
+  // wire. A disabled inherit resolves too (the attribution names what
+  // was suspended); `applyAuth` skips the disabled contribution whole.
   // Twin of the oracle resolver's leg (`resolve-request.ts`).
-  const effectiveAuth =
-    request.auth.type === 'inherit' && !request.auth.disabled
-      ? resolveInheritedAuth(request, scope.workspaceId)
-      : request.auth;
+  const { auth: effectiveAuth, attribution: authAttribution } = resolveRequestAuth(request, scope.workspaceId);
   const gated: Request = { ...request, auth: effectiveAuth };
 
   // Architectural gate: refuse to dispatch when any `{{ref}}` in the
@@ -252,6 +263,7 @@ export async function resolveRequest(
       timeoutMs: request.timeoutMs,
       ...(awsSigV4 ? { awsSigV4 } : {}),
       ...(oauth1 ? { oauth1 } : {}),
+      ...(authAttribution !== undefined ? { auth: authAttribution } : {}),
     },
     totpUsed: [...totpUsed.values()],
   };

@@ -12,6 +12,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { runStepRequest } from '../../../src/live/request-exec/run-step-request';
 import type { StepScriptInput, StepScriptRunner } from '../../../src/live/request-exec/script-hooks';
 import type { RequestTransport, TransportRequest, TransportResponse } from '../../../src/live/request-exec/transport';
+import { treeOracleFrom } from './tree-oracle';
 
 // ── Entity-store leaves (the only host-state the resolver reads) ──────
 
@@ -44,6 +45,14 @@ vi.mock('../../../src/entity/request-store', () => ({
   getRequestFolders: () => requestFolders(),
   getRequestFoldersForWorkspace: () => requestFolders(),
 }));
+// The ancestor walk reads the tree index off the workspace oracle —
+// built from the mocked lists above, every folder slotted under the
+// parent its path names; the request nets by its stored path.
+vi.mock('../../../src/sync/service/accessors', () => ({
+  getOracleForCurrentWorkspace: () => treeOracleFrom(requestCollections(), requestFolders()).oracle,
+  getOracleForWorkspace: () => treeOracleFrom(requestCollections(), requestFolders()).oracle,
+}));
+
 vi.mock('../../../src/entity/rule-store', () => ({
   getCollections: () => [],
   getCollectionsForWorkspace: () => [],
@@ -153,7 +162,7 @@ describe('runStepRequest (integration over the real resolver + executor)', () =>
     expect(snap.trustedRootsApplied).toBe(1);
   });
 
-  it('this device\'s pins ride behind the workspace roots and count on their own field', async () => {
+  it("this device's pins ride behind the workspace roots and count on their own field", async () => {
     const root = '-----BEGIN CERTIFICATE-----\nROOT\n-----END CERTIFICATE-----\n';
     const pin = '-----BEGIN CERTIFICATE-----\nPIN\n-----END CERTIFICATE-----\n';
     trustedRootPems.mockImplementation((workspaceId) => (workspaceId === 'ws-1' ? [root] : []));
@@ -670,6 +679,12 @@ describe('runStepRequest — ancestor script chain', () => {
   const nestedRequest = (over: Partial<Request> = {}) =>
     makeRequest({ path: 'requests/default/tokens-rfold001/r1', ...over });
 
+  // The nested request's parent folder must exist on the tree for the
+  // slot-less net to land it — a missing container is no ancestor at all.
+  beforeEach(() => {
+    requestFolders.mockReturnValue([chainFolder()]);
+  });
+
   it('composes pre scripts ancestor-first: collection → folder → request', async () => {
     requestCollections.mockReturnValue([chainCollection({ preRequestScript: 'colPre();' })]);
     requestFolders.mockReturnValue([chainFolder({ preRequestScript: 'foldPre();' })]);
@@ -780,6 +795,10 @@ describe('runStepRequest — ancestor auth inheritance', () => {
 
   const nestedRequest = (over: Partial<Request> = {}) =>
     makeRequest({ path: 'requests/default/tokens-rfold001/r1', auth: { type: 'inherit' }, ...over });
+
+  beforeEach(() => {
+    requestFolders.mockReturnValue([chainFolder()]);
+  });
 
   const authHeader = (req: TransportRequest) => req.headers.find((h) => h.key === 'Authorization');
 

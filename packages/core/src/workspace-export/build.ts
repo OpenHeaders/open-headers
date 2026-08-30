@@ -32,6 +32,8 @@
 import * as v from 'valibot';
 import { VaultSecretSchema } from '../schemas/index';
 import type {
+  AuthConfig,
+  AuthPoolEntry,
   Collection,
   Environment,
   Folder,
@@ -132,26 +134,38 @@ export class MissingSecretsBlockError extends Error {
 
 // ── Strip helpers ───────────────────────────────────────────────────
 
-function stripAuthSecrets<E extends { auth?: Request['auth'] }>(entity: E): E {
-  if (entity.auth?.type === 'oauth2') {
-    const { clientSecret: _omitted, ...authWithoutSecret } = entity.auth;
-    return { ...entity, auth: authWithoutSecret };
+function stripConfigSecrets<A extends AuthConfig>(auth: A): A {
+  if (auth.type === 'oauth2') {
+    const { clientSecret: _omitted, ...authWithoutSecret } = auth;
+    return authWithoutSecret as A;
   }
-  if (entity.auth?.type === 'aws-sigv4') {
+  if (auth.type === 'aws-sigv4') {
     // `secretAccessKey` is a required field, so it blanks instead of
     // dropping — the imported config stays schema-valid and the
     // completeness gate walks the recipient to re-enter it. The
     // optional session token drops outright (short-lived anyway).
-    const { sessionToken: _omitted, ...rest } = entity.auth;
-    return { ...entity, auth: { ...rest, secretAccessKey: '' } };
+    const { sessionToken: _omitted, ...rest } = auth;
+    return { ...rest, secretAccessKey: '' } as A;
   }
-  if (entity.auth?.type === 'oauth1') {
+  if (auth.type === 'oauth1') {
     // Same shape as SigV4: the required `consumerSecret` blanks so the
     // config stays schema-valid; the optional `tokenSecret` drops.
-    const { tokenSecret: _omitted, ...rest } = entity.auth;
-    return { ...entity, auth: { ...rest, consumerSecret: '' } };
+    const { tokenSecret: _omitted, ...rest } = auth;
+    return { ...rest, consumerSecret: '' } as A;
   }
-  return entity;
+  return auth;
+}
+
+function stripAuthSecrets<E extends { auth?: AuthConfig }>(entity: E): E {
+  return entity.auth === undefined ? entity : { ...entity, auth: stripConfigSecrets(entity.auth) };
+}
+
+/** A container's pool entries strip the same way as request auth;
+ *  the pre-pool `auth` field too. */
+function stripPoolSecrets<E extends { auths?: AuthPoolEntry[]; auth?: AuthConfig }>(entity: E): E {
+  const stripped = stripAuthSecrets(entity);
+  if (entity.auths === undefined) return stripped;
+  return { ...stripped, auths: entity.auths.map((e) => ({ ...e, config: stripConfigSecrets(e.config) })) };
 }
 
 function canonicalLeafPath(currentPath: string | undefined, name: string, uid: string): string {
@@ -179,10 +193,10 @@ export function buildWorkspaceExport(
   }
 
   const requests = input.entities.requests.map((req) => withCanonicalPath(stripAuthSecrets(req)));
-  // Ancestor default auth carries the same auth-config shapes as
+  // A container's auth pool carries the same auth-config shapes as
   // request auth — its secrets strip the same way.
-  const collections = input.entities.collections.map((c) => withCanonicalPath(stripAuthSecrets(c)));
-  const folders = input.entities.folders.map((f) => withCanonicalPath(stripAuthSecrets(f)));
+  const collections = input.entities.collections.map((c) => withCanonicalPath(stripPoolSecrets(c)));
+  const folders = input.entities.folders.map((f) => withCanonicalPath(stripPoolSecrets(f)));
   const rules = input.entities.rules.map(withCanonicalPath);
   const templates = input.entities.templates.map(withCanonicalPath);
   const environments = input.entities.environments.map(withCanonicalPath);

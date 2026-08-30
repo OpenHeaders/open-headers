@@ -31,6 +31,7 @@
  * tail. Partial pulls land globals too — the upsert is idempotent.
  */
 
+import { singleEntryPool } from '@openheaders/core/auth-inheritance';
 import {
   createReport,
   hashImportSource,
@@ -78,7 +79,7 @@ import { buildDeleteRequestCollectionBatch } from '@openheaders/core/sync-builde
 import {
   buildCreateRequestFolderBatch,
   buildDeleteRequestFolderEntityBatch,
-  buildSetRequestFolderAuthBatch,
+  buildSetRequestFolderAuthPoolBatch,
   buildSetRequestFolderScriptsBatch,
 } from '@openheaders/core/sync-builders/mutations/request-folder-mutations';
 import {
@@ -332,7 +333,11 @@ async function materializeCollection(
     ...(parsed.collectionPostResponseScript !== undefined
       ? { postResponseScript: parsed.collectionPostResponseScript }
       : {}),
-    ...(parsed.collectionAuth !== undefined ? { auth: parsed.collectionAuth } : {}),
+    // An importer's collection auth is never `inherit` (the D2 law:
+    // an unmappable block lands `none`); the guard keeps the type honest.
+    ...(parsed.collectionAuth !== undefined && parsed.collectionAuth.type !== 'inherit'
+      ? singleEntryPool(generateUid(), parsed.collectionAuth)
+      : {}),
   };
   const collectionCtx = mintCtx();
   if (!collectionCtx) throw new Error('landing workspace is not loaded on this host');
@@ -382,13 +387,14 @@ async function materializeCollection(
         const scriptsIntent = buildSetRequestFolderScriptsBatch({ folderUid, updates }, scriptsCtx);
         await applyMigrationMutation(scriptsIntent.batch, scriptsIntent.sideEffects);
       }
-      // Folder-level default auth lands as a follow-up batch too — the
-      // fresh folder has no prior auth, so the diff baseline is absent.
-      if (folder.auth !== undefined) {
+      // Folder-level default auth lands as a one-entry pool in a
+      // follow-up batch too — the fresh folder has no prior pool, so
+      // the diff baseline is empty.
+      if (folder.auth !== undefined && folder.auth.type !== 'inherit') {
         const authCtx = mintCtx();
         if (!authCtx) throw new Error('landing workspace is not loaded on this host');
-        const authIntent = buildSetRequestFolderAuthBatch(
-          { folderUid, auth: folder.auth, currentAuth: undefined },
+        const authIntent = buildSetRequestFolderAuthPoolBatch(
+          { folderUid, ...singleEntryPool(generateUid(), folder.auth), current: {} },
           authCtx,
         );
         await applyMigrationMutation(authIntent.batch, authIntent.sideEffects);

@@ -25,6 +25,7 @@ export {
 export type { CliProvisionRecord } from './cli-provision';
 // ── Collection ─────────────────────────────────────────────────────
 export type {
+  AuthPoolEntry,
   Collection,
   CollectionTree,
   Folder,
@@ -216,12 +217,14 @@ export type {
   AuthConfig,
   AuthType,
   BodyType,
+  ConcreteAuthConfig,
   CredentialsMode,
   DialPolicy,
   FileRef,
   FormField,
   HttpMethod,
   HttpVersion,
+  InheritAuth,
   MultipartPart,
   OAuth2Auth,
   OAuth2Flow,
@@ -238,6 +241,8 @@ export type {
 } from './request';
 // ── Request execution ──────────────────────────────────────────────
 export type {
+  AuthSource,
+  ExecutedAuthAttribution,
   ExecutedPeerCertificate,
   ExecutedProxyRoute,
   ExecutedRedirectHop,

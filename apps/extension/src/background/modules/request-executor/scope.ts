@@ -6,14 +6,7 @@
  */
 
 import { generateTotp } from '@openheaders/core/totp';
-import type {
-  Collection,
-  Environment,
-  Request,
-  Vault,
-  VaultSecretTotp,
-  WorkspaceVariables,
-} from '@openheaders/core/types';
+import type { Collection, Environment, Vault, VaultSecretTotp, WorkspaceVariables } from '@openheaders/core/types';
 import { type TotpRegistry, VariableResolver } from '@openheaders/core/variables';
 import {
   getActiveEnvironmentId,
@@ -172,24 +165,6 @@ async function readPerWorkspaceScope(workspaceId: string): Promise<ExecutionScop
       templateCollections: getTemplateCollectionsForWorkspace(workspaceId),
     },
   };
-}
-
-/**
- * Find the collection a request belongs to. Requests live under
- * `requests/<coll-name-uid>/...`, so we look in the REQUEST collection
- * tree — not the rule tree (paths under `rules/` never prefix a
- * request path). Returns `undefined` for orphaned requests (defensive —
- * every persisted request should have an owning collection).
- *
- * `workspaceId` routes the lookup through the per-workspace request-
- * collection cache when supplied — required for cross-workspace chain
- * dispatches where the runtime-Active workspace's collections aren't
- * the right namespace.
- */
-export function collectionIdForRequest(request: Request, workspaceId: string | null): string | undefined {
-  const collections = workspaceId ? getRequestCollectionsForWorkspace(workspaceId) : getRequestCollections();
-  const hit = collections.find((c) => request.path.startsWith(`${c.path}/`));
-  return hit?.uid;
 }
 
 /**

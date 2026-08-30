@@ -31,6 +31,7 @@
  */
 
 import type {
+  AuthPoolEntry,
   Collection,
   Environment,
   LiveVariable,
@@ -229,15 +230,18 @@ function stripRequestScripts<T extends { preRequestScript?: string; postResponse
 
 /**
  * Replace OAuth2 auth with `{ type: 'none' }` when the user opts out
- * of importing OAuth configs — on requests AND on the collection/folder
- * ancestor-auth slots (an inherited oauth2 config runs on every child
- * send). The recipient configures auth from scratch; everything else
+ * of importing OAuth configs — on requests AND on every entry of the
+ * collection/folder auth pools (an inherited oauth2 config runs on
+ * every child send). The recipient configures auth from scratch; everything else
  * still ships.
  */
-function omitOAuthAuth<T extends { auth?: { type: string } }>(entity: T, omit: boolean): T {
+function omitOAuthAuth<T extends { auth?: { type: string }; auths?: AuthPoolEntry[] }>(entity: T, omit: boolean): T {
   if (!omit) return entity;
-  if (entity.auth?.type !== 'oauth2') return entity;
-  return { ...entity, auth: { type: 'none' } as T['auth'] };
+  const auths = entity.auths?.some((e) => e.config.type === 'oauth2')
+    ? entity.auths.map((e) => (e.config.type === 'oauth2' ? { ...e, config: { type: 'none' as const } } : e))
+    : entity.auths;
+  if (entity.auth?.type !== 'oauth2') return auths === entity.auths ? entity : { ...entity, auths };
+  return { ...entity, ...(auths !== undefined ? { auths } : {}), auth: { type: 'none' } as T['auth'] };
 }
 
 // ── Tree-aware new-uid for collections + folders + leaves ───────────

@@ -1,23 +1,31 @@
 /**
  * Renderer-side request-tree ancestry — a folder's owning collection, a
- * request's collection + folder chain, and the ancestor auth resolution
- * the request editor's Authorization tab shows under Inherit ("Bearer
- * Token — from Collection ‘Payments’"), mirroring the executor's rule: the INNERMOST
- * carrier whose `auth` is present and not itself `inherit` wins (folder
- * beats collection), `none` is a real carrier, an absent field is
- * transparent, no carrier at all = no auth.
- *
- * Ancestry is read off the collection TREES — the projection of the
- * parent-owned child slots — never off a leaf's stored `path`: a leaf
+ * request's collection + folder chain, and the inherited-auth
+ * attribution the request editor's Authorization tab shows under
+ * Inherit ("Bearer Token — from Collection ‘Payments’"). The RULE is
+ * the shared one (`@openheaders/core/auth-inheritance`) — the same
+ * resolution the executor runs; only the chain derivation is the
+ * renderer's: read off the collection TREES (the projection of the
+ * parent-owned child slots), never off a leaf's stored `path` — a leaf
  * mirror's path is stale after a drag (the tree containment law), the
  * tree is not.
  */
 
-import type { AuthConfig, Collection, CollectionTree, TreeNode } from '@openheaders/core/types';
+import { type AuthCarrier, hostOf, resolveInheritedAuth } from '@openheaders/core/auth-inheritance';
+import type {
+  AuthConfig,
+  AuthPoolEntry,
+  Collection,
+  CollectionTree,
+  ConcreteAuthConfig,
+  TreeNode,
+} from '@openheaders/core/types';
 
 export interface AncestorAuthCarrier {
   uid: string;
   name: string;
+  auths?: AuthPoolEntry[];
+  defaultAuthUid?: string;
   auth?: AuthConfig;
 }
 
@@ -30,15 +38,19 @@ export interface RequestAncestry {
 export interface InheritedAuthSource {
   kind: 'collection' | 'folder';
   name: string;
+  /** The pool entry's label; empty = the type's label. */
+  entryName: string;
 }
 
 export interface ResolvedInheritedAuth {
   /** The effective config under Inherit — `{ type: 'none' }` when no
-   *  ancestor carries one. */
-  auth: AuthConfig;
+   *  ancestor holds a pool. */
+  auth: ConcreteAuthConfig;
   /** The level that supplied it; `null` when nothing is set anywhere
    *  above the request. */
   source: InheritedAuthSource | null;
+  /** The request named a pool entry that no longer exists. */
+  danglingAuthUid?: string;
 }
 
 function folderChainTo(nodes: readonly TreeNode[], requestUid: string, chain: string[]): string[] | null {
@@ -90,18 +102,50 @@ export function findFolderCollectionUid(trees: readonly CollectionTree[], folder
   return null;
 }
 
-/** Resolve what a request set to Inherit sends with, and from where. */
-export function resolveInheritedAuthFor(ancestry: RequestAncestry | null): ResolvedInheritedAuth {
+/** The ancestry as the shared rule's chain (outer → inner). */
+export function authChainOf(ancestry: RequestAncestry): AuthCarrier[] {
+  const { collection } = ancestry;
+  return [
+    {
+      level: 'collection',
+      uid: collection.uid,
+      name: collection.name,
+      auths: collection.auths,
+      defaultAuthUid: collection.defaultAuthUid,
+      auth: collection.auth,
+    },
+    ...ancestry.folders.map(
+      (f): AuthCarrier => ({
+        level: 'folder',
+        uid: f.uid,
+        name: f.name,
+        auths: f.auths,
+        defaultAuthUid: f.defaultAuthUid,
+        auth: f.auth,
+      }),
+    ),
+  ];
+}
+
+/**
+ * Resolve what a request set to Inherit sends with, and from where —
+ * the shared rule over the tree-read chain. `pick` is the request's
+ * Inherit config (a named entry or the default); `url` the request's
+ * URL for host-scoped entries.
+ */
+export function resolveInheritedAuthFor(
+  ancestry: RequestAncestry | null,
+  pick: { authUid?: string } = {},
+  url = '',
+): ResolvedInheritedAuth {
   if (ancestry === null) return { auth: { type: 'none' }, source: null };
-  for (let i = ancestry.folders.length - 1; i >= 0; i--) {
-    const folder = ancestry.folders[i];
-    if (folder.auth !== undefined && folder.auth.type !== 'inherit') {
-      return { auth: folder.auth, source: { kind: 'folder', name: folder.name } };
-    }
-  }
-  const { auth, name } = ancestry.collection;
-  if (auth !== undefined && auth.type !== 'inherit') {
-    return { auth, source: { kind: 'collection', name } };
-  }
-  return { auth: { type: 'none' }, source: null };
+  const resolved = resolveInheritedAuth(authChainOf(ancestry), pick, hostOf(url));
+  return {
+    auth: resolved.auth,
+    source:
+      resolved.source === null
+        ? null
+        : { kind: resolved.source.level, name: resolved.source.name, entryName: resolved.source.entryName },
+    ...(resolved.danglingAuthUid !== undefined ? { danglingAuthUid: resolved.danglingAuthUid } : {}),
+  };
 }

@@ -5,7 +5,7 @@
 
 import * as v from 'valibot';
 import { RelativePathSchema, SchemaVersionSchema, UidSchema } from './common';
-import { AuthConfigSchema } from './request';
+import { AuthConfigSchema, ConcreteAuthConfigSchema } from './request';
 import { VariableSchema } from './variable';
 
 /**
@@ -20,6 +20,25 @@ import { VariableSchema } from './variable';
 export const SpecLinkSchema = v.object({
   specUid: UidSchema,
   sourceHash: v.string(),
+});
+
+/**
+ * One entry of a container's auth pool — a named, concrete auth
+ * config a collection or folder keeps for the requests under it. The
+ * pool's DEFAULT entry (`defaultAuthUid`, else the first) is what a
+ * request set to Inherit sends with; every entry is a pick a request
+ * may name by uid. `name` is the user's label ("Admin token"); empty
+ * = the type's label. `appliesTo` is an optional host pattern (`*`
+ * wildcard, `api.openheaders.com` / `*.openheaders.com`): when the
+ * request's URL host matches, the entry applies ahead of the default.
+ * Set-modeled on the entity (member identity = `uid`, the variables
+ * idiom) so concurrent edits of two entries never clobber each other.
+ */
+export const AuthPoolEntrySchema = v.object({
+  uid: UidSchema,
+  name: v.string(),
+  config: ConcreteAuthConfigSchema,
+  appliesTo: v.optional(v.string()),
 });
 
 export const CollectionSchema = v.object({
@@ -46,14 +65,23 @@ export const CollectionSchema = v.object({
   preRequestScript: v.optional(v.string()),
   postResponseScript: v.optional(v.string()),
   /**
-   * Ancestor default auth — meaningful under request-collection
-   * routing only, like the script slots. A request whose auth is
-   * `inherit` resolves up its ancestor chain at execute time: the
-   * innermost carrier (folder beats collection) whose auth is present
-   * and not itself `inherit` wins; `none` is a real carrier ("no
-   * auth", shadowing outer levels). Field ABSENT means transparent —
-   * the walk passes through this level. Persisted inline in
-   * `_collection.yaml` (auth is data, not script source).
+   * The auth pool — meaningful under request-collection routing only,
+   * like the script slots. A request whose auth is `inherit` resolves
+   * up its ancestor chain at execute time: the innermost level with a
+   * non-empty pool supplies the DEFAULT (`defaultAuthUid`, else the
+   * first entry; a host-scoped entry first) — a folder's pool overrides
+   * the collection's default, `none` is a real entry ("no auth",
+   * shadowing outer levels) — and a request may name ANY entry up the
+   * chain by uid. Pool ABSENT or empty means transparent — the walk
+   * passes through this level. Persisted inline in `_collection.yaml`
+   * (auth is data, not script source).
+   */
+  auths: v.optional(v.array(AuthPoolEntrySchema)),
+  defaultAuthUid: v.optional(UidSchema),
+  /**
+   * The pre-pool single default auth (2026.8.x). READ ONLY: a
+   * container carrying it and no pool reads as a one-entry pool
+   * (`authPoolOf`); the first pool write clears it. Never written.
    */
   auth: v.optional(AuthConfigSchema),
   /** Present only on collections generated from a spec document. */
@@ -77,7 +105,10 @@ export const FolderSchema = v.object({
    *  request-folder routing only; siblings of `_folder.yaml`. */
   preRequestScript: v.optional(v.string()),
   postResponseScript: v.optional(v.string()),
-  /** See {@link CollectionSchema}'s `auth` — same contract,
+  /** See {@link CollectionSchema}'s pool — same contract,
    *  request-folder routing only; inline in `_folder.yaml`. */
+  auths: v.optional(v.array(AuthPoolEntrySchema)),
+  defaultAuthUid: v.optional(UidSchema),
+  /** See {@link CollectionSchema}'s `auth` — the pre-pool field, read only. */
   auth: v.optional(AuthConfigSchema),
 });

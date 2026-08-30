@@ -5,7 +5,7 @@
 
 import type { ResourceTimingEntry } from '../resource-timing';
 import type { RequestMutation, ScriptConsoleEntry, ScriptExecutionMode, TestAssertion } from '../scripts';
-import type { CredentialsMode } from './request';
+import type { ConcreteAuthConfig, CredentialsMode } from './request';
 
 /**
  * Wire bytes the executor itself serialized for the request. Only what
@@ -203,6 +203,25 @@ export interface ExecutedProxyRoute {
   standDownReason?: 'unix-socket' | 'resolve-to-address' | 'http-version-3';
 }
 
+/**
+ * Where an executed send's auth came from. `request` = the request's
+ * own config; a container level names the collection or folder whose
+ * pool supplied it and the entry within (its uid and the user's label,
+ * empty when unnamed). The same shape the settings resolver will use
+ * for inherited knobs.
+ */
+export type AuthSource =
+  | { level: 'request' }
+  | { level: 'collection' | 'folder'; uid: string; name: string; entryUid: string; entryName: string };
+
+export interface ExecutedAuthAttribution {
+  type: ConcreteAuthConfig['type'];
+  /** `null` = the request inherits and no ancestor holds a pool. */
+  source: AuthSource | null;
+  /** The request named a pool entry that no longer exists; the default applied instead. */
+  danglingAuthUid?: string;
+}
+
 export interface ExecutedRequestSnapshot {
   /** HTTP status (e.g. 200). `0` when the request never completed
    *  (DNS failure, network offline, aborted). */
@@ -320,6 +339,16 @@ export interface ExecutedRequestSnapshot {
    * configured.
    */
   authorizationForwarded?: boolean;
+  /**
+   * The auth this send ran with and where it came from — the request's
+   * own config, or the ancestor pool entry its Inherit resolved to
+   * (level, container and entry named). Known before the wire, so
+   * success and error snapshots carry it alike; absent when the
+   * request's own auth is `none` (nothing to attribute). An Inherit
+   * that found no pool anywhere records `type: 'none'` with a null
+   * source. Attribution only — never read from live tree state.
+   */
+  auth?: ExecutedAuthAttribution;
   /**
    * The `Cookie` header value the runtime's cookie jar attached to the
    * FIRST hop of this send (the per-request `cookieJar` opt-in, honored

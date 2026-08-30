@@ -15,6 +15,8 @@ import {
   type MutatorContext,
   type MutatorIntent,
   mintBatch,
+  REQUEST_COLLECTION_AUTHS_PATH,
+  REQUEST_COLLECTION_DEFAULT_AUTH_PATH,
   REQUEST_COLLECTION_ENTITY_TYPE,
   removeRequestCollectionVar,
   renameRequestCollection,
@@ -23,8 +25,8 @@ import {
   setRequestCollectionSpecLink,
   setRequestCollectionVar,
 } from '@openheaders/core/sync';
-import { synthesizeFieldDiff } from '@openheaders/core/sync-builders';
-import type { AuthConfig, SpecLink, Variable } from '@openheaders/core/types';
+import { buildAuthPoolReplacement } from '@openheaders/core/sync-builders';
+import type { AuthPoolEntry, Collection, SpecLink, Variable } from '@openheaders/core/types';
 
 export type RequestCollectionMutationPayload = MutatorIntent;
 
@@ -104,36 +106,44 @@ export function buildSetRequestCollectionSpecLinkBatch(
   return setRequestCollectionSpecLink(ctx, input);
 }
 
-export interface SetRequestCollectionAuthInput {
+export interface SetRequestCollectionAuthPoolInput {
   collectionUid: string;
-  /** New ancestor default auth; `undefined` clears the field (the
-   *  level goes transparent — the inherit walk passes through it). */
-  auth: AuthConfig | undefined;
-  /** Current materialized auth — the per-leaf diff baseline. */
-  currentAuth: AuthConfig | undefined;
+  auths: readonly AuthPoolEntry[];
+  defaultAuthUid: string | undefined;
+  /** The materialized collection — the diff pre-image (entries, default, the legacy field). */
+  current: Pick<Collection, 'auths' | 'defaultAuthUid' | 'auth'>;
+  currentKeys?: ReadonlyMap<string, string>;
 }
 
 /**
- * Ancestor auth rides create payloads flattened to per-leaf paths
- * (`auth.type`, …), so edits mirror that granularity through
- * {@link synthesizeFieldDiff} — a whole-object `setField('auth', …)`
- * would let the stale create-time discriminant clobber the edit at
- * materialize time (same trap `buildUpdateBatch` documents for
- * request auth). A no-op edit yields an empty batch; callers
+ * Persist the collection's whole auth pool — a set diff over the
+ * entries plus the default scalar, the pre-pool `auth` field's leaves
+ * tombstoned alongside. An empty pool with no default = the level goes
+ * transparent. A no-op edit yields an empty batch; callers
  * short-circuit on it.
  */
-export function buildSetRequestCollectionAuthBatch(
-  input: SetRequestCollectionAuthInput,
+export function buildSetRequestCollectionAuthPoolBatch(
+  input: SetRequestCollectionAuthPoolInput,
   ctx: MutatorContext,
 ): RequestCollectionMutationPayload {
-  const bodies = synthesizeFieldDiff({
-    type: REQUEST_COLLECTION_ENTITY_TYPE,
-    id: input.collectionUid,
-    basePath: 'auth',
-    oldValue: input.currentAuth,
-    newValue: input.auth,
-  });
-  return { batch: mintBatch(ctx, bodies), sideEffects: [] };
+  const payload = buildAuthPoolReplacement(
+    {
+      entityType: REQUEST_COLLECTION_ENTITY_TYPE,
+      authsPath: REQUEST_COLLECTION_AUTHS_PATH,
+      defaultAuthPath: REQUEST_COLLECTION_DEFAULT_AUTH_PATH,
+    },
+    ctx,
+    {
+      entityUid: input.collectionUid,
+      newEntries: input.auths,
+      oldEntries: input.current.auths ?? [],
+      newDefaultUid: input.defaultAuthUid,
+      oldDefaultUid: input.current.defaultAuthUid,
+      legacyAuth: input.current.auth,
+      currentKeys: input.currentKeys,
+    },
+  );
+  return { batch: payload?.batch ?? mintBatch(ctx, []), sideEffects: [] };
 }
 
 export interface SetRequestCollectionVarInput {

@@ -20,14 +20,16 @@ import {
   newBatchId,
   newMutationId,
   PRE_BOOTSTRAP_ORG_ID,
+  REQUEST_FOLDER_AUTHS_PATH,
+  REQUEST_FOLDER_DEFAULT_AUTH_PATH,
   REQUEST_FOLDER_ENTITY_TYPE,
   REQUEST_FOLDER_MUTATOR_VERSION,
   type RequestFolderParentRef,
   renameRequestFolder,
   setRequestFolderScripts,
 } from '@openheaders/core/sync';
-import { synthesizeFieldDiff } from '@openheaders/core/sync-builders';
-import type { AuthConfig } from '@openheaders/core/types';
+import { buildAuthPoolReplacement } from '@openheaders/core/sync-builders';
+import type { AuthPoolEntry, Folder } from '@openheaders/core/types';
 
 export type RequestFolderMutationPayload = MutatorIntent;
 
@@ -108,29 +110,39 @@ export function buildSetRequestFolderScriptsBatch(
   return setRequestFolderScripts(ctx, input);
 }
 
-export interface SetRequestFolderAuthInput {
+export interface SetRequestFolderAuthPoolInput {
   folderUid: string;
-  /** New ancestor default auth; `undefined` clears the field (the
-   *  level goes transparent — the inherit walk passes through it). */
-  auth: AuthConfig | undefined;
-  /** Current materialized auth — the per-leaf diff baseline. */
-  currentAuth: AuthConfig | undefined;
+  auths: readonly AuthPoolEntry[];
+  defaultAuthUid: string | undefined;
+  /** The materialized folder — the diff pre-image (entries, default, the legacy field). */
+  current: Pick<Folder, 'auths' | 'defaultAuthUid' | 'auth'>;
+  currentKeys?: ReadonlyMap<string, string>;
 }
 
-/** See `buildSetRequestCollectionAuthBatch` — same per-leaf contract
- *  through {@link synthesizeFieldDiff}, request-folder entity type. */
-export function buildSetRequestFolderAuthBatch(
-  input: SetRequestFolderAuthInput,
+/** See `buildSetRequestCollectionAuthPoolBatch` — same contract,
+ *  request-folder entity type. */
+export function buildSetRequestFolderAuthPoolBatch(
+  input: SetRequestFolderAuthPoolInput,
   ctx: MutatorContext,
 ): RequestFolderMutationPayload {
-  const bodies = synthesizeFieldDiff({
-    type: REQUEST_FOLDER_ENTITY_TYPE,
-    id: input.folderUid,
-    basePath: 'auth',
-    oldValue: input.currentAuth,
-    newValue: input.auth,
-  });
-  return { batch: mintBatch(ctx, bodies), sideEffects: [] };
+  const payload = buildAuthPoolReplacement(
+    {
+      entityType: REQUEST_FOLDER_ENTITY_TYPE,
+      authsPath: REQUEST_FOLDER_AUTHS_PATH,
+      defaultAuthPath: REQUEST_FOLDER_DEFAULT_AUTH_PATH,
+    },
+    ctx,
+    {
+      entityUid: input.folderUid,
+      newEntries: input.auths,
+      oldEntries: input.current.auths ?? [],
+      newDefaultUid: input.defaultAuthUid,
+      oldDefaultUid: input.current.defaultAuthUid,
+      legacyAuth: input.current.auth,
+      currentKeys: input.currentKeys,
+    },
+  );
+  return { batch: payload?.batch ?? mintBatch(ctx, []), sideEffects: [] };
 }
 
 export interface MoveRequestFolderInput {
