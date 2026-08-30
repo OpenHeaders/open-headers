@@ -26,14 +26,11 @@ import FolderOverview from '../overviews/FolderOverview';
 import LiveVariablesEditor from '../variables/LiveVariablesEditor';
 import LiveVariableEditor from '../live/LiveVariableEditor';
 import LiveWorkflowEditor from '../live/LiveWorkflowEditor';
-import AncestorAuthEditor from '../auth/AncestorAuthEditor';
-import AncestorScriptsEditor from '../scripts/AncestorScriptsEditor';
 import GrpcRequestEditor from '../grpc-request-editor/GrpcRequestEditor';
 import MqttRequestEditor from '../mqtt-request-editor/MqttRequestEditor';
 import WebSocketRequestEditor from '../websocket-request-editor/WebSocketRequestEditor';
-import RequestCollectionOverview from '../overviews/RequestCollectionOverview';
+import RequestContainerEditor from '../request-container/RequestContainerEditor';
 import RequestEditor from '../request-editor/RequestEditor';
-import RequestFolderOverview from '../overviews/RequestFolderOverview';
 import GrpcResponseExampleView from '../grpc-response-example/GrpcResponseExampleView';
 import WsResponseExampleView from '../ws-response-example/WsResponseExampleView';
 import MqttResponseExampleView from '../mqtt-response-example/MqttResponseExampleView';
@@ -61,7 +58,7 @@ import type { SaveRequestFlowApi } from '../../hooks/useSaveRequestFlow';
 import type { SaveRuleFlowApi } from '../../hooks/useSaveRuleFlow';
 import type { UseTabOpenersApi } from '../../hooks/useTabOpeners';
 import { SettingsTab } from '../../settings/ui';
-import type { WorkbenchTab } from '../../types';
+import type { RequestContainerSection, WorkbenchTab } from '../../types';
 
 interface WorkbenchTabBodyProps {
   tab: WorkbenchTab;
@@ -85,11 +82,12 @@ interface WorkbenchTabBodyProps {
   openCreateGrpcRequestTab: UseTabOpenersApi['openCreateGrpcRequestTab'];
   openCreateWebSocketRequestTab: UseTabOpenersApi['openCreateWebSocketRequestTab'];
   openCreateMqttRequestTab: UseTabOpenersApi['openCreateMqttRequestTab'];
-  openRequestCollectionVariables: UseTabOpenersApi['openRequestCollectionVariables'];
-  openRequestCollectionScripts: UseTabOpenersApi['openRequestCollectionScripts'];
-  openRequestFolderScripts: UseTabOpenersApi['openRequestFolderScripts'];
-  openRequestCollectionAuth: UseTabOpenersApi['openRequestCollectionAuth'];
-  openRequestFolderAuth: UseTabOpenersApi['openRequestFolderAuth'];
+  /** The request container editor's section changed — recorded on
+   *  the tab so a reopen lands where the user left. */
+  setContainerSection: (tabId: string, section: RequestContainerSection) => void;
+  /** A container's Scripts section was viewed — clears its post-import
+   *  "review pending" reminder. */
+  onRequestScriptsViewed: (uid: string) => void;
   openRequestEditTab: UseTabOpenersApi['openRequestEditTab'];
   openTemplateEditTab: UseTabOpenersApi['openTemplateEditTab'];
   openTemplateCollectionVariables: UseTabOpenersApi['openTemplateCollectionVariables'];
@@ -142,11 +140,8 @@ const WorkbenchTabBody: React.FC<WorkbenchTabBodyProps> = ({
   openCreateGrpcRequestTab,
   openCreateWebSocketRequestTab,
   openCreateMqttRequestTab,
-  openRequestCollectionVariables,
-  openRequestCollectionScripts,
-  openRequestFolderScripts,
-  openRequestCollectionAuth,
-  openRequestFolderAuth,
+  setContainerSection,
+  onRequestScriptsViewed,
   openRequestEditTab,
   openTemplateEditTab,
   openTemplateCollectionVariables,
@@ -199,20 +194,26 @@ const WorkbenchTabBody: React.FC<WorkbenchTabBodyProps> = ({
     // session-50 behavior + handles the still-loading case).
     if (requestCollections.some((c) => c.uid === tab.entityId)) {
       return (
-        <RequestCollectionOverview
-          collectionUid={tab.entityId}
-          onSelectRequest={openRequestEditTab}
-          onSelectGrpcRequest={openGrpcRequestEditTab}
-          onSelectWebSocketRequest={openWebSocketRequestEditTab}
-          onSelectMqttRequest={openMqttRequestEditTab}
-          onCreateRequest={openCreateRequestTab}
-          onCreateGrpcRequest={openCreateGrpcRequestTab}
-          onCreateWebSocketRequest={openCreateWebSocketRequestTab}
-          onCreateMqttRequest={openCreateMqttRequestTab}
-          onOpenFolderOverview={openRequestFolderOverview}
-          onOpenCollectionVariables={openRequestCollectionVariables}
-          onOpenCollectionScripts={openRequestCollectionScripts}
-          onOpenCollectionAuth={openRequestCollectionAuth}
+        <RequestContainerEditor
+          kind="collection"
+          entityUid={tab.entityId}
+          section={tab.containerSection}
+          onSectionChange={(section) => setContainerSection(tab.id, section)}
+          overview={{
+            onSelectRequest: openRequestEditTab,
+            onSelectGrpcRequest: openGrpcRequestEditTab,
+            onSelectWebSocketRequest: openWebSocketRequestEditTab,
+            onSelectMqttRequest: openMqttRequestEditTab,
+            onCreateRequest: openCreateRequestTab,
+            onCreateGrpcRequest: openCreateGrpcRequestTab,
+            onCreateWebSocketRequest: openCreateWebSocketRequestTab,
+            onCreateMqttRequest: openCreateMqttRequestTab,
+            onOpenFolderOverview: openRequestFolderOverview,
+          }}
+          onOpenPackageLibrary={openScriptPackages}
+          onScriptsViewed={onRequestScriptsViewed}
+          onDirtyChange={(dirty) => handleDirtyChange(tab.id, dirty)}
+          registerSaveRef={(saveFn) => registerSaveRef(tab.id, saveFn)}
         />
       );
     }
@@ -250,19 +251,26 @@ const WorkbenchTabBody: React.FC<WorkbenchTabBodyProps> = ({
     });
     if (owner?.family === 'request') {
       return (
-        <RequestFolderOverview
-          folderUid={tab.entityId}
-          onSelectRequest={openRequestEditTab}
-          onSelectGrpcRequest={openGrpcRequestEditTab}
-          onSelectWebSocketRequest={openWebSocketRequestEditTab}
-          onSelectMqttRequest={openMqttRequestEditTab}
-          onCreateRequest={openCreateRequestTab}
-          onCreateGrpcRequest={openCreateGrpcRequestTab}
-          onCreateWebSocketRequest={openCreateWebSocketRequestTab}
-          onCreateMqttRequest={openCreateMqttRequestTab}
-          onOpenFolderOverview={openRequestFolderOverview}
-          onOpenFolderScripts={openRequestFolderScripts}
-          onOpenFolderAuth={openRequestFolderAuth}
+        <RequestContainerEditor
+          kind="folder"
+          entityUid={tab.entityId}
+          section={tab.containerSection}
+          onSectionChange={(section) => setContainerSection(tab.id, section)}
+          overview={{
+            onSelectRequest: openRequestEditTab,
+            onSelectGrpcRequest: openGrpcRequestEditTab,
+            onSelectWebSocketRequest: openWebSocketRequestEditTab,
+            onSelectMqttRequest: openMqttRequestEditTab,
+            onCreateRequest: openCreateRequestTab,
+            onCreateGrpcRequest: openCreateGrpcRequestTab,
+            onCreateWebSocketRequest: openCreateWebSocketRequestTab,
+            onCreateMqttRequest: openCreateMqttRequestTab,
+            onOpenFolderOverview: openRequestFolderOverview,
+          }}
+          onOpenPackageLibrary={openScriptPackages}
+          onScriptsViewed={onRequestScriptsViewed}
+          onDirtyChange={(dirty) => handleDirtyChange(tab.id, dirty)}
+          registerSaveRef={(saveFn) => registerSaveRef(tab.id, saveFn)}
         />
       );
     }
@@ -422,58 +430,6 @@ const WorkbenchTabBody: React.FC<WorkbenchTabBodyProps> = ({
       <CollectionVariablesEditor
         kind="rule"
         collectionUid={tab.collectionUid}
-        onDirtyChange={(dirty) => handleDirtyChange(tab.id, dirty)}
-        registerSaveRef={(saveFn) => registerSaveRef(tab.id, saveFn)}
-      />
-    );
-  }
-  if (tab.mode === 'request-collection-vars' && tab.collectionUid) {
-    return (
-      <CollectionVariablesEditor
-        kind="request"
-        collectionUid={tab.collectionUid}
-        onDirtyChange={(dirty) => handleDirtyChange(tab.id, dirty)}
-        registerSaveRef={(saveFn) => registerSaveRef(tab.id, saveFn)}
-      />
-    );
-  }
-  if (tab.mode === 'request-collection-scripts' && tab.entityId) {
-    return (
-      <AncestorScriptsEditor
-        kind="collection"
-        entityUid={tab.entityId}
-        onDirtyChange={(dirty) => handleDirtyChange(tab.id, dirty)}
-        registerSaveRef={(saveFn) => registerSaveRef(tab.id, saveFn)}
-        onOpenPackageLibrary={openScriptPackages}
-      />
-    );
-  }
-  if (tab.mode === 'request-folder-scripts' && tab.entityId) {
-    return (
-      <AncestorScriptsEditor
-        kind="folder"
-        entityUid={tab.entityId}
-        onDirtyChange={(dirty) => handleDirtyChange(tab.id, dirty)}
-        registerSaveRef={(saveFn) => registerSaveRef(tab.id, saveFn)}
-        onOpenPackageLibrary={openScriptPackages}
-      />
-    );
-  }
-  if (tab.mode === 'request-collection-auth' && tab.entityId) {
-    return (
-      <AncestorAuthEditor
-        kind="collection"
-        entityUid={tab.entityId}
-        onDirtyChange={(dirty) => handleDirtyChange(tab.id, dirty)}
-        registerSaveRef={(saveFn) => registerSaveRef(tab.id, saveFn)}
-      />
-    );
-  }
-  if (tab.mode === 'request-folder-auth' && tab.entityId) {
-    return (
-      <AncestorAuthEditor
-        kind="folder"
-        entityUid={tab.entityId}
         onDirtyChange={(dirty) => handleDirtyChange(tab.id, dirty)}
         registerSaveRef={(saveFn) => registerSaveRef(tab.id, saveFn)}
       />

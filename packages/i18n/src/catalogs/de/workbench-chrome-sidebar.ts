@@ -291,19 +291,8 @@ export const workbenchChromeSidebar = {
   'workbench.overview.action.resumeFolderTooltip': 'Alle Regeln in diesem Ordner fortsetzen',
   'workbench.overview.action.variables': 'Variablen',
   'workbench.overview.action.variablesTooltip': 'Die auf diese Sammlung begrenzten Variablen bearbeiten',
-  'workbench.overview.action.variablesTooltipRequest':
-    'Die auf diese Anfragen-Sammlung begrenzten Variablen bearbeiten',
   'workbench.overview.action.variablesTooltipTemplate':
     'Die auf diese Vorlagen-Sammlung begrenzten Variablen bearbeiten',
-  'workbench.overview.action.scripts': 'Scripts',
-  'workbench.overview.action.scriptsTooltipCollection':
-    'Scripts bearbeiten, die für jede Anfrage in dieser Sammlung laufen',
-  'workbench.overview.action.scriptsTooltipFolder': 'Scripts bearbeiten, die für jede Anfrage in diesem Ordner laufen',
-  'workbench.overview.action.auth': 'Autorisierung',
-  'workbench.overview.action.authTooltipCollection':
-    'Die Standard-Autorisierung festlegen, die jede Anfrage in dieser Sammlung erbt',
-  'workbench.overview.action.authTooltipFolder':
-    'Die Standard-Autorisierung festlegen, die jede Anfrage in diesem Ordner erbt',
   'workbench.overview.caption.description': 'Beschreibung',
   'workbench.overview.caption.contents': 'Inhalt',
   'workbench.overview.empty.collectionNotFound': 'Sammlung nicht gefunden',

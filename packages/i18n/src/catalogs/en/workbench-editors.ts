@@ -33,8 +33,6 @@ export const workbenchEditors = {
   'workbench.editors.grid.suggestionValueAria': '{key} value',
 
   // ── Ancestor scripts editor (collection/folder script slots) ───────
-  'workbench.editors.ancestorScripts.titleCollection': 'Scripts — {name}',
-  'workbench.editors.ancestorScripts.titleFolder': 'Scripts — {name}',
   'workbench.editors.ancestorScripts.descriptionCollection':
     'These scripts run for every request in this collection — the pre-request script before each send, the post-response script after each response. They run first: collection scripts, then folder scripts, then the request’s own scripts.',
   'workbench.editors.ancestorScripts.descriptionFolder':
@@ -43,20 +41,30 @@ export const workbenchEditors = {
   'workbench.editors.ancestorScripts.notFoundFolder': 'Folder not found.',
   'workbench.editors.ancestorScripts.saveFailed': 'Could not save scripts.',
   'workbench.editors.ancestorScripts.saveFailedDetail': 'Could not save scripts: {message}',
-  'workbench.editors.ancestorScripts.deletedElsewhere': 'This item was deleted in another window.',
 
   // ── Ancestor auth editor (collection/folder default authorization) ──
-  'workbench.editors.ancestorAuth.titleCollection': 'Authorization — {name}',
-  'workbench.editors.ancestorAuth.titleFolder': 'Authorization — {name}',
   'workbench.editors.ancestorAuth.descriptionCollection':
-    'Requests set to Inherit use this authorization. A folder\u2019s own authorization takes precedence, and a request\u2019s explicit authorization always wins. Inherit here means nothing is configured at this level.',
+    'Requests set to Inherit use this authorization. A folder\u2019s own authorization takes precedence, and a request\u2019s explicit authorization always wins. No default means nothing is configured at this level.',
   'workbench.editors.ancestorAuth.descriptionFolder':
-    'Requests set to Inherit use this authorization ahead of the collection\u2019s. A request\u2019s explicit authorization always wins. Inherit here means nothing is configured at this level \u2014 requests fall through to the collection.',
+    'Requests set to Inherit use this authorization ahead of the collection\u2019s. A request\u2019s explicit authorization always wins. Inherit from collection means nothing is configured at this level \u2014 requests fall through to the collection.',
   'workbench.editors.ancestorAuth.notFoundCollection': 'Request collection not found.',
   'workbench.editors.ancestorAuth.notFoundFolder': 'Folder not found.',
   'workbench.editors.ancestorAuth.saveFailed': 'Could not save authorization.',
   'workbench.editors.ancestorAuth.saveFailedDetail': 'Could not save authorization: {message}',
-  'workbench.editors.ancestorAuth.deletedElsewhere': 'This item was deleted in another window.',
+
+  // ── Request container editor (a collection / folder: one tab, sections) ──
+  'workbench.editors.requestContainer.tab.overview': 'Overview',
+  'workbench.editors.requestContainer.auth.noDefault': 'No default',
+  'workbench.editors.requestContainer.auth.inheritFromCollection': 'Inherit from collection',
+  'workbench.editors.requestContainer.auth.noDefaultNote':
+    'Nothing is set for this collection. Requests set to Inherit send without authorization.',
+  'workbench.editors.requestContainer.auth.noDefaultDetail':
+    'Pick a type to set the default every request in this collection inherits.',
+  'workbench.editors.requestContainer.auth.inheritFromCollectionNote':
+    'Nothing is set for this folder \u2014 requests fall through to the collection\u2019s default.',
+  'workbench.editors.requestContainer.auth.inheritFromCollectionDetail':
+    'Pick a type to override the collection\u2019s default for every request in this folder.',
+  'workbench.editors.requestContainer.deletedElsewhere': 'This item was deleted in another window.',
 
   // ── Response-example editor ────────────────────────────────────────
   'workbench.editors.responseExample.loading': 'Loading example…',

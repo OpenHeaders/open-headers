@@ -84,12 +84,6 @@ export function computeBreadcrumbs(
       ? [t('workbench.shell.breadcrumbs.rules'), col.name, t('workbench.shell.breadcrumbs.variables')]
       : [t('workbench.shell.breadcrumbs.variables')];
   }
-  if (tab.mode === 'request-collection-vars') {
-    const col = tab.collectionUid ? requestCollectionTrees.find((c) => c.uid === tab.collectionUid) : null;
-    return col
-      ? [t('workbench.shell.breadcrumbs.requests'), col.name, t('workbench.shell.breadcrumbs.variables')]
-      : [t('workbench.shell.breadcrumbs.variables')];
-  }
   if (tab.mode === 'template-collection-vars') {
     const col = tab.collectionUid ? templateCollectionTrees.find((c) => c.uid === tab.collectionUid) : null;
     return col

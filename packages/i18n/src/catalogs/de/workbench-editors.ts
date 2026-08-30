@@ -45,8 +45,6 @@ export const workbenchEditors = {
   'workbench.editors.grid.suggestionValueAria': 'Wert von {key}',
 
   // ── Ancestor scripts editor (collection/folder script slots) ───────
-  'workbench.editors.ancestorScripts.titleCollection': 'Scripts — {name}',
-  'workbench.editors.ancestorScripts.titleFolder': 'Scripts — {name}',
   'workbench.editors.ancestorScripts.descriptionCollection':
     'Diese Scripts laufen für jede Anfrage in dieser Sammlung — das Pre-Request-Script vor jedem Senden, das ' +
     'Post-Response-Script nach jeder Antwort. Die Reihenfolge: erst die Scripts der Sammlung, dann die des ' +
@@ -59,24 +57,34 @@ export const workbenchEditors = {
   'workbench.editors.ancestorScripts.notFoundFolder': 'Ordner nicht gefunden.',
   'workbench.editors.ancestorScripts.saveFailed': 'Scripts konnten nicht gespeichert werden.',
   'workbench.editors.ancestorScripts.saveFailedDetail': 'Scripts konnten nicht gespeichert werden: {message}',
-  'workbench.editors.ancestorScripts.deletedElsewhere': 'Dieses Element wurde in einem anderen Fenster gelöscht.',
 
   // ── Ancestor auth editor (collection/folder default authorization) ──
-  'workbench.editors.ancestorAuth.titleCollection': 'Autorisierung — {name}',
-  'workbench.editors.ancestorAuth.titleFolder': 'Autorisierung — {name}',
   'workbench.editors.ancestorAuth.descriptionCollection':
     'Anfragen, die auf Erben eingestellt sind, verwenden diese Autorisierung. Die eigene Autorisierung eines ' +
-    'Ordners hat Vorrang, und die explizite Autorisierung einer Anfrage gewinnt immer. Erben bedeutet hier, ' +
+    'Ordners hat Vorrang, und die explizite Autorisierung einer Anfrage gewinnt immer. Kein Standard bedeutet, ' +
     'dass auf dieser Ebene nichts konfiguriert ist.',
   'workbench.editors.ancestorAuth.descriptionFolder':
     'Anfragen, die auf Erben eingestellt sind, verwenden diese Autorisierung vor der der Sammlung. Die ' +
-    'explizite Autorisierung einer Anfrage gewinnt immer. Erben bedeutet hier, dass auf dieser Ebene nichts ' +
-    'konfiguriert ist — Anfragen fallen auf die Sammlung zurück.',
+    'explizite Autorisierung einer Anfrage gewinnt immer. Von der Sammlung erben bedeutet, dass auf dieser Ebene ' +
+    'nichts konfiguriert ist — Anfragen fallen auf die Sammlung zurück.',
   'workbench.editors.ancestorAuth.notFoundCollection': 'Anfragesammlung nicht gefunden.',
   'workbench.editors.ancestorAuth.notFoundFolder': 'Ordner nicht gefunden.',
   'workbench.editors.ancestorAuth.saveFailed': 'Autorisierung konnte nicht gespeichert werden.',
   'workbench.editors.ancestorAuth.saveFailedDetail': 'Autorisierung konnte nicht gespeichert werden: {message}',
-  'workbench.editors.ancestorAuth.deletedElsewhere': 'Dieses Element wurde in einem anderen Fenster gelöscht.',
+
+  // ── Anfragen-Container-Editor (Sammlung / Ordner: ein Tab, Abschnitte) ──
+  'workbench.editors.requestContainer.tab.overview': 'Übersicht',
+  'workbench.editors.requestContainer.auth.noDefault': 'Kein Standard',
+  'workbench.editors.requestContainer.auth.inheritFromCollection': 'Von der Sammlung erben',
+  'workbench.editors.requestContainer.auth.noDefaultNote':
+    'Für diese Sammlung ist nichts festgelegt. Auf Erben eingestellte Anfragen werden ohne Autorisierung gesendet.',
+  'workbench.editors.requestContainer.auth.noDefaultDetail':
+    'Wähle einen Typ, um den Standard festzulegen, den jede Anfrage in dieser Sammlung erbt.',
+  'workbench.editors.requestContainer.auth.inheritFromCollectionNote':
+    'Für diesen Ordner ist nichts festgelegt — Anfragen fallen auf den Standard der Sammlung zurück.',
+  'workbench.editors.requestContainer.auth.inheritFromCollectionDetail':
+    'Wähle einen Typ, um den Standard der Sammlung für jede Anfrage in diesem Ordner zu überschreiben.',
+  'workbench.editors.requestContainer.deletedElsewhere': 'Dieses Element wurde in einem anderen Fenster gelöscht.',
 
   // ── Response-example editor ────────────────────────────────────────
   'workbench.editors.responseExample.loading': 'Beispiel wird geladen…',

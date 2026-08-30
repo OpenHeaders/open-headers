@@ -55,11 +55,6 @@ export type TabMode =
   | 'script-packages'
   | 'live-vars'
   | 'collection-vars'
-  | 'request-collection-vars'
-  | 'request-collection-scripts'
-  | 'request-folder-scripts'
-  | 'request-collection-auth'
-  | 'request-folder-auth'
   | 'template-collection-vars'
   | 'request-edit'
   | 'request-create'
@@ -79,6 +74,14 @@ export type TabMode =
   | 'live-network-request-inspect'
   | 'live-storage-doc-inspect'
   | 'session-replay-request-inspect';
+
+/**
+ * Sub-tabs of the request container editor (a request collection's or
+ * request folder's `collection-overview` / `folder-overview` tab):
+ * one tab per container, the concerns as sections — never a tab mode
+ * per concern.
+ */
+export type RequestContainerSection = 'overview' | 'authorization' | 'scripts' | 'variables';
 
 export interface WorkbenchTab {
   /** Unique tab identifier. Format: 'create-{counter}', 'edit-{uid}', 'col-{uid}', 'folder-{uid}'. */
@@ -175,6 +178,11 @@ export interface WorkbenchTab {
   specUid?: string;
   /** For collection-vars tabs: the collection uid whose variables are being edited. */
   collectionUid?: string;
+  /** For a request collection's / folder's overview tab: the section
+   *  the container editor shows. An opener that targets a section
+   *  (the env selector's Collection footer, an intent link) writes it;
+   *  absent = the editor's own choice (Overview on first mount). */
+  containerSection?: RequestContainerSection;
   /** For request-edit tabs: the Request uid being edited. For
    *  response-example tabs: the parent request's uid (drives the
    *  breadcrumb trail through the request tree). */

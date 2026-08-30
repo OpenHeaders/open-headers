@@ -147,15 +147,9 @@ export function tabDisplayLabel(tab: WorkbenchTab, lookups: TabDisplayLookups, t
       return name ?? tab.label;
     }
     case 'collection-vars':
-    case 'request-collection-vars':
     case 'template-collection-vars': {
       if (!tab.collectionUid) return tab.label;
-      const trees =
-        tab.mode === 'collection-vars'
-          ? lookups.localCollectionTrees
-          : tab.mode === 'request-collection-vars'
-            ? lookups.requestCollectionTrees
-            : lookups.templateCollectionTrees;
+      const trees = tab.mode === 'collection-vars' ? lookups.localCollectionTrees : lookups.templateCollectionTrees;
       const col = trees.find((c) => c.uid === tab.collectionUid);
       return col ? t('workbench.shell.tabLabel.collectionVariables', { name: col.name }) : tab.label;
     }

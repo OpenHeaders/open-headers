@@ -51,14 +51,96 @@ const AUTH_OPTIONS: AuthOption[] = [
   { value: 'oauth1', labelKey: 'workbench.editors.request.auth.type.oauth1' },
 ];
 
+/** The level the tab edits — the transparent choice reads differently
+ *  at each: a request inherits from its parents, a folder from the
+ *  collection, a collection has no parent (its transparent choice is
+ *  "No default"). */
+export type AuthLevel = 'request' | 'collection' | 'folder';
+
+/** What a request set to Inherit resolves to, for the attribution line
+ *  under the Inherit empty state: the effective type and the level it
+ *  came from, or nothing set anywhere above. */
+export interface InheritedAuthAttribution {
+  auth: AuthConfig;
+  source: { kind: 'collection' | 'folder'; name: string } | null;
+}
+
 interface AuthorizationTabProps {
   auth: AuthConfig;
   onChange: (auth: AuthConfig) => void;
+  /** Defaults to `'request'`. */
+  level?: AuthLevel;
+  /** Request level only — the Inherit empty state names what the
+   *  request actually sends with. Absent = unknown (a scratch draft). */
+  inheritedFrom?: InheritedAuthAttribution;
 }
 
-const AuthorizationTab: React.FC<AuthorizationTabProps> = ({ auth, onChange }) => {
+export function authTypeLabelKey(type: AuthKind): MessageKey {
+  return AUTH_OPTIONS.find((o) => o.value === type)?.labelKey ?? 'workbench.editors.request.auth.type.none';
+}
+
+function transparentLabelKey(level: AuthLevel): MessageKey {
+  switch (level) {
+    case 'collection':
+      return 'workbench.editors.requestContainer.auth.noDefault';
+    case 'folder':
+      return 'workbench.editors.requestContainer.auth.inheritFromCollection';
+    default:
+      return 'workbench.editors.request.auth.type.inherit';
+  }
+}
+
+const AuthorizationTab: React.FC<AuthorizationTabProps> = ({ auth, onChange, level = 'request', inheritedFrom }) => {
   const t = useT();
-  const authOptions = useMemo(() => AUTH_OPTIONS.map((o) => ({ value: o.value, label: t(o.labelKey) })), [t]);
+  const authOptions = useMemo(
+    () =>
+      AUTH_OPTIONS.map((o) => ({
+        value: o.value,
+        label: t(o.value === 'inherit' ? transparentLabelKey(level) : o.labelKey),
+      })),
+    [t, level],
+  );
+
+  // The transparent choice's copy per level: the rail note states the
+  // fact, the empty state says what to do about it — and at the
+  // request level names the level that supplies the auth.
+  const transparent = useMemo(() => {
+    if (level === 'collection') {
+      return {
+        note: t('workbench.editors.requestContainer.auth.noDefaultNote'),
+        detail: t('workbench.editors.requestContainer.auth.noDefaultDetail'),
+      };
+    }
+    if (level === 'folder') {
+      return {
+        note: t('workbench.editors.requestContainer.auth.inheritFromCollectionNote'),
+        detail: t('workbench.editors.requestContainer.auth.inheritFromCollectionDetail'),
+      };
+    }
+    if (inheritedFrom === undefined) {
+      return {
+        note: t('workbench.editors.request.auth.inheritNote'),
+        detail: t('workbench.editors.request.auth.inheritDetail'),
+      };
+    }
+    if (inheritedFrom.source === null) {
+      return {
+        note: t('workbench.editors.request.auth.inheritNote'),
+        detail: t('workbench.editors.request.auth.inheritedNone'),
+      };
+    }
+    const source =
+      inheritedFrom.source.kind === 'collection'
+        ? t('workbench.editors.request.auth.sourceCollection', { name: inheritedFrom.source.name })
+        : t('workbench.editors.request.auth.sourceFolder', { name: inheritedFrom.source.name });
+    return {
+      note: t('workbench.editors.request.auth.inheritNote'),
+      detail: t('workbench.editors.request.auth.inheritedFrom', {
+        type: t(authTypeLabelKey(inheritedFrom.auth.type)),
+        source,
+      }),
+    };
+  }, [t, level, inheritedFrom]);
 
   const switchType = (type: AuthKind) => {
     if (type === 'none' || type === 'inherit') {
@@ -107,7 +189,7 @@ const AuthorizationTab: React.FC<AuthorizationTabProps> = ({ auth, onChange }) =
             options={authOptions}
             style={{ width: '100%' }}
           />
-          {auth.type === 'inherit' && <AuthRailNote>{t('workbench.editors.request.auth.inheritNote')}</AuthRailNote>}
+          {auth.type === 'inherit' && <AuthRailNote>{transparent.note}</AuthRailNote>}
           {auth.type === 'none' && <AuthRailNote>{t('workbench.editors.request.auth.noneNote')}</AuthRailNote>}
           {auth.type === 'oauth2' && <OAuth2LeftRailControls auth={auth} onChange={onChange} />}
         </>
@@ -123,8 +205,9 @@ const AuthorizationTab: React.FC<AuthorizationTabProps> = ({ auth, onChange }) =
 
       {auth.type === 'inherit' && (
         <AuthEmptyState
-          title={t('workbench.editors.request.auth.type.inherit')}
-          note={t('workbench.editors.request.auth.inheritDetail')}
+          title={t(transparentLabelKey(level))}
+          note={transparent.detail}
+          testId="oh-auth-transparent-state"
         />
       )}
 

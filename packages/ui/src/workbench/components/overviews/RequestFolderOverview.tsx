@@ -11,16 +11,14 @@
  *     a method tag column matching the collection-overview / sidebar
  *     precedent.
  *
- * Pre-this-session, clicking a folder inside a request collection
- * opened a `folder-overview` tab whose component (rule-family
- * `FolderOverview`) walked `localCollectionTrees` and rendered
- * "Folder not found" because the uid lives in a request tree.
+ * The Overview section of {@link RequestContainerEditor} — the
+ * folder's scripts and authorization are that editor's other sections.
  */
 
-import { CodeOutlined, FolderOutlined, LockOutlined, PlusOutlined } from '@ant-design/icons';
+import { FolderOutlined, PlusOutlined } from '@ant-design/icons';
 import { useRequests } from '@openheaders/ui/shared/hooks/readers/useRequests';
 import type { CollectionTree, FolderNode, HttpMethod, TreeNode } from '@openheaders/core/types';
-import { Button, Dropdown, Empty, Space, Table, Tag, Tooltip, theme } from 'antd';
+import { Button, Dropdown, Empty, Space, Table, Tag, theme } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import type React from 'react';
 import { useCallback, useMemo } from 'react';
@@ -47,8 +45,6 @@ interface RequestFolderOverviewProps {
   }) => void;
   onCreateMqttRequest?: (context: { collectionId: string; folderPath?: string }) => void;
   onOpenFolderOverview: (uid: string, name: string) => void;
-  onOpenFolderScripts?: (uid: string, name: string) => void;
-  onOpenFolderAuth?: (uid: string, name: string) => void;
 }
 
 interface ContentRow {
@@ -123,8 +119,6 @@ const RequestFolderOverview: React.FC<RequestFolderOverviewProps> = ({
   onCreateWebSocketRequest,
   onCreateMqttRequest,
   onOpenFolderOverview,
-  onOpenFolderScripts,
-  onOpenFolderAuth,
 }) => {
   const { token } = theme.useToken();
   const t = useT();
@@ -272,25 +266,9 @@ const RequestFolderOverview: React.FC<RequestFolderOverviewProps> = ({
     </span>
   );
 
-  const actions = (
-    <>
-      {addRequestButton}
-      {onOpenFolderScripts && folder && (
-        <Tooltip title={t('workbench.overview.action.scriptsTooltipFolder')}>
-          <Button size="small" icon={<CodeOutlined />} onClick={() => onOpenFolderScripts(folderUid, folder.name)}>
-            {t('workbench.overview.action.scripts')}
-          </Button>
-        </Tooltip>
-      )}
-      {onOpenFolderAuth && folder && (
-        <Tooltip title={t('workbench.overview.action.authTooltipFolder')}>
-          <Button size="small" icon={<LockOutlined />} onClick={() => onOpenFolderAuth(folderUid, folder.name)}>
-            {t('workbench.overview.action.auth')}
-          </Button>
-        </Tooltip>
-      )}
-    </>
-  );
+  // Scripts / Authorization are the container editor's own sections,
+  // not actions — the overview's only action creates.
+  const actions = addRequestButton;
 
   const contents =
     rows.length > 0 ? (

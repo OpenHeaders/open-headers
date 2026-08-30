@@ -213,6 +213,11 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.auth.inheritDetail':
     'Esta solicitud usa el asistente de autorización de su colección padre. Edita la pestaña Autorización ' +
     'de la colección para cambiarlo.',
+  'workbench.editors.request.auth.inheritedFrom': '{type} — de {source}',
+  'workbench.editors.request.auth.inheritedNone':
+    'Sin autorización — no hay nada configurado en la carpeta ni en la colección.',
+  'workbench.editors.request.auth.sourceCollection': 'Colección «{name}»',
+  'workbench.editors.request.auth.sourceFolder': 'Carpeta «{name}»',
   'workbench.editors.request.auth.resizeRailAria': 'Redimensionar el riel de tipos de autenticación',
   'workbench.editors.request.auth.username': 'Nombre de usuario',
   'workbench.editors.request.auth.password': 'Contraseña',

@@ -37,8 +37,6 @@ export const workbenchEditors = {
   'workbench.editors.grid.suggestionValueAria': 'Valeur de {key}',
 
   // ── Ancestor scripts editor (collection/folder script slots) ───────
-  'workbench.editors.ancestorScripts.titleCollection': 'Scripts — {name}',
-  'workbench.editors.ancestorScripts.titleFolder': 'Scripts — {name}',
   'workbench.editors.ancestorScripts.descriptionCollection':
     "Ces scripts s'exécutent pour chaque requête de cette collection — le script pré-requête avant chaque envoi, " +
     "le script post-réponse après chaque réponse. Ils s'exécutent en premier : scripts de collection, puis " +
@@ -51,24 +49,34 @@ export const workbenchEditors = {
   'workbench.editors.ancestorScripts.notFoundFolder': 'Dossier introuvable.',
   'workbench.editors.ancestorScripts.saveFailed': "Impossible d'enregistrer les scripts.",
   'workbench.editors.ancestorScripts.saveFailedDetail': "Impossible d'enregistrer les scripts : {message}",
-  'workbench.editors.ancestorScripts.deletedElsewhere': 'Cet élément a été supprimé dans une autre fenêtre.',
 
   // ── Ancestor auth editor (collection/folder default authorization) ──
-  'workbench.editors.ancestorAuth.titleCollection': 'Autorisation — {name}',
-  'workbench.editors.ancestorAuth.titleFolder': 'Autorisation — {name}',
   'workbench.editors.ancestorAuth.descriptionCollection':
     "Les requêtes réglées sur Hériter utilisent cette autorisation. L'autorisation propre d'un dossier prend le " +
-    "pas, et l'autorisation explicite d'une requête gagne toujours. Hériter ici signifie que rien n'est configuré " +
-    'à ce niveau.',
+    "pas, et l'autorisation explicite d'une requête gagne toujours. Aucune valeur par défaut signifie que rien " +
+    "n'est configuré à ce niveau.",
   'workbench.editors.ancestorAuth.descriptionFolder':
     "Les requêtes réglées sur Hériter utilisent cette autorisation avant celle de la collection. L'autorisation " +
-    "explicite d'une requête gagne toujours. Hériter ici signifie que rien n'est configuré à ce niveau — les " +
-    'requêtes retombent sur la collection.',
+    "explicite d'une requête gagne toujours. Hériter de la collection signifie que rien n'est configuré à ce " +
+    'niveau — les requêtes retombent sur la collection.',
   'workbench.editors.ancestorAuth.notFoundCollection': 'Collection de requêtes introuvable.',
   'workbench.editors.ancestorAuth.notFoundFolder': 'Dossier introuvable.',
   'workbench.editors.ancestorAuth.saveFailed': "Impossible d'enregistrer l'autorisation.",
   'workbench.editors.ancestorAuth.saveFailedDetail': "Impossible d'enregistrer l'autorisation : {message}",
-  'workbench.editors.ancestorAuth.deletedElsewhere': 'Cet élément a été supprimé dans une autre fenêtre.',
+
+  // ── Éditeur du conteneur de requêtes (collection / dossier : un onglet, des sections) ──
+  'workbench.editors.requestContainer.tab.overview': 'Aperçu',
+  'workbench.editors.requestContainer.auth.noDefault': 'Aucune valeur par défaut',
+  'workbench.editors.requestContainer.auth.inheritFromCollection': 'Hériter de la collection',
+  'workbench.editors.requestContainer.auth.noDefaultNote':
+    "Rien n'est défini pour cette collection. Les requêtes réglées sur Hériter partent sans autorisation.",
+  'workbench.editors.requestContainer.auth.noDefaultDetail':
+    'Choisissez un type pour définir la valeur par défaut dont hérite chaque requête de cette collection.',
+  'workbench.editors.requestContainer.auth.inheritFromCollectionNote':
+    "Rien n'est défini pour ce dossier — les requêtes retombent sur la valeur par défaut de la collection.",
+  'workbench.editors.requestContainer.auth.inheritFromCollectionDetail':
+    'Choisissez un type pour remplacer la valeur par défaut de la collection pour chaque requête de ce dossier.',
+  'workbench.editors.requestContainer.deletedElsewhere': 'Cet élément a été supprimé dans une autre fenêtre.',
 
   // ── Response-example editor ────────────────────────────────────────
   'workbench.editors.responseExample.loading': "Chargement de l'exemple…",

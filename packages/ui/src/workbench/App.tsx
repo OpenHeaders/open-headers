@@ -148,7 +148,7 @@ import { SettingsModal } from './settings/ui';
 import { noteToolWindowFeatureUsed } from './feature-usage';
 import { getFocusedDock } from './stores/focus-region-store';
 import { isToolWindowTeased, TOOL_WINDOW_MAP } from './tool-windows';
-import type { DockSlot, ToolWindowId, WorkbenchTab } from './types';
+import type { DockSlot, RequestContainerSection, ToolWindowId, WorkbenchTab } from './types';
 
 // Companion-reveal targets → this surface's dock tool windows. The
 // wire vocabulary names features; both observability features land on
@@ -565,6 +565,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
     allTabs,
     addTab,
     switchTab,
+    updateTab,
   });
   const {
     pendingRenameTabId,
@@ -590,10 +591,6 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
     openLiveVariables,
     openCollectionVariables,
     openRequestCollectionVariables,
-    openRequestCollectionScripts: openRequestCollectionScriptsRaw,
-    openRequestFolderScripts: openRequestFolderScriptsRaw,
-    openRequestCollectionAuth,
-    openRequestFolderAuth,
     openTemplateCollectionVariables,
     openRequestEditTab: openRequestEditTabRaw,
     openCreateRequestTab,
@@ -641,26 +638,20 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
     [openRequestEditTabRaw, scriptsReviewPendingUids],
   );
 
-  // Same clearing gesture for the ancestor slots: opening a collection's
-  // or folder's Scripts editor counts as reviewing its imported scripts.
-  const openRequestCollectionScripts = useCallback(
-    (uid: string, name: string) => {
+  // Same clearing gesture for the ancestor slots: viewing a collection's
+  // or folder's Scripts section counts as reviewing its imported scripts.
+  const markRequestScriptsReviewed = useCallback(
+    (uid: string) => {
       if (scriptsReviewPendingUids.has(uid)) {
         void hostBridge.call('clearRequestScriptsReviewPending', { uid });
       }
-      openRequestCollectionScriptsRaw(uid, name);
     },
-    [openRequestCollectionScriptsRaw, scriptsReviewPendingUids],
+    [scriptsReviewPendingUids],
   );
 
-  const openRequestFolderScripts = useCallback(
-    (uid: string, name: string) => {
-      if (scriptsReviewPendingUids.has(uid)) {
-        void hostBridge.call('clearRequestScriptsReviewPending', { uid });
-      }
-      openRequestFolderScriptsRaw(uid, name);
-    },
-    [openRequestFolderScriptsRaw, scriptsReviewPendingUids],
+  const setContainerSection = useCallback(
+    (tabId: string, section: RequestContainerSection) => updateTab(tabId, { containerSection: section }),
+    [updateTab],
   );
 
   // Create-then-edit flow for the env selector. New envs are created
@@ -1236,11 +1227,8 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
         openCreateGrpcRequestTab={openCreateGrpcRequestTab}
         openCreateWebSocketRequestTab={openCreateWebSocketRequestTab}
         openCreateMqttRequestTab={openCreateMqttRequestTab}
-        openRequestCollectionVariables={openRequestCollectionVariables}
-        openRequestCollectionScripts={openRequestCollectionScripts}
-        openRequestFolderScripts={openRequestFolderScripts}
-        openRequestCollectionAuth={openRequestCollectionAuth}
-        openRequestFolderAuth={openRequestFolderAuth}
+        setContainerSection={setContainerSection}
+        onRequestScriptsViewed={markRequestScriptsReviewed}
         openRequestEditTab={openRequestEditTab}
         openTemplateEditTab={openTemplateEditTab}
         openTemplateCollectionVariables={openTemplateCollectionVariables}
@@ -1308,11 +1296,8 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
       openCreateGrpcRequestTab,
       openCreateWebSocketRequestTab,
       openCreateMqttRequestTab,
-      openRequestCollectionVariables,
-      openRequestCollectionScripts,
-      openRequestFolderScripts,
-      openRequestCollectionAuth,
-      openRequestFolderAuth,
+      setContainerSection,
+      markRequestScriptsReviewed,
       openRequestEditTab,
       openTemplateCollectionVariables,
       openTemplateEditTab,

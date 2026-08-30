@@ -15,6 +15,7 @@ export interface TabOpenerContext {
   allTabs: WorkbenchTab[];
   addTab: (tab: WorkbenchTab) => void;
   switchTab: (tabId: string) => void;
+  updateTab: (tabId: string, updates: Partial<WorkbenchTab>) => void;
   setPendingRenameTabId: (id: string | null) => void;
 }
 
@@ -98,14 +99,15 @@ export interface UseTabOpenersApi {
   openScriptPackages: () => void;
   openLiveVariables: () => void;
   openCollectionVariables: (uid: string, name: string) => void;
+  /** Open a request collection's tab on its Variables section. */
   openRequestCollectionVariables: (uid: string, name: string) => void;
-  /** Open the ancestor-scripts editor for a request collection. */
+  /** Open a request collection's tab on its Scripts section. */
   openRequestCollectionScripts: (uid: string, name: string) => void;
-  /** Open the ancestor-scripts editor for a request folder. */
+  /** Open a request folder's tab on its Scripts section. */
   openRequestFolderScripts: (uid: string, name: string) => void;
-  /** Open the ancestor-auth editor for a request collection. */
+  /** Open a request collection's tab on its Authorization section. */
   openRequestCollectionAuth: (uid: string, name: string) => void;
-  /** Open the ancestor-auth editor for a request folder. */
+  /** Open a request folder's tab on its Authorization section. */
   openRequestFolderAuth: (uid: string, name: string) => void;
   openTemplateCollectionVariables: (uid: string, name: string) => void;
   openRequestEditTab: (uid: string, name: string, method?: string, autoRename?: boolean) => void;

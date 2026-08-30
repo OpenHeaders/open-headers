@@ -46,6 +46,7 @@ interface UseTabOpenersOptions {
   allTabs: WorkbenchTab[];
   addTab: (tab: WorkbenchTab) => void;
   switchTab: (tabId: string) => void;
+  updateTab: (tabId: string, updates: Partial<WorkbenchTab>) => void;
   reopenTab?: (closed: ClosedTab) => void;
 }
 
@@ -59,9 +60,10 @@ export function useTabOpeners({
   allTabs,
   addTab,
   switchTab,
+  updateTab,
 }: UseTabOpenersOptions): UseTabOpenersApi {
   const [pendingRenameTabId, setPendingRenameTabId] = useState<string | null>(null);
-  const context: TabOpenerContext = { allTabs, addTab, switchTab, setPendingRenameTabId };
+  const context: TabOpenerContext = { allTabs, addTab, switchTab, updateTab, setPendingRenameTabId };
 
   const ruleOpeners = useRuleOpeners({ rules, localCollections, workspaceId, surfaceId }, context);
   const requestOpeners = useRequestOpeners({ requestCollections, workspaceId, surfaceId }, context);

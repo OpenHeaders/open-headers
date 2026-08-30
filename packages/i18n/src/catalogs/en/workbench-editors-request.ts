@@ -172,6 +172,10 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.auth.noneNote': 'This request does not use any authorization.',
   'workbench.editors.request.auth.inheritDetail':
     "This request is using the authorization helper from its parent collection. Edit the collection's Authorization tab to change it.",
+  'workbench.editors.request.auth.inheritedFrom': '{type} \u2014 from {source}',
+  'workbench.editors.request.auth.inheritedNone': 'No auth \u2014 nothing is set on the folder or the collection.',
+  'workbench.editors.request.auth.sourceCollection': 'Collection \u2018{name}\u2019',
+  'workbench.editors.request.auth.sourceFolder': 'Folder \u2018{name}\u2019',
   'workbench.editors.request.auth.resizeRailAria': 'Resize auth-type rail',
   'workbench.editors.request.auth.username': 'Username',
   'workbench.editors.request.auth.password': 'Password',

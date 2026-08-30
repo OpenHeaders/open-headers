@@ -38,8 +38,6 @@ export const workbenchEditors = {
   'workbench.editors.grid.suggestionValueAria': 'Valor de {key}',
 
   // ── Ancestor scripts editor (collection/folder script slots) ───────
-  'workbench.editors.ancestorScripts.titleCollection': 'Scripts — {name}',
-  'workbench.editors.ancestorScripts.titleFolder': 'Scripts — {name}',
   'workbench.editors.ancestorScripts.descriptionCollection':
     'Estos scripts se ejecutan para cada solicitud de esta colección — el script pre-solicitud antes de cada ' +
     'envío, el script post-respuesta después de cada respuesta. Se ejecutan primero: los scripts de la ' +
@@ -52,24 +50,34 @@ export const workbenchEditors = {
   'workbench.editors.ancestorScripts.notFoundFolder': 'Carpeta no encontrada.',
   'workbench.editors.ancestorScripts.saveFailed': 'No se pudieron guardar los scripts.',
   'workbench.editors.ancestorScripts.saveFailedDetail': 'No se pudieron guardar los scripts: {message}',
-  'workbench.editors.ancestorScripts.deletedElsewhere': 'Este elemento se eliminó en otra ventana.',
 
   // ── Ancestor auth editor (collection/folder default authorization) ──
-  'workbench.editors.ancestorAuth.titleCollection': 'Autorización — {name}',
-  'workbench.editors.ancestorAuth.titleFolder': 'Autorización — {name}',
   'workbench.editors.ancestorAuth.descriptionCollection':
     'Las solicitudes configuradas en Heredar usan esta autorización. La autorización propia de una carpeta ' +
-    'tiene prioridad, y la autorización explícita de una solicitud siempre gana. Heredar aquí significa que ' +
-    'no hay nada configurado en este nivel.',
+    'tiene prioridad, y la autorización explícita de una solicitud siempre gana. Sin valor por defecto significa ' +
+    'que no hay nada configurado en este nivel.',
   'workbench.editors.ancestorAuth.descriptionFolder':
     'Las solicitudes configuradas en Heredar usan esta autorización antes que la de la colección. La ' +
-    'autorización explícita de una solicitud siempre gana. Heredar aquí significa que no hay nada configurado ' +
-    'en este nivel — las solicitudes recurren a la colección.',
+    'autorización explícita de una solicitud siempre gana. Heredar de la colección significa que no hay nada ' +
+    'configurado en este nivel — las solicitudes recurren a la colección.',
   'workbench.editors.ancestorAuth.notFoundCollection': 'Colección de solicitudes no encontrada.',
   'workbench.editors.ancestorAuth.notFoundFolder': 'Carpeta no encontrada.',
   'workbench.editors.ancestorAuth.saveFailed': 'No se pudo guardar la autorización.',
   'workbench.editors.ancestorAuth.saveFailedDetail': 'No se pudo guardar la autorización: {message}',
-  'workbench.editors.ancestorAuth.deletedElsewhere': 'Este elemento se eliminó en otra ventana.',
+
+  // ── Editor del contenedor de solicitudes (colección / carpeta: una pestaña, secciones) ──
+  'workbench.editors.requestContainer.tab.overview': 'Resumen',
+  'workbench.editors.requestContainer.auth.noDefault': 'Sin valor por defecto',
+  'workbench.editors.requestContainer.auth.inheritFromCollection': 'Heredar de la colección',
+  'workbench.editors.requestContainer.auth.noDefaultNote':
+    'No hay nada configurado para esta colección. Las solicitudes en Heredar se envían sin autorización.',
+  'workbench.editors.requestContainer.auth.noDefaultDetail':
+    'Elige un tipo para definir el valor por defecto que hereda cada solicitud de esta colección.',
+  'workbench.editors.requestContainer.auth.inheritFromCollectionNote':
+    'No hay nada configurado para esta carpeta — las solicitudes recurren al valor por defecto de la colección.',
+  'workbench.editors.requestContainer.auth.inheritFromCollectionDetail':
+    'Elige un tipo para sustituir el valor por defecto de la colección en cada solicitud de esta carpeta.',
+  'workbench.editors.requestContainer.deletedElsewhere': 'Este elemento se eliminó en otra ventana.',
 
   // ── Response-example editor ────────────────────────────────────────
   'workbench.editors.responseExample.loading': 'Cargando el ejemplo…',

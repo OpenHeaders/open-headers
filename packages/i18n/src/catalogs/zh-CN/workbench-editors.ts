@@ -45,8 +45,6 @@ export const workbenchEditors = {
   'workbench.editors.grid.suggestionValueAria': '{key} 的值',
 
   // ── Ancestor scripts editor (collection/folder script slots) ───────
-  'workbench.editors.ancestorScripts.titleCollection': '脚本——{name}',
-  'workbench.editors.ancestorScripts.titleFolder': '脚本——{name}',
   'workbench.editors.ancestorScripts.descriptionCollection':
     '这些脚本对此集合中的每个请求运行——请求前脚本在每次发送之前，响应后脚本在每次响应之后。它们最先运行：先是集合脚本，然后是文件夹脚本，最后是请求自己的脚本。',
   'workbench.editors.ancestorScripts.descriptionFolder':
@@ -55,20 +53,28 @@ export const workbenchEditors = {
   'workbench.editors.ancestorScripts.notFoundFolder': '未找到文件夹。',
   'workbench.editors.ancestorScripts.saveFailed': '无法保存脚本。',
   'workbench.editors.ancestorScripts.saveFailedDetail': '无法保存脚本：{message}',
-  'workbench.editors.ancestorScripts.deletedElsewhere': '此条目已在另一个窗口中被删除。',
 
   // ── Ancestor auth editor (collection/folder default authorization) ──
-  'workbench.editors.ancestorAuth.titleCollection': '授权——{name}',
-  'workbench.editors.ancestorAuth.titleFolder': '授权——{name}',
   'workbench.editors.ancestorAuth.descriptionCollection':
-    '设为“继承”的请求使用此授权。文件夹自己的授权优先，而请求显式设置的授权总是胜出。此处的“继承”表示这一层未配置任何内容。',
+    '设为“继承”的请求使用此授权。文件夹自己的授权优先，而请求显式设置的授权总是胜出。“无默认值”表示这一层未配置任何内容。',
   'workbench.editors.ancestorAuth.descriptionFolder':
-    '设为“继承”的请求先于集合的授权使用此授权。请求显式设置的授权总是胜出。此处的“继承”表示这一层未配置任何内容——请求会落回到集合。',
+    '设为“继承”的请求先于集合的授权使用此授权。请求显式设置的授权总是胜出。“从集合继承”表示这一层未配置任何内容——请求会落回到集合。',
   'workbench.editors.ancestorAuth.notFoundCollection': '未找到请求集合。',
   'workbench.editors.ancestorAuth.notFoundFolder': '未找到文件夹。',
   'workbench.editors.ancestorAuth.saveFailed': '无法保存授权。',
   'workbench.editors.ancestorAuth.saveFailedDetail': '无法保存授权：{message}',
-  'workbench.editors.ancestorAuth.deletedElsewhere': '此条目已在另一个窗口中被删除。',
+
+  // ── 请求容器编辑器（集合 / 文件夹：一个标签页，多个分区） ──
+  'workbench.editors.requestContainer.tab.overview': '概览',
+  'workbench.editors.requestContainer.auth.noDefault': '无默认值',
+  'workbench.editors.requestContainer.auth.inheritFromCollection': '从集合继承',
+  'workbench.editors.requestContainer.auth.noDefaultNote': '此集合未设置任何内容。设为“继承”的请求将不带授权发送。',
+  'workbench.editors.requestContainer.auth.noDefaultDetail': '选择一种类型，设置此集合中每个请求继承的默认授权。',
+  'workbench.editors.requestContainer.auth.inheritFromCollectionNote':
+    '此文件夹未设置任何内容——请求会落回到集合的默认授权。',
+  'workbench.editors.requestContainer.auth.inheritFromCollectionDetail':
+    '选择一种类型，为此文件夹中的每个请求覆盖集合的默认授权。',
+  'workbench.editors.requestContainer.deletedElsewhere': '此条目已在另一个窗口中被删除。',
 
   // ── Response-example editor ────────────────────────────────────────
   'workbench.editors.responseExample.loading': '正在加载示例…',

@@ -187,6 +187,10 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.auth.noneNote': '此请求不使用任何授权。',
   'workbench.editors.request.auth.inheritDetail':
     '此请求正在使用其父集合的授权助手。要更改它，请编辑集合的授权标签页。',
+  'workbench.editors.request.auth.inheritedFrom': '{type}——来自{source}',
+  'workbench.editors.request.auth.inheritedNone': '无授权——文件夹和集合均未设置任何内容。',
+  'workbench.editors.request.auth.sourceCollection': '集合“{name}”',
+  'workbench.editors.request.auth.sourceFolder': '文件夹“{name}”',
   'workbench.editors.request.auth.resizeRailAria': '调整授权类型栏宽度',
   'workbench.editors.request.auth.username': '用户名',
   'workbench.editors.request.auth.password': '密码',

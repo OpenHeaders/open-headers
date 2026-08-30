@@ -1,7 +1,7 @@
 /**
- * Request-family tab openers — collection/folder overviews, collection
- * variables, edit tabs, the unsaved-draft create path, and the
- * duplicate-tab scratch.
+ * Request-family tab openers — the collection/folder container tabs
+ * (and their sections), edit tabs, the unsaved-draft create path, and
+ * the duplicate-tab scratch.
  */
 
 import type { Collection, Request } from '@openheaders/core/types';
@@ -19,6 +19,7 @@ import { applyMqttRequestCreate } from '@openheaders/ui/shared/sync/mqtt-request
 import { applyRequestCreate } from '@openheaders/ui/shared/sync/request-write-client';
 import { applyWebSocketRequestCreate } from '@openheaders/ui/shared/sync/websocket-request-write-client';
 import { useCallback } from 'react';
+import type { RequestContainerSection } from '../../types';
 import { resolveContextParentPath, type TabOpenerContext, type UseTabOpenersApi } from './shared';
 
 export interface UseRequestOpenersOptions {
@@ -57,7 +58,7 @@ export type RequestOpeners = Pick<
 
 export function useRequestOpeners(
   { requestCollections, workspaceId, surfaceId }: UseRequestOpenersOptions,
-  { allTabs, addTab, switchTab, setPendingRenameTabId }: TabOpenerContext,
+  { allTabs, addTab, switchTab, updateTab, setPendingRenameTabId }: TabOpenerContext,
 ): RequestOpeners {
   const t = useT();
   const openRequestCollectionOverview = useCallback(
@@ -86,99 +87,54 @@ export function useRequestOpeners(
     [allTabs, addTab, switchTab, setPendingRenameTabId],
   );
 
-  const openRequestCollectionVariables = useCallback(
-    (uid: string, name: string) => {
-      const id = `req-coll-vars-${uid}`;
+  // The container editor's sections: Variables / Scripts / Authorization
+  // are sub-tabs of the collection's (folder's) ONE tab, so every
+  // section opener lands on that tab and asks for its section — an
+  // open tab is switched to and re-pointed, never duplicated.
+  const openRequestContainerSection = useCallback(
+    (kind: 'collection' | 'folder', uid: string, name: string, section: RequestContainerSection) => {
+      const id = kind === 'collection' ? `req-col-${uid}` : `req-folder-${uid}`;
       if (allTabs.some((t) => t.id === id)) {
+        updateTab(id, { containerSection: section });
         switchTab(id);
         return;
       }
       addTab({
         id,
-        label: t('workbench.shell.tabLabel.collectionVariables', { name }),
+        label: name,
         ruleType: '',
         dirty: false,
-        mode: 'request-collection-vars',
-        collectionUid: uid,
+        mode: kind === 'collection' ? 'collection-overview' : 'folder-overview',
+        entityId: uid,
+        containerSection: section,
       });
     },
-    [allTabs, addTab, switchTab, t],
+    [allTabs, addTab, switchTab, updateTab],
+  );
+
+  const openRequestCollectionVariables = useCallback(
+    (uid: string, name: string) => openRequestContainerSection('collection', uid, name, 'variables'),
+    [openRequestContainerSection],
   );
 
   const openRequestCollectionScripts = useCallback(
-    (uid: string, name: string) => {
-      const id = `req-coll-scripts-${uid}`;
-      if (allTabs.some((t) => t.id === id)) {
-        switchTab(id);
-        return;
-      }
-      addTab({
-        id,
-        label: t('workbench.shell.tabLabel.collectionScripts', { name }),
-        ruleType: '',
-        dirty: false,
-        mode: 'request-collection-scripts',
-        entityId: uid,
-      });
-    },
-    [allTabs, addTab, switchTab, t],
+    (uid: string, name: string) => openRequestContainerSection('collection', uid, name, 'scripts'),
+    [openRequestContainerSection],
   );
 
   const openRequestFolderScripts = useCallback(
-    (uid: string, name: string) => {
-      const id = `req-folder-scripts-${uid}`;
-      if (allTabs.some((t) => t.id === id)) {
-        switchTab(id);
-        return;
-      }
-      addTab({
-        id,
-        label: t('workbench.shell.tabLabel.collectionScripts', { name }),
-        ruleType: '',
-        dirty: false,
-        mode: 'request-folder-scripts',
-        entityId: uid,
-      });
-    },
-    [allTabs, addTab, switchTab, t],
+    (uid: string, name: string) => openRequestContainerSection('folder', uid, name, 'scripts'),
+    [openRequestContainerSection],
   );
 
   const openRequestCollectionAuth = useCallback(
-    (uid: string, name: string) => {
-      const id = `req-coll-auth-${uid}`;
-      if (allTabs.some((t) => t.id === id)) {
-        switchTab(id);
-        return;
-      }
-      addTab({
-        id,
-        label: t('workbench.shell.tabLabel.collectionAuth', { name }),
-        ruleType: '',
-        dirty: false,
-        mode: 'request-collection-auth',
-        entityId: uid,
-      });
-    },
-    [allTabs, addTab, switchTab, t],
+    (uid: string, name: string) => openRequestContainerSection('collection', uid, name, 'authorization'),
+    [openRequestContainerSection],
   );
 
   const openRequestFolderAuth = useCallback(
-    (uid: string, name: string) => {
-      const id = `req-folder-auth-${uid}`;
-      if (allTabs.some((t) => t.id === id)) {
-        switchTab(id);
-        return;
-      }
-      addTab({
-        id,
-        label: t('workbench.shell.tabLabel.collectionAuth', { name }),
-        ruleType: '',
-        dirty: false,
-        mode: 'request-folder-auth',
-        entityId: uid,
-      });
-    },
-    [allTabs, addTab, switchTab, t],
+    (uid: string, name: string) => openRequestContainerSection('folder', uid, name, 'authorization'),
+    [openRequestContainerSection],
   );
 
   const openRequestEditTab = useCallback(

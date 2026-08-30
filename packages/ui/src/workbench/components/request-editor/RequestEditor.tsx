@@ -71,6 +71,7 @@ import {
   rowsToParams,
 } from './draft';
 import { type TabKey, buildRequestTabItems } from './request-tab-items';
+import { findRequestAncestry, resolveInheritedAuthFor } from '../request-container/ancestry';
 import RequestTabContent from './RequestTabContent';
 import ScriptModeTag from './ScriptModeTag';
 import RequestUrlBar from './RequestUrlBar';
@@ -157,10 +158,31 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
   const { token } = theme.useToken();
   const { message } = App.useApp();
   const t = useT();
-  const { requests, collections: requestCollections, getRequest, updateRequest, execute } = useRequests();
+  const {
+    requests,
+    collections: requestCollections,
+    folders: requestFolders,
+    collectionTrees: requestCollectionTrees,
+    getRequest,
+    updateRequest,
+    execute,
+  } = useRequests();
   const copySnippet = useCopyRequestSnippet();
 
   const isCreateMode = mode === 'request-create';
+
+  // What an Inherit request sends with, and from which level — read off
+  // the trees (the containment projection), never a stored path; a
+  // scratch draft sits in no tree and shows the generic note.
+  const inheritedAuth = useMemo(
+    () =>
+      requestUid
+        ? resolveInheritedAuthFor(
+            findRequestAncestry(requestCollectionTrees, requestCollections, requestFolders, requestUid),
+          )
+        : undefined,
+    [requestUid, requestCollectionTrees, requestCollections, requestFolders],
+  );
   const [activeTab, setActiveTab] = useState<TabKey>('params');
 
   const summary = useMemo(
@@ -925,6 +947,7 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
                         unsavedSettings={unsavedSettings}
                         unsavedSections={unsavedTabSections}
                         collection={draftCollection}
+                        inheritedAuth={inheritedAuth}
                         requestName={summary?.name}
                       />
                     </div>

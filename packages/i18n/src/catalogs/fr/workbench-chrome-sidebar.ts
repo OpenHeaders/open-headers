@@ -297,17 +297,7 @@ export const workbenchChromeSidebar = {
   'workbench.overview.action.resumeFolderTooltip': 'Reprendre toutes les règles de ce dossier',
   'workbench.overview.action.variables': 'Variables',
   'workbench.overview.action.variablesTooltip': 'Modifier les variables limitées à cette collection',
-  'workbench.overview.action.variablesTooltipRequest': 'Modifier les variables limitées à cette collection de requêtes',
   'workbench.overview.action.variablesTooltipTemplate': 'Modifier les variables limitées à cette collection de modèles',
-  'workbench.overview.action.scripts': 'Scripts',
-  'workbench.overview.action.scriptsTooltipCollection':
-    'Modifier les scripts exécutés pour chaque requête de cette collection',
-  'workbench.overview.action.scriptsTooltipFolder': 'Modifier les scripts exécutés pour chaque requête de ce dossier',
-  'workbench.overview.action.auth': 'Autorisation',
-  'workbench.overview.action.authTooltipCollection':
-    "Définir l'autorisation par défaut héritée par chaque requête de cette collection",
-  'workbench.overview.action.authTooltipFolder':
-    "Définir l'autorisation par défaut héritée par chaque requête de ce dossier",
   'workbench.overview.caption.description': 'Description',
   'workbench.overview.caption.contents': 'Contenu',
   'workbench.overview.empty.collectionNotFound': 'Collection introuvable',

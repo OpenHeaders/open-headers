@@ -5,7 +5,6 @@ import {
   LIVE_VARIABLE_ENTITY_TYPE,
   LIVE_WORKFLOW_ENTITY_TYPE,
   MQTT_RESPONSE_EXAMPLE_ENTITY_TYPE,
-  REQUEST_COLLECTION_ENTITY_TYPE,
   REQUEST_ENTITY_TYPE,
   RESPONSE_EXAMPLE_ENTITY_TYPE,
   RULE_ENTITY_TYPE,
@@ -187,10 +186,6 @@ export function useWorkbenchActiveTab({
         return activeTab.collectionUid
           ? { entityType: COLLECTION_ENTITY_TYPE, entityId: activeTab.collectionUid }
           : null;
-      case 'request-collection-vars':
-        return activeTab.collectionUid
-          ? { entityType: REQUEST_COLLECTION_ENTITY_TYPE, entityId: activeTab.collectionUid }
-          : null;
       case 'template-collection-vars':
         return activeTab.collectionUid
           ? { entityType: TEMPLATE_COLLECTION_ENTITY_TYPE, entityId: activeTab.collectionUid }
@@ -300,7 +295,7 @@ export function useWorkbenchActiveTab({
     if (!activeTab) return null;
     const { mode } = activeTab;
     if (mode === 'collection-overview' || mode === 'folder-overview') return activeTab.entityId ?? null;
-    if (mode === 'collection-vars' || mode === 'request-collection-vars' || mode === 'template-collection-vars') {
+    if (mode === 'collection-vars' || mode === 'template-collection-vars') {
       return activeTab.collectionUid ?? null;
     }
     // Editor tabs: resolve the entity, then derive the owning

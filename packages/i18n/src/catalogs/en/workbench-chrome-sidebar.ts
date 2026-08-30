@@ -276,16 +276,7 @@ export const workbenchChromeSidebar = {
   'workbench.overview.action.resumeFolderTooltip': 'Resume all rules in this folder',
   'workbench.overview.action.variables': 'Variables',
   'workbench.overview.action.variablesTooltip': 'Edit variables scoped to this collection',
-  'workbench.overview.action.variablesTooltipRequest': 'Edit variables scoped to this request collection',
   'workbench.overview.action.variablesTooltipTemplate': 'Edit variables scoped to this template collection',
-  'workbench.overview.action.scripts': 'Scripts',
-  'workbench.overview.action.scriptsTooltipCollection': 'Edit scripts that run for every request in this collection',
-  'workbench.overview.action.scriptsTooltipFolder': 'Edit scripts that run for every request in this folder',
-  'workbench.overview.action.auth': 'Authorization',
-  'workbench.overview.action.authTooltipCollection':
-    'Set the default authorization inherited by every request in this collection',
-  'workbench.overview.action.authTooltipFolder':
-    'Set the default authorization inherited by every request in this folder',
   'workbench.overview.caption.description': 'Description',
   'workbench.overview.caption.contents': 'Contents',
   'workbench.overview.empty.collectionNotFound': 'Collection not found',

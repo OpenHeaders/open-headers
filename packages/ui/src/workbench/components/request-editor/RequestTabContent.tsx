@@ -6,7 +6,7 @@
 
 import type { Collection } from '@openheaders/core/types';
 import type React from 'react';
-import AuthorizationTab from './AuthorizationTab';
+import AuthorizationTab, { type InheritedAuthAttribution } from './AuthorizationTab';
 import BodyTab from './BodyTab';
 import DocsTab from './DocsTab';
 import type { Draft } from './draft';
@@ -46,6 +46,9 @@ interface RequestTabContentProps {
   collection?: Collection;
   /** Saved request name — the Spec tab's operation comparison reads it. */
   requestName?: string;
+  /** What Inherit resolves to for this request — the Authorization
+   *  tab's attribution line. */
+  inheritedAuth?: InheritedAuthAttribution;
 }
 
 const RequestTabContent: React.FC<RequestTabContentProps> = ({
@@ -61,6 +64,7 @@ const RequestTabContent: React.FC<RequestTabContentProps> = ({
   unsavedSections,
   collection,
   requestName,
+  inheritedAuth,
 }) => {
   switch (tab) {
     case 'docs':
@@ -77,7 +81,13 @@ const RequestTabContent: React.FC<RequestTabContentProps> = ({
         />
       );
     case 'authorization':
-      return <AuthorizationTab auth={draft.auth} onChange={(auth) => setDraft((d) => ({ ...d, auth }))} />;
+      return (
+        <AuthorizationTab
+          auth={draft.auth}
+          onChange={(auth) => setDraft((d) => ({ ...d, auth }))}
+          inheritedFrom={inheritedAuth}
+        />
+      );
     case 'headers':
       return (
         <HeadersTab

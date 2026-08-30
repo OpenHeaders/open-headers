@@ -88,9 +88,7 @@ export function resolveScopeContext(input: ScopeContextInput): ScopeContext {
       }
     }
   } else if (
-    (activeTab.mode === 'collection-vars' ||
-      activeTab.mode === 'request-collection-vars' ||
-      activeTab.mode === 'template-collection-vars') &&
+    (activeTab.mode === 'collection-vars' || activeTab.mode === 'template-collection-vars') &&
     activeTab.collectionUid
   ) {
     collId = activeTab.collectionUid;

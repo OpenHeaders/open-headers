@@ -21,7 +21,7 @@ export type TabKey = 'docs' | 'params' | 'authorization' | 'headers' | 'body' | 
 /** Mini count badge on a tab label. `unsaved` recolors it in the
  *  sidebar/tab-bar dirty salmon — the section's rows differ from the
  *  saved request, and the badge doubles as the dirty dot. */
-const TabCount: React.FC<{ n: number; unsaved?: boolean }> = ({ n, unsaved }) => {
+export const TabCount: React.FC<{ n: number; unsaved?: boolean }> = ({ n, unsaved }) => {
   const { token } = theme.useToken();
   return (
     <span
@@ -48,7 +48,7 @@ const TabCount: React.FC<{ n: number; unsaved?: boolean }> = ({ n, unsaved }) =>
  *  red to match the inline mirror + sidebar badge; `tone='unsaved'`
  *  renders in the sidebar/tab-bar dirty salmon — the section holds
  *  knobs that differ from the saved request (see settings-unsaved.ts). */
-const TabDot: React.FC<{ tone?: 'default' | 'error' | 'unsaved' }> = ({ tone = 'default' }) => {
+export const TabDot: React.FC<{ tone?: 'default' | 'error' | 'unsaved' }> = ({ tone = 'default' }) => {
   const { token } = theme.useToken();
   return (
     <span

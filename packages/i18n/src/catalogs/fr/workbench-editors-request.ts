@@ -211,6 +211,11 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.auth.inheritDetail':
     "Cette requête utilise l'assistant d'autorisation de sa collection parente. Modifiez l'onglet " +
     'Autorisation de la collection pour le changer.',
+  'workbench.editors.request.auth.inheritedFrom': '{type} — de {source}',
+  'workbench.editors.request.auth.inheritedNone':
+    "Aucune autorisation — rien n'est défini dans le dossier ni dans la collection.",
+  'workbench.editors.request.auth.sourceCollection': 'Collection « {name} »',
+  'workbench.editors.request.auth.sourceFolder': 'Dossier « {name} »',
   'workbench.editors.request.auth.resizeRailAria': "Redimensionner le rail des types d'auth",
   'workbench.editors.request.auth.username': "Nom d'utilisateur",
   'workbench.editors.request.auth.password': 'Mot de passe',

@@ -23,7 +23,6 @@ const TAB_MODE_FEATURES: Partial<Record<TabMode, TelemetryFeatureId>> = {
   'script-packages': 'devtools-scripts',
   'workspace-vars': 'variables',
   'collection-vars': 'variables',
-  'request-collection-vars': 'variables',
   'template-collection-vars': 'variables',
   'env-edit': 'variables',
   'spec-edit': 'api-specs',

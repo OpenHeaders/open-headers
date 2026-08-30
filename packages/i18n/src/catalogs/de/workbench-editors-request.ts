@@ -226,6 +226,11 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.auth.inheritDetail':
     'Diese Anfrage verwendet den Autorisierungshelfer ihrer übergeordneten Sammlung. Bearbeite den Tab ' +
     'Autorisierung der Sammlung, um ihn zu ändern.',
+  'workbench.editors.request.auth.inheritedFrom': '{type} — von {source}',
+  'workbench.editors.request.auth.inheritedNone':
+    'Keine Autorisierung — weder im Ordner noch in der Sammlung ist etwas festgelegt.',
+  'workbench.editors.request.auth.sourceCollection': 'Sammlung „{name}“',
+  'workbench.editors.request.auth.sourceFolder': 'Ordner „{name}“',
   'workbench.editors.request.auth.resizeRailAria': 'Größe der Authentifizierungstyp-Leiste ändern',
   'workbench.editors.request.auth.username': 'Benutzername',
   'workbench.editors.request.auth.password': 'Passwort',

@@ -251,8 +251,6 @@ export const workbenchChrome = {
   // with no breadcrumb twin lives here. Draft seeds persist as entity
   // names BY DESIGN (V5 fresh start) — keyed at mint time. ────────────
   'workbench.shell.tabLabel.collectionVariables': '{name} · 变量',
-  'workbench.shell.tabLabel.collectionScripts': '{name} · 脚本',
-  'workbench.shell.tabLabel.collectionAuth': '{name} · 授权',
   'workbench.shell.tabLabel.newRequest': '新请求',
   'workbench.shell.tabLabel.newGrpcRequest': '新 gRPC 请求',
   'workbench.shell.tabLabel.newWebSocketRequest': '新 WebSocket 请求',

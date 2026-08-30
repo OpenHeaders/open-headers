@@ -4,24 +4,20 @@
  * Mirrors {@link CollectionOverview}'s shape for the rule-collection
  * family, scoped to requests:
  *   - Stats: total request count (HTTP + gRPC) + folder count.
- *   - Actions: Add Request (collection-scoped), Variables.
+ *   - Actions: Add Request (collection-scoped).
  *   - Contents: top-level children (folders + HTTP/gRPC requests) with
  *     a method tag column instead of the rule type/status columns
  *     rules carry; gRPC rows carry the sidebar's monospace gRPC mark.
  *
- * Pre-session-50 there was no overview surface for request collections
- * at all — clicking a request collection in the sidebar only toggled
- * expansion. Sessions 48 + 49 shipped the request-collection variables
- * pipeline + Inspector polymorphism; this component surfaces the
- * Variables opener at a discoverable entry point matching the rule
- * collection precedent.
+ * The Overview section of {@link RequestContainerEditor} — the
+ * collection's variables, scripts and authorization are that editor's
+ * other sections, never buttons here.
  */
 
-import { CodeOutlined, FolderOutlined, LockOutlined, PlusOutlined } from '@ant-design/icons';
-import { VariablesIcon } from '@openheaders/ui/shared/icons';
+import { FolderOutlined, PlusOutlined } from '@ant-design/icons';
 import { useRequests } from '@openheaders/ui/shared/hooks/readers/useRequests';
 import type { HttpMethod, TreeNode } from '@openheaders/core/types';
-import { Button, Dropdown, Empty, Space, Table, Tag, Tooltip, theme } from 'antd';
+import { Button, Dropdown, Empty, Space, Table, Tag, theme } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import type React from 'react';
 import { useCallback, useMemo } from 'react';
@@ -47,9 +43,6 @@ interface RequestCollectionOverviewProps {
   }) => void;
   onCreateMqttRequest?: (context: { collectionId: string; folderPath?: string }) => void;
   onOpenFolderOverview: (uid: string, name: string) => void;
-  onOpenCollectionVariables?: (uid: string, name: string) => void;
-  onOpenCollectionScripts?: (uid: string, name: string) => void;
-  onOpenCollectionAuth?: (uid: string, name: string) => void;
 }
 
 interface ContentRow {
@@ -148,9 +141,6 @@ const RequestCollectionOverview: React.FC<RequestCollectionOverviewProps> = ({
   onCreateWebSocketRequest,
   onCreateMqttRequest,
   onOpenFolderOverview,
-  onOpenCollectionVariables,
-  onOpenCollectionScripts,
-  onOpenCollectionAuth,
 }) => {
   const { token } = theme.useToken();
   const t = useT();
@@ -314,44 +304,9 @@ const RequestCollectionOverview: React.FC<RequestCollectionOverviewProps> = ({
     </span>
   );
 
-  const actions = (
-    <>
-      {addRequestButton}
-      {onOpenCollectionVariables && (
-        <Tooltip title={t('workbench.overview.action.variablesTooltipRequest')}>
-          <Button
-            size="small"
-            icon={<VariablesIcon />}
-            onClick={() => onOpenCollectionVariables(collectionUid, collection.name)}
-          >
-            {t('workbench.overview.action.variables')}
-          </Button>
-        </Tooltip>
-      )}
-      {onOpenCollectionScripts && (
-        <Tooltip title={t('workbench.overview.action.scriptsTooltipCollection')}>
-          <Button
-            size="small"
-            icon={<CodeOutlined />}
-            onClick={() => onOpenCollectionScripts(collectionUid, collection.name)}
-          >
-            {t('workbench.overview.action.scripts')}
-          </Button>
-        </Tooltip>
-      )}
-      {onOpenCollectionAuth && (
-        <Tooltip title={t('workbench.overview.action.authTooltipCollection')}>
-          <Button
-            size="small"
-            icon={<LockOutlined />}
-            onClick={() => onOpenCollectionAuth(collectionUid, collection.name)}
-          >
-            {t('workbench.overview.action.auth')}
-          </Button>
-        </Tooltip>
-      )}
-    </>
-  );
+  // Variables / Scripts / Authorization are the container editor's own
+  // sections, not actions — the overview's only action creates.
+  const actions = addRequestButton;
 
   const contents =
     rows.length > 0 ? (
