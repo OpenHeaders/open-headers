@@ -7,10 +7,12 @@
  * from the container's `+` lands last, a request lands between two
  * folders and a folder between two requests, Alt+↑/↓ move across
  * kinds, Alt+← lands right after the folder left, a mixed folder +
- * request selection lands together and first, and the order survives
- * a reload. Every drop is one move on the parent's ordered set — the
- * rows' document order is what the assertions read (`data-item-id`);
- * the toast confirms the count.
+ * request selection lands together and first, the order survives a
+ * reload, and a collection delete follows the sets — a request dragged
+ * out survives, one dragged in goes with it, nothing rehomes. Every
+ * drop is one move on the parent's ordered set — the rows' document
+ * order is what the assertions read (`data-item-id`); the toast
+ * confirms the count.
  *
  * Drags are real pointer sequences: press on the source row, glide
  * onto the target row's band, release. The tests chain on one tree,
@@ -37,6 +39,16 @@ const col = (uid: string): string => `req-col-${uid}`;
 const folder = (uid: string): string => `req-folder-${uid}`;
 const request = (uid: string): string => `request-${uid}`;
 const requestRow = (uid: string): Locator => rows.row(request(uid));
+
+/** Persist an HTTP request under a collection or a folder path via the real CRUD RPC; returns its uid. */
+async function seedRequest(name: string, target: { collectionUid?: string; parentPath?: string }): Promise<string> {
+  const res = await workbench.rpc<{ success: boolean; request?: { uid: string }; error?: string }>(
+    'createLocalRequest',
+    { name, ...target, seed: { method: 'GET', url: 'https://api.openheaders.io/v1', headers: [], params: [] } },
+  );
+  expect(res.success, res.error).toBe(true);
+  return res.request!.uid;
+}
 
 /** The rows right under a container row, `count` of them. */
 async function childrenOf(containerId: string, count: number): Promise<string[]> {
@@ -73,18 +85,10 @@ test.beforeAll(async () => {
   );
   expect(nested.success).toBe(true);
   ids.folder = nested.folder!.uid;
-  const seed = async (name: string, target: { collectionUid?: string; parentPath?: string }): Promise<string> => {
-    const res = await workbench.rpc<{ success: boolean; request?: { uid: string }; error?: string }>(
-      'createLocalRequest',
-      { name, ...target, seed: { method: 'GET', url: 'https://api.openheaders.io/v1', headers: [], params: [] } },
-    );
-    expect(res.success, res.error).toBe(true);
-    return res.request!.uid;
-  };
-  ids.r1 = await seed('r1', { collectionUid: ids.colA });
-  ids.r2 = await seed('r2', { collectionUid: ids.colA });
-  ids.r3 = await seed('r3', { collectionUid: ids.colA });
-  ids.r4 = await seed('r4', { parentPath: nested.folder!.path });
+  ids.r1 = await seedRequest('r1', { collectionUid: ids.colA });
+  ids.r2 = await seedRequest('r2', { collectionUid: ids.colA });
+  ids.r3 = await seedRequest('r3', { collectionUid: ids.colA });
+  ids.r4 = await seedRequest('r4', { parentPath: nested.folder!.path });
 
   await workbench.reload();
   await installBroadcastLog(page);
@@ -256,4 +260,48 @@ test('the order survives a reload', async () => {
     await rows.expandIfCollapsed(id);
   }
   await expect.poll(() => rows.order()).toEqual(before);
+});
+
+test('a collection delete follows the sets: a request dragged out survives, one dragged in goes, nothing rehomes', async () => {
+  // Gamma holds g1, g2; Delta holds d1. g1 goes to Delta, d1 comes to
+  // Gamma, then Gamma is deleted from its row's ⋯ menu.
+  const gamma = await workbench.seedRequestCollection('Gamma');
+  const delta = await workbench.seedRequestCollection('Delta');
+  const g1 = await seedRequest('g1', { collectionUid: gamma });
+  const g2 = await seedRequest('g2', { collectionUid: gamma });
+  const d1 = await seedRequest('d1', { collectionUid: delta });
+  await rows.expandIfCollapsed(col(gamma));
+  await rows.expandIfCollapsed(col(delta));
+  await expect.poll(() => rows.orderOf([request(g1), request(g2), request(d1)])).toHaveLength(3);
+
+  await rows.drag(requestRow(g1), rows.row(col(delta)), 0.5);
+  await rows.expectMovedToast(1);
+  await page.waitForTimeout(800);
+  await expectUniqueRows(page, workbench, consoleLog);
+  await rows.expandIfCollapsed(col(delta));
+  await expect.poll(() => childrenOf(col(delta), 2)).toEqual([request(g1), request(d1)]);
+  await rows.drag(requestRow(d1), rows.row(col(gamma)), 0.5);
+  await rows.expectMovedToast(1);
+  await page.waitForTimeout(800);
+  await expectUniqueRows(page, workbench, consoleLog);
+  await rows.expandIfCollapsed(col(gamma));
+  await expect.poll(() => childrenOf(col(gamma), 2)).toEqual([request(d1), request(g2)]);
+
+  await rows.deleteContainer(col(gamma));
+  await expect.poll(() => rows.row(col(gamma)).count()).toBe(0);
+  await expect
+    .poll(() => rows.orderOf([col(delta), request(g1), request(g2), request(d1)]))
+    .toEqual([col(delta), request(g1)]);
+  // Past the reconciler's rehome grace nothing comes back under Delta.
+  await page.waitForTimeout(3000);
+  expect(await rows.orderOf([col(delta), request(g1), request(g2), request(d1)])).toEqual([col(delta), request(g1)]);
+  const requests = await workbench.rpc<{ requests?: Array<{ uid: string; path: string }> }>('getLocalRequests');
+  const collections = await workbench.rpc<{ collections?: Array<{ uid: string; path: string }> }>(
+    'getLocalRequestCollections',
+  );
+  const deltaPath = collections.collections?.find((c) => c.uid === delta)?.path ?? '';
+  expect(collections.collections?.some((c) => c.uid === gamma)).toBe(false);
+  expect(requests.requests?.map((r) => r.uid)).not.toContain(g2);
+  expect(requests.requests?.map((r) => r.uid)).not.toContain(d1);
+  expect(requests.requests?.find((r) => r.uid === g1)?.path.startsWith(`${deltaPath}/`)).toBe(true);
 });

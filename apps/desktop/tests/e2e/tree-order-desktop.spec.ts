@@ -19,7 +19,9 @@
  *   D6  `oh run collection` and MCP `runs_execute` run the collection
  *       in sidebar order;
  *   D7  the export stamps `order:`; importing it into a fresh workspace
- *       reproduces the interleave on new uids.
+ *       reproduces the interleave on new uids;
+ *   D8  a collection delete follows the sets: a request dragged out
+ *       survives, one dragged in goes with it, nothing rehomes.
  *
  * Reads are the sidebar's document order (`data-item-id`), the YAML on
  * disk, the run reports, and a workspace export. Requires
@@ -264,6 +266,18 @@ async function keyboardMove(id: string, key: 'ArrowUp' | 'ArrowDown' | 'ArrowLef
   await workbench.keyboard.press(`Alt+${key}`);
 }
 
+/** The container row's hover `⋯` → "Delete", through the confirm modal when the setting asks for one. */
+async function deleteContainer(id: string): Promise<void> {
+  const container = row(id);
+  await container.hover();
+  await container.locator('.rules-sidebar-collection-actions .anticon-ellipsis').click();
+  await workbench
+    .locator('.ant-dropdown:not(.ant-dropdown-hidden) .ant-dropdown-menu-item', { hasText: 'Delete' })
+    .click();
+  const confirm = workbench.locator('.ant-modal-confirm .ant-btn-dangerous');
+  if (await confirm.isVisible({ timeout: 1500 }).catch(() => false)) await confirm.click();
+}
+
 /**
  * A row id should never repeat. Intermittently, after a cross-parent
  * move, the sidebar renders the moved request twice while the host's
@@ -348,6 +362,7 @@ interface ExportEnvelope {
   entities: {
     collections: Array<{ uid: string; name: string; order?: string[] }>;
     folders: Array<{ uid: string; name: string; order?: string[] }>;
+    requests: Array<{ uid: string; name: string }>;
   };
 }
 
@@ -628,4 +643,39 @@ test('D7 — the export stamps order: and a fresh-workspace import reproduces it
       return [collection?.order?.map(slugOf) ?? null, folder?.order?.map(slugOf) ?? null];
     })
     .toEqual([(other?.order ?? []).map(slugOf), (folderB?.order ?? []).map(slugOf)]);
+});
+
+test('D8 — a collection delete follows the sets: dragged out survives, dragged in goes, nothing rehomes', async () => {
+  // The seeded collection reads New Folder, r1, r4, Folder A; Other reads
+  // r2, Folder B (r3). r1 goes INTO Other, r2 comes OUT to the seeded
+  // collection, then Other is deleted from its row's ⋯ menu.
+  const NF = `req-folder-${newFolderUid}`;
+  await expandIfCollapsed(OTHER);
+  await expandIfCollapsed(COL);
+  await drag(row(R1), row(OTHER), 0.5);
+  await expectMovedToast(1);
+  await workbench.waitForTimeout(800);
+  await expectUniqueRows();
+  await expandIfCollapsed(OTHER);
+  await expect.poll(() => orderOf([R1, R2, FB])).toEqual([R1, R2, FB]);
+  await drag(row(R2), row(COL), 0.5);
+  await expectMovedToast(1);
+  await workbench.waitForTimeout(800);
+  await expectUniqueRows();
+  await expandIfCollapsed(COL);
+  await expect.poll(() => orderOf([R2, NF, R4, FA])).toEqual([R2, NF, R4, FA]);
+
+  await deleteContainer(OTHER);
+  await expect.poll(() => row(OTHER).count()).toBe(0);
+  await expect.poll(() => orderOf([R2, NF, R4, FA, R1, FB, R3])).toEqual([R2, NF, R4, FA]);
+  // Past the reconciler's rehome grace nothing comes back.
+  await workbench.waitForTimeout(3000);
+  expect(await orderOf([R2, NF, R4, FA, R1, FB, R3])).toEqual([R2, NF, R4, FA]);
+  const { envelope } = await exportOf({ kind: 'workspace' });
+  expect(envelope.entities.collections.map((c) => c.uid)).not.toContain(SEED.other);
+  expect(envelope.entities.folders.map((f) => f.uid)).not.toContain(SEED.folderB);
+  const requests = envelope.entities.requests.map((r) => r.uid);
+  expect(requests).toContain(SEED.r2);
+  expect(requests).not.toContain(SEED.r1);
+  expect(requests).not.toContain(SEED.r3);
 });

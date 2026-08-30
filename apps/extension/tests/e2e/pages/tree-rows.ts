@@ -4,8 +4,8 @@
  * node-identity attribute), the document order of the rows, expanding
  * a container, a real pointer drag onto a target row's band (dnd-kit's
  * pointer sensor, 4px activation), the Alt+Arrow keyboard move on the
- * focused row, the `+` → Add Folder action on a container row, and the
- * "N items moved" toast.
+ * focused row, the `+` → Add Folder and `⋯` → Delete actions on a
+ * container row, and the "N items moved" toast.
  */
 
 import { expect, type Locator, type Page } from '@playwright/test';
@@ -76,6 +76,18 @@ export class TreeRows {
     await this.page
       .locator('.ant-dropdown:not(.ant-dropdown-hidden) .ant-dropdown-menu-item', { hasText: 'Add Folder' })
       .click();
+  }
+
+  /** The container row's hover `⋯` → "Delete", through the confirm modal when the setting asks for one. */
+  async deleteContainer(containerId: string): Promise<void> {
+    const container = this.row(containerId);
+    await container.hover();
+    await container.locator('.rules-sidebar-collection-actions .anticon-ellipsis').click();
+    await this.page
+      .locator('.ant-dropdown:not(.ant-dropdown-hidden) .ant-dropdown-menu-item', { hasText: 'Delete' })
+      .click();
+    const confirm = this.page.locator('.ant-modal-confirm .ant-btn-dangerous');
+    if (await confirm.isVisible({ timeout: 1500 }).catch(() => false)) await confirm.click();
   }
 
   /** The newest toast — an earlier move's may still be fading out. */
