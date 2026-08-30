@@ -25,6 +25,7 @@ import { subjectCommonName } from '../../trusted-roots/add-gate';
 import { TRUSTED_ROOTS_SETTING_KEY } from '../../trusted-roots/TrustedRootsPicker';
 import AuthAttributionTag, { authAttributionHasBadge } from './AuthAttributionTag';
 import ProxyRouteTag, { proxyRouteHasBadge } from './ProxyRouteTag';
+import ScriptChainTag, { scriptChainHasBadge } from './ScriptChainTag';
 import { formatBytes } from './response-format';
 import { statusDisplayLabel, useStatusPillStyle } from './response-status';
 import {
@@ -880,6 +881,12 @@ const ResponseMetaStrip: React.FC<ResponseMetaStripProps> = ({ response }) => {
         <>
           <MetaDot />
           <AuthAttributionTag auth={response.auth} />
+        </>
+      )}
+      {scriptChainHasBadge(response.scripts) && (
+        <>
+          <MetaDot />
+          <ScriptChainTag scripts={response.scripts} />
         </>
       )}
       {response.executedOn !== undefined && (

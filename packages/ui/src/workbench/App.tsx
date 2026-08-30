@@ -596,6 +596,8 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
     openRequestCollectionVariables,
     openRequestCollectionAuth,
     openRequestFolderAuth,
+    openRequestCollectionScripts,
+    openRequestFolderScripts,
     openTemplateCollectionVariables,
     openRequestEditTab: openRequestEditTabRaw,
     openCreateRequestTab,
@@ -1271,6 +1273,8 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
         openMqttRequestEditTab={openMqttRequestEditTab}
         openRequestCollectionAuth={openRequestCollectionAuth}
         openRequestFolderAuth={openRequestFolderAuth}
+        openRequestCollectionScripts={openRequestCollectionScripts}
+        openRequestFolderScripts={openRequestFolderScripts}
         handleSwitchWorkspace={handleSwitchWorkspace}
         onRuleSaveDraft={ruleSaveFlow.handleSaveDraft}
         onRequestSaveDraft={requestSaveFlow.handleSaveDraft}
@@ -1315,6 +1319,8 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
       openMqttRequestEditTab,
       openRequestCollectionAuth,
       openRequestFolderAuth,
+      openRequestCollectionScripts,
+      openRequestFolderScripts,
       liveWorkflowsApi.workflows,
       replaceTab,
       editingScopeWorkspaceId,

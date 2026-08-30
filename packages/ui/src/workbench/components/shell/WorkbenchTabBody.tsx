@@ -106,6 +106,8 @@ interface WorkbenchTabBodyProps {
   openMqttRequestEditTab: UseTabOpenersApi['openMqttRequestEditTab'];
   openRequestCollectionAuth: UseTabOpenersApi['openRequestCollectionAuth'];
   openRequestFolderAuth: UseTabOpenersApi['openRequestFolderAuth'];
+  openRequestCollectionScripts: UseTabOpenersApi['openRequestCollectionScripts'];
+  openRequestFolderScripts: UseTabOpenersApi['openRequestFolderScripts'];
 
   // Shell-local handlers and slices.
   handleSwitchWorkspace: (targetId: string, opts?: { makeActive?: boolean }) => void;
@@ -162,6 +164,8 @@ const WorkbenchTabBody: React.FC<WorkbenchTabBodyProps> = ({
   openMqttRequestEditTab,
   openRequestCollectionAuth,
   openRequestFolderAuth,
+  openRequestCollectionScripts,
+  openRequestFolderScripts,
   handleSwitchWorkspace,
   onRuleSaveDraft,
   onRequestSaveDraft,
@@ -180,6 +184,10 @@ const WorkbenchTabBody: React.FC<WorkbenchTabBodyProps> = ({
   // the container-section opener by the supplying level.
   const openContainerAuth = (kind: 'collection' | 'folder', uid: string, name: string) =>
     kind === 'collection' ? openRequestCollectionAuth(uid, name) : openRequestFolderAuth(uid, name);
+  // The Scripts tab's "Runs after …" level links — the same dispatch
+  // onto the container's Scripts section.
+  const openContainerScripts = (kind: 'collection' | 'folder', uid: string, name: string) =>
+    kind === 'collection' ? openRequestCollectionScripts(uid, name) : openRequestFolderScripts(uid, name);
   if (tab.mode === 'edit' && tab.ruleUid) {
     return (
       <RuleEditor
@@ -464,6 +472,7 @@ const WorkbenchTabBody: React.FC<WorkbenchTabBodyProps> = ({
         onOpenPackageLibrary={openScriptPackages}
         onOpenResponseExample={openResponseExampleTab}
         onOpenContainerAuth={openContainerAuth}
+        onOpenContainerScripts={openContainerScripts}
         onDirtyChange={(dirty) => handleDirtyChange(tab.id, dirty)}
         registerSaveRef={(saveFn) => registerSaveRef(tab.id, saveFn)}
         registerDuplicateRef={(fn) => registerRequestDuplicateRef(tab.id, fn)}

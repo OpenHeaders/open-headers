@@ -913,6 +913,31 @@ describe('pre-request script mutations', () => {
     expect(init.body).toBe('{"name":"value"}');
   });
 
+  it('records the level that ran beside the folded outcome — a failed request level still reaches the wire', async () => {
+    mockRunScript.mockResolvedValue({
+      ...scriptResult(undefined),
+      succeeded: false,
+      error: { name: 'TypeError', message: 'boom' },
+      durationMs: 7,
+    });
+    const snapshot = await executeRequestDraft(
+      makeRequest({ uid: 'req00001', name: 'Charge', preRequestScript: 'x' }),
+      {},
+    );
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(snapshot.scripts?.preRequest?.succeeded).toBe(false);
+    expect(snapshot.scripts?.preRequest?.chain).toEqual([
+      {
+        level: 'request',
+        uid: 'req00001',
+        name: 'Charge',
+        durationMs: 7,
+        succeeded: false,
+        error: { name: 'TypeError', message: 'boom' },
+      },
+    ]);
+  });
+
   it('keeps an explicit Content-Type header over the derived one', async () => {
     mockRunScript.mockResolvedValue(scriptResult({ body: { type: 'json', content: '{}' } }));
     const req = makeRequest({

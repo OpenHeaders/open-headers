@@ -417,6 +417,8 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.scripts.apiSetBody': 'remplacer le corps de la requête',
   'workbench.editors.request.scripts.apiRequire': 'charger un package de script depuis la bibliothèque de packages',
   'workbench.editors.request.scripts.apiTest': 'déclarer une assertion',
+  'workbench.editors.request.scripts.runsAfter': 'Exécuté après {count} scripts :',
+  'workbench.editors.request.scripts.runsAfterOne': 'Exécuté après 1 script :',
   'workbench.editors.request.scripts.prePlaceholder':
     'Utilisez JavaScript pour modifier cette requête avant son envoi.',
   'workbench.editors.request.scripts.postPlaceholder':
@@ -974,6 +976,14 @@ export const workbenchEditorsRequest = {
     "Envoyé sans autorisation — rien n'est défini au-dessus de la requête.",
   'workbench.editors.request.response.meta.authDangling':
     "L'entrée choisie par la requête n'existe plus — le défaut a été appliqué à la place.",
+  'workbench.editors.request.response.meta.scriptsTag': 'Scripts · {count}',
+  'workbench.editors.request.response.meta.scriptsTitle': 'Chaîne de scripts',
+  'workbench.editors.request.response.meta.scriptsSummary':
+    'Chaque niveau de la chaîne a été exécuté avec succès — les scripts de la collection et du dossier avant ceux de la requête elle-même, en pré-requête comme en post-réponse. Enregistré d’après ce que l’exécution a réellement fait.',
+  'workbench.editors.request.response.meta.scriptsSummaryFailed':
+    'Un niveau de la chaîne a échoué — les lignes ci-dessous indiquent lequel et pourquoi.',
+  'workbench.editors.request.response.meta.scriptsLevelRequest': 'Requête',
+  'workbench.editors.request.response.meta.scriptsDuration': '{ms} ms',
   'workbench.editors.request.response.meta.executedOnTag': 'Envoyé depuis {name}',
   'workbench.editors.request.response.meta.executedOnTitle': 'Exécuté sur le back-end connecté',
   'workbench.editors.request.response.meta.executedOnSummary':

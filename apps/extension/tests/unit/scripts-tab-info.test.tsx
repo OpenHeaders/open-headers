@@ -7,6 +7,10 @@
  * slot both execute in. The `oh.*` API glossary stays beneath the
  * card. The Monaco CodeEditor is mocked to a textarea — the popover
  * chrome is the contract here, not the editor.
+ *
+ * The ancestor line: a request under a collection reads "Runs after N
+ * scripts:" for the active phase with one link per level opening that
+ * container's Scripts section; absent without ancestor scripts.
  */
 
 // Side-effect imports: register the setting defs the toolbar reads —
@@ -15,6 +19,7 @@
 import '@openheaders/ui/workbench/settings/schema/keyboard';
 import '@openheaders/ui/workbench/settings/schema/editor';
 import ScriptsTab from '@openheaders/ui/workbench/components/request-editor/ScriptsTab';
+import type { AncestorScriptLevels } from '@openheaders/ui/workbench/components/request-container/ancestry';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
@@ -49,16 +54,28 @@ window.matchMedia = ((query: string) => ({
 
 afterEach(cleanup);
 
-function renderTab() {
+function renderTab(extra: {
+  ancestorScripts?: AncestorScriptLevels;
+  onOpenContainerScripts?: (kind: 'collection' | 'folder', uid: string, name: string) => void;
+} = {}) {
   return render(
     <ScriptsTab
       preRequestScript=""
       postResponseScript=""
       onPreRequestChange={() => {}}
       onPostResponseChange={() => {}}
+      {...extra}
     />,
   );
 }
+
+const ANCESTORS: AncestorScriptLevels = {
+  pre: [
+    { kind: 'collection', uid: 'col00001', name: 'Payments' },
+    { kind: 'folder', uid: 'fld00001', name: 'Tokens' },
+  ],
+  post: [{ kind: 'collection', uid: 'col00001', name: 'Payments' }],
+};
 
 /** Highlighted example-card tokens of the currently open popover. */
 const litTokens = (): string[] =>
@@ -100,5 +117,33 @@ describe('ScriptsTab rail info popovers', () => {
       />,
     );
     expect(screen.queryByText('Example send')).toBeTruthy();
+  });
+});
+
+describe('ScriptsTab ancestor line', () => {
+  it('names the levels that run ahead of the active phase, outer → inner, each opening its Scripts section', () => {
+    const onOpen = vi.fn();
+    renderTab({ ancestorScripts: ANCESTORS, onOpenContainerScripts: onOpen });
+    const line = screen.getByTestId('oh-scripts-runs-after');
+    expect(line.textContent).toBe('Runs after 2 scripts:Collection ‘Payments’·Folder ‘Tokens’');
+    const links = screen.getAllByTestId('oh-scripts-ancestor-link');
+    expect(links.map((l) => l.textContent)).toEqual(['Collection ‘Payments’', 'Folder ‘Tokens’']);
+    fireEvent.click(links[1]);
+    expect(onOpen).toHaveBeenCalledWith('folder', 'fld00001', 'Tokens');
+  });
+
+  it('follows the rail — the post-response phase reads its own levels', () => {
+    renderTab({ ancestorScripts: ANCESTORS, onOpenContainerScripts: () => {} });
+    fireEvent.click(screen.getByText('Post-response'));
+    const line = screen.getByTestId('oh-scripts-runs-after');
+    expect(line.textContent).toBe('Runs after 1 script:Collection ‘Payments’');
+  });
+
+  it('is absent without ancestor scripts for the phase, and on a mount that passes none', () => {
+    renderTab({ ancestorScripts: { pre: [], post: ANCESTORS.post }, onOpenContainerScripts: () => {} });
+    expect(screen.queryByTestId('oh-scripts-runs-after')).toBeNull();
+    cleanup();
+    renderTab();
+    expect(screen.queryByTestId('oh-scripts-runs-after')).toBeNull();
   });
 });

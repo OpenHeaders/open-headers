@@ -427,6 +427,8 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.scripts.apiSetBody': 'den Anfrage-Body ersetzen',
   'workbench.editors.request.scripts.apiRequire': 'ein Script-Paket aus der Paketbibliothek laden',
   'workbench.editors.request.scripts.apiTest': 'eine Assertion registrieren',
+  'workbench.editors.request.scripts.runsAfter': 'Läuft nach {count} Skripten:',
+  'workbench.editors.request.scripts.runsAfterOne': 'Läuft nach 1 Skript:',
   'workbench.editors.request.scripts.prePlaceholder': 'Nutze JavaScript, um diese Anfrage vor dem Senden zu verändern.',
   'workbench.editors.request.scripts.postPlaceholder':
     'Nutze JavaScript, um diese Antwort nach dem Eintreffen zu testen und zu lesen.',
@@ -979,6 +981,14 @@ export const workbenchEditorsRequest = {
     'Ohne Autorisierung gesendet — oberhalb der Anfrage ist nichts festgelegt.',
   'workbench.editors.request.response.meta.authDangling':
     'Der von der Anfrage gewählte Eintrag existiert nicht mehr — stattdessen wurde der Standard angewendet.',
+  'workbench.editors.request.response.meta.scriptsTag': 'Skripte · {count}',
+  'workbench.editors.request.response.meta.scriptsTitle': 'Skriptkette',
+  'workbench.editors.request.response.meta.scriptsSummary':
+    'Jede Ebene der Kette lief erfolgreich — die Skripte der Sammlung und des Ordners vor denen der Anfrage selbst, Pre-Request wie Post-Response. Aufgezeichnet aus dem, was der Lauf tatsächlich getan hat.',
+  'workbench.editors.request.response.meta.scriptsSummaryFailed':
+    'Eine Ebene der Kette ist fehlgeschlagen — die Zeilen unten nennen welche und warum.',
+  'workbench.editors.request.response.meta.scriptsLevelRequest': 'Anfrage',
+  'workbench.editors.request.response.meta.scriptsDuration': '{ms} ms',
   'workbench.editors.request.response.meta.executedOnTag': 'Gesendet von {name}',
   'workbench.editors.request.response.meta.executedOnTitle': 'Auf dem verbundenen Back-end ausgeführt',
   'workbench.editors.request.response.meta.executedOnSummary':

@@ -414,6 +414,8 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.scripts.apiSetBody': 'reemplazar el cuerpo de la solicitud',
   'workbench.editors.request.scripts.apiRequire': 'cargar un paquete de scripts de la biblioteca de paquetes',
   'workbench.editors.request.scripts.apiTest': 'registrar una aserción',
+  'workbench.editors.request.scripts.runsAfter': 'Se ejecuta después de {count} scripts:',
+  'workbench.editors.request.scripts.runsAfterOne': 'Se ejecuta después de 1 script:',
   'workbench.editors.request.scripts.prePlaceholder': 'Usa JavaScript para modificar esta solicitud antes de enviarla.',
   'workbench.editors.request.scripts.postPlaceholder':
     'Usa JavaScript para probar y leer esta respuesta cuando llegue.',
@@ -963,6 +965,14 @@ export const workbenchEditorsRequest = {
     'Enviado sin autorización — no hay nada configurado por encima de la solicitud.',
   'workbench.editors.request.response.meta.authDangling':
     'La entrada elegida por la solicitud ya no existe — se aplicó el predeterminado en su lugar.',
+  'workbench.editors.request.response.meta.scriptsTag': 'Scripts · {count}',
+  'workbench.editors.request.response.meta.scriptsTitle': 'Cadena de scripts',
+  'workbench.editors.request.response.meta.scriptsSummary':
+    'Todos los niveles de la cadena se ejecutaron correctamente: los scripts de la colección y de la carpeta antes de los de la propia solicitud, tanto en pre-solicitud como en post-respuesta. Registrado a partir de lo que la ejecución hizo realmente.',
+  'workbench.editors.request.response.meta.scriptsSummaryFailed':
+    'Un nivel de la cadena falló: las filas siguientes indican cuál y por qué.',
+  'workbench.editors.request.response.meta.scriptsLevelRequest': 'Solicitud',
+  'workbench.editors.request.response.meta.scriptsDuration': '{ms} ms',
   'workbench.editors.request.response.meta.executedOnTag': 'Enviado desde {name}',
   'workbench.editors.request.response.meta.executedOnTitle': 'Ejecutado en el back-end conectado',
   'workbench.editors.request.response.meta.executedOnSummary':

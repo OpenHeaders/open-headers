@@ -13,6 +13,13 @@
  * floating bar inside the editor's bottom-right corner hosts the
  * Packages and Snippets menus (ready-made `oh.*` examples, inserted
  * at the cursor).
+ *
+ * A request inside a collection reads its ancestor chain in the
+ * toolbar row: "Runs after 2 scripts: Collection ‘Payments’ ·
+ * Folder ‘Tokens’" for the active phase — the levels the executor
+ * composes ahead of this slot, each name opening that container's
+ * Scripts section. Silent when no ancestor carries a script for the
+ * phase (and on the container editor's own mount, which passes none).
  */
 
 import type { ScriptKind } from '@openheaders/core/scripts';
@@ -24,7 +31,9 @@ import { useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { type Translate, useT } from '@openheaders/ui/context/LocaleContext';
 import { EXAMPLE_CARD_POPOVER_WIDTH, type InfoPopoverContent, InfoTrigger } from '@openheaders/ui/shared/info-popover';
+import type { AncestorScriptLevel, AncestorScriptLevels } from '../request-container/ancestry';
 import { installMenuIconInjector } from '../script-editor/monaco-menu-icons';
+import { inheritSourceLabel } from './inherited-auth';
 import { settingsExampleCard } from './SettingsRowInfo';
 import SaveToPackagePopover from '../script-editor/SaveToPackagePopover';
 import ScriptPackagesMenu from '../script-editor/ScriptPackagesMenu';
@@ -48,6 +57,11 @@ interface ScriptsTabProps {
   /** Per-hook unsaved flags for the rail dots (see section-unsaved.ts). */
   preRequestUnsaved?: boolean;
   postResponseUnsaved?: boolean;
+  /** The ancestor levels whose scripts run ahead of this request's, per
+   *  phase — the "Runs after …" line. Absent on container mounts. */
+  ancestorScripts?: AncestorScriptLevels;
+  /** Opens a container's Scripts section — the line's level links. */
+  onOpenContainerScripts?: (kind: 'collection' | 'folder', uid: string, name: string) => void;
 }
 
 // `oh.*` API labels are code — only the descriptions localize.
@@ -162,6 +176,54 @@ const Rail: React.FC<{
   );
 };
 
+// The active phase's ancestor line — a count sentence and one link per
+// level, outer → inner (the order they run in). A `Text`-free span so
+// the links sit inline with the sentence.
+const AncestorScriptsLine: React.FC<{
+  levels: readonly AncestorScriptLevel[];
+  onOpen?: (kind: 'collection' | 'folder', uid: string, name: string) => void;
+}> = ({ levels, onOpen }) => {
+  const { token } = theme.useToken();
+  const t = useT();
+  if (levels.length === 0) return null;
+  return (
+    <span
+      data-testid="oh-scripts-runs-after"
+      style={{
+        flex: 1,
+        minWidth: 0,
+        display: 'inline-flex',
+        alignItems: 'center',
+        flexWrap: 'wrap',
+        columnGap: 4,
+        fontSize: 12,
+        color: token.colorTextSecondary,
+      }}
+    >
+      <span>
+        {levels.length === 1
+          ? t('workbench.editors.request.scripts.runsAfterOne')
+          : t('workbench.editors.request.scripts.runsAfter', { count: levels.length })}
+      </span>
+      {levels.map((level, i) => (
+        <span key={level.uid} style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+          {i > 0 && <span aria-hidden>·</span>}
+          <Button
+            type="link"
+            size="small"
+            data-testid="oh-scripts-ancestor-link"
+            style={{ padding: 0, height: 'auto', fontSize: 12 }}
+            disabled={onOpen === undefined}
+            onClick={() => onOpen?.(level.kind, level.uid, level.name)}
+          >
+            {inheritSourceLabel(t, level)}
+          </Button>
+        </span>
+      ))}
+    </span>
+  );
+};
+
 const ScriptsTab: React.FC<ScriptsTabProps> = ({
   preRequestScript,
   postResponseScript,
@@ -171,10 +233,14 @@ const ScriptsTab: React.FC<ScriptsTabProps> = ({
   onOpenPackageLibrary,
   preRequestUnsaved,
   postResponseUnsaved,
+  ancestorScripts,
+  onOpenContainerScripts,
 }) => {
   const { token } = theme.useToken();
   const t = useT();
   const [active, setActive] = useState<ScriptKind>('pre-request');
+  const ancestorLevels =
+    ancestorScripts === undefined ? [] : active === 'pre-request' ? ancestorScripts.pre : ancestorScripts.post;
   // Script-editor wrap — a per-pane override of the global
   // `editor.wordWrap` setting; OFF by default (scripts are code, and
   // the code idiom keeps long lines on one line).
@@ -265,6 +331,7 @@ const ScriptsTab: React.FC<ScriptsTabProps> = ({
             cluster) — keeps the buttons out of the buffer so they never
             cover long first lines. */}
         <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 8 }}>
+          <AncestorScriptsLine levels={ancestorLevels} onOpen={onOpenContainerScripts} />
           <CodeEditorActions
             target={editorActionsRef}
             language="javascript"

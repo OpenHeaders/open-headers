@@ -11,7 +11,9 @@
  * first failure's error carries the failing level's label, console
  * entries carry a `[label]` prefix when more than one level
  * contributed, durations sum, mutations spread-merge in application
- * order, assertions concatenate.
+ * order, assertions concatenate. Beside the fold, `chain` records
+ * every level that RAN in order (level · container · duration ·
+ * verdict) — the per-level attribution the folded outcome loses.
  *
  * Chain derivation rides the shared ancestor carrier walk
  * (`ancestor-chain.ts`) — the collection whose `path` prefixes
@@ -27,12 +29,16 @@ import type {
   ScriptConsoleEntry,
   ScriptExecutionResult,
 } from '@openheaders/core/scripts';
-import type { ExecutedRequestSnapshot, Request } from '@openheaders/core/types';
+import type { ExecutedRequestSnapshot, ExecutedScriptChainStep, Request } from '@openheaders/core/types';
 import { collectAncestorCarriers } from './ancestor-chain';
 import type { StepScriptRunner } from './script-hooks';
 
 /** One script in the composed chain, labeled for error attribution. */
 export interface ChainScript {
+  level: ExecutedScriptChainStep['level'];
+  /** The contributing container's (or the request's) uid and name — the run record's attribution. */
+  uid: string;
+  name: string;
   /** Attribution label, e.g. `Collection 'Auth'`, `Folder 'Tokens'`, `Request`. */
   label: string;
   source: string;
@@ -56,9 +62,10 @@ export interface RequestScriptChain {
 export function collectAncestorScripts(request: Request, workspaceId: string | null): RequestScriptChain {
   const pre: ChainScript[] = [];
   const post: ChainScript[] = [];
-  for (const { label, entity } of collectAncestorCarriers(request, workspaceId)) {
-    if (entity.preRequestScript?.trim()) pre.push({ label, source: entity.preRequestScript });
-    if (entity.postResponseScript?.trim()) post.push({ label, source: entity.postResponseScript });
+  for (const { level, label, entity } of collectAncestorCarriers(request, workspaceId)) {
+    const head = { level, uid: entity.uid, name: entity.name, label };
+    if (entity.preRequestScript?.trim()) pre.push({ ...head, source: entity.preRequestScript });
+    if (entity.postResponseScript?.trim()) post.push({ ...head, source: entity.postResponseScript });
   }
   return { pre, post };
 }
@@ -70,8 +77,9 @@ export function collectAncestorScripts(request: Request, workspaceId: string | n
  */
 export function collectScriptChain(request: Request, workspaceId: string | null): RequestScriptChain {
   const { pre, post } = collectAncestorScripts(request, workspaceId);
-  if (request.preRequestScript?.trim()) pre.push({ label: 'Request', source: request.preRequestScript });
-  if (request.postResponseScript?.trim()) post.push({ label: 'Request', source: request.postResponseScript });
+  const head = { level: 'request' as const, uid: request.uid, name: request.name, label: 'Request' };
+  if (request.preRequestScript?.trim()) pre.push({ ...head, source: request.preRequestScript });
+  if (request.postResponseScript?.trim()) post.push({ ...head, source: request.postResponseScript });
   return { pre, post };
 }
 
@@ -92,6 +100,18 @@ function foldError(result: ScriptExecutionResult, label: string, multi: boolean)
   const message = result.error?.message ?? 'script failed';
   const name = result.error?.name ?? 'Error';
   return { name, message: multi ? `${label}: ${message}` : message };
+}
+
+/** The level's own record — its verdict unprefixed (the level IS the attribution). */
+function chainStep(script: ChainScript, result: ScriptExecutionResult): ExecutedScriptChainStep {
+  return {
+    level: script.level,
+    uid: script.uid,
+    name: script.name,
+    durationMs: result.durationMs,
+    succeeded: result.succeeded,
+    ...(result.succeeded ? {} : { error: foldError(result, script.label, false) }),
+  };
 }
 
 export interface PreChainRunResult {
@@ -124,12 +144,14 @@ export async function runPreRequestChain(
   let error: { name: string; message: string } | undefined;
   let failedLabel: string | null = null;
   const consoleLog: ScriptConsoleEntry[] = [];
+  const chain: ExecutedScriptChainStep[] = [];
   let durationMs = 0;
   let mutation: RequestMutation | undefined;
 
   for (const script of scripts) {
     const result = await runner({ kind: 'pre-request', source: script.source, request: getSnapshot() });
     consoleLog.push(...prefixConsole(result.consoleLog, script.label, multi));
+    chain.push(chainStep(script, result));
     durationMs += result.durationMs;
     if (result.succeeded) {
       if (result.mutation) {
@@ -147,7 +169,7 @@ export async function runPreRequestChain(
   }
 
   return {
-    outcome: { succeeded, error, consoleLog, durationMs, mutation },
+    outcome: { succeeded, error, consoleLog, durationMs, mutation, chain },
     failedLabel,
   };
 }
@@ -182,11 +204,13 @@ export async function runPostResponseChain(
   let failedLabel: string | null = null;
   const consoleLog: ScriptConsoleEntry[] = [];
   const assertions: ScriptExecutionResult['assertions'] = [];
+  const chain: ExecutedScriptChainStep[] = [];
   let durationMs = 0;
 
   for (const script of scripts) {
     const result = await runner({ kind: 'post-response', source: script.source, request, response });
     consoleLog.push(...prefixConsole(result.consoleLog, script.label, multi));
+    chain.push(chainStep(script, result));
     assertions.push(...result.assertions);
     durationMs += result.durationMs;
     if (result.succeeded) continue;
@@ -199,7 +223,7 @@ export async function runPostResponseChain(
   }
 
   return {
-    outcome: { succeeded, error, assertions, consoleLog, durationMs },
+    outcome: { succeeded, error, assertions, consoleLog, durationMs, chain },
     failedLabel,
   };
 }

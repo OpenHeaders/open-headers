@@ -249,6 +249,7 @@ export type {
   ExecutedRequestErrorHint,
   ExecutedRequestSize,
   ExecutedRequestSnapshot,
+  ExecutedScriptChainStep,
   ExecutedTlsFacts,
   ExecutedWireCapture,
   OpenInTabErrorHint,

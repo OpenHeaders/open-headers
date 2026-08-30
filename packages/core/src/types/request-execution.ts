@@ -222,6 +222,23 @@ export interface ExecutedAuthAttribution {
   danglingAuthUid?: string;
 }
 
+/**
+ * One level of the ancestor-first script chain as it RAN on a send —
+ * the collection, then each folder outer→inner, then the request, per
+ * phase. Stamped by the chain runner in execution order; a strict run
+ * that stopped at a failure lists only the levels it reached (an
+ * unreached level is simply absent). Attribution only — the folded
+ * outcome beside it stays the run's verdict.
+ */
+export interface ExecutedScriptChainStep {
+  level: 'collection' | 'folder' | 'request';
+  uid: string;
+  name: string;
+  durationMs: number;
+  succeeded: boolean;
+  error?: { name: string; message: string };
+}
+
 export interface ExecutedRequestSnapshot {
   /** HTTP status (e.g. 200). `0` when the request never completed
    *  (DNS failure, network offline, aborted). */
@@ -487,6 +504,9 @@ export interface ExecutedRequestSnapshot {
        *  the UI to show "1 header added" style hints. Non-authoritative;
        *  the actual fetch uses the merged snapshot. */
       mutation?: RequestMutation;
+      /** The levels that ran, in order — see {@link ExecutedScriptChainStep}.
+       *  Absent on snapshots minted before the chain was recorded. */
+      chain?: ExecutedScriptChainStep[];
     };
     postResponse?: {
       succeeded: boolean;
@@ -494,6 +514,8 @@ export interface ExecutedRequestSnapshot {
       assertions: TestAssertion[];
       consoleLog: ScriptConsoleEntry[];
       durationMs: number;
+      /** The levels that ran, in order — see {@link ExecutedScriptChainStep}. */
+      chain?: ExecutedScriptChainStep[];
     };
   } | null;
 }

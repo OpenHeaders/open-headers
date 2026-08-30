@@ -9,11 +9,14 @@
  *     back and is reported; a host-scoped entry applies on a match;
  *   - nothing set anywhere = no auth with no source;
  *   - a request in no tree (a scratch draft) resolves to no source;
- *   - the folder lookup finds nested folders and misses unknown ones.
+ *   - the folder lookup finds nested folders and misses unknown ones;
+ *   - the ancestor script levels list the slots that run around the
+ *     request per phase, outer → inner, whitespace-only slots skipped.
  */
 
 import type { AuthPoolEntry, Collection, CollectionTree, ConcreteAuthConfig } from '@openheaders/core/types';
 import {
+  ancestorScriptLevels,
   findFolderCollectionUid,
   findRequestAncestry,
   inheritPoolLevels,
@@ -203,5 +206,31 @@ describe('findFolderCollectionUid', () => {
   it('finds a nested folder and misses an unknown one', () => {
     expect(findFolderCollectionUid([TREE], 'fld00002')).toBe('col00001');
     expect(findFolderCollectionUid([TREE], 'fld99999')).toBeNull();
+  });
+});
+
+describe('ancestorScriptLevels', () => {
+  it('lists the levels carrying a script per phase, outer → inner, skipping whitespace-only slots', () => {
+    const folders = [
+      { uid: 'fld00001', name: 'Cards', preRequestScript: '   \n', postResponseScript: 'oh.test("ok", () => {});' },
+      { uid: 'fld00002', name: 'Refunds', preRequestScript: 'oh.setHeader("X-Refund", "1");' },
+    ];
+    const ancestry = findRequestAncestry(
+      [TREE],
+      [makeCollection({ preRequestScript: 'oh.setHeader("X-Trace", "1");' })],
+      folders,
+      'req00002',
+    );
+    expect(ancestorScriptLevels(ancestry)).toEqual({
+      pre: [
+        { kind: 'collection', uid: 'col00001', name: 'Payments' },
+        { kind: 'folder', uid: 'fld00002', name: 'Refunds' },
+      ],
+      post: [{ kind: 'folder', uid: 'fld00001', name: 'Cards' }],
+    });
+  });
+
+  it('a scratch draft (no ancestry) has no levels', () => {
+    expect(ancestorScriptLevels(null)).toEqual({ pre: [], post: [] });
   });
 });

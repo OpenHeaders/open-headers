@@ -71,7 +71,7 @@ import {
   rowsToParams,
 } from './draft';
 import { type TabKey, buildRequestTabItems } from './request-tab-items';
-import { findRequestAncestry, resolveInheritedAuthFor } from '../request-container/ancestry';
+import { ancestorScriptLevels, findRequestAncestry, resolveInheritedAuthFor } from '../request-container/ancestry';
 import RequestTabContent from './RequestTabContent';
 import ScriptModeTag from './ScriptModeTag';
 import RequestUrlBar from './RequestUrlBar';
@@ -131,6 +131,9 @@ interface RequestEditorProps {
   /** Opens a container's Authorization section — the Auth tab's
    *  "Edit in …" opener under Inherit. */
   onOpenContainerAuth?: (kind: 'collection' | 'folder', uid: string, name: string) => void;
+  /** Opens a container's Scripts section — the Scripts tab's
+   *  "Runs after …" level links. */
+  onOpenContainerScripts?: (kind: 'collection' | 'folder', uid: string, name: string) => void;
 }
 
 /** Payload the request editor hands the extract action. */
@@ -158,6 +161,7 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
   onOpenPackageLibrary,
   onOpenResponseExample,
   onOpenContainerAuth,
+  onOpenContainerScripts,
 }) => {
   const { token } = theme.useToken();
   const { message } = App.useApp();
@@ -185,6 +189,12 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
         ? findRequestAncestry(requestCollectionTrees, requestCollections, requestFolders, requestUid)
         : undefined,
     [requestUid, requestCollectionTrees, requestCollections, requestFolders],
+  );
+  // The ancestor script slots around this request — the Scripts tab's
+  // "Runs after …" line, off the same tree-read chain.
+  const ancestorScripts = useMemo(
+    () => (ancestry === undefined ? undefined : ancestorScriptLevels(ancestry)),
+    [ancestry],
   );
   const [activeTab, setActiveTab] = useState<TabKey>('params');
 
@@ -963,6 +973,8 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
                         inheritedAuth={inheritedAuth}
                         ancestry={ancestry}
                         onOpenContainerAuth={onOpenContainerAuth}
+                        ancestorScripts={ancestorScripts}
+                        onOpenContainerScripts={onOpenContainerScripts}
                         requestName={summary?.name}
                       />
                     </div>

@@ -354,6 +354,8 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.scripts.apiSetBody': 'replace the request body',
   'workbench.editors.request.scripts.apiRequire': 'load a script package from the Package Library',
   'workbench.editors.request.scripts.apiTest': 'register an assertion',
+  'workbench.editors.request.scripts.runsAfter': 'Runs after {count} scripts:',
+  'workbench.editors.request.scripts.runsAfterOne': 'Runs after 1 script:',
   'workbench.editors.request.scripts.prePlaceholder': 'Use JavaScript to modify this request before it is sent.',
   'workbench.editors.request.scripts.postPlaceholder':
     'Use JavaScript to test and read this response after it arrives.',
@@ -790,6 +792,14 @@ export const workbenchEditorsRequest = {
     'Sent without authorization — nothing is set above the request.',
   'workbench.editors.request.response.meta.authDangling':
     'The entry the request picked no longer exists — the default applied instead.',
+  'workbench.editors.request.response.meta.scriptsTag': 'Scripts · {count}',
+  'workbench.editors.request.response.meta.scriptsTitle': 'Script chain',
+  'workbench.editors.request.response.meta.scriptsSummary':
+    'Every level of the chain ran and succeeded — the collection’s and folder’s scripts ahead of the request’s own, pre-request and post-response alike. Recorded from what the run actually did.',
+  'workbench.editors.request.response.meta.scriptsSummaryFailed':
+    'A level of the chain failed — the rows below name which one and why.',
+  'workbench.editors.request.response.meta.scriptsLevelRequest': 'Request',
+  'workbench.editors.request.response.meta.scriptsDuration': '{ms} ms',
   'workbench.editors.request.response.meta.executedOnTag': 'Sent from {name}',
   'workbench.editors.request.response.meta.executedOnTitle': 'Executed on the connected back-end',
   'workbench.editors.request.response.meta.executedOnSummary':

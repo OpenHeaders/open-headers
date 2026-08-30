@@ -358,6 +358,8 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.scripts.apiSetBody': '替换请求体',
   'workbench.editors.request.scripts.apiRequire': '从包库加载脚本包',
   'workbench.editors.request.scripts.apiTest': '注册断言',
+  'workbench.editors.request.scripts.runsAfter': '在 {count} 个脚本之后运行：',
+  'workbench.editors.request.scripts.runsAfterOne': '在 1 个脚本之后运行：',
   'workbench.editors.request.scripts.prePlaceholder': '用 JavaScript 在发送前修改此请求。',
   'workbench.editors.request.scripts.postPlaceholder': '用 JavaScript 在响应到达后测试并读取它。',
 
@@ -771,6 +773,13 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.response.meta.authSummaryInherited': '{type}——继承自{source}。',
   'workbench.editors.request.response.meta.authSummaryNone': '未携带授权发送——请求之上未设置任何内容。',
   'workbench.editors.request.response.meta.authDangling': '请求选择的条目已不存在——改为应用了默认项。',
+  'workbench.editors.request.response.meta.scriptsTag': '脚本 · {count}',
+  'workbench.editors.request.response.meta.scriptsTitle': '脚本链',
+  'workbench.editors.request.response.meta.scriptsSummary':
+    '脚本链的每一层都已成功运行——集合和文件夹的脚本先于请求自身的脚本，请求前与响应后均如此。根据本次运行的实际情况记录。',
+  'workbench.editors.request.response.meta.scriptsSummaryFailed': '脚本链中有一层失败——下方各行指明是哪一层以及原因。',
+  'workbench.editors.request.response.meta.scriptsLevelRequest': '请求',
+  'workbench.editors.request.response.meta.scriptsDuration': '{ms} 毫秒',
   'workbench.editors.request.response.meta.executedOnTag': '从 {name} 发送',
   'workbench.editors.request.response.meta.executedOnTitle': '在已连接的后端上执行',
   'workbench.editors.request.response.meta.executedOnSummary':

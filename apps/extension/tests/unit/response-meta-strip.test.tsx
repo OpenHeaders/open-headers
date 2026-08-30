@@ -413,3 +413,71 @@ describe('ResponseMetaStrip auth attribution', () => {
     expect(await screen.findByText(/no longer exists/)).toBeTruthy();
   });
 });
+
+describe('ResponseMetaStrip script chain', () => {
+  it('shows no scripts tag on a scriptless run or a snapshot minted before the chain was recorded', () => {
+    renderStrip();
+    expect(screen.queryByTestId('oh-response-scripts')).toBeNull();
+    cleanup();
+    renderStrip({ scripts: { preRequest: { succeeded: true, consoleLog: [], durationMs: 4 } } });
+    expect(screen.queryByTestId('oh-response-scripts')).toBeNull();
+  });
+
+  it('counts the levels that ran across both phases and lists them in order on hover', async () => {
+    renderStrip({
+      scripts: {
+        preRequest: {
+          succeeded: true,
+          consoleLog: [],
+          durationMs: 15,
+          chain: [
+            { level: 'collection', uid: 'col00001', name: 'Payments', durationMs: 12, succeeded: true },
+            { level: 'folder', uid: 'fld00001', name: 'Tokens', durationMs: 3, succeeded: true },
+          ],
+        },
+        postResponse: {
+          succeeded: true,
+          assertions: [],
+          consoleLog: [],
+          durationMs: 5,
+          chain: [{ level: 'request', uid: 'req00001', name: 'Charge', durationMs: 5, succeeded: true }],
+        },
+      },
+    });
+    const tag = screen.getByTestId('oh-response-scripts');
+    expect(tag.textContent).toBe('Scripts · 3');
+    fireEvent.mouseEnter(tag);
+    expect(await screen.findByText('Script chain')).toBeTruthy();
+    const steps = screen.getAllByTestId('oh-response-script-step').map((el) => el.textContent);
+    expect(steps).toEqual(['Collection ‘Payments’12 ms', 'Folder ‘Tokens’3 ms', 'Request5 ms']);
+  });
+
+  it('a failed level turns the tag to warning tone and shows its error beneath the level', async () => {
+    renderStrip({
+      scripts: {
+        preRequest: {
+          succeeded: false,
+          error: { name: 'TypeError', message: "Folder 'Tokens': boom" },
+          consoleLog: [],
+          durationMs: 15,
+          chain: [
+            { level: 'collection', uid: 'col00001', name: 'Payments', durationMs: 12, succeeded: true },
+            {
+              level: 'folder',
+              uid: 'fld00001',
+              name: 'Tokens',
+              durationMs: 3,
+              succeeded: false,
+              error: { name: 'TypeError', message: 'boom' },
+            },
+          ],
+        },
+      },
+    });
+    const tag = screen.getByTestId('oh-response-scripts');
+    expect(tag.className).toContain('ant-tag-warning');
+    fireEvent.mouseEnter(tag);
+    expect(await screen.findByText(/A level of the chain failed/)).toBeTruthy();
+    expect(screen.getByText('boom')).toBeTruthy();
+  });
+});

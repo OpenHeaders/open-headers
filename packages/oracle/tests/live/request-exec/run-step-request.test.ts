@@ -515,6 +515,19 @@ describe('runStepRequest — step script hooks', () => {
     expect(snap.scripts?.postResponse?.succeeded).toBe(true);
   });
 
+  it('records the chain beside each folded outcome — the request level, its uid and name', async () => {
+    const { runner } = captureRunner({});
+    const { transport } = captureTransport();
+    const request = scripted({ uid: 'req00001', name: 'Charge' });
+    const snap = await runStepRequest(request, { ...opts(transport), scriptRunner: runner });
+    expect(snap.scripts?.preRequest?.chain).toEqual([
+      { level: 'request', uid: 'req00001', name: 'Charge', durationMs: 1, succeeded: true },
+    ]);
+    expect(snap.scripts?.postResponse?.chain).toEqual([
+      { level: 'request', uid: 'req00001', name: 'Charge', durationMs: 1, succeeded: true },
+    ]);
+  });
+
   it('skips a hook whose script source is absent', async () => {
     const { runner, inputs } = captureRunner({});
     const { transport } = captureTransport();

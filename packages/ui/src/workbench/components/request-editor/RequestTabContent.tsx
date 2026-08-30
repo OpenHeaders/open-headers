@@ -6,7 +6,7 @@
 
 import type { Collection } from '@openheaders/core/types';
 import type React from 'react';
-import type { RequestAncestry } from '../request-container/ancestry';
+import type { AncestorScriptLevels, RequestAncestry } from '../request-container/ancestry';
 import AuthorizationTab from './AuthorizationTab';
 import type { InheritedAuthAttribution } from './inherited-auth';
 import BodyTab from './BodyTab';
@@ -57,6 +57,11 @@ interface RequestTabContentProps {
   /** Opens a container's Authorization section — the Auth tab's
    *  "Edit in …" opener under Inherit. */
   onOpenContainerAuth?: (kind: 'collection' | 'folder', uid: string, name: string) => void;
+  /** The ancestor levels whose scripts run around this request — the
+   *  Scripts tab's "Runs after …" line. */
+  ancestorScripts?: AncestorScriptLevels;
+  /** Opens a container's Scripts section — the line's level links. */
+  onOpenContainerScripts?: (kind: 'collection' | 'folder', uid: string, name: string) => void;
 }
 
 const RequestTabContent: React.FC<RequestTabContentProps> = ({
@@ -75,6 +80,8 @@ const RequestTabContent: React.FC<RequestTabContentProps> = ({
   inheritedAuth,
   ancestry,
   onOpenContainerAuth,
+  ancestorScripts,
+  onOpenContainerScripts,
 }) => {
   switch (tab) {
     case 'docs':
@@ -126,6 +133,8 @@ const RequestTabContent: React.FC<RequestTabContentProps> = ({
           onOpenPackageLibrary={onOpenPackageLibrary}
           preRequestUnsaved={unsavedSections?.preRequestScript}
           postResponseUnsaved={unsavedSections?.postResponseScript}
+          ancestorScripts={ancestorScripts}
+          onOpenContainerScripts={onOpenContainerScripts}
         />
       );
     case 'spec':

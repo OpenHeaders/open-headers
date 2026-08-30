@@ -33,6 +33,9 @@ export interface AncestorAuthCarrier {
   auths?: AuthPoolEntry[];
   defaultAuthUid?: string;
   auth?: AuthConfig;
+  /** The level's script slots — the Scripts tab's "Runs after …" line. */
+  preRequestScript?: string;
+  postResponseScript?: string;
 }
 
 export interface RequestAncestry {
@@ -200,4 +203,37 @@ export function inheritPoolLevels(ancestry: RequestAncestry | null): InheritPool
     levels.push({ kind: carrier.level, uid: carrier.uid, name: carrier.name, entries, defaultUid: pool.defaultUid });
   }
   return levels;
+}
+
+export interface AncestorScriptLevel {
+  kind: 'collection' | 'folder';
+  uid: string;
+  name: string;
+}
+
+export interface AncestorScriptLevels {
+  /** Outer → inner — the order the levels run in ahead of the request's own script. */
+  pre: AncestorScriptLevel[];
+  post: AncestorScriptLevel[];
+}
+
+/**
+ * The ancestor levels whose script slots run around the request,
+ * outer → inner per phase — the renderer twin of the executor's
+ * `collectAncestorScripts` (whitespace-only slots skipped). Empty
+ * lists for a scratch draft.
+ */
+export function ancestorScriptLevels(ancestry: RequestAncestry | null): AncestorScriptLevels {
+  const pre: AncestorScriptLevel[] = [];
+  const post: AncestorScriptLevel[] = [];
+  if (ancestry === null) return { pre, post };
+  const levels: Array<[AncestorScriptLevel['kind'], AncestorAuthCarrier]> = [
+    ['collection', ancestry.collection],
+    ...ancestry.folders.map((f): [AncestorScriptLevel['kind'], AncestorAuthCarrier] => ['folder', f]),
+  ];
+  for (const [kind, { uid, name, preRequestScript, postResponseScript }] of levels) {
+    if (preRequestScript?.trim()) pre.push({ kind, uid, name });
+    if (postResponseScript?.trim()) post.push({ kind, uid, name });
+  }
+  return { pre, post };
 }
