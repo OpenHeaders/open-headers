@@ -78,6 +78,14 @@ export interface ExecutedGrpcSnapshot {
    *  map onto `error` instead). */
   stopped?: boolean;
   /**
+   * The connection died AFTER the response head — a keepalive ping
+   * unanswered, the server's GOAWAY, a reset mid-body. The capture
+   * holds what arrived and `grpcStatus` keeps its honest null (no
+   * trailers came); this names the reason. Never beside `error`
+   * (pre-head failures) or `stopped` (the user's own end).
+   */
+  connectionError?: string;
+  /**
    * The remote host that executed this invoke on the caller's behalf —
    * a peer-forwarded dispatch answered by a connected back-end. Stamped
    * by the ANSWERING host at run time (the HTTP snapshot's twin: the

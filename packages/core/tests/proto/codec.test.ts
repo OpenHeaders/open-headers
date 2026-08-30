@@ -216,6 +216,47 @@ enum Genre { GENRE_UNSPECIFIED = 0; FICTION = 1; REFERENCE = 2; }
   });
 });
 
+describe('proto codec — emitDefaults', () => {
+  const PRESENCE = `syntax = "proto3";
+package openheaders.codec.v1;
+message Book {
+  string title = 1;
+  int64 pages = 2;
+  bool available = 3;
+  Genre genre = 4;
+  repeated string tags = 5;
+  map<string, int32> ratings = 6;
+  Author author = 7;
+  optional int32 edition = 8;
+  oneof id { string isbn = 9; int32 catalog = 10; }
+}
+message Author { string name = 1; }
+enum Genre { GENRE_UNSPECIFIED = 0; FICTION = 1; }
+`;
+  const BOOK = 'openheaders.codec.v1.Book';
+
+  it('fills absent presence-less fields with canonical defaults and leaves presence fields absent', () => {
+    const registry = registryOf(PRESENCE);
+    const wire = encodeMessage(registry, BOOK, { title: 'Dune' });
+    expect(decodeMessage(registry, BOOK, wire)).toEqual({ title: 'Dune' });
+    expect(decodeMessage(registry, BOOK, wire, { emitDefaults: true })).toEqual({
+      title: 'Dune',
+      pages: '0',
+      available: false,
+      genre: 'GENRE_UNSPECIFIED',
+      tags: [],
+      ratings: {},
+    });
+  });
+
+  it('applies the option through nested messages, map values and repeated messages', () => {
+    const registry = registryOf(PRESENCE);
+    const wire = encodeMessage(registry, BOOK, { author: {} });
+    const decoded = decodeMessage(registry, BOOK, wire, { emitDefaults: true });
+    expect(decoded).toMatchObject({ author: { name: '' } });
+  });
+});
+
 describe('proto codec — unknown and unresolved fields', () => {
   it('retains unknown wire fields structurally under $unknown', () => {
     const full = registryOf(`syntax = "proto3";

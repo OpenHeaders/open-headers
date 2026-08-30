@@ -977,12 +977,24 @@ export const ENTITY_CASES: readonly EntityCase[] = [
         maybe(rng, 0.3, () => ({ specUid: uid(rng) })),
       ),
       ...opt(
+        'authority',
+        maybe(rng, 0.2, () => `${word(rng)}.openheaders.io:443`),
+      ),
+      ...opt(
         'unixSocketPath',
         maybe(rng, 0.2, () => `/var/run/openheaders/${word(rng)}.sock`),
       ),
       ...opt(
         'timeoutMs',
         maybe(rng, 0.3, () => 1_000 + rng.int(30_000)),
+      ),
+      ...opt(
+        'keepaliveIntervalMs',
+        maybe(rng, 0.2, () => 10_000 + rng.int(300_000)),
+      ),
+      ...opt(
+        'keepaliveTimeoutMs',
+        maybe(rng, 0.2, () => 5_000 + rng.int(20_000)),
       ),
       ...opt(
         'sslVerification',

@@ -38,6 +38,13 @@ export const MAX_GRPC_URL_LENGTH = 2_048;
 export const GrpcUrlSchema = v.pipe(v.string(), v.maxLength(MAX_GRPC_URL_LENGTH));
 
 /**
+ * `:authority` override — the name the call is addressed to on the
+ * wire, as opposed to where the socket goes. Same bound as the target;
+ * templates welcome. Absent = the target itself.
+ */
+export const GrpcAuthoritySchema = v.pipe(v.string(), v.minLength(1), v.maxLength(MAX_GRPC_URL_LENGTH));
+
+/**
  * Selected rpc: the service's protobuf full name (`library.v1.Library`)
  * plus the rpc's own name (`ListBooks`). Plain strings — resolution
  * against the linked spec's registry happens at consume time, so a
@@ -105,6 +112,15 @@ const GrpcRequestObjectSchema = v.object({
   url: GrpcUrlSchema,
   /** TLS channel flag — the editor's lock. Absent = TLS on (the safe default). */
   tls: v.optional(v.boolean()),
+  /**
+   * `:authority` sent on the call instead of the target — the mirror of
+   * `resolveToAddress`: that one changes where the socket goes and keeps
+   * the name, this one changes the name and keeps the dial (a gateway
+   * routing on the authority, a dev server reached by IP). SNI and
+   * certificate verification keep the target's host — the SNI knob is
+   * `sniServerName`. Absent = the target. Templates welcome.
+   */
+  authority: v.optional(GrpcAuthoritySchema),
   /** Absent until the user picks an rpc from the selector. */
   method: v.optional(GrpcMethodRefSchema),
   /**
@@ -175,6 +191,23 @@ const GrpcRequestObjectSchema = v.object({
    * {@link MaxResponseBytesSchema}.
    */
   maxResponseBytes: v.optional(MaxResponseBytesSchema),
+  /**
+   * HTTP/2 PING cadence (ms) while the call is open — the channel's
+   * keepalive: a quiet server stream or a slow unary learns of a dead
+   * connection instead of waiting on the deadline. The channel is one
+   * connection per call, so there is nothing to keep alive between
+   * calls (no permit-without-calls knob). Absent = no pings. Servers
+   * reject pings arriving more often than their floor (5 minutes
+   * without data flowing, by default) with GOAWAY too_many_pings.
+   * Node runtimes only. Same bounds as the timeout knob.
+   */
+  keepaliveIntervalMs: v.optional(RequestTimeoutMsSchema),
+  /**
+   * Wait (ms) for the PING's acknowledgement before the connection is
+   * declared dead and the call ends. Absent = the runtime's 20 s
+   * reference default. Meaningful only with `keepaliveIntervalMs`.
+   */
+  keepaliveTimeoutMs: v.optional(RequestTimeoutMsSchema),
   /**
    * Verify the server's TLS certificate against the system roots —
    * the HTTP request's knob, TLS-channel calls only. Absent = verify

@@ -199,10 +199,27 @@ function nanosSuffix(nanos: number): string {
 
 // ── Decode: wire bytes → JSON value tree ───────────────────────────
 
+export interface ProtoDecodeOptions {
+  /**
+   * Canonical JSON's `emitDefaultValues`: fields absent from the wire
+   * that have NO presence — proto3 singular scalars and enums, repeated
+   * fields, maps — render as their defaults (`0`, `""`, `false`, the
+   * zero enum name, `[]`, `{}`). Fields WITH presence stay absent:
+   * message-typed, `optional`, and oneof members. Default false — the
+   * wire's own field set.
+   */
+  emitDefaults?: boolean;
+}
+
 /** Decode one message's wire bytes to its canonical-JSON value tree.
  *  Throws `ProtoCodecError` on malformed bytes or an unknown type. */
-export function decodeMessage(registry: ProtoRegistry, messageFullName: string, bytes: Uint8Array): ProtoJsonValue {
-  return decodeMessageValue(registry, messageFullName, bytes, 0);
+export function decodeMessage(
+  registry: ProtoRegistry,
+  messageFullName: string,
+  bytes: Uint8Array,
+  options: ProtoDecodeOptions = {},
+): ProtoJsonValue {
+  return decodeMessageValue(registry, messageFullName, bytes, 0, options.emitDefaults === true);
 }
 
 function decodeMessageValue(
@@ -210,16 +227,34 @@ function decodeMessageValue(
   fullName: string,
   bytes: Uint8Array,
   depth: number,
+  emitDefaults: boolean,
 ): ProtoJsonValue {
   if (depth > MAX_DEPTH) throw new ProtoCodecError('Message nesting exceeds the depth ceiling.');
   const message = requireMessage(registry, fullName);
-  const generic = decodeGeneric(registry, message, bytes, depth);
+  const generic = decodeGeneric(registry, message, bytes, depth, emitDefaults);
   if (PROTO_WELL_KNOWN_JSON.has(fullName)) {
     // `null` is a legitimate transform result (an unset Value), so
     // membership gates the transform — not the returned value.
-    return wellKnownToJson(registry, fullName, generic, depth) ?? null;
+    return wellKnownToJson(registry, fullName, generic, depth, emitDefaults) ?? null;
   }
   return generic;
+}
+
+/** A field's default under `emitDefaults` — `undefined` for fields
+ *  with presence (message-typed, `optional`, oneof members) and for
+ *  unresolved types, which have no default to state. */
+function fieldDefaultJson(registry: ProtoRegistry, field: RegistryField): ProtoJsonValue | undefined {
+  if (field.mapKey !== null) return {};
+  if (field.repeated) return [];
+  if (field.optional || field.oneofName !== null) return undefined;
+  switch (field.type.kind) {
+    case 'scalar':
+      return scalarDefaultJson(field.type.scalar);
+    case 'enum':
+      return enumDefaultJson(registry, field.type.enum);
+    default:
+      return undefined;
+  }
 }
 
 /** An unknown or unresolved field's structural value by wire type. */
@@ -305,6 +340,7 @@ function decodeMapEntry(
   field: RegistryField,
   bytes: Uint8Array,
   depth: number,
+  emitDefaults: boolean,
 ): [string, ProtoJsonValue] {
   const keyType = field.mapKey;
   if (keyType === null) throw new ProtoCodecError('Not a map field.');
@@ -342,6 +378,7 @@ function decodeMapEntry(
       field.type.message,
       concatChunks(valueChunks.length > 0 ? valueChunks : [new Uint8Array(0)]),
       depth + 1,
+      emitDefaults,
     );
   } else if (scalarSet && scalarValue !== null) {
     value = scalarValue;
@@ -370,6 +407,7 @@ function decodeGeneric(
   message: RegistryMessage,
   bytes: Uint8Array,
   depth: number,
+  emitDefaults: boolean,
 ): ProtoJsonObject {
   const reader = new ProtoReader(bytes);
   const arrays = new Map<number, ProtoJsonValue[]>();
@@ -413,7 +451,7 @@ function decodeGeneric(
     if (field.mapKey !== null) {
       if (wireType !== 2)
         throw new ProtoCodecError(`Wire type ${wireType} does not match map field \`${field.name}\`.`);
-      const [key, value] = decodeMapEntry(registry, field, reader.lengthDelimited(), depth);
+      const [key, value] = decodeMapEntry(registry, field, reader.lengthDelimited(), depth, emitDefaults);
       const entries = maps.get(fieldNumber);
       if (entries === undefined) maps.set(fieldNumber, { [key]: value });
       else entries[key] = value;
@@ -426,7 +464,7 @@ function decodeGeneric(
         pushInto(
           arrays,
           fieldNumber,
-          decodeMessageValue(registry, field.type.message, reader.lengthDelimited(), depth + 1),
+          decodeMessageValue(registry, field.type.message, reader.lengthDelimited(), depth + 1, emitDefaults),
         );
         continue;
       }
@@ -486,11 +524,24 @@ function decodeGeneric(
     }
     const chunkValue = chunks.get(n);
     if (chunkValue !== undefined && field.type.kind === 'message') {
-      out[field.jsonName] = decodeMessageValue(registry, field.type.message, concatChunks(chunkValue), depth + 1);
+      out[field.jsonName] = decodeMessageValue(
+        registry,
+        field.type.message,
+        concatChunks(chunkValue),
+        depth + 1,
+        emitDefaults,
+      );
       continue;
     }
     const scalarValue = scalars.get(n);
-    if (scalarValue !== undefined) out[field.jsonName] = scalarValue;
+    if (scalarValue !== undefined) {
+      out[field.jsonName] = scalarValue;
+      continue;
+    }
+    if (emitDefaults) {
+      const fallback = fieldDefaultJson(registry, field);
+      if (fallback !== undefined) out[field.jsonName] = fallback;
+    }
   }
   if (unknown.size > 0) {
     const retained: ProtoJsonObject = {};
@@ -541,14 +592,19 @@ function durationGenericToJson(generic: ProtoJsonObject): string {
   return `${negative ? '-' : ''}${absSeconds}${nanosSuffix(Math.abs(nanos))}s`;
 }
 
-function anyGenericToJson(registry: ProtoRegistry, generic: ProtoJsonObject, depth: number): ProtoJsonValue {
+function anyGenericToJson(
+  registry: ProtoRegistry,
+  generic: ProtoJsonObject,
+  depth: number,
+  emitDefaults: boolean,
+): ProtoJsonValue {
   const typeUrl = typeof generic.typeUrl === 'string' ? generic.typeUrl : '';
   const encoded = typeof generic.value === 'string' ? generic.value : '';
   if (typeUrl === '') return {};
   const typeName = typeUrl.slice(typeUrl.lastIndexOf('/') + 1);
   if (!registry.messages.has(typeName)) return { '@type': typeUrl, value: encoded };
   const bytes = decodeBase64Bytes(encoded) ?? new Uint8Array(0);
-  const inner = decodeMessageValue(registry, typeName, bytes, depth + 1);
+  const inner = decodeMessageValue(registry, typeName, bytes, depth + 1, emitDefaults);
   if (PROTO_WELL_KNOWN_JSON.has(typeName)) return { '@type': typeUrl, value: inner };
   const out: ProtoJsonObject = { '@type': typeUrl };
   if (isJsonObject(inner)) {
@@ -562,6 +618,7 @@ function wellKnownToJson(
   fullName: string,
   generic: ProtoJsonObject,
   depth: number,
+  emitDefaults: boolean,
 ): ProtoJsonValue | undefined {
   const wrapperScalar = WRAPPER_SCALARS.get(fullName);
   if (wrapperScalar !== undefined) {
@@ -590,7 +647,7 @@ function wellKnownToJson(
       return paths.map((path) => (typeof path === 'string' ? jsonNameOf(path) : '')).join(',');
     }
     case ANY:
-      return anyGenericToJson(registry, generic, depth);
+      return anyGenericToJson(registry, generic, depth, emitDefaults);
     default:
       return undefined;
   }

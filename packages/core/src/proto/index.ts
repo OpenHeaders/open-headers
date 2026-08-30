@@ -10,6 +10,7 @@ export {
   encodeMessage,
   PROTO_UNKNOWN_FIELDS_KEY,
   PROTO_WELL_KNOWN_JSON,
+  type ProtoDecodeOptions,
   type ProtoJsonValue,
 } from './codec';
 export { synthesizeExampleMessage } from './example';
