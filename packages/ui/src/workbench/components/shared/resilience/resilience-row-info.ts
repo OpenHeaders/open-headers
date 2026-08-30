@@ -6,21 +6,27 @@
  * default (off on a raw session, the handshake cadence on Socket.IO).
  * An editor with richer copy (the MQTT tab's session card) hands the
  * block its own `rowInfo` and falls back here for the keys it does not
- * cover.
+ * cover — or composes this copy under its example card.
  */
 
 import type { MessageKey } from '@openheaders/i18n';
 import type { Translate } from '@openheaders/ui/context/LocaleContext';
 import type { InfoPopoverContent } from '@openheaders/ui/shared/info-popover';
 
-export type ResilienceInfoKey =
-  | 'autoReconnect'
-  | 'reconnectPeriod'
-  | 'reconnectMaxAttempts'
-  | 'reconnectBackoff'
-  | 'idleTimeout'
-  | 'heartbeatMessage'
-  | 'heartbeatInterval';
+export const RESILIENCE_INFO_KEYS = [
+  'autoReconnect',
+  'reconnectPeriod',
+  'reconnectMaxAttempts',
+  'reconnectBackoff',
+  'idleTimeout',
+  'heartbeatMessage',
+  'heartbeatInterval',
+] as const;
+
+export type ResilienceInfoKey = (typeof RESILIENCE_INFO_KEYS)[number];
+
+export const isResilienceInfoKey = (key: string): key is ResilienceInfoKey =>
+  (RESILIENCE_INFO_KEYS as readonly string[]).includes(key);
 
 /** Which liveness rows the block renders and how the idle deadline
  *  defaults: a raw WebSocket session (idle + heartbeat rows, idle off

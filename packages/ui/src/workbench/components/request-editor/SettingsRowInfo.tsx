@@ -12,25 +12,34 @@
  * single send seen knob by knob. The example is a POST so the redirect
  * tokens can show the method rewrite the redirect trio governs.
  *
- * The dial leg is the one variant slot: proxy, Unix socket, and
- * resolve-to-address are mutually exclusive ways to reach the server
- * (the tab warns while two are set), so one truthful card cannot carry
- * all three at once — each of those rows swaps the slot's text to its
- * own leg and lights it, and every other row shows the `direct`
- * default. The body slot works the same way for the Body tab's
- * mutually-exclusive encodings: the canonical POST carries `body:
- * json`, and each Body-mode popover swaps the slot to its own wire
- * shape and lights it.
+ * The dial leg is the one variant slot (the shared `DIAL_LEG_TEXT`
+ * vocabulary): proxy, Unix socket, and resolve-to-address are mutually
+ * exclusive ways to reach the server (the tab warns while two are
+ * set), so one truthful card cannot carry all three at once — each of
+ * those rows swaps the slot's text to its own leg and lights it, and
+ * every other row shows the `direct` default. The body slot works the
+ * same way for the Body tab's mutually-exclusive encodings: the
+ * canonical POST carries `body: json`, and each Body-mode popover swaps
+ * the slot to its own wire shape and lights it.
  *
- * Card tokens ride raw (wire vocabulary — the column-card precedent);
- * only the caption is localized.
+ * The rows of the shared blocks (dial, TLS & trust) compose the
+ * blocks' own copy — summary, description, glossary — under this
+ * tab's card, so the copy reads identically on every editor and only
+ * the card is the HTTP tab's. Card tokens ride raw (wire vocabulary —
+ * the column-card precedent); only the caption is localized.
  */
 
 import type { MessageKey } from '@openheaders/i18n';
 import { type Translate, useT } from '@openheaders/ui/context/LocaleContext';
-import type { InfoPopoverContent, InfoPopoverSection } from '@openheaders/ui/shared/info-popover';
+import {
+  EXAMPLE_CARD_POPOVER_WIDTH,
+  ExampleCard,
+  type ExampleCardLine,
+  type InfoPopoverContent,
+} from '@openheaders/ui/shared/info-popover';
+import { DIAL_LEG_TEXT, type DialInfoKey, dialRowInfo, isDialInfoKey } from '../shared/dial/dial-row-info';
+import { isTlsTrustInfoKey, type TlsTrustInfoKey, tlsTrustRowInfo } from '../shared/tls-trust/tls-trust-row-info';
 import { GROUP_LABEL_KEY, type SettingsGroupKey } from './settings-groups';
-import { proxyModesSection } from '../shared/dial/dial-row-info';
 
 /** One key per settings row that opens a popover with the card. */
 export type SettingsInfoKey =
@@ -60,7 +69,6 @@ export type SettingsInfoKey =
  * fixed across all popovers lets the user map each knob onto the same
  * concrete send. */
 const EX = {
-  method: 'POST',
   url: 'https://api.openheaders.com/v1/users',
   body: 'body: json',
   protocol: 'h2',
@@ -80,7 +88,7 @@ const EX = {
   scripts: 'scripts: safe',
 } as const;
 
-type TokenId = Exclude<keyof typeof EX, 'method'>;
+type TokenId = keyof typeof EX;
 
 /** Which token of the example each row lights up. The TLS window is
  * one token — min and max both light it, and their summaries name
@@ -110,16 +118,8 @@ const HIGHLIGHT: Record<SettingsInfoKey, TokenId> = {
   scriptMode: 'scripts',
 };
 
-/** The dial-slot text each dial-leg row substitutes for `direct`. */
-const DIAL_VARIANT: Partial<Record<SettingsInfoKey, string>> = {
-  // The mode row's card shows the INHERITED leg — what the environment
-  // plane supplies when the row stays on its default.
-  proxy: 'proxy corp.example:8080 (system)',
-  proxyUrl: 'proxy 127.0.0.1:8080',
-  proxyCredentials: 'proxy 127.0.0.1:8080 · auth: corp-proxy',
-  resolveToAddress: 'dial 203.0.113.42',
-  unixSocket: 'sock /var/run/docker.sock',
-};
+/** Rows that swap the dial slot to their own leg. */
+const DIAL_VARIANT: Partial<Record<SettingsInfoKey, string>> = DIAL_LEG_TEXT;
 
 /** Each group's sub-slice of the example — the union of its rows'
  * tokens, so the group popovers partition the card between them. */
@@ -141,68 +141,43 @@ function SettingsExampleCard({
   bodyText?: string;
 }) {
   const t = useT();
-  const tok = (id: TokenId, text: string) => (
-    <span className={`oh-info-eg-tok${lit.has(id) ? ' oh-info-eg-hl' : ''}`}>{text}</span>
-  );
-  return (
-    <div className="oh-info-eg">
-      <div className="oh-info-eg-cap">{t('workbench.editors.request.settings.exampleCaption')}</div>
-      <div className="oh-info-eg-card">
-        <div className="oh-info-eg-line">
-          <span className="oh-info-eg-method">{EX.method}</span> {tok('url', EX.url)}
-          {' · '}
-          {tok('body', bodyText ?? EX.body)}
-        </div>
-        <div className="oh-info-eg-line">
-          {tok('protocol', EX.protocol)}
-          {' · '}
-          {tok('dial', dialText ?? EX.dial)}
-          {' · '}
-          {tok('tlsWindow', EX.tlsWindow)}
-          {' · '}
-          {tok('verify', EX.verify)}
-          {' · '}
-          {tok('suite', EX.suite)}
-          {' · '}
-          {tok('cert', EX.cert)}
-          {' · '}
-          {tok('sni', EX.sni)}
-        </div>
-        <div className="oh-info-eg-line">
-          {tok('chain', EX.chain)}
-          {' · '}
-          {tok('hops', EX.hops)}
-          {' · '}
-          {tok('methodRewrite', EX.methodRewrite)}
-          {' · '}
-          {tok('authDrop', EX.authDrop)}
-          {' · '}
-          {tok('jar', EX.jar)}
-          {' · '}
-          {tok('time', EX.time)}
-          {' · '}
-          {tok('cap', EX.cap)}
-          {' · '}
-          {tok('scripts', EX.scripts)}
-        </div>
-      </div>
-    </div>
-  );
+  const tok = (id: TokenId, text: string = EX[id]) => ({ id, text });
+  const lines: ExampleCardLine<TokenId>[] = [
+    { opener: 'POST', tokens: [tok('url'), tok('body', bodyText)] },
+    {
+      tokens: [
+        tok('protocol'),
+        tok('dial', dialText),
+        tok('tlsWindow'),
+        tok('verify'),
+        tok('suite'),
+        tok('cert'),
+        tok('sni'),
+      ],
+    },
+    {
+      tokens: [
+        tok('chain'),
+        tok('hops'),
+        tok('methodRewrite'),
+        tok('authDrop'),
+        tok('jar'),
+        tok('time'),
+        tok('cap'),
+        tok('scripts'),
+      ],
+    },
+  ];
+  return <ExampleCard caption={t('workbench.editors.request.settings.exampleCaption')} lines={lines} lit={lit} />;
 }
 
-const TITLE_KEY: Record<SettingsInfoKey, MessageKey> = {
+/** The tab's own rows — the shared blocks' rows read their blocks'
+ * titles. */
+type OwnInfoKey = Exclude<SettingsInfoKey, DialInfoKey | TlsTrustInfoKey>;
+
+const TITLE_KEY: Record<OwnInfoKey, MessageKey> = {
   httpVersion: 'workbench.editors.request.settings.httpVersion',
-  resolveToAddress: 'workbench.editors.request.settings.resolveToAddress',
-  proxy: 'workbench.editors.request.settings.proxy',
-  proxyUrl: 'workbench.editors.request.settings.proxyUrl',
-  proxyCredentials: 'workbench.editors.request.settings.proxyCredentials',
   unixSocket: 'workbench.editors.request.settings.unixSocket',
-  sslVerification: 'workbench.editors.request.settings.sslVerification',
-  tlsMin: 'workbench.editors.request.settings.tlsMin',
-  tlsMax: 'workbench.editors.request.settings.tlsMax',
-  tlsCipherSuites: 'workbench.editors.request.settings.tlsCipherSuites',
-  clientCertificate: 'workbench.editors.request.settings.clientCertificate',
-  sni: 'workbench.editors.request.settings.sni',
   followRedirects: 'workbench.editors.request.settings.followRedirects',
   maxRedirects: 'workbench.editors.request.settings.maxRedirects',
   followOriginalMethod: 'workbench.editors.request.settings.followOriginalMethod',
@@ -239,16 +214,12 @@ const GROUP_OF: Record<SettingsInfoKey, SettingsGroupKey> = {
 };
 
 /** Rows whose copy is restructured into summary + description +
- * glossary section; every other row keeps its single `*Info` summary. */
-type RichInfoKey = 'httpVersion' | 'proxy' | 'sslVerification' | 'tlsMin' | 'tlsMax' | 'tlsCipherSuites' | 'scriptMode';
+ * glossary section; every other own row keeps its single `*Info`
+ * summary. */
+type RichInfoKey = 'httpVersion' | 'scriptMode';
 
-const SUMMARY_KEY: Record<Exclude<SettingsInfoKey, RichInfoKey>, MessageKey> = {
-  resolveToAddress: 'workbench.editors.request.settings.resolveToAddressInfo',
-  proxyUrl: 'workbench.editors.request.settings.proxyUrlInfo',
-  proxyCredentials: 'workbench.editors.request.settings.proxyCredentialsInfo',
+const SUMMARY_KEY: Record<Exclude<OwnInfoKey, RichInfoKey>, MessageKey> = {
   unixSocket: 'workbench.editors.request.settings.unixSocketInfo',
-  clientCertificate: 'workbench.editors.request.settings.clientCertificateInfo',
-  sni: 'workbench.editors.request.settings.sniInfo',
   followRedirects: 'workbench.editors.request.settings.followRedirectsInfo',
   maxRedirects: 'workbench.editors.request.settings.maxRedirectsInfo',
   followOriginalMethod: 'workbench.editors.request.settings.followOriginalMethodInfo',
@@ -259,18 +230,6 @@ const SUMMARY_KEY: Record<Exclude<SettingsInfoKey, RichInfoKey>, MessageKey> = {
   responseSizeLimit: 'workbench.editors.request.settings.responseSizeLimitInfo',
 };
 
-/** The min and max rows explain the same version vocabulary. */
-function tlsVersionsSection(t: Translate): InfoPopoverSection {
-  return {
-    heading: t('workbench.editors.request.settings.tlsVersionsHeading'),
-    items: [
-      { label: '1.0 / 1.1', desc: t('workbench.editors.request.settings.tlsVersionLegacyDesc') },
-      { label: '1.2', desc: t('workbench.editors.request.settings.tlsVersion12Desc') },
-      { label: '1.3', desc: t('workbench.editors.request.settings.tlsVersion13Desc') },
-    ],
-  };
-}
-
 /** Tokens of the shared example — for callers (the runtime-managed
  * fact sheet) that map their own rows onto slices of the same send. */
 export type SettingsExampleToken = TokenId;
@@ -278,7 +237,8 @@ export type SettingsExampleToken = TokenId;
 /** The shared example card with an arbitrary slice lit — the fact
  * sheet's rows and the Body / Scripts tabs ride this so managed facts
  * and live knobs illustrate the same send. `bodyText` swaps the body
- * variant slot the way the dial rows swap the dial leg. */
+ * variant slot the way the dial rows swap the dial leg. A popover
+ * carrying it widens to `EXAMPLE_CARD_POPOVER_WIDTH`. */
 export function settingsExampleCard(
   lit: readonly SettingsExampleToken[],
   opts?: { bodyText?: string },
@@ -301,17 +261,21 @@ export function settingsGroupInfo(t: Translate, group: SettingsGroupKey): InfoPo
     title: t(GROUP_LABEL_KEY[group]),
     kicker: t('workbench.editors.request.tab.settings'),
     diagram: <SettingsExampleCard lit={new Set(GROUP_TOKENS[group])} />,
+    maxWidth: EXAMPLE_CARD_POPOVER_WIDTH,
     summary: t(GROUP_SUMMARY_KEY[group]),
   };
 }
 
 /** Popover content for one settings row. */
 export function settingsRowInfo(t: Translate, infoKey: SettingsInfoKey): InfoPopoverContent {
-  const base = {
-    title: t(TITLE_KEY[infoKey]),
-    kicker: t(GROUP_LABEL_KEY[GROUP_OF[infoKey]]),
+  const kicker = t(GROUP_LABEL_KEY[GROUP_OF[infoKey]]);
+  const card = {
     diagram: <SettingsExampleCard lit={new Set([HIGHLIGHT[infoKey]])} dialText={DIAL_VARIANT[infoKey]} />,
+    maxWidth: EXAMPLE_CARD_POPOVER_WIDTH,
   };
+  if (isDialInfoKey(infoKey)) return { ...dialRowInfo(t, infoKey, kicker), ...card };
+  if (isTlsTrustInfoKey(infoKey)) return { ...tlsTrustRowInfo(t, infoKey, kicker), ...card };
+  const base = { title: t(TITLE_KEY[infoKey]), kicker, ...card };
   switch (infoKey) {
     case 'httpVersion':
       return {
@@ -331,56 +295,6 @@ export function settingsRowInfo(t: Translate, infoKey: SettingsInfoKey): InfoPop
                 desc: t('workbench.editors.request.settings.httpVersionPkDesc'),
               },
               { label: 'HTTP/3', desc: t('workbench.editors.request.settings.httpVersion3Desc') },
-            ],
-          },
-        ],
-      };
-    case 'proxy':
-      return {
-        ...base,
-        summary: t('workbench.editors.request.settings.proxySummary'),
-        description: t('workbench.editors.request.settings.proxyDescription'),
-        sections: [proxyModesSection(t)],
-      };
-    case 'sslVerification':
-      return {
-        ...base,
-        summary: t('workbench.editors.request.settings.sslVerificationSummary'),
-        description: t('workbench.editors.request.settings.sslVerificationDescription'),
-      };
-    case 'tlsMin':
-      return {
-        ...base,
-        summary: t('workbench.editors.request.settings.tlsMinSummary'),
-        description: t('workbench.editors.request.settings.tlsMinDescription'),
-        sections: [tlsVersionsSection(t)],
-      };
-    case 'tlsMax':
-      return {
-        ...base,
-        summary: t('workbench.editors.request.settings.tlsMaxSummary'),
-        description: t('workbench.editors.request.settings.tlsMaxDescription'),
-        sections: [tlsVersionsSection(t)],
-      };
-    case 'tlsCipherSuites':
-      return {
-        ...base,
-        summary: t('workbench.editors.request.settings.tlsCipherSuitesSummary'),
-        description: t('workbench.editors.request.settings.tlsCipherSuitesDescription'),
-        sections: [
-          {
-            heading: t('workbench.editors.request.settings.tlsCipherSuitesFormatHeading'),
-            layout: 'stacked',
-            items: [
-              {
-                label: 'TLS_AES_128_GCM_SHA256',
-                desc: t('workbench.editors.request.settings.tlsCipherSuitesIanaDesc'),
-              },
-              {
-                label: 'ECDHE-RSA-AES128-GCM-SHA256',
-                desc: t('workbench.editors.request.settings.tlsCipherSuitesOpensslDesc'),
-              },
-              { label: ':', desc: t('workbench.editors.request.settings.tlsCipherSuitesJoinDesc') },
             ],
           },
         ],

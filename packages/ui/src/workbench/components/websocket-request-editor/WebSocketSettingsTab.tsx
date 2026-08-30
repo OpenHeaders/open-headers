@@ -18,7 +18,9 @@
  * group is the shared `TlsTrustGroup` block. The runtime-managed
  * sheet under the groups states what the host fixes: the
  * permessage-deflate offer, the socketio flavor's WebSocket-only
- * transport, and on the browser the never-followed redirect.
+ * transport, and on the browser the never-followed redirect. Every
+ * (i) — own rows, shared rows, group headers, sheet facts — leads with
+ * the session example card of the flavor, its slice lit.
  *
  * The tab edits the draft directly, so the dots track distance from
  * the PROTOCOL defaults — there is no saved-baseline (unsaved) plane
@@ -66,7 +68,13 @@ import SessionResilienceGroup from '../shared/resilience/SessionResilienceGroup'
 import TlsTrustGroup from '../shared/tls-trust/TlsTrustGroup';
 import type { WebSocketDraft } from './draft';
 import { WS_GROUP_LABEL_KEY, WS_GROUP_ORDER, type WsSettingsGroupKey } from './settings-groups';
-import { wsSettingsGroupInfo, wsSettingsRowInfo } from './WebSocketSettingsRowInfo';
+import {
+  type WsExampleToken,
+  type WsInfoKey,
+  wsExampleCard,
+  wsSettingsGroupInfo,
+  wsSettingsRowInfo,
+} from './WebSocketSettingsRowInfo';
 
 /** The Socket.IO handshake path and namespace are URL paths; cap
  *  them generously. */
@@ -88,26 +96,31 @@ const REDIRECT_BOUNDS = { min: MIN_MAX_REDIRECTS, max: MAX_MAX_REDIRECTS };
 const REDIRECT_PRESET_VALUES = [5, 10, 20, 50];
 
 /** The facts the host fixes for every session — the runtime-managed
- *  sheet's rows, in the tab's group vocabulary. */
-const MANAGED_COMPRESSION: RuntimeManagedRowDef<WsSettingsGroupKey> = {
+ *  sheet's rows, in the tab's group vocabulary, each naming its slice
+ *  of the session example card. */
+type ManagedRowDef = RuntimeManagedRowDef<WsSettingsGroupKey> & { tokens: readonly WsExampleToken[] };
+const MANAGED_COMPRESSION: ManagedRowDef = {
   labelKey: 'workbench.editors.request.settings.managed.compression',
   valueKey: 'workbench.editors.request.settings.managed.offered',
   descriptionKey: 'workbench.editors.request.settings.managed.compressionWsDesc',
   group: 'connection',
+  tokens: ['deflate'],
   testId: 'websocket-managed-compression',
 };
-const MANAGED_TRANSPORT: RuntimeManagedRowDef<WsSettingsGroupKey> = {
+const MANAGED_TRANSPORT: ManagedRowDef = {
   labelKey: 'workbench.editors.request.settings.managed.transport',
   valueKey: 'workbench.editors.request.settings.managed.websocketOnly',
   descriptionKey: 'workbench.editors.request.settings.managed.transportSocketioDesc',
   group: 'socketio',
+  tokens: ['transport'],
   testId: 'websocket-managed-transport',
 };
-const BROWSER_MANAGED_REDIRECTS: RuntimeManagedRowDef<WsSettingsGroupKey> = {
+const BROWSER_MANAGED_REDIRECTS: ManagedRowDef = {
   labelKey: 'workbench.editors.request.settings.followRedirects',
   valueKey: 'workbench.editors.request.settings.managed.never',
   descriptionKey: 'workbench.editors.request.settings.managed.followRedirectsBrowserDesc',
   group: 'connection',
+  tokens: ['chain'],
   testId: 'websocket-managed-follow-redirects',
 };
 
@@ -132,11 +145,14 @@ const WebSocketSettingsTab: React.FC<WebSocketSettingsTabProps> = ({ draft, setD
   const formatHops = (count: number): string => t('workbench.editors.request.settings.maxRedirectsHops', { count });
   const redirectPresets = REDIRECT_PRESET_VALUES.map((v) => ({ value: v, label: formatHops(v) }));
   const interpretHops = countInterpreter(REDIRECT_BOUNDS, formatHops);
+  const flavor = socketioFlavor ? 'socketio' : 'raw';
+  const rowInfo = (key: WsInfoKey) => wsSettingsRowInfo(t, key, flavor);
+  const groupInfo = (group: WsSettingsGroupKey) => wsSettingsGroupInfo(t, group, flavor);
   const managedRows = [
     MANAGED_COMPRESSION,
     ...(socketioFlavor ? [MANAGED_TRANSPORT] : []),
     ...(runtime === 'browser' ? [BROWSER_MANAGED_REDIRECTS] : []),
-  ];
+  ].map(({ tokens, ...def }) => ({ ...def, diagram: wsExampleCard(tokens, flavor) }));
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>(() => ({ ...sessionCollapsed }));
   const toggleGroup = (key: string): void =>
     setCollapsed((c) => {
@@ -181,7 +197,7 @@ const WebSocketSettingsTab: React.FC<WebSocketSettingsTabProps> = ({ draft, setD
           label={t(WS_GROUP_LABEL_KEY.connection)}
           expanded={collapsed.connection !== true}
           onToggle={() => toggleGroup('connection')}
-          info={wsSettingsGroupInfo(t, 'connection')}
+          info={groupInfo('connection')}
           modified={connectionModified}
         >
           {!socketioFlavor && (
@@ -189,7 +205,7 @@ const WebSocketSettingsTab: React.FC<WebSocketSettingsTabProps> = ({ draft, setD
               label={t('workbench.editors.websocket.settings.subprotocolsLabel')}
               value={draft.subprotocols}
               onChange={(subprotocols) => setDraft((d) => ({ ...d, subprotocols }))}
-              info={wsSettingsRowInfo(t, 'subprotocols')}
+              info={rowInfo('subprotocols')}
               placeholder={t('workbench.editors.websocket.settings.subprotocolsPlaceholder')}
               example={t('workbench.editors.websocket.settings.subprotocolsExample')}
               testId="websocket-subprotocols"
@@ -199,13 +215,14 @@ const WebSocketSettingsTab: React.FC<WebSocketSettingsTabProps> = ({ draft, setD
             groupLabel={t(WS_GROUP_LABEL_KEY.connection)}
             value={draft}
             onChange={(next) => setDraft((d) => ({ ...d, ...next }))}
+            rowInfo={rowInfo}
             testIdPrefix="websocket"
           />
           <TextKnobRow
             label={t('workbench.editors.websocket.settings.unixSocketLabel')}
             value={draft.unixSocketPath}
             onChange={(unixSocketPath) => setDraft((d) => ({ ...d, unixSocketPath }))}
-            info={wsSettingsRowInfo(t, 'unixSocket')}
+            info={rowInfo('unixSocket')}
             placeholder={t('workbench.editors.websocket.settings.unixSocketPlaceholder')}
             maxLength={MAX_UNIX_SOCKET_PATH_LENGTH}
             error={
@@ -220,7 +237,7 @@ const WebSocketSettingsTab: React.FC<WebSocketSettingsTabProps> = ({ draft, setD
             label={t('workbench.editors.websocket.settings.timeoutLabel')}
             value={draft.timeoutMs}
             onChange={(timeoutMs) => setDraft((d) => ({ ...d, timeoutMs }))}
-            info={wsSettingsRowInfo(t, 'timeout')}
+            info={rowInfo('timeout')}
             presets={TIMEOUT_PRESETS}
             interpret={interpretTimeout}
             format={formatDurationMs}
@@ -231,7 +248,7 @@ const WebSocketSettingsTab: React.FC<WebSocketSettingsTabProps> = ({ draft, setD
             label={t('workbench.editors.request.settings.maxMessageSize')}
             value={draft.maxMessageBytes}
             onChange={(maxMessageBytes) => setDraft((d) => ({ ...d, maxMessageBytes }))}
-            info={wsSettingsRowInfo(t, 'maxMessageSize')}
+            info={rowInfo('maxMessageSize')}
             presets={SIZE_PRESETS}
             interpret={interpretMessageSize}
             format={formatByteSize}
@@ -246,7 +263,7 @@ const WebSocketSettingsTab: React.FC<WebSocketSettingsTabProps> = ({ draft, setD
                 modified={draft.followRedirects}
                 onReset={() => setDraft((d) => ({ ...d, followRedirects: false }))}
                 onChange={(followRedirects) => setDraft((d) => ({ ...d, followRedirects }))}
-                info={wsSettingsRowInfo(t, 'followRedirects')}
+                info={rowInfo('followRedirects')}
                 testId="websocket-follow-redirects"
               />
               {draft.followRedirects && (
@@ -254,7 +271,7 @@ const WebSocketSettingsTab: React.FC<WebSocketSettingsTabProps> = ({ draft, setD
                   label={t('workbench.editors.request.settings.maxRedirects')}
                   value={draft.maxRedirects}
                   onChange={(maxRedirects) => setDraft((d) => ({ ...d, maxRedirects }))}
-                  info={wsSettingsRowInfo(t, 'maxRedirects')}
+                  info={rowInfo('maxRedirects')}
                   presets={redirectPresets}
                   interpret={interpretHops}
                   format={formatHops}
@@ -267,12 +284,13 @@ const WebSocketSettingsTab: React.FC<WebSocketSettingsTabProps> = ({ draft, setD
         </GroupSection>
         <SessionResilienceGroup
           groupLabel={t(WS_GROUP_LABEL_KEY.resilience)}
-          groupInfo={wsSettingsGroupInfo(t, 'resilience')}
+          groupInfo={groupInfo('resilience')}
           expanded={collapsed.resilience !== true}
           onToggle={() => toggleGroup('resilience')}
           value={draft}
           onChange={(next) => setDraft((d) => ({ ...d, ...next }))}
-          liveness={socketioFlavor ? 'socketio' : 'raw'}
+          liveness={flavor}
+          rowInfo={rowInfo}
           testIdPrefix="websocket"
         />
         {socketioFlavor && (
@@ -280,14 +298,14 @@ const WebSocketSettingsTab: React.FC<WebSocketSettingsTabProps> = ({ draft, setD
             label={t(WS_GROUP_LABEL_KEY.socketio)}
             expanded={collapsed.socketio !== true}
             onToggle={() => toggleGroup('socketio')}
-            info={wsSettingsGroupInfo(t, 'socketio')}
+            info={groupInfo('socketio')}
             modified={socketioModified}
           >
             <TextKnobRow
               label={t('workbench.editors.websocket.settings.handshakePathLabel')}
               value={draft.handshakePath === '' ? undefined : draft.handshakePath}
               onChange={(handshakePath) => setDraft((d) => ({ ...d, handshakePath: handshakePath ?? '' }))}
-              info={wsSettingsRowInfo(t, 'handshakePath')}
+              info={rowInfo('handshakePath')}
               placeholder={t('workbench.editors.websocket.settings.handshakePathPlaceholder')}
               maxLength={MAX_SOCKETIO_PATH_LENGTH}
               example={t('workbench.editors.websocket.settings.handshakePathExample')}
@@ -297,7 +315,7 @@ const WebSocketSettingsTab: React.FC<WebSocketSettingsTabProps> = ({ draft, setD
               label={t('workbench.editors.websocket.settings.namespaceLabel')}
               value={draft.namespace === '' ? undefined : draft.namespace}
               onChange={(namespace) => setDraft((d) => ({ ...d, namespace: namespace ?? '' }))}
-              info={wsSettingsRowInfo(t, 'namespace')}
+              info={rowInfo('namespace')}
               placeholder={t('workbench.editors.websocket.settings.namespacePlaceholder')}
               maxLength={MAX_SOCKETIO_PATH_LENGTH}
               example={t('workbench.editors.websocket.settings.namespaceExample')}
@@ -309,7 +327,7 @@ const WebSocketSettingsTab: React.FC<WebSocketSettingsTabProps> = ({ draft, setD
               onChange={(value) =>
                 setDraft((d) => ({ ...d, socketioProtocol: value === 'v4' ? 4 : value === 'v5' ? 5 : undefined }))
               }
-              info={wsSettingsRowInfo(t, 'socketioProtocol')}
+              info={rowInfo('socketioProtocol')}
               options={protocolOptions}
               placeholder={t('workbench.editors.websocket.settings.socketioProtocolPlaceholder')}
               modified={draft.socketioProtocol !== undefined}
@@ -319,7 +337,7 @@ const WebSocketSettingsTab: React.FC<WebSocketSettingsTabProps> = ({ draft, setD
               label={t('workbench.editors.websocket.settings.ackTimeoutLabel')}
               value={draft.ackTimeoutMs}
               onChange={(ackTimeoutMs) => setDraft((d) => ({ ...d, ackTimeoutMs }))}
-              info={wsSettingsRowInfo(t, 'ackTimeout')}
+              info={rowInfo('ackTimeout')}
               presets={TIMEOUT_PRESETS}
               interpret={interpretTimeout}
               format={formatDurationMs}
@@ -330,11 +348,12 @@ const WebSocketSettingsTab: React.FC<WebSocketSettingsTabProps> = ({ draft, setD
         )}
         <TlsTrustGroup
           groupLabel={t(WS_GROUP_LABEL_KEY.tls)}
-          groupInfo={wsSettingsGroupInfo(t, 'tls')}
+          groupInfo={groupInfo('tls')}
           expanded={collapsed.tls !== true}
           onToggle={() => toggleGroup('tls')}
           value={draft}
           onChange={(next) => setDraft((d) => ({ ...d, ...next, sslVerification: next.sslVerification !== false }))}
+          rowInfo={rowInfo}
           testIdPrefix="websocket"
         />
         <RuntimeManagedSheet
@@ -342,7 +361,7 @@ const WebSocketSettingsTab: React.FC<WebSocketSettingsTabProps> = ({ draft, setD
           rows={managedRows}
           groupOrder={WS_GROUP_ORDER}
           groupLabel={(group) => t(WS_GROUP_LABEL_KEY[group])}
-          groupInfo={(group) => wsSettingsGroupInfo(t, group)}
+          groupInfo={groupInfo}
           expanded={(group) => collapsed[`sheet-${group}`] !== true}
           onToggle={(group) => toggleGroup(`sheet-${group}`)}
         />

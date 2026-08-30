@@ -14,7 +14,7 @@ import { EyeInvisibleOutlined, EyeOutlined } from '@ant-design/icons';
 import type { RequestRuntimeKind } from '@openheaders/core/capabilities';
 import type { MessageKey } from '@openheaders/i18n';
 import { useT } from '@openheaders/ui/context/LocaleContext';
-import { InfoTrigger, type InfoPopoverContent } from '@openheaders/ui/shared/info-popover';
+import { EXAMPLE_CARD_POPOVER_WIDTH, InfoTrigger, type InfoPopoverContent } from '@openheaders/ui/shared/info-popover';
 import { Button, Typography, theme } from 'antd';
 import type React from 'react';
 import { useState } from 'react';
@@ -30,8 +30,8 @@ export interface RuntimeManagedRowDef<G extends string> {
   /** Topic sub-header the fact renders under inside the revealed
    *  sheet — same vocabulary as the tab's live knob groups. */
   group: G;
-  /** Optional diagram under the popover summary (the HTTP tab's
-   *  example card with the fact's slice lit). */
+  /** Optional diagram under the popover summary (the tab's example
+   *  card with the fact's slice lit — the popover widens to the card). */
   diagram?: React.ReactElement;
   /** Row anchor for e2e assertions on posture facts. */
   testId?: string;
@@ -96,7 +96,7 @@ const RuntimeManagedRow = <G extends string>({
           title: t(def.labelKey),
           kicker,
           summary: t(def.descriptionKey),
-          ...(def.diagram !== undefined ? { diagram: def.diagram } : {}),
+          ...(def.diagram !== undefined ? { diagram: def.diagram, maxWidth: EXAMPLE_CARD_POPOVER_WIDTH } : {}),
         }}
       />
       <span style={{ flex: 1 }} />

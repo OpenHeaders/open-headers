@@ -33,7 +33,7 @@ import { Radio, Select, Typography, theme } from 'antd';
 import type React from 'react';
 import { useMemo, useRef, useState } from 'react';
 import { type Translate, useT } from '@openheaders/ui/context/LocaleContext';
-import { type InfoPopoverContent, InfoTrigger } from '@openheaders/ui/shared/info-popover';
+import { EXAMPLE_CARD_POPOVER_WIDTH, type InfoPopoverContent, InfoTrigger } from '@openheaders/ui/shared/info-popover';
 import CodeEditor from '../shared/CodeEditor';
 import CodeEditorActions, { type CodeEditorActionsTarget } from '../shared/CodeEditorActions';
 import EditorViewMenu from '../shared/EditorViewMenu';
@@ -77,6 +77,7 @@ const bodyModeInfo = (mode: RadioValue, t: Translate): InfoPopoverContent => {
   const base = {
     kicker: t('workbench.editors.request.tab.body'),
     diagram: settingsExampleCard(['body'], { bodyText: BODY_SLOT[mode] }),
+    maxWidth: EXAMPLE_CARD_POPOVER_WIDTH,
   };
   switch (mode) {
     case 'none':

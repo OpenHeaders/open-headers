@@ -14,6 +14,8 @@
  * runtime-managed sheet under the groups states what the channel
  * fixes: no compression, HTTP/2 only, one connection per call — the
  * fact that leaves a keepalive-between-calls knob nothing to do.
+ * Every (i) — own rows, shared rows, group headers, sheet facts —
+ * leads with the call example card, its slice lit.
  *
  * The tab edits the draft directly, so the dots track distance from
  * the PROTOCOL defaults — there is no saved-baseline (unsaved) plane
@@ -58,7 +60,12 @@ import type { Dispatch, SetStateAction } from 'react';
 import DialRows, { isDialModified } from '../shared/dial/DialRows';
 import TlsTrustGroup from '../shared/tls-trust/TlsTrustGroup';
 import type { GrpcDraft } from './draft';
-import { grpcSettingsGroupInfo, grpcSettingsRowInfo } from './GrpcSettingsRowInfo';
+import {
+  type GrpcExampleToken,
+  grpcExampleCard,
+  grpcSettingsGroupInfo,
+  grpcSettingsRowInfo,
+} from './GrpcSettingsRowInfo';
 import { GRPC_GROUP_LABEL_KEY, GRPC_GROUP_ORDER, type GrpcSettingsGroupKey } from './settings-groups';
 
 /** The call timeout is app milliseconds on the wire — free text
@@ -80,13 +87,15 @@ const KEEPALIVE_INTERVAL_PRESETS = numericPresets([10_000, 30_000, 60_000, 300_0
 const KEEPALIVE_TIMEOUT_PRESETS = numericPresets([5_000, 10_000, 20_000], formatDurationMs);
 
 /** The facts the channel fixes for every call — the runtime-managed
- *  sheet's rows, node runtimes only (the browser has no gRPC wire). */
-const NODE_MANAGED: RuntimeManagedRowDef<GrpcSettingsGroupKey>[] = [
+ *  sheet's rows, node runtimes only (the browser has no gRPC wire),
+ *  each naming its slice of the call example card. */
+const NODE_MANAGED: (RuntimeManagedRowDef<GrpcSettingsGroupKey> & { tokens: readonly GrpcExampleToken[] })[] = [
   {
     labelKey: 'workbench.editors.request.settings.managed.compression',
     valueKey: 'workbench.editors.request.settings.managed.none',
     descriptionKey: 'workbench.editors.request.settings.managed.compressionGrpcDesc',
     group: 'connection',
+    tokens: ['compression'],
     testId: 'grpc-managed-compression',
   },
   {
@@ -94,6 +103,7 @@ const NODE_MANAGED: RuntimeManagedRowDef<GrpcSettingsGroupKey>[] = [
     valueKey: 'workbench.editors.request.settings.managed.http2',
     descriptionKey: 'workbench.editors.request.settings.managed.httpVersionGrpcDesc',
     group: 'connection',
+    tokens: ['h2'],
     testId: 'grpc-managed-http-version',
   },
   {
@@ -101,9 +111,11 @@ const NODE_MANAGED: RuntimeManagedRowDef<GrpcSettingsGroupKey>[] = [
     valueKey: 'workbench.editors.request.settings.managed.onePerCall',
     descriptionKey: 'workbench.editors.request.settings.managed.connectionReuseGrpcDesc',
     group: 'connection',
+    tokens: ['reuse'],
     testId: 'grpc-managed-connection-reuse',
   },
 ];
+const NODE_SHEET_ROWS = NODE_MANAGED.map(({ tokens, ...def }) => ({ ...def, diagram: grpcExampleCard(tokens) }));
 
 /** Session-scoped memory of the group folds: the tab unmounts on
  *  every editor tab switch, and a fold choice must survive that.
@@ -169,6 +181,7 @@ const GrpcSettingsTab: React.FC<GrpcSettingsTabProps> = ({
             groupLabel={t(GRPC_GROUP_LABEL_KEY.connection)}
             value={draft}
             onChange={(next) => setDraft((d) => ({ ...d, ...next }))}
+            rowInfo={(key) => grpcSettingsRowInfo(t, key)}
             testIdPrefix="grpc"
           />
           <TextKnobRow
@@ -256,6 +269,7 @@ const GrpcSettingsTab: React.FC<GrpcSettingsTabProps> = ({
           onToggle={() => toggleGroup('tls')}
           value={draft}
           onChange={(next) => setDraft((d) => ({ ...d, ...next, sslVerification: next.sslVerification !== false }))}
+          rowInfo={(key) => grpcSettingsRowInfo(t, key)}
           testIdPrefix="grpc"
         />
         <GroupSection
@@ -274,7 +288,7 @@ const GrpcSettingsTab: React.FC<GrpcSettingsTabProps> = ({
         </GroupSection>
         <RuntimeManagedSheet
           runtime={runtime}
-          rows={runtime === 'node' ? NODE_MANAGED : []}
+          rows={runtime === 'node' ? NODE_SHEET_ROWS : []}
           groupOrder={GRPC_GROUP_ORDER}
           groupLabel={(group) => t(GRPC_GROUP_LABEL_KEY[group])}
           groupInfo={(group) => grpcSettingsGroupInfo(t, group)}

@@ -7,8 +7,8 @@
  * controls, modified dots, and per-row resets. The Connection group
  * seats the shared `DialRows` block between the keep-alive and the
  * connect timeout; the TLS & trust group is the shared `TlsTrustGroup`
- * block with the ALPN offer as its MQTT-only row; its verify /
- * certificate / SNI popovers keep the session example card.
+ * block with the ALPN offer as its MQTT-only row. Every shared row's
+ * popover keeps the session example card over the block's own copy.
  *
  * The tab edits the draft directly, so the dots track distance from
  * the PROTOCOL defaults — there is no saved-baseline (unsaved) plane
@@ -49,7 +49,7 @@ import SessionResilienceGroup from '../shared/resilience/SessionResilienceGroup'
 import type { ResilienceInfoKey } from '../shared/resilience/resilience-row-info';
 import TlsTrustGroup from '../shared/tls-trust/TlsTrustGroup';
 import type { MqttDraft } from './draft';
-import { mqttSettingsGroupInfo, mqttSettingsRowInfo } from './MqttSettingsRowInfo';
+import { type MqttResilienceInfoKey, mqttSettingsGroupInfo, mqttSettingsRowInfo } from './MqttSettingsRowInfo';
 import { MQTT_GROUP_LABEL_KEY } from './settings-groups';
 
 const { Text } = Typography;
@@ -83,14 +83,13 @@ const MAX_PACKET_SIZE_PRESETS = numericPresets(
 
 /** The resilience rows MQTT masks in — the reconnect quartet lights
  *  the session card; the liveness rows never render here. */
-const MQTT_RESILIENCE_ROWS = {
+const MQTT_RESILIENCE_ROWS: Record<MqttResilienceInfoKey, true> = {
   autoReconnect: true,
   reconnectPeriod: true,
   reconnectMaxAttempts: true,
   reconnectBackoff: true,
-} as const;
-type MqttResilienceRow = keyof typeof MQTT_RESILIENCE_ROWS;
-const isMqttResilienceRow = (key: ResilienceInfoKey): key is MqttResilienceRow => key in MQTT_RESILIENCE_ROWS;
+};
+const isMqttResilienceRow = (key: ResilienceInfoKey): key is MqttResilienceInfoKey => key in MQTT_RESILIENCE_ROWS;
 
 /** Session-scoped memory of the group folds: the tab unmounts on
  *  every editor tab switch, and a fold choice must survive that.
@@ -193,6 +192,7 @@ const MqttSettingsTab: React.FC<MqttSettingsTabProps> = ({ draft, setDraft, v5 }
             groupLabel={t(MQTT_GROUP_LABEL_KEY.connection)}
             value={draft}
             onChange={(next) => setDraft((d) => ({ ...d, ...next }))}
+            rowInfo={(key) => mqttSettingsRowInfo(t, key)}
             testIdPrefix="mqtt"
           />
           <ComboKnobRow
@@ -306,11 +306,7 @@ const MqttSettingsTab: React.FC<MqttSettingsTabProps> = ({ draft, setDraft, v5 }
           onToggle={() => toggleGroup('tls')}
           value={draft}
           onChange={(next) => setDraft((d) => ({ ...d, ...next, sslVerification: next.sslVerification !== false }))}
-          rowInfo={(key) =>
-            key === 'sslVerification' || key === 'clientCertificate' || key === 'sni'
-              ? mqttSettingsRowInfo(t, key)
-              : undefined
-          }
+          rowInfo={(key) => mqttSettingsRowInfo(t, key)}
           testIdPrefix="mqtt"
         >
           <TextKnobRow

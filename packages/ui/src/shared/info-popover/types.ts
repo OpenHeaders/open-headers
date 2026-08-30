@@ -85,4 +85,8 @@ export interface InfoPopoverContent {
   diagram?: React.ReactNode;
   /** Optional footer CTAs. Max 2. */
   actions?: ReadonlyArray<InfoPopoverAction>;
+  /** Optional width ceiling in px, overriding the trigger's default —
+   *  for content whose diagram is a wide example card, so the card's
+   *  lines read in a few rows instead of wrapping token by token. */
+  maxWidth?: number;
 }

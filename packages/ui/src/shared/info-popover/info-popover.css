@@ -5,8 +5,9 @@
  * tall is common), so the popover sizes against viewport units and
  * caps with an absolute pixel ceiling for huge monitors.
  */
+/* The width ceiling rides inline (the trigger's default, or the
+ * content's own — see `InfoPopoverContent.maxWidth`). */
 .oh-info-popover {
-  max-width: 360px;
   min-width: 240px;
   font-size: 12px;
   line-height: 1.5;

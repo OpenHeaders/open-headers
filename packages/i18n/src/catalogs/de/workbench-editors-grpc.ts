@@ -155,6 +155,7 @@ export const workbenchEditorsGrpc = {
   'workbench.editors.grpc.spec.importFailed': '.proto-Datei konnte nicht importiert werden',
   'workbench.editors.grpc.method.usingSpec': 'Verwendet {name}',
   'workbench.editors.grpc.method.refreshSpec': 'Aus den aktuellen Dateien der Spezifikation neu aufbauen',
+  'workbench.editors.grpc.settings.exampleCaption': 'Beispielaufruf',
   'workbench.editors.grpc.settings.group.connection': 'Verbindung',
   'workbench.editors.grpc.settings.group.tls': 'TLS & Vertrauen',
   'workbench.editors.grpc.settings.group.messages': 'Nachrichten',

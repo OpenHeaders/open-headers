@@ -15,37 +15,47 @@
  * group-header idiom), so the headers partition the leg the rows
  * itemize.
  *
- * Card tokens ride raw (wire vocabulary — the column-card precedent);
- * only the caption is localized.
+ * The rows of the shared blocks (dial, session resilience, TLS &
+ * trust) compose the blocks' own copy — summary, description,
+ * glossary — under this editor's card; the dial leg is the card's one
+ * variant slot (the shared `DIAL_LEG_TEXT` vocabulary). Card tokens
+ * ride raw (wire vocabulary — the column-card precedent); only the
+ * caption is localized.
  */
 
 import type { MessageKey } from '@openheaders/i18n';
 import { type Translate, useT } from '@openheaders/ui/context/LocaleContext';
-import type { InfoPopoverContent } from '@openheaders/ui/shared/info-popover';
+import {
+  EXAMPLE_CARD_POPOVER_WIDTH,
+  ExampleCard,
+  type ExampleCardLine,
+  type InfoPopoverContent,
+} from '@openheaders/ui/shared/info-popover';
+import { DIAL_LEG_TEXT, type DialInfoKey, dialRowInfo, isDialInfoKey } from '../shared/dial/dial-row-info';
+import { isResilienceInfoKey, resilienceRowInfo } from '../shared/resilience/resilience-row-info';
+import { isTlsTrustInfoKey, type TlsTrustInfoKey, tlsTrustRowInfo } from '../shared/tls-trust/tls-trust-row-info';
 import { MQTT_GROUP_LABEL_KEY, type MqttSettingsGroupKey } from './settings-groups';
 
-/** One key per knob that opens a popover with the card — the Settings
- *  tab rows, the topic-row subscription options and the
- *  message-properties rows (section headers included). */
-export type MqttInfoKey =
+/** The reconnect quartet MQTT seats on the shared resilience block —
+ *  the liveness rows never render here (keep-alive is the protocol's
+ *  own CONNECT knob). */
+export type MqttResilienceInfoKey = 'autoReconnect' | 'reconnectPeriod' | 'reconnectMaxAttempts' | 'reconnectBackoff';
+
+/** The editor's own knobs — the Settings-tab rows, the topic-row
+ *  subscription options and the message-properties rows (section
+ *  headers included). */
+type MqttOwnInfoKey =
   | 'clientId'
   | 'cleanStart'
   | 'cleanSession'
   | 'sessionExpiry'
   | 'keepAlive'
   | 'timeout'
-  | 'autoReconnect'
-  | 'reconnectPeriod'
-  | 'reconnectMaxAttempts'
-  | 'reconnectBackoff'
   | 'receiveMaximum'
   | 'maxPacketSize'
   | 'topicAliasMaximum'
   | 'requestResponseInformation'
   | 'requestProblemInformation'
-  | 'sslVerification'
-  | 'clientCertificate'
-  | 'sni'
   | 'alpn'
   | 'noLocal'
   | 'retainAsPublished'
@@ -61,6 +71,9 @@ export type MqttInfoKey =
   | 'publishProperties'
   | 'publishSettings';
 
+/** One key per knob that opens a popover with the card. */
+export type MqttInfoKey = MqttOwnInfoKey | DialInfoKey | TlsTrustInfoKey | MqttResilienceInfoKey;
+
 /** The single session every popover illustrates. Holding one example
  * fixed across all popovers lets the user map each knob onto the same
  * concrete session. */
@@ -71,18 +84,21 @@ const EX = {
   cleanStart: 'clean start ✓',
   sessionExpiry: 'expiry: 300 s',
   keepAlive: 'keep-alive: 60 s',
+  route: 'direct',
   dial: 'dial ≤ 30 s',
   reconnect: 'reconnect: every 5 s',
   reconnectLimit: 'retry ≤ 10 · backoff',
-  verify: 'verify ✓',
-  clientCert: 'client cert: reporter-1',
-  sni: 'sni: broker.openheaders.com',
-  alpn: 'alpn: mqtt',
   receiveMax: 'in-flight ≤ 20',
   maxPacket: 'packet ≤ 1 MB',
   topicAlias: 'aliases ≤ 10',
   rri: 'response info ✓',
   rpi: 'problem info ✓',
+  tlsWindow: 'TLS 1.2–1.3',
+  verify: 'verify ✓',
+  suite: 'TLS_AES_128_GCM_SHA256',
+  clientCert: 'client cert: reporter-1',
+  sni: 'sni: broker.openheaders.com',
+  alpn: 'alpn: mqtt',
   filter: 'sensors/+/temp',
   qos: 'QoS 1',
   noLocal: 'no local ✓',
@@ -105,21 +121,26 @@ type TokenId = keyof typeof EX;
  * group headers partition the CONNECT leg their rows itemize, the
  * options popover's section-header idiom. */
 const GROUP_TOKENS: Record<MqttSettingsGroupKey, readonly TokenId[]> = {
-  connection: ['clientId', 'cleanStart', 'keepAlive', 'dial'],
+  connection: ['clientId', 'cleanStart', 'keepAlive', 'route', 'dial'],
   resilience: ['reconnect', 'reconnectLimit'],
   session: ['sessionExpiry', 'receiveMax', 'maxPacket', 'topicAlias', 'rri', 'rpi'],
-  tls: ['verify', 'clientCert', 'sni', 'alpn'],
+  tls: ['tlsWindow', 'verify', 'suite', 'clientCert', 'sni', 'alpn'],
 };
 
 /** Which slice of the example each knob lights. Rows light their
- * single token; the two options-popover section headers light their
- * whole sub-slice. */
+ * single token (the TLS window is one token — min and max both light
+ * it); the two options-popover section headers light their whole
+ * sub-slice. */
 const HIGHLIGHT: Record<MqttInfoKey, readonly TokenId[]> = {
   clientId: ['clientId'],
   cleanStart: ['cleanStart'],
   cleanSession: ['cleanStart'],
   sessionExpiry: ['sessionExpiry'],
   keepAlive: ['keepAlive'],
+  resolveToAddress: ['route'],
+  proxy: ['route'],
+  proxyUrl: ['route'],
+  proxyCredentials: ['route'],
   timeout: ['dial'],
   autoReconnect: ['reconnect'],
   reconnectPeriod: ['reconnect'],
@@ -132,6 +153,9 @@ const HIGHLIGHT: Record<MqttInfoKey, readonly TokenId[]> = {
   requestProblemInformation: ['rpi'],
   sslVerification: ['verify'],
   clientCertificate: ['clientCert'],
+  tlsMin: ['tlsWindow'],
+  tlsMax: ['tlsWindow'],
+  tlsCipherSuites: ['suite'],
   sni: ['sni'],
   alpn: ['alpn'],
   noLocal: ['noLocal'],
@@ -149,108 +173,54 @@ const HIGHLIGHT: Record<MqttInfoKey, readonly TokenId[]> = {
   publishSettings: ['respTopic', 'corr', 'msgExpiry', 'contentType', 'pfi'],
 };
 
-function MqttExampleCard({ lit }: { lit: ReadonlySet<TokenId> }) {
+/** Rows that swap the route slot to their own dial leg. */
+const DIAL_VARIANT: Partial<Record<MqttInfoKey, string>> = DIAL_LEG_TEXT;
+
+function MqttExampleCard({ lit, routeText }: { lit: ReadonlySet<TokenId>; routeText?: string }) {
   const t = useT();
-  const tok = (id: TokenId) => <span className={`oh-info-eg-tok${lit.has(id) ? ' oh-info-eg-hl' : ''}`}>{EX[id]}</span>;
-  return (
-    <div className="oh-info-eg">
-      <div className="oh-info-eg-cap">{t('workbench.editors.mqtt.settings.exampleCaption')}</div>
-      <div className="oh-info-eg-card">
-        <div className="oh-info-eg-line">
-          <span className="oh-info-eg-method">CONNECT</span> {tok('url')}
-          {' · '}
-          {tok('version')}
-        </div>
-        <div className="oh-info-eg-line">
-          {tok('clientId')}
-          {' · '}
-          {tok('cleanStart')}
-          {' · '}
-          {tok('sessionExpiry')}
-          {' · '}
-          {tok('keepAlive')}
-          {' · '}
-          {tok('dial')}
-          {' · '}
-          {tok('reconnect')}
-          {' · '}
-          {tok('reconnectLimit')}
-          {' · '}
-          {tok('verify')}
-          {' · '}
-          {tok('receiveMax')}
-          {' · '}
-          {tok('maxPacket')}
-          {' · '}
-          {tok('topicAlias')}
-          {' · '}
-          {tok('rri')}
-          {' · '}
-          {tok('rpi')}
-        </div>
-        <div className="oh-info-eg-line">
-          {tok('clientCert')}
-          {' · '}
-          {tok('sni')}
-          {' · '}
-          {tok('alpn')}
-        </div>
-        <div className="oh-info-eg-line">
-          <span className="oh-info-eg-method">SUBSCRIBE</span> {tok('filter')}
-          {' · '}
-          {tok('qos')}
-        </div>
-        <div className="oh-info-eg-line">
-          {tok('noLocal')}
-          {' · '}
-          {tok('rap')}
-          {' · '}
-          {tok('retained')}
-          {' · '}
-          {tok('subId')}
-          {' · '}
-          {tok('props')}
-        </div>
-        <div className="oh-info-eg-line">
-          <span className="oh-info-eg-method">PUBLISH</span> {tok('pubTopic')}
-        </div>
-        <div className="oh-info-eg-line">
-          {tok('respTopic')}
-          {' · '}
-          {tok('corr')}
-          {' · '}
-          {tok('msgExpiry')}
-          {' · '}
-          {tok('contentType')}
-          {' · '}
-          {tok('pfi')}
-          {' · '}
-          {tok('pubProps')}
-        </div>
-      </div>
-    </div>
-  );
+  const tok = (id: TokenId, text: string = EX[id]) => ({ id, text });
+  const lines: ExampleCardLine<TokenId>[] = [
+    { opener: 'CONNECT', tokens: [tok('url'), tok('version')] },
+    {
+      tokens: [
+        tok('clientId'),
+        tok('cleanStart'),
+        tok('sessionExpiry'),
+        tok('keepAlive'),
+        tok('route', routeText),
+        tok('dial'),
+        tok('reconnect'),
+        tok('reconnectLimit'),
+        tok('receiveMax'),
+        tok('maxPacket'),
+        tok('topicAlias'),
+        tok('rri'),
+        tok('rpi'),
+      ],
+    },
+    { tokens: [tok('tlsWindow'), tok('verify'), tok('suite'), tok('clientCert'), tok('sni'), tok('alpn')] },
+    { opener: 'SUBSCRIBE', tokens: [tok('filter'), tok('qos')] },
+    { tokens: [tok('noLocal'), tok('rap'), tok('retained'), tok('subId'), tok('props')] },
+    { opener: 'PUBLISH', tokens: [tok('pubTopic')] },
+    {
+      tokens: [tok('respTopic'), tok('corr'), tok('msgExpiry'), tok('contentType'), tok('pfi'), tok('pubProps')],
+    },
+  ];
+  return <ExampleCard caption={t('workbench.editors.mqtt.settings.exampleCaption')} lines={lines} lit={lit} />;
 }
 
-const TITLE_KEY: Record<MqttInfoKey, MessageKey> = {
+const TITLE_KEY: Record<MqttOwnInfoKey, MessageKey> = {
   clientId: 'workbench.editors.mqtt.settings.clientIdLabel',
   cleanStart: 'workbench.editors.mqtt.settings.cleanStartLabel',
   cleanSession: 'workbench.editors.mqtt.settings.cleanSessionLabel',
   sessionExpiry: 'workbench.editors.mqtt.settings.sessionExpiryLabel',
   keepAlive: 'workbench.editors.mqtt.settings.keepAliveLabel',
   timeout: 'workbench.editors.mqtt.settings.timeoutLabel',
-  autoReconnect: 'workbench.editors.request.settings.autoReconnect',
-  reconnectPeriod: 'workbench.editors.request.settings.reconnectPeriod',
-  reconnectMaxAttempts: 'workbench.editors.request.settings.reconnectMaxAttempts',
-  reconnectBackoff: 'workbench.editors.request.settings.reconnectBackoff',
   receiveMaximum: 'workbench.editors.mqtt.settings.receiveMaximumLabel',
   maxPacketSize: 'workbench.editors.mqtt.settings.maxPacketSizeLabel',
   topicAliasMaximum: 'workbench.editors.mqtt.settings.topicAliasMaximumLabel',
   requestResponseInformation: 'workbench.editors.mqtt.settings.requestResponseInfoLabel',
   requestProblemInformation: 'workbench.editors.mqtt.settings.requestProblemInfoLabel',
-  sslVerification: 'workbench.editors.request.settings.sslVerification',
-  clientCertificate: 'workbench.editors.request.settings.clientCertificate',
-  sni: 'workbench.editors.request.settings.sni',
   alpn: 'workbench.editors.mqtt.settings.alpnLabel',
   noLocal: 'workbench.editors.mqtt.topics.noLocal',
   retainAsPublished: 'workbench.editors.mqtt.topics.retainAsPublished',
@@ -267,25 +237,18 @@ const TITLE_KEY: Record<MqttInfoKey, MessageKey> = {
   publishSettings: 'workbench.editors.mqtt.props.sectionSettings',
 };
 
-const SUMMARY_KEY: Record<Exclude<MqttInfoKey, 'retainHandling'>, MessageKey> = {
+const SUMMARY_KEY: Record<Exclude<MqttOwnInfoKey, 'retainHandling'>, MessageKey> = {
   clientId: 'workbench.editors.mqtt.settings.clientIdHelp',
   cleanStart: 'workbench.editors.mqtt.settings.cleanStartHelp',
   cleanSession: 'workbench.editors.mqtt.settings.cleanStartHelp',
   sessionExpiry: 'workbench.editors.mqtt.settings.sessionExpiryHelp',
   keepAlive: 'workbench.editors.mqtt.settings.keepAliveHelp',
   timeout: 'workbench.editors.mqtt.settings.timeoutHelp',
-  autoReconnect: 'workbench.editors.request.settings.autoReconnectInfo',
-  reconnectPeriod: 'workbench.editors.request.settings.reconnectPeriodInfo',
-  reconnectMaxAttempts: 'workbench.editors.request.settings.reconnectMaxAttemptsInfo',
-  reconnectBackoff: 'workbench.editors.request.settings.reconnectBackoffInfo',
   receiveMaximum: 'workbench.editors.mqtt.settings.receiveMaximumHelp',
   maxPacketSize: 'workbench.editors.mqtt.settings.maxPacketSizeHelp',
   topicAliasMaximum: 'workbench.editors.mqtt.settings.topicAliasMaximumHelp',
   requestResponseInformation: 'workbench.editors.mqtt.settings.requestResponseInfoHelp',
   requestProblemInformation: 'workbench.editors.mqtt.settings.requestProblemInfoHelp',
-  sslVerification: 'workbench.editors.request.settings.sslVerificationSummary',
-  clientCertificate: 'workbench.editors.request.settings.clientCertificateInfo',
-  sni: 'workbench.editors.request.settings.sniInfo',
   alpn: 'workbench.editors.mqtt.settings.alpnHelp',
   noLocal: 'workbench.editors.mqtt.topics.noLocalDesc',
   retainAsPublished: 'workbench.editors.mqtt.topics.retainAsPublishedDesc',
@@ -311,6 +274,10 @@ const KICKER_KEY: Record<MqttInfoKey, MessageKey> = {
   cleanSession: MQTT_GROUP_LABEL_KEY.connection,
   sessionExpiry: MQTT_GROUP_LABEL_KEY.session,
   keepAlive: MQTT_GROUP_LABEL_KEY.connection,
+  resolveToAddress: MQTT_GROUP_LABEL_KEY.connection,
+  proxy: MQTT_GROUP_LABEL_KEY.connection,
+  proxyUrl: MQTT_GROUP_LABEL_KEY.connection,
+  proxyCredentials: MQTT_GROUP_LABEL_KEY.connection,
   timeout: MQTT_GROUP_LABEL_KEY.connection,
   autoReconnect: MQTT_GROUP_LABEL_KEY.resilience,
   reconnectPeriod: MQTT_GROUP_LABEL_KEY.resilience,
@@ -323,6 +290,9 @@ const KICKER_KEY: Record<MqttInfoKey, MessageKey> = {
   requestProblemInformation: MQTT_GROUP_LABEL_KEY.session,
   sslVerification: MQTT_GROUP_LABEL_KEY.tls,
   clientCertificate: MQTT_GROUP_LABEL_KEY.tls,
+  tlsMin: MQTT_GROUP_LABEL_KEY.tls,
+  tlsMax: MQTT_GROUP_LABEL_KEY.tls,
+  tlsCipherSuites: MQTT_GROUP_LABEL_KEY.tls,
   sni: MQTT_GROUP_LABEL_KEY.tls,
   alpn: MQTT_GROUP_LABEL_KEY.tls,
   noLocal: 'workbench.editors.mqtt.topics.subscribeSettings',
@@ -354,17 +324,22 @@ export function mqttSettingsGroupInfo(t: Translate, group: MqttSettingsGroupKey)
     title: t(MQTT_GROUP_LABEL_KEY[group]),
     kicker: t('workbench.editors.mqtt.tab.settings'),
     diagram: <MqttExampleCard lit={new Set(GROUP_TOKENS[group])} />,
+    maxWidth: EXAMPLE_CARD_POPOVER_WIDTH,
     summary: t(GROUP_SUMMARY_KEY[group]),
   };
 }
 
 /** Popover content for one MQTT knob. */
 export function mqttSettingsRowInfo(t: Translate, infoKey: MqttInfoKey): InfoPopoverContent {
-  const base = {
-    title: t(TITLE_KEY[infoKey]),
-    kicker: t(KICKER_KEY[infoKey]),
-    diagram: <MqttExampleCard lit={new Set(HIGHLIGHT[infoKey])} />,
+  const kicker = t(KICKER_KEY[infoKey]);
+  const card = {
+    diagram: <MqttExampleCard lit={new Set(HIGHLIGHT[infoKey])} routeText={DIAL_VARIANT[infoKey]} />,
+    maxWidth: EXAMPLE_CARD_POPOVER_WIDTH,
   };
+  if (isDialInfoKey(infoKey)) return { ...dialRowInfo(t, infoKey, kicker), ...card };
+  if (isTlsTrustInfoKey(infoKey)) return { ...tlsTrustRowInfo(t, infoKey, kicker), ...card };
+  if (isResilienceInfoKey(infoKey)) return { ...resilienceRowInfo(t, infoKey, kicker, 'none'), ...card };
+  const base = { title: t(TITLE_KEY[infoKey]), kicker, ...card };
   if (infoKey === 'retainHandling') {
     return {
       ...base,

@@ -101,6 +101,7 @@ export const workbenchEditorsWebsocket = {
   'workbench.editors.websocket.spec.browser.channels': 'Channels',
   'workbench.editors.websocket.spec.browser.operations': 'Operations',
   'workbench.editors.websocket.spec.browser.components': 'Components',
+  'workbench.editors.websocket.settings.exampleCaption': '示例会话',
   'workbench.editors.websocket.settings.group.connection': '连接',
   'workbench.editors.websocket.settings.group.socketio': 'Socket.IO',
   'workbench.editors.websocket.settings.group.tls': 'TLS 与信任',

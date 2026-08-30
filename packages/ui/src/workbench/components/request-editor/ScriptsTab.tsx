@@ -23,7 +23,7 @@ import type React from 'react';
 import { useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { type Translate, useT } from '@openheaders/ui/context/LocaleContext';
-import { type InfoPopoverContent, InfoTrigger } from '@openheaders/ui/shared/info-popover';
+import { EXAMPLE_CARD_POPOVER_WIDTH, type InfoPopoverContent, InfoTrigger } from '@openheaders/ui/shared/info-popover';
 import { installMenuIconInjector } from '../script-editor/monaco-menu-icons';
 import { settingsExampleCard } from './SettingsRowInfo';
 import SaveToPackagePopover from '../script-editor/SaveToPackagePopover';
@@ -61,6 +61,7 @@ const scriptInfo = (kind: ScriptKind, t: Translate): InfoPopoverContent =>
         title: t('workbench.editors.request.scripts.preInfoTitle'),
         kicker: t('workbench.editors.request.tab.scripts'),
         diagram: settingsExampleCard(['url', 'scripts']),
+        maxWidth: EXAMPLE_CARD_POPOVER_WIDTH,
         summary: t('workbench.editors.request.scripts.preInfoSummary'),
         sections: [
           {
@@ -82,6 +83,7 @@ const scriptInfo = (kind: ScriptKind, t: Translate): InfoPopoverContent =>
         title: t('workbench.editors.request.scripts.postInfoTitle'),
         kicker: t('workbench.editors.request.tab.scripts'),
         diagram: settingsExampleCard(['chain', 'scripts']),
+        maxWidth: EXAMPLE_CARD_POPOVER_WIDTH,
         summary: t('workbench.editors.request.scripts.postInfoSummary'),
         sections: [
           {

@@ -2,16 +2,39 @@
  * Default `(i)` popover content for the dial block's rows — title and
  * summary from the request-settings catalog (the one label vocabulary
  * every editor's block reads), kicker = the host group's label; the
- * Proxy row carries its modes glossary. An editor with richer copy
- * (the HTTP tab's example card) hands the block its own `rowInfo` and
- * falls back here for the keys it does not cover.
+ * Proxy row carries its modes glossary. An editor with an example card
+ * composes this copy under its card (the diagram slot) — the copy is
+ * the block's, the card the editor's.
+ *
+ * The dial leg is every card's one variant slot: proxy, Unix socket
+ * and resolve-to-address are mutually exclusive ways to reach the
+ * server, so one truthful card cannot carry all three at once — each
+ * of those rows swaps the slot's text to its own leg and lights it,
+ * every other row shows the `direct` default. `DIAL_LEG_TEXT` is that
+ * vocabulary, shared so the legs read identically on every card.
  */
 
 import type { MessageKey } from '@openheaders/i18n';
 import type { Translate } from '@openheaders/ui/context/LocaleContext';
 import type { InfoPopoverContent } from '@openheaders/ui/shared/info-popover';
 
-export type DialInfoKey = 'resolveToAddress' | 'proxy' | 'proxyUrl' | 'proxyCredentials';
+export const DIAL_INFO_KEYS = ['resolveToAddress', 'proxy', 'proxyUrl', 'proxyCredentials'] as const;
+
+export type DialInfoKey = (typeof DIAL_INFO_KEYS)[number];
+
+export const isDialInfoKey = (key: string): key is DialInfoKey => (DIAL_INFO_KEYS as readonly string[]).includes(key);
+
+/** The dial-slot text each dial-leg row substitutes for `direct` on
+ *  its card. The mode row shows the INHERITED leg — what the
+ *  environment plane supplies when the row stays on its default. The
+ *  Unix socket row is each tab's own, on the same slot. */
+export const DIAL_LEG_TEXT: Record<DialInfoKey | 'unixSocket', string> = {
+  proxy: 'proxy corp.example:8080 (system)',
+  proxyUrl: 'proxy 127.0.0.1:8080',
+  proxyCredentials: 'proxy 127.0.0.1:8080 · auth: corp-proxy',
+  resolveToAddress: 'dial 203.0.113.42',
+  unixSocket: 'sock /var/run/docker.sock',
+};
 
 const TITLE_KEY: Record<DialInfoKey, MessageKey> = {
   resolveToAddress: 'workbench.editors.request.settings.resolveToAddress',

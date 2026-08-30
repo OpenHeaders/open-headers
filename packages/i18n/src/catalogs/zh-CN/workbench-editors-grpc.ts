@@ -119,6 +119,7 @@ export const workbenchEditorsGrpc = {
   'workbench.editors.grpc.spec.importFailed': '导入 .proto 文件失败',
   'workbench.editors.grpc.method.usingSpec': '使用 {name}',
   'workbench.editors.grpc.method.refreshSpec': '按规范当前的文件重建',
+  'workbench.editors.grpc.settings.exampleCaption': '示例调用',
   'workbench.editors.grpc.settings.group.connection': '连接',
   'workbench.editors.grpc.settings.group.tls': 'TLS 与信任',
   'workbench.editors.grpc.settings.group.messages': '消息',

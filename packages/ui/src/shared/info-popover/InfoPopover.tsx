@@ -19,13 +19,19 @@ import { useInfoPopoverContainer } from './InfoPopoverContainerContext';
 import type { InfoPopoverContent } from './types';
 import './info-popover.css';
 
+/** Width ceiling for a popover carrying a shared example card (the
+ *  settings rows' send / session / call cards) — wide enough for a
+ *  card line to read in a row or two. */
+export const EXAMPLE_CARD_POPOVER_WIDTH = 520;
+
 export interface InfoPopoverProps {
   content: InfoPopoverContent;
   /** Element the popover anchors to — usually a button or span. */
   children: React.ReactElement;
   /** Popover placement, defaults to `bottomLeft`. */
   placement?: React.ComponentProps<typeof Popover>['placement'];
-  /** Maximum width in px, defaults to 360. */
+  /** Maximum width in px, defaults to 360; content carrying its own
+   *  `maxWidth` wins. */
   maxWidth?: number;
   /** Open on `click` (the (i) default) or on `hover` — for triggers whose
    *  click has its own action (e.g. the row-annotation glyph, where click
@@ -41,6 +47,7 @@ export function InfoPopover({
   trigger = 'click',
 }: InfoPopoverProps) {
   const [open, setOpen] = useState(false);
+  const width = content.maxWidth ?? maxWidth;
   const resolveContainer = useInfoPopoverContainer();
   // Adapter: AntD's `getPopupContainer` receives the trigger element and must
   // return a parent DOM node. When no provider is installed we leave the prop
@@ -61,16 +68,24 @@ export function InfoPopover({
       destroyOnHidden
       placement={placement}
       classNames={{ root: 'oh-info-popover-overlay' }}
-      styles={{ root: { maxWidth } }}
+      styles={{ root: { maxWidth: width } }}
       {...(resolveContainer ? { getPopupContainer } : {})}
-      content={<InfoPopoverBody content={content} onActionClick={() => setOpen(false)} />}
+      content={<InfoPopoverBody content={content} maxWidth={width} onActionClick={() => setOpen(false)} />}
     >
       {children}
     </Popover>
   );
 }
 
-function InfoPopoverBody({ content, onActionClick }: { content: InfoPopoverContent; onActionClick: () => void }) {
+function InfoPopoverBody({
+  content,
+  maxWidth,
+  onActionClick,
+}: {
+  content: InfoPopoverContent;
+  maxWidth: number;
+  onActionClick: () => void;
+}) {
   return (
     // Outer is a flex column with a bounded max-height — the title and
     // actions stay pinned, and the middle scrolls. Critical for the
@@ -80,7 +95,7 @@ function InfoPopoverBody({ content, onActionClick }: { content: InfoPopoverConte
     // trigger but still React-bubbles through it, and triggers sit
     // inside clickable rows (expander toggles, document-open rows).
     // biome-ignore lint/a11y/noStaticElementInteractions: click containment only
-    <div className="oh-info-popover" onClick={(e) => e.stopPropagation()}>
+    <div className="oh-info-popover" style={{ maxWidth }} onClick={(e) => e.stopPropagation()}>
       <div className="oh-info-popover-header">
         <div className="oh-info-popover-header-text">
           {content.kicker && <div className="oh-info-popover-kicker">{content.kicker}</div>}

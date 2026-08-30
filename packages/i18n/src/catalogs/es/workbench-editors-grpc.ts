@@ -146,6 +146,7 @@ export const workbenchEditorsGrpc = {
   'workbench.editors.grpc.spec.importFailed': 'No se pudo importar el archivo .proto',
   'workbench.editors.grpc.method.usingSpec': 'Usando {name}',
   'workbench.editors.grpc.method.refreshSpec': 'Reconstruir desde los archivos actuales de la spec',
+  'workbench.editors.grpc.settings.exampleCaption': 'Llamada de ejemplo',
   'workbench.editors.grpc.settings.group.connection': 'Conexión',
   'workbench.editors.grpc.settings.group.tls': 'TLS y confianza',
   'workbench.editors.grpc.settings.group.messages': 'Mensajes',
