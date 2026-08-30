@@ -218,6 +218,14 @@ export const workbenchEditorsRequest = {
     'Sin autorización — no hay nada configurado en la carpeta ni en la colección.',
   'workbench.editors.request.auth.sourceCollection': 'Colección «{name}»',
   'workbench.editors.request.auth.sourceFolder': 'Carpeta «{name}»',
+  'workbench.editors.request.auth.groupInherited': 'Heredado',
+  'workbench.editors.request.auth.optionDefault': 'Predeterminado ({type} — {source})',
+  'workbench.editors.request.auth.optionDefaultNone': 'Predeterminado (sin autenticación)',
+  'workbench.editors.request.auth.optionEntry': '{source} › {entry}',
+  'workbench.editors.request.auth.optionMissingEntry': 'Entrada faltante',
+  'workbench.editors.request.auth.danglingPick':
+    'La entrada elegida por esta solicitud ya no existe — se aplica el predeterminado más cercano.',
+  'workbench.editors.request.auth.editInSource': 'Editar en {source}',
   'workbench.editors.request.auth.resizeRailAria': 'Redimensionar el riel de tipos de autenticación',
   'workbench.editors.request.auth.username': 'Nombre de usuario',
   'workbench.editors.request.auth.password': 'Contraseña',
@@ -947,6 +955,14 @@ export const workbenchEditorsRequest = {
     'Una redirección llevó esta solicitud a otro origen, y su Configuración conserva el encabezado ' +
     'Authorization entre orígenes — así que las credenciales se reenviaron al host nuevo. Normalmente el ' +
     'encabezado se descarta cuando una redirección sale del origen original.',
+  'workbench.editors.request.response.meta.authTitle': 'Autorización',
+  'workbench.editors.request.response.meta.authSummaryRequest':
+    'Enviado con la configuración {type} propia de la solicitud.',
+  'workbench.editors.request.response.meta.authSummaryInherited': '{type} — heredado de {source}.',
+  'workbench.editors.request.response.meta.authSummaryNone':
+    'Enviado sin autorización — no hay nada configurado por encima de la solicitud.',
+  'workbench.editors.request.response.meta.authDangling':
+    'La entrada elegida por la solicitud ya no existe — se aplicó el predeterminado en su lugar.',
   'workbench.editors.request.response.meta.executedOnTag': 'Enviado desde {name}',
   'workbench.editors.request.response.meta.executedOnTitle': 'Ejecutado en el back-end conectado',
   'workbench.editors.request.response.meta.executedOnSummary':

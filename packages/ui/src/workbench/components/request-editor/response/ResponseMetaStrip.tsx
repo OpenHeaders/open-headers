@@ -23,6 +23,7 @@ import { type Translate, useT } from '@openheaders/ui/context/LocaleContext';
 import { useOpenSettings } from '../../../hooks/OpenSettingsContext';
 import { subjectCommonName } from '../../trusted-roots/add-gate';
 import { TRUSTED_ROOTS_SETTING_KEY } from '../../trusted-roots/TrustedRootsPicker';
+import AuthAttributionTag, { authAttributionHasBadge } from './AuthAttributionTag';
 import ProxyRouteTag, { proxyRouteHasBadge } from './ProxyRouteTag';
 import { formatBytes } from './response-format';
 import { statusDisplayLabel, useStatusPillStyle } from './response-status';
@@ -873,6 +874,12 @@ const ResponseMetaStrip: React.FC<ResponseMetaStripProps> = ({ response }) => {
         <>
           <MetaDot />
           <ProxyRouteTag route={response.proxyRoute} />
+        </>
+      )}
+      {authAttributionHasBadge(response.auth) && (
+        <>
+          <MetaDot />
+          <AuthAttributionTag auth={response.auth} />
         </>
       )}
       {response.executedOn !== undefined && (

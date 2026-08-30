@@ -231,6 +231,14 @@ export const workbenchEditorsRequest = {
     'Keine Autorisierung — weder im Ordner noch in der Sammlung ist etwas festgelegt.',
   'workbench.editors.request.auth.sourceCollection': 'Sammlung „{name}“',
   'workbench.editors.request.auth.sourceFolder': 'Ordner „{name}“',
+  'workbench.editors.request.auth.groupInherited': 'Geerbt',
+  'workbench.editors.request.auth.optionDefault': 'Standard ({type} — {source})',
+  'workbench.editors.request.auth.optionDefaultNone': 'Standard (keine Authentifizierung)',
+  'workbench.editors.request.auth.optionEntry': '{source} › {entry}',
+  'workbench.editors.request.auth.optionMissingEntry': 'Fehlender Eintrag',
+  'workbench.editors.request.auth.danglingPick':
+    'Der von dieser Anfrage gewählte Eintrag existiert nicht mehr — stattdessen gilt der nächstgelegene Standard.',
+  'workbench.editors.request.auth.editInSource': 'In {source} bearbeiten',
   'workbench.editors.request.auth.resizeRailAria': 'Größe der Authentifizierungstyp-Leiste ändern',
   'workbench.editors.request.auth.username': 'Benutzername',
   'workbench.editors.request.auth.password': 'Passwort',
@@ -963,6 +971,14 @@ export const workbenchEditorsRequest = {
     'Authorization-Header über Origins hinweg bei — die Anmeldedaten wurden also erneut an den neuen Host ' +
     'gesendet. Normalerweise wird der Header verworfen, wenn eine Umleitung den ursprünglichen Origin ' +
     'verlässt.',
+  'workbench.editors.request.response.meta.authTitle': 'Autorisierung',
+  'workbench.editors.request.response.meta.authSummaryRequest':
+    'Gesendet mit der eigenen {type}-Konfiguration der Anfrage.',
+  'workbench.editors.request.response.meta.authSummaryInherited': '{type} — geerbt von {source}.',
+  'workbench.editors.request.response.meta.authSummaryNone':
+    'Ohne Autorisierung gesendet — oberhalb der Anfrage ist nichts festgelegt.',
+  'workbench.editors.request.response.meta.authDangling':
+    'Der von der Anfrage gewählte Eintrag existiert nicht mehr — stattdessen wurde der Standard angewendet.',
   'workbench.editors.request.response.meta.executedOnTag': 'Gesendet von {name}',
   'workbench.editors.request.response.meta.executedOnTitle': 'Auf dem verbundenen Back-end ausgeführt',
   'workbench.editors.request.response.meta.executedOnSummary':

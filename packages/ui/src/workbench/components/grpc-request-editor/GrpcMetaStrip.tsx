@@ -7,12 +7,13 @@
  */
 
 import { GRPC_STATUS_NAMES, grpcStatusLabel } from '@openheaders/core/proto';
-import type { ExecutedProxyRoute } from '@openheaders/core/types';
+import type { ExecutedAuthAttribution, ExecutedProxyRoute } from '@openheaders/core/types';
 import type { MessageKey } from '@openheaders/i18n';
 import { type Translate, useT } from '@openheaders/ui/context/LocaleContext';
 import { InfoPopover, type InfoPopoverContent } from '@openheaders/ui/shared/info-popover';
 import { Tag, theme } from 'antd';
 import type React from 'react';
+import AuthAttributionTag, { authAttributionHasBadge } from '../request-editor/response/AuthAttributionTag';
 import ProxyRouteTag, { proxyRouteHasBadge } from '../request-editor/response/ProxyRouteTag';
 
 /** Canonical description key per protocol status name — a literal map
@@ -74,7 +75,10 @@ const GrpcMetaStrip: React.FC<{
    *  tag when a plane proxied (or stood down for) the dial. Examples
    *  strip it with the other volatile internals, so they omit it. */
   proxyRoute?: ExecutedProxyRoute;
-}> = ({ status, stopped, error, localStatus, connectionError, proxyRoute }) => {
+  /** The auth the call actually carried (see `ExecutedGrpcSnapshot.auth`)
+   *  — the shared attribution tag; examples omit it like the route. */
+  auth?: ExecutedAuthAttribution;
+}> = ({ status, stopped, error, localStatus, connectionError, proxyRoute, auth }) => {
   const { token } = theme.useToken();
   const t = useT();
   // A caller-stopped call whose reply carried no status reads as
@@ -119,6 +123,7 @@ const GrpcMetaStrip: React.FC<{
         </InfoPopover>
       )}
       {proxyRouteHasBadge(proxyRoute) && <ProxyRouteTag route={proxyRoute} />}
+      {authAttributionHasBadge(auth) && <AuthAttributionTag auth={auth} />}
     </span>
   );
 };

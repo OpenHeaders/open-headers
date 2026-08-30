@@ -76,6 +76,24 @@ export const workbenchEditors = {
     "Rien n'est défini pour ce dossier — les requêtes retombent sur la valeur par défaut de la collection.",
   'workbench.editors.requestContainer.auth.inheritFromCollectionDetail':
     'Choisissez un type pour remplacer la valeur par défaut de la collection pour chaque requête de ce dossier.',
+  'workbench.editors.requestContainer.auth.addEntry': 'Ajouter une entrée',
+  'workbench.editors.requestContainer.auth.defaultTag': 'Défaut',
+  'workbench.editors.requestContainer.auth.setDefault': 'Définir par défaut',
+  'workbench.editors.requestContainer.auth.deleteEntry': 'Supprimer',
+  'workbench.editors.requestContainer.auth.entryActionsAria': "Actions de l'entrée",
+  'workbench.editors.requestContainer.auth.entryName': 'Nom',
+  'workbench.editors.requestContainer.auth.entryNamePlaceholder': 'p. ex. Jeton admin',
+  'workbench.editors.requestContainer.auth.appliesTo': "Appliquer à l'hôte",
+  'workbench.editors.requestContainer.auth.appliesToPlaceholder': '*.openheaders.com',
+  'workbench.editors.requestContainer.auth.appliesToHelp':
+    "Motif d'hôte facultatif (joker *). Une requête en héritage dont l'hôte de l'URL correspond reçoit cette entrée avant le défaut. Vide — atteinte uniquement comme défaut ou par le choix d'une requête.",
+  'workbench.editors.requestContainer.auth.inheritedFromCollection': 'Hérité de la collection « {name} »',
+  'workbench.editors.requestContainer.auth.overridingCollection': 'Remplace la collection « {name} »',
+  'workbench.editors.requestContainer.auth.editInCollection': 'Modifier dans la collection',
+  'workbench.editors.requestContainer.auth.override': 'Remplacer',
+  'workbench.editors.requestContainer.auth.resetToInherited': "Rétablir l'héritage",
+  'workbench.editors.requestContainer.auth.resetConfirm':
+    'Supprimer les entrées du dossier ? Les requêtes retomberont sur la collection.',
   'workbench.editors.requestContainer.deletedElsewhere': 'Cet élément a été supprimé dans une autre fenêtre.',
 
   // ── Response-example editor ────────────────────────────────────────

@@ -156,6 +156,7 @@ const GrpcStreamPane: React.FC<GrpcStreamPaneProps> = ({
             {...(snapshot.localStatus !== undefined ? { localStatus: snapshot.localStatus } : {})}
             {...(snapshot.connectionError !== undefined ? { connectionError: snapshot.connectionError } : {})}
             {...(snapshot.proxyRoute !== undefined ? { proxyRoute: snapshot.proxyRoute } : {})}
+            {...(snapshot.auth !== undefined ? { auth: snapshot.auth } : {})}
           />
           <Dropdown
             trigger={['click']}

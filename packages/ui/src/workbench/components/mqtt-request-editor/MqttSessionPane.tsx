@@ -27,6 +27,7 @@ import { useT } from '@openheaders/ui/context/LocaleContext';
 import { Button, Dropdown, Tabs, Tag, Typography, theme } from 'antd';
 import type React from 'react';
 import { useEffect, useMemo, useState } from 'react';
+import AuthAttributionTag, { authAttributionHasBadge } from '../request-editor/response/AuthAttributionTag';
 import ProxyRouteTag, { proxyRouteHasBadge } from '../request-editor/response/ProxyRouteTag';
 import { useTonePillStyle } from '../request-editor/response/response-status';
 import TrustCertificateOffer from '../request-editor/response/TrustCertificateOffer';
@@ -379,6 +380,7 @@ const MqttSessionPane: React.FC<MqttSessionPaneProps> = ({
         <>
           {endTag !== null && <ConnectionDetailsTooltip rows={detailRows}>{endTag}</ConnectionDetailsTooltip>}
           {proxyRouteHasBadge(snapshot.proxyRoute) && <ProxyRouteTag route={snapshot.proxyRoute} />}
+          {authAttributionHasBadge(snapshot.auth) && <AuthAttributionTag auth={snapshot.auth} />}
           <Dropdown
             trigger={['click']}
             styles={{ root: { minWidth: 180 } }}

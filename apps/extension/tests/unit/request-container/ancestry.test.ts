@@ -16,6 +16,7 @@ import type { AuthPoolEntry, Collection, CollectionTree, ConcreteAuthConfig } fr
 import {
   findFolderCollectionUid,
   findRequestAncestry,
+  inheritPoolLevels,
   resolveInheritedAuthFor,
 } from '@openheaders/ui/workbench/components/request-container/ancestry';
 import { describe, expect, it } from 'vitest';
@@ -107,7 +108,7 @@ describe('resolveInheritedAuthFor', () => {
     const ancestry = findRequestAncestry([TREE], [makeCollection({ auths: [ADMIN, USER] })], FOLDERS, 'req00002');
     expect(resolveInheritedAuthFor(ancestry)).toEqual({
       auth: BEARER,
-      source: { kind: 'collection', name: 'Payments', entryName: 'Admin token' },
+      source: { kind: 'collection', uid: 'col00001', name: 'Payments', entryName: 'Admin token' },
     });
   });
 
@@ -115,7 +116,7 @@ describe('resolveInheritedAuthFor', () => {
     const ancestry = findRequestAncestry([TREE], [makeCollection({ auth: BEARER })], FOLDERS, 'req00002');
     expect(resolveInheritedAuthFor(ancestry)).toEqual({
       auth: BEARER,
-      source: { kind: 'collection', name: 'Payments', entryName: '' },
+      source: { kind: 'collection', uid: 'col00001', name: 'Payments', entryName: '' },
     });
   });
 
@@ -127,7 +128,7 @@ describe('resolveInheritedAuthFor', () => {
     const ancestry = findRequestAncestry([TREE], [makeCollection({ auths: [ADMIN] })], folders, 'req00002');
     expect(resolveInheritedAuthFor(ancestry)).toEqual({
       auth: BASIC,
-      source: { kind: 'folder', name: 'Cards', entryName: 'Service' },
+      source: { kind: 'folder', uid: 'fld00001', name: 'Cards', entryName: 'Service' },
     });
   });
 
@@ -136,7 +137,7 @@ describe('resolveInheritedAuthFor', () => {
     const ancestry = findRequestAncestry([TREE], [makeCollection({ auths: [ADMIN] })], folders, 'req00002');
     expect(resolveInheritedAuthFor(ancestry)).toEqual({
       auth: { type: 'none' },
-      source: { kind: 'folder', name: 'Cards', entryName: 'Public' },
+      source: { kind: 'folder', uid: 'fld00001', name: 'Cards', entryName: 'Public' },
     });
   });
 
@@ -146,7 +147,7 @@ describe('resolveInheritedAuthFor', () => {
     const ancestry = findRequestAncestry([TREE], [collection], folders, 'req00002');
     expect(resolveInheritedAuthFor(ancestry, { authUid: 'user0001' })).toEqual({
       auth: USER.config,
-      source: { kind: 'collection', name: 'Payments', entryName: 'User token' },
+      source: { kind: 'collection', uid: 'col00001', name: 'Payments', entryName: 'User token' },
     });
   });
 
@@ -176,6 +177,25 @@ describe('resolveInheritedAuthFor', () => {
 
   it('a scratch draft (no ancestry) resolves to no auth and no source', () => {
     expect(resolveInheritedAuthFor(null)).toEqual({ auth: { type: 'none' }, source: null });
+  });
+});
+
+describe('inheritPoolLevels', () => {
+  it('lists the pool-holding levels inner → outer, skipping transparent levels and the legacy read', () => {
+    const folders = [
+      { uid: 'fld00001', name: 'Cards', auths: [{ uid: 'basic001', name: 'Service', config: BASIC }] },
+      { uid: 'fld00002', name: 'Refunds' },
+    ];
+    const ancestry = findRequestAncestry([TREE], [makeCollection({ auths: [ADMIN, USER] })], folders, 'req00002');
+    const levels = inheritPoolLevels(ancestry);
+    expect(levels.map((l) => l.uid)).toEqual(['fld00001', 'col00001']);
+    expect(levels[0].entries.map((e) => e.name)).toEqual(['Service']);
+    expect(levels[1].defaultUid).toBe('admin001');
+
+    // A legacy single `auth` has nothing pickable — the level is skipped.
+    const legacy = findRequestAncestry([TREE], [makeCollection({ auth: BEARER })], FOLDERS, 'req00002');
+    expect(inheritPoolLevels(legacy)).toEqual([]);
+    expect(inheritPoolLevels(null)).toEqual([]);
   });
 });
 

@@ -11,13 +11,17 @@
  *   - one Save: an auth edit lights it and writes through the
  *     collection auth client with the field ABSENT for the transparent
  *     choice and the config otherwise;
+ *   - the POOL editor: the entries list with the Default tag, Add
+ *     entry, the legacy single-auth read re-minted on save, the
+ *     folder header's inherited / overriding states;
  *   - an asked-for section is honored, a user switch is reported, and
  *     viewing Scripts reports the review gesture;
  *   - the request-level Authorization tab names what Inherit resolves
- *     to and from where.
+ *     to and from where, and with ancestry leads with the Inherited
+ *     group.
  */
 
-import type { AuthConfig, Collection, CollectionTree } from '@openheaders/core/types';
+import type { AuthConfig, AuthPoolEntry, Collection, CollectionTree } from '@openheaders/core/types';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { App } from 'antd';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
@@ -80,6 +84,8 @@ beforeAll(() => {
 });
 
 const BEARER: AuthConfig = { type: 'bearer', token: '{{token}}' };
+const ADMIN: AuthPoolEntry = { uid: 'admin001', name: 'Admin token', config: { type: 'bearer', token: '{{token}}' } };
+const USER: AuthPoolEntry = { uid: 'user0001', name: 'User token', config: { type: 'bearer', token: '{{user}}' } };
 
 function makeCollection(overrides: Partial<Collection> = {}): Collection {
   return {
@@ -322,13 +328,107 @@ describe('RequestContainerEditor — one Save', () => {
   });
 });
 
+describe('RequestContainerEditor — the pool editor', () => {
+  it('renders the entries list with the Default tag and the default entry selected for editing', () => {
+    requestsState = {
+      ...requestsState,
+      collections: [makeCollection({ auths: [ADMIN, USER], defaultAuthUid: 'admin001' })],
+    };
+    renderEditor({ section: 'authorization' });
+    const rows = screen.getAllByTestId('oh-auth-pool-entry');
+    expect(rows).toHaveLength(2);
+    expect(rows[0].textContent).toContain('Admin token');
+    expect(rows[0].textContent).toContain('Default');
+    expect(rows[1].textContent).toContain('User token');
+    expect((screen.getByTestId('oh-auth-entry-name') as HTMLInputElement).value).toBe('Admin token');
+    // A named entry's editor drops the transparent choice.
+    fireEvent.click(rows[1]);
+    expect((screen.getByTestId('oh-auth-entry-name') as HTMLInputElement).value).toBe('User token');
+  });
+
+  it('Add entry appends a none entry and Save writes the whole pool', async () => {
+    requestsState = {
+      ...requestsState,
+      collections: [makeCollection({ auths: [ADMIN], defaultAuthUid: 'admin001' })],
+    };
+    renderEditor({ section: 'authorization' });
+    fireEvent.click(screen.getByTestId('oh-auth-pool-add'));
+    fireEvent.change(screen.getByTestId('oh-auth-entry-name'), { target: { value: 'Service' } });
+    fireEvent.change(screen.getByTestId('oh-auth-entry-applies-to'), { target: { value: '*.openheaders.io' } });
+    fireEvent.click(await findSaveButton());
+    await waitFor(() => expect(applyRequestCollectionSetAuthPool).toHaveBeenCalledTimes(1));
+    expect(applyRequestCollectionSetAuthPool).toHaveBeenCalledWith(
+      {
+        collectionUid: 'col00001',
+        auths: [
+          ADMIN,
+          {
+            uid: expect.stringMatching(/^[a-z0-9]{8}$/),
+            name: 'Service',
+            config: { type: 'none' },
+            appliesTo: '*.openheaders.io',
+          },
+        ],
+        defaultAuthUid: 'admin001',
+      },
+      { workspaceId: 'ws00001', surfaceId: 'workbench' },
+    );
+  });
+
+  it('a legacy single auth edits as the default entry and Save re-mints its reserved uid', async () => {
+    requestsState = { ...requestsState, collections: [makeCollection({ auth: BEARER })] };
+    renderEditor({ section: 'authorization' });
+    await pickAuthType('Basic Auth');
+    fireEvent.click(await findSaveButton());
+    await waitFor(() => expect(applyRequestCollectionSetAuthPool).toHaveBeenCalledTimes(1));
+    expect(applyRequestCollectionSetAuthPool).toHaveBeenCalledWith(
+      {
+        collectionUid: 'col00001',
+        auths: [
+          {
+            uid: expect.stringMatching(/^[a-z0-9]{8}$/),
+            name: '',
+            config: { type: 'basic', username: '', password: '' },
+          },
+        ],
+        defaultAuthUid: expect.stringMatching(/^[a-z0-9]{8}$/),
+      },
+      { workspaceId: 'ws00001', surfaceId: 'workbench' },
+    );
+  });
+
+  it("a transparent folder names the collection it inherits from, with Edit in collection and Override", () => {
+    requestsState = {
+      ...requestsState,
+      collections: [makeCollection({ auths: [ADMIN], defaultAuthUid: 'admin001' })],
+    };
+    const onOpenCollectionAuth = vi.fn();
+    renderEditor({ kind: 'folder', entityUid: 'fld00001', section: 'authorization', onOpenCollectionAuth });
+    expect(screen.getByTestId('oh-auth-pool-folder-header').textContent).toContain(
+      'Inherited from Collection ‘Payments’',
+    );
+    fireEvent.click(screen.getByTestId('oh-auth-pool-edit-in-collection'));
+    expect(onOpenCollectionAuth).toHaveBeenCalledWith('col00001', 'Payments');
+    // Override mints the folder's own pool from the inherited default.
+    fireEvent.click(screen.getByTestId('oh-auth-pool-override'));
+    expect((screen.getByTestId('oh-auth-entry-name') as HTMLInputElement).value).toBe('Admin token');
+    expect(screen.getByTestId('oh-auth-pool-folder-header').textContent).toContain(
+      'Overriding Collection ‘Payments’',
+    );
+    expect(screen.getByTestId('oh-auth-pool-reset')).toBeTruthy();
+  });
+});
+
 describe('AuthorizationTab — request-level attribution under Inherit', () => {
   it('names the effective type and the level it came from', () => {
     render(
       <AuthorizationTab
         auth={{ type: 'inherit' }}
         onChange={vi.fn()}
-        inheritedFrom={{ auth: BEARER, source: { kind: 'collection', name: 'Payments' } }}
+        inheritedFrom={{
+          auth: BEARER,
+          source: { kind: 'collection', uid: 'col00001', name: 'Payments', entryName: '' },
+        }}
       />,
     );
     expect(screen.getByTestId('oh-auth-transparent-state').textContent).toContain(
@@ -354,5 +454,27 @@ describe('AuthorizationTab — request-level attribution under Inherit', () => {
     expect(screen.getByTestId('oh-auth-transparent-state').textContent).toContain(
       "Edit the collection's Authorization tab to change it.",
     );
+  });
+
+  it('with ancestry the select leads with the Inherited group and a named pick writes the pick', () => {
+    const onChange = vi.fn();
+    const ancestry = {
+      collection: makeCollection({ auths: [ADMIN, USER], defaultAuthUid: 'admin001' }),
+      folders: [],
+    };
+    render(<AuthorizationTab auth={{ type: 'inherit' }} onChange={onChange} ancestry={ancestry} />);
+    expect(screen.getByTestId('oh-auth-type').textContent).toContain(
+      'Default (Bearer Token — Collection ‘Payments’)',
+    );
+    const select = screen.getByTestId('oh-auth-type');
+    const input = select.querySelector('input');
+    if (!input) throw new Error('no select input');
+    fireEvent.keyDown(input, { key: 'ArrowDown', keyCode: 40 });
+    const options = Array.from(document.querySelectorAll<HTMLElement>('.ant-select-item-option'));
+    expect(options[0].textContent).toContain('Default (Bearer Token — Collection ‘Payments’)');
+    expect(options[1].textContent).toContain('Collection ‘Payments’ › Admin token');
+    expect(options[2].textContent).toContain('Collection ‘Payments’ › User token');
+    fireEvent.click(options[2]);
+    expect(onChange).toHaveBeenCalledWith({ type: 'inherit', authUid: 'user0001' });
   });
 });

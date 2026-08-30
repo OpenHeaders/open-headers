@@ -64,6 +64,24 @@ export const workbenchEditors = {
     'Nothing is set for this folder \u2014 requests fall through to the collection\u2019s default.',
   'workbench.editors.requestContainer.auth.inheritFromCollectionDetail':
     'Pick a type to override the collection\u2019s default for every request in this folder.',
+  'workbench.editors.requestContainer.auth.addEntry': 'Add entry',
+  'workbench.editors.requestContainer.auth.defaultTag': 'Default',
+  'workbench.editors.requestContainer.auth.setDefault': 'Set as default',
+  'workbench.editors.requestContainer.auth.deleteEntry': 'Delete',
+  'workbench.editors.requestContainer.auth.entryActionsAria': 'Entry actions',
+  'workbench.editors.requestContainer.auth.entryName': 'Name',
+  'workbench.editors.requestContainer.auth.entryNamePlaceholder': 'e.g. Admin token',
+  'workbench.editors.requestContainer.auth.appliesTo': 'Apply to host',
+  'workbench.editors.requestContainer.auth.appliesToPlaceholder': '*.openheaders.com',
+  'workbench.editors.requestContainer.auth.appliesToHelp':
+    'Optional host pattern (* wildcard). A request set to Inherit whose URL host matches gets this entry ahead of the default. Empty \u2014 reached only as the default or by a request\u2019s pick.',
+  'workbench.editors.requestContainer.auth.inheritedFromCollection': 'Inherited from Collection \u2018{name}\u2019',
+  'workbench.editors.requestContainer.auth.overridingCollection': 'Overriding Collection \u2018{name}\u2019',
+  'workbench.editors.requestContainer.auth.editInCollection': 'Edit in collection',
+  'workbench.editors.requestContainer.auth.override': 'Override',
+  'workbench.editors.requestContainer.auth.resetToInherited': 'Reset to inherited',
+  'workbench.editors.requestContainer.auth.resetConfirm':
+    'Remove the folder\u2019s entries? Requests fall through to the collection.',
   'workbench.editors.requestContainer.deletedElsewhere': 'This item was deleted in another window.',
 
   // ── Response-example editor ────────────────────────────────────────

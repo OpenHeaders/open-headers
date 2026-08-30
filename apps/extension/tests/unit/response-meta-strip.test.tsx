@@ -365,3 +365,51 @@ describe('ResponseMetaStrip TLS facts and trust attribution', () => {
     expect(screen.queryByTestId('oh-response-tls-trusted')).toBeNull();
   });
 });
+
+describe('ResponseMetaStrip auth attribution', () => {
+  it('shows no auth tag on a run without an attribution or with a plain resolved none', () => {
+    renderStrip();
+    expect(screen.queryByTestId('oh-response-auth')).toBeNull();
+    cleanup();
+    renderStrip({ auth: { type: 'none', source: null } });
+    expect(screen.queryByTestId('oh-response-auth')).toBeNull();
+  });
+
+  it('tags a run with the type and names the supplying pool entry on hover', async () => {
+    renderStrip({
+      auth: {
+        type: 'bearer',
+        source: {
+          level: 'collection',
+          uid: 'col00001',
+          name: 'Payments',
+          entryUid: 'admin001',
+          entryName: 'Admin token',
+        },
+      },
+    });
+    const tag = screen.getByTestId('oh-response-auth');
+    expect(tag.textContent).toBe('Bearer Token');
+    fireEvent.mouseEnter(tag);
+    expect(await screen.findByText(/inherited from Collection ‘Payments’ › Admin token/)).toBeTruthy();
+  });
+
+  it("names the request's own configuration", async () => {
+    renderStrip({ auth: { type: 'basic', source: { level: 'request' } } });
+    fireEvent.mouseEnter(screen.getByTestId('oh-response-auth'));
+    expect(await screen.findByText(/request’s own Basic Auth configuration/)).toBeTruthy();
+  });
+
+  it('a dangling pick wears the warning tone and says the default applied', async () => {
+    renderStrip({
+      auth: {
+        type: 'none',
+        source: null,
+        danglingAuthUid: 'gone0000',
+      },
+    });
+    const tag = screen.getByTestId('oh-response-auth');
+    fireEvent.mouseEnter(tag);
+    expect(await screen.findByText(/no longer exists/)).toBeTruthy();
+  });
+});

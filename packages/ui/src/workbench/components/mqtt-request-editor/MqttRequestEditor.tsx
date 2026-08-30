@@ -85,6 +85,9 @@ interface MqttRequestEditorProps {
   workspaceId: string | null;
   /** "Save Response" landed — open the minted example's viewer tab. */
   onOpenMqttResponseExample?: (uid: string, name: string, mqttRequestUid: string) => void;
+  /** Opens a container's Authorization section — the Auth tab's
+   *  "Edit in …" opener under Inherit. */
+  onOpenContainerAuth?: (kind: 'collection' | 'folder', uid: string, name: string) => void;
   onDirtyChange?: (dirty: boolean) => void;
   registerSaveRef?: (save: () => void) => void;
 }
@@ -136,6 +139,7 @@ const MqttRequestEditor: React.FC<MqttRequestEditorProps> = ({
   mqttRequestUid,
   workspaceId,
   onOpenMqttResponseExample,
+  onOpenContainerAuth,
   onDirtyChange,
   registerSaveRef,
 }) => {
@@ -149,17 +153,18 @@ const MqttRequestEditor: React.FC<MqttRequestEditorProps> = ({
   const [draft, rawSetDraft] = useState<MqttDraft>(() => (entity ? draftFromMqttRequest(entity) : emptyMqttDraft()));
 
   // What Inherit resolves to, and from which level — read off the
-  // trees (the containment projection), never a stored path.
+  // trees (the containment projection), never a stored path. The
+  // ancestry itself feeds the Auth tab's Inherited group.
+  const ancestry = useMemo(
+    () => (entity ? findRequestAncestry(collectionTrees, collections, folders, entity.uid) : undefined),
+    [entity, collectionTrees, collections, folders],
+  );
   const inheritedAuth = useMemo(
     () =>
-      entity
-        ? resolveInheritedAuthFor(
-            findRequestAncestry(collectionTrees, collections, folders, entity.uid),
-            draft.auth.type === 'inherit' ? draft.auth : {},
-            draft.url,
-          )
-        : undefined,
-    [entity, collectionTrees, collections, folders, draft.auth, draft.url],
+      ancestry === undefined
+        ? undefined
+        : resolveInheritedAuthFor(ancestry, draft.auth.type === 'inherit' ? draft.auth : {}, draft.url),
+    [ancestry, draft.auth, draft.url],
   );
   const [activeTab, setActiveTab] = useState('message');
 
@@ -478,6 +483,9 @@ const MqttRequestEditor: React.FC<MqttRequestEditorProps> = ({
                       <MqttAuthTab
                         auth={draft.auth}
                         inheritedFrom={inheritedAuth}
+                        ancestry={ancestry}
+                        url={draft.url}
+                        onOpenContainerAuth={onOpenContainerAuth}
                         onChange={(auth) => setDraft((d) => ({ ...d, auth }))}
                       />
                     )}

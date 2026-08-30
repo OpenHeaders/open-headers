@@ -74,6 +74,23 @@ export const workbenchEditors = {
     '此文件夹未设置任何内容——请求会落回到集合的默认授权。',
   'workbench.editors.requestContainer.auth.inheritFromCollectionDetail':
     '选择一种类型，为此文件夹中的每个请求覆盖集合的默认授权。',
+  'workbench.editors.requestContainer.auth.addEntry': '添加条目',
+  'workbench.editors.requestContainer.auth.defaultTag': '默认',
+  'workbench.editors.requestContainer.auth.setDefault': '设为默认',
+  'workbench.editors.requestContainer.auth.deleteEntry': '删除',
+  'workbench.editors.requestContainer.auth.entryActionsAria': '条目操作',
+  'workbench.editors.requestContainer.auth.entryName': '名称',
+  'workbench.editors.requestContainer.auth.entryNamePlaceholder': '例如 管理员令牌',
+  'workbench.editors.requestContainer.auth.appliesTo': '应用于主机',
+  'workbench.editors.requestContainer.auth.appliesToPlaceholder': '*.openheaders.com',
+  'workbench.editors.requestContainer.auth.appliesToHelp':
+    '可选的主机模式（* 通配符）。设置为继承的请求，其 URL 主机匹配时优先于默认项获得此条目。留空——仅作为默认项或通过请求的选择使用。',
+  'workbench.editors.requestContainer.auth.inheritedFromCollection': '继承自集合“{name}”',
+  'workbench.editors.requestContainer.auth.overridingCollection': '正在覆盖集合“{name}”',
+  'workbench.editors.requestContainer.auth.editInCollection': '在集合中编辑',
+  'workbench.editors.requestContainer.auth.override': '覆盖',
+  'workbench.editors.requestContainer.auth.resetToInherited': '重置为继承',
+  'workbench.editors.requestContainer.auth.resetConfirm': '移除文件夹的条目？请求将回落到集合。',
   'workbench.editors.requestContainer.deletedElsewhere': '此条目已在另一个窗口中被删除。',
 
   // ── Response-example editor ────────────────────────────────────────

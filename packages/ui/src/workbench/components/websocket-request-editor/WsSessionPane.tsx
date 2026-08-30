@@ -25,6 +25,7 @@ import { useT } from '@openheaders/ui/context/LocaleContext';
 import { Button, Dropdown, Tag, Typography, theme } from 'antd';
 import type React from 'react';
 import { useEffect, useMemo, useState } from 'react';
+import AuthAttributionTag, { authAttributionHasBadge } from '../request-editor/response/AuthAttributionTag';
 import ProxyRouteTag, { proxyRouteHasBadge } from '../request-editor/response/ProxyRouteTag';
 import { useTonePillStyle } from '../request-editor/response/response-status';
 import TrustCertificateOffer from '../request-editor/response/TrustCertificateOffer';
@@ -291,6 +292,7 @@ const WsSessionPane: React.FC<WsSessionPaneProps> = ({
         <>
           {closeTag !== null && <ConnectionDetailsTooltip rows={detailRows}>{closeTag}</ConnectionDetailsTooltip>}
           {proxyRouteHasBadge(snapshot.proxyRoute) && <ProxyRouteTag route={snapshot.proxyRoute} />}
+          {authAttributionHasBadge(snapshot.auth) && <AuthAttributionTag auth={snapshot.auth} />}
           <Dropdown
             trigger={['click']}
             styles={{ root: { minWidth: 180 } }}

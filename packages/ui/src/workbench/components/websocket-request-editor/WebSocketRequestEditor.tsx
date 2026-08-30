@@ -84,6 +84,9 @@ interface WebSocketRequestEditorProps {
   workspaceId: string | null;
   /** "Save Response" landed — open the minted example's viewer tab. */
   onOpenWsResponseExample?: (uid: string, name: string, websocketRequestUid: string) => void;
+  /** Opens a container's Authorization section — the Auth tab's
+   *  "Edit in …" opener under Inherit. */
+  onOpenContainerAuth?: (kind: 'collection' | 'folder', uid: string, name: string) => void;
   onDirtyChange?: (dirty: boolean) => void;
   registerSaveRef?: (save: () => void) => void;
 }
@@ -135,6 +138,7 @@ const WebSocketRequestEditor: React.FC<WebSocketRequestEditorProps> = ({
   websocketRequestUid,
   workspaceId,
   onOpenWsResponseExample,
+  onOpenContainerAuth,
   onDirtyChange,
   registerSaveRef,
 }) => {
@@ -153,17 +157,18 @@ const WebSocketRequestEditor: React.FC<WebSocketRequestEditorProps> = ({
   );
 
   // What Inherit resolves to, and from which level — read off the
-  // trees (the containment projection), never a stored path.
+  // trees (the containment projection), never a stored path. The
+  // ancestry itself feeds the Auth tab's Inherited group.
+  const ancestry = useMemo(
+    () => (entity ? findRequestAncestry(collectionTrees, collections, folders, entity.uid) : undefined),
+    [entity, collectionTrees, collections, folders],
+  );
   const inheritedAuth = useMemo(
     () =>
-      entity
-        ? resolveInheritedAuthFor(
-            findRequestAncestry(collectionTrees, collections, folders, entity.uid),
-            draft.auth.type === 'inherit' ? draft.auth : {},
-            draft.url,
-          )
-        : undefined,
-    [entity, collectionTrees, collections, folders, draft.auth, draft.url],
+      ancestry === undefined
+        ? undefined
+        : resolveInheritedAuthFor(ancestry, draft.auth.type === 'inherit' ? draft.auth : {}, draft.url),
+    [ancestry, draft.auth, draft.url],
   );
 
   // Saved-messages selection plane: the compose is the selected row's
@@ -510,6 +515,9 @@ const WebSocketRequestEditor: React.FC<WebSocketRequestEditorProps> = ({
                           auth={draft.auth}
                           socketioFlavor={socketioFlavor}
                           inheritedFrom={inheritedAuth}
+                          ancestry={ancestry}
+                          url={draft.url}
+                          onOpenContainerAuth={onOpenContainerAuth}
                           onChange={(auth) => setDraft((d) => ({ ...d, auth }))}
                         />
                       )}

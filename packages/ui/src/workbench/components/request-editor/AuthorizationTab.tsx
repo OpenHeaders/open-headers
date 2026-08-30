@@ -8,7 +8,6 @@
  * Authorization header is assembled.
  */
 
-import { authAllowedFor, type AuthProtocolKind } from '@openheaders/core/auth-inheritance';
 import { getCapability } from '@openheaders/core/capabilities';
 import { findOAuth2Preset, OAUTH2_PROVIDER_PRESETS } from '@openheaders/core/oauth';
 import type { AuthConfig } from '@openheaders/core/types';
@@ -18,6 +17,7 @@ import type React from 'react';
 import { useCallback, useMemo } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { InfoTrigger } from '@openheaders/ui/shared/info-popover';
+import type { RequestAncestry } from '../request-container/ancestry';
 import {
   AUTH_FIELD_DEFAULT_MAX_WIDTH as FIELD_DEFAULT_MAX_WIDTH,
   AuthEmptyState,
@@ -28,6 +28,16 @@ import {
   AuthTabShell,
   AuthTypeLabel,
 } from './auth-layout';
+import {
+  AUTH_TYPE_OPTIONS,
+  authTypeLabelKey,
+  buildInheritedGroup,
+  type InheritedAuthAttribution,
+  InheritedAuthEmptyState,
+  inheritSelectValue,
+  inheritSourceLabel,
+  parseInheritSelectValue,
+} from './inherited-auth';
 import OAuth2AuthEditor from './OAuth2AuthEditor';
 import { TemplateInput } from '../template-input';
 
@@ -35,36 +45,11 @@ const { Text } = Typography;
 
 type AuthKind = AuthConfig['type'];
 
-interface AuthOption {
-  value: AuthKind;
-  labelKey: MessageKey;
-}
-
-const AUTH_OPTIONS: AuthOption[] = [
-  { value: 'inherit', labelKey: 'workbench.editors.request.auth.type.inherit' },
-  { value: 'none', labelKey: 'workbench.editors.request.auth.type.none' },
-  { value: 'basic', labelKey: 'workbench.editors.request.auth.type.basic' },
-  { value: 'bearer', labelKey: 'workbench.editors.request.auth.type.bearer' },
-  { value: 'api-key', labelKey: 'workbench.editors.request.auth.type.apiKey' },
-  { value: 'oauth2', labelKey: 'workbench.editors.request.auth.type.oauth2' },
-  { value: 'aws-sigv4', labelKey: 'workbench.editors.request.auth.type.awsSigV4' },
-  { value: 'digest', labelKey: 'workbench.editors.request.auth.type.digest' },
-  { value: 'oauth1', labelKey: 'workbench.editors.request.auth.type.oauth1' },
-];
-
 /** The level the tab edits — the transparent choice reads differently
  *  at each: a request inherits from its parents, a folder from the
  *  collection, a collection has no parent (its transparent choice is
  *  "No default"). */
 export type AuthLevel = 'request' | 'collection' | 'folder';
-
-/** What a request set to Inherit resolves to, for the attribution line
- *  under the Inherit empty state: the effective type and the level it
- *  came from, or nothing set anywhere above. */
-export interface InheritedAuthAttribution {
-  auth: AuthConfig;
-  source: { kind: 'collection' | 'folder'; name: string } | null;
-}
 
 interface AuthorizationTabProps {
   auth: AuthConfig;
@@ -74,42 +59,20 @@ interface AuthorizationTabProps {
   /** Request level only — the Inherit empty state names what the
    *  request actually sends with. Absent = unknown (a scratch draft). */
   inheritedFrom?: InheritedAuthAttribution;
-}
-
-export function authTypeLabelKey(type: AuthKind): MessageKey {
-  return AUTH_OPTIONS.find((o) => o.value === type)?.labelKey ?? 'workbench.editors.request.auth.type.none';
-}
-
-/**
- * The Inherit empty state's detail line for a SESSION kind (the
- * WebSocket / gRPC / MQTT tabs): what the request resolves to and from
- * which level — or, when the resolved type sits outside the kind's
- * mask, the refusal sentence the executor fails the Connect / Invoke
- * with (`unsupported` lets the tab render it in warning tone).
- */
-export function useSessionInheritDetail(
-  kind: AuthProtocolKind,
-  unsupportedKey: MessageKey,
-  inheritedFrom: InheritedAuthAttribution | undefined,
-): { detail: string; unsupported: boolean } {
-  const t = useT();
-  return useMemo(() => {
-    if (inheritedFrom === undefined) {
-      return { detail: t('workbench.editors.request.auth.inheritDetail'), unsupported: false };
-    }
-    if (inheritedFrom.source === null) {
-      return { detail: t('workbench.editors.request.auth.inheritedNone'), unsupported: false };
-    }
-    const source =
-      inheritedFrom.source.kind === 'collection'
-        ? t('workbench.editors.request.auth.sourceCollection', { name: inheritedFrom.source.name })
-        : t('workbench.editors.request.auth.sourceFolder', { name: inheritedFrom.source.name });
-    const type = t(authTypeLabelKey(inheritedFrom.auth.type));
-    if (inheritedFrom.auth.type !== 'inherit' && !authAllowedFor(kind, inheritedFrom.auth)) {
-      return { detail: t(unsupportedKey, { type, source }), unsupported: true };
-    }
-    return { detail: t('workbench.editors.request.auth.inheritedFrom', { type, source }), unsupported: false };
-  }, [t, kind, unsupportedKey, inheritedFrom]);
+  /** Request level only — the ancestor chain behind the select's
+   *  Inherited group (default + every named pool entry). Absent = the
+   *  flat select (a scratch draft, or a container level). */
+  ancestry?: RequestAncestry | null;
+  /** The request's URL — host-scoped entries resolve against it for
+   *  the Default option's label. */
+  url?: string;
+  /** Container entry editing only — `false` drops the transparent
+   *  choice from the select (a named pool entry is always concrete;
+   *  removing it is the entries list's gesture). */
+  allowTransparent?: boolean;
+  /** Opens the supplying container's Authorization section — the
+   *  Inherit empty state's "Edit in …" button. */
+  onOpenContainerAuth?: (kind: 'collection' | 'folder', uid: string, name: string) => void;
 }
 
 function transparentLabelKey(level: AuthLevel): MessageKey {
@@ -123,16 +86,41 @@ function transparentLabelKey(level: AuthLevel): MessageKey {
   }
 }
 
-const AuthorizationTab: React.FC<AuthorizationTabProps> = ({ auth, onChange, level = 'request', inheritedFrom }) => {
+const AuthorizationTab: React.FC<AuthorizationTabProps> = ({
+  auth,
+  onChange,
+  level = 'request',
+  inheritedFrom,
+  ancestry,
+  url = '',
+  allowTransparent = true,
+  onOpenContainerAuth,
+}) => {
   const t = useT();
-  const authOptions = useMemo(
-    () =>
-      AUTH_OPTIONS.map((o) => ({
-        value: o.value,
-        label: t(o.value === 'inherit' ? transparentLabelKey(level) : o.labelKey),
-      })),
-    [t, level],
-  );
+  // With ancestry the transparent option grows into the Inherited
+  // group — the default plus every named ancestor entry; without it
+  // (a scratch draft, a container level) the flat list stands.
+  const grouped = level === 'request' && ancestry !== undefined;
+  const authOptions = useMemo(() => {
+    const own = AUTH_TYPE_OPTIONS.filter((o) => o.value !== 'inherit').map((o): { value: string; label: string } => ({
+      value: o.value,
+      label: t(o.labelKey),
+    }));
+    if (grouped) {
+      return [
+        buildInheritedGroup({
+          t,
+          kind: 'http',
+          ancestry: ancestry ?? null,
+          url,
+          ...(auth.type === 'inherit' && auth.authUid !== undefined ? { currentAuthUid: auth.authUid } : {}),
+        }),
+        ...own,
+      ];
+    }
+    if (!allowTransparent) return own;
+    return [{ value: 'inherit', label: t(transparentLabelKey(level)) }, ...own];
+  }, [t, level, grouped, ancestry, url, allowTransparent, auth]);
 
   // The transparent choice's copy per level: the rail note states the
   // fact, the empty state says what to do about it — and at the
@@ -162,18 +150,31 @@ const AuthorizationTab: React.FC<AuthorizationTabProps> = ({ auth, onChange, lev
         detail: t('workbench.editors.request.auth.inheritedNone'),
       };
     }
-    const source =
-      inheritedFrom.source.kind === 'collection'
-        ? t('workbench.editors.request.auth.sourceCollection', { name: inheritedFrom.source.name })
-        : t('workbench.editors.request.auth.sourceFolder', { name: inheritedFrom.source.name });
     return {
       note: t('workbench.editors.request.auth.inheritNote'),
       detail: t('workbench.editors.request.auth.inheritedFrom', {
         type: t(authTypeLabelKey(inheritedFrom.auth.type)),
-        source,
+        source: inheritSourceLabel(t, inheritedFrom.source),
       }),
     };
   }, [t, level, inheritedFrom]);
+
+  // A pick from the Inherited group writes the pick (the default or a
+  // named entry uid), carrying a suspended state along; a concrete
+  // type routes through the seeding switch below.
+  const handleSelect = (value: string) => {
+    const pick = parseInheritSelectValue(value);
+    if (pick !== null) {
+      onChange({
+        type: 'inherit',
+        ...(pick.authUid !== undefined ? { authUid: pick.authUid } : {}),
+        ...(auth.type === 'inherit' && auth.disabled === true ? { disabled: true } : {}),
+      });
+      return;
+    }
+    const own = AUTH_TYPE_OPTIONS.find((o) => o.value === value);
+    if (own !== undefined) switchType(own.value);
+  };
 
   const switchType = (type: AuthKind) => {
     if (type === 'none' || type === 'inherit') {
@@ -217,8 +218,8 @@ const AuthorizationTab: React.FC<AuthorizationTabProps> = ({ auth, onChange, lev
           <Select
             size="middle"
             data-testid="oh-auth-type"
-            value={auth.type}
-            onChange={switchType}
+            value={inheritSelectValue(auth)}
+            onChange={handleSelect}
             options={authOptions}
             style={{ width: '100%' }}
           />
@@ -236,13 +237,22 @@ const AuthorizationTab: React.FC<AuthorizationTabProps> = ({ auth, onChange, lev
         />
       )}
 
-      {auth.type === 'inherit' && (
-        <AuthEmptyState
-          title={t(transparentLabelKey(level))}
-          note={transparent.detail}
-          testId="oh-auth-transparent-state"
-        />
-      )}
+      {auth.type === 'inherit' &&
+        (level === 'request' ? (
+          <InheritedAuthEmptyState
+            title={t(transparentLabelKey(level))}
+            detail={transparent.detail}
+            inheritedFrom={inheritedFrom}
+            onOpenContainerAuth={onOpenContainerAuth}
+            testId="oh-auth-transparent-state"
+          />
+        ) : (
+          <AuthEmptyState
+            title={t(transparentLabelKey(level))}
+            note={transparent.detail}
+            testId="oh-auth-transparent-state"
+          />
+        ))}
 
       {auth.type === 'basic' && (
         <AuthForm>

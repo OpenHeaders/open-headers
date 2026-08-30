@@ -128,6 +128,9 @@ interface RequestEditorProps {
    *  after "Save Response" mints one so the frozen exchange is
    *  immediately inspectable. */
   onOpenResponseExample?: (uid: string, name: string, requestUid: string) => void;
+  /** Opens a container's Authorization section — the Auth tab's
+   *  "Edit in …" opener under Inherit. */
+  onOpenContainerAuth?: (kind: 'collection' | 'folder', uid: string, name: string) => void;
 }
 
 /** Payload the request editor hands the extract action. */
@@ -154,6 +157,7 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
   workspaceId = null,
   onOpenPackageLibrary,
   onOpenResponseExample,
+  onOpenContainerAuth,
 }) => {
   const { token } = theme.useToken();
   const { message } = App.useApp();
@@ -171,15 +175,14 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
 
   const isCreateMode = mode === 'request-create';
 
-  // What an Inherit request sends with, and from which level — read off
-  // the trees (the containment projection), never a stored path; a
-  // scratch draft sits in no tree and shows the generic note.
-  const inheritedAuth = useMemo(
+  // The request's ancestor chain — read off the trees (the containment
+  // projection), never a stored path; a scratch draft sits in no tree
+  // and shows the generic note. Feeds the Auth tab's Inherited group
+  // and the attribution resolution below.
+  const ancestry = useMemo(
     () =>
       requestUid
-        ? resolveInheritedAuthFor(
-            findRequestAncestry(requestCollectionTrees, requestCollections, requestFolders, requestUid),
-          )
+        ? findRequestAncestry(requestCollectionTrees, requestCollections, requestFolders, requestUid)
         : undefined,
     [requestUid, requestCollectionTrees, requestCollections, requestFolders],
   );
@@ -197,6 +200,16 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
     isCreateMode && seedRequestContent
       ? draftFromRequest({ schemaVersion: 5, uid: 'seed', path: '', ...seedRequestContent })
       : emptyDraft(),
+  );
+
+  // What Inherit resolves to — the draft's own pick and URL feed the
+  // resolution so a named entry and a host-scoped match read honestly.
+  const inheritedAuth = useMemo(
+    () =>
+      ancestry === undefined
+        ? undefined
+        : resolveInheritedAuthFor(ancestry, draft.auth.type === 'inherit' ? draft.auth : {}, draft.url),
+    [ancestry, draft.auth, draft.url],
   );
   const [loading, setLoading] = useState(!isCreateMode);
   const [isInitialized, setIsInitialized] = useState(false);
@@ -948,6 +961,8 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
                         unsavedSections={unsavedTabSections}
                         collection={draftCollection}
                         inheritedAuth={inheritedAuth}
+                        ancestry={ancestry}
+                        onOpenContainerAuth={onOpenContainerAuth}
                         requestName={summary?.name}
                       />
                     </div>

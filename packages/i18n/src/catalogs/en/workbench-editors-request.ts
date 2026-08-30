@@ -176,6 +176,14 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.auth.inheritedNone': 'No auth \u2014 nothing is set on the folder or the collection.',
   'workbench.editors.request.auth.sourceCollection': 'Collection \u2018{name}\u2019',
   'workbench.editors.request.auth.sourceFolder': 'Folder \u2018{name}\u2019',
+  'workbench.editors.request.auth.groupInherited': 'Inherited',
+  'workbench.editors.request.auth.optionDefault': 'Default ({type} \u2014 {source})',
+  'workbench.editors.request.auth.optionDefaultNone': 'Default (No auth)',
+  'workbench.editors.request.auth.optionEntry': '{source} \u203a {entry}',
+  'workbench.editors.request.auth.optionMissingEntry': 'Missing entry',
+  'workbench.editors.request.auth.danglingPick':
+    'The entry this request picked no longer exists \u2014 the nearest default applies instead.',
+  'workbench.editors.request.auth.editInSource': 'Edit in {source}',
   'workbench.editors.request.auth.resizeRailAria': 'Resize auth-type rail',
   'workbench.editors.request.auth.username': 'Username',
   'workbench.editors.request.auth.password': 'Password',
@@ -775,6 +783,13 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.response.meta.authForwarded': 'Authorization forwarded',
   'workbench.editors.request.response.meta.authForwardedSummary':
     'A redirect took this request to a different origin, and its Settings keep the Authorization header across origins — so the credentials were re-sent to the new host. Normally the header is dropped when a redirect leaves the original origin.',
+  'workbench.editors.request.response.meta.authTitle': 'Authorization',
+  'workbench.editors.request.response.meta.authSummaryRequest': 'Sent with the request’s own {type} configuration.',
+  'workbench.editors.request.response.meta.authSummaryInherited': '{type} — inherited from {source}.',
+  'workbench.editors.request.response.meta.authSummaryNone':
+    'Sent without authorization — nothing is set above the request.',
+  'workbench.editors.request.response.meta.authDangling':
+    'The entry the request picked no longer exists — the default applied instead.',
   'workbench.editors.request.response.meta.executedOnTag': 'Sent from {name}',
   'workbench.editors.request.response.meta.executedOnTitle': 'Executed on the connected back-end',
   'workbench.editors.request.response.meta.executedOnSummary':

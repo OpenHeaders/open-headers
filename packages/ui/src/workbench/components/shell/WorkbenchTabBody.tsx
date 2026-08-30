@@ -104,6 +104,8 @@ interface WorkbenchTabBodyProps {
   openGrpcRequestEditTab: UseTabOpenersApi['openGrpcRequestEditTab'];
   openWebSocketRequestEditTab: UseTabOpenersApi['openWebSocketRequestEditTab'];
   openMqttRequestEditTab: UseTabOpenersApi['openMqttRequestEditTab'];
+  openRequestCollectionAuth: UseTabOpenersApi['openRequestCollectionAuth'];
+  openRequestFolderAuth: UseTabOpenersApi['openRequestFolderAuth'];
 
   // Shell-local handlers and slices.
   handleSwitchWorkspace: (targetId: string, opts?: { makeActive?: boolean }) => void;
@@ -158,6 +160,8 @@ const WorkbenchTabBody: React.FC<WorkbenchTabBodyProps> = ({
   openGrpcRequestEditTab,
   openWebSocketRequestEditTab,
   openMqttRequestEditTab,
+  openRequestCollectionAuth,
+  openRequestFolderAuth,
   handleSwitchWorkspace,
   onRuleSaveDraft,
   onRequestSaveDraft,
@@ -172,6 +176,10 @@ const WorkbenchTabBody: React.FC<WorkbenchTabBodyProps> = ({
   liveWorkflows,
 }) => {
   const t = useT();
+  // The Auth tabs' "Edit in …" opener under Inherit — dispatches to
+  // the container-section opener by the supplying level.
+  const openContainerAuth = (kind: 'collection' | 'folder', uid: string, name: string) =>
+    kind === 'collection' ? openRequestCollectionAuth(uid, name) : openRequestFolderAuth(uid, name);
   if (tab.mode === 'edit' && tab.ruleUid) {
     return (
       <RuleEditor
@@ -214,6 +222,7 @@ const WorkbenchTabBody: React.FC<WorkbenchTabBodyProps> = ({
           onScriptsViewed={onRequestScriptsViewed}
           onDirtyChange={(dirty) => handleDirtyChange(tab.id, dirty)}
           registerSaveRef={(saveFn) => registerSaveRef(tab.id, saveFn)}
+          onOpenCollectionAuth={openRequestCollectionAuth}
         />
       );
     }
@@ -271,6 +280,7 @@ const WorkbenchTabBody: React.FC<WorkbenchTabBodyProps> = ({
           onScriptsViewed={onRequestScriptsViewed}
           onDirtyChange={(dirty) => handleDirtyChange(tab.id, dirty)}
           registerSaveRef={(saveFn) => registerSaveRef(tab.id, saveFn)}
+          onOpenCollectionAuth={openRequestCollectionAuth}
         />
       );
     }
@@ -453,6 +463,7 @@ const WorkbenchTabBody: React.FC<WorkbenchTabBodyProps> = ({
         workspaceId={editingScopeWorkspaceId}
         onOpenPackageLibrary={openScriptPackages}
         onOpenResponseExample={openResponseExampleTab}
+        onOpenContainerAuth={openContainerAuth}
         onDirtyChange={(dirty) => handleDirtyChange(tab.id, dirty)}
         registerSaveRef={(saveFn) => registerSaveRef(tab.id, saveFn)}
         registerDuplicateRef={(fn) => registerRequestDuplicateRef(tab.id, fn)}
@@ -473,6 +484,7 @@ const WorkbenchTabBody: React.FC<WorkbenchTabBodyProps> = ({
         grpcRequestUid={tab.grpcRequestUid}
         workspaceId={editingScopeWorkspaceId}
         onOpenGrpcResponseExample={openGrpcResponseExampleTab}
+        onOpenContainerAuth={openContainerAuth}
         onDirtyChange={(dirty) => handleDirtyChange(tab.id, dirty)}
         registerSaveRef={(saveFn) => registerSaveRef(tab.id, saveFn)}
       />
@@ -484,6 +496,7 @@ const WorkbenchTabBody: React.FC<WorkbenchTabBodyProps> = ({
         websocketRequestUid={tab.websocketRequestUid}
         workspaceId={editingScopeWorkspaceId}
         onOpenWsResponseExample={openWsResponseExampleTab}
+        onOpenContainerAuth={openContainerAuth}
         onDirtyChange={(dirty) => handleDirtyChange(tab.id, dirty)}
         registerSaveRef={(saveFn) => registerSaveRef(tab.id, saveFn)}
       />
@@ -495,6 +508,7 @@ const WorkbenchTabBody: React.FC<WorkbenchTabBodyProps> = ({
         mqttRequestUid={tab.mqttRequestUid}
         workspaceId={editingScopeWorkspaceId}
         onOpenMqttResponseExample={openMqttResponseExampleTab}
+        onOpenContainerAuth={openContainerAuth}
         onDirtyChange={(dirty) => handleDirtyChange(tab.id, dirty)}
         registerSaveRef={(saveFn) => registerSaveRef(tab.id, saveFn)}
       />

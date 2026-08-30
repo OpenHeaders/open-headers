@@ -84,6 +84,24 @@ export const workbenchEditors = {
     'Für diesen Ordner ist nichts festgelegt — Anfragen fallen auf den Standard der Sammlung zurück.',
   'workbench.editors.requestContainer.auth.inheritFromCollectionDetail':
     'Wähle einen Typ, um den Standard der Sammlung für jede Anfrage in diesem Ordner zu überschreiben.',
+  'workbench.editors.requestContainer.auth.addEntry': 'Eintrag hinzufügen',
+  'workbench.editors.requestContainer.auth.defaultTag': 'Standard',
+  'workbench.editors.requestContainer.auth.setDefault': 'Als Standard festlegen',
+  'workbench.editors.requestContainer.auth.deleteEntry': 'Löschen',
+  'workbench.editors.requestContainer.auth.entryActionsAria': 'Eintragsaktionen',
+  'workbench.editors.requestContainer.auth.entryName': 'Name',
+  'workbench.editors.requestContainer.auth.entryNamePlaceholder': 'z. B. Admin-Token',
+  'workbench.editors.requestContainer.auth.appliesTo': 'Auf Host anwenden',
+  'workbench.editors.requestContainer.auth.appliesToPlaceholder': '*.openheaders.com',
+  'workbench.editors.requestContainer.auth.appliesToHelp':
+    'Optionales Host-Muster (*-Platzhalter). Eine Anfrage auf Erben, deren URL-Host passt, erhält diesen Eintrag vor dem Standard. Leer — nur als Standard oder über die Wahl einer Anfrage erreichbar.',
+  'workbench.editors.requestContainer.auth.inheritedFromCollection': 'Geerbt von Sammlung „{name}“',
+  'workbench.editors.requestContainer.auth.overridingCollection': 'Überschreibt Sammlung „{name}“',
+  'workbench.editors.requestContainer.auth.editInCollection': 'In der Sammlung bearbeiten',
+  'workbench.editors.requestContainer.auth.override': 'Überschreiben',
+  'workbench.editors.requestContainer.auth.resetToInherited': 'Auf Geerbt zurücksetzen',
+  'workbench.editors.requestContainer.auth.resetConfirm':
+    'Einträge des Ordners entfernen? Anfragen fallen auf die Sammlung zurück.',
   'workbench.editors.requestContainer.deletedElsewhere': 'Dieses Element wurde in einem anderen Fenster gelöscht.',
 
   // ── Response-example editor ────────────────────────────────────────

@@ -111,13 +111,15 @@ export const AuthRailNote: React.FC<{ children: string }> = ({ children }) => (
 );
 
 // Centered pane for the types that carry no form — an optional glyph
-// tile above the type name and its note.
-export const AuthEmptyState: React.FC<{ title: string; note: React.ReactNode; glyph?: string; testId?: string }> = ({
-  title,
-  note,
-  glyph,
-  testId,
-}) => {
+// tile above the type name and its note; `children` stack under the
+// note (the Inherit state's dangling warning, preview and opener).
+export const AuthEmptyState: React.FC<{
+  title: string;
+  note: React.ReactNode;
+  glyph?: string;
+  testId?: string;
+  children?: React.ReactNode;
+}> = ({ title, note, glyph, testId, children }) => {
   const { token } = theme.useToken();
   return (
     <div
@@ -155,6 +157,7 @@ export const AuthEmptyState: React.FC<{ title: string; note: React.ReactNode; gl
       <Text type="secondary" style={{ fontSize: 12, textAlign: 'center', maxWidth: 360 }}>
         {note}
       </Text>
+      {children}
     </div>
   );
 };

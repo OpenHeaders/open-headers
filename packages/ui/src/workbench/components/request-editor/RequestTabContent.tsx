@@ -6,7 +6,9 @@
 
 import type { Collection } from '@openheaders/core/types';
 import type React from 'react';
-import AuthorizationTab, { type InheritedAuthAttribution } from './AuthorizationTab';
+import type { RequestAncestry } from '../request-container/ancestry';
+import AuthorizationTab from './AuthorizationTab';
+import type { InheritedAuthAttribution } from './inherited-auth';
 import BodyTab from './BodyTab';
 import DocsTab from './DocsTab';
 import type { Draft } from './draft';
@@ -49,6 +51,12 @@ interface RequestTabContentProps {
   /** What Inherit resolves to for this request — the Authorization
    *  tab's attribution line. */
   inheritedAuth?: InheritedAuthAttribution;
+  /** The request's ancestor chain — the Authorization tab's Inherited
+   *  group (default + named pool entries). */
+  ancestry?: RequestAncestry | null;
+  /** Opens a container's Authorization section — the Auth tab's
+   *  "Edit in …" opener under Inherit. */
+  onOpenContainerAuth?: (kind: 'collection' | 'folder', uid: string, name: string) => void;
 }
 
 const RequestTabContent: React.FC<RequestTabContentProps> = ({
@@ -65,6 +73,8 @@ const RequestTabContent: React.FC<RequestTabContentProps> = ({
   collection,
   requestName,
   inheritedAuth,
+  ancestry,
+  onOpenContainerAuth,
 }) => {
   switch (tab) {
     case 'docs':
@@ -86,6 +96,9 @@ const RequestTabContent: React.FC<RequestTabContentProps> = ({
           auth={draft.auth}
           onChange={(auth) => setDraft((d) => ({ ...d, auth }))}
           inheritedFrom={inheritedAuth}
+          ancestry={ancestry}
+          url={draft.url}
+          onOpenContainerAuth={onOpenContainerAuth}
         />
       );
     case 'headers':

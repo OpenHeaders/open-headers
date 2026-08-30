@@ -77,6 +77,24 @@ export const workbenchEditors = {
     'No hay nada configurado para esta carpeta — las solicitudes recurren al valor por defecto de la colección.',
   'workbench.editors.requestContainer.auth.inheritFromCollectionDetail':
     'Elige un tipo para sustituir el valor por defecto de la colección en cada solicitud de esta carpeta.',
+  'workbench.editors.requestContainer.auth.addEntry': 'Añadir entrada',
+  'workbench.editors.requestContainer.auth.defaultTag': 'Predeterminado',
+  'workbench.editors.requestContainer.auth.setDefault': 'Establecer como predeterminado',
+  'workbench.editors.requestContainer.auth.deleteEntry': 'Eliminar',
+  'workbench.editors.requestContainer.auth.entryActionsAria': 'Acciones de la entrada',
+  'workbench.editors.requestContainer.auth.entryName': 'Nombre',
+  'workbench.editors.requestContainer.auth.entryNamePlaceholder': 'p. ej. Token de administrador',
+  'workbench.editors.requestContainer.auth.appliesTo': 'Aplicar al host',
+  'workbench.editors.requestContainer.auth.appliesToPlaceholder': '*.openheaders.com',
+  'workbench.editors.requestContainer.auth.appliesToHelp':
+    'Patrón de host opcional (comodín *). Una solicitud en Heredar cuyo host de URL coincida recibe esta entrada antes que el predeterminado. Vacío — se alcanza solo como predeterminado o por la elección de una solicitud.',
+  'workbench.editors.requestContainer.auth.inheritedFromCollection': 'Heredado de la colección «{name}»',
+  'workbench.editors.requestContainer.auth.overridingCollection': 'Anulando la colección «{name}»',
+  'workbench.editors.requestContainer.auth.editInCollection': 'Editar en la colección',
+  'workbench.editors.requestContainer.auth.override': 'Anular',
+  'workbench.editors.requestContainer.auth.resetToInherited': 'Restablecer a heredado',
+  'workbench.editors.requestContainer.auth.resetConfirm':
+    '¿Eliminar las entradas de la carpeta? Las solicitudes recaerán en la colección.',
   'workbench.editors.requestContainer.deletedElsewhere': 'Este elemento se eliminó en otra ventana.',
 
   // ── Response-example editor ────────────────────────────────────────

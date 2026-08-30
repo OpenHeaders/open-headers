@@ -11,7 +11,13 @@
  * tree is not.
  */
 
-import { type AuthCarrier, hostOf, resolveInheritedAuth } from '@openheaders/core/auth-inheritance';
+import {
+  type AuthCarrier,
+  authPoolOf,
+  hostOf,
+  LEGACY_AUTH_ENTRY_UID,
+  resolveInheritedAuth,
+} from '@openheaders/core/auth-inheritance';
 import type {
   AuthConfig,
   AuthPoolEntry,
@@ -46,6 +52,8 @@ export interface RequestAncestryInputs {
 
 export interface InheritedAuthSource {
   kind: 'collection' | 'folder';
+  /** The supplying container's uid — the "Edit in …" opener's target. */
+  uid: string;
   name: string;
   /** The pool entry's label; empty = the type's label. */
   entryName: string;
@@ -154,7 +162,42 @@ export function resolveInheritedAuthFor(
     source:
       resolved.source === null
         ? null
-        : { kind: resolved.source.level, name: resolved.source.name, entryName: resolved.source.entryName },
+        : {
+            kind: resolved.source.level,
+            uid: resolved.source.uid,
+            name: resolved.source.name,
+            entryName: resolved.source.entryName,
+          },
     ...(resolved.danglingAuthUid !== undefined ? { danglingAuthUid: resolved.danglingAuthUid } : {}),
   };
+}
+
+export interface InheritPoolLevel {
+  kind: 'collection' | 'folder';
+  uid: string;
+  name: string;
+  /** The level's pickable entries — the legacy single-auth read is
+   *  default-only (its uid is reserved), so it never lists. */
+  entries: AuthPoolEntry[];
+  defaultUid: string;
+}
+
+/**
+ * The ancestor levels holding a pool, inner → outer — the request
+ * select's Inherited group. A level whose only entry is the legacy
+ * read has nothing pickable and is skipped.
+ */
+export function inheritPoolLevels(ancestry: RequestAncestry | null): InheritPoolLevel[] {
+  if (ancestry === null) return [];
+  const levels: InheritPoolLevel[] = [];
+  const chain = authChainOf(ancestry);
+  for (let i = chain.length - 1; i >= 0; i--) {
+    const carrier = chain[i];
+    const pool = authPoolOf(carrier);
+    if (pool === null) continue;
+    const entries = pool.entries.filter((e) => e.uid !== LEGACY_AUTH_ENTRY_UID);
+    if (entries.length === 0) continue;
+    levels.push({ kind: carrier.level, uid: carrier.uid, name: carrier.name, entries, defaultUid: pool.defaultUid });
+  }
+  return levels;
 }

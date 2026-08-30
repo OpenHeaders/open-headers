@@ -216,6 +216,14 @@ export const workbenchEditorsRequest = {
     "Aucune autorisation — rien n'est défini dans le dossier ni dans la collection.",
   'workbench.editors.request.auth.sourceCollection': 'Collection « {name} »',
   'workbench.editors.request.auth.sourceFolder': 'Dossier « {name} »',
+  'workbench.editors.request.auth.groupInherited': 'Hérité',
+  'workbench.editors.request.auth.optionDefault': 'Défaut ({type} — {source})',
+  'workbench.editors.request.auth.optionDefaultNone': 'Défaut (aucune auth)',
+  'workbench.editors.request.auth.optionEntry': '{source} › {entry}',
+  'workbench.editors.request.auth.optionMissingEntry': 'Entrée manquante',
+  'workbench.editors.request.auth.danglingPick':
+    "L'entrée choisie par cette requête n'existe plus — le défaut le plus proche s'applique à la place.",
+  'workbench.editors.request.auth.editInSource': 'Modifier dans {source}',
   'workbench.editors.request.auth.resizeRailAria': "Redimensionner le rail des types d'auth",
   'workbench.editors.request.auth.username': "Nom d'utilisateur",
   'workbench.editors.request.auth.password': 'Mot de passe',
@@ -958,6 +966,14 @@ export const workbenchEditorsRequest = {
     "Une redirection a mené cette requête vers une autre origine, et ses Paramètres conservent l'en-tête " +
     'Authorization à travers les origines — les identifiants ont donc été renvoyés au nouvel hôte. ' +
     "Normalement l'en-tête est abandonné quand une redirection quitte l'origine de départ.",
+  'workbench.editors.request.response.meta.authTitle': 'Autorisation',
+  'workbench.editors.request.response.meta.authSummaryRequest':
+    'Envoyé avec la configuration {type} propre à la requête.',
+  'workbench.editors.request.response.meta.authSummaryInherited': '{type} — hérité de {source}.',
+  'workbench.editors.request.response.meta.authSummaryNone':
+    "Envoyé sans autorisation — rien n'est défini au-dessus de la requête.",
+  'workbench.editors.request.response.meta.authDangling':
+    "L'entrée choisie par la requête n'existe plus — le défaut a été appliqué à la place.",
   'workbench.editors.request.response.meta.executedOnTag': 'Envoyé depuis {name}',
   'workbench.editors.request.response.meta.executedOnTitle': 'Exécuté sur le back-end connecté',
   'workbench.editors.request.response.meta.executedOnSummary':

@@ -26,7 +26,7 @@
  */
 
 import { FolderOpenOutlined, FolderOutlined } from '@ant-design/icons';
-import { defaultAuthEntry, withDefaultAuthConfig, withoutDefaultAuth } from '@openheaders/core/auth-inheritance';
+import { authPoolOf, defaultAuthEntry, LEGACY_AUTH_ENTRY_UID } from '@openheaders/core/auth-inheritance';
 import type { PersistedLocalFolder } from '@openheaders/core/storage';
 import { REQUEST_COLLECTION_ENTITY_TYPE, REQUEST_FOLDER_ENTITY_TYPE } from '@openheaders/core/sync';
 import { generateUid } from '@openheaders/core/utils';
@@ -60,13 +60,13 @@ import type { RequestContainerSection } from '../../types';
 import RequestCollectionOverview from '../overviews/RequestCollectionOverview';
 import RequestFolderOverview from '../overviews/RequestFolderOverview';
 import VariableTable from '../panels/VariableTable';
-import AuthorizationTab from '../request-editor/AuthorizationTab';
 import { TabCount, TabDot } from '../request-editor/request-tab-items';
 import ScriptsTab from '../request-editor/ScriptsTab';
 import EditorHeader from '../shell/EditorHeader';
 import { SuggestionContextProvider } from '../template-input';
 import { useCollectionVariableConflictsUi } from '../variables/use-collection-variable-conflicts-ui';
 import { findFolderCollectionUid } from './ancestry';
+import AuthPoolSection, { type AuthPoolDraft } from './AuthPoolSection';
 
 const { Text } = Typography;
 
@@ -108,6 +108,9 @@ interface RequestContainerEditorProps {
   onScriptsViewed?: (uid: string) => void;
   onDirtyChange?: (dirty: boolean) => void;
   registerSaveRef?: (save: () => void) => void;
+  /** Opens a collection's Authorization section — the folder header's
+   *  "Edit in collection" opener. */
+  onOpenCollectionAuth?: (uid: string, name: string) => void;
 }
 
 interface ContainerEntity {
@@ -122,21 +125,26 @@ interface ContainerEntity {
 }
 
 interface ContainerDraft {
-  auth: AuthConfig;
+  pool: AuthPoolDraft;
   pre: string;
   post: string;
   variables: Variable[];
 }
 
-/** A transparent level (no pool) renders — and compares — as the transparent choice. */
-const TRANSPARENT: AuthConfig = { type: 'inherit' };
 const EMPTY_VARS: Variable[] = [];
 
-/** The section edits the pool's DEFAULT entry; the named entries ride
- *  the pool untouched (their editor is the next slice). */
+/** The whole pool as the draft's auth slot — a transparent level (no
+ *  pool) is the empty list; the legacy single-auth read seeds as its
+ *  one entry (Save re-mints its reserved uid and retires the field). */
+function poolDraftOf(entity: ContainerEntity | null): AuthPoolDraft {
+  const pool = entity === null ? null : authPoolOf(entity);
+  if (pool === null) return { auths: [] };
+  return { auths: [...pool.entries], defaultAuthUid: pool.defaultUid };
+}
+
 function draftOf(entity: ContainerEntity | null): ContainerDraft {
   return {
-    auth: (entity && defaultAuthEntry(entity)?.config) ?? TRANSPARENT,
+    pool: poolDraftOf(entity),
     pre: entity?.preRequestScript ?? '',
     post: entity?.postResponseScript ?? '',
     variables: entity?.variables ?? EMPTY_VARS,
@@ -162,6 +170,7 @@ const RequestContainerEditor: React.FC<RequestContainerEditorProps> = ({
   onScriptsViewed,
   onDirtyChange,
   registerSaveRef,
+  onOpenCollectionAuth,
 }) => {
   const { message } = App.useApp();
   const { token } = theme.useToken();
@@ -183,6 +192,18 @@ const RequestContainerEditor: React.FC<RequestContainerEditorProps> = ({
     () => (kind === 'collection' ? entityUid : (findFolderCollectionUid(collectionTrees, entityUid) ?? undefined)),
     [kind, entityUid, collectionTrees],
   );
+
+  // A folder's Authorization header names the collection it inherits
+  // from (and that collection's default entry, the Override seed) —
+  // read off the trees, never a stored path.
+  const inheritedCollection = useMemo(() => {
+    if (kind !== 'folder') return undefined;
+    const collectionUid = findFolderCollectionUid(collectionTrees, entityUid);
+    const collection =
+      collectionUid === null ? undefined : collections.find((c: Collection) => c.uid === collectionUid);
+    if (collection === undefined) return null;
+    return { uid: collection.uid, name: collection.name, defaultEntry: defaultAuthEntry(collection) };
+  }, [kind, collectionTrees, collections, entityUid]);
 
   const [activeSection, setActiveSection] = useState<RequestContainerSection>(section ?? 'overview');
   useEffect(() => {
@@ -232,7 +253,7 @@ const RequestContainerEditor: React.FC<RequestContainerEditorProps> = ({
   onPrimedRef.current = conflictsUi.onPrimed;
 
   const saved = useMemo(() => draftOf(entity), [entity]);
-  const authUnsaved = stableStringify(draft.auth) !== stableStringify(saved.auth);
+  const authUnsaved = stableStringify(draft.pool) !== stableStringify(saved.pool);
   const scriptsUnsaved = draft.pre !== saved.pre || draft.post !== saved.post;
   const variablesUnsaved = stableStringify(draft.variables) !== stableStringify(saved.variables);
 
@@ -262,18 +283,20 @@ const RequestContainerEditor: React.FC<RequestContainerEditorProps> = ({
     };
     const run = async () => {
       if (authUnsaved) {
-        // Transparent at an ancestor level means "no default here" —
-        // the default entry leaves the pool (the named entries stay)
-        // so the chain walk passes through; otherwise the default
-        // entry takes the edited config, keeping its uid and name.
-        const pool =
-          draft.auth.type === 'inherit'
-            ? withoutDefaultAuth(entity)
-            : withDefaultAuthConfig(entity, draft.auth, generateUid);
+        // The legacy single-auth read seeds the draft under its
+        // reserved uid — a pool write re-mints it (entry uids are
+        // schema-validated; the write retires the legacy field).
+        let auths = draft.pool.auths;
+        let defaultAuthUid = draft.pool.defaultAuthUid;
+        if (auths.some((e) => e.uid === LEGACY_AUTH_ENTRY_UID)) {
+          const minted = generateUid();
+          auths = auths.map((e) => (e.uid === LEGACY_AUTH_ENTRY_UID ? { ...e, uid: minted } : e));
+          if (defaultAuthUid === LEGACY_AUTH_ENTRY_UID) defaultAuthUid = minted;
+        }
         const result =
           kind === 'collection'
-            ? await applyRequestCollectionSetAuthPool({ collectionUid: entity.uid, ...pool }, opts)
-            : await applyRequestFolderSetAuthPool({ folderUid: entity.uid, ...pool }, opts);
+            ? await applyRequestCollectionSetAuthPool({ collectionUid: entity.uid, auths, defaultAuthUid }, opts)
+            : await applyRequestFolderSetAuthPool({ folderUid: entity.uid, auths, defaultAuthUid }, opts);
         failed(result, 'auth');
       }
       if (scriptsUnsaved) {
@@ -341,7 +364,7 @@ const RequestContainerEditor: React.FC<RequestContainerEditorProps> = ({
         label: (
           <span>
             {t('workbench.editors.request.tab.authorization')}
-            {authUnsaved ? <TabDot tone="unsaved" /> : draft.auth.type !== 'inherit' ? <TabDot /> : null}
+            {authUnsaved ? <TabDot tone="unsaved" /> : draft.pool.auths.length > 0 ? <TabDot /> : null}
           </span>
         ),
       },
@@ -376,7 +399,7 @@ const RequestContainerEditor: React.FC<RequestContainerEditorProps> = ({
           ]
         : []),
     ],
-    [t, kind, draft.auth.type, authUnsaved, scriptsMark, scriptsUnsaved, variablesMark, variablesUnsaved],
+    [t, kind, draft.pool.auths.length, authUnsaved, scriptsMark, scriptsUnsaved, variablesMark, variablesUnsaved],
   );
 
   if (!entity) {
@@ -417,17 +440,21 @@ const RequestContainerEditor: React.FC<RequestContainerEditorProps> = ({
         );
       case 'authorization':
         return (
-          <div style={{ display: 'flex', flexDirection: 'column', height: '100%', padding: 24, gap: 16 }}>
+          <div
+            style={{ display: 'flex', flexDirection: 'column', height: '100%', padding: 24, gap: 16, overflow: 'auto' }}
+          >
             <Text type="secondary">
               {kind === 'collection'
                 ? t('workbench.editors.ancestorAuth.descriptionCollection')
                 : t('workbench.editors.ancestorAuth.descriptionFolder')}
             </Text>
             <SuggestionContextProvider value={{ collectionId: suggestionCollectionId }}>
-              <AuthorizationTab
-                auth={draft.auth}
-                onChange={(auth) => setDraft((d) => ({ ...d, auth }))}
-                level={kind}
+              <AuthPoolSection
+                kind={kind}
+                pool={draft.pool}
+                onChange={(pool) => setDraft((d) => ({ ...d, pool }))}
+                inheritedCollection={inheritedCollection}
+                onEditInCollection={onOpenCollectionAuth}
               />
             </SuggestionContextProvider>
           </div>
