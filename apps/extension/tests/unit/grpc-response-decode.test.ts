@@ -74,6 +74,15 @@ describe('grpcOutputTypeOf', () => {
 describe('deriveGrpcMessageView', () => {
   const bookBytes = encodeMessage(REGISTRY, 'library.v1.Book', { title: 'Wire Ceremony', pages: '412' });
 
+  it('renders the fields the wire omitted as defaults only under the include-defaults view option', () => {
+    const sparse = encodeMessage(REGISTRY, 'library.v1.Book', { title: 'Sparse' });
+    const snapshot = snapshotWith([{ dataBase64: encodeBase64Bytes(sparse), compressed: false }]);
+    const plain = deriveGrpcMessageView(snapshot, REGISTRY, 'library.v1.Book');
+    expect(plain).toEqual({ kind: 'schema', text: JSON.stringify({ title: 'Sparse' }, null, 2) });
+    const filled = deriveGrpcMessageView(snapshot, REGISTRY, 'library.v1.Book', { emitDefaults: true });
+    expect(filled).toEqual({ kind: 'schema', text: JSON.stringify({ title: 'Sparse', pages: '0' }, null, 2) });
+  });
+
   it('decodes schema-driven canonical JSON when the type resolves', () => {
     const view = deriveGrpcMessageView(
       snapshotWith([{ dataBase64: encodeBase64Bytes(bookBytes), compressed: false }]),

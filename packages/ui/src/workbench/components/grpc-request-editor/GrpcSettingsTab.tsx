@@ -6,11 +6,14 @@
  * · control` rows from the shared settings-row family with the
  * effective defaults legible in the controls, modified dots, and
  * per-row resets; the Connection group opens on the shared `DialRows`
- * block and closes on the response size limit (the HTTP request's
- * cap on the channel's body), the TLS & trust group is the shared
- * `TlsTrustGroup` block. On node runtimes the runtime-managed sheet
- * under the groups states what the channel fixes: no compression,
- * HTTP/2 only.
+ * block, carries the `:authority` override beside the socket dial,
+ * and closes on the response size limit (the HTTP request's cap on
+ * the channel's body) and the keepalive pair (the timeout row rides
+ * the interval — no pings, no wait to name), the TLS & trust group is
+ * the shared `TlsTrustGroup` block. On node runtimes the
+ * runtime-managed sheet under the groups states what the channel
+ * fixes: no compression, HTTP/2 only, one connection per call — the
+ * fact that leaves a keepalive-between-calls knob nothing to do.
  *
  * The tab edits the draft directly, so the dots track distance from
  * the PROTOCOL defaults — there is no saved-baseline (unsaved) plane
@@ -25,6 +28,7 @@
 import { getCapability, type RequestRuntimeKind } from '@openheaders/core/capabilities';
 import {
   isValidUnixSocketPath,
+  MAX_GRPC_URL_LENGTH,
   MAX_REQUEST_TIMEOUT_MS,
   MAX_RESPONSE_BYTES,
   MAX_UNIX_SOCKET_PATH_LENGTH,
@@ -68,6 +72,12 @@ const SIZE_PRESETS = numericPresets(
   [256, 512, 1024, 2048, 5120, 10240].map((kb) => kb * 1024),
   formatByteSize,
 );
+/** Keepalive cadence presets start at the floor gRPC servers permit
+ *  without data flowing (10 s is the reference client minimum; 5 min
+ *  the reference server floor); the timeout presets bracket the
+ *  reference 20 s wait. */
+const KEEPALIVE_INTERVAL_PRESETS = numericPresets([10_000, 30_000, 60_000, 300_000], formatDurationMs);
+const KEEPALIVE_TIMEOUT_PRESETS = numericPresets([5_000, 10_000, 20_000], formatDurationMs);
 
 /** The facts the channel fixes for every call — the runtime-managed
  *  sheet's rows, node runtimes only (the browser has no gRPC wire). */
@@ -85,6 +95,13 @@ const NODE_MANAGED: RuntimeManagedRowDef<GrpcSettingsGroupKey>[] = [
     descriptionKey: 'workbench.editors.request.settings.managed.httpVersionGrpcDesc',
     group: 'connection',
     testId: 'grpc-managed-http-version',
+  },
+  {
+    labelKey: 'workbench.editors.request.settings.managed.connectionReuse',
+    valueKey: 'workbench.editors.request.settings.managed.onePerCall',
+    descriptionKey: 'workbench.editors.request.settings.managed.connectionReuseGrpcDesc',
+    group: 'connection',
+    testId: 'grpc-managed-connection-reuse',
   },
 ];
 
@@ -119,9 +136,12 @@ const GrpcSettingsTab: React.FC<GrpcSettingsTabProps> = ({
     });
   const connectionModified =
     isDialModified(draft) ||
+    draft.authority !== undefined ||
     draft.unixSocketPath !== undefined ||
     draft.timeoutMs !== undefined ||
-    draft.maxResponseBytes !== undefined;
+    draft.maxResponseBytes !== undefined ||
+    draft.keepaliveIntervalMs !== undefined ||
+    draft.keepaliveTimeoutMs !== undefined;
 
   return (
     <ConfigProvider
@@ -166,6 +186,15 @@ const GrpcSettingsTab: React.FC<GrpcSettingsTabProps> = ({
             example={t('workbench.editors.request.settings.unixSocketExample')}
             testId="grpc-unix-socket"
           />
+          <TextKnobRow
+            label={t('workbench.editors.grpc.settings.authorityLabel')}
+            value={draft.authority}
+            onChange={(authority) => setDraft((d) => ({ ...d, authority }))}
+            info={grpcSettingsRowInfo(t, 'authority')}
+            placeholder={t('workbench.editors.grpc.settings.authorityPlaceholder')}
+            maxLength={MAX_GRPC_URL_LENGTH}
+            testId="grpc-authority"
+          />
           <ComboKnobRow
             label={t('workbench.editors.grpc.settings.timeoutLabel')}
             value={draft.timeoutMs}
@@ -188,6 +217,37 @@ const GrpcSettingsTab: React.FC<GrpcSettingsTabProps> = ({
             placeholder={t('workbench.editors.request.settings.responseSizeLimitPlaceholder')}
             testId="grpc-response-size-limit"
           />
+          <ComboKnobRow
+            label={t('workbench.editors.grpc.settings.keepaliveIntervalLabel')}
+            value={draft.keepaliveIntervalMs}
+            onChange={(keepaliveIntervalMs) =>
+              setDraft((d) => ({
+                ...d,
+                keepaliveIntervalMs,
+                // No interval, no wait to name — the timeout rides it.
+                ...(keepaliveIntervalMs === undefined ? { keepaliveTimeoutMs: undefined } : {}),
+              }))
+            }
+            info={grpcSettingsRowInfo(t, 'keepaliveInterval')}
+            presets={KEEPALIVE_INTERVAL_PRESETS}
+            interpret={interpretTimeout}
+            format={formatDurationMs}
+            placeholder={t('workbench.editors.grpc.settings.keepaliveIntervalPlaceholder')}
+            testId="grpc-keepalive-interval"
+          />
+          {draft.keepaliveIntervalMs !== undefined && (
+            <ComboKnobRow
+              label={t('workbench.editors.grpc.settings.keepaliveTimeoutLabel')}
+              value={draft.keepaliveTimeoutMs}
+              onChange={(keepaliveTimeoutMs) => setDraft((d) => ({ ...d, keepaliveTimeoutMs }))}
+              info={grpcSettingsRowInfo(t, 'keepaliveTimeout')}
+              presets={KEEPALIVE_TIMEOUT_PRESETS}
+              interpret={interpretTimeout}
+              format={formatDurationMs}
+              placeholder={t('workbench.editors.grpc.settings.keepaliveTimeoutPlaceholder')}
+              testId="grpc-keepalive-timeout"
+            />
+          )}
         </GroupSection>
         <TlsTrustGroup
           groupLabel={t(GRPC_GROUP_LABEL_KEY.tls)}

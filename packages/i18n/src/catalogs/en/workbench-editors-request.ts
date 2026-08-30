@@ -589,6 +589,10 @@ export const workbenchEditorsRequest = {
     'The session dials the WebSocket transport directly, skipping the HTTP long-polling handshake the official client starts with and upgrades from.',
   'workbench.editors.request.settings.managed.httpVersionGrpcDesc':
     'gRPC rides HTTP/2 only: TLS channels negotiate h2 through ALPN, plaintext channels speak h2 with prior knowledge.',
+  'workbench.editors.request.settings.managed.connectionReuse': 'Connection reuse',
+  'workbench.editors.request.settings.managed.onePerCall': 'One per call',
+  'workbench.editors.request.settings.managed.connectionReuseGrpcDesc':
+    'Every call opens its own HTTP/2 connection and closes it when the call ends; nothing is pooled or kept alive between calls, so a keepalive only runs while a call is open.',
   'workbench.editors.request.settings.managed.followRedirectsBrowserDesc':
     'The browser never follows a redirected handshake; a 3xx answer fails the connection. Run the session on the desktop app or server to follow redirects.',
   'workbench.editors.request.settings.managed.httpVersion': 'HTTP version',

@@ -13,19 +13,26 @@
  * response head) render the same state's local flavor as the Response
  * tab's body INSIDE the pane's chrome — the meta strip pills Call
  * failed with the classified message on hover, never a bare error
- * wall (the WS/MQTT session panes' law).
+ * wall (the WS/MQTT session panes' law). A connection lost AFTER the
+ * head keeps what arrived: the reason rides a notice over the body and
+ * the strip's Connection lost pill. The ⋯ menu carries the one view
+ * choice — Include default values, the app-wide gRPC decode posture
+ * (the same setting as Settings → Requests), rendering the fields the
+ * wire omitted as their canonical defaults.
  */
 
 import { ClearOutlined, EllipsisOutlined } from '@ant-design/icons';
 import type { ProtoRegistry } from '@openheaders/core/proto';
 import type { ExecutedGrpcSnapshot, GrpcMethodRef } from '@openheaders/core/types';
 import { useT } from '@openheaders/ui/context/LocaleContext';
+import { useSetting } from '@openheaders/ui/workbench/settings/hooks';
 import { Button, Dropdown, Tabs, Typography, theme } from 'antd';
 import type React from 'react';
 import { useMemo, useState } from 'react';
 import ResponseHeadersView from '../request-editor/response/ResponseHeadersView';
 import { ExampleChip } from '../shared/ExampleChip';
 import CodeEditor from '../shared/CodeEditor';
+import { menuCheckIcon } from '../shared/menu-check';
 import GrpcMetaStrip from './GrpcMetaStrip';
 import GrpcResponseErrorState from './GrpcResponseErrorState';
 import GrpcResponseFailure from './GrpcResponseFailure';
@@ -59,10 +66,14 @@ const GrpcResponsePane: React.FC<GrpcResponsePaneProps> = ({
   const { token } = theme.useToken();
   const t = useT();
   const [activeTab, setActiveTab] = useState('response');
+  const [includeDefaults, setIncludeDefaults] = useSetting('requests.grpcIncludeDefaultValues');
 
   const view = useMemo(
-    () => deriveGrpcMessageView(snapshot, registry, grpcOutputTypeOf(registry, method)),
-    [snapshot, registry, method],
+    () =>
+      deriveGrpcMessageView(snapshot, registry, grpcOutputTypeOf(registry, method), {
+        emitDefaults: includeDefaults,
+      }),
+    [snapshot, registry, method, includeDefaults],
   );
   // The grids show fields beyond the status pair — the pair itself is
   // the pill + error chip (the Postman convention).
@@ -79,6 +90,7 @@ const GrpcResponsePane: React.FC<GrpcResponsePaneProps> = ({
         status={snapshot.grpcStatus}
         {...(snapshot.error !== null ? { error: snapshot.error } : {})}
         {...(snapshot.localStatus !== undefined ? { localStatus: snapshot.localStatus } : {})}
+        {...(snapshot.connectionError !== undefined ? { connectionError: snapshot.connectionError } : {})}
         {...(snapshot.proxyRoute !== undefined ? { proxyRoute: snapshot.proxyRoute } : {})}
       />
       <Dropdown
@@ -107,6 +119,17 @@ const GrpcResponsePane: React.FC<GrpcResponsePaneProps> = ({
               label: t('workbench.editors.request.response.clearResponse'),
               onClick: onClear,
             },
+            { type: 'divider' as const },
+            {
+              key: 'include-defaults',
+              icon: menuCheckIcon(includeDefaults),
+              label: (
+                <span data-testid="grpc-include-default-values">
+                  {t('workbench.editors.grpc.response.includeDefaultValues')}
+                </span>
+              ),
+              onClick: () => setIncludeDefaults(!includeDefaults),
+            },
           ],
         }}
       >
@@ -122,6 +145,7 @@ const GrpcResponsePane: React.FC<GrpcResponsePaneProps> = ({
   );
 
   const notices: string[] = [];
+  if (snapshot.connectionError !== undefined) notices.push(snapshot.connectionError);
   if (snapshot.messages.length > 1) {
     notices.push(t('workbench.editors.grpc.response.extraFrames', { count: snapshot.messages.length }));
   }

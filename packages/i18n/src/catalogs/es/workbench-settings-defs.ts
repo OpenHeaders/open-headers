@@ -591,6 +591,9 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.requests.grpcMessagesNewestFirst.description':
     'Orden de la cronología de mensajes gRPC — los mensajes más recientes arriba. Desactívalo para leer del ' +
     'más antiguo al más reciente. La barra de herramientas de la cronología cambia este mismo ajuste.',
+  'workbench.settings.def.requests.grpcIncludeDefaultValues.label': 'Incluir valores por defecto',
+  'workbench.settings.def.requests.grpcIncludeDefaultValues.description':
+    'Muestra los campos que una respuesta gRPC omitió en el cable con sus valores por defecto — números a cero, cadenas vacías, false, el primer valor del enum, listas y mapas vacíos — tal como el JSON de proto3 emite los valores por defecto. Desactivado por defecto: la respuesta muestra los campos que el servidor envió realmente. Los campos con presencia (mensajes, optional, miembros de oneof) quedan ausentes en ambos casos. El menú ⋯ del panel de respuesta cambia este mismo ajuste.',
   'workbench.settings.def.requests.grpcMessagesShowTypes.label': 'Mostrar los tipos de mensaje',
   'workbench.settings.def.requests.grpcMessagesShowTypes.description':
     'Etiqueta cada fila de la cronología con su tipo de mensaje protobuf declarado. Desactivado por defecto ' +

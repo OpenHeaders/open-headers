@@ -723,6 +723,10 @@ export const workbenchEditorsRequest = {
     'La sesión marca directamente el transporte WebSocket, saltándose el handshake HTTP de long-polling con el que empieza el cliente oficial antes de hacer el upgrade.',
   'workbench.editors.request.settings.managed.httpVersionGrpcDesc':
     'gRPC viaja solo sobre HTTP/2: los canales TLS negocian h2 mediante ALPN, los canales en texto claro hablan h2 con conocimiento previo.',
+  'workbench.editors.request.settings.managed.connectionReuse': 'Reutilización de conexión',
+  'workbench.editors.request.settings.managed.onePerCall': 'Una por llamada',
+  'workbench.editors.request.settings.managed.connectionReuseGrpcDesc':
+    'Cada llamada abre su propia conexión HTTP/2 y la cierra al terminar; nada se agrupa ni se mantiene vivo entre llamadas, así que un keepalive solo corre mientras hay una llamada abierta.',
   'workbench.editors.request.settings.managed.followRedirectsBrowserDesc':
     'El navegador nunca sigue un handshake redirigido; una respuesta 3xx hace fallar la conexión. Ejecuta la sesión en la app de escritorio o el servidor para seguir redirecciones.',
   'workbench.editors.request.settings.managed.httpVersion': 'Versión de HTTP',

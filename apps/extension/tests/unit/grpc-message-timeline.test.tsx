@@ -209,6 +209,25 @@ describe('GrpcMessageTimeline rows', () => {
 });
 
 describe('GrpcMessageTimeline lifecycle rows', () => {
+  it('a connection lost after the head ends on its own red row, the reason behind the chevron', () => {
+    renderTimeline({
+      items: [up('ping'), down('pong')],
+      count: 2,
+      lifecycle: {
+        ...LIVE_LIFECYCLE,
+        endedBy: 'lost',
+        endedAt: 1_700_000_000_400,
+        endedMessage: 'No keepalive response from grpc.openheaders.io:443 within 20000 ms — the connection is dead.',
+      },
+    });
+    const row = screen.getByTestId('grpc-timeline-ended-row');
+    expect(row.textContent).toContain('Connection lost');
+    expect(row.textContent).not.toContain('keepalive');
+    expect(screen.getByTestId('grpc-timeline-connected-row')).toBeTruthy();
+    fireEvent.click(row);
+    expect(screen.getByTestId('grpc-timeline-error-details').textContent).toContain('No keepalive response');
+  });
+
   it('shows Trust certificate on the failed ended row only with a handler, the click never toggles the row', () => {
     const failed = {
       ...LIVE_LIFECYCLE,

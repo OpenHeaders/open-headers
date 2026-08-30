@@ -176,7 +176,7 @@ describe('gRPC tab — limits rows', () => {
     registerCapability('requestRuntime', () => 'node');
     renderGrpcTab(grpcRequest());
     expect(follows(screen.getByTestId('grpc-timeout'), screen.getByTestId('grpc-response-size-limit'))).toBe(true);
-    fireEvent.click(screen.getByText('2 runtime-managed'));
+    fireEvent.click(screen.getByText('3 runtime-managed'));
     expect(screen.getByTestId('grpc-managed-compression').textContent).toContain('None');
     expect(screen.getByTestId('grpc-managed-http-version').textContent).toContain('HTTP/2');
   });

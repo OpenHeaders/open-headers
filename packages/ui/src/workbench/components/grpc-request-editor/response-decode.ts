@@ -9,7 +9,7 @@
  * decoded) and empty replies. The wire bytes are never rewritten.
  */
 
-import { decodeMessage, type ProtoRegistry } from '@openheaders/core/proto';
+import { decodeMessage, type ProtoDecodeOptions, type ProtoRegistry } from '@openheaders/core/proto';
 import type { ExecutedGrpcSnapshot } from '@openheaders/core/types';
 import { decodeBase64Bytes } from '@openheaders/core/utils';
 import { isJsonNumber } from '../request-editor/response/lossless-json';
@@ -38,13 +38,14 @@ export function deriveGrpcFrameView(
   frame: { dataBase64: string; compressed: boolean },
   registry: ProtoRegistry | null,
   type: string | null,
+  options: ProtoDecodeOptions = {},
 ): GrpcMessageView {
   if (frame.compressed) return { kind: 'compressed' };
   const bytes = decodeBase64Bytes(frame.dataBase64);
   if (bytes === null) return { kind: 'raw', base64: frame.dataBase64 };
   if (registry !== null && type !== null && registry.messages.has(type)) {
     try {
-      return { kind: 'schema', text: JSON.stringify(decodeMessage(registry, type, bytes), null, 2) };
+      return { kind: 'schema', text: JSON.stringify(decodeMessage(registry, type, bytes, options), null, 2) };
     } catch {
       // Bytes that don't parse as the declared type fall through to the
       // structural view — the capture stays authoritative over the spec.
@@ -58,16 +59,19 @@ export function deriveGrpcFrameView(
 /**
  * Derive the Response tab's message view from the first captured frame.
  * `outputType` is the selected rpc's resolved response type full name
- * (null when the method or spec doesn't resolve).
+ * (null when the method or spec doesn't resolve). `options` steer the
+ * schema view — `emitDefaults` renders the fields the wire omitted as
+ * their canonical defaults (a VIEW choice; the capture is untouched).
  */
 export function deriveGrpcMessageView(
   snapshot: ExecutedGrpcSnapshot,
   registry: ProtoRegistry | null,
   outputType: string | null,
+  options: ProtoDecodeOptions = {},
 ): GrpcMessageView {
   const frame = snapshot.messages[0];
   if (frame === undefined) return { kind: 'none' };
-  return deriveGrpcFrameView(frame, registry, outputType);
+  return deriveGrpcFrameView(frame, registry, outputType, options);
 }
 
 /**

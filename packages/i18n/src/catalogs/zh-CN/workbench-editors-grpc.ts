@@ -89,6 +89,8 @@ export const workbenchEditorsGrpc = {
   'workbench.editors.grpc.response.filterTrailers': '筛选 trailers',
   'workbench.editors.grpc.response.duration': '{ms} ms',
   'workbench.editors.grpc.response.noStatus': '没有 gRPC 状态',
+  'workbench.editors.grpc.response.connectionLost': '连接丢失',
+  'workbench.editors.grpc.response.includeDefaultValues': '包含默认值',
   'workbench.editors.grpc.response.noMessage': '应答未携带响应消息。',
   'workbench.editors.grpc.response.noMetadata': '没有 metadata',
   'workbench.editors.grpc.response.noTrailers': '没有 trailers',
@@ -120,7 +122,8 @@ export const workbenchEditorsGrpc = {
   'workbench.editors.grpc.settings.group.connection': '连接',
   'workbench.editors.grpc.settings.group.tls': 'TLS 与信任',
   'workbench.editors.grpc.settings.group.messages': '消息',
-  'workbench.editors.grpc.settings.groupInfo.connection': '调用如何到达服务器：通道的去向，以及整个调用的时间上限。',
+  'workbench.editors.grpc.settings.groupInfo.connection':
+    '调用如何到达服务器：通道的去向、调用所寻址的名称、整个调用的时间上限，以及在调用中途发现连接已死的保活。',
   'workbench.editors.grpc.settings.groupInfo.tls':
     'TLS 通道如何建立信任：是否根据系统根证书验证服务器证书、此设备出示的客户端证书、握手时的 TLS 版本范围和密码套件列表，以及提供的 SNI 名称。',
   'workbench.editors.grpc.settings.groupInfo.messages':
@@ -133,6 +136,18 @@ export const workbenchEditorsGrpc = {
   'workbench.editors.grpc.settings.timeoutHelp':
     '整个调用的墙钟时间上限——作为 gRPC 截止时间发送以便服务器强制执行，并在本地强制执行。留空则不设截止时间。',
   'workbench.editors.grpc.settings.timeoutPlaceholder': '不限制（默认）',
+  'workbench.editors.grpc.settings.authorityLabel': 'Authority',
+  'workbench.editors.grpc.settings.authorityHelp':
+    '调用在线路上所寻址的 :authority——服务器据以路由的名称——而连接仍然发往目标。适用于按 authority 路由的网关，或按 IP 访问但期望自己名称的服务器。TLS 服务器名和证书验证保持目标主机不变；SNI 服务器名设置才改变那一项。留空则发送目标本身。',
+  'workbench.editors.grpc.settings.authorityPlaceholder': '目标（默认）',
+  'workbench.editors.grpc.settings.keepaliveIntervalLabel': '保活 ping',
+  'workbench.editors.grpc.settings.keepaliveIntervalHelp':
+    '调用打开期间按此节奏发送 HTTP/2 PING，让安静的服务器流或缓慢的一元调用及时发现连接已死，而不是等待截止时间。每个连接只服务一次调用，调用之间没有需要保活的东西。服务器会拒绝比其下限更频繁的 ping——默认为无数据流动时 5 分钟——并以 too_many_pings 关闭连接；调用随后会指明原因。留空则不发送 ping。',
+  'workbench.editors.grpc.settings.keepaliveIntervalPlaceholder': '不发送 ping（默认）',
+  'workbench.editors.grpc.settings.keepaliveTimeoutLabel': '保活超时',
+  'workbench.editors.grpc.settings.keepaliveTimeoutHelp':
+    '等待 ping 确认多久后即判定连接已死并结束调用并指明原因。留空则使用默认的 20 秒。',
+  'workbench.editors.grpc.settings.keepaliveTimeoutPlaceholder': '20 秒（默认）',
   'workbench.editors.grpc.settings.sendInvalidMessageLabel': '发送无效消息',
   'workbench.editors.grpc.settings.sendInvalidMessageHelp':
     '消息不是有效 JSON 时，仍以空消息发起调用并让服务器应答——通常是 INVALID_ARGUMENT。默认关闭：调用在上线路之前失败，并给出确切的解析错误。适用于所有 gRPC 请求。',
@@ -158,6 +173,7 @@ export const workbenchEditorsGrpc = {
   'workbench.editors.grpc.timeline.completed': '调用已完成',
   'workbench.editors.grpc.timeline.stopped': '调用已停止',
   'workbench.editors.grpc.timeline.failed': '调用失败',
+  'workbench.editors.grpc.timeline.lost': '连接丢失',
   'workbench.editors.grpc.timeline.noMatches': '没有匹配的消息。',
   'workbench.editors.grpc.timeline.searchMessages': '搜索消息',
   'workbench.editors.grpc.timeline.filterAll': '全部',

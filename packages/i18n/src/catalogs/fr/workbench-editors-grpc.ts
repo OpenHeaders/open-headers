@@ -103,6 +103,8 @@ export const workbenchEditorsGrpc = {
   'workbench.editors.grpc.response.filterTrailers': 'Filtrer les trailers',
   'workbench.editors.grpc.response.duration': '{ms} ms',
   'workbench.editors.grpc.response.noStatus': 'Aucun statut gRPC',
+  'workbench.editors.grpc.response.connectionLost': 'Connexion perdue',
+  'workbench.editors.grpc.response.includeDefaultValues': 'Inclure les valeurs par défaut',
   'workbench.editors.grpc.response.noMessage': 'La réponse ne portait aucun message.',
   'workbench.editors.grpc.response.noMetadata': 'Aucune metadata',
   'workbench.editors.grpc.response.noTrailers': 'Aucun trailer',
@@ -140,7 +142,7 @@ export const workbenchEditorsGrpc = {
   'workbench.editors.grpc.settings.group.tls': 'TLS et confiance',
   'workbench.editors.grpc.settings.group.messages': 'Messages',
   'workbench.editors.grpc.settings.groupInfo.connection':
-    'Comment l’appel atteint le serveur : la destination du canal et le plafond sur l’appel entier.',
+    'Comment l’appel atteint le serveur : la destination du canal, le nom auquel l’appel est adressé, le plafond sur l’appel entier et le keepalive qui détecte une connexion morte en cours d’appel.',
   'workbench.editors.grpc.settings.groupInfo.tls':
     'Comment les canaux TLS établissent la confiance : vérification du certificat du serveur contre les racines système, certificat client présenté par cet appareil, fenêtre de versions TLS et liste de suites de chiffrement de la négociation, et nom SNI proposé.',
   'workbench.editors.grpc.settings.groupInfo.messages':
@@ -158,6 +160,18 @@ export const workbenchEditorsGrpc = {
     'Plafond en temps réel sur l’appel entier — envoyé comme deadline gRPC pour que le serveur puisse ' +
     'l’appliquer, et appliqué localement. Vide ne fixe aucune deadline.',
   'workbench.editors.grpc.settings.timeoutPlaceholder': 'Aucune limite (défaut)',
+  'workbench.editors.grpc.settings.authorityLabel': 'Autorité',
+  'workbench.editors.grpc.settings.authorityHelp':
+    'Le :authority auquel l’appel est adressé sur le fil — le nom sur lequel le serveur route — alors que la connexion va toujours vers la cible. Pour une passerelle qui route sur l’autorité, ou un serveur joint par IP qui attend son propre nom. Le nom de serveur TLS et la vérification du certificat gardent l’hôte de la cible ; le réglage du nom de serveur SNI change celui-là. Laissez vide pour envoyer la cible elle-même.',
+  'workbench.editors.grpc.settings.authorityPlaceholder': 'La cible (défaut)',
+  'workbench.editors.grpc.settings.keepaliveIntervalLabel': 'Ping keepalive',
+  'workbench.editors.grpc.settings.keepaliveIntervalHelp':
+    'Envoie un PING HTTP/2 à cette cadence tant que l’appel est ouvert, pour qu’un flux serveur silencieux ou un unaire lent apprenne qu’une connexion est morte au lieu d’attendre l’échéance. Chaque connexion sert un seul appel, il n’y a donc rien à maintenir entre les appels. Les serveurs refusent les pings plus fréquents que leur plancher — 5 minutes sans données par défaut — en fermant la connexion avec too_many_pings ; l’appel le nomme alors. Laissez vide pour aucun ping.',
+  'workbench.editors.grpc.settings.keepaliveIntervalPlaceholder': 'Aucun ping (défaut)',
+  'workbench.editors.grpc.settings.keepaliveTimeoutLabel': 'Délai keepalive',
+  'workbench.editors.grpc.settings.keepaliveTimeoutHelp':
+    'Combien de temps attendre l’accusé de réception du ping avant de déclarer la connexion morte et de terminer l’appel en le nommant. Laissez vide pour la valeur par défaut de 20 s.',
+  'workbench.editors.grpc.settings.keepaliveTimeoutPlaceholder': '20 s (défaut)',
   'workbench.editors.grpc.settings.sendInvalidMessageLabel': 'Envoyer les messages invalides',
   'workbench.editors.grpc.settings.sendInvalidMessageHelp':
     'Quand le message n’est pas du JSON valide, invoquer quand même avec un message vide et laisser le ' +
@@ -187,6 +201,7 @@ export const workbenchEditorsGrpc = {
   'workbench.editors.grpc.timeline.completed': 'Appel terminé',
   'workbench.editors.grpc.timeline.stopped': 'Appel arrêté',
   'workbench.editors.grpc.timeline.failed': "Échec de l'appel",
+  'workbench.editors.grpc.timeline.lost': 'Connexion perdue',
   'workbench.editors.grpc.timeline.noMatches': 'Aucun message ne correspond.',
   'workbench.editors.grpc.timeline.searchMessages': 'Rechercher dans les messages',
   'workbench.editors.grpc.timeline.filterAll': 'Tous',

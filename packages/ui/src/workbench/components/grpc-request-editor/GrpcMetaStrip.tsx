@@ -65,11 +65,16 @@ const GrpcMetaStrip: React.FC<{
   /** The failure's client-runtime canonical status (see
    *  `ExecutedGrpcSnapshot.localStatus`); rides only beside `error`. */
   localStatus?: number;
+  /** The connection died AFTER the head (see
+   *  `ExecutedGrpcSnapshot.connectionError`) — the reply carried no
+   *  status, so the pill reads the error-tinted "Connection lost" with
+   *  the reason on hover; the capture's null status stays honest. */
+  connectionError?: string;
   /** The capture's proxy-routing wire truth — the shared attribution
    *  tag when a plane proxied (or stood down for) the dial. Examples
    *  strip it with the other volatile internals, so they omit it. */
   proxyRoute?: ExecutedProxyRoute;
-}> = ({ status, stopped, error, localStatus, proxyRoute }) => {
+}> = ({ status, stopped, error, localStatus, connectionError, proxyRoute }) => {
   const { token } = theme.useToken();
   const t = useT();
   // A caller-stopped call whose reply carried no status reads as
@@ -87,6 +92,15 @@ const GrpcMetaStrip: React.FC<{
         >
           <Tag color="error" style={{ marginInlineEnd: 0, cursor: 'help' }} data-testid="grpc-call-failed-tag">
             {t('workbench.editors.grpc.response.error.title')}
+          </Tag>
+        </InfoPopover>
+      ) : connectionError !== undefined && displayStatus === null ? (
+        <InfoPopover
+          content={{ title: t('workbench.editors.grpc.response.connectionLost'), summary: connectionError }}
+          trigger="hover"
+        >
+          <Tag color="error" style={{ marginInlineEnd: 0, cursor: 'help' }} data-testid="grpc-connection-lost-tag">
+            {t('workbench.editors.grpc.response.connectionLost')}
           </Tag>
         </InfoPopover>
       ) : displayStatus === null ? (

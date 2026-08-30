@@ -12,26 +12,42 @@ import type { Translate } from '@openheaders/ui/context/LocaleContext';
 import type { InfoPopoverContent } from '@openheaders/ui/shared/info-popover';
 import { GRPC_GROUP_LABEL_KEY, type GrpcSettingsGroupKey } from './settings-groups';
 
-export type GrpcInfoKey = 'unixSocket' | 'timeout' | 'responseSizeLimit' | 'sendInvalidMessage';
+export type GrpcInfoKey =
+  | 'authority'
+  | 'unixSocket'
+  | 'timeout'
+  | 'responseSizeLimit'
+  | 'keepaliveInterval'
+  | 'keepaliveTimeout'
+  | 'sendInvalidMessage';
 
 const TITLE_KEY: Record<GrpcInfoKey, MessageKey> = {
+  authority: 'workbench.editors.grpc.settings.authorityLabel',
   unixSocket: 'workbench.editors.grpc.settings.unixSocketLabel',
   timeout: 'workbench.editors.grpc.settings.timeoutLabel',
   responseSizeLimit: 'workbench.editors.request.settings.responseSizeLimit',
+  keepaliveInterval: 'workbench.editors.grpc.settings.keepaliveIntervalLabel',
+  keepaliveTimeout: 'workbench.editors.grpc.settings.keepaliveTimeoutLabel',
   sendInvalidMessage: 'workbench.editors.grpc.settings.sendInvalidMessageLabel',
 };
 
 const SUMMARY_KEY: Record<GrpcInfoKey, MessageKey> = {
+  authority: 'workbench.editors.grpc.settings.authorityHelp',
   unixSocket: 'workbench.editors.grpc.settings.unixSocketHelp',
   timeout: 'workbench.editors.grpc.settings.timeoutHelp',
   responseSizeLimit: 'workbench.editors.request.settings.responseSizeLimitInfo',
+  keepaliveInterval: 'workbench.editors.grpc.settings.keepaliveIntervalHelp',
+  keepaliveTimeout: 'workbench.editors.grpc.settings.keepaliveTimeoutHelp',
   sendInvalidMessage: 'workbench.editors.grpc.settings.sendInvalidMessageHelp',
 };
 
 const KICKER_GROUP: Record<GrpcInfoKey, GrpcSettingsGroupKey> = {
+  authority: 'connection',
   unixSocket: 'connection',
   timeout: 'connection',
   responseSizeLimit: 'connection',
+  keepaliveInterval: 'connection',
+  keepaliveTimeout: 'connection',
   sendInvalidMessage: 'messages',
 };
 

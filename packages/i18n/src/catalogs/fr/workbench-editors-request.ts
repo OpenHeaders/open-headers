@@ -730,6 +730,10 @@ export const workbenchEditorsRequest = {
     'La session compose directement le transport WebSocket, sans la poignée de main HTTP long-polling par laquelle le client officiel commence avant de passer à l’upgrade.',
   'workbench.editors.request.settings.managed.httpVersionGrpcDesc':
     'gRPC circule uniquement sur HTTP/2 : les canaux TLS négocient h2 via ALPN, les canaux en clair parlent h2 avec connaissance préalable.',
+  'workbench.editors.request.settings.managed.connectionReuse': 'Réutilisation de connexion',
+  'workbench.editors.request.settings.managed.onePerCall': 'Une par appel',
+  'workbench.editors.request.settings.managed.connectionReuseGrpcDesc':
+    'Chaque appel ouvre sa propre connexion HTTP/2 et la ferme à la fin de l’appel ; rien n’est mis en pool ni maintenu entre les appels, un keepalive ne tourne donc que pendant un appel.',
   'workbench.editors.request.settings.managed.followRedirectsBrowserDesc':
     'Le navigateur ne suit jamais une poignée de main redirigée ; une réponse 3xx fait échouer la connexion. Exécutez la session sur l’application de bureau ou le serveur pour suivre les redirections.',
   'workbench.editors.request.settings.managed.httpVersion': 'Version HTTP',

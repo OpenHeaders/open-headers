@@ -17,6 +17,7 @@ declare module '@openheaders/ui/workbench/settings/types' {
     'requests.sseEventsGroupByName': boolean;
     'requests.sseEventsGroupRowLimit': number;
     'requests.grpcSendInvalidMessage': boolean;
+    'requests.grpcIncludeDefaultValues': boolean;
     'requests.grpcMessagesNewestFirst': boolean;
     'requests.grpcMessagesShowTypes': boolean;
     'requests.grpcMessagesGroupByType': boolean;
@@ -68,6 +69,24 @@ registerSetting({
   descriptionKey: 'workbench.settings.def.requests.grpcSendInvalidMessage.description',
   category: 'requests',
   tags: ['grpc', 'invoke', 'message', 'json', 'validate', 'invalid', 'preflight'],
+  scope: 'user',
+});
+
+// The gRPC Response tab's decode posture — render the fields the wire
+// omitted as their canonical defaults (proto3 JSON's emitDefaultValues:
+// zero scalars, the zero enum name, empty lists and maps; fields with
+// presence stay absent). A VIEW choice over the capture, written by the
+// response pane's ⋯ menu too — one global value.
+registerSetting({
+  key: 'requests.grpcIncludeDefaultValues',
+  subcategory: 'grpc',
+  type: 'boolean',
+  default: false,
+  schema: v.boolean(),
+  labelKey: 'workbench.settings.def.requests.grpcIncludeDefaultValues.label',
+  descriptionKey: 'workbench.settings.def.requests.grpcIncludeDefaultValues.description',
+  category: 'requests',
+  tags: ['grpc', 'response', 'decode', 'json', 'default', 'defaults', 'empty', 'fields'],
   scope: 'user',
 });
 

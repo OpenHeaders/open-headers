@@ -585,6 +585,10 @@ export const workbenchEditorsRequest = {
     '会话直接拨号 WebSocket 传输，跳过官方客户端起始并从中升级的 HTTP 长轮询握手。',
   'workbench.editors.request.settings.managed.httpVersionGrpcDesc':
     'gRPC 仅运行于 HTTP/2：TLS 通道通过 ALPN 协商 h2，明文通道以先验知识方式使用 h2。',
+  'workbench.editors.request.settings.managed.connectionReuse': '连接复用',
+  'workbench.editors.request.settings.managed.onePerCall': '每次调用一个',
+  'workbench.editors.request.settings.managed.connectionReuseGrpcDesc':
+    '每次调用都打开自己的 HTTP/2 连接，并在调用结束时关闭；调用之间不做池化也不保活，因此保活只在调用打开期间运行。',
   'workbench.editors.request.settings.managed.followRedirectsBrowserDesc':
     '浏览器从不跟随被重定向的握手；3xx 应答会使连接失败。要跟随重定向，请在桌面应用或服务器上运行会话。',
   'workbench.editors.request.settings.managed.httpVersion': 'HTTP 版本',

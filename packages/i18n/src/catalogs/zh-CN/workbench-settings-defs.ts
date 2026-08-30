@@ -433,6 +433,9 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.requests.grpcMessagesNewestFirst.label': '最新在前',
   'workbench.settings.def.requests.grpcMessagesNewestFirst.description':
     'gRPC 消息时间线的顺序——最新消息在顶部。关闭则从最旧开始读。时间线工具栏更改的是同一设置。',
+  'workbench.settings.def.requests.grpcIncludeDefaultValues.label': '包含默认值',
+  'workbench.settings.def.requests.grpcIncludeDefaultValues.description':
+    '把 gRPC 响应在线路上省略的字段以其默认值显示——数字为零、空字符串、false、枚举的第一个值、空列表和空映射——即 proto3 JSON 输出默认值的方式。默认关闭：响应只显示服务器实际发送的字段。带有 presence 的字段（消息、optional、oneof 成员）在两种情况下都保持缺席。响应面板的 ⋯ 菜单更改的是同一设置。',
   'workbench.settings.def.requests.grpcMessagesShowTypes.label': '显示消息类型',
   'workbench.settings.def.requests.grpcMessagesShowTypes.description':
     '给每条时间线行标注其声明的 protobuf 消息类型。默认关闭——一个 rpc 的类型按方向固定，方向徽章已足以区分行。时间线工具栏更改的是同一设置。',

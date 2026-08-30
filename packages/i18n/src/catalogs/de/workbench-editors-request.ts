@@ -735,6 +735,10 @@ export const workbenchEditorsRequest = {
     'Die Sitzung wählt den WebSocket-Transport direkt und überspringt den HTTP-Long-Polling-Handshake, mit dem der offizielle Client beginnt, bevor er upgradet.',
   'workbench.editors.request.settings.managed.httpVersionGrpcDesc':
     'gRPC läuft ausschließlich über HTTP/2: TLS-Kanäle handeln h2 über ALPN aus, Klartextkanäle sprechen h2 mit Prior Knowledge.',
+  'workbench.editors.request.settings.managed.connectionReuse': 'Verbindungswiederverwendung',
+  'workbench.editors.request.settings.managed.onePerCall': 'Eine pro Aufruf',
+  'workbench.editors.request.settings.managed.connectionReuseGrpcDesc':
+    'Jeder Aufruf öffnet seine eigene HTTP/2-Verbindung und schließt sie am Ende des Aufrufs; nichts wird gepoolt oder zwischen Aufrufen am Leben gehalten, ein Keepalive läuft also nur, solange ein Aufruf offen ist.',
   'workbench.editors.request.settings.managed.followRedirectsBrowserDesc':
     'Der Browser folgt einem umgeleiteten Handshake nie; eine 3xx-Antwort lässt die Verbindung scheitern. Führen Sie die Sitzung in der Desktop-App oder auf dem Server aus, um Umleitungen zu folgen.',
   'workbench.editors.request.settings.managed.httpVersion': 'HTTP-Version',

@@ -130,7 +130,10 @@ export interface GrpcTimelineItem {
 }
 
 /** How the call ended — drives the ended lifecycle row. */
-export type GrpcTimelineEndedBy = 'complete' | 'stop' | 'error';
+/** How the call ended: completed, the user's stop, a pre-head
+ *  failure, or a connection lost after the head (`lost` — the
+ *  reason rides `endedMessage` behind the chevron like `error`). */
+export type GrpcTimelineEndedBy = 'complete' | 'stop' | 'error' | 'lost';
 
 export interface GrpcTimelineLifecycle {
   /** Session-only invoke-departure time. */
@@ -153,7 +156,7 @@ export interface GrpcTimelineLifecycle {
   /** Absent while frames are still arriving — the live phase. */
   endedBy?: GrpcTimelineEndedBy;
   endedAt?: number;
-  /** Failure text riding `endedBy: 'error'`. The status code itself
+  /** Failure text riding `endedBy: 'error'` / `'lost'`. The status code itself
    *  deliberately does NOT ride the ended row — the meta strip's pill
    *  owns it (no duplicate info, the Postman posture). */
   endedMessage?: string;
@@ -253,6 +256,8 @@ function endedLabel(endedBy: GrpcTimelineEndedBy, t: Translate): string {
       return t('workbench.editors.grpc.timeline.stopped');
     case 'error':
       return t('workbench.editors.grpc.timeline.failed');
+    case 'lost':
+      return t('workbench.editors.grpc.timeline.lost');
     default: {
       const _exhaustive: never = endedBy;
       void _exhaustive;
@@ -527,7 +532,8 @@ const GrpcMessageTimeline: React.FC<GrpcMessageTimelineProps> = ({
   const sentMetadata = lifecycle.requestMetadata ?? [];
   const sentRecorded = lifecycle.requestMetadata !== undefined;
   const sentDetailOpen = sentExpanded && sentRecorded;
-  const errorExpandable = lifecycle.endedBy === 'error' && lifecycle.endedMessage !== undefined;
+  const errorExpandable =
+    (lifecycle.endedBy === 'error' || lifecycle.endedBy === 'lost') && lifecycle.endedMessage !== undefined;
   const errorDetailOpen = errorExpanded && errorExpandable;
   const connectedExpandable = responseMetadataCount !== undefined;
   const connectedDetailOpen = connectedExpanded && connectedExpandable;
@@ -1121,10 +1127,11 @@ const GrpcMessageTimeline: React.FC<GrpcMessageTimelineProps> = ({
         );
       case 'ended': {
         if (lifecycle.endedBy === undefined) return null;
-        // A pre-head failure reads as the red-iconed row with the
-        // PLAIN label — the classified explanation lives behind the
-        // chevron (the sent row's expansion anatomy).
-        if (lifecycle.endedBy === 'error') {
+        // A pre-head failure — and a connection lost after the head —
+        // reads as the red-iconed row with the PLAIN label; the
+        // explanation lives behind the chevron (the sent row's
+        // expansion anatomy).
+        if (lifecycle.endedBy === 'error' || lifecycle.endedBy === 'lost') {
           return (
             <div
               key={entry.key}
@@ -1146,7 +1153,11 @@ const GrpcMessageTimeline: React.FC<GrpcMessageTimelineProps> = ({
                 : {})}
               style={{ ...lifecycleRowStyle, ...(errorExpandable ? { cursor: 'pointer' } : {}) }}
             >
-              <CloseCircleOutlined aria-hidden style={{ fontSize: 11, color: token.colorError }} />
+              {lifecycle.endedBy === 'lost' ? (
+                <DisconnectOutlined aria-hidden style={{ fontSize: 11, color: token.colorError }} />
+              ) : (
+                <CloseCircleOutlined aria-hidden style={{ fontSize: 11, color: token.colorError }} />
+              )}
               <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {endedLabel(lifecycle.endedBy, t)}
               </span>

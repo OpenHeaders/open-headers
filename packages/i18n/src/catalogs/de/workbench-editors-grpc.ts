@@ -116,6 +116,8 @@ export const workbenchEditorsGrpc = {
   'workbench.editors.grpc.response.filterTrailers': 'Trailers filtern',
   'workbench.editors.grpc.response.duration': '{ms} ms',
   'workbench.editors.grpc.response.noStatus': 'Kein gRPC-Status',
+  'workbench.editors.grpc.response.connectionLost': 'Verbindung verloren',
+  'workbench.editors.grpc.response.includeDefaultValues': 'Standardwerte einbeziehen',
   'workbench.editors.grpc.response.noMessage': 'Die Antwort trug keine Antwortnachricht.',
   'workbench.editors.grpc.response.noMetadata': 'Keine Metadata',
   'workbench.editors.grpc.response.noTrailers': 'Keine Trailers',
@@ -157,7 +159,7 @@ export const workbenchEditorsGrpc = {
   'workbench.editors.grpc.settings.group.tls': 'TLS & Vertrauen',
   'workbench.editors.grpc.settings.group.messages': 'Nachrichten',
   'workbench.editors.grpc.settings.groupInfo.connection':
-    'Wie der Aufruf den Server erreicht: wohin der Kanal wählt und die Obergrenze für den gesamten Aufruf.',
+    'Wie der Aufruf den Server erreicht: wohin der Kanal wählt, an welchen Namen der Aufruf adressiert ist, die Obergrenze für den gesamten Aufruf und das Keepalive, das eine tote Verbindung mitten im Aufruf erkennt.',
   'workbench.editors.grpc.settings.groupInfo.tls':
     'Wie TLS-Kanäle Vertrauen herstellen: ob das Serverzertifikat gegen die Systemwurzeln geprüft wird, welches Client-Zertifikat dieses Gerät vorlegt, das TLS-Versionsfenster und die Cipher-Liste im Handshake sowie der angebotene SNI-Name.',
   'workbench.editors.grpc.settings.groupInfo.messages':
@@ -175,6 +177,18 @@ export const workbenchEditorsGrpc = {
     'Obergrenze der realen Zeit für den gesamten Aufruf — als gRPC-Deadline gesendet, damit der Server sie ' +
     'durchsetzen kann, und lokal durchgesetzt. Leer setzt keine Deadline.',
   'workbench.editors.grpc.settings.timeoutPlaceholder': 'Kein Limit (Standard)',
+  'workbench.editors.grpc.settings.authorityLabel': 'Authority',
+  'workbench.editors.grpc.settings.authorityHelp':
+    'Die :authority, an die der Aufruf auf der Leitung adressiert ist — der Name, nach dem der Server routet — während die Verbindung weiterhin zum Ziel geht. Für ein Gateway, das nach Authority routet, oder einen per IP erreichten Server, der seinen eigenen Namen erwartet. TLS-Servername und Zertifikatsprüfung behalten den Host des Ziels; die Einstellung SNI-Servername ändert diesen. Leer lassen, um das Ziel selbst zu senden.',
+  'workbench.editors.grpc.settings.authorityPlaceholder': 'Das Ziel (Standard)',
+  'workbench.editors.grpc.settings.keepaliveIntervalLabel': 'Keepalive-Ping',
+  'workbench.editors.grpc.settings.keepaliveIntervalHelp':
+    'Sendet in diesem Takt einen HTTP/2-PING, solange der Aufruf offen ist, damit ein stiller Server-Stream oder ein langsamer Unary-Aufruf eine tote Verbindung erkennt, statt auf die Frist zu warten. Jede Verbindung bedient genau einen Aufruf, zwischen Aufrufen gibt es also nichts am Leben zu halten. Server lehnen Pings ab, die schneller als ihre Untergrenze eintreffen — standardmäßig 5 Minuten ohne fließende Daten — und schließen die Verbindung mit too_many_pings; der Aufruf benennt das dann. Leer lassen für keine Pings.',
+  'workbench.editors.grpc.settings.keepaliveIntervalPlaceholder': 'Keine Pings (Standard)',
+  'workbench.editors.grpc.settings.keepaliveTimeoutLabel': 'Keepalive-Timeout',
+  'workbench.editors.grpc.settings.keepaliveTimeoutHelp':
+    'Wie lange auf die Bestätigung des Pings gewartet wird, bevor die Verbindung als tot gilt und der Aufruf mit dieser Begründung endet. Leer lassen für den Standard von 20 s.',
+  'workbench.editors.grpc.settings.keepaliveTimeoutPlaceholder': '20 s (Standard)',
   'workbench.editors.grpc.settings.sendInvalidMessageLabel': 'Ungültige Nachrichten senden',
   'workbench.editors.grpc.settings.sendInvalidMessageHelp':
     'Wenn die Nachricht kein gültiges JSON ist, trotzdem mit leerer Nachricht aufrufen und den Server ' +
@@ -204,6 +218,7 @@ export const workbenchEditorsGrpc = {
   'workbench.editors.grpc.timeline.completed': 'Aufruf abgeschlossen',
   'workbench.editors.grpc.timeline.stopped': 'Aufruf gestoppt',
   'workbench.editors.grpc.timeline.failed': 'Aufruf fehlgeschlagen',
+  'workbench.editors.grpc.timeline.lost': 'Verbindung verloren',
   'workbench.editors.grpc.timeline.noMatches': 'Keine Nachricht passt.',
   'workbench.editors.grpc.timeline.searchMessages': 'Nachrichten durchsuchen',
   'workbench.editors.grpc.timeline.filterAll': 'Alle',

@@ -558,6 +558,9 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.requests.grpcMessagesNewestFirst.description':
     'Reihenfolge des gRPC-Nachrichten-Zeitverlaufs — neueste Nachrichten oben. Ausschalten, um die ältesten ' +
     'zuerst zu lesen. Die Zeitverlaufs-Toolbar ändert dieselbe Einstellung.',
+  'workbench.settings.def.requests.grpcIncludeDefaultValues.label': 'Standardwerte einbeziehen',
+  'workbench.settings.def.requests.grpcIncludeDefaultValues.description':
+    'Zeigt die Felder, die eine gRPC-Antwort auf der Leitung weggelassen hat, mit ihren Standardwerten — Zahlen als null, leere Strings, false, der erste Enum-Wert, leere Listen und Maps — so wie proto3-JSON Standardwerte ausgibt. Standardmäßig aus: die Antwort zeigt die Felder, die der Server tatsächlich gesendet hat. Felder mit Presence (Nachrichten, optional, oneof-Mitglieder) bleiben in beiden Fällen abwesend. Das ⋯-Menü des Antwortbereichs ändert dieselbe Einstellung.',
   'workbench.settings.def.requests.grpcMessagesShowTypes.label': 'Nachrichtentypen anzeigen',
   'workbench.settings.def.requests.grpcMessagesShowTypes.description':
     'Versieht jede Zeitverlaufszeile mit ihrem deklarierten Protobuf-Nachrichtentyp. Standardmäßig aus — die ' +

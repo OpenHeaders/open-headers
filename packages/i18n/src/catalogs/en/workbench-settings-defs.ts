@@ -460,6 +460,9 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.requests.grpcMessagesNewestFirst.label': 'Newest First',
   'workbench.settings.def.requests.grpcMessagesNewestFirst.description':
     'Order of the gRPC message timeline — newest messages at the top. Turn off to read oldest first. The timeline toolbar changes this same setting.',
+  'workbench.settings.def.requests.grpcIncludeDefaultValues.label': 'Include Default Values',
+  'workbench.settings.def.requests.grpcIncludeDefaultValues.description':
+    'Render the fields a gRPC reply left off the wire as their defaults — zero numbers, empty strings, false, the first enum value, empty lists and maps — the way proto3 JSON emits default values. Off by default: the response shows the fields the server actually sent. Fields that carry presence (messages, optional, oneof members) stay absent either way. The response pane’s ⋯ menu changes this same setting.',
   'workbench.settings.def.requests.grpcMessagesShowTypes.label': 'Show Message Types',
   'workbench.settings.def.requests.grpcMessagesShowTypes.description':
     'Tag every timeline row with its declared protobuf message type. Off by default — an rpc’s types are fixed per direction, so the direction badge already tells rows apart. The timeline toolbar changes this same setting.',

@@ -14,6 +14,7 @@
 import type { ProtoRegistry } from '@openheaders/core/proto';
 import type { CapturedGrpcResponse, GrpcMethodRef } from '@openheaders/core/types';
 import { useT } from '@openheaders/ui/context/LocaleContext';
+import { useSetting } from '@openheaders/ui/workbench/settings/hooks';
 import { Tabs, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useMemo, useState } from 'react';
@@ -46,6 +47,7 @@ const GrpcExampleResultPane: React.FC<GrpcExampleResultPaneProps> = ({ response,
   const stream = isStreamCapture(response);
   const [activeTab, setActiveTab] = useState(stream ? 'timeline' : 'response');
 
+  const [includeDefaults] = useSetting('requests.grpcIncludeDefaultValues');
   const inputType = useMemo(() => grpcInputTypeOf(registry, method), [registry, method]);
   const outputType = useMemo(() => grpcOutputTypeOf(registry, method), [registry, method]);
   const metadataRows = useMemo(() => withoutGrpcStatusPair(response.metadata), [response.metadata]);
@@ -54,8 +56,8 @@ const GrpcExampleResultPane: React.FC<GrpcExampleResultPaneProps> = ({ response,
   const view = useMemo(() => {
     const frame = response.messages[0];
     if (frame === undefined) return { kind: 'none' as const };
-    return deriveGrpcFrameView(frame, registry, outputType);
-  }, [response.messages, registry, outputType]);
+    return deriveGrpcFrameView(frame, registry, outputType, { emitDefaults: includeDefaults });
+  }, [response.messages, registry, outputType, includeDefaults]);
 
   const lifecycle = useMemo((): GrpcTimelineLifecycle => {
     return {

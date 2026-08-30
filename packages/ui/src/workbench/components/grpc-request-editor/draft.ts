@@ -26,6 +26,8 @@ export interface GrpcDraft {
   description: string;
   url: string;
   tls: boolean;
+  /** `:authority` override — `undefined` = the target itself. */
+  authority: string | undefined;
   method: GrpcMethodRef | undefined;
   message: string;
   metadata: KeyValueRow[];
@@ -46,6 +48,10 @@ export interface GrpcDraft {
   timeoutMs: number | undefined;
   /** The response body cap — `undefined` = the runtime's 2 MiB default. */
   maxResponseBytes: number | undefined;
+  /** The channel keepalive — `undefined` interval = no pings; the
+   *  timeout rides it (`undefined` = the runtime's 20 s default). */
+  keepaliveIntervalMs: number | undefined;
+  keepaliveTimeoutMs: number | undefined;
   /** Concrete like `auth` — absent on the entity reads as `true`. */
   sslVerification: boolean;
   /** The rest of the TLS policy — `undefined` = the runtime default. */
@@ -60,6 +66,7 @@ export interface GrpcRequestUpdates {
   description: string;
   url: string;
   tls: boolean;
+  authority: string | undefined;
   method: GrpcMethodRef | undefined;
   message: string;
   metadata: GrpcMetadataPair[];
@@ -72,6 +79,8 @@ export interface GrpcRequestUpdates {
   unixSocketPath: string | undefined;
   timeoutMs: number | undefined;
   maxResponseBytes: number | undefined;
+  keepaliveIntervalMs: number | undefined;
+  keepaliveTimeoutMs: number | undefined;
   sslVerification: boolean;
   clientCertificateRef: string | undefined;
   tlsMinVersion: TlsVersion | undefined;
@@ -109,6 +118,7 @@ export function draftFromGrpcRequest(req: GrpcRequest): GrpcDraft {
     description: req.description ?? '',
     url: req.url,
     tls: req.tls ?? true,
+    authority: req.authority,
     method: req.method,
     message: req.message,
     metadata: metadataToRows(req.metadata),
@@ -121,6 +131,8 @@ export function draftFromGrpcRequest(req: GrpcRequest): GrpcDraft {
     unixSocketPath: req.unixSocketPath,
     timeoutMs: req.timeoutMs,
     maxResponseBytes: req.maxResponseBytes,
+    keepaliveIntervalMs: req.keepaliveIntervalMs,
+    keepaliveTimeoutMs: req.keepaliveTimeoutMs,
     sslVerification: req.sslVerification ?? true,
     clientCertificateRef: req.clientCertificateRef,
     tlsMinVersion: req.tlsMinVersion,
@@ -135,6 +147,7 @@ export function buildGrpcRequestUpdates(draft: GrpcDraft): GrpcRequestUpdates {
     description: draft.description,
     url: draft.url,
     tls: draft.tls,
+    authority: draft.authority,
     method: draft.method,
     message: draft.message,
     metadata: rowsToMetadata(draft.metadata),
@@ -147,6 +160,8 @@ export function buildGrpcRequestUpdates(draft: GrpcDraft): GrpcRequestUpdates {
     unixSocketPath: draft.unixSocketPath,
     timeoutMs: draft.timeoutMs,
     maxResponseBytes: draft.maxResponseBytes,
+    keepaliveIntervalMs: draft.keepaliveIntervalMs,
+    keepaliveTimeoutMs: draft.keepaliveTimeoutMs,
     sslVerification: draft.sslVerification,
     clientCertificateRef: draft.clientCertificateRef,
     tlsMinVersion: draft.tlsMinVersion,

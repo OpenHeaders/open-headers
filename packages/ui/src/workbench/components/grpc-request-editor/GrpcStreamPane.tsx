@@ -118,11 +118,15 @@ const GrpcStreamPane: React.FC<GrpcStreamPaneProps> = ({
       headArrived: true,
       ...(session?.connectedAt !== undefined ? { connectedAt: session.connectedAt } : {}),
       ...(snapshot.headAtMessage !== undefined ? { headAtMessage: snapshot.headAtMessage } : {}),
-      endedBy: snapshot.stopped === true ? 'stop' : 'complete',
+      // A connection lost after the head ends the timeline on its own
+      // row, the reason behind the chevron (the failed row's anatomy).
+      endedBy: snapshot.stopped === true ? 'stop' : snapshot.connectionError !== undefined ? 'lost' : 'complete',
       ...(settledAt !== undefined ? { endedAt: settledAt } : {}),
-      ...(snapshot.grpcMessage !== undefined && snapshot.grpcStatus !== 0 && snapshot.grpcMessage !== ''
-        ? { endedMessage: snapshot.grpcMessage }
-        : {}),
+      ...(snapshot.connectionError !== undefined
+        ? { endedMessage: snapshot.connectionError }
+        : snapshot.grpcMessage !== undefined && snapshot.grpcStatus !== 0 && snapshot.grpcMessage !== ''
+          ? { endedMessage: snapshot.grpcMessage }
+          : {}),
     };
   }, [snapshot, live, session]);
 
@@ -150,6 +154,7 @@ const GrpcStreamPane: React.FC<GrpcStreamPaneProps> = ({
             stopped={snapshot.stopped === true}
             {...(snapshot.error !== null ? { error: snapshot.error } : {})}
             {...(snapshot.localStatus !== undefined ? { localStatus: snapshot.localStatus } : {})}
+            {...(snapshot.connectionError !== undefined ? { connectionError: snapshot.connectionError } : {})}
             {...(snapshot.proxyRoute !== undefined ? { proxyRoute: snapshot.proxyRoute } : {})}
           />
           <Dropdown
