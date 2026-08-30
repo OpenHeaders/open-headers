@@ -12,6 +12,7 @@
  * call the imperative functions directly with an explicit workspace id.
  */
 
+import { REQUEST_ENTITY_TYPE } from '@openheaders/core/sync';
 import {
   buildAddBatch,
   buildDeleteBatch,
@@ -23,6 +24,7 @@ import { parentPathOf } from '@openheaders/core/utils';
 import type { RequestCollectionSyncMirror } from '../../context/mirrors/request-collection-sync-mirror';
 import type { RequestFolderSyncMirror } from '../../context/mirrors/request-folder-sync-mirror';
 import { getRequestSyncMirrorForWorkspace, type RequestSyncMirror } from '../../context/mirrors/request-sync-mirror';
+import type { ResponseExampleSyncMirror } from '../../context/mirrors/response-example-sync-mirror';
 import {
   applySyncPayload,
   type BaseSyncWriteOptions,
@@ -30,6 +32,7 @@ import {
   resolveRendererContext,
   type SyncSimpleResult,
 } from './apply-payload';
+import { applyRequestExampleDeletes, requestExamples } from './tree-descendants';
 import { requestTreeMirrors, resolveChildPlacement, resolveLeafParent, unresolvableParent } from './tree-placement';
 
 export type RequestUpdates = Partial<Omit<Request, 'uid' | 'path' | 'pathSegment' | 'schemaVersion'>>;
@@ -44,6 +47,8 @@ export type RequestSimpleResult = SyncSimpleResult;
 export interface RequestWriteOptions extends BaseSyncWriteOptions {
   /** Override the singleton mirror for tests. */
   mirror?: RequestSyncMirror;
+  /** Override the response-example mirror the delete cascade reads (tests). */
+  exampleMirror?: ResponseExampleSyncMirror;
   /** Override the parent-resolving container mirrors for tests. */
   collectionMirror?: RequestCollectionSyncMirror;
   folderMirror?: RequestFolderSyncMirror;
@@ -130,7 +135,19 @@ export async function applyRequestDelete(requestUid: string, opts: RequestWriteO
   await mirror.hydrated;
   const entry = mirror.getRequestMirror(requestUid);
   if (!entry) return { ok: false, reason: 'not-found' };
+  // Cascade: the request's examples go first (`tree-descendants.ts`).
+  const request = { type: REQUEST_ENTITY_TYPE, uid: requestUid };
+  const examples = await requestExamples(
+    opts.workspaceId,
+    { requestMirror: mirror, responseExampleMirror: opts.exampleMirror },
+    request,
+  );
+  const handle = resolveRendererContext(opts);
+  const cascade = await applyRequestExampleDeletes(examples, handle, `request-delete-cascade-${requestUid}`);
+  if (!cascade.ok) return cascade;
+  // The parent's `items` slot tombstones with the entity; an
+  // unresolvable parent (already tombstoned) takes the bare tombstone.
   const parent = await resolveLeafParent(requestTreeMirrors(opts.workspaceId, opts), entry.request.path);
-  const ctx = resolveRendererContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
+  const ctx = handle.next(opts.batchId ? { batchId: opts.batchId } : undefined);
   return applySyncPayload(parent ? buildDeleteBatch(requestUid, parent, ctx) : buildDeleteEntityBatch(requestUid, ctx));
 }

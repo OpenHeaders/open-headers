@@ -64,14 +64,10 @@ import {
   FOLDER_TREE_KINDS,
   folderChild,
   GRPC_REQUEST_ENTITY_TYPE,
-  GRPC_REQUEST_EXAMPLES_PATH,
-  GRPC_RESPONSE_EXAMPLE_ENTITY_TYPE,
   grpcRequestChild,
   grpcResponseExampleChild,
   type MaterializedEntity,
   MQTT_REQUEST_ENTITY_TYPE,
-  MQTT_REQUEST_EXAMPLES_PATH,
-  MQTT_RESPONSE_EXAMPLE_ENTITY_TYPE,
   type MutationBody,
   type MutationEnvelope,
   mintBatch,
@@ -81,10 +77,8 @@ import {
   type ParentRefShape,
   type REQUEST_COLLECTION_ENTITY_TYPE,
   REQUEST_ENTITY_TYPE,
-  REQUEST_EXAMPLES_PATH,
   REQUEST_FOLDER_ITEMS_PATH,
   REQUEST_FOLDER_TREE_KINDS,
-  RESPONSE_EXAMPLE_ENTITY_TYPE,
   RULE_ENTITY_TYPE,
   requestChild,
   requestCollectionChild,
@@ -102,7 +96,6 @@ import {
   templateCollectionChild,
   templateFolderChild,
   WEBSOCKET_REQUEST_ENTITY_TYPE,
-  WEBSOCKET_REQUEST_EXAMPLES_PATH,
   WORKSPACE_ROOTS_ENTITY_TYPE,
   WORKSPACE_ROOTS_ID,
   WORKSPACE_ROOTS_REF,
@@ -110,7 +103,6 @@ import {
   WORKSPACE_ROOTS_RULE_COLLECTIONS_PATH,
   WORKSPACE_ROOTS_TEMPLATE_COLLECTIONS_PATH,
   type WorkspaceRootsRef,
-  WS_RESPONSE_EXAMPLE_ENTITY_TYPE,
   webSocketRequestChild,
   wsResponseExampleChild,
 } from '@openheaders/core/sync';
@@ -133,6 +125,8 @@ import type { EntityCacheLike } from './entity-registry';
 import type { EntityOracle } from './oracle';
 import {
   affectsExampleContainment,
+  EXAMPLE_CONTAINER_KINDS,
+  type ExampleContainerKind,
   exampleConflicts,
   hasExampleSlot,
   isExampleContainerType,
@@ -230,61 +224,34 @@ const TREES = [RULES, REQUESTS, TEMPLATES] as const;
  * example has no root besides its request), so when that request is
  * KNOWN tombstoned delete-wins extends to the example.
  */
-interface ExampleKind {
-  entityType: string;
-  parentType: string;
-  /** The example's stored parent-uid field (`requestUid` and siblings). */
-  parentUidField: string;
-  examplesPath: string;
+interface ExampleKind extends ExampleContainerKind {
   child: ChildMutators<ParentRefShape>;
   storageKey: (workspaceId: string) => StorageKey<ReadonlyArray<{ uid: string }>>;
 }
 
-const EXAMPLES: ReadonlyArray<ExampleKind> = [
-  {
-    entityType: RESPONSE_EXAMPLE_ENTITY_TYPE,
-    parentType: REQUEST_ENTITY_TYPE,
-    parentUidField: 'requestUid',
-    examplesPath: REQUEST_EXAMPLES_PATH,
-    child: responseExampleChild,
-    storageKey: (ws) => wsKeys(ws).responseExamples,
-  },
-  {
-    entityType: GRPC_RESPONSE_EXAMPLE_ENTITY_TYPE,
-    parentType: GRPC_REQUEST_ENTITY_TYPE,
-    parentUidField: 'grpcRequestUid',
-    examplesPath: GRPC_REQUEST_EXAMPLES_PATH,
-    child: grpcResponseExampleChild,
-    storageKey: (ws) => wsKeys(ws).grpcResponseExamples,
-  },
-  {
-    entityType: WS_RESPONSE_EXAMPLE_ENTITY_TYPE,
-    parentType: WEBSOCKET_REQUEST_ENTITY_TYPE,
-    parentUidField: 'websocketRequestUid',
-    examplesPath: WEBSOCKET_REQUEST_EXAMPLES_PATH,
-    child: wsResponseExampleChild,
-    storageKey: (ws) => wsKeys(ws).wsResponseExamples,
-  },
-  {
-    entityType: MQTT_RESPONSE_EXAMPLE_ENTITY_TYPE,
-    parentType: MQTT_REQUEST_ENTITY_TYPE,
-    parentUidField: 'mqttRequestUid',
-    examplesPath: MQTT_REQUEST_EXAMPLES_PATH,
-    child: mqttResponseExampleChild,
-    storageKey: (ws) => wsKeys(ws).mqttResponseExamples,
-  },
-];
+/** The oracle-side bindings per request kind; the vocabulary itself is the example index's. */
+const EXAMPLE_BINDINGS: Record<string, Pick<ExampleKind, 'child' | 'storageKey'>> = {
+  [REQUEST_ENTITY_TYPE]: { child: responseExampleChild, storageKey: (ws) => wsKeys(ws).responseExamples },
+  [GRPC_REQUEST_ENTITY_TYPE]: { child: grpcResponseExampleChild, storageKey: (ws) => wsKeys(ws).grpcResponseExamples },
+  [WEBSOCKET_REQUEST_ENTITY_TYPE]: { child: wsResponseExampleChild, storageKey: (ws) => wsKeys(ws).wsResponseExamples },
+  [MQTT_REQUEST_ENTITY_TYPE]: { child: mqttResponseExampleChild, storageKey: (ws) => wsKeys(ws).mqttResponseExamples },
+};
+
+const EXAMPLES: ReadonlyArray<ExampleKind> = EXAMPLE_CONTAINER_KINDS.map((kind) => ({
+  ...kind,
+  ...EXAMPLE_BINDINGS[kind.requestType],
+}));
 
 /** Entity types whose slot-less inbound create schedules a pass. */
 const SEEDED_TYPES: ReadonlySet<string> = new Set([
   ...TREES.flatMap((tree) => [tree.kinds.collectionType, ...tree.leaves.map((leaf) => leaf.entityType)]),
-  ...EXAMPLES.map((kind) => kind.entityType),
+  ...EXAMPLES.map((kind) => kind.exampleType),
 ]);
 
 /** Container types whose inbound delete can orphan children — tree containers and example-holding requests. */
 const CONTAINER_TYPES: ReadonlySet<string> = new Set([
   ...TREES.flatMap((tree) => [tree.kinds.collectionType, tree.kinds.folderType]),
-  ...EXAMPLES.map((kind) => kind.parentType),
+  ...EXAMPLES.map((kind) => kind.requestType),
 ]);
 
 const COLLECTION_TYPES: ReadonlySet<string> = new Set(TREES.map((tree) => tree.kinds.collectionType));
@@ -706,10 +673,10 @@ async function reconcileExamples(
   }
   for (const kind of EXAMPLES) {
     const order = pass.settled ? await readOrder(kind.storageKey(workspaceId)) : new Map();
-    const slotless = materialized.filter((m) => m.type === kind.entityType && !hasExampleSlot(oracle, m.id));
+    const slotless = materialized.filter((m) => m.type === kind.exampleType && !hasExampleSlot(oracle, m.id));
     for (const m of sortByOrder(slotless, order)) {
       const parentUid = storedString(m.data, kind.parentUidField);
-      const parent: ParentRefShape | null = parentUid === null ? null : { type: kind.parentType, uid: parentUid };
+      const parent: ParentRefShape | null = parentUid === null ? null : { type: kind.requestType, uid: parentUid };
       if (parent && liveRequests.has(`${parent.type}:${parent.uid}`)) {
         pass.bodies.push(kind.child.slotAdd(m.id, parent, pass.tail(parent, kind.examplesPath, m.id)));
         continue;

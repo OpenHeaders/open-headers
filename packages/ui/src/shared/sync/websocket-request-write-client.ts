@@ -9,6 +9,7 @@
  */
 
 import {
+  WEBSOCKET_REQUEST_ENTITY_TYPE,
   WEBSOCKET_REQUEST_EVENTS_PATH,
   WEBSOCKET_REQUEST_HEADERS_PATH,
   WEBSOCKET_REQUEST_PARAMS_PATH,
@@ -20,7 +21,6 @@ import {
   buildWebSocketDeleteEntityBatch,
   buildWebSocketUpdateBatch,
 } from '@openheaders/core/sync-builders/mutations/websocket-request-mutations';
-import { buildDeleteWsResponseExampleEntityBatch } from '@openheaders/core/sync-builders/mutations/ws-response-example-mutations';
 import type { WebSocketRequest } from '@openheaders/core/types';
 import { parentPathOf } from '@openheaders/core/utils';
 import type { RequestCollectionSyncMirror } from '../../context/mirrors/request-collection-sync-mirror';
@@ -29,10 +29,7 @@ import {
   getWebSocketRequestSyncMirrorForWorkspace,
   type WebSocketRequestSyncMirror,
 } from '../../context/mirrors/websocket-request-sync-mirror';
-import {
-  getWsResponseExampleSyncMirrorForWorkspace,
-  type WsResponseExampleSyncMirror,
-} from '../../context/mirrors/ws-response-example-sync-mirror';
+import type { WsResponseExampleSyncMirror } from '../../context/mirrors/ws-response-example-sync-mirror';
 import {
   applySyncPayload,
   type BaseSyncWriteOptions,
@@ -40,6 +37,7 @@ import {
   resolveRendererContext,
   type SyncSimpleResult,
 } from './apply-payload';
+import { applyRequestExampleDeletes, requestExamples } from './tree-descendants';
 import { requestTreeMirrors, resolveChildPlacement, resolveLeafParent, unresolvableParent } from './tree-placement';
 
 export type WebSocketRequestUpdates = Partial<Omit<WebSocketRequest, 'uid' | 'path' | 'pathSegment' | 'schemaVersion'>>;
@@ -146,15 +144,15 @@ export async function applyWebSocketRequestDelete(
   await mirror.hydrated;
   const entry = mirror.getWebSocketRequestMirror(webSocketRequestUid);
   if (!entry) return { ok: false, reason: 'not-found' };
-  // Cascade: a deleted WebSocket request must not leave orphan response
-  // examples behind (the gRPC request family's invariant, applied at
-  // this family's renderer-direct write site).
-  const exampleMirror = opts.exampleMirror ?? getWsResponseExampleSyncMirrorForWorkspace(opts.workspaceId);
-  await exampleMirror.hydrated;
+  // Cascade: the request's examples go first (`tree-descendants.ts`).
+  const examples = await requestExamples(
+    opts.workspaceId,
+    { websocketMirror: mirror, wsExampleMirror: opts.exampleMirror },
+    { type: WEBSOCKET_REQUEST_ENTITY_TYPE, uid: webSocketRequestUid },
+  );
   const handle = resolveRendererContext(opts);
-  for (const example of exampleMirror.listWsResponseExamplesForRequest(webSocketRequestUid)) {
-    await applySyncPayload(buildDeleteWsResponseExampleEntityBatch(example.uid, handle.next()));
-  }
+  const cascade = await applyRequestExampleDeletes(examples, handle, `request-delete-cascade-${webSocketRequestUid}`);
+  if (!cascade.ok) return cascade;
   // The parent's `items` slot tombstones with the entity; an
   // unresolvable parent (already tombstoned) takes the bare tombstone.
   const parent = await resolveLeafParent(requestTreeMirrors(opts.workspaceId, opts), entry.websocketRequest.path);

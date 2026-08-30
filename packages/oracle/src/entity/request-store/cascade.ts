@@ -5,11 +5,9 @@
 // `treeDescendants` walks the container's `folders` and `items` slots
 // (every request kind — the slot marker names the catalog) and
 // counts a slot-less leaf under the container its stored path names.
-// Leaves go first, folders deepest-first, the container last, each as
-// a bare entity tombstone (the container's own tombstone covers the
-// slots). HTTP examples cascade here as on every request-delete path;
-// the other kinds' examples follow their request through the
-// reconciler's delete-wins rule.
+// A leaf's examples go first, then the leaf, then folders
+// deepest-first, the container last, each as a bare entity tombstone
+// (the container's own tombstone covers the slots).
 
 import {
   GRPC_REQUEST_ENTITY_TYPE,
@@ -29,9 +27,9 @@ import { buildWebSocketDeleteEntityBatch } from '@openheaders/core/sync-builders
 import { logger } from '@openheaders/core/utils';
 import { REQUEST_TREE } from '@openheaders/oracle/sync/post-state/request-folder-post-state';
 import { getOracleForCurrentWorkspace } from '@openheaders/oracle/sync/service/accessors';
-import { treeDescendants } from '@openheaders/oracle/sync/tree-child-slots';
+import { treeDescendants } from '@openheaders/oracle/sync/tree-descendants';
 import { applyRequestFolderMutationOrThrow, applyRequestMutationOrThrow } from './apply';
-import { deleteResponseExamplesForRequests } from './response-examples';
+import { deleteExamples } from './response-examples';
 
 type LeafTombstone = (uid: string, ctx: MutatorContext) => { batch: MutationBatch; sideEffects: SideEffectIntent[] };
 
@@ -42,15 +40,13 @@ const LEAF_TOMBSTONES: Record<string, LeafTombstone> = {
   [MQTT_REQUEST_ENTITY_TYPE]: buildMqttDeleteEntityBatch,
 };
 
-/** Tombstone every leaf and folder under `parent` on the request tree, leaves first, folders deepest-first. */
+/** Tombstone everything under `parent` on the request tree: each leaf's examples, the leaf, then folders deepest-first. */
 export async function deleteRequestTreeDescendants(parent: ParentRefShape, op: string): Promise<void> {
   const oracle = getOracleForCurrentWorkspace();
   if (!oracle) throw new Error(`RequestStore.${op}: sync service not initialized`);
   const { folders, leaves } = treeDescendants(oracle, REQUEST_TREE, parent);
-  await deleteResponseExamplesForRequests(
-    leaves.filter((leaf) => leaf.type === REQUEST_ENTITY_TYPE).map((leaf) => leaf.uid),
-  );
   for (const leaf of leaves) {
+    await deleteExamples(leaf.examples, op);
     const tombstone = LEAF_TOMBSTONES[leaf.type];
     if (!tombstone) {
       logger.info('RequestStore', `${op}: ${leaf.type} ${leaf.uid} has no request catalog — left in place`);

@@ -26,7 +26,7 @@ import {
 import { childPlacement } from '../tree-placement';
 import { applyRequestMutationOrThrow } from './apply';
 import { resolveRequestFolderParent } from './folders';
-import { deleteResponseExamplesForRequests } from './response-examples';
+import { deleteExamplesOf } from './response-examples';
 import { assertLoaded, collections, loadedWorkspaceId, requests } from './state';
 
 /**
@@ -252,7 +252,7 @@ export async function deleteRequest(uid: string): Promise<boolean> {
   if (!request) return false;
   const parentPath = parentPathOf(request.path);
   const parent = parentPath === null ? null : resolveRequestFolderParent(parentPath);
-  await deleteResponseExamplesForRequests([uid]);
+  await deleteExamplesOf({ type: REQUEST_ENTITY_TYPE, uid }, 'deleteRequest');
   await applyRequestMutationOrThrow(
     (ctx) => (parent ? buildDeleteBatch(uid, parent, ctx) : buildDeleteEntityBatch(uid, ctx)),
     'deleteRequest',

@@ -56,6 +56,7 @@ import {
 import {
   lastBodiesSeen,
   makeRequestCollectionMirror,
+  makeRequestExampleMirrors,
   makeRequestFolderMirror,
   makeRequestLeafMirrors,
   type Slots,
@@ -253,6 +254,7 @@ describe('applyRequestFolderDelete', () => {
           grpc: { grq00001: `${root}/sub-fo-1/call-grq00001` },
           mqtt: { mqr00001: `${root}/sub-fo-1/deep-fo-2/topic-mqr00001` },
         }),
+        ...makeRequestExampleMirrors({}),
         context: makeContextHandle(),
       },
     );

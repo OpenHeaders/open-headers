@@ -37,7 +37,13 @@ vi.mock('@utils/logger', () => ({
   logger: { info: vi.fn(), debug: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }));
 
-import { REQUEST_COLLECTION_ENTITY_TYPE, REQUEST_ENTITY_TYPE, REQUEST_FOLDER_ITEMS_PATH } from '@openheaders/core/sync';
+import {
+  REQUEST_COLLECTION_ENTITY_TYPE,
+  REQUEST_ENTITY_TYPE,
+  REQUEST_EXAMPLES_PATH,
+  REQUEST_FOLDER_ITEMS_PATH,
+  RESPONSE_EXAMPLE_ENTITY_TYPE,
+} from '@openheaders/core/sync';
 import type {
   RendererContextHandle,
   RequestCollectionSyncMirror,
@@ -49,6 +55,7 @@ import {
   applyRequestDelete,
   applyRequestUpdate,
 } from '@openheaders/ui/shared/sync/request-write-client';
+import { makeRequestExampleMirrors } from '../../helpers/request-tree-mirrors';
 
 type LiveOrdered = Array<{ itemId: string; orderKey: string }>;
 
@@ -394,6 +401,30 @@ describe('applyRequestDelete', () => {
     expect(mockCall).not.toHaveBeenCalled();
   });
 
+  it('tombstones the examples the request owns — slotted, or slot-less by its parent field — before the request', async () => {
+    mockCall.mockResolvedValue({ ok: true, outcomes: [] });
+    const mirror = makeMirror(baseRequest([]), { [REQUEST_EXAMPLES_PATH]: [{ itemId: 'rex00001', orderKey: 'm' }] });
+    const result = await applyRequestDelete('rq-1', {
+      workspaceId: 'ws-1',
+      surfaceId: 'workbench',
+      mirror,
+      exampleMirror: makeRequestExampleMirrors({
+        http: { rex00001: 'rq-1', rex00002: 'rq-1', rex0other: 'rq-other' },
+      }).responseExampleMirror,
+      context: makeContextHandle(),
+      ...makeTreeMirrors(),
+    });
+    expect(result).toEqual({ ok: true });
+    const bodies = mockCall.mock.calls.map((c) =>
+      (c[1] as { batch: MutationBatch }).batch.mutations.map((m) => m.body),
+    );
+    expect(bodies.slice(0, 2)).toEqual([
+      [{ kind: 'delete', type: RESPONSE_EXAMPLE_ENTITY_TYPE, id: 'rex00001' }],
+      [{ kind: 'delete', type: RESPONSE_EXAMPLE_ENTITY_TYPE, id: 'rex00002' }],
+    ]);
+    expect(bodies[2][bodies[2].length - 1]).toMatchObject({ kind: 'delete', type: REQUEST_ENTITY_TYPE, id: 'rq-1' });
+  });
+
   it('emits the parent items slot tombstone + the delete envelope in one batch', async () => {
     mockCall.mockResolvedValue({ ok: true, outcomes: [] });
     const mirror = makeMirror(baseRequest([]), {});
@@ -401,6 +432,7 @@ describe('applyRequestDelete', () => {
       workspaceId: 'ws-1',
       surfaceId: 'workbench',
       mirror,
+      exampleMirror: makeRequestExampleMirrors({}).responseExampleMirror,
       context: makeContextHandle(),
       ...makeTreeMirrors(),
     });

@@ -43,8 +43,7 @@ import {
 } from './apply-payload';
 import {
   applyRequestTreeDescendantDeletes,
-  type RequestLeafMirrorOverrides,
-  requestLeafMirrors,
+  type RequestTreeMirrorOverrides,
   requestTreeDescendants,
 } from './tree-descendants';
 import { appendChildKey, requestTreeMirrors } from './tree-placement';
@@ -53,7 +52,7 @@ export { createRequestFolderSyncMirror } from '../../context/mirrors/request-fol
 
 export type RequestFolderSimpleResult = SyncSimpleResult;
 
-export interface RequestFolderWriteOptions extends BaseSyncWriteOptions, RequestLeafMirrorOverrides {
+export interface RequestFolderWriteOptions extends BaseSyncWriteOptions, RequestTreeMirrorOverrides {
   mirror?: RequestFolderSyncMirror;
   /** The tree's collection mirror — read for a create's append key and walked by a delete's cascade (test override). */
   collectionMirror?: RequestCollectionSyncMirror;
@@ -171,7 +170,7 @@ export async function applyRequestFolderDelete(
   if (!folderMirror.getRequestFolderMirror(input.folderUid)) return { ok: false, reason: 'not-found' };
 
   const tree = requestTreeMirrors(opts.workspaceId, { collectionMirror: opts.collectionMirror, folderMirror });
-  const descendants = await requestTreeDescendants(tree, requestLeafMirrors(opts.workspaceId, opts), {
+  const descendants = await requestTreeDescendants(tree, opts.workspaceId, opts, {
     type: REQUEST_FOLDER_ENTITY_TYPE,
     uid: input.folderUid,
   });

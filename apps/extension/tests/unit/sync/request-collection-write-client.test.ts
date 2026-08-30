@@ -28,10 +28,12 @@ import {
   REQUEST_FOLDER_CHILDREN_PATH,
   REQUEST_FOLDER_ENTITY_TYPE,
   REQUEST_FOLDER_ITEMS_PATH,
+  RESPONSE_EXAMPLE_ENTITY_TYPE,
   WEBSOCKET_REQUEST_ENTITY_TYPE,
   WORKSPACE_ROOTS_ENTITY_TYPE,
   WORKSPACE_ROOTS_ID,
   WORKSPACE_ROOTS_REQUEST_COLLECTIONS_PATH,
+  WS_RESPONSE_EXAMPLE_ENTITY_TYPE,
 } from '@openheaders/core/sync';
 import type { Variable } from '@openheaders/core/types';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -67,6 +69,7 @@ import {
 import {
   lastBodiesSeen,
   makeRequestCollectionMirror,
+  makeRequestExampleMirrors,
   makeRequestFolderMirror,
   makeRequestLeafMirrors,
 } from '../../helpers/request-tree-mirrors';
@@ -271,7 +274,7 @@ describe('applyRequestCollectionDelete', () => {
     expect(mockCall).not.toHaveBeenCalled();
   });
 
-  it('cascades every request kind and the folders under the collection, deepest-first, before the collection', async () => {
+  it('cascades every request kind with its examples and the folders under the collection, deepest-first, before the collection', async () => {
     mockCall.mockResolvedValue({ ok: true, outcomes: [] });
     const root = 'requests/api-rc-1';
     const mirror = makeRequestCollectionMirror([{ uid: 'rc-1', path: root, name: 'API' }], {
@@ -294,11 +297,21 @@ describe('applyRequestCollectionDelete', () => {
         surfaceId: 'workbench',
         mirror,
         folderMirror,
-        ...makeRequestLeafMirrors({
-          http: { req00001: `${root}/get-req00001` },
-          grpc: { grq00001: `${root}/call-grq00001` },
-          ws: { wsr00001: `${root}/sub-fo-1/socket-wsr00001` },
-          mqtt: { mqr00001: `${root}/sub-fo-1/deep-fo-2/topic-mqr00001` },
+        ...makeRequestLeafMirrors(
+          {
+            http: { req00001: `${root}/get-req00001` },
+            grpc: { grq00001: `${root}/call-grq00001` },
+            ws: { wsr00001: `${root}/sub-fo-1/socket-wsr00001` },
+            mqtt: { mqr00001: `${root}/sub-fo-1/deep-fo-2/topic-mqr00001` },
+          },
+          // req00001's example is slotted; wsr00001's is an old-client capture with no slot.
+          { req00001: ['rex00001'] },
+        ),
+        ...makeRequestExampleMirrors({
+          http: { rex00001: 'req00001' },
+          ws: { wex00001: 'wsr00001' },
+          // Owned by a request outside the collection — untouched.
+          grpc: { gex0other: 'grqother' },
         }),
         context: makeContextHandle(),
       },
@@ -306,7 +319,9 @@ describe('applyRequestCollectionDelete', () => {
     expect(result).toEqual({ ok: true });
     expect(lastBodiesSeen(mockCall)).toEqual([
       { kind: 'delete', type: MQTT_REQUEST_ENTITY_TYPE, id: 'mqr00001' },
+      { kind: 'delete', type: WS_RESPONSE_EXAMPLE_ENTITY_TYPE, id: 'wex00001' },
       { kind: 'delete', type: WEBSOCKET_REQUEST_ENTITY_TYPE, id: 'wsr00001' },
+      { kind: 'delete', type: RESPONSE_EXAMPLE_ENTITY_TYPE, id: 'rex00001' },
       { kind: 'delete', type: REQUEST_ENTITY_TYPE, id: 'req00001' },
       { kind: 'delete', type: GRPC_REQUEST_ENTITY_TYPE, id: 'grq00001' },
       { kind: 'delete', type: REQUEST_FOLDER_ENTITY_TYPE, id: 'fo-2' },
@@ -344,6 +359,8 @@ describe('applyRequestCollectionDelete', () => {
           // An old-client create under rc-1 with no slot anywhere yet.
           mqtt: { mqr0slotless: `${root}/topic-mqr0slotless` },
         }),
+        ...makeRequestExampleMirrors({}),
+        ...makeRequestExampleMirrors({}),
         context: makeContextHandle(),
       },
     );

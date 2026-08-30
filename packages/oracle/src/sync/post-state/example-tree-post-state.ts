@@ -27,15 +27,20 @@ import {
   compareHlc,
   GRPC_REQUEST_ENTITY_TYPE,
   GRPC_REQUEST_EXAMPLES_PATH,
+  GRPC_RESPONSE_EXAMPLE_ENTITY_TYPE,
   type HLC,
   type MaterializedEntity,
   MQTT_REQUEST_ENTITY_TYPE,
   MQTT_REQUEST_EXAMPLES_PATH,
+  MQTT_RESPONSE_EXAMPLE_ENTITY_TYPE,
   type MutationBody,
+  type ParentRefShape,
   REQUEST_ENTITY_TYPE,
   REQUEST_EXAMPLES_PATH,
+  RESPONSE_EXAMPLE_ENTITY_TYPE,
   WEBSOCKET_REQUEST_ENTITY_TYPE,
   WEBSOCKET_REQUEST_EXAMPLES_PATH,
+  WS_RESPONSE_EXAMPLE_ENTITY_TYPE,
 } from '@openheaders/core/sync';
 import { projectGrpcRequest } from '@openheaders/core/sync-builders/projections/grpc-request-projection';
 import type { ExampleParent } from '@openheaders/core/sync-builders/projections/leaf-path';
@@ -51,9 +56,17 @@ type Reads = Pick<
   'materializeOne' | 'materializeAll' | 'liveSetItems' | 'liveOrderedSetItems' | 'revision'
 >;
 
-/** One request kind as an example container: its type, its `examples` path, its path projector. */
+/**
+ * One request kind as an example container: the request type, the
+ * example type it holds, the example's stored parent-uid field (the
+ * permanent seeding net), the `examples` path, the request's path
+ * projector. The one vocabulary every example consumer reads — the
+ * reconciler's seeding, the cascades, the readers.
+ */
 export interface ExampleContainerKind {
   requestType: string;
+  exampleType: string;
+  parentUidField: string;
   examplesPath: string;
   projectPath: (materialized: MaterializedEntity, parentPath: string | null) => string | null;
 }
@@ -61,21 +74,29 @@ export interface ExampleContainerKind {
 export const EXAMPLE_CONTAINER_KINDS: ReadonlyArray<ExampleContainerKind> = [
   {
     requestType: REQUEST_ENTITY_TYPE,
+    exampleType: RESPONSE_EXAMPLE_ENTITY_TYPE,
+    parentUidField: 'requestUid',
     examplesPath: REQUEST_EXAMPLES_PATH,
     projectPath: (m, parentPath) => projectRequest(m, parentPath)?.path ?? null,
   },
   {
     requestType: GRPC_REQUEST_ENTITY_TYPE,
+    exampleType: GRPC_RESPONSE_EXAMPLE_ENTITY_TYPE,
+    parentUidField: 'grpcRequestUid',
     examplesPath: GRPC_REQUEST_EXAMPLES_PATH,
     projectPath: (m, parentPath) => projectGrpcRequest(m, parentPath)?.path ?? null,
   },
   {
     requestType: WEBSOCKET_REQUEST_ENTITY_TYPE,
+    exampleType: WS_RESPONSE_EXAMPLE_ENTITY_TYPE,
+    parentUidField: 'websocketRequestUid',
     examplesPath: WEBSOCKET_REQUEST_EXAMPLES_PATH,
     projectPath: (m, parentPath) => projectWebSocketRequest(m, parentPath)?.path ?? null,
   },
   {
     requestType: MQTT_REQUEST_ENTITY_TYPE,
+    exampleType: MQTT_RESPONSE_EXAMPLE_ENTITY_TYPE,
+    parentUidField: 'mqttRequestUid',
     examplesPath: MQTT_REQUEST_EXAMPLES_PATH,
     projectPath: (m, parentPath) => projectMqttRequest(m, parentPath)?.path ?? null,
   },
@@ -84,6 +105,17 @@ export const EXAMPLE_CONTAINER_KINDS: ReadonlyArray<ExampleContainerKind> = [
 const KIND_BY_TYPE: ReadonlyMap<string, ExampleContainerKind> = new Map(
   EXAMPLE_CONTAINER_KINDS.map((kind) => [kind.requestType, kind]),
 );
+
+/** The example-container vocabulary of a request type; `undefined` for a type that holds no examples. */
+export function exampleContainerKind(requestType: string): ExampleContainerKind | undefined {
+  return KIND_BY_TYPE.get(requestType);
+}
+
+/** The request whose live slot the index resolved for an example — the winner of two live slots; `null` when slot-less. */
+export function resolveExampleSlotParent(oracle: Reads, exampleUid: string): ParentRefShape | null {
+  const slot = exampleIndex(oracle).parentOf.get(exampleUid);
+  return slot ? { type: slot.parent.type, uid: slot.parent.uid } : null;
+}
 
 /**
  * The live request an example projects from — its projected path and

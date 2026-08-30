@@ -8,24 +8,20 @@
  * helper is what it reaches for once the user commits.
  */
 
-import { GRPC_REQUEST_METADATA_PATH } from '@openheaders/core/sync';
+import { GRPC_REQUEST_ENTITY_TYPE, GRPC_REQUEST_METADATA_PATH } from '@openheaders/core/sync';
 import {
   buildGrpcAddBatch,
   buildGrpcDeleteBatch,
   buildGrpcDeleteEntityBatch,
   buildGrpcUpdateBatch,
 } from '@openheaders/core/sync-builders/mutations/grpc-request-mutations';
-import { buildDeleteGrpcResponseExampleEntityBatch } from '@openheaders/core/sync-builders/mutations/grpc-response-example-mutations';
 import type { GrpcRequest } from '@openheaders/core/types';
 import { parentPathOf } from '@openheaders/core/utils';
 import {
   type GrpcRequestSyncMirror,
   getGrpcRequestSyncMirrorForWorkspace,
 } from '../../context/mirrors/grpc-request-sync-mirror';
-import {
-  type GrpcResponseExampleSyncMirror,
-  getGrpcResponseExampleSyncMirrorForWorkspace,
-} from '../../context/mirrors/grpc-response-example-sync-mirror';
+import type { GrpcResponseExampleSyncMirror } from '../../context/mirrors/grpc-response-example-sync-mirror';
 import type { RequestCollectionSyncMirror } from '../../context/mirrors/request-collection-sync-mirror';
 import type { RequestFolderSyncMirror } from '../../context/mirrors/request-folder-sync-mirror';
 import {
@@ -35,6 +31,7 @@ import {
   resolveRendererContext,
   type SyncSimpleResult,
 } from './apply-payload';
+import { applyRequestExampleDeletes, requestExamples } from './tree-descendants';
 import { requestTreeMirrors, resolveChildPlacement, resolveLeafParent, unresolvableParent } from './tree-placement';
 
 export type GrpcRequestUpdates = Partial<Omit<GrpcRequest, 'uid' | 'path' | 'pathSegment' | 'schemaVersion'>>;
@@ -132,15 +129,15 @@ export async function applyGrpcRequestDelete(
   await mirror.hydrated;
   const entry = mirror.getGrpcRequestMirror(grpcRequestUid);
   if (!entry) return { ok: false, reason: 'not-found' };
-  // Cascade: a deleted gRPC request must not leave orphan response
-  // examples behind (the HTTP request-store's invariant, applied at
-  // this family's renderer-direct write site).
-  const exampleMirror = opts.exampleMirror ?? getGrpcResponseExampleSyncMirrorForWorkspace(opts.workspaceId);
-  await exampleMirror.hydrated;
+  // Cascade: the request's examples go first (`tree-descendants.ts`).
+  const examples = await requestExamples(
+    opts.workspaceId,
+    { grpcMirror: mirror, grpcExampleMirror: opts.exampleMirror },
+    { type: GRPC_REQUEST_ENTITY_TYPE, uid: grpcRequestUid },
+  );
   const handle = resolveRendererContext(opts);
-  for (const example of exampleMirror.listGrpcResponseExamplesForRequest(grpcRequestUid)) {
-    await applySyncPayload(buildDeleteGrpcResponseExampleEntityBatch(example.uid, handle.next()));
-  }
+  const cascade = await applyRequestExampleDeletes(examples, handle, `request-delete-cascade-${grpcRequestUid}`);
+  if (!cascade.ok) return cascade;
   // The parent's `items` slot tombstones with the entity; an
   // unresolvable parent (already tombstoned) takes the bare tombstone.
   const parent = await resolveLeafParent(requestTreeMirrors(opts.workspaceId, opts), entry.grpcRequest.path);
