@@ -150,6 +150,7 @@ export const workbenchEditorsGrpc = {
   'workbench.editors.grpc.tab.auth': 'Authorization',
   'workbench.editors.grpc.auth.help':
     'Sent as authorization: Bearer <token> metadata on the call. An explicit authorization metadata row takes precedence.',
+  'workbench.editors.grpc.auth.inheritUnsupported': '{type} — from {source} — cannot be applied to a gRPC call.',
   'workbench.editors.grpc.invoke.connectCompanion':
     'Connect the desktop app to invoke — composing and saving works here.',
   // ── gRPC streaming pane + message timeline ──────────────────────────

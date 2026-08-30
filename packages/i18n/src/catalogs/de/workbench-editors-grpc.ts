@@ -196,6 +196,8 @@ export const workbenchEditorsGrpc = {
     'antworten lassen — meist INVALID_ARGUMENT. Standardmäßig aus: der Aufruf scheitert vor dem Netz mit ' +
     'dem genauen Parse-Fehler. Gilt für jede gRPC-Anfrage.',
   'workbench.editors.grpc.tab.auth': 'Autorisierung',
+  'workbench.editors.grpc.auth.inheritUnsupported':
+    '{type} — von {source} — kann nicht auf einen gRPC-Aufruf angewendet werden.',
   'workbench.editors.grpc.auth.help':
     'Wird als Metadata authorization: Bearer <token> am Aufruf gesendet. Eine explizite ' +
     'authorization-Metadata-Zeile hat Vorrang.',

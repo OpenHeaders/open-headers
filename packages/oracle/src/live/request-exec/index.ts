@@ -13,7 +13,10 @@ export {
   collectAncestorCarriers,
   collectionUidForRequest,
   type ResolvedRequestAuth,
+  type ResolvedSessionAuth,
   resolveRequestAuth,
+  resolveSessionAuth,
+  type SessionAuthLeaf,
 } from './ancestor-chain';
 export { buildChainFetchAdapter, type ChainFetchAdapterOptions } from './chain-adapter';
 export { errorSnapshot, executeOverTransport } from './execute';

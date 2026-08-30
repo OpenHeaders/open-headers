@@ -191,3 +191,190 @@ describe('executeWsSession — session credential', () => {
     await settled;
   });
 });
+
+describe('executeWsSession — inherited session credential', () => {
+  const BEARER_CHAIN = [
+    {
+      level: 'collection' as const,
+      uid: 'rcol0001',
+      name: 'Payments',
+      auths: [{ uid: 'admin001', name: 'Admin token', config: { type: 'bearer' as const, token: '{{token}}' } }],
+      defaultAuthUid: 'admin001',
+    },
+  ];
+
+  it('resolves Inherit over the injected chain, injects the header and stamps the attribution', async () => {
+    const rig = scriptedTransport();
+    const settled = executeWsSession(makeWsRequest({ auth: { type: 'inherit' } }), {
+      workspaceId: null,
+      environmentId: undefined,
+      transport: rig.transport,
+      sendId: 'send-auth-6',
+      resolution: scopedResolution,
+      authChain: BEARER_CHAIN,
+    });
+    await settleTick();
+    expect(rig.wire().headers).toEqual([{ key: 'Authorization', value: 'Bearer tok-123' }]);
+    rig.callbacks().onEnd();
+    const snapshot = await settled;
+    expect(snapshot.auth).toEqual({
+      type: 'bearer',
+      source: {
+        level: 'collection',
+        uid: 'rcol0001',
+        name: 'Payments',
+        entryUid: 'admin001',
+        entryName: 'Admin token',
+      },
+    });
+  });
+
+  it('composes an inherited Basic pair as the UTF-8 RFC 7617 header; a same-key user row still wins', async () => {
+    const chain = [
+      {
+        level: 'collection' as const,
+        uid: 'rcol0001',
+        name: 'Payments',
+        auths: [
+          { uid: 'basic001', name: 'Service', config: { type: 'basic' as const, username: 'pä', password: 'ss' } },
+        ],
+        defaultAuthUid: 'basic001',
+      },
+    ];
+    const rig = scriptedTransport();
+    const settled = executeWsSession(makeWsRequest({ auth: { type: 'inherit' } }), {
+      workspaceId: null,
+      environmentId: undefined,
+      transport: rig.transport,
+      sendId: 'send-auth-7a',
+      resolution: scopedResolution,
+      authChain: chain,
+    });
+    await settleTick();
+    expect(rig.wire().headers).toEqual([{ key: 'Authorization', value: 'Basic cMOkOnNz' }]);
+    rig.callbacks().onEnd();
+    await settled;
+
+    const rowRig = scriptedTransport();
+    const rowSettled = executeWsSession(
+      makeWsRequest({
+        auth: { type: 'inherit' },
+        headers: [{ uid: 'h1', key: 'Authorization', value: 'Basic abc' }],
+      }),
+      {
+        workspaceId: null,
+        environmentId: undefined,
+        transport: rowRig.transport,
+        sendId: 'send-auth-7b',
+        resolution: scopedResolution,
+        authChain: chain,
+      },
+    );
+    await settleTick();
+    expect(rowRig.wire().headers).toEqual([{ key: 'Authorization', value: 'Basic abc' }]);
+    rowRig.callbacks().onEnd();
+    await rowSettled;
+  });
+
+  it('an inherited api-key rides its own header; a query-placed key refuses by name', async () => {
+    const rig = scriptedTransport();
+    const settled = executeWsSession(makeWsRequest({ auth: { type: 'inherit' } }), {
+      workspaceId: null,
+      environmentId: undefined,
+      transport: rig.transport,
+      sendId: 'send-auth-8a',
+      resolution: scopedResolution,
+      authChain: [
+        {
+          level: 'collection' as const,
+          uid: 'rcol0001',
+          name: 'Payments',
+          auths: [
+            {
+              uid: 'key00001',
+              name: 'Partner',
+              config: { type: 'api-key' as const, key: 'X-Api-Key', value: '{{token}}', in: 'header' as const },
+            },
+          ],
+          defaultAuthUid: 'key00001',
+        },
+      ],
+    });
+    await settleTick();
+    expect(rig.wire().headers).toEqual([{ key: 'X-Api-Key', value: 'tok-123' }]);
+    rig.callbacks().onEnd();
+    await settled;
+
+    const queryRig = scriptedTransport();
+    const snapshot = await executeWsSession(makeWsRequest({ auth: { type: 'inherit' } }), {
+      workspaceId: null,
+      environmentId: undefined,
+      transport: queryRig.transport,
+      sendId: 'send-auth-8b',
+      resolution: scopedResolution,
+      authChain: [
+        {
+          level: 'collection' as const,
+          uid: 'rcol0001',
+          name: 'Payments',
+          auths: [
+            {
+              uid: 'key00001',
+              name: 'Partner',
+              config: { type: 'api-key' as const, key: 'X-Api-Key', value: 'v', in: 'query' as const },
+            },
+          ],
+          defaultAuthUid: 'key00001',
+        },
+      ],
+    });
+    if (snapshot.outcome.kind !== 'failed') throw new Error('expected a failed outcome');
+    expect(snapshot.outcome.error).toBe(
+      "Inherited API Key in query from Collection 'Payments' › Partner cannot be applied to a WebSocket session.",
+    );
+    expect(() => queryRig.wire()).toThrow();
+    expect(snapshot.auth?.type).toBe('api-key');
+  });
+
+  it('an inherited OAuth 2.0 fails the Connect by name — never a silent none', async () => {
+    const rig = scriptedTransport();
+    const snapshot = await executeWsSession(makeWsRequest({ auth: { type: 'inherit' } }), {
+      workspaceId: null,
+      environmentId: undefined,
+      transport: rig.transport,
+      sendId: 'send-auth-9',
+      resolution: scopedResolution,
+      authChain: [
+        {
+          level: 'folder' as const,
+          uid: 'rfold001',
+          name: 'Tokens',
+          auths: [
+            {
+              uid: 'oauth001',
+              name: 'Corp SSO',
+              config: {
+                type: 'oauth2' as const,
+                credentialRef: 'oauth2-cred-abc12345',
+                flow: 'authorization-code-pkce' as const,
+                tokenEndpoint: '',
+                clientId: '',
+                scopes: [],
+              },
+            },
+          ],
+          defaultAuthUid: 'oauth001',
+        },
+      ],
+    });
+    if (snapshot.outcome.kind !== 'failed') throw new Error('expected a failed outcome');
+    expect(snapshot.outcome.error).toBe(
+      "Inherited OAuth 2.0 from Folder 'Tokens' › Corp SSO cannot be applied to a WebSocket session.",
+    );
+    expect(() => rig.wire()).toThrow();
+    expect(snapshot.auth).toEqual({
+      type: 'oauth2',
+      source: { level: 'folder', uid: 'rfold001', name: 'Tokens', entryUid: 'oauth001', entryName: 'Corp SSO' },
+    });
+  });
+});

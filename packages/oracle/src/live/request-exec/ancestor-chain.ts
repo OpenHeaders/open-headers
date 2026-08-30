@@ -13,8 +13,20 @@
  * and so does a request whose workspace has no oracle on this host.
  */
 
-import { type AuthCarrier, effectiveAuthFor, hostOf } from '@openheaders/core/auth-inheritance';
-import type { AuthConfig, AuthPoolEntry, ExecutedAuthAttribution, Request } from '@openheaders/core/types';
+import {
+  type AuthCarrier,
+  type AuthProtocolKind,
+  assertAuthAllowed,
+  effectiveAuthFor,
+  hostOf,
+} from '@openheaders/core/auth-inheritance';
+import type {
+  AuthConfig,
+  AuthPoolEntry,
+  ConcreteAuthConfig,
+  ExecutedAuthAttribution,
+  Request,
+} from '@openheaders/core/types';
 import {
   getRequestCollections,
   getRequestCollectionsForWorkspace,
@@ -45,13 +57,18 @@ export interface AncestorCarrier {
 }
 
 /**
- * Collect the request's ancestor carriers outer→inner: the owning
- * collection first, then each folder down to the request's parent.
+ * Collect the leaf's ancestor carriers outer→inner: the owning
+ * collection first, then each folder down to the leaf's parent. Every
+ * request kind — HTTP, WebSocket, gRPC, MQTT — slots under the one
+ * request tree, so any leaf's `{ uid, path }` walks the same index.
  */
-export function collectAncestorCarriers(request: Request, workspaceId: string | null): AncestorCarrier[] {
+export function collectAncestorCarriers(
+  leaf: { uid: string; path: string },
+  workspaceId: string | null,
+): AncestorCarrier[] {
   const oracle = workspaceId ? getOracleForWorkspace(workspaceId) : getOracleForCurrentWorkspace();
   if (oracle === null) return [];
-  const chain = ancestorChain(oracle, REQUEST_TREE, request);
+  const chain = ancestorChain(oracle, REQUEST_TREE, leaf);
   if (chain.length === 0) return [];
   const collections = workspaceId ? getRequestCollectionsForWorkspace(workspaceId) : getRequestCollections();
   const folders = workspaceId ? getRequestFoldersForWorkspace(workspaceId) : getRequestFolders();
@@ -70,9 +87,12 @@ export function collectAncestorCarriers(request: Request, workspaceId: string | 
   return carriers;
 }
 
-/** The uid of the collection a request lives in, off its chain; `undefined` for a scratch draft. */
-export function collectionUidForRequest(request: Request, workspaceId: string | null): string | undefined {
-  return collectAncestorCarriers(request, workspaceId).find((c) => c.level === 'collection')?.entity.uid;
+/** The uid of the collection a leaf lives in, off its chain; `undefined` for a scratch draft. */
+export function collectionUidForRequest(
+  leaf: { uid: string; path: string },
+  workspaceId: string | null,
+): string | undefined {
+  return collectAncestorCarriers(leaf, workspaceId).find((c) => c.level === 'collection')?.entity.uid;
 }
 
 function toAuthCarrier(carrier: AncestorCarrier): AuthCarrier {
@@ -114,5 +134,57 @@ export function resolveRequestAuth(request: Request, workspaceId: string | null)
       source: effective.source,
       ...(effective.danglingAuthUid !== undefined ? { danglingAuthUid: effective.danglingAuthUid } : {}),
     },
+  };
+}
+
+/** A session-kind leaf as the auth resolution sees it. */
+export interface SessionAuthLeaf {
+  uid: string;
+  path: string;
+  /** The dial target, templates resolved — the host `appliesTo`-scoped
+   *  pool entries match against. */
+  url: string;
+  auth?: AuthConfig;
+}
+
+export interface ResolvedSessionAuth {
+  /** The concrete config the session applies — `none` when nothing
+   *  contributes anywhere. */
+  auth: ConcreteAuthConfig;
+  /** The snapshot attribution; `undefined` when the request's own auth is `none`. */
+  attribution: ExecutedAuthAttribution | undefined;
+  /** The per-kind mask refusal naming the inherited entry; `null` when
+   *  the resolved auth can ride the kind (or contributes nothing). */
+  refusal: string | null;
+}
+
+/**
+ * Resolve a session-kind leaf's auth against its ancestor chain
+ * through THE rule, then hold it to the kind's mask
+ * (`assertAuthAllowed`): a resolved type the wire cannot carry fails
+ * the Connect / Invoke by NAME — never a silent none. `chain` is the
+ * host-injected carriers for page realms whose oracle mirrors are
+ * empty (the `resolution` twin); absent = the tree-index walk.
+ */
+export function resolveSessionAuth(
+  kind: AuthProtocolKind,
+  leaf: SessionAuthLeaf,
+  workspaceId: string | null,
+  chain?: readonly AuthCarrier[],
+): ResolvedSessionAuth {
+  const auth = leaf.auth ?? { type: 'none' };
+  const carriers =
+    auth.type === 'inherit' ? (chain ?? collectAncestorCarriers(leaf, workspaceId).map(toAuthCarrier)) : [];
+  const effective = effectiveAuthFor(auth, carriers, hostOf(leaf.url));
+  const refusal = assertAuthAllowed(kind, effective);
+  if (auth.type === 'none') return { auth: effective.auth, attribution: undefined, refusal };
+  return {
+    auth: effective.auth,
+    attribution: {
+      type: effective.auth.type,
+      source: effective.source,
+      ...(effective.danglingAuthUid !== undefined ? { danglingAuthUid: effective.danglingAuthUid } : {}),
+    },
+    refusal,
   };
 }

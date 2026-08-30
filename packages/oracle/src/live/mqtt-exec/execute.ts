@@ -59,6 +59,7 @@
  * and `droppedMessages` counts what rolled off — honest, never silent.
  */
 
+import type { AuthCarrier } from '@openheaders/core/auth-inheritance';
 import type { MqttPublishWire, MqttStreamEventWire, MqttSubscriptionWire } from '@openheaders/core/bridge';
 import {
   createMqttStreamDecoder,
@@ -87,10 +88,10 @@ import type {
 } from '@openheaders/core/types';
 import { decodeBinaryText, encodeBase64Bytes, generateUid } from '@openheaders/core/utils';
 import { resolveTemplate } from '@openheaders/core/variables';
-import { getRequestCollections, getRequestCollectionsForWorkspace } from '../../entity/request-store';
 import { peekActiveWorkspaceId } from '../../workspace/extension-workspace-store';
 import { sessionDialPolicy } from '../dial-policy';
 import { DEFAULT_RECONNECT_PERIOD_MS, reconnectDelayMs } from '../reconnect-policy';
+import { collectionUidForRequest, resolveSessionAuth } from '../request-exec/ancestor-chain';
 import { buildResolver } from '../request-exec/resolver-scope';
 import { registerActiveSend } from '../request-exec/send-stream';
 import { sessionTlsPolicy } from '../tls-policy';
@@ -133,6 +134,10 @@ export interface ExecuteMqttSessionOptions {
    *  contract, for surfaces whose variable scopes live OUTSIDE the
    *  oracle module mirrors. */
   resolution?: (template: string, unresolved: Set<string>) => string;
+  /** Host-injected ancestor auth chain (outer → inner) — for page
+   *  realms whose oracle mirrors are empty (the `resolution` twin);
+   *  absent = the executor walks the tree index. */
+  authChain?: readonly AuthCarrier[];
   /** The backoff jitter draw, [0, 1) — `Math.random` unless a test
    *  pins the wait. */
   reconnectJitter?: () => number;
@@ -277,13 +282,28 @@ export async function executeMqttSession(
   const configuredClientId = resolveStr(request.clientId ?? '').trim();
   const clientId = configuredClientId !== '' ? configuredClientId : `oh-${generateUid()}${generateUid()}`;
 
-  // Session credential (Basic) — resolved with the other Connect-time
-  // templates; an empty resolved field reads as absent (partial
-  // configs stay saveable — the WS bearer posture). The password
-  // travels verbatim (no trim — spaces are legal); a 3.1.1
-  // password-sans-username is rejected by the encode-strict codec and
-  // surfaces as the CONNECT compose error.
-  const basicAuth = request.auth?.type === 'basic' ? request.auth : null;
+  // Session credential (Basic — the MQTT mask's whole set) — the
+  // request's own subset config, or Inherit resolved over the ancestor
+  // pool chain (THE core rule; the injected chain serves page realms
+  // whose oracle mirrors are empty). A resolved type outside the mask
+  // fails the Connect by NAME — never a silent none. Fields resolve
+  // with the other Connect-time templates; an empty resolved field
+  // reads as absent (partial configs stay saveable — the WS bearer
+  // posture). The password travels verbatim (no trim — spaces are
+  // legal); a 3.1.1 password-sans-username is rejected by the
+  // encode-strict codec and surfaces as the CONNECT compose error.
+  const sessionAuth = resolveSessionAuth(
+    'mqtt',
+    { uid: request.uid, path: request.path, url, auth: request.auth },
+    options.workspaceId,
+    options.authChain,
+  );
+  const authAttribution = sessionAuth.attribution;
+  const withAuth = (snapshot: ExecutedMqttSnapshot): ExecutedMqttSnapshot =>
+    authAttribution !== undefined ? { ...snapshot, auth: authAttribution } : snapshot;
+  if (sessionAuth.refusal !== null) return withAuth(errorMqttSnapshot(sessionAuth.refusal));
+  const appliedAuth = sessionAuth.auth.disabled === true ? null : sessionAuth.auth;
+  const basicAuth = appliedAuth?.type === 'basic' ? appliedAuth : null;
   const authUsername = basicAuth !== null ? resolveStr(basicAuth.username).trim() : '';
   const authPassword = basicAuth !== null ? resolveStr(basicAuth.password) : '';
 
@@ -313,7 +333,7 @@ export async function executeMqttSession(
   if (request.lastWill !== undefined && request.lastWill.topic.trim() !== '') {
     const willTopic = resolveStr(request.lastWill.topic).trim();
     const willPayload = decodeComposePayload(resolveStr(request.lastWill.payload), request.lastWill.format);
-    if (!willPayload.ok) return errorMqttSnapshot(`Last will: ${willPayload.error}`);
+    if (!willPayload.ok) return withAuth(errorMqttSnapshot(`Last will: ${willPayload.error}`));
     const willProps: MqttProperties = {
       ...(v5 ? (wireMessageProperties(request.lastWill.properties, resolveStr) ?? {}) : {}),
       ...(v5 && request.lastWill.willDelayInterval !== undefined
@@ -348,13 +368,15 @@ export async function executeMqttSession(
   });
 
   if (unresolved.size > 0) {
-    return errorMqttSnapshot(
-      `Request has unresolved variables (${[...unresolved].join(', ')}). Define them in vault, environment, collection, or workspace before connecting.`,
+    return withAuth(
+      errorMqttSnapshot(
+        `Request has unresolved variables (${[...unresolved].join(', ')}). Define them in vault, environment, collection, or workspace before connecting.`,
+      ),
     );
   }
-  if (url === '') return errorMqttSnapshot('URL is empty');
+  if (url === '') return withAuth(errorMqttSnapshot('URL is empty'));
   if (!/^(mqtts?|wss?):\/\//i.test(url)) {
-    return errorMqttSnapshot('The URL must start with mqtt://, mqtts://, ws:// or wss://.');
+    return withAuth(errorMqttSnapshot('The URL must start with mqtt://, mqtts://, ws:// or wss://.'));
   }
 
   const keepAlive = request.keepAlive ?? DEFAULT_KEEP_ALIVE_S;
@@ -371,7 +393,9 @@ export async function executeMqttSession(
   const alpnProtocol = request.alpnProtocol !== undefined ? resolveStr(request.alpnProtocol).trim() : '';
 
   // ── The live session on the sendId spine ──
-  return new Promise<ExecutedMqttSnapshot>((resolve) => {
+  return new Promise<ExecutedMqttSnapshot>((resolveRaw) => {
+    // Every settle path stamps the resolved-auth attribution.
+    const resolve = (snapshot: ExecutedMqttSnapshot): void => resolveRaw(withAuth(snapshot));
     const emitter =
       options.emitStreamEvent !== undefined ? createMqttStreamEmitter(options.sendId, options.emitStreamEvent) : null;
     const controller = new AbortController();
@@ -1049,7 +1073,7 @@ async function buildOracleResolution(
 ): Promise<{ resolve: (template: string, unresolved: Set<string>) => string; vault: Vault }> {
   const { resolver, context: scope } = await buildResolver(options.workspaceId ?? undefined);
   const context = {
-    collectionId: collectionIdForPath(request.path, scope.workspaceId),
+    collectionId: collectionUidForRequest(request, scope.workspaceId),
     environmentId: options.environmentId,
   };
   const resolve = (template: string, unresolved: Set<string>): string => {
@@ -1064,11 +1088,4 @@ async function buildOracleResolution(
     return result.result;
   };
   return { resolve, vault: scope.vault };
-}
-
-/** The collection whose variables scope this request — same
- *  path-prefix membership the HTTP resolver uses. */
-function collectionIdForPath(path: string, workspaceId: string | null): string | undefined {
-  const collections = workspaceId ? getRequestCollectionsForWorkspace(workspaceId) : getRequestCollections();
-  return collections.find((c) => path.startsWith(`${c.path}/`))?.uid;
 }

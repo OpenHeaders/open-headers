@@ -20,6 +20,7 @@ import {
   collectAncestorCarriers,
   collectionUidForRequest,
   resolveRequestAuth,
+  resolveSessionAuth,
 } from '../../../src/live/request-exec/ancestor-chain';
 import type { EntityOracle } from '../../../src/sync/oracle';
 import { slotLeaf, treeOracleFrom, unslotLeaf } from './tree-oracle';
@@ -230,5 +231,78 @@ describe('resolveRequestAuth', () => {
       auth: { type: 'none' },
       attribution: undefined,
     });
+  });
+});
+
+describe('resolveSessionAuth', () => {
+  const WS_LEAF = {
+    uid: 'wsleaf01',
+    path: 'requests/api-rcol0001/auth-rfold001/tokens-rfold002/live-wsleaf01',
+    url: 'wss://api.openheaders.io/live',
+    auth: { type: 'inherit' } as const,
+  };
+
+  /** Seed the tree and slot a SESSION leaf (no request entity — every
+   *  leaf kind slots under the one request tree). */
+  function seedSessionLeaf(collection: Collection, outer: Folder, inner: Folder): void {
+    requestCollections.mockReturnValue([collection]);
+    requestFolders.mockReturnValue([outer, inner]);
+    const tree = treeOracleFrom([collection], [outer, inner]);
+    oracle = tree.oracle;
+    slotLeaf(tree.store, WS_LEAF.uid, { type: 'request-folder', uid: inner.uid });
+  }
+
+  it('resolves the pool default over the slot walk and stamps the attribution', () => {
+    seedSessionLeaf(makeCollection({ auths: [ADMIN] }), makeFolder(), INNER);
+    const resolved = resolveSessionAuth('websocket', WS_LEAF, null);
+    expect(resolved.auth).toEqual(ADMIN.config);
+    expect(resolved.refusal).toBeNull();
+    expect(resolved.attribution?.source).toMatchObject({ level: 'collection', uid: 'rcol0001', entryUid: 'admin001' });
+  });
+
+  it('holds the resolution to the kind mask with the named refusal', () => {
+    const oauth: AuthPoolEntry = {
+      uid: 'oauth001',
+      name: 'Corp SSO',
+      config: {
+        type: 'oauth2',
+        credentialRef: 'oauth2-cred-abc12345',
+        flow: 'authorization-code-pkce',
+        tokenEndpoint: '',
+        clientId: '',
+        scopes: [],
+      },
+    };
+    seedSessionLeaf(makeCollection({ auths: [oauth] }), makeFolder(), INNER);
+    const resolved = resolveSessionAuth('mqtt', WS_LEAF, null);
+    expect(resolved.refusal).toBe(
+      "Inherited OAuth 2.0 from Collection 'API' › Corp SSO cannot be applied to an MQTT session.",
+    );
+    expect(resolved.attribution?.type).toBe('oauth2');
+  });
+
+  it('an injected chain replaces the walk (the page-realm twin); a host-scoped entry matches the url', () => {
+    const scoped: AuthPoolEntry = {
+      uid: 'scope001',
+      name: 'Host key',
+      config: { type: 'basic', username: 'u', password: 'p' },
+      appliesTo: 'api.openheaders.io',
+    };
+    const resolved = resolveSessionAuth('websocket', WS_LEAF, null, [
+      { level: 'collection', uid: 'rcol0001', name: 'API', auths: [ADMIN, scoped], defaultAuthUid: 'admin001' },
+    ]);
+    expect(resolved.auth).toEqual(scoped.config);
+    expect(resolved.attribution?.source).toMatchObject({ entryUid: 'scope001' });
+    expect(resolved.refusal).toBeNull();
+  });
+
+  it("a leaf's own none carries no attribution and no refusal; an absent auth reads as none", () => {
+    expect(resolveSessionAuth('grpc', { ...WS_LEAF, auth: { type: 'none' } }, null)).toEqual({
+      auth: { type: 'none' },
+      attribution: undefined,
+      refusal: null,
+    });
+    const { auth, ...rest } = WS_LEAF;
+    expect(resolveSessionAuth('grpc', rest, null).attribution).toBeUndefined();
   });
 });

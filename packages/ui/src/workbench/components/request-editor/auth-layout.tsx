@@ -112,7 +112,7 @@ export const AuthRailNote: React.FC<{ children: string }> = ({ children }) => (
 
 // Centered pane for the types that carry no form — an optional glyph
 // tile above the type name and its note.
-export const AuthEmptyState: React.FC<{ title: string; note: string; glyph?: string; testId?: string }> = ({
+export const AuthEmptyState: React.FC<{ title: string; note: React.ReactNode; glyph?: string; testId?: string }> = ({
   title,
   note,
   glyph,

@@ -8,6 +8,7 @@
  *   - flavor: caller-supplied — the creation menu's two entries
  *     (WebSocket / Socket.IO) pre-set it
  *   - subprotocols / headers / params / message: empty
+ *   - auth: inherit (collection / folder default)
  */
 
 import type { WebSocketFlavor, WebSocketRequest } from '../types';
@@ -32,5 +33,6 @@ export function buildEmptyWebSocketRequest(input: BuildEmptyWebSocketRequestInpu
     headers: [],
     params: [],
     message: '',
+    auth: { type: 'inherit' },
   };
 }

@@ -76,8 +76,11 @@ export const GrpcMetadataPairSchema = v.object({
  * (bearer is the gRPC idiom: the token rides the `authorization`
  * metadata field). The executor injects the resolved pair at invoke
  * time, so the credential is host-neutral — an in-process and a
- * forwarded invoke inject identically. Absent = `none`. Wider auth
- * shapes (basic, OAuth2, inherit) are demand-gated.
+ * forwarded invoke inject identically. `inherit` resolves through the
+ * ancestor pool (`@openheaders/core/auth-inheritance`) under the gRPC
+ * mask — bearer · basic · api-key in header — and carries no
+ * `disabled` flag (the session kinds have no auth-row checkbox).
+ * Absent = `none`. Wider own shapes (basic, OAuth2) are demand-gated.
  */
 export const GrpcAuthSchema = v.variant('type', [
   v.object({ type: v.literal('none') }),
@@ -85,6 +88,11 @@ export const GrpcAuthSchema = v.variant('type', [
     type: v.literal('bearer'),
     /** Token text; templates welcome (`{{token}}` resolves at invoke). */
     token: v.string(),
+  }),
+  v.object({
+    type: v.literal('inherit'),
+    /** A named ancestor pool entry; absent = the nearest default. */
+    authUid: v.optional(UidSchema),
   }),
 ]);
 

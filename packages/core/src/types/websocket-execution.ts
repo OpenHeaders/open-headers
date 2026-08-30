@@ -12,7 +12,7 @@
  * ever rewritten or synthesized; pretty/decoded views are display-side.
  */
 
-import type { ExecutedProxyRoute, TrustCertificateErrorHint } from './request-execution';
+import type { ExecutedAuthAttribution, ExecutedProxyRoute, TrustCertificateErrorHint } from './request-execution';
 
 /** One captured message of the session, in call order. `direction`
  *  tags client-sent ('up') vs server-sent ('down'). Payloads ride
@@ -160,6 +160,10 @@ export interface ExecutedWsSnapshot {
   stopped?: boolean;
   /** Whole-session wall time (connect start → settle), display-only. */
   durationMs: number;
+  /** The auth the session applied and where it came from — the
+   *  request's own or a resolved ancestor pool entry; absent when the
+   *  request's own auth is `none` (the HTTP snapshot's twin). */
+  auth?: ExecutedAuthAttribution;
   /**
    * Wire truth for the session's proxy routing — the effective route
    * as the dial ran it. WS editors carry no request-plane proxy knobs

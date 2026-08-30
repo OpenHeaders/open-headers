@@ -40,9 +40,9 @@ import {
 import type { ExecutedGrpcSnapshot, GrpcRequest, Spec } from '@openheaders/core/types';
 import { encodeBase64Bytes } from '@openheaders/core/utils';
 import { resolveTemplate } from '@openheaders/core/variables';
-import { getRequestCollections, getRequestCollectionsForWorkspace } from '../../entity/request-store';
 import { peekActiveWorkspaceId } from '../../workspace/extension-workspace-store';
 import { sessionDialPolicy } from '../dial-policy';
+import { collectionUidForRequest, resolveSessionAuth } from '../request-exec/ancestor-chain';
 import { buildResolver } from '../request-exec/resolver-scope';
 import { registerActiveSend } from '../request-exec/send-stream';
 import { sessionTlsPolicy } from '../tls-policy';
@@ -133,7 +133,7 @@ export async function executeGrpcInvoke(
   // ── Variable resolution (the HTTP sends' exact pipeline) ──
   const { resolver, context: scope } = await buildResolver(options.workspaceId ?? undefined);
   const context = {
-    collectionId: collectionIdForPath(request.path, scope.workspaceId),
+    collectionId: collectionUidForRequest(request, scope.workspaceId),
     environmentId: options.environmentId,
   };
   // The workspace trust list rides the session dial — the pin the
@@ -153,6 +153,19 @@ export async function executeGrpcInvoke(
   };
 
   const url = resolveStr(request.url);
+  // Session credential — the request's own subset config, or Inherit
+  // resolved over the ancestor pool chain (THE core rule). A resolved
+  // type outside the gRPC mask fails the invoke by NAME — never a
+  // silent none; every settled snapshot carries the attribution.
+  const sessionAuth = resolveSessionAuth(
+    'grpc',
+    { uid: request.uid, path: request.path, url, auth: request.auth },
+    scope.workspaceId,
+  );
+  const authAttribution = sessionAuth.attribution;
+  const withAuth = (snapshot: ExecutedGrpcSnapshot): ExecutedGrpcSnapshot =>
+    authAttribution !== undefined ? { ...snapshot, auth: authAttribution } : snapshot;
+  if (sessionAuth.refusal !== null) return withAuth(errorGrpcSnapshot(sessionAuth.refusal));
   const authorityOverride = request.authority !== undefined ? resolveStr(request.authority).trim() : '';
   const channelKnobs = {
     ...(authorityOverride !== '' ? { authorityOverride } : {}),
@@ -168,24 +181,43 @@ export async function executeGrpcInvoke(
     if (key.startsWith(':') || RESERVED_METADATA_KEYS.has(key.toLowerCase())) continue;
     metadata.push({ key, value: resolveStr(row.value) });
   }
-  // Auth injection — the credential becomes an `authorization` metadata
-  // pair here, at the SAME resolve pass user rows ride, so the injected
-  // value is host-neutral (in-process and forwarded invokes inject
-  // identically). An explicit user `authorization` row wins: injecting
-  // beside it would send the field twice.
-  if (request.auth?.type === 'bearer' && !metadata.some((m) => m.key.toLowerCase() === 'authorization')) {
-    const token = resolveStr(request.auth.token);
-    if (token.trim() !== '') metadata.push({ key: 'authorization', value: `Bearer ${token}` });
+  // Auth injection — the resolved credential becomes an `authorization`
+  // metadata pair (an api-key rides its own key) here, at the SAME
+  // resolve pass user rows ride, so the injected value is host-neutral
+  // (in-process and forwarded invokes inject identically). An explicit
+  // user row carrying the same key wins: injecting beside it would
+  // send the field twice.
+  const appliedAuth = sessionAuth.auth.disabled === true ? null : sessionAuth.auth;
+  let authPair: GrpcTransportHeader | null = null;
+  if (appliedAuth?.type === 'bearer') {
+    const token = resolveStr(appliedAuth.token);
+    if (token.trim() !== '') authPair = { key: 'authorization', value: `Bearer ${token}` };
+  } else if (appliedAuth?.type === 'basic') {
+    const username = resolveStr(appliedAuth.username);
+    const password = resolveStr(appliedAuth.password);
+    if (username !== '' || password !== '') {
+      const token = encodeBase64Bytes(new TextEncoder().encode(`${username}:${password}`));
+      authPair = { key: 'authorization', value: `Basic ${token}` };
+    }
+  } else if (appliedAuth?.type === 'api-key' && appliedAuth.in === 'header') {
+    const key = resolveStr(appliedAuth.key).trim();
+    if (key !== '') authPair = { key, value: resolveStr(appliedAuth.value) };
+  }
+  if (authPair !== null) {
+    const pair = authPair;
+    if (!metadata.some((m) => m.key.toLowerCase() === pair.key.toLowerCase())) metadata.push(pair);
   }
   const messageText = resolveStr(request.message);
   if (unresolved.size > 0) {
-    return errorGrpcSnapshot(
-      `Request has unresolved variables (${[...unresolved].join(', ')}). Define them in vault, environment, collection, or workspace before invoking.`,
+    return withAuth(
+      errorGrpcSnapshot(
+        `Request has unresolved variables (${[...unresolved].join(', ')}). Define them in vault, environment, collection, or workspace before invoking.`,
+      ),
     );
   }
 
   const authority = stripAuthorityScheme(url.trim());
-  if (!authority) return errorGrpcSnapshot('URL is empty');
+  if (!authority) return withAuth(errorGrpcSnapshot('URL is empty'));
 
   // ── Message encode against the resolved input type ──
   // Client/bidi streams skip it: the composed text is what the Send
@@ -198,13 +230,13 @@ export async function executeGrpcInvoke(
     try {
       composed = messageText.trim() === '' ? {} : JSON.parse(messageText);
     } catch (err) {
-      return errorGrpcSnapshot(`The message is not valid JSON: ${(err as Error).message}`);
+      return withAuth(errorGrpcSnapshot(`The message is not valid JSON: ${(err as Error).message}`));
     }
     try {
       encoded = encodeMessage(registry, rpc.inputType, composed);
     } catch (err) {
       if (err instanceof ProtoCodecError) {
-        return errorGrpcSnapshot(`The message does not match ${rpc.inputType}: ${err.message}`);
+        return withAuth(errorGrpcSnapshot(`The message does not match ${rpc.inputType}: ${err.message}`));
       }
       throw err;
     }
@@ -214,7 +246,7 @@ export async function executeGrpcInvoke(
 
   // ── Streaming shapes: the stream executor owns the wire from here ──
   if (rpc.streaming !== 'unary') {
-    return executeGrpcStream({
+    const streamSnapshot = await executeGrpcStream({
       transport: options.transport,
       authority,
       tls: request.tls !== false,
@@ -233,9 +265,10 @@ export async function executeGrpcInvoke(
       ...(options.emitStreamEvent !== undefined ? { emitEvent: options.emitStreamEvent } : {}),
       maxBodyBytes,
     });
+    return withAuth(streamSnapshot);
   }
   if (encoded === null) {
-    return errorGrpcSnapshot('The unary message failed to encode.');
+    return withAuth(errorGrpcSnapshot('The unary message failed to encode.'));
   }
 
   // ── Wire exchange on the sendId spine ──
@@ -288,6 +321,7 @@ export async function executeGrpcInvoke(
       ...(response.proxyRoute !== undefined ? { proxyRoute: response.proxyRoute } : {}),
       ...(response.connectionError !== undefined ? { connectionError: response.connectionError } : {}),
       requestMetadata: metadata.map((m) => ({ key: m.key, value: m.value })),
+      ...(authAttribution !== undefined ? { auth: authAttribution } : {}),
       error: null,
     };
   } catch (err) {
@@ -309,6 +343,7 @@ export async function executeGrpcInvoke(
     const hint = !stopped && err instanceof GrpcTransportError ? err.hint : undefined;
     return {
       ...errorGrpcSnapshot(message),
+      ...(authAttribution !== undefined ? { auth: authAttribution } : {}),
       requestMetadata: metadata.map((m) => ({ key: m.key, value: m.value })),
       ...(localStatus !== undefined ? { localStatus } : {}),
       ...(hint !== undefined ? { hint } : {}),
@@ -317,13 +352,6 @@ export async function executeGrpcInvoke(
   } finally {
     unregister?.();
   }
-}
-
-/** The collection whose variables scope this request — same
- *  path-prefix membership the HTTP resolver uses. */
-function collectionIdForPath(path: string, workspaceId: string | null): string | undefined {
-  const collections = workspaceId ? getRequestCollectionsForWorkspace(workspaceId) : getRequestCollections();
-  return collections.find((c) => path.startsWith(`${c.path}/`))?.uid;
 }
 
 /**

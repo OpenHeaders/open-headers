@@ -177,7 +177,10 @@ export const MqttLastWillSchema = v.object({
  * executor resolves both fields at Connect, an empty resolved field
  * reads as absent (partial configs stay saveable — the WS bearer
  * posture), and the capture never carries the credential (the
- * volatile/secret law). Absent = `none`. 5.0 enhanced AUTH is
+ * volatile/secret law). `inherit` resolves through the ancestor pool
+ * (`@openheaders/core/auth-inheritance`) under the MQTT mask — basic
+ * only — and carries no `disabled` flag (the session kinds have no
+ * auth-row checkbox). Absent = `none`. 5.0 enhanced AUTH is
  * demand-gated.
  */
 export const MqttAuthSchema = v.variant('type', [
@@ -188,6 +191,11 @@ export const MqttAuthSchema = v.variant('type', [
     username: v.string(),
     /** CONNECT Password, authored as text (travels as its UTF-8 bytes). */
     password: v.string(),
+  }),
+  v.object({
+    type: v.literal('inherit'),
+    /** A named ancestor pool entry; absent = the nearest default. */
+    authUid: v.optional(UidSchema),
   }),
 ]);
 

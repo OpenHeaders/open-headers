@@ -66,7 +66,9 @@ export function authPoolOf(carrier: Pick<AuthCarrier, 'auths' | 'defaultAuthUid'
 }
 
 /** The pool's default entry, `null` for a transparent carrier. */
-export function defaultAuthEntry(carrier: Pick<AuthCarrier, 'auths' | 'defaultAuthUid' | 'auth'>): AuthPoolEntry | null {
+export function defaultAuthEntry(
+  carrier: Pick<AuthCarrier, 'auths' | 'defaultAuthUid' | 'auth'>,
+): AuthPoolEntry | null {
   const pool = authPoolOf(carrier);
   if (pool === null) return null;
   return pool.entries.find((e) => e.uid === pool.defaultUid) ?? null;
@@ -170,11 +172,7 @@ export interface EffectiveAuth {
  * executor skips the contribution the way it skips any disabled auth,
  * and the attribution names what was suspended.
  */
-export function effectiveAuthFor(
-  auth: AuthConfig,
-  chain: readonly AuthCarrier[],
-  host: string | null,
-): EffectiveAuth {
+export function effectiveAuthFor(auth: AuthConfig, chain: readonly AuthCarrier[], host: string | null): EffectiveAuth {
   if (auth.type !== 'inherit') return { auth, source: { level: 'request' } };
   const resolved = resolveInheritedAuth(chain, auth, host);
   const effective: ConcreteAuthConfig = auth.disabled ? { ...resolved.auth, disabled: true } : resolved.auth;
@@ -222,10 +220,95 @@ export function withDefaultAuthConfig(
 
 /** The pool without its default entry — the level goes transparent
  *  when nothing else remains. Named entries survive. */
-export function withoutDefaultAuth(
-  carrier: Pick<AuthCarrier, 'auths' | 'defaultAuthUid' | 'auth'>,
-): { auths: AuthPoolEntry[]; defaultAuthUid: undefined } {
+export function withoutDefaultAuth(carrier: Pick<AuthCarrier, 'auths' | 'defaultAuthUid' | 'auth'>): {
+  auths: AuthPoolEntry[];
+  defaultAuthUid: undefined;
+} {
   const pool = authPoolOf(carrier);
   const entries = pool === null ? [] : pool.entries.filter((e) => e.uid !== LEGACY_AUTH_ENTRY_UID);
   return { auths: entries.filter((e) => e.uid !== pool?.defaultUid), defaultAuthUid: undefined };
+}
+// ── The per-kind mask ──────────────────────────────────────────────
+
+/** The wire kind an auth config is applied to. HTTP takes everything;
+ *  the session kinds take only what their protocol can carry. */
+export type AuthProtocolKind = 'http' | 'websocket' | 'grpc' | 'mqtt';
+
+const ALL_AUTH_TYPES: readonly ConcreteAuthConfig['type'][] = [
+  'none',
+  'basic',
+  'bearer',
+  'api-key',
+  'oauth2',
+  'aws-sigv4',
+  'digest',
+  'oauth1',
+];
+
+const AUTH_MASKS: Record<AuthProtocolKind, ReadonlySet<ConcreteAuthConfig['type']>> = {
+  http: new Set(ALL_AUTH_TYPES),
+  websocket: new Set(['none', 'bearer', 'basic', 'api-key']),
+  grpc: new Set(['none', 'bearer', 'basic', 'api-key']),
+  mqtt: new Set(['none', 'basic']),
+};
+
+/**
+ * The auth types `kind` can carry — handshake headers for WebSocket,
+ * metadata pairs for gRPC, the CONNECT username/password for MQTT.
+ * The renderer greys inherited entries outside it; the executors
+ * refuse them by name (`assertAuthAllowed`) — never a silent none.
+ */
+export function authMaskFor(kind: AuthProtocolKind): ReadonlySet<ConcreteAuthConfig['type']> {
+  return AUTH_MASKS[kind];
+}
+
+/** Whether `kind` can apply `auth` — the type mask plus the api-key
+ *  placement rule (a handshake / metadata / CONNECT has no query leg,
+ *  so a query-placed key never rides a session kind). */
+export function authAllowedFor(kind: AuthProtocolKind, auth: ConcreteAuthConfig): boolean {
+  if (!authMaskFor(kind).has(auth.type)) return false;
+  if (auth.type === 'api-key' && kind !== 'http') return auth.in === 'header';
+  return true;
+}
+
+/** The auth types' display labels — the executors' refusal copy
+ *  (surfaces localize through their own catalogs). */
+export const AUTH_TYPE_LABELS: Record<ConcreteAuthConfig['type'], string> = {
+  none: 'No Auth',
+  basic: 'Basic Auth',
+  bearer: 'Bearer Token',
+  'api-key': 'API Key',
+  oauth2: 'OAuth 2.0',
+  'aws-sigv4': 'AWS Signature v4',
+  digest: 'Digest Auth',
+  oauth1: 'OAuth 1.0',
+};
+
+/** The kind noun WITH its article — "an MQTT session" needs `an`. */
+const AUTH_KIND_NOUNS: Record<AuthProtocolKind, string> = {
+  http: 'a request',
+  websocket: 'a WebSocket session',
+  grpc: 'a gRPC call',
+  mqtt: 'an MQTT session',
+};
+
+/**
+ * The named refusal when a resolved auth cannot ride `kind`, `null`
+ * when it applies: a masked type passes, and so does a suspended
+ * (`disabled`) or `none` resolution — nothing would contribute. The
+ * copy names the source ("Inherited OAuth 2.0 from Collection
+ * 'Payments' › Admin token cannot be applied to a WebSocket
+ * session.") — a request's OWN config is always inside its schema's
+ * subset, so the source is an ancestor entry in practice.
+ */
+export function assertAuthAllowed(kind: AuthProtocolKind, effective: EffectiveAuth): string | null {
+  const { auth, source } = effective;
+  if (auth.disabled === true || auth.type === 'none') return null;
+  if (authAllowedFor(kind, auth)) return null;
+  const label = auth.type === 'api-key' && auth.in === 'query' ? 'API Key in query' : AUTH_TYPE_LABELS[auth.type];
+  const noun = AUTH_KIND_NOUNS[kind];
+  if (source === null || source.level === 'request') return `${label} cannot be applied to ${noun}.`;
+  const levelName = source.level === 'collection' ? 'Collection' : 'Folder';
+  const entry = source.entryName !== '' ? ` › ${source.entryName}` : '';
+  return `Inherited ${label} from ${levelName} '${source.name}'${entry} cannot be applied to ${noun}.`;
 }

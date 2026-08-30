@@ -179,6 +179,8 @@ export const workbenchEditorsGrpc = {
     'serveur répondre — en général INVALID_ARGUMENT. Désactivé par défaut : l’invocation échoue avant le ' +
     'réseau avec l’erreur d’analyse exacte. S’applique à toutes les requêtes gRPC.',
   'workbench.editors.grpc.tab.auth': 'Autorisation',
+  'workbench.editors.grpc.auth.inheritUnsupported':
+    '{type} — de {source} — ne peut pas s’appliquer à un appel gRPC.',
   'workbench.editors.grpc.auth.help':
     "Envoyé comme metadata authorization: Bearer <token> sur l'appel. Une ligne de metadata authorization " +
     'explicite prend le pas.',

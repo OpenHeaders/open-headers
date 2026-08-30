@@ -20,8 +20,12 @@
 import { describe, expect, it } from 'vitest';
 import {
   type AuthCarrier,
+  assertAuthAllowed,
+  authAllowedFor,
+  authMaskFor,
   authPoolOf,
   defaultAuthEntry,
+  type EffectiveAuth,
   effectiveAuthFor,
   hostOf,
   LEGACY_AUTH_ENTRY_UID,
@@ -207,5 +211,92 @@ describe('withDefaultAuthConfig / withoutDefaultAuth', () => {
       auths: [],
       defaultAuthUid: undefined,
     });
+  });
+});
+
+describe('the per-kind mask', () => {
+  it('HTTP takes every type; the session kinds take their subsets', () => {
+    expect(authMaskFor('http').has('oauth2')).toBe(true);
+    expect([...authMaskFor('websocket')].sort()).toEqual(['api-key', 'basic', 'bearer', 'none']);
+    expect([...authMaskFor('grpc')].sort()).toEqual(['api-key', 'basic', 'bearer', 'none']);
+    expect([...authMaskFor('mqtt')].sort()).toEqual(['basic', 'none']);
+  });
+
+  it('an api-key rides a session kind only in header placement', () => {
+    const header = { type: 'api-key', key: 'X-K', value: 'v', in: 'header' } as const;
+    const query = { type: 'api-key', key: 'X-K', value: 'v', in: 'query' } as const;
+    expect(authAllowedFor('websocket', header)).toBe(true);
+    expect(authAllowedFor('websocket', query)).toBe(false);
+    expect(authAllowedFor('grpc', query)).toBe(false);
+    expect(authAllowedFor('http', query)).toBe(true);
+    expect(authAllowedFor('mqtt', header)).toBe(false);
+  });
+
+  it('assertAuthAllowed names the inherited entry and the kind; the allowed kind passes', () => {
+    const effective: EffectiveAuth = {
+      auth: {
+        type: 'oauth2',
+        credentialRef: 'oauth2-cred-abc12345',
+        flow: 'authorization-code-pkce',
+        tokenEndpoint: '',
+        clientId: '',
+        scopes: [],
+      },
+      source: {
+        level: 'collection',
+        uid: 'col00001',
+        name: 'Payments',
+        entryUid: 'admin001',
+        entryName: 'Admin token',
+      },
+    };
+    expect(assertAuthAllowed('websocket', effective)).toBe(
+      "Inherited OAuth 2.0 from Collection 'Payments' › Admin token cannot be applied to a WebSocket session.",
+    );
+    expect(assertAuthAllowed('http', effective)).toBeNull();
+  });
+
+  it('an unnamed entry drops the entry suffix; the folder level and every kind noun read right', () => {
+    const effective: EffectiveAuth = {
+      auth: { type: 'aws-sigv4', accessKeyId: '', secretAccessKey: '', service: '', region: '' },
+      source: { level: 'folder', uid: 'fld00001', name: 'Cards', entryUid: 'aws00001', entryName: '' },
+    };
+    expect(assertAuthAllowed('grpc', effective)).toBe(
+      "Inherited AWS Signature v4 from Folder 'Cards' cannot be applied to a gRPC call.",
+    );
+    expect(assertAuthAllowed('mqtt', effective)).toBe(
+      "Inherited AWS Signature v4 from Folder 'Cards' cannot be applied to an MQTT session.",
+    );
+  });
+
+  it('a query-placed api-key names its placement; bearer refuses on MQTT', () => {
+    expect(
+      assertAuthAllowed('websocket', {
+        auth: { type: 'api-key', key: 'k', value: 'v', in: 'query' },
+        source: { level: 'collection', uid: 'col00001', name: 'API', entryUid: 'key00001', entryName: 'Key' },
+      }),
+    ).toBe("Inherited API Key in query from Collection 'API' › Key cannot be applied to a WebSocket session.");
+    expect(
+      assertAuthAllowed('mqtt', {
+        auth: { type: 'bearer', token: 't' },
+        source: { level: 'collection', uid: 'col00001', name: 'API', entryUid: 'tok00001', entryName: '' },
+      }),
+    ).toBe("Inherited Bearer Token from Collection 'API' cannot be applied to an MQTT session.");
+  });
+
+  it('none, a suspended resolution, and a masked own type pass silently', () => {
+    expect(assertAuthAllowed('mqtt', { auth: { type: 'none' }, source: null })).toBeNull();
+    expect(
+      assertAuthAllowed('mqtt', {
+        auth: { type: 'bearer', token: 't', disabled: true },
+        source: { level: 'collection', uid: 'col00001', name: 'API', entryUid: 'tok00001', entryName: '' },
+      }),
+    ).toBeNull();
+    expect(
+      assertAuthAllowed('websocket', {
+        auth: { type: 'basic', username: 'u', password: 'p' },
+        source: { level: 'request' },
+      }),
+    ).toBeNull();
   });
 });

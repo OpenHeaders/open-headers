@@ -33,6 +33,7 @@ import {
 } from '@openheaders/ui/shared/sync/ws-response-example-write-client';
 import { App } from 'antd';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { findRequestAncestry, resolveInheritedAuthFor } from '../request-container/ancestry';
 import { capturedWsRequestFromDraft, capturedWsResponseFromSnapshot } from '../ws-response-example/ws-example-draft';
 import { buildWebSocketRequestUpdates, type WebSocketDraft } from './draft';
 import { type LiveWsSession, useLiveWsSession, type WsSessionTiming } from './useLiveWsSession';
@@ -80,7 +81,7 @@ export function useWsSessionPlane({
 }: UseWsSessionPlaneInput): WsSessionPlane {
   const { message: toast } = App.useApp();
   const t = useT();
-  const { executeWebSocket } = useRequests();
+  const { collections, collectionTrees, executeWebSocket, folders } = useRequests();
 
   const requestRuntimeKind = getCapability('requestRuntime')?.() ?? 'browser';
   const pageSession = requestRuntimeKind !== 'node' && (getCapability('wsPageSession')?.() ?? false);
@@ -101,8 +102,10 @@ export function useWsSessionPlane({
   const resolverInputs = useVariableResolverInputs();
   useEffect(() => {
     if (!pageSession) return;
-    publishWsPageResolutionFactory(makeWsPageResolutionFactory(resolverInputs));
-  }, [pageSession, resolverInputs]);
+    publishWsPageResolutionFactory(
+      makeWsPageResolutionFactory(resolverInputs, { collectionTrees, collections, folders }),
+    );
+  }, [pageSession, resolverInputs, collectionTrees, collections, folders]);
 
   const handleConnect = useCallback(async () => {
     if (!entity || inFlight) return;
@@ -128,10 +131,25 @@ export function useWsSessionPlane({
       if (!draft.sslVerification) {
         inapplicableKnobs.push(t('workbench.editors.websocket.session.knobSslVerify'));
       }
-      // The socketio flavor's credential still reaches the server via
-      // the CONNECT auth payload, so only the raw flavor names the
-      // header the platform socket cannot carry.
-      if (entity.flavor === 'raw' && draft.auth.type === 'bearer' && draft.auth.token.trim() !== '') {
+      // The socketio flavor's bearer credential still reaches the
+      // server via the CONNECT auth payload; every other resolved
+      // credential is a handshake header the platform socket cannot
+      // carry — Inherit resolves over the tree ancestry first (the
+      // executor's twin).
+      const effectiveAuth =
+        draft.auth.type === 'inherit'
+          ? resolveInheritedAuthFor(
+              findRequestAncestry(collectionTrees, collections, folders, entity.uid),
+              draft.auth,
+              draft.url,
+            ).auth
+          : draft.auth;
+      const headerBorne =
+        !('disabled' in effectiveAuth && effectiveAuth.disabled === true) &&
+        (effectiveAuth.type === 'basic' ||
+          (effectiveAuth.type === 'api-key' && effectiveAuth.in === 'header') ||
+          (effectiveAuth.type === 'bearer' && effectiveAuth.token.trim() !== '' && entity.flavor === 'raw'));
+      if (headerBorne) {
         inapplicableKnobs.push(t('workbench.editors.websocket.session.knobAuth'));
       }
     }
@@ -167,7 +185,19 @@ export function useWsSessionPlane({
       return;
     }
     setSnapshot(settled);
-  }, [entity, inFlight, draft, pageSession, executeWebSocket, liveSession, toast, t]);
+  }, [
+    entity,
+    inFlight,
+    draft,
+    pageSession,
+    executeWebSocket,
+    liveSession,
+    toast,
+    t,
+    collectionTrees,
+    collections,
+    folders,
+  ]);
 
   // Disconnect morphs from Connect while the session is open — the
   // clean close 1000; the pending RPC above resolves with the

@@ -65,6 +65,7 @@ import { useSocketIoArgs } from './useSocketIoArgs';
 import { useWsSavedSelection } from './useWsSavedSelection';
 import { useWsComposeAids } from './useWsComposeAids';
 import { useWsSessionPlane } from './useWsSessionPlane';
+import { findRequestAncestry, resolveInheritedAuthFor } from '../request-container/ancestry';
 import WebSocketAuthTab from './WebSocketAuthTab';
 import WebSocketSettingsTab from './WebSocketSettingsTab';
 import { subscribeWsPrefill } from './ws-prefill-bus';
@@ -140,7 +141,7 @@ const WebSocketRequestEditor: React.FC<WebSocketRequestEditorProps> = ({
   const { token } = theme.useToken();
   const { message: toast } = App.useApp();
   const t = useT();
-  const { websocketRequests, updateWebSocketRequest } = useRequests();
+  const { collections, collectionTrees, folders, websocketRequests, updateWebSocketRequest } = useRequests();
 
   const entity = useMemo(
     () => websocketRequests.find((r) => r.uid === websocketRequestUid) ?? null,
@@ -149,6 +150,20 @@ const WebSocketRequestEditor: React.FC<WebSocketRequestEditorProps> = ({
 
   const [draft, rawSetDraft] = useState<WebSocketDraft>(() =>
     entity ? draftFromWebSocketRequest(entity) : emptyWebSocketDraft(),
+  );
+
+  // What Inherit resolves to, and from which level — read off the
+  // trees (the containment projection), never a stored path.
+  const inheritedAuth = useMemo(
+    () =>
+      entity
+        ? resolveInheritedAuthFor(
+            findRequestAncestry(collectionTrees, collections, folders, entity.uid),
+            draft.auth.type === 'inherit' ? draft.auth : {},
+            draft.url,
+          )
+        : undefined,
+    [entity, collectionTrees, collections, folders, draft.auth, draft.url],
   );
 
   // Saved-messages selection plane: the compose is the selected row's
@@ -494,6 +509,7 @@ const WebSocketRequestEditor: React.FC<WebSocketRequestEditorProps> = ({
                         <WebSocketAuthTab
                           auth={draft.auth}
                           socketioFlavor={socketioFlavor}
+                          inheritedFrom={inheritedAuth}
                           onChange={(auth) => setDraft((d) => ({ ...d, auth }))}
                         />
                       )}

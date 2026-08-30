@@ -270,6 +270,67 @@ describe('executeMqttSession — connect gate', () => {
     expect(snapshot.outcome.error).toContain('vault.brokerSecret');
   });
 
+  it('resolves Inherit over the injected chain onto the CONNECT pair and stamps the attribution', async () => {
+    const rig = scriptedTransport(MQTT_PROTOCOL_VERSIONS.v5);
+    const settled = executeMqttSession(makeMqttRequest({ auth: { type: 'inherit' } }), {
+      workspaceId: null,
+      environmentId: undefined,
+      transport: rig.transport,
+      sendId: 'send-mqtt-auth-inherit',
+      resolution: scopedResolution,
+      authChain: [
+        {
+          level: 'collection',
+          uid: 'rcol0001',
+          name: 'Brokers',
+          auths: [
+            { uid: 'basic001', name: 'Ops', config: { type: 'basic', username: 'probe-{{team}}', password: 'pw' } },
+          ],
+          defaultAuthUid: 'basic001',
+        },
+      ],
+    });
+    await settleTick();
+    rig.establish();
+    const connect = rig.written[0];
+    if (connect.type !== 'connect') throw new Error('expected CONNECT first');
+    expect(connect.username).toBe('probe-alpha');
+    if (connect.password === undefined) throw new Error('expected the CONNECT password');
+    expect(new TextDecoder().decode(connect.password)).toBe('pw');
+    rig.push(acceptedConnack);
+    closeActiveMqttSession('send-mqtt-auth-inherit');
+    const snapshot = await settled;
+    expect(snapshot.auth).toEqual({
+      type: 'basic',
+      source: { level: 'collection', uid: 'rcol0001', name: 'Brokers', entryUid: 'basic001', entryName: 'Ops' },
+    });
+  });
+
+  it('an inherited Bearer Token refuses the MQTT session by name — never a silent none', async () => {
+    const rig = scriptedTransport(MQTT_PROTOCOL_VERSIONS.v5);
+    const snapshot = await executeMqttSession(makeMqttRequest({ auth: { type: 'inherit' } }), {
+      workspaceId: null,
+      environmentId: undefined,
+      transport: rig.transport,
+      sendId: 'send-mqtt-auth-refused',
+      resolution: scopedResolution,
+      authChain: [
+        {
+          level: 'collection',
+          uid: 'rcol0001',
+          name: 'Brokers',
+          auths: [{ uid: 'bear0001', name: 'API token', config: { type: 'bearer', token: 't' } }],
+          defaultAuthUid: 'bear0001',
+        },
+      ],
+    });
+    if (snapshot.outcome.kind !== 'failed') throw new Error('expected a failed outcome');
+    expect(snapshot.outcome.error).toBe(
+      "Inherited Bearer Token from Collection 'Brokers' › API token cannot be applied to an MQTT session.",
+    );
+    expect(snapshot.auth?.type).toBe('bearer');
+  });
+
   it('surfaces a CONNACK refusal verbatim as the classified pre-open error', async () => {
     const rig = scriptedTransport(MQTT_PROTOCOL_VERSIONS.v5);
     const settled = executeMqttSession(makeMqttRequest(), {

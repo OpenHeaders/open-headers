@@ -117,8 +117,11 @@ export const WebSocketBinaryEncodingSchema = v.picklist(['base64', 'hex']);
  * page-realm sessions name it in the honesty notice instead of
  * silently dropping). The `socketio` flavor ALSO lands the token as
  * the CONNECT packet's auth payload (`{"token": …}`) — in-band
- * framing that works on every host. Absent = `none`. Wider auth
- * shapes (basic, OAuth2, inherit) are demand-gated.
+ * framing that works on every host. `inherit` resolves through the
+ * ancestor pool (`@openheaders/core/auth-inheritance`) under the
+ * WebSocket mask — bearer · basic · api-key in header — and carries
+ * no `disabled` flag (the session kinds have no auth-row checkbox).
+ * Absent = `none`. Wider own shapes (basic, OAuth2) are demand-gated.
  */
 export const WebSocketAuthSchema = v.variant('type', [
   v.object({ type: v.literal('none') }),
@@ -126,6 +129,11 @@ export const WebSocketAuthSchema = v.variant('type', [
     type: v.literal('bearer'),
     /** Token text; templates welcome (`{{token}}` resolves at Connect). */
     token: v.string(),
+  }),
+  v.object({
+    type: v.literal('inherit'),
+    /** A named ancestor pool entry; absent = the nearest default. */
+    authUid: v.optional(UidSchema),
   }),
 ]);
 

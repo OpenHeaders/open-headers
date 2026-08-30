@@ -50,6 +50,8 @@ export const workbenchEditorsWebsocket = {
     'Se envía como encabezado Authorization: Bearer en el handshake — se aplica en la aplicación de ' +
     'escritorio o el servidor; los navegadores no pueden definirlo en un WebSocket. Una fila de encabezado ' +
     'Authorization explícita tiene prioridad.',
+  'workbench.editors.websocket.auth.inheritUnsupported':
+    '{type} — de {source} — no puede aplicarse a una sesión WebSocket.',
   'workbench.editors.websocket.auth.helpSocketio':
     'Se envía como carga auth del paquete CONNECT ({"token": …}) en cada host, y como encabezado de ' +
     'handshake Authorization: Bearer en la aplicación de escritorio o el servidor. Una fila de encabezado ' +

@@ -38,6 +38,8 @@ export const workbenchEditorsWebsocket = {
     'Sent as an Authorization: Bearer header on the handshake — applies on the desktop app or server; browsers cannot set it on a WebSocket. An explicit Authorization header row takes precedence.',
   'workbench.editors.websocket.auth.helpSocketio':
     'Sent as the CONNECT packet’s auth payload ({"token": …}) on every host, and as an Authorization: Bearer handshake header on the desktop app or server. An explicit Authorization header row takes precedence over the header.',
+  'workbench.editors.websocket.auth.inheritUnsupported':
+    '{type} — from {source} — cannot be applied to a WebSocket session.',
   'workbench.editors.websocket.events.hint':
     'Incoming events to show in the session timeline. With no rows, every event shows; the capture always records everything.',
   'workbench.editors.websocket.events.namePlaceholder': 'Event name',

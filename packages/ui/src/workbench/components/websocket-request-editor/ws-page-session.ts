@@ -6,7 +6,9 @@
  * its own resolver reads the oracle module mirrors, which are empty in
  * a page realm — so the editor PUBLISHES a resolution factory built
  * from the renderer scope snapshot, and the page host injects its
- * product into `executeWsSession` (`options.resolution`).
+ * product into `executeWsSession` (`options.resolution` +
+ * `options.authChain` — the ancestor pool chain the oracle walk
+ * cannot derive in a page realm).
  *
  * Single-publisher module slot (the awareness-publisher discipline):
  * the WebSocket editor republishes on every scope change while
@@ -19,6 +21,7 @@
  * where a live code belongs.
  */
 
+import type { AuthCarrier } from '@openheaders/core/auth-inheritance';
 import { generateTotp } from '@openheaders/core/totp';
 import type { Vault, VaultSecretTotp, WebSocketRequest } from '@openheaders/core/types';
 import type { TotpRegistry } from '@openheaders/core/variables';
@@ -26,14 +29,23 @@ import {
   buildRendererResolver,
   type RendererResolverInputs,
 } from '@openheaders/ui/shared/hooks/variables/useVariableResolver';
+import { authChainOf, findRequestAncestry, type RequestAncestryInputs } from '../request-container/ancestry';
 
 /** The executor's injected-resolution contract
  *  (`ExecuteWsSessionOptions.resolution`). */
 export type WsPageResolution = (template: string, unresolved: Set<string>) => string;
 
+/** What the page host injects into the executor per Connect: the
+ *  template resolution plus the ancestor auth chain (outer → inner)
+ *  the oracle walk cannot derive in a page realm. */
+export interface WsPageSessionScope {
+  resolve: WsPageResolution;
+  authChain: AuthCarrier[];
+}
+
 /** Built per Connect — TOTP codes have ~30s lifetime, so the registry
  *  computes fresh each time (the SW request executor's discipline). */
-export type WsPageResolutionFactory = (request: WebSocketRequest) => Promise<WsPageResolution>;
+export type WsPageResolutionFactory = (request: WebSocketRequest) => Promise<WsPageSessionScope>;
 
 let currentFactory: WsPageResolutionFactory | null = null;
 
@@ -78,20 +90,30 @@ async function buildPageTotpRegistry(vault: Vault): Promise<TotpRegistry> {
 }
 
 /** Build the factory from one renderer scope snapshot. The collection
- *  scope resolves by the same path-prefix membership the oracle
- *  executor uses; the environment defers to the active pointer the
- *  snapshot carries — the in-process Connect path. */
-export function makeWsPageResolutionFactory(inputs: RendererResolverInputs): WsPageResolutionFactory {
+ *  scope and the auth chain both come off the TREES via the request's
+ *  ancestry (the tree containment law — never the stored path); the
+ *  environment defers to the active pointer the snapshot carries —
+ *  the in-process Connect path. */
+export function makeWsPageResolutionFactory(
+  inputs: RendererResolverInputs,
+  ancestryInputs: RequestAncestryInputs,
+): WsPageResolutionFactory {
   return async (request) => {
     const resolver = buildRendererResolver(inputs, { totpRegistry: await buildPageTotpRegistry(inputs.vault) });
-    const collectionId = inputs.collections.requestCollections.find((c) => request.path.startsWith(`${c.path}/`))?.uid;
-    const context = collectionId !== undefined ? { collectionId } : {};
-    return (template, unresolved) => {
+    const ancestry = findRequestAncestry(
+      ancestryInputs.collectionTrees,
+      ancestryInputs.collections,
+      ancestryInputs.folders,
+      request.uid,
+    );
+    const context = ancestry !== null ? { collectionId: ancestry.collection.uid } : {};
+    const resolve: WsPageResolution = (template, unresolved) => {
       const result = resolver.resolveTemplate(template, context);
       for (const v of result.variables) {
         if (!v.resolved) unresolved.add(v.name);
       }
       return result.result;
     };
+    return { resolve, authChain: ancestry !== null ? authChainOf(ancestry) : [] };
   };
 }

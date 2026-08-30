@@ -153,6 +153,7 @@ export const workbenchEditorsGrpc = {
   'workbench.editors.grpc.settings.sendInvalidMessageHelp':
     '消息不是有效 JSON 时，仍以空消息发起调用并让服务器应答——通常是 INVALID_ARGUMENT。默认关闭：调用在上线路之前失败，并给出确切的解析错误。适用于所有 gRPC 请求。',
   'workbench.editors.grpc.tab.auth': '授权',
+  'workbench.editors.grpc.auth.inheritUnsupported': '{type}——来自 {source}——无法应用于 gRPC 调用。',
   'workbench.editors.grpc.auth.help':
     '作为 authorization: Bearer <token> metadata 随调用发送。显式的 authorization metadata 行优先。',
   'workbench.editors.grpc.invoke.connectCompanion': '连接桌面端应用以调用——编写和保存在这里可用。',

@@ -35,6 +35,15 @@ export interface RequestAncestry {
   folders: AncestorAuthCarrier[];
 }
 
+/** The renderer snapshot the page-session factories derive a leaf's
+ *  ancestry from — the TREES (the containment projection) plus the
+ *  container mirrors; never a leaf's stored path. */
+export interface RequestAncestryInputs {
+  collectionTrees: readonly CollectionTree[];
+  collections: readonly Collection[];
+  folders: readonly AncestorAuthCarrier[];
+}
+
 export interface InheritedAuthSource {
   kind: 'collection' | 'folder';
   name: string;

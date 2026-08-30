@@ -92,14 +92,15 @@ async function handleExecuteMqttRequest(
     };
   }
   try {
-    const resolution = await factory(draft);
+    const scope = await factory(draft);
     const snapshot = await executeMqttSession(draft, {
       workspaceId: null,
       environmentId: undefined,
       transport: browserMqttTransport,
       sendId: payload.sendId,
       emitStreamEvent: deliverMqttStreamEventLocally,
-      resolution,
+      resolution: scope.resolve,
+      authChain: scope.authChain,
     });
     return { success: true, snapshot };
   } catch (err) {

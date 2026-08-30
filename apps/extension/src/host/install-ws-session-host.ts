@@ -80,14 +80,15 @@ async function handleExecuteWebSocketRequest(
     };
   }
   try {
-    const resolution = await factory(draft);
+    const scope = await factory(draft);
     const snapshot = await executeWsSession(draft, {
       workspaceId: null,
       environmentId: undefined,
       transport: browserWsTransport,
       sendId: payload.sendId,
       emitStreamEvent: deliverWsStreamEventLocally,
-      resolution,
+      resolution: scope.resolve,
+      authChain: scope.authChain,
     });
     return { success: true, snapshot };
   } catch (err) {

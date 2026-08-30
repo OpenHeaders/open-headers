@@ -8,6 +8,7 @@
  * Authorization header is assembled.
  */
 
+import { authAllowedFor, type AuthProtocolKind } from '@openheaders/core/auth-inheritance';
 import { getCapability } from '@openheaders/core/capabilities';
 import { findOAuth2Preset, OAUTH2_PROVIDER_PRESETS } from '@openheaders/core/oauth';
 import type { AuthConfig } from '@openheaders/core/types';
@@ -77,6 +78,38 @@ interface AuthorizationTabProps {
 
 export function authTypeLabelKey(type: AuthKind): MessageKey {
   return AUTH_OPTIONS.find((o) => o.value === type)?.labelKey ?? 'workbench.editors.request.auth.type.none';
+}
+
+/**
+ * The Inherit empty state's detail line for a SESSION kind (the
+ * WebSocket / gRPC / MQTT tabs): what the request resolves to and from
+ * which level — or, when the resolved type sits outside the kind's
+ * mask, the refusal sentence the executor fails the Connect / Invoke
+ * with (`unsupported` lets the tab render it in warning tone).
+ */
+export function useSessionInheritDetail(
+  kind: AuthProtocolKind,
+  unsupportedKey: MessageKey,
+  inheritedFrom: InheritedAuthAttribution | undefined,
+): { detail: string; unsupported: boolean } {
+  const t = useT();
+  return useMemo(() => {
+    if (inheritedFrom === undefined) {
+      return { detail: t('workbench.editors.request.auth.inheritDetail'), unsupported: false };
+    }
+    if (inheritedFrom.source === null) {
+      return { detail: t('workbench.editors.request.auth.inheritedNone'), unsupported: false };
+    }
+    const source =
+      inheritedFrom.source.kind === 'collection'
+        ? t('workbench.editors.request.auth.sourceCollection', { name: inheritedFrom.source.name })
+        : t('workbench.editors.request.auth.sourceFolder', { name: inheritedFrom.source.name });
+    const type = t(authTypeLabelKey(inheritedFrom.auth.type));
+    if (inheritedFrom.auth.type !== 'inherit' && !authAllowedFor(kind, inheritedFrom.auth)) {
+      return { detail: t(unsupportedKey, { type, source }), unsupported: true };
+    }
+    return { detail: t('workbench.editors.request.auth.inheritedFrom', { type, source }), unsupported: false };
+  }, [t, kind, unsupportedKey, inheritedFrom]);
 }
 
 function transparentLabelKey(level: AuthLevel): MessageKey {

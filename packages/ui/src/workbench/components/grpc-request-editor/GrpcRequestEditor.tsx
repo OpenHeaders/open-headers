@@ -52,6 +52,7 @@ import EditorHeader from '../shell/EditorHeader';
 import { createImportedProtoSpecSeed } from '../specs/spec-scaffold';
 import DocsTab from '../request-editor/DocsTab';
 import KeyValueTable from '../request-editor/KeyValueTable';
+import { findRequestAncestry, resolveInheritedAuthFor } from '../request-container/ancestry';
 import GrpcAuthTab from './GrpcAuthTab';
 import GrpcMessageTab from './GrpcMessageTab';
 import GrpcResponseEmptyState from './GrpcResponseEmptyState';
@@ -123,7 +124,7 @@ const GrpcRequestEditor: React.FC<GrpcRequestEditorProps> = ({
   const { token } = theme.useToken();
   const { message: toast } = App.useApp();
   const t = useT();
-  const { grpcRequests, updateGrpcRequest } = useRequests();
+  const { collections, collectionTrees, folders, grpcRequests, updateGrpcRequest } = useRequests();
 
   const entity = useMemo(
     () => grpcRequests.find((r) => r.uid === grpcRequestUid) ?? null,
@@ -131,6 +132,20 @@ const GrpcRequestEditor: React.FC<GrpcRequestEditorProps> = ({
   );
 
   const [draft, setDraft] = useState<GrpcDraft>(() => (entity ? draftFromGrpcRequest(entity) : emptyGrpcDraft()));
+
+  // What Inherit resolves to, and from which level — read off the
+  // trees (the containment projection), never a stored path.
+  const inheritedAuth = useMemo(
+    () =>
+      entity
+        ? resolveInheritedAuthFor(
+            findRequestAncestry(collectionTrees, collections, folders, entity.uid),
+            draft.auth.type === 'inherit' ? draft.auth : {},
+            draft.url,
+          )
+        : undefined,
+    [entity, collectionTrees, collections, folders, draft.auth, draft.url],
+  );
   const [activeTab, setActiveTab] = useState('message');
 
   const formFingerprint = useMemo(() => stableStringify(buildGrpcRequestUpdates(draft)), [draft]);
@@ -482,7 +497,11 @@ const GrpcRequestEditor: React.FC<GrpcRequestEditorProps> = ({
                       />
                     )}
                     {activeTab === 'auth' && (
-                      <GrpcAuthTab auth={draft.auth} onChange={(auth) => setDraft((d) => ({ ...d, auth }))} />
+                      <GrpcAuthTab
+                        auth={draft.auth}
+                        inheritedFrom={inheritedAuth}
+                        onChange={(auth) => setDraft((d) => ({ ...d, auth }))}
+                      />
                     )}
                     {activeTab === 'spec' && (
                       <GrpcServiceDefinitionTab

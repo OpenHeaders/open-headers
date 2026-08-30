@@ -51,6 +51,8 @@ export const workbenchEditorsWebsocket = {
   'workbench.editors.websocket.auth.helpRaw':
     'Wird beim Handshake als Header Authorization: Bearer gesendet — gilt in der Desktop-App oder im Server; ' +
     'Browser können ihn auf einem WebSocket nicht setzen. Eine explizite Authorization-Header-Zeile hat Vorrang.',
+  'workbench.editors.websocket.auth.inheritUnsupported':
+    '{type} — von {source} — kann nicht auf eine WebSocket-Sitzung angewendet werden.',
   'workbench.editors.websocket.auth.helpSocketio':
     'Wird auf jedem Host als auth-Payload des CONNECT-Pakets ({"token": …}) gesendet und in der Desktop-App ' +
     'oder im Server als Handshake-Header Authorization: Bearer. Eine explizite Authorization-Header-Zeile hat ' +

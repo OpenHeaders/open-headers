@@ -14,7 +14,7 @@
  * synthesized; pretty/decoded views are display-side.
  */
 
-import type { ExecutedProxyRoute, TrustCertificateErrorHint } from './request-execution';
+import type { ExecutedAuthAttribution, ExecutedProxyRoute, TrustCertificateErrorHint } from './request-execution';
 
 /** One captured PUBLISH of the session, in packet order. `direction`
  *  tags client-sent ('up') vs broker-sent ('down'). Payloads ride
@@ -185,6 +185,10 @@ export interface ExecutedMqttSnapshot {
   reconnectExhausted?: { attempts: number; error?: string };
   /** Whole-session wall time (connect start → settle), display-only. */
   durationMs: number;
+  /** The auth the session applied and where it came from — the
+   *  request's own or a resolved ancestor pool entry; absent when the
+   *  request's own auth is `none` (the HTTP snapshot's twin). */
+  auth?: ExecutedAuthAttribution;
   /**
    * Wire truth for the session's proxy routing — present only when the
    * executing host's system plane decided something (the ws-scheme

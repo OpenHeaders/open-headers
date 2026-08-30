@@ -12,7 +12,7 @@
  * nothing here is ever rewritten to make a reply look well-formed.
  */
 
-import type { ExecutedProxyRoute, TrustCertificateErrorHint } from './request-execution';
+import type { ExecutedAuthAttribution, ExecutedProxyRoute, TrustCertificateErrorHint } from './request-execution';
 
 /** One message frame of the call, unwrapped from the wire: the payload
  *  bytes base64-encoded and the frame's compression flag as received
@@ -64,6 +64,10 @@ export interface ExecutedGrpcSnapshot {
   /** Framed body bytes read off the wire before any truncation. */
   bodyBytes: number;
   durationMs: number;
+  /** The auth the call applied and where it came from — the request's
+   *  own or a resolved ancestor pool entry; absent when the request's
+   *  own auth is `none` (the HTTP snapshot's twin). */
+  auth?: ExecutedAuthAttribution;
   /**
    * Wire truth for the call's proxy routing — the effective route as
    * the dial ran it. gRPC editors carry no request-plane proxy knobs

@@ -45,6 +45,8 @@ export const workbenchEditorsWebsocket = {
     "Envoyé comme en-tête Authorization: Bearer sur le handshake — s'applique sur l'application de bureau ou " +
     "le serveur ; les navigateurs ne peuvent pas le définir sur un WebSocket. Une ligne d'en-tête " +
     'Authorization explicite est prioritaire.',
+  'workbench.editors.websocket.auth.inheritUnsupported':
+    '{type} — de {source} — ne peut pas s’appliquer à une session WebSocket.',
   'workbench.editors.websocket.auth.helpSocketio':
     'Envoyé comme charge utile auth du paquet CONNECT ({"token": …}) sur chaque hôte, et comme en-tête de ' +
     "handshake Authorization: Bearer sur l'application de bureau ou le serveur. Une ligne d'en-tête " +

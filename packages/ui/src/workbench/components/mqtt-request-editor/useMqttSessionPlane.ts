@@ -101,7 +101,7 @@ export function useMqttSessionPlane({
 }: UseMqttSessionPlaneInput): MqttSessionPlane {
   const { message: toast } = App.useApp();
   const t = useT();
-  const { executeMqtt } = useRequests();
+  const { collections, collectionTrees, executeMqtt, folders } = useRequests();
 
   const requestRuntimeKind = getCapability('requestRuntime')?.() ?? 'browser';
   const nodeHost = requestRuntimeKind === 'node';
@@ -123,8 +123,10 @@ export function useMqttSessionPlane({
   const resolverInputs = useVariableResolverInputs();
   useEffect(() => {
     if (!pageSession) return;
-    publishMqttPageResolutionFactory(makeMqttPageResolutionFactory(resolverInputs));
-  }, [pageSession, resolverInputs]);
+    publishMqttPageResolutionFactory(
+      makeMqttPageResolutionFactory(resolverInputs, { collectionTrees, collections, folders }),
+    );
+  }, [pageSession, resolverInputs, collectionTrees, collections, folders]);
 
   // Live Subscribe-toggle truth while the session is open — keyed by
   // row uid; seeded from the open-time SUBACK items (grants positional

@@ -51,6 +51,7 @@
  * control PING, so an LB keepalive is an app frame everywhere.
  */
 
+import type { AuthCarrier } from '@openheaders/core/auth-inheritance';
 import type { WsSendBinaryWire, WsSendSocketIoWire, WsStreamEventWire } from '@openheaders/core/bridge';
 import {
   encodeEventPacket,
@@ -75,10 +76,10 @@ import type {
 } from '@openheaders/core/types';
 import { appendQueryParams, decodeBinaryText, encodeBase64Bytes } from '@openheaders/core/utils';
 import { resolveTemplate } from '@openheaders/core/variables';
-import { getRequestCollections, getRequestCollectionsForWorkspace } from '../../entity/request-store';
 import { peekActiveWorkspaceId } from '../../workspace/extension-workspace-store';
 import { sessionDialPolicy } from '../dial-policy';
 import { DEFAULT_HEARTBEAT_INTERVAL_MS, DEFAULT_RECONNECT_PERIOD_MS, reconnectDelayMs } from '../reconnect-policy';
+import { collectionUidForRequest, resolveSessionAuth } from '../request-exec/ancestor-chain';
 import { buildResolver } from '../request-exec/resolver-scope';
 import { registerActiveSend } from '../request-exec/send-stream';
 import { sessionTlsPolicy } from '../tls-policy';
@@ -138,6 +139,10 @@ export interface ExecuteWsSessionOptions {
    * injector's concern — the closure carries its own scope context.
    */
   resolution?: (template: string, unresolved: Set<string>) => string;
+  /** Host-injected ancestor auth chain (outer → inner) — for page
+   *  realms whose oracle mirrors are empty (the `resolution` twin);
+   *  absent = the executor walks the tree index. */
+  authChain?: readonly AuthCarrier[];
   /** The backoff jitter draw, [0, 1) — `Math.random` unless a test
    *  pins the wait. */
   reconnectJitter?: () => number;
@@ -164,24 +169,51 @@ export async function executeWsSession(
   const dialPolicy = sessionDialPolicy(request, oracleResolution?.vault);
 
   let url = resolveStr(request.url).trim();
-  // Session credential (bearer) — resolved with the other Connect-time
-  // templates. An empty resolved token reads as none (partial configs
-  // stay saveable — the HTTP auth block's posture). An explicit user
-  // Authorization row takes precedence over the credential header (the
-  // gRPC auth block's law), so one header rides the wire either way.
-  const bearerToken = request.auth?.type === 'bearer' ? resolveStr(request.auth.token).trim() : '';
+  // Session credential — the request's own subset config, or Inherit
+  // resolved over the ancestor pool chain (THE core rule; the injected
+  // chain serves page realms whose oracle mirrors are empty). A
+  // resolved type outside the WebSocket mask fails the Connect by
+  // NAME — never a silent none. Fields resolve with the other
+  // Connect-time templates; an empty resolved credential reads as
+  // none (partial configs stay saveable — the HTTP auth block's
+  // posture). An explicit user row carrying the credential's header
+  // takes precedence (the gRPC auth block's law), so one value rides
+  // the wire either way.
+  const sessionAuth = resolveSessionAuth(
+    'websocket',
+    { uid: request.uid, path: request.path, url, auth: request.auth },
+    options.workspaceId,
+    options.authChain,
+  );
+  const authAttribution = sessionAuth.attribution;
+  const withAuth = (snapshot: ExecutedWsSnapshot): ExecutedWsSnapshot =>
+    authAttribution !== undefined ? { ...snapshot, auth: authAttribution } : snapshot;
+  if (sessionAuth.refusal !== null) return withAuth(errorWsSnapshot(sessionAuth.refusal));
+  const appliedAuth = sessionAuth.auth.disabled === true ? null : sessionAuth.auth;
+  const bearerToken = appliedAuth?.type === 'bearer' ? resolveStr(appliedAuth.token).trim() : '';
+  let authHeader: WsTransportHeader | null =
+    bearerToken !== '' ? { key: 'Authorization', value: `Bearer ${bearerToken}` } : null;
+  if (appliedAuth?.type === 'basic') {
+    const username = resolveStr(appliedAuth.username);
+    const password = resolveStr(appliedAuth.password);
+    if (username !== '' || password !== '') {
+      const token = encodeBase64Bytes(new TextEncoder().encode(`${username}:${password}`));
+      authHeader = { key: 'Authorization', value: `Basic ${token}` };
+    }
+  } else if (appliedAuth?.type === 'api-key' && appliedAuth.in === 'header') {
+    const key = resolveStr(appliedAuth.key).trim();
+    if (key !== '') authHeader = { key, value: resolveStr(appliedAuth.value) };
+  }
   const headers: WsTransportHeader[] = [];
-  let hasAuthorizationRow = false;
+  let hasAuthHeaderRow = false;
   for (const row of request.headers) {
     if (row.enabled === false || !row.key.trim()) continue;
     const key = resolveStr(row.key);
     if (key.toLowerCase().startsWith('sec-websocket-') || RESERVED_HEADER_KEYS.has(key.toLowerCase())) continue;
-    if (key.toLowerCase() === 'authorization') hasAuthorizationRow = true;
+    if (authHeader !== null && key.toLowerCase() === authHeader.key.toLowerCase()) hasAuthHeaderRow = true;
     headers.push({ key, value: resolveStr(row.value) });
   }
-  if (bearerToken !== '' && !hasAuthorizationRow) {
-    headers.push({ key: 'Authorization', value: `Bearer ${bearerToken}` });
-  }
+  if (authHeader !== null && !hasAuthHeaderRow) headers.push(authHeader);
   // Socket.IO flavor: the namespace, handshake path and protocol
   // revision resolve with the other target fields; the framing
   // controller CONNECTs the namespace once the engine.io open packet
@@ -212,13 +244,15 @@ export async function executeWsSession(
     !socketioFlavor && request.heartbeatMessage !== undefined ? resolveStr(request.heartbeatMessage) : '';
   let namespace = '/';
   if (unresolved.size > 0) {
-    return errorWsSnapshot(
-      `Request has unresolved variables (${[...unresolved].join(', ')}). Define them in vault, environment, collection, or workspace before connecting.`,
+    return withAuth(
+      errorWsSnapshot(
+        `Request has unresolved variables (${[...unresolved].join(', ')}). Define them in vault, environment, collection, or workspace before connecting.`,
+      ),
     );
   }
-  if (url === '') return errorWsSnapshot('URL is empty');
+  if (url === '') return withAuth(errorWsSnapshot('URL is empty'));
   if (!/^wss?:\/\//i.test(url)) {
-    return errorWsSnapshot('The URL must start with ws:// or wss://.');
+    return withAuth(errorWsSnapshot('The URL must start with ws:// or wss://.'));
   }
   if (params.length > 0) url = appendQueryParams(url, params);
   if (socketioFlavor) {
@@ -229,10 +263,10 @@ export async function executeWsSession(
     try {
       target = resolveSocketIoTarget(url, socketioSettings);
     } catch {
-      return errorWsSnapshot('The URL is not valid.');
+      return withAuth(errorWsSnapshot('The URL is not valid.'));
     }
     if (!isValidNamespace(target.namespace)) {
-      return errorWsSnapshot('The Socket.IO namespace must not contain a comma.');
+      return withAuth(errorWsSnapshot('The Socket.IO namespace must not contain a comma.'));
     }
     url = target.url;
     namespace = target.namespace;
@@ -247,7 +281,9 @@ export async function executeWsSession(
   const maxMessageBytes = request.maxMessageBytes;
 
   // ── The live session on the sendId spine ──
-  return new Promise<ExecutedWsSnapshot>((resolve) => {
+  return new Promise<ExecutedWsSnapshot>((resolveRaw) => {
+    // Every settle path stamps the resolved-auth attribution.
+    const resolve = (snapshot: ExecutedWsSnapshot): void => resolveRaw(withAuth(snapshot));
     const emitter =
       options.emitStreamEvent !== undefined ? createWsStreamEmitter(options.sendId, options.emitStreamEvent) : null;
     let stopped = false;
@@ -702,7 +738,7 @@ async function buildOracleResolution(
 ): Promise<{ resolve: (template: string, unresolved: Set<string>) => string; vault: Vault }> {
   const { resolver, context: scope } = await buildResolver(options.workspaceId ?? undefined);
   const context = {
-    collectionId: collectionIdForPath(request.path, scope.workspaceId),
+    collectionId: collectionUidForRequest(request, scope.workspaceId),
     environmentId: options.environmentId,
   };
   const resolve = (template: string, unresolved: Set<string>): string => {
@@ -717,13 +753,6 @@ async function buildOracleResolution(
     return result.result;
   };
   return { resolve, vault: scope.vault };
-}
-
-/** The collection whose variables scope this request — same
- *  path-prefix membership the HTTP resolver uses. */
-function collectionIdForPath(path: string, workspaceId: string | null): string | undefined {
-  const collections = workspaceId ? getRequestCollectionsForWorkspace(workspaceId) : getRequestCollections();
-  return collections.find((c) => path.startsWith(`${c.path}/`))?.uid;
 }
 
 /** Decoded byte length of a base64 payload without re-decoding it. */

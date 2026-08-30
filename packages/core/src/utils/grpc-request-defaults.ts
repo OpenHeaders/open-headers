@@ -8,6 +8,7 @@
  *   - tls: on (the safe default; the lock toggles it off)
  *   - method: unset (picked from the selector once a spec is linked)
  *   - message / metadata: empty
+ *   - auth: inherit (collection / folder default)
  */
 
 import type { GrpcRequest } from '../types';
@@ -29,5 +30,6 @@ export function buildEmptyGrpcRequest(input: BuildEmptyGrpcRequestInput): GrpcRe
     tls: true,
     message: '',
     metadata: [],
+    auth: { type: 'inherit' },
   };
 }

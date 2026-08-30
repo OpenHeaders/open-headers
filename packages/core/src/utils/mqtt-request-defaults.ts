@@ -7,6 +7,7 @@
  *   - url: empty (user fills the mqtt/mqtts/ws/wss target)
  *   - protocolVersion: absent — 5.0, the first-class default
  *   - topic / payload: empty; topics / savedMessages / userProperties: empty
+ *   - auth: inherit (collection / folder default)
  */
 
 import type { MqttRequest } from '../types';
@@ -30,5 +31,6 @@ export function buildEmptyMqttRequest(input: BuildEmptyMqttRequestInput): MqttRe
     topics: [],
     savedMessages: [],
     userProperties: [],
+    auth: { type: 'inherit' },
   };
 }

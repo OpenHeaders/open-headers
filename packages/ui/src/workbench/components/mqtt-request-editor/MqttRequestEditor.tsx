@@ -61,6 +61,7 @@ import {
   propertiesToDraft,
 } from './draft';
 import { subscribeMqttPrefill } from './mqtt-prefill-bus';
+import { findRequestAncestry, resolveInheritedAuthFor } from '../request-container/ancestry';
 import MqttAuthTab from './MqttAuthTab';
 import MqttLastWillTab from './MqttLastWillTab';
 import MqttMessageTab from './MqttMessageTab';
@@ -141,11 +142,25 @@ const MqttRequestEditor: React.FC<MqttRequestEditorProps> = ({
   const { token } = theme.useToken();
   const { message: toast } = App.useApp();
   const t = useT();
-  const { mqttRequests, updateMqttRequest } = useRequests();
+  const { collections, collectionTrees, folders, mqttRequests, updateMqttRequest } = useRequests();
 
   const entity = useMemo(() => mqttRequests.find((r) => r.uid === mqttRequestUid) ?? null, [mqttRequests, mqttRequestUid]);
 
   const [draft, rawSetDraft] = useState<MqttDraft>(() => (entity ? draftFromMqttRequest(entity) : emptyMqttDraft()));
+
+  // What Inherit resolves to, and from which level — read off the
+  // trees (the containment projection), never a stored path.
+  const inheritedAuth = useMemo(
+    () =>
+      entity
+        ? resolveInheritedAuthFor(
+            findRequestAncestry(collectionTrees, collections, folders, entity.uid),
+            draft.auth.type === 'inherit' ? draft.auth : {},
+            draft.url,
+          )
+        : undefined,
+    [entity, collectionTrees, collections, folders, draft.auth, draft.url],
+  );
   const [activeTab, setActiveTab] = useState('message');
 
   // Saved-messages selection plane: the compose is the selected row's
@@ -460,7 +475,11 @@ const MqttRequestEditor: React.FC<MqttRequestEditorProps> = ({
                     )}
                     <SessionLock locked={session.inFlight}>
                     {activeTab === 'auth' && (
-                      <MqttAuthTab auth={draft.auth} onChange={(auth) => setDraft((d) => ({ ...d, auth }))} />
+                      <MqttAuthTab
+                        auth={draft.auth}
+                        inheritedFrom={inheritedAuth}
+                        onChange={(auth) => setDraft((d) => ({ ...d, auth }))}
+                      />
                     )}
                     {activeTab === 'properties' && (
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }} data-testid="mqtt-user-props">
