@@ -42,6 +42,18 @@
  *     (recorded). The winning route reports on the unary response /
  *     through `onHead` as wire truth. ONE deadline spans resolution,
  *     tunnel dials, and every attempt.
+ *   - `:authority`: the target by default (Node fills it from the
+ *     session origin); the request's override rides the request
+ *     headers instead — the name the server routes on changes, the
+ *     dial, SNI and certificate verification keep the target.
+ *   - Keepalive: with an interval on the request, an HTTP/2 PING every
+ *     interval once the session connects, re-armed by each
+ *     acknowledgement (one ping in flight — the grpc-js discipline);
+ *     an acknowledgement missing past the timeout, or the server's
+ *     GOAWAY `too_many_pings`, ends the call NAMING the reason —
+ *     pre-head as the failure, post-head as `connectionError` beside
+ *     what arrived. One session per call means nothing is kept alive
+ *     between calls.
  *   - Deadline: `grpc-timeout` header (so the SERVER can enforce it)
  *     plus a local abort spanning connect, response head, and body
  *     read — the HTTP transport's one-deadline discipline.
@@ -205,13 +217,15 @@ function seamHeadersOf(record: Record<string, string | string[] | undefined>): G
 }
 
 /** Outgoing headers: the ceremony fields plus the request's metadata,
- *  repeated keys folded into arrays (Node's repeat encoding). */
+ *  repeated keys folded into arrays (Node's repeat encoding); the
+ *  `:authority` override rides here when the request names one. */
 function buildOutgoingHeaders(
-  request: Pick<GrpcTransportRequest, 'path' | 'metadata' | 'timeoutMs'>,
+  request: Pick<GrpcTransportRequest, 'path' | 'metadata' | 'timeoutMs' | 'authorityOverride'>,
 ): Record<string, string | string[]> {
   const headers: Record<string, string | string[]> = {
     ':method': 'POST',
     ':path': request.path,
+    ...(request.authorityOverride !== undefined ? { ':authority': request.authorityOverride } : {}),
     'content-type': 'application/grpc+proto',
     te: 'trailers',
     ...(request.timeoutMs !== undefined ? { 'grpc-timeout': encodeGrpcTimeout(request.timeoutMs) } : {}),
@@ -227,6 +241,126 @@ function buildOutgoingHeaders(
     }
   }
   return headers;
+}
+
+/** Reference wait for a PING's acknowledgement when the request names
+ *  an interval but no timeout — the grpc-js default. */
+const KEEPALIVE_TIMEOUT_MS = 20_000;
+
+/** The GOAWAY debug data gRPC servers send when pings arrive faster
+ *  than their floor (the A8 client-side keepalive contract). */
+const TOO_MANY_PINGS = 'too_many_pings';
+
+type KeepalivePolicy = Pick<GrpcTransportRequest, 'keepaliveIntervalMs' | 'keepaliveTimeoutMs'>;
+
+/** The slice of a client session the keepalive drives — narrow so the
+ *  arm is testable against a scripted session. */
+export interface KeepaliveSession {
+  ping(callback: (err: Error | null, duration: number, payload: Buffer) => void): boolean;
+  once(event: 'connect', listener: () => void): unknown;
+  once(event: 'goaway', listener: (code: number, lastStreamId: number, data?: Buffer) => void): unknown;
+}
+
+/**
+ * Arm the channel's keepalive on one session: a PING every interval
+ * once the session connects, the next armed by each acknowledgement
+ * (one ping in flight); an acknowledgement missing past the timeout,
+ * a ping the session refuses to send, or the server's GOAWAY
+ * `too_many_pings` hands `onDead` its reason ONCE. Returns the disarm
+ * — every settle path calls it. No interval = nothing armed. Exported
+ * pure (the `sessionOptionsFor` discipline).
+ */
+export function armKeepalive(
+  session: KeepaliveSession,
+  authority: string,
+  policy: KeepalivePolicy,
+  onDead: (reason: string) => void,
+): () => void {
+  const intervalMs = policy.keepaliveIntervalMs;
+  if (intervalMs === undefined) return () => {};
+  const timeoutMs = policy.keepaliveTimeoutMs ?? KEEPALIVE_TIMEOUT_MS;
+  let armed = true;
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  const disarm = (): void => {
+    armed = false;
+    if (timer !== null) clearTimeout(timer);
+    timer = null;
+  };
+  const dead = (reason: string): void => {
+    if (!armed) return;
+    disarm();
+    onDead(reason);
+  };
+  const ping = (): void => {
+    timer = setTimeout(
+      () => dead(`No keepalive response from ${authority} within ${timeoutMs} ms — the connection is dead.`),
+      timeoutMs,
+    );
+    let sent = false;
+    try {
+      sent = session.ping((err: Error | null) => {
+        if (!armed) return;
+        if (timer !== null) clearTimeout(timer);
+        timer = null;
+        if (err !== null) {
+          dead(`Keepalive ping to ${authority} failed: ${err.message}`);
+          return;
+        }
+        timer = setTimeout(ping, intervalMs);
+      });
+    } catch {
+      sent = false;
+    }
+    if (!sent) dead(`Keepalive ping to ${authority} could not be sent — the connection is closed.`);
+  };
+  session.once('connect', () => {
+    if (armed) timer = setTimeout(ping, intervalMs);
+  });
+  session.once('goaway', (code: number, _lastStreamId: number, data?: Buffer) => {
+    if (code === constants.NGHTTP2_ENHANCE_YOUR_CALM && data?.toString() === TOO_MANY_PINGS) {
+      dead(
+        `${authority} closed the connection: keepalive pings arrived faster than it allows (GOAWAY too_many_pings). Raise the keepalive ping interval.`,
+      );
+    }
+  });
+  return disarm;
+}
+
+/** Why a connection died AFTER the response head — the code names
+ *  itself; the pre-head classifier's TLS-lock advice would mislead
+ *  once the server has already answered. */
+function postHeadLossMessage(authority: string, err: unknown): string {
+  const code = grpcFailureCode(err);
+  return code !== undefined
+    ? `Connection to ${authority} was lost mid-call (${code}).`
+    : `Connection to ${authority} was lost mid-call.`;
+}
+
+/**
+ * A call that ended after the head WITHOUT a gRPC status was ended by
+ * the connection, not the server's answer — a peer's `destroy()`
+ * reaches the client as GOAWAY plus a clean-looking stream end (probed:
+ * `rstCode` 0, no error event), so the missing status is the one
+ * honest signal. Our own cap and abort end calls the same way and are
+ * not losses. Returns the reason, or `undefined` for a completed call.
+ */
+function lossWithoutStatus(
+  authority: string,
+  facts: { statusArrived: boolean; ownEnd: boolean; goawayCode: number | null; rstCode: number },
+): string | undefined {
+  if (facts.statusArrived || facts.ownEnd) return undefined;
+  if (facts.goawayCode !== null)
+    return `${authority} closed the connection mid-call (GOAWAY code ${facts.goawayCode}).`;
+  if (facts.rstCode !== constants.NGHTTP2_NO_ERROR) {
+    return `Connection to ${authority} ended mid-call (HTTP/2 code ${facts.rstCode}).`;
+  }
+  return `Connection to ${authority} ended mid-call before a status arrived.`;
+}
+
+/** Whether a response head carries the call's status — a
+ *  trailers-only reply, which ends the stream on its HEADERS. */
+function headCarriesStatus(incoming: Record<string, string | string[] | undefined>): boolean {
+  return incoming['grpc-status'] !== undefined;
 }
 
 /**
@@ -411,10 +545,16 @@ export function createNodeGrpcTransport(options: NodeGrpcTransportOptions = {}):
           let bytesRead = 0;
           let truncated = false;
           let stream: ClientHttp2Stream | null = null;
+          // The reason the connection died after the head, if it did —
+          // the response carries it beside what arrived.
+          let connectionLoss: string | null = null;
+          let statusArrived = false;
+          let goawayCode: number | null = null;
 
           const session: ClientHttp2Session = connect(target.origin, sessionOpts);
 
           const cleanup = (): void => {
+            disarmKeepalive();
             walk.signal.removeEventListener('abort', onAbort);
             session.close();
           };
@@ -422,6 +562,10 @@ export function createNodeGrpcTransport(options: NodeGrpcTransportOptions = {}):
             if (settled) return;
             settled = true;
             cleanup();
+            if (connectionLoss !== null) {
+              reject(new GrpcTransportError(connectionLoss, GRPC_CANONICAL_UNAVAILABLE));
+              return;
+            }
             if (deadlineExpired) {
               reject(
                 new GrpcTransportError(
@@ -449,6 +593,13 @@ export function createNodeGrpcTransport(options: NodeGrpcTransportOptions = {}):
             cleanup();
             const body = Buffer.concat(parts, Math.min(bytesRead, request.maxBodyBytes));
             const route: GrpcProxyRoute | undefined = attempt.route;
+            connectionLoss ??=
+              lossWithoutStatus(request.authority, {
+                statusArrived,
+                ownEnd: truncated || walk.signal.aborted,
+                goawayCode,
+                rstCode: stream?.rstCode ?? 0,
+              }) ?? null;
             resolve({
               httpStatus,
               headers,
@@ -456,8 +607,22 @@ export function createNodeGrpcTransport(options: NodeGrpcTransportOptions = {}):
               body: new Uint8Array(body.buffer, body.byteOffset, body.byteLength),
               bodyTruncated: truncated,
               ...(route !== undefined ? { proxyRoute: route } : {}),
+              ...(connectionLoss !== null ? { connectionError: connectionLoss } : {}),
             });
           };
+          // A failure after the head: the reason is recorded, the
+          // arrived bytes settle (never discarded).
+          const settleLost = (err: unknown): void => {
+            connectionLoss ??= postHeadLossMessage(request.authority, err);
+            settleResponse();
+          };
+          const disarmKeepalive = armKeepalive(session, request.authority, request, (reason) => {
+            connectionLoss = reason;
+            stream?.close(constants.NGHTTP2_CANCEL);
+            session.destroy();
+            if (!headArrived) settleError(new Error(reason));
+            else settleResponse();
+          });
           const abortExchange = (): void => {
             // Once the head is in, arrived bytes materialize instead of
             // erroring — destroying the stream fires 'close', which
@@ -476,22 +641,27 @@ export function createNodeGrpcTransport(options: NodeGrpcTransportOptions = {}):
           }
           walk.signal.addEventListener('abort', onAbort);
 
-          session.on('error', settleError);
+          session.on('error', (err: unknown) => {
+            if (headArrived) settleLost(err);
+            else settleError(err);
+          });
+          session.on('goaway', (code: number) => {
+            goawayCode ??= code;
+          });
           stream = session.request(buildOutgoingHeaders(request));
           stream.on('error', (err: unknown) => {
-            if (headArrived) {
-              settleResponse();
-              return;
-            }
-            settleError(err);
+            if (headArrived) settleLost(err);
+            else settleError(err);
           });
           stream.on('response', (incoming) => {
             headArrived = true;
+            statusArrived = headCarriesStatus(incoming);
             const status = incoming[':status'];
             httpStatus = typeof status === 'number' ? status : 0;
             headers = seamHeadersOf(incoming);
           });
           stream.on('trailers', (incoming) => {
+            statusArrived = true;
             trailers = seamHeadersOf(incoming);
           });
           stream.on('data', (chunk: Buffer) => {
@@ -612,6 +782,10 @@ export function createNodeGrpcTransport(options: NodeGrpcTransportOptions = {}):
       let timer: ReturnType<typeof setTimeout> | null = null;
       let stream: ClientHttp2Stream | null = null;
       let session: ClientHttp2Session | null = null;
+      let disarmKeepalive: () => void = () => {};
+      let connectionLoss: string | null = null;
+      let statusArrived = false;
+      let goawayCode: number | null = null;
       let activeAttempt: SessionProxyAttempt | undefined;
       // Upstream writes issued while the ambient route was still
       // resolving (a server-stream call writes and half-closes the
@@ -620,6 +794,7 @@ export function createNodeGrpcTransport(options: NodeGrpcTransportOptions = {}):
       const walk = new AbortController();
 
       const cleanup = (): void => {
+        disarmKeepalive();
         if (timer !== null) clearTimeout(timer);
         timer = null;
         signal?.removeEventListener('abort', onExternalAbort);
@@ -630,6 +805,10 @@ export function createNodeGrpcTransport(options: NodeGrpcTransportOptions = {}):
         if (ended) return;
         ended = true;
         cleanup();
+        if (connectionLoss !== null) {
+          callbacks.onEnd(new GrpcTransportError(connectionLoss, GRPC_CANONICAL_UNAVAILABLE));
+          return;
+        }
         if (deadlineExpired) {
           callbacks.onEnd(
             new GrpcTransportError(
@@ -659,11 +838,26 @@ export function createNodeGrpcTransport(options: NodeGrpcTransportOptions = {}):
         cleanup();
         callbacks.onEnd(new GrpcTransportError(message, GRPC_CANONICAL_UNAVAILABLE));
       };
+      // Post-head settle: clean, or naming the connection loss the
+      // call died of — what arrived already reached the callbacks.
       const endComplete = (): void => {
         if (ended) return;
         ended = true;
         cleanup();
-        callbacks.onEnd();
+        connectionLoss ??=
+          lossWithoutStatus(request.authority, {
+            statusArrived,
+            ownEnd: walk.signal.aborted,
+            goawayCode,
+            rstCode: stream?.rstCode ?? 0,
+          }) ?? null;
+        if (connectionLoss !== null)
+          callbacks.onEnd(new GrpcTransportError(connectionLoss, GRPC_CANONICAL_UNAVAILABLE));
+        else callbacks.onEnd();
+      };
+      const endLost = (err: unknown): void => {
+        connectionLoss ??= postHeadLossMessage(request.authority, err);
+        endComplete();
       };
       const abortExchange = (): void => {
         // Same discipline as unary: once the head is in, arrived data
@@ -696,20 +890,36 @@ export function createNodeGrpcTransport(options: NodeGrpcTransportOptions = {}):
       // shared paths.
       const openAttempt = (sessionOpts: Parameters<typeof connect>[1], attempt: SessionProxyAttempt): void => {
         session = connect(resolvedTarget.origin, sessionOpts);
-        session.on('error', endWithError);
-        const opened = session.request(buildOutgoingHeaders(request));
+        const opening = session;
+        disarmKeepalive = armKeepalive(opening, request.authority, request, (reason) => {
+          connectionLoss = reason;
+          stream?.close(constants.NGHTTP2_CANCEL);
+          opening.destroy();
+          if (!headArrived) endWithError(new Error(reason));
+          else endComplete();
+        });
+        opening.on('error', (err: unknown) => {
+          if (headArrived) endLost(err);
+          else endWithError(err);
+        });
+        opening.on('goaway', (code: number) => {
+          goawayCode ??= code;
+        });
+        const opened = opening.request(buildOutgoingHeaders(request));
         stream = opened;
         opened.on('error', (err: unknown) => {
-          if (headArrived) endComplete();
+          if (headArrived) endLost(err);
           else endWithError(err);
         });
         opened.on('response', (incoming) => {
           headArrived = true;
+          statusArrived = headCarriesStatus(incoming);
           const status = incoming[':status'];
           const route: GrpcProxyRoute | undefined = attempt.route;
           callbacks.onHead(typeof status === 'number' ? status : 0, seamHeadersOf(incoming), route);
         });
         opened.on('trailers', (incoming) => {
+          statusArrived = true;
           callbacks.onTrailers(seamHeadersOf(incoming));
         });
         opened.on('data', (chunk: Buffer) => {

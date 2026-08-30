@@ -85,6 +85,10 @@ export interface GrpcTransportRequest {
   /** SNI server name for the TLS channel, already resolved; absent =
    *  the authority's host. `:authority` keeps the target. */
   sniServerName?: string;
+  /** `:authority` sent on the call instead of `authority` — the name
+   *  the server routes on; the dial, SNI and certificate verification
+   *  keep the target. Absent = the target. */
+  authorityOverride?: string;
   /** Request path: `/{service full name}/{rpc}`. */
   path: string;
   /**
@@ -137,6 +141,17 @@ export interface GrpcTransportRequest {
    * ceiling beyond the host network stack's own.
    */
   timeoutMs?: number;
+  /**
+   * HTTP/2 PING cadence (ms) while the call is open — the channel's
+   * keepalive. Absent = no pings. An unanswered ping (see
+   * `keepaliveTimeoutMs`) or the server's GOAWAY `too_many_pings` ends
+   * the call naming the reason: pre-head as the failure, post-head as
+   * the response's `connectionError` beside what arrived.
+   */
+  keepaliveIntervalMs?: number;
+  /** Wait (ms) for a PING's acknowledgement; absent = 20 s. Meaningful
+   *  only with `keepaliveIntervalMs`. */
+  keepaliveTimeoutMs?: number;
   /** Hard ceiling (bytes) on the response body read off the wire —
    *  the transport streams and aborts past it (the HTTP transport's
    *  memory-bound law; the always-on host never buffers unbounded). */
@@ -162,6 +177,12 @@ export interface GrpcTransportResponse {
    *  (see {@link GrpcProxyRoute}); absent on plain direct calls and on
    *  transports without an egress seat. */
   proxyRoute?: GrpcProxyRoute;
+  /** The connection died after the head (an unanswered keepalive
+   *  ping, a GOAWAY, a reset mid-body) — `body` holds what arrived
+   *  and the trailers are whatever came (usually none); this names
+   *  the reason. Absent on a completed exchange and on the caller's
+   *  own abort. */
+  connectionError?: string;
 }
 
 /** Canonical codes a gRPC CLIENT runtime assigns local failures — the
@@ -224,6 +245,8 @@ export interface GrpcTransportStreamRequest {
   tlsCipherSuites?: string;
   /** See {@link GrpcTransportRequest.sniServerName}. */
   sniServerName?: string;
+  /** See {@link GrpcTransportRequest.authorityOverride}. */
+  authorityOverride?: string;
   path: string;
   /** See {@link GrpcTransportRequest.unixSocketPath}. */
   unixSocketPath?: string;
@@ -236,6 +259,9 @@ export interface GrpcTransportStreamRequest {
   proxyCredential?: string;
   metadata: ReadonlyArray<GrpcTransportHeader>;
   timeoutMs?: number;
+  /** See {@link GrpcTransportRequest.keepaliveIntervalMs}. */
+  keepaliveIntervalMs?: number;
+  keepaliveTimeoutMs?: number;
 }
 
 /**
@@ -245,7 +271,11 @@ export interface GrpcTransportStreamRequest {
  * bytes — frame unwrapping stays a core-proto call the executor runs),
  * `onTrailers` at most once, and `onEnd` EXACTLY once on every path —
  * completion, abort, deadline, connection loss. An `onEnd` without a
- * prior `onHead` carries the classified pre-head failure.
+ * prior `onHead` carries the classified pre-head failure; an `onEnd`
+ * with an error AFTER `onHead` names a connection lost mid-call (an
+ * unanswered keepalive ping, a GOAWAY, a reset) — the executor keeps
+ * what arrived and records the reason. The caller's own abort after
+ * the head ends with no error.
  */
 export interface GrpcStreamCallbacks {
   /** `proxyRoute` rides along when the transport's host decided an

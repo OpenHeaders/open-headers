@@ -153,6 +153,12 @@ export async function executeGrpcInvoke(
   };
 
   const url = resolveStr(request.url);
+  const authorityOverride = request.authority !== undefined ? resolveStr(request.authority).trim() : '';
+  const channelKnobs = {
+    ...(authorityOverride !== '' ? { authorityOverride } : {}),
+    ...(request.keepaliveIntervalMs !== undefined ? { keepaliveIntervalMs: request.keepaliveIntervalMs } : {}),
+    ...(request.keepaliveTimeoutMs !== undefined ? { keepaliveTimeoutMs: request.keepaliveTimeoutMs } : {}),
+  };
   const tlsPolicy = sessionTlsPolicy({ request, trustedRootsPem, vault: scope.vault, resolve: resolveStr });
   const dialPolicy = sessionDialPolicy(request, scope.vault);
   const metadata: GrpcTransportHeader[] = [];
@@ -214,6 +220,7 @@ export async function executeGrpcInvoke(
       tls: request.tls !== false,
       ...tlsPolicy,
       ...dialPolicy,
+      ...channelKnobs,
       path: `/${method.service}/${method.rpc}`,
       ...(request.unixSocketPath !== undefined ? { unixSocketPath: request.unixSocketPath } : {}),
       metadata,
@@ -249,6 +256,7 @@ export async function executeGrpcInvoke(
         tls: request.tls !== false,
         ...tlsPolicy,
         ...dialPolicy,
+        ...channelKnobs,
         path: `/${method.service}/${method.rpc}`,
         ...(request.unixSocketPath !== undefined ? { unixSocketPath: request.unixSocketPath } : {}),
         metadata,
@@ -278,6 +286,7 @@ export async function executeGrpcInvoke(
       // (the request's own proxy setting, or the host's system plane)
       // and what it decided — recorded verbatim.
       ...(response.proxyRoute !== undefined ? { proxyRoute: response.proxyRoute } : {}),
+      ...(response.connectionError !== undefined ? { connectionError: response.connectionError } : {}),
       requestMetadata: metadata.map((m) => ({ key: m.key, value: m.value })),
       error: null,
     };

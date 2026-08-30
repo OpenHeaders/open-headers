@@ -466,7 +466,7 @@ describe('handleExecuteGrpcRequestRpc — streaming shapes', () => {
     expect(snapshot.error).toBeNull();
     expect(snapshot.grpcStatus).toBe(0);
     expect(snapshot.messages.map((m) => m.direction)).toEqual(['up', 'down']);
-    expect(events.map((e) => e.kind)).toEqual(['head', 'messages', 'end']);
+    expect(events.map((e) => e.kind)).toEqual(['sent', 'head', 'messages', 'end']);
   });
 });
 

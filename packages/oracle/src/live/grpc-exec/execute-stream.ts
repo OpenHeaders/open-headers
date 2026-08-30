@@ -71,6 +71,8 @@ export interface GrpcStreamExecuteParams {
   tlsCipherSuites?: string;
   /** See {@link GrpcTransportRequest.sniServerName}. */
   sniServerName?: string;
+  /** See {@link GrpcTransportRequest.authorityOverride}. */
+  authorityOverride?: string;
   path: string;
   /** See {@link GrpcTransportRequest.unixSocketPath}. */
   unixSocketPath?: string;
@@ -83,6 +85,9 @@ export interface GrpcStreamExecuteParams {
   proxyCredential?: string;
   metadata: ReadonlyArray<GrpcTransportHeader>;
   timeoutMs?: number;
+  /** See {@link GrpcTransportRequest.keepaliveIntervalMs}. */
+  keepaliveIntervalMs?: number;
+  keepaliveTimeoutMs?: number;
   registry: ProtoRegistry;
   /** The rpc's resolved input type — upstream encodes ride it. */
   inputType: string;
@@ -196,6 +201,10 @@ export function executeGrpcStream(params: GrpcStreamExecuteParams): Promise<Exec
         bodyBytes,
         durationMs,
         ...(stopped ? { stopped: true } : {}),
+        // A post-head transport error is the connection dying mid-call
+        // — what arrived stands, the reason is named; the user's own
+        // stop is not a loss.
+        ...(!stopped && error !== undefined ? { connectionError: error.message } : {}),
         ...(proxyRoute !== undefined ? { proxyRoute } : {}),
         requestMetadata: params.metadata.map((m) => ({ key: m.key, value: m.value })),
         error: null,
@@ -211,10 +220,13 @@ export function executeGrpcStream(params: GrpcStreamExecuteParams): Promise<Exec
           tls: params.tls,
           ...pickSessionTlsPolicy(params),
           ...pickSessionDialPolicy(params),
+          ...(params.authorityOverride !== undefined ? { authorityOverride: params.authorityOverride } : {}),
           path: params.path,
           ...(params.unixSocketPath !== undefined ? { unixSocketPath: params.unixSocketPath } : {}),
           metadata: params.metadata,
           ...(params.timeoutMs !== undefined ? { timeoutMs: params.timeoutMs } : {}),
+          ...(params.keepaliveIntervalMs !== undefined ? { keepaliveIntervalMs: params.keepaliveIntervalMs } : {}),
+          ...(params.keepaliveTimeoutMs !== undefined ? { keepaliveTimeoutMs: params.keepaliveTimeoutMs } : {}),
         },
         {
           onHead: (status, incoming, route) => {

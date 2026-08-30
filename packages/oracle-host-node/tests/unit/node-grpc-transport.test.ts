@@ -18,6 +18,7 @@ import {
   createServer as createHttp2Server,
   createSecureServer as createSecureHttp2Server,
   type Http2Server,
+  constants as http2Constants,
   type IncomingHttpHeaders,
   type ServerHttp2Stream,
 } from 'node:http2';
@@ -30,7 +31,9 @@ import { GrpcTransportError } from '@openheaders/oracle/live/grpc-exec/transport
 import { afterEach, describe, expect, it } from 'vitest';
 import { mintLeafCertificate, mintProxyCa } from '../../src/daemon/proxy/ca-store';
 import {
+  armKeepalive,
   createNodeGrpcTransport,
+  type KeepaliveSession,
   sessionOptionsFor,
   tunnelSessionOptionsFor,
 } from '../../src/live/node-grpc-transport';
@@ -228,7 +231,14 @@ interface StreamRun {
 
 function openStreamRun(
   authority: string,
-  overrides: { timeoutMs?: number; tls?: boolean; sslVerification?: boolean; unixSocketPath?: string } = {},
+  overrides: {
+    timeoutMs?: number;
+    tls?: boolean;
+    sslVerification?: boolean;
+    unixSocketPath?: string;
+    keepaliveIntervalMs?: number;
+    keepaliveTimeoutMs?: number;
+  } = {},
   signal?: AbortSignal,
 ): { run: StreamRun; writer: ReturnType<NonNullable<typeof transport.openStream>> } {
   const openStream = transport.openStream;
@@ -252,6 +262,207 @@ function openStreamRun(
   );
   return { run: { heads, chunks, trailers, ended }, writer };
 }
+
+/** Count the PING frames a server's sessions receive. */
+function countPings(server: Http2Server): { pings: () => number } {
+  let pings = 0;
+  server.on('session', (session) => {
+    session.on('ping', () => {
+      pings += 1;
+    });
+  });
+  return { pings: () => pings };
+}
+
+describe('createNodeGrpcTransport — channel protocol', () => {
+  it('sends the authority override as :authority while dialing the target', async () => {
+    const { authority, calls } = await startServer((stream) => {
+      stream.respond({ ':status': 200, 'content-type': 'application/grpc+proto' }, { waitForTrailers: true });
+      stream.on('wantTrailers', () => stream.sendTrailers({ 'grpc-status': '0' }));
+      stream.end();
+    });
+    await transport.invoke(request(authority, { authorityOverride: 'gateway.openheaders.io' }));
+    expect(calls[0].headers[':authority']).toBe('gateway.openheaders.io');
+  });
+
+  it('the default :authority is the target itself', async () => {
+    const { authority, calls } = await startServer((stream) => {
+      stream.respond({ ':status': 200, 'content-type': 'application/grpc+proto' }, { waitForTrailers: true });
+      stream.on('wantTrailers', () => stream.sendTrailers({ 'grpc-status': '0' }));
+      stream.end();
+    });
+    await transport.invoke(request(authority));
+    expect(calls[0].headers[':authority']).toBe(authority);
+  });
+
+  it('pings on the keepalive cadence while the call is open and settles clean', async () => {
+    const { authority, calls } = await startServer((stream) => {
+      setTimeout(() => {
+        stream.respond({ ':status': 200, 'content-type': 'application/grpc+proto' }, { waitForTrailers: true });
+        stream.on('wantTrailers', () => stream.sendTrailers({ 'grpc-status': '0' }));
+        stream.end();
+      }, 220);
+    });
+    const counter = countPings(servers[servers.length - 1]);
+    const response = await transport.invoke(request(authority, { keepaliveIntervalMs: 50, keepaliveTimeoutMs: 500 }));
+    expect(calls).toHaveLength(1);
+    expect(counter.pings()).toBeGreaterThanOrEqual(2);
+    expect(response.connectionError).toBeUndefined();
+    expect(response.trailers).toContainEqual({ key: 'grpc-status', value: '0' });
+  });
+
+  it('a call without the interval never pings', async () => {
+    const { authority } = await startServer((stream) => {
+      setTimeout(() => {
+        stream.respond({ ':status': 200, 'content-type': 'application/grpc+proto' }, { waitForTrailers: true });
+        stream.on('wantTrailers', () => stream.sendTrailers({ 'grpc-status': '0' }));
+        stream.end();
+      }, 120);
+    });
+    const counter = countPings(servers[servers.length - 1]);
+    await transport.invoke(request(authority));
+    expect(counter.pings()).toBe(0);
+  });
+
+  it("names the server's GOAWAY too_many_pings after the head, arrived frames standing", async () => {
+    const { authority } = await startStreamingServer((stream) => {
+      stream.respond({ ':status': 200, 'content-type': 'application/grpc+proto' });
+      stream.write(Buffer.from(writeGrpcFrame(new Uint8Array([7]))));
+      stream.session?.once('ping', () => {
+        stream.session?.goaway(http2Constants.NGHTTP2_ENHANCE_YOUR_CALM, 0, Buffer.from('too_many_pings'));
+      });
+    });
+    const { run } = openStreamRun(authority, { keepaliveIntervalMs: 40, keepaliveTimeoutMs: 500 });
+    const error = await run.ended;
+    expect(error?.message).toMatch(/too_many_pings/);
+    expect(error?.message).toMatch(/Raise the keepalive ping interval/);
+    expect(run.heads).toHaveLength(1);
+    expect(run.chunks.length).toBeGreaterThan(0);
+  });
+
+  it('a connection dropped after the head resolves with the reason beside the partial body', async () => {
+    const { authority } = await startServer((stream) => {
+      stream.respond({ ':status': 200, 'content-type': 'application/grpc+proto' });
+      stream.write(Buffer.from(writeGrpcFrame(new Uint8Array([7]))));
+      setTimeout(() => stream.session?.destroy(), 50);
+    });
+    const response = await transport.invoke(request(authority));
+    expect(response.httpStatus).toBe(200);
+    expect(readGrpcFrames(response.body).frames).toHaveLength(1);
+    expect(response.connectionError).toMatch(/mid-call/);
+    expect(response.trailers).toEqual([]);
+  });
+});
+
+describe('armKeepalive — the ping discipline', () => {
+  /** A scripted session: pings are recorded, acknowledged by the test. */
+  function scriptedSession() {
+    const listeners: Partial<Record<'connect' | 'goaway', (...args: never[]) => void>> = {};
+    const pings: Array<(err: Error | null, duration: number, payload: Buffer) => void> = [];
+    let accept = true;
+    const session: KeepaliveSession = {
+      ping(callback) {
+        if (!accept) return false;
+        pings.push(callback);
+        return true;
+      },
+      once(event: 'connect' | 'goaway', listener: (...args: never[]) => void) {
+        listeners[event] = listener;
+        return session;
+      },
+    };
+    return {
+      session,
+      pings,
+      connect: () => listeners.connect?.(),
+      goaway: (code: number, data?: Buffer) => {
+        const listener = listeners.goaway as ((code: number, last: number, data?: Buffer) => void) | undefined;
+        listener?.(code, 0, data);
+      },
+      refusePings: () => {
+        accept = false;
+      },
+    };
+  }
+
+  it('does nothing without an interval', () => {
+    const rig = scriptedSession();
+    const reasons: string[] = [];
+    armKeepalive(rig.session, 'grpc.openheaders.io:443', {}, (reason) => reasons.push(reason));
+    rig.connect();
+    expect(rig.pings).toHaveLength(0);
+    expect(reasons).toEqual([]);
+  });
+
+  it('pings after the interval once connected, re-arms on the acknowledgement, and dies on a missed one', async () => {
+    const rig = scriptedSession();
+    const reasons: string[] = [];
+    armKeepalive(
+      rig.session,
+      'grpc.openheaders.io:443',
+      { keepaliveIntervalMs: 20, keepaliveTimeoutMs: 40 },
+      (reason) => reasons.push(reason),
+    );
+    expect(rig.pings).toHaveLength(0);
+    rig.connect();
+    await new Promise((resolve) => setTimeout(resolve, 30));
+    expect(rig.pings).toHaveLength(1);
+    rig.pings[0](null, 1, Buffer.alloc(8));
+    await new Promise((resolve) => setTimeout(resolve, 30));
+    expect(rig.pings).toHaveLength(2);
+    // Second ping never acknowledged — the timeout names the death once.
+    await new Promise((resolve) => setTimeout(resolve, 60));
+    expect(reasons).toEqual([
+      'No keepalive response from grpc.openheaders.io:443 within 40 ms — the connection is dead.',
+    ]);
+    rig.pings[1](null, 1, Buffer.alloc(8));
+    await new Promise((resolve) => setTimeout(resolve, 30));
+    expect(rig.pings).toHaveLength(2);
+    expect(reasons).toHaveLength(1);
+  });
+
+  it('a refused ping and a ping error both name the death; the disarm silences everything', async () => {
+    const refused = scriptedSession();
+    const refusedReasons: string[] = [];
+    armKeepalive(refused.session, 'a.openheaders.io', { keepaliveIntervalMs: 10 }, (r) => refusedReasons.push(r));
+    refused.refusePings();
+    refused.connect();
+    await new Promise((resolve) => setTimeout(resolve, 25));
+    expect(refusedReasons).toEqual([
+      'Keepalive ping to a.openheaders.io could not be sent — the connection is closed.',
+    ]);
+
+    const errored = scriptedSession();
+    const erroredReasons: string[] = [];
+    armKeepalive(errored.session, 'b.openheaders.io', { keepaliveIntervalMs: 10 }, (r) => erroredReasons.push(r));
+    errored.connect();
+    await new Promise((resolve) => setTimeout(resolve, 25));
+    errored.pings[0](new Error('session closed'), 0, Buffer.alloc(8));
+    expect(erroredReasons).toEqual(['Keepalive ping to b.openheaders.io failed: session closed']);
+
+    const disarmed = scriptedSession();
+    const disarmedReasons: string[] = [];
+    const disarm = armKeepalive(disarmed.session, 'c.openheaders.io', { keepaliveIntervalMs: 10 }, (r) =>
+      disarmedReasons.push(r),
+    );
+    disarmed.connect();
+    disarm();
+    await new Promise((resolve) => setTimeout(resolve, 25));
+    expect(disarmed.pings).toHaveLength(0);
+    expect(disarmedReasons).toEqual([]);
+  });
+
+  it('a GOAWAY too_many_pings names the server floor; other GOAWAYs are not its business', () => {
+    const rig = scriptedSession();
+    const reasons: string[] = [];
+    armKeepalive(rig.session, 'grpc.openheaders.io:443', { keepaliveIntervalMs: 60_000 }, (r) => reasons.push(r));
+    rig.goaway(http2Constants.NGHTTP2_NO_ERROR, Buffer.from('bye'));
+    expect(reasons).toEqual([]);
+    rig.goaway(http2Constants.NGHTTP2_ENHANCE_YOUR_CALM, Buffer.from('too_many_pings'));
+    expect(reasons).toHaveLength(1);
+    expect(reasons[0]).toMatch(/GOAWAY too_many_pings/);
+  });
+});
 
 describe('createNodeGrpcTransport — openStream real wire', () => {
   it('runs a bidi echo: upstream frames out as written, echoes back incrementally', async () => {
@@ -559,7 +770,13 @@ describe('createNodeGrpcTransport — Unix socket target', () => {
         },
         target,
       ),
-    ).toEqual({ cert: 'CERT', key: 'KEY', minVersion: 'TLSv1.2', ciphers: 'AES128-SHA', servername: 'edge.openheaders.io' });
+    ).toEqual({
+      cert: 'CERT',
+      key: 'KEY',
+      minVersion: 'TLSv1.2',
+      ciphers: 'AES128-SHA',
+      servername: 'edge.openheaders.io',
+    });
     expect(sessionOptionsFor({ tls: false, sniServerName: 'edge.openheaders.io' }, target)).toBeUndefined();
   });
 

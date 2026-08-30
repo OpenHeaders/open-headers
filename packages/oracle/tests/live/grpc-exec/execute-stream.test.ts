@@ -45,11 +45,13 @@ const encodedNote = (text: string): Uint8Array => encodeMessage(REGISTRY, NOTE, 
 function streamTransport() {
   let callbacks: GrpcStreamCallbacks | null = null;
   let signal: AbortSignal | undefined;
+  let lastRequest: GrpcTransportStreamRequest | null = null;
   const sentUp: Uint8Array[] = [];
   let halfClosed = false;
   const transport: GrpcTransport = {
     invoke: () => Promise.reject(new Error('unary invoke not expected')),
-    openStream(_request, cb, sig) {
+    openStream(request, cb, sig) {
+      lastRequest = request;
       callbacks = cb;
       signal = sig;
       return {
@@ -67,6 +69,10 @@ function streamTransport() {
       return callbacks;
     },
     signal: () => signal,
+    request: (): GrpcTransportStreamRequest => {
+      if (!lastRequest) throw new Error('openStream not called');
+      return lastRequest;
+    },
     sentUp,
     wasHalfClosed: () => halfClosed,
   };
@@ -237,7 +243,58 @@ describe('executeGrpcStream — client/bidi upstream riders', () => {
   });
 });
 
+describe('executeGrpcStream — channel protocol', () => {
+  it('hands the authority override and the keepalive knobs to the transport', async () => {
+    const fake = streamTransport();
+    const pending = executeGrpcStream(
+      params(fake.transport, {
+        authorityOverride: 'gateway.openheaders.io',
+        keepaliveIntervalMs: 30_000,
+        keepaliveTimeoutMs: 5_000,
+      }),
+    );
+    expect(fake.request()).toMatchObject({
+      authority: 'grpc.openheaders.io:443',
+      authorityOverride: 'gateway.openheaders.io',
+      keepaliveIntervalMs: 30_000,
+      keepaliveTimeoutMs: 5_000,
+    });
+    fake.cb().onEnd();
+    await pending;
+  });
+
+  it('a transport without the knobs sees none', async () => {
+    const fake = streamTransport();
+    const pending = executeGrpcStream(params(fake.transport));
+    expect(fake.request()).not.toHaveProperty('authorityOverride');
+    expect(fake.request()).not.toHaveProperty('keepaliveIntervalMs');
+    expect(fake.request()).not.toHaveProperty('keepaliveTimeoutMs');
+    fake.cb().onEnd();
+    await pending;
+  });
+});
+
 describe('executeGrpcStream — settle paths', () => {
+  it('a post-head transport error names the connection loss beside what arrived', async () => {
+    const fake = streamTransport();
+    const pending = executeGrpcStream(params(fake.transport));
+    const cb = fake.cb();
+    cb.onHead(200, []);
+    cb.onData(writeGrpcFrame(encodedNote('before the loss')));
+    cb.onEnd(
+      new GrpcTransportError(
+        'No keepalive response from grpc.openheaders.io:443 within 20000 ms — the connection is dead.',
+        14,
+      ),
+    );
+    const snapshot = await pending;
+    expect(snapshot.error).toBeNull();
+    expect(snapshot.stopped).toBeUndefined();
+    expect(snapshot.connectionError).toMatch(/No keepalive response/);
+    expect(snapshot.messages).toHaveLength(1);
+    expect(snapshot.grpcStatus).toBeNull();
+  });
+
   it('cancel mid-stream aborts the transport and keeps what arrived with stopped', async () => {
     const fake = streamTransport();
     const pending = executeGrpcStream(params(fake.transport, { sendId: 'send-stop' }));
