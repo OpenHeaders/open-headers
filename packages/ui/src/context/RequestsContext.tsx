@@ -96,6 +96,7 @@ import {
 import { applyRequestCreate, applyRequestDelete, applyRequestUpdate } from '../shared/sync/request-write-client';
 import { getRequestCollectionSyncMirrorForWorkspace } from './mirrors/request-collection-sync-mirror';
 import { getRequestFolderSyncMirrorForWorkspace } from './mirrors/request-folder-sync-mirror';
+import { requestTreeMirrors, resolveFolderParentBySlot, resolveTreeParentRef } from '../shared/sync/tree-placement';
 
 export type RequestWriteResult = BridgeRpcResponse<'updateLocalRequest'>;
 
@@ -852,26 +853,20 @@ export const RequestsProvider: React.FC<RequestsProviderProps> = ({
     [isOverridden, activeWorkspaceIdOverride, surfaceId],
   );
 
-  // Resolve `parentPath` to a {@link RequestFolderParentRef} via the
-  // per-workspace sync mirrors. Mirrors `resolveRequestFolderParent`
-  // in `request-store.ts`. The mirrors — not the React state snapshots
-  // — are the resolution source: state lands via async storage
-  // subscriptions, so a collection created earlier in the SAME gesture
-  // (Generate Collection) is only visible mirror-side at this point.
-  // Returns null when the path matches neither a collection nor a
-  // folder — caller falls back to legacy RPC, which is the
-  // runtime-Active-workspace path.
+  // Resolve `parentPath` to a {@link RequestFolderParentRef} through
+  // the shared resolver over the per-workspace sync mirrors — exact
+  // list match, then the path's own `<slug>-<uid>` tail. The mirrors,
+  // not the React state snapshots, are the source: state lands via
+  // async storage subscriptions, so a collection created earlier in
+  // the SAME gesture (Generate Collection) is only visible mirror-side
+  // here. The tail is what makes a MOVED container resolvable: the
+  // sidebar hands over the fresh projected path while the folder
+  // mirror's `path` is stale (a move emits envelopes on the containers,
+  // never on the folder). Returns null when neither knows the parent —
+  // caller falls back to legacy RPC, the runtime-Active-workspace path.
   const resolveOverrideFolderParent = useCallback(
-    async (wsId: string, parentPath: string): Promise<RequestFolderParentRef | null> => {
-      const collectionMirror = getRequestCollectionSyncMirrorForWorkspace(wsId);
-      const folderMirror = getRequestFolderSyncMirrorForWorkspace(wsId);
-      await Promise.all([collectionMirror.hydrated, folderMirror.hydrated]);
-      const collection = collectionMirror.listRequestCollections().find((c) => c.path === parentPath);
-      if (collection) return { type: REQUEST_COLLECTION_ENTITY_TYPE, uid: collection.uid };
-      const folder = folderMirror.listRequestFolders().find((f) => f.path === parentPath);
-      if (folder) return { type: REQUEST_FOLDER_ENTITY_TYPE, uid: folder.uid };
-      return null;
-    },
+    (wsId: string, parentPath: string): Promise<RequestFolderParentRef | null> =>
+      resolveTreeParentRef(requestTreeMirrors(wsId, {}), parentPath),
     [],
   );
 
@@ -913,12 +908,9 @@ export const RequestsProvider: React.FC<RequestsProviderProps> = ({
       if (isOverridden) {
         const wsId = activeWorkspaceIdOverride ?? null;
         if (!wsId) return false;
-        const folderMirror = getRequestFolderSyncMirrorForWorkspace(wsId);
-        await folderMirror.hydrated;
-        const folder = folderMirror.listRequestFolders().find((f) => f.uid === folderUid);
-        if (!folder) return false;
-        const parentPath = folder.path.substring(0, folder.path.lastIndexOf('/'));
-        const parent = await resolveOverrideFolderParent(wsId, parentPath);
+        // The parent for the slot tombstone comes from the live slot,
+        // not the folder's (stale after a move) mirror path.
+        const parent = await resolveFolderParentBySlot(requestTreeMirrors(wsId, {}), folderUid);
         if (!parent) return false;
         const result = await applyRequestFolderDelete({ folderUid, parent }, { workspaceId: wsId, surfaceId });
         return result.ok;
@@ -926,7 +918,7 @@ export const RequestsProvider: React.FC<RequestsProviderProps> = ({
       const resp = await hostBridge.call('deleteLocalRequestFolder', { folderUid }).catch(() => null);
       return Boolean(resp?.success);
     },
-    [isOverridden, activeWorkspaceIdOverride, surfaceId, resolveOverrideFolderParent],
+    [isOverridden, activeWorkspaceIdOverride, surfaceId],
   );
 
   const setCollectionScripts = useCallback<RequestsContextValue['setCollectionScripts']>(

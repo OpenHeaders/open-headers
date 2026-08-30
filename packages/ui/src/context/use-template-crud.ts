@@ -9,11 +9,7 @@
 import { hostBridge } from '@openheaders/core/bridge';
 import { MIN_SCHEMA_VERSION } from '@openheaders/core/schemas';
 import type { PersistedLocalFolder } from '@openheaders/core/storage';
-import {
-  TEMPLATE_COLLECTION_ENTITY_TYPE,
-  TEMPLATE_FOLDER_ENTITY_TYPE,
-  type TemplateFolderParentRef,
-} from '@openheaders/core/sync';
+import { resolveTreeParent, TEMPLATE_FOLDER_TREE_KINDS, type TemplateFolderParentRef } from '@openheaders/core/sync';
 import type { Collection, Template } from '@openheaders/core/types';
 import { generateUid, toFolderName } from '@openheaders/core/utils';
 import { type RefObject, useCallback } from 'react';
@@ -69,19 +65,19 @@ export function useTemplateCrud({
   templateFoldersRef,
   refreshRules,
 }: TemplateCrudInputs): TemplateCrud {
-  // Mirror the SW's `resolveTemplateFolderParent` by walking the
-  // per-workspace storage snapshots already cached in
-  // `templateCollections` state and the `templateFoldersRef` ref. Pure
-  // synchronous lookups — no IO, no oracle reads — so override-branch
-  // mutators can compute the parent ref at gesture time.
+  // The shared path → parent-ref resolver over the per-workspace
+  // storage snapshots already cached in `templateCollections` state
+  // and the `templateFoldersRef` ref — exact match, then the path's
+  // own uid tail. Pure synchronous lookups — no IO, no oracle reads —
+  // so override-branch mutators can compute the parent ref at gesture
+  // time.
   const resolveOverrideTemplateFolderParent = useCallback(
-    (parentPath: string): TemplateFolderParentRef | null => {
-      const collection = templateCollections.find((c) => c.path === parentPath);
-      if (collection) return { type: TEMPLATE_COLLECTION_ENTITY_TYPE, uid: collection.uid };
-      const folder = templateFoldersRef.current.find((f) => f.path === parentPath);
-      if (folder) return { type: TEMPLATE_FOLDER_ENTITY_TYPE, uid: folder.uid };
-      return null;
-    },
+    (parentPath: string): TemplateFolderParentRef | null =>
+      resolveTreeParent(
+        parentPath,
+        { collections: templateCollections, folders: templateFoldersRef.current },
+        TEMPLATE_FOLDER_TREE_KINDS,
+      ),
     [templateCollections, templateFoldersRef],
   );
 

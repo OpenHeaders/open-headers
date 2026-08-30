@@ -152,6 +152,34 @@ export async function resolveTreeParentRef<C extends string, F extends string>(
   );
 }
 
+/**
+ * The live parent of a FOLDER — the one container whose `folders` set
+ * holds its slot. The container mirrors' slots are fresh on every
+ * move; the folder's own mirror `path` is not (a move emits envelopes
+ * on the containers, never on the folder), so a delete that needs the
+ * parent for the slot tombstone reads it here and falls back to the
+ * stale path's parent only for a slot-less folder.
+ */
+export async function resolveFolderParentBySlot<C extends string, F extends string>(
+  tree: TreeMirrors<C, F>,
+  folderUid: string,
+): Promise<TreeParentRef<C, F> | null> {
+  await Promise.all([tree.collectionMirror.hydrated, tree.folderMirror.hydrated]);
+  for (const collection of tree.listCollections()) {
+    if (
+      tree.collectionMirror.liveOrderedSetItems(collection.uid, tree.childrenPath).some((s) => s.itemId === folderUid)
+    )
+      return { type: tree.kinds.collectionType, uid: collection.uid };
+  }
+  for (const folder of tree.listFolders()) {
+    if (tree.folderMirror.liveOrderedSetItems(folder.uid, tree.childrenPath).some((s) => s.itemId === folderUid))
+      return { type: tree.kinds.folderType, uid: folder.uid };
+  }
+  const own = tree.listFolders().find((folder) => folder.uid === folderUid);
+  const parentPath = own ? parentPathOf(own.path) : null;
+  return parentPath === null ? null : resolveTreeParentRef(tree, parentPath);
+}
+
 /** The parent ref of a LEAF at `entityPath` — its containing collection or folder. */
 export async function resolveLeafParent<C extends string, F extends string>(
   tree: TreeMirrors<C, F>,

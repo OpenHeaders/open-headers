@@ -14,7 +14,7 @@
 
 import { hostBridge } from '@openheaders/core/bridge';
 import type { PersistedLocalFolder } from '@openheaders/core/storage';
-import { COLLECTION_ENTITY_TYPE, FOLDER_ENTITY_TYPE, type FolderParentRef } from '@openheaders/core/sync';
+import { FOLDER_TREE_KINDS, type FolderParentRef, resolveTreeParent } from '@openheaders/core/sync';
 import type { Collection, Rule } from '@openheaders/core/types';
 import { generateUid, toFolderName } from '@openheaders/core/utils';
 import { type RefObject, useCallback } from 'react';
@@ -84,19 +84,14 @@ export function useLocalEntityCrud({
     [activeWorkspaceId, surfaceId, refreshRules],
   );
 
-  // Mirror the SW's `resolveFolderParent` by walking the per-workspace
+  // The shared path → parent-ref resolver over the per-workspace
   // storage snapshots already cached in `localCollections` state and
-  // the `foldersRef` ref. Pure synchronous lookups — no IO, no oracle
-  // reads — so override-branch mutators can compute the parent ref at
-  // gesture time.
+  // the `foldersRef` ref — exact match, then the path's own uid tail.
+  // Pure synchronous lookups — no IO, no oracle reads — so
+  // override-branch mutators can compute the parent ref at gesture time.
   const resolveOverrideRuleFolderParent = useCallback(
-    (parentPath: string): FolderParentRef | null => {
-      const collection = localCollections.find((c) => c.path === parentPath);
-      if (collection) return { type: COLLECTION_ENTITY_TYPE, uid: collection.uid };
-      const folder = foldersRef.current.find((f) => f.path === parentPath);
-      if (folder) return { type: FOLDER_ENTITY_TYPE, uid: folder.uid };
-      return null;
-    },
+    (parentPath: string): FolderParentRef | null =>
+      resolveTreeParent(parentPath, { collections: localCollections, folders: foldersRef.current }, FOLDER_TREE_KINDS),
     [localCollections, foldersRef],
   );
 

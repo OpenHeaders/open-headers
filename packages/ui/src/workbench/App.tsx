@@ -149,6 +149,7 @@ import { noteToolWindowFeatureUsed } from './feature-usage';
 import { getFocusedDock } from './stores/focus-region-store';
 import { isToolWindowTeased, TOOL_WINDOW_MAP } from './tool-windows';
 import type { DockSlot, RequestContainerSection, ToolWindowId, WorkbenchTab } from './types';
+import { findFolderByUid } from '@openheaders/ui/shared/variables';
 
 // Companion-reveal targets → this surface's dock tool windows. The
 // wire vocabulary names features; both observability features land on
@@ -325,6 +326,8 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
     pausedUids,
     renameLocalCollection,
     renameLocalFolder,
+    renameTemplateCollection,
+    renameTemplateFolder,
     templates,
     templateCollections,
     templateCollectionTrees,
@@ -1034,13 +1037,27 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
     updateTab,
   });
 
+  // `collection-overview` / `folder-overview` are ONE tab mode shared by
+  // the rule, request and template families — the uid picks the family
+  // (as the breadcrumb and the tab body already do), and the rename
+  // goes to that family's context.
   const handleBreadcrumbRenameFor = useCallback(
     (tab: WorkbenchTab, newName: string) => {
       if (tab.mode === 'collection-overview' && tab.entityId) {
-        void renameLocalCollection(tab.entityId, newName);
+        const uid = tab.entityId;
+        if (requestsApi.collections.some((c) => c.uid === uid)) void requestsApi.renameCollection(uid, newName);
+        else if (templateCollections.some((c) => c.uid === uid)) void renameTemplateCollection(uid, newName);
+        else void renameLocalCollection(uid, newName);
         updateTab(tab.id, { label: newName });
       } else if (tab.mode === 'folder-overview' && tab.entityId) {
-        void renameLocalFolder(tab.entityId, newName);
+        const owner = findFolderByUid(tab.entityId, {
+          ruleTrees: localCollectionTrees,
+          requestTrees: requestsApi.collectionTrees,
+          templateTrees: templateCollectionTrees,
+        });
+        if (owner?.family === 'request') void requestsApi.renameFolder(tab.entityId, newName);
+        else if (owner?.family === 'template') void renameTemplateFolder(tab.entityId, newName);
+        else void renameLocalFolder(tab.entityId, newName);
         updateTab(tab.id, { label: newName });
       } else if (tab.mode === 'edit' && tab.ruleUid) {
         void updateLocalRule(tab.ruleUid, { name: newName });
@@ -1084,6 +1101,11 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
     [
       renameLocalCollection,
       renameLocalFolder,
+      renameTemplateCollection,
+      renameTemplateFolder,
+      templateCollections,
+      localCollectionTrees,
+      templateCollectionTrees,
       updateLocalRule,
       envApi,
       requestsApi,
