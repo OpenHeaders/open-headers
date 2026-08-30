@@ -1,17 +1,21 @@
 // ── Folders ─────────────────────────────────────────────────────────
 
-import { REQUEST_FOLDER_TREE_KINDS, type RequestFolderParentRef, resolveTreeParent } from '@openheaders/core/sync';
+import {
+  REQUEST_FOLDER_ENTITY_TYPE,
+  REQUEST_FOLDER_TREE_KINDS,
+  type RequestFolderParentRef,
+  resolveTreeParent,
+} from '@openheaders/core/sync';
 import {
   buildCreateRequestFolderBatch,
   buildDeleteRequestFolderBatch,
   buildDeleteRequestFolderEntityBatch,
   buildRenameRequestFolderBatch,
 } from '@openheaders/core/sync-builders/mutations/request-folder-mutations';
-import { buildDeleteEntityBatch } from '@openheaders/core/sync-builders/mutations/request-mutations';
 import { generateUid, toFolderName } from '@openheaders/core/utils';
-import { applyRequestFolderMutationOrThrow, applyRequestMutationOrThrow } from './apply';
-import { deleteResponseExamplesForRequests } from './response-examples';
-import { assertLoaded, collections, folders, type LocalFolder, requests } from './state';
+import { applyRequestFolderMutationOrThrow } from './apply';
+import { deleteRequestTreeDescendants } from './cascade';
+import { assertLoaded, collections, folders, type LocalFolder } from './state';
 
 /**
  * Resolve `parentPath` to a {@link RequestFolderParentRef} via the
@@ -57,25 +61,9 @@ export async function deleteRequestFolder(uid: string): Promise<boolean> {
   const parentPath = folder.path.substring(0, folder.path.lastIndexOf('/'));
   const parent = resolveRequestFolderParent(parentPath);
 
-  // Cascade descendant request + request-folder deletes through the
-  // oracle. Same pattern as rule-folder cascades.
-  const cascadingRequestUids = requests.filter((r) => r.path.startsWith(`${folder.path}/`)).map((r) => r.uid);
-  const cascadingNestedFolderUids = folders
-    .filter((f) => f.uid !== uid && f.path.startsWith(`${folder.path}/`))
-    .map((f) => f.uid);
-  await deleteResponseExamplesForRequests(cascadingRequestUids);
-  for (const reqUid of cascadingRequestUids) {
-    await applyRequestMutationOrThrow(
-      (ctx) => buildDeleteEntityBatch(reqUid, ctx),
-      'deleteRequestFolder-cascade-request',
-    );
-  }
-  for (const nestedUid of cascadingNestedFolderUids) {
-    await applyRequestFolderMutationOrThrow(
-      (ctx) => ({ batch: buildDeleteRequestFolderEntityBatch(nestedUid, ctx), sideEffects: [] }),
-      'deleteRequestFolder-cascade-folder',
-    );
-  }
+  // Everything under the folder goes first — the parent-owned sets
+  // name it, every request kind included (`cascade.ts`).
+  await deleteRequestTreeDescendants({ type: REQUEST_FOLDER_ENTITY_TYPE, uid }, 'deleteRequestFolder');
   // Final delete: the folder itself + its parent slot. Parent ref is
   // resolved above; if missing (parent already tombstoned), fall back
   // to the bare entity tombstone.

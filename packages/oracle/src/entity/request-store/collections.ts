@@ -1,24 +1,18 @@
 // ── Collections ─────────────────────────────────────────────────────
 
-import { WORKSPACE_ROOTS_REQUEST_COLLECTIONS_PATH } from '@openheaders/core/sync';
+import { REQUEST_COLLECTION_ENTITY_TYPE, WORKSPACE_ROOTS_REQUEST_COLLECTIONS_PATH } from '@openheaders/core/sync';
 import {
   buildDeleteRequestCollectionBatch,
   buildRenameRequestCollectionBatch,
 } from '@openheaders/core/sync-builders/mutations/request-collection-mutations';
-import { buildDeleteRequestFolderEntityBatch } from '@openheaders/core/sync-builders/mutations/request-folder-mutations';
-import { buildDeleteEntityBatch } from '@openheaders/core/sync-builders/mutations/request-mutations';
 import { seedRequestCollection } from '@openheaders/core/sync-builders/projections/request-collection-projection';
 import type { Collection } from '@openheaders/core/types';
 import { generateUid, toFolderName } from '@openheaders/core/utils';
 import { getOracleForCurrentWorkspace } from '@openheaders/oracle/sync/service/accessors';
 import { rootsPlacement } from '../tree-placement';
-import {
-  applyRequestCollectionMutationOrThrow,
-  applyRequestFolderMutationOrThrow,
-  applyRequestMutationOrThrow,
-} from './apply';
-import { deleteResponseExamplesForRequests } from './response-examples';
-import { assertLoaded, collections, folders, requests, setCollections } from './state';
+import { applyRequestCollectionMutationOrThrow } from './apply';
+import { deleteRequestTreeDescendants } from './cascade';
+import { assertLoaded, collections, setCollections } from './state';
 
 const DEFAULT_COLLECTION_NAME = 'My Requests';
 
@@ -85,22 +79,9 @@ export async function deleteRequestCollection(uid: string): Promise<boolean> {
   const collection = collections.find((c) => c.uid === uid);
   if (!collection) return false;
 
-  // Cascade descendant request + request-folder deletes through the
-  // oracle so every cache stays consistent. The collection's tombstone
-  // covers its parent slot for top-level folders; nested folders/requests
-  // are deleted by uid through the oracle.
-  const cascadingRequestUids = requests.filter((r) => r.path.startsWith(collection.path)).map((r) => r.uid);
-  const cascadingFolderUids = folders.filter((f) => f.path.startsWith(collection.path)).map((f) => f.uid);
-  await deleteResponseExamplesForRequests(cascadingRequestUids);
-  for (const reqUid of cascadingRequestUids) {
-    await applyRequestMutationOrThrow((ctx) => buildDeleteEntityBatch(reqUid, ctx), 'deleteRequestCollection-cascade');
-  }
-  for (const folderUid of cascadingFolderUids) {
-    await applyRequestFolderMutationOrThrow(
-      (ctx) => ({ batch: buildDeleteRequestFolderEntityBatch(folderUid, ctx), sideEffects: [] }),
-      'deleteRequestCollection-cascade-folder',
-    );
-  }
+  // Everything under the collection goes first — the parent-owned
+  // sets name it, every request kind included (`cascade.ts`).
+  await deleteRequestTreeDescendants({ type: REQUEST_COLLECTION_ENTITY_TYPE, uid }, 'deleteRequestCollection');
   // Tombstone the collection through the oracle — the broadcast drives
   // the cache + local mirror update.
   await applyRequestCollectionMutationOrThrow(

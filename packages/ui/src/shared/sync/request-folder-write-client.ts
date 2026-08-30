@@ -11,6 +11,7 @@
 import {
   type MutationEnvelope,
   REQUEST_FOLDER_CHILDREN_PATH,
+  REQUEST_FOLDER_ENTITY_TYPE,
   REQUEST_FOLDER_ITEMS_PATH,
   REQUEST_FOLDER_TREE_KINDS,
   type RequestFolderParentRef,
@@ -18,21 +19,21 @@ import {
 import {
   buildCreateRequestFolderBatch,
   buildDeleteRequestFolderBatch,
-  buildDeleteRequestFolderEntityBatch,
   buildMoveRequestFolderBatch,
   buildRenameRequestFolderBatch,
   buildSetRequestFolderAuthBatch,
   buildSetRequestFolderScriptsBatch,
   type SetRequestFolderScriptsInput,
 } from '@openheaders/core/sync-builders/mutations/request-folder-mutations';
-import { buildDeleteEntityBatch as buildDeleteRequestEntityBatch } from '@openheaders/core/sync-builders/mutations/request-mutations';
 import type { AuthConfig } from '@openheaders/core/types';
-import { getRequestCollectionSyncMirrorForWorkspace } from '../../context/mirrors/request-collection-sync-mirror';
+import {
+  getRequestCollectionSyncMirrorForWorkspace,
+  type RequestCollectionSyncMirror,
+} from '../../context/mirrors/request-collection-sync-mirror';
 import {
   getRequestFolderSyncMirrorForWorkspace,
   type RequestFolderSyncMirror,
 } from '../../context/mirrors/request-folder-sync-mirror';
-import { getRequestSyncMirrorForWorkspace } from '../../context/mirrors/request-sync-mirror';
 import {
   applySyncPayload,
   type BaseSyncWriteOptions,
@@ -40,16 +41,22 @@ import {
   resolveRendererContext,
   type SyncSimpleResult,
 } from './apply-payload';
-import { appendChildKey, type ContainerMirror } from './tree-placement';
+import {
+  applyRequestTreeDescendantDeletes,
+  type RequestLeafMirrorOverrides,
+  requestLeafMirrors,
+  requestTreeDescendants,
+} from './tree-descendants';
+import { appendChildKey, requestTreeMirrors } from './tree-placement';
 
 export { createRequestFolderSyncMirror } from '../../context/mirrors/request-folder-sync-mirror';
 
 export type RequestFolderSimpleResult = SyncSimpleResult;
 
-export interface RequestFolderWriteOptions extends BaseSyncWriteOptions {
+export interface RequestFolderWriteOptions extends BaseSyncWriteOptions, RequestLeafMirrorOverrides {
   mirror?: RequestFolderSyncMirror;
-  /** The tree's collection mirror — read for a create's append key (test override). */
-  collectionMirror?: ContainerMirror;
+  /** The tree's collection mirror — read for a create's append key and walked by a delete's cascade (test override). */
+  collectionMirror?: RequestCollectionSyncMirror;
 }
 
 export interface ApplyRequestFolderRenameInput {
@@ -148,13 +155,12 @@ export interface ApplyRequestFolderDeleteInput {
 }
 
 /**
- * Delete a request-folder and cascade-delete every descendant request
- * + nested request-folder. Mirrors `request-store.deleteRequestFolder`
- * (legacy SW handler) so cascade is consistent across surfaces.
- *
- * The folder's tombstone covers its parent slot via the parent ref;
- * descendants ride bare delete envelopes. Each child + the parent is a
- * separate batch.
+ * Delete a request-folder and everything under it. The cascade walks
+ * the parent-owned sets (`tree-descendants.ts`) — every request kind,
+ * nested folders deepest-first — and tombstones each on its own batch
+ * before the folder's own; mirrors the SW store's `deleteRequestFolder`
+ * so the gesture lands the same from either surface. The folder's
+ * tombstone covers its parent slot via the parent ref.
  */
 export async function applyRequestFolderDelete(
   input: ApplyRequestFolderDeleteInput,
@@ -162,36 +168,16 @@ export async function applyRequestFolderDelete(
 ): Promise<RequestFolderSimpleResult> {
   const folderMirror = resolveMirror(opts, getRequestFolderSyncMirrorForWorkspace);
   await folderMirror.hydrated;
-  const folder = folderMirror.listRequestFolders().find((f) => f.uid === input.folderUid);
-  if (!folder) return { ok: false, reason: 'not-found' };
-  const childPathPrefix = `${folder.path}/`;
+  if (!folderMirror.getRequestFolderMirror(input.folderUid)) return { ok: false, reason: 'not-found' };
 
-  const requestMirror = getRequestSyncMirrorForWorkspace(opts.workspaceId);
-  await requestMirror.hydrated;
-
-  const cascadingRequestUids = requestMirror
-    .listRequests()
-    .filter((r) => r.path.startsWith(childPathPrefix))
-    .map((r) => r.uid);
-  const cascadingFolderUids = folderMirror
-    .listRequestFolders()
-    .filter((f) => f.uid !== input.folderUid && f.path.startsWith(childPathPrefix))
-    .map((f) => f.uid);
-
+  const tree = requestTreeMirrors(opts.workspaceId, { collectionMirror: opts.collectionMirror, folderMirror });
+  const descendants = await requestTreeDescendants(tree, requestLeafMirrors(opts.workspaceId, opts), {
+    type: REQUEST_FOLDER_ENTITY_TYPE,
+    uid: input.folderUid,
+  });
   const baseCtx = resolveRendererContext(opts);
-  for (const reqUid of cascadingRequestUids) {
-    const ctx = baseCtx.next({ batchId: `request-folder-delete-cascade-req-${reqUid}` });
-    const ack = await applySyncPayload(buildDeleteRequestEntityBatch(reqUid, ctx));
-    if (!ack.ok) return ack;
-  }
-  for (const nestedUid of cascadingFolderUids) {
-    const ctx = baseCtx.next({ batchId: `request-folder-delete-cascade-nested-${nestedUid}` });
-    const ack = await applySyncPayload({
-      batch: buildDeleteRequestFolderEntityBatch(nestedUid, ctx),
-      sideEffects: [],
-    });
-    if (!ack.ok) return ack;
-  }
+  const cascade = await applyRequestTreeDescendantDeletes(descendants, baseCtx, 'request-folder-delete-cascade');
+  if (!cascade.ok) return cascade;
 
   const ctx = baseCtx.next(
     opts.batchId ? { batchId: opts.batchId } : { batchId: `request-folder-delete-${input.folderUid}` },

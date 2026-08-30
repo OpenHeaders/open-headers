@@ -10,16 +10,25 @@
  *   - setVar / removeVar emit addToSet / removeFromSet at the
  *     request-collection variables set path keyed by variable.uid
  *   - delete short-circuits to `not-found` when the mirror has no
- *     entry (cascade fanout itself is exercised by integration tests)
+ *     entry; the cascade walks the parent-owned sets — every request
+ *     kind, folders deepest-first, the collection last — and follows
+ *     the slots, never a leaf mirror's stale path
  */
 
 import type { MutationBatch, MutatorContext } from '@openheaders/core/sync';
 import {
   advanceHlc,
+  GRPC_REQUEST_ENTITY_TYPE,
   initialHlc,
   keyBetween,
+  MQTT_REQUEST_ENTITY_TYPE,
   REQUEST_COLLECTION_ENTITY_TYPE,
   REQUEST_COLLECTION_VARS_PATH,
+  REQUEST_ENTITY_TYPE,
+  REQUEST_FOLDER_CHILDREN_PATH,
+  REQUEST_FOLDER_ENTITY_TYPE,
+  REQUEST_FOLDER_ITEMS_PATH,
+  WEBSOCKET_REQUEST_ENTITY_TYPE,
   WORKSPACE_ROOTS_ENTITY_TYPE,
   WORKSPACE_ROOTS_ID,
   WORKSPACE_ROOTS_REQUEST_COLLECTIONS_PATH,
@@ -55,6 +64,12 @@ import {
   applyRequestCollectionRename,
   applyRequestCollectionSetVar,
 } from '@openheaders/ui/shared/sync/request-collection-write-client';
+import {
+  lastBodiesSeen,
+  makeRequestCollectionMirror,
+  makeRequestFolderMirror,
+  makeRequestLeafMirrors,
+} from '../../helpers/request-tree-mirrors';
 
 function makeMirror(collections: Array<{ uid: string; path: string; name: string }> = []): RequestCollectionSyncMirror {
   return {
@@ -254,5 +269,89 @@ describe('applyRequestCollectionDelete', () => {
     );
     expect(result).toEqual({ ok: false, reason: 'not-found' });
     expect(mockCall).not.toHaveBeenCalled();
+  });
+
+  it('cascades every request kind and the folders under the collection, deepest-first, before the collection', async () => {
+    mockCall.mockResolvedValue({ ok: true, outcomes: [] });
+    const root = 'requests/api-rc-1';
+    const mirror = makeRequestCollectionMirror([{ uid: 'rc-1', path: root, name: 'API' }], {
+      'rc-1': { [REQUEST_FOLDER_CHILDREN_PATH]: ['fo-1'], [REQUEST_FOLDER_ITEMS_PATH]: ['req00001', 'grq00001'] },
+    });
+    const folderMirror = makeRequestFolderMirror(
+      [
+        { uid: 'fo-1', path: `${root}/sub-fo-1` },
+        { uid: 'fo-2', path: `${root}/sub-fo-1/deep-fo-2` },
+      ],
+      {
+        'fo-1': { [REQUEST_FOLDER_CHILDREN_PATH]: ['fo-2'], [REQUEST_FOLDER_ITEMS_PATH]: ['wsr00001'] },
+        'fo-2': { [REQUEST_FOLDER_ITEMS_PATH]: ['mqr00001'] },
+      },
+    );
+    const result = await applyRequestCollectionDelete(
+      { collectionUid: 'rc-1' },
+      {
+        workspaceId: 'ws-1',
+        surfaceId: 'workbench',
+        mirror,
+        folderMirror,
+        ...makeRequestLeafMirrors({
+          http: { req00001: `${root}/get-req00001` },
+          grpc: { grq00001: `${root}/call-grq00001` },
+          ws: { wsr00001: `${root}/sub-fo-1/socket-wsr00001` },
+          mqtt: { mqr00001: `${root}/sub-fo-1/deep-fo-2/topic-mqr00001` },
+        }),
+        context: makeContextHandle(),
+      },
+    );
+    expect(result).toEqual({ ok: true });
+    expect(lastBodiesSeen(mockCall)).toEqual([
+      { kind: 'delete', type: MQTT_REQUEST_ENTITY_TYPE, id: 'mqr00001' },
+      { kind: 'delete', type: WEBSOCKET_REQUEST_ENTITY_TYPE, id: 'wsr00001' },
+      { kind: 'delete', type: REQUEST_ENTITY_TYPE, id: 'req00001' },
+      { kind: 'delete', type: GRPC_REQUEST_ENTITY_TYPE, id: 'grq00001' },
+      { kind: 'delete', type: REQUEST_FOLDER_ENTITY_TYPE, id: 'fo-2' },
+      { kind: 'delete', type: REQUEST_FOLDER_ENTITY_TYPE, id: 'fo-1' },
+      { kind: 'delete', type: REQUEST_COLLECTION_ENTITY_TYPE, id: 'rc-1' },
+    ]);
+  });
+
+  it('follows the slots, not a stale mirror path: dragged out is spared, dragged in is taken, slot-less by its path', async () => {
+    mockCall.mockResolvedValue({ ok: true, outcomes: [] });
+    const root = 'requests/api-rc-1';
+    const other = 'requests/other-rc-2';
+    const mirror = makeRequestCollectionMirror(
+      [
+        { uid: 'rc-1', path: root, name: 'API' },
+        { uid: 'rc-2', path: other, name: 'Other' },
+      ],
+      {
+        'rc-1': { [REQUEST_FOLDER_ITEMS_PATH]: ['grq0000in'] },
+        'rc-2': { [REQUEST_FOLDER_ITEMS_PATH]: ['req000out'] },
+      },
+    );
+    const result = await applyRequestCollectionDelete(
+      { collectionUid: 'rc-1' },
+      {
+        workspaceId: 'ws-1',
+        surfaceId: 'workbench',
+        mirror,
+        folderMirror: makeRequestFolderMirror(),
+        ...makeRequestLeafMirrors({
+          // Dragged out of rc-1 after its mirror entry last updated.
+          http: { req000out: `${root}/get-req000out` },
+          // Dragged into rc-1; its mirror path still names rc-2.
+          grpc: { grq0000in: `${other}/call-grq0000in` },
+          // An old-client create under rc-1 with no slot anywhere yet.
+          mqtt: { mqr0slotless: `${root}/topic-mqr0slotless` },
+        }),
+        context: makeContextHandle(),
+      },
+    );
+    expect(result).toEqual({ ok: true });
+    expect(lastBodiesSeen(mockCall)).toEqual([
+      { kind: 'delete', type: GRPC_REQUEST_ENTITY_TYPE, id: 'grq0000in' },
+      { kind: 'delete', type: MQTT_REQUEST_ENTITY_TYPE, id: 'mqr0slotless' },
+      { kind: 'delete', type: REQUEST_COLLECTION_ENTITY_TYPE, id: 'rc-1' },
+    ]);
   });
 });
