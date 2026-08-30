@@ -265,7 +265,7 @@ export function classifyFetchFailure(url: string, err: unknown, request: Transpo
     case 'ERR_SSL_TLSV13_ALERT_CERTIFICATE_REQUIRED':
       return certRef !== undefined
         ? `${host} requires a client certificate and rejected the handshake (${code}). The request presents the vault entry "${certRef}" — check that its certificate is one this server accepts.`
-        : `${host} requires a client certificate (${code}). Pick one in the request's "Client certificate" setting.`;
+        : `${host} requires a client certificate (${code}). Pick one in the request's "Client certificate (mTLS)" setting.`;
     case 'ERR_SSL_SSLV3_ALERT_BAD_CERTIFICATE':
     case 'ERR_SSL_SSLV3_ALERT_CERTIFICATE_UNKNOWN':
       return certRef !== undefined

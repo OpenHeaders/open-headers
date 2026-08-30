@@ -46,7 +46,7 @@ export const workbenchTrustedRoots = {
   'workbench.trustedRoots.add.cancel': '取消',
   'workbench.trustedRoots.saveFailed': '保存受信任的证书失败',
   'workbench.trustedRoots.saveFailedDetail': '保存受信任的证书失败：{message}',
-  'workbench.trustedRoots.settings.label': '受信任证书',
+  'workbench.trustedRoots.settings.label': '受信任证书 (CA)',
   'workbench.trustedRoots.settings.count': '来自此工作区 {count} 个',
   'workbench.trustedRoots.settings.none': '此工作区暂无',
   'workbench.trustedRoots.settings.manage': '管理受信任的证书',

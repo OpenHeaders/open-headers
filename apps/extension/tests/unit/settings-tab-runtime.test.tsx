@@ -227,10 +227,10 @@ describe('SettingsTab on a browser runtime (capability absent)', () => {
 
   it('shows no client-certificate control or fact row and never dots a synced ref', () => {
     renderTab();
-    expect(screen.queryByRole('combobox', { name: 'Client certificate' })).toBeNull();
+    expect(screen.queryByRole('combobox', { name: 'Client certificate (mTLS)' })).toBeNull();
     // Not a sheet-listed fact — the browser sheet stays at 11 rows.
     fireEvent.click(screen.getByText('11 browser-managed'));
-    expect(screen.queryByText('Client certificate')).toBeNull();
+    expect(screen.queryByText('Client certificate (mTLS)')).toBeNull();
     expect(settingsDotCount({ clientCertificateRef: 'gateway-mtls' })).toBe(0);
   });
 
@@ -606,12 +606,12 @@ describe('SettingsTab on a node runtime', () => {
   it('shows the client-certificate picker without touching the fact sheet', () => {
     registerCapability('requestRuntime', () => 'node');
     renderTab();
-    expect(screen.getByRole('combobox', { name: 'Client certificate' })).toBeTruthy();
+    expect(screen.getByRole('combobox', { name: 'Client certificate (mTLS)' })).toBeTruthy();
     expect(screen.getByText('No client certificate')).toBeTruthy();
     // Not trust-relaxing, not a sheet-listed fact — the node sheet
     // stays at 4 rows (incl. the scripts posture fact) and the label exists exactly once.
     fireEvent.click(screen.getByText('4 runtime-managed'));
-    expect(screen.getAllByText('Client certificate')).toHaveLength(1);
+    expect(screen.getAllByText('Client certificate (mTLS)')).toHaveLength(1);
   });
 
   it('offers the vault client-certificate entries as picker options', () => {
@@ -636,7 +636,7 @@ describe('SettingsTab on a node runtime', () => {
         <SettingsTab value={{}} onChange={onChange} />
       </VaultContext.Provider>,
     );
-    openCombobox(screen.getByRole('combobox', { name: 'Client certificate' }));
+    openCombobox(screen.getByRole('combobox', { name: 'Client certificate (mTLS)' }));
     // Only certificate-kind entries are options — string entries never appear.
     expect(dropdownOption('gateway-mtls')).toBeTruthy();
     expect(document.querySelectorAll('.ant-select-item-option')).toHaveLength(1);

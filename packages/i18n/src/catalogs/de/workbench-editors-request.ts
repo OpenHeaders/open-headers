@@ -556,9 +556,9 @@ export const workbenchEditorsRequest = {
     'Servername, der im TLS-Handshake anstelle des URL-Hosts gesendet wird – ein Gateway, das viele Hostnamen unter einer Adresse bedient, oder ein Zertifikat für einen Namen, den DNS nicht auflöst. Leer sendet den URL-Host.',
   'workbench.editors.request.settings.sniPlaceholder': 'Auto – der URL-Host',
   'workbench.editors.request.settings.sniExample': 'z. B. api.openheaders.com',
-  'workbench.editors.request.settings.clientCertificate': 'Client-Zertifikat',
+  'workbench.editors.request.settings.clientCertificate': 'Client-Zertifikat (mTLS)',
   'workbench.editors.request.settings.clientCertificateInfo':
-    'Präsentiert während des TLS-Handshakes ein Client-Zertifikat, für APIs hinter Mutual-TLS-Gateways, ' +
+    'Präsentiert während des TLS-Handshakes ein Client-Zertifikat — Mutual TLS (mTLS) — für APIs hinter Mutual-TLS-Gateways, ' +
     'die den Aufrufer per Zertifikat authentifizieren. Wähle einen Zertifikatseintrag aus dem vault — die ' +
     'Anfrage speichert nur den Namen des Eintrags, und jedes Gerät präsentiert seinen eigenen ' +
     'vault-Eintrag dieses Namens; Zertifikat und Schlüssel verlassen den vault nie. Leer lassen, um ohne ' +

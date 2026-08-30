@@ -65,8 +65,8 @@ afterEach(() => {
 
 const ROW_LABELS = [
   'SSL certificate verification',
-  'Trusted certificates',
-  'Client certificate',
+  'Trusted certificates (CA)',
+  'Client certificate (mTLS)',
   'TLS version minimum',
   'TLS version maximum',
   'TLS cipher suites',

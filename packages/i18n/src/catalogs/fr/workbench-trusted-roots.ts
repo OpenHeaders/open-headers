@@ -47,7 +47,7 @@ export const workbenchTrustedRoots = {
   'workbench.trustedRoots.add.cancel': 'Annuler',
   'workbench.trustedRoots.saveFailed': 'Échec de l’enregistrement des certificats de confiance',
   'workbench.trustedRoots.saveFailedDetail': 'Échec de l’enregistrement des certificats de confiance : {message}',
-  'workbench.trustedRoots.settings.label': 'Certificats de confiance',
+  'workbench.trustedRoots.settings.label': 'Certificats de confiance (CA)',
   'workbench.trustedRoots.settings.count': '{count} de cet espace de travail',
   'workbench.trustedRoots.settings.none': 'Aucun de cet espace de travail',
   'workbench.trustedRoots.settings.manage': 'Gérer les certificats de confiance',

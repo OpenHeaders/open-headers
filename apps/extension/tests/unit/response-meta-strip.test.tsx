@@ -359,7 +359,7 @@ describe('ResponseMetaStrip TLS facts and trust attribution', () => {
 
   it('a run that trusted workspace or device certificates reads like any other verified send', async () => {
     renderStrip({ trustedRootsApplied: 1, deviceTrustApplied: 2 });
-    expect(screen.queryByText('Trusted certificates')).toBeNull();
+    expect(screen.queryByText('Trusted certificates (CA)')).toBeNull();
     fireEvent.mouseEnter(screen.getByTestId('oh-response-network'));
     expect(await screen.findByTestId('oh-response-http-version')).toBeTruthy();
     expect(screen.queryByTestId('oh-response-tls-trusted')).toBeNull();

@@ -162,7 +162,7 @@ const TABS: TabKind[] = ['http', 'ws', 'grpc', 'mqtt'];
 const MANAGE = 'Manage trusted certificates';
 
 function openPopup(): void {
-  const combobox = screen.getByRole('combobox', { name: 'Trusted certificates' });
+  const combobox = screen.getByRole('combobox', { name: 'Trusted certificates (CA)' });
   fireEvent.mouseDown(combobox);
   fireEvent.click(combobox);
 }
@@ -174,7 +174,7 @@ describe.each(TABS)('trusted-certificates line on the %s Settings tab (node runt
 
   it('counts the editing-scope workspace roots on the face and lists them read-only', () => {
     renderTab(kind, 'ws-two', () => {});
-    expect(screen.getByText('Trusted certificates')).toBeTruthy();
+    expect(screen.getByText('Trusted certificates (CA)')).toBeTruthy();
     expect(screen.getByText('2 from this workspace')).toBeTruthy();
     expect(mockUseTrustedRoots).toHaveBeenCalledWith('ws-two');
     openPopup();
@@ -209,8 +209,8 @@ describe.each(TABS)('trusted-certificates line on the %s Settings tab (node runt
 
   it('is a row, not a knob — no value, no switch, no dot', () => {
     renderTab(kind, 'ws-two', () => {});
-    expect(screen.queryByRole('switch', { name: 'Trusted certificates' })).toBeNull();
-    expect(screen.getByRole('combobox', { name: 'Trusted certificates' }).hasAttribute('disabled')).toBe(false);
+    expect(screen.queryByRole('switch', { name: 'Trusted certificates (CA)' })).toBeNull();
+    expect(screen.getByRole('combobox', { name: 'Trusted certificates (CA)' }).hasAttribute('disabled')).toBe(false);
     expect(screen.queryAllByTestId('oh-setting-modified-dot')).toHaveLength(0);
   });
 });
@@ -218,11 +218,11 @@ describe.each(TABS)('trusted-certificates line on the %s Settings tab (node runt
 describe('trusted-certificates line on a browser host', () => {
   it.each(['ws', 'grpc', 'mqtt'] as const)('%s tab disables the row and states the honest note, no count', (kind) => {
     renderTab(kind, 'ws-two', () => {});
-    expect(screen.getByText('Trusted certificates')).toBeTruthy();
+    expect(screen.getByText('Trusted certificates (CA)')).toBeTruthy();
     expect(screen.getByText('Browser store')).toBeTruthy();
     expect(screen.getByText(/The browser verifies with its own trust store/)).toBeTruthy();
     expect(screen.queryByText('2 from this workspace')).toBeNull();
-    expect(screen.getByRole('combobox', { name: 'Trusted certificates' }).hasAttribute('disabled')).toBe(true);
+    expect(screen.getByRole('combobox', { name: 'Trusted certificates (CA)' }).hasAttribute('disabled')).toBe(true);
     expect(screen.queryByRole('button', { name: MANAGE })).toBeNull();
     // The list is never read for a host that cannot apply it.
     expect(mockUseTrustedRoots).toHaveBeenCalledWith(null);
@@ -230,10 +230,10 @@ describe('trusted-certificates line on a browser host', () => {
 
   it('http tab carries the note as a browser-managed sheet row', () => {
     renderTab('http', 'ws-two', () => {});
-    expect(screen.queryByText('Trusted certificates')).toBeNull();
+    expect(screen.queryByText('Trusted certificates (CA)')).toBeNull();
     fireEvent.click(screen.getByText('11 browser-managed'));
     const row = screen.getByTestId('oh-managed-trusted-roots-row');
-    expect(row.textContent).toContain('Trusted certificates');
+    expect(row.textContent).toContain('Trusted certificates (CA)');
     expect(row.textContent).toContain('Browser store');
     expect(screen.queryByRole('button', { name: MANAGE })).toBeNull();
   });

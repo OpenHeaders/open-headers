@@ -530,7 +530,7 @@ describe('createNodeRequestTransport — per-request client certificate', () => 
   it('classifies certificate_required pointing at the setting when NO certificate is configured', async () => {
     fetchMock.mockRejectedValue(fetchError('ERR_SSL_TLSV13_ALERT_CERTIFICATE_REQUIRED'));
     await expect(transport().send(makeRequest())).rejects.toThrow(
-      /requires a client certificate .* Pick one in the request's "Client certificate" setting/,
+      /requires a client certificate .* Pick one in the request's "Client certificate \(mTLS\)" setting/,
     );
   });
 

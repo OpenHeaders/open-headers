@@ -451,9 +451,9 @@ export const workbenchEditorsRequest = {
     '在 TLS 握手中代替 URL 主机发送的服务器名称——用于在一个地址上承载多个主机名的网关，或为 DNS 无法解析的名称签发的证书。留空则发送 URL 主机。',
   'workbench.editors.request.settings.sniPlaceholder': '自动 — URL 主机',
   'workbench.editors.request.settings.sniExample': '例如 api.openheaders.com',
-  'workbench.editors.request.settings.clientCertificate': '客户端证书',
+  'workbench.editors.request.settings.clientCertificate': '客户端证书 (mTLS)',
   'workbench.editors.request.settings.clientCertificateInfo':
-    '在 TLS 握手期间出示客户端证书，用于双向 TLS 网关背后按证书验证调用方的 API。从 vault 中选择一个证书条目——请求只保存条目名称，每台设备出示自己同名的 vault 条目；证书和密钥绝不离开 vault。留空则不带客户端证书连接。',
+    '在 TLS 握手期间出示客户端证书（双向 TLS，mTLS），用于双向 TLS 网关背后按证书验证调用方的 API。从 vault 中选择一个证书条目——请求只保存条目名称，每台设备出示自己同名的 vault 条目；证书和密钥绝不离开 vault。留空则不带客户端证书连接。',
   'workbench.editors.request.settings.clientCertificatePlaceholder': '无客户端证书',
   'workbench.editors.request.settings.clientCertificateEmpty': '此设备的 vault 中还没有客户端证书条目。',
   'workbench.editors.request.settings.vaultManageCertificates': '在 vault 中管理证书',

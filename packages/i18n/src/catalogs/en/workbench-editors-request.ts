@@ -451,9 +451,9 @@ export const workbenchEditorsRequest = {
     'Server name presented in the TLS handshake instead of the URL host — a gateway fronting many hostnames on one address, or a certificate issued for a name DNS does not answer. Empty sends the URL host.',
   'workbench.editors.request.settings.sniPlaceholder': 'Auto — the URL host',
   'workbench.editors.request.settings.sniExample': 'e.g. api.openheaders.com',
-  'workbench.editors.request.settings.clientCertificate': 'Client certificate',
+  'workbench.editors.request.settings.clientCertificate': 'Client certificate (mTLS)',
   'workbench.editors.request.settings.clientCertificateInfo':
-    "Present a client certificate during the TLS handshake, for APIs behind mutual-TLS gateways that authenticate the caller by certificate. Pick a certificate entry from the vault — the request saves only the entry's name, and each device presents its own vault entry of that name; the certificate and key never leave the vault. Leave empty to connect without a client certificate.",
+    "Present a client certificate during the TLS handshake — mutual TLS (mTLS) — for APIs behind mutual-TLS gateways that authenticate the caller by certificate. Pick a certificate entry from the vault — the request saves only the entry's name, and each device presents its own vault entry of that name; the certificate and key never leave the vault. Leave empty to connect without a client certificate.",
   'workbench.editors.request.settings.clientCertificatePlaceholder': 'No client certificate',
   'workbench.editors.request.settings.clientCertificateEmpty':
     'No client-certificate entries in this device’s vault yet.',

@@ -548,9 +548,9 @@ export const workbenchEditorsRequest = {
     'Nom de serveur présenté dans la négociation TLS à la place de l’hôte de l’URL — une passerelle qui sert plusieurs noms d’hôte sur une seule adresse, ou un certificat émis pour un nom que le DNS ne résout pas. Vide envoie l’hôte de l’URL.',
   'workbench.editors.request.settings.sniPlaceholder': 'Auto — l’hôte de l’URL',
   'workbench.editors.request.settings.sniExample': 'p. ex. api.openheaders.com',
-  'workbench.editors.request.settings.clientCertificate': 'Certificat client',
+  'workbench.editors.request.settings.clientCertificate': 'Certificat client (mTLS)',
   'workbench.editors.request.settings.clientCertificateInfo':
-    'Présenter un certificat client pendant le handshake TLS, pour les API derrière des passerelles TLS ' +
+    'Présenter un certificat client pendant le handshake TLS — TLS mutuel (mTLS) — pour les API derrière des passerelles TLS ' +
     "mutuel qui authentifient l'appelant par certificat. Choisissez une entrée de certificat du vault — la " +
     "requête n'enregistre que le nom de l'entrée, et chaque appareil présente sa propre entrée de vault de " +
     'ce nom ; le certificat et la clé ne quittent jamais le vault. Laissez vide pour vous connecter sans ' +

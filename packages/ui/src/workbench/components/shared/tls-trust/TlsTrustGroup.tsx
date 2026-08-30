@@ -5,9 +5,9 @@
  * their order, their validation and their dots never drift between
  * editors again.
  *
- *   SSL certificate verification · Trusted certificates · Client
- *   certificate · TLS version minimum · TLS version maximum · TLS
- *   cipher suites · SNI server name · [the host's own rows]
+ *   SSL certificate verification · Trusted certificates (CA) · Client
+ *   certificate (mTLS) · TLS version minimum · TLS version maximum ·
+ *   TLS cipher suites · SNI server name · [the host's own rows]
  *
  * The block edits a `TlsTrustValue` and hands the WHOLE next value
  * back — the host merges it into its draft (the session drafts keep

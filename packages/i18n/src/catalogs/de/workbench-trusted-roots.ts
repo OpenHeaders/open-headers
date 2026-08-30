@@ -48,7 +48,7 @@ export const workbenchTrustedRoots = {
   'workbench.trustedRoots.saveFailed': 'Vertrauenswürdige Zertifikate konnten nicht gespeichert werden',
   'workbench.trustedRoots.saveFailedDetail':
     'Vertrauenswürdige Zertifikate konnten nicht gespeichert werden: {message}',
-  'workbench.trustedRoots.settings.label': 'Vertrauenswürdige Zertifikate',
+  'workbench.trustedRoots.settings.label': 'Vertrauenswürdige Zertifikate (CA)',
   'workbench.trustedRoots.settings.count': '{count} aus diesem Arbeitsbereich',
   'workbench.trustedRoots.settings.none': 'Keine aus diesem Arbeitsbereich',
   'workbench.trustedRoots.settings.manage': 'Vertrauenswürdige Zertifikate verwalten',
