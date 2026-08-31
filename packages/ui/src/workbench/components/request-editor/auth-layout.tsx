@@ -166,6 +166,14 @@ export const AuthForm: React.FC<{ children: React.ReactNode }> = ({ children }) 
   <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>{children}</div>
 );
 
+/** The one note size every auth form uses — secondary, 12px, capped
+ *  to the field column so prose and fields share a measure. */
+export const AuthFormNote: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+  <Text type="secondary" style={{ fontSize: 12, maxWidth: AUTH_FIELD_DEFAULT_MAX_WIDTH, display: 'block' }}>
+    {children}
+  </Text>
+);
+
 export const AuthLabeledRow: React.FC<{ label: string; children: React.ReactNode }> = ({ label, children }) => (
   <div style={{ display: 'grid', gridTemplateColumns: '90px 1fr', alignItems: 'start', gap: 12 }}>
     <Text style={{ fontSize: 13, lineHeight: '24px' }}>{label}</Text>

@@ -13,7 +13,7 @@ import { Button, Divider, Input, Select, Tag, Typography } from 'antd';
 import type React from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { AuthConfigFields, OAuth2RailControls, seedAuthConfig } from '../request-editor/auth-config-form';
-import { AUTH_FIELD_DEFAULT_MAX_WIDTH, AuthLabeledRow } from '../request-editor/auth-layout';
+import { AUTH_FIELD_DEFAULT_MAX_WIDTH, AuthFormNote, AuthLabeledRow } from '../request-editor/auth-layout';
 import { authTypeSelectOptions, type ConcreteAuthType } from '../request-editor/auth-type-menu';
 import InheritedAuthForm from '../request-editor/InheritedAuthForm';
 import { authTypeLabelKey } from '../request-editor/inherited-auth';
@@ -66,9 +66,7 @@ const AuthEntryPane: React.FC<AuthEntryPaneProps> = ({ entry, onChange, inherite
         />
       </AuthLabeledRow>
       {entry.config.type === 'none' && (
-        <Text type="secondary" style={{ fontSize: 12 }}>
-          {t('workbench.editors.requestContainer.auth.noneEntryNote')}
-        </Text>
+        <AuthFormNote>{t('workbench.editors.requestContainer.auth.noneEntryNote')}</AuthFormNote>
       )}
       {entry.config.type === 'oauth2' && (
         <OAuth2RailControls
@@ -86,12 +84,10 @@ const AuthEntryPane: React.FC<AuthEntryPaneProps> = ({ entry, onChange, inherite
             value={entry.appliesTo ?? ''}
             onChange={(e) => setAppliesTo(e.target.value)}
             placeholder={t('workbench.editors.requestContainer.auth.appliesToPlaceholder')}
-            style={{ maxWidth: AUTH_FIELD_DEFAULT_MAX_WIDTH, fontFamily: 'monospace' }}
+            style={{ maxWidth: AUTH_FIELD_DEFAULT_MAX_WIDTH, fontFamily: 'monospace', fontSize: 12 }}
             data-testid="oh-auth-entry-applies-to"
           />
-          <Text type="secondary" style={{ fontSize: 11 }}>
-            {t('workbench.editors.requestContainer.auth.appliesToHelp')}
-          </Text>
+          <AuthFormNote>{t('workbench.editors.requestContainer.auth.appliesToHelp')}</AuthFormNote>
         </div>
       </AuthLabeledRow>
     </div>

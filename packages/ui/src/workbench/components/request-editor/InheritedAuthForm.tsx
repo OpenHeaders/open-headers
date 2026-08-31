@@ -8,14 +8,12 @@
  */
 
 import type { ConcreteAuthConfig } from '@openheaders/core/types';
-import { Divider, Input, Select, Typography } from 'antd';
+import { Divider, Input, Select } from 'antd';
 import type React from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { AuthConfigFields, OAuth2RailControls } from './auth-config-form';
-import { AUTH_FIELD_DEFAULT_MAX_WIDTH, AuthLabeledRow } from './auth-layout';
+import { AUTH_FIELD_DEFAULT_MAX_WIDTH, AuthFormNote, AuthLabeledRow } from './auth-layout';
 import { authTypeSelectOptions } from './auth-type-menu';
-
-const { Text } = Typography;
 
 const noop = () => undefined;
 
@@ -38,11 +36,7 @@ const InheritedAuthForm: React.FC<{
             style={{ width: '100%', maxWidth: AUTH_FIELD_DEFAULT_MAX_WIDTH }}
           />
         </AuthLabeledRow>
-        {auth.type === 'none' && (
-          <Text type="secondary" style={{ fontSize: 12 }}>
-            {t('workbench.editors.request.auth.noneNote')}
-          </Text>
-        )}
+        {auth.type === 'none' && <AuthFormNote>{t('workbench.editors.request.auth.noneNote')}</AuthFormNote>}
         {auth.type === 'oauth2' && <OAuth2RailControls auth={auth} onChange={noop} layout="rows" />}
         <AuthConfigFields auth={auth} onChange={noop} />
         {appliesTo !== undefined && (
@@ -54,7 +48,7 @@ const InheritedAuthForm: React.FC<{
                 value={appliesTo ?? ''}
                 placeholder={t('workbench.editors.requestContainer.auth.appliesToPlaceholder')}
                 disabled
-                style={{ maxWidth: AUTH_FIELD_DEFAULT_MAX_WIDTH, fontFamily: 'monospace' }}
+                style={{ maxWidth: AUTH_FIELD_DEFAULT_MAX_WIDTH, fontFamily: 'monospace', fontSize: 12 }}
                 data-testid="oh-auth-entry-applies-to"
               />
             </AuthLabeledRow>
