@@ -244,6 +244,7 @@ const ALL_AUTH_TYPES: readonly ConcreteAuthConfig['type'][] = [
   'digest',
   'oauth1',
   'hawk',
+  'jwt',
 ];
 
 const AUTH_MASKS: Record<AuthProtocolKind, ReadonlySet<ConcreteAuthConfig['type']>> = {
@@ -284,6 +285,7 @@ export const AUTH_TYPE_LABELS: Record<ConcreteAuthConfig['type'], string> = {
   digest: 'Digest Auth',
   oauth1: 'OAuth 1.0',
   hawk: 'Hawk Authentication',
+  jwt: 'JWT Bearer',
 };
 
 /** The kind noun WITH its article — "an MQTT session" needs `an`. */

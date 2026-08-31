@@ -297,6 +297,7 @@ describe('RequestContainerEditor — the empty state', () => {
       'bearer',
       'digest',
       'hawk',
+      'jwt',
       'oauth1',
       'oauth2',
       'aws-sigv4',
@@ -682,6 +683,40 @@ describe('AuthorizationTab — the request-level Inherit pane', () => {
     render(<AuthorizationTab auth={{ ...hawk, includePayloadHash: true }} onChange={onChange} />);
     fireEvent.click(screen.getByTestId('oh-auth-hawk-payload-hash'));
     expect(onChange).toHaveBeenLastCalledWith(hawk);
+  });
+
+  it("JWT Bearer's form follows the algorithm family and writes the base64 + lifetime opt-ins", () => {
+    const onChange = vi.fn();
+    const jwt: AuthConfig = {
+      type: 'jwt',
+      algorithm: 'HS256',
+      secret: 's',
+      privateKey: '',
+      payload: '',
+      addTo: 'header',
+    };
+    const hs = render(<AuthorizationTab auth={jwt} onChange={onChange} />);
+    // HS family shows the secret + base64 opt-in; no private key row.
+    expect(screen.getByText('Secret Base64 encoded')).toBeTruthy();
+    expect(screen.queryByText('Private Key')).toBeNull();
+    expect(
+      screen.getByText('The authorization header will be automatically generated when you send the request.'),
+    ).toBeTruthy();
+    fireEvent.click(screen.getByTestId('oh-auth-jwt-secret-base64'));
+    expect(onChange).toHaveBeenCalledWith({ ...jwt, secretBase64: true });
+    hs.unmount();
+    // An asymmetric family swaps in the private key row.
+    const rs = render(<AuthorizationTab auth={{ ...jwt, algorithm: 'RS256' }} onChange={onChange} />);
+    expect(screen.getByText('Private Key')).toBeTruthy();
+    expect(screen.queryByText('Secret Base64 encoded')).toBeNull();
+    rs.unmount();
+    // The lifetime opt-in clears back to absent.
+    render(<AuthorizationTab auth={{ ...jwt, expiresInSeconds: 600 }} onChange={onChange} />);
+    const holder = screen.getByTestId('oh-auth-jwt-expires-in');
+    const expires = holder.tagName === 'INPUT' ? holder : holder.querySelector('input');
+    if (!expires) throw new Error('no expires input');
+    fireEvent.change(expires, { target: { value: '' } });
+    expect(onChange).toHaveBeenLastCalledWith(jwt);
   });
 
   it('Basic Auth and Bearer Token close with the auto-generated note on every runtime', () => {

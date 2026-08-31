@@ -5,8 +5,10 @@
  * Exercised with a fake transport that captures what it was handed.
  */
 
+import { createHmac } from 'node:crypto';
 import {
   type HawkCredentials,
+  type JwtCredentials,
   type OAuth1Credentials,
   sha256Hex,
   signAwsSigV4,
@@ -919,6 +921,57 @@ describe('executeOverTransport — Hawk signing', () => {
     await executeOverTransport(makeResolved({ hawk: { ...credentials, includePayloadHash: true } }), transport);
     const auth = sent().headers.find((h) => h.key.toLowerCase() === 'authorization')?.value ?? '';
     expect(hawkAttributes(auth).has('hash')).toBe(false);
+  });
+});
+
+describe('executeOverTransport — JWT Bearer minting', () => {
+  const credentials: JwtCredentials = {
+    algorithm: 'HS256',
+    secret: 'oh-jwt-secret',
+    privateKey: '',
+    payload: '{"iss":"openheaders"}',
+    addTo: 'header',
+  };
+
+  it('mints at the wire, replaces a user Authorization header, and verifies under node HMAC', async () => {
+    const { transport, sent } = captureTransport();
+    const snap = await executeOverTransport(
+      makeResolved({
+        jwt: { ...credentials, expiresInSeconds: 600 },
+        headers: [{ key: 'Authorization', value: 'Bearer stale-user-token' }],
+      }),
+      transport,
+    );
+    expect(snap.error).toBeNull();
+    const rows = sent().headers.filter((h) => h.key.toLowerCase() === 'authorization');
+    expect(rows).toHaveLength(1);
+    expect(rows[0].value.startsWith('Bearer eyJ')).toBe(true);
+    const token = rows[0].value.slice('Bearer '.length);
+    const [head, body, signature] = token.split('.');
+    const expected = createHmac('sha256', 'oh-jwt-secret').update(`${head}.${body}`).digest('base64url');
+    expect(signature).toBe(expected);
+    const claims = JSON.parse(Buffer.from(body, 'base64url').toString('utf8'));
+    expect(claims.iss).toBe('openheaders');
+    expect(claims.exp - claims.iat).toBe(600);
+  });
+
+  it('appends the token query param in query mode', async () => {
+    const { transport, sent } = captureTransport();
+    await executeOverTransport(
+      makeResolved({ url: 'https://api.openheaders.io/v1/items?page=2', jwt: { ...credentials, addTo: 'query' } }),
+      transport,
+    );
+    const url = new URL(sent().url);
+    expect(url.searchParams.get('page')).toBe('2');
+    expect(url.searchParams.get('token')?.split('.')).toHaveLength(3);
+    expect(sent().headers.some((h) => h.key.toLowerCase() === 'authorization')).toBe(false);
+  });
+
+  it('surfaces a malformed payload as an error snapshot, never a garbage token', async () => {
+    const { transport } = captureTransport();
+    const snap = await executeOverTransport(makeResolved({ jwt: { ...credentials, payload: '{nope' } }), transport);
+    expect(snap.error).toContain('JWT Bearer signing failed');
+    expect(snap.error).toContain('JWT payload is not valid JSON');
   });
 });
 

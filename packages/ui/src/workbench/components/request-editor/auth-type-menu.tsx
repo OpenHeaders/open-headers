@@ -8,6 +8,7 @@
 
 import {
   AmazonOutlined,
+  FileProtectOutlined,
   KeyOutlined,
   LinkOutlined,
   LockOutlined,
@@ -31,6 +32,7 @@ export const AUTH_TYPE_ORDER: readonly Exclude<ConcreteAuthType, 'none'>[] = [
   'bearer',
   'digest',
   'hawk',
+  'jwt',
   'oauth1',
   'oauth2',
   'aws-sigv4',
@@ -42,6 +44,7 @@ const AUTH_TYPE_ICONS: Record<ConcreteAuthType, React.ReactNode> = {
   bearer: <SafetyCertificateOutlined />,
   digest: <LockOutlined />,
   hawk: <SecurityScanOutlined />,
+  jwt: <FileProtectOutlined />,
   oauth1: <LinkOutlined />,
   oauth2: <LoginOutlined />,
   'aws-sigv4': <AmazonOutlined />,

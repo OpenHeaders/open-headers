@@ -16,6 +16,7 @@ import {
   sha256Hex,
   signAwsSigV4,
   signHawk,
+  signJwtBearer,
   signOAuth1,
 } from '@openheaders/core/auth-signing';
 import type { RequestStreamEventWire } from '@openheaders/core/bridge';
@@ -195,6 +196,19 @@ export async function executeOverTransport(
       for (const h of signed) setHeader(headers, h.key, h.value);
     } catch (err) {
       return errorSnapshot(`Hawk signing failed: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
+
+  // JWT Bearer mints HERE too — the send-time clock stamps iat/exp
+  // when a lifetime is set; the header replaces a same-key user
+  // Authorization row, query mode appends the token param.
+  if (resolved.jwt) {
+    try {
+      const signed = await signJwtBearer(resolved.jwt, { timestampSec: Math.floor(Date.now() / 1000) });
+      for (const h of signed.headers) setHeader(headers, h.key, h.value);
+      if (signed.queryParams.length > 0) url = appendQueryParams(url, signed.queryParams);
+    } catch (err) {
+      return errorSnapshot(`JWT Bearer signing failed: ${err instanceof Error ? err.message : String(err)}`);
     }
   }
 

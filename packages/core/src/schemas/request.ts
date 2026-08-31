@@ -666,6 +666,60 @@ export const HawkAuthSchema = v.object({
 });
 
 /**
+ * JWT Bearer (RFC 7519) — mints and signs a fresh compact JWT per
+ * send from locally held key material, for APIs that require
+ * short-lived self-signed tokens (app installations, push-provider
+ * tokens, admin APIs). Like the other signing schemes the token is
+ * derived at EXECUTE time over the resolved config — `iat`/`exp` are
+ * stamped from the send-time clock when `expiresInSeconds` is set
+ * (payload-set claims win). Pure WebCrypto across all twelve
+ * algorithms — both runtimes sign, the type is not host-gated.
+ *
+ * `secret` keys the HS family (optionally base64-encoded);
+ * `privateKey` is the RS/PS/ES families' PEM (`{{vault.*}}` is the
+ * expected idiom — the parser tolerates a newline-stripped paste).
+ * `payload` and `headers` are JSON text, templatable; completeness is
+ * a send-time gate, so partial configs stay saveable.
+ */
+export const JwtAuthSchema = v.object({
+  type: v.literal('jwt'),
+  disabled: AuthDisabledSchema,
+  algorithm: v.picklist([
+    'HS256',
+    'HS384',
+    'HS512',
+    'RS256',
+    'RS384',
+    'RS512',
+    'PS256',
+    'PS384',
+    'PS512',
+    'ES256',
+    'ES384',
+    'ES512',
+  ]),
+  secret: v.string(),
+  /** The secret is base64-encoded key material; decode before keying. */
+  secretBase64: v.optional(v.boolean()),
+  privateKey: v.string(),
+  /** Claims JSON text — empty signs `{}`. */
+  payload: v.string(),
+  /** Extra protected-header JSON text (`kid`, …); `alg`/`typ` are
+   *  auto-composed, `alg` never overridable. */
+  headers: v.optional(v.string()),
+  /** Where the token rides — the Authorization header or a `token`
+   *  query param. */
+  addTo: v.picklist(['header', 'query']),
+  /** Scheme ahead of the token. Absent = `Bearer`; explicitly empty =
+   *  the bare token. */
+  headerPrefix: v.optional(v.string()),
+  /** Stamp `iat`/`exp` into the claims at sign time — the field that
+   *  keeps a 10-minute-cap API working without template arithmetic.
+   *  Absent = the payload rides verbatim. */
+  expiresInSeconds: v.optional(v.number()),
+});
+
+/**
  * The auth shapes that can be put on the wire — every variant but
  * `inherit`. A collection's or folder's auth pool holds these (a pool
  * entry is always concrete), and the ancestor walk resolves a
@@ -696,6 +750,7 @@ export const ConcreteAuthConfigSchema = v.variant('type', [
   DigestAuthSchema,
   OAuth1AuthSchema,
   HawkAuthSchema,
+  JwtAuthSchema,
 ]);
 
 /**

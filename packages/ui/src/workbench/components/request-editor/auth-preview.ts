@@ -141,6 +141,32 @@ export function previewAuthContributions(auth: AuthConfig, t: Translate): AuthPr
         ],
         params: [],
       };
+    case 'jwt': {
+      if (auth.addTo === 'query') {
+        return {
+          headers: [],
+          params: [
+            {
+              key: 'token',
+              value: t('workbench.editors.request.authPreview.jwtValue'),
+              hint: t('workbench.editors.request.authPreview.jwtQueryHint'),
+            },
+          ],
+        };
+      }
+      const prefix = auth.headerPrefix ?? 'Bearer';
+      const value = t('workbench.editors.request.authPreview.jwtValue');
+      return {
+        headers: [
+          {
+            key: 'Authorization',
+            value: prefix === '' ? value : `${prefix} ${value}`,
+            hint: t('workbench.editors.request.authPreview.jwtHint'),
+          },
+        ],
+        params: [],
+      };
+    }
     case 'oauth2': {
       const inQuery = auth.sendAs === 'query';
       const entry: AuthPreviewEntry = inQuery

@@ -93,6 +93,16 @@ export function collectRequestTemplateStrings(request: Request): string[] {
       if (request.auth.app) out.push(request.auth.app);
       if (request.auth.dlg) out.push(request.auth.dlg);
       break;
+    case 'jwt':
+      // Key material, claims, and headers are all templatable —
+      // `{{vault.private_key}}` and a `{{dynamic.timestamp}}` claim
+      // are the expected idioms.
+      if (request.auth.secret) out.push(request.auth.secret);
+      if (request.auth.privateKey) out.push(request.auth.privateKey);
+      if (request.auth.payload) out.push(request.auth.payload);
+      if (request.auth.headers) out.push(request.auth.headers);
+      if (request.auth.headerPrefix) out.push(request.auth.headerPrefix);
+      break;
   }
 
   // ── Body ──

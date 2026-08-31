@@ -1331,6 +1331,81 @@ describe('request mapping — auth', () => {
     expect(transform?.tracking).toBe('PERMANENT: hawk sha256/sha1 only');
   });
 
+  it('maps jwt end to end — key material, JSON blocks, and delivery kept; defaults collapse to absent', () => {
+    const result = parsePostman(
+      postmanCollection({
+        item: [
+          {
+            name: 'X',
+            request: {
+              method: 'GET',
+              url: 'https://api.openheaders.io/x',
+              auth: {
+                type: 'jwt',
+                jwt: [
+                  { key: 'algorithm', value: 'RS256' },
+                  { key: 'privateKey', value: '{{vault.app_key}}' },
+                  { key: 'payload', value: '{"iss":"12345"}' },
+                  { key: 'header', value: '{"kid":"oh-key-1"}' },
+                  { key: 'headerPrefix', value: 'Bearer' },
+                  { key: 'addTokenTo', value: 'header' },
+                ],
+              },
+            },
+          },
+        ],
+      }),
+    );
+    expect(result.requests[0]?.request.auth).toEqual({
+      type: 'jwt',
+      algorithm: 'RS256',
+      secret: '',
+      privateKey: '{{vault.app_key}}',
+      payload: '{"iss":"12345"}',
+      headers: '{"kid":"oh-key-1"}',
+      addTo: 'header',
+    });
+    expect(result.report.drops.some((d) => /jwt/i.test(d.reason))).toBe(false);
+    expect(result.report.transforms.some((t) => /jwt/i.test(t.reason))).toBe(false);
+  });
+
+  it('maps jwt query delivery, base64 secrets, and folds a foreign query key to token with a transform', () => {
+    const result = parsePostman(
+      postmanCollection({
+        item: [
+          {
+            name: 'X',
+            request: {
+              method: 'GET',
+              url: 'https://api.openheaders.io/x',
+              auth: {
+                type: 'jwt',
+                jwt: [
+                  { key: 'algorithm', value: 'HS256' },
+                  { key: 'secret', value: 's3cret' },
+                  { key: 'isSecretBase64Encoded', value: 'true' },
+                  { key: 'addTokenTo', value: 'queryParam' },
+                  { key: 'queryParamKey', value: 'jwt' },
+                ],
+              },
+            },
+          },
+        ],
+      }),
+    );
+    expect(result.requests[0]?.request.auth).toEqual({
+      type: 'jwt',
+      algorithm: 'HS256',
+      secret: 's3cret',
+      secretBase64: true,
+      privateKey: '',
+      payload: '',
+      addTo: 'query',
+    });
+    const transform = result.report.transforms.find((t) => t.from === 'jwt/query-key-jwt');
+    expect(transform?.tracking).toBe('PERMANENT: jwt token query key');
+  });
+
   it('drops ntlm / edgegrid as permanent with accurate per-type reasons', () => {
     const cases = [
       {

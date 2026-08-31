@@ -145,6 +145,11 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.authPreview.hawkValue': 'Hawk <signed parameters>',
   'workbench.editors.request.authPreview.hawkHint':
     'Generated from the Authorization tab (Hawk Authentication). The request is signed with your credentials when it is sent.',
+  'workbench.editors.request.authPreview.jwtValue': '<signed JWT>',
+  'workbench.editors.request.authPreview.jwtHint':
+    'Generated from the Authorization tab (JWT Bearer). The token is signed and added to this header when the request is sent.',
+  'workbench.editors.request.authPreview.jwtQueryHint':
+    'Generated from the Authorization tab (JWT Bearer). The token is signed and added to this query param when the request is sent.',
   'workbench.editors.request.authPreview.inheritedFrom': 'Inherited from {source} \u2014 edit it in the parent.',
 
   // ── Authorization tab ──────────────────────────────────────────────
@@ -159,6 +164,7 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.auth.type.digest': 'Digest Auth',
   'workbench.editors.request.auth.type.oauth1': 'OAuth 1.0',
   'workbench.editors.request.auth.type.hawk': 'Hawk Authentication',
+  'workbench.editors.request.auth.type.jwtBearer': 'JWT Bearer',
   'workbench.editors.request.auth.oauth1ConsumerKey': 'Consumer Key',
   'workbench.editors.request.auth.oauth1ConsumerKeyPlaceholder': 'consumer key',
   'workbench.editors.request.auth.oauth1ConsumerSecret': 'Consumer Secret',
@@ -182,6 +188,23 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.auth.hawkDlg': 'dlg',
   'workbench.editors.request.auth.hawkDlgPlaceholder': 'optional — delegated-by application ID',
   'workbench.editors.request.auth.hawkIncludePayloadHash': 'Include payload hash',
+  'workbench.editors.request.auth.jwtAddTo': 'Add JWT token to',
+  'workbench.editors.request.auth.jwtAlgorithm': 'Algorithm',
+  'workbench.editors.request.auth.jwtSecret': 'Secret',
+  'workbench.editors.request.auth.jwtSecretPlaceholder': 'secret',
+  'workbench.editors.request.auth.jwtSecretBase64': 'Secret Base64 encoded',
+  'workbench.editors.request.auth.jwtPrivateKey': 'Private Key',
+  'workbench.editors.request.auth.jwtPrivateKeyPlaceholder': '{{vault.private_key}} or PEM',
+  'workbench.editors.request.auth.jwtPayload': 'Payload',
+  'workbench.editors.request.auth.jwtPayloadPlaceholder': '{}',
+  'workbench.editors.request.auth.jwtHeaders': 'JWT headers',
+  'workbench.editors.request.auth.jwtHeadersPlaceholder': '{}',
+  'workbench.editors.request.auth.jwtHeadersNote': 'Headers specific to the algorithm are added automatically.',
+  'workbench.editors.request.auth.jwtHeaderPrefix': 'Request header prefix',
+  'workbench.editors.request.auth.jwtExpiresIn': 'Expires in (seconds)',
+  'workbench.editors.request.auth.jwtExpiresInPlaceholder': 'optional',
+  'workbench.editors.request.auth.jwtExpiresInNote':
+    'When set, iat and exp are stamped into the payload at send time. Claims set in the payload win.',
   'workbench.editors.request.auth.digestBrowserNote':
     'Digest Auth answers the server’s challenge with a second request, which runs on the desktop app and CLI. Sends from this surface go out without it — the server replies 401.',
   'workbench.editors.request.auth.digestRetryNote':

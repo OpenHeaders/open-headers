@@ -88,6 +88,7 @@ export interface PostmanAuth {
     | 'oauth2'
     | 'digest'
     | 'hawk'
+    | 'jwt'
     | 'awsv4'
     | 'ntlm'
     | 'edgegrid'

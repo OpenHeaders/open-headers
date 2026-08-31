@@ -33,6 +33,16 @@ export {
   selectDigestChallenge,
 } from './http-digest';
 export {
+  isJwtAlgorithm,
+  JWT_ALGORITHMS,
+  type JwtAlgorithm,
+  type JwtCredentials,
+  type JwtSignInput,
+  type JwtSignResult,
+  pemToPkcs8,
+  signJwtBearer,
+} from './jwt';
+export {
   buildOAuth1SignatureBaseString,
   type OAuth1Credentials,
   type OAuth1SignatureMethod,

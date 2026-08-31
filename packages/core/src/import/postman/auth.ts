@@ -1,3 +1,4 @@
+import { isJwtAlgorithm } from '../../auth-signing/jwt';
 import type { AuthConfig, RequestHeader } from '../../types/request';
 import { decodeBase64 } from '../../utils/base64';
 import { generateUid } from '../../utils/workspace';
@@ -240,6 +241,50 @@ export function resolveAuth(
           signatureMethod,
           paramsLocation: toHeader ? 'header' : 'query',
           ...(realm ? { realm } : {}),
+        },
+        report,
+      };
+    }
+    case 'jwt': {
+      const params = asParams(raw.jwt);
+      // The vendor's param names, read defensively — absent keys land
+      // empty and the completeness gate walks the user to fill them.
+      // A pinned queryParamKey other than our fixed `token` gets an
+      // honest transform; everything else maps one-to-one.
+      const rawAlgorithm = paramValue(params, 'algorithm')?.trim().toUpperCase();
+      if (rawAlgorithm !== undefined && !isJwtAlgorithm(rawAlgorithm)) {
+        recordTransform(report, {
+          path: authPath,
+          from: `jwt/${rawAlgorithm}`,
+          to: 'jwt/HS256',
+          reason: `JWT Bearer was set to the unknown "${rawAlgorithm}" algorithm — imported as HS256 (the default).`,
+          tracking: 'PERMANENT: jwt algorithm picklist',
+        });
+      }
+      const queryParamKey = paramValue(params, 'queryParamKey');
+      const addTo: 'header' | 'query' = paramValue(params, 'addTokenTo') === 'queryParam' ? 'query' : 'header';
+      if (addTo === 'query' && queryParamKey !== undefined && queryParamKey !== '' && queryParamKey !== 'token') {
+        recordTransform(report, {
+          path: authPath,
+          from: `jwt/query-key-${queryParamKey}`,
+          to: 'jwt/query-key-token',
+          reason: `JWT Bearer was set to ride the "${queryParamKey}" query parameter — imported to ride "token".`,
+          tracking: 'PERMANENT: jwt token query key',
+        });
+      }
+      const headersJson = paramValue(params, 'header')?.trim();
+      const headerPrefix = paramValue(params, 'headerPrefix');
+      return {
+        auth: {
+          type: 'jwt',
+          algorithm: isJwtAlgorithm(rawAlgorithm) ? rawAlgorithm : 'HS256',
+          secret: paramValue(params, 'secret') ?? '',
+          ...(paramFlag(params, 'isSecretBase64Encoded') ? { secretBase64: true } : {}),
+          privateKey: paramValue(params, 'privateKey') ?? '',
+          payload: paramValue(params, 'payload') ?? '',
+          ...(headersJson && headersJson !== '{}' ? { headers: headersJson } : {}),
+          addTo,
+          ...(headerPrefix !== undefined && headerPrefix !== 'Bearer' ? { headerPrefix } : {}),
         },
         report,
       };

@@ -10,6 +10,7 @@ import {
   sha256Hex,
   signAwsSigV4,
   signHawk,
+  signJwtBearer,
   signOAuth1,
 } from '@openheaders/core/auth-signing';
 import type { ExecutedRequestSnapshot, MultipartPart } from '@openheaders/core/types';
@@ -298,6 +299,22 @@ export async function executeResolved(
       req = { ...req, headers: [...fetchHeaders.entries()].map(([key, value]) => ({ key, value })) };
     } catch (err) {
       return errorSnapshot(`Hawk signing failed: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
+
+  // JWT Bearer mints HERE too — the send-time clock stamps iat/exp
+  // when a lifetime is set. Header mode replaces a same-key user
+  // Authorization row; query mode appends the token param. Both
+  // mirror back onto `req` so the offscreen cert-exception retry
+  // ships the same token.
+  if (req.jwt) {
+    try {
+      const signed = await signJwtBearer(req.jwt, { timestampSec: Math.floor(Date.now() / 1000) });
+      for (const h of signed.headers) fetchHeaders.set(h.key, h.value);
+      const url = signed.queryParams.length > 0 ? appendQueryParams(req.url, signed.queryParams) : req.url;
+      req = { ...req, url, headers: [...fetchHeaders.entries()].map(([key, value]) => ({ key, value })) };
+    } catch (err) {
+      return errorSnapshot(`JWT Bearer signing failed: ${err instanceof Error ? err.message : String(err)}`);
     }
   }
 

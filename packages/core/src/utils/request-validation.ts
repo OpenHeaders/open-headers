@@ -39,6 +39,9 @@
  *                                        attribute every Hawk header must
  *                                        carry; an empty key is a legal
  *                                        HMAC key).
+ *     · `jwt`                          — the family's signing key
+ *                                        non-empty: `secret` for HS*,
+ *                                        `privateKey` for RS/PS/ES.
  */
 
 import { collectRequestTemplateStrings } from '../live/request-scan';
@@ -119,6 +122,11 @@ function isRequestCompleteUnsafe(
       // empty key is a legal HMAC key (the oauth1 consumer-secret
       // argument) and everything else is optional or minted per send.
       return auth.authId.trim().length > 0;
+    case 'jwt':
+      // The signing key is the one must-have, per family: the HS
+      // secret or the asymmetric PEM. Everything else defaults ({}
+      // payload, Bearer prefix) or is minted per send.
+      return auth.algorithm.startsWith('HS') ? auth.secret.trim().length > 0 : auth.privateKey.trim().length > 0;
   }
 }
 
@@ -140,7 +148,9 @@ export type RequestIncompleteReason =
   | 'aws-sigv4-missing-region'
   | 'digest-missing-username'
   | 'oauth1-missing-consumer-key'
-  | 'hawk-missing-auth-id';
+  | 'hawk-missing-auth-id'
+  | 'jwt-missing-secret'
+  | 'jwt-missing-private-key';
 
 // ── Variable-resolution gating ─────────────────────────────────────
 
@@ -217,5 +227,10 @@ export function requestIncompleteReason(
       return auth.consumerKey.trim().length > 0 ? null : 'oauth1-missing-consumer-key';
     case 'hawk':
       return auth.authId.trim().length > 0 ? null : 'hawk-missing-auth-id';
+    case 'jwt':
+      if (auth.algorithm.startsWith('HS')) {
+        return auth.secret.trim().length > 0 ? null : 'jwt-missing-secret';
+      }
+      return auth.privateKey.trim().length > 0 ? null : 'jwt-missing-private-key';
   }
 }

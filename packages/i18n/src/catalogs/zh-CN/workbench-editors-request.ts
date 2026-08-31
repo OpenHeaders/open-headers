@@ -161,6 +161,10 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.authPreview.hawkValue': 'Hawk <signed parameters>',
   'workbench.editors.request.authPreview.hawkHint':
     '由授权标签页生成（Hawk Authentication）。发送时用你的凭据对请求签名。',
+  'workbench.editors.request.authPreview.jwtValue': '<signed JWT>',
+  'workbench.editors.request.authPreview.jwtHint': '由授权标签页生成（JWT Bearer）。发送请求时签名令牌并添加到此标头。',
+  'workbench.editors.request.authPreview.jwtQueryHint':
+    '由授权标签页生成（JWT Bearer）。发送请求时签名令牌并添加到此查询参数。',
   'workbench.editors.request.authPreview.inheritedFrom': '继承自{source}——请在父级中编辑。',
 
   // ── Authorization tab ──────────────────────────────────────────────
@@ -175,6 +179,7 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.auth.type.digest': 'Digest Auth',
   'workbench.editors.request.auth.type.oauth1': 'OAuth 1.0',
   'workbench.editors.request.auth.type.hawk': 'Hawk Authentication',
+  'workbench.editors.request.auth.type.jwtBearer': 'JWT Bearer',
   'workbench.editors.request.auth.oauth1ConsumerKey': 'Consumer Key',
   'workbench.editors.request.auth.oauth1ConsumerKeyPlaceholder': 'consumer key',
   'workbench.editors.request.auth.oauth1ConsumerSecret': 'Consumer Secret',
@@ -198,6 +203,23 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.auth.hawkDlg': 'dlg',
   'workbench.editors.request.auth.hawkDlgPlaceholder': '可选——委托方应用 ID',
   'workbench.editors.request.auth.hawkIncludePayloadHash': '包含负载哈希',
+  'workbench.editors.request.auth.jwtAddTo': '将 JWT 令牌添加到',
+  'workbench.editors.request.auth.jwtAlgorithm': '算法',
+  'workbench.editors.request.auth.jwtSecret': '密钥',
+  'workbench.editors.request.auth.jwtSecretPlaceholder': '密钥',
+  'workbench.editors.request.auth.jwtSecretBase64': '密钥为 Base64 编码',
+  'workbench.editors.request.auth.jwtPrivateKey': '私钥',
+  'workbench.editors.request.auth.jwtPrivateKeyPlaceholder': '{{vault.private_key}} 或 PEM',
+  'workbench.editors.request.auth.jwtPayload': 'Payload',
+  'workbench.editors.request.auth.jwtPayloadPlaceholder': '{}',
+  'workbench.editors.request.auth.jwtHeaders': 'JWT 标头',
+  'workbench.editors.request.auth.jwtHeadersPlaceholder': '{}',
+  'workbench.editors.request.auth.jwtHeadersNote': '算法相关的标头会自动添加。',
+  'workbench.editors.request.auth.jwtHeaderPrefix': '请求标头前缀',
+  'workbench.editors.request.auth.jwtExpiresIn': '有效期（秒）',
+  'workbench.editors.request.auth.jwtExpiresInPlaceholder': '可选',
+  'workbench.editors.request.auth.jwtExpiresInNote':
+    '设置后，发送时会将 iat 和 exp 写入 payload。payload 中已设置的 claim 优先。',
   'workbench.editors.request.auth.digestBrowserNote':
     'Digest Auth 用第二个请求应答服务器的质询，这在桌面端应用和 CLI 上运行。从此界面发送不会带上它——服务器会回复 401。',
   'workbench.editors.request.auth.digestRetryNote': '默认情况下会应答 401 质询并自动重试请求。要禁用吗？',

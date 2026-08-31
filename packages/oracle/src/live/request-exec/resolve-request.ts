@@ -16,6 +16,7 @@ import type {
   AwsSigV4Credentials,
   DigestCredentials,
   HawkCredentials,
+  JwtCredentials,
   OAuth1Credentials,
 } from '@openheaders/core/auth-signing';
 import { isExpired as isOAuthTokenExpired, type OAuth2TokenBundle } from '@openheaders/core/oauth';
@@ -165,6 +166,14 @@ export interface ResolvedRequest {
    * executor into the payload integrity hash.
    */
   hawk?: HawkCredentials & { includePayloadHash?: boolean };
+  /**
+   * JWT Bearer config, templates already resolved — present only when
+   * the effective auth is an enabled `jwt` config. Like the other
+   * signing schemes the token is minted at EXECUTE time (the wire
+   * executor stamps `iat`/`exp` from the send-time clock when a
+   * lifetime is set), never here.
+   */
+  jwt?: JwtCredentials;
   /**
    * The auth this send applies and where it came from — the request's
    * own config or the ancestor pool entry its Inherit resolved to.
@@ -343,6 +352,23 @@ export async function resolveRequest(
         }
       : undefined;
 
+  // JWT Bearer config resolves here but mints at execute time — see
+  // {@link ResolvedRequest.jwt}.
+  const jwt: JwtCredentials | undefined =
+    effectiveAuth.type === 'jwt' && !effectiveAuth.disabled
+      ? {
+          algorithm: effectiveAuth.algorithm,
+          secret: resolveStr(effectiveAuth.secret),
+          ...(effectiveAuth.secretBase64 === true ? { secretBase64: true } : {}),
+          privateKey: resolveStr(effectiveAuth.privateKey),
+          payload: resolveStr(effectiveAuth.payload),
+          ...(effectiveAuth.headers !== undefined ? { headers: resolveStr(effectiveAuth.headers) } : {}),
+          ...(effectiveAuth.headerPrefix !== undefined ? { headerPrefix: resolveStr(effectiveAuth.headerPrefix) } : {}),
+          addTo: effectiveAuth.addTo,
+          ...(effectiveAuth.expiresInSeconds !== undefined ? { expiresInSeconds: effectiveAuth.expiresInSeconds } : {}),
+        }
+      : undefined;
+
   // Append params after auth — api-key-in-query lives in enabledParams.
   resolvedUrl = appendQueryParams(resolvedUrl, enabledParams);
 
@@ -417,6 +443,7 @@ export async function resolveRequest(
       ...(digest ? { digest } : {}),
       ...(oauth1 ? { oauth1 } : {}),
       ...(hawk ? { hawk } : {}),
+      ...(jwt ? { jwt } : {}),
       ...(authAttribution !== undefined ? { auth: authAttribution } : {}),
     },
     totpUsed: [...totpUsed.values()],
@@ -503,6 +530,12 @@ export async function applyAuth(
     // Nothing folds here — Hawk signs the FINAL wire shape at execute
     // time (see ResolvedRequest.hawk); the resolver only resolves the
     // credential templates.
+    return;
+  }
+  if (auth.type === 'jwt') {
+    // Nothing folds here — the JWT mints at execute time (see
+    // ResolvedRequest.jwt); the resolver only resolves the config
+    // templates.
     return;
   }
   if (auth.type === 'oauth2') {

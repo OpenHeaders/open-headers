@@ -5,7 +5,12 @@
  * tracking, and the default Content-Type fill.
  */
 
-import type { AwsSigV4Credentials, HawkCredentials, OAuth1Credentials } from '@openheaders/core/auth-signing';
+import type {
+  AwsSigV4Credentials,
+  HawkCredentials,
+  JwtCredentials,
+  OAuth1Credentials,
+} from '@openheaders/core/auth-signing';
 import type {
   CredentialsMode,
   ExecutedAuthAttribution,
@@ -80,6 +85,14 @@ export interface ResolvedRequest {
    * integrity hash.
    */
   hawk?: HawkCredentials & { includePayloadHash?: boolean };
+  /**
+   * JWT Bearer config, templates already resolved — present only when
+   * the effective auth is an enabled `jwt` config. The token mints at
+   * the wire in {@link executeResolved} (the send-time clock stamps
+   * `iat`/`exp` when a lifetime is set) — twin of the oracle
+   * resolver's carry.
+   */
+  jwt?: JwtCredentials;
   /** The auth this send applies and its source — resolve-time
    *  attribution the executor stamps on the snapshot; absent when the
    *  request's own auth is `none`. Twin of the oracle's carry. */
@@ -256,6 +269,23 @@ export async function resolveRequest(
         }
       : undefined;
 
+  // JWT Bearer config resolves here but mints at the wire — see
+  // {@link ResolvedRequest.jwt}.
+  const jwt: JwtCredentials | undefined =
+    effectiveAuth.type === 'jwt' && !effectiveAuth.disabled
+      ? {
+          algorithm: effectiveAuth.algorithm,
+          secret: resolveStr(effectiveAuth.secret),
+          ...(effectiveAuth.secretBase64 === true ? { secretBase64: true } : {}),
+          privateKey: resolveStr(effectiveAuth.privateKey),
+          payload: resolveStr(effectiveAuth.payload),
+          ...(effectiveAuth.headers !== undefined ? { headers: resolveStr(effectiveAuth.headers) } : {}),
+          ...(effectiveAuth.headerPrefix !== undefined ? { headerPrefix: resolveStr(effectiveAuth.headerPrefix) } : {}),
+          addTo: effectiveAuth.addTo,
+          ...(effectiveAuth.expiresInSeconds !== undefined ? { expiresInSeconds: effectiveAuth.expiresInSeconds } : {}),
+        }
+      : undefined;
+
   // ── Body ────────────────────────────────────────────────────────
   const resolvedBody = buildResolvedBody(request.body, resolveStr);
 
@@ -289,6 +319,7 @@ export async function resolveRequest(
       ...(awsSigV4 ? { awsSigV4 } : {}),
       ...(oauth1 ? { oauth1 } : {}),
       ...(hawk ? { hawk } : {}),
+      ...(jwt ? { jwt } : {}),
       ...(authAttribution !== undefined ? { auth: authAttribution } : {}),
     },
     totpUsed: [...totpUsed.values()],
