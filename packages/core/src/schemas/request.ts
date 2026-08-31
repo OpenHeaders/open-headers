@@ -610,9 +610,12 @@ export const DigestAuthSchema = v.object({
  * OAuth 1.0a request signing (RFC 5849). Like SigV4, nothing rides the
  * wire verbatim: the executor derives the `oauth_*` protocol params by
  * signing the FINAL wire shape just before dispatch, AFTER pre-request
- * scripts have had their say. HMAC-SHA1 rides WebCrypto and PLAINTEXT
- * needs no crypto, so both runtimes sign — the type is not host-gated.
- * RSA-SHA1 is deliberately absent (rare, drags private-key management).
+ * scripts have had their say. Every method rides WebCrypto (HMAC and
+ * RSASSA families; PLAINTEXT needs no crypto), so both runtimes sign —
+ * the type is not host-gated. The SHA-256/512 variants are the living
+ * de-facto dialect (enterprise servers now mandate HMAC-SHA256); the
+ * RSA family signs with the consumer's PEM `privateKey` ALONE per
+ * §3.4.3 — the consumer/token secrets do not participate.
  *
  * `token`/`tokenSecret` are optional — one-legged calls
  * (WooCommerce-style) have neither. Fields are plain strings (templates
@@ -626,7 +629,24 @@ export const OAuth1AuthSchema = v.object({
   consumerSecret: v.string(),
   token: v.optional(v.string()),
   tokenSecret: v.optional(v.string()),
-  signatureMethod: v.picklist(['HMAC-SHA1', 'PLAINTEXT']),
+  signatureMethod: v.picklist([
+    'HMAC-SHA1',
+    'HMAC-SHA256',
+    'HMAC-SHA512',
+    'RSA-SHA1',
+    'RSA-SHA256',
+    'RSA-SHA512',
+    'PLAINTEXT',
+  ]),
+  /** RSA family only — the consumer's PEM private key (`{{vault.*}}`
+   *  is the expected idiom; the parser tolerates a newline-stripped
+   *  paste). */
+  privateKey: v.optional(v.string()),
+  /** Opt into the Request Body Hash extension: `oauth_body_hash` over
+   *  the raw body joins the signed params for non-form bodies
+   *  (form-encoded bodies fold per §3.4.1.3 instead; PLAINTEXT has no
+   *  digest and signs without). */
+  includeBodyHash: v.optional(v.boolean()),
   /** Where the `oauth_*` protocol params ride: the `Authorization:
    *  OAuth …` header or the URL's query string. The signature is
    *  identical either way (RFC 5849 §3.5). */

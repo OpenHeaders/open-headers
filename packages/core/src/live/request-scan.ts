@@ -82,6 +82,7 @@ export function collectRequestTemplateStrings(request: Request): string[] {
       if (request.auth.consumerSecret) out.push(request.auth.consumerSecret);
       if (request.auth.token) out.push(request.auth.token);
       if (request.auth.tokenSecret) out.push(request.auth.tokenSecret);
+      if (request.auth.privateKey) out.push(request.auth.privateKey);
       if (request.auth.realm) out.push(request.auth.realm);
       break;
     case 'hawk':

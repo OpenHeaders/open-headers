@@ -332,6 +332,8 @@ export async function resolveRequest(
           ...(effectiveAuth.token ? { token: resolveStr(effectiveAuth.token) } : {}),
           ...(effectiveAuth.tokenSecret ? { tokenSecret: resolveStr(effectiveAuth.tokenSecret) } : {}),
           signatureMethod: effectiveAuth.signatureMethod,
+          ...(effectiveAuth.privateKey ? { privateKey: resolveStr(effectiveAuth.privateKey) } : {}),
+          ...(effectiveAuth.includeBodyHash === true ? { includeBodyHash: true } : {}),
           paramsLocation: effectiveAuth.paramsLocation,
           ...(effectiveAuth.realm !== undefined ? { realm: resolveStr(effectiveAuth.realm) } : {}),
         }

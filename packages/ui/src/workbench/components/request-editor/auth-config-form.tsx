@@ -326,16 +326,29 @@ const DigestEditor: React.FC<FormProps<'digest'>> = ({ auth, onChange }) => {
 
 // ── OAuth 1.0a editor ──────────────────────────────────────────────
 //
-// Credential + signing fields; the oauth_* protocol params (signature,
+// Method-first (the credential set follows the family): the HMAC and
+// PLAINTEXT families take the consumer/token secret pairs; the RSA
+// family signs with the PEM private key ALONE (§3.4.3), so the two
+// secrets leave the form. The oauth_* protocol params (signature,
 // nonce, timestamp) are derived at send time over the final wire
-// shape, so nothing else is configuration. The token pair is optional
-// — one-legged calls have neither — and an emptied Token / Token
-// Secret / Realm persists ABSENT (the empty string never lands on
-// disk, the Session Token pattern).
+// shape; the body-hash opt-in covers non-form bodies (PLAINTEXT has
+// no digest, so the checkbox hides). Emptied optional fields persist
+// ABSENT (the Session Token pattern).
+
+const OAUTH1_SIGNATURE_METHODS = [
+  'HMAC-SHA1',
+  'HMAC-SHA256',
+  'HMAC-SHA512',
+  'RSA-SHA1',
+  'RSA-SHA256',
+  'RSA-SHA512',
+  'PLAINTEXT',
+] as const;
 
 const OAuth1Editor: React.FC<FormProps<'oauth1'>> = ({ auth, onChange }) => {
   const t = useT();
-  const setOptional = (field: 'token' | 'tokenSecret' | 'realm') => (next: string) => {
+  const rsa = auth.signatureMethod.startsWith('RSA');
+  const setOptional = (field: 'token' | 'tokenSecret' | 'privateKey' | 'realm') => (next: string) => {
     if (next) {
       onChange({ ...auth, [field]: next });
     } else {
@@ -345,6 +358,16 @@ const OAuth1Editor: React.FC<FormProps<'oauth1'>> = ({ auth, onChange }) => {
   };
   return (
     <AuthForm>
+      <LabeledRow label={t('workbench.editors.request.auth.oauth1SignatureMethod')}>
+        <Select
+          size="small"
+          data-testid="oh-auth-oauth1-signature-method"
+          value={auth.signatureMethod}
+          onChange={(next: (typeof OAUTH1_SIGNATURE_METHODS)[number]) => onChange({ ...auth, signatureMethod: next })}
+          options={OAUTH1_SIGNATURE_METHODS.map((m) => ({ value: m, label: m }))}
+          style={{ width: '100%', maxWidth: FIELD_DEFAULT_MAX_WIDTH }}
+        />
+      </LabeledRow>
       <LabeledRow label={t('workbench.editors.request.auth.oauth1ConsumerKey')}>
         <TemplateInput
           size="small"
@@ -354,13 +377,23 @@ const OAuth1Editor: React.FC<FormProps<'oauth1'>> = ({ auth, onChange }) => {
           style={{ maxWidth: FIELD_DEFAULT_MAX_WIDTH }}
         />
       </LabeledRow>
-      <LabeledRow label={t('workbench.editors.request.auth.oauth1ConsumerSecret')}>
-        <SecretField
-          value={auth.consumerSecret}
-          onChange={(next) => onChange({ ...auth, consumerSecret: next })}
-          placeholder={t('workbench.editors.request.auth.oauth1ConsumerSecretPlaceholder')}
-        />
-      </LabeledRow>
+      {rsa ? (
+        <LabeledRow label={t('workbench.editors.request.auth.oauth1PrivateKey')}>
+          <SecretField
+            value={auth.privateKey ?? ''}
+            onChange={setOptional('privateKey')}
+            placeholder={t('workbench.editors.request.auth.oauth1PrivateKeyPlaceholder')}
+          />
+        </LabeledRow>
+      ) : (
+        <LabeledRow label={t('workbench.editors.request.auth.oauth1ConsumerSecret')}>
+          <SecretField
+            value={auth.consumerSecret}
+            onChange={(next) => onChange({ ...auth, consumerSecret: next })}
+            placeholder={t('workbench.editors.request.auth.oauth1ConsumerSecretPlaceholder')}
+          />
+        </LabeledRow>
+      )}
       <LabeledRow label={t('workbench.editors.request.auth.oauth1Token')}>
         <TemplateInput
           size="small"
@@ -370,26 +403,15 @@ const OAuth1Editor: React.FC<FormProps<'oauth1'>> = ({ auth, onChange }) => {
           style={{ maxWidth: FIELD_DEFAULT_MAX_WIDTH }}
         />
       </LabeledRow>
-      <LabeledRow label={t('workbench.editors.request.auth.oauth1TokenSecret')}>
-        <SecretField
-          value={auth.tokenSecret ?? ''}
-          onChange={setOptional('tokenSecret')}
-          placeholder={t('workbench.editors.request.auth.oauth1TokenSecretPlaceholder')}
-        />
-      </LabeledRow>
-      <LabeledRow label={t('workbench.editors.request.auth.oauth1SignatureMethod')}>
-        <Select
-          size="small"
-          data-testid="oh-auth-oauth1-signature-method"
-          value={auth.signatureMethod}
-          onChange={(next: 'HMAC-SHA1' | 'PLAINTEXT') => onChange({ ...auth, signatureMethod: next })}
-          options={[
-            { value: 'HMAC-SHA1', label: 'HMAC-SHA1' },
-            { value: 'PLAINTEXT', label: 'PLAINTEXT' },
-          ]}
-          style={{ width: '100%', maxWidth: FIELD_DEFAULT_MAX_WIDTH }}
-        />
-      </LabeledRow>
+      {!rsa && (
+        <LabeledRow label={t('workbench.editors.request.auth.oauth1TokenSecret')}>
+          <SecretField
+            value={auth.tokenSecret ?? ''}
+            onChange={setOptional('tokenSecret')}
+            placeholder={t('workbench.editors.request.auth.oauth1TokenSecretPlaceholder')}
+          />
+        </LabeledRow>
+      )}
       <LabeledRow label={t('workbench.editors.request.auth.addTo')}>
         <Select
           size="small"
@@ -414,6 +436,23 @@ const OAuth1Editor: React.FC<FormProps<'oauth1'>> = ({ auth, onChange }) => {
           />
         </LabeledRow>
       )}
+      {auth.signatureMethod !== 'PLAINTEXT' && (
+        <Checkbox
+          checked={auth.includeBodyHash === true}
+          data-testid="oh-auth-oauth1-body-hash"
+          onChange={(e) =>
+            onChange(
+              e.target.checked
+                ? { ...auth, includeBodyHash: true }
+                : (({ includeBodyHash: _omit, ...rest }) => rest)(auth),
+            )
+          }
+          style={{ fontSize: 13 }}
+        >
+          {t('workbench.editors.request.auth.oauth1IncludeBodyHash')}
+        </Checkbox>
+      )}
+      <AuthFormNote>{t('workbench.editors.request.auth.authAutoGeneratedNote')}</AuthFormNote>
     </AuthForm>
   );
 };

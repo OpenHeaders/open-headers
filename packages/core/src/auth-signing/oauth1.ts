@@ -1,15 +1,20 @@
 /**
  * OAuth 1.0a request signing per RFC 5849.
  *
- * Pure WebCrypto like the SigV4 signer (`HMAC` + `SHA-1` are available
- * on both runtimes); PLAINTEXT needs no crypto at all. The signer takes
- * the FINAL wire shape — method, URL with query already appended, and
- * the urlencoded body fields when the body is form-encoded (§3.4.1.3.1
- * folds them into the signature base string; other body types
- * contribute nothing — the `oauth_body_hash` extension is not
- * implemented) — and returns the protocol parameters as either an
- * `Authorization: OAuth …` header (§3.5.1) or query pairs to append
- * (§3.5.2), per the config's `paramsLocation`.
+ * Pure WebCrypto like the SigV4 signer, on both runtimes: the HMAC
+ * family (SHA-1 per the RFC; SHA-256/512 the living de-facto dialect
+ * enterprise servers now mandate), the RSA family (§3.4.3
+ * RSASSA-PKCS1-v1_5 over the consumer's PEM private key — SHA-256/512
+ * the same extension pattern), and PLAINTEXT, which needs no crypto at
+ * all. The signer takes the FINAL wire shape — method, URL with query
+ * already appended, and the urlencoded body fields when the body is
+ * form-encoded (§3.4.1.3.1 folds them into the signature base string)
+ * — and returns the protocol parameters as either an `Authorization:
+ * OAuth …` header (§3.5.1) or query pairs to append (§3.5.2), per the
+ * config's `paramsLocation`. Non-form bodies can opt into the Request
+ * Body Hash extension: `oauth_body_hash` — the raw body digested with
+ * the signature method's hash — joins the signed protocol params
+ * (PLAINTEXT has no digest and signs without).
  *
  * Callers sign at EXECUTE time, after pre-request scripts have mutated
  * the request — a signature computed any earlier is invalidated by the
@@ -19,8 +24,16 @@
  */
 
 import { encodeBase64Bytes } from '../utils/base64';
+import { pemToPkcs8 } from './pem';
 
-export type OAuth1SignatureMethod = 'HMAC-SHA1' | 'PLAINTEXT';
+export type OAuth1SignatureMethod =
+  | 'HMAC-SHA1'
+  | 'HMAC-SHA256'
+  | 'HMAC-SHA512'
+  | 'RSA-SHA1'
+  | 'RSA-SHA256'
+  | 'RSA-SHA512'
+  | 'PLAINTEXT';
 
 export interface OAuth1Credentials {
   consumerKey: string;
@@ -29,6 +42,12 @@ export interface OAuth1Credentials {
   token?: string;
   tokenSecret?: string;
   signatureMethod: OAuth1SignatureMethod;
+  /** RSA family only — the consumer's PEM private key, the signing key
+   *  ALONE per §3.4.3 (consumer/token secrets do not participate). */
+  privateKey?: string;
+  /** Opt into the Request Body Hash extension for non-form bodies —
+   *  see the module doc. */
+  includeBodyHash?: boolean;
   /** Where the `oauth_*` protocol params ride on the wire. */
   paramsLocation: 'header' | 'query';
   /** Protection realm, echoed verbatim in the Authorization header
@@ -44,6 +63,10 @@ export interface OAuth1SignInput {
    *  is `application/x-www-form-urlencoded` — they join the signature
    *  base string per §3.4.1.3.1. */
   bodyParams?: ReadonlyArray<{ name: string; value: string }>;
+  /** The raw wire body text, when the body is NOT form-encoded — the
+   *  Request Body Hash extension's input; ignored unless the config
+   *  opts in. */
+  rawBody?: string;
   /** Unix seconds — injected so tests can pin vectors. */
   timestampSec: number;
   /** Client nonce — caller-supplied randomness. */
@@ -59,6 +82,7 @@ export interface OAuth1SignResult {
 }
 
 export async function signOAuth1(credentials: OAuth1Credentials, input: OAuth1SignInput): Promise<OAuth1SignResult> {
+  const hash = methodDigest(credentials.signatureMethod);
   const protocolParams: Array<[string, string]> = [
     ['oauth_consumer_key', credentials.consumerKey],
     ['oauth_nonce', input.nonce],
@@ -67,19 +91,14 @@ export async function signOAuth1(credentials: OAuth1Credentials, input: OAuth1Si
     ['oauth_version', '1.0'],
   ];
   if (credentials.token) protocolParams.push(['oauth_token', credentials.token]);
+  // Request Body Hash extension — the raw body digested with the
+  // signature method's hash joins the SIGNED protocol params.
+  // PLAINTEXT has no digest, so it signs without one.
+  if (credentials.includeBodyHash === true && input.rawBody !== undefined && hash !== null) {
+    protocolParams.push(['oauth_body_hash', await digestBase64(hash, input.rawBody)]);
+  }
 
-  // §3.4.2 / §3.4.4 — the shared secret string. PLAINTEXT sends it
-  // verbatim as the signature; HMAC-SHA1 keys the MAC with it.
-  const signingKey = `${encodeRfc3986(credentials.consumerSecret)}&${encodeRfc3986(credentials.tokenSecret ?? '')}`;
-
-  const signature =
-    credentials.signatureMethod === 'PLAINTEXT'
-      ? signingKey
-      : await hmacSha1Base64(
-          signingKey,
-          buildOAuth1SignatureBaseString(input.method, input.url, protocolParams, input.bodyParams ?? []),
-        );
-
+  const signature = await computeSignature(credentials, input, protocolParams, hash);
   const allParams: Array<[string, string]> = [...protocolParams, ['oauth_signature', signature]];
 
   if (credentials.paramsLocation === 'query') {
@@ -144,15 +163,59 @@ function quoteHttp(value: string): string {
   return value.replace(/([\\"])/g, '\\$1');
 }
 
-async function hmacSha1Base64(key: string, data: string): Promise<string> {
+/** The signature method's digest — `null` for PLAINTEXT (no crypto). */
+function methodDigest(method: OAuth1SignatureMethod): 'SHA-1' | 'SHA-256' | 'SHA-512' | null {
+  if (method === 'PLAINTEXT') return null;
+  if (method.endsWith('SHA256')) return 'SHA-256';
+  if (method.endsWith('SHA512')) return 'SHA-512';
+  return 'SHA-1';
+}
+
+async function computeSignature(
+  credentials: OAuth1Credentials,
+  input: OAuth1SignInput,
+  protocolParams: ReadonlyArray<[string, string]>,
+  hash: 'SHA-1' | 'SHA-256' | 'SHA-512' | null,
+): Promise<string> {
+  // §3.4.2 / §3.4.4 — the shared secret string. PLAINTEXT sends it
+  // verbatim as the signature; the HMAC family keys the MAC with it.
+  // The RSA family (§3.4.3) signs with the private key ALONE.
+  const signingKey = `${encodeRfc3986(credentials.consumerSecret)}&${encodeRfc3986(credentials.tokenSecret ?? '')}`;
+  if (hash === null) return signingKey;
+  const baseString = buildOAuth1SignatureBaseString(input.method, input.url, protocolParams, input.bodyParams ?? []);
+  if (credentials.signatureMethod.startsWith('RSA')) {
+    return rsaSignBase64(credentials.privateKey ?? '', hash, baseString);
+  }
+  return hmacBase64(signingKey, hash, baseString);
+}
+
+async function hmacBase64(key: string, hash: 'SHA-1' | 'SHA-256' | 'SHA-512', data: string): Promise<string> {
   const keyBytes = new TextEncoder().encode(key);
   const cryptoKey = await crypto.subtle.importKey(
     'raw',
     keyBytes as Uint8Array<ArrayBuffer>,
-    { name: 'HMAC', hash: 'SHA-1' },
+    { name: 'HMAC', hash },
     false,
     ['sign'],
   );
   const signature = await crypto.subtle.sign('HMAC', cryptoKey, new TextEncoder().encode(data));
   return encodeBase64Bytes(new Uint8Array(signature));
+}
+
+async function rsaSignBase64(privateKey: string, hash: 'SHA-1' | 'SHA-256' | 'SHA-512', data: string): Promise<string> {
+  const der = pemToPkcs8(privateKey, null);
+  const key = await crypto.subtle.importKey(
+    'pkcs8',
+    der as Uint8Array<ArrayBuffer>,
+    { name: 'RSASSA-PKCS1-v1_5', hash },
+    false,
+    ['sign'],
+  );
+  const signature = await crypto.subtle.sign('RSASSA-PKCS1-v1_5', key, new TextEncoder().encode(data));
+  return encodeBase64Bytes(new Uint8Array(signature));
+}
+
+async function digestBase64(hash: 'SHA-1' | 'SHA-256' | 'SHA-512', text: string): Promise<string> {
+  const digest = await crypto.subtle.digest(hash, new TextEncoder().encode(text));
+  return encodeBase64Bytes(new Uint8Array(digest));
 }

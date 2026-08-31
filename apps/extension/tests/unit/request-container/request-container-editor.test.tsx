@@ -719,6 +719,39 @@ describe('AuthorizationTab — the request-level Inherit pane', () => {
     expect(onChange).toHaveBeenLastCalledWith(jwt);
   });
 
+  it("OAuth 1.0's form follows the method family and writes the body-hash opt-in", () => {
+    const onChange = vi.fn();
+    const oauth1: AuthConfig = {
+      type: 'oauth1',
+      consumerKey: 'ck',
+      consumerSecret: 'cs',
+      signatureMethod: 'HMAC-SHA1',
+      paramsLocation: 'header',
+    };
+    const hmac = render(<AuthorizationTab auth={oauth1} onChange={onChange} />);
+    // HMAC family shows the secret pair; the body-hash opt-in and the
+    // closing note ride.
+    expect(screen.getByText('Consumer Secret')).toBeTruthy();
+    expect(screen.getByText('Token Secret')).toBeTruthy();
+    expect(screen.queryByText('Private Key')).toBeNull();
+    expect(
+      screen.getByText('The authorization header will be automatically generated when you send the request.'),
+    ).toBeTruthy();
+    fireEvent.click(screen.getByTestId('oh-auth-oauth1-body-hash'));
+    expect(onChange).toHaveBeenCalledWith({ ...oauth1, includeBodyHash: true });
+    hmac.unmount();
+    // The RSA family signs with the private key alone — the secret
+    // pair leaves the form.
+    const rsa = render(<AuthorizationTab auth={{ ...oauth1, signatureMethod: 'RSA-SHA1' }} onChange={onChange} />);
+    expect(screen.getByText('Private Key')).toBeTruthy();
+    expect(screen.queryByText('Consumer Secret')).toBeNull();
+    expect(screen.queryByText('Token Secret')).toBeNull();
+    rsa.unmount();
+    // PLAINTEXT has no digest — the body-hash opt-in hides.
+    render(<AuthorizationTab auth={{ ...oauth1, signatureMethod: 'PLAINTEXT' }} onChange={onChange} />);
+    expect(screen.queryByTestId('oh-auth-oauth1-body-hash')).toBeNull();
+  });
+
   it('Basic Auth and Bearer Token close with the auto-generated note on every runtime', () => {
     const first = render(<AuthorizationTab auth={{ type: 'bearer', token: '' }} onChange={vi.fn()} />);
     expect(

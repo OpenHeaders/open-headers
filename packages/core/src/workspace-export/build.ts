@@ -149,8 +149,9 @@ function stripConfigSecrets<A extends AuthConfig>(auth: A): A {
   }
   if (auth.type === 'oauth1') {
     // Same shape as SigV4: the required `consumerSecret` blanks so the
-    // config stays schema-valid; the optional `tokenSecret` drops.
-    const { tokenSecret: _omitted, ...rest } = auth;
+    // config stays schema-valid; the optional `tokenSecret` and the RSA
+    // `privateKey` — both key material — drop outright.
+    const { tokenSecret: _omitted, privateKey: _alsoOmitted, ...rest } = auth;
     return { ...rest, consumerSecret: '' } as A;
   }
   if (auth.type === 'hawk') {

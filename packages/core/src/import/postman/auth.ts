@@ -1,4 +1,5 @@
 import { isJwtAlgorithm } from '../../auth-signing/jwt';
+import type { OAuth1SignatureMethod } from '../../auth-signing/oauth1';
 import type { AuthConfig, RequestHeader } from '../../types/request';
 import { decodeBase64 } from '../../utils/base64';
 import { generateUid } from '../../utils/workspace';
@@ -171,17 +172,16 @@ export function resolveAuth(
     }
     case 'oauth1': {
       const params = asParams(raw.oauth1);
-      // Absent defaults to the vendor's default method. Unsupported
-      // methods (the RSA family, HMAC-SHA256/512) drop the block with
-      // the method named — landing a config that signs differently
-      // would be silent lossiness.
+      // Absent defaults to the vendor's default method. An unknown
+      // method drops the block with the method named — landing a
+      // config that signs differently would be silent lossiness.
       const rawMethod = paramValue(params, 'signatureMethod') ?? 'HMAC-SHA1';
       const method = rawMethod.toUpperCase();
-      if (method !== 'HMAC-SHA1' && method !== 'PLAINTEXT') {
+      if (!isOAuth1SignatureMethod(method)) {
         recordDrop(report, {
           path: authPath,
-          reason: `OAuth 1.0 with the "${rawMethod}" signature method not imported — only HMAC-SHA1 and PLAINTEXT are supported.`,
-          tracking: '#todo-oauth1-signature-methods',
+          reason: `OAuth 1.0 with the unknown "${rawMethod}" signature method not imported.`,
+          tracking: 'PERMANENT: oauth1 method picklist',
         });
         return { auth: concreteFallback(fallback), report };
       }
@@ -204,19 +204,9 @@ export function resolveAuth(
       }
       // Signature-affecting knobs this signer does not reproduce get an
       // honest transform; the dance/pin residue (timestamp, nonce,
-      // callback, verifier, version, privateKey, header-encoding flag)
-      // is re-minted or irrelevant on the next live sign, so it sheds
-      // silently lossless (the digest stale-challenge precedent).
-      if (paramFlag(params, 'includeBodyHash')) {
-        recordTransform(report, {
-          path: authPath,
-          from: 'oauth1/body-hash',
-          to: 'oauth1/no-body-hash',
-          reason:
-            'OAuth 1.0 was set to include a request-body hash (oauth_body_hash) — the extension parameter is not supported, so requests are signed without it.',
-          tracking: 'PERMANENT: oauth1 no body hash',
-        });
-      }
+      // callback, verifier, version, header-encoding flag) is re-minted
+      // or irrelevant on the next live sign, so it sheds silently
+      // lossless (the digest stale-challenge precedent).
       if (paramFlag(params, 'addEmptyParamsToSign')) {
         recordTransform(report, {
           path: authPath,
@@ -229,8 +219,8 @@ export function resolveAuth(
       }
       const token = paramValue(params, 'token');
       const tokenSecret = paramValue(params, 'tokenSecret');
+      const privateKey = paramValue(params, 'privateKey');
       const realm = paramValue(params, 'realm');
-      const signatureMethod: 'HMAC-SHA1' | 'PLAINTEXT' = method === 'PLAINTEXT' ? 'PLAINTEXT' : 'HMAC-SHA1';
       return {
         auth: {
           type: 'oauth1',
@@ -238,7 +228,9 @@ export function resolveAuth(
           consumerSecret: paramValue(params, 'consumerSecret') ?? '',
           ...(token ? { token } : {}),
           ...(tokenSecret ? { tokenSecret } : {}),
-          signatureMethod,
+          signatureMethod: method,
+          ...(privateKey ? { privateKey } : {}),
+          ...(paramFlag(params, 'includeBodyHash') ? { includeBodyHash: true } : {}),
           paramsLocation: toHeader ? 'header' : 'query',
           ...(realm ? { realm } : {}),
         },
@@ -347,6 +339,20 @@ export function resolveAuth(
       return { auth: concreteFallback(fallback), report };
     }
   }
+}
+
+const OAUTH1_SIGNATURE_METHODS: readonly OAuth1SignatureMethod[] = [
+  'HMAC-SHA1',
+  'HMAC-SHA256',
+  'HMAC-SHA512',
+  'RSA-SHA1',
+  'RSA-SHA256',
+  'RSA-SHA512',
+  'PLAINTEXT',
+];
+
+function isOAuth1SignatureMethod(value: string): value is OAuth1SignatureMethod {
+  return (OAUTH1_SIGNATURE_METHODS as readonly string[]).includes(value);
 }
 
 function asParams(x: unknown): PostmanAuthParam[] {

@@ -171,6 +171,7 @@ export async function executeOverTransport(
         method: resolved.method,
         url,
         ...(body.kind === 'urlencoded' ? { bodyParams: body.fields } : {}),
+        ...(body.kind === 'raw' ? { rawBody: body.content } : {}),
         timestampSec: Math.floor(Date.now() / 1000),
         nonce: generateNonce(),
       });

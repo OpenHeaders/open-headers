@@ -1188,7 +1188,7 @@ describe('request mapping — auth', () => {
     expect(transform?.tracking).toBe('PERMANENT: oauth1 header/query only');
   });
 
-  it('transform-notes the signature-affecting oauth1 flags it does not reproduce', () => {
+  it('maps includeBodyHash for real; the empty-params flag keeps its transform', () => {
     const result = parsePostman(
       postmanCollection({
         item: [
@@ -1211,12 +1211,12 @@ describe('request mapping — auth', () => {
         ],
       }),
     );
-    expect(result.requests[0]?.request.auth).toMatchObject({ type: 'oauth1' });
-    expect(result.report.transforms.some((t) => /oauth_body_hash/.test(t.reason))).toBe(true);
+    expect(result.requests[0]?.request.auth).toMatchObject({ type: 'oauth1', includeBodyHash: true });
+    expect(result.report.transforms.some((t) => /oauth_body_hash/.test(t.reason))).toBe(false);
     expect(result.report.transforms.some((t) => /empty parameters/.test(t.reason))).toBe(true);
   });
 
-  it('drops oauth1 with an unsupported signature method, naming the method', () => {
+  it('maps the RSA family with its private key; SHA-256/512 method variants ride verbatim', () => {
     const result = parsePostman(
       postmanCollection({
         item: [
@@ -1229,7 +1229,40 @@ describe('request mapping — auth', () => {
                 type: 'oauth1',
                 oauth1: [
                   { key: 'consumerKey', value: 'ck_openheaders' },
-                  { key: 'signatureMethod', value: 'RSA-SHA1' },
+                  { key: 'signatureMethod', value: 'RSA-SHA256' },
+                  { key: 'privateKey', value: '{{vault.jira_key}}' },
+                ],
+              },
+            },
+          },
+        ],
+      }),
+    );
+    expect(result.requests[0]?.request.auth).toEqual({
+      type: 'oauth1',
+      consumerKey: 'ck_openheaders',
+      consumerSecret: '',
+      signatureMethod: 'RSA-SHA256',
+      privateKey: '{{vault.jira_key}}',
+      paramsLocation: 'header',
+    });
+    expect(result.report.drops.some((d) => /oauth/i.test(d.reason))).toBe(false);
+  });
+
+  it('drops oauth1 with an unknown signature method, naming the method', () => {
+    const result = parsePostman(
+      postmanCollection({
+        item: [
+          {
+            name: 'X',
+            request: {
+              method: 'GET',
+              url: 'https://api.openheaders.io/x',
+              auth: {
+                type: 'oauth1',
+                oauth1: [
+                  { key: 'consumerKey', value: 'ck_openheaders' },
+                  { key: 'signatureMethod', value: 'HMAC-MD5' },
                 ],
               },
             },
@@ -1238,8 +1271,8 @@ describe('request mapping — auth', () => {
       }),
     );
     expect(result.requests[0]?.request.auth).toEqual({ type: 'none' });
-    const drop = result.report.drops.find((d) => /"RSA-SHA1" signature method/.test(d.reason));
-    expect(drop?.tracking).toBe('#todo-oauth1-signature-methods');
+    const drop = result.report.drops.find((d) => /"HMAC-MD5" signature method/.test(d.reason));
+    expect(drop?.tracking).toBe('PERMANENT: oauth1 method picklist');
   });
 
   it('an empty oauth1 block lands an empty header-mode config (the user chose the type)', () => {

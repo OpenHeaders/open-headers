@@ -171,7 +171,7 @@ describe('signJwtBearer — asymmetric families', () => {
     const { privateKey } = generateKeyPairSync('ec', { namedCurve: 'prime256v1' });
     const sec1 = privateKey.export({ type: 'sec1', format: 'pem' }).toString();
     await expect(mint({ ...HS_BASE, algorithm: 'RS256', privateKey: sec1 })).rejects.toThrow(
-      /An EC private key needs an ES algorithm/,
+      /needs an RSA private key, not an EC key/,
     );
   });
 });

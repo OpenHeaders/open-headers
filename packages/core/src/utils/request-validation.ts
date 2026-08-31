@@ -34,7 +34,8 @@
  *     · `oauth1`                       — `consumerKey` non-empty (the one
  *                                        param every signed request must
  *                                        carry; an empty consumer secret
- *                                        is a legal signing key).
+ *                                        is a legal signing key); the RSA
+ *                                        family also needs `privateKey`.
  *     · `hawk`                         — `authId` non-empty (the one
  *                                        attribute every Hawk header must
  *                                        carry; an empty key is a legal
@@ -115,8 +116,11 @@ function isRequestCompleteUnsafe(
     case 'oauth1':
       // `oauth_consumer_key` is the one param every signed request must
       // carry; an empty consumer secret is a legal signing key and the
-      // token pair is absent on one-legged calls.
-      return auth.consumerKey.trim().length > 0;
+      // token pair is absent on one-legged calls. The RSA family can't
+      // sign at all without the private key (§3.4.3).
+      if (auth.consumerKey.trim().length === 0) return false;
+      if (auth.signatureMethod.startsWith('RSA')) return (auth.privateKey ?? '').trim().length > 0;
+      return true;
     case 'hawk':
       // `id` is the one attribute every Hawk header must carry; an
       // empty key is a legal HMAC key (the oauth1 consumer-secret
@@ -148,6 +152,7 @@ export type RequestIncompleteReason =
   | 'aws-sigv4-missing-region'
   | 'digest-missing-username'
   | 'oauth1-missing-consumer-key'
+  | 'oauth1-missing-private-key'
   | 'hawk-missing-auth-id'
   | 'jwt-missing-secret'
   | 'jwt-missing-private-key';
@@ -224,7 +229,11 @@ export function requestIncompleteReason(
     case 'digest':
       return auth.username.trim().length > 0 ? null : 'digest-missing-username';
     case 'oauth1':
-      return auth.consumerKey.trim().length > 0 ? null : 'oauth1-missing-consumer-key';
+      if (!auth.consumerKey.trim()) return 'oauth1-missing-consumer-key';
+      if (auth.signatureMethod.startsWith('RSA') && !(auth.privateKey ?? '').trim()) {
+        return 'oauth1-missing-private-key';
+      }
+      return null;
     case 'hawk':
       return auth.authId.trim().length > 0 ? null : 'hawk-missing-auth-id';
     case 'jwt':

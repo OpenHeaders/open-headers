@@ -39,7 +39,6 @@ export {
   type JwtCredentials,
   type JwtSignInput,
   type JwtSignResult,
-  pemToPkcs8,
   signJwtBearer,
 } from './jwt';
 export {
@@ -50,3 +49,4 @@ export {
   type OAuth1SignResult,
   signOAuth1,
 } from './oauth1';
+export { pemToPkcs8 } from './pem';

@@ -270,6 +270,7 @@ export async function executeResolved(
         ...(init.body instanceof URLSearchParams
           ? { bodyParams: [...init.body.entries()].map(([name, value]) => ({ name, value })) }
           : {}),
+        ...(typeof init.body === 'string' ? { rawBody: init.body } : {}),
         timestampSec: Math.floor(Date.now() / 1000),
         nonce: generateOAuth1Nonce(),
       });

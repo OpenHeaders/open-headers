@@ -1,4 +1,4 @@
-import { createHmac } from 'node:crypto';
+import { createHash, createHmac, generateKeyPairSync, verify as nodeVerify } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import { buildOAuth1SignatureBaseString, type OAuth1Credentials, signOAuth1 } from '../../src/auth-signing/index';
 
@@ -86,6 +86,16 @@ function headerParams(authorization: string): Map<string, string> {
   return out;
 }
 
+/** Rebuild the signature base string from the header's oauth params —
+ *  everything but the signature (realm never joins), values decoded
+ *  back to their raw form (the builder re-encodes). */
+function baseStringOf(params: Map<string, string>, input: { method: string; url: string }): string {
+  const oauthParams: Array<[string, string]> = [...params.entries()]
+    .filter(([k]) => k !== 'oauth_signature' && k !== 'realm')
+    .map(([k, v]) => [k, decodeURIComponent(v)]);
+  return buildOAuth1SignatureBaseString(input.method, input.url, oauthParams, []);
+}
+
 describe('buildOAuth1SignatureBaseString', () => {
   it('reproduces the RFC 5849 §3.4.1.1 base string byte-exact', () => {
     expect(buildOAuth1SignatureBaseString('POST', RFC_URL, RFC_OAUTH_PARAMS, RFC_BODY_PARAMS)).toBe(RFC_BASE_STRING);
@@ -169,6 +179,88 @@ describe('signOAuth1', () => {
     // Query values are returned raw — the caller's appendQueryParams
     // owns the encoding.
     expect(byKey.get('oauth_signature')).toBe(refSignature(CREDENTIALS, SIGN_INPUT));
+  });
+
+  it('signs HMAC-SHA256/512 with the parameterized digest, the method string riding', async () => {
+    for (const [signatureMethod, hash] of [
+      ['HMAC-SHA256', 'sha256'],
+      ['HMAC-SHA512', 'sha512'],
+    ] as const) {
+      const creds: OAuth1Credentials = { ...CREDENTIALS, signatureMethod };
+      const result = await signOAuth1(creds, SIGN_INPUT);
+      const params = headerParams(result.headers[0].value);
+      expect(params.get('oauth_signature_method')).toBe(signatureMethod);
+      const base = baseStringOf(params, SIGN_INPUT);
+      const key = 'oh-consumer-secret&oh-token-secret';
+      const expected = createHmac(hash, key).update(base).digest('base64');
+      expect(decodeURIComponent(params.get('oauth_signature') ?? '')).toBe(expected);
+    }
+  });
+
+  it('RSA-SHA1/256/512 sign with the private key alone and verify under RSASSA-PKCS1-v1_5', async () => {
+    const { privateKey, publicKey } = generateKeyPairSync('rsa', { modulusLength: 2048 });
+    const pem = privateKey.export({ type: 'pkcs8', format: 'pem' }).toString();
+    for (const [signatureMethod, hash] of [
+      ['RSA-SHA1', 'sha1'],
+      ['RSA-SHA256', 'sha256'],
+      ['RSA-SHA512', 'sha512'],
+    ] as const) {
+      // Consumer/token secrets deliberately junk — §3.4.3 signing must
+      // not touch them.
+      const creds: OAuth1Credentials = {
+        ...CREDENTIALS,
+        signatureMethod,
+        consumerSecret: 'never-used',
+        tokenSecret: 'never-used',
+        privateKey: pem,
+      };
+      const result = await signOAuth1(creds, SIGN_INPUT);
+      const params = headerParams(result.headers[0].value);
+      expect(params.get('oauth_signature_method')).toBe(signatureMethod);
+      const base = baseStringOf(params, SIGN_INPUT);
+      const signature = Buffer.from(decodeURIComponent(params.get('oauth_signature') ?? ''), 'base64');
+      expect(nodeVerify(hash, Buffer.from(base), publicKey, signature)).toBe(true);
+    }
+  });
+
+  it('accepts a PKCS#1 private key for the RSA family via the DER wrap', async () => {
+    const { privateKey, publicKey } = generateKeyPairSync('rsa', { modulusLength: 2048 });
+    const pkcs1 = privateKey.export({ type: 'pkcs1', format: 'pem' }).toString();
+    const creds: OAuth1Credentials = { ...CREDENTIALS, signatureMethod: 'RSA-SHA1', privateKey: pkcs1 };
+    const result = await signOAuth1(creds, SIGN_INPUT);
+    const params = headerParams(result.headers[0].value);
+    const base = baseStringOf(params, SIGN_INPUT);
+    const signature = Buffer.from(decodeURIComponent(params.get('oauth_signature') ?? ''), 'base64');
+    expect(nodeVerify('sha1', Buffer.from(base), publicKey, signature)).toBe(true);
+  });
+
+  it('adds a SIGNED oauth_body_hash for raw bodies when opted in — digest follows the method', async () => {
+    const rawBody = '{"status":"openheaders"}';
+    const creds: OAuth1Credentials = { ...CREDENTIALS, signatureMethod: 'HMAC-SHA256', includeBodyHash: true };
+    const result = await signOAuth1(creds, { ...SIGN_INPUT, method: 'POST', rawBody });
+    const params = headerParams(result.headers[0].value);
+    expect(decodeURIComponent(params.get('oauth_body_hash') ?? '')).toBe(
+      createHash('sha256').update(rawBody).digest('base64'),
+    );
+    // The hash joins the base string — the signature covers it.
+    const base = baseStringOf(params, { ...SIGN_INPUT, method: 'POST' });
+    const expected = createHmac('sha256', 'oh-consumer-secret&oh-token-secret').update(base).digest('base64');
+    expect(decodeURIComponent(params.get('oauth_signature') ?? '')).toBe(expected);
+  });
+
+  it('signs without a body hash when the opt-in is absent, the body is form-encoded, or PLAINTEXT', async () => {
+    const withoutFlag = await signOAuth1(CREDENTIALS, { ...SIGN_INPUT, rawBody: '{}' });
+    expect(headerParams(withoutFlag.headers[0].value).has('oauth_body_hash')).toBe(false);
+    const formBody = await signOAuth1(
+      { ...CREDENTIALS, includeBodyHash: true },
+      { ...SIGN_INPUT, bodyParams: [{ name: 'a', value: '1' }] },
+    );
+    expect(headerParams(formBody.headers[0].value).has('oauth_body_hash')).toBe(false);
+    const plaintext = await signOAuth1(
+      { ...CREDENTIALS, signatureMethod: 'PLAINTEXT', includeBodyHash: true },
+      { ...SIGN_INPUT, rawBody: '{}' },
+    );
+    expect(headerParams(plaintext.headers[0].value).has('oauth_body_hash')).toBe(false);
   });
 
   it('percent-encodes reserved characters in credentials per §3.6', async () => {
