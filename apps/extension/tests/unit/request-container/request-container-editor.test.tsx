@@ -665,6 +665,18 @@ describe('AuthorizationTab — the request-level Inherit pane', () => {
     }
   });
 
+  it('Basic Auth and Bearer Token close with the auto-generated note on every runtime', () => {
+    const first = render(<AuthorizationTab auth={{ type: 'bearer', token: '' }} onChange={vi.fn()} />);
+    expect(
+      screen.getByText('The authorization header will be automatically generated when you send the request.'),
+    ).toBeTruthy();
+    first.unmount();
+    render(<AuthorizationTab auth={{ type: 'basic', username: '', password: '' }} onChange={vi.fn()} />);
+    expect(
+      screen.getByText('The authorization header will be automatically generated when you send the request.'),
+    ).toBeTruthy();
+  });
+
   it('keeps the generic note for a scratch draft with no ancestry', () => {
     render(<AuthorizationTab auth={{ type: 'inherit' }} onChange={vi.fn()} />);
     expect(screen.getByTestId('oh-auth-transparent-state').textContent).toContain(
