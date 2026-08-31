@@ -243,6 +243,7 @@ const ALL_AUTH_TYPES: readonly ConcreteAuthConfig['type'][] = [
   'aws-sigv4',
   'digest',
   'oauth1',
+  'hawk',
 ];
 
 const AUTH_MASKS: Record<AuthProtocolKind, ReadonlySet<ConcreteAuthConfig['type']>> = {
@@ -282,6 +283,7 @@ export const AUTH_TYPE_LABELS: Record<ConcreteAuthConfig['type'], string> = {
   'aws-sigv4': 'AWS Signature v4',
   digest: 'Digest Auth',
   oauth1: 'OAuth 1.0',
+  hawk: 'Hawk Authentication',
 };
 
 /** The kind noun WITH its article — "an MQTT session" needs `an`. */

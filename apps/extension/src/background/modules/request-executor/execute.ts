@@ -5,7 +5,13 @@
  * failure) into an `ExecutedRequestSnapshot`.
  */
 
-import { AWS_SIGV4_UNSIGNED_PAYLOAD, sha256Hex, signAwsSigV4, signOAuth1 } from '@openheaders/core/auth-signing';
+import {
+  AWS_SIGV4_UNSIGNED_PAYLOAD,
+  sha256Hex,
+  signAwsSigV4,
+  signHawk,
+  signOAuth1,
+} from '@openheaders/core/auth-signing';
 import type { ExecutedRequestSnapshot, MultipartPart } from '@openheaders/core/types';
 import { appendQueryParams } from '@openheaders/core/utils';
 import { getFileBlob } from '@openheaders/oracle/entity/files-store';
@@ -271,6 +277,27 @@ export async function executeResolved(
       req = { ...req, url, headers: [...fetchHeaders.entries()].map(([key, value]) => ({ key, value })) };
     } catch (err) {
       return errorSnapshot(`OAuth 1.0 signing failed: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
+
+  // Hawk signs HERE too — same wire-time discipline; the header
+  // replaces a same-key user Authorization row and mirrors back onto
+  // `req` so the offscreen cert-exception retry ships the same
+  // signature.
+  if (req.hawk) {
+    try {
+      const payload = req.hawk.includePayloadHash === true ? hawkFetchPayload(init.body, fetchHeaders) : undefined;
+      const signed = await signHawk(req.hawk, {
+        method: req.method,
+        url: req.url,
+        ...(payload !== undefined ? { payload } : {}),
+        timestampSec: Math.floor(Date.now() / 1000),
+        nonce: generateOAuth1Nonce(),
+      });
+      for (const h of signed) fetchHeaders.set(h.key, h.value);
+      req = { ...req, headers: [...fetchHeaders.entries()].map(([key, value]) => ({ key, value })) };
+    } catch (err) {
+      return errorSnapshot(`Hawk signing failed: ${err instanceof Error ? err.message : String(err)}`);
     }
   }
 
@@ -623,12 +650,34 @@ function streamedCaptureOf(
   }
 }
 
-/** 128-bit hex client nonce for OAuth1 signing. */
+/** 128-bit hex client nonce for OAuth1 + Hawk signing. */
 function generateOAuth1Nonce(): string {
   const bytes = crypto.getRandomValues(new Uint8Array(16));
   let out = '';
   for (const b of bytes) out += b.toString(16).padStart(2, '0');
   return out;
+}
+
+/**
+ * Wire payload for Hawk's opted-in integrity hash — the body text plus
+ * the Content-Type that rides the wire. String bodies hash verbatim;
+ * URLSearchParams serializes to the exact bytes fetch ships (the
+ * browser's own Content-Type normalizes to the same hashed value); a
+ * bodyless send has nothing to validate and FormData bytes are
+ * unknowable ahead of dispatch (the browser picks the boundary), so
+ * both sign without a hash — the scheme keeps the attribute optional
+ * per request.
+ */
+function hawkFetchPayload(
+  body: RequestInit['body'],
+  headers: Headers,
+): { text: string; contentType: string } | undefined {
+  const contentType = headers.get('Content-Type') ?? '';
+  if (typeof body === 'string') return { text: body, contentType };
+  if (body instanceof URLSearchParams) {
+    return { text: body.toString(), contentType: contentType || 'application/x-www-form-urlencoded' };
+  }
+  return undefined;
 }
 
 /**

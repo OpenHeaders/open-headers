@@ -637,6 +637,35 @@ export const OAuth1AuthSchema = v.object({
 });
 
 /**
+ * Hawk authentication (the `hawk.1.` HMAC scheme). Like SigV4 and
+ * OAuth1, nothing rides the wire verbatim: the executor derives the
+ * `Authorization: Hawk …` header by MACing the FINAL wire shape just
+ * before dispatch, AFTER pre-request scripts have had their say. The
+ * timestamp and nonce are minted per send (a pinned timestamp goes
+ * stale inside the server's clock-skew window; a pinned nonce defeats
+ * replay protection), so neither is configuration. Pure WebCrypto
+ * HMAC — both runtimes sign, the type is not host-gated.
+ *
+ * `ext`, `app`, and `dlg` are the scheme's optional SIGNED attributes
+ * (they fold into the MAC when present). `includePayloadHash` opts
+ * into the payload integrity hash over the wire body + Content-Type.
+ * Fields are plain strings (templates welcome — `{{vault.hawk_key}}`
+ * is the expected idiom); completeness is a send-time gate, so
+ * partial configs stay saveable.
+ */
+export const HawkAuthSchema = v.object({
+  type: v.literal('hawk'),
+  disabled: AuthDisabledSchema,
+  authId: v.string(),
+  authKey: v.string(),
+  algorithm: v.picklist(['sha256', 'sha1']),
+  ext: v.optional(v.string()),
+  app: v.optional(v.string()),
+  dlg: v.optional(v.string()),
+  includePayloadHash: v.optional(v.boolean()),
+});
+
+/**
  * The auth shapes that can be put on the wire — every variant but
  * `inherit`. A collection's or folder's auth pool holds these (a pool
  * entry is always concrete), and the ancestor walk resolves a
@@ -666,6 +695,7 @@ export const ConcreteAuthConfigSchema = v.variant('type', [
   AwsSigV4AuthSchema,
   DigestAuthSchema,
   OAuth1AuthSchema,
+  HawkAuthSchema,
 ]);
 
 /**

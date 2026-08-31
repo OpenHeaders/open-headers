@@ -84,6 +84,15 @@ export function collectRequestTemplateStrings(request: Request): string[] {
       if (request.auth.tokenSecret) out.push(request.auth.tokenSecret);
       if (request.auth.realm) out.push(request.auth.realm);
       break;
+    case 'hawk':
+      // Credential fields are templatable — `{{vault.hawk_key}}` is
+      // the expected idiom for the key material.
+      if (request.auth.authId) out.push(request.auth.authId);
+      if (request.auth.authKey) out.push(request.auth.authKey);
+      if (request.auth.ext) out.push(request.auth.ext);
+      if (request.auth.app) out.push(request.auth.app);
+      if (request.auth.dlg) out.push(request.auth.dlg);
+      break;
   }
 
   // ── Body ──

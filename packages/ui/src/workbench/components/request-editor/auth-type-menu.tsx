@@ -13,6 +13,7 @@ import {
   LockOutlined,
   LoginOutlined,
   SafetyCertificateOutlined,
+  SecurityScanOutlined,
   StopOutlined,
   UserOutlined,
 } from '@ant-design/icons';
@@ -29,6 +30,7 @@ export const AUTH_TYPE_ORDER: readonly Exclude<ConcreteAuthType, 'none'>[] = [
   'basic',
   'bearer',
   'digest',
+  'hawk',
   'oauth1',
   'oauth2',
   'aws-sigv4',
@@ -39,6 +41,7 @@ const AUTH_TYPE_ICONS: Record<ConcreteAuthType, React.ReactNode> = {
   basic: <UserOutlined />,
   bearer: <SafetyCertificateOutlined />,
   digest: <LockOutlined />,
+  hawk: <SecurityScanOutlined />,
   oauth1: <LinkOutlined />,
   oauth2: <LoginOutlined />,
   'aws-sigv4': <AmazonOutlined />,

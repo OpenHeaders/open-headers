@@ -13,6 +13,14 @@ export {
   signAwsSigV4,
 } from './aws-sigv4';
 export {
+  buildHawkNormalizedString,
+  type HawkAlgorithm,
+  type HawkCredentials,
+  type HawkSignInput,
+  hawkPayloadHash,
+  signHawk,
+} from './hawk';
+export {
   buildDigestAuthorization,
   type DigestAlgorithm,
   type DigestAuthorizationInput,

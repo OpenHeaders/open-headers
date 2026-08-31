@@ -39,6 +39,7 @@ const OWN_TYPES: readonly ConcreteAuthType[] = [
   'aws-sigv4',
   'digest',
   'oauth1',
+  'hawk',
 ];
 
 interface AuthorizationTabProps {

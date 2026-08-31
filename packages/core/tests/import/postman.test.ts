@@ -183,7 +183,7 @@ describe('collection metadata', () => {
         item: [
           {
             name: 'Signed',
-            auth: { type: 'hawk' },
+            auth: { type: 'ntlm' },
             item: [{ name: 'R', request: { method: 'GET', url: 'https://api.openheaders.io/x' } }],
           },
         ],
@@ -191,7 +191,7 @@ describe('collection metadata', () => {
     );
     expect(result.folders[0]?.auth).toEqual({ type: 'none' });
     const drop = result.report.drops.find((d) => d.path === 'collection.item[0].auth');
-    expect(drop?.tracking).toBe('PERMANENT: hawk discontinued');
+    expect(drop?.tracking).toBe('PERMANENT: ntlm phased out');
   });
 
   it('folder-level awsv4 lands as an aws-sigv4 ancestor carrier', () => {
@@ -1267,7 +1267,71 @@ describe('request mapping — auth', () => {
     expect(result.report.transforms.some((t) => /oauth/i.test(t.reason))).toBe(false);
   });
 
-  it('drops ntlm / edgegrid / hawk as permanent with accurate per-type reasons', () => {
+  it('maps hawk end to end — signed attributes kept, wire-inert and re-minted params shed silently', () => {
+    const result = parsePostman(
+      postmanCollection({
+        item: [
+          {
+            name: 'X',
+            request: {
+              method: 'GET',
+              url: 'https://api.openheaders.io/x',
+              auth: {
+                type: 'hawk',
+                hawk: [
+                  { key: 'authId', value: 'dh37fgj492je' },
+                  { key: 'authKey', value: '{{vault.hawk_key}}' },
+                  { key: 'algorithm', value: 'sha1' },
+                  { key: 'user', value: 'never-rides-the-wire' },
+                  { key: 'extraData', value: 'some-app-ext-data' },
+                  { key: 'app', value: 'oh-app-id' },
+                  { key: 'delegation', value: 'oh-delegated-by' },
+                  { key: 'nonce', value: 'stale-pin' },
+                  { key: 'timestamp', value: '1353832234' },
+                  { key: 'includePayloadHash', value: 'true' },
+                ],
+              },
+            },
+          },
+        ],
+      }),
+    );
+    expect(result.requests[0]?.request.auth).toEqual({
+      type: 'hawk',
+      authId: 'dh37fgj492je',
+      authKey: '{{vault.hawk_key}}',
+      algorithm: 'sha1',
+      ext: 'some-app-ext-data',
+      app: 'oh-app-id',
+      dlg: 'oh-delegated-by',
+      includePayloadHash: true,
+    });
+    // The shed params are silently lossless — no drop, no transform.
+    expect(result.report.drops.some((d) => /hawk/i.test(d.reason))).toBe(false);
+    expect(result.report.transforms.some((t) => /hawk/i.test(t.reason))).toBe(false);
+  });
+
+  it('folds an unknown hawk algorithm to sha256 with a transform note', () => {
+    const result = parsePostman(
+      postmanCollection({
+        item: [
+          {
+            name: 'X',
+            request: {
+              method: 'GET',
+              url: 'https://api.openheaders.io/x',
+              auth: { type: 'hawk', hawk: [{ key: 'algorithm', value: 'sha512' }] },
+            },
+          },
+        ],
+      }),
+    );
+    expect(result.requests[0]?.request.auth).toEqual({ type: 'hawk', authId: '', authKey: '', algorithm: 'sha256' });
+    const transform = result.report.transforms.find((t) => t.from === 'hawk/sha512');
+    expect(transform?.tracking).toBe('PERMANENT: hawk sha256/sha1 only');
+  });
+
+  it('drops ntlm / edgegrid as permanent with accurate per-type reasons', () => {
     const cases = [
       {
         type: 'ntlm',
@@ -1278,11 +1342,6 @@ describe('request mapping — auth', () => {
         type: 'edgegrid',
         reason: /EdgeGrid auth not imported — the scheme is specific to one CDN vendor/,
         tracking: 'PERMANENT: edgegrid vendor-specific',
-      },
-      {
-        type: 'hawk',
-        reason: /Hawk auth not imported — the scheme is discontinued upstream/,
-        tracking: 'PERMANENT: hawk discontinued',
       },
     ];
     for (const c of cases) {

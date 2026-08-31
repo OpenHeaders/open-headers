@@ -296,6 +296,7 @@ describe('RequestContainerEditor — the empty state', () => {
       'basic',
       'bearer',
       'digest',
+      'hawk',
       'oauth1',
       'oauth2',
       'aws-sigv4',
@@ -663,6 +664,24 @@ describe('AuthorizationTab — the request-level Inherit pane', () => {
     } finally {
       unregisterCapability('requestRuntime');
     }
+  });
+
+  it("Hawk's form carries the credential fields, the optional attributes, and the payload-hash opt-in", () => {
+    const onChange = vi.fn();
+    const hawk: AuthConfig = { type: 'hawk', authId: 'dh37fgj492je', authKey: 'k', algorithm: 'sha256' };
+    const first = render(<AuthorizationTab auth={hawk} onChange={onChange} />);
+    // Every runtime signs — the auto-generated note closes the form
+    // with no browser caveat, unlike digest.
+    expect(
+      screen.getByText('The authorization header will be automatically generated when you send the request.'),
+    ).toBeTruthy();
+    expect(screen.getByTestId('oh-auth-hawk-algorithm').textContent).toContain('SHA-256');
+    fireEvent.click(screen.getByTestId('oh-auth-hawk-payload-hash'));
+    expect(onChange).toHaveBeenCalledWith({ ...hawk, includePayloadHash: true });
+    first.unmount();
+    render(<AuthorizationTab auth={{ ...hawk, includePayloadHash: true }} onChange={onChange} />);
+    fireEvent.click(screen.getByTestId('oh-auth-hawk-payload-hash'));
+    expect(onChange).toHaveBeenLastCalledWith(hawk);
   });
 
   it('Basic Auth and Bearer Token close with the auto-generated note on every runtime', () => {

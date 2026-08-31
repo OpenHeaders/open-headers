@@ -130,6 +130,17 @@ export function previewAuthContributions(auth: AuthConfig, t: Translate): AuthPr
           };
       return inQuery ? { headers: [], params: [entry] } : { headers: [entry], params: [] };
     }
+    case 'hawk':
+      return {
+        headers: [
+          {
+            key: 'Authorization',
+            value: t('workbench.editors.request.authPreview.hawkValue'),
+            hint: t('workbench.editors.request.authPreview.hawkHint'),
+          },
+        ],
+        params: [],
+      };
     case 'oauth2': {
       const inQuery = auth.sendAs === 'query';
       const entry: AuthPreviewEntry = inQuery

@@ -29,6 +29,7 @@ import type {
   DigestAuthSchema,
   FileRefSchema,
   FormFieldSchema,
+  HawkAuthSchema,
   HttpMethodSchema,
   HttpVersionSchema,
   MultipartPartSchema,
@@ -70,7 +71,8 @@ export type AuthType =
   | 'oauth2'
   | 'aws-sigv4'
   | 'digest'
-  | 'oauth1';
+  | 'oauth1'
+  | 'hawk';
 export type AuthConfig = v.InferOutput<typeof AuthConfigSchema>;
 /** Every auth shape but `inherit` — what a pool entry holds and what the ancestor walk resolves to. */
 export type ConcreteAuthConfig = v.InferOutput<typeof ConcreteAuthConfigSchema>;
@@ -81,6 +83,7 @@ export type OAuth2Auth = v.InferOutput<typeof OAuth2AuthSchema>;
 export type AwsSigV4Auth = v.InferOutput<typeof AwsSigV4AuthSchema>;
 export type DigestAuth = v.InferOutput<typeof DigestAuthSchema>;
 export type OAuth1Auth = v.InferOutput<typeof OAuth1AuthSchema>;
+export type HawkAuth = v.InferOutput<typeof HawkAuthSchema>;
 
 // ── Body ───────────────────────────────────────────────────────────
 //

@@ -5,7 +5,7 @@
  * tracking, and the default Content-Type fill.
  */
 
-import type { AwsSigV4Credentials, OAuth1Credentials } from '@openheaders/core/auth-signing';
+import type { AwsSigV4Credentials, HawkCredentials, OAuth1Credentials } from '@openheaders/core/auth-signing';
 import type {
   CredentialsMode,
   ExecutedAuthAttribution,
@@ -70,6 +70,16 @@ export interface ResolvedRequest {
    * folded into the URL — twin of the oracle resolver's carry.
    */
   oauth1?: OAuth1Credentials;
+  /**
+   * Hawk credentials, templates already resolved — present only when
+   * the effective auth is an enabled `hawk` config. Like SigV4 and
+   * OAuth1, signing happens at the wire in {@link executeResolved},
+   * after the pre-request script has mutated the request and the
+   * params have folded into the URL — twin of the oracle resolver's
+   * carry. `includePayloadHash` opts the executor into the payload
+   * integrity hash.
+   */
+  hawk?: HawkCredentials & { includePayloadHash?: boolean };
   /** The auth this send applies and its source — resolve-time
    *  attribution the executor stamps on the snapshot; absent when the
    *  request's own auth is `none`. Twin of the oracle's carry. */
@@ -231,6 +241,21 @@ export async function resolveRequest(
         }
       : undefined;
 
+  // Hawk credentials resolve here but sign at the wire — see
+  // {@link ResolvedRequest.hawk}.
+  const hawk: (HawkCredentials & { includePayloadHash?: boolean }) | undefined =
+    effectiveAuth.type === 'hawk' && !effectiveAuth.disabled
+      ? {
+          authId: resolveStr(effectiveAuth.authId),
+          authKey: resolveStr(effectiveAuth.authKey),
+          algorithm: effectiveAuth.algorithm,
+          ...(effectiveAuth.ext ? { ext: resolveStr(effectiveAuth.ext) } : {}),
+          ...(effectiveAuth.app ? { app: resolveStr(effectiveAuth.app) } : {}),
+          ...(effectiveAuth.dlg ? { dlg: resolveStr(effectiveAuth.dlg) } : {}),
+          ...(effectiveAuth.includePayloadHash === true ? { includePayloadHash: true } : {}),
+        }
+      : undefined;
+
   // ── Body ────────────────────────────────────────────────────────
   const resolvedBody = buildResolvedBody(request.body, resolveStr);
 
@@ -263,6 +288,7 @@ export async function resolveRequest(
       timeoutMs: request.timeoutMs,
       ...(awsSigV4 ? { awsSigV4 } : {}),
       ...(oauth1 ? { oauth1 } : {}),
+      ...(hawk ? { hawk } : {}),
       ...(authAttribution !== undefined ? { auth: authAttribution } : {}),
     },
     totpUsed: [...totpUsed.values()],

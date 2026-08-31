@@ -158,6 +158,9 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.authPreview.oauth1QueryValue': '<signed parameters>',
   'workbench.editors.request.authPreview.oauth1QueryHint':
     '由授权标签页生成（OAuth 1.0）。发送请求时，oauth_* 参数会被添加到 URL 查询串。',
+  'workbench.editors.request.authPreview.hawkValue': 'Hawk <signed parameters>',
+  'workbench.editors.request.authPreview.hawkHint':
+    '由授权标签页生成（Hawk Authentication）。发送时用你的凭据对请求签名。',
   'workbench.editors.request.authPreview.inheritedFrom': '继承自{source}——请在父级中编辑。',
 
   // ── Authorization tab ──────────────────────────────────────────────
@@ -171,6 +174,7 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.auth.type.awsSigV4': 'AWS Signature v4',
   'workbench.editors.request.auth.type.digest': 'Digest Auth',
   'workbench.editors.request.auth.type.oauth1': 'OAuth 1.0',
+  'workbench.editors.request.auth.type.hawk': 'Hawk Authentication',
   'workbench.editors.request.auth.oauth1ConsumerKey': 'Consumer Key',
   'workbench.editors.request.auth.oauth1ConsumerKeyPlaceholder': 'consumer key',
   'workbench.editors.request.auth.oauth1ConsumerSecret': 'Consumer Secret',
@@ -182,6 +186,18 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.auth.oauth1SignatureMethod': '签名方法',
   'workbench.editors.request.auth.oauth1Realm': 'Realm',
   'workbench.editors.request.auth.oauth1RealmPlaceholder': '可选',
+  'workbench.editors.request.auth.hawkAuthId': 'Hawk Auth ID',
+  'workbench.editors.request.auth.hawkAuthIdPlaceholder': 'hawk auth id',
+  'workbench.editors.request.auth.hawkAuthKey': 'Hawk Auth Key',
+  'workbench.editors.request.auth.hawkAuthKeyPlaceholder': 'hawk auth key',
+  'workbench.editors.request.auth.hawkAlgorithm': '算法',
+  'workbench.editors.request.auth.hawkExt': 'ext',
+  'workbench.editors.request.auth.hawkExtPlaceholder': '可选——应用特定数据',
+  'workbench.editors.request.auth.hawkApp': 'app',
+  'workbench.editors.request.auth.hawkAppPlaceholder': '可选——应用 ID',
+  'workbench.editors.request.auth.hawkDlg': 'dlg',
+  'workbench.editors.request.auth.hawkDlgPlaceholder': '可选——委托方应用 ID',
+  'workbench.editors.request.auth.hawkIncludePayloadHash': '包含负载哈希',
   'workbench.editors.request.auth.digestBrowserNote':
     'Digest Auth 用第二个请求应答服务器的质询，这在桌面端应用和 CLI 上运行。从此界面发送不会带上它——服务器会回复 401。',
   'workbench.editors.request.auth.digestRetryNote': '默认情况下会应答 401 质询并自动重试请求。要禁用吗？',

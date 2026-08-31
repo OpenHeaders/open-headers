@@ -12,7 +12,12 @@
  * that omits the hook attaches the last-synced bundle as-is.
  */
 
-import type { AwsSigV4Credentials, DigestCredentials, OAuth1Credentials } from '@openheaders/core/auth-signing';
+import type {
+  AwsSigV4Credentials,
+  DigestCredentials,
+  HawkCredentials,
+  OAuth1Credentials,
+} from '@openheaders/core/auth-signing';
 import { isExpired as isOAuthTokenExpired, type OAuth2TokenBundle } from '@openheaders/core/oauth';
 import type {
   AuthConfig,
@@ -150,6 +155,16 @@ export interface ResolvedRequest {
    * script mutation.
    */
   oauth1?: OAuth1Credentials;
+  /**
+   * Hawk credentials, templates already resolved — present only when
+   * the effective auth is an enabled `hawk` config. Like SigV4 and
+   * OAuth1, signing happens at EXECUTE time (the wire executor derives
+   * the `Authorization: Hawk …` header over the final wire shape),
+   * never here: a resolve-time signature would be invalidated by any
+   * pre-request script mutation. `includePayloadHash` opts the
+   * executor into the payload integrity hash.
+   */
+  hawk?: HawkCredentials & { includePayloadHash?: boolean };
   /**
    * The auth this send applies and where it came from — the request's
    * own config or the ancestor pool entry its Inherit resolved to.
@@ -313,6 +328,21 @@ export async function resolveRequest(
         }
       : undefined;
 
+  // Hawk credentials resolve here but sign at execute time — see
+  // {@link ResolvedRequest.hawk}.
+  const hawk: (HawkCredentials & { includePayloadHash?: boolean }) | undefined =
+    effectiveAuth.type === 'hawk' && !effectiveAuth.disabled
+      ? {
+          authId: resolveStr(effectiveAuth.authId),
+          authKey: resolveStr(effectiveAuth.authKey),
+          algorithm: effectiveAuth.algorithm,
+          ...(effectiveAuth.ext ? { ext: resolveStr(effectiveAuth.ext) } : {}),
+          ...(effectiveAuth.app ? { app: resolveStr(effectiveAuth.app) } : {}),
+          ...(effectiveAuth.dlg ? { dlg: resolveStr(effectiveAuth.dlg) } : {}),
+          ...(effectiveAuth.includePayloadHash === true ? { includePayloadHash: true } : {}),
+        }
+      : undefined;
+
   // Append params after auth — api-key-in-query lives in enabledParams.
   resolvedUrl = appendQueryParams(resolvedUrl, enabledParams);
 
@@ -386,6 +416,7 @@ export async function resolveRequest(
       ...(awsSigV4 ? { awsSigV4 } : {}),
       ...(digest ? { digest } : {}),
       ...(oauth1 ? { oauth1 } : {}),
+      ...(hawk ? { hawk } : {}),
       ...(authAttribution !== undefined ? { auth: authAttribution } : {}),
     },
     totpUsed: [...totpUsed.values()],
@@ -465,6 +496,12 @@ export async function applyAuth(
   if (auth.type === 'oauth1') {
     // Nothing folds here — OAuth1 signs the FINAL wire shape at execute
     // time (see ResolvedRequest.oauth1); the resolver only resolves the
+    // credential templates.
+    return;
+  }
+  if (auth.type === 'hawk') {
+    // Nothing folds here — Hawk signs the FINAL wire shape at execute
+    // time (see ResolvedRequest.hawk); the resolver only resolves the
     // credential templates.
     return;
   }

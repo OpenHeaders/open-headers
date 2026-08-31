@@ -35,6 +35,10 @@
  *                                        param every signed request must
  *                                        carry; an empty consumer secret
  *                                        is a legal signing key).
+ *     · `hawk`                         — `authId` non-empty (the one
+ *                                        attribute every Hawk header must
+ *                                        carry; an empty key is a legal
+ *                                        HMAC key).
  */
 
 import { collectRequestTemplateStrings } from '../live/request-scan';
@@ -110,6 +114,11 @@ function isRequestCompleteUnsafe(
       // carry; an empty consumer secret is a legal signing key and the
       // token pair is absent on one-legged calls.
       return auth.consumerKey.trim().length > 0;
+    case 'hawk':
+      // `id` is the one attribute every Hawk header must carry; an
+      // empty key is a legal HMAC key (the oauth1 consumer-secret
+      // argument) and everything else is optional or minted per send.
+      return auth.authId.trim().length > 0;
   }
 }
 
@@ -130,7 +139,8 @@ export type RequestIncompleteReason =
   | 'aws-sigv4-missing-service'
   | 'aws-sigv4-missing-region'
   | 'digest-missing-username'
-  | 'oauth1-missing-consumer-key';
+  | 'oauth1-missing-consumer-key'
+  | 'hawk-missing-auth-id';
 
 // ── Variable-resolution gating ─────────────────────────────────────
 
@@ -205,5 +215,7 @@ export function requestIncompleteReason(
       return auth.username.trim().length > 0 ? null : 'digest-missing-username';
     case 'oauth1':
       return auth.consumerKey.trim().length > 0 ? null : 'oauth1-missing-consumer-key';
+    case 'hawk':
+      return auth.authId.trim().length > 0 ? null : 'hawk-missing-auth-id';
   }
 }

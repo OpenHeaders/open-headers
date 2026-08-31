@@ -5,7 +5,14 @@
  * Exercised with a fake transport that captures what it was handed.
  */
 
-import { type OAuth1Credentials, sha256Hex, signAwsSigV4, signOAuth1 } from '@openheaders/core/auth-signing';
+import {
+  type HawkCredentials,
+  type OAuth1Credentials,
+  sha256Hex,
+  signAwsSigV4,
+  signHawk,
+  signOAuth1,
+} from '@openheaders/core/auth-signing';
 import type { RequestStreamEventWire } from '@openheaders/core/bridge';
 import type { RequestBody } from '@openheaders/core/types';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -838,6 +845,80 @@ describe('executeOverTransport — OAuth1 signing', () => {
     expect(url.searchParams.get('oauth_consumer_key')).toBe('ck_openheaders');
     expect(url.searchParams.get('oauth_signature')).toBeTruthy();
     expect(sent().headers.some((h) => h.key.toLowerCase() === 'authorization')).toBe(false);
+  });
+});
+
+describe('executeOverTransport — Hawk signing', () => {
+  const credentials: HawkCredentials = { authId: 'oh-hawk-id', authKey: 'oh-hawk-key', algorithm: 'sha256' };
+
+  function hawkAttributes(authorization: string): Map<string, string> {
+    const out = new Map<string, string>();
+    for (const match of authorization.slice('Hawk '.length).matchAll(/(\w+)="((?:[^"\\]|\\.)*)"/g)) {
+      out.set(match[1], match[2].replace(/\\(.)/g, '$1'));
+    }
+    return out;
+  }
+
+  it('signs the final wire shape and replaces a user Authorization header', async () => {
+    const { transport, sent } = captureTransport();
+    const snap = await executeOverTransport(
+      makeResolved({
+        url: 'https://api.openheaders.io/v1/items?page=2',
+        hawk: credentials,
+        headers: [{ key: 'Authorization', value: 'Bearer stale-user-token' }],
+      }),
+      transport,
+    );
+    expect(snap.error).toBeNull();
+    const rows = sent().headers.filter((h) => h.key.toLowerCase() === 'authorization');
+    expect(rows).toHaveLength(1);
+    expect(rows[0].value.startsWith('Hawk ')).toBe(true);
+    expect(rows[0].value).not.toContain('stale-user-token');
+    const attrs = hawkAttributes(rows[0].value);
+    expect(attrs.get('id')).toBe('oh-hawk-id');
+    expect(attrs.has('hash')).toBe(false);
+
+    // The MAC must equal an independent signer call over the same wire
+    // shape at the nonce + timestamp the send stamped.
+    const [expected] = await signHawk(credentials, {
+      method: 'GET',
+      url: sent().url,
+      timestampSec: Number(attrs.get('ts')),
+      nonce: attrs.get('nonce') ?? '',
+    });
+    expect(rows[0].value).toBe(expected.value);
+  });
+
+  it('hashes the wire payload when the config opts in', async () => {
+    const { transport, sent } = captureTransport();
+    const body: RequestBody = { type: 'json', content: '{"a":1}' };
+    await executeOverTransport(
+      makeResolved({
+        method: 'POST',
+        hawk: { ...credentials, includePayloadHash: true },
+        body,
+        headers: [{ key: 'Content-Type', value: 'application/json' }],
+      }),
+      transport,
+    );
+    const auth = sent().headers.find((h) => h.key.toLowerCase() === 'authorization')?.value ?? '';
+    const attrs = hawkAttributes(auth);
+    const [expected] = await signHawk(credentials, {
+      method: 'POST',
+      url: sent().url,
+      payload: { text: '{"a":1}', contentType: 'application/json' },
+      timestampSec: Number(attrs.get('ts')),
+      nonce: attrs.get('nonce') ?? '',
+    });
+    expect(attrs.has('hash')).toBe(true);
+    expect(auth).toBe(expected.value);
+  });
+
+  it('signs without a hash when the opt-in is absent or the send is bodyless', async () => {
+    const { transport, sent } = captureTransport();
+    await executeOverTransport(makeResolved({ hawk: { ...credentials, includePayloadHash: true } }), transport);
+    const auth = sent().headers.find((h) => h.key.toLowerCase() === 'authorization')?.value ?? '';
+    expect(hawkAttributes(auth).has('hash')).toBe(false);
   });
 });
 

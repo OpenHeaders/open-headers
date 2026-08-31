@@ -261,12 +261,37 @@ export function resolveAuth(
       return { auth: concreteFallback(fallback), report };
     }
     case 'hawk': {
-      recordDrop(report, {
-        path: authPath,
-        reason: 'Hawk auth not imported — the scheme is discontinued upstream and is not supported.',
-        tracking: 'PERMANENT: hawk discontinued',
-      });
-      return { auth: concreteFallback(fallback), report };
+      const params = asParams(raw.hawk);
+      // The vendor's `user` field never rides the wire (the header
+      // grammar has no such attribute), and a pinned timestamp/nonce
+      // is re-minted on the next live sign — all three shed silently
+      // lossless (the digest stale-challenge precedent).
+      const rawAlgorithm = paramValue(params, 'algorithm')?.trim().toLowerCase();
+      if (rawAlgorithm !== undefined && rawAlgorithm !== 'sha256' && rawAlgorithm !== 'sha1') {
+        recordTransform(report, {
+          path: authPath,
+          from: `hawk/${rawAlgorithm}`,
+          to: 'hawk/sha256',
+          reason: `Hawk was set to the unknown "${rawAlgorithm}" algorithm — imported as SHA-256 (the scheme's default).`,
+          tracking: 'PERMANENT: hawk sha256/sha1 only',
+        });
+      }
+      const ext = paramValue(params, 'extraData');
+      const app = paramValue(params, 'app');
+      const dlg = paramValue(params, 'delegation');
+      return {
+        auth: {
+          type: 'hawk',
+          authId: paramValue(params, 'authId') ?? '',
+          authKey: paramValue(params, 'authKey') ?? '',
+          algorithm: rawAlgorithm === 'sha1' ? 'sha1' : 'sha256',
+          ...(ext ? { ext } : {}),
+          ...(app ? { app } : {}),
+          ...(dlg ? { dlg } : {}),
+          ...(paramFlag(params, 'includePayloadHash') ? { includePayloadHash: true } : {}),
+        },
+        report,
+      };
     }
     default: {
       recordDrop(report, {

@@ -153,6 +153,12 @@ function stripConfigSecrets<A extends AuthConfig>(auth: A): A {
     const { tokenSecret: _omitted, ...rest } = auth;
     return { ...rest, consumerSecret: '' } as A;
   }
+  if (auth.type === 'hawk') {
+    // The required `authKey` is the HMAC key material — blanks so the
+    // config stays schema-valid and the completeness gate walks the
+    // recipient to re-enter it.
+    return { ...auth, authKey: '' } as A;
+  }
   return auth;
 }
 

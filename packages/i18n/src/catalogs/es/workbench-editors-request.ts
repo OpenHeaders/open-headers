@@ -180,6 +180,10 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.authPreview.oauth1QueryHint':
     'Generado desde la pestaña Autorización (OAuth 1.0). Los parámetros oauth_* se añaden a la consulta de ' +
     'la URL al enviar la solicitud.',
+  'workbench.editors.request.authPreview.hawkValue': 'Hawk <parámetros firmados>',
+  'workbench.editors.request.authPreview.hawkHint':
+    'Generado desde la pestaña Autorización (Hawk Authentication). La solicitud se firma con tus ' +
+    'credenciales al enviarla.',
   'workbench.editors.request.authPreview.inheritedFrom': 'Heredado de {source} — edítalo en el elemento padre.',
 
   // ── Authorization tab ──────────────────────────────────────────────
@@ -193,6 +197,7 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.auth.type.awsSigV4': 'AWS Signature v4',
   'workbench.editors.request.auth.type.digest': 'Digest Auth',
   'workbench.editors.request.auth.type.oauth1': 'OAuth 1.0',
+  'workbench.editors.request.auth.type.hawk': 'Hawk Authentication',
   'workbench.editors.request.auth.oauth1ConsumerKey': 'Consumer Key',
   'workbench.editors.request.auth.oauth1ConsumerKeyPlaceholder': 'consumer key',
   'workbench.editors.request.auth.oauth1ConsumerSecret': 'Consumer Secret',
@@ -204,6 +209,18 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.auth.oauth1SignatureMethod': 'Método de firma',
   'workbench.editors.request.auth.oauth1Realm': 'Realm',
   'workbench.editors.request.auth.oauth1RealmPlaceholder': 'opcional',
+  'workbench.editors.request.auth.hawkAuthId': 'Hawk Auth ID',
+  'workbench.editors.request.auth.hawkAuthIdPlaceholder': 'hawk auth id',
+  'workbench.editors.request.auth.hawkAuthKey': 'Hawk Auth Key',
+  'workbench.editors.request.auth.hawkAuthKeyPlaceholder': 'hawk auth key',
+  'workbench.editors.request.auth.hawkAlgorithm': 'Algoritmo',
+  'workbench.editors.request.auth.hawkExt': 'ext',
+  'workbench.editors.request.auth.hawkExtPlaceholder': 'opcional — datos específicos de la aplicación',
+  'workbench.editors.request.auth.hawkApp': 'app',
+  'workbench.editors.request.auth.hawkAppPlaceholder': 'opcional — ID de la aplicación',
+  'workbench.editors.request.auth.hawkDlg': 'dlg',
+  'workbench.editors.request.auth.hawkDlgPlaceholder': 'opcional — ID de la aplicación delegante',
+  'workbench.editors.request.auth.hawkIncludePayloadHash': 'Incluir hash del payload',
   'workbench.editors.request.auth.digestBrowserNote':
     'Digest Auth responde al desafío del servidor con una segunda solicitud, que se ejecuta en la ' +
     'aplicación de escritorio y la CLI. Los envíos desde esta superficie salen sin ella — el servidor ' +

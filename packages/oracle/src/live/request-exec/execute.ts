@@ -11,7 +11,13 @@
  * becomes a structured error snapshot; a 4xx/5xx is a normal response.
  */
 
-import { AWS_SIGV4_UNSIGNED_PAYLOAD, sha256Hex, signAwsSigV4, signOAuth1 } from '@openheaders/core/auth-signing';
+import {
+  AWS_SIGV4_UNSIGNED_PAYLOAD,
+  sha256Hex,
+  signAwsSigV4,
+  signHawk,
+  signOAuth1,
+} from '@openheaders/core/auth-signing';
 import type { RequestStreamEventWire } from '@openheaders/core/bridge';
 import type { ExecutedRequestSnapshot, RequestBody } from '@openheaders/core/types';
 import { appendQueryParams, ensureScheme } from '@openheaders/core/utils';
@@ -171,6 +177,24 @@ export async function executeOverTransport(
       if (signed.queryParams.length > 0) url = appendQueryParams(url, signed.queryParams);
     } catch (err) {
       return errorSnapshot(`OAuth 1.0 signing failed: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
+
+  // Hawk signs HERE too — same execute-time discipline; the header
+  // replaces a same-key user Authorization row.
+  if (resolved.hawk) {
+    try {
+      const payload = resolved.hawk.includePayloadHash === true ? hawkPayloadOf(body, headers) : undefined;
+      const signed = await signHawk(resolved.hawk, {
+        method: resolved.method,
+        url,
+        ...(payload !== undefined ? { payload } : {}),
+        timestampSec: Math.floor(Date.now() / 1000),
+        nonce: generateNonce(),
+      });
+      for (const h of signed) setHeader(headers, h.key, h.value);
+    } catch (err) {
+      return errorSnapshot(`Hawk signing failed: ${err instanceof Error ? err.message : String(err)}`);
     }
   }
 
@@ -485,7 +509,34 @@ async function transportPayloadHash(body: TransportBody): Promise<string> {
   }
 }
 
-/** 128-bit hex client nonce for OAuth1 signing. */
+/**
+ * Wire payload for Hawk's opted-in integrity hash — the body text plus
+ * the Content-Type that rides the wire. `raw` / `urlencoded` bytes are
+ * deterministic (the transport serializes urlencoded fields through
+ * the same `URLSearchParams` construction); a bodyless send has
+ * nothing to validate and multipart bytes are not knowable ahead of
+ * dispatch (the host generates the boundary), so both sign without a
+ * hash — the scheme keeps the attribute optional per request.
+ */
+function hawkPayloadOf(
+  body: TransportBody,
+  headers: ReadonlyArray<TransportHeader>,
+): { text: string; contentType: string } | undefined {
+  const contentType = headers.find((h) => h.key.toLowerCase() === 'content-type')?.value ?? '';
+  switch (body.kind) {
+    case 'raw':
+      return { text: body.content, contentType };
+    case 'urlencoded': {
+      const params = new URLSearchParams();
+      for (const f of body.fields) params.append(f.name, f.value);
+      return { text: params.toString(), contentType: contentType || 'application/x-www-form-urlencoded' };
+    }
+    default:
+      return undefined;
+  }
+}
+
+/** 128-bit hex client nonce for OAuth1 + Hawk signing. */
 function generateNonce(): string {
   const bytes = crypto.getRandomValues(new Uint8Array(16));
   let out = '';

@@ -116,6 +116,15 @@ const AUTH_UNION: FieldNode = union({
       paramsLocation: enumLeaf(['header', 'query']),
       realm: leaf('string', { coercion: 'optional-string' }),
     }),
+    hawk: obj({
+      authId: leaf('string'),
+      authKey: leaf('string'),
+      algorithm: enumLeaf(['sha256', 'sha1']),
+      ext: leaf('string', { coercion: 'optional-string' }),
+      app: leaf('string', { coercion: 'optional-string' }),
+      dlg: leaf('string', { coercion: 'optional-string' }),
+      includePayloadHash: leaf('boolean', { coercion: 'boolean-strict' }),
+    }),
   },
 });
 

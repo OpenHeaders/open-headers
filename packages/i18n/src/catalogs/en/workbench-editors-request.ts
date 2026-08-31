@@ -142,6 +142,9 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.authPreview.oauth1QueryValue': '<signed parameters>',
   'workbench.editors.request.authPreview.oauth1QueryHint':
     'Generated from the Authorization tab (OAuth 1.0). The oauth_* parameters are added to the URL query when the request is sent.',
+  'workbench.editors.request.authPreview.hawkValue': 'Hawk <signed parameters>',
+  'workbench.editors.request.authPreview.hawkHint':
+    'Generated from the Authorization tab (Hawk Authentication). The request is signed with your credentials when it is sent.',
   'workbench.editors.request.authPreview.inheritedFrom': 'Inherited from {source} \u2014 edit it in the parent.',
 
   // ── Authorization tab ──────────────────────────────────────────────
@@ -155,6 +158,7 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.auth.type.awsSigV4': 'AWS Signature v4',
   'workbench.editors.request.auth.type.digest': 'Digest Auth',
   'workbench.editors.request.auth.type.oauth1': 'OAuth 1.0',
+  'workbench.editors.request.auth.type.hawk': 'Hawk Authentication',
   'workbench.editors.request.auth.oauth1ConsumerKey': 'Consumer Key',
   'workbench.editors.request.auth.oauth1ConsumerKeyPlaceholder': 'consumer key',
   'workbench.editors.request.auth.oauth1ConsumerSecret': 'Consumer Secret',
@@ -166,6 +170,18 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.auth.oauth1SignatureMethod': 'Signature Method',
   'workbench.editors.request.auth.oauth1Realm': 'Realm',
   'workbench.editors.request.auth.oauth1RealmPlaceholder': 'optional',
+  'workbench.editors.request.auth.hawkAuthId': 'Hawk Auth ID',
+  'workbench.editors.request.auth.hawkAuthIdPlaceholder': 'hawk auth id',
+  'workbench.editors.request.auth.hawkAuthKey': 'Hawk Auth Key',
+  'workbench.editors.request.auth.hawkAuthKeyPlaceholder': 'hawk auth key',
+  'workbench.editors.request.auth.hawkAlgorithm': 'Algorithm',
+  'workbench.editors.request.auth.hawkExt': 'ext',
+  'workbench.editors.request.auth.hawkExtPlaceholder': 'optional — app-specific data',
+  'workbench.editors.request.auth.hawkApp': 'app',
+  'workbench.editors.request.auth.hawkAppPlaceholder': 'optional — application ID',
+  'workbench.editors.request.auth.hawkDlg': 'dlg',
+  'workbench.editors.request.auth.hawkDlgPlaceholder': 'optional — delegated-by application ID',
+  'workbench.editors.request.auth.hawkIncludePayloadHash': 'Include payload hash',
   'workbench.editors.request.auth.digestBrowserNote':
     'Digest Auth answers the server’s challenge with a second request, which runs on the desktop app and CLI. Sends from this surface go out without it — the server replies 401.',
   'workbench.editors.request.auth.digestRetryNote':

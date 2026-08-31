@@ -49,6 +49,7 @@ export const AUTH_TYPE_OPTIONS: AuthTypeOption[] = [
   { value: 'aws-sigv4', labelKey: 'workbench.editors.request.auth.type.awsSigV4' },
   { value: 'digest', labelKey: 'workbench.editors.request.auth.type.digest' },
   { value: 'oauth1', labelKey: 'workbench.editors.request.auth.type.oauth1' },
+  { value: 'hawk', labelKey: 'workbench.editors.request.auth.type.hawk' },
 ];
 
 export function authTypeLabelKey(type: AuthKind): MessageKey {
