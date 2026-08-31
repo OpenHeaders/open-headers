@@ -108,7 +108,7 @@ export const workbenchEditorsRequest = {
     'Diese Header werden automatisch hinzugefügt und mit der Anfrage gesendet. Klicke auf das Info-Symbol ' +
     'einer Zeile für Details pro Header.',
   'workbench.editors.request.headers.duplicateAuthOverride':
-    'Duplikat — beim Senden ersetzt durch den {header}-Header, der aus dem Tab Autorisierung generiert wird.',
+    'Dieser Header ist ein Duplikat und wird vom {header}-Header aus den Autorisierungseinstellungen überschrieben.',
   'workbench.editors.request.headers.calculated': '<wird beim Senden der Anfrage berechnet>',
   'workbench.editors.request.headers.browserUserAgent': '<User-Agent des Browsers>',
   'workbench.editors.request.headers.hint.cacheControl':
@@ -193,6 +193,7 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.authPreview.oauth1QueryHint':
     'Aus dem Tab Autorisierung generiert (OAuth 1.0). Die oauth_*-Parameter werden beim Senden der Anfrage ' +
     'zur URL-Query hinzugefügt.',
+  'workbench.editors.request.authPreview.inheritedFrom': 'Geerbt von {source} — im übergeordneten Element bearbeiten.',
 
   // ── Authorization tab ──────────────────────────────────────────────
   'workbench.editors.request.auth.typeLabel': 'Authentifizierungstyp',
@@ -221,24 +222,22 @@ export const workbenchEditorsRequest = {
     'und der CLI läuft. Sendevorgänge von dieser Oberfläche gehen ohne sie hinaus — der Server antwortet ' +
     'mit 401.',
   'workbench.editors.request.auth.inheritNote':
-    'Die Autorisierungsdaten werden automatisch anhand der übergeordneten Sammlung konfiguriert.',
+    'Der Autorisierungs-Header wird beim Senden der Anfrage automatisch erzeugt.',
   'workbench.editors.request.auth.noneNote': 'Diese Anfrage verwendet keine Autorisierung.',
   'workbench.editors.request.auth.inheritDetail':
     'Diese Anfrage verwendet den Autorisierungshelfer ihrer übergeordneten Sammlung. Bearbeite den Tab ' +
     'Autorisierung der Sammlung, um ihn zu ändern.',
-  'workbench.editors.request.auth.inheritedFrom': '{type} — von {source}',
   'workbench.editors.request.auth.inheritedNone':
     'Keine Autorisierung — weder im Ordner noch in der Sammlung ist etwas festgelegt.',
   'workbench.editors.request.auth.sourceCollection': 'Sammlung „{name}“',
   'workbench.editors.request.auth.sourceFolder': 'Ordner „{name}“',
   'workbench.editors.request.auth.groupInherited': 'Geerbt',
-  'workbench.editors.request.auth.optionDefault': 'Standard ({type} — {source})',
-  'workbench.editors.request.auth.optionDefaultNone': 'Standard (keine Authentifizierung)',
-  'workbench.editors.request.auth.optionEntry': '{source} › {entry}',
+  'workbench.editors.request.auth.groupOwn': 'Diese Anfrage',
   'workbench.editors.request.auth.optionMissingEntry': 'Fehlender Eintrag',
   'workbench.editors.request.auth.danglingPick':
     'Der von dieser Anfrage gewählte Eintrag existiert nicht mehr — stattdessen gilt der nächstgelegene Standard.',
-  'workbench.editors.request.auth.editInSource': 'In {source} bearbeiten',
+  'workbench.editors.request.auth.editInParent': 'Im übergeordneten Element bearbeiten',
+  'workbench.editors.request.auth.resetToInheritedAuth': 'Auf geerbte Autorisierung zurücksetzen',
   'workbench.editors.request.auth.resizeRailAria': 'Größe der Authentifizierungstyp-Leiste ändern',
   'workbench.editors.request.auth.username': 'Benutzername',
   'workbench.editors.request.auth.password': 'Passwort',

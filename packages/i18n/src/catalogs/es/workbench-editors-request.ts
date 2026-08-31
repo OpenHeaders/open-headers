@@ -97,7 +97,7 @@ export const workbenchEditorsRequest = {
     'Estos encabezados se añadirán y enviarán automáticamente con la solicitud. Haz clic en el icono de ' +
     'información de una fila para el detalle por encabezado.',
   'workbench.editors.request.headers.duplicateAuthOverride':
-    'Duplicado — reemplazado al enviar por el encabezado {header} generado desde la pestaña Autorización.',
+    'Este encabezado está duplicado y será reemplazado por el encabezado {header} generado por la configuración de autorización.',
   'workbench.editors.request.headers.calculated': '<calculado al enviar la solicitud>',
   'workbench.editors.request.headers.browserUserAgent': '<user agent del navegador>',
   'workbench.editors.request.headers.hint.cacheControl':
@@ -180,6 +180,7 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.authPreview.oauth1QueryHint':
     'Generado desde la pestaña Autorización (OAuth 1.0). Los parámetros oauth_* se añaden a la consulta de ' +
     'la URL al enviar la solicitud.',
+  'workbench.editors.request.authPreview.inheritedFrom': 'Heredado de {source} — edítalo en el elemento padre.',
 
   // ── Authorization tab ──────────────────────────────────────────────
   'workbench.editors.request.auth.typeLabel': 'Tipo de autenticación',
@@ -208,24 +209,22 @@ export const workbenchEditorsRequest = {
     'aplicación de escritorio y la CLI. Los envíos desde esta superficie salen sin ella — el servidor ' +
     'responde 401.',
   'workbench.editors.request.auth.inheritNote':
-    'Los datos de autorización se configurarán automáticamente a partir de la colección padre.',
+    'El encabezado de autorización se generará automáticamente al enviar la solicitud.',
   'workbench.editors.request.auth.noneNote': 'Esta solicitud no usa ninguna autorización.',
   'workbench.editors.request.auth.inheritDetail':
     'Esta solicitud usa el asistente de autorización de su colección padre. Edita la pestaña Autorización ' +
     'de la colección para cambiarlo.',
-  'workbench.editors.request.auth.inheritedFrom': '{type} — de {source}',
   'workbench.editors.request.auth.inheritedNone':
     'Sin autorización — no hay nada configurado en la carpeta ni en la colección.',
   'workbench.editors.request.auth.sourceCollection': 'Colección «{name}»',
   'workbench.editors.request.auth.sourceFolder': 'Carpeta «{name}»',
   'workbench.editors.request.auth.groupInherited': 'Heredado',
-  'workbench.editors.request.auth.optionDefault': 'Predeterminado ({type} — {source})',
-  'workbench.editors.request.auth.optionDefaultNone': 'Predeterminado (sin autenticación)',
-  'workbench.editors.request.auth.optionEntry': '{source} › {entry}',
+  'workbench.editors.request.auth.groupOwn': 'Esta solicitud',
   'workbench.editors.request.auth.optionMissingEntry': 'Entrada faltante',
   'workbench.editors.request.auth.danglingPick':
     'La entrada elegida por esta solicitud ya no existe — se aplica el predeterminado más cercano.',
-  'workbench.editors.request.auth.editInSource': 'Editar en {source}',
+  'workbench.editors.request.auth.editInParent': 'Editar en el elemento padre',
+  'workbench.editors.request.auth.resetToInheritedAuth': 'Restablecer la autorización heredada',
   'workbench.editors.request.auth.resizeRailAria': 'Redimensionar el riel de tipos de autenticación',
   'workbench.editors.request.auth.username': 'Nombre de usuario',
   'workbench.editors.request.auth.password': 'Contraseña',

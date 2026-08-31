@@ -26,7 +26,7 @@
  */
 
 import { FolderOpenOutlined, FolderOutlined } from '@ant-design/icons';
-import { authPoolOf, defaultAuthEntry, LEGACY_AUTH_ENTRY_UID } from '@openheaders/core/auth-inheritance';
+import { authPoolOf, LEGACY_AUTH_ENTRY_UID } from '@openheaders/core/auth-inheritance';
 import type { PersistedLocalFolder } from '@openheaders/core/storage';
 import { REQUEST_COLLECTION_ENTITY_TYPE, REQUEST_FOLDER_ENTITY_TYPE } from '@openheaders/core/sync';
 import { generateUid } from '@openheaders/core/utils';
@@ -65,7 +65,7 @@ import ScriptsTab from '../request-editor/ScriptsTab';
 import EditorHeader from '../shell/EditorHeader';
 import { SuggestionContextProvider } from '../template-input';
 import { useCollectionVariableConflictsUi } from '../variables/use-collection-variable-conflicts-ui';
-import { findFolderCollectionUid } from './ancestry';
+import { findFolderAncestry, findFolderCollectionUid, nearestAuthPool } from './ancestry';
 import AuthPoolSection, { type AuthPoolDraft } from './AuthPoolSection';
 
 const { Text } = Typography;
@@ -108,9 +108,9 @@ interface RequestContainerEditorProps {
   onScriptsViewed?: (uid: string) => void;
   onDirtyChange?: (dirty: boolean) => void;
   registerSaveRef?: (save: () => void) => void;
-  /** Opens a collection's Authorization section — the folder header's
-   *  "Edit in collection" opener. */
-  onOpenCollectionAuth?: (uid: string, name: string) => void;
+  /** Opens a container's Authorization section — an inheriting
+   *  folder's "Edit in …" opener onto the supplying level. */
+  onOpenContainerAuth?: (kind: 'collection' | 'folder', uid: string, name: string) => void;
 }
 
 interface ContainerEntity {
@@ -170,7 +170,7 @@ const RequestContainerEditor: React.FC<RequestContainerEditorProps> = ({
   onScriptsViewed,
   onDirtyChange,
   registerSaveRef,
-  onOpenCollectionAuth,
+  onOpenContainerAuth,
 }) => {
   const { message } = App.useApp();
   const { token } = theme.useToken();
@@ -193,17 +193,14 @@ const RequestContainerEditor: React.FC<RequestContainerEditorProps> = ({
     [kind, entityUid, collectionTrees],
   );
 
-  // A folder's Authorization header names the collection it inherits
-  // from (and that collection's default entry, the Override seed) —
-  // read off the trees, never a stored path.
-  const inheritedCollection = useMemo(() => {
+  // A transparent folder shows the pool it inherits — the NEAREST
+  // ancestor holding one (a folder above it, else the collection), the
+  // level the resolver applies — read off the trees, never a stored
+  // path.
+  const inherited = useMemo(() => {
     if (kind !== 'folder') return undefined;
-    const collectionUid = findFolderCollectionUid(collectionTrees, entityUid);
-    const collection =
-      collectionUid === null ? undefined : collections.find((c: Collection) => c.uid === collectionUid);
-    if (collection === undefined) return null;
-    return { uid: collection.uid, name: collection.name, defaultEntry: defaultAuthEntry(collection) };
-  }, [kind, collectionTrees, collections, entityUid]);
+    return nearestAuthPool(findFolderAncestry(collectionTrees, collections, folders, entityUid));
+  }, [kind, collectionTrees, collections, folders, entityUid]);
 
   const [activeSection, setActiveSection] = useState<RequestContainerSection>(section ?? 'overview');
   useEffect(() => {
@@ -440,21 +437,14 @@ const RequestContainerEditor: React.FC<RequestContainerEditorProps> = ({
         );
       case 'authorization':
         return (
-          <div
-            style={{ display: 'flex', flexDirection: 'column', height: '100%', padding: 24, gap: 16, overflow: 'auto' }}
-          >
-            <Text type="secondary">
-              {kind === 'collection'
-                ? t('workbench.editors.ancestorAuth.descriptionCollection')
-                : t('workbench.editors.ancestorAuth.descriptionFolder')}
-            </Text>
+          <div style={{ display: 'flex', flexDirection: 'column', height: '100%', padding: 24, overflow: 'auto' }}>
             <SuggestionContextProvider value={{ collectionId: suggestionCollectionId }}>
               <AuthPoolSection
                 kind={kind}
                 pool={draft.pool}
                 onChange={(pool) => setDraft((d) => ({ ...d, pool }))}
-                inheritedCollection={inheritedCollection}
-                onEditInCollection={onOpenCollectionAuth}
+                inherited={inherited}
+                onOpenContainerAuth={onOpenContainerAuth}
               />
             </SuggestionContextProvider>
           </div>

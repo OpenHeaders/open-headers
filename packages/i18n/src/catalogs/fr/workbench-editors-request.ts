@@ -97,7 +97,7 @@ export const workbenchEditorsRequest = {
     "Ces en-têtes seront ajoutés et envoyés automatiquement avec la requête. Cliquez sur l'icône info d'une " +
     'ligne pour le détail par en-tête.',
   'workbench.editors.request.headers.duplicateAuthOverride':
-    "Doublon — remplacé à l'envoi par l'en-tête {header} généré depuis l'onglet Autorisation.",
+    "Cet en-tête est un doublon et sera remplacé par l'en-tête {header} généré par les paramètres d'autorisation.",
   'workbench.editors.request.headers.calculated': "<calculé à l'envoi de la requête>",
   'workbench.editors.request.headers.browserUserAgent': '<user agent du navigateur>',
   'workbench.editors.request.headers.hint.cacheControl':
@@ -179,6 +179,7 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.authPreview.oauth1QueryHint':
     "Généré depuis l'onglet Autorisation (OAuth 1.0). Les paramètres oauth_* sont ajoutés à la chaîne de " +
     "requête de l'URL à l'envoi de la requête.",
+  'workbench.editors.request.authPreview.inheritedFrom': 'Hérité de {source} — modifiez-le dans le parent.',
 
   // ── Authorization tab ──────────────────────────────────────────────
   'workbench.editors.request.auth.typeLabel': "Type d'auth",
@@ -206,24 +207,22 @@ export const workbenchEditorsRequest = {
     "Digest Auth répond au défi du serveur par une seconde requête, qui s'exécute sur l'application de bureau " +
     'et la CLI. Les envois depuis cette surface partent sans elle — le serveur répond 401.',
   'workbench.editors.request.auth.inheritNote':
-    "Les données d'autorisation seront configurées automatiquement d'après la collection parente.",
+    "L'en-tête d'autorisation sera généré automatiquement à l'envoi de la requête.",
   'workbench.editors.request.auth.noneNote': "Cette requête n'utilise aucune autorisation.",
   'workbench.editors.request.auth.inheritDetail':
     "Cette requête utilise l'assistant d'autorisation de sa collection parente. Modifiez l'onglet " +
     'Autorisation de la collection pour le changer.',
-  'workbench.editors.request.auth.inheritedFrom': '{type} — de {source}',
   'workbench.editors.request.auth.inheritedNone':
     "Aucune autorisation — rien n'est défini dans le dossier ni dans la collection.",
   'workbench.editors.request.auth.sourceCollection': 'Collection « {name} »',
   'workbench.editors.request.auth.sourceFolder': 'Dossier « {name} »',
   'workbench.editors.request.auth.groupInherited': 'Hérité',
-  'workbench.editors.request.auth.optionDefault': 'Défaut ({type} — {source})',
-  'workbench.editors.request.auth.optionDefaultNone': 'Défaut (aucune auth)',
-  'workbench.editors.request.auth.optionEntry': '{source} › {entry}',
+  'workbench.editors.request.auth.groupOwn': 'Cette requête',
   'workbench.editors.request.auth.optionMissingEntry': 'Entrée manquante',
   'workbench.editors.request.auth.danglingPick':
     "L'entrée choisie par cette requête n'existe plus — le défaut le plus proche s'applique à la place.",
-  'workbench.editors.request.auth.editInSource': 'Modifier dans {source}',
+  'workbench.editors.request.auth.editInParent': 'Modifier dans le parent',
+  'workbench.editors.request.auth.resetToInheritedAuth': "Rétablir l'autorisation héritée",
   'workbench.editors.request.auth.resizeRailAria': "Redimensionner le rail des types d'auth",
   'workbench.editors.request.auth.username': "Nom d'utilisateur",
   'workbench.editors.request.auth.password': 'Mot de passe',

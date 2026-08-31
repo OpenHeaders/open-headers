@@ -96,7 +96,7 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.headers.hiddenCount': '已隐藏 {count} 个',
   'workbench.editors.request.headers.autoInfo':
     '这些标头会被自动添加并随请求一起发送。点击行上的信息图标可查看每个标头的详情。',
-  'workbench.editors.request.headers.duplicateAuthOverride': '重复——发送时会被授权标签页生成的 {header} 标头替换。',
+  'workbench.editors.request.headers.duplicateAuthOverride': '此标头重复，将被授权设置生成的 {header} 标头覆盖。',
   'workbench.editors.request.headers.calculated': '<calculated when request is sent>',
   'workbench.editors.request.headers.browserUserAgent': '<browser user agent>',
   'workbench.editors.request.headers.hint.cacheControl':
@@ -158,6 +158,7 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.authPreview.oauth1QueryValue': '<signed parameters>',
   'workbench.editors.request.authPreview.oauth1QueryHint':
     '由授权标签页生成（OAuth 1.0）。发送请求时，oauth_* 参数会被添加到 URL 查询串。',
+  'workbench.editors.request.authPreview.inheritedFrom': '继承自{source}——请在父级中编辑。',
 
   // ── Authorization tab ──────────────────────────────────────────────
   'workbench.editors.request.auth.typeLabel': '授权类型',
@@ -183,21 +184,19 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.auth.oauth1RealmPlaceholder': '可选',
   'workbench.editors.request.auth.digestBrowserNote':
     'Digest Auth 用第二个请求应答服务器的质询，这在桌面端应用和 CLI 上运行。从此界面发送不会带上它——服务器会回复 401。',
-  'workbench.editors.request.auth.inheritNote': '授权数据将根据父集合自动配置。',
+  'workbench.editors.request.auth.inheritNote': '发送请求时将自动生成授权标头。',
   'workbench.editors.request.auth.noneNote': '此请求不使用任何授权。',
   'workbench.editors.request.auth.inheritDetail':
     '此请求正在使用其父集合的授权助手。要更改它，请编辑集合的授权标签页。',
-  'workbench.editors.request.auth.inheritedFrom': '{type}——来自{source}',
   'workbench.editors.request.auth.inheritedNone': '无授权——文件夹和集合均未设置任何内容。',
   'workbench.editors.request.auth.sourceCollection': '集合“{name}”',
   'workbench.editors.request.auth.sourceFolder': '文件夹“{name}”',
   'workbench.editors.request.auth.groupInherited': '继承',
-  'workbench.editors.request.auth.optionDefault': '默认（{type} — {source}）',
-  'workbench.editors.request.auth.optionDefaultNone': '默认（无授权）',
-  'workbench.editors.request.auth.optionEntry': '{source} › {entry}',
+  'workbench.editors.request.auth.groupOwn': '此请求',
   'workbench.editors.request.auth.optionMissingEntry': '条目缺失',
   'workbench.editors.request.auth.danglingPick': '此请求选择的条目已不存在——改为应用最近的默认项。',
-  'workbench.editors.request.auth.editInSource': '在{source}中编辑',
+  'workbench.editors.request.auth.editInParent': '在父级中编辑',
+  'workbench.editors.request.auth.resetToInheritedAuth': '重置为继承的授权',
   'workbench.editors.request.auth.resizeRailAria': '调整授权类型栏宽度',
   'workbench.editors.request.auth.username': '用户名',
   'workbench.editors.request.auth.password': '密码',

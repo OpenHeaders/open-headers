@@ -49,7 +49,7 @@ interface RequestTabContentProps {
   /** Saved request name — the Spec tab's operation comparison reads it. */
   requestName?: string;
   /** What Inherit resolves to for this request — the Authorization
-   *  tab's attribution line. */
+   *  tab's Inherit pane and the Headers / Params generated rows. */
   inheritedAuth?: InheritedAuthAttribution;
   /** The request's ancestor chain — the Authorization tab's Inherited
    *  group (default + named pool entries). */
@@ -92,7 +92,7 @@ const RequestTabContent: React.FC<RequestTabContentProps> = ({
           rows={draft.params}
           onChange={(params) => setDraft((d) => ({ ...d, params }))}
           auth={draft.auth}
-          onAuthChange={(auth) => setDraft((d) => ({ ...d, auth }))}
+          inheritedFrom={inheritedAuth}
           onNavigateTab={onNavigateTab}
           conflictBridge={paramConflictBridge}
         />
@@ -115,7 +115,7 @@ const RequestTabContent: React.FC<RequestTabContentProps> = ({
           onChange={(headers) => setDraft((d) => ({ ...d, headers }))}
           body={draft.body}
           auth={draft.auth}
-          onAuthChange={(auth) => setDraft((d) => ({ ...d, auth }))}
+          inheritedFrom={inheritedAuth}
           onNavigateTab={onNavigateTab}
           conflictBridge={headerConflictBridge}
         />

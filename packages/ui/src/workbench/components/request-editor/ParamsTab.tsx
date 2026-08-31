@@ -13,7 +13,8 @@ import type React from 'react';
 import { useMemo } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { REQUEST_PATHS } from '@openheaders/ui/shared/awareness';
-import { previewAuthContributions } from './auth-preview';
+import { previewAuthContributions, previewedAuth } from './auth-preview';
+import { type InheritedAuthAttribution, inheritSourceLabel } from './inherited-auth';
 import KeyValueTable, {
   type KeyValueRow,
   type KeyValueRowConflictBridge,
@@ -27,10 +28,8 @@ interface ParamsTabProps {
   /** Drives the auth-derived query-param preview (API Key / OAuth 2.0
    *  configured to send the credential on the URL). */
   auth: AuthConfig;
-  /** Writes back auth edits made from this table — the auth row's
-   *  checkbox (suspend/resume via `auth.disabled`) and inline edits of
-   *  a query-borne API-key value. */
-  onAuthChange: (auth: AuthConfig) => void;
+  /** What Inherit resolves to — the preview row describes that entry. */
+  inheritedFrom?: InheritedAuthAttribution;
   /** Jump to the Authorization tab from the generated credential row. */
   onNavigateTab?: (tab: 'authorization') => void;
   /** Inline conflict chips for param cells + set-remove rows. */
@@ -75,38 +74,41 @@ export function annotateHasEquals(rows: KeyValueRow[]): KeyValueRow[] {
   return rows.map((r) => (r.value !== '' && !r.hasEquals ? { ...r, hasEquals: true } : r));
 }
 
-const ParamsTab: React.FC<ParamsTabProps> = ({ rows, onChange, auth, onAuthChange, onNavigateTab, conflictBridge }) => {
+const ParamsTab: React.FC<ParamsTabProps> = ({
+  rows,
+  onChange,
+  auth,
+  inheritedFrom,
+  onNavigateTab,
+  conflictBridge,
+}) => {
   const t = useT();
   // Always-visible preview rows for an auth credential that rides on
   // the URL (API Key → Query Params, OAuth 2.0 → Request URL). Unlike
   // Headers there are no browser-managed auto-params to hide, so the
-  // auth row shows directly — no Show/Hide toggle. Live, not locked:
-  // the checkbox suspends/resumes the auth contribution
-  // (`auth.disabled`), and a query-borne API-key value is editable
-  // inline, two-way bound to the auth config. OAuth 2.0's runtime
-  // token stays a read-only placeholder.
-  const authParams = useMemo(() => previewAuthContributions(auth, t).params, [auth, t]);
-  const authRowToggle = (next: boolean) => onAuthChange({ ...auth, disabled: next ? undefined : true });
-  const suggestions: SuggestionRow[] = authParams.map((p) => {
-    const row: SuggestionRow = {
-      key: p.key,
-      value: p.value,
-      hint: p.hint,
-      enabled: !auth.disabled,
-      onToggle: authRowToggle,
-      action: onNavigateTab
-        ? { label: t('workbench.editors.request.goToAuthorization'), onClick: () => onNavigateTab('authorization') }
-        : undefined,
-    };
-    if (auth.type === 'api-key' && auth.in === 'query') {
-      row.value = auth.value;
-      row.editableValue = {
-        secret: true,
-        onChange: (next) => onAuthChange({ ...auth, value: next }),
-      };
-    }
-    return row;
-  });
+  // auth row shows directly — no Show/Hide toggle. LOCKED like the
+  // Headers row: greyed check, placeholder value; enabling, disabling
+  // and editing live on the Authorization tab.
+  const effective = useMemo(() => previewedAuth(auth, inheritedFrom), [auth, inheritedFrom]);
+  const inherited = auth.type === 'inherit';
+  const authParams = useMemo(() => {
+    if (effective === null) return [];
+    const source = inherited && inheritedFrom?.source ? inheritSourceLabel(t, inheritedFrom.source) : null;
+    return previewAuthContributions(effective, t).params.map((p) =>
+      source === null
+        ? p
+        : { ...p, hint: `${p.hint} ${t('workbench.editors.request.authPreview.inheritedFrom', { source })}` },
+    );
+  }, [effective, inherited, inheritedFrom, t]);
+  const suggestions: SuggestionRow[] = authParams.map((p) => ({
+    key: p.key,
+    value: p.value,
+    hint: p.hint,
+    enabled: auth.disabled !== true,
+    action: onNavigateTab
+      ? { label: t('workbench.editors.request.goToAuthorization'), onClick: () => onNavigateTab('authorization') }
+      : undefined,
+  }));
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>

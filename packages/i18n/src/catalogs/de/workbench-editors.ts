@@ -59,14 +59,6 @@ export const workbenchEditors = {
   'workbench.editors.ancestorScripts.saveFailedDetail': 'Scripts konnten nicht gespeichert werden: {message}',
 
   // ── Ancestor auth editor (collection/folder default authorization) ──
-  'workbench.editors.ancestorAuth.descriptionCollection':
-    'Anfragen, die auf Erben eingestellt sind, verwenden diese Autorisierung. Die eigene Autorisierung eines ' +
-    'Ordners hat Vorrang, und die explizite Autorisierung einer Anfrage gewinnt immer. Kein Standard bedeutet, ' +
-    'dass auf dieser Ebene nichts konfiguriert ist.',
-  'workbench.editors.ancestorAuth.descriptionFolder':
-    'Anfragen, die auf Erben eingestellt sind, verwenden diese Autorisierung vor der der Sammlung. Die ' +
-    'explizite Autorisierung einer Anfrage gewinnt immer. Von der Sammlung erben bedeutet, dass auf dieser Ebene ' +
-    'nichts konfiguriert ist — Anfragen fallen auf die Sammlung zurück.',
   'workbench.editors.ancestorAuth.notFoundCollection': 'Anfragesammlung nicht gefunden.',
   'workbench.editors.ancestorAuth.notFoundFolder': 'Ordner nicht gefunden.',
   'workbench.editors.ancestorAuth.saveFailed': 'Autorisierung konnte nicht gespeichert werden.',
@@ -74,31 +66,27 @@ export const workbenchEditors = {
 
   // ── Anfragen-Container-Editor (Sammlung / Ordner: ein Tab, Abschnitte) ──
   'workbench.editors.requestContainer.tab.overview': 'Übersicht',
-  'workbench.editors.requestContainer.auth.noDefault': 'Kein Standard',
-  'workbench.editors.requestContainer.auth.inheritFromCollection': 'Von der Sammlung erben',
-  'workbench.editors.requestContainer.auth.noDefaultNote':
-    'Für diese Sammlung ist nichts festgelegt. Auf Erben eingestellte Anfragen werden ohne Autorisierung gesendet.',
-  'workbench.editors.requestContainer.auth.noDefaultDetail':
-    'Wähle einen Typ, um den Standard festzulegen, den jede Anfrage in dieser Sammlung erbt.',
-  'workbench.editors.requestContainer.auth.inheritFromCollectionNote':
-    'Für diesen Ordner ist nichts festgelegt — Anfragen fallen auf den Standard der Sammlung zurück.',
-  'workbench.editors.requestContainer.auth.inheritFromCollectionDetail':
-    'Wähle einen Typ, um den Standard der Sammlung für jede Anfrage in diesem Ordner zu überschreiben.',
-  'workbench.editors.requestContainer.auth.addEntry': 'Eintrag hinzufügen',
+  'workbench.editors.requestContainer.auth.emptyTitle': 'Keine Autorisierung konfiguriert',
+  'workbench.editors.requestContainer.auth.emptySubtitleCollection':
+    'Wähle einen Autorisierungstyp für die Anfragen in dieser Sammlung',
+  'workbench.editors.requestContainer.auth.emptySubtitleFolder':
+    'Wähle einen Autorisierungstyp für die Anfragen in diesem Ordner',
+  'workbench.editors.requestContainer.auth.authTypes': 'Autorisierungstypen',
+  'workbench.editors.requestContainer.auth.addEntryAria': 'Autorisierungstyp hinzufügen',
+  'workbench.editors.requestContainer.auth.change': 'Ändern',
+  'workbench.editors.requestContainer.auth.changeHint': 'Die von {source} geerbte Autorisierung überschreiben.',
+  'workbench.editors.requestContainer.auth.inheritedTag': 'Geerbt',
+  'workbench.editors.requestContainer.auth.rename': 'Umbenennen',
+  'workbench.editors.requestContainer.auth.noneEntryNote':
+    'Anfragen, die diesen Eintrag verwenden, werden ohne Autorisierung gesendet.',
   'workbench.editors.requestContainer.auth.defaultTag': 'Standard',
   'workbench.editors.requestContainer.auth.setDefault': 'Als Standard festlegen',
   'workbench.editors.requestContainer.auth.deleteEntry': 'Löschen',
   'workbench.editors.requestContainer.auth.entryActionsAria': 'Eintragsaktionen',
-  'workbench.editors.requestContainer.auth.entryName': 'Name',
-  'workbench.editors.requestContainer.auth.entryNamePlaceholder': 'z. B. Admin-Token',
   'workbench.editors.requestContainer.auth.appliesTo': 'Auf Host anwenden',
   'workbench.editors.requestContainer.auth.appliesToPlaceholder': '*.openheaders.com',
   'workbench.editors.requestContainer.auth.appliesToHelp':
     'Optionales Host-Muster (*-Platzhalter). Eine Anfrage auf Erben, deren URL-Host passt, erhält diesen Eintrag vor dem Standard. Leer — nur als Standard oder über die Wahl einer Anfrage erreichbar.',
-  'workbench.editors.requestContainer.auth.inheritedFromCollection': 'Geerbt von Sammlung „{name}“',
-  'workbench.editors.requestContainer.auth.overridingCollection': 'Überschreibt Sammlung „{name}“',
-  'workbench.editors.requestContainer.auth.editInCollection': 'In der Sammlung bearbeiten',
-  'workbench.editors.requestContainer.auth.override': 'Überschreiben',
   'workbench.editors.requestContainer.auth.resetToInherited': 'Auf Geerbt zurücksetzen',
   'workbench.editors.requestContainer.auth.resetConfirm':
     'Einträge des Ordners entfernen? Anfragen fallen auf die Sammlung zurück.',

@@ -230,7 +230,7 @@ const WorkbenchTabBody: React.FC<WorkbenchTabBodyProps> = ({
           onScriptsViewed={onRequestScriptsViewed}
           onDirtyChange={(dirty) => handleDirtyChange(tab.id, dirty)}
           registerSaveRef={(saveFn) => registerSaveRef(tab.id, saveFn)}
-          onOpenCollectionAuth={openRequestCollectionAuth}
+          onOpenContainerAuth={openContainerAuth}
         />
       );
     }
@@ -288,7 +288,7 @@ const WorkbenchTabBody: React.FC<WorkbenchTabBodyProps> = ({
           onScriptsViewed={onRequestScriptsViewed}
           onDirtyChange={(dirty) => handleDirtyChange(tab.id, dirty)}
           registerSaveRef={(saveFn) => registerSaveRef(tab.id, saveFn)}
-          onOpenCollectionAuth={openRequestCollectionAuth}
+          onOpenContainerAuth={openContainerAuth}
         />
       );
     }

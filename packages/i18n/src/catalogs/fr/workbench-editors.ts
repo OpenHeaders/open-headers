@@ -51,14 +51,6 @@ export const workbenchEditors = {
   'workbench.editors.ancestorScripts.saveFailedDetail': "Impossible d'enregistrer les scripts : {message}",
 
   // ── Ancestor auth editor (collection/folder default authorization) ──
-  'workbench.editors.ancestorAuth.descriptionCollection':
-    "Les requêtes réglées sur Hériter utilisent cette autorisation. L'autorisation propre d'un dossier prend le " +
-    "pas, et l'autorisation explicite d'une requête gagne toujours. Aucune valeur par défaut signifie que rien " +
-    "n'est configuré à ce niveau.",
-  'workbench.editors.ancestorAuth.descriptionFolder':
-    "Les requêtes réglées sur Hériter utilisent cette autorisation avant celle de la collection. L'autorisation " +
-    "explicite d'une requête gagne toujours. Hériter de la collection signifie que rien n'est configuré à ce " +
-    'niveau — les requêtes retombent sur la collection.',
   'workbench.editors.ancestorAuth.notFoundCollection': 'Collection de requêtes introuvable.',
   'workbench.editors.ancestorAuth.notFoundFolder': 'Dossier introuvable.',
   'workbench.editors.ancestorAuth.saveFailed': "Impossible d'enregistrer l'autorisation.",
@@ -66,31 +58,28 @@ export const workbenchEditors = {
 
   // ── Éditeur du conteneur de requêtes (collection / dossier : un onglet, des sections) ──
   'workbench.editors.requestContainer.tab.overview': 'Aperçu',
-  'workbench.editors.requestContainer.auth.noDefault': 'Aucune valeur par défaut',
-  'workbench.editors.requestContainer.auth.inheritFromCollection': 'Hériter de la collection',
-  'workbench.editors.requestContainer.auth.noDefaultNote':
-    "Rien n'est défini pour cette collection. Les requêtes réglées sur Hériter partent sans autorisation.",
-  'workbench.editors.requestContainer.auth.noDefaultDetail':
-    'Choisissez un type pour définir la valeur par défaut dont hérite chaque requête de cette collection.',
-  'workbench.editors.requestContainer.auth.inheritFromCollectionNote':
-    "Rien n'est défini pour ce dossier — les requêtes retombent sur la valeur par défaut de la collection.",
-  'workbench.editors.requestContainer.auth.inheritFromCollectionDetail':
-    'Choisissez un type pour remplacer la valeur par défaut de la collection pour chaque requête de ce dossier.',
-  'workbench.editors.requestContainer.auth.addEntry': 'Ajouter une entrée',
+  'workbench.editors.requestContainer.auth.emptyTitle': 'Aucune autorisation configurée',
+  'workbench.editors.requestContainer.auth.emptySubtitleCollection':
+    "Choisissez un type d'autorisation pour les requêtes de cette collection",
+  'workbench.editors.requestContainer.auth.emptySubtitleFolder':
+    "Choisissez un type d'autorisation pour les requêtes de ce dossier",
+  'workbench.editors.requestContainer.auth.authTypes': "Types d'autorisation",
+  'workbench.editors.requestContainer.auth.addEntryAria': "Ajouter un type d'autorisation",
+  'workbench.editors.requestContainer.auth.change': 'Changer',
+  'workbench.editors.requestContainer.auth.changeHint':
+    "Remplacer la configuration d'autorisation héritée de {source}.",
+  'workbench.editors.requestContainer.auth.inheritedTag': 'Hérité',
+  'workbench.editors.requestContainer.auth.rename': 'Renommer',
+  'workbench.editors.requestContainer.auth.noneEntryNote':
+    'Les requêtes utilisant cette entrée partent sans autorisation.',
   'workbench.editors.requestContainer.auth.defaultTag': 'Défaut',
   'workbench.editors.requestContainer.auth.setDefault': 'Définir par défaut',
   'workbench.editors.requestContainer.auth.deleteEntry': 'Supprimer',
   'workbench.editors.requestContainer.auth.entryActionsAria': "Actions de l'entrée",
-  'workbench.editors.requestContainer.auth.entryName': 'Nom',
-  'workbench.editors.requestContainer.auth.entryNamePlaceholder': 'p. ex. Jeton admin',
   'workbench.editors.requestContainer.auth.appliesTo': "Appliquer à l'hôte",
   'workbench.editors.requestContainer.auth.appliesToPlaceholder': '*.openheaders.com',
   'workbench.editors.requestContainer.auth.appliesToHelp':
     "Motif d'hôte facultatif (joker *). Une requête en héritage dont l'hôte de l'URL correspond reçoit cette entrée avant le défaut. Vide — atteinte uniquement comme défaut ou par le choix d'une requête.",
-  'workbench.editors.requestContainer.auth.inheritedFromCollection': 'Hérité de la collection « {name} »',
-  'workbench.editors.requestContainer.auth.overridingCollection': 'Remplace la collection « {name} »',
-  'workbench.editors.requestContainer.auth.editInCollection': 'Modifier dans la collection',
-  'workbench.editors.requestContainer.auth.override': 'Remplacer',
   'workbench.editors.requestContainer.auth.resetToInherited': "Rétablir l'héritage",
   'workbench.editors.requestContainer.auth.resetConfirm':
     'Supprimer les entrées du dossier ? Les requêtes retomberont sur la collection.',

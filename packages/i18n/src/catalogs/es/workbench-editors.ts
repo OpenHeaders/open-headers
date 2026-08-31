@@ -52,14 +52,6 @@ export const workbenchEditors = {
   'workbench.editors.ancestorScripts.saveFailedDetail': 'No se pudieron guardar los scripts: {message}',
 
   // ── Ancestor auth editor (collection/folder default authorization) ──
-  'workbench.editors.ancestorAuth.descriptionCollection':
-    'Las solicitudes configuradas en Heredar usan esta autorización. La autorización propia de una carpeta ' +
-    'tiene prioridad, y la autorización explícita de una solicitud siempre gana. Sin valor por defecto significa ' +
-    'que no hay nada configurado en este nivel.',
-  'workbench.editors.ancestorAuth.descriptionFolder':
-    'Las solicitudes configuradas en Heredar usan esta autorización antes que la de la colección. La ' +
-    'autorización explícita de una solicitud siempre gana. Heredar de la colección significa que no hay nada ' +
-    'configurado en este nivel — las solicitudes recurren a la colección.',
   'workbench.editors.ancestorAuth.notFoundCollection': 'Colección de solicitudes no encontrada.',
   'workbench.editors.ancestorAuth.notFoundFolder': 'Carpeta no encontrada.',
   'workbench.editors.ancestorAuth.saveFailed': 'No se pudo guardar la autorización.',
@@ -67,31 +59,27 @@ export const workbenchEditors = {
 
   // ── Editor del contenedor de solicitudes (colección / carpeta: una pestaña, secciones) ──
   'workbench.editors.requestContainer.tab.overview': 'Resumen',
-  'workbench.editors.requestContainer.auth.noDefault': 'Sin valor por defecto',
-  'workbench.editors.requestContainer.auth.inheritFromCollection': 'Heredar de la colección',
-  'workbench.editors.requestContainer.auth.noDefaultNote':
-    'No hay nada configurado para esta colección. Las solicitudes en Heredar se envían sin autorización.',
-  'workbench.editors.requestContainer.auth.noDefaultDetail':
-    'Elige un tipo para definir el valor por defecto que hereda cada solicitud de esta colección.',
-  'workbench.editors.requestContainer.auth.inheritFromCollectionNote':
-    'No hay nada configurado para esta carpeta — las solicitudes recurren al valor por defecto de la colección.',
-  'workbench.editors.requestContainer.auth.inheritFromCollectionDetail':
-    'Elige un tipo para sustituir el valor por defecto de la colección en cada solicitud de esta carpeta.',
-  'workbench.editors.requestContainer.auth.addEntry': 'Añadir entrada',
+  'workbench.editors.requestContainer.auth.emptyTitle': 'Sin autorización configurada',
+  'workbench.editors.requestContainer.auth.emptySubtitleCollection':
+    'Elige un tipo de autorización para las solicitudes de esta colección',
+  'workbench.editors.requestContainer.auth.emptySubtitleFolder':
+    'Elige un tipo de autorización para las solicitudes de esta carpeta',
+  'workbench.editors.requestContainer.auth.authTypes': 'Tipos de autorización',
+  'workbench.editors.requestContainer.auth.addEntryAria': 'Añadir tipo de autorización',
+  'workbench.editors.requestContainer.auth.change': 'Cambiar',
+  'workbench.editors.requestContainer.auth.changeHint': 'Anular la configuración de autorización heredada de {source}.',
+  'workbench.editors.requestContainer.auth.inheritedTag': 'Heredado',
+  'workbench.editors.requestContainer.auth.rename': 'Renombrar',
+  'workbench.editors.requestContainer.auth.noneEntryNote':
+    'Las solicitudes que usan esta entrada se envían sin autorización.',
   'workbench.editors.requestContainer.auth.defaultTag': 'Predeterminado',
   'workbench.editors.requestContainer.auth.setDefault': 'Establecer como predeterminado',
   'workbench.editors.requestContainer.auth.deleteEntry': 'Eliminar',
   'workbench.editors.requestContainer.auth.entryActionsAria': 'Acciones de la entrada',
-  'workbench.editors.requestContainer.auth.entryName': 'Nombre',
-  'workbench.editors.requestContainer.auth.entryNamePlaceholder': 'p. ej. Token de administrador',
   'workbench.editors.requestContainer.auth.appliesTo': 'Aplicar al host',
   'workbench.editors.requestContainer.auth.appliesToPlaceholder': '*.openheaders.com',
   'workbench.editors.requestContainer.auth.appliesToHelp':
     'Patrón de host opcional (comodín *). Una solicitud en Heredar cuyo host de URL coincida recibe esta entrada antes que el predeterminado. Vacío — se alcanza solo como predeterminado o por la elección de una solicitud.',
-  'workbench.editors.requestContainer.auth.inheritedFromCollection': 'Heredado de la colección «{name}»',
-  'workbench.editors.requestContainer.auth.overridingCollection': 'Anulando la colección «{name}»',
-  'workbench.editors.requestContainer.auth.editInCollection': 'Editar en la colección',
-  'workbench.editors.requestContainer.auth.override': 'Anular',
   'workbench.editors.requestContainer.auth.resetToInherited': 'Restablecer a heredado',
   'workbench.editors.requestContainer.auth.resetConfirm':
     '¿Eliminar las entradas de la carpeta? Las solicitudes recaerán en la colección.',

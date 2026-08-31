@@ -23,7 +23,8 @@ import { useMemo, useState } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { REQUEST_PATHS } from '@openheaders/ui/shared/awareness';
 import AutoHeadersToggle from './AutoHeadersToggle';
-import { previewAuthContributions } from './auth-preview';
+import { previewAuthContributions, previewedAuth } from './auth-preview';
+import { type InheritedAuthAttribution, inheritSourceLabel } from './inherited-auth';
 import KeyValueTable, {
   type KeyValueRow,
   type KeyValueRowConflictBridge,
@@ -184,10 +185,8 @@ interface HeadersTabProps {
   body: RequestBody;
   /** Drives the auth-derived `Authorization` preview row. */
   auth: AuthConfig;
-  /** Writes back auth edits made from this table — the auth row's
-   *  checkbox (suspend/resume via `auth.disabled`) and, for bearer /
-   *  header-borne API keys, inline edits of the credential value. */
-  onAuthChange: (auth: AuthConfig) => void;
+  /** What Inherit resolves to — the preview row describes that entry. */
+  inheritedFrom?: InheritedAuthAttribution;
   /** Jump to the editor tab that owns a generated row's value —
    *  drives the hover-revealed "Go to …" links. */
   onNavigateTab?: (tab: 'authorization' | 'body' | 'settings') => void;
@@ -200,7 +199,7 @@ const HeadersTab: React.FC<HeadersTabProps> = ({
   onChange,
   body,
   auth,
-  onAuthChange,
+  inheritedFrom,
   onNavigateTab,
   conflictBridge,
 }) => {
@@ -225,17 +224,26 @@ const HeadersTab: React.FC<HeadersTabProps> = ({
 
   // Auth-derived rows are always visible so the user sees the
   // synthesized `Authorization` header the moment they pick an auth
-  // type. Live, not locked: the checkbox suspends/resumes the auth
-  // contribution (`auth.disabled`, honored by the executor), and for
-  // scalar credentials (bearer token, header-borne API key) the value
-  // is editable inline, two-way bound to the auth config — the same
-  // token the Authorization tab edits. Composed (Basic base64) and
-  // runtime (OAuth 2.0) values stay read-only placeholders; their
-  // hint points at the Authorization tab. The browser-managed
+  // type — LOCKED: the check is greyed and the value is the scheme's
+  // placeholder (never the credential); enabling, disabling and
+  // editing live on the Authorization tab, the hover-revealed
+  // "Go to authorization" the way in. The browser-managed
   // auto-headers stay behind the Show/Hide toggle since they're
   // environment noise the user rarely cares about.
-  const authHeaders = useMemo(() => previewAuthContributions(auth, t).headers, [auth, t]);
-  const authRowToggle = (next: boolean) => onAuthChange({ ...auth, disabled: next ? undefined : true });
+  // Under Inherit the row describes the resolved ancestor entry — the
+  // header still goes on the wire — read-only, the hint naming the
+  // level it comes from.
+  const effective = useMemo(() => previewedAuth(auth, inheritedFrom), [auth, inheritedFrom]);
+  const inherited = auth.type === 'inherit';
+  const authHeaders = useMemo(() => {
+    if (effective === null) return [];
+    const source = inherited && inheritedFrom?.source ? inheritSourceLabel(t, inheritedFrom.source) : null;
+    return previewAuthContributions(effective, t).headers.map((h) =>
+      source === null
+        ? h
+        : { ...h, hint: `${h.hint} ${t('workbench.editors.request.authPreview.inheritedFrom', { source })}` },
+    );
+  }, [effective, inherited, inheritedFrom, t]);
 
   // Keys of the user's own enabled rows — a generated row with the same
   // key renders struck through (the user's row wins on the wire).
@@ -265,39 +273,15 @@ const HeadersTab: React.FC<HeadersTabProps> = ({
         }
       : null;
 
-  const authSuggestions: SuggestionRow[] = authHeaders.map((h) => {
-    const row: SuggestionRow = {
-      key: h.key,
-      value: h.value,
-      hint: h.hint,
-      enabled: !auth.disabled,
-      onToggle: authRowToggle,
-      action: onNavigateTab
-        ? { label: t('workbench.editors.request.goToAuthorization'), onClick: () => onNavigateTab('authorization') }
-        : undefined,
-    };
-    if (auth.type === 'bearer') {
-      // The field holds the bare token; the `Bearer` scheme renders as
-      // a static prefix outside the editable text, so a caret placed
-      // inside it can't fold the prefix into the credential. A pasted
-      // full header value (`Bearer <token>`) still sheds its scheme.
-      row.value = auth.token;
-      row.editableValue = {
-        secret: true,
-        prefix: 'Bearer',
-        placeholder: t('workbench.editors.request.auth.tokenPlaceholder'),
-        onChange: (next) => onAuthChange({ ...auth, token: next.replace(/^Bearer\s+/i, '') }),
-      };
-    } else if (auth.type === 'api-key' && auth.in === 'header') {
-      row.value = auth.value;
-      row.editableValue = {
-        secret: true,
-        placeholder: h.value,
-        onChange: (next) => onAuthChange({ ...auth, value: next }),
-      };
-    }
-    return row;
-  });
+  const authSuggestions: SuggestionRow[] = authHeaders.map((h) => ({
+    key: h.key,
+    value: h.value,
+    hint: h.hint,
+    enabled: auth.disabled !== true,
+    action: onNavigateTab
+      ? { label: t('workbench.editors.request.goToAuthorization'), onClick: () => onNavigateTab('authorization') }
+      : undefined,
+  }));
   const browserSuggestions: SuggestionRow[] = autoHeaders.map((h) => ({
     key: h.key,
     value: h.value ?? t(h.placeholderKey ?? 'workbench.editors.request.headers.calculated'),

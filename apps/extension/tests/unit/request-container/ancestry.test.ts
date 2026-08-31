@@ -14,6 +14,7 @@
  *     request per phase, outer → inner, whitespace-only slots skipped.
  */
 
+import { LEGACY_AUTH_ENTRY_UID } from '@openheaders/core/auth-inheritance';
 import type { AuthPoolEntry, Collection, CollectionTree, ConcreteAuthConfig } from '@openheaders/core/types';
 import {
   ancestorScriptLevels,
@@ -111,7 +112,7 @@ describe('resolveInheritedAuthFor', () => {
     const ancestry = findRequestAncestry([TREE], [makeCollection({ auths: [ADMIN, USER] })], FOLDERS, 'req00002');
     expect(resolveInheritedAuthFor(ancestry)).toEqual({
       auth: BEARER,
-      source: { kind: 'collection', uid: 'col00001', name: 'Payments', entryName: 'Admin token' },
+      source: { kind: 'collection', uid: 'col00001', name: 'Payments', entryUid: 'admin001', entryName: 'Admin token' },
     });
   });
 
@@ -119,7 +120,7 @@ describe('resolveInheritedAuthFor', () => {
     const ancestry = findRequestAncestry([TREE], [makeCollection({ auth: BEARER })], FOLDERS, 'req00002');
     expect(resolveInheritedAuthFor(ancestry)).toEqual({
       auth: BEARER,
-      source: { kind: 'collection', uid: 'col00001', name: 'Payments', entryName: '' },
+      source: { kind: 'collection', uid: 'col00001', name: 'Payments', entryUid: LEGACY_AUTH_ENTRY_UID, entryName: '' },
     });
   });
 
@@ -131,7 +132,7 @@ describe('resolveInheritedAuthFor', () => {
     const ancestry = findRequestAncestry([TREE], [makeCollection({ auths: [ADMIN] })], folders, 'req00002');
     expect(resolveInheritedAuthFor(ancestry)).toEqual({
       auth: BASIC,
-      source: { kind: 'folder', uid: 'fld00001', name: 'Cards', entryName: 'Service' },
+      source: { kind: 'folder', uid: 'fld00001', name: 'Cards', entryUid: 'basic001', entryName: 'Service' },
     });
   });
 
@@ -140,7 +141,7 @@ describe('resolveInheritedAuthFor', () => {
     const ancestry = findRequestAncestry([TREE], [makeCollection({ auths: [ADMIN] })], folders, 'req00002');
     expect(resolveInheritedAuthFor(ancestry)).toEqual({
       auth: { type: 'none' },
-      source: { kind: 'folder', uid: 'fld00001', name: 'Cards', entryName: 'Public' },
+      source: { kind: 'folder', uid: 'fld00001', name: 'Cards', entryUid: 'none0001', entryName: 'Public' },
     });
   });
 
@@ -150,7 +151,7 @@ describe('resolveInheritedAuthFor', () => {
     const ancestry = findRequestAncestry([TREE], [collection], folders, 'req00002');
     expect(resolveInheritedAuthFor(ancestry, { authUid: 'user0001' })).toEqual({
       auth: USER.config,
-      source: { kind: 'collection', uid: 'col00001', name: 'Payments', entryName: 'User token' },
+      source: { kind: 'collection', uid: 'col00001', name: 'Payments', entryUid: 'user0001', entryName: 'User token' },
     });
   });
 

@@ -15,8 +15,9 @@
  * credential.
  */
 
-import type { AuthConfig } from '@openheaders/core/types';
+import type { AuthConfig, ConcreteAuthConfig } from '@openheaders/core/types';
 import type { Translate } from '@openheaders/ui/context/LocaleContext';
+import type { InheritedAuthAttribution } from './inherited-auth';
 
 export interface AuthPreviewEntry {
   key: string;
@@ -30,6 +31,22 @@ export interface AuthPreviewContributions {
 }
 
 const EMPTY: AuthPreviewContributions = { headers: [], params: [] };
+
+/**
+ * The config the preview rows describe: the request's own, or under
+ * Inherit the ancestor entry it resolves to — the request's suspended
+ * state (`disabled`) carried onto it, since the checkbox suspends the
+ * inherited contribution the same way. `null` while Inherit resolves
+ * to nothing known (a scratch draft, a tree still hydrating).
+ */
+export function previewedAuth(
+  auth: AuthConfig,
+  inheritedFrom: InheritedAuthAttribution | undefined,
+): ConcreteAuthConfig | null {
+  if (auth.type !== 'inherit') return auth;
+  if (inheritedFrom === undefined || inheritedFrom.auth.type === 'inherit') return null;
+  return auth.disabled === true ? { ...inheritedFrom.auth, disabled: true } : inheritedFrom.auth;
+}
 
 export function previewAuthContributions(auth: AuthConfig, t: Translate): AuthPreviewContributions {
   switch (auth.type) {

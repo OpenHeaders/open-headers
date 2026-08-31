@@ -58,6 +58,7 @@ export interface InheritedAuthSource {
   /** The supplying container's uid — the "Edit in …" opener's target. */
   uid: string;
   name: string;
+  entryUid: string;
   /** The pool entry's label; empty = the type's label. */
   entryName: string;
 }
@@ -169,6 +170,7 @@ export function resolveInheritedAuthFor(
             kind: resolved.source.level,
             uid: resolved.source.uid,
             name: resolved.source.name,
+            entryUid: resolved.source.entryUid,
             entryName: resolved.source.entryName,
           },
     ...(resolved.danglingAuthUid !== undefined ? { danglingAuthUid: resolved.danglingAuthUid } : {}),
@@ -236,4 +238,71 @@ export function ancestorScriptLevels(ancestry: RequestAncestry | null): Ancestor
     if (postResponseScript?.trim()) post.push({ kind, uid, name });
   }
   return { pre, post };
+}
+
+/**
+ * A folder's own ancestry — its owning collection and the folders
+ * above it (outer → inner, the folder itself excluded), read off the
+ * trees; `null` when no tree holds the folder.
+ */
+export function findFolderAncestry(
+  trees: readonly CollectionTree[],
+  collections: readonly Collection[],
+  folders: readonly AncestorAuthCarrier[],
+  folderUid: string,
+): RequestAncestry | null {
+  const chainTo = (nodes: readonly TreeNode[], chain: string[]): string[] | null => {
+    for (const node of nodes) {
+      if (node.type !== 'folder') continue;
+      if (node.uid === folderUid) return chain;
+      const found = chainTo(node.children, [...chain, node.uid]);
+      if (found) return found;
+    }
+    return null;
+  };
+  for (const tree of trees) {
+    const chain = chainTo(tree.tree, []);
+    if (chain === null) continue;
+    const collection = collections.find((c) => c.uid === tree.uid);
+    if (!collection) return null;
+    const carriers: AncestorAuthCarrier[] = [];
+    for (const uid of chain) {
+      const folder = folders.find((f) => f.uid === uid);
+      if (folder) carriers.push(folder);
+    }
+    return { collection, folders: carriers };
+  }
+  return null;
+}
+
+export interface NearestAuthPool {
+  kind: 'collection' | 'folder';
+  uid: string;
+  name: string;
+  entries: readonly AuthPoolEntry[];
+  defaultUid: string;
+}
+
+/**
+ * The nearest ancestor holding a pool (inner → outer) — what a
+ * transparent folder inherits and shows read-only. The legacy
+ * single-auth read counts (it is the default a request resolves to).
+ * `null` when nothing is set anywhere above.
+ */
+export function nearestAuthPool(ancestry: RequestAncestry | null): NearestAuthPool | null {
+  if (ancestry === null) return null;
+  const chain = authChainOf(ancestry);
+  for (let i = chain.length - 1; i >= 0; i--) {
+    const carrier = chain[i];
+    const pool = authPoolOf(carrier);
+    if (pool === null) continue;
+    return {
+      kind: carrier.level,
+      uid: carrier.uid,
+      name: carrier.name,
+      entries: pool.entries,
+      defaultUid: pool.defaultUid,
+    };
+  }
+  return null;
 }

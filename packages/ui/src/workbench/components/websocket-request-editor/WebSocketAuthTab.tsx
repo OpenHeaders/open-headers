@@ -8,7 +8,7 @@
  * Socket.IO — so the rail note is per flavor. With ancestry the select
  * leads with the Inherited group (entries outside the mask greyed with
  * the refusal); an inherited type outside the mask is named on the
- * empty state in warning tone — Connect fails with the same sentence.
+ * Inherit pane in warning tone — Connect fails with the same sentence.
  */
 
 import type { WebSocketAuth } from '@openheaders/core/types';
@@ -17,13 +17,19 @@ import { Select } from 'antd';
 import type React from 'react';
 import { useMemo } from 'react';
 import type { RequestAncestry } from '../request-container/ancestry';
+import type { ConcreteAuthType } from '../request-editor/auth-config-form';
 import {
   buildInheritedGroup,
   type InheritedAuthAttribution,
-  InheritedAuthEmptyState,
+  InheritedAuthPane,
+  type InheritSelectItem,
+  AuthTypeRailHeader,
   inheritSelectValue,
+  ownAuthTypeGroup,
+  ownAuthTypeOptions,
   parseInheritSelectValue,
-  useSessionInheritDetail,
+  plainInheritOption,
+  useSessionInheritRefusal,
 } from '../request-editor/inherited-auth';
 import {
   AuthEmptyState,
@@ -32,8 +38,10 @@ import {
   AuthRailNote,
   AuthSecretField,
   AuthTabShell,
-  AuthTypeLabel,
 } from '../request-editor/auth-layout';
+
+/** The kind's own types, in offer order. */
+const OWN_TYPES: readonly ConcreteAuthType[] = ['none', 'bearer'];
 
 interface WebSocketAuthTabProps {
   auth: WebSocketAuth;
@@ -62,19 +70,13 @@ const WebSocketAuthTab: React.FC<WebSocketAuthTabProps> = ({
   onChange,
 }) => {
   const t = useT();
-  const inherit = useSessionInheritDetail(
+  const refusal = useSessionInheritRefusal(
     'websocket',
     'workbench.editors.websocket.auth.inheritUnsupported',
     inheritedFrom,
   );
-  const options = useMemo(() => {
-    const own = [
-      { value: 'none', label: t('workbench.editors.request.auth.type.none') },
-      { value: 'bearer', label: t('workbench.editors.request.auth.type.bearer') },
-    ];
-    if (ancestry === undefined) {
-      return [{ value: 'inherit', label: t('workbench.editors.request.auth.type.inherit') }, ...own];
-    }
+  const options = useMemo<InheritSelectItem[]>(() => {
+    if (ancestry === undefined) return [plainInheritOption(t), ...ownAuthTypeOptions(t, OWN_TYPES)];
     return [
       buildInheritedGroup({
         t,
@@ -84,7 +86,7 @@ const WebSocketAuthTab: React.FC<WebSocketAuthTabProps> = ({
         unsupportedKey: 'workbench.editors.websocket.auth.inheritUnsupported',
         ...(auth.type === 'inherit' && auth.authUid !== undefined ? { currentAuthUid: auth.authUid } : {}),
       }),
-      ...own,
+      ownAuthTypeGroup(t, OWN_TYPES),
     ];
   }, [t, ancestry, url, auth]);
   const handleSelect = (value: string) => {
@@ -101,7 +103,7 @@ const WebSocketAuthTab: React.FC<WebSocketAuthTabProps> = ({
     <AuthTabShell
       rail={
         <>
-          <AuthTypeLabel>{t('workbench.editors.request.auth.typeLabel')}</AuthTypeLabel>
+          <AuthTypeRailHeader label={t('workbench.editors.request.auth.typeLabel')} auth={auth} onChange={onChange} />
           <Select
             size="middle"
             data-testid="ws-auth-type"
@@ -123,11 +125,9 @@ const WebSocketAuthTab: React.FC<WebSocketAuthTabProps> = ({
       }
     >
       {auth.type === 'inherit' && (
-        <InheritedAuthEmptyState
-          title={t('workbench.editors.request.auth.type.inherit')}
-          detail={inherit.detail}
-          unsupported={inherit.unsupported}
+        <InheritedAuthPane
           inheritedFrom={inheritedFrom}
+          refusal={refusal}
           onOpenContainerAuth={onOpenContainerAuth}
           testId="ws-auth-inherit-state"
         />

@@ -43,10 +43,6 @@ export const workbenchEditors = {
   'workbench.editors.ancestorScripts.saveFailedDetail': 'Could not save scripts: {message}',
 
   // ── Ancestor auth editor (collection/folder default authorization) ──
-  'workbench.editors.ancestorAuth.descriptionCollection':
-    'Requests set to Inherit use this authorization. A folder\u2019s own authorization takes precedence, and a request\u2019s explicit authorization always wins. No default means nothing is configured at this level.',
-  'workbench.editors.ancestorAuth.descriptionFolder':
-    'Requests set to Inherit use this authorization ahead of the collection\u2019s. A request\u2019s explicit authorization always wins. Inherit from collection means nothing is configured at this level \u2014 requests fall through to the collection.',
   'workbench.editors.ancestorAuth.notFoundCollection': 'Request collection not found.',
   'workbench.editors.ancestorAuth.notFoundFolder': 'Folder not found.',
   'workbench.editors.ancestorAuth.saveFailed': 'Could not save authorization.',
@@ -54,31 +50,26 @@ export const workbenchEditors = {
 
   // ── Request container editor (a collection / folder: one tab, sections) ──
   'workbench.editors.requestContainer.tab.overview': 'Overview',
-  'workbench.editors.requestContainer.auth.noDefault': 'No default',
-  'workbench.editors.requestContainer.auth.inheritFromCollection': 'Inherit from collection',
-  'workbench.editors.requestContainer.auth.noDefaultNote':
-    'Nothing is set for this collection. Requests set to Inherit send without authorization.',
-  'workbench.editors.requestContainer.auth.noDefaultDetail':
-    'Pick a type to set the default every request in this collection inherits.',
-  'workbench.editors.requestContainer.auth.inheritFromCollectionNote':
-    'Nothing is set for this folder \u2014 requests fall through to the collection\u2019s default.',
-  'workbench.editors.requestContainer.auth.inheritFromCollectionDetail':
-    'Pick a type to override the collection\u2019s default for every request in this folder.',
-  'workbench.editors.requestContainer.auth.addEntry': 'Add entry',
+  'workbench.editors.requestContainer.auth.emptyTitle': 'No auth configured',
+  'workbench.editors.requestContainer.auth.emptySubtitleCollection':
+    'Select an authorization type for requests in this collection',
+  'workbench.editors.requestContainer.auth.emptySubtitleFolder':
+    'Select an authorization type for requests in this folder',
+  'workbench.editors.requestContainer.auth.authTypes': 'Auth types',
+  'workbench.editors.requestContainer.auth.addEntryAria': 'Add auth type',
+  'workbench.editors.requestContainer.auth.change': 'Change',
+  'workbench.editors.requestContainer.auth.changeHint': 'Override the inherited auth configuration from {source}.',
+  'workbench.editors.requestContainer.auth.inheritedTag': 'Inherited',
+  'workbench.editors.requestContainer.auth.rename': 'Rename',
+  'workbench.editors.requestContainer.auth.noneEntryNote': 'Requests using this entry send without authorization.',
   'workbench.editors.requestContainer.auth.defaultTag': 'Default',
-  'workbench.editors.requestContainer.auth.setDefault': 'Set as default',
+  'workbench.editors.requestContainer.auth.setDefault': 'Make default',
   'workbench.editors.requestContainer.auth.deleteEntry': 'Delete',
   'workbench.editors.requestContainer.auth.entryActionsAria': 'Entry actions',
-  'workbench.editors.requestContainer.auth.entryName': 'Name',
-  'workbench.editors.requestContainer.auth.entryNamePlaceholder': 'e.g. Admin token',
   'workbench.editors.requestContainer.auth.appliesTo': 'Apply to host',
   'workbench.editors.requestContainer.auth.appliesToPlaceholder': '*.openheaders.com',
   'workbench.editors.requestContainer.auth.appliesToHelp':
     'Optional host pattern (* wildcard). A request set to Inherit whose URL host matches gets this entry ahead of the default. Empty \u2014 reached only as the default or by a request\u2019s pick.',
-  'workbench.editors.requestContainer.auth.inheritedFromCollection': 'Inherited from Collection \u2018{name}\u2019',
-  'workbench.editors.requestContainer.auth.overridingCollection': 'Overriding Collection \u2018{name}\u2019',
-  'workbench.editors.requestContainer.auth.editInCollection': 'Edit in collection',
-  'workbench.editors.requestContainer.auth.override': 'Override',
   'workbench.editors.requestContainer.auth.resetToInherited': 'Reset to inherited',
   'workbench.editors.requestContainer.auth.resetConfirm':
     'Remove the folder\u2019s entries? Requests fall through to the collection.',

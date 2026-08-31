@@ -360,3 +360,30 @@
   .stated-default-hides-on-focus();
 }
 
+/* ── Request container: the auth pool editor ─────────────────────────
+ * The entries list's ⋯ menu shows on row hover, focus, or the
+ * selected row (the sidebar rows' reveal idiom); an inherited auth
+ * config renders its real form inert — dashed and dimmed — so the
+ * fields read as the parent's, editable only there (the request's
+ * Inherit pane and a folder's inherited pool entry share it). */
+.oh-auth-pool-row .oh-auth-pool-row-actions {
+  opacity: 0;
+  transition: opacity 0.12s;
+}
+
+.oh-auth-pool-row:hover .oh-auth-pool-row-actions,
+.oh-auth-pool-row:focus-within .oh-auth-pool-row-actions,
+.oh-auth-pool-row[aria-pressed='true'] .oh-auth-pool-row-actions {
+  opacity: 1;
+}
+
+.oh-auth-readonly {
+  opacity: 0.7;
+
+  .ant-input,
+  .ant-input-affix-wrapper,
+  .ant-select .ant-select-selector,
+  .oh-template-input-editable {
+    border-style: dashed;
+  }
+}

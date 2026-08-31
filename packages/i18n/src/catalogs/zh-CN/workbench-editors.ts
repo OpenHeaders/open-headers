@@ -55,10 +55,6 @@ export const workbenchEditors = {
   'workbench.editors.ancestorScripts.saveFailedDetail': '无法保存脚本：{message}',
 
   // ── Ancestor auth editor (collection/folder default authorization) ──
-  'workbench.editors.ancestorAuth.descriptionCollection':
-    '设为“继承”的请求使用此授权。文件夹自己的授权优先，而请求显式设置的授权总是胜出。“无默认值”表示这一层未配置任何内容。',
-  'workbench.editors.ancestorAuth.descriptionFolder':
-    '设为“继承”的请求先于集合的授权使用此授权。请求显式设置的授权总是胜出。“从集合继承”表示这一层未配置任何内容——请求会落回到集合。',
   'workbench.editors.ancestorAuth.notFoundCollection': '未找到请求集合。',
   'workbench.editors.ancestorAuth.notFoundFolder': '未找到文件夹。',
   'workbench.editors.ancestorAuth.saveFailed': '无法保存授权。',
@@ -66,29 +62,24 @@ export const workbenchEditors = {
 
   // ── 请求容器编辑器（集合 / 文件夹：一个标签页，多个分区） ──
   'workbench.editors.requestContainer.tab.overview': '概览',
-  'workbench.editors.requestContainer.auth.noDefault': '无默认值',
-  'workbench.editors.requestContainer.auth.inheritFromCollection': '从集合继承',
-  'workbench.editors.requestContainer.auth.noDefaultNote': '此集合未设置任何内容。设为“继承”的请求将不带授权发送。',
-  'workbench.editors.requestContainer.auth.noDefaultDetail': '选择一种类型，设置此集合中每个请求继承的默认授权。',
-  'workbench.editors.requestContainer.auth.inheritFromCollectionNote':
-    '此文件夹未设置任何内容——请求会落回到集合的默认授权。',
-  'workbench.editors.requestContainer.auth.inheritFromCollectionDetail':
-    '选择一种类型，为此文件夹中的每个请求覆盖集合的默认授权。',
-  'workbench.editors.requestContainer.auth.addEntry': '添加条目',
+  'workbench.editors.requestContainer.auth.emptyTitle': '未配置授权',
+  'workbench.editors.requestContainer.auth.emptySubtitleCollection': '为此集合中的请求选择一种授权类型',
+  'workbench.editors.requestContainer.auth.emptySubtitleFolder': '为此文件夹中的请求选择一种授权类型',
+  'workbench.editors.requestContainer.auth.authTypes': '授权类型',
+  'workbench.editors.requestContainer.auth.addEntryAria': '添加授权类型',
+  'workbench.editors.requestContainer.auth.change': '更改',
+  'workbench.editors.requestContainer.auth.changeHint': '覆盖从{source}继承的授权配置。',
+  'workbench.editors.requestContainer.auth.inheritedTag': '已继承',
+  'workbench.editors.requestContainer.auth.rename': '重命名',
+  'workbench.editors.requestContainer.auth.noneEntryNote': '使用此条目的请求将不带授权发送。',
   'workbench.editors.requestContainer.auth.defaultTag': '默认',
   'workbench.editors.requestContainer.auth.setDefault': '设为默认',
   'workbench.editors.requestContainer.auth.deleteEntry': '删除',
   'workbench.editors.requestContainer.auth.entryActionsAria': '条目操作',
-  'workbench.editors.requestContainer.auth.entryName': '名称',
-  'workbench.editors.requestContainer.auth.entryNamePlaceholder': '例如 管理员令牌',
   'workbench.editors.requestContainer.auth.appliesTo': '应用于主机',
   'workbench.editors.requestContainer.auth.appliesToPlaceholder': '*.openheaders.com',
   'workbench.editors.requestContainer.auth.appliesToHelp':
     '可选的主机模式（* 通配符）。设置为继承的请求，其 URL 主机匹配时优先于默认项获得此条目。留空——仅作为默认项或通过请求的选择使用。',
-  'workbench.editors.requestContainer.auth.inheritedFromCollection': '继承自集合“{name}”',
-  'workbench.editors.requestContainer.auth.overridingCollection': '正在覆盖集合“{name}”',
-  'workbench.editors.requestContainer.auth.editInCollection': '在集合中编辑',
-  'workbench.editors.requestContainer.auth.override': '覆盖',
   'workbench.editors.requestContainer.auth.resetToInherited': '重置为继承',
   'workbench.editors.requestContainer.auth.resetConfirm': '移除文件夹的条目？请求将回落到集合。',
   'workbench.editors.requestContainer.deletedElsewhere': '此条目已在另一个窗口中被删除。',

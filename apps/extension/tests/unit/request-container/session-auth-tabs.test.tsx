@@ -1,17 +1,17 @@
 /**
  * Session auth tabs — WebSocket / gRPC / MQTT. Pins:
  *   - each select leads with Inherit ahead of the kind's own subset;
- *   - the Inherit empty state names what resolves and from where (the
- *     S8 attribution line), the generic parent note without ancestry,
- *     and the nothing-set note with a null source;
+ *   - the Inherit pane heads with the resolved entry and the Inherited
+ *     tag over the inert form, the generic parent note without
+ *     ancestry, and the nothing-set note with a null source;
  *   - a resolved type outside the kind's mask renders the executor's
  *     refusal sentence in warning tone;
- *   - with ancestry the select leads with the Inherited group — the
- *     default's label, every named ancestor entry, entries outside
- *     the kind's mask greyed with the refusal tooltip — and a named
- *     pick writes `{ type: 'inherit', authUid }`;
- *   - the empty state carries the dangling-pick warning, the dashed
- *     read-only preview (secrets masked), and the "Edit in …" opener.
+ *   - with ancestry the select leads with the Inherited group — every
+ *     ancestor entry by name, the resolved default tagged, entries
+ *     outside the kind's mask greyed with the refusal tooltip — over
+ *     the own types;
+ *   - the pane carries the dangling-pick warning, the inert form with
+ *     the parent's values, and the "Edit in parent" opener.
  */
 
 import type { Collection } from '@openheaders/core/types';
@@ -33,6 +33,10 @@ window.matchMedia = ((query: string) => ({
   dispatchEvent: () => false,
 })) as typeof window.matchMedia;
 
+// The Inherit pane renders the parent's fields through TemplateInput,
+// which reads the settings registry — populated by importing the
+// schema barrel for its side effects.
+import '@openheaders/ui/workbench/settings/schema';
 import GrpcAuthTab from '@openheaders/ui/workbench/components/grpc-request-editor/GrpcAuthTab';
 import MqttAuthTab from '@openheaders/ui/workbench/components/mqtt-request-editor/MqttAuthTab';
 import WebSocketAuthTab from '@openheaders/ui/workbench/components/websocket-request-editor/WebSocketAuthTab';
@@ -122,11 +126,12 @@ describe('WebSocketAuthTab — Inherit', () => {
         />
       </App>,
     );
-    expect(screen.getByTestId('ws-auth-inherit-state').textContent).toContain(
-      'Bearer Token — from Collection ‘Payments’',
-    );
+    const state = screen.getByTestId('ws-auth-inherit-state');
+    expect(screen.getByTestId('oh-auth-inherit-heading').textContent).toBe('Bearer Token');
+    expect(screen.getByTestId('oh-auth-inherited-tag').textContent).toBe('Inherited');
+    expect(screen.getByTestId('oh-auth-inherited-form').hasAttribute('inert')).toBe(true);
     expect(screen.getByTestId('ws-auth-type').textContent).toContain('Inherit auth from parent');
-    expect(screen.getByTestId('ws-auth-inherit-state').querySelector('.ant-typography-warning')).toBeNull();
+    expect(state.querySelector('.ant-typography-warning')).toBeNull();
   });
 
   it('renders the mask refusal in warning tone for an inherited OAuth 2.0', () => {
@@ -172,32 +177,23 @@ describe('WebSocketAuthTab — Inherit', () => {
     const onChange = vi.fn();
     render(
       <App>
-        <WebSocketAuthTab
-          auth={{ type: 'inherit' }}
-          socketioFlavor={false}
-          ancestry={makeAncestry()}
-          onChange={onChange}
-        />
+        <WebSocketAuthTab auth={{ type: 'none' }} socketioFlavor={false} ancestry={makeAncestry()} onChange={onChange} />
       </App>,
-    );
-    // The collapsed select renders the Default option's label.
-    expect(screen.getByTestId('ws-auth-type').textContent).toContain(
-      'Default (Bearer Token — Collection ‘Payments’)',
     );
     const options = openSelect('ws-auth-type');
     const texts = options.map((o) => o.textContent ?? '');
-    expect(texts[0]).toContain('Default (Bearer Token — Collection ‘Payments’)');
-    expect(texts[1]).toContain('Collection ‘Payments’ › Admin token');
-    expect(texts[2]).toContain('Collection ‘Payments’ › SSO');
-    const sso = options[2];
+    expect(texts[0]).toBe('Admin tokenDefault');
+    expect(texts[1]).toBe('SSO');
+    expect(texts[2]).toBe('No Auth');
+    const sso = options[1];
     expect(sso.getAttribute('aria-disabled')).toBe('true');
     expect(sso.getAttribute('title')).toContain('cannot be applied to a WebSocket session');
-    // Picking the named bearer entry writes the pick.
-    fireEvent.click(options[1]);
-    expect(onChange).toHaveBeenCalledWith({ type: 'inherit', authUid: 'admin001' });
+    // Picking the default entry follows the default.
+    fireEvent.click(options[0]);
+    expect(onChange).toHaveBeenCalledWith({ type: 'inherit' });
   });
 
-  it('the empty state carries the preview (secrets masked), the opener, and the dangling warning', () => {
+  it('the pane carries the inert form with the parent values, the opener, and the dangling warning', () => {
     const onOpen = vi.fn();
     const first = render(
       <App>
@@ -210,10 +206,10 @@ describe('WebSocketAuthTab — Inherit', () => {
         />
       </App>,
     );
-    const preview = screen.getByTestId('oh-auth-inherited-preview');
-    expect(preview.textContent).toContain('john.doe');
-    expect(preview.textContent).not.toContain('secret');
-    expect(preview.textContent).toContain('••••••••');
+    const form = screen.getByTestId('oh-auth-inherited-form');
+    expect(form.hasAttribute('inert')).toBe(true);
+    expect(form.textContent).toContain('john.doe');
+    expect(screen.getByTestId('oh-auth-inherit-heading').textContent).toBe('Basic Auth');
     fireEvent.click(screen.getByTestId('oh-auth-edit-in-source'));
     expect(onOpen).toHaveBeenCalledWith('folder', 'fld00001', 'Tokens');
     expect(screen.queryByTestId('oh-auth-dangling')).toBeNull();
@@ -241,7 +237,7 @@ describe('GrpcAuthTab — Inherit', () => {
       </App>,
     );
     const state = screen.getByTestId('grpc-auth-inherit-state');
-    expect(state.textContent).toContain('Basic Auth — from Folder ‘Tokens’');
+    expect(screen.getByTestId('oh-auth-inherit-heading').textContent).toBe('Basic Auth');
     expect(state.querySelector('.ant-typography-warning')).toBeNull();
   });
 
@@ -290,7 +286,7 @@ describe('MqttAuthTab — Inherit', () => {
       </App>,
     );
     const state = screen.getByTestId('mqtt-auth-inherit-state');
-    expect(state.textContent).toContain('Basic Auth — from Folder ‘Tokens’');
+    expect(screen.getByTestId('oh-auth-inherit-heading').textContent).toBe('Basic Auth');
     expect(state.querySelector('.ant-typography-warning')).toBeNull();
   });
 

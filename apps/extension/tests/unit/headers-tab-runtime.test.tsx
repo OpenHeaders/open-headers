@@ -37,7 +37,7 @@ const NO_BODY: RequestBody = { type: 'none' };
 const NO_AUTH: AuthConfig = { type: 'none' };
 
 function renderTab(rows: KeyValueRow[] = []) {
-  return render(<HeadersTab rows={rows} onChange={vi.fn()} body={NO_BODY} auth={NO_AUTH} onAuthChange={vi.fn()} />);
+  return render(<HeadersTab rows={rows} onChange={vi.fn()} body={NO_BODY} auth={NO_AUTH} />);
 }
 
 describe('HeadersTab — auto-generated rows per host', () => {
