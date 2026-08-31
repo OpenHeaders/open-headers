@@ -293,7 +293,7 @@ export interface TransportRequest {
    * browser SW) ignore it, and the target's 401 surfaces verbatim as
    * the actionable signal.
    */
-  digestAuth?: { username: string; password: string };
+  digestAuth?: { username: string; password: string; disableRetry?: boolean };
   /**
    * Ask the transport to observe connection-level facts for THIS send
    * — socket phase timings (DNS / TCP / TLS), the negotiated ALPN

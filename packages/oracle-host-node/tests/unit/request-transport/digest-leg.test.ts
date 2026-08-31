@@ -76,6 +76,13 @@ describe('createNodeRequestTransport — HTTP digest second leg', () => {
     expect(authParam(1, 'response')).toBe(expected);
   });
 
+  it('disableRetry stands the leg down — the 401 and its challenge surface, one fetch', async () => {
+    fetchMock.mockResolvedValueOnce(challenge401(SHA256_CHALLENGE));
+    const res = await transport().send(makeRequest({ digestAuth: { ...digestAuth, disableRetry: true } }));
+    expect(res.status).toBe(401);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
   it('never retries without digest credentials on the request', async () => {
     fetchMock.mockResolvedValue(challenge401(SHA256_CHALLENGE));
     const res = await transport().send(makeRequest());

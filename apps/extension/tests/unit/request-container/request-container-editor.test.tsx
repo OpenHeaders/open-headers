@@ -23,6 +23,7 @@
  *     by name (the default tagged) over the own types.
  */
 
+import { registerCapability, unregisterCapability } from '@openheaders/core/capabilities';
 import type { AuthConfig, AuthPoolEntry, Collection, CollectionTree } from '@openheaders/core/types';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { App } from 'antd';
@@ -639,6 +640,29 @@ describe('AuthorizationTab — the request-level Inherit pane', () => {
     second.unmount();
     render(<AuthorizationTab auth={{ type: 'inherit' }} onChange={vi.fn()} />);
     expect(screen.queryByTestId('oh-auth-reset-inherit')).toBeNull();
+  });
+
+  it("Digest's disable-retry checkbox writes the opt-out and clears back to absent (node runtimes)", () => {
+    // The retry leg runs on node runtimes only — the checkbox hides on
+    // browser surfaces (this harness's default), like the second leg.
+    registerCapability('requestRuntime', () => 'node');
+    try {
+      const onChange = vi.fn();
+      const digest: AuthConfig = { type: 'digest', username: 'u', password: 'p' };
+      const first = render(<AuthorizationTab auth={digest} onChange={onChange} />);
+      expect(
+        screen.getByText('The authorization header will be automatically generated when you send the request.'),
+      ).toBeTruthy();
+      fireEvent.click(screen.getByTestId('oh-auth-digest-disable-retry'));
+      expect(onChange).toHaveBeenCalledWith({ type: 'digest', username: 'u', password: 'p', disableRetry: true });
+      first.unmount();
+      const on = render(<AuthorizationTab auth={{ ...digest, disableRetry: true }} onChange={onChange} />);
+      fireEvent.click(screen.getByTestId('oh-auth-digest-disable-retry'));
+      expect(onChange).toHaveBeenLastCalledWith({ type: 'digest', username: 'u', password: 'p' });
+      on.unmount();
+    } finally {
+      unregisterCapability('requestRuntime');
+    }
   });
 
   it('keeps the generic note for a scratch draft with no ancestry', () => {

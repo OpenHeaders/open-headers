@@ -139,7 +139,11 @@ export async function digestRetryHop(
   jar: CookieJar | undefined,
   leg: WireLeg | null,
 ): Promise<{ hop: HopState; response: HopResponse; jarAttached?: string; jarCaptured: string[] } | null> {
-  if (request.digestAuth === undefined || response.status !== 401) return null;
+  // `disableRetry` is the config's opt-out — the 401 and its challenge
+  // surface as the response instead of being answered.
+  if (request.digestAuth === undefined || request.digestAuth.disableRetry === true || response.status !== 401) {
+    return null;
+  }
   const authorization = await digestAuthorizationFor(request.digestAuth, hop, response);
   if (authorization === null) return null;
   await response.body?.cancel();

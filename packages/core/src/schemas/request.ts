@@ -600,6 +600,10 @@ export const DigestAuthSchema = v.object({
   disabled: AuthDisabledSchema,
   username: v.string(),
   password: v.string(),
+  /** Opt out of the automatic second leg: the 401 and its challenge
+   *  surface as the response instead of being answered and retried.
+   *  Absent = the default challenge/response exchange. */
+  disableRetry: v.optional(v.boolean()),
 });
 
 /**

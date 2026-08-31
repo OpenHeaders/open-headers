@@ -134,11 +134,13 @@ export interface ResolvedRequest {
    * when the effective auth is an enabled `digest` config. Nothing is
    * computable here: the scheme is challenge/response, so the honoring
    * transport (node) answers the target's 401 `WWW-Authenticate`
-   * challenge with one authorized resend of that hop. Transports whose
-   * network stack can't drive the second leg (the browser SW) ignore
-   * the carry and the target's 401 is the actionable signal.
+   * challenge with one authorized resend of that hop — unless the
+   * config opts out (`disableRetry`), which stands the leg down so the
+   * 401 surfaces verbatim. Transports whose network stack can't drive
+   * the second leg (the browser SW) ignore the carry and the target's
+   * 401 is the actionable signal.
    */
-  digest?: DigestCredentials;
+  digest?: DigestCredentials & { disableRetry?: boolean };
   /**
    * OAuth 1.0a credentials, templates already resolved — present only
    * when the effective auth is an enabled `oauth1` config. Like SigV4,
@@ -287,9 +289,13 @@ export async function resolveRequest(
 
   // Digest credentials resolve here but answer the challenge at the
   // wire — see {@link ResolvedRequest.digest}.
-  const digest: DigestCredentials | undefined =
+  const digest: (DigestCredentials & { disableRetry?: boolean }) | undefined =
     effectiveAuth.type === 'digest' && !effectiveAuth.disabled
-      ? { username: resolveStr(effectiveAuth.username), password: resolveStr(effectiveAuth.password) }
+      ? {
+          username: resolveStr(effectiveAuth.username),
+          password: resolveStr(effectiveAuth.password),
+          ...(effectiveAuth.disableRetry === true ? { disableRetry: true } : {}),
+        }
       : undefined;
 
   // OAuth1 credentials resolve here but sign at execute time — see
