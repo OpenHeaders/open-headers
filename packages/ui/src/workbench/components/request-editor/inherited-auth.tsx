@@ -143,7 +143,8 @@ export interface InheritSelectOption {
 }
 
 export interface InheritSelectGroup {
-  label: string;
+  /** `null` renders label-less — the popup sheet draws it as a 1px section rule. */
+  label: string | null;
   options: InheritSelectOption[];
 }
 
@@ -187,11 +188,6 @@ export function ownAuthTypeOptions(t: Translate, types: readonly ConcreteAuthTyp
 /** The plain Inherit option — the flat select without ancestry. */
 export function plainInheritOption(t: Translate): InheritSelectOption {
   return { value: 'inherit', label: t('workbench.editors.request.auth.type.inherit') };
-}
-
-/** The own types as the second group under the Inherited one. */
-export function ownAuthTypeGroup(t: Translate, types: readonly ConcreteAuthType[]): InheritSelectGroup {
-  return { label: t('workbench.editors.request.auth.groupOwn'), options: ownAuthTypeOptions(t, types) };
 }
 
 /**

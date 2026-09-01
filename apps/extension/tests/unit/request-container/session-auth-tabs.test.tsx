@@ -146,9 +146,7 @@ describe('WebSocketAuthTab — Inherit', () => {
       </App>,
     );
     const state = screen.getByTestId('ws-auth-inherit-state');
-    expect(state.textContent).toContain(
-      'OAuth 2.0 — from Folder ‘Tokens’ — cannot be applied to a WebSocket session.',
-    );
+    expect(state.textContent).toContain('OAuth 2.0 — from Folder ‘Tokens’ — cannot be applied to a WebSocket session.');
     expect(state.querySelector('.ant-typography-warning')).not.toBeNull();
   });
 
@@ -177,14 +175,20 @@ describe('WebSocketAuthTab — Inherit', () => {
     const onChange = vi.fn();
     render(
       <App>
-        <WebSocketAuthTab auth={{ type: 'none' }} socketioFlavor={false} ancestry={makeAncestry()} onChange={onChange} />
+        <WebSocketAuthTab
+          auth={{ type: 'none' }}
+          socketioFlavor={false}
+          ancestry={makeAncestry()}
+          onChange={onChange}
+        />
       </App>,
     );
     const options = openSelect('ws-auth-type');
     const texts = options.map((o) => o.textContent ?? '');
     expect(texts[0]).toBe('Admin tokenDefault');
     expect(texts[1]).toBe('SSO');
-    expect(texts[2]).toBe('No Auth');
+    // Sectioned own offer — No Auth sits apart, last.
+    expect(texts[texts.length - 1]).toBe('No Auth');
     const sso = options[1];
     expect(sso.getAttribute('aria-disabled')).toBe('true');
     expect(sso.getAttribute('title')).toContain('cannot be applied to a WebSocket session');

@@ -24,13 +24,13 @@ import {
   type InheritSelectItem,
   AuthTypeRailHeader,
   inheritSelectValue,
-  ownAuthTypeGroup,
-  ownAuthTypeOptions,
   parseInheritSelectValue,
   plainInheritOption,
   useSessionInheritRefusal,
 } from '../request-editor/inherited-auth';
-import { AUTH_TYPE_SELECT_POPUP } from '../request-editor/auth-type-menu';
+import { AUTH_TYPE_SELECT_POPUP,
+  sectionedOwnAuthTypeItems,
+} from '../request-editor/auth-type-menu';
 import {
   AuthEmptyState,
   AuthForm,
@@ -74,7 +74,7 @@ const GrpcAuthTab: React.FC<GrpcAuthTabProps> = ({
     inheritedFrom,
   );
   const options = useMemo<InheritSelectItem[]>(() => {
-    if (ancestry === undefined) return [plainInheritOption(t), ...ownAuthTypeOptions(t, OWN_TYPES)];
+    if (ancestry === undefined) return [plainInheritOption(t), ...sectionedOwnAuthTypeItems(t, OWN_TYPES, null)];
     return [
       buildInheritedGroup({
         t,
@@ -84,7 +84,7 @@ const GrpcAuthTab: React.FC<GrpcAuthTabProps> = ({
         unsupportedKey: 'workbench.editors.grpc.auth.inheritUnsupported',
         ...(auth.type === 'inherit' && auth.authUid !== undefined ? { currentAuthUid: auth.authUid } : {}),
       }),
-      ownAuthTypeGroup(t, OWN_TYPES),
+      ...sectionedOwnAuthTypeItems(t, OWN_TYPES, t('workbench.editors.request.auth.groupOwn')),
     ];
   }, [t, ancestry, url, auth]);
   const handleSelect = (value: string) => {

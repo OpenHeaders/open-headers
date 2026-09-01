@@ -787,11 +787,16 @@ describe('AuthorizationTab — the request-level Inherit pane', () => {
     const groups = Array.from(document.querySelectorAll<HTMLElement>('.ant-select-item-group')).map(
       (g) => g.textContent,
     );
-    expect(groups).toEqual(['Inherited', 'This request']);
+    // The own offer rides sectioned: the labeled This-request group
+    // holds the credential schemes; the vendor signature and No Auth
+    // follow as label-less groups the popup draws as rules.
+    expect(groups).toEqual(['Inherited', 'This request', '', '']);
     const options = Array.from(document.querySelectorAll<HTMLElement>('.ant-select-item-option'));
     expect(options[0].textContent).toBe('Admin tokenDefault');
     expect(options[1].textContent).toBe('User token');
-    expect(options[2].textContent).toBe('No Auth');
+    expect(options[2].textContent).toBe('API Key');
+    expect(options[options.length - 2].textContent).toBe('AWS Signature v4');
+    expect(options[options.length - 1].textContent).toBe('No Auth');
     fireEvent.click(options[1]);
     expect(onChange).toHaveBeenCalledWith({ type: 'inherit', authUid: 'user0001' });
   });

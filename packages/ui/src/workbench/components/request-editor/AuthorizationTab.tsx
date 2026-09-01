@@ -16,7 +16,9 @@ import { useT } from '@openheaders/ui/context/LocaleContext';
 import type { RequestAncestry } from '../request-container/ancestry';
 import { AuthConfigFields, type ConcreteAuthType, OAuth2RailControls, seedAuthConfig } from './auth-config-form';
 import { AuthEmptyState, AuthRailNote, AuthTabShell } from './auth-layout';
-import { AUTH_TYPE_SELECT_POPUP } from './auth-type-menu';
+import { AUTH_TYPE_SELECT_POPUP,
+  sectionedOwnAuthTypeItems,
+} from './auth-type-menu';
 import { authTypeInfo } from './AuthRowInfo';
 import {
   buildInheritedGroup,
@@ -25,8 +27,6 @@ import {
   type InheritSelectItem,
   AuthTypeRailHeader,
   inheritSelectValue,
-  ownAuthTypeGroup,
-  ownAuthTypeOptions,
   parseInheritSelectValue,
   plainInheritOption,
 } from './inherited-auth';
@@ -76,7 +76,7 @@ const AuthorizationTab: React.FC<AuthorizationTabProps> = ({
   // group — every ancestor entry — over the own types as a second
   // group; without it (a scratch draft) the flat list stands.
   const authOptions = useMemo<InheritSelectItem[]>(() => {
-    if (ancestry === undefined) return [plainInheritOption(t), ...ownAuthTypeOptions(t, OWN_TYPES)];
+    if (ancestry === undefined) return [plainInheritOption(t), ...sectionedOwnAuthTypeItems(t, OWN_TYPES, null)];
     return [
       buildInheritedGroup({
         t,
@@ -85,7 +85,7 @@ const AuthorizationTab: React.FC<AuthorizationTabProps> = ({
         url,
         ...(auth.type === 'inherit' && auth.authUid !== undefined ? { currentAuthUid: auth.authUid } : {}),
       }),
-      ownAuthTypeGroup(t, OWN_TYPES),
+      ...sectionedOwnAuthTypeItems(t, OWN_TYPES, t('workbench.editors.request.auth.groupOwn')),
     ];
   }, [t, ancestry, url, auth]);
 

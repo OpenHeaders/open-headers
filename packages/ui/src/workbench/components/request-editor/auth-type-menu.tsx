@@ -26,7 +26,7 @@ import type { MenuProps, SelectProps } from 'antd';
 import type React from 'react';
 export type { ConcreteAuthType } from './auth-config-form';
 import type { ConcreteAuthType } from './auth-config-form';
-import { authTypeLabelKey } from './inherited-auth';
+import { authTypeLabelKey, type InheritSelectItem, ownAuthTypeOptions } from './inherited-auth';
 
 /** The offer in sections — the credential schemes, the vendor
  *  signatures, then `none` apart; a divider between sections. */
@@ -85,6 +85,29 @@ export function authTypeMenuItems(t: Translate): NonNullable<MenuProps['items']>
     ...(i > 0 ? [{ type: 'divider' as const }] : []),
     ...section.map((type) => ({ key: type, icon: authTypeIcon(type), label: t(authTypeLabelKey(type)) })),
   ]);
+}
+
+/**
+ * A kind's own types as SECTIONED select items — the S15 offer
+ * (credential schemes ∥ vendor signature ∥ No Auth) intersected with
+ * the kind's own set. The first non-empty section carries
+ * `groupLabel` ("This request", or `null` on the flat scratch-draft
+ * select); the rest ride as label-less groups the popup sheet draws
+ * as 1px rules, so No Auth and the vendor signatures sit apart on
+ * every auth-type select, pool or not.
+ */
+export function sectionedOwnAuthTypeItems(
+  t: Translate,
+  types: readonly ConcreteAuthType[],
+  groupLabel: string | null,
+): InheritSelectItem[] {
+  const sections = AUTH_TYPE_SECTIONS.map((section) => section.filter((type) => types.includes(type))).filter(
+    (section) => section.length > 0,
+  );
+  return sections.map((section, i) => ({
+    label: i === 0 ? groupLabel : null,
+    options: ownAuthTypeOptions(t, section),
+  }));
 }
 
 interface AuthTypeSelectOption {
