@@ -14,7 +14,12 @@
 
 import { createHash, createHmac } from 'node:crypto';
 import { expect } from '@playwright/test';
-import type { AwsSuiteCredentials, ExpectedAuthWire } from '../../../../../playground/scripts/auth-type-suite';
+import { API_ECHO_URL } from '../../../../../playground/scripts/api-client-matrix';
+import type {
+  AwsSuiteCredentials,
+  EdgeGridSuiteCredentials,
+  ExpectedAuthWire,
+} from '../../../../../playground/scripts/auth-type-suite';
 
 /** The auth-bearing slice of the `/api/echo` reflection (`playground/server/api-echo.ts`). */
 export interface EchoAuthResponse {
@@ -63,7 +68,45 @@ export function assertEchoAuth(echo: EchoAuthResponse, expected: ExpectedAuthWir
     case 'sigv4':
       assertSigV4(echo, expected.addTo, expected.credentials);
       break;
+    case 'edgegrid':
+      assertEdgeGrid(echo, expected.credentials);
+      break;
   }
+}
+
+// ── EdgeGrid recompute ──────────────────────────────────────────────
+
+/** The signature re-derived from the echoed request: the tab-joined
+ *  data (method, scheme, host, path + query, no listed headers, the
+ *  empty GET content hash, the header prefix) under the timestamp
+ *  keyed signing chain — from the spec, sharing nothing with the
+ *  signer. */
+function assertEdgeGrid(echo: EchoAuthResponse, creds: EdgeGridSuiteCredentials): void {
+  expect(echo.auth).toMatchObject({ kind: 'scheme', scheme: 'EG1-HMAC-SHA256' });
+  const token = (echo.auth as { token: string }).token;
+  const part = (name: string): string => token.match(new RegExp(`${name}=([^;]+);`))?.[1] ?? '';
+  expect(part('client_token')).toBe(creds.clientToken);
+  expect(part('access_token')).toBe(creds.accessToken);
+  const timestamp = part('timestamp');
+  const nonce = part('nonce');
+  expect(timestamp).toMatch(/^\d{8}T\d{2}:\d{2}:\d{2}\+0000$/);
+  expect(nonce).toMatch(/^[0-9a-f-]{36}$/);
+  const signature = token.match(/signature=([^;]+)$/)?.[1] ?? '';
+
+  const prefix =
+    `EG1-HMAC-SHA256 client_token=${creds.clientToken};access_token=${creds.accessToken};` +
+    `timestamp=${timestamp};nonce=${nonce};`;
+  const data = [
+    echo.method.toUpperCase(),
+    new URL(API_ECHO_URL).protocol.slice(0, -1),
+    single(echo.headers.host),
+    echo.url,
+    '',
+    '',
+    prefix,
+  ].join('\t');
+  const key = createHmac('sha256', creds.clientSecret).update(timestamp).digest('base64');
+  expect(signature).toBe(createHmac('sha256', key).update(data).digest('base64'));
 }
 
 // ── SigV4 recompute ─────────────────────────────────────────────────
