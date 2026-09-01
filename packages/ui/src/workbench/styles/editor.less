@@ -387,12 +387,25 @@
     line-height: 20px;
   }
 
-  .ant-select-item-group {
+  // The sectioned TYPE list passes label-less groups (label: null) —
+  // those render empty and collapse into 1px rules. The pool-backed
+  // request select passes labeled groups (Inherited / This request);
+  // flattening them too would paint the label over the first row, so
+  // they keep their height and read as small headings instead.
+  .ant-select-item-group:empty {
     min-height: 0;
     height: 1px;
     margin: 4px 10px;
     padding: 0;
     background: var(--ant-color-split);
+  }
+
+  .ant-select-item-group:not(:empty) {
+    min-height: 0;
+    padding: 6px 10px 2px;
+    font-size: 11px;
+    line-height: 16px;
+    color: var(--ant-color-text-tertiary);
   }
 }
 
