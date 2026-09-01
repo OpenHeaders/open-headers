@@ -12,7 +12,7 @@
  * form can't self-confirm.
  */
 
-import { createHash, createHmac } from 'node:crypto';
+import { createHash, createHmac, createPublicKey, verify as nodeVerify } from 'node:crypto';
 import { expect } from '@playwright/test';
 import { API_ECHO_URL } from '../../../../../playground/scripts/api-client-matrix';
 import type {
@@ -71,7 +71,41 @@ export function assertEchoAuth(echo: EchoAuthResponse, expected: ExpectedAuthWir
     case 'edgegrid':
       assertEdgeGrid(echo, expected.credentials);
       break;
+    case 'asap':
+      assertAsap(echo, expected);
+      break;
   }
+}
+
+// ── ASAP verification ───────────────────────────────────────────────
+
+/** The echoed bearer JWT verified under the suite key's public half
+ *  (ES256 — node needs the JOSE r‖s encoding named), its header and
+ *  claims checked against the seeded identity and the scheme's rules:
+ *  a UUID jti, exp − iat = the one-hour default, sub = the issuer. */
+function assertAsap(
+  echo: EchoAuthResponse,
+  expected: { publicKeyPem: string; issuer: string; audience: string; keyId: string },
+): void {
+  expect(echo.auth.kind).toBe('bearer');
+  const jwt = (echo.auth as { token: string }).token;
+  const [h, p, s] = jwt.split('.');
+  expect(s).toBeDefined();
+  const header = JSON.parse(Buffer.from(h ?? '', 'base64url').toString('utf8'));
+  const claims = JSON.parse(Buffer.from(p ?? '', 'base64url').toString('utf8'));
+  expect(header).toEqual({ typ: 'JWT', kid: expected.keyId, alg: 'ES256' });
+  expect(claims).toMatchObject({ iss: expected.issuer, sub: expected.issuer, aud: expected.audience });
+  expect(claims.exp - claims.iat).toBe(3600);
+  expect(claims.jti).toMatch(/^[0-9a-f-]{36}$/);
+  const key = createPublicKey(expected.publicKeyPem);
+  expect(
+    nodeVerify(
+      'sha256',
+      Buffer.from(`${h}.${p}`),
+      { key, dsaEncoding: 'ieee-p1363' },
+      Buffer.from(s ?? '', 'base64url'),
+    ),
+  ).toBe(true);
 }
 
 // ── EdgeGrid recompute ──────────────────────────────────────────────
