@@ -425,6 +425,12 @@ export interface DaemonSpineConfig {
    * honest refusal while the other token flows still run.
    */
   openExternalUrl?: (url: string) => Promise<void>;
+  /**
+   * Bring the host's own surface forward — called when the OAuth
+   * callback lands so the user returns from the browser without
+   * hunting for the window. Absent = no-op (headless hosts).
+   */
+  revealApp?: () => void;
   staticWeb?: {
     rootDir: string;
     /**
@@ -1176,7 +1182,11 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
             // redirect cannot beat it.
             const redirect = oauthCallback.awaitRedirect(state);
             await openExternalUrl(authUrl);
-            return redirect;
+            const responseUrl = await redirect;
+            // The callback landed — front the app so the user returns
+            // from the browser without hunting for the window.
+            config.revealApp?.();
+            return responseUrl;
           },
   });
 

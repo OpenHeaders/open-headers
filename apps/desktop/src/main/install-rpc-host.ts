@@ -432,6 +432,8 @@ export async function installRpcHost(): Promise<void> {
     // in the user's default browser and lands back on the spine's
     // loopback callback route.
     openExternalUrl: (url) => shell.openExternal(url),
+    // Front the workbench when the OAuth callback lands.
+    revealApp: () => revealAppSurface('workbench'),
     staticWeb: webRootPresent ? { rootDir: webRoot, enabled: () => serveWebApp } : undefined,
     // Composed only when the host binary is shipped — the identity
     // chain has no anchor without it. Signature enforcement follows the

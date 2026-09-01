@@ -464,6 +464,10 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.oauth.callbackTipAfterApi':
     '. The extension ID is the same; only the host + scheme differ.',
   'workbench.editors.request.oauth.authorizeUsingBrowser': 'Authorize using browser',
+  'workbench.editors.request.oauth.authorizeBrowserInfoSummary':
+    'Sign-in opens in your default browser — it holds your provider session, password manager, and passkeys, and identity providers block logins embedded inside apps (RFC 8252).',
+  'workbench.editors.request.oauth.authorizeBrowserInfoDetail':
+    'The provider sends the browser back to the Callback URL on the app’s backend port — changing the port in Settings changes the URL to register.',
   'workbench.editors.request.oauth.authUrl': 'Auth URL',
   'workbench.editors.request.oauth.accessTokenUrl': 'Access Token URL',
   'workbench.editors.request.oauth.clientId': 'Client ID',

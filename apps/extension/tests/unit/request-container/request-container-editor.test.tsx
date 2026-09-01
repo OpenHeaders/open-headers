@@ -960,6 +960,25 @@ describe('AuthorizationTab — the OAuth 2.0 editor on the sectioned anatomy', (
     expect(screen.queryByText('Refresh Token URL')).toBeNull();
   });
 
+  it('Authorize using browser renders only on the node runtime — checked, locked, with its (i)', () => {
+    const browser = renderTab(oauth2);
+    expect(screen.queryByText('Authorize using browser')).toBeNull();
+    browser.unmount();
+    registerCapability('requestRuntime', () => 'node');
+    try {
+      renderTab(oauth2);
+      const box = screen.getByRole('checkbox', { name: /Authorize using browser/ }) as HTMLInputElement;
+      expect(box.checked).toBe(true);
+      expect(box.disabled).toBe(true);
+      const popover = openPopover('About Authorize using browser');
+      expect(popover.textContent).toContain('default browser');
+      expect(popover.textContent).toContain('backend port');
+      closePopover();
+    } finally {
+      unregisterCapability('requestRuntime');
+    }
+  });
+
   it("the Client Secret (i) lights the token request's body field, or the Basic header per Client Authentication", () => {
     const body = renderTab(oauth2);
     const bodyPopover = openPopover('About Client Secret');
@@ -982,8 +1001,10 @@ describe('AuthorizationTab — the OAuth 2.0 editor on the sectioned anatomy', (
     header.unmount();
     renderTab({ ...oauth2, sendAs: 'query' });
     const queryPopover = openPopover('About Add authorization data to');
-    expect(litTexts(queryPopover)).toEqual(['query:', 'access_token=eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJqb2huLmRvZSJ9.SflKxw…']);
+    expect(litTexts(queryPopover)).toEqual([
+      'query:',
+      'access_token=eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJqb2huLmRvZSJ9.SflKxw…',
+    ]);
     closePopover();
   });
 });
-

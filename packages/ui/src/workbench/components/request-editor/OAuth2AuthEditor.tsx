@@ -21,6 +21,7 @@
 
 import { CopyOutlined } from '@ant-design/icons';
 import { useOAuthBundlesContext } from '@openheaders/ui/context';
+import { getCapability } from '@openheaders/core/capabilities';
 import { isExpired, secondsUntilExpiry } from '@openheaders/core/oauth';
 import type { OAuth2Auth } from '@openheaders/core/types';
 import { generateUid } from '@openheaders/core/utils';
@@ -269,11 +270,33 @@ const OAuth2AuthEditor: React.FC<OAuth2AuthEditorProps> = ({ auth, onChange }) =
                 }
               />
             </LabeledRow>
-            <div style={{ marginLeft: AUTH_LABEL_WIDTH + 12, marginTop: -4 }}>
-              <Checkbox disabled checked={false}>
-                {t('workbench.editors.request.oauth.authorizeUsingBrowser')}
-              </Checkbox>
-            </div>
+            {(getCapability('requestRuntime')?.() ?? 'browser') === 'node' && (
+              // The node hosts' one authorize path IS the browser (RFC
+              // 8252's external user agent) — the box states it, locked
+              // on; its (i) carries the why and the port binding. The
+              // extension's identity window is its own external agent,
+              // so no checkbox renders there.
+              <div
+                style={{
+                  marginLeft: AUTH_LABEL_WIDTH + 12,
+                  marginTop: -4,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 4,
+                }}
+              >
+                <Checkbox disabled checked>
+                  {t('workbench.editors.request.oauth.authorizeUsingBrowser')}
+                </Checkbox>
+                <InfoTrigger
+                  content={{
+                    title: t('workbench.editors.request.oauth.authorizeUsingBrowser'),
+                    summary: t('workbench.editors.request.oauth.authorizeBrowserInfoSummary'),
+                    description: t('workbench.editors.request.oauth.authorizeBrowserInfoDetail'),
+                  }}
+                />
+              </div>
+            )}
           </>
         )}
 

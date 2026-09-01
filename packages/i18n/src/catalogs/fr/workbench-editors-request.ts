@@ -521,6 +521,10 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.oauth.callbackTipAfterApi':
     ". L'ID de l'extension est le même ; seuls l'hôte et le schéma diffèrent.",
   'workbench.editors.request.oauth.authorizeUsingBrowser': 'Autoriser via le navigateur',
+  'workbench.editors.request.oauth.authorizeBrowserInfoSummary':
+    'La connexion s’ouvre dans votre navigateur par défaut — il détient votre session chez le fournisseur, votre gestionnaire de mots de passe et vos passkeys, et les fournisseurs d’identité bloquent les connexions intégrées aux applications (RFC 8252).',
+  'workbench.editors.request.oauth.authorizeBrowserInfoDetail':
+    'Le fournisseur renvoie le navigateur vers l’URL de rappel sur le port backend de l’application — changer le port dans les Réglages change l’URL à enregistrer.',
   'workbench.editors.request.oauth.authUrl': "URL d'autorisation",
   'workbench.editors.request.oauth.accessTokenUrl': "URL du jeton d'accès",
   'workbench.editors.request.oauth.clientId': 'ID client',

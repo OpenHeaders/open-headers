@@ -442,6 +442,10 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.oauth.callbackTipBeforeApi': '暴露了一个专用的重定向主机，即',
   'workbench.editors.request.oauth.callbackTipAfterApi': '。扩展 ID 相同；只有主机和协议不同。',
   'workbench.editors.request.oauth.authorizeUsingBrowser': '使用浏览器授权',
+  'workbench.editors.request.oauth.authorizeBrowserInfoSummary':
+    '登录在您的默认浏览器中打开 — 它保有您在提供商的会话、密码管理器和通行密钥，且身份提供商会阻止嵌入在应用内的登录（RFC 8252）。',
+  'workbench.editors.request.oauth.authorizeBrowserInfoDetail':
+    '提供商将浏览器重定向回应用后端端口上的回调 URL — 在设置中更改端口会改变需要注册的 URL。',
   'workbench.editors.request.oauth.authUrl': 'Auth URL',
   'workbench.editors.request.oauth.accessTokenUrl': 'Access Token URL',
   'workbench.editors.request.oauth.clientId': 'Client ID',

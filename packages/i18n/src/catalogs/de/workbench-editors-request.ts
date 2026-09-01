@@ -530,6 +530,10 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.oauth.callbackTipAfterApi':
     '. Die Erweiterungs-ID ist dieselbe; nur Host und Schema unterscheiden sich.',
   'workbench.editors.request.oauth.authorizeUsingBrowser': 'Mit dem Browser autorisieren',
+  'workbench.editors.request.oauth.authorizeBrowserInfoSummary':
+    'Die Anmeldung öffnet sich in Ihrem Standardbrowser — er hält Ihre Anbieter-Sitzung, Ihren Passwort-Manager und Ihre Passkeys, und Identitätsanbieter blockieren in Apps eingebettete Anmeldungen (RFC 8252).',
+  'workbench.editors.request.oauth.authorizeBrowserInfoDetail':
+    'Der Anbieter schickt den Browser zurück an die Callback-URL auf dem Backend-Port der App — eine Portänderung in den Einstellungen ändert die zu registrierende URL.',
   'workbench.editors.request.oauth.authUrl': 'Autorisierungs-URL',
   'workbench.editors.request.oauth.accessTokenUrl': 'Zugriffstoken-URL',
   'workbench.editors.request.oauth.clientId': 'Client ID',

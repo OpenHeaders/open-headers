@@ -514,6 +514,10 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.oauth.callbackTipAfterApi':
     '. El ID de la extensión es el mismo; solo cambian el host y el esquema.',
   'workbench.editors.request.oauth.authorizeUsingBrowser': 'Autorizar con el navegador',
+  'workbench.editors.request.oauth.authorizeBrowserInfoSummary':
+    'El inicio de sesión se abre en tu navegador predeterminado — conserva tu sesión con el proveedor, tu gestor de contraseñas y tus passkeys, y los proveedores de identidad bloquean los inicios de sesión incrustados en aplicaciones (RFC 8252).',
+  'workbench.editors.request.oauth.authorizeBrowserInfoDetail':
+    'El proveedor devuelve el navegador a la URL de retorno en el puerto del backend de la aplicación — cambiar el puerto en Ajustes cambia la URL a registrar.',
   'workbench.editors.request.oauth.authUrl': 'URL de autorización',
   'workbench.editors.request.oauth.accessTokenUrl': 'URL del token de acceso',
   'workbench.editors.request.oauth.clientId': 'Client ID',
