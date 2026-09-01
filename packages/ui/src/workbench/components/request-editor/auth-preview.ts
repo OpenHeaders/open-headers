@@ -116,6 +116,17 @@ export function previewAuthContributions(auth: AuthConfig, t: Translate): AuthPr
         ],
         params: [],
       };
+    case 'asap':
+      return {
+        headers: [
+          {
+            key: 'Authorization',
+            value: t('workbench.editors.request.authPreview.asapValue'),
+            hint: t('workbench.editors.request.authPreview.asapHint'),
+          },
+        ],
+        params: [],
+      };
     case 'edgegrid':
       return {
         headers: [

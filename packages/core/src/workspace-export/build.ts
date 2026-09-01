@@ -160,6 +160,12 @@ function stripConfigSecrets<A extends AuthConfig>(auth: A): A {
     // that ride the wire anyway and survive.
     return { ...auth, clientSecret: '' } as A;
   }
+  if (auth.type === 'asap') {
+    // The required `privateKey` is the signing material — blanks so
+    // the config stays schema-valid; the identifiers and claims
+    // survive.
+    return { ...auth, privateKey: '' } as A;
+  }
   if (auth.type === 'hawk') {
     // The required `authKey` is the HMAC key material — blanks so the
     // config stays schema-valid and the completeness gate walks the

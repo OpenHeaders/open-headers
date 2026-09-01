@@ -649,6 +649,35 @@ export const EdgeGridAuthSchema = v.object({
 });
 
 /**
+ * ASAP (Atlassian Service Authentication Protocol) — a JWT dialect
+ * minted per send: `kid` in the header, `iss` / `aud` / `sub` / `iat`
+ * / `exp` and a per-send `jti` nonce in the claims, delivered as
+ * `Authorization: Bearer`. Like JWT Bearer the token is derived at
+ * EXECUTE time over the resolved config; unlike it the nonce is
+ * minted per send (no template can), which is why the dialect is its
+ * own type. Asymmetric families only — the spec forbids HS. Pure
+ * WebCrypto — both runtimes sign, the type is not host-gated.
+ *
+ * `subject` blank = the issuer; `claims` is Additional-claims JSON
+ * that wins over the composed claims; `expiresInSeconds` absent = the
+ * scheme's one-hour default (its ceiling). Fields are plain strings
+ * (templates welcome — `{{vault.asap_key}}` is the expected idiom);
+ * completeness is a send-time gate, so partial configs stay saveable.
+ */
+export const AsapAuthSchema = v.object({
+  type: v.literal('asap'),
+  disabled: AuthDisabledSchema,
+  algorithm: v.picklist(['RS256', 'RS384', 'RS512', 'PS256', 'PS384', 'PS512', 'ES256', 'ES384', 'ES512']),
+  issuer: v.string(),
+  audience: v.string(),
+  keyId: v.string(),
+  privateKey: v.string(),
+  subject: v.optional(v.string()),
+  claims: v.optional(v.string()),
+  expiresInSeconds: v.optional(v.pipe(v.number(), v.integer(), v.minValue(1))),
+});
+
+/**
  * HTTP Digest authentication (RFC 7616 / 2617). Challenge/response —
  * only the credentials are configuration: realm, nonce, algorithm, and
  * qop all arrive on the server's 401 challenge at send time, so nothing
@@ -835,6 +864,7 @@ export const ConcreteAuthConfigSchema = v.variant('type', [
   OAuth2AuthSchema,
   AwsSigV4AuthSchema,
   EdgeGridAuthSchema,
+  AsapAuthSchema,
   DigestAuthSchema,
   OAuth1AuthSchema,
   HawkAuthSchema,

@@ -6,6 +6,7 @@
  */
 
 import type {
+  AsapCredentials,
   AwsSigV4Credentials,
   EdgeGridCredentials,
   HawkCredentials,
@@ -93,6 +94,13 @@ export interface ResolvedRequest {
    * — twin of the oracle resolver's carry.
    */
   edgegrid?: EdgeGridCredentials;
+  /**
+   * ASAP config, templates already resolved — present only when the
+   * effective auth is an enabled `asap` config. The token mints at
+   * the wire in {@link executeResolved} with a per-send `jti` — twin
+   * of the oracle resolver's carry.
+   */
+  asap?: AsapCredentials;
   /**
    * JWT Bearer config, templates already resolved — present only when
    * the effective auth is an enabled `jwt` config. The token mints at
@@ -293,6 +301,22 @@ export async function resolveRequest(
         }
       : undefined;
 
+  // ASAP config resolves here but mints at the wire — see
+  // {@link ResolvedRequest.asap}.
+  const asap: AsapCredentials | undefined =
+    effectiveAuth.type === 'asap' && !effectiveAuth.disabled
+      ? {
+          algorithm: effectiveAuth.algorithm,
+          issuer: resolveStr(effectiveAuth.issuer),
+          audience: resolveStr(effectiveAuth.audience),
+          keyId: resolveStr(effectiveAuth.keyId),
+          privateKey: resolveStr(effectiveAuth.privateKey),
+          ...(effectiveAuth.subject ? { subject: resolveStr(effectiveAuth.subject) } : {}),
+          ...(effectiveAuth.claims ? { claims: resolveStr(effectiveAuth.claims) } : {}),
+          ...(effectiveAuth.expiresInSeconds !== undefined ? { expiresInSeconds: effectiveAuth.expiresInSeconds } : {}),
+        }
+      : undefined;
+
   // JWT Bearer config resolves here but mints at the wire — see
   // {@link ResolvedRequest.jwt}.
   const jwt: JwtCredentials | undefined =
@@ -344,6 +368,7 @@ export async function resolveRequest(
       ...(oauth1 ? { oauth1 } : {}),
       ...(hawk ? { hawk } : {}),
       ...(edgegrid ? { edgegrid } : {}),
+      ...(asap ? { asap } : {}),
       ...(jwt ? { jwt } : {}),
       ...(authAttribution !== undefined ? { auth: authAttribution } : {}),
     },

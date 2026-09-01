@@ -1,3 +1,4 @@
+import { generateKeyPairSync, verify as nodeVerify } from 'node:crypto';
 import { signEdgeGrid } from '@openheaders/core/auth-signing';
 import type { Collection, Environment, Request, Vault, WorkspaceVariables } from '@openheaders/core/types';
 // Registers the `requests.*` setting definitions (import side effect) —
@@ -361,6 +362,47 @@ describe('RequestExecutor', () => {
     );
     expect(snapshot.error).toMatch(/^AWS SigV4 signing failed: no service name set/);
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('mints an asap bearer token at the wire with a fresh jti', async () => {
+    const { privateKey, publicKey } = generateKeyPairSync('ec', { namedCurve: 'P-256' });
+    await executeRequestDraft(
+      makeRequest({
+        headers: [{ uid: 'stalehdr', key: 'Authorization', value: 'Bearer stale-user-token' }],
+        auth: {
+          type: 'asap',
+          algorithm: 'ES256',
+          issuer: 'openheaders/service',
+          audience: 'api.openheaders.io',
+          keyId: 'openheaders/service/key-1',
+          privateKey: privateKey.export({ type: 'pkcs8', format: 'pem' }).toString(),
+          claims: '{"scope":"read"}',
+        },
+      }),
+    );
+    const [, init] = fetchMock.mock.calls[0];
+    const headers = init.headers as Headers;
+    const value = headers.get('authorization') ?? '';
+    expect(value.startsWith('Bearer ')).toBe(true);
+    expect(value).not.toContain('stale-user-token');
+    const [h, p, sig] = value.slice('Bearer '.length).split('.');
+    const claims = JSON.parse(Buffer.from(p ?? '', 'base64url').toString('utf8'));
+    expect(JSON.parse(Buffer.from(h ?? '', 'base64url').toString('utf8'))).toEqual({
+      typ: 'JWT',
+      kid: 'openheaders/service/key-1',
+      alg: 'ES256',
+    });
+    expect(claims).toMatchObject({ iss: 'openheaders/service', aud: 'api.openheaders.io', scope: 'read' });
+    expect(claims.exp - claims.iat).toBe(3600);
+    expect(claims.jti).toMatch(/^[0-9a-f-]{36}$/);
+    expect(
+      nodeVerify(
+        'sha256',
+        Buffer.from(`${h}.${p}`),
+        { key: publicKey, dsaEncoding: 'ieee-p1363' },
+        Buffer.from(sig ?? '', 'base64url'),
+      ),
+    ).toBe(true);
   });
 
   it('signs edgegrid requests at the wire over the listed header and the POST body', async () => {

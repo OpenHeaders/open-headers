@@ -41,6 +41,7 @@ export type GroupedAuthType =
   | 'api-key'
   | 'aws-sigv4'
   | 'edgegrid'
+  | 'asap'
   | 'digest'
   | 'oauth1'
   | 'hawk'
@@ -53,6 +54,7 @@ export const AUTH_TYPE_GROUPS: Record<GroupedAuthType, readonly AuthGroupKey[]> 
   'api-key': ['credentials', 'delivery'],
   'aws-sigv4': ['credentials', 'signing', 'delivery'],
   edgegrid: ['credentials', 'signing'],
+  asap: ['signing', 'token'],
   digest: ['credentials', 'challenge'],
   oauth1: ['signing', 'consumer', 'token', 'delivery'],
   hawk: ['credentials', 'signing', 'attributes'],

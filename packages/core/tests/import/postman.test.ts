@@ -1482,6 +1482,87 @@ describe('request mapping — auth', () => {
     expect(transform?.tracking).toBe('PERMANENT: jwt token query key');
   });
 
+  it('maps asap end to end — the claims object lands as JSON text, the expiry as seconds', () => {
+    const result = parsePostman(
+      postmanCollection({
+        item: [
+          {
+            name: 'X',
+            request: {
+              method: 'GET',
+              url: 'https://api.openheaders.io/x',
+              auth: {
+                type: 'asap',
+                asap: [
+                  { key: 'alg', value: 'es256' },
+                  { key: 'kid', value: 'openheaders/service/key-1' },
+                  { key: 'iss', value: 'openheaders/service' },
+                  { key: 'aud', value: 'api.openheaders.io' },
+                  { key: 'sub', value: 'svc-user' },
+                  { key: 'privateKey', value: '{{vault.asap_key}}' },
+                  { key: 'exp', value: '600' },
+                  { key: 'claims', value: { scope: 'read' }, type: 'any' } as unknown as { key: string; value: string },
+                ],
+              },
+            },
+          },
+        ],
+      }),
+    );
+    expect(result.requests[0]?.request.auth).toEqual({
+      type: 'asap',
+      algorithm: 'ES256',
+      issuer: 'openheaders/service',
+      audience: 'api.openheaders.io',
+      keyId: 'openheaders/service/key-1',
+      privateKey: '{{vault.asap_key}}',
+      subject: 'svc-user',
+      claims: '{"scope":"read"}',
+      expiresInSeconds: 600,
+    });
+    expect(result.report.drops).toEqual([]);
+    expect(result.report.transforms).toEqual([]);
+  });
+
+  it('folds an unsupported asap algorithm to RS256 with a transform; an empty block lands empty', () => {
+    const hs = parsePostman(
+      postmanCollection({
+        item: [
+          {
+            name: 'X',
+            request: {
+              method: 'GET',
+              url: 'https://api.openheaders.io/x',
+              auth: {
+                type: 'asap',
+                asap: [
+                  { key: 'alg', value: 'HS256' },
+                  { key: 'claims', value: '{}' },
+                ],
+              },
+            },
+          },
+        ],
+      }),
+    );
+    expect(hs.requests[0]?.request.auth).toEqual({
+      type: 'asap',
+      algorithm: 'RS256',
+      issuer: '',
+      audience: '',
+      keyId: '',
+      privateKey: '',
+    });
+    expect(hs.report.transforms.map((t) => t.tracking)).toEqual(['PERMANENT: asap asymmetric algorithms only']);
+    const empty = parsePostman(
+      postmanCollection({
+        item: [{ name: 'X', request: { method: 'GET', url: 'https://api.openheaders.io/x', auth: { type: 'asap' } } }],
+      }),
+    );
+    expect(empty.requests[0]?.request.auth).toMatchObject({ type: 'asap', algorithm: 'RS256' });
+    expect(empty.report.transforms).toEqual([]);
+  });
+
   it('maps edgegrid end to end — the header list and body window kept, nonce / timestamp shed, Base URL named', () => {
     const result = parsePostman(
       postmanCollection({

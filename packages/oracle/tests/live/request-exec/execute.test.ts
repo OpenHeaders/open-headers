@@ -5,7 +5,7 @@
  * Exercised with a fake transport that captures what it was handed.
  */
 
-import { createHmac } from 'node:crypto';
+import { createHmac, generateKeyPairSync, verify as nodeVerify } from 'node:crypto';
 import {
   type HawkCredentials,
   type JwtCredentials,
@@ -665,6 +665,46 @@ describe('executeOverTransport', () => {
     expect(snap.error).toBeNull();
     expect(snap.status).toBe(500);
     expect(snap.body).toBe('boom');
+  });
+});
+
+describe('executeOverTransport — ASAP minting', () => {
+  it('mints a bearer JWT with the composed claims and a fresh jti, replacing a user Authorization row', async () => {
+    const { privateKey, publicKey } = generateKeyPairSync('ec', { namedCurve: 'P-256' });
+    const { transport, sent } = captureTransport();
+    const snap = await executeOverTransport(
+      makeResolved({
+        asap: {
+          algorithm: 'ES256',
+          issuer: 'openheaders/service',
+          audience: 'api.openheaders.io',
+          keyId: 'openheaders/service/key-1',
+          privateKey: privateKey.export({ type: 'pkcs8', format: 'pem' }).toString(),
+          expiresInSeconds: 600,
+        },
+        headers: [{ key: 'Authorization', value: 'Bearer stale-user-token' }],
+      }),
+      transport,
+    );
+    expect(snap.error).toBeNull();
+    const auth = sent().headers.filter((h) => h.key.toLowerCase() === 'authorization');
+    expect(auth).toHaveLength(1);
+    const jwt = (auth[0]?.value ?? '').replace(/^Bearer /, '');
+    const [h, p, sig] = jwt.split('.');
+    const header = JSON.parse(Buffer.from(h ?? '', 'base64url').toString('utf8'));
+    const claims = JSON.parse(Buffer.from(p ?? '', 'base64url').toString('utf8'));
+    expect(header).toEqual({ typ: 'JWT', kid: 'openheaders/service/key-1', alg: 'ES256' });
+    expect(claims).toMatchObject({ iss: 'openheaders/service', sub: 'openheaders/service', aud: 'api.openheaders.io' });
+    expect(claims.exp - claims.iat).toBe(600);
+    expect(claims.jti).toMatch(/^[0-9a-f-]{36}$/);
+    expect(
+      nodeVerify(
+        'sha256',
+        Buffer.from(`${h}.${p}`),
+        { key: publicKey, dsaEncoding: 'ieee-p1363' },
+        Buffer.from(sig ?? '', 'base64url'),
+      ),
+    ).toBe(true);
   });
 });
 

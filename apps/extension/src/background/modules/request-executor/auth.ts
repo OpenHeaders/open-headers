@@ -85,6 +85,12 @@ export async function applyAuth(
     // only resolves the credential templates. Twin of the oracle arm.
     return;
   }
+  if (auth.type === 'asap') {
+    // Nothing folds here — the ASAP token mints at the wire in
+    // `executeResolved` (see ResolvedRequest.asap); the resolver only
+    // resolves the config templates. Twin of the oracle arm.
+    return;
+  }
   if (auth.type === 'jwt') {
     // Nothing folds here — the JWT mints at the wire in
     // `executeResolved` (see ResolvedRequest.jwt); the resolver only

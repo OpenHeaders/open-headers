@@ -93,6 +93,16 @@ export function collectRequestTemplateStrings(request: Request): string[] {
       if (request.auth.clientSecret) out.push(request.auth.clientSecret);
       if (request.auth.headersToSign) out.push(request.auth.headersToSign);
       break;
+    case 'asap':
+      // Every string field is templatable — `{{vault.asap_key}}` for
+      // the key material, a templated claims JSON for the rest.
+      if (request.auth.issuer) out.push(request.auth.issuer);
+      if (request.auth.audience) out.push(request.auth.audience);
+      if (request.auth.keyId) out.push(request.auth.keyId);
+      if (request.auth.privateKey) out.push(request.auth.privateKey);
+      if (request.auth.subject) out.push(request.auth.subject);
+      if (request.auth.claims) out.push(request.auth.claims);
+      break;
     case 'hawk':
       // Credential fields are templatable — `{{vault.hawk_key}}` is
       // the expected idiom for the key material.

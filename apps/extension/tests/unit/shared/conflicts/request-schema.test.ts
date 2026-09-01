@@ -105,6 +105,32 @@ describe('REQUEST_SCHEMA — Auth (OAuth2 password-credentials) per-leaf', () =>
   });
 });
 
+describe('REQUEST_SCHEMA — Auth (ASAP) per-leaf', () => {
+  const req = baseRequest({
+    auth: {
+      type: 'asap',
+      algorithm: 'ES256',
+      issuer: 'openheaders/service',
+      audience: 'api.openheaders.io',
+      keyId: 'openheaders/service/key-1',
+      privateKey: '{{vault.asap_key}}',
+      claims: '{"scope":"read"}',
+      expiresInSeconds: 600,
+    } as AuthConfig,
+  });
+
+  it('emits per-leaf paths for the ASAP fields', () => {
+    const baseline = adapter.tracking.extractBaseline(req);
+    expect(baseline['auth.algorithm']).toBe('ES256');
+    expect(baseline['auth.issuer']).toBe('openheaders/service');
+    expect(baseline['auth.keyId']).toBe('openheaders/service/key-1');
+    expect(baseline['auth.privateKey']).toBe('{{vault.asap_key}}');
+    expect(baseline['auth.claims']).toBe('{"scope":"read"}');
+    expect(baseline['auth.expiresInSeconds']).toBe('600');
+    expect(baseline['union:auth']).toContain('"kind":"asap"');
+  });
+});
+
 describe('REQUEST_SCHEMA — Auth (EdgeGrid) per-leaf', () => {
   const req = baseRequest({
     auth: {

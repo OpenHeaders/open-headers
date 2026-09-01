@@ -20,6 +20,7 @@
 
 import type * as v from 'valibot';
 import type {
+  AsapAuthSchema,
   AuthConfigSchema,
   AwsSigV4AuthSchema,
   BodyTypeSchema,
@@ -73,6 +74,7 @@ export type AuthType =
   | 'oauth2'
   | 'aws-sigv4'
   | 'edgegrid'
+  | 'asap'
   | 'digest'
   | 'oauth1'
   | 'hawk'
@@ -86,6 +88,7 @@ export type OAuth2Flow = v.InferOutput<typeof OAuth2FlowSchema>;
 export type OAuth2Auth = v.InferOutput<typeof OAuth2AuthSchema>;
 export type AwsSigV4Auth = v.InferOutput<typeof AwsSigV4AuthSchema>;
 export type EdgeGridAuth = v.InferOutput<typeof EdgeGridAuthSchema>;
+export type AsapAuth = v.InferOutput<typeof AsapAuthSchema>;
 export type DigestAuth = v.InferOutput<typeof DigestAuthSchema>;
 export type OAuth1Auth = v.InferOutput<typeof OAuth1AuthSchema>;
 export type HawkAuth = v.InferOutput<typeof HawkAuthSchema>;

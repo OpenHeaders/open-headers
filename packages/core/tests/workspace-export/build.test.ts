@@ -304,6 +304,38 @@ describe('buildWorkspaceExport — strip rules', () => {
     expect(builtAuth.region).toBe('us-east-1');
   });
 
+  it('blanks the ASAP privateKey and keeps the identifiers and claims', () => {
+    const input = baseInput();
+    input.entities.requests = [
+      makeRequest({
+        auth: {
+          type: 'asap',
+          algorithm: 'ES256',
+          issuer: 'openheaders/service',
+          audience: 'api.openheaders.io',
+          keyId: 'openheaders/service/key-1',
+          privateKey: 'super-sensitive-DO-NOT-EXPORT',
+          subject: 'svc-user',
+          claims: '{"scope":"read"}',
+          expiresInSeconds: 600,
+        },
+      }),
+    ];
+
+    const exp = buildWorkspaceExport(input);
+    expect(exp.entities.requests[0].auth).toEqual({
+      type: 'asap',
+      algorithm: 'ES256',
+      issuer: 'openheaders/service',
+      audience: 'api.openheaders.io',
+      keyId: 'openheaders/service/key-1',
+      privateKey: '',
+      subject: 'svc-user',
+      claims: '{"scope":"read"}',
+      expiresInSeconds: 600,
+    });
+  });
+
   it('blanks the EdgeGrid clientSecret and keeps the tokens, header list and body window', () => {
     const input = baseInput();
     input.entities.requests = [

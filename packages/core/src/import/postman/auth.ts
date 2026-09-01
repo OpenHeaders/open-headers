@@ -1,3 +1,4 @@
+import { isAsapAlgorithm } from '../../auth-signing/asap';
 import { isJwtAlgorithm } from '../../auth-signing/jwt';
 import type { OAuth1SignatureMethod } from '../../auth-signing/oauth1';
 import type { AuthConfig, RequestHeader } from '../../types/request';
@@ -281,6 +282,40 @@ export function resolveAuth(
       });
       return { auth: concreteFallback(fallback), report };
     }
+    case 'asap': {
+      const params = asParams(raw.asap);
+      // The vendor's param names map one-to-one; the claims object
+      // (array form) or JSON string (object form) lands as JSON text;
+      // the expiry is seconds. An algorithm outside the asymmetric
+      // nine (the spec's rule) folds to RS256 with a transform.
+      const rawAlgorithm = paramValue(params, 'alg')?.trim().toUpperCase();
+      if (rawAlgorithm !== undefined && rawAlgorithm !== '' && !isAsapAlgorithm(rawAlgorithm)) {
+        recordTransform(report, {
+          path: authPath,
+          from: `asap/${rawAlgorithm}`,
+          to: 'asap/RS256',
+          reason: `ASAP was set to the unsupported "${rawAlgorithm}" algorithm — imported as RS256 (the scheme's default).`,
+          tracking: 'PERMANENT: asap asymmetric algorithms only',
+        });
+      }
+      const subject = paramValue(params, 'sub')?.trim();
+      const claims = paramJson(params, 'claims');
+      const expiry = Number.parseInt(paramValue(params, 'exp') ?? '', 10);
+      return {
+        auth: {
+          type: 'asap',
+          algorithm: isAsapAlgorithm(rawAlgorithm) ? rawAlgorithm : 'RS256',
+          issuer: paramValue(params, 'iss') ?? '',
+          audience: paramValue(params, 'aud') ?? '',
+          keyId: paramValue(params, 'kid') ?? '',
+          privateKey: paramValue(params, 'privateKey') ?? '',
+          ...(subject ? { subject } : {}),
+          ...(claims ? { claims } : {}),
+          ...(Number.isInteger(expiry) && expiry > 0 ? { expiresInSeconds: expiry } : {}),
+        },
+        report,
+      };
+    }
     case 'edgegrid': {
       const params = asParams(raw.edgegrid);
       // A pinned nonce / timestamp is re-minted on the next live sign
@@ -387,6 +422,17 @@ function asParams(x: unknown): PostmanAuthParam[] {
 function paramValue(params: PostmanAuthParam[], key: string): string | undefined {
   const hit = params.find((p) => p.key === key);
   return typeof hit?.value === 'string' ? hit.value : undefined;
+}
+
+/** JSON-ish auth param — the array form's real object, or the object
+ *  form's JSON text; normalized to JSON text, absent when empty. */
+function paramJson(params: PostmanAuthParam[], key: string): string | undefined {
+  const value: unknown = params.find((p) => p.key === key)?.value;
+  if (value !== null && typeof value === 'object') {
+    return Object.keys(value as object).length > 0 ? JSON.stringify(value) : undefined;
+  }
+  const text = typeof value === 'string' ? value.trim() : '';
+  return text !== '' && text !== '{}' ? text : undefined;
 }
 
 /** List-ish auth param — a comma-separated string, or the array form's

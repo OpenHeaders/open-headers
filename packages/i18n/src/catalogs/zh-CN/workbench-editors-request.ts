@@ -156,6 +156,9 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.authPreview.edgeGridValue': 'EG1-HMAC-SHA256 <已签名参数>',
   'workbench.editors.request.authPreview.edgeGridHint':
     '由\u201c授权\u201d标签生成（Akamai EdgeGrid）。发送请求时用您的凭据签名。',
+  'workbench.editors.request.authPreview.asapValue': 'Bearer <已签名 JWT>',
+  'workbench.editors.request.authPreview.asapHint':
+    '由\u201c授权\u201d标签生成（ASAP）。发送请求时用您的私钥签发新令牌并加入此标头。',
   'workbench.editors.request.authPreview.digestValue': 'Digest <challenge response>',
   'workbench.editors.request.authPreview.digestHint':
     '由授权标签页生成（Digest Auth）。发送请求时根据服务器的质询计算该值，然后带上它重新发送请求。',
@@ -301,6 +304,21 @@ export const workbenchEditorsRequest = {
     '参与签名的标头名，逗号分隔，按签名顺序；请求中缺少的所列标头会被跳过，未列出的标头永不签名。',
   'workbench.editors.request.auth.rowInfo.edgeGridMaxBodySize':
     '内容哈希覆盖的 POST 正文字节窗口；留空 = 方案的 131072。',
+  'workbench.editors.request.auth.typeInfo.asap':
+    '每次发送铸造一个新 JWT——签发者、受众和主题作为声明，iat / exp 取自时钟，唯一的 jti nonce——以私钥在 kid 标头下签名并作为 bearer 令牌发送；私钥永不发送。',
+  'workbench.editors.request.auth.groupInfo.asap.signing':
+    'JWT 标头中指定的非对称算法族、接收方据以查找公钥的 Key ID，以及用于签名的私钥。',
+  'workbench.editors.request.auth.groupInfo.asap.token':
+    '令牌声明的内容——谁签发、给谁、代表谁、附加声明以及有效期（默认为方案的一小时上限）。',
+  'workbench.editors.request.auth.rowInfo.asapAlgorithm': '在标头中指定签名算法族；方案不允许 HS。',
+  'workbench.editors.request.auth.rowInfo.asapKeyId': '以 kid 发送——按方案布局为 签发者/密钥名；接收方据此获取公钥。',
+  'workbench.editors.request.auth.rowInfo.asapPrivateKey':
+    '用于签名的 PEM（或 Atlassian 的 data:application/pkcs8 形式）；永不发送。',
+  'workbench.editors.request.auth.rowInfo.asapIssuer': '已注册的服务标识——以 iss 发送。',
+  'workbench.editors.request.auth.rowInfo.asapAudience': '令牌的接收方——以 aud 发送；数组可通过附加声明提供。',
+  'workbench.editors.request.auth.rowInfo.asapSubject': '代表谁——以 sub 发送；留空则发送签发者。',
+  'workbench.editors.request.auth.rowInfo.asapClaims': '最后合并的附加声明——覆盖所有组合声明，包括 jti / iat / exp。',
+  'workbench.editors.request.auth.rowInfo.asapExpiresIn': '以 exp \u2212 iat 标记的有效期；留空 = 3600，即方案上限。',
   'workbench.editors.request.auth.typeInfo.oauth2':
     '客户端从提供方获取访问令牌 \u2014 先在浏览器中授权再交换令牌，或对机器与密码授权直接交换 \u2014 每次发送都以 bearer 令牌携带；若签发了刷新令牌，过期时自动刷新。',
   'workbench.editors.request.auth.groupInfo.oauth2.token':
@@ -354,6 +372,7 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.auth.type.oauth2': 'OAuth 2.0',
   'workbench.editors.request.auth.type.awsSigV4': 'AWS Signature v4',
   'workbench.editors.request.auth.type.edgeGrid': 'Akamai EdgeGrid',
+  'workbench.editors.request.auth.type.asap': 'ASAP (Atlassian)',
   'workbench.editors.request.auth.type.digest': 'Digest Auth',
   'workbench.editors.request.auth.type.oauth1': 'OAuth 1.0',
   'workbench.editors.request.auth.type.hawk': 'Hawk Authentication',
@@ -453,6 +472,22 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.auth.edgeGridClientSecretPlaceholder': 'client secret',
   'workbench.editors.request.auth.edgeGridHeadersToSignPlaceholder': '可选——逗号分隔，例如 X-Test1, X-Test2',
   'workbench.editors.request.auth.edgeGridMaxBodySizePlaceholder': '131072',
+  'workbench.editors.request.auth.asapAlgorithm': '算法',
+  'workbench.editors.request.auth.asapKeyId': 'Key ID',
+  'workbench.editors.request.auth.asapPrivateKey': '私钥',
+  'workbench.editors.request.auth.asapIssuer': '签发者',
+  'workbench.editors.request.auth.asapAudience': '受众',
+  'workbench.editors.request.auth.asapSubject': '主题',
+  'workbench.editors.request.auth.asapClaims': '附加声明',
+  'workbench.editors.request.auth.asapExpiresIn': '过期（秒）',
+  'workbench.editors.request.auth.asapKeyIdPlaceholder': '例如 my-service/key-1',
+  'workbench.editors.request.auth.asapPrivateKeyPlaceholder':
+    '-----BEGIN PRIVATE KEY----- \u2026 或 data:application/pkcs8 形式',
+  'workbench.editors.request.auth.asapIssuerPlaceholder': '例如 my-service',
+  'workbench.editors.request.auth.asapAudiencePlaceholder': '例如 api.openheaders.io',
+  'workbench.editors.request.auth.asapSubjectPlaceholder': '可选——留空则发送签发者',
+  'workbench.editors.request.auth.asapClaimsPlaceholder': '可选——JSON，例如 {"scope":"read"}',
+  'workbench.editors.request.auth.asapExpiresInPlaceholder': '3600',
   'workbench.editors.request.auth.sendAsLabel': '将授权数据添加到',
   'workbench.editors.request.auth.sendAsHeaders': '请求标头',
   'workbench.editors.request.auth.sendAsUrl': '请求 URL',

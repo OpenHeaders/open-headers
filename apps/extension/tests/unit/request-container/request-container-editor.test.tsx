@@ -302,6 +302,7 @@ describe('RequestContainerEditor — the empty state', () => {
       'oauth2',
       'aws-sigv4',
       'edgegrid',
+      'asap',
       'none',
     ]);
     fireEvent.click(cards.find((c) => c.getAttribute('data-type') === 'bearer') as HTMLElement);
@@ -796,8 +797,9 @@ describe('AuthorizationTab — the request-level Inherit pane', () => {
     expect(options[0].textContent).toBe('Admin tokenDefault');
     expect(options[1].textContent).toBe('User token');
     expect(options[2].textContent).toBe('API Key');
-    expect(options[options.length - 3].textContent).toBe('AWS Signature v4');
-    expect(options[options.length - 2].textContent).toBe('Akamai EdgeGrid');
+    expect(options[options.length - 4].textContent).toBe('AWS Signature v4');
+    expect(options[options.length - 3].textContent).toBe('Akamai EdgeGrid');
+    expect(options[options.length - 2].textContent).toBe('ASAP (Atlassian)');
     expect(options[options.length - 1].textContent).toBe('No Auth');
     fireEvent.click(options[1]);
     expect(onChange).toHaveBeenCalledWith({ type: 'inherit', authUid: 'user0001' });
@@ -959,6 +961,40 @@ describe('AuthorizationTab — sectioned forms and the (i) popovers', () => {
     closePopover();
   });
 
+  it('ASAP reads as Signing · Token; the private key lights the signature, the claims their token', () => {
+    const onChange = vi.fn();
+    const asap: AuthConfig = {
+      type: 'asap',
+      algorithm: 'RS256',
+      issuer: '',
+      audience: '',
+      keyId: '',
+      privateKey: '',
+    };
+    const first = render(<AuthorizationTab auth={asap} onChange={onChange} />);
+    expect(screen.getByRole('button', { name: 'Signing' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Token' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Delivery' })).toBeNull();
+    expect(screen.getByTestId('oh-auth-asap-algorithm').textContent).toContain('RS256');
+    const type = openPopover('About ASAP (Atlassian)');
+    expect(litTexts(type)).toEqual(['Authorization: Bearer']);
+    closePopover();
+    first.unmount();
+    const second = render(<AuthorizationTab auth={asap} onChange={onChange} />);
+    const key = openPopover('About Private Key');
+    expect(key.querySelector('.oh-info-popover-kicker')?.textContent).toBe('Signing');
+    expect(litTexts(key)).toEqual(['signature ← private key']);
+    closePopover();
+    second.unmount();
+    // The Additional Claims popover forces its token into the JWT line.
+    render(<AuthorizationTab auth={{ ...asap, expiresInSeconds: 600 }} onChange={onChange} />);
+    const claims = openPopover('About Additional Claims');
+    expect(litTexts(claims)).toEqual(['scope: read']);
+    expect(claims.textContent).toContain('jti: 6f1c2a0e-…');
+    expect(claims.textContent).toContain('exp: 1353832834');
+    closePopover();
+  });
+
   it("the pool entry pane's type select opens the compact sectioned popup — every type in view, two dividers", async () => {
     requestsState = {
       ...requestsState,
@@ -971,15 +1007,16 @@ describe('AuthorizationTab — sectioned forms and the (i) popovers', () => {
     await waitFor(() => expect(document.querySelector('.oh-auth-type-popup')).toBeTruthy());
     const popup = document.querySelector('.oh-auth-type-popup');
     if (!popup) throw new Error('no popup');
-    // No virtual window: all eleven types are in the DOM at once; the
+    // No virtual window: all twelve types are in the DOM at once; the
     // two label-less groups are the section dividers (vendor, none).
-    expect(popup.querySelectorAll('.ant-select-item-option')).toHaveLength(11);
+    expect(popup.querySelectorAll('.ant-select-item-option')).toHaveLength(12);
     expect(popup.querySelectorAll('.ant-select-item-group')).toHaveLength(2);
     const labels = Array.from(popup.querySelectorAll('.ant-select-item-option')).map((el) => el.textContent);
     expect(labels[0]).toBe('API Key');
     expect(labels[8]).toBe('AWS Signature v4');
     expect(labels[9]).toBe('Akamai EdgeGrid');
-    expect(labels[10]).toBe('No Auth');
+    expect(labels[10]).toBe('ASAP (Atlassian)');
+    expect(labels[11]).toBe('No Auth');
     fireEvent.keyDown(input, { key: 'Escape' });
   });
 

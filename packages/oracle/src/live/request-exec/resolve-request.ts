@@ -13,6 +13,7 @@
  */
 
 import type {
+  AsapCredentials,
   AwsSigV4Credentials,
   DigestCredentials,
   EdgeGridCredentials,
@@ -174,6 +175,12 @@ export interface ResolvedRequest {
    * the final wire shape, never here.
    */
   edgegrid?: EdgeGridCredentials;
+  /**
+   * ASAP config, templates already resolved — present only when the
+   * effective auth is an enabled `asap` config. The token mints at
+   * EXECUTE time with a per-send `jti`, never here.
+   */
+  asap?: AsapCredentials;
   /**
    * JWT Bearer config, templates already resolved — present only when
    * the effective auth is an enabled `jwt` config. Like the other
@@ -376,6 +383,22 @@ export async function resolveRequest(
         }
       : undefined;
 
+  // ASAP config resolves here but mints at execute time — see
+  // {@link ResolvedRequest.asap}.
+  const asap: AsapCredentials | undefined =
+    effectiveAuth.type === 'asap' && !effectiveAuth.disabled
+      ? {
+          algorithm: effectiveAuth.algorithm,
+          issuer: resolveStr(effectiveAuth.issuer),
+          audience: resolveStr(effectiveAuth.audience),
+          keyId: resolveStr(effectiveAuth.keyId),
+          privateKey: resolveStr(effectiveAuth.privateKey),
+          ...(effectiveAuth.subject ? { subject: resolveStr(effectiveAuth.subject) } : {}),
+          ...(effectiveAuth.claims ? { claims: resolveStr(effectiveAuth.claims) } : {}),
+          ...(effectiveAuth.expiresInSeconds !== undefined ? { expiresInSeconds: effectiveAuth.expiresInSeconds } : {}),
+        }
+      : undefined;
+
   // JWT Bearer config resolves here but mints at execute time — see
   // {@link ResolvedRequest.jwt}.
   const jwt: JwtCredentials | undefined =
@@ -468,6 +491,7 @@ export async function resolveRequest(
       ...(oauth1 ? { oauth1 } : {}),
       ...(hawk ? { hawk } : {}),
       ...(edgegrid ? { edgegrid } : {}),
+      ...(asap ? { asap } : {}),
       ...(jwt ? { jwt } : {}),
       ...(authAttribution !== undefined ? { auth: authAttribution } : {}),
     },
@@ -561,6 +585,12 @@ export async function applyAuth(
     // Nothing folds here — EdgeGrid signs the FINAL wire shape at
     // execute time (see ResolvedRequest.edgegrid); the resolver only
     // resolves the credential templates.
+    return;
+  }
+  if (auth.type === 'asap') {
+    // Nothing folds here — the ASAP token mints at execute time (see
+    // ResolvedRequest.asap); the resolver only resolves the config
+    // templates.
     return;
   }
   if (auth.type === 'jwt') {

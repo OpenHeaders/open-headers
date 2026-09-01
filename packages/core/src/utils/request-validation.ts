@@ -113,6 +113,16 @@ function isRequestCompleteUnsafe(
       return (
         auth.clientToken.trim().length > 0 && auth.accessToken.trim().length > 0 && auth.clientSecret.trim().length > 0
       );
+    case 'asap':
+      // The reference's own validation: the issuer, audience and key
+      // id ride as claims / the kid header, the private key signs.
+      // Subject defaults to the issuer; the expiry to one hour.
+      return (
+        auth.issuer.trim().length > 0 &&
+        auth.audience.trim().length > 0 &&
+        auth.keyId.trim().length > 0 &&
+        auth.privateKey.trim().length > 0
+      );
     case 'digest':
       // Mirrors basic: username is the non-negotiable bit; password may
       // legitimately be blank. Everything else (realm, nonce, algorithm,
@@ -156,6 +166,10 @@ export type RequestIncompleteReason =
   | 'edgegrid-missing-client-token'
   | 'edgegrid-missing-access-token'
   | 'edgegrid-missing-client-secret'
+  | 'asap-missing-issuer'
+  | 'asap-missing-audience'
+  | 'asap-missing-key-id'
+  | 'asap-missing-private-key'
   | 'digest-missing-username'
   | 'oauth1-missing-consumer-key'
   | 'oauth1-missing-private-key'
@@ -234,6 +248,12 @@ export function requestIncompleteReason(
       if (!auth.clientToken.trim()) return 'edgegrid-missing-client-token';
       if (!auth.accessToken.trim()) return 'edgegrid-missing-access-token';
       if (!auth.clientSecret.trim()) return 'edgegrid-missing-client-secret';
+      return null;
+    case 'asap':
+      if (!auth.issuer.trim()) return 'asap-missing-issuer';
+      if (!auth.audience.trim()) return 'asap-missing-audience';
+      if (!auth.keyId.trim()) return 'asap-missing-key-id';
+      if (!auth.privateKey.trim()) return 'asap-missing-private-key';
       return null;
     case 'digest':
       return auth.username.trim().length > 0 ? null : 'digest-missing-username';

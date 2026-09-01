@@ -139,6 +139,9 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.authPreview.edgeGridValue': 'EG1-HMAC-SHA256 <signed parameters>',
   'workbench.editors.request.authPreview.edgeGridHint':
     'Generated from the Authorization tab (Akamai EdgeGrid). The request is signed with your credentials when it is sent.',
+  'workbench.editors.request.authPreview.asapValue': 'Bearer <signed JWT>',
+  'workbench.editors.request.authPreview.asapHint':
+    'Generated from the Authorization tab (ASAP). A fresh token is signed with your private key and added to this header when the request is sent.',
   'workbench.editors.request.authPreview.digestValue': 'Digest <challenge response>',
   'workbench.editors.request.authPreview.digestHint':
     'Generated from the Authorization tab (Digest Auth). The value is computed from the server’s challenge when the request is sent, then the request is resent with it.',
@@ -313,6 +316,26 @@ export const workbenchEditorsRequest = {
     'Header names folded into the signature, comma-separated, in signing order; a listed header the request lacks is skipped and unlisted headers never sign.',
   'workbench.editors.request.auth.rowInfo.edgeGridMaxBodySize':
     'The byte window of a POST body the content hash covers; blank = the scheme\u2019s 131072.',
+  'workbench.editors.request.auth.typeInfo.asap':
+    'A fresh JWT is minted per send \u2014 the issuer, audience and subject as claims, iat / exp from the clock, a unique jti nonce \u2014 signed with the private key under the kid header and delivered as a bearer token; the key never rides.',
+  'workbench.editors.request.auth.groupInfo.asap.signing':
+    'The asymmetric family named in the JWT header, the key id the receiver looks the public key up by, and the private key that signs.',
+  'workbench.editors.request.auth.groupInfo.asap.token':
+    'What the token claims \u2014 who issued it, for whom, on whose behalf, any extra claims, and how long it lives (the scheme\u2019s one-hour ceiling by default).',
+  'workbench.editors.request.auth.rowInfo.asapAlgorithm':
+    'Names the signing family in the header; HS is not allowed by the scheme.',
+  'workbench.editors.request.auth.rowInfo.asapKeyId':
+    'Rides as kid \u2014 issuer/key-name by the scheme\u2019s layout; the receiver fetches the public key by it.',
+  'workbench.editors.request.auth.rowInfo.asapPrivateKey':
+    'The PEM (or Atlassian\u2019s data:application/pkcs8 form) that signs; it never rides.',
+  'workbench.editors.request.auth.rowInfo.asapIssuer': 'The registered service identifier \u2014 rides as iss.',
+  'workbench.editors.request.auth.rowInfo.asapAudience':
+    'Who the token is for \u2014 rides as aud; an array via Additional Claims.',
+  'workbench.editors.request.auth.rowInfo.asapSubject': 'On whose behalf \u2014 rides as sub; blank sends the issuer.',
+  'workbench.editors.request.auth.rowInfo.asapClaims':
+    'Extra claims merged last \u2014 they win over every composed claim, jti / iat / exp included.',
+  'workbench.editors.request.auth.rowInfo.asapExpiresIn':
+    'The lifetime stamped as exp \u2212 iat; blank = 3600, the scheme\u2019s ceiling.',
   'workbench.editors.request.auth.typeInfo.oauth2':
     'The client obtains an access token from the provider \u2014 a browser authorization then a token exchange, or a direct exchange for machine and password grants \u2014 and every send carries it as a bearer token, refreshed on expiry when a refresh token was issued.',
   'workbench.editors.request.auth.groupInfo.oauth2.token':
@@ -375,6 +398,7 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.auth.type.oauth2': 'OAuth 2.0',
   'workbench.editors.request.auth.type.awsSigV4': 'AWS Signature v4',
   'workbench.editors.request.auth.type.edgeGrid': 'Akamai EdgeGrid',
+  'workbench.editors.request.auth.type.asap': 'ASAP (Atlassian)',
   'workbench.editors.request.auth.type.digest': 'Digest Auth',
   'workbench.editors.request.auth.type.oauth1': 'OAuth 1.0',
   'workbench.editors.request.auth.type.hawk': 'Hawk Authentication',
@@ -479,6 +503,22 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.auth.edgeGridHeadersToSignPlaceholder':
     'optional \u2014 comma-separated, e.g. X-Test1, X-Test2',
   'workbench.editors.request.auth.edgeGridMaxBodySizePlaceholder': '131072',
+  'workbench.editors.request.auth.asapAlgorithm': 'Algorithm',
+  'workbench.editors.request.auth.asapKeyId': 'Key ID',
+  'workbench.editors.request.auth.asapPrivateKey': 'Private Key',
+  'workbench.editors.request.auth.asapIssuer': 'Issuer',
+  'workbench.editors.request.auth.asapAudience': 'Audience',
+  'workbench.editors.request.auth.asapSubject': 'Subject',
+  'workbench.editors.request.auth.asapClaims': 'Additional Claims',
+  'workbench.editors.request.auth.asapExpiresIn': 'Expiry (seconds)',
+  'workbench.editors.request.auth.asapKeyIdPlaceholder': 'e.g. my-service/key-1',
+  'workbench.editors.request.auth.asapPrivateKeyPlaceholder':
+    '-----BEGIN PRIVATE KEY----- \u2026 or the data:application/pkcs8 form',
+  'workbench.editors.request.auth.asapIssuerPlaceholder': 'e.g. my-service',
+  'workbench.editors.request.auth.asapAudiencePlaceholder': 'e.g. api.openheaders.io',
+  'workbench.editors.request.auth.asapSubjectPlaceholder': 'optional \u2014 blank sends the issuer',
+  'workbench.editors.request.auth.asapClaimsPlaceholder': 'optional \u2014 JSON, e.g. {"scope":"read"}',
+  'workbench.editors.request.auth.asapExpiresInPlaceholder': '3600',
   'workbench.editors.request.auth.sendAsLabel': 'Add authorization data to',
   'workbench.editors.request.auth.sendAsHeaders': 'Request Headers',
   'workbench.editors.request.auth.sendAsUrl': 'Request URL',

@@ -115,6 +115,16 @@ const AUTH_UNION: FieldNode = union({
       headersToSign: leaf('string', { coercion: 'optional-string' }),
       maxBodySize: leaf('number', { coercion: 'optional-number' }),
     }),
+    asap: obj({
+      algorithm: enumLeaf(['RS256', 'RS384', 'RS512', 'PS256', 'PS384', 'PS512', 'ES256', 'ES384', 'ES512']),
+      issuer: leaf('string'),
+      audience: leaf('string'),
+      keyId: leaf('string'),
+      privateKey: leaf('string'),
+      subject: leaf('string', { coercion: 'optional-string' }),
+      claims: leaf('string', { coercion: 'optional-string' }),
+      expiresInSeconds: leaf('number', { coercion: 'optional-number' }),
+    }),
     digest: obj({
       username: leaf('string'),
       password: leaf('string'),

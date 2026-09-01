@@ -55,6 +55,14 @@ export type AuthInfoKey =
   | 'edgeGridClientSecret'
   | 'edgeGridHeadersToSign'
   | 'edgeGridMaxBodySize'
+  | 'asapAlgorithm'
+  | 'asapKeyId'
+  | 'asapPrivateKey'
+  | 'asapIssuer'
+  | 'asapAudience'
+  | 'asapSubject'
+  | 'asapClaims'
+  | 'asapExpiresIn'
   | 'digestUsername'
   | 'digestPassword'
   | 'digestDisableRetry'
@@ -179,7 +187,11 @@ type AuthTokenId =
   | 'expires'
   | 'clientToken'
   | 'accessToken'
-  | 'contentHash';
+  | 'contentHash'
+  | 'iss'
+  | 'aud'
+  | 'sub'
+  | 'jti';
 
 type Token = ExampleCardToken<AuthTokenId>;
 type Line = ExampleCardLine<AuthTokenId>;
@@ -387,6 +399,30 @@ function exampleLines(auth: ConcreteAuthConfig, forced: ReadonlySet<AuthInfoKey>
       );
       return lines;
     }
+    case 'asap': {
+      // The JWT line lists the claims in the composed order; the
+      // Additional-claims token shows when set / forced.
+      const showExtra = (auth.claims ?? '').trim() !== '' || forced.has('asapClaims');
+      return [
+        requestLine(),
+        { opener: tok('location', 'Authorization: Bearer'), tokens: [tok('token', JWT)] },
+        {
+          opener: 'JWT',
+          tokens: [
+            tok('alg', `alg: ${auth.algorithm}`),
+            tok('kid', 'kid: openheaders/service/key-1'),
+            tok('iss', 'iss: openheaders/service'),
+            tok('sub', `sub: ${auth.subject?.trim() || 'openheaders/service'}`),
+            tok('aud', 'aud: api.openheaders.com'),
+            tok('iat', `iat: ${HAWK_TS}`),
+            tok('exp', `exp: ${Number(HAWK_TS) + (auth.expiresInSeconds ?? 3600)}`),
+            tok('jti', 'jti: 6f1c2a0e-…'),
+            ...(showExtra ? [tok('claims', 'scope: read')] : []),
+            tok('sig', 'signature ← private key'),
+          ],
+        },
+      ];
+    }
     case 'edgegrid': {
       // The signed line is what the signature covers beyond the
       // request line: the listed headers (when set / forced) and the
@@ -507,6 +543,14 @@ const ROW_TOKENS: Record<AuthInfoKey, readonly AuthTokenId[]> = {
   edgeGridClientSecret: ['signature'],
   edgeGridHeadersToSign: ['signedHeaders'],
   edgeGridMaxBodySize: ['contentHash'],
+  asapAlgorithm: ['alg'],
+  asapKeyId: ['kid'],
+  asapPrivateKey: ['sig'],
+  asapIssuer: ['iss'],
+  asapAudience: ['aud'],
+  asapSubject: ['sub'],
+  asapClaims: ['claims'],
+  asapExpiresIn: ['iat', 'exp'],
   digestUsername: ['username'],
   digestPassword: ['response'],
   digestDisableRetry: ['challenge', 'retry'],
@@ -603,6 +647,10 @@ const GROUP_ROWS: Record<CardType, Partial<Record<AuthGroupKey, readonly AuthInf
     credentials: ['edgeGridClientToken', 'edgeGridAccessToken', 'edgeGridClientSecret'],
     signing: ['edgeGridHeadersToSign', 'edgeGridMaxBodySize'],
   },
+  asap: {
+    signing: ['asapAlgorithm', 'asapKeyId', 'asapPrivateKey'],
+    token: ['asapIssuer', 'asapAudience', 'asapSubject', 'asapClaims', 'asapExpiresIn'],
+  },
   digest: { credentials: ['digestUsername', 'digestPassword'], challenge: ['digestDisableRetry'] },
   oauth1: {
     signing: ['oauth1SignatureMethod', 'oauth1BodyHash'],
@@ -668,6 +716,14 @@ const ROW_TITLE_KEY: Record<AuthInfoKey, MessageKey> = {
   edgeGridClientSecret: 'workbench.editors.request.auth.edgeGridClientSecret',
   edgeGridHeadersToSign: 'workbench.editors.request.auth.edgeGridHeadersToSign',
   edgeGridMaxBodySize: 'workbench.editors.request.auth.edgeGridMaxBodySize',
+  asapAlgorithm: 'workbench.editors.request.auth.asapAlgorithm',
+  asapKeyId: 'workbench.editors.request.auth.asapKeyId',
+  asapPrivateKey: 'workbench.editors.request.auth.asapPrivateKey',
+  asapIssuer: 'workbench.editors.request.auth.asapIssuer',
+  asapAudience: 'workbench.editors.request.auth.asapAudience',
+  asapSubject: 'workbench.editors.request.auth.asapSubject',
+  asapClaims: 'workbench.editors.request.auth.asapClaims',
+  asapExpiresIn: 'workbench.editors.request.auth.asapExpiresIn',
   digestUsername: 'workbench.editors.request.auth.username',
   digestPassword: 'workbench.editors.request.auth.password',
   digestDisableRetry: 'workbench.editors.request.auth.digestDisableRetry',
@@ -740,6 +796,14 @@ const ROW_SUMMARY_KEY: Record<AuthInfoKey, MessageKey> = {
   edgeGridClientSecret: 'workbench.editors.request.auth.rowInfo.edgeGridClientSecret',
   edgeGridHeadersToSign: 'workbench.editors.request.auth.rowInfo.edgeGridHeadersToSign',
   edgeGridMaxBodySize: 'workbench.editors.request.auth.rowInfo.edgeGridMaxBodySize',
+  asapAlgorithm: 'workbench.editors.request.auth.rowInfo.asapAlgorithm',
+  asapKeyId: 'workbench.editors.request.auth.rowInfo.asapKeyId',
+  asapPrivateKey: 'workbench.editors.request.auth.rowInfo.asapPrivateKey',
+  asapIssuer: 'workbench.editors.request.auth.rowInfo.asapIssuer',
+  asapAudience: 'workbench.editors.request.auth.rowInfo.asapAudience',
+  asapSubject: 'workbench.editors.request.auth.rowInfo.asapSubject',
+  asapClaims: 'workbench.editors.request.auth.rowInfo.asapClaims',
+  asapExpiresIn: 'workbench.editors.request.auth.rowInfo.asapExpiresIn',
   digestUsername: 'workbench.editors.request.auth.rowInfo.digestUsername',
   digestPassword: 'workbench.editors.request.auth.rowInfo.digestPassword',
   digestDisableRetry: 'workbench.editors.request.auth.rowInfo.digestDisableRetry',
@@ -810,6 +874,10 @@ const GROUP_SUMMARY_KEY: Record<CardType, Partial<Record<AuthGroupKey, MessageKe
     credentials: 'workbench.editors.request.auth.groupInfo.edgeGrid.credentials',
     signing: 'workbench.editors.request.auth.groupInfo.edgeGrid.signing',
   },
+  asap: {
+    signing: 'workbench.editors.request.auth.groupInfo.asap.signing',
+    token: 'workbench.editors.request.auth.groupInfo.asap.token',
+  },
   digest: {
     credentials: 'workbench.editors.request.auth.groupInfo.digest.credentials',
     challenge: 'workbench.editors.request.auth.groupInfo.digest.challenge',
@@ -844,6 +912,7 @@ const TYPE_SUMMARY_KEY: Record<CardType | 'none', MessageKey> = {
   'api-key': 'workbench.editors.request.auth.typeInfo.apiKey',
   'aws-sigv4': 'workbench.editors.request.auth.typeInfo.awsSigV4',
   edgegrid: 'workbench.editors.request.auth.typeInfo.edgeGrid',
+  asap: 'workbench.editors.request.auth.typeInfo.asap',
   digest: 'workbench.editors.request.auth.typeInfo.digest',
   oauth1: 'workbench.editors.request.auth.typeInfo.oauth1',
   hawk: 'workbench.editors.request.auth.typeInfo.hawk',

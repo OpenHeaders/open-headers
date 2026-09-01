@@ -175,6 +175,9 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.authPreview.edgeGridValue': 'EG1-HMAC-SHA256 <parámetros firmados>',
   'workbench.editors.request.authPreview.edgeGridHint':
     'Generado desde la pestaña Autorización (Akamai EdgeGrid). La solicitud se firma con tus credenciales al enviarla.',
+  'workbench.editors.request.authPreview.asapValue': 'Bearer <JWT firmado>',
+  'workbench.editors.request.authPreview.asapHint':
+    'Generado desde la pestaña Autorización (ASAP). Se firma un token nuevo con tu clave privada y se añade a esta cabecera al enviar la solicitud.',
   'workbench.editors.request.authPreview.digestValue': 'Digest <respuesta al desafío>',
   'workbench.editors.request.authPreview.digestHint':
     'Generado desde la pestaña Autorización (Digest Auth). El valor se calcula a partir del desafío del ' +
@@ -354,6 +357,27 @@ export const workbenchEditorsRequest = {
     'Nombres de cabecera plegados en la firma, separados por comas, en orden de firma; una cabecera listada que la solicitud no lleva se omite y las no listadas nunca se firman.',
   'workbench.editors.request.auth.rowInfo.edgeGridMaxBodySize':
     'La ventana de bytes de un cuerpo POST que cubre el hash; en blanco = los 131072 del esquema.',
+  'workbench.editors.request.auth.typeInfo.asap':
+    'Se acuña un JWT nuevo en cada envío \u2014 emisor, audiencia y sujeto como claims, iat / exp del reloj, un nonce jti único \u2014 firmado con la clave privada bajo la cabecera kid y entregado como token bearer; la clave nunca viaja.',
+  'workbench.editors.request.auth.groupInfo.asap.signing':
+    'La familia asimétrica nombrada en la cabecera JWT, el id de clave con el que el receptor busca la clave pública, y la clave privada que firma.',
+  'workbench.editors.request.auth.groupInfo.asap.token':
+    'Lo que el token afirma \u2014 quién lo emitió, para quién, en nombre de quién, claims extra y cuánto vive (el techo de una hora del esquema por defecto).',
+  'workbench.editors.request.auth.rowInfo.asapAlgorithm':
+    'Nombra la familia de firma en la cabecera; el esquema no permite HS.',
+  'workbench.editors.request.auth.rowInfo.asapKeyId':
+    'Viaja como kid \u2014 emisor/nombre-de-clave según el esquema; el receptor obtiene la clave pública con él.',
+  'workbench.editors.request.auth.rowInfo.asapPrivateKey':
+    'El PEM (o la forma data:application/pkcs8 de Atlassian) que firma; nunca viaja.',
+  'workbench.editors.request.auth.rowInfo.asapIssuer': 'El identificador de servicio registrado \u2014 viaja como iss.',
+  'workbench.editors.request.auth.rowInfo.asapAudience':
+    'Para quién es el token \u2014 viaja como aud; un array vía claims adicionales.',
+  'workbench.editors.request.auth.rowInfo.asapSubject':
+    'En nombre de quién \u2014 viaja como sub; en blanco envía el emisor.',
+  'workbench.editors.request.auth.rowInfo.asapClaims':
+    'Claims extra fusionados al final \u2014 ganan sobre todo claim compuesto, jti / iat / exp incluidos.',
+  'workbench.editors.request.auth.rowInfo.asapExpiresIn':
+    'La vida estampada como exp \u2212 iat; en blanco = 3600, el techo del esquema.',
   'workbench.editors.request.auth.typeInfo.oauth2':
     'El cliente obtiene un token de acceso del proveedor \u2014 una autorización en el navegador y luego un intercambio de token, o un intercambio directo para las concesiones de máquina y contraseña \u2014 y cada envío lo lleva como token bearer, renovado al caducar si se emitió un token de renovación.',
   'workbench.editors.request.auth.groupInfo.oauth2.token':
@@ -416,6 +440,7 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.auth.type.oauth2': 'OAuth 2.0',
   'workbench.editors.request.auth.type.awsSigV4': 'AWS Signature v4',
   'workbench.editors.request.auth.type.edgeGrid': 'Akamai EdgeGrid',
+  'workbench.editors.request.auth.type.asap': 'ASAP (Atlassian)',
   'workbench.editors.request.auth.type.digest': 'Digest Auth',
   'workbench.editors.request.auth.type.oauth1': 'OAuth 1.0',
   'workbench.editors.request.auth.type.hawk': 'Hawk Authentication',
@@ -524,6 +549,22 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.auth.edgeGridHeadersToSignPlaceholder':
     'opcional \u2014 separadas por comas, p. ej. X-Test1, X-Test2',
   'workbench.editors.request.auth.edgeGridMaxBodySizePlaceholder': '131072',
+  'workbench.editors.request.auth.asapAlgorithm': 'Algoritmo',
+  'workbench.editors.request.auth.asapKeyId': 'ID de clave',
+  'workbench.editors.request.auth.asapPrivateKey': 'Clave privada',
+  'workbench.editors.request.auth.asapIssuer': 'Emisor',
+  'workbench.editors.request.auth.asapAudience': 'Audiencia',
+  'workbench.editors.request.auth.asapSubject': 'Sujeto',
+  'workbench.editors.request.auth.asapClaims': 'Claims adicionales',
+  'workbench.editors.request.auth.asapExpiresIn': 'Expiración (segundos)',
+  'workbench.editors.request.auth.asapKeyIdPlaceholder': 'p. ej. my-service/key-1',
+  'workbench.editors.request.auth.asapPrivateKeyPlaceholder':
+    '-----BEGIN PRIVATE KEY----- \u2026 o la forma data:application/pkcs8',
+  'workbench.editors.request.auth.asapIssuerPlaceholder': 'p. ej. my-service',
+  'workbench.editors.request.auth.asapAudiencePlaceholder': 'p. ej. api.openheaders.io',
+  'workbench.editors.request.auth.asapSubjectPlaceholder': 'opcional \u2014 en blanco envía el emisor',
+  'workbench.editors.request.auth.asapClaimsPlaceholder': 'opcional \u2014 JSON, p. ej. {"scope":"read"}',
+  'workbench.editors.request.auth.asapExpiresInPlaceholder': '3600',
   'workbench.editors.request.auth.sendAsLabel': 'Añadir los datos de autorización a',
   'workbench.editors.request.auth.sendAsHeaders': 'Encabezados de la solicitud',
   'workbench.editors.request.auth.sendAsUrl': 'URL de la solicitud',

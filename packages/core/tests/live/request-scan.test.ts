@@ -81,6 +81,35 @@ describe('requestExecutableFingerprint', () => {
   });
 });
 
+describe('collectRequestTemplateStrings — asap auth', () => {
+  it('collects every string field', () => {
+    const strings = collectRequestTemplateStrings(
+      makeRequest({
+        auth: {
+          type: 'asap',
+          algorithm: 'RS256',
+          issuer: '{{env.ASAP_ISSUER}}',
+          audience: '{{env.ASAP_AUDIENCE}}',
+          keyId: '{{env.ASAP_KID}}',
+          privateKey: '{{vault.asap_key}}',
+          subject: '{{env.ASAP_SUBJECT}}',
+          claims: '{"scope":"{{env.ASAP_SCOPE}}"}',
+        },
+      }),
+    );
+    expect(strings).toEqual(
+      expect.arrayContaining([
+        '{{env.ASAP_ISSUER}}',
+        '{{env.ASAP_AUDIENCE}}',
+        '{{env.ASAP_KID}}',
+        '{{vault.asap_key}}',
+        '{{env.ASAP_SUBJECT}}',
+        '{"scope":"{{env.ASAP_SCOPE}}"}',
+      ]),
+    );
+  });
+});
+
 describe('collectRequestTemplateStrings — edgegrid auth', () => {
   it('collects the three credentials and the header list', () => {
     const strings = collectRequestTemplateStrings(

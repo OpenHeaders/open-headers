@@ -6,6 +6,17 @@
  */
 
 export {
+  ASAP_ALGORITHMS,
+  ASAP_DEFAULT_EXPIRY_SECONDS,
+  type AsapAlgorithm,
+  type AsapCredentials,
+  type AsapSignInput,
+  buildAsapClaims,
+  isAsapAlgorithm,
+  parseAsapPrivateKey,
+  signAsap,
+} from './asap';
+export {
   AWS_SIGV4_DEFAULT_REGION,
   AWS_SIGV4_QUERY_EXPIRES_SECONDS,
   AWS_SIGV4_UNSIGNED_PAYLOAD,

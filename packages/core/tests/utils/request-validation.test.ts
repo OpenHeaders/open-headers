@@ -157,6 +157,26 @@ describe('requestIncompleteReason', () => {
     );
   });
 
+  it('reports each missing asap field in declaration order', () => {
+    const full = {
+      type: 'asap' as const,
+      algorithm: 'RS256' as const,
+      issuer: 'openheaders/service',
+      audience: 'api.openheaders.io',
+      keyId: 'openheaders/service/key-1',
+      privateKey: '{{vault.asap_key}}',
+    };
+    expect(requestIncompleteReason(makeRequest({ auth: full }))).toBeNull();
+    expect(isRequestComplete(makeRequest({ auth: full }))).toBe(true);
+    expect(requestIncompleteReason(makeRequest({ auth: { ...full, issuer: '' } }))).toBe('asap-missing-issuer');
+    expect(requestIncompleteReason(makeRequest({ auth: { ...full, audience: ' ' } }))).toBe('asap-missing-audience');
+    expect(requestIncompleteReason(makeRequest({ auth: { ...full, keyId: '' } }))).toBe('asap-missing-key-id');
+    expect(requestIncompleteReason(makeRequest({ auth: { ...full, privateKey: '' } }))).toBe(
+      'asap-missing-private-key',
+    );
+    expect(isRequestComplete(makeRequest({ auth: { ...full, privateKey: '' } }))).toBe(false);
+  });
+
   it('reports each missing edgegrid credential in declaration order', () => {
     const full = {
       type: 'edgegrid' as const,

@@ -9,6 +9,7 @@ import {
   AWS_SIGV4_UNSIGNED_PAYLOAD,
   edgeGridTimestamp,
   sha256Hex,
+  signAsap,
   signAwsSigV4,
   signEdgeGrid,
   signHawk,
@@ -336,6 +337,23 @@ export async function executeResolved(
       req = { ...req, headers: [...fetchHeaders.entries()].map(([key, value]) => ({ key, value })) };
     } catch (err) {
       return errorSnapshot(`EdgeGrid signing failed: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
+
+  // ASAP mints HERE too — the send-time clock stamps iat/exp and a
+  // fresh UUID is the jti nonce the scheme makes mandatory. The header
+  // replaces a same-key user Authorization row and mirrors back onto
+  // `req` for the offscreen cert-exception retry.
+  if (req.asap) {
+    try {
+      const signed = await signAsap(req.asap, {
+        timestampSec: Math.floor(Date.now() / 1000),
+        jti: crypto.randomUUID(),
+      });
+      for (const h of signed) fetchHeaders.set(h.key, h.value);
+      req = { ...req, headers: [...fetchHeaders.entries()].map(([key, value]) => ({ key, value })) };
+    } catch (err) {
+      return errorSnapshot(`ASAP signing failed: ${err instanceof Error ? err.message : String(err)}`);
     }
   }
 
