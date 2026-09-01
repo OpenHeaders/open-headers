@@ -30,13 +30,24 @@ import { useMemo, useState } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { type InfoPopoverContent, InfoTrigger } from '@openheaders/ui/shared/info-popover';
 import AuthFormGroup from './AuthFormGroup';
-import { AUTH_LABEL_WIDTH, AuthForm, AuthFormNote, AuthLabeledRow as LabeledRow } from './auth-layout';
+import {
+  AUTH_FIELD_DEFAULT_MAX_WIDTH as FIELD_DEFAULT_MAX_WIDTH,
+  AUTH_FORM_MAX_WIDTH,
+  AUTH_LABEL_WIDTH,
+  AuthForm,
+  AuthFormNote,
+  AuthLabeledRow as LabeledRow,
+} from './auth-layout';
 import { type AuthInfoKey, authRowInfo } from './AuthRowInfo';
 import type { AuxColumn } from './editable-grid-types';
 import KeyValueTable, { type KeyValueRow } from './KeyValueTable';
 import { GRANT_TYPES, type GrantTypeId, getGrantType } from './oauth2-grant-types';
 
 const { Text, Link } = Typography;
+
+// Every control caps at the classic form width like the other types'
+// fields (the URL fields are long, not wide).
+const fieldStyle: React.CSSProperties = { maxWidth: FIELD_DEFAULT_MAX_WIDTH };
 
 interface OAuth2AuthEditorProps {
   auth: OAuth2Auth;
@@ -158,6 +169,7 @@ const OAuth2AuthEditor: React.FC<OAuth2AuthEditorProps> = ({ auth, onChange }) =
         <Alert
           type="warning"
           showIcon
+          style={{ maxWidth: AUTH_FORM_MAX_WIDTH }}
           title={t('workbench.editors.request.oauth.queryWarningTitle')}
           description={
             <>
@@ -172,20 +184,21 @@ const OAuth2AuthEditor: React.FC<OAuth2AuthEditorProps> = ({ auth, onChange }) =
         <LabeledRow label={t('workbench.editors.request.oauth.tokenLabel')} info={info('oauth2Token')}>
           <Input
             size="small"
+            style={fieldStyle}
             readOnly
             value={bundle ? `${bundle.accessToken.slice(0, 8)}…` : ''}
             placeholder={t('workbench.editors.request.oauth.noTokenPlaceholder')}
           />
         </LabeledRow>
         <LabeledRow label={t('workbench.editors.request.oauth.headerPrefix')} info={info('oauth2HeaderPrefix')}>
-          <Input size="small" readOnly value={bundle?.tokenType ?? 'Bearer'} />
+          <Input size="small" readOnly value={bundle?.tokenType ?? 'Bearer'} style={fieldStyle} />
         </LabeledRow>
         <LabeledRow
           label={t('workbench.editors.request.oauth.autoRefresh')}
           description={t('workbench.editors.request.oauth.autoRefreshDesc')}
           info={info('oauth2AutoRefresh')}
         >
-          <Checkbox checked={Boolean(bundle?.refreshToken)} disabled style={{ marginLeft: 'auto', display: 'block' }} />
+          <Checkbox checked={Boolean(bundle?.refreshToken)} disabled />
         </LabeledRow>
         {bundle && (
           <LabeledRow
@@ -221,6 +234,7 @@ const OAuth2AuthEditor: React.FC<OAuth2AuthEditorProps> = ({ auth, onChange }) =
         >
           <Input
             size="small"
+            style={fieldStyle}
             placeholder={t('workbench.editors.request.oauth.tokenNamePlaceholder')}
             value={auth.label ?? ''}
             onChange={(e) => {
@@ -233,7 +247,7 @@ const OAuth2AuthEditor: React.FC<OAuth2AuthEditorProps> = ({ auth, onChange }) =
         <LabeledRow label={t('workbench.editors.request.oauth.grantType')} info={info('oauth2GrantType')}>
           <Select
             size="small"
-            style={{ width: '100%' }}
+            style={{ width: '100%', maxWidth: FIELD_DEFAULT_MAX_WIDTH }}
             value={grantType.id}
             onChange={(id: GrantTypeId) => onGrantChange(id)}
             options={GRANT_TYPES.map((g) => ({ value: g.id, label: g.label }))}
@@ -245,6 +259,7 @@ const OAuth2AuthEditor: React.FC<OAuth2AuthEditorProps> = ({ auth, onChange }) =
             <LabeledRow label={t('workbench.editors.request.oauth.callbackUrl')} info={info('oauth2CallbackUrl')}>
               <Input
                 size="small"
+                style={fieldStyle}
                 readOnly
                 value={redirectUri ?? t('workbench.editors.request.oauth.detecting')}
                 addonAfter={
@@ -266,6 +281,7 @@ const OAuth2AuthEditor: React.FC<OAuth2AuthEditorProps> = ({ auth, onChange }) =
           <LabeledRow label={t('workbench.editors.request.oauth.authUrl')} info={info('oauth2AuthUrl')}>
             <Input
               size="small"
+              style={fieldStyle}
               placeholder="https://example.com/login/oauth/authorize"
               value={auth.authorizationEndpoint ?? ''}
               onChange={(e) => onChange({ ...auth, authorizationEndpoint: e.target.value || undefined })}
@@ -277,6 +293,7 @@ const OAuth2AuthEditor: React.FC<OAuth2AuthEditorProps> = ({ auth, onChange }) =
           <LabeledRow label={t('workbench.editors.request.oauth.accessTokenUrl')} info={info('oauth2AccessTokenUrl')}>
             <Input
               size="small"
+              style={fieldStyle}
               placeholder="https://example.com/login/oauth/access_token"
               value={auth.tokenEndpoint}
               onChange={(e) => onChange({ ...auth, tokenEndpoint: e.target.value })}
@@ -289,6 +306,7 @@ const OAuth2AuthEditor: React.FC<OAuth2AuthEditorProps> = ({ auth, onChange }) =
             <LabeledRow label={t('workbench.editors.request.auth.username')} info={info('oauth2Username')}>
               <Input
                 size="small"
+                style={fieldStyle}
                 placeholder={t('workbench.editors.request.auth.usernamePlaceholder')}
                 value={auth.username ?? ''}
                 onChange={(e) => onChange({ ...auth, username: e.target.value || undefined })}
@@ -297,6 +315,7 @@ const OAuth2AuthEditor: React.FC<OAuth2AuthEditorProps> = ({ auth, onChange }) =
             <LabeledRow label={t('workbench.editors.request.auth.password')} info={info('oauth2Password')}>
               <Input.Password
                 size="small"
+                style={fieldStyle}
                 placeholder={t('workbench.editors.request.auth.passwordPlaceholder')}
                 value={auth.password ?? ''}
                 onChange={(e) => onChange({ ...auth, password: e.target.value || undefined })}
@@ -309,6 +328,7 @@ const OAuth2AuthEditor: React.FC<OAuth2AuthEditorProps> = ({ auth, onChange }) =
           <LabeledRow label={t('workbench.editors.request.oauth.clientId')} info={info('oauth2ClientId')}>
             <Input
               size="small"
+              style={fieldStyle}
               placeholder={t('workbench.editors.request.oauth.clientId')}
               value={auth.clientId}
               onChange={(e) => onChange({ ...auth, clientId: e.target.value })}
@@ -320,6 +340,7 @@ const OAuth2AuthEditor: React.FC<OAuth2AuthEditorProps> = ({ auth, onChange }) =
           <LabeledRow label={t('workbench.editors.request.oauth.clientSecret')} info={info('oauth2ClientSecret')}>
             <Input.Password
               size="small"
+              style={fieldStyle}
               placeholder={t('workbench.editors.request.oauth.clientSecret')}
               value={auth.clientSecret ?? ''}
               onChange={(e) => onChange({ ...auth, clientSecret: e.target.value || undefined })}
@@ -337,11 +358,16 @@ const OAuth2AuthEditor: React.FC<OAuth2AuthEditorProps> = ({ auth, onChange }) =
                 size="small"
                 value="SHA-256"
                 options={[{ value: 'SHA-256', label: 'SHA-256' }]}
-                style={{ width: '100%' }}
+                style={{ width: '100%', maxWidth: FIELD_DEFAULT_MAX_WIDTH }}
               />
             </LabeledRow>
             <LabeledRow label={t('workbench.editors.request.oauth.codeVerifier')} info={info('oauth2CodeVerifier')}>
-              <Input size="small" placeholder={t('workbench.editors.request.oauth.codeVerifierPlaceholder')} disabled />
+              <Input
+                size="small"
+                placeholder={t('workbench.editors.request.oauth.codeVerifierPlaceholder')}
+                disabled
+                style={fieldStyle}
+              />
             </LabeledRow>
           </>
         )}
@@ -351,7 +377,7 @@ const OAuth2AuthEditor: React.FC<OAuth2AuthEditorProps> = ({ auth, onChange }) =
             <Select
               mode="tags"
               size="small"
-              style={{ width: '100%' }}
+              style={{ width: '100%', maxWidth: FIELD_DEFAULT_MAX_WIDTH }}
               tokenSeparators={[' ', ',']}
               value={auth.scopes}
               onChange={(scopes: string[]) => onChange({ ...auth, scopes })}
@@ -364,6 +390,7 @@ const OAuth2AuthEditor: React.FC<OAuth2AuthEditorProps> = ({ auth, onChange }) =
           <LabeledRow label={t('workbench.editors.request.oauth.state')} info={info('oauth2State')}>
             <Input
               size="small"
+              style={fieldStyle}
               placeholder={t('workbench.editors.request.oauth.state')}
               disabled
               value={t('workbench.editors.request.oauth.stateAuto')}
@@ -386,7 +413,7 @@ const OAuth2AuthEditor: React.FC<OAuth2AuthEditorProps> = ({ auth, onChange }) =
               { value: 'body', label: t('workbench.editors.request.oauth.clientAuthBody') },
               { value: 'basic-header', label: t('workbench.editors.request.oauth.clientAuthBasicHeader') },
             ]}
-            style={{ width: '100%' }}
+            style={{ width: '100%', maxWidth: FIELD_DEFAULT_MAX_WIDTH }}
           />
         </LabeledRow>
       </AuthFormGroup>
@@ -403,6 +430,7 @@ const OAuth2AuthEditor: React.FC<OAuth2AuthEditorProps> = ({ auth, onChange }) =
         >
           <Input
             size="small"
+            style={fieldStyle}
             placeholder={auth.tokenEndpoint || 'https://example.com/login/oauth/refresh_token'}
             value={auth.refreshEndpoint ?? ''}
             onChange={(e) => {
@@ -482,7 +510,8 @@ interface ParamEntry {
  * into a per-row Send In track (`sendInEditable`) routing each param
  * onto the POST body (the default), an HTTP header, or the endpoint
  * URL — auth-request params are URL-appended by definition, so the
- * auth table stays two-column. The title carries the block's (i).
+ * auth table stays two-column. The title carries the block's (i);
+ * the table stops at the form's right edge like the fields above it.
  */
 const ParamsBlock: React.FC<{
   title: string;
@@ -545,7 +574,7 @@ const ParamsBlock: React.FC<{
     : undefined;
 
   return (
-    <div>
+    <div style={{ maxWidth: AUTH_FORM_MAX_WIDTH }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 6 }}>
         <Text strong style={{ fontSize: 12 }}>
           {title}

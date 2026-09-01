@@ -29,9 +29,16 @@ const RAIL_DEFAULT = 210;
 // escapes the cap up to the pane edge.
 export const AUTH_FIELD_DEFAULT_MAX_WIDTH = 438;
 
-// The label column every auth row shares — wide enough for the
-// longest label plus its (i) ("Request header prefix") on one line.
-export const AUTH_LABEL_WIDTH = 150;
+// The label column every auth row shares — the reference client's
+// anatomy: the control column starts well into the pane, every label
+// with its (i) on one line and a description under it with room to
+// read ("Add authorization data to", "Code Challenge Method").
+export const AUTH_LABEL_WIDTH = 280;
+
+/** The form's right edge — the label column, the row gap, the field
+ *  cap — for the form-level parts (alerts) that line up with the
+ *  fields. */
+export const AUTH_FORM_MAX_WIDTH = AUTH_LABEL_WIDTH + 12 + AUTH_FIELD_DEFAULT_MAX_WIDTH;
 
 const SECRET_FIELD_MIN_WIDTH = 160;
 
