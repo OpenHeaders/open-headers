@@ -324,6 +324,10 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.oauth.refreshTokenUrl': 'Refresh Token URL',
   'workbench.editors.request.oauth.refreshTokenUrlDesc':
     '多数提供方复用 Access Token URL 进行刷新；仅当提供方暴露了独立路径时才需要填写覆盖值。',
+  'workbench.editors.request.oauth.sendInColumn': '发送位置',
+  'workbench.editors.request.oauth.sendInBody': '请求体',
+  'workbench.editors.request.oauth.sendInHeader': '标头',
+  'workbench.editors.request.oauth.sendInUrl': 'URL',
   'workbench.editors.request.oauth.authRequest': '授权请求',
   'workbench.editors.request.oauth.tokenRequest': 'Token 请求',
   'workbench.editors.request.oauth.refreshRequest': '刷新请求',

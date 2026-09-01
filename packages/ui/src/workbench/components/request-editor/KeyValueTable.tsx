@@ -17,6 +17,7 @@ import { Button, Tooltip, theme } from 'antd';
 import type React from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { TEMPLATE_INPUT_LINE_HEIGHT, TemplateInput } from '../template-input';
+import type { AuxColumn } from './editable-grid-types';
 import {
   type BulkEditConfig,
   EditableGridTable,
@@ -67,6 +68,9 @@ interface KeyValueTableProps {
    *  plus an optional hover-revealed jump link (e.g. "Go to
    *  authorization") at the cell's right edge. */
   rowWarning?: (row: KeyValueRow) => { message: string; action?: { label: string; onClick: () => void } } | null;
+  /** Auxiliary fixed-width tracks forwarded to the grid — e.g. the
+   *  OAuth2 extra-param tables' per-row Send In select. */
+  auxColumns?: AuxColumn<KeyValueRow>[];
 }
 
 /**
@@ -121,6 +125,7 @@ const KeyValueTable: React.FC<KeyValueTableProps> = ({
   rowPath,
   conflictBridge,
   rowWarning,
+  auxColumns,
 }) => {
   const { token } = theme.useToken();
   const t = useT();
@@ -175,6 +180,7 @@ const KeyValueTable: React.FC<KeyValueTableProps> = ({
       bulkEdit={bulkEdit}
       rowPath={rowPath}
       conflictBridge={conflictBridge}
+      auxColumns={auxColumns}
       renderKeyCell={cellRenderer(
         (r) => r.key,
         (r, v) => ({ ...r, key: v }),

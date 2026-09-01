@@ -370,6 +370,10 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.oauth.refreshTokenUrlDesc':
     'La mayoría de los proveedores reutilizan la URL del token de acceso para renovar; indica una distinta ' +
     'solo cuando el proveedor exponga una ruta propia.',
+  'workbench.editors.request.oauth.sendInColumn': 'Enviar en',
+  'workbench.editors.request.oauth.sendInBody': 'Cuerpo',
+  'workbench.editors.request.oauth.sendInHeader': 'Cabecera',
+  'workbench.editors.request.oauth.sendInUrl': 'URL',
   'workbench.editors.request.oauth.authRequest': 'Solicitud de autorización',
   'workbench.editors.request.oauth.tokenRequest': 'Solicitud de token',
   'workbench.editors.request.oauth.refreshRequest': 'Solicitud de renovación',

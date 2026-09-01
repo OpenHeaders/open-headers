@@ -542,14 +542,39 @@ export const OAuth2AuthSchema = v.object({
   sendAs: v.optional(v.picklist(['header', 'query'])),
   /** Optional extra params appended to the authorization URL. */
   extraAuthParams: v.optional(v.array(v.object({ uid: UidSchema, key: v.string(), value: v.string() }))),
-  /** Optional extra params appended to the token POST body. */
-  extraTokenParams: v.optional(v.array(v.object({ uid: UidSchema, key: v.string(), value: v.string() }))),
   /**
-   * Optional extra params appended to the refresh-token POST body.
-   * Mirrors `extraTokenParams` — some providers require additional
-   * knobs on refresh that don't belong on the initial exchange.
+   * Optional extra params on the token POST. `sendIn` routes each row:
+   * the form body (absent / `'body'` — the default), an HTTP header on
+   * the POST, or the token endpoint URL's query string — providers
+   * hang `audience`/`resource` off the query and gateways demand
+   * extra headers on the token endpoint.
    */
-  extraRefreshParams: v.optional(v.array(v.object({ uid: UidSchema, key: v.string(), value: v.string() }))),
+  extraTokenParams: v.optional(
+    v.array(
+      v.object({
+        uid: UidSchema,
+        key: v.string(),
+        value: v.string(),
+        sendIn: v.optional(v.picklist(['body', 'header', 'url'])),
+      }),
+    ),
+  ),
+  /**
+   * Optional extra params on the refresh-token POST. Mirrors
+   * `extraTokenParams` (`sendIn` included) — some providers require
+   * additional knobs on refresh that don't belong on the initial
+   * exchange.
+   */
+  extraRefreshParams: v.optional(
+    v.array(
+      v.object({
+        uid: UidSchema,
+        key: v.string(),
+        value: v.string(),
+        sendIn: v.optional(v.picklist(['body', 'header', 'url'])),
+      }),
+    ),
+  ),
 });
 
 /**

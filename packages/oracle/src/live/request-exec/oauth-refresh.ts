@@ -23,9 +23,14 @@
  */
 
 import type { OAuth2TokenBundle } from '@openheaders/core/oauth';
-import { buildClientAuthHeader, buildRefreshTokenBody, parseTokenResponse } from '@openheaders/core/oauth';
+import {
+  buildClientAuthHeader,
+  buildRefreshTokenBody,
+  nonBodyExtraParams,
+  parseTokenResponse,
+} from '@openheaders/core/oauth';
 import type { OAuth2Auth } from '@openheaders/core/types';
-import { logger } from '@openheaders/core/utils';
+import { appendQueryParams, logger } from '@openheaders/core/utils';
 import { getTokenBundle, putTokenBundle } from '../../entity/oauth-token-store';
 import { withRefreshRateLimit } from './rate-limiter';
 import type { OAuthRefreshFn } from './resolve-request';
@@ -64,7 +69,13 @@ export async function performRefresh(
   // refresh endpoint; fall back to the primary token endpoint when the
   // config doesn't override.
   const endpoint = config.refreshEndpoint?.trim() ? config.refreshEndpoint : config.tokenEndpoint;
-  const bundle = await exchangeRefreshToken(transport, endpoint, body, buildClientAuthHeader(config));
+  const bundle = await exchangeRefreshToken(
+    transport,
+    endpoint,
+    body,
+    buildClientAuthHeader(config),
+    nonBodyExtraParams(config.extraRefreshParams),
+  );
   if (!bundle.refreshToken && current.refreshToken) {
     bundle.refreshToken = current.refreshToken;
   }
@@ -96,18 +107,24 @@ async function exchangeRefreshToken(
   endpoint: string,
   body: URLSearchParams,
   clientAuthHeader: string | null,
+  extras?: ReturnType<typeof nonBodyExtraParams>,
 ): Promise<OAuth2TokenBundle> {
   // Accept JSON explicitly — GitHub returns urlencoded otherwise. The
   // urlencoded body kind sets the Content-Type on the wire.
   const headers: TransportHeader[] = [{ key: 'Accept', value: 'application/json' }];
+  // Header-routed extra params ride the POST; the explicit client-auth
+  // header wins over a same-key row.
+  for (const h of extras?.headers ?? []) headers.push({ key: h.key, value: h.value });
   if (clientAuthHeader) headers.push({ key: 'Authorization', value: clientAuthHeader });
+  // URL-routed extra params append to the endpoint's query string.
+  const url = extras !== undefined && extras.query.length > 0 ? appendQueryParams(endpoint, extras.query) : endpoint;
   // Per-origin token bucket shared with chain-step fetches — a provider
   // handling both OAuth token endpoints AND a token-reading workflow
   // pays a single budget across both paths.
   const response = await withRefreshRateLimit(endpoint, () =>
     transport.send({
       method: 'POST',
-      url: endpoint,
+      url,
       headers,
       body: { kind: 'urlencoded', fields: [...body.entries()].map(([name, value]) => ({ name, value })) },
       redirect: 'follow',

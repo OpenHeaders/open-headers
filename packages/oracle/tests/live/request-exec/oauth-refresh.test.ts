@@ -155,6 +155,28 @@ describe('performRefresh', () => {
     expect(sentRequest().url).toBe('https://auth.openheaders.io/refresh');
   });
 
+  it('routes sendIn-tagged extra refresh params onto the POST headers and endpoint URL', async () => {
+    await performRefresh(
+      makeAuth({
+        extraRefreshParams: [
+          { uid: 'extref001', key: 'audience', value: 'https://api.openheaders.io', sendIn: 'url' },
+          { uid: 'extref002', key: 'X-Gateway-Key', value: 'gw-secret', sendIn: 'header' },
+          { uid: 'extref003', key: 'tenant', value: 'oh' },
+        ],
+      }),
+      undefined,
+      transport,
+    );
+    const sent = sentRequest();
+    expect(new URL(sent.url).searchParams.get('audience')).toBe('https://api.openheaders.io');
+    expect(sentHeader('X-Gateway-Key')).toBe('gw-secret');
+    // The untagged row keeps today's body ride — and never leaks to the
+    // other legs.
+    expect(sentField('tenant')).toBe('oh');
+    expect(sentField('audience')).toBeNull();
+    expect(sentField('X-Gateway-Key')).toBeNull();
+  });
+
   it('moves client credentials into the Basic header under basic-header auth', async () => {
     await performRefresh(
       makeAuth({ clientAuthentication: 'basic-header', clientSecret: 's3cret' }),

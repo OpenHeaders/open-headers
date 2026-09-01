@@ -21,6 +21,7 @@ import {
   generateCodeVerifier,
   generateCredentialRef,
   isExpired,
+  nonBodyExtraParams,
   OAUTH2_PROVIDER_PRESETS,
   type OAuth2TokenBundle,
   parseTokenResponse,
@@ -216,6 +217,31 @@ describe('buildAuthorizationCodeTokenBody', () => {
     });
     expect(body.get('audience')).toBe('https://api.openheaders.io');
     expect(body.get('resource')).toBe('https://resource.io');
+  });
+
+  it('keeps header/url-routed extra params OUT of the body — nonBodyExtraParams carries them', () => {
+    const rows = [
+      { uid: 'exttok001', key: 'audience', value: 'https://api.openheaders.io', sendIn: 'url' as const },
+      { uid: 'exttok002', key: 'X-Gateway-Key', value: 'gw-secret', sendIn: 'header' as const },
+      { uid: 'exttok003', key: 'resource', value: 'https://resource.io', sendIn: 'body' as const },
+      { uid: 'exttok004', key: 'tenant', value: 'oh' },
+    ];
+    const body = buildAuthorizationCodeTokenBody({
+      config: makeConfig({ extraTokenParams: rows }),
+      code: 'c',
+      codeVerifier: 'v',
+      redirectUri: 'https://x/',
+    });
+    // Absent and 'body' fold into the form body; header/url stay out.
+    expect(body.get('resource')).toBe('https://resource.io');
+    expect(body.get('tenant')).toBe('oh');
+    expect(body.has('audience')).toBe(false);
+    expect(body.has('X-Gateway-Key')).toBe(false);
+    expect(nonBodyExtraParams(rows)).toEqual({
+      headers: [{ key: 'X-Gateway-Key', value: 'gw-secret' }],
+      query: [{ key: 'audience', value: 'https://api.openheaders.io' }],
+    });
+    expect(nonBodyExtraParams(undefined)).toEqual({ headers: [], query: [] });
   });
 });
 

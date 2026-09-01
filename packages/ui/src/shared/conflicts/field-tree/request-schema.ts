@@ -48,6 +48,9 @@ const PARAM_ROW: FieldNode = obj({
 const EXTRA_PARAM_ROW: FieldNode = obj({
   key: leaf('string'),
   value: leaf('string'),
+  // Token/refresh rows only (auth rows never set it) — where the row
+  // rides the POST (absent = the form body).
+  sendIn: leaf('string', { coercion: 'optional-string' }),
 });
 
 const extraParamSet: FieldNode = setByUid({

@@ -382,6 +382,10 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.oauth.refreshTokenUrlDesc':
     'Die meisten Anbieter verwenden die Zugriffstoken-URL auch zum Erneuern; gib nur dann eine eigene an, ' +
     'wenn der Anbieter einen eigenen Pfad bereitstellt.',
+  'workbench.editors.request.oauth.sendInColumn': 'Senden in',
+  'workbench.editors.request.oauth.sendInBody': 'Body',
+  'workbench.editors.request.oauth.sendInHeader': 'Header',
+  'workbench.editors.request.oauth.sendInUrl': 'URL',
   'workbench.editors.request.oauth.authRequest': 'Autorisierungsanfrage',
   'workbench.editors.request.oauth.tokenRequest': 'Token-Anfrage',
   'workbench.editors.request.oauth.refreshRequest': 'Erneuerungsanfrage',

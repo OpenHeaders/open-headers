@@ -40,6 +40,7 @@ import { Alert, App, Button, Checkbox, Input, Select, Tooltip, Typography, theme
 import type React from 'react';
 import { useMemo, useState } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
+import type { AuxColumn } from './editable-grid-types';
 import KeyValueTable, { type KeyValueRow } from './KeyValueTable';
 
 const { Text, Link } = Typography;
@@ -554,6 +555,7 @@ const OAuth2AuthEditor: React.FC<OAuth2AuthEditorProps> = ({ auth, onChange }) =
                   />
                   <ParamsBlock
                     title={t('workbench.editors.request.oauth.tokenRequest')}
+                    sendInEditable
                     entries={auth.extraTokenParams ?? []}
                     onChange={(entries) =>
                       onChange({ ...auth, extraTokenParams: entries.length === 0 ? undefined : entries })
@@ -561,6 +563,7 @@ const OAuth2AuthEditor: React.FC<OAuth2AuthEditorProps> = ({ auth, onChange }) =
                   />
                   <ParamsBlock
                     title={t('workbench.editors.request.oauth.refreshRequest')}
+                    sendInEditable
                     entries={auth.extraRefreshParams ?? []}
                     onChange={(entries) =>
                       onChange({ ...auth, extraRefreshParams: entries.length === 0 ? undefined : entries })
@@ -627,6 +630,9 @@ interface ParamEntry {
   uid: string;
   key: string;
   value: string;
+  /** Token/refresh tables only — where the row rides the POST
+   *  (absent = the form body). */
+  sendIn?: 'body' | 'header' | 'url';
 }
 
 /**
@@ -636,13 +642,19 @@ interface ParamEntry {
  * Bulk Edit, column-hide menu). The OAuth2 storage shape is
  * deliberately narrow (`{key, value}` entries — no description /
  * enabled on the schema), so the adapter maps onto KeyValueRow and
- * strips the extra fields on commit.
+ * strips the extra fields on commit. The token/refresh tables opt
+ * into a per-row Send In track (`sendInEditable`) routing each param
+ * onto the POST body (the default), an HTTP header, or the endpoint
+ * URL — auth-request params are URL-appended by definition, so the
+ * auth table stays two-column.
  */
 const ParamsBlock: React.FC<{
   title: string;
   entries: ParamEntry[];
   onChange: (entries: ParamEntry[]) => void;
-}> = ({ title, entries, onChange }) => {
+  sendInEditable?: boolean;
+}> = ({ title, entries, onChange, sendInEditable = false }) => {
+  const t = useT();
   // Hydrate transient uids for the shared table; KeyValueRow carries
   // them so drag reorder + in-place edits stay stable across renders.
   const rowsWithUid: KeyValueRow[] = entries.map((e) => ({
@@ -652,6 +664,48 @@ const ParamsBlock: React.FC<{
     description: '',
     enabled: true,
   }));
+  // `sendIn` lives beside the table's row shape — merged back by uid on
+  // every commit so key/value edits never shed it.
+  const sendInByUid = new Map(entries.map((e) => [e.uid, e.sendIn]));
+  const withSendIn = (r: KeyValueRow): ParamEntry => {
+    const sendIn = sendInByUid.get(r.uid);
+    return { uid: r.uid || generateUid(), key: r.key, value: r.value, ...(sendIn ? { sendIn } : {}) };
+  };
+  const setSendIn = (uid: string, next: 'body' | 'header' | 'url') => {
+    onChange(
+      entries.map((e) => {
+        if (e.uid !== uid) return e;
+        const { sendIn: _omit, ...rest } = e;
+        return next === 'body' ? rest : { ...rest, sendIn: next };
+      }),
+    );
+  };
+  const auxColumns: AuxColumn<KeyValueRow>[] | undefined = sendInEditable
+    ? [
+        {
+          label: t('workbench.editors.request.oauth.sendInColumn'),
+          width: '96px',
+          position: 'after-value',
+          divider: true,
+          render: (row, _update, ctx) =>
+            ctx.isPlaceholder ? null : (
+              <Select
+                size="small"
+                variant="borderless"
+                data-testid="oh-oauth2-param-send-in"
+                value={sendInByUid.get(row.uid) ?? 'body'}
+                onChange={(next: 'body' | 'header' | 'url') => setSendIn(row.uid, next)}
+                options={[
+                  { value: 'body', label: t('workbench.editors.request.oauth.sendInBody') },
+                  { value: 'header', label: t('workbench.editors.request.oauth.sendInHeader') },
+                  { value: 'url', label: t('workbench.editors.request.oauth.sendInUrl') },
+                ]}
+                style={{ width: '100%', fontSize: 12 }}
+              />
+            ),
+        },
+      ]
+    : undefined;
 
   return (
     <div>
@@ -661,12 +715,9 @@ const ParamsBlock: React.FC<{
       <KeyValueTable
         rows={rowsWithUid}
         onChange={(next: KeyValueRow[]) => {
-          onChange(
-            next
-              .filter((r) => r.key.trim() || r.value.trim())
-              .map((r) => ({ uid: r.uid || generateUid(), key: r.key, value: r.value })),
-          );
+          onChange(next.filter((r) => r.key.trim() || r.value.trim()).map(withSendIn));
         }}
+        auxColumns={auxColumns}
       />
     </div>
   );

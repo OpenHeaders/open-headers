@@ -318,6 +318,10 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.oauth.refreshTokenUrl': 'Refresh Token URL',
   'workbench.editors.request.oauth.refreshTokenUrlDesc':
     'Most providers reuse the Access Token URL for refresh; supply an override only when the provider exposes a distinct path.',
+  'workbench.editors.request.oauth.sendInColumn': 'Send in',
+  'workbench.editors.request.oauth.sendInBody': 'Body',
+  'workbench.editors.request.oauth.sendInHeader': 'Header',
+  'workbench.editors.request.oauth.sendInUrl': 'URL',
   'workbench.editors.request.oauth.authRequest': 'Auth Request',
   'workbench.editors.request.oauth.tokenRequest': 'Token Request',
   'workbench.editors.request.oauth.refreshRequest': 'Refresh Request',

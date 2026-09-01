@@ -313,8 +313,8 @@ export function buildAuthorizationCodeTokenBody(input: {
     body.set('client_id', config.clientId);
     if (config.clientSecret) body.set('client_secret', config.clientSecret);
   }
-  for (const { key, value } of config.extraTokenParams ?? []) {
-    body.set(key, value);
+  for (const { key, value, sendIn } of config.extraTokenParams ?? []) {
+    if (sendIn === undefined || sendIn === 'body') body.set(key, value);
   }
   return body;
 }
@@ -334,8 +334,8 @@ export function buildClientCredentialsTokenBody(config: OAuth2Auth): URLSearchPa
     body.set('client_secret', config.clientSecret);
   }
   if (config.scopes.length > 0) body.set('scope', config.scopes.join(' '));
-  for (const { key, value } of config.extraTokenParams ?? []) {
-    body.set(key, value);
+  for (const { key, value, sendIn } of config.extraTokenParams ?? []) {
+    if (sendIn === undefined || sendIn === 'body') body.set(key, value);
   }
   return body;
 }
@@ -358,8 +358,8 @@ export function buildPasswordCredentialsTokenBody(config: OAuth2Auth): URLSearch
     if (config.clientSecret) body.set('client_secret', config.clientSecret);
   }
   if (config.scopes.length > 0) body.set('scope', config.scopes.join(' '));
-  for (const { key, value } of config.extraTokenParams ?? []) {
-    body.set(key, value);
+  for (const { key, value, sendIn } of config.extraTokenParams ?? []) {
+    if (sendIn === undefined || sendIn === 'body') body.set(key, value);
   }
   return body;
 }
@@ -399,10 +399,34 @@ export function buildRefreshTokenBody(input: { config: OAuth2Auth; refreshToken:
     if (config.clientSecret) body.set('client_secret', config.clientSecret);
   }
   if (config.scopes.length > 0) body.set('scope', config.scopes.join(' '));
-  for (const { key, value } of config.extraRefreshParams ?? []) {
-    body.set(key, value);
+  for (const { key, value, sendIn } of config.extraRefreshParams ?? []) {
+    if (sendIn === undefined || sendIn === 'body') body.set(key, value);
   }
   return body;
+}
+
+/** Where an extra token/refresh param rides the POST — see
+ *  {@link nonBodyExtraParams}. */
+export type OAuth2ExtraParamSendIn = 'body' | 'header' | 'url';
+
+/**
+ * The token/refresh POST's NON-body extra params, split for the
+ * caller: `headers` attach as HTTP headers on the POST and `query`
+ * appends to the endpoint URL. Rows without a `sendIn` (or `'body'`)
+ * stay in the form body — the builders above fold those. One config
+ * feeds both halves, so a caller pairs a builder call with this split
+ * over the same rows.
+ */
+export function nonBodyExtraParams(
+  rows: ReadonlyArray<{ key: string; value: string; sendIn?: OAuth2ExtraParamSendIn }> | undefined,
+): { headers: Array<{ key: string; value: string }>; query: Array<{ key: string; value: string }> } {
+  const headers: Array<{ key: string; value: string }> = [];
+  const query: Array<{ key: string; value: string }> = [];
+  for (const { key, value, sendIn } of rows ?? []) {
+    if (sendIn === 'header') headers.push({ key, value });
+    else if (sendIn === 'url') query.push({ key, value });
+  }
+  return { headers, query };
 }
 
 /**

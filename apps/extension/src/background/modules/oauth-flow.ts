@@ -29,15 +29,17 @@ import {
   computeCodeChallenge,
   findOAuth2Preset,
   generateCodeVerifier,
+  nonBodyExtraParams,
   type OAuth2TokenBundle,
   parseTokenResponse,
   usesPkce,
 } from '@openheaders/core/oauth';
 import type { OAuth2Auth } from '@openheaders/core/types';
+import { appendQueryParams } from '@openheaders/core/utils';
+import { getTokenBundle, putTokenBundle } from '@openheaders/oracle/entity/oauth-token-store';
 import { identity } from '@utils/browser-api';
 import { logger } from '@utils/logger';
 import { withHostAccess } from '@/shared/fetch/with-host-access';
-import { getTokenBundle, putTokenBundle } from '@openheaders/oracle/entity/oauth-token-store';
 // `workspaceId?` threads the editing-scope workspace through the
 // browser-mediated OAuth flow so a diverged tab's authorize lands the
 // resulting bundle in its own workspace's oracle (MWPT-FULL § 8.3.10).
@@ -163,6 +165,7 @@ export async function launchAuthorizationCodeFlow(
     body,
     'authorization_code',
     buildClientAuthHeader(config),
+    nonBodyExtraParams(config.extraTokenParams),
   );
   await putTokenBundle(config.credentialRef, bundle, config, workspaceId);
   return { bundle, redirectUri };
@@ -186,6 +189,7 @@ export async function performClientCredentialsFlow(
     body,
     'client_credentials',
     buildClientAuthHeader(config),
+    nonBodyExtraParams(config.extraTokenParams),
   );
   await putTokenBundle(config.credentialRef, bundle, config, workspaceId);
   return bundle;
@@ -204,7 +208,13 @@ export async function performPasswordCredentialsFlow(
     );
   }
   const body = buildPasswordCredentialsTokenBody(config);
-  const bundle = await exchangeForTokens(config.tokenEndpoint, body, 'password', buildClientAuthHeader(config));
+  const bundle = await exchangeForTokens(
+    config.tokenEndpoint,
+    body,
+    'password',
+    buildClientAuthHeader(config),
+    nonBodyExtraParams(config.extraTokenParams),
+  );
   await putTokenBundle(config.credentialRef, bundle, config, workspaceId);
   return bundle;
 }
@@ -221,7 +231,13 @@ export async function performRefresh(config: OAuth2Auth, workspaceId?: string): 
   // refresh endpoint; fall back to the primary token endpoint when
   // the config doesn't override.
   const refreshEndpoint = config.refreshEndpoint?.trim() ? config.refreshEndpoint : config.tokenEndpoint;
-  const bundle = await exchangeForTokens(refreshEndpoint, body, 'refresh_token', buildClientAuthHeader(config));
+  const bundle = await exchangeForTokens(
+    refreshEndpoint,
+    body,
+    'refresh_token',
+    buildClientAuthHeader(config),
+    nonBodyExtraParams(config.extraRefreshParams),
+  );
   // Providers sometimes omit refresh_token on refresh — carry the prior
   // one forward so the next refresh still works.
   if (!bundle.refreshToken && current.refreshToken) {
@@ -263,20 +279,27 @@ async function exchangeForTokens(
   body: URLSearchParams,
   step: string,
   clientAuthHeader: string | null = null,
+  extras?: ReturnType<typeof nonBodyExtraParams>,
 ): Promise<OAuth2TokenBundle> {
   const headers: Record<string, string> = {
     'Content-Type': 'application/x-www-form-urlencoded',
     // Accept JSON explicitly — GitHub returns urlencoded otherwise.
     Accept: 'application/json',
   };
+  // Header-routed extra params ride the POST; the explicit client-auth
+  // header wins over a same-key row.
+  for (const h of extras?.headers ?? []) headers[h.key] = h.value;
   if (clientAuthHeader) headers.Authorization = clientAuthHeader;
+  // URL-routed extra params append to the endpoint's query string.
+  const url =
+    extras !== undefined && extras.query.length > 0 ? appendQueryParams(tokenEndpoint, extras.query) : tokenEndpoint;
   // Per-origin rate limit shared with Live Workflow chain steps — a
   // provider that handles both OAuth token endpoints AND a token-
   // reading LV workflow (common: upstream uses its own OAuth) pays a
   // single budget across both paths.
   const response = await withRefreshRateLimit(tokenEndpoint, () =>
     withHostAccess(tokenEndpoint, () =>
-      fetch(tokenEndpoint, {
+      fetch(url, {
         method: 'POST',
         credentials: 'omit',
         headers,

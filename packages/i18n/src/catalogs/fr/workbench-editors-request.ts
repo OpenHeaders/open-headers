@@ -371,6 +371,10 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.oauth.refreshTokenUrlDesc':
     "La plupart des fournisseurs réutilisent l'URL du jeton d'accès pour le rafraîchissement ; ne fournissez " +
     'une valeur que si le fournisseur expose un chemin distinct.',
+  'workbench.editors.request.oauth.sendInColumn': 'Envoyer dans',
+  'workbench.editors.request.oauth.sendInBody': 'Corps',
+  'workbench.editors.request.oauth.sendInHeader': 'En-tête',
+  'workbench.editors.request.oauth.sendInUrl': 'URL',
   'workbench.editors.request.oauth.authRequest': "Requête d'autorisation",
   'workbench.editors.request.oauth.tokenRequest': 'Requête de jeton',
   'workbench.editors.request.oauth.refreshRequest': 'Requête de rafraîchissement',
