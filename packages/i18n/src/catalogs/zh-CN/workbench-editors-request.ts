@@ -266,6 +266,51 @@ export const workbenchEditorsRequest = {
     'Header 将 JWT 放在 Authorization 标头中；Query Params 将其作为 token= 追加到 URL。',
   'workbench.editors.request.auth.rowInfo.jwtHeaderPrefix':
     'Authorization 标头中 JWT 前的方案 \u2014 默认为 Bearer；留空则发送裸令牌。',
+  'workbench.editors.request.auth.typeInfo.oauth2':
+    '客户端从提供方获取访问令牌 \u2014 先在浏览器中授权再交换令牌，或对机器与密码授权直接交换 \u2014 每次发送都以 bearer 令牌携带；若签发了刷新令牌，过期时自动刷新。',
+  'workbench.editors.request.auth.groupInfo.oauth2.token':
+    '此配置当前持有的令牌 \u2014 发送时跟在 Bearer 之后的内容，以及它是否自动刷新。',
+  'workbench.editors.request.auth.groupInfo.oauth2.grant':
+    '如何获取新令牌 \u2014 授权类型、提供方的端点、客户端身份以及所请求的内容。',
+  'workbench.editors.request.auth.groupInfo.oauth2.advanced': '刷新环节，以及三个提供方请求各自携带的额外参数。',
+  'workbench.editors.request.auth.rowInfo.oauth2Token':
+    '上次流程存储的访问令牌 \u2014 每次发送都跟在 Bearer 之后；流程运行前为空。',
+  'workbench.editors.request.auth.rowInfo.oauth2HeaderPrefix':
+    'Authorization 标头中令牌前的方案 \u2014 提供方签发的 token_type，默认为 Bearer。',
+  'workbench.editors.request.auth.rowInfo.oauth2AutoRefresh':
+    '若提供方签发了刷新令牌，过期的访问令牌会在发送前换成新的。',
+  'workbench.editors.request.auth.rowInfo.oauth2Status': '存储的令牌还能有效多久；刷新会立即交换，断开则将其忘记。',
+  'workbench.editors.request.auth.rowInfo.oauth2TokenName': '此令牌在应用中的标签 \u2014 不会出现在线路上。',
+  'workbench.editors.request.auth.rowInfo.oauth2GrantType':
+    '令牌交换的 grant_type 以及之前运行的环节 \u2014 授权码类授权先经浏览器授权，客户端凭据或密码授权则没有。',
+  'workbench.editors.request.auth.rowInfo.oauth2CallbackUrl':
+    '提供方带着授权码把浏览器送回的 redirect_uri \u2014 需在提供方处注册。',
+  'workbench.editors.request.auth.rowInfo.oauth2AuthUrl': '浏览器首先被送往的提供方授权端点。',
+  'workbench.editors.request.auth.rowInfo.oauth2AccessTokenUrl': '用授权码（或凭据）交换令牌的提供方令牌端点。',
+  'workbench.editors.request.auth.rowInfo.oauth2Username':
+    '资源所有者的用户名，放在令牌请求正文中发送 \u2014 仅密码授权。',
+  'workbench.editors.request.auth.rowInfo.oauth2Password':
+    '资源所有者的密码，放在令牌请求正文中发送 \u2014 仅密码授权。',
+  'workbench.editors.request.auth.rowInfo.oauth2ClientId': '标识应用 \u2014 出现在授权 URL 和令牌请求中。',
+  'workbench.editors.request.auth.rowInfo.oauth2ClientSecret':
+    '在令牌端点认证应用 \u2014 按客户端认证的设置放在正文或 Basic 标头中。',
+  'workbench.editors.request.auth.rowInfo.oauth2CodeChallengeMethod':
+    'PKCE：授权 URL 上的 code_challenge 是每次流程生成的校验码的 S256 摘要。',
+  'workbench.editors.request.auth.rowInfo.oauth2CodeVerifier':
+    '每次流程生成，并在令牌交换中作为 code_verifier 发送，以证明是同一客户端发起的。',
+  'workbench.editors.request.auth.rowInfo.oauth2Scope':
+    '请求的 scope \u2014 以空格分隔作为 scope 放在授权 URL 或令牌请求中发送。',
+  'workbench.editors.request.auth.rowInfo.oauth2State': '每次流程生成并由提供方回显，使回调与本次授权对应。',
+  'workbench.editors.request.auth.rowInfo.oauth2ClientAuthentication':
+    '客户端凭据在令牌请求中的位置 \u2014 表单正文，或 Authorization: Basic 标头。',
+  'workbench.editors.request.auth.rowInfo.oauth2RefreshTokenUrl': '刷新交换所 POST 的端点 \u2014 留空即访问令牌 URL。',
+  'workbench.editors.request.auth.rowInfo.oauth2AuthRequest': '追加到授权 URL 的额外参数（audience、prompt 等）。',
+  'workbench.editors.request.auth.rowInfo.oauth2TokenRequest':
+    '令牌请求的额外参数 \u2014 每项按其“发送位置”放在表单正文、标头或 URL 中。',
+  'workbench.editors.request.auth.rowInfo.oauth2RefreshRequest':
+    '刷新请求的额外参数 \u2014 每项按其“发送位置”放在表单正文、标头或 URL 中。',
+  'workbench.editors.request.auth.rowInfo.oauth2SendAs':
+    '请求标头把令牌跟在 Bearer 之后放入 Authorization 标头；请求 URL 则将其作为 access_token 追加 \u2014 已弃用，仅用于旧式提供方。',
   'workbench.editors.request.auth.type.inherit': '从父级继承授权',
   'workbench.editors.request.auth.type.none': '无授权',
   'workbench.editors.request.auth.type.basic': 'Basic Auth',
@@ -375,8 +420,6 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.oauth.queryWarningBefore':
     'RFC 6750 §2.3 保留了 URI 查询参数方式，但同时警告：token 会泄漏到服务器日志、HTTP `Referer` 标头、浏览器历史和中间缓存。除非提供方要求查询形式，否则请优先使用默认的',
   'workbench.editors.request.oauth.queryWarningAfter': '标头。',
-  'workbench.editors.request.oauth.currentToken': '当前 Token',
-  'workbench.editors.request.oauth.configureNewToken': '配置新 Token',
   'workbench.editors.request.oauth.tokenLabel': 'Token',
   'workbench.editors.request.oauth.noTokenPlaceholder': '还没有 token——使用下方的“获取新的访问 token”',
   'workbench.editors.request.oauth.headerPrefix': '标头前缀',
@@ -415,7 +458,6 @@ export const workbenchEditorsRequest = {
     'client_id / client_secret 随 token POST 的携带位置。各提供方不同——Auth0 / Keycloak 通常要求 Basic 标头形式。',
   'workbench.editors.request.oauth.clientAuthBody': '在正文中发送客户端凭据',
   'workbench.editors.request.oauth.clientAuthBasicHeader': '作为 Basic Auth 标头发送',
-  'workbench.editors.request.oauth.advanced': '高级',
   'workbench.editors.request.oauth.advancedIntro': '你可以在这里为 OAuth2 请求添加更细的自定义。',
   'workbench.editors.request.oauth.advancedLearnMore': '进一步了解配置',
   'workbench.editors.request.oauth.refreshTokenUrl': 'Refresh Token URL',

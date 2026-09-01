@@ -181,16 +181,25 @@ export const AuthFormNote: React.FC<{ children: React.ReactNode }> = ({ children
 );
 
 /** `label · (i)` over the field column; the (i) opens the row's slice
- *  of the type's example (AuthRowInfo). */
-export const AuthLabeledRow: React.FC<{ label: string; info?: InfoPopoverContent; children: React.ReactNode }> = ({
-  label,
-  info,
-  children,
-}) => (
+ *  of the type's example (AuthRowInfo). An optional description
+ *  reads under the label in the note size. */
+export const AuthLabeledRow: React.FC<{
+  label: string;
+  info?: InfoPopoverContent;
+  description?: React.ReactNode;
+  children: React.ReactNode;
+}> = ({ label, info, description, children }) => (
   <div style={{ display: 'grid', gridTemplateColumns: `${AUTH_LABEL_WIDTH}px 1fr`, alignItems: 'start', gap: 12 }}>
-    <div style={{ display: 'flex', alignItems: 'center', gap: 4, minHeight: 24 }}>
-      <Text style={{ fontSize: 13, lineHeight: '24px' }}>{label}</Text>
-      {info !== undefined && <InfoTrigger content={info} />}
+    <div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 4, minHeight: 24 }}>
+        <Text style={{ fontSize: 13, lineHeight: '24px' }}>{label}</Text>
+        {info !== undefined && <InfoTrigger content={info} />}
+      </div>
+      {description !== undefined && (
+        <Text type="secondary" style={{ fontSize: 11, display: 'block' }}>
+          {description}
+        </Text>
+      )}
     </div>
     <div style={{ minWidth: 0 }}>{children}</div>
   </div>

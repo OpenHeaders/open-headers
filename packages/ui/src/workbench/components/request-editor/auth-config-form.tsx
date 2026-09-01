@@ -16,17 +16,16 @@ import type React from 'react';
 import { useCallback } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { InfoTrigger } from '@openheaders/ui/shared/info-popover';
-import { AUTH_GROUP_LABEL_KEY, type AuthGroupKey } from './auth-groups';
+import AuthFormGroup from './AuthFormGroup';
 import {
   AUTH_FIELD_DEFAULT_MAX_WIDTH as FIELD_DEFAULT_MAX_WIDTH,
   AuthCheckboxRow,
   AuthForm,
   AuthFormNote,
-  AuthGroup,
   AuthLabeledRow as LabeledRow,
   AuthSecretField as SecretField,
 } from './auth-layout';
-import { type AuthInfoKey, authGroupInfo, authRowInfo, type CardAuthConfig } from './AuthRowInfo';
+import { type AuthInfoKey, authRowInfo } from './AuthRowInfo';
 import OAuth2AuthEditor from './OAuth2AuthEditor';
 import { TemplateInput } from '../template-input';
 
@@ -129,25 +128,7 @@ export const AuthConfigFields: React.FC<{
 // the type's example (AuthRowInfo). Delivery closes every form that
 // has one; the auto-generated note closes the form itself.
 
-const FormGroup: React.FC<{
-  auth: CardAuthConfig;
-  group: AuthGroupKey;
-  modified: boolean;
-  children: React.ReactNode;
-}> = ({ auth, group, modified, children }) => {
-  const t = useT();
-  return (
-    <AuthGroup
-      type={auth.type}
-      group={group}
-      label={t(AUTH_GROUP_LABEL_KEY[group])}
-      info={authGroupInfo(t, auth, group)}
-      modified={modified}
-    >
-      {children}
-    </AuthGroup>
-  );
-};
+const FormGroup = AuthFormGroup;
 
 const isSet = (value: string | undefined): boolean => (value ?? '') !== '';
 
@@ -851,24 +832,19 @@ export const OAuth2RailControls: React.FC<{
       style={{ width: '100%', ...(layout === 'rows' ? { maxWidth: FIELD_DEFAULT_MAX_WIDTH } : {}) }}
     />
   );
-  const presetInfo = (
-    <InfoTrigger
-      content={{
-        title: t('workbench.editors.request.auth.presetLabel'),
-        summary: t('workbench.editors.request.auth.presetInfo'),
-      }}
-    />
-  );
+  // Both rows open their slice of the OAuth 2.0 card: where the token
+  // lands on the send, and the two endpoints a preset fills.
+  const sendAsInfo = authRowInfo(t, auth, 'oauth2SendAs');
+  const presetInfo = authRowInfo(t, auth, 'oauth2Preset');
 
   if (layout === 'rows') {
     return (
       <>
-        <LabeledRow label={t('workbench.editors.request.auth.sendAsLabel')}>{sendAsSelect}</LabeledRow>
-        <LabeledRow label={t('workbench.editors.request.auth.presetLabel')}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <div style={{ flex: 1, minWidth: 0 }}>{presetSelect}</div>
-            {presetInfo}
-          </div>
+        <LabeledRow label={t('workbench.editors.request.auth.sendAsLabel')} info={sendAsInfo}>
+          {sendAsSelect}
+        </LabeledRow>
+        <LabeledRow label={t('workbench.editors.request.auth.presetLabel')} info={presetInfo}>
+          {presetSelect}
         </LabeledRow>
       </>
     );
@@ -877,17 +853,20 @@ export const OAuth2RailControls: React.FC<{
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 12 }}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-        <Text strong style={{ fontSize: 12 }}>
-          {t('workbench.editors.request.auth.sendAsLabel')}
-        </Text>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+          <Text strong style={{ fontSize: 12 }}>
+            {t('workbench.editors.request.auth.sendAsLabel')}
+          </Text>
+          <InfoTrigger content={sendAsInfo} />
+        </div>
         {sendAsSelect}
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
           <Text strong style={{ fontSize: 12 }}>
             {t('workbench.editors.request.auth.presetLabel')}
           </Text>
-          {presetInfo}
+          <InfoTrigger content={presetInfo} />
         </div>
         {presetSelect}
       </div>

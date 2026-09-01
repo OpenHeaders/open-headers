@@ -271,6 +271,60 @@ export const workbenchEditorsRequest = {
     'Header sends the JWT in the Authorization header; Query Params appends it as token= on the URL.',
   'workbench.editors.request.auth.rowInfo.jwtHeaderPrefix':
     'The scheme before the JWT in the Authorization header \u2014 Bearer by default; empty sends the bare token.',
+  'workbench.editors.request.auth.typeInfo.oauth2':
+    'The client obtains an access token from the provider \u2014 a browser authorization then a token exchange, or a direct exchange for machine and password grants \u2014 and every send carries it as a bearer token, refreshed on expiry when a refresh token was issued.',
+  'workbench.editors.request.auth.groupInfo.oauth2.token':
+    'The token this config holds right now \u2014 what the send carries after Bearer, and whether it refreshes itself.',
+  'workbench.editors.request.auth.groupInfo.oauth2.grant':
+    'How a new token is obtained \u2014 the grant, the provider\u2019s endpoints, the client\u2019s identity, and what is asked for.',
+  'workbench.editors.request.auth.groupInfo.oauth2.advanced':
+    'The refresh leg and the extra parameters each of the three provider requests carries.',
+  'workbench.editors.request.auth.rowInfo.oauth2Token':
+    'The access token the last flow stored \u2014 sent after Bearer on every send; empty until a flow runs.',
+  'workbench.editors.request.auth.rowInfo.oauth2HeaderPrefix':
+    'The scheme before the token in the Authorization header \u2014 the token_type the provider issued, Bearer by default.',
+  'workbench.editors.request.auth.rowInfo.oauth2AutoRefresh':
+    'When the provider issued a refresh token, an expired access token is exchanged for a fresh one before the send.',
+  'workbench.editors.request.auth.rowInfo.oauth2Status':
+    'How long the stored token stays valid; Refresh exchanges it now, Disconnect forgets it.',
+  'workbench.editors.request.auth.rowInfo.oauth2TokenName':
+    'A label for this token in the app \u2014 nothing on the wire.',
+  'workbench.editors.request.auth.rowInfo.oauth2GrantType':
+    'The grant_type of the token exchange and which legs run before it \u2014 a browser authorization for the code grants, none for client or password credentials.',
+  'workbench.editors.request.auth.rowInfo.oauth2CallbackUrl':
+    'The redirect_uri the provider sends the browser back to with the code \u2014 register it with the provider.',
+  'workbench.editors.request.auth.rowInfo.oauth2AuthUrl':
+    'The provider\u2019s authorization endpoint the browser is sent to first.',
+  'workbench.editors.request.auth.rowInfo.oauth2AccessTokenUrl':
+    'The provider\u2019s token endpoint the code (or the credentials) is exchanged at.',
+  'workbench.editors.request.auth.rowInfo.oauth2Username':
+    'The resource owner\u2019s username, sent in the token request body \u2014 the password grant only.',
+  'workbench.editors.request.auth.rowInfo.oauth2Password':
+    'The resource owner\u2019s password, sent in the token request body \u2014 the password grant only.',
+  'workbench.editors.request.auth.rowInfo.oauth2ClientId':
+    'Identifies the application \u2014 on the authorization URL and in the token request.',
+  'workbench.editors.request.auth.rowInfo.oauth2ClientSecret':
+    'Authenticates the application at the token endpoint \u2014 in the body, or as a Basic header per Client Authentication.',
+  'workbench.editors.request.auth.rowInfo.oauth2CodeChallengeMethod':
+    'PKCE: the code_challenge on the authorization URL is the S256 digest of a verifier minted per flow.',
+  'workbench.editors.request.auth.rowInfo.oauth2CodeVerifier':
+    'Minted per flow and sent as code_verifier in the token exchange to prove the same client started it.',
+  'workbench.editors.request.auth.rowInfo.oauth2Scope':
+    'The scopes requested \u2014 sent space-separated as scope on the authorization URL or in the token request.',
+  'workbench.editors.request.auth.rowInfo.oauth2State':
+    'Minted per flow and echoed back by the provider so the callback is matched to this authorization.',
+  'workbench.editors.request.auth.rowInfo.oauth2ClientAuthentication':
+    'Where the client credentials ride in the token request \u2014 the form body, or an Authorization: Basic header.',
+  'workbench.editors.request.auth.rowInfo.oauth2RefreshTokenUrl':
+    'The endpoint the refresh exchange posts to \u2014 empty means the Access Token URL.',
+  'workbench.editors.request.auth.rowInfo.oauth2AuthRequest':
+    'Extra parameters appended to the authorization URL (audience, prompt, \u2026).',
+  'workbench.editors.request.auth.rowInfo.oauth2TokenRequest':
+    'Extra parameters on the token request \u2014 each rides the form body, a header, or the URL per its Send In.',
+  'workbench.editors.request.auth.rowInfo.oauth2RefreshRequest':
+    'Extra parameters on the refresh request \u2014 each rides the form body, a header, or the URL per its Send In.',
+  'workbench.editors.request.auth.rowInfo.oauth2SendAs':
+    'Request Headers sends the token after Bearer in the Authorization header; Request URL appends it as access_token \u2014 deprecated, for legacy providers only.',
   'workbench.editors.request.auth.type.inherit': 'Inherit auth from parent',
   'workbench.editors.request.auth.type.none': 'No Auth',
   'workbench.editors.request.auth.type.basic': 'Basic Auth',
@@ -384,8 +438,6 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.oauth.queryWarningBefore':
     'RFC 6750 §2.3 kept the URI query-parameter method available but warns against it: tokens leak into server logs, HTTP `Referer` headers, browser history, and intermediary caches. Prefer the default',
   'workbench.editors.request.oauth.queryWarningAfter': 'header unless the provider requires the query form.',
-  'workbench.editors.request.oauth.currentToken': 'Current Token',
-  'workbench.editors.request.oauth.configureNewToken': 'Configure New Token',
   'workbench.editors.request.oauth.tokenLabel': 'Token',
   'workbench.editors.request.oauth.noTokenPlaceholder': 'No token yet — use Get new access token below',
   'workbench.editors.request.oauth.headerPrefix': 'Header Prefix',
@@ -428,7 +480,6 @@ export const workbenchEditorsRequest = {
     'Where client_id / client_secret ride on token POSTs. Providers vary — Auth0 / Keycloak typically require the Basic header form.',
   'workbench.editors.request.oauth.clientAuthBody': 'Send client credentials in body',
   'workbench.editors.request.oauth.clientAuthBasicHeader': 'Send as Basic Auth header',
-  'workbench.editors.request.oauth.advanced': 'Advanced',
   'workbench.editors.request.oauth.advancedIntro':
     'You can add more specific customizations to your OAuth2 requests here.',
   'workbench.editors.request.oauth.advancedLearnMore': 'Learn more about configuration',

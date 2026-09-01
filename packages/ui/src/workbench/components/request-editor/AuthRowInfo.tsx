@@ -34,6 +34,7 @@ import {
 } from '@openheaders/ui/shared/info-popover';
 import { AUTH_GROUP_LABEL_KEY, type AuthGroupKey, type GroupedAuthType } from './auth-groups';
 import { authTypeLabelKey } from './auth-type-labels';
+import { getGrantType } from './oauth2-grant-types';
 
 /** One key per auth-form row that opens a popover with the card. */
 export type AuthInfoKey =
@@ -70,7 +71,31 @@ export type AuthInfoKey =
   | 'jwtHeaders'
   | 'jwtExpiresIn'
   | 'jwtAddTo'
-  | 'jwtHeaderPrefix';
+  | 'jwtHeaderPrefix'
+  | 'oauth2Token'
+  | 'oauth2HeaderPrefix'
+  | 'oauth2AutoRefresh'
+  | 'oauth2Status'
+  | 'oauth2TokenName'
+  | 'oauth2GrantType'
+  | 'oauth2CallbackUrl'
+  | 'oauth2AuthUrl'
+  | 'oauth2AccessTokenUrl'
+  | 'oauth2Username'
+  | 'oauth2Password'
+  | 'oauth2ClientId'
+  | 'oauth2ClientSecret'
+  | 'oauth2CodeChallengeMethod'
+  | 'oauth2CodeVerifier'
+  | 'oauth2Scope'
+  | 'oauth2State'
+  | 'oauth2ClientAuthentication'
+  | 'oauth2RefreshTokenUrl'
+  | 'oauth2AuthRequest'
+  | 'oauth2TokenRequest'
+  | 'oauth2RefreshRequest'
+  | 'oauth2SendAs'
+  | 'oauth2Preset';
 
 type AuthTokenId =
   | 'url'
@@ -86,6 +111,7 @@ type AuthTokenId =
   | 'challenge'
   | 'retry'
   | 'username'
+  | 'password'
   | 'realm'
   | 'nonce'
   | 'uri'
@@ -115,7 +141,25 @@ type AuthTokenId =
   | 'claims'
   | 'iat'
   | 'exp'
-  | 'sig';
+  | 'sig'
+  | 'authorize'
+  | 'clientId'
+  | 'callback'
+  | 'scope'
+  | 'state'
+  | 'pkce'
+  | 'authParams'
+  | 'tokenEndpoint'
+  | 'grantType'
+  | 'code'
+  | 'verifier'
+  | 'clientSecret'
+  | 'clientAuth'
+  | 'tokenParams'
+  | 'refreshEndpoint'
+  | 'refresh'
+  | 'refreshToken'
+  | 'refreshParams';
 
 type Token = ExampleCardToken<AuthTokenId>;
 type Line = ExampleCardLine<AuthTokenId>;
@@ -123,6 +167,7 @@ type Line = ExampleCardLine<AuthTokenId>;
 /** The same send the Settings card illustrates, so the editor's
  *  popovers tell one story. */
 const URL = 'https://api.openheaders.com/v1/users';
+const IDP = 'https://idp.openheaders.com';
 const JWT = 'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJqb2huLmRvZSJ9.SflKxw…';
 /** The Hawk scheme's published vectors — memorable, and byte-exact
  *  against our signer's pins. */
@@ -262,7 +307,61 @@ function exampleLines(auth: ConcreteAuthConfig, forced: ReadonlySet<AuthInfoKey>
         },
       ];
     }
-    case 'oauth2':
+    case 'oauth2': {
+      // Four legs: the authorize redirect (code grants), the token
+      // exchange, the send carrying the access token, the refresh.
+      const grant = getGrantType(auth);
+      const query = auth.sendAs === 'query';
+      const basicClientAuth = auth.clientAuthentication === 'basic-header';
+      const showAuthParams = (auth.extraAuthParams?.length ?? 0) > 0 || forced.has('oauth2AuthRequest');
+      const showTokenParams = (auth.extraTokenParams?.length ?? 0) > 0 || forced.has('oauth2TokenRequest');
+      const showRefreshParams = (auth.extraRefreshParams?.length ?? 0) > 0 || forced.has('oauth2RefreshRequest');
+      const clientId = tok('clientId', 'client_id=ck_9f3a');
+      const lines: Line[] = [];
+      if (grant.fields.authUrl) {
+        lines.push({
+          opener: tok('authorize', `GET ${IDP}/authorize`),
+          tokens: [
+            clientId,
+            ...(grant.fields.callbackUrl ? [tok('callback', 'redirect_uri=…/oauth/callback')] : []),
+            tok('scope', 'scope=openid profile'),
+            tok('state', 'state=x9f2'),
+            ...(grant.fields.pkce ? [tok('pkce', 'code_challenge=E9Melhoa… (S256)')] : []),
+            ...(showAuthParams ? [tok('authParams', 'audience=api')] : []),
+          ],
+        });
+      }
+      lines.push({
+        opener: tok('tokenEndpoint', `POST ${IDP}/token`),
+        tokens: [
+          tok('grantType', `grant_type=${grant.wire}`),
+          ...(grant.fields.authUrl ? [tok('code', 'code=SplxlOBe…')] : []),
+          ...(grant.fields.pkce ? [tok('verifier', 'code_verifier=dBjftJeZ…')] : []),
+          ...(grant.fields.resourceOwner
+            ? [tok('username', 'username=john.doe'), tok('password', 'password=s3cret')]
+            : []),
+          ...(basicClientAuth
+            ? [tok('clientAuth', 'Authorization: Basic base64(ck_9f3a:cs_71b0)')]
+            : [clientId, tok('clientSecret', 'client_secret=cs_71b0')]),
+          ...(showTokenParams ? [tok('tokenParams', 'audience=api')] : []),
+        ],
+      });
+      lines.push(
+        requestLine(),
+        query
+          ? { opener: tok('location', 'query:'), tokens: [tok('token', `access_token=${JWT}`)] }
+          : { opener: tok('location', 'Authorization:'), tokens: [tok('prefix', 'Bearer'), tok('token', JWT)] },
+        {
+          opener: tok('refreshEndpoint', `POST ${IDP}${auth.refreshEndpoint ? '/refresh' : '/token'}`),
+          tokens: [
+            tok('refresh', 'grant_type=refresh_token'),
+            tok('refreshToken', 'refresh_token=rt_8e2a'),
+            ...(showRefreshParams ? [tok('refreshParams', 'audience=api')] : []),
+          ],
+        },
+      );
+      return lines;
+    }
     case 'aws-sigv4':
       return [];
   }
@@ -325,18 +424,51 @@ const ROW_TOKENS: Record<AuthInfoKey, readonly AuthTokenId[]> = {
   jwtExpiresIn: ['iat', 'exp'],
   jwtAddTo: ['location'],
   jwtHeaderPrefix: ['prefix'],
+  oauth2Token: ['token'],
+  oauth2HeaderPrefix: ['prefix'],
+  oauth2AutoRefresh: ['refresh', 'refreshToken'],
+  oauth2Status: ['token', 'refresh'],
+  oauth2TokenName: [],
+  oauth2GrantType: ['grantType'],
+  oauth2CallbackUrl: ['callback'],
+  oauth2AuthUrl: ['authorize'],
+  oauth2AccessTokenUrl: ['tokenEndpoint'],
+  oauth2Username: ['username'],
+  oauth2Password: ['password'],
+  oauth2ClientId: ['clientId'],
+  oauth2ClientSecret: ['clientSecret'],
+  oauth2CodeChallengeMethod: ['pkce'],
+  oauth2CodeVerifier: ['verifier'],
+  oauth2Scope: ['scope'],
+  oauth2State: ['state'],
+  oauth2ClientAuthentication: ['clientId', 'clientSecret'],
+  oauth2RefreshTokenUrl: ['refreshEndpoint'],
+  oauth2AuthRequest: ['authParams'],
+  oauth2TokenRequest: ['tokenParams'],
+  oauth2RefreshRequest: ['refreshParams'],
+  oauth2SendAs: ['location', 'prefix'],
+  oauth2Preset: ['authorize', 'tokenEndpoint'],
 };
 
-/** Shape-aware: an API key on the URL is one `key=value` token. */
+/** Shape-aware: an API key on the URL is one `key=value` token; the
+ *  OAuth 2.0 client secret rides the token body or the Basic header;
+ *  a query-delivered access token has no prefix. */
 function rowTokens(key: AuthInfoKey, auth: ConcreteAuthConfig): readonly AuthTokenId[] {
   if (auth.type === 'api-key' && auth.in === 'query') {
     if (key === 'apiKeyAddTo') return ['location', 'query'];
     if (key === 'apiKeyKey' || key === 'apiKeyValue') return ['query'];
   }
+  if (auth.type === 'oauth2') {
+    if (auth.clientAuthentication === 'basic-header') {
+      if (key === 'oauth2ClientAuthentication' || key === 'oauth2ClientSecret') return ['clientAuth'];
+      if (key === 'oauth2ClientId') return ['clientId', 'clientAuth'];
+    }
+    if (auth.sendAs === 'query' && key === 'oauth2SendAs') return ['location', 'token'];
+  }
   return ROW_TOKENS[key];
 }
 
-type CardType = Exclude<GroupedAuthType, 'oauth2'>;
+type CardType = GroupedAuthType;
 
 /** The configs whose forms are sectioned with a card. */
 export type CardAuthConfig = Extract<ConcreteAuthConfig, { type: CardType }>;
@@ -363,6 +495,27 @@ const GROUP_ROWS: Record<CardType, Partial<Record<AuthGroupKey, readonly AuthInf
     signing: ['jwtAlgorithm', 'jwtSecret', 'jwtSecretBase64', 'jwtPrivateKey'],
     token: ['jwtPayload', 'jwtHeaders', 'jwtExpiresIn'],
     delivery: ['jwtAddTo', 'jwtHeaderPrefix'],
+  },
+  // The rail's Add-to and Preset rows sit outside the sections.
+  oauth2: {
+    token: ['oauth2Token', 'oauth2HeaderPrefix', 'oauth2AutoRefresh', 'oauth2Status'],
+    grant: [
+      'oauth2TokenName',
+      'oauth2GrantType',
+      'oauth2CallbackUrl',
+      'oauth2AuthUrl',
+      'oauth2AccessTokenUrl',
+      'oauth2Username',
+      'oauth2Password',
+      'oauth2ClientId',
+      'oauth2ClientSecret',
+      'oauth2CodeChallengeMethod',
+      'oauth2CodeVerifier',
+      'oauth2Scope',
+      'oauth2State',
+      'oauth2ClientAuthentication',
+    ],
+    advanced: ['oauth2RefreshTokenUrl', 'oauth2AuthRequest', 'oauth2TokenRequest', 'oauth2RefreshRequest'],
   },
 };
 
@@ -408,6 +561,30 @@ const ROW_TITLE_KEY: Record<AuthInfoKey, MessageKey> = {
   jwtExpiresIn: 'workbench.editors.request.auth.jwtExpiresIn',
   jwtAddTo: 'workbench.editors.request.auth.jwtAddTo',
   jwtHeaderPrefix: 'workbench.editors.request.auth.jwtHeaderPrefix',
+  oauth2Token: 'workbench.editors.request.oauth.tokenLabel',
+  oauth2HeaderPrefix: 'workbench.editors.request.oauth.headerPrefix',
+  oauth2AutoRefresh: 'workbench.editors.request.oauth.autoRefresh',
+  oauth2Status: 'workbench.editors.request.oauth.status',
+  oauth2TokenName: 'workbench.editors.request.oauth.tokenName',
+  oauth2GrantType: 'workbench.editors.request.oauth.grantType',
+  oauth2CallbackUrl: 'workbench.editors.request.oauth.callbackUrl',
+  oauth2AuthUrl: 'workbench.editors.request.oauth.authUrl',
+  oauth2AccessTokenUrl: 'workbench.editors.request.oauth.accessTokenUrl',
+  oauth2Username: 'workbench.editors.request.auth.username',
+  oauth2Password: 'workbench.editors.request.auth.password',
+  oauth2ClientId: 'workbench.editors.request.oauth.clientId',
+  oauth2ClientSecret: 'workbench.editors.request.oauth.clientSecret',
+  oauth2CodeChallengeMethod: 'workbench.editors.request.oauth.codeChallengeMethod',
+  oauth2CodeVerifier: 'workbench.editors.request.oauth.codeVerifier',
+  oauth2Scope: 'workbench.editors.request.oauth.scope',
+  oauth2State: 'workbench.editors.request.oauth.state',
+  oauth2ClientAuthentication: 'workbench.editors.request.oauth.clientAuthentication',
+  oauth2RefreshTokenUrl: 'workbench.editors.request.oauth.refreshTokenUrl',
+  oauth2AuthRequest: 'workbench.editors.request.oauth.authRequest',
+  oauth2TokenRequest: 'workbench.editors.request.oauth.tokenRequest',
+  oauth2RefreshRequest: 'workbench.editors.request.oauth.refreshRequest',
+  oauth2SendAs: 'workbench.editors.request.auth.sendAsLabel',
+  oauth2Preset: 'workbench.editors.request.auth.presetLabel',
 };
 
 const ROW_SUMMARY_KEY: Record<AuthInfoKey, MessageKey> = {
@@ -445,6 +622,30 @@ const ROW_SUMMARY_KEY: Record<AuthInfoKey, MessageKey> = {
   jwtExpiresIn: 'workbench.editors.request.auth.rowInfo.jwtExpiresIn',
   jwtAddTo: 'workbench.editors.request.auth.rowInfo.jwtAddTo',
   jwtHeaderPrefix: 'workbench.editors.request.auth.rowInfo.jwtHeaderPrefix',
+  oauth2Token: 'workbench.editors.request.auth.rowInfo.oauth2Token',
+  oauth2HeaderPrefix: 'workbench.editors.request.auth.rowInfo.oauth2HeaderPrefix',
+  oauth2AutoRefresh: 'workbench.editors.request.auth.rowInfo.oauth2AutoRefresh',
+  oauth2Status: 'workbench.editors.request.auth.rowInfo.oauth2Status',
+  oauth2TokenName: 'workbench.editors.request.auth.rowInfo.oauth2TokenName',
+  oauth2GrantType: 'workbench.editors.request.auth.rowInfo.oauth2GrantType',
+  oauth2CallbackUrl: 'workbench.editors.request.auth.rowInfo.oauth2CallbackUrl',
+  oauth2AuthUrl: 'workbench.editors.request.auth.rowInfo.oauth2AuthUrl',
+  oauth2AccessTokenUrl: 'workbench.editors.request.auth.rowInfo.oauth2AccessTokenUrl',
+  oauth2Username: 'workbench.editors.request.auth.rowInfo.oauth2Username',
+  oauth2Password: 'workbench.editors.request.auth.rowInfo.oauth2Password',
+  oauth2ClientId: 'workbench.editors.request.auth.rowInfo.oauth2ClientId',
+  oauth2ClientSecret: 'workbench.editors.request.auth.rowInfo.oauth2ClientSecret',
+  oauth2CodeChallengeMethod: 'workbench.editors.request.auth.rowInfo.oauth2CodeChallengeMethod',
+  oauth2CodeVerifier: 'workbench.editors.request.auth.rowInfo.oauth2CodeVerifier',
+  oauth2Scope: 'workbench.editors.request.auth.rowInfo.oauth2Scope',
+  oauth2State: 'workbench.editors.request.auth.rowInfo.oauth2State',
+  oauth2ClientAuthentication: 'workbench.editors.request.auth.rowInfo.oauth2ClientAuthentication',
+  oauth2RefreshTokenUrl: 'workbench.editors.request.auth.rowInfo.oauth2RefreshTokenUrl',
+  oauth2AuthRequest: 'workbench.editors.request.auth.rowInfo.oauth2AuthRequest',
+  oauth2TokenRequest: 'workbench.editors.request.auth.rowInfo.oauth2TokenRequest',
+  oauth2RefreshRequest: 'workbench.editors.request.auth.rowInfo.oauth2RefreshRequest',
+  oauth2SendAs: 'workbench.editors.request.auth.rowInfo.oauth2SendAs',
+  oauth2Preset: 'workbench.editors.request.auth.presetInfo',
 };
 
 const GROUP_SUMMARY_KEY: Record<CardType, Partial<Record<AuthGroupKey, MessageKey>>> = {
@@ -474,6 +675,11 @@ const GROUP_SUMMARY_KEY: Record<CardType, Partial<Record<AuthGroupKey, MessageKe
     token: 'workbench.editors.request.auth.groupInfo.jwt.token',
     delivery: 'workbench.editors.request.auth.groupInfo.jwt.delivery',
   },
+  oauth2: {
+    token: 'workbench.editors.request.auth.groupInfo.oauth2.token',
+    grant: 'workbench.editors.request.auth.groupInfo.oauth2.grant',
+    advanced: 'workbench.editors.request.auth.groupInfo.oauth2.advanced',
+  },
 };
 
 const TYPE_SUMMARY_KEY: Record<CardType | 'none', MessageKey> = {
@@ -485,6 +691,7 @@ const TYPE_SUMMARY_KEY: Record<CardType | 'none', MessageKey> = {
   oauth1: 'workbench.editors.request.auth.typeInfo.oauth1',
   hawk: 'workbench.editors.request.auth.typeInfo.hawk',
   jwt: 'workbench.editors.request.auth.typeInfo.jwt',
+  oauth2: 'workbench.editors.request.auth.typeInfo.oauth2',
 };
 
 function isCardType(auth: ConcreteAuthConfig): auth is CardAuthConfig {
@@ -499,8 +706,8 @@ function card(auth: ConcreteAuthConfig, lit: Iterable<AuthTokenId>, forced: Iter
 }
 
 /** The type-level popover (the Auth Type row's (i)): the header's
- *  scheme lit, the type's one-sentence summary. Absent for the types
- *  with no card yet. */
+ *  scheme lit, the type's one-sentence summary. Absent for the one
+ *  type with no card (AWS Signature v4). */
 export function authTypeInfo(t: Translate, auth: ConcreteAuthConfig): InfoPopoverContent | undefined {
   if (auth.type === 'none') {
     return {

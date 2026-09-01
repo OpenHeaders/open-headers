@@ -328,6 +328,60 @@ export const workbenchEditorsRequest = {
     'Header sendet das JWT im Authorization-Header; Query Params hängt es als token= an die URL.',
   'workbench.editors.request.auth.rowInfo.jwtHeaderPrefix':
     'Das Schema vor dem JWT im Authorization-Header \u2014 standardmäßig Bearer; leer sendet das nackte Token.',
+  'workbench.editors.request.auth.typeInfo.oauth2':
+    'Der Client holt ein Access-Token beim Anbieter \u2014 eine Browser-Autorisierung und dann ein Token-Austausch, oder ein direkter Austausch für Maschinen- und Passwort-Grants \u2014 und jedes Senden trägt es als Bearer-Token, bei Ablauf erneuert, wenn ein Refresh-Token ausgestellt wurde.',
+  'workbench.editors.request.auth.groupInfo.oauth2.token':
+    'Das Token, das diese Konfiguration gerade hält \u2014 was das Senden hinter Bearer trägt, und ob es sich selbst erneuert.',
+  'workbench.editors.request.auth.groupInfo.oauth2.grant':
+    'Wie ein neues Token beschafft wird \u2014 der Grant, die Endpunkte des Anbieters, die Identität des Clients und was angefragt wird.',
+  'workbench.editors.request.auth.groupInfo.oauth2.advanced':
+    'Der Refresh-Schritt und die zusätzlichen Parameter jeder der drei Anfragen an den Anbieter.',
+  'workbench.editors.request.auth.rowInfo.oauth2Token':
+    'Das Access-Token, das der letzte Ablauf gespeichert hat \u2014 bei jedem Senden hinter Bearer geschickt; leer, bis ein Ablauf läuft.',
+  'workbench.editors.request.auth.rowInfo.oauth2HeaderPrefix':
+    'Das Schema vor dem Token im Authorization-Header \u2014 der vom Anbieter ausgestellte token_type, standardmäßig Bearer.',
+  'workbench.editors.request.auth.rowInfo.oauth2AutoRefresh':
+    'Hat der Anbieter ein Refresh-Token ausgestellt, wird ein abgelaufenes Access-Token vor dem Senden gegen ein frisches getauscht.',
+  'workbench.editors.request.auth.rowInfo.oauth2Status':
+    'Wie lange das gespeicherte Token gültig bleibt; Erneuern tauscht es jetzt, Trennen vergisst es.',
+  'workbench.editors.request.auth.rowInfo.oauth2TokenName':
+    'Eine Bezeichnung für dieses Token in der App \u2014 nichts auf der Leitung.',
+  'workbench.editors.request.auth.rowInfo.oauth2GrantType':
+    'Der grant_type des Token-Austauschs und welche Schritte davor laufen \u2014 eine Browser-Autorisierung bei den Code-Grants, keine bei Client- oder Passwort-Zugangsdaten.',
+  'workbench.editors.request.auth.rowInfo.oauth2CallbackUrl':
+    'Die redirect_uri, an die der Anbieter den Browser mit dem Code zurückschickt \u2014 beim Anbieter registrieren.',
+  'workbench.editors.request.auth.rowInfo.oauth2AuthUrl':
+    'Der Autorisierungs-Endpunkt des Anbieters, an den der Browser zuerst geschickt wird.',
+  'workbench.editors.request.auth.rowInfo.oauth2AccessTokenUrl':
+    'Der Token-Endpunkt des Anbieters, an dem der Code (oder die Zugangsdaten) getauscht wird.',
+  'workbench.editors.request.auth.rowInfo.oauth2Username':
+    'Der Benutzername des Ressourceninhabers, im Body der Token-Anfrage gesendet \u2014 nur beim Passwort-Grant.',
+  'workbench.editors.request.auth.rowInfo.oauth2Password':
+    'Das Passwort des Ressourceninhabers, im Body der Token-Anfrage gesendet \u2014 nur beim Passwort-Grant.',
+  'workbench.editors.request.auth.rowInfo.oauth2ClientId':
+    'Identifiziert die Anwendung \u2014 auf der Autorisierungs-URL und in der Token-Anfrage.',
+  'workbench.editors.request.auth.rowInfo.oauth2ClientSecret':
+    'Authentifiziert die Anwendung am Token-Endpunkt \u2014 im Body oder als Basic-Header gemäß Client-Authentifizierung.',
+  'workbench.editors.request.auth.rowInfo.oauth2CodeChallengeMethod':
+    'PKCE: die code_challenge auf der Autorisierungs-URL ist der S256-Digest eines pro Ablauf erzeugten Verifiers.',
+  'workbench.editors.request.auth.rowInfo.oauth2CodeVerifier':
+    'Pro Ablauf erzeugt und als code_verifier im Token-Austausch gesendet, um zu belegen, dass derselbe Client ihn gestartet hat.',
+  'workbench.editors.request.auth.rowInfo.oauth2Scope':
+    'Die angefragten Scopes \u2014 leerzeichengetrennt als scope auf der Autorisierungs-URL oder in der Token-Anfrage gesendet.',
+  'workbench.editors.request.auth.rowInfo.oauth2State':
+    'Pro Ablauf erzeugt und vom Anbieter zurückgegeben, damit der Rücksprung dieser Autorisierung zugeordnet wird.',
+  'workbench.editors.request.auth.rowInfo.oauth2ClientAuthentication':
+    'Wo die Client-Zugangsdaten in der Token-Anfrage reisen \u2014 im Formular-Body oder in einem Authorization: Basic-Header.',
+  'workbench.editors.request.auth.rowInfo.oauth2RefreshTokenUrl':
+    'Der Endpunkt, an den der Refresh-Austausch postet \u2014 leer bedeutet die Access-Token-URL.',
+  'workbench.editors.request.auth.rowInfo.oauth2AuthRequest':
+    'Zusätzliche Parameter an der Autorisierungs-URL (audience, prompt, \u2026).',
+  'workbench.editors.request.auth.rowInfo.oauth2TokenRequest':
+    'Zusätzliche Parameter der Token-Anfrage \u2014 jeder reist gemäß seinem Senden in im Formular-Body, einem Header oder der URL.',
+  'workbench.editors.request.auth.rowInfo.oauth2RefreshRequest':
+    'Zusätzliche Parameter der Refresh-Anfrage \u2014 jeder reist gemäß seinem Senden in im Formular-Body, einem Header oder der URL.',
+  'workbench.editors.request.auth.rowInfo.oauth2SendAs':
+    'Request-Header sendet das Token hinter Bearer im Authorization-Header; Request-URL hängt es als access_token an \u2014 veraltet, nur für alte Anbieter.',
   'workbench.editors.request.auth.type.inherit': 'Authentifizierung vom übergeordneten Element erben',
   'workbench.editors.request.auth.type.none': 'Keine Authentifizierung',
   'workbench.editors.request.auth.type.basic': 'Basic Auth',
@@ -448,8 +502,6 @@ export const workbenchEditorsRequest = {
     'Tokens sickern in Server-Logs, HTTP-`Referer`-Header, den Browserverlauf und zwischengeschaltete ' +
     'Caches. Bevorzuge den standardmäßigen',
   'workbench.editors.request.oauth.queryWarningAfter': 'Header, sofern der Anbieter nicht die Query-Form verlangt.',
-  'workbench.editors.request.oauth.currentToken': 'Aktueller Token',
-  'workbench.editors.request.oauth.configureNewToken': 'Neuen Token konfigurieren',
   'workbench.editors.request.oauth.tokenLabel': 'Token',
   'workbench.editors.request.oauth.noTokenPlaceholder': 'Noch kein Token — nutze unten Neuen Zugriffstoken abrufen',
   'workbench.editors.request.oauth.headerPrefix': 'Header-Präfix',
@@ -495,7 +547,6 @@ export const workbenchEditorsRequest = {
     'verlangen typischerweise die Form als Basic-Header.',
   'workbench.editors.request.oauth.clientAuthBody': 'Client-Anmeldedaten im Body senden',
   'workbench.editors.request.oauth.clientAuthBasicHeader': 'Als Basic-Auth-Header senden',
-  'workbench.editors.request.oauth.advanced': 'Erweitert',
   'workbench.editors.request.oauth.advancedIntro': 'Hier kannst du deine OAuth2-Anfragen genauer anpassen.',
   'workbench.editors.request.oauth.advancedLearnMore': 'Mehr über die Konfiguration erfahren',
   'workbench.editors.request.oauth.refreshTokenUrl': 'Refresh-Token-URL',

@@ -897,3 +897,70 @@ describe('AuthorizationTab — sectioned forms and the (i) popovers', () => {
   });
 });
 
+describe('AuthorizationTab — the OAuth 2.0 editor on the sectioned anatomy', () => {
+  const oauth2: AuthConfig = {
+    type: 'oauth2',
+    credentialRef: 'oauth2-cred-abc12345',
+    flow: 'authorization-code-pkce',
+    tokenEndpoint: '',
+    clientId: '',
+    scopes: [],
+  };
+  const renderTab = (auth: AuthConfig) =>
+    render(
+      <App>
+        <AuthorizationTab auth={auth} onChange={vi.fn()} />
+      </App>,
+    );
+  const openPopover = (name: string) => {
+    fireEvent.click(screen.getByLabelText(name));
+    const popover = document.querySelector('.oh-info-popover');
+    if (!popover) throw new Error(`no popover for ${name}`);
+    return popover;
+  };
+  const litTexts = (popover: Element): string[] =>
+    Array.from(popover.querySelectorAll('.oh-info-eg-hl')).map((el) => el.textContent ?? '');
+  const closePopover = () => fireEvent.keyDown(document.body, { key: 'Escape' });
+
+  it('reads as Token · Grant · Advanced, Advanced folded by default over the refresh rows', () => {
+    renderTab(oauth2);
+    expect(screen.getByRole('button', { name: 'Token' }).getAttribute('aria-expanded')).toBe('true');
+    expect(screen.getByRole('button', { name: 'Grant' }).getAttribute('aria-expanded')).toBe('true');
+    expect(screen.getByRole('button', { name: 'Advanced' }).getAttribute('aria-expanded')).toBe('false');
+    expect(screen.getByText('Client Authentication')).toBeTruthy();
+    expect(screen.queryByText('Refresh Token URL')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Advanced' }));
+    expect(screen.getByText('Refresh Token URL')).toBeTruthy();
+    expect(screen.getByText('Token Request')).toBeTruthy();
+    // Fold it back — the session store outlives this test.
+    fireEvent.click(screen.getByRole('button', { name: 'Advanced' }));
+    expect(screen.queryByText('Refresh Token URL')).toBeNull();
+  });
+
+  it("the Client Secret (i) lights the token request's body field, or the Basic header per Client Authentication", () => {
+    const body = renderTab(oauth2);
+    const bodyPopover = openPopover('About Client Secret');
+    expect(bodyPopover.querySelector('.oh-info-popover-kicker')?.textContent).toBe('Grant');
+    expect(litTexts(bodyPopover)).toEqual(['client_secret=cs_71b0']);
+    closePopover();
+    body.unmount();
+    renderTab({ ...oauth2, clientAuthentication: 'basic-header' });
+    const basicPopover = openPopover('About Client Secret');
+    expect(litTexts(basicPopover)).toEqual(['Authorization: Basic base64(ck_9f3a:cs_71b0)']);
+    closePopover();
+  });
+
+  it("the rail's Add-to (i) lights the send's Authorization header, or the query slot when sent on the URL", () => {
+    const header = renderTab(oauth2);
+    const headerPopover = openPopover('About Add authorization data to');
+    expect(headerPopover.querySelector('.oh-info-popover-kicker')?.textContent).toBe('OAuth 2.0');
+    expect(litTexts(headerPopover)).toEqual(['Authorization:', 'Bearer']);
+    closePopover();
+    header.unmount();
+    renderTab({ ...oauth2, sendAs: 'query' });
+    const queryPopover = openPopover('About Add authorization data to');
+    expect(litTexts(queryPopover)).toEqual(['query:', 'access_token=eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJqb2huLmRvZSJ9.SflKxw…']);
+    closePopover();
+  });
+});
+

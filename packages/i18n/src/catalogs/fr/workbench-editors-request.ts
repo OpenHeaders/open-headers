@@ -317,6 +317,60 @@ export const workbenchEditorsRequest = {
     'Header envoie le JWT dans l\u2019en-tête Authorization ; Query Params l\u2019ajoute comme token= sur l\u2019URL.',
   'workbench.editors.request.auth.rowInfo.jwtHeaderPrefix':
     'Le schéma devant le JWT dans l\u2019en-tête Authorization \u2014 Bearer par défaut ; vide envoie le jeton nu.',
+  'workbench.editors.request.auth.typeInfo.oauth2':
+    'Le client obtient un jeton d\u2019accès auprès du fournisseur \u2014 une autorisation dans le navigateur puis un échange de jeton, ou un échange direct pour les octrois machine et mot de passe \u2014 et chaque envoi le porte comme jeton bearer, rafraîchi à expiration si un jeton de rafraîchissement a été émis.',
+  'workbench.editors.request.auth.groupInfo.oauth2.token':
+    'Le jeton que cette configuration détient actuellement \u2014 ce que l\u2019envoi porte après Bearer, et s\u2019il se rafraîchit seul.',
+  'workbench.editors.request.auth.groupInfo.oauth2.grant':
+    'Comment un nouveau jeton est obtenu \u2014 l\u2019octroi, les points de terminaison du fournisseur, l\u2019identité du client et ce qui est demandé.',
+  'workbench.editors.request.auth.groupInfo.oauth2.advanced':
+    'L\u2019étape de rafraîchissement et les paramètres supplémentaires de chacune des trois requêtes au fournisseur.',
+  'workbench.editors.request.auth.rowInfo.oauth2Token':
+    'Le jeton d\u2019accès stocké par le dernier flux \u2014 envoyé après Bearer à chaque envoi ; vide tant qu\u2019aucun flux n\u2019a été exécuté.',
+  'workbench.editors.request.auth.rowInfo.oauth2HeaderPrefix':
+    'Le schéma devant le jeton dans l\u2019en-tête Authorization \u2014 le token_type émis par le fournisseur, Bearer par défaut.',
+  'workbench.editors.request.auth.rowInfo.oauth2AutoRefresh':
+    'Si le fournisseur a émis un jeton de rafraîchissement, un jeton d\u2019accès expiré est échangé contre un nouveau avant l\u2019envoi.',
+  'workbench.editors.request.auth.rowInfo.oauth2Status':
+    'Durée de validité restante du jeton stocké ; Rafraîchir l\u2019échange maintenant, Déconnecter l\u2019oublie.',
+  'workbench.editors.request.auth.rowInfo.oauth2TokenName':
+    'Un libellé pour ce jeton dans l\u2019application \u2014 rien sur le réseau.',
+  'workbench.editors.request.auth.rowInfo.oauth2GrantType':
+    'Le grant_type de l\u2019échange de jeton et les étapes qui le précèdent \u2014 une autorisation navigateur pour les octrois par code, aucune pour les identifiants client ou mot de passe.',
+  'workbench.editors.request.auth.rowInfo.oauth2CallbackUrl':
+    'Le redirect_uri vers lequel le fournisseur renvoie le navigateur avec le code \u2014 à enregistrer chez le fournisseur.',
+  'workbench.editors.request.auth.rowInfo.oauth2AuthUrl':
+    'Le point de terminaison d\u2019autorisation du fournisseur vers lequel le navigateur est d\u2019abord envoyé.',
+  'workbench.editors.request.auth.rowInfo.oauth2AccessTokenUrl':
+    'Le point de terminaison de jeton du fournisseur où le code (ou les identifiants) est échangé.',
+  'workbench.editors.request.auth.rowInfo.oauth2Username':
+    'Le nom d\u2019utilisateur du propriétaire de la ressource, envoyé dans le corps de la requête de jeton \u2014 octroi par mot de passe uniquement.',
+  'workbench.editors.request.auth.rowInfo.oauth2Password':
+    'Le mot de passe du propriétaire de la ressource, envoyé dans le corps de la requête de jeton \u2014 octroi par mot de passe uniquement.',
+  'workbench.editors.request.auth.rowInfo.oauth2ClientId':
+    'Identifie l\u2019application \u2014 sur l\u2019URL d\u2019autorisation et dans la requête de jeton.',
+  'workbench.editors.request.auth.rowInfo.oauth2ClientSecret':
+    'Authentifie l\u2019application au point de terminaison de jeton \u2014 dans le corps, ou en en-tête Basic selon Authentification client.',
+  'workbench.editors.request.auth.rowInfo.oauth2CodeChallengeMethod':
+    'PKCE : le code_challenge sur l\u2019URL d\u2019autorisation est le condensé S256 d\u2019un vérificateur généré à chaque flux.',
+  'workbench.editors.request.auth.rowInfo.oauth2CodeVerifier':
+    'Généré à chaque flux et envoyé comme code_verifier dans l\u2019échange de jeton pour prouver que le même client l\u2019a démarré.',
+  'workbench.editors.request.auth.rowInfo.oauth2Scope':
+    'Les scopes demandés \u2014 envoyés séparés par des espaces comme scope sur l\u2019URL d\u2019autorisation ou dans la requête de jeton.',
+  'workbench.editors.request.auth.rowInfo.oauth2State':
+    'Généré à chaque flux et renvoyé par le fournisseur pour rattacher le rappel à cette autorisation.',
+  'workbench.editors.request.auth.rowInfo.oauth2ClientAuthentication':
+    'Où voyagent les identifiants client dans la requête de jeton \u2014 le corps du formulaire, ou un en-tête Authorization: Basic.',
+  'workbench.editors.request.auth.rowInfo.oauth2RefreshTokenUrl':
+    'Le point de terminaison vers lequel l\u2019échange de rafraîchissement poste \u2014 vide signifie l\u2019URL du jeton d\u2019accès.',
+  'workbench.editors.request.auth.rowInfo.oauth2AuthRequest':
+    'Paramètres supplémentaires ajoutés à l\u2019URL d\u2019autorisation (audience, prompt, \u2026).',
+  'workbench.editors.request.auth.rowInfo.oauth2TokenRequest':
+    'Paramètres supplémentaires de la requête de jeton \u2014 chacun voyage dans le corps, un en-tête ou l\u2019URL selon son Envoyer dans.',
+  'workbench.editors.request.auth.rowInfo.oauth2RefreshRequest':
+    'Paramètres supplémentaires de la requête de rafraîchissement \u2014 chacun voyage dans le corps, un en-tête ou l\u2019URL selon son Envoyer dans.',
+  'workbench.editors.request.auth.rowInfo.oauth2SendAs':
+    'En-têtes de requête envoie le jeton après Bearer dans l\u2019en-tête Authorization ; URL de requête l\u2019ajoute comme access_token \u2014 déconseillé, pour les fournisseurs anciens uniquement.',
   'workbench.editors.request.auth.type.inherit': "Hériter l'auth du parent",
   'workbench.editors.request.auth.type.none': 'Aucune auth',
   'workbench.editors.request.auth.type.basic': 'Basic Auth',
@@ -438,8 +492,6 @@ export const workbenchEditorsRequest = {
     "les caches intermédiaires. Préférez la valeur par défaut — l'en-tête",
   'workbench.editors.request.oauth.queryWarningAfter':
     '— sauf si le fournisseur exige la forme en paramètre de requête.',
-  'workbench.editors.request.oauth.currentToken': 'Jeton actuel',
-  'workbench.editors.request.oauth.configureNewToken': 'Configurer un nouveau jeton',
   'workbench.editors.request.oauth.tokenLabel': 'Jeton',
   'workbench.editors.request.oauth.noTokenPlaceholder':
     "Aucun jeton pour l'instant — utilisez Obtenir un nouveau jeton d'accès ci-dessous",
@@ -486,7 +538,6 @@ export const workbenchEditorsRequest = {
     "exigent typiquement la forme d'en-tête Basic.",
   'workbench.editors.request.oauth.clientAuthBody': 'Envoyer les identifiants client dans le corps',
   'workbench.editors.request.oauth.clientAuthBasicHeader': 'Envoyer comme en-tête Basic Auth',
-  'workbench.editors.request.oauth.advanced': 'Avancé',
   'workbench.editors.request.oauth.advancedIntro':
     'Vous pouvez ajouter ici des personnalisations plus spécifiques à vos requêtes OAuth2.',
   'workbench.editors.request.oauth.advancedLearnMore': 'En savoir plus sur la configuration',
