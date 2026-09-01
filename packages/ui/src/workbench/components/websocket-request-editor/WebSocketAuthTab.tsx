@@ -31,6 +31,7 @@ import {
   plainInheritOption,
   useSessionInheritRefusal,
 } from '../request-editor/inherited-auth';
+import { AUTH_TYPE_SELECT_POPUP } from '../request-editor/auth-type-menu';
 import {
   AuthEmptyState,
   AuthForm,
@@ -107,6 +108,7 @@ const WebSocketAuthTab: React.FC<WebSocketAuthTabProps> = ({
           <Select
             size="middle"
             data-testid="ws-auth-type"
+            {...AUTH_TYPE_SELECT_POPUP}
             value={inheritSelectValue(auth)}
             options={options}
             onChange={handleSelect}

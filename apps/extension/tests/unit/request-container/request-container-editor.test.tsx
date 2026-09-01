@@ -884,6 +884,29 @@ describe('AuthorizationTab — sectioned forms and the (i) popovers', () => {
     closePopover();
   });
 
+  it("the pool entry pane's type select opens the compact sectioned popup — every type in view, two dividers", async () => {
+    requestsState = {
+      ...requestsState,
+      collections: [makeCollection({ auths: [ADMIN], defaultAuthUid: 'admin001' })],
+    };
+    renderEditor({ section: 'authorization' });
+    const input = screen.getByTestId('oh-auth-entry-type').querySelector('input');
+    if (!input) throw new Error('no select input');
+    fireEvent.keyDown(input, { key: 'ArrowDown', keyCode: 40 });
+    await waitFor(() => expect(document.querySelector('.oh-auth-type-popup')).toBeTruthy());
+    const popup = document.querySelector('.oh-auth-type-popup');
+    if (!popup) throw new Error('no popup');
+    // No virtual window: all ten types are in the DOM at once; the two
+    // label-less groups are the section dividers (vendor, none).
+    expect(popup.querySelectorAll('.ant-select-item-option')).toHaveLength(10);
+    expect(popup.querySelectorAll('.ant-select-item-group')).toHaveLength(2);
+    const labels = Array.from(popup.querySelectorAll('.ant-select-item-option')).map((el) => el.textContent);
+    expect(labels[0]).toBe('API Key');
+    expect(labels[8]).toBe('AWS Signature v4');
+    expect(labels[9]).toBe('No Auth');
+    fireEvent.keyDown(input, { key: 'Escape' });
+  });
+
   it("the pool entry pane's Auth Type row carries the same type (i)", () => {
     requestsState = {
       ...requestsState,

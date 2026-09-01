@@ -30,6 +30,7 @@ import {
   plainInheritOption,
   useSessionInheritRefusal,
 } from '../request-editor/inherited-auth';
+import { AUTH_TYPE_SELECT_POPUP } from '../request-editor/auth-type-menu';
 import {
   AuthEmptyState,
   AuthForm,
@@ -104,6 +105,7 @@ const GrpcAuthTab: React.FC<GrpcAuthTabProps> = ({
           <Select
             size="middle"
             data-testid="grpc-auth-type"
+            {...AUTH_TYPE_SELECT_POPUP}
             value={inheritSelectValue(auth)}
             options={options}
             onChange={handleSelect}

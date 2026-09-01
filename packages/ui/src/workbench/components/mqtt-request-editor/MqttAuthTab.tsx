@@ -31,6 +31,7 @@ import {
   plainInheritOption,
   useSessionInheritRefusal,
 } from '../request-editor/inherited-auth';
+import { AUTH_TYPE_SELECT_POPUP } from '../request-editor/auth-type-menu';
 import {
   AUTH_FIELD_DEFAULT_MAX_WIDTH,
   AuthEmptyState,
@@ -113,6 +114,7 @@ const MqttAuthTab: React.FC<MqttAuthTabProps> = ({
           <Select
             size="middle"
             data-testid="mqtt-auth-type"
+            {...AUTH_TYPE_SELECT_POPUP}
             value={inheritSelectValue(auth)}
             options={options}
             onChange={handleSelect}

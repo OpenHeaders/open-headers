@@ -377,6 +377,25 @@
   opacity: 1;
 }
 
+/* The auth-type select's popup: the whole list in view at the label
+ * size, the label-less option groups drawn as section dividers. */
+.oh-auth-type-popup {
+  .ant-select-item-option {
+    min-height: 26px;
+    padding: 3px 10px;
+    font-size: 13px;
+    line-height: 20px;
+  }
+
+  .ant-select-item-group {
+    min-height: 0;
+    height: 1px;
+    margin: 4px 10px;
+    padding: 0;
+    background: var(--ant-color-split);
+  }
+}
+
 .oh-auth-readonly {
   opacity: 0.7;
 
