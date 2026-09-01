@@ -295,6 +295,15 @@ test.describe('Request executor — auth type suite, one draft per concrete type
   }
 });
 
+test.describe('Request executor — oauth2 headerPrefix wire leg', () => {
+  test("a set Header Prefix replaces the bundle's token_type on the Authorization value", async () => {
+    const echo = await sendDraft(
+      authDraft('rqoa2hpx', { ...OAUTH2_SEED_AUTH, headerPrefix: 'Token' } as ApiClientCombo['auth']),
+    );
+    expect(echo.auth).toMatchObject({ kind: 'scheme', scheme: 'Token', token: 'oh-oauth-cc-token' });
+  });
+});
+
 test.describe('Request executor — basic auth wire legs', () => {
   test("replaces a user's same-key Authorization row: exactly one Basic value on the wire", async () => {
     const echo = await sendDraft(

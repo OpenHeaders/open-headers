@@ -276,7 +276,7 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.auth.rowInfo.oauth2Token':
     '上次流程存储的访问令牌 \u2014 每次发送都跟在 Bearer 之后；流程运行前为空。',
   'workbench.editors.request.auth.rowInfo.oauth2HeaderPrefix':
-    'Authorization 标头中令牌前的方案 \u2014 提供方签发的 token_type，默认为 Bearer。',
+    'Authorization 头中位于令牌之前的方案 — 留空时发送提供商签发的 token_type（默认 Bearer）；设置后以其为准。',
   'workbench.editors.request.auth.rowInfo.oauth2AutoRefresh':
     '若提供方签发了刷新令牌，过期的访问令牌会在发送前换成新的。',
   'workbench.editors.request.auth.rowInfo.oauth2Status': '存储的令牌还能有效多久；刷新会立即交换，断开则将其忘记。',
@@ -442,6 +442,8 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.oauth.callbackTipBeforeApi': '暴露了一个专用的重定向主机，即',
   'workbench.editors.request.oauth.callbackTipAfterApi': '。扩展 ID 相同；只有主机和协议不同。',
   'workbench.editors.request.oauth.authorizeUsingBrowser': '使用浏览器授权',
+  'workbench.editors.request.oauth.noTokenNote':
+    '尚无令牌 — 在下方运行一个流程来获取。对于带外签发的令牌，请改用 Bearer Token 认证。',
   'workbench.editors.request.oauth.authorizeBrowserInfoSummary':
     '登录在您的默认浏览器中打开 — 它保有您在提供商的会话、密码管理器和通行密钥，且身份提供商会阻止嵌入在应用内的登录（RFC 8252）。',
   'workbench.editors.request.oauth.authorizeBrowserInfoDetail':

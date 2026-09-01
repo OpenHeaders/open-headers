@@ -328,7 +328,7 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.auth.rowInfo.oauth2Token':
     'Le jeton d\u2019accès stocké par le dernier flux \u2014 envoyé après Bearer à chaque envoi ; vide tant qu\u2019aucun flux n\u2019a été exécuté.',
   'workbench.editors.request.auth.rowInfo.oauth2HeaderPrefix':
-    'Le schéma devant le jeton dans l\u2019en-tête Authorization \u2014 le token_type émis par le fournisseur, Bearer par défaut.',
+    'Le schéma placé avant le jeton dans l’en-tête Authorization — vide, le token_type émis par le fournisseur est envoyé (Bearer par défaut) ; défini, il l’emporte sur le fil.',
   'workbench.editors.request.auth.rowInfo.oauth2AutoRefresh':
     'Si le fournisseur a émis un jeton de rafraîchissement, un jeton d\u2019accès expiré est échangé contre un nouveau avant l\u2019envoi.',
   'workbench.editors.request.auth.rowInfo.oauth2Status':
@@ -521,6 +521,8 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.oauth.callbackTipAfterApi':
     ". L'ID de l'extension est le même ; seuls l'hôte et le schéma diffèrent.",
   'workbench.editors.request.oauth.authorizeUsingBrowser': 'Autoriser via le navigateur',
+  'workbench.editors.request.oauth.noTokenNote':
+    'Pas encore de jeton — lancez un flux ci-dessous pour en obtenir un. Pour un jeton fourni hors flux, utilisez plutôt l’authentification Bearer Token.',
   'workbench.editors.request.oauth.authorizeBrowserInfoSummary':
     'La connexion s’ouvre dans votre navigateur par défaut — il détient votre session chez le fournisseur, votre gestionnaire de mots de passe et vos passkeys, et les fournisseurs d’identité bloquent les connexions intégrées aux applications (RFC 8252).',
   'workbench.editors.request.oauth.authorizeBrowserInfoDetail':

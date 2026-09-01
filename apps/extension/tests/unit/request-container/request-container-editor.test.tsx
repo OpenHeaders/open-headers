@@ -960,6 +960,25 @@ describe('AuthorizationTab — the OAuth 2.0 editor on the sectioned anatomy', (
     expect(screen.queryByText('Refresh Token URL')).toBeNull();
   });
 
+  it('Header Prefix edits onto the config; empty shows the Bearer placeholder', () => {
+    const onChange = vi.fn();
+    render(
+      <App>
+        <AuthorizationTab auth={oauth2} onChange={onChange} />
+      </App>,
+    );
+    const input = screen.getByPlaceholderText('Bearer') as HTMLInputElement;
+    expect(input.readOnly).toBe(false);
+    expect(input.value).toBe('');
+    fireEvent.change(input, { target: { value: 'Token' } });
+    expect(onChange).toHaveBeenCalledWith({ ...oauth2, headerPrefix: 'Token' });
+  });
+
+  it('without a stored bundle the Token group closes on the out-of-band note', () => {
+    renderTab(oauth2);
+    expect(screen.getByText(/out-of-band, use Bearer Token auth/)).toBeTruthy();
+  });
+
   it('Authorize using browser renders only on the node runtime — checked, locked, with its (i)', () => {
     const browser = renderTab(oauth2);
     expect(screen.queryByText('Authorize using browser')).toBeNull();

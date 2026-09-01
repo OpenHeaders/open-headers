@@ -711,6 +711,38 @@ describe('request mapping — auth', () => {
     expect(result.report.drops.some((d) => d.tracking === '#todo-oauth-grants')).toBe(false);
   });
 
+  it('maps a non-Bearer headerPrefix onto the config; Bearer stays the silent default', () => {
+    const withPrefix = (value: string) =>
+      parsePostman(
+        postmanCollection({
+          item: [
+            {
+              name: 'X',
+              request: {
+                method: 'GET',
+                url: 'https://api.openheaders.io/x',
+                auth: {
+                  type: 'oauth2',
+                  oauth2: [
+                    { key: 'grant_type', value: 'client_credentials' },
+                    { key: 'accessTokenUrl', value: 'https://auth.openheaders.io/token' },
+                    { key: 'clientId', value: 'client-abc' },
+                    { key: 'headerPrefix', value },
+                  ],
+                },
+              },
+            },
+          ],
+        }),
+      );
+    const custom = withPrefix('Token');
+    expect(custom.requests[0]?.request.auth).toMatchObject({ type: 'oauth2', headerPrefix: 'Token' });
+    expect(custom.report.drops.some((d) => d.tracking === '#todo-oauth-params')).toBe(false);
+    const bearer = withPrefix('Bearer');
+    expect(bearer.requests[0]?.request.auth).not.toHaveProperty('headerPrefix');
+    expect(bearer.report.drops.some((d) => d.tracking === '#todo-oauth-params')).toBe(false);
+  });
+
   it('imports a password_credentials config with the resource-owner credentials', () => {
     const result = parsePostman(
       postmanCollection({
@@ -969,8 +1001,11 @@ describe('request mapping — auth', () => {
       }),
     );
     const note = result.report.drops.find((d) => d.tracking === '#todo-oauth-params');
-    expect(note?.reason).toContain('headerPrefix');
+    // headerPrefix has a counterpart now — it maps onto the config and
+    // stays out of the leftovers note.
+    expect(note?.reason).not.toContain('headerPrefix');
     expect(note?.reason).toContain('useBrowser');
+    expect(result.requests[0]?.request.auth).toMatchObject({ type: 'oauth2', headerPrefix: 'Token' });
   });
 
   it('maps awsv4 onto aws-sigv4 with every credential + scope field', () => {

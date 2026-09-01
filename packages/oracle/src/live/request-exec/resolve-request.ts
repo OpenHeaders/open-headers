@@ -556,7 +556,10 @@ export async function applyAuth(
       if (auth.sendAs === 'query') {
         params.push({ key: 'access_token', value: bundle.accessToken });
       } else {
-        setAuthHeader(headers, 'Authorization', `${bundle.tokenType} ${bundle.accessToken}`);
+        // A set Header Prefix wins over the bundle's token_type — the
+        // user's fix for providers that issue a broken or vendor value.
+        const prefix = auth.headerPrefix?.trim() ? auth.headerPrefix.trim() : bundle.tokenType;
+        setAuthHeader(headers, 'Authorization', `${prefix} ${bundle.accessToken}`);
       }
     }
   }

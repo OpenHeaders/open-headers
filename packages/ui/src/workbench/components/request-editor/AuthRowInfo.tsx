@@ -350,7 +350,10 @@ function exampleLines(auth: ConcreteAuthConfig, forced: ReadonlySet<AuthInfoKey>
         requestLine(),
         query
           ? { opener: tok('location', 'query:'), tokens: [tok('token', `access_token=${JWT}`)] }
-          : { opener: tok('location', 'Authorization:'), tokens: [tok('prefix', 'Bearer'), tok('token', JWT)] },
+          : {
+              opener: tok('location', 'Authorization:'),
+              tokens: [tok('prefix', auth.headerPrefix?.trim() || 'Bearer'), tok('token', JWT)],
+            },
         {
           opener: tok('refreshEndpoint', `POST ${IDP}${auth.refreshEndpoint ? '/refresh' : '/token'}`),
           tokens: [

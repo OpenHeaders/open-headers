@@ -177,7 +177,9 @@ export function previewAuthContributions(auth: AuthConfig, t: Translate): AuthPr
           }
         : {
             key: 'Authorization',
-            value: t('workbench.editors.request.authPreview.bearerAccessTokenValue'),
+            value: auth.headerPrefix?.trim()
+              ? `${auth.headerPrefix.trim()} ${t('workbench.editors.request.authPreview.accessTokenValue')}`
+              : t('workbench.editors.request.authPreview.bearerAccessTokenValue'),
             hint: t('workbench.editors.request.authPreview.oauth2HeaderHint'),
           };
       return inQuery ? { headers: [], params: [entry] } : { headers: [entry], params: [] };

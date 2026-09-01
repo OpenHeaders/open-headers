@@ -339,7 +339,7 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.auth.rowInfo.oauth2Token':
     'Das Access-Token, das der letzte Ablauf gespeichert hat \u2014 bei jedem Senden hinter Bearer geschickt; leer, bis ein Ablauf läuft.',
   'workbench.editors.request.auth.rowInfo.oauth2HeaderPrefix':
-    'Das Schema vor dem Token im Authorization-Header \u2014 der vom Anbieter ausgestellte token_type, standardmäßig Bearer.',
+    'Das Schema vor dem Token im Authorization-Header — leer wird der vom Anbieter ausgestellte token_type gesendet (standardmäßig Bearer); gesetzt gewinnt er auf der Leitung.',
   'workbench.editors.request.auth.rowInfo.oauth2AutoRefresh':
     'Hat der Anbieter ein Refresh-Token ausgestellt, wird ein abgelaufenes Access-Token vor dem Senden gegen ein frisches getauscht.',
   'workbench.editors.request.auth.rowInfo.oauth2Status':
@@ -530,6 +530,8 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.oauth.callbackTipAfterApi':
     '. Die Erweiterungs-ID ist dieselbe; nur Host und Schema unterscheiden sich.',
   'workbench.editors.request.oauth.authorizeUsingBrowser': 'Mit dem Browser autorisieren',
+  'workbench.editors.request.oauth.noTokenNote':
+    'Noch kein Token — führen Sie unten einen Flow aus, um eines zu erhalten. Für ein außerhalb ausgestelltes Token nutzen Sie stattdessen Bearer-Token-Auth.',
   'workbench.editors.request.oauth.authorizeBrowserInfoSummary':
     'Die Anmeldung öffnet sich in Ihrem Standardbrowser — er hält Ihre Anbieter-Sitzung, Ihren Passwort-Manager und Ihre Passkeys, und Identitätsanbieter blockieren in Apps eingebettete Anmeldungen (RFC 8252).',
   'workbench.editors.request.oauth.authorizeBrowserInfoDetail':

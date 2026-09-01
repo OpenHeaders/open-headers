@@ -67,6 +67,7 @@ const CONSUMED_KEYS: ReadonlySet<string> = new Set([
   'authRequestParams',
   'tokenRequestParams',
   'refreshRequestParams',
+  'headerPrefix',
   // Runtime material the flow regenerates per run — lossless to ignore.
   'state',
 ]);
@@ -162,6 +163,7 @@ export function resolveOAuth2Auth(raw: PostmanAuth, authPath: string, report: Im
   const label = stringOf(params, 'tokenName');
   const addTokenTo = stringOf(params, 'addTokenTo');
   const clientAuthentication = stringOf(params, 'client_authentication');
+  const headerPrefix = stringOf(params, 'headerPrefix')?.trim();
   const extraAuthParams = extraParamsOf(params.get('authRequestParams'));
   const extraTokenParams = extraParamsOf(params.get('tokenRequestParams'));
   const extraRefreshParams = extraParamsOf(params.get('refreshRequestParams'));
@@ -191,6 +193,7 @@ export function resolveOAuth2Auth(raw: PostmanAuth, authPath: string, report: Im
     ...(label !== undefined ? { label } : {}),
     ...(addTokenTo === 'queryParams' ? { sendAs: 'query' as const } : {}),
     ...(clientAuthentication === 'header' ? { clientAuthentication: 'basic-header' as const } : {}),
+    ...(headerPrefix !== undefined && headerPrefix !== '' && headerPrefix !== 'Bearer' ? { headerPrefix } : {}),
     ...(extraAuthParams !== undefined ? { extraAuthParams } : {}),
     ...(extraTokenParams !== undefined ? { extraTokenParams } : {}),
     ...(extraRefreshParams !== undefined ? { extraRefreshParams } : {}),
@@ -199,13 +202,11 @@ export function resolveOAuth2Auth(raw: PostmanAuth, authPath: string, report: Im
 
 /**
  * Values that match our runtime's own behavior import losslessly with
- * no note: an `S256` challenge (the only method the PKCE flow uses), a
- * `Bearer` header prefix (how the token is applied), and header/body
- * placements already covered by the schema defaults.
+ * no note: an `S256` challenge (the only method the PKCE flow uses) and
+ * header/body placements already covered by the schema defaults.
  */
 function isIgnorableDefault(params: Map<string, unknown>, key: string): boolean {
   const value = params.get(key);
   if (key === 'challengeAlgorithm') return value === 'S256';
-  if (key === 'headerPrefix') return typeof value === 'string' && value.trim().toLowerCase() === 'bearer';
   return false;
 }

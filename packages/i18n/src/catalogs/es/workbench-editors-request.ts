@@ -323,7 +323,7 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.auth.rowInfo.oauth2Token':
     'El token de acceso que guardó el último flujo \u2014 enviado tras Bearer en cada envío; vacío hasta que se ejecute un flujo.',
   'workbench.editors.request.auth.rowInfo.oauth2HeaderPrefix':
-    'El esquema delante del token en la cabecera Authorization \u2014 el token_type que emitió el proveedor, Bearer por defecto.',
+    'El esquema antes del token en la cabecera Authorization — vacío, se envía el token_type emitido por el proveedor (Bearer por defecto); definido, gana en el cable.',
   'workbench.editors.request.auth.rowInfo.oauth2AutoRefresh':
     'Si el proveedor emitió un token de renovación, un token de acceso caducado se intercambia por uno nuevo antes del envío.',
   'workbench.editors.request.auth.rowInfo.oauth2Status':
@@ -514,6 +514,8 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.oauth.callbackTipAfterApi':
     '. El ID de la extensión es el mismo; solo cambian el host y el esquema.',
   'workbench.editors.request.oauth.authorizeUsingBrowser': 'Autorizar con el navegador',
+  'workbench.editors.request.oauth.noTokenNote':
+    'Aún no hay token — ejecuta un flujo abajo para obtener uno. Para un token emitido fuera de banda, usa la autenticación Bearer Token.',
   'workbench.editors.request.oauth.authorizeBrowserInfoSummary':
     'El inicio de sesión se abre en tu navegador predeterminado — conserva tu sesión con el proveedor, tu gestor de contraseñas y tus passkeys, y los proveedores de identidad bloquean los inicios de sesión incrustados en aplicaciones (RFC 8252).',
   'workbench.editors.request.oauth.authorizeBrowserInfoDetail':

@@ -192,7 +192,13 @@ const OAuth2AuthEditor: React.FC<OAuth2AuthEditorProps> = ({ auth, onChange }) =
           />
         </LabeledRow>
         <LabeledRow label={t('workbench.editors.request.oauth.headerPrefix')} info={info('oauth2HeaderPrefix')}>
-          <Input size="small" readOnly value={bundle?.tokenType ?? 'Bearer'} style={fieldStyle} />
+          <Input
+            size="small"
+            value={auth.headerPrefix ?? ''}
+            onChange={(e) => onChange({ ...auth, headerPrefix: e.target.value || undefined })}
+            placeholder={bundle?.tokenType ?? 'Bearer'}
+            style={fieldStyle}
+          />
         </LabeledRow>
         <LabeledRow
           label={t('workbench.editors.request.oauth.autoRefresh')}
@@ -225,6 +231,7 @@ const OAuth2AuthEditor: React.FC<OAuth2AuthEditorProps> = ({ auth, onChange }) =
             </div>
           </LabeledRow>
         )}
+        {!bundle && <AuthFormNote>{t('workbench.editors.request.oauth.noTokenNote')}</AuthFormNote>}
       </AuthFormGroup>
 
       <AuthFormGroup auth={auth} group="grant" modified={grantModified}>

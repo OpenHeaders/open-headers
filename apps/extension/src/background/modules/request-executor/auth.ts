@@ -123,7 +123,10 @@ export async function applyAuth(
         // providers that require it.
         params.push({ key: 'access_token', value: bundle.accessToken });
       } else {
-        setAuthHeader(headers, 'Authorization', `${bundle.tokenType} ${bundle.accessToken}`);
+        // A set Header Prefix wins over the bundle's token_type — twin
+        // of the oracle arm.
+        const prefix = auth.headerPrefix?.trim() ? auth.headerPrefix.trim() : bundle.tokenType;
+        setAuthHeader(headers, 'Authorization', `${prefix} ${bundle.accessToken}`);
       }
     }
   }

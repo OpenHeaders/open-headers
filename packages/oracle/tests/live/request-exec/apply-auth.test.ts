@@ -177,6 +177,12 @@ describe('applyAuth', () => {
     expect(headers).toEqual([{ key: 'Authorization', value: 'Bearer at-live' }]);
   });
 
+  it('oauth2 headerPrefix wins over the bundle token_type on the send', async () => {
+    getTokenBundleMock.mockResolvedValue(makeBundle());
+    const { headers } = await run(makeOAuthAuth({ headerPrefix: 'Token' }));
+    expect(headers).toEqual([{ key: 'Authorization', value: 'Token at-live' }]);
+  });
+
   it('oauth2 sendAs query appends access_token to params', async () => {
     getTokenBundleMock.mockResolvedValue(makeBundle());
     const { headers, params } = await run(makeOAuthAuth({ sendAs: 'query' }));

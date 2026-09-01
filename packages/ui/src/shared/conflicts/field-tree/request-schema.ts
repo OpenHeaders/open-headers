@@ -95,6 +95,7 @@ const AUTH_UNION: FieldNode = union({
       refreshEndpoint: leaf('string', { coercion: 'optional-string' }),
       clientAuthentication: leaf('string', { coercion: 'optional-string' }),
       sendAs: leaf('string', { coercion: 'optional-string' }),
+      headerPrefix: leaf('string', { coercion: 'optional-string' }),
       extraAuthParams: extraParamSet,
       extraTokenParams: extraParamSet,
       extraRefreshParams: extraParamSet,

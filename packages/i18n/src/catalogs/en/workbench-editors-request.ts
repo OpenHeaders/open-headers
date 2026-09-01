@@ -282,7 +282,7 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.auth.rowInfo.oauth2Token':
     'The access token the last flow stored \u2014 sent after Bearer on every send; empty until a flow runs.',
   'workbench.editors.request.auth.rowInfo.oauth2HeaderPrefix':
-    'The scheme before the token in the Authorization header \u2014 the token_type the provider issued, Bearer by default.',
+    'The scheme before the token in the Authorization header — empty sends the token_type the provider issued (Bearer by default); set, it wins on the wire.',
   'workbench.editors.request.auth.rowInfo.oauth2AutoRefresh':
     'When the provider issued a refresh token, an expired access token is exchanged for a fresh one before the send.',
   'workbench.editors.request.auth.rowInfo.oauth2Status':
@@ -464,6 +464,8 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.oauth.callbackTipAfterApi':
     '. The extension ID is the same; only the host + scheme differ.',
   'workbench.editors.request.oauth.authorizeUsingBrowser': 'Authorize using browser',
+  'workbench.editors.request.oauth.noTokenNote':
+    'No token yet — run a flow below to acquire one. For a token issued out-of-band, use Bearer Token auth instead.',
   'workbench.editors.request.oauth.authorizeBrowserInfoSummary':
     'Sign-in opens in your default browser — it holds your provider session, password manager, and passkeys, and identity providers block logins embedded inside apps (RFC 8252).',
   'workbench.editors.request.oauth.authorizeBrowserInfoDetail':

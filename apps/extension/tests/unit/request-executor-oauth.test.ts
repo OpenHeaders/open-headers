@@ -114,6 +114,13 @@ describe('executor — oauth2', () => {
     expect(performRefreshMock).not.toHaveBeenCalled();
   });
 
+  it('a set headerPrefix wins over the bundle token_type on the wire', async () => {
+    getTokenBundleMock.mockResolvedValue(bundle({ accessToken: 'at-fresh' }));
+    await executeRequestDraft(makeOAuthRequest({ headerPrefix: 'Token' }));
+    const [, init] = fetchMock.mock.calls[0];
+    expect((init.headers as Headers).get('Authorization')).toBe('Token at-fresh');
+  });
+
   it('refreshes expired tokens when a refresh_token is available', async () => {
     const expiredBundle = bundle({
       accessToken: 'at-expired',

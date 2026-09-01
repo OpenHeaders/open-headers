@@ -540,6 +540,10 @@ export const OAuth2AuthSchema = v.object({
    * some legacy providers require.
    */
   sendAs: v.optional(v.picklist(['header', 'query'])),
+  /** Scheme before the token on the send — empty rides the bundle's
+   *  `token_type` (Bearer by default); set, it wins on the wire. A
+   *  literal, never templated (the oauth2 config is not user-templated). */
+  headerPrefix: v.optional(v.string()),
   /** Optional extra params appended to the authorization URL. */
   extraAuthParams: v.optional(v.array(v.object({ uid: UidSchema, key: v.string(), value: v.string() }))),
   /**
