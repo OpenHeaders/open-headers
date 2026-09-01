@@ -253,6 +253,26 @@ describe('buildWorkspaceExport — strip rules', () => {
     expect('clientSecret' in builtAuth).toBe(false);
   });
 
+  it('removes the OAuth2 assertion private key and keeps the rest of the assertion group', () => {
+    const input = baseInput();
+    input.entities.requests = [
+      makeOAuthRequest({
+        clientAuthentication: 'private-key-jwt',
+        assertionAlgorithm: 'ES256',
+        assertionKeyId: 'key-1',
+        assertionPrivateKey: '-----BEGIN PRIVATE KEY-----\nDO-NOT-EXPORT\n-----END PRIVATE KEY-----',
+      }),
+    ];
+
+    const exp = buildWorkspaceExport(input);
+    const builtAuth = exp.entities.requests[0].auth;
+    if (builtAuth.type !== 'oauth2') throw new Error('unreachable');
+    expect('assertionPrivateKey' in builtAuth).toBe(false);
+    expect(builtAuth.clientAuthentication).toBe('private-key-jwt');
+    expect(builtAuth.assertionAlgorithm).toBe('ES256');
+    expect(builtAuth.assertionKeyId).toBe('key-1');
+  });
+
   it('removes OAuth2 clientSecret from collection + folder ancestor auth', () => {
     const input = baseInput();
     const oauth: OAuth2Auth = {

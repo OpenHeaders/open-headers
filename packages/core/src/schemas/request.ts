@@ -399,6 +399,11 @@ export const CredentialsModeSchema = v.picklist(['omit', 'include']);
  *   POST direct to the token endpoint with username + password (+
  *   client credentials). No browser leg. Deprecated by OAuth 2.1 but
  *   still the only path some legacy IdPs offer.
+ * - `jwt-bearer` — RFC 7523 §2.1: a JWT the client signs with its own
+ *   key IS the grant (`grant_type=urn:ietf:params:oauth:grant-type:
+ *   jwt-bearer` + `assertion`) — service accounts (Google, Salesforce,
+ *   Adobe, Box, DocuSign). No authorize leg and no refresh token: a
+ *   fresh assertion is the refresh, so the executor re-mints on expiry.
  * - `refresh-token` — not user-selected; the token store refreshes
  *   silently via this flow before expiry (see §20 refresh machinery).
  *
@@ -412,6 +417,7 @@ export const OAuth2FlowSchema = v.picklist([
   'client-credentials',
   'device-code',
   'password-credentials',
+  'jwt-bearer',
 ]);
 
 /**
@@ -431,6 +437,7 @@ export const OAuth2UiGrantTypeSchema = v.picklist([
   'password-credentials',
   'client-credentials',
   'device-code',
+  'jwt-bearer',
 ]);
 
 /**
@@ -528,10 +535,48 @@ export const OAuth2AuthSchema = v.object({
    * form-urlencoded body — the path that works with the widest set of
    * providers. `'basic-header'` moves them into an `Authorization:
    * Basic <base64(client_id:client_secret)>` header per RFC 6749 §2.3.1
-   * — some providers (Auth0, Keycloak) only accept this form. Affects
-   * authorization-code, client-credentials, and refresh POSTs alike.
+   * — some providers (Auth0, Keycloak) only accept this form. The two
+   * assertion methods (OIDC Core §9 / RFC 7523 §2.2) replace the secret
+   * with a JWT the client signs per POST — `'private-key-jwt'` under
+   * the `assertion*` key material, `'client-secret-jwt'` with an HMAC
+   * keyed by `clientSecret` — sent as `client_assertion_type` +
+   * `client_assertion` in the body, never the Basic header. Affects
+   * authorization-code, client-credentials, password, device-code and
+   * refresh POSTs alike.
    */
-  clientAuthentication: v.optional(v.picklist(['body', 'basic-header'])),
+  clientAuthentication: v.optional(v.picklist(['body', 'basic-header', 'private-key-jwt', 'client-secret-jwt'])),
+  /**
+   * The signed-assertion group — shared by `private-key-jwt` /
+   * `client-secret-jwt` client authentication AND the `jwt-bearer`
+   * grant, since a client signs with one key. `assertionAlgorithm` is
+   * an asymmetric JWS family for the private key (RS / PS / ES) or an
+   * HS family for the secret method; absent = RS256 / HS256.
+   * `assertionAudience` blank = the token endpoint (OIDC Core §9's
+   * default; Azure, Okta, Google); FAPI 2.0 and Keycloak want the
+   * issuer identifier instead. `assertionLifetimeSeconds` is
+   * `exp − iat` (absent = 300; ceiling 3600 — Google's cap).
+   * `assertionKeyId` rides as the `kid` header; `assertionHeaders` is
+   * extra protected-header JSON (Azure's `x5t#S256`) winning over it.
+   * Plain strings, templates welcome; completeness is a send-time gate.
+   */
+  assertionAlgorithm: v.optional(v.string()),
+  /** PEM / bare DER / the `data:application/pkcs8;kid=…` form. */
+  assertionPrivateKey: v.optional(v.string()),
+  assertionKeyId: v.optional(v.string()),
+  assertionAudience: v.optional(v.string()),
+  assertionLifetimeSeconds: v.optional(v.number()),
+  assertionHeaders: v.optional(v.string()),
+  /**
+   * The `jwt-bearer` grant's own claims: `assertionIssuer` is the
+   * `iss` (a service-account email, a consumer key), `assertionSubject`
+   * the optional `sub` (the impersonated user), `assertionClaims` an
+   * Additional-claims JSON that wins over every composed claim (Google
+   * carries `scope` as a claim — composed from `scopes` — while Adobe /
+   * Box carry vendor claims).
+   */
+  assertionIssuer: v.optional(v.string()),
+  assertionSubject: v.optional(v.string()),
+  assertionClaims: v.optional(v.string()),
   /**
    * Where the token response's `access_token` is applied on outgoing
    * requests. `'header'` adds `Authorization: Bearer <token>` (the

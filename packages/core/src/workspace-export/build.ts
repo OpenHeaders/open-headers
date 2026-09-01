@@ -15,7 +15,8 @@
  *     red banner in the modal warns the user.
  *
  * What the builder strips (every export, regardless of scope):
- *   - Auth secrets — OAuth2 `clientSecret` (dropped) and AWS SigV4
+ *   - Auth secrets — OAuth2 `clientSecret` + `assertionPrivateKey`
+ *     (dropped) and AWS SigV4
  *     `secretAccessKey` (blanked; required field) + `sessionToken`
  *     (dropped) — on requests AND on the collection/folder
  *     ancestor-auth slots (always — recipient enters their own at
@@ -136,7 +137,9 @@ export class MissingSecretsBlockError extends Error {
 
 function stripConfigSecrets<A extends AuthConfig>(auth: A): A {
   if (auth.type === 'oauth2') {
-    const { clientSecret: _omitted, ...authWithoutSecret } = auth;
+    // The secret and the assertion signing key — both credential
+    // material; the rest of the assertion group is configuration.
+    const { clientSecret: _omitted, assertionPrivateKey: _alsoOmitted, ...authWithoutSecret } = auth;
     return authWithoutSecret as A;
   }
   if (auth.type === 'aws-sigv4') {

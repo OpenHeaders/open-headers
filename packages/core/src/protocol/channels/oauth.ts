@@ -42,6 +42,16 @@ export interface OAuthRpc {
     res: { success: boolean; bundle?: OAuth2TokenBundle; error?: string };
   };
   /**
+   * Trigger a JWT bearer grant exchange (RFC 7523 §2.1) for the given
+   * config. No browser leg — the host signs the assertion from the
+   * config's key material and POSTs it as the grant; no refresh token
+   * comes back (a fresh assertion is the refresh).
+   */
+  oauthJwtBearer: {
+    req: { config: OAuth2Auth; workspaceId?: string };
+    res: { success: boolean; bundle?: OAuth2TokenBundle; error?: string };
+  };
+  /**
    * Force a refresh of the stored token for the given config. Useful
    * when the user wants to proactively rotate the access token or
    * diagnose refresh failures from the editor.

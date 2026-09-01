@@ -2,8 +2,10 @@
  * OAuth 2.0 / OIDC — provider presets + cross-platform helpers.
  * ARCHITECTURE §18.
  *
- * This module is platform-agnostic: no chrome.* APIs, no DOM, no
- * crypto.subtle touches. Extension + desktop both consume it.
+ * This module is platform-agnostic: no chrome.* APIs, no DOM. The one
+ * crypto touch is the signed-assertion composer (`./assertion`, over
+ * the JWT Bearer signer's WebCrypto — global on every host). Extension
+ * + desktop both consume it.
  *
  * What lives here:
  *   • The provider preset library (Google, GitHub, Auth0, Okta, Azure
@@ -29,6 +31,9 @@
 
 import type { OAuth2Auth, OAuth2Flow } from '../types/request';
 import { encodeBase64, encodeBase64Bytes } from '../utils/base64';
+import { CLIENT_ASSERTION_TYPE_JWT_BEARER, JWT_BEARER_GRANT_TYPE, usesClientAssertion } from './assertion';
+
+export * from './assertion';
 
 // ── Runtime state shape ────────────────────────────────────────────
 
@@ -85,6 +90,19 @@ export function secondsUntilExpiry(bundle: OAuth2TokenBundle, nowMs: number = Da
 export function isExpired(bundle: OAuth2TokenBundle, nowMs: number = Date.now(), skewSeconds = 30): boolean {
   if (bundle.expiresAt == null) return false;
   return nowMs >= bundle.expiresAt - skewSeconds * 1000;
+}
+
+/**
+ * Can an expired bundle for this config be renewed without a user
+ * agent? A refresh token always can; without one, the grants whose
+ * whole credential lives in the config re-run themselves silently —
+ * client credentials, password, and the JWT bearer grant (a fresh
+ * assertion IS its refresh). Authorization code and device code
+ * without a refresh token need the user again.
+ */
+export function canRenewSilently(config: OAuth2Auth, hasRefreshToken: boolean): boolean {
+  if (hasRefreshToken) return true;
+  return config.flow === 'client-credentials' || config.flow === 'password-credentials' || config.flow === 'jwt-bearer';
 }
 
 // ── Provider presets ───────────────────────────────────────────────
@@ -302,17 +320,15 @@ export function buildAuthorizationCodeTokenBody(input: {
   code: string;
   codeVerifier?: string;
   redirectUri: string;
+  clientAssertion?: string;
 }): URLSearchParams {
-  const { config, code, codeVerifier, redirectUri } = input;
+  const { config, code, codeVerifier, redirectUri, clientAssertion } = input;
   const body = new URLSearchParams();
   body.set('grant_type', 'authorization_code');
   body.set('code', code);
   body.set('redirect_uri', redirectUri);
   if (codeVerifier !== undefined) body.set('code_verifier', codeVerifier);
-  if (config.clientAuthentication !== 'basic-header') {
-    body.set('client_id', config.clientId);
-    if (config.clientSecret) body.set('client_secret', config.clientSecret);
-  }
+  applyClientAuth(body, config, clientAssertion, { secretRequired: false });
   for (const { key, value, sendIn } of config.extraTokenParams ?? []) {
     if (sendIn === undefined || sendIn === 'body') body.set(key, value);
   }
@@ -323,16 +339,12 @@ export function buildAuthorizationCodeTokenBody(input: {
  * Client Credentials token POST — RFC 6749 §4.4. Same
  * `clientAuthentication` switch as the authorization-code body.
  */
-export function buildClientCredentialsTokenBody(config: OAuth2Auth): URLSearchParams {
-  if (!config.clientSecret) {
-    throw new Error('client-credentials flow requires clientSecret');
-  }
+export function buildClientCredentialsTokenBody(config: OAuth2Auth, clientAssertion?: string): URLSearchParams {
   const body = new URLSearchParams();
   body.set('grant_type', 'client_credentials');
-  if (config.clientAuthentication !== 'basic-header') {
-    body.set('client_id', config.clientId);
-    body.set('client_secret', config.clientSecret);
-  }
+  // The grant has no other credential: a secret (or an assertion) is
+  // the precondition, not an option.
+  applyClientAuth(body, config, clientAssertion, { secretRequired: true });
   if (config.scopes.length > 0) body.set('scope', config.scopes.join(' '));
   for (const { key, value, sendIn } of config.extraTokenParams ?? []) {
     if (sendIn === undefined || sendIn === 'body') body.set(key, value);
@@ -345,7 +357,7 @@ export function buildClientCredentialsTokenBody(config: OAuth2Auth): URLSearchPa
  * `clientAuthentication` switch as the other bodies; `client_secret`
  * stays optional (public clients are legal for this grant).
  */
-export function buildPasswordCredentialsTokenBody(config: OAuth2Auth): URLSearchParams {
+export function buildPasswordCredentialsTokenBody(config: OAuth2Auth, clientAssertion?: string): URLSearchParams {
   if (!config.username || !config.password) {
     throw new Error('password-credentials flow requires username and password');
   }
@@ -353,10 +365,7 @@ export function buildPasswordCredentialsTokenBody(config: OAuth2Auth): URLSearch
   body.set('grant_type', 'password');
   body.set('username', config.username);
   body.set('password', config.password);
-  if (config.clientAuthentication !== 'basic-header') {
-    body.set('client_id', config.clientId);
-    if (config.clientSecret) body.set('client_secret', config.clientSecret);
-  }
+  applyClientAuth(body, config, clientAssertion, { secretRequired: false });
   if (config.scopes.length > 0) body.set('scope', config.scopes.join(' '));
   for (const { key, value, sendIn } of config.extraTokenParams ?? []) {
     if (sendIn === undefined || sendIn === 'body') body.set(key, value);
@@ -372,14 +381,41 @@ export function buildDeviceAuthorizationBody(config: OAuth2Auth): URLSearchParam
   return body;
 }
 
-/** Device Code token POST (polled) — RFC 8628 §3.4. */
-export function buildDeviceCodeTokenBody(input: { config: OAuth2Auth; deviceCode: string }): URLSearchParams {
-  const { config, deviceCode } = input;
+/** Device Code token POST (polled) — RFC 8628 §3.4. Same
+ *  `clientAuthentication` switch as the other bodies. */
+export function buildDeviceCodeTokenBody(input: {
+  config: OAuth2Auth;
+  deviceCode: string;
+  clientAssertion?: string;
+}): URLSearchParams {
+  const { config, deviceCode, clientAssertion } = input;
   const body = new URLSearchParams();
   body.set('grant_type', 'urn:ietf:params:oauth:grant-type:device_code');
   body.set('device_code', deviceCode);
-  body.set('client_id', config.clientId);
-  if (config.clientSecret) body.set('client_secret', config.clientSecret);
+  applyClientAuth(body, config, clientAssertion, { secretRequired: false });
+  return body;
+}
+
+/**
+ * JWT bearer grant token POST — RFC 7523 §2.1: the signed assertion IS
+ * the grant (`signGrantAssertion` composes it — `scope` rides as a
+ * claim there, not as a body param). The client may still authenticate
+ * alongside (§2.1 permits it, Google ignores it): the same
+ * `clientAuthentication` switch applies, the secret optional.
+ */
+export function buildJwtBearerTokenBody(input: {
+  config: OAuth2Auth;
+  assertion: string;
+  clientAssertion?: string;
+}): URLSearchParams {
+  const { config, assertion, clientAssertion } = input;
+  const body = new URLSearchParams();
+  body.set('grant_type', JWT_BEARER_GRANT_TYPE);
+  body.set('assertion', assertion);
+  applyClientAuth(body, config, clientAssertion, { secretRequired: false });
+  for (const { key, value, sendIn } of config.extraTokenParams ?? []) {
+    if (sendIn === undefined || sendIn === 'body') body.set(key, value);
+  }
   return body;
 }
 
@@ -389,20 +425,55 @@ export function buildDeviceCodeTokenBody(input: { config: OAuth2Auth; deviceCode
  * providers that require per-refresh knobs (e.g. `audience` rotation)
  * can be accommodated without a schema churn.
  */
-export function buildRefreshTokenBody(input: { config: OAuth2Auth; refreshToken: string }): URLSearchParams {
-  const { config, refreshToken } = input;
+export function buildRefreshTokenBody(input: {
+  config: OAuth2Auth;
+  refreshToken: string;
+  clientAssertion?: string;
+}): URLSearchParams {
+  const { config, refreshToken, clientAssertion } = input;
   const body = new URLSearchParams();
   body.set('grant_type', 'refresh_token');
   body.set('refresh_token', refreshToken);
-  if (config.clientAuthentication !== 'basic-header') {
-    body.set('client_id', config.clientId);
-    if (config.clientSecret) body.set('client_secret', config.clientSecret);
-  }
+  applyClientAuth(body, config, clientAssertion, { secretRequired: false });
   if (config.scopes.length > 0) body.set('scope', config.scopes.join(' '));
   for (const { key, value, sendIn } of config.extraRefreshParams ?? []) {
     if (sendIn === undefined || sendIn === 'body') body.set(key, value);
   }
   return body;
+}
+
+/**
+ * The client-authentication leg of every token POST body, by the
+ * config's method: `body` carries `client_id` + `client_secret`;
+ * `basic-header` carries neither (the caller attaches the header from
+ * {@link buildClientAuthHeader}); the two assertion methods carry
+ * `client_id` + `client_assertion_type` + `client_assertion` (RFC 7523
+ * §2.2 — the id stays, Azure requires it) and never the secret. The
+ * caller mints the assertion (`mintClientAssertion`) — a missing one
+ * under an assertion method is a programmer error, not a silent
+ * fallback to the secret.
+ */
+function applyClientAuth(
+  body: URLSearchParams,
+  config: OAuth2Auth,
+  clientAssertion: string | undefined,
+  options: { secretRequired: boolean },
+): void {
+  if (usesClientAssertion(config)) {
+    if (clientAssertion === undefined) {
+      throw new Error(`${config.clientAuthentication} requires a minted client assertion`);
+    }
+    body.set('client_id', config.clientId);
+    body.set('client_assertion_type', CLIENT_ASSERTION_TYPE_JWT_BEARER);
+    body.set('client_assertion', clientAssertion);
+    return;
+  }
+  if (options.secretRequired && !config.clientSecret) {
+    throw new Error('client-credentials flow requires clientSecret');
+  }
+  if (config.clientAuthentication === 'basic-header') return;
+  body.set('client_id', config.clientId);
+  if (config.clientSecret) body.set('client_secret', config.clientSecret);
 }
 
 /** Where an extra token/refresh param rides the POST — see
