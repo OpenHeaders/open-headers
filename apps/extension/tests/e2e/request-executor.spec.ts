@@ -87,6 +87,7 @@ async function rpc<T = unknown>(type: string, payload: Record<string, unknown> =
 /** The `/api/echo` reflection shape (mirrors `playground/server/api-echo.ts`). */
 interface EchoResponse {
   method: string;
+  url: string;
   query: Record<string, string | string[]>;
   headers: Record<string, string | string[] | undefined>;
   auth:
