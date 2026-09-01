@@ -1,11 +1,14 @@
 /**
  * OAuth 2.0 token-acquisition flows — the host-neutral legs behind the
  * editor's "Get new access token": Client Credentials, Password
- * Credentials, and Authorization Code (with or without PKCE). Each
- * builds its grant from `@openheaders/core/oauth`, exchanges it through
+ * Credentials, JWT Bearer (RFC 7523 §2.1 — the signed assertion IS the
+ * grant), and Authorization Code (with or without PKCE). Each builds
+ * its grant from `@openheaders/core/oauth`, exchanges it through
  * {@link exchangeForTokens} over the host's {@link RequestTransport},
  * and persists the bundle under the config's `credentialRef` in the
- * per-workspace token store.
+ * per-workspace token store. A config on an assertion client
+ * authentication (`private-key-jwt` / `client-secret-jwt`) mints its
+ * client assertion here, per POST, before the body builds.
  *
  * The authorization-code leg needs a user agent: the host hands in a
  * {@link AuthorizationLauncher} that opens the authorize URL and
@@ -22,10 +25,13 @@ import {
   buildAuthorizationUrl,
   buildClientAuthHeader,
   buildClientCredentialsTokenBody,
+  buildJwtBearerTokenBody,
   buildPasswordCredentialsTokenBody,
   computeCodeChallenge,
   findOAuth2Preset,
   generateCodeVerifier,
+  mintClientAssertion,
+  mintGrantAssertion,
   nonBodyExtraParams,
   type OAuth2TokenBundle,
   parseAuthorizationRedirect,
@@ -107,7 +113,13 @@ export async function performAuthorizationCodeFlow(
   }
   const bundle = await exchangeForTokens(transport, {
     endpoint: config.tokenEndpoint,
-    body: buildAuthorizationCodeTokenBody({ config, code: parsed.code, codeVerifier, redirectUri }),
+    body: buildAuthorizationCodeTokenBody({
+      config,
+      code: parsed.code,
+      codeVerifier,
+      redirectUri,
+      clientAssertion: await mintClientAssertionOrFail(config, 'authorization_code'),
+    }),
     step: 'authorization_code',
     clientAuthHeader: buildClientAuthHeader(config),
     extras: nonBodyExtraParams(config.extraTokenParams),
@@ -129,7 +141,7 @@ export async function performClientCredentialsFlow(
   }
   const bundle = await exchangeForTokens(transport, {
     endpoint: config.tokenEndpoint,
-    body: buildClientCredentialsTokenBody(config),
+    body: buildClientCredentialsTokenBody(config, await mintClientAssertionOrFail(config, 'client_credentials')),
     step: 'client_credentials',
     clientAuthHeader: buildClientAuthHeader(config),
     extras: nonBodyExtraParams(config.extraTokenParams),
@@ -151,11 +163,53 @@ export async function performPasswordCredentialsFlow(
   }
   const bundle = await exchangeForTokens(transport, {
     endpoint: config.tokenEndpoint,
-    body: buildPasswordCredentialsTokenBody(config),
+    body: buildPasswordCredentialsTokenBody(config, await mintClientAssertionOrFail(config, 'password')),
     step: 'password',
     clientAuthHeader: buildClientAuthHeader(config),
     extras: nonBodyExtraParams(config.extraTokenParams),
   });
   await putTokenBundle(config.credentialRef, bundle, config, workspaceId);
   return bundle;
+}
+
+/**
+ * The JWT bearer grant (RFC 7523 §2.1): no user agent, no refresh
+ * token — the assertion mints fresh per exchange from the config's
+ * signing key, so re-running the flow IS the refresh.
+ */
+export async function performJwtBearerFlow(
+  config: OAuth2Auth,
+  workspaceId: string | undefined,
+  transport: RequestTransport,
+): Promise<OAuth2TokenBundle> {
+  if (config.flow !== 'jwt-bearer') {
+    throw new OAuth2FlowError('precondition', `jwt bearer flow requires flow=jwt-bearer, got ${config.flow}`);
+  }
+  const assertion = await mintGrantAssertion(config).catch((err: Error) => {
+    throw new OAuth2FlowError('precondition', err.message);
+  });
+  const bundle = await exchangeForTokens(transport, {
+    endpoint: config.tokenEndpoint,
+    body: buildJwtBearerTokenBody({
+      config,
+      assertion,
+      clientAssertion: await mintClientAssertionOrFail(config, 'jwt_bearer'),
+    }),
+    step: 'jwt_bearer',
+    clientAuthHeader: buildClientAuthHeader(config),
+    extras: nonBodyExtraParams(config.extraTokenParams),
+  });
+  await putTokenBundle(config.credentialRef, bundle, config, workspaceId);
+  return bundle;
+}
+
+/** The client assertion for one token POST, or `undefined` under the
+ *  secret methods; a signing failure (a bad key, a wrong family) is
+ *  the step's own precondition error. */
+export async function mintClientAssertionOrFail(config: OAuth2Auth, step: string): Promise<string | undefined> {
+  try {
+    return await mintClientAssertion(config);
+  } catch (err) {
+    throw new OAuth2FlowError(step, `client assertion: ${(err as Error).message}`);
+  }
 }

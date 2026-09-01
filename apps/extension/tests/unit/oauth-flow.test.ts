@@ -6,6 +6,7 @@
  * or storage.
  */
 
+import { generateKeyPairSync, verify as nodeVerify } from 'node:crypto';
 import type { OAuth2TokenBundle } from '@openheaders/core/oauth';
 import type { OAuth2Auth } from '@openheaders/core/types';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -386,5 +387,154 @@ describe('performRefresh', () => {
     const body = (init as RequestInit).body as URLSearchParams;
     expect(body.has('client_id')).toBe(false);
     expect(body.has('client_secret')).toBe(false);
+  });
+});
+
+// ── Signed assertions (RFC 7523) ─────────────────────────────────
+
+const p256 = generateKeyPairSync('ec', { namedCurve: 'P-256' });
+const P256_PEM = p256.privateKey.export({ type: 'pkcs8', format: 'pem' }).toString();
+
+function segment(jwt: string, index: number): Record<string, unknown> {
+  return JSON.parse(Buffer.from(jwt.split('.')[index], 'base64url').toString('utf8'));
+}
+
+function verifiesEs256(jwt: string): boolean {
+  const [h, p, sig] = jwt.split('.');
+  return nodeVerify(
+    'sha256',
+    Buffer.from(`${h}.${p}`),
+    { key: p256.publicKey, dsaEncoding: 'ieee-p1363' },
+    Buffer.from(sig, 'base64url'),
+  );
+}
+
+function sentBody(): URLSearchParams {
+  const [, init] = fetchMock.mock.calls[0];
+  return (init as RequestInit).body as URLSearchParams;
+}
+
+describe('client assertion on the token POST', () => {
+  it('private-key-jwt client credentials: client_assertion replaces the secret, verified under the key, no Basic header', async () => {
+    const { performClientCredentialsFlow } = await import('@/background/modules/oauth-flow');
+    await performClientCredentialsFlow(
+      makeConfig({
+        flow: 'client-credentials',
+        clientAuthentication: 'private-key-jwt',
+        assertionAlgorithm: 'ES256',
+        assertionPrivateKey: P256_PEM,
+        assertionKeyId: 'key-1',
+      }),
+    );
+    const body = sentBody();
+    expect(body.get('grant_type')).toBe('client_credentials');
+    expect(body.get('client_id')).toBe('client-123');
+    expect(body.has('client_secret')).toBe(false);
+    expect(body.get('client_assertion_type')).toBe('urn:ietf:params:oauth:client-assertion-type:jwt-bearer');
+    const assertion = body.get('client_assertion') ?? '';
+    expect(segment(assertion, 0)).toEqual({ typ: 'JWT', kid: 'key-1', alg: 'ES256' });
+    expect(segment(assertion, 1)).toMatchObject({
+      iss: 'client-123',
+      sub: 'client-123',
+      aud: 'https://auth.openheaders.io/token',
+    });
+    expect(verifiesEs256(assertion)).toBe(true);
+    const [, init] = fetchMock.mock.calls[0];
+    expect(((init as RequestInit).headers as Record<string, string>).Authorization).toBeUndefined();
+  });
+
+  it('client-secret-jwt rides the refresh POST as an HS256 assertion keyed by the secret', async () => {
+    getTokenBundleMock.mockResolvedValue({
+      accessToken: 'at-old',
+      refreshToken: 'rf-old',
+      tokenType: 'Bearer',
+      scope: 'read',
+      issuedAt: 1,
+      expiresAt: 2,
+    } satisfies OAuth2TokenBundle);
+    const { performRefresh } = await import('@/background/modules/oauth-flow');
+    await performRefresh(makeConfig({ clientAuthentication: 'client-secret-jwt', clientSecret: 'shh' }));
+    const body = sentBody();
+    expect(body.get('grant_type')).toBe('refresh_token');
+    expect(body.has('client_secret')).toBe(false);
+    expect(segment(body.get('client_assertion') ?? '', 0)).toEqual({ typ: 'JWT', alg: 'HS256' });
+  });
+
+  it('a signing failure is the step-tagged precondition, before any fetch', async () => {
+    const { performClientCredentialsFlow } = await import('@/background/modules/oauth-flow');
+    await expect(
+      performClientCredentialsFlow(
+        makeConfig({ flow: 'client-credentials', clientAuthentication: 'private-key-jwt', assertionPrivateKey: '' }),
+      ),
+    ).rejects.toMatchObject({ step: 'client_credentials', message: /private key is required/ });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+});
+
+describe('performJwtBearerFlow', () => {
+  const grant = (over: Partial<OAuth2Auth> = {}) =>
+    makeConfig({
+      flow: 'jwt-bearer',
+      assertionIssuer: 'svc@openheaders.io',
+      assertionAlgorithm: 'ES256',
+      assertionPrivateKey: P256_PEM,
+      scopes: ['read', 'write'],
+      ...over,
+    });
+
+  it('POSTs grant_type=jwt-bearer with the signed assertion (iss / aud / scope) and stores the bundle', async () => {
+    fetchMock.mockResolvedValue(jsonResponse({ access_token: 'at-jwt', token_type: 'Bearer', expires_in: 3600 }));
+    const { performJwtBearerFlow } = await import('@/background/modules/oauth-flow');
+    const bundle = await performJwtBearerFlow(grant(), 'ws-1');
+    expect(bundle.accessToken).toBe('at-jwt');
+    expect(bundle.refreshToken).toBeUndefined();
+    const body = sentBody();
+    expect(body.get('grant_type')).toBe('urn:ietf:params:oauth:grant-type:jwt-bearer');
+    expect(body.has('scope')).toBe(false);
+    const assertion = body.get('assertion') ?? '';
+    expect(segment(assertion, 1)).toMatchObject({
+      iss: 'svc@openheaders.io',
+      aud: 'https://auth.openheaders.io/token',
+      scope: 'read write',
+    });
+    expect(verifiesEs256(assertion)).toBe(true);
+    expect(putTokenBundleMock).toHaveBeenCalledWith(
+      'oauth2-cred-test',
+      expect.objectContaining({ accessToken: 'at-jwt' }),
+      expect.objectContaining({ flow: 'jwt-bearer' }),
+      'ws-1',
+    );
+  });
+
+  it('rejects when flow !== jwt-bearer, and a blank issuer before any fetch', async () => {
+    const { performJwtBearerFlow } = await import('@/background/modules/oauth-flow');
+    await expect(performJwtBearerFlow(makeConfig())).rejects.toThrow(/flow=jwt-bearer/);
+    await expect(performJwtBearerFlow(grant({ assertionIssuer: undefined }))).rejects.toMatchObject({
+      step: 'precondition',
+      message: /assertion issuer/,
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+});
+
+describe('refreshCredential — jwt-bearer dispatch', () => {
+  it('re-runs the grant with a fresh assertion (no refresh token ever exists)', async () => {
+    getTokenBundleMock.mockResolvedValue({
+      accessToken: 'at-old',
+      tokenType: 'Bearer',
+      scope: 'read',
+      issuedAt: 1,
+      expiresAt: 2,
+    } satisfies OAuth2TokenBundle);
+    const { refreshCredential } = await import('@/background/modules/oauth-flow');
+    await refreshCredential(
+      makeConfig({
+        flow: 'jwt-bearer',
+        assertionIssuer: 'svc@openheaders.io',
+        assertionAlgorithm: 'ES256',
+        assertionPrivateKey: P256_PEM,
+      }),
+    );
+    expect(sentBody().get('grant_type')).toBe('urn:ietf:params:oauth:grant-type:jwt-bearer');
   });
 });

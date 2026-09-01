@@ -7,13 +7,18 @@
  *   • the token store owns `chrome.storage.local` + `withLock`;
  *   • the runner owns `chrome.identity.launchWebAuthFlow` + `fetch`.
  *
- * Four flows implemented:
+ * Five flows implemented:
  *   • Authorization Code (± PKCE) (`launchAuthorizationCodeFlow` —
  *     PKCE by default; `grantType: 'authorization-code'` omits the
  *     challenge/verifier pair for plain RFC 6749 §4.1 providers)
  *   • Client Credentials          (`performClientCredentialsFlow`)
  *   • Password Credentials        (`performPasswordCredentialsFlow`)
+ *   • JWT Bearer (RFC 7523 §2.1)  (`performJwtBearerFlow`)
  *   • Refresh Token               (`performRefresh`)
+ *
+ * A config on an assertion client authentication (`private-key-jwt` /
+ * `client-secret-jwt`) mints its client assertion per token POST
+ * before the body builds — the oracle flows' twin.
  *
  * Device Code lands next — it needs a user-facing polling UI which
  * is tracked separately.
@@ -24,11 +29,14 @@ import {
   buildAuthorizationUrl,
   buildClientAuthHeader,
   buildClientCredentialsTokenBody,
+  buildJwtBearerTokenBody,
   buildPasswordCredentialsTokenBody,
   buildRefreshTokenBody,
   computeCodeChallenge,
   findOAuth2Preset,
   generateCodeVerifier,
+  mintClientAssertion,
+  mintGrantAssertion,
   nonBodyExtraParams,
   type OAuth2TokenBundle,
   parseAuthorizationRedirect,
@@ -159,6 +167,7 @@ export async function launchAuthorizationCodeFlow(
     code: parsed.code,
     codeVerifier,
     redirectUri,
+    clientAssertion: await mintClientAssertionOrFail(config, 'authorization_code'),
   });
 
   const bundle = await exchangeForTokens(
@@ -184,7 +193,7 @@ export async function performClientCredentialsFlow(
       `performClientCredentialsFlow requires flow=client-credentials, got ${config.flow}`,
     );
   }
-  const body = buildClientCredentialsTokenBody(config);
+  const body = buildClientCredentialsTokenBody(config, await mintClientAssertionOrFail(config, 'client_credentials'));
   const bundle = await exchangeForTokens(
     config.tokenEndpoint,
     body,
@@ -208,7 +217,7 @@ export async function performPasswordCredentialsFlow(
       `performPasswordCredentialsFlow requires flow=password-credentials, got ${config.flow}`,
     );
   }
-  const body = buildPasswordCredentialsTokenBody(config);
+  const body = buildPasswordCredentialsTokenBody(config, await mintClientAssertionOrFail(config, 'password'));
   const bundle = await exchangeForTokens(
     config.tokenEndpoint,
     body,
@@ -220,6 +229,46 @@ export async function performPasswordCredentialsFlow(
   return bundle;
 }
 
+// ── JWT Bearer (RFC 7523 §2.1) ────────────────────────────────────
+
+/**
+ * The signed assertion IS the grant: no user agent, no refresh token —
+ * the assertion mints fresh per exchange from the config's signing
+ * key, so re-running the flow is the refresh.
+ */
+export async function performJwtBearerFlow(config: OAuth2Auth, workspaceId?: string): Promise<OAuth2TokenBundle> {
+  if (config.flow !== 'jwt-bearer') {
+    throw new OAuth2FlowError('precondition', `performJwtBearerFlow requires flow=jwt-bearer, got ${config.flow}`);
+  }
+  const assertion = await mintGrantAssertion(config).catch((err: Error) => {
+    throw new OAuth2FlowError('precondition', err.message);
+  });
+  const body = buildJwtBearerTokenBody({
+    config,
+    assertion,
+    clientAssertion: await mintClientAssertionOrFail(config, 'jwt_bearer'),
+  });
+  const bundle = await exchangeForTokens(
+    config.tokenEndpoint,
+    body,
+    'jwt_bearer',
+    buildClientAuthHeader(config),
+    nonBodyExtraParams(config.extraTokenParams),
+  );
+  await putTokenBundle(config.credentialRef, bundle, config, workspaceId);
+  return bundle;
+}
+
+/** The client assertion for one token POST, or `undefined` under the
+ *  secret methods; a signing failure is the step's precondition error. */
+async function mintClientAssertionOrFail(config: OAuth2Auth, step: string): Promise<string | undefined> {
+  try {
+    return await mintClientAssertion(config);
+  } catch (err) {
+    throw new OAuth2FlowError(step, `client assertion: ${(err as Error).message}`);
+  }
+}
+
 // ── Refresh Token ─────────────────────────────────────────────────
 
 export async function performRefresh(config: OAuth2Auth, workspaceId?: string): Promise<OAuth2TokenBundle> {
@@ -227,7 +276,11 @@ export async function performRefresh(config: OAuth2Auth, workspaceId?: string): 
   if (!current?.refreshToken) {
     throw new OAuth2FlowError('refresh', 'No refresh_token available for this credential');
   }
-  const body = buildRefreshTokenBody({ config, refreshToken: current.refreshToken });
+  const body = buildRefreshTokenBody({
+    config,
+    refreshToken: current.refreshToken,
+    clientAssertion: await mintClientAssertionOrFail(config, 'refresh_token'),
+  });
   // Some providers (notably legacy Okta tenants) expose a separate
   // refresh endpoint; fall back to the primary token endpoint when
   // the config doesn't override.
@@ -251,26 +304,27 @@ export async function performRefresh(config: OAuth2Auth, workspaceId?: string): 
 // ── Flow-agnostic refresh dispatch (scheduler entry-point) ────────
 
 /**
- * Refresh a credential regardless of flow. Authorization Code / Device
- * Code flows use the refresh_token grant; Client Credentials re-runs
- * the full client_credentials exchange (no refresh token exists for
- * that flow); Password Credentials prefers the refresh_token grant
- * when the provider issued one and re-runs the password exchange
- * otherwise (the config carries the resource-owner credentials). The
- * scheduler calls this from its alarm handler without having to
- * branch on the config shape.
+ * Renew a credential regardless of flow: the refresh_token grant when
+ * the store holds one, else the flow's own re-run for the
+ * user-agent-free grants — Client Credentials, Password Credentials
+ * (the config carries the resource-owner credentials), JWT Bearer (a
+ * fresh assertion IS the refresh). The scheduler and the executor's
+ * on-send seam both call this without branching on the config shape;
+ * the oracle's `refreshCredential` is the twin.
  */
 export async function refreshCredential(config: OAuth2Auth, workspaceId?: string): Promise<OAuth2TokenBundle> {
-  if (config.flow === 'client-credentials') {
-    return performClientCredentialsFlow(config, workspaceId);
-  }
-  if (config.flow === 'password-credentials') {
-    const current = await getTokenBundle(config.credentialRef, workspaceId);
-    if (!current?.refreshToken) {
+  const current = await getTokenBundle(config.credentialRef, workspaceId);
+  if (current?.refreshToken) return performRefresh(config, workspaceId);
+  switch (config.flow) {
+    case 'client-credentials':
+      return performClientCredentialsFlow(config, workspaceId);
+    case 'password-credentials':
       return performPasswordCredentialsFlow(config, workspaceId);
-    }
+    case 'jwt-bearer':
+      return performJwtBearerFlow(config, workspaceId);
+    default:
+      return performRefresh(config, workspaceId);
   }
-  return performRefresh(config, workspaceId);
 }
 
 // ── Shared: POST to the token endpoint ────────────────────────────

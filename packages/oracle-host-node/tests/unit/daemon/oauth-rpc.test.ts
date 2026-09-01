@@ -1,5 +1,5 @@
 /**
- * OAuth RPC plane — the six `oauth*` channels over mocked oracle flows
+ * OAuth RPC plane — the seven `oauth*` channels over mocked oracle flows
  * and a stub transport: channel ownership, the redirect URI read per
  * call, the authorize refusal on a host without a browser, the
  * authorize success shape (bundle + redirectUri) and its step-tagged
@@ -15,6 +15,7 @@ const flows = vi.hoisted(() => ({
   performAuthorizationCodeFlow: vi.fn(),
   performClientCredentialsFlow: vi.fn(),
   performPasswordCredentialsFlow: vi.fn(),
+  performJwtBearerFlow: vi.fn(),
   performRefresh: vi.fn(),
   deleteTokenBundle: vi.fn(),
 }));
@@ -23,6 +24,7 @@ vi.mock('@openheaders/oracle/live/request-exec/oauth-flows', () => ({
   performAuthorizationCodeFlow: (...args: unknown[]) => flows.performAuthorizationCodeFlow(...(args as [])),
   performClientCredentialsFlow: (...args: unknown[]) => flows.performClientCredentialsFlow(...(args as [])),
   performPasswordCredentialsFlow: (...args: unknown[]) => flows.performPasswordCredentialsFlow(...(args as [])),
+  performJwtBearerFlow: (...args: unknown[]) => flows.performJwtBearerFlow(...(args as [])),
 }));
 vi.mock('@openheaders/oracle/live/request-exec/oauth-refresh', () => ({
   performRefresh: (...args: unknown[]) => flows.performRefresh(...(args as [])),
@@ -63,12 +65,13 @@ beforeEach(() => {
 });
 
 describe('createOAuthRpc', () => {
-  it('owns exactly the six oauth channels', () => {
+  it('owns exactly the seven oauth channels', () => {
     const rpc = makeRpc();
     for (const type of [
       'oauthAuthorize',
       'oauthClientCredentials',
       'oauthPasswordCredentials',
+      'oauthJwtBearer',
       'oauthRefresh',
       'oauthRevoke',
       'oauthGetRedirectUri',
@@ -140,5 +143,27 @@ describe('createOAuthRpc', () => {
     });
     expect(flows.deleteTokenBundle).toHaveBeenCalledWith('cred-1', 'ws-1');
     await expect(makeRpc().dispatch('oauthRevoke', {})).resolves.toMatchObject({ success: false, removed: false });
+  });
+});
+
+describe('oauthJwtBearer', () => {
+  it('runs the jwt-bearer flow over the transport and answers the bundle shape', async () => {
+    flows.performJwtBearerFlow.mockResolvedValue(BUNDLE);
+    const rpc = makeRpc();
+    const config: OAuth2Auth = { ...CONFIG, flow: 'jwt-bearer', assertionIssuer: 'svc@openheaders.io' };
+    await expect(rpc.dispatch('oauthJwtBearer', { config, workspaceId: 'ws-1' })).resolves.toEqual({
+      success: true,
+      bundle: BUNDLE,
+    });
+    expect(flows.performJwtBearerFlow).toHaveBeenCalledWith(config, 'ws-1', transport);
+  });
+
+  it('a step-tagged failure answers success: false with the step named', async () => {
+    flows.performJwtBearerFlow.mockRejectedValue(new OAuth2FlowError('jwt_bearer', 'invalid_grant'));
+    const rpc = makeRpc();
+    await expect(rpc.dispatch('oauthJwtBearer', { config: CONFIG })).resolves.toEqual({
+      success: false,
+      error: 'jwt_bearer: invalid_grant',
+    });
   });
 });

@@ -11,13 +11,14 @@
  * missing code, a launcher that never completes, a wrong flow.
  */
 
-import { createHash } from 'node:crypto';
+import { createHash, generateKeyPairSync, verify as nodeVerify } from 'node:crypto';
 import type { OAuth2Auth } from '@openheaders/core/types';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { OAuth2FlowError } from '../../../src/live/request-exec/oauth-exchange';
 import {
   performAuthorizationCodeFlow,
   performClientCredentialsFlow,
+  performJwtBearerFlow,
   performPasswordCredentialsFlow,
 } from '../../../src/live/request-exec/oauth-flows';
 import { __resetRateLimiterForTests } from '../../../src/live/request-exec/rate-limiter';
@@ -35,6 +36,23 @@ const sendMock = vi.fn<(request: TransportRequest) => Promise<TransportResponse>
 const transport: RequestTransport = { send: (request) => sendMock(request) };
 
 const REDIRECT_URI = 'http://127.0.0.1:8137/oauth/callback';
+
+const p256 = generateKeyPairSync('ec', { namedCurve: 'P-256' });
+const P256_PEM = p256.privateKey.export({ type: 'pkcs8', format: 'pem' }).toString();
+
+function segment(jwt: string, index: number): Record<string, unknown> {
+  return JSON.parse(Buffer.from(jwt.split('.')[index], 'base64url').toString('utf8'));
+}
+
+function verifiesEs256(jwt: string): boolean {
+  const [h, p, sig] = jwt.split('.');
+  return nodeVerify(
+    'sha256',
+    Buffer.from(`${h}.${p}`),
+    { key: p256.publicKey, dsaEncoding: 'ieee-p1363' },
+    Buffer.from(sig, 'base64url'),
+  );
+}
 
 function makeAuth(overrides: Partial<OAuth2Auth> = {}): OAuth2Auth {
   return {
@@ -255,5 +273,113 @@ describe('performAuthorizationCodeFlow', () => {
       }),
     ).rejects.toMatchObject({ step: 'precondition' });
     expect(launch).not.toHaveBeenCalled();
+  });
+});
+
+describe('client assertion on the token POST (private_key_jwt / client_secret_jwt)', () => {
+  it('private-key-jwt replaces the secret with client_assertion_type + a signed client_assertion, kid in the header', async () => {
+    sendMock.mockResolvedValue(tokenResponse(FRESH));
+    await performClientCredentialsFlow(
+      makeAuth({
+        flow: 'client-credentials',
+        clientAuthentication: 'private-key-jwt',
+        assertionAlgorithm: 'ES256',
+        assertionPrivateKey: P256_PEM,
+        assertionKeyId: 'key-1',
+      }),
+      'ws-1',
+      transport,
+    );
+    const fields = bodyFields(sendMock.mock.calls[0][0]);
+    expect(fields.grant_type).toBe('client_credentials');
+    expect(fields.client_id).toBe('client-1');
+    expect(fields.client_secret).toBeUndefined();
+    expect(fields.client_assertion_type).toBe('urn:ietf:params:oauth:client-assertion-type:jwt-bearer');
+    expect(segment(fields.client_assertion, 0)).toEqual({ typ: 'JWT', kid: 'key-1', alg: 'ES256' });
+    expect(segment(fields.client_assertion, 1)).toMatchObject({
+      iss: 'client-1',
+      sub: 'client-1',
+      aud: 'https://auth.openheaders.io/token',
+    });
+    expect(verifiesEs256(fields.client_assertion)).toBe(true);
+    // Never the Basic header.
+    expect(sendMock.mock.calls[0][0].headers.some((h) => h.key === 'Authorization')).toBe(false);
+  });
+
+  it('client-secret-jwt signs an HS256 assertion keyed by the client secret', async () => {
+    sendMock.mockResolvedValue(tokenResponse(FRESH));
+    await performClientCredentialsFlow(
+      makeAuth({ flow: 'client-credentials', clientAuthentication: 'client-secret-jwt' }),
+      'ws-1',
+      transport,
+    );
+    const fields = bodyFields(sendMock.mock.calls[0][0]);
+    expect(segment(fields.client_assertion, 0)).toEqual({ typ: 'JWT', alg: 'HS256' });
+    expect(fields.client_secret).toBeUndefined();
+  });
+
+  it('a signing failure is the step-tagged precondition, before any wire activity', async () => {
+    await expect(
+      performClientCredentialsFlow(
+        makeAuth({ flow: 'client-credentials', clientAuthentication: 'private-key-jwt', assertionPrivateKey: '' }),
+        'ws-1',
+        transport,
+      ),
+    ).rejects.toMatchObject({ step: 'client_credentials', message: /client assertion: .*private key is required/ });
+    expect(sendMock).not.toHaveBeenCalled();
+  });
+});
+
+describe('performJwtBearerFlow', () => {
+  const grant = (over: Partial<OAuth2Auth> = {}) =>
+    makeAuth({
+      flow: 'jwt-bearer',
+      clientSecret: undefined,
+      assertionIssuer: 'svc@openheaders.io',
+      assertionAlgorithm: 'ES256',
+      assertionPrivateKey: P256_PEM,
+      scopes: ['read', 'write'],
+      ...over,
+    });
+
+  it('POSTs grant_type=jwt-bearer with a signed assertion carrying iss / aud / scope and persists the bundle', async () => {
+    sendMock.mockResolvedValue(tokenResponse(JSON.stringify({ access_token: 'at-jwt', token_type: 'Bearer' })));
+    const bundle = await performJwtBearerFlow(grant(), 'ws-1', transport);
+    expect(bundle.accessToken).toBe('at-jwt');
+    const request = sendMock.mock.calls[0][0];
+    expect(request.url).toBe('https://auth.openheaders.io/token');
+    const fields = bodyFields(request);
+    expect(fields.grant_type).toBe('urn:ietf:params:oauth:grant-type:jwt-bearer');
+    expect(fields.client_id).toBe('client-1');
+    expect(fields.scope).toBeUndefined();
+    expect(segment(fields.assertion, 1)).toMatchObject({
+      iss: 'svc@openheaders.io',
+      aud: 'https://auth.openheaders.io/token',
+      scope: 'read write',
+    });
+    expect(verifiesEs256(fields.assertion)).toBe(true);
+    expect(store.putTokenBundle).toHaveBeenCalledWith(
+      'cred-1',
+      bundle,
+      expect.objectContaining({ flow: 'jwt-bearer' }),
+      'ws-1',
+    );
+  });
+
+  it('a blank issuer is the precondition failure, before any wire activity', async () => {
+    await expect(performJwtBearerFlow(grant({ assertionIssuer: undefined }), 'ws-1', transport)).rejects.toMatchObject({
+      step: 'precondition',
+      message: /assertion issuer/,
+    });
+    expect(sendMock).not.toHaveBeenCalled();
+  });
+
+  it('refuses a config of another flow', async () => {
+    await expect(performJwtBearerFlow(makeAuth(), 'ws-1', transport)).rejects.toThrow(/flow=jwt-bearer/);
+  });
+
+  it('a refused exchange surfaces as a jwt_bearer step failure', async () => {
+    sendMock.mockResolvedValue(tokenResponse(JSON.stringify({ error: 'invalid_grant' }), 400));
+    await expect(performJwtBearerFlow(grant(), 'ws-1', transport)).rejects.toMatchObject({ step: 'jwt_bearer' });
   });
 });

@@ -7,6 +7,12 @@
  * the extension keeps its own runner (its refresh rides the browser's
  * host-permission fetch wrapper) with identical semantics.
  *
+ * A grant that never gets a refresh token still expires: client
+ * credentials, password (when the provider issued none) and the JWT
+ * bearer grant re-acquire by re-running their flow — no user agent is
+ * involved, so the executor may do it silently on send
+ * ({@link refreshCredential}, the flow-agnostic entry the hook calls).
+ *
  * Everything here is platform-agnostic: the POST body / client-auth
  * header / response parsing come from `@openheaders/core/oauth`, the
  * exchange rides the host's injected {@link RequestTransport} — the
@@ -28,6 +34,12 @@ import type { OAuth2Auth } from '@openheaders/core/types';
 import { logger } from '@openheaders/core/utils';
 import { getTokenBundle, putTokenBundle } from '../../entity/oauth-token-store';
 import { exchangeForTokens, OAuth2FlowError } from './oauth-exchange';
+import {
+  mintClientAssertionOrFail,
+  performClientCredentialsFlow,
+  performJwtBearerFlow,
+  performPasswordCredentialsFlow,
+} from './oauth-flows';
 import type { OAuthRefreshFn } from './resolve-request';
 import type { RequestTransport } from './transport';
 
@@ -55,7 +67,11 @@ export async function performRefresh(
   if (!current?.refreshToken) {
     throw new OAuth2RefreshError('No refresh_token available for this credential');
   }
-  const body = buildRefreshTokenBody({ config, refreshToken: current.refreshToken });
+  const body = buildRefreshTokenBody({
+    config,
+    refreshToken: current.refreshToken,
+    clientAssertion: await mintClientAssertionOrFail(config, 'refresh'),
+  });
   // Some providers (notably legacy Okta tenants) expose a separate
   // refresh endpoint; fall back to the primary token endpoint when the
   // config doesn't override.
@@ -75,6 +91,31 @@ export async function performRefresh(
 }
 
 /**
+ * Renew a credential regardless of flow: the refresh_token grant when
+ * the store holds one, else the flow's own re-run for the user-agent-
+ * free grants (client credentials, password, JWT bearer). The
+ * extension's scheduler runs the same dispatch under the same name.
+ */
+export async function refreshCredential(
+  config: OAuth2Auth,
+  workspaceId: string | undefined,
+  transport: RequestTransport,
+): Promise<OAuth2TokenBundle> {
+  const current = await getTokenBundle(config.credentialRef, workspaceId);
+  if (current?.refreshToken) return performRefresh(config, workspaceId, transport);
+  switch (config.flow) {
+    case 'client-credentials':
+      return performClientCredentialsFlow(config, workspaceId, transport);
+    case 'password-credentials':
+      return performPasswordCredentialsFlow(config, workspaceId, transport);
+    case 'jwt-bearer':
+      return performJwtBearerFlow(config, workspaceId, transport);
+    default:
+      return performRefresh(config, workspaceId, transport);
+  }
+}
+
+/**
  * The executor injection: an {@link OAuthRefreshFn} bound to the run's
  * workspace pin. Recoverable exchange failures log + return `null` (the
  * seam attaches the stale bundle); unexpected errors propagate.
@@ -82,7 +123,7 @@ export async function performRefresh(
 export function buildRefreshOAuthHook(workspaceId: string | undefined, transport: RequestTransport): OAuthRefreshFn {
   return async (auth) => {
     try {
-      return await performRefresh(auth, workspaceId, transport);
+      return await refreshCredential(auth, workspaceId, transport);
     } catch (err) {
       if (err instanceof OAuth2FlowError) {
         logger.info('RequestExecutor', `OAuth refresh failed for ${auth.credentialRef}: ${err.message}`);

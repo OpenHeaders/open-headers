@@ -21,7 +21,7 @@ import type {
   JwtCredentials,
   OAuth1Credentials,
 } from '@openheaders/core/auth-signing';
-import { isExpired as isOAuthTokenExpired, type OAuth2TokenBundle } from '@openheaders/core/oauth';
+import { canRenewSilently, isExpired as isOAuthTokenExpired, type OAuth2TokenBundle } from '@openheaders/core/oauth';
 import type {
   AuthConfig,
   ExecutedAuthAttribution,
@@ -601,14 +601,20 @@ export async function applyAuth(
   }
   if (auth.type === 'oauth2') {
     // Access tokens live in the per-workspace token store. Fetch the
-    // bundle, refresh if expired + a refresh token + a host refresh hook
-    // are available, then attach `Authorization: <type> <access_token>`.
-    // The hook owns its failure semantics: returning `null` means a
-    // recoverable refresh failure (we attach the stale bundle so the
-    // target's 401 is the actionable signal); throwing means an
-    // unexpected error the caller should surface.
+    // bundle, renew if expired + renewable without a user agent (a
+    // refresh token, or a grant that re-runs from the config) + a host
+    // refresh hook are available, then attach `Authorization: <type>
+    // <access_token>`. The hook owns its failure semantics: returning
+    // `null` means a recoverable refresh failure (we attach the stale
+    // bundle so the target's 401 is the actionable signal); throwing
+    // means an unexpected error the caller should surface.
     let bundle = await getTokenBundle(auth.credentialRef, opts.workspaceId);
-    if (bundle && isOAuthTokenExpired(bundle) && bundle.refreshToken && opts.refreshOAuth) {
+    if (
+      bundle &&
+      isOAuthTokenExpired(bundle) &&
+      canRenewSilently(auth, Boolean(bundle.refreshToken)) &&
+      opts.refreshOAuth
+    ) {
       bundle = (await opts.refreshOAuth(auth)) ?? bundle;
     }
     if (bundle) {

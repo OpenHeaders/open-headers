@@ -15,6 +15,7 @@ import {
   buildRefreshOAuthHook,
   OAuth2RefreshError,
   performRefresh,
+  refreshCredential,
 } from '../../../src/live/request-exec/oauth-refresh';
 import { __resetRateLimiterForTests } from '../../../src/live/request-exec/rate-limiter';
 import {
@@ -235,5 +236,69 @@ describe('buildRefreshOAuthHook', () => {
     store.putTokenBundle.mockRejectedValue(new Error('sync service not initialized'));
     const hook = buildRefreshOAuthHook(undefined, transport);
     await expect(hook(makeAuth())).rejects.toThrow('sync service not initialized');
+  });
+});
+
+function bodyFields(request: TransportRequest): Record<string, string> {
+  if (request.body.kind !== 'urlencoded') throw new Error(`expected urlencoded body, got ${request.body.kind}`);
+  return Object.fromEntries(request.body.fields.map((f) => [f.name, f.value]));
+}
+
+describe('refreshCredential — the flow-agnostic renewal', () => {
+  // The hook suite above leaves the store rejecting; these persist.
+  beforeEach(() => store.putTokenBundle.mockImplementation(async () => {}));
+
+  it('uses the refresh_token grant whenever the store holds a refresh token', async () => {
+    store.getTokenBundle.mockResolvedValue(makeBundle());
+    sendMock.mockResolvedValue(tokenResponse(JSON.stringify({ access_token: 'at-fresh', token_type: 'Bearer' })));
+    await refreshCredential(makeAuth({ flow: 'client-credentials', clientSecret: 's' }), 'ws-1', transport);
+    expect(bodyFields(sendMock.mock.calls[0][0]).grant_type).toBe('refresh_token');
+  });
+
+  it('re-runs the client-credentials and password grants when no refresh token exists', async () => {
+    store.getTokenBundle.mockResolvedValue(makeBundle({ refreshToken: undefined }));
+    sendMock.mockResolvedValue(tokenResponse(JSON.stringify({ access_token: 'at-fresh', token_type: 'Bearer' })));
+    await refreshCredential(makeAuth({ flow: 'client-credentials', clientSecret: 's' }), 'ws-1', transport);
+    expect(bodyFields(sendMock.mock.calls[0][0]).grant_type).toBe('client_credentials');
+    await refreshCredential(
+      makeAuth({ flow: 'password-credentials', username: 'john.doe', password: 'pw' }),
+      'ws-1',
+      transport,
+    );
+    expect(bodyFields(sendMock.mock.calls[1][0]).grant_type).toBe('password');
+  });
+
+  it('a code grant without a refresh token stays the refresh error — the user is needed again', async () => {
+    store.getTokenBundle.mockResolvedValue(makeBundle({ refreshToken: undefined }));
+    await expect(refreshCredential(makeAuth(), 'ws-1', transport)).rejects.toBeInstanceOf(OAuth2RefreshError);
+    expect(sendMock).not.toHaveBeenCalled();
+  });
+
+  it('the executor hook re-acquires through the same dispatch', async () => {
+    store.getTokenBundle.mockResolvedValue(makeBundle({ refreshToken: undefined }));
+    sendMock.mockResolvedValue(tokenResponse(JSON.stringify({ access_token: 'at-fresh', token_type: 'Bearer' })));
+    const hook = buildRefreshOAuthHook('ws-1', transport);
+    const bundle = await hook(makeAuth({ flow: 'client-credentials', clientSecret: 's' }));
+    expect(bundle?.accessToken).toBe('at-fresh');
+  });
+});
+
+describe('performRefresh — client assertion', () => {
+  beforeEach(() => store.putTokenBundle.mockImplementation(async () => {}));
+
+  it('client-secret-jwt sends a signed client_assertion on the refresh POST instead of the secret', async () => {
+    store.getTokenBundle.mockResolvedValue(makeBundle());
+    sendMock.mockResolvedValue(tokenResponse(JSON.stringify({ access_token: 'at-fresh', token_type: 'Bearer' })));
+    await performRefresh(
+      makeAuth({ clientAuthentication: 'client-secret-jwt', clientSecret: 'shh', assertionAlgorithm: 'HS384' }),
+      'ws-1',
+      transport,
+    );
+    const fields = bodyFields(sendMock.mock.calls[0][0]);
+    expect(fields.grant_type).toBe('refresh_token');
+    expect(fields.client_secret).toBeUndefined();
+    expect(fields.client_assertion_type).toBe('urn:ietf:params:oauth:client-assertion-type:jwt-bearer');
+    const header = JSON.parse(Buffer.from(fields.client_assertion.split('.')[0], 'base64url').toString('utf8'));
+    expect(header.alg).toBe('HS384');
   });
 });

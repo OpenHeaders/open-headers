@@ -51,7 +51,7 @@ vi.mock('@openheaders/oracle/entity/oauth-token-store', () => ({
 }));
 
 vi.mock('@/background/modules/oauth-flow', () => ({
-  performRefresh: performRefreshMock,
+  refreshCredential: performRefreshMock,
   OAuth2FlowError: class OAuth2FlowError extends Error {
     step: string;
     constructor(step: string, message: string) {
@@ -149,11 +149,25 @@ describe('executor — oauth2', () => {
     await executeRequestDraft(makeOAuthRequest());
     const [, init] = fetchMock.mock.calls[0];
     const headers = init.headers as Headers;
-    // Executor intentionally does NOT force a refresh without a
-    // refresh_token — the target API's 401 is the right surface.
+    // A code grant without a refresh_token needs the user again — the
+    // executor attaches the stale token and the target API's 401 is
+    // the right surface.
     expect(headers.get('Authorization')).toBe('Bearer at-valid');
     expect(performRefreshMock).not.toHaveBeenCalled();
   });
+
+  it.each(['client-credentials', 'password-credentials', 'jwt-bearer'] as const)(
+    'an expired %s bundle without a refresh_token re-acquires silently on send',
+    async (flow) => {
+      getTokenBundleMock.mockResolvedValue(bundle({ accessToken: 'at-stale', expiresAt: Date.now() - 60_000 }));
+      performRefreshMock.mockResolvedValue(bundle({ accessToken: 'at-fresh' }));
+      await executeRequestDraft(makeOAuthRequest({ flow }));
+      const [, init] = fetchMock.mock.calls[0];
+      const headers = init.headers as Headers;
+      expect(performRefreshMock).toHaveBeenCalledOnce();
+      expect(headers.get('Authorization')).toBe('Bearer at-fresh');
+    },
+  );
 
   it('swallows OAuth2FlowError from refresh and falls back to the expired token', async () => {
     // Expired + refresh fails → executor logs and sends the expired

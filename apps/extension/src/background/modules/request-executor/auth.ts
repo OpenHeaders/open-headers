@@ -4,11 +4,11 @@
  * silent refresh-on-expiry).
  */
 
-import { isExpired as isOAuthTokenExpired } from '@openheaders/core/oauth';
+import { canRenewSilently, isExpired as isOAuthTokenExpired } from '@openheaders/core/oauth';
 import type { AuthConfig } from '@openheaders/core/types';
 import { getTokenBundle as getOAuthTokenBundle } from '@openheaders/oracle/entity/oauth-token-store';
 import { logger } from '@utils/logger';
-import { OAuth2FlowError, performRefresh as performOAuthRefresh } from '../oauth-flow';
+import { OAuth2FlowError, refreshCredential as refreshOAuthCredential } from '../oauth-flow';
 
 /**
  * Auth contributions REPLACE a same-key user header rather than
@@ -107,9 +107,10 @@ export async function applyAuth(
   }
   if (auth.type === 'oauth2') {
     // OAuth2 access tokens live in the SW's per-workspace token
-    // store (ARCHITECTURE §18). We fetch the bundle, refresh if
-    // expired + a refresh token is available, then attach the
-    // `Authorization: Bearer <access_token>` header.
+    // store (ARCHITECTURE §18). We fetch the bundle, renew if expired
+    // + renewable without a user agent (a refresh token, or a grant
+    // that re-runs from the config — twin of the oracle arm), then
+    // attach the `Authorization: Bearer <access_token>` header.
     //
     // Silent failures on the send path are the right default here:
     // a missing/expired token surfaces in the response panel as a
@@ -117,9 +118,9 @@ export async function applyAuth(
     // user than an extension-generated error. The Status pill +
     // observability log capture the detail either way.
     let bundle = await getOAuthTokenBundle(auth.credentialRef);
-    if (bundle && isOAuthTokenExpired(bundle) && bundle.refreshToken) {
+    if (bundle && isOAuthTokenExpired(bundle) && canRenewSilently(auth, Boolean(bundle.refreshToken))) {
       try {
-        bundle = await performOAuthRefresh(auth);
+        bundle = await refreshOAuthCredential(auth);
       } catch (err) {
         if (err instanceof OAuth2FlowError) {
           logger.info('RequestExecutor', `OAuth refresh failed for ${auth.credentialRef}: ${err.message}`);

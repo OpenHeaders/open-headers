@@ -1,7 +1,7 @@
 /**
- * OAuth 2.0 RPC plane — the node hosts' answer to the six `oauth*`
+ * OAuth 2.0 RPC plane — the node hosts' answer to the seven `oauth*`
  * channels the shared Authorization editor calls (the extension SW
- * serves the same six from `handlers/oauth.ts`): token acquisition
+ * serves the same seven from `handlers/oauth.ts`): token acquisition
  * per flow, refresh, revoke, and the registered redirect URI.
  *
  * Everything but the browser hop is the oracle's host-neutral flows
@@ -22,6 +22,7 @@ import {
   type AuthorizationLauncher,
   performAuthorizationCodeFlow,
   performClientCredentialsFlow,
+  performJwtBearerFlow,
   performPasswordCredentialsFlow,
 } from '@openheaders/oracle/live/request-exec/oauth-flows';
 import { performRefresh } from '@openheaders/oracle/live/request-exec/oauth-refresh';
@@ -31,6 +32,7 @@ export const OAUTH_RPC_CHANNELS = [
   'oauthAuthorize',
   'oauthClientCredentials',
   'oauthPasswordCredentials',
+  'oauthJwtBearer',
   'oauthRefresh',
   'oauthRevoke',
   'oauthGetRedirectUri',
@@ -93,6 +95,8 @@ export function createOAuthRpc(options: OAuthRpcOptions): OAuthRpc {
           return bundleResponse(performClientCredentialsFlow(config, workspaceId, transport));
         case 'oauthPasswordCredentials':
           return bundleResponse(performPasswordCredentialsFlow(config, workspaceId, transport));
+        case 'oauthJwtBearer':
+          return bundleResponse(performJwtBearerFlow(config, workspaceId, transport));
         case 'oauthRefresh':
           return bundleResponse(performRefresh(config, workspaceId, transport));
         case 'oauthRevoke': {

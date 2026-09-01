@@ -214,7 +214,7 @@ describe('applyAuth', () => {
     expect(headers).toEqual([{ key: 'Authorization', value: 'Bearer at-live' }]);
   });
 
-  it('oauth2 skips refresh when the bundle has no refresh token', async () => {
+  it('oauth2 skips refresh when a code-grant bundle has no refresh token — the user is needed again', async () => {
     getTokenBundleMock.mockResolvedValue(makeBundle({ expiresAt: Date.now() - 1000 }));
     const refreshOAuth = vi.fn();
     const headers: Pair[] = [];
@@ -222,4 +222,16 @@ describe('applyAuth', () => {
     expect(refreshOAuth).not.toHaveBeenCalled();
     expect(headers).toEqual([{ key: 'Authorization', value: 'Bearer at-live' }]);
   });
+
+  it.each(['client-credentials', 'password-credentials', 'jwt-bearer'] as const)(
+    'oauth2 re-acquires an expired %s bundle without a refresh token through the hook',
+    async (flow) => {
+      getTokenBundleMock.mockResolvedValue(makeBundle({ expiresAt: Date.now() - 1000 }));
+      const refreshOAuth = vi.fn().mockResolvedValue(makeBundle({ accessToken: 'at-fresh' }));
+      const headers: Pair[] = [];
+      await applyAuth(makeOAuthAuth({ flow }), headers, [], identity, { workspaceId: 'ws-1', refreshOAuth });
+      expect(refreshOAuth).toHaveBeenCalledOnce();
+      expect(headers).toEqual([{ key: 'Authorization', value: 'Bearer at-fresh' }]);
+    },
+  );
 });

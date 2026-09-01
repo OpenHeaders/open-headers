@@ -13,6 +13,7 @@ import {
   launchAuthorizationCodeFlow,
   OAuth2FlowError,
   performClientCredentialsFlow,
+  performJwtBearerFlow,
   performPasswordCredentialsFlow,
   performRefresh,
 } from '../../oauth-flow';
@@ -41,6 +42,13 @@ export const oauthHandlers: HandlerMap = {
 
   oauthPasswordCredentials: ({ message, respond }) => {
     performPasswordCredentialsFlow(message.config as OAuth2Auth, workspaceIdOf(message))
+      .then((bundle) => respond({ success: true, bundle }))
+      .catch((err: Error) => respond({ success: false, error: flowError(err) }));
+    return true;
+  },
+
+  oauthJwtBearer: ({ message, respond }) => {
+    performJwtBearerFlow(message.config as OAuth2Auth, workspaceIdOf(message))
       .then((bundle) => respond({ success: true, bundle }))
       .catch((err: Error) => respond({ success: false, error: flowError(err) }));
     return true;
