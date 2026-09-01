@@ -85,6 +85,14 @@ export function collectRequestTemplateStrings(request: Request): string[] {
       if (request.auth.privateKey) out.push(request.auth.privateKey);
       if (request.auth.realm) out.push(request.auth.realm);
       break;
+    case 'edgegrid':
+      // Credential fields are templatable — `{{vault.akamai_secret}}`
+      // is the expected idiom; the header list too.
+      if (request.auth.clientToken) out.push(request.auth.clientToken);
+      if (request.auth.accessToken) out.push(request.auth.accessToken);
+      if (request.auth.clientSecret) out.push(request.auth.clientSecret);
+      if (request.auth.headersToSign) out.push(request.auth.headersToSign);
+      break;
     case 'hawk':
       // Credential fields are templatable — `{{vault.hawk_key}}` is
       // the expected idiom for the key material.

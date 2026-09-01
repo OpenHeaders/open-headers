@@ -81,6 +81,31 @@ describe('requestExecutableFingerprint', () => {
   });
 });
 
+describe('collectRequestTemplateStrings — edgegrid auth', () => {
+  it('collects the three credentials and the header list', () => {
+    const strings = collectRequestTemplateStrings(
+      makeRequest({
+        auth: {
+          type: 'edgegrid',
+          clientToken: '{{vault.akamai_client}}',
+          accessToken: '{{vault.akamai_access}}',
+          clientSecret: '{{vault.akamai_secret}}',
+          headersToSign: '{{env.AKAMAI_HEADERS}}',
+          maxBodySize: 2048,
+        },
+      }),
+    );
+    expect(strings).toEqual(
+      expect.arrayContaining([
+        '{{vault.akamai_client}}',
+        '{{vault.akamai_access}}',
+        '{{vault.akamai_secret}}',
+        '{{env.AKAMAI_HEADERS}}',
+      ]),
+    );
+  });
+});
+
 describe('collectRequestTemplateStrings — aws-sigv4 auth', () => {
   it('collects every SigV4 field so vault-templated credentials gate resolution', () => {
     const strings = collectRequestTemplateStrings(

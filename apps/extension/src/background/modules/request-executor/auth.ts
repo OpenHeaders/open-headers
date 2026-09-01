@@ -79,6 +79,12 @@ export async function applyAuth(
     // only resolves the credential templates. Twin of the oracle arm.
     return;
   }
+  if (auth.type === 'edgegrid') {
+    // Nothing folds here — EdgeGrid signs the FINAL wire shape in
+    // `executeResolved` (see ResolvedRequest.edgegrid); the resolver
+    // only resolves the credential templates. Twin of the oracle arm.
+    return;
+  }
   if (auth.type === 'jwt') {
     // Nothing folds here — the JWT mints at the wire in
     // `executeResolved` (see ResolvedRequest.jwt); the resolver only

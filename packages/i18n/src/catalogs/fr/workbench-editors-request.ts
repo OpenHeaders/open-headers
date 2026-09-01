@@ -170,6 +170,9 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.authPreview.awsSigV4QueryValue': '<paramètres signés>',
   'workbench.editors.request.authPreview.awsSigV4QueryHint':
     'Généré depuis l\u2019onglet Autorisation (AWS Signature v4). Les paramètres X-Amz-* sont ajoutés à la requête de l\u2019URL lors de l\u2019envoi.',
+  'workbench.editors.request.authPreview.edgeGridValue': 'EG1-HMAC-SHA256 <paramètres signés>',
+  'workbench.editors.request.authPreview.edgeGridHint':
+    'Généré depuis l\u2019onglet Autorisation (Akamai EdgeGrid). La requête est signée avec vos identifiants lors de l\u2019envoi.',
   'workbench.editors.request.authPreview.digestValue': 'Digest <réponse au défi>',
   'workbench.editors.request.authPreview.digestHint':
     "Généré depuis l'onglet Autorisation (Digest Auth). La valeur est calculée à partir du défi du serveur à " +
@@ -340,6 +343,22 @@ export const workbenchEditorsRequest = {
     'La région de la portée d\u2019identifiant ; vide, elle est déduite d\u2019un nom d\u2019hôte AWS, sinon us-east-1.',
   'workbench.editors.request.auth.rowInfo.awsAddTo':
     'Un en-tête (par défaut), ou la requête de l\u2019URL \u2014 la forme présignée pour les points de terminaison qui n\u2019acceptent pas d\u2019en-tête.',
+  'workbench.editors.request.auth.typeInfo.edgeGrid':
+    'Le secret client signe la méthode, le schéma, l\u2019hôte, le chemin, les en-têtes listés et un hachage du corps POST ; les jetons, un horodatage et un nonce par envoi, et la signature voyagent dans un en-tête Authorization: EG1-HMAC-SHA256 \u2014 le secret ne voyage jamais.',
+  'workbench.editors.request.auth.groupInfo.edgeGrid.credentials':
+    'Les deux jetons voyagent dans l\u2019en-tête comme client_token= et access_token= ; le secret client uniquement via la signature qu\u2019il calcule.',
+  'workbench.editors.request.auth.groupInfo.edgeGrid.signing':
+    'Ce que la signature couvre au-delà de la ligne de requête \u2014 les en-têtes qu\u2019une API nomme, dans cet ordre, et le hachage du corps POST borné par la fenêtre d\u2019octets (128 Kio du schéma sauf indication de l\u2019API).',
+  'workbench.editors.request.auth.rowInfo.edgeGridClientToken':
+    'Identifie le client d\u2019API \u2014 voyage comme client_token=.',
+  'workbench.editors.request.auth.rowInfo.edgeGridAccessToken':
+    'Identifie l\u2019identifiant \u2014 voyage comme access_token=.',
+  'workbench.editors.request.auth.rowInfo.edgeGridClientSecret':
+    'Le matériel de clé dont la clé de signature par envoi est dérivée ; il ne voyage jamais.',
+  'workbench.editors.request.auth.rowInfo.edgeGridHeadersToSign':
+    'Noms d\u2019en-têtes repliés dans la signature, séparés par des virgules, dans l\u2019ordre de signature ; un en-tête listé absent de la requête est ignoré et les en-têtes non listés ne sont jamais signés.',
+  'workbench.editors.request.auth.rowInfo.edgeGridMaxBodySize':
+    'La fenêtre d\u2019octets d\u2019un corps POST couverte par le hachage ; vide = les 131072 du schéma.',
   'workbench.editors.request.auth.typeInfo.oauth2':
     'Le client obtient un jeton d\u2019accès auprès du fournisseur \u2014 une autorisation dans le navigateur puis un échange de jeton, ou un échange direct pour les octrois machine et mot de passe \u2014 et chaque envoi le porte comme jeton bearer, rafraîchi à expiration si un jeton de rafraîchissement a été émis.',
   'workbench.editors.request.auth.groupInfo.oauth2.token':
@@ -401,6 +420,7 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.auth.type.apiKey': 'API Key',
   'workbench.editors.request.auth.type.oauth2': 'OAuth 2.0',
   'workbench.editors.request.auth.type.awsSigV4': 'AWS Signature v4',
+  'workbench.editors.request.auth.type.edgeGrid': 'Akamai EdgeGrid',
   'workbench.editors.request.auth.type.digest': 'Digest Auth',
   'workbench.editors.request.auth.type.oauth1': 'OAuth 1.0',
   'workbench.editors.request.auth.type.hawk': 'Hawk Authentication',
@@ -498,6 +518,17 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.auth.awsSessionTokenPlaceholder': 'facultatif — identifiants temporaires (STS) uniquement',
   'workbench.editors.request.auth.awsServicePlaceholder': 'auto depuis un hôte AWS \u2014 p. ex. s3, execute-api',
   'workbench.editors.request.auth.awsRegionPlaceholder': 'auto depuis un hôte AWS, sinon us-east-1',
+  'workbench.editors.request.auth.edgeGridClientToken': 'Jeton client',
+  'workbench.editors.request.auth.edgeGridAccessToken': 'Jeton d\u2019accès',
+  'workbench.editors.request.auth.edgeGridClientSecret': 'Secret client',
+  'workbench.editors.request.auth.edgeGridHeadersToSign': 'En-têtes à signer',
+  'workbench.editors.request.auth.edgeGridMaxBodySize': 'Taille max. du corps',
+  'workbench.editors.request.auth.edgeGridClientTokenPlaceholder': 'p. ex. akab-client-token-xxx',
+  'workbench.editors.request.auth.edgeGridAccessTokenPlaceholder': 'p. ex. akab-access-token-xxx',
+  'workbench.editors.request.auth.edgeGridClientSecretPlaceholder': 'secret client',
+  'workbench.editors.request.auth.edgeGridHeadersToSignPlaceholder':
+    'facultatif \u2014 séparés par des virgules, p. ex. X-Test1, X-Test2',
+  'workbench.editors.request.auth.edgeGridMaxBodySizePlaceholder': '131072',
   'workbench.editors.request.auth.sendAsLabel': "Ajouter les données d'autorisation à",
   'workbench.editors.request.auth.sendAsHeaders': 'En-têtes de requête',
   'workbench.editors.request.auth.sendAsUrl': 'URL de la requête',

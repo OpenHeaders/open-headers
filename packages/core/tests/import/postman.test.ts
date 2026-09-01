@@ -1482,17 +1482,87 @@ describe('request mapping — auth', () => {
     expect(transform?.tracking).toBe('PERMANENT: jwt token query key');
   });
 
-  it('drops ntlm / edgegrid as permanent with accurate per-type reasons', () => {
+  it('maps edgegrid end to end — the header list and body window kept, nonce / timestamp shed, Base URL named', () => {
+    const result = parsePostman(
+      postmanCollection({
+        item: [
+          {
+            name: 'X',
+            request: {
+              method: 'GET',
+              url: 'https://akaa-openheaders.luna.akamaiapis.net/papi/v1/contracts',
+              auth: {
+                type: 'edgegrid',
+                edgegrid: [
+                  { key: 'accessToken', value: 'akab-access-token-xxx' },
+                  { key: 'clientToken', value: 'akab-client-token-xxx' },
+                  { key: 'clientSecret', value: '{{vault.akamai_secret}}' },
+                  { key: 'baseURL', value: 'https://akaa-openheaders.luna.akamaiapis.net' },
+                  { key: 'nonce', value: 'stale-pin' },
+                  { key: 'timestamp', value: '20140321T19:34:21+0000' },
+                  { key: 'headersToSign', value: ['X-Test1', ' X-Test2 '], type: 'any' } as unknown as {
+                    key: string;
+                    value: string;
+                  },
+                  { key: 'maxBodySize', value: '2048' },
+                ],
+              },
+            },
+          },
+        ],
+      }),
+    );
+    expect(result.requests[0]?.request.auth).toEqual({
+      type: 'edgegrid',
+      clientToken: 'akab-client-token-xxx',
+      accessToken: 'akab-access-token-xxx',
+      clientSecret: '{{vault.akamai_secret}}',
+      headersToSign: 'X-Test1, X-Test2',
+      maxBodySize: 2048,
+    });
+    expect(result.report.drops).toEqual([]);
+    expect(result.report.transforms.map((t) => t.tracking)).toEqual(['PERMANENT: edgegrid signs the request host']);
+  });
+
+  it('an empty edgegrid block lands an empty edgegrid config with no notes; a comma list stays a list', () => {
+    const empty = parsePostman(
+      postmanCollection({
+        item: [
+          { name: 'X', request: { method: 'GET', url: 'https://api.openheaders.io/x', auth: { type: 'edgegrid' } } },
+        ],
+      }),
+    );
+    expect(empty.requests[0]?.request.auth).toEqual({
+      type: 'edgegrid',
+      clientToken: '',
+      accessToken: '',
+      clientSecret: '',
+    });
+    expect(empty.report.drops).toEqual([]);
+    expect(empty.report.transforms).toEqual([]);
+    const comma = parsePostman(
+      postmanCollection({
+        item: [
+          {
+            name: 'X',
+            request: {
+              method: 'GET',
+              url: 'https://api.openheaders.io/x',
+              auth: { type: 'edgegrid', edgegrid: [{ key: 'headersToSign', value: 'X-A,X-B' }] },
+            },
+          },
+        ],
+      }),
+    );
+    expect(comma.requests[0]?.request.auth).toMatchObject({ type: 'edgegrid', headersToSign: 'X-A,X-B' });
+  });
+
+  it('drops ntlm as permanent with an accurate reason', () => {
     const cases = [
       {
         type: 'ntlm',
         reason: /NTLM auth not imported — the protocol is being phased out/,
         tracking: 'PERMANENT: ntlm phased out',
-      },
-      {
-        type: 'edgegrid',
-        reason: /EdgeGrid auth not imported — the scheme is specific to one CDN vendor/,
-        tracking: 'PERMANENT: edgegrid vendor-specific',
       },
     ];
     for (const c of cases) {

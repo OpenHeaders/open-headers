@@ -15,6 +15,7 @@
 import type {
   AwsSigV4Credentials,
   DigestCredentials,
+  EdgeGridCredentials,
   HawkCredentials,
   JwtCredentials,
   OAuth1Credentials,
@@ -166,6 +167,13 @@ export interface ResolvedRequest {
    * executor into the payload integrity hash.
    */
   hawk?: HawkCredentials & { includePayloadHash?: boolean };
+  /**
+   * EdgeGrid credentials, templates already resolved — present only
+   * when the effective auth is an enabled `edgegrid` config. Like the
+   * other signing schemes the header is derived at EXECUTE time over
+   * the final wire shape, never here.
+   */
+  edgegrid?: EdgeGridCredentials;
   /**
    * JWT Bearer config, templates already resolved — present only when
    * the effective auth is an enabled `jwt` config. Like the other
@@ -355,6 +363,19 @@ export async function resolveRequest(
         }
       : undefined;
 
+  // EdgeGrid credentials resolve here but sign at execute time — see
+  // {@link ResolvedRequest.edgegrid}.
+  const edgegrid: EdgeGridCredentials | undefined =
+    effectiveAuth.type === 'edgegrid' && !effectiveAuth.disabled
+      ? {
+          clientToken: resolveStr(effectiveAuth.clientToken),
+          accessToken: resolveStr(effectiveAuth.accessToken),
+          clientSecret: resolveStr(effectiveAuth.clientSecret),
+          ...(effectiveAuth.headersToSign ? { headersToSign: resolveStr(effectiveAuth.headersToSign) } : {}),
+          ...(effectiveAuth.maxBodySize !== undefined ? { maxBodySize: effectiveAuth.maxBodySize } : {}),
+        }
+      : undefined;
+
   // JWT Bearer config resolves here but mints at execute time — see
   // {@link ResolvedRequest.jwt}.
   const jwt: JwtCredentials | undefined =
@@ -446,6 +467,7 @@ export async function resolveRequest(
       ...(digest ? { digest } : {}),
       ...(oauth1 ? { oauth1 } : {}),
       ...(hawk ? { hawk } : {}),
+      ...(edgegrid ? { edgegrid } : {}),
       ...(jwt ? { jwt } : {}),
       ...(authAttribution !== undefined ? { auth: authAttribution } : {}),
     },
@@ -533,6 +555,12 @@ export async function applyAuth(
     // Nothing folds here — Hawk signs the FINAL wire shape at execute
     // time (see ResolvedRequest.hawk); the resolver only resolves the
     // credential templates.
+    return;
+  }
+  if (auth.type === 'edgegrid') {
+    // Nothing folds here — EdgeGrid signs the FINAL wire shape at
+    // execute time (see ResolvedRequest.edgegrid); the resolver only
+    // resolves the credential templates.
     return;
   }
   if (auth.type === 'jwt') {

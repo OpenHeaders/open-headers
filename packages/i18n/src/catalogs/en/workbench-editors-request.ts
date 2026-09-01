@@ -136,6 +136,9 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.authPreview.awsSigV4QueryValue': '<signed parameters>',
   'workbench.editors.request.authPreview.awsSigV4QueryHint':
     'Generated from the Authorization tab (AWS Signature v4). The X-Amz-* parameters are added to the URL query when the request is sent.',
+  'workbench.editors.request.authPreview.edgeGridValue': 'EG1-HMAC-SHA256 <signed parameters>',
+  'workbench.editors.request.authPreview.edgeGridHint':
+    'Generated from the Authorization tab (Akamai EdgeGrid). The request is signed with your credentials when it is sent.',
   'workbench.editors.request.authPreview.digestValue': 'Digest <challenge response>',
   'workbench.editors.request.authPreview.digestHint':
     'Generated from the Authorization tab (Digest Auth). The value is computed from the server’s challenge when the request is sent, then the request is resent with it.',
@@ -294,6 +297,22 @@ export const workbenchEditorsRequest = {
     'The region in the credential scope; blank derives it from an AWS hostname, else us-east-1.',
   'workbench.editors.request.auth.rowInfo.awsAddTo':
     'A header (the default), or the URL query \u2014 the presigned shape for endpoints that cannot take a header.',
+  'workbench.editors.request.auth.typeInfo.edgeGrid':
+    'The client secret signs the method, scheme, host, path, the listed headers and a POST body hash; the tokens, a per-send timestamp and nonce, and the signature ride in an Authorization: EG1-HMAC-SHA256 header \u2014 the secret never rides.',
+  'workbench.editors.request.auth.groupInfo.edgeGrid.credentials':
+    'The two tokens ride in the header as client_token= and access_token=; the client secret only through the signature it derives.',
+  'workbench.editors.request.auth.groupInfo.edgeGrid.signing':
+    'What the signature covers beyond the request line \u2014 the headers an API names, in that order, and the POST body hash bounded by the byte window (the scheme\u2019s 128 KiB unless the API says otherwise).',
+  'workbench.editors.request.auth.rowInfo.edgeGridClientToken':
+    'Identifies the API client \u2014 rides as client_token=.',
+  'workbench.editors.request.auth.rowInfo.edgeGridAccessToken':
+    'Identifies the credential \u2014 rides as access_token=.',
+  'workbench.editors.request.auth.rowInfo.edgeGridClientSecret':
+    'The key material the per-send signing key derives from; it never rides.',
+  'workbench.editors.request.auth.rowInfo.edgeGridHeadersToSign':
+    'Header names folded into the signature, comma-separated, in signing order; a listed header the request lacks is skipped and unlisted headers never sign.',
+  'workbench.editors.request.auth.rowInfo.edgeGridMaxBodySize':
+    'The byte window of a POST body the content hash covers; blank = the scheme\u2019s 131072.',
   'workbench.editors.request.auth.typeInfo.oauth2':
     'The client obtains an access token from the provider \u2014 a browser authorization then a token exchange, or a direct exchange for machine and password grants \u2014 and every send carries it as a bearer token, refreshed on expiry when a refresh token was issued.',
   'workbench.editors.request.auth.groupInfo.oauth2.token':
@@ -355,6 +374,7 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.auth.type.apiKey': 'API Key',
   'workbench.editors.request.auth.type.oauth2': 'OAuth 2.0',
   'workbench.editors.request.auth.type.awsSigV4': 'AWS Signature v4',
+  'workbench.editors.request.auth.type.edgeGrid': 'Akamai EdgeGrid',
   'workbench.editors.request.auth.type.digest': 'Digest Auth',
   'workbench.editors.request.auth.type.oauth1': 'OAuth 1.0',
   'workbench.editors.request.auth.type.hawk': 'Hawk Authentication',
@@ -448,6 +468,17 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.auth.awsSessionTokenPlaceholder': 'optional — temporary (STS) credentials only',
   'workbench.editors.request.auth.awsServicePlaceholder': 'auto from an AWS host \u2014 e.g. s3, execute-api',
   'workbench.editors.request.auth.awsRegionPlaceholder': 'auto from an AWS host, else us-east-1',
+  'workbench.editors.request.auth.edgeGridClientToken': 'Client Token',
+  'workbench.editors.request.auth.edgeGridAccessToken': 'Access Token',
+  'workbench.editors.request.auth.edgeGridClientSecret': 'Client Secret',
+  'workbench.editors.request.auth.edgeGridHeadersToSign': 'Headers to Sign',
+  'workbench.editors.request.auth.edgeGridMaxBodySize': 'Max Body Size',
+  'workbench.editors.request.auth.edgeGridClientTokenPlaceholder': 'e.g. akab-client-token-xxx',
+  'workbench.editors.request.auth.edgeGridAccessTokenPlaceholder': 'e.g. akab-access-token-xxx',
+  'workbench.editors.request.auth.edgeGridClientSecretPlaceholder': 'client secret',
+  'workbench.editors.request.auth.edgeGridHeadersToSignPlaceholder':
+    'optional \u2014 comma-separated, e.g. X-Test1, X-Test2',
+  'workbench.editors.request.auth.edgeGridMaxBodySizePlaceholder': '131072',
   'workbench.editors.request.auth.sendAsLabel': 'Add authorization data to',
   'workbench.editors.request.auth.sendAsHeaders': 'Request Headers',
   'workbench.editors.request.auth.sendAsUrl': 'Request URL',

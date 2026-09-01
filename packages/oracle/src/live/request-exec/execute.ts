@@ -13,8 +13,10 @@
 
 import {
   AWS_SIGV4_UNSIGNED_PAYLOAD,
+  edgeGridTimestamp,
   sha256Hex,
   signAwsSigV4,
+  signEdgeGrid,
   signHawk,
   signJwtBearer,
   signOAuth1,
@@ -199,6 +201,32 @@ export async function executeOverTransport(
       for (const h of signed) setHeader(headers, h.key, h.value);
     } catch (err) {
       return errorSnapshot(`Hawk signing failed: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
+
+  // EdgeGrid signs HERE too — same execute-time discipline over the
+  // transport's header rows (the Headers to Sign are read from them
+  // by name) and the POST body text for the content hash; a multipart
+  // POST has no signable bytes ahead of dispatch and the scheme has
+  // no unsigned marker, so it is an honest send error. The header
+  // replaces a same-key user Authorization row.
+  if (resolved.edgegrid) {
+    try {
+      const payload = hawkPayloadOf(body, headers);
+      if (resolved.method.toUpperCase() === 'POST' && body.kind === 'multipart') {
+        return errorSnapshot('EdgeGrid signing failed: a multipart body cannot be content-hashed');
+      }
+      const signed = await signEdgeGrid(resolved.edgegrid, {
+        method: resolved.method,
+        url,
+        headers,
+        ...(payload ? { body: payload.text } : {}),
+        timestamp: edgeGridTimestamp(new Date()),
+        nonce: crypto.randomUUID(),
+      });
+      for (const h of signed) setHeader(headers, h.key, h.value);
+    } catch (err) {
+      return errorSnapshot(`EdgeGrid signing failed: ${err instanceof Error ? err.message : String(err)}`);
     }
   }
 

@@ -50,6 +50,11 @@ export type AuthInfoKey =
   | 'awsService'
   | 'awsRegion'
   | 'awsAddTo'
+  | 'edgeGridClientToken'
+  | 'edgeGridAccessToken'
+  | 'edgeGridClientSecret'
+  | 'edgeGridHeadersToSign'
+  | 'edgeGridMaxBodySize'
   | 'digestUsername'
   | 'digestPassword'
   | 'digestDisableRetry'
@@ -171,7 +176,10 @@ type AuthTokenId =
   | 'signedHeaders'
   | 'securityToken'
   | 'contentSha'
-  | 'expires';
+  | 'expires'
+  | 'clientToken'
+  | 'accessToken'
+  | 'contentHash';
 
 type Token = ExampleCardToken<AuthTokenId>;
 type Line = ExampleCardLine<AuthTokenId>;
@@ -379,6 +387,37 @@ function exampleLines(auth: ConcreteAuthConfig, forced: ReadonlySet<AuthInfoKey>
       );
       return lines;
     }
+    case 'edgegrid': {
+      // The signed line is what the signature covers beyond the
+      // request line: the listed headers (when set / forced) and the
+      // POST content hash the body window bounds.
+      const showHeaders = (auth.headersToSign ?? '').trim() !== '' || forced.has('edgeGridHeadersToSign');
+      const showHash = auth.maxBodySize !== undefined || forced.has('edgeGridMaxBodySize');
+      return [
+        requestLine(),
+        {
+          opener: tok('location', 'Authorization: EG1-HMAC-SHA256'),
+          tokens: [
+            tok('clientToken', 'client_token=akab-client-token-xxx'),
+            tok('accessToken', 'access_token=akab-access-token-xxx'),
+            tok('timestamp', 'timestamp=20140321T19:34:21+0000'),
+            tok('nonce', 'nonce=nonce-xx-xxxx'),
+            tok('signature', 'signature=tL+y4hxyHxgW…'),
+          ],
+        },
+        ...(showHeaders || showHash
+          ? [
+              {
+                opener: 'signed',
+                tokens: [
+                  ...(showHeaders ? [tok('signedHeaders', 'x-test1:test-simple-header')] : []),
+                  ...(showHash ? [tok('contentHash', 'content hash (POST) ← first 131072 bytes')] : []),
+                ],
+              },
+            ]
+          : []),
+      ];
+    }
     case 'aws-sigv4': {
       // The scope the card shows is the one the signer derives from the
       // card's own host when a field is blank — the same rule as the
@@ -463,6 +502,11 @@ const ROW_TOKENS: Record<AuthInfoKey, readonly AuthTokenId[]> = {
   awsService: ['credential'],
   awsRegion: ['credential'],
   awsAddTo: ['location'],
+  edgeGridClientToken: ['clientToken'],
+  edgeGridAccessToken: ['accessToken'],
+  edgeGridClientSecret: ['signature'],
+  edgeGridHeadersToSign: ['signedHeaders'],
+  edgeGridMaxBodySize: ['contentHash'],
   digestUsername: ['username'],
   digestPassword: ['response'],
   digestDisableRetry: ['challenge', 'retry'],
@@ -555,6 +599,10 @@ const GROUP_ROWS: Record<CardType, Partial<Record<AuthGroupKey, readonly AuthInf
     signing: ['awsService', 'awsRegion'],
     delivery: ['awsAddTo'],
   },
+  edgegrid: {
+    credentials: ['edgeGridClientToken', 'edgeGridAccessToken', 'edgeGridClientSecret'],
+    signing: ['edgeGridHeadersToSign', 'edgeGridMaxBodySize'],
+  },
   digest: { credentials: ['digestUsername', 'digestPassword'], challenge: ['digestDisableRetry'] },
   oauth1: {
     signing: ['oauth1SignatureMethod', 'oauth1BodyHash'],
@@ -615,6 +663,11 @@ const ROW_TITLE_KEY: Record<AuthInfoKey, MessageKey> = {
   awsService: 'workbench.editors.request.auth.awsService',
   awsRegion: 'workbench.editors.request.auth.awsRegion',
   awsAddTo: 'workbench.editors.request.auth.addTo',
+  edgeGridClientToken: 'workbench.editors.request.auth.edgeGridClientToken',
+  edgeGridAccessToken: 'workbench.editors.request.auth.edgeGridAccessToken',
+  edgeGridClientSecret: 'workbench.editors.request.auth.edgeGridClientSecret',
+  edgeGridHeadersToSign: 'workbench.editors.request.auth.edgeGridHeadersToSign',
+  edgeGridMaxBodySize: 'workbench.editors.request.auth.edgeGridMaxBodySize',
   digestUsername: 'workbench.editors.request.auth.username',
   digestPassword: 'workbench.editors.request.auth.password',
   digestDisableRetry: 'workbench.editors.request.auth.digestDisableRetry',
@@ -682,6 +735,11 @@ const ROW_SUMMARY_KEY: Record<AuthInfoKey, MessageKey> = {
   awsService: 'workbench.editors.request.auth.rowInfo.awsService',
   awsRegion: 'workbench.editors.request.auth.rowInfo.awsRegion',
   awsAddTo: 'workbench.editors.request.auth.rowInfo.awsAddTo',
+  edgeGridClientToken: 'workbench.editors.request.auth.rowInfo.edgeGridClientToken',
+  edgeGridAccessToken: 'workbench.editors.request.auth.rowInfo.edgeGridAccessToken',
+  edgeGridClientSecret: 'workbench.editors.request.auth.rowInfo.edgeGridClientSecret',
+  edgeGridHeadersToSign: 'workbench.editors.request.auth.rowInfo.edgeGridHeadersToSign',
+  edgeGridMaxBodySize: 'workbench.editors.request.auth.rowInfo.edgeGridMaxBodySize',
   digestUsername: 'workbench.editors.request.auth.rowInfo.digestUsername',
   digestPassword: 'workbench.editors.request.auth.rowInfo.digestPassword',
   digestDisableRetry: 'workbench.editors.request.auth.rowInfo.digestDisableRetry',
@@ -748,6 +806,10 @@ const GROUP_SUMMARY_KEY: Record<CardType, Partial<Record<AuthGroupKey, MessageKe
     signing: 'workbench.editors.request.auth.groupInfo.awsSigV4.signing',
     delivery: 'workbench.editors.request.auth.groupInfo.awsSigV4.delivery',
   },
+  edgegrid: {
+    credentials: 'workbench.editors.request.auth.groupInfo.edgeGrid.credentials',
+    signing: 'workbench.editors.request.auth.groupInfo.edgeGrid.signing',
+  },
   digest: {
     credentials: 'workbench.editors.request.auth.groupInfo.digest.credentials',
     challenge: 'workbench.editors.request.auth.groupInfo.digest.challenge',
@@ -781,6 +843,7 @@ const TYPE_SUMMARY_KEY: Record<CardType | 'none', MessageKey> = {
   bearer: 'workbench.editors.request.auth.typeInfo.bearer',
   'api-key': 'workbench.editors.request.auth.typeInfo.apiKey',
   'aws-sigv4': 'workbench.editors.request.auth.typeInfo.awsSigV4',
+  edgegrid: 'workbench.editors.request.auth.typeInfo.edgeGrid',
   digest: 'workbench.editors.request.auth.typeInfo.digest',
   oauth1: 'workbench.editors.request.auth.typeInfo.oauth1',
   hawk: 'workbench.editors.request.auth.typeInfo.hawk',

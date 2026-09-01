@@ -7,6 +7,7 @@
 
 import type {
   AwsSigV4Credentials,
+  EdgeGridCredentials,
   HawkCredentials,
   JwtCredentials,
   OAuth1Credentials,
@@ -85,6 +86,13 @@ export interface ResolvedRequest {
    * integrity hash.
    */
   hawk?: HawkCredentials & { includePayloadHash?: boolean };
+  /**
+   * EdgeGrid credentials, templates already resolved — present only
+   * when the effective auth is an enabled `edgegrid` config. Signs at
+   * the wire in {@link executeResolved} like the other signing schemes
+   * — twin of the oracle resolver's carry.
+   */
+  edgegrid?: EdgeGridCredentials;
   /**
    * JWT Bearer config, templates already resolved — present only when
    * the effective auth is an enabled `jwt` config. The token mints at
@@ -272,6 +280,19 @@ export async function resolveRequest(
         }
       : undefined;
 
+  // EdgeGrid credentials resolve here but sign at the wire — see
+  // {@link ResolvedRequest.edgegrid}.
+  const edgegrid: EdgeGridCredentials | undefined =
+    effectiveAuth.type === 'edgegrid' && !effectiveAuth.disabled
+      ? {
+          clientToken: resolveStr(effectiveAuth.clientToken),
+          accessToken: resolveStr(effectiveAuth.accessToken),
+          clientSecret: resolveStr(effectiveAuth.clientSecret),
+          ...(effectiveAuth.headersToSign ? { headersToSign: resolveStr(effectiveAuth.headersToSign) } : {}),
+          ...(effectiveAuth.maxBodySize !== undefined ? { maxBodySize: effectiveAuth.maxBodySize } : {}),
+        }
+      : undefined;
+
   // JWT Bearer config resolves here but mints at the wire — see
   // {@link ResolvedRequest.jwt}.
   const jwt: JwtCredentials | undefined =
@@ -322,6 +343,7 @@ export async function resolveRequest(
       ...(awsSigV4 ? { awsSigV4 } : {}),
       ...(oauth1 ? { oauth1 } : {}),
       ...(hawk ? { hawk } : {}),
+      ...(edgegrid ? { edgegrid } : {}),
       ...(jwt ? { jwt } : {}),
       ...(authAttribution !== undefined ? { auth: authAttribution } : {}),
     },

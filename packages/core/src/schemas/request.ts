@@ -622,6 +622,33 @@ export const AwsSigV4AuthSchema = v.object({
 });
 
 /**
+ * Akamai EdgeGrid (the `EG1-HMAC-SHA256` scheme) — the one credential
+ * every Akamai API takes. Like SigV4 and Hawk, nothing rides the wire
+ * verbatim: the executor derives the `Authorization: EG1-HMAC-SHA256 …`
+ * header by signing the FINAL wire shape just before dispatch, AFTER
+ * pre-request scripts have had their say. The timestamp and nonce are
+ * minted per send (the Hawk law), so neither is configuration. Pure
+ * WebCrypto HMAC — both runtimes sign, the type is not host-gated.
+ *
+ * The client and access tokens ride in the header; the secret only
+ * through the signature. `headersToSign` names the headers an API's
+ * documentation folds into the signature (comma-separated, in signing
+ * order); `maxBodySize` bounds the POST content hash (absent = the
+ * scheme's 128 KiB). Fields are plain strings (templates welcome —
+ * `{{vault.akamai_secret}}` is the expected idiom); completeness is a
+ * send-time gate, so partial configs stay saveable.
+ */
+export const EdgeGridAuthSchema = v.object({
+  type: v.literal('edgegrid'),
+  disabled: AuthDisabledSchema,
+  clientToken: v.string(),
+  accessToken: v.string(),
+  clientSecret: v.string(),
+  headersToSign: v.optional(v.string()),
+  maxBodySize: v.optional(v.pipe(v.number(), v.integer(), v.minValue(1))),
+});
+
+/**
  * HTTP Digest authentication (RFC 7616 / 2617). Challenge/response —
  * only the credentials are configuration: realm, nonce, algorithm, and
  * qop all arrive on the server's 401 challenge at send time, so nothing
@@ -807,6 +834,7 @@ export const ConcreteAuthConfigSchema = v.variant('type', [
   }),
   OAuth2AuthSchema,
   AwsSigV4AuthSchema,
+  EdgeGridAuthSchema,
   DigestAuthSchema,
   OAuth1AuthSchema,
   HawkAuthSchema,

@@ -282,12 +282,36 @@ export function resolveAuth(
       return { auth: concreteFallback(fallback), report };
     }
     case 'edgegrid': {
-      recordDrop(report, {
-        path: authPath,
-        reason: 'EdgeGrid auth not imported — the scheme is specific to one CDN vendor and is not supported.',
-        tracking: 'PERMANENT: edgegrid vendor-specific',
-      });
-      return { auth: concreteFallback(fallback), report };
+      const params = asParams(raw.edgegrid);
+      // A pinned nonce / timestamp is re-minted on the next live sign
+      // — both shed silently lossless (the Hawk precedent). The vendor's
+      // Base URL swaps the signed host for one other than the request's,
+      // which the gateway rejects against the Host it received — the
+      // signed host follows the request URL here, and a set value is
+      // named as the one transform.
+      const baseUrl = paramValue(params, 'baseURL')?.trim();
+      if (baseUrl) {
+        recordTransform(report, {
+          path: authPath,
+          from: 'edgegrid/baseURL',
+          to: 'edgegrid/request-host',
+          reason: `EdgeGrid Base URL "${baseUrl}" dropped — the signed host is the request URL's host.`,
+          tracking: 'PERMANENT: edgegrid signs the request host',
+        });
+      }
+      const headersToSign = paramList(params, 'headersToSign');
+      const maxBodySize = Number.parseInt(paramValue(params, 'maxBodySize') ?? '', 10);
+      return {
+        auth: {
+          type: 'edgegrid',
+          clientToken: paramValue(params, 'clientToken') ?? '',
+          accessToken: paramValue(params, 'accessToken') ?? '',
+          clientSecret: paramValue(params, 'clientSecret') ?? '',
+          ...(headersToSign ? { headersToSign } : {}),
+          ...(Number.isInteger(maxBodySize) && maxBodySize > 0 ? { maxBodySize } : {}),
+        },
+        report,
+      };
     }
     case 'hawk': {
       const params = asParams(raw.hawk);
@@ -363,6 +387,17 @@ function asParams(x: unknown): PostmanAuthParam[] {
 function paramValue(params: PostmanAuthParam[], key: string): string | undefined {
   const hit = params.find((p) => p.key === key);
   return typeof hit?.value === 'string' ? hit.value : undefined;
+}
+
+/** List-ish auth param — a comma-separated string, or the array form's
+ *  real string array (`type: 'any'`); normalized to the comma form. */
+function paramList(params: PostmanAuthParam[], key: string): string | undefined {
+  const value: unknown = params.find((p) => p.key === key)?.value;
+  if (Array.isArray(value)) {
+    const names = value.filter((v): v is string => typeof v === 'string' && v.trim() !== '').map((v) => v.trim());
+    return names.length > 0 ? names.join(', ') : undefined;
+  }
+  return typeof value === 'string' && value.trim() !== '' ? value.trim() : undefined;
 }
 
 /** Boolean-ish auth param — the array form carries real booleans

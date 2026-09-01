@@ -7,8 +7,10 @@
 
 import {
   AWS_SIGV4_UNSIGNED_PAYLOAD,
+  edgeGridTimestamp,
   sha256Hex,
   signAwsSigV4,
+  signEdgeGrid,
   signHawk,
   signJwtBearer,
   signOAuth1,
@@ -305,6 +307,35 @@ export async function executeResolved(
       req = { ...req, headers: [...fetchHeaders.entries()].map(([key, value]) => ({ key, value })) };
     } catch (err) {
       return errorSnapshot(`Hawk signing failed: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
+
+  // EdgeGrid signs HERE too — same wire-time discipline over the
+  // shipping header set (the Headers to Sign are read from it by
+  // name) and the POST body text for the content hash; a multipart
+  // POST has no signable bytes ahead of dispatch and the scheme has
+  // no unsigned marker, so it is an honest send error. The header
+  // replaces a same-key user Authorization row and mirrors back onto
+  // `req` for the offscreen cert-exception retry.
+  if (req.edgegrid) {
+    try {
+      const payload = hawkFetchPayload(init.body, fetchHeaders);
+      if (req.method.toUpperCase() === 'POST' && init.body !== undefined && init.body !== null && !payload) {
+        return errorSnapshot('EdgeGrid signing failed: a multipart body cannot be content-hashed');
+      }
+      const shipping = new Request(req.url, { method: req.method, headers: fetchHeaders }).headers;
+      const signed = await signEdgeGrid(req.edgegrid, {
+        method: req.method,
+        url: req.url,
+        headers: [...shipping.entries()].map(([key, value]) => ({ key, value })),
+        ...(payload ? { body: payload.text } : {}),
+        timestamp: edgeGridTimestamp(new Date()),
+        nonce: crypto.randomUUID(),
+      });
+      for (const h of signed) fetchHeaders.set(h.key, h.value);
+      req = { ...req, headers: [...fetchHeaders.entries()].map(([key, value]) => ({ key, value })) };
+    } catch (err) {
+      return errorSnapshot(`EdgeGrid signing failed: ${err instanceof Error ? err.message : String(err)}`);
     }
   }
 

@@ -105,6 +105,36 @@ describe('REQUEST_SCHEMA — Auth (OAuth2 password-credentials) per-leaf', () =>
   });
 });
 
+describe('REQUEST_SCHEMA — Auth (EdgeGrid) per-leaf', () => {
+  const req = baseRequest({
+    auth: {
+      type: 'edgegrid',
+      clientToken: 'akab-client-token-xxx',
+      accessToken: 'akab-access-token-xxx',
+      clientSecret: '{{vault.akamai_secret}}',
+      headersToSign: 'X-Test1',
+      maxBodySize: 2048,
+    } as AuthConfig,
+  });
+
+  it('emits per-leaf paths for the EdgeGrid fields', () => {
+    const baseline = adapter.tracking.extractBaseline(req);
+    expect(baseline['auth.clientToken']).toBe('akab-client-token-xxx');
+    expect(baseline['auth.accessToken']).toBe('akab-access-token-xxx');
+    expect(baseline['auth.clientSecret']).toBe('{{vault.akamai_secret}}');
+    expect(baseline['auth.headersToSign']).toBe('X-Test1');
+    expect(baseline['auth.maxBodySize']).toBe('2048');
+    expect(baseline['union:auth']).toContain('"kind":"edgegrid"');
+  });
+
+  it('applyResolutionToEntity writes the body window back as a number', () => {
+    const target = JSON.parse(JSON.stringify(req)) as Request;
+    const ok = adapter.resolve.applyResolutionToEntity(target, 'auth.maxBodySize', { base: '2048', theirs: '4096' });
+    expect(ok).toBe(true);
+    expect((target.auth as { maxBodySize: number }).maxBodySize).toBe(4096);
+  });
+});
+
 describe('REQUEST_SCHEMA — Auth (AWS SigV4) per-leaf', () => {
   const req = baseRequest({
     auth: {

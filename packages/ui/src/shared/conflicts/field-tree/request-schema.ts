@@ -108,6 +108,13 @@ const AUTH_UNION: FieldNode = union({
       region: leaf('string'),
       addTo: leaf('string', { coercion: 'optional-string' }),
     }),
+    edgegrid: obj({
+      clientToken: leaf('string'),
+      accessToken: leaf('string'),
+      clientSecret: leaf('string'),
+      headersToSign: leaf('string', { coercion: 'optional-string' }),
+      maxBodySize: leaf('number', { coercion: 'optional-number' }),
+    }),
     digest: obj({
       username: leaf('string'),
       password: leaf('string'),

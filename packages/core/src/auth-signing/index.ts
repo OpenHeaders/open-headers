@@ -18,6 +18,16 @@ export {
   signAwsSigV4,
 } from './aws-sigv4';
 export {
+  buildEdgeGridDataToSign,
+  EDGEGRID_DEFAULT_MAX_BODY,
+  type EdgeGridCredentials,
+  type EdgeGridSignInput,
+  edgeGridHeadersToSign,
+  edgeGridSigningKey,
+  edgeGridTimestamp,
+  signEdgeGrid,
+} from './edgegrid';
+export {
   buildHawkNormalizedString,
   type HawkAlgorithm,
   type HawkCredentials,

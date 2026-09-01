@@ -153,6 +153,9 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.authPreview.awsSigV4QueryValue': '<已签名参数>',
   'workbench.editors.request.authPreview.awsSigV4QueryHint':
     '由\u201c授权\u201d标签生成（AWS Signature v4）。发送请求时，X-Amz-* 参数会追加到 URL 查询字符串。',
+  'workbench.editors.request.authPreview.edgeGridValue': 'EG1-HMAC-SHA256 <已签名参数>',
+  'workbench.editors.request.authPreview.edgeGridHint':
+    '由\u201c授权\u201d标签生成（Akamai EdgeGrid）。发送请求时用您的凭据签名。',
   'workbench.editors.request.authPreview.digestValue': 'Digest <challenge response>',
   'workbench.editors.request.authPreview.digestHint':
     '由授权标签页生成（Digest Auth）。发送请求时根据服务器的质询计算该值，然后带上它重新发送请求。',
@@ -285,6 +288,19 @@ export const workbenchEditorsRequest = {
     '凭据范围中的服务（s3、execute-api 等）；留空则从 AWS 主机名推导。s3 还会将载荷哈希作为标头签名。',
   'workbench.editors.request.auth.rowInfo.awsRegion': '凭据范围中的区域；留空则从 AWS 主机名推导，否则为 us-east-1。',
   'workbench.editors.request.auth.rowInfo.awsAddTo': '标头（默认）或 URL 查询——供无法接受标头的端点使用的预签名形式。',
+  'workbench.editors.request.auth.typeInfo.edgeGrid':
+    'Client Secret 对方法、协议、主机、路径、所列标头和 POST 正文哈希签名；两个令牌、每次发送的时间戳和 nonce 以及签名随 Authorization: EG1-HMAC-SHA256 标头发送——密钥永不发送。',
+  'workbench.editors.request.auth.groupInfo.edgeGrid.credentials':
+    '两个令牌以 client_token= 和 access_token= 随标头发送；Client Secret 只通过其派生的签名体现。',
+  'workbench.editors.request.auth.groupInfo.edgeGrid.signing':
+    '签名在请求行之外覆盖的内容——API 指定的标头（按该顺序）以及受字节窗口限制的 POST 正文哈希（除非 API 另有说明，否则为方案的 128 KiB）。',
+  'workbench.editors.request.auth.rowInfo.edgeGridClientToken': '标识 API 客户端——以 client_token= 发送。',
+  'workbench.editors.request.auth.rowInfo.edgeGridAccessToken': '标识凭据——以 access_token= 发送。',
+  'workbench.editors.request.auth.rowInfo.edgeGridClientSecret': '派生每次发送签名密钥的密钥材料；永不发送。',
+  'workbench.editors.request.auth.rowInfo.edgeGridHeadersToSign':
+    '参与签名的标头名，逗号分隔，按签名顺序；请求中缺少的所列标头会被跳过，未列出的标头永不签名。',
+  'workbench.editors.request.auth.rowInfo.edgeGridMaxBodySize':
+    '内容哈希覆盖的 POST 正文字节窗口；留空 = 方案的 131072。',
   'workbench.editors.request.auth.typeInfo.oauth2':
     '客户端从提供方获取访问令牌 \u2014 先在浏览器中授权再交换令牌，或对机器与密码授权直接交换 \u2014 每次发送都以 bearer 令牌携带；若签发了刷新令牌，过期时自动刷新。',
   'workbench.editors.request.auth.groupInfo.oauth2.token':
@@ -337,6 +353,7 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.auth.type.apiKey': 'API Key',
   'workbench.editors.request.auth.type.oauth2': 'OAuth 2.0',
   'workbench.editors.request.auth.type.awsSigV4': 'AWS Signature v4',
+  'workbench.editors.request.auth.type.edgeGrid': 'Akamai EdgeGrid',
   'workbench.editors.request.auth.type.digest': 'Digest Auth',
   'workbench.editors.request.auth.type.oauth1': 'OAuth 1.0',
   'workbench.editors.request.auth.type.hawk': 'Hawk Authentication',
@@ -426,6 +443,16 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.auth.awsSessionTokenPlaceholder': '可选——仅限临时（STS）凭据',
   'workbench.editors.request.auth.awsServicePlaceholder': '自动取自 AWS 主机——例如 s3、execute-api',
   'workbench.editors.request.auth.awsRegionPlaceholder': '自动取自 AWS 主机，否则为 us-east-1',
+  'workbench.editors.request.auth.edgeGridClientToken': 'Client Token',
+  'workbench.editors.request.auth.edgeGridAccessToken': 'Access Token',
+  'workbench.editors.request.auth.edgeGridClientSecret': 'Client Secret',
+  'workbench.editors.request.auth.edgeGridHeadersToSign': '要签名的标头',
+  'workbench.editors.request.auth.edgeGridMaxBodySize': '最大正文大小',
+  'workbench.editors.request.auth.edgeGridClientTokenPlaceholder': '例如 akab-client-token-xxx',
+  'workbench.editors.request.auth.edgeGridAccessTokenPlaceholder': '例如 akab-access-token-xxx',
+  'workbench.editors.request.auth.edgeGridClientSecretPlaceholder': 'client secret',
+  'workbench.editors.request.auth.edgeGridHeadersToSignPlaceholder': '可选——逗号分隔，例如 X-Test1, X-Test2',
+  'workbench.editors.request.auth.edgeGridMaxBodySizePlaceholder': '131072',
   'workbench.editors.request.auth.sendAsLabel': '将授权数据添加到',
   'workbench.editors.request.auth.sendAsHeaders': '请求标头',
   'workbench.editors.request.auth.sendAsUrl': '请求 URL',

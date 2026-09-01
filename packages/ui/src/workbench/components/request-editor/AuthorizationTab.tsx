@@ -39,6 +39,7 @@ const OWN_TYPES: readonly ConcreteAuthType[] = [
   'api-key',
   'oauth2',
   'aws-sigv4',
+  'edgegrid',
   'digest',
   'oauth1',
   'hawk',

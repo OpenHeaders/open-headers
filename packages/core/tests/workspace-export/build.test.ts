@@ -304,6 +304,33 @@ describe('buildWorkspaceExport — strip rules', () => {
     expect(builtAuth.region).toBe('us-east-1');
   });
 
+  it('blanks the EdgeGrid clientSecret and keeps the tokens, header list and body window', () => {
+    const input = baseInput();
+    input.entities.requests = [
+      makeRequest({
+        auth: {
+          type: 'edgegrid',
+          clientToken: 'akab-client-token-xxx',
+          accessToken: 'akab-access-token-xxx',
+          clientSecret: 'super-sensitive-DO-NOT-EXPORT',
+          headersToSign: 'X-Test1',
+          maxBodySize: 2048,
+        },
+      }),
+    ];
+
+    const exp = buildWorkspaceExport(input);
+    const builtAuth = exp.entities.requests[0].auth;
+    expect(builtAuth).toEqual({
+      type: 'edgegrid',
+      clientToken: 'akab-client-token-xxx',
+      accessToken: 'akab-access-token-xxx',
+      clientSecret: '',
+      headersToSign: 'X-Test1',
+      maxBodySize: 2048,
+    });
+  });
+
   it('blanks OAuth1 consumerSecret and drops tokenSecret from request.auth', () => {
     const input = baseInput();
     input.entities.requests = [

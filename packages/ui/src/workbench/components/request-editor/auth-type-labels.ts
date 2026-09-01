@@ -24,6 +24,7 @@ export const AUTH_TYPE_OPTIONS: AuthTypeOption[] = [
   { value: 'api-key', labelKey: 'workbench.editors.request.auth.type.apiKey' },
   { value: 'oauth2', labelKey: 'workbench.editors.request.auth.type.oauth2' },
   { value: 'aws-sigv4', labelKey: 'workbench.editors.request.auth.type.awsSigV4' },
+  { value: 'edgegrid', labelKey: 'workbench.editors.request.auth.type.edgeGrid' },
   { value: 'digest', labelKey: 'workbench.editors.request.auth.type.digest' },
   { value: 'oauth1', labelKey: 'workbench.editors.request.auth.type.oauth1' },
   { value: 'hawk', labelKey: 'workbench.editors.request.auth.type.hawk' },

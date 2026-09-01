@@ -106,6 +106,13 @@ function isRequestCompleteUnsafe(
       // on a foreign host is the send error. sessionToken stays
       // optional.
       return auth.accessKeyId.trim().length > 0 && auth.secretAccessKey.trim().length > 0;
+    case 'edgegrid':
+      // The two tokens ride in the header and the secret keys the
+      // signature — all three are the credential; the rest is minted
+      // per send or optional.
+      return (
+        auth.clientToken.trim().length > 0 && auth.accessToken.trim().length > 0 && auth.clientSecret.trim().length > 0
+      );
     case 'digest':
       // Mirrors basic: username is the non-negotiable bit; password may
       // legitimately be blank. Everything else (realm, nonce, algorithm,
@@ -146,6 +153,9 @@ export type RequestIncompleteReason =
   | 'api-key-missing-value'
   | 'aws-sigv4-missing-access-key'
   | 'aws-sigv4-missing-secret-key'
+  | 'edgegrid-missing-client-token'
+  | 'edgegrid-missing-access-token'
+  | 'edgegrid-missing-client-secret'
   | 'digest-missing-username'
   | 'oauth1-missing-consumer-key'
   | 'oauth1-missing-private-key'
@@ -219,6 +229,11 @@ export function requestIncompleteReason(
     case 'aws-sigv4':
       if (!auth.accessKeyId.trim()) return 'aws-sigv4-missing-access-key';
       if (!auth.secretAccessKey.trim()) return 'aws-sigv4-missing-secret-key';
+      return null;
+    case 'edgegrid':
+      if (!auth.clientToken.trim()) return 'edgegrid-missing-client-token';
+      if (!auth.accessToken.trim()) return 'edgegrid-missing-access-token';
+      if (!auth.clientSecret.trim()) return 'edgegrid-missing-client-secret';
       return null;
     case 'digest':
       return auth.username.trim().length > 0 ? null : 'digest-missing-username';

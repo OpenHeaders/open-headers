@@ -116,6 +116,17 @@ export function previewAuthContributions(auth: AuthConfig, t: Translate): AuthPr
         ],
         params: [],
       };
+    case 'edgegrid':
+      return {
+        headers: [
+          {
+            key: 'Authorization',
+            value: t('workbench.editors.request.authPreview.edgeGridValue'),
+            hint: t('workbench.editors.request.authPreview.edgeGridHint'),
+          },
+        ],
+        params: [],
+      };
     case 'digest':
       return {
         headers: [

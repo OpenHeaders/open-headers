@@ -12,6 +12,7 @@ import {
   type OAuth1Credentials,
   sha256Hex,
   signAwsSigV4,
+  signEdgeGrid,
   signHawk,
   signOAuth1,
 } from '@openheaders/core/auth-signing';
@@ -664,6 +665,65 @@ describe('executeOverTransport', () => {
     expect(snap.error).toBeNull();
     expect(snap.status).toBe(500);
     expect(snap.body).toBe('boom');
+  });
+});
+
+describe('executeOverTransport — EdgeGrid signing', () => {
+  const credentials = {
+    clientToken: 'akab-client-token-xxx-xxxxxxxxxxxxxxxx',
+    accessToken: 'akab-access-token-xxx-xxxxxxxxxxxxxxxx',
+    clientSecret: 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx=',
+    headersToSign: 'X-Test1',
+  };
+
+  it('signs the final wire shape, folds the listed header, and replaces a user Authorization row', async () => {
+    const { transport, sent } = captureTransport();
+    const snap = await executeOverTransport(
+      makeResolved({
+        method: 'POST',
+        url: 'https://akaa-openheaders.luna.akamaiapis.net/papi/v1/contracts?limit=5',
+        edgegrid: credentials,
+        headers: [
+          { key: 'Authorization', value: 'Bearer stale-user-token' },
+          { key: 'X-Test1', value: '  test-simple-header  ' },
+        ],
+        body: { type: 'json', content: '{"ok":true}' },
+      }),
+      transport,
+    );
+    expect(snap.error).toBeNull();
+    const auth = sent().headers.filter((h) => h.key.toLowerCase() === 'authorization');
+    expect(auth).toHaveLength(1);
+    const value = auth[0]?.value ?? '';
+    expect(value).toMatch(
+      /^EG1-HMAC-SHA256 client_token=akab-client-token-xxx-xxxxxxxxxxxxxxxx;access_token=akab-access-token-xxx-xxxxxxxxxxxxxxxx;timestamp=\d{8}T\d{2}:\d{2}:\d{2}\+0000;nonce=[0-9a-f-]{36};signature=[A-Za-z0-9+/]+=*$/,
+    );
+    // Re-sign the shipped shape at the header's own timestamp + nonce:
+    // an independent signer call over the same bytes must agree.
+    const timestamp = value.match(/timestamp=([^;]+);/)?.[1] ?? '';
+    const nonce = value.match(/nonce=([^;]+);/)?.[1] ?? '';
+    const [expected] = await signEdgeGrid(credentials, {
+      method: 'POST',
+      url: sent().url,
+      headers: sent().headers,
+      body: '{"ok":true}',
+      timestamp,
+      nonce,
+    });
+    expect(value).toBe(expected?.value);
+  });
+
+  it('a multipart POST is the send error — the scheme has no unsigned marker', async () => {
+    const { transport } = captureTransport();
+    const body: RequestBody = {
+      type: 'multipart',
+      multipartParts: [{ uid: 'mpart001', kind: 'text', name: 'a', value: 'b' }],
+    };
+    const snap = await executeOverTransport(
+      makeResolved({ method: 'POST', edgegrid: credentials, body, headers: [] }),
+      transport,
+    );
+    expect(snap.error).toBe('EdgeGrid signing failed: a multipart body cannot be content-hashed');
   });
 });
 

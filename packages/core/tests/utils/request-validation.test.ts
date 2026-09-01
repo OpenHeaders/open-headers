@@ -157,6 +157,27 @@ describe('requestIncompleteReason', () => {
     );
   });
 
+  it('reports each missing edgegrid credential in declaration order', () => {
+    const full = {
+      type: 'edgegrid' as const,
+      clientToken: 'akab-client-token-xxx',
+      accessToken: 'akab-access-token-xxx',
+      clientSecret: 'secret',
+    };
+    expect(requestIncompleteReason(makeRequest({ auth: full }))).toBeNull();
+    expect(isRequestComplete(makeRequest({ auth: full }))).toBe(true);
+    expect(requestIncompleteReason(makeRequest({ auth: { ...full, clientToken: '' } }))).toBe(
+      'edgegrid-missing-client-token',
+    );
+    expect(requestIncompleteReason(makeRequest({ auth: { ...full, accessToken: ' ' } }))).toBe(
+      'edgegrid-missing-access-token',
+    );
+    expect(requestIncompleteReason(makeRequest({ auth: { ...full, clientSecret: '' } }))).toBe(
+      'edgegrid-missing-client-secret',
+    );
+    expect(isRequestComplete(makeRequest({ auth: { ...full, clientSecret: '' } }))).toBe(false);
+  });
+
   it('reports each missing aws-sigv4 credential in declaration order; a blank scope is not a reason', () => {
     const full = {
       type: 'aws-sigv4' as const,

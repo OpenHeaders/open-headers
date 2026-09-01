@@ -1,3 +1,4 @@
+import { signEdgeGrid } from '@openheaders/core/auth-signing';
 import type { Collection, Environment, Request, Vault, WorkspaceVariables } from '@openheaders/core/types';
 // Registers the `requests.*` setting definitions (import side effect) —
 // the executor's success path reads the response-body cap, which throws
@@ -359,6 +360,74 @@ describe('RequestExecutor', () => {
       }),
     );
     expect(snapshot.error).toMatch(/^AWS SigV4 signing failed: no service name set/);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('signs edgegrid requests at the wire over the listed header and the POST body', async () => {
+    mockWsVars.mockReturnValue({
+      schemaVersion: 5,
+      variables: [
+        {
+          uid: 'akasec01',
+          name: 'AKAMAI_SECRET',
+          value: 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx=',
+          type: 'secret',
+        },
+      ],
+    });
+    await executeRequestDraft(
+      makeRequest({
+        method: 'POST',
+        url: 'https://akaa-openheaders.luna.akamaiapis.net/papi/v1/contracts?limit=5',
+        headers: [
+          { uid: 'stalehdr', key: 'Authorization', value: 'Bearer stale-user-token' },
+          { uid: 'signhdr1', key: 'X-Test1', value: 'test-simple-header' },
+        ],
+        body: { type: 'json', content: '{"ok":true}' },
+        auth: {
+          type: 'edgegrid',
+          clientToken: 'akab-client-token-xxx-xxxxxxxxxxxxxxxx',
+          accessToken: 'akab-access-token-xxx-xxxxxxxxxxxxxxxx',
+          clientSecret: '{{AKAMAI_SECRET}}',
+          headersToSign: 'X-Test1',
+        },
+      }),
+    );
+    const [url, init] = fetchMock.mock.calls[0];
+    const headers = init.headers as Headers;
+    const value = headers.get('authorization') ?? '';
+    expect(value).toMatch(/^EG1-HMAC-SHA256 client_token=akab-client-token-xxx-xxxxxxxxxxxxxxxx;access_token=/);
+    expect(value).not.toContain('stale-user-token');
+    const timestamp = value.match(/timestamp=([^;]+);/)?.[1] ?? '';
+    const nonce = value.match(/nonce=([^;]+);/)?.[1] ?? '';
+    const [expected] = await signEdgeGrid(
+      {
+        clientToken: 'akab-client-token-xxx-xxxxxxxxxxxxxxxx',
+        accessToken: 'akab-access-token-xxx-xxxxxxxxxxxxxxxx',
+        clientSecret: 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx=',
+        headersToSign: 'X-Test1',
+      },
+      {
+        method: 'POST',
+        url: String(url),
+        headers: [...headers.entries()].map(([key, v]) => ({ key, value: v })),
+        body: '{"ok":true}',
+        timestamp,
+        nonce,
+      },
+    );
+    expect(value).toBe(expected?.value);
+  });
+
+  it('an edgegrid multipart POST is the send error', async () => {
+    const snapshot = await executeRequestDraft(
+      makeRequest({
+        method: 'POST',
+        body: { type: 'multipart', multipartParts: [{ uid: 'mpart001', kind: 'text', name: 'a', value: 'b' }] },
+        auth: { type: 'edgegrid', clientToken: 'ct', accessToken: 'at', clientSecret: 'cs' },
+      }),
+    );
+    expect(snapshot.error).toBe('EdgeGrid signing failed: a multipart body cannot be content-hashed');
     expect(fetchMock).not.toHaveBeenCalled();
   });
 

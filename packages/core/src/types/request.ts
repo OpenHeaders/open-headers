@@ -27,6 +27,7 @@ import type {
   CredentialsModeSchema,
   DialPolicySchema,
   DigestAuthSchema,
+  EdgeGridAuthSchema,
   FileRefSchema,
   FormFieldSchema,
   HawkAuthSchema,
@@ -71,6 +72,7 @@ export type AuthType =
   | 'api-key'
   | 'oauth2'
   | 'aws-sigv4'
+  | 'edgegrid'
   | 'digest'
   | 'oauth1'
   | 'hawk'
@@ -83,6 +85,7 @@ export type RequestSpecLink = v.InferOutput<typeof RequestSpecLinkSchema>;
 export type OAuth2Flow = v.InferOutput<typeof OAuth2FlowSchema>;
 export type OAuth2Auth = v.InferOutput<typeof OAuth2AuthSchema>;
 export type AwsSigV4Auth = v.InferOutput<typeof AwsSigV4AuthSchema>;
+export type EdgeGridAuth = v.InferOutput<typeof EdgeGridAuthSchema>;
 export type DigestAuth = v.InferOutput<typeof DigestAuthSchema>;
 export type OAuth1Auth = v.InferOutput<typeof OAuth1AuthSchema>;
 export type HawkAuth = v.InferOutput<typeof HawkAuthSchema>;

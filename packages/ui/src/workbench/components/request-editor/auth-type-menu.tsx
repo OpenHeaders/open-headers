@@ -11,6 +11,7 @@
 
 import {
   AmazonOutlined,
+  CloudServerOutlined,
   FileProtectOutlined,
   KeyOutlined,
   LinkOutlined,
@@ -32,7 +33,7 @@ import { authTypeLabelKey, type InheritSelectItem, ownAuthTypeOptions } from './
  *  signatures, then `none` apart; a divider between sections. */
 export const AUTH_TYPE_SECTIONS: readonly (readonly ConcreteAuthType[])[] = [
   ['api-key', 'basic', 'bearer', 'digest', 'hawk', 'jwt', 'oauth1', 'oauth2'],
-  ['aws-sigv4'],
+  ['aws-sigv4', 'edgegrid'],
   ['none'],
 ];
 
@@ -64,6 +65,7 @@ const AUTH_TYPE_ICONS: Record<ConcreteAuthType, React.ReactNode> = {
   oauth1: <LinkOutlined />,
   oauth2: <LoginOutlined />,
   'aws-sigv4': <AmazonOutlined />,
+  edgegrid: <CloudServerOutlined />,
   none: <StopOutlined />,
 };
 

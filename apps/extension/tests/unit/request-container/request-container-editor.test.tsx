@@ -301,6 +301,7 @@ describe('RequestContainerEditor — the empty state', () => {
       'oauth1',
       'oauth2',
       'aws-sigv4',
+      'edgegrid',
       'none',
     ]);
     fireEvent.click(cards.find((c) => c.getAttribute('data-type') === 'bearer') as HTMLElement);
@@ -795,7 +796,8 @@ describe('AuthorizationTab — the request-level Inherit pane', () => {
     expect(options[0].textContent).toBe('Admin tokenDefault');
     expect(options[1].textContent).toBe('User token');
     expect(options[2].textContent).toBe('API Key');
-    expect(options[options.length - 2].textContent).toBe('AWS Signature v4');
+    expect(options[options.length - 3].textContent).toBe('AWS Signature v4');
+    expect(options[options.length - 2].textContent).toBe('Akamai EdgeGrid');
     expect(options[options.length - 1].textContent).toBe('No Auth');
     fireEvent.click(options[1]);
     expect(onChange).toHaveBeenCalledWith({ type: 'inherit', authUid: 'user0001' });
@@ -931,6 +933,32 @@ describe('AuthorizationTab — sectioned forms and the (i) popovers', () => {
     closePopover();
   });
 
+  it('Akamai EdgeGrid reads as Credentials · Signing; the secret lights the signature, the list its header', () => {
+    const onChange = vi.fn();
+    const edgegrid: AuthConfig = { type: 'edgegrid', clientToken: '', accessToken: '', clientSecret: '' };
+    const first = render(<AuthorizationTab auth={edgegrid} onChange={onChange} />);
+    expect(screen.getByRole('button', { name: 'Credentials' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Signing' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Delivery' })).toBeNull();
+    expect(screen.getByText('Headers to Sign')).toBeTruthy();
+    const type = openPopover('About Akamai EdgeGrid');
+    expect(litTexts(type)).toEqual(['Authorization: EG1-HMAC-SHA256']);
+    closePopover();
+    first.unmount();
+    const second = render(<AuthorizationTab auth={edgegrid} onChange={onChange} />);
+    const secret = openPopover('About Client Secret');
+    expect(secret.querySelector('.oh-info-popover-kicker')?.textContent).toBe('Credentials');
+    expect(litTexts(secret)).toEqual(['signature=tL+y4hxyHxgW…']);
+    closePopover();
+    second.unmount();
+    // The header list's popover forces its signed line into view.
+    render(<AuthorizationTab auth={edgegrid} onChange={onChange} />);
+    const list = openPopover('About Headers to Sign');
+    expect(litTexts(list)).toEqual(['x-test1:test-simple-header']);
+    expect(list.textContent).not.toContain('content hash');
+    closePopover();
+  });
+
   it("the pool entry pane's type select opens the compact sectioned popup — every type in view, two dividers", async () => {
     requestsState = {
       ...requestsState,
@@ -943,14 +971,15 @@ describe('AuthorizationTab — sectioned forms and the (i) popovers', () => {
     await waitFor(() => expect(document.querySelector('.oh-auth-type-popup')).toBeTruthy());
     const popup = document.querySelector('.oh-auth-type-popup');
     if (!popup) throw new Error('no popup');
-    // No virtual window: all ten types are in the DOM at once; the two
-    // label-less groups are the section dividers (vendor, none).
-    expect(popup.querySelectorAll('.ant-select-item-option')).toHaveLength(10);
+    // No virtual window: all eleven types are in the DOM at once; the
+    // two label-less groups are the section dividers (vendor, none).
+    expect(popup.querySelectorAll('.ant-select-item-option')).toHaveLength(11);
     expect(popup.querySelectorAll('.ant-select-item-group')).toHaveLength(2);
     const labels = Array.from(popup.querySelectorAll('.ant-select-item-option')).map((el) => el.textContent);
     expect(labels[0]).toBe('API Key');
     expect(labels[8]).toBe('AWS Signature v4');
-    expect(labels[9]).toBe('No Auth');
+    expect(labels[9]).toBe('Akamai EdgeGrid');
+    expect(labels[10]).toBe('No Auth');
     fireEvent.keyDown(input, { key: 'Escape' });
   });
 

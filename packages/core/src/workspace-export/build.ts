@@ -154,6 +154,12 @@ function stripConfigSecrets<A extends AuthConfig>(auth: A): A {
     const { tokenSecret: _omitted, privateKey: _alsoOmitted, ...rest } = auth;
     return { ...rest, consumerSecret: '' } as A;
   }
+  if (auth.type === 'edgegrid') {
+    // The required `clientSecret` is the signing-key material — blanks
+    // so the config stays schema-valid; the two tokens are identifiers
+    // that ride the wire anyway and survive.
+    return { ...auth, clientSecret: '' } as A;
+  }
   if (auth.type === 'hawk') {
     // The required `authKey` is the HMAC key material — blanks so the
     // config stays schema-valid and the completeness gate walks the
