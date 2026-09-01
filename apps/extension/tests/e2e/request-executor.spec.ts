@@ -269,6 +269,79 @@ test.describe('Request executor — GET with a body is permissive', () => {
   });
 });
 
+/** The `Authorization` value RFC 7617 prescribes for a credential pair —
+ *  UTF-8 bytes of `user:pass`, base64. Independent of the executor's
+ *  encoder (node's Buffer, not the SW's TextEncoder + btoa). */
+const basicHeader = (username: string, password: string) =>
+  `Basic ${Buffer.from(`${username}:${password}`, 'utf8').toString('base64')}`;
+
+type BasicAuth = Extract<ApiClientCombo['auth'], { type: 'basic' }>;
+
+/** A bodiless GET draft carrying a basic config and optional user header rows. */
+function basicDraft(
+  uid: string,
+  auth: BasicAuth,
+  headers: Array<{ uid: string; key: string; value: string }> = [],
+): Record<string, unknown> {
+  return {
+    schemaVersion: 5,
+    uid,
+    path: `requests/api-echo-e2e/${uid}`,
+    name: `basic auth leg ${uid}`,
+    method: 'GET',
+    url: API_ECHO_URL,
+    headers,
+    params: [],
+    auth,
+    body: { type: 'none' },
+  };
+}
+
+async function sendBasic(draft: Record<string, unknown>): Promise<EchoResponse> {
+  const exec = await rpc<{ success: boolean; snapshot?: ExecSnapshot; error?: string }>('executeRequest', { draft });
+  expect(exec.success, exec.error).toBe(true);
+  const snapshot = exec.snapshot!;
+  expect(snapshot.error ?? null).toBeNull();
+  expect(snapshot.status).toBe(200);
+  return JSON.parse(snapshot.body) as EchoResponse;
+}
+
+test.describe('Request executor — basic auth wire legs', () => {
+  test("replaces a user's same-key Authorization row: exactly one Basic value on the wire", async () => {
+    const echo = await sendBasic(
+      basicDraft('rqbascol', { type: 'basic', username: 'alice@openheaders.io', password: 'p4ssw0rd' }, [
+        { uid: 'stalehdr', key: 'Authorization', value: 'Bearer stale-user-token' },
+      ]),
+    );
+    // The raw header, not the decode: a comma-joined pair would still
+    // decode as `basic` with garbage in the password.
+    expect(echo.headers.authorization).toBe(basicHeader('alice@openheaders.io', 'p4ssw0rd'));
+    expect(echo.auth).toMatchObject({ kind: 'basic', username: 'alice@openheaders.io', password: 'p4ssw0rd' });
+  });
+
+  test('UTF-8 credentials ride as RFC 7617 bytes and decode back intact', async () => {
+    const echo = await sendBasic(basicDraft('rqbasutf', { type: 'basic', username: 'ünicode', password: 'pässwörd' }));
+    expect(echo.headers.authorization).toBe(basicHeader('ünicode', 'pässwörd'));
+    expect(echo.auth).toMatchObject({ kind: 'basic', username: 'ünicode', password: 'pässwörd' });
+  });
+
+  test('a blank password is legal: username-only credential with the trailing colon', async () => {
+    const echo = await sendBasic(
+      basicDraft('rqbasnop', { type: 'basic', username: 'alice@openheaders.io', password: '' }),
+    );
+    expect(echo.headers.authorization).toBe(basicHeader('alice@openheaders.io', ''));
+    expect(echo.auth).toMatchObject({ kind: 'basic', username: 'alice@openheaders.io', password: '' });
+  });
+
+  test('a disabled config contributes nothing — no Authorization header at all', async () => {
+    const echo = await sendBasic(
+      basicDraft('rqbasoff', { type: 'basic', username: 'alice@openheaders.io', password: 'p4ssw0rd', disabled: true }),
+    );
+    expect(echo.auth.kind).toBe('none');
+    expect(echo.headers.authorization).toBeUndefined();
+  });
+});
+
 test.describe('Request executor — auth × body combos against /api/echo', () => {
   for (const combo of API_CLIENT_COMBOS) {
     test(combo.name, async () => {

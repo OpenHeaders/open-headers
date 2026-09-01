@@ -43,6 +43,14 @@ function makeJWT(header: object, payload: object, secret: string): string {
   return `${input}.${createHmac('sha256', secret).update(input).digest('base64url')}`;
 }
 
+/** The Headers tab's Bulk Edit textarea, by its placeholder. */
+const HEADERS_BULK = /Content-Type: application/;
+
+/** RFC 7617's `Authorization` value for a credential pair — node's
+ *  encoder, independent of the SW's TextEncoder + btoa. */
+const basicHeader = (username: string, password: string) =>
+  `Basic ${Buffer.from(`${username}:${password}`, 'utf8').toString('base64')}`;
+
 const JWT_HEADER = { alg: 'HS256', typ: 'JWT' };
 const JWT_PAYLOAD = { sub: 'user@openheaders.io', iss: 'openheaders.io' };
 const JWT_PAYLOAD_EDITED_OBJ = { sub: 'admin@openheaders.io', iss: 'openheaders.io' };
@@ -112,6 +120,25 @@ test.describe('Authorization tab — credentials typed in the DOM reach the wire
     await expect(input).not.toHaveClass(/oh-template-input-secret/);
     await wrapper.getByLabel('Hide value').click();
     await expect(input).toHaveClass(/oh-template-input-secret/);
+  });
+
+  test("a user's Authorization row is struck through under basic auth and does not ride", async () => {
+    // Basic is still selected from the legs above; add a colliding
+    // user row on the Headers tab and read the tab's promise back off
+    // the wire — the struck row is the one the executor drops.
+    await workbench.openEditorTab(/Headers/);
+    await workbench.fillBulkEdit(HEADERS_BULK, 'Authorization: Bearer stale-user-token');
+    await expect(page.getByTestId('oh-kv-row-warning').filter({ visible: true })).toBeVisible();
+    await workbench.send();
+    const echo = await workbench.responseEcho<Echo>();
+    expect(echo.headers.authorization).toBe(basicHeader('alice@openheaders.io', 'p4ssw0rd!!'));
+    expect(echo.auth).toMatchObject({ kind: 'basic', username: 'alice@openheaders.io', password: 'p4ssw0rd!!' });
+
+    // Clear the row so the later legs (api-key asserts NO Authorization
+    // at all) start from the seeded header-less request.
+    await workbench.fillBulkEdit(HEADERS_BULK, '');
+    await expect(page.getByTestId('oh-kv-row-warning').filter({ visible: true })).toHaveCount(0);
+    await workbench.openEditorTab(/Authorization/);
   });
 
   test('bearer token rides as Authorization: Bearer', async () => {
