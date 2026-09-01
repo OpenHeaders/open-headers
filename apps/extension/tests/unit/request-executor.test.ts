@@ -234,6 +234,30 @@ describe('RequestExecutor', () => {
     expect((init.headers as Headers).get('authorization')).toBe('Bearer abc123');
   });
 
+  it("basic auth replaces a user's same-key Authorization row instead of combining with it", async () => {
+    await executeRequestDraft(
+      makeRequest({
+        headers: [{ uid: 'stalehdr', key: 'authorization', value: 'Bearer stale-user-token' }],
+        auth: { type: 'basic', username: 'alice', password: 'p4ssw0rd' },
+      }),
+    );
+    const [, init] = fetchMock.mock.calls[0];
+    // `Headers.append` combines same-key values with a comma — exactly
+    // the garbage the fold must pre-empt by removing the user row.
+    expect((init.headers as Headers).get('authorization')).toBe(`Basic ${btoa('alice:p4ssw0rd')}`);
+  });
+
+  it("bearer auth replaces a user's same-key Authorization row instead of combining with it", async () => {
+    await executeRequestDraft(
+      makeRequest({
+        headers: [{ uid: 'stalehdr', key: 'Authorization', value: 'Basic c3RhbGU6c3RhbGU=' }],
+        auth: { type: 'bearer', token: 'abc123' },
+      }),
+    );
+    const [, init] = fetchMock.mock.calls[0];
+    expect((init.headers as Headers).get('authorization')).toBe('Bearer abc123');
+  });
+
   it('places api-key in header when in=header', async () => {
     await executeRequestDraft(
       makeRequest({ auth: { type: 'api-key', key: 'X-Api-Key', value: 'secret', in: 'header' } }),

@@ -10,6 +10,21 @@ import { getTokenBundle as getOAuthTokenBundle } from '@openheaders/oracle/entit
 import { logger } from '@utils/logger';
 import { OAuth2FlowError, performRefresh as performOAuthRefresh } from '../oauth-flow';
 
+/**
+ * Auth contributions REPLACE a same-key user header rather than
+ * duplicating it — the wire builder appends, so a stale user
+ * `Authorization` row would combine with the auth value into garbage.
+ * The Headers tab renders the colliding user row struck through on
+ * this promise. Twin of the oracle resolver's helper.
+ */
+function setAuthHeader(headers: Array<{ key: string; value: string }>, key: string, value: string): void {
+  const lower = key.toLowerCase();
+  for (let i = headers.length - 1; i >= 0; i--) {
+    if (headers[i].key.toLowerCase() === lower) headers.splice(i, 1);
+  }
+  headers.push({ key, value });
+}
+
 export async function applyAuth(
   auth: AuthConfig,
   headers: Array<{ key: string; value: string }>,
@@ -32,17 +47,17 @@ export async function applyAuth(
     let binary = '';
     for (const byte of bytes) binary += String.fromCharCode(byte);
     const token = btoa(binary);
-    headers.push({ key: 'Authorization', value: `Basic ${token}` });
+    setAuthHeader(headers, 'Authorization', `Basic ${token}`);
     return;
   }
   if (auth.type === 'bearer') {
-    headers.push({ key: 'Authorization', value: `Bearer ${resolveStr(auth.token)}` });
+    setAuthHeader(headers, 'Authorization', `Bearer ${resolveStr(auth.token)}`);
     return;
   }
   if (auth.type === 'api-key') {
     const k = resolveStr(auth.key);
     const v = resolveStr(auth.value);
-    if (auth.in === 'header') headers.push({ key: k, value: v });
+    if (auth.in === 'header') setAuthHeader(headers, k, v);
     else params.push({ key: k, value: v });
     return;
   }
@@ -108,7 +123,7 @@ export async function applyAuth(
         // providers that require it.
         params.push({ key: 'access_token', value: bundle.accessToken });
       } else {
-        headers.push({ key: 'Authorization', value: `${bundle.tokenType} ${bundle.accessToken}` });
+        setAuthHeader(headers, 'Authorization', `${bundle.tokenType} ${bundle.accessToken}`);
       }
     }
   }
