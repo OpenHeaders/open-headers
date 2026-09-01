@@ -35,9 +35,17 @@ export function formatCurlSnippet(req: WireSnippetRequest): string {
     parts.push(`--user ${shellQuote(`${req.digest.username}:${req.digest.password}`)}`);
   }
 
-  if (req.awsSigV4) {
+  // Header mode only — curl has no presigned-URL mode, so a
+  // query-signed request copies without its auth (the snippet layer's
+  // standing gap for the wire-signed types). curl's provider string is
+  // positional (`aws:amz[:region[:service]]`) and derives an omitted
+  // tail from the host exactly as our signer does, so blank scope
+  // fields drop off the end.
+  if (req.awsSigV4 && req.awsSigV4.addTo !== 'query') {
+    const { region, service } = req.awsSigV4;
+    const provider = ['aws', 'amz', ...(region || service ? [region] : []), ...(service ? [service] : [])].join(':');
     parts.push(`--user ${shellQuote(`${req.awsSigV4.accessKeyId}:${req.awsSigV4.secretAccessKey}`)}`);
-    parts.push(`--aws-sigv4 ${shellQuote(`aws:amz:${req.awsSigV4.region}:${req.awsSigV4.service}`)}`);
+    parts.push(`--aws-sigv4 ${shellQuote(provider)}`);
     if (req.awsSigV4.sessionToken) {
       parts.push(`-H ${shellQuote(`x-amz-security-token: ${req.awsSigV4.sessionToken}`)}`);
     }

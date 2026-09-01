@@ -594,6 +594,10 @@ export const OAuth2AuthSchema = v.object({
  * Fields are plain strings (templates welcome — `{{vault.aws_secret}}`
  * is the expected idiom for the secret); completeness is a send-time
  * gate, not a schema constraint, so partial configs stay saveable.
+ * The scope pair may stay blank: an AWS endpoint names the service and
+ * region in its hostname and the signer derives them there (a blank
+ * region falls back to `us-east-1`; a blank service on a foreign host
+ * is the send-time error).
  */
 export const AwsSigV4AuthSchema = v.object({
   type: v.literal('aws-sigv4'),
@@ -604,10 +608,17 @@ export const AwsSigV4AuthSchema = v.object({
    *  `X-Amz-Security-Token` when present. */
   sessionToken: v.optional(v.string()),
   /** Service namespace the credential scope names (`s3`, `execute-api`,
-   *  `dynamodb`, …). `s3` additionally signs `x-amz-content-sha256`. */
+   *  `dynamodb`, …). `s3` additionally signs `x-amz-content-sha256`.
+   *  Blank = derived from the host. */
   service: v.string(),
-  /** Region the credential scope names (`us-east-1`, …). */
+  /** Region the credential scope names (`us-east-1`, …). Blank =
+   *  derived from the host, else `us-east-1`. */
   region: v.string(),
+  /** Where the signature lands — the `Authorization` header (absent =
+   *  the default) or the URL's query string as the `X-Amz-*`
+   *  parameters (the presigned-URL shape, for endpoints that cannot
+   *  take a header). */
+  addTo: v.optional(v.picklist(['header', 'query'])),
 });
 
 /**

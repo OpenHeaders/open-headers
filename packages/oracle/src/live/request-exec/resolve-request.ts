@@ -308,6 +308,7 @@ export async function resolveRequest(
           ...(effectiveAuth.sessionToken ? { sessionToken: resolveStr(effectiveAuth.sessionToken) } : {}),
           service: resolveStr(effectiveAuth.service),
           region: resolveStr(effectiveAuth.region),
+          ...(effectiveAuth.addTo ? { addTo: effectiveAuth.addTo } : {}),
         }
       : undefined;
 

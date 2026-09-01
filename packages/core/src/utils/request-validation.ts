@@ -98,16 +98,14 @@ function isRequestCompleteUnsafe(
       // sees that).
       return true;
     case 'aws-sigv4':
-      // All four scope/credential fields are needed to compute a
-      // signature at all — a partial config can't even produce a
-      // well-formed Authorization header (unlike oauth2, where the
-      // 401 is the actionable signal). sessionToken stays optional.
-      return (
-        auth.accessKeyId.trim().length > 0 &&
-        auth.secretAccessKey.trim().length > 0 &&
-        auth.service.trim().length > 0 &&
-        auth.region.trim().length > 0
-      );
+      // Both credential fields are needed to compute a signature at
+      // all — a partial config can't even produce a well-formed
+      // Authorization header (unlike oauth2, where the 401 is the
+      // actionable signal). The scope pair may stay blank: the signer
+      // derives it from an AWS host at send time, and a blank service
+      // on a foreign host is the send error. sessionToken stays
+      // optional.
+      return auth.accessKeyId.trim().length > 0 && auth.secretAccessKey.trim().length > 0;
     case 'digest':
       // Mirrors basic: username is the non-negotiable bit; password may
       // legitimately be blank. Everything else (realm, nonce, algorithm,
@@ -148,8 +146,6 @@ export type RequestIncompleteReason =
   | 'api-key-missing-value'
   | 'aws-sigv4-missing-access-key'
   | 'aws-sigv4-missing-secret-key'
-  | 'aws-sigv4-missing-service'
-  | 'aws-sigv4-missing-region'
   | 'digest-missing-username'
   | 'oauth1-missing-consumer-key'
   | 'oauth1-missing-private-key'
@@ -223,8 +219,6 @@ export function requestIncompleteReason(
     case 'aws-sigv4':
       if (!auth.accessKeyId.trim()) return 'aws-sigv4-missing-access-key';
       if (!auth.secretAccessKey.trim()) return 'aws-sigv4-missing-secret-key';
-      if (!auth.service.trim()) return 'aws-sigv4-missing-service';
-      if (!auth.region.trim()) return 'aws-sigv4-missing-region';
       return null;
     case 'digest':
       return auth.username.trim().length > 0 ? null : 'digest-missing-username';

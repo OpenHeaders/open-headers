@@ -89,6 +89,18 @@ export function previewAuthContributions(auth: AuthConfig, t: Translate): AuthPr
       return inQuery ? { headers: [], params: [entry] } : { headers: [entry], params: [] };
     }
     case 'aws-sigv4':
+      if (auth.addTo === 'query') {
+        return {
+          headers: [],
+          params: ['X-Amz-Algorithm', 'X-Amz-Credential', 'X-Amz-Date', 'X-Amz-SignedHeaders', 'X-Amz-Signature'].map(
+            (key) => ({
+              key,
+              value: t('workbench.editors.request.authPreview.awsSigV4QueryValue'),
+              hint: t('workbench.editors.request.authPreview.awsSigV4QueryHint'),
+            }),
+          ),
+        };
+      }
       return {
         headers: [
           {

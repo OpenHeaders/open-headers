@@ -6,9 +6,14 @@
  */
 
 export {
+  AWS_SIGV4_DEFAULT_REGION,
+  AWS_SIGV4_QUERY_EXPIRES_SECONDS,
   AWS_SIGV4_UNSIGNED_PAYLOAD,
   type AwsSigV4Credentials,
+  type AwsSigV4Signed,
   type AwsSigV4SignInput,
+  deriveAwsScope,
+  resolveAwsScope,
   sha256Hex,
   signAwsSigV4,
 } from './aws-sigv4';

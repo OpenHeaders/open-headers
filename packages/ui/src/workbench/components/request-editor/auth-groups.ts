@@ -35,12 +35,22 @@ export const AUTH_GROUP_LABEL_KEY: Record<AuthGroupKey, MessageKey> = {
 
 /** The types whose forms are sectioned, in their section order.
  *  Delivery closes every form that has one. */
-export type GroupedAuthType = 'basic' | 'bearer' | 'api-key' | 'digest' | 'oauth1' | 'hawk' | 'jwt' | 'oauth2';
+export type GroupedAuthType =
+  | 'basic'
+  | 'bearer'
+  | 'api-key'
+  | 'aws-sigv4'
+  | 'digest'
+  | 'oauth1'
+  | 'hawk'
+  | 'jwt'
+  | 'oauth2';
 
 export const AUTH_TYPE_GROUPS: Record<GroupedAuthType, readonly AuthGroupKey[]> = {
   basic: ['credentials'],
   bearer: ['token'],
   'api-key': ['credentials', 'delivery'],
+  'aws-sigv4': ['credentials', 'signing', 'delivery'],
   digest: ['credentials', 'challenge'],
   oauth1: ['signing', 'consumer', 'token', 'delivery'],
   hawk: ['credentials', 'signing', 'attributes'],

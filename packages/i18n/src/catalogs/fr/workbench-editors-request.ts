@@ -167,6 +167,9 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.authPreview.awsSigV4DateHint':
     "Généré depuis l'onglet Autorisation (AWS Signature v4). L'horodatage de signature est ajouté à cet " +
     "en-tête à l'envoi de la requête.",
+  'workbench.editors.request.authPreview.awsSigV4QueryValue': '<paramètres signés>',
+  'workbench.editors.request.authPreview.awsSigV4QueryHint':
+    'Généré depuis l\u2019onglet Autorisation (AWS Signature v4). Les paramètres X-Amz-* sont ajoutés à la requête de l\u2019URL lors de l\u2019envoi.',
   'workbench.editors.request.authPreview.digestValue': 'Digest <réponse au défi>',
   'workbench.editors.request.authPreview.digestHint':
     "Généré depuis l'onglet Autorisation (Digest Auth). La valeur est calculée à partir du défi du serveur à " +
@@ -317,6 +320,26 @@ export const workbenchEditorsRequest = {
     'Header envoie le JWT dans l\u2019en-tête Authorization ; Query Params l\u2019ajoute comme token= sur l\u2019URL.',
   'workbench.editors.request.auth.rowInfo.jwtHeaderPrefix':
     'Le schéma devant le JWT dans l\u2019en-tête Authorization \u2014 Bearer par défaut ; vide envoie le jeton nu.',
+  'workbench.editors.request.auth.typeInfo.awsSigV4':
+    'La clé secrète signe la méthode, le chemin, la requête, les en-têtes et le hachage de la charge utile ; la signature voyage dans un en-tête Authorization: AWS4-HMAC-SHA256 avec X-Amz-Date, ou comme paramètres de requête X-Amz-* \u2014 rien de secret ne voyage.',
+  'workbench.editors.request.auth.groupInfo.awsSigV4.credentials':
+    'La clé d\u2019accès voyage dans Credential=, la clé secrète uniquement via la signature qu\u2019elle calcule ; le jeton de session voyage comme X-Amz-Security-Token pour les identifiants temporaires.',
+  'workbench.editors.request.auth.groupInfo.awsSigV4.signing':
+    'La portée d\u2019identifiant par laquelle la clé de signature est dérivée \u2014 service et région ; laissez l\u2019un vide et il est déduit d\u2019un nom d\u2019hôte AWS (la région retombe sur us-east-1).',
+  'workbench.editors.request.auth.groupInfo.awsSigV4.delivery':
+    'Où la signature atterrit \u2014 l\u2019en-tête Authorization avec X-Amz-Date, ou des paramètres de requête X-Amz-* pour les points de terminaison qui n\u2019acceptent pas d\u2019en-tête.',
+  'workbench.editors.request.auth.rowInfo.awsAccessKey':
+    'Identifie la paire de clés \u2014 voyage dans Credential= avant la portée.',
+  'workbench.editors.request.auth.rowInfo.awsSecretKey':
+    'Le matériel de clé dont la clé de signature est dérivée ; il ne voyage jamais.',
+  'workbench.editors.request.auth.rowInfo.awsSessionToken':
+    'Le jeton de session STS \u2014 voyage comme X-Amz-Security-Token, signé, pour les identifiants temporaires uniquement.',
+  'workbench.editors.request.auth.rowInfo.awsService':
+    'Le service de la portée d\u2019identifiant (s3, execute-api, \u2026) ; vide, il est déduit d\u2019un nom d\u2019hôte AWS. s3 signe en plus le hachage de la charge utile comme en-tête.',
+  'workbench.editors.request.auth.rowInfo.awsRegion':
+    'La région de la portée d\u2019identifiant ; vide, elle est déduite d\u2019un nom d\u2019hôte AWS, sinon us-east-1.',
+  'workbench.editors.request.auth.rowInfo.awsAddTo':
+    'Un en-tête (par défaut), ou la requête de l\u2019URL \u2014 la forme présignée pour les points de terminaison qui n\u2019acceptent pas d\u2019en-tête.',
   'workbench.editors.request.auth.typeInfo.oauth2':
     'Le client obtient un jeton d\u2019accès auprès du fournisseur \u2014 une autorisation dans le navigateur puis un échange de jeton, ou un échange direct pour les octrois machine et mot de passe \u2014 et chaque envoi le porte comme jeton bearer, rafraîchi à expiration si un jeton de rafraîchissement a été émis.',
   'workbench.editors.request.auth.groupInfo.oauth2.token':
@@ -473,8 +496,8 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.auth.awsAccessKeyPlaceholder': 'p. ex. AKIAIOSFODNN7EXAMPLE',
   'workbench.editors.request.auth.awsSecretKeyPlaceholder': "clé d'accès secrète",
   'workbench.editors.request.auth.awsSessionTokenPlaceholder': 'facultatif — identifiants temporaires (STS) uniquement',
-  'workbench.editors.request.auth.awsServicePlaceholder': 'p. ex. s3, execute-api',
-  'workbench.editors.request.auth.awsRegionPlaceholder': 'p. ex. us-east-1',
+  'workbench.editors.request.auth.awsServicePlaceholder': 'auto depuis un hôte AWS \u2014 p. ex. s3, execute-api',
+  'workbench.editors.request.auth.awsRegionPlaceholder': 'auto depuis un hôte AWS, sinon us-east-1',
   'workbench.editors.request.auth.sendAsLabel': "Ajouter les données d'autorisation à",
   'workbench.editors.request.auth.sendAsHeaders': 'En-têtes de requête',
   'workbench.editors.request.auth.sendAsUrl': 'URL de la requête',

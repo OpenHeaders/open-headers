@@ -227,13 +227,16 @@ const ApiKeyEditor: React.FC<FormProps<'api-key'>> = ({ auth, onChange }) => {
 
 // ── AWS Signature v4 editor ────────────────────────────────────────
 //
-// Plain credential + scope fields; the signature itself is derived at
-// send time over the final wire shape, so there is nothing else to
-// configure. An emptied Session Token persists ABSENT (optional field
-// — the empty string never lands on disk).
+// Credentials (the key pair + the STS session token) · Signing (the
+// credential scope — service and region, each blank = derived from an
+// AWS host at send time) · Delivery (header or query). The signature
+// itself is derived at send time over the final wire shape. Emptied
+// optional fields persist ABSENT (the Session Token pattern); the
+// header delivery persists absent too.
 
 const AwsSigV4Editor: React.FC<FormProps<'aws-sigv4'>> = ({ auth, onChange }) => {
   const t = useT();
+  const info = (key: AuthInfoKey) => authRowInfo(t, auth, key);
   const setSessionToken = (next: string) => {
     if (next) {
       onChange({ ...auth, sessionToken: next });
@@ -244,47 +247,73 @@ const AwsSigV4Editor: React.FC<FormProps<'aws-sigv4'>> = ({ auth, onChange }) =>
   };
   return (
     <AuthForm>
-      <LabeledRow label={t('workbench.editors.request.auth.awsAccessKey')}>
-        <TemplateInput
-          size="small"
-          value={auth.accessKeyId}
-          onChange={(next) => onChange({ ...auth, accessKeyId: next })}
-          placeholder={t('workbench.editors.request.auth.awsAccessKeyPlaceholder')}
-          style={{ maxWidth: FIELD_DEFAULT_MAX_WIDTH }}
-        />
-      </LabeledRow>
-      <LabeledRow label={t('workbench.editors.request.auth.awsSecretKey')}>
-        <SecretField
-          value={auth.secretAccessKey}
-          onChange={(next) => onChange({ ...auth, secretAccessKey: next })}
-          placeholder={t('workbench.editors.request.auth.awsSecretKeyPlaceholder')}
-        />
-      </LabeledRow>
-      <LabeledRow label={t('workbench.editors.request.auth.awsSessionToken')}>
-        <SecretField
-          value={auth.sessionToken ?? ''}
-          onChange={setSessionToken}
-          placeholder={t('workbench.editors.request.auth.awsSessionTokenPlaceholder')}
-        />
-      </LabeledRow>
-      <LabeledRow label={t('workbench.editors.request.auth.awsService')}>
-        <TemplateInput
-          size="small"
-          value={auth.service}
-          onChange={(next) => onChange({ ...auth, service: next })}
-          placeholder={t('workbench.editors.request.auth.awsServicePlaceholder')}
-          style={{ maxWidth: FIELD_DEFAULT_MAX_WIDTH }}
-        />
-      </LabeledRow>
-      <LabeledRow label={t('workbench.editors.request.auth.awsRegion')}>
-        <TemplateInput
-          size="small"
-          value={auth.region}
-          onChange={(next) => onChange({ ...auth, region: next })}
-          placeholder={t('workbench.editors.request.auth.awsRegionPlaceholder')}
-          style={{ maxWidth: FIELD_DEFAULT_MAX_WIDTH }}
-        />
-      </LabeledRow>
+      <FormGroup
+        auth={auth}
+        group="credentials"
+        modified={isSet(auth.accessKeyId) || isSet(auth.secretAccessKey) || isSet(auth.sessionToken)}
+      >
+        <LabeledRow label={t('workbench.editors.request.auth.awsAccessKey')} info={info('awsAccessKey')}>
+          <TemplateInput
+            size="small"
+            value={auth.accessKeyId}
+            onChange={(next) => onChange({ ...auth, accessKeyId: next })}
+            placeholder={t('workbench.editors.request.auth.awsAccessKeyPlaceholder')}
+            style={{ maxWidth: FIELD_DEFAULT_MAX_WIDTH }}
+          />
+        </LabeledRow>
+        <LabeledRow label={t('workbench.editors.request.auth.awsSecretKey')} info={info('awsSecretKey')}>
+          <SecretField
+            value={auth.secretAccessKey}
+            onChange={(next) => onChange({ ...auth, secretAccessKey: next })}
+            placeholder={t('workbench.editors.request.auth.awsSecretKeyPlaceholder')}
+          />
+        </LabeledRow>
+        <LabeledRow label={t('workbench.editors.request.auth.awsSessionToken')} info={info('awsSessionToken')}>
+          <SecretField
+            value={auth.sessionToken ?? ''}
+            onChange={setSessionToken}
+            placeholder={t('workbench.editors.request.auth.awsSessionTokenPlaceholder')}
+          />
+        </LabeledRow>
+      </FormGroup>
+      <FormGroup auth={auth} group="signing" modified={isSet(auth.service) || isSet(auth.region)}>
+        <LabeledRow label={t('workbench.editors.request.auth.awsService')} info={info('awsService')}>
+          <TemplateInput
+            size="small"
+            value={auth.service}
+            onChange={(next) => onChange({ ...auth, service: next })}
+            placeholder={t('workbench.editors.request.auth.awsServicePlaceholder')}
+            style={{ maxWidth: FIELD_DEFAULT_MAX_WIDTH }}
+          />
+        </LabeledRow>
+        <LabeledRow label={t('workbench.editors.request.auth.awsRegion')} info={info('awsRegion')}>
+          <TemplateInput
+            size="small"
+            value={auth.region}
+            onChange={(next) => onChange({ ...auth, region: next })}
+            placeholder={t('workbench.editors.request.auth.awsRegionPlaceholder')}
+            style={{ maxWidth: FIELD_DEFAULT_MAX_WIDTH }}
+          />
+        </LabeledRow>
+      </FormGroup>
+      <FormGroup auth={auth} group="delivery" modified={auth.addTo === 'query'}>
+        <LabeledRow label={t('workbench.editors.request.auth.addTo')} info={info('awsAddTo')}>
+          <Select
+            size="small"
+            data-testid="oh-auth-aws-add-to"
+            value={auth.addTo ?? 'header'}
+            onChange={(next: 'header' | 'query') =>
+              onChange(next === 'query' ? { ...auth, addTo: 'query' } : (({ addTo: _omit, ...rest }) => rest)(auth))
+            }
+            options={[
+              { value: 'header', label: t('workbench.editors.request.auth.addToHeader') },
+              { value: 'query', label: t('workbench.editors.request.auth.addToQuery') },
+            ]}
+            style={{ width: '100%', maxWidth: FIELD_DEFAULT_MAX_WIDTH }}
+          />
+        </LabeledRow>
+      </FormGroup>
+      <AuthFormNote>{t('workbench.editors.request.auth.authAutoGeneratedNote')}</AuthFormNote>
     </AuthForm>
   );
 };

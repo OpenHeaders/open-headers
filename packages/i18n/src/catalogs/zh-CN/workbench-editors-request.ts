@@ -150,6 +150,9 @@ export const workbenchEditorsRequest = {
     '由授权标签页生成（AWS Signature v4）。发送时用你的凭据对请求签名。',
   'workbench.editors.request.authPreview.awsSigV4DateHint':
     '由授权标签页生成（AWS Signature v4）。发送请求时，签名时间戳会被添加到此标头。',
+  'workbench.editors.request.authPreview.awsSigV4QueryValue': '<已签名参数>',
+  'workbench.editors.request.authPreview.awsSigV4QueryHint':
+    '由\u201c授权\u201d标签生成（AWS Signature v4）。发送请求时，X-Amz-* 参数会追加到 URL 查询字符串。',
   'workbench.editors.request.authPreview.digestValue': 'Digest <challenge response>',
   'workbench.editors.request.authPreview.digestHint':
     '由授权标签页生成（Digest Auth）。发送请求时根据服务器的质询计算该值，然后带上它重新发送请求。',
@@ -266,6 +269,22 @@ export const workbenchEditorsRequest = {
     'Header 将 JWT 放在 Authorization 标头中；Query Params 将其作为 token= 追加到 URL。',
   'workbench.editors.request.auth.rowInfo.jwtHeaderPrefix':
     'Authorization 标头中 JWT 前的方案 \u2014 默认为 Bearer；留空则发送裸令牌。',
+  'workbench.editors.request.auth.typeInfo.awsSigV4':
+    '用 Secret Key 对方法、路径、查询、标头和载荷哈希签名；签名随 Authorization: AWS4-HMAC-SHA256 标头与 X-Amz-Date 一起发送，或作为 X-Amz-* 查询参数发送——不发送任何机密。',
+  'workbench.editors.request.auth.groupInfo.awsSigV4.credentials':
+    'Access Key 随 Credential= 发送，Secret Key 只通过其计算出的签名体现；Session Token 以 X-Amz-Security-Token 发送，用于临时凭据。',
+  'workbench.editors.request.auth.groupInfo.awsSigV4.signing':
+    '签名密钥派生所依据的凭据范围——服务和区域；任一留空即从 AWS 主机名推导（区域回退为 us-east-1）。',
+  'workbench.editors.request.auth.groupInfo.awsSigV4.delivery':
+    '签名落在何处——带 X-Amz-Date 的 Authorization 标头，或供无法接受标头的端点使用的 X-Amz-* 查询参数。',
+  'workbench.editors.request.auth.rowInfo.awsAccessKey': '标识密钥对——随 Credential= 在范围之前发送。',
+  'workbench.editors.request.auth.rowInfo.awsSecretKey': '派生签名密钥的密钥材料；永不发送。',
+  'workbench.editors.request.auth.rowInfo.awsSessionToken':
+    'STS 会话令牌——以 X-Amz-Security-Token 发送并参与签名，仅用于临时凭据。',
+  'workbench.editors.request.auth.rowInfo.awsService':
+    '凭据范围中的服务（s3、execute-api 等）；留空则从 AWS 主机名推导。s3 还会将载荷哈希作为标头签名。',
+  'workbench.editors.request.auth.rowInfo.awsRegion': '凭据范围中的区域；留空则从 AWS 主机名推导，否则为 us-east-1。',
+  'workbench.editors.request.auth.rowInfo.awsAddTo': '标头（默认）或 URL 查询——供无法接受标头的端点使用的预签名形式。',
   'workbench.editors.request.auth.typeInfo.oauth2':
     '客户端从提供方获取访问令牌 \u2014 先在浏览器中授权再交换令牌，或对机器与密码授权直接交换 \u2014 每次发送都以 bearer 令牌携带；若签发了刷新令牌，过期时自动刷新。',
   'workbench.editors.request.auth.groupInfo.oauth2.token':
@@ -405,8 +424,8 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.auth.awsAccessKeyPlaceholder': '例如 AKIAIOSFODNN7EXAMPLE',
   'workbench.editors.request.auth.awsSecretKeyPlaceholder': 'secret access key',
   'workbench.editors.request.auth.awsSessionTokenPlaceholder': '可选——仅限临时（STS）凭据',
-  'workbench.editors.request.auth.awsServicePlaceholder': '例如 s3、execute-api',
-  'workbench.editors.request.auth.awsRegionPlaceholder': '例如 us-east-1',
+  'workbench.editors.request.auth.awsServicePlaceholder': '自动取自 AWS 主机——例如 s3、execute-api',
+  'workbench.editors.request.auth.awsRegionPlaceholder': '自动取自 AWS 主机，否则为 us-east-1',
   'workbench.editors.request.auth.sendAsLabel': '将授权数据添加到',
   'workbench.editors.request.auth.sendAsHeaders': '请求标头',
   'workbench.editors.request.auth.sendAsUrl': '请求 URL',

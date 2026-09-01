@@ -129,19 +129,10 @@ export function resolveAuth(
     case 'awsv4': {
       const params = asParams(raw.awsv4);
       const sessionToken = paramValue(params, 'sessionToken');
-      // Header signing is the only wire mode: presigned-URL (query)
-      // signing isn't supported, so a config that asked for it lands
-      // with its fields intact plus a transform naming the switch.
-      if (paramFlag(params, 'addAuthDataToQuery')) {
-        recordTransform(report, {
-          path: authPath,
-          from: 'awsv4/query-signing',
-          to: 'aws-sigv4/header-signing',
-          reason:
-            'AWS Signature v4 was set to sign via query parameters — imported to sign via request headers instead.',
-          tracking: 'PERMANENT: sigv4 header-signing only',
-        });
-      }
+      // The vendor's query-signing flag is our `addTo: 'query'` (the
+      // X-Amz-* parameters on the URL); header signing is the absent
+      // default on both sides. Blank service / region import blank —
+      // both derive from the host at send time, the vendor's rule too.
       return {
         auth: {
           type: 'aws-sigv4',
@@ -150,6 +141,7 @@ export function resolveAuth(
           ...(sessionToken ? { sessionToken } : {}),
           service: paramValue(params, 'service') ?? '',
           region: paramValue(params, 'region') ?? '',
+          ...(paramFlag(params, 'addAuthDataToQuery') ? { addTo: 'query' as const } : {}),
         },
         report,
       };

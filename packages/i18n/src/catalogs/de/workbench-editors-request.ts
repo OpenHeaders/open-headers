@@ -181,6 +181,9 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.authPreview.awsSigV4DateHint':
     'Aus dem Tab Autorisierung generiert (AWS Signature v4). Der Signatur-Zeitstempel wird beim Senden der ' +
     'Anfrage zu diesem Header hinzugefügt.',
+  'workbench.editors.request.authPreview.awsSigV4QueryValue': '<signierte Parameter>',
+  'workbench.editors.request.authPreview.awsSigV4QueryHint':
+    'Aus dem Tab Autorisierung erzeugt (AWS Signature v4). Die X-Amz-*-Parameter werden beim Senden an die URL-Query angehängt.',
   'workbench.editors.request.authPreview.digestValue': 'Digest <Challenge-Antwort>',
   'workbench.editors.request.authPreview.digestHint':
     'Aus dem Tab Autorisierung generiert (Digest Auth). Der Wert wird beim Senden aus der Challenge des ' +
@@ -328,6 +331,26 @@ export const workbenchEditorsRequest = {
     'Header sendet das JWT im Authorization-Header; Query Params hängt es als token= an die URL.',
   'workbench.editors.request.auth.rowInfo.jwtHeaderPrefix':
     'Das Schema vor dem JWT im Authorization-Header \u2014 standardmäßig Bearer; leer sendet das nackte Token.',
+  'workbench.editors.request.auth.typeInfo.awsSigV4':
+    'Der Secret Key signiert Methode, Pfad, Query, Header und den Payload-Hash; die Signatur reist in einem Authorization: AWS4-HMAC-SHA256-Header mit X-Amz-Date oder als X-Amz-*-Query-Parameter \u2014 nichts Geheimes reist mit.',
+  'workbench.editors.request.auth.groupInfo.awsSigV4.credentials':
+    'Der Access Key reist in Credential=, der Secret Key nur über die Signatur, die er berechnet; das Session Token reist als X-Amz-Security-Token für temporäre Anmeldedaten.',
+  'workbench.editors.request.auth.groupInfo.awsSigV4.signing':
+    'Der Credential Scope, aus dem der Signierschlüssel abgeleitet wird \u2014 Dienst und Region; bleibt eines leer, wird es aus einem AWS-Hostnamen abgeleitet (die Region fällt auf us-east-1 zurück).',
+  'workbench.editors.request.auth.groupInfo.awsSigV4.delivery':
+    'Wo die Signatur landet \u2014 der Authorization-Header mit X-Amz-Date oder X-Amz-*-Query-Parameter für Endpunkte, die keinen Header annehmen.',
+  'workbench.editors.request.auth.rowInfo.awsAccessKey':
+    'Identifiziert das Schlüsselpaar \u2014 reist in Credential= vor dem Scope.',
+  'workbench.editors.request.auth.rowInfo.awsSecretKey':
+    'Das Schlüsselmaterial, aus dem der Signierschlüssel abgeleitet wird; es reist nie mit.',
+  'workbench.editors.request.auth.rowInfo.awsSessionToken':
+    'Das STS-Session-Token \u2014 reist als X-Amz-Security-Token, signiert, nur für temporäre Anmeldedaten.',
+  'workbench.editors.request.auth.rowInfo.awsService':
+    'Der Dienst im Credential Scope (s3, execute-api, \u2026); leer wird er aus einem AWS-Hostnamen abgeleitet. s3 signiert zusätzlich den Payload-Hash als Header.',
+  'workbench.editors.request.auth.rowInfo.awsRegion':
+    'Die Region im Credential Scope; leer wird sie aus einem AWS-Hostnamen abgeleitet, sonst us-east-1.',
+  'workbench.editors.request.auth.rowInfo.awsAddTo':
+    'Ein Header (Standard) oder die URL-Query \u2014 die vorsignierte Form für Endpunkte, die keinen Header annehmen.',
   'workbench.editors.request.auth.typeInfo.oauth2':
     'Der Client holt ein Access-Token beim Anbieter \u2014 eine Browser-Autorisierung und dann ein Token-Austausch, oder ein direkter Austausch für Maschinen- und Passwort-Grants \u2014 und jedes Senden trägt es als Bearer-Token, bei Ablauf erneuert, wenn ein Refresh-Token ausgestellt wurde.',
   'workbench.editors.request.auth.groupInfo.oauth2.token':
@@ -484,8 +507,8 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.auth.awsAccessKeyPlaceholder': 'z. B. AKIAIOSFODNN7EXAMPLE',
   'workbench.editors.request.auth.awsSecretKeyPlaceholder': 'Secret Access Key',
   'workbench.editors.request.auth.awsSessionTokenPlaceholder': 'optional — nur temporäre (STS-)Anmeldedaten',
-  'workbench.editors.request.auth.awsServicePlaceholder': 'z. B. s3, execute-api',
-  'workbench.editors.request.auth.awsRegionPlaceholder': 'z. B. us-east-1',
+  'workbench.editors.request.auth.awsServicePlaceholder': 'automatisch aus einem AWS-Host \u2014 z. B. s3, execute-api',
+  'workbench.editors.request.auth.awsRegionPlaceholder': 'automatisch aus einem AWS-Host, sonst us-east-1',
   'workbench.editors.request.auth.sendAsLabel': 'Autorisierungsdaten hinzufügen zu',
   'workbench.editors.request.auth.sendAsHeaders': 'Anfrage-Header',
   'workbench.editors.request.auth.sendAsUrl': 'Anfrage-URL',

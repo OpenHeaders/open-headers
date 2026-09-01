@@ -44,6 +44,12 @@ export type AuthInfoKey =
   | 'apiKeyKey'
   | 'apiKeyValue'
   | 'apiKeyAddTo'
+  | 'awsAccessKey'
+  | 'awsSecretKey'
+  | 'awsSessionToken'
+  | 'awsService'
+  | 'awsRegion'
+  | 'awsAddTo'
   | 'digestUsername'
   | 'digestPassword'
   | 'digestDisableRetry'
@@ -159,7 +165,13 @@ type AuthTokenId =
   | 'refreshEndpoint'
   | 'refresh'
   | 'refreshToken'
-  | 'refreshParams';
+  | 'refreshParams'
+  | 'amzDate'
+  | 'credential'
+  | 'signedHeaders'
+  | 'securityToken'
+  | 'contentSha'
+  | 'expires';
 
 type Token = ExampleCardToken<AuthTokenId>;
 type Line = ExampleCardLine<AuthTokenId>;
@@ -173,6 +185,8 @@ const JWT = 'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJqb2huLmRvZSJ9.SflKxw…';
  *  against our signer's pins. */
 const HAWK_TS = '1353832234';
 const HAWK_NONCE = 'j4h3g2';
+/** The SigV4 test suite's timestamp — the pinned vector's date. */
+const AMZ_DATE = '20150830T123600Z';
 
 const tok = (id: AuthTokenId, text: string): Token => ({ id, text });
 
@@ -365,8 +379,52 @@ function exampleLines(auth: ConcreteAuthConfig, forced: ReadonlySet<AuthInfoKey>
       );
       return lines;
     }
-    case 'aws-sigv4':
-      return [];
+    case 'aws-sigv4': {
+      // The scope the card shows is the one the signer derives from the
+      // card's own host when a field is blank — the same rule as the
+      // send. The session token and the s3 payload-hash header show
+      // when set / forced, the way the other optional tokens do.
+      const query = auth.addTo === 'query';
+      const service = auth.service.trim() || 'execute-api';
+      const region = auth.region.trim() || 'us-east-1';
+      const showToken = (auth.sessionToken ?? '') !== '' || forced.has('awsSessionToken');
+      const scope = `${AMZ_DATE.slice(0, 8)}/${region}/${service}/aws4_request`;
+      if (query) {
+        return [
+          requestLine(),
+          {
+            opener: tok('location', 'query:'),
+            tokens: [
+              tok('location', 'X-Amz-Algorithm=AWS4-HMAC-SHA256'),
+              tok('credential', `X-Amz-Credential=AKIDEXAMPLE/${scope}`),
+              tok('amzDate', `X-Amz-Date=${AMZ_DATE}`),
+              ...(service === 's3' ? [tok('expires', 'X-Amz-Expires=86400')] : []),
+              tok('signedHeaders', 'X-Amz-SignedHeaders=host'),
+              ...(showToken ? [tok('securityToken', 'X-Amz-Security-Token=FQoGZXIv…')] : []),
+              tok('signature', 'X-Amz-Signature=5fa00fa3…'),
+            ],
+          },
+        ];
+      }
+      return [
+        requestLine(),
+        {
+          opener: tok('location', 'Authorization: AWS4-HMAC-SHA256'),
+          tokens: [
+            tok('credential', `Credential=AKIDEXAMPLE/${scope}`),
+            tok('signedHeaders', `SignedHeaders=host;x-amz-date${service === 's3' ? ';x-amz-content-sha256' : ''}`),
+            tok('signature', 'Signature=5fa00fa3…'),
+          ],
+        },
+        { opener: tok('amzDate', 'X-Amz-Date:'), tokens: [tok('amzDate', AMZ_DATE)] },
+        ...(showToken
+          ? [{ opener: tok('securityToken', 'X-Amz-Security-Token:'), tokens: [tok('securityToken', 'FQoGZXIv…')] }]
+          : []),
+        ...(service === 's3'
+          ? [{ opener: tok('contentSha', 'X-Amz-Content-Sha256:'), tokens: [tok('contentSha', 'e3b0c442…')] }]
+          : []),
+      ];
+    }
   }
 }
 
@@ -399,6 +457,12 @@ const ROW_TOKENS: Record<AuthInfoKey, readonly AuthTokenId[]> = {
   apiKeyKey: ['key'],
   apiKeyValue: ['value'],
   apiKeyAddTo: ['key', 'value'],
+  awsAccessKey: ['credential'],
+  awsSecretKey: ['signature'],
+  awsSessionToken: ['securityToken'],
+  awsService: ['credential'],
+  awsRegion: ['credential'],
+  awsAddTo: ['location'],
   digestUsername: ['username'],
   digestPassword: ['response'],
   digestDisableRetry: ['challenge', 'retry'],
@@ -455,11 +519,15 @@ const ROW_TOKENS: Record<AuthInfoKey, readonly AuthTokenId[]> = {
 
 /** Shape-aware: an API key on the URL is one `key=value` token; the
  *  OAuth 2.0 client secret rides the token body or the Basic header;
- *  a query-delivered access token has no prefix. */
+ *  a query-delivered access token has no prefix; the s3 service adds
+ *  the payload-hash header (or the presigned lifetime). */
 function rowTokens(key: AuthInfoKey, auth: ConcreteAuthConfig): readonly AuthTokenId[] {
   if (auth.type === 'api-key' && auth.in === 'query') {
     if (key === 'apiKeyAddTo') return ['location', 'query'];
     if (key === 'apiKeyKey' || key === 'apiKeyValue') return ['query'];
+  }
+  if (auth.type === 'aws-sigv4' && key === 'awsService' && auth.service.trim() === 's3') {
+    return ['credential', auth.addTo === 'query' ? 'expires' : 'contentSha'];
   }
   if (auth.type === 'oauth2') {
     if (auth.clientAuthentication === 'basic-header') {
@@ -482,6 +550,11 @@ const GROUP_ROWS: Record<CardType, Partial<Record<AuthGroupKey, readonly AuthInf
   basic: { credentials: ['basicUsername', 'basicPassword'] },
   bearer: { token: ['bearerToken'] },
   'api-key': { credentials: ['apiKeyKey', 'apiKeyValue'], delivery: ['apiKeyAddTo'] },
+  'aws-sigv4': {
+    credentials: ['awsAccessKey', 'awsSecretKey', 'awsSessionToken'],
+    signing: ['awsService', 'awsRegion'],
+    delivery: ['awsAddTo'],
+  },
   digest: { credentials: ['digestUsername', 'digestPassword'], challenge: ['digestDisableRetry'] },
   oauth1: {
     signing: ['oauth1SignatureMethod', 'oauth1BodyHash'],
@@ -536,6 +609,12 @@ const ROW_TITLE_KEY: Record<AuthInfoKey, MessageKey> = {
   apiKeyKey: 'workbench.editors.request.auth.key',
   apiKeyValue: 'workbench.editors.request.auth.value',
   apiKeyAddTo: 'workbench.editors.request.auth.addTo',
+  awsAccessKey: 'workbench.editors.request.auth.awsAccessKey',
+  awsSecretKey: 'workbench.editors.request.auth.awsSecretKey',
+  awsSessionToken: 'workbench.editors.request.auth.awsSessionToken',
+  awsService: 'workbench.editors.request.auth.awsService',
+  awsRegion: 'workbench.editors.request.auth.awsRegion',
+  awsAddTo: 'workbench.editors.request.auth.addTo',
   digestUsername: 'workbench.editors.request.auth.username',
   digestPassword: 'workbench.editors.request.auth.password',
   digestDisableRetry: 'workbench.editors.request.auth.digestDisableRetry',
@@ -597,6 +676,12 @@ const ROW_SUMMARY_KEY: Record<AuthInfoKey, MessageKey> = {
   apiKeyKey: 'workbench.editors.request.auth.rowInfo.apiKeyKey',
   apiKeyValue: 'workbench.editors.request.auth.rowInfo.apiKeyValue',
   apiKeyAddTo: 'workbench.editors.request.auth.rowInfo.apiKeyAddTo',
+  awsAccessKey: 'workbench.editors.request.auth.rowInfo.awsAccessKey',
+  awsSecretKey: 'workbench.editors.request.auth.rowInfo.awsSecretKey',
+  awsSessionToken: 'workbench.editors.request.auth.rowInfo.awsSessionToken',
+  awsService: 'workbench.editors.request.auth.rowInfo.awsService',
+  awsRegion: 'workbench.editors.request.auth.rowInfo.awsRegion',
+  awsAddTo: 'workbench.editors.request.auth.rowInfo.awsAddTo',
   digestUsername: 'workbench.editors.request.auth.rowInfo.digestUsername',
   digestPassword: 'workbench.editors.request.auth.rowInfo.digestPassword',
   digestDisableRetry: 'workbench.editors.request.auth.rowInfo.digestDisableRetry',
@@ -658,6 +743,11 @@ const GROUP_SUMMARY_KEY: Record<CardType, Partial<Record<AuthGroupKey, MessageKe
     credentials: 'workbench.editors.request.auth.groupInfo.apiKey.credentials',
     delivery: 'workbench.editors.request.auth.groupInfo.apiKey.delivery',
   },
+  'aws-sigv4': {
+    credentials: 'workbench.editors.request.auth.groupInfo.awsSigV4.credentials',
+    signing: 'workbench.editors.request.auth.groupInfo.awsSigV4.signing',
+    delivery: 'workbench.editors.request.auth.groupInfo.awsSigV4.delivery',
+  },
   digest: {
     credentials: 'workbench.editors.request.auth.groupInfo.digest.credentials',
     challenge: 'workbench.editors.request.auth.groupInfo.digest.challenge',
@@ -690,6 +780,7 @@ const TYPE_SUMMARY_KEY: Record<CardType | 'none', MessageKey> = {
   basic: 'workbench.editors.request.auth.typeInfo.basic',
   bearer: 'workbench.editors.request.auth.typeInfo.bearer',
   'api-key': 'workbench.editors.request.auth.typeInfo.apiKey',
+  'aws-sigv4': 'workbench.editors.request.auth.typeInfo.awsSigV4',
   digest: 'workbench.editors.request.auth.typeInfo.digest',
   oauth1: 'workbench.editors.request.auth.typeInfo.oauth1',
   hawk: 'workbench.editors.request.auth.typeInfo.hawk',
@@ -709,8 +800,7 @@ function card(auth: ConcreteAuthConfig, lit: Iterable<AuthTokenId>, forced: Iter
 }
 
 /** The type-level popover (the Auth Type row's (i)): the header's
- *  scheme lit, the type's one-sentence summary. Absent for the one
- *  type with no card (AWS Signature v4). */
+ *  scheme lit, the type's one-sentence summary. */
 export function authTypeInfo(t: Translate, auth: ConcreteAuthConfig): InfoPopoverContent | undefined {
   if (auth.type === 'none') {
     return {

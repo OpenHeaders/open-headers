@@ -69,7 +69,7 @@ describe('isRequestComplete — auth', () => {
     );
   });
 
-  it('aws-sigv4: requires accessKeyId, secretAccessKey, service, and region', () => {
+  it('aws-sigv4: requires accessKeyId and secretAccessKey; the scope pair derives from the host', () => {
     const full = {
       type: 'aws-sigv4' as const,
       accessKeyId: 'AKIDEXAMPLE',
@@ -80,8 +80,7 @@ describe('isRequestComplete — auth', () => {
     expect(isRequestComplete(makeRequest({ auth: full }))).toBe(true);
     expect(isRequestComplete(makeRequest({ auth: { ...full, accessKeyId: '' } }))).toBe(false);
     expect(isRequestComplete(makeRequest({ auth: { ...full, secretAccessKey: ' ' } }))).toBe(false);
-    expect(isRequestComplete(makeRequest({ auth: { ...full, service: '' } }))).toBe(false);
-    expect(isRequestComplete(makeRequest({ auth: { ...full, region: '' } }))).toBe(false);
+    expect(isRequestComplete(makeRequest({ auth: { ...full, service: '', region: '' } }))).toBe(true);
   });
 
   it('oauth1: requires only a non-empty consumerKey', () => {
@@ -158,7 +157,7 @@ describe('requestIncompleteReason', () => {
     );
   });
 
-  it('reports each missing aws-sigv4 field in declaration order', () => {
+  it('reports each missing aws-sigv4 credential in declaration order; a blank scope is not a reason', () => {
     const full = {
       type: 'aws-sigv4' as const,
       accessKeyId: 'AKIDEXAMPLE',
@@ -173,8 +172,7 @@ describe('requestIncompleteReason', () => {
     expect(requestIncompleteReason(makeRequest({ auth: { ...full, secretAccessKey: '' } }))).toBe(
       'aws-sigv4-missing-secret-key',
     );
-    expect(requestIncompleteReason(makeRequest({ auth: { ...full, service: '' } }))).toBe('aws-sigv4-missing-service');
-    expect(requestIncompleteReason(makeRequest({ auth: { ...full, region: '' } }))).toBe('aws-sigv4-missing-region');
+    expect(requestIncompleteReason(makeRequest({ auth: { ...full, service: '', region: '' } }))).toBeNull();
   });
 
   it('reports oauth1-missing-consumer-key when the consumer key is blank', () => {

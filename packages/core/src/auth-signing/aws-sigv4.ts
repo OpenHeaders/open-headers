@@ -4,12 +4,20 @@
  * Pure WebCrypto (`crypto.subtle` is a global on both runtimes — the
  * MV3 service worker and Node 22+), no platform deps. The signer takes
  * the FINAL wire shape — method, URL with query already appended, the
- * outgoing header list, and the payload hash — and returns ONLY the
- * headers the caller must add (`X-Amz-Date`, `Authorization`, plus
- * `X-Amz-Security-Token` / `X-Amz-Content-Sha256` when applicable).
- * The `Host` header is derived from the URL for the canonical request
- * but never returned: both runtimes' fetch stacks set it themselves,
- * and the browser forbids setting it manually.
+ * outgoing header list, and the payload hash — and returns what the
+ * caller must apply: in header mode the headers to add (`X-Amz-Date`,
+ * `Authorization`, plus `X-Amz-Security-Token` /
+ * `X-Amz-Content-Sha256` when applicable) and the URL untouched; in
+ * query mode no headers and the URL with the `X-Amz-*` parameters
+ * appended, `X-Amz-Signature` last. The `Host` header is derived from
+ * the URL for the canonical request but never returned: both
+ * runtimes' fetch stacks set it themselves, and the browser forbids
+ * setting it manually.
+ *
+ * The credential scope's service and region may be left blank: an AWS
+ * endpoint names both in its hostname ({@link deriveAwsScope}) and the
+ * region falls back to `us-east-1` — the SDKs' rule. A blank service
+ * on a non-AWS host has no honest default and the signer throws.
  *
  * Callers sign at EXECUTE time, after pre-request scripts have mutated
  * the request — a signature computed any earlier is invalidated by the
@@ -22,10 +30,15 @@ export interface AwsSigV4Credentials {
   /** STS temporary-credential session token; signed + sent as
    *  `X-Amz-Security-Token` when present. */
   sessionToken?: string;
-  /** Service namespace for the credential scope (`s3`, `execute-api`, …). */
+  /** Service namespace for the credential scope (`s3`, `execute-api`, …).
+   *  Blank = derived from an AWS hostname. */
   service: string;
-  /** Region for the credential scope (`us-east-1`, …). */
+  /** Region for the credential scope (`us-east-1`, …). Blank = derived
+   *  from an AWS hostname, else `us-east-1`. */
   region: string;
+  /** Where the signature lands — the `Authorization` header (absent =
+   *  the default) or the URL's query string (`X-Amz-*` parameters). */
+  addTo?: 'header' | 'query';
 }
 
 export interface AwsSigV4SignInput {
@@ -48,7 +61,22 @@ export interface AwsSigV4SignInput {
   now: Date;
 }
 
+export interface AwsSigV4Signed {
+  /** Headers to set replace-not-append (empty in query mode). */
+  headers: Array<{ key: string; value: string }>;
+  /** The wire URL — the input URL in header mode, the signed URL in
+   *  query mode. */
+  url: string;
+}
+
 export const AWS_SIGV4_UNSIGNED_PAYLOAD = 'UNSIGNED-PAYLOAD';
+
+/** Lifetime a query-signed S3 URL carries as `X-Amz-Expires` — the
+ *  SDKs' default; the other services ignore the parameter. */
+export const AWS_SIGV4_QUERY_EXPIRES_SECONDS = 86400;
+
+/** The region a blank field falls back to when the host names none. */
+export const AWS_SIGV4_DEFAULT_REGION = 'us-east-1';
 
 /**
  * Outgoing headers that never join the signed set — the ones proxies
@@ -65,6 +93,44 @@ const UNSIGNED_HEADER_NAMES: ReadonlySet<string> = new Set([
   'x-amzn-trace-id',
 ]);
 
+/**
+ * The service and region an AWS hostname names —
+ * `<service>.<region>.amazonaws.com(.cn)`, with the shapes that break
+ * the pattern: the global `s3.amazonaws.com` (us-east-1), the legacy
+ * `s3-<region>` labels, the search services whose labels ride
+ * reversed (`<domain>.<region>.es.amazonaws.com`), and SES whose
+ * endpoint says `email` but whose scope says `ses`. Either part is
+ * absent when the host does not name it; a non-AWS host names neither.
+ */
+export function deriveAwsScope(hostname: string): { service?: string; region?: string } {
+  const match = hostname.toLowerCase().match(/([^.]{1,63})\.(?:([^.]{0,63})\.)?amazonaws\.com(?:\.cn)?$/);
+  if (!match) return {};
+  let [service, region] = [match[1], match[2]] as [string | undefined, string | undefined];
+  if (region === 'es' || region === 'aoss') [service, region] = [region, service];
+  // `<bucket>.s3.amazonaws.com` matches as service=bucket, region=s3.
+  if (region === 's3' || (service === 's3' && !region)) [service, region] = ['s3', AWS_SIGV4_DEFAULT_REGION];
+  if (service?.startsWith('s3-')) [service, region] = ['s3', service.slice(3)];
+  if (region?.startsWith('s3-')) [service, region] = ['s3', region.slice(3)];
+  if (service === 'email') service = 'ses';
+  return { ...(service ? { service } : {}), ...(region ? { region } : {}) };
+}
+
+/**
+ * The credential scope a config signs with for a URL: a set field
+ * wins, a blank one derives from the host, a blank region falls back
+ * to {@link AWS_SIGV4_DEFAULT_REGION}. `service` is absent when neither
+ * the field nor the host names one — the send-time error.
+ */
+export function resolveAwsScope(
+  credentials: Pick<AwsSigV4Credentials, 'service' | 'region'>,
+  hostname: string,
+): { service?: string; region: string } {
+  const derived = deriveAwsScope(hostname);
+  const service = credentials.service.trim() || derived.service;
+  const region = credentials.region.trim() || derived.region || AWS_SIGV4_DEFAULT_REGION;
+  return { ...(service ? { service } : {}), region };
+}
+
 /** Lowercase hex SHA-256 of a UTF-8 string. Exposed so executors can
  *  compute the payload hash with the same primitive the signer uses. */
 export async function sha256Hex(text: string): Promise<string> {
@@ -73,29 +139,38 @@ export async function sha256Hex(text: string): Promise<string> {
 }
 
 /**
- * Sign the request, returning the headers to add. The caller must set
- * them replace-not-append (a stale user-set `Authorization` would
- * combine into garbage on the wire).
+ * Sign the request. Header mode returns the headers to add — the
+ * caller must set them replace-not-append (a stale user-set
+ * `Authorization` would combine into garbage on the wire). Query mode
+ * returns the signed URL and no headers.
  */
 export async function signAwsSigV4(
   credentials: AwsSigV4Credentials,
   input: AwsSigV4SignInput,
-): Promise<Array<{ key: string; value: string }>> {
+): Promise<AwsSigV4Signed> {
   const url = new URL(input.url);
   const amzDate = toAmzDate(input.now);
   const dateStamp = amzDate.slice(0, 8);
-  const service = credentials.service.trim();
-  const region = credentials.region.trim();
-
-  // ── Headers the signature adds (they must be signed too) ──
-  const added: Array<{ key: string; value: string }> = [{ key: 'X-Amz-Date', value: amzDate }];
-  if (credentials.sessionToken) {
-    added.push({ key: 'X-Amz-Security-Token', value: credentials.sessionToken });
+  const scope = resolveAwsScope(credentials, url.hostname);
+  if (!scope.service) {
+    throw new Error(`no service name set and the host "${url.hostname}" is not an AWS endpoint`);
   }
-  // S3 requires the payload hash to ride as a header; other services
-  // read it from the string-to-sign only.
-  if (service === 's3') {
-    added.push({ key: 'X-Amz-Content-Sha256', value: input.payloadHash });
+  const { service, region } = scope;
+  const query = credentials.addTo === 'query';
+  const credentialScope = `${dateStamp}/${region}/${service}/aws4_request`;
+  // S3 presigned URLs sign an unsigned payload; every other shape
+  // signs the wire bytes.
+  const payloadHash = query && service === 's3' ? AWS_SIGV4_UNSIGNED_PAYLOAD : input.payloadHash;
+
+  // ── Headers the signature adds (they must be signed too). Query
+  //    mode adds none — the same facts ride as X-Amz-* parameters. ──
+  const added: Array<{ key: string; value: string }> = [];
+  if (!query) {
+    added.push({ key: 'X-Amz-Date', value: amzDate });
+    if (credentials.sessionToken) added.push({ key: 'X-Amz-Security-Token', value: credentials.sessionToken });
+    // S3 requires the payload hash to ride as a header; other services
+    // read it from the string-to-sign only.
+    if (service === 's3') added.push({ key: 'X-Amz-Content-Sha256', value: payloadHash });
   }
 
   // ── Canonical headers: every shipping header outside the unsigned
@@ -116,17 +191,32 @@ export async function signAwsSigV4(
   const canonicalHeaders = signedHeaderNames.map((name) => `${name}:${canonicalHeaderMap.get(name)}\n`).join('');
   const signedHeaders = signedHeaderNames.join(';');
 
+  // ── Query mode: the X-Amz-* parameters join the URL BEFORE
+  //    canonicalization (all but the signature), appended to the wire
+  //    string as-is so the user's own query keeps its byte form. ──
+  let wireUrl = input.url;
+  if (query) {
+    const params: Array<[string, string]> = [
+      ['X-Amz-Algorithm', 'AWS4-HMAC-SHA256'],
+      ['X-Amz-Credential', `${credentials.accessKeyId}/${credentialScope}`],
+      ['X-Amz-Date', amzDate],
+      ...(service === 's3' ? [['X-Amz-Expires', String(AWS_SIGV4_QUERY_EXPIRES_SECONDS)] as [string, string]] : []),
+      ['X-Amz-SignedHeaders', signedHeaders],
+      ...(credentials.sessionToken ? [['X-Amz-Security-Token', credentials.sessionToken] as [string, string]] : []),
+    ];
+    wireUrl = appendQuery(wireUrl, params);
+  }
+
   const canonicalRequest = [
     input.method.toUpperCase(),
     canonicalUri(url.pathname, service),
-    canonicalQuery(url.searchParams),
+    canonicalQuery(new URL(wireUrl).searchParams),
     canonicalHeaders,
     signedHeaders,
-    input.payloadHash,
+    payloadHash,
   ].join('\n');
 
-  const scope = `${dateStamp}/${region}/${service}/aws4_request`;
-  const stringToSign = ['AWS4-HMAC-SHA256', amzDate, scope, await sha256Hex(canonicalRequest)].join('\n');
+  const stringToSign = ['AWS4-HMAC-SHA256', amzDate, credentialScope, await sha256Hex(canonicalRequest)].join('\n');
 
   // ── Signing key chain: HMAC("AWS4" + secret, date → region → service → "aws4_request") ──
   let key = await hmac(new TextEncoder().encode(`AWS4${credentials.secretAccessKey}`), dateStamp);
@@ -135,11 +225,12 @@ export async function signAwsSigV4(
   key = await hmac(key, 'aws4_request');
   const signature = bytesToHex(await hmac(key, stringToSign));
 
+  if (query) return { headers: [], url: appendQuery(wireUrl, [['X-Amz-Signature', signature]]) };
   added.push({
     key: 'Authorization',
-    value: `AWS4-HMAC-SHA256 Credential=${credentials.accessKeyId}/${scope}, SignedHeaders=${signedHeaders}, Signature=${signature}`,
+    value: `AWS4-HMAC-SHA256 Credential=${credentials.accessKeyId}/${credentialScope}, SignedHeaders=${signedHeaders}, Signature=${signature}`,
   });
-  return added;
+  return { headers: added, url: wireUrl };
 }
 
 // ── Canonicalization ────────────────────────────────────────────────
@@ -170,6 +261,20 @@ function canonicalQuery(params: URLSearchParams): string {
   });
   pairs.sort((a, b) => (a[0] === b[0] ? compareStrings(a[1], b[1]) : compareStrings(a[0], b[0])));
   return pairs.map(([k, v]) => `${k}=${v}`).join('&');
+}
+
+/** Append RFC 3986-encoded pairs to a wire URL without re-serializing
+ *  the query it already carries. */
+function appendQuery(url: string, pairs: ReadonlyArray<[string, string]>): string {
+  const encoded = pairs.map(([k, v]) => `${encodeRfc3986(k)}=${encodeRfc3986(v)}`).join('&');
+  const [base, fragment] = splitFragment(url);
+  const joiner = base.includes('?') ? (base.endsWith('?') || base.endsWith('&') ? '' : '&') : '?';
+  return `${base}${joiner}${encoded}${fragment}`;
+}
+
+function splitFragment(url: string): [string, string] {
+  const hash = url.indexOf('#');
+  return hash === -1 ? [url, ''] : [url.slice(0, hash), url.slice(hash)];
 }
 
 /** Strict RFC 3986 encoding — `encodeURIComponent` plus the five

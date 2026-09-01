@@ -889,6 +889,48 @@ describe('AuthorizationTab — sectioned forms and the (i) popovers', () => {
     closePopover();
   });
 
+  it('AWS Signature v4 reads as Credentials · Signing · Delivery; the card follows the delivery choice', () => {
+    const onChange = vi.fn();
+    const aws: AuthConfig = { type: 'aws-sigv4', accessKeyId: '', secretAccessKey: '', service: '', region: '' };
+    // One popover per render — a closed popover stays in the DOM.
+    const first = render(<AuthorizationTab auth={aws} onChange={onChange} />);
+    expect(screen.getByRole('button', { name: 'Credentials' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Signing' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Delivery' })).toBeTruthy();
+    expect(screen.getByText('Session Token')).toBeTruthy();
+    expect(screen.getByTestId('oh-auth-aws-add-to').textContent).toContain('Header');
+    // The type (i) lights the header's scheme.
+    const type = openPopover('About AWS Signature v4');
+    expect(litTexts(type)).toEqual(['Authorization: AWS4-HMAC-SHA256']);
+    closePopover();
+    // Header delivery persists ABSENT; query lands on the config.
+    const input = screen.getByTestId('oh-auth-aws-add-to').querySelector('input');
+    if (!input) throw new Error('no select input');
+    fireEvent.mouseDown(input);
+    fireEvent.click(screen.getByText('Query Params'));
+    expect(onChange).toHaveBeenLastCalledWith({ ...aws, addTo: 'query' });
+    first.unmount();
+    // The Secret Key lights the signature it derives (it never rides).
+    const second = render(<AuthorizationTab auth={aws} onChange={onChange} />);
+    const secret = openPopover('About Secret Key');
+    expect(secret.querySelector('.oh-info-popover-kicker')?.textContent).toBe('Credentials');
+    expect(litTexts(secret)).toEqual(['Signature=5fa00fa3…']);
+    closePopover();
+    second.unmount();
+    // The Signing group lights the credential scope both rows land in.
+    const third = render(<AuthorizationTab auth={aws} onChange={onChange} />);
+    const signing = openPopover('About Signing');
+    expect(litTexts(signing)).toEqual(['Credential=AKIDEXAMPLE/20150830/us-east-1/execute-api/aws4_request']);
+    closePopover();
+    third.unmount();
+    render(<AuthorizationTab auth={{ ...aws, addTo: 'query', service: 's3' }} onChange={onChange} />);
+    const addTo = openPopover('About Add to');
+    expect(litTexts(addTo)).toEqual(['query:', 'X-Amz-Algorithm=AWS4-HMAC-SHA256']);
+    expect(addTo.textContent).toContain('X-Amz-Expires=86400');
+    expect(addTo.textContent).toContain('X-Amz-Signature=');
+    closePopover();
+  });
+
   it("the pool entry pane's type select opens the compact sectioned popup — every type in view, two dividers", async () => {
     requestsState = {
       ...requestsState,

@@ -169,6 +169,9 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.authPreview.awsSigV4DateHint':
     'Generado desde la pestaña Autorización (AWS Signature v4). La marca de tiempo de la firma se añade a ' +
     'este encabezado al enviar la solicitud.',
+  'workbench.editors.request.authPreview.awsSigV4QueryValue': '<parámetros firmados>',
+  'workbench.editors.request.authPreview.awsSigV4QueryHint':
+    'Generado desde la pestaña Autorización (AWS Signature v4). Los parámetros X-Amz-* se añaden a la query de la URL al enviar la solicitud.',
   'workbench.editors.request.authPreview.digestValue': 'Digest <respuesta al desafío>',
   'workbench.editors.request.authPreview.digestHint':
     'Generado desde la pestaña Autorización (Digest Auth). El valor se calcula a partir del desafío del ' +
@@ -312,6 +315,26 @@ export const workbenchEditorsRequest = {
     'Header envía el JWT en la cabecera Authorization; Query Params lo añade como token= en la URL.',
   'workbench.editors.request.auth.rowInfo.jwtHeaderPrefix':
     'El esquema delante del JWT en la cabecera Authorization \u2014 Bearer por defecto; vacío envía el token desnudo.',
+  'workbench.editors.request.auth.typeInfo.awsSigV4':
+    'La clave secreta firma el método, la ruta, la query, las cabeceras y el hash del cuerpo; la firma viaja en una cabecera Authorization: AWS4-HMAC-SHA256 con X-Amz-Date, o como parámetros de query X-Amz-* \u2014 nada secreto viaja.',
+  'workbench.editors.request.auth.groupInfo.awsSigV4.credentials':
+    'La access key viaja en Credential=, la secret key solo a través de la firma que calcula; el session token viaja como X-Amz-Security-Token para credenciales temporales.',
+  'workbench.editors.request.auth.groupInfo.awsSigV4.signing':
+    'El ámbito de credencial del que se deriva la clave de firma \u2014 servicio y región; deja cualquiera en blanco y se deduce del nombre de host de AWS (la región recae en us-east-1).',
+  'workbench.editors.request.auth.groupInfo.awsSigV4.delivery':
+    'Dónde aterriza la firma \u2014 la cabecera Authorization con X-Amz-Date, o parámetros de query X-Amz-* para endpoints que no aceptan cabeceras.',
+  'workbench.editors.request.auth.rowInfo.awsAccessKey':
+    'Identifica el par de claves \u2014 viaja en Credential= antes del ámbito.',
+  'workbench.editors.request.auth.rowInfo.awsSecretKey':
+    'El material de clave del que se deriva la clave de firma; nunca viaja.',
+  'workbench.editors.request.auth.rowInfo.awsSessionToken':
+    'El session token de STS \u2014 viaja como X-Amz-Security-Token, firmado, solo para credenciales temporales.',
+  'workbench.editors.request.auth.rowInfo.awsService':
+    'El servicio del ámbito de credencial (s3, execute-api, \u2026); en blanco se deduce del nombre de host de AWS. s3 firma además el hash del cuerpo como cabecera.',
+  'workbench.editors.request.auth.rowInfo.awsRegion':
+    'La región del ámbito de credencial; en blanco se deduce del nombre de host de AWS, si no us-east-1.',
+  'workbench.editors.request.auth.rowInfo.awsAddTo':
+    'Una cabecera (por defecto), o la query de la URL \u2014 la forma prefirmada para endpoints que no aceptan cabeceras.',
   'workbench.editors.request.auth.typeInfo.oauth2':
     'El cliente obtiene un token de acceso del proveedor \u2014 una autorización en el navegador y luego un intercambio de token, o un intercambio directo para las concesiones de máquina y contraseña \u2014 y cada envío lo lleva como token bearer, renovado al caducar si se emitió un token de renovación.',
   'workbench.editors.request.auth.groupInfo.oauth2.token':
@@ -468,8 +491,8 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.auth.awsAccessKeyPlaceholder': 'p. ej. AKIAIOSFODNN7EXAMPLE',
   'workbench.editors.request.auth.awsSecretKeyPlaceholder': 'secret access key',
   'workbench.editors.request.auth.awsSessionTokenPlaceholder': 'opcional — solo credenciales temporales (STS)',
-  'workbench.editors.request.auth.awsServicePlaceholder': 'p. ej. s3, execute-api',
-  'workbench.editors.request.auth.awsRegionPlaceholder': 'p. ej. us-east-1',
+  'workbench.editors.request.auth.awsServicePlaceholder': 'auto desde un host de AWS \u2014 p. ej. s3, execute-api',
+  'workbench.editors.request.auth.awsRegionPlaceholder': 'auto desde un host de AWS, si no us-east-1',
   'workbench.editors.request.auth.sendAsLabel': 'Añadir los datos de autorización a',
   'workbench.editors.request.auth.sendAsHeaders': 'Encabezados de la solicitud',
   'workbench.editors.request.auth.sendAsUrl': 'URL de la solicitud',

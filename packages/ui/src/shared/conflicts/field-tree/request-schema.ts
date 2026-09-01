@@ -106,6 +106,7 @@ const AUTH_UNION: FieldNode = union({
       sessionToken: leaf('string', { coercion: 'optional-string' }),
       service: leaf('string'),
       region: leaf('string'),
+      addTo: leaf('string', { coercion: 'optional-string' }),
     }),
     digest: obj({
       username: leaf('string'),

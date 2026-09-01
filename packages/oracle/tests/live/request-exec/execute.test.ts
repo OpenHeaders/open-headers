@@ -711,7 +711,7 @@ describe('executeOverTransport — AWS SigV4 signing', () => {
       payloadHash: await sha256Hex(''),
       now: amzDateToDate(amzDate ?? ''),
     });
-    expect(auth).toBe(expected.find((h) => h.key === 'Authorization')?.value);
+    expect(auth).toBe(expected.headers.find((h) => h.key === 'Authorization')?.value);
   });
 
   it('hashes the urlencoded payload exactly as the transport serializes it', async () => {
@@ -731,7 +731,52 @@ describe('executeOverTransport — AWS SigV4 signing', () => {
       payloadHash: await sha256Hex(wireBytes),
       now: amzDateToDate(amzDate),
     });
-    expect(headers.get('authorization')).toBe(expected.find((h) => h.key === 'Authorization')?.value);
+    expect(headers.get('authorization')).toBe(expected.headers.find((h) => h.key === 'Authorization')?.value);
+  });
+
+  it('query mode rewrites the URL with the X-Amz-* parameters and sets no headers', async () => {
+    const { transport, sent } = captureTransport();
+    const snap = await executeOverTransport(
+      makeResolved({
+        url: 'https://abc123.execute-api.us-east-1.amazonaws.com/prod/items?limit=5',
+        awsSigV4: { ...credentials, service: '', region: '', addTo: 'query' },
+        headers: [],
+      }),
+      transport,
+    );
+    expect(snap.error).toBeNull();
+    const headers = new Map(sent().headers.map((h) => [h.key.toLowerCase(), h.value]));
+    expect(headers.has('authorization')).toBe(false);
+    expect(headers.has('x-amz-date')).toBe(false);
+    const url = new URL(sent().url);
+    expect(url.searchParams.get('limit')).toBe('5');
+    expect(url.searchParams.get('X-Amz-Algorithm')).toBe('AWS4-HMAC-SHA256');
+    // The scope derived from the host — both fields were blank.
+    expect(url.searchParams.get('X-Amz-Credential')).toMatch(
+      /^AKIDEXAMPLE\/\d{8}\/us-east-1\/execute-api\/aws4_request$/,
+    );
+    expect(url.searchParams.get('X-Amz-SignedHeaders')).toBe('host');
+    expect(sent().url.split('&').at(-1)).toMatch(/^X-Amz-Signature=[0-9a-f]{64}$/);
+    const expected = await signAwsSigV4(
+      { ...credentials, addTo: 'query' },
+      {
+        method: 'GET',
+        url: 'https://abc123.execute-api.us-east-1.amazonaws.com/prod/items?limit=5',
+        headers: [],
+        payloadHash: await sha256Hex(''),
+        now: amzDateToDate(url.searchParams.get('X-Amz-Date') ?? ''),
+      },
+    );
+    expect(sent().url).toBe(expected.url);
+  });
+
+  it('a blank service on a foreign host is the send error', async () => {
+    const { transport } = captureTransport();
+    const snap = await executeOverTransport(
+      makeResolved({ awsSigV4: { ...credentials, service: '', region: '' }, headers: [] }),
+      transport,
+    );
+    expect(snap.error).toMatch(/^AWS SigV4 signing failed: no service name set/);
   });
 
   it('signs multipart bodies as UNSIGNED-PAYLOAD with the s3 content header', async () => {

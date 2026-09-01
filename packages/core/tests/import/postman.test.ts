@@ -1067,7 +1067,7 @@ describe('request mapping — auth', () => {
     });
   });
 
-  it('awsv4 query-signing imports with a header-signing transform (both flag spellings)', () => {
+  it('awsv4 query-signing maps onto addTo: query, lossless (both flag spellings)', () => {
     for (const flag of [
       { key: 'addAuthDataToQuery', value: 'true' },
       { key: 'addAuthDataToQuery', value: true },
@@ -1089,8 +1089,16 @@ describe('request mapping — auth', () => {
           ],
         }),
       );
-      expect(result.requests[0]?.request.auth).toMatchObject({ type: 'aws-sigv4', accessKeyId: 'AKIDEXAMPLE' });
-      expect(result.report.transforms.some((t) => /sign via request headers/.test(t.reason))).toBe(true);
+      expect(result.requests[0]?.request.auth).toEqual({
+        type: 'aws-sigv4',
+        accessKeyId: 'AKIDEXAMPLE',
+        secretAccessKey: '',
+        service: '',
+        region: '',
+        addTo: 'query',
+      });
+      expect(result.report.transforms).toEqual([]);
+      expect(result.report.drops).toEqual([]);
     }
   });
 

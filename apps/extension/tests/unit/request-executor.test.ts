@@ -326,6 +326,42 @@ describe('RequestExecutor', () => {
     expect(headers.get('x-amz-date')).toBeNull();
   });
 
+  it('query mode rewrites the URL with the X-Amz-* parameters, the scope derived from the host', async () => {
+    await executeRequestDraft(
+      makeRequest({
+        url: 'https://abc123.execute-api.eu-west-1.amazonaws.com/prod/items?limit=5',
+        auth: {
+          type: 'aws-sigv4',
+          accessKeyId: 'AKIDEXAMPLE',
+          secretAccessKey: 'wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY',
+          service: '',
+          region: '',
+          addTo: 'query',
+        },
+      }),
+    );
+    const [url, init] = fetchMock.mock.calls[0];
+    const headers = init.headers as Headers;
+    expect(headers.get('authorization')).toBeNull();
+    expect(headers.get('x-amz-date')).toBeNull();
+    const params = new URL(String(url)).searchParams;
+    expect(params.get('limit')).toBe('5');
+    expect(params.get('X-Amz-Algorithm')).toBe('AWS4-HMAC-SHA256');
+    expect(params.get('X-Amz-Credential')).toMatch(/^AKIDEXAMPLE\/\d{8}\/eu-west-1\/execute-api\/aws4_request$/);
+    expect(params.get('X-Amz-SignedHeaders')).toBe('host');
+    expect(String(url).split('&').at(-1)).toMatch(/^X-Amz-Signature=[0-9a-f]{64}$/);
+  });
+
+  it('a blank service on a foreign host is the send error, not a signature', async () => {
+    const snapshot = await executeRequestDraft(
+      makeRequest({
+        auth: { type: 'aws-sigv4', accessKeyId: 'AKIDEXAMPLE', secretAccessKey: 'secret', service: '', region: '' },
+      }),
+    );
+    expect(snapshot.error).toMatch(/^AWS SigV4 signing failed: no service name set/);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it('signs oauth1 requests at the wire, resolving templated credentials', async () => {
     mockWsVars.mockReturnValue({
       schemaVersion: 5,

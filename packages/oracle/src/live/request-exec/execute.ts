@@ -146,7 +146,8 @@ export async function executeOverTransport(
 
   // SigV4 signs HERE — the final wire shape, after any script mutation
   // — and its headers replace same-key user rows (a stale Authorization
-  // would combine into garbage on the wire).
+  // would combine into garbage on the wire); query mode rewrites the
+  // URL instead.
   if (resolved.awsSigV4) {
     try {
       const signed = await signAwsSigV4(resolved.awsSigV4, {
@@ -156,7 +157,8 @@ export async function executeOverTransport(
         payloadHash: await transportPayloadHash(body),
         now: new Date(),
       });
-      for (const h of signed) setHeader(headers, h.key, h.value);
+      for (const h of signed.headers) setHeader(headers, h.key, h.value);
+      url = signed.url;
     } catch (err) {
       return errorSnapshot(`AWS SigV4 signing failed: ${err instanceof Error ? err.message : String(err)}`);
     }

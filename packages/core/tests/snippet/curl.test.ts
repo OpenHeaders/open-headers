@@ -139,4 +139,25 @@ describe('formatCurlSnippet', () => {
     expect(out).toContain("--aws-sigv4 'aws:amz:eu-west-1:s3'");
     expect(out).toContain("-H 'x-amz-security-token: STOK'");
   });
+
+  it('drops blank scope fields off the provider tail — curl derives them from the host too', () => {
+    const base = { accessKeyId: 'AKID', secretAccessKey: 'SECRET' };
+    expect(formatCurlSnippet(wire({ awsSigV4: { ...base, service: '', region: '' } }))).toContain(
+      "--aws-sigv4 'aws:amz'",
+    );
+    expect(formatCurlSnippet(wire({ awsSigV4: { ...base, service: '', region: 'eu-west-1' } }))).toContain(
+      "--aws-sigv4 'aws:amz:eu-west-1'",
+    );
+    expect(formatCurlSnippet(wire({ awsSigV4: { ...base, service: 's3', region: '' } }))).toContain(
+      "--aws-sigv4 'aws:amz::s3'",
+    );
+  });
+
+  it('copies a query-signed SigV4 request without auth — curl has no presigned mode', () => {
+    const out = formatCurlSnippet(
+      wire({ awsSigV4: { accessKeyId: 'AKID', secretAccessKey: 'SECRET', service: 's3', region: '', addTo: 'query' } }),
+    );
+    expect(out).not.toContain('--aws-sigv4');
+    expect(out).not.toContain('--user');
+  });
 });

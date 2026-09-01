@@ -238,10 +238,11 @@ export async function executeResolved(
   // SigV4 signs HERE — the final wire shape, after the pre-request
   // script's mutations and the params → URL fold — and its headers
   // replace same-key user rows (a stale Authorization would combine
-  // into garbage on the wire). Twin of the oracle wire executor's leg.
-  // The signed set is what fetch will SHIP: a Request's header guard
-  // sheds the forbidden names the browser never sends, so the browser
-  // decides — no hand-kept list to drift.
+  // into garbage on the wire); query mode rewrites the URL instead.
+  // Twin of the oracle wire executor's leg. The signed set is what
+  // fetch will SHIP: a Request's header guard sheds the forbidden
+  // names the browser never sends, so the browser decides — no
+  // hand-kept list to drift.
   if (req.awsSigV4) {
     try {
       const shipping = new Request(req.url, { method: req.method, headers: fetchHeaders }).headers;
@@ -252,11 +253,11 @@ export async function executeResolved(
         payloadHash: await fetchPayloadHash(init.body),
         now: new Date(),
       });
-      for (const h of signed) fetchHeaders.set(h.key, h.value);
-      // Mirror the signed set back onto `req.headers` so the offscreen
+      for (const h of signed.headers) fetchHeaders.set(h.key, h.value);
+      // Mirror the signed shape back onto `req` so the offscreen
       // cert-exception retry (which rebuilds its plan from `req`)
       // ships the same signature.
-      req = { ...req, headers: [...fetchHeaders.entries()].map(([key, value]) => ({ key, value })) };
+      req = { ...req, url: signed.url, headers: [...fetchHeaders.entries()].map(([key, value]) => ({ key, value })) };
     } catch (err) {
       return errorSnapshot(`AWS SigV4 signing failed: ${err instanceof Error ? err.message : String(err)}`);
     }
