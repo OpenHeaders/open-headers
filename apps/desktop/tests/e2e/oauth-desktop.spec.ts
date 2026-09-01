@@ -20,6 +20,12 @@
  * sixth would wait out the window (a refused exchange is pinned in the
  * oracle flows unit test instead).
  *
+ * Manual mode — `OH_OAUTH_MANUAL=1`: the automated legs skip, the
+ * `shell.openExternal` swap stays off, and one leg seeds a collection
+ * whose pool entry is the playground IdP plus two requests, reloads
+ * the workbench and pauses, so a person can click Get new access token
+ * and watch the real browser hop land back on the callback.
+ *
  * Requires `pnpm turbo build --filter=@openheaders/desktop` first; the
  * playground boots as Playwright's webServer.
  */
@@ -36,6 +42,7 @@ const DAEMON_PORT = 18637;
 const PLAYGROUND = 'http://127.0.0.1:3000';
 const API_ECHO_URL = `${PLAYGROUND}/api/echo`;
 const REDIRECT_URI = `http://127.0.0.1:${DAEMON_PORT}/oauth/callback`;
+const MANUAL = process.env.OH_OAUTH_MANUAL === '1';
 
 let electronApp: ElectronApplication;
 let workbench: Page;
@@ -142,6 +149,7 @@ test.beforeAll(async () => {
     )
     .toBe(true);
 
+  if (MANUAL) return;
   // The user-agent stand-in: follow the provider's redirect the way a
   // browser would, landing on the spine's loopback callback route.
   await electronApp.evaluate(async ({ shell }) => {
@@ -155,6 +163,11 @@ test.beforeAll(async () => {
 test.afterAll(async () => {
   await electronApp?.close();
   await rm(userData, { recursive: true, force: true });
+});
+
+test.beforeEach(() => {
+  const manualLeg = test.info().title.startsWith('manual:');
+  test.skip(MANUAL !== manualLeg, MANUAL ? 'manual mode — automated legs skip' : 'manual leg — set OH_OAUTH_MANUAL=1');
 });
 
 test('the redirect URI is the loopback callback on the bound port', async () => {
@@ -231,4 +244,90 @@ test('revoke drops the bundle; the next send carries no Authorization', async ()
   expect(res).toEqual({ success: true, removed: true });
   const echo = await sendWith(oauthConfig({}));
   expect(echo.auth.kind).toBe('none');
+});
+
+test('manual: seed the playground OAuth 2.0 collection and pause for a hands-on pass', async () => {
+  test.setTimeout(0);
+  const poolConfig = oauthConfig({ credentialRef: 'cred-manual-pool' });
+  const imported = await invoke<{ success: boolean; error?: string }>({
+    type: 'importWorkspace',
+    incoming: {
+      kind: 'workspace-export',
+      schemaVersion: 5,
+      exportFormatVersion: 1,
+      exportId: 'oauthman1',
+      exportedAt: '2026-09-01T00:00:00.000Z',
+      source: { app: 'desktop', appVersion: '0.0.0', platform: 'electron', workspaceLabel: 'OAuth 2.0 Playground' },
+      scope: 'selection',
+      workspace: { uid: '01990000-0000-7000-8000-0000000000a2', name: 'OAuth 2.0 Playground' },
+      entities: {
+        collections: [
+          {
+            schemaVersion: 5,
+            uid: 'oa2mcoll',
+            path: 'requests/oauth-2-0-playground-oa2mcoll',
+            name: 'OAuth 2.0 Playground',
+            variables: [],
+            pinnedEnvironmentIds: [],
+            defaultEnvironmentId: null,
+            auths: [{ uid: 'oa2mpool', name: 'Playground IdP', config: poolConfig }],
+            defaultAuthUid: 'oa2mpool',
+          },
+        ],
+        folders: [],
+        rules: [],
+        requests: [
+          {
+            schemaVersion: 5,
+            uid: 'oa2minhr',
+            path: 'requests/oauth-2-0-playground-oa2mcoll/echo-inherit-oa2minhr',
+            name: 'echo (inherit)',
+            method: 'GET',
+            url: API_ECHO_URL,
+            headers: [],
+            params: [],
+            auth: { type: 'inherit' },
+            body: { type: 'none' },
+          },
+          {
+            schemaVersion: 5,
+            uid: 'oa2mownr',
+            path: 'requests/oauth-2-0-playground-oa2mcoll/echo-own-oauth2-oa2mownr',
+            name: 'echo (own OAuth 2.0)',
+            method: 'GET',
+            url: API_ECHO_URL,
+            headers: [],
+            params: [],
+            auth: oauthConfig({ credentialRef: 'cred-manual-own' }),
+            body: { type: 'none' },
+          },
+        ],
+        templates: [],
+        environments: [],
+        workspaceVars: { schemaVersion: 5, variables: [] },
+        liveWorkflows: [],
+        liveVariables: [],
+        specs: [],
+      },
+      meta: {
+        redactions: { vault: 'omitted', liveCache: 'omitted', oauthTokens: 'omitted', totpCooldowns: 'omitted' },
+        counts: {
+          rules: 0,
+          requests: 2,
+          environments: 0,
+          liveWorkflows: 0,
+          liveVariables: 0,
+          templates: 0,
+          secrets: 0,
+          specs: 0,
+        },
+      },
+    },
+    strategies: {},
+    target: { mode: 'current' },
+    sourceHash: 'sha256:oauth-desktop-manual',
+  });
+  expect(imported.success, imported.error).toBe(true);
+  await workbench.reload();
+  await workbench.pause();
 });
