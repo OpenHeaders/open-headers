@@ -195,6 +195,123 @@ export const workbenchEditorsRequest = {
 
   // ── Authorization tab ──────────────────────────────────────────────
   'workbench.editors.request.auth.typeLabel': 'Tipo de autenticación',
+  'workbench.editors.request.auth.group.credentials': 'Credenciales',
+  'workbench.editors.request.auth.group.token': 'Token',
+  'workbench.editors.request.auth.group.signing': 'Firma',
+  'workbench.editors.request.auth.group.consumer': 'Consumidor',
+  'workbench.editors.request.auth.group.attributes': 'Atributos',
+  'workbench.editors.request.auth.group.delivery': 'Entrega',
+  'workbench.editors.request.auth.group.challenge': 'Desafío',
+  'workbench.editors.request.auth.group.grant': 'Concesión',
+  'workbench.editors.request.auth.group.advanced': 'Avanzado',
+  'workbench.editors.request.auth.typeInfo.none':
+    'No se añade nada \u2014 la solicitud sale exactamente como muestran sus pestañas Headers y Params.',
+  'workbench.editors.request.auth.typeInfo.basic':
+    'El usuario y la contraseña se unen con dos puntos, se codifican en base64 y se envían como cabecera Authorization: Basic en cada envío \u2014 codificados, no cifrados, así que solo por HTTPS.',
+  'workbench.editors.request.auth.typeInfo.bearer':
+    'El token se envía tal cual tras el esquema Bearer en la cabecera Authorization en cada envío.',
+  'workbench.editors.request.auth.typeInfo.apiKey':
+    'La clave nombra una cabecera o un parámetro de consulta y el valor viaja en él \u2014 el esquema de credencial simple que usan la mayoría de las API públicas.',
+  'workbench.editors.request.auth.typeInfo.digest':
+    'El primer envío provoca el desafío 401 del servidor (realm, nonce, qop); las credenciales se hashean con él en response= y la solicitud se reintenta \u2014 la contraseña en sí nunca viaja.',
+  'workbench.editors.request.auth.typeInfo.oauth1':
+    'Las credenciales de consumidor y token firman una cadena base con el método, la URL y los parámetros; los parámetros oauth_* firmados viajan en la cabecera Authorization o en la URL, con nonce, marca de tiempo y versión generados en cada envío.',
+  'workbench.editors.request.auth.typeInfo.hawk':
+    'Un MAC sobre el método, la URL, la marca de tiempo, el nonce y los atributos opcionales viaja en una cabecera Authorization: Hawk; la marca de tiempo y el nonce se generan en cada envío.',
+  'workbench.editors.request.auth.typeInfo.jwt':
+    'Se crea y firma un JWT nuevo en cada envío a partir del material de clave aquí \u2014 la cabecera, la carga útil y la firma de abajo \u2014 y se entrega como token bearer o parámetro de consulta.',
+  'workbench.editors.request.auth.groupInfo.basic.credentials':
+    'El par que se convierte en la credencial base64 \u2014 ambos se envían, codificados pero no cifrados.',
+  'workbench.editors.request.auth.groupInfo.bearer.token':
+    'El token tal como lo emitió el servidor; el esquema Bearer se antepone en la red.',
+  'workbench.editors.request.auth.groupInfo.apiKey.credentials':
+    'El nombre y el secreto \u2014 el nombre es la cabecera o el parámetro, el valor es lo que viaja en él.',
+  'workbench.editors.request.auth.groupInfo.apiKey.delivery':
+    'Dónde aterriza la clave: una cabecera de la solicitud, o un parámetro de consulta añadido a la URL.',
+  'workbench.editors.request.auth.groupInfo.digest.credentials':
+    'El par del que se calcula la respuesta al desafío \u2014 el usuario viaja, la contraseña solo como parte del hash de respuesta.',
+  'workbench.editors.request.auth.groupInfo.digest.challenge':
+    'Cómo se gestiona la etapa 401 en envíos de escritorio y CLI \u2014 respondida y reintentada automáticamente salvo que se desactive.',
+  'workbench.editors.request.auth.groupInfo.oauth1.signing':
+    'El método que firma la cadena base \u2014 HMAC con los secretos, RSA con la clave privada, o PLAINTEXT \u2014 y si el cuerpo se hashea en ella.',
+  'workbench.editors.request.auth.groupInfo.oauth1.consumer':
+    'Las credenciales de la aplicación \u2014 la clave viaja como oauth_consumer_key, el secreto (o la clave privada) solo a través de oauth_signature.',
+  'workbench.editors.request.auth.groupInfo.oauth1.token':
+    'El par de token de acceso del usuario del flujo de tres patas \u2014 deje ambos vacíos para llamadas de una pata.',
+  'workbench.editors.request.auth.groupInfo.oauth1.delivery':
+    'Dónde aterrizan los parámetros oauth_* \u2014 la cabecera Authorization (con un realm opcional) o la cadena de consulta de la URL.',
+  'workbench.editors.request.auth.groupInfo.hawk.credentials':
+    'El id viaja en la cabecera; la clave solo a través del MAC que calcula.',
+  'workbench.editors.request.auth.groupInfo.hawk.signing':
+    'El resumen del MAC, y si el cuerpo de la solicitud se hashea en él como hash=.',
+  'workbench.editors.request.auth.groupInfo.hawk.attributes':
+    'Los atributos opcionales del esquema \u2014 datos de aplicación (ext), el id de aplicación (app) y el delegante (dlg) \u2014 firmados cuando están presentes.',
+  'workbench.editors.request.auth.groupInfo.jwt.signing':
+    'El algoritmo nombrado en la cabecera JWT y el material de clave que la firma \u2014 un secreto compartido para HS, una clave privada para RS / PS / ES.',
+  'workbench.editors.request.auth.groupInfo.jwt.token':
+    'Lo que transporta el JWT \u2014 los claims de la carga útil, cabeceras protegidas extra y la vida útil opcional estampada como iat / exp.',
+  'workbench.editors.request.auth.groupInfo.jwt.delivery':
+    'Dónde aterriza el JWT firmado \u2014 la cabecera Authorization tras su prefijo, o un parámetro de consulta token.',
+  'workbench.editors.request.auth.rowInfo.basicUsername': 'Viaja antes de los dos puntos en la credencial base64.',
+  'workbench.editors.request.auth.rowInfo.basicPassword':
+    'Viaja después de los dos puntos \u2014 codificada, nunca cifrada, así que solo por HTTPS.',
+  'workbench.editors.request.auth.rowInfo.bearerToken':
+    'Se envía tal cual tras Bearer; un «Bearer \u2026» pegado pierde aquí su prefijo.',
+  'workbench.editors.request.auth.rowInfo.apiKeyKey':
+    'El nombre de la cabecera o del parámetro de consulta en el que viaja el valor.',
+  'workbench.editors.request.auth.rowInfo.apiKeyValue': 'El secreto enviado como valor de la cabecera o del parámetro.',
+  'workbench.editors.request.auth.rowInfo.apiKeyAddTo':
+    'Header pone la clave en la solicitud; Query Params la añade a la URL, donde acaba en los registros.',
+  'workbench.editors.request.auth.rowInfo.digestUsername': 'Viaja como username= en la respuesta al desafío.',
+  'workbench.editors.request.auth.rowInfo.digestPassword':
+    'Nunca viaja \u2014 se hashea con el realm, el nonce y el método en response=.',
+  'workbench.editors.request.auth.rowInfo.digestDisableRetry':
+    'Detiene la segunda etapa automática: el 401 se devuelve como respuesta en lugar de responderse.',
+  'workbench.editors.request.auth.rowInfo.oauth1SignatureMethod':
+    'Nombra el algoritmo de firma en oauth_signature_method y elige el juego de credenciales de abajo.',
+  'workbench.editors.request.auth.rowInfo.oauth1BodyHash':
+    'Resume un cuerpo que no es formulario con el hash del método en oauth_body_hash, firmado con el resto.',
+  'workbench.editors.request.auth.rowInfo.oauth1ConsumerKey':
+    'Identifica la aplicación \u2014 viaja como oauth_consumer_key.',
+  'workbench.editors.request.auth.rowInfo.oauth1ConsumerSecret':
+    'Firma la solicitud junto con el secreto del token; nunca viaja, solo lo hace oauth_signature.',
+  'workbench.editors.request.auth.rowInfo.oauth1PrivateKey':
+    'La clave PEM que firma la cadena base para los métodos RSA \u2014 solo viaja la firma.',
+  'workbench.editors.request.auth.rowInfo.oauth1Token':
+    'El token de acceso del usuario, enviado como oauth_token; vacío para llamadas de una pata.',
+  'workbench.editors.request.auth.rowInfo.oauth1TokenSecret':
+    'La segunda mitad de la clave de firma; nunca viaja, solo lo hace oauth_signature.',
+  'workbench.editors.request.auth.rowInfo.oauth1AddTo':
+    'Header lleva los parámetros oauth_* en la cabecera Authorization; Query Params los añade a la URL.',
+  'workbench.editors.request.auth.rowInfo.oauth1Realm':
+    'Se repite como realm= al inicio de la cabecera, nombrando el espacio de protección.',
+  'workbench.editors.request.auth.rowInfo.hawkAuthId': 'Identifica la credencial \u2014 viaja como id= en la cabecera.',
+  'workbench.editors.request.auth.rowInfo.hawkAuthKey': 'El secreto compartido que calcula mac=; nunca viaja.',
+  'workbench.editors.request.auth.rowInfo.hawkAlgorithm': 'El resumen HMAC que usan el MAC y el hash de carga útil.',
+  'workbench.editors.request.auth.rowInfo.hawkPayloadHash':
+    'Hashea el cuerpo y su tipo de contenido en hash=, ligando la carga útil a la firma.',
+  'workbench.editors.request.auth.rowInfo.hawkExt':
+    'Datos propios de la aplicación \u2014 viajan como ext= y se firman.',
+  'workbench.editors.request.auth.rowInfo.hawkApp': 'El id de aplicación \u2014 viaja como app= y se firma.',
+  'workbench.editors.request.auth.rowInfo.hawkDlg':
+    'El id de la aplicación delegante \u2014 viaja como dlg= tras app= y se firma.',
+  'workbench.editors.request.auth.rowInfo.jwtAlgorithm':
+    'Se escribe como alg en la cabecera protegida y elige el campo de clave de abajo.',
+  'workbench.editors.request.auth.rowInfo.jwtSecret': 'El secreto HMAC compartido que produce la firma; nunca viaja.',
+  'workbench.editors.request.auth.rowInfo.jwtSecretBase64':
+    'Decodifica el secreto desde base64 antes de firmar, para secretos emitidos en esa forma.',
+  'workbench.editors.request.auth.rowInfo.jwtPrivateKey':
+    'La clave privada PEM que produce la firma para RS / PS / ES; solo viaja la firma.',
+  'workbench.editors.request.auth.rowInfo.jwtPayload':
+    'Los claims en JSON \u2014 las plantillas se resuelven en cada envío; un iat o exp fijado aquí gana sobre la vida útil.',
+  'workbench.editors.request.auth.rowInfo.jwtHeaders':
+    'Cabeceras protegidas extra en JSON (kid es la habitual); alg y typ se añaden automáticamente.',
+  'workbench.editors.request.auth.rowInfo.jwtExpiresIn':
+    'Estampa iat y exp en la carga útil al firmar para que cada envío lleve una vida útil fresca.',
+  'workbench.editors.request.auth.rowInfo.jwtAddTo':
+    'Header envía el JWT en la cabecera Authorization; Query Params lo añade como token= en la URL.',
+  'workbench.editors.request.auth.rowInfo.jwtHeaderPrefix':
+    'El esquema delante del JWT en la cabecera Authorization \u2014 Bearer por defecto; vacío envía el token desnudo.',
   'workbench.editors.request.auth.type.inherit': 'Heredar la autenticación del padre',
   'workbench.editors.request.auth.type.none': 'Sin autenticación',
   'workbench.editors.request.auth.type.basic': 'Basic Auth',

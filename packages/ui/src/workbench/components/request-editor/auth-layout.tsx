@@ -7,10 +7,12 @@
  * gRPC tabs render the same parts so the three read as one surface.
  */
 
-import { Typography, theme } from 'antd';
+import { Checkbox, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useRef, useState } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
+import { type InfoPopoverContent, InfoTrigger } from '@openheaders/ui/shared/info-popover';
+import { GroupSection } from '@openheaders/ui/shared/settings-rows';
 import { type GripResizeXEvent, TemplateInput } from '../template-input';
 import { useValueEditAction } from '../value-editors';
 
@@ -26,6 +28,10 @@ const RAIL_DEFAULT = 210;
 // are full-pane so a grip drag has room to grow); a manual width
 // escapes the cap up to the pane edge.
 export const AUTH_FIELD_DEFAULT_MAX_WIDTH = 438;
+
+// The label column every auth row shares — wide enough for the
+// longest label plus its (i) ("Request header prefix") on one line.
+export const AUTH_LABEL_WIDTH = 150;
 
 const SECRET_FIELD_MIN_WIDTH = 160;
 
@@ -174,12 +180,79 @@ export const AuthFormNote: React.FC<{ children: React.ReactNode }> = ({ children
   </Text>
 );
 
-export const AuthLabeledRow: React.FC<{ label: string; children: React.ReactNode }> = ({ label, children }) => (
-  <div style={{ display: 'grid', gridTemplateColumns: '90px 1fr', alignItems: 'start', gap: 12 }}>
-    <Text style={{ fontSize: 13, lineHeight: '24px' }}>{label}</Text>
+/** `label · (i)` over the field column; the (i) opens the row's slice
+ *  of the type's example (AuthRowInfo). */
+export const AuthLabeledRow: React.FC<{ label: string; info?: InfoPopoverContent; children: React.ReactNode }> = ({
+  label,
+  info,
+  children,
+}) => (
+  <div style={{ display: 'grid', gridTemplateColumns: `${AUTH_LABEL_WIDTH}px 1fr`, alignItems: 'start', gap: 12 }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 4, minHeight: 24 }}>
+      <Text style={{ fontSize: 13, lineHeight: '24px' }}>{label}</Text>
+      {info !== undefined && <InfoTrigger content={info} />}
+    </div>
     <div style={{ minWidth: 0 }}>{children}</div>
   </div>
 );
+
+/** The opt-in rows (body hash, payload hash, base64 secret, digest
+ *  retry): checkbox · label · (i) at the label size. */
+export const AuthCheckboxRow: React.FC<{
+  label: string;
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+  info?: InfoPopoverContent;
+  testId?: string;
+}> = ({ label, checked, onChange, info, testId }) => (
+  <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+    <Checkbox
+      checked={checked}
+      data-testid={testId}
+      onChange={(e) => onChange(e.target.checked)}
+      style={{ fontSize: 13 }}
+    >
+      {label}
+    </Checkbox>
+    {info !== undefined && <InfoTrigger content={info} />}
+  </div>
+);
+
+// ── Collapsible form section ───────────────────────────────────────
+//
+// The Settings tab's group idiom on the auth forms: caret + uppercase
+// label + rail, the group's (i), the modified dot while a fold hides
+// a set field. Folds are a reading preference, not request state —
+// they live for the session, keyed by type and group, and every
+// surface that renders the type's form (the request tab, the pool
+// entry pane, the inherited read-only form) shares them.
+
+const sessionCollapsed: Record<string, boolean> = {};
+
+export const AuthGroup: React.FC<{
+  type: string;
+  group: string;
+  label: string;
+  info?: InfoPopoverContent;
+  /** Any field of the group is set — the header keeps a dot while
+   *  folded so a set field never disappears behind the fold. */
+  modified?: boolean;
+  defaultCollapsed?: boolean;
+  children: React.ReactNode;
+}> = ({ type, group, label, info, modified, defaultCollapsed = false, children }) => {
+  const key = `${type}.${group}`;
+  const [expanded, setExpanded] = useState(() => !(sessionCollapsed[key] ?? defaultCollapsed));
+  const toggle = () =>
+    setExpanded((open) => {
+      sessionCollapsed[key] = open;
+      return !open;
+    });
+  return (
+    <GroupSection label={label} expanded={expanded} onToggle={toggle} info={info} modified={modified}>
+      {children}
+    </GroupSection>
+  );
+};
 
 // ── Secret credential field ────────────────────────────────────────
 //

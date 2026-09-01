@@ -15,6 +15,7 @@ import { useT } from '@openheaders/ui/context/LocaleContext';
 import { AuthConfigFields, OAuth2RailControls, seedAuthConfig } from '../request-editor/auth-config-form';
 import { AUTH_FIELD_DEFAULT_MAX_WIDTH, AuthFormNote, AuthLabeledRow } from '../request-editor/auth-layout';
 import { authTypeSelectOptions, type ConcreteAuthType } from '../request-editor/auth-type-menu';
+import { authTypeInfo } from '../request-editor/AuthRowInfo';
 import InheritedAuthForm from '../request-editor/InheritedAuthForm';
 import { authTypeLabelKey } from '../request-editor/inherited-auth';
 
@@ -55,7 +56,7 @@ const AuthEntryPane: React.FC<AuthEntryPaneProps> = ({ entry, onChange, inherite
 
   const form = (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-      <AuthLabeledRow label={t('workbench.editors.request.auth.typeLabel')}>
+      <AuthLabeledRow label={t('workbench.editors.request.auth.typeLabel')} info={authTypeInfo(t, entry.config)}>
         <Select
           size="small"
           data-testid="oh-auth-entry-type"

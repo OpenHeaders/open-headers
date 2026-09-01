@@ -194,6 +194,129 @@ export const workbenchEditorsRequest = {
 
   // ── Authorization tab ──────────────────────────────────────────────
   'workbench.editors.request.auth.typeLabel': "Type d'auth",
+  'workbench.editors.request.auth.group.credentials': 'Identifiants',
+  'workbench.editors.request.auth.group.token': 'Jeton',
+  'workbench.editors.request.auth.group.signing': 'Signature',
+  'workbench.editors.request.auth.group.consumer': 'Consommateur',
+  'workbench.editors.request.auth.group.attributes': 'Attributs',
+  'workbench.editors.request.auth.group.delivery': 'Acheminement',
+  'workbench.editors.request.auth.group.challenge': 'Défi',
+  'workbench.editors.request.auth.group.grant': 'Octroi',
+  'workbench.editors.request.auth.group.advanced': 'Avancé',
+  'workbench.editors.request.auth.typeInfo.none':
+    'Rien n\u2019est ajouté \u2014 la requête part exactement comme le montrent ses onglets Headers et Params.',
+  'workbench.editors.request.auth.typeInfo.basic':
+    'Le nom d\u2019utilisateur et le mot de passe sont joints par deux-points, encodés en base64 et envoyés dans un en-tête Authorization: Basic à chaque envoi \u2014 encodés, pas chiffrés, donc uniquement en HTTPS.',
+  'workbench.editors.request.auth.typeInfo.bearer':
+    'Le jeton est envoyé tel quel après le schéma Bearer dans l\u2019en-tête Authorization à chaque envoi.',
+  'workbench.editors.request.auth.typeInfo.apiKey':
+    'La clé nomme un en-tête ou un paramètre de requête et la valeur y voyage \u2014 le schéma d\u2019identifiant simple qu\u2019utilisent la plupart des API publiques.',
+  'workbench.editors.request.auth.typeInfo.digest':
+    'Le premier envoi provoque le défi 401 du serveur (realm, nonce, qop) ; les identifiants sont hachés avec lui dans response= et la requête est renvoyée \u2014 le mot de passe lui-même ne voyage jamais.',
+  'workbench.editors.request.auth.typeInfo.oauth1':
+    'Les identifiants du consommateur et du jeton signent une chaîne de base composée de la méthode, de l\u2019URL et des paramètres ; les paramètres oauth_* signés voyagent dans l\u2019en-tête Authorization ou l\u2019URL, le nonce, l\u2019horodatage et la version étant générés à chaque envoi.',
+  'workbench.editors.request.auth.typeInfo.hawk':
+    'Un MAC sur la méthode, l\u2019URL, l\u2019horodatage, le nonce et les attributs optionnels voyage dans un en-tête Authorization: Hawk ; l\u2019horodatage et le nonce sont générés à chaque envoi.',
+  'workbench.editors.request.auth.typeInfo.jwt':
+    'Un JWT neuf est créé et signé à chaque envoi à partir du matériel de clé ici \u2014 l\u2019en-tête, la charge utile et la signature ci-dessous \u2014 puis livré comme jeton bearer ou paramètre de requête.',
+  'workbench.editors.request.auth.groupInfo.basic.credentials':
+    'La paire qui devient l\u2019identifiant base64 \u2014 les deux sont envoyés, encodés mais pas chiffrés.',
+  'workbench.editors.request.auth.groupInfo.bearer.token':
+    'Le jeton tel que le serveur l\u2019a émis ; le schéma Bearer est ajouté devant sur le réseau.',
+  'workbench.editors.request.auth.groupInfo.apiKey.credentials':
+    'Le nom et le secret \u2014 le nom est l\u2019en-tête ou le paramètre, la valeur est ce qui y voyage.',
+  'workbench.editors.request.auth.groupInfo.apiKey.delivery':
+    'Où la clé atterrit : un en-tête de requête, ou un paramètre ajouté à l\u2019URL.',
+  'workbench.editors.request.auth.groupInfo.digest.credentials':
+    'La paire à partir de laquelle la réponse au défi est calculée \u2014 le nom d\u2019utilisateur voyage, le mot de passe seulement dans le hachage de la réponse.',
+  'workbench.editors.request.auth.groupInfo.digest.challenge':
+    'Comment l\u2019étape 401 est gérée sur les envois desktop et CLI \u2014 répondue et renvoyée automatiquement sauf si désactivé.',
+  'workbench.editors.request.auth.groupInfo.oauth1.signing':
+    'La méthode qui signe la chaîne de base \u2014 HMAC avec les secrets, RSA avec la clé privée, ou PLAINTEXT \u2014 et si le corps y est haché.',
+  'workbench.editors.request.auth.groupInfo.oauth1.consumer':
+    'Les identifiants de l\u2019application \u2014 la clé voyage comme oauth_consumer_key, le secret (ou la clé privée) seulement à travers oauth_signature.',
+  'workbench.editors.request.auth.groupInfo.oauth1.token':
+    'La paire de jeton d\u2019accès de l\u2019utilisateur issue du flux à trois pattes \u2014 laissez les deux vides pour les appels à une patte.',
+  'workbench.editors.request.auth.groupInfo.oauth1.delivery':
+    'Où atterrissent les paramètres oauth_* \u2014 l\u2019en-tête Authorization (avec un realm optionnel) ou la chaîne de requête de l\u2019URL.',
+  'workbench.editors.request.auth.groupInfo.hawk.credentials':
+    'L\u2019id voyage dans l\u2019en-tête ; la clé seulement à travers le MAC qu\u2019elle calcule.',
+  'workbench.editors.request.auth.groupInfo.hawk.signing':
+    'Le condensé du MAC, et si le corps de la requête y est haché comme hash=.',
+  'workbench.editors.request.auth.groupInfo.hawk.attributes':
+    'Les attributs optionnels du schéma \u2014 données applicatives (ext), l\u2019id d\u2019application (app) et celui qui délègue (dlg) \u2014 signés quand présents.',
+  'workbench.editors.request.auth.groupInfo.jwt.signing':
+    'L\u2019algorithme nommé dans l\u2019en-tête JWT et le matériel de clé qui le signe \u2014 un secret partagé pour HS, une clé privée pour RS / PS / ES.',
+  'workbench.editors.request.auth.groupInfo.jwt.token':
+    'Ce que le JWT transporte \u2014 les claims de la charge utile, des en-têtes protégés supplémentaires et la durée de vie optionnelle estampillée en iat / exp.',
+  'workbench.editors.request.auth.groupInfo.jwt.delivery':
+    'Où atterrit le JWT signé \u2014 l\u2019en-tête Authorization derrière son préfixe, ou un paramètre de requête token.',
+  'workbench.editors.request.auth.rowInfo.basicUsername':
+    'Voyage avant les deux-points dans l\u2019identifiant base64.',
+  'workbench.editors.request.auth.rowInfo.basicPassword':
+    'Voyage après les deux-points \u2014 encodé, jamais chiffré, donc uniquement en HTTPS.',
+  'workbench.editors.request.auth.rowInfo.bearerToken':
+    'Envoyé tel quel après Bearer ; un « Bearer \u2026 » collé perd son préfixe ici.',
+  'workbench.editors.request.auth.rowInfo.apiKeyKey':
+    'Le nom de l\u2019en-tête ou du paramètre de requête dans lequel la valeur voyage.',
+  'workbench.editors.request.auth.rowInfo.apiKeyValue':
+    'Le secret envoyé comme valeur de l\u2019en-tête ou du paramètre.',
+  'workbench.editors.request.auth.rowInfo.apiKeyAddTo':
+    'Header place la clé sur la requête ; Query Params l\u2019ajoute à l\u2019URL, où elle finit dans les journaux.',
+  'workbench.editors.request.auth.rowInfo.digestUsername': 'Voyage comme username= dans la réponse au défi.',
+  'workbench.editors.request.auth.rowInfo.digestPassword':
+    'Ne voyage jamais \u2014 il est haché avec le realm, le nonce et la méthode dans response=.',
+  'workbench.editors.request.auth.rowInfo.digestDisableRetry':
+    'Arrête la seconde étape automatique : le 401 est renvoyé comme réponse au lieu d\u2019être répondu.',
+  'workbench.editors.request.auth.rowInfo.oauth1SignatureMethod':
+    'Nomme l\u2019algorithme de signature dans oauth_signature_method et choisit le jeu d\u2019identifiants ci-dessous.',
+  'workbench.editors.request.auth.rowInfo.oauth1BodyHash':
+    'Condense un corps non-formulaire avec le hachage de la méthode dans oauth_body_hash, signé avec le reste.',
+  'workbench.editors.request.auth.rowInfo.oauth1ConsumerKey':
+    'Identifie l\u2019application \u2014 voyage comme oauth_consumer_key.',
+  'workbench.editors.request.auth.rowInfo.oauth1ConsumerSecret':
+    'Signe la requête avec le secret du jeton ; il ne voyage jamais, seul oauth_signature le fait.',
+  'workbench.editors.request.auth.rowInfo.oauth1PrivateKey':
+    'La clé PEM qui signe la chaîne de base pour les méthodes RSA \u2014 seule la signature voyage.',
+  'workbench.editors.request.auth.rowInfo.oauth1Token':
+    'Le jeton d\u2019accès de l\u2019utilisateur, envoyé comme oauth_token ; vide pour les appels à une patte.',
+  'workbench.editors.request.auth.rowInfo.oauth1TokenSecret':
+    'La seconde moitié de la clé de signature ; il ne voyage jamais, seul oauth_signature le fait.',
+  'workbench.editors.request.auth.rowInfo.oauth1AddTo':
+    'Header transporte les paramètres oauth_* dans l\u2019en-tête Authorization ; Query Params les ajoute à l\u2019URL.',
+  'workbench.editors.request.auth.rowInfo.oauth1Realm':
+    'Répété comme realm= au début de l\u2019en-tête, nommant l\u2019espace de protection.',
+  'workbench.editors.request.auth.rowInfo.hawkAuthId':
+    'Identifie l\u2019identifiant \u2014 voyage comme id= dans l\u2019en-tête.',
+  'workbench.editors.request.auth.rowInfo.hawkAuthKey': 'Le secret partagé qui calcule mac= ; il ne voyage jamais.',
+  'workbench.editors.request.auth.rowInfo.hawkAlgorithm':
+    'Le condensé HMAC qu\u2019utilisent le MAC et le hachage de charge utile.',
+  'workbench.editors.request.auth.rowInfo.hawkPayloadHash':
+    'Hache le corps et son type de contenu dans hash=, liant la charge utile à la signature.',
+  'workbench.editors.request.auth.rowInfo.hawkExt':
+    'Données propres à l\u2019application \u2014 voyagent comme ext= et sont signées.',
+  'workbench.editors.request.auth.rowInfo.hawkApp':
+    'L\u2019id d\u2019application \u2014 voyage comme app= et est signé.',
+  'workbench.editors.request.auth.rowInfo.hawkDlg':
+    'L\u2019id de l\u2019application qui délègue \u2014 voyage comme dlg= après app= et est signé.',
+  'workbench.editors.request.auth.rowInfo.jwtAlgorithm':
+    'Écrit comme alg dans l\u2019en-tête protégé et choisit le champ de clé ci-dessous.',
+  'workbench.editors.request.auth.rowInfo.jwtSecret':
+    'Le secret HMAC partagé qui produit la signature ; il ne voyage jamais.',
+  'workbench.editors.request.auth.rowInfo.jwtSecretBase64':
+    'Décode le secret depuis base64 avant de signer, pour les secrets émis sous cette forme.',
+  'workbench.editors.request.auth.rowInfo.jwtPrivateKey':
+    'La clé privée PEM qui produit la signature pour RS / PS / ES ; seule la signature voyage.',
+  'workbench.editors.request.auth.rowInfo.jwtPayload':
+    'Les claims en JSON \u2014 les modèles sont résolus à chaque envoi ; un iat ou exp défini ici l\u2019emporte sur la durée de vie.',
+  'workbench.editors.request.auth.rowInfo.jwtHeaders':
+    'En-têtes protégés supplémentaires en JSON (kid est l\u2019habituel) ; alg et typ sont ajoutés automatiquement.',
+  'workbench.editors.request.auth.rowInfo.jwtExpiresIn':
+    'Estampille iat et exp dans la charge utile à la signature pour que chaque envoi porte une durée de vie fraîche.',
+  'workbench.editors.request.auth.rowInfo.jwtAddTo':
+    'Header envoie le JWT dans l\u2019en-tête Authorization ; Query Params l\u2019ajoute comme token= sur l\u2019URL.',
+  'workbench.editors.request.auth.rowInfo.jwtHeaderPrefix':
+    'Le schéma devant le JWT dans l\u2019en-tête Authorization \u2014 Bearer par défaut ; vide envoie le jeton nu.',
   'workbench.editors.request.auth.type.inherit': "Hériter l'auth du parent",
   'workbench.editors.request.auth.type.none': 'Aucune auth',
   'workbench.editors.request.auth.type.basic': 'Basic Auth',

@@ -154,6 +154,123 @@ export const workbenchEditorsRequest = {
 
   // ── Authorization tab ──────────────────────────────────────────────
   'workbench.editors.request.auth.typeLabel': 'Auth Type',
+  'workbench.editors.request.auth.group.credentials': 'Credentials',
+  'workbench.editors.request.auth.group.token': 'Token',
+  'workbench.editors.request.auth.group.signing': 'Signing',
+  'workbench.editors.request.auth.group.consumer': 'Consumer',
+  'workbench.editors.request.auth.group.attributes': 'Attributes',
+  'workbench.editors.request.auth.group.delivery': 'Delivery',
+  'workbench.editors.request.auth.group.challenge': 'Challenge',
+  'workbench.editors.request.auth.group.grant': 'Grant',
+  'workbench.editors.request.auth.group.advanced': 'Advanced',
+  'workbench.editors.request.auth.typeInfo.none':
+    'Nothing is added \u2014 the request goes out exactly as its Headers and Params tabs show.',
+  'workbench.editors.request.auth.typeInfo.basic':
+    'The username and password are joined with a colon, base64-encoded, and sent as an Authorization: Basic header on every send \u2014 encoded, not encrypted, so only over HTTPS.',
+  'workbench.editors.request.auth.typeInfo.bearer':
+    'The token is sent verbatim after the Bearer scheme in the Authorization header on every send.',
+  'workbench.editors.request.auth.typeInfo.apiKey':
+    'The key names a header or a query parameter and the value rides in it \u2014 the plain-credential scheme most public APIs use.',
+  'workbench.editors.request.auth.typeInfo.digest':
+    'The first send draws the server\u2019s 401 challenge (realm, nonce, qop); the credentials are hashed with it into response= and the request is retried \u2014 the password itself never rides.',
+  'workbench.editors.request.auth.typeInfo.oauth1':
+    'The consumer and token credentials sign a base string of the method, URL, and parameters; the signed oauth_* parameters ride in the Authorization header or the URL, with the nonce, timestamp, and version minted per send.',
+  'workbench.editors.request.auth.typeInfo.hawk':
+    'A MAC over the method, URL, timestamp, nonce, and the optional attributes rides in an Authorization: Hawk header; the timestamp and nonce are minted per send.',
+  'workbench.editors.request.auth.typeInfo.jwt':
+    'A fresh JWT is minted and signed per send from the key material here \u2014 the header, payload, and signature below \u2014 and delivered as a bearer token or a query parameter.',
+  'workbench.editors.request.auth.groupInfo.basic.credentials':
+    'The pair that becomes the base64 credential \u2014 both are sent, encoded but not encrypted.',
+  'workbench.editors.request.auth.groupInfo.bearer.token':
+    'The token as the server issued it; the Bearer scheme is prepended on the wire.',
+  'workbench.editors.request.auth.groupInfo.apiKey.credentials':
+    'The name and the secret \u2014 the name is the header or parameter, the value is what rides in it.',
+  'workbench.editors.request.auth.groupInfo.apiKey.delivery':
+    'Where the key lands: a request header, or a query parameter appended to the URL.',
+  'workbench.editors.request.auth.groupInfo.digest.credentials':
+    'The pair the challenge response is computed from \u2014 the username rides, the password only as part of the response hash.',
+  'workbench.editors.request.auth.groupInfo.digest.challenge':
+    'How the 401 leg is handled on desktop and CLI sends \u2014 answered and retried automatically unless disabled.',
+  'workbench.editors.request.auth.groupInfo.oauth1.signing':
+    'The method that signs the base string \u2014 HMAC with the secrets, RSA with the private key, or PLAINTEXT \u2014 and whether the body is hashed into it.',
+  'workbench.editors.request.auth.groupInfo.oauth1.consumer':
+    'The application\u2019s credentials \u2014 the key rides as oauth_consumer_key, the secret (or private key) only through oauth_signature.',
+  'workbench.editors.request.auth.groupInfo.oauth1.token':
+    'The user\u2019s access token pair from the three-legged flow \u2014 leave both empty for one-legged calls.',
+  'workbench.editors.request.auth.groupInfo.oauth1.delivery':
+    'Where the oauth_* parameters land \u2014 the Authorization header (with an optional realm) or the URL\u2019s query string.',
+  'workbench.editors.request.auth.groupInfo.hawk.credentials':
+    'The id rides in the header; the key only through the MAC it computes.',
+  'workbench.editors.request.auth.groupInfo.hawk.signing':
+    'The MAC\u2019s digest, and whether the request body is hashed into it as hash=.',
+  'workbench.editors.request.auth.groupInfo.hawk.attributes':
+    'The scheme\u2019s optional attributes \u2014 application data (ext), the application id (app) and the delegating one (dlg) \u2014 signed when present.',
+  'workbench.editors.request.auth.groupInfo.jwt.signing':
+    'The algorithm named in the JWT header and the key material that signs it \u2014 a shared secret for HS, a private key for RS / PS / ES.',
+  'workbench.editors.request.auth.groupInfo.jwt.token':
+    'What the JWT carries \u2014 the payload claims, extra protected headers, and the optional lifetime stamped as iat / exp.',
+  'workbench.editors.request.auth.groupInfo.jwt.delivery':
+    'Where the signed JWT lands \u2014 the Authorization header behind its prefix, or a token query parameter.',
+  'workbench.editors.request.auth.rowInfo.basicUsername': 'Rides before the colon in the base64 credential.',
+  'workbench.editors.request.auth.rowInfo.basicPassword':
+    'Rides after the colon \u2014 encoded, never encrypted, so only over HTTPS.',
+  'workbench.editors.request.auth.rowInfo.bearerToken':
+    'Sent verbatim after Bearer; a pasted \u201cBearer \u2026\u201d sheds its prefix here.',
+  'workbench.editors.request.auth.rowInfo.apiKeyKey': 'The header name or the query parameter name the value rides in.',
+  'workbench.editors.request.auth.rowInfo.apiKeyValue':
+    'The secret sent as the header\u2019s value or the parameter\u2019s value.',
+  'workbench.editors.request.auth.rowInfo.apiKeyAddTo':
+    'Header puts the key on the request; Query Params appends it to the URL, where it lands in logs.',
+  'workbench.editors.request.auth.rowInfo.digestUsername': 'Rides as username= in the answer to the challenge.',
+  'workbench.editors.request.auth.rowInfo.digestPassword':
+    'Never rides \u2014 it is hashed with the realm, nonce, and method into response=.',
+  'workbench.editors.request.auth.rowInfo.digestDisableRetry':
+    'Stops the automatic second leg: the 401 is returned as the response instead of being answered.',
+  'workbench.editors.request.auth.rowInfo.oauth1SignatureMethod':
+    'Names the signing algorithm in oauth_signature_method and picks the credential set below.',
+  'workbench.editors.request.auth.rowInfo.oauth1BodyHash':
+    'Digests a non-form body with the method\u2019s hash into oauth_body_hash, signed with the rest.',
+  'workbench.editors.request.auth.rowInfo.oauth1ConsumerKey':
+    'Identifies the application \u2014 rides as oauth_consumer_key.',
+  'workbench.editors.request.auth.rowInfo.oauth1ConsumerSecret':
+    'Signs the request together with the token secret; it never rides, only oauth_signature does.',
+  'workbench.editors.request.auth.rowInfo.oauth1PrivateKey':
+    'The PEM key that signs the base string for the RSA methods \u2014 only the signature rides.',
+  'workbench.editors.request.auth.rowInfo.oauth1Token':
+    'The user\u2019s access token, sent as oauth_token; empty for one-legged calls.',
+  'workbench.editors.request.auth.rowInfo.oauth1TokenSecret':
+    'The second half of the signing key; it never rides, only oauth_signature does.',
+  'workbench.editors.request.auth.rowInfo.oauth1AddTo':
+    'Header carries the oauth_* parameters in the Authorization header; Query Params appends them to the URL.',
+  'workbench.editors.request.auth.rowInfo.oauth1Realm':
+    'Echoed as realm= at the start of the header, naming the protection space.',
+  'workbench.editors.request.auth.rowInfo.hawkAuthId': 'Identifies the credential \u2014 rides as id= in the header.',
+  'workbench.editors.request.auth.rowInfo.hawkAuthKey': 'The shared secret that computes mac=; it never rides.',
+  'workbench.editors.request.auth.rowInfo.hawkAlgorithm': 'The HMAC digest the MAC and the payload hash use.',
+  'workbench.editors.request.auth.rowInfo.hawkPayloadHash':
+    'Hashes the body and its content type into hash=, binding the payload to the signature.',
+  'workbench.editors.request.auth.rowInfo.hawkExt': 'Application-specific data \u2014 rides as ext= and is signed.',
+  'workbench.editors.request.auth.rowInfo.hawkApp': 'The application id \u2014 rides as app= and is signed.',
+  'workbench.editors.request.auth.rowInfo.hawkDlg':
+    'The delegating application id \u2014 rides as dlg= after app= and is signed.',
+  'workbench.editors.request.auth.rowInfo.jwtAlgorithm':
+    'Written as alg in the protected header and picks the key field below.',
+  'workbench.editors.request.auth.rowInfo.jwtSecret':
+    'The shared HMAC secret that produces the signature; it never rides.',
+  'workbench.editors.request.auth.rowInfo.jwtSecretBase64':
+    'Decodes the secret from base64 before signing, for secrets issued in that form.',
+  'workbench.editors.request.auth.rowInfo.jwtPrivateKey':
+    'The PEM private key that produces the signature for RS / PS / ES; only the signature rides.',
+  'workbench.editors.request.auth.rowInfo.jwtPayload':
+    'The claims as JSON \u2014 templates resolve per send; an iat or exp set here wins over the lifetime.',
+  'workbench.editors.request.auth.rowInfo.jwtHeaders':
+    'Extra protected headers as JSON (kid is the usual one); alg and typ are added automatically.',
+  'workbench.editors.request.auth.rowInfo.jwtExpiresIn':
+    'Stamps iat and exp into the payload at sign time so every send carries a fresh lifetime.',
+  'workbench.editors.request.auth.rowInfo.jwtAddTo':
+    'Header sends the JWT in the Authorization header; Query Params appends it as token= on the URL.',
+  'workbench.editors.request.auth.rowInfo.jwtHeaderPrefix':
+    'The scheme before the JWT in the Authorization header \u2014 Bearer by default; empty sends the bare token.',
   'workbench.editors.request.auth.type.inherit': 'Inherit auth from parent',
   'workbench.editors.request.auth.type.none': 'No Auth',
   'workbench.editors.request.auth.type.basic': 'Basic Auth',

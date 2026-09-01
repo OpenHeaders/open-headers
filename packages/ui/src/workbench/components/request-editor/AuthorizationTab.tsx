@@ -16,6 +16,7 @@ import { useT } from '@openheaders/ui/context/LocaleContext';
 import type { RequestAncestry } from '../request-container/ancestry';
 import { AuthConfigFields, type ConcreteAuthType, OAuth2RailControls, seedAuthConfig } from './auth-config-form';
 import { AuthEmptyState, AuthRailNote, AuthTabShell } from './auth-layout';
+import { authTypeInfo } from './AuthRowInfo';
 import {
   buildInheritedGroup,
   type InheritedAuthAttribution,
@@ -108,7 +109,12 @@ const AuthorizationTab: React.FC<AuthorizationTabProps> = ({
     <AuthTabShell
       rail={
         <>
-          <AuthTypeRailHeader label={t('workbench.editors.request.auth.typeLabel')} auth={auth} onChange={onChange} />
+          <AuthTypeRailHeader
+            label={t('workbench.editors.request.auth.typeLabel')}
+            auth={auth}
+            onChange={onChange}
+            info={auth.type === 'inherit' ? undefined : authTypeInfo(t, auth)}
+          />
           <Select
             size="middle"
             data-testid="oh-auth-type"

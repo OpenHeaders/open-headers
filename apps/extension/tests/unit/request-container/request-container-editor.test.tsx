@@ -812,3 +812,88 @@ describe('AuthorizationTab — the request-level Inherit pane', () => {
     expect(options[1].textContent).toBe('Admin tokenCollection ‘Payments’');
   });
 });
+
+describe('AuthorizationTab — sectioned forms and the (i) popovers', () => {
+  const openPopover = (name: string) => {
+    fireEvent.click(screen.getByLabelText(name));
+    const popover = document.querySelector('.oh-info-popover');
+    if (!popover) throw new Error(`no popover for ${name}`);
+    return popover;
+  };
+  const litTexts = (popover: Element): string[] =>
+    Array.from(popover.querySelectorAll('.oh-info-eg-hl')).map((el) => el.textContent ?? '');
+  const closePopover = () => fireEvent.keyDown(document.body, { key: 'Escape' });
+
+  it("Hawk's form reads as Credentials · Signing · Attributes; a fold hides its rows and survives a remount", () => {
+    const hawk: AuthConfig = { type: 'hawk', authId: 'dh37fgj492je', authKey: 'k', algorithm: 'sha256' };
+    const first = render(<AuthorizationTab auth={hawk} onChange={vi.fn()} />);
+    expect(screen.getByRole('button', { name: 'Credentials' }).getAttribute('aria-expanded')).toBe('true');
+    expect(screen.getByRole('button', { name: 'Signing' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Attributes' })).toBeTruthy();
+    expect(screen.getByText('ext')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Attributes' }));
+    expect(screen.queryByText('ext')).toBeNull();
+    // An empty folded group carries no dot; a set field behind the
+    // fold does (the Settings idiom), so nothing set disappears.
+    expect(screen.queryByTestId('oh-setting-modified-dot')).toBeNull();
+    first.unmount();
+    // The fold is a session reading preference — it outlives the tab.
+    const second = render(<AuthorizationTab auth={{ ...hawk, ext: 'x' }} onChange={vi.fn()} />);
+    expect(screen.getByRole('button', { name: 'Attributes' }).getAttribute('aria-expanded')).toBe('false');
+    expect(screen.queryByText('ext')).toBeNull();
+    expect(screen.getByTestId('oh-setting-modified-dot')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Attributes' }));
+    expect(screen.getByText('ext')).toBeTruthy();
+    expect(screen.queryByTestId('oh-setting-modified-dot')).toBeNull();
+    second.unmount();
+  });
+
+  it("a row's (i) lights its token of the type's wire shape — the Digest password lights response=", () => {
+    render(<AuthorizationTab auth={{ type: 'digest', username: 'u', password: 'p' }} onChange={vi.fn()} />);
+    const popover = openPopover('About Password');
+    expect(popover.querySelector('.oh-info-popover-kicker')?.textContent).toBe('Credentials');
+    expect(popover.querySelector('.oh-info-popover-title')?.textContent).toBe('Password');
+    expect(litTexts(popover)).toEqual(['response="a7e0f5c1…"']);
+    expect(popover.textContent).toContain('Never rides');
+    closePopover();
+  });
+
+  it("a group's (i) lights the union of its rows and shows their optional tokens — Hawk's Attributes", () => {
+    render(
+      <AuthorizationTab
+        auth={{ type: 'hawk', authId: 'dh37fgj492je', authKey: 'k', algorithm: 'sha256' }}
+        onChange={vi.fn()}
+      />,
+    );
+    const popover = openPopover('About Attributes');
+    expect(popover.querySelector('.oh-info-popover-kicker')?.textContent).toBe('Hawk Authentication');
+    expect(litTexts(popover)).toEqual(['ext="some-app-ext-data"', 'app="app_3c1f"', 'dlg="dlg_8e2a"']);
+    closePopover();
+  });
+
+  it("the Auth Type (i) in the rail lights the header's scheme; the card follows the delivery choice", () => {
+    const first = render(<AuthorizationTab auth={{ type: 'basic', username: '', password: '' }} onChange={vi.fn()} />);
+    const basic = openPopover('About Basic Auth');
+    expect(basic.querySelector('.oh-info-popover-kicker')?.textContent).toBe('Authorization');
+    expect(litTexts(basic)).toEqual(['Authorization: Basic']);
+    closePopover();
+    first.unmount();
+    render(<AuthorizationTab auth={{ type: 'api-key', key: '', value: '', in: 'query' }} onChange={vi.fn()} />);
+    const addTo = openPopover('About Add to');
+    expect(litTexts(addTo)).toEqual(['query:', 'X-API-Key=8f3a91c2d4e6']);
+    closePopover();
+  });
+
+  it("the pool entry pane's Auth Type row carries the same type (i)", () => {
+    requestsState = {
+      ...requestsState,
+      collections: [makeCollection({ auths: [ADMIN], defaultAuthUid: 'admin001' })],
+    };
+    renderEditor({ section: 'authorization' });
+    expect(screen.getByTestId('oh-auth-entry-type').textContent).toContain('Bearer Token');
+    const popover = openPopover('About Bearer Token');
+    expect(litTexts(popover)).toEqual(['Authorization: Bearer']);
+    closePopover();
+  });
+});
+

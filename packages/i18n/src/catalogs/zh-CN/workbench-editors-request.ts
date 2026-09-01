@@ -169,6 +169,103 @@ export const workbenchEditorsRequest = {
 
   // ── Authorization tab ──────────────────────────────────────────────
   'workbench.editors.request.auth.typeLabel': '授权类型',
+  'workbench.editors.request.auth.group.credentials': '凭据',
+  'workbench.editors.request.auth.group.token': '令牌',
+  'workbench.editors.request.auth.group.signing': '签名',
+  'workbench.editors.request.auth.group.consumer': '消费者',
+  'workbench.editors.request.auth.group.attributes': '属性',
+  'workbench.editors.request.auth.group.delivery': '投递',
+  'workbench.editors.request.auth.group.challenge': '质询',
+  'workbench.editors.request.auth.group.grant': '授权',
+  'workbench.editors.request.auth.group.advanced': '高级',
+  'workbench.editors.request.auth.typeInfo.none': '不添加任何内容 \u2014 请求按 Headers 和 Params 标签页所示原样发出。',
+  'workbench.editors.request.auth.typeInfo.basic':
+    '用户名和密码以冒号连接、base64 编码后，每次发送都作为 Authorization: Basic 标头发出 \u2014 只是编码而非加密，因此仅限 HTTPS。',
+  'workbench.editors.request.auth.typeInfo.bearer':
+    '每次发送时，令牌原样跟在 Authorization 标头的 Bearer 方案之后发出。',
+  'workbench.editors.request.auth.typeInfo.apiKey':
+    '键指定一个标头或查询参数，值随之发送 \u2014 大多数公共 API 使用的简单凭据方案。',
+  'workbench.editors.request.auth.typeInfo.digest':
+    '首次发送引出服务器的 401 质询（realm、nonce、qop）；凭据与之一起散列进 response= 并重试请求 \u2014 密码本身从不发送。',
+  'workbench.editors.request.auth.typeInfo.oauth1':
+    '消费者与令牌凭据对由方法、URL 和参数组成的基础字符串签名；签名后的 oauth_* 参数放在 Authorization 标头或 URL 中，nonce、时间戳和版本每次发送时生成。',
+  'workbench.editors.request.auth.typeInfo.hawk':
+    '对方法、URL、时间戳、nonce 及可选属性计算的 MAC 放在 Authorization: Hawk 标头中；时间戳和 nonce 每次发送时生成。',
+  'workbench.editors.request.auth.typeInfo.jwt':
+    '每次发送时用此处的密钥材料铸造并签名一个新 JWT \u2014 即下方的标头、载荷和签名 \u2014 并作为 bearer 令牌或查询参数投递。',
+  'workbench.editors.request.auth.groupInfo.basic.credentials':
+    '成为 base64 凭据的这一对 \u2014 两者都会发送，编码但不加密。',
+  'workbench.editors.request.auth.groupInfo.bearer.token': '服务器签发的令牌原样；Bearer 方案在线路上前置。',
+  'workbench.editors.request.auth.groupInfo.apiKey.credentials':
+    '名称与密文 \u2014 名称即标头或参数，值即随之发送的内容。',
+  'workbench.editors.request.auth.groupInfo.apiKey.delivery': '键落在何处：请求标头，或追加到 URL 的查询参数。',
+  'workbench.editors.request.auth.groupInfo.digest.credentials':
+    '用于计算质询响应的这一对 \u2014 用户名会发送，密码只作为响应散列的一部分。',
+  'workbench.editors.request.auth.groupInfo.digest.challenge':
+    '桌面和 CLI 发送时如何处理 401 环节 \u2014 除非禁用，否则自动应答并重试。',
+  'workbench.editors.request.auth.groupInfo.oauth1.signing':
+    '为基础字符串签名的方法 \u2014 使用密文的 HMAC、使用私钥的 RSA 或 PLAINTEXT \u2014 以及正文是否散列进去。',
+  'workbench.editors.request.auth.groupInfo.oauth1.consumer':
+    '应用的凭据 \u2014 键作为 oauth_consumer_key 发送，密文（或私钥）只通过 oauth_signature 体现。',
+  'workbench.editors.request.auth.groupInfo.oauth1.token': '三方流程得到的用户访问令牌对 \u2014 单方调用请两者留空。',
+  'workbench.editors.request.auth.groupInfo.oauth1.delivery':
+    'oauth_* 参数落在何处 \u2014 Authorization 标头（可带 realm）或 URL 的查询字符串。',
+  'workbench.editors.request.auth.groupInfo.hawk.credentials': 'id 放在标头中；密钥只通过它计算出的 MAC 体现。',
+  'workbench.editors.request.auth.groupInfo.hawk.signing': 'MAC 的摘要算法，以及请求正文是否作为 hash= 散列进去。',
+  'workbench.editors.request.auth.groupInfo.hawk.attributes':
+    '该方案的可选属性 \u2014 应用数据（ext）、应用 ID（app）与委托方（dlg）\u2014 存在时参与签名。',
+  'workbench.editors.request.auth.groupInfo.jwt.signing':
+    'JWT 标头中声明的算法及为其签名的密钥材料 \u2014 HS 用共享密文，RS / PS / ES 用私钥。',
+  'workbench.editors.request.auth.groupInfo.jwt.token':
+    'JWT 承载的内容 \u2014 载荷声明、额外的受保护标头，以及作为 iat / exp 盖戳的可选有效期。',
+  'workbench.editors.request.auth.groupInfo.jwt.delivery':
+    '签名后的 JWT 落在何处 \u2014 带前缀的 Authorization 标头，或 token 查询参数。',
+  'workbench.editors.request.auth.rowInfo.basicUsername': '位于 base64 凭据中冒号之前。',
+  'workbench.editors.request.auth.rowInfo.basicPassword': '位于冒号之后 \u2014 只编码不加密，因此仅限 HTTPS。',
+  'workbench.editors.request.auth.rowInfo.bearerToken':
+    '原样跟在 Bearer 之后发送；粘贴的“Bearer \u2026”会在此去掉前缀。',
+  'workbench.editors.request.auth.rowInfo.apiKeyKey': '值所在的标头名或查询参数名。',
+  'workbench.editors.request.auth.rowInfo.apiKeyValue': '作为标头值或参数值发送的密文。',
+  'workbench.editors.request.auth.rowInfo.apiKeyAddTo':
+    'Header 将键放在请求上；Query Params 将其追加到 URL，会进入日志。',
+  'workbench.editors.request.auth.rowInfo.digestUsername': '在质询应答中作为 username= 发送。',
+  'workbench.editors.request.auth.rowInfo.digestPassword':
+    '从不发送 \u2014 与 realm、nonce 和方法一起散列进 response=。',
+  'workbench.editors.request.auth.rowInfo.digestDisableRetry': '停止自动的第二步：401 直接作为响应返回，而不应答。',
+  'workbench.editors.request.auth.rowInfo.oauth1SignatureMethod':
+    '在 oauth_signature_method 中声明签名算法，并决定下方的凭据组合。',
+  'workbench.editors.request.auth.rowInfo.oauth1BodyHash':
+    '用该方法的散列将非表单正文摘要进 oauth_body_hash，与其余参数一起签名。',
+  'workbench.editors.request.auth.rowInfo.oauth1ConsumerKey': '标识应用 \u2014 作为 oauth_consumer_key 发送。',
+  'workbench.editors.request.auth.rowInfo.oauth1ConsumerSecret':
+    '与令牌密文一起为请求签名；它从不发送，只有 oauth_signature 发送。',
+  'workbench.editors.request.auth.rowInfo.oauth1PrivateKey':
+    'RSA 方法下为基础字符串签名的 PEM 密钥 \u2014 只有签名发送。',
+  'workbench.editors.request.auth.rowInfo.oauth1Token': '用户的访问令牌，作为 oauth_token 发送；单方调用时留空。',
+  'workbench.editors.request.auth.rowInfo.oauth1TokenSecret':
+    '签名密钥的后半部分；它从不发送，只有 oauth_signature 发送。',
+  'workbench.editors.request.auth.rowInfo.oauth1AddTo':
+    'Header 将 oauth_* 参数放在 Authorization 标头中；Query Params 将其追加到 URL。',
+  'workbench.editors.request.auth.rowInfo.oauth1Realm': '作为 realm= 回显在标头开头，命名保护空间。',
+  'workbench.editors.request.auth.rowInfo.hawkAuthId': '标识凭据 \u2014 作为 id= 放在标头中。',
+  'workbench.editors.request.auth.rowInfo.hawkAuthKey': '计算 mac= 的共享密钥；它从不发送。',
+  'workbench.editors.request.auth.rowInfo.hawkAlgorithm': 'MAC 与载荷散列使用的 HMAC 摘要算法。',
+  'workbench.editors.request.auth.rowInfo.hawkPayloadHash': '将正文及其内容类型散列进 hash=，把载荷绑定到签名。',
+  'workbench.editors.request.auth.rowInfo.hawkExt': '应用特定数据 \u2014 作为 ext= 发送并参与签名。',
+  'workbench.editors.request.auth.rowInfo.hawkApp': '应用 ID \u2014 作为 app= 发送并参与签名。',
+  'workbench.editors.request.auth.rowInfo.hawkDlg': '委托方应用 ID \u2014 作为 dlg= 跟在 app= 之后发送并参与签名。',
+  'workbench.editors.request.auth.rowInfo.jwtAlgorithm': '写入受保护标头的 alg，并决定下方的密钥字段。',
+  'workbench.editors.request.auth.rowInfo.jwtSecret': '生成签名的共享 HMAC 密文；它从不发送。',
+  'workbench.editors.request.auth.rowInfo.jwtSecretBase64': '签名前将密文从 base64 解码，用于以该形式签发的密文。',
+  'workbench.editors.request.auth.rowInfo.jwtPrivateKey': '为 RS / PS / ES 生成签名的 PEM 私钥；只有签名发送。',
+  'workbench.editors.request.auth.rowInfo.jwtPayload':
+    'JSON 形式的声明 \u2014 模板每次发送时解析；此处设置的 iat 或 exp 优先于有效期。',
+  'workbench.editors.request.auth.rowInfo.jwtHeaders': 'JSON 形式的额外受保护标头（通常是 kid）；alg 和 typ 自动添加。',
+  'workbench.editors.request.auth.rowInfo.jwtExpiresIn': '签名时将 iat 和 exp 盖戳进载荷，使每次发送都带有新的有效期。',
+  'workbench.editors.request.auth.rowInfo.jwtAddTo':
+    'Header 将 JWT 放在 Authorization 标头中；Query Params 将其作为 token= 追加到 URL。',
+  'workbench.editors.request.auth.rowInfo.jwtHeaderPrefix':
+    'Authorization 标头中 JWT 前的方案 \u2014 默认为 Bearer；留空则发送裸令牌。',
   'workbench.editors.request.auth.type.inherit': '从父级继承授权',
   'workbench.editors.request.auth.type.none': '无授权',
   'workbench.editors.request.auth.type.basic': 'Basic Auth',

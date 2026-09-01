@@ -14,6 +14,7 @@ import { useT } from '@openheaders/ui/context/LocaleContext';
 import { AuthConfigFields, OAuth2RailControls } from './auth-config-form';
 import { AUTH_FIELD_DEFAULT_MAX_WIDTH, AuthFormNote, AuthLabeledRow } from './auth-layout';
 import { authTypeSelectOptions } from './auth-type-menu';
+import { authTypeInfo } from './AuthRowInfo';
 
 const noop = () => undefined;
 
@@ -27,7 +28,7 @@ const InheritedAuthForm: React.FC<{
   return (
     <div inert className="oh-auth-readonly" data-testid={testId}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-        <AuthLabeledRow label={t('workbench.editors.request.auth.typeLabel')}>
+        <AuthLabeledRow label={t('workbench.editors.request.auth.typeLabel')} info={authTypeInfo(t, auth)}>
           <Select
             size="small"
             value={auth.type}

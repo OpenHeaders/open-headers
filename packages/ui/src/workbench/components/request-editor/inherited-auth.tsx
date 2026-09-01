@@ -19,6 +19,7 @@ import { Button, Tag, Tooltip, Typography } from 'antd';
 import type React from 'react';
 import { useMemo } from 'react';
 import { type Translate, useT } from '@openheaders/ui/context/LocaleContext';
+import { type InfoPopoverContent, InfoTrigger } from '@openheaders/ui/shared/info-popover';
 import {
   inheritPoolLevels,
   type RequestAncestry,
@@ -26,36 +27,12 @@ import {
 } from '../request-container/ancestry';
 import type { ConcreteAuthType } from './auth-config-form';
 import { authTypeIcon } from './auth-type-menu';
+import { authTypeLabelKey } from './auth-type-labels';
 import InheritedAuthForm from './InheritedAuthForm';
 
 const { Text } = Typography;
 
-type AuthKind = AuthConfig['type'];
-
-interface AuthTypeOption {
-  value: AuthKind;
-  labelKey: MessageKey;
-}
-
-/** Every auth type with its display key — the HTTP select's own list;
- *  the session tabs pick their subsets. */
-export const AUTH_TYPE_OPTIONS: AuthTypeOption[] = [
-  { value: 'inherit', labelKey: 'workbench.editors.request.auth.type.inherit' },
-  { value: 'none', labelKey: 'workbench.editors.request.auth.type.none' },
-  { value: 'basic', labelKey: 'workbench.editors.request.auth.type.basic' },
-  { value: 'bearer', labelKey: 'workbench.editors.request.auth.type.bearer' },
-  { value: 'api-key', labelKey: 'workbench.editors.request.auth.type.apiKey' },
-  { value: 'oauth2', labelKey: 'workbench.editors.request.auth.type.oauth2' },
-  { value: 'aws-sigv4', labelKey: 'workbench.editors.request.auth.type.awsSigV4' },
-  { value: 'digest', labelKey: 'workbench.editors.request.auth.type.digest' },
-  { value: 'oauth1', labelKey: 'workbench.editors.request.auth.type.oauth1' },
-  { value: 'hawk', labelKey: 'workbench.editors.request.auth.type.hawk' },
-  { value: 'jwt', labelKey: 'workbench.editors.request.auth.type.jwtBearer' },
-];
-
-export function authTypeLabelKey(type: AuthKind): MessageKey {
-  return AUTH_TYPE_OPTIONS.find((o) => o.value === type)?.labelKey ?? 'workbench.editors.request.auth.type.none';
-}
+export { AUTH_TYPE_OPTIONS, type AuthKind, type AuthTypeOption, authTypeLabelKey } from './auth-type-labels';
 
 /** What a request set to Inherit resolves to, for the Inherit pane:
  *  the effective config, the level and entry that supplied it (`null`
@@ -110,7 +87,9 @@ export const AuthTypeRailHeader: React.FC<{
   label: string;
   auth: { type: string; authUid?: string };
   onChange: (auth: { type: 'inherit' }) => void;
-}> = ({ label, auth, onChange }) => {
+  /** The current type's (i) — its whole wire shape (AuthRowInfo). */
+  info?: InfoPopoverContent;
+}> = ({ label, auth, onChange, info }) => {
   const t = useT();
   const resettable = inheritSelectValue(auth) !== 'inherit';
   return (
@@ -118,6 +97,7 @@ export const AuthTypeRailHeader: React.FC<{
       <Text strong style={{ fontSize: 12 }}>
         {label}
       </Text>
+      {info !== undefined && <InfoTrigger content={info} />}
       <span style={{ flex: 1 }} />
       {resettable && (
         <Tooltip title={t('workbench.editors.request.auth.resetToInheritedAuth')}>
