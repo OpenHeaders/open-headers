@@ -23,8 +23,11 @@
 import { createHmac } from 'node:crypto';
 import path from 'node:path';
 import { type BrowserContext, chromium, expect, type Page, test } from '@playwright/test';
-import { OAUTH2_SEED_AUTH } from '../../../../playground/scripts/api-client-matrix';
-import { AUTH_TYPE_CASES, buildAuthSuiteSeedEnvelope } from '../../../../playground/scripts/auth-type-suite';
+import {
+  AUTH_SUITE_OAUTH_SEEDS,
+  AUTH_TYPE_CASES,
+  buildAuthSuiteSeedEnvelope,
+} from '../../../../playground/scripts/auth-type-suite';
 import { assertEchoAuth, type EchoAuthResponse } from './pages/echo-auth';
 import { WorkbenchPage } from './pages/workbench-page';
 
@@ -75,11 +78,12 @@ test.beforeAll(async () => {
   workbench = await WorkbenchPage.open(page, extensionId);
 
   // The oauth2 cases read the per-workspace token store — seed it once
-  // through the real client-credentials flow against the playground IdP.
-  const seed = await workbench.rpc<{ success: boolean; error?: string }>('oauthClientCredentials', {
-    config: OAUTH2_SEED_AUTH,
-  });
-  expect(seed.success, seed.error).toBe(true);
+  // through the real flows against the playground IdP (the assertion
+  // cases' bundles prove the IdP verified the signed assertion).
+  for (const { channel, config } of AUTH_SUITE_OAUTH_SEEDS) {
+    const seed = await workbench.rpc<{ success: boolean; error?: string }>(channel, { config });
+    expect(seed.success, `${channel} ${config.credentialRef}: ${seed.error ?? ''}`).toBe(true);
+  }
 
   // One import seeds the whole suite — the collection with its auth
   // pool and one request per type — secrets intact (the raw envelope
