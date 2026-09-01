@@ -392,18 +392,20 @@ export const workbenchEditorsRequest = {
     'Comment un nouveau jeton est obtenu \u2014 l\u2019octroi, les points de terminaison du fournisseur, l\u2019identité du client et ce qui est demandé.',
   'workbench.editors.request.auth.groupInfo.oauth2.advanced':
     'L\u2019étape de rafraîchissement et les paramètres supplémentaires de chacune des trois requêtes au fournisseur.',
+  'workbench.editors.request.auth.groupInfo.oauth2.signing':
+    'Le JWT que cette configuration émet — comme assertion client sur chaque requête de jeton, ou comme octroi JWT bearer lui-même.',
   'workbench.editors.request.auth.rowInfo.oauth2Token':
     'Le jeton d\u2019accès stocké par le dernier flux \u2014 envoyé après Bearer à chaque envoi ; vide tant qu\u2019aucun flux n\u2019a été exécuté.',
   'workbench.editors.request.auth.rowInfo.oauth2HeaderPrefix':
     'Le schéma placé avant le jeton dans l’en-tête Authorization — vide, le token_type émis par le fournisseur est envoyé (Bearer par défaut) ; défini, il l’emporte sur le fil.',
   'workbench.editors.request.auth.rowInfo.oauth2AutoRefresh':
-    'Si le fournisseur a émis un jeton de rafraîchissement, un jeton d\u2019accès expiré est échangé contre un nouveau avant l\u2019envoi.',
+    "Un jeton d'accès expiré est renouvelé avant l'envoi — avec le jeton de rafraîchissement si le fournisseur en a émis un, ou en rejouant un octroi sans navigateur.",
   'workbench.editors.request.auth.rowInfo.oauth2Status':
     'Durée de validité restante du jeton stocké ; Rafraîchir l\u2019échange maintenant, Déconnecter l\u2019oublie.',
   'workbench.editors.request.auth.rowInfo.oauth2TokenName':
     'Un libellé pour ce jeton dans l\u2019application \u2014 rien sur le réseau.',
   'workbench.editors.request.auth.rowInfo.oauth2GrantType':
-    'Le grant_type de l\u2019échange de jeton et les étapes qui le précèdent \u2014 une autorisation navigateur pour les octrois par code, aucune pour les identifiants client ou mot de passe.',
+    "Le grant_type de l'échange de jeton et les étapes qui le précèdent — une autorisation navigateur pour les octrois par code, aucune pour client, mot de passe ou JWT bearer.",
   'workbench.editors.request.auth.rowInfo.oauth2CallbackUrl':
     'Le redirect_uri vers lequel le fournisseur renvoie le navigateur avec le code \u2014 à enregistrer chez le fournisseur.',
   'workbench.editors.request.auth.rowInfo.oauth2AuthUrl':
@@ -427,7 +429,25 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.auth.rowInfo.oauth2State':
     'Généré à chaque flux et renvoyé par le fournisseur pour rattacher le rappel à cette autorisation.',
   'workbench.editors.request.auth.rowInfo.oauth2ClientAuthentication':
-    'Où voyagent les identifiants client dans la requête de jeton \u2014 le corps du formulaire, ou un en-tête Authorization: Basic.',
+    'Comment le client se prouve dans la requête de jeton — les identifiants dans le corps du formulaire ou un en-tête Authorization: Basic, ou un client_assertion signé à la place du secret.',
+  'workbench.editors.request.auth.rowInfo.oauth2AssertionIssuer':
+    "La revendication iss de l'assertion d'octroi — le compte de service ou la clé consommateur enregistrés chez le fournisseur.",
+  'workbench.editors.request.auth.rowInfo.oauth2AssertionSubject':
+    "La revendication sub facultative — l'utilisateur au nom duquel le jeton agit (délégation, impersonation) ; vide n'en envoie aucune.",
+  'workbench.editors.request.auth.rowInfo.oauth2AssertionClaims':
+    "Revendications supplémentaires fusionnées dans l'assertion d'octroi, prioritaires sur celles composées — revendications fournisseur ou un scope à vous.",
+  'workbench.editors.request.auth.rowInfo.oauth2AssertionAlgorithm':
+    "La famille JWS qui signe l'assertion — asymétrique pour la clé privée, HS256/384/512 pour le secret client.",
+  'workbench.editors.request.auth.rowInfo.oauth2AssertionKeyId':
+    "L'en-tête kid nommant la clé enregistrée, pour que le fournisseur choisisse la bonne moitié publique.",
+  'workbench.editors.request.auth.rowInfo.oauth2AssertionPrivateKey':
+    'La clé de signature — PEM, DER brut ou la forme data:application/pkcs8 ; jamais exportée.',
+  'workbench.editors.request.auth.rowInfo.oauth2AssertionAudience':
+    "La revendication aud — vide envoie l'URL du jeton d'accès ; FAPI et Keycloak attendent l'identifiant d'émetteur.",
+  'workbench.editors.request.auth.rowInfo.oauth2AssertionLifetime':
+    'exp moins iat, estampillé à la signature — 300 secondes par défaut ; le fournisseur peut plafonner (Google : une heure).',
+  'workbench.editors.request.auth.rowInfo.oauth2AssertionHeaders':
+    "JSON d'en-têtes protégés supplémentaires fusionné dans l'assertion — l'empreinte de certificat x5t#S256 d'Azure.",
   'workbench.editors.request.auth.rowInfo.oauth2RefreshTokenUrl':
     'Le point de terminaison vers lequel l\u2019échange de rafraîchissement poste \u2014 vide signifie l\u2019URL du jeton d\u2019accès.',
   'workbench.editors.request.auth.rowInfo.oauth2AuthRequest':
@@ -636,10 +656,29 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.oauth.stateAuto': "Généré automatiquement à chaque requête d'autorisation",
   'workbench.editors.request.oauth.clientAuthentication': 'Authentification du client',
   'workbench.editors.request.oauth.clientAuthenticationDesc':
-    'Où client_id / client_secret voyagent sur les POST de jeton. Les fournisseurs varient — Auth0 / Keycloak ' +
-    "exigent typiquement la forme d'en-tête Basic.",
+    'Comment le client se prouve sur les POST de jeton — id et secret dans le corps ou en en-tête Basic, ou un JWT signé avec une clé privée (private_key_jwt) ou le secret (client_secret_jwt).',
   'workbench.editors.request.oauth.clientAuthBody': 'Envoyer les identifiants client dans le corps',
   'workbench.editors.request.oauth.clientAuthBasicHeader': 'Envoyer comme en-tête Basic Auth',
+  'workbench.editors.request.oauth.clientAuthPrivateKeyJwt': 'Envoyer un JWT signé (private_key_jwt)',
+  'workbench.editors.request.oauth.clientAuthClientSecretJwt': 'Envoyer un JWT HMAC (client_secret_jwt)',
+  'workbench.editors.request.oauth.assertionIssuer': 'Émetteur',
+  'workbench.editors.request.oauth.assertionIssuerPlaceholder': 'ex. service-account@openheaders.com',
+  'workbench.editors.request.oauth.assertionSubject': 'Sujet',
+  'workbench.editors.request.oauth.assertionSubjectPlaceholder':
+    "facultatif — l'utilisateur au nom duquel le jeton agit",
+  'workbench.editors.request.oauth.assertionClaims': 'Revendications supplémentaires',
+  'workbench.editors.request.oauth.assertionClaimsPlaceholder': 'facultatif — JSON, ex. {"box_sub_type":"enterprise"}',
+  'workbench.editors.request.oauth.assertionAlgorithm': 'Algorithme',
+  'workbench.editors.request.oauth.assertionKeyId': 'ID de clé',
+  'workbench.editors.request.oauth.assertionKeyIdPlaceholder': "facultatif — l'en-tête kid, ex. key-1",
+  'workbench.editors.request.oauth.assertionPrivateKey': 'Clé privée',
+  'workbench.editors.request.oauth.assertionPrivateKeyPlaceholder':
+    '-----BEGIN PRIVATE KEY----- … (PEM, ou la forme data:application/pkcs8)',
+  'workbench.editors.request.oauth.assertionAudience': 'Audience',
+  'workbench.editors.request.oauth.assertionAudiencePlaceholder': "vide = l'URL du jeton d'accès",
+  'workbench.editors.request.oauth.assertionLifetime': 'Durée de vie (secondes)',
+  'workbench.editors.request.oauth.assertionHeaders': 'En-têtes supplémentaires',
+  'workbench.editors.request.oauth.assertionHeadersPlaceholder': 'facultatif — JSON, ex. {"x5t#S256":"…"}',
   'workbench.editors.request.oauth.advancedIntro':
     'Vous pouvez ajouter ici des personnalisations plus spécifiques à vos requêtes OAuth2.',
   'workbench.editors.request.oauth.advancedLearnMore': 'En savoir plus sur la configuration',

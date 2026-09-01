@@ -59,5 +59,7 @@ export const AUTH_TYPE_GROUPS: Record<GroupedAuthType, readonly AuthGroupKey[]> 
   oauth1: ['signing', 'consumer', 'token', 'delivery'],
   hawk: ['credentials', 'signing', 'attributes'],
   jwt: ['signing', 'token', 'delivery'],
-  oauth2: ['token', 'grant', 'advanced'],
+  // Signing renders only while an assertion is in play (a JWT client
+  // authentication or the JWT bearer grant).
+  oauth2: ['token', 'grant', 'signing', 'advanced'],
 };

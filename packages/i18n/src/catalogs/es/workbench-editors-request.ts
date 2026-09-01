@@ -386,18 +386,20 @@ export const workbenchEditorsRequest = {
     'Cómo se obtiene un token nuevo \u2014 la concesión, los endpoints del proveedor, la identidad del cliente y lo que se solicita.',
   'workbench.editors.request.auth.groupInfo.oauth2.advanced':
     'La etapa de renovación y los parámetros extra que lleva cada una de las tres solicitudes al proveedor.',
+  'workbench.editors.request.auth.groupInfo.oauth2.signing':
+    'El JWT que emite esta configuración — como aserción de cliente en cada solicitud de token, o como la propia concesión JWT bearer.',
   'workbench.editors.request.auth.rowInfo.oauth2Token':
     'El token de acceso que guardó el último flujo \u2014 enviado tras Bearer en cada envío; vacío hasta que se ejecute un flujo.',
   'workbench.editors.request.auth.rowInfo.oauth2HeaderPrefix':
     'El esquema antes del token en la cabecera Authorization — vacío, se envía el token_type emitido por el proveedor (Bearer por defecto); definido, gana en el cable.',
   'workbench.editors.request.auth.rowInfo.oauth2AutoRefresh':
-    'Si el proveedor emitió un token de renovación, un token de acceso caducado se intercambia por uno nuevo antes del envío.',
+    'Un token de acceso caducado se renueva antes del envío — con el token de actualización si el proveedor emitió uno, o repitiendo una concesión que no necesita navegador.',
   'workbench.editors.request.auth.rowInfo.oauth2Status':
     'Cuánto sigue siendo válido el token guardado; Renovar lo intercambia ahora, Desconectar lo olvida.',
   'workbench.editors.request.auth.rowInfo.oauth2TokenName':
     'Una etiqueta para este token en la aplicación \u2014 nada en la red.',
   'workbench.editors.request.auth.rowInfo.oauth2GrantType':
-    'El grant_type del intercambio de token y qué etapas se ejecutan antes \u2014 una autorización en el navegador para las concesiones por código, ninguna para credenciales de cliente o contraseña.',
+    'El grant_type del intercambio de token y los pasos previos — una autorización en el navegador para las concesiones por código, ninguna para cliente, contraseña o JWT bearer.',
   'workbench.editors.request.auth.rowInfo.oauth2CallbackUrl':
     'El redirect_uri al que el proveedor devuelve el navegador con el código \u2014 regístrelo en el proveedor.',
   'workbench.editors.request.auth.rowInfo.oauth2AuthUrl':
@@ -421,7 +423,25 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.auth.rowInfo.oauth2State':
     'Generado en cada flujo y devuelto por el proveedor para asociar la respuesta a esta autorización.',
   'workbench.editors.request.auth.rowInfo.oauth2ClientAuthentication':
-    'Dónde viajan las credenciales del cliente en la solicitud de token \u2014 el cuerpo del formulario, o una cabecera Authorization: Basic.',
+    'Cómo se acredita el cliente en la solicitud de token — las credenciales en el cuerpo del formulario o en un encabezado Authorization: Basic, o un client_assertion firmado en lugar del secreto.',
+  'workbench.editors.request.auth.rowInfo.oauth2AssertionIssuer':
+    'El claim iss de la aserción de concesión — la cuenta de servicio o clave de consumidor registrada en el proveedor.',
+  'workbench.editors.request.auth.rowInfo.oauth2AssertionSubject':
+    'El claim sub opcional — el usuario en cuyo nombre actúa el token (delegación, suplantación); vacío no envía ninguno.',
+  'workbench.editors.request.auth.rowInfo.oauth2AssertionClaims':
+    'Claims adicionales fusionados en la aserción de concesión, con prioridad sobre los compuestos — claims del proveedor o un scope propio.',
+  'workbench.editors.request.auth.rowInfo.oauth2AssertionAlgorithm':
+    'La familia JWS que firma la aserción — asimétrica para la clave privada, HS256/384/512 para el secreto de cliente.',
+  'workbench.editors.request.auth.rowInfo.oauth2AssertionKeyId':
+    'El encabezado kid que nombra la clave registrada, para que el proveedor elija la mitad pública correcta.',
+  'workbench.editors.request.auth.rowInfo.oauth2AssertionPrivateKey':
+    'La clave de firma — PEM, DER en bruto o la forma data:application/pkcs8; nunca se exporta.',
+  'workbench.editors.request.auth.rowInfo.oauth2AssertionAudience':
+    'El claim aud — vacío envía la URL del token de acceso; FAPI y Keycloak esperan el identificador del emisor.',
+  'workbench.editors.request.auth.rowInfo.oauth2AssertionLifetime':
+    'exp menos iat, estampado al firmar — 300 segundos por defecto; el proveedor puede limitarlo (Google: una hora).',
+  'workbench.editors.request.auth.rowInfo.oauth2AssertionHeaders':
+    'JSON de encabezados protegidos adicionales fusionado en la aserción — la huella de certificado x5t#S256 de Azure.',
   'workbench.editors.request.auth.rowInfo.oauth2RefreshTokenUrl':
     'El endpoint al que se envía el intercambio de renovación \u2014 vacío significa la URL del token de acceso.',
   'workbench.editors.request.auth.rowInfo.oauth2AuthRequest':
@@ -628,10 +648,28 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.oauth.stateAuto': 'Se genera automáticamente por cada solicitud de autorización',
   'workbench.editors.request.oauth.clientAuthentication': 'Autenticación del cliente',
   'workbench.editors.request.oauth.clientAuthenticationDesc':
-    'Dónde viajan client_id / client_secret en los POST de token. Los proveedores varían — Auth0 / Keycloak ' +
-    'suelen exigir la forma de encabezado Basic.',
+    'Cómo se acredita el cliente en los POST de token — id y secreto en el cuerpo o en un encabezado Basic, o un JWT firmado con una clave privada (private_key_jwt) o con el secreto (client_secret_jwt).',
   'workbench.editors.request.oauth.clientAuthBody': 'Enviar las credenciales del cliente en el cuerpo',
   'workbench.editors.request.oauth.clientAuthBasicHeader': 'Enviar como encabezado Basic Auth',
+  'workbench.editors.request.oauth.clientAuthPrivateKeyJwt': 'Enviar un JWT firmado (private_key_jwt)',
+  'workbench.editors.request.oauth.clientAuthClientSecretJwt': 'Enviar un JWT HMAC (client_secret_jwt)',
+  'workbench.editors.request.oauth.assertionIssuer': 'Emisor',
+  'workbench.editors.request.oauth.assertionIssuerPlaceholder': 'p. ej. service-account@openheaders.com',
+  'workbench.editors.request.oauth.assertionSubject': 'Sujeto',
+  'workbench.editors.request.oauth.assertionSubjectPlaceholder': 'opcional — el usuario en cuyo nombre actúa el token',
+  'workbench.editors.request.oauth.assertionClaims': 'Claims adicionales',
+  'workbench.editors.request.oauth.assertionClaimsPlaceholder': 'opcional — JSON, p. ej. {"box_sub_type":"enterprise"}',
+  'workbench.editors.request.oauth.assertionAlgorithm': 'Algoritmo',
+  'workbench.editors.request.oauth.assertionKeyId': 'ID de clave',
+  'workbench.editors.request.oauth.assertionKeyIdPlaceholder': 'opcional — el encabezado kid, p. ej. key-1',
+  'workbench.editors.request.oauth.assertionPrivateKey': 'Clave privada',
+  'workbench.editors.request.oauth.assertionPrivateKeyPlaceholder':
+    '-----BEGIN PRIVATE KEY----- … (PEM, o la forma data:application/pkcs8)',
+  'workbench.editors.request.oauth.assertionAudience': 'Audiencia',
+  'workbench.editors.request.oauth.assertionAudiencePlaceholder': 'vacío = la URL del token de acceso',
+  'workbench.editors.request.oauth.assertionLifetime': 'Vigencia (segundos)',
+  'workbench.editors.request.oauth.assertionHeaders': 'Encabezados adicionales',
+  'workbench.editors.request.oauth.assertionHeadersPlaceholder': 'opcional — JSON, p. ej. {"x5t#S256":"…"}',
   'workbench.editors.request.oauth.advancedIntro':
     'Aquí puedes añadir personalizaciones más específicas a tus solicitudes OAuth2.',
   'workbench.editors.request.oauth.advancedLearnMore': 'Más información sobre la configuración',

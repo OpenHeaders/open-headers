@@ -344,18 +344,20 @@ export const workbenchEditorsRequest = {
     'How a new token is obtained \u2014 the grant, the provider\u2019s endpoints, the client\u2019s identity, and what is asked for.',
   'workbench.editors.request.auth.groupInfo.oauth2.advanced':
     'The refresh leg and the extra parameters each of the three provider requests carries.',
+  'workbench.editors.request.auth.groupInfo.oauth2.signing':
+    'The JWT this config mints — as the client assertion on every token request, or as the JWT bearer grant itself.',
   'workbench.editors.request.auth.rowInfo.oauth2Token':
     'The access token the last flow stored \u2014 sent after Bearer on every send; empty until a flow runs.',
   'workbench.editors.request.auth.rowInfo.oauth2HeaderPrefix':
     'The scheme before the token in the Authorization header — empty sends the token_type the provider issued (Bearer by default); set, it wins on the wire.',
   'workbench.editors.request.auth.rowInfo.oauth2AutoRefresh':
-    'When the provider issued a refresh token, an expired access token is exchanged for a fresh one before the send.',
+    'An expired access token is renewed before the send — with the refresh token when the provider issued one, or by re-running a grant that needs no browser.',
   'workbench.editors.request.auth.rowInfo.oauth2Status':
     'How long the stored token stays valid; Refresh exchanges it now, Disconnect forgets it.',
   'workbench.editors.request.auth.rowInfo.oauth2TokenName':
     'A label for this token in the app \u2014 nothing on the wire.',
   'workbench.editors.request.auth.rowInfo.oauth2GrantType':
-    'The grant_type of the token exchange and which legs run before it \u2014 a browser authorization for the code grants, none for client or password credentials.',
+    'The grant_type of the token exchange and which legs run before it — a browser authorization for the code grants, none for client, password or JWT bearer credentials.',
   'workbench.editors.request.auth.rowInfo.oauth2CallbackUrl':
     'The redirect_uri the provider sends the browser back to with the code \u2014 register it with the provider.',
   'workbench.editors.request.auth.rowInfo.oauth2AuthUrl':
@@ -379,7 +381,25 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.auth.rowInfo.oauth2State':
     'Minted per flow and echoed back by the provider so the callback is matched to this authorization.',
   'workbench.editors.request.auth.rowInfo.oauth2ClientAuthentication':
-    'Where the client credentials ride in the token request \u2014 the form body, or an Authorization: Basic header.',
+    'How the client proves itself in the token request — the credentials in the form body or an Authorization: Basic header, or a signed client_assertion in place of the secret.',
+  'workbench.editors.request.auth.rowInfo.oauth2AssertionIssuer':
+    'The iss claim of the grant assertion — the service account or consumer key the provider registered.',
+  'workbench.editors.request.auth.rowInfo.oauth2AssertionSubject':
+    'The optional sub claim — the user the token acts as (domain-wide delegation, impersonation); empty sends none.',
+  'workbench.editors.request.auth.rowInfo.oauth2AssertionClaims':
+    'Extra claims merged into the grant assertion, winning over the composed ones — vendor claims, or a scope of your own.',
+  'workbench.editors.request.auth.rowInfo.oauth2AssertionAlgorithm':
+    'The JWS family the assertion is signed with — an asymmetric one for the private key, HS256/384/512 for the client secret.',
+  'workbench.editors.request.auth.rowInfo.oauth2AssertionKeyId':
+    'The kid header naming the registered key, so the provider picks the right public half.',
+  'workbench.editors.request.auth.rowInfo.oauth2AssertionPrivateKey':
+    'The signing key — PEM, bare DER, or the data:application/pkcs8 form; never exported.',
+  'workbench.editors.request.auth.rowInfo.oauth2AssertionAudience':
+    'The aud claim — empty sends the Access Token URL; FAPI and Keycloak want the issuer identifier instead.',
+  'workbench.editors.request.auth.rowInfo.oauth2AssertionLifetime':
+    'exp minus iat, stamped at signing — 300 seconds by default; the provider may cap it (Google: one hour).',
+  'workbench.editors.request.auth.rowInfo.oauth2AssertionHeaders':
+    'Extra protected-header JSON merged into the assertion — Azure\\u2019s x5t#S256 certificate thumbprint.',
   'workbench.editors.request.auth.rowInfo.oauth2RefreshTokenUrl':
     'The endpoint the refresh exchange posts to \u2014 empty means the Access Token URL.',
   'workbench.editors.request.auth.rowInfo.oauth2AuthRequest':
@@ -577,9 +597,28 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.oauth.stateAuto': 'Automatically generated per authorize request',
   'workbench.editors.request.oauth.clientAuthentication': 'Client Authentication',
   'workbench.editors.request.oauth.clientAuthenticationDesc':
-    'Where client_id / client_secret ride on token POSTs. Providers vary — Auth0 / Keycloak typically require the Basic header form.',
+    'How the client proves itself on token POSTs — the id and secret in the body or a Basic header, or a JWT signed with a private key (private_key_jwt) or the secret (client_secret_jwt).',
   'workbench.editors.request.oauth.clientAuthBody': 'Send client credentials in body',
   'workbench.editors.request.oauth.clientAuthBasicHeader': 'Send as Basic Auth header',
+  'workbench.editors.request.oauth.clientAuthPrivateKeyJwt': 'Send a signed JWT (private_key_jwt)',
+  'workbench.editors.request.oauth.clientAuthClientSecretJwt': 'Send an HMAC JWT (client_secret_jwt)',
+  'workbench.editors.request.oauth.assertionIssuer': 'Issuer',
+  'workbench.editors.request.oauth.assertionIssuerPlaceholder': 'e.g. service-account@openheaders.com',
+  'workbench.editors.request.oauth.assertionSubject': 'Subject',
+  'workbench.editors.request.oauth.assertionSubjectPlaceholder': 'optional — the user the token acts as',
+  'workbench.editors.request.oauth.assertionClaims': 'Additional Claims',
+  'workbench.editors.request.oauth.assertionClaimsPlaceholder': 'optional — JSON, e.g. {"box_sub_type":"enterprise"}',
+  'workbench.editors.request.oauth.assertionAlgorithm': 'Algorithm',
+  'workbench.editors.request.oauth.assertionKeyId': 'Key ID',
+  'workbench.editors.request.oauth.assertionKeyIdPlaceholder': 'optional — the kid header, e.g. key-1',
+  'workbench.editors.request.oauth.assertionPrivateKey': 'Private Key',
+  'workbench.editors.request.oauth.assertionPrivateKeyPlaceholder':
+    '-----BEGIN PRIVATE KEY----- … (PEM, or the data:application/pkcs8 form)',
+  'workbench.editors.request.oauth.assertionAudience': 'Audience',
+  'workbench.editors.request.oauth.assertionAudiencePlaceholder': 'empty = the Access Token URL',
+  'workbench.editors.request.oauth.assertionLifetime': 'Lifetime (seconds)',
+  'workbench.editors.request.oauth.assertionHeaders': 'Extra Headers',
+  'workbench.editors.request.oauth.assertionHeadersPlaceholder': 'optional — JSON, e.g. {"x5t#S256":"…"}',
   'workbench.editors.request.oauth.advancedIntro':
     'You can add more specific customizations to your OAuth2 requests here.',
   'workbench.editors.request.oauth.advancedLearnMore': 'Learn more about configuration',

@@ -34,6 +34,7 @@ import {
 } from '@openheaders/ui/shared/info-popover';
 import { AUTH_GROUP_LABEL_KEY, type AuthGroupKey, type GroupedAuthType } from './auth-groups';
 import { authTypeLabelKey } from './auth-type-labels';
+import { usesClientAssertion } from '@openheaders/core/oauth';
 import { getGrantType } from './oauth2-grant-types';
 
 /** One key per auth-form row that opens a popover with the card. */
@@ -109,6 +110,15 @@ export type AuthInfoKey =
   | 'oauth2Scope'
   | 'oauth2State'
   | 'oauth2ClientAuthentication'
+  | 'oauth2AssertionIssuer'
+  | 'oauth2AssertionSubject'
+  | 'oauth2AssertionClaims'
+  | 'oauth2AssertionAlgorithm'
+  | 'oauth2AssertionKeyId'
+  | 'oauth2AssertionPrivateKey'
+  | 'oauth2AssertionAudience'
+  | 'oauth2AssertionLifetime'
+  | 'oauth2AssertionHeaders'
   | 'oauth2RefreshTokenUrl'
   | 'oauth2AuthRequest'
   | 'oauth2TokenRequest'
@@ -191,7 +201,9 @@ type AuthTokenId =
   | 'iss'
   | 'aud'
   | 'sub'
-  | 'jti';
+  | 'jti'
+  | 'clientAssertion'
+  | 'assertion';
 
 type Token = ExampleCardToken<AuthTokenId>;
 type Line = ExampleCardLine<AuthTokenId>;
@@ -343,14 +355,32 @@ function exampleLines(auth: ConcreteAuthConfig, forced: ReadonlySet<AuthInfoKey>
     }
     case 'oauth2': {
       // Four legs: the authorize redirect (code grants), the token
-      // exchange, the send carrying the access token, the refresh.
+      // exchange, the send carrying the access token, the refresh —
+      // plus the minted JWT's claims while an assertion is in play (a
+      // JWT client authentication, or the JWT bearer grant whose
+      // assertion IS the grant and whose refresh is a fresh assertion).
       const grant = getGrantType(auth);
       const query = auth.sendAs === 'query';
       const basicClientAuth = auth.clientAuthentication === 'basic-header';
+      const assertionClientAuth = usesClientAssertion(auth);
+      const jwtBearer = grant.fields.assertion;
       const showAuthParams = (auth.extraAuthParams?.length ?? 0) > 0 || forced.has('oauth2AuthRequest');
       const showTokenParams = (auth.extraTokenParams?.length ?? 0) > 0 || forced.has('oauth2TokenRequest');
       const showRefreshParams = (auth.extraRefreshParams?.length ?? 0) > 0 || forced.has('oauth2RefreshRequest');
+      const showExtraClaims = (auth.assertionClaims ?? '').trim() !== '' || forced.has('oauth2AssertionClaims');
+      const showHeaders = (auth.assertionHeaders ?? '').trim() !== '' || forced.has('oauth2AssertionHeaders');
       const clientId = tok('clientId', 'client_id=ck_9f3a');
+      const clientAuthTokens: Token[] = basicClientAuth
+        ? [tok('clientAuth', 'Authorization: Basic base64(ck_9f3a:cs_71b0)')]
+        : assertionClientAuth
+          ? [
+              clientId,
+              tok('clientAssertion', 'client_assertion_type=…:jwt-bearer'),
+              tok('clientAssertion', `client_assertion=${JWT}`),
+            ]
+          : jwtBearer
+            ? [clientId]
+            : [clientId, tok('clientSecret', 'client_secret=cs_71b0')];
       const lines: Line[] = [];
       if (grant.fields.authUrl) {
         lines.push({
@@ -368,18 +398,41 @@ function exampleLines(auth: ConcreteAuthConfig, forced: ReadonlySet<AuthInfoKey>
       lines.push({
         opener: tok('tokenEndpoint', `POST ${IDP}/token`),
         tokens: [
-          tok('grantType', `grant_type=${grant.wire}`),
+          tok('grantType', jwtBearer ? 'grant_type=…:jwt-bearer' : `grant_type=${grant.wire}`),
+          ...(jwtBearer ? [tok('assertion', `assertion=${JWT}`)] : []),
           ...(grant.fields.authUrl ? [tok('code', 'code=SplxlOBe…')] : []),
           ...(grant.fields.pkce ? [tok('verifier', 'code_verifier=dBjftJeZ…')] : []),
           ...(grant.fields.resourceOwner
             ? [tok('username', 'username=john.doe'), tok('password', 'password=s3cret')]
             : []),
-          ...(basicClientAuth
-            ? [tok('clientAuth', 'Authorization: Basic base64(ck_9f3a:cs_71b0)')]
-            : [clientId, tok('clientSecret', 'client_secret=cs_71b0')]),
+          ...clientAuthTokens,
           ...(showTokenParams ? [tok('tokenParams', 'audience=api')] : []),
         ],
       });
+      if (assertionClientAuth || jwtBearer) {
+        // The minted assertion's anatomy — the client assertion's iss =
+        // sub = the client id, or the grant assertion's own issuer.
+        const secretJwt = auth.clientAuthentication === 'client-secret-jwt';
+        const alg = auth.assertionAlgorithm?.trim() || (secretJwt ? 'HS256' : 'RS256');
+        const issuer = jwtBearer ? auth.assertionIssuer?.trim() || 'svc@openheaders.com' : 'ck_9f3a';
+        const subject = jwtBearer ? auth.assertionSubject?.trim() : 'ck_9f3a';
+        lines.push({
+          opener: 'JWT',
+          tokens: [
+            tok('alg', `alg: ${alg}`),
+            tok('kid', `kid: ${auth.assertionKeyId?.trim() || 'key-1'}`),
+            ...(showHeaders ? [tok('kid', 'x5t#S256: A1bC2d…')] : []),
+            tok('iss', `iss: ${issuer}`),
+            ...(subject ? [tok('sub', `sub: ${subject}`)] : []),
+            tok('aud', `aud: ${auth.assertionAudience?.trim() || `${IDP}/token`}`),
+            tok('iat', `iat: ${HAWK_TS}`),
+            tok('exp', `exp: ${Number(HAWK_TS) + (auth.assertionLifetimeSeconds ?? 300)}`),
+            ...(jwtBearer && auth.scopes.length > 0 ? [tok('scope', `scope: ${auth.scopes.join(' ')}`)] : []),
+            tok('jti', 'jti: 6f1c2a0e-…'),
+            ...(showExtraClaims ? [tok('claims', 'box_sub_type: enterprise')] : []),
+          ],
+        });
+      }
       lines.push(
         requestLine(),
         query
@@ -388,15 +441,24 @@ function exampleLines(auth: ConcreteAuthConfig, forced: ReadonlySet<AuthInfoKey>
               opener: tok('location', 'Authorization:'),
               tokens: [tok('prefix', auth.headerPrefix?.trim() || 'Bearer'), tok('token', JWT)],
             },
-        {
+      );
+      if (jwtBearer) {
+        // No refresh token: expiry re-runs the grant with a fresh assertion.
+        lines.push({
+          opener: tok('refreshEndpoint', `POST ${IDP}/token`),
+          tokens: [tok('refresh', 'grant_type=…:jwt-bearer'), tok('refreshToken', `assertion=${JWT} (fresh)`)],
+        });
+      } else {
+        lines.push({
           opener: tok('refreshEndpoint', `POST ${IDP}${auth.refreshEndpoint ? '/refresh' : '/token'}`),
           tokens: [
             tok('refresh', 'grant_type=refresh_token'),
             tok('refreshToken', 'refresh_token=rt_8e2a'),
+            ...(assertionClientAuth ? [tok('clientAssertion', `client_assertion=${JWT}`)] : []),
             ...(showRefreshParams ? [tok('refreshParams', 'audience=api')] : []),
           ],
-        },
-      );
+        });
+      }
       return lines;
     }
     case 'asap': {
@@ -597,6 +659,15 @@ const ROW_TOKENS: Record<AuthInfoKey, readonly AuthTokenId[]> = {
   oauth2Scope: ['scope'],
   oauth2State: ['state'],
   oauth2ClientAuthentication: ['clientId', 'clientSecret'],
+  oauth2AssertionIssuer: ['iss'],
+  oauth2AssertionSubject: ['sub'],
+  oauth2AssertionClaims: ['claims'],
+  oauth2AssertionAlgorithm: ['alg'],
+  oauth2AssertionKeyId: ['kid'],
+  oauth2AssertionPrivateKey: ['alg'],
+  oauth2AssertionAudience: ['aud'],
+  oauth2AssertionLifetime: ['iat', 'exp'],
+  oauth2AssertionHeaders: ['kid'],
   oauth2RefreshTokenUrl: ['refreshEndpoint'],
   oauth2AuthRequest: ['authParams'],
   oauth2TokenRequest: ['tokenParams'],
@@ -621,6 +692,17 @@ function rowTokens(key: AuthInfoKey, auth: ConcreteAuthConfig): readonly AuthTok
     if (auth.clientAuthentication === 'basic-header') {
       if (key === 'oauth2ClientAuthentication' || key === 'oauth2ClientSecret') return ['clientAuth'];
       if (key === 'oauth2ClientId') return ['clientId', 'clientAuth'];
+    }
+    if (usesClientAssertion(auth)) {
+      if (key === 'oauth2ClientAuthentication') return ['clientAssertion'];
+      // The secret method's Client Secret IS the signing key.
+      if (key === 'oauth2ClientSecret') return ['clientAssertion', 'alg'];
+      if (key === 'oauth2ClientId') return ['clientId', 'iss', 'sub'];
+    }
+    if (getGrantType(auth).fields.assertion) {
+      if (key === 'oauth2GrantType') return ['grantType', 'assertion'];
+      if (key === 'oauth2AutoRefresh') return ['refresh', 'refreshToken'];
+      if (key === 'oauth2Scope') return ['scope'];
     }
     if (auth.sendAs === 'query' && key === 'oauth2SendAs') return ['location', 'token'];
   }
@@ -686,6 +768,17 @@ const GROUP_ROWS: Record<CardType, Partial<Record<AuthGroupKey, readonly AuthInf
       'oauth2Scope',
       'oauth2State',
       'oauth2ClientAuthentication',
+      'oauth2AssertionIssuer',
+      'oauth2AssertionSubject',
+      'oauth2AssertionClaims',
+    ],
+    signing: [
+      'oauth2AssertionAlgorithm',
+      'oauth2AssertionKeyId',
+      'oauth2AssertionPrivateKey',
+      'oauth2AssertionAudience',
+      'oauth2AssertionLifetime',
+      'oauth2AssertionHeaders',
     ],
     advanced: ['oauth2RefreshTokenUrl', 'oauth2AuthRequest', 'oauth2TokenRequest', 'oauth2RefreshRequest'],
   },
@@ -770,6 +863,15 @@ const ROW_TITLE_KEY: Record<AuthInfoKey, MessageKey> = {
   oauth2Scope: 'workbench.editors.request.oauth.scope',
   oauth2State: 'workbench.editors.request.oauth.state',
   oauth2ClientAuthentication: 'workbench.editors.request.oauth.clientAuthentication',
+  oauth2AssertionIssuer: 'workbench.editors.request.oauth.assertionIssuer',
+  oauth2AssertionSubject: 'workbench.editors.request.oauth.assertionSubject',
+  oauth2AssertionClaims: 'workbench.editors.request.oauth.assertionClaims',
+  oauth2AssertionAlgorithm: 'workbench.editors.request.oauth.assertionAlgorithm',
+  oauth2AssertionKeyId: 'workbench.editors.request.oauth.assertionKeyId',
+  oauth2AssertionPrivateKey: 'workbench.editors.request.oauth.assertionPrivateKey',
+  oauth2AssertionAudience: 'workbench.editors.request.oauth.assertionAudience',
+  oauth2AssertionLifetime: 'workbench.editors.request.oauth.assertionLifetime',
+  oauth2AssertionHeaders: 'workbench.editors.request.oauth.assertionHeaders',
   oauth2RefreshTokenUrl: 'workbench.editors.request.oauth.refreshTokenUrl',
   oauth2AuthRequest: 'workbench.editors.request.oauth.authRequest',
   oauth2TokenRequest: 'workbench.editors.request.oauth.tokenRequest',
@@ -850,6 +952,15 @@ const ROW_SUMMARY_KEY: Record<AuthInfoKey, MessageKey> = {
   oauth2Scope: 'workbench.editors.request.auth.rowInfo.oauth2Scope',
   oauth2State: 'workbench.editors.request.auth.rowInfo.oauth2State',
   oauth2ClientAuthentication: 'workbench.editors.request.auth.rowInfo.oauth2ClientAuthentication',
+  oauth2AssertionIssuer: 'workbench.editors.request.auth.rowInfo.oauth2AssertionIssuer',
+  oauth2AssertionSubject: 'workbench.editors.request.auth.rowInfo.oauth2AssertionSubject',
+  oauth2AssertionClaims: 'workbench.editors.request.auth.rowInfo.oauth2AssertionClaims',
+  oauth2AssertionAlgorithm: 'workbench.editors.request.auth.rowInfo.oauth2AssertionAlgorithm',
+  oauth2AssertionKeyId: 'workbench.editors.request.auth.rowInfo.oauth2AssertionKeyId',
+  oauth2AssertionPrivateKey: 'workbench.editors.request.auth.rowInfo.oauth2AssertionPrivateKey',
+  oauth2AssertionAudience: 'workbench.editors.request.auth.rowInfo.oauth2AssertionAudience',
+  oauth2AssertionLifetime: 'workbench.editors.request.auth.rowInfo.oauth2AssertionLifetime',
+  oauth2AssertionHeaders: 'workbench.editors.request.auth.rowInfo.oauth2AssertionHeaders',
   oauth2RefreshTokenUrl: 'workbench.editors.request.auth.rowInfo.oauth2RefreshTokenUrl',
   oauth2AuthRequest: 'workbench.editors.request.auth.rowInfo.oauth2AuthRequest',
   oauth2TokenRequest: 'workbench.editors.request.auth.rowInfo.oauth2TokenRequest',
@@ -901,6 +1012,7 @@ const GROUP_SUMMARY_KEY: Record<CardType, Partial<Record<AuthGroupKey, MessageKe
   oauth2: {
     token: 'workbench.editors.request.auth.groupInfo.oauth2.token',
     grant: 'workbench.editors.request.auth.groupInfo.oauth2.grant',
+    signing: 'workbench.editors.request.auth.groupInfo.oauth2.signing',
     advanced: 'workbench.editors.request.auth.groupInfo.oauth2.advanced',
   },
 };

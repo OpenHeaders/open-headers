@@ -9,8 +9,13 @@
  *   • Grant — the form for running a fresh authorize flow: Token Name
  *     + Grant Type + Callback URL + Auth URL + Access Token URL +
  *     Client ID + Client Secret + PKCE Code Challenge Method /
- *     Verifier (when the grant is PKCE) + Scope + State + Client
- *     Authentication.
+ *     Verifier (when the grant is PKCE) + the JWT bearer grant's own
+ *     claims (issuer / subject / additional claims) + Scope + State +
+ *     Client Authentication.
+ *   • Signing — rendered while an assertion is in play (a JWT client
+ *     authentication, or the JWT bearer grant): the algorithm, key id,
+ *     private key, audience, lifetime and extra protected headers the
+ *     minted assertion carries.
  *   • Advanced (folded by default) — Refresh Token URL + the Auth /
  *     Token / Refresh request extra params.
  *
@@ -22,10 +27,19 @@
 import { CopyOutlined } from '@ant-design/icons';
 import { useOAuthBundlesContext } from '@openheaders/ui/context';
 import { getCapability } from '@openheaders/core/capabilities';
-import { isExpired, secondsUntilExpiry } from '@openheaders/core/oauth';
+import { ASAP_ALGORITHMS } from '@openheaders/core/auth-signing';
+import {
+  ASSERTION_DEFAULT_LIFETIME_SECONDS,
+  ASSERTION_MAX_LIFETIME_SECONDS,
+  CLIENT_SECRET_JWT_ALGORITHMS,
+  canRenewSilently,
+  isExpired,
+  secondsUntilExpiry,
+  usesClientAssertion,
+} from '@openheaders/core/oauth';
 import type { OAuth2Auth } from '@openheaders/core/types';
 import { generateUid } from '@openheaders/core/utils';
-import { Alert, App, Button, Checkbox, Input, Select, Tooltip, Typography, theme } from 'antd';
+import { Alert, App, Button, Checkbox, Input, InputNumber, Select, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useMemo, useState } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
@@ -38,6 +52,7 @@ import {
   AuthForm,
   AuthFormNote,
   AuthLabeledRow as LabeledRow,
+  AuthSecretField as SecretField,
 } from './auth-layout';
 import { type AuthInfoKey, authRowInfo } from './AuthRowInfo';
 import type { AuxColumn } from './editable-grid-types';
@@ -49,6 +64,29 @@ const { Text, Link } = Typography;
 // Every control caps at the classic form width like the other types'
 // fields (the URL fields are long, not wide).
 const fieldStyle: React.CSSProperties = { maxWidth: FIELD_DEFAULT_MAX_WIDTH };
+const jsonFieldStyle: React.CSSProperties = {
+  maxWidth: FIELD_DEFAULT_MAX_WIDTH,
+  fontFamily: 'monospace',
+  fontSize: 12,
+};
+
+type ClientAuthentication = NonNullable<OAuth2Auth['clientAuthentication']>;
+
+/** The signing families each assertion method offers: the asymmetric
+ *  nine for a private key, the HMAC three for the client secret. */
+type AlgorithmOption = { value: string; label: string };
+const PRIVATE_KEY_ALGORITHM_OPTIONS: AlgorithmOption[] = ASAP_ALGORITHMS.map((a) => ({ value: a, label: a }));
+const SECRET_ALGORITHM_OPTIONS: AlgorithmOption[] = CLIENT_SECRET_JWT_ALGORITHMS.map((a) => ({ value: a, label: a }));
+
+type AssertionTextField =
+  | 'assertionAlgorithm'
+  | 'assertionKeyId'
+  | 'assertionPrivateKey'
+  | 'assertionAudience'
+  | 'assertionHeaders'
+  | 'assertionIssuer'
+  | 'assertionSubject'
+  | 'assertionClaims';
 
 interface OAuth2AuthEditorProps {
   auth: OAuth2Auth;
@@ -59,7 +97,7 @@ const OAuth2AuthEditor: React.FC<OAuth2AuthEditorProps> = ({ auth, onChange }) =
   const { token } = theme.useToken();
   const t = useT();
   const { message } = App.useApp();
-  const { tokens, redirectUri, authorize, clientCredentials, passwordCredentials, refresh, revoke } =
+  const { tokens, redirectUri, authorize, clientCredentials, passwordCredentials, jwtBearer, refresh, revoke } =
     useOAuthBundlesContext();
   const [busy, setBusy] = useState<null | 'authorize' | 'refresh' | 'revoke'>(null);
 
@@ -67,6 +105,19 @@ const OAuth2AuthEditor: React.FC<OAuth2AuthEditorProps> = ({ auth, onChange }) =
   const expired = bundle ? isExpired(bundle) : false;
 
   const grantType = useMemo(() => getGrantType(auth), [auth]);
+  // The Signing group is in play for a JWT client authentication or
+  // the JWT bearer grant; the secret method signs with Client Secret,
+  // so its Private Key row steps aside.
+  const secretJwt = auth.clientAuthentication === 'client-secret-jwt';
+  const signing = usesClientAssertion(auth) || grantType.fields.assertion;
+  const setAssertionField = (field: AssertionTextField) => (next: string) => {
+    if (next.trim()) {
+      onChange({ ...auth, [field]: next });
+    } else {
+      const { [field]: _omit, ...rest } = auth;
+      onChange(rest);
+    }
+  };
   const info = (key: AuthInfoKey): InfoPopoverContent => {
     const content = authRowInfo(t, auth, key);
     // The callback's host-specific detail rides the popover body.
@@ -104,6 +155,10 @@ const OAuth2AuthEditor: React.FC<OAuth2AuthEditorProps> = ({ auth, onChange }) =
         else message.error(t('workbench.editors.request.oauth.toast.failed', { error: res.error ?? '' }));
       } else if (auth.flow === 'password-credentials') {
         const res = await passwordCredentials(auth);
+        if (res.success) message.success(t('workbench.editors.request.oauth.toast.tokenReceived'));
+        else message.error(t('workbench.editors.request.oauth.toast.failed', { error: res.error ?? '' }));
+      } else if (auth.flow === 'jwt-bearer') {
+        const res = await jwtBearer(auth);
         if (res.success) message.success(t('workbench.editors.request.oauth.toast.tokenReceived'));
         else message.error(t('workbench.editors.request.oauth.toast.failed', { error: res.error ?? '' }));
       } else {
@@ -157,7 +212,17 @@ const OAuth2AuthEditor: React.FC<OAuth2AuthEditorProps> = ({ auth, onChange }) =
     auth.username !== undefined ||
     auth.password !== undefined ||
     auth.scopes.length > 0 ||
-    auth.clientAuthentication !== undefined;
+    auth.clientAuthentication !== undefined ||
+    auth.assertionIssuer !== undefined ||
+    auth.assertionSubject !== undefined ||
+    auth.assertionClaims !== undefined;
+  const signingModified =
+    auth.assertionAlgorithm !== undefined ||
+    auth.assertionKeyId !== undefined ||
+    auth.assertionPrivateKey !== undefined ||
+    auth.assertionAudience !== undefined ||
+    auth.assertionLifetimeSeconds !== undefined ||
+    auth.assertionHeaders !== undefined;
   const advancedModified =
     auth.refreshEndpoint !== undefined ||
     (auth.extraAuthParams?.length ?? 0) > 0 ||
@@ -205,7 +270,7 @@ const OAuth2AuthEditor: React.FC<OAuth2AuthEditorProps> = ({ auth, onChange }) =
           description={t('workbench.editors.request.oauth.autoRefreshDesc')}
           info={info('oauth2AutoRefresh')}
         >
-          <Checkbox checked={Boolean(bundle?.refreshToken)} disabled />
+          <Checkbox checked={canRenewSilently(auth, Boolean(bundle?.refreshToken))} disabled />
         </LabeledRow>
         {bundle && (
           <LabeledRow
@@ -378,6 +443,50 @@ const OAuth2AuthEditor: React.FC<OAuth2AuthEditorProps> = ({ auth, onChange }) =
           </LabeledRow>
         )}
 
+        {grantType.fields.assertion && (
+          <>
+            <LabeledRow
+              label={t('workbench.editors.request.oauth.assertionIssuer')}
+              info={info('oauth2AssertionIssuer')}
+            >
+              <Input
+                size="small"
+                style={fieldStyle}
+                data-testid="oh-oauth2-assertion-issuer"
+                placeholder={t('workbench.editors.request.oauth.assertionIssuerPlaceholder')}
+                value={auth.assertionIssuer ?? ''}
+                onChange={(e) => setAssertionField('assertionIssuer')(e.target.value)}
+              />
+            </LabeledRow>
+            <LabeledRow
+              label={t('workbench.editors.request.oauth.assertionSubject')}
+              info={info('oauth2AssertionSubject')}
+            >
+              <Input
+                size="small"
+                style={fieldStyle}
+                placeholder={t('workbench.editors.request.oauth.assertionSubjectPlaceholder')}
+                value={auth.assertionSubject ?? ''}
+                onChange={(e) => setAssertionField('assertionSubject')(e.target.value)}
+              />
+            </LabeledRow>
+            <LabeledRow
+              label={t('workbench.editors.request.oauth.assertionClaims')}
+              info={info('oauth2AssertionClaims')}
+            >
+              <Input.TextArea
+                size="small"
+                data-testid="oh-oauth2-assertion-claims"
+                value={auth.assertionClaims ?? ''}
+                onChange={(e) => setAssertionField('assertionClaims')(e.target.value)}
+                placeholder={t('workbench.editors.request.oauth.assertionClaimsPlaceholder')}
+                rows={3}
+                style={jsonFieldStyle}
+              />
+            </LabeledRow>
+          </>
+        )}
+
         {grantType.fields.pkce && (
           <>
             <LabeledRow
@@ -435,18 +544,109 @@ const OAuth2AuthEditor: React.FC<OAuth2AuthEditorProps> = ({ auth, onChange }) =
         >
           <Select
             size="small"
+            data-testid="oh-oauth2-client-authentication"
             value={auth.clientAuthentication ?? 'body'}
-            onChange={(next: 'body' | 'basic-header') =>
+            onChange={(next: ClientAuthentication) =>
               onChange({ ...auth, clientAuthentication: next === 'body' ? undefined : next })
             }
             options={[
               { value: 'body', label: t('workbench.editors.request.oauth.clientAuthBody') },
               { value: 'basic-header', label: t('workbench.editors.request.oauth.clientAuthBasicHeader') },
+              { value: 'private-key-jwt', label: t('workbench.editors.request.oauth.clientAuthPrivateKeyJwt') },
+              { value: 'client-secret-jwt', label: t('workbench.editors.request.oauth.clientAuthClientSecretJwt') },
             ]}
             style={{ width: '100%', maxWidth: FIELD_DEFAULT_MAX_WIDTH }}
           />
         </LabeledRow>
       </AuthFormGroup>
+
+      {signing && (
+        <AuthFormGroup auth={auth} group="signing" modified={signingModified}>
+          <LabeledRow
+            label={t('workbench.editors.request.oauth.assertionAlgorithm')}
+            info={info('oauth2AssertionAlgorithm')}
+          >
+            <Select
+              size="small"
+              data-testid="oh-oauth2-assertion-algorithm"
+              value={auth.assertionAlgorithm ?? (secretJwt ? 'HS256' : 'RS256')}
+              onChange={(next: string) => onChange({ ...auth, assertionAlgorithm: next })}
+              options={secretJwt ? SECRET_ALGORITHM_OPTIONS : PRIVATE_KEY_ALGORITHM_OPTIONS}
+              style={{ width: '100%', maxWidth: FIELD_DEFAULT_MAX_WIDTH }}
+            />
+          </LabeledRow>
+          <LabeledRow label={t('workbench.editors.request.oauth.assertionKeyId')} info={info('oauth2AssertionKeyId')}>
+            <Input
+              size="small"
+              style={fieldStyle}
+              placeholder={t('workbench.editors.request.oauth.assertionKeyIdPlaceholder')}
+              value={auth.assertionKeyId ?? ''}
+              onChange={(e) => setAssertionField('assertionKeyId')(e.target.value)}
+            />
+          </LabeledRow>
+          {!secretJwt && (
+            <LabeledRow
+              label={t('workbench.editors.request.oauth.assertionPrivateKey')}
+              info={info('oauth2AssertionPrivateKey')}
+            >
+              <SecretField
+                value={auth.assertionPrivateKey ?? ''}
+                onChange={setAssertionField('assertionPrivateKey')}
+                placeholder={t('workbench.editors.request.oauth.assertionPrivateKeyPlaceholder')}
+                data-testid="oh-oauth2-assertion-private-key"
+              />
+            </LabeledRow>
+          )}
+          <LabeledRow
+            label={t('workbench.editors.request.oauth.assertionAudience')}
+            info={info('oauth2AssertionAudience')}
+          >
+            <Input
+              size="small"
+              style={fieldStyle}
+              placeholder={auth.tokenEndpoint || t('workbench.editors.request.oauth.assertionAudiencePlaceholder')}
+              value={auth.assertionAudience ?? ''}
+              onChange={(e) => setAssertionField('assertionAudience')(e.target.value)}
+            />
+          </LabeledRow>
+          <LabeledRow
+            label={t('workbench.editors.request.oauth.assertionLifetime')}
+            info={info('oauth2AssertionLifetime')}
+          >
+            <InputNumber
+              size="small"
+              data-testid="oh-oauth2-assertion-lifetime"
+              min={1}
+              max={ASSERTION_MAX_LIFETIME_SECONDS}
+              value={auth.assertionLifetimeSeconds}
+              onChange={(next) => {
+                if (typeof next === 'number') {
+                  onChange({ ...auth, assertionLifetimeSeconds: next });
+                } else {
+                  const { assertionLifetimeSeconds: _omit, ...rest } = auth;
+                  onChange(rest);
+                }
+              }}
+              placeholder={String(ASSERTION_DEFAULT_LIFETIME_SECONDS)}
+              style={{ width: '100%', maxWidth: FIELD_DEFAULT_MAX_WIDTH }}
+            />
+          </LabeledRow>
+          <LabeledRow
+            label={t('workbench.editors.request.oauth.assertionHeaders')}
+            info={info('oauth2AssertionHeaders')}
+          >
+            <Input.TextArea
+              size="small"
+              data-testid="oh-oauth2-assertion-headers"
+              value={auth.assertionHeaders ?? ''}
+              onChange={(e) => setAssertionField('assertionHeaders')(e.target.value)}
+              placeholder={t('workbench.editors.request.oauth.assertionHeadersPlaceholder')}
+              rows={2}
+              style={jsonFieldStyle}
+            />
+          </LabeledRow>
+        </AuthFormGroup>
+      )}
 
       <AuthFormGroup auth={auth} group="advanced" modified={advancedModified} defaultCollapsed>
         <AuthFormNote>

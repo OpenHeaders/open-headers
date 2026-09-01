@@ -3,13 +3,14 @@
  * and the persisted flow it maps back to. A leaf module so the editor
  * and the example-card builder read one table.
  *
- * The dropdown offers the flows that actually run end-to-end on a
- * browser extension: Authorization Code with and without PKCE (the
- * same wire flow — the persisted grantType suppresses the PKCE pair,
- * see `usesPkce` in core/oauth), Client Credentials, and Password
- * Credentials. Implicit is removed by OAuth 2.1 and Device Code earns
- * its keep only where there is no browser; both stay out until a real
- * integration needs one.
+ * The dropdown offers the flows that actually run end-to-end on both
+ * hosts: Authorization Code with and without PKCE (the same wire flow
+ * — the persisted grantType suppresses the PKCE pair, see `usesPkce`
+ * in core/oauth), Client Credentials, Password Credentials, and JWT
+ * Bearer (RFC 7523 §2.1 — the signed assertion IS the grant; no
+ * authorize leg, no refresh token). Implicit is removed by OAuth 2.1
+ * and Device Code earns its keep only where there is no browser; both
+ * stay out until a real integration needs one.
  */
 
 import type { OAuth2Auth, OAuth2Flow } from '@openheaders/core/types';
@@ -18,13 +19,14 @@ export type GrantTypeId =
   | 'authorization-code-pkce'
   | 'authorization-code'
   | 'client-credentials'
-  | 'password-credentials';
+  | 'password-credentials'
+  | 'jwt-bearer';
 
 export interface GrantTypeDef {
   id: GrantTypeId;
   label: string;
   /** The `grant_type` value the token request carries. */
-  wire: 'authorization_code' | 'client_credentials' | 'password';
+  wire: 'authorization_code' | 'client_credentials' | 'password' | 'urn:ietf:params:oauth:grant-type:jwt-bearer';
   /** Which fields to render when this grant type is active. */
   fields: {
     callbackUrl: boolean;
@@ -36,6 +38,8 @@ export interface GrantTypeDef {
     pkce: boolean;
     scope: boolean;
     state: boolean;
+    /** The grant assertion's own claims (issuer / subject / claims JSON). */
+    assertion: boolean;
   };
   /** Maps back to the persisted flow. */
   v5Flow: OAuth2Flow;
@@ -56,6 +60,7 @@ export const GRANT_TYPES: GrantTypeDef[] = [
       pkce: true,
       scope: true,
       state: true,
+      assertion: false,
     },
     v5Flow: 'authorization-code-pkce',
   },
@@ -73,6 +78,7 @@ export const GRANT_TYPES: GrantTypeDef[] = [
       pkce: false,
       scope: true,
       state: true,
+      assertion: false,
     },
     v5Flow: 'authorization-code-pkce',
   },
@@ -90,6 +96,7 @@ export const GRANT_TYPES: GrantTypeDef[] = [
       pkce: false,
       scope: true,
       state: false,
+      assertion: false,
     },
     v5Flow: 'client-credentials',
   },
@@ -107,8 +114,27 @@ export const GRANT_TYPES: GrantTypeDef[] = [
       pkce: false,
       scope: true,
       state: false,
+      assertion: false,
     },
     v5Flow: 'password-credentials',
+  },
+  {
+    id: 'jwt-bearer',
+    label: 'JWT Bearer',
+    wire: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
+    fields: {
+      callbackUrl: false,
+      authUrl: false,
+      accessTokenUrl: true,
+      clientId: true,
+      clientSecret: false,
+      resourceOwner: false,
+      pkce: false,
+      scope: true,
+      state: false,
+      assertion: true,
+    },
+    v5Flow: 'jwt-bearer',
   },
 ];
 

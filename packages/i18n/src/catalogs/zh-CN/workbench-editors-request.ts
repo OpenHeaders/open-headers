@@ -326,16 +326,18 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.auth.groupInfo.oauth2.grant':
     '如何获取新令牌 \u2014 授权类型、提供方的端点、客户端身份以及所请求的内容。',
   'workbench.editors.request.auth.groupInfo.oauth2.advanced': '刷新环节，以及三个提供方请求各自携带的额外参数。',
+  'workbench.editors.request.auth.groupInfo.oauth2.signing':
+    '此配置签发的 JWT — 作为每次令牌请求的客户端断言，或作为 JWT bearer 授权本身。',
   'workbench.editors.request.auth.rowInfo.oauth2Token':
     '上次流程存储的访问令牌 \u2014 每次发送都跟在 Bearer 之后；流程运行前为空。',
   'workbench.editors.request.auth.rowInfo.oauth2HeaderPrefix':
     'Authorization 头中位于令牌之前的方案 — 留空时发送提供商签发的 token_type（默认 Bearer）；设置后以其为准。',
   'workbench.editors.request.auth.rowInfo.oauth2AutoRefresh':
-    '若提供方签发了刷新令牌，过期的访问令牌会在发送前换成新的。',
+    '过期的访问令牌在发送前续期 — 提供方签发了刷新令牌时用它，否则重新执行无需浏览器的授权。',
   'workbench.editors.request.auth.rowInfo.oauth2Status': '存储的令牌还能有效多久；刷新会立即交换，断开则将其忘记。',
   'workbench.editors.request.auth.rowInfo.oauth2TokenName': '此令牌在应用中的标签 \u2014 不会出现在线路上。',
   'workbench.editors.request.auth.rowInfo.oauth2GrantType':
-    '令牌交换的 grant_type 以及之前运行的环节 \u2014 授权码类授权先经浏览器授权，客户端凭据或密码授权则没有。',
+    '令牌交换的 grant_type 及其前置环节 — 授权码类需要浏览器授权，客户端、密码或 JWT bearer 凭据则不需要。',
   'workbench.editors.request.auth.rowInfo.oauth2CallbackUrl':
     '提供方带着授权码把浏览器送回的 redirect_uri \u2014 需在提供方处注册。',
   'workbench.editors.request.auth.rowInfo.oauth2AuthUrl': '浏览器首先被送往的提供方授权端点。',
@@ -355,7 +357,24 @@ export const workbenchEditorsRequest = {
     '请求的 scope \u2014 以空格分隔作为 scope 放在授权 URL 或令牌请求中发送。',
   'workbench.editors.request.auth.rowInfo.oauth2State': '每次流程生成并由提供方回显，使回调与本次授权对应。',
   'workbench.editors.request.auth.rowInfo.oauth2ClientAuthentication':
-    '客户端凭据在令牌请求中的位置 \u2014 表单正文，或 Authorization: Basic 标头。',
+    '客户端在令牌请求中如何证明身份 — 凭据放在表单正文或 Authorization: Basic 标头，或以签名的 client_assertion 代替密钥。',
+  'workbench.editors.request.auth.rowInfo.oauth2AssertionIssuer':
+    '授权断言的 iss 声明 — 在提供方注册的服务账号或消费者密钥。',
+  'workbench.editors.request.auth.rowInfo.oauth2AssertionSubject':
+    '可选的 sub 声明 — 令牌所代表的用户（全域委托、模拟）；留空则不发送。',
+  'workbench.editors.request.auth.rowInfo.oauth2AssertionClaims':
+    '合并进授权断言的附加声明，优先于自动组合的声明 — 提供方专有声明，或你自己的 scope。',
+  'workbench.editors.request.auth.rowInfo.oauth2AssertionAlgorithm':
+    '签署断言的 JWS 算法族 — 私钥用非对称算法，客户端密钥用 HS256/384/512。',
+  'workbench.editors.request.auth.rowInfo.oauth2AssertionKeyId': '指明已注册密钥的 kid 标头，让提供方选取正确的公钥。',
+  'workbench.editors.request.auth.rowInfo.oauth2AssertionPrivateKey':
+    '签名密钥 — PEM、裸 DER 或 data:application/pkcs8 形式；永不导出。',
+  'workbench.editors.request.auth.rowInfo.oauth2AssertionAudience':
+    'aud 声明 — 留空发送访问令牌 URL；FAPI 与 Keycloak 则要求签发者标识。',
+  'workbench.editors.request.auth.rowInfo.oauth2AssertionLifetime':
+    'exp 减 iat，签名时盖章 — 默认 300 秒；提供方可能设上限（Google：一小时）。',
+  'workbench.editors.request.auth.rowInfo.oauth2AssertionHeaders':
+    '合并进断言的额外受保护标头 JSON — Azure 的 x5t#S256 证书指纹。',
   'workbench.editors.request.auth.rowInfo.oauth2RefreshTokenUrl': '刷新交换所 POST 的端点 \u2014 留空即访问令牌 URL。',
   'workbench.editors.request.auth.rowInfo.oauth2AuthRequest': '追加到授权 URL 的额外参数（audience、prompt 等）。',
   'workbench.editors.request.auth.rowInfo.oauth2TokenRequest':
@@ -542,9 +561,28 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.oauth.stateAuto': '每次授权请求自动生成',
   'workbench.editors.request.oauth.clientAuthentication': '客户端身份验证',
   'workbench.editors.request.oauth.clientAuthenticationDesc':
-    'client_id / client_secret 随 token POST 的携带位置。各提供方不同——Auth0 / Keycloak 通常要求 Basic 标头形式。',
+    '客户端在令牌 POST 中如何证明身份 — id 与密钥放在正文或 Basic 标头，或用私钥（private_key_jwt）或密钥（client_secret_jwt）签名的 JWT。',
   'workbench.editors.request.oauth.clientAuthBody': '在正文中发送客户端凭据',
   'workbench.editors.request.oauth.clientAuthBasicHeader': '作为 Basic Auth 标头发送',
+  'workbench.editors.request.oauth.clientAuthPrivateKeyJwt': '发送签名 JWT（private_key_jwt）',
+  'workbench.editors.request.oauth.clientAuthClientSecretJwt': '发送 HMAC JWT（client_secret_jwt）',
+  'workbench.editors.request.oauth.assertionIssuer': '签发者',
+  'workbench.editors.request.oauth.assertionIssuerPlaceholder': '例如 service-account@openheaders.com',
+  'workbench.editors.request.oauth.assertionSubject': '主体',
+  'workbench.editors.request.oauth.assertionSubjectPlaceholder': '可选 — 令牌所代表的用户',
+  'workbench.editors.request.oauth.assertionClaims': '附加声明',
+  'workbench.editors.request.oauth.assertionClaimsPlaceholder': '可选 — JSON，例如 {"box_sub_type":"enterprise"}',
+  'workbench.editors.request.oauth.assertionAlgorithm': '算法',
+  'workbench.editors.request.oauth.assertionKeyId': '密钥 ID',
+  'workbench.editors.request.oauth.assertionKeyIdPlaceholder': '可选 — kid 标头，例如 key-1',
+  'workbench.editors.request.oauth.assertionPrivateKey': '私钥',
+  'workbench.editors.request.oauth.assertionPrivateKeyPlaceholder':
+    '-----BEGIN PRIVATE KEY----- …（PEM，或 data:application/pkcs8 形式）',
+  'workbench.editors.request.oauth.assertionAudience': '受众',
+  'workbench.editors.request.oauth.assertionAudiencePlaceholder': '留空 = 访问令牌 URL',
+  'workbench.editors.request.oauth.assertionLifetime': '有效期（秒）',
+  'workbench.editors.request.oauth.assertionHeaders': '额外标头',
+  'workbench.editors.request.oauth.assertionHeadersPlaceholder': '可选 — JSON，例如 {"x5t#S256":"…"}',
   'workbench.editors.request.oauth.advancedIntro': '你可以在这里为 OAuth2 请求添加更细的自定义。',
   'workbench.editors.request.oauth.advancedLearnMore': '进一步了解配置',
   'workbench.editors.request.oauth.refreshTokenUrl': 'Refresh Token URL',

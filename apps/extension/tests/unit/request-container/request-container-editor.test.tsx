@@ -1124,6 +1124,88 @@ describe('AuthorizationTab — the OAuth 2.0 editor on the sectioned anatomy', (
     closePopover();
   });
 
+  it('Grant type offers five grants and Client Authentication four methods', () => {
+    renderTab(oauth2);
+    fireEvent.mouseDown(screen.getByText('Authorization Code (With PKCE)'));
+    const grants = Array.from(document.querySelectorAll('.ant-select-item-option-content')).map((el) => el.textContent);
+    expect(grants).toEqual([
+      'Authorization Code (With PKCE)',
+      'Authorization Code',
+      'Client Credentials',
+      'Password Credentials',
+      'JWT Bearer',
+    ]);
+    closePopover();
+    fireEvent.mouseDown(screen.getByText('Send client credentials in body'));
+    const methods = Array.from(document.querySelectorAll('.ant-select-item-option-content'))
+      .map((el) => el.textContent)
+      .filter((text) => text?.startsWith('Send'));
+    expect(methods).toEqual([
+      'Send client credentials in body',
+      'Send as Basic Auth header',
+      'Send a signed JWT (private_key_jwt)',
+      'Send an HMAC JWT (client_secret_jwt)',
+    ]);
+  });
+
+  it('a JWT client authentication opens the Signing group; the secret method hides its Private Key row', () => {
+    const plain = renderTab(oauth2);
+    expect(screen.queryByRole('button', { name: 'Signing' })).toBeNull();
+    plain.unmount();
+    const privateKey = renderTab({ ...oauth2, clientAuthentication: 'private-key-jwt' });
+    expect(screen.getByRole('button', { name: 'Signing' }).getAttribute('aria-expanded')).toBe('true');
+    expect(screen.getByText('Private Key')).toBeTruthy();
+    expect(screen.getByText('Lifetime (seconds)')).toBeTruthy();
+    expect((screen.getByTestId('oh-oauth2-assertion-lifetime') as HTMLInputElement).placeholder).toBe('300');
+    expect(screen.getByText('Audience')).toBeTruthy();
+    privateKey.unmount();
+    renderTab({ ...oauth2, clientAuthentication: 'client-secret-jwt' });
+    expect(screen.getByRole('button', { name: 'Signing' })).toBeTruthy();
+    expect(screen.queryByText('Private Key')).toBeNull();
+    expect(screen.getByText('HS256')).toBeTruthy();
+  });
+
+  it('the Client Secret (i) under client-secret-jwt lights the client_assertion and the signing family', () => {
+    renderTab({ ...oauth2, clientAuthentication: 'client-secret-jwt' });
+    const popover = openPopover('About Client Secret');
+    // The token line's pair, the JWT line's family, the refresh line's assertion.
+    expect(litTexts(popover)).toEqual([
+      'client_assertion_type=…:jwt-bearer',
+      'client_assertion=eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJqb2huLmRvZSJ9.SflKxw…',
+      'alg: HS256',
+      'client_assertion=eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJqb2huLmRvZSJ9.SflKxw…',
+    ]);
+    closePopover();
+  });
+
+  it("the JWT Bearer grant renders the assertion's own rows, no callback / secret, and its (i) lights the grant assertion", () => {
+    renderTab({ ...oauth2, flow: 'jwt-bearer', grantType: 'jwt-bearer', assertionIssuer: 'svc@openheaders.io' });
+    expect(screen.getByText('Issuer')).toBeTruthy();
+    expect(screen.getByText('Subject')).toBeTruthy();
+    expect(screen.getByText('Additional Claims')).toBeTruthy();
+    expect(screen.queryByText('Callback URL')).toBeNull();
+    expect(screen.queryByText('Client Secret')).toBeNull();
+    expect(screen.getByRole('button', { name: 'Signing' })).toBeTruthy();
+    const popover = openPopover('About Grant type');
+    expect(litTexts(popover)).toEqual([
+      'grant_type=…:jwt-bearer',
+      'assertion=eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJqb2huLmRvZSJ9.SflKxw…',
+    ]);
+    expect(popover.textContent).toContain('iss: svc@openheaders.io');
+    closePopover();
+  });
+
+  it('the Auto-refresh fact reads the grant: on for a renewable grant without a bundle, off for a code grant', () => {
+    // The Token group's one checkbox on the browser runtime (the node
+    // runtime adds the Authorize-using-browser box under the callback).
+    const autoRefresh = () => document.querySelector('.ant-checkbox-input') as HTMLInputElement;
+    const code = renderTab(oauth2);
+    expect(autoRefresh().checked).toBe(false);
+    code.unmount();
+    renderTab({ ...oauth2, flow: 'jwt-bearer', grantType: 'jwt-bearer' });
+    expect(autoRefresh().checked).toBe(true);
+  });
+
   it("the rail's Add-to (i) lights the send's Authorization header, or the query slot when sent on the URL", () => {
     const header = renderTab(oauth2);
     const headerPopover = openPopover('About Add authorization data to');
