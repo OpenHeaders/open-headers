@@ -31,6 +31,7 @@ import {
   generateCodeVerifier,
   nonBodyExtraParams,
   type OAuth2TokenBundle,
+  parseAuthorizationRedirect,
   parseTokenResponse,
   usesPkce,
 } from '@openheaders/core/oauth';
@@ -326,32 +327,6 @@ async function exchangeForTokens(
 }
 
 // ── Helpers ───────────────────────────────────────────────────────
-
-interface ParsedAuthorizationRedirect {
-  code: string | null;
-  state: string | null;
-  error: string | null;
-  errorDescription: string | null;
-}
-
-function parseAuthorizationRedirect(url: string): ParsedAuthorizationRedirect {
-  try {
-    const parsed = new URL(url);
-    // Providers split between query-string (?code=...) and fragment
-    // (#code=...). Check both so we tolerate either convention.
-    const search = parsed.searchParams;
-    const hash = new URLSearchParams(parsed.hash.startsWith('#') ? parsed.hash.slice(1) : parsed.hash);
-    const pick = (k: string) => search.get(k) ?? hash.get(k);
-    return {
-      code: pick('code'),
-      state: pick('state'),
-      error: pick('error'),
-      errorDescription: pick('error_description'),
-    };
-  } catch {
-    return { code: null, state: null, error: null, errorDescription: null };
-  }
-}
 
 function safeJsonParse(s: string): Record<string, unknown> | null {
   try {

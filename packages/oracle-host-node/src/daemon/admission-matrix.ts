@@ -100,6 +100,7 @@ export type AdmissionRoute =
   | 'password'
   | 'setup'
   | 'public'
+  | 'oauth-callback'
   | 'web'
   | 'default';
 
@@ -143,6 +144,7 @@ const PAIRING_PATH_PREFIX = '/pair/';
 const OIDC_PATH_PREFIX = '/auth/oidc/';
 const PASSWORD_PATH_PREFIX = '/auth/password/';
 const SETUP_PATH_PREFIX = '/auth/setup/';
+const OAUTH_CALLBACK_PATH = '/oauth/callback';
 const HEALTHZ_PATH = '/healthz';
 const METRICS_PATH = '/metrics';
 
@@ -189,6 +191,11 @@ const ROUTE_POSTURES: Record<AdmissionRoute, RoutePosture> = {
   // same reasoning as pairing-code 404s — an unpublished link answers
   // one honest 404, a scanner sweeping ids gets throttled.
   public: { route: 'public', origin: 'own', host: 'known', rateLimited: true, failureStatuses: [404] },
+  // The OAuth loopback callback — a top-level browser navigation (no
+  // Origin) landing on the loopback literal after a provider login; the
+  // route itself refuses off-device peers and answers a stale hit 404,
+  // and a 404 is a scan of a one-shot path, not a credential guess.
+  'oauth-callback': { route: 'oauth-callback', origin: 'any', host: 'known', rateLimited: true, failureStatuses: [] },
   // Static misses are ordinary navigation noise, not auth signals — no
   // failure statuses; the rate limit still holds the front door against
   // peers already blocked for real failures elsewhere.
@@ -207,6 +214,7 @@ export function routePostureFor(facts: AdmissionRequestFacts, options: Admission
   if (options.passwordEnabled && facts.path.startsWith(PASSWORD_PATH_PREFIX)) return ROUTE_POSTURES.password;
   if (facts.path.startsWith(SETUP_PATH_PREFIX)) return ROUTE_POSTURES.setup;
   if (facts.path.startsWith(PUBLIC_WORKSPACE_PATH_PREFIX)) return ROUTE_POSTURES.public;
+  if (facts.path === OAUTH_CALLBACK_PATH) return ROUTE_POSTURES['oauth-callback'];
   return options.webEnabled ? ROUTE_POSTURES.web : ROUTE_POSTURES.default;
 }
 

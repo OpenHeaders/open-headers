@@ -34,6 +34,7 @@ describe('routePostureFor', () => {
     expect(routePostureFor(facts({ path: '/nm/bootstrap' })).route).toBe('nm');
     expect(routePostureFor(facts({ path: MCP_HTTP_PATH })).route).toBe('mcp');
     expect(routePostureFor(facts({ path: `${MCP_HTTP_PATH}/` })).route).toBe('mcp');
+    expect(routePostureFor(facts({ path: '/oauth/callback' })).route).toBe('oauth-callback');
     expect(routePostureFor(facts({ path: '/anything-else' })).route).toBe('default');
     expect(routePostureFor(facts({ upgrade: true, path: '/' })).route).toBe('ws-upgrade');
   });

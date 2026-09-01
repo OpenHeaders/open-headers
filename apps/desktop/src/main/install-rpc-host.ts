@@ -79,7 +79,7 @@ import {
   trafficSealKeyConfigSegments,
 } from '@openheaders/oracle-host-node/traffic';
 import { clearStatus, getStatusSnapshot, report, subscribe } from '@openheaders/ui/shared/status/store';
-import { app, BrowserWindow, dialog } from 'electron';
+import { app, BrowserWindow, dialog, shell } from 'electron';
 import { dataDir } from './bootstrap/app-paths';
 import { revealAppSurface } from './bootstrap/app-reveal';
 import { registerTeardown } from './bootstrap/lifecycle';
@@ -428,6 +428,10 @@ export async function installRpcHost(): Promise<void> {
     // `install-backend-client.ts` is the subsystem's sole writer.
     reportSyncStatus: (entry) =>
       reportBaselineSyncStatus({ state: entry.state, message: entry.message, context: entry.context }),
+    // The OAuth authorization-code hop: the provider's sign-in page opens
+    // in the user's default browser and lands back on the spine's
+    // loopback callback route.
+    openExternalUrl: (url) => shell.openExternal(url),
     staticWeb: webRootPresent ? { rootDir: webRoot, enabled: () => serveWebApp } : undefined,
     // Composed only when the host binary is shipped — the identity
     // chain has no anchor without it. Signature enforcement follows the

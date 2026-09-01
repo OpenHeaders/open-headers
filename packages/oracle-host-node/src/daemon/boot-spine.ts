@@ -201,6 +201,8 @@ import { createMetricsProvider } from './metrics';
 import { createMetricsHttpHandler } from './metrics-http';
 import { forwardMutationToWsPeers, setMutationForwarderWsServer } from './mutation-forwarder';
 import { createNmBootstrapHttpHandler } from './nm/nm-bootstrap-http';
+import { createOAuthCallbackHandler, OAUTH_CALLBACK_PATH } from './oauth-callback-http';
+import { createOAuthRpc } from './oauth-rpc';
 import { installObservabilityLog, type ObservabilityLogHandle } from './observability-log';
 import type { DaemonOidcConfig } from './oidc/oidc-config';
 import { createOidcHttpHandler } from './oidc/oidc-http';
@@ -416,6 +418,13 @@ export interface DaemonSpineConfig {
      */
     requireHostSignature?: boolean;
   };
+  /**
+   * Opens a URL in the user's browser — the authorization-code OAuth
+   * flow's user-agent hop (the desktop passes `shell.openExternal`).
+   * Absent on a headless host: the `oauthAuthorize` channel answers an
+   * honest refusal while the other token flows still run.
+   */
+  openExternalUrl?: (url: string) => Promise<void>;
   staticWeb?: {
     rootDir: string;
     /**
@@ -1145,6 +1154,32 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
     resolvePeer: admission.resolvePeer,
   });
 
+  // 4c'''''. OAuth 2.0 plane — the six `oauth*` channels the shared
+  //      Authorization editor calls, over the spine's transport; the
+  //      authorization-code leg opens the host's browser and collects
+  //      the provider's redirect on the loopback callback route below
+  //      (registered with providers as `http://127.0.0.1:<port>/oauth/callback`).
+  const oauthCallback = createOAuthCallbackHandler();
+  const openExternalUrl = config.openExternalUrl;
+  const oauthRpc = createOAuthRpc({
+    transport: nodeTransport,
+    redirectUri: () => `http://127.0.0.1:${boundPort}${OAUTH_CALLBACK_PATH}`,
+    launchAuthorization:
+      openExternalUrl === undefined
+        ? null
+        : async (authUrl, state) => {
+            const protocol = new URL(authUrl).protocol;
+            if (protocol !== 'https:' && protocol !== 'http:') {
+              throw new Error(`refusing to open a ${protocol} authorization URL`);
+            }
+            // Park the waiter BEFORE the browser opens so a fast
+            // redirect cannot beat it.
+            const redirect = oauthCallback.awaitRedirect(state);
+            await openExternalUrl(authUrl);
+            return redirect;
+          },
+  });
+
   // 4c''''''. Public snapshot plane (F5b) — `/public/*`, composed
   //      before the static handler so a shared link never falls into
   //      the SPA fallback: page + payload answer only for a standing
@@ -1489,6 +1524,11 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
     // operator by construction, same posture as importWorkspace above;
     // the admin console reaches the SAME table over the wire through
     // the `daemon.admin`-gated `oh.daemon.workspaceTree.dispatch`.
+    // OAuth 2.0 token channels — the local caller is the operator's own
+    // surface; the flows persist into this host's per-workspace store.
+    if (oauthRpc.owns(type)) {
+      return await oauthRpc.dispatch(type, message);
+    }
     if (ownsWorkspaceTreeRpc(type)) {
       return await dispatchWorkspaceTreeRpc(workspaceTreeRuntime, type, message);
     }
@@ -1557,6 +1597,7 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
           (oidcHttpHandler !== null && oidcHttpHandler(req, res)) ||
           (passwordHttpHandler !== null && passwordHttpHandler(req, res)) ||
           setupHttpHandler(req, res) ||
+          oauthCallback.handler(req, res) ||
           publicWorkspaceHttpHandler(req, res) ||
           (staticWebHandler !== null && staticWebEnabled() ? staticWebHandler(req, res) : false),
       ),

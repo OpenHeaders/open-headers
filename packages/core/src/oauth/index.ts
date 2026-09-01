@@ -531,6 +531,38 @@ export function base64UrlEncode(bytes: Uint8Array): string {
   return encodeBase64Bytes(bytes).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
 
+// ── Authorization redirect parsing ───────────────────────────────
+
+export interface ParsedAuthorizationRedirect {
+  code: string | null;
+  state: string | null;
+  error: string | null;
+  errorDescription: string | null;
+}
+
+/**
+ * Read the authorization response off the redirect URL the provider
+ * sent the user agent back to. Providers split between the query
+ * string (`?code=…`) and the fragment (`#code=…`); both are read so
+ * either convention works. An unparseable URL yields all-null fields.
+ */
+export function parseAuthorizationRedirect(url: string): ParsedAuthorizationRedirect {
+  try {
+    const parsed = new URL(url);
+    const search = parsed.searchParams;
+    const hash = new URLSearchParams(parsed.hash.startsWith('#') ? parsed.hash.slice(1) : parsed.hash);
+    const pick = (k: string) => search.get(k) ?? hash.get(k);
+    return {
+      code: pick('code'),
+      state: pick('state'),
+      error: pick('error'),
+      errorDescription: pick('error_description'),
+    };
+  } catch {
+    return { code: null, state: null, error: null, errorDescription: null };
+  }
+}
+
 // ── credentialRef generator ───────────────────────────────────────
 
 /**

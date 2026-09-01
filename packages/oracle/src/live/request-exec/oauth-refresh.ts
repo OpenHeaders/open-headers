@@ -23,28 +23,19 @@
  */
 
 import type { OAuth2TokenBundle } from '@openheaders/core/oauth';
-import {
-  buildClientAuthHeader,
-  buildRefreshTokenBody,
-  nonBodyExtraParams,
-  parseTokenResponse,
-} from '@openheaders/core/oauth';
+import { buildClientAuthHeader, buildRefreshTokenBody, nonBodyExtraParams } from '@openheaders/core/oauth';
 import type { OAuth2Auth } from '@openheaders/core/types';
-import { appendQueryParams, logger } from '@openheaders/core/utils';
+import { logger } from '@openheaders/core/utils';
 import { getTokenBundle, putTokenBundle } from '../../entity/oauth-token-store';
-import { withRefreshRateLimit } from './rate-limiter';
+import { exchangeForTokens, OAuth2FlowError } from './oauth-exchange';
 import type { OAuthRefreshFn } from './resolve-request';
-import type { RequestTransport, TransportHeader } from './transport';
-
-/** Same streamed-read cap the request executor rides — a token
- *  response never nears it; the cap bounds a hostile endpoint. */
-const MAX_BODY_BYTES = 2 * 1024 * 1024;
+import type { RequestTransport } from './transport';
 
 /** A recoverable refresh failure — the token endpoint refused or
  *  answered garbage. The hook maps it to "attach the stale bundle". */
-export class OAuth2RefreshError extends Error {
+export class OAuth2RefreshError extends OAuth2FlowError {
   constructor(message: string) {
-    super(message);
+    super('refresh', message);
     this.name = 'OAuth2RefreshError';
   }
 }
@@ -69,13 +60,13 @@ export async function performRefresh(
   // refresh endpoint; fall back to the primary token endpoint when the
   // config doesn't override.
   const endpoint = config.refreshEndpoint?.trim() ? config.refreshEndpoint : config.tokenEndpoint;
-  const bundle = await exchangeRefreshToken(
-    transport,
+  const bundle = await exchangeForTokens(transport, {
     endpoint,
     body,
-    buildClientAuthHeader(config),
-    nonBodyExtraParams(config.extraRefreshParams),
-  );
+    step: 'refresh',
+    clientAuthHeader: buildClientAuthHeader(config),
+    extras: nonBodyExtraParams(config.extraRefreshParams),
+  });
   if (!bundle.refreshToken && current.refreshToken) {
     bundle.refreshToken = current.refreshToken;
   }
@@ -93,72 +84,11 @@ export function buildRefreshOAuthHook(workspaceId: string | undefined, transport
     try {
       return await performRefresh(auth, workspaceId, transport);
     } catch (err) {
-      if (err instanceof OAuth2RefreshError) {
+      if (err instanceof OAuth2FlowError) {
         logger.info('RequestExecutor', `OAuth refresh failed for ${auth.credentialRef}: ${err.message}`);
         return null;
       }
       throw err;
     }
   };
-}
-
-async function exchangeRefreshToken(
-  transport: RequestTransport,
-  endpoint: string,
-  body: URLSearchParams,
-  clientAuthHeader: string | null,
-  extras?: ReturnType<typeof nonBodyExtraParams>,
-): Promise<OAuth2TokenBundle> {
-  // Accept JSON explicitly — GitHub returns urlencoded otherwise. The
-  // urlencoded body kind sets the Content-Type on the wire.
-  const headers: TransportHeader[] = [{ key: 'Accept', value: 'application/json' }];
-  // Header-routed extra params ride the POST; the explicit client-auth
-  // header wins over a same-key row.
-  for (const h of extras?.headers ?? []) headers.push({ key: h.key, value: h.value });
-  if (clientAuthHeader) headers.push({ key: 'Authorization', value: clientAuthHeader });
-  // URL-routed extra params append to the endpoint's query string.
-  const url = extras !== undefined && extras.query.length > 0 ? appendQueryParams(endpoint, extras.query) : endpoint;
-  // Per-origin token bucket shared with chain-step fetches — a provider
-  // handling both OAuth token endpoints AND a token-reading workflow
-  // pays a single budget across both paths.
-  const response = await withRefreshRateLimit(endpoint, () =>
-    transport.send({
-      method: 'POST',
-      url,
-      headers,
-      body: { kind: 'urlencoded', fields: [...body.entries()].map(([name, value]) => ({ name, value })) },
-      redirect: 'follow',
-      credentials: 'omit',
-      maxBodyBytes: MAX_BODY_BYTES,
-    }),
-  );
-  const text = response.body;
-  if (response.status < 200 || response.status >= 300) {
-    throw new OAuth2RefreshError(
-      `Token endpoint returned ${response.status} ${response.statusText}: ${truncate(text, 200)}`,
-    );
-  }
-  const json = safeJsonParse(text);
-  if (!json) {
-    throw new OAuth2RefreshError(`Token endpoint returned non-JSON body: ${truncate(text, 200)}`);
-  }
-  try {
-    return parseTokenResponse(json);
-  } catch (err) {
-    throw new OAuth2RefreshError(`Failed to parse token response: ${(err as Error).message}`);
-  }
-}
-
-function safeJsonParse(s: string): Record<string, unknown> | null {
-  try {
-    const parsed = JSON.parse(s);
-    if (!parsed || typeof parsed !== 'object') return null;
-    return parsed as Record<string, unknown>;
-  } catch {
-    return null;
-  }
-}
-
-function truncate(s: string, max: number): string {
-  return s.length <= max ? s : `${s.slice(0, max)}…`;
 }

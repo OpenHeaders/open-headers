@@ -24,6 +24,7 @@ import {
   nonBodyExtraParams,
   OAUTH2_PROVIDER_PRESETS,
   type OAuth2TokenBundle,
+  parseAuthorizationRedirect,
   parseTokenResponse,
   secondsUntilExpiry,
   usesPkce,
@@ -545,5 +546,41 @@ describe('PKCE generators', () => {
     const ref = generateCredentialRef(deterministicRandom());
     expect(ref.startsWith('oauth2-cred-')).toBe(true);
     expect(ref.length).toBe('oauth2-cred-'.length + 8);
+  });
+});
+
+describe('parseAuthorizationRedirect', () => {
+  it('reads code and state off the query string', () => {
+    expect(parseAuthorizationRedirect('http://127.0.0.1:8137/oauth/callback?code=c-1&state=s-1')).toEqual({
+      code: 'c-1',
+      state: 's-1',
+      error: null,
+      errorDescription: null,
+    });
+  });
+
+  it('reads the fragment convention too, the query winning when both carry a key', () => {
+    expect(parseAuthorizationRedirect('http://127.0.0.1:8137/oauth/callback#code=c-frag&state=s-frag')).toMatchObject({
+      code: 'c-frag',
+      state: 's-frag',
+    });
+    expect(parseAuthorizationRedirect('http://127.0.0.1:8137/oauth/callback?code=c-q#code=c-frag').code).toBe('c-q');
+  });
+
+  it('surfaces the provider error pair', () => {
+    expect(
+      parseAuthorizationRedirect(
+        'http://127.0.0.1:8137/oauth/callback?error=access_denied&error_description=User%20refused&state=s',
+      ),
+    ).toEqual({ code: null, state: 's', error: 'access_denied', errorDescription: 'User refused' });
+  });
+
+  it('an unparseable URL yields all-null fields', () => {
+    expect(parseAuthorizationRedirect('not a url')).toEqual({
+      code: null,
+      state: null,
+      error: null,
+      errorDescription: null,
+    });
   });
 });
