@@ -23,7 +23,9 @@
 import { createHmac } from 'node:crypto';
 import path from 'node:path';
 import { type BrowserContext, chromium, expect, type Page, test } from '@playwright/test';
-import { API_ECHO_URL } from '../../../../playground/scripts/api-client-matrix';
+import { OAUTH2_SEED_AUTH } from '../../../../playground/scripts/api-client-matrix';
+import { AUTH_TYPE_CASES, buildAuthSuiteSeedEnvelope } from '../../../../playground/scripts/auth-type-suite';
+import { assertEchoAuth, type EchoAuthResponse } from './pages/echo-auth';
 import { WorkbenchPage } from './pages/workbench-page';
 
 const extensionPath = path.resolve(__dirname, '../../dist/chrome');
@@ -32,7 +34,8 @@ let context: BrowserContext;
 let extensionId: string;
 let workbench: WorkbenchPage;
 let page: Page;
-let requestUid: string;
+/** Seeded request uid per suite case name — the import mints fresh uids. */
+const suiteUids = new Map<string, string>();
 
 const b64url = (text: string) => Buffer.from(text).toString('base64url');
 
@@ -70,33 +73,74 @@ test.beforeAll(async () => {
 
   page = await context.newPage();
   workbench = await WorkbenchPage.open(page, extensionId);
-  requestUid = await workbench.seedRequest({
-    name: 'auth-ui',
-    method: 'GET',
-    url: API_ECHO_URL,
-    auth: { type: 'none' },
-    body: { type: 'none' },
+
+  // The oauth2 cases read the per-workspace token store — seed it once
+  // through the real client-credentials flow against the playground IdP.
+  const seed = await workbench.rpc<{ success: boolean; error?: string }>('oauthClientCredentials', {
+    config: OAUTH2_SEED_AUTH,
   });
+  expect(seed.success, seed.error).toBe(true);
+
+  // One import seeds the whole suite — the collection with its auth
+  // pool and one request per type — secrets intact (the raw envelope
+  // bypasses the export pipeline's stripping). Uids are minted on
+  // import, so the cases are recovered by name.
+  const imported = await workbench.rpc<{ success: boolean; error?: string }>('importWorkspace', {
+    incoming: buildAuthSuiteSeedEnvelope(),
+    strategies: {},
+    target: { mode: 'current' },
+    sourceHash: 'sha256:auth-type-suite-seed',
+  });
+  expect(imported.success, imported.error).toBe(true);
+  const reqs = await workbench.rpc<{ requests: Array<{ uid: string; name: string }> }>('getLocalRequests');
+  for (const c of AUTH_TYPE_CASES) {
+    const hit = reqs.requests.find((r) => r.name === c.name);
+    expect(hit, `seeded request for ${c.name}`).toBeDefined();
+    suiteUids.set(c.name, hit!.uid);
+  }
+
   await workbench.reload();
   await workbench.showRequestsView();
   await workbench.collapseRightSidebar();
-
-  await workbench.openRequest(requestUid);
-  await workbench.openEditorTab(/Authorization/);
 });
+
+async function openSuiteRequest(name: string): Promise<void> {
+  await workbench.openRequest(suiteUids.get(name)!);
+}
 
 test.afterAll(async () => {
   await context.close();
 });
 
-interface Echo {
-  headers: Record<string, string | string[] | undefined>;
-  query: Record<string, string | string[]>;
-  auth: { kind: 'none' } | { kind: 'basic'; username: string; password: string } | { kind: 'bearer'; token: string };
-}
+type Echo = EchoAuthResponse;
+
+test.describe("Auth type suite — every type's request opens and sends", () => {
+  for (const c of AUTH_TYPE_CASES) {
+    test(c.name, async () => {
+      await openSuiteRequest(c.name);
+      await workbench.send();
+      assertEchoAuth(await workbench.responseEcho<Echo>(), c.expected);
+    });
+  }
+});
+
+test.describe('Authorization tab — seeded credentials render in the form', () => {
+  test('the Basic Auth request shows its username and its masked password', async () => {
+    await openSuiteRequest('Basic Auth');
+    await workbench.openEditorTab(/Authorization/);
+    expect((await workbench.templateInput('username').textContent())?.trim()).toBe('alice@openheaders.io');
+    const password = workbench.templateInput('password');
+    await expect(password).toHaveClass(/oh-template-input-secret/);
+    expect((await password.textContent())?.trim()).toBe('p4ssw0rd');
+  });
+});
 
 test.describe('Authorization tab — credentials typed in the DOM reach the wire', () => {
   test('basic auth: username + password ride as the Authorization header', async () => {
+    // The No Auth request is the scratch surface for the typed legs —
+    // the rail Select picks each type, the fields take the credentials.
+    await openSuiteRequest('No Auth');
+    await workbench.openEditorTab(/Authorization/);
     await workbench.selectAuthType('Basic Auth');
     await workbench.fillTemplateInput('username', 'alice@openheaders.io');
     await workbench.fillTemplateInput('password', 'p4ssw0rd!!');

@@ -29,7 +29,9 @@ import {
   type ApiClientCombo,
   OAUTH2_SEED_AUTH,
 } from '../../../../playground/scripts/api-client-matrix';
+import { AUTH_TYPE_CASES } from '../../../../playground/scripts/auth-type-suite';
 import { API_PDF_BYTE_LENGTH } from '../../../../playground/server/api-pdf';
+import { assertEchoAuth } from './pages/echo-auth';
 
 const extensionPath = path.resolve(__dirname, '../../dist/chrome');
 
@@ -130,29 +132,6 @@ function buildDraft(combo: ApiClientCombo): Record<string, unknown> {
     auth: combo.auth,
     body: combo.body,
   };
-}
-
-function assertAuth(echo: EchoResponse, expected: ApiClientCombo['expected']['auth']): void {
-  switch (expected.kind) {
-    case 'none':
-      expect(echo.auth.kind).toBe('none');
-      break;
-    case 'basic':
-      expect(echo.auth).toMatchObject({ kind: 'basic', username: expected.username, password: expected.password });
-      break;
-    case 'bearer':
-      expect(echo.auth).toMatchObject({ kind: 'bearer', token: expected.token });
-      break;
-    case 'header':
-      // api-key in a header — no Authorization, the key rides its own header.
-      expect(echo.auth.kind).toBe('none');
-      expect(echo.headers[expected.name]).toBe(expected.value);
-      break;
-    case 'query':
-      // api-key in the query string / oauth2 sendAs:query.
-      expect(echo.query[expected.name]).toBe(expected.value);
-      break;
-  }
 }
 
 function assertBody(echo: EchoResponse, expected: ApiClientCombo['expected']['body']): void {
@@ -275,19 +254,17 @@ test.describe('Request executor — GET with a body is permissive', () => {
 const basicHeader = (username: string, password: string) =>
   `Basic ${Buffer.from(`${username}:${password}`, 'utf8').toString('base64')}`;
 
-type BasicAuth = Extract<ApiClientCombo['auth'], { type: 'basic' }>;
-
-/** A bodiless GET draft carrying a basic config and optional user header rows. */
-function basicDraft(
+/** A bodiless GET draft carrying an auth config and optional user header rows. */
+function authDraft(
   uid: string,
-  auth: BasicAuth,
+  auth: ApiClientCombo['auth'],
   headers: Array<{ uid: string; key: string; value: string }> = [],
 ): Record<string, unknown> {
   return {
     schemaVersion: 5,
     uid,
     path: `requests/api-echo-e2e/${uid}`,
-    name: `basic auth leg ${uid}`,
+    name: `auth leg ${uid}`,
     method: 'GET',
     url: API_ECHO_URL,
     headers,
@@ -297,7 +274,7 @@ function basicDraft(
   };
 }
 
-async function sendBasic(draft: Record<string, unknown>): Promise<EchoResponse> {
+async function sendDraft(draft: Record<string, unknown>): Promise<EchoResponse> {
   const exec = await rpc<{ success: boolean; snapshot?: ExecSnapshot; error?: string }>('executeRequest', { draft });
   expect(exec.success, exec.error).toBe(true);
   const snapshot = exec.snapshot!;
@@ -306,10 +283,22 @@ async function sendBasic(draft: Record<string, unknown>): Promise<EchoResponse> 
   return JSON.parse(snapshot.body) as EchoResponse;
 }
 
+test.describe('Request executor — auth type suite, one draft per concrete type', () => {
+  for (const c of AUTH_TYPE_CASES) {
+    // A draft has no ancestor chain to inherit from — the DOM spec sends
+    // the seeded `inherit` request against the collection's pool.
+    if (c.auth.type === 'inherit') continue;
+    test(c.name, async () => {
+      const echo = await sendDraft(authDraft(c.uid, c.auth));
+      assertEchoAuth(echo, c.expected);
+    });
+  }
+});
+
 test.describe('Request executor — basic auth wire legs', () => {
   test("replaces a user's same-key Authorization row: exactly one Basic value on the wire", async () => {
-    const echo = await sendBasic(
-      basicDraft('rqbascol', { type: 'basic', username: 'alice@openheaders.io', password: 'p4ssw0rd' }, [
+    const echo = await sendDraft(
+      authDraft('rqbascol', { type: 'basic', username: 'alice@openheaders.io', password: 'p4ssw0rd' }, [
         { uid: 'stalehdr', key: 'Authorization', value: 'Bearer stale-user-token' },
       ]),
     );
@@ -320,22 +309,22 @@ test.describe('Request executor — basic auth wire legs', () => {
   });
 
   test('UTF-8 credentials ride as RFC 7617 bytes and decode back intact', async () => {
-    const echo = await sendBasic(basicDraft('rqbasutf', { type: 'basic', username: 'ünicode', password: 'pässwörd' }));
+    const echo = await sendDraft(authDraft('rqbasutf', { type: 'basic', username: 'ünicode', password: 'pässwörd' }));
     expect(echo.headers.authorization).toBe(basicHeader('ünicode', 'pässwörd'));
     expect(echo.auth).toMatchObject({ kind: 'basic', username: 'ünicode', password: 'pässwörd' });
   });
 
   test('a blank password is legal: username-only credential with the trailing colon', async () => {
-    const echo = await sendBasic(
-      basicDraft('rqbasnop', { type: 'basic', username: 'alice@openheaders.io', password: '' }),
+    const echo = await sendDraft(
+      authDraft('rqbasnop', { type: 'basic', username: 'alice@openheaders.io', password: '' }),
     );
     expect(echo.headers.authorization).toBe(basicHeader('alice@openheaders.io', ''));
     expect(echo.auth).toMatchObject({ kind: 'basic', username: 'alice@openheaders.io', password: '' });
   });
 
   test('a disabled config contributes nothing — no Authorization header at all', async () => {
-    const echo = await sendBasic(
-      basicDraft('rqbasoff', { type: 'basic', username: 'alice@openheaders.io', password: 'p4ssw0rd', disabled: true }),
+    const echo = await sendDraft(
+      authDraft('rqbasoff', { type: 'basic', username: 'alice@openheaders.io', password: 'p4ssw0rd', disabled: true }),
     );
     expect(echo.auth.kind).toBe('none');
     expect(echo.headers.authorization).toBeUndefined();
@@ -355,7 +344,7 @@ test.describe('Request executor — auth × body combos against /api/echo', () =
       expect(snapshot.status).toBe(200);
 
       const echo = JSON.parse(snapshot.body) as EchoResponse;
-      assertAuth(echo, combo.expected.auth);
+      assertEchoAuth(echo, combo.expected.auth);
       assertBody(echo, combo.expected.body);
     });
   }
