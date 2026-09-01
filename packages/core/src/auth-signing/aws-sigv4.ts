@@ -32,8 +32,11 @@ export interface AwsSigV4SignInput {
   method: string;
   /** Final wire URL — query string already appended. */
   url: string;
-  /** Outgoing headers (used to fold an existing `Content-Type` into the
-   *  signed set — servers verify what actually rides the wire). */
+  /** The headers the transport will SHIP — every one of them joins the
+   *  signed set except {@link UNSIGNED_HEADER_NAMES} (servers verify what
+   *  rides, and S3 rejects a request whose `x-amz-*` rows are unsigned).
+   *  Callers pass the post-guard list: on the browser host the names
+   *  fetch refuses never ride, so they must never be signed. */
   headers: ReadonlyArray<{ key: string; value: string }>;
   /** Lowercase hex SHA-256 of the wire payload, or
    *  {@link AWS_SIGV4_UNSIGNED_PAYLOAD} when the payload bytes are not
@@ -46,6 +49,21 @@ export interface AwsSigV4SignInput {
 }
 
 export const AWS_SIGV4_UNSIGNED_PAYLOAD = 'UNSIGNED-PAYLOAD';
+
+/**
+ * Outgoing headers that never join the signed set — the ones proxies
+ * and user agents rewrite in flight, plus the `Authorization` row the
+ * signature replaces. The same list the AWS SDKs exclude.
+ */
+const UNSIGNED_HEADER_NAMES: ReadonlySet<string> = new Set([
+  'authorization',
+  'connection',
+  'expect',
+  'presigned-expires',
+  'range',
+  'user-agent',
+  'x-amzn-trace-id',
+]);
 
 /** Lowercase hex SHA-256 of a UTF-8 string. Exposed so executors can
  *  compute the payload hash with the same primitive the signer uses. */
@@ -80,14 +98,19 @@ export async function signAwsSigV4(
     added.push({ key: 'X-Amz-Content-Sha256', value: input.payloadHash });
   }
 
-  // ── Canonical headers: host + the added set + Content-Type when the
-  //    request carries one. Lowercased names, trimmed + space-collapsed
-  //    values, sorted by name. ──
+  // ── Canonical headers: every shipping header outside the unsigned
+  //    list, then host from the URL and the added set on top (both win
+  //    over a same-key user row — the executor replaces those on the
+  //    wire). Lowercased names, trimmed + space-collapsed values, sorted
+  //    by name. ──
   const canonicalHeaderMap = new Map<string, string>();
+  for (const h of input.headers) {
+    const name = h.key.toLowerCase();
+    if (UNSIGNED_HEADER_NAMES.has(name)) continue;
+    canonicalHeaderMap.set(name, trimHeaderValue(h.value));
+  }
   canonicalHeaderMap.set('host', url.host);
   for (const h of added) canonicalHeaderMap.set(h.key.toLowerCase(), trimHeaderValue(h.value));
-  const contentType = input.headers.find((h) => h.key.toLowerCase() === 'content-type');
-  if (contentType) canonicalHeaderMap.set('content-type', trimHeaderValue(contentType.value));
 
   const signedHeaderNames = [...canonicalHeaderMap.keys()].sort();
   const canonicalHeaders = signedHeaderNames.map((name) => `${name}:${canonicalHeaderMap.get(name)}\n`).join('');
@@ -122,8 +145,9 @@ export async function signAwsSigV4(
 // ── Canonicalization ────────────────────────────────────────────────
 
 /**
- * Canonical URI. `URL.pathname` is already once-percent-encoded by the
- * URL parser; per the SigV4 spec every service except S3 signs the path
+ * Canonical URI. `URL.pathname` is already once-percent-encoded and
+ * dot-segment-free by the URL parser; per the SigV4 spec every service
+ * except S3 signs the path NORMALIZED (repeated slashes collapsed) and
  * DOUBLE-encoded (each segment URI-encoded again), while S3 signs the
  * once-encoded path verbatim, un-normalized.
  */
@@ -131,6 +155,7 @@ function canonicalUri(pathname: string, service: string): string {
   const path = pathname || '/';
   if (service === 's3') return path;
   return path
+    .replace(/\/{2,}/g, '/')
     .split('/')
     .map((segment) => encodeRfc3986(segment))
     .join('/');

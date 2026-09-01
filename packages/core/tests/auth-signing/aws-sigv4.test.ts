@@ -34,10 +34,26 @@ function refEncode(value: string): string {
   return encodeURIComponent(value).replace(/[!'()*]/g, (c) => `%${c.charCodeAt(0).toString(16).toUpperCase()}`);
 }
 
-function refSign(
-  creds: AwsSigV4Credentials,
-  input: { method: string; url: string; payloadHash: string; now: Date; contentType?: string },
-): { signature: string; signedHeaders: string } {
+/** The SDKs' unsigned set — the reference keeps its own copy. */
+const REF_UNSIGNED = new Set([
+  'authorization',
+  'connection',
+  'expect',
+  'presigned-expires',
+  'range',
+  'user-agent',
+  'x-amzn-trace-id',
+]);
+
+type RefInput = {
+  method: string;
+  url: string;
+  payloadHash: string;
+  now: Date;
+  headers?: Array<{ key: string; value: string }>;
+};
+
+function refSign(creds: AwsSigV4Credentials, input: RefInput): { signature: string; signedHeaders: string } {
   const url = new URL(input.url);
   const amzDate = input.now
     .toISOString()
@@ -45,13 +61,15 @@ function refSign(
     .replace(/\.\d{3}/, '');
   const dateStamp = amzDate.slice(0, 8);
 
-  const canonicalHeaders = new Map<string, string>([
-    ['host', url.host],
-    ['x-amz-date', amzDate],
-  ]);
+  const canonicalHeaders = new Map<string, string>();
+  for (const h of input.headers ?? []) {
+    const name = h.key.toLowerCase();
+    if (!REF_UNSIGNED.has(name)) canonicalHeaders.set(name, h.value.trim().replace(/\s+/g, ' '));
+  }
+  canonicalHeaders.set('host', url.host);
+  canonicalHeaders.set('x-amz-date', amzDate);
   if (creds.sessionToken) canonicalHeaders.set('x-amz-security-token', creds.sessionToken);
   if (creds.service === 's3') canonicalHeaders.set('x-amz-content-sha256', input.payloadHash);
-  if (input.contentType) canonicalHeaders.set('content-type', input.contentType);
   const names = [...canonicalHeaders.keys()].sort();
   const signedHeaders = names.join(';');
 
@@ -59,6 +77,7 @@ function refSign(
     creds.service === 's3'
       ? url.pathname || '/'
       : (url.pathname || '/')
+          .replace(/\/{2,}/g, '/')
           .split('/')
           .map((s) => refEncode(s))
           .join('/');
@@ -95,7 +114,7 @@ function refSign(
 function expectMatchesReference(
   headers: Array<{ key: string; value: string }>,
   creds: AwsSigV4Credentials,
-  input: { method: string; url: string; payloadHash: string; now: Date; contentType?: string },
+  input: RefInput,
 ): void {
   const ref = refSign(creds, input);
   const auth = headerMap(headers).get('authorization') ?? '';
@@ -183,7 +202,92 @@ describe('signAwsSigV4', () => {
     const headers = await signAwsSigV4(SUITE_CREDENTIALS, input);
     const auth = headerMap(headers).get('authorization') ?? '';
     expect(auth).toContain('SignedHeaders=content-type;host;x-amz-date');
-    expectMatchesReference(headers, SUITE_CREDENTIALS, { ...input, contentType: 'application/json' });
+    expectMatchesReference(headers, SUITE_CREDENTIALS, input);
+  });
+
+  it('signs every shipping header — S3 rejects unsigned x-amz-* rows', async () => {
+    const creds: AwsSigV4Credentials = { ...SUITE_CREDENTIALS, service: 's3' };
+    const input = {
+      method: 'PUT',
+      url: 'https://openheaders-bucket.s3.amazonaws.com/reports/2026.json',
+      headers: [
+        { key: 'Content-Type', value: 'application/json' },
+        { key: 'x-amz-acl', value: 'private' },
+        { key: 'X-Amz-Meta-Owner', value: '  john.doe   openheaders ' },
+      ],
+      payloadHash: await sha256Hex('{"ok":true}'),
+      now: SUITE_DATE,
+    };
+    const headers = await signAwsSigV4(creds, input);
+    const auth = headerMap(headers).get('authorization') ?? '';
+    expect(auth).toContain(
+      'SignedHeaders=content-type;host;x-amz-acl;x-amz-content-sha256;x-amz-date;x-amz-meta-owner',
+    );
+    expectMatchesReference(headers, creds, input);
+  });
+
+  it('leaves the unsigned set out and mints over a user X-Amz-Date row', async () => {
+    const input = {
+      method: 'GET',
+      url: 'https://api.openheaders.io/v1/users',
+      headers: [
+        { key: 'User-Agent', value: 'openheaders/1' },
+        { key: 'Range', value: 'bytes=0-99' },
+        { key: 'Authorization', value: 'Bearer stale' },
+        { key: 'Connection', value: 'keep-alive' },
+        { key: 'X-Amz-Date', value: '20000101T000000Z' },
+      ],
+      payloadHash: EMPTY_PAYLOAD_HASH,
+      now: SUITE_DATE,
+    };
+    const headers = await signAwsSigV4(SUITE_CREDENTIALS, input);
+    const map = headerMap(headers);
+    expect(map.get('x-amz-date')).toBe('20150830T123600Z');
+    expect(map.get('authorization')).toContain('SignedHeaders=host;x-amz-date,');
+    expectMatchesReference(headers, SUITE_CREDENTIALS, input);
+  });
+
+  it('collapses repeated slashes for every service but s3', async () => {
+    const url = 'https://api.openheaders.io//v1///users';
+    const normalized = await signAwsSigV4(SUITE_CREDENTIALS, {
+      method: 'GET',
+      url,
+      headers: [],
+      payloadHash: EMPTY_PAYLOAD_HASH,
+      now: SUITE_DATE,
+    });
+    const single = await signAwsSigV4(SUITE_CREDENTIALS, {
+      method: 'GET',
+      url: 'https://api.openheaders.io/v1/users',
+      headers: [],
+      payloadHash: EMPTY_PAYLOAD_HASH,
+      now: SUITE_DATE,
+    });
+    expect(headerMap(normalized).get('authorization')).toBe(headerMap(single).get('authorization'));
+
+    const s3 = { ...SUITE_CREDENTIALS, service: 's3' };
+    const verbatim = await signAwsSigV4(s3, {
+      method: 'GET',
+      url,
+      headers: [],
+      payloadHash: EMPTY_PAYLOAD_HASH,
+      now: SUITE_DATE,
+    });
+    const s3Single = await signAwsSigV4(s3, {
+      method: 'GET',
+      url: 'https://api.openheaders.io/v1/users',
+      headers: [],
+      payloadHash: EMPTY_PAYLOAD_HASH,
+      now: SUITE_DATE,
+    });
+    expect(headerMap(verbatim).get('authorization')).not.toBe(headerMap(s3Single).get('authorization'));
+    expectMatchesReference(verbatim, s3, {
+      method: 'GET',
+      url,
+      headers: [],
+      payloadHash: EMPTY_PAYLOAD_HASH,
+      now: SUITE_DATE,
+    });
   });
 
   it('keeps a non-default port in the signed host', async () => {

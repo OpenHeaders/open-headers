@@ -239,12 +239,16 @@ export async function executeResolved(
   // script's mutations and the params → URL fold — and its headers
   // replace same-key user rows (a stale Authorization would combine
   // into garbage on the wire). Twin of the oracle wire executor's leg.
+  // The signed set is what fetch will SHIP: a Request's header guard
+  // sheds the forbidden names the browser never sends, so the browser
+  // decides — no hand-kept list to drift.
   if (req.awsSigV4) {
     try {
+      const shipping = new Request(req.url, { method: req.method, headers: fetchHeaders }).headers;
       const signed = await signAwsSigV4(req.awsSigV4, {
         method: req.method,
         url: req.url,
-        headers: [...fetchHeaders.entries()].map(([key, value]) => ({ key, value })),
+        headers: [...shipping.entries()].map(([key, value]) => ({ key, value })),
         payloadHash: await fetchPayloadHash(init.body),
         now: new Date(),
       });
