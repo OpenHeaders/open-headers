@@ -2,7 +2,8 @@
  * Command execution — the glue between argv, the config store, and the
  * RPC client. `runReadCommand` drives every table entry; `status` and
  * `connect` are the two local commands (probe + persist) that exist
- * outside the tool catalog.
+ * outside the tool catalog; `request authorize` is the one two-call
+ * command (start, then poll the status tool at the provider's cadence).
  */
 
 import { parseArgs } from 'node:util';
@@ -11,7 +12,9 @@ import type { CommandOptionValues, CommandSpec } from './command-spec';
 import { cliConfigPath, readCliConfig, type UpdateChannel, writeCliConfig } from './config-store';
 import { type Connection, resolveConnection, TOKEN_ENV } from './connection';
 import { OperationFailedError, UsageError } from './exit-codes';
+import { formatRequestAuthorize } from './format';
 import { commandTokenCount, type ReadCommandSpec } from './read-commands';
+import { resolveRequestTarget } from './resolvers';
 import { callTool, initialize, listTools } from './rpc';
 
 const CONNECTION_OPTIONS = {
@@ -202,4 +205,105 @@ export async function commandConnect(argv: readonly string[]): Promise<string[]>
   // never the telemetry keys.
   await writeCliConfig(configPath, mergeCliConnection(existing, conn.daemonUrl, token));
   return [`connected — ${tools.length} tool(s) at ${conn.daemonUrl}`, `saved to ${configPath}`];
+}
+
+// ── oh request authorize ─────────────────────────────────────────────
+
+interface AuthorizeApproval {
+  userCode: string;
+  verificationUri: string;
+  verificationUriComplete?: string;
+  intervalSeconds: number;
+}
+
+type AuthorizeState =
+  | { state: 'pending'; approval: AuthorizeApproval }
+  | { state: 'granted' }
+  | { state: 'denied' | 'expired' | 'failed'; message: string }
+  | { state: 'cancelled' };
+
+interface AuthorizePayload {
+  request: { uid: string; name: string };
+  outcome: 'granted' | 'pending' | 'refused';
+  state?: AuthorizeState;
+  error?: string;
+}
+
+interface AuthorizeStatusPayload {
+  state: AuthorizeState | null;
+}
+
+/** The waiting UX's seams — stderr for the progress lines (stdout stays
+ *  the `--json` payload), the clock for the poll cadence. */
+export interface AuthorizeIo {
+  progress: (line: string) => void;
+  sleep: (ms: number) => Promise<void>;
+}
+
+const DEFAULT_AUTHORIZE_IO: AuthorizeIo = {
+  progress: (line) => process.stderr.write(`${line}\n`),
+  sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
+};
+
+/**
+ * `oh request authorize <name-or-uid>` — acquire an OAuth 2.0 token for
+ * a saved request without a browser on the daemon: the grants that
+ * need none exchange now; the device grant (RFC 8628) prints the
+ * one-time code and the verification URL the way gh and az do, then
+ * polls `requests_authorize_status` at the provider's interval until
+ * the user approves on any device (or refuses, or the code expires).
+ * A refusal, a denial, an expiry, or a failure is exit 1 with the
+ * daemon's own words; `--json` carries the final payload either way.
+ */
+export async function commandRequestAuthorize(
+  argv: readonly string[],
+  io: AuthorizeIo = DEFAULT_AUTHORIZE_IO,
+): Promise<string[]> {
+  const { values, positionals } = parseCommandArgs(argv, {});
+  const [target, extra] = positionals;
+  if (target === undefined || extra !== undefined) {
+    throw new UsageError('usage: oh request authorize <name-or-uid>');
+  }
+  const conn = await connectionFor(values);
+  const toolArgs = await resolveRequestTarget(
+    { ...(values.workspace !== undefined ? { workspaceId: values.workspace } : {}), uid: target },
+    conn,
+  );
+  const startedText = await callTool(conn, 'requests_authorize', toolArgs);
+  const started = JSON.parse(startedText) as AuthorizePayload;
+  const json = values.json === true;
+  if (started.outcome === 'refused') {
+    throw new OperationFailedError(
+      `authorization refused — ${started.error ?? 'no error detail'}`,
+      json ? [startedText] : undefined,
+    );
+  }
+  if (started.outcome === 'granted' || started.state?.state !== 'pending') {
+    return json ? [startedText] : formatRequestAuthorize(started);
+  }
+
+  const { approval } = started.state;
+  io.progress(`! First copy your one-time code: ${approval.userCode}`);
+  io.progress(`  Open ${approval.verificationUriComplete ?? approval.verificationUri} in a browser and enter it`);
+  io.progress('  Waiting for you to approve…');
+
+  let intervalSeconds = approval.intervalSeconds;
+  for (;;) {
+    await io.sleep(intervalSeconds * 1000);
+    const statusText = await callTool(conn, 'requests_authorize_status', toolArgs);
+    const status = JSON.parse(statusText) as AuthorizeStatusPayload;
+    const state = status.state;
+    if (state === null) {
+      throw new OperationFailedError('authorization cancelled on the daemon', json ? [statusText] : undefined);
+    }
+    if (state.state === 'pending') {
+      intervalSeconds = state.approval.intervalSeconds;
+      continue;
+    }
+    if (state.state === 'granted') {
+      return json ? [statusText] : formatRequestAuthorize({ ...started, outcome: 'granted', state });
+    }
+    const detail = state.state === 'cancelled' ? 'authorization cancelled on the daemon' : state.message;
+    throw new OperationFailedError(`authorization ${state.state} — ${detail}`, json ? [statusText] : undefined);
+  }
 }

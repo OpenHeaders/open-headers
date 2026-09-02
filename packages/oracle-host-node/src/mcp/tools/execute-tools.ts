@@ -3,7 +3,7 @@
  * that produce real network egress from the user's machine, so they sit
  * behind the separate `execute` opt-in (`mcp.allowExecute`).
  *
- * Both tools are façades over the C1 resolve→execute core the live
+ * The tools are façades over the C1 resolve→execute core the live
  * runner uses — no parallel data path:
  *
  *   - `requests_send` runs one saved request through `runStepRequest`
@@ -15,6 +15,15 @@
  *     run a cadence tick performs, including the atomic cache commit
  *     and publish-on-run for exposed live variables — then reads the
  *     committed cache row back for the per-step outcomes.
+ *   - `requests_authorize` acquires an OAuth 2.0 token for a saved
+ *     request's oauth2 config without a browser on THIS host — the
+ *     grants that need none run now (client credentials, password,
+ *     JWT bearer), the device grant (RFC 8628) starts and answers the
+ *     user code + verification URL while the host polls, and the
+ *     authorization code grant is refused with the fix. The token
+ *     itself never rides the payload — `requests_send` attaches it.
+ *     `requests_authorize_status` reads the device flow's state and
+ *     the stored token's facts (the CLI's poll).
  *
  * The workflow runner is injected by the host shell (the desktop
  * passes its `runDesktopWorkflowRefresh`) so the cache-commit +
@@ -22,8 +31,18 @@
  * that already implements it for the scheduler.
  */
 
-import type { LiveWorkflow } from '@openheaders/core/types';
+import type { OAuth2DeviceState, OAuth2TokenBundle } from '@openheaders/core/oauth';
+import type { LiveWorkflow, OAuth2Auth, Request } from '@openheaders/core/types';
+import { getTokenBundle } from '@openheaders/oracle/entity/oauth-token-store';
 import { getWorkflowRunCache } from '@openheaders/oracle/live/live-cache-store';
+import { resolveRequestAuth } from '@openheaders/oracle/live/request-exec/ancestor-chain';
+import { getDeviceFlowState, startDeviceFlow } from '@openheaders/oracle/live/request-exec/oauth-device';
+import { OAuth2FlowError } from '@openheaders/oracle/live/request-exec/oauth-exchange';
+import {
+  performClientCredentialsFlow,
+  performJwtBearerFlow,
+  performPasswordCredentialsFlow,
+} from '@openheaders/oracle/live/request-exec/oauth-flows';
 import { buildRefreshOAuthHook } from '@openheaders/oracle/live/request-exec/oauth-refresh';
 import { withRefreshRateLimit } from '@openheaders/oracle/live/request-exec/rate-limiter';
 import { runStepRequest } from '@openheaders/oracle/live/request-exec/run-step-request';
@@ -78,6 +97,34 @@ export interface McpExecuteToolDeps {
   /** Host chain runner for `workflows_run` (run + cache commit + publish-on-run). */
   runWorkflow: (args: McpWorkflowRunArgs) => Promise<McpWorkflowRunOutcome>;
 }
+
+/** The request's effective oauth2 config (its own or the inherited
+ *  pool entry), or the agent-readable refusal. */
+function requireOAuth2Auth(workspaceId: string, request: Request): OAuth2Auth {
+  const { auth } = resolveRequestAuth(request, workspaceId);
+  if (auth.type !== 'oauth2') {
+    throw new McpToolInputError(
+      `request '${request.name}' uses ${auth.type} auth — requests_authorize acquires OAuth 2.0 tokens only`,
+    );
+  }
+  return auth;
+}
+
+/** The stored token's facts — never the token itself. */
+function tokenFacts(bundle: OAuth2TokenBundle | null) {
+  if (bundle === null) return null;
+  return {
+    tokenType: bundle.tokenType,
+    issuedAt: bundle.issuedAt,
+    expiresAt: bundle.expiresAt,
+    scope: bundle.scope,
+    hasRefreshToken: bundle.refreshToken !== undefined,
+  };
+}
+
+const NEEDS_BROWSER =
+  'the authorization code grant needs a browser on the host running the app — run Get new access token from the ' +
+  'desktop app or the extension, or switch the request to the device code grant';
 
 function findWorkflow(workspaceId: string, uid: string): LiveWorkflow {
   const match = snapshotLiveWorkflowPostStates(workspaceId).find((ps) => ps.workflow.uid === uid);
@@ -149,6 +196,97 @@ export function createExecuteToolDefinitions(deps: McpExecuteToolDeps): McpToolD
             bodyBytes: snapshot.bodyBytes,
             durationMs: snapshot.durationMs,
           },
+        };
+      },
+    },
+    {
+      name: 'requests_authorize',
+      title: 'Authorize API request (OAuth 2.0)',
+      description:
+        "Acquire an OAuth 2.0 token for a saved request's oauth2 auth without a browser on this host. Client " +
+        'credentials, password and JWT bearer grants exchange now (outcome "granted"). The device code grant ' +
+        '(RFC 8628) starts and answers outcome "pending" with the user code and verification URL the user ' +
+        'approves on any device; the host keeps polling — check requests_authorize_status until it is granted. ' +
+        'The authorization code grant needs a browser and is refused (outcome "refused"). The token never ' +
+        'rides the payload; requests_send attaches it.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          uid: { type: 'string', description: 'Request uid from requests_list.' },
+          ...WORKSPACE_ID_PROPERTY,
+        },
+        required: ['uid'],
+        additionalProperties: false,
+      },
+      ...workspaceScoped,
+      handler: async (args) => {
+        const workspaceId = requireWorkspace(args);
+        const request = findRequest(workspaceId, requireStringArg(args, 'uid'));
+        const auth = requireOAuth2Auth(workspaceId, request);
+        const base = {
+          workspaceId,
+          request: { uid: request.uid, name: request.name },
+          credentialRef: auth.credentialRef,
+          flow: auth.flow,
+        };
+        try {
+          switch (auth.flow) {
+            case 'device-code': {
+              const state = await startDeviceFlow(auth, workspaceId, deps.transport);
+              return { ...base, outcome: 'pending', state };
+            }
+            case 'client-credentials':
+            case 'password-credentials':
+            case 'jwt-bearer': {
+              const bundle =
+                auth.flow === 'client-credentials'
+                  ? await performClientCredentialsFlow(auth, workspaceId, deps.transport)
+                  : auth.flow === 'password-credentials'
+                    ? await performPasswordCredentialsFlow(auth, workspaceId, deps.transport)
+                    : await performJwtBearerFlow(auth, workspaceId, deps.transport);
+              return { ...base, outcome: 'granted', token: tokenFacts(bundle) };
+            }
+            default:
+              return { ...base, outcome: 'refused', error: NEEDS_BROWSER };
+          }
+        } catch (err) {
+          if (err instanceof OAuth2FlowError)
+            return { ...base, outcome: 'refused', error: `${err.step}: ${err.message}` };
+          throw err;
+        }
+      },
+    },
+    {
+      name: 'requests_authorize_status',
+      title: 'OAuth 2.0 authorization status',
+      description:
+        "The state of a saved request's OAuth 2.0 credential on this host: the device authorization flow's " +
+        'state when one was started (pending with the user code and verification URL, granted, denied, expired, ' +
+        "failed) and the stored token's facts (type, expiry, scope, whether a refresh token is held) — never " +
+        'the token itself. Poll it after requests_authorize answers "pending".',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          uid: { type: 'string', description: 'Request uid from requests_list.' },
+          ...WORKSPACE_ID_PROPERTY,
+        },
+        required: ['uid'],
+        additionalProperties: false,
+      },
+      tier: 'read',
+      resolveWorkspaceId: resolveWorkspaceIdArg,
+      handler: async (args) => {
+        const workspaceId = requireWorkspace(args);
+        const request = findRequest(workspaceId, requireStringArg(args, 'uid'));
+        const auth = requireOAuth2Auth(workspaceId, request);
+        const state: OAuth2DeviceState | null = getDeviceFlowState(auth.credentialRef, workspaceId);
+        return {
+          workspaceId,
+          request: { uid: request.uid, name: request.name },
+          credentialRef: auth.credentialRef,
+          flow: auth.flow,
+          state,
+          token: tokenFacts(await getTokenBundle(auth.credentialRef, workspaceId)),
         };
       },
     },

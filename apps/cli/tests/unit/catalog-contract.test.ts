@@ -38,6 +38,8 @@ const CATALOG = [
   'workspaces_switch',
   'environments_switch',
   'requests_send',
+  'requests_authorize',
+  'requests_authorize_status',
   'workflows_run',
   'runs_execute',
   'variables_reveal_secret',

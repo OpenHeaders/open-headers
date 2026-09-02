@@ -18,6 +18,7 @@ import { logger as consoleLogger } from '@openheaders/core/utils';
 import { getTokenBundle, putTokenBundle } from '@openheaders/oracle/entity/oauth-token-store';
 import { putWorkflowRunCache, recordRefreshError } from '@openheaders/oracle/live/live-cache-store';
 import { publishLiveVariablesProducedByRun } from '@openheaders/oracle/live/live-variable-store';
+import { __resetDeviceFlowsForTests } from '@openheaders/oracle/live/request-exec/oauth-device';
 import {
   __configureRateLimiterForTests,
   __resetRateLimiterForTests,
@@ -50,6 +51,8 @@ interface CapturedRequest {
 let server: Server;
 let port = 0;
 let captured: CapturedRequest | null = null;
+/** Device-grant polls the token route has seen; the second one grants. */
+let devicePolls = 0;
 
 beforeAll(async () => {
   server = createServer((req, res) => {
@@ -64,7 +67,30 @@ beforeAll(async () => {
         res.end('a'.repeat(150_000));
         return;
       }
+      if (req.url === '/device') {
+        devicePolls = 0;
+        res.writeHead(200, { 'content-type': 'application/json' });
+        res.end(
+          JSON.stringify({
+            device_code: 'dc-mcp',
+            user_code: 'OHDC-MCP1',
+            verification_uri: 'https://auth.openheaders.io/activate',
+            expires_in: 600,
+            interval: 1,
+          }),
+        );
+        return;
+      }
       if (req.url === '/token') {
+        const form = new URLSearchParams(body);
+        if (form.get('grant_type') === 'urn:ietf:params:oauth:grant-type:device_code') {
+          devicePolls += 1;
+          if (form.get('device_code') !== 'dc-mcp' || devicePolls < 2) {
+            res.writeHead(400, { 'content-type': 'application/json' });
+            res.end(JSON.stringify({ error: 'authorization_pending' }));
+            return;
+          }
+        }
         res.writeHead(200, { 'content-type': 'application/json' });
         res.end(JSON.stringify({ access_token: 'at-fresh', token_type: 'Bearer', expires_in: 3600 }));
         return;
@@ -135,6 +161,7 @@ beforeEach(() => {
 
 afterEach(() => {
   __resetRateLimiterForTests();
+  __resetDeviceFlowsForTests();
   disposeSyncService();
 });
 
@@ -264,6 +291,129 @@ describe('requests_send', () => {
 
   it('errors on an unknown request uid', async () => {
     await expect(call('requests_send', { uid: 'missing' })).rejects.toThrow(/see requests_list/);
+  });
+});
+
+// ── requests_authorize / requests_authorize_status ───────────────────
+
+describe('requests_authorize', () => {
+  const baseOAuth = (overrides: Partial<OAuth2Auth>): OAuth2Auth => ({
+    type: 'oauth2',
+    credentialRef: 'cred-authorize',
+    flow: 'client-credentials',
+    tokenEndpoint: `http://127.0.0.1:${port}/token`,
+    clientId: 'client-mcp',
+    clientSecret: 'secret-mcp',
+    scopes: ['read'],
+    ...overrides,
+  });
+
+  it('exchanges a client-credentials grant now and answers the token facts, never the token', async () => {
+    const uid = await saveRequest({ name: 'Svc', url: `http://127.0.0.1:${port}/echo`, auth: baseOAuth({}) });
+
+    const result = await call('requests_authorize', { uid });
+
+    expect(result).toMatchObject({
+      outcome: 'granted',
+      flow: 'client-credentials',
+      credentialRef: 'cred-authorize',
+      request: { uid, name: 'Svc' },
+      token: { tokenType: 'Bearer', scope: '', hasRefreshToken: false },
+    });
+    expect(JSON.stringify(result)).not.toContain('at-fresh');
+    expect(captured?.url).toBe('/token');
+    expect((await getTokenBundle('cred-authorize', wsId))?.accessToken).toBe('at-fresh');
+  });
+
+  it('starts the device grant, answers pending with the approval facts, and status follows the poll to granted', async () => {
+    const uid = await saveRequest({
+      name: 'Device',
+      url: `http://127.0.0.1:${port}/echo`,
+      auth: baseOAuth({ flow: 'device-code', deviceAuthorizationEndpoint: `http://127.0.0.1:${port}/device` }),
+    });
+
+    const started = await call('requests_authorize', { uid });
+    expect(started).toMatchObject({
+      outcome: 'pending',
+      flow: 'device-code',
+      state: {
+        state: 'pending',
+        approval: {
+          userCode: 'OHDC-MCP1',
+          verificationUri: 'https://auth.openheaders.io/activate',
+          intervalSeconds: 1,
+        },
+      },
+    });
+    expect(JSON.stringify(started)).not.toContain('dc-mcp');
+
+    const pending = await call('requests_authorize_status', { uid });
+    expect(pending).toMatchObject({ credentialRef: 'cred-authorize', state: { state: 'pending' }, token: null });
+
+    // The host polls once a second; the second poll grants.
+    await new Promise<void>((resolve, reject) => {
+      const deadline = Date.now() + 5000;
+      const check = async () => {
+        const status = (await call('requests_authorize_status', { uid })) as { state: { state: string } };
+        if (status.state.state === 'granted') return resolve();
+        if (Date.now() > deadline) return reject(new Error(`still ${status.state.state}`));
+        setTimeout(() => void check(), 100);
+      };
+      void check();
+    });
+    const granted = await call('requests_authorize_status', { uid });
+    expect(granted).toMatchObject({
+      state: { state: 'granted' },
+      token: { tokenType: 'Bearer', hasRefreshToken: false },
+    });
+    expect((await getTokenBundle('cred-authorize', wsId))?.accessToken).toBe('at-fresh');
+  });
+
+  it('refuses the authorization code grant with the fix, and a step failure in-band', async () => {
+    const code = await saveRequest({
+      name: 'Code',
+      url: `http://127.0.0.1:${port}/echo`,
+      auth: baseOAuth({ flow: 'authorization-code-pkce', authorizationEndpoint: 'https://auth.openheaders.io/auth' }),
+    });
+    expect(await call('requests_authorize', { uid: code })).toMatchObject({
+      outcome: 'refused',
+      error: expect.stringContaining('needs a browser'),
+    });
+
+    const broken = await saveRequest({
+      name: 'Broken',
+      url: `http://127.0.0.1:${port}/echo`,
+      auth: baseOAuth({ flow: 'device-code' }),
+    });
+    expect(await call('requests_authorize', { uid: broken })).toMatchObject({
+      outcome: 'refused',
+      error: expect.stringContaining('precondition'),
+    });
+  });
+
+  it('refuses a request whose effective auth is not oauth2', async () => {
+    const uid = await saveRequest({
+      name: 'Basic',
+      url: `http://127.0.0.1:${port}/echo`,
+      auth: { type: 'basic', username: 'john.doe', password: 'p' },
+    });
+    await expect(call('requests_authorize', { uid })).rejects.toThrow(/uses basic auth/);
+    await expect(call('requests_authorize_status', { uid })).rejects.toThrow(McpToolInputError);
+  });
+
+  it('status without a started flow answers a null state and the stored token facts', async () => {
+    const config = baseOAuth({});
+    await putTokenBundle(
+      'cred-authorize',
+      { accessToken: 'at-1', refreshToken: 'rt-1', tokenType: 'Bearer', expiresAt: 10, issuedAt: 1, scope: 'read' },
+      config,
+      wsId,
+    );
+    const uid = await saveRequest({ name: 'Svc', url: `http://127.0.0.1:${port}/echo`, auth: config });
+    expect(await call('requests_authorize_status', { uid })).toMatchObject({
+      state: null,
+      token: { tokenType: 'Bearer', expiresAt: 10, issuedAt: 1, scope: 'read', hasRefreshToken: true },
+    });
   });
 });
 

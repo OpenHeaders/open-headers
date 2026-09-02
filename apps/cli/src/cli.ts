@@ -16,6 +16,7 @@ import {
   commandAutoUpdate,
   commandChannel,
   commandConnect,
+  commandRequestAuthorize,
   commandStatus,
   runReadCommand,
   runToolCommand,
@@ -66,6 +67,7 @@ Commands:
 ${readLines.join('\n')}
 ${writeLines.join('\n')}
 ${execLines.join('\n')}
+  request authorize <name-or-uid> Acquire the request's OAuth 2.0 token here (device code: approve on any device)
 ${runLines.join('\n')}
 
 Options:
@@ -161,6 +163,8 @@ async function runCommand(argv: string[], first: string | undefined): Promise<vo
     lines = commandChangelog(argv.slice(1));
   } else if (first === 'upgrade') {
     lines = await commandUpgrade(argv.slice(1));
+  } else if (first === 'request' && argv[1] === 'authorize') {
+    lines = await commandRequestAuthorize(argv.slice(2));
   } else {
     const readSpec = findReadCommand(first, argv[1]);
     const toolSpec = readSpec ? undefined : (findWriteCommand(first, argv[1]) ?? findExecCommand(first, argv[1]));

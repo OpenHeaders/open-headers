@@ -252,6 +252,26 @@ export function formatRequestSend(payload: unknown): string[] {
   ];
 }
 
+interface RequestAuthorizePayload {
+  request: { uid: string; name: string };
+  flow?: string;
+  token?: { expiresAt: number | null; hasRefreshToken: boolean } | null;
+}
+
+/** The grant landed — name the request, the grant, the expiry and
+ *  whether a refresh token is held; the token itself never prints. */
+export function formatRequestAuthorize(payload: unknown): string[] {
+  const { request, flow, token } = payload as RequestAuthorizePayload;
+  const expiry =
+    token === undefined || token === null
+      ? ''
+      : token.expiresAt === null
+        ? ' · no expiry'
+        : ` · expires ${new Date(token.expiresAt).toISOString()}`;
+  const refresh = token ? ` · refresh token: ${token.hasRefreshToken ? 'yes' : 'no'}` : '';
+  return [`token acquired for ${request.name} (${request.uid})${flow ? ` · ${flow}` : ''}${expiry}${refresh}`];
+}
+
 interface WorkflowRunPayload {
   workspaceId: string;
   workflowUid: string;
